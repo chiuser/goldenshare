@@ -1,18 +1,18 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import datetime
 from typing import Literal
 
 from sqlalchemy.orm import Session
 
 from src.biz.schemas.wealth.market.news_briefs import (
     MarketNewsDebugInfoDto,
+    NewsWindowDto,
     NewsBriefsResponseDto,
     NewsListPanelDto,
     NewsPanelItemDto,
     PageStatusDto,
-    TradingDayDto,
 )
 from src.biz.schemas.wealth.market.stock_news import StockNewsResponseDto
 from src.biz.services.wealth.config import StrategyConfigNotFoundError, StrategyConfigValidationError
@@ -24,7 +24,7 @@ from src.biz.services.wealth.market.news.news_strategy_config_resolver import (
 )
 
 from .market_news_query import MarketNewsQuery, NewsQueryResult
-from .news_state_query import NewsStateQuery, NewsTradingDayContext
+from .news_state_query import NewsStateQuery, NewsWindowContext
 from .stock_news_query import StockNewsQuery
 
 
@@ -55,23 +55,20 @@ class MarketNewsQueryService:
         session: Session,
         *,
         market: str,
-        trade_date: date | None,
         debug: bool,
     ) -> NewsBriefsResponseDto:
         panel_request = _PanelRequest(panel_key="newsBriefs", module_key="newsBriefs", category="market")
-        trading_day_context = self._state_query.resolve_trading_day(
-            session,
+        news_window_context = self._state_query.resolve_news_window(
             market=market,
-            requested_trade_date=trade_date,
         )
         panel, page_status, debug_info = self._build_panel(
             session,
             panel_request=panel_request,
-            trading_day_context=trading_day_context,
+            news_window_context=news_window_context,
             debug=debug,
         )
         return NewsBriefsResponseDto(
-            tradingDay=self._build_trading_day(trading_day_context),
+            newsWindow=self._build_news_window(news_window_context),
             pageStatus=page_status,
             newsBriefs=panel,
             debugInfo=debug_info if debug else None,
@@ -82,23 +79,20 @@ class MarketNewsQueryService:
         session: Session,
         *,
         market: str,
-        trade_date: date | None,
         debug: bool,
     ) -> StockNewsResponseDto:
         panel_request = _PanelRequest(panel_key="stockNews", module_key="stockNews", category="stock")
-        trading_day_context = self._state_query.resolve_trading_day(
-            session,
+        news_window_context = self._state_query.resolve_news_window(
             market=market,
-            requested_trade_date=trade_date,
         )
         panel, page_status, debug_info = self._build_panel(
             session,
             panel_request=panel_request,
-            trading_day_context=trading_day_context,
+            news_window_context=news_window_context,
             debug=debug,
         )
         return StockNewsResponseDto(
-            tradingDay=self._build_trading_day(trading_day_context),
+            newsWindow=self._build_news_window(news_window_context),
             pageStatus=page_status,
             stockNews=panel,
             debugInfo=debug_info if debug else None,
@@ -109,17 +103,17 @@ class MarketNewsQueryService:
         session: Session,
         *,
         panel_request: _PanelRequest,
-        trading_day_context: NewsTradingDayContext,
+        news_window_context: NewsWindowContext,
         debug: bool,
     ) -> tuple[NewsListPanelDto, PageStatusDto, MarketNewsDebugInfoDto | None]:
         exceptions = []
         try:
-            strategy = self._strategy_resolver.resolve(market=trading_day_context.market)
+            strategy = self._strategy_resolver.resolve(market=news_window_context.market)
         except StrategyConfigNotFoundError as exc:
             exceptions.append(self._exception_builder.config_missing(message=str(exc)))
             return self._build_error_panel(
                 panel_request=panel_request,
-                trading_day_context=trading_day_context,
+                news_window_context=news_window_context,
                 message="news config missing",
                 exceptions=exceptions,
                 debug=debug,
@@ -128,7 +122,7 @@ class MarketNewsQueryService:
             exceptions.append(self._exception_builder.config_invalid(message=str(exc)))
             return self._build_error_panel(
                 panel_request=panel_request,
-                trading_day_context=trading_day_context,
+                news_window_context=news_window_context,
                 message="news config invalid",
                 exceptions=exceptions,
                 debug=debug,
@@ -138,7 +132,8 @@ class MarketNewsQueryService:
             query_result = self._load_query_result(
                 session,
                 panel_key=panel_request.panel_key,
-                trade_date=trading_day_context.expected_trade_date,
+                window_start_at=news_window_context.window_start_at,
+                window_end_at=news_window_context.window_end_at,
                 strategy=strategy,
             )
         except Exception as exc:  # noqa: BLE001
@@ -147,7 +142,7 @@ class MarketNewsQueryService:
             )
             return self._build_error_panel(
                 panel_request=panel_request,
-                trading_day_context=trading_day_context,
+                news_window_context=news_window_context,
                 message="news query failed",
                 exceptions=exceptions,
                 debug=debug,
@@ -155,32 +150,34 @@ class MarketNewsQueryService:
 
         status_result = self._status_resolver.resolve(
             module_key=panel_request.module_key,
-            expected_trade_date=trading_day_context.expected_trade_date,
-            observed_trade_date=query_result.observed_trade_date,
+            window_start_at=news_window_context.window_start_at,
+            window_end_at=news_window_context.window_end_at,
+            observed_at=query_result.observed_at,
             row_count=len(query_result.rows),
-            as_of_time=trading_day_context.as_of_time,
+            as_of_time=news_window_context.as_of_time,
         )
         if status_result.module_status.status == "EMPTY":
             exceptions.append(
                 self._exception_builder.source_empty(
-                    message="target date has no displayable news",
+                    message="news window has no displayable news",
                     panel_key=panel_request.panel_key,
-                    target_trade_date=str(trading_day_context.expected_trade_date),
+                    window_start_at=news_window_context.window_start_at.isoformat(),
+                    window_end_at=news_window_context.window_end_at.isoformat(),
                 )
             )
-        elif status_result.module_status.status == "DELAYED" and query_result.observed_trade_date is not None:
+        elif status_result.module_status.status == "DELAYED" and query_result.observed_at is not None:
             exceptions.append(
                 self._exception_builder.source_delayed(
                     message="news source date lagged",
                     panel_key=panel_request.panel_key,
-                    expected_trade_date=str(trading_day_context.expected_trade_date),
-                    observed_trade_date=str(query_result.observed_trade_date),
+                    window_start_at=news_window_context.window_start_at.isoformat(),
+                    observed_at=query_result.observed_at.isoformat(),
                 )
             )
 
         panel = self._build_panel_dto(
             panel_request=panel_request,
-            trading_day_context=trading_day_context,
+            news_window_context=news_window_context,
             strategy=strategy,
             query_result=query_result,
         )
@@ -195,26 +192,38 @@ class MarketNewsQueryService:
         session: Session,
         *,
         panel_key: PanelKey,
-        trade_date: date,
+        window_start_at: datetime,
+        window_end_at: datetime,
         strategy: MarketNewsStrategyConfig,
     ) -> NewsQueryResult:
         if panel_key == "newsBriefs":
-            return self._market_news_query.load_rows(session, trade_date=trade_date, limit=strategy.query_limit)
-        return self._stock_news_query.load_rows(session, trade_date=trade_date, limit=strategy.query_limit)
+            return self._market_news_query.load_rows(
+                session,
+                window_start_at=window_start_at,
+                window_end_at=window_end_at,
+                limit=strategy.query_limit,
+            )
+        return self._stock_news_query.load_rows(
+            session,
+            window_start_at=window_start_at,
+            window_end_at=window_end_at,
+            limit=strategy.query_limit,
+        )
 
     def _build_panel_dto(
         self,
         *,
         panel_request: _PanelRequest,
-        trading_day_context: NewsTradingDayContext,
+        news_window_context: NewsWindowContext,
         strategy: MarketNewsStrategyConfig,
         query_result: NewsQueryResult,
     ) -> NewsListPanelDto:
         return NewsListPanelDto(
-            tradeDate=trading_day_context.expected_trade_date,
+            windowStartAt=news_window_context.window_start_at,
+            windowEndAt=news_window_context.window_end_at,
             panelKey=panel_request.panel_key,
             visibleItemCount=strategy.visible_item_count,
-            updatedAt=trading_day_context.as_of_time,
+            updatedAt=news_window_context.as_of_time,
             items=[
                 NewsPanelItemDto(
                     newsId=row.news_id,
@@ -236,38 +245,38 @@ class MarketNewsQueryService:
         self,
         *,
         panel_request: _PanelRequest,
-        trading_day_context: NewsTradingDayContext,
+        news_window_context: NewsWindowContext,
         message: str,
         exceptions: list,
         debug: bool,
     ) -> tuple[NewsListPanelDto, PageStatusDto, MarketNewsDebugInfoDto | None]:
         module_status = self._status_resolver.resolve(
             module_key=panel_request.module_key,
-            expected_trade_date=trading_day_context.expected_trade_date,
-            observed_trade_date=None,
+            window_start_at=news_window_context.window_start_at,
+            window_end_at=news_window_context.window_end_at,
+            observed_at=None,
             row_count=0,
-            as_of_time=trading_day_context.as_of_time,
+            as_of_time=news_window_context.as_of_time,
         ).module_status.model_copy(update={"status": "ERROR", "note": message})
         panel = NewsListPanelDto(
-            tradeDate=trading_day_context.expected_trade_date,
+            windowStartAt=news_window_context.window_start_at,
+            windowEndAt=news_window_context.window_end_at,
             panelKey=panel_request.panel_key,
             visibleItemCount=10,
-            updatedAt=trading_day_context.as_of_time,
+            updatedAt=news_window_context.as_of_time,
             items=[],
         )
         return (
             panel,
-            PageStatusDto(status="ERROR", displayText="模块查询失败", asOfTime=trading_day_context.as_of_time),
+            PageStatusDto(status="ERROR", displayText="模块查询失败", asOfTime=news_window_context.as_of_time),
             MarketNewsDebugInfoDto(modules=[module_status], exceptions=exceptions) if debug else None,
         )
 
     @staticmethod
-    def _build_trading_day(trading_day_context: NewsTradingDayContext) -> TradingDayDto:
-        return TradingDayDto(
-            tradeDate=trading_day_context.expected_trade_date,
-            prevTradeDate=trading_day_context.prev_trade_date,
+    def _build_news_window(news_window_context: NewsWindowContext) -> NewsWindowDto:
+        return NewsWindowDto(
             market="CN_A",
-            isTradingDay=trading_day_context.is_trading_day,
-            sessionStatus=trading_day_context.session_status,  # type: ignore[arg-type]
+            startAt=news_window_context.window_start_at,
+            endAt=news_window_context.window_end_at,
             timezone="Asia/Shanghai",
         )

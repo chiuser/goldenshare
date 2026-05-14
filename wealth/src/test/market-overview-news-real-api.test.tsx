@@ -19,17 +19,16 @@ const pageContextPayload = {
 };
 
 const newsBriefsPayload = {
-  tradingDay: {
-    tradeDate: "2026-05-11",
-    prevTradeDate: "2026-05-08",
+  newsWindow: {
     market: "CN_A",
-    isTradingDay: true,
-    sessionStatus: "CLOSED",
+    startAt: "2026-05-10T00:00:00+08:00",
+    endAt: "2026-05-11T15:05:00+08:00",
     timezone: "Asia/Shanghai",
   },
   pageStatus: { status: "READY", displayText: "新闻速览已就绪", asOfTime: "2026-05-11T15:05:00+08:00" },
   newsBriefs: {
-    tradeDate: "2026-05-11",
+    windowStartAt: "2026-05-10T00:00:00+08:00",
+    windowEndAt: "2026-05-11T15:05:00+08:00",
     panelKey: "newsBriefs",
     visibleItemCount: 10,
     updatedAt: "2026-05-11T15:05:00+08:00",
@@ -66,10 +65,11 @@ const newsBriefsPayload = {
 };
 
 const stockNewsPayload = {
-  tradingDay: newsBriefsPayload.tradingDay,
+  newsWindow: newsBriefsPayload.newsWindow,
   pageStatus: { status: "READY", displayText: "个股新闻已就绪", asOfTime: "2026-05-11T15:05:00+08:00" },
   stockNews: {
-    tradeDate: "2026-05-11",
+    windowStartAt: "2026-05-10T00:00:00+08:00",
+    windowEndAt: "2026-05-11T15:05:00+08:00",
     panelKey: "stockNews",
     visibleItemCount: 10,
     updatedAt: "2026-05-11T15:05:00+08:00",
@@ -190,8 +190,8 @@ describe("market-overview news real api", () => {
     const stocksRequest = requestUrls.find((url) => url.includes("/api/v1/wealth/market/news/stocks"));
     expect(briefsRequest).toBeDefined();
     expect(stocksRequest).toBeDefined();
-    expect(new URL(briefsRequest as string).searchParams.get("tradeDate")).toBe("2026-05-11");
-    expect(new URL(stocksRequest as string).searchParams.get("tradeDate")).toBe("2026-05-11");
+    expect(new URL(briefsRequest as string).searchParams.has("tradeDate")).toBe(false);
+    expect(new URL(stocksRequest as string).searchParams.has("tradeDate")).toBe(false);
   });
 
   it("uses page-level debug switch for both news endpoints", async () => {

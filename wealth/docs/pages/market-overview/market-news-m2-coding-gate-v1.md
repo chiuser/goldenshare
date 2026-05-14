@@ -27,7 +27,7 @@
 8. [ ] 真实数据源可用性确认。
 9. [ ] 核心测试 case（真实 API + 前端展示）门禁冻结。
 10. [ ] 跨模块抽象门禁原则（8 条）映射完成。
-11. [ ] `wealth/docs/update/market-overview-v1.8.html` 新闻面板结构已核对；未使用旧 `market-overview-v8.html` 头部快讯条。
+11. [ ] `wealth/docs/reference/showcase/market-overview-v1.8.html` 新闻面板结构已核对；未使用旧头部快讯条。
 
 ---
 
@@ -38,7 +38,6 @@
 ```ts
 interface MarketNewsRequest {
   market?: "CN_A";
-  tradeDate?: string; // YYYY-MM-DD
   debug?: 0 | 1;
 }
 ```
@@ -46,8 +45,8 @@ interface MarketNewsRequest {
 参数校验规则：
 
 1. `market` 仅支持 `CN_A`，缺省为 `CN_A`。
-2. `tradeDate` 可选，若传入必须为 `YYYY-MM-DD`。
-3. `debug` 可选，默认 `0`。
+2. `debug` 可选，默认 `0`。
+3. 新闻接口不接收 `tradeDate`；查询窗口由后端按“昨日 00:00:00 到当前服务器时间”生成。
 4. 不允许用户通过请求参数修改 `visibleItemCount`。
 5. 不允许用户通过请求参数选择新闻来源。
 
@@ -55,10 +54,11 @@ interface MarketNewsRequest {
 
 ```ts
 interface MarketNewsGroupViewModel {
-  tradingDay: {
-    tradeDate: string;
-    prevTradeDate: string;
+  newsWindow: {
     market: "CN_A";
+    startAt: string;
+    endAt: string;
+    timezone: "Asia/Shanghai";
   };
   pageStatus: {
     status: "READY" | "DELAYED" | "PARTIAL" | "EMPTY" | "ERROR";
@@ -66,7 +66,8 @@ interface MarketNewsGroupViewModel {
     asOfTime?: string;
   };
   marketNews: {
-    tradeDate: string;
+    windowStartAt: string;
+    windowEndAt: string;
     visibleItemCount: number;
     updatedAt: string;
     marketNews: NewsPanelItem[]; // 来自 /news/briefs
@@ -120,10 +121,11 @@ GET /api/v1/wealth/market/news/stocks
   "code": 0,
   "message": "ok",
   "data": {
-    "tradingDay": {
-      "tradeDate": "2026-05-08",
-      "prevTradeDate": "2026-05-07",
-      "market": "CN_A"
+    "newsWindow": {
+      "market": "CN_A",
+      "startAt": "2026-05-07T00:00:00+08:00",
+      "endAt": "2026-05-08T15:05:00+08:00",
+      "timezone": "Asia/Shanghai"
     },
     "pageStatus": {
       "status": "READY",
@@ -131,7 +133,8 @@ GET /api/v1/wealth/market/news/stocks
       "asOfTime": "2026-05-08 15:05:00"
     },
     "marketNews": {
-      "tradeDate": "2026-05-08",
+      "windowStartAt": "2026-05-07T00:00:00+08:00",
+      "windowEndAt": "2026-05-08T15:05:00+08:00",
       "visibleItemCount": 10,
       "updatedAt": "2026-05-08 15:05:00",
       "marketNews": [
@@ -175,7 +178,8 @@ GET /api/v1/wealth/market/news/stocks
 ```json
 {
   "marketNews": {
-    "tradeDate": "2026-05-08",
+    "windowStartAt": "2026-05-07T00:00:00+08:00",
+    "windowEndAt": "2026-05-08T15:05:00+08:00",
     "visibleItemCount": 10,
     "updatedAt": "2026-05-08 15:05:00",
     "marketNews": [],
@@ -200,7 +204,8 @@ GET /api/v1/wealth/market/news/stocks
 ```json
 {
   "marketNews": {
-    "tradeDate": "2026-05-08",
+    "windowStartAt": "2026-05-07T00:00:00+08:00",
+    "windowEndAt": "2026-05-08T15:05:00+08:00",
     "visibleItemCount": 10,
     "updatedAt": "2026-05-08 15:05:00",
     "marketNews": [],

@@ -2,7 +2,6 @@ import type { DataStatus } from "../../../../shared/model/market";
 
 export interface MarketNewsRequest {
   market?: "CN_A";
-  tradeDate?: string;
   debug?: 0 | 1;
 }
 
@@ -46,7 +45,8 @@ export interface NewsPanelItemResponse {
 }
 
 export interface NewsListPanelResponse {
-  tradeDate: string;
+  windowStartAt: string;
+  windowEndAt: string;
   panelKey: "newsBriefs" | "stockNews";
   visibleItemCount: number;
   updatedAt: string;
@@ -56,12 +56,10 @@ export interface NewsListPanelResponse {
 }
 
 export interface MarketNewsBaseResponse {
-  tradingDay: {
-    tradeDate: string;
-    prevTradeDate?: string | null;
+  newsWindow: {
     market: "CN_A";
-    isTradingDay: boolean;
-    sessionStatus: "PRE_OPEN" | "TRADING" | "BREAK" | "CLOSED";
+    startAt: string;
+    endAt: string;
     timezone: "Asia/Shanghai";
   };
   pageStatus: {
@@ -92,7 +90,6 @@ export class MarketNewsApiError extends Error {
 function buildNewsUrl(path: "/briefs" | "/stocks", params: MarketNewsRequest): string {
   const url = new URL(`/api/v1/wealth/market/news${path}`, window.location.origin);
   if (params.market) url.searchParams.set("market", params.market);
-  if (params.tradeDate) url.searchParams.set("tradeDate", params.tradeDate);
   if (typeof params.debug !== "undefined") url.searchParams.set("debug", String(params.debug));
   return url.toString();
 }

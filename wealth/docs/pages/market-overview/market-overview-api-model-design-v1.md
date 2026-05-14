@@ -149,7 +149,7 @@ interface MajorIndexRow {
 
 ```ts
 interface MarketNewsPanelGroup {
-  tradeDate: string;
+  newsWindow: NewsWindow;
   visibleItemCount: number;
   updatedAt: string;
   newsBriefs: NewsPanelItem[];
@@ -159,13 +159,21 @@ interface MarketNewsPanelGroup {
 }
 
 interface NewsListPanel {
-  tradeDate: string;
+  windowStartAt: string;
+  windowEndAt: string;
   panelKey: "newsBriefs" | "stockNews";
   visibleItemCount: number;
   updatedAt: string;
   items: NewsPanelItem[];
   sortRule: "publishTime_desc_priority_desc";
   clickablePolicy: "disabled";
+}
+
+interface NewsWindow {
+  market: "CN_A";
+  startAt: string;
+  endAt: string;
+  timezone: "Asia/Shanghai";
 }
 
 interface NewsPanelItem {
@@ -184,7 +192,8 @@ interface NewsPanelItem {
 
 | 字段 | 来源表 | 来源列 | 映射/转换 |
 |---|---|---|---|
-| `tradeDate` | 页面上下文 | `trade_date` | 与请求目标日期一致 |
+| `newsWindow.startAt` | 后端自然时间窗口 | 当前自然日前一天 00:00:00 | `Asia/Shanghai` |
+| `newsWindow.endAt` | 后端自然时间窗口 | 当前服务器时间 | `Asia/Shanghai` |
 | `visibleItemCount` | 策略配置中心 | `visible_item_count` | 默认 10，用户不可改 |
 | `updatedAt` | 后端组装 | server time / 查询时间 | 标准 datetime |
 | `newsBriefs.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
@@ -196,7 +205,7 @@ interface NewsPanelItem {
 | `stockNews.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
 | `stockNews.publishTime` | `core_serving_light.news` | `news_time` | datetime -> 标准 datetime |
 | `stockNews.displayTime` | 后端/adapter | `news_time` | `MM-DD HH:mm:ss` |
-| `stockNews.title` | `core_serving_light.news` | `title` | 原样 |
+| `stockNews.title` | `core_serving_light.news` | `title` / `content` | 优先用非空 title；title 缺失时后端截取 content 前 80 字；不得由前端拼 |
 | `stockNews.source` | `core_serving_light.news` | `src` | 原样 |
 | `stockNews.category` | `core_serving_light.news` | `channels` | `channels = '公司'` |
 | `stockNews.subject` | - | - | 本期不解析标题，不强制返回主体 |
@@ -207,7 +216,9 @@ interface NewsPanelItem {
 1. 本期新闻模块只读 `core_serving_light.news`，不直接读 `raw_tushare.news`，不使用 `anns_d`、`major_news` 或其它新闻/公告源。
 2. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，且 `channels='公司'` 样本可作为个股新闻板块数据。
 3. 新闻速览与个股新闻分别由 `GET /api/v1/wealth/market/news/briefs` 和 `GET /api/v1/wealth/market/news/stocks` 返回；页面侧可组合为 `MarketNewsPanelGroup`。
-4. 旧 `marketNewsFlash` / `marketOverviewNewsBlocks` 不进入当前模型。
+4. 新闻接口不读取页面全局 `tradingDay/tradeDate`，只按 `newsWindow` 查询。
+5. 查询候选集必须删除 `content` 为空的新闻，并按 `content` 严格去重；相同 `content` 只保留发布时间最新的一条。
+6. 旧 `marketNewsFlash` / `marketOverviewNewsBlocks` 不进入当前模型。
 
 ---
 

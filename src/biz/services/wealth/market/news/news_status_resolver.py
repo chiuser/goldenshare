@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime
+from datetime import datetime
 
 from src.biz.schemas.wealth.market.news_briefs import ModuleStatusItemDto, PageStatusDto
 
@@ -19,12 +19,14 @@ class MarketNewsStatusResolver:
         self,
         *,
         module_key: str,
-        expected_trade_date: date,
-        observed_trade_date: date | None,
+        window_start_at: datetime,
+        window_end_at: datetime,
+        observed_at: datetime | None,
         row_count: int,
         as_of_time: datetime,
     ) -> MarketNewsStatusResult:
-        if observed_trade_date is None:
+        expected_trade_date = window_end_at.date()
+        if observed_at is None:
             module_status = ModuleStatusItemDto(
                 moduleKey=module_key,
                 expectedTradeDate=expected_trade_date,
@@ -38,8 +40,9 @@ class MarketNewsStatusResolver:
                 page_status=PageStatusDto(status="EMPTY", displayText="模块数据为空", asOfTime=as_of_time),
             )
 
+        observed_trade_date = observed_at.date()
         lag_days = (expected_trade_date - observed_trade_date).days
-        if row_count == 0 and lag_days > 0:
+        if row_count == 0 and observed_trade_date < window_start_at.date():
             module_status = ModuleStatusItemDto(
                 moduleKey=module_key,
                 expectedTradeDate=expected_trade_date,
@@ -70,7 +73,7 @@ class MarketNewsStatusResolver:
         module_status = ModuleStatusItemDto(
             moduleKey=module_key,
             expectedTradeDate=expected_trade_date,
-            observedTradeDate=expected_trade_date,
+            observedTradeDate=observed_trade_date,
             lagDays=0,
             status="READY",
             note="facts ready",

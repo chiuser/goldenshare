@@ -420,7 +420,7 @@ export function MarketOverviewPage() {
     setStockNewsDebugInfo(null);
     const timeoutId = window.setTimeout(() => abortController.abort(), NEWS_FETCH_TIMEOUT_MS);
 
-    const requestParams = { market: "CN_A" as const, tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? (1 as const) : (0 as const) };
+    const requestParams = { market: "CN_A" as const, debug: pageDebugEnabled ? (1 as const) : (0 as const) };
     const briefsPromise = fetchMarketNewsBriefs(requestParams, { signal: abortController.signal })
       .then((payload) => {
         if (!canceled) {

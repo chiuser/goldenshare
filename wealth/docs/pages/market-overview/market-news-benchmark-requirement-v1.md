@@ -11,7 +11,7 @@
 1. 模块目标：在市场总览首屏上方提供两组客观资讯列表，帮助用户快速看到市场新闻和个股新闻。
 2. 用户价值：用户打开市场总览后，可以在不跳转的情况下快速扫到最新资讯标题，并继续观察下方行情模块。
 3. 业务定位：新闻模块是市场总览页的客观事实补充，不承担新闻详情页、外链跳转、主观解读或交易建议。
-4. 最新 UI 参考：`wealth/docs/update/market-overview-v1.8.html`。旧 `market-overview-v8.html` 只保留历史痕迹，不再作为新闻模块布局依据。
+4. 最新 UI 参考：`wealth/docs/reference/showcase/market-overview-v1.8.html`。旧 `market-overview-v8.html` 属于已废弃历史口径，不再作为新闻模块布局依据。
 
 ---
 
@@ -34,7 +34,7 @@
 8. 新闻标题单行展示，超出宽度显示省略号。
 9. 新闻 item 本期不可点击，不跳转详情页，不打开外链。
 10. 保持市场总览其它模块内部内容不变。
-11. 面板视觉以 `market-overview-v1.8.html` 中 `.market-news-panel` / `.market-news-viewport` / `.market-news-item` 为参考：面板标题为横向标题，左侧有品牌色小圆点，右侧展示 `10 条可见` 这类可见条数说明，列表区域是深色内嵌 viewport，单行 item 使用 `时间 + 标题` 两列布局。
+11. 面板视觉以 `wealth/docs/reference/showcase/market-overview-v1.8.html` 中 `.market-news-panel` / `.market-news-viewport` / `.market-news-item` 为参考：面板标题为横向标题，左侧有品牌色小圆点，右侧展示 `10 条可见` 这类可见条数说明，列表区域是深色内嵌 viewport，单行 item 使用 `时间 + 标题` 两列布局。
 
 ### 2.2 本期不覆盖
 
@@ -69,7 +69,7 @@
 ## 3. 核心原则（硬约束）
 
 1. 规则归属：后端定义新闻来源、排序、截断、状态；前端只展示。
-2. 契约归属：本三件套是新闻模块的当前事实源；`wealth/docs/update/**` 只作为输入材料，不作为实现契约。
+2. 契约归属：本三件套是新闻模块的当前事实源；历史 update 快照只作为一次性输入材料，不作为实现契约。
 3. 配置归属：展示条数、源选择等运营配置必须走策略配置中心；不允许写死在组件里。
 4. 禁止事项：
    - 禁止复活顶部统一快讯条；
@@ -82,8 +82,8 @@
 1. 事实源单一：新闻速览与个股新闻分别由后端独立接口产出，前端不得自行从整页 mock 或其它模块拼装。
 2. 契约冻结：`visibleItemCount/newsId/publishTime/displayTime/title/category/source/subject/clickable` 字段在本期冻结。
 3. 配置一致性：配置文件、文档、代码读取的 key 必须一致，默认 `visibleItemCount=10`。
-4. 默认行为显式：未传 `tradeDate` 时按页面时间上下文取目标日期；源数据不足时按状态表达，不用旧日新闻冒充目标日 ready。
-5. 排序筛选确定性：按 `publishTime desc` 排序，同时间按 `priority desc`、`newsId asc` 稳定排序。
+4. 默认行为显式：新闻不跟随页面全局交易日；查询窗口固定为“当前自然日的前一天 00:00:00 到当前服务器时间”，时区 `Asia/Shanghai`。
+5. 排序筛选确定性：候选集必须先删除 `content` 为空的新闻，再按 `content` 严格去重，每个 `content` 只保留发布时间最新的一条，最后按 `publishTime desc` 排序。
 6. 性能预算前置：单次接口 P95 `< 300ms`，payload `< 40KB`。
 7. 可观测标准化：异常码统一登记，debug 输出结构与其它市场总览模块一致。
 8. 用户可见结果优先：验收以两个新闻板块的标题、时间、省略、滚动和不可点击为主。
@@ -98,7 +98,7 @@
 
 | 字段 | 含义 | 单位 | 可空 | 产出方 | 缺失策略 |
 |---|---|---|---|---|---|
-| `tradeDate` | 本次新闻模块对应的页面目标日期 | 日期 | 否 | 后端 | 不允许缺失 |
+| `newsWindow` | 本次新闻模块自然时间窗口 | 时间区间 | 否 | 后端 | 不允许缺失 |
 | `visibleItemCount` | 每个新闻板块默认可见条数 | 条 | 否 | 运营配置 + 后端 | 配置缺失时模块 error |
 | `updatedAt` | 新闻组前端组装时间或两个接口中较新的更新时间 | 时间 | 否 | 前端 adapter | 不允许缺失 |
 | `newsBriefs` | 新闻速览列表，来自 `GET /api/v1/wealth/market/news/briefs` | - | 否 | 后端 | 可为空数组 |
@@ -112,7 +112,8 @@
 
 | 字段 | 含义 | 单位 | 可空 | 产出方 | 缺失策略 |
 |---|---|---|---|---|---|
-| `tradeDate` | 本次查询对应目标日期 | 日期 | 否 | 后端 | 不允许缺失 |
+| `windowStartAt` | 本次查询窗口开始时间 | 时间 | 否 | 后端 | 昨日 00:00:00，时区 `Asia/Shanghai` |
+| `windowEndAt` | 本次查询窗口结束时间 | 时间 | 否 | 后端 | 当前服务器时间，时区 `Asia/Shanghai` |
 | `panelKey` | 板块 key：`newsBriefs` 或 `stockNews` | - | 否 | 后端 | 不允许缺失 |
 | `visibleItemCount` | 当前板块默认可见条数 | 条 | 否 | 运营配置 + 后端 | 配置缺失时模块 error |
 | `updatedAt` | 当前板块数据组装时间 | 时间 | 否 | 后端 | 不允许缺失 |
@@ -160,7 +161,7 @@
 | `newsBriefs.source` | `core_serving_light.news` | `src` | 原样 | 新闻来源，不是数据源 `source` |
 | `stockNews.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 | 新闻快讯稳定 key |
 | `stockNews.publishTime` | `core_serving_light.news` | `news_time` | datetime -> ISO/标准 datetime | 主排序字段 |
-| `stockNews.title` | `core_serving_light.news` | `title` | 原样 | 新闻标题 |
+| `stockNews.title` | `core_serving_light.news` | `title` / `content` | 优先用非空 title；title 缺失时后端截取 content 前 80 字；前端不得拼标题 |
 | `stockNews.category` | `core_serving_light.news` | `channels` | `channels = '公司'` 进入 `stock` | 公司频道进入个股新闻 |
 | `stockNews.source` | `core_serving_light.news` | `src` | 原样 | 新闻来源 |
 | `updatedAt` | 后端组装 | `serverTime` 或查询最大时间 | 统一格式化 | 不代表源端每条新闻发布时间 |
@@ -169,6 +170,9 @@
 
 1. `core_serving_light.news` 是 Tushare `news` 的 serving light 查询出口，接口文档见 `docs/sources/tushare/大模型语料专题数据/0143_新闻快讯.md`。
 2. 本期新闻速览与个股新闻都只读 `core_serving_light.news`，不直接读 `raw_tushare.news`，不使用 `anns_d`、`major_news` 或其它新闻/公告源。
+3. 查询候选集必须满足 `content` 非空；`content IS NULL` 或 trim 后为空字符串的记录直接剔除。
+4. 去重以 `content` 为唯一口径；相同 `content` 只保留 `news_time` 最新的一条。
+5. 最终返回顺序为去重后的 `news_time DESC`。
 3. `channels = '公司'` 是个股新闻板块的唯一分类规则；非公司频道进入新闻速览。
 4. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，并补充样本 SQL；若真实取值不同，必须先停下重新确认口径。
 
@@ -215,10 +219,9 @@
    - 个股新闻：`GET /api/v1/wealth/market/news/stocks`
 2. 请求参数：
    - `market?: "CN_A"`，默认 `CN_A`
-   - `tradeDate?: string`，格式 `YYYY-MM-DD`
    - `debug?: 0 | 1`
 3. 响应结构：
-   - `tradingDay`
+   - `newsWindow`
    - `pageStatus`
    - 新闻速览接口返回 `newsBriefs`
    - 个股新闻接口返回 `stockNews`

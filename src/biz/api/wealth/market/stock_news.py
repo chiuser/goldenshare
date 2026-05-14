@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-from datetime import date
-
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
@@ -19,7 +17,6 @@ router = APIRouter(prefix="/wealth/market/news", tags=["wealth-market"])
 @router.get("/stocks", response_model=StockNewsResponseDto)
 def get_stock_news(
     market: str = Query(default="CN_A"),
-    trade_date: date | None = Query(default=None, alias="tradeDate"),
     debug: int = Query(default=0, ge=0, le=1),
     _user: AuthenticatedUser | None = Depends(require_quote_access),
     session: Session = Depends(get_db_session),
@@ -31,7 +28,6 @@ def get_stock_news(
         return MarketNewsQueryService().build_stock_news(
             session,
             market=normalized_market,
-            trade_date=trade_date,
             debug=bool(debug),
         )
     except ValueError as exc:

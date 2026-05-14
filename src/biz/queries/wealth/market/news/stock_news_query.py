@@ -1,13 +1,13 @@
 from __future__ import annotations
 
-from datetime import date, timedelta
+from datetime import datetime
 
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core_serving_light.news import NewsLight
 
-from .market_news_query import NewsQueryResult, NewsQueryRow, _build_display_title, _day_start, _has_displayable_text, _to_date
+from .market_news_query import NewsQueryResult, NewsQueryRow, _build_display_title, _has_nonempty_content
 
 
 class StockNewsQuery:
@@ -17,27 +17,45 @@ class StockNewsQuery:
         self,
         session: Session,
         *,
-        trade_date: date,
+        window_start_at: datetime,
+        window_end_at: datetime,
         limit: int,
     ) -> NewsQueryResult:
-        rows = session.execute(
+        deduped = (
             select(
-                NewsLight.row_key_hash,
-                NewsLight.news_time,
-                NewsLight.title,
-                NewsLight.content,
-                NewsLight.src,
+                NewsLight.row_key_hash.label("row_key_hash"),
+                NewsLight.news_time.label("news_time"),
+                NewsLight.title.label("title"),
+                NewsLight.content.label("content"),
+                NewsLight.src.label("src"),
+                func.row_number()
+                .over(
+                    partition_by=NewsLight.content,
+                    order_by=(NewsLight.news_time.desc(), NewsLight.row_key_hash.asc()),
+                )
+                .label("content_rank"),
             )
             .where(
-                NewsLight.news_time >= _day_start(trade_date),
-                NewsLight.news_time < _day_start(trade_date + timedelta(days=1)),
+                NewsLight.news_time >= window_start_at,
+                NewsLight.news_time <= window_end_at,
                 NewsLight.channels == "公司",
-                _has_displayable_text(),
+                _has_nonempty_content(),
             )
-            .order_by(NewsLight.news_time.desc(), NewsLight.row_key_hash.asc())
+            .subquery()
+        )
+        rows = session.execute(
+            select(
+                deduped.c.row_key_hash,
+                deduped.c.news_time,
+                deduped.c.title,
+                deduped.c.content,
+                deduped.c.src,
+            )
+            .where(deduped.c.content_rank == 1)
+            .order_by(deduped.c.news_time.desc(), deduped.c.row_key_hash.asc())
             .limit(limit)
         ).all()
-        observed = self.load_observed_trade_date(session)
+        observed = self.load_observed_at(session)
         return NewsQueryResult(
             rows=[
                 NewsQueryRow(
@@ -48,14 +66,14 @@ class StockNewsQuery:
                 )
                 for row in rows
             ],
-            observed_trade_date=observed,
+            observed_at=observed,
         )
 
-    def load_observed_trade_date(self, session: Session) -> date | None:
+    def load_observed_at(self, session: Session) -> datetime | None:
         observed_at = session.scalar(
             select(func.max(NewsLight.news_time)).where(
                 NewsLight.channels == "公司",
-                _has_displayable_text(),
+                _has_nonempty_content(),
             )
         )
-        return _to_date(observed_at)
+        return observed_at

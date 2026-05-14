@@ -1,37 +1,23 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import datetime, time, timedelta, timezone
+from zoneinfo import ZoneInfo
 
-from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.foundation.models.core_serving_light.news import NewsLight
 
 
 def _ensure_news_tables(db_session) -> None:
     bind = db_session.get_bind()
     for table in [
-        TradeCalendar.__table__,
         NewsLight.__table__,
     ]:
         table.create(bind, checkfirst=True)
 
 
-def _seed_trade_calendar(db_session, *, target_date: date, prev_date: date) -> None:
-    db_session.add(
-        TradeCalendar(
-            exchange="SSE",
-            trade_date=prev_date,
-            is_open=True,
-            pretrade_date=None,
-        )
-    )
-    db_session.add(
-        TradeCalendar(
-            exchange="SSE",
-            trade_date=target_date,
-            is_open=True,
-            pretrade_date=prev_date,
-        )
-    )
+def _news_window_sample_times() -> tuple[datetime, datetime, datetime]:
+    now = datetime.now(ZoneInfo("Asia/Shanghai"))
+    window_start = datetime.combine(now.date() - timedelta(days=1), time.min, tzinfo=ZoneInfo("Asia/Shanghai"))
+    return now, window_start + timedelta(hours=9), window_start - timedelta(minutes=1)
 
 
 def _add_news(
@@ -61,39 +47,66 @@ def _add_news(
 
 def test_market_news_endpoints_return_split_panels(app_client, db_session) -> None:
     _ensure_news_tables(db_session)
-    target_date = date(2026, 5, 8)
-    _seed_trade_calendar(db_session, target_date=target_date, prev_date=date(2026, 5, 7))
+    now, in_window_time, before_window_time = _news_window_sample_times()
     _add_news(
         db_session,
         row_key_hash="market-news-001",
-        news_time=datetime(2026, 5, 8, 15, 5, 1),
+        news_time=in_window_time + timedelta(minutes=5),
         title="央行公开市场开展逆回购操作",
         channels="宏观",
+        content="央行公开市场开展逆回购操作正文",
     )
     _add_news(
         db_session,
         row_key_hash="market-news-002",
-        news_time=datetime(2026, 5, 8, 15, 4, 1),
+        news_time=in_window_time + timedelta(minutes=4),
         title=None,
         content="市场流动性保持合理充裕",
         channels=None,
     )
     _add_news(
         db_session,
+        row_key_hash="market-news-duplicate-old",
+        news_time=in_window_time + timedelta(minutes=3),
+        title="重复旧新闻",
+        content="市场流动性保持合理充裕",
+        channels="宏观",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="market-news-empty-content",
+        news_time=in_window_time + timedelta(minutes=2),
+        title="只有标题没有正文",
+        content=" ",
+        channels="宏观",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="market-news-before-window",
+        news_time=before_window_time,
+        title="窗口外旧新闻",
+        content="窗口外旧新闻正文",
+        channels="宏观",
+    )
+    _add_news(
+        db_session,
         row_key_hash="stock-news-001",
-        news_time=datetime(2026, 5, 8, 15, 3, 1),
+        news_time=in_window_time + timedelta(minutes=1),
         title="某上市公司发布一季度经营进展",
         channels="公司",
+        content="某上市公司发布一季度经营进展正文",
     )
     db_session.commit()
 
     briefs_response = app_client.get(
         "/api/v1/wealth/market/news/briefs",
-        params={"tradeDate": "2026-05-08", "debug": 1},
+        params={"debug": 1},
     )
     assert briefs_response.status_code == 200
     briefs_payload = briefs_response.json()
-    assert briefs_payload["tradingDay"]["tradeDate"] == "2026-05-08"
+    assert briefs_payload["newsWindow"]["market"] == "CN_A"
+    assert briefs_payload["newsWindow"]["startAt"][:10] == (now.date() - timedelta(days=1)).isoformat()
+    assert briefs_payload["newsWindow"]["endAt"][:10] == now.date().isoformat()
     assert briefs_payload["pageStatus"]["status"] == "READY"
     assert briefs_payload["newsBriefs"]["panelKey"] == "newsBriefs"
     assert briefs_payload["newsBriefs"]["visibleItemCount"] == 10
@@ -101,7 +114,6 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
         "market-news-001",
         "market-news-002",
     ]
-    assert briefs_payload["newsBriefs"]["items"][0]["displayTime"] == "05-08 15:05:01"
     assert briefs_payload["newsBriefs"]["items"][0]["title"] == "央行公开市场开展逆回购操作"
     assert briefs_payload["newsBriefs"]["items"][0]["category"] == "market"
     assert briefs_payload["newsBriefs"]["items"][0]["clickable"] is False
@@ -110,7 +122,7 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
 
     stocks_response = app_client.get(
         "/api/v1/wealth/market/news/stocks",
-        params={"tradeDate": "2026-05-08", "debug": 1},
+        params={"debug": 1},
     )
     assert stocks_response.status_code == 200
     stocks_payload = stocks_response.json()
@@ -122,7 +134,7 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
     assert stocks_payload["stockNews"]["items"][0]["clickable"] is False
     assert stocks_payload["debugInfo"]["modules"][0]["moduleKey"] == "stockNews"
 
-    no_debug_response = app_client.get("/api/v1/wealth/market/news/briefs", params={"tradeDate": "2026-05-08"})
+    no_debug_response = app_client.get("/api/v1/wealth/market/news/briefs")
     assert no_debug_response.status_code == 200
     no_debug_payload = no_debug_response.json()
     assert "debugInfo" not in no_debug_payload or no_debug_payload["debugInfo"] is None
@@ -130,25 +142,26 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
 
 def test_market_news_endpoint_marks_delayed_without_old_day_fallback(app_client, db_session) -> None:
     _ensure_news_tables(db_session)
-    _seed_trade_calendar(db_session, target_date=date(2026, 5, 8), prev_date=date(2026, 5, 7))
+    _, _, before_window_time = _news_window_sample_times()
     _add_news(
         db_session,
         row_key_hash="market-news-old",
-        news_time=datetime(2026, 5, 7, 15, 5, 1),
+        news_time=before_window_time,
         title="旧日市场新闻",
         channels="宏观",
+        content="旧日市场新闻正文",
     )
     db_session.commit()
 
     response = app_client.get(
         "/api/v1/wealth/market/news/briefs",
-        params={"tradeDate": "2026-05-08", "debug": 1},
+        params={"debug": 1},
     )
     assert response.status_code == 200
     payload = response.json()
     assert payload["pageStatus"]["status"] == "DELAYED"
     assert payload["newsBriefs"]["items"] == []
-    assert payload["debugInfo"]["modules"][0]["observedTradeDate"] == "2026-05-07"
+    assert payload["debugInfo"]["modules"][0]["observedTradeDate"] == before_window_time.date().isoformat()
     assert payload["debugInfo"]["exceptions"][0]["code"] == "NEWS_SOURCE_DELAYED"
 
 

@@ -25,13 +25,13 @@ class MarketNewsExceptionBuilder:
         )
 
     @staticmethod
-    def source_empty(*, message: str, panel_key: str, target_trade_date: str) -> ModuleExceptionItemDto:
+    def source_empty(*, message: str, panel_key: str, window_start_at: str, window_end_at: str) -> ModuleExceptionItemDto:
         return ModuleExceptionItemDto(
-            module="marketNews",
+            module=panel_key,
             code="NEWS_SOURCE_EMPTY",
             severity="warn",
             message=message,
-            details={"panelKey": panel_key, "targetTradeDate": target_trade_date},
+            details={"panelKey": panel_key, "windowStartAt": window_start_at, "windowEndAt": window_end_at},
         )
 
     @staticmethod
@@ -39,18 +39,18 @@ class MarketNewsExceptionBuilder:
         *,
         message: str,
         panel_key: str,
-        expected_trade_date: str,
-        observed_trade_date: str,
+        window_start_at: str,
+        observed_at: str,
     ) -> ModuleExceptionItemDto:
         return ModuleExceptionItemDto(
-            module="marketNews",
+            module=panel_key,
             code="NEWS_SOURCE_DELAYED",
             severity="warn",
             message=message,
             details={
                 "panelKey": panel_key,
-                "expectedTradeDate": expected_trade_date,
-                "observedTradeDate": observed_trade_date,
+                "windowStartAt": window_start_at,
+                "observedAt": observed_at,
             },
         )
 

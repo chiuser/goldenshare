@@ -63,9 +63,9 @@
 
 ### 2.3 现有冲突与技术债
 
-1. `wealth/docs/update/market-overview-v8.html` 中的顶部中间统一快讯条已被 v9 作废，不能复用布局。
-2. `wealth/docs/update/market-overview-v1.8.html` 是新闻板块最新 UI 参考，已经采用两个独立 `.market-news-panel`。
-3. `wealth/docs/update/market-overview-api-v0.7.md` 仍使用旧聚合接口 `GET /api/market/home-overview`，不能作为当前 API 路径依据。
+1. 历史 update 快照中的顶部中间统一快讯条已被作废，不能复用布局。
+2. `wealth/docs/reference/showcase/market-overview-v1.8.html` 是新闻板块最新 UI 参考，已经采用两个独立 `.market-news-panel`。
+3. 历史 update API 快照仍使用旧聚合接口 `GET /api/market/home-overview`，不能作为当前 API 路径依据。
 4. 当前正式文档尚未登记新闻模块的独立三件套、异常码和 API 路径。
 5. 当前页面没有 news 模块 source 开关和 view-model adapter。
 
@@ -95,7 +95,7 @@ backend dir: src/biz/**/wealth/market/news/
 2. 是否整页聚合接口：否。
 3. 是否提供新闻组大聚合接口：否。页面侧 adapter 负责把两个接口响应组装成首屏双列展示。
 4. 单个模块接口返回范围：
-   - `tradingDay`
+   - `newsWindow`
    - `pageStatus`
    - `newsBriefs` 或 `stockNews`
    - `debugInfo?`
@@ -163,10 +163,10 @@ src/biz/services/wealth/config/definitions/market_news.cn_a.v1.json
    - `src/biz/api/wealth/market/stock_news.py`
 2. 参数校验：
    - `market` 默认 `CN_A`
-   - `tradeDate` 可选，格式 `YYYY-MM-DD`
    - `debug` 可选，默认 `0`
 3. 查询编排：
    - 读取策略配置；
+   - 使用当前服务器自然时间生成 `newsWindow`，窗口为“昨日 00:00:00 到当前时刻”，时区 `Asia/Shanghai`；
    - `news/briefs` 只查询新闻速览；
    - `news/stocks` 只查询个股新闻；
    - 页面侧 adapter 合并两个接口的状态与异常，用于 debug 面板展示。
@@ -180,7 +180,7 @@ src/biz/services/wealth/config/definitions/market_news.cn_a.v1.json
 
 ### 4.1 `v1.8` 前端结构还原要求
 
-编码时必须按 `wealth/docs/update/market-overview-v1.8.html` 的新闻模块结构还原，不允许回退到 v8 头部快讯条：
+编码时必须按 `wealth/docs/reference/showcase/market-overview-v1.8.html` 的新闻模块结构还原，不允许回退到旧头部快讯条：
 
 ```text
 summary-index-row
@@ -220,12 +220,13 @@ row_key_hash, news_time, title, content, channels, src
 
 规则：
 
-1. 目标日期为 `tradeDate` 时，查询 `news_time` 落在该自然日内的新闻。
+1. 查询 `news_time` 落在 `newsWindow.startAt <= news_time <= newsWindow.endAt` 的新闻。
 2. 筛选条件：`channels IS DISTINCT FROM '公司'`。
-3. 只返回标题可展示的行。
-4. `title` 为空但 `content` 有值时，本期不得由前端截断；如要启用，必须由后端在 query/builder 中明确生成 `title` 并登记测试。
-5. 排序：`news_time desc, row_key_hash asc`。
-6. 截断：取 `visibleItemCount` 的至少 2 倍作为滚动候选，上限由配置控制，前端只显示可视窗口。
+3. `content IS NULL` 或 trim 后为空字符串的行直接剔除。
+4. 按 `content` 严格去重：相同 `content` 只保留 `news_time` 最新的一条。
+5. `title` 为空但 `content` 有值时，由后端截取 `content` 前 80 字生成展示标题；前端不得拼接。
+6. 排序：去重后按 `news_time desc, row_key_hash asc`。
+7. 截断：取 `visibleItemCount` 的至少 2 倍作为滚动候选，上限由配置控制，前端只显示可视窗口。
 
 ### 5.2 主查询：个股新闻
 
@@ -243,11 +244,13 @@ row_key_hash, news_time, title, content, channels, src
 
 规则：
 
-1. 目标日期为 `tradeDate` 时，查询 `news_time` 落在该自然日内的新闻。
+1. 查询 `news_time` 落在 `newsWindow.startAt <= news_time <= newsWindow.endAt` 的新闻。
 2. 筛选条件：`channels = '公司'`。
-3. `title` 必须存在。
-4. 排序：`news_time desc, row_key_hash asc`。
-5. 本期不从标题中解析股票代码，也不做股票主数据关联；`subject` 可为空。
+3. `content IS NULL` 或 trim 后为空字符串的行直接剔除。
+4. 按 `content` 严格去重：相同 `content` 只保留 `news_time` 最新的一条。
+5. `title` 为空但 `content` 有值时，由后端截取 `content` 前 80 字生成展示标题；前端不得拼接。
+6. 排序：去重后按 `news_time desc, row_key_hash asc`。
+7. 本期不从标题中解析股票代码，也不做股票主数据关联；`subject` 可为空。
 
 ### 5.3 辅助查询
 
@@ -264,10 +267,11 @@ row_key_hash, news_time, title, content, channels, src
 
 ### 5.5 默认行为与边界行为
 
-1. `tradeDate` 未传：使用页面上下文目标交易日。
-2. `tradeDate` 显式传入：只查该日，不做隐式跨日回退。
-3. `visibleItemCount` 非法：配置错误，模块 error。
-4. 新闻少于 `visibleItemCount`：展示实际数量，不补空行。
+1. 新闻接口不接收 `tradeDate`，也不使用页面全局 `tradingDay`。
+2. `newsWindow.startAt` 固定为当前自然日前一天 00:00:00。
+3. `newsWindow.endAt` 固定为当前服务器时间。
+4. `visibleItemCount` 非法：配置错误，模块 error。
+5. 新闻少于 `visibleItemCount`：展示实际数量，不补空行。
 
 ---
 
@@ -327,7 +331,7 @@ interface MarketNewsDebugInfo {
 
 1. 性能预算：P95 `< 300ms`，payload `< 40KB`。
 2. 首版策略：无 Redis 缓存，SQL 只按时间倒序取必要字段。
-3. 二期缓存策略：如新闻量或页面并发增加，可按 `market + tradeDate + configVersion` 做短期缓存。
+3. 二期缓存策略：如新闻量或页面并发增加，可按 `market + newsWindowEndMinute + configVersion` 做短期缓存。
 4. 一致性策略：配置变更重启生效；新闻源更新后下一次请求读取最新数据。
 
 ---

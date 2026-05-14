@@ -7,20 +7,17 @@ from pydantic import BaseModel, ConfigDict, Field
 
 
 PageStatusValue = Literal["READY", "DELAYED", "PARTIAL", "EMPTY", "ERROR"]
-SessionStatusValue = Literal["PRE_OPEN", "TRADING", "BREAK", "CLOSED"]
 SeverityValue = Literal["info", "warn", "error"]
 NewsCategoryValue = Literal["market", "stock"]
 NewsPanelKeyValue = Literal["newsBriefs", "stockNews"]
 
 
-class TradingDayDto(BaseModel):
+class NewsWindowDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    tradeDate: date
-    prevTradeDate: date | None = None
     market: Literal["CN_A"]
-    isTradingDay: bool
-    sessionStatus: SessionStatusValue
+    startAt: datetime
+    endAt: datetime
     timezone: Literal["Asia/Shanghai"]
 
 
@@ -86,7 +83,8 @@ class NewsPanelItemDto(BaseModel):
 class NewsListPanelDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    tradeDate: date
+    windowStartAt: datetime
+    windowEndAt: datetime
     panelKey: NewsPanelKeyValue
     visibleItemCount: int = Field(ge=1)
     updatedAt: datetime
@@ -98,7 +96,7 @@ class NewsListPanelDto(BaseModel):
 class NewsBriefsResponseDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    tradingDay: TradingDayDto
+    newsWindow: NewsWindowDto
     pageStatus: PageStatusDto
     newsBriefs: NewsListPanelDto
     debugInfo: MarketNewsDebugInfoDto | None = None
