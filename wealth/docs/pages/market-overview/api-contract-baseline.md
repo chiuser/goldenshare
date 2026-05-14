@@ -60,6 +60,8 @@ GET /api/v1/wealth/market/limit-up/summary
 GET /api/v1/wealth/market/streak-ladder
 GET /api/v1/wealth/market/money-flow
 GET /api/v1/wealth/market/sector-overview
+GET /api/v1/wealth/market/news/briefs
+GET /api/v1/wealth/market/news/stocks
 ```
 
 模块接口只返回模块对象；整页聚合后续再由 overview 聚合接口统一编排。
@@ -74,6 +76,7 @@ GET /api/v1/wealth/market/sector-overview
 | `GET /api/market/style` | 早期市场风格接口 | 统一走 `GET /api/v1/wealth/market/style` |
 | `GET /api/market/turnover` | 早期成交额总览接口 | 统一走 `GET /api/v1/wealth/market/turnover` |
 | `GET /api/moneyflow/market` | 早期大盘资金流接口 | 统一走 `GET /api/v1/wealth/market/money-flow` |
+| `marketNewsFlash` / `marketOverviewNewsBlocks` | 早期顶部统一快讯条或整页新闻聚合字段 | 统一走两个独立模块接口：`GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`，不放入 PageHeader |
 | `includeHistory` | 早期由前端决定是否返回历史序列 | 不再作为通用参数；历史窗口由模块契约定义 |
 | 整页 mock 根对象 `data.moneyFlow/data.indices/...` | 早期从整页对象直接喂组件 | 已接真实 API 的模块必须通过模块 provider + view-model adapter |
 
@@ -122,6 +125,7 @@ interface MarketOverview {
   marketSummary: MarketSummary;
   majorIndices: MajorIndicesPanel;
   moneyFlow: MoneyFlowPanel;
+  marketNews: MarketNewsPanelGroup;
   leaderboards: LeaderboardsPanel;
   limitUp: LimitUpPanel;
   streakLadder: StreakLadderPanel;
@@ -177,6 +181,7 @@ subjectiveMarketConclusion
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
 3. 板块速览统一 DC 口径：本轮冻结为 `core_serving.dc_daily + core_serving.board_moneyflow_dc + core_serving.dc_index` 组合源。`dc_daily` 承接板块涨跌榜与热力图主行情，`board_moneyflow_dc` 承接资金流入/流出榜，`dc_index` 承接名称、类型、上涨/下跌家数、领涨股等结构补充信息。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
+5. 新闻速览与个股新闻：分别使用独立模块接口 `GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`；页面侧再组合为双列新闻组。本期 item 不可点击，不使用旧顶部统一快讯条。
 
 ## 性能原则
 

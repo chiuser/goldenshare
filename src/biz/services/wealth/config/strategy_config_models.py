@@ -212,3 +212,16 @@ class LimitUpStrategyPayload(BaseModel):
         if len(set(cleaned)) != len(cleaned):
             raise ValueError("stExcludedSectorCodes must not contain duplicates")
         return cleaned
+
+
+class MarketNewsStrategyPayload(BaseModel):
+    """Config payload for market news panels."""
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    visible_item_count: int = Field(alias="visibleItemCount", ge=1, le=50)
+    query_multiplier: int = Field(alias="queryMultiplier", ge=1, le=5)
+
+    @property
+    def query_limit(self) -> int:
+        return self.visible_item_count * self.query_multiplier

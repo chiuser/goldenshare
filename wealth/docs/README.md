@@ -87,6 +87,9 @@ docs/
 - [大盘资金流向标杆需求 v1](./pages/market-overview/money-flow-benchmark-requirement-v1.md)
 - [大盘资金流向技术实施方案 v1（仅方案）](./pages/market-overview/money-flow-implementation-design-v1.md)
 - [大盘资金流向 M2 编码前门禁 v1](./pages/market-overview/money-flow-m2-coding-gate-v1.md)
+- [新闻速览与个股新闻标杆需求 v1](./pages/market-overview/market-news-benchmark-requirement-v1.md)
+- [新闻速览与个股新闻技术实施方案 v1](./pages/market-overview/market-news-implementation-design-v1.md)
+- [新闻速览与个股新闻 M2 编码前门禁 v1](./pages/market-overview/market-news-m2-coding-gate-v1.md)
 - [市场总览 Codex 实现提示词基线](./pages/market-overview/implementation-prompt-baseline.md)
 - [市场总览 homepage 代码架构设计](./pages/market-overview/implementation-architecture-v1.md)
 

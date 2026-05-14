@@ -320,11 +320,13 @@ function mockSuccessfulMarketFetch(
 describe("MarketOverviewPage", () => {
   const originalLimitUpSource = marketOverviewModuleSources.limitUp;
   const originalMoneyFlowSource = marketOverviewModuleSources.moneyFlow;
+  const originalNewsSource = marketOverviewModuleSources.news;
   const originalStreakLadderSource = marketOverviewModuleSources.streakLadder;
   const originalSectorsSource = marketOverviewModuleSources.sectors;
   beforeEach(() => {
     marketOverviewModuleSources.limitUp = "mock";
     marketOverviewModuleSources.moneyFlow = "mock";
+    marketOverviewModuleSources.news = "mock";
     marketOverviewModuleSources.streakLadder = "mock";
     marketOverviewModuleSources.sectors = "mock";
     mockSuccessfulMarketFetch();
@@ -333,6 +335,7 @@ describe("MarketOverviewPage", () => {
   afterEach(() => {
     marketOverviewModuleSources.limitUp = originalLimitUpSource;
     marketOverviewModuleSources.moneyFlow = originalMoneyFlowSource;
+    marketOverviewModuleSources.news = originalNewsSource;
     marketOverviewModuleSources.streakLadder = originalStreakLadderSource;
     marketOverviewModuleSources.sectors = originalSectorsSource;
     vi.restoreAllMocks();

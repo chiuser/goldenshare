@@ -32,6 +32,7 @@
 | 板块总览 | `core_serving.dc_index` | 板块涨跌、上涨下跌家数、龙头信息 |
 | 板块行情 | `core_serving.dc_daily` | 板块日线补充（涨跌幅/成交额等） |
 | 板块资金流 | `core_serving.board_moneyflow_dc` | 行业/概念/地域资金流 |
+| 新闻快讯 | `core_serving_light.news` | 新闻速览与个股新闻统一查询出口；按 `channels` 分流 |
 | 名称映射（股票） | `core_serving.security_serving` | `ts_code -> name`（个股名称兜底） |
 | 名称映射（指数） | `core_serving.index_basic` | `ts_code -> name`（指数名称兜底） |
 
@@ -139,7 +140,78 @@ interface MajorIndexRow {
 
 ---
 
-## 3.5 `MarketSummary` + `MoneyFlowPanel`
+## 3.5 `MarketNewsPanelGroup` + `NewsListPanel`
+
+> 新闻速览与个股新闻的完整需求、实现与门禁，见：
+> `market-news-benchmark-requirement-v1.md`、
+> `market-news-implementation-design-v1.md`、
+> `market-news-m2-coding-gate-v1.md`。
+
+```ts
+interface MarketNewsPanelGroup {
+  tradeDate: string;
+  visibleItemCount: number;
+  updatedAt: string;
+  newsBriefs: NewsPanelItem[];
+  stockNews: NewsPanelItem[];
+  sortRule: "publishTime_desc_priority_desc";
+  clickablePolicy: "disabled";
+}
+
+interface NewsListPanel {
+  tradeDate: string;
+  panelKey: "newsBriefs" | "stockNews";
+  visibleItemCount: number;
+  updatedAt: string;
+  items: NewsPanelItem[];
+  sortRule: "publishTime_desc_priority_desc";
+  clickablePolicy: "disabled";
+}
+
+interface NewsPanelItem {
+  newsId: string;
+  publishTime: string;
+  displayTime: string;
+  title: string;
+  category: "market" | "stock";
+  source?: string | null;
+  subject?: SubjectRef | null;
+  priority?: number | null;
+  url?: string | null;
+  clickable: false;
+}
+```
+
+| 字段 | 来源表 | 来源列 | 映射/转换 |
+|---|---|---|---|
+| `tradeDate` | 页面上下文 | `trade_date` | 与请求目标日期一致 |
+| `visibleItemCount` | 策略配置中心 | `visible_item_count` | 默认 10，用户不可改 |
+| `updatedAt` | 后端组装 | server time / 查询时间 | 标准 datetime |
+| `newsBriefs.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
+| `newsBriefs.publishTime` | `core_serving_light.news` | `news_time` | datetime -> 标准 datetime |
+| `newsBriefs.displayTime` | 后端/adapter | `news_time` | `MM-DD HH:mm:ss` |
+| `newsBriefs.title` | `core_serving_light.news` | `title` / `content` | 优先用非空 title；title 缺失时后端截取 content 前 80 字；不得由前端拼 |
+| `newsBriefs.source` | `core_serving_light.news` | `src` | 原样 |
+| `newsBriefs.category` | `core_serving_light.news` | `channels` | `channels IS DISTINCT FROM '公司'` |
+| `stockNews.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
+| `stockNews.publishTime` | `core_serving_light.news` | `news_time` | datetime -> 标准 datetime |
+| `stockNews.displayTime` | 后端/adapter | `news_time` | `MM-DD HH:mm:ss` |
+| `stockNews.title` | `core_serving_light.news` | `title` | 原样 |
+| `stockNews.source` | `core_serving_light.news` | `src` | 原样 |
+| `stockNews.category` | `core_serving_light.news` | `channels` | `channels = '公司'` |
+| `stockNews.subject` | - | - | 本期不解析标题，不强制返回主体 |
+| `clickable` | 常量 | - | 本期固定 `false` |
+
+说明：
+
+1. 本期新闻模块只读 `core_serving_light.news`，不直接读 `raw_tushare.news`，不使用 `anns_d`、`major_news` 或其它新闻/公告源。
+2. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，且 `channels='公司'` 样本可作为个股新闻板块数据。
+3. 新闻速览与个股新闻分别由 `GET /api/v1/wealth/market/news/briefs` 和 `GET /api/v1/wealth/market/news/stocks` 返回；页面侧可组合为 `MarketNewsPanelGroup`。
+4. 旧 `marketNewsFlash` / `marketOverviewNewsBlocks` 不进入当前模型。
+
+---
+
+## 3.6 `MarketSummary` + `MoneyFlowPanel`
 
 > `MarketSummary` 的治理规则（后端配置、5/6 卡片、文本卡策略）已单独收敛到：  
 > `wealth/docs/pages/market-overview/market-summary-benchmark-requirement-v1.md` 与  
@@ -205,7 +277,7 @@ interface MoneyFlowPanel {
 
 ---
 
-## 3.6 `LeaderboardsPanel`（你已拍板的 7 个标签）
+## 3.7 `LeaderboardsPanel`（你已拍板的 7 个标签）
 
 > 榜单作为标杆需求的前后端贯通规则（规则归属、股票池归属、模块异常语义）已单独收敛到：
 > `wealth/docs/pages/market-overview/leaderboard-benchmark-requirement-v1.md`。
@@ -271,7 +343,7 @@ interface LeaderboardRow {
 
 ---
 
-## 3.7 `LimitUpPanel`（涨跌停统计）
+## 3.8 `LimitUpPanel`（涨跌停统计）
 
 ```ts
 interface LimitUpPanel {
@@ -292,7 +364,7 @@ interface LimitUpPanel {
 
 ---
 
-## 3.8 `StreakLadderPanel`（连板天梯）
+## 3.9 `StreakLadderPanel`（连板天梯）
 
 ```ts
 interface StreakLadderPanel {
@@ -331,7 +403,7 @@ interface LadderStockRow {
 
 ---
 
-## 3.9 `SectorOverviewPanel`（统一 DC 口径）
+## 3.10 `SectorOverviewPanel`（统一 DC 口径）
 
 ```ts
 interface SectorOverviewPanel {
@@ -391,7 +463,7 @@ interface SectorHeatItem {
 
 ---
 
-## 3.10 `DebugModuleStatus`（仅 debug mode）
+## 3.11 `DebugModuleStatus`（仅 debug mode）
 
 ```ts
 interface DebugModuleStatus {

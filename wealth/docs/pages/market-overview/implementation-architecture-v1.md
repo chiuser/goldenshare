@@ -10,6 +10,8 @@
 wealth/docs/reference/showcase/market-overview-v1.1.html
 ```
 
+新闻速览与个股新闻的新增需求，以 `wealth/docs/update/market-overview-v1.8.html` 为最新补充参考，只吸收两个独立新闻面板，不吸收 update 目录中其它未确认变化。
+
 本文件只回答“代码怎么组织、组件怎么拆、数据怎么流、样式怎么落、测试怎么守住高保真”。不实现真实后端 API，不扩展新页面，不新增与市场总览无关的功能。
 
 ## 2. 依据资料
@@ -27,6 +29,9 @@ wealth/docs/reference/showcase/market-overview-v1.1.html
 9. `wealth/docs/pages/market-overview/market-overview-baseline.md`
 10. `wealth/docs/pages/market-overview/api-contract-baseline.md`
 11. `wealth/docs/pages/market-overview/implementation-prompt-baseline.md`
+12. `wealth/docs/pages/market-overview/market-news-benchmark-requirement-v1.md`
+13. `wealth/docs/pages/market-overview/market-news-implementation-design-v1.md`
+14. `wealth/docs/pages/market-overview/market-news-m2-coding-gate-v1.md`
 
 优先级：
 
@@ -58,18 +63,19 @@ React 页面必须按 V1.1 原型顺序组织：
 2. `Breadcrumb`
 3. `PageHeader`
 4. `ShortcutBar`
-5. 今日市场客观总结 + 主要指数，左右 50% / 50%
-6. 涨跌分布
-7. 市场风格
-8. 成交额总览
-9. 大盘资金流向
-10. 榜单速览
-11. 涨跌停统计与分布，2 × 2
-12. 连板天梯
-13. 板块速览，左 4 × 2 榜单矩阵 + 右 5 × 4 热力图
-14. 状态样式基线，作为首期开发/验收辅助区（已确认先保留在正式 homepage）。
+5. 新闻速览 + 今日市场客观总结，左侧组合列
+6. 个股新闻 + 主要指数，右侧组合列
+7. 涨跌分布
+8. 市场风格
+9. 成交额总览
+10. 大盘资金流向
+11. 榜单速览
+12. 涨跌停统计与分布，2 × 2
+13. 连板天梯
+14. 板块速览，左 4 × 2 榜单矩阵 + 右 5 × 4 热力图
+15. 状态样式基线，作为首期开发/验收辅助区（已确认先保留在正式 homepage）。
 
-第 14 项来自 V1.1 HTML 原型底部的状态样式基线。当前已确认：首期先保留，不作为待决项。
+第 15 项来自 V1.1 HTML 原型底部的状态样式基线。当前已确认：首期先保留，不作为待决项。
 
 ## 5. 目标目录结构
 
@@ -104,6 +110,11 @@ wealth/src/
         MajorIndexPanel.tsx
         IndexCard.tsx
         IndexTickerStrip.tsx
+      news/
+        MarketNewsPanelGroup.tsx
+        MarketNewsPanel.tsx
+        NewsTickerList.tsx
+        NewsTickerItem.tsx
       breadth/
         MarketBreadthPanel.tsx
       style/
@@ -190,14 +201,15 @@ wealth/src/
 1. `layout/`：TopMarketBar、Breadcrumb、PageHeader、ShortcutBar 与终端页壳。
 2. `summary/`：今日市场客观总结。
 3. `indices/`：主要指数和顶部指数条。
-4. `breadth/`：涨跌分布。
-5. `style/`：市场风格。
-6. `turnover/`：成交额总览。
-7. `money-flow/`：大盘资金流向。
-8. `leaderboards/`：榜单速览。
-9. `limit-up/`：涨跌停统计与分布、连板天梯。
-10. `sectors/`：板块速览。
-11. `api/`：市场总览 mock adapter、类型、ViewModel 映射。
+4. `news/`：新闻速览与个股新闻。
+5. `breadth/`：涨跌分布。
+6. `style/`：市场风格。
+7. `turnover/`：成交额总览。
+8. `money-flow/`：大盘资金流向。
+9. `leaderboards/`：榜单速览。
+10. `limit-up/`：涨跌停统计与分布、连板天梯。
+11. `sectors/`：板块速览。
+12. `api/`：市场总览 mock adapter、类型、ViewModel 映射。
 
 feature 组件可以知道市场总览业务字段，但不能调用后端，也不能读取 ops 数据。
 
@@ -227,6 +239,10 @@ feature 组件可以知道市场总览业务字段，但不能调用后端，也
 | Breadcrumb | `Breadcrumb` | `features/market-overview/layout/` |
 | PageHeader | `PageHeader` | `features/market-overview/layout/` |
 | ShortcutBar | `ShortcutBar` | `features/market-overview/layout/` |
+| 新闻速览 + 个股新闻 | `MarketNewsPanelGroup` | `features/market-overview/news/` |
+| 新闻 Panel | `MarketNewsPanel` | `features/market-overview/news/` |
+| 新闻滚动列表 | `NewsTickerList` | `features/market-overview/news/` |
+| 新闻条目 | `NewsTickerItem` | `features/market-overview/news/` |
 | 今日市场客观总结 | `MarketSummaryPanel` + `FactCard` | `features/market-overview/summary/` |
 | 主要指数 | `MajorIndexPanel` + `IndexCard` | `features/market-overview/indices/` |
 | 涨跌分布 | `MarketBreadthPanel` | `features/market-overview/breadth/` |

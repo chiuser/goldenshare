@@ -8,6 +8,7 @@
 财势乾坤/设计/04-component-guidelines.md
 财势乾坤/设计/03-design-tokens.md
 财势乾坤/showcase/market-overview-v1.1.html
+wealth/docs/update/market-overview-v1.8.html（仅新闻速览与个股新闻）
 ```
 
 ## 组件设计原则
@@ -29,6 +30,10 @@
 | `Breadcrumb` | 页面归属路径 |
 | `PageHeader` | 页面标题、交易日、刷新状态 |
 | `ShortcutBar` | 高频入口 |
+| `MarketNewsPanelGroup` | 市场总览新闻板块组，组织新闻速览和个股新闻两列 |
+| `MarketNewsPanel` | 独立新闻面板，承载标题、可见条数、滚动列表 |
+| `NewsTickerList` | 新闻滚动列表，负责向上自动滚动、hover 暂停和手动滚动 |
+| `NewsTickerItem` | 单条新闻，展示时间和标题 |
 | `MarketSummaryIndexSplit` | 今日总结 + 主要指数左右结构 |
 | `MarketSummaryPanel` | 今日市场客观总结 |
 | `MarketFactCard` | 客观事实卡片 |
@@ -78,6 +83,15 @@
 - data delayed
 
 数据延迟不是系统错误，不能用行情红作为主色。
+
+## 新闻组件规则
+
+1. `MarketNewsPanelGroup` 只能放在市场总览首屏组合区：左侧新闻速览在今日市场客观总结上方，右侧个股新闻在主要指数上方。
+2. `MarketNewsPanel` 不允许放到 PageHeader、TopMarketBar 或头部中间区域。
+3. `NewsTickerItem` 本期不可点击，不显示 pointer，不触发路由、toast 或外链。
+4. `NewsTickerList` 默认向上滚动；hover 当前列表时只暂停当前列表，另一列表继续滚动。
+5. hover 当前列表后可手动滚动；鼠标离开后恢复自动滚动。
+6. 新闻标题单行省略，不能换行撑高面板。
 
 ## 组件沉淀规则
 

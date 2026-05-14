@@ -1,0 +1,11 @@
+{
+  "moduleKey": "marketNews",
+  "market": "CN_A",
+  "version": "1.0.0",
+  "updatedAt": "2026-05-14T20:00:00+08:00",
+  "updatedBy": "wealth-team",
+  "payload": {
+    "visibleItemCount": 10,
+    "queryMultiplier": 2
+  }
+}

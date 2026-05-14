@@ -52,6 +52,18 @@ import {
   type MarketMoneyFlowViewModel,
 } from "../../features/market-overview/money-flow/api/marketMoneyFlowAdapter";
 import { fetchMarketMoneyFlow, type MoneyFlowDebugInfo } from "../../features/market-overview/money-flow/api/marketMoneyFlowApi";
+import { MarketNewsPanel } from "../../features/market-overview/news/MarketNewsPanel";
+import { MarketNewsPanelGroup } from "../../features/market-overview/news/MarketNewsPanelGroup";
+import {
+  buildNewsBriefsViewModelFromApi,
+  buildStockNewsViewModelFromApi,
+  type MarketNewsPanelViewModel,
+} from "../../features/market-overview/news/api/marketNewsAdapter";
+import {
+  fetchMarketNewsBriefs,
+  fetchStockNews,
+  type MarketNewsDebugInfo,
+} from "../../features/market-overview/news/api/marketNewsApi";
 import { SectorOverviewPanel } from "../../features/market-overview/sectors/SectorOverviewPanel";
 import {
   buildSectorOverviewViewModelFromApi,
@@ -88,6 +100,7 @@ const BREADTH_FETCH_TIMEOUT_MS = 5000;
 const STYLE_FETCH_TIMEOUT_MS = 5000;
 const TURNOVER_FETCH_TIMEOUT_MS = 5000;
 const MONEY_FLOW_FETCH_TIMEOUT_MS = 5000;
+const NEWS_FETCH_TIMEOUT_MS = 5000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
@@ -165,6 +178,18 @@ export function MarketOverviewPage() {
   );
   const [moneyFlowErrorMessage, setMoneyFlowErrorMessage] = useState<string | null>(null);
   const [moneyFlowDebugInfo, setMoneyFlowDebugInfo] = useState<MoneyFlowDebugInfo | null>(null);
+  const [newsBriefs, setNewsBriefs] = useState<MarketNewsPanelViewModel | null>(null);
+  const [newsBriefsViewState, setNewsBriefsViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.news === "real" ? "loading" : "ready",
+  );
+  const [newsBriefsErrorMessage, setNewsBriefsErrorMessage] = useState<string | null>(null);
+  const [newsBriefsDebugInfo, setNewsBriefsDebugInfo] = useState<MarketNewsDebugInfo | null>(null);
+  const [stockNews, setStockNews] = useState<MarketNewsPanelViewModel | null>(null);
+  const [stockNewsViewState, setStockNewsViewState] = useState<"loading" | "ready" | "error">(
+    marketOverviewModuleSources.news === "real" ? "loading" : "ready",
+  );
+  const [stockNewsErrorMessage, setStockNewsErrorMessage] = useState<string | null>(null);
+  const [stockNewsDebugInfo, setStockNewsDebugInfo] = useState<MarketNewsDebugInfo | null>(null);
   const [leaderboards, setLeaderboards] = useState<MarketLeaderboardsViewModel | null>(null);
   const [leaderboardsViewState, setLeaderboardsViewState] = useState<"loading" | "ready" | "error">(
     marketOverviewModuleSources.leaderboards === "real" ? "loading" : "ready",
@@ -206,6 +231,8 @@ export function MarketOverviewPage() {
       ...(styleDebugInfo?.modules ?? []),
       ...(turnoverDebugInfo?.modules ?? []),
       ...(moneyFlowDebugInfo?.modules ?? []),
+      ...(newsBriefsDebugInfo?.modules ?? []),
+      ...(stockNewsDebugInfo?.modules ?? []),
       ...(leaderboardsDebugInfo?.modules ?? []),
       ...(limitUpDebugInfo?.modules ?? []),
       ...(streakLadderDebugInfo?.modules ?? []),
@@ -218,6 +245,8 @@ export function MarketOverviewPage() {
       ...(styleDebugInfo?.exceptions ?? []),
       ...(turnoverDebugInfo?.exceptions ?? []),
       ...(moneyFlowDebugInfo?.exceptions ?? []),
+      ...(newsBriefsDebugInfo?.exceptions ?? []),
+      ...(stockNewsDebugInfo?.exceptions ?? []),
       ...(leaderboardsDebugInfo?.exceptions ?? []),
       ...(limitUpDebugInfo?.exceptions ?? []),
       ...(streakLadderDebugInfo?.exceptions ?? []),
@@ -233,6 +262,8 @@ export function MarketOverviewPage() {
     styleDebugInfo,
     turnoverDebugInfo,
     moneyFlowDebugInfo,
+    newsBriefsDebugInfo,
+    stockNewsDebugInfo,
     leaderboardsDebugInfo,
     limitUpDebugInfo,
     streakLadderDebugInfo,
@@ -338,6 +369,14 @@ export function MarketOverviewPage() {
         setLeaderboardsViewState("loading");
         setLeaderboardsErrorMessage(null);
       }
+      if (marketOverviewModuleSources.news === "real") {
+        setNewsBriefs(null);
+        setNewsBriefsViewState("loading");
+        setNewsBriefsErrorMessage(null);
+        setStockNews(null);
+        setStockNewsViewState("loading");
+        setStockNewsErrorMessage(null);
+      }
       if (marketOverviewModuleSources.limitUp === "mock") {
         setLimitUp(buildLimitUpViewModelFromMock(response.data));
         setLimitUpViewState("ready");
@@ -364,6 +403,83 @@ export function MarketOverviewPage() {
       }
     });
   }, []);
+
+  useEffect(() => {
+    if (!overview || !pageContext) return;
+    if (marketOverviewModuleSources.news !== "real") return;
+
+    let canceled = false;
+    const abortController = new AbortController();
+    setNewsBriefs(null);
+    setNewsBriefsViewState("loading");
+    setNewsBriefsErrorMessage(null);
+    setNewsBriefsDebugInfo(null);
+    setStockNews(null);
+    setStockNewsViewState("loading");
+    setStockNewsErrorMessage(null);
+    setStockNewsDebugInfo(null);
+    const timeoutId = window.setTimeout(() => abortController.abort(), NEWS_FETCH_TIMEOUT_MS);
+
+    const requestParams = { market: "CN_A" as const, tradeDate: pageContext.tradeDate, debug: pageDebugEnabled ? (1 as const) : (0 as const) };
+    const briefsPromise = fetchMarketNewsBriefs(requestParams, { signal: abortController.signal })
+      .then((payload) => {
+        if (!canceled) {
+          setNewsBriefs(buildNewsBriefsViewModelFromApi(payload));
+          setNewsBriefsViewState("ready");
+          setNewsBriefsErrorMessage(null);
+          setNewsBriefsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/news/briefs`
+            : error instanceof Error
+              ? error.message
+              : "新闻速览加载失败";
+          setNewsBriefs(null);
+          setNewsBriefsViewState("error");
+          setNewsBriefsErrorMessage(message);
+          setNewsBriefsDebugInfo(null);
+          showToast(`新闻速览模块异常：${message}`);
+        }
+      });
+
+    const stocksPromise = fetchStockNews(requestParams, { signal: abortController.signal })
+      .then((payload) => {
+        if (!canceled) {
+          setStockNews(buildStockNewsViewModelFromApi(payload));
+          setStockNewsViewState("ready");
+          setStockNewsErrorMessage(null);
+          setStockNewsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+        }
+      })
+      .catch((error) => {
+        if (!canceled) {
+          const timeout = error instanceof DOMException && error.name === "AbortError";
+          const message = timeout
+            ? `请求超时：/api/v1/wealth/market/news/stocks`
+            : error instanceof Error
+              ? error.message
+              : "个股新闻加载失败";
+          setStockNews(null);
+          setStockNewsViewState("error");
+          setStockNewsErrorMessage(message);
+          setStockNewsDebugInfo(null);
+          showToast(`个股新闻模块异常：${message}`);
+        }
+      });
+
+    Promise.allSettled([briefsPromise, stocksPromise]).finally(() => {
+      window.clearTimeout(timeoutId);
+    });
+
+    return () => {
+      canceled = true;
+      abortController.abort();
+    };
+  }, [overview, pageContext, pageDebugEnabled]);
 
   useEffect(() => {
     if (!overview || !pageContext) return;
@@ -886,24 +1002,44 @@ export function MarketOverviewPage() {
         <PageHeader refreshing={refreshing} tradeDate={pageContext.tradeDate} updateTime={pageContext.updateTime} onRefresh={refresh} />
         <ShortcutBar onAction={showToast} />
         <div className="content-grid">
-          <div className="summary-index-row" aria-label="今日市场客观总结与主要指数组合">
-            <MarketSummaryPanel
-              viewState={summaryViewState}
-              facts={summary?.facts}
-              layoutVariant={summary?.layoutVariant}
-              statusLabel={summary?.statusLabel}
-              statusTone={summary?.statusTone}
-              textContent={summary?.textContent}
-              textTitle={summary?.textTitle}
-              errorMessage={summaryErrorMessage ?? undefined}
-            />
-            <MajorIndexPanel
-              viewState={majorIndicesViewState}
-              indices={majorIndices?.indices}
-              errorMessage={majorIndicesErrorMessage ?? undefined}
-              onAction={showToast}
-            />
-          </div>
+          <MarketNewsPanelGroup
+            marketNews={
+              <MarketNewsPanel
+                title="新闻速览"
+                viewState={newsBriefsViewState}
+                panel={newsBriefs}
+                errorMessage={newsBriefsErrorMessage ?? undefined}
+              />
+            }
+            stockNews={
+              <MarketNewsPanel
+                title="个股新闻"
+                viewState={stockNewsViewState}
+                panel={stockNews}
+                errorMessage={stockNewsErrorMessage ?? undefined}
+              />
+            }
+            marketSummary={
+              <MarketSummaryPanel
+                viewState={summaryViewState}
+                facts={summary?.facts}
+                layoutVariant={summary?.layoutVariant}
+                statusLabel={summary?.statusLabel}
+                statusTone={summary?.statusTone}
+                textContent={summary?.textContent}
+                textTitle={summary?.textTitle}
+                errorMessage={summaryErrorMessage ?? undefined}
+              />
+            }
+            majorIndices={
+              <MajorIndexPanel
+                viewState={majorIndicesViewState}
+                indices={majorIndices?.indices}
+                errorMessage={majorIndicesErrorMessage ?? undefined}
+                onAction={showToast}
+              />
+            }
+          />
           {overviewDebugInfo ? <OverviewDebugPanel debugInfo={overviewDebugInfo} /> : null}
           <div className="row-three">
             <MarketBreadthPanel

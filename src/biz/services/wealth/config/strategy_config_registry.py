@@ -10,6 +10,7 @@ from .strategy_config_models import (
     LimitUpStrategyPayload,
     LeaderboardStrategyPayload,
     MajorIndicesStrategyPayload,
+    MarketNewsStrategyPayload,
     MarketStyleStrategyPayload,
     MarketSummaryStrategyPayload,
     StrategyConfigRegistrationError,
@@ -61,6 +62,12 @@ def get_default_strategy_config_registrations() -> tuple[StrategyConfigRegistrat
             market="CN_A",
             definition_file="limit_up.cn_a.v1.json",
             payload_model=LimitUpStrategyPayload,
+        ),
+        StrategyConfigRegistration(
+            module_key="marketNews",
+            market="CN_A",
+            definition_file="market_news.cn_a.v1.json",
+            payload_model=MarketNewsStrategyPayload,
         ),
     )
 

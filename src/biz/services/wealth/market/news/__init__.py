@@ -1,0 +1,1 @@
+"""Market news service helpers."""

@@ -8,6 +8,7 @@ export interface MarketOverviewModuleSources {
   turnover: ModuleSource;
   moneyFlow: ModuleSource;
   leaderboards: ModuleSource;
+  news: ModuleSource;
   limitUp: ModuleSource;
   streakLadder: ModuleSource;
   sectors: ModuleSource;
@@ -21,6 +22,7 @@ export const marketOverviewModuleSources: MarketOverviewModuleSources = {
   turnover: "real",
   moneyFlow: "real",
   leaderboards: "real",
+  news: "real",
   limitUp: "real",
   streakLadder: "real",
   sectors: "real",
