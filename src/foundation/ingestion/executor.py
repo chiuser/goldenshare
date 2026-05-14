@@ -107,6 +107,7 @@ class IngestionExecutor:
                 self._merge_reason_samples(rejected_reason_samples, normalized.rejected_samples)
                 for reason_code, count in written.rejected_reason_counts.items():
                     rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+                self._merge_reason_samples(rejected_reason_samples, written.rejected_reason_samples)
                 self.session.commit()
                 rows_committed += unit_rows_written
                 unit_done += 1

@@ -17,7 +17,7 @@ from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.ingestion.errors import IngestionWriteError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot
 from src.foundation.ingestion.moneyflow_publish import publish_moneyflow_serving_for_keys
-from src.foundation.ingestion.normalizer import NormalizedBatch
+from src.foundation.ingestion.normalizer import DatasetNormalizer, NormalizedBatch
 from src.foundation.ingestion.sentinel_guard import (
     find_forbidden_business_sentinel_in_row_context,
     should_guard_dataset_rows,
@@ -38,6 +38,7 @@ class WriteResult:
     conflict_strategy: str
     rows_rejected: int = 0
     rejected_reason_counts: dict[str, int] = field(default_factory=dict)
+    rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
 
 
 class DatasetWriter:
@@ -156,13 +157,14 @@ class DatasetWriter:
                 conflict_columns=definition.storage.conflict_columns,
                 serving_conflict_resolution_policy=definition.storage.serving_conflict_resolution_policy,
             )
-            rejected_reason_counts = self._duplicate_reason_counts(
+            rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
                 rows=batch.rows_normalized,
                 conflict_columns=self._resolve_effective_raw_conflict_columns(
                     raw_dao,
                     definition.storage.raw_conflict_columns,
                     definition.storage.conflict_columns,
                 ),
+                unit_id=batch.unit_id,
             )
         except Exception as exc:
             raise IngestionWriteError(
@@ -185,6 +187,7 @@ class DatasetWriter:
             conflict_strategy="upsert",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
         )
 
     def _write_index_daily_serving(
@@ -216,12 +219,13 @@ class DatasetWriter:
             active_codes=self._resolve_active_index_codes(),
         )
         rows_written = 0
-        rejected_reason_counts = self._duplicate_reason_counts(
+        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
             rows=active_rows,
             conflict_columns=self._resolve_conflict_columns(
                 core_dao,
                 definition.storage.conflict_columns,
             ),
+            unit_id=batch.unit_id,
         )
         if active_rows:
             core_rows = self._coerce_rows_for_dao(active_rows, core_dao)
@@ -239,6 +243,7 @@ class DatasetWriter:
             conflict_strategy="index_daily_active_gate",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
         )
 
     def _write_index_period_serving(
@@ -254,6 +259,7 @@ class DatasetWriter:
         rows_written = 0
         conflict_strategy = "upsert"
         rejected_reason_counts: dict[str, int] = {}
+        rejected_reason_samples: dict[str, list[dict[str, Any]]] = {}
         active_codes = self._resolve_active_index_codes()
         explicit_ts_code = bool(
             plan_unit is not None and str(plan_unit.request_params.get("ts_code") or "").strip()
@@ -270,16 +276,16 @@ class DatasetWriter:
                 rows=batch.rows_normalized,
                 active_codes=active_codes,
             )
-            self._merge_reason_counts(
-                rejected_reason_counts,
-                self._duplicate_reason_counts(
-                    rows=batch.rows_normalized,
-                    conflict_columns=self._resolve_conflict_columns(
-                        raw_dao,
-                        definition.storage.conflict_columns,
-                    ),
+            duplicate_counts, duplicate_samples = self._duplicate_reason_diagnostics(
+                rows=batch.rows_normalized,
+                conflict_columns=self._resolve_conflict_columns(
+                    raw_dao,
+                    definition.storage.conflict_columns,
                 ),
+                unit_id=batch.unit_id,
             )
+            self._merge_reason_counts(rejected_reason_counts, duplicate_counts)
+            self._merge_reason_samples(rejected_reason_samples, duplicate_samples)
             serving_rows = self._build_index_period_serving_rows(
                 rows=filtered_rows,
                 dataset_key=definition.dataset_key,
@@ -359,6 +365,7 @@ class DatasetWriter:
             conflict_strategy=conflict_strategy,
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
         )
 
     def _build_index_period_serving_rows(
@@ -792,22 +799,74 @@ class DatasetWriter:
         rows: list[dict[str, Any]],
         conflict_columns: tuple[str, ...] | list[str] | None,
     ) -> dict[str, int]:
+        counts, _ = cls._duplicate_reason_diagnostics(
+            rows=rows,
+            conflict_columns=conflict_columns,
+            unit_id=None,
+        )
+        return counts
+
+    @classmethod
+    def _duplicate_reason_diagnostics(
+        cls,
+        *,
+        rows: list[dict[str, Any]],
+        conflict_columns: tuple[str, ...] | list[str] | None,
+        unit_id: str | None,
+    ) -> tuple[dict[str, int], dict[str, list[dict[str, Any]]]]:
         columns = tuple(conflict_columns or ())
         if not rows or not columns:
-            return {}
+            return {}, {}
         seen: set[tuple[Any, ...]] = set()
         duplicate_count = 0
+        reason_key = f"write.duplicate_conflict_key_in_batch:{','.join(columns)}"
+        samples: dict[str, list[dict[str, Any]]] = {}
         for row in rows:
             if any(column not in row or row[column] is None for column in columns):
                 continue
             key = tuple(row[column] for column in columns)
             if key in seen:
                 duplicate_count += 1
+                cls._record_duplicate_sample(
+                    samples=samples,
+                    reason_key=reason_key,
+                    row=row,
+                    columns=columns,
+                    key=key,
+                    unit_id=unit_id,
+                )
                 continue
             seen.add(key)
-        return cls._reason_count(
-            f"write.duplicate_conflict_key_in_batch:{','.join(columns)}",
-            duplicate_count,
+        return cls._reason_count(reason_key, duplicate_count), samples
+
+    @classmethod
+    def _record_duplicate_sample(
+        cls,
+        *,
+        samples: dict[str, list[dict[str, Any]]],
+        reason_key: str,
+        row: dict[str, Any],
+        columns: tuple[str, ...],
+        key: tuple[Any, ...],
+        unit_id: str | None,
+    ) -> None:
+        bucket = samples.setdefault(reason_key, [])
+        if len(bucket) >= DatasetNormalizer.MAX_SAMPLES_PER_REASON:
+            return
+        field = ",".join(columns)
+        value: Any
+        if len(columns) == 1:
+            value = key[0]
+        else:
+            value = {column: key[index] for index, column in enumerate(columns)}
+        bucket.append(
+            {
+                "unit_id": DatasetNormalizer._sample_scalar(unit_id),
+                "field": DatasetNormalizer._sample_scalar(field),
+                "value": DatasetNormalizer._sample_scalar(value),
+                "message": "同批次出现重复冲突键，当前样本为重复行。",
+                "row": DatasetNormalizer._sample_row(row=row, field=field),
+            }
         )
 
     @staticmethod
@@ -825,6 +884,19 @@ class DatasetWriter:
             if not normalized_key or normalized_count <= 0:
                 continue
             target[normalized_key] = target.get(normalized_key, 0) + normalized_count
+
+    @staticmethod
+    def _merge_reason_samples(target: dict[str, list[dict[str, Any]]], source: dict[str, list[dict[str, Any]]]) -> None:
+        for key, samples in source.items():
+            normalized_key = str(key or "").strip()
+            if not normalized_key or not isinstance(samples, list):
+                continue
+            bucket = target.setdefault(normalized_key, [])
+            for sample in samples:
+                if len(bucket) >= DatasetNormalizer.MAX_SAMPLES_PER_REASON:
+                    break
+                if isinstance(sample, dict):
+                    bucket.append(dict(sample))
 
     def _write_stock_basic_std_publish(
         self,
@@ -945,9 +1017,10 @@ class DatasetWriter:
         raw_dao,
         std_dao,
     ) -> WriteResult:
-        rejected_reason_counts = self._duplicate_reason_counts(
+        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
             rows=batch.rows_normalized,
             conflict_columns=self._resolve_conflict_columns(std_dao, definition.storage.conflict_columns),
+            unit_id=batch.unit_id,
         )
         if definition.storage.conflict_columns:
             raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(definition.storage.conflict_columns))
@@ -977,6 +1050,7 @@ class DatasetWriter:
             conflict_strategy="upsert",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
         )
 
     def _write_moneyflow_std_publish_biying(
@@ -987,9 +1061,10 @@ class DatasetWriter:
         raw_dao,
         std_dao,
     ) -> WriteResult:
-        rejected_reason_counts = self._duplicate_reason_counts(
+        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
             rows=batch.rows_normalized,
             conflict_columns=self._resolve_conflict_columns(std_dao, definition.storage.conflict_columns),
+            unit_id=batch.unit_id,
         )
         if definition.storage.conflict_columns:
             raw_dao.bulk_upsert(batch.rows_normalized, conflict_columns=list(definition.storage.conflict_columns))
@@ -1019,6 +1094,7 @@ class DatasetWriter:
             conflict_strategy="upsert",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
         )
 
     @staticmethod
@@ -1029,18 +1105,20 @@ class DatasetWriter:
         raw_dao,
     ) -> WriteResult:
         if definition.storage.conflict_columns:
-            rejected_reason_counts = DatasetWriter._duplicate_reason_counts(
+            rejected_reason_counts, rejected_reason_samples = DatasetWriter._duplicate_reason_diagnostics(
                 rows=batch.rows_normalized,
                 conflict_columns=definition.storage.conflict_columns,
+                unit_id=batch.unit_id,
             )
             rows_written = raw_dao.bulk_upsert(
                 batch.rows_normalized,
                 conflict_columns=list(definition.storage.conflict_columns),
             )
         else:
-            rejected_reason_counts = DatasetWriter._duplicate_reason_counts(
+            rejected_reason_counts, rejected_reason_samples = DatasetWriter._duplicate_reason_diagnostics(
                 rows=batch.rows_normalized,
                 conflict_columns=DatasetWriter._resolve_conflict_columns(raw_dao, None),
+                unit_id=batch.unit_id,
             )
             rows_written = raw_dao.bulk_upsert(batch.rows_normalized)
         return WriteResult(
@@ -1052,6 +1130,7 @@ class DatasetWriter:
             conflict_strategy="upsert",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
         )
 
     @staticmethod

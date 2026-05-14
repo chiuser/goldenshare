@@ -262,6 +262,16 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
                 conflict_strategy="upsert",
                 rows_rejected=1,
                 rejected_reason_counts={"write.duplicate_conflict_key_in_batch:row_key_hash": 1},
+                rejected_reason_samples={
+                    "write.duplicate_conflict_key_in_batch:row_key_hash": [
+                        {
+                            "unit_id": "u-1",
+                            "field": "row_key_hash",
+                            "value": "a",
+                            "row": {"row_key_hash": "a", "title": "重复条"},
+                        }
+                    ]
+                },
             )
 
     executor = IngestionExecutor(StubSession())
@@ -303,5 +313,6 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
         "write.duplicate_conflict_key_in_batch:row_key_hash": 1,
     }
     assert summary.rejected_reason_samples["normalize.required_field_missing:trade_date"][0]["row"]["row_key_hash"] == "missing-date"
+    assert summary.rejected_reason_samples["write.duplicate_conflict_key_in_batch:row_key_hash"][0]["value"] == "a"
     assert captured[0][0].rejected_reason_counts == summary.rejected_reason_counts
     assert captured[0][0].rejected_reason_samples == summary.rejected_reason_samples

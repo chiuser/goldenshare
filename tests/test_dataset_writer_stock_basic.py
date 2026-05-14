@@ -147,16 +147,29 @@ def test_writer_stock_basic_biying_only_inserts_missing_codes(mocker) -> None:
 
 
 def test_writer_counts_duplicate_conflict_keys() -> None:
+    rows = [
+        {"row_key_hash": "a", "title": "第一条"},
+        {"row_key_hash": "a", "title": "重复条"},
+        {"row_key_hash": "b", "title": "第二条"},
+    ]
     reason_counts = DatasetWriter._duplicate_reason_counts(
-        rows=[
-            {"row_key_hash": "a", "title": "第一条"},
-            {"row_key_hash": "a", "title": "重复条"},
-            {"row_key_hash": "b", "title": "第二条"},
-        ],
+        rows=rows,
         conflict_columns=("row_key_hash",),
+    )
+    diagnostic_counts, diagnostic_samples = DatasetWriter._duplicate_reason_diagnostics(
+        rows=rows,
+        conflict_columns=("row_key_hash",),
+        unit_id="u-duplicate",
     )
 
     assert reason_counts == {"write.duplicate_conflict_key_in_batch:row_key_hash": 1}
+    assert diagnostic_counts == reason_counts
+    sample = diagnostic_samples["write.duplicate_conflict_key_in_batch:row_key_hash"][0]
+    assert sample["unit_id"] == "u-duplicate"
+    assert sample["field"] == "row_key_hash"
+    assert sample["value"] == "a"
+    assert sample["row"]["row_key_hash"] == "a"
+    assert sample["row"]["title"] == "重复条"
 
 
 def test_writer_coerces_rows_per_target_model_date_columns() -> None:
