@@ -544,6 +544,215 @@ API 不做大接口。每个接口只服务一个页面动作：
 3. 每个 profile 生成的 backup/run/events 可追溯。
 4. 前端只能启动 enabled 且 runner 已接入的 M6 profile；后续专项只能生成预览或显示 disabled，不得启动。
 
+### M6.5：建议同步窗口（只读决策辅助）
+
+状态：已完成首版代码接入。对应代码为 `lake_console/backend/app/services/sync_recommendation_service.py`、`GET /api/lake/sync/recommendations` 与 `lake_console/frontend/src/pages/SyncCenterPage.tsx` 的建议卡片。首版只读，不生成 plan/run/backup/event，不访问远程 DB。
+
+背景：
+
+运营当前缺少一个直接视角来回答：“这些带日期维度的数据集，本地最新到哪天？按今天的交易日历口径，应该同步到哪天？如果落后，建议补哪段？”
+
+这个能力属于 Sync Center 的只读建议层，不是新的写入 profile。它只负责生成建议，不启动任务、不改文件、不访问远程 DB。
+
+#### M6.5.1 功能边界
+
+只做：
+
+1. 读取本地 Lake 文件事实。
+2. 读取本地交易日历 manifest。
+3. 读取数据集 catalog / planner 已有日期锚点规则。
+4. 给出每个日期型数据集的最新本地分区、理论应到分区、延迟天数、缺失锚点数量和建议同步窗口。
+5. 前端允许把建议窗口带入 Sync Center 计划参数。
+
+不做：
+
+1. 不直接启动同步。
+2. 不创建 Kopia snapshot。
+3. 不写 `raw_tushare` / `manifest` / `derived` / `research`。
+4. 不读取远程 DB。
+5. 不请求 Tushare。
+6. 不自行重新实现一套日期模型。
+
+#### M6.5.2 数据来源
+
+| 数据 | 来源 | 说明 |
+| --- | --- | --- |
+| 本地最新日期 | `FilesystemScanner` 扫描本地分区 | 只看数据集主写入节点；通常是 `raw_tushare/<dataset_key>`，以 planner 生成的 `write_paths` 和 dataset definition 为准，避免 derived/research 干扰同步建议。 |
+| 理论应到日期 | `manifest/trading_calendar/tushare_trade_cal.parquet` | 只使用本地交易日历，不访问生产库。 |
+| 日期锚点规则 | `load_expected_partition_dates` / `resolve_expected_partition_date` | 复用现有日频、周锚点、月锚点逻辑。 |
+| 可推荐数据集范围 | `SyncProfileCatalog.PROD_DB_DAILY_DATASETS` | 第一版只覆盖 `prod_db_daily` / `prod_db_manual_backfill` 里的日期型数据集。 |
+
+#### M6.5.3 推荐计算规则
+
+```mermaid
+flowchart TD
+  A["选择 profile: prod_db_daily"] --> B["枚举日期型 dataset"]
+  B --> C["读取 dataset 主写入节点分区"]
+  C --> D{"有本地 trade_date 分区?"}
+  D -- "否" --> E["status=empty，需要人工选择起始日"]
+  D -- "是" --> F["local_latest_trade_date=max(partition trade_date)"]
+  F --> G["根据交易日历和日期锚点规则计算 expected_latest_trade_date"]
+  G --> H{"local_latest < expected_latest?"}
+  H -- "否" --> I["status=up_to_date"]
+  H -- "是" --> J["计算 local_latest 之后到 expected_latest 的有效锚点"]
+  J --> K["status=lagging，输出 suggested_start_date/suggested_end_date"]
+```
+
+状态枚举：
+
+| 状态 | 含义 | 页面动作 |
+| --- | --- | --- |
+| `up_to_date` | 本地最新分区已经达到理论应到日期。 | 不建议同步。 |
+| `lagging` | 本地最新分区早于理论应到日期。 | 展示建议同步窗口，可带入计划参数。 |
+| `empty` | 本地没有任何日期分区。 | 不自动推荐起始日，提示人工选择。 |
+| `blocked_missing_calendar` | 缺少交易日历或交易日历为空。 | 阻断建议生成，提示先刷新 `trade_cal`。 |
+| `not_applicable` | 非日期型或不适合连续日期建议的数据集。 | 不展示同步窗口。 |
+
+#### M6.5.4 “今天是否算应到日期”的 cutoff 规则
+
+推荐能力必须避免在交易日尚未稳定时误报“今天落后”。
+
+新增配置建议：
+
+```text
+LAKE_SYNC_RECOMMENDATION_CUTOFF_TIME=20:00
+```
+
+口径：
+
+1. 如果今天是开市交易日，且当前本地时间早于 cutoff，则理论应到日期使用上一个开市交易日。
+2. 如果今天是开市交易日，且当前本地时间等于或晚于 cutoff，则理论应到日期可以使用今天。
+3. 如果今天不是开市交易日，理论应到日期使用最近一个开市交易日。
+4. cutoff 只影响建议，不影响真实同步执行。
+
+第一版可先把 cutoff 固定为 `20:00`，后续再决定是否暴露到 `config.local.toml`。
+
+#### M6.5.5 与写入链路的关系
+
+建议同步窗口只是“看本地文件事实后给运营一个建议”。它不能成为第二套调度系统，也不能绕过 Sync Center 已经建立的 plan -> Kopia -> lock -> runner 链路。
+
+如果运营点击“带入计划参数”，后续仍然必须走：
+
+```text
+生成 plan -> 用户确认 -> 创建 Kopia prewrite snapshot -> 获取单任务锁 -> 执行 runner
+```
+
+也就是说，建议能力只回答“建议补哪段”，不负责“帮你直接补”。
+
+#### M6.5.6 API 设计
+
+新增只读接口：
+
+```http
+GET /api/lake/sync/recommendations?profile_key=prod_db_daily
+```
+
+返回字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `generated_at` | 建议生成时间。 |
+| `profile_key` | 当前建议所属 profile。 |
+| `cutoff_time` | 使用的 cutoff，例如 `20:00`。 |
+| `expected_reference_date` | 本轮建议采用的理论参考日期。 |
+| `items` | 数据集建议列表。 |
+
+`items` 单项字段：
+
+| 字段 | 含义 |
+| --- | --- |
+| `dataset_key` | 数据集 key。 |
+| `display_name` | 数据集名称。 |
+| `source` | 推荐同步来源，例如 `prod-raw-db` / `prod-core-db`。 |
+| `status` | `up_to_date` / `lagging` / `empty` / `blocked_missing_calendar` / `not_applicable`。 |
+| `local_latest_trade_date` | 本地最新日期分区。 |
+| `expected_latest_trade_date` | 理论应到日期。 |
+| `suggested_start_date` | 建议同步开始日期。 |
+| `suggested_end_date` | 建议同步结束日期。 |
+| `lag_anchor_count` | 缺失的有效锚点数量。 |
+| `lag_calendar_days` | 自然日延迟。 |
+| `reason` | 给人看的原因说明。 |
+| `plan_hint` | 可带入计划页面的最小参数。 |
+
+示例：
+
+```json
+{
+  "generated_at": "2026-05-14T12:00:00+08:00",
+  "profile_key": "prod_db_daily",
+  "cutoff_time": "20:00",
+  "expected_reference_date": "2026-05-13",
+  "items": [
+    {
+      "dataset_key": "moneyflow",
+      "display_name": "个股资金流向",
+      "source": "prod-raw-db",
+      "status": "lagging",
+      "local_latest_trade_date": "2026-04-24",
+      "expected_latest_trade_date": "2026-05-13",
+      "suggested_start_date": "2026-04-25",
+      "suggested_end_date": "2026-05-13",
+      "lag_anchor_count": 11,
+      "lag_calendar_days": 19,
+      "reason": "本地最新分区早于交易日历理论应到日期。",
+      "plan_hint": {
+        "profile_key": "prod_db_manual_backfill",
+        "dataset_keys": ["moneyflow"],
+        "start_date": "2026-04-25",
+        "end_date": "2026-05-13"
+      }
+    }
+  ]
+}
+```
+
+#### M6.5.7 前端设计
+
+在 Sync Center 页面新增卡片：
+
+```text
+建议同步窗口
+```
+
+表格列：
+
+1. 数据集
+2. 本地最新日期
+3. 理论应到日期
+4. 延迟自然日
+5. 缺失锚点数
+6. 建议同步窗口
+7. 状态
+8. 操作
+
+操作按钮：
+
+```text
+带入计划参数
+```
+
+按钮行为只允许：
+
+1. 选择 `prod_db_manual_backfill`。
+2. 设置当前数据集。
+3. 填入 `start_date` / `end_date`。
+4. 清空旧 plan。
+
+按钮不允许：
+
+1. 直接启动 run。
+2. 自动创建 backup。
+3. 自动同步全部落后数据集。
+
+#### M6.5.8 开发门禁
+
+1. 单测必须覆盖日频、周锚点、月锚点。
+2. 单测必须覆盖缺交易日历。
+3. 单测必须覆盖本地无分区。
+4. 单测必须覆盖 cutoff 前后 expected date 的变化。
+5. 前端不得自行计算日期差，只展示后端返回字段。
+6. API 只读，不允许写任何 Lake 文件。
+
 ### M7：本地自动化与长期维护
 
 目标：
@@ -580,6 +789,7 @@ python3 scripts/check_docs_integrity.py
 3. `POST /api/lake/sync/profiles/prod_db_daily/plan`
 4. `POST /api/lake/sync/runs` 使用过期 `plan_token` 应失败。
 5. `POST /api/lake/sync/runs` 在 lock busy 时应失败。
+6. `GET /api/lake/sync/recommendations?profile_key=prod_db_daily` 只读返回建议，不产生任何 plan/run/backup/event。
 
 ### 前端 smoke 建议
 
@@ -603,11 +813,12 @@ python3 scripts/check_docs_integrity.py
 
 ### 12.2 主要缺口
 
-当前 Sync Center 编排层已完成 M1-M6 的主要代码接入，剩余缺口集中在真实写入验证与后续专项：
+当前 Sync Center 编排层已完成 M1-M6 的主要代码接入，M6.5 只读建议也已接入；剩余缺口集中在真实写入验证与后续专项：
 
 1. 4 个 M6 profile 已进入 runner 白名单，但仍需要按小样本逐个做真实执行验证并记录结果。
-2. `stk_mins_sync`、`index_mins_sync`、`indicator_compute` 仍是 planned，必须走独立专项设计，不能复用普通 profile runner。
-3. profile CLI 未实现；当前推荐从 Sync Center 页面/API 触发，以保证 Kopia、锁、计划和事件记录完整。
+2. M6.5 建议同步窗口已实现首版只读 API 与前端展示；后续如扩展 profile 范围，仍必须保持只读，不允许绕过写入链路。
+3. `stk_mins_sync`、`index_mins_sync`、`indicator_compute` 仍是 planned，必须走独立专项设计，不能复用普通 profile runner。
+4. profile CLI 未实现；当前推荐从 Sync Center 页面/API 触发，以保证 Kopia、锁、计划和事件记录完整。
 
 ### 12.3 开发建议
 

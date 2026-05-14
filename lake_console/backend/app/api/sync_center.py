@@ -11,6 +11,7 @@ from lake_console.backend.app.schemas import (
     SyncPlanRequest,
     SyncPlanResponse,
     SyncProfileListResponse,
+    SyncRecommendationResponse,
     SyncReleaseStaleLockRequest,
     SyncReleaseStaleLockResponse,
     SyncRunDetailResponse,
@@ -30,6 +31,7 @@ from lake_console.backend.app.services.lake_job_state import (
     new_run_id,
 )
 from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
+from lake_console.backend.app.services.sync_recommendation_service import SyncRecommendationService
 from lake_console.backend.app.services.sync_center_profiles import ProfileDisabledError, SyncProfileCatalog, SyncProfilePlanner
 from lake_console.backend.app.settings import LakeConsoleConfigError, load_settings
 
@@ -47,6 +49,16 @@ def list_profiles() -> SyncProfileListResponse:
 def get_lock() -> SyncLockResponse:
     store = _state_store()
     return SyncLockResponse(**LakeJobLockService(store).get_lock())
+
+
+@router.get("/recommendations", response_model=SyncRecommendationResponse)
+def get_recommendations(profile_key: str = Query(default="prod_db_daily")) -> SyncRecommendationResponse:
+    settings = _settings()
+    try:
+        payload = SyncRecommendationService(lake_root=settings.lake_root).build(profile_key=profile_key)
+    except ValueError as exc:
+        raise _api_error(status_code=400, code="UNSUPPORTED_RECOMMENDATION_PROFILE", message=str(exc)) from exc
+    return SyncRecommendationResponse(**payload)
 
 
 @router.post("/profiles/{profile_key}/plan", response_model=SyncPlanResponse)

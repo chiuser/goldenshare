@@ -261,6 +261,37 @@ export type SyncProfileSummary = {
   datasets: SyncProfileDatasetSummary[];
 };
 
+export type SyncRecommendationPlanHint = {
+  profile_key: string;
+  dataset_keys: string[];
+  target_date: string | null;
+  start_date: string | null;
+  end_date: string | null;
+};
+
+export type SyncRecommendationItem = {
+  dataset_key: string;
+  display_name: string;
+  source: string;
+  status: string;
+  local_latest_trade_date: string | null;
+  expected_latest_trade_date: string | null;
+  suggested_start_date: string | null;
+  suggested_end_date: string | null;
+  lag_anchor_count: number;
+  lag_calendar_days: number;
+  reason: string;
+  plan_hint: SyncRecommendationPlanHint | null;
+};
+
+export type SyncRecommendationResponse = {
+  generated_at: string;
+  profile_key: string;
+  cutoff_time: string;
+  expected_reference_date: string | null;
+  items: SyncRecommendationItem[];
+};
+
 export type SyncLock = {
   status: string;
   run_id: string | null;

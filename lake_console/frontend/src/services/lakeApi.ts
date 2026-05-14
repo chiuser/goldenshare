@@ -11,6 +11,7 @@ import type {
   SyncLock,
   SyncPlanResponse,
   SyncProfileSummary,
+  SyncRecommendationResponse,
   SyncRunDetail,
   SyncRunEvent,
   SyncRunResponse,
@@ -150,6 +151,13 @@ export function loadRecoverySnapshotDetail(snapshotId: string): Promise<Recovery
 export async function loadSyncProfiles(): Promise<SyncProfileSummary[]> {
   const payload = await fetchJson<SyncProfileListResponse>("/api/lake/sync/profiles", "Sync Center Profile API 请求失败。");
   return payload.items;
+}
+
+export function loadSyncRecommendations(profileKey = "prod_db_daily"): Promise<SyncRecommendationResponse> {
+  return fetchJson<SyncRecommendationResponse>(
+    `/api/lake/sync/recommendations?profile_key=${encodeURIComponent(profileKey)}`,
+    "Sync Center Recommendation API 请求失败。",
+  );
 }
 
 export function loadSyncLock(): Promise<SyncLock> {

@@ -78,7 +78,8 @@
 .sync-profile-meta,
 .sync-action-row,
 .sync-run-head,
-.sync-issue-row {
+.sync-issue-row,
+.sync-recommendation-head {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -86,6 +87,11 @@
 
 .sync-profile-head {
   justify-content: space-between;
+}
+
+.sync-recommendation-head {
+  justify-content: space-between;
+  margin-bottom: 12px;
 }
 
 .sync-profile-head strong,

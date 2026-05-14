@@ -8,9 +8,9 @@ import { Metric } from "../components/Metric";
 import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { SectionCard } from "../components/SectionCard";
-import { useSyncCenterStatus, useSyncRunArtifacts } from "../hooks/useSyncCenterData";
+import { useSyncCenterStatus, useSyncRecommendations, useSyncRunArtifacts } from "../hooks/useSyncCenterData";
 import { createSyncPlan, startSyncRun } from "../services/lakeApi";
-import type { SyncLock, SyncPlanDatasetPlan, SyncPlanIssue, SyncPlanResponse, SyncProfileSummary, SyncRunEvent } from "../types";
+import type { SyncLock, SyncPlanDatasetPlan, SyncPlanIssue, SyncPlanResponse, SyncProfileSummary, SyncRecommendationItem, SyncRunEvent } from "../types";
 import { formatDateTime } from "../utils/format";
 
 const RUNNABLE_PROFILE_KEYS = new Set([
@@ -35,6 +35,12 @@ export function SyncCenterPage() {
   const [selectedRunId, setSelectedRunId] = useState<string>("");
 
   const selectedProfile = profiles.find((profile) => profile.profile_key === selectedProfileKey) ?? null;
+  const {
+    error: recommendationError,
+    loading: recommendationLoading,
+    recommendations,
+    reloadRecommendations,
+  } = useSyncRecommendations("prod_db_daily");
   const activeRunId = selectedRunId || currentRun?.active_run_id || "";
   const { detail, error: artifactError, events, loading: artifactLoading, reloadArtifacts } = useSyncRunArtifacts(activeRunId);
 
@@ -108,6 +114,20 @@ export function SyncCenterPage() {
     }
   }
 
+  function handleApplyRecommendation(item: SyncRecommendationItem) {
+    if (!item.plan_hint) {
+      return;
+    }
+    setSelectedProfileKey(item.plan_hint.profile_key);
+    setSelectedDatasetKey(item.plan_hint.dataset_keys[0] ?? "");
+    setTargetDate(item.plan_hint.target_date ?? todayInputValue());
+    setStartDate(item.plan_hint.start_date ?? "");
+    setEndDate(item.plan_hint.end_date ?? "");
+    setPlan(null);
+    setPlanError(null);
+    setRunError(null);
+  }
+
   return (
     <div className="sync-center-layout">
       <PageHeader
@@ -129,6 +149,28 @@ export function SyncCenterPage() {
         <Metric label="Default Lookback" value="1 day" hint="每日类 Profile 默认看最近 1 日" variant="subtle" />
         <Metric label="Remote DB" value="Read-only" hint="页面不暴露 SQL、表名或字段条件" variant="success" />
       </section>
+
+      <Panel
+        title="建议同步窗口"
+        description="只读扫描本地 Lake 文件事实和本地交易日历，给出日期型数据集的建议补数范围；不会自动创建计划或启动同步。"
+      >
+        <div className="sync-recommendation-head">
+          <div className="sync-cell-stack sync-cell-stack-tight">
+            <strong>Profile: {recommendations?.profile_key ?? "prod_db_daily"}</strong>
+            <span>
+              参考日期 {recommendations?.expected_reference_date ?? "—"}，cutoff {recommendations?.cutoff_time ?? "20:00"}
+            </span>
+          </div>
+          <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
+            刷新建议
+          </button>
+        </div>
+        {recommendationError ? <ErrorStateBlock title="建议同步窗口加载失败" description={recommendationError} /> : null}
+        {recommendationLoading ? <LoadingBlock title="正在生成建议" description="读取本地分区与交易日历。" /> : null}
+        {!recommendationLoading && recommendations ? (
+          <RecommendationTable rows={recommendations.items} onApply={handleApplyRecommendation} />
+        ) : null}
+      </Panel>
 
       <section className="sync-center-grid">
         <Panel title="选择同步 Profile" description="本页展示全部 Profile；只有 enabled 且 M6 runner 已接入的 profile 可以启动。">
@@ -298,6 +340,80 @@ export function SyncCenterPage() {
         </SectionCard>
       </section>
     </div>
+  );
+}
+
+function RecommendationTable({ onApply, rows }: { onApply: (item: SyncRecommendationItem) => void; rows: SyncRecommendationItem[] }) {
+  const columns: DataTableColumn<SyncRecommendationItem>[] = [
+    {
+      key: "dataset",
+      header: "数据集",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>{row.dataset_key}</strong>
+          <span>{row.display_name}</span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "状态",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <Badge tone={recommendationTone(row.status)}>{recommendationStatusLabel(row.status)}</Badge>
+          <span>{row.source}</span>
+        </div>
+      ),
+    },
+    {
+      key: "dates",
+      header: "本地 / 应到",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>{row.local_latest_trade_date ?? "—"} → {row.expected_latest_trade_date ?? "—"}</strong>
+          <span>{row.reason}</span>
+        </div>
+      ),
+    },
+    {
+      key: "lag",
+      header: "延迟",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>{row.lag_anchor_count.toLocaleString("zh-CN")} anchors</strong>
+          <span>{row.lag_calendar_days.toLocaleString("zh-CN")} calendar days</span>
+        </div>
+      ),
+    },
+    {
+      key: "window",
+      header: "建议窗口",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>{row.suggested_start_date ?? "—"} ~ {row.suggested_end_date ?? "—"}</strong>
+          <span>{row.plan_hint ? "可带入手动补数计划" : "无可自动带入窗口"}</span>
+        </div>
+      ),
+    },
+    {
+      key: "action",
+      header: "操作",
+      render: (row) => (
+        <button className="sync-inline-button" disabled={!row.plan_hint} onClick={() => onApply(row)} type="button">
+          带入计划参数
+        </button>
+      ),
+    },
+  ];
+  return (
+    <DataTableCard
+      columns={columns}
+      empty={<EmptyState title="暂无建议" description="后端没有返回可展示的同步建议。" />}
+      getRowKey={(row) => row.dataset_key}
+      label="Sync recommendation list"
+      rowTone={(row) => (row.status === "lagging" ? "warning" : row.status === "blocked_missing_calendar" ? "error" : "default")}
+      rows={rows}
+    />
   );
 }
 
@@ -538,6 +654,30 @@ function runTone(status: string): BadgeTone {
     return "processing";
   }
   return "muted";
+}
+
+function recommendationTone(status: string): BadgeTone {
+  if (status === "up_to_date") {
+    return "success";
+  }
+  if (status === "lagging" || status === "empty") {
+    return "warning";
+  }
+  if (status === "blocked_missing_calendar") {
+    return "error";
+  }
+  return "muted";
+}
+
+function recommendationStatusLabel(status: string): string {
+  const mapping: Record<string, string> = {
+    blocked_missing_calendar: "缺交易日历",
+    empty: "未落盘",
+    lagging: "落后",
+    not_applicable: "不适用",
+    up_to_date: "已到最新",
+  };
+  return mapping[status] ?? status;
 }
 
 function isRunnableProfile(profile: SyncProfileSummary): boolean {

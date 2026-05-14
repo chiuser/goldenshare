@@ -25,6 +25,37 @@ class SyncProfileListResponse(BaseModel):
     items: list[SyncProfileSummary]
 
 
+class SyncRecommendationPlanHint(BaseModel):
+    profile_key: str
+    dataset_keys: list[str]
+    target_date: str | None = None
+    start_date: str | None = None
+    end_date: str | None = None
+
+
+class SyncRecommendationItem(BaseModel):
+    dataset_key: str
+    display_name: str
+    source: str
+    status: str
+    local_latest_trade_date: str | None = None
+    expected_latest_trade_date: str | None = None
+    suggested_start_date: str | None = None
+    suggested_end_date: str | None = None
+    lag_anchor_count: int = 0
+    lag_calendar_days: int = 0
+    reason: str
+    plan_hint: SyncRecommendationPlanHint | None = None
+
+
+class SyncRecommendationResponse(BaseModel):
+    generated_at: str
+    profile_key: str
+    cutoff_time: str
+    expected_reference_date: str | None = None
+    items: list[SyncRecommendationItem]
+
+
 class SyncLockResponse(BaseModel):
     status: str
     run_id: str | None = None
