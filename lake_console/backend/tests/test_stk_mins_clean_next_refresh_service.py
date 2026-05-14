@@ -137,6 +137,62 @@ def test_clean_next_refresh_marks_gate_publishing_before_rebuild(tmp_path: Path)
     assert IndicatorRecalcQueueService(lake_root=tmp_path).list_items() == []
 
 
+def test_clean_next_refresh_keeps_gate_publishing_when_queue_upsert_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _write_stock_basic(tmp_path)
+    _write_raw_partition(
+        tmp_path,
+        freq=1,
+        trade_date=date(2026, 5, 8),
+        rows=[
+            _raw_row("000001.SZ", 1, f"2026-05-08 {hour:02d}:{minute:02d}:00")
+            for hour, minute in _minute_times(include_after_hours=False)
+        ],
+    )
+    gate_service = CleanNextPartitionGateService(lake_root=tmp_path)
+    gate_service.write_statuses(
+        [
+            CleanNextGateStatus(
+                freq=1,
+                trade_date=date(2026, 5, 8),
+                clean_partition_path="research/stk_mins_by_date_clean_next/freq=1/trade_date=2026-05-08",
+                source_run_id="old-source-run",
+                clean_run_id="old-clean-run",
+                write_revision="old-revision",
+                status="passed",
+                issue_count=0,
+                raw_rows=241,
+                clean_rows=241,
+                ledger_path=str(tmp_path / "manifest" / "stk_mins_quality" / "clean_next_completeness_issue_ledger.parquet"),
+                message="old passed gate",
+            )
+        ],
+        run_id="seed-old-passed-gate",
+    )
+
+    def fail_upsert(self: IndicatorRecalcQueueService, event: dict[str, object]) -> dict[str, object]:
+        raise RuntimeError("queue boom")
+
+    monkeypatch.setattr(IndicatorRecalcQueueService, "upsert_pending_from_source_event", fail_upsert)
+
+    with pytest.raises(RuntimeError, match="queue boom"):
+        CleanNextRefreshService(lake_root=tmp_path, progress=lambda _: None).refresh(
+            affected_partitions=[_affected_partition(tmp_path, freq=1, trade_date=date(2026, 5, 8))],
+            dry_run=False,
+            apply=True,
+        )
+
+    gate_rows = gate_service.read_statuses()
+    assert len(gate_rows) == 1
+    assert gate_rows[0]["status"] == "publishing"
+    assert gate_rows[0]["source_run_id"] == "raw-run-1"
+    assert gate_rows[0]["write_revision"] == "raw-run-1:raw_tushare:freq=1:trade_date=2026-05-08"
+    assert len(_source_event_rows(tmp_path)) == 1
+    assert IndicatorRecalcQueueService(lake_root=tmp_path).list_items() == []
+
+
 def test_clean_next_refresh_range_publishes_gate_queue_and_derived_hints(tmp_path: Path) -> None:
     _write_stock_basic(tmp_path)
     for freq in (30, 60):

@@ -6,6 +6,12 @@
 
 本文既记录修复方案，也记录本次正式 `clean_next` 专项执行结果。
 
+2026-05-14 收口说明：
+
+1. 本专项修复已经完成，后续不再保留可执行专项命令。
+2. 历史 CLI 入口已从 `lake_console` 下线，本文只作为历史方案与执行记录。
+3. 未来如需修复 `clean_next`，必须重新走当前标准链路：`raw` 变更 -> affected partition -> `CleanNextRefreshService` -> scoped audit -> gate -> indicator queue，不允许直接写 `clean_next` 分区。
+
 2026-05-13 订正说明：
 
 1. 历史错误 clean 演练方案只服务错误 schema 的 `research/stk_mins_by_date_clean`，相关独立文档已删除，历史摘要见 `stk-mins-clean-cleaning-master-record-v1.md`。
@@ -103,16 +109,11 @@ manifest/security_identity_map
 2. `30min` 只替换账本中受影响股票的旧行。
 3. 同一 `30min` 分区中未受影响股票必须保持不变。
 
-## 5. 独立命令
+## 5. 历史独立命令
 
-建议新增专项命令：
+本专项历史执行时曾使用显式 `dry-run/apply` 两阶段命令。该命令已在 2026-05-14 下线，本文不再提供可复制的执行入口。
 
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --apply
-```
-
-命令必须硬编码本专项边界：
+历史命令硬编码了本专项边界：
 
 ```text
 trade_date_range=2022-07-15~2022-12-30
@@ -353,12 +354,6 @@ source_ts_code
 
 ### G6. 回归门禁
 
-执行前至少执行：
-
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --dry-run
-```
-
 修复后至少执行：
 
 ```bash
@@ -370,7 +365,7 @@ lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-
 
 说明：
 
-`repair-stk-mins-clean-next-2022-bj-freq30 --dry-run` 是修复前的只读预演命令。`apply` 完成后，目标分区已从 `bar_count=6` 修成 `bar_count=9`，旧账本仍保留历史问题清单，因此再次执行该修复命令的 `dry-run` 会触发“旧行数不是 6”的专项门禁。修复后的成功判定必须以 scoped audit 为准。
+历史 `dry-run` 是修复前的只读预演。`apply` 完成后，目标分区已从 `bar_count=6` 修成 `bar_count=9`，旧账本仍保留历史问题清单，因此不能再用历史专项命令判断成功。修复后的成功判定必须以 scoped audit 为准。
 
 ## 11. 回滚方案
 
@@ -385,7 +380,7 @@ lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-
 1. 停止后续动作。
 2. 不进入 derived/research/indicator 重建。
 3. 用备份目录恢复对应日期分区。
-4. 重新执行本专项 `dry-run`。
+4. 重新按当前标准链路设计新的 affected partition refresh 与 scoped audit，不再复用历史专项命令。
 
 ## 12. 与旧 current-clean 方案的关系
 
@@ -407,11 +402,9 @@ ts_code, freq, trade_time, open, close, high, low, vol, amount, exchange, vwap
 
 ### 2026-05-13 dry-run
 
-执行命令：
+执行说明：
 
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --dry-run
-```
+历史执行时使用过本专项 repair 命令完成 dry-run。该 repair 命令已下线，本文只保留结果摘要，不再保留可复制命令。
 
 结果摘要：
 
@@ -439,11 +432,9 @@ elapsed_seconds=105.737
 
 ### 2026-05-13 apply
 
-执行命令：
+执行说明：
 
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --apply
-```
+历史执行时使用过本专项 repair 命令完成 apply。该 repair 命令已下线，本文只保留结果摘要，不再保留可复制命令。
 
 结果摘要：
 

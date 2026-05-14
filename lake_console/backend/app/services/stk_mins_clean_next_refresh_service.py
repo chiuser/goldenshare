@@ -120,11 +120,6 @@ class CleanNextRefreshService:
                 ledger_path=str(self.lake_root / FORMAL_CLEAN_ISSUE_LEDGER_RELATIVE_PATH),
                 message="passed" if partition_status == "passed" else "blocked by clean_next scoped audit",
             )
-            self.gate_service.write_statuses(
-                [final_gate_status],
-                run_id=_gate_run_id(prefix="clean-next-gate-final", partition=partition),
-            )
-            gate_statuses.append(final_gate_status)
             if final_gate_status.status == "passed":
                 recalc_events.append(
                     queue_service.record_source_partition_replaced(
@@ -140,6 +135,11 @@ class CleanNextRefreshService:
                     source_freq=final_gate_status.freq,
                     trade_date=final_gate_status.trade_date,
                 )
+            self.gate_service.write_statuses(
+                [final_gate_status],
+                run_id=_gate_run_id(prefix="clean-next-gate-final", partition=partition),
+            )
+            gate_statuses.append(final_gate_status)
             partition_results.append(
                 {
                     "freq": partition.freq,

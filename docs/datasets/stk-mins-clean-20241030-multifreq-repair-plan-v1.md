@@ -6,6 +6,12 @@
 
 本文定义修复方案，并记录 2026-05-13 的实际执行结果。
 
+2026-05-14 收口说明：
+
+1. 本专项修复已经完成，后续不再保留可执行专项命令。
+2. 历史 CLI 入口已从 `lake_console` 下线，本文只作为历史方案与执行记录。
+3. 未来如需修复 `clean_next`，必须重新走当前标准链路：`raw` 变更 -> affected partition -> `CleanNextRefreshService` -> scoped audit -> gate -> indicator queue，不允许直接写 `clean_next` 分区。
+
 2026-05-13 订正说明：
 
 1. 当前正式 clean candidate 已经从 raw 全量构建到 `research/stk_mins_by_date_clean_next`。
@@ -291,14 +297,9 @@ trade_date
 
 ## 7. 写入策略
 
-本专项必须实现为显式 `dry-run/apply` 两阶段。
+本专项历史执行时曾使用显式 `dry-run/apply` 两阶段命令。
 
-建议新增专项命令：
-
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --apply
-```
+该命令已在 2026-05-14 下线，本文不再提供可复制的执行入口。
 
 命令必须硬编码本专项边界：
 
@@ -440,10 +441,11 @@ research/stk_mins_by_date_clean_next/freq=<freq>/trade_date=2024-10-30
 
 ### G6. 回归门禁
 
-修复后至少执行：
+修复后至少执行 scoped audit：
 
 ```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-clean-next-completeness --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30 --sample-limit 20
+lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-date-clean-next --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30
 ```
 
 专项 apply 后必须执行分区直读校验，确认受影响股票不再是 `bar_count=271`。
@@ -488,11 +490,11 @@ where trade_date = date '2024-10-30'
 5. 它主要面向旧 raw 修补，不是 clean 专项分区替换。
 6. 本专项必须额外满足当前文档定义的 clean schema 门禁、`vwap` 生成门禁和受影响股票清单门禁。
 
-所以本专项必须新增一个边界更窄、门禁更强的 repair 实现。
+所以本专项历史执行时使用了一个边界更窄、门禁更强的 repair 实现。该实现已在专项完成后下线，避免继续绕过当前 `clean_next` 标准发布链路。
 
 ## 11. 执行顺序
 
-建议分三步：
+历史执行顺序分三步：
 
 1. 新增专项 dry-run 命令，只读输出影响范围与预计写入规模。
 2. 运行 dry-run，确认所有门禁通过后再申请执行 apply。
@@ -502,15 +504,9 @@ where trade_date = date '2024-10-30'
 
 执行时间：2026-05-13
 
-执行命令：
+执行说明：
 
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --apply
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-20241030-multifreq --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-clean-next-completeness --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30 --sample-limit 20
-lake_console/.venv/bin/python -m lake_console.backend.app.cli audit-stk-mins-by-date-clean-next --freqs 5,15,30,60 --start-date 2024-10-30 --end-date 2024-10-30
-```
+历史执行时使用过本专项 repair 命令完成 `dry-run -> apply -> scoped audit`。该 repair 命令已下线，本文只保留结果摘要，不再保留可复制命令。
 
 修复前 `dry-run` 结果：
 

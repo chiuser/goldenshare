@@ -648,12 +648,9 @@ M5 初始账本中的两个已知专项均已完成，并已在后续全量完�
 
 [stk_mins clean 2022 北交所 30min 缺失专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-2022-bj-freq30-repair-plan-v1.md)
 
-执行命令：
+执行说明：
 
-```bash
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --dry-run
-lake_console/.venv/bin/python -m lake_console.backend.app.cli repair-stk-mins-clean-next-2022-bj-freq30 --apply
-```
+历史执行时使用过本专项 repair 命令完成 `dry-run -> apply`。该 repair 命令已在 2026-05-14 下线，本文只保留执行结果摘要。
 
 执行结果摘要：
 
