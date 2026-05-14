@@ -81,10 +81,10 @@
 
 1. 事实源单一：新闻速览与个股新闻分别由后端独立接口产出，前端不得自行从整页 mock 或其它模块拼装。
 2. 契约冻结：`visibleItemCount/newsId/publishTime/displayTime/title/category/source/subject/clickable` 字段在本期冻结。
-3. 配置一致性：配置文件、文档、代码读取的 key 必须一致，默认 `visibleItemCount=10`。
+3. 配置一致性：配置文件、文档、代码读取的 key 必须一致，默认 `visibleItemCount=10`，每个板块单次至少取 `queryLimit=300` 条候选新闻。
 4. 默认行为显式：新闻不跟随页面全局交易日；查询窗口固定为“当前自然日的前一天 00:00:00 到当前服务器时间”，时区 `Asia/Shanghai`。
 5. 排序筛选确定性：候选集必须先删除 `content` 为空的新闻，再按 `content` 严格去重，每个 `content` 只保留发布时间最新的一条，最后按 `publishTime desc` 排序。
-6. 性能预算前置：单次接口 P95 `< 300ms`，payload `< 40KB`。
+6. 性能预算前置：单次接口 P95 `< 300ms`，payload `< 600KB`。
 7. 可观测标准化：异常码统一登记，debug 输出结构与其它市场总览模块一致。
 8. 用户可见结果优先：验收以两个新闻板块的标题、时间、省略、滚动和不可点击为主。
 
@@ -100,6 +100,7 @@
 |---|---|---|---|---|---|
 | `newsWindow` | 本次新闻模块自然时间窗口 | 时间区间 | 否 | 后端 | 不允许缺失 |
 | `visibleItemCount` | 每个新闻板块默认可见条数 | 条 | 否 | 运营配置 + 后端 | 配置缺失时模块 error |
+| `queryLimit` | 每个新闻板块后端候选查询上限 | 条 | 否 | 运营配置 + 后端 | 默认 300；不得低于 300 |
 | `updatedAt` | 新闻组前端组装时间或两个接口中较新的更新时间 | 时间 | 否 | 前端 adapter | 不允许缺失 |
 | `newsBriefs` | 新闻速览列表，来自 `GET /api/v1/wealth/market/news/briefs` | - | 否 | 后端 | 可为空数组 |
 | `stockNews` | 个股新闻列表，来自 `GET /api/v1/wealth/market/news/stocks` | - | 否 | 后端 | 可为空数组 |
@@ -116,6 +117,7 @@
 | `windowEndAt` | 本次查询窗口结束时间 | 时间 | 否 | 后端 | 当前服务器时间，时区 `Asia/Shanghai` |
 | `panelKey` | 板块 key：`newsBriefs` 或 `stockNews` | - | 否 | 后端 | 不允许缺失 |
 | `visibleItemCount` | 当前板块默认可见条数 | 条 | 否 | 运营配置 + 后端 | 配置缺失时模块 error |
+| `queryLimit` | 当前板块后端候选查询上限 | 条 | 否 | 运营配置 + 后端 | 默认 300；不直接暴露给用户 |
 | `updatedAt` | 当前板块数据组装时间 | 时间 | 否 | 后端 | 不允许缺失 |
 | `items` | 当前板块新闻列表 | - | 否 | 后端 | 可为空数组 |
 | `sortRule` | 排序规则说明 | - | 否 | 后端 | 固定 `publishTime_desc_priority_desc` |
@@ -173,8 +175,9 @@
 3. 查询候选集必须满足 `content` 非空；`content IS NULL` 或 trim 后为空字符串的记录直接剔除。
 4. 去重以 `content` 为唯一口径；相同 `content` 只保留 `news_time` 最新的一条。
 5. 最终返回顺序为去重后的 `news_time DESC`。
-3. `channels = '公司'` 是个股新闻板块的唯一分类规则；非公司频道进入新闻速览。
-4. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，并补充样本 SQL；若真实取值不同，必须先停下重新确认口径。
+6. 每个板块默认取 `queryLimit=300` 条候选新闻，保证一天新闻量较大时滚动池足够长；前端仍只按 `visibleItemCount=10` 控制可见高度。
+7. `channels = '公司'` 是个股新闻板块的唯一分类规则；非公司频道进入新闻速览。
+8. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，并补充样本 SQL；若真实取值不同，必须先停下重新确认口径。
 
 ---
 

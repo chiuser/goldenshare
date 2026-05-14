@@ -243,21 +243,18 @@ SELECT
   src AS source_name,
   channels
 FROM core_serving_light.news
-WHERE news_time >= :trade_date_start
-  AND news_time < :trade_date_next_start
+WHERE news_time >= :window_start_at
+  AND news_time <= :window_end_at
   AND channels IS DISTINCT FROM '公司'
-  AND (
-    title IS NOT NULL
-    OR content IS NOT NULL
-  )
+  AND length(trim(content)) > 0
 ORDER BY news_time DESC, row_key_hash ASC
 LIMIT :query_limit;
 ```
 
 实现约束：
 
-1. `query_limit` 不小于 `visibleItemCount`。
-2. 首版建议 `query_limit = visibleItemCount * 2`。
+1. `query_limit` 不小于 `300`。
+2. 首版固定 `query_limit = 300`，`visibleItemCount = 10` 只控制可见高度，不控制候选池长度。
 3. 若启用 content 兜底标题，必须在后端 builder 中生成，并补测试。
 
 ### 5.2 个股新闻
@@ -270,10 +267,10 @@ SELECT
   src AS source_name,
   channels
 FROM core_serving_light.news
-WHERE news_time >= :trade_date_start
-  AND news_time < :trade_date_next_start
+WHERE news_time >= :window_start_at
+  AND news_time <= :window_end_at
   AND channels = '公司'
-  AND title IS NOT NULL
+  AND length(trim(content)) > 0
 ORDER BY news_time DESC, row_key_hash ASC
 LIMIT :query_limit;
 ```
@@ -321,11 +318,11 @@ LIMIT :query_limit;
 ## 8. 性能门禁
 
 1. P95 预算：`< 300ms`。
-2. 返回体大小预算：`< 40KB`。
+2. 返回体大小预算：`< 600KB`。
 3. 最大并发预算：按市场总览首屏并发模块请求计算，不额外引入大查询。
 4. 超预算降级策略：
    - 不做前端 mock 回退；
-   - 后端可缩小 `query_limit`，但必须保持 `visibleItemCount` 可满足。
+   - 后端不得把 `query_limit` 缩到 300 以下；如超预算，应先优化索引、字段裁剪或去重查询。
 
 ---
 
@@ -428,7 +425,7 @@ npm run build
 | 配置一致性原则 | 是 | `market_news.cn_a.v1.json` | 配置解析测试 | 用户不可配置 |
 | 默认行为显式原则 | 是 | status resolver | empty/delayed 测试 | 不静默回退旧日 |
 | 排序与筛选确定性原则 | 是 | SQL order by | 排序测试 | 时间相同需稳定排序 |
-| 性能预算前置原则 | 是 | limit + 索引查询 | API 耗时测试 | payload `<40KB` |
+| 性能预算前置原则 | 是 | `queryLimit=300` + 索引查询 | API 耗时测试 | payload `<600KB` |
 | 可观测与异常标准化原则 | 是 | `NEWS_*` | debug 测试 | 异常码必须注册 |
 | 测试以用户可见结果为中心原则 | 是 | 时间/标题/不可点击 | 前端真实 API smoke | 不只测结构 |
 

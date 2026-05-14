@@ -8,6 +8,7 @@ import pytest
 
 from src.biz.services.wealth.config import (
     MajorIndicesStrategyPayload,
+    MarketNewsStrategyPayload,
     StrategyConfigNotFoundError,
     StrategyConfigRegistration,
     StrategyConfigRegistrationError,
@@ -32,14 +33,19 @@ def test_default_strategy_configs_can_be_loaded() -> None:
     major = service.get_config(module_key="majorIndices", market="CN_A")
     leaderboard = service.get_config(module_key="leaderboards", market="CN_A")
     summary = service.get_config(module_key="marketSummary", market="CN_A")
+    news = service.get_config(module_key="marketNews", market="CN_A")
 
     _assert_semver(major.version)
     _assert_semver(leaderboard.version)
     _assert_semver(summary.version)
+    _assert_semver(news.version)
 
     assert isinstance(major.payload, MajorIndicesStrategyPayload)
     assert len(major.payload.index_codes) == 10
     assert len(set(major.payload.index_codes)) == 10
+    assert isinstance(news.payload, MarketNewsStrategyPayload)
+    assert news.payload.visible_item_count == 10
+    assert news.payload.query_limit >= 300
 
 
 def test_get_version_reads_from_strategy_config() -> None:

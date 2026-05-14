@@ -165,6 +165,30 @@ def test_market_news_endpoint_marks_delayed_without_old_day_fallback(app_client,
     assert payload["debugInfo"]["exceptions"][0]["code"] == "NEWS_SOURCE_DELAYED"
 
 
+def test_market_news_endpoint_returns_300_item_candidate_pool(app_client, db_session) -> None:
+    _ensure_news_tables(db_session)
+    _, in_window_time, _ = _news_window_sample_times()
+    for index in range(305):
+        _add_news(
+            db_session,
+            row_key_hash=f"market-news-bulk-{index:03d}",
+            news_time=in_window_time + timedelta(seconds=index),
+            title=f"市场新闻 {index:03d}",
+            channels="宏观",
+            content=f"市场新闻正文 {index:03d}",
+        )
+    db_session.commit()
+
+    response = app_client.get("/api/v1/wealth/market/news/briefs")
+    assert response.status_code == 200
+    payload = response.json()
+    items = payload["newsBriefs"]["items"]
+    assert payload["newsBriefs"]["visibleItemCount"] == 10
+    assert len(items) == 300
+    assert items[0]["newsId"] == "market-news-bulk-304"
+    assert items[-1]["newsId"] == "market-news-bulk-005"
+
+
 def test_market_news_rejects_unsupported_market(app_client) -> None:
     response = app_client.get("/api/v1/wealth/market/news/briefs", params={"market": "US"})
     assert response.status_code == 400

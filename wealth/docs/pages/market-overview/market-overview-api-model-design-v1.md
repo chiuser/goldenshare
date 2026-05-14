@@ -195,6 +195,7 @@ interface NewsPanelItem {
 | `newsWindow.startAt` | 后端自然时间窗口 | 当前自然日前一天 00:00:00 | `Asia/Shanghai` |
 | `newsWindow.endAt` | 后端自然时间窗口 | 当前服务器时间 | `Asia/Shanghai` |
 | `visibleItemCount` | 策略配置中心 | `visible_item_count` | 默认 10，用户不可改 |
+| `queryLimit` | 策略配置中心 | `query_limit` | 默认 300，只用于后端候选查询，不控制可见高度 |
 | `updatedAt` | 后端组装 | server time / 查询时间 | 标准 datetime |
 | `newsBriefs.newsId` | `core_serving_light.news` | `row_key_hash` | 原样 |
 | `newsBriefs.publishTime` | `core_serving_light.news` | `news_time` | datetime -> 标准 datetime |

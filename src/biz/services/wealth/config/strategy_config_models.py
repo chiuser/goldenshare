@@ -220,8 +220,10 @@ class MarketNewsStrategyPayload(BaseModel):
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
     visible_item_count: int = Field(alias="visibleItemCount", ge=1, le=50)
-    query_multiplier: int = Field(alias="queryMultiplier", ge=1, le=5)
+    query_limit: int = Field(alias="queryLimit", ge=300, le=2000)
 
-    @property
-    def query_limit(self) -> int:
-        return self.visible_item_count * self.query_multiplier
+    @model_validator(mode="after")
+    def _validate_query_limit(self) -> "MarketNewsStrategyPayload":
+        if self.query_limit < self.visible_item_count:
+            raise ValueError("queryLimit must be greater than or equal to visibleItemCount")
+        return self

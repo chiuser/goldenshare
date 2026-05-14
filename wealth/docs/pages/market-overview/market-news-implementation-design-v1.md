@@ -29,10 +29,10 @@
 |---|---|---|---|
 | 事实源单一原则 | 后端两个独立接口分别产出新闻速览和个股新闻事实 | `/api/v1/wealth/market/news/briefs`、`/api/v1/wealth/market/news/stocks` + view-model adapter | 后端 API 断言字段齐全；前端真实 API 展示断言 |
 | 契约先行与冻结原则 | `NewsListPanel/NewsPanelItem` 字段冻结；页面侧 `MarketNewsPanelGroup` 只负责组合 | schema + TypeScript 类型 | 契约字段快照测试 |
-| 配置一致性原则 | `visibleItemCount` 走策略配置中心，默认 10 | `market_news.cn_a.v1.json` | 配置读取测试 + 非法配置失败测试 |
+| 配置一致性原则 | `visibleItemCount` 与 `queryLimit` 走策略配置中心，默认 10 条可见、每板块 300 条候选 | `market_news.cn_a.v1.json` | 配置读取测试 + 非法配置失败测试 |
 | 默认行为显式原则 | 不用旧日新闻冒充目标日 ready | status resolver | 空数据/partial/delayed 测试 |
 | 排序与筛选确定性原则 | `publishTime desc -> priority desc -> newsId asc` | query service | 同时间排序稳定测试 |
-| 性能预算前置原则 | limit 小、字段少、索引按时间命中 | SQL 查询只取必要列 | API 耗时测试 |
+| 性能预算前置原则 | 每板块默认查询 300 条候选新闻，字段少、索引按时间命中 | SQL 查询只取必要列 | API 耗时测试 |
 | 可观测与异常标准化原则 | `NEWS_*` 异常码统一注册 | exception builder + debugInfo | debug 面板字段测试 |
 | 测试以用户可见结果为中心原则 | 时间、标题、不可点击、滚动是主断言 | 前端 smoke | 真实 API 驱动展示测试 |
 
@@ -226,7 +226,7 @@ row_key_hash, news_time, title, content, channels, src
 4. 按 `content` 严格去重：相同 `content` 只保留 `news_time` 最新的一条。
 5. `title` 为空但 `content` 有值时，由后端截取 `content` 前 80 字生成展示标题；前端不得拼接。
 6. 排序：去重后按 `news_time desc, row_key_hash asc`。
-7. 截断：取 `visibleItemCount` 的至少 2 倍作为滚动候选，上限由配置控制，前端只显示可视窗口。
+7. 截断：每个板块按配置取 `queryLimit=300` 条候选新闻；前端只按 `visibleItemCount=10` 控制可见窗口。
 
 ### 5.2 主查询：个股新闻
 
@@ -329,7 +329,7 @@ interface MarketNewsDebugInfo {
 
 ## 7. 性能与缓存策略
 
-1. 性能预算：P95 `< 300ms`，payload `< 40KB`。
+1. 性能预算：P95 `< 300ms`，payload `< 600KB`。
 2. 首版策略：无 Redis 缓存，SQL 只按时间倒序取必要字段。
 3. 二期缓存策略：如新闻量或页面并发增加，可按 `market + newsWindowEndMinute + configVersion` 做短期缓存。
 4. 一致性策略：配置变更重启生效；新闻源更新后下一次请求读取最新数据。
