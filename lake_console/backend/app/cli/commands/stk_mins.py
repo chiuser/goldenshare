@@ -7,6 +7,7 @@ from lake_console.backend.app.cli.commands.common import add_lake_root_arg, pars
 from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 from lake_console.backend.app.services.stk_mins_gap_repair_service import StkMinsGapRepairService
+from lake_console.backend.app.services.stk_mins_clean_next_gate_backfill_service import StkMinsCleanNextGateBackfillService
 from lake_console.backend.app.services.stk_mins_clean_service import StkMinsCleanService
 from lake_console.backend.app.services.stk_mins_raw_recovery_service import StkMinsRawRecoveryService
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
@@ -160,6 +161,21 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
         help="只写 manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet，不修改 clean_next/derived/research",
     )
     clean_next_completeness_parser.set_defaults(handler=_handle_audit_stk_mins_clean_next_completeness)
+
+    clean_next_gate_parser = subparsers.add_parser(
+        "backfill-stk-mins-clean-next-gate",
+        help="为已存在的 clean_next 分区补写 gate 通行证，不重建数据",
+    )
+    add_lake_root_arg(clean_next_gate_parser)
+    clean_next_gate_mode = clean_next_gate_parser.add_mutually_exclusive_group(required=True)
+    clean_next_gate_mode.add_argument("--dry-run", action="store_true", help="只审计并输出计划，不写 gate/ledger")
+    clean_next_gate_mode.add_argument("--apply", action="store_true", help="执行审计并写入 gate/ledger")
+    clean_next_gate_parser.add_argument("--freqs", default="30,60", help="多个分钟周期，逗号分隔；默认 30,60，用于 90/120 derived 前置门禁")
+    clean_next_gate_parser.add_argument("--start-date", required=True, type=date.fromisoformat, help="开始交易日，格式 YYYY-MM-DD")
+    clean_next_gate_parser.add_argument("--end-date", required=True, type=date.fromisoformat, help="结束交易日，格式 YYYY-MM-DD")
+    clean_next_gate_parser.add_argument("--refresh-existing", action="store_true", help="重新审计并覆盖已有 gate 状态；默认只补缺失 gate 的分区")
+    clean_next_gate_parser.add_argument("--sample-limit", default=20, type=int, help="样本数量上限")
+    clean_next_gate_parser.set_defaults(handler=_handle_backfill_stk_mins_clean_next_gate)
 
     clean_next_rebuild_parser = subparsers.add_parser(
         "rebuild-stk-mins-by-date-clean-next-range",
@@ -391,6 +407,22 @@ def _handle_audit_stk_mins_clean_next_completeness(args: argparse.Namespace) -> 
         end_date=args.end_date,
         sample_limit=args.sample_limit,
         write_ledger=args.write_ledger,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_backfill_stk_mins_clean_next_gate(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_freqs(args.freqs, fallback=None)
+    summary = StkMinsCleanNextGateBackfillService(lake_root=settings.lake_root).backfill(
+        freqs=freqs,
+        start_date=args.start_date,
+        end_date=args.end_date,
+        dry_run=args.dry_run,
+        apply=args.apply,
+        refresh_existing=args.refresh_existing,
+        sample_limit=args.sample_limit,
     )
     print_json(summary)
     return 0

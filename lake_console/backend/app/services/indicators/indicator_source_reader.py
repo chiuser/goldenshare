@@ -6,7 +6,11 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.services.parquet_writer import read_parquet_files
-from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextPartitionGateService
+from lake_console.backend.app.services.stk_mins_clean_next_gate import (
+    CleanNextGateBlockedError,
+    CleanNextPartitionGateService,
+    clean_next_partition_key,
+)
 
 
 RAW_FREQS = {1, 5, 15, 30, 60}
@@ -261,9 +265,19 @@ def _source_root(*, lake_root: Path, freq: int) -> Path:
 
 
 def _require_clean_next_gate_for_trade_dates(*, lake_root: Path, freq: int, trade_dates: list[date]) -> None:
-    service = CleanNextPartitionGateService(lake_root=lake_root)
+    rows_by_key = {
+        str(row.get("partition_key") or ""): row
+        for row in CleanNextPartitionGateService(lake_root=lake_root).read_statuses()
+        if str(row.get("partition_key") or "")
+    }
     for trade_date in sorted(set(trade_dates)):
-        service.require_passed(freq=freq, trade_date=trade_date)
+        partition_key = clean_next_partition_key(freq=freq, trade_date=trade_date)
+        row = rows_by_key.get(partition_key)
+        if not row:
+            raise CleanNextGateBlockedError(f"clean_next gate 缺少分区状态：{partition_key}")
+        if str(row.get("status") or "") != "passed":
+            ledger_path = row.get("ledger_path") or "-"
+            raise CleanNextGateBlockedError(f"clean_next gate 未通过：{partition_key} status={row.get('status')} ledger={ledger_path}")
 
 
 def _parse_partition_date(partition: Path) -> date | None:

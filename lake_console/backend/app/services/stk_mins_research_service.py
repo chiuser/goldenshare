@@ -12,12 +12,10 @@ from typing import Any
 from lake_console.backend.app.services.lake_root_service import LakeRootService
 from lake_console.backend.app.services.manifest_service import ManifestService
 from lake_console.backend.app.services.parquet_writer import (
-    read_parquet_files,
     read_parquet_row_count,
     replace_directory_atomically,
-    write_rows_to_parquet,
 )
-from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateBlockedError, CleanNextPartitionGateService
+from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateBlockedError, CleanNextPartitionGateService, clean_next_partition_key
 from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
 
 
@@ -31,7 +29,13 @@ class StkMinsResearchService:
         self.bucket_count = bucket_count
         self.progress = progress or print
 
-    def rebuild_month(self, *, freq: int, trade_month: str) -> dict[str, Any]:
+    def rebuild_month(
+        self,
+        *,
+        freq: int,
+        trade_month: str,
+        gate_rows_by_key: dict[str, dict[str, Any]] | None = None,
+    ) -> dict[str, Any]:
         if freq not in RAW_FREQS | DERIVED_FREQS:
             raise ValueError("research 重排仅支持 freq=1/5/15/30/60/90/120。")
         if self.bucket_count <= 0:
@@ -48,10 +52,13 @@ class StkMinsResearchService:
         if not source_files:
             raise RuntimeError(f"缺少可重排源文件：{source_root}/trade_date={trade_month}-*/")
         if freq in RAW_FREQS:
-            _require_clean_next_gate_for_files(lake_root=self.lake_root, freq=freq, source_files=source_files)
+            _require_clean_next_gate_for_files(
+                lake_root=self.lake_root,
+                freq=freq,
+                source_files=source_files,
+                gate_rows_by_key=gate_rows_by_key,
+            )
 
-        rows = read_parquet_files(source_files)
-        buckets = bucket_rows(rows=rows, bucket_count=self.bucket_count)
         tmp_month = (
             self.lake_root
             / "_tmp"
@@ -68,18 +75,18 @@ class StkMinsResearchService:
             / f"freq={freq}"
             / f"trade_month={trade_month}"
         )
-        written_total = 0
         self.progress(
             f"[research_stk_mins] start run_id={run_id} freq={freq} trade_month={trade_month} "
-            f"source_node_key={source_node_key} source_files={len(source_files)} source_rows={len(rows)} buckets={self.bucket_count}"
+            f"source_node_key={source_node_key} source_files={len(source_files)} buckets={self.bucket_count}"
         )
-        for bucket, bucket_rows_value in sorted(buckets.items()):
-            bucket_dir = tmp_month / f"bucket={bucket}"
-            tmp_file = bucket_dir / "part-000.parquet"
-            written = write_rows_to_parquet(
-                sorted(bucket_rows_value, key=lambda item: (_bucket_key(item), str(item.get("trade_time") or ""))),
-                tmp_file,
-            )
+        source_rows, bucket_counts = _write_month_buckets_streaming(
+            source_files=source_files,
+            tmp_month=tmp_month,
+            bucket_count=self.bucket_count,
+        )
+        written_total = 0
+        for bucket, written in sorted(bucket_counts.items()):
+            tmp_file = tmp_month / f"bucket={bucket}" / "part-000.parquet"
             validated = read_parquet_row_count(tmp_file)
             if validated != written:
                 raise RuntimeError(f"research bucket 校验失败：written={written} validated={validated} file={tmp_file}")
@@ -102,7 +109,7 @@ class StkMinsResearchService:
             "trade_month": trade_month,
             "source_node_key": source_node_key,
             "source_files": len(source_files),
-            "source_rows": len(rows),
+            "source_rows": source_rows,
             "bucket_count": self.bucket_count,
             "written_rows": written_total,
             "output": str(final_month),
@@ -112,7 +119,7 @@ class StkMinsResearchService:
         TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
         self.progress(
             f"[research_stk_mins] done freq={freq} trade_month={trade_month} "
-            f"source_rows={len(rows)} written={written_total} output={final_month} elapsed={math.ceil(elapsed)}s"
+            f"source_rows={source_rows} written={written_total} output={final_month} elapsed={math.ceil(elapsed)}s"
         )
         return summary
 
@@ -134,7 +141,13 @@ class StkMinsResearchService:
             preview = "\n".join(str(item) for item in missing_sources[:10])
             suffix = "" if len(missing_sources) <= 10 else f"\n... 另有 {len(missing_sources) - 10} 个缺失源月份"
             raise RuntimeError(f"rebuild-stk-mins-research-range 缺少源文件，未执行任何写入：\n{preview}{suffix}")
-        gate_errors = _month_gate_errors(lake_root=self.lake_root, freqs=freqs, trade_months=months)
+        gate_rows_by_key = _gate_rows_by_key(lake_root=self.lake_root)
+        gate_errors = _month_gate_errors(
+            lake_root=self.lake_root,
+            freqs=freqs,
+            trade_months=months,
+            gate_rows_by_key=gate_rows_by_key,
+        )
         if gate_errors:
             preview = "\n".join(gate_errors[:10])
             suffix = "" if len(gate_errors) <= 10 else f"\n... 另有 {len(gate_errors) - 10} 个 gate 问题"
@@ -160,7 +173,7 @@ class StkMinsResearchService:
                     f"[research_stk_mins_range] unit={unit}/{units_total} "
                     f"freq={freq} trade_month={trade_month}"
                 )
-                summary = self.rebuild_month(freq=freq, trade_month=trade_month)
+                summary = self.rebuild_month(freq=freq, trade_month=trade_month, gate_rows_by_key=gate_rows_by_key)
                 summaries.append(summary)
                 total_source_rows += int(summary.get("source_rows") or 0)
                 total_written_rows += int(summary.get("written_rows") or 0)
@@ -201,6 +214,64 @@ def bucket_rows(*, rows: list[dict[str, Any]], bucket_count: int) -> dict[int, l
         bucket = stable_bucket(ts_code=bucket_key, bucket_count=bucket_count)
         buckets[bucket].append(row)
     return buckets
+
+
+def _write_month_buckets_streaming(*, source_files: list[Path], tmp_month: Path, bucket_count: int) -> tuple[int, dict[int, int]]:
+    """Rewrite by-date files into monthly buckets without loading a full month into memory."""
+    pa, pq = _require_pyarrow()
+    writers: dict[int, Any] = {}
+    bucket_counts: dict[int, int] = defaultdict(int)
+    source_rows = 0
+    try:
+        for source_file in source_files:
+            parquet_file = pq.ParquetFile(source_file)
+            for batch in parquet_file.iter_batches(batch_size=100_000):
+                table = _normalize_stk_mins_table_schema(pa.Table.from_batches([batch]), pa=pa)
+                rows = table.to_pylist()
+                if not rows:
+                    continue
+                source_rows += len(rows)
+                rows_by_bucket: dict[int, list[dict[str, Any]]] = defaultdict(list)
+                for row in rows:
+                    bucket_key = _bucket_key(row)
+                    if not bucket_key:
+                        continue
+                    bucket = stable_bucket(ts_code=bucket_key, bucket_count=bucket_count)
+                    rows_by_bucket[bucket].append(row)
+                for bucket, bucket_rows_value in rows_by_bucket.items():
+                    bucket_file = tmp_month / f"bucket={bucket}" / "part-000.parquet"
+                    bucket_file.parent.mkdir(parents=True, exist_ok=True)
+                    bucket_table = pa.Table.from_pylist(bucket_rows_value, schema=table.schema)
+                    writer = writers.get(bucket)
+                    if writer is None:
+                        writer = pq.ParquetWriter(bucket_file, bucket_table.schema, compression="zstd")
+                        writers[bucket] = writer
+                    writer.write_table(bucket_table)
+                    bucket_counts[bucket] += len(bucket_rows_value)
+    finally:
+        for writer in writers.values():
+            writer.close()
+    return source_rows, dict(bucket_counts)
+
+
+def _normalize_stk_mins_table_schema(table: Any, *, pa: Any) -> Any:
+    """Keep monthly streaming writers stable when a batch has all-null optional fields."""
+    expected_types = {
+        "ts_code": pa.large_string(),
+        "freq": pa.int64(),
+        "trade_date": pa.large_string(),
+        "trade_time": pa.timestamp("us"),
+        "open": pa.float64(),
+        "close": pa.float64(),
+        "high": pa.float64(),
+        "low": pa.float64(),
+        "vol": pa.int64(),
+        "amount": pa.float64(),
+        "exchange": pa.large_string(),
+        "vwap": pa.float64(),
+    }
+    fields = [pa.field(field.name, expected_types.get(field.name, field.type)) for field in table.schema]
+    return table.cast(pa.schema(fields), safe=False)
 
 
 def stable_bucket(*, ts_code: str, bucket_count: int) -> int:
@@ -244,7 +315,13 @@ def _missing_month_sources(*, lake_root: Path, freqs: list[int], trade_months: l
     return missing
 
 
-def _month_gate_errors(*, lake_root: Path, freqs: list[int], trade_months: list[str]) -> list[str]:
+def _month_gate_errors(
+    *,
+    lake_root: Path,
+    freqs: list[int],
+    trade_months: list[str],
+    gate_rows_by_key: dict[str, dict[str, Any]],
+) -> list[str]:
     errors: list[str] = []
     for freq in freqs:
         if freq not in RAW_FREQS:
@@ -253,7 +330,12 @@ def _month_gate_errors(*, lake_root: Path, freqs: list[int], trade_months: list[
         for trade_month in trade_months:
             source_files = _month_source_files(source_root=source_root, trade_month=trade_month)
             try:
-                _require_clean_next_gate_for_files(lake_root=lake_root, freq=freq, source_files=source_files)
+                _require_clean_next_gate_for_files(
+                    lake_root=lake_root,
+                    freq=freq,
+                    source_files=source_files,
+                    gate_rows_by_key=gate_rows_by_key,
+                )
             except CleanNextGateBlockedError as exc:
                 errors.append(str(exc))
     return errors
@@ -267,12 +349,36 @@ def _source_root(*, lake_root: Path, source_node_key: str, freq: int) -> Path:
     raise ValueError(f"不支持的 stk_mins research source_node_key={source_node_key}")
 
 
-def _require_clean_next_gate_for_files(*, lake_root: Path, freq: int, source_files: list[Path]) -> None:
-    service = CleanNextPartitionGateService(lake_root=lake_root)
+def _require_clean_next_gate_for_files(
+    *,
+    lake_root: Path,
+    freq: int,
+    source_files: list[Path],
+    gate_rows_by_key: dict[str, dict[str, Any]] | None = None,
+) -> None:
+    service = None if gate_rows_by_key is not None else CleanNextPartitionGateService(lake_root=lake_root)
     for trade_date in sorted({_parse_partition_date(path.parent) for path in source_files}):
         if trade_date is None:
             continue
-        service.require_passed(freq=freq, trade_date=trade_date)
+        if gate_rows_by_key is None:
+            assert service is not None
+            service.require_passed(freq=freq, trade_date=trade_date)
+            continue
+        partition_key = clean_next_partition_key(freq=freq, trade_date=trade_date)
+        row = gate_rows_by_key.get(partition_key)
+        if not row:
+            raise CleanNextGateBlockedError(f"clean_next gate 缺少分区状态：{partition_key}")
+        if str(row.get("status") or "") != "passed":
+            ledger_path = row.get("ledger_path") or "-"
+            raise CleanNextGateBlockedError(f"clean_next gate 未通过：{partition_key} status={row.get('status')} ledger={ledger_path}")
+
+
+def _gate_rows_by_key(*, lake_root: Path) -> dict[str, dict[str, Any]]:
+    return {
+        str(row.get("partition_key") or ""): row
+        for row in CleanNextPartitionGateService(lake_root=lake_root).read_statuses()
+        if str(row.get("partition_key") or "")
+    }
 
 
 def _parse_partition_date(partition: Path) -> date | None:
@@ -303,3 +409,12 @@ def _parse_trade_month(value: str) -> tuple[int, int]:
 
 def _run_id(suffix: str) -> str:
     return datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ") + f"-{suffix}"
+
+
+def _require_pyarrow():  # type: ignore[no-untyped-def]
+    try:
+        import pyarrow as pa
+        import pyarrow.parquet as pq
+    except ModuleNotFoundError as exc:
+        raise RuntimeError("缺少 pyarrow，无法流式重排 stk_mins research。请先安装 lake_console/backend/requirements.txt。") from exc
+    return pa, pq
