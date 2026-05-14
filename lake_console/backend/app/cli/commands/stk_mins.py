@@ -8,6 +8,7 @@ from lake_console.backend.app.cli.progress import StkMinsTerminalProgress
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 from lake_console.backend.app.services.stk_mins_gap_repair_service import StkMinsGapRepairService
 from lake_console.backend.app.services.stk_mins_clean_next_gate_backfill_service import StkMinsCleanNextGateBackfillService
+from lake_console.backend.app.services.stk_mins_clean_next_refresh_service import CleanNextRefreshService
 from lake_console.backend.app.services.stk_mins_clean_service import StkMinsCleanService
 from lake_console.backend.app.services.stk_mins_raw_recovery_service import StkMinsRawRecoveryService
 from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
@@ -174,7 +175,7 @@ def register_stk_mins_commands(subparsers: argparse._SubParsersAction[argparse.A
     add_lake_root_arg(clean_next_rebuild_parser)
     clean_next_rebuild_mode = clean_next_rebuild_parser.add_mutually_exclusive_group(required=True)
     clean_next_rebuild_mode.add_argument("--dry-run", action="store_true", help="只生成正式 clean candidate 重建计划，不写文件")
-    clean_next_rebuild_mode.add_argument("--apply", action="store_true", help="执行正式 clean candidate 分区重建，只写 clean_next")
+    clean_next_rebuild_mode.add_argument("--apply", action="store_true", help="执行正式 clean_next 分区重建、审计、写 gate，并在通过后通知指标重算")
     clean_next_rebuild_parser.add_argument("--freqs", default="1,5,15,30,60", help="多个分钟周期，逗号分隔")
     clean_next_rebuild_parser.add_argument("--start-date", default=None, type=date.fromisoformat, help="可选开始交易日")
     clean_next_rebuild_parser.add_argument("--end-date", default=None, type=date.fromisoformat, help="可选结束交易日")
@@ -409,7 +410,7 @@ def _handle_backfill_stk_mins_clean_next_gate(args: argparse.Namespace) -> int:
 def _handle_rebuild_stk_mins_by_date_clean_next_range(args: argparse.Namespace) -> int:
     settings = settings_from_args(args)
     freqs = parse_freqs(args.freqs, fallback=None)
-    summary = StkMinsCleanService(lake_root=settings.lake_root).rebuild_formal_clean_next_from_raw(
+    summary = CleanNextRefreshService(lake_root=settings.lake_root).refresh_raw_range(
         freqs=freqs,
         start_date=args.start_date,
         end_date=args.end_date,

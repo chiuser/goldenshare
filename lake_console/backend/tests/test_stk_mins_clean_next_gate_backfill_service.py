@@ -35,6 +35,8 @@ def test_backfill_clean_next_gate_writes_passed_status(tmp_path) -> None:
     assert gate_rows[0]["partition_key"] == "freq=30/trade_date=2026-04-24"
     assert gate_rows[0]["status"] == "passed"
     assert gate_rows[0]["clean_rows"] == 9
+    assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+    assert not (tmp_path / "manifest" / "source_partition_events" / "stk_mins.jsonl").exists()
 
 
 def _write_identity_map(root) -> None:

@@ -8,7 +8,6 @@ import pytest
 pytest.importorskip("pyarrow")
 
 from lake_console.backend.app.services.parquet_writer import read_parquet_rows
-from lake_console.backend.app.services.indicators.indicator_recalc_queue import IndicatorRecalcQueueService
 from lake_console.backend.app.services.stk_mins_clean_service import StkMinsCleanService
 
 
@@ -71,7 +70,7 @@ def test_formal_clean_next_keeps_zero_price_rows_and_writes_formal_schema(tmp_pa
         "vwap",
     ]
 
-    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None).rebuild_formal_clean_next_from_raw(
+    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None)._rebuild_formal_clean_next_from_raw(
         freqs=[1],
         start_date=date(2011, 12, 12),
         end_date=date(2011, 12, 12),
@@ -82,19 +81,14 @@ def test_formal_clean_next_keeps_zero_price_rows_and_writes_formal_schema(tmp_pa
     clean_file = tmp_path / "research" / "stk_mins_by_date_clean_next" / "freq=1" / "trade_date=2011-12-12" / "part-000.parquet"
     rows = read_parquet_rows(clean_file)
     assert summary["kept_rows"] == 2
-    assert summary["indicator_recalc_events"] == 1
-    assert summary["derived_rebuild_required"] is False
-    assert summary["derived_rebuild_requirements"] == []
     assert rows
     assert list(rows[0]) == dry_run["schema"]
     assert "trade_date" not in rows[0]
     assert "source_ts_code" not in rows[0]
     assert "identity_id" not in rows[0]
     assert {row["trade_time"].strftime("%H:%M:%S") for row in rows} == {"09:34:00", "09:35:00"}
-    queue_items = IndicatorRecalcQueueService(lake_root=tmp_path).list_items()
-    assert len(queue_items) == 1
-    assert queue_items[0]["freq_value"] == 1
-    assert queue_items[0]["invalid_from_time"].date() == date(2011, 12, 12)
+    assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+    assert not (tmp_path / "manifest" / "source_partition_events" / "stk_mins.jsonl").exists()
 
 
 def test_formal_clean_next_refuses_to_overwrite_existing_partition_without_flag(tmp_path) -> None:
@@ -106,7 +100,7 @@ def test_formal_clean_next_refuses_to_overwrite_existing_partition_without_flag(
         rows=[_mins_row("000001.SZ", 1, "2026-03-02 10:00:00")],
     )
     service = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None)
-    service.rebuild_formal_clean_next_from_raw(
+    service._rebuild_formal_clean_next_from_raw(
         freqs=[1],
         start_date=date(2026, 3, 2),
         end_date=date(2026, 3, 2),
@@ -115,7 +109,7 @@ def test_formal_clean_next_refuses_to_overwrite_existing_partition_without_flag(
     )
 
     with pytest.raises(RuntimeError, match="clean candidate 目标分区已存在"):
-        service.rebuild_formal_clean_next_from_raw(
+        service._rebuild_formal_clean_next_from_raw(
             freqs=[1],
             start_date=date(2026, 3, 2),
             end_date=date(2026, 3, 2),
@@ -124,7 +118,7 @@ def test_formal_clean_next_refuses_to_overwrite_existing_partition_without_flag(
         )
 
 
-def test_formal_clean_next_rebuild_reports_derived_rebuild_for_30_and_60(tmp_path) -> None:
+def test_formal_clean_next_rebuild_does_not_publish_gate_or_queue(tmp_path) -> None:
     _write_stock_basic(tmp_path, [{"ts_code": "000001.SZ", "list_date": "20100101", "delist_date": None}])
     _write_raw_partition(
         tmp_path,
@@ -139,7 +133,7 @@ def test_formal_clean_next_rebuild_reports_derived_rebuild_for_30_and_60(tmp_pat
         rows=[_mins_row("000001.SZ", 60, "2026-03-02 10:00:00")],
     )
 
-    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None).rebuild_formal_clean_next_from_raw(
+    summary = StkMinsCleanService(lake_root=tmp_path, progress=lambda _: None)._rebuild_formal_clean_next_from_raw(
         freqs=[30, 60],
         start_date=date(2026, 3, 2),
         end_date=date(2026, 3, 2),
@@ -147,35 +141,10 @@ def test_formal_clean_next_rebuild_reports_derived_rebuild_for_30_and_60(tmp_pat
         apply=True,
     )
 
-    assert summary["indicator_recalc_events"] == 2
-    assert summary["derived_rebuild_required"] is True
-    assert summary["derived_rebuild_requirements"] == [
-        {
-            "source_freq": 30,
-            "target_freq": 90,
-            "start_date": "2026-03-02",
-            "end_date": "2026-03-02",
-            "command": (
-                "lake_console/.venv/bin/python -m lake_console.backend.app.cli "
-                "rebuild-stk-mins-derived-from-clean-range --target-freqs 90 "
-                "--start-date 2026-03-02 --end-date 2026-03-02"
-            ),
-        },
-        {
-            "source_freq": 60,
-            "target_freq": 120,
-            "start_date": "2026-03-02",
-            "end_date": "2026-03-02",
-            "command": (
-                "lake_console/.venv/bin/python -m lake_console.backend.app.cli "
-                "rebuild-stk-mins-derived-from-clean-range --target-freqs 120 "
-                "--start-date 2026-03-02 --end-date 2026-03-02"
-            ),
-        },
-    ]
-    queue_items = IndicatorRecalcQueueService(lake_root=tmp_path).list_items()
-    assert {item["freq_value"] for item in queue_items} == {30, 60}
-    assert {item["invalid_from_time"].date() for item in queue_items} == {date(2026, 3, 2)}
+    assert summary["kept_rows"] == 2
+    assert not (tmp_path / "manifest" / "stk_mins_quality" / "clean_next_partition_gate.parquet").exists()
+    assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+    assert not (tmp_path / "manifest" / "source_partition_events" / "stk_mins.jsonl").exists()
 
 
 def test_audit_formal_clean_next_allows_zero_price_structure_and_blocks_duplicates(tmp_path) -> None:
