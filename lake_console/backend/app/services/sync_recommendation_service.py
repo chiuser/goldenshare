@@ -64,6 +64,7 @@ class SyncRecommendationService:
             "profile_key": profile_key,
             "cutoff_time": _format_cutoff_time(self.cutoff_time),
             "expected_reference_date": expected_reference_date.isoformat(),
+            "aggregate_plan_hint": self._aggregate_lagging_plan_hint(items),
             "items": items,
         }
 
@@ -242,6 +243,28 @@ class SyncRecommendationService:
             "lag_calendar_days": lag_calendar_days,
             "reason": reason,
             "plan_hint": plan_hint,
+        }
+
+    @staticmethod
+    def _aggregate_lagging_plan_hint(items: list[dict[str, Any]]) -> dict[str, Any] | None:
+        lagging_items = [
+            item
+            for item in items
+            if item.get("status") == "lagging"
+            and item.get("plan_hint")
+            and item.get("suggested_start_date")
+            and item.get("suggested_end_date")
+        ]
+        if not lagging_items:
+            return None
+        start_date = min(str(item["suggested_start_date"]) for item in lagging_items)
+        end_date = max(str(item["suggested_end_date"]) for item in lagging_items)
+        return {
+            "profile_key": "prod_db_manual_backfill",
+            "dataset_keys": [str(item["dataset_key"]) for item in lagging_items],
+            "target_date": None,
+            "start_date": start_date,
+            "end_date": end_date,
         }
 
 

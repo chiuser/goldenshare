@@ -50,6 +50,13 @@ def test_sync_recommendation_marks_lagging_daily_dataset(tmp_path: Path) -> None
         "start_date": "2026-05-13",
         "end_date": "2026-05-14",
     }
+    assert payload["aggregate_plan_hint"] == {
+        "profile_key": "prod_db_manual_backfill",
+        "dataset_keys": ["daily"],
+        "target_date": None,
+        "start_date": "2026-05-13",
+        "end_date": "2026-05-14",
+    }
 
 
 def test_sync_recommendation_cutoff_uses_previous_open_day_before_cutoff(tmp_path: Path) -> None:
@@ -104,6 +111,13 @@ def test_sync_recommendation_supports_week_and_month_anchors(tmp_path: Path) -> 
     assert monthly["status"] == "lagging"
     assert monthly["expected_latest_trade_date"] == "2026-05-29"
     assert monthly["suggested_start_date"] == "2026-05-29"
+    assert payload["aggregate_plan_hint"] == {
+        "profile_key": "prod_db_manual_backfill",
+        "dataset_keys": ["index_weekly", "index_monthly"],
+        "target_date": None,
+        "start_date": "2026-05-15",
+        "end_date": "2026-05-29",
+    }
 
 
 def test_sync_recommendation_marks_empty_dataset(tmp_path: Path) -> None:
@@ -120,6 +134,7 @@ def test_sync_recommendation_marks_empty_dataset(tmp_path: Path) -> None:
     assert daily["local_latest_trade_date"] is None
     assert daily["expected_latest_trade_date"] == "2026-05-14"
     assert daily["plan_hint"] is None
+    assert payload["aggregate_plan_hint"] is None
 
 
 def test_sync_recommendation_blocks_when_calendar_missing(tmp_path: Path) -> None:

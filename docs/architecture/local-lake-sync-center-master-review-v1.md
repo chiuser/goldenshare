@@ -655,6 +655,7 @@ GET /api/lake/sync/recommendations?profile_key=prod_db_daily
 | `profile_key` | 当前建议所属 profile。 |
 | `cutoff_time` | 使用的 cutoff，例如 `20:00`。 |
 | `expected_reference_date` | 本轮建议采用的理论参考日期。 |
+| `aggregate_plan_hint` | 全部落后数据集的聚合补数建议。只包含 `lagging` 数据集，不包含 `empty`、`up_to_date` 或不可建议项。 |
 | `items` | 数据集建议列表。 |
 
 `items` 单项字段：
@@ -682,6 +683,13 @@ GET /api/lake/sync/recommendations?profile_key=prod_db_daily
   "profile_key": "prod_db_daily",
   "cutoff_time": "20:00",
   "expected_reference_date": "2026-05-13",
+  "aggregate_plan_hint": {
+    "profile_key": "prod_db_manual_backfill",
+    "dataset_keys": ["daily", "moneyflow"],
+    "target_date": null,
+    "start_date": "2026-04-25",
+    "end_date": "2026-05-13"
+  },
   "items": [
     {
       "dataset_key": "moneyflow",
@@ -729,7 +737,8 @@ GET /api/lake/sync/recommendations?profile_key=prod_db_daily
 
 ```text
 带入计划参数
-带入每日全量参数
+带入每日单日全量
+带入全部落后补数
 ```
 
 单行 `带入计划参数` 行为只允许：
@@ -739,7 +748,7 @@ GET /api/lake/sync/recommendations?profile_key=prod_db_daily
 3. 填入 `start_date` / `end_date`。
 4. 清空旧 plan。
 
-卡片级 `带入每日全量参数` 行为只允许：
+卡片级 `带入每日单日全量` 行为只允许：
 
 1. 选择 `prod_db_daily`。
 2. 设置数据集为 `全部数据集`。
@@ -747,17 +756,28 @@ GET /api/lake/sync/recommendations?profile_key=prod_db_daily
 4. 清空旧 plan。
 5. 仍需用户手动点击“生成计划”和“启动同步任务”。
 
+卡片级 `带入全部落后补数` 行为只允许：
+
+1. 使用后端返回的 `aggregate_plan_hint`，不得在前端自行计算缺失日期。
+2. 选择 `prod_db_manual_backfill`。
+3. 设置数据集为 `aggregate_plan_hint.dataset_keys`，即全部 `lagging` 数据集集合。
+4. 填入 `start_date=aggregate_plan_hint.start_date` 与 `end_date=aggregate_plan_hint.end_date`。
+5. 页面必须明确这是一组“建议集合”，不是 profile 全部数据集。
+6. 仍需用户手动点击“生成计划”和“启动同步任务”。
+
 计划参数区的数据集选择必须支持：
 
 1. `全部数据集`：前端传 `dataset_keys=[]`，后端按 profile 默认数据集全集生成计划。
 2. 单个数据集：前端传 `dataset_keys=[dataset_key]`，只生成该数据集计划。
+3. 建议集合：前端传后端 `aggregate_plan_hint.dataset_keys`，只生成这组落后数据集计划。
 
 按钮不允许：
 
 1. 直接启动 run。
 2. 自动创建 backup。
 3. 绕过 plan -> Kopia -> lock -> runner。
-4. 自动把每个落后数据集按各自窗口拆成多个任务。
+4. 前端自行推导缺口。
+5. 自动把每个落后数据集按各自窗口拆成多个任务。
 
 #### M6.5.8 开发门禁
 

@@ -289,6 +289,7 @@ export type SyncRecommendationResponse = {
   profile_key: string;
   cutoff_time: string;
   expected_reference_date: string | null;
+  aggregate_plan_hint: SyncRecommendationPlanHint | null;
   items: SyncRecommendationItem[];
 };
 

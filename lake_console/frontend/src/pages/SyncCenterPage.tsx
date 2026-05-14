@@ -10,7 +10,16 @@ import { Panel } from "../components/Panel";
 import { SectionCard } from "../components/SectionCard";
 import { useSyncCenterStatus, useSyncRecommendations, useSyncRunArtifacts } from "../hooks/useSyncCenterData";
 import { createSyncPlan, startSyncRun } from "../services/lakeApi";
-import type { SyncLock, SyncPlanDatasetPlan, SyncPlanIssue, SyncPlanResponse, SyncProfileSummary, SyncRecommendationItem, SyncRunEvent } from "../types";
+import type {
+  SyncLock,
+  SyncPlanDatasetPlan,
+  SyncPlanIssue,
+  SyncPlanResponse,
+  SyncProfileSummary,
+  SyncRecommendationItem,
+  SyncRecommendationPlanHint,
+  SyncRunEvent,
+} from "../types";
 import { formatDateTime } from "../utils/format";
 
 const RUNNABLE_PROFILE_KEYS = new Set([
@@ -33,6 +42,7 @@ export function SyncCenterPage() {
   const [runError, setRunError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState<boolean>(false);
   const [selectedRunId, setSelectedRunId] = useState<string>("");
+  const [datasetKeysOverride, setDatasetKeysOverride] = useState<string[] | null>(null);
 
   const selectedProfile = profiles.find((profile) => profile.profile_key === selectedProfileKey) ?? null;
   const {
@@ -70,7 +80,7 @@ export function SyncCenterPage() {
     setPlan(null);
     setPlanError(null);
     setRunError(null);
-  }, [endDate, selectedDatasetKey, selectedProfileKey, startDate, targetDate]);
+  }, [datasetKeysOverride, endDate, selectedDatasetKey, selectedProfileKey, startDate, targetDate]);
 
   const canRunSelectedScope = Boolean(selectedProfile && isRunnableProfile(selectedProfile));
   const canStartRun = Boolean(plan && !plan.blockers.length && canRunSelectedScope && lock?.status === "idle" && !runLoading);
@@ -86,7 +96,7 @@ export function SyncCenterPage() {
     try {
       const nextPlan = await createSyncPlan({
         profileKey: selectedProfile.profile_key,
-        datasetKeys: selectedDatasetKey ? [selectedDatasetKey] : [],
+        datasetKeys: datasetKeysOverride ?? (selectedDatasetKey ? [selectedDatasetKey] : []),
         targetDate: shouldUseTargetDate(selectedProfile.profile_key) ? targetDate : null,
         startDate: shouldUseDateRange(selectedProfile.profile_key) ? startDate || null : null,
         endDate: shouldUseDateRange(selectedProfile.profile_key) ? endDate || null : null,
@@ -121,11 +131,16 @@ export function SyncCenterPage() {
     if (!item.plan_hint) {
       return;
     }
-    setSelectedProfileKey(item.plan_hint.profile_key);
-    setSelectedDatasetKey(item.plan_hint.dataset_keys[0] ?? "");
-    setTargetDate(item.plan_hint.target_date ?? todayInputValue());
-    setStartDate(item.plan_hint.start_date ?? "");
-    setEndDate(item.plan_hint.end_date ?? "");
+    applyPlanHint(item.plan_hint);
+  }
+
+  function applyPlanHint(planHint: SyncRecommendationPlanHint) {
+    setSelectedProfileKey(planHint.profile_key);
+    setSelectedDatasetKey(planHint.dataset_keys.length === 1 ? planHint.dataset_keys[0] : "");
+    setDatasetKeysOverride(planHint.dataset_keys.length > 1 ? planHint.dataset_keys : null);
+    setTargetDate(planHint.target_date ?? todayInputValue());
+    setStartDate(planHint.start_date ?? "");
+    setEndDate(planHint.end_date ?? "");
     setPlan(null);
     setPlanError(null);
     setRunError(null);
@@ -134,12 +149,20 @@ export function SyncCenterPage() {
   function handleApplyDailyProfileRecommendation() {
     setSelectedProfileKey("prod_db_daily");
     setSelectedDatasetKey("");
+    setDatasetKeysOverride(null);
     setTargetDate(recommendations?.expected_reference_date ?? todayInputValue());
     setStartDate("");
     setEndDate("");
     setPlan(null);
     setPlanError(null);
     setRunError(null);
+  }
+
+  function handleApplyLaggingBackfillRecommendation() {
+    if (!recommendations?.aggregate_plan_hint) {
+      return;
+    }
+    applyPlanHint(recommendations.aggregate_plan_hint);
   }
 
   return (
@@ -185,7 +208,15 @@ export function SyncCenterPage() {
               onClick={handleApplyDailyProfileRecommendation}
               type="button"
             >
-              带入每日全量参数
+              带入每日单日全量
+            </button>
+            <button
+              className="sync-inline-button"
+              disabled={!recommendations?.aggregate_plan_hint}
+              onClick={handleApplyLaggingBackfillRecommendation}
+              type="button"
+            >
+              带入全部落后补数
             </button>
           </div>
         </div>
@@ -205,7 +236,10 @@ export function SyncCenterPage() {
               <button
                 className={profile.profile_key === selectedProfileKey ? "sync-profile-card sync-profile-card-active" : "sync-profile-card"}
                 key={profile.profile_key}
-                onClick={() => setSelectedProfileKey(profile.profile_key)}
+                onClick={() => {
+                  setDatasetKeysOverride(null);
+                  setSelectedProfileKey(profile.profile_key);
+                }}
                 type="button"
               >
                 <span className="sync-profile-head">
@@ -244,7 +278,13 @@ export function SyncCenterPage() {
 
             <label className="sync-field">
               <span>数据集</span>
-              <select value={selectedDatasetKey} onChange={(event) => setSelectedDatasetKey(event.target.value)}>
+              <select
+                value={selectedDatasetKey}
+                onChange={(event) => {
+                  setDatasetKeysOverride(null);
+                  setSelectedDatasetKey(event.target.value);
+                }}
+              >
                 <option value="">全部数据集</option>
                 {(selectedProfile?.datasets ?? []).map((dataset) => (
                   <option key={dataset.dataset_key} value={dataset.dataset_key}>
@@ -284,6 +324,14 @@ export function SyncCenterPage() {
               />
             </label>
           </div>
+
+          {datasetKeysOverride ? (
+            <div className="alert warning">
+              <div>
+                已按建议选择 {datasetKeysOverride.length} 个落后数据集。生成计划时只包含这组数据集，不等同于 profile 全部数据集。
+              </div>
+            </div>
+          ) : null}
 
           <div className="sync-action-row">
             <button className="sync-button sync-button-muted" onClick={reloadStatus} type="button">

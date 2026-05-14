@@ -53,6 +53,7 @@ class SyncRecommendationResponse(BaseModel):
     profile_key: str
     cutoff_time: str
     expected_reference_date: str | None = None
+    aggregate_plan_hint: SyncRecommendationPlanHint | None = None
     items: list[SyncRecommendationItem]
 
 
