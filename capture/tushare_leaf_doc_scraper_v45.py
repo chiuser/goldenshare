@@ -101,6 +101,9 @@ MANIFEST_TABLE_ROW_SPECS: dict[int, dict[str, list[str]]] = {
     382: {
         "输出参数": ["category"],
     },
+    415: {
+        "输出参数": ["report_code"],
+    },
     419: {
         "输出参数": ["freq", "exchange", "vwap"],
     },

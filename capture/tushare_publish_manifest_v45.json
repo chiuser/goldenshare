@@ -609,6 +609,11 @@
         "category": "| category | str | Y | 分类板块 |"
       }
     },
+    "415": {
+      "输出参数": {
+        "report_code": "| report_code | str | N | 研报唯一编码 |"
+      }
+    },
     "419": {
       "输出参数": {
         "freq": "| freq | str | N | 频率 |",
