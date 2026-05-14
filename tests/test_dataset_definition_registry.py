@@ -353,14 +353,7 @@ def test_dataset_definition_projects_research_report_facts() -> None:
     assert report_type.multi_value is True
     assert report_type.enum_values == ("个股研报", "行业研报")
     assert definition.normalization.date_fields == ("trade_date",)
-    assert definition.normalization.required_fields == (
-        "trade_date",
-        "title",
-        "report_type",
-        "inst_csname",
-        "url",
-        "row_key_hash",
-    )
+    assert definition.normalization.required_fields == ("url", "row_key_hash")
 
 
 def test_dataset_definition_projects_bse_mapping_facts() -> None:

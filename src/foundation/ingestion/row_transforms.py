@@ -443,9 +443,9 @@ def _research_report_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     trade_date = transformed.get("trade_date")
     report_code = _strip_nul_text(transformed.get("report_code")).strip() or None
-    title = _strip_nul_text(transformed.get("title")).strip()
-    report_type = _strip_nul_text(transformed.get("report_type")).strip()
-    inst_csname = _strip_nul_text(transformed.get("inst_csname")).strip()
+    title = _strip_nul_text(transformed.get("title")).strip() or None
+    report_type = _strip_nul_text(transformed.get("report_type")).strip() or None
+    inst_csname = _strip_nul_text(transformed.get("inst_csname")).strip() or None
     url = _strip_nul_text(transformed.get("url")).strip()
     ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper() or None
     author = _strip_nul_text(transformed.get("author")).strip() or None
@@ -453,18 +453,10 @@ def _research_report_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     ind_name = _strip_nul_text(transformed.get("ind_name")).strip() or None
     abstr = _strip_nul_text(transformed.get("abstr")).strip() or None
 
-    if trade_date is None:
-        raise RowTransformReject("normalize.required_field_missing:trade_date", "券商研究报告缺少 trade_date")
-    if not title:
-        raise RowTransformReject("normalize.required_field_missing:title", "券商研究报告缺少 title")
-    if not report_type:
-        raise RowTransformReject("normalize.required_field_missing:report_type", "券商研究报告缺少 report_type")
-    if not inst_csname:
-        raise RowTransformReject("normalize.required_field_missing:inst_csname", "券商研究报告缺少 inst_csname")
     if not url:
         raise RowTransformReject("normalize.required_field_missing:url", "券商研究报告缺少 url")
 
-    trade_date_text = trade_date.isoformat() if isinstance(trade_date, date) else str(trade_date)
+    trade_date_text = trade_date.isoformat() if isinstance(trade_date, date) else (str(trade_date) if trade_date is not None else "")
     if report_code:
         hash_parts = ("research_report", "report_code", report_code)
     else:
@@ -472,9 +464,9 @@ def _research_report_row_transform(row: dict[str, Any]) -> dict[str, Any]:
             "research_report",
             "fallback",
             trade_date_text,
-            title,
-            report_type,
-            inst_csname,
+            title or "",
+            report_type or "",
+            inst_csname or "",
             author or "",
             ts_code or "",
             ind_name or "",

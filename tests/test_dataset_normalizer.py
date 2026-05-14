@@ -429,6 +429,45 @@ def test_research_report_normalizer_falls_back_when_report_code_missing() -> Non
     assert len(normalized["row_key_hash"]) == 64
 
 
+def test_research_report_normalizer_allows_only_url_as_source_required_field() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("research_report"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-research-report-only-url-required",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260413",
+                    "title": "_解锁明天：一本探讨金融服务行业代理人工智能力量的操作手册_20260413.pdf",
+                    "url": "https://pdf.dfcfw.com/pdf/H3_AP202604131821161880_1.pdf?1776152303000.pdf",
+                    "ts_code": "",
+                    "name": "",
+                    "inst_csname": "",
+                },
+                {
+                    "url": "https://example.test/url-only.pdf",
+                },
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    first = batch.rows_normalized[0]
+    assert first["trade_date"] == date(2026, 4, 13)
+    assert first["ts_code"] is None
+    assert first["name"] is None
+    assert first["inst_csname"] is None
+    assert first["url"] == "https://pdf.dfcfw.com/pdf/H3_AP202604131821161880_1.pdf?1776152303000.pdf"
+    second = batch.rows_normalized[1]
+    assert second["trade_date"] is None
+    assert second["title"] is None
+    assert second["report_type"] is None
+    assert second["inst_csname"] is None
+    assert second["url"] == "https://example.test/url-only.pdf"
+
+
 def test_research_report_normalizer_rejects_missing_url() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("research_report"),

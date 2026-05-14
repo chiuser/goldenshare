@@ -74,14 +74,14 @@ V1 日期请求口径按你的建议设计：
 
 | 源站输出字段 | 源文档列出 | 真实样本返回 | `source_fields` | raw ORM | serving light | 是否必填 | 清洗规则 |
 | --- | --- | --- | --- | --- | --- | --- | --- |
-| `trade_date` | 是 | 是 | 是 | 是 | 是 | 是 | `YYYYMMDD` 转 `date` |
+| `trade_date` | 是 | 是 | 是 | 是 | 是 | 否 | `YYYYMMDD` 转 `date`，空值落 `NULL` |
 | `abstr` | 是 | 是 | 是 | 是 | 是 | 否 | 文本清理，空值落 `NULL` |
-| `title` | 是 | 是 | 是 | 是 | 是 | 是 | 文本清理，空值拒绝 |
-| `report_type` | 是 | 是 | 是 | 是 | 是 | 是 | 文本清理，建议限制为真实返回值 |
+| `title` | 是 | 是 | 是 | 是 | 是 | 否 | 文本清理，空值落 `NULL` |
+| `report_type` | 是 | 是 | 是 | 是 | 是 | 否 | 文本清理，空值落 `NULL` |
 | `author` | 是 | 是 | 是 | 是 | 是 | 否 | 文本清理，空值落 `NULL` |
 | `name` | 是 | 是 | 是 | 是 | 是 | 否 | 个股研报股票名称，行业研报可为空 |
 | `ts_code` | 是 | 是 | 是 | 是 | 是 | 否 | 股票代码，行业研报可为空；非空时去空白并大写 |
-| `inst_csname` | 是 | 是 | 是 | 是 | 是 | 是 | 券商简称，文本清理 |
+| `inst_csname` | 是 | 是 | 是 | 是 | 是 | 否 | 券商简称，文本清理，空值落 `NULL` |
 | `ind_name` | 是 | 是 | 是 | 是 | 是 | 否 | 行业名称，空值落 `NULL` |
 | `url` | 是 | 是 | 是 | 是 | 是 | 是 | 下载链接，文本清理，空值拒绝 |
 | `report_code` | 是，默认不显示 | 是 | 是 | 是 | 是 | 否 | 研报唯一编码；非空时作为首选身份事实，空值时走兜底身份规则 |
@@ -236,14 +236,14 @@ V1 日期请求口径按你的建议设计：
 | `id` | bigserial | primary key | 物理自增主键，不参与业务身份 |
 | `row_key_hash` | varchar(64) | unique not null | 稳定行身份；优先由 `report_code` 生成，缺失时由兜底字段生成 |
 | `report_code` | varchar(64) | nullable | 研报唯一编码，源站输出；非空时建议建 partial unique index |
-| `trade_date` | date | not null | 研报发布时间 |
+| `trade_date` | date | nullable | 研报发布时间；源站可能为空 |
 | `abstr` | text | nullable | 研报摘要 |
-| `title` | text | not null | 研报标题/文件名 |
-| `report_type` | varchar(32) | not null | 研报类别 |
+| `title` | text | nullable | 研报标题/文件名；源站可能为空 |
+| `report_type` | varchar(32) | nullable | 研报类别；源站可能为空 |
 | `author` | text | nullable | 作者 |
 | `name` | varchar(128) | nullable | 股票名称，行业研报可为空 |
 | `ts_code` | varchar(32) | nullable | 股票代码，行业研报可为空 |
-| `inst_csname` | varchar(128) | not null | 机构简称 |
+| `inst_csname` | varchar(128) | nullable | 机构简称；源站可能为空 |
 | `ind_name` | varchar(128) | nullable | 行业名称 |
 | `url` | text | not null | 下载链接 |
 | `api_name` | varchar(32) | not null default `'research_report'` | 源接口 |
@@ -272,11 +272,10 @@ on raw_tushare.research_report(report_type, trade_date);
 
 防 null 设计：
 
-1. `trade_date`、`title`、`report_type`、`inst_csname`、`url` 必填。
-2. `ts_code` 和 `name` 必须允许为空，因为行业研报样本中这两个字段为空。
-3. `ind_name` 必须允许为空，不能作为主键组成部分。
-4. `ts_code` 允许为空，`ts_code + trade_date` 索引只用于常见按股票过滤查询；业务身份不依赖 `ts_code`。
-5. `report_code` 允许为空；非空时作为首选身份事实，空值时使用兜底身份规则。
+1. 源端字段只有 `url` 作为入库硬门禁；`row_key_hash` 为内部生成字段，也必须非空。
+2. `trade_date`、`title`、`report_type`、`inst_csname`、`ts_code`、`name`、`ind_name` 都必须允许为空。真实样本中存在 `ts_code/name/inst_csname` 同时为空但 `url` 有值的有效研报。
+3. `ts_code + trade_date`、`inst_csname + trade_date`、`report_type + trade_date` 索引只服务常见过滤查询，不表达字段非空约束。
+4. `report_code` 允许为空；非空时作为首选身份事实，空值时使用兜底身份规则。
 
 身份键规则：
 
@@ -310,7 +309,7 @@ row_key_hash = sha256("research_report" + "fallback" + trade_date + title + repo
 | unit builder | 使用现有 `generic` unit planner；point 生成 1 个自然日 unit；range 在 `bucket_rule=not_applicable` 下生成 1 个区间 unit，不逐日展开 |
 | request builder | 新增 `_research_report_params`；point 输出 `trade_date=YYYYMMDD`；range 输出 `start_date/end_date`；可选附加 `report_type/ts_code/inst_csname/ind_name` |
 | pagination | `offset_limit`，`page_limit=1000` |
-| normalizer | 新增 `_research_report_row_transform`，清理文本、解析 `trade_date`、规范非空 `ts_code`、拒绝缺关键字段行 |
+| normalizer | 新增 `_research_report_row_transform`，清理文本、解析 `trade_date`、规范非空 `ts_code`；只拒绝缺 `url` 的源端行 |
 | writer | raw upsert，冲突列/主键 `row_key_hash` |
 | transaction | `commit_policy=unit`，单个 unit 的所有分页拉完、归一化、写入后提交 |
 
@@ -353,7 +352,7 @@ row_key_hash = sha256("research_report" + "fallback" + trade_date + title + repo
 2. `tests/test_dataset_action_resolver.py`：point 生成 `trade_date`，range 生成 `start_date/end_date`，range 不逐日展开。
 3. source client 测试：connector payload 的 `fields` 包含全部 11 个源字段，不包含 `file_name`。
 4. request builder 测试：确认可选过滤字段只在用户传入时出现。
-5. normalizer 测试：`trade_date` 解析、`ts_code` 可空、`report_code/title/url` 缺失拒绝。
+5. normalizer 测试：`trade_date` 解析、`ts_code/name/inst_csname` 可空、源端仅缺 `url` 拒绝。
 6. DAO/writer 测试：以 `row_key_hash` 幂等 upsert，覆盖 `report_code` 非空和为空兜底两种身份规则。
 7. Ops catalog 测试：缺展示目录配置失败。
 8. workflow 测试：确认每日收盘后维护不包含 `research_report`。
@@ -363,7 +362,7 @@ row_key_hash = sha256("research_report" + "fallback" + trade_date + title + repo
 1. `tests/test_dataset_definition_registry.py`：Definition 事实投影、过滤字段、raw/light 存储口径。
 2. `tests/test_dataset_action_resolver.py`：point/range 请求参数、`report_type` 多选扇出、range 不逐日展开。
 3. `tests/test_dataset_source_client.py`：分页参数与 11 个源字段传递。
-4. `tests/test_dataset_normalizer.py`：`report_code` 身份、缺编码兜底身份、缺关键字段拒绝。
+4. `tests/test_dataset_normalizer.py`：`report_code` 身份、缺编码兜底身份、源端仅缺 `url` 拒绝。
 5. `tests/test_fields_constants.py`：源字段全量对账。
 6. `tests/architecture/test_dataset_runtime_registry_guardrails.py`：定义域矩阵守卫。
 7. `tests/test_ops_action_catalog.py`：Ops 展示分组与未挂入 workflow 的范围守卫。
