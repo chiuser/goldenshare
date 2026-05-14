@@ -9,7 +9,7 @@
 财势乾坤/产品文档/市场总览产品需求文档 v0.2.md
 财势乾坤/设计/02-market-overview-page-design.md
 财势乾坤/codex/market-overview-codex-prompt-v1.md
-wealth/docs/update/market-overview-v1.8.html（仅新闻速览与个股新闻新增需求）
+wealth/docs/reference/showcase/market-overview-v1.8.html（仅新闻速览与个股新闻视觉参考）
 ```
 
 ## 页面定位
@@ -67,7 +67,7 @@ market-overview-v1.2.html
 
 模块顺序以 `market-overview-v1.1.html` 为准。
 
-新闻板块新增需求以 `wealth/docs/update/market-overview-v1.8.html` 为准。该版本只用于吸收“新闻速览 + 个股新闻”两个独立新闻面板，不改变其它已落地模块口径。
+新闻板块新增需求已经吸收到新闻模块三件套；视觉参考保留在 `wealth/docs/reference/showcase/market-overview-v1.8.html`。该版本只用于校验“新闻速览 + 个股新闻”两个独立新闻面板，不改变其它已落地模块口径。
 
 ## 硬性布局
 

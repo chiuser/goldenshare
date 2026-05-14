@@ -8,7 +8,7 @@
 财势乾坤/设计/04-component-guidelines.md
 财势乾坤/设计/03-design-tokens.md
 财势乾坤/showcase/market-overview-v1.1.html
-wealth/docs/update/market-overview-v1.8.html（仅新闻速览与个股新闻）
+wealth/docs/reference/showcase/market-overview-v1.8.html（仅新闻速览与个股新闻视觉参考）
 ```
 
 ## 组件设计原则

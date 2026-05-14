@@ -10,7 +10,7 @@
 wealth/docs/reference/showcase/market-overview-v1.1.html
 ```
 
-新闻速览与个股新闻的新增需求，以 `wealth/docs/update/market-overview-v1.8.html` 为最新补充参考，只吸收两个独立新闻面板，不吸收 update 目录中其它未确认变化。
+新闻速览与个股新闻的新增需求已经吸收到正式三件套；视觉参考保留在 `wealth/docs/reference/showcase/market-overview-v1.8.html`，只用于校验两个独立新闻面板。
 
 本文件只回答“代码怎么组织、组件怎么拆、数据怎么流、样式怎么落、测试怎么守住高保真”。不实现真实后端 API，不扩展新页面，不新增与市场总览无关的功能。
 
