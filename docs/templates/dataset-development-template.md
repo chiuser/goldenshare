@@ -102,18 +102,35 @@
 4. 如果改动会让某个 workflow 的 step 时间模式不匹配，必须同步调整 workflow；不得把 no-time 数据集塞进 point/range workflow。
 5. 如果改动会让数据源卡片或 freshness 从“按业务日判断”变成“按运行健康判断”，必须同步更新 snapshot / dataset cards 测试。
 
+#### 0.3.3 源字段端到端对账表
+
+这张表是硬门禁，用来防止出现“源接口已经有字段，但代码没请求、表没建、Lake 没导出”的问题。
+
+| 源站输出字段 | 源文档是否列出 | 真实样本是否返回 | `source_fields` | raw ORM | raw 迁移 / 真实表 | serving/core ORM | serving/core 迁移 / 真实表 | Lake 白名单（如适用） | 是否必填 | 备注 |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+|  | 是 / 否 | 是 / 否 | 是 / 否 | 是 / 否 | 是 / 否 | 是 / 否 | 是 / 否 | 是 / 否 / 不适用 | 是 / 否 |  |
+
+强约束：
+
+1. 源站输出字段必须逐列对账，不能只对默认显示字段。源文档里“默认显示=N”的字段，如果业务需要保留，也必须进入 `source_fields`、ORM、迁移和导出白名单。
+2. `DatasetDefinition.source_fields` 是 `DatasetSourceClient -> connector.call(..., fields=definition.source.source_fields)` 的字段白名单，不是 request builder 返回值的一部分。测试不能只看 `request_params`，还要覆盖 connector payload 的 `fields`。
+3. raw 层字段名默认保留源站输出字段名；不要因为觉得名字难看就改名。确需改名时，必须在文档写清楚映射，并说明不会破坏 Lake raw 或源站审计。
+4. Goldenshare 自增字段如 `api_name/fetched_at/raw_payload/source/created_at/updated_at` 不是源站输出字段；可以用于生产表内部治理，但不得混入 `source_fields` 或 Lake raw 字段白名单。
+5. 如果源字段参与业务身份，例如 `category/type/freq/market/hot_type/is_new`，必须用真实样本验证它是否应进入主键、`conflict_columns`、`raw_conflict_columns` 或 `row_identity_filters`。不得默认使用 `(ts_code, trade_date)`。
+6. 如果发现源站文档更新导致字段缺失，例如新增估值字段、分类字段，优先补齐字段链路；若需要重建表，必须先取得明确确认，再新增 Alembic 迁移。
+
 ---
 
 ## 1. 标准交付流程
 
 1. 固定源站事实：官方文档、输入参数、输出字段、分页、限速、更新时间。
-2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”和“0.3.2 DatasetDefinition 消费者审计表”。
+2. 填完“0.3.0 源接口真实行为验证表”、“0.3.1 三层语义拆分表”、“0.3.2 DatasetDefinition 消费者审计表”和“0.3.3 源字段端到端对账表”。
 3. 新增或更新 `docs/sources/**` 源站文档；Tushare 文档必须同步 `docs/sources/tushare/docs_index.csv`。
 4. 完成本文档，明确 `DatasetDefinition` 十段事实和执行/落库/观测方案。
 5. 新增 SQLAlchemy ORM 模型、DAO、Alembic 迁移；确认 ORM 能被 `table_model_registry()` 自动发现。
 6. 在正确的 `src/foundation/datasets/definitions/<domain>.py` 中新增 `DATASET_ROWS` 定义。
 7. 补齐 ingestion 能力：request builder、unit builder、row transform、writer 路径、分页、reject reason、codebook。
-8. 确认 Ops 派生能力：manual actions、catalog、workflow、freshness、dataset cards、TaskRun 详情。
+8. 确认 Ops 派生能力：manual actions、catalog、workflow、freshness、dataset cards、TaskRun 详情；新增数据集必须配置 `src/ops/catalog/dataset_catalog_views.py`。
 9. 补测试：definition、resolver、unit planner、normalizer、writer、Ops API、架构门禁。
 10. 本地执行门禁并记录命令。
 11. 发版前在开发库跑最小真实同步或真实样本 dry-run，确认业务数据、TaskRun 详情、数据状态和数据源卡片一致。
@@ -140,6 +157,11 @@
 - Ops 展示分组 key：
 - Ops 展示分组名称：
 - Ops 展示分组顺序：
+- Ops 展示目录配置文件：`src/ops/catalog/dataset_catalog_views.py`
+
+说明：
+- `DatasetDefinition.domain` 是底层领域事实，不能为了页面分组而改 domain。
+- 运营后台用户可见分组必须来自 Ops 展示目录配置；新增数据集没有配置展示目录时，应让测试失败，而不是静默落入“其他”。
 
 ---
 
@@ -154,6 +176,13 @@
 
 | 字段名 | 类型 | 含义 | 是否落 raw | 是否进入 serving/core | 清洗规则 |
 | --- | --- | --- | --- | --- | --- |
+
+硬规则：
+
+1. 本表必须与 0.3.3 的端到端字段对账表一致。
+2. 源站稳定日期字符串（例如 `YYYYMMDD`）可以在 raw 层直接落 `date`，但字段名仍保持源站字段名。
+3. 源站可能返回伪空值时要在清洗规则写明，例如 `""`、`nan`、`nat`、`null`、`none`、`0` 是否应视为空。已知伪空值不得造成大批量 `normalize.invalid_date` 拒绝。
+4. 如果某字段是源站输出但本轮不落库，必须写清楚“不落库原因”；不能因为遗漏而留空。
 
 ### 3.3 源端行为
 
@@ -227,6 +256,8 @@
 - `source_fields` 必须与源站文档和实际请求字段一致。
 - 自定义请求参数构造器必须注册在 `src/foundation/ingestion/request_builders.py`。
 - 不得从 `dataset_key` 前缀反推 source；source 事实只能来自这里。
+- `source_fields` 会被 `DatasetSourceClient` 传给连接器作为源端 `fields`；不要把字段白名单写进 request builder。
+- 有些 Tushare 接口默认不返回全部字段，必须用 `source_fields` 显式请求需要的字段。新增或修改字段时，测试要覆盖 connector 收到的 `fields`。
 
 ### 4.4 `date_model`
 
@@ -326,8 +357,11 @@
     "std_table": None,
     "serving_table": None,
     "raw_table": "",
+    "raw_conflict_columns": None,
     "conflict_columns": None,
     "write_path": "raw_core_upsert",
+    "serving_conflict_resolution_policy": "none",
+    "row_identity_filters": {},
 }
 ```
 
@@ -337,8 +371,16 @@
 - `layer_plan`：例如 `raw-only`、`raw->core`、`raw->serving`、`raw->std->serving`
 - `raw_dao_name`：
 - `core_dao_name`：
+- `raw_conflict_columns`：
 - `conflict_columns`：
 - `write_path`：
+- `serving_conflict_resolution_policy`：
+- `row_identity_filters`：
+
+约束：
+- raw 与 serving/core 的冲突列可以不同，必须分别说明。不要为了省事把 serving 口径硬套到 raw。
+- 共表数据集如果依赖 `freq/type/source_variant` 等固定身份字段，必须填写 `row_identity_filters`，避免不同逻辑数据互相覆盖。
+- 只要修改主键、唯一键或冲突列，就必须用真实样本验证同一日期同一代码下是否存在多行变体。
 
 常见 `write_path`：
 - `raw_only_upsert`
@@ -400,6 +442,8 @@
 - 行转换函数必须注册在 `src/foundation/ingestion/row_transforms.py`，不能放在 request builder 里。
 - `required_fields` 缺失应进入 reject 统计，不得静默写入不完整业务行。
 - 新增 row transform 必须补 normalizer 测试。
+- 对已知上游伪空值必须做受控清洗，例如日期字段里的 `nan/nat/null/none/0`。如果该值语义上是空，应转为 `None`；如果它是业务非法值，才进入 reject。
+- reject 必须有 reason code 和样本。大量 reject 不能只写“源端脏数据”，必须解释到字段和值。
 
 ### 4.9 `capabilities`
 
@@ -486,6 +530,10 @@
 4. 有 `ts_code + trade_date` 语义时，默认主键为 `(ts_code, trade_date)`，并评估 `trade_date` 方向索引。
 5. 新 ORM 模型必须能被 `src.foundation.models.table_model_registry.table_model_registry()` 发现；freshness 观测依赖该 registry。
 6. 新表必须有 Alembic 迁移，迁移和 ORM 模型字段必须一致。
+7. 新增 Alembic 迁移前必须先执行 `alembic heads`，`down_revision` 只能接真实 head。
+8. 重建、清空或删除业务表必须有明确确认；迁移文件中要把 destructive rebuild 的确认来源写清楚。
+9. 字段扩表不是只改 ORM；必须同步 `DatasetDefinition.source_fields`、raw/core ORM、Alembic 迁移、测试、Lake prod-raw-db 白名单（如适用）和相关文档。
+10. 如果源站输出字段全量落 raw，raw 表业务字段必须与源站输出字段逐列对齐；系统字段单独说明。
 
 ### 5.3 DAO
 
@@ -627,6 +675,7 @@
   - 时间参数映射
   - filter / enum 参数映射
   - 不产生非法 ALL sentinel
+  - connector payload 中的 `fields` 等于 `DatasetDefinition.source_fields`
 - Normalizer：
   - date / decimal / required fields
   - row transform 可注册并可执行
@@ -667,19 +716,22 @@ cd frontend && npm run typecheck
 ### 8.3 验收勾选
 
 - [ ] 源站文档与 docs index 已更新
+- [ ] 0.3.3 源字段端到端对账表已填完，源文档、真实样本、`source_fields`、ORM、迁移、真实表、Lake 白名单口径一致
 - [ ] DatasetDefinition 十段事实完整
 - [ ] 新数据集没有旧执行术语或旧路由
 - [ ] 没有新增 `__ALL__` / `__all__` 业务占位值
 - [ ] 没有新增 checkpoint / acquire 语义
 - [ ] ORM、DAO、迁移一致
+- [ ] Alembic `down_revision` 已按真实 `alembic heads` 确认
 - [ ] `target_table` 能被 table model registry 发现
 - [ ] 日期模型能驱动手动任务、freshness 和审计
-- [ ] Ops 展示目录配置已确认，数据源页 / 手动任务 / 自动任务的展示分组一致
+- [ ] Ops 展示目录配置 `src/ops/catalog/dataset_catalog_views.py` 已确认，数据源页 / 手动任务 / 自动任务的展示分组一致
 - [ ] Ops/TaskRun 保存的是用户或调度意图，没有提前展开为源接口参数
 - [ ] `DatasetActionResolver` 测试覆盖该数据集的时间输入归一化
 - [ ] 测试覆盖 `TaskRun.time_input_json -> DatasetActionResolver.build_plan() -> PlanUnit.request_params`
 - [ ] 单事务写入量已真实评估并写入 `transaction.write_volume_assessment`
 - [ ] request builder、unit planner、normalizer、writer 均有测试
+- [ ] reject reason code 和 rejected reason samples 可解释，任何 reject 都有字段和值样本
 - [ ] TaskRun 详情展示可读，无重复错误信息
 - [ ] 数据源卡片和数据状态页展示正确
 - [ ] 门禁命令已通过并记录输出
