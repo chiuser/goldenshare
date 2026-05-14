@@ -220,6 +220,133 @@ def test_trade_cal_normalizer_treats_nan_pretrade_date_as_null() -> None:
     assert normalized["is_open"] is True
 
 
+def test_anns_d_normalizer_parses_required_fields_and_hash() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("anns_d"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-anns-d",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ann_date": "20260514",
+                    "ts_code": "600000.sh",
+                    "name": " 浦发银行 ",
+                    "title": " 年度报告 ",
+                    "url": " https://example.test/a.pdf ",
+                    "rec_time": "2026-05-14 08:30:01",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["ann_date"] == date(2026, 5, 14)
+    assert normalized["ts_code"] == "600000.SH"
+    assert normalized["name"] == "浦发银行"
+    assert normalized["title"] == "年度报告"
+    assert normalized["url"] == "https://example.test/a.pdf"
+    assert normalized["rec_time"].isoformat() == "2026-05-14T08:30:01+08:00"
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
+def test_anns_d_normalizer_rejects_missing_rec_time() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("anns_d"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-anns-d-missing-rec-time",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ann_date": "20260514",
+                    "ts_code": "600000.SH",
+                    "title": "年度报告",
+                    "url": "https://example.test/a.pdf",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.required_field_missing:rec_time": 1}
+
+
+def test_irm_qa_sh_normalizer_allows_empty_pub_time() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("irm_qa_sh"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-irm-qa-sh",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "601121.sh",
+                    "name": " 宝地矿业 ",
+                    "trade_date": "20260513",
+                    "q": " 请问经营情况？ ",
+                    "a": " 公司经营正常。 ",
+                    "pub_time": "",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["ts_code"] == "601121.SH"
+    assert normalized["name"] == "宝地矿业"
+    assert normalized["trade_date"] == date(2026, 5, 13)
+    assert normalized["q"] == "请问经营情况？"
+    assert normalized["a"] == "公司经营正常。"
+    assert normalized["pub_time"] is None
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
+def test_irm_qa_sz_hash_does_not_include_industry() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("irm_qa_sz"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-irm-qa-sz",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "ts_code": "002254",
+                    "name": "泰和新材",
+                    "trade_date": "20260513",
+                    "q": "同一个问题",
+                    "a": "同一个回答",
+                    "pub_time": "2026-05-13 15:39:32",
+                    "industry": "化工",
+                },
+                {
+                    "ts_code": "002254",
+                    "name": "泰和新材",
+                    "trade_date": "20260513",
+                    "q": "同一个问题",
+                    "a": "同一个回答",
+                    "pub_time": "2026-05-13 15:39:32",
+                    "industry": "材料",
+                },
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["pub_time"].isoformat() == "2026-05-13T15:39:32+08:00"
+    assert batch.rows_normalized[0]["industry"] == "化工"
+    assert batch.rows_normalized[1]["industry"] == "材料"
+    assert batch.rows_normalized[0]["row_key_hash"] == batch.rows_normalized[1]["row_key_hash"]
+
+
 def test_bak_basic_normalizer_trims_text_and_parses_dates() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("bak_basic"),

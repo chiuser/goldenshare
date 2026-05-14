@@ -108,6 +108,72 @@ def test_news_source_client_passes_fields_and_annotates_src(monkeypatch) -> None
     ]
 
 
+def test_anns_d_source_client_passes_definition_fields(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = RecordingConnector()
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("anns_d"),
+        unit=PlanUnitSnapshot(
+            unit_id="anns-d-u1",
+            dataset_key="anns_d",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"start_date": "20260514", "end_date": "20260514", "ts_code": "600000.SH"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=2000,
+        ),
+    )
+
+    assert result.request_count == 1
+    assert connector.calls == [
+        {
+            "api_name": "anns_d",
+            "params": {
+                "start_date": "20260514",
+                "end_date": "20260514",
+                "ts_code": "600000.SH",
+                "offset": 0,
+                "limit": 2000,
+            },
+            "fields": ("ann_date", "ts_code", "name", "title", "url", "rec_time"),
+        }
+    ]
+
+
+def test_irm_qa_source_client_passes_definition_fields(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = RecordingConnector()
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("irm_qa_sz"),
+        unit=PlanUnitSnapshot(
+            unit_id="irm-qa-sz-u1",
+            dataset_key="irm_qa_sz",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"trade_date": "20260514"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=3000,
+        ),
+    )
+
+    assert result.request_count == 1
+    assert connector.calls == [
+        {
+            "api_name": "irm_qa_sz",
+            "params": {
+                "trade_date": "20260514",
+                "offset": 0,
+                "limit": 3000,
+            },
+            "fields": ("ts_code", "name", "trade_date", "q", "a", "pub_time", "industry"),
+        }
+    ]
+
+
 def test_index_mins_source_client_passes_fields_and_fills_missing_freq(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     connector = RecordingConnector(rows=[{"ts_code": "000001.SH", "trade_time": "2026-04-30 15:00:00"}])
     monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)

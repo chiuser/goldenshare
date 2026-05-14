@@ -65,8 +65,11 @@ from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
 from src.foundation.models.core_serving_light.bak_basic import BakBasicLight
 from src.foundation.models.core_serving_light.bse_mapping import BseMappingLight
+from src.foundation.models.core_serving_light.anns_d import AnnsDLight
 from src.foundation.models.core_serving_light.cctv_news import CctvNewsLight
 from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
+from src.foundation.models.core_serving_light.irm_qa_sh import IrmQaShLight
+from src.foundation.models.core_serving_light.irm_qa_sz import IrmQaSzLight
 from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 from src.foundation.models.core_serving_light.namechange import NamechangeLight
 from src.foundation.models.core_serving_light.news import NewsLight
@@ -76,6 +79,7 @@ from src.foundation.models.meta.dataset_resolution_policy import DatasetResoluti
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.models.meta.source_registry import SourceRegistry
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
+from src.foundation.models.raw.raw_anns_d import RawAnnsD
 from src.foundation.models.raw.raw_bak_basic import RawBakBasic
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
@@ -99,6 +103,8 @@ from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
 from src.foundation.models.raw.raw_index_weight import RawIndexWeight
+from src.foundation.models.raw.raw_irm_qa_sh import RawIrmQaSh
+from src.foundation.models.raw.raw_irm_qa_sz import RawIrmQaSz
 from src.foundation.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
 from src.foundation.models.raw.raw_limit_list import RawLimitList
 from src.foundation.models.raw.raw_limit_cpt_list import RawLimitCptList
@@ -187,6 +193,7 @@ __all__ = [
     "LimitListThs",
     "LimitStep",
     "RawAdjFactor",
+    "RawAnnsD",
     "RawBakBasic",
     "RawBlockTrade",
     "RawDaily",
@@ -209,6 +216,8 @@ __all__ = [
     "RawIndexMins",
     "RawIndexMonthlyBar",
     "RawIndexWeight",
+    "RawIrmQaSh",
+    "RawIrmQaSz",
     "RawIndexWeeklyBar",
     "RawLimitCptList",
     "RawLimitList",
@@ -254,8 +263,11 @@ __all__ = [
     "SecurityStd",
     "BakBasicLight",
     "BseMappingLight",
+    "AnnsDLight",
     "CctvNewsLight",
     "EquityDailyBarLight",
+    "IrmQaShLight",
+    "IrmQaSzLight",
     "MajorNewsLight",
     "NamechangeLight",
     "NewsLight",

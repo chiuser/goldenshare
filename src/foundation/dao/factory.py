@@ -19,6 +19,7 @@ from src.foundation.dao.index_weight_dao import IndexWeightDAO
 from src.foundation.dao.index_weekly_bar_dao import IndexWeeklyBarDAO
 from src.foundation.dao.major_news_dao import RawMajorNewsDAO
 from src.foundation.dao.news_dao import RawNewsDAO
+from src.foundation.dao.row_key_hash_dao import RowKeyHashDAO
 from src.foundation.dao.security_dao import SecurityDAO
 from src.foundation.dao.stk_period_bar_adj_dao import StkPeriodBarAdjDAO
 from src.foundation.dao.stk_period_bar_dao import StkPeriodBarDAO
@@ -61,6 +62,7 @@ from src.foundation.models.core.limit_list_ths import LimitListThs
 from src.foundation.models.core.limit_step import LimitStep
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_adj_factor import RawAdjFactor
+from src.foundation.models.raw.raw_anns_d import RawAnnsD
 from src.foundation.models.raw.raw_bak_basic import RawBakBasic
 from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
@@ -81,6 +83,8 @@ from src.foundation.models.raw.raw_index_daily_basic import RawIndexDailyBasic
 from src.foundation.models.raw.raw_index_daily import RawIndexDaily
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_monthly_bar import RawIndexMonthlyBar
+from src.foundation.models.raw.raw_irm_qa_sh import RawIrmQaSh
+from src.foundation.models.raw.raw_irm_qa_sz import RawIrmQaSz
 from src.foundation.models.raw.raw_index_weight import RawIndexWeight
 from src.foundation.models.raw.raw_index_weekly_bar import RawIndexWeeklyBar
 from src.foundation.models.raw.raw_limit_list import RawLimitList
@@ -232,6 +236,9 @@ class DAOFactory:
         self.raw_broker_recommend = GenericDAO(session, RawBrokerRecommend)
         self.raw_bse_mapping = GenericDAO(session, RawBseMapping)
         self.raw_cctv_news = RawCctvNewsDAO(session)
+        self.raw_anns_d = RowKeyHashDAO(session, RawAnnsD)
+        self.raw_irm_qa_sh = RowKeyHashDAO(session, RawIrmQaSh)
+        self.raw_irm_qa_sz = RowKeyHashDAO(session, RawIrmQaSz)
         self.raw_major_news = RawMajorNewsDAO(session)
         self.raw_namechange = GenericDAO(session, RawNamechange)
         self.raw_news = RawNewsDAO(session)

@@ -136,6 +136,51 @@ def _news_params(request, anchor_date: date | None, enum_values: dict[str, Any])
     }
 
 
+def _anns_d_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del enum_values
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("上市公司公告单日维护缺少日期")
+        date_text = target_date.strftime("%Y%m%d")
+        params: dict[str, Any] = {"start_date": date_text, "end_date": date_text}
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("上市公司公告区间维护必须同时填写开始日期和结束日期")
+        params = {
+            "start_date": request.start_date.strftime("%Y%m%d"),
+            "end_date": request.end_date.strftime("%Y%m%d"),
+        }
+    else:
+        raise ValueError(f"上市公司公告不支持该运行模式：{request.run_profile}")
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
+def _trade_date_or_start_end_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del enum_values
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("单日维护缺少日期")
+        params: dict[str, Any] = {"trade_date": target_date.strftime("%Y%m%d")}
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("区间维护必须同时填写开始日期和结束日期")
+        params = {
+            "start_date": request.start_date.strftime("%Y%m%d"),
+            "end_date": request.end_date.strftime("%Y%m%d"),
+        }
+    else:
+        raise ValueError(f"不支持该运行模式：{request.run_profile}")
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
 def _adj_factor_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     if anchor_date is None:
         raise ValueError("缺少日期锚点")
@@ -956,6 +1001,8 @@ __all__ = [
     "_cctv_news_params",
     "_major_news_params",
     "_news_params",
+    "_anns_d_params",
+    "_trade_date_or_start_end_params",
     "_adj_factor_params",
     "_fund_daily_params",
     "_fund_adj_params",

@@ -154,6 +154,65 @@ def test_dataset_action_resolver_builds_month_point_plan(mocker) -> None:
     assert plan.units[0].request_params == {"month": "202604"}
 
 
+def test_dataset_action_resolver_builds_anns_d_point_and_range_units(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    point_plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="anns_d",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        )
+    )
+    range_plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="anns_d",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 20), end_date=date(2026, 4, 24)),
+            filters={"ts_code": "600000.sh"},
+        )
+    )
+
+    assert point_plan.planning.unit_count == 1
+    assert point_plan.units[0].request_params == {"start_date": "20260424", "end_date": "20260424"}
+    assert range_plan.planning.unit_count == 1
+    assert range_plan.units[0].request_params == {
+        "start_date": "20260420",
+        "end_date": "20260424",
+        "ts_code": "600000.SH",
+    }
+
+
+@pytest.mark.parametrize("dataset_key", ("irm_qa_sh", "irm_qa_sz"))
+def test_dataset_action_resolver_builds_irm_qa_point_and_range_units(mocker, dataset_key: str) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    point_plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key=dataset_key,
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        )
+    )
+    range_plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key=dataset_key,
+            action="maintain",
+            time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 20), end_date=date(2026, 4, 24)),
+            filters={"ts_code": "600000.sh"},
+        )
+    )
+
+    assert point_plan.planning.unit_count == 1
+    assert point_plan.units[0].request_params == {"trade_date": "20260424"}
+    assert range_plan.planning.unit_count == 1
+    assert range_plan.units[0].request_params == {
+        "start_date": "20260420",
+        "end_date": "20260424",
+        "ts_code": "600000.SH",
+    }
+
+
 def test_dataset_action_resolver_rejects_month_window_plan_from_dates(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

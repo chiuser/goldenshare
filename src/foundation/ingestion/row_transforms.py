@@ -242,6 +242,15 @@ def _parse_news_datetime(value: Any, *, field_name: str = "pub_time", display_na
     return parsed
 
 
+def _normalize_news_datetime_input(value: Any) -> Any:
+    if value in (None, ""):
+        return None
+    text = str(value).strip().lower()
+    if text in _TOP_LIST_PSEUDO_NULL_NUMBER_TEXTS:
+        return None
+    return value
+
+
 def _major_news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     if "content" not in transformed:
@@ -306,6 +315,124 @@ def _news_row_transform(row: dict[str, Any]) -> dict[str, Any]:
             content or "",
             channels or "",
             score or "",
+        )
+    )
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
+def _anns_d_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    ann_date = transformed.get("ann_date")
+    ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper()
+    name = _strip_nul_text(transformed.get("name")).strip() or None
+    title = _strip_nul_text(transformed.get("title")).strip()
+    url = _strip_nul_text(transformed.get("url")).strip()
+    rec_time = _parse_news_datetime(
+        _normalize_news_datetime_input(transformed.get("rec_time")),
+        field_name="rec_time",
+        display_name="公告收录时间",
+    )
+    if ann_date is None:
+        raise RowTransformReject("normalize.required_field_missing:ann_date", "上市公司公告缺少 ann_date")
+    if not ts_code:
+        raise RowTransformReject("normalize.required_field_missing:ts_code", "上市公司公告缺少 ts_code")
+    if not title:
+        raise RowTransformReject("normalize.required_field_missing:title", "上市公司公告缺少 title")
+    if not url:
+        raise RowTransformReject("normalize.required_field_missing:url", "上市公司公告缺少 url")
+    if rec_time is None:
+        raise RowTransformReject("normalize.required_field_missing:rec_time", "上市公司公告缺少 rec_time")
+    ann_date_text = ann_date.isoformat() if isinstance(ann_date, date) else str(ann_date)
+    transformed["ann_date"] = ann_date
+    transformed["ts_code"] = ts_code
+    transformed["name"] = name
+    transformed["title"] = title
+    transformed["url"] = url
+    transformed["rec_time"] = rec_time
+    hash_input = "\x1f".join(("anns_d", ann_date_text, ts_code, title, url, rec_time.isoformat()))
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
+def _irm_qa_sh_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    trade_date = transformed.get("trade_date")
+    ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper()
+    name = _strip_nul_text(transformed.get("name")).strip() or None
+    question = _strip_nul_text(transformed.get("q")).strip()
+    answer = _strip_nul_text(transformed.get("a")).strip()
+    pub_time = _parse_news_datetime(
+        _normalize_news_datetime_input(transformed.get("pub_time")),
+        field_name="pub_time",
+        display_name="互动问答发布时间",
+    )
+    if trade_date is None:
+        raise RowTransformReject("normalize.required_field_missing:trade_date", "上证E互动问答缺少 trade_date")
+    if not ts_code:
+        raise RowTransformReject("normalize.required_field_missing:ts_code", "上证E互动问答缺少 ts_code")
+    if not question:
+        raise RowTransformReject("normalize.required_field_missing:q", "上证E互动问答缺少 q")
+    if not answer:
+        raise RowTransformReject("normalize.required_field_missing:a", "上证E互动问答缺少 a")
+    trade_date_text = trade_date.isoformat() if isinstance(trade_date, date) else str(trade_date)
+    transformed["trade_date"] = trade_date
+    transformed["ts_code"] = ts_code
+    transformed["name"] = name
+    transformed["q"] = question
+    transformed["a"] = answer
+    transformed["pub_time"] = pub_time
+    hash_input = "\x1f".join(
+        (
+            "irm_qa_sh",
+            ts_code,
+            trade_date_text,
+            pub_time.isoformat() if pub_time is not None else "",
+            question,
+            answer,
+        )
+    )
+    transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
+    return transformed
+
+
+def _irm_qa_sz_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    trade_date = transformed.get("trade_date")
+    ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper()
+    name = _strip_nul_text(transformed.get("name")).strip() or None
+    question = _strip_nul_text(transformed.get("q")).strip()
+    answer = _strip_nul_text(transformed.get("a")).strip()
+    pub_time = _parse_news_datetime(
+        _normalize_news_datetime_input(transformed.get("pub_time")),
+        field_name="pub_time",
+        display_name="互动易问答发布时间",
+    )
+    industry = _strip_nul_text(transformed.get("industry")).strip() or None
+    if trade_date is None:
+        raise RowTransformReject("normalize.required_field_missing:trade_date", "深证互动易问答缺少 trade_date")
+    if not ts_code:
+        raise RowTransformReject("normalize.required_field_missing:ts_code", "深证互动易问答缺少 ts_code")
+    if not question:
+        raise RowTransformReject("normalize.required_field_missing:q", "深证互动易问答缺少 q")
+    if not answer:
+        raise RowTransformReject("normalize.required_field_missing:a", "深证互动易问答缺少 a")
+    trade_date_text = trade_date.isoformat() if isinstance(trade_date, date) else str(trade_date)
+    transformed["trade_date"] = trade_date
+    transformed["ts_code"] = ts_code
+    transformed["name"] = name
+    transformed["q"] = question
+    transformed["a"] = answer
+    transformed["pub_time"] = pub_time
+    transformed["industry"] = industry
+    hash_input = "\x1f".join(
+        (
+            "irm_qa_sz",
+            ts_code,
+            trade_date_text,
+            pub_time.isoformat() if pub_time is not None else "",
+            question,
+            answer,
         )
     )
     transformed["row_key_hash"] = hashlib.sha256(hash_input.encode("utf-8")).hexdigest()
@@ -622,6 +749,9 @@ __all__ = [
     "_cctv_news_row_transform",
     "_major_news_row_transform",
     "_news_row_transform",
+    "_anns_d_row_transform",
+    "_irm_qa_sh_row_transform",
+    "_irm_qa_sz_row_transform",
     "_fund_daily_row_transform",
     "_index_daily_row_transform",
     "_limit_list_row_transform",

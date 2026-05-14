@@ -26,7 +26,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 66
+    assert len(definition_keys) == 69
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -266,6 +266,58 @@ def test_dataset_definition_projects_news_facts() -> None:
     assert definition.quality.required_fields == ("src", "news_time", "row_key_hash")
 
 
+def test_dataset_definition_projects_anns_d_facts() -> None:
+    definition = get_dataset_definition("anns_d")
+
+    assert definition.identity.display_name == "上市公司公告"
+    assert definition.domain.domain_key == "news"
+    assert definition.source.api_name == "anns_d"
+    assert definition.source.source_fields == ("ann_date", "ts_code", "name", "title", "url", "rec_time")
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.bucket_rule == "not_applicable"
+    assert definition.date_model.observed_field == "ann_date"
+    assert definition.date_model.audit_applicable is False
+    assert definition.storage.raw_table == "raw_tushare.anns_d"
+    assert definition.storage.target_table == "core_serving_light.anns_d"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.planning.unit_builder_key == "generic"
+    assert definition.planning.page_limit == 2000
+    assert definition.normalization.date_fields == ("ann_date",)
+    assert definition.normalization.required_fields == ("ann_date", "ts_code", "title", "url", "rec_time", "row_key_hash")
+
+
+def test_dataset_definition_projects_irm_qa_facts() -> None:
+    sh = get_dataset_definition("irm_qa_sh")
+    sz = get_dataset_definition("irm_qa_sz")
+
+    assert sh.identity.display_name == "上证E互动问答"
+    assert sh.domain.domain_key == "news"
+    assert sh.source.api_name == "irm_qa_sh"
+    assert sh.source.source_fields == ("ts_code", "name", "trade_date", "q", "a", "pub_time")
+    assert sh.date_model.input_shape == "trade_date_or_start_end"
+    assert sh.date_model.bucket_rule == "not_applicable"
+    assert sh.date_model.observed_field == "pub_time"
+    assert sh.storage.raw_table == "raw_tushare.irm_qa_sh"
+    assert sh.storage.target_table == "core_serving_light.irm_qa_sh"
+    assert sh.planning.unit_builder_key == "generic"
+    assert sh.planning.page_limit == 3000
+    assert sh.normalization.date_fields == ("trade_date",)
+    assert sh.normalization.required_fields == ("ts_code", "trade_date", "q", "a", "row_key_hash")
+
+    assert sz.identity.display_name == "深证互动易问答"
+    assert sz.domain.domain_key == "news"
+    assert sz.source.api_name == "irm_qa_sz"
+    assert sz.source.source_fields == ("ts_code", "name", "trade_date", "q", "a", "pub_time", "industry")
+    assert sz.date_model.input_shape == "trade_date_or_start_end"
+    assert sz.date_model.bucket_rule == "not_applicable"
+    assert sz.storage.raw_table == "raw_tushare.irm_qa_sz"
+    assert sz.storage.target_table == "core_serving_light.irm_qa_sz"
+    assert sz.planning.unit_builder_key == "generic"
+    assert sz.planning.page_limit == 3000
+    assert sz.normalization.date_fields == ("trade_date",)
+    assert sz.normalization.required_fields == ("ts_code", "trade_date", "q", "a", "row_key_hash")
+
+
 def test_dataset_definition_projects_bse_mapping_facts() -> None:
     definition = get_dataset_definition("bse_mapping")
 
@@ -477,6 +529,9 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     cctv_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("cctv_news"))
     major_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("major_news"))
     news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("news"))
+    anns_d = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("anns_d"))
+    irm_qa_sh = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("irm_qa_sh"))
+    irm_qa_sz = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("irm_qa_sz"))
 
     assert daily.stage_keys == ("raw", "serving")
     assert daily.all_stage_keys == ("raw", "std", "resolution", "serving")
@@ -494,6 +549,12 @@ def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
     assert major_news.stage("light").display_name == "轻量服务层"
     assert news.stage_keys == ("raw", "light")
     assert news.stage("light").display_name == "轻量服务层"
+    assert anns_d.stage_keys == ("raw", "light")
+    assert anns_d.stage("light").display_name == "轻量服务层"
+    assert irm_qa_sh.stage_keys == ("raw", "light")
+    assert irm_qa_sh.stage("light").display_name == "轻量服务层"
+    assert irm_qa_sz.stage_keys == ("raw", "light")
+    assert irm_qa_sz.stage("light").display_name == "轻量服务层"
 
 
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:

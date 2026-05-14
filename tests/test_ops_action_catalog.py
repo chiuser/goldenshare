@@ -2,9 +2,7 @@ from __future__ import annotations
 
 from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key, list_dataset_definitions
 from src.ops.action_catalog import (
-    END_DATE_PARAM,
     MAINTENANCE_ACTION_REGISTRY,
-    START_DATE_PARAM,
     WORKFLOW_DEFINITION_REGISTRY,
     WORKFLOW_DOMAIN_DISPLAY_NAME,
     WORKFLOW_DOMAIN_KEY,
@@ -109,6 +107,9 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "limit_step",
         "limit_cpt_list",
         "kpl_concept_cons",
+        "anns_d",
+        "irm_qa_sh",
+        "irm_qa_sz",
     ]
 
     assert [param.key for param in daily_moneyflow.parameters] == ["trade_date", "start_date", "end_date"]
