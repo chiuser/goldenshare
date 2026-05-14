@@ -13,6 +13,7 @@ interface MarketNewsPanelProps {
 export function MarketNewsPanel({ title, viewState, panel, errorMessage }: MarketNewsPanelProps) {
   const visibleItemCount = panel?.visibleItemCount ?? 10;
   const items = panel?.items ?? [];
+  const trackKey = `${panel?.updatedAt ?? "pending"}-${items[0]?.newsId ?? "empty"}-${items.length}`;
 
   return (
     <section
@@ -39,7 +40,9 @@ export function MarketNewsPanel({ title, viewState, panel, errorMessage }: Marke
             <span>当前交易日暂无可展示新闻。</span>
           </div>
         ) : null}
-        {viewState === "ready" && items.length > 0 ? <NewsTickerList items={items} visibleItemCount={visibleItemCount} /> : null}
+        {viewState === "ready" && items.length > 0 ? (
+          <NewsTickerList key={trackKey} items={items} visibleItemCount={visibleItemCount} />
+        ) : null}
       </div>
     </section>
   );

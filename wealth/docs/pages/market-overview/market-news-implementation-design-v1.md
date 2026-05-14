@@ -199,7 +199,25 @@ summary-index-row
 3. `NewsTickerList` 对应 `.market-news-viewport` + `.market-news-track`。
 4. `NewsTickerItem` 对应 `.market-news-item`，只渲染时间和标题。
 5. `NewsTickerList` 必须按候选新闻条数设置滚动周期：`max(40s, items.length * 2s)`，避免候选池扩大到 300 条后滚动过快。
-6. `PageHeader`、`TopMarketBar`、`Breadcrumb`、`ShortcutBar` 不允许承载新闻内容。
+6. 页面编排层负责新闻模块 10 分钟局部刷新；刷新成功后用最新数据替换面板，刷新失败时保留旧列表。
+7. `NewsTickerList` 通过 `updatedAt + first newsId + item count` 生成 remount key，确保刷新成功后滚动从最新新闻重新开始。
+8. `PageHeader`、`TopMarketBar`、`Breadcrumb`、`ShortcutBar` 不允许承载新闻内容。
+
+### 4.3 自动刷新策略
+
+1. 刷新间隔：`10 * 60 * 1000ms`。
+2. 初次加载：
+   - 无数据时展示 loading；
+   - 5 秒超时后展示 error；
+   - 失败时可 toast 提示。
+3. 后台刷新：
+   - 不清空 `newsBriefs` / `stockNews`；
+   - 不把 viewState 切成 loading；
+   - 请求成功后更新对应列表和 debugInfo；
+   - 请求失败时保留旧列表，不切 error，不 toast 打扰用户。
+4. 并发控制：
+   - 上一轮新闻请求未结束时，不启动下一轮刷新；
+   - 页面卸载时取消当前请求并清理 interval。
 
 ---
 

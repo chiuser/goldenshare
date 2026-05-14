@@ -101,6 +101,7 @@ const STYLE_FETCH_TIMEOUT_MS = 5000;
 const TURNOVER_FETCH_TIMEOUT_MS = 5000;
 const MONEY_FLOW_FETCH_TIMEOUT_MS = 5000;
 const NEWS_FETCH_TIMEOUT_MS = 5000;
+const NEWS_AUTO_REFRESH_INTERVAL_MS = 10 * 60 * 1000;
 const LEADERBOARDS_FETCH_TIMEOUT_MS = 5000;
 const LIMIT_UP_FETCH_TIMEOUT_MS = 5000;
 const STREAK_LADDER_FETCH_TIMEOUT_MS = 5000;
@@ -409,75 +410,91 @@ export function MarketOverviewPage() {
     if (marketOverviewModuleSources.news !== "real") return;
 
     let canceled = false;
-    const abortController = new AbortController();
-    setNewsBriefs(null);
-    setNewsBriefsViewState("loading");
-    setNewsBriefsErrorMessage(null);
-    setNewsBriefsDebugInfo(null);
-    setStockNews(null);
-    setStockNewsViewState("loading");
-    setStockNewsErrorMessage(null);
-    setStockNewsDebugInfo(null);
-    const timeoutId = window.setTimeout(() => abortController.abort(), NEWS_FETCH_TIMEOUT_MS);
+    let requestInFlight = false;
+    let activeAbortController: AbortController | null = null;
 
     const requestParams = { market: "CN_A" as const, debug: pageDebugEnabled ? (1 as const) : (0 as const) };
-    const briefsPromise = fetchMarketNewsBriefs(requestParams, { signal: abortController.signal })
-      .then((payload) => {
-        if (!canceled) {
-          setNewsBriefs(buildNewsBriefsViewModelFromApi(payload));
-          setNewsBriefsViewState("ready");
-          setNewsBriefsErrorMessage(null);
-          setNewsBriefsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
-        }
-      })
-      .catch((error) => {
-        if (!canceled) {
-          const timeout = error instanceof DOMException && error.name === "AbortError";
-          const message = timeout
-            ? `请求超时：/api/v1/wealth/market/news/briefs`
-            : error instanceof Error
-              ? error.message
-              : "新闻速览加载失败";
-          setNewsBriefs(null);
-          setNewsBriefsViewState("error");
-          setNewsBriefsErrorMessage(message);
-          setNewsBriefsDebugInfo(null);
-          showToast(`新闻速览模块异常：${message}`);
-        }
-      });
 
-    const stocksPromise = fetchStockNews(requestParams, { signal: abortController.signal })
-      .then((payload) => {
-        if (!canceled) {
-          setStockNews(buildStockNewsViewModelFromApi(payload));
-          setStockNewsViewState("ready");
-          setStockNewsErrorMessage(null);
-          setStockNewsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
-        }
-      })
-      .catch((error) => {
-        if (!canceled) {
-          const timeout = error instanceof DOMException && error.name === "AbortError";
-          const message = timeout
-            ? `请求超时：/api/v1/wealth/market/news/stocks`
-            : error instanceof Error
-              ? error.message
-              : "个股新闻加载失败";
-          setStockNews(null);
-          setStockNewsViewState("error");
-          setStockNewsErrorMessage(message);
-          setStockNewsDebugInfo(null);
-          showToast(`个股新闻模块异常：${message}`);
-        }
-      });
+    function handleNewsError(error: unknown, moduleName: "新闻速览" | "个股新闻", url: string, mode: "initial" | "refresh") {
+      if (mode === "refresh") return;
+      const timeout = error instanceof DOMException && error.name === "AbortError";
+      const message = timeout ? `请求超时：${url}` : error instanceof Error ? error.message : `${moduleName}加载失败`;
+      if (moduleName === "新闻速览") {
+        setNewsBriefs(null);
+        setNewsBriefsViewState("error");
+        setNewsBriefsErrorMessage(message);
+        setNewsBriefsDebugInfo(null);
+      } else {
+        setStockNews(null);
+        setStockNewsViewState("error");
+        setStockNewsErrorMessage(message);
+        setStockNewsDebugInfo(null);
+      }
+      showToast(`${moduleName}模块异常：${message}`);
+    }
 
-    Promise.allSettled([briefsPromise, stocksPromise]).finally(() => {
-      window.clearTimeout(timeoutId);
-    });
+    function loadNewsPanels(mode: "initial" | "refresh") {
+      if (requestInFlight) return;
+      requestInFlight = true;
+      const abortController = new AbortController();
+      activeAbortController = abortController;
+      const timeoutId = window.setTimeout(() => abortController.abort(), NEWS_FETCH_TIMEOUT_MS);
+
+      if (mode === "initial") {
+        setNewsBriefs(null);
+        setNewsBriefsViewState("loading");
+        setNewsBriefsErrorMessage(null);
+        setNewsBriefsDebugInfo(null);
+        setStockNews(null);
+        setStockNewsViewState("loading");
+        setStockNewsErrorMessage(null);
+        setStockNewsDebugInfo(null);
+      }
+
+      const briefsPromise = fetchMarketNewsBriefs(requestParams, { signal: abortController.signal })
+        .then((payload) => {
+          if (!canceled) {
+            setNewsBriefs(buildNewsBriefsViewModelFromApi(payload));
+            setNewsBriefsViewState("ready");
+            setNewsBriefsErrorMessage(null);
+            setNewsBriefsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+          }
+        })
+        .catch((error) => {
+          if (!canceled) {
+            handleNewsError(error, "新闻速览", "/api/v1/wealth/market/news/briefs", mode);
+          }
+        });
+
+      const stocksPromise = fetchStockNews(requestParams, { signal: abortController.signal })
+        .then((payload) => {
+          if (!canceled) {
+            setStockNews(buildStockNewsViewModelFromApi(payload));
+            setStockNewsViewState("ready");
+            setStockNewsErrorMessage(null);
+            setStockNewsDebugInfo(pageDebugEnabled ? payload.debugInfo ?? null : null);
+          }
+        })
+        .catch((error) => {
+          if (!canceled) {
+            handleNewsError(error, "个股新闻", "/api/v1/wealth/market/news/stocks", mode);
+          }
+        });
+
+      Promise.allSettled([briefsPromise, stocksPromise]).finally(() => {
+        window.clearTimeout(timeoutId);
+        if (activeAbortController === abortController) activeAbortController = null;
+        requestInFlight = false;
+      });
+    }
+
+    loadNewsPanels("initial");
+    const refreshIntervalId = window.setInterval(() => loadNewsPanels("refresh"), NEWS_AUTO_REFRESH_INTERVAL_MS);
 
     return () => {
       canceled = true;
-      abortController.abort();
+      activeAbortController?.abort();
+      window.clearInterval(refreshIntervalId);
     };
   }, [overview, pageContext, pageDebugEnabled]);
 

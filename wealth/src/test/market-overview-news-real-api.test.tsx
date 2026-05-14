@@ -105,6 +105,40 @@ const stockNewsPayload = {
   },
 };
 
+const refreshedNewsBriefsPayload = {
+  ...newsBriefsPayload,
+  pageStatus: { status: "READY", displayText: "新闻速览已刷新", asOfTime: "2026-05-11T15:15:00+08:00" },
+  newsBriefs: {
+    ...newsBriefsPayload.newsBriefs,
+    updatedAt: "2026-05-11T15:15:00+08:00",
+    items: [
+      {
+        ...newsBriefsPayload.newsBriefs.items[0],
+        newsId: "market-2",
+        displayTime: "05-11 15:15:00",
+        title: "最新宏观新闻滚动展示",
+      },
+    ],
+  },
+};
+
+const refreshedStockNewsPayload = {
+  ...stockNewsPayload,
+  pageStatus: { status: "READY", displayText: "个股新闻已刷新", asOfTime: "2026-05-11T15:15:00+08:00" },
+  stockNews: {
+    ...stockNewsPayload.stockNews,
+    updatedAt: "2026-05-11T15:15:00+08:00",
+    items: [
+      {
+        ...stockNewsPayload.stockNews.items[0],
+        newsId: "stock-2",
+        displayTime: "05-11 15:15:00",
+        title: "最新公司新闻滚动展示",
+      },
+    ],
+  },
+};
+
 function responseJson(payload: unknown): Response {
   return { ok: true, json: async () => payload } as Response;
 }
@@ -261,4 +295,92 @@ describe("market-overview news real api", () => {
     expect(within(newsPanel).getByText("error")).toBeInTheDocument();
     expect(within(stockPanel).getByText("error")).toBeInTheDocument();
   }, 15000);
+
+  it("refreshes news panels every 10 minutes without clearing existing items", async () => {
+    vi.useFakeTimers();
+    let briefsCalls = 0;
+    let stocksCalls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = urlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
+      if (url.includes("/api/v1/wealth/market/news/briefs")) {
+        briefsCalls += 1;
+        return responseJson(briefsCalls === 1 ? newsBriefsPayload : refreshedNewsBriefsPayload);
+      }
+      if (url.includes("/api/v1/wealth/market/news/stocks")) {
+        stocksCalls += 1;
+        return responseJson(stocksCalls === 1 ? stockNewsPayload : refreshedStockNewsPayload);
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const newsPanel = screen.getByLabelText("新闻速览");
+    const stockPanel = screen.getByLabelText("个股新闻");
+    expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+    expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      await Promise.resolve();
+    });
+
+    expect(within(newsPanel).getByText("最新宏观新闻滚动展示")).toBeInTheDocument();
+    expect(within(stockPanel).getByText("最新公司新闻滚动展示")).toBeInTheDocument();
+    expect(within(newsPanel).queryByText("loading")).not.toBeInTheDocument();
+    expect(within(stockPanel).queryByText("loading")).not.toBeInTheDocument();
+    expect(briefsCalls).toBe(2);
+    expect(stocksCalls).toBe(2);
+  });
+
+  it("keeps current news visible when a background refresh fails", async () => {
+    vi.useFakeTimers();
+    let briefsCalls = 0;
+    let stocksCalls = 0;
+    vi.spyOn(globalThis, "fetch").mockImplementation(async (input) => {
+      const url = urlString(input);
+      const contextResponse = maybeContextResponse(url);
+      if (contextResponse) return contextResponse;
+      if (url.includes("/api/v1/wealth/market/news/briefs")) {
+        briefsCalls += 1;
+        if (briefsCalls === 1) return responseJson(newsBriefsPayload);
+        throw new Error("briefs refresh failed");
+      }
+      if (url.includes("/api/v1/wealth/market/news/stocks")) {
+        stocksCalls += 1;
+        if (stocksCalls === 1) return responseJson(stockNewsPayload);
+        throw new Error("stocks refresh failed");
+      }
+      throw new Error(`unexpected url: ${url}`);
+    });
+
+    render(<MarketOverviewPage />);
+    await act(async () => {
+      await Promise.resolve();
+      await Promise.resolve();
+    });
+
+    const newsPanel = screen.getByLabelText("新闻速览");
+    const stockPanel = screen.getByLabelText("个股新闻");
+    expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+    expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(10 * 60 * 1000);
+      await Promise.resolve();
+    });
+
+    expect(within(newsPanel).getByText("宏观政策保持连续性")).toBeInTheDocument();
+    expect(within(stockPanel).getByText("公司公告披露一季度经营情况")).toBeInTheDocument();
+    expect(within(newsPanel).queryByText("error")).not.toBeInTheDocument();
+    expect(within(stockPanel).queryByText("error")).not.toBeInTheDocument();
+    expect(briefsCalls).toBe(2);
+    expect(stocksCalls).toBe(2);
+  });
 });
