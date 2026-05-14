@@ -10,6 +10,7 @@ from src.foundation.models.core_serving_light.irm_qa_sz import IrmQaSzLight
 from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 from src.foundation.models.core_serving_light.namechange import NamechangeLight
 from src.foundation.models.core_serving_light.news import NewsLight
+from src.foundation.models.core_serving_light.research_report import ResearchReportLight
 from src.foundation.models.core_serving_light.st import StLight
 from src.foundation.models.core_serving_light.stock_company import StockCompanyLight
 
@@ -24,6 +25,7 @@ __all__ = [
     "MajorNewsLight",
     "NamechangeLight",
     "NewsLight",
+    "ResearchReportLight",
     "StLight",
     "StockCompanyLight",
 ]

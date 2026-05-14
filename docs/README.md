@@ -188,6 +188,7 @@ docs/
 - [上市公司公告](/Users/congming/github/goldenshare/docs/datasets/anns-d-dataset-development.md)
 - [上证E互动问答](/Users/congming/github/goldenshare/docs/datasets/irm-qa-sh-dataset-development.md)
 - [深证互动易问答](/Users/congming/github/goldenshare/docs/datasets/irm-qa-sz-dataset-development.md)
+- [券商研究报告](/Users/congming/github/goldenshare/docs/datasets/research-report-dataset-development.md)
 - [券商每月荐股](/Users/congming/github/goldenshare/docs/datasets/broker-recommend-dataset-development.md)
 - [每日筹码及胜率](/Users/congming/github/goldenshare/docs/datasets/cyq-perf-dataset-development.md)
 - [股票历史基础列表](/Users/congming/github/goldenshare/docs/datasets/bak-basic-dataset-development.md)

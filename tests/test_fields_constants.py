@@ -136,6 +136,19 @@ def test_dataset_definition_source_fields_cover_extended_resources() -> None:
         "recom_type",
         "reason",
     )
+    assert tuple(_source_fields("research_report")) == (
+        "trade_date",
+        "abstr",
+        "title",
+        "report_type",
+        "author",
+        "name",
+        "ts_code",
+        "inst_csname",
+        "ind_name",
+        "url",
+        "report_code",
+    )
     assert tuple(_source_fields("stk_factor_pro"))[:2] == ("ts_code", "trade_date")
     assert "seller" in _source_fields("block_trade")
     assert {"div_listdate", "base_date", "base_share"}.issubset(set(_source_fields("dividend")))

@@ -100,6 +100,7 @@ from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
+from src.foundation.models.raw.raw_research_report import RawResearchReport
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
@@ -242,6 +243,7 @@ class DAOFactory:
         self.raw_major_news = RawMajorNewsDAO(session)
         self.raw_namechange = GenericDAO(session, RawNamechange)
         self.raw_news = RawNewsDAO(session)
+        self.raw_research_report = RowKeyHashDAO(session, RawResearchReport)
         self.raw_limit_list_ths = GenericDAO(session, RawLimitListThs)
         self.raw_limit_step = GenericDAO(session, RawLimitStep)
         self.raw_margin = GenericDAO(session, RawMargin)

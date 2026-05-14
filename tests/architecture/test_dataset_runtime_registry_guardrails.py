@@ -56,6 +56,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "stk_period_bar_adj_week",
         "stk_period_bar_adj_month",
         "broker_recommend",
+        "research_report",
     },
     "market_fund": {"fund_daily", "fund_adj"},
     "index_series": {

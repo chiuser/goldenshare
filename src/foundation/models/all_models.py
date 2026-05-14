@@ -73,6 +73,7 @@ from src.foundation.models.core_serving_light.irm_qa_sz import IrmQaSzLight
 from src.foundation.models.core_serving_light.major_news import MajorNewsLight
 from src.foundation.models.core_serving_light.namechange import NamechangeLight
 from src.foundation.models.core_serving_light.news import NewsLight
+from src.foundation.models.core_serving_light.research_report import ResearchReportLight
 from src.foundation.models.core_serving_light.st import StLight
 from src.foundation.models.core_serving_light.stock_company import StockCompanyLight
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
@@ -119,6 +120,7 @@ from src.foundation.models.raw.raw_moneyflow_cnt_ths import RawMoneyflowCntThs
 from src.foundation.models.raw.raw_moneyflow_ind_ths import RawMoneyflowIndThs
 from src.foundation.models.raw.raw_moneyflow_ind_dc import RawMoneyflowIndDc
 from src.foundation.models.raw.raw_moneyflow_mkt_dc import RawMoneyflowMktDc
+from src.foundation.models.raw.raw_research_report import RawResearchReport
 from src.foundation.models.raw.raw_kpl_concept_cons import RawKplConceptCons
 from src.foundation.models.raw.raw_kpl_list import RawKplList
 from src.foundation.models.raw.raw_broker_recommend import RawBrokerRecommend
@@ -234,6 +236,7 @@ __all__ = [
     "RawMoneyflowIndThs",
     "RawMoneyflowIndDc",
     "RawMoneyflowMktDc",
+    "RawResearchReport",
     "RawStockBasic",
     "RawStockSt",
     "RawStkFactorPro",
@@ -271,6 +274,7 @@ __all__ = [
     "MajorNewsLight",
     "NamechangeLight",
     "NewsLight",
+    "ResearchReportLight",
     "StLight",
     "StockCompanyLight",
     "SourceRegistry",

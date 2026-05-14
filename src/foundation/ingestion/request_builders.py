@@ -437,6 +437,36 @@ def _broker_recommend_params(request, anchor_date: date | None, enum_values: dic
     return {}
 
 
+def _research_report_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("券商研究报告单日维护缺少日期")
+        params: dict[str, Any] = {"trade_date": target_date.strftime("%Y%m%d")}
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise ValueError("券商研究报告区间维护必须同时填写开始日期和结束日期")
+        params = {
+            "start_date": request.start_date.strftime("%Y%m%d"),
+            "end_date": request.end_date.strftime("%Y%m%d"),
+        }
+    else:
+        raise ValueError(f"券商研究报告不支持该运行模式：{request.run_profile}")
+
+    report_type = enum_values.get("report_type")
+    if _has_value(report_type):
+        params["report_type"] = str(report_type).strip()
+
+    ts_code = request.params.get("ts_code")
+    if _has_value(ts_code):
+        params["ts_code"] = str(ts_code).strip().upper()
+    for key in ("inst_csname", "ind_name"):
+        value = request.params.get(key)
+        if _has_value(value):
+            params[key] = str(value).strip()
+    return params
+
+
 def _dividend_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
     if anchor_date is not None:
@@ -1021,6 +1051,7 @@ __all__ = [
     "_kpl_list_params",
     "_kpl_concept_cons_params",
     "_broker_recommend_params",
+    "_research_report_params",
     "_dividend_params",
     "_stk_holdernumber_params",
     "_dc_index_params",

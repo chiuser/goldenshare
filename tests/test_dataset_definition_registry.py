@@ -26,7 +26,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 69
+    assert len(definition_keys) == 70
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -316,6 +316,51 @@ def test_dataset_definition_projects_irm_qa_facts() -> None:
     assert sz.planning.page_limit == 3000
     assert sz.normalization.date_fields == ("trade_date",)
     assert sz.normalization.required_fields == ("ts_code", "trade_date", "q", "a", "row_key_hash")
+
+
+def test_dataset_definition_projects_research_report_facts() -> None:
+    definition = get_dataset_definition("research_report")
+
+    assert definition.identity.display_name == "券商研究报告"
+    assert definition.domain.domain_key == "equity_market"
+    assert definition.source.api_name == "research_report"
+    assert definition.source.source_fields == (
+        "trade_date",
+        "abstr",
+        "title",
+        "report_type",
+        "author",
+        "name",
+        "ts_code",
+        "inst_csname",
+        "ind_name",
+        "url",
+        "report_code",
+    )
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.bucket_rule == "not_applicable"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.date_model.audit_applicable is False
+    assert definition.storage.raw_table == "raw_tushare.research_report"
+    assert definition.storage.target_table == "core_serving_light.research_report"
+    assert definition.storage.delivery_mode == "raw_with_serving_light_view"
+    assert definition.storage.conflict_columns == ("row_key_hash",)
+    assert definition.planning.enum_fanout_fields == ("report_type",)
+    assert definition.planning.enum_fanout_defaults == {}
+    assert definition.planning.page_limit == 1000
+    report_type = next(field for field in definition.input_model.filters if field.name == "report_type")
+    assert report_type.field_type == "list"
+    assert report_type.multi_value is True
+    assert report_type.enum_values == ("个股研报", "行业研报")
+    assert definition.normalization.date_fields == ("trade_date",)
+    assert definition.normalization.required_fields == (
+        "trade_date",
+        "title",
+        "report_type",
+        "inst_csname",
+        "url",
+        "row_key_hash",
+    )
 
 
 def test_dataset_definition_projects_bse_mapping_facts() -> None:

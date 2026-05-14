@@ -347,6 +347,111 @@ def test_irm_qa_sz_hash_does_not_include_industry() -> None:
     assert batch.rows_normalized[0]["row_key_hash"] == batch.rows_normalized[1]["row_key_hash"]
 
 
+def test_research_report_normalizer_uses_report_code_identity() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("research_report"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-research-report",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260121",
+                    "abstr": " 摘要 ",
+                    "title": " 研报标题 ",
+                    "report_type": "个股研报",
+                    "author": " 张三 ",
+                    "name": " 示例股票 ",
+                    "ts_code": "603659.sh",
+                    "inst_csname": " 东吴证券 ",
+                    "ind_name": " 电子 ",
+                    "url": " https://example.test/report.pdf ",
+                    "report_code": " RPT001 ",
+                },
+                {
+                    "trade_date": "20260122",
+                    "title": "同一个编码修订标题",
+                    "report_type": "个股研报",
+                    "author": "李四",
+                    "name": "示例股票",
+                    "ts_code": "603659.SH",
+                    "inst_csname": "东吴证券",
+                    "ind_name": "电子",
+                    "url": "https://example.test/revised.pdf",
+                    "report_code": "RPT001",
+                },
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    first = batch.rows_normalized[0]
+    assert first["trade_date"] == date(2026, 1, 21)
+    assert first["abstr"] == "摘要"
+    assert first["title"] == "研报标题"
+    assert first["ts_code"] == "603659.SH"
+    assert first["inst_csname"] == "东吴证券"
+    assert first["report_code"] == "RPT001"
+    assert first["url"] == "https://example.test/report.pdf"
+    assert batch.rows_normalized[0]["row_key_hash"] == batch.rows_normalized[1]["row_key_hash"]
+
+
+def test_research_report_normalizer_falls_back_when_report_code_missing() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("research_report"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-research-report-no-code",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260121",
+                    "title": "行业周报",
+                    "report_type": "行业研报",
+                    "author": "张三",
+                    "inst_csname": "世纪证券",
+                    "ind_name": "TMT",
+                    "url": "https://example.test/industry.pdf",
+                    "report_code": "",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["report_code"] is None
+    assert normalized["ts_code"] is None
+    assert normalized["name"] is None
+    assert isinstance(normalized["row_key_hash"], str)
+    assert len(normalized["row_key_hash"]) == 64
+
+
+def test_research_report_normalizer_rejects_missing_url() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("research_report"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-research-report-missing-url",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260121",
+                    "title": "研报标题",
+                    "report_type": "个股研报",
+                    "inst_csname": "东吴证券",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.required_field_missing:url": 1}
+
+
 def test_bak_basic_normalizer_trims_text_and_parses_dates() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("bak_basic"),

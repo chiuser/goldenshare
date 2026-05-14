@@ -213,6 +213,51 @@ def test_dataset_action_resolver_builds_irm_qa_point_and_range_units(mocker, dat
     }
 
 
+def test_dataset_action_resolver_builds_research_report_point_and_range_units(mocker) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+
+    point_plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="research_report",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 1, 21)),
+            filters={
+                "report_type": ["个股研报", "行业研报"],
+                "ts_code": "603659.sh",
+                "inst_csname": "东吴证券",
+                "ind_name": "电子",
+            },
+        )
+    )
+    range_plan = resolver.build_plan(
+        DatasetActionRequest(
+            dataset_key="research_report",
+            action="maintain",
+            time_input=DatasetTimeInput(mode="range", start_date=date(2026, 1, 1), end_date=date(2026, 1, 31)),
+        )
+    )
+
+    assert point_plan.planning.unit_count == 2
+    assert [unit.request_params for unit in point_plan.units] == [
+        {
+            "trade_date": "20260121",
+            "report_type": "个股研报",
+            "ts_code": "603659.SH",
+            "inst_csname": "东吴证券",
+            "ind_name": "电子",
+        },
+        {
+            "trade_date": "20260121",
+            "report_type": "行业研报",
+            "ts_code": "603659.SH",
+            "inst_csname": "东吴证券",
+            "ind_name": "电子",
+        },
+    ]
+    assert range_plan.planning.unit_count == 1
+    assert range_plan.units[0].request_params == {"start_date": "20260101", "end_date": "20260131"}
+
+
 def test_dataset_action_resolver_rejects_month_window_plan_from_dates(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

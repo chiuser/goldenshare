@@ -105,6 +105,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("moneyflow_cnt_ths", "moneyflow", 70),
         DatasetCatalogItem("moneyflow_ind_ths", "moneyflow", 80),
         DatasetCatalogItem("broker_recommend", "broker_recommendation", 10),
+        DatasetCatalogItem("research_report", "broker_recommendation", 20),
         DatasetCatalogItem("cctv_news", "news", 10),
         DatasetCatalogItem("major_news", "news", 20),
         DatasetCatalogItem("news", "news", 30),

@@ -10,6 +10,7 @@ from src.ops.action_catalog import (
     get_action_display_name,
     get_catalog_target,
 )
+from src.ops.catalog.dataset_catalog_view_resolver import resolve_default_dataset_catalog_item
 
 
 def test_maintenance_action_registry_keeps_only_explicit_actions() -> None:
@@ -39,6 +40,21 @@ def test_dataset_actions_are_resolved_from_dataset_definitions() -> None:
     assert get_action_display_name("dataset_action", "daily.maintain") == f"维护{definition.display_name}"
     assert definition.capabilities.get_action("maintain") is not None
     assert definition.storage.target_table == "core_serving.equity_daily_bar"
+
+
+def test_research_report_catalog_and_workflow_scope() -> None:
+    item = resolve_default_dataset_catalog_item("research_report")
+    workflow_dataset_keys = {
+        step.dataset_key
+        for workflow in WORKFLOW_DEFINITION_REGISTRY.values()
+        for step in workflow.steps
+        if step.dataset_key is not None
+    }
+
+    assert item.group_key == "broker_recommendation"
+    assert item.group_label == "券商推荐"
+    assert item.item_order == 20
+    assert "research_report" not in workflow_dataset_keys
 
 
 def test_workflow_steps_reference_dataset_action_keys() -> None:

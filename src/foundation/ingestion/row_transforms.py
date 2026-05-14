@@ -439,6 +439,63 @@ def _irm_qa_sz_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     return transformed
 
 
+def _research_report_row_transform(row: dict[str, Any]) -> dict[str, Any]:
+    transformed = dict(row)
+    trade_date = transformed.get("trade_date")
+    report_code = _strip_nul_text(transformed.get("report_code")).strip() or None
+    title = _strip_nul_text(transformed.get("title")).strip()
+    report_type = _strip_nul_text(transformed.get("report_type")).strip()
+    inst_csname = _strip_nul_text(transformed.get("inst_csname")).strip()
+    url = _strip_nul_text(transformed.get("url")).strip()
+    ts_code = _strip_nul_text(transformed.get("ts_code")).strip().upper() or None
+    author = _strip_nul_text(transformed.get("author")).strip() or None
+    name = _strip_nul_text(transformed.get("name")).strip() or None
+    ind_name = _strip_nul_text(transformed.get("ind_name")).strip() or None
+    abstr = _strip_nul_text(transformed.get("abstr")).strip() or None
+
+    if trade_date is None:
+        raise RowTransformReject("normalize.required_field_missing:trade_date", "券商研究报告缺少 trade_date")
+    if not title:
+        raise RowTransformReject("normalize.required_field_missing:title", "券商研究报告缺少 title")
+    if not report_type:
+        raise RowTransformReject("normalize.required_field_missing:report_type", "券商研究报告缺少 report_type")
+    if not inst_csname:
+        raise RowTransformReject("normalize.required_field_missing:inst_csname", "券商研究报告缺少 inst_csname")
+    if not url:
+        raise RowTransformReject("normalize.required_field_missing:url", "券商研究报告缺少 url")
+
+    trade_date_text = trade_date.isoformat() if isinstance(trade_date, date) else str(trade_date)
+    if report_code:
+        hash_parts = ("research_report", "report_code", report_code)
+    else:
+        hash_parts = (
+            "research_report",
+            "fallback",
+            trade_date_text,
+            title,
+            report_type,
+            inst_csname,
+            author or "",
+            ts_code or "",
+            ind_name or "",
+            url,
+        )
+
+    transformed["trade_date"] = trade_date
+    transformed["report_code"] = report_code
+    transformed["title"] = title
+    transformed["report_type"] = report_type
+    transformed["inst_csname"] = inst_csname
+    transformed["url"] = url
+    transformed["ts_code"] = ts_code
+    transformed["author"] = author
+    transformed["name"] = name
+    transformed["ind_name"] = ind_name
+    transformed["abstr"] = abstr
+    transformed["row_key_hash"] = hashlib.sha256("\x1f".join(hash_parts).encode("utf-8")).hexdigest()
+    return transformed
+
+
 def _fund_daily_row_transform(row: dict[str, Any]) -> dict[str, Any]:
     transformed = dict(row)
     transformed["change_amount"] = transformed.get("change")
@@ -752,6 +809,7 @@ __all__ = [
     "_anns_d_row_transform",
     "_irm_qa_sh_row_transform",
     "_irm_qa_sz_row_transform",
+    "_research_report_row_transform",
     "_fund_daily_row_transform",
     "_index_daily_row_transform",
     "_limit_list_row_transform",

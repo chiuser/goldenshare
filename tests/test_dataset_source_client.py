@@ -174,6 +174,51 @@ def test_irm_qa_source_client_passes_definition_fields(monkeypatch) -> None:  # 
     ]
 
 
+def test_research_report_source_client_passes_definition_fields(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = RecordingConnector()
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("research_report"),
+        unit=PlanUnitSnapshot(
+            unit_id="research-report-u1",
+            dataset_key="research_report",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"trade_date": "20260121", "report_type": "个股研报"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=1000,
+        ),
+    )
+
+    assert result.request_count == 1
+    assert connector.calls == [
+        {
+            "api_name": "research_report",
+            "params": {
+                "trade_date": "20260121",
+                "report_type": "个股研报",
+                "offset": 0,
+                "limit": 1000,
+            },
+            "fields": (
+                "trade_date",
+                "abstr",
+                "title",
+                "report_type",
+                "author",
+                "name",
+                "ts_code",
+                "inst_csname",
+                "ind_name",
+                "url",
+                "report_code",
+            ),
+        }
+    ]
+
+
 def test_index_mins_source_client_passes_fields_and_fills_missing_freq(monkeypatch) -> None:  # type: ignore[no-untyped-def]
     connector = RecordingConnector(rows=[{"ts_code": "000001.SH", "trade_time": "2026-04-30 15:00:00"}])
     monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
