@@ -1,0 +1,1210 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>股票实时日线流架构方案 v1</title>
+<style>
+:root {
+  --page: #f4f6f8;
+  --surface: #ffffff;
+  --surface-soft: #fbfcfe;
+  --line: #d9e0e8;
+  --line-strong: #b8c4d2;
+  --text: #334155;
+  --muted: #64748b;
+  --title: #0f172a;
+  --brand: #1f5499;
+  --brand-soft: #eaf2ff;
+  --green: #0f7a55;
+  --green-soft: #e6f4ee;
+  --amber: #a16207;
+  --amber-soft: #fef3c7;
+  --red: #b42318;
+  --red-soft: #fee4e2;
+  --violet: #5b4b8a;
+  --violet-soft: #eeeafd;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.55;
+  -webkit-font-smoothing: antialiased;
+}
+a { color: var(--brand); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--mono); }
+.shell {
+  display: grid;
+  grid-template-columns: 260px minmax(0, 1fr);
+  min-height: 100vh;
+}
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+  padding: 18px 14px;
+  background: #fbfcff;
+  border-right: 1px solid var(--line);
+}
+.brand {
+  padding: 4px 8px 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.brand-title {
+  color: var(--title);
+  font-weight: 800;
+  font-size: 15px;
+}
+.brand-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.nav a {
+  display: block;
+  padding: 7px 8px;
+  border-radius: 7px;
+  color: #475467;
+  font-size: 13px;
+}
+.nav a:hover {
+  background: #eef2f7;
+  color: var(--title);
+  text-decoration: none;
+}
+.main {
+  min-width: 0;
+  padding: 28px 32px 60px;
+}
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 330px;
+  gap: 16px;
+  align-items: start;
+}
+h1 {
+  margin: 0 0 8px;
+  color: var(--title);
+  font-size: 28px;
+  line-height: 1.2;
+}
+.lead {
+  max-width: 1000px;
+  color: var(--muted);
+  margin: 0;
+}
+.meta {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  padding: 12px;
+  display: grid;
+  gap: 7px;
+}
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+}
+.meta-row span:first-child { color: var(--muted); }
+.meta-row span:last-child {
+  color: var(--title);
+  font-family: var(--mono);
+  text-align: right;
+}
+.section {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 12px 15px;
+  background: var(--surface-soft);
+  border-bottom: 1px solid var(--line);
+}
+.section-header h2 {
+  margin: 0;
+  color: var(--title);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.section-body { padding: 15px; }
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #fff;
+  padding: 12px;
+}
+.card h3 {
+  margin: 0 0 7px;
+  color: var(--title);
+  font-size: 14px;
+}
+.card p { margin: 0; color: var(--muted); }
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #344054;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pill.green { background: var(--green-soft); color: var(--green); }
+.pill.amber { background: var(--amber-soft); color: var(--amber); }
+.pill.red { background: var(--red-soft); color: var(--red); }
+.pill.blue { background: var(--brand-soft); color: var(--brand); }
+.pill.violet { background: var(--violet-soft); color: var(--violet); }
+.callout {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--brand);
+  border-radius: 8px;
+  background: #fbfcff;
+  padding: 12px;
+  margin-top: 12px;
+}
+.callout.warning { border-left-color: var(--amber); background: #fffaf0; }
+.callout.danger { border-left-color: var(--red); background: #fff7f6; }
+.flow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+.flow-node {
+  position: relative;
+  border: 1px solid var(--line);
+  background: #fff;
+  border-radius: 10px;
+  padding: 10px;
+  min-height: 112px;
+}
+.flow-node::after {
+  content: "→";
+  position: absolute;
+  right: -14px;
+  top: 42%;
+  color: var(--line-strong);
+  font-weight: 800;
+}
+.flow-node:last-child::after { content: ""; }
+.flow-node h3 {
+  margin: 0 0 6px;
+  color: var(--title);
+  font-size: 13px;
+}
+.flow-node p {
+  margin: 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.diagram {
+  width: 100%;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: linear-gradient(180deg, #ffffff 0%, #fbfcff 100%);
+}
+.diagram svg {
+  display: block;
+  min-width: 980px;
+  width: 100%;
+  height: auto;
+}
+.table-wrap {
+  width: 100%;
+  overflow: auto;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 820px;
+}
+th, td {
+  border-bottom: 1px solid var(--line);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  color: var(--title);
+  background: #f8fafc;
+  font-size: 12px;
+  white-space: nowrap;
+}
+td { color: var(--text); }
+td code {
+  color: #1e3a8a;
+  background: #eff6ff;
+  border-radius: 4px;
+  padding: 1px 4px;
+}
+pre {
+  margin: 0;
+  padding: 12px;
+  overflow: auto;
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  background: #0f172a;
+  color: #e5e7eb;
+  font-size: 12px;
+  line-height: 1.55;
+}
+.two-col {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  gap: 12px;
+}
+.list {
+  margin: 0;
+  padding-left: 18px;
+}
+.list li { margin: 4px 0; }
+.decision {
+  display: grid;
+  gap: 10px;
+}
+.decision-item {
+  border: 1px solid var(--line);
+  border-radius: 9px;
+  padding: 11px;
+  background: #fff;
+}
+.decision-item h3 {
+  margin: 0 0 6px;
+  color: var(--title);
+  font-size: 14px;
+}
+.decision-item p { margin: 0; color: var(--muted); }
+@media (max-width: 1050px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: relative; height: auto; }
+  .hero, .grid-2, .grid-3, .grid-4, .two-col { grid-template-columns: 1fr; }
+  .flow { grid-template-columns: 1fr; }
+  .flow-node::after { content: "↓"; right: 14px; top: auto; bottom: -17px; }
+  .flow-node:last-child::after { content: ""; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-title">股票实时日线流架构方案</div>
+      <div class="brand-sub">Realtime Market Data Stream v1</div>
+    </div>
+    <nav class="nav">
+      <a href="#summary">1. V1 方案摘要</a>
+      <a href="#boundary">2. 与离线链路边界</a>
+      <a href="#architecture">3. 系统关系图</a>
+      <a href="#flow">4. Redis 刷新流程</a>
+      <a href="#redis">5. Redis 状态层</a>
+      <a href="#consistency">6. 批次一致性</a>
+      <a href="#deploy">7. Redis 部署方案</a>
+      <a href="#models">8. 核心模型</a>
+      <a href="#apis">9. V1 对外 API</a>
+      <a href="#ops">10. Ops 菜单与观测</a>
+      <a href="#pilot">11. 0372 接入口径</a>
+      <a href="#milestones">12. 推进里程碑</a>
+      <a href="#decisions">13. 待拍板项</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <section class="hero">
+      <div>
+        <h1>股票实时日线流架构方案 v1</h1>
+        <p class="lead">
+          本文把 V1 范围收敛为“股票实时日线数据”，以 Tushare 0372 `rt_k` 为唯一上游。
+          它不是离线数据集接入，不走 DatasetDefinition、DatasetExecutionPlan、TaskRun、freshness 或日期审计链路。
+          服务器侧由 realtime collector 在 A 股连续竞价时段按固定节奏请求 Tushare，并把结果刷新到 Redis；页面和业务 API 只读取 Redis 快照。
+        </p>
+      </div>
+      <div class="meta">
+        <div class="meta-row"><span>状态</span><span>待评审</span></div>
+        <div class="meta-row"><span>版本</span><span>v1</span></div>
+        <div class="meta-row"><span>日期</span><span>2026-05-14</span></div>
+        <div class="meta-row"><span>V1 范围</span><span>股票实时日线</span></div>
+        <div class="meta-row"><span>上游接口</span><span>Tushare 0372 rt_k</span></div>
+        <div class="meta-row"><span>请求频率</span><span>10 calls/min</span></div>
+      </div>
+    </section>
+
+    <section id="summary" class="section">
+      <div class="section-header">
+        <div>
+          <h2>1. V1 方案摘要</h2>
+          <p>先只做股票实时日线快照：服务端采集 Tushare 0372，Redis 保存最新状态，页面/API 读取 Redis。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-4">
+          <div class="card">
+            <h3>唯一上游</h3>
+            <p>V1 只接 Tushare 0372 `rt_k`，对应“A股实时日线”。指数、ETF、盘口不进入 V1；WebSocket 作为后续推送能力预留。</p>
+          </div>
+          <div class="card">
+            <h3>服务器刷新 Redis</h3>
+            <p>独立 realtime collector 常驻运行，仅在 9:30-11:30、13:00-15:00 内每 6 秒发起 1 次 Tushare 全市场请求。</p>
+          </div>
+          <div class="card">
+            <h3>最新状态层</h3>
+            <p>Redis 保存股票最新日线快照、短期 stream 和 feed 健康状态。V1 不写业务历史库。</p>
+          </div>
+          <div class="card">
+            <h3>最小 API</h3>
+            <p>V1 只定义股票实时日线快照查询 API 和健康观测 API；后续基于 Redis stream 增加 WebSocket 推送。</p>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>一句话口径：</strong>
+          Redis 不会自己刷新；刷新动作来自服务端 realtime collector。collector 只在 9:30-11:30、13:00-15:00 请求 Tushare，再把返回的股票实时日线写入 Redis。
+        </div>
+      </div>
+    </section>
+
+    <section id="boundary" class="section">
+      <div class="section-header">
+        <div>
+          <h2>2. 与离线链路边界</h2>
+          <p>实时链路必须和当前离线数据维护链路隔离，避免把低延迟服务做成慢任务系统。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>维度</th>
+                <th>离线数据维护</th>
+                <th>实时行情流</th>
+                <th>本方案规则</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>核心目标</td>
+                <td>可追溯、可重跑、可审计、可落库</td>
+                <td>低延迟、状态新鲜、读取稳定、失败降级</td>
+                <td>两条链路独立，不互相复用执行模型</td>
+              </tr>
+              <tr>
+                <td>事实模型</td>
+                <td><code>DatasetDefinition</code></td>
+                <td><code>RealtimeFeedDefinition</code></td>
+                <td>0372 不建 DatasetDefinition</td>
+              </tr>
+              <tr>
+                <td>执行模型</td>
+                <td><code>DatasetExecutionPlan -> IngestionExecutor</code></td>
+                <td><code>CollectorPlan -> RealtimeCollector</code></td>
+                <td>不进入 TaskRun 主链</td>
+              </tr>
+              <tr>
+                <td>状态存储</td>
+                <td>业务库 raw/core/serving 与 Ops TaskRun 表</td>
+                <td>Redis 最新快照、短期 stream、健康状态</td>
+                <td>V1 不沉淀历史业务库，只保留 Redis 最新快照和短期 stream</td>
+              </tr>
+              <tr>
+                <td>质量判断</td>
+                <td>写入行数、拒绝原因、日期完整性、新鲜度</td>
+                <td>最后更新时间、延迟、stale 比例、上游错误率</td>
+                <td>不走 freshness/date audit</td>
+              </tr>
+              <tr>
+                <td>用户体验</td>
+                <td>任务记录、任务详情、手动维护、自动任务</td>
+                <td>股票实时日线快照、数据是否滞后</td>
+                <td>V1 页面只消费股票实时日线快照查询 API</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout warning">
+          <strong>硬边界：</strong>
+          实时状态写入 Redis 或 Ops 观测失败，不允许影响离线业务数据表的读写与事务提交；反过来，离线任务失败也不应拖垮实时行情服务。
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section">
+      <div class="section-header">
+        <div>
+          <h2>3. 系统关系图</h2>
+          <p>按现有 foundation / biz / app / ops 边界拆分，Redis 作为实时状态层。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="diagram">
+          <svg viewBox="0 0 1180 540" role="img" aria-label="实时行情流系统关系图">
+            <defs>
+              <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+                <path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path>
+              </marker>
+              <filter id="shadow" x="-10%" y="-10%" width="120%" height="120%">
+                <feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#0f172a" flood-opacity="0.12"></feDropShadow>
+              </filter>
+            </defs>
+
+            <rect x="20" y="24" width="1140" height="492" rx="18" fill="#f8fafc" stroke="#d9e0e8"></rect>
+
+            <rect x="50" y="70" width="170" height="78" rx="12" fill="#fff" stroke="#b8c4d2" filter="url(#shadow)"></rect>
+            <text x="135" y="103" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">上游实时源</text>
+            <text x="135" y="128" text-anchor="middle" font-size="12" fill="#64748b">Tushare 0372 rt_k</text>
+
+            <rect x="270" y="54" width="230" height="110" rx="12" fill="#eaf2ff" stroke="#8bb6e8" filter="url(#shadow)"></rect>
+            <text x="385" y="85" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">foundation/realtime</text>
+            <text x="385" y="111" text-anchor="middle" font-size="12" fill="#334155">RealtimeFeedDefinition</text>
+            <text x="385" y="132" text-anchor="middle" font-size="12" fill="#334155">Collector / Provider Client</text>
+
+            <rect x="552" y="54" width="220" height="110" rx="12" fill="#e6f4ee" stroke="#83c5a7" filter="url(#shadow)"></rect>
+            <text x="662" y="85" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Redis 状态层</text>
+            <text x="662" y="111" text-anchor="middle" font-size="12" fill="#334155">最新快照 / Stream</text>
+            <text x="662" y="132" text-anchor="middle" font-size="12" fill="#334155">健康状态 / TTL / PubSub</text>
+
+            <rect x="824" y="54" width="220" height="110" rx="12" fill="#fff7ed" stroke="#fdba74" filter="url(#shadow)"></rect>
+            <text x="934" y="85" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">biz/realtime</text>
+            <text x="934" y="111" text-anchor="middle" font-size="12" fill="#334155">股票实时日线语义</text>
+            <text x="934" y="132" text-anchor="middle" font-size="12" fill="#334155">Stock Rt Daily Query</text>
+
+            <rect x="824" y="236" width="220" height="110" rx="12" fill="#eeeafd" stroke="#b6a7e8" filter="url(#shadow)"></rect>
+            <text x="934" y="267" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">app/api</text>
+            <text x="934" y="293" text-anchor="middle" font-size="12" fill="#334155">股票实时日线快照 API</text>
+            <text x="934" y="314" text-anchor="middle" font-size="12" fill="#334155">后续 WebSocket Gateway</text>
+
+            <rect x="552" y="356" width="220" height="100" rx="12" fill="#fff" stroke="#b8c4d2" filter="url(#shadow)"></rect>
+            <text x="662" y="388" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">ops/realtime</text>
+            <text x="662" y="414" text-anchor="middle" font-size="12" fill="#334155">数据运营后台菜单</text>
+            <text x="662" y="435" text-anchor="middle" font-size="12" fill="#334155">最近刷新 / 错误 / 滞后</text>
+
+            <rect x="70" y="356" width="270" height="100" rx="12" fill="#fff" stroke="#b8c4d2" filter="url(#shadow)"></rect>
+            <text x="205" y="388" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">全市场请求参数</text>
+            <text x="205" y="414" text-anchor="middle" font-size="12" fill="#334155">3*.SZ,6*.SH,0*.SZ,9*.BJ</text>
+            <text x="205" y="435" text-anchor="middle" font-size="12" fill="#334155">交易时段内每 6 秒请求全市场</text>
+
+            <line x1="220" y1="109" x2="270" y2="109" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="500" y1="109" x2="552" y2="109" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="772" y1="109" x2="824" y2="109" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="934" y1="164" x2="934" y2="236" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="662" y1="164" x2="662" y2="356" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></line>
+            <line x1="340" y1="406" x2="552" y2="406" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></line>
+            <path d="M205 356 C205 230, 385 230, 385 164" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></path>
+            <path d="M824 292 C720 292, 720 164, 662 164" fill="none" stroke="#64748b" stroke-width="2" marker-end="url(#arrow)"></path>
+
+            <text x="245" y="96" font-size="12" fill="#64748b">拉取</text>
+            <text x="520" y="96" font-size="12" fill="#64748b">写入</text>
+            <text x="790" y="96" font-size="12" fill="#64748b">读取</text>
+            <text x="946" y="202" font-size="12" fill="#64748b">暴露</text>
+            <text x="678" y="262" font-size="12" fill="#64748b">观测</text>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <section id="flow" class="section">
+      <div class="section-header">
+        <div>
+          <h2>4. Redis 刷新流程</h2>
+          <p>Redis 的数据来自服务端 realtime collector 主动轮询 Tushare，不是由 Redis 自己生成。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <h3>4.1 服务端什么时候请求 Tushare</h3>
+        <div class="flow">
+          <div class="flow-node">
+            <h3>collector 常驻启动</h3>
+            <p>部署一个独立实时采集进程或 systemd service，启动后读取 feed 配置。</p>
+          </div>
+          <div class="flow-node">
+            <h3>判断采集窗口</h3>
+            <p>只在 9:30-11:30、13:00-15:00 请求源站；非采集时段只更新空闲状态。</p>
+          </div>
+          <div class="flow-node">
+            <h3>请求 Tushare rt_k</h3>
+            <p>调用 0372 `rt_k(ts_code=...)`，字段来自源文档，不自造参数。</p>
+          </div>
+          <div class="flow-node">
+            <h3>标准化快照</h3>
+            <p>把源字段转成股票实时日线快照，记录 `trade_time` 与接收时间。</p>
+          </div>
+          <div class="flow-node">
+            <h3>写入 Redis</h3>
+            <p>覆盖每只股票最新快照，更新索引、短期 stream 和 feed 健康状态。</p>
+          </div>
+          <div class="flow-node">
+            <h3>页面读取</h3>
+            <p>页面/API 只读 Redis；如果快照超过 stale 阈值，就显示数据滞后。</p>
+          </div>
+        </div>
+
+        <h3 style="margin-top:18px;">4.2 一次全市场刷新如何走</h3>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>步骤</th>
+                <th>动作</th>
+                <th>请求参数</th>
+                <th>Redis 写入</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>collector 定时器到点并判断采集窗口</td>
+                <td>无</td>
+                <td>无</td>
+                <td>这个动作发生在服务器端 realtime collector 进程内。不在 9:30-11:30、13:00-15:00 时不请求 Tushare。</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>请求 Tushare 0372 `rt_k`</td>
+                <td><code>ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
+                <td>无</td>
+                <td>源文档明确支持一次提取全市场，单次最大 6000 条；V1 先采用一次拉全市场。</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>标准化返回行</td>
+                <td>无</td>
+                <td>暂不写</td>
+                <td>按 `ts_code` 生成股票实时日线快照，保留 `trade_time` 和服务器接收时间。</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>写入 Redis 新批次快照</td>
+                <td>无</td>
+                <td><code>rt:feed:tushare_stock_rt_k:batch:{batch_id}:snapshot:{ts_code}</code></td>
+                <td>先写入新批次空间，暂不覆盖当前可读批次。</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>切换 current pointer，并更新索引、短期 stream 和健康状态</td>
+                <td>无</td>
+                <td><code>rt:feed:tushare_stock_rt_k:current_batch</code> / <code>rt:feed:tushare_stock_rt_k:stream</code> / <code>rt:feed:tushare_stock_rt_k:health</code></td>
+                <td>API 和 Ops 页面从 Redis 读取这些状态。采集时段内 6 秒后 collector 再发起下一次全市场请求。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <strong>关键解释：</strong>
+          Redis 的刷新来源是服务端 collector 的定时轮询。采集时段内每 6 秒，collector 调用一次 Tushare `rt_k(ts_code="3*.SZ,6*.SH,0*.SZ,9*.BJ")`；拿到返回后，写入新的 `batch_id` 空间。全部写完后，最后一步原子切换 `current_batch_id`。页面/API 只读当前批次，避免新旧批次混读。非采集时段不请求源站，不应误报为采集失败。
+        </div>
+      </div>
+    </section>
+
+    <section id="redis" class="section">
+      <div class="section-header">
+        <div>
+          <h2>5. Redis 状态层</h2>
+          <p>Redis 是 V1 正式实时状态基础设施，不把最新行情写进业务历史库。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>为什么需要 Redis</h3>
+            <p>实时采集进程、Web API、Ops 页面通常不是同一个进程。进程内缓存会导致状态割裂，Redis 能统一最新状态和健康事实。</p>
+          </div>
+          <div class="card">
+            <h3>保存什么</h3>
+            <p>股票实时日线最新快照、短期变化事件、feed 健康、活跃代码索引、最近请求参数。不保存长期历史。</p>
+          </div>
+          <div class="card">
+            <h3>不承担什么</h3>
+            <p>不做离线审计，不做历史 K 线，不替代 raw/core/serving，不作为 TaskRun 事实源。</p>
+          </div>
+        </div>
+        <div class="table-wrap" style="margin-top:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>Key</th>
+                <th>类型</th>
+                <th>内容</th>
+                <th>TTL/保留</th>
+                <th>用途</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>rt:feed:{feed_key}:batch:{batch_id}:snapshot:{symbol}</code></td>
+                <td>Hash 或 JSON</td>
+                <td>某个批次内单只股票实时日线快照</td>
+                <td>建议 259200 秒，仅保留最近 3 批</td>
+                <td>页面和业务 API 通过 current pointer 读取当前批次</td>
+              </tr>
+              <tr>
+                <td><code>rt:feed:{feed_key}:current_batch</code></td>
+                <td>String</td>
+                <td>当前可读批次号</td>
+                <td>不过期或长 TTL</td>
+                <td>原子切换新批次；读请求先读它，再读对应 batch</td>
+              </tr>
+              <tr>
+                <td><code>rt:feed:{feed_key}:batch:{batch_id}:index</code></td>
+                <td>Set / ZSet</td>
+                <td>当前批次有快照的标的集合，可带更新时间分数</td>
+                <td>跟 feed 生命周期一致</td>
+                <td>批量查询、滞后统计</td>
+              </tr>
+              <tr>
+                <td><code>rt:feed:{feed_key}:stream</code></td>
+                <td>Redis Stream</td>
+                <td>短期变化事件</td>
+                <td>按条数裁剪，例如最近 10k-50k 条</td>
+                <td>V1 主要用于排查和后续推送扩展，不作为历史行情库</td>
+              </tr>
+              <tr>
+                <td><code>rt:feed:{feed_key}:health</code></td>
+                <td>Hash</td>
+                <td>上游状态、最后成功、延迟、错误计数、熔断状态</td>
+                <td>不过期或长 TTL</td>
+                <td>Ops 实时流健康页</td>
+              </tr>
+              <tr>
+                <td><code>rt:feed:{feed_key}:lease</code></td>
+                <td>String + TTL</td>
+                <td>collector 采集租约</td>
+                <td>短 TTL，自动过期</td>
+                <td>避免多个 collector 同时刷新同一个 feed</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="consistency" class="section">
+      <div class="section-header">
+        <div>
+          <h2>6. 批次一致性</h2>
+          <p>采用 `batch_id + current pointer`，不对读请求加锁，也不让页面读到新旧批次混杂。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>为什么不用读锁</h3>
+            <p>读锁会让页面请求等待写入完成，实时行情高峰期容易放大延迟。Redis 单条写入原子，但多股票逐条覆盖会导致批次混读。</p>
+          </div>
+          <div class="card">
+            <h3>选择的方案</h3>
+            <p>collector 每轮生成新的 `batch_id`，先写完整批次，最后原子切换 `rt:feed:{feed_key}:current_batch`。</p>
+          </div>
+          <div class="card">
+            <h3>读请求语义</h3>
+            <p>API 先读 current batch，再读该批次内的股票快照。请求要么读到上一批，要么读到新一批，不读半新半旧。</p>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>步骤</th>
+                <th>collector 写入动作</th>
+                <th>读请求可见性</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>1</td>
+                <td>生成新 `batch_id`，例如 `20260514T103000.123`</td>
+                <td>不可见</td>
+                <td>此时 `current_batch` 仍指向上一批。</td>
+              </tr>
+              <tr>
+                <td>2</td>
+                <td>写入 `rt:feed:tushare_stock_rt_k:batch:{batch_id}:snapshot:{ts_code}`</td>
+                <td>不可见</td>
+                <td>即使写了几千只股票，页面仍读上一批，不会混读。</td>
+              </tr>
+              <tr>
+                <td>3</td>
+                <td>写入该批次索引、stream、health 草稿信息</td>
+                <td>不可见或仅 Ops 草稿可见</td>
+                <td>业务 API 不直接读草稿批次。</td>
+              </tr>
+              <tr>
+                <td>4</td>
+                <td>原子执行 `SET rt:feed:tushare_stock_rt_k:current_batch {batch_id}`</td>
+                <td>新批次可见</td>
+                <td>这是唯一切换点；切换非常快，不需要锁住读请求。</td>
+              </tr>
+              <tr>
+                <td>5</td>
+                <td>后台清理过期旧批次</td>
+                <td>不影响当前读</td>
+                <td>保留最近 2-3 个批次即可，防止读请求跨切换瞬间找不到数据。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout">
+          <strong>接口读取规则：</strong>
+          `GET /api/v1/realtime/stock-rt-daily` 必须先读取 `rt:feed:tushare_stock_rt_k:current_batch`，再读取该批次下的股票快照；禁止直接扫描“最新 key”拼装结果。
+        </div>
+      </div>
+    </section>
+
+    <section id="deploy" class="section">
+      <div class="section-header">
+        <div>
+          <h2>7. Redis 部署方案</h2>
+          <p>远程服务器当前未安装 Redis。进入代码实现前，必须把 Redis 系统依赖、环境变量、systemd 与发版验收一起纳入。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>Redis 系统依赖</h3>
+            <p>生产服务器安装并启用 Redis 服务，建议仅监听 `127.0.0.1`，不对公网开放。</p>
+          </div>
+          <div class="card">
+            <h3>应用配置</h3>
+            <p>`/etc/goldenshare/web.env` 增加 `REDIS_URL=redis://127.0.0.1:6379/0`，Web、Ops、collector 共用。</p>
+          </div>
+          <div class="card">
+            <h3>collector systemd</h3>
+            <p>新增 `goldenshare-realtime-collector.service`，独立于 web、worker、scheduler 重启和观测。</p>
+          </div>
+        </div>
+
+        <div class="table-wrap" style="margin-top:12px;">
+          <table>
+            <thead>
+              <tr>
+                <th>阶段</th>
+                <th>动作</th>
+                <th>验收</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>R1 基础安装</td>
+                <td>安装 Redis 并设置开机自启</td>
+                <td><code>systemctl is-active redis*</code> 与 <code>redis-cli ping</code> 返回正常</td>
+                <td>服务名可能是 `redis-server.service` 或 `redis.service`，以服务器实际发行版为准。</td>
+              </tr>
+              <tr>
+                <td>R2 安全配置</td>
+                <td>限制 Redis 只监听本机，禁止公网访问</td>
+                <td>本机可连，外网不可连</td>
+                <td>V1 不需要 Redis 集群，也不需要远程公网 Redis。</td>
+              </tr>
+              <tr>
+                <td>R3 应用 env</td>
+                <td>通过 `scripts/remote-web-env.sh` 写入 `REDIS_URL`</td>
+                <td>Web/collector 启动时能读取配置</td>
+                <td>遵守现有远程 env 唯一入口，不手工编辑 `/etc/goldenshare/web.env`。</td>
+              </tr>
+              <tr>
+                <td>R4 collector unit</td>
+                <td>新增 `scripts/goldenshare-realtime-collector.service`</td>
+                <td><code>systemctl status goldenshare-realtime-collector.service</code> 正常</td>
+                <td>需要同步更新 deploy 脚本的 unit 同步、重启、状态打印逻辑。</td>
+              </tr>
+              <tr>
+                <td>R5 sudoers</td>
+                <td>把 collector unit 的 install/restart/status 加入 `goldenshare-deploy.sudoers`</td>
+                <td>部署用户可无密码同步和重启 collector unit</td>
+                <td>当前 sudoers 只覆盖 web、worker、scheduler、date completeness worker。</td>
+              </tr>
+              <tr>
+                <td>R6 发版验收</td>
+                <td>发版后检查 Redis、collector、Web API、Ops 健康页</td>
+                <td>Redis 有 current batch；健康 API 显示最近成功刷新</td>
+                <td>Redis/collector 不健康时，Web 应返回明确 stale/unavailable 状态，而不是内部异常。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+
+        <div class="callout warning">
+          <strong>部署边界：</strong>
+          Redis 安装和系统服务启用是服务器基础设施动作，不应塞进普通应用发版脚本里偷偷执行。应用发版脚本只负责同步和重启 Goldenshare 自己的 realtime collector unit。
+        </div>
+      </div>
+    </section>
+
+    <section id="models" class="section">
+      <div class="section-header">
+        <div>
+          <h2>8. 核心模型</h2>
+          <p>实时系统需要自己的 feed 和 snapshot 模型，不能借用离线 DatasetDefinition。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="two-col">
+          <div>
+            <h3>RealtimeFeedDefinition</h3>
+            <pre><code>{
+  "feed_key": "tushare_stock_rt_k",
+  "display_name": "股票实时日线",
+  "provider_key": "tushare",
+  "source_api_name": "rt_k",
+  "instrument_type": "stock",
+  "source_doc": "docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md",
+  "fields": [
+    "ts_code",
+    "name",
+    "pre_close",
+    "high",
+    "open",
+    "low",
+    "close",
+    "vol",
+    "amount",
+    "num",
+    "ask_price1",
+    "ask_volume1",
+    "bid_price1",
+    "bid_volume1",
+    "trade_time"
+  ],
+  "request_policy": {
+    "mode": "full_market_wildcard_polling",
+    "ts_code": "3*.SZ,6*.SH,0*.SZ,9*.BJ",
+    "poll_interval_ms": 6000,
+    "collection_sessions": ["09:30-11:30", "13:00-15:00"]
+  },
+  "rate_limit_policy": {
+    "max_calls_per_minute": 10,
+    "burst": 1
+  },
+  "state_policy": {
+    "snapshot_ttl_seconds": 259200,
+    "stale_after_seconds": 20,
+    "consistency_mode": "batch_pointer",
+    "keep_recent_batches": 3
+  }
+}</code></pre>
+          </div>
+          <div>
+            <h3>RealtimeQuoteSnapshot</h3>
+            <pre><code>{
+  "feed_key": "tushare_stock_rt_k",
+  "ts_code": "600000.SH",
+  "name": "浦发银行",
+  "source": "tushare",
+  "trade_time": "2026-05-14 14:58:03",
+  "received_at": "2026-05-14T14:58:04.120+08:00",
+  "pre_close": "10.01",
+  "open": "10.10",
+  "high": "10.30",
+  "low": "10.02",
+  "close": "10.23",
+  "vol": "12345600",
+  "amount": "125000000.00",
+  "num": "23001",
+  "bid_price1": "10.22",
+  "bid_volume1": "10000",
+  "ask_price1": "10.23",
+  "ask_volume1": "12000",
+  "batch_id": "20260514T145804.120",
+  "stale": false,
+  "raw_payload_hash": "..."
+}</code></pre>
+          </div>
+        </div>
+        <div class="callout warning">
+          <strong>命名约束：</strong>
+          feed 表达上游实时源能力，snapshot 表达当前状态。不要把它们命名成 dataset、task、execution 或 freshness，避免和离线维护体系混淆。
+        </div>
+      </div>
+    </section>
+
+    <section id="apis" class="section">
+      <div class="section-header">
+        <div>
+          <h2>9. V1 对外 API</h2>
+          <p>不先设计一堆抽象实时 API。V1 只围绕“股票实时日线快照”定义最小接口。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>API</th>
+                <th>用途</th>
+                <th>调用时机</th>
+                <th>返回重点</th>
+                <th>V1 建议</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td><code>GET /api/v1/realtime/stock-rt-daily</code></td>
+                <td>批量读取股票实时日线最新快照</td>
+                <td>行情页、股票列表、卡片需要展示当前价/开高低收/成交量时</td>
+                <td>按 `ts_codes` 返回 Redis 中的最新快照；包含 `stale`、`trade_time`、`received_at`</td>
+                <td><span class="pill green">第一期</span></td>
+              </tr>
+              <tr>
+                <td><code>GET /api/v1/ops/realtime/stock-rt-daily/health</code></td>
+                <td>读取股票实时日线采集健康</td>
+                <td>数据运营后台“实时行情流”菜单打开时</td>
+                <td>最近请求、最近成功、最近错误、最近请求参数、滞后数量、Redis 快照数量</td>
+                <td><span class="pill green">第一期</span></td>
+              </tr>
+              <tr>
+                <td>暂不定义</td>
+                <td>WebSocket 推送</td>
+                <td>实时行情页需要持续接收价格变化时</td>
+                <td>后续建议基于 `rt:feed:tushare_stock_rt_k:stream` 读取变化事件，按客户端订阅的股票代码过滤推送</td>
+                <td><span class="pill blue">M5 预留</span></td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="callout">
+          <strong>接口原则：</strong>
+          前端和业务调用方只传股票代码列表，不需要知道 Tushare `rt_k` 的全市场通配符、请求频率或 Redis key。
+        </div>
+      </div>
+    </section>
+
+    <section id="ops" class="section">
+      <div class="section-header">
+        <div>
+          <h2>10. Ops 菜单与观测</h2>
+          <p>在数据运营后台单独规划“实时行情流”菜单，不把实时采集伪装成 TaskRun 任务详情。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>上游健康</h3>
+            <p>最后请求时间、最后成功时间、最近错误、Tushare 返回行数、最近请求参数。</p>
+          </div>
+          <div class="card">
+            <h3>状态新鲜度</h3>
+            <p>Redis 快照数量、最后刷新耗时、滞后股票数量、最老快照时间。</p>
+          </div>
+          <div class="card">
+            <h3>采集频率</h3>
+            <p>目标 10 次/分钟以内，展示最近一分钟请求次数，避免误触发 Tushare 限流。</p>
+          </div>
+        </div>
+        <div class="callout">
+          <strong>菜单建议：</strong>
+          数据运营后台新增“实时行情流”菜单，V1 页面只展示“股票实时日线”一个 feed 的采集状态和 Redis 状态。当前页面设计稿按独立菜单出稿，后续实现时再确认最终挂载位置。
+        </div>
+        <div class="callout danger">
+          <strong>不要做的事：</strong>
+          不在 TaskRun 里展示实时行情轮询记录；不把实时健康写成离线 freshness；不把 Redis 快照失败当成业务数据表事务失败。
+        </div>
+      </div>
+    </section>
+
+    <section id="pilot" class="section">
+      <div class="section-header">
+        <div>
+          <h2>11. Tushare 0372 接入口径</h2>
+          <p>V1 只接股票实时日线 `rt_k`，按源文档要求传 `ts_code`，不落库历史。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>项</th>
+                <th>建议口径</th>
+                <th>说明</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>feed_key</td>
+                <td><code>tushare_stock_rt_k</code></td>
+                <td>表达 Tushare 股票实时日线 feed。</td>
+              </tr>
+              <tr>
+                <td>源文档依据</td>
+                <td><code>docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md</code></td>
+                <td>接口名 `rt_k`；`ts_code` 必填；单次最大 6000 条；支持通配符。</td>
+              </tr>
+              <tr>
+                <td>请求方式</td>
+                <td><code>ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
+                <td>按源文档示例一次拉全市场；仅在 9:30-11:30、13:00-15:00 内每 6 秒请求一次。</td>
+              </tr>
+              <tr>
+                <td>存储</td>
+                <td>只写 Redis 最新快照与短期 stream</td>
+                <td>不创建 raw/core 表，不接日期审计。</td>
+              </tr>
+              <tr>
+                <td>访问方式</td>
+                <td>HTTP 快照查询</td>
+                <td>V1 先做 HTTP 快照；后续 WebSocket 从 Redis stream 读取变化事件并推送。</td>
+              </tr>
+              <tr>
+                <td>限流</td>
+                <td>1 分钟 10 次以内</td>
+                <td>用户 token 权限为 500 次/分钟以内，但 V1 不需要那么快；按 10 次/分钟作为默认配置。</td>
+              </tr>
+              <tr>
+                <td>降级</td>
+                <td>返回 stale 快照并标记 stale</td>
+                <td>上游短暂失败时，页面看到“数据已滞后”，而不是空白或误报最新。</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="milestones" class="section">
+      <div class="section-header">
+        <div>
+          <h2>12. 推进里程碑</h2>
+          <p>围绕股票实时日线收敛推进，不把未来可能的实时能力混入 V1。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th>阶段</th>
+                <th>目标</th>
+                <th>交付物</th>
+                <th>不做事项</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr>
+                <td>M1 真实接口探测</td>
+                <td>验证 0372 `rt_k` 的字段、全市场通配符请求、返回行数和交易时段外行为</td>
+                <td>探测脚本、样本结果、字段映射确认</td>
+                <td>不写正式服务代码</td>
+              </tr>
+              <tr>
+                <td>M2 Redis 部署与 collector 骨架</td>
+                <td>安装 Redis、配置 `REDIS_URL`、建立 key model、collector 常驻进程和 10 次/分钟限速</td>
+                <td>Redis 生产依赖、realtime collector、batch writer、health state</td>
+                <td>不接页面</td>
+              </tr>
+              <tr>
+                <td>M3 股票实时日线快照 API</td>
+                <td>提供批量读取 Redis 最新快照的业务 API</td>
+                <td>`GET /api/v1/realtime/stock-rt-daily`</td>
+                <td>不实现 WebSocket，但保留 Redis stream 数据基础</td>
+              </tr>
+              <tr>
+                <td>M4 Ops 实时行情流菜单</td>
+                <td>数据运营后台单独展示股票实时日线采集健康</td>
+                <td>health API、实时行情流菜单页面</td>
+                <td>不复用 TaskRun 任务详情</td>
+              </tr>
+              <tr>
+                <td>M5 WebSocket 推送</td>
+                <td>在 V1 快照和 Redis stream 稳定后，增加股票实时日线 WebSocket 推送</td>
+                <td>`WS /api/v1/realtime/stock-rt-daily/ws`、订阅协议、断线重连、限流策略</td>
+                <td>不混入指数/ETF/盘口，仍只围绕股票实时日线</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <section id="decisions" class="section">
+      <div class="section-header">
+        <div>
+          <h2>13. 待拍板项</h2>
+          <p>这些点会影响后续代码设计，需要在进入实现前定下来。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="decision">
+          <div class="decision-item">
+            <h3>D1 Redis 部署口径</h3>
+            <p>已确认：V1 生产环境明确要求 Redis；远程服务器需要先安装 Redis 并纳入部署验收，不使用进程内缓存作为生产状态层。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D2 V1 请求方式</h3>
+            <p>已确认：使用 `ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ` 一次请求全市场，仅在 9:30-11:30、13:00-15:00 内每 6 秒请求一次。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D3 首期 API 形态</h3>
+            <p>已收敛建议：V1 只做股票实时日线快照查询 API 和 Ops 健康 API；WebSocket 作为 M5 后续阶段，基于 Redis stream 实现。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D3.1 Redis 一致性模型</h3>
+            <p>已确认：采用 `batch_id + current pointer`。collector 写完整个新批次后再原子切换 current pointer；读请求不加锁，只读 current batch。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D4 是否沉淀历史</h3>
+            <p>已确认：V1 不沉淀历史，只保留 Redis 最新快照和短期 stream。历史分钟线或 tick 归档另立题。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D5 stale 阈值</h3>
+            <p>已确认：V1 `stale_after_seconds=20`。仅在采集时段内用于判断滞后；非采集时段显示空闲/非采集时段，不误报失败。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D6 真实请求验证</h3>
+            <p>收盘后已初步探测：全市场请求返回 5521 行，耗时约 503ms，样本 `trade_time` 为 17:00:xx。仍需明天开市时验证返回行数、空值、耗时和交易时段内 `trade_time` 行为。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>
