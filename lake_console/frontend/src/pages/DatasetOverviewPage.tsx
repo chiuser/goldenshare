@@ -28,6 +28,7 @@ export function DatasetOverviewPage({ overview, status, onOpenDetail }: DatasetO
   const rows = overview?.dataset_rows ?? [];
   const filteredRows = useMemo(() => filterRows(rows, { groupFilter, query, statusFilter }), [rows, groupFilter, query, statusFilter]);
   const groupOptions = useMemo(() => sortedUnique(rows.map((row) => row.group_label)), [rows]);
+  const statusOptions = useMemo(() => buildStatusOptions(rows), [rows]);
   const rootState = status?.path.initialized ? "已初始化" : status ? "未初始化" : "读取中";
   const rootHint = status ? [status.path.exists ? "存在" : "不存在", status.path.readable ? "可读" : "不可读", status.path.writable ? "可写" : "不可写"].join(" / ") : "-";
   const syncRows: CountSummary[] = overview?.sync_method_groups.map((item) => ({ key: item.key, label: item.label, count: item.count })) ?? [];
@@ -43,7 +44,7 @@ export function DatasetOverviewPage({ overview, status, onOpenDetail }: DatasetO
             <strong>{row.display_name}</strong>
             <code>{row.dataset_key}</code>
           </div>
-          <HealthBadge status={row.health_status} />
+          <HealthBadge label={row.health_label} status={row.health_status} />
         </div>
       ),
     },
@@ -197,10 +198,11 @@ export function DatasetOverviewPage({ overview, status, onOpenDetail }: DatasetO
           </select>
           <select aria-label="按状态过滤" value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)}>
             <option value="">全部状态</option>
-            <option value="ok">正常</option>
-            <option value="warning">有风险</option>
-            <option value="error">异常</option>
-            <option value="empty">未落盘</option>
+            {statusOptions.map((option) => (
+              <option key={option.status} value={option.status}>
+                {option.label}
+              </option>
+            ))}
           </select>
         </div>
         <DataTableCard
@@ -264,6 +266,24 @@ function filterRows(
 
 function sortedUnique(values: string[]): string[] {
   return Array.from(new Set(values)).sort((left, right) => left.localeCompare(right, "zh-CN"));
+}
+
+function buildStatusOptions(rows: LakeOverviewDatasetRow[]): Array<{ label: string; status: string }> {
+  const order = new Map([
+    ["ok", 0],
+    ["warning", 1],
+    ["error", 2],
+    ["empty", 3],
+  ]);
+  const byStatus = new Map<string, string>();
+  rows.forEach((row) => {
+    if (!byStatus.has(row.health_status)) {
+      byStatus.set(row.health_status, row.health_label);
+    }
+  });
+  return Array.from(byStatus, ([status, label]) => ({ label, status })).sort(
+    (left, right) => (order.get(left.status) ?? 99) - (order.get(right.status) ?? 99) || left.label.localeCompare(right.label, "zh-CN"),
+  );
 }
 
 function freqLabel(freqs: number[]): string {

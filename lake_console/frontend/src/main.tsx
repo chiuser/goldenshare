@@ -26,8 +26,7 @@ function App() {
     selectedDatasetKey: selection.selectedDatasetKey,
     status,
   });
-  const selectedNodeKey = viewModel.selectedDataset?.node_summaries[0]?.node_key ?? "";
-  const { partitionError, partitions } = useDatasetPartitions(selection.selectedDatasetKey, selectedNodeKey);
+  const { partitionError, partitions } = useDatasetPartitions(selection.selectedDatasetKey, selection.selectedNodeKey);
   const { summary, summaryError, summaryLoading, reloadSummary } = useRecoveryRepositorySummary();
   const { records, total, recordsError, recordsLoading, reloadSnapshots } = useRecoverySnapshots(selection.recoveryFilters);
   const { detail, detailError, detailLoading, reloadDetail } = useRecoverySnapshotDetail(selection.selectedRecoveryRecordId);
@@ -56,8 +55,10 @@ function App() {
         viewModel.selectedDataset ? (
           <DatasetDetailPage
             dataset={viewModel.selectedDataset}
+            selectedNodeKey={selection.selectedNodeKey}
             partitions={partitions}
             onBack={() => selection.setActivePage("datasets")}
+            onSelectNode={selection.setSelectedNodeKey}
           />
         ) : (
           <EmptyState title="未选择数据集" description="请先返回数据集总览选择数据集。" />

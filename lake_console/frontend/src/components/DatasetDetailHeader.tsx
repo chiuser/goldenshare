@@ -22,7 +22,7 @@ export function DatasetDetailHeader({ dataset, onBack }: DatasetDetailHeaderProp
         description={dataset.description ?? "查看该数据集在本地数据湖中承载的层级、分区、文件路径和风险。"}
         right={(
           <div className="detail-header-side">
-            <HealthBadge status={dataset.health_status} />
+            <HealthBadge label={dataset.health_label} status={dataset.health_status} />
             <code>{dataset.dataset_key}</code>
           </div>
         )}

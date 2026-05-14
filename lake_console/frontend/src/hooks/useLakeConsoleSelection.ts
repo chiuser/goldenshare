@@ -10,6 +10,7 @@ type UseLakeConsoleSelectionInput = {
 
 export function useLakeConsoleSelection({ commandGroups, datasets }: UseLakeConsoleSelectionInput) {
   const [selectedDatasetKey, setSelectedDatasetKey] = useState<string>("stk_mins");
+  const [selectedNodeKey, setSelectedNodeKey] = useState<string>("");
   const [activePage, setActivePage] = useState<ActivePage>("datasets");
   const [selectedCommandGroupKey, setSelectedCommandGroupKey] = useState<string>("");
   const [selectedCommandItemKey, setSelectedCommandItemKey] = useState<string>("");
@@ -21,6 +22,12 @@ export function useLakeConsoleSelection({ commandGroups, datasets }: UseLakeCons
     if (!preferred && datasets[0]) {
       setSelectedDatasetKey(datasets[0].dataset_key);
     }
+  }, [datasets, selectedDatasetKey]);
+
+  useEffect(() => {
+    const dataset = datasets.find((item) => item.dataset_key === selectedDatasetKey);
+    const firstNodeKey = dataset?.node_summaries[0]?.node_key ?? "";
+    setSelectedNodeKey((current) => (dataset?.node_summaries.some((node) => node.node_key === current) ? current : firstNodeKey));
   }, [datasets, selectedDatasetKey]);
 
   useEffect(() => {
@@ -39,7 +46,9 @@ export function useLakeConsoleSelection({ commandGroups, datasets }: UseLakeCons
   }, [commandGroups, selectedDatasetKey]);
 
   function openDatasetDetail(datasetKey: string) {
+    const dataset = datasets.find((item) => item.dataset_key === datasetKey);
     setSelectedDatasetKey(datasetKey);
+    setSelectedNodeKey(dataset?.node_summaries[0]?.node_key ?? "");
     setActivePage("datasetDetail");
   }
 
@@ -65,10 +74,12 @@ export function useLakeConsoleSelection({ commandGroups, datasets }: UseLakeCons
     selectedCommandGroupKey,
     selectedCommandItemKey,
     selectedDatasetKey,
+    selectedNodeKey,
     selectedRecoveryRecordId,
     selectCommandGroup,
     setActivePage,
     setSelectedCommandItemKey,
+    setSelectedNodeKey,
     setSelectedRecoveryRecordId,
     updateRecoveryFilters,
   };

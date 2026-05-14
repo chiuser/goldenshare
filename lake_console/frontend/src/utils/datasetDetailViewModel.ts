@@ -1,4 +1,4 @@
-import type { DatasetSummary, PartitionSummary } from "../types";
+import type { DatasetSummary, NodeSummary, PartitionSummary } from "../types";
 import { formatBytes, formatDateOrMonthRange, formatDateTime, formatRowCount } from "./format";
 
 export type DatasetDetailMetricView = {
@@ -14,22 +14,32 @@ export type DatasetDetailViewModel = {
   latestFilePath: string;
   latestPartition: string;
   overviewMetrics: DatasetDetailMetricView[];
+  partitionCount: number;
   riskTotal: number;
+  selectedNodeLabel: string;
 };
 
-export function buildDatasetDetailViewModel(dataset: DatasetSummary, partitions: PartitionSummary[]): DatasetDetailViewModel {
+export function buildDatasetDetailViewModel(
+  dataset: DatasetSummary,
+  selectedNode: NodeSummary | null,
+  partitions: PartitionSummary[],
+): DatasetDetailViewModel {
   const latestFile = partitions[0] ?? null;
   const nodeRisks = dataset.node_summaries.flatMap((node) => node.risks);
   const riskTotal = dataset.risks.length + nodeRisks.length;
   const overviewMetrics = buildOverviewMetrics(dataset, riskTotal);
+  const partitionTarget = selectedNode ?? dataset;
+  const selectedNodeLabel = selectedNode ? `${selectedNode.node_name} / ${selectedNode.node_key}` : "-";
 
   return {
-    averageFileSize: dataset.file_count ? formatBytes(Math.round(dataset.total_bytes / dataset.file_count)) : "-",
-    earliestPartition: earliestPartitionLabel(dataset),
-    latestFilePath: latestFile?.path ?? "暂无文件",
-    latestPartition: latestPartitionLabel(dataset),
+    averageFileSize: partitionTarget.file_count ? formatBytes(Math.round(partitionTarget.total_bytes / partitionTarget.file_count)) : "-",
+    earliestPartition: earliestPartitionLabel(partitionTarget),
+    latestFilePath: latestFile?.path ?? selectedNode?.path ?? "暂无文件",
+    latestPartition: latestFile?.partition_label ?? latestPartitionLabel(partitionTarget),
     overviewMetrics,
+    partitionCount: partitionTarget.partition_count,
     riskTotal,
+    selectedNodeLabel,
   };
 }
 
@@ -49,10 +59,10 @@ function buildOverviewMetrics(dataset: DatasetSummary, riskTotal: number): Datas
   return metrics.filter((metric): metric is DatasetDetailMetricView => metric !== null);
 }
 
-function latestPartitionLabel(dataset: DatasetSummary): string {
-  return dataset.latest_trade_date ?? dataset.latest_trade_month ?? "-";
+function latestPartitionLabel(summary: DatasetSummary | NodeSummary): string {
+  return summary.latest_trade_date ?? summary.latest_trade_month ?? "-";
 }
 
-function earliestPartitionLabel(dataset: DatasetSummary): string {
-  return dataset.earliest_trade_date ?? dataset.earliest_trade_month ?? "-";
+function earliestPartitionLabel(summary: DatasetSummary | NodeSummary): string {
+  return summary.earliest_trade_date ?? summary.earliest_trade_month ?? "-";
 }

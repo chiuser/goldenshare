@@ -15,7 +15,7 @@ export function DatasetCard({ dataset, onOpenDetail }: DatasetCardProps) {
           <span className="dataset-source">{dataset.source_label}</span>
           <strong>{dataset.display_name}</strong>
         </div>
-        <HealthBadge status={dataset.health_status} />
+        <HealthBadge label={dataset.health_label} status={dataset.health_status} />
       </div>
       <code>{dataset.dataset_key}</code>
       <p>{dataset.description ?? "本地数据湖数据集"}</p>

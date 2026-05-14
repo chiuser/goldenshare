@@ -4,7 +4,7 @@ from datetime import date
 from pathlib import Path
 
 import lake_console.backend.app.sync.helpers.dates as date_helper
-import lake_console.backend.app.sync.planners.stk_mins as stk_mins_planner
+import lake_console.backend.app.services.security_universe_filter as security_universe_filter
 from lake_console.backend.app.sync.planner import LakeSyncPlanner
 
 
@@ -45,10 +45,10 @@ def test_stk_mins_plan_sync_estimates_current_and_target_requests_for_full_year_
                 for day in range(1, open_days + 1):
                     rows.append({"cal_date": f"2025{month:02d}{day:02d}", "is_open": True})
             return rows
-        return [{"ts_code": f"{index:06d}.SZ", "list_status": "L"} for index in range(5511)]
+        return [{"ts_code": f"{index:06d}.SZ", "list_status": "L", "list_date": "20000101", "delist_date": None} for index in range(5511)]
 
     monkeypatch.setattr(date_helper, "read_parquet_rows", fake_read)
-    monkeypatch.setattr(stk_mins_planner, "read_parquet_rows", fake_read)
+    monkeypatch.setattr(security_universe_filter, "read_parquet_rows", fake_read)
     (tmp_path / "manifest" / "trading_calendar").mkdir(parents=True)
     (tmp_path / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet").write_text("fake", encoding="utf-8")
     (tmp_path / "manifest" / "security_universe").mkdir(parents=True)

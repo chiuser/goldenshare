@@ -35,11 +35,12 @@ export function DatasetDetailMetaPanel({ dataset, detailView }: DatasetDetailMet
           </div>
         </DetailGroup>
 
-        <DetailGroup title="分区概况">
+        <DetailGroup title="当前节点分区">
           <div className="partition-summary-grid">
+            <DetailItem label="当前节点" value={detailView.selectedNodeLabel} wide />
             <DetailItem label="最新分区" value={detailView.latestPartition} />
             <DetailItem label="最早分区" value={detailView.earliestPartition} />
-            <DetailItem label="分区数量" value={String(dataset.partition_count)} />
+            <DetailItem label="分区数量" value={String(detailView.partitionCount)} />
             <DetailItem label="平均文件大小" value={detailView.averageFileSize} />
             <DetailItem label="最近文件样本" value={detailView.latestFilePath} wide />
             <DetailItem label="风险提示" value={detailView.riskTotal ? `${detailView.riskTotal} 项风险` : "无"} wide />
