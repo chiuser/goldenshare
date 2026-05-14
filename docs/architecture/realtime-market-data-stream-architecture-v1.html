@@ -361,11 +361,11 @@ pre {
         <p class="lead">
           本文把 V1 范围收敛为“股票实时日线数据”，以 Tushare 0372 `rt_k` 为唯一上游。
           它不是离线数据集接入，不走 DatasetDefinition、DatasetExecutionPlan、TaskRun、freshness 或日期审计链路。
-          服务器侧由 realtime collector 在 A 股连续竞价时段按固定节奏请求 Tushare，并把结果刷新到 Redis；页面和业务 API 只读取 Redis 快照。
+          服务器侧由 realtime collector 在交易日的 A 股连续竞价时段按固定节奏请求 Tushare，并把结果刷新到 Redis；页面和业务 API 只读取 Redis 快照。
         </p>
       </div>
       <div class="meta">
-        <div class="meta-row"><span>状态</span><span>待评审</span></div>
+        <div class="meta-row"><span>状态</span><span>待评审 / 待开市验证</span></div>
         <div class="meta-row"><span>版本</span><span>v1</span></div>
         <div class="meta-row"><span>日期</span><span>2026-05-14</span></div>
         <div class="meta-row"><span>V1 范围</span><span>股票实时日线</span></div>
@@ -389,11 +389,11 @@ pre {
           </div>
           <div class="card">
             <h3>服务器刷新 Redis</h3>
-            <p>独立 realtime collector 常驻运行，仅在 9:30-11:30、13:00-15:00 内每 6 秒发起 1 次 Tushare 全市场请求。</p>
+            <p>独立 realtime collector 常驻运行，仅在交易日的 9:30-11:30、13:00-15:00 内每 6 秒发起 1 次 Tushare 全市场请求。</p>
           </div>
           <div class="card">
             <h3>最新状态层</h3>
-            <p>Redis 保存股票最新日线快照、短期 stream 和 feed 健康状态。V1 不写业务历史库。</p>
+            <p>Redis 保存股票最新日线快照、batch stream、delta stream 和 feed 健康状态。V1 不写业务历史库。</p>
           </div>
           <div class="card">
             <h3>最小 API</h3>
@@ -402,7 +402,7 @@ pre {
         </div>
         <div class="callout">
           <strong>一句话口径：</strong>
-          Redis 不会自己刷新；刷新动作来自服务端 realtime collector。collector 只在 9:30-11:30、13:00-15:00 请求 Tushare，再把返回的股票实时日线写入 Redis。
+          Redis 不会自己刷新；刷新动作来自服务端 realtime collector。collector 只在交易日的 9:30-11:30、13:00-15:00 请求 Tushare，再把返回的股票实时日线写入 Redis。
         </div>
       </div>
     </section>
@@ -447,8 +447,8 @@ pre {
               <tr>
                 <td>状态存储</td>
                 <td>业务库 raw/core/serving 与 Ops TaskRun 表</td>
-                <td>Redis 最新快照、短期 stream、健康状态</td>
-                <td>V1 不沉淀历史业务库，只保留 Redis 最新快照和短期 stream</td>
+                <td>Redis 最新快照、batch stream、delta stream、健康状态</td>
+                <td>V1 不沉淀历史业务库，只保留 Redis 最新快照和短期事件流</td>
               </tr>
               <tr>
                 <td>质量判断</td>
@@ -505,7 +505,7 @@ pre {
             <rect x="552" y="54" width="220" height="110" rx="12" fill="#e6f4ee" stroke="#83c5a7" filter="url(#shadow)"></rect>
             <text x="662" y="85" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">Redis 状态层</text>
             <text x="662" y="111" text-anchor="middle" font-size="12" fill="#334155">最新快照 / Stream</text>
-            <text x="662" y="132" text-anchor="middle" font-size="12" fill="#334155">健康状态 / TTL / PubSub</text>
+            <text x="662" y="132" text-anchor="middle" font-size="12" fill="#334155">健康状态 / TTL / Stream</text>
 
             <rect x="824" y="54" width="220" height="110" rx="12" fill="#fff7ed" stroke="#fdba74" filter="url(#shadow)"></rect>
             <text x="934" y="85" text-anchor="middle" font-size="16" font-weight="700" fill="#0f172a">biz/realtime</text>
@@ -562,7 +562,7 @@ pre {
           </div>
           <div class="flow-node">
             <h3>判断采集窗口</h3>
-            <p>只在 9:30-11:30、13:00-15:00 请求源站；非采集时段只更新空闲状态。</p>
+            <p>先判断交易日，再判断 9:30-11:30、13:00-15:00；只有两者同时满足才请求源站，其他时间只更新空闲或休市状态。</p>
           </div>
           <div class="flow-node">
             <h3>请求 Tushare rt_k</h3>
@@ -574,11 +574,11 @@ pre {
           </div>
           <div class="flow-node">
             <h3>写入 Redis</h3>
-            <p>覆盖每只股票最新快照，更新索引、短期 stream 和 feed 健康状态。</p>
+            <p>写入新 batch 下的股票快照、索引、batch stream、delta stream 和 feed 健康状态。</p>
           </div>
           <div class="flow-node">
             <h3>页面读取</h3>
-            <p>页面/API 只读 Redis；如果快照超过 stale 阈值，就显示数据滞后。</p>
+            <p>页面/API 只读 Redis；采集时段内超过 stale 阈值才显示数据滞后。</p>
           </div>
         </div>
 
@@ -600,7 +600,7 @@ pre {
                 <td>collector 定时器到点并判断采集窗口</td>
                 <td>无</td>
                 <td>无</td>
-                <td>这个动作发生在服务器端 realtime collector 进程内。不在 9:30-11:30、13:00-15:00 时不请求 Tushare。</td>
+                <td>这个动作发生在服务器端 realtime collector 进程内。非交易日，或不在 9:30-11:30、13:00-15:00 时，不请求 Tushare。</td>
               </tr>
               <tr>
                 <td>2</td>
@@ -625,9 +625,9 @@ pre {
               </tr>
               <tr>
                 <td>5</td>
-                <td>切换 current pointer，并更新索引、短期 stream 和健康状态</td>
+                <td>切换 current pointer，并更新索引、batch stream、delta stream 和健康状态</td>
                 <td>无</td>
-                <td><code>rt:feed:tushare_stock_rt_k:current_batch</code> / <code>rt:feed:tushare_stock_rt_k:stream</code> / <code>rt:feed:tushare_stock_rt_k:health</code></td>
+                <td><code>rt:feed:tushare_stock_rt_k:current_batch</code> / <code>rt:feed:tushare_stock_rt_k:stream:batch</code> / <code>rt:feed:tushare_stock_rt_k:stream:delta</code> / <code>rt:feed:tushare_stock_rt_k:health</code></td>
                 <td>API 和 Ops 页面从 Redis 读取这些状态。采集时段内 6 秒后 collector 再发起下一次全市场请求。</td>
               </tr>
             </tbody>
@@ -636,7 +636,7 @@ pre {
 
         <div class="callout">
           <strong>关键解释：</strong>
-          Redis 的刷新来源是服务端 collector 的定时轮询。采集时段内每 6 秒，collector 调用一次 Tushare `rt_k(ts_code="3*.SZ,6*.SH,0*.SZ,9*.BJ")`；拿到返回后，写入新的 `batch_id` 空间。全部写完后，最后一步原子切换 `current_batch_id`。页面/API 只读当前批次，避免新旧批次混读。非采集时段不请求源站，不应误报为采集失败。
+          Redis 的刷新来源是服务端 collector 的定时轮询。交易日采集时段内每 6 秒，collector 调用一次 Tushare `rt_k(ts_code="3*.SZ,6*.SH,0*.SZ,9*.BJ")`；拿到返回后，写入新的 `batch_id` 空间。全部写完后，最后一步原子切换 `current_batch_id`。页面/API 只读当前批次，避免新旧批次混读。非交易日和非采集时段不请求源站，不应误报为采集失败。
         </div>
       </div>
     </section>
@@ -693,15 +693,22 @@ pre {
                 <td><code>rt:feed:{feed_key}:batch:{batch_id}:index</code></td>
                 <td>Set / ZSet</td>
                 <td>当前批次有快照的标的集合，可带更新时间分数</td>
-                <td>跟 feed 生命周期一致</td>
+                <td>建议 259200 秒，仅保留最近 3 批</td>
                 <td>批量查询、滞后统计</td>
               </tr>
               <tr>
-                <td><code>rt:feed:{feed_key}:stream</code></td>
+                <td><code>rt:feed:{feed_key}:stream:batch</code></td>
                 <td>Redis Stream</td>
-                <td>短期变化事件</td>
-                <td>按条数裁剪，例如最近 10k-50k 条</td>
-                <td>V1 主要用于排查和后续推送扩展，不作为历史行情库</td>
+                <td>批次发布事件 `batch_published`</td>
+                <td>按条数裁剪，默认最近 5000 条</td>
+                <td>用于 Ops 健康、批次追踪和发布节奏检查</td>
+              </tr>
+              <tr>
+                <td><code>rt:feed:{feed_key}:stream:delta</code></td>
+                <td>Redis Stream</td>
+                <td>逐股票变化事件 `quote_changed`</td>
+                <td>按条数裁剪，默认最近 200000 条</td>
+                <td>用于后续 WebSocket 推送和变化订阅，不作为历史行情库</td>
               </tr>
               <tr>
                 <td><code>rt:feed:{feed_key}:health</code></td>
@@ -771,7 +778,7 @@ pre {
               </tr>
               <tr>
                 <td>3</td>
-                <td>写入该批次索引、stream、health 草稿信息</td>
+                <td>写入该批次索引、batch stream、delta stream、health 草稿信息</td>
                 <td>不可见或仅 Ops 草稿可见</td>
                 <td>业务 API 不直接读草稿批次。</td>
               </tr>
@@ -990,21 +997,21 @@ pre {
                 <td><code>GET /api/v1/realtime/stock-rt-daily</code></td>
                 <td>批量读取股票实时日线最新快照</td>
                 <td>行情页、股票列表、卡片需要展示当前价/开高低收/成交量时</td>
-                <td>按 `ts_codes` 返回 Redis 中的最新快照；包含 `stale`、`trade_time`、`received_at`</td>
+                <td>按 `ts_codes` 返回 Redis 中的最新快照；单次暂定最多 200 个代码；包含 `stale`、`trade_time`、`received_at`</td>
                 <td><span class="pill green">第一期</span></td>
               </tr>
               <tr>
                 <td><code>GET /api/v1/ops/realtime/stock-rt-daily/health</code></td>
                 <td>读取股票实时日线采集健康</td>
-                <td>数据运营后台“实时行情流”菜单打开时</td>
-                <td>最近请求、最近成功、最近错误、最近请求参数、滞后数量、Redis 快照数量</td>
+                <td>数据运营后台“实时流监控”菜单打开时</td>
+                <td>最近请求、最近成功、最近错误、Redis 快照数量、stream 指标、`page_polling_enabled` 和 `recommended_poll_interval_seconds`</td>
                 <td><span class="pill green">第一期</span></td>
               </tr>
               <tr>
                 <td>暂不定义</td>
                 <td>WebSocket 推送</td>
                 <td>实时行情页需要持续接收价格变化时</td>
-                <td>后续建议基于 `rt:feed:tushare_stock_rt_k:stream` 读取变化事件，按客户端订阅的股票代码过滤推送</td>
+                <td>后续建议基于 `rt:feed:tushare_stock_rt_k:stream:delta` 读取变化事件，按客户端订阅的股票代码过滤推送</td>
                 <td><span class="pill blue">M5 预留</span></td>
               </tr>
             </tbody>
@@ -1012,7 +1019,11 @@ pre {
         </div>
         <div class="callout">
           <strong>接口原则：</strong>
-          前端和业务调用方只传股票代码列表，不需要知道 Tushare `rt_k` 的全市场通配符、请求频率或 Redis key。
+          前端和业务调用方只传股票代码列表，单次请求上限暂定 200 个代码；调用方不需要知道 Tushare `rt_k` 的全市场通配符、请求频率或 Redis key。
+        </div>
+        <div class="callout">
+          <strong>前端页面 API 已设计：</strong>
+          “实时流监控”页面 V1 只调用 `GET /api/v1/ops/realtime/stock-rt-daily/health`。页面进入先读一次；只有 health API 返回 `page_polling_enabled=true` 时，才按 `recommended_poll_interval_seconds=60` 每 1 分钟局部刷新状态区域。页面不得整页刷新，不得自行读 Redis，不得调用 Tushare，也不得自行推导交易日或交易时段。
         </div>
       </div>
     </section>
@@ -1021,7 +1032,7 @@ pre {
       <div class="section-header">
         <div>
           <h2>10. Ops 菜单与观测</h2>
-          <p>在数据运营后台单独规划“实时行情流”菜单，不把实时采集伪装成 TaskRun 任务详情。</p>
+          <p>在数据运营后台单独规划“实时流监控”一级菜单，不把实时采集伪装成 TaskRun 任务详情。</p>
         </div>
       </div>
       <div class="section-body">
@@ -1041,7 +1052,7 @@ pre {
         </div>
         <div class="callout">
           <strong>菜单建议：</strong>
-          数据运营后台新增“实时行情流”菜单，V1 页面只展示“股票实时日线”一个 feed 的采集状态和 Redis 状态。当前页面设计稿按独立菜单出稿，后续实现时再确认最终挂载位置。
+          数据运营后台新增“实时流监控”一级菜单，V1 页面只展示“股票实时日线”一个 feed 的采集状态和 Redis 状态。
         </div>
         <div class="callout danger">
           <strong>不要做的事：</strong>
@@ -1081,11 +1092,11 @@ pre {
               <tr>
                 <td>请求方式</td>
                 <td><code>ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
-                <td>按源文档示例一次拉全市场；仅在 9:30-11:30、13:00-15:00 内每 6 秒请求一次。</td>
+                <td>按源文档示例一次拉全市场；仅在交易日 9:30-11:30、13:00-15:00 内每 6 秒请求一次。</td>
               </tr>
               <tr>
                 <td>存储</td>
-                <td>只写 Redis 最新快照与短期 stream</td>
+                <td>只写 Redis 最新快照、batch stream 与 delta stream</td>
                 <td>不创建 raw/core 表，不接日期审计。</td>
               </tr>
               <tr>
@@ -1147,9 +1158,9 @@ pre {
                 <td>不实现 WebSocket，但保留 Redis stream 数据基础</td>
               </tr>
               <tr>
-                <td>M4 Ops 实时行情流菜单</td>
+                <td>M4 Ops 实时流监控菜单</td>
                 <td>数据运营后台单独展示股票实时日线采集健康</td>
-                <td>health API、实时行情流菜单页面</td>
+                <td>health API、实时流监控菜单页面</td>
                 <td>不复用 TaskRun 任务详情</td>
               </tr>
               <tr>
@@ -1167,8 +1178,8 @@ pre {
     <section id="decisions" class="section">
       <div class="section-header">
         <div>
-          <h2>13. 待拍板项</h2>
-          <p>这些点会影响后续代码设计，需要在进入实现前定下来。</p>
+          <h2>13. 已确认与待解决项</h2>
+          <p>这些点会影响后续代码设计，已确认的直接作为实现约束，待解决项进入实现和验收清单。</p>
         </div>
       </div>
       <div class="section-body">
@@ -1179,11 +1190,11 @@ pre {
           </div>
           <div class="decision-item">
             <h3>D2 V1 请求方式</h3>
-            <p>已确认：使用 `ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ` 一次请求全市场，仅在 9:30-11:30、13:00-15:00 内每 6 秒请求一次。</p>
+            <p>已确认：使用 `ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ` 一次请求全市场，仅在交易日的 9:30-11:30、13:00-15:00 内每 6 秒请求一次。</p>
           </div>
           <div class="decision-item">
             <h3>D3 首期 API 形态</h3>
-            <p>已收敛建议：V1 只做股票实时日线快照查询 API 和 Ops 健康 API；WebSocket 作为 M5 后续阶段，基于 Redis stream 实现。</p>
+            <p>已确认：V1 只做股票实时日线快照查询 API 和 Ops 健康 API；WebSocket 作为 M5 后续阶段，基于 Redis stream 实现。</p>
           </div>
           <div class="decision-item">
             <h3>D3.1 Redis 一致性模型</h3>
@@ -1191,7 +1202,7 @@ pre {
           </div>
           <div class="decision-item">
             <h3>D4 是否沉淀历史</h3>
-            <p>已确认：V1 不沉淀历史，只保留 Redis 最新快照和短期 stream。历史分钟线或 tick 归档另立题。</p>
+            <p>已确认：V1 不沉淀历史，只保留 Redis 最新快照、batch stream 和 delta stream。历史分钟线或 tick 归档另立题。</p>
           </div>
           <div class="decision-item">
             <h3>D5 stale 阈值</h3>
@@ -1200,6 +1211,26 @@ pre {
           <div class="decision-item">
             <h3>D6 真实请求验证</h3>
             <p>收盘后已初步探测：全市场请求返回 5521 行，耗时约 503ms，样本 `trade_time` 为 17:00:xx。仍需明天开市时验证返回行数、空值、耗时和交易时段内 `trade_time` 行为。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D7 Redis stream 粒度</h3>
+            <p>已确认：V1 同时写 `stream:batch` 的 `batch_published` 批次事件，以及 `stream:delta` 的 `quote_changed` 逐股票变化事件。首批不灌全市场 delta，后续只写与上一可读批次相比发生变化的股票，并用 MAXLEN 裁剪。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D8 Redis TTL</h3>
+            <p>已确认：batch snapshot/index/meta TTL 为 259200 秒（72 小时），同时只保留最近 3 批，覆盖午休、隔夜和周末展示，不沉淀长期历史。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D9 非交易日请求策略</h3>
+            <p>已确认：只有交易日 + 9:30-11:30/13:00-15:00 才请求源站；非交易日显示 `market_closed`。</p>
+          </div>
+          <div class="decision-item">
+            <h3>D10 前端页面轮询</h3>
+            <p>已确认：Ops 页面进入时先请求一次 health API；只有处于交易日交易时段时，才每 1 分钟继续请求 health API，只局部更新状态区域、批次信息、错误信息和指标展示。午休、收盘后、夜间、非交易日、feed disabled 时不持续轮询。不得整页刷新，不得重新挂载整个页面，避免页面闪烁。health API 返回 `page_polling_enabled` 和 `recommended_poll_interval_seconds`，前端按服务端返回决定是否继续轮询，禁止前端自己按本地时间推导交易日或交易时段。</p>
+          </div>
+          <div class="decision-item">
+            <h3>R1 待解决事项</h3>
+            <p>仍待完成：开市时段真实源接口验证；生产 Redis 安装与 `REDIS_URL` 配置；collector + Redis batch pointer 最小闭环；业务 API 与 Ops health API；实时流监控页面；远程部署 smoke。WebSocket 推送作为 P1，基于 V1 current batch 和 delta stream 另立实现，不进入 V1 主闭环。</p>
           </div>
         </div>
       </div>

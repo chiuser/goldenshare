@@ -21,6 +21,9 @@ const statusLabelMap: Record<string, string> = {
   info: "提示",
   warning: "警告",
   error: "错误",
+  degraded: "降级",
+  idle: "空闲",
+  unavailable: "不可用",
 };
 
 const triggerSourceLabelMap: Record<string, string> = {

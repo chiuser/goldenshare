@@ -37,6 +37,9 @@ const toneMap: Record<string, ToneConfig> = {
   info: { scale: "info", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   warning: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   error: { scale: "error", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
+  degraded: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
+  idle: { scale: "info", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
+  unavailable: { scale: "error", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
 };
 
 export function StatusBadge({

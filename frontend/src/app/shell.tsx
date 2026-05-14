@@ -150,6 +150,15 @@ export function OpsShell(_props: PropsWithChildren) {
               variant="light"
               color="brand"
             />
+            <NavLink
+              component={Link}
+              to="/ops/v21/realtime"
+              label="实时流监控"
+              leftSection={<IconActivityHeartbeat size={18} />}
+              active={location.pathname === "/ops/v21/realtime"}
+              variant="light"
+              color="brand"
+            />
 
             <ShellParentNavLabel label="审查中心" icon={IconStack2} active={isReviewSectionActive} />
             {opsV21ReviewLinks.map((link) => (

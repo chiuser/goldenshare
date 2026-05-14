@@ -1,0 +1,4 @@
+STOCK_RT_DAILY_FEED_KEY = "tushare_stock_rt_k"
+STOCK_RT_DAILY_DISPLAY_NAME = "股票实时日线"
+STOCK_RT_DAILY_SOURCE = "tushare"
+STOCK_RT_DAILY_SOURCE_API_NAME = "rt_k"

@@ -11,6 +11,7 @@ from src.ops.api import (
     overview,
     review_center,
     probes,
+    realtime,
     resolution_releases,
     runtime,
     schedules,
@@ -24,6 +25,7 @@ router.include_router(overview.router)
 router.include_router(freshness.router)
 router.include_router(schedules.router)
 router.include_router(probes.router)
+router.include_router(realtime.router)
 router.include_router(resolution_releases.router)
 router.include_router(std_rules.router)
 router.include_router(layer_snapshots.router)

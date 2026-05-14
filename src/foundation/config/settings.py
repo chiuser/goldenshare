@@ -47,6 +47,44 @@ class Settings(BaseSettings):
     quote_api_auth_required: bool = Field(default=False, alias="QUOTE_API_AUTH_REQUIRED")
     biz_use_serving_light: bool = Field(default=True, alias="BIZ_USE_SERVING_LIGHT")
     biz_serving_fallback: bool = Field(default=True, alias="BIZ_SERVING_FALLBACK")
+    redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
+    realtime_stock_rt_daily_enabled: bool = Field(default=False, alias="REALTIME_STOCK_RT_DAILY_ENABLED")
+    realtime_stock_rt_daily_poll_interval_seconds: int = Field(
+        default=6,
+        alias="REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS",
+    )
+    realtime_stock_rt_daily_collection_sessions: str = Field(
+        default="09:30-11:30,13:00-15:00",
+        alias="REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS",
+    )
+    realtime_stock_rt_daily_max_calls_per_minute: int = Field(
+        default=10,
+        alias="REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE",
+    )
+    realtime_stock_rt_daily_stale_after_seconds: int = Field(
+        default=20,
+        alias="REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS",
+    )
+    realtime_stock_rt_daily_snapshot_ttl_seconds: int = Field(
+        default=259200,
+        alias="REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS",
+    )
+    realtime_stock_rt_daily_keep_recent_batches: int = Field(
+        default=3,
+        alias="REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES",
+    )
+    realtime_stock_rt_daily_batch_stream_maxlen: int = Field(
+        default=5000,
+        alias="REALTIME_STOCK_RT_DAILY_BATCH_STREAM_MAXLEN",
+    )
+    realtime_stock_rt_daily_delta_stream_maxlen: int = Field(
+        default=200000,
+        alias="REALTIME_STOCK_RT_DAILY_DELTA_STREAM_MAXLEN",
+    )
+    realtime_stock_rt_daily_ts_code_pattern: str = Field(
+        default="3*.SZ,6*.SH,0*.SZ,9*.BJ",
+        alias="REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN",
+    )
     model_config = SettingsConfigDict(extra="ignore")
 
 

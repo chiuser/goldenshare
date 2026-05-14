@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Ops 实时行情流页面设计 v1</title>
+<title>Ops 实时流监控页面设计 v1</title>
 <style>
 :root {
   --bg: #f5f7f3;
@@ -435,7 +435,7 @@ h1 {
 }
 .state-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 12px;
   margin-top: 18px;
 }
@@ -519,7 +519,7 @@ td { color: #344139; }
     <a class="nav-item nav-child">数据状态总览</a>
     <a class="nav-item nav-child">Tushare</a>
     <a class="nav-item nav-child">Biying</a>
-    <a class="nav-item active"><span class="dot"></span>实时行情流</a>
+    <a class="nav-item active"><span class="dot"></span>实时流监控</a>
     <a class="nav-item"><span class="dot"></span>任务中心</a>
 
     <div class="nav-section">治理</div>
@@ -536,7 +536,7 @@ td { color: #344139; }
 
   <main class="main">
     <div class="topbar">
-      <div class="crumb">数据运营后台 / 实时行情流 / 股票实时日线</div>
+      <div class="crumb">数据运营后台 / 实时流监控 / 股票实时日线</div>
       <div class="admin">
         <span class="admin-badge">运行管理</span>
         <strong>admin</strong>
@@ -546,16 +546,17 @@ td { color: #344139; }
     <section class="hero">
       <div class="hero-card">
         <div class="eyebrow"><span class="pulse"></span>Realtime Feed</div>
-        <h1>实时行情流</h1>
+        <h1>实时流监控</h1>
         <p class="lead">
-          这里只看实时采集链路是否正常：collector 是否在 9:30-11:30、13:00-15:00 内按 6 秒节奏刷新、Redis 当前批次是否可读、Tushare 返回是否稳定。
+          这里只看实时采集链路是否正常：collector 是否在交易日的 9:30-11:30、13:00-15:00 内按 6 秒节奏刷新、Redis 当前批次是否可读、Tushare 返回是否稳定。
           不展示离线任务，不展示 freshness，不把实时轮询塞进任务中心。
         </p>
         <div class="hero-actions">
           <span class="chip">V1 feed：股票实时日线</span>
           <span class="chip">上游：Tushare 0372 rt_k</span>
           <span class="chip">一致性：batch_id + current pointer</span>
-          <span class="chip">采集窗口：9:30-11:30 / 13:00-15:00</span>
+          <span class="chip">采集窗口：交易日 9:30-11:30 / 13:00-15:00</span>
+          <span class="chip">Redis：72 小时 TTL / 最近 3 批</span>
           <span class="chip">stale 阈值：20 秒</span>
         </div>
       </div>
@@ -592,12 +593,17 @@ td { color: #344139; }
       <div class="metric">
         <div class="name">采集窗口</div>
         <div class="value">开盘时段</div>
-        <div class="hint">9:30-11:30 / 13:00-15:00</div>
+        <div class="hint">交易日 9:30-11:30 / 13:00-15:00</div>
       </div>
       <div class="metric">
         <div class="name">滞后判断</div>
         <div class="value">20s</div>
         <div class="hint">仅采集时段内超过 20 秒显示滞后</div>
+      </div>
+      <div class="metric">
+        <div class="name">Redis 保留</div>
+        <div class="value">72h</div>
+        <div class="hint">TTL 259200 秒，仅保留最近 3 批</div>
       </div>
     </section>
 
@@ -657,6 +663,44 @@ td { color: #344139; }
               </div>
             </div>
             <div class="panel-body">
+              <div class="copy" style="margin-top:0; margin-bottom:12px;">
+                <div class="copy-title">前端页面 API</div>
+                <div class="mono">GET /api/v1/ops/realtime/stock-rt-daily/health</div>
+                <div style="margin-top:6px;">页面只调用这个 health API。进入页面时先读取一次；只有 health API 返回 <span class="mono">page_polling_enabled=true</span> 时，才按 <span class="mono">recommended_poll_interval_seconds=60</span> 每 1 分钟局部更新状态区域、批次信息、错误信息和指标展示。午休、收盘后、夜间、非交易日、feed disabled 时不持续轮询。不得整页刷新，不得重新挂载整个页面，避免页面闪烁；它不触发 collector，不请求 Tushare，不写 Redis；页面也不得直接读 Redis、自行计算 stale 或 current batch。</div>
+              </div>
+
+              <table style="margin-bottom:14px;">
+                <thead>
+                  <tr>
+                    <th>状态字段</th>
+                    <th>展示</th>
+                    <th>说明</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td class="mono">status=ok</td>
+                    <td><span class="pill ok">正常</span></td>
+                    <td>采集时段内最近 20 秒发布过新批次。</td>
+                  </tr>
+                  <tr>
+                    <td class="mono">status=idle</td>
+                    <td><span class="pill info">空闲</span></td>
+                    <td>非采集时段，不请求源站，不是失败。</td>
+                  </tr>
+                  <tr>
+                    <td class="mono">status=stale</td>
+                    <td><span class="pill warn">滞后</span></td>
+                    <td>采集时段内超过 20 秒未发布新批次，但旧批次可读。</td>
+                  </tr>
+                  <tr>
+                    <td class="mono">status=unavailable</td>
+                    <td><span class="pill bad">不可用</span></td>
+                    <td>Redis 不可连接，或没有 current batch。</td>
+                  </tr>
+                </tbody>
+              </table>
+
               <table>
                 <thead>
                   <tr>
@@ -683,13 +727,28 @@ td { color: #344139; }
                   </tr>
                   <tr>
                     <td>采集窗口</td>
-                    <td class="mono">collection_sessions / collection_status</td>
-                    <td>判断当前是否应该请求 Tushare，非采集时段显示空闲。</td>
+                    <td class="mono">is_trading_day / collection_sessions / collection_status</td>
+                    <td>判断当前是否应该请求 Tushare，非交易日显示休市，非采集时段显示空闲。</td>
                   </tr>
                   <tr>
                     <td>限速</td>
                     <td class="mono">request_count_last_minute / max_calls_per_minute</td>
                     <td>确认 collector 没有超过 feed 级限速。</td>
+                  </tr>
+                  <tr>
+                    <td>Redis 保留策略</td>
+                    <td class="mono">snapshot_ttl_seconds / keep_recent_batches</td>
+                    <td>确认当前批次保留 72 小时且只保留最近 3 批。</td>
+                  </tr>
+                  <tr>
+                    <td>Stream 事件</td>
+                    <td class="mono">last_batch_event_id / last_delta_event_id / delta_count_last_batch</td>
+                    <td>展示最近批次事件、最近逐股票变化事件和本批次变化股票数量。</td>
+                  </tr>
+                  <tr>
+                    <td>页面轮询</td>
+                    <td class="mono">page_polling_enabled / recommended_poll_interval_seconds</td>
+                    <td>只在交易日交易时段内启用 1 分钟局部刷新；其他时段停止定时轮询。</td>
                   </tr>
                   <tr>
                     <td>异常信息</td>
@@ -716,7 +775,7 @@ td { color: #344139; }
               <div class="step-no">1</div>
               <div class="step-box">
                 <strong>判断采集窗口</strong>
-                <span>只在 9:30-11:30、13:00-15:00 请求源站；非采集时段更新空闲状态。</span>
+                <span>只在交易日 9:30-11:30、13:00-15:00 请求源站；非交易日显示休市，非采集时段更新空闲状态。</span>
               </div>
             </div>
             <div class="step">
@@ -730,7 +789,7 @@ td { color: #344139; }
               <div class="step-no">3</div>
               <div class="step-box">
                 <strong>写入新 batch</strong>
-                <span>先写 batch 下的 snapshot、index、meta，读请求此时仍看旧 batch。</span>
+                <span>先写 batch 下的 snapshot、index、meta，再写 batch stream 和 delta stream，读请求此时仍看旧 batch。</span>
               </div>
             </div>
             <div class="step">
@@ -756,14 +815,14 @@ td { color: #344139; }
 
           <div class="copy">
             <div class="copy-title">错误态文案</div>
-            <div>实时行情流暂不可用。系统没有可读的 Redis 当前批次，请检查 collector、Redis 和上游 Tushare 请求。若当前为非采集时段，应显示“非采集时段/空闲”，不应显示失败。</div>
+            <div>实时流监控暂不可用。系统没有可读的 Redis 当前批次，请检查 collector、Redis 和上游 Tushare 请求。若当前为非交易日或非采集时段，应显示“休市/空闲”，不应显示失败。</div>
           </div>
         </div>
       </div>
     </section>
 
     <div class="footer-note">
-      设计结论：实时行情流作为独立菜单展示，页面只关心实时 feed 健康。它不是任务中心页面，也不是数据集新鲜度页面。V1 仅在 9:30-11:30、13:00-15:00 请求源站，stale 阈值 20 秒只用于采集时段内。
+      设计结论：实时流监控作为一级菜单展示，页面只关心实时 feed 健康。它不是任务中心页面，也不是数据集新鲜度页面。V1 仅在交易日 9:30-11:30、13:00-15:00 请求源站，stale 阈值 20 秒只用于采集时段内。
     </div>
   </main>
 </div>
