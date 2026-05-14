@@ -22,7 +22,6 @@ import {
 } from "../../features/market-overview/indices/api/marketMajorIndicesAdapter";
 import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
 import { Breadcrumb } from "../../features/market-overview/layout/Breadcrumb";
-import { PageHeader } from "../../features/market-overview/layout/PageHeader";
 import { ShortcutBar } from "../../features/market-overview/layout/ShortcutBar";
 import { TopMarketBar } from "../../features/market-overview/layout/TopMarketBar";
 import { LeaderboardPanel } from "../../features/market-overview/leaderboards/LeaderboardPanel";
@@ -216,7 +215,6 @@ export function MarketOverviewPage() {
   const [sectorOverviewErrorMessage, setSectorOverviewErrorMessage] = useState<string | null>(null);
   const [sectorOverviewDebugInfo, setSectorOverviewDebugInfo] = useState<SectorOverviewDebugInfo | null>(null);
   const [toast, setToast] = useState("");
-  const [refreshing, setRefreshing] = useState(false);
   const headerTickers = useMemo(() => buildHeaderTickers(overview, majorIndices), [overview, majorIndices]);
   const pageDebugEnabled = useMemo(() => {
     if (!import.meta.env.DEV) return false;
@@ -982,14 +980,6 @@ export function MarketOverviewPage() {
     window.__wealthToastTimer = window.setTimeout(() => setToast(""), 1800);
   }
 
-  function refresh() {
-    setRefreshing(true);
-    window.setTimeout(() => {
-      setRefreshing(false);
-      showToast(`市场总览已刷新：${pageContext?.updateTime ?? "页面时间上下文未就绪"}`);
-    }, 900);
-  }
-
   if (pageContextViewState === "error") {
     return (
       <main className="page-shell">
@@ -1013,10 +1003,9 @@ export function MarketOverviewPage() {
 
   return (
     <div className="market-terminal">
-      <TopMarketBar dataDelayText={overview.dataDelayText} onAction={showToast} statusText={overview.statusText} tickers={headerTickers} />
+      <TopMarketBar onAction={showToast} tickers={headerTickers} />
       <main className="page-shell">
-        <Breadcrumb onAction={showToast} />
-        <PageHeader refreshing={refreshing} tradeDate={pageContext.tradeDate} updateTime={pageContext.updateTime} onRefresh={refresh} />
+        <Breadcrumb onAction={showToast} sessionStatus={pageContext.sessionStatus} />
         <ShortcutBar onAction={showToast} />
         <div className="content-grid">
           <MarketNewsPanelGroup

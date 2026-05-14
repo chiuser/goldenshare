@@ -346,9 +346,11 @@ describe("MarketOverviewPage", () => {
   it("renders the V1.1 market overview structure", async () => {
     render(<MarketOverviewPage />);
 
-    expect(await screen.findByRole("heading", { name: "市场总览" })).toBeInTheDocument();
-    expect(screen.getByText("交易日 2026-04-28")).toBeInTheDocument();
-    expect(screen.getByText("2026-04-28 15:05:00")).toBeInTheDocument();
+    const breadcrumb = await screen.findByLabelText("Breadcrumb");
+    expect(within(breadcrumb).getByText("市场总览")).toBeInTheDocument();
+    expect(screen.queryByText("页面更新时间：")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /手动刷新/ })).not.toBeInTheDocument();
+    expect(screen.getByText("已收盘")).toBeInTheDocument();
     expect(screen.getByLabelText("TopMarketBar")).toBeInTheDocument();
     expect(screen.getByLabelText("今日市场客观总结")).toBeInTheDocument();
     expect(screen.getByLabelText("主要指数")).toBeInTheDocument();
@@ -378,7 +380,7 @@ describe("MarketOverviewPage", () => {
   it("renders sector matrix and heatmap exactly as the showcase requires", async () => {
     render(<MarketOverviewPage />);
 
-    await screen.findByRole("heading", { name: "市场总览" });
+    await screen.findByLabelText("Breadcrumb");
     expect(screen.getByText("行业涨幅前五")).toBeInTheDocument();
     expect(screen.getByText("资金流出前五")).toBeInTheDocument();
     expect(screen.getAllByLabelText(/^板块热力图-/)).toHaveLength(20);
@@ -387,8 +389,8 @@ describe("MarketOverviewPage", () => {
   it("uses lightweight toast for reserved navigation feedback", async () => {
     render(<MarketOverviewPage />);
 
-    fireEvent.click(await screen.findByRole("button", { name: /手动刷新/ }));
-    expect(screen.getByRole("button", { name: "刷新中" })).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("button", { name: "交易助手" }));
+    expect(screen.getByText("跳转：交易助手")).toBeInTheDocument();
   });
 
   it("summary module smoke supports both 5-card and 6-card layouts", async () => {

@@ -1,36 +1,16 @@
-import { useEffect, useState } from "react";
 import type { QuoteItem } from "../api/marketOverviewTypes";
 import { directionClass } from "../../../shared/lib/marketDirection";
 import { formatPoint, formatSignedPercent } from "../../../shared/lib/formatters";
-import { DataStatusBadge } from "../../../shared/ui/DataStatusBadge";
-import { MarketStatusPill } from "../../../shared/ui/MarketStatusPill";
 
 const logoUrl = new URL("../../../../docs/reference/brand/logo/logo_new.png", import.meta.url).href;
 
 interface TopMarketBarProps {
   tickers: QuoteItem[];
-  statusText: string;
-  dataDelayText: string;
   onAction: (message: string) => void;
 }
 
-function formatClockTime(now: Date): string {
-  const hh = String(now.getHours()).padStart(2, "0");
-  const mm = String(now.getMinutes()).padStart(2, "0");
-  const ss = String(now.getSeconds()).padStart(2, "0");
-  return `${hh}:${mm}:${ss}`;
-}
-
-export function TopMarketBar({ tickers, statusText, dataDelayText, onAction }: TopMarketBarProps) {
+export function TopMarketBar({ tickers, onAction }: TopMarketBarProps) {
   const navItems = ["乾坤行情", "财势探查", "交易助手", "交易训练", "数据中心", "系统设置"];
-  const [clockTime, setClockTime] = useState(() => formatClockTime(new Date()));
-
-  useEffect(() => {
-    const timer = window.setInterval(() => {
-      setClockTime(formatClockTime(new Date()));
-    }, 1000);
-    return () => window.clearInterval(timer);
-  }, []);
 
   return (
     <header className="top-market-bar" aria-label="TopMarketBar">
@@ -76,11 +56,6 @@ export function TopMarketBar({ tickers, statusText, dataDelayText, onAction }: T
         </div>
       </div>
       <div className="top-meta">
-        <span className="num" aria-label="系统时间">
-          {clockTime}
-        </span>
-        <MarketStatusPill label={statusText} />
-        <DataStatusBadge label={dataDelayText} tone="delayed" title="部分盘中数据为延迟源，历史数据已就绪" />
         <div className="user-entry" title="用户入口">
           明
         </div>
