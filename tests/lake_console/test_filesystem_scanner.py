@@ -50,6 +50,40 @@ def test_scanner_lists_stock_basic_raw_dataset(tmp_path):
     assert raw_partitions[0].partition_label == "当前版本"
 
 
+def test_physical_assets_classify_registered_containers_and_system_files(tmp_path):
+    stock_basic = tmp_path / "raw_tushare" / "stock_basic" / "current" / "part-000.parquet"
+    stock_basic.parent.mkdir(parents=True)
+    stock_basic.write_bytes(b"fake")
+    (tmp_path / "raw_tushare" / ".DS_Store").write_bytes(b"macos")
+    unknown_dir = tmp_path / "raw_tushare" / "manual_dump"
+    unknown_dir.mkdir()
+    (unknown_dir / "part-000.parquet").write_bytes(b"manual")
+
+    scanner = FilesystemScanner(tmp_path)
+    assets = scanner.list_physical_assets(limit=1000)
+    assets_by_path = {asset.path: asset for asset in assets}
+
+    assert "raw_tushare/.DS_Store" not in assets_by_path
+    stock_basic_container = assets_by_path["raw_tushare/stock_basic"]
+    assert stock_basic_container.registered_state == "registered_container"
+    assert stock_basic_container.dataset_key == "stock_basic"
+    assert stock_basic_container.node_key is None
+    assert stock_basic_container.risk_level == "none"
+    assert stock_basic_container.risk_label == "已登记节点容器"
+
+    unknown_asset = assets_by_path["raw_tushare/manual_dump"]
+    assert unknown_asset.registered_state == "unregistered"
+    assert unknown_asset.risk_level == "warning"
+    assert unknown_asset.risk_label == "未登记资产"
+
+    ignored_assets = scanner.list_physical_assets(registered_state="ignored", limit=1000)
+    assert [asset.path for asset in ignored_assets] == ["raw_tushare/.DS_Store"]
+    assert ignored_assets[0].risk_label == "系统文件"
+
+    unregistered_metric = next(metric for metric in scanner.overview().summary_metrics if metric.key == "unregistered_assets")
+    assert unregistered_metric.value == "1"
+
+
 def _node_by_key(node_summaries, node_key):
     for node_summary in node_summaries:
         if node_summary.node_key == node_key:

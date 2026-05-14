@@ -940,7 +940,7 @@ PhysicalAsset 硬盘资产
 |---|---|---|
 | `path` | string | 相对 Lake Root 的路径 |
 | `asset_type` | string | `directory/file` |
-| `registered_state` | string | `registered/unregistered/governance` |
+| `registered_state` | string | `registered/registered_container/unregistered/governance/ignored` |
 | `dataset_key` | string 或 null | 关联数据集 |
 | `node_key` | string 或 null | 关联节点 |
 | `display_name` | string | 后端生成展示名 |
@@ -1035,13 +1035,13 @@ PhysicalAsset 硬盘资产
 
 #### `GET /api/lake/physical-assets`
 
-用途：展示真实硬盘资产，包括已登记资产、未登记资产和治理目录。
+用途：展示真实硬盘资产，包括已登记节点、已登记节点父目录、未登记资产和治理目录；系统噪声文件只在显式过滤时返回。
 
 查询参数：
 
 | 参数 | 类型 | 必填 | 含义 |
 |---|---|---:|---|
-| `registered_state` | string | 否 | `registered/unregistered/governance` |
+| `registered_state` | string | 否 | `registered/registered_container/unregistered/governance/ignored` |
 | `path_prefix` | string | 否 | 路径前缀 |
 | `asset_type` | string | 否 | `directory/file` |
 | `limit` | integer | 否 | 默认 200 |

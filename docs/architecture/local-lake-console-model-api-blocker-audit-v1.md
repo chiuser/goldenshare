@@ -45,7 +45,7 @@
 | A-4 | `/api/lake/validate`、`/api/lake/query/sample`、文件级 metadata 还未实现 | 第 11.6 已列为后置 API | 当前模型/API 第一批不需要这些接口。 | 用户明确启动 Health、Validate、DuckDB sample 或文件级详情方案时再设计。 |
 | A-5 | 前端存在展示兜底格式化，如 `formatDateOrMonthRange()` 在 `coverage_label` 为空时自行拼范围 | `lake_console/frontend/src/utils/format.ts` | 正常后端会返回 `coverage_label`；当前只是兜底展示，不会改变主事实。 | 若进入“前端零事实拼装”严格清扫，可移除或降级为异常兜底。 |
 | A-6 | 业务命令内部读写、补数、派生、指标重算链路仍有可优化或需审计事项 | `sync-stk-mins-range`、`derive-stk-mins`、`rebuild-*research*`、indicator services | 这些属于数据生产链路，不是总览页模型/API 的当前开发范围。 | 只有当模型字段变更导致命令不可运行，或用户明确启动对应命令治理任务时，才转为 B 类。 |
-| A-7 | `PhysicalAsset` 扫描粒度与“真实硬盘资产视图”契约不够清晰 | `lake_console/backend/app/services/filesystem_scanner.py` 的 `_physical_assets()` | 当前不做递归扫描全湖每个目录/文件，避免拖慢总览页；本轮只承认后端已返回的资产样本，不把全量硬盘资产作为阻断。 | 后续如果要做 Storage / Cost 或真实硬盘资产治理页，再单独设计快速索引、缓存或离线统计方案。 |
+| A-7 | `PhysicalAsset` 全量递归扫描仍后置 | `lake_console/backend/app/services/filesystem_scanner.py` 的 `_physical_assets()` | 当前不做递归扫描全湖每个目录/文件，避免拖慢总览页；但已把已登记节点父目录和系统文件从“未登记资产”误判中拆出。 | 后续如果要做 Storage / Cost 或真实硬盘资产治理页，再单独设计快速索引、缓存或离线统计方案。 |
 
 ## 4. 明确不纳入本轮的事项
 

@@ -20,6 +20,10 @@ from lake_console.backend.app.schemas import (
     LakeRiskItem,
 )
 
+LAKE_ASSET_ROOTS = ("raw_tushare", "manifest", "derived", "research")
+GOVERNANCE_ASSET_ROOTS = ("_tmp", "_recovery")
+IGNORED_SYSTEM_FILE_NAMES = {".DS_Store"}
+
 
 class FilesystemScanner:
     def __init__(self, lake_root: Path) -> None:
@@ -91,7 +95,7 @@ class FilesystemScanner:
         limit: int = 200,
         offset: int = 0,
     ) -> list[LakePhysicalAssetSummary]:
-        items = self._physical_assets()
+        items = self._physical_assets(include_ignored=registered_state == "ignored")
         if registered_state:
             items = [item for item in items if item.registered_state == registered_state]
         if path_prefix:
@@ -137,7 +141,7 @@ class FilesystemScanner:
                     key="unregistered_assets",
                     label="未登记资产",
                     value=_format_count(unregistered_count),
-                    hint="硬盘真实存在但未登记为数据集节点",
+                    hint="不含已登记节点父目录和系统文件",
                     tone="warning" if unregistered_count else "success",
                     sort_order=40,
                 ),
@@ -403,29 +407,43 @@ class FilesystemScanner:
             risks=risks,
         )
 
-    def _physical_assets(self) -> list[LakePhysicalAssetSummary]:
-        candidates: dict[str, tuple[str | None, str | None]] = {}
+    def _physical_assets(self, *, include_ignored: bool = False) -> list[LakePhysicalAssetSummary]:
+        registered_nodes: dict[str, tuple[str, str]] = {}
         for definition in list_dataset_definitions():
             for node in definition.nodes:
-                candidates[node.path] = (definition.dataset_key, node.node_key)
-        for root_name in ("raw_tushare", "manifest", "derived", "research"):
+                registered_nodes[node.path] = (definition.dataset_key, node.node_key)
+
+        registered_containers = _registered_container_paths(registered_nodes)
+        candidates = set(registered_nodes)
+        for root_name in LAKE_ASSET_ROOTS:
             root = self.lake_root / root_name
             if not root.exists():
                 continue
             for child in root.iterdir():
-                candidates.setdefault(_relative_path(self.lake_root, child), (None, None))
-        for governance in ("_tmp", "_recovery"):
+                candidates.add(_relative_path(self.lake_root, child))
+        for governance in GOVERNANCE_ASSET_ROOTS:
             path = self.lake_root / governance
             if path.exists():
-                candidates.setdefault(governance, (None, None))
+                candidates.add(governance)
 
-        items = []
-        for relative, (dataset_key, node_key) in candidates.items():
+        items: list[LakePhysicalAssetSummary] = []
+        for relative in candidates:
             path = self.lake_root / relative
             if not path.exists():
                 continue
+            registered_node = registered_nodes.get(relative)
+            registered_state = _physical_asset_state(
+                relative,
+                is_registered_node=registered_node is not None,
+                is_registered_container=relative in registered_containers,
+            )
+            if registered_state == "ignored" and not include_ignored:
+                continue
+
+            dataset_key = registered_node[0] if registered_node else _single_or_none(registered_containers.get(relative, set()))
+            node_key = registered_node[1] if registered_node else None
             stats = _path_stats(path)
-            registered_state = "registered" if dataset_key and node_key else _unregistered_state(relative)
+            risk_level, risk_label = _physical_asset_risk(registered_state)
             items.append(
                 LakePhysicalAssetSummary(
                     path=relative,
@@ -433,16 +451,16 @@ class FilesystemScanner:
                     registered_state=registered_state,
                     dataset_key=dataset_key,
                     node_key=node_key,
-                    display_name=_physical_asset_name(relative, dataset_key=dataset_key, node_key=node_key),
+                    display_name=_physical_asset_name(relative, registered_state=registered_state, dataset_key=dataset_key, node_key=node_key),
                     total_bytes=stats["total_bytes"],
                     file_count=stats["file_count"],
                     dir_count=stats["dir_count"],
                     latest_modified_at=stats["latest_modified_at"],
-                    risk_level="warning" if registered_state == "unregistered" else "none",
-                    risk_label="未登记资产" if registered_state == "unregistered" else "正常",
+                    risk_level=risk_level,
+                    risk_label=risk_label,
                 )
             )
-        return sorted(items, key=lambda item: (item.registered_state, item.path))
+        return sorted(items, key=_physical_asset_sort_key)
 
     def _overview_layer_groups(self, datasets: list[LakeDatasetSummary]) -> list[LakeOverviewLayerGroup]:
         drafts: dict[str, dict[str, Any]] = {}
@@ -608,13 +626,65 @@ def _partition_int(partition: LakePartitionSummary, key: str) -> int | None:
     return value if isinstance(value, int) else None
 
 
-def _unregistered_state(path: str) -> str:
-    return "governance" if path.startswith("_") or path.startswith("manifest/") else "unregistered"
+def _registered_container_paths(registered_nodes: dict[str, tuple[str, str]]) -> dict[str, set[str]]:
+    containers: dict[str, set[str]] = {}
+    for node_path, (dataset_key, _node_key) in registered_nodes.items():
+        for parent in Path(node_path).parents:
+            relative = parent.as_posix()
+            if relative == "." or "/" not in relative:
+                continue
+            containers.setdefault(relative, set()).add(dataset_key)
+    return containers
 
 
-def _physical_asset_name(path: str, *, dataset_key: str | None, node_key: str | None) -> str:
+def _physical_asset_state(relative: str, *, is_registered_node: bool, is_registered_container: bool) -> str:
+    if is_registered_node:
+        return "registered"
+    if _is_ignored_system_path(relative):
+        return "ignored"
+    if is_registered_container:
+        return "registered_container"
+    if relative.startswith("_") or relative.startswith("manifest/"):
+        return "governance"
+    return "unregistered"
+
+
+def _physical_asset_risk(registered_state: str) -> tuple[str, str]:
+    return {
+        "registered": ("none", "正常"),
+        "registered_container": ("none", "已登记节点容器"),
+        "governance": ("none", "治理资产"),
+        "ignored": ("none", "系统文件"),
+        "unregistered": ("warning", "未登记资产"),
+    }.get(registered_state, ("none", registered_state))
+
+
+def _physical_asset_sort_key(item: LakePhysicalAssetSummary) -> tuple[int, str]:
+    order = {
+        "registered": 10,
+        "registered_container": 20,
+        "governance": 30,
+        "unregistered": 40,
+        "ignored": 90,
+    }
+    return (order.get(item.registered_state, 80), item.path)
+
+
+def _is_ignored_system_path(relative: str) -> bool:
+    return Path(relative).name in IGNORED_SYSTEM_FILE_NAMES
+
+
+def _single_or_none(values: set[str]) -> str | None:
+    if len(values) != 1:
+        return None
+    return next(iter(values))
+
+
+def _physical_asset_name(path: str, *, registered_state: str, dataset_key: str | None, node_key: str | None) -> str:
     if dataset_key and node_key:
         return f"{dataset_key} / {node_key}"
+    if registered_state == "registered_container" and dataset_key:
+        return f"{dataset_key} / 节点容器"
     return path.rstrip("/").split("/")[-1] or path
 
 
