@@ -32,6 +32,50 @@ const RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE: Record<string, string> 
   prod_db_daily: "prod_db_daily",
   prod_db_manual_backfill: "prod_db_daily",
 };
+const PROFILE_PRESENTATION: Record<string, { description: string; domain: string; mode: string; label: string }> = {
+  indicator_compute: {
+    description: "技术指标计算入口，当前不在本页启动。",
+    domain: "技术指标计算",
+    label: "技术指标计算 · 计划中",
+    mode: "计划中",
+  },
+  index_mins_sync: {
+    description: "指数历史分钟线独立链路，当前不在本页启动。",
+    domain: "指数分钟线专项",
+    label: "指数分钟线专项 · 计划中",
+    mode: "计划中",
+  },
+  lake_reference_refresh: {
+    description: "刷新本地股票池、交易日历、指数清单等参考数据。",
+    domain: "本地参考数据",
+    label: "本地参考数据 · 参考数据刷新",
+    mode: "参考数据刷新",
+  },
+  prod_db_daily: {
+    description: "按交易日或周/月锚点维护日期分区数据。",
+    domain: "日期驱动数据集",
+    label: "日期驱动数据集 · 日常增量刷新",
+    mode: "日常增量刷新",
+  },
+  prod_db_manual_backfill: {
+    description: "按指定日期区间补齐日期驱动数据集。",
+    domain: "日期驱动数据集",
+    label: "日期驱动数据集 · 手动区间补数",
+    mode: "手动区间补数",
+  },
+  prod_db_snapshot_refresh: {
+    description: "刷新基础资料和当前快照类数据集。",
+    domain: "快照数据集",
+    label: "快照数据集 · 快照刷新",
+    mode: "快照刷新",
+  },
+  stk_mins_sync: {
+    description: "股票历史分钟线独立链路，当前不在本页启动。",
+    domain: "股票分钟线专项",
+    label: "股票分钟线专项 · 计划中",
+    mode: "计划中",
+  },
+};
 
 export function SyncCenterPage() {
   const { currentRun, error, loading, lock, profiles, reloadStatus } = useSyncCenterStatus();
@@ -180,27 +224,27 @@ export function SyncCenterPage() {
   return (
     <div className="sync-center-layout">
       <PageHeader
-        eyebrow="Local Lake / Write / Prod DB Sync"
-        title="Sync Center"
-        description="从远程生产库或本地参考源刷新本地 Parquet Lake。页面只暴露 Profile、白名单数据集和日期参数，不提供 SQL 能力。"
+        eyebrow="本地数据湖 / 写入任务 / 远程只读同步"
+        title="同步中心"
+        description="从远程生产库或本地参考源刷新本地 Parquet Lake。页面只暴露同步域、操作模式、白名单数据集和日期参数，不提供 SQL 能力。"
         right={<SyncLockSummary lock={lock} loading={loading} onRefresh={reloadStatus} />}
         variant="accent"
       />
 
-      {error ? <ErrorStateBlock title="Sync Center 状态加载失败" description={error} /> : null}
+      {error ? <ErrorStateBlock title="同步中心状态加载失败" description={error} /> : null}
       {planError ? <ErrorStateBlock title="计划生成失败" description={planError} /> : null}
       {runError ? <ErrorStateBlock title="任务启动失败" description={runError} /> : null}
       {artifactError ? <ErrorStateBlock title="任务详情加载失败" description={artifactError} /> : null}
 
       <section className="metric-grid sync-center-metrics">
-        <Metric label="Task Gate" value={lockStatusLabel(lock?.status, loading)} hint={lockHint(lock)} variant={lockTone(lock)} />
-        <Metric label="Runnable Scope" value="4 profiles" hint="M6 已开放远程 DB 与本地参考数据刷新" variant="info" />
-        <Metric label="Default Lookback" value="1 day" hint="每日类 Profile 默认看最近 1 日" variant="subtle" />
-        <Metric label="Remote DB" value="Read-only" hint="页面不暴露 SQL、表名或字段条件" variant="success" />
+        <Metric label="任务锁" value={lockStatusLabel(lock?.status, loading)} hint={lockHint(lock)} variant={lockTone(lock)} />
+        <Metric label="可执行范围" value="4 类" hint="已开放日期驱动、快照、本地参考和手动补数" variant="info" />
+        <Metric label="默认回看" value="1 天" hint="日期驱动数据集默认看最近 1 日" variant="subtle" />
+        <Metric label="远程数据库" value="只读" hint="页面不暴露 SQL、表名或字段条件" variant="success" />
       </section>
 
       <Panel
-        title="主操作台 / Run Console"
+        title="主操作台"
         description="先选择同步范围，生成计划确认写入与备份影响面，再启动执行。"
       >
         <section className="sync-command-recommendation" aria-label="建议同步窗口">
@@ -212,13 +256,13 @@ export function SyncCenterPage() {
           </div>
           <div className="sync-recommendation-toolbar">
             <div className="sync-cell-stack sync-cell-stack-tight">
-              <strong>{selectedProfile ? `跟随主操作台：${selectedProfile.profile_key}` : "等待选择 Profile"}</strong>
+              <strong>{selectedProfile ? `跟随主操作台：${profileLabel(selectedProfile)}` : "等待选择同步配置"}</strong>
               <span>
                 {selectedProfileKey === "prod_db_manual_backfill"
-                  ? "当前手动补数会复用 prod_db_daily 的缺口计算结果，一键填入 start/end 与落后数据集。"
+                  ? "当前为“手动区间补数”，会复用“日期驱动数据集”的缺口计算结果，一键填入起止日期与落后数据集。"
                   : canLoadRecommendations
-                  ? "当前 Profile 支持自动计算同步日期，可一键把建议参数带回主操作台。"
-                  : "当前 Profile 不使用自动日期建议；请在主操作台直接生成计划。"}
+                  ? "当前同步范围支持自动计算同步日期，可一键把建议参数带回主操作台。"
+                  : "当前同步范围不使用自动日期建议；请在主操作台直接生成计划。"}
               </span>
             </div>
             {canLoadRecommendations ? (
@@ -232,7 +276,7 @@ export function SyncCenterPage() {
                   onClick={handleApplyDailyProfileRecommendation}
                   type="button"
                 >
-                  带入每日单日全量
+                  带入建议日期刷新
                 </button>
                 <button
                   className="sync-inline-button sync-button-primary"
@@ -255,13 +299,13 @@ export function SyncCenterPage() {
           ) : null}
           {!canLoadRecommendations ? (
             <EmptyState
-              title="当前 Profile 不需要建议同步窗口"
-              description="建议窗口目前只服务 prod_db_daily 的日期缺口推导，并可带入 prod_db_manual_backfill 执行补数。snapshot/reference 类 Profile 的日期或刷新语义不同，请在下方主操作台直接生成计划。"
+              title="当前同步范围不需要建议同步窗口"
+              description="建议窗口目前只服务“日期驱动数据集”的日期缺口推导，并可带入“手动区间补数”执行补数。快照数据集和本地参考数据的刷新语义不同，请在下方主操作台直接生成计划。"
             />
           ) : null}
           {canLoadRecommendations ? <div className="sync-recommendation-head">
             <div className="sync-cell-stack sync-cell-stack-tight">
-              <strong>Profile: {recommendations?.profile_key ?? "prod_db_daily"}</strong>
+              <strong>建议来源：{profileLabelByKey(recommendations?.profile_key ?? recommendationSourceProfileKey)}</strong>
               <span>cutoff {recommendations?.cutoff_time ?? "20:00"}，明细只用于带入参数，不会自动启动同步。</span>
             </div>
             <div className="sync-recommendation-actions">
@@ -285,11 +329,11 @@ export function SyncCenterPage() {
           <div className="sync-command-main">
             <div className="sync-form-grid sync-form-grid-console">
               <label className="sync-field">
-                <span>Profile</span>
+                <span>同步范围 / 操作模式</span>
                 <select value={selectedProfileKey} onChange={(event) => setSelectedProfileKey(event.target.value)}>
                   {profiles.map((profile) => (
                     <option key={profile.profile_key} value={profile.profile_key}>
-                      {profile.profile_key}
+                      {profileLabel(profile)}
                     </option>
                   ))}
                 </select>
@@ -314,7 +358,7 @@ export function SyncCenterPage() {
               </label>
 
               <label className="sync-field">
-                <span>Target Date</span>
+                <span>目标日期</span>
                 <input
                   disabled={!shouldUseTargetDate(selectedProfileKey)}
                   type="date"
@@ -324,7 +368,7 @@ export function SyncCenterPage() {
               </label>
 
               <label className="sync-field">
-                <span>Start Date</span>
+                <span>开始日期</span>
                 <input
                   disabled={!shouldUseDateRange(selectedProfileKey)}
                   type="date"
@@ -334,7 +378,7 @@ export function SyncCenterPage() {
               </label>
 
               <label className="sync-field">
-                <span>End Date</span>
+                <span>结束日期</span>
                 <input
                   disabled={!shouldUseDateRange(selectedProfileKey)}
                   type="date"
@@ -347,15 +391,12 @@ export function SyncCenterPage() {
             {datasetKeysOverride ? (
               <div className="alert warning">
                 <div>
-                  已按建议选择 {datasetKeysOverride.length} 个落后数据集。生成计划时只包含这组数据集，不等同于 profile 全部数据集。
+                  已按建议选择 {datasetKeysOverride.length} 个落后数据集。生成计划时只包含这组数据集，不等同于当前同步配置下的全部数据集。
                 </div>
               </div>
             ) : null}
 
             <div className="sync-action-row sync-action-row-console">
-              <button className="sync-button sync-button-muted" onClick={reloadStatus} type="button">
-                刷新状态
-              </button>
               <button className="sync-button" disabled={!selectedProfile || planLoading} onClick={handleCreatePlan} type="button">
                 {planLoading ? "生成中..." : "生成计划"}
               </button>
@@ -367,7 +408,7 @@ export function SyncCenterPage() {
             {!canRunSelectedScope ? (
               <div className="alert warning">
                 <div>
-                  当前选择的范围尚未接入 M6 runner。可以生成计划做预览，但不能启动写入任务。
+                  当前选择的同步配置尚未接入执行器。可以生成计划做预览，但不能启动写入任务。
                 </div>
               </div>
             ) : null}
@@ -375,32 +416,32 @@ export function SyncCenterPage() {
 
           <aside className="sync-command-side">
             <div className="sync-command-card">
-              <span>当前 Profile</span>
-              <strong>{selectedProfile?.display_name ?? "未选择"}</strong>
-              <p>{selectedProfile?.description ?? "等待后端返回 Profile 列表。"}</p>
+              <span>当前同步配置</span>
+              <strong>{selectedProfile ? profileLabel(selectedProfile) : "未选择"}</strong>
+              <p>{selectedProfile ? profileDescription(selectedProfile) : "等待后端返回同步配置列表。"}</p>
               <div className="sync-profile-meta">
-                {selectedProfile ? <Badge tone={profileTone(selectedProfile)}>{selectedProfile.profile_status}</Badge> : null}
+                {selectedProfile ? <Badge tone={profileTone(selectedProfile)}>{profileStatusLabel(selectedProfile.profile_status)}</Badge> : null}
                 {selectedProfile ? (
                   <Badge tone={isRunnableProfile(selectedProfile) ? "success" : "muted"}>
-                    {isRunnableProfile(selectedProfile) ? "M6 可执行" : "专项待接入"}
+                    {isRunnableProfile(selectedProfile) ? "可执行" : "计划中"}
                   </Badge>
                 ) : null}
                 {selectedProfile ? (
-                  <Badge tone={selectedProfile.requires_kopia_backup ? "warning" : "muted"}>Kopia prewrite</Badge>
+                  <Badge tone={selectedProfile.requires_kopia_backup ? "warning" : "muted"}>写入前备份</Badge>
                 ) : null}
               </div>
             </div>
 
             <div className="sync-command-card sync-command-card-plan">
               <span>当前计划</span>
-              <strong>{plan ? `${plan.summary.dataset_count ?? plan.dataset_plans.length} datasets` : "尚未生成"}</strong>
+              <strong>{plan ? `${plan.summary.dataset_count ?? plan.dataset_plans.length} 个数据集` : "尚未生成"}</strong>
               <p>
                 {plan
                   ? `requests=${requestCount.toLocaleString("zh-CN")} · backup=${plan.backup_plan.backup_paths.length} · missing=${plan.backup_plan.path_missing_before_write.length}`
                   : "生成计划后这里会显示请求数、备份路径和 missing path 摘要。"}
               </p>
               {plan?.blockers.length ? <Badge tone="error">Blockers {plan.blockers.length}</Badge> : null}
-              {plan && !plan.blockers.length ? <Badge tone="success">Ready to run</Badge> : null}
+              {plan && !plan.blockers.length ? <Badge tone="success">可启动</Badge> : null}
             </div>
           </aside>
         </div>
@@ -411,31 +452,31 @@ export function SyncCenterPage() {
           {plan ? (
             <>
               <section className="sync-plan-stats">
-                <SyncMiniStat label="Datasets" value={String(plan.summary.dataset_count ?? plan.dataset_plans.length)} />
-                <SyncMiniStat label="Requests" value={requestCount.toLocaleString("zh-CN")} />
-                <SyncMiniStat label="Snapshot Paths" value={String((plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths).length)} />
-                <SyncMiniStat label="Backup Paths" value={String(plan.backup_plan.backup_paths.length)} />
-                <SyncMiniStat label="Missing Paths" value={String(plan.backup_plan.path_missing_before_write.length)} />
+                <SyncMiniStat label="数据集" value={String(plan.summary.dataset_count ?? plan.dataset_plans.length)} />
+                <SyncMiniStat label="请求数" value={requestCount.toLocaleString("zh-CN")} />
+                <SyncMiniStat label="快照路径" value={String((plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths).length)} />
+                <SyncMiniStat label="备份明细" value={String(plan.backup_plan.backup_paths.length)} />
+                <SyncMiniStat label="写前缺失" value={String(plan.backup_plan.path_missing_before_write.length)} />
               </section>
               <PlanTable rows={plan.dataset_plans} />
-              <IssueList title="Blockers" items={plan.blockers} tone="error" />
-              <IssueList title="Warnings" items={plan.warnings} tone="warning" />
+              <IssueList title="阻断项" items={plan.blockers} tone="error" />
+              <IssueList title="提醒项" items={plan.warnings} tone="warning" />
             </>
           ) : (
-            <EmptyState title="尚未生成计划" description="先选择 Profile 与数据集，再点击“生成计划”。" />
+            <EmptyState title="尚未生成计划" description="先选择同步范围与数据集，再点击“生成计划”。" />
           )}
         </Panel>
 
-        <Panel title="Kopia 备份范围" description="启动写入前，后端会按聚合路径创建 prewrite snapshot；明细路径只用于恢复判断，不会逐条创建 snapshot。">
+        <Panel title="Kopia 备份范围" description="启动写入前，后端会按聚合路径创建写入前快照；明细路径只用于恢复判断，不会逐条创建快照。">
           {plan ? (
             <div className="sync-backup-stack">
-              <BackupList title="本次将创建 snapshot 的聚合路径" paths={plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths} empty="当前没有需要创建 snapshot 的已存在路径。" />
+              <BackupList title="本次将创建快照的聚合路径" paths={plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths} empty="当前没有需要创建快照的已存在路径。" />
               <BackupList title="本次会写且写前已存在的明细路径" paths={plan.backup_plan.backup_paths} empty="当前目标路径尚不存在，写入前会记录 missing path。" />
               <BackupList title="写入前不存在" paths={plan.backup_plan.path_missing_before_write} empty="没有 missing path。" />
               <div className="sync-kv-grid">
-                <div><span>Provider</span><strong>{plan.backup_plan.provider}</strong></div>
-                <div><span>Pin Policy</span><strong>{plan.backup_plan.pin_policy}</strong></div>
-                <div><span>Token Expires</span><strong>{formatDateTime(plan.plan_token_expires_at)}</strong></div>
+                <div><span>备份提供方</span><strong>{plan.backup_plan.provider}</strong></div>
+                <div><span>固定策略</span><strong>{plan.backup_plan.pin_policy}</strong></div>
+                <div><span>计划令牌过期时间</span><strong>{formatDateTime(plan.plan_token_expires_at)}</strong></div>
               </div>
             </div>
           ) : (
@@ -447,7 +488,7 @@ export function SyncCenterPage() {
       <section className="sync-center-grid sync-center-grid-run">
         <SectionCard
           title="运行中 / 最近任务"
-          description="任务详情和事件流均来自 Sync Center 状态文件。"
+          description="任务详情和事件流均来自同步中心状态文件。"
           side={(
             <button className="sync-inline-button" disabled={!activeRunId} onClick={reloadArtifacts} type="button">
               刷新事件
@@ -728,10 +769,16 @@ function SyncMiniStat({ label, value }: { label: string; value: string }) {
 
 function lockStatusLabel(status: string | undefined, loading: boolean): string {
   if (loading) {
-    return "Loading";
+    return "加载中";
   }
   if (!status || status === "idle") {
-    return "Idle";
+    return "空闲";
+  }
+  if (status === "running") {
+    return "运行中";
+  }
+  if (status === "stale") {
+    return "锁已过期";
   }
   return status;
 }
@@ -741,9 +788,9 @@ function lockHint(lock: SyncLock | null): string {
     return "当前没有写入任务持锁";
   }
   if (lock.status === "stale") {
-    return `stale after ${lock.stale_after_seconds}s`;
+    return `超过 ${lock.stale_after_seconds}s 未更新`;
   }
-  return lock.profile_key ?? "任务运行中";
+  return profileLabelByKey(lock.profile_key);
 }
 
 function lockTone(lock: SyncLock | null): "default" | "success" | "warning" | "error" | "info" {
@@ -767,6 +814,30 @@ function profileTone(profile: SyncProfileSummary): BadgeTone {
     return "warning";
   }
   return "muted";
+}
+
+function profileDescription(profile: SyncProfileSummary): string {
+  return PROFILE_PRESENTATION[profile.profile_key]?.description ?? profile.description;
+}
+
+function profileLabel(profile: SyncProfileSummary): string {
+  return PROFILE_PRESENTATION[profile.profile_key]?.label ?? profile.display_name;
+}
+
+function profileLabelByKey(profileKey: string | null | undefined): string {
+  if (!profileKey) {
+    return "任务运行中";
+  }
+  return PROFILE_PRESENTATION[profileKey]?.label ?? "未知同步配置";
+}
+
+function profileStatusLabel(status: string): string {
+  const mapping: Record<string, string> = {
+    disabled: "已停用",
+    enabled: "已启用",
+    planned: "计划中",
+  };
+  return mapping[status] ?? status;
 }
 
 function runTone(status: string): BadgeTone {
