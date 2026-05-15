@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timedelta, timezone
+from threading import Thread
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
@@ -39,14 +40,19 @@ from lake_console.backend.app.services.stk_mins_pipeline_run_state import (
     abort_pipeline_run,
     build_initial_pipeline_run,
     complete_prewrite_backup_stage,
+    complete_raw_and_clean_next_stages,
     continue_pipeline_run,
+    fail_pipeline_stage,
     fail_prewrite_backup_stage,
     normalize_run_detail,
     start_prewrite_backup_stage,
+    start_raw_sync_stage,
 )
 from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
 from lake_console.backend.app.services.sync_recommendation_service import SyncRecommendationService
 from lake_console.backend.app.services.sync_center_profiles import ProfileDisabledError, SyncProfileCatalog, SyncProfilePlanner
+from lake_console.backend.app.services.tushare_client import TushareLakeClient
+from lake_console.backend.app.services.tushare_stk_mins_sync_service import StkMinsProgressEvent, TushareStkMinsSyncService
 from lake_console.backend.app.settings import LakeConsoleConfigError, load_settings
 
 
@@ -551,7 +557,6 @@ def _start_stk_mins_pipeline_state_run(
         store.write_backup_record(run_id, backup)
         completed_payload = complete_prewrite_backup_stage(run=backup_running_payload, backup=backup)
         store.write_run(completed_payload)
-        store.write_current(_idle_current_payload(summary=completed_payload["progress"]["summary"]))
         store.append_event(
             run_id,
             {
@@ -565,6 +570,33 @@ def _start_stk_mins_pipeline_state_run(
                     "path_missing_before_write_count": len(backup.get("path_missing_before_write") or []),
                 },
             },
+        )
+        raw_running_payload = start_raw_sync_stage(run=completed_payload)
+        store.write_run(raw_running_payload)
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                status=raw_running_payload["run_status"],
+                summary=raw_running_payload["progress"]["summary"],
+                current_stage_key=raw_running_payload.get("current_stage_key"),
+                requires_confirmation=bool(raw_running_payload.get("requires_confirmation")),
+                next_action=raw_running_payload.get("next_action"),
+            )
+        )
+        store.append_event(
+            run_id,
+            {
+                "event_type": "raw_sync_started",
+                "stage_key": "raw_sync",
+                "message": raw_running_payload["progress"]["summary"],
+            },
+        )
+        _start_background_task(
+            _run_stk_mins_raw_clean_next_pipeline,
+            settings=settings,
+            run_id=run_id,
+            plan=plan,
         )
     except KopiaPrewriteBackupError as exc:
         error = {"code": "KOPIA_BACKUP_FAILED", "message": str(exc)}
@@ -581,13 +613,16 @@ def _start_stk_mins_pipeline_state_run(
             },
         )
         store.write_current(_idle_current_payload(summary=failed_payload["progress"]["summary"]))
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
         raise _api_error(
             status_code=503,
             code="KOPIA_BACKUP_FAILED",
             message="Kopia prewrite snapshot 创建失败，未执行任何写入。",
             context={"run_id": run_id, "error": str(exc)},
         ) from exc
-    finally:
         try:
             lock_service.release(run_id=run_id)
         except LakeJobStateError:
@@ -599,15 +634,132 @@ def _start_stk_mins_pipeline_state_run(
             message="stk_mins_sync 写前备份状态缺失。",
             context={"run_id": run_id},
         )
+    latest_payload = normalize_run_detail(store.read_run(run_id) or completed_payload)
     return SyncRunResponse(
         run_id=run_id,
         profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
-        status=completed_payload["status"],
-        run_status=completed_payload["run_status"],
+        status=latest_payload["status"],
+        run_status=latest_payload["run_status"],
         lock=LakeJobLockService(store).get_lock(),
         detail_url=f"/api/lake/sync/runs/{run_id}",
         events_url=f"/api/lake/sync/runs/{run_id}/events",
     )
+
+
+def _run_stk_mins_raw_clean_next_pipeline(*, settings: Any, run_id: str, plan: dict[str, Any]) -> None:
+    store = LakeJobStateStore(settings.lake_root)
+    lock_service = LakeJobLockService(store)
+    try:
+        current_run = normalize_run_detail(store.read_run(run_id) or {})
+        parameters = dict(plan.get("normalized_parameters") or {})
+        service = TushareStkMinsSyncService(
+            lake_root=settings.lake_root,
+            client=TushareLakeClient(
+                settings.tushare_token,
+                request_limit_per_minute=settings.tushare_request_limit_per_minute,
+            ),
+            progress=lambda event: store.append_event(run_id, _stk_mins_progress_event(event)),
+        )
+        summary = service.sync_range(
+            start_date=date.fromisoformat(str(parameters["start_date"])),
+            end_date=date.fromisoformat(str(parameters["end_date"])),
+            freqs=[int(item) for item in parameters.get("freqs") or []],
+            all_market=True,
+        )
+        latest_run = normalize_run_detail(store.read_run(run_id) or current_run)
+        next_run = complete_raw_and_clean_next_stages(run=latest_run, summary=summary)
+        store.write_run(next_run)
+        if next_run["run_status"] == "waiting_confirmation":
+            store.write_current(
+                _current_payload(
+                    run_id=run_id,
+                    profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                    status=next_run["run_status"],
+                    summary=next_run["progress"]["summary"],
+                    current_stage_key=next_run.get("current_stage_key"),
+                    requires_confirmation=bool(next_run.get("requires_confirmation")),
+                    next_action=next_run.get("next_action"),
+                )
+            )
+            store.append_event(
+                run_id,
+                {
+                    "event_type": "clean_next_review_waiting",
+                    "stage_key": "clean_next_review",
+                    "message": next_run["progress"]["summary"],
+                    "metrics": {
+                        "fetched_rows": summary.get("fetched_rows"),
+                        "written_rows": summary.get("written_rows"),
+                        "affected_partition_count": len(summary.get("affected_partitions") or []),
+                    },
+                },
+            )
+        else:
+            store.write_current(_idle_current_payload(summary=next_run["progress"]["summary"]))
+            store.append_event(
+                run_id,
+                {
+                    "event_type": "raw_clean_next_failed",
+                    "level": "error",
+                    "stage_key": next_run.get("current_stage_key"),
+                    "message": next_run["progress"]["summary"],
+                    "error": (next_run.get("errors") or [{}])[0],
+                },
+            )
+    except Exception as exc:
+        latest_run = normalize_run_detail(store.read_run(run_id) or {"run_id": run_id, "profile_key": STK_MINS_PIPELINE_PROFILE_KEY})
+        error = {"code": "STK_MINS_RAW_CLEAN_NEXT_FAILED", "message": str(exc)}
+        failed_run = fail_pipeline_stage(run=latest_run, stage_key="raw_sync", error=error)
+        store.write_run(failed_run)
+        store.append_event(
+            run_id,
+            {
+                "event_type": "raw_clean_next_failed",
+                "level": "error",
+                "stage_key": "raw_sync",
+                "message": str(exc),
+                "error": error,
+            },
+        )
+        store.write_current(_idle_current_payload(summary=failed_run["progress"]["summary"]))
+    finally:
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
+
+
+def _stk_mins_progress_event(event: str | StkMinsProgressEvent) -> dict[str, Any]:
+    if isinstance(event, StkMinsProgressEvent):
+        return {
+            "event_type": "raw_sync_progress",
+            "stage_key": "raw_sync",
+            "dataset_key": "stk_mins",
+            "message": f"freq={event.freq} ts_code={event.ts_code} fetched={event.fetched_rows}",
+            "metrics": {
+                "units_done": event.units_done,
+                "units_total": event.units_total,
+                "ts_code": event.ts_code,
+                "trade_date": event.trade_date.isoformat() if event.trade_date else None,
+                "freq": event.freq,
+                "fetched_rows": event.fetched_rows,
+                "written_rows": event.written_rows,
+                "window_start": event.window_start.isoformat() if event.window_start else None,
+                "window_end": event.window_end.isoformat() if event.window_end else None,
+                "page": event.page,
+                "offset": event.offset,
+            },
+        }
+    return {
+        "event_type": "raw_sync_progress",
+        "stage_key": "raw_sync",
+        "dataset_key": "stk_mins",
+        "message": str(event),
+    }
+
+
+def _start_background_task(target, **kwargs: Any) -> None:
+    Thread(target=target, kwargs=kwargs, daemon=True).start()
 
 
 def _load_stk_mins_pipeline_run(*, store: LakeJobStateStore, run_id: str) -> dict[str, Any]:

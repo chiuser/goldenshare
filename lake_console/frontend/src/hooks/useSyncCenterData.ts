@@ -170,5 +170,5 @@ export function useSyncRunArtifacts(runId: string) {
 }
 
 function isFinishedRunStatus(status: string): boolean {
-  return ["success", "failed", "backup_failed", "cancelled", "stopped_after_stage"].includes(status);
+  return ["success", "failed", "backup_failed", "cancelled", "stopped_after_stage", "waiting_confirmation"].includes(status);
 }

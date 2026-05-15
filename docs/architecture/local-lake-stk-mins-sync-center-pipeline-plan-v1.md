@@ -1,7 +1,7 @@
 # Local Lake 股票分钟线同步中心可视化流水线方案 v1
 
 - 版本：v1
-- 状态：已部分落地；第 1 步“后端只读计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”和第 4 步“Kopia 写前备份”已实现，执行 runner 和真实写入阶段待继续推进
+- 状态：已部分落地；第 1 步“后端只读计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”和第 5 步“raw + clean_next 到第一个确认点”已实现，90/120、research by month 和最终校验阶段待继续推进
 - 更新时间：2026-05-15
 - 适用范围：`lake_console` 数据湖同步中心中的 `stk_mins_sync` 专项入口
 
@@ -614,7 +614,7 @@ path_missing_before_write
 
 第一步只做文档评审，不写代码。
 
-2026-05-15 开发进度：第 1 步“后端计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”和第 4 步“Kopia 写前备份”已落地。当前 `stk_mins_sync` 支持生成只读计划，返回 `pipeline_stages`、`affected_trade_dates`、`affected_months`、`backup_plan`、`warnings` 等字段；前端只展示后端返回的阶段标题、状态、摘要和指标，不拼接路径、不推断阶段结论；创建 run 会获取同步中心锁、执行 Kopia 写前备份、记录 `backup` 和 `prewrite_backup` 阶段结果，然后释放锁并停在 `raw_sync` 之前；仍不请求 Tushare、不写 Lake 分区。
+2026-05-15 开发进度：第 1 步“后端计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”和第 5 步“raw + clean_next 到第一个确认点”已落地。当前 `stk_mins_sync` 支持生成只读计划，返回 `pipeline_stages`、`affected_trade_dates`、`affected_months`、`backup_plan`、`warnings` 等字段；前端只展示后端返回的阶段标题、状态、摘要和指标，不拼接路径、不推断阶段结论；创建 run 会获取同步中心锁、执行 Kopia 写前备份、调用现有 `TushareStkMinsSyncService.sync_range()` 完成 raw 写入与 clean_next/gate 刷新，然后释放锁并停在 `clean_next_review` 等待人工确认；仍不生成 90/120、不重排 research by month、不触发技术指标。
 
 后续建议按以下顺序推进：
 

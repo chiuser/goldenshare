@@ -156,7 +156,7 @@ class SyncProfileCatalog:
                     requires_kopia_backup=True,
                     stale_after_seconds=STALE_AFTER_SECONDS,
                     datasets=("stk_mins",),
-                    disabled_reason="已支持只读计划，启动执行 API 待实现。",
+                    disabled_reason="已支持执行到 raw + clean_next/gate；90/120 与 research by month 待后续阶段接入。",
                 ),
                 SyncProfile(
                     profile_key="index_mins_sync",

@@ -61,6 +61,8 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     _write_calendar(lake_root, dates=["2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"])
     _write_universe(lake_root)
     _patch_settings(monkeypatch, lake_root)
+    _run_background_inline(monkeypatch)
+    _mock_stk_mins_pipeline_sync(monkeypatch)
     client = TestClient(create_app())
 
     plan_response = client.post(
@@ -87,7 +89,7 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     assert plan["dataset_plans"][0]["mode"] == "staged_pipeline_plan"
     assert plan["dataset_plans"][0]["status"] == "plan_only"
     assert plan["blockers"] == []
-    assert plan["warnings"][0]["code"] == "PIPELINE_RUNNER_NOT_IMPLEMENTED"
+    assert plan["warnings"][0]["code"] == "PIPELINE_STOPS_AT_CLEAN_NEXT_REVIEW"
 
     stages = {item["stage_key"]: item for item in plan["pipeline_stages"]}
     assert list(stages) == [
@@ -122,39 +124,50 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     )
     assert run_response.status_code == 200
     run = run_response.json()
-    assert run["status"] == "backup_completed"
-    assert run["run_status"] == "backup_completed"
+    assert run["status"] == "waiting_confirmation"
+    assert run["run_status"] == "waiting_confirmation"
     assert run["lock"]["status"] == "idle"
 
     detail_response = client.get(run["detail_url"])
     assert detail_response.status_code == 200
     detail = detail_response.json()
-    assert detail["run_status"] == "backup_completed"
-    assert detail["current_stage_key"] == "raw_sync"
-    assert detail["requires_confirmation"] is False
-    assert detail["next_action"] is None
+    assert detail["run_status"] == "waiting_confirmation"
+    assert detail["current_stage_key"] == "clean_next_review"
+    assert detail["requires_confirmation"] is True
+    assert detail["next_action"]["label"] == "继续生成 90/120"
     assert detail["backup"]["status"] == "success"
-    assert detail["dataset_results"] == []
+    assert detail["dataset_results"][0]["dataset_key"] == "stk_mins"
     assert detail["pipeline_stages"][0]["stage_key"] == "plan_preflight"
     assert detail["pipeline_stages"][0]["stage_status"] == "passed"
     backup_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "prewrite_backup")
     assert backup_stage["stage_status"] == "passed"
     assert backup_stage["metrics"]["path_missing_before_write_count"] >= len(missing_paths)
+    raw_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "raw_sync")
+    clean_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "clean_next_refresh")
+    assert raw_stage["stage_status"] == "passed"
+    assert clean_stage["stage_status"] == "passed"
 
     events_response = client.get(run["events_url"])
     assert events_response.status_code == 200
     events = events_response.json()["items"]
-    assert [item["event_type"] for item in events] == ["pipeline_run_created", "backup_started", "backup_completed"]
+    assert [item["event_type"] for item in events] == [
+        "pipeline_run_created",
+        "backup_started",
+        "backup_completed",
+        "raw_sync_started",
+        "raw_sync_progress",
+        "clean_next_review_waiting",
+    ]
     assert events[0]["stage_key"] == "prewrite_backup"
     assert events[0]["metrics"]["state_only"] is True
-    assert events[-1]["stage_key"] == "prewrite_backup"
+    assert events[-1]["stage_key"] == "clean_next_review"
 
     continue_response = client.post(
         f"/api/lake/sync/runs/{run['run_id']}/continue",
         json={"confirm_continue": True, "operator": "tester"},
     )
-    assert continue_response.status_code == 409
-    assert continue_response.json()["detail"]["code"] == "RUN_NOT_WAITING_CONFIRMATION"
+    assert continue_response.status_code == 200
+    assert continue_response.json()["current_stage_key"] == "derived_90_120_build"
 
 
 def test_stk_mins_sync_continue_and_abort_only_change_pipeline_state(monkeypatch, tmp_path: Path) -> None:
@@ -231,6 +244,8 @@ def test_stk_mins_sync_run_records_kopia_prewrite_backup(monkeypatch, tmp_path: 
     _write_calendar(lake_root, dates=["2026-05-08"])
     _write_universe(lake_root)
     _patch_settings(monkeypatch, lake_root)
+    _run_background_inline(monkeypatch)
+    _mock_stk_mins_pipeline_sync(monkeypatch)
     captured: dict[str, Any] = {}
 
     class FakeBackupService:
@@ -273,17 +288,21 @@ def test_stk_mins_sync_run_records_kopia_prewrite_backup(monkeypatch, tmp_path: 
     )
     assert run_response.status_code == 200
     run = run_response.json()
-    assert run["run_status"] == "backup_completed"
+    assert run["run_status"] == "waiting_confirmation"
     assert run["lock"]["status"] == "idle"
     assert "raw_tushare/stk_mins_by_date" in captured["backup_plan"]["snapshot_paths"]
 
     detail = client.get(run["detail_url"]).json()
     assert detail["backup"]["snapshot_ids"] == ["snapshot-stk-mins-001"]
-    assert detail["current_stage_key"] == "raw_sync"
+    assert detail["current_stage_key"] == "clean_next_review"
     backup_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "prewrite_backup")
+    raw_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "raw_sync")
+    clean_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "clean_next_refresh")
     assert backup_stage["stage_status"] == "passed"
     assert backup_stage["output_summary"]["snapshot_ids"] == ["snapshot-stk-mins-001"]
     assert backup_stage["metrics"]["snapshot_count"] == 1
+    assert raw_stage["stage_status"] == "passed"
+    assert clean_stage["stage_status"] == "passed"
 
 
 def test_stk_mins_sync_run_stops_when_kopia_backup_fails(monkeypatch, tmp_path: Path) -> None:
@@ -550,6 +569,60 @@ def _patch_settings(monkeypatch, lake_root: Path) -> None:
             tushare_token=None,
         ),
     )
+
+
+def _run_background_inline(monkeypatch) -> None:
+    def run_inline(target, **kwargs: Any) -> None:
+        target(**kwargs)
+
+    monkeypatch.setattr(sync_center, "_start_background_task", run_inline)
+
+
+def _mock_stk_mins_pipeline_sync(monkeypatch) -> None:
+    class FakeTushareClient:
+        def __init__(self, *args: Any, **kwargs: Any) -> None:
+            pass
+
+    class FakeStkMinsSyncService:
+        def __init__(self, *, lake_root: Path, client: Any, progress) -> None:  # type: ignore[no-untyped-def]
+            self.progress = progress
+
+        def sync_range(self, *, start_date, end_date, freqs, all_market: bool, part_rows: int = 500_000):  # type: ignore[no-untyped-def]
+            assert all_market is True
+            self.progress("[stk_mins_range] fake raw sync completed")
+            affected_partitions = [
+                {
+                    "dataset_key": "stk_mins",
+                    "source_key": "tushare",
+                    "layer": "raw_tushare",
+                    "partition_grain": "trade_date",
+                    "partition_values": {"freq": str(freqs[0]), "trade_date": start_date.isoformat()},
+                    "partition_path": f"raw_tushare/stk_mins_by_date/freq={freqs[0]}/trade_date={start_date.isoformat()}",
+                    "source_run_id": "fake-stk-mins-range",
+                    "write_revision": f"fake-stk-mins-range:raw_tushare:freq={freqs[0]}:trade_date={start_date.isoformat()}",
+                    "rows_written": 100,
+                    "bytes_written": 1024,
+                }
+            ]
+            return {
+                "dataset_key": "stk_mins",
+                "api_name": "stk_mins",
+                "run_id": "fake-stk-mins-range",
+                "mode": "range_all_market",
+                "start_date": start_date.isoformat(),
+                "end_date": end_date.isoformat(),
+                "trade_dates": [start_date.isoformat(), end_date.isoformat()],
+                "trade_date_count": 2 if start_date != end_date else 1,
+                "freqs": freqs,
+                "fetched_rows": 100,
+                "written_rows": 100,
+                "affected_partitions": affected_partitions,
+                "clean_next_refresh": {"status": "passed", "affected_partitions": len(affected_partitions)},
+                "elapsed_seconds": 0.1,
+            }
+
+    monkeypatch.setattr(sync_center, "TushareLakeClient", FakeTushareClient)
+    monkeypatch.setattr(sync_center, "TushareStkMinsSyncService", FakeStkMinsSyncService)
 
 
 def _write_calendar(lake_root: Path, *, dates: list[str] | None = None) -> None:

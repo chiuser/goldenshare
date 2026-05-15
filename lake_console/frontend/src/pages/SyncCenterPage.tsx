@@ -74,10 +74,10 @@ const PROFILE_PRESENTATION: Record<string, { description: string; domain: string
     mode: "快照刷新",
   },
   stk_mins_sync: {
-    description: "股票历史分钟线阶段化流水线，当前支持只读计划，执行待实现。",
+    description: "股票历史分钟线阶段化流水线，当前执行到 clean_next 确认点。",
     domain: "股票分钟线专项",
-    label: "股票分钟线专项 · 只读计划",
-    mode: "只读计划",
+    label: "股票分钟线专项 · 分阶段同步",
+    mode: "分阶段同步",
   },
 };
 
@@ -452,7 +452,7 @@ export function SyncCenterPage() {
               <div className="sync-stk-mins-controls">
                 <div className="sync-cell-stack sync-cell-stack-tight">
                   <strong>股票分钟线专项参数</strong>
-                  <span>第一期只生成只读计划：scope=all_market，mode=manual_gate，不会启动写入。</span>
+                  <span>scope=all_market，mode=manual_gate；本阶段执行到 clean_next_review 后等待人工确认。</span>
                 </div>
                 <div className="sync-frequency-toggle-group" aria-label="股票分钟线频率">
                   {STK_MINS_FREQ_OPTIONS.map((freq) => (
@@ -482,7 +482,7 @@ export function SyncCenterPage() {
                 {planLoading ? "生成中..." : "生成计划"}
               </button>
               <button className="sync-button sync-button-primary" disabled={!canStartSelectedPlan} onClick={handleStartRun} type="button">
-                {runLoading ? "处理中..." : isStkMinsProfile ? "创建写前备份" : "启动同步任务"}
+                {runLoading ? "处理中..." : isStkMinsProfile ? "执行到 clean_next" : "启动同步任务"}
               </button>
             </div>
 
@@ -490,7 +490,7 @@ export function SyncCenterPage() {
               <div className="alert warning">
                 <div>
                   {isStkMinsProfile
-                    ? "当前只会创建 Kopia 写前备份并停在 raw_sync 前，不会写入 Lake 分区。"
+                    ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate，然后停在 clean_next_review；不会生成 90/120 或 research by month。"
                     : "当前选择的同步配置尚未接入执行器。可以生成只读计划做预览，但不能启动写入任务。"}
                 </div>
               </div>
@@ -530,7 +530,7 @@ export function SyncCenterPage() {
               </p>
               {plan?.blockers.length ? <Badge tone="error">Blockers {plan.blockers.length}</Badge> : null}
               {plan && !plan.blockers.length && canRunSelectedScope ? <Badge tone="success">可启动</Badge> : null}
-              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">可创建写前备份</Badge> : null}
+              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">可执行到 clean_next</Badge> : null}
               {plan && !plan.blockers.length && !canRunSelectedScope && !isStkMinsProfile ? <Badge tone="warning">只读计划</Badge> : null}
             </div>
           </aside>
@@ -791,7 +791,7 @@ function PipelineStageDetail({ stage }: { stage: SyncPipelineStage }) {
       <p>{stage.display_summary}</p>
       {stage.requires_confirmation ? (
         <div className="alert warning">
-          <div>{stage.confirmation_prompt ?? "该阶段完成后需要人工确认，当前只展示只读计划。"}</div>
+          <div>{stage.confirmation_prompt ?? "该阶段完成后需要人工确认。"}</div>
         </div>
       ) : null}
       <div className="sync-kv-grid">

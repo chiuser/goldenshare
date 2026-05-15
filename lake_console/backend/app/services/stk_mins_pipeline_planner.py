@@ -54,8 +54,8 @@ class StkMinsPipelinePlanner:
         blockers: list[dict[str, Any]] = []
         warnings: list[dict[str, Any]] = [
             {
-                "code": "PIPELINE_RUNNER_NOT_IMPLEMENTED",
-                "message": "当前只支持生成 stk_mins_sync 只读计划，启动执行入口仍待实现。",
+                "code": "PIPELINE_STOPS_AT_CLEAN_NEXT_REVIEW",
+                "message": "当前支持执行到 raw + clean_next/gate，并在 clean_next_review 停下等待人工确认；90/120 与 research by month 待后续阶段接入。",
             }
         ]
         trade_dates: list[date] = []
@@ -174,8 +174,8 @@ class StkMinsPipelinePlanner:
             },
             "status": "plan_only",
             "notes": [
-                "本计划只读，不请求 Tushare，不写 Lake，不创建 Kopia snapshot。",
-                "stk_mins_sync 启动执行入口待后续阶段实现。",
+                "计划生成阶段只读，不请求 Tushare，不写 Lake，不创建 Kopia snapshot。",
+                "启动 run 后会先创建 Kopia 写前备份，再执行 raw + clean_next/gate，并停在 clean_next_review。",
             ],
             "estimate": sync_estimate,
         }
