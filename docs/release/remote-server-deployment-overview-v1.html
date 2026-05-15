@@ -1,0 +1,425 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goldenshare 远程服务器部署总览 v1</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f6f8fb;
+      --paper: #ffffff;
+      --ink: #1f2937;
+      --muted: #64748b;
+      --line: #d9e2ef;
+      --blue: #1d4ed8;
+      --green: #047857;
+      --amber: #b45309;
+      --red: #b91c1c;
+      --code-bg: #eef3fb;
+      --shadow: 0 10px 30px rgba(15, 23, 42, 0.08);
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.62;
+    }
+    main {
+      width: min(1180px, calc(100% - 48px));
+      margin: 32px auto 56px;
+    }
+    header.hero {
+      padding: 34px 38px;
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      background: linear-gradient(135deg, #ffffff 0%, #eef5ff 100%);
+      box-shadow: var(--shadow);
+    }
+    h1 { margin: 0 0 10px; font-size: 34px; letter-spacing: -0.02em; }
+    h2 { margin: 36px 0 14px; font-size: 24px; }
+    h3 { margin: 24px 0 10px; font-size: 18px; }
+    p { margin: 8px 0; }
+    .muted { color: var(--muted); }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 18px;
+    }
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      padding: 18px 20px;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+    }
+    .card strong { display: block; font-size: 15px; color: var(--muted); }
+    .card span { display: block; margin-top: 6px; font-size: 20px; font-weight: 700; }
+    .ok { color: var(--green); }
+    .warn { color: var(--amber); }
+    .risk { color: var(--red); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      box-shadow: 0 6px 18px rgba(15, 23, 42, 0.04);
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+      font-size: 14px;
+    }
+    th {
+      background: #eef4ff;
+      color: #0f172a;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: 0; }
+    code, pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
+      font-size: 13px;
+    }
+    code {
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: var(--code-bg);
+    }
+    pre {
+      margin: 12px 0 22px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #0f172a;
+      color: #e5eefc;
+    }
+    ul { margin: 8px 0 18px 22px; padding: 0; }
+    li { margin: 5px 0; }
+    .section {
+      padding: 22px 28px;
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 255, 255, 0.84);
+      box-shadow: var(--shadow);
+    }
+    .badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #e0f2fe;
+      color: #075985;
+      font-size: 12px;
+      font-weight: 700;
+      margin-left: 6px;
+    }
+    .callout {
+      border-left: 4px solid var(--amber);
+      background: #fff7ed;
+      padding: 12px 14px;
+      border-radius: 10px;
+      margin: 14px 0;
+    }
+    .mermaid-like {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 12px;
+      align-items: center;
+      margin: 14px 0;
+    }
+    .node {
+      padding: 14px;
+      text-align: center;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #ffffff;
+      font-weight: 700;
+    }
+    .arrow { color: var(--blue); font-weight: 900; }
+    @media (max-width: 900px) {
+      main { width: min(100% - 24px, 1180px); }
+      .grid { grid-template-columns: 1fr; }
+      .mermaid-like { grid-template-columns: 1fr; }
+      .arrow { text-align: center; transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <h1>Goldenshare 远程服务器部署总览 v1</h1>
+    <p class="muted">审计时间：2026-05-15 17:20 CST。审计方式：只读 SSH、systemd、Nginx、PostgreSQL、Redis、健康接口探测。</p>
+    <p><strong>安全口径：</strong>本文档不记录任何密钥、Token、数据库密码、JWT Secret 或完整连接串。涉及敏感值只记录 key 名、用途与脱敏后的事实。</p>
+    <div class="grid">
+      <div class="card"><strong>公网域名</strong><span>wealthworld.com.cn</span></div>
+      <div class="card"><strong>默认产品入口</strong><span>/wealth/login</span></div>
+      <div class="card"><strong>旧运营后台入口</strong><span>/app/login</span></div>
+      <div class="card"><strong>远程代码目录</strong><span>/opt/goldenshare/goldenshare</span></div>
+      <div class="card"><strong>当前分支 / 提交</strong><span>dev-interface / 39119d25</span></div>
+      <div class="card"><strong>Web 内部端口</strong><span>127.0.0.1:8000</span></div>
+    </div>
+  </header>
+
+  <section class="section">
+    <h2>1. 总体拓扑</h2>
+    <div class="mermaid-like">
+      <div class="node">浏览器<br><span class="muted">HTTPS 443</span></div>
+      <div class="arrow">→</div>
+      <div class="node">Nginx<br><span class="muted">TLS / 反向代理</span></div>
+      <div class="arrow">→</div>
+      <div class="node">FastAPI / Uvicorn<br><span class="muted">127.0.0.1:8000</span></div>
+    </div>
+    <table>
+      <thead><tr><th>层</th><th>当前事实</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>公网入口</td><td><code>wealthworld.com.cn</code> / <code>www.wealthworld.com.cn</code></td><td>Nginx 监听 443，未发现 80 入口开放。</td></tr>
+        <tr><td>默认首页</td><td><code>/</code> 302 到 <code>/wealth/login</code></td><td>财势乾坤行情系统作为默认入口。</td></tr>
+        <tr><td>财富系统</td><td><code>/wealth/*</code></td><td>独立 Vite/React 工程，构建产物在 <code>wealth/dist</code>。</td></tr>
+        <tr><td>运营后台</td><td><code>/app/login</code>、<code>/ops</code></td><td>保留旧运营后台入口，不再占用根路径。</td></tr>
+        <tr><td>API</td><td><code>/api/*</code>、<code>/api/v1/*</code></td><td>由同一个 FastAPI 应用承载；wealth API 已启用登录校验。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>2. 主机与磁盘</h2>
+    <table>
+      <thead><tr><th>项目</th><th>当前值</th><th>备注</th></tr></thead>
+      <tbody>
+        <tr><td>主机名</td><td><code>VM-24-2-ubuntu</code></td><td>腾讯云 CVM，KVM 虚拟化。</td></tr>
+        <tr><td>操作系统</td><td>Ubuntu 24.04 LTS</td><td>Kernel <code>6.8.0-71-generic</code>。</td></tr>
+        <tr><td>内存</td><td>7.5GiB，总可用约 5.3GiB</td><td>Swap 9.9GiB，当前少量使用。</td></tr>
+        <tr><td>系统盘</td><td><code>/dev/vda2</code> ext4，178G，总使用 155G，剩余 16G，使用率 91%</td><td><span class="warn">需要持续关注容量。</span></td></tr>
+        <tr><td>数据盘</td><td><code>/dev/vdb</code> ext4，挂载 <code>/data/disk</code>，394G，当前约 1%</td><td>用于 PostgreSQL 外置表空间规划。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <strong>容量提示：</strong>系统盘已到 91%，虽然本次 wealth 构建产物很小，但 raw/core 数据和日志增长会继续挤压空间。后续应把大体量分钟线/历史数据持续向 <code>/data/disk</code> 或 Lake 方案迁移。
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>3. 代码、运行时与构建产物</h2>
+    <table>
+      <thead><tr><th>对象</th><th>当前事实</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>远程仓库目录</td><td><code>/opt/goldenshare/goldenshare</code></td><td>目录属主 <code>goldenshare:goldenshare</code>，权限 <code>775</code>。</td></tr>
+        <tr><td>远程 Git</td><td>分支 <code>dev-interface</code>，提交 <code>39119d25</code></td><td>远程 origin 指向 Gitee：<code>https://gitee.com/chiuser/goldenshare.git</code>。</td></tr>
+        <tr><td>Python</td><td>Python 3.13.12</td><td>虚拟环境在 <code>/opt/goldenshare/goldenshare/.venv</code>。</td></tr>
+        <tr><td>Node / npm</td><td>Node v22.22.2 / npm 10.9.7</td><td>用于构建 <code>frontend</code> 与 <code>wealth</code>。</td></tr>
+        <tr><td>运营后台构建产物</td><td><code>frontend/dist</code>，约 8.3M</td><td>由部署脚本默认构建。</td></tr>
+        <tr><td>财富系统构建产物</td><td><code>wealth/dist</code>，约 8.0M</td><td>部署脚本已支持默认构建；可用 <code>--skip-wealth-build</code> 跳过。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>4. systemd 服务</h2>
+    <table>
+      <thead><tr><th>服务</th><th>状态</th><th>开机自启</th><th>ExecStart</th><th>运行用户</th><th>职责</th></tr></thead>
+      <tbody>
+        <tr><td><code>goldenshare-web.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>.venv/bin/python -m src.app.web.run</code></td><td>未设置 User，按 systemd 默认 root</td><td>FastAPI Web、API、前端静态入口。</td></tr>
+        <tr><td><code>goldenshare-ops-worker.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops TaskRun worker。</td></tr>
+        <tr><td><code>goldenshare-ops-scheduler.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-scheduler-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops 自动任务调度。</td></tr>
+        <tr><td><code>goldenshare-date-completeness-worker.service</code></td><td class="ok">active/running</td><td>disabled</td><td><code>goldenshare ops-date-completeness-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>日期完整性审计 worker；当前运行但未设置开机自启。</td></tr>
+        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-stock-rt-daily-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>实时日线采集器。</td></tr>
+      </tbody>
+    </table>
+    <h3>共同服务配置</h3>
+    <ul>
+      <li>工作目录统一为 <code>/opt/goldenshare/goldenshare</code>。</li>
+      <li>环境入口统一为 <code>GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env</code>。</li>
+      <li>重启策略统一为 <code>Restart=always</code>、<code>RestartSec=3</code>。</li>
+    </ul>
+    <div class="callout">
+      <strong>最小权限提醒：</strong>除 realtime collector 外，当前多个 Goldenshare systemd 服务未显式设置 <code>User=goldenshare</code>，实际按 root 运行。若后续要继续收紧生产权限，应单独开一轮 unit 最小权限改造与回归验证。
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>5. Nginx 与 URL 路由</h2>
+    <table>
+      <thead><tr><th>项目</th><th>当前事实</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>Nginx 状态</td><td class="ok">active / enabled</td><td>站点配置：<code>/etc/nginx/sites-available/goldenshare.conf</code>。</td></tr>
+        <tr><td>启用站点</td><td><code>/etc/nginx/sites-enabled/goldenshare.conf</code> -> sites-available</td><td>单站点配置。</td></tr>
+        <tr><td>监听</td><td><code>443 ssl http2</code> / IPv4 + IPv6</td><td>未发现 80 对外开放。</td></tr>
+        <tr><td>域名</td><td><code>wealthworld.com.cn</code>、<code>www.wealthworld.com.cn</code></td><td>同一个 server block。</td></tr>
+        <tr><td>TLS</td><td>TLSv1.3，证书路径在 <code>/etc/nginx/ssl/wealthworld.com.cn/</code></td><td>文档不记录私钥内容。</td></tr>
+        <tr><td>安全响应头</td><td>HSTS、X-Content-Type-Options、X-Frame-Options、Referrer-Policy</td><td>Nginx 层统一设置。</td></tr>
+        <tr><td>根路径</td><td><code>/</code> 302 到 <code>/wealth/login</code></td><td>财富系统登录页是默认入口。</td></tr>
+        <tr><td>反向代理</td><td><code>location /</code> -> <code>http://127.0.0.1:8000</code></td><td><code>proxy_read_timeout 300</code>，<code>client_max_body_size 20m</code>。</td></tr>
+      </tbody>
+    </table>
+    <h3>当前入口验证</h3>
+    <table>
+      <thead><tr><th>路径</th><th>结果</th><th>含义</th></tr></thead>
+      <tbody>
+        <tr><td><code>/</code></td><td><code>302 /wealth/login</code></td><td>默认进入财势乾坤登录页。</td></tr>
+        <tr><td><code>/wealth/login</code></td><td><code>200</code></td><td>财富登录页可访问。</td></tr>
+        <tr><td><code>/wealth/market/overview</code></td><td><code>200</code></td><td>财富市场总览 SPA 路由可访问。</td></tr>
+        <tr><td><code>/app/login</code></td><td><code>200</code></td><td>旧运营后台登录入口保留。</td></tr>
+        <tr><td><code>/ops</code></td><td><code>307</code></td><td>由 Web 应用内部继续路由/重定向。</td></tr>
+        <tr><td><code>/api/health</code> / <code>/api/v1/health</code></td><td><code>200</code></td><td>API 健康检查通过。</td></tr>
+        <tr><td><code>/api/v1/wealth/market/context</code>（未登录）</td><td><code>401</code></td><td>财富 API 已启用登录态校验。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>6. 部署脚本与发布方式</h2>
+    <p>部署入口仍然是仓库内脚本，远程必须使用 <code>goldenshare</code> 用户执行，避免 Git 目录所有权问题。</p>
+    <pre><code>ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare &amp;&amp; bash scripts/deploy-systemd.sh dev-interface"'</code></pre>
+    <table>
+      <thead><tr><th>命令/参数</th><th>当前语义</th></tr></thead>
+      <tbody>
+        <tr><td><code>bash scripts/deploy-systemd.sh dev-interface</code></td><td>全量部署：拉代码、安装后端依赖、构建运营后台、构建财富前端、迁移 DB、重启服务、健康检查。</td></tr>
+        <tr><td><code>--platform-only</code></td><td>只发布 Web/API 层；当前已收紧为默认不处理 realtime collector。</td></tr>
+        <tr><td><code>--ops-only</code></td><td>只发布 Ops 调度层。</td></tr>
+        <tr><td><code>--foundation-only</code></td><td>只发布 Foundation worker 层。</td></tr>
+        <tr><td><code>--with-realtime</code></td><td>在非全量部署中显式带上 realtime collector。</td></tr>
+        <tr><td><code>--skip-realtime</code></td><td>全量部署时显式跳过 realtime collector。</td></tr>
+        <tr><td><code>--skip-build</code></td><td>同时跳过 <code>frontend</code> 与 <code>wealth</code> 构建。</td></tr>
+        <tr><td><code>--skip-wealth-build</code></td><td>仅跳过财富系统前端构建。</td></tr>
+      </tbody>
+    </table>
+    <p>本地推送到 GitHub 后，远程 Gitee 镜像通常需要 30 秒到 1 分钟同步。若远程拉不到最新提交，应按最多 3 次重试规则等待，不应手工打 patch。</p>
+  </section>
+
+  <section class="section">
+    <h2>7. 远程权限与 sudoers</h2>
+    <table>
+      <thead><tr><th>对象</th><th>当前事实</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>部署用户</td><td><code>goldenshare</code>，uid 999，gid 988</td><td>远程部署脚本必须以该用户运行。</td></tr>
+        <tr><td>sudoers 文件</td><td><code>/etc/sudoers.d/goldenshare-deploy</code>，<code>root:root 440</code></td><td>已与仓库模板同步，<code>visudo -cf</code> 校验通过。</td></tr>
+        <tr><td>允许的 systemctl 操作</td><td><code>daemon-reload</code>、<code>cat web</code>、五个 Goldenshare 服务的 <code>restart/status</code>、realtime collector 的 <code>enable</code></td><td>命令逐条白名单，不是无边界 root。</td></tr>
+        <tr><td>允许的 install 操作</td><td>五个 Goldenshare unit 模板安装到 <code>/etc/systemd/system</code></td><td>用于部署脚本自动同步 unit。</td></tr>
+        <tr><td>环境文件</td><td><code>/etc/goldenshare/web.env</code>，<code>root:goldenshare 640</code></td><td>只能通过 <code>scripts/remote-web-env.sh</code> 管理。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>8. 环境变量与敏感信息边界</h2>
+    <p>当前环境文件包含以下 key；本文档只记录 key 名和已确认的非敏感状态，不记录具体密钥值。</p>
+    <table>
+      <thead><tr><th>类别</th><th>Key</th><th>当前说明</th></tr></thead>
+      <tbody>
+        <tr><td>Web</td><td><code>APP_ENV</code>、<code>WEB_HOST</code>、<code>WEB_PORT</code>、<code>WEB_DEBUG</code>、<code>WEB_LOG_LEVEL</code>、<code>WEB_CORS_ORIGINS</code></td><td><code>APP_ENV=prod</code>，<code>WEB_HOST=127.0.0.1</code>，<code>WEB_PORT=8000</code>。</td></tr>
+        <tr><td>认证</td><td><code>JWT_SECRET</code>、<code>JWT_EXPIRE_MINUTES</code>、<code>AUTH_REGISTER_MODE</code>、<code>AUTH_REQUIRE_EMAIL_VERIFICATION</code>、<code>AUTH_DEBUG_EXPOSE_ACTION_TOKEN</code></td><td>敏感值不记录。</td></tr>
+        <tr><td>财富 API</td><td><code>QUOTE_API_AUTH_REQUIRED</code></td><td>当前为 <code>true</code>，未登录访问 wealth API 返回 401。</td></tr>
+        <tr><td>数据库/缓存</td><td><code>DATABASE_URL</code>、<code>REDIS_URL</code></td><td>连接串已脱敏；只记录服务事实。</td></tr>
+        <tr><td>数据源</td><td><code>TUSHARE_TOKEN</code>、<code>TUSHARE_BASE_URL</code>、<code>BIYING_TOKEN</code>、<code>BIYING_BASE_URL</code></td><td>Token 不记录。</td></tr>
+        <tr><td>数据维护</td><td><code>USE_SYNC_V2_DATASETS</code></td><td>当前包含 56 个数据集，V2 为唯一主链口径。</td></tr>
+        <tr><td>实时采集</td><td><code>REALTIME_STOCK_RT_DAILY_*</code></td><td>包含开关、采集时段、频率、TTL、保留批次、限速等配置。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>9. PostgreSQL</h2>
+    <table>
+      <thead><tr><th>项目</th><th>当前事实</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>服务状态</td><td class="ok">active / enabled</td><td>PostgreSQL 16.13。</td></tr>
+        <tr><td>数据目录</td><td><code>/var/lib/postgresql/16/main</code></td><td>主数据目录仍在系统盘。</td></tr>
+        <tr><td>监听</td><td><code>listen_addresses='*'</code>，端口 <code>5432</code></td><td>当前 5432 对外开放。</td></tr>
+        <tr><td>主库</td><td><code>goldenshare</code>，约 117GB</td><td>应用主数据库。</td></tr>
+        <tr><td>其他库</td><td><code>stockdb</code>，约 11GB</td><td>历史/辅助库，本文档不展开业务语义。</td></tr>
+        <tr><td>应用用户</td><td><code>goldenshare_user</code></td><td>只记录用户名，不记录密码。</td></tr>
+      </tbody>
+    </table>
+    <h3>schema 规模</h3>
+    <table>
+      <thead><tr><th>schema</th><th>表数量</th><th>总大小</th></tr></thead>
+      <tbody>
+        <tr><td><code>raw_tushare</code></td><td>391</td><td>约 76GB</td></tr>
+        <tr><td><code>core_serving</code></td><td>51</td><td>约 29GB</td></tr>
+        <tr><td><code>core_serving_light</code></td><td>48</td><td>约 3949MB</td></tr>
+        <tr><td><code>ops</code></td><td>20</td><td>约 5688kB</td></tr>
+        <tr><td><code>app</code></td><td>9</td><td>约 792kB</td></tr>
+      </tbody>
+    </table>
+    <h3>外置表空间</h3>
+    <table>
+      <thead><tr><th>tablespace</th><th>路径</th><th>当前用途</th></tr></thead>
+      <tbody>
+        <tr><td><code>gs_stk_mins_hdd</code></td><td><code>/data/disk/postgresql/tablespaces/gs_stk_mins_hdd</code></td><td>用于 <code>raw_tushare.stk_mins_2010_01</code> 到 <code>stk_mins_2025_12</code> 等历史分钟线分区；当前分区基本为空，数据盘使用很低。</td></tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <strong>安全提醒：</strong>当前 UFW 放行 <code>5432/tcp</code> 到公网，PostgreSQL 也配置了 <code>host all all 0.0.0.0/0 md5</code>。如果这是为了远程运维直连，需要保持强密码与最小账号权限；如果不再需要公网直连，应单独评审收紧到固定来源 IP 或内网访问。
+    </div>
+  </section>
+
+  <section class="section">
+    <h2>10. Redis</h2>
+    <table>
+      <thead><tr><th>项目</th><th>当前事实</th><th>说明</th></tr></thead>
+      <tbody>
+        <tr><td>服务状态</td><td class="ok"><code>redis-server</code> active / enabled</td><td><code>redis</code> 是 alias。</td></tr>
+        <tr><td>监听</td><td><code>127.0.0.1</code> 与 <code>::1</code>，端口 <code>6379</code></td><td>未对公网开放。</td></tr>
+        <tr><td>protected-mode</td><td><code>yes</code></td><td>本机服务访问模式。</td></tr>
+        <tr><td>持久化</td><td><code>appendonly no</code></td><td>当前 Redis 不按 AOF 持久化。</td></tr>
+        <tr><td>健康检查</td><td><code>PONG</code></td><td><code>redis-cli ping</code> 通过。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>11. 防火墙与暴露面</h2>
+    <table>
+      <thead><tr><th>端口</th><th>当前开放</th><th>用途</th><th>备注</th></tr></thead>
+      <tbody>
+        <tr><td>22/tcp</td><td>公网 IPv4/IPv6</td><td>SSH 运维</td><td>通过 <code>goldenshare-prod</code> alias 使用。</td></tr>
+        <tr><td>443/tcp</td><td>公网 IPv4/IPv6</td><td>HTTPS Web 入口</td><td>Nginx 终止 TLS。</td></tr>
+        <tr><td>5432/tcp</td><td>公网 IPv4/IPv6</td><td>PostgreSQL</td><td><span class="warn">需要确认是否必须公网开放。</span></td></tr>
+        <tr><td>8000/tcp</td><td>仅 <code>127.0.0.1</code></td><td>FastAPI/Uvicorn</td><td>由 Nginx 反代。</td></tr>
+        <tr><td>6379/tcp</td><td>仅 <code>127.0.0.1</code> / <code>::1</code></td><td>Redis</td><td>未公网开放。</td></tr>
+      </tbody>
+    </table>
+    <p>UFW 当前状态：active；默认 incoming deny，outgoing allow。</p>
+  </section>
+
+  <section class="section">
+    <h2>12. 运维命令索引</h2>
+    <table>
+      <thead><tr><th>用途</th><th>命令</th></tr></thead>
+      <tbody>
+        <tr><td>全量部署</td><td><code>ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare &amp;&amp; bash scripts/deploy-systemd.sh dev-interface"'</code></td></tr>
+        <tr><td>仅部署 Web/API</td><td><code>ssh goldenshare-prod 'sudo -n -u goldenshare /bin/bash -lc "cd /opt/goldenshare/goldenshare &amp;&amp; bash scripts/deploy-systemd.sh dev-interface --platform-only"'</code></td></tr>
+        <tr><td>查看服务状态</td><td><code>ssh goldenshare-prod 'sudo -n systemctl is-active goldenshare-web.service goldenshare-ops-worker.service goldenshare-ops-scheduler.service'</code></td></tr>
+        <tr><td>远程 env 管理</td><td><code>bash scripts/remote-web-env.sh &lt;show|get|set|unset&gt;</code></td></tr>
+        <tr><td>远程 DB 查询</td><td><code>bash scripts/psql-remote.sh -c "select 1;"</code></td></tr>
+        <tr><td>Nginx 配置校验</td><td><code>ssh goldenshare-prod 'sudo -n nginx -t'</code></td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="section">
+    <h2>13. 当前已知关注点</h2>
+    <table>
+      <thead><tr><th>级别</th><th>事项</th><th>建议</th></tr></thead>
+      <tbody>
+        <tr><td class="warn">容量</td><td>系统盘 <code>/</code> 使用率 91%。</td><td>持续迁移大数据到 <code>/data/disk</code> 或 Lake，并建立容量告警。</td></tr>
+        <tr><td class="warn">安全</td><td>PostgreSQL 5432 公网开放，且 <code>pg_hba.conf</code> 允许 <code>0.0.0.0/0 md5</code>。</td><td>确认是否必须；如非必须，建议按固定来源 IP 收紧。</td></tr>
+        <tr><td class="warn">最小权限</td><td>除 realtime collector 外，多个应用服务未设置 <code>User=goldenshare</code>。</td><td>后续可单独设计 systemd 最小权限改造。</td></tr>
+        <tr><td class="warn">审计 worker 自启</td><td><code>goldenshare-date-completeness-worker.service</code> 当前 active 但 disabled。</td><td>确认是否希望开机自启；若需要，应同步 unit 和部署策略。</td></tr>
+        <tr><td class="ok">部署权限</td><td>远程 sudoers 已同步 realtime enable 权限。</td><td>保持仓库模板与远程实际 sudoers 一致。</td></tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

@@ -227,6 +227,7 @@ docs/
 - [前端回归与截图基线流程 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-regression-and-baseline-workflow-v1.md)
 - [前端 Smoke 与视觉回归门禁 v1](/Users/congming/github/goldenshare/docs/frontend/frontend-smoke-visual-gate-v1.md)
 - [行情主系统接口规范](/Users/congming/github/goldenshare/docs/platform/quote-detail-api-spec-v1.md)
+- [远程服务器部署总览 v1（HTML）](/Users/congming/github/goldenshare/docs/release/remote-server-deployment-overview-v1.html)
 - [发版流程 v1](/Users/congming/github/goldenshare/docs/release/release-process-v1.md)
 
 ## 7. 数据源接口说明
