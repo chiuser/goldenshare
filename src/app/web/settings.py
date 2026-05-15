@@ -8,6 +8,8 @@ from src.foundation.config.settings import Settings, get_settings
 STATIC_DIR = Path(__file__).resolve().parent / "static"
 FRONTEND_DIR = Path(__file__).resolve().parents[3] / "frontend"
 FRONTEND_DIST_DIR = FRONTEND_DIR / "dist"
+WEALTH_DIR = Path(__file__).resolve().parents[3] / "wealth"
+WEALTH_DIST_DIR = WEALTH_DIR / "dist"
 
 
 def get_web_settings() -> Settings:

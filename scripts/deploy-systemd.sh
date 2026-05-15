@@ -29,6 +29,7 @@ usage() {
   --with-dev-deps         安装开发依赖（等价 pip install -e '.[dev]'）
   --pip-install-target <spec> 覆盖 pip 安装目标（默认 .）
   --skip-build            跳过前端构建
+  --skip-wealth-build     跳过财势乾坤行情系统前端构建
   --skip-migration        跳过数据库迁移
   --full                  全量发布（默认）
   -h, --help              显示帮助
@@ -46,6 +47,7 @@ export DEPLOY_OPS="${DEPLOY_OPS:-1}"
 export DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 export RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
+export RUN_WEALTH_BUILD="${RUN_WEALTH_BUILD:-1}"
 export RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 export RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-0}"
@@ -81,6 +83,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-build)
       export RUN_FRONTEND_BUILD=0
+      export RUN_WEALTH_BUILD=0
+      ;;
+    --skip-wealth-build)
+      export RUN_WEALTH_BUILD=0
       ;;
     --seed-default-source)
       export RUN_DEFAULT_SINGLE_SOURCE_SEED=1

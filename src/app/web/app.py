@@ -11,13 +11,15 @@ from src.app.api.router import router as api_router
 from src.app.exceptions import install_exception_handlers
 from src.app.web.lifespan import web_lifespan
 from src.app.web.middleware import AccessLogMiddleware, RequestIdMiddleware
-from src.app.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, get_web_settings
+from src.app.web.settings import FRONTEND_DIST_DIR, STATIC_DIR, WEALTH_DIST_DIR, get_web_settings
 
 
 settings = get_web_settings()
 FRONTEND_INDEX_FILE = FRONTEND_DIST_DIR / "index.html"
 FRONTEND_ASSETS_DIR = FRONTEND_DIST_DIR / "assets"
 FRONTEND_BRAND_DIR = FRONTEND_DIST_DIR / "brand"
+WEALTH_INDEX_FILE = WEALTH_DIST_DIR / "index.html"
+WEALTH_ASSETS_DIR = WEALTH_DIST_DIR / "assets"
 
 app = FastAPI(
     title="Goldenshare Web",
@@ -40,6 +42,8 @@ if FRONTEND_ASSETS_DIR.exists():
     app.mount("/app/assets", StaticFiles(directory=str(FRONTEND_ASSETS_DIR)), name="frontend-assets")
 if FRONTEND_BRAND_DIR.exists():
     app.mount("/app/brand", StaticFiles(directory=str(FRONTEND_BRAND_DIR)), name="frontend-brand")
+if WEALTH_ASSETS_DIR.exists():
+    app.mount("/wealth/assets", StaticFiles(directory=str(WEALTH_ASSETS_DIR)), name="wealth-assets")
 install_exception_handlers(app)
 app.include_router(api_router)
 
@@ -62,9 +66,38 @@ def _frontend_app_response(path: str = ""):  # type: ignore[no-untyped-def]
     )
 
 
+def _wealth_app_response():  # type: ignore[no-untyped-def]
+    if WEALTH_INDEX_FILE.exists():
+        return FileResponse(WEALTH_INDEX_FILE)
+    return PlainTextResponse(
+        "Wealth app is not built yet. Run `cd wealth && npm install && npm run build`.",
+        status_code=503,
+    )
+
+
 @app.get("/", include_in_schema=False)
 def root():  # type: ignore[no-untyped-def]
-    return RedirectResponse(url="/app")
+    return RedirectResponse(url="/wealth/login")
+
+
+@app.get("/wealth/favicon-wealth.png", include_in_schema=False)
+def wealth_favicon():  # type: ignore[no-untyped-def]
+    favicon_file = WEALTH_DIST_DIR / "favicon-wealth.png"
+    if favicon_file.exists():
+        return FileResponse(favicon_file)
+    return PlainTextResponse("Wealth favicon is not built yet.", status_code=503)
+
+
+@app.get("/wealth", include_in_schema=False)
+def wealth_app_root():  # type: ignore[no-untyped-def]
+    return RedirectResponse(url="/wealth/login")
+
+
+@app.get("/wealth/{subpath:path}", include_in_schema=False)
+def wealth_app_subpath(subpath: str):  # type: ignore[no-untyped-def]
+    if not subpath or subpath.startswith("api/") or subpath.startswith("assets/"):
+        return RedirectResponse(url="/wealth/login")
+    return _wealth_app_response()
 
 
 @app.get("/platform-check", include_in_schema=False)
