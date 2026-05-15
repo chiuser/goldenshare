@@ -74,7 +74,7 @@ const PROFILE_PRESENTATION: Record<string, { description: string; domain: string
     mode: "快照刷新",
   },
   stk_mins_sync: {
-    description: "股票历史分钟线阶段化流水线，当前执行到 derived 确认点。",
+    description: "股票历史分钟线阶段化流水线，分阶段执行到 research 与最终校验。",
     domain: "股票分钟线专项",
     label: "股票分钟线专项 · 分阶段同步",
     mode: "分阶段同步",
@@ -452,7 +452,7 @@ export function SyncCenterPage() {
               <div className="sync-stk-mins-controls">
                 <div className="sync-cell-stack sync-cell-stack-tight">
                   <strong>股票分钟线专项参数</strong>
-                  <span>scope=all_market，mode=manual_gate；会先停在 clean_next_review，确认后再执行到 derived_review。</span>
+                  <span>scope=all_market，mode=manual_gate；clean_next 与 derived 完成后都会等待人工确认。</span>
                 </div>
                 <div className="sync-frequency-toggle-group" aria-label="股票分钟线频率">
                   {STK_MINS_FREQ_OPTIONS.map((freq) => (
@@ -490,7 +490,7 @@ export function SyncCenterPage() {
               <div className="alert warning">
                 <div>
                   {isStkMinsProfile
-                    ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate 后停在 clean_next_review；人工确认后生成 90/120 并停在 derived_review；不会重排 research by month。"
+                    ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate 后停在 clean_next_review；人工确认后生成 90/120，derived 确认后重排 research by month 并做最终校验。"
                     : "当前选择的同步配置尚未接入执行器。可以生成只读计划做预览，但不能启动写入任务。"}
                 </div>
               </div>
@@ -530,7 +530,7 @@ export function SyncCenterPage() {
               </p>
               {plan?.blockers.length ? <Badge tone="error">Blockers {plan.blockers.length}</Badge> : null}
               {plan && !plan.blockers.length && canRunSelectedScope ? <Badge tone="success">可启动</Badge> : null}
-              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">可执行到 derived</Badge> : null}
+              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">分阶段执行</Badge> : null}
               {plan && !plan.blockers.length && !canRunSelectedScope && !isStkMinsProfile ? <Badge tone="warning">只读计划</Badge> : null}
             </div>
           </aside>

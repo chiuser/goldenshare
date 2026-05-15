@@ -156,7 +156,7 @@ class SyncProfileCatalog:
                     requires_kopia_backup=True,
                     stale_after_seconds=STALE_AFTER_SECONDS,
                     datasets=("stk_mins",),
-                    disabled_reason="已支持执行到 raw + clean_next/gate，人工确认后生成 90/120；research by month 待后续阶段接入。",
+                    disabled_reason="已支持 raw -> clean_next/gate -> derived 90/120 -> research by month 的分阶段执行。",
                 ),
                 SyncProfile(
                     profile_key="index_mins_sync",

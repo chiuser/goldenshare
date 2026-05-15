@@ -312,6 +312,106 @@ def complete_derived_90_120_stage(*, run: dict[str, Any], summary: dict[str, Any
     )
 
 
+def start_research_month_rebuild_stage(*, run: dict[str, Any]) -> dict[str, Any]:
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    stage = _stage_by_key(stages, "research_month_rebuild")
+    if stage is not None:
+        stage["stage_status"] = "running"
+        stage["stage_status_label"] = "执行中"
+        stage["display_summary"] = "正在重排 research by month。"
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": "running",
+            "run_status": "running",
+            "pipeline_stages": stages,
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": "正在重排 research by month。",
+            },
+        },
+        current_stage=stage,
+    )
+
+
+def complete_research_month_and_final_validation(*, run: dict[str, Any], summary: dict[str, Any]) -> dict[str, Any]:
+    source_rows = int(summary.get("source_rows") or 0)
+    written_rows = int(summary.get("written_rows") or 0)
+    if source_rows != written_rows:
+        return fail_pipeline_stage(
+            run=run,
+            stage_key="research_month_rebuild",
+            error={
+                "code": "STK_MINS_RESEARCH_ROW_COUNT_MISMATCH",
+                "message": f"research by month 行数不一致：source_rows={source_rows} written_rows={written_rows}",
+                "context": summary,
+            },
+        )
+
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    research_stage = _stage_by_key(stages, "research_month_rebuild")
+    if research_stage is not None:
+        research_stage["stage_status"] = "passed"
+        research_stage["stage_status_label"] = "已通过"
+        research_stage["display_summary"] = (
+            f"research by month 重排完成：{len(summary.get('trade_months') or [])} 个月，"
+            f"{len(summary.get('freqs') or [])} 个频率，写入 {written_rows:,} 行。"
+        )
+        research_stage["output_summary"] = {
+            "run_id": summary.get("run_id"),
+            "operation": summary.get("operation"),
+            "start_month": summary.get("start_month"),
+            "end_month": summary.get("end_month"),
+            "trade_months": summary.get("trade_months") or [],
+            "freqs": summary.get("freqs") or [],
+        }
+        research_stage["metrics"] = {
+            **dict(research_stage.get("metrics") or {}),
+            "trade_month_count": len(summary.get("trade_months") or []),
+            "freq_count": len(summary.get("freqs") or []),
+            "units_total": int(summary.get("units_total") or 0),
+            "source_rows": source_rows,
+            "written_rows": written_rows,
+            "elapsed_seconds": summary.get("elapsed_seconds"),
+        }
+
+    final_stage = _stage_by_key(stages, "final_validation")
+    if final_stage is not None:
+        final_stage["stage_status"] = "passed"
+        final_stage["stage_status_label"] = "已通过"
+        final_stage["display_summary"] = "最终校验通过：research source rows 与 written rows 一致。"
+        final_stage["output_summary"] = {
+            "status": "passed",
+            "checked_stage": "research_month_rebuild",
+            "source_rows": source_rows,
+            "written_rows": written_rows,
+        }
+        final_stage["metrics"] = {
+            **dict(final_stage.get("metrics") or {}),
+            "source_rows": source_rows,
+            "written_rows": written_rows,
+        }
+
+    dataset_results = list(run.get("dataset_results") or [])
+    dataset_results.append(_dataset_result_from_stk_mins_research_summary(summary))
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": "success",
+            "run_status": "success",
+            "finished_at": _utc_now_iso(),
+            "pipeline_stages": stages,
+            "dataset_results": dataset_results,
+            "errors": [],
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": "stk_mins_sync 已完成：raw、clean_next/gate、derived、research by month 与最终校验均已通过。",
+            },
+        },
+        current_stage=None,
+    )
+
+
 def fail_prewrite_backup_stage(*, run: dict[str, Any], error: dict[str, Any]) -> dict[str, Any]:
     stages = deepcopy(list(run.get("pipeline_stages") or []))
     stage = _stage_by_key(stages, "prewrite_backup")
@@ -518,6 +618,23 @@ def _dataset_result_from_stk_mins_derived_summary(summary: dict[str, Any]) -> di
         "end_date": summary.get("end_date"),
         "trade_date_count": summary.get("trade_date_count"),
         "targets": summary.get("targets"),
+        "source_rows": summary.get("source_rows"),
+        "written_rows": summary.get("written_rows"),
+        "elapsed_seconds": summary.get("elapsed_seconds"),
+    }
+
+
+def _dataset_result_from_stk_mins_research_summary(summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "dataset_key": "stk_mins",
+        "status": str(summary.get("status") or "success"),
+        "operation": summary.get("operation"),
+        "run_id": summary.get("run_id"),
+        "start_month": summary.get("start_month"),
+        "end_month": summary.get("end_month"),
+        "trade_months": summary.get("trade_months"),
+        "freqs": summary.get("freqs"),
+        "units_total": summary.get("units_total"),
         "source_rows": summary.get("source_rows"),
         "written_rows": summary.get("written_rows"),
         "elapsed_seconds": summary.get("elapsed_seconds"),

@@ -54,8 +54,8 @@ class StkMinsPipelinePlanner:
         blockers: list[dict[str, Any]] = []
         warnings: list[dict[str, Any]] = [
             {
-                "code": "PIPELINE_STOPS_AT_DERIVED_REVIEW",
-                "message": "当前支持执行到 raw + clean_next/gate，人工确认后生成 90/120，并在 derived_review 停下等待人工确认；research by month 待后续阶段接入。",
+                "code": "PIPELINE_REQUIRES_MANUAL_CONFIRMATIONS",
+                "message": "当前按分阶段方式执行：clean_next 和 derived 完成后都会停下等待人工确认，确认后再继续扩大写入范围。",
             }
         ]
         trade_dates: list[date] = []
@@ -175,7 +175,7 @@ class StkMinsPipelinePlanner:
             "status": "plan_only",
             "notes": [
                 "计划生成阶段只读，不请求 Tushare，不写 Lake，不创建 Kopia snapshot。",
-                "启动 run 后会先创建 Kopia 写前备份，再执行 raw + clean_next/gate，并停在 clean_next_review；人工确认后生成 90/120 并停在 derived_review。",
+                "启动 run 后会先创建 Kopia 写前备份，再执行 raw + clean_next/gate，并停在 clean_next_review；人工确认后生成 90/120 并停在 derived_review；再次确认后重排 research by month 并执行最终校验。",
             ],
             "estimate": sync_estimate,
         }
@@ -418,8 +418,8 @@ def _build_pipeline_stages(
             summary="待 derived 完成后确认是否继续重排 research by month。" if derived_freqs else "本轮没有 derived 输出，不需要确认。",
             metrics={"requires_confirmation": bool(derived_freqs)},
             requires_confirmation=bool(derived_freqs),
-            confirmation_prompt="research by month 待后续阶段接入；本阶段只停在 derived_review。" if derived_freqs else None,
-            next_action={"action": "pending_implementation", "label": "research by month 待接入"} if derived_freqs else None,
+            confirmation_prompt="确认继续重排 research by month。" if derived_freqs else None,
+            next_action={"action": "continue", "label": "继续重排 research by month"} if derived_freqs else None,
         ),
         _stage(
             order=8,

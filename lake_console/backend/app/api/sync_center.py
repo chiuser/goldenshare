@@ -42,6 +42,7 @@ from lake_console.backend.app.services.stk_mins_pipeline_run_state import (
     complete_derived_90_120_stage,
     complete_prewrite_backup_stage,
     complete_raw_and_clean_next_stages,
+    complete_research_month_and_final_validation,
     continue_pipeline_run,
     fail_pipeline_stage,
     fail_prewrite_backup_stage,
@@ -49,8 +50,10 @@ from lake_console.backend.app.services.stk_mins_pipeline_run_state import (
     start_derived_90_120_stage,
     start_prewrite_backup_stage,
     start_raw_sync_stage,
+    start_research_month_rebuild_stage,
 )
 from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
+from lake_console.backend.app.services.stk_mins_research_service import StkMinsResearchService
 from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
 from lake_console.backend.app.services.sync_recommendation_service import SyncRecommendationService
 from lake_console.backend.app.services.sync_center_profiles import ProfileDisabledError, SyncProfileCatalog, SyncProfilePlanner
@@ -398,11 +401,11 @@ def continue_run(run_id: str, request: SyncRunContinueRequest) -> SyncRunDetailR
     lock_service = LakeJobLockService(store)
     run = _load_stk_mins_pipeline_run(store=store, run_id=run_id)
     current_stage_key = str(run.get("current_stage_key") or "")
-    if current_stage_key != "clean_next_review":
+    if current_stage_key not in {"clean_next_review", "derived_review"}:
         raise _api_error(
             status_code=409,
             code="STK_MINS_PIPELINE_STAGE_NOT_IMPLEMENTED",
-            message="当前只支持从 clean_next_review 继续到 derived 90/120；后续 research by month 阶段尚未接入。",
+            message="当前只支持从 clean_next_review 或 derived_review 继续执行 stk_mins_sync 后续阶段。",
             context={"current_stage_key": current_stage_key},
         )
     try:
@@ -412,23 +415,70 @@ def continue_run(run_id: str, request: SyncRunContinueRequest) -> SyncRunDetailR
     except StkMinsPipelineRunNotWaitingConfirmationError as exc:
         raise _api_error(status_code=409, code="RUN_NOT_WAITING_CONFIRMATION", message=str(exc)) from exc
 
-    if next_run.get("current_stage_key") != "derived_90_120_build":
-        raise _api_error(
-            status_code=409,
-            code="STK_MINS_DERIVED_STAGE_UNAVAILABLE",
-            message="clean_next 确认后没有可执行的 derived 90/120 阶段，本轮不会继续推进。",
-            context={"next_stage_key": next_run.get("current_stage_key")},
-        )
-    parameters = _stk_mins_pipeline_parameters(run=run, store=store)
-    derived_freqs = [int(item) for item in parameters.get("derived_freqs") or []]
-    if not derived_freqs:
-        raise _api_error(
-            status_code=409,
-            code="STK_MINS_DERIVED_TARGETS_EMPTY",
-            message="本轮计划没有 90/120 派生目标，不能执行 derived 阶段。",
-            context={"current_stage_key": current_stage_key},
+    next_stage_key = str(next_run.get("current_stage_key") or "")
+    if next_stage_key == "derived_90_120_build":
+        parameters = _stk_mins_pipeline_parameters(run=run, store=store)
+        derived_freqs = [int(item) for item in parameters.get("derived_freqs") or []]
+        if not derived_freqs:
+            raise _api_error(
+                status_code=409,
+                code="STK_MINS_DERIVED_TARGETS_EMPTY",
+                message="本轮计划没有 90/120 派生目标，不能执行 derived 阶段。",
+                context={"current_stage_key": current_stage_key},
+            )
+        return _start_stk_mins_derived_90_120_run(
+            settings=settings,
+            store=store,
+            lock_service=lock_service,
+            run_id=run_id,
+            current_stage_key=current_stage_key,
+            next_run=next_run,
+            parameters=parameters,
+            derived_freqs=derived_freqs,
         )
 
+    if next_stage_key == "research_month_rebuild":
+        parameters = _stk_mins_pipeline_parameters(run=run, store=store)
+        research_freqs = [int(item) for item in parameters.get("research_freqs") or []]
+        affected_months = [str(item) for item in parameters.get("affected_months") or []]
+        if not research_freqs or not affected_months:
+            raise _api_error(
+                status_code=409,
+                code="STK_MINS_RESEARCH_SCOPE_EMPTY",
+                message="本轮计划缺少 research by month 的频率或月份范围，不能执行 research 阶段。",
+                context={"research_freqs": research_freqs, "affected_months": affected_months},
+            )
+        return _start_stk_mins_research_month_run(
+            settings=settings,
+            store=store,
+            lock_service=lock_service,
+            run_id=run_id,
+            current_stage_key=current_stage_key,
+            next_run=next_run,
+            parameters=parameters,
+            research_freqs=research_freqs,
+            affected_months=affected_months,
+        )
+
+    raise _api_error(
+        status_code=409,
+        code="STK_MINS_PIPELINE_NEXT_STAGE_UNAVAILABLE",
+        message="确认后没有可执行的 stk_mins_sync 下一阶段，本轮不会继续推进。",
+        context={"next_stage_key": next_stage_key},
+    )
+
+
+def _start_stk_mins_derived_90_120_run(
+    *,
+    settings: Any,
+    store: LakeJobStateStore,
+    lock_service: LakeJobLockService,
+    run_id: str,
+    current_stage_key: str,
+    next_run: dict[str, Any],
+    parameters: dict[str, Any],
+    derived_freqs: list[int],
+) -> SyncRunDetailResponse:
     try:
         lock_service.acquire(run_id=run_id, profile_key=STK_MINS_PIPELINE_PROFILE_KEY)
     except LakeJobLockBusyError as exc:
@@ -489,6 +539,81 @@ def continue_run(run_id: str, request: SyncRunContinueRequest) -> SyncRunDetailR
         raise
 
     latest_payload = normalize_run_detail(store.read_run(run_id) or derived_running)
+    return SyncRunDetailResponse(**latest_payload)
+
+
+def _start_stk_mins_research_month_run(
+    *,
+    settings: Any,
+    store: LakeJobStateStore,
+    lock_service: LakeJobLockService,
+    run_id: str,
+    current_stage_key: str,
+    next_run: dict[str, Any],
+    parameters: dict[str, Any],
+    research_freqs: list[int],
+    affected_months: list[str],
+) -> SyncRunDetailResponse:
+    try:
+        lock_service.acquire(run_id=run_id, profile_key=STK_MINS_PIPELINE_PROFILE_KEY)
+    except LakeJobLockBusyError as exc:
+        raise _api_error(
+            status_code=409,
+            code="LOCK_BUSY",
+            message="已有 Lake 写入任务运行或 stale，不能继续执行 research by month。",
+            context={"lock": exc.lock_payload},
+        ) from exc
+
+    try:
+        research_running = start_research_month_rebuild_stage(run=next_run)
+        store.write_run(research_running)
+        store.append_event(
+            run_id,
+            {
+                "event_type": "pipeline_continue_confirmed",
+                "stage_key": current_stage_key,
+                "message": next_run["progress"]["summary"],
+                "metrics": {"current_stage_key": research_running.get("current_stage_key")},
+            },
+        )
+        store.append_event(
+            run_id,
+            {
+                "event_type": "research_month_rebuild_started",
+                "stage_key": "research_month_rebuild",
+                "message": research_running["progress"]["summary"],
+                "metrics": {
+                    "research_freqs": research_freqs,
+                    "affected_months": affected_months,
+                    "bucket_count": settings.bucket_count,
+                },
+            },
+        )
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                status=research_running["run_status"],
+                summary=research_running["progress"]["summary"],
+                current_stage_key=research_running.get("current_stage_key"),
+                requires_confirmation=bool(research_running.get("requires_confirmation")),
+                next_action=research_running.get("next_action"),
+            )
+        )
+        _start_background_task(
+            _run_stk_mins_research_month_pipeline,
+            settings=settings,
+            run_id=run_id,
+            parameters=parameters,
+        )
+    except Exception:
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
+        raise
+
+    latest_payload = normalize_run_detail(store.read_run(run_id) or research_running)
     return SyncRunDetailResponse(**latest_payload)
 
 
@@ -864,6 +989,77 @@ def _run_stk_mins_derived_90_120_pipeline(*, settings: Any, run_id: str, paramet
             pass
 
 
+def _run_stk_mins_research_month_pipeline(*, settings: Any, run_id: str, parameters: dict[str, Any]) -> None:
+    store = LakeJobStateStore(settings.lake_root)
+    lock_service = LakeJobLockService(store)
+    try:
+        current_run = normalize_run_detail(store.read_run(run_id) or {})
+        affected_months = [str(item) for item in parameters.get("affected_months") or []]
+        service = StkMinsResearchService(
+            lake_root=settings.lake_root,
+            bucket_count=settings.bucket_count,
+            progress=lambda event: store.append_event(run_id, _stk_mins_research_progress_event(event)),
+        )
+        summary = service.rebuild_range(
+            freqs=[int(item) for item in parameters.get("research_freqs") or []],
+            start_month=affected_months[0],
+            end_month=affected_months[-1],
+        )
+        latest_run = normalize_run_detail(store.read_run(run_id) or current_run)
+        next_run = complete_research_month_and_final_validation(run=latest_run, summary=summary)
+        store.write_run(next_run)
+        if next_run["run_status"] == "success":
+            store.write_current(_idle_current_payload(summary=next_run["progress"]["summary"]))
+            store.append_event(
+                run_id,
+                {
+                    "event_type": "pipeline_completed",
+                    "stage_key": "final_validation",
+                    "message": next_run["progress"]["summary"],
+                    "metrics": {
+                        "source_rows": summary.get("source_rows"),
+                        "written_rows": summary.get("written_rows"),
+                        "units_total": summary.get("units_total"),
+                        "freqs": summary.get("freqs") or [],
+                        "trade_months": summary.get("trade_months") or [],
+                    },
+                },
+            )
+        else:
+            store.write_current(_idle_current_payload(summary=next_run["progress"]["summary"]))
+            store.append_event(
+                run_id,
+                {
+                    "event_type": "research_month_rebuild_failed",
+                    "level": "error",
+                    "stage_key": next_run.get("current_stage_key"),
+                    "message": next_run["progress"]["summary"],
+                    "error": (next_run.get("errors") or [{}])[0],
+                },
+            )
+    except Exception as exc:
+        latest_run = normalize_run_detail(store.read_run(run_id) or {"run_id": run_id, "profile_key": STK_MINS_PIPELINE_PROFILE_KEY})
+        error = {"code": "STK_MINS_RESEARCH_MONTH_FAILED", "message": str(exc)}
+        failed_run = fail_pipeline_stage(run=latest_run, stage_key="research_month_rebuild", error=error)
+        store.write_run(failed_run)
+        store.append_event(
+            run_id,
+            {
+                "event_type": "research_month_rebuild_failed",
+                "level": "error",
+                "stage_key": "research_month_rebuild",
+                "message": str(exc),
+                "error": error,
+            },
+        )
+        store.write_current(_idle_current_payload(summary=failed_run["progress"]["summary"]))
+    finally:
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
+
+
 def _stk_mins_progress_event(event: str | StkMinsProgressEvent) -> dict[str, Any]:
     if isinstance(event, StkMinsProgressEvent):
         return {
@@ -897,6 +1093,15 @@ def _stk_mins_derived_progress_event(event: str) -> dict[str, Any]:
     return {
         "event_type": "derived_90_120_progress",
         "stage_key": "derived_90_120_build",
+        "dataset_key": "stk_mins",
+        "message": str(event),
+    }
+
+
+def _stk_mins_research_progress_event(event: str) -> dict[str, Any]:
+    return {
+        "event_type": "research_month_rebuild_progress",
+        "stage_key": "research_month_rebuild",
         "dataset_key": "stk_mins",
         "message": str(event),
     }
