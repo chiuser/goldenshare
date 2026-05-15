@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：待评审 / 待开市验证
+状态：M1 开市验证已完成 / M3 Collector 已接入待远程发版
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -9,7 +9,7 @@
 
 ## 0. 全链路审计结论
 
-审计时间：2026-05-14
+审计时间：2026-05-14，开市验证时间：2026-05-15
 审计范围：源接口、collector、Redis、业务 API、Ops API、前端页面、部署配置、测试验收。
 
 ### 0.1 已经收敛的主线
@@ -901,6 +901,29 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 
 结论：Tushare 收盘后仍可返回实时日线快照，但 V1 collector 按已确认口径只在 9:30-11:30、13:00-15:00 请求源站。开市时段行为仍需次日验证。
 
+开市时段验证记录：
+
+| 项目 | 结果 |
+| --- | --- |
+| 探测时间 | 2026-05-15 09:32-09:35，A 股连续竞价时段 |
+| 请求参数 | `rt_k(ts_code="3*.SZ,6*.SH,0*.SZ,9*.BJ")` |
+| 单次返回行数 | 5523 |
+| 连续 3 轮返回行数 | 5523 / 5523 / 5523 |
+| 单次耗时 | 约 648ms - 1208ms |
+| 字段完整性 | `ts_code/name/pre_close/high/open/low/close/vol/amount/num/ask_price1/ask_volume1/bid_price1/bid_volume1/trade_time` 均返回 |
+| 空值统计 | 本次 15 个字段空值计数均为 0 |
+| 交易所后缀分布 | `BJ=313`，`SH=2315`，`SZ=2895` |
+| 今日 `trade_time` 行数 | 5517 |
+| 非今日 `trade_time` 行数 | 6 |
+| 观测到的旧 `trade_time` 样本 | 退市/特殊/停牌类股票，如 `立方退`、`东通退`、`长药退`、`*ST精伦`、`德邦股份` |
+
+开市验证结论：
+
+1. V1 可以继续使用全市场通配符一次请求方案，不需要为了 M1 改成分片请求。
+2. `trade_time` 是源端行情时间，不是 collector 健康时间；同一批次内允许少数股票保留旧 `trade_time`。
+3. collector 健康必须以 `last_success_at/current_batch_published_at/current_batch_age_seconds` 判断，不能用所有行 `trade_time` 是否等于今天判断。
+4. 业务 API 应原样返回单只股票的 `trade_time`，让调用方知道该证券自身最新行情时间。
+
 ### 12.2 单元测试
 
 | 测试 | 目标 |
@@ -1002,12 +1025,14 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 3. 代码已加入实时配置项、`foundation/realtime` Redis batch pointer 状态层、业务快照 API 骨架、Ops health API 骨架。
 4. 数据运营后台已加入一级菜单“实时流监控”，页面只消费 health API，并按 `page_polling_enabled/recommended_poll_interval_seconds` 做局部状态刷新。
 5. 已补最小测试覆盖：Redis key/current batch 语义、业务快照 API、Ops health API，以及前端类型检查。
+6. 开市时段 M1 真实验证已完成，结论支持全市场通配符请求方案。
+7. 已新增 Tushare 0372 provider、实时日线 normalizer、collector loop、CLI `realtime-stock-rt-daily-serve`、collector systemd unit 与部署脚本挂载。
 
 未完成：
 
-1. 真实 collector、Tushare 0372 provider、normalizer、CLI 与 systemd service 尚未接入。
-2. 开市时段 M1 真实请求验证尚未完成。
-3. WebSocket 推送仍是后续阶段，不在本轮 1-5 范围内。
+1. 远程 collector service 尚未发版启动。
+2. 业务 API 端到端读取真实 Redis current batch 尚待远程 smoke。
+3. WebSocket 推送仍是后续阶段，不在本轮范围内。
 
 ---
 

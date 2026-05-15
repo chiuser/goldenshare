@@ -22,6 +22,7 @@
 2. `scripts/goldenshare-ops-worker.service`
 3. `scripts/goldenshare-ops-scheduler.service`
 4. `scripts/goldenshare-date-completeness-worker.service`
+5. `scripts/goldenshare-realtime-collector.service`
 
 当以上任一文件改动时，**必须**同步到服务器 `/etc/systemd/system` 并执行 `systemctl daemon-reload`，否则部署可能成功但服务启动失败（常见于 `ExecStart` 漂移）。
 

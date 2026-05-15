@@ -60,6 +60,12 @@ class RealtimeStateStore(Protocol):
     def set_health(self, feed_key: str, health: Mapping[str, Any]) -> None:
         ...
 
+    def acquire_lease(self, feed_key: str, *, owner: str, ttl_seconds: int) -> bool:
+        ...
+
+    def release_lease(self, feed_key: str, *, owner: str) -> None:
+        ...
+
 
 class RedisRealtimeStateStore:
     def __init__(self, client: Any) -> None:
@@ -184,6 +190,20 @@ class RedisRealtimeStateStore:
         except Exception as exc:
             raise RealtimeStateStoreUnavailable(str(exc)) from exc
 
+    def acquire_lease(self, feed_key: str, *, owner: str, ttl_seconds: int) -> bool:
+        try:
+            return bool(self._client.set(RealtimeRedisKeys(feed_key).lease(), owner, nx=True, ex=ttl_seconds))
+        except Exception as exc:
+            raise RealtimeStateStoreUnavailable(str(exc)) from exc
+
+    def release_lease(self, feed_key: str, *, owner: str) -> None:
+        keys = RealtimeRedisKeys(feed_key)
+        try:
+            if _coerce_optional_text(self._client.get(keys.lease())) == owner:
+                self._client.delete(keys.lease())
+        except Exception as exc:
+            raise RealtimeStateStoreUnavailable(str(exc)) from exc
+
     def _cleanup_old_batches(self, keys: RealtimeRedisKeys, *, keep_recent_batches: int) -> None:
         if keep_recent_batches <= 0:
             return
@@ -210,6 +230,7 @@ class InMemoryRealtimeStateStore:
         self.batch_order: dict[str, list[str]] = {}
         self.batch_stream_ids: dict[str, str] = {}
         self.delta_stream_ids: dict[str, str] = {}
+        self.leases: dict[str, tuple[str, float]] = {}
         self._event_index = 0
 
     def ping(self) -> bool:
@@ -274,6 +295,19 @@ class InMemoryRealtimeStateStore:
     def set_health(self, feed_key: str, health: Mapping[str, Any]) -> None:
         self.health[feed_key] = dict(health)
 
+    def acquire_lease(self, feed_key: str, *, owner: str, ttl_seconds: int) -> bool:
+        now = time.monotonic()
+        current = self.leases.get(feed_key)
+        if current is not None and current[1] > now and current[0] != owner:
+            return False
+        self.leases[feed_key] = (owner, now + ttl_seconds)
+        return True
+
+    def release_lease(self, feed_key: str, *, owner: str) -> None:
+        current = self.leases.get(feed_key)
+        if current is not None and current[0] == owner:
+            self.leases.pop(feed_key, None)
+
     def _next_event_id(self) -> str:
         self._event_index += 1
         return f"{int(time.time() * 1000)}-{self._event_index}"
@@ -315,6 +349,14 @@ class UnavailableRealtimeStateStore:
         raise RealtimeStateStoreUnavailable(self.reason)
 
     def set_health(self, _feed_key: str, _health: Mapping[str, Any]) -> None:
+        raise RealtimeStateStoreUnavailable(self.reason)
+
+    def acquire_lease(self, _feed_key: str, *, owner: str, ttl_seconds: int) -> bool:
+        del owner, ttl_seconds
+        raise RealtimeStateStoreUnavailable(self.reason)
+
+    def release_lease(self, _feed_key: str, *, owner: str) -> None:
+        del owner
         raise RealtimeStateStoreUnavailable(self.reason)
 
 

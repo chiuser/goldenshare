@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import time
 from datetime import date
 from pathlib import Path
 
@@ -39,6 +38,9 @@ from src.cli_parts.ops_handlers import (
 from src.cli_parts.maintenance_handlers import (
     run_refresh_serving_light as _run_refresh_serving_light_impl,
     run_wealth_build_turnover_snapshot as _run_wealth_build_turnover_snapshot_impl,
+)
+from src.cli_parts.realtime_handlers import (
+    run_realtime_stock_rt_daily_serve as _run_realtime_stock_rt_daily_serve_impl,
 )
 from src.cli_parts.stock_st_missing_date_repair_handlers import (
     run_repair_stock_st_missing_dates as _run_repair_stock_st_missing_dates_impl,
@@ -554,6 +556,17 @@ def ops_worker_serve(
         max_cycles=max_cycles,
         auto_reconcile_stale_for_minutes=auto_reconcile_stale_for_minutes,
         auto_reconcile_limit=auto_reconcile_limit,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("realtime-stock-rt-daily-serve")
+def realtime_stock_rt_daily_serve(
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    _run_realtime_stock_rt_daily_serve_impl(
+        session_local=SessionLocal,
+        max_cycles=max_cycles,
         echo_fn=typer.echo,
     )
 

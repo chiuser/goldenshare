@@ -14,10 +14,12 @@ WEB_SERVICE="${WEB_SERVICE:-goldenshare-web.service}"
 WORKER_SERVICE="${WORKER_SERVICE:-goldenshare-ops-worker.service}"
 SCHEDULER_SERVICE="${SCHEDULER_SERVICE:-goldenshare-ops-scheduler.service}"
 DATE_COMPLETENESS_WORKER_SERVICE="${DATE_COMPLETENESS_WORKER_SERVICE:-goldenshare-date-completeness-worker.service}"
+REALTIME_COLLECTOR_SERVICE="${REALTIME_COLLECTOR_SERVICE:-goldenshare-realtime-collector.service}"
 
 DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
 DEPLOY_OPS="${DEPLOY_OPS:-1}"
 DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
+DEPLOY_REALTIME="${DEPLOY_REALTIME:-1}"
 RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
@@ -32,6 +34,7 @@ WEB_UNIT_SRC="${WEB_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-web.service}"
 WORKER_UNIT_SRC="${WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-worker.service}"
 SCHEDULER_UNIT_SRC="${SCHEDULER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-scheduler.service}"
 DATE_COMPLETENESS_WORKER_UNIT_SRC="${DATE_COMPLETENESS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-date-completeness-worker.service}"
+REALTIME_COLLECTOR_UNIT_SRC="${REALTIME_COLLECTOR_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-realtime-collector.service}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
 HEALTH_V1_URL="${HEALTH_V1_URL:-http://127.0.0.1:8000/api/v1/health}"
@@ -88,6 +91,7 @@ sync_units_if_needed() {
   local worker_dst="${SYSTEMD_UNIT_DIR}/${WORKER_SERVICE}"
   local scheduler_dst="${SYSTEMD_UNIT_DIR}/${SCHEDULER_SERVICE}"
   local date_completeness_worker_dst="${SYSTEMD_UNIT_DIR}/${DATE_COMPLETENESS_WORKER_SERVICE}"
+  local realtime_collector_dst="${SYSTEMD_UNIT_DIR}/${REALTIME_COLLECTOR_SERVICE}"
 
   if sync_systemd_unit "${WEB_UNIT_SRC}" "${web_dst}"; then
     changed=1
@@ -99,6 +103,9 @@ sync_units_if_needed() {
     changed=1
   fi
   if sync_systemd_unit "${DATE_COMPLETENESS_WORKER_UNIT_SRC}" "${date_completeness_worker_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${REALTIME_COLLECTOR_UNIT_SRC}" "${realtime_collector_dst}"; then
     changed=1
   fi
 
@@ -144,6 +151,7 @@ ensure_sudo_ready() {
   - systemctl restart/status goldenshare-ops-worker.service
   - systemctl restart/status goldenshare-ops-scheduler.service
   - systemctl restart/status goldenshare-date-completeness-worker.service
+  - systemctl restart/status goldenshare-realtime-collector.service
 EOF
     exit 1
   fi
@@ -327,6 +335,13 @@ main() {
     log "跳过 Platform 层重启（DEPLOY_PLATFORM=0）"
   fi
 
+  if [[ "${DEPLOY_REALTIME}" == "1" ]]; then
+    log "重启 Realtime 实时采集层（collector）"
+    sudo_systemctl restart "${REALTIME_COLLECTOR_SERVICE}"
+  else
+    log "跳过 Realtime 实时采集层重启（DEPLOY_REALTIME=0）"
+  fi
+
   log "9/12 Foundation 自检"
   .venv/bin/goldenshare list-resources >/dev/null
 
@@ -342,6 +357,7 @@ main() {
   print_service_status "${WORKER_SERVICE}"
   print_service_status "${SCHEDULER_SERVICE}"
   print_service_status "${DATE_COMPLETENESS_WORKER_SERVICE}"
+  print_service_status "${REALTIME_COLLECTOR_SERVICE}"
 
   log "分层发版完成"
 }

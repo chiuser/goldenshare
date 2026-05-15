@@ -1,0 +1,16 @@
+[Unit]
+Description=Goldenshare realtime stock RT daily collector
+After=network.target redis-server.service
+Wants=redis-server.service
+
+[Service]
+WorkingDirectory=/opt/goldenshare/goldenshare
+Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
+ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare realtime-stock-rt-daily-serve
+Restart=always
+RestartSec=3
+User=goldenshare
+Group=goldenshare
+
+[Install]
+WantedBy=multi-user.target
