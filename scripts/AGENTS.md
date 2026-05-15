@@ -35,6 +35,12 @@
 3. 执行部署（含按需 unit 同步）。
 4. 检查健康接口与服务状态。
 
+分层部署约束：
+
+1. `--platform-only` / `--ops-only` / `--foundation-only` 默认不处理 `goldenshare-realtime-collector.service`。
+2. 需要在非全量部署中同时处理实时采集服务时，必须显式传 `--with-realtime`。
+3. 全量部署默认处理实时采集服务；如需跳过，显式传 `--skip-realtime`。
+
 ---
 
 ## 权限最小化

@@ -30,6 +30,8 @@ usage() {
   --pip-install-target <spec> 覆盖 pip 安装目标（默认 .）
   --skip-build            跳过前端构建
   --skip-wealth-build     跳过财势乾坤行情系统前端构建
+  --with-realtime         显式发布/重启 realtime collector（*-only 模式默认不处理）
+  --skip-realtime         跳过 realtime collector 发布/重启
   --skip-migration        跳过数据库迁移
   --full                  全量发布（默认）
   -h, --help              显示帮助
@@ -45,6 +47,7 @@ EOF
 export DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
 export DEPLOY_OPS="${DEPLOY_OPS:-1}"
 export DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
+export DEPLOY_REALTIME="${DEPLOY_REALTIME:-1}"
 export RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 export RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
 export RUN_WEALTH_BUILD="${RUN_WEALTH_BUILD:-1}"
@@ -53,6 +56,8 @@ export DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare
 export RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-0}"
 export RUN_SYNC_UNITS="${RUN_SYNC_UNITS:-1}"
 export PIP_INSTALL_TARGET="${PIP_INSTALL_TARGET:-.}"
+ONLY_MODE=0
+REALTIME_OVERRIDE=""
 
 if [[ $# -gt 0 && "${1}" != -* ]]; then
   BRANCH="$1"
@@ -70,16 +75,19 @@ while [[ $# -gt 0 ]]; do
       export DEPLOY_FOUNDATION=0
       export DEPLOY_OPS=0
       export DEPLOY_PLATFORM=1
+      ONLY_MODE=1
       ;;
     --ops-only)
       export DEPLOY_FOUNDATION=0
       export DEPLOY_OPS=1
       export DEPLOY_PLATFORM=0
+      ONLY_MODE=1
       ;;
     --foundation-only)
       export DEPLOY_FOUNDATION=1
       export DEPLOY_OPS=0
       export DEPLOY_PLATFORM=0
+      ONLY_MODE=1
       ;;
     --skip-build)
       export RUN_FRONTEND_BUILD=0
@@ -87,6 +95,12 @@ while [[ $# -gt 0 ]]; do
       ;;
     --skip-wealth-build)
       export RUN_WEALTH_BUILD=0
+      ;;
+    --with-realtime)
+      REALTIME_OVERRIDE=1
+      ;;
+    --skip-realtime)
+      REALTIME_OVERRIDE=0
       ;;
     --seed-default-source)
       export RUN_DEFAULT_SINGLE_SOURCE_SEED=1
@@ -126,6 +140,8 @@ while [[ $# -gt 0 ]]; do
       export DEPLOY_FOUNDATION=1
       export DEPLOY_OPS=1
       export DEPLOY_PLATFORM=1
+      export DEPLOY_REALTIME=1
+      ONLY_MODE=0
       ;;
     -h|--help)
       usage
@@ -139,6 +155,12 @@ while [[ $# -gt 0 ]]; do
   esac
   shift
 done
+
+if [[ -n "${REALTIME_OVERRIDE}" ]]; then
+  export DEPLOY_REALTIME="${REALTIME_OVERRIDE}"
+elif [[ "${ONLY_MODE}" == "1" ]]; then
+  export DEPLOY_REALTIME=0
+fi
 
 # 兼容旧变量：RESTART_SCHEDULER=0 等价于 DEPLOY_OPS=0
 if [[ -n "${RESTART_SCHEDULER:-}" && "${RESTART_SCHEDULER}" == "0" && -z "${DEPLOY_OPS+x}" ]]; then
