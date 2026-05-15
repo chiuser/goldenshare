@@ -12,7 +12,6 @@ from src.ops.dataset_definition_projection import DatasetFreshnessProjection, li
 from src.ops.dataset_observation_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.schemas.freshness import DatasetFreshnessItem
 
 
 @pytest.fixture()
@@ -64,10 +63,10 @@ def test_build_from_snapshot_includes_raw_table_from_dataset_definition_projecti
     )
     db_session.commit()
 
-    response = OpsFreshnessQueryService._build_from_snapshot(db_session)
+    response = OpsFreshnessQueryService()._build_from_snapshot(db_session, reference_date=date(2026, 4, 1))
 
     assert response is not None
-    item = response.groups[0].items[0]
+    item = next(item for group in response.groups for item in group.items if item.dataset_key == "daily")
     assert item.dataset_key == "daily"
     assert item.raw_table == "raw_tushare.daily"
 
@@ -80,7 +79,7 @@ def test_business_reference_date_uses_china_business_day_when_utc_is_previous_da
     assert reference_date == date(2026, 5, 15)
 
 
-def test_build_freshness_ignores_snapshot_from_previous_business_day(db_session: Session, monkeypatch) -> None:
+def test_build_freshness_rebases_cached_snapshot_without_live_scanning(db_session: Session, monkeypatch) -> None:
     db_session.add(
         DatasetStatusSnapshot(
             dataset_key="daily",
@@ -104,20 +103,6 @@ def test_build_freshness_ignores_snapshot_from_previous_business_day(db_session:
     db_session.commit()
 
     service = OpsFreshnessQueryService()
-    live_item = DatasetFreshnessItem(
-        dataset_key="daily",
-        resource_key="daily",
-        display_name="股票日线",
-        domain_key="equity",
-        domain_display_name="股票",
-        target_table="core.equity_daily_bar",
-        cadence="daily",
-        latest_business_date=date(2026, 5, 14),
-        expected_business_date=date(2026, 5, 15),
-        lag_days=1,
-        freshness_status="lagging",
-        primary_action_key="daily.maintain",
-    )
     monkeypatch.setattr(
         "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
         lambda: [
@@ -138,13 +123,13 @@ def test_build_freshness_ignores_snapshot_from_previous_business_day(db_session:
     monkeypatch.setattr(
         service,
         "build_live_items",
-        lambda _session, *, today=None, resource_keys=None: [live_item],
+        lambda _session, *, today=None, resource_keys=None: pytest.fail("page freshness must not live scan when snapshot exists"),
     )
     monkeypatch.setattr(service, "_attach_runtime_metadata", lambda _session, response: response)
 
     response = service.build_freshness(db_session, today=date(2026, 5, 15))
 
-    item = response.groups[0].items[0]
+    item = next(item for group in response.groups for item in group.items if item.dataset_key == "daily")
     assert item.freshness_status == "lagging"
     assert item.expected_business_date == date(2026, 5, 15)
 

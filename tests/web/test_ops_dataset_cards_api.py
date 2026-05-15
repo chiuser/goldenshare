@@ -23,8 +23,8 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    now = datetime(2026, 4, 24, 10, 0, tzinfo=timezone.utc)
     snapshot_date = OpsFreshnessQueryService._business_reference_date()
+    now = datetime(snapshot_date.year, snapshot_date.month, snapshot_date.day, 10, 0, tzinfo=timezone.utc)
     db_session.add_all(
         [
             DatasetStatusSnapshot(
@@ -35,9 +35,9 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
                 domain_display_name="行情",
                 target_table="core_serving.limit_list_ths",
                 cadence="daily",
-                earliest_business_date=date(2026, 4, 24),
-                latest_business_date=date(2026, 4, 24),
-                last_sync_date=date(2026, 4, 24),
+                earliest_business_date=snapshot_date,
+                latest_business_date=snapshot_date,
+                last_sync_date=snapshot_date,
                 latest_success_at=None,
                 freshness_status="fresh",
                 primary_action_key="limit_list_ths.maintain",
@@ -79,7 +79,7 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert card["cadence_display_name"] == "每日"
     assert card["raw_table_label"] == "raw_tushare.limit_list_ths"
     assert card["latest_success_at"] is None
-    assert card["last_sync_date"] == "2026-04-24"
+    assert card["last_sync_date"] == snapshot_date.isoformat()
     assert card["status"] == "healthy"
     assert card["probe_total"] == 1
     assert card["probe_active"] == 1
@@ -93,7 +93,8 @@ def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, 
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    now = datetime(2026, 5, 15, 10, 0, tzinfo=timezone.utc)
+    snapshot_date = OpsFreshnessQueryService._business_reference_date()
+    now = datetime(snapshot_date.year, snapshot_date.month, snapshot_date.day, 10, 0, tzinfo=timezone.utc)
     db_session.add_all(
         [
             DatasetStatusSnapshot(
@@ -104,13 +105,13 @@ def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, 
                 domain_display_name="股票行情",
                 target_table="core_serving.kpl_list",
                 cadence="daily",
-                earliest_business_date=date(2026, 5, 14),
-                latest_business_date=date(2026, 5, 14),
-                last_sync_date=date(2026, 5, 15),
+                earliest_business_date=snapshot_date,
+                latest_business_date=snapshot_date,
+                last_sync_date=snapshot_date,
                 latest_success_at=now,
                 freshness_status="fresh",
                 primary_action_key="kpl_list.maintain",
-                snapshot_date=OpsFreshnessQueryService._business_reference_date(),
+                snapshot_date=snapshot_date,
                 last_calculated_at=now,
             ),
         ]
@@ -132,7 +133,7 @@ def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, 
     assert cards["kpl_list"]["status"] == "healthy"
 
 
-def test_ops_dataset_cards_preserve_stale_status_instead_of_collapsing_to_failed(app_client, user_factory, db_session) -> None:
+def test_ops_dataset_cards_preserve_stale_freshness_status_for_date_based_dataset(app_client, user_factory, db_session) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -142,19 +143,19 @@ def test_ops_dataset_cards_preserve_stale_status_instead_of_collapsing_to_failed
     db_session.add_all(
         [
             DatasetStatusSnapshot(
-                dataset_key="namechange",
-                resource_key="namechange",
-                display_name="股票曾用名",
-                domain_key="reference_data",
-                domain_display_name="基础主数据",
-                target_table="core_serving_light.namechange",
+                dataset_key="limit_list_ths",
+                resource_key="limit_list_ths",
+                display_name="涨跌停列表（同花顺）",
+                domain_key="equity_market",
+                domain_display_name="股票行情",
+                target_table="core_serving.limit_list_ths",
                 cadence="daily",
                 earliest_business_date=date(2026, 4, 30),
                 latest_business_date=date(2026, 4, 30),
                 last_sync_date=date(2026, 5, 5),
                 latest_success_at=now,
                 freshness_status="stale",
-                primary_action_key="namechange.maintain",
+                primary_action_key="limit_list_ths.maintain",
                 snapshot_date=snapshot_date,
                 last_calculated_at=now,
             ),
@@ -173,7 +174,7 @@ def test_ops_dataset_cards_preserve_stale_status_instead_of_collapsing_to_failed
         for group in response.json()["groups"]
         for item in group["items"]
     }
-    assert cards["namechange"]["status"] == "stale"
+    assert cards["limit_list_ths"]["status"] == "stale"
 
 
 def test_ops_dataset_cards_uses_definition_card_grouping_for_biying_source(app_client, user_factory) -> None:

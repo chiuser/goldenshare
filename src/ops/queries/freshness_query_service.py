@@ -46,15 +46,6 @@ ON_CONFLICT_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Shared-table datasets that must be refreshed live on each page load to avoid
-# stale snapshot perception when period data just finished syncing.
-FORCE_LIVE_RESOURCE_KEYS = {
-    "stk_period_bar_week",
-    "stk_period_bar_month",
-    "stk_period_bar_adj_week",
-    "stk_period_bar_adj_month",
-}
-
 class FailureSnapshot:
     def __init__(self, *, message: str | None, occurred_at: datetime | None) -> None:
         self.message = message
@@ -72,85 +63,9 @@ class AutoScheduleSnapshot:
 class OpsFreshnessQueryService:
     def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
         reference_date = self._business_reference_date(today)
-        snapshot_response = self._build_from_snapshot(session)
-        if snapshot_response is not None and not self._snapshot_cache_is_current(session, reference_date=reference_date):
-            snapshot_response = None
+        snapshot_response = self._build_from_snapshot(session, reference_date=reference_date)
         if snapshot_response is not None:
-            all_projections = list_dataset_freshness_projections()
-            snapshot_items_by_key = {
-                item.dataset_key: item
-                for group in snapshot_response.groups
-                for item in group.items
-            }
-            snapshot_keys = set(snapshot_items_by_key)
-            missing_resource_keys = [
-                projection.resource_key
-                for projection in all_projections
-                if projection.dataset_key not in snapshot_keys
-            ]
-            live_override_resource_keys = [
-                projection.resource_key
-                for projection in all_projections
-                if projection.resource_key in FORCE_LIVE_RESOURCE_KEYS
-            ]
-            cadence_mismatch_resource_keys = [
-                projection.resource_key
-                for projection in all_projections
-                if (
-                    projection.dataset_key in snapshot_items_by_key
-                    and snapshot_items_by_key[projection.dataset_key].cadence != projection.cadence
-                )
-            ]
-            missing_business_date_resource_keys = [
-                projection.resource_key
-                for projection in all_projections
-                if (
-                    projection.observed_date_column is not None
-                    and projection.dataset_key in snapshot_items_by_key
-                    and snapshot_items_by_key[projection.dataset_key].last_sync_date is not None
-                    and snapshot_items_by_key[projection.dataset_key].latest_business_date is None
-                )
-            ]
-            missing_business_range_resource_keys = [
-                projection.resource_key
-                for projection in all_projections
-                if (
-                    projection.observed_date_column is not None
-                    and projection.dataset_key in snapshot_items_by_key
-                    and snapshot_items_by_key[projection.dataset_key].last_sync_date is not None
-                    and snapshot_items_by_key[projection.dataset_key].latest_business_date is not None
-                    and snapshot_items_by_key[projection.dataset_key].earliest_business_date is None
-                )
-            ]
-            live_refresh_resource_keys = sorted(
-                set(
-                    [
-                        *missing_resource_keys,
-                        *live_override_resource_keys,
-                        *cadence_mismatch_resource_keys,
-                        *missing_business_date_resource_keys,
-                        *missing_business_range_resource_keys,
-                    ]
-                )
-            )
-            if not live_refresh_resource_keys:
-                return self._attach_runtime_metadata(session, snapshot_response)
-
-            live_refreshed_items = self.build_live_items(session, today=reference_date, resource_keys=live_refresh_resource_keys)
-            merged_by_key = {
-                item.dataset_key: item
-                for group in snapshot_response.groups
-                for item in group.items
-            }
-            for live_item in live_refreshed_items:
-                merged_by_key[live_item.dataset_key] = live_item
-            merged_items = list(merged_by_key.values())
-            groups = self._group_items(merged_items)
-            summary = self._build_summary(merged_items)
-            return self._attach_runtime_metadata(
-                session,
-                OpsFreshnessResponse(summary=summary, groups=groups),
-            )
+            return self._attach_runtime_metadata(session, snapshot_response)
         items = self.build_live_items(session, today=reference_date)
         groups = self._group_items(items)
         summary = self._build_summary(items)
@@ -225,17 +140,6 @@ class OpsFreshnessQueryService:
             return today
         current = now or datetime.now(timezone.utc)
         return current.astimezone(BUSINESS_TIMEZONE).date()
-
-    @staticmethod
-    def _snapshot_cache_is_current(session: Session, *, reference_date: date) -> bool:
-        try:
-            snapshot_dates = list(session.scalars(select(DatasetStatusSnapshot.snapshot_date)))
-        except SQLAlchemyError:
-            session.rollback()
-            return False
-        if not snapshot_dates:
-            return False
-        return all(snapshot_date == reference_date for snapshot_date in snapshot_dates)
 
     def _build_item(
         self,
@@ -748,23 +652,74 @@ class OpsFreshnessQueryService:
                 observed_at_ranges[projection.dataset_key] = (None, None)
         return observed_ranges, observed_sync_dates, observed_at_ranges
 
-    @staticmethod
-    def _build_from_snapshot(session: Session) -> OpsFreshnessResponse | None:
+    def _build_from_snapshot(self, session: Session, *, reference_date: date | None = None) -> OpsFreshnessResponse | None:
         try:
             rows = list(session.scalars(select(DatasetStatusSnapshot).order_by(DatasetStatusSnapshot.domain_key, DatasetStatusSnapshot.display_name)))
             if not rows:
                 return None
+            business_date = self._business_reference_date(reference_date)
+            try:
+                latest_open_date = self._get_latest_open_date(session, before_or_on=business_date)
+            except SQLAlchemyError:
+                session.rollback()
+                latest_open_date = business_date
+            open_trade_dates = self._open_trade_dates(session)
             items: list[DatasetFreshnessItem] = []
             for row in rows:
                 projection = get_dataset_freshness_projection(row.resource_key)
+                if projection is None:
+                    items.append(snapshot_row_to_freshness_item(row, raw_table=None))
+                    continue
+                recent_failure = None
+                if row.recent_failure_message or row.recent_failure_at:
+                    recent_failure = FailureSnapshot(
+                        message=row.recent_failure_message,
+                        occurred_at=self._normalize_datetime(row.recent_failure_at),
+                    )
                 items.append(
-                    snapshot_row_to_freshness_item(
-                        row,
-                        raw_table=projection.raw_table if projection is not None else None,
+                    self._build_item(
+                        projection=projection,
+                        latest_success_at=row.latest_success_at,
+                        latest_open_date=latest_open_date,
+                        reference_date=business_date,
+                        expected_business_date=self._expected_business_date_for_projection(
+                            projection,
+                            reference_date=business_date,
+                            latest_open_date=latest_open_date,
+                            open_trade_dates=open_trade_dates,
+                        ),
+                        recent_failure=recent_failure,
+                        quality_note=None,
+                        observed_business_range=(row.earliest_business_date, row.latest_business_date),
+                        observed_sync_date=row.last_sync_date,
+                        observed_at_range=(row.earliest_observed_at, row.latest_observed_at),
                     )
                 )
-            groups = OpsFreshnessQueryService._group_items(items)
-            summary = OpsFreshnessQueryService._build_summary(items)
+            existing_dataset_keys = {item.dataset_key for item in items}
+            for projection in list_dataset_freshness_projections():
+                if projection.dataset_key in existing_dataset_keys:
+                    continue
+                items.append(
+                    self._build_item(
+                        projection=projection,
+                        latest_success_at=None,
+                        latest_open_date=latest_open_date,
+                        reference_date=business_date,
+                        expected_business_date=self._expected_business_date_for_projection(
+                            projection,
+                            reference_date=business_date,
+                            latest_open_date=latest_open_date,
+                            open_trade_dates=open_trade_dates,
+                        ),
+                        recent_failure=None,
+                        quality_note=None,
+                        observed_business_range=(None, None),
+                        observed_sync_date=None,
+                        observed_at_range=(None, None),
+                    )
+                )
+            groups = self._group_items(items)
+            summary = self._build_summary(items)
             return OpsFreshnessResponse(summary=summary, groups=groups)
         except SQLAlchemyError:
             session.rollback()

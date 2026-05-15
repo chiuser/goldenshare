@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
+import pytest
+
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.ops.dataset_definition_projection import DatasetFreshnessProjection
+from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
 
 def _mark_resource_success(
@@ -451,53 +453,33 @@ def test_ops_freshness_does_not_read_legacy_quality_warning_logs(
     assert "质量提醒" not in (grouped["equity_market"]["block_trade"]["freshness_note"] or "")
 
 
-def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
+def test_build_freshness_adds_unknown_placeholder_for_missing_snapshot_dataset(
     db_session,
     monkeypatch,
 ) -> None:
     service = OpsFreshnessQueryService()
-    snapshot_item = DatasetFreshnessItem(
-        dataset_key="daily",
-        resource_key="daily",
-        display_name="股票日线",
-        domain_key="equity",
-        domain_display_name="股票",
-        target_table="core.equity_daily_bar",
-        cadence="daily",
-        freshness_status="fresh",
-        primary_action_key="daily.maintain",
+    db_session.add(
+        DatasetStatusSnapshot(
+            dataset_key="daily",
+            resource_key="daily",
+            display_name="股票日线",
+            domain_key="equity",
+            domain_display_name="股票",
+            target_table="core.equity_daily_bar",
+            cadence="daily",
+            latest_business_date=date(2026, 5, 14),
+            latest_success_at=datetime(2026, 5, 15, 1, 0, tzinfo=timezone.utc),
+            last_sync_date=date(2026, 5, 15),
+            expected_business_date=date(2026, 5, 14),
+            lag_days=0,
+            freshness_status="fresh",
+            primary_action_key="daily.maintain",
+            snapshot_date=date(2026, 5, 14),
+            last_calculated_at=datetime(2026, 5, 15, 1, 1, tzinfo=timezone.utc),
+        )
     )
-    live_missing_item = DatasetFreshnessItem(
-        dataset_key="ths_hot",
-        resource_key="ths_hot",
-        display_name="同花顺热榜",
-        domain_key="ranking",
-        domain_display_name="榜单",
-        target_table="core.ths_hot",
-        cadence="daily",
-        freshness_status="unknown",
-        primary_action_key="ths_hot.maintain",
-    )
-    snapshot_response = OpsFreshnessResponse(
-        summary=OpsFreshnessSummary(
-            total_datasets=1,
-            fresh_datasets=1,
-            lagging_datasets=0,
-            stale_datasets=0,
-            unknown_datasets=0,
-            disabled_datasets=0,
-        ),
-        groups=[
-            FreshnessGroup(
-                domain_key="equity",
-                domain_display_name="股票",
-                items=[snapshot_item],
-            )
-        ],
-    )
+    db_session.commit()
 
-    monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
-    monkeypatch.setattr(service, "_snapshot_cache_is_current", lambda _session, *, reference_date: True)
     monkeypatch.setattr(
         "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
         lambda: [
@@ -530,33 +512,23 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
     monkeypatch.setattr(
         service,
         "build_live_items",
-        lambda _session, *, today=None, resource_keys=None: [live_missing_item] if resource_keys == ["ths_hot"] else [],
+        lambda _session, *, today=None, resource_keys=None: pytest.fail("page freshness must not live scan when snapshot exists"),
     )
 
-    response = service.build_freshness(db_session)
-    dataset_keys = {item.dataset_key for group in response.groups for item in group.items}
+    response = service.build_freshness(db_session, today=date(2026, 5, 15))
+    items = {item.dataset_key: item for group in response.groups for item in group.items}
+    dataset_keys = set(items)
     assert "daily" in dataset_keys
     assert "ths_hot" in dataset_keys
+    assert items["ths_hot"].freshness_status == "unknown"
 
 
-def test_build_freshness_refreshes_snapshot_when_cadence_changed(
+def test_build_freshness_rebases_cached_snapshot_with_current_projection(
     db_session,
     monkeypatch,
 ) -> None:
     service = OpsFreshnessQueryService()
-    snapshot_item = DatasetFreshnessItem(
-        dataset_key="broker_recommend",
-        resource_key="broker_recommend",
-        display_name="券商每月荐股",
-        domain_key="reference_data",
-        domain_display_name="基础主数据",
-        target_table="core_serving.broker_recommend",
-        cadence="reference",
-        latest_business_date=date(2026, 4, 1),
-        freshness_status="stale",
-        primary_action_key="broker_recommend.maintain",
-    )
-    live_item = DatasetFreshnessItem(
+    projection = DatasetFreshnessProjection(
         dataset_key="broker_recommend",
         resource_key="broker_recommend",
         display_name="券商每月荐股",
@@ -564,54 +536,46 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
         domain_display_name="基础主数据",
         target_table="core_serving.broker_recommend",
         cadence="monthly",
-        latest_business_date=date(2026, 4, 1),
-        freshness_status="fresh",
+        raw_table="raw_tushare.broker_recommend",
+        observed_date_column="month_key",
         primary_action_key="broker_recommend.maintain",
     )
-    snapshot_response = OpsFreshnessResponse(
-        summary=OpsFreshnessSummary(
-            total_datasets=1,
-            fresh_datasets=0,
-            lagging_datasets=0,
-            stale_datasets=1,
-            unknown_datasets=0,
-            disabled_datasets=0,
-        ),
-        groups=[
-            FreshnessGroup(
-                domain_key="reference_data",
-                domain_display_name="基础主数据",
-                items=[snapshot_item],
-            )
-        ],
+    db_session.add(
+        DatasetStatusSnapshot(
+            dataset_key="broker_recommend",
+            resource_key="broker_recommend",
+            display_name="券商每月荐股",
+            domain_key="reference_data",
+            domain_display_name="基础主数据",
+            target_table="core_serving.broker_recommend",
+            cadence="reference",
+            latest_business_date=date(2026, 4, 1),
+            latest_success_at=datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc),
+            last_sync_date=date(2026, 4, 1),
+            expected_business_date=date(2026, 4, 1),
+            lag_days=0,
+            freshness_status="fresh",
+            primary_action_key="broker_recommend.maintain",
+            snapshot_date=date(2026, 4, 1),
+            last_calculated_at=datetime(2026, 4, 1, 1, 1, tzinfo=timezone.utc),
+        )
     )
-
-    monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
-    monkeypatch.setattr(service, "_snapshot_cache_is_current", lambda _session, *, reference_date: True)
+    db_session.commit()
+    monkeypatch.setattr(
+        "src.ops.queries.freshness_query_service.get_dataset_freshness_projection",
+        lambda resource_key: projection if resource_key == "broker_recommend" else None,
+    )
     monkeypatch.setattr(
         "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
-        lambda: [
-            DatasetFreshnessProjection(
-                dataset_key="broker_recommend",
-                resource_key="broker_recommend",
-                display_name="券商每月荐股",
-                domain_key="reference_data",
-                domain_display_name="基础主数据",
-                target_table="core_serving.broker_recommend",
-                cadence="monthly",
-                raw_table="raw_tushare.broker_recommend",
-                observed_date_column="month_key",
-                primary_action_key="broker_recommend.maintain",
-            )
-        ],
+        lambda: [projection],
     )
     monkeypatch.setattr(
         service,
         "build_live_items",
-        lambda _session, *, today=None, resource_keys=None: [live_item] if resource_keys == ["broker_recommend"] else [],
+        lambda _session, *, today=None, resource_keys=None: pytest.fail("page freshness must not live scan when snapshot exists"),
     )
 
-    response = service.build_freshness(db_session)
+    response = service.build_freshness(db_session, today=date(2026, 4, 30))
     item = response.groups[0].items[0]
     assert item.cadence == "monthly"
-    assert item.freshness_status == "fresh"
+    assert item.raw_table == "raw_tushare.broker_recommend"

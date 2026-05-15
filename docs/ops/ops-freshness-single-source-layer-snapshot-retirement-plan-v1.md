@@ -26,10 +26,11 @@
 改造范围：
 
 1. `OpsFreshnessQueryService` 统一使用 `Asia/Shanghai` 业务日期作为 reference date。
-2. `build_freshness()` 读取 `dataset_status_snapshot` 时，若缓存不是当前业务日期或关键字段缺失，必须 live refresh 相关资源。
+2. `build_freshness()` 读取 `dataset_status_snapshot` 时，只能用缓存中的观测事实按当前北京时间业务日轻量重算展示状态；页面查询不得同步扫描真实业务表。
 3. `DatasetCardQueryService` 的 `status/freshness_status/latest_business_date/last_sync_date/expected_business_date/lag_days` 只来自 freshness item，不再用旧分层观测或页面自行拼装。
 4. 数据源页文案从“raw 状态”改为“数据集状态”，避免暗示旧原始层快照是独立事实。
 5. Step 1 不新增兼容行为，Step 2 统一删除旧分层观测链路。
+6. 真实业务表观测只能在 `ops-rebuild-dataset-status` 或任务完成后的资源刷新链路中执行，不能放进 `/ops/freshness`、`/ops/overview`、`/ops/dataset-cards` 页面请求路径。
 
 验收：
 
@@ -63,6 +64,7 @@
 2. `DatasetStatusSnapshotService` 只维护 freshness cache；迁移 `20260515_000107` 删除旧分层观测表和四个旧分层状态列。
 3. 前端数据源页、数据状态总览页、数据集详情页不再请求旧分层观测 API，也不再展示旧分层字段。
 4. 探测规则不再支持依赖旧分层行数的条件。
+5. 修正页面请求卡顿问题：混合 `snapshot_date` 不再导致查询层放弃缓存并 live 扫描全量业务表。
 
 ## 5. 每轮开始前检查
 
