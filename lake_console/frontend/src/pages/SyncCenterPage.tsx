@@ -74,7 +74,7 @@ const PROFILE_PRESENTATION: Record<string, { description: string; domain: string
     mode: "快照刷新",
   },
   stk_mins_sync: {
-    description: "股票历史分钟线阶段化流水线，当前执行到 clean_next 确认点。",
+    description: "股票历史分钟线阶段化流水线，当前执行到 derived 确认点。",
     domain: "股票分钟线专项",
     label: "股票分钟线专项 · 分阶段同步",
     mode: "分阶段同步",
@@ -452,7 +452,7 @@ export function SyncCenterPage() {
               <div className="sync-stk-mins-controls">
                 <div className="sync-cell-stack sync-cell-stack-tight">
                   <strong>股票分钟线专项参数</strong>
-                  <span>scope=all_market，mode=manual_gate；本阶段执行到 clean_next_review 后等待人工确认。</span>
+                  <span>scope=all_market，mode=manual_gate；会先停在 clean_next_review，确认后再执行到 derived_review。</span>
                 </div>
                 <div className="sync-frequency-toggle-group" aria-label="股票分钟线频率">
                   {STK_MINS_FREQ_OPTIONS.map((freq) => (
@@ -482,7 +482,7 @@ export function SyncCenterPage() {
                 {planLoading ? "生成中..." : "生成计划"}
               </button>
               <button className="sync-button sync-button-primary" disabled={!canStartSelectedPlan} onClick={handleStartRun} type="button">
-                {runLoading ? "处理中..." : isStkMinsProfile ? "执行到 clean_next" : "启动同步任务"}
+                {runLoading ? "处理中..." : isStkMinsProfile ? "开始分阶段执行" : "启动同步任务"}
               </button>
             </div>
 
@@ -490,7 +490,7 @@ export function SyncCenterPage() {
               <div className="alert warning">
                 <div>
                   {isStkMinsProfile
-                    ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate，然后停在 clean_next_review；不会生成 90/120 或 research by month。"
+                    ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate 后停在 clean_next_review；人工确认后生成 90/120 并停在 derived_review；不会重排 research by month。"
                     : "当前选择的同步配置尚未接入执行器。可以生成只读计划做预览，但不能启动写入任务。"}
                 </div>
               </div>
@@ -530,7 +530,7 @@ export function SyncCenterPage() {
               </p>
               {plan?.blockers.length ? <Badge tone="error">Blockers {plan.blockers.length}</Badge> : null}
               {plan && !plan.blockers.length && canRunSelectedScope ? <Badge tone="success">可启动</Badge> : null}
-              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">可执行到 clean_next</Badge> : null}
+              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">可执行到 derived</Badge> : null}
               {plan && !plan.blockers.length && !canRunSelectedScope && !isStkMinsProfile ? <Badge tone="warning">只读计划</Badge> : null}
             </div>
           </aside>
@@ -951,6 +951,7 @@ function RunDetailBlock({
 }) {
   const runStatus = detail.run_status || detail.status;
   const canOperatePipeline = detail.profile_key === STK_MINS_PROFILE_KEY && !isFinishedRunStatus(runStatus);
+  const canContinuePipeline = detail.requires_confirmation && detail.next_action?.action === "continue";
   return (
     <div className="sync-run-detail">
       <div className="sync-run-head">
@@ -976,7 +977,7 @@ function RunDetailBlock({
         <div className="sync-run-action-row">
           <button
             className="sync-button"
-            disabled={!detail.requires_confirmation || runActionLoading}
+            disabled={!canContinuePipeline || runActionLoading}
             onClick={() => onContinue(detail.run_id)}
             type="button"
           >

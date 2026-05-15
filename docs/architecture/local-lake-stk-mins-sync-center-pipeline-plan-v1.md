@@ -1,7 +1,7 @@
 # Local Lake 股票分钟线同步中心可视化流水线方案 v1
 
 - 版本：v1
-- 状态：已部分落地；第 1 步“后端只读计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”和第 5 步“raw + clean_next 到第一个确认点”已实现，90/120、research by month 和最终校验阶段待继续推进
+- 状态：已部分落地；第 1 步“后端只读计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”、第 5 步“raw + clean_next 到第一个确认点”和第 6 步“derived 90/120 到第二个确认点”已实现，research by month 和最终校验阶段待继续推进
 - 更新时间：2026-05-15
 - 适用范围：`lake_console` 数据湖同步中心中的 `stk_mins_sync` 专项入口
 
@@ -137,7 +137,7 @@ StkMinsPipelineState
 | 4 | `clean_next_refresh` | 刷新 clean_next | 是 | 否 | 刷新正式 clean_next 与 gate |
 | 5 | `clean_next_review` | clean_next 结果确认 | 否 | 是 | 运营查看 raw/clean/gate 结果后确认是否继续 |
 | 6 | `derived_90_120_build` | 生成 90/120 分钟线 | 是 | 否 | 生成 derived 层 `90/120min` |
-| 7 | `derived_review` | derived 结果确认 | 否 | 是 | 运营查看 90/120 结果后确认是否继续 |
+| 7 | `derived_review` | derived 结果确认 | 否 | 是 | 运营查看 90/120 结果；research by month 尚未接入前只展示待接入状态 |
 | 8 | `research_month_rebuild` | 重排 research by month | 是 | 否 | 重排 `research/stk_mins_by_symbol_month` |
 | 9 | `final_validation` | 最终校验 | 否 | 否 | 检查 raw/clean/gate/derived/research 是否对齐 |
 
@@ -439,7 +439,7 @@ flowchart TD
 | 阶段 | 按钮文案 |
 | --- | --- |
 | `clean_next_review` | `继续生成 90/120` |
-| `derived_review` | `继续重排 research by month` |
+| `derived_review` | `research by month 待接入`，不可点击继续 |
 | 任意确认态 | `停止后续写入` |
 
 ### 9.4 详情抽屉
@@ -614,7 +614,7 @@ path_missing_before_write
 
 第一步只做文档评审，不写代码。
 
-2026-05-15 开发进度：第 1 步“后端计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”和第 5 步“raw + clean_next 到第一个确认点”已落地。当前 `stk_mins_sync` 支持生成只读计划，返回 `pipeline_stages`、`affected_trade_dates`、`affected_months`、`backup_plan`、`warnings` 等字段；前端只展示后端返回的阶段标题、状态、摘要和指标，不拼接路径、不推断阶段结论；创建 run 会获取同步中心锁、执行 Kopia 写前备份、调用现有 `TushareStkMinsSyncService.sync_range()` 完成 raw 写入与 clean_next/gate 刷新，然后释放锁并停在 `clean_next_review` 等待人工确认；仍不生成 90/120、不重排 research by month、不触发技术指标。
+2026-05-15 开发进度：第 1 步“后端计划模型与 API 契约”、第 2 步“前端阶段化展示，只接只读 plan”、第 3 步“状态型 run 与人工确认/停止契约”、第 4 步“Kopia 写前备份”、第 5 步“raw + clean_next 到第一个确认点”和第 6 步“derived 90/120 到第二个确认点”已落地。当前 `stk_mins_sync` 支持生成只读计划，返回 `pipeline_stages`、`affected_trade_dates`、`affected_months`、`backup_plan`、`warnings` 等字段；前端只展示后端返回的阶段标题、状态、摘要和指标，不拼接路径、不推断阶段结论；创建 run 会获取同步中心锁、执行 Kopia 写前备份、调用现有 `TushareStkMinsSyncService.sync_range()` 完成 raw 写入与 clean_next/gate 刷新，然后释放锁并停在 `clean_next_review` 等待人工确认；人工确认后会重新获取同步中心锁，调用现有 `StkMinsDerivedService.derive_range()` 从 clean_next 生成 90/120，再释放锁并停在 `derived_review` 等待人工确认；仍不重排 research by month、不触发技术指标。
 
 后续建议按以下顺序推进：
 

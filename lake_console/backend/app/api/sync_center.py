@@ -39,15 +39,18 @@ from lake_console.backend.app.services.stk_mins_pipeline_run_state import (
     StkMinsPipelineRunNotWaitingConfirmationError,
     abort_pipeline_run,
     build_initial_pipeline_run,
+    complete_derived_90_120_stage,
     complete_prewrite_backup_stage,
     complete_raw_and_clean_next_stages,
     continue_pipeline_run,
     fail_pipeline_stage,
     fail_prewrite_backup_stage,
     normalize_run_detail,
+    start_derived_90_120_stage,
     start_prewrite_backup_stage,
     start_raw_sync_stage,
 )
+from lake_console.backend.app.services.stk_mins_derived_service import StkMinsDerivedService
 from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
 from lake_console.backend.app.services.sync_recommendation_service import SyncRecommendationService
 from lake_console.backend.app.services.sync_center_profiles import ProfileDisabledError, SyncProfileCatalog, SyncProfilePlanner
@@ -390,36 +393,103 @@ def list_run_events(
 def continue_run(run_id: str, request: SyncRunContinueRequest) -> SyncRunDetailResponse:
     if not request.confirm_continue:
         raise _api_error(status_code=400, code="CONTINUE_CONFIRMATION_REQUIRED", message="继续前必须显式确认。")
-    store = _state_store()
+    settings = _settings()
+    store = LakeJobStateStore(settings.lake_root)
+    lock_service = LakeJobLockService(store)
     run = _load_stk_mins_pipeline_run(store=store, run_id=run_id)
+    current_stage_key = str(run.get("current_stage_key") or "")
+    if current_stage_key != "clean_next_review":
+        raise _api_error(
+            status_code=409,
+            code="STK_MINS_PIPELINE_STAGE_NOT_IMPLEMENTED",
+            message="当前只支持从 clean_next_review 继续到 derived 90/120；后续 research by month 阶段尚未接入。",
+            context={"current_stage_key": current_stage_key},
+        )
     try:
         next_run = continue_pipeline_run(run=run, operator=request.operator)
     except StkMinsPipelineRunAlreadyFinishedError as exc:
         raise _api_error(status_code=409, code="RUN_ALREADY_FINISHED", message=str(exc)) from exc
     except StkMinsPipelineRunNotWaitingConfirmationError as exc:
         raise _api_error(status_code=409, code="RUN_NOT_WAITING_CONFIRMATION", message=str(exc)) from exc
-    store.write_run(next_run)
-    store.append_event(
-        run_id,
-        {
-            "event_type": "pipeline_continue_confirmed",
-            "stage_key": run.get("current_stage_key"),
-            "message": next_run["progress"]["summary"],
-            "metrics": {"current_stage_key": next_run.get("current_stage_key")},
-        },
-    )
-    store.write_current(
-        _current_payload(
-            run_id=run_id,
-            profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
-            status=next_run["run_status"],
-            summary=next_run["progress"]["summary"],
-            current_stage_key=next_run.get("current_stage_key"),
-            requires_confirmation=bool(next_run.get("requires_confirmation")),
-            next_action=next_run.get("next_action"),
+
+    if next_run.get("current_stage_key") != "derived_90_120_build":
+        raise _api_error(
+            status_code=409,
+            code="STK_MINS_DERIVED_STAGE_UNAVAILABLE",
+            message="clean_next 确认后没有可执行的 derived 90/120 阶段，本轮不会继续推进。",
+            context={"next_stage_key": next_run.get("current_stage_key")},
         )
-    )
-    return SyncRunDetailResponse(**normalize_run_detail(next_run))
+    parameters = _stk_mins_pipeline_parameters(run=run, store=store)
+    derived_freqs = [int(item) for item in parameters.get("derived_freqs") or []]
+    if not derived_freqs:
+        raise _api_error(
+            status_code=409,
+            code="STK_MINS_DERIVED_TARGETS_EMPTY",
+            message="本轮计划没有 90/120 派生目标，不能执行 derived 阶段。",
+            context={"current_stage_key": current_stage_key},
+        )
+
+    try:
+        lock_service.acquire(run_id=run_id, profile_key=STK_MINS_PIPELINE_PROFILE_KEY)
+    except LakeJobLockBusyError as exc:
+        raise _api_error(
+            status_code=409,
+            code="LOCK_BUSY",
+            message="已有 Lake 写入任务运行或 stale，不能继续执行 derived 90/120。",
+            context={"lock": exc.lock_payload},
+        ) from exc
+
+    try:
+        derived_running = start_derived_90_120_stage(run=next_run)
+        store.write_run(derived_running)
+        store.append_event(
+            run_id,
+            {
+                "event_type": "pipeline_continue_confirmed",
+                "stage_key": current_stage_key,
+                "message": next_run["progress"]["summary"],
+                "metrics": {"current_stage_key": derived_running.get("current_stage_key")},
+            },
+        )
+        store.append_event(
+            run_id,
+            {
+                "event_type": "derived_90_120_started",
+                "stage_key": "derived_90_120_build",
+                "message": derived_running["progress"]["summary"],
+                "metrics": {
+                    "derived_freqs": derived_freqs,
+                    "start_date": parameters.get("start_date"),
+                    "end_date": parameters.get("end_date"),
+                },
+            },
+        )
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                status=derived_running["run_status"],
+                summary=derived_running["progress"]["summary"],
+                current_stage_key=derived_running.get("current_stage_key"),
+                requires_confirmation=bool(derived_running.get("requires_confirmation")),
+                next_action=derived_running.get("next_action"),
+            )
+        )
+        _start_background_task(
+            _run_stk_mins_derived_90_120_pipeline,
+            settings=settings,
+            run_id=run_id,
+            parameters=parameters,
+        )
+    except Exception:
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
+        raise
+
+    latest_payload = normalize_run_detail(store.read_run(run_id) or derived_running)
+    return SyncRunDetailResponse(**latest_payload)
 
 
 @router.post("/runs/{run_id}/abort", response_model=SyncRunDetailResponse)
@@ -729,6 +799,71 @@ def _run_stk_mins_raw_clean_next_pipeline(*, settings: Any, run_id: str, plan: d
             pass
 
 
+def _run_stk_mins_derived_90_120_pipeline(*, settings: Any, run_id: str, parameters: dict[str, Any]) -> None:
+    store = LakeJobStateStore(settings.lake_root)
+    lock_service = LakeJobLockService(store)
+    try:
+        current_run = normalize_run_detail(store.read_run(run_id) or {})
+        service = StkMinsDerivedService(
+            lake_root=settings.lake_root,
+            progress=lambda event: store.append_event(run_id, _stk_mins_derived_progress_event(event)),
+        )
+        summary = service.derive_range(
+            start_date=date.fromisoformat(str(parameters["start_date"])),
+            end_date=date.fromisoformat(str(parameters["end_date"])),
+            targets=[int(item) for item in parameters.get("derived_freqs") or []],
+        )
+        latest_run = normalize_run_detail(store.read_run(run_id) or current_run)
+        next_run = complete_derived_90_120_stage(run=latest_run, summary=summary)
+        store.write_run(next_run)
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                status=next_run["run_status"],
+                summary=next_run["progress"]["summary"],
+                current_stage_key=next_run.get("current_stage_key"),
+                requires_confirmation=bool(next_run.get("requires_confirmation")),
+                next_action=next_run.get("next_action"),
+            )
+        )
+        store.append_event(
+            run_id,
+            {
+                "event_type": "derived_review_waiting",
+                "stage_key": "derived_review",
+                "message": next_run["progress"]["summary"],
+                "metrics": {
+                    "source_rows": summary.get("source_rows"),
+                    "written_rows": summary.get("written_rows"),
+                    "trade_date_count": summary.get("trade_date_count"),
+                    "targets": summary.get("targets") or [],
+                },
+            },
+        )
+    except Exception as exc:
+        latest_run = normalize_run_detail(store.read_run(run_id) or {"run_id": run_id, "profile_key": STK_MINS_PIPELINE_PROFILE_KEY})
+        error = {"code": "STK_MINS_DERIVED_90_120_FAILED", "message": str(exc)}
+        failed_run = fail_pipeline_stage(run=latest_run, stage_key="derived_90_120_build", error=error)
+        store.write_run(failed_run)
+        store.append_event(
+            run_id,
+            {
+                "event_type": "derived_90_120_failed",
+                "level": "error",
+                "stage_key": "derived_90_120_build",
+                "message": str(exc),
+                "error": error,
+            },
+        )
+        store.write_current(_idle_current_payload(summary=failed_run["progress"]["summary"]))
+    finally:
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
+
+
 def _stk_mins_progress_event(event: str | StkMinsProgressEvent) -> dict[str, Any]:
     if isinstance(event, StkMinsProgressEvent):
         return {
@@ -758,8 +893,25 @@ def _stk_mins_progress_event(event: str | StkMinsProgressEvent) -> dict[str, Any
     }
 
 
+def _stk_mins_derived_progress_event(event: str) -> dict[str, Any]:
+    return {
+        "event_type": "derived_90_120_progress",
+        "stage_key": "derived_90_120_build",
+        "dataset_key": "stk_mins",
+        "message": str(event),
+    }
+
+
 def _start_background_task(target, **kwargs: Any) -> None:
     Thread(target=target, kwargs=kwargs, daemon=True).start()
+
+
+def _stk_mins_pipeline_parameters(*, run: dict[str, Any], store: LakeJobStateStore) -> dict[str, Any]:
+    parameters = dict(run.get("normalized_parameters") or {})
+    if parameters:
+        return parameters
+    plan = store.read_plan(str(run.get("plan_token") or ""))
+    return dict(plan.get("normalized_parameters") or {})
 
 
 def _load_stk_mins_pipeline_run(*, store: LakeJobStateStore, run_id: str) -> dict[str, Any]:
