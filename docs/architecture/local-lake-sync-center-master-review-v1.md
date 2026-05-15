@@ -58,6 +58,8 @@
 | `index_mins_sync` | 指数分钟线也应单独做，不和股票分钟线共用一个入口。 |
 | `indicator_compute` | 技术指标计算不是远程 DB 同步，应作为单独计算中心能力。 |
 
+2026-05-15 补充：`stk_mins_sync` 后续不应做成黑盒“一键命令”。它应作为同步中心里的专项可视化流水线，按 raw 同步、clean_next 与 gate、90/120 分钟派生、research by month、最终校验分阶段展示，并在关键节点允许运营确认是否继续。专项方案见 [Local Lake 股票分钟线同步中心可视化流水线方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-stk-mins-sync-center-pipeline-plan-v1.md)。
+
 ## 4. 当前代码能力审计
 
 本节基于当前代码逐项核对，不按文档想象。
@@ -406,6 +408,8 @@ API 不做大接口。每个接口只服务一个页面动作：
 1. `stk_mins_sync`：必须读取独立的 clean_next 链路设计，不能复用普通 prod_db_daily。
 2. `index_mins_sync`：必须单独设计 active pool、source、分区和 refresh 规则。
 3. `indicator_compute`：只做指标计算，不属于远程 DB 同步。
+
+`stk_mins_sync` 的推进方式已单独收口：它不是普通 profile runner 的一个数据集任务，而是同步中心里的阶段化流水线。页面必须显示每个阶段、阶段结果和人工确认点；前端不得自行拼接路径、行数、状态或下一步动作。
 
 ## 10. 开发路径与 Milestone
 

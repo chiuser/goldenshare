@@ -14,6 +14,8 @@ from lake_console.backend.app.schemas import (
     SyncRecommendationResponse,
     SyncReleaseStaleLockRequest,
     SyncReleaseStaleLockResponse,
+    SyncRunAbortRequest,
+    SyncRunContinueRequest,
     SyncRunDetailResponse,
     SyncRunEventListResponse,
     SyncRunRequest,
@@ -29,6 +31,18 @@ from lake_console.backend.app.services.lake_job_state import (
     PlanNotFoundError,
     new_plan_token,
     new_run_id,
+)
+from lake_console.backend.app.services.stk_mins_pipeline_planner import STK_MINS_PIPELINE_PROFILE_KEY, StkMinsPipelinePlanner
+from lake_console.backend.app.services.stk_mins_pipeline_run_state import (
+    StkMinsPipelineRunAlreadyFinishedError,
+    StkMinsPipelineRunNotWaitingConfirmationError,
+    abort_pipeline_run,
+    build_initial_pipeline_run,
+    complete_prewrite_backup_stage,
+    continue_pipeline_run,
+    fail_prewrite_backup_stage,
+    normalize_run_detail,
+    start_prewrite_backup_stage,
 )
 from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
 from lake_console.backend.app.services.sync_recommendation_service import SyncRecommendationService
@@ -54,6 +68,7 @@ def get_lock() -> SyncLockResponse:
 @router.get("/recommendations", response_model=SyncRecommendationResponse)
 def get_recommendations(profile_key: str = Query(default="prod_db_daily")) -> SyncRecommendationResponse:
     settings = _settings()
+    completed_payload: dict[str, Any] | None = None
     try:
         payload = SyncRecommendationService(lake_root=settings.lake_root).build(profile_key=profile_key)
     except ValueError as exc:
@@ -81,19 +96,40 @@ def create_plan(profile_key: str, request: SyncPlanRequest) -> SyncPlanResponse:
             code="INVALID_DATE_RANGE",
             message="end_date 不能早于 start_date。",
         )
-
-    try:
-        plan_payload = planner.build_plan(
-            profile_key=profile_key,
-            dataset_keys=request.dataset_keys,
-            target_date=target_date,
-            start_date=start_date,
-            end_date=end_date,
+    if profile_key != STK_MINS_PIPELINE_PROFILE_KEY and (request.freqs is not None or request.scope is not None or request.mode is not None):
+        raise _api_error(
+            status_code=400,
+            code="PROFILE_PARAMETER_NOT_ALLOWED",
+            message="freqs、scope、mode 只允许用于 stk_mins_sync。",
         )
-    except ProfileDisabledError as exc:
-        raise _api_error(status_code=400, code="PROFILE_DISABLED", message=str(exc)) from exc
-    except ValueError as exc:
-        raise _api_error(status_code=400, code="DATASET_NOT_ALLOWED", message=str(exc)) from exc
+
+    if profile_key == STK_MINS_PIPELINE_PROFILE_KEY:
+        try:
+            if target_date is not None:
+                raise ValueError("stk_mins_sync 计划必须使用 start_date/end_date，不支持 target_date。")
+            plan_payload = StkMinsPipelinePlanner(lake_root=settings.lake_root).build_plan(
+                dataset_keys=request.dataset_keys,
+                start_date=start_date,
+                end_date=end_date,
+                freqs=request.freqs,
+                scope=request.scope,
+                mode=request.mode,
+            )
+        except ValueError as exc:
+            raise _api_error(status_code=400, code="INVALID_STK_MINS_PIPELINE_PLAN", message=str(exc)) from exc
+    else:
+        try:
+            plan_payload = planner.build_plan(
+                profile_key=profile_key,
+                dataset_keys=request.dataset_keys,
+                target_date=target_date,
+                start_date=start_date,
+                end_date=end_date,
+            )
+        except ProfileDisabledError as exc:
+            raise _api_error(status_code=400, code="PROFILE_DISABLED", message=str(exc)) from exc
+        except ValueError as exc:
+            raise _api_error(status_code=400, code="DATASET_NOT_ALLOWED", message=str(exc)) from exc
 
     token = new_plan_token()
     expires_at = datetime.now(timezone.utc) + timedelta(minutes=15)
@@ -141,6 +177,16 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             message="计划仍存在 blockers，不能启动 run。",
             context={"blockers": blockers},
         )
+    profile_key = str(plan["profile_key"])
+    if profile_key == STK_MINS_PIPELINE_PROFILE_KEY:
+        return _start_stk_mins_pipeline_state_run(
+            settings=settings,
+            store=store,
+            lock_service=lock_service,
+            plan=plan,
+            plan_token=request.plan_token,
+        )
+
     try:
         SyncProfileRunner.validate_plan(plan=plan)
     except SyncProfileRunnerError as exc:
@@ -151,7 +197,6 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             context={"profile_key": plan.get("profile_key"), "dataset_plans": plan.get("dataset_plans") or []},
         ) from exc
 
-    profile_key = str(plan["profile_key"])
     run_id = new_run_id(profile_key)
     started_at = _utc_now_iso()
     run_payload = {
@@ -159,9 +204,14 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
         "profile_key": profile_key,
         "plan_token": request.plan_token,
         "status": "planned",
+        "run_status": "planned",
         "started_at": started_at,
         "finished_at": None,
         "backup": None,
+        "pipeline_stages": [],
+        "current_stage_key": None,
+        "requires_confirmation": False,
+        "next_action": None,
         "progress": {
             "summary": "任务已创建，等待获取写入锁。",
             "current_dataset_key": None,
@@ -182,7 +232,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
 
     backup: dict[str, Any] | None = None
     try:
-        store.write_run({**run_payload, "status": "lock_acquired"})
+        store.write_run({**run_payload, "status": "lock_acquired", "run_status": "lock_acquired"})
         store.write_current(_current_payload(run_id=run_id, profile_key=profile_key, status="backup_running", summary="已拿到写入锁，正在创建 Kopia 预写备份。"))
         store.append_event(run_id, {"event_type": "run_started", "message": "Sync Center run 已启动。"})
         store.append_event(run_id, {"event_type": "lock_acquired", "message": "已获取 Lake 写入锁。"})
@@ -208,7 +258,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
                 },
             },
         )
-        store.write_run({**run_payload, "status": "running", "backup": backup})
+        store.write_run({**run_payload, "status": "running", "run_status": "running", "backup": backup})
         store.write_current(
             _current_payload(
                 run_id=run_id,
@@ -226,6 +276,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
         final_payload = {
             **run_payload,
             "status": "success",
+            "run_status": "success",
             "finished_at": _utc_now_iso(),
             "backup": backup,
             "progress": runner_result.get("progress") or {},
@@ -239,6 +290,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
         failed = {
             **run_payload,
             "status": "backup_failed",
+            "run_status": "backup_failed",
             "finished_at": _utc_now_iso(),
             "errors": [{"code": "KOPIA_BACKUP_FAILED", "message": str(exc)}],
         }
@@ -255,6 +307,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
         failed = {
             **run_payload,
             "status": "failed",
+            "run_status": "failed",
             "finished_at": _utc_now_iso(),
             "backup": backup,
             "errors": [{"code": "SYNC_PROFILE_RUNNER_FAILED", "message": str(exc)}],
@@ -272,6 +325,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
         failed = {
             **run_payload,
             "status": "failed",
+            "run_status": "failed",
             "finished_at": _utc_now_iso(),
             "backup": backup,
             "errors": [{"code": "SYNC_PROFILE_RUNNER_UNEXPECTED_ERROR", "message": str(exc)}],
@@ -295,6 +349,7 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
         run_id=run_id,
         profile_key=profile_key,
         status="success",
+        run_status="success",
         lock=LakeJobLockService(store).get_lock(),
         detail_url=f"/api/lake/sync/runs/{run_id}",
         events_url=f"/api/lake/sync/runs/{run_id}/events",
@@ -311,7 +366,7 @@ def get_run(run_id: str) -> SyncRunDetailResponse:
     run = _state_store().read_run(run_id)
     if run is None:
         raise _api_error(status_code=404, code="RUN_NOT_FOUND", message=f"未找到 run：{run_id}")
-    return SyncRunDetailResponse(**run)
+    return SyncRunDetailResponse(**normalize_run_detail(run))
 
 
 @router.get("/runs/{run_id}/events", response_model=SyncRunEventListResponse)
@@ -323,6 +378,64 @@ def list_run_events(
     if _state_store().read_run(run_id) is None:
         raise _api_error(status_code=404, code="RUN_NOT_FOUND", message=f"未找到 run：{run_id}")
     return SyncRunEventListResponse(**_state_store().list_events(run_id, cursor=cursor, limit=limit))
+
+
+@router.post("/runs/{run_id}/continue", response_model=SyncRunDetailResponse)
+def continue_run(run_id: str, request: SyncRunContinueRequest) -> SyncRunDetailResponse:
+    if not request.confirm_continue:
+        raise _api_error(status_code=400, code="CONTINUE_CONFIRMATION_REQUIRED", message="继续前必须显式确认。")
+    store = _state_store()
+    run = _load_stk_mins_pipeline_run(store=store, run_id=run_id)
+    try:
+        next_run = continue_pipeline_run(run=run, operator=request.operator)
+    except StkMinsPipelineRunAlreadyFinishedError as exc:
+        raise _api_error(status_code=409, code="RUN_ALREADY_FINISHED", message=str(exc)) from exc
+    except StkMinsPipelineRunNotWaitingConfirmationError as exc:
+        raise _api_error(status_code=409, code="RUN_NOT_WAITING_CONFIRMATION", message=str(exc)) from exc
+    store.write_run(next_run)
+    store.append_event(
+        run_id,
+        {
+            "event_type": "pipeline_continue_confirmed",
+            "stage_key": run.get("current_stage_key"),
+            "message": next_run["progress"]["summary"],
+            "metrics": {"current_stage_key": next_run.get("current_stage_key")},
+        },
+    )
+    store.write_current(
+        _current_payload(
+            run_id=run_id,
+            profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+            status=next_run["run_status"],
+            summary=next_run["progress"]["summary"],
+            current_stage_key=next_run.get("current_stage_key"),
+            requires_confirmation=bool(next_run.get("requires_confirmation")),
+            next_action=next_run.get("next_action"),
+        )
+    )
+    return SyncRunDetailResponse(**normalize_run_detail(next_run))
+
+
+@router.post("/runs/{run_id}/abort", response_model=SyncRunDetailResponse)
+def abort_run(run_id: str, request: SyncRunAbortRequest) -> SyncRunDetailResponse:
+    store = _state_store()
+    run = _load_stk_mins_pipeline_run(store=store, run_id=run_id)
+    try:
+        next_run = abort_pipeline_run(run=run, reason=request.reason)
+    except StkMinsPipelineRunAlreadyFinishedError as exc:
+        raise _api_error(status_code=409, code="RUN_ALREADY_FINISHED", message=str(exc)) from exc
+    store.write_run(next_run)
+    store.append_event(
+        run_id,
+        {
+            "event_type": "pipeline_aborted",
+            "level": "warning",
+            "stage_key": run.get("current_stage_key"),
+            "message": request.reason,
+        },
+    )
+    store.write_current(_idle_current_payload(summary=f"stk_mins_sync 已停止：{request.reason}"))
+    return SyncRunDetailResponse(**normalize_run_detail(next_run))
 
 
 @router.post("/lock/release-stale", response_model=SyncReleaseStaleLockResponse)
@@ -353,6 +466,164 @@ def _state_store() -> LakeJobStateStore:
     return LakeJobStateStore(_settings().lake_root)
 
 
+def _start_stk_mins_pipeline_state_run(
+    *,
+    settings: Any,
+    store: LakeJobStateStore,
+    lock_service: LakeJobLockService,
+    plan: dict[str, Any],
+    plan_token: str,
+) -> SyncRunResponse:
+    run_id = new_run_id(STK_MINS_PIPELINE_PROFILE_KEY)
+    run_payload = build_initial_pipeline_run(
+        plan=plan,
+        plan_token=plan_token,
+        run_id=run_id,
+        started_at=_utc_now_iso(),
+    )
+    try:
+        lock_service.acquire(run_id=run_id, profile_key=STK_MINS_PIPELINE_PROFILE_KEY)
+    except LakeJobLockBusyError as exc:
+        raise _api_error(
+            status_code=409,
+            code="LOCK_BUSY",
+            message="已有 Lake 写入任务运行或 stale，不能启动新任务。",
+            context={"lock": exc.lock_payload},
+        ) from exc
+
+    try:
+        store.write_run(run_payload)
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                status=run_payload["run_status"],
+                summary=run_payload["progress"]["summary"],
+                current_stage_key=run_payload.get("current_stage_key"),
+                requires_confirmation=bool(run_payload.get("requires_confirmation")),
+                next_action=run_payload.get("next_action"),
+            )
+        )
+        store.append_event(
+            run_id,
+            {
+                "event_type": "pipeline_run_created",
+                "stage_key": run_payload.get("current_stage_key"),
+                "message": run_payload["progress"]["summary"],
+                "metrics": {
+                    "stage_count": len(run_payload.get("pipeline_stages") or []),
+                    "state_only": True,
+                },
+            },
+        )
+        backup_running_payload = start_prewrite_backup_stage(run=run_payload)
+        store.write_run(backup_running_payload)
+        store.write_current(
+            _current_payload(
+                run_id=run_id,
+                profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+                status=backup_running_payload["run_status"],
+                summary=backup_running_payload["progress"]["summary"],
+                current_stage_key=backup_running_payload.get("current_stage_key"),
+                requires_confirmation=bool(backup_running_payload.get("requires_confirmation")),
+                next_action=backup_running_payload.get("next_action"),
+            )
+        )
+        store.append_event(
+            run_id,
+            {
+                "event_type": "backup_started",
+                "stage_key": "prewrite_backup",
+                "message": "开始创建 Kopia prewrite snapshot。",
+            },
+        )
+        backup_service = KopiaPrewriteBackupService(
+            lake_root=settings.lake_root,
+            kopia_bin=settings.kopia_bin,
+            kopia_config_path=settings.kopia_config_path,
+            kopia_password=settings.kopia_password,
+        )
+        backup = backup_service.create_prewrite_backup(
+            run_id=run_id,
+            profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+            backup_plan=plan.get("backup_plan") or {},
+        )
+        store.write_backup_record(run_id, backup)
+        completed_payload = complete_prewrite_backup_stage(run=backup_running_payload, backup=backup)
+        store.write_run(completed_payload)
+        store.write_current(_idle_current_payload(summary=completed_payload["progress"]["summary"]))
+        store.append_event(
+            run_id,
+            {
+                "event_type": "backup_completed",
+                "stage_key": "prewrite_backup",
+                "message": completed_payload["progress"]["summary"],
+                "metrics": {
+                    "snapshot_count": len(backup.get("snapshot_ids") or []),
+                    "snapshot_path_count": len(backup.get("snapshot_paths") or []),
+                    "backup_path_count": len(backup.get("backup_paths") or []),
+                    "path_missing_before_write_count": len(backup.get("path_missing_before_write") or []),
+                },
+            },
+        )
+    except KopiaPrewriteBackupError as exc:
+        error = {"code": "KOPIA_BACKUP_FAILED", "message": str(exc)}
+        failed_payload = fail_prewrite_backup_stage(run=run_payload, error=error)
+        store.write_run(failed_payload)
+        store.append_event(
+            run_id,
+            {
+                "event_type": "backup_failed",
+                "level": "error",
+                "stage_key": "prewrite_backup",
+                "message": str(exc),
+                "error": error,
+            },
+        )
+        store.write_current(_idle_current_payload(summary=failed_payload["progress"]["summary"]))
+        raise _api_error(
+            status_code=503,
+            code="KOPIA_BACKUP_FAILED",
+            message="Kopia prewrite snapshot 创建失败，未执行任何写入。",
+            context={"run_id": run_id, "error": str(exc)},
+        ) from exc
+    finally:
+        try:
+            lock_service.release(run_id=run_id)
+        except LakeJobStateError:
+            pass
+    if completed_payload is None:
+        raise _api_error(
+            status_code=500,
+            code="STK_MINS_PIPELINE_BACKUP_STATE_MISSING",
+            message="stk_mins_sync 写前备份状态缺失。",
+            context={"run_id": run_id},
+        )
+    return SyncRunResponse(
+        run_id=run_id,
+        profile_key=STK_MINS_PIPELINE_PROFILE_KEY,
+        status=completed_payload["status"],
+        run_status=completed_payload["run_status"],
+        lock=LakeJobLockService(store).get_lock(),
+        detail_url=f"/api/lake/sync/runs/{run_id}",
+        events_url=f"/api/lake/sync/runs/{run_id}/events",
+    )
+
+
+def _load_stk_mins_pipeline_run(*, store: LakeJobStateStore, run_id: str) -> dict[str, Any]:
+    run = store.read_run(run_id)
+    if run is None:
+        raise _api_error(status_code=404, code="RUN_NOT_FOUND", message=f"未找到 run：{run_id}")
+    if str(run.get("profile_key") or "") != STK_MINS_PIPELINE_PROFILE_KEY:
+        raise _api_error(
+            status_code=400,
+            code="RUN_ACTION_PROFILE_NOT_SUPPORTED",
+            message="continue/abort 当前只支持 stk_mins_sync 阶段化 run。",
+            context={"profile_key": run.get("profile_key")},
+        )
+    return normalize_run_detail(run)
+
+
 def _parse_date(value: str | None, *, field_name: str) -> date | None:
     if value is None:
         return None
@@ -366,7 +637,16 @@ def _api_error(*, status_code: int, code: str, message: str, context: dict[str, 
     return HTTPException(status_code=status_code, detail={"code": code, "message": message, "context": context or {}})
 
 
-def _current_payload(*, run_id: str, profile_key: str, status: str, summary: str) -> dict[str, Any]:
+def _current_payload(
+    *,
+    run_id: str,
+    profile_key: str,
+    status: str,
+    summary: str,
+    current_stage_key: str | None = None,
+    requires_confirmation: bool = False,
+    next_action: dict[str, Any] | None = None,
+) -> dict[str, Any]:
     return {
         "active_run_id": run_id,
         "profile_key": profile_key,
@@ -376,6 +656,9 @@ def _current_payload(*, run_id: str, profile_key: str, status: str, summary: str
         "progress_summary": summary,
         "current_dataset_key": None,
         "current_partition": None,
+        "current_stage_key": current_stage_key,
+        "requires_confirmation": requires_confirmation,
+        "next_action": next_action,
     }
 
 
@@ -389,6 +672,9 @@ def _idle_current_payload(*, summary: str) -> dict[str, Any]:
         "progress_summary": summary,
         "current_dataset_key": None,
         "current_partition": None,
+        "current_stage_key": None,
+        "requires_confirmation": False,
+        "next_action": None,
     }
 
 

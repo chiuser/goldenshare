@@ -57,7 +57,7 @@ lake_console/
 
 1. 不承载生产 Ops 页面。
 2. 不接生产 `/api/v1/ops/**`。
-3. 不读写 `ops.task_run`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
+3. 不读写 `ops.task_run`、`ops.dataset_status_snapshot` 或任何已退场的 Ops 观测表。
 4. 不参与远程服务器生产部署。
 5. 不参与生产前端 build。
 6. 不挂到 `src/app/web`。
@@ -137,7 +137,7 @@ goldenshare/
 2. `lake_console` 不允许 import `frontend/src/**`。
 3. `lake_console` 不允许 import `src/ops/**`。
 4. `lake_console` 不允许 import `src/app/**` 的生产运行入口。
-5. `lake_console` 不允许依赖 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
+5. `lake_console` 不允许依赖 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot` 或任何已退场的 Ops 观测表。
 6. `lake_console` 默认不允许对远程 `goldenshare-db` 做任何读写操作；当前仅允许两种只读例外：
    - `prod-raw-db`：从 `raw_tushare` 白名单表导出源站字段；
    - `prod-core-db`：当前仅允许 `index_daily` 从 `core_serving.index_daily_serving` 读取，并映射回 Tushare 字段口径。
@@ -349,6 +349,14 @@ raw_tushare/stk_mins_by_date/freq=30/trade_date=2026-04-24/
 3. `derived` 展示为本地派生周期层，适合 90/120 分钟线等本地计算结果。
 4. `research` 展示为研究查询优化层，适合单股长周期回测和少数股票相似性分析。
 5. 分区列表按 layer 分组展示，避免用户把三层数据混用。
+
+同步中心专项补充：
+
+1. `stk_mins` 从 raw 到 clean_next、90/120 派生、research by month 的维护链路不应做成黑盒一键命令。
+2. 后续应在 Sync Center 中以 `stk_mins_sync` 专项 profile 展示为阶段化流水线。
+3. 每个阶段必须由后端返回完整状态、结果、问题和下一步动作，前端只展示，不拼接事实字段。
+4. clean_next 与 derived 完成后默认设置人工确认点，运营确认后再继续后续写入。
+5. 详细方案见 [Local Lake 股票分钟线同步中心可视化流水线方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-stk-mins-sync-center-pipeline-plan-v1.md)。
 
 ### M7：Kopia 集成恢复管理与前端恢复页
 

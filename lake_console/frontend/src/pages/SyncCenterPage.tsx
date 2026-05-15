@@ -9,15 +9,17 @@ import { PageHeader } from "../components/PageHeader";
 import { Panel } from "../components/Panel";
 import { SectionCard } from "../components/SectionCard";
 import { useSyncCenterStatus, useSyncRecommendations, useSyncRunArtifacts } from "../hooks/useSyncCenterData";
-import { createSyncPlan, startSyncRun } from "../services/lakeApi";
+import { abortSyncRun, continueSyncRun, createSyncPlan, startSyncRun } from "../services/lakeApi";
 import type {
   SyncLock,
   SyncPlanDatasetPlan,
   SyncPlanIssue,
   SyncPlanResponse,
+  SyncPipelineStage,
   SyncProfileSummary,
   SyncRecommendationItem,
   SyncRecommendationPlanHint,
+  SyncRunDetail,
   SyncRunEvent,
 } from "../types";
 import { formatDateTime } from "../utils/format";
@@ -28,6 +30,8 @@ const RUNNABLE_PROFILE_KEYS = new Set([
   "prod_db_manual_backfill",
   "lake_reference_refresh",
 ]);
+const STK_MINS_PROFILE_KEY = "stk_mins_sync";
+const STK_MINS_FREQ_OPTIONS = [1, 5, 15, 30, 60];
 const RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE: Record<string, string> = {
   prod_db_daily: "prod_db_daily",
   prod_db_manual_backfill: "prod_db_daily",
@@ -70,10 +74,10 @@ const PROFILE_PRESENTATION: Record<string, { description: string; domain: string
     mode: "快照刷新",
   },
   stk_mins_sync: {
-    description: "股票历史分钟线独立链路，当前不在本页启动。",
+    description: "股票历史分钟线阶段化流水线，当前支持只读计划，执行待实现。",
     domain: "股票分钟线专项",
-    label: "股票分钟线专项 · 计划中",
-    mode: "计划中",
+    label: "股票分钟线专项 · 只读计划",
+    mode: "只读计划",
   },
 };
 
@@ -84,16 +88,19 @@ export function SyncCenterPage() {
   const [targetDate, setTargetDate] = useState<string>(todayInputValue());
   const [startDate, setStartDate] = useState<string>("");
   const [endDate, setEndDate] = useState<string>("");
+  const [selectedFreqs, setSelectedFreqs] = useState<number[]>(STK_MINS_FREQ_OPTIONS);
   const [plan, setPlan] = useState<SyncPlanResponse | null>(null);
   const [planError, setPlanError] = useState<string | null>(null);
   const [planLoading, setPlanLoading] = useState<boolean>(false);
   const [runError, setRunError] = useState<string | null>(null);
   const [runLoading, setRunLoading] = useState<boolean>(false);
+  const [runActionLoading, setRunActionLoading] = useState<boolean>(false);
   const [selectedRunId, setSelectedRunId] = useState<string>("");
   const [datasetKeysOverride, setDatasetKeysOverride] = useState<string[] | null>(null);
   const [recommendationsExpanded, setRecommendationsExpanded] = useState<boolean>(false);
 
   const selectedProfile = profiles.find((profile) => profile.profile_key === selectedProfileKey) ?? null;
+  const isStkMinsProfile = selectedProfileKey === STK_MINS_PROFILE_KEY;
   const recommendationSourceProfileKey = RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE[selectedProfileKey] ?? null;
   const canLoadRecommendations = Boolean(recommendationSourceProfileKey);
   const {
@@ -132,10 +139,23 @@ export function SyncCenterPage() {
     setPlanError(null);
     setRunError(null);
     setRecommendationsExpanded(false);
-  }, [datasetKeysOverride, endDate, selectedDatasetKey, selectedProfileKey, startDate, targetDate]);
+  }, [datasetKeysOverride, endDate, selectedDatasetKey, selectedFreqs, selectedProfileKey, startDate, targetDate]);
 
   const canRunSelectedScope = Boolean(selectedProfile && isRunnableProfile(selectedProfile));
+  const canCreatePlan = Boolean(
+    selectedProfile &&
+    !planLoading &&
+    (!isStkMinsProfile || (startDate && endDate && selectedFreqs.length)),
+  );
   const canStartRun = Boolean(plan && !plan.blockers.length && canRunSelectedScope && lock?.status === "idle" && !runLoading);
+  const canCreateStkMinsStateRun = Boolean(
+    plan &&
+    isStkMinsProfile &&
+    !plan.blockers.length &&
+    lock?.status === "idle" &&
+    !runLoading,
+  );
+  const canStartSelectedPlan = canStartRun || canCreateStkMinsStateRun;
   const requestCount = plan?.dataset_plans.reduce((total, item) => total + item.request_count, 0) ?? 0;
   const recommendationItems = recommendations?.items ?? [];
   const laggingRecommendationCount = recommendationItems.filter((item) => item.status === "lagging" || item.status === "empty").length;
@@ -156,6 +176,9 @@ export function SyncCenterPage() {
         targetDate: shouldUseTargetDate(selectedProfile.profile_key) ? targetDate : null,
         startDate: shouldUseDateRange(selectedProfile.profile_key) ? startDate || null : null,
         endDate: shouldUseDateRange(selectedProfile.profile_key) ? endDate || null : null,
+        freqs: isStkMinsProfile ? selectedFreqs : null,
+        scope: isStkMinsProfile ? "all_market" : null,
+        mode: isStkMinsProfile ? "manual_gate" : null,
       });
       setPlan(nextPlan);
     } catch (caught) {
@@ -167,7 +190,7 @@ export function SyncCenterPage() {
   }
 
   async function handleStartRun() {
-    if (!plan || !canStartRun) {
+    if (!plan || !canStartSelectedPlan) {
       return;
     }
     setRunLoading(true);
@@ -180,6 +203,34 @@ export function SyncCenterPage() {
       setRunError(caught instanceof Error ? caught.message : "未知错误");
     } finally {
       setRunLoading(false);
+    }
+  }
+
+  async function handleContinueRun(runId: string) {
+    setRunActionLoading(true);
+    setRunError(null);
+    try {
+      await continueSyncRun(runId);
+      reloadStatus();
+      reloadArtifacts();
+    } catch (caught) {
+      setRunError(caught instanceof Error ? caught.message : "未知错误");
+    } finally {
+      setRunActionLoading(false);
+    }
+  }
+
+  async function handleAbortRun(runId: string) {
+    setRunActionLoading(true);
+    setRunError(null);
+    try {
+      await abortSyncRun(runId, "运营手动停止后续写入");
+      reloadStatus();
+      reloadArtifacts();
+    } catch (caught) {
+      setRunError(caught instanceof Error ? caught.message : "未知错误");
+    } finally {
+      setRunActionLoading(false);
     }
   }
 
@@ -219,6 +270,15 @@ export function SyncCenterPage() {
       return;
     }
     applyPlanHint(recommendations.aggregate_plan_hint);
+  }
+
+  function handleToggleStkMinsFreq(freq: number) {
+    setSelectedFreqs((current) => {
+      if (current.includes(freq)) {
+        return current.filter((item) => item !== freq);
+      }
+      return [...current, freq].sort((left, right) => left - right);
+    });
   }
 
   return (
@@ -388,6 +448,27 @@ export function SyncCenterPage() {
               </label>
             </div>
 
+            {isStkMinsProfile ? (
+              <div className="sync-stk-mins-controls">
+                <div className="sync-cell-stack sync-cell-stack-tight">
+                  <strong>股票分钟线专项参数</strong>
+                  <span>第一期只生成只读计划：scope=all_market，mode=manual_gate，不会启动写入。</span>
+                </div>
+                <div className="sync-frequency-toggle-group" aria-label="股票分钟线频率">
+                  {STK_MINS_FREQ_OPTIONS.map((freq) => (
+                    <label className="sync-frequency-toggle" key={freq}>
+                      <input
+                        checked={selectedFreqs.includes(freq)}
+                        onChange={() => handleToggleStkMinsFreq(freq)}
+                        type="checkbox"
+                      />
+                      <span>{freq}min</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+            ) : null}
+
             {datasetKeysOverride ? (
               <div className="alert warning">
                 <div>
@@ -397,19 +478,26 @@ export function SyncCenterPage() {
             ) : null}
 
             <div className="sync-action-row sync-action-row-console">
-              <button className="sync-button" disabled={!selectedProfile || planLoading} onClick={handleCreatePlan} type="button">
+              <button className="sync-button" disabled={!canCreatePlan} onClick={handleCreatePlan} type="button">
                 {planLoading ? "生成中..." : "生成计划"}
               </button>
-              <button className="sync-button sync-button-primary" disabled={!canStartRun} onClick={handleStartRun} type="button">
-                {runLoading ? "启动中..." : "启动同步任务"}
+              <button className="sync-button sync-button-primary" disabled={!canStartSelectedPlan} onClick={handleStartRun} type="button">
+                {runLoading ? "处理中..." : isStkMinsProfile ? "创建写前备份" : "启动同步任务"}
               </button>
             </div>
 
             {!canRunSelectedScope ? (
               <div className="alert warning">
                 <div>
-                  当前选择的同步配置尚未接入执行器。可以生成计划做预览，但不能启动写入任务。
+                  {isStkMinsProfile
+                    ? "当前只会创建 Kopia 写前备份并停在 raw_sync 前，不会写入 Lake 分区。"
+                    : "当前选择的同步配置尚未接入执行器。可以生成只读计划做预览，但不能启动写入任务。"}
                 </div>
+              </div>
+            ) : null}
+            {isStkMinsProfile && (!startDate || !endDate || !selectedFreqs.length) ? (
+              <div className="alert warning">
+                <div>股票分钟线专项必须填写开始日期、结束日期，并至少选择一个 raw 频率后才能生成计划。</div>
               </div>
             ) : null}
           </div>
@@ -441,7 +529,9 @@ export function SyncCenterPage() {
                   : "生成计划后这里会显示请求数、备份路径和 missing path 摘要。"}
               </p>
               {plan?.blockers.length ? <Badge tone="error">Blockers {plan.blockers.length}</Badge> : null}
-              {plan && !plan.blockers.length ? <Badge tone="success">可启动</Badge> : null}
+              {plan && !plan.blockers.length && canRunSelectedScope ? <Badge tone="success">可启动</Badge> : null}
+              {plan && !plan.blockers.length && isStkMinsProfile ? <Badge tone="warning">可创建写前备份</Badge> : null}
+              {plan && !plan.blockers.length && !canRunSelectedScope && !isStkMinsProfile ? <Badge tone="warning">只读计划</Badge> : null}
             </div>
           </aside>
         </div>
@@ -453,11 +543,13 @@ export function SyncCenterPage() {
             <>
               <section className="sync-plan-stats">
                 <SyncMiniStat label="数据集" value={String(plan.summary.dataset_count ?? plan.dataset_plans.length)} />
+                <SyncMiniStat label="阶段" value={String(plan.summary.stage_count ?? plan.pipeline_stages.length)} />
                 <SyncMiniStat label="请求数" value={requestCount.toLocaleString("zh-CN")} />
                 <SyncMiniStat label="快照路径" value={String((plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths).length)} />
                 <SyncMiniStat label="备份明细" value={String(plan.backup_plan.backup_paths.length)} />
                 <SyncMiniStat label="写前缺失" value={String(plan.backup_plan.path_missing_before_write.length)} />
               </section>
+              {plan.pipeline_stages.length ? <PipelineStagePreview plan={plan} /> : null}
               <PlanTable rows={plan.dataset_plans} />
               <IssueList title="阻断项" items={plan.blockers} tone="error" />
               <IssueList title="提醒项" items={plan.warnings} tone="warning" />
@@ -499,7 +591,14 @@ export function SyncCenterPage() {
           {!artifactLoading && !detail ? (
             <EmptyState title="暂无任务详情" description="启动同步任务后，这里会展示 run 结果与事件流。" />
           ) : null}
-          {detail ? <RunDetailBlock detail={detail} /> : null}
+          {detail ? (
+            <RunDetailBlock
+              detail={detail}
+              onAbort={handleAbortRun}
+              onContinue={handleContinueRun}
+              runActionLoading={runActionLoading}
+            />
+          ) : null}
         </SectionCard>
 
         <SectionCard title="事件流" description="事件按后端 seq 顺序展示，页面不自行推导进度。">
@@ -581,6 +680,139 @@ function RecommendationTable({ onApply, rows }: { onApply: (item: SyncRecommenda
       rowTone={(row) => (row.status === "lagging" ? "warning" : row.status === "blocked_missing_calendar" ? "error" : "default")}
       rows={rows}
     />
+  );
+}
+
+function PipelineStagePreview({ plan }: { plan: SyncPlanResponse }) {
+  return (
+    <PipelineStageBoard
+      stages={plan.pipeline_stages}
+      subtitle={
+        plan.affected_trade_dates.length
+          ? `${plan.affected_trade_dates[0]} ~ ${plan.affected_trade_dates[plan.affected_trade_dates.length - 1]} · ${plan.affected_months.join(", ") || "无月份"}`
+          : "后端未返回受影响交易日"
+      }
+    />
+  );
+}
+
+function PipelineStageBoard({ stages, subtitle }: { stages: SyncPipelineStage[]; subtitle: string }) {
+  const firstStageKey = stages[0]?.stage_key ?? "";
+  const [selectedStageKey, setSelectedStageKey] = useState<string>(firstStageKey);
+  useEffect(() => {
+    setSelectedStageKey(firstStageKey);
+  }, [firstStageKey]);
+  const selectedStage = stages.find((stage) => stage.stage_key === selectedStageKey) ?? stages[0] ?? null;
+  const columns: DataTableColumn<SyncPipelineStage>[] = [
+    {
+      key: "order",
+      header: "#",
+      render: (row) => <strong>{row.stage_order}</strong>,
+    },
+    {
+      key: "stage",
+      header: "阶段",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>{row.stage_title}</strong>
+          <span>{row.stage_key}</span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: "状态",
+      render: (row) => <Badge tone={stageTone(row.stage_status)}>{row.stage_status_label}</Badge>,
+    },
+    {
+      key: "summary",
+      header: "结果摘要",
+      render: (row) => (
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>{row.display_summary}</strong>
+          <span>{row.requires_confirmation ? row.confirmation_prompt ?? "需要人工确认" : stageMetricLine(row.metrics)}</span>
+        </div>
+      ),
+    },
+    {
+      key: "action",
+      header: "下一步",
+      render: (row) => row.next_action ? <Badge tone="warning">{row.next_action.label}</Badge> : <Badge tone="muted">-</Badge>,
+    },
+  ];
+  return (
+    <section className="sync-pipeline-preview" aria-label="stk_mins pipeline stages">
+      <div className="sync-pipeline-head">
+        <div className="sync-cell-stack sync-cell-stack-tight">
+          <strong>阶段化流水线</strong>
+          <span>{subtitle}</span>
+        </div>
+        <div className="sync-pipeline-rail" aria-label="阶段状态轨">
+          {stages.map((stage) => (
+            <button
+              className={`sync-pipeline-dot ${stage.stage_status}`}
+              key={stage.stage_key}
+              onClick={() => setSelectedStageKey(stage.stage_key)}
+              title={`${stage.stage_title}：${stage.stage_status_label}`}
+              type="button"
+            >
+              <span>{stage.stage_order}</span>
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="sync-pipeline-grid">
+        <DataTableCard
+          columns={columns}
+          empty={<EmptyState title="暂无阶段" description="后端没有返回 pipeline_stages。" />}
+          getRowKey={(row) => row.stage_key}
+          label="stk_mins pipeline stage list"
+          onRowClick={(row) => setSelectedStageKey(row.stage_key)}
+          rowTone={(row) => stageRowTone(row.stage_status)}
+          rows={stages}
+        />
+        {selectedStage ? <PipelineStageDetail stage={selectedStage} /> : null}
+      </div>
+    </section>
+  );
+}
+
+function PipelineStageDetail({ stage }: { stage: SyncPipelineStage }) {
+  const metricEntries = Object.entries(stage.metrics);
+  return (
+    <aside className="sync-pipeline-detail" aria-label="阶段详情">
+      <div className="sync-run-head">
+        <div>
+          <strong>{stage.stage_title}</strong>
+          <span>{stage.stage_key}</span>
+        </div>
+        <Badge tone={stageTone(stage.stage_status)}>{stage.stage_status_label}</Badge>
+      </div>
+      <p>{stage.display_summary}</p>
+      {stage.requires_confirmation ? (
+        <div className="alert warning">
+          <div>{stage.confirmation_prompt ?? "该阶段完成后需要人工确认，当前只展示只读计划。"}</div>
+        </div>
+      ) : null}
+      <div className="sync-kv-grid">
+        <div><span>阶段顺序</span><strong>{String(stage.stage_order)}</strong></div>
+        <div><span>下一步动作</span><strong>{stage.next_action?.label ?? "-"}</strong></div>
+        <div><span>确认人</span><strong>{stage.confirmed_by ?? "-"}</strong></div>
+        <div><span>确认时间</span><strong>{formatDateTime(stage.confirmed_at)}</strong></div>
+      </div>
+      {metricEntries.length ? (
+        <div className="sync-stage-metrics">
+          <strong>阶段指标</strong>
+          {metricEntries.map(([key, value]) => (
+            <div className="sync-stage-metric-row" key={key}>
+              <span>{key}</span>
+              <strong>{formatUnknown(value)}</strong>
+            </div>
+          ))}
+        </div>
+      ) : null}
+      <IssueList title="阶段问题" items={stage.issues} tone="warning" />
+    </aside>
   );
 }
 
@@ -684,6 +916,11 @@ function EventTable({ rows }: { rows: SyncRunEvent[] }) {
       render: (row) => row.dataset_key ? <Badge tone="brand">{row.dataset_key}</Badge> : <Badge tone="muted">run</Badge>,
     },
     {
+      key: "stage",
+      header: "阶段",
+      render: (row) => row.stage_key ? <Badge tone="muted">{row.stage_key}</Badge> : <Badge tone="muted">-</Badge>,
+    },
+    {
       key: "metrics",
       header: "指标",
       render: (row) => <span className="sync-json-line">{compactJson(row.metrics)}</span>,
@@ -701,7 +938,19 @@ function EventTable({ rows }: { rows: SyncRunEvent[] }) {
   );
 }
 
-function RunDetailBlock({ detail }: { detail: { status: string; run_id: string; started_at: string; finished_at: string | null; progress: Record<string, unknown>; dataset_results: Record<string, unknown>[]; backup: Record<string, unknown> | null; errors: SyncPlanIssue[] } }) {
+function RunDetailBlock({
+  detail,
+  onAbort,
+  onContinue,
+  runActionLoading,
+}: {
+  detail: SyncRunDetail;
+  onAbort: (runId: string) => void;
+  onContinue: (runId: string) => void;
+  runActionLoading: boolean;
+}) {
+  const runStatus = detail.run_status || detail.status;
+  const canOperatePipeline = detail.profile_key === STK_MINS_PROFILE_KEY && !isFinishedRunStatus(runStatus);
   return (
     <div className="sync-run-detail">
       <div className="sync-run-head">
@@ -709,13 +958,40 @@ function RunDetailBlock({ detail }: { detail: { status: string; run_id: string; 
           <strong>{detail.run_id}</strong>
           <span>{formatDateTime(detail.started_at)} ~ {formatDateTime(detail.finished_at)}</span>
         </div>
-        <Badge tone={runTone(detail.status)}>{detail.status}</Badge>
+        <Badge tone={runTone(runStatus)}>{runStatus}</Badge>
       </div>
       <div className="sync-kv-grid">
         <div><span>Progress</span><strong>{String(detail.progress.summary ?? "—")}</strong></div>
+        <div><span>当前阶段</span><strong>{detail.current_stage_key ?? "—"}</strong></div>
         <div><span>Backup Snapshots</span><strong>{snapshotCount(detail.backup)}</strong></div>
         <div><span>Dataset Results</span><strong>{String(detail.dataset_results.length)}</strong></div>
       </div>
+      {detail.pipeline_stages.length ? (
+        <PipelineStageBoard
+          stages={detail.pipeline_stages}
+          subtitle={`当前阶段：${detail.current_stage_key ?? "无"} · ${detail.requires_confirmation ? "等待人工确认" : "无需人工确认"}`}
+        />
+      ) : null}
+      {canOperatePipeline ? (
+        <div className="sync-run-action-row">
+          <button
+            className="sync-button"
+            disabled={!detail.requires_confirmation || runActionLoading}
+            onClick={() => onContinue(detail.run_id)}
+            type="button"
+          >
+            {detail.next_action?.label ?? "继续下一阶段"}
+          </button>
+          <button
+            className="sync-button sync-button-ghost-danger"
+            disabled={runActionLoading}
+            onClick={() => onAbort(detail.run_id)}
+            type="button"
+          >
+            停止后续写入
+          </button>
+        </div>
+      ) : null}
       {detail.dataset_results.length ? (
         <div className="sync-result-list">
           {detail.dataset_results.map((item, index) => (
@@ -847,10 +1123,17 @@ function runTone(status: string): BadgeTone {
   if (status.includes("failed")) {
     return "error";
   }
+  if (status === "waiting_confirmation" || status === "backup_completed") {
+    return "warning";
+  }
   if (status === "running" || status === "planned" || status === "lock_acquired") {
     return "processing";
   }
   return "muted";
+}
+
+function isFinishedRunStatus(status: string): boolean {
+  return ["success", "failed", "backup_failed", "cancelled", "stopped_after_stage"].includes(status);
 }
 
 function recommendationTone(status: string): BadgeTone {
@@ -877,6 +1160,35 @@ function recommendationStatusLabel(status: string): string {
   return mapping[status] ?? status;
 }
 
+function stageTone(status: string): BadgeTone {
+  if (status === "passed") {
+    return "success";
+  }
+  if (status === "failed") {
+    return "error";
+  }
+  if (status === "running") {
+    return "processing";
+  }
+  if (status === "waiting_confirmation") {
+    return "warning";
+  }
+  if (status === "skipped" || status === "cancelled") {
+    return "muted";
+  }
+  return "neutral";
+}
+
+function stageRowTone(status: string): "default" | "selected" | "warning" | "error" {
+  if (status === "failed") {
+    return "error";
+  }
+  if (status === "waiting_confirmation") {
+    return "warning";
+  }
+  return "default";
+}
+
 function isRunnableProfile(profile: SyncProfileSummary): boolean {
   return profile.profile_status === "enabled" && RUNNABLE_PROFILE_KEYS.has(profile.profile_key);
 }
@@ -886,7 +1198,7 @@ function shouldUseTargetDate(profileKey: string): boolean {
 }
 
 function shouldUseDateRange(profileKey: string): boolean {
-  return profileKey === "prod_db_manual_backfill";
+  return profileKey === "prod_db_manual_backfill" || profileKey === STK_MINS_PROFILE_KEY;
 }
 
 function snapshotCount(backup: Record<string, unknown> | null): string {
@@ -899,6 +1211,30 @@ function compactJson(value: unknown): string {
     return "—";
   }
   return JSON.stringify(value);
+}
+
+function stageMetricLine(metrics: Record<string, unknown>): string {
+  const entries = Object.entries(metrics).slice(0, 3);
+  if (!entries.length) {
+    return "无阶段指标";
+  }
+  return entries.map(([key, value]) => `${key}=${formatUnknown(value)}`).join(" · ");
+}
+
+function formatUnknown(value: unknown): string {
+  if (value === null || value === undefined) {
+    return "-";
+  }
+  if (Array.isArray(value)) {
+    return value.length ? value.map((item) => String(item)).join(", ") : "-";
+  }
+  if (typeof value === "object") {
+    return compactJson(value);
+  }
+  if (typeof value === "number") {
+    return value.toLocaleString("zh-CN");
+  }
+  return String(value);
 }
 
 function todayInputValue(): string {

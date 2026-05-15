@@ -76,6 +76,9 @@ class SyncPlanRequest(BaseModel):
     start_date: str | None = None
     end_date: str | None = None
     dataset_keys: list[str] | None = None
+    freqs: list[int] | None = None
+    scope: str | None = None
+    mode: str | None = None
     include_backup_plan: bool = True
 
 
@@ -88,6 +91,9 @@ class SyncPlanResponse(BaseModel):
     normalized_parameters: dict[str, Any]
     lock: dict[str, Any]
     dataset_plans: list[dict[str, Any]]
+    pipeline_stages: list[dict[str, Any]] = Field(default_factory=list)
+    affected_trade_dates: list[str] = Field(default_factory=list)
+    affected_months: list[str] = Field(default_factory=list)
     backup_plan: dict[str, Any]
     blockers: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[dict[str, Any]] = Field(default_factory=list)
@@ -102,10 +108,24 @@ class SyncRunRequest(BaseModel):
     confirmed_no_sql: bool = True
 
 
+class SyncRunContinueRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    confirm_continue: bool = True
+    operator: str | None = None
+
+
+class SyncRunAbortRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    reason: str = Field(min_length=1)
+
+
 class SyncRunResponse(BaseModel):
     run_id: str
     profile_key: str
     status: str
+    run_status: str | None = None
     lock: dict[str, Any]
     detail_url: str
     events_url: str
@@ -120,6 +140,9 @@ class SyncCurrentRunResponse(BaseModel):
     progress_summary: str
     current_dataset_key: str | None = None
     current_partition: str | None = None
+    current_stage_key: str | None = None
+    requires_confirmation: bool = False
+    next_action: dict[str, Any] | None = None
 
 
 class SyncRunDetailResponse(BaseModel):
@@ -127,9 +150,14 @@ class SyncRunDetailResponse(BaseModel):
     profile_key: str
     plan_token: str
     status: str
+    run_status: str
     started_at: str
     finished_at: str | None = None
     backup: dict[str, Any] | None = None
+    pipeline_stages: list[dict[str, Any]] = Field(default_factory=list)
+    current_stage_key: str | None = None
+    requires_confirmation: bool = False
+    next_action: dict[str, Any] | None = None
     progress: dict[str, Any] = Field(default_factory=dict)
     dataset_results: list[dict[str, Any]] = Field(default_factory=list)
     errors: list[dict[str, Any]] = Field(default_factory=list)

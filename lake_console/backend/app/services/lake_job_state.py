@@ -87,6 +87,9 @@ class LakeJobStateStore:
                 "progress_summary": "当前没有运行中的 Lake 写入任务。",
                 "current_dataset_key": None,
                 "current_partition": None,
+                "current_stage_key": None,
+                "requires_confirmation": False,
+                "next_action": None,
             }
         return self._read_json(self.current_path)
 
@@ -99,6 +102,7 @@ class LakeJobStateStore:
             "event_id": f"evt_{run_id}_{seq:06d}_{uuid4().hex[:8]}",
             "created_at": _utc_now_iso(),
             "level": "info",
+            "stage_key": None,
             "dataset_key": None,
             "partition_locator": None,
             "metrics": {},

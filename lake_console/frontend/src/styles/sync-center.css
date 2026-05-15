@@ -229,6 +229,44 @@
   margin-bottom: 0;
 }
 
+.sync-stk-mins-controls {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-1);
+}
+
+.sync-frequency-toggle-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.sync-frequency-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-sm);
+  padding: 6px 9px;
+  color: var(--text-body);
+  background: var(--neutral-0);
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.sync-frequency-toggle:has(input:checked) {
+  border-color: var(--brand-5);
+  color: var(--brand-6);
+  background: var(--brand-0);
+}
+
+.sync-frequency-toggle input {
+  margin: 0;
+}
+
 .sync-field {
   display: grid;
   gap: 5px;
@@ -313,15 +351,155 @@
   background: var(--neutral-0);
 }
 
+.sync-button-ghost-danger {
+  color: var(--error);
+  background: var(--neutral-0);
+}
+
+.sync-button-ghost-danger:hover {
+  border-color: var(--error-border);
+  color: var(--error);
+  background: var(--error-bg);
+}
+
 .sync-inline-button {
   padding: 5px 9px;
 }
 
+.sync-run-action-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
 .sync-plan-stats {
   display: grid;
-  grid-template-columns: repeat(4, minmax(0, 1fr));
+  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
   gap: 10px;
   margin-bottom: 12px;
+}
+
+.sync-pipeline-preview {
+  display: grid;
+  gap: 12px;
+  margin: 12px 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-1);
+}
+
+.sync-pipeline-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sync-pipeline-rail {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  justify-content: flex-end;
+}
+
+.sync-pipeline-dot {
+  display: inline-grid;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border-default);
+  border-radius: 999px;
+  color: var(--text-muted);
+  background: var(--neutral-0);
+  font: inherit;
+  font-size: 12px;
+  cursor: pointer;
+}
+
+.sync-pipeline-dot.passed {
+  border-color: var(--success-border);
+  color: var(--success);
+  background: var(--success-bg);
+}
+
+.sync-pipeline-dot.running {
+  border-color: var(--info-border);
+  color: var(--info);
+  background: var(--info-bg);
+}
+
+.sync-pipeline-dot.waiting_confirmation {
+  border-color: var(--warning-border);
+  color: var(--warning);
+  background: var(--warning-bg);
+}
+
+.sync-pipeline-dot.failed {
+  border-color: var(--error-border);
+  color: var(--error);
+  background: var(--error-bg);
+}
+
+.sync-pipeline-dot.skipped,
+.sync-pipeline-dot.cancelled {
+  color: var(--text-hint);
+  background: var(--neutral-2);
+}
+
+.sync-pipeline-grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(280px, 0.75fr);
+  gap: 12px;
+  align-items: start;
+}
+
+.sync-pipeline-detail {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-0);
+}
+
+.sync-pipeline-detail p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 13px;
+  line-height: 1.55;
+}
+
+.sync-stage-metrics {
+  display: grid;
+  gap: 7px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 10px;
+  background: var(--neutral-1);
+}
+
+.sync-stage-metrics > strong {
+  color: var(--text-title);
+}
+
+.sync-stage-metric-row {
+  display: grid;
+  grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
+  gap: 8px;
+  border-top: 1px solid var(--border-default);
+  padding-top: 7px;
+}
+
+.sync-stage-metric-row span {
+  color: var(--text-hint);
+  font-size: 12px;
+}
+
+.sync-stage-metric-row strong {
+  color: var(--text-body);
+  font-size: 12px;
+  overflow-wrap: anywhere;
 }
 
 .sync-mini-stat {
@@ -515,7 +693,16 @@
   .sync-form-grid-console,
   .sync-recommendation-summary,
   .sync-recommendation-toolbar,
-  .sync-kv-grid {
+  .sync-kv-grid,
+  .sync-pipeline-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sync-pipeline-head {
+    display: grid;
+  }
+
+  .sync-pipeline-rail {
+    justify-content: flex-start;
   }
 }

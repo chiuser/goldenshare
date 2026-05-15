@@ -322,6 +322,29 @@ export type SyncPlanDatasetPlan = {
   notes: string[];
 };
 
+export type SyncPipelineStage = {
+  stage_key: string;
+  stage_title: string;
+  stage_order: number;
+  stage_status: string;
+  stage_status_label: string;
+  display_summary: string;
+  input_summary: Record<string, unknown>;
+  output_summary: Record<string, unknown>;
+  metrics: Record<string, unknown>;
+  artifacts: unknown[];
+  issues: SyncPlanIssue[];
+  requires_confirmation: boolean;
+  confirmation_prompt: string | null;
+  confirmed_by: string | null;
+  confirmed_at: string | null;
+  next_action: {
+    action: string;
+    label: string;
+    [key: string]: unknown;
+  } | null;
+};
+
 export type SyncPlanIssue = {
   dataset_key?: string;
   code?: string;
@@ -349,6 +372,9 @@ export type SyncPlanResponse = {
   normalized_parameters: Record<string, unknown>;
   lock: SyncLock;
   dataset_plans: SyncPlanDatasetPlan[];
+  pipeline_stages: SyncPipelineStage[];
+  affected_trade_dates: string[];
+  affected_months: string[];
   backup_plan: SyncBackupPlan;
   blockers: SyncPlanIssue[];
   warnings: SyncPlanIssue[];
@@ -367,6 +393,7 @@ export type SyncRunResponse = {
   run_id: string;
   profile_key: string;
   status: string;
+  run_status: string | null;
   lock: SyncLock;
   detail_url: string;
   events_url: string;
@@ -381,6 +408,9 @@ export type SyncCurrentRun = {
   progress_summary: string;
   current_dataset_key: string | null;
   current_partition: string | null;
+  current_stage_key: string | null;
+  requires_confirmation: boolean;
+  next_action: Record<string, unknown> | null;
 };
 
 export type SyncRunDetail = {
@@ -388,9 +418,18 @@ export type SyncRunDetail = {
   profile_key: string;
   plan_token: string;
   status: string;
+  run_status: string;
   started_at: string;
   finished_at: string | null;
   backup: Record<string, unknown> | null;
+  pipeline_stages: SyncPipelineStage[];
+  current_stage_key: string | null;
+  requires_confirmation: boolean;
+  next_action: {
+    action: string;
+    label: string;
+    [key: string]: unknown;
+  } | null;
   progress: Record<string, unknown>;
   dataset_results: Record<string, unknown>[];
   errors: SyncPlanIssue[];
@@ -401,6 +440,7 @@ export type SyncRunEvent = {
   event_id: string;
   created_at: string;
   level: string;
+  stage_key: string | null;
   event_type: string;
   message: string;
   dataset_key: string | null;

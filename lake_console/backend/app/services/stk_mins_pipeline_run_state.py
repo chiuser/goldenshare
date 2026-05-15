@@ -1,0 +1,271 @@
+from __future__ import annotations
+
+from copy import deepcopy
+from datetime import datetime, timezone
+from typing import Any
+
+from lake_console.backend.app.services.stk_mins_pipeline_planner import STK_MINS_PIPELINE_PROFILE_KEY
+
+
+FINISHED_RUN_STATUSES = {"success", "failed", "backup_failed", "cancelled", "stopped_after_stage"}
+CONFIRMATION_OPERATOR_FALLBACK = "local_operator"
+
+
+class StkMinsPipelineRunStateError(RuntimeError):
+    pass
+
+
+class StkMinsPipelineRunNotWaitingConfirmationError(StkMinsPipelineRunStateError):
+    pass
+
+
+class StkMinsPipelineRunAlreadyFinishedError(StkMinsPipelineRunStateError):
+    pass
+
+
+def build_initial_pipeline_run(*, plan: dict[str, Any], plan_token: str, run_id: str, started_at: str) -> dict[str, Any]:
+    stages = deepcopy(list(plan.get("pipeline_stages") or []))
+    current_stage = _current_stage(stages)
+    return _with_runtime_fields(
+        {
+            "run_id": run_id,
+            "profile_key": STK_MINS_PIPELINE_PROFILE_KEY,
+            "plan_token": plan_token,
+            "status": "planned",
+            "run_status": "planned",
+            "started_at": started_at,
+            "finished_at": None,
+            "backup": None,
+            "progress": {
+                "summary": "stk_mins_sync 阶段化 run 已创建；当前只登记状态，不执行 Kopia、不写入 Lake。",
+                "current_dataset_key": "stk_mins",
+                "current_partition": None,
+            },
+            "pipeline_stages": stages,
+            "dataset_results": [],
+            "errors": [],
+        },
+        current_stage=current_stage,
+    )
+
+
+def start_prewrite_backup_stage(*, run: dict[str, Any]) -> dict[str, Any]:
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    stage = _stage_by_key(stages, "prewrite_backup")
+    if stage is not None:
+        stage["stage_status"] = "running"
+        stage["stage_status_label"] = "执行中"
+        stage["display_summary"] = "正在创建 Kopia 写前备份。"
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": "backup_running",
+            "run_status": "backup_running",
+            "pipeline_stages": stages,
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": "正在创建 Kopia 写前备份；尚未执行任何 Lake 分区写入。",
+            },
+        },
+        current_stage=stage,
+    )
+
+
+def complete_prewrite_backup_stage(*, run: dict[str, Any], backup: dict[str, Any]) -> dict[str, Any]:
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    stage = _stage_by_key(stages, "prewrite_backup")
+    if stage is not None:
+        stage["stage_status"] = "passed"
+        stage["stage_status_label"] = "已通过"
+        stage["display_summary"] = (
+            f"Kopia 写前备份完成：{len(backup.get('snapshot_ids') or [])} 个 snapshot，"
+            f"{len(backup.get('path_missing_before_write') or [])} 个写前不存在路径。"
+        )
+        stage["output_summary"] = {
+            "provider": backup.get("provider"),
+            "status": backup.get("status"),
+            "snapshot_ids": backup.get("snapshot_ids") or [],
+            "snapshot_paths": backup.get("snapshot_paths") or [],
+            "backup_paths": backup.get("backup_paths") or [],
+            "path_missing_before_write": backup.get("path_missing_before_write") or [],
+        }
+        stage["metrics"] = {
+            **dict(stage.get("metrics") or {}),
+            "snapshot_count": len(backup.get("snapshot_ids") or []),
+            "snapshot_path_count": len(backup.get("snapshot_paths") or []),
+            "backup_path_count": len(backup.get("backup_paths") or []),
+            "path_missing_before_write_count": len(backup.get("path_missing_before_write") or []),
+        }
+        stage["artifacts"] = backup.get("snapshots") or []
+    next_stage = _current_stage(stages)
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": "backup_completed",
+            "run_status": "backup_completed",
+            "backup": backup,
+            "pipeline_stages": stages,
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": "Kopia 写前备份已完成；本阶段不会继续执行 raw/clean/derived/research 写入。",
+            },
+        },
+        current_stage=next_stage,
+    )
+
+
+def fail_prewrite_backup_stage(*, run: dict[str, Any], error: dict[str, Any]) -> dict[str, Any]:
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    stage = _stage_by_key(stages, "prewrite_backup")
+    if stage is not None:
+        stage["stage_status"] = "failed"
+        stage["stage_status_label"] = "失败"
+        stage["display_summary"] = f"Kopia 写前备份失败：{error.get('message') or '未知错误'}"
+        stage["issues"] = [error]
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": "backup_failed",
+            "run_status": "backup_failed",
+            "finished_at": _utc_now_iso(),
+            "pipeline_stages": stages,
+            "errors": [error],
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": "Kopia 写前备份失败，未执行任何 Lake 分区写入。",
+            },
+        },
+        current_stage=stage,
+    )
+
+
+def continue_pipeline_run(*, run: dict[str, Any], operator: str | None = None) -> dict[str, Any]:
+    _ensure_not_finished(run)
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    current_stage = _stage_by_key(stages, str(run.get("current_stage_key") or ""))
+    if current_stage is None or current_stage.get("stage_status") != "waiting_confirmation" or not current_stage.get("requires_confirmation"):
+        raise StkMinsPipelineRunNotWaitingConfirmationError("当前 run 没有停在人工确认阶段，不能继续。")
+
+    now = _utc_now_iso()
+    current_stage["stage_status"] = "passed"
+    current_stage["stage_status_label"] = "已通过"
+    current_stage["confirmed_by"] = operator or CONFIRMATION_OPERATOR_FALLBACK
+    current_stage["confirmed_at"] = now
+    current_stage["display_summary"] = f"{current_stage.get('display_summary') or current_stage.get('stage_title')} 已确认继续。"
+
+    next_stage = _current_stage(stages)
+    run_status = "planned" if next_stage is not None else "success"
+    finished_at = now if next_stage is None else None
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": run_status,
+            "run_status": run_status,
+            "finished_at": finished_at,
+            "pipeline_stages": stages,
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": (
+                    f"已确认 {current_stage.get('stage_title')}，等待进入 {next_stage.get('stage_title')}。"
+                    if next_stage is not None
+                    else "所有阶段已确认完成。"
+                ),
+            },
+        },
+        current_stage=next_stage,
+    )
+
+
+def abort_pipeline_run(*, run: dict[str, Any], reason: str) -> dict[str, Any]:
+    _ensure_not_finished(run)
+    stages = deepcopy(list(run.get("pipeline_stages") or []))
+    current_key = str(run.get("current_stage_key") or "")
+    current_stage = _stage_by_key(stages, current_key) or _current_stage(stages)
+    current_order = int(current_stage.get("stage_order") or 0) if current_stage else 0
+    for stage in stages:
+        stage_status = str(stage.get("stage_status") or "")
+        stage_order = int(stage.get("stage_order") or 0)
+        if stage_order >= current_order and stage_status in {"pending", "running", "waiting_confirmation"}:
+            stage["stage_status"] = "cancelled"
+            stage["stage_status_label"] = "已停止"
+            stage["next_action"] = None
+            stage["display_summary"] = f"{stage.get('stage_title')} 已停止：{reason}"
+
+    return _with_runtime_fields(
+        {
+            **run,
+            "status": "cancelled",
+            "run_status": "cancelled",
+            "finished_at": _utc_now_iso(),
+            "pipeline_stages": stages,
+            "progress": {
+                **dict(run.get("progress") or {}),
+                "summary": f"stk_mins_sync 已停止：{reason}",
+            },
+        },
+        current_stage=current_stage,
+        force_requires_confirmation=False,
+    )
+
+
+def normalize_run_detail(payload: dict[str, Any]) -> dict[str, Any]:
+    stages = list(payload.get("pipeline_stages") or [])
+    current_stage = _stage_by_key(stages, str(payload.get("current_stage_key") or "")) or _current_stage(stages)
+    normalized = {
+        **payload,
+        "run_status": str(payload.get("run_status") or payload.get("status") or "unknown"),
+        "pipeline_stages": stages,
+        "current_stage_key": payload.get("current_stage_key"),
+        "requires_confirmation": bool(payload.get("requires_confirmation") or False),
+        "next_action": payload.get("next_action"),
+    }
+    if stages:
+        normalized = _with_runtime_fields(normalized, current_stage=current_stage)
+    return normalized
+
+
+def _with_runtime_fields(
+    payload: dict[str, Any],
+    *,
+    current_stage: dict[str, Any] | None,
+    force_requires_confirmation: bool | None = None,
+) -> dict[str, Any]:
+    requires_confirmation = bool(
+        force_requires_confirmation
+        if force_requires_confirmation is not None
+        else current_stage
+        and current_stage.get("stage_status") == "waiting_confirmation"
+        and current_stage.get("requires_confirmation")
+    )
+    return {
+        **payload,
+        "current_stage_key": current_stage.get("stage_key") if current_stage else None,
+        "requires_confirmation": requires_confirmation,
+        "next_action": current_stage.get("next_action") if requires_confirmation and current_stage else None,
+    }
+
+
+def _current_stage(stages: list[dict[str, Any]]) -> dict[str, Any] | None:
+    for stage in sorted(stages, key=lambda item: int(item.get("stage_order") or 0)):
+        if str(stage.get("stage_status") or "") in {"pending", "running", "waiting_confirmation"}:
+            return stage
+    return None
+
+
+def _stage_by_key(stages: list[dict[str, Any]], stage_key: str) -> dict[str, Any] | None:
+    if not stage_key:
+        return None
+    for stage in stages:
+        if stage.get("stage_key") == stage_key:
+            return stage
+    return None
+
+
+def _ensure_not_finished(run: dict[str, Any]) -> None:
+    status = str(run.get("run_status") or run.get("status") or "")
+    if status in FINISHED_RUN_STATUSES:
+        raise StkMinsPipelineRunAlreadyFinishedError(f"run 已结束，不能继续操作：{status}")
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()

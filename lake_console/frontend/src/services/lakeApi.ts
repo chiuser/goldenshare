@@ -174,6 +174,9 @@ export function createSyncPlan(params: {
   targetDate?: string | null;
   startDate?: string | null;
   endDate?: string | null;
+  freqs?: number[] | null;
+  scope?: string | null;
+  mode?: string | null;
 }): Promise<SyncPlanResponse> {
   return postJson<SyncPlanResponse>(
     `/api/lake/sync/profiles/${encodeURIComponent(params.profileKey)}/plan`,
@@ -182,6 +185,9 @@ export function createSyncPlan(params: {
       target_date: params.targetDate || null,
       start_date: params.startDate || null,
       end_date: params.endDate || null,
+      freqs: params.freqs ?? null,
+      scope: params.scope ?? null,
+      mode: params.mode ?? null,
       include_backup_plan: true,
     },
     "Sync Center Plan API 请求失败。",
@@ -208,5 +214,21 @@ export function loadSyncRunEvents(runId: string, cursor = 0): Promise<SyncRunEve
   return fetchJson<SyncRunEventListResponse>(
     `/api/lake/sync/runs/${encodeURIComponent(runId)}/events?cursor=${cursor}&limit=200`,
     "Sync Center Run 事件 API 请求失败。",
+  );
+}
+
+export function continueSyncRun(runId: string): Promise<SyncRunDetail> {
+  return postJson<SyncRunDetail>(
+    `/api/lake/sync/runs/${encodeURIComponent(runId)}/continue`,
+    { confirm_continue: true },
+    "Sync Center Run 继续 API 请求失败。",
+  );
+}
+
+export function abortSyncRun(runId: string, reason: string): Promise<SyncRunDetail> {
+  return postJson<SyncRunDetail>(
+    `/api/lake/sync/runs/${encodeURIComponent(runId)}/abort`,
+    { reason },
+    "Sync Center Run 停止 API 请求失败。",
   );
 }
