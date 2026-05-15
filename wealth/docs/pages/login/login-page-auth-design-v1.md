@@ -8,12 +8,11 @@
 
 本轮目标包括：
 
-1. 登录页视觉严格复刻 `wealth/docs/update/login-page-v4.2.html`。
+1. 登录页沿用 `wealth/docs/update/login-page-v4.2.html` 的背景、表单与按钮风格；顶部 Logo/`QUOTE TERMINAL`/`行情系统登录`/副标题展示已按最新产品口径移除。
 2. 背景图使用 `wealth/docs/update/cover.png`。
-3. 登录框 Logo 使用 `wealth/docs/update/icon22.png`。
-4. 前端登录页、登录态管理、路由守卫在 `wealth` 内独立实现。
-5. 后端认证 API 复用现有 `src/app/auth/**` 能力，不为 wealth 单独重建用户体系。
-6. 行情 API 继续使用现有 `require_quote_access` 鉴权入口。
+3. 前端登录页、登录态管理、路由守卫在 `wealth` 内独立实现。
+4. 后端认证 API 复用现有 `src/app/auth/**` 能力，不为 wealth 单独重建用户体系。
+5. 行情 API 继续使用现有 `require_quote_access` 鉴权入口。
 
 不在本轮范围：
 
@@ -33,30 +32,24 @@
 
 1. 页面标题为 `财势乾坤｜行情系统登录`。
 2. 全屏背景图铺满视口，最小视觉基线为 `1200 x 680`。
-3. 登录区是一个左下偏中的 cluster，不是居中卡片。
-4. 登录区由 Logo、标题、表单三部分组成。
-5. Logo 使用独立图片。
-6. 标题区包含：
-   - `QUOTE TERMINAL`
-   - `行情系统登录`
-   - `专业 · 稳定 · 高密度行情终端`
-7. 表单字段包含：
+3. 登录区是一个左下偏中的 cluster，不是居中卡片；最新口径下只保留表单主体，并整体上移。
+4. 登录页不再展示顶部 Logo、`QUOTE TERMINAL`、`行情系统登录` 与 `专业 · 稳定 · 高密度行情终端`。
+5. 表单字段包含：
    - 用户名
    - 密码
-8. 按钮包含：
+6. 按钮包含：
    - 注册
    - 登录
-9. 登录提示使用轻量 message，不是普通后台 toast。
-10. 右下角有 `数据接入状态：模拟环境`。
+7. 登录提示使用轻量 message，不是普通后台 toast。
+8. 右下角有数据接入状态提示，当前实现为 `数据接入状态：登录保护已启用`。
 
 关键布局 token 来自 showcase：
 
 | token | showcase 值 | 实现要求 |
 |---|---:|---|
 | `--login-left` | `clamp(292px, 20.15vw, 394px)` | 必须保留同口径 |
-| `--login-top` | `clamp(356px, 53.1vh, 610px)` | 必须保留同口径 |
+| `--login-top` | `clamp(300px, 43vh, 470px)` | 顶部标题区移除后，表单整体上移 |
 | `--login-width` | `clamp(360px, 23vw, 430px)` | 必须保留同口径 |
-| `--login-logo-size` | `clamp(76px, 5.7vw, 92px)` | 必须保留同口径 |
 
 ### 2.2 现有后端认证 API
 
@@ -311,14 +304,13 @@ wealth 使用独立 localStorage key，不复用运营后台前端 key。
 
 ## 6. 登录页视觉实现要求
 
-登录页必须从 showcase 复刻，不做重新设计。
+登录页以 showcase 为视觉基础，但当前最新产品口径已移除顶部 Logo 与标题区，只保留表单主体并上移。除该处明确变更外，不做重新设计。
 
 ### 6.1 素材
 
 | 素材 | 来源 | 落地位置 |
 |---|---|---|
 | 背景图 | `wealth/docs/update/cover.png` | `wealth/src/assets/auth/cover.png` |
-| Logo | `wealth/docs/update/icon22.png` | `wealth/src/assets/auth/icon22.png` |
 
 ### 6.2 结构
 
@@ -326,11 +318,6 @@ wealth 使用独立 localStorage key，不复用运营后台前端 key。
 LoginPage
   full-screen background
   login-cluster
-    brand-logo-box
-    login-head
-      eyebrow
-      title
-      subtitle
     login-form
       username field
       password field
@@ -484,9 +471,9 @@ cd wealth && npm run build
 验收标准：
 
 1. 登录页背景与 `cover.png` 一致。
-2. 登录区位置与 `login-page-v4.2.html` 一致。
-3. Logo 使用 `icon22.png`，大小与 showcase token 一致。
-4. 字体、按钮、输入框、message 样式与 showcase 高保真一致。
+2. 登录页不展示顶部 Logo、`QUOTE TERMINAL`、`行情系统登录` 与副标题。
+3. 登录表单整体位于原标题区下方更靠上的位置，不再因移除标题区留下大块空白。
+4. 字体、按钮、输入框、message 样式与 showcase 表单风格高保真一致。
 5. 不出现运营后台风格组件。
 6. 不出现浅色后台登录页。
 
@@ -588,4 +575,3 @@ cd wealth && npm run build
 3. 如果本轮顺手接注册，会扩大用户体系开放风险。
 4. 如果不统一 API client，各市场模块会重复处理 token 和 401，后续维护会发散。
 5. 如果强行加 `quote.read` 权限，需要同步审计用户角色与现有账号权限，否则可能导致已登录用户无法访问行情。
-

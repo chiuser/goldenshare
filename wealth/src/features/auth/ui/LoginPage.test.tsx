@@ -90,7 +90,11 @@ describe("LoginPage", () => {
 
     render(<App />);
 
-    expect(screen.getByRole("heading", { name: "行情系统登录" })).toBeInTheDocument();
+    expect(screen.getByLabelText("财势乾坤行情系统登录页")).toBeInTheDocument();
+    expect(screen.getByLabelText("登录表单")).toBeInTheDocument();
+    expect(screen.queryByText("QUOTE TERMINAL")).not.toBeInTheDocument();
+    expect(screen.queryByText("行情系统登录")).not.toBeInTheDocument();
+    expect(screen.queryByText("专业 · 稳定 · 高密度行情终端")).not.toBeInTheDocument();
     await waitFor(() => expect(window.location.pathname).toBe("/wealth/login"));
     expect(new URLSearchParams(window.location.search).get("redirect")).toBe("/wealth/market/overview");
   });

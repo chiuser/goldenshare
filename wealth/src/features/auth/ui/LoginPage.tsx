@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import coverUrl from "../../../assets/auth/cover.png";
-import logoUrl from "../../../assets/auth/icon22.png";
 import { useAuth } from "../model/AuthProvider";
 import "./LoginPage.css";
 
@@ -50,17 +49,7 @@ export function LoginPage({ redirectPath, onAuthenticated }: LoginPageProps) {
 
   return (
     <main className="login-page" style={{ backgroundImage: `url(${coverUrl})` }} aria-label="财势乾坤行情系统登录页">
-      <section className="login-cluster" aria-label="行情系统登录">
-        <div className="brand-logo-box" aria-label="财势乾坤 Logo">
-          <img src={logoUrl} alt="财势 Logo" />
-        </div>
-
-        <header className="login-head">
-          <div className="eyebrow">QUOTE TERMINAL</div>
-          <h1 className="login-title">行情系统登录</h1>
-          <p className="login-subtitle">专业 · 稳定 · 高密度行情终端</p>
-        </header>
-
+      <section className="login-cluster" aria-label="登录表单">
         <form className="login-form" onSubmit={handleSubmit}>
           <label className="csq-field">
             <span className="csq-label">用户名</span>
