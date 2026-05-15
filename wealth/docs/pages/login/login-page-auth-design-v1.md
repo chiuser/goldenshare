@@ -48,7 +48,7 @@
 | token | showcase 值 | 实现要求 |
 |---|---:|---|
 | `--login-left` | `clamp(292px, 20.15vw, 394px)` | 必须保留同口径 |
-| `--login-top` | `clamp(300px, 43vh, 470px)` | 顶部标题区移除后，表单整体上移 |
+| `--login-top` | `clamp(380px, 56vh, 560px)` | 顶部标题区移除后，表单整体上移，但避开背景图主标题文字 |
 | `--login-width` | `clamp(360px, 23vw, 430px)` | 必须保留同口径 |
 
 ### 2.2 现有后端认证 API

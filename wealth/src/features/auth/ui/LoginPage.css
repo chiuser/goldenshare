@@ -6,7 +6,7 @@
   --cs-font-family-display: "STXingkai", "Xingkai SC", "Kaiti SC", "STKaiti", "KaiTi", "FangSong", "Songti SC",
     serif;
   --login-left: clamp(292px, 20.15vw, 394px);
-  --login-top: clamp(300px, 43vh, 470px);
+  --login-top: clamp(380px, 56vh, 560px);
   --login-width: clamp(360px, 23vw, 430px);
 
   position: relative;
@@ -212,7 +212,7 @@
 @media (max-width: 1440px), (max-height: 760px) {
   .login-page {
     --login-left: clamp(278px, 20vw, 326px);
-    --login-top: clamp(288px, 42vh, 360px);
+    --login-top: clamp(380px, 56vh, 460px);
     --login-width: 352px;
   }
 
