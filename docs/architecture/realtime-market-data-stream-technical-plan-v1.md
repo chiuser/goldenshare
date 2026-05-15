@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：M1 开市验证已完成 / M3 Collector 已接入待远程发版
+状态：远程发版完成 / 收市 idle 验收通过 / 待下一交易时段端到端验收
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -31,7 +31,7 @@
 1. 前端页面 API 原先只有字段映射，现在补成完整页面契约：接口、鉴权、轮询、状态枚举、字段映射和禁用行为。
 2. Redis TTL 原先沿用短实时缓存思路；在“不采集午休/收盘后”的口径下，已改为建议 72 小时 TTL + 只保留最近 3 批，避免非采集时段页面无当前批次。
 3. `stale_after_seconds=20` 已明确只适用于采集时段内。
-4. 收盘后真实探测已落档；开市时段仍需验证。
+4. 收盘后与开市时段源接口真实探测已落档；远程 collector 已完成收市 idle 验收，下一步等待交易时段端到端验收。
 
 ### 0.3 已确认与待解决
 
@@ -1027,12 +1027,13 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 5. 已补最小测试覆盖：Redis key/current batch 语义、业务快照 API、Ops health API，以及前端类型检查。
 6. 开市时段 M1 真实验证已完成，结论支持全市场通配符请求方案。
 7. 已新增 Tushare 0372 provider、实时日线 normalizer、collector loop、CLI `realtime-stock-rt-daily-serve`、collector systemd unit 与部署脚本挂载。
+8. 远程已发版至 `83e75b24`，`goldenshare-realtime-collector.service` 已安装、启动并启用开机自启动。
+9. 远程收市验收通过：collector `enabled=true`、`collector_running=true`、`collection_status=idle`、`last_request_at=null`，Redis 未产生 current batch / stream，说明非采集时段不会请求源站或写行情批次。
 
 未完成：
 
-1. 远程 collector service 尚未发版启动。
-2. 业务 API 端到端读取真实 Redis current batch 尚待远程 smoke。
-3. WebSocket 推送仍是后续阶段，不在本轮范围内。
+1. 下一交易时段端到端验收：collector 6 秒采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。
+2. WebSocket 推送仍是后续阶段，不在本轮范围内。
 
 ---
 

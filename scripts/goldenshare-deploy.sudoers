@@ -8,6 +8,7 @@ goldenshare ALL=(root) NOPASSWD: \
   /usr/bin/systemctl restart goldenshare-ops-scheduler.service, \
   /usr/bin/systemctl restart goldenshare-date-completeness-worker.service, \
   /usr/bin/systemctl restart goldenshare-realtime-collector.service, \
+  /usr/bin/systemctl enable goldenshare-realtime-collector.service, \
   /usr/bin/systemctl status goldenshare-web.service, \
   /usr/bin/systemctl status goldenshare-ops-worker.service, \
   /usr/bin/systemctl status goldenshare-ops-scheduler.service, \

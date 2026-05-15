@@ -42,7 +42,8 @@
 若使用 `goldenshare` 用户部署，应在 sudoers 中仅放行：
 
 1. `systemctl daemon-reload/restart/status`（受部署脚本管理的服务）
-2. 受部署脚本管理的 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
+2. `systemctl enable goldenshare-realtime-collector.service`（实时 collector 是常驻服务，必须开机自启动）
+3. 受部署脚本管理的 unit 模板到 `/etc/systemd/system` 的 `install -m 644`
 
 不要给无边界的 root 命令白名单。
 

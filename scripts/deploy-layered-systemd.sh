@@ -22,6 +22,7 @@ DEPLOY_PLATFORM="${DEPLOY_PLATFORM:-1}"
 DEPLOY_REALTIME="${DEPLOY_REALTIME:-1}"
 RUN_DB_MIGRATION="${RUN_DB_MIGRATION:-1}"
 RUN_FRONTEND_BUILD="${RUN_FRONTEND_BUILD:-1}"
+RUN_WEALTH_BUILD="${RUN_WEALTH_BUILD:-1}"
 RUN_DEFAULT_SINGLE_SOURCE_SEED="${RUN_DEFAULT_SINGLE_SOURCE_SEED:-1}"
 DEFAULT_SINGLE_SOURCE_SEED_KEY="${DEFAULT_SINGLE_SOURCE_SEED_KEY:-tushare}"
 RUN_MONEYFLOW_MULTI_SOURCE_SEED="${RUN_MONEYFLOW_MULTI_SOURCE_SEED:-0}"
@@ -152,6 +153,7 @@ ensure_sudo_ready() {
   - systemctl restart/status goldenshare-ops-scheduler.service
   - systemctl restart/status goldenshare-date-completeness-worker.service
   - systemctl restart/status goldenshare-realtime-collector.service
+  - systemctl enable goldenshare-realtime-collector.service
 EOF
     exit 1
   fi
@@ -255,6 +257,16 @@ main() {
     log "3/12 跳过前端构建（RUN_FRONTEND_BUILD=0）"
   fi
 
+  if [[ "${RUN_WEALTH_BUILD}" == "1" ]]; then
+    log "4/12 构建财势乾坤行情系统前端"
+    cd "${REPO_DIR}/wealth"
+    npm ci
+    npm run build
+    cd "${REPO_DIR}"
+  else
+    log "4/12 跳过财势乾坤行情系统前端构建（RUN_WEALTH_BUILD=0）"
+  fi
+
   sync_units_if_needed
   assert_web_entry_module
 
@@ -336,6 +348,8 @@ main() {
   fi
 
   if [[ "${DEPLOY_REALTIME}" == "1" ]]; then
+    log "启用 Realtime 实时采集层自启动（collector）"
+    sudo_systemctl enable "${REALTIME_COLLECTOR_SERVICE}" >/dev/null
     log "重启 Realtime 实时采集层（collector）"
     sudo_systemctl restart "${REALTIME_COLLECTOR_SERVICE}"
   else
