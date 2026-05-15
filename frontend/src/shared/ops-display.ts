@@ -12,6 +12,7 @@ const statusLabelMap: Record<string, string> = {
   previewing: "预览中",
   completed: "已完成",
   rolled_back: "已回滚",
+  healthy: "正常",
   fresh: "正常",
   lagging: "滞后",
   stale: "严重滞后",

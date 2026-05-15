@@ -36,8 +36,4 @@ class DatasetStatusSnapshot(Base):
     primary_action_key: Mapped[str | None] = mapped_column(String(128))
     snapshot_date: Mapped[date] = mapped_column(Date, nullable=False)
     last_calculated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    raw_stage_status: Mapped[str | None] = mapped_column(String(16))
-    std_stage_status: Mapped[str | None] = mapped_column(String(16))
-    resolution_stage_status: Mapped[str | None] = mapped_column(String(16))
-    serving_stage_status: Mapped[str | None] = mapped_column(String(16))
     state_updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, default=lambda: datetime.now(timezone.utc))

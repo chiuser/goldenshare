@@ -559,40 +559,15 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
     assert get_dataset_definition("index_mins").storage.serving_table is None
 
 
-def test_dataset_definition_projection_owns_layer_stage_plan() -> None:
-    daily = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("daily"))
-    stock_basic = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stock_basic"))
-    stk_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("stk_mins"))
-    index_mins = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("index_mins"))
-    cctv_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("cctv_news"))
-    major_news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("major_news"))
-    news = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("news"))
-    anns_d = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("anns_d"))
-    irm_qa_sh = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("irm_qa_sh"))
-    irm_qa_sz = dataset_definition_projection.build_dataset_layer_projection(get_dataset_definition("irm_qa_sz"))
+def test_dataset_definition_projection_only_owns_freshness_projection() -> None:
+    projection = dataset_definition_projection.build_dataset_freshness_projection(get_dataset_definition("daily"))
 
-    assert daily.stage_keys == ("raw", "serving")
-    assert daily.all_stage_keys == ("raw", "std", "resolution", "serving")
-    assert daily.stage("std").enabled is False
-    assert daily.stage("std").message == "当前模式未启用 std 物化"
-    assert stock_basic.stage_keys == ("raw", "std", "resolution", "serving")
-    assert stock_basic.stage("resolution").status_source == "unobserved"
-    assert stk_mins.stage_keys == ("raw",)
-    assert stk_mins.stage("serving").message == "当前模式不产出 serving"
-    assert index_mins.stage_keys == ("raw",)
-    assert index_mins.stage("serving").message == "当前模式不产出 serving"
-    assert cctv_news.stage_keys == ("raw", "light")
-    assert cctv_news.stage("light").display_name == "轻量服务层"
-    assert major_news.stage_keys == ("raw", "light")
-    assert major_news.stage("light").display_name == "轻量服务层"
-    assert news.stage_keys == ("raw", "light")
-    assert news.stage("light").display_name == "轻量服务层"
-    assert anns_d.stage_keys == ("raw", "light")
-    assert anns_d.stage("light").display_name == "轻量服务层"
-    assert irm_qa_sh.stage_keys == ("raw", "light")
-    assert irm_qa_sh.stage("light").display_name == "轻量服务层"
-    assert irm_qa_sz.stage_keys == ("raw", "light")
-    assert irm_qa_sz.stage("light").display_name == "轻量服务层"
+    assert projection.dataset_key == "daily"
+    assert projection.raw_table == "raw_tushare.daily"
+    assert projection.target_table == "core_serving.equity_daily_bar"
+    assert projection.primary_action_key == "daily.maintain"
+    assert dataset_definition_projection.delivery_mode_label("single_source_serving") == "单源服务"
+    assert dataset_definition_projection.delivery_mode_tone("single_source_serving") == "success"
 
 
 def test_dataset_definition_source_keys_are_explicit_fact() -> None:

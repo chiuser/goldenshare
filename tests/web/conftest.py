@@ -36,8 +36,6 @@ from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCo
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
-from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
-from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
@@ -110,8 +108,6 @@ def web_engine(configured_web_env) -> Generator:
         TaskRunIssue.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
         DatasetStatusSnapshot.__table__.create(connection)
-        DatasetLayerSnapshotHistory.__table__.create(connection)
-        DatasetLayerSnapshotCurrent.__table__.create(connection)
         ProbeRule.__table__.create(connection)
         ProbeRunLog.__table__.create(connection)
         ResolutionRelease.__table__.create(connection)
@@ -591,48 +587,5 @@ def resolution_release_stage_status_factory(db_session: Session) -> Callable[...
         db_session.commit()
         db_session.refresh(stage_status)
         return stage_status
-
-    return build
-
-
-@pytest.fixture()
-def dataset_layer_snapshot_history_factory(db_session: Session) -> Callable[..., DatasetLayerSnapshotHistory]:
-    def build(
-        *,
-        snapshot_date,
-        dataset_key: str = "equity_daily",
-        source_key: str | None = "tushare",
-        stage: str = "serving",
-        status: str = "healthy",
-        rows_in: int | None = None,
-        rows_out: int | None = None,
-        error_count: int | None = None,
-        last_success_at: datetime | None = None,
-        last_failure_at: datetime | None = None,
-        lag_seconds: int | None = None,
-        message: str | None = None,
-        calculated_at: datetime | None = None,
-    ) -> DatasetLayerSnapshotHistory:
-        next_id = (db_session.scalar(select(func.max(DatasetLayerSnapshotHistory.id))) or 0) + 1
-        row = DatasetLayerSnapshotHistory(
-            id=next_id,
-            snapshot_date=snapshot_date,
-            dataset_key=dataset_key,
-            source_key=source_key,
-            stage=stage,
-            status=status,
-            rows_in=rows_in,
-            rows_out=rows_out,
-            error_count=error_count,
-            last_success_at=last_success_at,
-            last_failure_at=last_failure_at,
-            lag_seconds=lag_seconds,
-            message=message,
-            calculated_at=calculated_at or datetime.now(timezone.utc),
-        )
-        db_session.add(row)
-        db_session.commit()
-        db_session.refresh(row)
-        return row
 
     return build

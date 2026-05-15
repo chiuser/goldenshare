@@ -12,7 +12,7 @@ type CardStatus = "running" | "healthy" | "warning" | "stale" | "failed" | "unkn
 type SourceKey = "tushare" | "biying" | "biz_tableset";
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 
-const RAW_SOURCE_DESCRIPTION = "仅展示数据源侧原始下载状态（raw）。这里不展示 std / serving。";
+const RAW_SOURCE_DESCRIPTION = "展示数据集当前健康度、最近同步和业务日期范围；健康度统一来自服务端 freshness 口径。";
 
 interface SourceCardItem {
   datasetKey: string;
@@ -164,7 +164,7 @@ export function OpsV21SourcePage({
 
       {!isLoading && !error && cards.length === 0 ? (
         <Alert color="info" title={`暂无 ${title} 数据`}>
-          {sourceKey === "biz_tableset" ? "当前没有可展示的 Biz 表状态。" : "当前没有可展示的 raw 数据源状态。"}
+          {sourceKey === "biz_tableset" ? "当前没有可展示的 Biz 表状态。" : "当前没有可展示的数据集状态。"}
         </Alert>
       ) : null}
 

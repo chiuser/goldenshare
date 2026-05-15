@@ -19,8 +19,6 @@ MODEL_MODULES: tuple[str, ...] = (
     "src.ops.models.ops.dataset_date_completeness_gap",
     "src.ops.models.ops.dataset_date_completeness_run",
     "src.ops.models.ops.dataset_date_completeness_schedule",
-    "src.ops.models.ops.dataset_layer_snapshot_current",
-    "src.ops.models.ops.dataset_layer_snapshot_history",
     "src.ops.models.ops.dataset_status_snapshot",
     "src.ops.models.ops.index_series_active",
     "src.ops.models.ops.schedule",

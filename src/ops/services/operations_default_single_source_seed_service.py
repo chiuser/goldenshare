@@ -8,7 +8,6 @@ from sqlalchemy.orm import Session
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.datasets.registry import list_dataset_definitions
-from src.ops.dataset_definition_projection import build_dataset_layer_projection
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 
@@ -119,9 +118,8 @@ class DefaultSingleSourceSeedService:
         return sorted(
             definition.dataset_key
             for definition in list_dataset_definitions()
-            for projection in (build_dataset_layer_projection(definition),)
             if definition.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
-            and normalized_source_key in projection.source_keys
+            and normalized_source_key in definition.source.source_keys
         )
 
     @staticmethod

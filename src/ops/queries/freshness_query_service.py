@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from calendar import monthrange
 from datetime import date, datetime, timedelta, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import desc, func, select
 from sqlalchemy.exc import SQLAlchemyError
@@ -33,6 +34,7 @@ from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsF
 STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unknown": 2, "disabled": 3, "fresh": 4}
 DISABLED_DATASET_KEYS: set[str] = set()
 ACTIVE_EXECUTION_STATUSES = ("queued", "running", "canceling")
+BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 UNDEFINED_COLUMN_RE = re.compile(r'column "([^"]+)" of relation "([^"]+)" does not exist', re.IGNORECASE)
 NOT_NULL_RE = re.compile(
@@ -69,7 +71,10 @@ class AutoScheduleSnapshot:
 
 class OpsFreshnessQueryService:
     def build_freshness(self, session: Session, *, today: date | None = None) -> OpsFreshnessResponse:
+        reference_date = self._business_reference_date(today)
         snapshot_response = self._build_from_snapshot(session)
+        if snapshot_response is not None and not self._snapshot_cache_is_current(session, reference_date=reference_date):
+            snapshot_response = None
         if snapshot_response is not None:
             all_projections = list_dataset_freshness_projections()
             snapshot_items_by_key = {
@@ -131,7 +136,7 @@ class OpsFreshnessQueryService:
             if not live_refresh_resource_keys:
                 return self._attach_runtime_metadata(session, snapshot_response)
 
-            live_refreshed_items = self.build_live_items(session, today=today, resource_keys=live_refresh_resource_keys)
+            live_refreshed_items = self.build_live_items(session, today=reference_date, resource_keys=live_refresh_resource_keys)
             merged_by_key = {
                 item.dataset_key: item
                 for group in snapshot_response.groups
@@ -146,7 +151,7 @@ class OpsFreshnessQueryService:
                 session,
                 OpsFreshnessResponse(summary=summary, groups=groups),
             )
-        items = self.build_live_items(session, today=today)
+        items = self.build_live_items(session, today=reference_date)
         groups = self._group_items(items)
         summary = self._build_summary(items)
         return self._attach_runtime_metadata(
@@ -161,7 +166,7 @@ class OpsFreshnessQueryService:
         today: date | None = None,
         resource_keys: list[str] | None = None,
     ) -> list[DatasetFreshnessItem]:
-        reference_date = today or datetime.now(timezone.utc).date()
+        reference_date = self._business_reference_date(today)
         latest_open_date = self._get_latest_open_date(session, before_or_on=reference_date)
         latest_success_by_resource = self._latest_success_by_resource(session)
         failures_by_resource = self._latest_failures_by_resource(session)
@@ -213,6 +218,24 @@ class OpsFreshnessQueryService:
         ]
         lagging_items.sort(key=lambda item: (STATUS_PRIORITY[item.freshness_status], -(item.lag_days or 0), item.display_name))
         return response.summary, lagging_items[:5]
+
+    @staticmethod
+    def _business_reference_date(today: date | None = None, *, now: datetime | None = None) -> date:
+        if today is not None:
+            return today
+        current = now or datetime.now(timezone.utc)
+        return current.astimezone(BUSINESS_TIMEZONE).date()
+
+    @staticmethod
+    def _snapshot_cache_is_current(session: Session, *, reference_date: date) -> bool:
+        try:
+            snapshot_dates = list(session.scalars(select(DatasetStatusSnapshot.snapshot_date)))
+        except SQLAlchemyError:
+            session.rollback()
+            return False
+        if not snapshot_dates:
+            return False
+        return all(snapshot_date == reference_date for snapshot_date in snapshot_dates)
 
     def _build_item(
         self,

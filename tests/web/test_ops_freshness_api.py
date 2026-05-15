@@ -497,6 +497,7 @@ def test_build_freshness_merges_missing_datasets_when_snapshot_is_incomplete(
     )
 
     monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
+    monkeypatch.setattr(service, "_snapshot_cache_is_current", lambda _session, *, reference_date: True)
     monkeypatch.setattr(
         "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
         lambda: [
@@ -586,6 +587,7 @@ def test_build_freshness_refreshes_snapshot_when_cadence_changed(
     )
 
     monkeypatch.setattr(service, "_build_from_snapshot", lambda _session: snapshot_response)
+    monkeypatch.setattr(service, "_snapshot_cache_is_current", lambda _session, *, reference_date: True)
     monkeypatch.setattr(
         "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
         lambda: [

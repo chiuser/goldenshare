@@ -83,9 +83,7 @@ flowchart LR
 
 1. `ops.task_run` / `ops.task_run_node` / `ops.task_run_issue`
 2. `ops.dataset_status_snapshot`
-3. `ops.dataset_layer_snapshot_current`
-4. `ops.dataset_layer_snapshot_history`
-5. 旧任务观测链路和旧同步状态表
+3. 旧任务观测链路、旧分层观测链路和旧同步状态表
 
 说明：审计页面可以在 UI 上与 freshness 并列展示，但两者不能共享状态表，也不能互相覆盖结论。
 

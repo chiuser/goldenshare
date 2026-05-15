@@ -2,26 +2,19 @@ from __future__ import annotations
 
 from datetime import date, datetime, timezone
 
-from sqlalchemy import delete, func, inspect, select
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
-from src.foundation.datasets.models import DatasetDateModel
-from src.foundation.datasets.registry import get_dataset_definition, get_dataset_definition_by_action_key
-from src.foundation.models.core_serving_light.equity_daily_bar_light import EquityDailyBarLight
+from src.foundation.datasets.registry import get_dataset_definition_by_action_key
 from src.ops.dataset_definition_projection import (
-    DatasetLayerStageProjection,
-    build_dataset_layer_projection,
     get_dataset_freshness_projection,
 )
-from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
-from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.ops.schemas.freshness import DatasetFreshnessItem, OpsFreshnessResponse
 from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.action_catalog import get_workflow_definition
-from src.ops.layer_snapshot_source_scope import normalize_layer_snapshot_source_key
 
 
 class DatasetStatusSnapshotService:
@@ -32,10 +25,8 @@ class DatasetStatusSnapshotService:
         try:
             items = self.query_service.build_live_items(session, today=today)
             session.execute(delete(DatasetStatusSnapshot))
-            snapshot_date = today or datetime.now(timezone.utc).date()
+            snapshot_date = OpsFreshnessQueryService._business_reference_date(today)
             self._upsert_items(session, items, snapshot_date=snapshot_date)
-            self._append_history_items(session, items, snapshot_date=snapshot_date)
-            self._upsert_current_items(session, items)
             session.commit()
             return len(items)
         except SQLAlchemyError:
@@ -50,10 +41,8 @@ class DatasetStatusSnapshotService:
             return 0
         try:
             items = self.query_service.build_live_items(session, today=today, resource_keys=target_keys)
-            snapshot_date = today or datetime.now(timezone.utc).date()
+            snapshot_date = OpsFreshnessQueryService._business_reference_date(today)
             self._upsert_items(session, items, snapshot_date=snapshot_date)
-            self._append_history_items(session, items, snapshot_date=snapshot_date)
-            self._upsert_current_items(session, items)
             session.commit()
             return len(items)
         except SQLAlchemyError:
@@ -154,259 +143,3 @@ class DatasetStatusSnapshotService:
             row.primary_action_key = item.primary_action_key
             row.snapshot_date = snapshot_date
             row.last_calculated_at = calculated_at
-
-    @staticmethod
-    def _append_history_items(session: Session, items: list[DatasetFreshnessItem], *, snapshot_date: date) -> None:
-        calculated_at = datetime.now(timezone.utc)
-        for item in items:
-            session.add(
-                DatasetLayerSnapshotHistory(
-                    snapshot_date=snapshot_date,
-                    dataset_key=item.dataset_key,
-                    source_key=None,
-                    stage="serving",
-                    status=item.freshness_status,
-                    rows_in=None,
-                    rows_out=None,
-                    error_count=1 if item.recent_failure_summary else 0,
-                    last_success_at=item.latest_success_at,
-                    last_failure_at=item.recent_failure_at,
-                    lag_seconds=(item.lag_days * 86400) if item.lag_days is not None else None,
-                    message=item.freshness_note,
-                    calculated_at=calculated_at,
-                    snapshot_at=calculated_at,
-                    task_run_id=None,
-                    status_reason_code=DatasetStatusSnapshotService._status_reason_code(item.freshness_status),
-                )
-            )
-
-    @staticmethod
-    def _upsert_current_items(session: Session, items: list[DatasetFreshnessItem]) -> None:
-        calculated_at = datetime.now(timezone.utc)
-        keys = [item.dataset_key for item in items]
-        light_snapshot_by_dataset = DatasetStatusSnapshotService._load_light_snapshot_by_dataset(session, keys)
-        for item in items:
-            try:
-                definition = get_dataset_definition(item.dataset_key)
-            except KeyError:
-                continue
-            projection = build_dataset_layer_projection(definition)
-            source_key = normalize_layer_snapshot_source_key(
-                projection.source_keys[0] if len(projection.source_keys) == 1 else "combined"
-            )
-            DatasetStatusSnapshotService._delete_stale_current_rows(
-                session,
-                dataset_key=item.dataset_key,
-                expected_source_key=source_key,
-            )
-
-            def upsert_stage(stage_projection: DatasetLayerStageProjection, status: str, message: str | None) -> None:
-                pk = (item.dataset_key, source_key, stage_projection.stage)
-                row = session.get(DatasetLayerSnapshotCurrent, pk)
-                if row is None:
-                    row = DatasetLayerSnapshotCurrent(
-                        dataset_key=item.dataset_key,
-                        source_key=source_key,
-                        stage=stage_projection.stage,
-                    )
-                    session.add(row)
-                row.status = status
-                row.rows_in = None
-                row.rows_out = None
-                is_serving_status = stage_projection.enabled and stage_projection.stage == "serving"
-                row.error_count = 1 if item.recent_failure_summary and is_serving_status else 0
-                row.last_success_at = item.latest_success_at if is_serving_status else None
-                row.last_failure_at = item.recent_failure_at if is_serving_status else None
-                row.lag_seconds = (item.lag_days * 86400) if (item.lag_days is not None and is_serving_status) else None
-                row.message = message
-                row.calculated_at = calculated_at
-                row.state_updated_at = calculated_at
-                row.status_reason_code = DatasetStatusSnapshotService._status_reason_code(status)
-                row.task_run_id = None
-                row.run_profile = None
-
-            stage_statuses: dict[str, str] = {}
-            date_model = definition.date_model
-            for stage_projection in projection.stages:
-                status = DatasetStatusSnapshotService._resolve_stage_status(
-                    stage_projection,
-                    item,
-                    date_model=date_model,
-                )
-                message = item.freshness_note if stage_projection.stage == "serving" and stage_projection.enabled else stage_projection.message
-                upsert_stage(stage_projection, status, message)
-                stage_statuses[stage_projection.stage] = status
-
-            light_snapshot = light_snapshot_by_dataset.get(item.dataset_key)
-            serving_stage = projection.stage("serving")
-            if item.dataset_key == "daily" and serving_stage is not None and serving_stage.enabled:
-                pk = (item.dataset_key, source_key, "light")
-                row = session.get(DatasetLayerSnapshotCurrent, pk)
-                if row is None:
-                    row = DatasetLayerSnapshotCurrent(dataset_key=item.dataset_key, source_key=source_key, stage="light")
-                    session.add(row)
-                if light_snapshot is None:
-                    row.status = "unknown"
-                    row.rows_in = None
-                    row.rows_out = None
-                    row.error_count = 0
-                    row.last_success_at = None
-                    row.last_failure_at = None
-                    row.lag_seconds = None
-                    row.message = "轻量层尚未初始化，暂无可用快照。"
-                else:
-                    light_status = DatasetStatusSnapshotService._resolve_light_status(
-                        expected_business_date=item.latest_business_date,
-                        light_latest_business_date=light_snapshot["latest_business_date"],
-                    )
-                    row.status = light_status
-                    row.rows_in = light_snapshot["rows_on_latest_day"]
-                    row.rows_out = light_snapshot["rows_on_latest_day"]
-                    row.error_count = 0
-                    row.last_success_at = light_snapshot["updated_at"]
-                    row.last_failure_at = None
-                    row.lag_seconds = DatasetStatusSnapshotService._resolve_light_lag_seconds(
-                        expected_business_date=item.latest_business_date,
-                        light_latest_business_date=light_snapshot["latest_business_date"],
-                    )
-                    row.message = (
-                        f"轻量层最新业务日 {light_snapshot['latest_business_date'].isoformat()}，"
-                        f"最近刷新 {light_snapshot['updated_at'].isoformat() if light_snapshot['updated_at'] else '未知'}。"
-                        if light_snapshot["latest_business_date"] is not None
-                        else "轻量层暂无可用数据。"
-                    )
-                row.calculated_at = calculated_at
-
-            snapshot_row = session.get(DatasetStatusSnapshot, item.dataset_key)
-            if snapshot_row is not None:
-                snapshot_row.raw_stage_status = stage_statuses.get("raw")
-                snapshot_row.std_stage_status = stage_statuses.get("std")
-                snapshot_row.resolution_stage_status = stage_statuses.get("resolution")
-                snapshot_row.serving_stage_status = stage_statuses.get("serving")
-                snapshot_row.state_updated_at = calculated_at
-
-    @staticmethod
-    def _delete_stale_current_rows(session: Session, *, dataset_key: str, expected_source_key: str | None) -> None:
-        rows = list(
-            session.scalars(
-                select(DatasetLayerSnapshotCurrent).where(DatasetLayerSnapshotCurrent.dataset_key == dataset_key)
-            )
-        )
-        normalized_expected = normalize_layer_snapshot_source_key(expected_source_key)
-        for row in rows:
-            normalized_row_source_key = normalize_layer_snapshot_source_key(row.source_key)
-            raw_row_source_key = (row.source_key or "").strip().lower()
-            if normalized_row_source_key == normalized_expected and raw_row_source_key == (normalized_expected or ""):
-                continue
-            session.delete(row)
-
-    @staticmethod
-    def _resolve_stage_status(
-        stage_projection: DatasetLayerStageProjection,
-        item: DatasetFreshnessItem,
-        *,
-        date_model: DatasetDateModel,
-    ) -> str:
-        if not stage_projection.enabled:
-            return "skipped"
-        if stage_projection.status_source == "freshness":
-            if DatasetStatusSnapshotService._uses_runtime_health_for_stage(date_model):
-                return DatasetStatusSnapshotService._runtime_health_status(item)
-            return item.freshness_status
-        if stage_projection.status_source in {"unobserved", "skipped"}:
-            return stage_projection.status_source
-        raise ValueError(f"不支持的层状态来源：{stage_projection.status_source}")
-
-    @staticmethod
-    def _uses_runtime_health_for_stage(date_model: DatasetDateModel) -> bool:
-        return (
-            date_model.bucket_rule == "not_applicable"
-            and date_model.date_axis == "natural_day"
-            and date_model.input_shape in {"ann_date_or_start_end", "trade_date_or_start_end"}
-        )
-
-    @staticmethod
-    def _runtime_health_status(item: DatasetFreshnessItem) -> str:
-        if item.recent_failure_summary:
-            return "failed"
-        if item.latest_success_at is not None:
-            return "healthy"
-        return "unknown"
-
-    @staticmethod
-    def _status_reason_code(status: str | None) -> str | None:
-        if status in {"healthy", "success"}:
-            return "ok"
-        if status in {"lagging", "stale"}:
-            return "lagging"
-        if status in {"unknown", "unobserved"}:
-            return "unobserved"
-        if status in {"failed", "error"}:
-            return "failed"
-        if status == "skipped":
-            return "skipped"
-        return None
-
-    @staticmethod
-    def _load_light_snapshot_by_dataset(session: Session, dataset_keys: list[str]) -> dict[str, dict[str, object | None]]:
-        if "daily" not in dataset_keys:
-            return {}
-        bind = session.get_bind()
-        if bind is None:
-            return {}
-        inspector = inspect(bind)
-        if not inspector.has_table("equity_daily_bar_light", schema="core_serving_light"):
-            return {}
-        try:
-            latest_business_date, updated_at = session.execute(
-                select(
-                    func.max(EquityDailyBarLight.trade_date),
-                    func.max(EquityDailyBarLight.updated_at),
-                )
-            ).one()
-            rows_on_latest_day = None
-            if latest_business_date is not None:
-                rows_on_latest_day = session.scalar(
-                    select(func.count())
-                    .select_from(EquityDailyBarLight)
-                    .where(EquityDailyBarLight.trade_date == latest_business_date)
-                )
-            return {
-                "daily": {
-                    "latest_business_date": latest_business_date,
-                    "updated_at": updated_at,
-                    "rows_on_latest_day": int(rows_on_latest_day or 0) if latest_business_date is not None else None,
-                }
-            }
-        except SQLAlchemyError:
-            return {}
-
-    @staticmethod
-    def _resolve_light_status(
-        *,
-        expected_business_date: date | None,
-        light_latest_business_date: date | None,
-    ) -> str:
-        if light_latest_business_date is None:
-            return "unknown"
-        if expected_business_date is None:
-            return "healthy"
-        lag_days = (expected_business_date - light_latest_business_date).days
-        if lag_days <= 0:
-            return "healthy"
-        if lag_days <= 1:
-            return "lagging"
-        return "stale"
-
-    @staticmethod
-    def _resolve_light_lag_seconds(
-        *,
-        expected_business_date: date | None,
-        light_latest_business_date: date | None,
-    ) -> int | None:
-        if expected_business_date is None or light_latest_business_date is None:
-            return None
-        lag_days = (expected_business_date - light_latest_business_date).days
-        if lag_days <= 0:
-            return 0
-        return lag_days * 86400

@@ -11,7 +11,6 @@ import { StatusBadge } from "../shared/ui/status-badge";
 
 type CardStatus = "healthy" | "warning" | "stale" | "failed" | "running" | "unknown";
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
-type DatasetCardStage = DatasetCard["stage_statuses"][number];
 
 function toCardStatus(rawStatus: string | null | undefined): CardStatus {
   const key = (rawStatus || "").toLowerCase();
@@ -36,10 +35,6 @@ function configFlagPresentation(isOn: boolean) {
   return isOn
     ? { value: "active", label: "已配置" }
     : { value: "disabled", label: "未配置" };
-}
-
-function stageTimestamp(stage: DatasetCardStage): string {
-  return stage.calculated_at ? formatDateTimeLabel(stage.calculated_at) : "—";
 }
 
 function cardSubtitle(item: DatasetCard): string {
@@ -72,7 +67,7 @@ export function OpsV21OverviewPage() {
     <Stack gap="lg">
       <SectionCard
         title="状态概览"
-        description="先看整体分布，再往下看各数据集当前链路状态。"
+        description="先看整体分布，再往下看各数据集当前健康度。"
       >
         {summaryQuery.isLoading ? <Loader size="sm" /> : null}
         {summaryQuery.error ? (
@@ -158,9 +153,6 @@ export function OpsV21OverviewPage() {
                         <Badge variant="light" color="info" size="sm">
                           {latestObservationLabel(item)}
                         </Badge>
-                        <Badge variant="light" color="neutral" size="sm">
-                          状态更新时间：{item.status_updated_at ? formatDateTimeLabel(item.status_updated_at) : "—"}
-                        </Badge>
                       </Stack>
                       <Badge
                         variant="light"
@@ -173,38 +165,22 @@ export function OpsV21OverviewPage() {
                     </Group>
 
                     <Stack gap={6}>
-                      {item.stage_statuses.map((stage) => {
-                        if (stage.stage === "raw" && item.raw_sources.length > 1) {
-                          return (
-                            <Stack key={stage.stage} gap={4}>
-                              <Text size="sm" c="dimmed">
-                                {stage.stage_label}
-                              </Text>
-                              {item.raw_sources.map((entry, sourceIndex) => (
-                                <Group key={`${item.card_key}-raw-source-${sourceIndex}`} justify="space-between" align="center">
-                                  <Text size="sm" c="dimmed">
-                                    {entry.source_display_name}
-                                    {entry.table_name ? `（${entry.table_name}）` : ""}
-                                  </Text>
-                                  <StatusBadge value={entry.status} />
-                                </Group>
-                              ))}
-                            </Stack>
-                          );
-                        }
-                        return (
-                          <Group key={stage.stage} justify="space-between" align="center">
-                            <Text size="sm" c="dimmed">
-                              {stage.stage_label}
-                              {stage.table_name ? `（${stage.table_name}）` : ""}
-                            </Text>
-                            <Group gap={8} wrap="nowrap">
-                              <Text size="xs" c="dimmed">{stageTimestamp(stage)}</Text>
-                              <StatusBadge value={stage.status} />
-                            </Group>
-                          </Group>
-                        );
-                      })}
+                      <Group justify="space-between" align="center">
+                        <Text size="sm" c="dimmed">健康度</Text>
+                        <StatusBadge value={item.status} />
+                      </Group>
+                      <Group justify="space-between" align="center">
+                        <Text size="sm" c="dimmed">最近同步</Text>
+                        <Text size="sm">{item.last_sync_date ? formatDateLabel(item.last_sync_date) : "—"}</Text>
+                      </Group>
+                      <Group justify="space-between" align="center">
+                        <Text size="sm" c="dimmed">期望业务日</Text>
+                        <Text size="sm">{item.expected_business_date ? formatDateLabel(item.expected_business_date) : "—"}</Text>
+                      </Group>
+                      <Group justify="space-between" align="center">
+                        <Text size="sm" c="dimmed">滞后天数</Text>
+                        <Text size="sm">{item.lag_days != null ? `${item.lag_days} 天` : "—"}</Text>
+                      </Group>
                     </Stack>
 
                     <Grid gutter={6}>

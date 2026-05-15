@@ -118,57 +118,6 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                 std_mapping_configured: true,
                 std_cleansing_configured: true,
                 resolution_policy_configured: true,
-                status_updated_at: "2026-04-17T01:01:00Z",
-                stage_statuses: [
-                  {
-                    stage: "raw",
-                    stage_label: "原始层",
-                    table_name: "raw_tushare.equity_daily_bar",
-                    source_key: "tushare",
-                    source_display_name: "Tushare",
-                    status: "healthy",
-                    rows_in: 1,
-                    rows_out: 1,
-                    error_count: 0,
-                    lag_seconds: 0,
-                    message: null,
-                    calculated_at: "2026-04-17T01:00:00Z",
-                    last_success_at: "2026-04-17T01:00:00Z",
-                    last_failure_at: null,
-                  },
-                  {
-                    stage: "serving",
-                    stage_label: "服务层",
-                    table_name: "core_serving.equity_daily_bar",
-                    source_key: null,
-                    source_display_name: null,
-                    status: "healthy",
-                    rows_in: 1,
-                    rows_out: 1,
-                    error_count: 0,
-                    lag_seconds: 0,
-                    message: null,
-                    calculated_at: "2026-04-17T01:01:00Z",
-                    last_success_at: "2026-04-17T01:01:00Z",
-                    last_failure_at: null,
-                  },
-                ],
-                raw_sources: [
-                  {
-                    source_key: "tushare",
-                    source_display_name: "Tushare",
-                    table_name: "raw_tushare.equity_daily_bar",
-                    status: "healthy",
-                    calculated_at: "2026-04-17T01:00:00Z",
-                  },
-                  {
-                    source_key: "biying",
-                    source_display_name: "Biying",
-                    table_name: "raw_biying.equity_daily_bar",
-                    status: "healthy",
-                    calculated_at: "2026-04-17T01:00:00Z",
-                  },
-                ],
               },
             ],
           },
@@ -194,8 +143,11 @@ describe("V2.1 数据状态总览页", () => {
     expect(datasetCard.className).not.toContain("glass-card");
     expect(within(datasetCard).getByText("股票 · 单源服务")).toBeInTheDocument();
     expect(within(datasetCard).queryByText("daily")).not.toBeInTheDocument();
-    expect(within(datasetCard).getByText("Tushare（raw_tushare.equity_daily_bar）")).toBeInTheDocument();
-    expect(within(datasetCard).getByText("Biying（raw_biying.equity_daily_bar）")).toBeInTheDocument();
+    expect(within(datasetCard).getByText("健康度")).toBeInTheDocument();
+    expect(within(datasetCard).getByText("正常")).toBeInTheDocument();
+    expect(within(datasetCard).getByText("最近同步")).toBeInTheDocument();
+    expect(within(datasetCard).getAllByText("2026/04/16").length).toBeGreaterThan(0);
+    expect(within(datasetCard).getByText("期望业务日")).toBeInTheDocument();
     expect(within(datasetCard).queryByText("tushare")).not.toBeInTheDocument();
     expect(within(datasetCard).queryByText("biying")).not.toBeInTheDocument();
     expect(within(datasetCard).getByText("映射规则")).toBeInTheDocument();

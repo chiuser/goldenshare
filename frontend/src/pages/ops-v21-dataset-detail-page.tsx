@@ -5,7 +5,6 @@ import { Link } from "@tanstack/react-router";
 import { apiRequest } from "../shared/api/client";
 import type {
   DatasetCardListResponse,
-  LayerSnapshotHistoryResponse,
   ProbeRuleListResponse,
   ResolutionReleaseListResponse,
   StdCleansingRuleListResponse,
@@ -24,24 +23,6 @@ import { StatusBadge } from "../shared/ui/status-badge";
 
 type TaskRunRow = TaskRunListResponse["items"][number];
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
-type DatasetCardStage = DatasetCard["stage_statuses"][number];
-type DatasetCardSource = DatasetCard["raw_sources"][number];
-type StageCard = {
-  stage: string;
-  stageLabel: string;
-  status: string;
-  rowsIn: number | null;
-  rowsOut: number | null;
-  lagSeconds: number | null;
-  calculatedAt: string | null;
-  lastSuccessAt: string | null;
-  lastFailureAt: string | null;
-};
-
-function formatLagDuration(lagSeconds: number | null | undefined): string {
-  if (!lagSeconds) return "—";
-  return `${Math.floor(lagSeconds / 3600)}h ${Math.floor((lagSeconds % 3600) / 60)}m`;
-}
 
 function formatDetailStatusLabel(value: string | null | undefined): string {
   const normalized = (value || "unknown").toLowerCase();
@@ -49,28 +30,10 @@ function formatDetailStatusLabel(value: string | null | undefined): string {
   return formatStatusLabel(value);
 }
 
-function stageCardFromDatasetCard(item: DatasetCardStage): StageCard {
-  return {
-    stage: item.stage,
-    stageLabel: item.stage_label,
-    status: item.status,
-    rowsIn: item.rows_in,
-    rowsOut: item.rows_out,
-    lagSeconds: item.lag_seconds,
-    calculatedAt: item.calculated_at,
-    lastSuccessAt: item.last_success_at,
-    lastFailureAt: item.last_failure_at,
-  };
-}
-
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
   const cardQuery = useQuery({
     queryKey: ["ops", "dataset-cards", "v21-dataset-detail", datasetKey],
     queryFn: () => apiRequest<DatasetCardListResponse>("/api/v1/ops/dataset-cards?limit=2000"),
-  });
-  const historyQuery = useQuery({
-    queryKey: ["ops", "layer-snapshot", "history", "v21-dataset-detail", datasetKey],
-    queryFn: () => apiRequest<LayerSnapshotHistoryResponse>(`/api/v1/ops/layer-snapshots/history?dataset_key=${encodeURIComponent(datasetKey)}&limit=50`),
   });
   const taskRunQuery = useQuery({
     queryKey: ["ops", "task-runs", "v21-dataset-detail", datasetKey],
@@ -95,26 +58,22 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
   const isLoading = [
     cardQuery,
-    historyQuery,
     taskRunQuery,
     probeQuery,
     releaseQuery,
     mappingQuery,
     cleansingQuery,
   ].some((query) => query.isLoading);
-  const error = cardQuery.error || historyQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
+  const error = cardQuery.error || taskRunQuery.error || probeQuery.error || releaseQuery.error || mappingQuery.error || cleansingQuery.error;
 
   const datasetCard = (cardQuery.data?.groups || [])
     .flatMap((group) => group.items || [])
     .find((item) => item.detail_dataset_key === datasetKey || item.dataset_key === datasetKey);
   const displayName = datasetCard?.display_name || "数据集未找到";
-  const stageCards: StageCard[] = datasetCard?.stage_statuses?.map(stageCardFromDatasetCard) || [];
-  const stageMap = new Map(stageCards.map((item) => [item.stage, item]));
   const taskRunItems = taskRunQuery.data?.items || [];
   const taskRunRows = taskRunItems.slice(0, 10);
   const recentTaskRun = taskRunItems[0];
   const manualActionKey = datasetCard?.primary_action_key || null;
-  const rawSources: DatasetCardSource[] = datasetCard?.raw_sources || [];
   const releaseItems = releaseQuery.data?.items || [];
   const latestRelease = releaseItems[0];
   const taskRunColumns: DataTableColumn<TaskRunRow>[] = [
@@ -175,13 +134,13 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
 
   return (
     <Stack gap="lg">
-      <SectionCard title={displayName} description="查看该数据集的层级状态、近期任务、调度覆盖与规则配置。">
+      <SectionCard title={displayName} description="查看该数据集的健康度、近期任务、调度覆盖与规则配置。">
         <Group justify="space-between" align="center">
           <Group gap="sm">
             <Button component={Link} to="/ops/v21/overview" variant="light" color="gray">
               返回总览
             </Button>
-            <StatusBadge value={recentTaskRun?.status || "unknown"} />
+            <StatusBadge value={datasetCard?.status || recentTaskRun?.status || "unknown"} />
             {latestRelease ? <Badge variant="light" color="success">策略 v{latestRelease.target_policy_version}</Badge> : null}
           </Group>
           <Group gap="sm">
@@ -190,9 +149,6 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             </Button>
             <Button component="a" href={buildManualTaskHref({ actionKey: manualActionKey, actionType: "dataset_action" })} variant="light">
               手动执行
-            </Button>
-            <Button variant="light" disabled>
-              分层重跑
             </Button>
           </Group>
         </Group>
@@ -204,84 +160,36 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
           {error instanceof Error ? error.message : "未知错误"}
         </Alert>
       ) : null}
-      {!isLoading && !error && stageCards.length === 0 && taskRunItems.length === 0 ? (
+      {!isLoading && !error && !datasetCard && taskRunItems.length === 0 ? (
         <Alert color="info" title="该数据集暂无可展示记录">
-          还没有该数据集的层级快照与执行记录。先执行一次同步任务后再查看详情。
+          还没有该数据集的状态与执行记录。先执行一次维护任务后再查看详情。
         </Alert>
       ) : null}
 
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="服务层版本">
-            <Text ff="var(--mantine-font-family-monospace)" fw={700} size="lg">
-              {stageMap.get("serving")?.calculatedAt ? formatDateTimeLabel(stageMap.get("serving")?.calculatedAt) : "—"}
-            </Text>
+          <MetricPanel label="当前状态">
+            <StatusBadge value={datasetCard?.status || recentTaskRun?.status || "unknown"} label={formatDetailStatusLabel(datasetCard?.status || recentTaskRun?.status)} />
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="今日写入行数">
-            <Text fw={700} size="xl">{recentTaskRun?.rows_saved ?? 0}</Text>
+          <MetricPanel label="最新业务日">
+            <Text fw={700} size="xl">{datasetCard?.latest_business_date ? formatDateLabel(datasetCard.latest_business_date) : "—"}</Text>
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="服务层延迟">
+          <MetricPanel label="滞后天数">
             <Text fw={700} size="xl">
-              {formatLagDuration(stageMap.get("serving")?.lagSeconds)}
+              {datasetCard?.lag_days != null ? `${datasetCard.lag_days} 天` : "—"}
             </Text>
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="今日执行次数">
+          <MetricPanel label="近期任务数">
             <Text fw={700} size="xl">{taskRunItems.length}</Text>
           </MetricPanel>
         </Grid.Col>
       </Grid>
-
-      <SectionCard title="全链路层级状态" description="按服务端返回的层级计划展示最新状态。">
-        <Grid>
-          {stageCards.map((item) => {
-            return (
-              <Grid.Col key={item.stage} span={{ base: 12, md: 6, xl: 3 }}>
-                <MetricPanel label={item.stageLabel} align="start" minHeight={176}>
-                  <Stack gap={6} w="100%">
-                    <StatusBadge value={item.status || "unknown"} label={formatDetailStatusLabel(item.status)} />
-                    <Text size="sm">最近成功：{item.lastSuccessAt ? formatDateTimeLabel(item.lastSuccessAt) : "—"}</Text>
-                    <Text size="sm">最近失败：{item.lastFailureAt ? formatDateTimeLabel(item.lastFailureAt) : "—"}</Text>
-                    <Text size="sm">读取行数：{item.rowsIn ?? "—"}</Text>
-                    <Text size="sm">保存行数：{item.rowsOut ?? "—"}</Text>
-                  </Stack>
-                </MetricPanel>
-              </Grid.Col>
-            );
-          })}
-        </Grid>
-      </SectionCard>
-
-      <SectionCard title="数据来源状态" description="按来源展示该数据集最新状态。">
-        <Grid>
-          {rawSources.map((source) => (
-            <Grid.Col key={source.source_key} span={{ base: 12, xl: 6 }}>
-              <MetricPanel label={source.source_display_name} align="start" minHeight={180}>
-                <Stack gap="sm" w="100%">
-                  <Group justify="space-between" wrap="nowrap">
-                    <StatusBadge value={source.status} label={formatDetailStatusLabel(source.status)} />
-                    <Text c="dimmed" size="sm">{source.calculated_at ? formatDateTimeLabel(source.calculated_at) : "—"}</Text>
-                  </Group>
-                  <Group justify="space-between" wrap="nowrap">
-                    <Text size="sm">原始表</Text>
-                    <Text size="sm" c="dimmed">{source.table_name || "—"}</Text>
-                  </Group>
-                </Stack>
-              </MetricPanel>
-            </Grid.Col>
-          ))}
-          {rawSources.length === 0 ? (
-            <Grid.Col span={12}>
-              <Text c="dimmed" size="sm">暂无来源状态</Text>
-            </Grid.Col>
-          ) : null}
-        </Grid>
-      </SectionCard>
 
       <SectionCard title="调度覆盖" description="先接入已存在的自动任务与探测规则。">
         <Stack gap="xs">
@@ -332,8 +240,8 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             </MetricPanel>
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-            <MetricPanel label="快照样本">
-              <Text fw={700} size="xl">{historyQuery.data?.total ?? 0}</Text>
+            <MetricPanel label="最近同步">
+              <Text fw={700} size="xl">{datasetCard?.last_sync_date ? formatDateLabel(datasetCard.last_sync_date) : "—"}</Text>
             </MetricPanel>
           </Grid.Col>
         </Grid>

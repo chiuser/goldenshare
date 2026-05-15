@@ -35,8 +35,8 @@ const rules = [
     allowlist: ["src/pages/ops-v21-review-board-page.tsx"],
   },
   {
-    id: "no-ops-page-synthetic-layer-snapshot-from-freshness",
-    description: "禁止页面层用 freshness 字段伪造 layer snapshot 状态",
+    id: "no-ops-page-synthetic-health-from-freshness",
+    description: "禁止页面层用局部字段伪造数据集健康度状态",
     scopePrefixes: ["src/pages/"],
     pattern: /\b(?:toSyntheticSnapshotFromFreshness|groupDatasetSummariesWithFreshnessFallback|inferSourceFromTargetTable|fallbackTs|fallbackStatus)\b/g,
     allowlist: [],
@@ -50,7 +50,7 @@ const rules = [
   },
   {
     id: "no-ops-page-dataset-card-source-inference",
-    description: "禁止页面层自行推断数据集卡片来源、canonical key 或 raw snapshot 合并事实",
+    description: "禁止页面层自行推断数据集卡片来源、canonical key 或旧原始层快照合并事实",
     scopePrefixes: ["src/pages/"],
     pattern: /\b(?:inferSourceKey|canonicalDatasetKey|sourcePreference|dedupeModeItemsForSource|rawLatestByCanonicalAndSource)\b/g,
     allowlist: [],

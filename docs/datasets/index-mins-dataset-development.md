@@ -96,7 +96,7 @@
 | request builder | 源接口字段映射、日期格式化 | 是 | 新增 `_idx_mins_params()`，只生成 `ts_code/freq/start_date/end_date/limit/offset` | `src/foundation/ingestion/request_builders.py` |
 | freshness | `observed_field`、`date_axis`、`bucket_rule` | 是 | 用 `trade_time` 作为 observed field，最近同步来自 raw 表最大 `trade_time` 与运行健康 | `src/ops/services/freshness_query_service.py` |
 | dataset cards | 卡片状态、最近同步、原始层状态 | 是 | 通过 catalog + freshness 自动展示；不在前端拼字段 | `frontend/src/features/data-sources/**`、`src/ops/queries/catalog_query_service.py` |
-| snapshot rebuild | status snapshot / layer snapshot 投影 | 是 | 新 raw ORM 必须能被 registry 发现，snapshot rebuild 才能统计行数和最近时间 | `src/foundation/models/table_model_registry.py`、`src/ops/services/dataset_status_snapshot_service.py` |
+| snapshot rebuild | freshness cache 投影 | 是 | 新 raw ORM 必须能被 registry 发现，snapshot rebuild 才能统计行数和最近时间 | `src/foundation/models/table_model_registry.py`、`src/ops/services/dataset_status_snapshot_service.py` |
 | date completeness audit | `audit_applicable`、`bucket_rule`、`not_applicable_reason` | 是 | V1 明确 `audit_applicable=False`，原因写分钟线完整性规则尚未建模 | `src/ops/queries/date_completeness_query_service.py` |
 | 自动任务 / calendar policy | `date_selection_rule`、默认时间模式 | 是 | V1 启用自动任务，但不加入 workflow；自动任务参数与手动维护一致，`freq` 未选按全选处理 | `src/ops/services/schedule_definition_service.py` |
 | 前端时间控件 | point/range/none/month 控件与选择规则 | 是 | 使用现有 point/range 交易日控件；`freq` 用枚举选择 | `frontend/src/features/tasks/**` |

@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -12,7 +12,6 @@ from src.foundation.datasets.registry import (
     get_dataset_definition_by_action_key,
 )
 from src.foundation.dao.trade_calendar_dao import TradeCalendarDAO
-from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.models.ops.task_run import TaskRun
@@ -116,20 +115,21 @@ class ProbeRuntimeService:
         *,
         current: datetime,
     ) -> tuple[bool, str, dict]:
+        business_date = current.astimezone(ZoneInfo("Asia/Shanghai")).date()
         # Refresh snapshot before probing so freshness/result are near-real-time.
-        self.snapshot_service.refresh_resources(session, [rule.dataset_key], today=current.date())
-        live_items = self.freshness_query.build_live_items(session, today=current.date(), resource_keys=[rule.dataset_key])
+        self.snapshot_service.refresh_resources(session, [rule.dataset_key], today=business_date)
+        live_items = self.freshness_query.build_live_items(session, today=business_date, resource_keys=[rule.dataset_key])
         item = next((entry for entry in live_items if entry.dataset_key == rule.dataset_key), None)
         if item is None:
             return False, "未找到数据集状态信息", {"dataset_key": rule.dataset_key}
 
         condition = dict(rule.probe_condition_json or {})
         condition_type = str(condition.get("type") or "freshness_latest_open")
+        if condition_type != "freshness_latest_open":
+            raise ValueError(f"不支持的探测条件：{condition_type}")
         exchange = str(condition.get("exchange") or get_settings().default_exchange)
-        latest_open = TradeCalendarDAO(session).get_latest_open_date(exchange, current.astimezone(ZoneInfo("Asia/Shanghai")).date())
+        latest_open = TradeCalendarDAO(session).get_latest_open_date(exchange, business_date)
         source_key = self._normalize_source_key(rule.source_key, dataset_key=rule.dataset_key)
-        raw_snapshot = session.get(DatasetLayerSnapshotCurrent, (rule.dataset_key, source_key, "raw"))
-        rows_in = raw_snapshot.rows_in if raw_snapshot is not None else None
 
         payload = {
             "dataset_key": rule.dataset_key,
@@ -137,22 +137,10 @@ class ProbeRuntimeService:
             "latest_business_date": item.latest_business_date.isoformat() if item.latest_business_date else None,
             "latest_open_date": latest_open.isoformat() if latest_open else None,
             "freshness_status": item.freshness_status,
-            "raw_rows_in": rows_in,
         }
-
-        if condition_type == "raw_rows_min":
-            min_rows = int(condition.get("min_rows_in") or 1)
-            matched = rows_in is not None and rows_in >= min_rows
-            message = "原始层行数已达到阈值" if matched else f"原始层行数 {rows_in if rows_in is not None else 0}，阈值 {min_rows}"
-            return matched, message, payload
 
         # Default: freshness_latest_open
         matched = latest_open is not None and item.latest_business_date == latest_open
-        min_rows = condition.get("min_rows_in")
-        if min_rows is not None:
-            min_rows_int = int(min_rows)
-            matched = matched and rows_in is not None and rows_in >= min_rows_int
-            payload["min_rows_in"] = min_rows_int
         if matched:
             return True, "最新业务日已命中最新交易日", payload
         return False, "最新业务日尚未到最新交易日", payload

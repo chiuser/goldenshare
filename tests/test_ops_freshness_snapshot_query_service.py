@@ -8,10 +8,11 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.ops.dataset_definition_projection import list_dataset_freshness_projections
+from src.ops.dataset_definition_projection import DatasetFreshnessProjection, list_dataset_freshness_projections
 from src.ops.dataset_observation_registry import OBSERVED_DATE_MODEL_REGISTRY
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
+from src.ops.schemas.freshness import DatasetFreshnessItem
 
 
 @pytest.fixture()
@@ -69,6 +70,83 @@ def test_build_from_snapshot_includes_raw_table_from_dataset_definition_projecti
     item = response.groups[0].items[0]
     assert item.dataset_key == "daily"
     assert item.raw_table == "raw_tushare.daily"
+
+
+def test_business_reference_date_uses_china_business_day_when_utc_is_previous_day() -> None:
+    reference_date = OpsFreshnessQueryService._business_reference_date(
+        now=datetime(2026, 5, 14, 17, 30, tzinfo=timezone.utc)
+    )
+
+    assert reference_date == date(2026, 5, 15)
+
+
+def test_build_freshness_ignores_snapshot_from_previous_business_day(db_session: Session, monkeypatch) -> None:
+    db_session.add(
+        DatasetStatusSnapshot(
+            dataset_key="daily",
+            resource_key="daily",
+            display_name="股票日线",
+            domain_key="equity",
+            domain_display_name="股票",
+            target_table="core.equity_daily_bar",
+            cadence="daily",
+            latest_business_date=date(2026, 5, 14),
+            latest_success_at=datetime(2026, 5, 15, 1, 0, tzinfo=timezone.utc),
+            last_sync_date=date(2026, 5, 15),
+            expected_business_date=date(2026, 5, 14),
+            lag_days=0,
+            freshness_status="fresh",
+            primary_action_key="daily.maintain",
+            snapshot_date=date(2026, 5, 14),
+            last_calculated_at=datetime(2026, 5, 15, 1, 1, tzinfo=timezone.utc),
+        )
+    )
+    db_session.commit()
+
+    service = OpsFreshnessQueryService()
+    live_item = DatasetFreshnessItem(
+        dataset_key="daily",
+        resource_key="daily",
+        display_name="股票日线",
+        domain_key="equity",
+        domain_display_name="股票",
+        target_table="core.equity_daily_bar",
+        cadence="daily",
+        latest_business_date=date(2026, 5, 14),
+        expected_business_date=date(2026, 5, 15),
+        lag_days=1,
+        freshness_status="lagging",
+        primary_action_key="daily.maintain",
+    )
+    monkeypatch.setattr(
+        "src.ops.queries.freshness_query_service.list_dataset_freshness_projections",
+        lambda: [
+            DatasetFreshnessProjection(
+                dataset_key="daily",
+                resource_key="daily",
+                display_name="股票日线",
+                domain_key="equity",
+                domain_display_name="股票",
+                target_table="core_serving.equity_daily_bar",
+                cadence="daily",
+                raw_table="raw_tushare.daily",
+                observed_date_column="trade_date",
+                primary_action_key="daily.maintain",
+            )
+        ],
+    )
+    monkeypatch.setattr(
+        service,
+        "build_live_items",
+        lambda _session, *, today=None, resource_keys=None: [live_item],
+    )
+    monkeypatch.setattr(service, "_attach_runtime_metadata", lambda _session, response: response)
+
+    response = service.build_freshness(db_session, today=date(2026, 5, 15))
+
+    item = response.groups[0].items[0]
+    assert item.freshness_status == "lagging"
+    assert item.expected_business_date == date(2026, 5, 15)
 
 
 def test_observed_model_registry_covers_equity_daily_business_date_tables() -> None:

@@ -117,7 +117,6 @@ const emptyForm = {
   probe_interval_seconds: "300",
   probe_max_triggers_per_day: "1",
   probe_condition_kind: "freshness_latest_open",
-  probe_min_rows_in: "",
   workflow_probe_dataset_keys: [] as string[],
   date_mode: "single_day" as DateMode,
   selected_date: "",
@@ -1118,7 +1117,6 @@ export function OpsAutomationPage() {
               probe_interval_seconds: Number(form.probe_interval_seconds || "300"),
               max_triggers_per_day: Number(form.probe_max_triggers_per_day || "1"),
               condition_kind: form.probe_condition_kind || "freshness_latest_open",
-              min_rows_in: form.probe_min_rows_in ? Number(form.probe_min_rows_in) : null,
               workflow_dataset_keys:
                 form.action_type === "workflow"
                   ? form.workflow_probe_dataset_keys
@@ -1252,7 +1250,6 @@ export function OpsAutomationPage() {
       probe_interval_seconds: String(probeConfig?.probe_interval_seconds || 300),
       probe_max_triggers_per_day: String(probeConfig?.max_triggers_per_day || 1),
       probe_condition_kind: probeConfig?.condition_kind || "freshness_latest_open",
-      probe_min_rows_in: probeConfig?.min_rows_in != null ? String(probeConfig.min_rows_in) : "",
       workflow_probe_dataset_keys: probeConfig?.workflow_dataset_keys || [],
       date_mode: dateMode,
       selected_date: tradeDate || startDate || "",
@@ -1788,7 +1785,6 @@ export function OpsAutomationPage() {
                   label="探测条件"
                   data={[
                     { value: "freshness_latest_open", label: "最新业务日命中最新交易日" },
-                    { value: "raw_rows_min", label: "原始层写入行数达到阈值" },
                   ]}
                   value={form.probe_condition_kind}
                   onChange={(value) => setForm((current) => ({ ...current, probe_condition_kind: value || "freshness_latest_open" }))}
@@ -1829,15 +1825,6 @@ export function OpsAutomationPage() {
                     type="number"
                     value={form.probe_max_triggers_per_day}
                     onChange={(event) => setForm((current) => ({ ...current, probe_max_triggers_per_day: event.currentTarget.value }))}
-                  />
-                </Grid.Col>
-                <Grid.Col span={12}>
-                  <TextInput
-                    label="最小写入行数（可选）"
-                    placeholder="例如 1"
-                    type="number"
-                    value={form.probe_min_rows_in}
-                    onChange={(event) => setForm((current) => ({ ...current, probe_min_rows_in: event.currentTarget.value }))}
                   />
                 </Grid.Col>
               </Grid>

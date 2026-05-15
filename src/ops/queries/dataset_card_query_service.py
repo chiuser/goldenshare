@@ -6,40 +6,26 @@ from datetime import datetime
 from sqlalchemy import case, func, select
 from sqlalchemy.orm import Session
 
-from src.app.exceptions import WebAppError
 from src.foundation.datasets.models import DatasetDefinition
 from src.foundation.datasets.registry import list_dataset_definitions
-from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.catalog.dataset_catalog_view_resolver import DatasetCatalogViewResolver
-from src.ops.layer_snapshot_source_scope import (
-    matches_layer_snapshot_source_filter,
-    normalize_layer_snapshot_source_key,
-)
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
-from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.std_cleansing_rule import StdCleansingRule
 from src.ops.models.ops.std_mapping_rule import StdMappingRule
 from src.ops.dataset_definition_projection import (
-    LAYER_STAGE_ORDER,
-    build_dataset_layer_projection,
     delivery_mode_label,
     delivery_mode_tone,
 )
-from src.ops.layer_stage_labels import get_layer_stage_display_name
 from src.ops.catalog.biz_table_catalog import BIZ_TABLE_SOURCE_KEY
 from src.ops.queries.biz_table_card_query_service import BizTableCardQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.schemas.dataset_card import (
     DatasetCardGroup,
     DatasetCardItem,
     DatasetCardListResponse,
-    DatasetCardSourceStatus,
-    DatasetCardStageStatus,
 )
 from src.ops.schemas.freshness import DatasetFreshnessItem
-from src.ops.schemas.layer_snapshot import LayerSnapshotLatestItem
 
 
 CardStatus = str
@@ -58,10 +44,8 @@ class DatasetCardFact:
     source_keys: tuple[str, ...]
     delivery_mode: str
     layer_plan: str
-    raw_table: str
-    std_table_hint: str | None
+    raw_table: str | None
     serving_table: str | None
-    stage_keys: tuple[str, ...]
     primary_action_key: str | None
     std_mapping_configured: bool
     std_cleansing_configured: bool
@@ -89,19 +73,12 @@ class DatasetCardQueryService:
             for group in freshness.groups
             for item in group.items
         }
-        snapshot_by_dataset = {
-            item.dataset_key: item
-            for item in session.scalars(select(DatasetStatusSnapshot)).all()
-        }
-        layer_items = LayerSnapshotQueryService().list_latest(session, limit=5000).items
         probe_counts = self._probe_counts(session)
 
         selected_facts = self._select_facts(facts, source_key=normalized_source)
         cards = self._build_cards(
             selected_facts,
             freshness_by_dataset=freshness_by_dataset,
-            snapshot_by_dataset=snapshot_by_dataset,
-            layer_items=layer_items,
             probe_counts=probe_counts,
             source_key=normalized_source,
         )
@@ -135,8 +112,6 @@ class DatasetCardQueryService:
         facts: list[DatasetCardFact],
         *,
         freshness_by_dataset: dict[str, DatasetFreshnessItem],
-        snapshot_by_dataset: dict[str, DatasetStatusSnapshot],
-        layer_items: list[LayerSnapshotLatestItem],
         probe_counts: dict[str, tuple[int, int]],
         source_key: str | None,
     ) -> list[DatasetCardItem]:
@@ -144,45 +119,14 @@ class DatasetCardQueryService:
         for item in facts:
             grouped.setdefault(item.logical_key, []).append(item)
 
-        card_key_by_dataset = {item.dataset_key: item.logical_key for item in facts}
-        layer_by_card: dict[str, list[LayerSnapshotLatestItem]] = {}
-        for item in layer_items:
-            card_key = card_key_by_dataset.get(item.dataset_key)
-            if card_key is not None:
-                layer_by_card.setdefault(card_key, []).append(item)
-
         cards: list[DatasetCardItem] = []
         for card_key, members in grouped.items():
             primary = self._primary_member(members)
             member_freshness = [freshness_by_dataset[item.dataset_key] for item in members if item.dataset_key in freshness_by_dataset]
-            member_snapshots = [snapshot_by_dataset[item.dataset_key] for item in members if item.dataset_key in snapshot_by_dataset]
             primary_freshness = freshness_by_dataset.get(primary.dataset_key)
-            primary_snapshot = snapshot_by_dataset.get(primary.dataset_key)
-            layers = layer_by_card.get(card_key, [])
-            if source_key is not None:
-                layers = [
-                    item
-                    for item in layers
-                    if item.stage != "raw"
-                    or matches_layer_snapshot_source_filter(
-                        row_source_key=item.source_key,
-                        requested_source_key=source_key,
-                    )
-                ]
-
-            raw_sources = self._raw_sources(
-                members,
-                layers,
-                source_key=source_key,
-            )
-            stage_statuses = self._stage_statuses(
-                primary,
-                layers,
-                raw_sources=raw_sources,
-            )
             active_status = (primary_freshness.active_task_run_status if primary_freshness else None)
             has_active = (active_status or "").lower() in {"queued", "running", "canceling"}
-            status = "running" if has_active else self._card_status(members, member_freshness, layers, source_key=source_key)
+            status = "running" if has_active else self._card_status(member_freshness)
             probe_total, probe_active = self._combined_probe_counts([item.dataset_key for item in members], probe_counts)
             delivery_mode = self._delivery_mode_for_card(members)
             catalog_item = DatasetCatalogViewResolver().resolve_item(primary.dataset_key)
@@ -211,32 +155,19 @@ class DatasetCardQueryService:
                     raw_table=primary.raw_table,
                     raw_table_label=self._raw_table_label(primary, source_key=source_key),
                     target_table=primary_freshness.target_table if primary_freshness else primary.serving_table,
-                    latest_business_date=self._latest_date(
-                        [item.latest_business_date for item in member_freshness]
-                        + [item.latest_business_date for item in member_snapshots]
-                    ),
-                    earliest_business_date=self._earliest_date(
-                        [item.earliest_business_date for item in member_freshness]
-                        + [item.earliest_business_date for item in member_snapshots]
-                    ),
-                    latest_observed_at=self._latest_datetime(
-                        [item.latest_observed_at for item in member_freshness]
-                        + [item.latest_observed_at for item in member_snapshots]
-                    ),
-                    earliest_observed_at=self._earliest_datetime(
-                        [item.earliest_observed_at for item in member_freshness]
-                        + [item.earliest_observed_at for item in member_snapshots]
-                    ),
-                    last_sync_date=self._latest_date([item.last_sync_date for item in member_freshness] + [item.last_sync_date for item in member_snapshots]),
-                    latest_success_at=self._latest_datetime([item.latest_success_at for item in member_freshness] + [item.latest_success_at for item in member_snapshots]),
-                    expected_business_date=self._latest_date([item.expected_business_date for item in member_freshness] + [item.expected_business_date for item in member_snapshots]),
+                    latest_business_date=self._latest_date([item.latest_business_date for item in member_freshness]),
+                    earliest_business_date=self._earliest_date([item.earliest_business_date for item in member_freshness]),
+                    latest_observed_at=self._latest_datetime([item.latest_observed_at for item in member_freshness]),
+                    earliest_observed_at=self._earliest_datetime([item.earliest_observed_at for item in member_freshness]),
+                    last_sync_date=self._latest_date([item.last_sync_date for item in member_freshness]),
+                    latest_success_at=self._latest_datetime([item.latest_success_at for item in member_freshness]),
+                    expected_business_date=self._latest_date([item.expected_business_date for item in member_freshness]),
                     lag_days=max(
-                        [item.lag_days for item in member_freshness if item.lag_days is not None]
-                        + [item.lag_days for item in member_snapshots if item.lag_days is not None],
+                        [item.lag_days for item in member_freshness if item.lag_days is not None],
                         default=None,
                     ),
-                    freshness_note=(primary_freshness.freshness_note if primary_freshness else None) or (primary_snapshot.freshness_note if primary_snapshot else None),
-                    primary_action_key=(primary_freshness.primary_action_key if primary_freshness else None) or (primary_snapshot.primary_action_key if primary_snapshot else None) or primary.primary_action_key,
+                    freshness_note=primary_freshness.freshness_note if primary_freshness else None,
+                    primary_action_key=(primary_freshness.primary_action_key if primary_freshness else None) or primary.primary_action_key,
                     active_task_run_status=active_status,
                     active_task_run_started_at=primary_freshness.active_task_run_started_at if primary_freshness else None,
                     auto_schedule_status=primary_freshness.auto_schedule_status if primary_freshness else "none",
@@ -248,132 +179,11 @@ class DatasetCardQueryService:
                     std_mapping_configured=any(item.std_mapping_configured for item in members),
                     std_cleansing_configured=any(item.std_cleansing_configured for item in members),
                     resolution_policy_configured=any(item.resolution_policy_configured for item in members),
-                    status_updated_at=self._latest_datetime([item.calculated_at for item in layers]),
-                    stage_statuses=stage_statuses,
-                    raw_sources=raw_sources,
                 )
             )
         return cards
 
-    def _stage_statuses(
-        self,
-        primary: DatasetCardFact,
-        layers: list[LayerSnapshotLatestItem],
-        *,
-        raw_sources: list[DatasetCardSourceStatus],
-    ) -> list[DatasetCardStageStatus]:
-        stage_latest: dict[str, LayerSnapshotLatestItem] = {}
-        for item in layers:
-            previous = stage_latest.get(item.stage)
-            if previous is None or item.calculated_at > previous.calculated_at:
-                stage_latest[item.stage] = item
-
-        stages = self._expected_stages(primary.stage_keys, layers)
-        result: list[DatasetCardStageStatus] = []
-        for stage in stages:
-            latest = stage_latest.get(stage)
-            result.append(
-                DatasetCardStageStatus(
-                    stage=stage,
-                    stage_label=_require_stage_display_name(stage),
-                    table_name=self._stage_table_name(stage, primary, raw_sources),
-                    source_key=normalize_layer_snapshot_source_key(latest.source_key) if latest else None,
-                    source_display_name=_optional_source_display_name(latest.source_key if latest else None),
-                    status=self._normalize_status(latest.status if latest else None),
-                    rows_in=latest.rows_in if latest else None,
-                    rows_out=latest.rows_out if latest else None,
-                    error_count=latest.error_count if latest else None,
-                    lag_seconds=latest.lag_seconds if latest else None,
-                    message=latest.message if latest else None,
-                    calculated_at=latest.calculated_at if latest else None,
-                    last_success_at=latest.last_success_at if latest else None,
-                    last_failure_at=latest.last_failure_at if latest else None,
-                )
-            )
-        return result
-
-    def _raw_sources(
-        self,
-        members: list[DatasetCardFact],
-        layers: list[LayerSnapshotLatestItem],
-        *,
-        source_key: str | None,
-    ) -> list[DatasetCardSourceStatus]:
-        source_tables: dict[str, str | None] = {}
-        for item in members:
-            for source in item.source_keys:
-                if source_key is not None and source != source_key:
-                    continue
-                table = self._raw_table_label(item, source_key=source)
-                source_tables.setdefault(source, table)
-
-        raw_layers = [item for item in layers if item.stage == "raw"]
-        for item in raw_layers:
-            source = normalize_layer_snapshot_source_key(item.source_key) or "combined"
-            if source_key is not None and not matches_layer_snapshot_source_filter(
-                row_source_key=source,
-                requested_source_key=source_key,
-            ):
-                continue
-            source_tables.setdefault(source, None)
-
-        result: list[DatasetCardSourceStatus] = []
-        for source, table_name in sorted(source_tables.items()):
-            latest = self._latest_layer_for_source(raw_layers, source)
-            result.append(
-                DatasetCardSourceStatus(
-                    source_key=source,
-                    source_display_name=_require_source_display_name(source),
-                    table_name=table_name,
-                    status=self._normalize_status(latest.status if latest else None),
-                    calculated_at=latest.calculated_at if latest else None,
-                )
-            )
-        if not result:
-            table = self._raw_table_label(members[0], source_key=source_key)
-            result.append(
-                DatasetCardSourceStatus(
-                    source_key=source_key or "combined",
-                    source_display_name=_require_source_display_name(source_key or "combined"),
-                    table_name=table,
-                    status="unknown",
-                    calculated_at=None,
-                )
-            )
-        return result
-
-    @staticmethod
-    def _latest_layer_for_source(raw_layers: list[LayerSnapshotLatestItem], source: str) -> LayerSnapshotLatestItem | None:
-        candidates = [
-            item
-            for item in raw_layers
-            if (normalize_layer_snapshot_source_key(item.source_key) or "combined") == source
-        ]
-        if not candidates:
-            return None
-        return max(candidates, key=lambda item: item.calculated_at)
-
-    def _card_status(
-        self,
-        members: list[DatasetCardFact],
-        freshness_items: list[DatasetFreshnessItem],
-        layers: list[LayerSnapshotLatestItem],
-        *,
-        source_key: str | None,
-    ) -> CardStatus:
-        raw_statuses = []
-        if source_key is not None:
-            raw_statuses = [
-                item.status
-                for item in layers
-                if item.stage == "raw"
-                and matches_layer_snapshot_source_filter(
-                    row_source_key=item.source_key,
-                    requested_source_key=source_key,
-                )
-            ]
-        if raw_statuses:
-            return self._normalize_status(self._worse_raw_status(raw_statuses))
+    def _card_status(self, freshness_items: list[DatasetFreshnessItem]) -> CardStatus:
         return self._normalize_status(
             self._worse_raw_status([item.freshness_status for item in freshness_items])
         )
@@ -402,30 +212,6 @@ class DatasetCardQueryService:
             return "multi_source_fusion"
         return members[0].delivery_mode
 
-    @staticmethod
-    def _expected_stages(stage_keys: tuple[str, ...], layers: list[LayerSnapshotLatestItem]) -> list[str]:
-        base = list(stage_keys)
-        extra = [
-            stage
-            for stage in LAYER_STAGE_ORDER
-            if stage not in base and any(item.stage == stage for item in layers)
-        ]
-        return [*base, *extra]
-
-    def _stage_table_name(
-        self,
-        stage: str,
-        primary: DatasetCardFact,
-        raw_sources: list[DatasetCardSourceStatus],
-    ) -> str | None:
-        if stage == "raw":
-            return raw_sources[0].table_name if raw_sources else primary.raw_table
-        if stage == "std":
-            return primary.std_table_hint
-        if stage == "serving":
-            return primary.serving_table
-        return None
-
     def _raw_table_label(self, item: DatasetCardFact, *, source_key: str | None) -> str | None:
         if item.raw_table is None:
             return None
@@ -441,7 +227,6 @@ class DatasetCardQueryService:
         *,
         config_flags: tuple[bool, bool, bool],
     ) -> DatasetCardFact:
-        projection = build_dataset_layer_projection(definition)
         std_mapping_configured, std_cleansing_configured, resolution_policy_configured = config_flags
         return DatasetCardFact(
             dataset_key=definition.dataset_key,
@@ -452,13 +237,11 @@ class DatasetCardQueryService:
             domain_display_name=definition.domain.domain_display_name,
             cadence=definition.domain.cadence,
             cadence_display_name=definition.domain.cadence_display_name,
-            source_keys=projection.source_keys,
-            delivery_mode=projection.delivery_mode,
-            layer_plan=projection.layer_plan,
-            raw_table=projection.raw_table,
-            std_table_hint=projection.std_table_hint,
-            serving_table=projection.serving_table,
-            stage_keys=projection.stage_keys,
+            source_keys=definition.source.source_keys,
+            delivery_mode=definition.storage.delivery_mode,
+            layer_plan=definition.storage.layer_plan,
+            raw_table=definition.storage.raw_table,
+            serving_table=definition.storage.serving_table,
             primary_action_key=self._primary_action_key(definition),
             std_mapping_configured=std_mapping_configured,
             std_cleansing_configured=std_cleansing_configured,
@@ -581,23 +364,3 @@ class DatasetCardQueryService:
             )
             for dataset_key in dataset_keys
         }
-
-
-def _optional_source_display_name(source_key: str | None) -> str | None:
-    if not source_key:
-        return None
-    return _require_source_display_name(source_key)
-
-
-def _require_source_display_name(source_key: str | None) -> str:
-    display_name = get_source_display_name(normalize_layer_snapshot_source_key(source_key))
-    if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="数据源卡片来源缺少显示名称")
-    return display_name
-
-
-def _require_stage_display_name(stage: str | None) -> str:
-    display_name = get_layer_stage_display_name(stage)
-    if display_name is None:
-        raise WebAppError(status_code=422, code="validation_error", message="数据源卡片层级缺少显示名称")
-    return display_name

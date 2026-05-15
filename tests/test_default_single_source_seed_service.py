@@ -10,7 +10,6 @@ from sqlalchemy.pool import StaticPool
 from src.foundation.models.meta.dataset_resolution_policy import DatasetResolutionPolicy
 from src.foundation.models.meta.dataset_source_status import DatasetSourceStatus
 from src.foundation.datasets.registry import list_dataset_definitions
-from src.ops.dataset_definition_projection import build_dataset_layer_projection
 from src.ops.services.operations_default_single_source_seed_service import (
     DISABLED_DEFAULT_DATASET_KEYS,
     DefaultSingleSourceSeedService,
@@ -47,9 +46,8 @@ def _expected_tushare_dataset_count() -> int:
     return sum(
         1
         for definition in list_dataset_definitions()
-        for projection in (build_dataset_layer_projection(definition),)
         if definition.dataset_key not in DISABLED_DEFAULT_DATASET_KEYS
-        and "tushare" in projection.source_keys
+        and "tushare" in definition.source.source_keys
     )
 
 

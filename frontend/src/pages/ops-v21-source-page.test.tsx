@@ -83,15 +83,12 @@ function card(overrides: Partial<Record<string, unknown>>) {
     std_mapping_configured: true,
     std_cleansing_configured: true,
     resolution_policy_configured: true,
-    status_updated_at: "2026-04-17T09:10:00+08:00",
-    stage_statuses: [],
-    raw_sources: [],
     ...overrides,
   };
 }
 
 describe("V2.1 数据源详情页", () => {
-  it("消费 dataset card view 展示原始下载状态", async () => {
+  it("消费 dataset card view 展示数据集健康状态", async () => {
     apiRequest.mockImplementation(async (url: string) => {
       if (url === "/api/v1/ops/dataset-cards?source_key=tushare") {
         return {

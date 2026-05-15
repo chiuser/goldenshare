@@ -12,7 +12,6 @@ class ScheduleProbeConfig(BaseModel):
     probe_interval_seconds: int = 300
     max_triggers_per_day: int = 1
     condition_kind: str = "freshness_latest_open"
-    min_rows_in: int | None = None
     workflow_dataset_keys: list[str] = []
 
 

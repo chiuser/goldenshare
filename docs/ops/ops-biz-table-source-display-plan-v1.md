@@ -224,8 +224,7 @@ GET /api/v1/ops/data-asset-cards?source_key=biz_tableset
 | `auto_schedule_*` | 全部为无自动任务状态 |
 | `probe_*` | 一期全部为 0 |
 | `std_mapping_configured/std_cleansing_configured/resolution_policy_configured` | 全部 false |
-| `stage_statuses` | 可放一条 `biz_tableset` stage |
-| `raw_sources` | 空数组 |
+| 分层观测字段 | 已退场，不再返回 |
 
 说明：
 
@@ -305,7 +304,7 @@ frontend/src/shared/api/types.ts
 
 ### 7.2 SourcePage 文案调整
 
-现有 `OpsV21SourcePage` 文案偏 raw 数据源：
+`OpsV21SourcePage` 早期文案偏 raw 数据源，后续已收口为数据资产健康度语义：
 
 ```text
 仅展示数据源侧原始下载状态（raw）。这里不展示 std / serving。

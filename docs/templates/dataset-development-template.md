@@ -87,8 +87,8 @@
 | resolver / unit planner | `date_model`、`planning`、`input_shape` |  |  |  |
 | request builder | 源接口字段映射、日期格式化 |  |  |  |
 | freshness | `observed_field`、`date_axis`、`bucket_rule` |  |  |  |
-| dataset cards | 卡片状态、最近同步、原始层状态 |  |  |  |
-| snapshot rebuild | `dataset_status_snapshot` / `dataset_layer_snapshot_current` 投影 |  |  |  |
+| dataset cards | 卡片状态、最近同步、raw 表与目标表静态事实 |  |  |  |
+| snapshot rebuild | `dataset_status_snapshot` freshness 缓存 |  |  |  |
 | date completeness audit | `audit_applicable`、`bucket_rule`、`not_applicable_reason` |  |  |  |
 | 自动任务 / calendar policy | `date_selection_rule`、默认时间模式 |  |  |  |
 | 前端时间控件 | point/range/none/month 控件与选择规则 |  |  |  |

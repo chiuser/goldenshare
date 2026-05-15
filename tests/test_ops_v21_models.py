@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.models.ops.resolution_release import ResolutionRelease
@@ -10,9 +9,6 @@ from src.ops.models.ops.std_mapping_rule import StdMappingRule
 
 
 def test_ops_v21_new_models_schema_and_primary_keys() -> None:
-    assert DatasetLayerSnapshotHistory.__table__.schema == "ops"
-    assert [column.name for column in DatasetLayerSnapshotHistory.__table__.primary_key.columns] == ["id"]
-
     assert ProbeRule.__table__.schema == "ops"
     assert [column.name for column in ProbeRule.__table__.primary_key.columns] == ["id"]
 

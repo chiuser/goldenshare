@@ -884,8 +884,8 @@ POST /api/v1/ops/task-runs/364/retry
 | --- | ---: | --- | --- |
 | 旧同步状态表 | 56 | truncate，后续由新资源状态模型替代 | DatasetDefinition / 新执行结果 / 状态重算任务 |
 | `ops.dataset_status_snapshot` | 57 | truncate 后重算 | DatasetDefinition + 实际业务表观测 |
-| `ops.dataset_layer_snapshot_current` | 229 | truncate 后重算 | 新状态快照计算服务 |
-| `ops.dataset_layer_snapshot_history` | 1059 | truncate | 不迁移历史 |
+| 旧分层观测当前表 | 229 | drop | 已由 freshness 单一事实源替代 |
+| 旧分层观测历史表 | 1059 | drop | 不迁移历史 |
 | `ops.probe_run_log` | 365 | truncate | 不迁移旧探测日志 |
 | `ops.config_revision` | 57 | truncate | 不迁移旧配置变更历史 |
 

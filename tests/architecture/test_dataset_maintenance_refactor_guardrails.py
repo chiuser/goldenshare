@@ -180,7 +180,6 @@ def test_frontend_does_not_assemble_dataset_display_facts_from_keys() -> None:
         "(detailQuery.data.probe_config.workflow_dataset_keys || []).join",
         "buildFreshnessDisplayNameMap",
         "freshItem?.latest_success_at || rawLatest?.last_success_at",
-        "layer-snapshots/latest?dataset_key=",
         "source-management/bridge",
         "SourceManagementBridge",
         "function stageTitle",
@@ -490,20 +489,18 @@ def test_ops_dataset_card_view_static_facts_do_not_depend_on_retired_view() -> N
     assert not violations, "dataset-cards 静态事实必须从 DatasetDefinition 派生:\n" + "\n".join(violations)
 
 
-def test_ops_layer_stage_plan_is_not_rederived_in_consumers() -> None:
+def test_ops_layer_snapshot_chain_is_not_reintroduced() -> None:
     path_tokens = {
         REPO_ROOT / "src/ops/queries/dataset_card_query_service.py": (
-            "_expected_stages(delivery_mode",
-            'delivery_mode == "single_source_serving"',
-            'delivery_mode in {"raw_collection", "core_direct"}',
+            "LayerSnapshotQueryService",
+            "stage_statuses",
+            "raw_sources",
         ),
         REPO_ROOT / "src/ops/services/operations_dataset_status_snapshot_service.py": (
-            "projection.raw_enabled",
-            "projection.std_enabled",
-            "projection.resolution_enabled",
-            "projection.serving_enabled",
-            "当前模式未启用 std 物化",
-            "当前模式不产出 serving",
+            "DatasetLayerSnapshotCurrent",
+            "DatasetLayerSnapshotHistory",
+            "_upsert_current_items",
+            "_append_history_items",
         ),
     }
     violations: list[str] = []
@@ -514,20 +511,7 @@ def test_ops_layer_stage_plan_is_not_rederived_in_consumers() -> None:
                 rel_path = path.relative_to(REPO_ROOT).as_posix()
                 violations.append(f"{rel_path}: {token}")
 
-    assert not violations, "layer stage 启用规则必须来自 DatasetDefinition projection，消费者不得按 delivery_mode 重推:\n" + "\n".join(violations)
-
-
-def test_layer_snapshot_query_messages_do_not_emit_internal_field_tokens() -> None:
-    path = REPO_ROOT / "src/ops/queries/layer_snapshot_query_service.py"
-    text = path.read_text(encoding="utf-8")
-    forbidden_snippets = (
-        "Layer snapshot dataset display name is unavailable",
-        "Layer snapshot source display name is unavailable",
-        "Layer snapshot stage display name is unavailable",
-    )
-    violations = [snippet for snippet in forbidden_snippets if snippet in text]
-
-    assert not violations, "层快照 API 校验不得向前端返回英文内部字段文案:\n" + "\n".join(violations)
+    assert not violations, "dataset card 与 freshness cache 不得重新接入旧分层观测链路:\n" + "\n".join(violations)
 
 
 def test_resolution_release_messages_do_not_emit_internal_field_tokens() -> None:

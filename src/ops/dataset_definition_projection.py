@@ -8,47 +8,6 @@ from src.foundation.datasets.registry import get_dataset_definition, list_datase
 
 
 @dataclass(frozen=True, slots=True)
-class DatasetLayerStageProjection:
-    stage: str
-    display_name: str
-    enabled: bool
-    status_source: str
-    message: str | None
-
-
-@dataclass(frozen=True, slots=True)
-class DatasetLayerProjection:
-    dataset_key: str
-    source_keys: tuple[str, ...]
-    delivery_mode: str
-    layer_plan: str
-    raw_table: str
-    std_table_hint: str | None
-    serving_table: str | None
-    stages: tuple[DatasetLayerStageProjection, ...]
-    notes: str
-
-    @property
-    def source_scope(self) -> str:
-        return ",".join(self.source_keys)
-
-    @property
-    def stage_keys(self) -> tuple[str, ...]:
-        return tuple(item.stage for item in self.stages if item.enabled)
-
-    @property
-    def all_stage_keys(self) -> tuple[str, ...]:
-        return tuple(item.stage for item in self.stages)
-
-    def stage(self, stage_key: str) -> DatasetLayerStageProjection | None:
-        normalized = stage_key.strip().lower()
-        for item in self.stages:
-            if item.stage == normalized:
-                return item
-        return None
-
-
-@dataclass(frozen=True, slots=True)
 class DatasetFreshnessProjection:
     dataset_key: str
     resource_key: str
@@ -60,68 +19,6 @@ class DatasetFreshnessProjection:
     raw_table: str
     observed_date_column: str | None = None
     primary_action_key: str | None = None
-
-
-def build_dataset_layer_projection(definition: DatasetDefinition) -> DatasetLayerProjection:
-    delivery_mode = definition.storage.delivery_mode
-    return DatasetLayerProjection(
-        dataset_key=definition.dataset_key,
-        source_keys=definition.source.source_keys,
-        delivery_mode=delivery_mode,
-        layer_plan=definition.storage.layer_plan,
-        raw_table=definition.storage.raw_table,
-        std_table_hint=definition.storage.std_table,
-        serving_table=definition.storage.serving_table,
-        stages=build_layer_stage_projections(delivery_mode),
-        notes=f"由 DatasetDefinition 派生：{delivery_mode_label(delivery_mode)}",
-    )
-
-
-def build_layer_stage_projections(delivery_mode: str) -> tuple[DatasetLayerStageProjection, ...]:
-    std_enabled = delivery_mode == "multi_source_fusion"
-    serving_enabled = delivery_mode in {"single_source_serving", "multi_source_fusion"}
-    light_enabled = delivery_mode == "raw_with_serving_light_view"
-    stages = [
-        DatasetLayerStageProjection(
-            stage="raw",
-            display_name=_require_layer_stage_display_name("raw"),
-            enabled=True,
-            status_source="freshness",
-            message=f"由 DatasetDefinition 派生：{delivery_mode_label(delivery_mode)}",
-        ),
-        DatasetLayerStageProjection(
-            stage="std",
-            display_name=_require_layer_stage_display_name("std"),
-            enabled=std_enabled,
-            status_source="unobserved" if std_enabled else "skipped",
-            message="该层已启用，但暂未接入独立观测指标" if std_enabled else "当前模式未启用 std 物化",
-        ),
-        DatasetLayerStageProjection(
-            stage="resolution",
-            display_name=_require_layer_stage_display_name("resolution"),
-            enabled=std_enabled,
-            status_source="unobserved" if std_enabled else "skipped",
-            message="该层已启用，但暂未接入独立观测指标" if std_enabled else "当前模式未启用融合决策层",
-        ),
-        DatasetLayerStageProjection(
-            stage="serving",
-            display_name=_require_layer_stage_display_name("serving"),
-            enabled=serving_enabled,
-            status_source="freshness" if serving_enabled else "skipped",
-            message=None if serving_enabled else "当前模式不产出 serving",
-        ),
-    ]
-    if light_enabled:
-        stages.append(
-            DatasetLayerStageProjection(
-                stage="light",
-                display_name=_require_layer_stage_display_name("light"),
-                enabled=True,
-                status_source="freshness",
-                message="当前模式通过轻量服务 view 直出",
-            )
-        )
-    return tuple(stages)
 
 
 def build_dataset_freshness_projection(definition: DatasetDefinition) -> DatasetFreshnessProjection:
@@ -209,8 +106,6 @@ def delivery_mode_tone(delivery_mode: str) -> str:
     return "neutral"
 
 
-LAYER_STAGE_ORDER = ("raw", "std", "resolution", "serving", "light")
-
 LAYER_STAGE_DISPLAY_NAMES = {
     "raw": "原始层",
     "std": "标准层",
@@ -225,10 +120,3 @@ def get_layer_stage_display_name(stage: str | None) -> str | None:
     if not normalized:
         return None
     return LAYER_STAGE_DISPLAY_NAMES.get(normalized)
-
-
-def _require_layer_stage_display_name(stage: str) -> str:
-    display_name = get_layer_stage_display_name(stage)
-    if display_name is None:
-        raise ValueError(f"层级缺少显示名称：{stage}")
-    return display_name

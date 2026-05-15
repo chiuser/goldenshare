@@ -5,31 +5,6 @@ from datetime import date, datetime
 from pydantic import BaseModel
 
 
-class DatasetCardStageStatus(BaseModel):
-    stage: str
-    stage_label: str
-    table_name: str | None = None
-    source_key: str | None = None
-    source_display_name: str | None = None
-    status: str
-    rows_in: int | None = None
-    rows_out: int | None = None
-    error_count: int | None = None
-    lag_seconds: int | None = None
-    message: str | None = None
-    calculated_at: datetime | None = None
-    last_success_at: datetime | None = None
-    last_failure_at: datetime | None = None
-
-
-class DatasetCardSourceStatus(BaseModel):
-    source_key: str
-    source_display_name: str
-    table_name: str | None = None
-    status: str
-    calculated_at: datetime | None = None
-
-
 class DatasetCardItem(BaseModel):
     card_key: str
     dataset_key: str
@@ -74,9 +49,6 @@ class DatasetCardItem(BaseModel):
     std_mapping_configured: bool
     std_cleansing_configured: bool
     resolution_policy_configured: bool
-    status_updated_at: datetime | None = None
-    stage_statuses: list[DatasetCardStageStatus]
-    raw_sources: list[DatasetCardSourceStatus]
 
 
 class DatasetCardGroup(BaseModel):

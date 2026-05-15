@@ -22,7 +22,6 @@ from src.ops.schemas.dataset_card import (
     DatasetCardGroup,
     DatasetCardItem,
     DatasetCardListResponse,
-    DatasetCardStageStatus,
 )
 
 
@@ -63,22 +62,6 @@ class BizTableCardQueryService:
     def _build_card(self, session: Session, item: BizTableCatalogItem) -> DatasetCardItem:
         observation = self._load_observation(session, item)
         freshness = self._build_freshness(session, observation)
-        stage_status = DatasetCardStageStatus(
-            stage="biz_table",
-            stage_label="Biz表",
-            table_name=item.table_name,
-            source_key=BIZ_TABLE_SOURCE_KEY,
-            source_display_name=BIZ_TABLE_SOURCE_DISPLAY_NAME,
-            status=freshness.status,
-            rows_in=None,
-            rows_out=observation.row_count,
-            error_count=0,
-            lag_seconds=None,
-            message=freshness.note,
-            calculated_at=observation.latest_success_at,
-            last_success_at=observation.latest_success_at,
-            last_failure_at=None,
-        )
 
         return DatasetCardItem(
             card_key=item.table_key,
@@ -124,9 +107,6 @@ class BizTableCardQueryService:
             std_mapping_configured=False,
             std_cleansing_configured=False,
             resolution_policy_configured=False,
-            status_updated_at=observation.latest_success_at,
-            stage_statuses=[stage_status],
-            raw_sources=[],
         )
 
     def _load_observation(self, session: Session, item: BizTableCatalogItem) -> BizTableObservation:

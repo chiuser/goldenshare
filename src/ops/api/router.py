@@ -6,7 +6,6 @@ from src.ops.api import (
     date_completeness,
     dataset_cards,
     freshness,
-    layer_snapshots,
     manual_actions,
     overview,
     review_center,
@@ -28,7 +27,6 @@ router.include_router(probes.router)
 router.include_router(realtime.router)
 router.include_router(resolution_releases.router)
 router.include_router(std_rules.router)
-router.include_router(layer_snapshots.router)
 router.include_router(runtime.router)
 router.include_router(catalog.router)
 router.include_router(manual_actions.router)

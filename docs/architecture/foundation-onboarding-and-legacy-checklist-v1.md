@@ -54,7 +54,6 @@
 
 3. 页面与接口核对
 - `GET /api/v1/ops/dataset-cards`
-- `GET /api/v1/ops/layer-snapshots/latest`
 - `GET /api/v1/ops/freshness`
 
 4. 代码提交前必做
@@ -78,14 +77,11 @@
 1. 禁止前端硬编码分类口径
 - 分类展示统一使用后端 `domain_display_name`。
 
-2. 禁止把 `latest` 查询接到 history 表
-- `latest` 语义必须读 `ops.dataset_layer_snapshot_current`。
-
-3. 禁止用 `unknown` 代替“未启用/未观测”
+2. 禁止用 `unknown` 代替“未启用/未观测”
 - 该启用时必须是 `unobserved` 或真实状态。
 - 未启用必须是 `skipped`。
 
-4. 禁止“缺文档先开发”
+3. 禁止“缺文档先开发”
 - 无字段定义、无规则定义、无测试清单，不允许编码。
 
 5. 禁止引入新的 `core.*` 直写路径（除明确保留项）
@@ -127,7 +123,7 @@
 
 - [ ] 本次变更是否新增/修改了数据集或规则对象？
 - [ ] 是否更新了相应 docs（含 README 索引）？
-- [ ] 是否验证了 `dataset-cards / layer-snapshots/latest / freshness` 三接口？
+- [ ] 是否验证了 `dataset-cards / freshness` 两个健康度相关接口？
 - [ ] 是否确保未引入新的旧口径依赖（尤其 `core.*` 直写）？
 - [ ] 是否补了必要测试并通过？
 

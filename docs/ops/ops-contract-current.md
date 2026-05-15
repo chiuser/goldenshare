@@ -23,19 +23,19 @@
 
 ### 2.1 数据状态总览
 
-目标：按数据集查看 `raw/std/resolution/serving` 状态与风险分级。  
+目标：按数据集查看 freshness 健康度与风险分级。
 要求：
 
 1. 卡片点击进入数据集详情
 2. “去处理”跳转任务中心并携带上下文
-3. 支持显示模式标识（单源直出/多源流程/raw-only）
+3. 支持显示模式标识（单源服务/多源融合/raw-only 等静态存储事实）
 
 ### 2.2 数据源管理
 
 目标：按 source 维度查看上游可用性与失败情况。  
 边界：
 
-1. 只关注 source 与 raw 层状态
+1. 只展示该 source 下数据集的统一 freshness 健康度
 2. 不承载策略编辑逻辑
 3. 不承载复杂发布流程
 
@@ -81,9 +81,9 @@
 
 ## 3. 核心对象模型
 
-### 3.1 `DatasetDefinition -> DatasetLayerProjection`
+### 3.1 `DatasetDefinition -> DatasetCard/Freshness Projection`
 
-用途：从 DatasetDefinition 派生数据集来源、raw 表、目标表、stage 计划与维护入口等静态事实。
+用途：从 DatasetDefinition 派生数据集来源、raw 表、目标表、交付模式、维护入口和 freshness 观测目标等静态事实。
 约束：Ops 页面和查询层不得再依赖旧数据集模式落库表，也不得自行推断这些事实。
 
 ### 3.1.1 Ops 数据集展示目录
@@ -99,24 +99,16 @@
 5. `DatasetDefinition.domain` 仍是底层领域事实，可作为 item 补充字段返回，但不得再作为 UI 分组事实。
 6. 新增数据集必须补齐默认展示目录配置；缺配置不允许静默落入“其他”。
 
-### 3.2 `ops.dataset_layer_snapshot_current`
+### 3.2 `ops.dataset_status_snapshot`
 
-主键：`(dataset_key, source_key, stage)`  
-用途：作为 Ops 页面“当前层级状态”读模型。
+用途：作为 freshness 计算结果缓存。
+来源：`DatasetDefinition.date_model + 真实业务表观测 + TaskRun 成功/失败信息`。
+约束：
 
-关键字段：
-
-1. `status`：`fresh | lagging | stale | failed | unknown | skipped`
-2. `rows_in/rows_out/error_count`
-3. `last_success_at/last_failure_at`
-4. `lag_seconds/message/calculated_at`
-
-状态语义约束：
-
-1. `fresh/lagging/stale/failed`：健康度核心状态
-2. `skipped`：该层在当前交付模式下未启用
-3. `unknown`：数据缺失或不可判定（异常态，不应长期存在）
-4. `disabled`：数据集停用（保留执行链路，但从健康度告警口径排除）
+1. 该表不是业务数据事实源，只是页面读取加速缓存。
+2. 缓存日期不是当前北京时间业务日或关键字段缺失时，查询层必须重新 live refresh。
+3. 不再保存 raw/std/resolution/serving 分层状态。
+4. 不再由已退场的分层观测旧表推导页面健康度。
 
 ### 3.3 相关运行对象
 
@@ -131,6 +123,7 @@
 1. 旧执行观测主链：已被 TaskRun 三表替代
 2. 旧内部运行日志：不再作为任务详情或页面事实源
 3. 旧数据集模式配置表：已由 DatasetDefinition 派生投影替代
+4. 旧分层观测链路：不再作为数据集健康度或页面事实源
 
 ---
 
@@ -139,8 +132,7 @@
 ### 4.1 推荐主查询接口
 
 1. `GET /api/v1/ops/dataset-cards`
-2. `GET /api/v1/ops/layer-snapshots/latest`
-3. `GET /api/v1/ops/freshness`
+2. `GET /api/v1/ops/freshness`
 
 ## 5. 模式推导与默认策略
 
@@ -156,7 +148,7 @@
 ## 6. 运维规则（必须遵守）
 
 1. 页面口径优先读取统一读模型，不在前端临时拼装状态
-2. 交付模式与层级状态必须可追溯（DatasetDefinition 派生事实 + layer snapshot）
+2. 交付模式等静态事实必须来自 DatasetDefinition，不允许页面自行推断
 3. 新增数据集必须接入 Ops 可观测能力，不允许“只落表不可见”
 4. 页面文案优先业务语义，不暴露底层字段实现细节
 5. `disabled` 数据集可见但不计入滞后/失败告警统计
@@ -201,7 +193,7 @@
 2. release 对象 API：`/api/v1/ops/resolution-releases/*`
 3. dataset card API：`/api/v1/ops/dataset-cards`
 4. 数据源卡片页：`/ops/v21/datasets/tushare`、`/ops/v21/datasets/biying`
-5. 层级快照模型：`dataset_layer_snapshot_current/history`
+5. DatasetDefinition 派生展示事实与 freshness 健康度模型
 6. Foundation 融合引擎：`policy_store/policy_engine/publish_service`
 7. 可运行回归基线：`stock_basic`
 
@@ -213,7 +205,7 @@
 
 优先待办（按优先级）：
 
-1. P0：先开只读页面（pipeline/rules/releases/layers）
+1. P0：先开只读页面（pipeline/rules/releases）
 2. P0：补最小策略对象管理闭环（草稿、版本、差异）
 3. P1：补发布执行可观测闭环（release -> TaskRun -> nodes）
 4. P1：补全前后端测试基线
@@ -235,7 +227,7 @@
 
 ## 10. 验收基线
 
-1. 能查询每个数据集的 `mode + layer_plan + latest status`
+1. 能查询每个数据集的 `mode + layer_plan + freshness status`
 2. 数据状态总览与数据源管理展示口径一致
 3. 任务中心可查看执行记录并定位失败原因
 4. 审查中心可按领域展示只读审查数据

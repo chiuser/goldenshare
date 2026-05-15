@@ -5,8 +5,6 @@ from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCo
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
-from src.ops.models.ops.dataset_layer_snapshot_current import DatasetLayerSnapshotCurrent
-from src.ops.models.ops.dataset_layer_snapshot_history import DatasetLayerSnapshotHistory
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
@@ -26,8 +24,6 @@ __all__ = [
     "DatasetDateCompletenessGap",
     "DatasetDateCompletenessRun",
     "DatasetDateCompletenessSchedule",
-    "DatasetLayerSnapshotCurrent",
-    "DatasetLayerSnapshotHistory",
     "DatasetStatusSnapshot",
     "IndexSeriesActive",
     "OpsSchedule",

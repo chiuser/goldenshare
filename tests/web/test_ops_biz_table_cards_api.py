@@ -70,18 +70,8 @@ def test_ops_biz_table_cards_returns_turnover_snapshot(app_client, user_factory,
     assert card["auto_schedule_total"] == 0
     assert card["auto_schedule_active"] == 0
     assert card["probe_total"] == 0
-    assert card["raw_sources"] == []
-    stage = card["stage_statuses"][0]
-    assert stage["stage"] == "biz_table"
-    assert stage["stage_label"] == "Biz表"
-    assert stage["table_name"] == "core_serving.wealth_market_turnover_snapshot"
-    assert stage["source_key"] == "biz_tableset"
-    assert stage["source_display_name"] == "Biz数据集"
-    assert stage["status"] == "healthy"
-    assert stage["rows_out"] == 1
-    assert stage["message"] == f"最新快照 {today.isoformat()}，期望 {card['expected_business_date']}，已就绪。"
-    assert stage["calculated_at"].startswith("2026-05-08T20:10:00")
-    assert stage["last_success_at"].startswith("2026-05-08T20:10:00")
+    assert "raw_sources" not in card
+    assert "stage_statuses" not in card
 
 
 def test_ops_biz_table_cards_returns_read_only_unknown_card_without_ready_rows(app_client, user_factory, db_session) -> None:
@@ -100,4 +90,4 @@ def test_ops_biz_table_cards_returns_read_only_unknown_card_without_ready_rows(a
     assert card["freshness_status"] == "unknown"
     assert card["primary_action_key"] is None
     assert card["freshness_note"] == "暂无 READY 快照。"
-    assert card["stage_statuses"][0]["rows_out"] == 0
+    assert "stage_statuses" not in card

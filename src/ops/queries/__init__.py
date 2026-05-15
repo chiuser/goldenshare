@@ -4,7 +4,6 @@ from src.ops.queries.date_completeness_run_query_service import DateCompleteness
 from src.ops.queries.date_completeness_schedule_query_service import DateCompletenessScheduleQueryService
 from src.ops.queries.dataset_card_query_service import DatasetCardQueryService
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
-from src.ops.queries.layer_snapshot_query_service import LayerSnapshotQueryService
 from src.ops.queries.manual_action_query_service import ManualActionQueryService
 from src.ops.queries.overview_query_service import OpsOverviewQueryService
 from src.ops.queries.probe_query_service import ProbeQueryService
@@ -18,7 +17,6 @@ __all__ = [
     "DateCompletenessRuleQueryService",
     "DateCompletenessRunQueryService",
     "DateCompletenessScheduleQueryService",
-    "LayerSnapshotQueryService",
     "ManualActionQueryService",
     "OpsCatalogQueryService",
     "OpsFreshnessQueryService",

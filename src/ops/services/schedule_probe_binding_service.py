@@ -77,10 +77,9 @@ class ScheduleProbeBindingService:
         window_end = self._normalize_time(config.get("window_end") or "17:00")
         timezone_name = str(config.get("timezone_name") or schedule.timezone or "Asia/Shanghai").strip() or "Asia/Shanghai"
         condition_kind = str(config.get("condition_kind") or "freshness_latest_open")
-        min_rows_in = config.get("min_rows_in")
+        if condition_kind != "freshness_latest_open":
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的探测条件：{condition_kind}")
         condition_json = {"type": condition_kind}
-        if min_rows_in is not None and str(min_rows_in).strip() != "":
-            condition_json["min_rows_in"] = max(int(min_rows_in), 0)
 
         dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
         templates: list[ProbeRuleTemplate] = []

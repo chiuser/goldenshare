@@ -244,7 +244,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 - 功能：返回运营后台总览页、数据源页使用的数据集卡片视图。
 - 口径：页面不得再自行拼装数据集来源、raw 表名、层级状态、最近同步日期和卡片去重结果；这些展示事实由本接口统一返回。
-- 静态事实来源：外部数据集身份、名称、底层领域、来源、raw 表、目标表、stage 计划、手动维护入口均从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；freshness、layer snapshot、probe 只作为运行观测输入。`source_key=biz_tableset` 是 Biz 自建业务表只读展示分支，不进入 `DatasetDefinition`，不提供手动维护入口。
+- 静态事实来源：外部数据集身份、名称、底层领域、来源、raw 表、目标表、交付模式、手动维护入口均从 `DatasetDefinition` 派生；用户可见展示分组来自 Ops 默认展示目录；健康度只来自统一 freshness 事实。`source_key=biz_tableset` 是 Biz 自建业务表只读展示分支，不进入 `DatasetDefinition`，不提供手动维护入口。
 - Query 参数：
   - `source_key`：可选；传入 `tushare`、`biying` 等来源时，返回该来源下已经裁决和去重后的卡片；传入 `biz_tableset` 时，返回 Biz 自建业务表只读卡片。
   - `limit`：默认 2000，范围 `1..2000`。
@@ -288,9 +288,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
           "freshness_status": "fresh",
           "delivery_mode_label": "单源服务",
           "raw_table_label": "raw_tushare.daily",
-          "last_sync_date": "2026-04-24",
-          "stage_statuses": [],
-          "raw_sources": []
+          "last_sync_date": "2026-04-24"
         }
       ]
     }
@@ -1194,51 +1192,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" \
 
 ---
 
-## 8. Layer Snapshot 接口
+## 8. Review Center 接口
 
-### 8.1 GET /api/v1/ops/layer-snapshots/history
-
-- 功能：按条件分页查询 layer snapshot 历史。
-- Query 参数：
-  - `snapshot_date_from, snapshot_date_to`（`YYYY-MM-DD`）
-  - `dataset_key, source_key, stage, status`
-  - `limit` 默认 200（`1..1000`）
-  - `offset` 默认 0
-- 返回：`LayerSnapshotHistoryResponse`
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/layer-snapshots/history?dataset_key=daily&limit=100"
-```
-
-```json
-{"total": 20, "items": [{"id": 1, "snapshot_date": "2026-04-23", "status": "success"}]}
-```
-
-### 8.2 GET /api/v1/ops/layer-snapshots/latest
-
-- 功能：查询 latest layer snapshot 视图。
-- Query 参数：
-  - `dataset_key, source_key, stage, status`
-  - `limit` 默认 500（`1..5000`）
-- 返回：`LayerSnapshotLatestResponse`
-- 示例：
-
-```bash
-curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/layer-snapshots/latest?stage=raw&limit=500"
-```
-
-```json
-{"total": 56, "items": [{"dataset_key": "daily", "stage": "raw", "status": "success"}]}
-```
-
----
-
-## 9. Review Center 接口
-
-### 9.1 GET /api/v1/ops/review/index/active
+### 8.1 GET /api/v1/ops/review/index/active
 
 - 功能：查询激活指数池（按资源池）。
 - Query 参数：
@@ -1401,7 +1357,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `CreateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `UpdateScheduleRequest`：`target_type, target_key, display_name, schedule_type, trigger_mode, cron_expr, timezone, calendar_policy, probe_config, params_json, retry_policy_json, concurrency_policy_json, next_run_at`
 - `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, calendar_policy, next_run_at, count`
-- `ScheduleProbeConfig`：`source_key, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind, min_rows_in, workflow_dataset_keys`
+- `ScheduleProbeConfig`：`source_key, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind, workflow_dataset_keys`
 
 ### 11.2 Probe
 
@@ -1438,9 +1394,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`group_key, group_label, group_order, items`
-- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured, status_updated_at, stage_statuses, raw_sources`
-- `DatasetCardStageStatus`：`stage, stage_label, table_name, source_key, source_display_name, status, rows_in, rows_out, error_count, lag_seconds, message, calculated_at, last_success_at, last_failure_at`
-- `DatasetCardSourceStatus`：`source_key, source_display_name, table_name, status, calculated_at`
+- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
 
 ### 12.2 任务运行
 
@@ -1490,16 +1444,12 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `StdCleansingRuleListResponse`：`items, total`
 - `StdCleansingRuleItem`：`id, dataset_key, source_key, rule_type, target_fields_json, condition_expr, action, status, rule_set_version, created_at, updated_at`
 
-### 12.6 Snapshot/Review/Freshness
+### 12.6 Review/Freshness
 
-- `LayerSnapshotHistoryResponse`：`items, total`
-- `LayerSnapshotHistoryItem`：`id, snapshot_date, dataset_key, source_key, stage, status, rows_in, rows_out, error_count, last_success_at, last_failure_at, lag_seconds, message, calculated_at`
-- `LayerSnapshotLatestResponse`：`items, total`
-- `LayerSnapshotLatestItem`：`snapshot_date, dataset_key, source_key, stage, status, rows_in, rows_out, error_count, last_success_at, last_failure_at, lag_seconds, message, calculated_at`
 - `OpsFreshnessResponse`：`summary, groups`
 - `OpsFreshnessSummary`：`total_datasets, fresh_datasets, lagging_datasets, stale_datasets, unknown_datasets, disabled_datasets`
 - `FreshnessGroup`：`domain_key, domain_display_name, items`
-- `DatasetFreshnessItem`：`dataset_key, resource_key, display_name, domain_key, domain_display_name, target_table, raw_table, cadence, earliest_business_date, observed_business_date, latest_business_date, freshness_note, latest_success_at, last_sync_date, expected_business_date, lag_days, freshness_status, recent_failure_message, recent_failure_summary, recent_failure_at, primary_action_key, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, active_execution_status, active_execution_started_at`
+- `DatasetFreshnessItem`：`dataset_key, resource_key, display_name, domain_key, domain_display_name, target_table, raw_table, cadence, earliest_business_date, observed_business_date, latest_business_date, freshness_note, latest_success_at, last_sync_date, expected_business_date, lag_days, freshness_status, recent_failure_message, recent_failure_summary, recent_failure_at, primary_action_key, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, active_task_run_status, active_task_run_started_at`
 - `ReviewActiveIndexListResponse`：`total, items`
 - `ReviewActiveIndexItem`：`resource, ts_code, index_name, first_seen_date, last_seen_date, last_checked_at`
 - `ReviewThsBoardListResponse`：`total, items`
@@ -1578,7 +1528,6 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - 代码：[ops-v21-task-auto-tab.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-task-auto-tab.tsx)
 10. `OpsV21DatasetDetailPage`（`/ops/v21/datasets/detail/{datasetKey}`）
    - `GET /api/v1/ops/dataset-cards?limit=2000`
-   - `GET /api/v1/ops/layer-snapshots/history?dataset_key=...&limit=50`
    - `GET /api/v1/ops/task-runs?resource_key=...&limit=20`
    - `GET /api/v1/ops/probes?dataset_key=...&limit=20`
    - `GET /api/v1/ops/releases?dataset_key=...&limit=20`

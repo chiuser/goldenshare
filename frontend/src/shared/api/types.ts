@@ -237,7 +237,6 @@ export interface ScheduleDetailResponse {
     probe_interval_seconds: number;
     max_triggers_per_day: number;
     condition_kind: string;
-    min_rows_in: number | null;
     workflow_dataset_keys: string[];
     workflow_dataset_targets: Array<{
       dataset_key: string;
@@ -710,48 +709,6 @@ export interface StdCleansingRuleListResponse {
   total: number;
 }
 
-export interface LayerSnapshotLatestResponse {
-  items: Array<{
-    snapshot_date: string;
-    dataset_key: string;
-    dataset_display_name: string;
-    source_key: string | null;
-    source_display_name: string;
-    stage: string;
-    stage_display_name: string;
-    status: string;
-    rows_in: number | null;
-    rows_out: number | null;
-    error_count: number | null;
-    lag_seconds: number | null;
-    message: string | null;
-    calculated_at: string;
-    last_success_at: string | null;
-    last_failure_at: string | null;
-  }>;
-  total: number;
-}
-
-export interface LayerSnapshotHistoryResponse {
-  items: Array<{
-    snapshot_date: string;
-    dataset_key: string;
-    dataset_display_name: string;
-    source_key: string | null;
-    source_display_name: string;
-    stage: string;
-    stage_display_name: string;
-    status: string;
-    rows_in: number | null;
-    rows_out: number | null;
-    error_count: number | null;
-    lag_seconds: number | null;
-    message: string | null;
-    calculated_at: string;
-  }>;
-  total: number;
-}
-
 export interface DatasetCardListResponse {
   total: number;
   groups: Array<{
@@ -802,30 +759,6 @@ export interface DatasetCardListResponse {
       std_mapping_configured: boolean;
       std_cleansing_configured: boolean;
       resolution_policy_configured: boolean;
-      status_updated_at: string | null;
-      stage_statuses: Array<{
-        stage: string;
-        stage_label: string;
-        table_name: string | null;
-        source_key: string | null;
-        source_display_name: string | null;
-        status: string;
-        rows_in: number | null;
-        rows_out: number | null;
-        error_count: number | null;
-        lag_seconds: number | null;
-        message: string | null;
-        calculated_at: string | null;
-        last_success_at: string | null;
-        last_failure_at: string | null;
-      }>;
-      raw_sources: Array<{
-        source_key: string;
-        source_display_name: string;
-        table_name: string | null;
-        status: string;
-        calculated_at: string | null;
-      }>;
     }>;
   }>;
 }

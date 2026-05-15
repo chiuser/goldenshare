@@ -34,8 +34,8 @@
 | 数据集卡片状态 | `/api/v1/ops/dataset-cards` 的 `status/freshness_status` | 页面可以映射颜色和中文标签，但不能重新计算新鲜度或层级健康度。 |
 | 最近同步日期 | `/api/v1/ops/dataset-cards` 的 `last_sync_date` | `latest_success_at` 是任务成功时间，`last_sync_date` 是服务端给出的同步日期口径。 |
 | 最近成功时间 | `/api/v1/ops/dataset-cards` 的 `latest_success_at` | 用于时间戳展示时可以优先显示更精确的成功时间，但不能忽略 `last_sync_date`。 |
-| layer 状态 | `/api/v1/ops/dataset-cards` 的 `stage_statuses/raw_sources` | 总览页、数据源页、数据集详情页不得直接拼 layer snapshot。 |
-| raw 表名 | `/api/v1/ops/dataset-cards` 的 `raw_table/raw_table_label/raw_sources[].table_name` | 页面不得根据 `sourceKey + dataset_key` 拼表名。 |
+| 数据集健康度 | `/api/v1/ops/dataset-cards` 的 `status/freshness_status` | 总览页、数据源页、数据集详情页不得自行计算健康度。 |
+| raw 表名 | `/api/v1/ops/dataset-cards` 的 `raw_table/raw_table_label` | 页面不得根据 `sourceKey + dataset_key` 拼表名。 |
 | 数据源裁决与卡片去重 | `/api/v1/ops/dataset-cards?source_key=...` 返回的结果 | 页面不得用 `dataset_key/raw_table/source_scope` 自己判断某卡片属于哪个数据源。 |
 | 任务运行状态 | `/api/v1/ops/task-runs*` | 页面不得回退到旧 execution/steps/events/logs 拼装任务状态。 |
 
@@ -44,21 +44,21 @@
 | 编号 | 页面/文件 | 问题 | 处理 |
 | --- | --- | --- | --- |
 | F-001 | `ops-v21-source-page.tsx` | “最近同步”曾绕开服务端同步日期口径，导致 `limit_list_ths` 显示 `—`。 | 已修复：数据源卡片页只消费 `/api/v1/ops/dataset-cards` 返回的 `last_sync_date` 与运行状态字段。 |
-| F-002 | `ops-v21-dataset-detail-page.tsx` | 没有 layer snapshot 时，页面用 freshness 自行构造 raw/serving 两条假 snapshot。 | 已删除：详情页当前层级与来源状态只消费 `/api/v1/ops/dataset-cards` 返回的 `stage_statuses/raw_sources`。 |
+| F-002 | `ops-v21-dataset-detail-page.tsx` | 页面曾展示旧分层观测信息，导致健康度口径重复。 | 已删除：详情页只消费 `/api/v1/ops/dataset-cards` 返回的健康度、任务、调度和规则信息。 |
 | F-003 | 前端详情页共享 helper | 曾保留未使用的 freshness 转 snapshot helper，后续又残留了详情页 display name 映射 helper。 | 已删除：详情页标题与手动动作入口改为消费 `/api/v1/ops/dataset-cards`，不再从 freshness 建本地 map。 |
 | F-004 | `ops-v21-source-page.tsx` | 页面用 `sourceKey + dataset_key` 拼 raw 表名，并把 `raw_tushare` 替换成当前来源表名前缀。 | 已删除：表名只来自 `/api/v1/ops/dataset-cards` 返回字段，缺失则显示 `—`。 |
-| F-005 | `ops-v21-overview-page.tsx` | 总览页曾直接合并旧模式 API 与 `layer-snapshots`，在页面层推导 stage、raw_sources、status。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |
+| F-005 | `ops-v21-overview-page.tsx` | 总览页曾直接合并旧模式 API，并在页面层推导分层状态和健康状态。 | 已收口：总览页改为消费 `/api/v1/ops/dataset-cards`。 |
 | F-006 | `ops-v21-source-page.tsx` / `ops-v21-source-page-utils.ts` | 数据源页用 `dataset_key/raw_table/source_scope` 做来源偏好评分和去重。 | 已收口：数据源页改为消费 `/api/v1/ops/dataset-cards?source_key=...`，旧 utils 删除。 |
 | F-007 | `src/ops/api/dataset_cards.py` | 总览页、数据源页缺少稳定卡片视图，只能在前端拼。 | 已新增只读卡片视图 API；不新增状态表，不复制落盘字段。 |
-| F-008 | `src/ops/queries/dataset_card_query_service.py` | 卡片视图内部曾把旧模式查询结果当作静态事实来源。 | 已收口：卡片静态事实从 `DatasetDefinition` 派生，freshness/layer/probe 只作为运行观测输入。 |
+| F-008 | `src/ops/queries/dataset_card_query_service.py` | 卡片视图内部曾把旧模式查询结果当作静态事实来源。 | 已收口：卡片静态事实从 `DatasetDefinition` 派生，健康度只来自 freshness，probe 只作为调度观测输入。 |
 
 ## 5. 已加门禁
 
 `frontend/scripts/check-rules.mjs` 已新增三条规则：
 
-1. 禁止页面层重新引入 freshness -> layer snapshot 的伪造逻辑。
+1. 禁止页面层重新引入 freshness -> 旧分层观测 的伪造逻辑。
 2. 禁止页面层重新引入 raw 表名派生变量。
-3. 禁止页面层重新引入数据集卡片来源、canonical key 或 raw snapshot 合并推断。
+3. 禁止页面层重新引入数据集卡片来源、canonical key 或旧原始层快照合并推断。
 
 这些规则不是为了覆盖所有未来场景，而是先锁死本轮已经确认的旧口径回流点。
 
