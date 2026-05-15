@@ -33,18 +33,19 @@ class KopiaPrewriteBackupService:
 
     def create_prewrite_backup(self, *, run_id: str, profile_key: str, backup_plan: dict[str, Any]) -> dict[str, Any]:
         backup_paths = [str(item) for item in backup_plan.get("backup_paths") or []]
+        snapshot_paths = [str(item) for item in backup_plan.get("snapshot_paths") or backup_paths]
         missing_paths = [str(item) for item in backup_plan.get("path_missing_before_write") or []]
         snapshot_ids: list[str] = []
         snapshot_records: list[dict[str, Any]] = []
 
-        for relative_path in backup_paths:
+        for relative_path in sorted(set(snapshot_paths)):
             absolute_path = (self.lake_root / relative_path).resolve()
             if not _is_relative_to(absolute_path, self.lake_root):
                 raise KopiaPrewriteBackupError(f"Kopia 备份路径越界：{relative_path}")
             if not absolute_path.exists():
                 missing_paths.append(relative_path)
                 continue
-            description = f"lake-sync prewrite run={run_id} profile={profile_key} path={relative_path}"
+            description = f"lake-sync prewrite run={run_id} profile={profile_key} snapshot_path={relative_path}"
             payload = self.runner(
                 [
                     self.kopia_bin,
@@ -77,6 +78,7 @@ class KopiaPrewriteBackupService:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "snapshot_ids": snapshot_ids,
             "snapshots": snapshot_records,
+            "snapshot_paths": sorted(set(snapshot_paths)),
             "backup_paths": backup_paths,
             "path_missing_before_write": sorted(set(missing_paths)),
         }

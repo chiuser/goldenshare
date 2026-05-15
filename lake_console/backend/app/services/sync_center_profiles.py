@@ -288,6 +288,7 @@ class SyncProfilePlanner:
                 "blocked_count": len(blockers),
                 "write_path_count": sum(len(item["write_paths"]) for item in dataset_plans),
                 "backup_path_count": len(backup_plan["backup_paths"]),
+                "snapshot_path_count": len(backup_plan["snapshot_paths"]),
                 "path_missing_before_write_count": len(backup_plan["path_missing_before_write"]),
             },
         }
@@ -307,23 +308,43 @@ class SyncProfilePlanner:
 
     def _build_backup_plan(self, *, dataset_plans: list[dict[str, Any]]) -> dict[str, Any]:
         backup_paths: list[str] = []
+        snapshot_paths: list[str] = []
         missing_paths: list[str] = []
         for dataset_plan in dataset_plans:
             for relative_path in dataset_plan["write_paths"]:
                 path = self.lake_root / relative_path
                 if path.exists():
                     backup_paths.append(relative_path)
+                    snapshot_paths.append(self._snapshot_root_for_backup_path(relative_path))
                 else:
                     missing_paths.append(relative_path)
         lake_jobs = self.lake_root / "manifest" / "lake_jobs"
         if lake_jobs.exists():
             backup_paths.append("manifest/lake_jobs")
+            snapshot_paths.append("manifest/lake_jobs")
         return {
             "required": True,
             "provider": "kopia",
-            "snapshot_strategy": "prewrite_target_scope",
+            "snapshot_strategy": "prewrite_dataset_root_scope",
             "pin_policy": "none",
             "pinned": False,
             "backup_paths": sorted(set(backup_paths)),
+            "snapshot_paths": sorted(set(snapshot_paths)),
             "path_missing_before_write": sorted(set(missing_paths)),
         }
+
+    def _snapshot_root_for_backup_path(self, relative_path: str) -> str:
+        parts = [part for part in relative_path.split("/") if part]
+        if not parts:
+            raise ValueError("Kopia snapshot 聚合路径不能为空。")
+
+        first = parts[0]
+        if first in {"raw_tushare", "derived", "research"} and len(parts) >= 2:
+            return "/".join(parts[:2])
+        if first == "manifest":
+            if len(parts) >= 2 and parts[1] == "lake_jobs":
+                return "manifest/lake_jobs"
+            if len(parts) >= 2:
+                return "/".join(parts[:2])
+            return "manifest"
+        return first

@@ -336,6 +336,7 @@ export type SyncBackupPlan = {
   pin_policy: string;
   pinned: boolean;
   backup_paths: string[];
+  snapshot_paths?: string[];
   path_missing_before_write: string[];
 };
 
@@ -356,6 +357,7 @@ export type SyncPlanResponse = {
     blocked_count?: number;
     write_path_count?: number;
     backup_path_count?: number;
+    snapshot_path_count?: number;
     path_missing_before_write_count?: number;
     [key: string]: unknown;
   };

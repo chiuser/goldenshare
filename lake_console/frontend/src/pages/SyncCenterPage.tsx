@@ -28,6 +28,10 @@ const RUNNABLE_PROFILE_KEYS = new Set([
   "prod_db_manual_backfill",
   "lake_reference_refresh",
 ]);
+const RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE: Record<string, string> = {
+  prod_db_daily: "prod_db_daily",
+  prod_db_manual_backfill: "prod_db_daily",
+};
 
 export function SyncCenterPage() {
   const { currentRun, error, loading, lock, profiles, reloadStatus } = useSyncCenterStatus();
@@ -43,14 +47,17 @@ export function SyncCenterPage() {
   const [runLoading, setRunLoading] = useState<boolean>(false);
   const [selectedRunId, setSelectedRunId] = useState<string>("");
   const [datasetKeysOverride, setDatasetKeysOverride] = useState<string[] | null>(null);
+  const [recommendationsExpanded, setRecommendationsExpanded] = useState<boolean>(false);
 
   const selectedProfile = profiles.find((profile) => profile.profile_key === selectedProfileKey) ?? null;
+  const recommendationSourceProfileKey = RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE[selectedProfileKey] ?? null;
+  const canLoadRecommendations = Boolean(recommendationSourceProfileKey);
   const {
     error: recommendationError,
     loading: recommendationLoading,
     recommendations,
     reloadRecommendations,
-  } = useSyncRecommendations("prod_db_daily");
+  } = useSyncRecommendations(recommendationSourceProfileKey);
   const activeRunId = selectedRunId || currentRun?.active_run_id || "";
   const { detail, error: artifactError, events, loading: artifactLoading, reloadArtifacts } = useSyncRunArtifacts(activeRunId);
 
@@ -80,11 +87,16 @@ export function SyncCenterPage() {
     setPlan(null);
     setPlanError(null);
     setRunError(null);
+    setRecommendationsExpanded(false);
   }, [datasetKeysOverride, endDate, selectedDatasetKey, selectedProfileKey, startDate, targetDate]);
 
   const canRunSelectedScope = Boolean(selectedProfile && isRunnableProfile(selectedProfile));
   const canStartRun = Boolean(plan && !plan.blockers.length && canRunSelectedScope && lock?.status === "idle" && !runLoading);
   const requestCount = plan?.dataset_plans.reduce((total, item) => total + item.request_count, 0) ?? 0;
+  const recommendationItems = recommendations?.items ?? [];
+  const laggingRecommendationCount = recommendationItems.filter((item) => item.status === "lagging" || item.status === "empty").length;
+  const blockedRecommendationCount = recommendationItems.filter((item) => item.status === "blocked_missing_calendar").length;
+  const maxLagDays = recommendationItems.reduce((max, item) => Math.max(max, item.lag_calendar_days || 0), 0);
 
   async function handleCreatePlan() {
     if (!selectedProfile) {
@@ -188,172 +200,211 @@ export function SyncCenterPage() {
       </section>
 
       <Panel
-        title="建议同步窗口"
-        description="只读扫描本地 Lake 文件事实和本地交易日历，给出日期型数据集的建议补数范围；不会自动创建计划或启动同步。"
+        title="主操作台 / Run Console"
+        description="先选择同步范围，生成计划确认写入与备份影响面，再启动执行。"
       >
-        <div className="sync-recommendation-head">
-          <div className="sync-cell-stack sync-cell-stack-tight">
-            <strong>Profile: {recommendations?.profile_key ?? "prod_db_daily"}</strong>
-            <span>
-              参考日期 {recommendations?.expected_reference_date ?? "—"}，cutoff {recommendations?.cutoff_time ?? "20:00"}
-            </span>
+        <section className="sync-command-recommendation" aria-label="建议同步窗口">
+          <div className="sync-command-section-head">
+            <div>
+              <h3>建议同步窗口</h3>
+              <p>只读扫描本地 Lake 文件事实和本地交易日历，给出日期型数据集的建议补数范围；确认后可带入主操作台。</p>
+            </div>
           </div>
-          <div className="sync-recommendation-actions">
-            <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
-              刷新建议
-            </button>
-            <button
-              className="sync-inline-button"
-              disabled={!recommendations?.expected_reference_date}
-              onClick={handleApplyDailyProfileRecommendation}
-              type="button"
-            >
-              带入每日单日全量
-            </button>
-            <button
-              className="sync-inline-button"
-              disabled={!recommendations?.aggregate_plan_hint}
-              onClick={handleApplyLaggingBackfillRecommendation}
-              type="button"
-            >
-              带入全部落后补数
-            </button>
+          <div className="sync-recommendation-toolbar">
+            <div className="sync-cell-stack sync-cell-stack-tight">
+              <strong>{selectedProfile ? `跟随主操作台：${selectedProfile.profile_key}` : "等待选择 Profile"}</strong>
+              <span>
+                {selectedProfileKey === "prod_db_manual_backfill"
+                  ? "当前手动补数会复用 prod_db_daily 的缺口计算结果，一键填入 start/end 与落后数据集。"
+                  : canLoadRecommendations
+                  ? "当前 Profile 支持自动计算同步日期，可一键把建议参数带回主操作台。"
+                  : "当前 Profile 不使用自动日期建议；请在主操作台直接生成计划。"}
+              </span>
+            </div>
+            {canLoadRecommendations ? (
+              <div className="sync-recommendation-actions sync-recommendation-actions-primary">
+                <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
+                  刷新建议
+                </button>
+                <button
+                  className="sync-inline-button"
+                  disabled={!recommendations?.expected_reference_date}
+                  onClick={handleApplyDailyProfileRecommendation}
+                  type="button"
+                >
+                  带入每日单日全量
+                </button>
+                <button
+                  className="sync-inline-button sync-button-primary"
+                  disabled={!recommendations?.aggregate_plan_hint}
+                  onClick={handleApplyLaggingBackfillRecommendation}
+                  type="button"
+                >
+                  带入全部落后补数
+                </button>
+              </div>
+            ) : null}
           </div>
-        </div>
-        {recommendationError ? <ErrorStateBlock title="建议同步窗口加载失败" description={recommendationError} /> : null}
-        {recommendationLoading ? <LoadingBlock title="正在生成建议" description="读取本地分区与交易日历。" /> : null}
-        {!recommendationLoading && recommendations ? (
-          <RecommendationTable rows={recommendations.items} onApply={handleApplyRecommendation} />
-        ) : null}
-      </Panel>
-
-      <section className="sync-center-grid">
-        <Panel title="选择同步 Profile" description="本页展示全部 Profile；只有 enabled 且 M6 runner 已接入的 profile 可以启动。">
-          {loading ? <LoadingBlock title="正在加载 Profile" description="读取 Sync Center profiles / lock / current run。" /> : null}
-          {!loading && profiles.length === 0 ? <EmptyState title="暂无 Profile" description="后端未返回可用 Sync Center Profile。" /> : null}
-          <div className="sync-profile-grid">
-            {profiles.map((profile) => (
-              <button
-                className={profile.profile_key === selectedProfileKey ? "sync-profile-card sync-profile-card-active" : "sync-profile-card"}
-                key={profile.profile_key}
-                onClick={() => {
-                  setDatasetKeysOverride(null);
-                  setSelectedProfileKey(profile.profile_key);
-                }}
-                type="button"
-              >
-                <span className="sync-profile-head">
-                  <strong>{profile.profile_key}</strong>
-                  <Badge tone={profileTone(profile)}>{profile.profile_status}</Badge>
-                </span>
-                <span className="sync-profile-title">{profile.display_name}</span>
-                <span className="sync-profile-desc">{profile.description}</span>
-                <span className="sync-profile-meta">
-                  <Badge tone={profile.requires_kopia_backup ? "warning" : "muted"}>Kopia prewrite</Badge>
-                  <Badge tone={profile.default_lookback_days ? "brand" : "muted"}>
-                    {profile.default_lookback_days ? `lookback=${profile.default_lookback_days}` : "no default date"}
-                  </Badge>
-                  <Badge tone={isRunnableProfile(profile) ? "success" : "muted"}>
-                    {isRunnableProfile(profile) ? "M6 可执行" : "专项待接入"}
-                  </Badge>
-                </span>
-                {profile.disabled_reason ? <span className="sync-profile-disabled">{profile.disabled_reason}</span> : null}
+          {canLoadRecommendations ? (
+            <div className="sync-recommendation-summary">
+              <SyncMiniStat label="落后数据集" value={String(laggingRecommendationCount)} />
+              <SyncMiniStat label="最长滞后" value={maxLagDays ? `${maxLagDays}d` : "0d"} />
+              <SyncMiniStat label="阻断项" value={String(blockedRecommendationCount)} />
+              <SyncMiniStat label="参考日期" value={recommendations?.expected_reference_date ?? "—"} />
+            </div>
+          ) : null}
+          {!canLoadRecommendations ? (
+            <EmptyState
+              title="当前 Profile 不需要建议同步窗口"
+              description="建议窗口目前只服务 prod_db_daily 的日期缺口推导，并可带入 prod_db_manual_backfill 执行补数。snapshot/reference 类 Profile 的日期或刷新语义不同，请在下方主操作台直接生成计划。"
+            />
+          ) : null}
+          {canLoadRecommendations ? <div className="sync-recommendation-head">
+            <div className="sync-cell-stack sync-cell-stack-tight">
+              <strong>Profile: {recommendations?.profile_key ?? "prod_db_daily"}</strong>
+              <span>cutoff {recommendations?.cutoff_time ?? "20:00"}，明细只用于带入参数，不会自动启动同步。</span>
+            </div>
+            <div className="sync-recommendation-actions">
+              <button className="sync-inline-button" onClick={() => setRecommendationsExpanded((value) => !value)} type="button">
+                {recommendationsExpanded ? "收起明细" : "展开明细"}
               </button>
-            ))}
-          </div>
-        </Panel>
-
-        <Panel title="计划参数" description="先生成计划，再按计划启动任务。启动前后端会强制做 Kopia prewrite backup。">
-          <div className="sync-form-grid">
-            <label className="sync-field">
-              <span>Profile</span>
-              <select value={selectedProfileKey} onChange={(event) => setSelectedProfileKey(event.target.value)}>
-                {profiles.map((profile) => (
-                  <option key={profile.profile_key} value={profile.profile_key}>
-                    {profile.profile_key}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="sync-field">
-              <span>数据集</span>
-              <select
-                value={selectedDatasetKey}
-                onChange={(event) => {
-                  setDatasetKeysOverride(null);
-                  setSelectedDatasetKey(event.target.value);
-                }}
-              >
-                <option value="">全部数据集</option>
-                {(selectedProfile?.datasets ?? []).map((dataset) => (
-                  <option key={dataset.dataset_key} value={dataset.dataset_key}>
-                    {dataset.dataset_key}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="sync-field">
-              <span>Target Date</span>
-              <input
-                disabled={!shouldUseTargetDate(selectedProfileKey)}
-                type="date"
-                value={targetDate}
-                onChange={(event) => setTargetDate(event.target.value)}
-              />
-            </label>
-
-            <label className="sync-field">
-              <span>Start Date</span>
-              <input
-                disabled={!shouldUseDateRange(selectedProfileKey)}
-                type="date"
-                value={startDate}
-                onChange={(event) => setStartDate(event.target.value)}
-              />
-            </label>
-
-            <label className="sync-field">
-              <span>End Date</span>
-              <input
-                disabled={!shouldUseDateRange(selectedProfileKey)}
-                type="date"
-                value={endDate}
-                onChange={(event) => setEndDate(event.target.value)}
-              />
-            </label>
-          </div>
-
-          {datasetKeysOverride ? (
-            <div className="alert warning">
-              <div>
-                已按建议选择 {datasetKeysOverride.length} 个落后数据集。生成计划时只包含这组数据集，不等同于 profile 全部数据集。
-              </div>
+            </div>
+          </div> : null}
+          {recommendationError ? <ErrorStateBlock title="建议同步窗口加载失败" description={recommendationError} /> : null}
+          {recommendationLoading ? <LoadingBlock title="正在生成建议" description="读取本地分区与交易日历。" /> : null}
+          {!recommendationLoading && recommendations && recommendationsExpanded && canLoadRecommendations ? (
+            <div className="sync-recommendation-table-wrap">
+              <RecommendationTable rows={recommendations.items} onApply={handleApplyRecommendation} />
             </div>
           ) : null}
+        </section>
 
-          <div className="sync-action-row">
-            <button className="sync-button sync-button-muted" onClick={reloadStatus} type="button">
-              刷新状态
-            </button>
-            <button className="sync-button" disabled={!selectedProfile || planLoading} onClick={handleCreatePlan} type="button">
-              {planLoading ? "生成中..." : "生成计划"}
-            </button>
-            <button className="sync-button sync-button-primary" disabled={!canStartRun} onClick={handleStartRun} type="button">
-              {runLoading ? "启动中..." : "启动同步任务"}
-            </button>
+        <div className="sync-command-divider" />
+
+        <div className="sync-command-console">
+          <div className="sync-command-main">
+            <div className="sync-form-grid sync-form-grid-console">
+              <label className="sync-field">
+                <span>Profile</span>
+                <select value={selectedProfileKey} onChange={(event) => setSelectedProfileKey(event.target.value)}>
+                  {profiles.map((profile) => (
+                    <option key={profile.profile_key} value={profile.profile_key}>
+                      {profile.profile_key}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="sync-field">
+                <span>数据集范围</span>
+                <select
+                  value={selectedDatasetKey}
+                  onChange={(event) => {
+                    setDatasetKeysOverride(null);
+                    setSelectedDatasetKey(event.target.value);
+                  }}
+                >
+                  <option value="">全部数据集</option>
+                  {(selectedProfile?.datasets ?? []).map((dataset) => (
+                    <option key={dataset.dataset_key} value={dataset.dataset_key}>
+                      {dataset.dataset_key}
+                    </option>
+                  ))}
+                </select>
+              </label>
+
+              <label className="sync-field">
+                <span>Target Date</span>
+                <input
+                  disabled={!shouldUseTargetDate(selectedProfileKey)}
+                  type="date"
+                  value={targetDate}
+                  onChange={(event) => setTargetDate(event.target.value)}
+                />
+              </label>
+
+              <label className="sync-field">
+                <span>Start Date</span>
+                <input
+                  disabled={!shouldUseDateRange(selectedProfileKey)}
+                  type="date"
+                  value={startDate}
+                  onChange={(event) => setStartDate(event.target.value)}
+                />
+              </label>
+
+              <label className="sync-field">
+                <span>End Date</span>
+                <input
+                  disabled={!shouldUseDateRange(selectedProfileKey)}
+                  type="date"
+                  value={endDate}
+                  onChange={(event) => setEndDate(event.target.value)}
+                />
+              </label>
+            </div>
+
+            {datasetKeysOverride ? (
+              <div className="alert warning">
+                <div>
+                  已按建议选择 {datasetKeysOverride.length} 个落后数据集。生成计划时只包含这组数据集，不等同于 profile 全部数据集。
+                </div>
+              </div>
+            ) : null}
+
+            <div className="sync-action-row sync-action-row-console">
+              <button className="sync-button sync-button-muted" onClick={reloadStatus} type="button">
+                刷新状态
+              </button>
+              <button className="sync-button" disabled={!selectedProfile || planLoading} onClick={handleCreatePlan} type="button">
+                {planLoading ? "生成中..." : "生成计划"}
+              </button>
+              <button className="sync-button sync-button-primary" disabled={!canStartRun} onClick={handleStartRun} type="button">
+                {runLoading ? "启动中..." : "启动同步任务"}
+              </button>
+            </div>
+
+            {!canRunSelectedScope ? (
+              <div className="alert warning">
+                <div>
+                  当前选择的范围尚未接入 M6 runner。可以生成计划做预览，但不能启动写入任务。
+                </div>
+              </div>
+            ) : null}
           </div>
 
-          {!canRunSelectedScope ? (
-            <div className="alert warning">
-              <div>
-                当前选择的范围尚未接入 M6 runner。可以生成计划做预览，但不能启动写入任务。
+          <aside className="sync-command-side">
+            <div className="sync-command-card">
+              <span>当前 Profile</span>
+              <strong>{selectedProfile?.display_name ?? "未选择"}</strong>
+              <p>{selectedProfile?.description ?? "等待后端返回 Profile 列表。"}</p>
+              <div className="sync-profile-meta">
+                {selectedProfile ? <Badge tone={profileTone(selectedProfile)}>{selectedProfile.profile_status}</Badge> : null}
+                {selectedProfile ? (
+                  <Badge tone={isRunnableProfile(selectedProfile) ? "success" : "muted"}>
+                    {isRunnableProfile(selectedProfile) ? "M6 可执行" : "专项待接入"}
+                  </Badge>
+                ) : null}
+                {selectedProfile ? (
+                  <Badge tone={selectedProfile.requires_kopia_backup ? "warning" : "muted"}>Kopia prewrite</Badge>
+                ) : null}
               </div>
             </div>
-          ) : null}
-        </Panel>
-      </section>
+
+            <div className="sync-command-card sync-command-card-plan">
+              <span>当前计划</span>
+              <strong>{plan ? `${plan.summary.dataset_count ?? plan.dataset_plans.length} datasets` : "尚未生成"}</strong>
+              <p>
+                {plan
+                  ? `requests=${requestCount.toLocaleString("zh-CN")} · backup=${plan.backup_plan.backup_paths.length} · missing=${plan.backup_plan.path_missing_before_write.length}`
+                  : "生成计划后这里会显示请求数、备份路径和 missing path 摘要。"}
+              </p>
+              {plan?.blockers.length ? <Badge tone="error">Blockers {plan.blockers.length}</Badge> : null}
+              {plan && !plan.blockers.length ? <Badge tone="success">Ready to run</Badge> : null}
+            </div>
+          </aside>
+        </div>
+      </Panel>
 
       <section className="sync-center-grid sync-center-grid-plan">
         <Panel title="计划预览" description="确认会写哪些数据集、目标路径、请求数和 blockers。">
@@ -362,6 +413,7 @@ export function SyncCenterPage() {
               <section className="sync-plan-stats">
                 <SyncMiniStat label="Datasets" value={String(plan.summary.dataset_count ?? plan.dataset_plans.length)} />
                 <SyncMiniStat label="Requests" value={requestCount.toLocaleString("zh-CN")} />
+                <SyncMiniStat label="Snapshot Paths" value={String((plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths).length)} />
                 <SyncMiniStat label="Backup Paths" value={String(plan.backup_plan.backup_paths.length)} />
                 <SyncMiniStat label="Missing Paths" value={String(plan.backup_plan.path_missing_before_write.length)} />
               </section>
@@ -374,10 +426,11 @@ export function SyncCenterPage() {
           )}
         </Panel>
 
-        <Panel title="Kopia 备份范围" description="启动写入前，后端会按计划范围创建 prewrite snapshot。">
+        <Panel title="Kopia 备份范围" description="启动写入前，后端会按聚合路径创建 prewrite snapshot；明细路径只用于恢复判断，不会逐条创建 snapshot。">
           {plan ? (
             <div className="sync-backup-stack">
-              <BackupList title="将备份的路径" paths={plan.backup_plan.backup_paths} empty="当前目标路径尚不存在，写入前会记录 missing path。" />
+              <BackupList title="本次将创建 snapshot 的聚合路径" paths={plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths} empty="当前没有需要创建 snapshot 的已存在路径。" />
+              <BackupList title="本次会写且写前已存在的明细路径" paths={plan.backup_plan.backup_paths} empty="当前目标路径尚不存在，写入前会记录 missing path。" />
               <BackupList title="写入前不存在" paths={plan.backup_plan.path_missing_before_write} empty="没有 missing path。" />
               <div className="sync-kv-grid">
                 <div><span>Provider</span><strong>{plan.backup_plan.provider}</strong></div>

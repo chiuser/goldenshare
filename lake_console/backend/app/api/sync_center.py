@@ -200,7 +200,12 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             {
                 "event_type": "backup_completed",
                 "message": "Kopia prewrite snapshot 已完成。",
-                "metrics": {"snapshot_count": len(backup.get("snapshot_ids") or [])},
+                "metrics": {
+                    "snapshot_count": len(backup.get("snapshot_ids") or []),
+                    "snapshot_path_count": len(backup.get("snapshot_paths") or []),
+                    "backup_path_count": len(backup.get("backup_paths") or []),
+                    "path_missing_before_write_count": len(backup.get("path_missing_before_write") or []),
+                },
             },
         )
         store.write_run({**run_payload, "status": "running", "backup": backup})

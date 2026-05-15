@@ -7,10 +7,10 @@ import pytest
 from lake_console.backend.app.services.kopia_prewrite_backup_service import KopiaPrewriteBackupError, KopiaPrewriteBackupService
 
 
-def test_kopia_prewrite_backup_creates_snapshots_for_existing_paths(tmp_path: Path) -> None:
+def test_kopia_prewrite_backup_creates_snapshots_for_aggregated_snapshot_paths(tmp_path: Path) -> None:
     lake_root = tmp_path / "lake"
-    existing = lake_root / "raw_tushare" / "daily" / "trade_date=2026-05-14"
-    existing.mkdir(parents=True)
+    (lake_root / "raw_tushare" / "daily" / "trade_date=2026-05-13").mkdir(parents=True)
+    (lake_root / "raw_tushare" / "daily" / "trade_date=2026-05-14").mkdir(parents=True)
     captured: list[list[str]] = []
 
     def fake_runner(argv: list[str]):
@@ -21,7 +21,11 @@ def test_kopia_prewrite_backup_creates_snapshots_for_existing_paths(tmp_path: Pa
         run_id="run_1",
         profile_key="prod_db_daily",
         backup_plan={
-            "backup_paths": ["raw_tushare/daily/trade_date=2026-05-14"],
+            "backup_paths": [
+                "raw_tushare/daily/trade_date=2026-05-13",
+                "raw_tushare/daily/trade_date=2026-05-14",
+            ],
+            "snapshot_paths": ["raw_tushare/daily"],
             "path_missing_before_write": ["raw_tushare/moneyflow/trade_date=2026-05-14"],
             "pin_policy": "none",
         },
@@ -29,7 +33,15 @@ def test_kopia_prewrite_backup_creates_snapshots_for_existing_paths(tmp_path: Pa
 
     assert backup["status"] == "success"
     assert backup["snapshot_ids"] == ["snapshot-001"]
+    assert backup["snapshot_paths"] == ["raw_tushare/daily"]
+    assert backup["backup_paths"] == [
+        "raw_tushare/daily/trade_date=2026-05-13",
+        "raw_tushare/daily/trade_date=2026-05-14",
+    ]
+    assert len(captured) == 1
     assert captured[0][0:3] == ["kopia", "snapshot", "create"]
+    assert captured[0][3] == str(lake_root / "raw_tushare" / "daily")
+    assert any("snapshot_path=raw_tushare/daily" in item for item in captured[0])
     assert "raw_tushare/moneyflow/trade_date=2026-05-14" in backup["path_missing_before_write"]
 
 

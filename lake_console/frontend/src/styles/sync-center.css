@@ -7,6 +7,95 @@
   margin-bottom: 0;
 }
 
+.sync-command-console {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(300px, 420px);
+  gap: 16px;
+  align-items: start;
+}
+
+.sync-command-main {
+  display: grid;
+  gap: 12px;
+  min-width: 0;
+}
+
+.sync-command-side {
+  display: grid;
+  gap: 10px;
+  min-width: 0;
+}
+
+.sync-command-card {
+  display: grid;
+  gap: 7px;
+  min-width: 0;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-1);
+  overflow-wrap: anywhere;
+}
+
+.sync-command-card > span {
+  color: var(--text-hint);
+  font-size: 11px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.sync-command-card strong {
+  color: var(--text-title);
+  font-size: 16px;
+}
+
+.sync-command-card p {
+  margin: 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sync-command-card-plan {
+  background: var(--brand-0);
+}
+
+.sync-command-recommendation {
+  display: grid;
+  gap: 12px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 14px;
+  background: var(--neutral-1);
+}
+
+.sync-command-section-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sync-command-section-head h3 {
+  margin: 0;
+  color: var(--text-title);
+  font-size: 16px;
+  line-height: 1.3;
+}
+
+.sync-command-section-head p {
+  margin: 4px 0 0;
+  color: var(--text-muted);
+  font-size: 12px;
+  line-height: 1.55;
+}
+
+.sync-command-divider {
+  height: 1px;
+  margin: 16px 0;
+  background: var(--border-default);
+}
+
 .sync-center-grid {
   display: grid;
   grid-template-columns: minmax(0, 1.1fr) minmax(360px, 0.9fr);
@@ -135,9 +224,15 @@
   margin-bottom: 12px;
 }
 
+.sync-form-grid-console {
+  grid-template-columns: repeat(auto-fit, minmax(210px, 1fr));
+  margin-bottom: 0;
+}
+
 .sync-field {
   display: grid;
   gap: 5px;
+  min-width: 0;
 }
 
 .sync-field > span {
@@ -150,6 +245,7 @@
 .sync-field select,
 .sync-field input {
   width: 100%;
+  min-width: 0;
   border: 1px solid var(--border-default);
   border-radius: var(--r-sm);
   padding: 8px 9px;
@@ -169,6 +265,11 @@
   flex-wrap: wrap;
   justify-content: flex-end;
   margin-bottom: 12px;
+}
+
+.sync-action-row-console {
+  justify-content: flex-start;
+  margin-bottom: 0;
 }
 
 .sync-button,
@@ -242,6 +343,36 @@
 .sync-mini-stat strong {
   color: var(--text-title);
   font-size: 16px;
+}
+
+.sync-recommendation-summary {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+  margin-bottom: 12px;
+}
+
+.sync-recommendation-toolbar {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+
+.sync-recommendation-actions-primary {
+  justify-content: flex-end;
+}
+
+.sync-recommendation-table-wrap {
+  max-height: 360px;
+  overflow: auto;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+}
+
+.sync-recommendation-table-wrap > * {
+  border: 0;
 }
 
 .sync-cell-stack,
@@ -365,7 +496,14 @@
   overflow-wrap: anywhere;
 }
 
+@media (max-width: 1360px) {
+  .sync-command-console {
+    grid-template-columns: 1fr;
+  }
+}
+
 @media (max-width: 1180px) {
+  .sync-command-console,
   .sync-center-grid,
   .sync-center-grid-plan,
   .sync-center-grid-run {
@@ -374,6 +512,9 @@
 
   .sync-profile-grid,
   .sync-form-grid,
+  .sync-form-grid-console,
+  .sync-recommendation-summary,
+  .sync-recommendation-toolbar,
   .sync-kv-grid {
     grid-template-columns: 1fr;
   }

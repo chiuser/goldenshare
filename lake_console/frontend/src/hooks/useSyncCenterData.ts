@@ -52,7 +52,7 @@ export function useSyncCenterStatus() {
   };
 }
 
-export function useSyncRecommendations(profileKey = "prod_db_daily") {
+export function useSyncRecommendations(profileKey: string | null = "prod_db_daily") {
   const [recommendations, setRecommendations] = useState<SyncRecommendationResponse | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
@@ -60,10 +60,19 @@ export function useSyncRecommendations(profileKey = "prod_db_daily") {
 
   useEffect(() => {
     let cancelled = false;
+    if (!profileKey) {
+      setRecommendations(null);
+      setError(null);
+      setLoading(false);
+      return () => {
+        cancelled = true;
+      };
+    }
+    const effectiveProfileKey = profileKey;
     async function loadData() {
       setLoading(true);
       try {
-        const payload = await loadSyncRecommendations(profileKey);
+        const payload = await loadSyncRecommendations(effectiveProfileKey);
         if (!cancelled) {
           setRecommendations(payload);
           setError(null);

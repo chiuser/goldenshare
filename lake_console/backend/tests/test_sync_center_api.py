@@ -54,6 +54,31 @@ def test_sync_center_profiles_lock_and_plan_api(monkeypatch, tmp_path: Path) -> 
     assert disabled_response.json()["detail"]["code"] == "PROFILE_DISABLED"
 
 
+def test_sync_center_plan_aggregates_snapshot_paths(monkeypatch, tmp_path: Path) -> None:
+    lake_root = tmp_path / "lake"
+    (lake_root / "raw_tushare" / "daily" / "trade_date=2026-05-13").mkdir(parents=True)
+    (lake_root / "raw_tushare" / "daily" / "trade_date=2026-05-14").mkdir(parents=True)
+    _write_calendar(lake_root, dates=["2026-05-13", "2026-05-14"])
+    _patch_settings(monkeypatch, lake_root)
+    client = TestClient(create_app())
+
+    plan_response = client.post(
+        "/api/lake/sync/profiles/prod_db_manual_backfill/plan",
+        json={"start_date": "2026-05-13", "end_date": "2026-05-14", "dataset_keys": ["daily"]},
+    )
+
+    assert plan_response.status_code == 200
+    plan = plan_response.json()
+    assert plan["backup_plan"]["backup_paths"] == [
+        "raw_tushare/daily/trade_date=2026-05-13",
+        "raw_tushare/daily/trade_date=2026-05-14",
+    ]
+    assert plan["backup_plan"]["snapshot_paths"] == ["raw_tushare/daily"]
+    assert plan["backup_plan"]["snapshot_strategy"] == "prewrite_dataset_root_scope"
+    assert plan["summary"]["backup_path_count"] == 2
+    assert plan["summary"]["snapshot_path_count"] == 1
+
+
 def test_sync_center_run_skeleton_creates_backup_state_and_releases_lock(monkeypatch, tmp_path: Path) -> None:
     lake_root = tmp_path / "lake"
     (lake_root / "raw_tushare" / "bse_mapping" / "current").mkdir(parents=True)
@@ -77,6 +102,7 @@ def test_sync_center_run_skeleton_creates_backup_state_and_releases_lock(monkeyp
                 "created_at": "2026-05-14T00:00:00+00:00",
                 "snapshot_ids": ["snapshot-001"],
                 "snapshots": [],
+                "snapshot_paths": backup_plan["snapshot_paths"],
                 "backup_paths": backup_plan["backup_paths"],
                 "path_missing_before_write": backup_plan["path_missing_before_write"],
             }
@@ -198,6 +224,7 @@ def test_sync_center_run_returns_structured_unexpected_error(monkeypatch, tmp_pa
                 "created_at": "2026-05-14T00:00:00+00:00",
                 "snapshot_ids": ["snapshot-001"],
                 "snapshots": [],
+                "snapshot_paths": backup_plan["snapshot_paths"],
                 "backup_paths": backup_plan["backup_paths"],
                 "path_missing_before_write": backup_plan["path_missing_before_write"],
             }
@@ -249,8 +276,8 @@ def _patch_settings(monkeypatch, lake_root: Path) -> None:
     )
 
 
-def _write_calendar(lake_root: Path) -> None:
+def _write_calendar(lake_root: Path, *, dates: list[str] | None = None) -> None:
     write_rows_to_parquet(
-        [{"cal_date": "2026-05-14", "is_open": True}],
+        [{"cal_date": item, "is_open": True} for item in (dates or ["2026-05-14"])],
         lake_root / "manifest" / "trading_calendar" / "tushare_trade_cal.parquet",
     )
