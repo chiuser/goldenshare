@@ -17,6 +17,11 @@ branch_labels = None
 depends_on = None
 
 OPS_SCHEMA = "ops"
+RUN_TABLE = "dataset_date_completeness_run"
+
+
+def _drop_run_constraint_if_exists(name: str) -> None:
+    op.execute(sa.text(f'ALTER TABLE "{OPS_SCHEMA}"."{RUN_TABLE}" DROP CONSTRAINT IF EXISTS "{name}"'))
 
 
 def upgrade() -> None:
@@ -97,16 +102,10 @@ def upgrade() -> None:
         "affected_subject_count >= 0",
         schema=OPS_SCHEMA,
     )
-    op.drop_constraint(
-        "ck_dataset_date_completeness_passed_has_no_missing",
-        "dataset_date_completeness_run",
-        schema=OPS_SCHEMA,
-    )
-    op.drop_constraint(
-        "ck_dataset_date_completeness_failed_has_missing",
-        "dataset_date_completeness_run",
-        schema=OPS_SCHEMA,
-    )
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_passed_has_no_missing")
+    _drop_run_constraint_if_exists("dataset_date_completeness_passed_has_no_missing")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_failed_has_missing")
+    _drop_run_constraint_if_exists("dataset_date_completeness_failed_has_missing")
     op.create_check_constraint(
         "ck_dataset_date_completeness_passed_has_no_missing",
         "dataset_date_completeness_run",
@@ -212,8 +211,10 @@ def downgrade() -> None:
     op.drop_index("idx_dataset_subject_completeness_gap_run", table_name="dataset_subject_completeness_gap", schema=OPS_SCHEMA)
     op.drop_table("dataset_subject_completeness_gap", schema=OPS_SCHEMA)
 
-    op.drop_constraint("ck_dataset_date_completeness_failed_has_missing", "dataset_date_completeness_run", schema=OPS_SCHEMA)
-    op.drop_constraint("ck_dataset_date_completeness_passed_has_no_missing", "dataset_date_completeness_run", schema=OPS_SCHEMA)
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_failed_has_missing")
+    _drop_run_constraint_if_exists("dataset_date_completeness_failed_has_missing")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_passed_has_no_missing")
+    _drop_run_constraint_if_exists("dataset_date_completeness_passed_has_no_missing")
     op.create_check_constraint(
         "ck_dataset_date_completeness_passed_has_no_missing",
         "dataset_date_completeness_run",
@@ -226,12 +227,12 @@ def downgrade() -> None:
         "(result_status <> 'failed') OR (missing_bucket_count > 0)",
         schema=OPS_SCHEMA,
     )
-    op.drop_constraint("ck_dataset_date_completeness_affected_subject_non_negative", "dataset_date_completeness_run", schema=OPS_SCHEMA)
-    op.drop_constraint("ck_dataset_date_completeness_affected_bucket_non_negative", "dataset_date_completeness_run", schema=OPS_SCHEMA)
-    op.drop_constraint("ck_dataset_date_completeness_missing_cell_non_negative", "dataset_date_completeness_run", schema=OPS_SCHEMA)
-    op.drop_constraint("ck_dataset_date_completeness_actual_cell_non_negative", "dataset_date_completeness_run", schema=OPS_SCHEMA)
-    op.drop_constraint("ck_dataset_date_completeness_expected_cell_non_negative", "dataset_date_completeness_run", schema=OPS_SCHEMA)
-    op.drop_constraint("ck_dataset_date_completeness_audit_scope_allowed", "dataset_date_completeness_run", schema=OPS_SCHEMA)
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_affected_subject_non_negative")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_affected_bucket_non_negative")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_missing_cell_non_negative")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_actual_cell_non_negative")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_expected_cell_non_negative")
+    _drop_run_constraint_if_exists("ck_dataset_date_completeness_audit_scope_allowed")
 
     op.drop_column("dataset_date_completeness_run", "detail_truncated", schema=OPS_SCHEMA)
     op.drop_column("dataset_date_completeness_run", "affected_subject_count", schema=OPS_SCHEMA)
