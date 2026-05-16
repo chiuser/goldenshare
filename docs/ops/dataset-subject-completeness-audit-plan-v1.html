@@ -998,6 +998,51 @@ where a.ts_code is null;</code></pre>
       <li>接入后必须先跑测试门禁，再做小窗口真实审计；真实审计窗口建议 1-2 个交易日。</li>
       <li>任何性能异常、对象池口径不清或目标表口径不一致，都必须停止本数据集接入，先补方案评审。</li>
     </ol>
+    <h3>11.3 M5 真实小窗口验证记录</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>验证时间</th>
+        <th>方式</th>
+        <th>数据集</th>
+        <th>窗口</th>
+        <th>结果</th>
+        <th>结论</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>2026-05-17</td>
+        <td>本地最新代码直连远程 DB，创建 run 后由 worker 消费</td>
+        <td><code>stk_limit</code></td>
+        <td><code>2026-05-15</code></td>
+        <td>
+          run_id=<code>27</code>；
+          <code>expected_cells=5517</code>，
+          <code>actual_cells=5517</code>，
+          <code>missing_cells=0</code>。
+        </td>
+        <td>通过。额外存在的非股票池对象不计入本轮股票生命周期池缺失判断。</td>
+      </tr>
+      <tr>
+        <td>2026-05-17</td>
+        <td>本地最新代码直连远程 DB，创建 run 后由 worker 消费</td>
+        <td><code>stk_factor_pro</code></td>
+        <td><code>2026-05-15</code></td>
+        <td>
+          run_id=<code>28</code>；
+          <code>expected_cells=5517</code>，
+          <code>actual_cells=5493</code>，
+          <code>missing_cells=24</code>，
+          <code>detail_truncated=false</code>。
+        </td>
+        <td>
+          未通过。审计链路本身可运行，但该数据集在当前股票生命周期池口径下存在真实缺口；
+          继续放大窗口前必须先判断是源端语义差异、数据同步缺口，还是对象池口径需要专项调整。
+        </td>
+      </tr>
+      </tbody>
+    </table>
   </section>
 
   <section class="card">
