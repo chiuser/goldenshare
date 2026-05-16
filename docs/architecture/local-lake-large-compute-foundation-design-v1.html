@@ -2237,8 +2237,8 @@ compute_max_unit_retries = 1</pre>
         <tr>
           <td>M2 DuckDB compute 执行器</td>
           <td>实现 DuckDB SQL 计算执行壳，只写 tmp candidate/candidate_part，并显式配置 threads、memory_limit、temp_directory。</td>
-          <td>candidate parquet + candidate_part manifest + DuckDB 执行指标。</td>
-          <td>DuckDB compute 无正式路径写权限；代码路径不调用 <code>read_parquet_files()</code> 做大分区全量读内存。</td>
+          <td><code>compute-stk-mins-qfq-candidates --run-id ...</code>、candidate parquet、candidate_part manifest、DuckDB 执行指标。</td>
+          <td>M2 已落地：读取 M1-B run manifest，持锁执行 DuckDB 单元，写入 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts/...</code> 与 <code>candidate_parts.parquet</code>；不发布正式分区、不写 clean_next gate、不写 downstream queue。代码路径不调用 <code>read_parquet_files()</code> 做大分区全量读内存。</td>
         </tr>
         <tr>
           <td>M3 single writer</td>
