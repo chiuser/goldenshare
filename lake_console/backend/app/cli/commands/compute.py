@@ -70,6 +70,30 @@ def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     gate_plan_parser.add_argument("--run-id", required=True, help="preflight-stk-mins-qfq-publish 通过后的 run_id")
     gate_plan_parser.set_defaults(handler=_handle_prepare_stk_mins_qfq_gate_publish_plan)
 
+    gate_publish_parser = subparsers.add_parser(
+        "stage-stk-mins-qfq-gate-publishing",
+        help="M3-C-C 写正式 clean_next gate=publishing；不替换正式分区、不写 downstream、不 gate passed",
+    )
+    add_lake_root_arg(gate_publish_parser)
+    gate_publish_parser.add_argument("--run-id", required=True, help="prepare-stk-mins-qfq-gate-publish-plan 通过后的 run_id")
+    gate_publish_parser.set_defaults(handler=_handle_stage_stk_mins_qfq_gate_publishing)
+
+    formal_publish_parser = subparsers.add_parser(
+        "publish-stk-mins-qfq-formal",
+        help="M3-C-D 原子替换正式 clean_next 分区并执行 formal audit；不写 downstream、不 gate passed",
+    )
+    add_lake_root_arg(formal_publish_parser)
+    formal_publish_parser.add_argument("--run-id", required=True, help="stage-stk-mins-qfq-gate-publishing 通过后的 run_id")
+    formal_publish_parser.set_defaults(handler=_handle_publish_stk_mins_qfq_formal)
+
+    finalize_parser = subparsers.add_parser(
+        "finalize-stk-mins-qfq-publish",
+        help="M3-C-E 写 downstream requirement / indicator queue，最后把 clean_next gate 改为 passed",
+    )
+    add_lake_root_arg(finalize_parser)
+    finalize_parser.add_argument("--run-id", required=True, help="publish-stk-mins-qfq-formal 通过后的 run_id")
+    finalize_parser.set_defaults(handler=_handle_finalize_stk_mins_qfq_publish)
+
 
 def _handle_plan_stk_mins_qfq(args: argparse.Namespace) -> int:
     settings = settings_from_args(args)
@@ -145,6 +169,36 @@ def _handle_prepare_stk_mins_qfq_gate_publish_plan(args: argparse.Namespace) -> 
     return 0
 
 
+def _handle_stage_stk_mins_qfq_gate_publishing(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputePublishService(settings=settings).stage_stk_mins_qfq_gate_publishing(
+        run_id=args.run_id,
+        progress_callback=_print_gate_publishing_progress,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_publish_stk_mins_qfq_formal(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputePublishService(settings=settings).stage_stk_mins_qfq_formal_replace_and_audit(
+        run_id=args.run_id,
+        progress_callback=_print_formal_publish_progress,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_finalize_stk_mins_qfq_publish(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputePublishService(settings=settings).stage_stk_mins_qfq_downstream_and_gate_passed(
+        run_id=args.run_id,
+        progress_callback=_print_finalize_publish_progress,
+    )
+    print_json(summary)
+    return 0
+
+
 def _print_compute_progress(event: dict[str, object]) -> None:
     if event.get("event") == "unit_started":
         print(
@@ -215,3 +269,32 @@ def _print_gate_publish_plan_progress(event: dict[str, object]) -> None:
             f"gate_publish_plan_done run_id={event.get('run_id')} "
             f"planned_gates={event.get('planned_gate_row_count')}"
         )
+
+
+def _print_gate_publishing_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "formal_gate_publishing_started":
+        print(f"[duckdb_compute] gate_publishing_start run_id={event.get('run_id')}")
+        return
+    if event.get("event") == "formal_gate_publishing_completed":
+        print(
+            "[duckdb_compute] "
+            f"gate_publishing_done run_id={event.get('run_id')} "
+            f"updated_gates={event.get('updated_gate_partitions')}"
+        )
+
+
+def _print_formal_publish_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "formal_replace_started":
+        print(f"[duckdb_compute] formal_publish_start run_id={event.get('run_id')}")
+        return
+    if event.get("event") == "formal_partition_replace_finished":
+        print(
+            "[duckdb_compute] "
+            f"formal_publish={event.get('partition_index')}/{event.get('partition_count')} "
+            f"{event.get('partition_key')} target={event.get('target_path')}"
+        )
+
+
+def _print_finalize_publish_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "downstream_notification_started":
+        print(f"[duckdb_compute] finalize_start run_id={event.get('run_id')}")
