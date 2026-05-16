@@ -343,7 +343,6 @@ export interface TaskRunDisplayObject {
 }
 
 export interface TaskRunRejectionSampleItem {
-  unit_id: string | null;
   field: string | null;
   value: unknown;
   message: string | null;

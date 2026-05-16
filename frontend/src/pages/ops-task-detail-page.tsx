@@ -484,7 +484,6 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                                 <Group gap="xs">
                                   <Badge variant="light">{`样本 ${index + 1}`}</Badge>
                                   {sample.field ? <Badge variant="light">{sample.field}</Badge> : null}
-                                  {sample.unit_id ? <Text size="xs" c="dimmed">{`单元：${sample.unit_id}`}</Text> : null}
                                 </Group>
                                 {sample.field ? (
                                   <Text size="xs" c="dimmed">{`字段原值：${formatSampleValue(sample.value)}`}</Text>

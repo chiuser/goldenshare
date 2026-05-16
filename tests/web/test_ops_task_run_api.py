@@ -191,12 +191,14 @@ def test_ops_task_run_view_returns_single_snapshot_and_nodes(
     assert payload["progress"]["rejected_reasons"][0]["field"] == "trade_date"
     assert payload["progress"]["rejected_reasons"][0]["label"] == "必填字段缺失"
     assert payload["progress"]["rejected_reasons"][0]["samples"][0]["row"]["ts_code"] == "000001.SZ"
+    assert "unit_id" not in payload["progress"]["rejected_reasons"][0]["samples"][0]
     assert payload["progress"]["current_object"] is None
     assert payload["primary_issue"]["title"] == "任务处理失败"
     assert payload["primary_issue"]["object"]["title"] == "问题位置：平安银行（000001.SZ）"
     assert payload["nodes"][0]["title"] == "维护 股票日线"
     assert payload["nodes"][0]["rejected_reasons"][0]["count"] == 7
     assert payload["nodes"][0]["rejected_reasons"][0]["samples"][0]["field"] == "trade_date"
+    assert "unit_id" not in payload["nodes"][0]["rejected_reasons"][0]["samples"][0]
 
 
 def test_ops_task_run_view_returns_index_period_source_summary(

@@ -95,7 +95,7 @@
 
 ## 3.2 `daily_market_close_maintenance`（每日收盘后维护）
 
-- 描述：覆盖日线、历史基础列表、日指标、榜单与基金/指数日线的每日维护工作流。
+- 描述：覆盖日线、集合竞价、历史基础列表、日指标、资金流、榜单、基金/指数日线与新闻资讯的每日维护工作流。
 - 支持自动调度：是
 - 支持手动执行：是
 - 默认调度策略：`trading_day_close`
@@ -107,32 +107,37 @@
 | 序号 | step_key | 显示名 | action_key |
 |---:|---|---|---|
 | 1 | `daily` | 股票日线 | `daily.maintain` |
-| 2 | `adj_factor` | 复权因子 | `adj_factor.maintain` |
-| 3 | `daily_basic` | 股票日指标 | `daily_basic.maintain` |
-| 4 | `bak_basic` | 股票历史基础列表 | `bak_basic.maintain` |
-| 5 | `cyq_perf` | 每日筹码及胜率 | `cyq_perf.maintain` |
-| 6 | `stk_factor_pro` | 股票技术面因子(专业版) | `stk_factor_pro.maintain` |
-| 7 | `margin` | 融资融券交易汇总 | `margin.maintain` |
-| 8 | `stk_limit` | 每日涨跌停价格 | `stk_limit.maintain` |
-| 9 | `stock_st` | ST股票列表 | `stock_st.maintain` |
-| 10 | `limit_list` | 涨跌停榜 | `limit_list_d.maintain` |
-| 11 | `suspend_d` | 每日停复牌信息 | `suspend_d.maintain` |
-| 12 | `top_list` | 龙虎榜 | `top_list.maintain` |
-| 13 | `block_trade` | 大宗交易 | `block_trade.maintain` |
-| 14 | `fund_daily` | 基金日线 | `fund_daily.maintain` |
-| 15 | `fund_adj` | 基金复权因子 | `fund_adj.maintain` |
-| 16 | `index_daily` | 指数日线 | `index_daily.maintain` |
-| 17 | `ths_daily` | 同花顺板块行情 | `ths_daily.maintain` |
-| 18 | `dc_index` | 东方财富概念板块 | `dc_index.maintain` |
-| 19 | `dc_member` | 东方财富板块成分 | `dc_member.maintain` |
-| 20 | `dc_daily` | 东方财富板块行情 | `dc_daily.maintain` |
-| 21 | `ths_hot` | 同花顺热榜 | `ths_hot.maintain` |
-| 22 | `dc_hot` | 东方财富热榜 | `dc_hot.maintain` |
-| 23 | `kpl_list` | 开盘啦榜单 | `kpl_list.maintain` |
-| 24 | `limit_list_ths` | 同花顺涨跌停榜单 | `limit_list_ths.maintain` |
-| 25 | `limit_step` | 涨停天梯 | `limit_step.maintain` |
-| 26 | `limit_cpt_list` | 最强板块统计 | `limit_cpt_list.maintain` |
-| 27 | `kpl_concept_cons` | 开盘啦题材成分 | `kpl_concept_cons.maintain` |
+| 2 | `stk_auction_o` | 股票开盘集合竞价 | `stk_auction_o.maintain` |
+| 3 | `stk_auction_c` | 股票收盘集合竞价 | `stk_auction_c.maintain` |
+| 4 | `adj_factor` | 复权因子 | `adj_factor.maintain` |
+| 5 | `daily_basic` | 每日指标 | `daily_basic.maintain` |
+| 6 | `bak_basic` | 股票历史基础列表 | `bak_basic.maintain` |
+| 7 | `cyq_perf` | 每日筹码及胜率 | `cyq_perf.maintain` |
+| 8 | `stk_factor_pro` | 股票技术面因子(专业版) | `stk_factor_pro.maintain` |
+| 9 | `margin` | 融资融券汇总 | `margin.maintain` |
+| 10 | `stk_limit` | 每日涨跌停价格 | `stk_limit.maintain` |
+| 11 | `stock_st` | ST股票列表 | `stock_st.maintain` |
+| 12 | `limit_list` | 每日涨跌停名单 | `limit_list_d.maintain` |
+| 13 | `suspend_d` | 每日停复牌信息 | `suspend_d.maintain` |
+| 14 | `top_list` | 龙虎榜 | `top_list.maintain` |
+| 15 | `block_trade` | 大宗交易 | `block_trade.maintain` |
+| 16 | `fund_daily` | 基金日线行情 | `fund_daily.maintain` |
+| 17 | `fund_adj` | 基金复权因子 | `fund_adj.maintain` |
+| 18 | `index_daily` | 指数日线行情 | `index_daily.maintain` |
+| 19 | `ths_daily` | 同花顺板块日线行情 | `ths_daily.maintain` |
+| 20 | `dc_index` | 东方财富板块列表 | `dc_index.maintain` |
+| 21 | `dc_member` | 东方财富板块成分 | `dc_member.maintain` |
+| 22 | `dc_daily` | 东方财富板块日线行情 | `dc_daily.maintain` |
+| 23 | `ths_hot` | 同花顺热榜 | `ths_hot.maintain` |
+| 24 | `dc_hot` | 东方财富热榜 | `dc_hot.maintain` |
+| 25 | `kpl_list` | 开盘啦榜单 | `kpl_list.maintain` |
+| 26 | `limit_list_ths` | 同花顺涨停名单 | `limit_list_ths.maintain` |
+| 27 | `limit_step` | 连板梯队 | `limit_step.maintain` |
+| 28 | `limit_cpt_list` | 涨停概念列表 | `limit_cpt_list.maintain` |
+| 29 | `kpl_concept_cons` | 开盘啦板块成分 | `kpl_concept_cons.maintain` |
+| 30 | `anns_d` | 上市公司公告 | `anns_d.maintain` |
+| 31 | `irm_qa_sh` | 上证E互动问答 | `irm_qa_sh.maintain` |
+| 32 | `irm_qa_sz` | 深证互动易问答 | `irm_qa_sz.maintain` |
 
 ## 3.3 `daily_moneyflow_maintenance`（每日资金流向维护）
 

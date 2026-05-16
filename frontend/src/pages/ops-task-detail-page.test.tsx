@@ -73,7 +73,6 @@ function createTaskRunView(status = "failed") {
           suggested_action: "检查字段映射和空值处理",
           samples: [
             {
-              unit_id: "u-daily",
               field: "trade_date",
               value: null,
               message: null,
@@ -157,7 +156,6 @@ function createTaskRunView(status = "failed") {
             suggested_action: "检查字段映射和空值处理",
             samples: [
               {
-                unit_id: "u-daily",
                 field: "trade_date",
                 value: null,
                 message: null,

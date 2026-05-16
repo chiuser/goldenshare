@@ -121,7 +121,6 @@ class TaskRunDisplayObject(BaseModel):
 
 
 class TaskRunRejectionSampleItem(BaseModel):
-    unit_id: str | None = None
     field: str | None = None
     value: Any | None = None
     message: str | None = None

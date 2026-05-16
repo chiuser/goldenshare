@@ -575,7 +575,6 @@ class TaskRunQueryService:
                 row = sample.get("row") if isinstance(sample.get("row"), dict) else {}
                 bucket.append(
                     TaskRunRejectionSampleItem(
-                        unit_id=TaskRunQueryService._text(sample.get("unit_id")),
                         field=TaskRunQueryService._text(sample.get("field")),
                         value=sample.get("value"),
                         message=TaskRunQueryService._text(sample.get("message")),
