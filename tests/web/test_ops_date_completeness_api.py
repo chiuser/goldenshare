@@ -100,6 +100,8 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
     assert supported["moneyflow_ind_dc"]["observed_field"] == "trade_date"
     assert supported["moneyflow_ind_dc"]["bucket_window_rule"] is None
     assert supported["moneyflow_ind_dc"]["bucket_applicability_rule"] == "always"
+    assert supported["moneyflow_ind_dc"]["audit_scope"] == "date_bucket"
+    assert supported["moneyflow_ind_dc"]["subject_kind"] is None
     assert supported["moneyflow_ind_dc"]["rule_label"] == "每个开市交易日"
     assert supported["moneyflow_ind_dc"]["data_range"] == {
         "range_type": "business_date",
@@ -615,6 +617,18 @@ def test_date_subject_matrix_worker_records_missing_subject_cells(app_client, us
     assert run.affected_subject_count == 1
     assert run.detail_truncated is False
 
+    detail_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}", headers=headers)
+    assert detail_response.status_code == 200
+    detail = detail_response.json()
+    assert detail["audit_scope"] == "date_subject_matrix"
+    assert detail["subject_kind"] == "stock"
+    assert detail["expected_cell_count"] == 5
+    assert detail["actual_cell_count"] == 3
+    assert detail["missing_cell_count"] == 2
+    assert detail["affected_bucket_count"] == 2
+    assert detail["affected_subject_count"] == 1
+    assert detail["detail_truncated"] is False
+
     gaps = list(
         db_session.scalars(
             select(DatasetSubjectCompletenessGap)
@@ -641,6 +655,34 @@ def test_date_subject_matrix_worker_records_missing_subject_cells(app_client, us
     assert details[0].subject_key_json == {"ts_code": "001257.SZ"}
     assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-03-30"}
     assert details[0].reason_code == "missing_subject_bucket"
+
+    subject_gaps_response = app_client.get(
+        f"/api/v1/ops/review/date-completeness/runs/{run.id}/subject-gaps",
+        headers=headers,
+    )
+    assert subject_gaps_response.status_code == 200
+    subject_gaps_payload = subject_gaps_response.json()
+    assert subject_gaps_payload["total"] == 2
+    assert subject_gaps_payload["items"][0]["bucket_value"] == "2026-03-30"
+    assert subject_gaps_payload["items"][0]["missing_cell_count"] == 1
+    assert subject_gaps_payload["items"][0]["affected_subject_count"] == 1
+    assert subject_gaps_payload["items"][0]["subject_key_fields"] == ["ts_code"]
+    assert subject_gaps_payload["items"][0]["actual_key_fields"] == ["ts_code", "trade_date"]
+    assert subject_gaps_payload["items"][0]["sample_subjects"] == [{"subject_key": "001257.SZ", "subject_name": "立新能源"}]
+
+    subject_details_response = app_client.get(
+        f"/api/v1/ops/review/date-completeness/runs/{run.id}/subject-gap-details",
+        headers=headers,
+    )
+    assert subject_details_response.status_code == 200
+    subject_details_payload = subject_details_response.json()
+    assert subject_details_payload["total"] == 2
+    assert subject_details_payload["items"][0]["bucket_value"] == "2026-03-30"
+    assert subject_details_payload["items"][0]["subject_key"] == "001257.SZ"
+    assert subject_details_payload["items"][0]["subject_name"] == "立新能源"
+    assert subject_details_payload["items"][0]["subject_key_json"] == {"ts_code": "001257.SZ"}
+    assert subject_details_payload["items"][0]["actual_key_json"] == {"ts_code": "001257.SZ", "trade_date": "2026-03-30"}
+    assert subject_details_payload["items"][0]["reason_code"] == "missing_subject_bucket"
 
 
 def test_date_subject_matrix_worker_passes_when_all_subject_cells_exist(app_client, user_factory, db_session) -> None:

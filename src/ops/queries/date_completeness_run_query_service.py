@@ -7,6 +7,8 @@ from src.app.exceptions import WebAppError
 from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCompletenessExclusion
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
+from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
+from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
 from src.ops.schemas.date_completeness import (
     DateCompletenessExclusionItem,
     DateCompletenessExclusionListResponse,
@@ -14,6 +16,10 @@ from src.ops.schemas.date_completeness import (
     DateCompletenessGapListResponse,
     DateCompletenessRunItem,
     DateCompletenessRunListResponse,
+    DateSubjectCompletenessGapDetailItem,
+    DateSubjectCompletenessGapDetailListResponse,
+    DateSubjectCompletenessGapItem,
+    DateSubjectCompletenessGapListResponse,
 )
 
 
@@ -115,6 +121,71 @@ class DateCompletenessRunQueryService:
             items=[self._exclusion_item(item) for item in exclusions],
         )
 
+    def list_subject_gaps(
+        self,
+        session: Session,
+        run_id: int,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> DateSubjectCompletenessGapListResponse:
+        if session.get(DatasetDateCompletenessRun, run_id) is None:
+            raise WebAppError(status_code=404, code="not_found", message="日期完整性审计记录不存在")
+
+        limit = max(1, min(limit, 500))
+        offset = max(0, offset)
+        count_stmt = (
+            select(func.count())
+            .select_from(DatasetSubjectCompletenessGap)
+            .where(DatasetSubjectCompletenessGap.run_id == run_id)
+        )
+        total = int(session.scalar(count_stmt) or 0)
+        stmt = (
+            select(DatasetSubjectCompletenessGap)
+            .where(DatasetSubjectCompletenessGap.run_id == run_id)
+            .order_by(DatasetSubjectCompletenessGap.bucket_value.asc(), DatasetSubjectCompletenessGap.id.asc())
+            .limit(limit)
+            .offset(offset)
+        )
+        gaps = list(session.scalars(stmt))
+        return DateSubjectCompletenessGapListResponse(total=total, items=[self._subject_gap_item(gap) for gap in gaps])
+
+    def list_subject_gap_details(
+        self,
+        session: Session,
+        run_id: int,
+        *,
+        limit: int = 200,
+        offset: int = 0,
+    ) -> DateSubjectCompletenessGapDetailListResponse:
+        if session.get(DatasetDateCompletenessRun, run_id) is None:
+            raise WebAppError(status_code=404, code="not_found", message="日期完整性审计记录不存在")
+
+        limit = max(1, min(limit, 500))
+        offset = max(0, offset)
+        count_stmt = (
+            select(func.count())
+            .select_from(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run_id)
+        )
+        total = int(session.scalar(count_stmt) or 0)
+        stmt = (
+            select(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run_id)
+            .order_by(
+                DatasetSubjectCompletenessGapDetail.bucket_value.asc(),
+                DatasetSubjectCompletenessGapDetail.subject_key.asc(),
+                DatasetSubjectCompletenessGapDetail.id.asc(),
+            )
+            .limit(limit)
+            .offset(offset)
+        )
+        details = list(session.scalars(stmt))
+        return DateSubjectCompletenessGapDetailListResponse(
+            total=total,
+            items=[self._subject_gap_detail_item(item) for item in details],
+        )
+
     @staticmethod
     def _filters(
         *,
@@ -150,11 +221,19 @@ class DateCompletenessRunQueryService:
             observed_field=run.observed_field,
             bucket_window_rule=run.bucket_window_rule,
             bucket_applicability_rule=run.bucket_applicability_rule,
+            audit_scope=run.audit_scope,
+            subject_kind=run.subject_kind,
             expected_bucket_count=run.expected_bucket_count,
             actual_bucket_count=run.actual_bucket_count,
             missing_bucket_count=run.missing_bucket_count,
             excluded_bucket_count=run.excluded_bucket_count,
             gap_range_count=run.gap_range_count,
+            expected_cell_count=run.expected_cell_count,
+            actual_cell_count=run.actual_cell_count,
+            missing_cell_count=run.missing_cell_count,
+            affected_bucket_count=run.affected_bucket_count,
+            affected_subject_count=run.affected_subject_count,
+            detail_truncated=run.detail_truncated,
             current_stage=run.current_stage,
             operator_message=run.operator_message,
             technical_message=run.technical_message,
@@ -193,5 +272,44 @@ class DateCompletenessRunQueryService:
             window_end=item.window_end,
             reason_code=item.reason_code,
             reason_message=item.reason_message,
+            created_at=item.created_at,
+        )
+
+    @staticmethod
+    def _subject_gap_item(gap: DatasetSubjectCompletenessGap) -> DateSubjectCompletenessGapItem:
+        return DateSubjectCompletenessGapItem(
+            id=gap.id,
+            run_id=gap.run_id,
+            dataset_key=gap.dataset_key,
+            bucket_kind=gap.bucket_kind,
+            bucket_value=gap.bucket_value,
+            subject_kind=gap.subject_kind,
+            subject_key_fields=[str(value) for value in list(gap.subject_key_fields_json or [])],
+            actual_key_fields=[str(value) for value in list(gap.actual_key_fields_json or [])],
+            missing_cell_count=gap.missing_cell_count,
+            affected_subject_count=gap.affected_subject_count,
+            sample_subjects=list(gap.sample_subjects_json or []),
+            created_at=gap.created_at,
+        )
+
+    @staticmethod
+    def _subject_gap_detail_item(item: DatasetSubjectCompletenessGapDetail) -> DateSubjectCompletenessGapDetailItem:
+        return DateSubjectCompletenessGapDetailItem(
+            id=item.id,
+            run_id=item.run_id,
+            gap_id=item.gap_id,
+            dataset_key=item.dataset_key,
+            bucket_kind=item.bucket_kind,
+            bucket_value=item.bucket_value,
+            subject_kind=item.subject_kind,
+            subject_key=item.subject_key,
+            subject_name=item.subject_name,
+            subject_key_json=dict(item.subject_key_json or {}),
+            actual_key_json=dict(item.actual_key_json or {}),
+            lifecycle_start=item.lifecycle_start,
+            lifecycle_end=item.lifecycle_end,
+            reason_code=item.reason_code,
+            reason_message=item.reason_message,
+            target_table=item.target_table,
             created_at=item.created_at,
         )

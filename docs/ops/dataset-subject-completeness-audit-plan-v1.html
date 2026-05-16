@@ -725,11 +725,19 @@ where a.ts_code is null;</code></pre>
       </tr>
       <tr>
         <td>详情 Drawer</td>
-        <td>矩阵审计增加“缺失日期数、缺失对象数、样例对象、是否截断”。</td>
+        <td>矩阵审计增加“缺失日期数、缺失对象数、样例对象、是否截断”，并展示规则快照中的审计粒度与对象类型。</td>
       </tr>
       <tr>
         <td>缺口详情</td>
-        <td>按日期桶展示缺失对象数量与样例，支持后续导出。</td>
+        <td>按日期桶展示缺失对象数量与样例，并展示明细样例中的对象键、对象名、生命周期、实际业务键和原因。</td>
+      </tr>
+      <tr>
+        <td>后端 API</td>
+        <td>
+          <code>/runs/{run_id}</code> 返回矩阵汇总字段；
+          <code>/runs/{run_id}/subject-gaps</code> 返回日期桶级缺失摘要；
+          <code>/runs/{run_id}/subject-gap-details</code> 返回对象缺失明细样例。
+        </td>
       </tr>
       </tbody>
     </table>
@@ -787,8 +795,8 @@ where a.ts_code is null;</code></pre>
       <tr>
         <td>M4</td>
         <td>页面展示</td>
-        <td>审计页展示矩阵审计结果、缺失对象样例和截断提示。</td>
-        <td>前端测试覆盖矩阵记录展示。</td>
+        <td>审计页展示矩阵审计结果、缺失对象摘要、缺失对象样例和截断提示。</td>
+        <td>后端 API 测试覆盖矩阵 run/detail 接口；前端测试覆盖矩阵记录详情展示。</td>
       </tr>
       <tr>
         <td>M5</td>
@@ -926,12 +934,12 @@ where a.ts_code is null;</code></pre>
       <tr>
         <td>结果表结构</td>
         <td>M3 后对象矩阵 executor 已写入 <code>ops.dataset_date_completeness_run</code> 汇总字段、<code>dataset_subject_completeness_gap</code> 摘要与 <code>dataset_subject_completeness_gap_detail</code> 明细。</td>
-        <td>存储层小闭环已打通；页面消费仍留到 M4。</td>
+        <td>存储层小闭环已打通；M4 后这些字段与明细表已由 API 和审计页面消费。</td>
       </tr>
       <tr>
         <td>API 与前端契约</td>
-        <td>当前 schema、query service、前端类型均以 bucket count / gap range 为核心。</td>
-        <td>M3 不扩展 API/前端；M4 需要按对象矩阵结果表新增独立展示，不能把对象缺失塞进现有 <code>sample_values</code> 字符串里。</td>
+        <td>M4 后 schema、query service、API 与前端类型已同时区分 <code>date_bucket</code> 与 <code>date_subject_matrix</code>。</td>
+        <td>对象矩阵缺失通过独立 <code>subject-gaps</code> 与 <code>subject-gap-details</code> 接口展示，未塞进既有日期桶 <code>sample_values</code> 字符串。</td>
       </tr>
       <tr>
         <td>DatasetDefinition 事实源</td>

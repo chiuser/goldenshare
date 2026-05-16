@@ -75,6 +75,8 @@ class DateCompletenessRuleQueryService:
             observed_field=date_model.observed_field,
             bucket_window_rule=date_model.bucket_window_rule,
             bucket_applicability_rule=date_model.bucket_applicability_rule,
+            audit_scope=definition.completeness.scope if definition.completeness.scope == "date_subject_matrix" else "date_bucket",
+            subject_kind=definition.completeness.subject_kind,
             audit_applicable=date_model.audit_applicable,
             not_applicable_reason=date_model.not_applicable_reason,
             rule_label=cls._rule_label(date_axis=date_model.date_axis, bucket_rule=date_model.bucket_rule),

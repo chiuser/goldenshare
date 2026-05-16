@@ -23,6 +23,8 @@ from src.ops.schemas.date_completeness import (
     DateCompletenessScheduleListResponse,
     DateCompletenessScheduleTickResponse,
     DateCompletenessScheduleUpdateRequest,
+    DateSubjectCompletenessGapDetailListResponse,
+    DateSubjectCompletenessGapListResponse,
 )
 from src.ops.services.date_completeness_run_service import DateCompletenessRunCommandService
 from src.ops.services.date_completeness_schedule_service import DateCompletenessScheduleCommandService
@@ -106,6 +108,28 @@ def list_date_completeness_run_exclusions(
     offset: int = Query(0, ge=0),
 ) -> DateCompletenessExclusionListResponse:
     return DateCompletenessRunQueryService().list_exclusions(session, run_id, limit=limit, offset=offset)
+
+
+@router.get("/runs/{run_id}/subject-gaps", response_model=DateSubjectCompletenessGapListResponse)
+def list_date_completeness_run_subject_gaps(
+    run_id: int,
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> DateSubjectCompletenessGapListResponse:
+    return DateCompletenessRunQueryService().list_subject_gaps(session, run_id, limit=limit, offset=offset)
+
+
+@router.get("/runs/{run_id}/subject-gap-details", response_model=DateSubjectCompletenessGapDetailListResponse)
+def list_date_completeness_run_subject_gap_details(
+    run_id: int,
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    limit: int = Query(200, ge=1, le=500),
+    offset: int = Query(0, ge=0),
+) -> DateSubjectCompletenessGapDetailListResponse:
+    return DateCompletenessRunQueryService().list_subject_gap_details(session, run_id, limit=limit, offset=offset)
 
 
 @router.get("/schedules", response_model=DateCompletenessScheduleListResponse)

@@ -32,6 +32,8 @@ class DateCompletenessRuleItem(BaseModel):
     observed_field: str | None = None
     bucket_window_rule: str | None = None
     bucket_applicability_rule: str
+    audit_scope: str
+    subject_kind: str | None = None
     audit_applicable: bool
     not_applicable_reason: str | None = None
     rule_label: str
@@ -78,11 +80,19 @@ class DateCompletenessRunItem(BaseModel):
     observed_field: str
     bucket_window_rule: str
     bucket_applicability_rule: str
+    audit_scope: str
+    subject_kind: str | None = None
     expected_bucket_count: int
     actual_bucket_count: int
     missing_bucket_count: int
     excluded_bucket_count: int
     gap_range_count: int
+    expected_cell_count: int
+    actual_cell_count: int
+    missing_cell_count: int
+    affected_bucket_count: int
+    affected_subject_count: int
+    detail_truncated: bool
     current_stage: str | None = None
     operator_message: str | None = None
     technical_message: str | None = None
@@ -143,6 +153,51 @@ class DateCompletenessExclusionItem(BaseModel):
 class DateCompletenessExclusionListResponse(BaseModel):
     total: int
     items: list[DateCompletenessExclusionItem]
+
+
+class DateSubjectCompletenessGapItem(BaseModel):
+    id: int
+    run_id: int
+    dataset_key: str
+    bucket_kind: str
+    bucket_value: date
+    subject_kind: str
+    subject_key_fields: list[str]
+    actual_key_fields: list[str]
+    missing_cell_count: int
+    affected_subject_count: int
+    sample_subjects: list[dict]
+    created_at: datetime
+
+
+class DateSubjectCompletenessGapListResponse(BaseModel):
+    total: int
+    items: list[DateSubjectCompletenessGapItem]
+
+
+class DateSubjectCompletenessGapDetailItem(BaseModel):
+    id: int
+    run_id: int
+    gap_id: int
+    dataset_key: str
+    bucket_kind: str
+    bucket_value: date
+    subject_kind: str
+    subject_key: str
+    subject_name: str | None = None
+    subject_key_json: dict
+    actual_key_json: dict
+    lifecycle_start: date | None = None
+    lifecycle_end: date | None = None
+    reason_code: str
+    reason_message: str
+    target_table: str
+    created_at: datetime
+
+
+class DateSubjectCompletenessGapDetailListResponse(BaseModel):
+    total: int
+    items: list[DateSubjectCompletenessGapDetailItem]
 
 
 class DateCompletenessScheduleCreateRequest(BaseModel):

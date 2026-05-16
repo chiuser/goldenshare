@@ -58,6 +58,8 @@ function mockApi() {
                 observed_field: "trade_date",
                 bucket_window_rule: null,
                 bucket_applicability_rule: "always",
+                audit_scope: "date_bucket",
+                subject_kind: null,
                 audit_applicable: true,
                 not_applicable_reason: null,
                 rule_label: "每个开市交易日",
@@ -93,6 +95,8 @@ function mockApi() {
                 observed_field: null,
                 bucket_window_rule: null,
                 bucket_applicability_rule: "always",
+                audit_scope: "date_bucket",
+                subject_kind: null,
                 audit_applicable: false,
                 not_applicable_reason: "snapshot/master dataset",
                 rule_label: "不适用日期完整性审计",
@@ -112,7 +116,7 @@ function mockApi() {
     }
     if (path === "/api/v1/ops/review/date-completeness/runs?limit=50&offset=0") {
       return {
-        total: 1,
+        total: 2,
         items: [
           {
             id: 7,
@@ -131,11 +135,19 @@ function mockApi() {
             observed_field: "trade_date",
             bucket_window_rule: "iso_week",
             bucket_applicability_rule: "requires_open_trade_day_in_bucket",
+            audit_scope: "date_bucket",
+            subject_kind: null,
             expected_bucket_count: 2,
             actual_bucket_count: 3,
             missing_bucket_count: 0,
             excluded_bucket_count: 1,
             gap_range_count: 0,
+            expected_cell_count: 0,
+            actual_cell_count: 0,
+            missing_cell_count: 0,
+            affected_bucket_count: 0,
+            affected_subject_count: 0,
+            detail_truncated: false,
             current_stage: "finished",
             operator_message: "审计通过，已按规则排除 1 个不可产出日期桶。",
             technical_message: null,
@@ -146,6 +158,47 @@ function mockApi() {
             finished_at: "2026-04-30T10:02:00+08:00",
             created_at: "2026-04-30T10:00:00+08:00",
             updated_at: "2026-04-30T10:02:00+08:00",
+          },
+          {
+            id: 9,
+            dataset_key: "adj_factor",
+            display_name: "复权因子",
+            target_table: "core.equity_adj_factor",
+            run_mode: "manual",
+            run_status: "succeeded",
+            result_status: "failed",
+            start_date: "2026-03-30",
+            end_date: "2026-03-31",
+            date_axis: "trade_open_day",
+            bucket_rule: "every_open_day",
+            window_mode: "point_or_range",
+            input_shape: "trade_date_or_start_end",
+            observed_field: "trade_date",
+            bucket_window_rule: "none",
+            bucket_applicability_rule: "always",
+            audit_scope: "date_subject_matrix",
+            subject_kind: "stock",
+            expected_bucket_count: 2,
+            actual_bucket_count: 2,
+            missing_bucket_count: 0,
+            excluded_bucket_count: 0,
+            gap_range_count: 0,
+            expected_cell_count: 5,
+            actual_cell_count: 3,
+            missing_cell_count: 2,
+            affected_bucket_count: 2,
+            affected_subject_count: 1,
+            detail_truncated: false,
+            current_stage: "finished",
+            operator_message: "审计发现对象矩阵缺口。",
+            technical_message: null,
+            requested_by_user_id: 1,
+            schedule_id: null,
+            requested_at: "2026-04-30T10:05:00+08:00",
+            started_at: "2026-04-30T10:06:00+08:00",
+            finished_at: "2026-04-30T10:07:00+08:00",
+            created_at: "2026-04-30T10:05:00+08:00",
+            updated_at: "2026-04-30T10:07:00+08:00",
           },
         ],
       };
@@ -179,6 +232,53 @@ function mockApi() {
             reason_code: "bucket_has_no_open_trade_day",
             reason_message: "该自然周内没有开市交易日，不应产出周线数据。",
             created_at: "2026-04-30T10:02:00+08:00",
+          },
+        ],
+      };
+    }
+    if (path === "/api/v1/ops/review/date-completeness/runs/9/subject-gaps") {
+      return {
+        total: 2,
+        items: [
+          {
+            id: 21,
+            run_id: 9,
+            dataset_key: "adj_factor",
+            bucket_kind: "trade_date",
+            bucket_value: "2026-03-30",
+            subject_kind: "stock",
+            subject_key_fields: ["ts_code"],
+            actual_key_fields: ["ts_code", "trade_date"],
+            missing_cell_count: 1,
+            affected_subject_count: 1,
+            sample_subjects: [{ subject_key: "001257.SZ", subject_name: "立新能源" }],
+            created_at: "2026-04-30T10:07:00+08:00",
+          },
+        ],
+      };
+    }
+    if (path === "/api/v1/ops/review/date-completeness/runs/9/subject-gap-details") {
+      return {
+        total: 2,
+        items: [
+          {
+            id: 31,
+            run_id: 9,
+            gap_id: 21,
+            dataset_key: "adj_factor",
+            bucket_kind: "trade_date",
+            bucket_value: "2026-03-30",
+            subject_kind: "stock",
+            subject_key: "001257.SZ",
+            subject_name: "立新能源",
+            subject_key_json: { ts_code: "001257.SZ" },
+            actual_key_json: { ts_code: "001257.SZ", trade_date: "2026-03-30" },
+            lifecycle_start: "2022-07-27",
+            lifecycle_end: null,
+            reason_code: "missing_subject_bucket",
+            reason_message: "该对象在该日期桶处于有效生命周期内，但目标表缺少对应行。",
+            target_table: "core.equity_adj_factor",
+            created_at: "2026-04-30T10:07:00+08:00",
           },
         ],
       };
@@ -283,9 +383,10 @@ describe("数据集审计页", () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole("tab", { name: /审计记录/ }));
-    expect(await screen.findByText("已完成")).toBeInTheDocument();
+    expect((await screen.findAllByText("已完成")).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("存在 1 个非预期日期桶")).toBeInTheDocument();
-    fireEvent.click(await screen.findByRole("button", { name: "查看详情" }));
+    const detailButtons = await screen.findAllByRole("button", { name: "查看详情" });
+    fireEvent.click(detailButtons[0]);
 
     expect(await screen.findByText("发现非预期日期桶")).toBeInTheDocument();
     expect((await screen.findAllByText("规则排除")).length).toBeGreaterThanOrEqual(2);
@@ -295,5 +396,29 @@ describe("数据集审计页", () => {
     await waitFor(() => {
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/review/date-completeness/runs/7/exclusions");
     });
+  });
+
+  it("展示对象矩阵审计摘要和缺失对象样例", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /审计记录/ }));
+    expect(await screen.findByText("复权因子")).toBeInTheDocument();
+    const detailButtons = await screen.findAllByRole("button", { name: "查看详情" });
+    fireEvent.click(detailButtons[1]);
+
+    expect(await screen.findByText("对象缺失摘要")).toBeInTheDocument();
+    expect(await screen.findByText("对象缺失样例明细")).toBeInTheDocument();
+    expect(await screen.findByText("审计粒度：日期 × 对象矩阵")).toBeInTheDocument();
+    expect(await screen.findByText("对象类型：stock")).toBeInTheDocument();
+    expect((await screen.findAllByText("001257.SZ 立新能源")).length).toBeGreaterThanOrEqual(1);
+    expect(await screen.findByText("ts_code=001257.SZ，trade_date=2026-03-30")).toBeInTheDocument();
+    expect(await screen.findByText("2022/07/27 至今")).toBeInTheDocument();
+    expect(await screen.findByText("该对象在该日期桶处于有效生命周期内，但目标表缺少对应行。")).toBeInTheDocument();
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/review/date-completeness/runs/9/subject-gaps");
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/review/date-completeness/runs/9/subject-gap-details");
+    });
+    expect(apiRequest.mock.calls.some(([path]) => String(path).includes("/runs/9/gaps"))).toBe(false);
   });
 });
