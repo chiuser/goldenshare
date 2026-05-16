@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+from datetime import date
 from pathlib import Path
 
 import pandas as pd
@@ -15,6 +16,7 @@ from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDb
 from lake_console.backend.app.services.duckdb_compute_prewrite_backup_service import DuckDbComputePrewriteBackupService
 from lake_console.backend.app.services.duckdb_compute_publish_service import DuckDbComputePublishService
 from lake_console.backend.app.services.lake_job_state import LakeJobLockService, LakeJobStateStore
+from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateStatus, CleanNextPartitionGateService
 from lake_console.backend.app.settings import LakeConsoleSettings
 
 
@@ -106,6 +108,79 @@ def test_prepare_stk_mins_qfq_gate_publish_plan_writes_run_manifest_only(tmp_pat
     assert not (tmp_path / "manifest" / "downstream_rebuild_requirements" / "stk_mins.parquet").exists()
     assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
     assert LakeJobLockService(LakeJobStateStore(tmp_path)).get_lock()["status"] == "idle"
+
+
+def test_stage_stk_mins_qfq_gate_publishing_writes_formal_gate_only(tmp_path: Path) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    DuckDbComputePublishService(settings=settings).prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+
+    summary = DuckDbComputePublishService(settings=settings).stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+
+    assert summary["status"] == "formal_gate_publishing_staged"
+    assert summary["ready"] is True
+    assert summary["write_intent"] is True
+    assert summary["formal_paths_touched"] == ["manifest/stk_mins_quality/clean_next_partition_gate.parquet"]
+    assert summary["gate_write"]["updated_partitions"] == 1
+
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert len(gate_rows) == 1
+    assert gate_rows[0]["partition_key"] == "freq=30/trade_date=2026-03-02"
+    assert gate_rows[0]["status"] == "publishing"
+    assert gate_rows[0]["write_revision"] == f"{run_id}:qfq:freq=30/trade_date=2026-03-02"
+
+    manifest_root = tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id
+    publish_rows = pd.read_parquet(manifest_root / "publish_partitions.parquet", engine="pyarrow").to_dict(orient="records")
+    assert publish_rows[0]["audit_status"] == "passed"
+    assert publish_rows[0]["publish_status"] == "publishing"
+
+    with (manifest_root / "run.json").open("r", encoding="utf-8") as file:
+        run_payload = json.load(file)
+    assert run_payload["status"] == "publishing"
+    assert run_payload["m3c_c_gate_publishing"]["status"] == "success"
+
+    formal_rows = pd.read_parquet(
+        tmp_path / "research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-03-02/part-000.parquet",
+        engine="pyarrow",
+    ).to_dict(orient="records")
+    assert formal_rows[0]["close"] == 10.5
+    assert not (tmp_path / "manifest" / "downstream_rebuild_requirements" / "stk_mins.parquet").exists()
+    assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+    assert LakeJobLockService(LakeJobStateStore(tmp_path)).get_lock()["status"] == "idle"
+
+
+def test_stage_stk_mins_qfq_gate_publishing_blocks_other_publishing_revision(tmp_path: Path) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    DuckDbComputePublishService(settings=settings).prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+    CleanNextPartitionGateService(lake_root=tmp_path).write_statuses(
+        [
+            CleanNextGateStatus(
+                freq=30,
+                trade_date=date.fromisoformat("2026-03-02"),
+                clean_partition_path="research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-03-02",
+                source_run_id="other-run",
+                clean_run_id="other-run",
+                write_revision="other-run:qfq:freq=30/trade_date=2026-03-02",
+                status="publishing",
+                issue_count=0,
+                raw_rows=1,
+                clean_rows=1,
+                ledger_path="other",
+                message="other publishing gate",
+            )
+        ],
+        run_id="seed-other-publishing-gate",
+    )
+
+    summary = DuckDbComputePublishService(settings=settings).stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+
+    assert summary["status"] == "blocked"
+    assert {item["code"] for item in summary["blockers"]} == {"formal_gate_already_publishing_by_other_revision"}
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert gate_rows[0]["write_revision"] == "other-run:qfq:freq=30/trade_date=2026-03-02"
 
 
 def test_preflight_stk_mins_qfq_publish_blocks_before_prewrite_backup(tmp_path: Path) -> None:

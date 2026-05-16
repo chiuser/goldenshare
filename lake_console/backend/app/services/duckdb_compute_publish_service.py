@@ -10,11 +10,12 @@ from lake_console.backend.app.services.downstream_rebuild_requirement_service im
     DownstreamRebuildRequirementService,
 )
 from lake_console.backend.app.services.duckdb_compute_audit_service import _read_manifest_rows
-from lake_console.backend.app.services.duckdb_compute_plan_service import _relpath, _utc_now_iso, _write_json_atomic
+from lake_console.backend.app.services.duckdb_compute_plan_service import _relpath, _utc_now_iso, _write_json_atomic, _write_parquet_manifest
 from lake_console.backend.app.services.lake_job_state import LakeJobLockService, LakeJobStateStore
 from lake_console.backend.app.services.stk_mins_clean_next_gate import (
     CLEAN_NEXT_GATE_RELATIVE_PATH,
     CLEAN_NEXT_GATE_SCHEMA_VERSION,
+    CleanNextGateStatus,
     CleanNextPartitionGateService,
 )
 from lake_console.backend.app.settings import LakeConsoleSettings
@@ -22,6 +23,16 @@ from lake_console.backend.app.settings import LakeConsoleSettings
 
 ProgressCallback = Callable[[dict[str, Any]], None]
 GATE_PUBLISH_PLAN_FILENAME = "gate_publish_plan.json"
+PUBLISH_PARTITION_COLUMNS = [
+    "run_id",
+    "partition_key",
+    "source_candidate_parts_json",
+    "expected_candidate_part_paths_json",
+    "expected_candidate_part_count",
+    "target_path",
+    "audit_status",
+    "publish_status",
+]
 
 
 class DuckDbComputePublishService:
@@ -42,6 +53,7 @@ class DuckDbComputePublishService:
         run_id: str,
         progress_callback: ProgressCallback | None = None,
         allow_lock_run_id: str | None = None,
+        allowed_publish_statuses: set[str] | None = None,
     ) -> dict[str, Any]:
         manifest_root = self._manifest_root(run_id)
         blockers: list[dict[str, Any]] = []
@@ -57,7 +69,11 @@ class DuckDbComputePublishService:
         self._validate_prewrite_backup(manifest_root=manifest_root, run_payload=run_payload, blockers=blockers)
         self._validate_audit_ledger(manifest_root=manifest_root, blockers=blockers)
 
-        publish_rows = self._read_publish_rows(manifest_root=manifest_root, blockers=blockers)
+        publish_rows = self._read_publish_rows(
+            manifest_root=manifest_root,
+            blockers=blockers,
+            allowed_publish_statuses=allowed_publish_statuses or {"audit_passed"},
+        )
         gate_rows = {str(row.get("partition_key") or ""): row for row in CleanNextPartitionGateService(lake_root=self.lake_root).read_statuses()}
 
         for index, row in enumerate(publish_rows, start=1):
@@ -325,6 +341,126 @@ class DuckDbComputePublishService:
             if lock_acquired is not None:
                 lock_service.release(run_id=run_id)
 
+    def stage_stk_mins_qfq_gate_publishing(
+        self,
+        *,
+        run_id: str,
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
+        """Write the formal clean_next gate rows to publishing.
+
+        M3-C-C opens the formal publish window. It intentionally stops before
+        replacing formal partitions, writing downstream requirements, or marking
+        the gate passed.
+        """
+
+        manifest_root = self._manifest_root(run_id)
+        if not manifest_root.exists():
+            raise FileNotFoundError(f"未找到 DuckDB compute run manifest：{_relpath(manifest_root, self.lake_root)}")
+
+        store = LakeJobStateStore(self.lake_root)
+        lock_service = LakeJobLockService(store, stale_after_seconds=self.settings.compute_stale_heartbeat_seconds)
+        lock_acquired: dict[str, Any] | None = None
+        try:
+            lock_acquired = lock_service.acquire(run_id=run_id, profile_key="duckdb_compute_stk_mins_qfq")
+            _emit_progress(progress_callback, {"event": "formal_gate_publishing_started", "run_id": run_id})
+            plan_payload = self._read_gate_publish_plan(manifest_root=manifest_root, run_id=run_id)
+            preflight = self.preflight_stk_mins_qfq_publish(
+                run_id=run_id,
+                progress_callback=progress_callback,
+                allow_lock_run_id=run_id,
+                allowed_publish_statuses={"audit_passed", "publishing"},
+            )
+            if not preflight["ready"]:
+                return {
+                    "operation": "stage_stk_mins_qfq_gate_publishing",
+                    "stage": "m3c_c_formal_gate_publishing",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": False,
+                    "formal_paths_touched": [],
+                    "preflight": preflight,
+                    "message": "M3-C-C 未写 formal gate；preflight 仍存在阻断项。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            blockers = self._validate_gate_publish_plan(plan_payload=plan_payload, preflight=preflight)
+            if blockers:
+                return {
+                    "operation": "stage_stk_mins_qfq_gate_publishing",
+                    "stage": "m3c_c_formal_gate_publishing",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": False,
+                    "formal_paths_touched": [],
+                    "blockers": blockers,
+                    "message": "M3-C-C 未写 formal gate；gate publishing 计划与当前 preflight 不一致。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            gate_statuses = [_gate_status_from_plan_row(row) for row in plan_payload["gate_rows"]]
+            gate_write = CleanNextPartitionGateService(lake_root=self.lake_root).write_statuses(gate_statuses, run_id=run_id)
+            publish_update = self._write_publish_partitions_status(manifest_root=manifest_root, status="publishing")
+            run_payload = _read_json(manifest_root / "run.json")
+            run_payload = {
+                **run_payload,
+                "status": "publishing",
+                "m3c_c_gate_publishing": {
+                    "status": "success",
+                    "finished_at": _utc_now_iso(),
+                    "formal_gate_file": _relpath(self.lake_root / CLEAN_NEXT_GATE_RELATIVE_PATH, self.lake_root),
+                    "updated_gate_partitions": gate_write["updated_partitions"],
+                    "updated_publish_partitions": publish_update["updated_partitions"],
+                    "formal_paths_touched": [_relpath(self.lake_root / CLEAN_NEXT_GATE_RELATIVE_PATH, self.lake_root)],
+                },
+                "finished_at": None,
+                "error": None,
+            }
+            _write_json_atomic(manifest_root / "run.json", run_payload)
+            _append_publish_event(
+                manifest_root / "events.jsonl",
+                {
+                    "event_type": "formal_gate_publishing_staged",
+                    "level": "info",
+                    "message": "M3-C-C 已把目标 formal gate 写为 publishing；尚未替换正式分区，尚未写 downstream requirement，尚未 gate passed。",
+                    "metrics": {
+                        "updated_gate_partitions": gate_write["updated_partitions"],
+                        "updated_publish_partitions": publish_update["updated_partitions"],
+                    },
+                },
+            )
+            lock_service.heartbeat(run_id=run_id)
+            _emit_progress(
+                progress_callback,
+                {
+                    "event": "formal_gate_publishing_completed",
+                    "run_id": run_id,
+                    "updated_gate_partitions": gate_write["updated_partitions"],
+                },
+            )
+            return {
+                "operation": "stage_stk_mins_qfq_gate_publishing",
+                "stage": "m3c_c_formal_gate_publishing",
+                "run_id": run_id,
+                "status": "formal_gate_publishing_staged",
+                "ready": True,
+                "write_intent": True,
+                "formal_paths_touched": [_relpath(self.lake_root / CLEAN_NEXT_GATE_RELATIVE_PATH, self.lake_root)],
+                "manifest_root": _relpath(manifest_root, self.lake_root),
+                "gate_write": gate_write,
+                "publish_update": publish_update,
+                "message": "M3-C-C formal gate 已写为 publishing；正式数据尚未替换，下游仍被 gate 阻断。",
+                "lock_acquired": lock_acquired,
+                "lock_after": None,
+            }
+        finally:
+            if lock_acquired is not None:
+                lock_service.release(run_id=run_id)
+
     def _validate_run_payload(self, *, run_payload: dict[str, Any], blockers: list[dict[str, Any]]) -> None:
         if run_payload.get("job_type") != "stk_mins_qfq_clean_next":
             blockers.append(
@@ -414,7 +550,13 @@ class DuckDbComputePublishService:
                 }
             )
 
-    def _read_publish_rows(self, *, manifest_root: Path, blockers: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    def _read_publish_rows(
+        self,
+        *,
+        manifest_root: Path,
+        blockers: list[dict[str, Any]],
+        allowed_publish_statuses: set[str],
+    ) -> list[dict[str, Any]]:
         publish_file = manifest_root / "publish_partitions.parquet"
         if not publish_file.exists():
             blockers.append(
@@ -431,14 +573,15 @@ class DuckDbComputePublishService:
         bad_rows = [
             row
             for row in rows
-            if str(row.get("audit_status") or "") != "passed" or str(row.get("publish_status") or "") != "audit_passed"
+            if str(row.get("audit_status") or "") != "passed" or str(row.get("publish_status") or "") not in allowed_publish_statuses
         ]
         if bad_rows:
             blockers.append(
                 {
                     "code": "publish_partitions_not_audit_passed",
-                    "message": "仍有发布分区未通过 candidate audit。",
+                    "message": "仍有发布分区未通过 candidate audit，或发布状态不在当前阶段允许范围内。",
                     "actual": [row.get("partition_key") for row in bad_rows[:10]],
+                    "allowed_publish_statuses": sorted(allowed_publish_statuses),
                 }
             )
         return rows
@@ -551,6 +694,64 @@ class DuckDbComputePublishService:
     def _manifest_root(self, run_id: str) -> Path:
         return self.lake_root / "manifest" / "duckdb_compute" / "runs" / run_id
 
+    def _read_gate_publish_plan(self, *, manifest_root: Path, run_id: str) -> dict[str, Any]:
+        plan_file = manifest_root / GATE_PUBLISH_PLAN_FILENAME
+        if not plan_file.exists():
+            raise FileNotFoundError(f"缺少 M3-C-B gate publishing 计划：{_relpath(plan_file, self.lake_root)}")
+        plan_payload = _read_json(plan_file)
+        if plan_payload.get("stage") != "m3c_b_gate_publish_plan":
+            raise RuntimeError(f"gate publishing 计划 stage 非法：{plan_payload.get('stage')}")
+        if str(plan_payload.get("run_id") or "") != run_id:
+            raise RuntimeError(f"gate publishing 计划 run_id 不匹配：{plan_payload.get('run_id')} != {run_id}")
+        gate_rows = plan_payload.get("gate_rows")
+        if not isinstance(gate_rows, list) or not gate_rows:
+            raise RuntimeError("gate publishing 计划缺少 gate_rows。")
+        return plan_payload
+
+    def _validate_gate_publish_plan(self, *, plan_payload: dict[str, Any], preflight: dict[str, Any]) -> list[dict[str, Any]]:
+        blockers: list[dict[str, Any]] = []
+        plan_by_key = {str(row.get("partition_key") or ""): row for row in plan_payload["gate_rows"]}
+        preflight_keys = {str(row.get("partition_key") or "") for row in preflight["target_partitions"]}
+        if set(plan_by_key) != preflight_keys:
+            blockers.append(
+                {
+                    "code": "gate_publish_plan_partition_mismatch",
+                    "message": "M3-C-B gate publishing 计划中的分区集合与当前 preflight 不一致。",
+                    "planned_only": sorted(set(plan_by_key) - preflight_keys)[:10],
+                    "preflight_only": sorted(preflight_keys - set(plan_by_key))[:10],
+                }
+            )
+        current_gate_by_key = {
+            str(row.get("partition_key") or ""): row
+            for row in CleanNextPartitionGateService(lake_root=self.lake_root).read_statuses()
+        }
+        for partition_key, planned in plan_by_key.items():
+            current = current_gate_by_key.get(partition_key)
+            if not current:
+                continue
+            if str(current.get("status") or "") == "publishing" and str(current.get("write_revision") or "") != str(planned.get("write_revision") or ""):
+                blockers.append(
+                    {
+                        "code": "formal_gate_already_publishing_by_other_revision",
+                        "message": "目标 formal gate 已被其它发布写成 publishing，不能覆盖。",
+                        "partition_key": partition_key,
+                        "current_write_revision": current.get("write_revision"),
+                        "planned_write_revision": planned.get("write_revision"),
+                    }
+                )
+        return blockers
+
+    def _write_publish_partitions_status(self, *, manifest_root: Path, status: str) -> dict[str, Any]:
+        publish_file = manifest_root / "publish_partitions.parquet"
+        rows = _read_manifest_rows(publish_file)
+        updated_rows = [{**row, "publish_status": status} for row in rows]
+        _write_parquet_manifest(publish_file, updated_rows, columns=PUBLISH_PARTITION_COLUMNS)
+        return {
+            "path": _relpath(publish_file, self.lake_root),
+            "updated_partitions": len(updated_rows),
+            "publish_status": status,
+        }
+
 
 def _read_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
@@ -654,6 +855,23 @@ def _gate_publish_plan_run_state(*, plan_file: Path, lake_root: Path, planned_ga
         "formal_gate_written": False,
         "formal_paths_touched": [],
     }
+
+
+def _gate_status_from_plan_row(row: dict[str, Any]) -> CleanNextGateStatus:
+    return CleanNextGateStatus(
+        freq=int(row["freq"]),
+        trade_date=date.fromisoformat(str(row["trade_date"])),
+        clean_partition_path=str(row["clean_partition_path"]),
+        source_run_id=str(row["source_run_id"]),
+        clean_run_id=str(row["clean_run_id"]),
+        write_revision=str(row["write_revision"]),
+        status="publishing",
+        issue_count=int(row.get("issue_count") or 0),
+        raw_rows=int(row.get("raw_rows") or 0),
+        clean_rows=int(row.get("clean_rows") or 0),
+        ledger_path=str(row.get("ledger_path") or ""),
+        message=str(row.get("message") or "publishing"),
+    )
 
 
 def _append_publish_event(path: Path, event: dict[str, Any]) -> None:
