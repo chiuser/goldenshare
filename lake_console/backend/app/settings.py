@@ -26,6 +26,14 @@ class LakeConsoleSettings:
     target_part_size_mb: int = 256
     tushare_request_limit_per_minute: int = 500
     stk_mins_request_window_days: int = 31
+    duckdb_threads: int = 4
+    duckdb_memory_limit: str = "24GB"
+    duckdb_temp_directory: str = "_tmp/duckdb"
+    compute_bucket_count: int = 32
+    compute_max_active_writers: int = 1
+    compute_progress_interval_seconds: int = 2
+    compute_stale_heartbeat_seconds: int = 1800
+    compute_max_unit_retries: int = 1
 
 
 def load_settings(*, lake_root: str | None = None, require_lake_root: bool = True) -> LakeConsoleSettings:
@@ -62,6 +70,14 @@ def load_settings(*, lake_root: str | None = None, require_lake_root: bool = Tru
             or _config_int(config_file, "stk_mins_request_window_days")
             or 31
         ),
+        duckdb_threads=_config_int(config_file, "duckdb_threads") or 4,
+        duckdb_memory_limit=_config_str(config_file, "duckdb_memory_limit") or "24GB",
+        duckdb_temp_directory=_config_str(config_file, "duckdb_temp_directory") or "_tmp/duckdb",
+        compute_bucket_count=_config_int(config_file, "compute_bucket_count") or 32,
+        compute_max_active_writers=_config_int(config_file, "compute_max_active_writers") or 1,
+        compute_progress_interval_seconds=_config_int(config_file, "compute_progress_interval_seconds") or 2,
+        compute_stale_heartbeat_seconds=_config_int(config_file, "compute_stale_heartbeat_seconds") or 1800,
+        compute_max_unit_retries=_config_int(config_file, "compute_max_unit_retries") or 1,
     )
 
 

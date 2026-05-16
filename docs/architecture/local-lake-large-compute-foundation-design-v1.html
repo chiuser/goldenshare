@@ -2124,12 +2124,11 @@ memory_budget:
       该配置文件是本地文件，禁止提交到仓库。后续实现时，应同步更新
       <code>lake_console/config.local.example.toml</code>，保证示例配置、读取代码和本文档字段一致。
     </p>
-    <div class="warning">
-      <strong>当前实现差距：</strong>
-      代码中的 <code>LakeConsoleSettings</code> 目前还没有 DuckDB / compute 执行壳字段，
-      且既有配置读取仍大量允许环境变量覆盖。进入 M1 编码前，必须先把本节字段加入
-      <code>lake_console/config.local.toml</code> 配置模型与 <code>config.local.example.toml</code>；
-      执行壳相关参数不得散落在命令行参数、环境变量或硬编码默认值中。
+    <div class="success">
+      <strong>当前实现状态：</strong>
+      <code>LakeConsoleSettings</code> 与 <code>lake_console/config.local.example.toml</code>
+      已加入 DuckDB / compute 执行壳字段。进入后续编码时，执行壳相关参数仍不得散落在命令行参数、
+      环境变量或硬编码默认值中。
     </div>
     <pre># lake_console/config.local.toml
 duckdb_threads = 4
@@ -2226,8 +2225,8 @@ compute_max_unit_retries = 1</pre>
         <tr>
           <td>M0.5 基线与样本 benchmark</td>
           <td>用真实代码和真实 Lake 样本校准吞吐、内存、磁盘和因子覆盖。</td>
-          <td>2026-03 benchmark 报告、磁盘预检结果、adj_factor / identity map 覆盖审计结果。</td>
-          <td>确认 <code>duckdb_threads</code>、<code>duckdb_memory_limit</code>、<code>compute_bucket_count</code>、tmp 空间预算；因子缺失、重复或非正数样本为 0。</td>
+          <td><a href="/Users/congming/github/goldenshare/docs/architecture/local-lake-duckdb-compute-benchmark-m05-2026-05-16.md">2026-03 benchmark 报告</a>、磁盘预检结果、adj_factor / identity map 覆盖审计结果。</td>
+          <td>配置模型已落地；DuckDB 只读 benchmark 已跑通。2026-03 样本月复核后 <code>missing_adj_factor_rows=0</code>、<code>missing_latest_adj_factor_rows=0</code>、<code>non_positive_factor_rows=0</code>，可以进入 M1。</td>
         </tr>
         <tr>
           <td>M1 执行壳模型</td>

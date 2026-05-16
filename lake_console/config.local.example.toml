@@ -30,3 +30,14 @@ tushare_request_limit_per_minute = 500
 # Optional stk_mins request window. Range sync requests one symbol/freq per window,
 # then writes rows back to daily partitions. 31 means roughly one natural month.
 stk_mins_request_window_days = 31
+
+# Optional DuckDB large-compute tuning. These values are the single source of
+# truth for local large compute jobs such as stk_mins clean_next qfq candidate.
+duckdb_threads = 4
+duckdb_memory_limit = "24GB"
+duckdb_temp_directory = "_tmp/duckdb"
+compute_bucket_count = 32
+compute_max_active_writers = 1
+compute_progress_interval_seconds = 2
+compute_stale_heartbeat_seconds = 1800
+compute_max_unit_retries = 1

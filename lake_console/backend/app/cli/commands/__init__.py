@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 
+from lake_console.backend.app.cli.commands.benchmark import register_benchmark_commands
 from lake_console.backend.app.cli.commands.catalog import register_catalog_commands
 from lake_console.backend.app.cli.commands.indicators import register_indicator_commands
 from lake_console.backend.app.cli.commands.maintenance import register_maintenance_commands
@@ -17,3 +18,4 @@ def register_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentPa
     register_maintenance_commands(subparsers)
     register_stk_mins_commands(subparsers)
     register_indicator_commands(subparsers)
+    register_benchmark_commands(subparsers)
