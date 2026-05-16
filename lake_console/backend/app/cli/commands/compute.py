@@ -6,6 +6,7 @@ from lake_console.backend.app.cli.commands.common import add_lake_root_arg, pars
 from lake_console.backend.app.services.duckdb_compute_audit_service import DuckDbComputeAuditService
 from lake_console.backend.app.services.duckdb_compute_executor_service import DuckDbComputeExecutorService
 from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDbComputePlanService
+from lake_console.backend.app.services.duckdb_compute_prewrite_backup_service import DuckDbComputePrewriteBackupService
 
 
 def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -43,6 +44,14 @@ def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     add_lake_root_arg(audit_parser)
     audit_parser.add_argument("--run-id", required=True, help="compute-stk-mins-qfq-candidates 完成后的 run_id")
     audit_parser.set_defaults(handler=_handle_audit_stk_mins_qfq_candidates)
+
+    backup_parser = subparsers.add_parser(
+        "backup-stk-mins-qfq-prewrite",
+        help="为已通过审计的 stk_mins qfq run 创建 Kopia 写前备份；不发布正式分区",
+    )
+    add_lake_root_arg(backup_parser)
+    backup_parser.add_argument("--run-id", required=True, help="audit-stk-mins-qfq-candidates 通过后的 run_id")
+    backup_parser.set_defaults(handler=_handle_backup_stk_mins_qfq_prewrite)
 
 
 def _handle_plan_stk_mins_qfq(args: argparse.Namespace) -> int:
@@ -89,6 +98,16 @@ def _handle_audit_stk_mins_qfq_candidates(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_backup_stk_mins_qfq_prewrite(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputePrewriteBackupService(settings=settings).backup_stk_mins_qfq_prewrite(
+        run_id=args.run_id,
+        progress_callback=_print_backup_progress,
+    )
+    print_json(summary)
+    return 0
+
+
 def _print_compute_progress(event: dict[str, object]) -> None:
     if event.get("event") == "unit_started":
         print(
@@ -118,4 +137,16 @@ def _print_audit_progress(event: dict[str, object]) -> None:
             "[duckdb_compute] "
             f"audit_done={event.get('partition_index')}/{event.get('partition_count')} "
             f"{event.get('partition_key')} issues={event.get('issue_count')}"
+        )
+
+
+def _print_backup_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "prewrite_backup_started":
+        print(f"[duckdb_compute] prewrite_backup_start run_id={event.get('run_id')}")
+        return
+    if event.get("event") == "prewrite_backup_completed":
+        print(
+            "[duckdb_compute] "
+            f"prewrite_backup_done run_id={event.get('run_id')} "
+            f"snapshots={event.get('snapshot_count')}"
         )
