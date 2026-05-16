@@ -45,6 +45,22 @@ class DatasetDateModel:
 
 
 @dataclass(frozen=True, slots=True)
+class DatasetCompletenessDefinition:
+    scope: str
+    subject_kind: str | None = None
+    subject_key_fields: tuple[str, ...] = ()
+    actual_key_fields: tuple[str, ...] = ()
+    universe_strategy: str | None = None
+    universe_source_table: str | None = None
+    universe_key_field: str | None = None
+    universe_name_field: str | None = None
+    lifecycle_start_field: str | None = None
+    lifecycle_end_field: str | None = None
+    status_field: str | None = None
+    active_status_values: tuple[str, ...] = ()
+
+
+@dataclass(frozen=True, slots=True)
 class DatasetIdentity:
     dataset_key: str
     display_name: str
@@ -214,6 +230,7 @@ class DatasetDefinition:
     observability: DatasetObservability
     quality: DatasetQualityPolicy
     transaction: DatasetTransactionDefinition
+    completeness: DatasetCompletenessDefinition
 
     @property
     def dataset_key(self) -> str:

@@ -9,6 +9,7 @@ from src.foundation.datasets.freshness_policies import get_freshness_policy
 from src.foundation.datasets.models import (
     DatasetActionCapability,
     DatasetCapabilities,
+    DatasetCompletenessDefinition,
     DatasetDateModel,
     DatasetDefinition,
     DatasetDomain,
@@ -68,6 +69,7 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         raise ValueError(f"数据集定义 {identity.dataset_key} 默认来源必须属于来源清单")
     source_row["source_key_default"] = source_default
     source_row["source_keys"] = source_keys
+    date_model = DatasetDateModel(**row["date_model"])
     storage_row = dict(row["storage"])
     if "raw_table" not in storage_row:
         raise ValueError(f"数据集定义 {identity.dataset_key} 缺少原始层目标表")
@@ -94,11 +96,16 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         )
     observability_row = dict(row["observability"])
     observability_row["freshness_policy"] = get_freshness_policy(identity.dataset_key)
+    completeness = _build_completeness_definition(
+        identity.dataset_key,
+        date_model=date_model,
+        row=row.get("completeness"),
+    )
     return DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
         source=DatasetSourceDefinition(**source_row),
-        date_model=DatasetDateModel(**row["date_model"]),
+        date_model=date_model,
         input_model=DatasetInputModel(
             time_fields=tuple(DatasetInputField(**field) for field in row["input_model"]["time_fields"]),
             filters=tuple(DatasetInputField(**field) for field in row["input_model"]["filters"]),
@@ -115,7 +122,62 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         observability=DatasetObservability(**observability_row),
         quality=DatasetQualityPolicy(**row["quality"]),
         transaction=DatasetTransactionDefinition(**transaction_row),
+        completeness=completeness,
     )
+
+
+def _build_completeness_definition(
+    dataset_key: str,
+    *,
+    date_model: DatasetDateModel,
+    row: dict[str, Any] | None,
+) -> DatasetCompletenessDefinition:
+    if row is None:
+        scope = "date_bucket" if date_model.audit_applicable else "not_applicable"
+        return DatasetCompletenessDefinition(scope=scope)
+
+    completeness = DatasetCompletenessDefinition(
+        scope=str(row["scope"]).strip(),
+        subject_kind=row.get("subject_kind"),
+        subject_key_fields=tuple(str(item).strip() for item in row.get("subject_key_fields", ()) if str(item).strip()),
+        actual_key_fields=tuple(str(item).strip() for item in row.get("actual_key_fields", ()) if str(item).strip()),
+        universe_strategy=row.get("universe_strategy"),
+        universe_source_table=row.get("universe_source_table"),
+        universe_key_field=row.get("universe_key_field"),
+        universe_name_field=row.get("universe_name_field"),
+        lifecycle_start_field=row.get("lifecycle_start_field"),
+        lifecycle_end_field=row.get("lifecycle_end_field"),
+        status_field=row.get("status_field"),
+        active_status_values=tuple(str(item).strip() for item in row.get("active_status_values", ()) if str(item).strip()),
+    )
+    _validate_completeness_definition(dataset_key, date_model=date_model, completeness=completeness)
+    return completeness
+
+
+def _validate_completeness_definition(
+    dataset_key: str,
+    *,
+    date_model: DatasetDateModel,
+    completeness: DatasetCompletenessDefinition,
+) -> None:
+    if completeness.scope not in {"date_bucket", "date_subject_matrix", "not_applicable"}:
+        raise ValueError(f"数据集定义 {dataset_key} 的完整性审计 scope 无效：{completeness.scope}")
+    if not date_model.audit_applicable and completeness.scope != "not_applicable":
+        raise ValueError(f"数据集定义 {dataset_key} 不支持日期审计时，完整性审计 scope 必须为 not_applicable")
+    if completeness.scope != "date_subject_matrix":
+        return
+
+    required_fields = {
+        "subject_kind": completeness.subject_kind,
+        "subject_key_fields": completeness.subject_key_fields,
+        "actual_key_fields": completeness.actual_key_fields,
+        "universe_strategy": completeness.universe_strategy,
+        "universe_source_table": completeness.universe_source_table,
+        "universe_key_field": completeness.universe_key_field,
+    }
+    missing = [name for name, value in required_fields.items() if not value]
+    if missing:
+        raise ValueError(f"数据集定义 {dataset_key} 的对象矩阵审计配置缺少字段：{', '.join(missing)}")
 
 
 def build_definitions(rows: Iterable[dict[str, Any]]) -> tuple[DatasetDefinition, ...]:

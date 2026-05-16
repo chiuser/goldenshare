@@ -61,6 +61,56 @@ def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
     assert definition.storage.target_table == "core_serving.ths_daily"
 
 
+def test_dataset_definition_projects_adj_factor_subject_completeness_facts() -> None:
+    definition = get_dataset_definition("adj_factor")
+
+    assert definition.completeness.scope == "date_subject_matrix"
+    assert definition.completeness.subject_kind == "stock"
+    assert definition.completeness.subject_key_fields == ("ts_code",)
+    assert definition.completeness.actual_key_fields == ("ts_code",)
+    assert definition.completeness.universe_strategy == "stock_basic_active_lifecycle"
+    assert definition.completeness.universe_source_table == "core_serving.security_serving"
+    assert definition.completeness.universe_key_field == "ts_code"
+    assert definition.completeness.universe_name_field == "name"
+    assert definition.completeness.lifecycle_start_field == "list_date"
+    assert definition.completeness.lifecycle_end_field == "delist_date"
+    assert definition.completeness.status_field == "list_status"
+    assert definition.completeness.active_status_values == ("L",)
+
+
+def test_dataset_definition_subject_matrix_scope_is_not_inferred_from_ts_code() -> None:
+    matrix_keys = {
+        definition.dataset_key
+        for definition in list_dataset_definitions()
+        if definition.completeness.scope == "date_subject_matrix"
+    }
+
+    assert matrix_keys == {"adj_factor"}
+    for definition in list_dataset_definitions():
+        if not definition.date_model.audit_applicable:
+            assert definition.completeness.scope == "not_applicable"
+
+
+def test_event_datasets_do_not_use_subject_matrix_completeness() -> None:
+    event_dataset_keys = {
+        "block_trade",
+        "broker_recommend",
+        "dc_hot",
+        "kpl_list",
+        "limit_cpt_list",
+        "limit_list_d",
+        "limit_list_ths",
+        "limit_step",
+        "stock_st",
+        "suspend_d",
+        "ths_hot",
+        "top_list",
+    }
+
+    for dataset_key in event_dataset_keys:
+        assert get_dataset_definition(dataset_key).completeness.scope != "date_subject_matrix"
+
+
 def test_dataset_definition_projects_stock_auction_facts() -> None:
     open_definition = get_dataset_definition("stk_auction_o")
     close_definition = get_dataset_definition("stk_auction_c")

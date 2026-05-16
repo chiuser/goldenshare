@@ -1,0 +1,991 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据集日期对象矩阵完整性审计方案 v1</title>
+  <style>
+    :root {
+      --bg: #f6f8fb;
+      --surface: #ffffff;
+      --surface-2: #f9fbfe;
+      --ink: #172033;
+      --muted: #627086;
+      --line: #d9e0ea;
+      --brand: #215db8;
+      --brand-soft: #eaf2ff;
+      --warn: #8a5a00;
+      --warn-soft: #fff6da;
+      --danger: #a33a35;
+      --danger-soft: #fff0ee;
+      --ok: #16734a;
+      --ok-soft: #e8f7ef;
+      --code-bg: #101827;
+      --code-ink: #eaf2ff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 32px 24px 72px;
+    }
+
+    header {
+      background: linear-gradient(135deg, #10223f, #1e4b85);
+      color: #fff;
+      border-radius: 24px;
+      padding: 32px;
+      box-shadow: 0 20px 48px rgba(22, 43, 78, 0.18);
+    }
+
+    header p {
+      max-width: 860px;
+      color: #dbe8ff;
+      margin: 10px 0 0;
+      font-size: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: 32px;
+      letter-spacing: -0.02em;
+    }
+
+    h2 {
+      margin: 40px 0 14px;
+      font-size: 24px;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 18px;
+    }
+
+    .meta {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      border-radius: 999px;
+      padding: 6px 12px;
+      background: rgba(255, 255, 255, 0.14);
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      color: #eef5ff;
+      font-size: 13px;
+      font-weight: 600;
+    }
+
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 22px;
+      margin: 18px 0;
+      box-shadow: 0 8px 28px rgba(28, 48, 78, 0.06);
+    }
+
+    .callout {
+      border-radius: 16px;
+      padding: 16px 18px;
+      margin: 18px 0;
+      border: 1px solid var(--line);
+      background: var(--surface-2);
+    }
+
+    .callout strong {
+      display: block;
+      margin-bottom: 4px;
+    }
+
+    .callout.warn {
+      background: var(--warn-soft);
+      border-color: #f1cf7d;
+      color: var(--warn);
+    }
+
+    .callout.ok {
+      background: var(--ok-soft);
+      border-color: #a6dfbf;
+      color: var(--ok);
+    }
+
+    .callout.danger {
+      background: var(--danger-soft);
+      border-color: #efb2aa;
+      color: var(--danger);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: var(--surface);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 14px 0 22px;
+      font-size: 14px;
+    }
+
+    th, td {
+      border-bottom: 1px solid var(--line);
+      padding: 12px 14px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #edf3fb;
+      color: #26364d;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    code {
+      background: #eef3fa;
+      color: #1d4d8f;
+      border-radius: 6px;
+      padding: 2px 6px;
+      font-family: "SFMono-Regular", Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border-radius: 16px;
+      padding: 18px;
+      overflow-x: auto;
+      font-size: 13px;
+      line-height: 1.58;
+    }
+
+    pre code {
+      background: transparent;
+      color: inherit;
+      padding: 0;
+    }
+
+    ul, ol {
+      padding-left: 22px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 16px;
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(120px, 1fr));
+      gap: 12px;
+      margin: 18px 0;
+    }
+
+    .flow-step {
+      position: relative;
+      background: var(--brand-soft);
+      border: 1px solid #bed2f2;
+      color: #193b70;
+      border-radius: 14px;
+      padding: 14px;
+      min-height: 94px;
+    }
+
+    .flow-step span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      margin-top: 6px;
+    }
+
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #eef3fa;
+      color: #314257;
+      font-size: 12px;
+      font-weight: 700;
+      margin-right: 6px;
+      white-space: nowrap;
+    }
+
+    .tag.ok {
+      background: var(--ok-soft);
+      color: var(--ok);
+    }
+
+    .tag.warn {
+      background: var(--warn-soft);
+      color: var(--warn);
+    }
+
+    .tag.no {
+      background: var(--danger-soft);
+      color: var(--danger);
+    }
+
+    @media (max-width: 860px) {
+      main {
+        padding: 18px 12px 48px;
+      }
+
+      header {
+        padding: 24px;
+      }
+
+      .grid,
+      .flow {
+        grid-template-columns: 1fr;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>数据集日期对象矩阵完整性审计方案 v1</h1>
+    <p>
+      本文定义“日期桶审计”之后的第二阶段能力：在指定日期范围内，检查每个应覆盖对象是否在每个应检查日期桶都有数据。
+      首个小闭环只接入 <code>adj_factor</code>，用 <code>stock_basic</code> 中已上市且未退市股票作为对象池。
+    </p>
+    <div class="meta">
+      <span class="pill">状态：待评审</span>
+      <span class="pill">目录：docs/ops</span>
+      <span class="pill">范围：审查中心 / 数据集审计</span>
+      <span class="pill">不改数据维护主链</span>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>1. 问题本质</h2>
+    <p>
+      当前日期完整性审计只判断目标表里是否存在某个日期桶。它适合发现“整天缺数据”，但不能发现“某个日期下少了部分股票、指数或板块对象”的问题。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>能力</th>
+        <th>回答的问题</th>
+        <th>能否发现 4 只股票缺 2026-03-30/31</th>
+        <th>典型结论</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>日期桶审计</td>
+        <td>这个交易日目标表是否有任意数据</td>
+        <td><span class="tag no">不能</span></td>
+        <td>2026-03-30 有 5495 行，所以日期桶已覆盖</td>
+      </tr>
+      <tr>
+        <td>日期对象矩阵审计</td>
+        <td>这个交易日下，每个应覆盖对象是否都有数据</td>
+        <td><span class="tag ok">能</span></td>
+        <td>2026-03-30 应有 5499 个对象，实际 5495 个，缺 4 个</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <strong>关键判断</strong>
+      凡是业务语义要求“日期 × 对象”全覆盖的数据集，都不能只依赖日期桶审计。<code>adj_factor</code> 只是第一个暴露问题的样本，不是唯一风险点。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2. 设计目标与非目标</h2>
+    <div class="grid">
+      <div>
+        <h3>目标</h3>
+        <ol>
+          <li>在现有“数据集审计”中新增矩阵审计类型。</li>
+          <li>第一期只让 <code>adj_factor</code> 跑通闭环。</li>
+          <li>对象池来自 <code>stock_basic</code>，并按生命周期过滤。</li>
+          <li>审计结果写入 ops 自己的审计表，不影响业务数据表。</li>
+          <li>页面清楚区分“日期桶通过”和“矩阵通过”。</li>
+        </ol>
+      </div>
+      <div>
+        <h3>非目标</h3>
+        <ol>
+          <li>不替代 freshness。</li>
+          <li>不做字段值质量校验。</li>
+          <li>不做逐字段对账。</li>
+          <li>不改数据维护、同步、写入主链。</li>
+          <li>不一次性接入所有数据集。</li>
+        </ol>
+      </div>
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>2.1 设计原则与硬约束</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>原则</th>
+        <th>硬约束</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>审计链路独立</td>
+        <td>审计能力不得复用数据拉取、请求编排、ingestion executor、写入链路或数据补数逻辑；只能消费事实源定义和数据库事实表。</td>
+        <td>审计不能用同一套可能出错的同步逻辑来证明同步结果正确，否则会失去独立校验意义。</td>
+      </tr>
+      <tr>
+        <td>性能优先</td>
+        <td>矩阵差集必须下推到数据库执行；接入每个数据集前必须做索引审计、小窗口真实耗时验证和大范围成本估算。</td>
+        <td>矩阵审计天然可能产生大规模检查单元，不能接受一个常规审计任务跑一两个小时。</td>
+      </tr>
+      <tr>
+        <td>语义先行</td>
+        <td>每个数据集接入前必须先写清对象是什么、对象池来源、生命周期规则、缺失是否异常、为什么该口径正确；禁止仅凭字段名或表名猜。</td>
+        <td>不是所有带 <code>ts_code</code> 的数据集都要求全股票覆盖，事件型和关系型数据集误接入会产生大量误报。</td>
+      </tr>
+      <tr>
+        <td>分批推进</td>
+        <td>第一期只做 <code>adj_factor</code> 小闭环；后续每批必须先评审口径，再编码接入，不允许大干快上。</td>
+        <td>不同数据集的对象池语义不同，批量套模板会把错误扩散到全平台。</td>
+      </tr>
+      <tr>
+        <td>采样完整</td>
+        <td>概览结果必须展示问题量级；详情样例可以限量，但每条样例必须包含完整判断字段，不能因为采样缺字段、缺值。</td>
+        <td>运营需要知道问题有多大，也需要通过样例判断“为什么它应该有、为什么判缺失”。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout danger">
+      <strong>禁止事项</strong>
+      禁止为了省事复用同步 planner / request builder / ingestion executor；禁止在 Python 中构造大规模日期对象矩阵；禁止没有对象池语义评审就接入新数据集。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. 通用语言</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>术语</th>
+        <th>定义</th>
+        <th>例子</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>日期桶</td>
+        <td>按数据集日期模型生成的应检查日期单位。</td>
+        <td><code>2026-03-30</code></td>
+      </tr>
+      <tr>
+        <td>对象</td>
+        <td>某个日期下应被检查的业务主体，可以是股票、基金、指数、板块或成分关系。</td>
+        <td><code>920188.BJ</code></td>
+      </tr>
+      <tr>
+        <td>对象池</td>
+        <td>某个日期桶下，理论上应该有数据的对象集合。</td>
+        <td>2026-03-30 已上市且未退市股票集合</td>
+      </tr>
+      <tr>
+        <td>矩阵单元</td>
+        <td>一个日期桶和一个对象组成的检查单元。</td>
+        <td><code>2026-03-30 + 920188.BJ</code></td>
+      </tr>
+      <tr>
+        <td>缺失单元</td>
+        <td>对象池里应存在，但目标表实际没有的矩阵单元。</td>
+        <td><code>adj_factor</code> 缺 <code>2026-03-30 + 920188.BJ</code></td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>4. 数据集分层判断</h2>
+    <p>
+      不是所有带 <code>ts_code</code> 的数据集都应该做矩阵审计。必须按业务语义区分。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>类型</th>
+        <th>是否适合矩阵审计</th>
+        <th>典型数据集</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>强覆盖行情 / 指标类</td>
+        <td><span class="tag ok">适合</span></td>
+        <td><code>adj_factor</code>, <code>daily</code>, <code>daily_basic</code>, <code>stk_limit</code>, <code>stk_factor_pro</code></td>
+        <td>业务上通常要求每个应覆盖股票在每个交易日都有数据。</td>
+      </tr>
+      <tr>
+        <td>基金 / 指数强覆盖类</td>
+        <td><span class="tag ok">适合，但对象池不同</span></td>
+        <td><code>fund_daily</code>, <code>fund_adj</code>, <code>index_daily</code>, <code>index_daily_basic</code></td>
+        <td>对象池不是 A 股股票池，必须使用基金池或指数池。</td>
+      </tr>
+      <tr>
+        <td>事件 / 榜单类</td>
+        <td><span class="tag no">不适合</span></td>
+        <td><code>limit_list_ths</code>, <code>top_list</code>, <code>limit_step</code>, <code>broker_recommend</code></td>
+        <td>不是每个对象每天都应出现，矩阵审计会制造大量误报。</td>
+      </tr>
+      <tr>
+        <td>成分关系类</td>
+        <td><span class="tag warn">后续专项</span></td>
+        <td><code>dc_member</code>, <code>ths_member</code>, <code>index_weight</code>, <code>kpl_concept_cons</code></td>
+        <td>对象不是单字段，而是板块 / 指数与成分的组合关系。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>5. 第一阶段小闭环：adj_factor</h2>
+    <h3>5.1 已确认口径</h3>
+    <div class="callout ok">
+      <strong>对象池口径已确认</strong>
+      <code>adj_factor</code> 使用 <code>stock_basic</code> 中已上市且未退市股票作为 expected universe，并按 <code>list_date</code> / <code>delist_date</code> 对每个交易日做生命周期过滤。
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>日期桶</td>
+        <td>沿用 <code>DatasetDefinition.date_model</code>：<code>trade_open_day + every_open_day</code></td>
+      </tr>
+      <tr>
+        <td>对象类型</td>
+        <td><code>stock</code></td>
+      </tr>
+      <tr>
+        <td>对象键</td>
+        <td><code>ts_code</code></td>
+      </tr>
+      <tr>
+        <td>对象池来源</td>
+        <td><code>raw_tushare.stock_basic</code> 或当前代码实际登记的股票主数据表，落地前以代码和 DB 实际表确认。</td>
+      </tr>
+      <tr>
+        <td>生命周期过滤</td>
+        <td><code>list_date &lt;= trade_date</code> 且 <code>delist_date is null or delist_date &gt; trade_date</code>；若只有当前状态字段，则叠加 <code>list_status='L'</code>。</td>
+      </tr>
+      <tr>
+        <td>实际表</td>
+        <td><code>core.equity_adj_factor</code></td>
+      </tr>
+      <tr>
+        <td>实际键</td>
+        <td><code>trade_date + ts_code</code></td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.2 SQL 形态</h3>
+    <pre><code>with expected_dates as (
+  select trade_date
+  from core_serving.trade_calendar
+  where exchange = :exchange
+    and is_open is true
+    and trade_date between :start_date and :end_date
+),
+expected_subjects as (
+  select
+    d.trade_date,
+    s.ts_code,
+    s.name
+  from expected_dates d
+  join raw_tushare.stock_basic s
+    on s.list_date &lt;= d.trade_date
+   and (s.delist_date is null or s.delist_date &gt; d.trade_date)
+   and s.list_status = 'L'
+),
+actual_subjects as (
+  select distinct trade_date, ts_code
+  from core.equity_adj_factor
+  where trade_date between :start_date and :end_date
+)
+select
+  e.trade_date,
+  e.ts_code,
+  e.name
+from expected_subjects e
+left join actual_subjects a
+  on a.trade_date = e.trade_date
+ and a.ts_code = e.ts_code
+where a.ts_code is null;</code></pre>
+    <p>
+      真实落地时不要求逐字使用这段 SQL，但必须保持同一语义：expected 来自日期桶与对象池的组合，actual 来自目标表去重后的业务键。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>6. 建议的数据模型</h2>
+    <h3>6.1 DatasetDefinition 新增可选审计模型</h3>
+    <p>
+      不建议把对象池语义塞进 <code>date_model</code>。日期模型只回答“哪些日期桶应检查”，对象矩阵模型回答“每个日期桶下哪些对象应检查”。
+    </p>
+    <pre><code>DatasetCompletenessModel
+  scope: date_bucket | date_subject_matrix | not_applicable
+  subject_kind: stock | fund | index | board | component | null
+  subject_key_fields: ["ts_code"]
+  actual_key_fields: ["ts_code"]
+  universe_strategy: stock_basic_active_lifecycle
+  universe_source_table: core_serving.security_serving
+  universe_key_field: ts_code
+  universe_name_field: name
+  lifecycle_start_field: list_date
+  lifecycle_end_field: delist_date
+  status_field: list_status
+  active_status_values: ["L"]</code></pre>
+
+    <h3>6.2 审计结果表</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>表</th>
+        <th>用途</th>
+        <th>第一期是否新增</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>ops.dataset_date_completeness_run</code></td>
+        <td>继续作为审计 run 主表，新增矩阵审计汇总字段。</td>
+        <td><span class="tag ok">是</span></td>
+      </tr>
+      <tr>
+        <td><code>ops.dataset_date_completeness_gap</code></td>
+        <td>保留日期桶缺口区间，不混入对象缺失。</td>
+        <td><span class="tag">保留</span></td>
+      </tr>
+      <tr>
+        <td><code>ops.dataset_subject_completeness_gap</code></td>
+        <td>按日期桶保存对象缺失摘要和样例。</td>
+        <td><span class="tag ok">是</span></td>
+      </tr>
+      <tr>
+        <td><code>ops.dataset_subject_completeness_gap_detail</code></td>
+        <td>保存缺失对象明细，设置单 run 上限，防止异常任务写爆。</td>
+        <td><span class="tag warn">建议第一期加上限实现</span></td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.3 run 主表建议新增字段</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>类型</th>
+        <th>含义</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>audit_scope</code></td>
+        <td>varchar(32)</td>
+        <td><code>date_bucket</code> 或 <code>date_subject_matrix</code></td>
+      </tr>
+      <tr>
+        <td><code>subject_kind</code></td>
+        <td>varchar(32), nullable</td>
+        <td>对象类型，例如 <code>stock</code></td>
+      </tr>
+      <tr>
+        <td><code>expected_cell_count</code></td>
+        <td>bigint</td>
+        <td>应检查矩阵单元数量。</td>
+      </tr>
+      <tr>
+        <td><code>actual_cell_count</code></td>
+        <td>bigint</td>
+        <td>实际覆盖矩阵单元数量。</td>
+      </tr>
+      <tr>
+        <td><code>missing_cell_count</code></td>
+        <td>bigint</td>
+        <td>缺失矩阵单元数量。</td>
+      </tr>
+      <tr>
+        <td><code>affected_bucket_count</code></td>
+        <td>int</td>
+        <td>存在对象缺失的日期桶数量。</td>
+      </tr>
+      <tr>
+        <td><code>affected_subject_count</code></td>
+        <td>int</td>
+        <td>至少缺失一次的对象数量。</td>
+      </tr>
+      <tr>
+        <td><code>detail_truncated</code></td>
+        <td>boolean</td>
+        <td>缺失明细是否因安全上限被截断。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>7. 执行流程</h2>
+    <div class="flow">
+      <div class="flow-step">1. 读取 Definition<span>判断 audit scope 与对象池策略</span></div>
+      <div class="flow-step">2. 生成日期桶<span>复用现有 ExpectedBucketPlanner</span></div>
+      <div class="flow-step">3. 生成对象池<span>按日期做生命周期过滤</span></div>
+      <div class="flow-step">4. SQL 差集<span>expected left join actual</span></div>
+      <div class="flow-step">5. 写审计结果<span>run 汇总 + gap 摘要 + detail 上限</span></div>
+    </div>
+    <h3>7.1 pass / fail 规则</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>场景</th>
+        <th>result_status</th>
+        <th>说明</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>日期桶无缺失，矩阵无缺失</td>
+        <td><code>passed</code></td>
+        <td>对象覆盖完整。</td>
+      </tr>
+      <tr>
+        <td>日期桶无缺失，矩阵有缺失</td>
+        <td><code>failed</code></td>
+        <td>本方案的核心场景，例如 <code>adj_factor</code> 缺 4 只股票。</td>
+      </tr>
+      <tr>
+        <td>日期桶有缺失</td>
+        <td><code>failed</code></td>
+        <td>保留现有日期桶缺失语义。</td>
+      </tr>
+      <tr>
+        <td>目标表、对象池表、规则不可读</td>
+        <td><code>error</code></td>
+        <td>审计执行失败，不伪装成数据缺失。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>8. 页面嵌入方式</h2>
+    <p>
+      页面仍使用“数据集审计”，但在记录和详情中明确审计类型。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>位置</th>
+        <th>新增展示</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>审计数据集列表</td>
+        <td>展示审计粒度：日期桶 / 日期 × 对象矩阵。</td>
+      </tr>
+      <tr>
+        <td>审计记录列表</td>
+        <td>日期桶记录继续展示“应检查日期桶 / 实际日期桶 / 缺失日期桶”；矩阵记录展示“应检查单元 / 实际单元 / 缺失单元”。</td>
+      </tr>
+      <tr>
+        <td>详情 Drawer</td>
+        <td>矩阵审计增加“缺失日期数、缺失对象数、样例对象、是否截断”。</td>
+      </tr>
+      <tr>
+        <td>缺口详情</td>
+        <td>按日期桶展示缺失对象数量与样例，支持后续导出。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>9. 性能与安全边界</h2>
+    <ol>
+      <li>矩阵差集必须在数据库中完成，不允许 Python 生成全量笛卡尔积后逐行比对。</li>
+      <li>目标表必须具备 <code>(observed_field, subject_key)</code> 方向索引；落地前逐表确认。</li>
+      <li>对象池表必须具备生命周期过滤所需索引。</li>
+      <li>缺失明细表必须设置单 run 写入上限，超过后只保留摘要并标记 <code>detail_truncated=true</code>。</li>
+      <li>审计只读业务表，只写 ops 审计表；失败不得影响业务数据。</li>
+      <li>第一期 UI 可提示长范围审计成本，但不把成本提示做成业务逻辑兼容开关。</li>
+      <li>每个数据集接入前必须记录真实性能基线：检查窗口、expected cell 数、actual cell 数、缺失数、SQL 耗时、执行计划摘要。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>10. 分阶段落地计划</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>阶段</th>
+        <th>目标</th>
+        <th>范围</th>
+        <th>验收</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>M0</td>
+        <td>方案评审</td>
+        <td>确认本文口径和第一期只接 <code>adj_factor</code>。</td>
+        <td>无代码改动，方案确认。</td>
+      </tr>
+      <tr>
+        <td>M1</td>
+        <td>模型与迁移</td>
+        <td>新增审计 scope、矩阵汇总字段、gap 摘要与 detail 表。</td>
+        <td>Alembic head 正确；模型测试通过。</td>
+      </tr>
+      <tr>
+        <td>M2</td>
+        <td>引擎小闭环</td>
+        <td>新增 <code>date_subject_matrix</code> executor 分支和 stock active universe provider。</td>
+        <td>单测覆盖 4 缺失样例、无缺失样例、对象池空样例。</td>
+      </tr>
+      <tr>
+        <td>M3</td>
+        <td><code>adj_factor</code> 接入</td>
+        <td>Definition 增加 subject completeness 配置。</td>
+        <td>能在指定窗口内识别 <code>920188.BJ</code> 等缺失。</td>
+      </tr>
+      <tr>
+        <td>M4</td>
+        <td>页面展示</td>
+        <td>审计页展示矩阵审计结果、缺失对象样例和截断提示。</td>
+        <td>前端测试覆盖矩阵记录展示。</td>
+      </tr>
+      <tr>
+        <td>M5</td>
+        <td>第一批扩展</td>
+        <td><code>daily</code>, <code>daily_basic</code>, <code>stk_limit</code>, <code>stk_factor_pro</code>。</td>
+        <td>逐数据集小窗口审计通过，再评估全量范围性能。</td>
+      </tr>
+      <tr>
+        <td>M6</td>
+        <td>第二批专项</td>
+        <td>基金、指数、成分关系类分别建立对象池策略。</td>
+        <td>每类先单数据集试点，不并行铺开。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>11. 第一批建议接入顺序</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>顺序</th>
+        <th>数据集</th>
+        <th>对象池</th>
+        <th>说明</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>1</td>
+        <td><code>adj_factor</code></td>
+        <td>股票主数据生命周期池</td>
+        <td>已有真实缺失样例，最适合作为小闭环。</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><code>daily</code></td>
+        <td>股票主数据生命周期池</td>
+        <td>核心行情事实表。</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><code>daily_basic</code></td>
+        <td>股票主数据生命周期池</td>
+        <td>与日线常作为同日覆盖参考。</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><code>stk_limit</code></td>
+        <td>股票主数据生命周期池</td>
+        <td>涨跌停价格理论上按股票和交易日覆盖。</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td><code>stk_factor_pro</code></td>
+        <td>股票主数据生命周期池</td>
+        <td>字段宽、数据量大，放在小闭环稳定后。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>12. 风险与防护</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>风险</th>
+        <th>防护</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>对象池口径错误导致误报</td>
+        <td>每个数据集必须显式登记 universe strategy，不允许前端或 SQL 临时猜。</td>
+      </tr>
+      <tr>
+        <td>长范围矩阵审计查询慢</td>
+        <td>数据库差集、索引预检、先小窗口验证，再开放大范围。</td>
+      </tr>
+      <tr>
+        <td>缺失明细写爆 ops 表</td>
+        <td>detail 表设置写入上限，summary 永远完整，detail 可截断。</td>
+      </tr>
+      <tr>
+        <td>把事件型数据集误接入矩阵审计</td>
+        <td>Definition 配置门禁和测试禁止事件型数据集使用股票全覆盖对象池。</td>
+      </tr>
+      <tr>
+        <td>与现有日期桶审计结论混淆</td>
+        <td>API 和页面都显示 <code>audit_scope</code>，列表和详情使用不同统计字段。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>13. 编码门禁草案</h2>
+    <ol>
+      <li>新增或修改矩阵审计配置前，必须确认对象池来源、生命周期字段、实际表业务键。</li>
+      <li>不得把 <code>ts_code</code> 存在与否作为接入矩阵审计的唯一依据。</li>
+      <li>不得复用数据拉取、请求编排、ingestion executor、补数或写入逻辑。</li>
+      <li>不得在 Python 内构造大规模矩阵列表。</li>
+      <li>不得让矩阵审计写入或修改业务数据表。</li>
+      <li>必须有测试证明 <code>adj_factor</code> 能识别指定日期缺失的 4 个代码。</li>
+      <li>必须有测试证明事件型数据集不会被误判为适合矩阵审计。</li>
+      <li>必须保留现有日期桶审计行为不变。</li>
+      <li>必须有性能门禁记录，至少覆盖小窗口真实 SQL 耗时和索引使用情况。</li>
+      <li>详情样例字段必须完整，至少包含日期桶、对象键、对象名、生命周期字段、缺失原因码、目标表和实际业务键。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>14. 当前代码审计结论</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>审计点</th>
+        <th>当前实现</th>
+        <th>与本方案的关系</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>审计执行模型</td>
+        <td><code>DateCompletenessAuditExecutor</code> 当前只执行日期桶审计：规划 expected buckets、读取 distinct observed date、比较日期集合。</td>
+        <td>不能直接打补丁扩成对象矩阵；应新增 <code>date_subject_matrix</code> 分支，保留现有日期桶审计行为不变。</td>
+      </tr>
+      <tr>
+        <td>实际数据读取</td>
+        <td><code>ActualBucketReader</code> 只返回 <code>set[date]</code>，且 SQL 只按 <code>observed_field</code> 去重。</td>
+        <td>无法识别 <code>adj_factor</code> 某日期下个别 <code>ts_code</code> 缺失；矩阵审计必须新增实际对象矩阵读取器。</td>
+      </tr>
+      <tr>
+        <td>结果表结构</td>
+        <td><code>ops.dataset_date_completeness_run/gap/exclusion</code> 只保存 bucket 统计、日期范围和 sample values。</td>
+        <td>缺少 <code>audit_scope</code>、对象池策略、expected/actual/missing cell 统计、对象明细样例等字段；需要新增迁移。</td>
+      </tr>
+      <tr>
+        <td>API 与前端契约</td>
+        <td>当前 schema、query service、前端类型均以 bucket count / gap range 为核心。</td>
+        <td>矩阵审计需要扩展 API 与页面展示，不能把对象缺失塞进现有 <code>sample_values</code> 字符串里。</td>
+      </tr>
+      <tr>
+        <td>DatasetDefinition 事实源</td>
+        <td><code>DatasetDefinition</code> 当前只有 <code>date_model</code>、<code>storage.row_identity_filters</code> 等字段，没有对象完整性模型。</td>
+        <td>应新增独立 subject completeness 配置；不得把对象池语义塞进 <code>date_model</code> 或复用 <code>row_identity_filters</code>。</td>
+      </tr>
+      <tr>
+        <td><code>adj_factor</code> 对象池基础</td>
+        <td><code>stock_basic</code> 现行服务表为 <code>core_serving.security_serving</code>，包含 <code>ts_code/list_status/list_date/delist_date/security_type/source</code>。</td>
+        <td>支持第一期使用股票主数据生命周期池；落地前需确认索引与 SQL 执行计划。</td>
+      </tr>
+      <tr>
+        <td>性能风险</td>
+        <td><code>core.equity_adj_factor</code> 目前模型只显式定义 <code>trade_date</code> 索引，主键为 <code>(ts_code, trade_date)</code>。</td>
+        <td>矩阵审计 SQL 应避免 Python 大矩阵；落地前需验证 <code>trade_date + ts_code</code> 差集查询是否走合适索引，必要时单独评审加索引。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <strong>实现边界</strong>
+      代码审计未发现必须阻断方案的小前提，但确认本能力不是现有日期桶审计的字段级小改。
+      正确落地方式是：保留当前日期桶审计，新增对象矩阵审计模型、执行分支、结果表、API 字段与前端展示。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>15. 待评审确认项</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>事项</th>
+        <th>建议</th>
+        <th>状态</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>adj_factor</code> 对象池</td>
+        <td>使用 <code>stock_basic</code> 中已上市且未退市股票，按生命周期过滤。</td>
+        <td><span class="tag ok">已确认</span></td>
+      </tr>
+      <tr>
+        <td>第一期是否只接 <code>adj_factor</code></td>
+        <td>是，先做小闭环。</td>
+        <td><span class="tag warn">待最终评审</span></td>
+      </tr>
+      <tr>
+        <td>缺失明细是否允许截断</td>
+        <td>允许，summary 完整，detail 有上限。</td>
+        <td><span class="tag warn">待评审</span></td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>
