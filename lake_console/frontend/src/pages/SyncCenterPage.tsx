@@ -549,6 +549,7 @@ export function SyncCenterPage() {
                 <SyncMiniStat label="备份明细" value={String(plan.backup_plan.backup_paths.length)} />
                 <SyncMiniStat label="写前缺失" value={String(plan.backup_plan.path_missing_before_write.length)} />
               </section>
+              <BackupPlanPreview plan={plan} />
               {plan.pipeline_stages.length ? <PipelineStagePreview plan={plan} /> : null}
               <PlanTable rows={plan.dataset_plans} />
               <IssueList title="阻断项" items={plan.blockers} tone="error" />
@@ -556,23 +557,6 @@ export function SyncCenterPage() {
             </>
           ) : (
             <EmptyState title="尚未生成计划" description="先选择同步范围与数据集，再点击“生成计划”。" />
-          )}
-        </Panel>
-
-        <Panel title="Kopia 备份范围" description="启动写入前，后端会按聚合路径创建写入前快照；明细路径只用于恢复判断，不会逐条创建快照。">
-          {plan ? (
-            <div className="sync-backup-stack">
-              <BackupList title="本次将创建快照的聚合路径" paths={plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths} empty="当前没有需要创建快照的已存在路径。" />
-              <BackupList title="本次会写且写前已存在的明细路径" paths={plan.backup_plan.backup_paths} empty="当前目标路径尚不存在，写入前会记录 missing path。" />
-              <BackupList title="写入前不存在" paths={plan.backup_plan.path_missing_before_write} empty="没有 missing path。" />
-              <div className="sync-kv-grid">
-                <div><span>备份提供方</span><strong>{plan.backup_plan.provider}</strong></div>
-                <div><span>固定策略</span><strong>{plan.backup_plan.pin_policy}</strong></div>
-                <div><span>计划令牌过期时间</span><strong>{formatDateTime(plan.plan_token_expires_at)}</strong></div>
-              </div>
-            </div>
-          ) : (
-            <EmptyState title="等待计划" description="备份范围来自后端 plan，不在前端拼接。" />
           )}
         </Panel>
       </section>
@@ -1005,6 +989,29 @@ function RunDetailBlock({
       ) : null}
       <IssueList title="Errors" items={detail.errors} tone="error" />
     </div>
+  );
+}
+
+function BackupPlanPreview({ plan }: { plan: SyncPlanResponse }) {
+  return (
+    <section className="sync-plan-backup-preview" aria-label="Kopia 备份范围">
+      <div className="sync-plan-backup-head">
+        <div>
+          <strong>Kopia 备份范围</strong>
+          <span>聚合快照 / 明细路径 / missing path</span>
+        </div>
+        <div className="sync-plan-backup-meta">
+          <Badge tone="muted">{plan.backup_plan.provider}</Badge>
+          <Badge tone="muted">{plan.backup_plan.pin_policy}</Badge>
+          <Badge tone="muted">令牌 {formatDateTime(plan.plan_token_expires_at)}</Badge>
+        </div>
+      </div>
+      <div className="sync-plan-backup-grid">
+        <BackupList title="本次将创建快照的聚合路径" paths={plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths} empty="当前没有需要创建快照的已存在路径。" />
+        <BackupList title="本次会写且写前已存在的明细路径" paths={plan.backup_plan.backup_paths} empty="当前目标路径尚不存在，写入前会记录 missing path。" />
+        <BackupList title="写入前不存在" paths={plan.backup_plan.path_missing_before_write} empty="没有 missing path。" />
+      </div>
+    </section>
   );
 }
 

@@ -104,7 +104,7 @@
 }
 
 .sync-center-grid-plan {
-  grid-template-columns: minmax(0, 1.3fr) minmax(320px, 0.7fr);
+  grid-template-columns: minmax(0, 1fr);
 }
 
 .sync-center-grid-run {
@@ -485,20 +485,30 @@
 
 .sync-stage-metric-row {
   display: grid;
-  grid-template-columns: minmax(110px, 0.45fr) minmax(0, 1fr);
-  gap: 8px;
+  grid-template-columns: minmax(0, 1fr) minmax(48px, auto);
+  align-items: start;
+  gap: 10px;
   border-top: 1px solid var(--border-default);
   padding-top: 7px;
 }
 
 .sync-stage-metric-row span {
+  min-width: 0;
   color: var(--text-hint);
+  font-family: var(--font-mono);
   font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .sync-stage-metric-row strong {
+  min-width: 0;
+  justify-self: end;
   color: var(--text-body);
   font-size: 12px;
+  line-height: 1.45;
+  text-align: right;
   overflow-wrap: anywhere;
 }
 
@@ -593,11 +603,66 @@
   max-width: 100%;
 }
 
+.sync-plan-backup-preview {
+  display: grid;
+  gap: 10px;
+  border: 1px solid var(--border-default);
+  border-radius: var(--r-md);
+  padding: 12px;
+  background: var(--neutral-1);
+}
+
+.sync-plan-backup-head {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sync-plan-backup-head > div:first-child {
+  display: grid;
+  gap: 3px;
+  min-width: 0;
+}
+
+.sync-plan-backup-head strong {
+  color: var(--text-title);
+  font-size: 14px;
+}
+
+.sync-plan-backup-head span {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.sync-plan-backup-meta {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  gap: 6px;
+}
+
+.sync-plan-backup-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
 .sync-backup-list {
   border: 1px solid var(--border-default);
   border-radius: var(--r-md);
   padding: 10px;
   background: var(--neutral-1);
+  min-width: 0;
+}
+
+.sync-backup-list code {
+  color: var(--text-body);
+  font-family: var(--font-mono);
+  font-size: 12px;
+  line-height: 1.45;
+  overflow-wrap: anywhere;
+  white-space: normal;
 }
 
 .sync-kv-grid {
@@ -694,8 +759,17 @@
   .sync-recommendation-summary,
   .sync-recommendation-toolbar,
   .sync-kv-grid,
+  .sync-plan-backup-grid,
   .sync-pipeline-grid {
     grid-template-columns: 1fr;
+  }
+
+  .sync-plan-backup-head {
+    display: grid;
+  }
+
+  .sync-plan-backup-meta {
+    justify-content: flex-start;
   }
 
   .sync-pipeline-head {
