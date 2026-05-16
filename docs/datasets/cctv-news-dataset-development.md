@@ -72,9 +72,10 @@
 "domain": {
     "domain_key": "news",
     "domain_display_name": "新闻资讯",
-    "cadence": "daily",
 }
 ```
+
+`freshness_policy`：`continuous_natural_day`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
 
 ### 3.3 `source`
 

@@ -48,9 +48,9 @@
 
 1. `src/foundation/datasets/models.py`
    - `DatasetDateModel` 当前包含 `date_axis/bucket_rule/window_mode/input_shape/observed_field/audit_applicable/not_applicable_reason`。
-   - `DatasetObservability` 当前包含 `progress_label/observed_field/audit_applicable`。
+   - `DatasetObservability` 当前包含 `progress_label/observed_field/audit_applicable/freshness_policy`。
 2. `src/ops/dataset_definition_projection.py`
-   - `build_dataset_freshness_projection()` 从 `DatasetDefinition` 投影出 `target_table/cadence/raw_table/observed_date_column`。
+   - `build_dataset_freshness_projection()` 从 `DatasetDefinition` 投影出 `target_table/raw_table/observed_date_column/freshness_policy`。
 3. `src/ops/queries/freshness_query_service.py`
    - `_expected_business_date_for_projection()` 当前按 `date_model.date_axis + bucket_rule` 推导应完成日期。
    - `_freshness_status_for_date_model()` 当前按 `date_model.bucket_rule` 推导 `fresh/lagging/stale/unknown`。
@@ -471,9 +471,9 @@ FRESHNESS_POLICY_BY_DATASET = {
 
 人话解释：
 
-`cadence` 是当前 `DatasetDefinition.domain.cadence` 里的“更新节奏标签”，例如 `daily`、`monthly`、`intraday`、`snapshot`、`low_frequency`。它现在还会出现在 dataset card、freshness item、snapshot 表和前端“更新频率”展示里。
+退场前，`cadence` 是 `DatasetDefinition.domain.cadence` 里的“更新节奏标签”，例如 `daily`、`monthly`、`intraday`、`snapshot`、`low_frequency`。它当时还会出现在 dataset card、freshness item、snapshot 表和前端“更新频率”展示里。
 
-“cadence 退场”的意思是：后续逐步删除这个抽象节奏标签，不再让页面或 freshness 判断依赖它。真正的判断应由 `date_model` 和本方案新增的 `freshness_policy` 承担。
+“cadence 退场”的意思是：删除这个抽象节奏标签，不再让页面或 freshness 判断依赖它。真正的判断由 `date_model` 和本方案新增的 `freshness_policy` 承担。
 
 执行要求：
 
@@ -544,7 +544,7 @@ FRESHNESS_POLICY_BY_DATASET = {
 
 ## 10. 验证清单
 
-后续实现时至少执行：
+验证时至少执行：
 
 1. `pytest -q tests/test_dataset_definition_registry.py`
 2. `pytest -q tests/web/test_ops_freshness_api.py`

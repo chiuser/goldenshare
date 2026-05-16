@@ -1,4 +1,4 @@
-# 上市公司基本信息（`stock_company`）数据集开发说明（待评审）
+# 上市公司基本信息（`stock_company`）数据集开发说明（已落地）
 
 ## 0. 架构基线与目标
 
@@ -102,9 +102,10 @@
 "domain": {
     "domain_key": "reference_data",
     "domain_display_name": "基础主数据",
-    "cadence": "snapshot",
 }
 ```
+
+`freshness_policy`：`snapshot_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
 
 ### 3.3 `source`
 

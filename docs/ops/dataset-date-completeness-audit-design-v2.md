@@ -5,7 +5,7 @@
 - 更新时间：2026-05-03
 - 适用范围：`src/ops` 审查中心的数据日期完整性审计能力
 - 前置事实源：`src/foundation/datasets/**` 的 `DatasetDefinition.date_model`
-- 替代文档：[数据集日期完整性审计设计 v1（历史稿）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)
+- 说明：前序 v1 历史稿已删除，当前以本文作为日期完整性审计唯一方案文档。
 - 相关基线：[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 
 ---
@@ -530,36 +530,51 @@ Tab：
 
 1. 本表来自当前 `DatasetDefinition`，用于评审，不是第二套规则源。
 2. 代码实现必须运行时读取 Definition，不得复制本表。
-3. 当前共 60 个数据集，49 个可审计，11 个不可审计。
+3. 当前共 70 个数据集，47 个可审计，23 个不可审计。
 
 | 组合 | 数量 |
 |---|---:|
-| `trade_open_day + every_open_day + trade_date` | 37 |
-| `trade_open_day + week_last_open_day + trade_date` | 1 |
-| `trade_open_day + month_last_open_day + trade_date` | 1 |
-| `natural_day + every_natural_day + ann_date` | 2 |
-| `natural_day + every_natural_day + date` | 1 |
-| `natural_day + every_natural_day + trade_date` | 1 |
-| `natural_day + week_friday + trade_date` | 2 |
-| `natural_day + month_last_calendar_day + trade_date` | 2 |
 | `month_key + every_natural_month + month` | 1 |
 | `month_window + month_window_has_data + trade_date` | 1 |
-| `trade_open_day + every_open_day + trade_time` | 1 |
-| `natural_day + not_applicable + pub_time` | 1 |
-| `none + not_applicable + -` | 8 |
-| `trade_open_day + every_open_day + trade_time`，不可审计 | 1 |
-| `none + not_applicable` | 8 |
+| `natural_day + every_natural_day + date` | 1 |
+| `natural_day + every_natural_day + trade_date` | 1 |
+| `natural_day + month_last_calendar_day + trade_date` | 2 |
+| `natural_day + not_applicable + ann_date`，不可审计 | 3 |
+| `natural_day + not_applicable + news_time`，不可审计 | 1 |
+| `natural_day + not_applicable + pub_time`，不可审计 | 3 |
+| `natural_day + not_applicable + trade_date`，不可审计 | 1 |
+| `natural_day + week_friday + trade_date` | 2 |
+| `none + not_applicable + -`，不可审计 | 12 |
+| `trade_open_day + every_open_day + trade_date` | 37 |
+| `trade_open_day + every_open_day + trade_date`，不可审计 | 1 |
+| `trade_open_day + every_open_day + trade_time`，不可审计 | 2 |
+| `trade_open_day + month_last_open_day + trade_date` | 1 |
+| `trade_open_day + week_last_open_day + trade_date` | 1 |
 
 不可审计数据集：
 
 | dataset_key | 数据集 | 原因 |
 |---|---|---|
+| `anns_d` | 上市公司公告 | 上市公司公告按公告日期和收录时间采集，不按连续交易日或连续自然日做完整性审计。 |
+| `block_trade` | 大宗交易 | 大宗交易是交易日事件数据，仍按交易日维护执行，但不要求每个交易日都有事件。 |
+| `bse_mapping` | 北交所新旧代码对照 | snapshot/master dataset |
+| `dividend` | 分红送股 | 分红送股是事件型低频披露，仍支持按公告日期区间维护，但不按连续自然日做 freshness/audit 判断。 |
 | `etf_basic` | ETF 基础信息 | snapshot/master dataset |
 | `etf_index` | ETF 跟踪指数 | snapshot/master dataset |
 | `hk_basic` | 港股基础信息 | snapshot/master dataset |
 | `index_basic` | 指数基础信息 | snapshot/master dataset |
+| `index_mins` | 指数历史分钟行情 | minute completeness audit requires trading-session and frequency rules |
+| `irm_qa_sh` | 上证E互动问答 | 上证E互动问答按问答发布时间采集，不按连续交易日或连续自然日做完整性审计。 |
+| `irm_qa_sz` | 深证互动易问答 | 深证互动易问答按问答发布时间采集，不按连续交易日或连续自然日做完整性审计。 |
+| `major_news` | 新闻通讯 | 新闻通讯按来源与发布时间采集，不保证每个自然日或每个来源都有数据。 |
+| `namechange` | 股票曾用名 | 股票曾用名是历史区间事实，维护时按源接口默认全集分页刷新，不按公告日或自然日扇出。 |
+| `news` | 新闻快讯 | 新闻快讯按来源和发布时间采集，不保证每个来源每天都有新闻。 |
+| `research_report` | 券商研究报告 | 券商研究报告按研报发布日采集，但不要求按连续自然日做完整性审计。 |
+| `st` | ST 风险警示事件 | ST 风险警示事件按源接口默认全集分页刷新，不按发布日期或实施日期扇出。 |
+| `stk_holdernumber` | 股东户数 | 股东户数是不定期披露数据，仍支持按公告日期区间维护，但不按连续自然日做 freshness/audit 判断。 |
 | `stk_mins` | 股票历史分钟行情 | minute completeness audit requires trading-session calendar |
 | `stock_basic` | 股票主数据 | snapshot/master dataset |
+| `stock_company` | 上市公司基本信息 | snapshot/master dataset |
 | `ths_index` | 同花顺板块列表 | snapshot/master dataset |
 | `ths_member` | 同花顺板块成分 | snapshot/master dataset |
 | `us_basic` | 美股基础信息 | snapshot/master dataset |
@@ -632,9 +647,9 @@ Tab：
 
 ## 12. 风险与门禁
 
-开发前门禁：
+当前门禁：
 
-1. Definition 全量投影测试：57 个数据集均能生成规则视图。
+1. Definition 全量投影测试：当前 70 个数据集均能生成规则视图。
 2. `audit_applicable=true` 必须有 observed field。
 3. `audit_applicable=false` 必须有 not applicable reason。
 4. 目标表和 observed field 必须可解析。
@@ -656,8 +671,8 @@ Tab：
 
 | Milestone | 目标 | 产物 | 验收 |
 |---|---|---|---|
-| M0 | 方案评审定稿 | 本文档状态从待评审改为可开发 | 独立模型、不复用 TaskRun 的口径确认 |
-| M1 | 规则投影 | Rule service + `/rules` schema | 57 个 Definition 全覆盖 |
+| M0 | 方案评审定稿 | 本文档状态进入可开发 | 独立模型、不复用 TaskRun 的口径确认 |
+| M1 | 规则投影 | Rule service + `/rules` schema | 当前 70 个 Definition 全覆盖 |
 | M2 | 核心审计引擎 | Expected planner、actual reader、gap detector | 所有 date model 组合有单测 |
 | M3 | 独立审计表 | run/gap ORM + Alembic | 不依赖 TaskRun，不写 freshness |
 | M4 | 手动审计 API | 创建 run、查询 run/gap | 不适用数据集返回 422，API 不接受前端传规则字段 |
@@ -675,7 +690,7 @@ Tab：
 
 ---
 
-## 14. 待评审决策点
+## 14. 决策点
 
 ### 14.1 已确认决策
 
@@ -685,7 +700,7 @@ Tab：
 4. 第一版创建 `ops.dataset_date_completeness_schedule`，它就是自动审计配置表。
 5. 第一版使用默认交易所口径；表结构保留 `calendar_scope/calendar_exchange`，为未来港股或自定义交易所留扩展口。
 
-### 14.2 剩余待评审
+### 14.2 剩余待确认
 
 1. 自动审计默认推荐窗口：例如交易日数据默认 `lookback_count=10, lookback_unit=open_day`，月度数据默认 `lookback_count=6, lookback_unit=month`。
 2. 审计详情页是否默认展开全部缺口区间，还是只展示摘要并按需展开。

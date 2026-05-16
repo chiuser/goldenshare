@@ -331,7 +331,7 @@
 3. `docs/datasets/equity-weekly-monthly-sync-logic.md`
 4. `docs/ops/dataset-date-completeness-audit-design-v2.md`
 5. `docs/ops/ops-date-model-freshness-alignment-plan-v1.md`
-6. `docs/architecture/dataset-definition-fact-audit-matrix-v1.md`
+6. `docs/architecture/dataset-definition-enum-reference-v1.md`
 
 同步原则：
 

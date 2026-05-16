@@ -207,8 +207,7 @@ GET /api/v1/ops/data-asset-cards?source_key=biz_tableset
 | `delivery_mode_label` | `业务派生表` |
 | `delivery_mode_tone` | `info` |
 | `layer_plan` | `biz_tableset` |
-| `cadence` | `derived` |
-| `cadence_display_name` | `业务派生` |
+| `freshness_policy` | `continuous_open_day`，由服务端按 Biz 表状态策略设置；不返回 `cadence` |
 | `raw_table/raw_table_label` | `null`；前端展示应使用 `target_table` |
 | `target_table` | 真实表名 |
 | `latest_business_date` | 最新可用业务日期 |

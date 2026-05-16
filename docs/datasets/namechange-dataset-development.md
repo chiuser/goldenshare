@@ -91,9 +91,10 @@
 "domain": {
     "domain_key": "reference_data",
     "domain_display_name": "基础主数据",
-    "cadence": "daily",
 }
 ```
+
+`freshness_policy`：`snapshot_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
 
 ### 3.3 `source`
 

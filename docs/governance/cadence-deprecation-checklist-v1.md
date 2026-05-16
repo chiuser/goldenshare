@@ -8,40 +8,40 @@
 
 ## 1. 背景
 
-当前代码中，`cadence` 仍作为一个“数据更新节奏标签”在多条 Ops 观测链路中流转，但它已经不再适合作为核心事实字段：
+退场前，`cadence` 曾作为一个“数据更新节奏标签”在多条 Ops 观测链路中流转，但它并不适合作为核心事实字段：
 
 1. 对用户价值很低。用户真正关心的是维护对象、时间口径、最近同步到哪一天、是否滞后，而不是“每日 / 快照 / 低频”这类抽象节奏标签。
 2. 与 `date_model` 职责重叠。真正决定 freshness、expected business date、审计适用性的，应该是 `date_model`，不是 `cadence`。
 3. 语义容易误导。`low_frequency` 这类取值既不稳定，也容易和“事件型数据”“快照主数据”混在一起。
-4. 当前仍存在旧依赖残留，导致它不是一个可直接忽略的字段。
+4. 退场前存在旧依赖残留，导致它不能只在文档里标记弃用，必须从代码、API、前端和 snapshot 链路中清干净。
 
-本清单的目标是：为彻底退场 `cadence` 提供一份明确的实施顺序与门禁清单。
+本清单的目标是：记录 `cadence` 彻底退场的实施顺序、完成口径与回归门禁。
 
 2026-05-16 决策更新：
 
 1. `cadence` 没有继续保留价值。
 2. `cadence` 退场不再作为长期悬挂事项。
 3. 实施并入 [Ops Freshness Policy 显式映射方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)。
-4. 最终目标是当前生产代码、API、前端和测试中清理干净，不再保留业务逻辑依赖。
+4. 当前生产代码、API、前端和测试中已清理干净，不再保留业务逻辑依赖。
 
 ---
 
-## 2. 当前传播链
+## 2. 历史传播链（已清理）
 
 ### 2.1 定义层
 
-`cadence` 当前定义在：
+`cadence` 退场前定义在：
 
 - [src/foundation/datasets/models.py](/Users/congming/github/goldenshare/src/foundation/datasets/models.py)
 
-当前表现：
+历史表现：
 
 1. `DatasetDomain` 包含 `cadence`
 2. `cadence_display_name` 由该字段派生
 
 ### 2.2 Ops 投影与读模型
 
-当前传播到：
+退场前传播到：
 
 - [src/ops/dataset_definition_projection.py](/Users/congming/github/goldenshare/src/ops/dataset_definition_projection.py)
 - [src/ops/queries/dataset_card_query_service.py](/Users/congming/github/goldenshare/src/ops/queries/dataset_card_query_service.py)
@@ -49,7 +49,7 @@
 - [src/ops/services/operations_dataset_status_snapshot_service.py](/Users/congming/github/goldenshare/src/ops/services/operations_dataset_status_snapshot_service.py)
 - [src/ops/models/ops/dataset_status_snapshot.py](/Users/congming/github/goldenshare/src/ops/models/ops/dataset_status_snapshot.py)
 
-当前表现：
+历史表现：
 
 1. `DatasetFreshnessProjection` 持有 `cadence`
 2. `DatasetCardFact` / `DatasetCardItem` 持有 `cadence` 与 `cadence_display_name`
@@ -58,17 +58,17 @@
 
 ### 2.3 前端消费
 
-当前直接用户可见的消费点：
+退场前直接用户可见的消费点：
 
 - [frontend/src/pages/ops-v21-source-page.tsx](/Users/congming/github/goldenshare/frontend/src/pages/ops-v21-source-page.tsx)
 
-当前表现：
+历史表现：
 
 1. 数据源页展示“更新频率：每日 / 快照 / 低频 / 盘中”
 
 ### 2.4 逻辑依赖
 
-当前仍存在的逻辑依赖：
+退场前存在的逻辑依赖：
 
 1. freshness snapshot 与 live projection 会检查 `cadence` 是否一致；不一致时触发 live refresh。
 2. freshness 仍保留基于 `cadence` 的兜底状态判断和 expected business date 兜底逻辑。
@@ -76,7 +76,7 @@
 
 结论：
 
-`cadence` 已经不是执行主链依赖，但仍是 Ops 观测链中的残留事实字段。
+`cadence` 当时已经不是执行主链依赖，但仍是 Ops 观测链中的残留事实字段。当前实现已完成清理，现行业务判断依赖 `DatasetDefinition.date_model`、集中 `freshness_policy`、真实业务表观测与 TaskRun 运行事实。
 
 ---
 
@@ -92,9 +92,9 @@
 
 ---
 
-## 4. 非目标
+## 4. 实施边界
 
-本次不做的事：
+实施时明确不做的事：
 
 1. 不在当前 5 个新数据集集成过程中顺手推进 `cadence` 退场。
 2. 不为了保留 `cadence` 再新增新表、新镜像字段或新兼容层。
@@ -144,7 +144,7 @@
 替代规则：
 
 1. 有 `date_model` 的数据集，只认 `date_model`。
-2. `bucket_rule=not_applicable` 的数据集继续返回 `unknown` 或“仅最近任务迹象”，不伪造业务日期状态。
+2. 事件型和快照型数据集通过 `freshness_policy=event_run_trace/snapshot_run_trace` 判断最近成功维护结果；没有成功维护事实时返回 `unconfirmed`，不伪造业务日期状态。
 3. 不再保留 `cadence` fallback 分支。
 
 门禁：
@@ -209,11 +209,11 @@
 
 ## 7. 推进时机
 
-当前拍板：
+执行结论：
 
 1. 纳入 Freshness Policy 显式映射主线同步实施。
 2. 不再作为后续 P1 悬挂事项。
-3. 实施时先完成 policy 显式映射，再删除 cadence 字段与展示。
+3. 已先完成 policy 显式映射，再删除 cadence 字段与展示。
 
 因此本清单当前状态是：
 
@@ -228,4 +228,4 @@
 - [工程风险登记簿](/Users/congming/github/goldenshare/docs/governance/engineering-risk-register.md)
 - [Ops 当前契约（统一版）](/Users/congming/github/goldenshare/docs/ops/ops-contract-current.md)
 - [Ops 数据集展示目录配置方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
-- [Ops 新鲜度按 Date Model 收口方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
+- [Ops Freshness Policy 显式映射方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)

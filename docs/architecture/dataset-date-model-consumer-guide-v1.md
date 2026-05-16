@@ -579,4 +579,3 @@ pytest -q tests/test_ops_action_catalog.py tests/test_ops_freshness_snapshot_que
 2. [股票周/月线自然锚点日期模型修正方案 v1](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
 3. [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md)
 4. [数据集日期完整性审计设计 v2](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
-5. [数据集日期完整性审计设计 v1（审查中心，历史草案）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v1.md)

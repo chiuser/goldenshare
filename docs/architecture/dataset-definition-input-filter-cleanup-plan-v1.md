@@ -5,7 +5,7 @@
 - 范围：`daily`、`adj_factor`、`cyq_perf`、`fund_daily`、`index_daily`、`index_daily_basic`
 - 关联基线：
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
-  - [DatasetDefinition 事实审计矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-fact-audit-matrix-v1.md)
+  - [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md)
   - [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
   - [Tushare 全量数据集请求执行口径 v1](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)
 
@@ -122,7 +122,7 @@
 
 代码完成后，同步修正文档口径：
 
-1. [DatasetDefinition 事实审计矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-fact-audit-matrix-v1.md)
+1. [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md)
 2. [手动维护动作模型收敛方案 v2](/Users/congming/github/goldenshare/docs/ops/ops-manual-action-model-alignment-plan-v2.md)
 3. [Ops 运营后台 API 全量说明 v1](/Users/congming/github/goldenshare/docs/ops/ops-api-reference-v1.md)
 4. [Tushare 全量数据集请求执行口径 v1](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)

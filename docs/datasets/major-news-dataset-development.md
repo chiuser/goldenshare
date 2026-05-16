@@ -95,9 +95,10 @@
 "domain": {
     "domain_key": "news",
     "domain_display_name": "新闻资讯",
-    "cadence": "intraday",
 }
 ```
+
+`freshness_policy`：`event_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
 
 说明：新闻通讯按发布时间连续更新，但不保证每个来源每天都有数据。
 

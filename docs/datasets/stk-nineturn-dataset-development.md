@@ -90,7 +90,7 @@
   - `dataset_key`: `stk_nineturn`
   - `display_name`: `神奇九转指标`
   - `domain`: `股票`
-  - `cadence`: `daily`
+  - `freshness_policy`: `continuous_open_day`，在 `src/foundation/datasets/freshness_policies.py` 集中登记
   - `observed_date_column`: `trade_date`
 
 ## 8. 测试清单

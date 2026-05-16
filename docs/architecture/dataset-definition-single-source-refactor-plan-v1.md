@@ -7,11 +7,11 @@
 
 ---
 
-## 0. 当前落地状态（2026-04-26）
+## 0. 当前落地状态（2026-05-16）
 
 1. `src/foundation/datasets/models.py` 与 `registry.py` 已建立 DatasetDefinition 主模型与查询入口。
-2. `src/foundation/datasets/definitions/**` 已按领域落下 57 个数据集的静态事实；`registry.py` 不再运行时遍历旧 contract 生成 DatasetDefinition。
-3. [DatasetDefinition 事实审计矩阵 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-fact-audit-matrix-v1.md) 已记录当前 57 个数据集的身份、领域、来源 API、日期模型、输入字段、枚举、多选、写入目标和规划事实。
+2. `src/foundation/datasets/definitions/**` 已按领域落下当前 70 个数据集的静态事实；`registry.py` 不再运行时遍历旧 contract 生成 DatasetDefinition。
+3. [DatasetDefinition 枚举语义参考 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-enum-reference-v1.md) 维护当前枚举语义与统计口径；完整数据集清单以 `src/foundation/datasets/registry.py::list_dataset_definitions()` 和测试为准，不再维护手工事实矩阵。
 4. `dc_index`、`dc_daily`、`dc_member` 的 `idx_type` 已收口为东方财富板块类型枚举：`行业板块 / 概念板块 / 地域板块`。
 5. 执行静态事实已随 Definition 收口：source request builder、planning page_limit/unit builder、transaction policy 不再由旧 contract 持有。
 6. 新增用户可见的数据集身份、中文名、日期模型、输入能力，应优先收敛到 DatasetDefinition，不再从旧任务规格、旧执行契约或前端 formatter 反推。
@@ -55,7 +55,7 @@ M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在
 
 | 信息 | 当前位置 | 问题 |
 |---|---|---|
-| 中文名、领域、cadence | 旧 ops 规格注册表中的 freshness metadata | foundation 数据集事实被 ops 反向补全 |
+| 中文名、底层领域、freshness policy | 旧 ops 规格注册表中的 freshness metadata | foundation 数据集事实被 ops 反向补全 |
 | 可调度/可手动运行能力 | 旧任务规格中的 schedule/manual flag | 执行路径和用户能力混在一起 |
 | 参数展示名与枚举 | 旧任务规格中的参数定义 | 与旧执行契约 input schema 重叠 |
 | 手动维护动作 | `ManualActionQueryService` 从旧任务规格拼装 | action 是由旧执行路径反推出来的 |
@@ -65,7 +65,7 @@ M0 前它还不是完整的 `DatasetDefinition`，因为以下信息仍分散在
 
 ### 3.2 M0 前旧任务规格膨胀
 
-M0 前 57 个数据集对应 141 个旧任务规格，旧规格统计明细已随历史文档下线。
+M0 前旧数据集与旧任务规格统计明细已随历史文档下线。
 
 这说明旧任务规格已经不只是“任务规格”，而是在表达“数据集 + 时间模式 + 执行切片方式 + 调度能力 + UI 展示名”。这是维护成本和 UI 心智混乱的主要来源。
 
@@ -153,7 +153,7 @@ src/
 4. `ops/actions` 表达用户动作和后端解析，不再从旧执行路径反推 action。
 5. 版本号如 `v2` 只允许出现在迁移文档或历史归档中，不应出现在长期主目录名中。
 
-### 4.3 `DatasetDefinition` 字段草案
+### 4.3 `DatasetDefinition` 当前字段结构
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -164,9 +164,12 @@ class DatasetDefinition:
     date_model: DatasetDateModel
     input_model: DatasetInputModel
     storage: DatasetStorageDefinition
+    planning: DatasetPlanningDefinition
+    normalization: DatasetNormalizationDefinition
     capabilities: DatasetCapabilities
     observability: DatasetObservability
     quality: DatasetQualityPolicy
+    transaction: DatasetTransactionDefinition
 ```
 
 建议字段分组：
@@ -174,14 +177,17 @@ class DatasetDefinition:
 | 分组 | 主要字段 | 说明 |
 |---|---|---|
 | `identity` | `dataset_key`、`display_name`、`description`、`aliases` | 只表达数据集身份 |
-| `domain` | `domain_key`、`domain_display_name`、`cadence` | 替代旧 freshness metadata |
+| `domain` | `domain_key`、`domain_display_name` | 只表达底层领域事实，不表达页面分组或 freshness 策略 |
 | `source` | `source_key_default`、`adapter_key`、`api_name`、`source_fields`、`source_doc_id` | 对接源接口事实 |
 | `date_model` | 现有 `DatasetDateModel` | 日期语义唯一来源 |
 | `input_model` | 时间输入以外的过滤参数、枚举、默认值、校验规则 | 替代 ops 侧重复参数定义 |
 | `storage` | raw/core/serving 表、DAO 名、冲突键、写入路径 | 替代分散 target table 推断 |
+| `planning` | universe、fanout、pagination、unit builder | 表达请求拆分和 unit 规划 |
+| `normalization` | date/decimal/required fields、row transform | 表达行归一化规则 |
 | `capabilities` | 支持的 action、是否可手动、是否可自动、默认计划策略 | 表达“能做什么”，不表达“怎么走旧路径” |
-| `observability` | observed field、freshness 规则、审计适用性 | 生成 freshness/status 投影 |
+| `observability` | progress label、observed field、audit flag、freshness policy | 生成 freshness/status 投影；`freshness_policy` 由集中映射注入 |
 | `quality` | reject policy、必填字段、数据质量门禁 | 生成 validator/linter 规则 |
+| `transaction` | commit policy、幂等要求、写入量评估 | 表达业务数据事务边界 |
 
 ### 4.4 完整结构示例
 
@@ -190,150 +196,51 @@ class DatasetDefinition:
 当前口径：热榜美股市场默认关闭。仅当 env `TUSHARE_ENABLE_US_HOT_MARKETS=true` 时，`dc_hot` 追加 `美股市场`，`ths_hot` 追加 `美股` 到可选枚举和默认扇出。
 
 ```python
-DatasetDefinition(
-    identity=DatasetIdentity(
-        dataset_key="dc_hot",
-        display_name="东方财富热榜",
-        description="维护东方财富热榜数据，覆盖市场类型、热点类型和日终标记。",
-        aliases=("eastmoney_hot_rank",),
-    ),
-    domain=DatasetDomain(
-        domain_key="ranking",
-        domain_display_name="榜单",
-        cadence="daily",
-    ),
-    source=DatasetSourceDefinition(
-        source_key_default="tushare",
-        adapter_key="tushare",
-        api_name="dc_hot",
-        source_doc_id="tushare.dc_hot",
-        source_fields=(
-            "trade_date",
-            "data_type",
-            "ts_code",
-            "ts_name",
-            "rank",
-            "pct_change",
-            "current_price",
-            "rank_time",
-        ),
-    ),
-    date_model=DatasetDateModel(
-        date_axis="trade_open_day",
-        bucket_rule="every_open_day",
-        window_mode="point_or_range",
-        input_shape="trade_date_or_start_end",
-        observed_field="trade_date",
-        audit_applicable=True,
-    ),
-    input_model=DatasetInputModel(
-        time_fields=("trade_date", "start_date", "end_date"),
-        filters=(
-            DatasetInputField(
-                name="ts_code",
-                field_type="string",
-                required=False,
-                display_name="证券代码",
-            ),
-            DatasetInputField(
-                name="market",
-                field_type="enum",
-                required=False,
-                multi_value=True,
-                display_name="市场类型",
-                enum_values=("A股市场", "ETF基金", "港股市场"),
-                default_values=("A股市场", "ETF基金", "港股市场"),
-            ),
-            DatasetInputField(
-                name="hot_type",
-                field_type="enum",
-                required=False,
-                multi_value=True,
-                display_name="热点类型",
-                enum_values=("人气榜", "飙升榜"),
-                default_values=("人气榜", "飙升榜"),
-            ),
-            DatasetInputField(
-                name="is_new",
-                field_type="enum",
-                required=False,
-                multi_value=False,
-                display_name="最新标记",
-                enum_values=("Y", "N"),
-                default_values=("Y",),
-            ),
-        ),
-    ),
-    storage=DatasetStorageDefinition(
-        raw_table="raw_tushare.dc_hot",
-        core_table="core_serving.dc_hot",
-        target_table="core_serving.dc_hot",
-        raw_dao_name="raw_dc_hot",
-        core_dao_name="dc_hot",
-        conflict_columns=(
-            "trade_date",
-            "query_market",
-            "query_hot_type",
-            "query_is_new",
-            "ts_code",
-            "rank_time",
-        ),
-        write_path="raw_core_upsert",
-    ),
-    capabilities=DatasetCapabilities(
-        actions=(
-            DatasetActionCapability(
-                action="maintain",
-                manual_enabled=True,
-                schedule_enabled=True,
-                retry_enabled=True,
-                supported_time_modes=("point", "range"),
-                default_schedule_policy="trading_day_close",
-            ),
-        ),
-    ),
-    planning=DatasetPlanningDefinition(
-        anchor_policy="trade_date",
-        universe_policy="no_pool",
-        enum_fanout_fields=("market", "hot_type", "is_new"),
-        enum_fanout_defaults={
+{
+    "identity": {
+        "dataset_key": "dc_hot",
+        "display_name": "东方财富热榜",
+        "description": "维护东方财富热榜数据。",
+        "aliases": (),
+    },
+    "domain": {
+        "domain_key": "board_theme",
+        "domain_display_name": "板块 / 题材",
+    },
+    "date_model": {
+        "date_axis": "trade_open_day",
+        "bucket_rule": "every_open_day",
+        "window_mode": "point_or_range",
+        "input_shape": "trade_date_or_start_end",
+        "observed_field": "trade_date",
+        "audit_applicable": True,
+    },
+    "planning": {
+        "universe_policy": "none",
+        "enum_fanout_fields": ("market", "hot_type", "is_new"),
+        "enum_fanout_defaults": {
             "market": ("A股市场", "ETF基金", "港股市场"),
             "hot_type": ("人气榜", "飙升榜"),
             "is_new": ("Y",),
         },
-        pagination_policy="none",
-        page_limit=2000,
-    ),
-    normalization=DatasetNormalizationDefinition(
-        date_fields=("trade_date",),
-        decimal_fields=("pct_change", "current_price", "hot"),
-        required_fields=(
-            "trade_date",
-            "data_type",
-            "ts_code",
-            "rank_time",
-            "query_market",
-            "query_hot_type",
-            "query_is_new",
-        ),
-        row_transform="dc_hot_row_transform",
-    ),
-    observability=DatasetObservability(
-        progress_label="dc_hot",
-        freshness_observed_field="trade_date",
-        result_date_policy="max_observed_trade_date",
-        reject_reason_enabled=True,
-    ),
-    quality=DatasetQualityPolicy(
-        reject_policy="structured_reason",
-        required_unique_context=(
-            "query_market",
-            "query_hot_type",
-            "query_is_new",
-        ),
-    ),
-)
+        "pagination_policy": "offset_limit",
+        "page_limit": 5000,
+        "unit_builder_key": "generic",
+    },
+    "observability": {
+        "progress_label": "dc_hot",
+        "observed_field": "trade_date",
+        "audit_applicable": True,
+    },
+    "transaction": {
+        "commit_policy": "unit",
+        "idempotent_write_required": False,
+        "write_volume_assessment": "按交易日和枚举组合生成 unit，每个 unit 独立提交。",
+    },
+}
 ```
+
+补充：`freshness_policy="continuous_open_day"` 不写入 `DATASET_ROWS`，而是在 `src/foundation/datasets/freshness_policies.py` 集中登记，并由 builder 注入 `DatasetObservability`。
 
 这个示例有两个重点：
 
@@ -505,7 +412,7 @@ POST /api/v1/ops/datasets/{dataset_key}/actions/maintain/executions
 | 里程碑 | 目标 | 主要产物 | 门禁 |
 |---|---|---|---|
 | M0 设计冻结 | 冻结术语和边界 | 两份方案已标注当前落地状态与后续边界 | 不允许再新增旧三件套引用 |
-| M1 Definition 审计 | 建立事实审计矩阵 | 57 个数据集事实审计矩阵 | dataset key 覆盖当前 DatasetDefinition |
+| M1 Definition 审计 | 建立 registry 覆盖与枚举语义参考 | 当前 DatasetDefinition 覆盖测试与枚举语义参考 | dataset key 覆盖当前 DatasetDefinition |
 | M2 Definition 独立化 | DatasetDefinition 不再运行时投影旧 contract | `src/foundation/datasets/definitions/**`、独立 registry、输入字段枚举事实 | registry 不导入旧 contract；definition tests |
 | M3 Runtime 投影生成 | 从 definition 生成 runtime/freshness/action 投影 | `DatasetExecutionPlan`、Ops descriptor、freshness projection | 无重复元数据表 |
 | M4 Ops API 切换 | API 不再输出旧执行路径 | manual-actions、task-runs、catalog/schedule 结构化展示字段 | Web API 测试 |

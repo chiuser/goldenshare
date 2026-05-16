@@ -157,9 +157,10 @@ V1 日期请求口径按你的建议设计：
 "domain": {
     "domain_key": "equity_market",
     "domain_display_name": "股票行情",
-    "cadence": "daily",
 }
 ```
+
+`freshness_policy`：`event_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
 
 原因：本数据集与“券商月度金股推荐”同属券商研究类运营对象。注意：底层 domain 只表达系统领域归属；Ops 用户可见分组仍固定到“券商推荐”。
 

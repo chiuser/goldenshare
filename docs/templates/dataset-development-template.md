@@ -86,7 +86,7 @@
 | workflow | step 时间模式、默认参数、日期制度 |  |  |  |
 | resolver / unit planner | `date_model`、`planning`、`input_shape` |  |  |  |
 | request builder | 源接口字段映射、日期格式化 |  |  |  |
-| freshness | `observed_field`、`date_axis`、`bucket_rule` |  |  |  |
+| freshness | `observed_field`、`date_axis`、`bucket_rule`、集中 freshness policy 映射 |  |  |  |
 | dataset cards | 卡片状态、最近同步、raw 表与目标表静态事实 |  |  |  |
 | snapshot rebuild | `dataset_status_snapshot` freshness 缓存 |  |  |  |
 | date completeness audit | `audit_applicable`、`bucket_rule`、`not_applicable_reason` |  |  |  |
@@ -229,13 +229,13 @@
 "domain": {
     "domain_key": "",
     "domain_display_name": "",
-    "cadence": "daily",
 }
 ```
 
 - `domain_key`：
 - `domain_display_name`：
-- `cadence`：`daily` / `weekly` / `monthly` / `intraday` / `low_frequency` / `snapshot` / `on_demand`
+- 注意：`domain` 只表达底层领域事实，不再包含更新节奏或 freshness 判断字段。
+- 注意：freshness policy 不写入 `DATASET_ROWS.domain`。新增数据集必须在 `src/foundation/datasets/freshness_policies.py` 的 `FRESHNESS_POLICY_BY_DATASET` 中显式登记，否则 registry 测试应失败。
 
 ### 4.3 `source`
 
@@ -487,6 +487,7 @@
 
 - `observability.progress_label`：
 - `observability.observed_field` 必须与 `date_model.observed_field` 保持一致。
+- `observability.freshness_policy` 由 definition builder 从 `src/foundation/datasets/freshness_policies.py` 注入，开发文档必须说明本数据集归属哪一种 policy，但不要在 `DATASET_ROWS` 中重复保存。
 - `quality.required_fields` 必须覆盖不能缺失的业务主键和日期字段。
 - `transaction.commit_policy` 当前必须为 `unit`。
 - `transaction.write_volume_assessment` 必须写人话，说明单事务写入量如何被控制。

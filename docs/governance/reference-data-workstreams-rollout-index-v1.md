@@ -1,6 +1,6 @@
 # 基础数据工作流与数据集三线推进索引 v1
 
-状态：已完成（`st` 已收口为 no-time snapshot，并入 `reference_data_refresh`；自然日 workflow 方案归档）
+状态：已完成（`st` 已收口为 no-time snapshot，并入 `reference_data_refresh`；自然日 workflow 旧方案已删除）
 最后更新：2026-05-06
 目标：把当前三组并行但不能混写的任务拆开，并给出推荐推进顺序。
 
@@ -21,7 +21,7 @@
 对应文档：
 
 1. [Workflow 时间形状与时间制度分析 v1](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
-2. [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
+2. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 
 说明：
 
@@ -108,7 +108,7 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 产物：
 
 1. `workflow-time-shape-vs-time-regime-analysis-v1.md`
-2. `ops-workflow-reference-data-natural-day-maintenance-development-v1.md`
+2. `ops-workflow-catalog-v1.md`
 
 目标：
 
@@ -304,5 +304,5 @@ workflow step 的目标对象必须是真实存在、可执行、可测的数据
 ## 6. 关联文档
 
 1. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
-2. [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)
+2. [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 3. [Workflow 时间形状与时间制度分析 v1](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)

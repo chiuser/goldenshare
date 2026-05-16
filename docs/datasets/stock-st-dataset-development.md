@@ -91,7 +91,7 @@
   - `dataset_key`: `stock_st`
   - `display_name`: `ST股票列表`
   - `domain`: `股票`
-  - `cadence`: `daily`
+  - `freshness_policy`: `continuous_open_day`，在 `src/foundation/datasets/freshness_policies.py` 集中登记
   - `observed_date_column`: `trade_date`
 
 ### 6.1 工作流接入

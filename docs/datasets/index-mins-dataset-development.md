@@ -1,6 +1,6 @@
 # 指数历史分钟行情（index_mins）数据集开发说明
 
-文档状态：待评审
+文档状态：已落地
 适用数据集：`index_mins`
 源接口：Tushare `idx_mins`
 源接口文档：[/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0419_股票历史分钟行情.md](/Users/congming/github/goldenshare/docs/sources/tushare/指数专题/0419_股票历史分钟行情.md)
@@ -111,7 +111,7 @@
 | 固定源站事实 | 0419 源站文档、真实请求验证表 | 已完成 |
 | 三张硬检查表 | 0.3.0、0.3.1、0.3.2 | 已填写 |
 | 源站文档 | `docs/sources/tushare/指数专题/0419_股票历史分钟行情.md` | 已存在 |
-| 数据集开发文档 | 本文档 | 待评审 |
+| 数据集开发文档 | 本文档 | 已落地 |
 | ORM / DAO / Alembic | `raw_tushare.index_mins` 物理表 | 已实现并通过定向门禁 |
 | DatasetDefinition | `src/foundation/datasets/definitions/index_series.py` | 已实现并通过定向门禁 |
 | ingestion 能力 | unit builder、request builder、row transform、writer | 已实现并通过定向门禁 |
@@ -221,9 +221,10 @@
 "domain": {
     "domain_key": "index_fund",
     "domain_display_name": "指数 / ETF",
-    "cadence": "intraday",
 }
 ```
+
+`freshness_policy`：`continuous_open_day`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
 
 说明：
 

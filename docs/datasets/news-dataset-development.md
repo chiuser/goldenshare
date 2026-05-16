@@ -111,11 +111,12 @@
 "domain": {
     "domain_key": "news",
     "domain_display_name": "新闻资讯",
-    "cadence": "intraday",
 }
 ```
 
-说明：新闻快讯是日内持续更新数据，cadence 使用 `intraday`。
+`freshness_policy`：`event_run_trace`，在 `src/foundation/datasets/freshness_policies.py` 集中登记，不写入 `domain`。
+
+说明：新闻快讯是日内持续更新数据，但 freshness 不再依赖抽象更新节奏标签，而是按最近成功维护记录确认运行状态。
 
 ### 3.3 `source`
 
