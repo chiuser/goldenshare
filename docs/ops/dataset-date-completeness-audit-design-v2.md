@@ -38,6 +38,8 @@
 3. 缺哪些日期桶，缺口能否压缩成区间。
 4. 审计结论是通过、不通过，还是审计执行错误。
 
+本期能力的检查粒度是“日期桶”。例如 `adj_factor` 会判断 `core.equity_adj_factor` 在某个交易日是否存在数据，但不会判断每个 `ts_code` 在该交易日是否都有一行。证券、指数、板块等对象维度的矩阵完整性属于后续专项能力，不能用本期 `passed` 结论替代。
+
 审计 run 结论只允许三类；不适用数据集不创建 run，只在规则列表展示原因：
 
 | 结论 | 含义 |
@@ -54,6 +56,7 @@
 4. 不做分钟级完整性审计。`stk_mins` 第一版保持不可审计。
 5. 不协调同步任务与审计任务之间的并发关系。
 6. 不复用 TaskRun，不改数据维护执行链路。
+7. 不做证券 / 指数 / 板块等对象维度的逐对象完整性审计。
 
 ---
 
@@ -149,11 +152,13 @@ flowchart LR
 | 候选桶 | `bucket_rule` 生成的自然周五/自然月末 | 不直接进入结果 |
 | 应检查桶 | 候选桶通过 `bucket_applicability_rule` 后得到的 expected bucket | 参与缺失判断 |
 | 规则排除桶 | 候选桶对应窗口内没有开市日 | 不算缺失，需要在详情中展示排除原因 |
+| 非预期实际桶 | 目标表实际存在、但不属于应检查桶的日期桶 | 不影响本期 passed/failed，但必须在页面中提示，避免误读 |
 
 展示建议：
 
 ```text
-应检查 835 / 已覆盖 835 / 缺失 0 / 规则排除 17
+应检查日期桶 835 / 实际日期桶 836 / 缺失日期桶 0 / 规则排除 17
+存在 1 个非预期日期桶
 ```
 
 约束：
@@ -207,7 +212,7 @@ flowchart LR
 | `bucket_applicability_rule` | varchar(64) | 日期桶可产出规则快照 |
 | `row_identity_filters_json` | json | 目标表行级归属过滤条件快照 |
 | `expected_bucket_count` | int | 期望桶数量 |
-| `actual_bucket_count` | int | 实际桶数量 |
+| `actual_bucket_count` | int | 实际桶数量；可能大于 `expected_bucket_count`，表示目标表存在非预期日期桶 |
 | `missing_bucket_count` | int | 缺失桶数量 |
 | `excluded_bucket_count` | int | 规则排除桶数量 |
 | `gap_range_count` | int | 压缩后的缺口区间数量 |
@@ -228,6 +233,7 @@ flowchart LR
 2. `result_status=passed` 时 `missing_bucket_count=0`。
 3. `result_status=failed` 时 `missing_bucket_count>0`。
 4. `start_date <= end_date`。
+5. `actual_bucket_count > expected_bucket_count` 时，页面必须提示“存在非预期日期桶”；本期不因额外日期桶改变 `result_status`。
 
 ### 4.2 表：`ops.dataset_date_completeness_gap`
 
@@ -516,11 +522,12 @@ Tab：
 
 1. 页面只表达日期完整性，不混入 freshness。
 2. 结果用“通过 / 不通过 / 执行错误”；不适用只在规则列表展示，不进入审计记录。
-3. 重点展示审计范围、应检查日期数、实际日期数、缺失日期数、缺失区间。
-4. 不展示 TaskRun 信息，不跳转任务详情页。
-5. 不适用数据集展示原因，不展示创建按钮。
-6. 若存在规则排除桶，应弱化展示“规则排除 N 个”，详情说明例如“该自然周内无开市日，不应产出周线数据”。
-7. 审计数据集列表展示“数据时间范围”列，直接消费 `GET /rules` 的 `data_range.label`。
+3. 重点展示审计范围、应检查日期桶数、实际日期桶数、缺失日期桶数、缺失区间。
+4. 当实际日期桶数大于应检查日期桶数时，页面必须提示存在非预期日期桶，避免运营把 `passed` 误读为全表无异常。
+5. 不展示 TaskRun 信息，不跳转任务详情页。
+6. 不适用数据集展示原因，不展示创建按钮。
+7. 若存在规则排除桶，应弱化展示“规则排除 N 个”，详情说明例如“该自然周内无开市日，不应产出周线数据”。
+8. 审计数据集列表展示“数据时间范围”列，直接消费 `GET /rules` 的 `data_range.label`。
 
 ---
 

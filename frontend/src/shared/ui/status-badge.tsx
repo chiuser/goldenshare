@@ -19,6 +19,7 @@ const toneMap: Record<string, ToneConfig> = {
   running: { scale: "info", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   canceling: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   success: { scale: "success", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
+  succeeded: { scale: "success", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   failed: { scale: "error", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   canceled: { scale: "neutral", backgroundIndex: 1, textIndex: 7, borderIndex: 3 },
   partial_success: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },

@@ -132,7 +132,7 @@ function mockApi() {
             bucket_window_rule: "iso_week",
             bucket_applicability_rule: "requires_open_trade_day_in_bucket",
             expected_bucket_count: 2,
-            actual_bucket_count: 2,
+            actual_bucket_count: 3,
             missing_bucket_count: 0,
             excluded_bucket_count: 1,
             gap_range_count: 0,
@@ -283,8 +283,11 @@ describe("数据集审计页", () => {
     renderPage();
 
     fireEvent.click(await screen.findByRole("tab", { name: /审计记录/ }));
+    expect(await screen.findByText("已完成")).toBeInTheDocument();
+    expect(await screen.findByText("存在 1 个非预期日期桶")).toBeInTheDocument();
     fireEvent.click(await screen.findByRole("button", { name: "查看详情" }));
 
+    expect(await screen.findByText("发现非预期日期桶")).toBeInTheDocument();
     expect((await screen.findAllByText("规则排除")).length).toBeGreaterThanOrEqual(2);
     expect(await screen.findByText("2026/01/30")).toBeInTheDocument();
     expect(await screen.findByText("2026/01/26 至 2026/02/01")).toBeInTheDocument();

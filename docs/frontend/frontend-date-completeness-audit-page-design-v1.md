@@ -13,6 +13,8 @@
 
 页面只回答一件事：指定数据集在指定日期范围内是否存在缺失日期桶。
 
+注意：本页第一期能力只检查“日期桶”。例如某个交易日目标表里有任意数据，就代表该日期桶已覆盖；它不检查每个证券、指数或板块在该日期是否都有对应行。对象维度完整性是后续专项能力，不能把本页“通过”理解成逐对象无缺行。
+
 用户要能快速完成：
 
 1. 看哪些数据集支持日期完整性审计。
@@ -194,7 +196,7 @@ DataTable
 | 审计对象 | 数据集名和 key |
 | 审计范围 | start/end |
 | 结论 | 状态 badge |
-| 期望 / 实际 / 缺失 | 数字摘要 |
+| 应检查日期桶 / 实际日期桶 / 缺失日期桶 / 规则排除 | 数字摘要；当实际日期桶大于应检查日期桶时，提示存在非预期日期桶 |
 | 缺口区间 | gap range count |
 | 运行时间 | started/finished |
 | 发起方式 | 手动 / 自动 |
@@ -202,10 +204,11 @@ DataTable
 
 详情 Drawer：
 
-1. 顶部摘要：结论、审计范围、缺失数量。
+1. 顶部摘要：结论、审计范围、缺失日期桶数量。
 2. 规则快照：date axis、bucket rule、observed field。
-3. 缺口区间表：range start、range end、missing count。
-4. 技术诊断：仅 `result_status=error` 时展示。
+3. 非预期日期桶提示：当 `actual_bucket_count > expected_bucket_count` 时展示提示，说明当前通过结论只代表应检查日期桶未缺失。
+4. 缺口区间表：range start、range end、missing count。
+5. 技术诊断：仅 `result_status=error` 时展示。
 
 ---
 

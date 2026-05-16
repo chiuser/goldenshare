@@ -67,6 +67,10 @@ function runModeLabel(value: string): string {
   return value === "scheduled" ? "自动" : "手动";
 }
 
+function unexpectedBucketCount(item: Pick<DateCompletenessRunItem, "actual_bucket_count" | "expected_bucket_count">): number {
+  return Math.max(item.actual_bucket_count - item.expected_bucket_count, 0);
+}
+
 export function OpsV21DatasetAuditPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<AuditTab>("datasets");
@@ -158,7 +162,7 @@ export function OpsV21DatasetAuditPage() {
     <Stack gap="lg">
       <PageHeader
         title="数据集审计"
-        description="检查数据集在指定日期范围内是否存在缺失日期桶；审计结果独立于任务中心和数据新鲜度。"
+        description="检查数据集在指定日期范围内是否存在缺失日期桶；当前不检查单个证券或对象在某个日期是否缺行。"
       />
 
       <SimpleGrid cols={{ base: 1, sm: 2, lg: 4 }}>
@@ -276,7 +280,7 @@ export function OpsV21DatasetAuditPage() {
         </Tabs.Panel>
 
         <Tabs.Panel value="runs" pt="lg">
-          <SectionCard title="审计记录" description="只读取独立日期完整性审计表，不混用任务中心记录。">
+          <SectionCard title="审计记录" description="只读取独立日期桶完整性审计表，不混用任务中心记录。">
             <TableShell
               loading={runsQuery.isLoading}
               hasData={(runsQuery.data?.items || []).length > 0}
@@ -290,31 +294,43 @@ export function OpsV21DatasetAuditPage() {
                     <OpsTableHeaderCell>范围</OpsTableHeaderCell>
                     <OpsTableHeaderCell>运行状态</OpsTableHeaderCell>
                     <OpsTableHeaderCell>结论</OpsTableHeaderCell>
-                    <OpsTableHeaderCell>应检查 / 实际 / 缺失 / 规则排除</OpsTableHeaderCell>
+                    <OpsTableHeaderCell>应检查日期桶 / 实际日期桶 / 缺失日期桶 / 规则排除</OpsTableHeaderCell>
                     <OpsTableHeaderCell>发起方式</OpsTableHeaderCell>
                     <OpsTableHeaderCell>操作</OpsTableHeaderCell>
                   </Table.Tr>
                 </Table.Thead>
                 <Table.Tbody>
-                  {(runsQuery.data?.items || []).map((item) => (
-                    <Table.Tr key={item.id}>
-                      <OpsTableCell>
-                        <Stack gap={2}>
-                          <Text fw={600}>{item.display_name}</Text>
-                        </Stack>
-                      </OpsTableCell>
-                      <OpsTableCell>{formatDateLabel(item.start_date)} 至 {formatDateLabel(item.end_date)}</OpsTableCell>
-                      <OpsTableCell><StatusBadge value={item.run_status} /></OpsTableCell>
-                      <OpsTableCell><StatusBadge value={resultBadgeValue(item.result_status)} label={resultLabel(item.result_status)} /></OpsTableCell>
-                      <OpsTableCell>
-                        {item.expected_bucket_count} / {item.actual_bucket_count} / {item.missing_bucket_count} / {item.excluded_bucket_count}
-                      </OpsTableCell>
-                      <OpsTableCell>{runModeLabel(item.run_mode)}</OpsTableCell>
-                      <OpsTableCell>
-                        <Button size="xs" variant="light" onClick={() => setSelectedRun(item)}>查看详情</Button>
-                      </OpsTableCell>
-                    </Table.Tr>
-                  ))}
+                  {(runsQuery.data?.items || []).map((item) => {
+                    const unexpectedCount = unexpectedBucketCount(item);
+                    return (
+                      <Table.Tr key={item.id}>
+                        <OpsTableCell>
+                          <Stack gap={2}>
+                            <Text fw={600}>{item.display_name}</Text>
+                          </Stack>
+                        </OpsTableCell>
+                        <OpsTableCell>{formatDateLabel(item.start_date)} 至 {formatDateLabel(item.end_date)}</OpsTableCell>
+                        <OpsTableCell><StatusBadge value={item.run_status} /></OpsTableCell>
+                        <OpsTableCell><StatusBadge value={resultBadgeValue(item.result_status)} label={resultLabel(item.result_status)} /></OpsTableCell>
+                        <OpsTableCell>
+                          <Stack gap={2}>
+                            <Text size="sm">
+                              {item.expected_bucket_count} / {item.actual_bucket_count} / {item.missing_bucket_count} / {item.excluded_bucket_count}
+                            </Text>
+                            {unexpectedCount > 0 ? (
+                              <Text size="xs" c="warning">
+                                存在 {unexpectedCount} 个非预期日期桶
+                              </Text>
+                            ) : null}
+                          </Stack>
+                        </OpsTableCell>
+                        <OpsTableCell>{runModeLabel(item.run_mode)}</OpsTableCell>
+                        <OpsTableCell>
+                          <Button size="xs" variant="light" onClick={() => setSelectedRun(item)}>查看详情</Button>
+                        </OpsTableCell>
+                      </Table.Tr>
+                    );
+                  })}
                 </Table.Tbody>
               </OpsTable>
             </TableShell>
@@ -368,10 +384,15 @@ export function OpsV21DatasetAuditPage() {
           <Stack gap="md">
             <SimpleGrid cols={{ base: 1, sm: 4 }}>
               <StatCard label="结论" value={resultLabel(selectedRun.result_status)} />
-              <StatCard label="缺失桶" value={selectedRun.missing_bucket_count} />
+              <StatCard label="缺失日期桶" value={selectedRun.missing_bucket_count} />
               <StatCard label="缺口区间" value={selectedRun.gap_range_count} />
               <StatCard label="规则排除" value={selectedRun.excluded_bucket_count} />
             </SimpleGrid>
+            {unexpectedBucketCount(selectedRun) > 0 ? (
+              <Alert color="warning" title="发现非预期日期桶">
+                目标表中的实际日期桶数量大于应检查日期桶数量。当前结论只表示应检查日期桶未缺失，不代表不存在额外日期或证券级缺行。
+              </Alert>
+            ) : null}
             <SectionCard title="规则快照">
               <Stack gap={4}>
                 <Text size="sm">范围：{formatDateLabel(selectedRun.start_date)} 至 {formatDateLabel(selectedRun.end_date)}</Text>
@@ -389,11 +410,11 @@ export function OpsV21DatasetAuditPage() {
                 {selectedRun.technical_message}
               </Alert>
             ) : null}
-            <SectionCard title="缺口区间">
+            <SectionCard title="缺失日期桶区间">
               <TableShell
                 loading={gapsQuery.isLoading}
                 hasData={(gapsQuery.data?.items || []).length > 0}
-                emptyState={<EmptyState title="未发现缺口" description="当前审计范围内没有缺失日期桶。" />}
+                emptyState={<EmptyState title="未发现日期桶缺口" description="当前审计范围内没有缺失日期桶。" />}
                 minWidth={640}
               >
                 <OpsTable>

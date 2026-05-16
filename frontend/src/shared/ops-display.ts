@@ -3,6 +3,7 @@ const statusLabelMap: Record<string, string> = {
   running: "执行中",
   canceling: "停止中",
   success: "执行成功",
+  succeeded: "已完成",
   failed: "执行失败",
   canceled: "已取消",
   partial_success: "部分成功",
