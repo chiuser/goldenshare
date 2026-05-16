@@ -2231,8 +2231,8 @@ compute_max_unit_retries = 1</pre>
         <tr>
           <td>M1 执行壳模型</td>
           <td>实现配置模型、run / unit / candidate_part / publish manifest、input snapshot、全局写锁和错误模型。</td>
-          <td><code>lake_console/config.local.example.toml</code>、<code>manifest/duckdb_compute/runs/...</code></td>
-          <td>只读 plan 和 dry-run 能输出完整 compute unit 图；run 开始会记录 raw / adj_factor / identity map checksum；最终生效配置写入 ComputeRun；stale lock 只阻断，不自动释放。</td>
+          <td><code>lake_console/config.local.example.toml</code>、<code>plan-stk-mins-qfq</code>、<code>manifest/duckdb_compute/runs/...</code></td>
+          <td>M1-A 已落地只读 dry-run：可输出 <code>ComputeRun</code>、<code>ComputeUnit</code>、<code>PublishPartition</code>、input snapshot 与当前全局锁状态；不创建 candidate_part、不写 <code>_tmp/duckdb_compute</code>、不替换正式 Lake 数据。M1 后续再进入持锁运行与 manifest 持久化。</td>
         </tr>
         <tr>
           <td>M2 DuckDB compute 执行器</td>
