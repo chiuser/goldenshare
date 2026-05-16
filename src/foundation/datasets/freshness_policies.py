@@ -69,6 +69,8 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "news": EVENT_RUN_TRACE,
     "research_report": EVENT_RUN_TRACE,
     "st": SNAPSHOT_RUN_TRACE,
+    "stk_auction_c": CONTINUOUS_OPEN_DAY,
+    "stk_auction_o": CONTINUOUS_OPEN_DAY,
     "stk_factor_pro": CONTINUOUS_OPEN_DAY,
     "stk_holdernumber": EVENT_RUN_TRACE,
     "stk_limit": CONTINUOUS_OPEN_DAY,

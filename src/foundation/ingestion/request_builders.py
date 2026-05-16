@@ -46,6 +46,31 @@ def _stk_limit_params(request, anchor_date: date | None, enum_values: dict[str, 
     return params
 
 
+def _stk_auction_o_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return _stk_auction_params(request, anchor_date, enum_values, label="股票开盘集合竞价")
+
+
+def _stk_auction_c_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    return _stk_auction_params(request, anchor_date, enum_values, label="股票收盘集合竞价")
+
+
+def _stk_auction_params(
+    request,
+    anchor_date: date | None,
+    enum_values: dict[str, Any],
+    *,
+    label: str,
+) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    del enum_values
+    if anchor_date is None:
+        raise ValueError(f"{label}缺少日期锚点")
+    params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
+    ts_code = request.params.get("ts_code")
+    if ts_code not in (None, ""):
+        params["ts_code"] = str(ts_code).strip().upper()
+    return params
+
+
 def _stk_mins_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     del request
     del anchor_date
@@ -1024,6 +1049,8 @@ __all__ = [
     "ALL_MONEYFLOW_IND_DC_CONTENT_TYPES",
     "_trade_cal_params",
     "_stk_limit_params",
+    "_stk_auction_o_params",
+    "_stk_auction_c_params",
     "_stk_mins_params",
     "_idx_mins_params",
     "_daily_basic_params",

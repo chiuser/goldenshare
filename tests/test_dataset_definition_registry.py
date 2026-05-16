@@ -27,7 +27,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 70
+    assert len(definition_keys) == 72
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -59,6 +59,46 @@ def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
     assert definition.storage.conflict_columns is None
     assert definition.storage.raw_table == "raw_tushare.ths_daily"
     assert definition.storage.target_table == "core_serving.ths_daily"
+
+
+def test_dataset_definition_projects_stock_auction_facts() -> None:
+    open_definition = get_dataset_definition("stk_auction_o")
+    close_definition = get_dataset_definition("stk_auction_c")
+
+    assert open_definition.identity.display_name == "股票开盘集合竞价"
+    assert close_definition.identity.display_name == "股票收盘集合竞价"
+    for definition in (open_definition, close_definition):
+        assert definition.domain.domain_key == "equity_market"
+        assert definition.source.source_fields == (
+            "ts_code",
+            "trade_date",
+            "close",
+            "open",
+            "high",
+            "low",
+            "vol",
+            "amount",
+            "vwap",
+        )
+        assert definition.date_model.date_axis == "trade_open_day"
+        assert definition.date_model.bucket_rule == "every_open_day"
+        assert definition.date_model.input_shape == "trade_date_or_start_end"
+        assert definition.date_model.audit_applicable is True
+        assert definition.planning.universe_policy == "no_pool"
+        assert definition.planning.pagination_policy == "offset_limit"
+        assert definition.planning.page_limit == 10000
+        assert definition.planning.unit_builder_key == "generic"
+        assert definition.observability.freshness_policy == "continuous_open_day"
+        assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
+
+    assert open_definition.source.api_name == "stk_auction_o"
+    assert open_definition.source.request_builder_key == "_stk_auction_o_params"
+    assert open_definition.storage.raw_table == "raw_tushare.stk_auction_o"
+    assert open_definition.storage.target_table == "core_serving.equity_auction_open"
+    assert close_definition.source.api_name == "stk_auction_c"
+    assert close_definition.source.request_builder_key == "_stk_auction_c_params"
+    assert close_definition.storage.raw_table == "raw_tushare.stk_auction_c"
+    assert close_definition.storage.target_table == "core_serving.equity_auction_close"
 
 
 def test_us_hot_markets_are_disabled_by_default(tmp_path, monkeypatch) -> None:

@@ -181,7 +181,7 @@ class DatasetUnitPlanner:
         anchor: date | None,
     ) -> list[dict[str, Any]]:
         policy = definition.planning.universe_policy
-        if policy == "none":
+        if policy in {"none", "no_pool"}:
             return [{}]
         if policy == "index_active_codes":
             ts_code = str(request.params.get("ts_code") or "").strip().upper()

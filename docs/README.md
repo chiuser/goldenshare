@@ -143,6 +143,8 @@ docs/
 - [基金复权因子](/Users/congming/github/goldenshare/docs/datasets/fund-adj-dataset-development.md)
 - [融资融券交易汇总](/Users/congming/github/goldenshare/docs/datasets/margin-dataset-development.md)
 - [每日涨跌停价格](/Users/congming/github/goldenshare/docs/datasets/stk-limit-dataset-development.md)
+- [股票开盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-o-dataset-development.md)
+- [股票收盘集合竞价](/Users/congming/github/goldenshare/docs/datasets/stk-auction-c-dataset-development.md)
 - [神奇九转指标](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-dataset-development.md)
 - [神奇九转指标 Lake prod-raw-db 导出方案](/Users/congming/github/goldenshare/docs/datasets/stk-nineturn-prod-raw-db-lake-export-plan.md)
 - [股票历史分钟行情](/Users/congming/github/goldenshare/docs/datasets/stk-mins-dataset-development.md)

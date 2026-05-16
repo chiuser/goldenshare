@@ -52,6 +52,8 @@ from src.foundation.models.core.index_daily_bar import IndexDailyBar
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
+from src.foundation.models.core_serving.equity_auction_close import EquityAuctionClose
+from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen
 from src.foundation.models.core_multi.moneyflow_std import MoneyflowStd
 from src.foundation.models.core_multi.security_std import SecurityStd
 from src.foundation.models.core.kpl_concept_cons import KplConceptCons
@@ -113,6 +115,8 @@ from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
+from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
+from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
 from src.foundation.models.raw.raw_stk_nineturn import RawStkNineTurn
 from src.foundation.models.raw.raw_top_list import RawTopList
@@ -147,6 +151,8 @@ class DAOFactory:
         self.industry_moneyflow_ths = GenericDAO(session, IndustryMoneyflowThs)
         self.board_moneyflow_dc = GenericDAO(session, BoardMoneyflowDc)
         self.market_moneyflow_dc = GenericDAO(session, MarketMoneyflowDc)
+        self.equity_auction_open = GenericDAO(session, EquityAuctionOpen)
+        self.equity_auction_close = GenericDAO(session, EquityAuctionClose)
         self.equity_limit_list = GenericDAO(session, EquityLimitList)
         self.equity_margin = GenericDAO(session, EquityMargin)
         self.equity_factor_pro = GenericDAO(session, EquityFactorPro)
@@ -257,6 +263,8 @@ class DAOFactory:
         self.raw_suspend_d = GenericDAO(session, RawSuspendD)
         self.raw_stk_factor_pro = GenericDAO(session, RawStkFactorPro)
         self.raw_stk_mins = GenericDAO(session, RawStkMins)
+        self.raw_stk_auction_o = GenericDAO(session, RawStkAuctionO)
+        self.raw_stk_auction_c = GenericDAO(session, RawStkAuctionC)
         self.raw_stk_nineturn = GenericDAO(session, RawStkNineTurn)
         self.raw_ths_hot = GenericDAO(session, RawThsHot)
         self.raw_tushare_stock_basic = self.raw_stock_basic

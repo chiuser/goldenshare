@@ -78,6 +78,18 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert daily["freshness_policy"] == "continuous_open_day"
     assert daily["schedule_enabled"] is True
     assert [param["key"] for param in daily["parameters"]][:3] == ["trade_date", "start_date", "end_date"]
+
+    stk_auction_o = actions["stk_auction_o.maintain"]
+    assert stk_auction_o["target_display_name"] == "股票开盘集合竞价"
+    assert stk_auction_o["group_key"] == "equity_market"
+    assert stk_auction_o["group_label"] == "A股行情"
+    assert stk_auction_o["freshness_policy"] == "continuous_open_day"
+
+    stk_auction_c = actions["stk_auction_c.maintain"]
+    assert stk_auction_c["target_display_name"] == "股票收盘集合竞价"
+    assert stk_auction_c["group_key"] == "equity_market"
+    assert stk_auction_c["group_label"] == "A股行情"
+    assert stk_auction_c["freshness_policy"] == "continuous_open_day"
     assert [param["key"] for param in daily["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
 
     bse_mapping = actions["bse_mapping.maintain"]

@@ -15,6 +15,8 @@ from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core.equity_factor_pro import EquityFactorPro
+from src.foundation.models.core_serving.equity_auction_close import EquityAuctionClose
+from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen
 from src.foundation.models.core.equity_stk_limit import EquityStkLimit
 from src.foundation.models.core.equity_stock_st import EquityStockSt
 from src.foundation.models.core.equity_suspend_d import EquitySuspendD
@@ -30,6 +32,8 @@ from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
+from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
+from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
 from src.foundation.models.raw.raw_ths_daily import RawThsDaily
@@ -119,6 +123,25 @@ def test_board_dataset_models_match_expected_keys() -> None:
 def test_stk_limit_serving_model_matches_expected_keys() -> None:
     assert [column.name for column in EquityStkLimit.__table__.primary_key.columns] == ["ts_code", "trade_date"]
     assert {index.name for index in EquityStkLimit.__table__.indexes} == {"idx_equity_stk_limit_trade_date"}
+
+
+def test_stock_auction_models_match_expected_keys() -> None:
+    assert [column.name for column in RawStkAuctionO.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in RawStkAuctionC.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in EquityAuctionOpen.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert [column.name for column in EquityAuctionClose.__table__.primary_key.columns] == ["ts_code", "trade_date"]
+    assert {index.name for index in RawStkAuctionO.__table__.indexes} == {
+        "idx_raw_tushare_stk_auction_o_trade_date"
+    }
+    assert {index.name for index in RawStkAuctionC.__table__.indexes} == {
+        "idx_raw_tushare_stk_auction_c_trade_date"
+    }
+    assert {index.name for index in EquityAuctionOpen.__table__.indexes} == {
+        "idx_equity_auction_open_trade_date"
+    }
+    assert {index.name for index in EquityAuctionClose.__table__.indexes} == {
+        "idx_equity_auction_close_trade_date"
+    }
 
 
 def test_stock_st_serving_model_matches_expected_keys() -> None:

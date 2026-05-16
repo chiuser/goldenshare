@@ -6,6 +6,8 @@ Deprecated as global model loader:
 """
 
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.core_serving.equity_auction_close import EquityAuctionClose
+from src.foundation.models.core_serving.equity_auction_open import EquityAuctionOpen
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
 from src.foundation.models.core.equity_cyq_perf import EquityCyqPerf
 from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
@@ -131,6 +133,8 @@ from src.foundation.models.raw.raw_stock_st import RawStockSt
 from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_suspend_d import RawSuspendD
+from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
+from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
 from src.foundation.models.raw.raw_stk_period_bar import RawStkPeriodBar
 from src.foundation.models.raw.raw_stk_period_bar_adj import RawStkPeriodBarAdj
 from src.foundation.models.raw.raw_stk_limit import RawStkLimit
@@ -148,6 +152,8 @@ from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStoc
 
 __all__ = [
     "EquityAdjFactor",
+    "EquityAuctionClose",
+    "EquityAuctionOpen",
     "EquityBlockTrade",
     "EquityCyqPerf",
     "EquityDailyBar",
@@ -239,6 +245,8 @@ __all__ = [
     "RawResearchReport",
     "RawStockBasic",
     "RawStockSt",
+    "RawStkAuctionC",
+    "RawStkAuctionO",
     "RawStkFactorPro",
     "RawStkMins",
     "RawSuspendD",

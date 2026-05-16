@@ -391,9 +391,16 @@ def test_task_run_dispatcher_runs_daily_market_close_workflow_with_bak_basic_ste
 
     assert outcome.status == "success"
     assert "bak_basic" in dispatched_dataset_keys
-    assert dispatched_dataset_keys[3] == "bak_basic"
+    assert dispatched_dataset_keys[5] == "bak_basic"
     assert len(dispatched_dataset_keys) == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
-    assert [node.node_key for node in nodes][:4] == ["daily", "adj_factor", "daily_basic", "bak_basic"]
+    assert [node.node_key for node in nodes][:6] == [
+        "daily",
+        "stk_auction_o",
+        "stk_auction_c",
+        "adj_factor",
+        "daily_basic",
+        "bak_basic",
+    ]
     assert task_run.unit_total == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
     assert task_run.unit_done == len(WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"].steps)
     assert task_run.progress_percent == 100

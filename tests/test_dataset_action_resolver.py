@@ -540,6 +540,70 @@ def test_dataset_action_resolver_builds_bak_basic_range_plan_by_open_days(mocker
     assert {unit.page_limit for unit in plan.units} == {7000}
 
 
+@pytest.mark.parametrize(
+    ("dataset_key", "expected_api_params"),
+    (
+        ("stk_auction_o", {"trade_date": "20260424", "ts_code": "000001.SZ"}),
+        ("stk_auction_c", {"trade_date": "20260424", "ts_code": "000001.SZ"}),
+    ),
+)
+def test_dataset_action_resolver_builds_stock_auction_point_plan(
+    mocker,
+    dataset_key: str,
+    expected_api_params: dict[str, str],
+) -> None:
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key=dataset_key,
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.sz"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.time_scope.mode == "point"
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == expected_api_params
+    assert plan.units[0].pagination_policy == "offset_limit"
+    assert plan.units[0].page_limit == 10000
+
+
+@pytest.mark.parametrize("dataset_key", ("stk_auction_o", "stk_auction_c"))
+def test_dataset_action_resolver_builds_stock_auction_range_plan_by_open_days(mocker, dataset_key: str) -> None:
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=mocker.Mock(return_value=[date(2026, 4, 22), date(2026, 4, 23), date(2026, 4, 24)])
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key=dataset_key,
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 21), end_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.sz"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.time_scope.mode == "range"
+    assert plan.planning.unit_count == 3
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 22), date(2026, 4, 23), date(2026, 4, 24)]
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": "20260422", "ts_code": "000001.SZ"},
+        {"trade_date": "20260423", "ts_code": "000001.SZ"},
+        {"trade_date": "20260424", "ts_code": "000001.SZ"},
+    ]
+    assert all("start_date" not in unit.request_params for unit in plan.units)
+    assert all("end_date" not in unit.request_params for unit in plan.units)
+    fake_dao.trade_calendar.get_open_dates.assert_called_once_with("SSE", date(2026, 4, 21), date(2026, 4, 24))
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {10000}
+
+
 def test_dataset_action_resolver_builds_stock_company_default_exchange_fanout(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

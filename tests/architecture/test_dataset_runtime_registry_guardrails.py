@@ -38,6 +38,8 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "adj_factor",
         "daily_basic",
         "stk_limit",
+        "stk_auction_o",
+        "stk_auction_c",
         "stk_mins",
         "suspend_d",
         "cyq_perf",

@@ -134,6 +134,8 @@ def test_build_freshness_rebases_cached_snapshot_without_live_scanning(db_sessio
 
 def test_observed_model_registry_covers_equity_daily_business_date_tables() -> None:
     expected_tables = {
+        "core_serving.equity_auction_close",
+        "core_serving.equity_auction_open",
         "core_serving.equity_margin",
         "core_serving.equity_stk_limit",
         "core_serving.equity_stock_st",

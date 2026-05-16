@@ -155,6 +155,28 @@ def test_dataset_definition_source_fields_cover_extended_resources() -> None:
     assert "holder_num" in _source_fields("stk_holdernumber")
     assert "limit_times" in _source_fields("limit_list_d")
     assert tuple(_source_fields("stk_limit")) == ("trade_date", "ts_code", "pre_close", "up_limit", "down_limit")
+    assert tuple(_source_fields("stk_auction_o")) == (
+        "ts_code",
+        "trade_date",
+        "close",
+        "open",
+        "high",
+        "low",
+        "vol",
+        "amount",
+        "vwap",
+    )
+    assert tuple(_source_fields("stk_auction_c")) == (
+        "ts_code",
+        "trade_date",
+        "close",
+        "open",
+        "high",
+        "low",
+        "vol",
+        "amount",
+        "vwap",
+    )
     assert tuple(_source_fields("stock_st")) == ("ts_code", "name", "trade_date", "type", "type_name")
     assert tuple(_source_fields("suspend_d")) == ("ts_code", "trade_date", "suspend_timing", "suspend_type")
     assert tuple(_source_fields("stk_nineturn")) == (

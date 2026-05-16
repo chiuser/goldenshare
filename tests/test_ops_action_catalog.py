@@ -97,6 +97,8 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
     assert daily_market_close.workflow_profile == "point_incremental"
     assert [step.dataset_key for step in daily_market_close.steps] == [
         "daily",
+        "stk_auction_o",
+        "stk_auction_c",
         "adj_factor",
         "daily_basic",
         "bak_basic",
