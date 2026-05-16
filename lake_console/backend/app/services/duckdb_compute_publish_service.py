@@ -12,6 +12,7 @@ from lake_console.backend.app.services.downstream_rebuild_requirement_service im
 )
 from lake_console.backend.app.services.duckdb_compute_audit_service import EXPECTED_QFQ_CANDIDATE_COLUMNS, _read_manifest_rows
 from lake_console.backend.app.services.duckdb_compute_plan_service import _json_text, _relpath, _utc_now_iso, _write_json_atomic, _write_parquet_manifest
+from lake_console.backend.app.services.indicators import IndicatorRecalcQueueService
 from lake_console.backend.app.services.lake_job_state import LakeJobLockService, LakeJobStateStore
 from lake_console.backend.app.services.parquet_writer import replace_directory_atomically
 from lake_console.backend.app.services.stk_mins_clean_next_gate import (
@@ -702,6 +703,186 @@ class DuckDbComputePublishService:
             if lock_acquired is not None:
                 lock_service.release(run_id=run_id)
 
+    def stage_stk_mins_qfq_downstream_and_gate_passed(
+        self,
+        *,
+        run_id: str,
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
+        """Write downstream notifications, then mark formal gate passed.
+
+        M3-C-E is the first stage that releases downstream consumers. The order
+        is fixed: downstream requirement, indicator source event/queue, and only
+        then clean_next gate=passed.
+        """
+
+        manifest_root = self._manifest_root(run_id)
+        if not manifest_root.exists():
+            raise FileNotFoundError(f"未找到 DuckDB compute run manifest：{_relpath(manifest_root, self.lake_root)}")
+
+        store = LakeJobStateStore(self.lake_root)
+        lock_service = LakeJobLockService(store, stale_after_seconds=self.settings.compute_stale_heartbeat_seconds)
+        lock_acquired: dict[str, Any] | None = None
+        try:
+            lock_acquired = lock_service.acquire(run_id=run_id, profile_key="duckdb_compute_stk_mins_qfq")
+            _emit_progress(progress_callback, {"event": "downstream_notification_started", "run_id": run_id})
+
+            run_payload = _read_json(manifest_root / "run.json")
+            idempotent = self._maybe_return_m3c_e_idempotent(run_payload=run_payload, lock_acquired=lock_acquired)
+            if idempotent is not None:
+                return idempotent
+
+            plan_payload = self._read_gate_publish_plan(manifest_root=manifest_root, run_id=run_id)
+            preflight = self.preflight_stk_mins_qfq_publish(
+                run_id=run_id,
+                progress_callback=progress_callback,
+                allow_lock_run_id=run_id,
+                allowed_publish_statuses={"published"},
+                allowed_run_statuses={"publishing"},
+            )
+            blockers = []
+            if not preflight["ready"]:
+                blockers.extend(preflight["blockers"])
+            blockers.extend(self._validate_m3c_e_readiness(run_payload=run_payload, manifest_root=manifest_root))
+            blockers.extend(self._validate_formal_gate_is_publishing(plan_payload=plan_payload))
+            if blockers:
+                return {
+                    "operation": "stage_stk_mins_qfq_downstream_and_gate_passed",
+                    "stage": "m3c_e_downstream_and_gate_passed",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": False,
+                    "formal_paths_touched": [],
+                    "blockers": blockers,
+                    "message": "M3-C-E 未写 downstream/queue，未 gate passed；前置条件不满足。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            try:
+                downstream_requirements = DownstreamRebuildRequirementService(lake_root=self.lake_root).build_stk_mins_qfq_requirements(
+                    source_publish_id=run_id,
+                    publish_partitions=preflight["target_partitions"],
+                )
+                downstream_write = DownstreamRebuildRequirementService(lake_root=self.lake_root).upsert_requirements(
+                    requirements=downstream_requirements,
+                    run_id=run_id,
+                )
+                indicator_events = self._record_indicator_recalc_events(run_id=run_id, partitions=preflight["target_partitions"])
+            except Exception as exc:
+                failed_payload = {
+                    **run_payload,
+                    "status": "publishing",
+                    "m3c_e_downstream_and_gate_passed": {
+                        "status": "failed",
+                        "finished_at": _utc_now_iso(),
+                        "gate_passed": False,
+                    },
+                    "error": {
+                        "error_code": "LC_COMPUTE_DOWNSTREAM_NOTIFICATION_FAILED",
+                        "stage": "downstream_notification",
+                        "message_for_human": "下游重建通知或指标重算队列写入失败；clean_next gate 保持 publishing，下游仍被阻断。",
+                        "technical_detail": str(exc),
+                    },
+                }
+                _write_json_atomic(manifest_root / "run.json", failed_payload)
+                _append_publish_event(
+                    manifest_root / "events.jsonl",
+                    {
+                        "event_type": "downstream_notification_failed",
+                        "level": "error",
+                        "message": "M3-C-E 下游通知失败；未 gate passed。",
+                        "error": str(exc),
+                    },
+                )
+                raise
+
+            gate_statuses = [_gate_passed_status_from_plan_row(row) for row in plan_payload["gate_rows"]]
+            try:
+                gate_write = CleanNextPartitionGateService(lake_root=self.lake_root).write_statuses(gate_statuses, run_id=run_id)
+            except Exception as exc:
+                gate_failed_payload = {
+                    **_read_json(manifest_root / "run.json"),
+                    "status": "publishing",
+                    "m3c_e_downstream_and_gate_passed": {
+                        "status": "failed",
+                        "finished_at": _utc_now_iso(),
+                        "gate_passed": False,
+                    },
+                    "error": {
+                        "error_code": "LC_COMPUTE_FINAL_GATE_FAILED",
+                        "stage": "final_gate_passed",
+                        "message_for_human": "下游通知已写入，但 final gate passed 写入失败；clean_next gate 仍应保持 publishing，下游仍被阻断。",
+                        "technical_detail": str(exc),
+                    },
+                }
+                _write_json_atomic(manifest_root / "run.json", gate_failed_payload)
+                _append_publish_event(
+                    manifest_root / "events.jsonl",
+                    {
+                        "event_type": "final_gate_passed_failed",
+                        "level": "error",
+                        "message": "M3-C-E final gate passed 写入失败；下游通知已写入但 gate 未放行。",
+                        "error": str(exc),
+                    },
+                )
+                raise
+            final_payload = {
+                **_read_json(manifest_root / "run.json"),
+                "status": "published",
+                "m3c_e_downstream_and_gate_passed": {
+                    "status": "success",
+                    "finished_at": _utc_now_iso(),
+                    "downstream_requirement_file": _relpath(self.lake_root / DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH, self.lake_root),
+                    "downstream_requirement_count": len(downstream_requirements),
+                    "indicator_event_count": len(indicator_events),
+                    "indicator_event_written_count": len([item for item in indicator_events if item.get("event_written")]),
+                    "updated_gate_partitions": gate_write["updated_partitions"],
+                    "gate_passed": True,
+                },
+                "finished_at": _utc_now_iso(),
+                "error": None,
+            }
+            _write_json_atomic(manifest_root / "run.json", final_payload)
+            _append_publish_event(
+                manifest_root / "events.jsonl",
+                {
+                    "event_type": "downstream_notified_and_gate_passed",
+                    "level": "info",
+                    "message": "M3-C-E 已写 downstream requirement 和 indicator queue，随后把 clean_next gate 标记为 passed。",
+                    "metrics": {
+                        "downstream_requirement_count": len(downstream_requirements),
+                        "indicator_event_count": len(indicator_events),
+                        "updated_gate_partitions": gate_write["updated_partitions"],
+                    },
+                },
+            )
+            lock_service.heartbeat(run_id=run_id)
+            return {
+                "operation": "stage_stk_mins_qfq_downstream_and_gate_passed",
+                "stage": "m3c_e_downstream_and_gate_passed",
+                "run_id": run_id,
+                "status": "published",
+                "ready": True,
+                "write_intent": True,
+                "formal_paths_touched": [
+                    _relpath(self.lake_root / DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH, self.lake_root),
+                    "manifest/source_partition_events/stk_mins.jsonl",
+                    "manifest/indicator_recalc_queue/stk_mins_macd.parquet",
+                    _relpath(self.lake_root / CLEAN_NEXT_GATE_RELATIVE_PATH, self.lake_root),
+                ],
+                "downstream_write": downstream_write,
+                "indicator_events": indicator_events,
+                "gate_write": gate_write,
+                "message": "M3-C-E 下游通知和 final gate passed 已完成；publisher 全链路可以进入 tmp 小样本验证。",
+                "lock_acquired": lock_acquired,
+                "lock_after": None,
+            }
+        finally:
+            if lock_acquired is not None:
+                lock_service.release(run_id=run_id)
+
     def _validate_run_payload(
         self,
         *,
@@ -1056,6 +1237,74 @@ class DuckDbComputePublishService:
             )
         return blockers
 
+    def _maybe_return_m3c_e_idempotent(
+        self,
+        *,
+        run_payload: dict[str, Any],
+        lock_acquired: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        state = run_payload.get("m3c_e_downstream_and_gate_passed") or {}
+        if state.get("status") != "success" or run_payload.get("status") != "published":
+            return None
+        return {
+            "operation": "stage_stk_mins_qfq_downstream_and_gate_passed",
+            "stage": "m3c_e_downstream_and_gate_passed",
+            "run_id": run_payload.get("run_id"),
+            "status": "published",
+            "ready": True,
+            "idempotent": True,
+            "write_intent": False,
+            "formal_paths_touched": [],
+            "metrics": {
+                "downstream_requirement_count": int(state.get("downstream_requirement_count") or 0),
+                "indicator_event_count": int(state.get("indicator_event_count") or 0),
+                "updated_gate_partitions": int(state.get("updated_gate_partitions") or 0),
+            },
+            "message": "M3-C-E 已完成，本次未重复写 downstream、queue 或 gate。",
+            "lock_acquired": lock_acquired,
+            "lock_after": None,
+        }
+
+    def _validate_m3c_e_readiness(self, *, run_payload: dict[str, Any], manifest_root: Path) -> list[dict[str, Any]]:
+        blockers: list[dict[str, Any]] = []
+        formal_state = run_payload.get("m3c_d_formal_publish") or {}
+        if run_payload.get("status") != "publishing":
+            blockers.append(
+                {
+                    "code": "run_not_waiting_for_downstream_publish",
+                    "message": "M3-C-E 必须在 M3-C-D 成功后、run 仍停在 publishing 时执行。",
+                    "actual": run_payload.get("status"),
+                }
+            )
+        if formal_state.get("status") != "success":
+            blockers.append(
+                {
+                    "code": "m3c_d_formal_publish_missing",
+                    "message": "run.json 中缺少成功的 M3-C-D formal publish 状态。",
+                    "actual": formal_state,
+                }
+            )
+        ledger_path = manifest_root / FORMAL_AUDIT_LEDGER_FILENAME
+        if not ledger_path.exists():
+            blockers.append(
+                {
+                    "code": "formal_audit_ledger_missing",
+                    "message": "缺少 formal_audit_ledger.parquet，不能 final gate passed。",
+                    "path": _relpath(ledger_path, self.lake_root),
+                }
+            )
+        else:
+            issue_rows = _read_manifest_rows(ledger_path)
+            if issue_rows:
+                blockers.append(
+                    {
+                        "code": "formal_audit_has_open_issues",
+                        "message": "formal audit ledger 仍有问题，不能 final gate passed。",
+                        "actual": {"issue_count": len(issue_rows)},
+                    }
+                )
+        return blockers
+
     def _validate_formal_gate_is_publishing(self, *, plan_payload: dict[str, Any]) -> list[dict[str, Any]]:
         blockers: list[dict[str, Any]] = []
         current_gate_by_key = {
@@ -1094,6 +1343,30 @@ class DuckDbComputePublishService:
                     }
                 )
         return blockers
+
+    def _record_indicator_recalc_events(self, *, run_id: str, partitions: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        service = IndicatorRecalcQueueService(lake_root=self.lake_root)
+        results: list[dict[str, Any]] = []
+        for partition in partitions:
+            parsed = _parse_partition_key(str(partition["partition_key"]))
+            metadata = _partition_metadata(_resolve_lake_path(self.lake_root, str(partition["target_path"])))
+            result = service.record_source_partition_replaced(
+                layer="research/stk_mins_by_date_clean_next",
+                freq=int(parsed["freq"]),
+                trade_date=parsed["trade_date"],
+                run_id=run_id,
+                written_rows=int(metadata["row_count"]),
+            )
+            results.append(
+                {
+                    "partition_key": partition["partition_key"],
+                    "event_id": result["event"]["event_id"],
+                    "event_written": bool(result.get("event_written")),
+                    "queue_id": result["queue_item"]["queue_id"],
+                    "queue_status": result["queue_item"]["status"],
+                }
+            )
+        return results
 
     def _replace_formal_partition_from_candidate(self, *, run_id: str, partition: dict[str, Any]) -> dict[str, Any]:
         partition_key = str(partition["partition_key"])
@@ -1347,6 +1620,23 @@ def _gate_status_from_plan_row(row: dict[str, Any]) -> CleanNextGateStatus:
         clean_rows=int(row.get("clean_rows") or 0),
         ledger_path=str(row.get("ledger_path") or ""),
         message=str(row.get("message") or "publishing"),
+    )
+
+
+def _gate_passed_status_from_plan_row(row: dict[str, Any]) -> CleanNextGateStatus:
+    return CleanNextGateStatus(
+        freq=int(row["freq"]),
+        trade_date=date.fromisoformat(str(row["trade_date"])),
+        clean_partition_path=str(row["clean_partition_path"]),
+        source_run_id=str(row["source_run_id"]),
+        clean_run_id=str(row["clean_run_id"]),
+        write_revision=str(row["write_revision"]),
+        status="passed",
+        issue_count=0,
+        raw_rows=int(row.get("raw_rows") or 0),
+        clean_rows=int(row.get("clean_rows") or 0),
+        ledger_path=str(row.get("ledger_path") or ""),
+        message="M3-C-E 下游重建通知与指标重算队列已写入，正式 clean_next 分区允许下游消费。",
     )
 
 

@@ -6,6 +6,9 @@ from datetime import date, datetime, timezone
 from pathlib import Path
 from typing import Any, Mapping
 
+from lake_console.backend.app.services.parquet_writer import read_parquet_rows, replace_file_atomically, write_rows_to_parquet
+from lake_console.backend.app.services.tmp_cleanup_service import TmpCleanupService
+
 
 DOWNSTREAM_REBUILD_REQUIREMENT_SCHEMA_VERSION = 1
 DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH = Path("manifest") / "downstream_rebuild_requirements" / "stk_mins.parquet"
@@ -43,6 +46,44 @@ class DownstreamRebuildRequirementService:
     @property
     def requirement_file(self) -> Path:
         return self.lake_root / DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH
+
+    def upsert_requirements(self, *, requirements: list[Mapping[str, Any]], run_id: str) -> dict[str, Any]:
+        if not requirements:
+            return {
+                "run_id": run_id,
+                "path": str(self.requirement_file),
+                "upserted_requirements": 0,
+                "written_rows": len(self._read_rows()),
+            }
+
+        now = datetime.now(timezone.utc)
+        existing_by_id = {str(row["requirement_id"]): row for row in self._read_rows()}
+        upserted = 0
+        for requirement in requirements:
+            normalized = _normalize_requirement_row(requirement)
+            requirement_id = str(normalized["requirement_id"])
+            existing = existing_by_id.get(requirement_id)
+            if existing:
+                normalized["created_at"] = existing["created_at"]
+                normalized["status"] = existing["status"]
+                normalized["finished_at"] = existing["finished_at"]
+                normalized["error_message"] = existing["error_message"]
+                normalized["updated_at"] = now
+            existing_by_id[requirement_id] = normalized
+            upserted += 1
+
+        rows = sorted(existing_by_id.values(), key=lambda row: str(row["requirement_id"]))
+        tmp_file = self.lake_root / "_tmp" / run_id / DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH
+        backup_root = self.lake_root / "_tmp" / run_id / "_backup" / DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH.parent
+        written = write_rows_to_parquet(rows, tmp_file)
+        replace_file_atomically(tmp_file=tmp_file, final_file=self.requirement_file, backup_root=backup_root)
+        TmpCleanupService(self.lake_root).cleanup_run_if_empty(run_id)
+        return {
+            "run_id": run_id,
+            "path": str(self.requirement_file),
+            "upserted_requirements": upserted,
+            "written_rows": written,
+        }
 
     def build_stk_mins_qfq_requirements(
         self,
@@ -143,6 +184,11 @@ class DownstreamRebuildRequirementService:
             "error_message": None,
         }
 
+    def _read_rows(self) -> list[dict[str, Any]]:
+        if not self.requirement_file.exists():
+            return []
+        return [_normalize_requirement_row(row) for row in read_parquet_rows(self.requirement_file)]
+
 
 def _scope_from_publish_partitions(publish_partitions: list[Mapping[str, Any]]) -> dict[str, Any]:
     if not publish_partitions:
@@ -202,3 +248,50 @@ def _requirement_id(
     }
     digest = hashlib.sha256(json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")).hexdigest()
     return f"dsr_{digest[:24]}"
+
+
+def _normalize_requirement_row(row: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        "requirement_schema_version": DOWNSTREAM_REBUILD_REQUIREMENT_SCHEMA_VERSION,
+        "requirement_id": str(row["requirement_id"]),
+        "source_layer": str(row["source_layer"]),
+        "source_publish_id": str(row["source_publish_id"]),
+        "target_layer": str(row["target_layer"]),
+        "target_task": str(row["target_task"]),
+        "scope_type": str(row["scope_type"]),
+        "freqs": str(row["freqs"]),
+        "start_date": _parse_date(row["start_date"]),
+        "end_date": _parse_date(row["end_date"]),
+        "status": str(row["status"]),
+        "reason_code": str(row["reason_code"]),
+        "human_message": str(row["human_message"]),
+        "created_at": _parse_datetime(row["created_at"]),
+        "updated_at": _parse_datetime(row["updated_at"]),
+        "finished_at": None if _is_empty(row.get("finished_at")) else _parse_datetime(row["finished_at"]),
+        "error_message": None if _is_empty(row.get("error_message")) else str(row["error_message"]),
+    }
+
+
+def _parse_date(value: Any) -> date:
+    if isinstance(value, date) and not isinstance(value, datetime):
+        return value
+    if isinstance(value, datetime):
+        return value.date()
+    return date.fromisoformat(str(value))
+
+
+def _parse_datetime(value: Any) -> datetime:
+    if isinstance(value, datetime):
+        return value
+    if hasattr(value, "to_pydatetime"):
+        return value.to_pydatetime()
+    return datetime.fromisoformat(str(value).replace("T", " "))
+
+
+def _is_empty(value: Any) -> bool:
+    if value is None:
+        return True
+    try:
+        return bool(value != value)
+    except TypeError:
+        return False

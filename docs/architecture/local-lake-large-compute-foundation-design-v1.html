@@ -1727,6 +1727,22 @@ qfq baseline 发布后至少写入：
       不写 <code>gate=passed</code>。formal audit 失败时，gate 保持 <code>publishing</code>，
       下游继续被阻断，并把失败原因写入 formal audit ledger。
     </div>
+    <div class="warning">
+      <strong>M3-C-E 落地边界：</strong>
+      本阶段实现 publisher 内部的“下游通知 + final gate passed”步骤：
+      只有当 M3-C-D 已成功、<code>publish_partitions.parquet</code> 全部为 <code>published</code>、
+      <code>formal_audit_ledger.parquet</code> 为空，且目标 formal gate 仍是同一 run / revision 的
+      <code>publishing</code> 时，才允许执行。
+      顺序必须固定为：先 upsert
+      <code>manifest/downstream_rebuild_requirements/stk_mins.parquet</code>，
+      再写 <code>manifest/source_partition_events/stk_mins.jsonl</code> 与
+      <code>manifest/indicator_recalc_queue/stk_mins_macd.parquet</code>，
+      最后才把 <code>clean_next_partition_gate.parquet</code> 从 <code>publishing</code> 更新为
+      <code>passed</code>。如果 downstream 或 indicator queue 任一步失败，gate 必须继续保持
+      <code>publishing</code>，下游不得消费。
+      downstream requirement 按 <code>requirement_id</code> upsert，indicator source event 按
+      <code>event_id</code> 去重，避免重复执行污染账本或队列。
+    </div>
   </section>
 
   <section class="card">
@@ -2292,7 +2308,7 @@ compute_max_unit_retries = 1</pre>
           <td>M3 single writer</td>
           <td>实现 candidate_part 汇总、审计、Kopia 写前备份和两类发布接口。</td>
           <td>publish partition + audit ledger。</td>
-          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。M3-B 已落地 Kopia 写前备份：只写 <code>prewrite_backup.json</code> 与 Lake job backup record，snapshot 聚合到正式 clean_next 根路径和 <code>manifest</code> 根路径，不进入 formal publishing。M3-C-A 落地正式发布前只读预检：校验 <code>run.json</code>、<code>prewrite_backup.json</code>、<code>publish_partitions.parquet</code>、candidate 文件、目标正式路径、当前 gate 状态和 downstream requirement 计划；命令为 <code>preflight-stk-mins-qfq-publish --run-id ...</code>，不替换正式分区、不写 formal gate、不写 downstream requirement、不写 indicator queue。M3-C-B 已落地持锁生成 gate publishing 计划：命令为 <code>prepare-stk-mins-qfq-gate-publish-plan --run-id ...</code>，只写 run-local <code>gate_publish_plan.json</code> 与 <code>run.json</code> 阶段状态，不写正式 <code>clean_next_partition_gate.parquet</code>，不替换正式分区。M3-C-C 已落地 publisher 内部正式 gate publishing 步骤：持锁读取 <code>gate_publish_plan.json</code>，写正式 <code>clean_next_partition_gate.parquet</code> 为 <code>publishing</code> 并推进 <code>publish_partitions.parquet</code> 状态；仍不替换正式分区、不写 downstream、不写 <code>gate=passed</code>。M3-C-D 已落地 publisher 内部正式分区原子替换与 formal audit：只允许在同 run 的 gate 已经是 <code>publishing</code> 后执行，把 candidate_part 通过 <code>replace_directory_atomically</code> 替换到正式 clean_next 分区，写 <code>formal_audit_ledger.parquet</code>，并把 <code>publish_partitions.parquet</code> 推进到 <code>published</code>；仍不写 downstream、不写 queue、不写 <code>gate=passed</code>。</td>
+          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。M3-B 已落地 Kopia 写前备份：只写 <code>prewrite_backup.json</code> 与 Lake job backup record，snapshot 聚合到正式 clean_next 根路径和 <code>manifest</code> 根路径，不进入 formal publishing。M3-C-A 落地正式发布前只读预检：校验 <code>run.json</code>、<code>prewrite_backup.json</code>、<code>publish_partitions.parquet</code>、candidate 文件、目标正式路径、当前 gate 状态和 downstream requirement 计划；命令为 <code>preflight-stk-mins-qfq-publish --run-id ...</code>，不替换正式分区、不写 formal gate、不写 downstream requirement、不写 indicator queue。M3-C-B 已落地持锁生成 gate publishing 计划：命令为 <code>prepare-stk-mins-qfq-gate-publish-plan --run-id ...</code>，只写 run-local <code>gate_publish_plan.json</code> 与 <code>run.json</code> 阶段状态，不写正式 <code>clean_next_partition_gate.parquet</code>，不替换正式分区。M3-C-C 已落地 publisher 内部正式 gate publishing 步骤：持锁读取 <code>gate_publish_plan.json</code>，写正式 <code>clean_next_partition_gate.parquet</code> 为 <code>publishing</code> 并推进 <code>publish_partitions.parquet</code> 状态；仍不替换正式分区、不写 downstream、不写 <code>gate=passed</code>。M3-C-D 已落地 publisher 内部正式分区原子替换与 formal audit：只允许在同 run 的 gate 已经是 <code>publishing</code> 后执行，把 candidate_part 通过 <code>replace_directory_atomically</code> 替换到正式 clean_next 分区，写 <code>formal_audit_ledger.parquet</code>，并把 <code>publish_partitions.parquet</code> 推进到 <code>published</code>；仍不写 downstream、不写 queue、不写 <code>gate=passed</code>。M3-C-E 已落地 publisher 内部下游通知与 final gate passed：要求 M3-C-D 成功且 formal audit 为空，先 upsert downstream requirement，再写 indicator source event / queue，最后才把 gate 改为 <code>passed</code>；queue 失败时 gate 保持 <code>publishing</code>，重复执行不会重复污染 event/queue。</td>
         </tr>
         <tr>
           <td>M4 qfq 接入</td>

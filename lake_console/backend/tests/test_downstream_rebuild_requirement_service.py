@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import pandas as pd
+
 from lake_console.backend.app.services.downstream_rebuild_requirement_service import DownstreamRebuildRequirementService
 
 
@@ -37,3 +39,20 @@ def test_build_stk_mins_qfq_requirements_skips_derived_when_no_derived_source_fr
         "indicator/*",
     ]
     assert {row["freqs"] for row in requirements} == {"1"}
+
+
+def test_upsert_requirements_is_idempotent_by_requirement_id(tmp_path) -> None:
+    service = DownstreamRebuildRequirementService(lake_root=tmp_path)
+    requirements = service.build_stk_mins_qfq_requirements(
+        source_publish_id="run-003",
+        publish_partitions=[{"partition_key": "freq=30/trade_date=2026-03-02"}],
+    )
+
+    first = service.upsert_requirements(requirements=requirements, run_id="run-003")
+    second = service.upsert_requirements(requirements=requirements, run_id="run-003")
+
+    rows = pd.read_parquet(tmp_path / "manifest/downstream_rebuild_requirements/stk_mins.parquet", engine="pyarrow").to_dict(orient="records")
+    assert first["written_rows"] == 3
+    assert second["written_rows"] == 3
+    assert len(rows) == 3
+    assert len({row["requirement_id"] for row in rows}) == 3

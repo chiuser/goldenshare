@@ -40,6 +40,34 @@ def test_indicator_recalc_queue_records_source_event_and_pending_item(tmp_path) 
     assert queue_items[0]["status"] == "pending"
 
 
+def test_indicator_recalc_queue_dedupes_same_source_event(tmp_path) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    service = IndicatorRecalcQueueService(lake_root=tmp_path)
+
+    first = service.record_source_partition_replaced(
+        layer="research/stk_mins_by_date_clean_next",
+        freq=30,
+        trade_date=date(2026, 4, 24),
+        run_id="test-source-replace",
+        written_rows=2,
+    )
+    second = service.record_source_partition_replaced(
+        layer="research/stk_mins_by_date_clean_next",
+        freq=30,
+        trade_date=date(2026, 4, 24),
+        run_id="test-source-replace",
+        written_rows=2,
+    )
+
+    event_lines = (tmp_path / "manifest/source_partition_events/stk_mins.jsonl").read_text(encoding="utf-8").splitlines()
+    queue_items = service.list_items(include_done=True)
+    assert first["event_written"] is True
+    assert second["event_written"] is False
+    assert len(event_lines) == 1
+    assert len(queue_items) == 1
+
+
 def test_indicator_recalc_queue_list_outputs_suggested_command_and_mark_done(tmp_path, capsys) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")

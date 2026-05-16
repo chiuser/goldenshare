@@ -15,6 +15,7 @@ from lake_console.backend.app.services.duckdb_compute_executor_service import Du
 from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDbComputePlanService
 from lake_console.backend.app.services.duckdb_compute_prewrite_backup_service import DuckDbComputePrewriteBackupService
 from lake_console.backend.app.services.duckdb_compute_publish_service import DuckDbComputePublishService
+from lake_console.backend.app.services.indicators import IndicatorRecalcQueueService
 from lake_console.backend.app.services.lake_job_state import LakeJobLockService, LakeJobStateStore
 from lake_console.backend.app.services.stk_mins_clean_next_gate import CleanNextGateStatus, CleanNextPartitionGateService
 from lake_console.backend.app.settings import LakeConsoleSettings
@@ -253,6 +254,119 @@ def test_stage_stk_mins_qfq_formal_replace_keeps_gate_publishing_when_formal_aud
     assert audit_rows[0]["issue_code"] == "formal_partition_schema_mismatch"
     assert not (tmp_path / "manifest" / "downstream_rebuild_requirements" / "stk_mins.parquet").exists()
     assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+
+
+def test_stage_stk_mins_qfq_downstream_and_gate_passed_writes_notifications_before_final_gate(tmp_path: Path) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    service = DuckDbComputePublishService(settings=settings)
+    service.prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+    service.stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+    service.stage_stk_mins_qfq_formal_replace_and_audit(run_id=run_id)
+
+    summary = service.stage_stk_mins_qfq_downstream_and_gate_passed(run_id=run_id)
+    repeat_summary = service.stage_stk_mins_qfq_downstream_and_gate_passed(run_id=run_id)
+
+    assert summary["status"] == "published"
+    assert summary["ready"] is True
+    assert summary["gate_write"]["updated_partitions"] == 1
+    assert repeat_summary["idempotent"] is True
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert gate_rows[0]["status"] == "passed"
+    assert gate_rows[0]["write_revision"] == f"{run_id}:qfq:freq=30/trade_date=2026-03-02"
+
+    downstream_rows = pd.read_parquet(tmp_path / "manifest/downstream_rebuild_requirements/stk_mins.parquet", engine="pyarrow").to_dict(orient="records")
+    assert sorted(row["target_layer"] for row in downstream_rows) == [
+        "derived/stk_mins_by_date",
+        "indicator/*",
+        "research/stk_mins_by_symbol_month",
+    ]
+    queue_rows = IndicatorRecalcQueueService(lake_root=tmp_path).list_items(include_done=True)
+    assert len(queue_rows) == 1
+    assert queue_rows[0]["freq_value"] == 30
+    assert queue_rows[0]["status"] == "pending"
+    event_lines = (tmp_path / "manifest/source_partition_events/stk_mins.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(event_lines) == 1
+
+    with (tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id / "run.json").open("r", encoding="utf-8") as file:
+        run_payload = json.load(file)
+    assert run_payload["status"] == "published"
+    assert run_payload["m3c_e_downstream_and_gate_passed"]["status"] == "success"
+
+
+def test_stage_stk_mins_qfq_downstream_failure_keeps_gate_publishing(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    service = DuckDbComputePublishService(settings=settings)
+    service.prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+    service.stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+    service.stage_stk_mins_qfq_formal_replace_and_audit(run_id=run_id)
+
+    def fail_record(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("queue write failed")
+
+    monkeypatch.setattr(IndicatorRecalcQueueService, "record_source_partition_replaced", fail_record)
+
+    with pytest.raises(RuntimeError, match="queue write failed"):
+        service.stage_stk_mins_qfq_downstream_and_gate_passed(run_id=run_id)
+
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert gate_rows[0]["status"] == "publishing"
+    assert not (tmp_path / "manifest/indicator_recalc_queue/stk_mins_macd.parquet").exists()
+    with (tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id / "run.json").open("r", encoding="utf-8") as file:
+        run_payload = json.load(file)
+    assert run_payload["status"] == "publishing"
+    assert run_payload["m3c_e_downstream_and_gate_passed"]["status"] == "failed"
+
+
+def test_stage_stk_mins_qfq_final_gate_failure_keeps_gate_publishing_after_notifications(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    service = DuckDbComputePublishService(settings=settings)
+    service.prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+    service.stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+    service.stage_stk_mins_qfq_formal_replace_and_audit(run_id=run_id)
+
+    def fail_gate_write(*args, **kwargs):  # type: ignore[no-untyped-def]
+        raise RuntimeError("final gate write failed")
+
+    monkeypatch.setattr(CleanNextPartitionGateService, "write_statuses", fail_gate_write)
+
+    with pytest.raises(RuntimeError, match="final gate write failed"):
+        service.stage_stk_mins_qfq_downstream_and_gate_passed(run_id=run_id)
+
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert gate_rows[0]["status"] == "publishing"
+    assert gate_rows[0]["write_revision"] == f"{run_id}:qfq:freq=30/trade_date=2026-03-02"
+
+    downstream_rows = pd.read_parquet(tmp_path / "manifest/downstream_rebuild_requirements/stk_mins.parquet", engine="pyarrow").to_dict(orient="records")
+    assert sorted(row["target_layer"] for row in downstream_rows) == [
+        "derived/stk_mins_by_date",
+        "indicator/*",
+        "research/stk_mins_by_symbol_month",
+    ]
+    queue_rows = IndicatorRecalcQueueService(lake_root=tmp_path).list_items(include_done=True)
+    assert len(queue_rows) == 1
+    event_lines = (tmp_path / "manifest/source_partition_events/stk_mins.jsonl").read_text(encoding="utf-8").splitlines()
+    assert len(event_lines) == 1
+
+    with (tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id / "run.json").open("r", encoding="utf-8") as file:
+        run_payload = json.load(file)
+    assert run_payload["status"] == "publishing"
+    assert run_payload["m3c_e_downstream_and_gate_passed"]["status"] == "failed"
+    assert run_payload["m3c_e_downstream_and_gate_passed"]["gate_passed"] is False
+    assert run_payload["error"]["error_code"] == "LC_COMPUTE_FINAL_GATE_FAILED"
+
+    event_payloads = [
+        json.loads(line)
+        for line in (tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id / "events.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert event_payloads[-1]["event_type"] == "final_gate_passed_failed"
 
 
 def test_stage_stk_mins_qfq_gate_publishing_blocks_other_publishing_revision(tmp_path: Path) -> None:

@@ -77,12 +77,16 @@ class IndicatorRecalcQueueService:
         }
         event_file = self.source_event_file()
         event_file.parent.mkdir(parents=True, exist_ok=True)
-        with event_file.open("a", encoding="utf-8") as file:
-            file.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+        event_written = False
+        if event["event_id"] not in _existing_event_ids(event_file):
+            with event_file.open("a", encoding="utf-8") as file:
+                file.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
+            event_written = True
 
         queue_item = self.upsert_pending_from_source_event(event)
         return {
             "event": event,
+            "event_written": event_written,
             "queue_item": queue_item,
         }
 
@@ -282,6 +286,18 @@ def _event_trade_date(event: Mapping[str, Any]) -> date:
 def _event_id(*, layer: str, freq: int, trade_date: date, run_id: str, written_rows: int) -> str:
     raw_value = f"stk_mins|{layer}|{freq}|{trade_date.isoformat()}|{run_id}|{written_rows}"
     return "spe_" + hashlib.sha256(raw_value.encode("utf-8")).hexdigest()[:24]
+
+
+def _existing_event_ids(path: Path) -> set[str]:
+    if not path.exists():
+        return set()
+    result: set[str] = set()
+    with path.open("r", encoding="utf-8") as file:
+        for line in file:
+            if not line.strip():
+                continue
+            result.add(str(json.loads(line).get("event_id") or ""))
+    return result
 
 
 def _queue_id(
