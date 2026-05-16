@@ -321,84 +321,6 @@ export function SyncCenterPage() {
         title="主操作台"
         description="先选择同步范围，生成计划确认写入与备份影响面，再启动执行。"
       >
-        <section className="sync-command-recommendation" aria-label="建议同步窗口">
-          <div className="sync-command-section-head">
-            <div>
-              <h3>建议同步窗口</h3>
-              <p>只读扫描本地 Lake 文件事实和本地交易日历，给出日期型数据集的建议补数范围；确认后可带入主操作台。</p>
-            </div>
-          </div>
-          <div className="sync-recommendation-toolbar">
-            <div className="sync-cell-stack sync-cell-stack-tight">
-              <strong>{selectedProfile ? `跟随主操作台：${profileLabel(selectedProfile)}` : "等待选择同步配置"}</strong>
-              <span>
-                {selectedProfileKey === "prod_db_manual_backfill"
-                  ? "当前为“手动区间补数”，会复用“日期驱动数据集”的缺口计算结果，一键填入起止日期与落后数据集。"
-                  : canLoadRecommendations
-                  ? "当前同步范围支持自动计算同步日期，可一键把建议参数带回主操作台。"
-                  : "当前同步范围不使用自动日期建议；请在主操作台直接生成计划。"}
-              </span>
-            </div>
-            {canLoadRecommendations ? (
-              <div className="sync-recommendation-actions sync-recommendation-actions-primary">
-                <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
-                  刷新建议
-                </button>
-                <button
-                  className="sync-inline-button"
-                  disabled={!recommendations?.expected_reference_date}
-                  onClick={handleApplyDailyProfileRecommendation}
-                  type="button"
-                >
-                  带入建议日期刷新
-                </button>
-                <button
-                  className="sync-inline-button sync-button-primary"
-                  disabled={!recommendations?.aggregate_plan_hint}
-                  onClick={handleApplyLaggingBackfillRecommendation}
-                  type="button"
-                >
-                  带入全部落后补数
-                </button>
-              </div>
-            ) : null}
-          </div>
-          {canLoadRecommendations ? (
-            <div className="sync-recommendation-summary">
-              <SyncMiniStat label="落后数据集" value={String(laggingRecommendationCount)} />
-              <SyncMiniStat label="最长滞后" value={maxLagDays ? `${maxLagDays}d` : "0d"} />
-              <SyncMiniStat label="阻断项" value={String(blockedRecommendationCount)} />
-              <SyncMiniStat label="参考日期" value={recommendations?.expected_reference_date ?? "—"} />
-            </div>
-          ) : null}
-          {!canLoadRecommendations ? (
-            <EmptyState
-              title="当前同步范围不需要建议同步窗口"
-              description="建议窗口目前只服务“日期驱动数据集”的日期缺口推导，并可带入“手动区间补数”执行补数。快照数据集和本地参考数据的刷新语义不同，请在下方主操作台直接生成计划。"
-            />
-          ) : null}
-          {canLoadRecommendations ? <div className="sync-recommendation-head">
-            <div className="sync-cell-stack sync-cell-stack-tight">
-              <strong>建议来源：{profileLabelByKey(recommendations?.profile_key ?? recommendationSourceProfileKey)}</strong>
-              <span>cutoff {recommendations?.cutoff_time ?? "20:00"}，明细只用于带入参数，不会自动启动同步。</span>
-            </div>
-            <div className="sync-recommendation-actions">
-              <button className="sync-inline-button" onClick={() => setRecommendationsExpanded((value) => !value)} type="button">
-                {recommendationsExpanded ? "收起明细" : "展开明细"}
-              </button>
-            </div>
-          </div> : null}
-          {recommendationError ? <ErrorStateBlock title="建议同步窗口加载失败" description={recommendationError} /> : null}
-          {recommendationLoading ? <LoadingBlock title="正在生成建议" description="读取本地分区与交易日历。" /> : null}
-          {!recommendationLoading && recommendations && recommendationsExpanded && canLoadRecommendations ? (
-            <div className="sync-recommendation-table-wrap">
-              <RecommendationTable rows={recommendations.items} onApply={handleApplyRecommendation} />
-            </div>
-          ) : null}
-        </section>
-
-        <div className="sync-command-divider" />
-
         <div className="sync-command-console">
           <div className="sync-command-main">
             <div className="sync-form-grid sync-form-grid-console">
@@ -551,6 +473,84 @@ export function SyncCenterPage() {
             </div>
           </aside>
         </div>
+
+        <div className="sync-command-divider" />
+
+        <section className="sync-command-recommendation" aria-label="建议同步窗口">
+          <div className="sync-command-section-head">
+            <div>
+              <h3>建议同步窗口</h3>
+              <p>只读扫描本地 Lake 文件事实和本地交易日历，给出日期型数据集的建议补数范围；确认后可带入主操作台。</p>
+            </div>
+          </div>
+          <div className="sync-recommendation-toolbar">
+            <div className="sync-cell-stack sync-cell-stack-tight">
+              <strong>{selectedProfile ? `跟随主操作台：${profileLabel(selectedProfile)}` : "等待选择同步配置"}</strong>
+              <span>
+                {selectedProfileKey === "prod_db_manual_backfill"
+                  ? "当前为“手动区间补数”，会复用“日期驱动数据集”的缺口计算结果，一键填入起止日期与落后数据集。"
+                  : canLoadRecommendations
+                    ? "当前同步范围支持自动计算同步日期，可一键把建议参数带回主操作台。"
+                    : "当前同步范围不使用自动日期建议；请在主操作台直接生成计划。"}
+              </span>
+            </div>
+            {canLoadRecommendations ? (
+              <div className="sync-recommendation-actions sync-recommendation-actions-primary">
+                <button className="sync-inline-button" onClick={reloadRecommendations} type="button">
+                  刷新建议
+                </button>
+                <button
+                  className="sync-inline-button"
+                  disabled={!recommendations?.expected_reference_date}
+                  onClick={handleApplyDailyProfileRecommendation}
+                  type="button"
+                >
+                  带入建议日期刷新
+                </button>
+                <button
+                  className="sync-inline-button sync-button-primary"
+                  disabled={!recommendations?.aggregate_plan_hint}
+                  onClick={handleApplyLaggingBackfillRecommendation}
+                  type="button"
+                >
+                  带入全部落后补数
+                </button>
+              </div>
+            ) : null}
+          </div>
+          {canLoadRecommendations ? (
+            <div className="sync-recommendation-summary">
+              <SyncMiniStat label="落后数据集" value={String(laggingRecommendationCount)} />
+              <SyncMiniStat label="最长滞后" value={maxLagDays ? `${maxLagDays}d` : "0d"} />
+              <SyncMiniStat label="阻断项" value={String(blockedRecommendationCount)} />
+              <SyncMiniStat label="参考日期" value={recommendations?.expected_reference_date ?? "—"} />
+            </div>
+          ) : null}
+          {!canLoadRecommendations ? (
+            <EmptyState
+              title="当前同步范围不需要建议同步窗口"
+              description="建议窗口目前只服务“日期驱动数据集”的日期缺口推导，并可带入“手动区间补数”执行补数。快照数据集和本地参考数据的刷新语义不同，请在上方主操作台直接生成计划。"
+            />
+          ) : null}
+          {canLoadRecommendations ? <div className="sync-recommendation-head">
+            <div className="sync-cell-stack sync-cell-stack-tight">
+              <strong>建议来源：{profileLabelByKey(recommendations?.profile_key ?? recommendationSourceProfileKey)}</strong>
+              <span>cutoff {recommendations?.cutoff_time ?? "20:00"}，明细只用于带入参数，不会自动启动同步。</span>
+            </div>
+            <div className="sync-recommendation-actions">
+              <button className="sync-inline-button" onClick={() => setRecommendationsExpanded((value) => !value)} type="button">
+                {recommendationsExpanded ? "收起明细" : "展开明细"}
+              </button>
+            </div>
+          </div> : null}
+          {recommendationError ? <ErrorStateBlock title="建议同步窗口加载失败" description={recommendationError} /> : null}
+          {recommendationLoading ? <LoadingBlock title="正在生成建议" description="读取本地分区与交易日历。" /> : null}
+          {!recommendationLoading && recommendations && recommendationsExpanded && canLoadRecommendations ? (
+            <div className="sync-recommendation-table-wrap">
+              <RecommendationTable rows={recommendations.items} onApply={handleApplyRecommendation} />
+            </div>
+          ) : null}
+        </section>
       </Panel>
 
       <section className="sync-center-grid sync-center-grid-plan">
