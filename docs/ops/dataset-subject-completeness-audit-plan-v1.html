@@ -768,21 +768,21 @@ where a.ts_code is null;</code></pre>
       </tr>
       <tr>
         <td>M1</td>
-        <td>模型与迁移</td>
-        <td>新增审计 scope、矩阵汇总字段、gap 摘要与 detail 表。</td>
-        <td>Alembic head 正确；模型测试通过。</td>
+        <td>Definition 事实源接入</td>
+        <td>新增 subject completeness 定义，并只让 <code>adj_factor</code> 进入 <code>date_subject_matrix</code> 小闭环。</td>
+        <td>Definition registry 与 guardrail 测试通过。</td>
       </tr>
       <tr>
         <td>M2</td>
-        <td>引擎小闭环</td>
-        <td>新增 <code>date_subject_matrix</code> executor 分支和 stock active universe provider。</td>
-        <td>单测覆盖 4 缺失样例、无缺失样例、对象池空样例。</td>
+        <td>结果存储模型</td>
+        <td>扩展 run 主表，新增矩阵 gap 摘要与 detail 表；不接执行逻辑。</td>
+        <td>Alembic head 正确；ORM 模型持久化测试通过。</td>
       </tr>
       <tr>
         <td>M3</td>
-        <td><code>adj_factor</code> 接入</td>
-        <td>Definition 增加 subject completeness 配置。</td>
-        <td>能在指定窗口内识别 <code>920188.BJ</code> 等缺失。</td>
+        <td>引擎小闭环</td>
+        <td>新增 <code>date_subject_matrix</code> executor 分支和 stock active universe provider。</td>
+        <td>单测覆盖 4 缺失样例、无缺失样例、对象池空样例。</td>
       </tr>
       <tr>
         <td>M4</td>
@@ -925,8 +925,8 @@ where a.ts_code is null;</code></pre>
       </tr>
       <tr>
         <td>结果表结构</td>
-        <td><code>ops.dataset_date_completeness_run/gap/exclusion</code> 只保存 bucket 统计、日期范围和 sample values。</td>
-        <td>缺少 <code>audit_scope</code>、对象池策略、expected/actual/missing cell 统计、对象明细样例等字段；需要新增迁移。</td>
+        <td>M2 后 <code>ops.dataset_date_completeness_run</code> 已具备矩阵汇总字段，并新增 <code>dataset_subject_completeness_gap</code> 与 <code>dataset_subject_completeness_gap_detail</code> ORM/迁移。</td>
+        <td>存储层已就位；后续仍需独立 executor 写入这些结果表。</td>
       </tr>
       <tr>
         <td>API 与前端契约</td>
@@ -935,8 +935,8 @@ where a.ts_code is null;</code></pre>
       </tr>
       <tr>
         <td>DatasetDefinition 事实源</td>
-        <td><code>DatasetDefinition</code> 当前只有 <code>date_model</code>、<code>storage.row_identity_filters</code> 等字段，没有对象完整性模型。</td>
-        <td>应新增独立 subject completeness 配置；不得把对象池语义塞进 <code>date_model</code> 或复用 <code>row_identity_filters</code>。</td>
+        <td>M1 后 <code>DatasetDefinition</code> 已新增独立 <code>completeness</code> 配置，当前仅 <code>adj_factor</code> 启用 <code>date_subject_matrix</code>。</td>
+        <td>后续扩展数据集时仍必须逐个评审对象池语义，不得把对象池语义塞进 <code>date_model</code> 或复用 <code>row_identity_filters</code>。</td>
       </tr>
       <tr>
         <td><code>adj_factor</code> 对象池基础</td>

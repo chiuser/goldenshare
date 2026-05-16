@@ -37,6 +37,8 @@ from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateComplete
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
+from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -101,6 +103,8 @@ def web_engine(configured_web_env) -> Generator:
         DatasetDateCompletenessRun.__table__.create(connection)
         DatasetDateCompletenessGap.__table__.create(connection)
         DatasetDateCompletenessExclusion.__table__.create(connection)
+        DatasetSubjectCompletenessGap.__table__.create(connection)
+        DatasetSubjectCompletenessGapDetail.__table__.create(connection)
         DatasetDateCompletenessSchedule.__table__.create(connection)
         OpsSchedule.__table__.create(connection)
         TaskRun.__table__.create(connection)

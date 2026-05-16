@@ -6,6 +6,8 @@ from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateComplete
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
+from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -25,6 +27,8 @@ __all__ = [
     "DatasetDateCompletenessRun",
     "DatasetDateCompletenessSchedule",
     "DatasetStatusSnapshot",
+    "DatasetSubjectCompletenessGap",
+    "DatasetSubjectCompletenessGapDetail",
     "IndexSeriesActive",
     "OpsSchedule",
     "ProbeRule",
