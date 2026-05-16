@@ -72,6 +72,7 @@ docs/
 - [Local Lake 数据集接入模式分类与 Checklist v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
 - [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
 - [Local Lake DuckDB 计算执行壳与受控发布方案 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/architecture/local-lake-large-compute-foundation-design-v1.html)
+- [Local Lake DuckDB Compute M0.5 基线样本 Benchmark 报告](/Users/congming/github/goldenshare/docs/architecture/local-lake-duckdb-compute-benchmark-m05-2026-05-16.md)
 - [Local Lake 命令示例页面技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)
 
 ## 4. Ops 运营（S2）
