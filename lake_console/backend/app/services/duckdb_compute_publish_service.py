@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import shutil
 from datetime import date
 from pathlib import Path
 from typing import Any, Callable
@@ -9,9 +10,10 @@ from lake_console.backend.app.services.downstream_rebuild_requirement_service im
     DOWNSTREAM_REBUILD_REQUIREMENT_RELATIVE_PATH,
     DownstreamRebuildRequirementService,
 )
-from lake_console.backend.app.services.duckdb_compute_audit_service import _read_manifest_rows
-from lake_console.backend.app.services.duckdb_compute_plan_service import _relpath, _utc_now_iso, _write_json_atomic, _write_parquet_manifest
+from lake_console.backend.app.services.duckdb_compute_audit_service import EXPECTED_QFQ_CANDIDATE_COLUMNS, _read_manifest_rows
+from lake_console.backend.app.services.duckdb_compute_plan_service import _json_text, _relpath, _utc_now_iso, _write_json_atomic, _write_parquet_manifest
 from lake_console.backend.app.services.lake_job_state import LakeJobLockService, LakeJobStateStore
+from lake_console.backend.app.services.parquet_writer import replace_directory_atomically
 from lake_console.backend.app.services.stk_mins_clean_next_gate import (
     CLEAN_NEXT_GATE_RELATIVE_PATH,
     CLEAN_NEXT_GATE_SCHEMA_VERSION,
@@ -32,6 +34,18 @@ PUBLISH_PARTITION_COLUMNS = [
     "target_path",
     "audit_status",
     "publish_status",
+]
+FORMAL_AUDIT_LEDGER_FILENAME = "formal_audit_ledger.parquet"
+FORMAL_AUDIT_LEDGER_COLUMNS = [
+    "run_id",
+    "partition_key",
+    "issue_code",
+    "severity",
+    "target_path",
+    "message",
+    "expected_value",
+    "actual_value",
+    "observed_at",
 ]
 
 
@@ -54,6 +68,7 @@ class DuckDbComputePublishService:
         progress_callback: ProgressCallback | None = None,
         allow_lock_run_id: str | None = None,
         allowed_publish_statuses: set[str] | None = None,
+        allowed_run_statuses: set[str] | None = None,
     ) -> dict[str, Any]:
         manifest_root = self._manifest_root(run_id)
         blockers: list[dict[str, Any]] = []
@@ -65,7 +80,7 @@ class DuckDbComputePublishService:
             raise FileNotFoundError(f"未找到 DuckDB compute run manifest：{_relpath(manifest_root, self.lake_root)}")
 
         run_payload = _read_json(manifest_root / "run.json")
-        self._validate_run_payload(run_payload=run_payload, blockers=blockers)
+        self._validate_run_payload(run_payload=run_payload, blockers=blockers, allowed_run_statuses=allowed_run_statuses or {"prewrite_backup"})
         self._validate_prewrite_backup(manifest_root=manifest_root, run_payload=run_payload, blockers=blockers)
         self._validate_audit_ledger(manifest_root=manifest_root, blockers=blockers)
 
@@ -461,7 +476,239 @@ class DuckDbComputePublishService:
             if lock_acquired is not None:
                 lock_service.release(run_id=run_id)
 
-    def _validate_run_payload(self, *, run_payload: dict[str, Any], blockers: list[dict[str, Any]]) -> None:
+    def stage_stk_mins_qfq_formal_replace_and_audit(
+        self,
+        *,
+        run_id: str,
+        progress_callback: ProgressCallback | None = None,
+    ) -> dict[str, Any]:
+        """Replace formal clean_next partitions and write formal audit evidence.
+
+        M3-C-D still stops before downstream requirement/queue writes and before
+        gate=passed. It requires M3-C-C to have already written formal gates to
+        publishing for the same run revision.
+        """
+
+        manifest_root = self._manifest_root(run_id)
+        if not manifest_root.exists():
+            raise FileNotFoundError(f"未找到 DuckDB compute run manifest：{_relpath(manifest_root, self.lake_root)}")
+
+        store = LakeJobStateStore(self.lake_root)
+        lock_service = LakeJobLockService(store, stale_after_seconds=self.settings.compute_stale_heartbeat_seconds)
+        lock_acquired: dict[str, Any] | None = None
+        try:
+            lock_acquired = lock_service.acquire(run_id=run_id, profile_key="duckdb_compute_stk_mins_qfq")
+            _emit_progress(progress_callback, {"event": "formal_replace_started", "run_id": run_id})
+
+            run_payload = _read_json(manifest_root / "run.json")
+            idempotent = self._maybe_return_m3c_d_idempotent(manifest_root=manifest_root, run_payload=run_payload, lock_acquired=lock_acquired)
+            if idempotent is not None:
+                return idempotent
+
+            plan_payload = self._read_gate_publish_plan(manifest_root=manifest_root, run_id=run_id)
+            readiness_blockers = self._validate_m3c_d_readiness(run_payload=run_payload)
+            if readiness_blockers:
+                return {
+                    "operation": "stage_stk_mins_qfq_formal_replace_and_audit",
+                    "stage": "m3c_d_formal_replace_and_audit",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": False,
+                    "formal_paths_touched": [],
+                    "blockers": readiness_blockers,
+                    "message": "M3-C-D 未替换正式分区；run 尚未完成 M3-C-C gate publishing。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            preflight = self.preflight_stk_mins_qfq_publish(
+                run_id=run_id,
+                progress_callback=progress_callback,
+                allow_lock_run_id=run_id,
+                allowed_publish_statuses={"publishing"},
+                allowed_run_statuses={"publishing"},
+            )
+            if not preflight["ready"]:
+                return {
+                    "operation": "stage_stk_mins_qfq_formal_replace_and_audit",
+                    "stage": "m3c_d_formal_replace_and_audit",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": False,
+                    "formal_paths_touched": [],
+                    "preflight": preflight,
+                    "message": "M3-C-D 未替换正式分区；preflight 仍存在阻断项。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            blockers = self._validate_gate_publish_plan(plan_payload=plan_payload, preflight=preflight)
+            blockers.extend(self._validate_formal_gate_is_publishing(plan_payload=plan_payload))
+            if blockers:
+                return {
+                    "operation": "stage_stk_mins_qfq_formal_replace_and_audit",
+                    "stage": "m3c_d_formal_replace_and_audit",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": False,
+                    "formal_paths_touched": [],
+                    "blockers": blockers,
+                    "message": "M3-C-D 未替换正式分区；formal gate 或 gate plan 未满足发布条件。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            run_payload = {
+                **run_payload,
+                "status": "publishing",
+                "m3c_d_formal_publish": {
+                    "status": "running",
+                    "started_at": _utc_now_iso(),
+                    "message": "M3-C-D 正在原子替换正式 clean_next 分区并执行 formal audit。",
+                },
+                "finished_at": None,
+                "error": None,
+            }
+            _write_json_atomic(manifest_root / "run.json", run_payload)
+
+            replaced_partitions: list[dict[str, Any]] = []
+            issues: list[dict[str, Any]] = []
+            for index, partition in enumerate(preflight["target_partitions"], start=1):
+                _emit_progress(
+                    progress_callback,
+                    {
+                        "event": "formal_partition_replace_started",
+                        "run_id": run_id,
+                        "partition_index": index,
+                        "partition_count": len(preflight["target_partitions"]),
+                        "partition_key": partition["partition_key"],
+                    },
+                )
+                replaced = self._replace_formal_partition_from_candidate(run_id=run_id, partition=partition)
+                replaced_partitions.append(replaced)
+                issues.extend(self._audit_formal_partition(run_id=run_id, partition=partition))
+                lock_service.heartbeat(run_id=run_id)
+                _emit_progress(
+                    progress_callback,
+                    {
+                        "event": "formal_partition_replace_finished",
+                        "run_id": run_id,
+                        "partition_index": index,
+                        "partition_count": len(preflight["target_partitions"]),
+                        "partition_key": partition["partition_key"],
+                        "target_path": replaced["target_path"],
+                    },
+                )
+
+            ledger_path = manifest_root / FORMAL_AUDIT_LEDGER_FILENAME
+            _write_formal_audit_ledger(ledger_path, issues)
+            if issues:
+                self._write_publish_partitions_status(manifest_root=manifest_root, status="formal_audit_failed")
+                blocked_payload = {
+                    **_read_json(manifest_root / "run.json"),
+                    "status": "blocked",
+                    "m3c_d_formal_publish": {
+                        "status": "failed",
+                        "finished_at": _utc_now_iso(),
+                        "formal_audit_ledger": _relpath(ledger_path, self.lake_root),
+                        "issue_count": len(issues),
+                        "formal_paths_touched": [item["target_path"] for item in replaced_partitions],
+                    },
+                    "error": {
+                        "error_code": "LC_COMPUTE_FORMAL_AUDIT_FAILED",
+                        "stage": "formal_publish_audit",
+                        "message_for_human": "正式分区替换后 formal audit 未通过；gate 未放行，下游仍被阻断。",
+                        "technical_detail": f"issue_count={len(issues)}",
+                    },
+                }
+                _write_json_atomic(manifest_root / "run.json", blocked_payload)
+                _append_publish_event(
+                    manifest_root / "events.jsonl",
+                    {
+                        "event_type": "formal_partition_audit_failed",
+                        "level": "error",
+                        "message": "M3-C-D formal audit 未通过；未写 downstream，未 gate passed。",
+                        "metrics": {"issue_count": len(issues), "replaced_partition_count": len(replaced_partitions)},
+                    },
+                )
+                return {
+                    "operation": "stage_stk_mins_qfq_formal_replace_and_audit",
+                    "stage": "m3c_d_formal_replace_and_audit",
+                    "run_id": run_id,
+                    "status": "blocked",
+                    "ready": False,
+                    "write_intent": True,
+                    "formal_paths_touched": [item["target_path"] for item in replaced_partitions],
+                    "formal_audit_ledger": _relpath(ledger_path, self.lake_root),
+                    "issue_count": len(issues),
+                    "message": "M3-C-D 已替换正式分区，但 formal audit 未通过；下游仍被 publishing gate 阻断。",
+                    "lock_acquired": lock_acquired,
+                    "lock_after": None,
+                }
+
+            publish_update = self._write_publish_partitions_status(manifest_root=manifest_root, status="published")
+            final_payload = {
+                **_read_json(manifest_root / "run.json"),
+                "status": "publishing",
+                "m3c_d_formal_publish": {
+                    "status": "success",
+                    "finished_at": _utc_now_iso(),
+                    "formal_audit_ledger": _relpath(ledger_path, self.lake_root),
+                    "issue_count": 0,
+                    "replaced_partition_count": len(replaced_partitions),
+                    "updated_publish_partitions": publish_update["updated_partitions"],
+                    "formal_paths_touched": [item["target_path"] for item in replaced_partitions],
+                },
+                "finished_at": None,
+                "error": None,
+            }
+            _write_json_atomic(manifest_root / "run.json", final_payload)
+            _append_publish_event(
+                manifest_root / "events.jsonl",
+                {
+                    "event_type": "formal_partitions_replaced_and_audited",
+                    "level": "info",
+                    "message": "M3-C-D 已原子替换正式 clean_next 分区并通过 formal audit；尚未写 downstream，尚未 gate passed。",
+                    "metrics": {
+                        "replaced_partition_count": len(replaced_partitions),
+                        "formal_audit_issue_count": 0,
+                    },
+                },
+            )
+            lock_service.heartbeat(run_id=run_id)
+            return {
+                "operation": "stage_stk_mins_qfq_formal_replace_and_audit",
+                "stage": "m3c_d_formal_replace_and_audit",
+                "run_id": run_id,
+                "status": "formal_partitions_published",
+                "ready": True,
+                "write_intent": True,
+                "formal_paths_touched": [item["target_path"] for item in replaced_partitions],
+                "formal_audit_ledger": _relpath(ledger_path, self.lake_root),
+                "publish_update": publish_update,
+                "metrics": {
+                    "replaced_partition_count": len(replaced_partitions),
+                    "formal_audit_issue_count": 0,
+                    "formal_row_count": sum(int(item["row_count"]) for item in replaced_partitions),
+                },
+                "message": "M3-C-D formal replace + audit 已完成；下游仍被 publishing gate 阻断，等待 M3-C-E。",
+                "lock_acquired": lock_acquired,
+                "lock_after": None,
+            }
+        finally:
+            if lock_acquired is not None:
+                lock_service.release(run_id=run_id)
+
+    def _validate_run_payload(
+        self,
+        *,
+        run_payload: dict[str, Any],
+        blockers: list[dict[str, Any]],
+        allowed_run_statuses: set[str],
+    ) -> None:
         if run_payload.get("job_type") != "stk_mins_qfq_clean_next":
             blockers.append(
                 {
@@ -470,12 +717,13 @@ class DuckDbComputePublishService:
                     "actual": run_payload.get("job_type"),
                 }
             )
-        if run_payload.get("status") != "prewrite_backup":
+        if str(run_payload.get("status") or "") not in allowed_run_statuses:
             blockers.append(
                 {
-                    "code": "run_not_after_prewrite_backup",
-                    "message": "当前 run 未停在 prewrite_backup，不能进入 M3-C 发布预检。",
+                    "code": "run_status_not_allowed_for_publish_stage",
+                    "message": "当前 run 状态不在本发布阶段允许范围内。",
                     "actual": run_payload.get("status"),
+                    "allowed": sorted(allowed_run_statuses),
                 }
             )
         backup_state = run_payload.get("m3b_prewrite_backup") or {}
@@ -682,6 +930,9 @@ class DuckDbComputePublishService:
             "partition_key": partition_key,
             "target_path": target_path,
             "target_exists": target_absolute.exists(),
+            "source_candidate_parts_json": row.get("source_candidate_parts_json"),
+            "expected_candidate_part_paths_json": row.get("expected_candidate_part_paths_json"),
+            "expected_candidate_part_count": row.get("expected_candidate_part_count"),
             "audit_status": row.get("audit_status"),
             "publish_status": row.get("publish_status"),
             "candidate_part_count": len(candidate_paths),
@@ -752,6 +1003,179 @@ class DuckDbComputePublishService:
             "publish_status": status,
         }
 
+    def _maybe_return_m3c_d_idempotent(
+        self,
+        *,
+        manifest_root: Path,
+        run_payload: dict[str, Any],
+        lock_acquired: dict[str, Any] | None,
+    ) -> dict[str, Any] | None:
+        state = run_payload.get("m3c_d_formal_publish") or {}
+        if state.get("status") != "success":
+            return None
+        publish_rows = _read_manifest_rows(manifest_root / "publish_partitions.parquet")
+        if any(str(row.get("publish_status") or "") != "published" for row in publish_rows):
+            return None
+        return {
+            "operation": "stage_stk_mins_qfq_formal_replace_and_audit",
+            "stage": "m3c_d_formal_replace_and_audit",
+            "run_id": run_payload.get("run_id"),
+            "status": "formal_partitions_published",
+            "ready": True,
+            "idempotent": True,
+            "write_intent": False,
+            "formal_paths_touched": [],
+            "formal_audit_ledger": state.get("formal_audit_ledger"),
+            "metrics": {
+                "replaced_partition_count": int(state.get("replaced_partition_count") or 0),
+                "formal_audit_issue_count": int(state.get("issue_count") or 0),
+            },
+            "message": "M3-C-D 已完成，本次未重复替换正式分区。",
+            "lock_acquired": lock_acquired,
+            "lock_after": None,
+        }
+
+    def _validate_m3c_d_readiness(self, *, run_payload: dict[str, Any]) -> list[dict[str, Any]]:
+        blockers: list[dict[str, Any]] = []
+        if run_payload.get("status") != "publishing":
+            blockers.append(
+                {
+                    "code": "run_not_formal_gate_publishing",
+                    "message": "M3-C-D 必须在 M3-C-C 已打开 publishing gate 后执行。",
+                    "actual": run_payload.get("status"),
+                }
+            )
+        gate_state = run_payload.get("m3c_c_gate_publishing") or {}
+        if gate_state.get("status") != "success":
+            blockers.append(
+                {
+                    "code": "m3c_c_gate_publishing_missing",
+                    "message": "run.json 中缺少成功的 M3-C-C formal gate publishing 状态。",
+                    "actual": gate_state,
+                }
+            )
+        return blockers
+
+    def _validate_formal_gate_is_publishing(self, *, plan_payload: dict[str, Any]) -> list[dict[str, Any]]:
+        blockers: list[dict[str, Any]] = []
+        current_gate_by_key = {
+            str(row.get("partition_key") or ""): row
+            for row in CleanNextPartitionGateService(lake_root=self.lake_root).read_statuses()
+        }
+        for planned in plan_payload["gate_rows"]:
+            partition_key = str(planned.get("partition_key") or "")
+            current = current_gate_by_key.get(partition_key)
+            if current is None:
+                blockers.append(
+                    {
+                        "code": "formal_gate_publishing_missing",
+                        "message": "目标分区缺少 M3-C-C 写入的 publishing gate，不能替换正式分区。",
+                        "partition_key": partition_key,
+                    }
+                )
+                continue
+            if str(current.get("status") or "") != "publishing":
+                blockers.append(
+                    {
+                        "code": "formal_gate_not_publishing",
+                        "message": "目标分区 formal gate 不是 publishing，不能替换正式分区。",
+                        "partition_key": partition_key,
+                        "actual": current.get("status"),
+                    }
+                )
+            if str(current.get("write_revision") or "") != str(planned.get("write_revision") or ""):
+                blockers.append(
+                    {
+                        "code": "formal_gate_write_revision_mismatch",
+                        "message": "目标分区 formal gate write_revision 与当前 run 计划不一致。",
+                        "partition_key": partition_key,
+                        "expected": planned.get("write_revision"),
+                        "actual": current.get("write_revision"),
+                    }
+                )
+        return blockers
+
+    def _replace_formal_partition_from_candidate(self, *, run_id: str, partition: dict[str, Any]) -> dict[str, Any]:
+        partition_key = str(partition["partition_key"])
+        target_path = str(partition["target_path"])
+        target_absolute = _resolve_lake_path(self.lake_root, target_path)
+        candidate_paths = [
+            _resolve_candidate_path(self.lake_root, run_id, str(raw_path))
+            for raw_path in _json_array(partition.get("source_candidate_parts_json"))
+        ]
+        tmp_dir = self.lake_root / "_tmp" / "duckdb_compute" / run_id / "formal_replace" / partition_key
+        if tmp_dir.exists():
+            raise RuntimeError(f"M3-C-D tmp formal replace 目录已存在，拒绝覆盖：{_relpath(tmp_dir, self.lake_root)}")
+        tmp_dir.mkdir(parents=True, exist_ok=False)
+        for index, candidate_path in enumerate(candidate_paths):
+            shutil.copy2(candidate_path, tmp_dir / f"part-{index:05d}.parquet")
+        backup_root = self.lake_root / "_tmp" / "duckdb_compute" / run_id / "formal_replace_backup" / partition_key
+        replace_directory_atomically(tmp_dir=tmp_dir, final_dir=target_absolute, backup_root=backup_root)
+        metadata = _partition_metadata(target_absolute)
+        return {
+            "partition_key": partition_key,
+            "target_path": target_path,
+            "candidate_part_count": len(candidate_paths),
+            "file_count": metadata["file_count"],
+            "row_count": metadata["row_count"],
+            "byte_count": metadata["byte_count"],
+        }
+
+    def _audit_formal_partition(self, *, run_id: str, partition: dict[str, Any]) -> list[dict[str, Any]]:
+        partition_key = str(partition["partition_key"])
+        target_path = str(partition["target_path"])
+        target_absolute = _resolve_lake_path(self.lake_root, target_path)
+        issues: list[dict[str, Any]] = []
+        if not target_absolute.exists():
+            return [
+                _formal_issue(
+                    run_id=run_id,
+                    partition_key=partition_key,
+                    code="formal_partition_missing_after_replace",
+                    message="atomic replace 后正式分区目录不存在。",
+                    target_path=target_path,
+                )
+            ]
+        metadata = _partition_metadata(target_absolute)
+        if metadata["file_count"] == 0:
+            issues.append(
+                _formal_issue(
+                    run_id=run_id,
+                    partition_key=partition_key,
+                    code="formal_partition_has_no_parquet_files",
+                    message="atomic replace 后正式分区没有 parquet 文件。",
+                    target_path=target_path,
+                )
+            )
+        expected_row_count = int(partition.get("candidate_row_count") or 0)
+        if int(metadata["row_count"]) != expected_row_count:
+            issues.append(
+                _formal_issue(
+                    run_id=run_id,
+                    partition_key=partition_key,
+                    code="formal_partition_row_count_mismatch",
+                    message="正式分区行数与 candidate 行数不一致。",
+                    target_path=target_path,
+                    expected=expected_row_count,
+                    actual=int(metadata["row_count"]),
+                )
+            )
+        expected_columns = tuple(EXPECTED_QFQ_CANDIDATE_COLUMNS)
+        for file_path, columns in metadata["columns_by_file"].items():
+            if tuple(columns) != expected_columns:
+                issues.append(
+                    _formal_issue(
+                        run_id=run_id,
+                        partition_key=partition_key,
+                        code="formal_partition_schema_mismatch",
+                        message="正式分区 schema 与 qfq clean_next 口径不一致。",
+                        target_path=_relpath(file_path, self.lake_root),
+                        expected=list(expected_columns),
+                        actual=list(columns),
+                    )
+                )
+        return issues
+
 
 def _read_json(path: Path) -> dict[str, Any]:
     with path.open("r", encoding="utf-8") as file:
@@ -815,7 +1239,59 @@ def _parquet_metadata(path: Path) -> dict[str, Any]:
     except ImportError as exc:  # pragma: no cover
         raise RuntimeError("缺少 pyarrow 依赖，无法读取 Parquet metadata。") from exc
     parquet_file = pq.ParquetFile(path)
-    return {"row_count": int(parquet_file.metadata.num_rows)}
+    return {
+        "row_count": int(parquet_file.metadata.num_rows),
+        "columns": tuple(parquet_file.schema.names),
+    }
+
+
+def _partition_metadata(partition_dir: Path) -> dict[str, Any]:
+    files = sorted(path for path in partition_dir.glob("*.parquet") if path.is_file())
+    row_count = 0
+    byte_count = 0
+    columns_by_file: dict[Path, tuple[str, ...]] = {}
+    for file_path in files:
+        metadata = _parquet_metadata(file_path)
+        row_count += int(metadata["row_count"])
+        byte_count += int(file_path.stat().st_size)
+        columns_by_file[file_path] = tuple(metadata["columns"])
+    return {
+        "file_count": len(files),
+        "row_count": row_count,
+        "byte_count": byte_count,
+        "columns_by_file": columns_by_file,
+    }
+
+
+def _formal_issue(
+    *,
+    run_id: str,
+    partition_key: str,
+    code: str,
+    message: str,
+    target_path: str,
+    expected: Any = None,
+    actual: Any = None,
+) -> dict[str, Any]:
+    return {
+        "run_id": run_id,
+        "partition_key": partition_key,
+        "issue_code": code,
+        "severity": "block",
+        "target_path": target_path,
+        "message": message,
+        "expected_value": _json_text(expected) if expected is not None else None,
+        "actual_value": _json_text(actual) if actual is not None else None,
+        "observed_at": _utc_now_iso(),
+    }
+
+
+def _write_formal_audit_ledger(path: Path, issues: list[dict[str, Any]]) -> None:
+    _write_parquet_manifest(
+        path,
+        [{column: row.get(column) for column in FORMAL_AUDIT_LEDGER_COLUMNS} for row in issues],
+        columns=FORMAL_AUDIT_LEDGER_COLUMNS,
+    )
 
 
 def _emit_progress(callback: ProgressCallback | None, event: dict[str, Any]) -> None:

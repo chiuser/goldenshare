@@ -150,6 +150,111 @@ def test_stage_stk_mins_qfq_gate_publishing_writes_formal_gate_only(tmp_path: Pa
     assert LakeJobLockService(LakeJobStateStore(tmp_path)).get_lock()["status"] == "idle"
 
 
+def test_stage_stk_mins_qfq_formal_replace_and_audit_replaces_partition_but_keeps_gate_publishing(tmp_path: Path) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    service = DuckDbComputePublishService(settings=settings)
+    service.prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+    service.stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+
+    summary = service.stage_stk_mins_qfq_formal_replace_and_audit(run_id=run_id)
+
+    assert summary["status"] == "formal_partitions_published"
+    assert summary["ready"] is True
+    assert summary["formal_paths_touched"] == ["research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-03-02"]
+    assert summary["metrics"]["replaced_partition_count"] == 1
+    assert summary["metrics"]["formal_audit_issue_count"] == 0
+
+    formal_rows = pd.read_parquet(
+        tmp_path / "research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-03-02/part-00000.parquet",
+        engine="pyarrow",
+    ).to_dict(orient="records")
+    assert formal_rows[0]["close"] == 5.25
+    assert formal_rows[0]["vwap"] == 5.1
+
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert gate_rows[0]["status"] == "publishing"
+    assert gate_rows[0]["write_revision"] == f"{run_id}:qfq:freq=30/trade_date=2026-03-02"
+
+    manifest_root = tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id
+    publish_rows = pd.read_parquet(manifest_root / "publish_partitions.parquet", engine="pyarrow").to_dict(orient="records")
+    assert publish_rows[0]["publish_status"] == "published"
+    audit_rows = pd.read_parquet(manifest_root / "formal_audit_ledger.parquet", engine="pyarrow").to_dict(orient="records")
+    assert audit_rows == []
+    with (manifest_root / "run.json").open("r", encoding="utf-8") as file:
+        run_payload = json.load(file)
+    assert run_payload["status"] == "publishing"
+    assert run_payload["m3c_d_formal_publish"]["status"] == "success"
+
+    assert not (tmp_path / "manifest" / "downstream_rebuild_requirements" / "stk_mins.parquet").exists()
+    assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+    assert LakeJobLockService(LakeJobStateStore(tmp_path)).get_lock()["status"] == "idle"
+
+
+def test_stage_stk_mins_qfq_formal_replace_blocks_before_gate_publishing(tmp_path: Path) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    service = DuckDbComputePublishService(settings=settings)
+    service.prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+
+    summary = service.stage_stk_mins_qfq_formal_replace_and_audit(run_id=run_id)
+
+    assert summary["status"] == "blocked"
+    assert {item["code"] for item in summary["blockers"]} == {
+        "run_not_formal_gate_publishing",
+        "m3c_c_gate_publishing_missing",
+    }
+    formal_rows = pd.read_parquet(
+        tmp_path / "research/stk_mins_by_date_clean_next/freq=30/trade_date=2026-03-02/part-000.parquet",
+        engine="pyarrow",
+    ).to_dict(orient="records")
+    assert formal_rows[0]["close"] == 10.5
+
+
+def test_stage_stk_mins_qfq_formal_replace_keeps_gate_publishing_when_formal_audit_fails(tmp_path: Path) -> None:
+    _write_minimal_inputs(tmp_path)
+    settings = _settings(tmp_path)
+    run_id = _prepare_compute_audit_and_backup(settings)
+    service = DuckDbComputePublishService(settings=settings)
+    service.prepare_stk_mins_qfq_gate_publish_plan(run_id=run_id)
+    service.stage_stk_mins_qfq_gate_publishing(run_id=run_id)
+
+    manifest_root = tmp_path / "manifest" / "duckdb_compute" / "runs" / run_id
+    publish_row = pd.read_parquet(manifest_root / "publish_partitions.parquet", engine="pyarrow").iloc[0].to_dict()
+    candidate_path = tmp_path / json.loads(publish_row["source_candidate_parts_json"])[0]
+    _write_parquet(
+        candidate_path,
+        [
+            {
+                "ts_code": "600000.SH",
+                "freq": 30,
+                "trade_time": "2026-03-02 10:00:00",
+                "open": 5.0,
+                "high": 5.5,
+                "low": 4.5,
+                "close": 5.25,
+                "vol": 100,
+                "amount": 1020.0,
+            }
+        ],
+    )
+
+    summary = service.stage_stk_mins_qfq_formal_replace_and_audit(run_id=run_id)
+
+    assert summary["status"] == "blocked"
+    assert summary["issue_count"] == 1
+    gate_rows = CleanNextPartitionGateService(lake_root=tmp_path).read_statuses()
+    assert gate_rows[0]["status"] == "publishing"
+    publish_rows = pd.read_parquet(manifest_root / "publish_partitions.parquet", engine="pyarrow").to_dict(orient="records")
+    assert publish_rows[0]["publish_status"] == "formal_audit_failed"
+    audit_rows = pd.read_parquet(manifest_root / "formal_audit_ledger.parquet", engine="pyarrow").to_dict(orient="records")
+    assert audit_rows[0]["issue_code"] == "formal_partition_schema_mismatch"
+    assert not (tmp_path / "manifest" / "downstream_rebuild_requirements" / "stk_mins.parquet").exists()
+    assert not (tmp_path / "manifest" / "indicator_recalc_queue" / "stk_mins_macd.parquet").exists()
+
+
 def test_stage_stk_mins_qfq_gate_publishing_blocks_other_publishing_revision(tmp_path: Path) -> None:
     _write_minimal_inputs(tmp_path)
     settings = _settings(tmp_path)
