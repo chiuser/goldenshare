@@ -114,6 +114,25 @@ def test_dataset_definition_projects_daily_subject_completeness_facts() -> None:
     assert definition.completeness.active_status_values == ("L",)
 
 
+def test_dataset_definition_projects_daily_basic_subject_completeness_facts() -> None:
+    definition = get_dataset_definition("daily_basic")
+
+    assert definition.storage.target_table == "core_serving.equity_daily_basic"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.completeness.scope == "date_subject_matrix"
+    assert definition.completeness.subject_kind == "stock"
+    assert definition.completeness.subject_key_fields == ("ts_code",)
+    assert definition.completeness.actual_key_fields == ("ts_code",)
+    assert definition.completeness.universe_strategy == "stock_basic_active_lifecycle"
+    assert definition.completeness.universe_source_table == "core_serving.security_serving"
+    assert definition.completeness.universe_key_field == "ts_code"
+    assert definition.completeness.universe_name_field == "name"
+    assert definition.completeness.lifecycle_start_field == "list_date"
+    assert definition.completeness.lifecycle_end_field == "delist_date"
+    assert definition.completeness.status_field == "list_status"
+    assert definition.completeness.active_status_values == ("L",)
+
+
 def test_dataset_definition_subject_matrix_scope_is_not_inferred_from_ts_code() -> None:
     matrix_keys = {
         definition.dataset_key
@@ -121,7 +140,7 @@ def test_dataset_definition_subject_matrix_scope_is_not_inferred_from_ts_code() 
         if definition.completeness.scope == "date_subject_matrix"
     }
 
-    assert matrix_keys == {"adj_factor", "daily"}
+    assert matrix_keys == {"adj_factor", "daily", "daily_basic"}
     for definition in list_dataset_definitions():
         if not definition.date_model.audit_applicable:
             assert definition.completeness.scope == "not_applicable"
