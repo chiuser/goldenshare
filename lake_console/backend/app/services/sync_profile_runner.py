@@ -6,6 +6,7 @@ from typing import Any
 
 from lake_console.backend.app.catalog.datasets.moneyflow import MONEYFLOW_KNOWN_SOURCE_GAPS_BY_DATASET
 from lake_console.backend.app.catalog.datasets import get_dataset_definition
+from lake_console.backend.app.services.db_event_date_export_service import DbEventDateExportService
 from lake_console.backend.app.services.db_trade_date_export_service import DbTradeDateExportService
 from lake_console.backend.app.services.prod_raw_current_export_service import ProdRawCurrentExportService
 from lake_console.backend.app.services.prod_core_db import (
@@ -30,8 +31,10 @@ from lake_console.backend.app.services.sync_center_profiles import (
     LAKE_REFERENCE_DATASETS,
     PROD_CORE_DAILY_DATASETS,
     PROD_DB_DAILY_DATASETS,
+    PROD_DB_EVENT_DATE_DATASETS,
     PROD_DB_SNAPSHOT_DATASETS,
 )
+from lake_console.backend.app.sync.planners.event_date import PROD_DB_EVENT_DATE_PROFILE_KEY
 from lake_console.backend.app.settings import LakeConsoleSettings
 
 
@@ -45,8 +48,8 @@ ProgressSink = Callable[[dict[str, Any]], None]
 class SyncProfileRunner:
     """Run a planned Sync Center job.
 
-    M6 supports the four reviewed Sync Center profiles only. Minute-line sync,
-    index-minute sync, and indicator compute remain separate future workflows.
+    Generic Sync Center runner for reviewed DB/reference profiles. Minute-line sync,
+    index-minute sync, and indicator compute remain separate dedicated workflows.
     """
 
     def __init__(self, *, settings: LakeConsoleSettings, progress: ProgressSink | None = None) -> None:
@@ -117,7 +120,13 @@ class SyncProfileRunner:
 
     @staticmethod
     def _validate_m6_scope(*, profile_key: str, dataset_plans: list[dict[str, Any]]) -> None:
-        if profile_key not in {"prod_db_daily", "prod_db_snapshot_refresh", "prod_db_manual_backfill", "lake_reference_refresh"}:
+        if profile_key not in {
+            "prod_db_daily",
+            "prod_db_snapshot_refresh",
+            "prod_db_manual_backfill",
+            "lake_reference_refresh",
+            PROD_DB_EVENT_DATE_PROFILE_KEY,
+        }:
             raise SyncProfileRunnerError(f"{profile_key} 不在 M6 可执行 profile 范围内。")
         if not dataset_plans:
             raise SyncProfileRunnerError("Sync Profile Runner 至少需要一个 dataset plan。")
@@ -145,6 +154,17 @@ class SyncProfileRunner:
                 _require_dataset(dataset_key, LAKE_REFERENCE_DATASETS, profile_key)
                 if source != "tushare" or mode != "snapshot_refresh":
                     raise SyncProfileRunnerError(f"{dataset_key} 在 lake_reference_refresh 下必须是 tushare snapshot_refresh。")
+            elif profile_key == PROD_DB_EVENT_DATE_PROFILE_KEY:
+                _require_dataset(dataset_key, PROD_DB_EVENT_DATE_DATASETS, profile_key)
+                if source != PROD_RAW_DB_SOURCE:
+                    raise SyncProfileRunnerError(f"{dataset_key} 在 prod_db_event_date 下必须从 prod-raw-db 只读导出。")
+                if mode not in {"event_date_point", "event_date_range"}:
+                    raise SyncProfileRunnerError(f"{dataset_key} 的事件日期执行模式非法：{mode}")
+                if str(dataset_plan.get("date_axis") or "") != "event_date":
+                    raise SyncProfileRunnerError(f"{dataset_key} 必须声明 date_axis=event_date。")
+                parameters = dict(dataset_plan.get("parameters") or {})
+                if not parameters.get("event_dates"):
+                    raise SyncProfileRunnerError(f"{dataset_key} 缺少计划确认过的 event_dates。")
 
     def _validate_required_settings(self, *, profile_key: str, dataset_plans: list[dict[str, Any]]) -> None:
         if any(str(item.get("source") or "") == PROD_RAW_DB_SOURCE for item in dataset_plans) and not self.settings.prod_raw_db_url:
@@ -161,6 +181,8 @@ class SyncProfileRunner:
         parameters = dict(dataset_plan.get("parameters") or {})
         if profile_key == "lake_reference_refresh":
             return self._run_lake_reference_dataset(dataset_key=dataset_key, parameters=parameters)
+        if profile_key == PROD_DB_EVENT_DATE_PROFILE_KEY:
+            return self._run_event_date_dataset(dataset_key=dataset_key, parameters=parameters)
         if mode == "snapshot_refresh":
             return ProdRawCurrentExportService(
                 lake_root=self.settings.lake_root,
@@ -207,6 +229,17 @@ class SyncProfileRunner:
             end_date=_parse_date(parameters.get("end_date")),
             ts_code=_optional_text(parameters.get("ts_code")),
         )
+
+    def _run_event_date_dataset(self, *, dataset_key: str, parameters: dict[str, Any]) -> dict[str, Any]:
+        event_dates = _parse_date_list(parameters.get("event_dates"))
+        if not event_dates:
+            raise SyncProfileRunnerError(f"{dataset_key} prod_db_event_date 缺少 event_dates。")
+        return DbEventDateExportService(
+            lake_root=self.settings.lake_root,
+            dataset_key=dataset_key,
+            database_url=self.settings.prod_raw_db_url,
+            progress=self._dataset_progress(dataset_key),
+        ).export(event_dates=event_dates)
 
     def _run_lake_reference_dataset(self, *, dataset_key: str, parameters: dict[str, Any]) -> dict[str, Any]:
         client = self._get_tushare_client()
@@ -270,6 +303,14 @@ def _optional_text(value: Any) -> str | None:
     return str(value)
 
 
+def _parse_date_list(value: Any) -> list[date]:
+    if value in (None, "", [], ()):
+        return []
+    if not isinstance(value, list):
+        raise ValueError("event_dates 必须是日期字符串数组。")
+    return [_parse_date(item) for item in value if item not in (None, "")]
+
+
 def _optional_string_list(value: Any) -> list[str] | None:
     if value in (None, "", [], ()):
         return None
@@ -296,9 +337,16 @@ def _result_from_summary(*, dataset_key: str, summary: dict[str, Any]) -> dict[s
         "start_date",
         "end_date",
         "trade_date_count",
+        "event_dates",
+        "event_date_count",
+        "date_axis",
+        "partition_field",
+        "source_date_field",
         "skipped_partitions",
         "source_gap_partitions",
         "no_data_partitions",
+        "source_changed_to_zero_partitions",
+        "partitions",
         "elapsed_seconds",
     )
     result = {"dataset_key": dataset_key, "status": "success"}

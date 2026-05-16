@@ -12,6 +12,7 @@
   - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
   - [指数历史分钟行情 Lake 双模式接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md)
   - [DatasetDefinition 单一事实源重构方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-definition-single-source-refactor-plan-v1.md)
+  - [Local Lake 远程 DB 事件日期同步独立链路方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-prod-db-event-date-sync-plan-v1.md)
 
 ---
 
@@ -802,6 +803,8 @@ rebuild_month
 ### 7.8 R5：低频 / 月份键 / 公告日批
 
 目标：把日期模型不是 `trade_date` 的那批独立处理。
+
+补充专项：`anns_d`、`irm_qa_sh`、`irm_qa_sz`、`research_report` 已单独收敛到 `prod_db_event_date` 事件日期同步方案。该专项要求使用 `event_date=YYYY-MM-DD` 物理分区，且不得复用 `prod_db_daily` 的交易日 planner/exporter/完整性推荐逻辑。详见 [Local Lake 远程 DB 事件日期同步独立链路方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-prod-db-event-date-sync-plan-v1.md)。
 
 候选数据集：
 

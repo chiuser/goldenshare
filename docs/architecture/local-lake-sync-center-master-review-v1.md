@@ -39,24 +39,24 @@
 7. 任何会写 Lake 的任务，写入前必须先做 Kopia prewrite snapshot。
 8. prewrite snapshot 默认不 pin，空间退出交给 Kopia retention；阶段性重要快照可人工 pin。
 
-### 3.2 本期实现范围
+### 3.2 当前实现范围
 
-本期只实现 4 个 profile：
+通用 Profile Runner 当前覆盖 4 个 profile：
 
 | Profile | 定位 | 本期状态 |
 | --- | --- | --- |
 | `prod_db_daily` | 从远程生产 DB 同步按交易日或周/月锚点更新的数据集 | 本期实现 |
 | `prod_db_snapshot_refresh` | 从远程生产 DB 刷新基础资料、current/snapshot 类数据集 | 本期实现 |
 | `prod_db_manual_backfill` | 人工选择白名单数据集和日期范围补数 | 本期实现 |
-| `lake_reference_refresh` | 刷新本地参考清单，如股票池、交易日历、指数清单 | 本期实现 |
+| `lake_reference_refresh` | 刷新本地参考清单，如股票池、交易日历、指数清单 | 已实现 |
 
-后续专项只展示，不在本期启动：
+专项入口不走普通 Profile Runner：
 
-| Profile | 为什么后置 |
+| Profile | 当前状态 |
 | --- | --- |
-| `stk_mins_sync` | 股票分钟线有 raw -> clean_next -> derived/research/indicator 独立门禁链路，不能混入普通每日同步。 |
-| `index_mins_sync` | 指数分钟线也应单独做，不和股票分钟线共用一个入口。 |
-| `indicator_compute` | 技术指标计算不是远程 DB 同步，应作为单独计算中心能力。 |
+| `stk_mins_sync` | 已按专项流水线接入 plan/run/continue/abort；仍不进入普通 Profile Runner。当前 catalog summary 返回 `enabled`，页面展示为“专项可执行”，但执行仍走专项流水线分支。 |
+| `index_mins_sync` | 指数分钟线也应单独做，不和股票分钟线共用一个入口；当前仍是计划中，不提供启动。 |
+| `indicator_compute` | 技术指标计算不是远程 DB 同步，应作为单独计算中心能力；当前仍是计划中，不提供启动。 |
 
 2026-05-15 补充：`stk_mins_sync` 后续不应做成黑盒“一键命令”。它应作为同步中心里的专项可视化流水线，按 raw 同步、clean_next 与 gate、90/120 分钟派生、research by month、最终校验分阶段展示，并在关键节点允许运营确认是否继续。专项方案见 [Local Lake 股票分钟线同步中心可视化流水线方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-stk-mins-sync-center-pipeline-plan-v1.md)。
 
@@ -80,20 +80,20 @@
 | current/snapshot 导出服务 | `lake_console/backend/app/services/prod_raw_current_export_service.py` | 已能写 raw 和 manifest 双落盘。 |
 | 历史同步摘要 | `lake_console/backend/app/services/manifest_service.py` | 仅有 `manifest/sync_runs.jsonl` 摘要流水。 |
 | Sync Center API 路由 | `lake_console/backend/app/api/sync_center.py` | M1-M3 已接入 `/api/lake/sync/*`，只做 profiles、lock、plan、run skeleton、events。 |
-| Sync Profile Catalog | `lake_console/backend/app/services/sync_center_profiles.py` | M1-M3 已定义本期 4 个 enabled profile 和 3 个 planned 专项 profile。 |
+| Sync Profile Catalog | `lake_console/backend/app/services/sync_center_profiles.py` | 已定义 4 个 `enabled` 通用 profile；`stk_mins_sync` 也返回 `enabled`，但 API/前端走专项流水线分支；`index_mins_sync`、`indicator_compute` 仍为计划中。 |
 | Lake Job 状态模型 | `lake_console/backend/app/services/lake_job_state.py` | M1-M3 已实现 `manifest/lake_jobs/**` 的 plan/run/events/current/lock 原子读写。 |
 | Kopia Prewrite Backup 服务 | `lake_console/backend/app/services/kopia_prewrite_backup_service.py` | M1-M3 已实现写前备份服务封装；真实执行前必须先 backup。 |
-| Sync Profile Runner 小样本 | `lake_console/backend/app/services/sync_profile_runner.py` | M4 已接入 `prod_db_snapshot_refresh + bse_mapping`，用于验证 `plan -> backup -> write -> events -> run result`。 |
+| Sync Profile Runner | `lake_console/backend/app/services/sync_profile_runner.py` | 已承接 4 个通用 profile；分钟线专项不走该 runner。 |
+| `stk_mins_sync` 专项流水线 | `lake_console/backend/app/api/sync_center.py`、`lake_console/backend/app/services/stk_mins_pipeline_planner.py`、`lake_console/backend/app/services/stk_mins_pipeline_run_state.py` | 已支持只读计划、Kopia 写前备份、raw + clean_next、人工确认、derived 90/120、research by month 与最终校验。 |
 
 ### 4.2 尚未具备能力
 
 | 缺口 | 说明 |
 | --- | --- |
-| Profile Runner 完整执行器 | 当前只允许 `prod_db_snapshot_refresh + bse_mapping` 小样本；其他 profile/dataset 尚未开放。 |
-| Sync Center 前端页面 | M5 已接入 `lake_console/frontend/src/pages/SyncCenterPage.tsx`，左侧菜单新增 `Sync Center`；页面只允许启动 `prod_db_snapshot_refresh + bse_mapping` 小样本。 |
 | Profile CLI | 设计中有 `plan-profile` / `sync-profile`，当前尚未实现。 |
+| 专项 profile 状态命名 | `stk_mins_sync` catalog summary 已收口为 `enabled`，前端展示“专项可执行”；它仍不进入普通 Profile Runner。 |
 
-结论：当前底层单数据集同步能力可以复用；M1-M4 已打通一个最小真实写入样本，但完整 profile runner 仍必须逐批接入，不能把页面直接接到底层 export service 上。
+结论：当前通用 profile 和 `stk_mins_sync` 专项都已经有独立执行链路；后续新增 qfq、index_mins 或 indicator 能力时，必须先判断属于通用 profile、分钟线专项流水线，还是新的计算中心入口，不能把它们混到同一个 runner 里。
 
 ## 5. 端到端链路核对
 
@@ -123,9 +123,9 @@ flowchart LR
 | 页面入口与 API 前缀 | 一致，统一使用 `/api/lake/sync/*`。 |
 | 先 plan 后 run | 一致，设计中 run 必须带 `plan_token`。 |
 | 写入前 Kopia | 一致，三份文档都要求 backup 是硬门禁。 |
-| 任务状态存储 | 一致，统一落 `manifest/lake_jobs/**`；但代码尚未实现。 |
-| 本期 profile 范围 | 一致，本期只做 1 到 4；分钟线和指标后置。 |
-| `stk_mins` 与 `index_mins` | 一致，二者均为后续独立 profile，不能合并。 |
+| 任务状态存储 | 一致，统一落 `manifest/lake_jobs/**`；代码已实现 plan/run/events/current/lock。 |
+| 通用 profile 范围 | 一致，通用 runner 只做 4 个 profile；分钟线和指标不混入通用 runner。 |
+| `stk_mins` 与 `index_mins` | 一致，`stk_mins_sync` 已作为阶段化专项接入；`index_mins_sync` 仍是后续独立 profile，不能和股票分钟线合并。 |
 | UI 不暴露 SQL | 一致，API contract 已禁止 SQL/表名/字段名输入。 |
 | 恢复方式 | 一致，只提供 Kopia 快照和命令提示，不自动 restore。 |
 
@@ -315,7 +315,7 @@ API 不做大接口。每个接口只服务一个页面动作：
 | `LOCK_BUSY` | 启动前 | 否 | 阻断 run，页面提示已有任务。 |
 | `LOCK_STALE_REVIEW_REQUIRED` | 启动前 | 否 | 要求人工确认释放 stale lock。 |
 | `PLAN_TOKEN_EXPIRED` | 启动前 | 否 | 要求重新 plan。 |
-| `PROFILE_DISABLED` | 启动前 | 否 | 后续专项 profile 不允许启动。 |
+| `PROFILE_DISABLED` | plan/run 启动前 | 否 | profile 当前未开放执行入口。前端应禁用 planned/disabled profile 的“生成计划”；后端仍必须二次校验，防止绕过 UI 或旧 plan 回滚。 |
 | `DATASET_NOT_ALLOWED` | plan 阶段 | 否 | 数据集不在 profile 白名单。 |
 | `SQL_FIELD_FORBIDDEN` | plan 阶段 | 否 | 前端传入非法 SQL/表/字段类参数。 |
 | `KOPIA_BACKUP_FAILED` | 写入前 | 否 | 阻断写入，保留错误详情。 |
@@ -463,7 +463,7 @@ API 不做大接口。每个接口只服务一个页面动作：
 
 1. 禁止 SQL/表名/字段名参数。
 2. 数据集必须在 profile 白名单。
-3. 后续专项 profile 返回 disabled/planned 状态，不可启动。
+3. 未开放专项 profile 返回 planned/disabled 状态，不可生成计划或启动；已开放的 `stk_mins_sync` 返回 enabled，但必须走专项流水线。
 
 ### M3：Kopia Prewrite Backup 与 Run API 骨架
 
@@ -485,7 +485,7 @@ API 不做大接口。每个接口只服务一个页面动作：
 
 ### M4：Profile Runner 小样本执行
 
-状态：已完成首个小样本。对应代码为 `lake_console/backend/app/services/sync_profile_runner.py`；当前只允许执行 `prod_db_snapshot_refresh + bse_mapping`，其他 profile/dataset 会在启动前拒绝。
+状态：历史阶段已完成。首个小样本用于证明 `plan -> backup -> write -> events -> run result` 链路；当前通用 Profile Runner 已扩展到 4 个 M6 profile，分钟线专项仍不走该 runner。
 
 真实验证记录：
 
@@ -509,7 +509,7 @@ API 不做大接口。每个接口只服务一个页面动作：
 
 ### M5：Sync Center 前端页面
 
-状态：已完成首版页面接入。对应代码为 `lake_console/frontend/src/pages/SyncCenterPage.tsx`、`lake_console/frontend/src/hooks/useSyncCenterData.ts` 与 `lake_console/frontend/src/services/lakeApi.ts` 的 Sync Center API client。页面展示全部 profile，但启动按钮只对当前 runner 已支持的 `prod_db_snapshot_refresh + bse_mapping` 开放，避免把 M6 能力误暴露为可执行。
+状态：已完成页面接入和多轮布局优化。对应代码为 `lake_console/frontend/src/pages/SyncCenterPage.tsx`、`lake_console/frontend/src/hooks/useSyncCenterData.ts` 与 `lake_console/frontend/src/services/lakeApi.ts` 的 Sync Center API client。页面展示通用 profile、建议同步窗口和 `stk_mins_sync` 专项流水线入口；前端不得绕过 plan/run/lock/Kopia 链路。
 
 目标：
 
@@ -521,11 +521,11 @@ API 不做大接口。每个接口只服务一个页面动作：
 
 1. 页面不拼接后端事实。
 2. 页面不暴露 SQL 能力。
-3. 页面按 disabled 状态展示后续专项。
+3. 页面按 planned/disabled 状态展示未开放专项，并禁用“生成计划”和“启动任务”；`stk_mins_sync` 按“专项可执行”展示。
 
 ### M6：本期 4 个 Profile 完整接入
 
-状态：代码接入已完成，真实大范围写入仍必须由运营按小样本逐个启动验证。当前 `SyncProfileRunner` 只开放本期 4 个 profile，`stk_mins_sync`、`index_mins_sync`、`indicator_compute` 仍保持 planned，不允许启动。
+状态：代码接入已完成，真实大范围写入仍必须由运营按小样本逐个启动验证。当前 `SyncProfileRunner` 只开放本期 4 个通用 profile；`stk_mins_sync` 已由专项流水线支持，`index_mins_sync`、`indicator_compute` 仍保持计划中，不允许启动。
 
 目标：
 
@@ -546,7 +546,7 @@ API 不做大接口。每个接口只服务一个页面动作：
 1. 每个 profile 至少有一个小样本真实执行验证。
 2. 每个 profile 有失败场景测试。
 3. 每个 profile 生成的 backup/run/events 可追溯。
-4. 前端只能启动 enabled 且 runner 已接入的 M6 profile；后续专项只能生成预览或显示 disabled，不得启动。
+4. 前端只能为 enabled 且已有执行分支的 profile 生成计划和启动任务：通用 profile 走 `SyncProfileRunner`，`stk_mins_sync` 走专项流水线；未开放专项只显示 planned/disabled，不得生成计划或启动。
 
 ### M6.5：建议同步窗口（只读决策辅助）
 
@@ -832,7 +832,7 @@ python3 scripts/check_docs_integrity.py
 
 ### 前端 smoke 建议
 
-1. 页面能展示 7 个 profile，其中 1 到 4 可用，后 3 个 disabled。
+1. 页面能展示 7 个 profile，其中 4 个通用 profile 可用，`stk_mins_sync` 作为专项可执行入口可用，`index_mins_sync` 和 `indicator_compute` 保持 planned/disabled。
 2. 空闲/运行中/stale 三种 lock 状态可展示。
 3. Plan 预览能看到 dataset、path、backup scope。
 4. Run 事件列表可以轮询刷新。
@@ -856,7 +856,7 @@ python3 scripts/check_docs_integrity.py
 
 1. 4 个 M6 profile 已进入 runner 白名单，但仍需要按小样本逐个做真实执行验证并记录结果。
 2. M6.5 建议同步窗口已实现首版只读 API 与前端展示；后续如扩展 profile 范围，仍必须保持只读，不允许绕过写入链路。
-3. `stk_mins_sync`、`index_mins_sync`、`indicator_compute` 仍是 planned，必须走独立专项设计，不能复用普通 profile runner。
+3. `stk_mins_sync` 已有独立专项流水线；`index_mins_sync`、`indicator_compute` 仍是 planned，必须另走独立专项设计，不能复用普通 profile runner。
 4. profile CLI 未实现；当前推荐从 Sync Center 页面/API 触发，以保证 Kopia、锁、计划和事件记录完整。
 
 ### 12.3 开发建议

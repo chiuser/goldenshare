@@ -60,9 +60,9 @@ function buildOverviewMetrics(dataset: DatasetSummary, riskTotal: number): Datas
 }
 
 function latestPartitionLabel(summary: DatasetSummary | NodeSummary): string {
-  return summary.latest_trade_date ?? summary.latest_trade_month ?? "-";
+  return summary.latest_trade_date ?? summary.latest_event_date ?? summary.latest_trade_month ?? "-";
 }
 
 function earliestPartitionLabel(summary: DatasetSummary | NodeSummary): string {
-  return summary.earliest_trade_date ?? summary.earliest_trade_month ?? "-";
+  return summary.earliest_trade_date ?? summary.earliest_event_date ?? summary.earliest_trade_month ?? "-";
 }

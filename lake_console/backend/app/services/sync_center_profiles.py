@@ -6,8 +6,10 @@ from pathlib import Path
 from typing import Any
 
 from lake_console.backend.app.sync.planner import LakeSyncPlanner
+from lake_console.backend.app.sync.planners.event_date import EventDateSyncPlanner, PROD_DB_EVENT_DATE_PROFILE_KEY
 from lake_console.backend.app.services.prod_core_db import PROD_CORE_DB_SOURCE
 from lake_console.backend.app.services.prod_raw_db import PROD_RAW_DB_SOURCE
+from lake_console.backend.app.services.prod_raw_event_date_db import list_event_date_dataset_keys
 
 
 STALE_AFTER_SECONDS = 6 * 60 * 60
@@ -72,6 +74,8 @@ LAKE_REFERENCE_DATASETS: tuple[str, ...] = (
     "trade_cal",
     "index_basic",
 )
+
+PROD_DB_EVENT_DATE_DATASETS: tuple[str, ...] = list_event_date_dataset_keys()
 
 PROD_CORE_DAILY_DATASETS = {"index_daily", "index_weekly", "index_monthly"}
 
@@ -138,6 +142,16 @@ class SyncProfileCatalog:
                     datasets=PROD_DB_DAILY_DATASETS + PROD_DB_SNAPSHOT_DATASETS,
                 ),
                 SyncProfile(
+                    profile_key=PROD_DB_EVENT_DATE_PROFILE_KEY,
+                    display_name="远程 DB 事件日期同步",
+                    description="按事件日期从生产 raw_tushare 白名单表只读预检并生成安全写入计划。",
+                    profile_status="enabled",
+                    default_lookback_days=None,
+                    requires_kopia_backup=True,
+                    stale_after_seconds=STALE_AFTER_SECONDS,
+                    datasets=PROD_DB_EVENT_DATE_DATASETS,
+                ),
+                SyncProfile(
                     profile_key="lake_reference_refresh",
                     display_name="本地参考数据刷新",
                     description="刷新股票池、交易日历、指数清单等本地参考数据。",
@@ -151,12 +165,11 @@ class SyncProfileCatalog:
                     profile_key="stk_mins_sync",
                     display_name="股票分钟线专项",
                     description="股票历史分钟线 raw -> clean_next -> derived/research/indicator 独立链路。",
-                    profile_status="planned",
+                    profile_status="enabled",
                     default_lookback_days=None,
                     requires_kopia_backup=True,
                     stale_after_seconds=STALE_AFTER_SECONDS,
                     datasets=("stk_mins",),
-                    disabled_reason="已支持 raw -> clean_next/gate -> derived 90/120 -> research by month 的分阶段执行。",
                 ),
                 SyncProfile(
                     profile_key="index_mins_sync",
@@ -205,9 +218,16 @@ class ProfileDisabledError(RuntimeError):
 
 
 class SyncProfilePlanner:
-    def __init__(self, *, lake_root: Path, catalog: SyncProfileCatalog | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        lake_root: Path,
+        catalog: SyncProfileCatalog | None = None,
+        prod_raw_db_url: str | None = None,
+    ) -> None:
         self.lake_root = lake_root
         self.catalog = catalog or SyncProfileCatalog()
+        self.prod_raw_db_url = prod_raw_db_url
 
     def build_plan(
         self,
@@ -219,6 +239,14 @@ class SyncProfilePlanner:
         end_date: date | None,
     ) -> dict[str, Any]:
         profile = self.catalog.ensure_enabled(profile_key)
+        if profile_key == PROD_DB_EVENT_DATE_PROFILE_KEY:
+            return self._build_event_date_plan(
+                profile=profile,
+                dataset_keys=dataset_keys,
+                target_date=target_date,
+                start_date=start_date,
+                end_date=end_date,
+            )
         selected_dataset_keys = tuple(dataset_keys or profile.datasets)
         self._validate_dataset_keys(profile=profile, dataset_keys=selected_dataset_keys)
 
@@ -290,6 +318,59 @@ class SyncProfilePlanner:
                 "backup_path_count": len(backup_plan["backup_paths"]),
                 "snapshot_path_count": len(backup_plan["snapshot_paths"]),
                 "path_missing_before_write_count": len(backup_plan["path_missing_before_write"]),
+            },
+        }
+
+    def _build_event_date_plan(
+        self,
+        *,
+        profile: SyncProfile,
+        dataset_keys: list[str] | None,
+        target_date: date | None,
+        start_date: date | None,
+        end_date: date | None,
+    ) -> dict[str, Any]:
+        if not dataset_keys:
+            raise ValueError("prod_db_event_date 第一版必须显式选择至少一个数据集。")
+        selected_dataset_keys = tuple(dataset_keys)
+        self._validate_dataset_keys(profile=profile, dataset_keys=selected_dataset_keys)
+        event_plan = EventDateSyncPlanner(lake_root=self.lake_root, database_url=self.prod_raw_db_url).build_plan(
+            dataset_keys=selected_dataset_keys,
+            target_date=target_date,
+            start_date=start_date,
+            end_date=end_date,
+        )
+        dataset_plans = event_plan.dataset_plans
+        backup_plan = self._build_backup_plan(dataset_plans=dataset_plans)
+        return {
+            "profile": profile.to_summary(),
+            "request": {
+                "profile_key": profile.profile_key,
+                "dataset_keys": list(selected_dataset_keys),
+                "target_date": target_date.isoformat() if target_date else None,
+                "start_date": start_date.isoformat() if start_date else None,
+                "end_date": end_date.isoformat() if end_date else None,
+            },
+            "normalized_parameters": {
+                "dataset_keys": list(selected_dataset_keys),
+                "target_date": target_date.isoformat() if target_date else None,
+                "start_date": start_date.isoformat() if start_date else None,
+                "end_date": end_date.isoformat() if end_date else None,
+                "date_axis": "event_date",
+            },
+            "dataset_plans": dataset_plans,
+            "affected_event_dates": event_plan.affected_event_dates,
+            "backup_plan": backup_plan,
+            "blockers": event_plan.blockers,
+            "warnings": event_plan.warnings,
+            "summary": {
+                "dataset_count": len(dataset_plans),
+                "blocked_count": len(event_plan.blockers),
+                "write_path_count": sum(len(item["write_paths"]) for item in dataset_plans),
+                "backup_path_count": len(backup_plan["backup_paths"]),
+                "snapshot_path_count": len(backup_plan["snapshot_paths"]),
+                "path_missing_before_write_count": len(backup_plan["path_missing_before_write"]),
+                "affected_event_date_count": len(event_plan.affected_event_dates),
             },
         }
 

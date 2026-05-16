@@ -1,0 +1,2298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Local Lake DuckDB 计算执行壳与受控发布方案 v1</title>
+  <style>
+    :root {
+      --bg: #f7f9fc;
+      --card: #ffffff;
+      --ink: #172033;
+      --muted: #667085;
+      --line: #d9e2ef;
+      --blue: #2563eb;
+      --blue-soft: #eaf1ff;
+      --green: #0f8a5f;
+      --green-soft: #eaf8f0;
+      --orange: #b76b00;
+      --orange-soft: #fff4df;
+      --red: #c2410c;
+      --red-soft: #fff0ea;
+      --purple: #6d28d9;
+      --purple-soft: #f1eafd;
+      --slate: #334155;
+      --mono: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", monospace;
+      --sans: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at 10% 0%, rgba(37, 99, 235, 0.12), transparent 34%),
+        radial-gradient(circle at 88% 4%, rgba(109, 40, 217, 0.09), transparent 30%),
+        var(--bg);
+      color: var(--ink);
+      font-family: var(--sans);
+      line-height: 1.68;
+    }
+    main {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 32px 20px 84px;
+    }
+    header.hero {
+      border: 1px solid var(--line);
+      border-radius: 24px;
+      padding: 30px;
+      background:
+        linear-gradient(135deg, rgba(255, 255, 255, 0.98), rgba(248, 251, 255, 0.96)),
+        radial-gradient(circle at 20% 0%, rgba(37, 99, 235, 0.14), transparent 34%);
+      box-shadow: 0 20px 60px rgba(15, 23, 42, 0.08);
+    }
+    .eyebrow {
+      margin: 0 0 10px;
+      color: var(--blue);
+      font-size: 13px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      margin: 0;
+      font-size: clamp(30px, 4vw, 48px);
+      line-height: 1.12;
+      letter-spacing: -0.045em;
+    }
+    h2 {
+      margin: 0 0 14px;
+      font-size: 25px;
+      letter-spacing: -0.03em;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+      letter-spacing: -0.02em;
+    }
+    p { margin: 8px 0; }
+    a { color: var(--blue); text-decoration: none; }
+    a:hover { text-decoration: underline; }
+    code, pre { font-family: var(--mono); font-size: 0.92em; }
+    code {
+      border: 1px solid #dce6f4;
+      border-radius: 7px;
+      padding: 1px 6px;
+      color: #0f3a6f;
+      background: #f4f8ff;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 12px 0;
+      padding: 14px 16px;
+      border: 1px solid #dce6f4;
+      border-radius: 14px;
+      color: #102033;
+      background: #f8fbff;
+    }
+    section.card {
+      margin-top: 18px;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      padding: 22px;
+      background: var(--card);
+      box-shadow: 0 10px 28px rgba(15, 23, 42, 0.05);
+    }
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 20px;
+    }
+    .meta {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 13px;
+      background: rgba(255, 255, 255, 0.74);
+    }
+    .meta span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+    }
+    .meta strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 15px;
+    }
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 14px;
+    }
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 6px 10px;
+      font-size: 12px;
+      font-weight: 800;
+      color: #18406f;
+      background: var(--blue-soft);
+    }
+    .pill.green { color: var(--green); background: var(--green-soft); }
+    .pill.orange { color: var(--orange); background: var(--orange-soft); }
+    .pill.red { color: var(--red); background: var(--red-soft); }
+    .pill.purple { color: var(--purple); background: var(--purple-soft); }
+    .note, .warning, .danger, .success {
+      border-radius: 14px;
+      padding: 13px 15px;
+      margin: 12px 0;
+    }
+    .note { border-left: 4px solid var(--blue); background: var(--blue-soft); }
+    .warning { border-left: 4px solid var(--orange); background: var(--orange-soft); }
+    .danger { border-left: 4px solid var(--red); background: var(--red-soft); }
+    .success { border-left: 4px solid var(--green); background: var(--green-soft); }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 12px 0;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+    th, td {
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+    th {
+      color: var(--slate);
+      font-size: 12px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      background: #f8fafc;
+    }
+    tr:last-child td { border-bottom: 0; }
+    ul, ol { padding-left: 22px; }
+    .two-col {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .three-col {
+      display: grid;
+      grid-template-columns: repeat(3, minmax(0, 1fr));
+      gap: 14px;
+    }
+    .mini-card {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 15px;
+      background: #fbfdff;
+    }
+    .mini-card strong { display: block; margin-bottom: 5px; }
+    .muted { color: var(--muted); }
+    .flow {
+      width: 100%;
+      min-height: 610px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: linear-gradient(180deg, #ffffff, #f8fbff);
+    }
+    .flow text {
+      fill: #172033;
+      font-family: var(--sans);
+      font-size: 13px;
+      font-weight: 800;
+    }
+    .flow .small {
+      fill: #667085;
+      font-size: 11px;
+      font-weight: 650;
+    }
+    .flow .box {
+      fill: #fff;
+      stroke: #cbd5e1;
+      stroke-width: 1.3;
+      rx: 14;
+    }
+    .flow .blue { fill: #eff6ff; stroke: #93c5fd; }
+    .flow .green { fill: #ecfdf3; stroke: #86efac; }
+    .flow .orange { fill: #fff7ed; stroke: #fdba74; }
+    .flow .red { fill: #fff1f2; stroke: #fda4af; }
+    .flow .purple { fill: #f5f3ff; stroke: #c4b5fd; }
+    .flow .arrow {
+      stroke: #64748b;
+      stroke-width: 1.6;
+      marker-end: url(#arrow);
+    }
+    @media (max-width: 900px) {
+      .meta-grid, .two-col, .three-col { grid-template-columns: 1fr; }
+      header.hero { padding: 22px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header class="hero">
+    <p class="eyebrow">Local Lake / large compute / duckdb-kernel-gated-publish</p>
+    <h1>Local Lake DuckDB 计算执行壳与受控发布方案 v1</h1>
+    <p>
+      本方案定义 Local Lake 后续大体量计算任务的统一安全执行壳。计算内核优先交给 DuckDB；
+      本方案重点定义“哪些数据喂给 DuckDB、计算前必须检查什么、计算后如何审计、何时允许发布”。它先服务
+      <code>stk_mins clean_next 前复权 candidate</code>。derived、by-month research、MACD、MA、BOLL
+      只作为后续可复用方向记录，必须另开专项评审后才能进入开发。目标是：计算交给成熟内核，
+      正式写入必须受控发布，任何失败都不能污染正式数据。
+    </p>
+    <div class="meta-grid">
+      <div class="meta"><span>状态</span><strong>待评审</strong></div>
+      <div class="meta"><span>更新时间</span><strong>2026-05-16</strong></div>
+      <div class="meta"><span>适用工程</span><strong>lake_console</strong></div>
+      <div class="meta"><span>第一落地场景</span><strong>stk_mins qfq candidate</strong></div>
+    </div>
+    <div class="pill-row">
+      <span class="pill green">DuckDB 负责计算</span>
+      <span class="pill orange">单 writer 发布</span>
+      <span class="pill purple">candidate 先审计</span>
+      <span class="pill red">正式路径禁止抢写</span>
+      <span class="pill">复用 clean_next gate</span>
+    </div>
+  </header>
+
+  <section class="card">
+    <h2>1. 为什么要先做执行壳</h2>
+    <p>
+      前复权重建、MACD 全量计算、MA/BOLL 指标、by-month 重排，都属于大数据量任务。
+      真正不应该重复造的是计算内核：排序、过滤、join、列计算、Parquet 扫描和落盘应优先交给 DuckDB。
+      我们要自己守住的是业务链路：输入冻结、前置门禁、candidate 审计、正式发布、gate、下游重算通知和失败恢复。
+    </p>
+    <div class="success">
+      <strong>已确认方向：</strong>
+      先做“DuckDB 计算内核 + 受控发布执行壳”，再在这个执行壳上实现前复权 qfq candidate。
+      第一期只做 qfq，不做 MACD、MA、BOLL，也不顺手改 derived/by-month 的现有实现。
+    </div>
+    <p>执行壳第一版只做必要能力，不追求抽象成万能调度系统。</p>
+  </section>
+
+  <section class="card">
+    <h2>1.1 选型结论：不自研计算内核</h2>
+    <p>
+      本轮方案收口后，Local Lake 大计算不再以“自己写一套 compute 计算框架”为主线。
+      DuckDB 擅长本地 Parquet 扫描、join、排序、聚合、列式计算和 larger-than-memory 查询，
+      所以第一优先级是让 DuckDB 承担计算内核。我们只在 DuckDB 外围管理输入、门禁、候选产物、审计、发布和状态。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>层级</th>
+          <th>由谁负责</th>
+          <th>原因</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Parquet 扫描、join、过滤、列计算、排序、分组</td>
+          <td>DuckDB</td>
+          <td>这是 DuckDB 的核心能力，比我们自己写 Python 多进程更稳，也更容易 benchmark。</td>
+        </tr>
+        <tr>
+          <td>少量 metadata 读写、manifest、账本、小表</td>
+          <td>现有 PyArrow / pandas 小数据工具</td>
+          <td>这些文件体量小，不是主要性能风险；但不能拿小数据工具处理 44 亿行主数据。</td>
+        </tr>
+        <tr>
+          <td>输入快照、写锁、candidate 路径、audit、gate、queue、Kopia 备份</td>
+          <td>lake_console 自己负责</td>
+          <td>这是 Goldenshare 的业务一致性语义，通用计算框架不知道 clean_next 何时可被下游消费。</td>
+        </tr>
+        <tr>
+          <td>Dagster / Prefect / Spark / Dask / Ray</td>
+          <td>第一版不引入</td>
+          <td>它们会增加工程复杂度。当前是单机移动盘 Lake，先用 DuckDB 做计算内核更直接。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="success">
+      <strong>新的边界：</strong>
+      我们不做通用计算调度框架；我们做的是 DuckDB 计算任务的安全执行壳。
+      这个壳的职责是：喂对数据、先验门禁、后验审计、可解释状态、受控发布。
+      第一期落地范围只包含 <code>stk_mins clean_next qfq candidate</code>。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>1.2 本期范围</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>范围项</th>
+          <th>本期是否开发</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>stk_mins clean_next qfq candidate</code></td>
+          <td>是</td>
+          <td>本期唯一落地场景。用于验证 DuckDB 计算、candidate、audit、layer cutover publish、formal gate 的完整链路。</td>
+        </tr>
+        <tr>
+          <td>MACD</td>
+          <td>否</td>
+          <td>MACD 涉及 EMA state、增量可靠性、新股/改代码连续性等细节，必须在独立方案中继续评审。</td>
+        </tr>
+        <tr>
+          <td>MA / BOLL</td>
+          <td>否</td>
+          <td>滑窗指标需要 warmup、窗口边界与输出策略，本期只记录方向，不进入实现。</td>
+        </tr>
+        <tr>
+          <td>derived / by-month research</td>
+          <td>否</td>
+          <td>现有链路继续按当前口径运行；是否迁入执行壳，等 qfq 跑通后另开专项。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <strong>前置契约位置说明：</strong>
+      下列 1.3 到 1.6 是进入编码前必须先确认的权威契约，不是范围项的附属说明。
+      第 4 章只保留对象关系摘要；字段含义、约束级别、可空策略和 UI 文案均以这里为准。
+    </div>
+
+    <h3>1.3 状态数据结构精确定义</h3>
+    <p>
+      本节是后续开发的字段基线。实现时不得只按字段名临时发挥；新增字段、改字段语义或调整状态流转，
+      必须先回到本节更新方案。下面的“硬约束”表示不满足时必须拒绝继续执行；“软约束”表示允许记录告警但不能静默吞掉；
+      “可空策略”表示字段什么时候允许为空。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>模型</th>
+          <th>字段</th>
+          <th>类型/形态</th>
+          <th>约束级别</th>
+          <th>含义与可空策略</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>run_id</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>一次计算运行的唯一 ID。创建后不可变，不允许为空。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>job_type</code></td>
+          <td>enum string</td>
+          <td>硬约束</td>
+          <td>任务类型，例如 <code>stk_mins_qfq_clean_next</code>。UI 不直接展示该枚举，必须映射成人话。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>dataset_key</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>目标数据集，例如 <code>stk_mins</code>。不允许为空。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>input_range</code></td>
+          <td>object</td>
+          <td>硬约束</td>
+          <td>本次输入范围，至少包含 <code>start_date</code>、<code>end_date</code>、<code>freqs</code>。全量也必须显式记录范围，禁止用空值表达“全部”。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>effective_config</code></td>
+          <td>object</td>
+          <td>硬约束</td>
+          <td>本次实际生效的 DuckDB 与发布配置快照。必须来自 <code>config.local.toml</code>，用于事后解释和复现。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>input_snapshot</code></td>
+          <td>object</td>
+          <td>硬约束</td>
+          <td>输入数据快照，记录 raw/adj_factor/security_identity_map 等输入路径、行数或 checksum。发布前必须复核未漂移。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>status</code></td>
+          <td>enum string</td>
+          <td>硬约束</td>
+          <td>运行状态。只能按 8.1 状态机流转，不能跳到 <code>published</code>。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>created_at</code>, <code>started_at</code>, <code>finished_at</code></td>
+          <td>timestamp</td>
+          <td>硬约束</td>
+          <td><code>created_at</code> 必填；<code>started_at</code> 在 running 后必填；<code>finished_at</code> 只在终态必填。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td><code>unit_key</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>单个 DuckDB 执行单元唯一键。必须能从 <code>run_id + continuity_key + publish_partition_key + bucket</code> 稳定生成。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td><code>continuity_key</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>连续性边界，例如 MACD 是股票代码维度，qfq 可以是目标分区或 bucket。不能破坏递推连续性。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td><code>publish_partition_key</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>该 unit 最终贡献到哪个正式发布分区。用于失败定位和 candidate 汇总。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td><code>input_paths</code>, <code>output_paths</code></td>
+          <td>array string</td>
+          <td>硬约束</td>
+          <td>输入与候选输出路径。必须是 Lake root 下路径；禁止指向远程 DB 或生产系统路径。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td><code>status</code>, <code>error_code</code></td>
+          <td>enum string / nullable string</td>
+          <td>硬约束</td>
+          <td><code>status</code> 必填；失败时 <code>error_code</code> 必填，成功时为空。</td>
+        </tr>
+        <tr>
+          <td><code>CandidatePartOutput</code></td>
+          <td><code>candidate_part_path</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>临时候选文件或目录路径。只能位于 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate/**</code>。</td>
+        </tr>
+        <tr>
+          <td><code>CandidatePartOutput</code></td>
+          <td><code>row_count</code>, <code>byte_count</code></td>
+          <td>integer</td>
+          <td>硬约束</td>
+          <td>候选产物行数和字节数。必须大于等于 0；审计阶段必须与实际 Parquet metadata 对齐。</td>
+        </tr>
+        <tr>
+          <td><code>CandidatePartOutput</code></td>
+          <td><code>checksum</code></td>
+          <td>string</td>
+          <td>软约束</td>
+          <td>第一版至少必须使用稳定元数据签名，包含文件列表、文件大小、mtime、row_count、schema fingerprint。内容级 checksum 可后置，但不得记录 <code>checksum_method=not_available</code> 后继续允许发布。</td>
+        </tr>
+        <tr>
+          <td><code>CandidatePartOutput</code></td>
+          <td><code>status</code></td>
+          <td>enum string</td>
+          <td>硬约束</td>
+          <td><code>staged</code> 表示已生成；<code>validated</code> 表示行数/schema/checksum 校验通过；<code>rejected</code> 表示候选产物不可发布。</td>
+        </tr>
+        <tr>
+          <td><code>PublishPartition</code></td>
+          <td><code>partition_key</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>正式发布分区唯一键。对于 clean_next 是 <code>freq=*/trade_date=*</code>；layer cutover 时也必须逐分区展开记录。</td>
+        </tr>
+        <tr>
+          <td><code>PublishPartition</code></td>
+          <td><code>source_candidate_parts</code></td>
+          <td>array string</td>
+          <td>硬约束</td>
+          <td>组成该正式分区的全部候选产物。缺一个就不能发布。</td>
+        </tr>
+        <tr>
+          <td><code>PublishPartition</code></td>
+          <td><code>target_path</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>正式目标路径。发布前必须确认不在 <code>_tmp</code>，发布时必须经受控替换。</td>
+        </tr>
+        <tr>
+          <td><code>PublishPartition</code></td>
+          <td><code>audit_status</code>, <code>publish_status</code></td>
+          <td>enum string</td>
+          <td>硬约束</td>
+          <td>审计状态和发布状态分开记录。审计没过不能进入发布；发布没完成不能写 formal gate passed。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>1.4 FormalGate 精确定义</h3>
+    <p>
+      <code>FormalGate</code> 是正式数据能否被下游读取的唯一门禁。它不是计算状态，也不是审计报告。
+      它只回答一句话：这个正式分区现在能不能读。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>类型/形态</th>
+          <th>约束级别</th>
+          <th>含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>partition_key</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>正式分区唯一键。当前 clean_next 为 <code>freq=*/trade_date=*</code>。</td>
+        </tr>
+        <tr>
+          <td><code>status</code></td>
+          <td><code>publishing</code> / <code>passed</code> / <code>blocked</code></td>
+          <td>硬约束</td>
+          <td><code>passed</code> 是唯一放行状态；其它状态下游必须拒绝读取。</td>
+        </tr>
+        <tr>
+          <td><code>write_revision</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>上游写入版本。用于解释 gate 对应哪次 raw/clean 写入。</td>
+        </tr>
+        <tr>
+          <td><code>publish_id</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>正式发布 ID。layer cutover 场景下，目标范围内每个 gate 行都必须写入同一个 <code>publish_id</code>，下游可用它判断 gate 是否对应本次发布。</td>
+        </tr>
+        <tr>
+          <td><code>gate_schema_version</code></td>
+          <td>string / integer</td>
+          <td>硬约束</td>
+          <td>gate 文件结构版本。字段结构或状态语义变化时递增，普通发布不递增。</td>
+        </tr>
+        <tr>
+          <td><code>issue_count</code></td>
+          <td>integer</td>
+          <td>硬约束</td>
+          <td>本分区审计问题数。<code>passed</code> 时必须为 0。</td>
+        </tr>
+        <tr>
+          <td><code>ledger_path</code></td>
+          <td>string</td>
+          <td>硬约束</td>
+          <td>问题账本路径。<code>blocked</code> 时必须能指向可读账本。</td>
+        </tr>
+        <tr>
+          <td><code>message</code></td>
+          <td>string</td>
+          <td>软约束</td>
+          <td>给开发者看的简短原因。UI 不得原样拿它当最终用户提示，必须经过文案映射。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="danger">
+      <strong>gate 新鲜度红线：</strong>
+      下游不能只看 <code>status=passed</code>。qfq layer cutover 发布时，发布命令必须重写目标范围内所有 gate 行，
+      并写入本次 <code>publish_id</code> / <code>write_revision</code>。如果发现目标分区仍是旧 <code>publish_id</code>
+      或缺少 gate 行，必须视为未通过，不能读取。
+    </div>
+
+    <h3>1.5 问题账本精确定义</h3>
+    <p>
+      问题账本是“问题记录本”，不是 gate。gate 负责阻断或放行，账本负责解释为什么阻断。
+      同一个问题再次出现时，应更新同一条记录的 <code>last_seen_at</code>、<code>last_seen_run_id</code> 和
+      <code>seen_count</code>，不得无限制造重复问题行。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>约束</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ledger_schema_version</code></td>
+          <td>硬约束</td>
+          <td>账本 schema 版本。只有字段结构或状态语义变化时才递增；普通问题新增不改版本。</td>
+        </tr>
+        <tr>
+          <td><code>issue_key</code></td>
+          <td>硬约束</td>
+          <td>问题唯一键。必须由 <code>layer + partition_key + issue_type + ts_code + trade_time</code> 等稳定事实生成。</td>
+        </tr>
+        <tr>
+          <td><code>issue_state</code></td>
+          <td>硬约束</td>
+          <td><code>open</code> 表示仍存在；<code>resolved</code> 表示本次审计覆盖范围内已消失。</td>
+        </tr>
+        <tr>
+          <td><code>severity</code></td>
+          <td>硬约束</td>
+          <td>严重程度。发布阻断问题必须为阻断级别，不能只写 warning 后继续发布。</td>
+        </tr>
+        <tr>
+          <td><code>issue_type</code></td>
+          <td>硬约束</td>
+          <td>机器可读问题类型。UI 不能直接展示该枚举，必须映射成人话。</td>
+        </tr>
+        <tr>
+          <td><code>expected_value</code>, <code>actual_value</code></td>
+          <td>软约束</td>
+          <td>用于解释问题。例如期望 241 根 1min bar，实际 240 根。没有明确数值时必须写原因。</td>
+        </tr>
+        <tr>
+          <td><code>action</code>, <code>reason</code></td>
+          <td>硬约束</td>
+          <td>给处理者看的建议动作和原因。不得只写异常栈。</td>
+        </tr>
+        <tr>
+          <td><code>first_seen_*</code>, <code>last_seen_*</code>, <code>resolved_*</code></td>
+          <td>硬约束</td>
+          <td>记录问题生命周期。再次发现同一问题只更新 last seen 与 seen count。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>1.6 UI 文案映射红线</h3>
+    <div class="danger">
+      <strong>硬规则：</strong>
+      前端页面、CLI 面向运营的摘要、错误弹窗、状态卡片，不允许直接展示 Python 枚举、内部状态码、异常类名或底层字段名。
+      底层只能提供稳定 code；展示层必须通过 mapping 表转成人能理解的话。
+    </div>
+    <p>
+      实现时必须建立独立的文案映射模块或配置表。建议路径为
+      <code>lake_console/backend/app/presentation/compute_messages.py</code> 和前端等价的只读映射。
+      后端 API 可以返回 <code>status_code</code>、<code>error_code</code>、<code>stage_code</code>，
+      但同时必须返回已经映射好的 <code>display_title</code>、<code>display_message</code>、
+      <code>recommended_action</code> 和 <code>severity_label</code>。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>API 展示字段</th>
+          <th>是否必填</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>status_code</code>, <code>stage_code</code>, <code>error_code</code></td>
+          <td>按场景必填</td>
+          <td>机器稳定 code。只能用于诊断、筛选和文案映射，不得直接作为主提示展示。</td>
+        </tr>
+        <tr>
+          <td><code>display_title</code></td>
+          <td>必填</td>
+          <td>页面主标题，例如“候选数据审计失败”。</td>
+        </tr>
+        <tr>
+          <td><code>display_message</code></td>
+          <td>必填</td>
+          <td>给运营看的说明，必须说清当前影响，不允许只写异常栈。</td>
+        </tr>
+        <tr>
+          <td><code>recommended_action</code></td>
+          <td>必填</td>
+          <td>下一步建议，例如“查看问题账本后重新审计”。</td>
+        </tr>
+        <tr>
+          <td><code>severity_label</code></td>
+          <td>必填</td>
+          <td>人话严重级别，例如“阻断”“警告”“信息”。</td>
+        </tr>
+        <tr>
+          <td><code>diagnostic_detail</code></td>
+          <td>可空</td>
+          <td>折叠展示的技术细节，可以包含原始 code、路径和异常片段。</td>
+        </tr>
+      </tbody>
+    </table>
+    <table>
+      <thead>
+        <tr>
+          <th>底层 code</th>
+          <th>页面标题</th>
+          <th>页面说明</th>
+          <th>建议动作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ComputeRun.planned</code></td>
+          <td>计划已生成</td>
+          <td>系统已经生成计算计划，尚未开始读取和计算数据。</td>
+          <td>确认输入范围、配置和预计影响后再启动。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun.running</code></td>
+          <td>正在计算</td>
+          <td>DuckDB 正在生成候选数据，正式数据尚未被修改。</td>
+          <td>观察进度；如长时间无输出，查看当前 unit 和日志。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun.audit_running</code></td>
+          <td>正在审计候选数据</td>
+          <td>系统正在检查 schema、行数、重复 key、完备性和业务规则。</td>
+          <td>等待审计完成；审计未通过时不要发布。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun.publishing</code></td>
+          <td>正在发布正式数据</td>
+          <td>正式分区处于发布窗口，下游读取已被 gate 阻断。</td>
+          <td>不要中断进程；如失败，按发布收尾或 Kopia 恢复流程处理。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun.published</code></td>
+          <td>发布完成</td>
+          <td>正式数据已经替换完成，门禁已放行。</td>
+          <td>按下游重建提示执行 derived、research 或 indicator 重建。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeRun.blocked</code></td>
+          <td>已阻断</td>
+          <td>审计或发布条件未通过，系统已阻止正式数据继续被消费。</td>
+          <td>打开问题账本，先处理阻断问题，再重新审计或发布。</td>
+        </tr>
+        <tr>
+          <td><code>FormalGate.publishing</code></td>
+          <td>发布中，暂不可读</td>
+          <td>该分区正在发布或收尾，下游暂时不能读取。</td>
+          <td>等待发布完成；不要手工改 gate。</td>
+        </tr>
+        <tr>
+          <td><code>FormalGate.passed</code></td>
+          <td>可用</td>
+          <td>该分区已经通过审计，可以被下游读取。</td>
+          <td>无须处理。</td>
+        </tr>
+        <tr>
+          <td><code>FormalGate.blocked</code></td>
+          <td>不可用，存在阻断问题</td>
+          <td>该分区审计未通过或发布失败，不能被下游读取。</td>
+          <td>查看问题账本和推荐动作。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_AUDIT_FAILED</code></td>
+          <td>候选数据审计失败</td>
+          <td>候选数据存在 schema、重复 key、行数、完备性或业务规则问题。</td>
+          <td>查看 audit ledger，先修复问题，不要发布。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_QUEUE_FAILED</code></td>
+          <td>下游通知写入失败</td>
+          <td>正式数据可能已经变化，但指标或 derived 重建通知没有完整落盘。</td>
+          <td>保持 gate 阻断，修复 queue/source event 后执行发布收尾。</td>
+        </tr>
+      </tbody>
+    </table>
+    <p>
+      允许在详情页的“诊断信息”区域展示原始 code，但必须放在次级位置，且旁边要有中文解释。
+      用户主路径上只能看到人话结论，不允许看到 <code>candidate_ready</code>、<code>LC_COMPUTE_INPUT_CHANGED</code>
+      这类裸枚举。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>2. 当前代码事实</h2>
+    <p>代码审计后，当前已经存在一个非常关键的 gate：</p>
+    <pre>manifest/stk_mins_quality/clean_next_partition_gate.parquet</pre>
+    <p>
+      它由 <code>CleanNextPartitionGateService</code> 管理，粒度是
+      <code>freq + trade_date</code>。它不是 compute 完成状态，而是正式
+      <code>clean_next</code> 分区能否被下游消费的放行证。
+    </p>
+    <p>
+      另外，<code>stk_mins_sync</code> 的 Sync Center 链路已经落地：
+      <code>plan -> Kopia 写前备份 -> raw sync -> clean_next refresh + gate -> 人工确认 -> derived 90/120 -> 人工确认 -> by-month research</code>。
+      因此本方案不能另起一套与 Sync Center 脱节的锁、备份、gate 或下游重建链路。qfq 是一个改变
+      <code>clean_next</code> 价格语义的受控维护动作，必须复用或扩展现有 Sync Center 基础设施，
+      而不是绕过它。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>现有能力</th>
+          <th>当前作用</th>
+          <th>在 DuckDB 计算执行壳中的定位</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>LakeJobLockService</code></td>
+          <td>Sync Center 已使用 <code>manifest/lake_jobs/active_task.lock</code> 做全局运行锁，支持 heartbeat、stale 检测和人工释放 stale。</td>
+          <td>qfq/DuckDB 写正式 Lake 路径时必须复用或扩展这一把锁；禁止再创建第二套互不感知的全局写锁。</td>
+        </tr>
+        <tr>
+          <td><code>StkMinsPipelineRunState</code></td>
+          <td>记录 Sync Center 阶段、人工确认点、用户可读摘要和错误信息。</td>
+          <td>qfq 相关 UI/CLI 状态也应沿用“后端生成人话摘要”的原则，不能让前端直接展示底层枚举。</td>
+        </tr>
+        <tr>
+          <td><code>CleanNextPartitionGateService</code></td>
+          <td>记录正式 clean_next 分区 <code>passed/blocked/publishing</code>。</td>
+          <td>保留为 clean_next 正式消费门禁，不替换。</td>
+        </tr>
+        <tr>
+          <td><code>CleanNextRefreshService</code></td>
+          <td>raw affected partition 更新后，重建 clean_next、审计、写 gate、通知 indicator queue。</td>
+          <td>日常分区刷新链路保留；qfq 发布后，若日常刷新继续写 clean_next，必须调用同一套 qfq 分区构建和受控发布能力，不能绕过 gate。</td>
+        </tr>
+        <tr>
+          <td>basic audit</td>
+          <td>检查 schema、非法价格结构、负数成交量成交额、身份映射、重复 key。</td>
+          <td>可复用为 clean_next candidate / formal 分区审计。</td>
+        </tr>
+        <tr>
+          <td>completeness audit</td>
+          <td>检查日内 bar 数不足/过多，写问题账本。</td>
+          <td>可复用为发布前后完备性门禁。</td>
+        </tr>
+        <tr>
+          <td>下游 require gate</td>
+          <td>derived、by-month、indicator 读取 clean_next 前检查 gate passed。</td>
+          <td>必须继续保留。下游只认正式 clean_next gate，不认 compute candidate_part。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>边界：</strong>
+      现有 clean_next gate 不是通用大计算 gate。它不记录 compute bucket，不记录 candidate audit，不记录 qfq factor snapshot，
+      也不表达所有 candidate_part 是否齐全。所以执行壳要补 run/candidate_part/publish manifest，但不能绕开现有 clean_next gate。
+    </div>
+    <div class="danger">
+      <strong>禁止双轨：</strong>
+      已实现的 <code>stk_mins_sync</code> 会在人工确认点释放并重新获取 Sync Center 锁；qfq layer cutover 不能照搬这种分段释放方式。
+      一旦进入正式发布窗口，必须从 gate 置为 <code>publishing</code> 到下游通知落盘和 gate <code>passed</code> 全程保持互斥，
+      否则会出现 daily sync 与 qfq 发布互相覆盖的窗口。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>3. 核心原则</h2>
+    <div class="three-col">
+      <div class="mini-card">
+        <strong>计算交给 DuckDB</strong>
+        <p class="muted">优先用 DuckDB SQL 扫描 Parquet、join 因子、生成 candidate。</p>
+      </div>
+      <div class="mini-card">
+        <strong>正式写入必须单点</strong>
+        <p class="muted">只有 single writer/coordinator 可以发布正式路径、gate、manifest、state。</p>
+      </div>
+      <div class="mini-card">
+        <strong>连续性优先</strong>
+        <p class="muted">分桶不能破坏递推连续性。MACD 按股票分桶，不能按日期切。</p>
+      </div>
+    </div>
+    <h3>3.1 计算分桶与发布分区不是一回事</h3>
+    <pre>计算分桶：为了并行和速度，例如 ts_code_bucket=17
+发布分区：为了数据资产组织和查询，例如 freq=1/trade_date=2026-05-14</pre>
+    <p>
+      DuckDB 可以按 <code>ts_code_bucket</code>、月份或分区写出中间产物；但正式发布仍必须按目标分区组织。
+      如果目标分区是 <code>freq + trade_date</code>，最终就必须由 single writer 汇总所有 bucket 后再发布。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>4. DuckDB 计算执行壳模型</h2>
+    <p>
+      本章只说明对象之间的关系，字段精确定义以第 1.3 到 1.6 为准。实现时不得只按下面摘要表临时发挥。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>模型</th>
+          <th>含义</th>
+          <th>必须记录的字段</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td>一次大计算任务。</td>
+          <td><code>run_id</code>, <code>job_type</code>, <code>dataset_key</code>, <code>input_range</code>, <code>duckdb_threads</code>, <code>duckdb_memory_limit</code>, <code>status</code>, <code>created_at</code>, <code>finished_at</code></td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td>一个 DuckDB 可执行单元。由 planner 生成。</td>
+          <td><code>unit_key</code>, <code>continuity_key</code>, <code>publish_partition_key</code>, <code>input_paths</code>, <code>duckdb_sql_template</code>, <code>expected_output_role</code></td>
+        </tr>
+        <tr>
+          <td><code>CandidatePartOutput</code></td>
+          <td>DuckDB 计算后的临时输出，可以是按 bucket、月份或目标分区写出的 candidate 文件。</td>
+          <td><code>run_id</code>, <code>unit_key</code>, <code>candidate_part_path</code>, <code>row_count</code>, <code>byte_count</code>, <code>checksum</code>, <code>status</code></td>
+        </tr>
+        <tr>
+          <td><code>PublishPartition</code></td>
+          <td>single writer 要发布的正式分区。</td>
+          <td><code>partition_key</code>, <code>source_candidate_parts</code>, <code>target_path</code>, <code>audit_status</code>, <code>publish_status</code></td>
+        </tr>
+        <tr>
+          <td><code>RunManifest</code></td>
+          <td>运行账本。用于恢复、审计、解释和 UI 展示。</td>
+          <td><code>run.json</code>, <code>units.parquet</code>, <code>candidate_parts.parquet</code>, <code>publish_partitions.parquet</code>, <code>events.jsonl</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>4.1 全局写锁模型</h2>
+    <p>
+      qfq baseline 是 layer cutover，不允许和 raw sync、clean_next refresh、derived、by-month、indicator 写入并发。
+      写锁不是性能优化，而是防止正式路径、gate 和下游通知互相踩踏的安全边界。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>约束</th>
+          <th>含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>lock_path</code></td>
+          <td>硬约束</td>
+          <td>复用现有 Sync Center 锁：<code>manifest/lake_jobs/active_task.lock</code>，由 <code>LakeJobLockService</code> 管理。不得新增另一套互不感知的 <code>duckdb_compute</code> 全局锁。</td>
+        </tr>
+        <tr>
+          <td><code>lock_id</code>, <code>run_id</code>, <code>job_type</code></td>
+          <td>硬约束</td>
+          <td>说明谁持有锁，以及锁属于哪次运行。现有锁已记录 <code>run_id</code> / <code>profile_key</code>；qfq 如需 <code>job_type</code> 或 <code>protected_paths</code>，应扩展同一个锁 payload。</td>
+        </tr>
+        <tr>
+          <td><code>owner_pid</code>, <code>host</code></td>
+          <td>硬约束</td>
+          <td>用于人工排查当前进程是否仍然存在。现有实现字段为 <code>owner_pid</code> / <code>owner_host</code>，不得只写 run_id。</td>
+        </tr>
+        <tr>
+          <td><code>started_at</code>, <code>heartbeat_at</code>, <code>stale_after_seconds</code></td>
+          <td>硬约束</td>
+          <td>现有实现字段为 <code>acquired_at</code> / <code>last_heartbeat_at</code> / <code>stale_after_seconds</code>。heartbeat 超过 stale 阈值后只标记 stale 并阻断新写入，不自动释放。</td>
+        </tr>
+        <tr>
+          <td><code>protected_paths</code></td>
+          <td>硬约束</td>
+          <td>本次锁保护的正式路径，例如 <code>research/stk_mins_by_date_clean_next</code>、gate、ledger、downstream queue。</td>
+        </tr>
+        <tr>
+          <td><code>status</code></td>
+          <td>硬约束</td>
+          <td><code>active</code>、<code>stale</code>、<code>released</code>。只有持锁 run 能释放自己的 active 锁；stale 锁必须人工确认后处理。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="danger">
+      <strong>禁止自动释放 stale 锁：</strong>
+      stale 只能说明进程长时间没有 heartbeat，不能证明正式数据处于安全状态。实现时只能阻断后续写入并提示人工检查。
+      现有 Sync Center 可以人工 <code>release-stale</code>，qfq 只能复用这种显式人工确认路径，不能后台静默释放。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>4.2 输入快照与漂移检查</h2>
+    <p>
+      input snapshot 是“本次 candidate 到底基于哪些输入算出来”的证据。没有 input snapshot，后续无法判断
+      candidate 是否可发布，也无法复现结果。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>约束</th>
+          <th>含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>snapshot_id</code></td>
+          <td>硬约束</td>
+          <td>输入快照唯一 ID。写入 <code>run.json.input_snapshot.snapshot_id</code>。</td>
+        </tr>
+        <tr>
+          <td><code>source_items</code></td>
+          <td>硬约束</td>
+          <td>数组。每项包含 <code>source_role</code>、<code>path</code>、<code>file_count</code>、<code>row_count</code>、<code>byte_count</code>、<code>schema_fingerprint</code>、<code>metadata_signature</code>。</td>
+        </tr>
+        <tr>
+          <td><code>source_role</code></td>
+          <td>硬约束</td>
+          <td>例如 <code>raw_stk_mins</code>、<code>adj_factor</code>、<code>security_identity_map</code>、<code>config</code>、<code>code_version</code>。</td>
+        </tr>
+        <tr>
+          <td><code>metadata_signature</code></td>
+          <td>硬约束</td>
+          <td>第一版至少由文件相对路径、大小、mtime、row_count、schema fingerprint 生成。内容级 checksum 可后置，但发布前必须可复核元数据未漂移。</td>
+        </tr>
+        <tr>
+          <td><code>code_version</code>, <code>config_hash</code></td>
+          <td>硬约束</td>
+          <td>记录代码版本和生效配置 hash。配置变化时不得复用旧 candidate。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>发布前必须复核：</strong>
+      publish 命令必须重新计算输入 snapshot 的 metadata signature。任何输入漂移都必须写
+      <code>LC_COMPUTE_INPUT_CHANGED</code>，本次 candidate 作废，不能继续发布。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>5. 总流程图</h2>
+    <svg class="flow" viewBox="0 0 1160 640" role="img" aria-label="Local Lake DuckDB 计算执行壳流程图">
+      <defs>
+        <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path>
+        </marker>
+      </defs>
+
+      <rect class="box blue" x="36" y="64" width="200" height="82"></rect>
+      <text x="58" y="97">Planner</text>
+      <text class="small" x="58" y="122">生成 ComputeUnit</text>
+
+      <rect class="box purple" x="300" y="40" width="210" height="90"></rect>
+      <text x="326" y="74">Run Manifest</text>
+      <text class="small" x="326" y="99">run / units / events</text>
+
+      <rect class="box orange" x="300" y="184" width="210" height="94"></rect>
+      <text x="326" y="218">DuckDB Compute</text>
+      <text class="small" x="326" y="243">SQL 计算，只写 _tmp candidate</text>
+
+      <rect class="box orange" x="578" y="184" width="222" height="94"></rect>
+      <text x="604" y="218">Candidate Parts</text>
+      <text class="small" x="604" y="243">_tmp/run_id/candidate_parts/...</text>
+
+      <rect class="box green" x="858" y="112" width="236" height="104"></rect>
+      <text x="886" y="146">Coordinator / Single Writer</text>
+      <text class="small" x="886" y="171">汇总 candidate_part、校验、发布</text>
+      <text class="small" x="886" y="195">唯一正式写入者</text>
+
+      <rect class="box green" x="858" y="280" width="236" height="92"></rect>
+      <text x="886" y="314">Candidate Audit</text>
+      <text class="small" x="886" y="339">schema / rows / duplicate / completeness</text>
+
+      <rect class="box red" x="858" y="440" width="236" height="82"></rect>
+      <text x="886" y="473">Blocked</text>
+      <text class="small" x="886" y="498">不发布，不污染正式数据</text>
+
+      <rect class="box green" x="578" y="380" width="222" height="94"></rect>
+      <text x="604" y="414">Formal Publish</text>
+      <text class="small" x="604" y="439">Kopia backup + atomic replace</text>
+
+      <rect class="box green" x="300" y="380" width="210" height="94"></rect>
+      <text x="326" y="414">Formal Gate</text>
+      <text class="small" x="326" y="439">clean_next_partition_gate</text>
+
+      <rect class="box blue" x="36" y="380" width="200" height="94"></rect>
+      <text x="58" y="414">Downstream</text>
+      <text class="small" x="58" y="439">derived / research / indicator</text>
+
+      <line class="arrow" x1="236" y1="105" x2="300" y2="85"></line>
+      <line class="arrow" x1="405" y1="130" x2="405" y2="184"></line>
+      <line class="arrow" x1="510" y1="231" x2="578" y2="231"></line>
+      <line class="arrow" x1="800" y1="231" x2="858" y2="164"></line>
+      <line class="arrow" x1="976" y1="216" x2="976" y2="280"></line>
+      <line class="arrow" x1="976" y1="372" x2="976" y2="440"></line>
+      <line class="arrow" x1="858" y1="326" x2="800" y2="414"></line>
+      <line class="arrow" x1="578" y1="427" x2="510" y2="427"></line>
+      <line class="arrow" x1="300" y1="427" x2="236" y2="427"></line>
+    </svg>
+  </section>
+
+  <section class="card">
+    <h2>6. 分桶规则</h2>
+    <p>
+      本节经过当前代码核验后补细。现有 <code>research/stk_mins_by_symbol_month</code> 使用
+      <code>stable_bucket(ts_code)</code> 做月度重排；<code>derived</code> 与 <code>indicator</code>
+      读取 <code>clean_next</code> 前会检查 <code>clean_next_partition_gate</code>。因此 DuckDB 计算执行壳的分桶必须同时满足：
+      计算连续性不被切断、正式发布分区完整、下游 gate 语义不被绕开。
+    </p>
+    <div class="warning">
+      <strong>本期范围提醒：</strong>
+      下表中的 MACD、MA、BOLL、derived、by-month 仅用于说明未来复用执行壳时的分桶原则，
+      不代表第一期要开发这些任务。第一期只实现 qfq。
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>任务</th>
+          <th>连续性约束</th>
+          <th>推荐计算分桶</th>
+          <th>正式发布分区</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>qfq clean_next candidate</td>
+          <td>逐行变换，不递推；依赖 identity map 与 adj_factor snapshot。</td>
+          <td>全量用 <code>freq + trade_month + ts_code_bucket</code>；小窗口可用 <code>freq + trade_date + ts_code_bucket</code>。</td>
+          <td><code>freq + trade_date</code></td>
+        </tr>
+        <tr>
+          <td>90/120 derived</td>
+          <td>同一股票同一天的分钟序列不能切碎。</td>
+          <td>全量用 <code>trade_month + target_freq + ts_code_bucket</code>；小窗口可用 <code>trade_date + target_freq + ts_code_bucket</code>。</td>
+          <td><code>target_freq + trade_date</code></td>
+        </tr>
+        <tr>
+          <td>by-month research</td>
+          <td>不递推，但目标就是按月和 bucket 重排。</td>
+          <td><code>freq + trade_month + bucket</code></td>
+          <td><code>freq + trade_month + bucket</code></td>
+        </tr>
+        <tr>
+          <td>MACD full / incremental</td>
+          <td>同一 <code>ts_code + freq</code> 必须按时间递推。</td>
+          <td><code>freq + ts_code_bucket</code></td>
+          <td><code>freq + trade_date</code>；state 由 single writer 统一推进。</td>
+        </tr>
+        <tr>
+          <td>MA / BOLL</td>
+          <td>滑窗依赖历史窗口，边界必须带 warmup。</td>
+          <td><code>freq + ts_code_bucket</code>，并明确 warmup 策略。</td>
+          <td><code>freq + trade_date</code></td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="danger">
+      <strong>红线：</strong>
+      递推型指标不能按日期分桶。MACD 如果按日期切，EMA state 会断，结果即使写出来也不可信。
+    </div>
+
+    <h3>6.1 分桶先看依赖关系，不先看速度</h3>
+    <p>
+      分桶不是为了“切得越碎越快”。正确顺序是：先找连续性依赖，再找发布分区，再决定并行粒度。
+      如果一个计算单元的依赖被切碎，速度越快，错误越快。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>核验项</th>
+          <th>必须满足的规则</th>
+          <th>不满足时的后果</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>continuity_key</code></td>
+          <td>同一连续性键必须只归属一个 DuckDB compute unit。MACD 是 <code>ts_code + freq</code>；90/120 是 <code>ts_code + trade_date + source_freq</code>。</td>
+          <td>递推 state 断裂、K 线聚合跨错边界，结果不可用。</td>
+        </tr>
+        <tr>
+          <td><code>publish_partition_key</code></td>
+          <td>同一个正式分区可由多个 candidate_part 贡献，但只能由 single writer 在 candidate_part 全齐后发布。</td>
+          <td>部分 bucket 先发布会导致正式分区半成品。</td>
+        </tr>
+        <tr>
+          <td><code>bucket_key</code></td>
+          <td>股票维度分桶统一使用 canonical/latest <code>ts_code</code>，不能使用旧代码或源代码混分。</td>
+          <td>同一股票历史被分到多个 bucket，指标连续性与 by-month 查询都会被打碎。</td>
+        </tr>
+        <tr>
+          <td><code>bucket_count</code></td>
+          <td>同一层级一旦发布，<code>bucket_count</code> 必须视为 layout 版本的一部分；变更必须创建新 layout 或全量重建。</td>
+          <td>同一路径下新旧 bucket 混用，查询和增量都无法可靠解释。</td>
+        </tr>
+        <tr>
+          <td>输入快照</td>
+          <td>qfq 必须记录 <code>adj_factor</code> 快照标识或 checksum；identity map 也必须记录版本或文件 checksum。</td>
+          <td>同一次 run 中前后使用不同因子或身份账本，会出现不可复现结果。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>6.2 每类任务的分桶判定</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>任务类型</th>
+          <th>允许并行切分</th>
+          <th>禁止切分</th>
+          <th>发布完整性判断</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>qfq 行级变换</td>
+          <td>全量推荐按 <code>freq + trade_month + ts_code_bucket</code> 切；日常增量可按 <code>freq + trade_date + ts_code_bucket</code> 切。</td>
+          <td>不允许不同 compute 使用不同 <code>adj_factor</code> 快照或不同 identity map。</td>
+          <td>同一 <code>freq + trade_date</code> 下所有预期 bucket 完成，且行数、重复 key、schema、完备性审计通过；月级 unit 也必须拆成日级发布分区审计。</td>
+        </tr>
+        <tr>
+          <td>90/120 聚合</td>
+          <td>全量推荐按 <code>trade_month + target_freq + ts_code_bucket</code> 切；日常增量可按 <code>trade_date + target_freq + ts_code_bucket</code> 切。</td>
+          <td>不允许把同一 <code>ts_code + trade_date</code> 的源分钟序列切到多个 compute。</td>
+          <td>目标 <code>target_freq + trade_date</code> 所有 bucket 完成，聚合窗口符合交易时段规则；月级 unit 只降低调度开销，不改变日级发布粒度。</td>
+        </tr>
+        <tr>
+          <td>by-month 重排</td>
+          <td>可按 <code>freq + trade_month + bucket</code> 切；这是布局重排，不是计算递推。</td>
+          <td>不允许跳过源 <code>clean_next gate</code> 或 derived 源完整性检查。</td>
+          <td>月内所有源分区存在且通过 gate；目标 bucket 行数合计等于源行数。</td>
+        </tr>
+        <tr>
+          <td>MACD / EMA 类递推指标</td>
+          <td>只能按 <code>freq + ts_code_bucket</code> 切；一个股票一个频率的时间序列必须完整有序。</td>
+          <td>禁止按日期切；禁止多个 compute 同时推进同一 <code>ts_code + freq</code> state。</td>
+          <td>结果按 <code>freq + trade_date</code> 发布前，state 必须和最后一个已发布时间点一致。</td>
+        </tr>
+        <tr>
+          <td>MA / BOLL 滑窗指标</td>
+          <td>按 <code>freq + ts_code_bucket</code> 切，窗口起点必须带 warmup。</td>
+          <td>禁止只读目标日期窗口而不读 warmup 历史。</td>
+          <td>输出日期范围可小于输入日期范围，但必须记录 warmup_start。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>6.3 ComputeUnit 必须可解释、可复现、可比对</h3>
+    <pre>unit_key = job_type + dataset_key + input_snapshot_key + continuity_key + compute_window_key + bucket_key
+publish_partition_key = formal target partition, such as freq=1/trade_date=2026-05-14
+write_revision = run_id + unit_key + input_checksum + code_version</pre>
+    <p>
+      <code>unit_key</code> 必须稳定。相同输入、相同代码版本、相同配置生成的 compute units 必须一致。
+      否则失败后无法解释“到底哪一块算过、哪一块没算、哪一块需要重跑”。
+    </p>
+
+    <h3>6.4 不要把 compute unit 数量做爆</h3>
+    <p>
+      以全量股票分钟线为例，如果按 <code>freq + trade_date + bucket</code> 直接生成任务，
+      5 个源频率、约 4,000 多个交易日、32 个 bucket，会产生几十万个 compute units。
+      这会让调度、manifest、进度、错误处理本身变成负担。
+    </p>
+    <div class="success">
+      <strong>全量任务原则：</strong>
+      计算窗口可以按月或按较大日期窗口组织，正式发布仍按 <code>freq + trade_date</code> 做日级分区。
+      换句话说：DuckDB 可以一次算一个月内某个 bucket 的数据，但 single writer 必须按每天逐个审计和发布。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>7. DuckDB / Coordinator 契约</h2>
+    <h3>7.1 DuckDB compute 只能做什么</h3>
+    <ol>
+      <li>读取正式输入或 candidate 输入。</li>
+      <li>执行 coordinator 生成的 SQL / compute unit。</li>
+      <li>写入 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts/&lt;unit_key&gt;/</code>。</li>
+      <li>写 candidate_part manifest。</li>
+      <li>上报 progress。</li>
+    </ol>
+    <h3>7.2 DuckDB compute 禁止做什么</h3>
+    <ol>
+      <li>禁止写正式数据路径。</li>
+      <li>禁止写 <code>clean_next_partition_gate</code>。</li>
+      <li>禁止推进 indicator state。</li>
+      <li>禁止写 downstream queue。</li>
+      <li>禁止删除其它 run 或其它 unit 的临时产物。</li>
+    </ol>
+    <h3>7.3 single writer 必须做什么</h3>
+    <ol>
+      <li>确认所有 required candidate_part 都完成。</li>
+      <li>按目标 publish partition 汇总 candidate_part。</li>
+      <li>执行 schema、行数、重复 key、完备性、checksum 审计。</li>
+      <li>发布前创建必要 Kopia snapshot。</li>
+      <li>写入正式路径。</li>
+      <li>写 gate、manifest、downstream queue、state。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>8. Gate / Audit 分层</h2>
+    <p>这里必须把名字说清楚，避免后续又混在一起。</p>
+    <table>
+      <thead>
+        <tr>
+          <th>层级</th>
+          <th>文件或模型</th>
+          <th>用途</th>
+          <th>是否已有实现</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>run / candidate_part manifest</td>
+          <td><code>manifest/duckdb_compute/runs/&lt;run_id&gt;/...</code></td>
+          <td>记录 DuckDB 计算运行、compute units、candidate_parts、events。它不是下游消费 gate。</td>
+          <td>待实现</td>
+        </tr>
+        <tr>
+          <td>candidate audit</td>
+          <td><code>manifest/duckdb_compute/runs/&lt;run_id&gt;/audit_ledger.parquet</code></td>
+          <td>发布前检查 candidate 是否可发布。</td>
+          <td>待实现</td>
+        </tr>
+        <tr>
+          <td>formal clean_next gate</td>
+          <td><code>manifest/stk_mins_quality/clean_next_partition_gate.parquet</code></td>
+          <td>正式 clean_next 分区是否允许被 derived / research / indicator 消费。</td>
+          <td>已有，必须复用</td>
+        </tr>
+        <tr>
+          <td>indicator state gate</td>
+          <td><code>manifest/indicator_state/...</code></td>
+          <td>指标 state 只能在结果写入成功后推进。</td>
+          <td>已有局部实现</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <strong>关系：</strong>
+      DuckDB 计算执行壳的 Gate/Audit 管“能不能发布”；现有 clean_next gate 管“正式 clean_next 能不能被下游读”。
+      qfq 发布后必须继续写现有 clean_next gate，下游不需要认识 compute candidate_part。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>8.1 状态模型与错误提示</h2>
+    <p>
+      大计算链路很长，不能只靠命令行最后一句成功或失败。状态要服务三件事：
+      定位失败点、阻止脏数据发布、给人一个明确的下一步动作。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>对象</th>
+          <th>状态枚举</th>
+          <th>状态文件</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>ComputeRun</code></td>
+          <td><code>planned</code>, <code>running</code>, <code>compute_completed</code>, <code>audit_running</code>, <code>prewrite_backup</code>, <code>publishing</code>, <code>published</code>, <code>blocked</code>, <code>failed</code>, <code>cancelled</code></td>
+          <td><code>manifest/duckdb_compute/runs/&lt;run_id&gt;/run.json</code></td>
+          <td>描述整次大计算处于哪个阶段。它是运行状态，不是下游消费 gate。</td>
+        </tr>
+        <tr>
+          <td><code>ComputeUnit</code></td>
+          <td><code>pending</code>, <code>running</code>, <code>succeeded</code>, <code>failed</code>, <code>skipped</code></td>
+          <td><code>units.parquet</code></td>
+          <td>定位具体失败的计算单元，例如某个 <code>freq/trade_date/bucket</code>。</td>
+        </tr>
+        <tr>
+          <td><code>CandidatePartOutput</code></td>
+          <td><code>staged</code>, <code>validated</code>, <code>rejected</code></td>
+          <td><code>candidate_parts.parquet</code></td>
+          <td>记录 DuckDB compute 输出的临时 candidate_part 是否完整、行数与 checksum 是否匹配。</td>
+        </tr>
+        <tr>
+          <td><code>PublishPartition</code></td>
+          <td><code>pending</code>, <code>candidate_ready</code>, <code>audit_passed</code>, <code>publishing</code>, <code>published</code>, <code>blocked</code>, <code>failed</code></td>
+          <td><code>publish_partitions.parquet</code></td>
+          <td>记录正式分区发布状态。只有 <code>published</code> 后才允许写正式 gate passed。</td>
+        </tr>
+        <tr>
+          <td><code>FormalGate</code></td>
+          <td><code>publishing</code>, <code>passed</code>, <code>blocked</code></td>
+          <td><code>manifest/stk_mins_quality/clean_next_partition_gate.parquet</code></td>
+          <td>现有正式消费 gate。下游 derived / research / indicator 只认它。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>8.1.1 状态机与状态信息流转图</h3>
+    <p>
+      状态机是开发门禁，不是展示装饰。实现时必须按下面的流转写状态，不能为了“方便收尾”跳状态。
+      尤其注意：正式 gate 的 <code>passed</code> 必须是最后放行动作，不能早于下游通知和发布记录。
+    </p>
+    <svg class="flow" viewBox="0 0 1160 760" role="img" aria-label="DuckDB 大计算状态机与状态信息流转图">
+      <defs>
+        <marker id="stateArrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+          <path d="M0,0 L0,6 L9,3 z" fill="#64748b"></path>
+        </marker>
+      </defs>
+
+      <rect class="box blue" x="38" y="58" width="190" height="78"></rect>
+      <text x="60" y="90">planned</text>
+      <text class="small" x="60" y="116">run.json 创建</text>
+
+      <rect class="box orange" x="286" y="58" width="204" height="78"></rect>
+      <text x="310" y="90">running</text>
+      <text class="small" x="310" y="116">units / candidate_parts 更新</text>
+
+      <rect class="box green" x="548" y="58" width="204" height="78"></rect>
+      <text x="572" y="90">compute_completed</text>
+      <text class="small" x="572" y="116">全部 unit succeeded</text>
+
+      <rect class="box green" x="810" y="58" width="244" height="78"></rect>
+      <text x="834" y="90">audit_running</text>
+      <text class="small" x="834" y="116">candidate audit ledger</text>
+
+      <rect class="box red" x="810" y="188" width="244" height="82"></rect>
+      <text x="834" y="222">blocked</text>
+      <text class="small" x="834" y="248">问题账本 open，不发布</text>
+
+      <rect class="box purple" x="548" y="188" width="204" height="82"></rect>
+      <text x="572" y="222">prewrite backup</text>
+      <text class="small" x="572" y="248">Kopia snapshot</text>
+
+      <rect class="box purple" x="286" y="188" width="204" height="82"></rect>
+      <text x="310" y="222">publishing</text>
+      <text class="small" x="310" y="248">formal gate = publishing</text>
+
+      <rect class="box purple" x="38" y="188" width="190" height="82"></rect>
+      <text x="60" y="222">formal replace</text>
+      <text class="small" x="60" y="248">受控替换正式路径</text>
+
+      <rect class="box green" x="38" y="330" width="190" height="82"></rect>
+      <text x="60" y="364">downstream notice</text>
+      <text class="small" x="60" y="390">source event / queue</text>
+
+      <rect class="box green" x="286" y="330" width="204" height="82"></rect>
+      <text x="310" y="364">gate passed</text>
+      <text class="small" x="310" y="390">下游才允许读取</text>
+
+      <rect class="box green" x="548" y="330" width="204" height="82"></rect>
+      <text x="572" y="364">published</text>
+      <text class="small" x="572" y="390">run 进入终态</text>
+
+      <rect class="box red" x="810" y="330" width="244" height="82"></rect>
+      <text x="834" y="364">failed / cancelled</text>
+      <text class="small" x="834" y="390">失败留证，不假装成功</text>
+
+      <rect class="box blue" x="38" y="492" width="1016" height="138"></rect>
+      <text x="66" y="526">状态信息写入位置</text>
+      <text class="small" x="66" y="554">run.json：整次运行状态 / effective_config / input_snapshot</text>
+      <text class="small" x="66" y="578">units.parquet：每个 DuckDB unit 的状态、输入、输出、错误码</text>
+      <text class="small" x="66" y="602">candidate_parts.parquet / publish_partitions.parquet：候选产物与正式分区发布状态</text>
+      <text class="small" x="600" y="554">audit_ledger.parquet：问题生命周期</text>
+      <text class="small" x="600" y="578">clean_next_partition_gate.parquet：正式消费门禁</text>
+      <text class="small" x="600" y="602">source events / indicator queue：下游重建通知</text>
+
+      <line class="arrow" x1="228" y1="97" x2="286" y2="97" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="490" y1="97" x2="548" y2="97" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="752" y1="97" x2="810" y2="97" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="932" y1="136" x2="932" y2="188" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="810" y1="97" x2="752" y2="229" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="548" y1="229" x2="490" y2="229" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="286" y1="229" x2="228" y2="229" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="133" y1="270" x2="133" y2="330" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="228" y1="371" x2="286" y2="371" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="490" y1="371" x2="548" y2="371" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="388" y1="136" x2="900" y2="330" marker-end="url(#stateArrow)"></line>
+      <line class="arrow" x1="650" y1="270" x2="900" y2="330" marker-end="url(#stateArrow)"></line>
+    </svg>
+    <table>
+      <thead>
+        <tr>
+          <th>流转</th>
+          <th>触发条件</th>
+          <th>必须写入的信息</th>
+          <th>禁止事项</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>planned -> running</code></td>
+          <td>用户确认执行，获取写锁，输入快照与配置快照已落盘。</td>
+          <td><code>run.json.started_at</code>、生效配置、输入快照。</td>
+          <td>禁止没有 input snapshot 就开始计算。</td>
+        </tr>
+        <tr>
+          <td><code>running -> compute_completed</code></td>
+          <td>全部 <code>ComputeUnit</code> 成功，候选产物已写出。</td>
+          <td><code>units.parquet</code>、<code>candidate_parts.parquet</code>、行数和 checksum/metadata 签名。</td>
+          <td>禁止 unit 失败时进入审计。</td>
+        </tr>
+        <tr>
+          <td><code>compute_completed -> audit_running</code></td>
+          <td>开始候选层审计。</td>
+          <td>审计范围、审计规则版本、candidate root。</td>
+          <td>禁止审计直接修改正式数据。</td>
+        </tr>
+        <tr>
+          <td><code>audit_running -> blocked</code></td>
+          <td>发现 schema、重复 key、完备性、qfq 价格或输入漂移问题。</td>
+          <td><code>audit_ledger.parquet</code>、<code>errors.parquet</code>、人话处理建议。</td>
+          <td>禁止带 open 阻断问题继续发布。</td>
+        </tr>
+        <tr>
+          <td><code>audit_running -> prewrite_backup</code></td>
+          <td>候选审计通过，准备创建写前备份。</td>
+          <td>备份范围、目标路径、候选路径、发布计划写入 <code>publish_partitions.parquet</code>。</td>
+          <td>禁止候选审计未通过就创建发布备份。</td>
+        </tr>
+        <tr>
+          <td><code>prewrite_backup -> publishing</code></td>
+          <td>Kopia 写前备份成功，拿到 <code>kopia_snapshot_id</code>。</td>
+          <td>目标分区 gate 写为 <code>publishing</code>，发布记录写入备份 ID。</td>
+          <td>禁止备份失败后进入 formal replace；禁止还没写 gate publishing 就替换正式路径。</td>
+        </tr>
+        <tr>
+          <td><code>publishing -> gate passed -> published</code></td>
+          <td>Kopia 备份、正式替换、formal audit、source event / queue 全部成功。</td>
+          <td>publish record、Kopia snapshot id、downstream queue/source event、final gate。</td>
+          <td>禁止 queue/source event 之前写 <code>gate=passed</code>。</td>
+        </tr>
+        <tr>
+          <td><code>任意阶段 -> failed/cancelled</code></td>
+          <td>计算异常、备份失败、发布失败、用户取消。</td>
+          <td>错误码、失败阶段、已影响路径、推荐恢复动作。</td>
+          <td>禁止失败后把状态改成成功；禁止状态失败回滚已完成业务数据。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>8.1.2 错误记录必须能直接指导人处理</h3>
+    <p>错误不能只写 Python exception。每条错误至少包含：</p>
+    <pre>error_code
+severity
+stage
+run_id
+unit_key
+publish_partition_key
+source_paths
+message_for_human
+technical_detail
+recommended_action
+sample_rows_or_paths</pre>
+    <table>
+      <thead>
+        <tr>
+          <th>错误码</th>
+          <th>触发条件</th>
+          <th>给人的提示</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>LC_COMPUTE_MISSING_CANDIDATE_PART</code></td>
+          <td>某个发布分区缺少预期 candidate_part。</td>
+          <td>不要发布；检查失败 unit，重跑该 run 或重新生成 candidate。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_INPUT_CHANGED</code></td>
+          <td>发布前发现输入 checksum 与 planner 阶段不一致。</td>
+          <td>输入数据已变化，本次 candidate 作废，需要重新 plan。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_AUDIT_FAILED</code></td>
+          <td>schema、重复 key、行数、完备性或 qfq 合理性检查失败。</td>
+          <td>不发布；查看 audit ledger，先处理具体问题。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_BACKUP_FAILED</code></td>
+          <td>Kopia 写前备份失败。</td>
+          <td>不进入正式替换；修复备份配置或空间后重试。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_PUBLISH_FAILED</code></td>
+          <td>atomic replace 失败或正式分区发布后校验失败。</td>
+          <td>gate 不得 passed；检查 tmp/backup，必要时从 Kopia 恢复。</td>
+        </tr>
+        <tr>
+          <td><code>LC_COMPUTE_QUEUE_FAILED</code></td>
+          <td>下游 source event 或 indicator queue 写入失败。</td>
+          <td>formal gate 保持 publishing/blocked，修复 queue 后重新执行发布收尾。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>8.2 下游重建需求模型</h2>
+    <p>
+      当前代码里的 indicator queue 主要服务 MACD，不足以表达 qfq 发布后 derived、by-month、indicator
+      这几类下游资产的统一失效范围。因此 qfq 发布不能只写 MACD queue，还必须写一份通用
+      <code>DownstreamRebuildRequirement</code> 账本。它不自动执行重建，只说明哪些下游资产已经失效、应该按什么范围重建。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>约束</th>
+          <th>含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>requirement_id</code></td>
+          <td>硬约束</td>
+          <td>重建需求唯一 ID，由 <code>source_layer + source_publish_id + target_layer + scope</code> 稳定生成。</td>
+        </tr>
+        <tr>
+          <td><code>source_layer</code>, <code>source_publish_id</code></td>
+          <td>硬约束</td>
+          <td>触发失效的上游层与发布 ID，例如 <code>research/stk_mins_by_date_clean_next</code> 与本次 qfq <code>publish_id</code>。</td>
+        </tr>
+        <tr>
+          <td><code>target_layer</code>, <code>target_task</code></td>
+          <td>硬约束</td>
+          <td>需要重建的下游层和任务，例如 <code>derived/stk_mins_by_date</code>、<code>research/stk_mins_by_symbol_month</code>、<code>indicator/macd</code>。</td>
+        </tr>
+        <tr>
+          <td><code>scope_type</code>, <code>freqs</code>, <code>start_date</code>, <code>end_date</code></td>
+          <td>硬约束</td>
+          <td>重建范围。全量 qfq baseline 必须明确写出频率和日期范围，禁止用空值表达“全部”。</td>
+        </tr>
+        <tr>
+          <td><code>status</code></td>
+          <td>硬约束</td>
+          <td><code>pending</code>、<code>running</code>、<code>done</code>、<code>blocked</code>。本期 qfq 只负责写 <code>pending</code>。</td>
+        </tr>
+        <tr>
+          <td><code>reason_code</code>, <code>human_message</code></td>
+          <td>硬约束</td>
+          <td>机器原因和人话说明。页面展示必须使用 <code>human_message</code>，不得直接显示内部枚举。</td>
+        </tr>
+      </tbody>
+    </table>
+    <pre>建议路径：
+manifest/downstream_rebuild_requirements/stk_mins.parquet
+
+qfq baseline 发布后至少写入：
+1. target_layer=derived/stk_mins_by_date, target_task=rebuild_90_120_from_clean_next
+2. target_layer=research/stk_mins_by_symbol_month, target_task=rebuild_by_month_from_clean_next_and_derived
+3. target_layer=indicator/*, target_task=review_and_recompute_after_qfq</pre>
+    <div class="danger">
+      <strong>gate passed 前必须完成下游需求落盘：</strong>
+      如果下游重建需求写入失败，formal gate 必须保持 <code>publishing</code> 或 <code>blocked</code>，
+      不能让下游读到已经变化但没有重建提示的 clean_next。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>9. 发布顺序</h2>
+    <p>以 <code>clean_next</code> 正式发布为例，顺序必须固定：</p>
+    <pre>1. candidate_parts 全部完成
+2. coordinator 汇总 candidate_part
+3. candidate audit passed
+4. Kopia snapshot 当前正式 clean_next / gate / ledger / manifest / downstream requirement
+5. 写 formal gate = publishing
+6. atomic replace 正式分区
+7. formal audit passed
+8. 写 downstream source event / indicator queue / derived rebuild requirement
+9. 写 formal gate = passed
+10. 下游才允许消费</pre>
+    <div class="warning">
+      <strong>为什么 queue 要在 final gate passed 之前：</strong>
+      如果 gate 先 passed，但 queue 或 source event 写失败，下游会看到一个“已通过但没有重算通知”的分区。
+      所以正式 gate 最终放行必须放在下游通知成功之后。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>9.1 容错边界与恢复动作</h2>
+    <p>
+      第一版不做自动 checkpoint / replay。原因是架构规则要求避免重新引入旧式 checkpoint/acquire/replay 语义。
+      但必须把状态和产物留清楚，让人可以安全判断：哪些没有动正式数据，哪些已经进入发布窗口，下一步该重跑还是该恢复。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>阶段</th>
+          <th>正式数据是否可能变化</th>
+          <th>必须保留的证据</th>
+          <th>安全处理方式</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>planner / compute 阶段</td>
+          <td>不会。</td>
+          <td><code>run.json</code>, <code>units.parquet</code>, <code>events.jsonl</code>, DuckDB compute 日志。</td>
+          <td>修复问题后新建 run 重算；旧 tmp 可人工清理。</td>
+        </tr>
+        <tr>
+          <td>candidate audit 阶段</td>
+          <td>不会。</td>
+          <td><code>audit_ledger.parquet</code>, candidate path, failed partition list。</td>
+          <td>不发布；先修 audit 问题，再重新生成 candidate。</td>
+        </tr>
+        <tr>
+          <td>prewrite backup 阶段</td>
+          <td>不会。</td>
+          <td>Kopia snapshot id 或失败原因。</td>
+          <td>备份失败则停止，不进入 replace。</td>
+        </tr>
+        <tr>
+          <td>formal gate = publishing 后</td>
+          <td>即将变化或正在变化。</td>
+          <td>旧 gate 行、新 gate publishing 行、backup path、target path、tmp path。</td>
+          <td>下游会被 publishing 阻断；必须完成发布收尾或从备份恢复后再改 gate。</td>
+        </tr>
+        <tr>
+          <td>atomic replace 后、queue 前</td>
+          <td>已经变化。</td>
+          <td>发布后行数、checksum、formal audit 结果。</td>
+          <td>不得直接 gate passed；queue/source event 成功后才能最终放行。</td>
+        </tr>
+        <tr>
+          <td>queue 成功后、gate passed 前</td>
+          <td>已经变化。</td>
+          <td>source event id、queue id、final gate status。</td>
+          <td>只差 final gate；如果写 gate 失败，下游仍被阻断，可重新执行发布收尾。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>9.1.1 状态写入失败不能污染正式数据</h3>
+    <p>
+      状态和 gate 写入失败时，不能回滚已经成功写入的业务数据，也不能假装成功。
+      正确做法是让正式 gate 保持 <code>publishing</code> 或 <code>blocked</code>，让下游停止消费，并把错误写入
+      <code>errors.parquet</code> / <code>events.jsonl</code>。这和生产侧“状态失败不得回滚业务数据”的总原则一致。
+    </p>
+
+    <h3>9.1.2 UI / CLI 进度必须按阶段说人话</h3>
+    <pre>[duckdb_compute] run=... stage=compute unit=12/320 partition=freq=1/trade_date=2026-05-14 bucket=7 rows=1,230,000
+[duckdb_compute] run=... stage=audit partition=freq=1/trade_date=2026-05-14 status=passed rows=5,512,000
+[duckdb_compute] run=... stage=publishing partition=freq=1/trade_date=2026-05-14 backup=snap-xxx
+[duckdb_compute] run=... stage=blocked error_code=LC_COMPUTE_AUDIT_FAILED ledger=...</pre>
+    <p>
+      进度输出必须包含阶段、当前 partition、当前 bucket、已完成数量、总数、关键行数和错误码。
+      不允许只输出“running”或长时间无输出。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>9.2 发布模式：分区发布 vs 层级切换</h2>
+    <p>
+      二次审计后补充：现有 <code>replace_directory_atomically</code> 只能保证单个文件或单个目录替换尽量原子，
+      不能保证一次大 run 中所有分区“一起成功或一起失败”。因此 DuckDB 计算执行壳必须区分两种发布模式。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>发布模式</th>
+          <th>适用场景</th>
+          <th>正式 gate 规则</th>
+          <th>失败影响</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>partition_publish</code></td>
+          <td>日常增量：某个 <code>freq + trade_date</code> raw 更新后刷新对应 clean_next。</td>
+          <td>只改受影响分区 gate。</td>
+          <td>单分区失败只阻断该分区，下游其它已通过分区仍可读。</td>
+        </tr>
+        <tr>
+          <td><code>layer_cutover_publish</code></td>
+          <td>qfq baseline、schema 语义整体切换、全量重建。</td>
+          <td>先把全量目标分区 gate 标记为 <code>publishing</code>，阻断下游；完整切换和 queue/source event 成功后，再批量写 <code>passed</code>。</td>
+          <td>失败时全量目标保持 <code>publishing/blocked</code>，不能让下游读到新旧语义混合数据。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>9.2.1 qfq baseline 必须走 layer cutover</h3>
+    <pre>1. 通过 LakeJobLockService 获取现有 Sync Center 全局 Lake 写入锁，禁止 raw sync / clean_next refresh / derived / indicator 并发写入。
+2. 记录 input snapshot：raw partitions、adj_factor、security_identity_map、代码版本、配置。
+3. 生成完整 qfq candidate root，例如 _tmp/duckdb_compute/&lt;run_id&gt;/candidate/research/stk_mins_by_date_clean_next。
+4. 对 candidate 做全量 audit：schema、行数、duplicate key、完备性、qfq factor coverage、样本价格核验。
+5. Kopia 备份正式 clean_next root、gate、quality ledger、downstream requirement、indicator queue/source event。
+6. 将所有目标 clean_next gate 批量置为 publishing，阻断下游。
+7. 同文件系统内 root-level replace：candidate root -> research/stk_mins_by_date_clean_next。
+8. 写下游 queue/source event 与 derived rebuild requirement。
+9. 批量写 gate=passed。
+10. 释放锁。</pre>
+    <p>
+      如果第 7 步之后、第 9 步之前失败，正式数据可能已经完成替换，但 gate 仍不是 <code>passed</code>，
+      下游会被阻断。此时只能执行“发布收尾”或“从 Kopia 恢复”，不能直接手改 gate。
+    </p>
+  </section>
+
+  <section class="card">
+    <h2>10. qfq 作为第一落地场景</h2>
+    <p>
+      qfq clean_next candidate 是最适合验证执行壳的第一场景：数据量大、计算可并行、没有 MACD 那种跨日递推 state，
+      但又足够重要，能检验临时目录、审计、发布和 gate 设计是否可靠。
+    </p>
+    <pre>raw_tushare/stk_mins_by_date
++ raw_tushare/adj_factor
++ manifest/security_identity/security_identity_map.parquet
+-> DuckDB compute
+-> qfq candidate_parts
+-> candidate audit
+-> publish to research/stk_mins_by_date_clean_next
+-> clean_next_partition_gate
+-> downstream rebuild requirement（后续 derived / by-month / MACD 专项再处理）</pre>
+    <p>qfq 计算本身继续遵守：</p>
+    <pre>qfq_ratio = adj_factor(ts_code, trade_date) / latest_adj_factor(ts_code)
+open/high/low/close/vwap *= qfq_ratio
+vol/amount/exchange 不调整</pre>
+    <div class="danger">
+      <strong>qfq 全量切换不能按分区各自 passed。</strong>
+      qfq 会改变整个 <code>clean_next</code> 的价格语义。如果全量切换过程中一部分分区已经是前复权价，另一部分分区仍是源站除权价，
+      下游 derived / by-month / indicator 会读到混合价格体系，结果不可解释。因此 qfq baseline 必须采用 layer-level cutover：
+      先生成完整 candidate，完整审计通过后，再统一进入正式切换。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>11. 失败与恢复</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>失败点</th>
+          <th>结果</th>
+          <th>恢复方式</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>compute 失败</td>
+          <td>只留下 candidate_part 临时产物，正式路径不变。</td>
+          <td>重跑失败 unit 或整个 run。</td>
+        </tr>
+        <tr>
+          <td>candidate audit 失败</td>
+          <td>不发布。candidate 保留用于排查。</td>
+          <td>修复问题后重新 build 或重新 audit。</td>
+        </tr>
+        <tr>
+          <td>Kopia snapshot 失败</td>
+          <td>不进入正式发布。</td>
+          <td>修复备份配置后重试 publish。</td>
+        </tr>
+        <tr>
+          <td>atomic replace 失败</td>
+          <td>正式路径不得进入半成品。gate 不得 passed。</td>
+          <td>检查 backup/tmp，必要时从 Kopia 恢复。</td>
+        </tr>
+        <tr>
+          <td>downstream queue 失败</td>
+          <td>formal gate 保持 publishing 或 blocked，不放行。</td>
+          <td>修复 queue 后重新执行 publish finalization。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>12. 定量 sizing 与初始参数</h2>
+    <p>
+      本节把“用几个计算核心、bucket 怎么分、速度怎么估”落到可执行口径。当前本机核验到的硬件基线：
+      Apple M3 Max，14 核（10 性能核 + 4 能效核），内存 36GB；Lake 盘当前约 3.7TiB，总可用约 2.9TiB。
+      这些数字只用于本地 Lake 计算 sizing，不代表生产部署参数。
+    </p>
+
+    <h3>12.1 第一版执行拓扑</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>角色</th>
+          <th>数量</th>
+          <th>职责</th>
+          <th>为什么这样配</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>coordinator</td>
+          <td>1</td>
+          <td>生成计划、维护 run manifest、生成 DuckDB SQL、汇总状态。</td>
+          <td>必须单点，否则状态解释会混乱。</td>
+        </tr>
+        <tr>
+          <td>DuckDB compute connection</td>
+          <td>默认 1 个 DuckDB 任务；内部线程从 4 起步，压测通过后再试 6，第一版上限 8。</td>
+          <td>用 DuckDB 扫描 Parquet、join 因子；第一期只计算 qfq candidate，只写 <code>_tmp</code>。derived / indicator 不在本期实现。</td>
+          <td>DuckDB 自带并行和 out-of-core 能力，比我们自己开多个 Python compute 更可控；并发主要通过 DuckDB <code>threads</code> 和 <code>memory_limit</code> 调整。</td>
+        </tr>
+        <tr>
+          <td>single writer</td>
+          <td>1</td>
+          <td>合并 candidate_part、审计、备份、正式发布、写 gate、写 queue。</td>
+          <td>正式路径只能有一个写入者，这是硬约束，不随机器核心数增加。</td>
+        </tr>
+        <tr>
+          <td>audit runner</td>
+          <td>0 或 1</td>
+          <td>第一版先由 single writer 串行审计；后续如审计成为瓶颈，再单独拆。</td>
+          <td>先保证正确性，避免审计与发布状态乱序。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>12.2 bucket 数量建议</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>参数</th>
+          <th>默认值</th>
+          <th>适用范围</th>
+          <th>调整规则</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>bucket_count</code></td>
+          <td><code>32</code></td>
+          <td>第一期用于 qfq 计算 bucket；未来若 by-month、indicator 迁入执行壳，也必须沿用稳定分桶原则。</td>
+          <td>保持和当前配置一致。约 5,500 只股票时，平均每 bucket 约 170 只股票。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_threads</code></td>
+          <td><code>4</code></td>
+          <td>DuckDB 单任务内部并行线程数。</td>
+          <td>先用 4 跑 2026-03 样本；若 CPU 低于 60%、内存低于 24GB、IO 未打满，再试 6，第一版硬上限 8。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_memory_limit</code></td>
+          <td><code>24GB</code></td>
+          <td>DuckDB 查询内存上限。</td>
+          <td>本机 36GB 内存下，给系统、文件缓存、Python 进程和 UI 留出余量；benchmark 发现 swap 增长时下调。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_temp_directory</code></td>
+          <td><code>_tmp/duckdb</code></td>
+          <td>DuckDB spill 临时目录。</td>
+          <td>必须在 Lake 盘上，不能落到本机系统盘；任务结束后由明确 cleanup 流程处理。</td>
+        </tr>
+        <tr>
+          <td><code>target_part_size_mb</code></td>
+          <td><code>256</code></td>
+          <td>大文件写入目标大小参考。</td>
+          <td>正式分区仍以查询布局为主，不为了凑文件大小破坏分区语义。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>bucket_count 是布局版本，不是运行参数。</strong>
+      如果一个正式层已经按 32 bucket 发布，不能下一次随手改成 64 并写到同一路径。
+      真要改，必须新 layout 或全量重建。
+    </div>
+
+    <h3>12.3 qfq 全量重建的粗略工作量</h3>
+    <p>
+      以当前已清洗出的分钟线规模估算，<code>clean_next</code> 量级约 44 亿行。qfq 是逐行向量计算，
+      主要成本是读取 raw/clean 输入、查因子、计算 OHLC/VWAP、写出正式 clean_next candidate。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>项目</th>
+          <th>估算值</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>全量行数</td>
+          <td>约 44 亿行</td>
+          <td>按当前 clean_next 全量量级估算。</td>
+        </tr>
+        <tr>
+          <td>单日全频行数</td>
+          <td>约 190 万到 210 万行</td>
+          <td>取决于股票数量、盘后数据、停牌和历史阶段。</td>
+        </tr>
+        <tr>
+          <td>单日单 bucket 行数</td>
+          <td>约 6 万行</td>
+          <td>按 32 bucket 粗略均分。</td>
+        </tr>
+        <tr>
+          <td>全量 compute units</td>
+          <td>按月窗口：约 <code>freq_count × month_count × bucket_count</code></td>
+          <td>比按日窗口少一个数量级以上；发布仍按日分区。</td>
+        </tr>
+        <tr>
+          <td>初始全量耗时目标</td>
+          <td>DuckDB threads=4：先按 3 到 8 小时量级评估</td>
+          <td>真实瓶颈可能是外置盘 IO，不是 CPU；必须用样本 benchmark 校准。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>12.4 必跑 benchmark，不凭感觉调参</h3>
+    <p>正式全量前必须先跑一个固定样本，得到本机实际吞吐：</p>
+    <pre>样本窗口：2026-03
+样本频率：1,5,15,30,60
+bucket_count：32
+duckdb_threads：4
+duckdb_memory_limit：24GB
+记录指标：source_rows, output_rows, elapsed_seconds, rows_per_second, peak_memory, tmp_bytes, final_bytes, audit_seconds</pre>
+    <p>调参规则：</p>
+    <ol>
+      <li>如果 CPU 长期低于 50%，IO 也没打满，可以把 DuckDB threads 从 4 提到 6。</li>
+      <li>如果 swap 明显增长或系统卡顿，DuckDB threads 立即降回 2 或 4，并降低 <code>memory_limit</code>。</li>
+      <li>如果 IO 等待明显，增加 threads 没用，应降低并发或调整 SQL 写出批次。</li>
+      <li>如果 single writer 成为瓶颈，不能增加 writer，只能优化 candidate_part 合并和写入批大小。</li>
+      <li>如果某个 bucket 明显倾斜，先记录 bucket skew，不允许临时改 bucket_count 写回同一路径。</li>
+    </ol>
+
+    <h3>12.5 DuckDB 执行模型</h3>
+    <p>
+      第一版不再优先实现 Python 多进程计算框架。大批量列式计算由一个受控 DuckDB 连接执行，
+      通过 <code>threads</code>、<code>memory_limit</code>、<code>temp_directory</code> 控制资源。
+      Python 负责构造 SQL、记录状态、触发审计、发布路径和写 gate。
+    </p>
+    <pre>processes:
+  coordinator: 1
+  duckdb_compute_connection: 1
+  single_writer: 1
+
+duckdb_settings:
+  threads: 4
+  memory_limit: 24GB
+  temp_directory: _tmp/duckdb
+
+memory_budget:
+  duckdb_target: <= 24GB
+  writer_target: 2GB ~ 4GB
+  os_cache_and_margin: >= 12GB</pre>
+
+    <h3>12.6 二次审计补充的硬门槛</h3>
+    <p>
+      下面这些不是优化项，而是进入编码前必须写进实现 checklist 的门槛。少任何一条，后面全量任务都有可能跑很久但产物不可用。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>门槛</th>
+          <th>必须怎么做</th>
+          <th>原因</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>流式读写</td>
+          <td>大计算禁止使用 <code>read_parquet_files()</code> / pandas 全量读入；优先使用 DuckDB 直接扫描 Parquet 并写出 candidate。只有 DuckDB 不适合的局部小环节，才使用 PyArrow batch streaming。</td>
+          <td>44 亿行级别任务如果全量读内存，必然爆内存或被系统 kill。</td>
+        </tr>
+        <tr>
+          <td>输入冻结</td>
+          <td>run 开始时记录 raw、adj_factor、identity map 的 snapshot/checksum；发布前复核没有变化。</td>
+          <td>如果 raw 同步或因子更新同时发生，candidate 会混用不同输入版本。</td>
+        </tr>
+        <tr>
+          <td>全局写锁</td>
+          <td>qfq baseline 期间必须占用 Lake 写入锁；禁止 sync center、raw sync、clean_next refresh、derived、indicator 并发写入。</td>
+          <td>否则正式路径、gate、queue 会互相踩踏。</td>
+        </tr>
+        <tr>
+          <td>磁盘预检</td>
+          <td>全量 qfq candidate 前必须估算 <code>candidate_bytes + tmp_candidate_part_bytes + backup_metadata + safety_margin</code>，空间不足直接拒绝。</td>
+          <td>candidate 需要接近一份 clean_next 体量的额外空间，不能跑到中途才爆盘。</td>
+        </tr>
+        <tr>
+          <td>因子覆盖</td>
+          <td>每个 <code>ts_code + trade_date</code> 必须能找到有效 <code>adj_factor</code> 和 latest factor；缺失、重复、非正数都进入 block ledger。</td>
+          <td>前复权价格的正确性完全依赖因子覆盖，不能默认填 1。</td>
+        </tr>
+        <tr>
+          <td>数值精度</td>
+          <td>OHLC/VWAP qfq 结果使用 double，不做两位小数截断；<code>vol/amount/exchange</code> 原样保留。</td>
+          <td>截断会污染技术指标；成交量和成交额不是复权价格字段。</td>
+        </tr>
+        <tr>
+          <td>排序与确定性</td>
+          <td>正式输出必须稳定排序：<code>ts_code, trade_time</code>；同输入重复运行，输出 row count、key set 和 checksum 必须一致。</td>
+          <td>便于审计、增量对比、失败恢复和后续指标复算。</td>
+        </tr>
+        <tr>
+          <td>候选层保留策略</td>
+          <td>candidate 失败时保留；candidate 发布成功后保留到人工确认或 Kopia 备份完成，再由明确命令清理。</td>
+          <td>不能自动删掉唯一可排查现场，也不能让 _tmp 无限膨胀。</td>
+        </tr>
+        <tr>
+          <td>运行锁 stale</td>
+          <td>heartbeat 超时只标记 stale，不自动释放、不自动继续发布；必须人工确认后释放或恢复。</td>
+          <td>防止进程假死时另一个任务误判空闲，造成双写。</td>
+        </tr>
+        <tr>
+          <td>测试样本</td>
+          <td>至少覆盖 2026-03 样本、一个除权因子变化样本、一个北交所/代码映射样本、一个空/停牌分区样本。</td>
+          <td>只跑顺滑样本无法证明真实边界正确。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>13. 配置建议</h2>
+    <p>
+      DuckDB 与发布执行壳相关的所有运行参数，都必须以 <code>lake_console/config.local.toml</code>
+      为唯一事实源。这里说的不是单个 <code>duckdb_threads</code>，而是包括 DuckDB 资源、compute bucket、
+      writer 数量、进度节奏、stale heartbeat、重试次数、tmp/spill 路径等所有会影响执行行为的配置。
+      环境变量不得作为长期配置入口；如后续确实需要临时覆盖，必须在代码和日志里明确记录覆盖来源，并在
+      <code>ComputeRun</code> 中落下最终生效值。
+    </p>
+    <p>
+      该配置文件是本地文件，禁止提交到仓库。后续实现时，应同步更新
+      <code>lake_console/config.local.example.toml</code>，保证示例配置、读取代码和本文档字段一致。
+    </p>
+    <div class="warning">
+      <strong>当前实现差距：</strong>
+      代码中的 <code>LakeConsoleSettings</code> 目前还没有 DuckDB / compute 执行壳字段，
+      且既有配置读取仍大量允许环境变量覆盖。进入 M1 编码前，必须先把本节字段加入
+      <code>lake_console/config.local.toml</code> 配置模型与 <code>config.local.example.toml</code>；
+      执行壳相关参数不得散落在命令行参数、环境变量或硬编码默认值中。
+    </div>
+    <pre># lake_console/config.local.toml
+duckdb_threads = 4
+duckdb_memory_limit = "24GB"
+duckdb_temp_directory = "_tmp/duckdb"
+compute_bucket_count = 32
+compute_max_active_writers = 1
+compute_progress_interval_seconds = 2
+compute_stale_heartbeat_seconds = 1800
+compute_max_unit_retries = 1</pre>
+    <table>
+      <thead>
+        <tr>
+          <th>配置文件字段</th>
+          <th>建议默认值</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>duckdb_threads</code></td>
+          <td><code>4</code></td>
+          <td>DuckDB 单任务内部并行线程数。当前 M3 Max + 36GB 内存下从 4 起步；样本 benchmark 通过后最多试 6，第一版硬上限 8。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_memory_limit</code></td>
+          <td><code>24GB</code></td>
+          <td>DuckDB 查询内存上限，避免把整机内存打爆。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_temp_directory</code></td>
+          <td><code>_tmp/duckdb</code></td>
+          <td>DuckDB spill 目录，必须落在 Lake 盘，不允许占用本机系统盘。</td>
+        </tr>
+        <tr>
+          <td><code>compute_bucket_count</code></td>
+          <td><code>32</code></td>
+          <td>股票代码稳定分桶数量，保持和现有 research bucket 思路一致；一旦发布就是 layout 版本。</td>
+        </tr>
+        <tr>
+          <td><code>compute_max_active_writers</code></td>
+          <td><code>1</code></td>
+          <td>正式发布 writer 数必须固定为 1。</td>
+        </tr>
+        <tr>
+          <td><code>compute_progress_interval_seconds</code></td>
+          <td><code>2</code></td>
+          <td>控制进度输出节奏，避免刷屏。</td>
+        </tr>
+        <tr>
+          <td><code>compute_stale_heartbeat_seconds</code></td>
+          <td><code>1800</code></td>
+          <td>DuckDB compute 或 coordinator 超过 30 分钟没有 heartbeat，标记为 stale；不自动发布。</td>
+        </tr>
+        <tr>
+          <td><code>compute_max_unit_retries</code></td>
+          <td><code>1</code></td>
+          <td>compute unit 最多重试 1 次；重复失败则 run blocked，避免无限重试掩盖数据问题。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>配置门禁：</strong>
+      新增任何影响 DuckDB 计算、candidate 写入、正式发布、审计、gate 或 queue 的参数时，
+      必须先加入 <code>config.local.toml</code> 配置模型和示例文件，再进入实现；禁止在代码里散落硬编码默认值，
+      也禁止让命令行参数成为长期事实源。
+    </div>
+  </section>
+
+  <section class="card">
+    <h2>14. Milestone</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>阶段</th>
+          <th>目标</th>
+          <th>产物</th>
+          <th>退出条件</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>M0 方案评审</td>
+          <td>确认 DuckDB compute / writer / gate 分层，以及 <code>partition_publish</code> / <code>layer_cutover_publish</code> 两种发布模式。</td>
+          <td>本文档。</td>
+          <td>无待拍板问题；qfq baseline 明确走 layer cutover，不允许分区逐个 passed；本期只做 qfq。</td>
+        </tr>
+        <tr>
+          <td>M0.4 开发前契约收口</td>
+          <td>在写代码前统一发布顺序、写锁、input snapshot、gate revision、downstream requirement、UI 文案映射和配置唯一事实源。</td>
+          <td>本文档与 qfq 专项文档同步更新。</td>
+          <td>两个文档不再存在“先 gate 还是先备份”“只写 MACD queue 还是通用 downstream requirement”等冲突口径。</td>
+        </tr>
+        <tr>
+          <td>M0.5 基线与样本 benchmark</td>
+          <td>用真实代码和真实 Lake 样本校准吞吐、内存、磁盘和因子覆盖。</td>
+          <td>2026-03 benchmark 报告、磁盘预检结果、adj_factor / identity map 覆盖审计结果。</td>
+          <td>确认 <code>duckdb_threads</code>、<code>duckdb_memory_limit</code>、<code>compute_bucket_count</code>、tmp 空间预算；因子缺失、重复或非正数样本为 0。</td>
+        </tr>
+        <tr>
+          <td>M1 执行壳模型</td>
+          <td>实现配置模型、run / unit / candidate_part / publish manifest、input snapshot、全局写锁和错误模型。</td>
+          <td><code>lake_console/config.local.example.toml</code>、<code>manifest/duckdb_compute/runs/...</code></td>
+          <td>只读 plan 和 dry-run 能输出完整 compute unit 图；run 开始会记录 raw / adj_factor / identity map checksum；最终生效配置写入 ComputeRun；stale lock 只阻断，不自动释放。</td>
+        </tr>
+        <tr>
+          <td>M2 DuckDB compute 执行器</td>
+          <td>实现 DuckDB SQL 计算执行壳，只写 tmp candidate/candidate_part，并显式配置 threads、memory_limit、temp_directory。</td>
+          <td>candidate parquet + candidate_part manifest + DuckDB 执行指标。</td>
+          <td>DuckDB compute 无正式路径写权限；代码路径不调用 <code>read_parquet_files()</code> 做大分区全量读内存。</td>
+        </tr>
+        <tr>
+          <td>M3 single writer</td>
+          <td>实现 candidate_part 汇总、审计、Kopia 写前备份和两类发布接口。</td>
+          <td>publish partition + audit ledger。</td>
+          <td>单 writer 可发布测试 candidate；queue/source event 成功后才允许 gate passed；失败恢复演练通过。</td>
+        </tr>
+        <tr>
+          <td>M4 qfq 接入</td>
+          <td>把 qfq candidate builder 接入执行壳，生成完整 candidate root。</td>
+          <td>qfq candidate root + candidate audit ledger。</td>
+          <td>样本窗口审计通过；输出 schema、row count、key set、checksum、样本价格核验全部通过。</td>
+        </tr>
+        <tr>
+          <td>M5 clean_next 发布</td>
+          <td>用 layer cutover 把完整 qfq candidate 发布到正式 clean_next，并复用现有 gate。</td>
+          <td>正式 clean_next + clean_next_partition_gate。</td>
+          <td>下游 derived / research / indicator 在 gate 非 passed 时全部阻断；发布后下游失效范围和重建队列完整落盘。</td>
+        </tr>
+        <tr>
+          <td>M6 复用扩展</td>
+          <td>只评估是否复用到 derived、by-month、MACD、MA、BOLL。</td>
+          <td>后续专项文档，不产生本期代码。</td>
+          <td>不在本轮强行开发；MACD 必须继续评审 EMA state、增量计算和代码变更连续性后再进入实现。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="card">
+    <h2>15. 红线</h2>
+    <ol>
+      <li>compute 不能写正式路径。</li>
+      <li>compute 不能写正式 gate。</li>
+      <li>single writer 不能跳过 candidate audit。</li>
+      <li>clean_next 正式发布后必须写现有 <code>clean_next_partition_gate</code>。</li>
+      <li>第一期只做 qfq，不顺手实现 MACD、MA、BOLL、derived 或 by-month 迁入执行壳。</li>
+      <li>MACD 不能按日期分桶。</li>
+      <li>qfq 不允许直接覆盖正式 clean_next，必须先写 candidate。</li>
+      <li>任何发布失败都不能让正式路径处于半成品状态。</li>
+      <li>不要把本执行壳做成生产 Ops 调度系统；它只服务本地 Lake 大体量计算任务。</li>
+    </ol>
+  </section>
+
+  <section class="card">
+    <h2>16. 关联文档</h2>
+    <ul>
+      <li><a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-next-qfq-candidate-publish-plan-v1.html">stk_mins clean_next 前复权候选层重建与两阶段发布方案 v1</a></li>
+      <li><a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-raw-to-clean-next-sync-pipeline-technical-design-v1.html">stk_mins raw 到 clean_next 同步链路详细技术方案 v1</a></li>
+      <li><a href="/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md">股票分钟线 MACD v2 重算与增量可靠性方案</a></li>
+      <li><a href="/Users/congming/github/goldenshare/docs/architecture/local-lake-console-architecture-plan-v1.md">Local Lake Console 架构方案 v1</a></li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

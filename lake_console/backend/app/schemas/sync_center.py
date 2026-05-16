@@ -94,6 +94,7 @@ class SyncPlanResponse(BaseModel):
     pipeline_stages: list[dict[str, Any]] = Field(default_factory=list)
     affected_trade_dates: list[str] = Field(default_factory=list)
     affected_months: list[str] = Field(default_factory=list)
+    affected_event_dates: list[str] = Field(default_factory=list)
     backup_plan: dict[str, Any]
     blockers: list[dict[str, Any]] = Field(default_factory=list)
     warnings: list[dict[str, Any]] = Field(default_factory=list)

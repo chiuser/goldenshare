@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -9,6 +10,7 @@ from lake_console.backend.app.api import sync_center
 from lake_console.backend.app.main import create_app
 from lake_console.backend.app.services.lake_job_state import LakeJobStateStore
 from lake_console.backend.app.services.parquet_writer import write_rows_to_parquet
+from lake_console.backend.app.services.prod_raw_event_date_db import EventDatePartitionCount
 from lake_console.backend.app.settings import LakeConsoleSettings
 
 
@@ -22,8 +24,9 @@ def test_sync_center_profiles_lock_and_plan_api(monkeypatch, tmp_path: Path) -> 
     profiles_response = client.get("/api/lake/sync/profiles")
     assert profiles_response.status_code == 200
     profiles = profiles_response.json()["items"]
-    assert {item["profile_key"] for item in profiles} >= {"prod_db_daily", "stk_mins_sync"}
-    assert next(item for item in profiles if item["profile_key"] == "stk_mins_sync")["profile_status"] == "planned"
+    assert {item["profile_key"] for item in profiles} >= {"prod_db_daily", "prod_db_event_date", "stk_mins_sync"}
+    assert next(item for item in profiles if item["profile_key"] == "prod_db_event_date")["profile_status"] == "enabled"
+    assert next(item for item in profiles if item["profile_key"] == "stk_mins_sync")["profile_status"] == "enabled"
 
     lock_response = client.get("/api/lake/sync/lock")
     assert lock_response.status_code == 200
@@ -55,6 +58,114 @@ def test_sync_center_profiles_lock_and_plan_api(monkeypatch, tmp_path: Path) -> 
     assert invalid_stk_mins_response.json()["detail"]["code"] == "INVALID_STK_MINS_PIPELINE_PLAN"
 
 
+def test_prod_db_event_date_plan_returns_event_partitions(monkeypatch, tmp_path: Path) -> None:
+    lake_root = tmp_path / "lake"
+    (lake_root / "raw_tushare" / "anns_d" / "event_date=2026-05-13").mkdir(parents=True)
+    _patch_settings(monkeypatch, lake_root, prod_raw_db_url="postgresql://readonly@example/raw")
+    captured: dict[str, Any] = {}
+
+    def fake_partition_counts(*, database_url: str | None, dataset_key: str, start_date: date, end_date: date):
+        captured["database_url"] = database_url
+        captured["dataset_key"] = dataset_key
+        captured["start_date"] = start_date
+        captured["end_date"] = end_date
+        return [
+            EventDatePartitionCount(event_date=date(2026, 5, 13), source_row_count=38280),
+            EventDatePartitionCount(event_date=date(2026, 5, 15), source_row_count=21940),
+        ]
+
+    monkeypatch.setattr(
+        "lake_console.backend.app.sync.planners.event_date.fetch_event_date_partition_counts",
+        fake_partition_counts,
+    )
+    monkeypatch.setattr(
+        "lake_console.backend.app.sync.planners.event_date.fetch_event_date_null_count",
+        lambda **_: 0,
+    )
+    client = TestClient(create_app())
+
+    plan_response = client.post(
+        "/api/lake/sync/profiles/prod_db_event_date/plan",
+        json={"start_date": "2026-05-13", "end_date": "2026-05-15", "dataset_keys": ["anns_d"]},
+    )
+
+    assert plan_response.status_code == 200
+    plan = plan_response.json()
+    assert captured == {
+        "database_url": "postgresql://readonly@example/raw",
+        "dataset_key": "anns_d",
+        "start_date": date(2026, 5, 13),
+        "end_date": date(2026, 5, 15),
+    }
+    assert plan["profile_key"] == "prod_db_event_date"
+    assert plan["affected_event_dates"] == ["2026-05-13", "2026-05-15"]
+    assert plan["blockers"] == []
+    dataset_plan = plan["dataset_plans"][0]
+    assert dataset_plan["dataset_key"] == "anns_d"
+    assert dataset_plan["date_axis"] == "event_date"
+    assert dataset_plan["source_date_field"] == "ann_date"
+    assert dataset_plan["zero_row_dates"] == ["2026-05-14"]
+    assert dataset_plan["source_row_count"] == 60220
+    assert dataset_plan["event_date_partitions"] == [
+        {
+            "event_date": "2026-05-13",
+            "source_row_count": 38280,
+            "write_path": "raw_tushare/anns_d/event_date=2026-05-13",
+        },
+        {
+            "event_date": "2026-05-15",
+            "source_row_count": 21940,
+            "write_path": "raw_tushare/anns_d/event_date=2026-05-15",
+        },
+    ]
+    assert plan["backup_plan"]["backup_paths"] == ["raw_tushare/anns_d/event_date=2026-05-13"]
+    assert plan["backup_plan"]["snapshot_paths"] == ["raw_tushare/anns_d"]
+    assert plan["backup_plan"]["path_missing_before_write"] == ["raw_tushare/anns_d/event_date=2026-05-15"]
+
+
+def test_prod_db_event_date_plan_requires_explicit_dataset(monkeypatch, tmp_path: Path) -> None:
+    lake_root = tmp_path / "lake"
+    lake_root.mkdir()
+    _patch_settings(monkeypatch, lake_root, prod_raw_db_url="postgresql://readonly@example/raw")
+    client = TestClient(create_app())
+
+    plan_response = client.post(
+        "/api/lake/sync/profiles/prod_db_event_date/plan",
+        json={"target_date": "2026-05-15"},
+    )
+
+    assert plan_response.status_code == 400
+    assert plan_response.json()["detail"]["code"] == "DATASET_NOT_ALLOWED"
+    assert "必须显式选择" in plan_response.json()["detail"]["message"]
+
+
+def test_prod_db_event_date_plan_blocks_no_row_window(monkeypatch, tmp_path: Path) -> None:
+    lake_root = tmp_path / "lake"
+    lake_root.mkdir()
+    _patch_settings(monkeypatch, lake_root, prod_raw_db_url="postgresql://readonly@example/raw")
+    monkeypatch.setattr(
+        "lake_console.backend.app.sync.planners.event_date.fetch_event_date_partition_counts",
+        lambda **_: [],
+    )
+    monkeypatch.setattr(
+        "lake_console.backend.app.sync.planners.event_date.fetch_event_date_null_count",
+        lambda **_: 0,
+    )
+    client = TestClient(create_app())
+
+    plan_response = client.post(
+        "/api/lake/sync/profiles/prod_db_event_date/plan",
+        json={"target_date": "2026-05-15", "dataset_keys": ["irm_qa_sh"]},
+    )
+
+    assert plan_response.status_code == 200
+    plan = plan_response.json()
+    assert plan["dataset_plans"][0]["status"] == "no_rows_no_write"
+    assert plan["dataset_plans"][0]["write_paths"] == []
+    assert plan["blockers"][0]["code"] == "NO_EVENT_DATE_ROWS"
+    assert plan["summary"]["write_path_count"] == 0
+
+
 def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_path: Path) -> None:
     lake_root = tmp_path / "lake"
     lake_root.mkdir()
@@ -82,7 +193,7 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     assert plan_response.status_code == 200
     plan = plan_response.json()
     assert plan["profile_key"] == "stk_mins_sync"
-    assert plan["profile"]["profile_status"] == "planned"
+    assert plan["profile"]["profile_status"] == "enabled"
     assert plan["affected_trade_dates"] == ["2026-05-08", "2026-05-11", "2026-05-12", "2026-05-13", "2026-05-14"]
     assert plan["affected_months"] == ["2026-05"]
     assert plan["normalized_parameters"]["freqs"] == [1, 5, 15, 30, 60]
@@ -213,6 +324,55 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
         "pipeline_completed",
     ]
     assert client.get("/api/lake/sync/runs/current").json()["status"] == "idle"
+
+
+def test_stk_mins_sync_respects_profile_disabled_for_plan_and_start(monkeypatch, tmp_path: Path) -> None:
+    lake_root = tmp_path / "lake"
+    lake_root.mkdir()
+    _write_calendar(lake_root, dates=["2026-05-08"])
+    _write_universe(lake_root)
+    _patch_settings(monkeypatch, lake_root)
+    client = TestClient(create_app())
+    plan_response = client.post(
+        "/api/lake/sync/profiles/stk_mins_sync/plan",
+        json={
+            "start_date": "2026-05-08",
+            "end_date": "2026-05-08",
+            "dataset_keys": ["stk_mins"],
+            "freqs": [30],
+            "scope": "all_market",
+            "mode": "manual_gate",
+        },
+    )
+    assert plan_response.status_code == 200
+    plan = plan_response.json()
+
+    class DisabledCatalog:
+        def ensure_enabled(self, profile_key: str) -> None:
+            raise sync_center.ProfileDisabledError(f"{profile_key} 当前不可启动。")
+
+    monkeypatch.setattr(sync_center, "SyncProfileCatalog", DisabledCatalog)
+    blocked_plan_response = client.post(
+        "/api/lake/sync/profiles/stk_mins_sync/plan",
+        json={
+            "start_date": "2026-05-08",
+            "end_date": "2026-05-08",
+            "dataset_keys": ["stk_mins"],
+            "freqs": [30],
+            "scope": "all_market",
+            "mode": "manual_gate",
+        },
+    )
+    assert blocked_plan_response.status_code == 400
+    assert blocked_plan_response.json()["detail"]["code"] == "PROFILE_DISABLED"
+
+    blocked_run_response = client.post(
+        "/api/lake/sync/runs",
+        json={"plan_token": plan["plan_token"], "confirmed_backup_required": True, "confirmed_no_sql": True},
+    )
+    assert blocked_run_response.status_code == 400
+    assert blocked_run_response.json()["detail"]["code"] == "PROFILE_DISABLED"
+    assert client.get("/api/lake/sync/lock").json()["status"] == "idle"
 
 
 def test_stk_mins_sync_continue_and_abort_only_change_pipeline_state(monkeypatch, tmp_path: Path) -> None:
@@ -612,13 +772,14 @@ def test_sync_center_run_returns_structured_unexpected_error(monkeypatch, tmp_pa
     assert run_detail["errors"][0]["code"] == "SYNC_PROFILE_RUNNER_UNEXPECTED_ERROR"
 
 
-def _patch_settings(monkeypatch, lake_root: Path) -> None:
+def _patch_settings(monkeypatch, lake_root: Path, *, prod_raw_db_url: str | None = None) -> None:
     monkeypatch.setattr(
         sync_center,
         "load_settings",
         lambda: LakeConsoleSettings(
             lake_root=lake_root,
             tushare_token=None,
+            prod_raw_db_url=prod_raw_db_url,
         ),
     )
 

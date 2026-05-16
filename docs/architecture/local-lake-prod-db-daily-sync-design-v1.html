@@ -737,8 +737,9 @@
       <h3>7.1 长期能力入口与本期范围</h3>
       <p>
         长期看，Lake Console 的数据资产维护入口分为七类。它们不是一次性全部实现。
-        本期只实现 <code>prod_db_daily</code>、<code>prod_db_snapshot_refresh</code>、<code>prod_db_manual_backfill</code>、<code>lake_reference_refresh</code>。
-        <code>stk_mins_sync</code>、<code>index_mins_sync</code>、<code>indicator_compute</code> 保留为后续专项，不能混进本轮开发。
+        本期通用 Profile Runner 只实现 <code>prod_db_daily</code>、<code>prod_db_snapshot_refresh</code>、<code>prod_db_manual_backfill</code>、<code>lake_reference_refresh</code>。
+        <code>stk_mins_sync</code> 已按独立阶段化流水线另行落地，不混进本轮远程 DB 每日同步主线；
+        <code>index_mins_sync</code>、<code>indicator_compute</code> 仍保留为后续专项。
       </p>
       <table>
         <thead>
@@ -778,7 +779,7 @@
             <td><code>stk_mins_sync</code></td>
             <td>股票历史分钟线专项。</td>
             <td>独立承接 <code>raw_tushare/stk_mins_by_date -> clean_next -> derived/research/indicator</code> 链路。</td>
-            <td><span class="status warn">后续专项</span></td>
+            <td><span class="status ok">已专项实现</span></td>
           </tr>
           <tr>
             <td><code>index_mins_sync</code></td>
@@ -901,7 +902,7 @@
             <td>Tushare / prod-raw-db 专项</td>
             <td>不纳入第一版 <code>prod_db_daily</code> 默认任务。</td>
             <td>按各自专项方案</td>
-            <td><code>stk_mins</code> 与 <code>index_mins</code> 都不纳入本期；后续分别进入 <code>stk_mins_sync</code> 与 <code>index_mins_sync</code>，不能合并成一个分钟线入口。</td>
+            <td><code>stk_mins</code> 不纳入通用远程 DB profile，已进入独立 <code>stk_mins_sync</code> 阶段化流水线；<code>index_mins</code> 后续进入独立 <code>index_mins_sync</code>，二者不能合并成一个分钟线入口。</td>
           </tr>
         </tbody>
       </table>
@@ -1169,7 +1170,7 @@ lake-console sync-profile prod_db_manual_backfill --dataset daily --start-date 2
         <li>不要让页面拼接数据事实或 SQL；页面只能消费后端返回的计划对象。</li>
         <li>不要把 Kopia 备份做成可选项。写入前备份是硬门禁。</li>
         <li>不要为了“自动恢复”引入新的覆盖正式数据动作；恢复仍由人工通过 Kopia 执行。</li>
-        <li>不要把 <code>stk_mins clean_next</code> 链路的门禁与普通 prod DB daily profile 混在一起。</li>
+        <li>不要把 <code>stk_mins clean_next</code> 链路的门禁与普通 prod DB daily profile 混在一起；已落地的 <code>stk_mins_sync</code> 专项流水线是唯一可参考入口。</li>
       </ol>
     </section>
   </main>

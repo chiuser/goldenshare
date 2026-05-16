@@ -294,8 +294,8 @@
     <section class="card callout">
       <h2 id="scope">0. 结论</h2>
       <ul>
-        <li>本期实现 API 只覆盖 <code>prod_db_daily</code>、<code>prod_db_snapshot_refresh</code>、<code>prod_db_manual_backfill</code>、<code>lake_reference_refresh</code>。</li>
-        <li><code>stk_mins_sync</code>、<code>index_mins_sync</code>、<code>indicator_compute</code> 只在 profile 列表中展示为后续专项，不提供启动 API。</li>
+        <li>通用 Profile Runner API 覆盖 <code>prod_db_daily</code>、<code>prod_db_snapshot_refresh</code>、<code>prod_db_manual_backfill</code>、<code>lake_reference_refresh</code>。</li>
+        <li><code>stk_mins_sync</code> 已有专项 plan/run/continue/abort 分支，不走普通 Profile Runner；<code>index_mins_sync</code>、<code>indicator_compute</code> 仍只在 profile 列表中展示为后续专项，不提供启动。</li>
         <li>所有写入任务启动前必须先经过 plan，run API 默认要求 <code>plan_token</code>，避免页面绕过计划预览直接写盘。</li>
         <li>所有请求 schema 必须禁止额外字段。任何 <code>sql</code>、<code>table</code>、<code>fields</code>、<code>where</code> 等字段出现时都应该被拒绝。</li>
         <li>单任务门禁超时口径为 6 小时，字段为 <code>stale_after_seconds=21600</code>。</li>
@@ -354,7 +354,7 @@
     <section>
       <h2 id="flow">2. API 调用流程</h2>
       <div class="flow">
-        <div class="node"><strong>GET profiles</strong><span>页面加载可用入口，后续专项 disabled。</span></div>
+        <div class="node"><strong>GET profiles</strong><span>页面加载可用入口，未开放专项 planned/disabled。</span></div>
         <div class="node"><strong>GET current lock</strong><span>判断是否已有任务运行。</span></div>
         <div class="node"><strong>POST plan</strong><span>生成计划、备份范围、warnings。</span></div>
         <div class="node"><strong>POST runs</strong><span>用 plan_token 启动任务。</span></div>
@@ -381,7 +381,7 @@
             <td>GET</td>
             <td>列出 Sync Center 能力入口。</td>
             <td>否</td>
-            <td>后续专项也返回，但 <code>enabled=false</code>。</td>
+            <td>未开放专项也返回，但 <code>profile_status=planned</code> 或 <code>disabled</code>；<code>stk_mins_sync</code> 返回 <code>enabled</code> 并走专项流水线。</td>
           </tr>
           <tr>
             <td><code>/api/lake/sync/lock</code></td>
@@ -395,7 +395,7 @@
             <td>POST</td>
             <td>生成计划与备份范围。</td>
             <td>否</td>
-            <td>返回 <code>plan_token</code>，用于启动 run。</td>
+            <td>返回 <code>plan_token</code>，用于启动 run。后端必须先校验 <code>profile_status=enabled</code>，未开放 profile 返回 <code>PROFILE_DISABLED</code>。</td>
           </tr>
           <tr>
             <td><code>/api/lake/sync/runs</code></td>
@@ -517,12 +517,12 @@
           <tr>
             <td><code>profile_key</code></td>
             <td><code>prod_db_daily</code>, <code>prod_db_snapshot_refresh</code>, <code>prod_db_manual_backfill</code>, <code>lake_reference_refresh</code>, <code>stk_mins_sync</code>, <code>index_mins_sync</code>, <code>indicator_compute</code></td>
-            <td>本期只允许前四个启动。</td>
+            <td>前四个走通用 Profile Runner；<code>stk_mins_sync</code> 走专项流水线；其余后续专项不可启动。</td>
           </tr>
           <tr>
             <td><code>profile_status</code></td>
-            <td><code>available</code>, <code>planned</code>, <code>disabled</code></td>
-            <td><code>planned</code> 表示展示但本期不可执行。</td>
+            <td><code>enabled</code>, <code>planned</code>, <code>disabled</code></td>
+            <td><code>enabled</code> 表示该 profile 可由页面启动；其中通用 profile 进入普通 Profile Runner，<code>stk_mins_sync</code> 进入专项流水线。<code>planned</code> 表示计划中，当前用于 <code>index_mins_sync</code>、<code>indicator_compute</code> 等尚未开放入口。</td>
           </tr>
           <tr>
             <td><code>date_mode</code></td>
@@ -572,8 +572,7 @@
       "profile_key": "prod_db_daily",
       "display_name": "远程 DB 每日更新",
       "description": "每日交易日/周月锚点数据更新。",
-      "status": "available",
-      "enabled": true,
+      "profile_status": "enabled",
       "implementation_phase": "m1",
       "default_date_mode": "target_date",
       "default_lookback_days": 1,
@@ -607,7 +606,7 @@
         </thead>
         <tbody>
           <tr><td><code>profile_key</code></td><td>string enum</td><td>是</td><td>能力入口唯一 key。</td></tr>
-          <tr><td><code>enabled</code></td><td>boolean</td><td>是</td><td>是否允许启动。后续专项返回 false。</td></tr>
+          <tr><td><code>profile_status</code></td><td>string enum</td><td>是</td><td><code>enabled</code> 表示可启动；通用 profile 走普通 runner，<code>stk_mins_sync</code> 走专项流水线。未开放专项返回 <code>planned</code> 或 <code>disabled</code>。</td></tr>
           <tr><td><code>default_lookback_days</code></td><td>integer | null</td><td>是</td><td><code>prod_db_daily</code> 固定为 1。</td></tr>
           <tr><td><code>requires_kopia_backup</code></td><td>boolean</td><td>是</td><td>本期写入 profile 必须为 true。</td></tr>
           <tr><td><code>pin_policy</code></td><td>string</td><td>是</td><td>本期默认 <code>manual_only</code>。</td></tr>
@@ -869,7 +868,7 @@
           <tr><td><code>LOCK_BUSY</code></td><td>409</td><td>已有任务运行。</td><td>展示当前任务链接，禁用启动按钮。</td></tr>
           <tr><td><code>LOCK_STALE_REVIEW_REQUIRED</code></td><td>409</td><td>锁已 stale，但需要人工确认释放。</td><td>展示 stale lock 面板。</td></tr>
           <tr><td><code>PLAN_TOKEN_EXPIRED</code></td><td>400</td><td>计划已过期。</td><td>提示重新生成计划。</td></tr>
-          <tr><td><code>PROFILE_DISABLED</code></td><td>400</td><td>后续专项，本期不可启动。</td><td>展示 planned 状态说明。</td></tr>
+          <tr><td><code>PROFILE_DISABLED</code></td><td>400</td><td>该 profile 当前未开放执行入口。</td><td>展示 planned/disabled 状态说明；前端应禁用生成计划和启动任务；后端在 plan/run 前仍必须统一校验。</td></tr>
           <tr><td><code>DATASET_NOT_ALLOWED</code></td><td>400</td><td>数据集不在 profile 白名单。</td><td>提示重新选择。</td></tr>
           <tr><td><code>SQL_FIELD_FORBIDDEN</code></td><td>400</td><td>请求含 SQL/表/字段类禁止字段。</td><td>这是开发错误，页面不应产生。</td></tr>
           <tr><td><code>KOPIA_BACKUP_FAILED</code></td><td>503</td><td>备份失败。</td><td>阻断写入，展示 Kopia 错误。</td></tr>
@@ -885,7 +884,7 @@
         <div class="card span-6 callout">
           <h3>页面可以做的事</h3>
           <ul>
-            <li>展示 profile 列表和 disabled/planned 状态。</li>
+            <li>展示 profile 列表和 disabled/planned 状态，未开放 profile 不允许生成计划。</li>
             <li>提交白名单参数生成 plan。</li>
             <li>使用 plan 响应渲染计划预览、备份范围、warnings。</li>
             <li>使用 run/detail/events 响应渲染进度和详情抽屉。</li>

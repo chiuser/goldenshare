@@ -92,7 +92,13 @@ def get_recommendations(profile_key: str = Query(default="prod_db_daily")) -> Sy
 def create_plan(profile_key: str, request: SyncPlanRequest) -> SyncPlanResponse:
     settings = _settings()
     store = LakeJobStateStore(settings.lake_root)
-    planner = SyncProfilePlanner(lake_root=settings.lake_root)
+    catalog = SyncProfileCatalog()
+    _ensure_profile_enabled(catalog=catalog, profile_key=profile_key)
+    planner = SyncProfilePlanner(
+        lake_root=settings.lake_root,
+        catalog=catalog,
+        prod_raw_db_url=settings.prod_raw_db_url,
+    )
     target_date = _parse_date(request.target_date, field_name="target_date")
     start_date = _parse_date(request.start_date, field_name="start_date")
     end_date = _parse_date(request.end_date, field_name="end_date")
@@ -181,6 +187,8 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
     except PlanExpiredError as exc:
         raise _api_error(status_code=400, code="PLAN_EXPIRED", message=str(exc)) from exc
 
+    profile_key = str(plan["profile_key"])
+    _ensure_profile_enabled(catalog=SyncProfileCatalog(), profile_key=profile_key)
     blockers = list(plan.get("blockers") or [])
     if blockers:
         raise _api_error(
@@ -189,7 +197,6 @@ def start_run(request: SyncRunRequest) -> SyncRunResponse:
             message="计划仍存在 blockers，不能启动 run。",
             context={"blockers": blockers},
         )
-    profile_key = str(plan["profile_key"])
     if profile_key == STK_MINS_PIPELINE_PROFILE_KEY:
         return _start_stk_mins_pipeline_state_run(
             settings=settings,
@@ -1140,6 +1147,15 @@ def _parse_date(value: str | None, *, field_name: str) -> date | None:
         return date.fromisoformat(value)
     except ValueError as exc:
         raise _api_error(status_code=400, code="INVALID_DATE", message=f"{field_name} 必须是 YYYY-MM-DD：{value}") from exc
+
+
+def _ensure_profile_enabled(*, catalog: SyncProfileCatalog, profile_key: str) -> None:
+    try:
+        catalog.ensure_enabled(profile_key)
+    except ProfileDisabledError as exc:
+        raise _api_error(status_code=400, code="PROFILE_DISABLED", message=str(exc)) from exc
+    except ValueError as exc:
+        raise _api_error(status_code=400, code="DATASET_NOT_ALLOWED", message=str(exc)) from exc
 
 
 def _api_error(*, status_code: int, code: str, message: str, context: dict[str, Any] | None = None) -> HTTPException:

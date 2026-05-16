@@ -59,6 +59,8 @@ class FilesystemScanner:
         freq: int | None = None,
         trade_date_from: str | None = None,
         trade_date_to: str | None = None,
+        event_date_from: str | None = None,
+        event_date_to: str | None = None,
         trade_month: str | None = None,
         bucket: int | None = None,
         indicator: str | None = None,
@@ -74,6 +76,10 @@ class FilesystemScanner:
             if trade_date_from and isinstance(values.get("trade_date"), str) and values["trade_date"] < trade_date_from:
                 continue
             if trade_date_to and isinstance(values.get("trade_date"), str) and values["trade_date"] > trade_date_to:
+                continue
+            if event_date_from and isinstance(values.get("event_date"), str) and values["event_date"] < event_date_from:
+                continue
+            if event_date_to and isinstance(values.get("event_date"), str) and values["event_date"] > event_date_to:
                 continue
             if trade_month and values.get("trade_month") != trade_month:
                 continue
@@ -222,6 +228,8 @@ class FilesystemScanner:
             row_count=None,
             earliest_trade_date=_min_node_field(node_summaries, "earliest_trade_date"),
             latest_trade_date=_max_node_field(node_summaries, "latest_trade_date"),
+            earliest_event_date=_min_node_field(node_summaries, "earliest_event_date"),
+            latest_event_date=_max_node_field(node_summaries, "latest_event_date"),
             earliest_trade_month=_min_node_field(node_summaries, "earliest_trade_month"),
             latest_trade_month=_max_node_field(node_summaries, "latest_trade_month"),
             latest_modified_at=max(modified_values) if modified_values else None,
@@ -238,6 +246,7 @@ class FilesystemScanner:
         modified_values = [item.modified_at for item in partitions if item.modified_at]
         freqs = sorted({value for partition in partitions for value in [_partition_int(partition, "freq")] if value is not None})
         trade_dates = [_partition_str(partition, "trade_date") for partition in partitions if _partition_str(partition, "trade_date")]
+        event_dates = [_partition_str(partition, "event_date") for partition in partitions if _partition_str(partition, "event_date")]
         trade_months = [_partition_str(partition, "trade_month") for partition in partitions if _partition_str(partition, "trade_month")]
         layer_definition = get_layer_definition(node.layer)
         registered_state = "registered" if (self.lake_root / node.path).exists() else "missing_on_disk"
@@ -259,6 +268,8 @@ class FilesystemScanner:
             freqs=freqs,
             earliest_trade_date=min(trade_dates) if trade_dates else None,
             latest_trade_date=max(trade_dates) if trade_dates else None,
+            earliest_event_date=min(event_dates) if event_dates else None,
+            latest_event_date=max(event_dates) if event_dates else None,
             earliest_trade_month=min(trade_months) if trade_months else None,
             latest_trade_month=max(trade_months) if trade_months else None,
             latest_modified_at=max(modified_values) if modified_values else None,
@@ -274,6 +285,8 @@ class FilesystemScanner:
             return self._scan_single_file(definition, node, root)
         if node.scan_profile == "trade_date":
             return self._scan_trade_date_dirs(definition, node, root, base_values={})
+        if node.scan_profile == "event_date":
+            return self._scan_event_date_dirs(definition, node, root, base_values={})
         if node.scan_profile == "freq_trade_date":
             return self._scan_freq_trade_date(definition, node, root, base_values={})
         if node.scan_profile == "freq_trade_month_bucket":
@@ -324,6 +337,25 @@ class FilesystemScanner:
                 continue
             files = list(date_dir.glob("*.parquet"))
             result.append(self._partition_summary(definition=definition, node=node, path=date_dir, files=files, values={**base_values, "trade_date": trade_date}))
+        return result
+
+    def _scan_event_date_dirs(
+        self,
+        definition: LakeDatasetDefinition,
+        node: LakeNodeDefinition,
+        root: Path,
+        *,
+        base_values: dict[str, Any],
+    ) -> list[LakePartitionSummary]:
+        if not root.exists():
+            return []
+        result: list[LakePartitionSummary] = []
+        for date_dir in root.glob("event_date=*"):
+            event_date = _parse_str_partition(date_dir.name, "event_date")
+            if event_date is None:
+                continue
+            files = list(date_dir.glob("*.parquet"))
+            result.append(self._partition_summary(definition=definition, node=node, path=date_dir, files=files, values={**base_values, "event_date": event_date}))
         return result
 
     def _scan_freq_trade_month_bucket(
@@ -573,6 +605,8 @@ def _partition_label(values: dict[str, Any]) -> str:
         parts.append(f"{values['freq']}min")
     if "trade_date" in values:
         parts.append(str(values["trade_date"]))
+    if "event_date" in values:
+        parts.append(str(values["event_date"]))
     if "trade_month" in values:
         parts.append(str(values["trade_month"]))
     if "bucket" in values:
@@ -584,6 +618,9 @@ def _partition_coverage_label(partitions: list[LakePartitionSummary]) -> str:
     dates = [_partition_str(item, "trade_date") for item in partitions if _partition_str(item, "trade_date")]
     if dates:
         return _range_label(min(dates), max(dates))
+    event_dates = [_partition_str(item, "event_date") for item in partitions if _partition_str(item, "event_date")]
+    if event_dates:
+        return _range_label(min(event_dates), max(event_dates))
     months = [_partition_str(item, "trade_month") for item in partitions if _partition_str(item, "trade_month")]
     if months:
         return _range_label(min(months), max(months))
@@ -594,6 +631,9 @@ def _coverage_label(nodes: list[LakeNodeSummary]) -> str:
     dates = [value for node in nodes for value in (node.earliest_trade_date, node.latest_trade_date) if value]
     if dates:
         return _range_label(min(dates), max(dates))
+    event_dates = [value for node in nodes for value in (node.earliest_event_date, node.latest_event_date) if value]
+    if event_dates:
+        return _range_label(min(event_dates), max(event_dates))
     months = [value for node in nodes for value in (node.earliest_trade_month, node.latest_trade_month) if value]
     if months:
         return _range_label(min(months), max(months))

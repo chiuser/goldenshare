@@ -54,6 +54,8 @@ class LakeNodeSummary(BaseModel):
     freqs: list[int] = []
     earliest_trade_date: str | None = None
     latest_trade_date: str | None = None
+    earliest_event_date: str | None = None
+    latest_event_date: str | None = None
     earliest_trade_month: str | None = None
     latest_trade_month: str | None = None
     latest_modified_at: datetime | None = None
@@ -92,6 +94,8 @@ class LakeDatasetSummary(BaseModel):
     row_count: int | None = None
     earliest_trade_date: str | None = None
     latest_trade_date: str | None = None
+    earliest_event_date: str | None = None
+    latest_event_date: str | None = None
     earliest_trade_month: str | None = None
     latest_trade_month: str | None = None
     latest_modified_at: datetime | None = None

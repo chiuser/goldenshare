@@ -149,6 +149,8 @@ def _default_node_key(*, layer: str, scan_profile: str, path: str) -> str:
         return f"{layer}_by_symbol_month"
     if scan_profile == "trade_date":
         return f"{layer}_by_date"
+    if scan_profile == "event_date":
+        return f"{layer}_by_event_date"
     return f"{layer}_{scan_profile}"
 
 
@@ -172,6 +174,7 @@ def _default_partition_dimensions(scan_profile: str) -> tuple[str, ...]:
     mapping = {
         "current_file": (),
         "manifest_file": (),
+        "event_date": ("event_date",),
         "trade_date": ("trade_date",),
         "freq_trade_date": ("freq", "trade_date"),
         "freq_trade_month_bucket": ("freq", "trade_month", "bucket"),

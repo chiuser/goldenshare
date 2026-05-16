@@ -48,6 +48,8 @@ export type NodeSummary = {
   freqs: number[];
   earliest_trade_date: string | null;
   latest_trade_date: string | null;
+  earliest_event_date: string | null;
+  latest_event_date: string | null;
   earliest_trade_month: string | null;
   latest_trade_month: string | null;
   coverage_label: string;
@@ -80,6 +82,8 @@ export type DatasetSummary = {
   latest_modified_at: string | null;
   earliest_trade_date: string | null;
   latest_trade_date: string | null;
+  earliest_event_date: string | null;
+  latest_event_date: string | null;
   earliest_trade_month: string | null;
   latest_trade_month: string | null;
   coverage_label: string;
@@ -320,6 +324,13 @@ export type SyncPlanDatasetPlan = {
   parameters: Record<string, unknown>;
   status: string;
   notes: string[];
+  date_axis?: string;
+  partition_field?: string;
+  source_date_field?: string;
+  event_date_partitions?: Array<Record<string, unknown>>;
+  zero_row_date_count?: number;
+  source_row_count?: number;
+  coverage_label?: string;
 };
 
 export type SyncPipelineStage = {
@@ -375,6 +386,7 @@ export type SyncPlanResponse = {
   pipeline_stages: SyncPipelineStage[];
   affected_trade_dates: string[];
   affected_months: string[];
+  affected_event_dates: string[];
   backup_plan: SyncBackupPlan;
   blockers: SyncPlanIssue[];
   warnings: SyncPlanIssue[];

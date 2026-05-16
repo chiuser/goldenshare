@@ -7,6 +7,7 @@ import pytest
 
 from lake_console.backend.app.services.prod_core_db import PROD_CORE_DB_SOURCE
 from lake_console.backend.app.services.prod_raw_db import PROD_RAW_DB_SOURCE
+from lake_console.backend.app.sync.planners.event_date import PROD_DB_EVENT_DATE_PROFILE_KEY
 from lake_console.backend.app.services.sync_profile_runner import SyncProfileRunner, SyncProfileRunnerError
 from lake_console.backend.app.settings import LakeConsoleSettings
 
@@ -236,7 +237,69 @@ def test_sync_profile_runner_executes_lake_reference_stock_basic(monkeypatch, tm
     assert result["dataset_results"][0]["universe_written_rows"] == 2
 
 
-def test_sync_profile_runner_rejects_planned_profiles(tmp_path: Path) -> None:
+def test_sync_profile_runner_executes_prod_db_event_date(monkeypatch, tmp_path: Path) -> None:
+    events: list[dict[str, Any]] = []
+    captured: dict[str, Any] = {}
+
+    class FakeDbEventDateExportService:
+        def __init__(self, **kwargs: Any) -> None:
+            captured.update(kwargs)
+            self.progress = kwargs["progress"]
+
+        def export(self, *, event_dates):  # type: ignore[no-untyped-def]
+            assert [item.isoformat() for item in event_dates] == ["2026-05-15"]
+            self.progress("[anns_d:prod-raw-db] event_date=2026-05-15 written=2")
+            return {
+                "dataset_key": "anns_d",
+                "source": PROD_RAW_DB_SOURCE,
+                "mode": "event_date_point",
+                "date_axis": "event_date",
+                "partition_field": "event_date",
+                "source_date_field": "ann_date",
+                "run_id": "run-anns-event",
+                "event_dates": ["2026-05-15"],
+                "event_date_count": 1,
+                "fetched_rows": 2,
+                "written_rows": 2,
+                "elapsed_seconds": 0.1,
+            }
+
+    monkeypatch.setattr(
+        "lake_console.backend.app.services.sync_profile_runner.DbEventDateExportService",
+        FakeDbEventDateExportService,
+    )
+
+    result = SyncProfileRunner(
+        settings=LakeConsoleSettings(
+            lake_root=tmp_path,
+            tushare_token=None,
+            prod_raw_db_url="postgresql://readonly@example/raw",
+        ),
+        progress=events.append,
+    ).run(
+        plan={
+            "profile_key": PROD_DB_EVENT_DATE_PROFILE_KEY,
+            "dataset_plans": [
+                {
+                    "dataset_key": "anns_d",
+                    "source": PROD_RAW_DB_SOURCE,
+                    "mode": "event_date_point",
+                    "date_axis": "event_date",
+                    "parameters": {"event_dates": ["2026-05-15"]},
+                }
+            ],
+        }
+    )
+
+    assert captured["database_url"] == "postgresql://readonly@example/raw"
+    assert result["dataset_results"][0]["dataset_key"] == "anns_d"
+    assert result["dataset_results"][0]["date_axis"] == "event_date"
+    assert result["dataset_results"][0]["event_date_count"] == 1
+    assert result["dataset_results"][0]["written_rows"] == 2
+    assert [event["event_type"] for event in events] == ["dataset_started", "dataset_progress", "dataset_completed"]
+
+
+def test_sync_profile_runner_rejects_stk_mins_special_pipeline(tmp_path: Path) -> None:
     runner = SyncProfileRunner(
         settings=LakeConsoleSettings(lake_root=tmp_path, tushare_token=None, prod_raw_db_url="postgresql://readonly@example/db")
     )

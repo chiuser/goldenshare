@@ -71,6 +71,7 @@ docs/
 - [Local Lake 数据集同步扩展方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-sync-expansion-plan-v1.md)
 - [Local Lake 数据集接入模式分类与 Checklist v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-dataset-access-mode-checklist-v1.md)
 - [Local Lake CLI / Planner / Engine 架构收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-cli-planner-engine-refactor-plan-v1.md)
+- [Local Lake DuckDB 计算执行壳与受控发布方案 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/architecture/local-lake-large-compute-foundation-design-v1.html)
 - [Local Lake 命令示例页面技术方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-command-examples-page-plan-v1.md)
 
 ## 4. Ops 运营（S2）
@@ -157,6 +158,7 @@ docs/
 - [stk_mins clean 数据清洗总记录 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-cleaning-master-record-v1.md)
 - [stk_mins raw 到 clean_next 同步链路方案 v1（HTML）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-raw-to-clean-next-sync-pipeline-plan-v1.html)
 - [stk_mins raw 到 clean_next 同步链路详细技术方案 v1（HTML）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-raw-to-clean-next-sync-pipeline-technical-design-v1.html)
+- [stk_mins clean_next 前复权候选层重建与两阶段发布方案 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-next-qfq-candidate-publish-plan-v1.html)
 - [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)
 - [股票历史分钟行情存储瘦身方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-storage-slimming-plan-v1.md)
 - [股票技术面因子（专业版）](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-dataset-development.md)

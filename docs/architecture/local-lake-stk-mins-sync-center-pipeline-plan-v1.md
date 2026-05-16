@@ -38,27 +38,30 @@
 
 | 事实 | 当前位置 | 结论 |
 | --- | --- | --- |
-| 已有 `stk_mins_sync` profile | `lake_console/backend/app/services/sync_center_profiles.py` | 目前是 `planned`，不是可执行入口 |
-| 同步中心 runner 会拒绝 `stk_mins_sync` | `lake_console/backend/app/services/sync_profile_runner.py` | 只允许普通 DB 同步和本地参考数据刷新 |
-| 前端也把 `stk_mins_sync` 当计划中入口 | `lake_console/frontend/src/pages/SyncCenterPage.tsx` | 展示但不能启动 |
+| 已有 `stk_mins_sync` profile | `lake_console/backend/app/services/sync_center_profiles.py` | 已支持分阶段执行入口，不走普通 `SyncProfileRunner` |
+| 同步中心 runner 会拒绝 `stk_mins_sync` | `lake_console/backend/app/services/sync_profile_runner.py` | 仍只负责普通 DB 同步和本地参考数据刷新；`stk_mins_sync` 由专项流水线执行 |
+| 前端已接入 `stk_mins_sync` | `lake_console/frontend/src/pages/SyncCenterPage.tsx` | 可以生成计划、启动 run、查看阶段、人工确认继续 |
 | `sync-stk-mins-range` 会触发 raw 到 clean_next | `lake_console/backend/app/services/tushare_stk_mins_sync_service.py` | raw 写完后会刷新 clean_next 和 gate |
-| `90/120min` 派生是独立命令 | `lake_console/backend/app/services/stk_mins_derived_service.py` | 不会被 raw 同步自动执行 |
-| research by month 是独立命令 | `lake_console/backend/app/services/stk_mins_research_service.py` | 不会被 raw 同步自动执行 |
-| 现有同步中心有 plan、run、events、lock、Kopia 备份基础设施 | `lake_console/backend/app/api/sync_center.py`、`lake_console/backend/app/services/lake_job_state.py` | 可以复用，但需要扩展为阶段化流水线 |
-| 当前 `POST /api/lake/sync/runs` 是同步执行 | `lake_console/backend/app/api/sync_center.py` | 不适合直接承载长时间分钟线任务 |
+| `90/120min` 派生是独立服务 | `lake_console/backend/app/services/stk_mins_derived_service.py` | 在 `clean_next_review` 人工确认后由 Sync Center 调用 |
+| research by month 是独立服务 | `lake_console/backend/app/services/stk_mins_research_service.py` | 在 `derived_review` 人工确认后由 Sync Center 调用 |
+| 现有同步中心有 plan、run、events、lock、Kopia 备份基础设施 | `lake_console/backend/app/api/sync_center.py`、`lake_console/backend/app/services/lake_job_state.py` | 已被 `stk_mins_sync` 专项流水线复用 |
+| `stk_mins_sync` 长任务执行方式 | `lake_console/backend/app/api/sync_center.py` | raw、derived、research 写入阶段均由后台任务执行，关键节点释放锁并等待人工确认 |
 
-当前真实链路是：
+当前 Sync Center 真实链路是：
 
 ```mermaid
 flowchart LR
-  A["sync-stk-mins-range"] --> B["raw_tushare/stk_mins_by_date"]
-  B --> C["refresh clean_next + gate"]
-  C -. "返回 derived_rebuild_required" .-> D["人工执行 derived 命令"]
-  D --> E["derived/stk_mins_by_date 90/120"]
-  E -. "人工执行 research 命令" .-> F["research/stk_mins_by_symbol_month"]
+  A["生成只读计划"] --> B["Kopia 写前备份"]
+  B --> C["raw_tushare/stk_mins_by_date"]
+  C --> D["refresh clean_next + gate"]
+  D --> E["clean_next_review 人工确认"]
+  E --> F["derived/stk_mins_by_date 90/120"]
+  F --> G["derived_review 人工确认"]
+  G --> H["research/stk_mins_by_symbol_month"]
+  H --> I["final_validation"]
 ```
 
-所以，运营之前的理解“同步 raw 会一路自动生成 clean_next、90/120、by month”并不是当前实现事实。
+底层 `sync-stk-mins-range` 仍只负责 raw + clean_next/gate；Sync Center 的 `stk_mins_sync` 专项流水线负责在人工确认后继续调用 derived 与 research 服务。
 
 ---
 
@@ -221,8 +224,9 @@ flowchart TD
 
 | 当前 | 目标 |
 | --- | --- |
-| `stk_mins_sync` 返回 `planned` | 后端执行器完成后返回 `enabled` |
-| 前端本地写死计划中说明 | 前端使用后端返回的显示信息 |
+| `stk_mins_sync` catalog summary 返回 `enabled`，前端展示“专项可执行” | API 和前端已对 `stk_mins_sync` 做专项 plan/run/continue/abort 分支；它可由页面启动，但仍不进入普通 Profile Runner |
+| `stk_mins_sync` 专项分支同样校验 profile 状态 | plan 和 run 启动前统一要求 `profile_status=enabled`，避免未来被改回 planned/disabled 后仍可绕过普通 `ensure_enabled` |
+| 前端已有专项展示逻辑 | 后续仍应尽量使用后端返回的阶段标题、摘要、下一步动作，避免前端自己拼接链路事实 |
 
 ### 8.2 生成计划
 
@@ -607,6 +611,51 @@ path_missing_before_write
 8. 前端不拼接路径、不推断成功失败、不自行拼装展示字段。
 9. 失败后不会自动继续扩大写入范围。
 10. 技术指标计算仍然不被本 profile 自动触发。
+
+### 13.1 真实 API 验收记录
+
+2026-05-16 已通过 Sync Center API 完成一轮真实写入验收。
+
+| 项目 | 结果 |
+| --- | --- |
+| run_id | `20260515T233126Z-stk-mins-sync-dc0d76` |
+| 日期范围 | `2026-05-15` 单日 |
+| raw 频率 | `1,5,15,30,60` |
+| 影响月份 | `2026-05` |
+| Kopia 写前备份 | 成功，snapshot ids：`k6268cd8aa292ec7219b995ae301aa2ca`、`kf163d0d1b2391d8d6107e2e5f0d4fbde` |
+| raw 同步 | 成功，写入 `1,768,239` 行 |
+| clean_next/gate | 成功，5 个分区全部 `passed`，`issue_count=0` |
+| derived | 成功，`90/120` 写入 `27,549` 行 |
+| research by month | 成功，`2026-05`、7 个频率写入 `14,366,684` 行 |
+| final_validation | 成功，`source_rows=14,366,684`，`written_rows=14,366,684` |
+| 技术指标 | 未触发，符合本专项边界 |
+
+只读复核结果：
+
+| 节点 | 复核结果 |
+| --- | --- |
+| raw `2026-05-15` | `1/5/15/30/60` 分区均存在 |
+| clean_next `2026-05-15` | `1/5/15/30/60` 分区均存在，行数与 raw 一致 |
+| gate `2026-05-15` | `1/5/15/30/60` 均为 `passed` |
+| derived `2026-05-15` | `90/120` 分区均存在 |
+| research `2026-05` | `1/5/15/30/60/90/120` 均存在 32 个 bucket |
+
+本轮发现并已修复一个展示口径问题：`clean_next_refresh` 阶段曾错误显示 `0 个分区已通过`。原因是阶段文案读取了旧字段 `affected_partitions`，真实 summary 使用 `partition_results` 和 `gate.updated_partitions`。修复后阶段文案从真实分区结果统计通过数量。
+
+### 13.2 后续小周期真实验证建议
+
+下一轮真实验证先不进入新专项，建议只做 Sync Center 流水线小周期冒烟：
+
+| 推荐范围 | 选择 |
+| --- | --- |
+| 日期 | 优先选一个单日。若要立刻执行，用 `2026-05-15`；若要验证“新增空白日期”，等下一个已收盘交易日再执行 |
+| raw 频率 | `60` |
+| 预计请求单元 | 约 `5,512`，是全五频 `27,560` 的约 20% |
+| 会触发的 derived | `120` |
+| 会重排的 research | `60/120` 的 `2026-05` 月级 research |
+| 覆盖目的 | 验证 Kopia、raw、clean_next/gate、一个 derived 目标、research by month、final_validation、人工确认节点 |
+
+如果必须同时覆盖 `90` 和 `120` 两个派生目标，则把 raw 频率改为 `30,60`。这会把请求单元提高到约 `11,024`，仍明显小于全五频，但耗时约为单频的两倍。
 
 ---
 

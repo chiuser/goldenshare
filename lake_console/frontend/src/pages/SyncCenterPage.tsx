@@ -26,11 +26,14 @@ import { formatDateTime } from "../utils/format";
 
 const RUNNABLE_PROFILE_KEYS = new Set([
   "prod_db_daily",
+  "prod_db_event_date",
   "prod_db_snapshot_refresh",
   "prod_db_manual_backfill",
   "lake_reference_refresh",
+  "stk_mins_sync",
 ]);
 const STK_MINS_PROFILE_KEY = "stk_mins_sync";
+const PROD_DB_EVENT_DATE_PROFILE_KEY = "prod_db_event_date";
 const STK_MINS_FREQ_OPTIONS = [1, 5, 15, 30, 60];
 const RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE: Record<string, string> = {
   prod_db_daily: "prod_db_daily",
@@ -60,6 +63,12 @@ const PROFILE_PRESENTATION: Record<string, { description: string; domain: string
     domain: "日期驱动数据集",
     label: "日期驱动数据集 · 日常增量刷新",
     mode: "日常增量刷新",
+  },
+  prod_db_event_date: {
+    description: "按事件日期从生产 raw_tushare 白名单表生成安全同步计划。",
+    domain: "事件日期数据集",
+    label: "事件日期数据集 · 手动同步",
+    mode: "事件日期同步",
   },
   prod_db_manual_backfill: {
     description: "按指定日期区间补齐日期驱动数据集。",
@@ -101,6 +110,8 @@ export function SyncCenterPage() {
 
   const selectedProfile = profiles.find((profile) => profile.profile_key === selectedProfileKey) ?? null;
   const isStkMinsProfile = selectedProfileKey === STK_MINS_PROFILE_KEY;
+  const isEventDateProfile = selectedProfileKey === PROD_DB_EVENT_DATE_PROFILE_KEY;
+  const eventDateUsesRange = isEventDateProfile && Boolean(startDate || endDate);
   const recommendationSourceProfileKey = RECOMMENDATION_SOURCE_PROFILE_BY_SELECTED_PROFILE[selectedProfileKey] ?? null;
   const canLoadRecommendations = Boolean(recommendationSourceProfileKey);
   const {
@@ -144,13 +155,16 @@ export function SyncCenterPage() {
   const canRunSelectedScope = Boolean(selectedProfile && isRunnableProfile(selectedProfile));
   const canCreatePlan = Boolean(
     selectedProfile &&
+    canRunSelectedScope &&
     !planLoading &&
+    (!isEventDateProfile || (selectedDatasetKey && ((eventDateUsesRange && startDate && endDate) || (!eventDateUsesRange && targetDate)))) &&
     (!isStkMinsProfile || (startDate && endDate && selectedFreqs.length)),
   );
   const canStartRun = Boolean(plan && !plan.blockers.length && canRunSelectedScope && lock?.status === "idle" && !runLoading);
   const canCreateStkMinsStateRun = Boolean(
     plan &&
     isStkMinsProfile &&
+    canRunSelectedScope &&
     !plan.blockers.length &&
     lock?.status === "idle" &&
     !runLoading,
@@ -163,7 +177,7 @@ export function SyncCenterPage() {
   const maxLagDays = recommendationItems.reduce((max, item) => Math.max(max, item.lag_calendar_days || 0), 0);
 
   async function handleCreatePlan() {
-    if (!selectedProfile) {
+    if (!selectedProfile || !isRunnableProfile(selectedProfile)) {
       return;
     }
     setPlanLoading(true);
@@ -173,7 +187,7 @@ export function SyncCenterPage() {
       const nextPlan = await createSyncPlan({
         profileKey: selectedProfile.profile_key,
         datasetKeys: datasetKeysOverride ?? (selectedDatasetKey ? [selectedDatasetKey] : []),
-        targetDate: shouldUseTargetDate(selectedProfile.profile_key) ? targetDate : null,
+        targetDate: shouldUseTargetDate(selectedProfile.profile_key) && !eventDateUsesRange ? targetDate : null,
         startDate: shouldUseDateRange(selectedProfile.profile_key) ? startDate || null : null,
         endDate: shouldUseDateRange(selectedProfile.profile_key) ? endDate || null : null,
         freqs: isStkMinsProfile ? selectedFreqs : null,
@@ -408,7 +422,7 @@ export function SyncCenterPage() {
                     setSelectedDatasetKey(event.target.value);
                   }}
                 >
-                  <option value="">全部数据集</option>
+                  <option value="">{isEventDateProfile ? "请选择数据集" : "全部数据集"}</option>
                   {(selectedProfile?.datasets ?? []).map((dataset) => (
                     <option key={dataset.dataset_key} value={dataset.dataset_key}>
                       {dataset.dataset_key}
@@ -489,9 +503,11 @@ export function SyncCenterPage() {
             {!canRunSelectedScope ? (
               <div className="alert warning">
                 <div>
-                  {isStkMinsProfile
-                    ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate 后停在 clean_next_review；人工确认后生成 90/120，derived 确认后重排 research by month 并做最终校验。"
-                    : "当前选择的同步配置尚未接入执行器。可以生成只读计划做预览，但不能启动写入任务。"}
+                  {selectedProfile?.profile_status !== "enabled"
+                    ? "当前选择的同步配置尚未开放执行入口，不能生成计划或启动任务。"
+                    : isStkMinsProfile
+                      ? "当前会创建 Kopia 写前备份，执行 raw + clean_next/gate 后停在 clean_next_review；人工确认后生成 90/120，derived 确认后重排 research by month 并做最终校验。"
+                      : "当前选择的同步配置尚未接入执行器，不能生成计划或启动任务。"}
                 </div>
               </div>
             ) : null}
@@ -511,7 +527,7 @@ export function SyncCenterPage() {
                 {selectedProfile ? <Badge tone={profileTone(selectedProfile)}>{profileStatusLabel(selectedProfile.profile_status)}</Badge> : null}
                 {selectedProfile ? (
                   <Badge tone={isRunnableProfile(selectedProfile) ? "success" : "muted"}>
-                    {isRunnableProfile(selectedProfile) ? "可执行" : "计划中"}
+                    {isRunnableProfile(selectedProfile) ? (isStkMinsProfile ? "专项可执行" : "可执行") : "计划中"}
                   </Badge>
                 ) : null}
                 {selectedProfile ? (
@@ -545,6 +561,7 @@ export function SyncCenterPage() {
                 <SyncMiniStat label="数据集" value={String(plan.summary.dataset_count ?? plan.dataset_plans.length)} />
                 <SyncMiniStat label="阶段" value={String(plan.summary.stage_count ?? plan.pipeline_stages.length)} />
                 <SyncMiniStat label="请求数" value={requestCount.toLocaleString("zh-CN")} />
+                <SyncMiniStat label="事件日期" value={String(plan.summary.affected_event_date_count ?? plan.affected_event_dates.length)} />
                 <SyncMiniStat label="快照路径" value={String((plan.backup_plan.snapshot_paths ?? plan.backup_plan.backup_paths).length)} />
                 <SyncMiniStat label="备份明细" value={String(plan.backup_plan.backup_paths.length)} />
                 <SyncMiniStat label="写前缺失" value={String(plan.backup_plan.path_missing_before_write.length)} />
@@ -851,7 +868,12 @@ function PlanTable({ rows }: { rows: SyncPlanDatasetPlan[] }) {
       render: (row) => (
         <div className="sync-cell-stack">
           <strong>{row.request_count.toLocaleString("zh-CN")} requests</strong>
-          <span>{row.partition_count.toLocaleString("zh-CN")} partitions</span>
+          <span>
+            {row.partition_count.toLocaleString("zh-CN")} partitions
+            {row.zero_row_date_count ? ` · ${row.zero_row_date_count.toLocaleString("zh-CN")} 个 0 行日期` : ""}
+          </span>
+          {row.source_date_field ? <span>源日期字段：{row.source_date_field}</span> : null}
+          {row.source_row_count !== undefined ? <span>源端行数：{row.source_row_count.toLocaleString("zh-CN")}</span> : null}
         </div>
       ),
     },
@@ -1202,11 +1224,11 @@ function isRunnableProfile(profile: SyncProfileSummary): boolean {
 }
 
 function shouldUseTargetDate(profileKey: string): boolean {
-  return profileKey === "prod_db_daily";
+  return profileKey === "prod_db_daily" || profileKey === PROD_DB_EVENT_DATE_PROFILE_KEY;
 }
 
 function shouldUseDateRange(profileKey: string): boolean {
-  return profileKey === "prod_db_manual_backfill" || profileKey === STK_MINS_PROFILE_KEY;
+  return profileKey === "prod_db_manual_backfill" || profileKey === STK_MINS_PROFILE_KEY || profileKey === PROD_DB_EVENT_DATE_PROFILE_KEY;
 }
 
 function snapshotCount(backup: Record<string, unknown> | null): string {

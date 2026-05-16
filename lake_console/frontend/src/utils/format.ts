@@ -32,6 +32,10 @@ export function formatDateOrMonthRange(dataset: DatasetSummary): string {
   if (dateRange !== "-") {
     return dateRange;
   }
+  const eventDateRange = formatRange(dataset.earliest_event_date, dataset.latest_event_date);
+  if (eventDateRange !== "-") {
+    return eventDateRange;
+  }
   return formatRange(dataset.earliest_trade_month, dataset.latest_trade_month);
 }
 
@@ -42,6 +46,10 @@ export function formatNodeDateOrMonthRange(node: NodeSummary): string {
   const dateRange = formatRange(node.earliest_trade_date, node.latest_trade_date);
   if (dateRange !== "-") {
     return dateRange;
+  }
+  const eventDateRange = formatRange(node.earliest_event_date, node.latest_event_date);
+  if (eventDateRange !== "-") {
+    return eventDateRange;
   }
   return formatRange(node.earliest_trade_month, node.latest_trade_month);
 }
