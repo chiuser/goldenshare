@@ -782,7 +782,7 @@ where a.ts_code is null;</code></pre>
         <td>M3</td>
         <td>引擎小闭环</td>
         <td>新增 <code>date_subject_matrix</code> executor 分支和 stock active universe provider。</td>
-        <td>单测覆盖 4 缺失样例、无缺失样例、对象池空样例。</td>
+        <td>单测覆盖对象缺失样例、无缺失样例、对象池空样例；日期桶审计路径保持不变。</td>
       </tr>
       <tr>
         <td>M4</td>
@@ -915,23 +915,23 @@ where a.ts_code is null;</code></pre>
       <tbody>
       <tr>
         <td>审计执行模型</td>
-        <td><code>DateCompletenessAuditExecutor</code> 当前只执行日期桶审计：规划 expected buckets、读取 distinct observed date、比较日期集合。</td>
-        <td>不能直接打补丁扩成对象矩阵；应新增 <code>date_subject_matrix</code> 分支，保留现有日期桶审计行为不变。</td>
+        <td>M3 后 <code>DateCompletenessAuditExecutor</code> 已按 <code>audit_scope</code> 分流：<code>date_bucket</code> 保持原日期桶审计；<code>date_subject_matrix</code> 进入对象矩阵 executor。</td>
+        <td>已按方案新增独立分支，避免把对象缺失塞回日期桶审计逻辑。</td>
       </tr>
       <tr>
         <td>实际数据读取</td>
-        <td><code>ActualBucketReader</code> 只返回 <code>set[date]</code>，且 SQL 只按 <code>observed_field</code> 去重。</td>
-        <td>无法识别 <code>adj_factor</code> 某日期下个别 <code>ts_code</code> 缺失；矩阵审计必须新增实际对象矩阵读取器。</td>
+        <td><code>ActualBucketReader</code> 仍只服务日期桶审计；矩阵审计由 <code>SubjectCompletenessMatrixExecutor</code> 使用 SQL CTE 生成 expected matrix、actual matrix 与 missing matrix。</td>
+        <td>符合“审计独立逻辑 + SQL 集合差集”的要求，不在 Python 中构造大规模日期对象矩阵。</td>
       </tr>
       <tr>
         <td>结果表结构</td>
-        <td>M2 后 <code>ops.dataset_date_completeness_run</code> 已具备矩阵汇总字段，并新增 <code>dataset_subject_completeness_gap</code> 与 <code>dataset_subject_completeness_gap_detail</code> ORM/迁移。</td>
-        <td>存储层已就位；后续仍需独立 executor 写入这些结果表。</td>
+        <td>M3 后对象矩阵 executor 已写入 <code>ops.dataset_date_completeness_run</code> 汇总字段、<code>dataset_subject_completeness_gap</code> 摘要与 <code>dataset_subject_completeness_gap_detail</code> 明细。</td>
+        <td>存储层小闭环已打通；页面消费仍留到 M4。</td>
       </tr>
       <tr>
         <td>API 与前端契约</td>
         <td>当前 schema、query service、前端类型均以 bucket count / gap range 为核心。</td>
-        <td>矩阵审计需要扩展 API 与页面展示，不能把对象缺失塞进现有 <code>sample_values</code> 字符串里。</td>
+        <td>M3 不扩展 API/前端；M4 需要按对象矩阵结果表新增独立展示，不能把对象缺失塞进现有 <code>sample_values</code> 字符串里。</td>
       </tr>
       <tr>
         <td>DatasetDefinition 事实源</td>

@@ -26,6 +26,7 @@ class DateCompletenessRunCommandService:
             raise WebAppError(status_code=422, code="validation_error", message="审计开始日期不能晚于结束日期")
 
         date_model = definition.date_model
+        completeness = definition.completeness
         now = datetime.now(timezone.utc)
         run = DatasetDateCompletenessRun(
             dataset_key=definition.dataset_key,
@@ -44,6 +45,8 @@ class DateCompletenessRunCommandService:
             bucket_window_rule=date_model.bucket_window_rule or "none",
             bucket_applicability_rule=date_model.bucket_applicability_rule,
             row_identity_filters_json=dict(definition.storage.row_identity_filters),
+            audit_scope=completeness.scope if completeness.scope == "date_subject_matrix" else "date_bucket",
+            subject_kind=completeness.subject_kind,
             current_stage="queued",
             operator_message="审计任务已创建，等待审计 worker 执行。",
             technical_message=None,
@@ -71,6 +74,7 @@ class DateCompletenessRunCommandService:
             raise WebAppError(status_code=422, code="validation_error", message="审计开始日期不能晚于结束日期")
 
         date_model = definition.date_model
+        completeness = definition.completeness
         now = datetime.now(timezone.utc)
         run = DatasetDateCompletenessRun(
             dataset_key=definition.dataset_key,
@@ -89,6 +93,8 @@ class DateCompletenessRunCommandService:
             bucket_window_rule=date_model.bucket_window_rule or "none",
             bucket_applicability_rule=date_model.bucket_applicability_rule,
             row_identity_filters_json=dict(definition.storage.row_identity_filters),
+            audit_scope=completeness.scope if completeness.scope == "date_subject_matrix" else "date_bucket",
+            subject_kind=completeness.subject_kind,
             current_stage="queued",
             operator_message="自动审计任务已创建，等待审计 worker 执行。",
             technical_message=None,

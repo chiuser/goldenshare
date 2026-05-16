@@ -5,10 +5,13 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy import text
 
+from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
+from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
+from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
 from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
 
 
@@ -545,3 +548,189 @@ def test_date_completeness_worker_excludes_stk_period_week_without_open_trade_da
     assert payload["items"][0]["window_start"] == "2026-01-26"
     assert payload["items"][0]["window_end"] == "2026-02-01"
     assert payload["items"][0]["reason_code"] == "bucket_has_no_open_trade_day"
+
+
+def test_date_subject_matrix_worker_records_missing_subject_cells(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 3, 31), is_open=True, pretrade_date=date(2026, 3, 30)),
+            Security(ts_code="000001.SZ", name="平安银行", list_status="L", list_date=date(1991, 4, 3), security_type="EQUITY"),
+            Security(ts_code="001257.SZ", name="立新能源", list_status="L", list_date=date(2022, 7, 27), security_type="EQUITY"),
+            Security(ts_code="000002.SZ", name="万科A", list_status="L", list_date=date(2026, 3, 31), security_type="EQUITY"),
+            Security(ts_code="000003.SZ", name="退市样例", list_status="D", list_date=date(2020, 1, 1), security_type="EQUITY"),
+        ]
+    )
+    db_session.execute(
+        text(
+            """
+            create table core.equity_adj_factor (
+                ts_code text not null,
+                trade_date date not null,
+                adj_factor numeric not null
+            )
+            """
+        )
+    )
+    db_session.execute(
+        text(
+            """
+            insert into core.equity_adj_factor (ts_code, trade_date, adj_factor)
+            values
+              ('000001.SZ', '2026-03-30', 1.1),
+              ('000001.SZ', '2026-03-31', 1.2),
+              ('000002.SZ', '2026-03-31', 1.3)
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "adj_factor",
+            "start_date": "2026-03-30",
+            "end_date": "2026-03-31",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "adj_factor"
+    assert run.audit_scope == "date_subject_matrix"
+    assert run.subject_kind == "stock"
+    assert run.run_status == "succeeded"
+    assert run.result_status == "failed"
+    assert run.expected_bucket_count == 2
+    assert run.actual_bucket_count == 2
+    assert run.missing_bucket_count == 0
+    assert run.expected_cell_count == 5
+    assert run.actual_cell_count == 3
+    assert run.missing_cell_count == 2
+    assert run.affected_bucket_count == 2
+    assert run.affected_subject_count == 1
+    assert run.detail_truncated is False
+
+    gaps = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGap)
+            .where(DatasetSubjectCompletenessGap.run_id == run.id)
+            .order_by(DatasetSubjectCompletenessGap.bucket_value.asc())
+        )
+    )
+    assert len(gaps) == 2
+    assert [gap.bucket_value for gap in gaps] == [date(2026, 3, 30), date(2026, 3, 31)]
+    assert [gap.missing_cell_count for gap in gaps] == [1, 1]
+    assert gaps[0].subject_key_fields_json == ["ts_code"]
+    assert gaps[0].actual_key_fields_json == ["ts_code", "trade_date"]
+    assert gaps[0].sample_subjects_json == [{"subject_key": "001257.SZ", "subject_name": "立新能源"}]
+
+    details = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run.id)
+            .order_by(DatasetSubjectCompletenessGapDetail.bucket_value.asc())
+        )
+    )
+    assert len(details) == 2
+    assert {detail.subject_key for detail in details} == {"001257.SZ"}
+    assert details[0].subject_key_json == {"ts_code": "001257.SZ"}
+    assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-03-30"}
+    assert details[0].reason_code == "missing_subject_bucket"
+
+
+def test_date_subject_matrix_worker_passes_when_all_subject_cells_exist(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27)),
+            Security(ts_code="000001.SZ", name="平安银行", list_status="L", list_date=date(1991, 4, 3), security_type="EQUITY"),
+            Security(ts_code="001257.SZ", name="立新能源", list_status="L", list_date=date(2022, 7, 27), security_type="EQUITY"),
+        ]
+    )
+    db_session.execute(
+        text(
+            """
+            create table core.equity_adj_factor (
+                ts_code text not null,
+                trade_date date not null,
+                adj_factor numeric not null
+            )
+            """
+        )
+    )
+    db_session.execute(
+        text(
+            """
+            insert into core.equity_adj_factor (ts_code, trade_date, adj_factor)
+            values
+              ('000001.SZ', '2026-03-30', 1.1),
+              ('001257.SZ', '2026-03-30', 1.2)
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "adj_factor",
+            "start_date": "2026-03-30",
+            "end_date": "2026-03-30",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.result_status == "passed"
+    assert run.expected_cell_count == 2
+    assert run.actual_cell_count == 2
+    assert run.missing_cell_count == 0
+    assert run.affected_bucket_count == 0
+    assert run.affected_subject_count == 0
+    assert db_session.scalar(select(DatasetSubjectCompletenessGap).where(DatasetSubjectCompletenessGap.run_id == run.id)) is None
+
+
+def test_date_subject_matrix_worker_passes_when_subject_universe_is_empty(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add(TradeCalendar(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27)))
+    db_session.execute(
+        text(
+            """
+            create table core.equity_adj_factor (
+                ts_code text not null,
+                trade_date date not null,
+                adj_factor numeric not null
+            )
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "adj_factor",
+            "start_date": "2026-03-30",
+            "end_date": "2026-03-30",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.result_status == "passed"
+    assert run.expected_bucket_count == 1
+    assert run.expected_cell_count == 0
+    assert run.actual_cell_count == 0
+    assert run.missing_cell_count == 0
+    assert run.operator_message == "审计通过，对象池在本窗口内为空。"
