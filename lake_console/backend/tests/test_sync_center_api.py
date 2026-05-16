@@ -149,6 +149,8 @@ def test_stk_mins_sync_plan_returns_readonly_pipeline_contract(monkeypatch, tmp_
     clean_stage = next(stage for stage in detail["pipeline_stages"] if stage["stage_key"] == "clean_next_refresh")
     assert raw_stage["stage_status"] == "passed"
     assert clean_stage["stage_status"] == "passed"
+    assert clean_stage["display_summary"] == "clean_next/gate 刷新完成：1 个分区已通过。"
+    assert clean_stage["metrics"]["affected_partition_count"] == 1
 
     events_response = client.get(run["events_url"])
     assert events_response.status_code == 200
@@ -352,6 +354,7 @@ def test_stk_mins_sync_run_records_kopia_prewrite_backup(monkeypatch, tmp_path: 
     assert backup_stage["metrics"]["snapshot_count"] == 1
     assert raw_stage["stage_status"] == "passed"
     assert clean_stage["stage_status"] == "passed"
+    assert clean_stage["display_summary"] == "clean_next/gate 刷新完成：1 个分区已通过。"
 
 
 def test_stk_mins_sync_run_stops_when_kopia_backup_fails(monkeypatch, tmp_path: Path) -> None:
@@ -666,7 +669,21 @@ def _mock_stk_mins_pipeline_sync(monkeypatch) -> None:
                 "fetched_rows": 100,
                 "written_rows": 100,
                 "affected_partitions": affected_partitions,
-                "clean_next_refresh": {"status": "passed", "affected_partitions": len(affected_partitions)},
+                "clean_next_refresh": {
+                    "status": "passed",
+                    "partitions": len(affected_partitions),
+                    "partition_results": [
+                        {
+                            "freq": freqs[0],
+                            "trade_date": start_date.isoformat(),
+                            "status": "passed",
+                            "raw_rows": 100,
+                            "clean_rows": 100,
+                            "issue_count": 0,
+                        }
+                    ],
+                    "gate": {"updated_partitions": len(affected_partitions), "written_rows": len(affected_partitions)},
+                },
                 "elapsed_seconds": 0.1,
             }
 

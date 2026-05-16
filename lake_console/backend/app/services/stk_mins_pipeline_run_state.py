@@ -192,17 +192,18 @@ def complete_raw_and_clean_next_stages(*, run: dict[str, Any], summary: dict[str
             "elapsed_seconds": summary.get("elapsed_seconds"),
         }
 
+    clean_next_passed_partitions = _clean_next_passed_partition_count(clean_next_refresh)
     clean_stage = _stage_by_key(stages, "clean_next_refresh")
     if clean_stage is not None:
         clean_stage["stage_status"] = "passed"
         clean_stage["stage_status_label"] = "已通过"
         clean_stage["display_summary"] = (
-            f"clean_next/gate 刷新完成：{int(clean_next_refresh.get('affected_partitions') or 0)} 个分区已通过。"
+            f"clean_next/gate 刷新完成：{clean_next_passed_partitions} 个分区已通过。"
         )
         clean_stage["output_summary"] = clean_next_refresh
         clean_stage["metrics"] = {
             **dict(clean_stage.get("metrics") or {}),
-            "affected_partition_count": int(clean_next_refresh.get("affected_partitions") or 0),
+            "affected_partition_count": clean_next_passed_partitions,
         }
 
     review_stage = _stage_by_key(stages, "clean_next_review")
@@ -213,7 +214,7 @@ def complete_raw_and_clean_next_stages(*, run: dict[str, Any], summary: dict[str
         review_stage["metrics"] = {
             **dict(review_stage.get("metrics") or {}),
             "raw_written_rows": int(summary.get("written_rows") or 0),
-            "clean_next_affected_partition_count": int(clean_next_refresh.get("affected_partitions") or 0),
+            "clean_next_affected_partition_count": clean_next_passed_partitions,
         }
 
     return _with_runtime_fields(
@@ -231,6 +232,21 @@ def complete_raw_and_clean_next_stages(*, run: dict[str, Any], summary: dict[str
         },
         current_stage=review_stage,
     )
+
+
+def _clean_next_passed_partition_count(clean_next_refresh: dict[str, Any]) -> int:
+    partition_results = [item for item in clean_next_refresh.get("partition_results") or [] if isinstance(item, dict)]
+    if partition_results:
+        return sum(1 for item in partition_results if item.get("status") == "passed")
+
+    gate = clean_next_refresh.get("gate")
+    if isinstance(gate, dict) and gate.get("updated_partitions") is not None:
+        return int(gate.get("updated_partitions") or 0)
+
+    if clean_next_refresh.get("partitions") is not None:
+        return int(clean_next_refresh.get("partitions") or 0)
+
+    return 0
 
 
 def start_derived_90_120_stage(*, run: dict[str, Any]) -> dict[str, Any]:
