@@ -8,7 +8,7 @@ import { buildManualTaskHref } from "../shared/ops-links";
 import { SectionCard } from "../shared/ui/section-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
-type CardStatus = "running" | "healthy" | "warning" | "stale" | "failed" | "unknown";
+type CardStatus = "running" | "healthy" | "warning" | "stale" | "failed" | "unconfirmed" | "unknown";
 type SourceKey = "tushare" | "biying" | "biz_tableset";
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 
@@ -21,8 +21,7 @@ interface SourceCardItem {
   status: CardStatus;
   lastSyncLabel: string;
   lastSyncText: string;
-  dateRangeText: string;
-  cadenceText: string;
+  observedText: string;
   primaryActionKey: string | null;
   autoEnabled: boolean;
   autoTooltip: string;
@@ -31,11 +30,14 @@ interface SourceCardItem {
   probeTooltip: string;
 }
 
-function toCardStatus(rawStatus: string | null | undefined): CardStatus {
+function toCardStatus(rawStatus: string | null | undefined, freshnessStatus?: string | null): CardStatus {
+  const freshnessKey = (freshnessStatus || "").toLowerCase();
+  if (freshnessKey === "unconfirmed") return "unconfirmed";
   const key = (rawStatus || "").toLowerCase();
   if (key === "running" || key === "queued" || key === "canceling") return "running";
   if (key === "failed") return "failed";
   if (key === "stale") return "stale";
+  if (key === "unconfirmed") return "unconfirmed";
   if (key === "warning" || key === "lagging") return "warning";
   if (key === "healthy" || key === "fresh" || key === "success") return "healthy";
   return "unknown";
@@ -46,7 +48,7 @@ function statusDotColor(status: CardStatus) {
   if (status === "healthy") return "var(--mantine-color-success-5)";
   if (status === "stale") return "var(--mantine-color-error-5)";
   if (status === "failed") return "var(--mantine-color-error-5)";
-  if (status === "warning") return "var(--mantine-color-warning-5)";
+  if (status === "warning" || status === "unconfirmed") return "var(--mantine-color-warning-5)";
   return "var(--mantine-color-neutral-5)";
 }
 
@@ -55,25 +57,33 @@ function statusLabel(status: CardStatus): string {
   if (status === "healthy") return "正常";
   if (status === "stale") return "严重滞后";
   if (status === "failed") return "失败";
+  if (status === "unconfirmed") return "未确认";
   if (status === "warning") return "滞后";
   return "未知";
 }
 
-function buildDateRangeText(item: DatasetCard): string {
+function formatApiObservedValue(value: string): string {
+  return value.includes("T") ? formatDateTimeLabel(value) : formatDateLabel(value);
+}
+
+function buildObservedText(item: DatasetCard): string {
+  if (item.latest_observed_date_label && item.latest_observed_date) {
+    return `${item.latest_observed_date_label}：${formatApiObservedValue(item.latest_observed_date)}`;
+  }
   if (item.latest_observed_at) {
     if (item.earliest_observed_at && item.earliest_observed_at !== item.latest_observed_at) {
-      return `${formatDateTimeLabel(item.earliest_observed_at)} ~ ${formatDateTimeLabel(item.latest_observed_at)}`;
+      return `观测范围：${formatDateTimeLabel(item.earliest_observed_at)} ~ ${formatDateTimeLabel(item.latest_observed_at)}`;
     }
-    return `最新时间：${formatDateTimeLabel(item.latest_observed_at)}`;
+    return `最新观测时间：${formatDateTimeLabel(item.latest_observed_at)}`;
   }
   if (item.latest_business_date) {
     if (item.earliest_business_date && item.earliest_business_date !== item.latest_business_date) {
-      return `${formatDateLabel(item.earliest_business_date)} ~ ${formatDateLabel(item.latest_business_date)}`;
+      return `观测范围：${formatDateLabel(item.earliest_business_date)} ~ ${formatDateLabel(item.latest_business_date)}`;
     }
-    return `最新业务日：${formatDateLabel(item.latest_business_date)}`;
+    return `最新观测日期：${formatDateLabel(item.latest_business_date)}`;
   }
   if (item.last_sync_date) {
-    return `最近同步：${formatDateLabel(item.last_sync_date)}`;
+    return `最近同步日期：${formatDateLabel(item.last_sync_date)}`;
   }
   return "—";
 }
@@ -88,10 +98,10 @@ function buildLastSyncText(item: DatasetCard, hasActiveTaskRun: boolean): string
       ? `执行中（开始于 ${formatDateTimeLabel(item.active_task_run_started_at)}）`
       : "执行中";
   }
-  if (isBizTableCard(item)) {
-    return item.latest_success_at ? formatDateTimeLabel(item.latest_success_at) : "—";
+  if (item.latest_success_at) {
+    return formatDateTimeLabel(item.latest_success_at);
   }
-  return item.last_sync_date ? formatDateLabel(item.last_sync_date) : "—";
+  return "—";
 }
 
 export function OpsV21SourcePage({
@@ -117,17 +127,16 @@ export function OpsV21SourcePage({
     .map((item) => {
       const activeTaskRunStatus = (item.active_task_run_status || "").toLowerCase();
       const hasActiveTaskRun = activeTaskRunStatus === "queued" || activeTaskRunStatus === "running" || activeTaskRunStatus === "canceling";
-      const status = toCardStatus(item.status);
+      const status = toCardStatus(item.status, item.freshness_status);
       const isBizTable = isBizTableCard(item);
       return {
         datasetKey: item.card_key,
         displayName: item.display_name,
         tableLabel: isBizTable ? item.target_table || "—" : item.raw_table_label || "—",
         status,
-        lastSyncLabel: isBizTable ? "最近构建" : "最近同步",
+        lastSyncLabel: item.last_success_label || (isBizTable ? "最近构建成功时间" : "最近维护成功时间"),
         lastSyncText: buildLastSyncText(item, hasActiveTaskRun),
-        dateRangeText: buildDateRangeText(item),
-        cadenceText: item.cadence_display_name,
+        observedText: buildObservedText(item),
         primaryActionKey: item.primary_action_key || null,
         autoEnabled: item.auto_schedule_active > 0,
         autoTooltip:
@@ -208,8 +217,7 @@ export function OpsV21SourcePage({
                         <Text size="sm">{item.lastSyncLabel}：{item.lastSyncText}</Text>
                         <StatusBadge value={item.status} label={statusLabel(item.status)} size="xs" />
                       </Group>
-                      <Text size="sm">更新频率：{item.cadenceText}</Text>
-                      <Text size="sm">时间范围：{item.dateRangeText}</Text>
+                      <Text size="sm">{item.observedText}</Text>
                     </Stack>
 
                     <Group justify="space-between" mt="auto">

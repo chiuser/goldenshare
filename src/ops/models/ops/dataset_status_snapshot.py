@@ -18,7 +18,6 @@ class DatasetStatusSnapshot(Base):
     domain_key: Mapped[str] = mapped_column(String(64), nullable=False)
     domain_display_name: Mapped[str] = mapped_column(String(64), nullable=False)
     target_table: Mapped[str] = mapped_column(String(128), nullable=False)
-    cadence: Mapped[str] = mapped_column(String(16), nullable=False)
     earliest_business_date: Mapped[date | None] = mapped_column(Date)
     observed_business_date: Mapped[date | None] = mapped_column(Date)
     latest_business_date: Mapped[date | None] = mapped_column(Date)

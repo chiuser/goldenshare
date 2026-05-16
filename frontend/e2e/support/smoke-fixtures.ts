@@ -71,6 +71,8 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
       id,
       task_type: item.task_type,
       resource_key: item.resource_key,
+      source_key: "tushare",
+      action_key: `${item.resource_key}.maintain`,
       action: item.action,
       title: item.title,
       trigger_source: item.trigger_source,
@@ -100,10 +102,17 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
       rows_fetched: item.rows_fetched,
       rows_saved: item.rows_saved,
       rows_rejected: item.rows_rejected,
-      current_context: {
-        trade_date: "2026-04-17",
-        ts_code: "002034.SZ",
+      rejected_reason_counts: {},
+      rejected_reasons: [],
+      current_object: {
+        title: "正在处理：002034.SZ",
+        description: "处理范围：2026-04-17",
+        fields: [
+          { label: "证券代码", value: "002034.SZ" },
+          { label: "交易日", value: "2026-04-17" },
+        ],
       },
+      period_source_summary: null,
     },
     primary_issue: null,
     nodes: [
@@ -124,6 +133,8 @@ function createTaskRunView(overrides: Record<string, unknown> = {}) {
         rows_fetched: item.rows_fetched,
         rows_saved: item.rows_saved,
         rows_rejected: item.rows_rejected,
+        rejected_reason_counts: {},
+        rejected_reasons: [],
         issue_id: null,
         started_at: item.started_at,
         ended_at: item.ended_at,
@@ -234,8 +245,7 @@ function mockOpsOverview(route: Route, pathname: string) {
               delivery_mode_label: "单源服务",
               delivery_mode_tone: "success",
               layer_plan: "raw->serving",
-              cadence: "daily",
-              cadence_display_name: "每日",
+              freshness_policy: "continuous_open_day",
               raw_table: "raw_tushare.equity_daily_bar",
               raw_table_label: "raw_tushare.equity_daily_bar",
               target_table: "core_serving.equity_daily_bar",
@@ -244,6 +254,11 @@ function mockOpsOverview(route: Route, pathname: string) {
               last_sync_date: "2026-04-17",
               latest_success_at: "2026-04-17T09:03:00+08:00",
               expected_business_date: "2026-04-17",
+              latest_observed_date: "2026-04-17",
+              latest_observed_date_label: "最新业务日期",
+              expected_observed_date: "2026-04-17",
+              expected_observed_date_label: "应完成业务日期",
+              last_success_label: "最近维护成功时间",
               lag_days: 0,
               freshness_note: null,
               primary_action_key: "daily.maintain",
@@ -725,6 +740,16 @@ function mockTaskDetail(route: Route, pathname: string) {
 }
 
 function mockReviewIndex(route: Route, pathname: string) {
+  if (pathname === "/api/v1/ops/review/index/active/summary") {
+    return fulfillJson(route, {
+      active_count: 2,
+      daily_available_count: 2,
+      weekly_available_count: 2,
+      monthly_available_count: 2,
+      pending_count: 0,
+    });
+  }
+
   if (pathname === "/api/v1/ops/review/index/active") {
     return fulfillJson(route, {
       total: 2,
@@ -735,6 +760,13 @@ function mockReviewIndex(route: Route, pathname: string) {
           resource: "index_daily",
           ts_code: "000300.SH",
           index_name: "沪深300",
+          market: "SSE",
+          publisher: "中证指数",
+          data_status: "complete",
+          missing_layers: [],
+          latest_daily_date: "2026-04-17",
+          latest_weekly_date: "2026-04-17",
+          latest_monthly_date: "2026-04-17",
           first_seen_date: "2026-01-02",
           last_seen_date: "2026-04-17",
           last_checked_at: "2026-04-17T09:10:00+08:00",
@@ -743,6 +775,13 @@ function mockReviewIndex(route: Route, pathname: string) {
           resource: "index_daily",
           ts_code: "000905.SH",
           index_name: "中证500",
+          market: "SSE",
+          publisher: "中证指数",
+          data_status: "complete",
+          missing_layers: [],
+          latest_daily_date: "2026-04-17",
+          latest_weekly_date: "2026-04-17",
+          latest_monthly_date: "2026-04-17",
           first_seen_date: "2026-01-03",
           last_seen_date: "2026-04-17",
           last_checked_at: "2026-04-17T09:10:00+08:00",

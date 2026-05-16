@@ -767,6 +767,7 @@ export function OpsAutomationPage() {
     () =>
       getCatalogActions(catalogQuery.data)
         .filter(isDatasetCatalogAction)
+        .filter((item) => item.freshness_policy === "continuous_open_day")
         .map((item) => ({
           value: item.target_key,
           label: getCatalogActionLabel(item),

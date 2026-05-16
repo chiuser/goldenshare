@@ -5,6 +5,7 @@ from copy import deepcopy
 from typing import Any
 
 from src.foundation.config.settings import get_settings
+from src.foundation.datasets.freshness_policies import get_freshness_policy
 from src.foundation.datasets.models import (
     DatasetActionCapability,
     DatasetCapabilities,
@@ -91,6 +92,8 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
             override_fields=tuple(str(item).strip() for item in universe_row.get("override_fields", ()) if str(item).strip()),
             sources=tuple(DatasetUniverseSourceDefinition(**source) for source in universe_row.get("sources", ())),
         )
+    observability_row = dict(row["observability"])
+    observability_row["freshness_policy"] = get_freshness_policy(identity.dataset_key)
     return DatasetDefinition(
         identity=identity,
         domain=DatasetDomain(**row["domain"]),
@@ -109,7 +112,7 @@ def build_definition(row: dict[str, Any]) -> DatasetDefinition:
         capabilities=DatasetCapabilities(
             actions=tuple(DatasetActionCapability(**action) for action in row["capabilities"]["actions"]),
         ),
-        observability=DatasetObservability(**row["observability"]),
+        observability=DatasetObservability(**observability_row),
         quality=DatasetQualityPolicy(**row["quality"]),
         transaction=DatasetTransactionDefinition(**transaction_row),
     )

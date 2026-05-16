@@ -15,7 +15,7 @@ class DatasetFreshnessProjection:
     domain_key: str
     domain_display_name: str
     target_table: str
-    cadence: str
+    freshness_policy: str
     raw_table: str
     observed_date_column: str | None = None
     primary_action_key: str | None = None
@@ -30,7 +30,7 @@ def build_dataset_freshness_projection(definition: DatasetDefinition) -> Dataset
         domain_key=definition.domain.domain_key,
         domain_display_name=definition.domain.domain_display_name,
         target_table=definition.storage.target_table,
-        cadence=definition.domain.cadence,
+        freshness_policy=definition.observability.freshness_policy,
         raw_table=definition.storage.raw_table,
         observed_date_column=definition.date_model.observed_field,
         primary_action_key=definition.action_key("maintain") if action is not None else None,

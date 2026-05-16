@@ -127,18 +127,26 @@ export interface OpsOverviewResponse {
     fresh_datasets: number;
     lagging_datasets: number;
     stale_datasets: number;
+    unconfirmed_datasets: number;
     unknown_datasets: number;
     disabled_datasets: number;
   };
   lagging_datasets: Array<{
     dataset_key: string;
     display_name: string;
+    freshness_policy: string;
     freshness_status: string;
     lag_days: number | null;
     earliest_business_date: string | null;
     expected_business_date: string | null;
+    expected_observed_date: string | null;
+    expected_observed_date_label: string | null;
     latest_business_date: string | null;
+    latest_observed_date: string | null;
+    latest_observed_date_label: string | null;
     last_sync_date: string | null;
+    latest_success_at: string | null;
+    last_success_label: string | null;
     primary_action_key: string | null;
     recent_failure_message?: string | null;
     recent_failure_summary?: string | null;
@@ -158,6 +166,7 @@ export interface OpsFreshnessResponse {
     fresh_datasets: number;
     lagging_datasets: number;
     stale_datasets: number;
+    unconfirmed_datasets: number;
     unknown_datasets: number;
     disabled_datasets: number;
   };
@@ -168,7 +177,7 @@ export interface OpsFreshnessResponse {
       dataset_key: string;
       resource_key: string;
       display_name: string;
-      cadence: string;
+      freshness_policy: string;
       target_table: string;
       raw_table: string | null;
       earliest_business_date: string | null;
@@ -180,6 +189,11 @@ export interface OpsFreshnessResponse {
       latest_success_at: string | null;
       last_sync_date: string | null;
       expected_business_date: string | null;
+      latest_observed_date: string | null;
+      latest_observed_date_label: string | null;
+      expected_observed_date: string | null;
+      expected_observed_date_label: string | null;
+      last_success_label: string | null;
       lag_days: number | null;
       freshness_status: string;
       recent_failure_message: string | null;
@@ -471,6 +485,7 @@ export interface OpsCatalogResponse {
     item_order: number;
     domain_key: string;
     domain_display_name: string;
+    freshness_policy?: string | null;
     date_selection_rule?: string | null;
     description: string;
     target_tables: string[];
@@ -733,8 +748,7 @@ export interface DatasetCardListResponse {
       delivery_mode_label: string;
       delivery_mode_tone: string;
       layer_plan: string;
-      cadence: string;
-      cadence_display_name: string;
+      freshness_policy: string;
       raw_table: string | null;
       raw_table_label: string | null;
       target_table: string | null;
@@ -745,6 +759,11 @@ export interface DatasetCardListResponse {
       last_sync_date: string | null;
       latest_success_at: string | null;
       expected_business_date: string | null;
+      latest_observed_date: string | null;
+      latest_observed_date_label: string | null;
+      expected_observed_date: string | null;
+      expected_observed_date_label: string | null;
+      last_success_label: string | null;
       lag_days: number | null;
       freshness_note: string | null;
       primary_action_key: string | null;

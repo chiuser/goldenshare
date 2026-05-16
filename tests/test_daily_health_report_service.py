@@ -17,8 +17,11 @@ def _freshness_response() -> SimpleNamespace:
         lag_days=0,
         earliest_business_date=date(2020, 1, 1),
         latest_business_date=date(2026, 4, 8),
+        latest_observed_date="2026-04-08",
+        latest_observed_date_label="最新业务日期",
         last_sync_date=date(2026, 4, 8),
         latest_success_at=datetime(2026, 4, 8, 1, 0, tzinfo=timezone.utc),
+        last_success_label="最近维护成功时间",
         recent_failure_summary=None,
     )
     dataset_factor = SimpleNamespace(
@@ -31,8 +34,11 @@ def _freshness_response() -> SimpleNamespace:
         lag_days=2,
         earliest_business_date=date(2020, 1, 1),
         latest_business_date=date(2026, 4, 6),
+        latest_observed_date="2026-04-06",
+        latest_observed_date_label="最新业务日期",
         last_sync_date=date(2026, 4, 6),
         latest_success_at=datetime(2026, 4, 6, 1, 0, tzinfo=timezone.utc),
+        last_success_label="最近维护成功时间",
         recent_failure_summary="同步失败：示例",
     )
     summary = SimpleNamespace(
@@ -40,6 +46,7 @@ def _freshness_response() -> SimpleNamespace:
         fresh_datasets=1,
         lagging_datasets=0,
         stale_datasets=1,
+        unconfirmed_datasets=0,
         unknown_datasets=0,
         disabled_datasets=0,
     )

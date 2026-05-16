@@ -7,6 +7,7 @@ from zoneinfo import ZoneInfo
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.freshness_policies import CONTINUOUS_OPEN_DAY
 from src.foundation.datasets.registry import (
     get_dataset_definition,
     get_dataset_definition_by_action_key,
@@ -116,6 +117,13 @@ class ProbeRuntimeService:
         current: datetime,
     ) -> tuple[bool, str, dict]:
         business_date = current.astimezone(ZoneInfo("Asia/Shanghai")).date()
+        condition = dict(rule.probe_condition_json or {})
+        condition_type = str(condition.get("type") or "freshness_latest_open")
+        if condition_type != "freshness_latest_open":
+            raise ValueError(f"不支持的探测条件：{condition_type}")
+        definition = get_dataset_definition(rule.dataset_key)
+        if definition.observability.freshness_policy != CONTINUOUS_OPEN_DAY:
+            raise ValueError(f"{definition.display_name} 不支持“最新业务日命中最新交易日”探测条件")
         # Refresh snapshot before probing so freshness/result are near-real-time.
         self.snapshot_service.refresh_resources(session, [rule.dataset_key], today=business_date)
         live_items = self.freshness_query.build_live_items(session, today=business_date, resource_keys=[rule.dataset_key])
@@ -123,10 +131,6 @@ class ProbeRuntimeService:
         if item is None:
             return False, "未找到数据集状态信息", {"dataset_key": rule.dataset_key}
 
-        condition = dict(rule.probe_condition_json or {})
-        condition_type = str(condition.get("type") or "freshness_latest_open")
-        if condition_type != "freshness_latest_open":
-            raise ValueError(f"不支持的探测条件：{condition_type}")
         exchange = str(condition.get("exchange") or get_settings().default_exchange)
         latest_open = TradeCalendarDAO(session).get_latest_open_date(exchange, business_date)
         source_key = self._normalize_source_key(rule.source_key, dataset_key=rule.dataset_key)

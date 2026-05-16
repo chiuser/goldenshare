@@ -114,9 +114,10 @@ def test_ops_freshness_returns_grouped_dataset_statuses(
     block_trade = grouped["equity_market"]["block_trade"]
     index_monthly = grouped["index_fund"]["index_monthly"]
     assert block_trade["freshness_status"] == "fresh"
+    assert block_trade["freshness_policy"] == "event_run_trace"
     assert block_trade["latest_business_date"] == "2026-03-26"
     assert block_trade["earliest_business_date"] == "2020-01-01"
-    assert block_trade["freshness_note"] == "最新业务日当前来自真实目标表观测值。"
+    assert block_trade["freshness_note"] == "最新事件日期来自真实目标表观测值。"
     assert block_trade["primary_action_key"] == "block_trade.maintain"
     assert index_monthly["freshness_status"] == "stale"
     assert index_monthly["recent_failure_message"] == "monthly sync timeout"
@@ -295,7 +296,7 @@ def test_ops_freshness_hides_historical_failure_when_newer_success_exists(
     assert block_trade["recent_failure_summary"] is None
 
 
-def test_ops_freshness_marks_unsynced_dataset_as_unknown(app_client, user_factory) -> None:
+def test_ops_freshness_marks_unsynced_event_or_snapshot_dataset_as_unconfirmed(app_client, user_factory) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
@@ -304,7 +305,7 @@ def test_ops_freshness_marks_unsynced_dataset_as_unknown(app_client, user_factor
 
     assert response.status_code == 200
     payload = response.json()
-    assert payload["summary"]["unknown_datasets"] > 0
+    assert payload["summary"]["unconfirmed_datasets"] > 0
 
 
 def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
@@ -316,7 +317,7 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
         domain_key="board",
         domain_display_name="板块",
         target_table="core_serving.ths_member",
-        cadence="reference",
+        freshness_policy="snapshot_run_trace",
         raw_table="raw_tushare.ths_member",
         observed_date_column=None,
         primary_action_key="ths_member.maintain",
@@ -337,8 +338,8 @@ def test_build_item_uses_runtime_trace_for_not_applicable_dataset() -> None:
 
     assert item.latest_business_date is None
     assert item.last_sync_date == date(2026, 4, 1)
-    assert item.freshness_status == "unknown"
-    assert item.freshness_note == "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
+    assert item.freshness_status == "fresh"
+    assert item.freshness_note == "最近刷新成功时间来自 TaskRun。"
 
 
 def test_build_item_prefers_runtime_trace_note_for_not_applicable_dataset_with_observed_date() -> None:
@@ -350,7 +351,7 @@ def test_build_item_prefers_runtime_trace_note_for_not_applicable_dataset_with_o
         domain_key="reference_data",
         domain_display_name="基础主数据",
         target_table="core_serving_light.namechange",
-        cadence="daily",
+        freshness_policy="snapshot_run_trace",
         raw_table="raw_tushare.namechange",
         observed_date_column="ann_date",
         primary_action_key="namechange.maintain",
@@ -371,8 +372,8 @@ def test_build_item_prefers_runtime_trace_note_for_not_applicable_dataset_with_o
 
     assert item.last_sync_date == date(2026, 5, 5)
     assert item.latest_business_date == date(2026, 4, 30)
-    assert item.freshness_status == "unknown"
-    assert item.freshness_note == "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
+    assert item.freshness_status == "fresh"
+    assert item.freshness_note == "最近刷新成功时间来自 TaskRun。"
 
 
 def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> None:
@@ -384,7 +385,7 @@ def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> N
         domain_key="equity_market",
         domain_display_name="A股行情",
         target_table="core_serving.stk_period_bar",
-        cadence="daily",
+        freshness_policy="period_bucket",
         raw_table="raw_tushare.stk_period_bar",
         observed_date_column="trade_date",
         primary_action_key="stk_period_bar_week.maintain",
@@ -396,7 +397,7 @@ def test_ops_freshness_expected_date_uses_calendar_week_and_month_anchors() -> N
         domain_key="equity_market",
         domain_display_name="A股行情",
         target_table="core_serving.stk_period_bar",
-        cadence="daily",
+        freshness_policy="period_bucket",
         raw_table="raw_tushare.stk_period_bar",
         observed_date_column="trade_date",
         primary_action_key="stk_period_bar_month.maintain",
@@ -466,7 +467,6 @@ def test_build_freshness_adds_unknown_placeholder_for_missing_snapshot_dataset(
             domain_key="equity",
             domain_display_name="股票",
             target_table="core.equity_daily_bar",
-            cadence="daily",
             latest_business_date=date(2026, 5, 14),
             latest_success_at=datetime(2026, 5, 15, 1, 0, tzinfo=timezone.utc),
             last_sync_date=date(2026, 5, 15),
@@ -490,7 +490,7 @@ def test_build_freshness_adds_unknown_placeholder_for_missing_snapshot_dataset(
                 domain_key="equity",
                 domain_display_name="股票",
                 target_table="core_serving.equity_daily_bar",
-                cadence="daily",
+                freshness_policy="continuous_open_day",
                 raw_table="raw_tushare.daily",
                 observed_date_column="trade_date",
                 primary_action_key="daily.maintain",
@@ -502,7 +502,7 @@ def test_build_freshness_adds_unknown_placeholder_for_missing_snapshot_dataset(
                 domain_key="ranking",
                 domain_display_name="榜单",
                 target_table="core_serving.ths_hot",
-                cadence="daily",
+                freshness_policy="continuous_open_day",
                 raw_table="raw_tushare.ths_hot",
                 observed_date_column="trade_date",
                 primary_action_key="ths_hot.maintain",
@@ -535,7 +535,7 @@ def test_build_freshness_rebases_cached_snapshot_with_current_projection(
         domain_key="reference_data",
         domain_display_name="基础主数据",
         target_table="core_serving.broker_recommend",
-        cadence="monthly",
+        freshness_policy="period_bucket",
         raw_table="raw_tushare.broker_recommend",
         observed_date_column="month_key",
         primary_action_key="broker_recommend.maintain",
@@ -548,7 +548,6 @@ def test_build_freshness_rebases_cached_snapshot_with_current_projection(
             domain_key="reference_data",
             domain_display_name="基础主数据",
             target_table="core_serving.broker_recommend",
-            cadence="reference",
             latest_business_date=date(2026, 4, 1),
             latest_success_at=datetime(2026, 4, 1, 1, 0, tzinfo=timezone.utc),
             last_sync_date=date(2026, 4, 1),
@@ -577,5 +576,5 @@ def test_build_freshness_rebases_cached_snapshot_with_current_projection(
 
     response = service.build_freshness(db_session, today=date(2026, 4, 30))
     item = response.groups[0].items[0]
-    assert item.cadence == "monthly"
+    assert item.freshness_policy == "period_bucket"
     assert item.raw_table == "raw_tushare.broker_recommend"

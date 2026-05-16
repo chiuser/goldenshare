@@ -31,6 +31,7 @@ const toneMap: Record<string, ToneConfig> = {
   fresh: { scale: "success", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   lagging: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   stale: { scale: "error", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
+  unconfirmed: { scale: "warning", backgroundIndex: 0, textIndex: 6, borderIndex: 2 },
   unknown: { scale: "neutral", backgroundIndex: 1, textIndex: 7, borderIndex: 3 },
   skipped: { scale: "neutral", backgroundIndex: 1, textIndex: 7, borderIndex: 3 },
   unobserved: { scale: "neutral", backgroundIndex: 1, textIndex: 7, borderIndex: 3 },

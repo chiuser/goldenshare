@@ -44,7 +44,7 @@ class FakeFreshnessQueryService:
                 domain_key="reference_data",
                 domain_display_name="基础主数据",
                 target_table="core.security_serving",
-                cadence="reference",
+                freshness_policy="snapshot_run_trace",
                 latest_business_date=None,
                 freshness_status="fresh",
                 last_sync_date=date(2026, 4, 1),
@@ -83,7 +83,7 @@ def test_refresh_for_target_resolves_dataset_action_target_key(db_session: Sessi
                     domain_key="moneyflow",
                     domain_display_name="资金流向",
                     target_table="core_serving.board_moneyflow_dc",
-                    cadence="daily",
+                    freshness_policy="continuous_open_day",
                     latest_business_date=date(2026, 4, 24),
                     freshness_status="fresh",
                     last_sync_date=date(2026, 4, 24),
@@ -116,7 +116,6 @@ def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> 
             domain_key="equity",
             domain_display_name="股票",
             target_table="core.equity_daily_bar",
-            cadence="daily",
             earliest_business_date=date(2026, 4, 1),
             observed_business_date=date(2026, 4, 1),
             latest_business_date=date(2026, 4, 1),
@@ -144,7 +143,7 @@ def test_read_snapshot_restores_raw_table_from_registry(db_session: Session) -> 
     assert item.raw_table == "raw_tushare.daily"
 
 
-def test_refresh_resources_keeps_st_snapshot_dataset_status_unknown_without_date_freshness(db_session: Session) -> None:
+def test_refresh_resources_keeps_st_snapshot_dataset_status_from_freshness_item(db_session: Session) -> None:
     class _FakeQueryService:
         def build_live_items(self, session: Session, *, today: date | None = None, resource_keys: list[str] | None = None) -> list[DatasetFreshnessItem]:
             assert resource_keys == ["st"]
@@ -156,9 +155,9 @@ def test_refresh_resources_keeps_st_snapshot_dataset_status_unknown_without_date
                     domain_key="reference_data",
                     domain_display_name="基础主数据",
                     target_table="core_serving_light.st",
-                    cadence="daily",
+                    freshness_policy="snapshot_run_trace",
                     latest_business_date=date(2026, 4, 30),
-                    freshness_status="unknown",
+                    freshness_status="fresh",
                     last_sync_date=date(2026, 5, 5),
                     latest_success_at=datetime(2026, 5, 5, 14, 0, tzinfo=timezone.utc),
                 )
@@ -171,5 +170,5 @@ def test_refresh_resources_keeps_st_snapshot_dataset_status_unknown_without_date
     assert refreshed == 1
     row = db_session.scalar(select(DatasetStatusSnapshot).where(DatasetStatusSnapshot.dataset_key == "st"))
     assert row is not None
-    assert row.freshness_status == "unknown"
+    assert row.freshness_status == "fresh"
     assert row.last_sync_date == date(2026, 5, 5)

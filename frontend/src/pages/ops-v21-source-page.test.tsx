@@ -59,8 +59,7 @@ function card(overrides: Partial<Record<string, unknown>>) {
     delivery_mode_label: "单源服务",
     delivery_mode_tone: "success",
     layer_plan: "raw->serving",
-    cadence: "daily",
-    cadence_display_name: "每日",
+    freshness_policy: "continuous_open_day",
     raw_table: "raw_tushare.daily",
     raw_table_label: "raw_tushare.daily",
     target_table: "core_serving.daily",
@@ -69,6 +68,11 @@ function card(overrides: Partial<Record<string, unknown>>) {
     last_sync_date: "2026-04-17",
     latest_success_at: "2026-04-17T09:10:00+08:00",
     expected_business_date: "2026-04-17",
+    latest_observed_date: "2026-04-17",
+    latest_observed_date_label: "最新业务日期",
+    expected_observed_date: "2026-04-17",
+    expected_observed_date_label: "应完成业务日期",
+    last_success_label: "最近维护成功时间",
     lag_days: 0,
     freshness_note: null,
     primary_action_key: "daily.maintain",
@@ -114,6 +118,8 @@ describe("V2.1 数据源详情页", () => {
                   last_sync_date: "2026-04-16",
                   latest_success_at: "2026-04-16T09:10:00+08:00",
                   expected_business_date: "2026-04-17",
+                  latest_observed_date: "2026-04-16",
+                  expected_observed_date: "2026-04-17",
                   lag_days: 1,
                   primary_action_key: "stk_factor_pro.maintain",
                   auto_schedule_status: "none",
@@ -149,6 +155,9 @@ describe("V2.1 数据源详情页", () => {
                   last_sync_date: "2026-04-24",
                   latest_success_at: null,
                   expected_business_date: "2026-04-24",
+                  latest_observed_date: "2026-04-24",
+                  expected_observed_date: "2026-04-24",
+                  last_success_label: null,
                   primary_action_key: "limit_list_ths.maintain",
                   auto_schedule_status: "none",
                   auto_schedule_total: 0,
@@ -170,10 +179,9 @@ describe("V2.1 数据源详情页", () => {
     expect(await screen.findByText("数据集 · Tushare")).toBeInTheDocument();
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
     expect(await screen.findByText("涨跌停列表（同花顺）")).toBeInTheDocument();
-    expect(screen.queryByText("最近同步：2026/04/17 09:10:00")).not.toBeInTheDocument();
-    expect(await screen.findByText("最近同步：2026/04/17")).toBeInTheDocument();
-    expect(await screen.findByText("最近同步：2026/04/24")).toBeInTheDocument();
-    expect(await screen.findAllByText("更新频率：每日")).toHaveLength(3);
+    expect(await screen.findByText("最近维护成功时间：2026/04/17 09:10:00")).toBeInTheDocument();
+    expect(await screen.findByText("最新业务日期：2026/04/24")).toBeInTheDocument();
+    expect(screen.queryByText("更新频率：每日")).not.toBeInTheDocument();
     expect(await screen.findByText("raw_tushare.daily")).toBeInTheDocument();
     expect(await screen.findAllByText("正常")).toHaveLength(2);
     expect(await screen.findByText("自动探测")).toBeInTheDocument();
@@ -216,6 +224,8 @@ describe("V2.1 数据源详情页", () => {
                   last_sync_date: "2026-05-05",
                   latest_success_at: "2026-05-05T22:14:27+08:00",
                   expected_business_date: "2026-05-05",
+                  latest_observed_date: "2026-04-30",
+                  expected_observed_date: "2026-05-05",
                   lag_days: 5,
                   primary_action_key: "namechange.maintain",
                   auto_schedule_status: "active",
@@ -267,8 +277,7 @@ describe("V2.1 数据源详情页", () => {
                   delivery_mode_label: "业务派生表",
                   delivery_mode_tone: "info",
                   layer_plan: "biz_tableset",
-                  cadence: "derived",
-                  cadence_display_name: "业务派生",
+                  freshness_policy: "continuous_open_day",
                   raw_table: null,
                   raw_table_label: null,
                   target_table: "core_serving.wealth_market_turnover_snapshot",
@@ -278,6 +287,11 @@ describe("V2.1 数据源详情页", () => {
                   latest_success_at: "2026-05-08T20:10:00+08:00",
                   last_sync_date: null,
                   expected_business_date: "2026-05-08",
+                  latest_observed_date: "2026-05-08",
+                  latest_observed_date_label: "最新业务日期",
+                  expected_observed_date: "2026-05-08",
+                  expected_observed_date_label: "应完成业务日期",
+                  last_success_label: "最近构建成功时间",
                   primary_action_key: null,
                   auto_schedule_status: "none",
                   auto_schedule_total: 0,
@@ -303,7 +317,7 @@ describe("V2.1 数据源详情页", () => {
     expect(await screen.findByText("数据集 · Biz数据集")).toBeInTheDocument();
     expect(await screen.findByText("成交额分钟快照")).toBeInTheDocument();
     expect(await screen.findByText("core_serving.wealth_market_turnover_snapshot")).toBeInTheDocument();
-    expect(await screen.findByText("最近构建：2026/05/08 20:10:00")).toBeInTheDocument();
+    expect(await screen.findByText("最近构建成功时间：2026/05/08 20:10:00")).toBeInTheDocument();
     expect(await screen.findByText("只读展示")).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: "去操作" })).not.toBeInTheDocument();
     expect(screen.queryByText("未配置自动更新")).not.toBeInTheDocument();

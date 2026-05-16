@@ -12,6 +12,8 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
+type AttentionDataset = OpsOverviewResponse["lagging_datasets"][number];
+
 function formatDateRangeLabel(earliestDate: string | null, latestDate: string | null, lastSyncDate: string | null) {
   if (earliestDate && latestDate) {
     if (earliestDate === latestDate) {
@@ -23,6 +25,24 @@ function formatDateRangeLabel(earliestDate: string | null, latestDate: string | 
     return formatDateLabel(lastSyncDate);
   }
   return formatDateLabel(latestDate);
+}
+
+function formatApiObservedValue(value: string): string {
+  return value.includes("T") ? formatDateTimeLabel(value) : formatDateLabel(value);
+}
+
+function formatAttentionObservation(item: AttentionDataset) {
+  if (item.latest_observed_date_label && item.latest_observed_date) {
+    return `${item.latest_observed_date_label}：${formatApiObservedValue(item.latest_observed_date)}`;
+  }
+  if (item.last_success_label && item.latest_success_at) {
+    return `${item.last_success_label}：${formatDateTimeLabel(item.latest_success_at)}`;
+  }
+  return formatDateRangeLabel(
+    item.earliest_business_date ?? null,
+    item.latest_business_date ?? null,
+    item.last_sync_date ?? null,
+  );
 }
 
 export function OpsTodayPage() {
@@ -135,7 +155,7 @@ export function OpsTodayPage() {
               <Table.Thead>
                 <Table.Tr>
                   <OpsTableHeaderCell align="left" width="26%">数据名称</OpsTableHeaderCell>
-                  <OpsTableHeaderCell align="left" width="20%">日期范围 / 最近同步日期</OpsTableHeaderCell>
+                  <OpsTableHeaderCell align="left" width="20%">最新观测 / 最近维护</OpsTableHeaderCell>
                   <OpsTableHeaderCell width="12%">当前状态</OpsTableHeaderCell>
                   <OpsTableHeaderCell align="left" width="30%">最近异常</OpsTableHeaderCell>
                   <OpsTableHeaderCell width="12%">操作</OpsTableHeaderCell>
@@ -149,11 +169,7 @@ export function OpsTodayPage() {
                     </OpsTableCell>
                     <OpsTableCell align="left" width="20%">
                       <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">
-                        {formatDateRangeLabel(
-                          item.earliest_business_date ?? null,
-                          item.latest_business_date ?? null,
-                          item.last_sync_date ?? null,
-                        )}
+                        {formatAttentionObservation(item)}
                       </OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell width="12%">

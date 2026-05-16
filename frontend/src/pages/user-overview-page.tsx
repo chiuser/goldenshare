@@ -60,7 +60,10 @@ export function UserOverviewPage() {
                 <StatCard label="状态正常" value={summaryQuery.data.freshness_summary.fresh_datasets} />
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-                <StatCard label="需要关注" value={summaryQuery.data.freshness_summary.lagging_datasets} />
+                <StatCard
+                  label="滞后 / 未确认"
+                  value={summaryQuery.data.freshness_summary.lagging_datasets + summaryQuery.data.freshness_summary.unconfirmed_datasets}
+                />
               </Grid.Col>
               <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
                 <StatCard

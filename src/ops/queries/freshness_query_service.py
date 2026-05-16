@@ -10,6 +10,13 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from src.foundation.datasets.models import DatasetDateModel
+from src.foundation.datasets.freshness_policies import (
+    CONTINUOUS_NATURAL_DAY,
+    CONTINUOUS_OPEN_DAY,
+    EVENT_RUN_TRACE,
+    PERIOD_BUCKET,
+    SNAPSHOT_RUN_TRACE,
+)
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.dataset_definition_projection import (
@@ -27,11 +34,10 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.action_catalog import get_workflow_definition
-from src.ops.dataset_status_projection import snapshot_row_to_freshness_item
 from src.ops.schemas.freshness import DatasetFreshnessItem, FreshnessGroup, OpsFreshnessResponse, OpsFreshnessSummary
 
 
-STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unknown": 2, "disabled": 3, "fresh": 4}
+STATUS_PRIORITY = {"stale": 0, "lagging": 1, "unconfirmed": 2, "unknown": 3, "disabled": 4, "fresh": 5}
 DISABLED_DATASET_KEYS: set[str] = set()
 ACTIVE_EXECUTION_STATUSES = ("queued", "running", "canceling")
 BUSINESS_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -129,7 +135,7 @@ class OpsFreshnessQueryService:
             item
             for group in response.groups
             for item in group.items
-            if item.freshness_status in {"lagging", "stale"}
+            if item.freshness_status in {"lagging", "stale", "unconfirmed"}
         ]
         lagging_items.sort(key=lambda item: (STATUS_PRIORITY[item.freshness_status], -(item.lag_days or 0), item.display_name))
         return response.summary, lagging_items[:5]
@@ -169,12 +175,17 @@ class OpsFreshnessQueryService:
         latest_business_date = observed_business_date
         effective_date = latest_business_date
         lag_days = max((expected_business_date - effective_date).days, 0) if expected_business_date and effective_date else None
-        freshness_status = self._freshness_status_for_date_model(
+        freshness_status = self._freshness_status_for_policy(
+            projection.freshness_policy,
             date_model,
-            cadence=projection.cadence,
             lag_days=lag_days,
             latest_success_at=normalized_success_at,
+            observed_business_date=observed_business_date,
+            latest_observed_at=latest_observed_at,
         )
+        if projection.freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
+            expected_business_date = None
+            lag_days = None
         if projection.dataset_key in DISABLED_DATASET_KEYS:
             freshness_status = "disabled"
             lag_days = None
@@ -185,6 +196,7 @@ class OpsFreshnessQueryService:
             latest_observed_at=latest_observed_at,
             last_sync_date=last_sync_date,
             date_model=date_model,
+            freshness_policy=projection.freshness_policy,
         )
         freshness_note = self._compose_freshness_note(base_note=base_note, quality_note=quality_note)
         if freshness_status == "disabled":
@@ -201,7 +213,7 @@ class OpsFreshnessQueryService:
             domain_display_name=projection.domain_display_name,
             target_table=projection.target_table,
             raw_table=projection.raw_table,
-            cadence=projection.cadence,
+            freshness_policy=projection.freshness_policy,
             earliest_business_date=earliest_business_date,
             observed_business_date=observed_business_date,
             latest_business_date=latest_business_date,
@@ -211,6 +223,28 @@ class OpsFreshnessQueryService:
             latest_success_at=normalized_success_at,
             last_sync_date=last_sync_date,
             expected_business_date=expected_business_date,
+            latest_observed_date=self._latest_observed_date_for_policy(
+                freshness_policy=projection.freshness_policy,
+                latest_business_date=latest_business_date,
+                latest_observed_at=latest_observed_at,
+            ),
+            latest_observed_date_label=self._latest_observed_date_label(
+                freshness_policy=projection.freshness_policy,
+                latest_business_date=latest_business_date,
+                latest_observed_at=latest_observed_at,
+            ),
+            expected_observed_date=self._expected_observed_date_for_policy(
+                freshness_policy=projection.freshness_policy,
+                expected_business_date=expected_business_date,
+            ),
+            expected_observed_date_label=self._expected_observed_date_label(
+                freshness_policy=projection.freshness_policy,
+                expected_business_date=expected_business_date,
+            ),
+            last_success_label=self._last_success_label(
+                freshness_policy=projection.freshness_policy,
+                latest_success_at=normalized_success_at,
+            ),
             lag_days=lag_days,
             freshness_status=freshness_status,
             recent_failure_message=visible_failure.message if visible_failure else None,
@@ -226,51 +260,43 @@ class OpsFreshnessQueryService:
         latest_observed_at: datetime | None,
         last_sync_date: date | None,
         date_model: DatasetDateModel | None,
+        freshness_policy: str,
     ) -> str | None:
-        if date_model is not None and date_model.bucket_rule == "not_applicable":
+        if freshness_policy == EVENT_RUN_TRACE:
+            if latest_observed_at is not None:
+                return "最新事件时间来自真实目标表观测值。"
+            if observed_business_date is not None:
+                return "最新事件日期来自真实目标表观测值。"
             if last_sync_date is not None:
-                return "该数据集当前不按业务日期判断新鲜度，仅展示最近一次任务运行迹象。"
-            return "该数据集当前不按业务日期判断新鲜度。"
+                return "最近维护成功时间来自 TaskRun。"
+            return "事件型数据不按连续日期判断新鲜度。"
+        if freshness_policy == SNAPSHOT_RUN_TRACE:
+            if last_sync_date is not None:
+                return "最近刷新成功时间来自 TaskRun。"
+            return "快照型数据不按连续日期判断新鲜度。"
         if latest_observed_at is not None:
             return "最新时间当前来自真实目标表观测值。"
         if observed_business_date is not None:
-            return "最新业务日当前来自真实目标表观测值。"
+            return "最新业务日期来自真实目标表观测值。"
         return None
 
     @staticmethod
-    def _freshness_status(cadence: str, lag_days: int | None, latest_success_at: datetime | None) -> str:
-        if latest_success_at is None and lag_days is None:
-            return "unknown"
-        if lag_days is None:
-            return "unknown"
-
-        fresh_limit, lagging_limit = {
-            "reference": (1, 7),
-            "daily": (0, 2),
-            "weekly": (7, 14),
-            "monthly": (31, 62),
-            "event": (30, 90),
-        }.get(cadence, (1, 7))
-
-        if lag_days <= fresh_limit:
-            return "fresh"
-        if lag_days <= lagging_limit:
-            return "lagging"
-        return "stale"
-
-    @staticmethod
-    def _freshness_status_for_date_model(
+    def _freshness_status_for_policy(
+        freshness_policy: str,
         date_model: DatasetDateModel | None,
         *,
-        cadence: str,
         lag_days: int | None,
         latest_success_at: datetime | None,
+        observed_business_date: date | None,
+        latest_observed_at: datetime | None,
     ) -> str:
+        if freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
+            return "fresh" if latest_success_at is not None else "unconfirmed"
         if date_model is None:
-            return OpsFreshnessQueryService._freshness_status(cadence, lag_days, latest_success_at)
-        if date_model.bucket_rule == "not_applicable":
             return "unknown"
         if latest_success_at is None and lag_days is None:
+            if observed_business_date is not None or latest_observed_at is not None:
+                return "unconfirmed"
             return "unknown"
         if lag_days is None:
             return "unknown"
@@ -292,12 +318,6 @@ class OpsFreshnessQueryService:
             return "lagging"
         return "stale"
 
-    @staticmethod
-    def _expected_business_date(cadence: str, reference_date: date, latest_open_date: date) -> date:
-        if cadence in {"daily", "weekly", "monthly"}:
-            return latest_open_date
-        return reference_date
-
     def _expected_business_date_for_projection(
         self,
         projection: DatasetFreshnessProjection,
@@ -306,9 +326,11 @@ class OpsFreshnessQueryService:
         latest_open_date: date,
         open_trade_dates: list[date],
     ) -> date | None:
+        if projection.freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
+            return None
         date_model = self._date_model_for_projection(projection)
         if date_model is None:
-            return self._expected_business_date(projection.cadence, reference_date, latest_open_date)
+            return None
         if date_model.bucket_rule == "not_applicable":
             return None
         if date_model.date_axis == "trade_open_day":
@@ -327,7 +349,7 @@ class OpsFreshnessQueryService:
             return reference_date
         if date_model.date_axis in {"month_key", "month_window"}:
             return date(reference_date.year, reference_date.month, 1)
-        return self._expected_business_date(projection.cadence, reference_date, latest_open_date)
+        return None
 
     @staticmethod
     def _normalize_datetime(value: datetime | None) -> datetime | None:
@@ -336,6 +358,82 @@ class OpsFreshnessQueryService:
         if value.tzinfo is None:
             return value.replace(tzinfo=timezone.utc)
         return value
+
+    @staticmethod
+    def _format_label_date(value: date | None) -> str | None:
+        return value.isoformat() if value is not None else None
+
+    @staticmethod
+    def _format_label_datetime(value: datetime | None) -> str | None:
+        return value.isoformat() if value is not None else None
+
+    @staticmethod
+    def _latest_observed_date_for_policy(
+        *,
+        freshness_policy: str,
+        latest_business_date: date | None,
+        latest_observed_at: datetime | None,
+    ) -> str | None:
+        if freshness_policy == EVENT_RUN_TRACE and latest_observed_at is not None:
+            return OpsFreshnessQueryService._format_label_datetime(latest_observed_at)
+        if freshness_policy == SNAPSHOT_RUN_TRACE:
+            return None
+        return OpsFreshnessQueryService._format_label_date(latest_business_date)
+
+    @staticmethod
+    def _latest_observed_date_label(
+        *,
+        freshness_policy: str,
+        latest_business_date: date | None,
+        latest_observed_at: datetime | None,
+    ) -> str | None:
+        if freshness_policy == EVENT_RUN_TRACE:
+            if latest_observed_at is not None:
+                return "最新事件时间"
+            return "最新事件日期" if latest_business_date is not None else None
+        if freshness_policy == SNAPSHOT_RUN_TRACE:
+            return None
+        if freshness_policy == CONTINUOUS_NATURAL_DAY:
+            return "最新自然日" if latest_business_date is not None else None
+        if freshness_policy == PERIOD_BUCKET:
+            return "最新周期" if latest_business_date is not None else None
+        return "最新业务日期" if latest_business_date is not None else None
+
+    @staticmethod
+    def _expected_observed_date_for_policy(
+        *,
+        freshness_policy: str,
+        expected_business_date: date | None,
+    ) -> str | None:
+        if freshness_policy in {EVENT_RUN_TRACE, SNAPSHOT_RUN_TRACE}:
+            return None
+        return OpsFreshnessQueryService._format_label_date(expected_business_date)
+
+    @staticmethod
+    def _expected_observed_date_label(
+        *,
+        freshness_policy: str,
+        expected_business_date: date | None,
+    ) -> str | None:
+        if expected_business_date is None:
+            return None
+        if freshness_policy == CONTINUOUS_NATURAL_DAY:
+            return "应完成自然日"
+        if freshness_policy == PERIOD_BUCKET:
+            return "应完成周期"
+        return "应完成业务日期"
+
+    @staticmethod
+    def _last_success_label(
+        *,
+        freshness_policy: str,
+        latest_success_at: datetime | None,
+    ) -> str | None:
+        if latest_success_at is None:
+            return None
+        if freshness_policy == SNAPSHOT_RUN_TRACE:
+            return "最近刷新成功时间"
+        return "最近维护成功时间"
 
     @staticmethod
     def _group_items(items: list[DatasetFreshnessItem]) -> list[FreshnessGroup]:
@@ -360,7 +458,7 @@ class OpsFreshnessQueryService:
 
     @staticmethod
     def _build_summary(items: list[DatasetFreshnessItem]) -> OpsFreshnessSummary:
-        counts = {"fresh": 0, "lagging": 0, "stale": 0, "unknown": 0, "disabled": 0}
+        counts = {"fresh": 0, "lagging": 0, "stale": 0, "unconfirmed": 0, "unknown": 0, "disabled": 0}
         for item in items:
             counts[item.freshness_status] = counts.get(item.freshness_status, 0) + 1
         return OpsFreshnessSummary(
@@ -368,6 +466,7 @@ class OpsFreshnessQueryService:
             fresh_datasets=counts["fresh"],
             lagging_datasets=counts["lagging"],
             stale_datasets=counts["stale"],
+            unconfirmed_datasets=counts["unconfirmed"],
             unknown_datasets=counts["unknown"],
             disabled_datasets=counts["disabled"],
         )
@@ -668,7 +767,6 @@ class OpsFreshnessQueryService:
             for row in rows:
                 projection = get_dataset_freshness_projection(row.resource_key)
                 if projection is None:
-                    items.append(snapshot_row_to_freshness_item(row, raw_table=None))
                     continue
                 recent_failure = None
                 if row.recent_failure_message or row.recent_failure_at:

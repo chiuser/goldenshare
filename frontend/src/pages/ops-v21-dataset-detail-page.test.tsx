@@ -69,8 +69,7 @@ function datasetCardsPayload() {
             delivery_mode_label: "单源服务",
             delivery_mode_tone: "success",
             layer_plan: "raw->serving",
-            cadence: "daily",
-            cadence_display_name: "每日",
+            freshness_policy: "continuous_open_day",
             raw_table: "raw_tushare.daily",
             raw_table_label: "raw_tushare.daily",
             target_table: "core_serving.daily",
@@ -81,6 +80,11 @@ function datasetCardsPayload() {
             last_sync_date: "2026-04-17",
             latest_success_at: "2026-04-17T09:10:00+08:00",
             expected_business_date: "2026-04-17",
+            latest_observed_date: "2026-04-17",
+            latest_observed_date_label: "最新业务日期",
+            expected_observed_date: "2026-04-17",
+            expected_observed_date_label: "应完成业务日期",
+            last_success_label: "最近维护成功时间",
             lag_days: 0,
             freshness_note: null,
             primary_action_key: "daily.maintain",
@@ -199,7 +203,7 @@ describe("V2.1 数据集详情页", () => {
 
     expect(await screen.findByText("股票日线")).toBeInTheDocument();
     expect(await screen.findByText("当前状态")).toBeInTheDocument();
-    expect(await screen.findByText("最新业务日")).toBeInTheDocument();
+    expect(await screen.findByText("最新业务日期")).toBeInTheDocument();
     expect(await screen.findByText("近期任务记录")).toBeInTheDocument();
     expect(await screen.findByText("策略 v3")).toBeInTheDocument();
     expect(await screen.findByText("101")).toBeInTheDocument();

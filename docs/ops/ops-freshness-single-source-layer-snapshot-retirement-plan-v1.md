@@ -72,3 +72,15 @@
 2. 先 `rg` 审计引用，再改代码。
 3. 删除契约前确认消费者清零。
 4. 改完必须跑对应后端测试、前端类型/测试/构建，以及文档检查。
+
+## 6. 后续修正：Freshness Policy 显式映射
+
+2026-05-16 追加：
+
+本计划已完成“单一事实源”和“旧分层观测退场”，但后续审计发现：仅靠 `DatasetDefinition.date_model` 推断 freshness policy 仍会误判事件型和快照型数据。
+
+新的修正方向记录在：
+
+- [Ops Freshness Policy 显式映射方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
+
+后续 freshness 开发必须遵守该方案，不得再把“支持日期输入”直接等同于“要求连续日期有数据”。

@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
+from src.foundation.datasets.freshness_policies import CONTINUOUS_OPEN_DAY
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.schedule import OpsSchedule
 from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition, get_dataset_definition_by_action_key
@@ -84,6 +85,7 @@ class ScheduleProbeBindingService:
         dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
+            self._validate_freshness_latest_open_dataset(dataset_key)
             action_json = {
                 "action_type": "dataset_action",
                 "action_key": get_dataset_action_key(dataset_key, "maintain"),
@@ -153,6 +155,16 @@ class ScheduleProbeBindingService:
             return get_dataset_definition(dataset_key).dataset_key
         except KeyError as exc:
             raise WebAppError(status_code=422, code="validation_error", message="工作流探测数据集无效") from exc
+
+    @staticmethod
+    def _validate_freshness_latest_open_dataset(dataset_key: str) -> None:
+        definition = get_dataset_definition(dataset_key)
+        if definition.observability.freshness_policy != CONTINUOUS_OPEN_DAY:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message=f"{definition.display_name} 不支持“最新业务日命中最新交易日”探测条件",
+            )
 
     @staticmethod
     def _normalize_time(value: object) -> str:

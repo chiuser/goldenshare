@@ -59,6 +59,7 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
           fresh_datasets: 9,
           lagging_datasets: 2,
           stale_datasets: 1,
+          unconfirmed_datasets: 0,
           unknown_datasets: 0,
           disabled_datasets: 0,
         },
@@ -94,8 +95,7 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                 delivery_mode_label: "单源服务",
                 delivery_mode_tone: "success",
                 layer_plan: "raw->serving",
-                cadence: "daily",
-                cadence_display_name: "每日",
+                freshness_policy: "continuous_open_day",
                 raw_table: "raw_tushare.equity_daily_bar",
                 raw_table_label: "raw_tushare.equity_daily_bar",
                 target_table: "core_serving.equity_daily_bar",
@@ -104,6 +104,11 @@ function mockOverviewDeps(overviewMode: "ok" | "error" = "ok") {
                 last_sync_date: "2026-04-16",
                 latest_success_at: "2026-04-17T01:01:00Z",
                 expected_business_date: "2026-04-16",
+                latest_observed_date: "2026-04-16",
+                latest_observed_date_label: "最新业务日期",
+                expected_observed_date: "2026-04-16",
+                expected_observed_date_label: "应完成业务日期",
+                last_success_label: "最近维护成功时间",
                 lag_days: 0,
                 freshness_note: null,
                 primary_action_key: "daily.maintain",
@@ -145,9 +150,8 @@ describe("V2.1 数据状态总览页", () => {
     expect(within(datasetCard).queryByText("daily")).not.toBeInTheDocument();
     expect(within(datasetCard).getByText("健康度")).toBeInTheDocument();
     expect(within(datasetCard).getByText("正常")).toBeInTheDocument();
-    expect(within(datasetCard).getByText("最近同步")).toBeInTheDocument();
-    expect(within(datasetCard).getAllByText("2026/04/16").length).toBeGreaterThan(0);
-    expect(within(datasetCard).getByText("期望业务日")).toBeInTheDocument();
+    expect(within(datasetCard).getByText("最近维护成功时间")).toBeInTheDocument();
+    expect(within(datasetCard).getByText("应完成业务日期")).toBeInTheDocument();
     expect(within(datasetCard).queryByText("tushare")).not.toBeInTheDocument();
     expect(within(datasetCard).queryByText("biying")).not.toBeInTheDocument();
     expect(within(datasetCard).getByText("映射规则")).toBeInTheDocument();

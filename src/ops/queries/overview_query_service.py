@@ -63,7 +63,7 @@ class OpsOverviewQueryService:
         for group in freshness_response.groups:
             for item in group.items:
                 has_recent_failure = bool(item.recent_failure_summary or item.recent_failure_message)
-                lagging_or_stale = item.freshness_status in {"lagging", "stale"}
+                lagging_or_stale = item.freshness_status in {"lagging", "stale", "unconfirmed"}
                 if not has_recent_failure and not lagging_or_stale:
                     continue
                 attention_by_dataset[item.dataset_key] = item
@@ -71,6 +71,7 @@ class OpsOverviewQueryService:
         status_priority = {
             "stale": 0,
             "lagging": 1,
+            "unconfirmed": 2,
         }
         items = list(attention_by_dataset.values())
         items.sort(

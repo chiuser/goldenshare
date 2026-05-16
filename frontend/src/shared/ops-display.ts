@@ -16,6 +16,7 @@ const statusLabelMap: Record<string, string> = {
   fresh: "正常",
   lagging: "滞后",
   stale: "严重滞后",
+  unconfirmed: "未确认",
   unknown: "未知",
   skipped: "未启用",
   unobserved: "未观测",

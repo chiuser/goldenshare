@@ -74,6 +74,7 @@ class DailyHealthReportService:
                 "fresh_datasets": freshness.summary.fresh_datasets,
                 "lagging_datasets": freshness.summary.lagging_datasets,
                 "stale_datasets": freshness.summary.stale_datasets,
+                "unconfirmed_datasets": freshness.summary.unconfirmed_datasets,
                 "unknown_datasets": freshness.summary.unknown_datasets,
                 "disabled_datasets": freshness.summary.disabled_datasets,
             },
@@ -94,6 +95,7 @@ class DailyHealthReportService:
         lines.append(
             f"- 数据集：总计 {report.freshness_summary['total_datasets']}，正常 {report.freshness_summary['fresh_datasets']}，"
             f"滞后 {report.freshness_summary['lagging_datasets']}，严重滞后 {report.freshness_summary['stale_datasets']}，"
+            f"未确认 {report.freshness_summary['unconfirmed_datasets']}，"
             f"未知 {report.freshness_summary['unknown_datasets']}，已停用 {report.freshness_summary['disabled_datasets']}"
         )
         lines.append(
@@ -162,6 +164,10 @@ class DailyHealthReportService:
 
     @staticmethod
     def _format_range_or_sync(item) -> str:  # type: ignore[no-untyped-def]
+        if item.latest_observed_date_label and item.latest_observed_date:
+            return f"{item.latest_observed_date_label} {item.latest_observed_date}"
+        if item.last_success_label and item.latest_success_at:
+            return f"{item.last_success_label} {item.latest_success_at.isoformat()}"
         if item.earliest_business_date and item.latest_business_date:
             return f"{item.earliest_business_date.isoformat()} ~ {item.latest_business_date.isoformat()}"
         if item.last_sync_date:

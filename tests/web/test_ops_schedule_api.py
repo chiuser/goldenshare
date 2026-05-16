@@ -954,3 +954,31 @@ def test_ops_schedule_probe_mode_rejects_unknown_workflow_dataset_key(app_client
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+def test_ops_schedule_probe_mode_rejects_non_continuous_open_day_dataset(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "workflow",
+            "target_key": "daily_market_close_maintenance",
+            "display_name": "错误探测触发",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "0 19 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "source_key": "tushare",
+                "workflow_dataset_keys": ["stock_basic"],
+            },
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["code"] == "validation_error"
+    assert response.json()["message"] == "股票主数据 不支持“最新业务日命中最新交易日”探测条件"

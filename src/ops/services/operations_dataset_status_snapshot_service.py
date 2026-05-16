@@ -83,7 +83,11 @@ class DatasetStatusSnapshotService:
     @staticmethod
     def _to_item(row: DatasetStatusSnapshot) -> DatasetFreshnessItem:
         projection = get_dataset_freshness_projection(row.resource_key)
-        return snapshot_row_to_freshness_item(row, raw_table=projection.raw_table if projection is not None else None)
+        return snapshot_row_to_freshness_item(
+            row,
+            freshness_policy=projection.freshness_policy if projection is not None else "snapshot_run_trace",
+            raw_table=projection.raw_table if projection is not None else None,
+        )
 
     @staticmethod
     def _resource_keys_for_target(*, target_type: str, target_key: str) -> list[str]:
@@ -125,7 +129,6 @@ class DatasetStatusSnapshotService:
             row.domain_key = item.domain_key
             row.domain_display_name = item.domain_display_name
             row.target_table = item.target_table
-            row.cadence = item.cadence
             row.earliest_business_date = item.earliest_business_date
             row.observed_business_date = item.observed_business_date
             row.latest_business_date = item.latest_business_date

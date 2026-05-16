@@ -30,6 +30,11 @@ function formatDetailStatusLabel(value: string | null | undefined): string {
   return formatStatusLabel(value);
 }
 
+function formatApiObservedValue(value: string | null | undefined): string {
+  if (!value) return "—";
+  return value.includes("T") ? formatDateTimeLabel(value) : formatDateLabel(value);
+}
+
 export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) {
   const cardQuery = useQuery({
     queryKey: ["ops", "dataset-cards", "v21-dataset-detail", datasetKey],
@@ -169,12 +174,17 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       <Grid>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
           <MetricPanel label="当前状态">
-            <StatusBadge value={datasetCard?.status || recentTaskRun?.status || "unknown"} label={formatDetailStatusLabel(datasetCard?.status || recentTaskRun?.status)} />
+            <StatusBadge
+              value={datasetCard?.freshness_status || datasetCard?.status || recentTaskRun?.status || "unknown"}
+              label={formatDetailStatusLabel(datasetCard?.freshness_status || datasetCard?.status || recentTaskRun?.status)}
+            />
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-          <MetricPanel label="最新业务日">
-            <Text fw={700} size="xl">{datasetCard?.latest_business_date ? formatDateLabel(datasetCard.latest_business_date) : "—"}</Text>
+          <MetricPanel label={datasetCard?.latest_observed_date_label || "最新观测"}>
+            <Text fw={700} size="xl">
+              {formatApiObservedValue(datasetCard?.latest_observed_date || datasetCard?.latest_business_date)}
+            </Text>
           </MetricPanel>
         </Grid.Col>
         <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
@@ -240,8 +250,8 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
             </MetricPanel>
           </Grid.Col>
           <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-            <MetricPanel label="最近同步">
-              <Text fw={700} size="xl">{datasetCard?.last_sync_date ? formatDateLabel(datasetCard.last_sync_date) : "—"}</Text>
+            <MetricPanel label={datasetCard?.last_success_label || "最近维护成功时间"}>
+              <Text fw={700} size="xl">{datasetCard?.latest_success_at ? formatDateTimeLabel(datasetCard.latest_success_at) : "—"}</Text>
             </MetricPanel>
           </Grid.Col>
         </Grid>

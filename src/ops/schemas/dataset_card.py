@@ -23,8 +23,7 @@ class DatasetCardItem(BaseModel):
     delivery_mode_label: str
     delivery_mode_tone: str
     layer_plan: str
-    cadence: str
-    cadence_display_name: str
+    freshness_policy: str
     raw_table: str | None = None
     raw_table_label: str | None = None
     target_table: str | None = None
@@ -35,6 +34,11 @@ class DatasetCardItem(BaseModel):
     last_sync_date: date | None = None
     latest_success_at: datetime | None = None
     expected_business_date: date | None = None
+    latest_observed_date: str | None = None
+    latest_observed_date_label: str | None = None
+    expected_observed_date: str | None = None
+    expected_observed_date_label: str | None = None
+    last_success_label: str | None = None
     lag_days: int | None = None
     freshness_note: str | None = None
     primary_action_key: str | None = None

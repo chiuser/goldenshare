@@ -2,7 +2,7 @@ from __future__ import annotations
 
 
 DATASET_ROWS = ({'identity': {'dataset_key': 'fund_adj', 'display_name': '基金复权因子', 'description': '维护基金复权因子数据。', 'aliases': ()},
-  'domain': {'domain_key': 'index_fund', 'domain_display_name': '指数 / ETF', 'cadence': 'daily'},
+  'domain': {'domain_key': 'index_fund', 'domain_display_name': '指数 / ETF'},
   'source': {'source_key_default': 'tushare',
              'source_keys': ('tushare',),
              'adapter_key': 'tushare',
@@ -84,7 +84,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'fund_adj', 'display_name': '基金
   'quality': {'reject_policy': 'record_rejections', 'required_fields': ('trade_date', 'ts_code')},
   'transaction': {'commit_policy': 'unit', 'idempotent_write_required': False, 'write_volume_assessment': ''}},
  {'identity': {'dataset_key': 'fund_daily', 'display_name': '基金日线行情', 'description': '维护基金日线行情数据。', 'aliases': ()},
-  'domain': {'domain_key': 'index_fund', 'domain_display_name': '指数 / ETF', 'cadence': 'daily'},
+  'domain': {'domain_key': 'index_fund', 'domain_display_name': '指数 / ETF'},
   'source': {'source_key_default': 'tushare',
              'source_keys': ('tushare',),
              'adapter_key': 'tushare',

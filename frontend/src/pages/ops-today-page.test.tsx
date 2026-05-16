@@ -39,6 +39,7 @@ vi.mock("../shared/api/client", () => ({
       fresh_datasets: 0,
       lagging_datasets: 1,
       stale_datasets: 0,
+      unconfirmed_datasets: 0,
       unknown_datasets: 0,
       disabled_datasets: 0,
     },
@@ -46,12 +47,19 @@ vi.mock("../shared/api/client", () => ({
       {
         dataset_key: "daily",
         display_name: "股票日线",
+        freshness_policy: "continuous_open_day",
         freshness_status: "lagging",
         lag_days: 1,
         expected_business_date: "2026-04-01",
+        expected_observed_date: "2026-04-01",
+        expected_observed_date_label: "应完成业务日期",
         earliest_business_date: "2020-01-01",
         latest_business_date: "2026-03-31",
+        latest_observed_date: "2026-03-31",
+        latest_observed_date_label: "最新业务日期",
         last_sync_date: "2026-03-31",
+        latest_success_at: null,
+        last_success_label: null,
         primary_action_key: "daily.maintain",
         recent_failure_summary: "network timeout while fetching daily data",
         recent_failure_at: "2026-04-01T08:30:00+08:00",
@@ -82,7 +90,7 @@ describe("今日运行页", () => {
     expect(links.some((link) => link.getAttribute("href") === "/app/ops/v21/datasets/tasks?tab=manual&action_key=daily.maintain&action_type=dataset_action")).toBe(true);
     expect(screen.queryByText("需要优先处理的问题")).not.toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "查看全部任务" })).toBeInTheDocument();
-    expect(await screen.findByText("日期范围 / 最近同步日期")).toBeInTheDocument();
+    expect(await screen.findByText("最新观测 / 最近维护")).toBeInTheDocument();
     expect(await screen.findByText("最近异常")).toBeInTheDocument();
     expect(await screen.findByText("network timeout while fetching daily data")).toBeInTheDocument();
   });

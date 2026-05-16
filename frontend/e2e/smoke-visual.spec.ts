@@ -128,8 +128,8 @@ test.describe("Phase 2 smoke and visual gate", () => {
     await installApiMocks(page, "review-index");
     await page.goto("/app/ops/v21/review/index");
     await expect(page.getByText("审查中心 · 指数")).toBeVisible();
-    await expect(page.getByText("筛选与资源池")).toBeVisible();
-    await expect(page.getByText("激活指数列表")).toBeVisible();
+    await expect(page.getByText("激活池管理")).toBeVisible();
+    await expect(page.getByText("指数列表")).toBeVisible();
     await expect(page.getByText("沪深300")).toBeVisible();
     await stabilizeUi(page);
     await expect(page).toHaveScreenshot();

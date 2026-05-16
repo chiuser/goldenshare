@@ -55,6 +55,7 @@ describe("用户状态概览页", () => {
         fresh_datasets: 9,
         lagging_datasets: 2,
         stale_datasets: 1,
+        unconfirmed_datasets: 0,
         unknown_datasets: 0,
         disabled_datasets: 1,
       },

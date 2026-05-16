@@ -15,6 +15,7 @@ from src.foundation.datasets.models import (
     DatasetStorageDefinition,
     DatasetTransactionDefinition,
 )
+from src.foundation.datasets.freshness_policies import get_freshness_policy
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 
 __all__ = [
@@ -33,6 +34,7 @@ __all__ = [
     "DatasetSourceDefinition",
     "DatasetStorageDefinition",
     "DatasetTransactionDefinition",
+    "get_freshness_policy",
     "get_dataset_definition",
     "list_dataset_definitions",
 ]

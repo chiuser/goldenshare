@@ -28,6 +28,7 @@ class ActionCatalogItem(BaseModel):
     item_order: int
     domain_key: str
     domain_display_name: str
+    freshness_policy: str | None = None
     date_selection_rule: str | None = None
     description: str
     target_tables: list[str]

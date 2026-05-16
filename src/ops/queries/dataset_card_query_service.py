@@ -39,8 +39,7 @@ class DatasetCardFact:
     display_name: str
     domain_key: str
     domain_display_name: str
-    cadence: str
-    cadence_display_name: str
+    freshness_policy: str
     source_keys: tuple[str, ...]
     delivery_mode: str
     layer_plan: str
@@ -150,8 +149,7 @@ class DatasetCardQueryService:
                     delivery_mode_label=delivery_mode_label(delivery_mode),
                     delivery_mode_tone=delivery_mode_tone(delivery_mode),
                     layer_plan=primary.layer_plan,
-                    cadence=primary.cadence,
-                    cadence_display_name=primary.cadence_display_name,
+                    freshness_policy=primary_freshness.freshness_policy if primary_freshness else primary.freshness_policy,
                     raw_table=primary.raw_table,
                     raw_table_label=self._raw_table_label(primary, source_key=source_key),
                     target_table=primary_freshness.target_table if primary_freshness else primary.serving_table,
@@ -162,6 +160,11 @@ class DatasetCardQueryService:
                     last_sync_date=self._latest_date([item.last_sync_date for item in member_freshness]),
                     latest_success_at=self._latest_datetime([item.latest_success_at for item in member_freshness]),
                     expected_business_date=self._latest_date([item.expected_business_date for item in member_freshness]),
+                    latest_observed_date=primary_freshness.latest_observed_date if primary_freshness else None,
+                    latest_observed_date_label=primary_freshness.latest_observed_date_label if primary_freshness else None,
+                    expected_observed_date=primary_freshness.expected_observed_date if primary_freshness else None,
+                    expected_observed_date_label=primary_freshness.expected_observed_date_label if primary_freshness else None,
+                    last_success_label=primary_freshness.last_success_label if primary_freshness else None,
                     lag_days=max(
                         [item.lag_days for item in member_freshness if item.lag_days is not None],
                         default=None,
@@ -235,8 +238,7 @@ class DatasetCardQueryService:
             display_name=definition.display_name,
             domain_key=definition.domain.domain_key,
             domain_display_name=definition.domain.domain_display_name,
-            cadence=definition.domain.cadence,
-            cadence_display_name=definition.domain.cadence_display_name,
+            freshness_policy=definition.observability.freshness_policy,
             source_keys=definition.source.source_keys,
             delivery_mode=definition.storage.delivery_mode,
             layer_plan=definition.storage.layer_plan,
@@ -264,7 +266,7 @@ class DatasetCardQueryService:
             return "failed"
         if key == "stale":
             return "stale"
-        if key in {"warning", "lagging"}:
+        if key in {"warning", "lagging", "unconfirmed"}:
             return "warning"
         if key in {"healthy", "fresh", "success"}:
             return "healthy"
@@ -279,6 +281,7 @@ class DatasetCardQueryService:
             "stale": 4,
             "warning": 3,
             "lagging": 3,
+            "unconfirmed": 3,
             "unknown": 2,
             "disabled": 1,
             "healthy": 0,

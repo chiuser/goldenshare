@@ -49,7 +49,6 @@ def test_date_completeness_rules_are_grouped_by_applicability(app_client, user_f
             domain_key="moneyflow",
             domain_display_name="资金流向",
             target_table="core_serving.board_moneyflow_dc",
-            cadence="daily",
             earliest_business_date=date(2026, 4, 1),
             observed_business_date=date(2026, 4, 24),
             latest_business_date=date(2026, 4, 24),

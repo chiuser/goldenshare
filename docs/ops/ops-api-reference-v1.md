@@ -1387,14 +1387,14 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ### 12.1 目录与模式
 
-- `OpsCatalogResponse`：`actions, workflows`
-- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
+- `OpsCatalogResponse`：`actions, workflows, sources`
+- `ActionCatalogItem`：`key, action_type, display_name, target_key, target_display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, freshness_policy, date_selection_rule, description, target_tables, manual_enabled, schedule_enabled, retry_enabled, schedule_binding_count, active_schedule_count, parameters`
 - `WorkflowCatalogItem`：`key, display_name, description, group_key, group_label, group_order, domain_key, domain_display_name, parallel_policy, default_schedule_policy, schedule_enabled, manual_enabled, schedule_binding_count, active_schedule_count, parameters, steps`
 - `ActionParameterResponse`：`key, display_name, param_type, description, required, options, multi_value`
 - `WorkflowStepCatalogItem`：`step_key, action_key, dataset_key, display_name, depends_on, default_params`
 - `DatasetCardListResponse`：`total, groups`
 - `DatasetCardGroup`：`group_key, group_label, group_order, items`
-- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, cadence, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
+- `DatasetCardItem`：`card_key, dataset_key, detail_dataset_key, resource_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, status, freshness_status, delivery_mode, delivery_mode_label, delivery_mode_tone, layer_plan, freshness_policy, raw_table, raw_table_label, target_table, latest_business_date, earliest_business_date, latest_observed_at, earliest_observed_at, last_sync_date, latest_success_at, expected_business_date, latest_observed_date, latest_observed_date_label, expected_observed_date, expected_observed_date_label, last_success_label, lag_days, freshness_note, primary_action_key, active_task_run_status, active_task_run_started_at, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, probe_total, probe_active, std_mapping_configured, std_cleansing_configured, resolution_policy_configured`
 
 ### 12.2 任务运行
 
@@ -1447,9 +1447,9 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 ### 12.6 Review/Freshness
 
 - `OpsFreshnessResponse`：`summary, groups`
-- `OpsFreshnessSummary`：`total_datasets, fresh_datasets, lagging_datasets, stale_datasets, unknown_datasets, disabled_datasets`
+- `OpsFreshnessSummary`：`total_datasets, fresh_datasets, lagging_datasets, stale_datasets, unconfirmed_datasets, unknown_datasets, disabled_datasets`
 - `FreshnessGroup`：`domain_key, domain_display_name, items`
-- `DatasetFreshnessItem`：`dataset_key, resource_key, display_name, domain_key, domain_display_name, target_table, raw_table, cadence, earliest_business_date, observed_business_date, latest_business_date, freshness_note, latest_success_at, last_sync_date, expected_business_date, lag_days, freshness_status, recent_failure_message, recent_failure_summary, recent_failure_at, primary_action_key, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, active_task_run_status, active_task_run_started_at`
+- `DatasetFreshnessItem`：`dataset_key, resource_key, display_name, domain_key, domain_display_name, target_table, raw_table, freshness_policy, earliest_business_date, observed_business_date, latest_business_date, earliest_observed_at, latest_observed_at, freshness_note, latest_success_at, last_sync_date, expected_business_date, latest_observed_date, latest_observed_date_label, expected_observed_date, expected_observed_date_label, last_success_label, lag_days, freshness_status, recent_failure_message, recent_failure_summary, recent_failure_at, primary_action_key, auto_schedule_status, auto_schedule_total, auto_schedule_active, auto_schedule_next_run_at, active_task_run_status, active_task_run_started_at`
 - `ReviewActiveIndexListResponse`：`total, items`
 - `ReviewActiveIndexItem`：`resource, ts_code, index_name, first_seen_date, last_seen_date, last_checked_at`
 - `ReviewThsBoardListResponse`：`total, items`

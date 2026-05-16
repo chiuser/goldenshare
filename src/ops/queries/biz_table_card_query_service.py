@@ -18,6 +18,7 @@ from src.ops.catalog.biz_table_catalog import (
     BizTableCatalogItem,
     list_biz_table_catalog_items,
 )
+from src.foundation.datasets.freshness_policies import CONTINUOUS_OPEN_DAY
 from src.ops.schemas.dataset_card import (
     DatasetCardGroup,
     DatasetCardItem,
@@ -81,8 +82,7 @@ class BizTableCardQueryService:
             delivery_mode_label="业务派生表",
             delivery_mode_tone="info",
             layer_plan=BIZ_TABLE_SOURCE_KEY,
-            cadence="derived",
-            cadence_display_name="业务派生",
+            freshness_policy=CONTINUOUS_OPEN_DAY,
             raw_table=None,
             raw_table_label=None,
             target_table=item.table_name,
@@ -93,6 +93,11 @@ class BizTableCardQueryService:
             last_sync_date=None,
             latest_success_at=observation.latest_success_at,
             expected_business_date=freshness.expected_business_date,
+            latest_observed_date=observation.latest_business_date.isoformat() if observation.latest_business_date else None,
+            latest_observed_date_label="最新业务日期" if observation.latest_business_date else None,
+            expected_observed_date=freshness.expected_business_date.isoformat() if freshness.expected_business_date else None,
+            expected_observed_date_label="应完成业务日期" if freshness.expected_business_date else None,
+            last_success_label="最近构建成功时间" if observation.latest_success_at else None,
             lag_days=freshness.lag_days,
             freshness_note=freshness.note,
             primary_action_key=None,

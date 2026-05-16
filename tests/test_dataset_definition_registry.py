@@ -5,6 +5,7 @@ from dataclasses import MISSING, fields
 
 from src.foundation.datasets.definitions import ALL_DATASET_ROWS
 import src.foundation.datasets.definitions._builder as definition_builder
+from src.foundation.datasets.freshness_policies import FRESHNESS_POLICY_BY_DATASET
 from src.foundation.datasets.models import DatasetSourceDefinition, DatasetStorageDefinition, DatasetTransactionDefinition
 from src.foundation.datasets.registry import get_dataset_definition, list_dataset_definitions
 from src.foundation.config.settings import get_settings
@@ -27,6 +28,14 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
 
     assert definition_keys == runtime_keys
     assert len(definition_keys) == 70
+
+
+def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
+    definition_keys = {definition.dataset_key for definition in list_dataset_definitions()}
+
+    assert definition_keys == set(FRESHNESS_POLICY_BY_DATASET)
+    for definition in list_dataset_definitions():
+        assert definition.observability.freshness_policy == FRESHNESS_POLICY_BY_DATASET[definition.dataset_key]
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -376,7 +385,7 @@ def test_dataset_definition_projects_bak_basic_facts() -> None:
 
     assert definition.identity.display_name == "股票历史基础列表"
     assert definition.domain.domain_key == "reference_data"
-    assert definition.domain.cadence == "daily"
+    assert definition.observability.freshness_policy == "continuous_open_day"
     assert definition.source.api_name == "bak_basic"
     assert definition.date_model.input_shape == "trade_date_or_start_end"
     assert definition.date_model.observed_field == "trade_date"
@@ -419,7 +428,7 @@ def test_dataset_definition_projects_namechange_facts() -> None:
 
     assert definition.identity.display_name == "股票曾用名"
     assert definition.domain.domain_key == "reference_data"
-    assert definition.domain.cadence == "daily"
+    assert definition.observability.freshness_policy == "snapshot_run_trace"
     assert definition.source.api_name == "namechange"
     assert definition.date_model.bucket_rule == "not_applicable"
     assert definition.date_model.selection_rule() == "none"
@@ -443,7 +452,7 @@ def test_dataset_definition_projects_st_facts() -> None:
 
     assert definition.identity.display_name == "ST 风险警示事件"
     assert definition.domain.domain_key == "reference_data"
-    assert definition.domain.cadence == "daily"
+    assert definition.observability.freshness_policy == "snapshot_run_trace"
     assert definition.source.api_name == "st"
     assert definition.date_model.bucket_rule == "not_applicable"
     assert definition.date_model.selection_rule() == "none"

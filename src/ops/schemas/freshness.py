@@ -13,7 +13,7 @@ class DatasetFreshnessItem(BaseModel):
     domain_display_name: str
     target_table: str
     raw_table: str | None = None
-    cadence: str
+    freshness_policy: str
     earliest_business_date: date | None = None
     observed_business_date: date | None = None
     latest_business_date: date | None = None
@@ -23,6 +23,11 @@ class DatasetFreshnessItem(BaseModel):
     latest_success_at: datetime | None = None
     last_sync_date: date | None = None
     expected_business_date: date | None = None
+    latest_observed_date: str | None = None
+    latest_observed_date_label: str | None = None
+    expected_observed_date: str | None = None
+    expected_observed_date_label: str | None = None
+    last_success_label: str | None = None
     lag_days: int | None = None
     freshness_status: str
     recent_failure_message: str | None = None
@@ -48,6 +53,7 @@ class OpsFreshnessSummary(BaseModel):
     fresh_datasets: int
     lagging_datasets: int
     stale_datasets: int
+    unconfirmed_datasets: int
     unknown_datasets: int
     disabled_datasets: int
 

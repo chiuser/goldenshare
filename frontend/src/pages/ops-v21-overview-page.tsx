@@ -9,14 +9,17 @@ import { SectionCard } from "../shared/ui/section-card";
 import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
-type CardStatus = "healthy" | "warning" | "stale" | "failed" | "running" | "unknown";
+type CardStatus = "healthy" | "warning" | "stale" | "failed" | "running" | "unconfirmed" | "unknown";
 type DatasetCard = DatasetCardListResponse["groups"][number]["items"][number];
 
-function toCardStatus(rawStatus: string | null | undefined): CardStatus {
+function toCardStatus(rawStatus: string | null | undefined, freshnessStatus?: string | null): CardStatus {
+  const freshnessKey = (freshnessStatus || "").toLowerCase();
+  if (freshnessKey === "unconfirmed") return "unconfirmed";
   const key = (rawStatus || "").toLowerCase();
   if (key === "running" || key === "queued" || key === "canceling") return "running";
   if (key === "failed") return "failed";
   if (key === "stale") return "stale";
+  if (key === "unconfirmed") return "unconfirmed";
   if (key === "warning" || key === "lagging") return "warning";
   if (key === "healthy" || key === "fresh" || key === "success") return "healthy";
   return "unknown";
@@ -27,7 +30,7 @@ function statusDotColor(status: CardStatus) {
   if (status === "healthy") return "var(--mantine-color-success-5)";
   if (status === "stale") return "var(--mantine-color-error-5)";
   if (status === "failed") return "var(--mantine-color-error-5)";
-  if (status === "warning") return "var(--mantine-color-warning-5)";
+  if (status === "warning" || status === "unconfirmed") return "var(--mantine-color-warning-5)";
   return "var(--mantine-color-neutral-5)";
 }
 
@@ -42,10 +45,21 @@ function cardSubtitle(item: DatasetCard): string {
 }
 
 function latestObservationLabel(item: DatasetCard): string {
+  if (item.latest_observed_date_label && item.latest_observed_date) {
+    const value = item.latest_observed_date.includes("T")
+      ? formatDateTimeLabel(item.latest_observed_date)
+      : formatDateLabel(item.latest_observed_date);
+    return `${item.latest_observed_date_label}：${value}`;
+  }
   if (item.latest_observed_at) {
     return `最新时间：${formatDateTimeLabel(item.latest_observed_at)}`;
   }
-  return `最新业务日期：${item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}`;
+  return `最新观测：${item.latest_business_date ? formatDateLabel(item.latest_business_date) : "—"}`;
+}
+
+function observedDateValue(value: string | null): string {
+  if (!value) return "—";
+  return value.includes("T") ? formatDateTimeLabel(value) : formatDateLabel(value);
 }
 
 export function OpsV21OverviewPage() {
@@ -84,7 +98,10 @@ export function OpsV21OverviewPage() {
               <StatCard label="状态正常" value={summaryQuery.data.freshness_summary.fresh_datasets} />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
-              <StatCard label="需要关注" value={summaryQuery.data.freshness_summary.lagging_datasets} />
+              <StatCard
+                label="滞后 / 未确认"
+                value={summaryQuery.data.freshness_summary.lagging_datasets + summaryQuery.data.freshness_summary.unconfirmed_datasets}
+              />
             </Grid.Col>
             <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
               <StatCard
@@ -116,7 +133,7 @@ export function OpsV21OverviewPage() {
         <SectionCard key={group.group_key} title={group.group_label} description={`共 ${group.items.length} 个数据集`}>
           <SimpleGrid cols={{ base: 1, sm: 2, lg: 3 }} spacing="md" verticalSpacing="md">
             {group.items.map((item) => {
-              const status = toCardStatus(item.status);
+              const status = toCardStatus(item.status, item.freshness_status);
               const flags: Array<{ label: string; on: boolean }> = [
                 { label: "映射规则", on: item.std_mapping_configured },
                 { label: "清洗规则", on: item.std_cleansing_configured },
@@ -167,15 +184,15 @@ export function OpsV21OverviewPage() {
                     <Stack gap={6}>
                       <Group justify="space-between" align="center">
                         <Text size="sm" c="dimmed">健康度</Text>
-                        <StatusBadge value={item.status} />
+                        <StatusBadge value={item.freshness_status || item.status} />
                       </Group>
                       <Group justify="space-between" align="center">
-                        <Text size="sm" c="dimmed">最近同步</Text>
-                        <Text size="sm">{item.last_sync_date ? formatDateLabel(item.last_sync_date) : "—"}</Text>
+                        <Text size="sm" c="dimmed">{item.last_success_label || "最近维护成功时间"}</Text>
+                        <Text size="sm">{item.latest_success_at ? formatDateTimeLabel(item.latest_success_at) : "—"}</Text>
                       </Group>
                       <Group justify="space-between" align="center">
-                        <Text size="sm" c="dimmed">期望业务日</Text>
-                        <Text size="sm">{item.expected_business_date ? formatDateLabel(item.expected_business_date) : "—"}</Text>
+                        <Text size="sm" c="dimmed">{item.expected_observed_date_label || "应完成日期"}</Text>
+                        <Text size="sm">{observedDateValue(item.expected_observed_date)}</Text>
                       </Group>
                       <Group justify="space-between" align="center">
                         <Text size="sm" c="dimmed">滞后天数</Text>

@@ -85,6 +85,7 @@ docs/
 - [Ops 数据集展示目录配置方案 v1（待评审）](/Users/congming/github/goldenshare/docs/ops/ops-dataset-catalog-view-plan-v1.md)
 - [Ops Biz 表数据源展示方案 v1（已确认）](/Users/congming/github/goldenshare/docs/ops/ops-biz-table-source-display-plan-v1.md)
 - [Ops Freshness 单一事实源与旧分层观测退场计划 v1（已完成）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-single-source-layer-snapshot-retirement-plan-v1.md)
+- [Ops Freshness Policy 显式映射方案 v1（已实施）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
 - [Ops 实时流监控页面设计 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [基础数据自然日维护工作流方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-workflow-reference-data-natural-day-maintenance-development-v1.md)

@@ -34,7 +34,6 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
                 domain_key="market",
                 domain_display_name="行情",
                 target_table="core_serving.limit_list_ths",
-                cadence="daily",
                 earliest_business_date=snapshot_date,
                 latest_business_date=snapshot_date,
                 last_sync_date=snapshot_date,
@@ -76,7 +75,8 @@ def test_ops_dataset_cards_returns_authoritative_card_fields(app_client, user_fa
     assert card["domain_key"] == "equity_market"
     assert card["domain_display_name"] == "股票行情"
     assert card["delivery_mode"] == "single_source_serving"
-    assert card["cadence_display_name"] == "每日"
+    assert card["freshness_policy"] == "continuous_open_day"
+    assert card["latest_observed_date_label"] == "最新业务日期"
     assert card["raw_table_label"] == "raw_tushare.limit_list_ths"
     assert card["latest_success_at"] is None
     assert card["last_sync_date"] == snapshot_date.isoformat()
@@ -104,7 +104,6 @@ def test_ops_dataset_cards_main_status_uses_freshness(app_client, user_factory, 
                 domain_key="equity_market",
                 domain_display_name="股票行情",
                 target_table="core_serving.kpl_list",
-                cadence="daily",
                 earliest_business_date=snapshot_date,
                 latest_business_date=snapshot_date,
                 last_sync_date=snapshot_date,
@@ -149,7 +148,6 @@ def test_ops_dataset_cards_preserve_stale_freshness_status_for_date_based_datase
                 domain_key="equity_market",
                 domain_display_name="股票行情",
                 target_table="core_serving.limit_list_ths",
-                cadence="daily",
                 earliest_business_date=date(2026, 4, 30),
                 latest_business_date=date(2026, 4, 30),
                 last_sync_date=date(2026, 5, 5),

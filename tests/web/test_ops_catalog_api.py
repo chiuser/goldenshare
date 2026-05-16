@@ -75,6 +75,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert daily["group_label"] == "A股行情"
     assert daily["domain_key"] == "equity_market"
     assert daily["domain_display_name"] == "股票行情"
+    assert daily["freshness_policy"] == "continuous_open_day"
     assert daily["schedule_enabled"] is True
     assert [param["key"] for param in daily["parameters"]][:3] == ["trade_date", "start_date", "end_date"]
     assert [param["key"] for param in daily["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
@@ -92,6 +93,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     namechange = actions["namechange.maintain"]
     assert namechange["group_key"] == "reference_data"
     assert namechange["group_label"] == "A股基础数据"
+    assert namechange["freshness_policy"] == "snapshot_run_trace"
     assert namechange["date_selection_rule"] == "none"
     assert [param["key"] for param in namechange["parameters"]] == ["ts_code"]
 
