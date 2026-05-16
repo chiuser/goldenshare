@@ -1,6 +1,6 @@
 # index_weight 对象池最小收口方案 v1
 
-- 状态：`index_weight`、`stk_mins`、`biying_*` 对象池语义收口已完成；`none` 已清零（2026-05-16）
+- 状态：`index_weight`、`stk_mins`、`biying_*`、`index_mins` 对象池语义收口已完成；`none` 与 `index_active_codes` 已清零（2026-05-17）
 - 初始范围：只处理 `index_weight`
 - 第一轮语义清理范围：把已确认“不按对象池展开”的数据集从 `none` 收口到 `no_pool`
 - 第一轮后续处理：`stk_mins` 与 `biying_*` 已完成对象池语义迁移；`index_daily`、`dc_member`、`ths_member` 仍保持现有 selector 语义，不在本轮改动。
@@ -271,3 +271,20 @@
 6. 当前 `universe_policy = "none"` 已清零。
 
 对应行为护栏：`tests/test_dataset_action_resolver.py` 中的 Biying 用例。
+
+---
+
+## 11. `index_mins` 对象池语义迁移状态
+
+2026-05-17 已完成 `index_mins` 的对象池语义迁移：
+
+1. `index_mins` 已从历史 selector `universe_policy = "index_active_codes"` 改为 `universe_policy = "pool"`。
+2. 对象池事实写入 `planning.universe`：
+   - `request_field = "ts_code"`
+   - `override_fields = ("ts_code",)`
+   - `sources = ({"type": "ops_index_series_active", "resource": "index_mins"},)`
+3. `build_index_mins_units` 继续保持原有执行行为：默认读取 `resource=index_mins` 激活池；显式 `ts_code` 时必须属于该激活池；不 fallback 到 `index_basic`。
+4. 本步不改变频率展开、单日/区间窗口、unit id、request params、分页策略或写入路径。
+5. 通用 `index_active_codes` 分支已无生产消费者并已删除；后续新增数据集不得使用该历史 selector。
+
+对应行为护栏：`tests/test_dataset_action_resolver.py` 中的 `index_mins` 用例，以及 `tests/test_dataset_definition_registry.py::test_index_mins_declares_index_mins_active_pool`。

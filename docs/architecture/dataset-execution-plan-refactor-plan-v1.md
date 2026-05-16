@@ -359,7 +359,7 @@ request_builder:
 
 补充说明：
 
-1. 当前代码里仍存在 `index_active_codes`、`dc_index_board_codes`、`ths_index_board_codes` 这类历史 selector。
+1. `index_active_codes` 已退场；当前代码里仍存在 `dc_index_board_codes`、`ths_index_board_codes` 这类历史 selector。
 2. 长期目标不是继续扩充这些字符串，而是收口到 `universe_policy=no_pool|pool`；对象池来源收口到 `planning.universe.sources`。
 3. 详细方案见 [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)。
 

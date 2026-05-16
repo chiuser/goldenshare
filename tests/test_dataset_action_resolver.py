@@ -654,7 +654,8 @@ def test_index_mins_defaults_to_all_freqs_and_active_pool(mocker) -> None:
         index_basic=SimpleNamespace(
             get_by_ts_code=mocker.Mock(
                 side_effect=lambda code: SimpleNamespace(name={"000001.SH": "上证指数", "399001.SZ": "深证成指"}.get(code))
-            )
+            ),
+            get_active_indexes=mocker.Mock(side_effect=AssertionError("index_mins must not fall back to index_basic")),
         ),
     )
     mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
@@ -677,6 +678,7 @@ def test_index_mins_defaults_to_all_freqs_and_active_pool(mocker) -> None:
     assert all(unit.request_params["end_date"] == "2026-04-30 19:00:00" for unit in plan.units)
     assert any(unit.progress_context.get("index_name") == "上证指数" for unit in plan.units)
     fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_mins")
+    fake_dao.index_basic.get_active_indexes.assert_not_called()
 
 
 def test_index_mins_rejects_explicit_code_outside_active_pool(mocker) -> None:

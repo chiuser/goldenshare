@@ -56,7 +56,7 @@ raw_table = raw_tushare.index_daily
 serving_table = core_serving.index_daily_serving
 write_path = raw_core_upsert
 unit_builder_key = build_index_daily_units
-universe_policy = index_active_codes
+universe_policy = no_pool
 ```
 
 当前确认配置：

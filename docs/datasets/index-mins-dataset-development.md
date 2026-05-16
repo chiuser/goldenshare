@@ -76,7 +76,7 @@
 | 语义层 | 必须回答的问题 | 本数据集答案 | 是否已从代码/源文档核验 |
 | --- | --- | --- | --- |
 | 时间输入语义 | 用户或调度到底在提交什么意图？ | 用户提交单个交易日或交易日区间，再选择 `freq`。系统把单日转成 `YYYY-MM-DD 09:00:00 ~ YYYY-MM-DD 19:00:00`，把区间转成 `start_date 09:00:00 ~ end_date 19:00:00`。 | 是，源文档定义 `start_date/end_date` 为 `datetime`，真实请求验证通过 |
-| 执行 / unit 语义 | resolver 会如何展开执行计划？单个事务边界在哪里？ | 默认按 `resource=index_mins` 激活池展开指数代码，再按 `freq` 展开。一个 unit = 一个指数代码 + 一个 freq + 一个时间窗口。该 unit 内可以分页拉取，拉完后归一化并一次写入该 unit。 | 是，已审计现有 `stk_mins` unit builder、`index_active_codes` 代码池能力、request builder 与 source client |
+| 执行 / unit 语义 | resolver 会如何展开执行计划？单个事务边界在哪里？ | 默认按 `resource=index_mins` 激活池展开指数代码，再按 `freq` 展开。一个 unit = 一个指数代码 + 一个 freq + 一个时间窗口。该 unit 内可以分页拉取，拉完后归一化并一次写入该 unit。 | 是，已审计现有 `build_index_mins_units`、`planning.universe`、request builder 与 source client |
 | freshness / audit 语义 | 平台是否要求连续日期桶？ | freshness 使用 `trade_time` 推导最近同步时间/日期；日期完整性审计 V1 不接入，因为分钟线完整性需要交易时段、频率、指数是否有分钟数据等规则，不能用普通交易日桶判断。 | 是，已对照 `stk_mins` 当前 `date_model` 与审计退出原因 |
 
 补充说明：
@@ -309,7 +309,14 @@
 ```python
 "planning": {
     "unit_builder_key": "build_index_mins_units",
-    "universe_policy": "index_active_codes",
+    "universe_policy": "pool",
+    "universe": {
+        "request_field": "ts_code",
+        "override_fields": ("ts_code",),
+        "sources": (
+            {"type": "ops_index_series_active", "resource": "index_mins"},
+        ),
+    },
     "enum_fanout_defaults": {"freq": ("1min", "5min", "15min", "30min", "60min")},
     "pagination_policy": "offset_limit",
     "page_limit": 8000,

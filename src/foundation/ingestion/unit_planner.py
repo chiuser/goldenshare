@@ -183,18 +183,6 @@ class DatasetUnitPlanner:
         policy = definition.planning.universe_policy
         if policy in {"none", "no_pool"}:
             return [{}]
-        if policy == "index_active_codes":
-            ts_code = str(request.params.get("ts_code") or "").strip().upper()
-            if ts_code:
-                return [{"ts_code": ts_code}]
-            codes = self.dao.index_series_active.list_active_codes(request.dataset_key)
-            if not codes:
-                codes = [item.ts_code for item in self.dao.index_basic.get_active_indexes() if item.ts_code]
-            normalized_codes = sorted({str(code).strip().upper() for code in codes if str(code).strip()})
-            if not normalized_codes:
-                raise self._planning_error("universe_empty", f"{definition.display_name} 未找到可维护的指数代码")
-            return [{"ts_code": code} for code in normalized_codes]
-
         if policy == "ths_index_board_codes":
             ts_code = str(request.params.get("ts_code") or "").strip().upper()
             con_code = str(request.params.get("con_code") or "").strip().upper()
@@ -750,7 +738,7 @@ def _build_index_mins_units(planner: DatasetUnitPlanner, request: ValidatedDatas
         raise DatasetUnitPlanner._planning_error("invalid_enum", f"指数历史分钟行情频率无效：{', '.join(invalid)}")
     selected_freqs = [freq for freq in allowed_freqs if freq in set(raw_freqs)]
 
-    targets = _resolve_index_mins_targets(planner=planner, request=request)
+    targets = _resolve_index_mins_targets(planner=planner, request=request, definition=definition)
 
     if request.trade_date is not None:
         trade_date = request.trade_date
@@ -803,8 +791,19 @@ def _resolve_index_mins_targets(
     *,
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
 ) -> list[tuple[str, str | None]]:
-    active_codes = _normalize_universe_codes(planner.dao.index_series_active.list_active_codes("index_mins"))
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "指数历史分钟行情缺少对象池规划配置")
+    if universe.request_field != "ts_code" or "ts_code" not in universe.override_fields:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "指数历史分钟行情对象池配置必须绑定 ts_code")
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("ops_index_series_active", "index_mins"),):
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "指数历史分钟行情对象池来源配置不符合当前主链")
+
+    active_resource = str(universe.sources[0].resource)
+    active_codes = _normalize_universe_codes(planner.dao.index_series_active.list_active_codes(active_resource))
     if not active_codes:
         raise DatasetUnitPlanner._planning_error("universe_empty", "指数历史分钟行情需要先准备 index_mins 激活指数池")
 

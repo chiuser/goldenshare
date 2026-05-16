@@ -169,11 +169,10 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | 4 |
+| `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | 5 |
 | `no_pool` | 明确不按对象池展开源站请求 | 65 |
 | `dc_index_board_codes` | 从东财板块代码池展开 | 1 |
 | `ths_index_board_codes` | 从同花顺板块代码池展开 | 1 |
-| `index_active_codes` | 指数 active 池 selector | 1 |
 | `none` | 未定义或历史未迁移占位；不能表达具体业务语义 | 0 |
 
 说明：当前 `none` 已清零。新增或修改数据集时，不得用 `none` 表达“没有对象池展开”；不展开必须写 `no_pool`，展开必须写 `pool` 与 `planning.universe`。
