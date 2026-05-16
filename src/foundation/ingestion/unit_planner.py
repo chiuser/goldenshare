@@ -649,30 +649,7 @@ def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDataset
         raise DatasetUnitPlanner._planning_error("invalid_enum", f"股票历史分钟行情频率无效：{', '.join(invalid)}")
     selected_freqs = [freq for freq in allowed_freqs if freq in set(raw_freqs)]
 
-    explicit_codes = split_multi_values(request.params.get("ts_code"))
-    if explicit_codes:
-        targets = []
-        get_by_ts_code = getattr(planner.dao.security, "get_by_ts_code", None)
-        for code in sorted({str(item).strip().upper() for item in explicit_codes if str(item).strip()}):
-            security = get_by_ts_code(code) if callable(get_by_ts_code) else None
-            targets.append((code, getattr(security, "name", None) or None))
-    else:
-        securities = list(planner.dao.security.get_active_equities())
-        tushare_targets = [
-            (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
-            for item in securities
-            if str(getattr(item, "source", "tushare") or "").strip().lower() == "tushare"
-            and str(getattr(item, "ts_code", "") or "").strip()
-        ]
-        all_targets = [
-            (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
-            for item in securities
-            if str(getattr(item, "ts_code", "") or "").strip()
-        ]
-        targets_by_code = {code: (code, name) for code, name in (tushare_targets or all_targets) if code}
-        targets = [targets_by_code[code] for code in sorted(targets_by_code)]
-        if not targets:
-            raise DatasetUnitPlanner._planning_error("universe_empty", "全市场分钟行情需要先准备股票主数据")
+    targets = _resolve_stk_mins_targets(planner=planner, request=request, definition=definition)
 
     if request.trade_date is not None:
         trade_date = request.trade_date
@@ -719,6 +696,47 @@ def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDataset
             )
             ordinal += 1
     return units
+
+
+def _resolve_stk_mins_targets(
+    *,
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[tuple[str, str | None]]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "股票历史分钟行情缺少对象池规划配置")
+    if universe.request_field != "ts_code" or "ts_code" not in universe.override_fields:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "股票历史分钟行情对象池配置必须绑定 ts_code")
+    if [(source.type, source.resource) for source in universe.sources] != [("core_security_active_equities", "tushare_preferred")]:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "股票历史分钟行情对象池来源配置不符合当前主链")
+
+    explicit_codes = split_multi_values(request.params.get("ts_code"))
+    if explicit_codes:
+        targets = []
+        get_by_ts_code = getattr(planner.dao.security, "get_by_ts_code", None)
+        for code in sorted({str(item).strip().upper() for item in explicit_codes if str(item).strip()}):
+            security = get_by_ts_code(code) if callable(get_by_ts_code) else None
+            targets.append((code, getattr(security, "name", None) or None))
+    else:
+        securities = list(planner.dao.security.get_active_equities())
+        tushare_targets = [
+            (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
+            for item in securities
+            if str(getattr(item, "source", "tushare") or "").strip().lower() == "tushare"
+            and str(getattr(item, "ts_code", "") or "").strip()
+        ]
+        all_targets = [
+            (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
+            for item in securities
+            if str(getattr(item, "ts_code", "") or "").strip()
+        ]
+        targets_by_code = {code: (code, name) for code, name in (tushare_targets or all_targets) if code}
+        targets = [targets_by_code[code] for code in sorted(targets_by_code)]
+        if not targets:
+            raise DatasetUnitPlanner._planning_error("universe_empty", "全市场分钟行情需要先准备股票主数据")
+    return targets
 
 
 def _build_index_mins_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
@@ -819,15 +837,22 @@ def _build_biying_moneyflow_units(planner: DatasetUnitPlanner, request: Validate
     return _build_biying_units(planner, request, definition, window_days=100, include_adj_type=False)
 
 
-def _build_biying_units(
+def _resolve_biying_targets(
+    *,
     planner: DatasetUnitPlanner,
     request: ValidatedDatasetActionRequest,
     definition: DatasetDefinition,
-    *,
-    window_days: int,
-    include_adj_type: bool,
-) -> list[PlanUnitSnapshot]:
-    request_builder = planner._resolve_request_builder(definition)
+) -> list[tuple[str, str | None]]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", f"{definition.display_name} 缺少 Biying 股票池规划配置")
+    if universe.request_field != "dm" or universe.override_fields != ("ts_code",):
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", f"{definition.display_name} Biying 股票池字段配置不符合当前主链")
+    expected_sources = (("raw_biying_stock_basic", "dm_mc"),)
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != expected_sources:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", f"{definition.display_name} Biying 股票池来源配置不符合当前主链")
+
     explicit_dms = [str(value).strip().upper().split(".", 1)[0] for value in split_multi_values(request.params.get("ts_code")) if str(value).strip()]
     stmt = select(RawBiyingStockBasic.dm, RawBiyingStockBasic.mc).where(RawBiyingStockBasic.dm.is_not(None))
     if explicit_dms:
@@ -839,6 +864,19 @@ def _build_biying_units(
         stocks.extend((dm, None) for dm in explicit_dms if dm not in by_dm)
     if not stocks:
         raise DatasetUnitPlanner._planning_error("universe_empty", f"Biying 股票池为空，无法维护 {request.dataset_key}")
+    return stocks
+
+
+def _build_biying_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+    *,
+    window_days: int,
+    include_adj_type: bool,
+) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    stocks = _resolve_biying_targets(planner=planner, request=request, definition=definition)
 
     if request.run_profile == "point_incremental":
         if request.trade_date is None:

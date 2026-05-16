@@ -1,9 +1,9 @@
 # index_weight 对象池最小收口方案 v1
 
-- 状态：`index_weight` 最小对象池收口已完成；第一轮 `no_pool` 语义清理已完成（2026-05-16）
+- 状态：`index_weight`、`stk_mins`、`biying_*` 对象池语义收口已完成；`none` 已清零（2026-05-16）
 - 初始范围：只处理 `index_weight`
 - 第一轮语义清理范围：把已确认“不按对象池展开”的数据集从 `none` 收口到 `no_pool`
-- 仍不在第一轮处理：`index_daily`、`dc_member`、`ths_member`、`stk_mins`、`biying_*` 等其他对象池或未完成审计链路
+- 第一轮后续处理：`stk_mins` 与 `biying_*` 已完成对象池语义迁移；`index_daily`、`dc_member`、`ths_member` 仍保持现有 selector 语义，不在本轮改动。
 - 关联代码：
   - [index_weight DatasetDefinition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)
   - [DatasetUnitPlanner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)
@@ -226,9 +226,48 @@
 1. 已审计确认“不使用对象池展开”的数据集，统一改为 `universe_policy = "no_pool"`。
 2. 第一轮不改变任何 `unit_builder_key`、日期模型、request builder、writer 或执行行为。
 3. `none` 不再被大面积用作“没有对象池”的默认值。
-4. 当前仅允许以下 3 个数据集继续保留 `none`，作为后续单独审计对象：
+4. 第一轮完成时仅允许以下 3 个数据集继续保留 `none`，作为后续单独审计对象：
    - `biying_equity_daily`
    - `biying_moneyflow`
    - `stk_mins`
 
-对应测试守护：`tests/test_dataset_definition_registry.py::test_dataset_definition_universe_policy_first_wave_is_explicit`。
+对应测试守护：`tests/test_dataset_definition_registry.py::test_dataset_definition_universe_policy_current_state_is_explicit`。
+
+说明：以上为第一轮完成时的历史状态；后续 `stk_mins` 与 `biying_*` 已继续完成迁移，当前 `none` 已清零。
+
+---
+
+## 9. `stk_mins` 第二步语义迁移状态
+
+2026-05-16 已完成 `stk_mins` 的对象池语义迁移：
+
+1. `stk_mins` 已从 `universe_policy = "none"` 改为 `universe_policy = "pool"`。
+2. 对象池事实写入 `planning.universe`：
+   - `request_field = "ts_code"`
+   - `override_fields = ("ts_code",)`
+   - `sources = ({"type": "core_security_active_equities", "resource": "tushare_preferred"},)`
+3. `build_stk_mins_units` 继续保持原有执行行为：默认读取 active equity 池，优先使用 Tushare 来源；显式 `ts_code` 时不扫描默认池。
+4. 本步不改变频率展开、单日/区间窗口、unit id、request params、分页策略或写入路径。
+5. 本步完成时 `none` 剩余清单缩小为：
+   - `biying_equity_daily`
+   - `biying_moneyflow`
+
+对应行为护栏：`tests/test_dataset_action_resolver.py` 中的 `stk_mins` 用例。
+
+---
+
+## 10. `biying_*` M1 语义迁移状态
+
+2026-05-16 已完成两个 Biying 数据集的对象池语义迁移：
+
+1. `biying_equity_daily` 与 `biying_moneyflow` 已从 `universe_policy = "none"` 改为 `universe_policy = "pool"`。
+2. 对象池事实写入 `planning.universe`：
+   - `request_field = "dm"`
+   - `override_fields = ("ts_code",)`
+   - `sources = ({"type": "raw_biying_stock_basic", "resource": "dm_mc"},)`
+3. `build_biying_*_units` 继续保持原有执行行为：默认读取 `raw_biying.stock_basic` 的 `dm/mc` 股票池；显式 `ts_code` 时转成 Biying `dm` 后只跑指定对象。
+4. `biying_equity_daily` 保持 `adj_type=n/f/b` 默认扇出；`biying_moneyflow` 保持 100 天窗口切分。
+5. 本步不改变日期模型、source request params、unit id、分页策略、writer 或写入路径。
+6. 当前 `universe_policy = "none"` 已清零。
+
+对应行为护栏：`tests/test_dataset_action_resolver.py` 中的 Biying 用例。

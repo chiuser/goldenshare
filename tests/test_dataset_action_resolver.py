@@ -118,6 +118,236 @@ def test_dataset_action_resolver_reports_required_filter_with_display_label(mock
         resolver.build_plan(request)
 
 
+def test_stk_mins_default_request_uses_tushare_active_equity_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(
+                return_value=[
+                    SimpleNamespace(ts_code="600000.SH", name="浦发银行", source="biying"),
+                    SimpleNamespace(ts_code="000002.SZ", name="万科A", source="tushare"),
+                    SimpleNamespace(ts_code="000001.SZ", name="平安银行", source="tushare"),
+                ]
+            ),
+            get_by_ts_code=mocker.Mock(side_effect=AssertionError("default stk_mins requests must use the active equity pool")),
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_mins",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"freq": ["60min", "1min"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.unit_count == 4
+    assert [unit.request_params for unit in plan.units] == [
+        {
+            "ts_code": "000001.SZ",
+            "freq": "1min",
+            "start_date": "2026-04-24 09:00:00",
+            "end_date": "2026-04-24 19:00:00",
+        },
+        {
+            "ts_code": "000001.SZ",
+            "freq": "60min",
+            "start_date": "2026-04-24 09:00:00",
+            "end_date": "2026-04-24 19:00:00",
+        },
+        {
+            "ts_code": "000002.SZ",
+            "freq": "1min",
+            "start_date": "2026-04-24 09:00:00",
+            "end_date": "2026-04-24 19:00:00",
+        },
+        {
+            "ts_code": "000002.SZ",
+            "freq": "60min",
+            "start_date": "2026-04-24 09:00:00",
+            "end_date": "2026-04-24 19:00:00",
+        },
+    ]
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 24)] * 4
+    assert {unit.progress_context.get("security_name") for unit in plan.units} == {"平安银行", "万科A"}
+    fake_dao.security.get_active_equities.assert_called_once_with()
+    fake_dao.security.get_by_ts_code.assert_not_called()
+
+
+def test_stk_mins_default_request_falls_back_to_all_active_equities_when_no_tushare_source(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(
+                return_value=[
+                    SimpleNamespace(ts_code="600000.SH", name="浦发银行", source="biying"),
+                    SimpleNamespace(ts_code="000001.SZ", name="平安银行", source="manual"),
+                ]
+            ),
+            get_by_ts_code=mocker.Mock(side_effect=AssertionError("default stk_mins requests must use the active equity pool")),
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_mins",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"freq": ["30min"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params["ts_code"] for unit in plan.units] == ["000001.SZ", "600000.SH"]
+    assert {unit.request_params["freq"] for unit in plan.units} == {"30min"}
+    fake_dao.security.get_active_equities.assert_called_once_with()
+    fake_dao.security.get_by_ts_code.assert_not_called()
+
+
+def test_stk_mins_explicit_codes_bypass_active_pool_and_build_range_window(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(side_effect=AssertionError("explicit stk_mins requests must not scan the active equity pool")),
+            get_by_ts_code=mocker.Mock(
+                side_effect=lambda code: SimpleNamespace(name={"000001.SZ": "平安银行", "600000.SH": "浦发银行"}.get(code))
+            ),
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="stk_mins",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 20), end_date=date(2026, 4, 24)),
+        filters={"ts_code": "600000.sh,000001.sz", "freq": ["30min"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {
+            "ts_code": "000001.SZ",
+            "freq": "30min",
+            "start_date": "2026-04-20 09:00:00",
+            "end_date": "2026-04-24 19:00:00",
+        },
+        {
+            "ts_code": "600000.SH",
+            "freq": "30min",
+            "start_date": "2026-04-20 09:00:00",
+            "end_date": "2026-04-24 19:00:00",
+        },
+    ]
+    assert [unit.trade_date for unit in plan.units] == [None, None]
+    assert {unit.progress_context.get("security_name") for unit in plan.units} == {"平安银行", "浦发银行"}
+    fake_dao.security.get_active_equities.assert_not_called()
+    assert [call.args[0] for call in fake_dao.security.get_by_ts_code.call_args_list] == ["000001.SZ", "600000.SH"]
+
+
+def _mock_biying_stock_pool_session(mocker, rows: list[SimpleNamespace]):
+    session = mocker.Mock()
+    result = mocker.Mock()
+    result.all.return_value = rows
+    session.execute.return_value = result
+    return session
+
+
+def test_biying_equity_daily_default_request_uses_raw_biying_stock_pool_and_adj_types(mocker) -> None:
+    resolver = DatasetActionResolver(
+        _mock_biying_stock_pool_session(
+            mocker,
+            [
+                SimpleNamespace(dm="000001", mc="平安银行"),
+                SimpleNamespace(dm="000002", mc="万科A"),
+            ],
+        )
+    )
+    request = DatasetActionRequest(
+        dataset_key="biying_equity_daily",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.universe_policy == "pool"
+    assert plan.planning.unit_count == 6
+    assert [unit.request_params for unit in plan.units] == [
+        {"dm": "000001", "freq": "d", "adj_type": "n", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "平安银行"},
+        {"dm": "000001", "freq": "d", "adj_type": "f", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "平安银行"},
+        {"dm": "000001", "freq": "d", "adj_type": "b", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "平安银行"},
+        {"dm": "000002", "freq": "d", "adj_type": "n", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "万科A"},
+        {"dm": "000002", "freq": "d", "adj_type": "f", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "万科A"},
+        {"dm": "000002", "freq": "d", "adj_type": "b", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "万科A"},
+    ]
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 24)] * 6
+    assert {unit.progress_context["ts_code"] for unit in plan.units} == {"000001", "000002"}
+
+
+def test_biying_equity_daily_explicit_code_keeps_missing_code_and_filters_adj_type(mocker) -> None:
+    resolver = DatasetActionResolver(
+        _mock_biying_stock_pool_session(
+            mocker,
+            [SimpleNamespace(dm="600000", mc="浦发银行")],
+        )
+    )
+    request = DatasetActionRequest(
+        dataset_key="biying_equity_daily",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "600000.SH,000333.SZ", "adj_type": "b"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"dm": "600000", "freq": "d", "adj_type": "b", "st": "20260424", "et": "20260424", "lt": "5000", "mc": "浦发银行"},
+        {"dm": "000333", "freq": "d", "adj_type": "b", "st": "20260424", "et": "20260424", "lt": "5000"},
+    ]
+    assert {unit.progress_context["ts_code"] for unit in plan.units} == {"600000", "000333"}
+
+
+def test_biying_moneyflow_range_request_chunks_windows_by_100_days(mocker) -> None:
+    resolver = DatasetActionResolver(
+        _mock_biying_stock_pool_session(
+            mocker,
+            [SimpleNamespace(dm="000001", mc="平安银行")],
+        )
+    )
+    request = DatasetActionRequest(
+        dataset_key="biying_moneyflow",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 1, 1), end_date=date(2026, 4, 15)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.universe_policy == "pool"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"dm": "000001", "st": "20260101", "et": "20260410", "mc": "平安银行"},
+        {"dm": "000001", "st": "20260411", "et": "20260415", "mc": "平安银行"},
+    ]
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 10), date(2026, 4, 15)]
+
+
+def test_biying_moneyflow_rejects_empty_stock_pool(mocker) -> None:
+    resolver = DatasetActionResolver(_mock_biying_stock_pool_session(mocker, []))
+    request = DatasetActionRequest(
+        dataset_key="biying_moneyflow",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    with pytest.raises(IngestionPlanningError, match="Biying 股票池为空"):
+        resolver.build_plan(request)
+
+
 @pytest.mark.parametrize(
     "dataset_key",
     ("daily", "adj_factor", "cyq_perf", "fund_daily", "index_daily", "index_daily_basic"),

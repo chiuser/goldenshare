@@ -39,24 +39,19 @@ def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
         assert definition.observability.freshness_policy == FRESHNESS_POLICY_BY_DATASET[definition.dataset_key]
 
 
-def test_dataset_definition_universe_policy_first_wave_is_explicit() -> None:
+def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     policies = {definition.dataset_key: definition.planning.universe_policy for definition in list_dataset_definitions()}
 
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 65,
-            "none": 3,
-            "pool": 1,
+            "pool": 4,
             "index_active_codes": 1,
             "dc_index_board_codes": 1,
             "ths_index_board_codes": 1,
         }
     )
-    assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == {
-        "biying_equity_daily",
-        "biying_moneyflow",
-        "stk_mins",
-    }
+    assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -234,6 +229,31 @@ def test_index_weight_declares_minimal_universe_pool() -> None:
         ("ops_index_series_active", "index_weight"),
         ("core_index_basic_active", None),
     ]
+
+
+def test_stk_mins_declares_active_equity_universe_pool() -> None:
+    definition = get_dataset_definition("stk_mins")
+
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "ts_code"
+    assert definition.planning.universe.override_fields == ("ts_code",)
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("core_security_active_equities", "tushare_preferred"),
+    ]
+
+
+def test_biying_definitions_declare_raw_biying_stock_universe_pool() -> None:
+    for dataset_key in ("biying_equity_daily", "biying_moneyflow"):
+        definition = get_dataset_definition(dataset_key)
+
+        assert definition.planning.universe_policy == "pool"
+        assert definition.planning.universe is not None
+        assert definition.planning.universe.request_field == "dm"
+        assert definition.planning.universe.override_fields == ("ts_code",)
+        assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+            ("raw_biying_stock_basic", "dm_mc"),
+        ]
 
 
 def test_stk_period_bar_definitions_use_calendar_source_anchors() -> None:
