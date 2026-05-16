@@ -83,7 +83,7 @@ def _patch_writer_dao(mocker, dao):  # type: ignore[no-untyped-def]
     mocker.patch("src.foundation.ingestion.writer.DAOFactory", return_value=dao)
 
 
-def test_index_daily_writer_writes_raw_full_and_serving_active_only(mocker) -> None:
+def test_index_daily_writer_writes_all_returned_rows_to_raw_and_active_rows_to_serving(mocker) -> None:
     raw_dao = _StubDao(model=RawIndexDaily)
     serving_dao = _StubDao(model=IndexDailyServing)
     dao = SimpleNamespace(
@@ -116,10 +116,11 @@ def test_index_daily_writer_writes_raw_full_and_serving_active_only(mocker) -> N
     assert [[row["ts_code"] for row in call] for call in serving_dao.bulk_upsert_calls] == [["000001.SH"]]
     assert result.rows_written == 1
     assert result.rejected_reason_counts == {}
+    dao.index_series_active.list_active_codes.assert_called_once_with("index_daily")
     dao.index_basic.get_active_indexes.assert_not_called()
 
 
-def test_index_daily_explicit_non_active_ts_code_does_not_write_serving(mocker) -> None:
+def test_index_daily_explicit_non_active_ts_code_writes_raw_without_serving(mocker) -> None:
     raw_dao = _StubDao(model=RawIndexDaily)
     serving_dao = _StubDao(model=IndexDailyServing)
     dao = SimpleNamespace(
@@ -153,6 +154,7 @@ def test_index_daily_explicit_non_active_ts_code_does_not_write_serving(mocker) 
     assert serving_dao.bulk_upsert_calls == []
     assert result.rows_written == 0
     assert result.rejected_reason_counts == {}
+    dao.index_series_active.list_active_codes.assert_called_once_with("index_daily")
     dao.index_basic.get_active_indexes.assert_not_called()
 
 
@@ -188,6 +190,7 @@ def test_index_daily_writer_does_not_fallback_to_index_basic_for_serving_pool(mo
     assert [[row["ts_code"] for row in call] for call in raw_dao.bulk_upsert_calls] == [["000001.SH", "999999.SH"]]
     assert serving_dao.bulk_upsert_calls == []
     assert result.rows_written == 0
+    dao.index_series_active.list_active_codes.assert_called_once_with("index_daily")
     dao.index_basic.get_active_indexes.assert_not_called()
 
 

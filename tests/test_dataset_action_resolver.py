@@ -65,7 +65,7 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
     assert "exchange" not in plan.units[0].request_params
 
 
-def test_index_daily_default_request_expands_raw_active_pool(mocker) -> None:
+def test_index_daily_default_point_request_uses_index_daily_raw_request_pool(mocker) -> None:
     fake_dao = SimpleNamespace(
         trade_calendar=SimpleNamespace(),
         index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000300.SH", "000001.SH"])),
@@ -84,10 +84,39 @@ def test_index_daily_default_request_expands_raw_active_pool(mocker) -> None:
     plan = resolver.build_plan(request)
 
     assert plan.planning.unit_count == 2
+    assert all("ts_code" in unit.request_params for unit in plan.units)
     assert [unit.request_params for unit in plan.units] == [
         {"ts_code": "000001.SH", "trade_date": "20260424"},
         {"ts_code": "000300.SH", "trade_date": "20260424"},
     ]
+    fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_daily_raw")
+    fake_dao.index_basic.get_active_indexes.assert_not_called()
+
+
+def test_index_daily_default_range_request_uses_index_daily_raw_request_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(),
+        index_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["000300.SH"])),
+        index_basic=SimpleNamespace(
+            get_active_indexes=mocker.Mock(side_effect=AssertionError("index basic must not drive index_daily requests"))
+        ),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="index_daily",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 20), end_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {
+        "ts_code": "000300.SH",
+        "start_date": "20260420",
+        "end_date": "20260424",
+    }
     fake_dao.index_series_active.list_active_codes.assert_called_once_with("index_daily_raw")
     fake_dao.index_basic.get_active_indexes.assert_not_called()
 
