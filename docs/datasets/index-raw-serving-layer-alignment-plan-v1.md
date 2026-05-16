@@ -12,16 +12,17 @@
 
 目标口径：
 
-1. raw 层对齐 Tushare 源站事实：请求源站能返回多少，就写入多少，不按 active 池过滤，不写派生数据。
-2. `core_serving` 层对齐平台服务事实：只服务 active 池中的指数代码。
-3. 指数周线、月线的 serving 层继续按现有机制补齐 active 池：源站有则用源站 API 数据，源站没有则由日线 serving 数据派生。
-4. 不引入新的领域概念，不新建表，不改 TaskRun，不改前端展示，不改 active 池模型。
+1. `index_daily` 源站请求范围由 `ops.index_series_active resource='index_daily_raw'` 决定，按该请求池逐 `ts_code` 请求 Tushare。
+2. raw 层对齐“本次源站请求返回事实”：请求返回多少，就写入多少，不按 serving active 池过滤，不写派生数据。
+3. `core_serving` 层对齐平台服务事实：只服务 `ops.index_series_active resource='index_daily'` active 池中的指数代码。
+4. 指数周线、月线的 serving 层继续按现有机制补齐 active 池：源站有则用源站 API 数据，源站没有则由日线 serving 数据派生。
+5. 不引入新的领域概念，不新建表，不改 TaskRun，不改前端展示，不改 active 池模型。
 
 说人话：
 
-- raw 是“源站给我的原始事实”。
+- raw 是“本次源站请求给我的原始事实”。
 - serving 是“平台对外使用的业务事实”。
-- active 池只作为 `core_serving` 入库门禁，不参与 raw 写入裁剪。
+- `index_daily_raw` 池决定日线请求哪些指数；`index_daily` 池只作为 `core_serving` 入库门禁，不参与 raw 写入裁剪。
 - 显式 `ts_code` 只是源站请求参数，不是绕过 active 池写入 `core_serving` 的特权。
 
 ---
@@ -39,7 +40,7 @@
 
 ---
 
-## 3. 实施前问题定位
+## 3. 问题定位与当前确认口径
 
 ### 3.1 `index_daily`
 
@@ -47,7 +48,7 @@
 
 - [src/foundation/datasets/definitions/index_series.py](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)
 
-当前关键配置：
+历史关键配置：
 
 ```text
 dataset_key = index_daily
@@ -58,16 +59,29 @@ unit_builder_key = build_index_daily_units
 universe_policy = index_active_codes
 ```
 
+当前确认配置：
+
+```text
+dataset_key = index_daily
+raw_table = raw_tushare.index_daily
+serving_table = core_serving.index_daily_serving
+write_path = raw_index_daily_serving_upsert
+unit_builder_key = build_index_daily_units
+universe_policy = no_pool
+request_pool = ops.index_series_active resource='index_daily_raw'
+serving_gate = ops.index_series_active resource='index_daily'
+```
+
 当前执行行为：
 
-1. `build_index_daily_units` 默认读取 active 池，把任务拆成多个 `ts_code` unit。
+1. `build_index_daily_units` 默认读取 `ops.index_series_active resource='index_daily_raw'`，把任务拆成多个 `ts_code` unit。
 2. `_index_daily_params` 要求必须有 `ts_code`。
-3. writer 的 `raw_core_upsert` 把同一批 `rows_normalized` 同时写入 raw 和 serving。
-4. 因为请求阶段已经按 active 池拆代码，raw 和 serving 当前都会只有 active 范围内的数据。
+3. writer 使用 `raw_index_daily_serving_upsert`：同一批 `rows_normalized` 先完整写 raw，再按 `resource='index_daily'` active 池过滤写 serving。
+4. 因为请求阶段按 `index_daily_raw` 池拆代码，raw 覆盖的是请求池返回事实；serving 覆盖的是 `index_daily` active 池命中的业务事实。
 
 问题：
 
-raw 被 active 池约束了，不是 Tushare 源站全量事实。
+早期文档曾写过另一套“源站直取”口径。该口径已经废弃。当前确认口径是：用 `index_daily_raw` 请求池逐代码请求，raw 全写本次返回，serving 再由 `index_daily` active 池过滤。
 
 ### 3.2 `index_weekly` / `index_monthly`
 
@@ -109,8 +123,8 @@ unit_builder_key = generic
 ```text
 源站请求结果
   -> normalize
-  -> raw 写完整源站返回
-  -> active 池过滤
+  -> raw 写完整本次请求返回
+  -> serving active 池过滤
   -> core_serving 只写 active 命中的数据
 ```
 
@@ -122,20 +136,20 @@ unit_builder_key = generic
 flowchart TD
   A["DatasetActionRequest: index_daily maintain"] --> B["DatasetActionResolver"]
   B --> C["DatasetExecutionPlan"]
-  C --> D["unit: 日期锚点或日期区间"]
+  C --> D["unit: 日期锚点或日期区间 + index_daily_raw 请求池 ts_code"]
   D --> E["Tushare index_daily 请求"]
-  E --> F["返回源站全量指数日线"]
-  F --> G["写 raw_tushare.index_daily: 全量源站行"]
-  F --> H["按 active 池过滤"]
+  E --> F["返回请求池对应指数日线"]
+  F --> G["写 raw_tushare.index_daily: 完整写本次返回行"]
+  F --> H["按 index_daily active 池过滤"]
   H --> I["写 core_serving.index_daily_serving: active 池行"]
 ```
 
 落地要点：
 
-1. 默认维护不再按 active 池拆 `ts_code` 请求。
-2. `_index_daily_params` 在默认维护下不传 `ts_code`，只传 `trade_date` 或 `start_date/end_date`。
-3. raw 写入完整 API 返回行。
-4. serving 写入 raw 同批数据中命中 active 池的行。
+1. 默认维护按 `ops.index_series_active resource='index_daily_raw'` 拆 `ts_code` 请求。
+2. `_index_daily_params` 必须带 `ts_code`，同时按单日或区间传 `trade_date` / `start_date,end_date`。
+3. raw 写入完整 API 返回行，不再按 `resource='index_daily'` serving active 池裁剪。
+4. serving 写入 raw 同批数据中命中 `resource='index_daily'` active 池的行。
 5. 如果用户显式指定 `ts_code`，只影响源站请求范围；返回数据仍先写 raw，再经过 active 池门禁决定是否写入 serving。
 6. 如果显式指定的 `ts_code` 不在 active 池，raw 可以写入，serving 必须不写入。
 
@@ -181,10 +195,10 @@ flowchart TD
 
 改造方向：
 
-1. `index_daily` 默认维护 unit 不再由 active 池展开。
-2. `index_daily` 默认请求参数允许不带 `ts_code`。
-3. `index_daily` 仍保留显式 `ts_code` 输入能力，但它只表示源站局部请求范围，不表示 serving 写入特权。
-4. DatasetDefinition 中 `universe_policy` 要与真实行为一致，不能继续表达“默认按 active 池展开请求”。
+1. `index_daily` 默认维护 unit 由 `resource='index_daily_raw'` 请求池展开。
+2. `index_daily` 默认请求参数必须带 `ts_code`。
+3. `index_daily` 仍保留显式 `ts_code` 输入能力；显式输入只表示源站局部请求范围，不表示 serving 写入特权。
+4. DatasetDefinition 当前为 `universe_policy='no_pool'`，但 custom unit builder 会读取 `index_daily_raw` 请求池；如后续要把该来源写入 `planning.universe`，必须单独立项，不能在本方案中顺手改。
 
 边界：
 
@@ -260,7 +274,7 @@ flowchart TD
 原因：
 
 1. 周线/月线 serving 派生依赖日线 serving。
-2. raw 语义变化后，旧 raw 数据无法通过增量自然修正为源站全量。
+2. raw 语义变化后，旧 raw 数据无法通过增量自然修正为请求池完整返回事实。
 3. serving 语义虽然已基本接近目标，但为避免新旧写法混杂，建议与 raw 一起重建。
 
 ---
@@ -269,7 +283,7 @@ flowchart TD
 
 ### 7.1 表语义验收
 
-1. `raw_tushare.index_daily` 可以包含非 active 池指数。
+1. `raw_tushare.index_daily` 可以包含不在 `resource='index_daily'` serving active 池内、但在 `resource='index_daily_raw'` 请求池或显式请求范围内的指数。
 2. `raw_tushare.index_weekly_bar` 可以包含非 active 池指数。
 3. `raw_tushare.index_monthly_bar` 可以包含非 active 池指数。
 4. `core_serving.index_daily_serving` 只能包含 active 池指数。
@@ -299,9 +313,9 @@ flowchart TD
 
 建议新增或更新测试覆盖：
 
-1. `index_daily` 默认请求不再展开 active 池代码。
-2. `index_daily` 默认请求参数可以不带 `ts_code`。
-3. `index_daily` writer：raw 写全量，serving 只写 active。
+1. `index_daily` 默认请求按 `resource='index_daily_raw'` 请求池展开代码。
+2. `index_daily` 默认请求参数必须带 `ts_code`。
+3. `index_daily` writer：raw 全写本次返回，serving 只写 active。
 4. `index_weekly` writer：raw 写全量，serving 只写 active + derived。
 5. `index_monthly` writer：raw 写全量，serving 只写 active + derived。
 6. 非 active 源站行不计入 rejected reason。
@@ -344,7 +358,7 @@ python3 scripts/check_docs_integrity.py
 
 交付物：
 
-- 覆盖 index daily raw 全量、serving active 的测试。
+- 覆盖 index daily 按 `index_daily_raw` 请求池展开、raw 全写本次返回、serving active 过滤的测试。
 - 覆盖 index weekly/monthly raw 全量、serving active + derived 的测试。
 
 验收：
@@ -356,13 +370,13 @@ python3 scripts/check_docs_integrity.py
 
 交付物：
 
-- `index_daily` 默认不再按 active 池请求。
-- `index_daily` raw 写全量。
+- `index_daily` 默认按 `index_daily_raw` 请求池请求。
+- `index_daily` raw 全写本次返回。
 - `index_daily` serving 写 active。
 
 验收：
 
-- 单日任务 raw 与 serving code 集合允许不同。
+- 单日任务 raw 与 serving code 集合允许不同：raw 可包含 `index_daily_raw` 请求池命中的非 serving active 代码。
 - serving code 集合不超出 active 池。
 
 ### M4：周线/月线 writer 收口
@@ -410,8 +424,8 @@ python3 scripts/check_docs_integrity.py
 ## 10. 风险控制
 
 1. `raw_core_upsert` 是通用写入路径，不能为了 `index_daily` 改全局行为。
-2. raw 全量写入后，raw 表行数会明显增加，这是目标结果，不是异常。
+2. raw 全写本次请求返回后，raw 表行数可能高于 serving，这是目标结果，不是异常。
 3. serving 仍受 active 池约束，因此前端、业务 API、审查中心默认不应直接消费 raw 表。
 4. 周线/月线派生依赖日线 serving，因此重跑顺序必须是日线先完成，再跑周线和月线。
 5. 任何清表、重建、远程执行都不属于本方案文档创建动作，必须单独确认。
-6. active 池门禁只能放在 serving 写入前，不允许前移到源站请求或 raw 写入前。
+6. `resource='index_daily'` active 池门禁只能放在 serving 写入前，不允许前移到 raw 写入前；日线源站请求范围由 `resource='index_daily_raw'` 请求池决定。

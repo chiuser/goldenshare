@@ -13,11 +13,12 @@
 1. `ops.index_series_active` 是指数行情维护对象池。
 2. 当前业务口径使用 `resource='index_daily'` 作为指数日线、周线、月线共同的 `core_serving` 入库门禁。
 3. active 池不是 TaskRun 观测表，不允许随任务观测表清空。
-4. 当前 ingestion 主链不会用 active 池裁剪源站请求结果或 raw 写入。
-5. raw 层对齐 Tushare 源站事实；`core_serving` 层只写 active 池命中的指数代码。
-6. 显式 `ts_code` 只是源站请求参数，不是写入 `core_serving` 的特权；非 active 代码只能写 raw，不能写穿 `core_serving`。
-7. 周线、月线的派生发生在同步 `index_weekly`、`index_monthly` 时，不发生在同步 `index_daily` 时。
-8. 周线、月线最终 serving 表通过 `source` 字段区分来源：
+4. `index_daily` 源站请求范围由 `resource='index_daily_raw'` 请求池决定，默认逐 `ts_code` 请求 Tushare。
+5. 当前 ingestion 主链不会用 `resource='index_daily'` serving active 池裁剪源站请求结果或 raw 写入。
+6. raw 层对齐本次源站请求返回事实；`core_serving` 层只写 `resource='index_daily'` active 池命中的指数代码。
+7. 显式 `ts_code` 只是源站请求参数，不是写入 `core_serving` 的特权；非 active 代码只能写 raw，不能写穿 `core_serving`。
+8. 周线、月线的派生发生在同步 `index_weekly`、`index_monthly` 时，不发生在同步 `index_daily` 时。
+9. 周线、月线最终 serving 表通过 `source` 字段区分来源：
    - `api`：来自 Tushare 周线/月线接口。
    - `derived_daily`：由指数日线派生补齐。
 
@@ -26,6 +27,7 @@
 | 项目 | 当前值 |
 | --- | ---: |
 | `ops.index_series_active resource='index_daily'` | 1130 个代码 |
+| `ops.index_series_active resource='index_daily_raw'` | 日线源站请求池，逐代码请求 Tushare |
 | active 池来源 | 基于 2026-04-15 指数日线 code 集合审阅后写入 |
 | 周线/月线展示来源 | TaskRun view 按最终 serving 表只读统计 |
 
@@ -61,9 +63,9 @@ active 池表：`ops.index_series_active`
 
 当前行为：
 
-1. 默认维护不按 active 池拆 `ts_code` 请求；请求参数只带 `trade_date` 或 `start_date/end_date`。
-2. 如果用户显式传入 `ts_code`，它只限定源站请求范围。
-3. raw 表写入源站返回的完整行。
+1. 默认维护读取 `ops.index_series_active resource='index_daily_raw'`，按其中的指数代码逐 `ts_code` 请求 Tushare。
+2. 如果用户显式传入 `ts_code`，它只限定源站请求范围，不再读取默认请求池。
+3. raw 表写入本次源站请求返回的完整行。
 4. `core_serving.index_daily_serving` 写入前必须经过 active 池过滤，只保留 `resource='index_daily'` 命中的代码。
 5. 显式传入非 active `ts_code` 时，raw 可以写入，`core_serving` 不得写入。
 6. 日线任务只写日线相关表，不派生周线或月线。
@@ -71,8 +73,9 @@ active 池表：`ops.index_series_active`
 
 说明：
 
+- `resource='index_daily_raw'` 是日线请求池；`resource='index_daily'` 是 serving 门禁池，两个资源名不能混用。
 - active 池当前是运维审阅后的 serving 门禁集合，不是日线同步过程中的自动产物。
-- 如果要调整 active 池，应走单独的指数对象池审阅/重建流程，不应依赖“跑一次日线任务”隐式改变对象池。
+- 如果要调整 serving active 池，应走单独的指数对象池审阅/重建流程，不应依赖“跑一次日线任务”隐式改变对象池。
 
 ### 3.2 `index_weekly`
 
@@ -204,7 +207,7 @@ union all select 'monthly_only_vs_daily', count(*) from (select ts_code from m e
 2. 不允许在前端或 Ops 层重新实现周线/月线派生规则。
 3. 不允许在同步日线时顺手派生周线/月线。
 4. 不允许让 TaskRun 观测统计影响业务表写入或事务提交。
-5. 不允许把 active 池门禁前移到源站请求或 raw 写入前；active 池只能约束 `core_serving` 入库。
+5. 不允许把 `resource='index_daily'` serving active 池门禁前移到源站请求或 raw 写入前；日线源站请求范围由 `resource='index_daily_raw'` 请求池决定。
 6. 如果要调整 active 池来源，必须同步更新：
    - 本文档。
    - DatasetDefinition / planning 相关说明。

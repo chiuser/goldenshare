@@ -151,7 +151,7 @@ P0：已发生事故或具备明显大事务风险：
 | `stk_mins` | 全市场分钟线，数据量巨大，事故已发生 | 必须评估单个事务的写入量，做真实计算 |
 | `stk_factor_pro` | 宽表，全市场日频，分页量大 | 必须评估单个事务的写入量，做真实计算 |
 | `dc_member` | 单日大量成分数据，分页量大 | 必须评估单个事务的写入量，做真实计算 |
-| `index_daily` | 默认请求源站全量，raw 与 serving 分层写入；区间任务量可能较大 | 必须评估单个事务的写入量，做真实计算 |
+| `index_daily` | 默认按 `index_daily_raw` 请求池逐指数请求，raw 全写本次返回，serving 按 `index_daily` active 池过滤；区间任务量可能较大 | 必须评估单个事务的写入量，做真实计算 |
 | `index_weight` | 指数区间/月度窗口，单指数区间可能较长 | 必须评估单个事务的写入量，做真实计算 |
 
 P1：纳入 unit 级提交治理，排在 P0 后：
@@ -437,7 +437,7 @@ class DatasetPlanExecutor:
 
 | dataset | 旧入口 | 新 plan |
 |---|---|---|
-| `index_daily` 区间维护 | 指数区间旧入口 | `run_profile=range_rebuild`，默认不按 active 池拆 `ts_code`；请求源站区间数据，raw 写完整返回，serving 写入前按 active 池过滤 |
+| `index_daily` 区间维护 | 指数区间旧入口 | `run_profile=range_rebuild`，默认按 `ops.index_series_active resource='index_daily_raw'` 拆 `ts_code` 请求；raw 写完整返回，serving 写入前按 `resource='index_daily'` active 池过滤 |
 | `dc_hot` 区间维护 | 交易日区间旧入口 | `run_profile=range_rebuild`，`fanout_axes=["trade_date","market","hot_type","is_new"]`，默认扇出市场/热点类型/最新标记 |
 | `broker_recommend` 月份维护 | 月份区间旧入口 | `run_profile=range_rebuild`，`fanout_axes=["month"]`，按 `YYYYMM` 月份键生成 unit；`month` 不是月初/月中/月尾日期，而是自然月桶标识，来源于 `DatasetDateModel(date_axis="month_key", bucket_rule="every_natural_month")` |
 | `stk_mins` 区间维护 | 分钟行情旧入口 | `run_profile=range_rebuild`，`fanout_axes=["ts_code","freq"]`，时间窗口进入 unit request params，`commit_policy=per_unit` |

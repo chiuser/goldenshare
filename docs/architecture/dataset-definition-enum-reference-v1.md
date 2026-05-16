@@ -218,7 +218,7 @@
 | --- | --- | --- |
 | `raw_core_upsert` | raw 与 core/serving upsert 主路径 | 50 |
 | `raw_only_upsert` | 只写 raw，serving 通过 view 或轻量层提供 | 15 |
-| `raw_index_daily_serving_upsert` | 指数日线 raw 全量、serving active 池门禁写入 | 1 |
+| `raw_index_daily_serving_upsert` | 指数日线 raw 全写本次返回、serving active 池门禁写入 | 1 |
 | `raw_index_period_serving_upsert` | 指数周/月线 raw 全量、serving active 池门禁与日线派生补齐 | 2 |
 | `raw_std_publish_moneyflow` | Tushare 资金流多源发布 | 1 |
 | `raw_std_publish_moneyflow_biying` | Biying 资金流多源发布 | 1 |

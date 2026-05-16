@@ -10,7 +10,7 @@
 
 ## 1. 背景
 
-`index_basic` 是指数类数据集的基础池。后续 `index_daily`、`index_weekly`、`index_monthly`、`index_weight` 等能力会依赖它提供指数代码范围。
+`index_basic` 是指数类数据集的重要基础池。当前 `index_weight` 等链路会用它作为指数代码 fallback；`index_daily` 主链不直接用 `index_basic` 请求源站，而是使用 `ops.index_series_active resource='index_daily_raw'` 作为请求池，再用 `resource='index_daily'` 作为 serving 入库门禁。
 
 当前实现已经能维护基础字段，但与 Tushare 源文档相比存在几个关键偏差：参数声明不完整、市场枚举没有建模、默认全量如果误设市场会被错误缩窄、日期模型和表结构语义不够干净。
 

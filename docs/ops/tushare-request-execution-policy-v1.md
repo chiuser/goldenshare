@@ -178,8 +178,8 @@
 - 接口：`index_daily`
 - 源文档：`docs/sources/tushare/指数专题/0095_指数日线行情.md`
 - 分页：`limit=8000`（文档单次上限），`offset` 递增分页。
-- 默认请求：不按 active 池拆 `ts_code`；单日传 `trade_date`，区间传 `start_date/end_date`，raw 写入源站完整返回。
-- 用户传参规则：用户若显式传 `ts_code`，只作为源站局部请求参数；可组合；未传不补。
+- 默认请求：读取 `ops.index_series_active resource='index_daily_raw'` 请求池，逐 `ts_code` 请求；单日传 `ts_code + trade_date`，区间传 `ts_code + start_date/end_date`，raw 全写本次源站返回。
+- 用户传参规则：用户若显式传 `ts_code`，只作为源站局部请求参数；未传则使用 `index_daily_raw` 请求池。
 - 时间执行：以交易日为基准；区间任务先筛交易日，再逐日请求。
 - 写入门禁：`core_serving.index_daily_serving` 写入前按 `resource='index_daily'` active 池过滤；非 active 代码只允许写 raw，不允许写穿 serving。
 
