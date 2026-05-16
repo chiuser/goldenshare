@@ -24,6 +24,43 @@ def _drop_run_constraint_if_exists(name: str) -> None:
     op.execute(sa.text(f'ALTER TABLE "{OPS_SCHEMA}"."{RUN_TABLE}" DROP CONSTRAINT IF EXISTS "{name}"'))
 
 
+def _drop_run_result_status_constraint_variants(result_status: str, *names: str) -> None:
+    """Drop old result-status check constraints regardless of SQLAlchemy naming-convention shape."""
+
+    quoted_names = ", ".join(f"'{name}'" for name in names)
+    op.execute(
+        sa.text(
+            f"""
+            DO $$
+            DECLARE constraint_to_drop text;
+            BEGIN
+                FOR constraint_to_drop IN
+                    SELECT conname
+                    FROM pg_constraint
+                    WHERE conrelid = '{OPS_SCHEMA}.{RUN_TABLE}'::regclass
+                      AND contype = 'c'
+                      AND (
+                          conname IN ({quoted_names})
+                          OR (
+                              pg_get_constraintdef(oid) ILIKE '%result_status%'
+                              AND pg_get_constraintdef(oid) ILIKE '%{result_status}%'
+                              AND pg_get_constraintdef(oid) ILIKE '%missing_bucket_count%'
+                          )
+                      )
+                LOOP
+                    EXECUTE format(
+                        'ALTER TABLE %I.%I DROP CONSTRAINT IF EXISTS %I',
+                        '{OPS_SCHEMA}',
+                        '{RUN_TABLE}',
+                        constraint_to_drop
+                    );
+                END LOOP;
+            END $$;
+            """
+        )
+    )
+
+
 def upgrade() -> None:
     op.add_column(
         "dataset_date_completeness_run",
@@ -102,10 +139,18 @@ def upgrade() -> None:
         "affected_subject_count >= 0",
         schema=OPS_SCHEMA,
     )
-    _drop_run_constraint_if_exists("ck_dataset_date_completeness_passed_has_no_missing")
-    _drop_run_constraint_if_exists("dataset_date_completeness_passed_has_no_missing")
-    _drop_run_constraint_if_exists("ck_dataset_date_completeness_failed_has_missing")
-    _drop_run_constraint_if_exists("dataset_date_completeness_failed_has_missing")
+    _drop_run_result_status_constraint_variants(
+        "passed",
+        "ck_dataset_date_completeness_passed_has_no_missing",
+        "dataset_date_completeness_passed_has_no_missing",
+        "ck_dataset_date_completeness_run_ck_dataset_date_comple_b204",
+    )
+    _drop_run_result_status_constraint_variants(
+        "failed",
+        "ck_dataset_date_completeness_failed_has_missing",
+        "dataset_date_completeness_failed_has_missing",
+        "ck_dataset_date_completeness_run_ck_dataset_date_comple_c359",
+    )
     op.create_check_constraint(
         "ck_dataset_date_completeness_passed_has_no_missing",
         "dataset_date_completeness_run",
@@ -211,10 +256,18 @@ def downgrade() -> None:
     op.drop_index("idx_dataset_subject_completeness_gap_run", table_name="dataset_subject_completeness_gap", schema=OPS_SCHEMA)
     op.drop_table("dataset_subject_completeness_gap", schema=OPS_SCHEMA)
 
-    _drop_run_constraint_if_exists("ck_dataset_date_completeness_failed_has_missing")
-    _drop_run_constraint_if_exists("dataset_date_completeness_failed_has_missing")
-    _drop_run_constraint_if_exists("ck_dataset_date_completeness_passed_has_no_missing")
-    _drop_run_constraint_if_exists("dataset_date_completeness_passed_has_no_missing")
+    _drop_run_result_status_constraint_variants(
+        "failed",
+        "ck_dataset_date_completeness_failed_has_missing",
+        "dataset_date_completeness_failed_has_missing",
+        "ck_dataset_date_completeness_run_ck_dataset_date_comple_c359",
+    )
+    _drop_run_result_status_constraint_variants(
+        "passed",
+        "ck_dataset_date_completeness_passed_has_no_missing",
+        "dataset_date_completeness_passed_has_no_missing",
+        "ck_dataset_date_completeness_run_ck_dataset_date_comple_b204",
+    )
     op.create_check_constraint(
         "ck_dataset_date_completeness_passed_has_no_missing",
         "dataset_date_completeness_run",
