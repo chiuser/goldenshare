@@ -2244,7 +2244,7 @@ compute_max_unit_retries = 1</pre>
           <td>M3 single writer</td>
           <td>实现 candidate_part 汇总、审计、Kopia 写前备份和两类发布接口。</td>
           <td>publish partition + audit ledger。</td>
-          <td>单 writer 可发布测试 candidate；queue/source event 成功后才允许 gate passed；失败恢复演练通过。</td>
+          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。后续 M3-B 才进入 Kopia 写前备份与正式发布窗口。</td>
         </tr>
         <tr>
           <td>M4 qfq 接入</td>

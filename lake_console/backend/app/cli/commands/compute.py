@@ -3,6 +3,7 @@ from __future__ import annotations
 import argparse
 
 from lake_console.backend.app.cli.commands.common import add_lake_root_arg, parse_freqs, print_json, settings_from_args
+from lake_console.backend.app.services.duckdb_compute_audit_service import DuckDbComputeAuditService
 from lake_console.backend.app.services.duckdb_compute_executor_service import DuckDbComputeExecutorService
 from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDbComputePlanService
 
@@ -34,6 +35,14 @@ def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     add_lake_root_arg(compute_parser)
     compute_parser.add_argument("--run-id", required=True, help="prepare-stk-mins-qfq-run 生成的 run_id")
     compute_parser.set_defaults(handler=_handle_compute_stk_mins_qfq_candidates)
+
+    audit_parser = subparsers.add_parser(
+        "audit-stk-mins-qfq-candidates",
+        help="汇总并审计 stk_mins qfq candidate_parts；只写 audit ledger 和 publish manifest，不发布正式分区",
+    )
+    add_lake_root_arg(audit_parser)
+    audit_parser.add_argument("--run-id", required=True, help="compute-stk-mins-qfq-candidates 完成后的 run_id")
+    audit_parser.set_defaults(handler=_handle_audit_stk_mins_qfq_candidates)
 
 
 def _handle_plan_stk_mins_qfq(args: argparse.Namespace) -> int:
@@ -70,6 +79,16 @@ def _handle_compute_stk_mins_qfq_candidates(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_audit_stk_mins_qfq_candidates(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputeAuditService(settings=settings).audit_stk_mins_qfq_candidates(
+        run_id=args.run_id,
+        progress_callback=_print_audit_progress,
+    )
+    print_json(summary)
+    return 0
+
+
 def _print_compute_progress(event: dict[str, object]) -> None:
     if event.get("event") == "unit_started":
         print(
@@ -83,4 +102,20 @@ def _print_compute_progress(event: dict[str, object]) -> None:
             "[duckdb_compute] "
             f"unit_done={event.get('unit_index')}/{event.get('unit_count')} "
             f"{event.get('unit_key')} rows={event.get('row_count')}"
+        )
+
+
+def _print_audit_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "partition_audit_started":
+        print(
+            "[duckdb_compute] "
+            f"audit={event.get('partition_index')}/{event.get('partition_count')} "
+            f"{event.get('partition_key')}"
+        )
+        return
+    if event.get("event") == "partition_audit_finished":
+        print(
+            "[duckdb_compute] "
+            f"audit_done={event.get('partition_index')}/{event.get('partition_count')} "
+            f"{event.get('partition_key')} issues={event.get('issue_count')}"
         )
