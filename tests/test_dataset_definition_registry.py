@@ -45,13 +45,13 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 65,
-            "pool": 4,
-            "index_active_codes": 1,
+            "pool": 5,
             "dc_index_board_codes": 1,
             "ths_index_board_codes": 1,
         }
     )
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
+    assert {dataset_key for dataset_key, policy in policies.items() if policy == "index_active_codes"} == set()
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -133,6 +133,44 @@ def test_dataset_definition_projects_daily_basic_subject_completeness_facts() ->
     assert definition.completeness.active_status_values == ("L",)
 
 
+def test_dataset_definition_projects_stk_limit_subject_completeness_facts() -> None:
+    definition = get_dataset_definition("stk_limit")
+
+    assert definition.storage.target_table == "core_serving.equity_stk_limit"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.completeness.scope == "date_subject_matrix"
+    assert definition.completeness.subject_kind == "stock"
+    assert definition.completeness.subject_key_fields == ("ts_code",)
+    assert definition.completeness.actual_key_fields == ("ts_code",)
+    assert definition.completeness.universe_strategy == "stock_basic_active_lifecycle"
+    assert definition.completeness.universe_source_table == "core_serving.security_serving"
+    assert definition.completeness.universe_key_field == "ts_code"
+    assert definition.completeness.universe_name_field == "name"
+    assert definition.completeness.lifecycle_start_field == "list_date"
+    assert definition.completeness.lifecycle_end_field == "delist_date"
+    assert definition.completeness.status_field == "list_status"
+    assert definition.completeness.active_status_values == ("L",)
+
+
+def test_dataset_definition_projects_stk_factor_pro_subject_completeness_facts() -> None:
+    definition = get_dataset_definition("stk_factor_pro")
+
+    assert definition.storage.target_table == "core_serving.equity_factor_pro"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.completeness.scope == "date_subject_matrix"
+    assert definition.completeness.subject_kind == "stock"
+    assert definition.completeness.subject_key_fields == ("ts_code",)
+    assert definition.completeness.actual_key_fields == ("ts_code",)
+    assert definition.completeness.universe_strategy == "stock_basic_active_lifecycle"
+    assert definition.completeness.universe_source_table == "core_serving.security_serving"
+    assert definition.completeness.universe_key_field == "ts_code"
+    assert definition.completeness.universe_name_field == "name"
+    assert definition.completeness.lifecycle_start_field == "list_date"
+    assert definition.completeness.lifecycle_end_field == "delist_date"
+    assert definition.completeness.status_field == "list_status"
+    assert definition.completeness.active_status_values == ("L",)
+
+
 def test_dataset_definition_subject_matrix_scope_is_not_inferred_from_ts_code() -> None:
     matrix_keys = {
         definition.dataset_key
@@ -140,7 +178,7 @@ def test_dataset_definition_subject_matrix_scope_is_not_inferred_from_ts_code() 
         if definition.completeness.scope == "date_subject_matrix"
     }
 
-    assert matrix_keys == {"adj_factor", "daily", "daily_basic"}
+    assert matrix_keys == {"adj_factor", "daily", "daily_basic", "stk_limit", "stk_factor_pro"}
     for definition in list_dataset_definitions():
         if not definition.date_model.audit_applicable:
             assert definition.completeness.scope == "not_applicable"
@@ -267,6 +305,18 @@ def test_index_weight_declares_minimal_universe_pool() -> None:
     assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
         ("ops_index_series_active", "index_weight"),
         ("core_index_basic_active", None),
+    ]
+
+
+def test_index_mins_declares_index_mins_active_pool() -> None:
+    definition = get_dataset_definition("index_mins")
+
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "ts_code"
+    assert definition.planning.universe.override_fields == ("ts_code",)
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("ops_index_series_active", "index_mins"),
     ]
 
 

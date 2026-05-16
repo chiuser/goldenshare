@@ -839,6 +839,160 @@ def test_date_subject_matrix_worker_supports_daily_basic_dataset(app_client, use
     assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-04-23"}
 
 
+def test_date_subject_matrix_worker_supports_stk_limit_dataset(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 24), is_open=True, pretrade_date=date(2026, 4, 23)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 27), is_open=True, pretrade_date=date(2026, 4, 24)),
+            Security(ts_code="000001.SZ", name="平安银行", list_status="L", list_date=date(1991, 4, 3), security_type="EQUITY"),
+            Security(ts_code="001257.SZ", name="立新能源", list_status="L", list_date=date(2022, 7, 27), security_type="EQUITY"),
+        ]
+    )
+    db_session.execute(
+        text(
+            """
+            create table core_serving.equity_stk_limit (
+                ts_code text not null,
+                trade_date date not null
+            )
+            """
+        )
+    )
+    db_session.execute(
+        text(
+            """
+            insert into core_serving.equity_stk_limit (ts_code, trade_date)
+            values
+              ('000001.SZ', '2026-04-24'),
+              ('001257.SZ', '2026-04-24'),
+              ('000001.SZ', '2026-04-27')
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "stk_limit",
+            "start_date": "2026-04-24",
+            "end_date": "2026-04-27",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "stk_limit"
+    assert run.target_table == "core_serving.equity_stk_limit"
+    assert run.audit_scope == "date_subject_matrix"
+    assert run.subject_kind == "stock"
+    assert run.result_status == "failed"
+    assert run.expected_bucket_count == 2
+    assert run.actual_bucket_count == 2
+    assert run.missing_bucket_count == 0
+    assert run.expected_cell_count == 4
+    assert run.actual_cell_count == 3
+    assert run.missing_cell_count == 1
+    assert run.affected_bucket_count == 1
+    assert run.affected_subject_count == 1
+
+    details = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run.id)
+            .order_by(DatasetSubjectCompletenessGapDetail.bucket_value.asc())
+        )
+    )
+    assert len(details) == 1
+    assert details[0].bucket_value == date(2026, 4, 27)
+    assert details[0].subject_key == "001257.SZ"
+    assert details[0].subject_name == "立新能源"
+    assert details[0].target_table == "core_serving.equity_stk_limit"
+    assert details[0].subject_key_json == {"ts_code": "001257.SZ"}
+    assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-04-27"}
+
+
+def test_date_subject_matrix_worker_supports_stk_factor_pro_dataset(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 28), is_open=True, pretrade_date=date(2026, 4, 27)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 29), is_open=True, pretrade_date=date(2026, 4, 28)),
+            Security(ts_code="000001.SZ", name="平安银行", list_status="L", list_date=date(1991, 4, 3), security_type="EQUITY"),
+            Security(ts_code="001257.SZ", name="立新能源", list_status="L", list_date=date(2022, 7, 27), security_type="EQUITY"),
+        ]
+    )
+    db_session.execute(
+        text(
+            """
+            create table core_serving.equity_factor_pro (
+                ts_code text not null,
+                trade_date date not null
+            )
+            """
+        )
+    )
+    db_session.execute(
+        text(
+            """
+            insert into core_serving.equity_factor_pro (ts_code, trade_date)
+            values
+              ('000001.SZ', '2026-04-28'),
+              ('001257.SZ', '2026-04-28'),
+              ('000001.SZ', '2026-04-29')
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "stk_factor_pro",
+            "start_date": "2026-04-28",
+            "end_date": "2026-04-29",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "stk_factor_pro"
+    assert run.target_table == "core_serving.equity_factor_pro"
+    assert run.audit_scope == "date_subject_matrix"
+    assert run.subject_kind == "stock"
+    assert run.result_status == "failed"
+    assert run.expected_bucket_count == 2
+    assert run.actual_bucket_count == 2
+    assert run.missing_bucket_count == 0
+    assert run.expected_cell_count == 4
+    assert run.actual_cell_count == 3
+    assert run.missing_cell_count == 1
+    assert run.affected_bucket_count == 1
+    assert run.affected_subject_count == 1
+
+    details = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run.id)
+            .order_by(DatasetSubjectCompletenessGapDetail.bucket_value.asc())
+        )
+    )
+    assert len(details) == 1
+    assert details[0].bucket_value == date(2026, 4, 29)
+    assert details[0].subject_key == "001257.SZ"
+    assert details[0].subject_name == "立新能源"
+    assert details[0].target_table == "core_serving.equity_factor_pro"
+    assert details[0].subject_key_json == {"ts_code": "001257.SZ"}
+    assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-04-29"}
+
+
 def test_date_subject_matrix_worker_passes_when_all_subject_cells_exist(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
     db_session.add_all(

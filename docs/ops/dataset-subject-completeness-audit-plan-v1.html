@@ -270,12 +270,13 @@
     <h1>数据集日期对象矩阵完整性审计方案 v1</h1>
     <p>
       本文定义“日期桶审计”之后的第二阶段能力：在指定日期范围内，检查每个应覆盖对象是否在每个应检查日期桶都有数据。
-      小闭环已接入 <code>adj_factor</code>、<code>daily</code> 与 <code>daily_basic</code>，
+      小闭环已接入 <code>adj_factor</code>、<code>daily</code>、<code>daily_basic</code>、<code>stk_limit</code> 与
+      <code>stk_factor_pro</code>，
       用 <code>stock_basic</code> 中已上市且未退市股票作为对象池。
-      M5 第一批扩展按逐数据集小闭环推进，先计划，再逐个编码与验证。
+      M5 第一批扩展已完成本地代码闭环；部署后再逐个做真实小窗口审计验证。
     </p>
     <div class="meta">
-      <span class="pill">状态：M5-2 daily_basic 小闭环</span>
+      <span class="pill">状态：M5-4 第一批本地小闭环完成</span>
       <span class="pill">目录：docs/ops</span>
       <span class="pill">范围：审查中心 / 数据集审计</span>
       <span class="pill">不改数据维护主链</span>
@@ -865,9 +866,9 @@ where a.ts_code is null;</code></pre>
   <section class="card">
     <h2>11.1 M5 第一批逐数据集执行计划</h2>
     <div class="callout ok">
-      <strong>M5-2 范围</strong>
-      <code>daily</code> 小闭环已完成；本轮只接入 <code>daily_basic</code> 小闭环，
-      不提前修改 <code>stk_limit</code> 与 <code>stk_factor_pro</code>。
+      <strong>M5-4 本地小闭环</strong>
+      <code>daily</code>、<code>daily_basic</code>、<code>stk_limit</code> 与 <code>stk_factor_pro</code>
+      均已接入本地小闭环。下一步在部署后逐个创建真实 1-2 个交易日审计任务验证耗时与结果。
     </div>
     <table>
       <thead>
@@ -941,6 +942,8 @@ where a.ts_code is null;</code></pre>
         <td>
           使用股票主数据生命周期池。该数据集表达每日涨跌停价，不是涨跌停事件榜单；
           因此对象池应按所有有效股票覆盖，而不是只检查发生涨停/跌停的股票。
+          Tushare 源接口说明包含 A/B 股与基金，本轮 M5 只按已确认的股票生命周期池做对象矩阵；
+          若后续需要纳入基金或其他对象，必须先新增并评审对象池策略。
         </td>
         <td><code>core_serving.equity_stk_limit</code></td>
         <td>
@@ -989,7 +992,7 @@ where a.ts_code is null;</code></pre>
     </table>
     <h3>11.2 M5 每个数据集的推进规则</h3>
     <ol>
-      <li>每轮只接入一个数据集；当前代码轮次只接入 <code>daily_basic</code>。</li>
+      <li>M5 第一批已完成本地接入；真实环境仍按 <code>daily</code>、<code>daily_basic</code>、<code>stk_limit</code>、<code>stk_factor_pro</code> 顺序逐个小窗口验证。</li>
       <li>接入前必须确认 <code>DatasetDefinition.storage.target_table</code>、<code>date_model.observed_field</code>、目标 ORM 主键与索引。</li>
       <li>接入时只修改该数据集的 <code>completeness</code> 配置和必要测试，不改审计 executor 的通用逻辑，除非测试证明现有 executor 无法表达该数据集。</li>
       <li>接入后必须先跑测试门禁，再做小窗口真实审计；真实审计窗口建议 1-2 个交易日。</li>
@@ -1080,7 +1083,7 @@ where a.ts_code is null;</code></pre>
       </tr>
       <tr>
         <td>DatasetDefinition 事实源</td>
-        <td>M1 后 <code>DatasetDefinition</code> 已新增独立 <code>completeness</code> 配置，当前仅 <code>adj_factor</code> 启用 <code>date_subject_matrix</code>。</td>
+        <td>M5-4 后 <code>DatasetDefinition</code> 已为 <code>adj_factor</code>、<code>daily</code>、<code>daily_basic</code>、<code>stk_limit</code> 与 <code>stk_factor_pro</code> 启用 <code>date_subject_matrix</code>。</td>
         <td>后续扩展数据集时仍必须逐个评审对象池语义，不得把对象池语义塞进 <code>date_model</code> 或复用 <code>row_identity_filters</code>。</td>
       </tr>
       <tr>
