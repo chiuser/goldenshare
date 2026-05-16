@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import subprocess
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
@@ -30,13 +31,21 @@ class DuckDbComputePlanService:
         self.settings = settings
         self.lake_root = settings.lake_root.resolve()
 
-    def plan_stk_mins_qfq(self, *, start_date: str, end_date: str, freqs: Iterable[int]) -> dict[str, Any]:
+    def plan_stk_mins_qfq(
+        self,
+        *,
+        start_date: str,
+        end_date: str,
+        freqs: Iterable[int],
+        run_id: str | None = None,
+        plan_type: str = "stk_mins_qfq_dry_run",
+    ) -> dict[str, Any]:
         range_start = _parse_date(start_date, label="start_date")
         range_end = _parse_date(end_date, label="end_date")
         if range_start > range_end:
             raise ValueError(f"start_date 不能晚于 end_date：{start_date} > {end_date}")
         selected_freqs = _normalize_freqs(freqs)
-        run_id = f"dryrun-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-stk-mins-qfq-{uuid4().hex[:6]}"
+        effective_run_id = run_id or f"dryrun-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-stk-mins-qfq-{uuid4().hex[:6]}"
         effective_config = self._effective_config()
         config_hash = _sha256_json(effective_config)
 
@@ -64,7 +73,7 @@ class DuckDbComputePlanService:
         units: list[dict[str, Any]] = []
         publish_partitions: list[dict[str, Any]] = []
         if not blockers:
-            units, publish_partitions = self._build_compute_graph(run_id=run_id, partitions=partitions)
+            units, publish_partitions = self._build_compute_graph(run_id=effective_run_id, partitions=partitions)
 
         source_items = self._build_input_snapshot_items(
             partitions=partitions,
@@ -87,7 +96,7 @@ class DuckDbComputePlanService:
         }
         status = "blocked" if blockers else "planned"
         run = {
-            "run_id": run_id,
+            "run_id": effective_run_id,
             "job_type": "stk_mins_qfq_clean_next",
             "dataset_key": "stk_mins",
             "status": status,
@@ -103,7 +112,7 @@ class DuckDbComputePlanService:
         }
         lock = LakeJobLockService(LakeJobStateStore(self.lake_root)).get_lock()
         return {
-            "plan_type": "stk_mins_qfq_dry_run",
+            "plan_type": plan_type,
             "run": run,
             "ready": not blockers,
             "blockers": blockers,
@@ -122,6 +131,124 @@ class DuckDbComputePlanService:
             },
             "units": units,
             "publish_partitions": publish_partitions,
+        }
+
+    def prepare_stk_mins_qfq_run(self, *, start_date: str, end_date: str, freqs: Iterable[int]) -> dict[str, Any]:
+        run_id = f"{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%SZ')}-stk-mins-qfq-{uuid4().hex[:6]}"
+        plan = self.plan_stk_mins_qfq(
+            start_date=start_date,
+            end_date=end_date,
+            freqs=freqs,
+            run_id=run_id,
+            plan_type="stk_mins_qfq_manifest_prepare",
+        )
+        if not plan["ready"]:
+            return {
+                **plan,
+                "manifest": {
+                    "persisted": False,
+                    "manifest_root": None,
+                    "message": "plan 存在阻断项，未持锁、未写 run manifest。",
+                },
+            }
+
+        store = LakeJobStateStore(self.lake_root)
+        lock_service = LakeJobLockService(store, stale_after_seconds=self.settings.compute_stale_heartbeat_seconds)
+        lock_acquired: dict[str, Any] | None = None
+        manifest: dict[str, Any] | None = None
+        try:
+            lock_acquired = lock_service.acquire(run_id=run_id, profile_key="duckdb_compute_stk_mins_qfq")
+            manifest = self._write_run_manifest(plan=plan)
+            lock_service.heartbeat(run_id=run_id)
+        finally:
+            if lock_acquired is not None:
+                lock_service.release(run_id=run_id)
+        return {
+            **plan,
+            "manifest": manifest,
+            "lock_acquired": lock_acquired,
+            "lock_after": lock_service.get_lock(),
+        }
+
+    def _write_run_manifest(self, *, plan: dict[str, Any]) -> dict[str, Any]:
+        run_id = str(plan["run"]["run_id"])
+        final_root = self.lake_root / "manifest" / "duckdb_compute" / "runs" / run_id
+        tmp_root = self.lake_root / "manifest" / "duckdb_compute" / "_tmp" / run_id
+        if final_root.exists():
+            raise RuntimeError(f"run manifest 已存在，拒绝覆盖：{_relpath(final_root, self.lake_root)}")
+        if tmp_root.exists():
+            raise RuntimeError(f"run manifest 临时目录已存在，拒绝复用：{_relpath(tmp_root, self.lake_root)}")
+        tmp_root.mkdir(parents=True, exist_ok=True)
+        started_at = _utc_now_iso()
+        run_payload = {
+            **plan["run"],
+            "manifest_root": _relpath(final_root, self.lake_root),
+            "manifest_written_at": started_at,
+            "blockers": plan["blockers"],
+            "metrics": plan["metrics"],
+        }
+        _write_json_atomic(tmp_root / "run.json", run_payload)
+        _write_parquet_manifest(
+            tmp_root / "units.parquet",
+            [_unit_manifest_row(unit) for unit in plan["units"]],
+            columns=[
+                "run_id",
+                "unit_key",
+                "continuity_key",
+                "publish_partition_key",
+                "input_paths_json",
+                "output_paths_json",
+                "duckdb_sql_template",
+                "expected_output_role",
+                "status",
+                "error_code",
+            ],
+        )
+        _write_parquet_manifest(
+            tmp_root / "candidate_parts.parquet",
+            [],
+            columns=["run_id", "unit_key", "candidate_part_path", "row_count", "byte_count", "checksum", "status"],
+        )
+        _write_parquet_manifest(
+            tmp_root / "publish_partitions.parquet",
+            [_publish_partition_manifest_row(partition) for partition in plan["publish_partitions"]],
+            columns=[
+                "run_id",
+                "partition_key",
+                "source_candidate_parts_json",
+                "expected_candidate_part_paths_json",
+                "expected_candidate_part_count",
+                "target_path",
+                "audit_status",
+                "publish_status",
+            ],
+        )
+        _append_event(
+            tmp_root / "events.jsonl",
+            {
+                "event_type": "manifest_prepared",
+                "level": "info",
+                "message": "M1-B 已持锁写入 run manifest；未执行 DuckDB candidate 计算，未发布正式分区。",
+                "metrics": plan["metrics"],
+            },
+        )
+        final_root.parent.mkdir(parents=True, exist_ok=True)
+        tmp_root.replace(final_root)
+        try:
+            tmp_root.parent.rmdir()
+        except OSError:
+            pass
+        return {
+            "persisted": True,
+            "manifest_root": _relpath(final_root, self.lake_root),
+            "files": {
+                "run": _relpath(final_root / "run.json", self.lake_root),
+                "units": _relpath(final_root / "units.parquet", self.lake_root),
+                "candidate_parts": _relpath(final_root / "candidate_parts.parquet", self.lake_root),
+                "publish_partitions": _relpath(final_root / "publish_partitions.parquet", self.lake_root),
+                "events": _relpath(final_root / "events.jsonl", self.lake_root),
+            },
+            "message": "run manifest 已持久化；candidate_part 账本为空，正式数据未改动。",
         }
 
     def _collect_partitions(
@@ -362,6 +489,67 @@ def _read_parquet_metadata(path: Path) -> dict[str, Any]:
     }
 
 
+def _unit_manifest_row(unit: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "run_id": unit["run_id"],
+        "unit_key": unit["unit_key"],
+        "continuity_key": unit["continuity_key"],
+        "publish_partition_key": unit["publish_partition_key"],
+        "input_paths_json": _json_text(unit["input_paths"]),
+        "output_paths_json": _json_text(unit["output_paths"]),
+        "duckdb_sql_template": unit["duckdb_sql_template"],
+        "expected_output_role": unit["expected_output_role"],
+        "status": unit["status"],
+        "error_code": unit["error_code"],
+    }
+
+
+def _publish_partition_manifest_row(partition: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "run_id": partition["run_id"],
+        "partition_key": partition["partition_key"],
+        "source_candidate_parts_json": _json_text(partition["source_candidate_parts"]),
+        "expected_candidate_part_paths_json": _json_text(partition["expected_candidate_part_paths"]),
+        "expected_candidate_part_count": partition["expected_candidate_part_count"],
+        "target_path": partition["target_path"],
+        "audit_status": partition["audit_status"],
+        "publish_status": partition["publish_status"],
+    }
+
+
+def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.{uuid4().hex}.tmp")
+    with tmp_path.open("w", encoding="utf-8") as file:
+        json.dump(payload, file, ensure_ascii=False, sort_keys=True, indent=2, default=str)
+        file.write("\n")
+    tmp_path.replace(path)
+
+
+def _write_parquet_manifest(path: Path, rows: list[dict[str, Any]], *, columns: list[str]) -> None:
+    try:
+        import pandas as pd
+        import pyarrow  # noqa: F401
+    except ModuleNotFoundError as exc:  # pragma: no cover
+        raise RuntimeError("缺少 Parquet 写入依赖，请先安装 lake_console/backend/requirements.txt。") from exc
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.{os.getpid()}.{uuid4().hex}.tmp")
+    frame = pd.DataFrame(rows, columns=columns)
+    frame.to_parquet(tmp_path, index=False, engine="pyarrow", compression="zstd")
+    tmp_path.replace(path)
+
+
+def _append_event(path: Path, event: dict[str, Any]) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    payload = {
+        "seq": 1,
+        "created_at": _utc_now_iso(),
+        **event,
+    }
+    with path.open("a", encoding="utf-8") as file:
+        file.write(json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str) + "\n")
+
+
 def _code_snapshot() -> dict[str, Any]:
     repo_root = Path(__file__).resolve().parents[4]
     commit = _run_git(repo_root, ["rev-parse", "HEAD"])
@@ -407,6 +595,10 @@ def _relpath(path: Path, root: Path) -> str:
 def _sha256_json(payload: Any) -> str:
     encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str).encode("utf-8")
     return hashlib.sha256(encoded).hexdigest()
+
+
+def _json_text(payload: Any) -> str:
+    return json.dumps(payload, ensure_ascii=False, sort_keys=True, default=str)
 
 
 def _utc_now_iso() -> str:
