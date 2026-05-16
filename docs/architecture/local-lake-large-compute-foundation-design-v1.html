@@ -1691,6 +1691,18 @@ qfq baseline 发布后至少写入：
       <code>manifest</code> 两个根路径。M3-B 不进入 <code>publishing</code>，不写 formal gate，
       不替换正式分区，不写 downstream queue。
     </div>
+    <div class="note">
+      <strong>M3-C-B 落地边界：</strong>
+      本阶段只实现“持锁生成 gate publishing 计划”。命令为
+      <code>prepare-stk-mins-qfq-gate-publish-plan --run-id &lt;run_id&gt;</code>。
+      它会在全局 Lake 写锁保护下复用 M3-C-A preflight，生成
+      <code>manifest/duckdb_compute/runs/&lt;run_id&gt;/gate_publish_plan.json</code>，
+      并把 <code>run.json</code> 中的 <code>m3c_b_gate_publish_plan</code> 标记为 success。
+      该计划文件只描述下一阶段将写入哪些 <code>formal gate = publishing</code> 行；
+      本阶段仍不写 <code>clean_next_partition_gate.parquet</code>、不替换正式分区、不写 downstream requirement、
+      不写 indicator queue。正式 gate 的 <code>publishing</code> 必须留到 M3-C-C 的同一条正式发布流程内写入，
+      避免命令结束后留下半开的发布窗口。
+    </div>
   </section>
 
   <section class="card">
@@ -2256,7 +2268,7 @@ compute_max_unit_retries = 1</pre>
           <td>M3 single writer</td>
           <td>实现 candidate_part 汇总、审计、Kopia 写前备份和两类发布接口。</td>
           <td>publish partition + audit ledger。</td>
-          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。M3-B 已落地 Kopia 写前备份：只写 <code>prewrite_backup.json</code> 与 Lake job backup record，snapshot 聚合到正式 clean_next 根路径和 <code>manifest</code> 根路径，不进入 formal publishing。</td>
+          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。M3-B 已落地 Kopia 写前备份：只写 <code>prewrite_backup.json</code> 与 Lake job backup record，snapshot 聚合到正式 clean_next 根路径和 <code>manifest</code> 根路径，不进入 formal publishing。M3-C-A 落地正式发布前只读预检：校验 <code>run.json</code>、<code>prewrite_backup.json</code>、<code>publish_partitions.parquet</code>、candidate 文件、目标正式路径、当前 gate 状态和 downstream requirement 计划；命令为 <code>preflight-stk-mins-qfq-publish --run-id ...</code>，不替换正式分区、不写 formal gate、不写 downstream requirement、不写 indicator queue。M3-C-B 已落地持锁生成 gate publishing 计划：命令为 <code>prepare-stk-mins-qfq-gate-publish-plan --run-id ...</code>，只写 run-local <code>gate_publish_plan.json</code> 与 <code>run.json</code> 阶段状态，不写正式 <code>clean_next_partition_gate.parquet</code>，不替换正式分区。</td>
         </tr>
         <tr>
           <td>M4 qfq 接入</td>

@@ -7,6 +7,7 @@ from lake_console.backend.app.services.duckdb_compute_audit_service import DuckD
 from lake_console.backend.app.services.duckdb_compute_executor_service import DuckDbComputeExecutorService
 from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDbComputePlanService
 from lake_console.backend.app.services.duckdb_compute_prewrite_backup_service import DuckDbComputePrewriteBackupService
+from lake_console.backend.app.services.duckdb_compute_publish_service import DuckDbComputePublishService
 
 
 def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -52,6 +53,22 @@ def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     add_lake_root_arg(backup_parser)
     backup_parser.add_argument("--run-id", required=True, help="audit-stk-mins-qfq-candidates 通过后的 run_id")
     backup_parser.set_defaults(handler=_handle_backup_stk_mins_qfq_prewrite)
+
+    preflight_parser = subparsers.add_parser(
+        "preflight-stk-mins-qfq-publish",
+        help="M3-C-A 只读校验 stk_mins qfq 正式发布计划；不替换正式分区、不写 gate、不写 queue",
+    )
+    add_lake_root_arg(preflight_parser)
+    preflight_parser.add_argument("--run-id", required=True, help="backup-stk-mins-qfq-prewrite 完成后的 run_id")
+    preflight_parser.set_defaults(handler=_handle_preflight_stk_mins_qfq_publish)
+
+    gate_plan_parser = subparsers.add_parser(
+        "prepare-stk-mins-qfq-gate-publish-plan",
+        help="M3-C-B 持锁写入 gate publishing 计划；不替换正式分区、不写正式 gate",
+    )
+    add_lake_root_arg(gate_plan_parser)
+    gate_plan_parser.add_argument("--run-id", required=True, help="preflight-stk-mins-qfq-publish 通过后的 run_id")
+    gate_plan_parser.set_defaults(handler=_handle_prepare_stk_mins_qfq_gate_publish_plan)
 
 
 def _handle_plan_stk_mins_qfq(args: argparse.Namespace) -> int:
@@ -108,6 +125,26 @@ def _handle_backup_stk_mins_qfq_prewrite(args: argparse.Namespace) -> int:
     return 0
 
 
+def _handle_preflight_stk_mins_qfq_publish(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputePublishService(settings=settings).preflight_stk_mins_qfq_publish(
+        run_id=args.run_id,
+        progress_callback=_print_publish_preflight_progress,
+    )
+    print_json(summary)
+    return 0
+
+
+def _handle_prepare_stk_mins_qfq_gate_publish_plan(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputePublishService(settings=settings).prepare_stk_mins_qfq_gate_publish_plan(
+        run_id=args.run_id,
+        progress_callback=_print_gate_publish_plan_progress,
+    )
+    print_json(summary)
+    return 0
+
+
 def _print_compute_progress(event: dict[str, object]) -> None:
     if event.get("event") == "unit_started":
         print(
@@ -149,4 +186,32 @@ def _print_backup_progress(event: dict[str, object]) -> None:
             "[duckdb_compute] "
             f"prewrite_backup_done run_id={event.get('run_id')} "
             f"snapshots={event.get('snapshot_count')}"
+        )
+
+
+def _print_publish_preflight_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "publish_partition_preflight":
+        print(
+            "[duckdb_compute] "
+            f"publish_preflight={event.get('partition_index')}/{event.get('partition_count')} "
+            f"{event.get('partition_key')}"
+        )
+
+
+def _print_gate_publish_plan_progress(event: dict[str, object]) -> None:
+    if event.get("event") == "gate_publish_plan_started":
+        print(f"[duckdb_compute] gate_publish_plan_start run_id={event.get('run_id')}")
+        return
+    if event.get("event") == "publish_partition_preflight":
+        print(
+            "[duckdb_compute] "
+            f"gate_publish_plan_preflight={event.get('partition_index')}/{event.get('partition_count')} "
+            f"{event.get('partition_key')}"
+        )
+        return
+    if event.get("event") == "gate_publish_plan_completed":
+        print(
+            "[duckdb_compute] "
+            f"gate_publish_plan_done run_id={event.get('run_id')} "
+            f"planned_gates={event.get('planned_gate_row_count')}"
         )
