@@ -270,10 +270,11 @@
     <h1>数据集日期对象矩阵完整性审计方案 v1</h1>
     <p>
       本文定义“日期桶审计”之后的第二阶段能力：在指定日期范围内，检查每个应覆盖对象是否在每个应检查日期桶都有数据。
-      首个小闭环只接入 <code>adj_factor</code>，用 <code>stock_basic</code> 中已上市且未退市股票作为对象池。
+      首个小闭环已接入 <code>adj_factor</code>，用 <code>stock_basic</code> 中已上市且未退市股票作为对象池。
+      M5 第一批扩展按逐数据集小闭环推进，先计划，再逐个编码与验证。
     </p>
     <div class="meta">
-      <span class="pill">状态：待评审</span>
+      <span class="pill">状态：M5-1 逐数据集计划</span>
       <span class="pill">目录：docs/ops</span>
       <span class="pill">范围：审查中心 / 数据集审计</span>
       <span class="pill">不改数据维护主链</span>
@@ -497,11 +498,11 @@
       </tr>
       <tr>
         <td>对象池来源</td>
-        <td><code>raw_tushare.stock_basic</code> 或当前代码实际登记的股票主数据表，落地前以代码和 DB 实际表确认。</td>
+        <td><code>core_serving.security_serving</code>，这是当前代码登记的股票主数据服务表。</td>
       </tr>
       <tr>
         <td>生命周期过滤</td>
-        <td><code>list_date &lt;= trade_date</code> 且 <code>delist_date is null or delist_date &gt; trade_date</code>；若只有当前状态字段，则叠加 <code>list_status='L'</code>。</td>
+        <td><code>list_date &lt;= trade_date</code> 且 <code>delist_date is null or delist_date &gt;= trade_date</code>；叠加 <code>list_status='L'</code>。</td>
       </tr>
       <tr>
         <td>实际表</td>
@@ -528,9 +529,9 @@ expected_subjects as (
     s.ts_code,
     s.name
   from expected_dates d
-  join raw_tushare.stock_basic s
+  join core_serving.security_serving s
     on s.list_date &lt;= d.trade_date
-   and (s.delist_date is null or s.delist_date &gt; d.trade_date)
+   and (s.delist_date is null or s.delist_date &gt;= d.trade_date)
    and s.list_status = 'L'
 ),
 actual_subjects as (
@@ -861,6 +862,141 @@ where a.ts_code is null;</code></pre>
   </section>
 
   <section class="card">
+    <h2>11.1 M5 第一批逐数据集执行计划</h2>
+    <div class="callout ok">
+      <strong>M5-1 范围</strong>
+      本轮先把 <code>daily -> daily_basic -> stk_limit -> stk_factor_pro</code> 拆成逐数据集执行计划；
+      代码只进入 <code>daily</code> 小闭环，不提前修改其余三个数据集。
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>顺序</th>
+        <th>数据集</th>
+        <th>对象池口径</th>
+        <th>目标表</th>
+        <th>业务键 / 实际键</th>
+        <th>索引与性能门禁</th>
+        <th>最小验证命令</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>1</td>
+        <td><code>daily</code><br>股票日线</td>
+        <td>
+          使用 <code>core_serving.security_serving</code> 中 <code>list_status='L'</code> 且满足
+          <code>list_date &lt;= trade_date</code>、
+          <code>delist_date is null or delist_date &gt;= trade_date</code> 的股票生命周期池。
+          对象键为 <code>ts_code</code>，对象名为 <code>name</code>。
+        </td>
+        <td><code>core_serving.equity_daily_bar</code></td>
+        <td>
+          实际业务键：<code>trade_date + ts_code</code>。<br>
+          <code>subject_key_fields=("ts_code")</code>，
+          <code>actual_key_fields=("ts_code")</code>。
+        </td>
+        <td>
+          当前 ORM 主键为 <code>(ts_code, trade_date)</code>，并有
+          <code>idx_equity_daily_bar_trade_date</code>。
+          接入前后必须用 1-2 个交易日小窗口验证 SQL 差集耗时；
+          若小窗口异常慢，停止推进并单独评审索引，不继续接入下一数据集。
+        </td>
+        <td>
+          <code>pytest -q tests/test_dataset_definition_registry.py tests/web/test_ops_date_completeness_api.py</code><br>
+          <code>pytest -q tests/architecture/test_subsystem_dependency_matrix.py</code><br>
+          页面或 API 创建 <code>daily</code> 小窗口审计后执行：
+          <code>GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ops-date-completeness-worker-run --limit 1</code>
+        </td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td><code>daily_basic</code><br>每日指标</td>
+        <td>
+          与 <code>daily</code> 相同，使用股票主数据生命周期池。
+          接入前必须再次确认该数据集业务语义仍要求交易日 × 股票全覆盖。
+        </td>
+        <td><code>core_serving.equity_daily_basic</code></td>
+        <td>
+          实际业务键：<code>trade_date + ts_code</code>。<br>
+          <code>subject_key_fields=("ts_code")</code>，
+          <code>actual_key_fields=("ts_code")</code>。
+        </td>
+        <td>
+          当前 ORM 主键为 <code>(ts_code, trade_date)</code>，并有
+          <code>idx_equity_daily_basic_trade_date</code>。
+          表上还存在按 <code>trade_date</code> 组合的估值查询索引；
+          矩阵审计仍以 <code>trade_date</code> 小窗口差集为性能门禁。
+        </td>
+        <td>
+          <code>pytest -q tests/test_dataset_definition_registry.py tests/web/test_ops_date_completeness_api.py</code><br>
+          页面或 API 创建 <code>daily_basic</code> 小窗口审计后执行：
+          <code>GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ops-date-completeness-worker-run --limit 1</code>
+        </td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td><code>stk_limit</code><br>每日涨跌停价格</td>
+        <td>
+          使用股票主数据生命周期池。该数据集表达每日涨跌停价，不是涨跌停事件榜单；
+          因此对象池应按所有有效股票覆盖，而不是只检查发生涨停/跌停的股票。
+        </td>
+        <td><code>core_serving.equity_stk_limit</code></td>
+        <td>
+          实际业务键：<code>trade_date + ts_code</code>。<br>
+          <code>subject_key_fields=("ts_code")</code>，
+          <code>actual_key_fields=("ts_code")</code>。
+        </td>
+        <td>
+          当前 ORM 主键为 <code>(ts_code, trade_date)</code>，并有
+          <code>idx_equity_stk_limit_trade_date</code>。
+          该数据集与事件型 <code>limit_list_*</code> 容易混淆，接入测试必须证明事件型数据集仍不进入矩阵审计。
+        </td>
+        <td>
+          <code>pytest -q tests/test_dataset_definition_registry.py tests/web/test_ops_date_completeness_api.py</code><br>
+          页面或 API 创建 <code>stk_limit</code> 小窗口审计后执行：
+          <code>GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ops-date-completeness-worker-run --limit 1</code>
+        </td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td><code>stk_factor_pro</code><br>股票技术面因子（专业版）</td>
+        <td>
+          使用股票主数据生命周期池。该表字段宽、写入量和读取量都更大，
+          必须等前三个数据集验证稳定后再接入。
+        </td>
+        <td><code>core_serving.equity_factor_pro</code></td>
+        <td>
+          实际业务键：<code>trade_date + ts_code</code>。<br>
+          <code>subject_key_fields=("ts_code")</code>，
+          <code>actual_key_fields=("ts_code")</code>。
+        </td>
+        <td>
+          当前 ORM 主键为 <code>(ts_code, trade_date)</code>，
+          并有 <code>idx_equity_factor_pro_trade_date</code> 与
+          <code>idx_equity_factor_pro_ts_code_trade_date</code>。
+          接入前必须先用极小窗口验证 explain/耗时；若字段宽导致 IO 压力明显，
+          不允许继续放大窗口，先单独评审索引或物理存储策略。
+        </td>
+        <td>
+          <code>pytest -q tests/test_dataset_definition_registry.py tests/web/test_ops_date_completeness_api.py</code><br>
+          页面或 API 创建 <code>stk_factor_pro</code> 小窗口审计后执行：
+          <code>GOLDENSHARE_ENV_FILE=.env.web.local goldenshare ops-date-completeness-worker-run --limit 1</code>
+        </td>
+      </tr>
+      </tbody>
+    </table>
+    <h3>11.2 M5 每个数据集的推进规则</h3>
+    <ol>
+      <li>每轮只接入一个数据集；当前代码轮次只接入 <code>daily</code>。</li>
+      <li>接入前必须确认 <code>DatasetDefinition.storage.target_table</code>、<code>date_model.observed_field</code>、目标 ORM 主键与索引。</li>
+      <li>接入时只修改该数据集的 <code>completeness</code> 配置和必要测试，不改审计 executor 的通用逻辑，除非测试证明现有 executor 无法表达该数据集。</li>
+      <li>接入后必须先跑测试门禁，再做小窗口真实审计；真实审计窗口建议 1-2 个交易日。</li>
+      <li>任何性能异常、对象池口径不清或目标表口径不一致，都必须停止本数据集接入，先补方案评审。</li>
+    </ol>
+  </section>
+
+  <section class="card">
     <h2>12. 风险与防护</h2>
     <table>
       <thead>
@@ -983,13 +1119,13 @@ where a.ts_code is null;</code></pre>
       </tr>
       <tr>
         <td>第一期是否只接 <code>adj_factor</code></td>
-        <td>是，先做小闭环。</td>
-        <td><span class="tag warn">待最终评审</span></td>
+        <td>是，M1-M4 已按 <code>adj_factor</code> 完成小闭环；M5 起逐个扩展。</td>
+        <td><span class="tag ok">已完成</span></td>
       </tr>
       <tr>
         <td>缺失明细是否允许截断</td>
         <td>允许，summary 完整，detail 有上限。</td>
-        <td><span class="tag warn">待评审</span></td>
+        <td><span class="tag ok">已实现</span></td>
       </tr>
       </tbody>
     </table>
