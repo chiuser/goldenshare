@@ -1,8 +1,9 @@
 # index_weight 对象池最小收口方案 v1
 
-- 状态：已完成（2026-05-03，代码已落地）
-- 本轮范围：只处理 `index_weight`
-- 不在本轮处理：`index_daily`、`dc_member`、`ths_member`、`stk_mins`、`biying_*` 等其他对象池链路
+- 状态：`index_weight` 最小对象池收口已完成；第一轮 `no_pool` 语义清理已完成（2026-05-16）
+- 初始范围：只处理 `index_weight`
+- 第一轮语义清理范围：把已确认“不按对象池展开”的数据集从 `none` 收口到 `no_pool`
+- 仍不在第一轮处理：`index_daily`、`dc_member`、`ths_member`、`stk_mins`、`biying_*` 等其他对象池或未完成审计链路
 - 关联代码：
   - [index_weight DatasetDefinition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)
   - [DatasetUnitPlanner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)
@@ -206,12 +207,28 @@
 
 ## 7. 明确不做
 
-本轮不做：
+`index_weight` 初始收口轮不做：
 
-1. 不迁移所有 `universe_policy="none"` 的数据集。
+1. 不在 `index_weight` 初始收口轮迁移所有 `universe_policy="none"` 的数据集。
 2. 不处理 `index_daily`、`dc_member`、`ths_member`。
 3. 不设计通用对象池大模型。
 4. 不新增暂时没有消费者的字段。
 5. 不改变 `index_weight` 的自然月窗口模型。
 
 `index_daily` 这类现有对象池链路后续单独处理，不能混在本轮 `index_weight` 修复里。
+
+---
+
+## 8. 第一轮 `no_pool` 语义清理状态
+
+2026-05-16 已完成第一轮语义清理：
+
+1. 已审计确认“不使用对象池展开”的数据集，统一改为 `universe_policy = "no_pool"`。
+2. 第一轮不改变任何 `unit_builder_key`、日期模型、request builder、writer 或执行行为。
+3. `none` 不再被大面积用作“没有对象池”的默认值。
+4. 当前仅允许以下 3 个数据集继续保留 `none`，作为后续单独审计对象：
+   - `biying_equity_daily`
+   - `biying_moneyflow`
+   - `stk_mins`
+
+对应测试守护：`tests/test_dataset_definition_registry.py::test_dataset_definition_universe_policy_first_wave_is_explicit`。

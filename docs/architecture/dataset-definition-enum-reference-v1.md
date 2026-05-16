@@ -3,7 +3,7 @@
 - 状态：当前事实参考
 - 更新时间：2026-05-16
 - 事实来源：`src/foundation/datasets/models.py`、`src/foundation/datasets/definitions/**`、`src/foundation/datasets/freshness_policies.py`
-- 当前规模：70 个 `DatasetDefinition`
+- 当前规模：72 个 `DatasetDefinition`
 - 目标：统一说明 `DatasetDefinition` 内枚举/准枚举字段的语义边界，避免重复定义、语义交叉或隐藏特例。
 - 相关主文档：[数据集日期模型消费指南 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-date-model-consumer-guide-v1.md)
 
@@ -30,7 +30,7 @@
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
 | `board_theme` | 板块、主题、热榜类数据 | 10 |
-| `equity_market` | A 股行情、指标、事件类数据 | 24 |
+| `equity_market` | A 股行情、指标、事件类数据 | 26 |
 | `index_fund` | 指数、ETF、基金行情和主数据 | 10 |
 | `low_frequency` | 低频事件型数据 | 2 |
 | `moneyflow` | 资金流相关数据 | 8 |
@@ -51,7 +51,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `continuous_open_day` | 按连续开市交易日判断最新业务日期 | 39 |
+| `continuous_open_day` | 按连续开市交易日判断最新业务日期 | 41 |
 | `continuous_natural_day` | 按连续自然日判断最新业务日期 | 2 |
 | `period_bucket` | 按周/月/月份窗口这类周期桶判断最新业务桶 | 8 |
 | `event_run_trace` | 事件型数据，不要求连续日期；以最近成功维护记录和真实观测值解释状态 | 9 |
@@ -71,14 +71,14 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `tushare` | 默认从 Tushare 获取 | 68 |
+| `tushare` | 默认从 Tushare 获取 | 70 |
 | `biying` | 默认从 Biying 获取 | 2 |
 
 ### 4.2 `source.source_keys`
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `tushare` | 只支持 Tushare | 67 |
+| `tushare` | 只支持 Tushare | 69 |
 | `biying` | 只支持 Biying | 2 |
 | `biying,tushare` | 多来源数据集 | 1 |
 
@@ -86,7 +86,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `tushare` | 使用 Tushare source client | 68 |
+| `tushare` | 使用 Tushare source client | 70 |
 | `biying` | 使用 Biying source client | 2 |
 
 ### 4.4 `source.request_builder_key`
@@ -96,7 +96,7 @@
 | 规则 | 当前口径 |
 | --- | --- |
 | 完整清单来源 | `src/foundation/datasets/definitions/**` 与 `src/foundation/ingestion/request_builders.py` |
-| 当前数量 | 70 个数据集，69 个 request builder selector |
+| 当前数量 | 72 个数据集，71 个 request builder selector |
 | 复用特例 | `irm_qa_sh` 与 `irm_qa_sz` 复用 `_trade_date_or_start_end_params` |
 
 新增 selector 必须同步实现、注册、测试和本文语义说明；不能在 Ops 或前端按数据集 key 拼请求参数。
@@ -148,7 +148,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `trade_date_or_start_end` | 单日 `trade_date` 或区间 `start_date/end_date` | 54 |
+| `trade_date_or_start_end` | 单日 `trade_date` 或区间 `start_date/end_date` | 56 |
 | `ann_date_or_start_end` | 公告日期单点或区间 | 2 |
 | `month_or_range` | 月份键单点或月份区间 | 1 |
 | `start_end_month_window` | 自然月窗口起止 | 1 |
@@ -158,7 +158,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `True` | 适用日期完整性审计 | 47 |
+| `True` | 适用日期完整性审计 | 49 |
 | `False` | 不适用日期完整性审计，必须说明原因 | 23 |
 
 ---
@@ -170,26 +170,26 @@
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
 | `pool` | 明确按对象池展开；对象池来源由 `planning.universe` 显式声明 | 1 |
-| `no_pool` | 明确不按对象池展开源站请求 | 2 |
+| `no_pool` | 明确不按对象池展开源站请求 | 65 |
 | `dc_index_board_codes` | 从东财板块代码池展开 | 1 |
 | `ths_index_board_codes` | 从同花顺板块代码池展开 | 1 |
 | `index_active_codes` | 指数 active 池 selector | 1 |
-| `none` | 当前历史默认值；只能表达未定义或未迁移，不能表达“没有对象池展开” | 64 |
+| `none` | 当前仅保留给尚未完成对象池语义收口的数据集；不能表达“没有对象池展开” | 3 |
 
-说明：`none` 的长期目标是继续收口，不允许在新增场景中表达具体业务语义。
+说明：`none` 的剩余清单必须由测试守护，当前只允许 `biying_equity_daily`、`biying_moneyflow`、`stk_mins`。新增场景不得使用 `none` 表达具体业务语义。
 
 ### 6.2 `planning.pagination_policy`
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `offset_limit` | 使用 `offset/limit` 分页 | 68 |
+| `offset_limit` | 使用 `offset/limit` 分页 | 70 |
 | `none` | 不使用通用分页 | 2 |
 
 ### 6.3 `planning.enum_fanout_fields`
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `()` | 不按枚举字段自动扇出 | 58 |
+| `()` | 不按枚举字段自动扇出 | 60 |
 | `idx_type` | 按板块类型扇出 | 2 |
 | `market,hot_type,is_new` | 按东财热榜市场、榜单类型、最新标记组合扇出 | 1 |
 | `market,is_new` | 按同花顺热榜市场和最新标记扇出 | 1 |
@@ -205,7 +205,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `generic` | 通用 unit builder | 57 |
+| `generic` | 通用 unit builder | 59 |
 | 非 generic selector | 数据集专用 unit builder；必须在 `src/foundation/ingestion/unit_planner.py` 注册并测试 | 13 |
 
 ---
@@ -216,7 +216,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `raw_core_upsert` | raw 与 core/serving upsert 主路径 | 48 |
+| `raw_core_upsert` | raw 与 core/serving upsert 主路径 | 50 |
 | `raw_only_upsert` | 只写 raw，serving 通过 view 或轻量层提供 | 15 |
 | `raw_index_daily_serving_upsert` | 指数日线 raw 全量、serving active 池门禁写入 | 1 |
 | `raw_index_period_serving_upsert` | 指数周/月线 raw 全量、serving active 池门禁与日线派生补齐 | 2 |
@@ -237,7 +237,7 @@
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `maintain` | 数据维护动作 | 70 |
+| `maintain` | 数据维护动作 | 72 |
 
 ### 8.2 `capabilities.supported_time_modes`
 
@@ -245,27 +245,27 @@
 | --- | --- | --- |
 | `none` | 不需要选择时间 | 12 |
 | `range` | 只支持区间/窗口 | 3 |
-| `point,range` | 支持单点与区间 | 54 |
+| `point,range` | 支持单点与区间 | 56 |
 | `none,point,range` | 同时支持无时间、单点、区间 | 1 |
 
 ### 8.3 `quality.reject_policy`
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `record_rejections` | 记录拒绝行，不静默吞掉质量问题 | 70 |
+| `record_rejections` | 记录拒绝行，不静默吞掉质量问题 | 72 |
 
 ### 8.4 `transaction.commit_policy`
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
-| `unit` | 每个 planned unit 独立提交业务数据事务 | 70 |
+| `unit` | 每个 planned unit 独立提交业务数据事务 | 72 |
 
 ### 8.5 `transaction.idempotent_write_required`
 
 | 值 | 含义 | 当前数量 |
 | --- | --- | --- |
 | `True` | 写入路径必须满足幂等要求 | 18 |
-| `False` | 当前 Definition 未显式要求幂等 | 52 |
+| `False` | 当前 Definition 未显式要求幂等 | 54 |
 
 硬规则：无论该字段是否显式为 `True`，业务表写入都不得被 Ops/TaskRun/freshness/schedule 状态写入失败回滚。
 
@@ -280,7 +280,7 @@
 3. `date_axis/bucket_rule/window_mode/input_shape` 是否与日期模型消费指南一致。
 4. 所有业务枚举是否写入 `input_model.filters.enum_values`，不能让 Ops 或前端猜。
 5. 自动扇出字段是否同时声明在 `enum_fanout_fields` 与 `enum_fanout_defaults`。
-6. 对象池扇出是否明确表达在 `universe_policy=pool` 与 `planning.universe`，不能藏在 custom builder。
+6. 对象池语义是否明确表达：不展开用 `universe_policy=no_pool`，展开用 `universe_policy=pool` 与 `planning.universe`，不能藏在 custom builder。
 7. `request_builder_key/unit_builder_key/row_transform_name/write_path` 是否已有可复用值。
 8. 如果新增 selector 字符串，必须同步实现注册表和测试。
 9. 如果状态字段或 Ops 页面需要消费新字段，必须做全量消费者审计，旧口径清零。

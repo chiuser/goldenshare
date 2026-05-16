@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import inspect
+from collections import Counter
 from dataclasses import MISSING, fields
 
 from src.foundation.datasets.definitions import ALL_DATASET_ROWS
@@ -36,6 +37,26 @@ def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
     assert definition_keys == set(FRESHNESS_POLICY_BY_DATASET)
     for definition in list_dataset_definitions():
         assert definition.observability.freshness_policy == FRESHNESS_POLICY_BY_DATASET[definition.dataset_key]
+
+
+def test_dataset_definition_universe_policy_first_wave_is_explicit() -> None:
+    policies = {definition.dataset_key: definition.planning.universe_policy for definition in list_dataset_definitions()}
+
+    assert Counter(policies.values()) == Counter(
+        {
+            "no_pool": 65,
+            "none": 3,
+            "pool": 1,
+            "index_active_codes": 1,
+            "dc_index_board_codes": 1,
+            "ths_index_board_codes": 1,
+        }
+    )
+    assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == {
+        "biying_equity_daily",
+        "biying_moneyflow",
+        "stk_mins",
+    }
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
