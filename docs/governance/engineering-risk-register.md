@@ -37,7 +37,7 @@
 | RISK-2026-05-08-006 | P1 | 指数日线存在双表并行语义（`core.index_daily_bar` 遗留表 与 `core_serving.index_daily_serving` 现行表），易被误读/误用，导致查询口径漂移、页面数据不一致和后续扩展错接表 | Wealth 市场总览（主要指数）、Biz 指数查询、Ops review/状态核查、文档与开发认知 | Open | [市场总览数据对象与 API 设计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/market-overview/market-overview-api-model-design-v1.md)、[index series 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py) |
 | RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Closed | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
 | RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
-| RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`，且 planner 阶段带远程 fallback，请求依赖和失败语义藏在 `dc_index_board_codes` 历史 selector 中，容易误判执行成本和数据前置条件 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、Tushare 请求链、板块成分数据完整性 | Open | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
+| RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`；历史实现曾在 planner 阶段远程 fallback，且依赖来源藏在 `dc_index_board_codes` selector 中 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 | RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`，依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` 历史 selector 中，容易造成默认维护漏数或失败时难以定位前置数据问题 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Open | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 
 ---
@@ -442,19 +442,28 @@
 
 风险说明：
 
-1. `dc_member` 当前使用 `universe_policy="dc_index_board_codes"`。
+1. `dc_member` 历史实现使用 `universe_policy="dc_index_board_codes"`。
 2. 默认不传板块代码时，planner 会先按交易日或日期范围从本地 `DcIndex` 表读取板块代码，再按每个板块代码生成 `dc_member` 请求。
-3. 单日场景下，如果本地 `DcIndex` 没有板块代码，planner 还会在规划阶段请求 Tushare `dc_index` 接口作为 fallback。
-4. 这不是简单对象池，而是“先找板块清单，再拉板块成分”的两段式依赖；当前依赖关系只藏在 `dc_index_board_codes` 字符串和 planner 分支中。
+3. 历史实现中，单日场景如果本地 `DcIndex` 没有板块代码，planner 还会在规划阶段请求 Tushare `dc_index` 接口作为 fallback。
+4. 这不是简单对象池，而是“先找板块清单，再拉板块成分”的两段式依赖；历史实现中，依赖关系只藏在 `dc_index_board_codes` 字符串和 planner 分支中。
 5. planner 阶段发起外部请求会放大执行规划成本和失败面，后续开发者容易误以为 `dc_member` 只是普通 active pool 展开。
+
+当前决策：
+
+1. `dc_member` 默认维护不得在 planner 阶段临时拉取 `dc_index`。
+2. 默认不传板块代码时，planner 只能读取本地已维护的 `DcIndex` 板块清单。
+3. 如果本地 `DcIndex` 在指定交易日或日期范围内没有板块代码，任务必须规划失败，并提示先维护 `dc_index` 东方财富板块列表数据。
+4. 显式传入 `ts_code` 或 `con_code` 时，继续按显式输入规划，不依赖默认板块清单。
+5. 任何包含默认 `dc_member` 维护步骤的工作流，都必须先执行 `dc_index`，再执行 `dc_member`。
 
 处理要求：
 
-1. 单独评审 `dc_member` 对 `dc_index` 的依赖模型，明确是否继续允许 planner 远程 fallback。
-2. 如果保留 fallback，必须把“本地 `dc_index` 优先、远程 `dc_index` 兜底”的来源顺序、触发条件和失败语义显式写入 Definition 或专用 plan 规则。
-3. 如果取消 fallback，必须明确 `dc_index` 是 `dc_member` 默认维护前置条件；当本地板块池为空时直接返回可读的规划错误。
+1. 取消 planner 远程 fallback，明确 `dc_index` 是 `dc_member` 默认维护前置条件。
+2. 当本地板块池为空时直接返回可读的规划错误，禁止继续悄悄请求 `dc_index`。
+3. 后续继续把板块池来源、字段和空池失败语义显式写入 Definition 或专用 plan 规则。
 4. 不得继续新增类似 `*_board_codes` 的历史 selector 字符串；新方案应向 `universe_policy="pool"` 与显式对象池来源收口，或形成单独评审过的依赖型 planner 规则。
-5. 补充 planner 测试，覆盖本地 `dc_index` 命中、按日期范围取板块、空池失败，以及 fallback 保留/删除后的目标行为。
+5. 补充 planner 测试，覆盖本地 `dc_index` 命中、按日期范围取板块、空池失败，以及显式 `ts_code/con_code` 维护。
+6. 补充工作流顺序测试，防止 `dc_member` 被排到 `dc_index` 之前。
 
 关闭门禁：
 
@@ -463,6 +472,15 @@
 3. planner 阶段是否允许远程请求已有明确结论，并有测试锁住。
 4. 文档说明 `dc_member` 与 `dc_index` 的前置关系，运营侧能理解为什么需要先准备板块清单。
 5. 定向测试覆盖 `dc_member` 默认维护和显式 `ts_code/con_code` 维护。
+
+关闭记录（2026-05-17）：
+
+1. `dc_member` 已迁移为 `universe_policy="pool"`，并在 `planning.universe` 中显式声明来源：
+   `core_dc_index_by_trade_date / dc_index`。
+2. `dc_member` 已改为专用 `build_dc_member_units`，默认维护只读取本地 `DcIndex`，不再在 planner 阶段请求 Tushare `dc_index`。
+3. 本地 `DcIndex` 没有对应日期或日期范围板块代码时，planner 直接失败，并提示先维护 `dc_index` 东方财富板块列表数据。
+4. 工作流顺序测试已锁住：任何包含 `dc_member` 的工作流必须先执行 `dc_index`。
+5. 定向测试覆盖本地命中、日期范围逐日展开、空池失败、显式 `ts_code` 与显式 `con_code`。
 
 ---
 

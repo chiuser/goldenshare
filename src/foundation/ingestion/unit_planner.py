@@ -7,11 +7,9 @@ from typing import Any, Callable
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from src.foundation.connectors.factory import create_source_connector
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
 from src.foundation.datasets.models import DatasetDefinition
-from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.errors import IngestionPlanningError, StructuredError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion import request_builders
@@ -197,43 +195,7 @@ class DatasetUnitPlanner:
                 raise self._planning_error("universe_empty", "未找到可维护的同花顺板块代码")
             return [{"ts_code": code} for code in normalized_codes]
 
-        if policy != "dc_index_board_codes":
-            raise self._planning_error("unknown_universe_policy", f"不支持的维护对象展开规则：{policy}")
-
-        ts_code = str(request.params.get("ts_code") or "").strip().upper()
-        con_code = str(request.params.get("con_code") or "").strip().upper()
-        if ts_code:
-            return [{"ts_code": ts_code}]
-        if con_code:
-            return [{"con_code": con_code}]
-
-        idx_types = split_multi_values(request.params.get("idx_type"))
-        board_codes: list[str] = []
-        if anchor is not None:
-            board_codes = self._load_board_codes_from_dc_index(anchor=anchor, idx_types=idx_types)
-        elif request.trade_date is not None:
-            board_codes = self._load_board_codes_from_dc_index(anchor=request.trade_date, idx_types=idx_types)
-        elif request.start_date is not None and request.end_date is not None:
-            board_codes = self._load_board_codes_from_dc_index_range(
-                start_date=request.start_date,
-                end_date=request.end_date,
-                idx_types=idx_types,
-            )
-        if not board_codes:
-            fallback_anchor = anchor or request.trade_date
-            if fallback_anchor is not None:
-                board_codes = self._load_board_codes_from_source(anchor=fallback_anchor, idx_types=idx_types)
-        if not board_codes:
-            if anchor is None and request.trade_date is None and request.start_date is None and request.end_date is None:
-                raise self._planning_error(
-                    "trade_date_anchor_required",
-                    "板块代码范围规划需要交易日期或起止日期",
-                )
-            raise self._planning_error(
-                "universe_empty",
-                "未找到指定日期范围内的东方财富板块代码",
-            )
-        return [{"ts_code": code} for code in board_codes]
+        raise self._planning_error("unknown_universe_policy", f"不支持的维护对象展开规则：{policy}")
 
     def _load_board_codes_from_dc_index(self, *, anchor: date, idx_types: list[str]) -> list[str]:
         stmt = select(DcIndex.ts_code).where(DcIndex.trade_date == anchor)
@@ -253,26 +215,6 @@ class DatasetUnitPlanner:
         if idx_types:
             stmt = stmt.where(DcIndex.idx_type.in_(idx_types))
         codes = [str(item).strip().upper() for item in self.session.scalars(stmt.distinct().order_by(DcIndex.ts_code)) if str(item).strip()]
-        return sorted(set(codes))
-
-    @staticmethod
-    def _load_board_codes_from_source(*, anchor: date, idx_types: list[str]) -> list[str]:
-        connector = create_source_connector("tushare")
-        dc_index_definition = get_dataset_definition("dc_index")
-        query_idx_types = idx_types or [""]
-        rows: list[dict[str, Any]] = []
-        for idx_type in query_idx_types:
-            params: dict[str, Any] = {"trade_date": anchor.strftime("%Y%m%d")}
-            if idx_type:
-                params["idx_type"] = idx_type
-            rows.extend(
-                connector.call(
-                    api_name="dc_index",
-                    params=params,
-                    fields=dc_index_definition.source.source_fields,
-                )
-            )
-        codes = [str(row.get("ts_code")).strip().upper() for row in rows if str(row.get("ts_code") or "").strip()]
         return sorted(set(codes))
 
     @staticmethod
@@ -362,6 +304,76 @@ def _resolve_index_weight_universe_values(request: ValidatedDatasetActionRequest
             return [{request_field: code} for code in codes]
 
     raise DatasetUnitPlanner._planning_error("universe_empty", "指数权重未找到可维护的指数代码")
+
+
+def _resolve_dc_member_universe_values(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+    anchor: date | None,
+) -> list[dict[str, str]]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "东方财富板块成分缺少对象池规划配置")
+    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code", "con_code"):
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "东方财富板块成分对象池字段配置不符合当前主链")
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("core_dc_index_by_trade_date", "dc_index"),):
+        raise DatasetUnitPlanner._planning_error("invalid_universe_source", "东方财富板块成分对象池来源配置不符合当前主链")
+
+    explicit_ts_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
+    if explicit_ts_codes:
+        return [{"ts_code": code} for code in explicit_ts_codes]
+
+    explicit_con_codes = _normalize_universe_codes(split_multi_values(request.params.get("con_code")))
+    if explicit_con_codes:
+        return [{"con_code": code} for code in explicit_con_codes]
+
+    idx_types = split_multi_values(request.params.get("idx_type"))
+    board_codes: list[str] = []
+    if anchor is not None:
+        board_codes = planner._load_board_codes_from_dc_index(anchor=anchor, idx_types=idx_types)
+    elif request.trade_date is not None:
+        board_codes = planner._load_board_codes_from_dc_index(anchor=request.trade_date, idx_types=idx_types)
+    elif request.start_date is not None and request.end_date is not None:
+        board_codes = planner._load_board_codes_from_dc_index_range(
+            start_date=request.start_date,
+            end_date=request.end_date,
+            idx_types=idx_types,
+        )
+    if not board_codes:
+        if anchor is None and request.trade_date is None and request.start_date is None and request.end_date is None:
+            raise DatasetUnitPlanner._planning_error(
+                "trade_date_anchor_required",
+                "板块代码范围规划需要交易日期或起止日期",
+            )
+        raise DatasetUnitPlanner._planning_error(
+            "universe_empty",
+            "未找到指定日期范围内的东方财富板块代码；请先维护 dc_index 东方财富板块列表数据",
+        )
+    return [{"ts_code": code} for code in board_codes]
+
+
+def _build_dc_member_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    anchors = planner._resolve_anchors(request, definition)
+    units: list[PlanUnitSnapshot] = []
+    for anchor in anchors:
+        universe_values = _resolve_dc_member_universe_values(planner, request, definition, anchor)
+        units.extend(
+            build_plan_units(
+                request=request,
+                definition=definition,
+                anchors=[anchor],
+                enum_combinations=[{}],
+                request_builder=request_builder,
+                universe_values=universe_values,
+                pagination_policy_override=definition.planning.pagination_policy,
+                page_limit_override=definition.planning.page_limit,
+                progress_context_builder=planner._build_generic_progress_context,
+            )
+        )
+    return units
 
 
 def _expand_natural_dates(start_date: date, end_date: date) -> list[date]:
@@ -940,6 +952,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
     "build_cctv_news_units": _build_cctv_news_units,
+    "build_dc_member_units": _build_dc_member_units,
     "build_major_news_units": _build_major_news_units,
     "build_news_units": _build_news_units,
     "build_dividend_units": _build_dividend_units,

@@ -45,13 +45,13 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 65,
-            "pool": 5,
-            "dc_index_board_codes": 1,
+            "pool": 6,
             "ths_index_board_codes": 1,
         }
     )
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "index_active_codes"} == set()
+    assert {dataset_key for dataset_key, policy in policies.items() if policy == "dc_index_board_codes"} == set()
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -697,6 +697,14 @@ def test_dataset_definition_owns_dc_board_type_filter() -> None:
     definition = get_dataset_definition("dc_member")
     idx_type = next(field for field in definition.input_model.filters if field.name == "idx_type")
 
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "ts_code"
+    assert definition.planning.universe.override_fields == ("ts_code", "con_code")
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("core_dc_index_by_trade_date", "dc_index")
+    ]
+    assert definition.planning.unit_builder_key == "build_dc_member_units"
     assert idx_type.display_name == "板块类型"
     assert idx_type.field_type == "list"
     assert idx_type.multi_value is True

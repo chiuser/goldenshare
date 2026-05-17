@@ -1,9 +1,9 @@
 # index_weight 对象池最小收口方案 v1
 
-- 状态：`index_weight`、`stk_mins`、`biying_*`、`index_mins` 对象池语义收口已完成；`none` 与 `index_active_codes` 已清零（2026-05-17）
+- 状态：`index_weight`、`stk_mins`、`biying_*`、`index_mins`、`dc_member` 对象池语义收口已完成；`none`、`index_active_codes`、`dc_index_board_codes` 已清零（2026-05-17）
 - 初始范围：只处理 `index_weight`
 - 第一轮语义清理范围：把已确认“不按对象池展开”的数据集从 `none` 收口到 `no_pool`
-- 第一轮后续处理：`stk_mins` 与 `biying_*` 已完成对象池语义迁移；`index_daily`、`dc_member`、`ths_member` 仍保持现有 selector 语义，不在本轮改动。
+- 第一轮后续处理：`stk_mins` 与 `biying_*` 已完成对象池语义迁移；`dc_member` 已迁移为 `pool + core_dc_index_by_trade_date` 显式来源；`index_daily`、`ths_member` 仍保持现有 selector 语义，不在本轮改动。
 - 关联代码：
   - [index_weight DatasetDefinition](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/index_series.py)
   - [DatasetUnitPlanner](/Users/congming/github/goldenshare/src/foundation/ingestion/unit_planner.py)
