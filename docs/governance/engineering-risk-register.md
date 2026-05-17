@@ -38,7 +38,7 @@
 | RISK-2026-05-11-007 | P0 | Lake `stk_mins` 旧单股票补数路径曾整分区替换 `raw_tushare/stk_mins_by_date/freq=*/trade_date=*`，已确认 `freq=1` 大面积 raw 分区被覆盖为单股票数据，`freq=5` 局部受损 | 本地 Lake `raw_tushare/stk_mins_by_date`，重点 `freq=1`、`freq=5`；后续 MACD/研究层计算依赖的分钟线事实 | Closed | [stk_mins Parquet Lake 方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)、[Local Lake 持久备份与恢复管理方案 v1](/Users/congming/github/goldenshare/docs/architecture/local-lake-write-recovery-management-plan-v1.md) |
 | RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
 | RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`；历史实现曾在 planner 阶段远程 fallback，且依赖来源藏在 `dc_index_board_codes` selector 中 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
-| RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`，依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` 历史 selector 中，容易造成默认维护漏数或失败时难以定位前置数据问题 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Open | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
+| RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`；历史实现中依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` selector 中 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 
 ---
 
@@ -488,11 +488,19 @@
 
 风险说明：
 
-1. `ths_member` 当前使用 `universe_policy="ths_index_board_codes"`。
+1. `ths_member` 历史实现使用 `universe_policy="ths_index_board_codes"`。
 2. 默认不传板块代码时，planner 从本地 `ThsIndex` 表读取所有同花顺板块 `ts_code`，再逐个生成 `ths_member` 请求。
 3. `ths_member` 没有日期输入，也没有远程 fallback；如果 `ThsIndex` 为空或过旧，默认维护会失败或漏板块。
-4. 当前依赖关系只藏在 `ths_index_board_codes` 字符串和 planner 分支中，Definition 里看不出来源表、字段和空池失败语义。
+4. 历史实现中，依赖关系只藏在 `ths_index_board_codes` 字符串和 planner 分支中，Definition 里看不出来源表、字段和空池失败语义。
 5. 这个风险比 `dc_member` 轻，但同样会造成后续开发者误判默认维护对象池来源。
+
+当前决策：
+
+1. `ths_member` 默认维护不得绕开本地 `ThsIndex` 板块清单。
+2. 默认不传板块代码时，planner 只能读取本地已维护的 `ThsIndex` 板块清单。
+3. 如果本地 `ThsIndex` 没有板块代码，任务必须规划失败，并提示先维护 `ths_index` 同花顺板块列表数据。
+4. 显式传入 `ts_code` 或 `con_code` 时，继续按显式输入规划，不依赖默认板块清单。
+5. 任何包含默认 `ths_member` 维护步骤的工作流，都必须先执行 `ths_index`，再执行 `ths_member`。
 
 处理要求：
 
@@ -508,3 +516,12 @@
 2. `ths_member` 默认维护不再依赖难以察觉的 `ths_index_board_codes` 隐式分支。
 3. 空池失败文案能明确提示需要先维护 `ths_index`。
 4. 定向测试覆盖 `ths_member` 默认维护和显式 `ts_code/con_code` 维护。
+
+关闭记录（2026-05-17）：
+
+1. `ths_member` 已迁移为 `universe_policy="pool"`，并在 `planning.universe` 中显式声明来源：
+   `core_ths_index_snapshot / ths_index`。
+2. `ths_member` 已改为专用 `build_ths_member_units`，默认维护只读取本地 `ThsIndex`，不再依赖 `ths_index_board_codes` 历史 selector。
+3. 本地 `ThsIndex` 没有板块代码时，planner 直接失败，并提示先维护 `ths_index` 同花顺板块列表数据。
+4. 工作流顺序测试已锁住：任何包含 `ths_member` 的工作流必须先执行 `ths_index`。
+5. 定向测试覆盖本地命中、空池失败、显式 `ts_code` 与显式 `con_code`。

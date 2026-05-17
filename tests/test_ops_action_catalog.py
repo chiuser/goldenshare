@@ -84,6 +84,18 @@ def test_dc_member_workflow_runs_after_dc_index() -> None:
         )
 
 
+def test_ths_member_workflow_runs_after_ths_index() -> None:
+    for workflow in WORKFLOW_DEFINITION_REGISTRY.values():
+        dataset_keys = [step.dataset_key for step in workflow.steps if step.dataset_key is not None]
+        if "ths_member" not in dataset_keys:
+            continue
+
+        assert "ths_index" in dataset_keys, f"{workflow.key} must prepare ths_index before ths_member"
+        assert dataset_keys.index("ths_index") < dataset_keys.index("ths_member"), (
+            f"{workflow.key} must run ths_index before ths_member"
+        )
+
+
 def test_workflow_time_contracts_match_step_requirements() -> None:
     reference_data = WORKFLOW_DEFINITION_REGISTRY["reference_data_refresh"]
     daily_market_close = WORKFLOW_DEFINITION_REGISTRY["daily_market_close_maintenance"]

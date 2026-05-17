@@ -181,20 +181,6 @@ class DatasetUnitPlanner:
         policy = definition.planning.universe_policy
         if policy in {"none", "no_pool"}:
             return [{}]
-        if policy == "ths_index_board_codes":
-            ts_code = str(request.params.get("ts_code") or "").strip().upper()
-            con_code = str(request.params.get("con_code") or "").strip().upper()
-            if ts_code:
-                return [{"ts_code": ts_code}]
-            if con_code:
-                return [{"con_code": con_code}]
-            stmt = select(ThsIndex.ts_code).distinct().order_by(ThsIndex.ts_code)
-            codes = [str(item).strip().upper() for item in self.session.scalars(stmt) if str(item).strip()]
-            normalized_codes = sorted(set(codes))
-            if not normalized_codes:
-                raise self._planning_error("universe_empty", "未找到可维护的同花顺板块代码")
-            return [{"ts_code": code} for code in normalized_codes]
-
         raise self._planning_error("unknown_universe_policy", f"不支持的维护对象展开规则：{policy}")
 
     def _load_board_codes_from_dc_index(self, *, anchor: date, idx_types: list[str]) -> list[str]:
@@ -374,6 +360,56 @@ def _build_dc_member_units(planner: DatasetUnitPlanner, request: ValidatedDatase
             )
         )
     return units
+
+
+def _resolve_ths_member_universe_values(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[dict[str, str]]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "同花顺板块成分缺少对象池规划配置")
+    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code", "con_code"):
+        raise DatasetUnitPlanner._planning_error("invalid_universe_config", "同花顺板块成分对象池字段配置不符合当前主链")
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("core_ths_index_snapshot", "ths_index"),):
+        raise DatasetUnitPlanner._planning_error("invalid_universe_source", "同花顺板块成分对象池来源配置不符合当前主链")
+
+    explicit_ts_codes = _normalize_universe_codes(split_multi_values(request.params.get("ts_code")))
+    if explicit_ts_codes:
+        return [{"ts_code": code} for code in explicit_ts_codes]
+
+    explicit_con_codes = _normalize_universe_codes(split_multi_values(request.params.get("con_code")))
+    if explicit_con_codes:
+        return [{"con_code": code} for code in explicit_con_codes]
+
+    stmt = select(ThsIndex.ts_code).distinct().order_by(ThsIndex.ts_code)
+    codes = [str(item).strip().upper() for item in planner.session.scalars(stmt) if str(item).strip()]
+    normalized_codes = sorted(set(codes))
+    if not normalized_codes:
+        raise DatasetUnitPlanner._planning_error(
+            "universe_empty",
+            "未找到可维护的同花顺板块代码；请先维护 ths_index 同花顺板块列表数据",
+        )
+    return [{"ts_code": code} for code in normalized_codes]
+
+
+def _build_ths_member_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    anchors = planner._resolve_anchors(request, definition)
+    universe_values = _resolve_ths_member_universe_values(planner, request, definition)
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=anchors,
+        enum_combinations=[{}],
+        request_builder=request_builder,
+        universe_values=universe_values,
+        pagination_policy_override=definition.planning.pagination_policy,
+        page_limit_override=definition.planning.page_limit,
+        progress_context_builder=planner._build_generic_progress_context,
+    )
 
 
 def _expand_natural_dates(start_date: date, end_date: date) -> list[date]:
@@ -963,4 +999,5 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_stk_holdernumber_units": _build_holdernumber_units,
     "build_stk_mins_units": _build_stk_mins_units,
     "build_stock_basic_units": _build_stock_basic_units,
+    "build_ths_member_units": _build_ths_member_units,
 }

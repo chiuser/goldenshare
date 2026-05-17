@@ -45,13 +45,13 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 65,
-            "pool": 6,
-            "ths_index_board_codes": 1,
+            "pool": 7,
         }
     )
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "index_active_codes"} == set()
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "dc_index_board_codes"} == set()
+    assert {dataset_key for dataset_key, policy in policies.items() if policy == "ths_index_board_codes"} == set()
 
 
 def test_dataset_definition_projects_core_dataset_facts() -> None:
@@ -709,6 +709,19 @@ def test_dataset_definition_owns_dc_board_type_filter() -> None:
     assert idx_type.field_type == "list"
     assert idx_type.multi_value is True
     assert idx_type.enum_values == ("行业板块", "概念板块", "地域板块")
+
+
+def test_dataset_definition_declares_ths_member_board_pool() -> None:
+    definition = get_dataset_definition("ths_member")
+
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "ts_code"
+    assert definition.planning.universe.override_fields == ("ts_code", "con_code")
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("core_ths_index_snapshot", "ths_index")
+    ]
+    assert definition.planning.unit_builder_key == "build_ths_member_units"
 
 
 def test_dataset_definition_removes_dead_exchange_filter_from_target_daily_datasets() -> None:
