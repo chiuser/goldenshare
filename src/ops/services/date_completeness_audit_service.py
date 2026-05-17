@@ -19,6 +19,21 @@ from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCo
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
 
 
+DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT = 30
+
+
+class DateSubjectMatrixRangeTooLargeError(ValueError):
+    def __init__(self, *, expected_bucket_count: int) -> None:
+        self.expected_bucket_count = expected_bucket_count
+        self.operator_message = (
+            "对象矩阵审计范围超过当前安全上限，已停止执行。请缩小日期范围，或等待分桶执行能力上线后再运行大范围审计。"
+        )
+        super().__init__(
+            "date_subject_matrix range contains "
+            f"{expected_bucket_count} buckets, limit is {DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT}"
+        )
+
+
 @dataclass(frozen=True, slots=True)
 class DateCompletenessBucket:
     bucket_kind: str
@@ -783,10 +798,11 @@ class DateCompletenessAuditExecutor:
                 bucket_window_rule=run.bucket_window_rule,
                 bucket_applicability_rule=run.bucket_applicability_rule,
             )
-            run.current_stage = "reading_actual"
-            session.commit()
+            self._mark_planned(session, run, expected=expected, excluded=excluded)
 
             if run.audit_scope == "date_subject_matrix":
+                if len(expected) > DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT:
+                    raise DateSubjectMatrixRangeTooLargeError(expected_bucket_count=len(expected))
                 definition = get_dataset_definition(run.dataset_key)
                 result = SubjectCompletenessMatrixExecutor().execute(
                     session,
@@ -836,11 +852,42 @@ class DateCompletenessAuditExecutor:
 
     @staticmethod
     def _mark_running(session: Session, run: DatasetDateCompletenessRun) -> None:
+        now = _utcnow()
         run.run_status = "running"
         run.result_status = None
         run.current_stage = "planning"
         run.operator_message = "正在生成期望日期桶。"
-        run.started_at = run.started_at or _utcnow()
+        run.processed_bucket_count = 0
+        run.current_bucket_value = None
+        run.current_bucket_label = None
+        run.progress_message = "正在生成应检查的日期桶。"
+        run.heartbeat_at = now
+        run.started_at = run.started_at or now
+        session.commit()
+        session.refresh(run)
+
+    @staticmethod
+    def _mark_planned(
+        session: Session,
+        run: DatasetDateCompletenessRun,
+        *,
+        expected: list[DateCompletenessBucket],
+        excluded: list[DateCompletenessExcludedBucket],
+    ) -> None:
+        run.current_stage = "reading_actual"
+        run.expected_bucket_count = len(expected)
+        run.excluded_bucket_count = len(excluded)
+        run.processed_bucket_count = 0
+        first_bucket = expected[0] if expected else None
+        run.current_bucket_value = first_bucket.value if first_bucket else None
+        run.current_bucket_label = first_bucket.label if first_bucket else None
+        if run.audit_scope == "date_subject_matrix":
+            run.progress_message = (
+                f"已规划 {len(expected)} 个日期桶，正在读取并比对日期 × 对象矩阵。"
+            )
+        else:
+            run.progress_message = f"已规划 {len(expected)} 个日期桶，正在读取实际数据。"
+        run.heartbeat_at = _utcnow()
         session.commit()
         session.refresh(run)
 
@@ -928,6 +975,10 @@ class DateCompletenessAuditExecutor:
         run.affected_bucket_count = 0
         run.affected_subject_count = 0
         run.detail_truncated = False
+        run.processed_bucket_count = len(expected)
+        last_bucket = expected[-1] if expected else None
+        run.current_bucket_value = last_bucket.value if last_bucket else None
+        run.current_bucket_label = last_bucket.label if last_bucket else None
         if gaps:
             run.operator_message = "审计发现日期缺口。"
         elif excluded:
@@ -935,7 +986,10 @@ class DateCompletenessAuditExecutor:
         else:
             run.operator_message = "审计通过，未发现日期缺口。"
         run.technical_message = None
-        run.finished_at = _utcnow()
+        run.progress_message = f"审计完成，已处理 {len(expected)} 个日期桶。"
+        now = _utcnow()
+        run.heartbeat_at = now
+        run.finished_at = now
         session.commit()
         session.refresh(run)
 
@@ -1022,6 +1076,10 @@ class DateCompletenessAuditExecutor:
         run.affected_bucket_count = result.affected_bucket_count
         run.affected_subject_count = result.affected_subject_count
         run.detail_truncated = result.detail_truncated
+        run.processed_bucket_count = len(expected)
+        last_bucket = expected[-1] if expected else None
+        run.current_bucket_value = last_bucket.value if last_bucket else None
+        run.current_bucket_label = last_bucket.label if last_bucket else None
         if result.missing_cell_count:
             run.operator_message = "审计发现对象矩阵缺口。"
         elif result.expected_cell_count == 0:
@@ -1031,7 +1089,10 @@ class DateCompletenessAuditExecutor:
         else:
             run.operator_message = "审计通过，未发现对象矩阵缺口。"
         run.technical_message = None
-        run.finished_at = _utcnow()
+        run.progress_message = f"审计完成，已处理 {len(expected)} 个日期桶。"
+        now = _utcnow()
+        run.heartbeat_at = now
+        run.finished_at = now
         session.commit()
         session.refresh(run)
 
@@ -1043,9 +1104,12 @@ class DateCompletenessAuditExecutor:
         run.run_status = "failed"
         run.result_status = "error"
         run.current_stage = "error"
-        run.operator_message = "审计执行失败，请查看技术诊断。"
+        run.operator_message = getattr(error, "operator_message", "审计执行失败，请查看技术诊断。")
         run.technical_message = str(error)
-        run.finished_at = _utcnow()
+        run.progress_message = run.operator_message
+        now = _utcnow()
+        run.heartbeat_at = now
+        run.finished_at = now
         session.commit()
 
 

@@ -92,6 +92,7 @@ docs/
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
 - [数据集日期完整性审计设计 v2（独立审计系统，M7 已完成本地验证）](/Users/congming/github/goldenshare/docs/ops/dataset-date-completeness-audit-design-v2.md)
 - [数据集日期对象矩阵完整性审计方案 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/ops/dataset-subject-completeness-audit-plan-v1.html)
+- [日期对象矩阵审计性能与可观测性专项优化方案 v1（M0/M1 已进入落地）](/Users/congming/github/goldenshare/docs/ops/date-subject-matrix-audit-performance-optimization-plan-v1.md)
 - [Ops 新鲜度按 Date Model 收口方案 v1（历史归档）](/Users/congming/github/goldenshare/docs/ops/ops-date-model-freshness-alignment-plan-v1.md)
 - [多源对账能力需求 v1](/Users/congming/github/goldenshare/docs/ops/reconcile-capability-requirements-v1.md)
 - [Tushare 全量数据集请求执行口径 v1（仅 Tushare）](/Users/congming/github/goldenshare/docs/ops/tushare-request-execution-policy-v1.md)

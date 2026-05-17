@@ -148,6 +148,11 @@ function mockApi() {
             affected_bucket_count: 0,
             affected_subject_count: 0,
             detail_truncated: false,
+            processed_bucket_count: 2,
+            current_bucket_value: "2026-02-06",
+            current_bucket_label: "2026-02-06",
+            progress_message: "审计完成，已处理 2 个日期桶。",
+            heartbeat_at: "2026-04-30T10:02:00+08:00",
             current_stage: "finished",
             operator_message: "审计通过，已按规则排除 1 个不可产出日期桶。",
             technical_message: null,
@@ -189,6 +194,11 @@ function mockApi() {
             affected_bucket_count: 2,
             affected_subject_count: 1,
             detail_truncated: false,
+            processed_bucket_count: 2,
+            current_bucket_value: "2026-03-31",
+            current_bucket_label: "2026-03-31",
+            progress_message: "审计完成，已处理 2 个日期桶。",
+            heartbeat_at: "2026-04-30T10:07:00+08:00",
             current_stage: "finished",
             operator_message: "审计发现对象矩阵缺口。",
             technical_message: null,
@@ -199,6 +209,52 @@ function mockApi() {
             finished_at: "2026-04-30T10:07:00+08:00",
             created_at: "2026-04-30T10:05:00+08:00",
             updated_at: "2026-04-30T10:07:00+08:00",
+          },
+          {
+            id: 10,
+            dataset_key: "stk_factor_pro",
+            display_name: "股票技术因子(专业版)",
+            target_table: "core_serving.equity_factor_pro",
+            run_mode: "manual",
+            run_status: "running",
+            result_status: null,
+            start_date: "2026-04-01",
+            end_date: "2026-04-14",
+            date_axis: "trade_open_day",
+            bucket_rule: "every_open_day",
+            window_mode: "point_or_range",
+            input_shape: "trade_date_or_start_end",
+            observed_field: "trade_date",
+            bucket_window_rule: "none",
+            bucket_applicability_rule: "always",
+            audit_scope: "date_subject_matrix",
+            subject_kind: "stock",
+            expected_bucket_count: 10,
+            actual_bucket_count: 0,
+            missing_bucket_count: 0,
+            excluded_bucket_count: 0,
+            gap_range_count: 0,
+            expected_cell_count: 0,
+            actual_cell_count: 0,
+            missing_cell_count: 0,
+            affected_bucket_count: 0,
+            affected_subject_count: 0,
+            detail_truncated: false,
+            processed_bucket_count: 3,
+            current_bucket_value: "2026-04-03",
+            current_bucket_label: "2026-04-03",
+            progress_message: "已规划 10 个日期桶，正在读取并比对日期 × 对象矩阵。",
+            heartbeat_at: new Date().toISOString(),
+            current_stage: "reading_actual",
+            operator_message: "正在读取并比对日期 × 对象矩阵。",
+            technical_message: null,
+            requested_by_user_id: 1,
+            schedule_id: null,
+            requested_at: "2026-04-30T10:10:00+08:00",
+            started_at: "2026-04-30T10:11:00+08:00",
+            finished_at: null,
+            created_at: "2026-04-30T10:10:00+08:00",
+            updated_at: "2026-04-30T10:11:00+08:00",
           },
         ],
       };
@@ -410,6 +466,7 @@ describe("数据集审计页", () => {
     expect(await screen.findByText("对象缺失样例明细")).toBeInTheDocument();
     expect(await screen.findByText("审计粒度：日期 × 对象矩阵")).toBeInTheDocument();
     expect(await screen.findByText("对象类型：stock")).toBeInTheDocument();
+    expect(await screen.findByText("审计进度")).toBeInTheDocument();
     expect((await screen.findAllByText("001257.SZ 立新能源")).length).toBeGreaterThanOrEqual(1);
     expect(await screen.findByText("ts_code=001257.SZ，trade_date=2026-03-30")).toBeInTheDocument();
     expect(await screen.findByText("2022/07/27 至今")).toBeInTheDocument();
@@ -420,5 +477,15 @@ describe("数据集审计页", () => {
       expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/review/date-completeness/runs/9/subject-gap-details");
     });
     expect(apiRequest.mock.calls.some(([path]) => String(path).includes("/runs/9/gaps"))).toBe(false);
+  });
+
+  it("展示运行中对象矩阵审计的日期桶进度和心跳", async () => {
+    renderPage();
+
+    fireEvent.click(await screen.findByRole("tab", { name: /审计记录/ }));
+
+    expect(await screen.findByText("股票技术因子(专业版)")).toBeInTheDocument();
+    expect(await screen.findByText(/已处理 3 \/ 10 个日期桶/)).toBeInTheDocument();
+    expect(await screen.findByText(/最后心跳/)).toBeInTheDocument();
   });
 });

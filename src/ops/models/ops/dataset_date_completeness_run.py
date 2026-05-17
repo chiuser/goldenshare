@@ -35,6 +35,7 @@ class DatasetDateCompletenessRun(TimestampMixin, Base):
         CheckConstraint("missing_cell_count >= 0", name="ck_dataset_date_completeness_missing_cell_non_negative"),
         CheckConstraint("affected_bucket_count >= 0", name="ck_dataset_date_completeness_affected_bucket_non_negative"),
         CheckConstraint("affected_subject_count >= 0", name="ck_dataset_date_completeness_affected_subject_non_negative"),
+        CheckConstraint("processed_bucket_count >= 0", name="ck_dataset_date_completeness_processed_non_negative"),
         CheckConstraint(
             "(result_status <> 'passed') OR (missing_bucket_count = 0 AND missing_cell_count = 0)",
             name="ck_dataset_date_completeness_passed_has_no_missing",
@@ -82,6 +83,11 @@ class DatasetDateCompletenessRun(TimestampMixin, Base):
     affected_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     affected_subject_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
     detail_truncated: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    processed_bucket_count: Mapped[int] = mapped_column(Integer, nullable=False, default=0, server_default="0")
+    current_bucket_value: Mapped[date | None] = mapped_column(Date)
+    current_bucket_label: Mapped[str | None] = mapped_column(String(64))
+    progress_message: Mapped[str | None] = mapped_column(Text)
+    heartbeat_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
 
     current_stage: Mapped[str | None] = mapped_column(String(64))
     operator_message: Mapped[str | None] = mapped_column(Text)

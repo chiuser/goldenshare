@@ -75,6 +75,11 @@ export interface DateCompletenessRunItem {
   affected_bucket_count: number;
   affected_subject_count: number;
   detail_truncated: boolean;
+  processed_bucket_count: number;
+  current_bucket_value: string | null;
+  current_bucket_label: string | null;
+  progress_message: string | null;
+  heartbeat_at: string | null;
   current_stage: string | null;
   operator_message: string | null;
   technical_message: string | null;

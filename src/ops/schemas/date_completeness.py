@@ -93,6 +93,11 @@ class DateCompletenessRunItem(BaseModel):
     affected_bucket_count: int
     affected_subject_count: int
     detail_truncated: bool
+    processed_bucket_count: int
+    current_bucket_value: date | None = None
+    current_bucket_label: str | None = None
+    progress_message: str | None = None
+    heartbeat_at: datetime | None = None
     current_stage: str | None = None
     operator_message: str | None = None
     technical_message: str | None = None

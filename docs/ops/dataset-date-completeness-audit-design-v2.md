@@ -211,11 +211,24 @@ flowchart LR
 | `bucket_window_rule` | varchar(32) | 日期桶窗口规则快照 |
 | `bucket_applicability_rule` | varchar(64) | 日期桶可产出规则快照 |
 | `row_identity_filters_json` | json | 目标表行级归属过滤条件快照 |
+| `audit_scope` | varchar(32) | 审计粒度，`date_bucket` 或 `date_subject_matrix` |
+| `subject_kind` | varchar(32) nullable | 对象矩阵审计的对象类型，例如 `stock`；日期桶审计为空 |
 | `expected_bucket_count` | int | 期望桶数量 |
 | `actual_bucket_count` | int | 实际桶数量；可能大于 `expected_bucket_count`，表示目标表存在非预期日期桶 |
 | `missing_bucket_count` | int | 缺失桶数量 |
 | `excluded_bucket_count` | int | 规则排除桶数量 |
 | `gap_range_count` | int | 压缩后的缺口区间数量 |
+| `expected_cell_count` | bigint | 对象矩阵审计的期望日期 × 对象单元数；日期桶审计为 0 |
+| `actual_cell_count` | bigint | 对象矩阵审计的实际命中单元数；日期桶审计为 0 |
+| `missing_cell_count` | bigint | 对象矩阵审计的缺失单元数；日期桶审计为 0 |
+| `affected_bucket_count` | int | 对象矩阵审计中受影响日期桶数量；日期桶审计为 0 |
+| `affected_subject_count` | int | 对象矩阵审计中受影响对象数量；日期桶审计为 0 |
+| `detail_truncated` | boolean | 对象缺失明细是否因安全上限被截断 |
+| `processed_bucket_count` | int | 已处理日期桶数量；用于运行中进度展示，不参与审计结论 |
+| `current_bucket_value` | date nullable | 当前或最近处理的日期桶值；用于定位长任务进度 |
+| `current_bucket_label` | varchar(64) nullable | 当前或最近处理的日期桶展示标签 |
+| `progress_message` | text nullable | 给运营看的进度说明；只保存当前进度快照，不做流水日志 |
+| `heartbeat_at` | timestamptz nullable | worker 最近一次心跳时间；用于判断运行中任务是否停滞 |
 | `current_stage` | varchar(64) | 当前阶段，如 `planning`、`reading_actual`、`detecting_gap`、`persisting` |
 | `operator_message` | text | 给运营看的短消息 |
 | `technical_message` | text | 技术诊断；只保存在本审计模型内，不复制到 TaskRun |
@@ -230,10 +243,11 @@ flowchart LR
 约束：
 
 1. `run_status=succeeded` 时 `result_status` 必须非空。
-2. `result_status=passed` 时 `missing_bucket_count=0`。
-3. `result_status=failed` 时 `missing_bucket_count>0`。
+2. `result_status=passed` 时 `missing_bucket_count=0` 且 `missing_cell_count=0`。
+3. `result_status=failed` 时 `missing_bucket_count>0` 或 `missing_cell_count>0`。
 4. `start_date <= end_date`。
-5. `actual_bucket_count > expected_bucket_count` 时，页面必须提示“存在非预期日期桶”；本期不因额外日期桶改变 `result_status`。
+5. `processed_bucket_count` 和所有计数字段不得为负数。
+6. `actual_bucket_count > expected_bucket_count` 时，页面必须提示“存在非预期日期桶”；本期不因额外日期桶改变 `result_status`。
 
 ### 4.2 表：`ops.dataset_date_completeness_gap`
 

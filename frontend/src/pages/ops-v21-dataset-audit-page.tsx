@@ -100,6 +100,26 @@ function lifecycleLabel(start: string | null, end: string | null): string {
   return "—";
 }
 
+function progressLabel(item: DateCompletenessRunItem): string {
+  if (item.run_status === "queued") return "等待审计 worker 执行";
+  if (item.expected_bucket_count > 0) {
+    const current = item.current_bucket_value ? `，当前 ${formatDateLabel(item.current_bucket_value)}` : "";
+    return `已处理 ${item.processed_bucket_count} / ${item.expected_bucket_count} 个日期桶${current}`;
+  }
+  return item.progress_message || "尚未生成日期桶进度";
+}
+
+function heartbeatLabel(value: string | null): string {
+  return value ? formatDateTimeLabel(value) : "暂无心跳";
+}
+
+function heartbeatIsStale(item: DateCompletenessRunItem): boolean {
+  if (item.run_status !== "running" || !item.heartbeat_at) return false;
+  const timestamp = new Date(item.heartbeat_at).getTime();
+  if (!Number.isFinite(timestamp)) return false;
+  return Date.now() - timestamp > 5 * 60 * 1000;
+}
+
 export function OpsV21DatasetAuditPage() {
   const queryClient = useQueryClient();
   const [tab, setTab] = useState<AuditTab>("datasets");
@@ -378,6 +398,11 @@ export function OpsV21DatasetAuditPage() {
                                 存在 {unexpectedCount} 个非预期日期桶
                               </Text>
                             ) : null}
+                            {item.run_status === "queued" || item.run_status === "running" ? (
+                              <Text size="xs" c={heartbeatIsStale(item) ? "warning" : "dimmed"}>
+                                {progressLabel(item)}；最后心跳：{heartbeatLabel(item.heartbeat_at)}
+                              </Text>
+                            ) : null}
                           </Stack>
                         </OpsTableCell>
                         <OpsTableCell>{runModeLabel(item.run_mode)}</OpsTableCell>
@@ -464,6 +489,19 @@ export function OpsV21DatasetAuditPage() {
                 本次审计缺失对象明细超过安全上限，页面只展示前一部分样例；汇总数字仍以完整 SQL 结果为准。
               </Alert>
             ) : null}
+            <SectionCard title="审计进度">
+              <Stack gap={4}>
+                <Text size="sm">{progressLabel(selectedRun)}</Text>
+                <Text size="sm">阶段：{selectedRun.current_stage || "—"}</Text>
+                <Text size="sm">最后心跳：{heartbeatLabel(selectedRun.heartbeat_at)}</Text>
+                {heartbeatIsStale(selectedRun) ? (
+                  <Text size="sm" c="warning">
+                    运行中但心跳超过 5 分钟没有更新，请检查审计 worker 或数据库查询。
+                  </Text>
+                ) : null}
+                {selectedRun.progress_message ? <Text size="sm">说明：{selectedRun.progress_message}</Text> : null}
+              </Stack>
+            </SectionCard>
             <SectionCard title="规则快照">
               <Stack gap={4}>
                 <Text size="sm">范围：{formatDateLabel(selectedRun.start_date)} 至 {formatDateLabel(selectedRun.end_date)}</Text>

@@ -190,6 +190,11 @@ def test_create_date_completeness_run_persists_independent_audit_record(app_clie
     assert detail["expected_bucket_count"] == 0
     assert detail["missing_bucket_count"] == 0
     assert detail["excluded_bucket_count"] == 0
+    assert detail["processed_bucket_count"] == 0
+    assert detail["current_bucket_value"] is None
+    assert detail["current_bucket_label"] is None
+    assert detail["progress_message"] is None
+    assert detail["heartbeat_at"] is None
 
     list_response = app_client.get("/api/v1/ops/review/date-completeness/runs?dataset_key=moneyflow_ind_dc", headers=headers)
     assert list_response.status_code == 200
@@ -235,6 +240,40 @@ def test_create_date_completeness_run_rejects_invalid_range(app_client, user_fac
 
     assert response.status_code == 422
     assert response.json()["code"] == "validation_error"
+
+
+def test_create_date_subject_matrix_run_rejects_large_manual_range(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    start_date = date(2026, 1, 1)
+    open_dates = [start_date + timedelta(days=index) for index in range(31)]
+    db_session.add_all(
+        [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=value,
+                is_open=True,
+                pretrade_date=value - timedelta(days=1),
+            )
+            for value in open_dates
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "adj_factor",
+            "start_date": open_dates[0].isoformat(),
+            "end_date": open_dates[-1].isoformat(),
+        },
+    )
+
+    assert response.status_code == 422
+    payload = response.json()
+    assert payload["code"] == "date_subject_matrix_range_too_large"
+    assert "31 个日期桶" in payload["message"]
+    assert db_session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "adj_factor")) is None
 
 
 def test_date_completeness_schedule_crud_and_rejects_unsupported_dataset(app_client, user_factory) -> None:
@@ -397,6 +436,11 @@ def test_date_completeness_worker_executes_queued_run_and_records_gaps(app_clien
     assert run.actual_bucket_count == 4
     assert run.missing_bucket_count == 1
     assert run.gap_range_count == 1
+    assert run.processed_bucket_count == 5
+    assert run.current_bucket_value == date(2026, 4, 24)
+    assert run.current_bucket_label == "2026-04-24"
+    assert run.progress_message == "审计完成，已处理 5 个日期桶。"
+    assert run.heartbeat_at is not None
 
     gaps_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}/gaps", headers=headers)
     assert gaps_response.status_code == 200
@@ -616,6 +660,11 @@ def test_date_subject_matrix_worker_records_missing_subject_cells(app_client, us
     assert run.affected_bucket_count == 2
     assert run.affected_subject_count == 1
     assert run.detail_truncated is False
+    assert run.processed_bucket_count == 2
+    assert run.current_bucket_value == date(2026, 3, 31)
+    assert run.current_bucket_label == "2026-03-31"
+    assert run.progress_message == "审计完成，已处理 2 个日期桶。"
+    assert run.heartbeat_at is not None
 
     detail_response = app_client.get(f"/api/v1/ops/review/date-completeness/runs/{run.id}", headers=headers)
     assert detail_response.status_code == 200
@@ -628,6 +677,11 @@ def test_date_subject_matrix_worker_records_missing_subject_cells(app_client, us
     assert detail["affected_bucket_count"] == 2
     assert detail["affected_subject_count"] == 1
     assert detail["detail_truncated"] is False
+    assert detail["processed_bucket_count"] == 2
+    assert detail["current_bucket_value"] == "2026-03-31"
+    assert detail["current_bucket_label"] == "2026-03-31"
+    assert detail["progress_message"] == "审计完成，已处理 2 个日期桶。"
+    assert detail["heartbeat_at"] is not None
 
     gaps = list(
         db_session.scalars(
@@ -1084,3 +1138,56 @@ def test_date_subject_matrix_worker_passes_when_subject_universe_is_empty(app_cl
     assert run.actual_cell_count == 0
     assert run.missing_cell_count == 0
     assert run.operator_message == "审计通过，对象池在本窗口内为空。"
+
+
+def test_date_subject_matrix_worker_stops_large_queued_range_before_target_read(db_session) -> None:
+    start_date = date(2026, 1, 1)
+    open_dates = [start_date + timedelta(days=index) for index in range(31)]
+    db_session.add_all(
+        [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=value,
+                is_open=True,
+                pretrade_date=value - timedelta(days=1),
+            )
+            for value in open_dates
+        ]
+    )
+    run = DatasetDateCompletenessRun(
+        dataset_key="adj_factor",
+        display_name="复权因子",
+        target_table="core.equity_adj_factor",
+        run_mode="manual",
+        run_status="queued",
+        result_status=None,
+        start_date=open_dates[0],
+        end_date=open_dates[-1],
+        date_axis="trade_open_day",
+        bucket_rule="every_open_day",
+        window_mode="point_or_range",
+        input_shape="trade_date_or_start_end",
+        observed_field="trade_date",
+        bucket_window_rule="none",
+        bucket_applicability_rule="always",
+        row_identity_filters_json={},
+        audit_scope="date_subject_matrix",
+        subject_kind="stock",
+        current_stage="queued",
+        requested_at=datetime(2026, 5, 17, 9, 0, tzinfo=timezone.utc),
+    )
+    db_session.add(run)
+    db_session.commit()
+
+    completed = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert completed is not None
+    assert completed.id == run.id
+    assert completed.run_status == "failed"
+    assert completed.result_status == "error"
+    assert completed.expected_bucket_count == 31
+    assert completed.processed_bucket_count == 0
+    assert completed.current_stage == "error"
+    assert completed.operator_message == "对象矩阵审计范围超过当前安全上限，已停止执行。请缩小日期范围，或等待分桶执行能力上线后再运行大范围审计。"
+    assert completed.progress_message == completed.operator_message
+    assert completed.heartbeat_at is not None

@@ -1463,6 +1463,8 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `DateCompletenessRuleListResponse`：`summary, groups`
 - `DateCompletenessRuleGroup`：`group_key, group_label, items`；这里的 `group_key` 表示审计能力分组（`supported/unsupported`）。
 - `DateCompletenessRuleItem`：`dataset_key, display_name, group_key, group_label, group_order, item_order, domain_key, domain_display_name, target_table, date_axis, bucket_rule, window_mode, input_shape, observed_field, audit_applicable, not_applicable_reason, rule_label`
+- `DateCompletenessRunListResponse`：`total, items`
+- `DateCompletenessRunItem`：`id, dataset_key, display_name, target_table, run_mode, run_status, result_status, start_date, end_date, date_axis, bucket_rule, window_mode, input_shape, observed_field, bucket_window_rule, bucket_applicability_rule, audit_scope, subject_kind, expected_bucket_count, actual_bucket_count, missing_bucket_count, excluded_bucket_count, gap_range_count, expected_cell_count, actual_cell_count, missing_cell_count, affected_bucket_count, affected_subject_count, detail_truncated, processed_bucket_count, current_bucket_value, current_bucket_label, progress_message, heartbeat_at, current_stage, operator_message, technical_message, requested_by_user_id, schedule_id, requested_at, started_at, finished_at, created_at, updated_at`
 ---
 
 ## 13. 运营后台页面与接口映射（前端调用）
