@@ -48,7 +48,6 @@ from src.foundation.models.core.dc_daily import DcDaily
 from src.foundation.models.core.dc_hot import DcHot
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
-from src.foundation.models.core.index_daily_bar import IndexDailyBar
 from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
@@ -172,7 +171,6 @@ class DAOFactory:
         self.stk_period_bar = StkPeriodBarDAO(session)
         self.stk_period_bar_adj = StkPeriodBarAdjDAO(session)
         self.index_basic = IndexBasicDAO(session)
-        self.index_daily_bar = GenericDAO(session, IndexDailyBar)
         self.index_daily_serving = GenericDAO(session, IndexDailyServing)
         self.index_weekly_bar = IndexWeeklyBarDAO(session)
         self.index_weekly_serving = GenericDAO(session, IndexWeeklyServing)
