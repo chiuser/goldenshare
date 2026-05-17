@@ -62,67 +62,87 @@ class IndicatorRecalcQueueService:
         if written_rows < 0:
             raise ValueError("written_rows 不能小于 0。")
 
+        return self.record_source_partitions_replaced(
+            layer=layer,
+            partitions=[{"freq": freq, "trade_date": trade_date, "written_rows": written_rows}],
+            run_id=run_id,
+        )[0]
+
+    def record_source_partitions_replaced(
+        self,
+        *,
+        layer: str,
+        partitions: list[Mapping[str, Any]],
+        run_id: str,
+    ) -> list[dict[str, Any]]:
+        if layer not in SOURCE_LAYERS:
+            raise ValueError(f"不支持的 source layer：{layer}")
+        if not partitions:
+            return []
+
         LakeRootService(self.lake_root).require_ready_for_write()
         recorded_at = _now()
-        event = {
-            "event_id": _event_id(layer=layer, freq=freq, trade_date=trade_date, run_id=run_id, written_rows=written_rows),
-            "dataset_key": "stk_mins",
-            "layer": layer,
-            "freq": int(freq),
-            "trade_date": trade_date.isoformat(),
-            "event_type": "partition_replaced",
-            "run_id": run_id,
-            "written_rows": int(written_rows),
-            "recorded_at": recorded_at.isoformat(),
-        }
+        events: list[dict[str, Any]] = []
+        for partition in partitions:
+            freq = int(partition.get("freq") or 0)
+            trade_date_value = _coerce_date(partition.get("trade_date"))
+            written_rows = int(partition.get("written_rows") or 0)
+            if freq <= 0:
+                raise ValueError("freq 必须大于 0。")
+            if written_rows < 0:
+                raise ValueError("written_rows 不能小于 0。")
+            events.append(
+                {
+                    "event_id": _event_id(layer=layer, freq=freq, trade_date=trade_date_value, run_id=run_id, written_rows=written_rows),
+                    "dataset_key": "stk_mins",
+                    "layer": layer,
+                    "freq": freq,
+                    "trade_date": trade_date_value.isoformat(),
+                    "event_type": "partition_replaced",
+                    "run_id": run_id,
+                    "written_rows": written_rows,
+                    "recorded_at": recorded_at.isoformat(),
+                    "partition_key": partition.get("partition_key"),
+                }
+            )
+
         event_file = self.source_event_file()
         event_file.parent.mkdir(parents=True, exist_ok=True)
-        event_written = False
-        if event["event_id"] not in _existing_event_ids(event_file):
-            with event_file.open("a", encoding="utf-8") as file:
-                file.write(json.dumps(event, ensure_ascii=False, sort_keys=True) + "\n")
-            event_written = True
+        existing_event_ids = _existing_event_ids(event_file)
+        written_event_ids: set[str] = set()
+        with event_file.open("a", encoding="utf-8") as file:
+            for event in events:
+                if event["event_id"] in existing_event_ids:
+                    continue
+                stored_event = {key: value for key, value in event.items() if key != "partition_key"}
+                file.write(json.dumps(stored_event, ensure_ascii=False, sort_keys=True) + "\n")
+                existing_event_ids.add(event["event_id"])
+                written_event_ids.add(event["event_id"])
 
-        queue_item = self.upsert_pending_from_source_event(event)
-        return {
-            "event": event,
-            "event_written": event_written,
-            "queue_item": queue_item,
-        }
+        existing_rows = self.list_items(include_done=True)
+        rows_by_id = {str(row["queue_id"]): dict(row) for row in existing_rows}
+        results: list[dict[str, Any]] = []
+        for event in events:
+            queue_item = _queue_item_from_source_event(event, rows_by_id=rows_by_id, now=recorded_at)
+            rows_by_id[str(queue_item["queue_id"])] = queue_item
+            results.append(
+                {
+                    "partition_key": event.get("partition_key"),
+                    "event": {key: value for key, value in event.items() if key != "partition_key"},
+                    "event_written": event["event_id"] in written_event_ids,
+                    "queue_item": dict(queue_item),
+                }
+            )
+        self._replace_queue_rows(list(rows_by_id.values()), run_id=f"indicator-recalc-queue-batch-{run_id}")
+        return results
 
     def upsert_pending_from_source_event(self, event: Mapping[str, Any]) -> dict[str, Any]:
         _validate_source_event(event)
-        invalid_from_time = datetime.combine(_event_trade_date(event), time.min)
         now = _now()
-        queue_id = _queue_id(
-            indicator_key="macd",
-            params_key=DEFAULT_MACD_PARAMS.params_key,
-            freq_scope="single",
-            freq_value=int(event["freq"]),
-            security_scope="all",
-            ts_code=None,
-            invalid_from_time=invalid_from_time,
-            reason="source_partition_replaced",
-        )
         existing_rows = self.list_items(include_done=True)
         rows_by_id = {str(row["queue_id"]): dict(row) for row in existing_rows}
-        existing = rows_by_id.get(queue_id)
-        created_at = _parse_datetime(existing["created_at"]) if existing else now
-        queue_item = {
-            "queue_id": queue_id,
-            "indicator_key": "macd",
-            "params_key": DEFAULT_MACD_PARAMS.params_key,
-            "freq_scope": "single",
-            "freq_value": int(event["freq"]),
-            "security_scope": "all",
-            "ts_code": None,
-            "invalid_from_time": invalid_from_time,
-            "reason": "source_partition_replaced",
-            "status": "pending",
-            "created_at": created_at,
-            "finished_at": None,
-            "error_message": None,
-        }
+        queue_item = _queue_item_from_source_event(event, rows_by_id=rows_by_id, now=now)
+        queue_id = str(queue_item["queue_id"])
         rows_by_id[queue_id] = queue_item
         self._replace_queue_rows(list(rows_by_id.values()), run_id=f"indicator-recalc-queue-{queue_id[:12]}")
         return dict(queue_item)
@@ -278,6 +298,10 @@ def _validate_source_event(event: Mapping[str, Any]) -> None:
 
 def _event_trade_date(event: Mapping[str, Any]) -> date:
     value = event.get("trade_date")
+    return _coerce_date(value)
+
+
+def _coerce_date(value: Any) -> date:
     if isinstance(value, date) and not isinstance(value, datetime):
         return value
     return date.fromisoformat(str(value))
@@ -324,6 +348,43 @@ def _queue_id(
         ]
     )
     return "irq_" + hashlib.sha256(raw_value.encode("utf-8")).hexdigest()[:24]
+
+
+def _queue_item_from_source_event(
+    event: Mapping[str, Any],
+    *,
+    rows_by_id: Mapping[str, Mapping[str, Any]],
+    now: datetime,
+) -> dict[str, Any]:
+    _validate_source_event(event)
+    invalid_from_time = datetime.combine(_event_trade_date(event), time.min)
+    queue_id = _queue_id(
+        indicator_key="macd",
+        params_key=DEFAULT_MACD_PARAMS.params_key,
+        freq_scope="single",
+        freq_value=int(event["freq"]),
+        security_scope="all",
+        ts_code=None,
+        invalid_from_time=invalid_from_time,
+        reason="source_partition_replaced",
+    )
+    existing = rows_by_id.get(queue_id)
+    created_at = _parse_datetime(existing["created_at"]) if existing else now
+    return {
+        "queue_id": queue_id,
+        "indicator_key": "macd",
+        "params_key": DEFAULT_MACD_PARAMS.params_key,
+        "freq_scope": "single",
+        "freq_value": int(event["freq"]),
+        "security_scope": "all",
+        "ts_code": None,
+        "invalid_from_time": invalid_from_time,
+        "reason": "source_partition_replaced",
+        "status": "pending",
+        "created_at": created_at,
+        "finished_at": None,
+        "error_message": None,
+    }
 
 
 def _parse_datetime(value: Any) -> datetime:

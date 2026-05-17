@@ -307,7 +307,7 @@ def test_stage_stk_mins_qfq_downstream_failure_keeps_gate_publishing(tmp_path: P
     def fail_record(*args, **kwargs):  # type: ignore[no-untyped-def]
         raise RuntimeError("queue write failed")
 
-    monkeypatch.setattr(IndicatorRecalcQueueService, "record_source_partition_replaced", fail_record)
+    monkeypatch.setattr(IndicatorRecalcQueueService, "record_source_partitions_replaced", fail_record)
 
     with pytest.raises(RuntimeError, match="queue write failed"):
         service.stage_stk_mins_qfq_downstream_and_gate_passed(run_id=run_id)

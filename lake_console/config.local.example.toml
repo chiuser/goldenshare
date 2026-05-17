@@ -41,3 +41,4 @@ compute_max_active_writers = 1
 compute_progress_interval_seconds = 2
 compute_stale_heartbeat_seconds = 1800
 compute_max_unit_retries = 1
+compute_checkpoint_interval_units = 100

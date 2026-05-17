@@ -68,6 +68,37 @@ def test_indicator_recalc_queue_dedupes_same_source_event(tmp_path) -> None:
     assert len(queue_items) == 1
 
 
+def test_indicator_recalc_queue_batch_records_events_with_one_queue_write(tmp_path, monkeypatch) -> None:
+    pytest.importorskip("pandas")
+    pytest.importorskip("pyarrow")
+    service = IndicatorRecalcQueueService(lake_root=tmp_path)
+    replace_calls = 0
+    original_replace = service._replace_queue_rows
+
+    def count_replace(rows, *, run_id):  # type: ignore[no-untyped-def]
+        nonlocal replace_calls
+        replace_calls += 1
+        return original_replace(rows, run_id=run_id)
+
+    monkeypatch.setattr(service, "_replace_queue_rows", count_replace)
+
+    summary = service.record_source_partitions_replaced(
+        layer="research/stk_mins_by_date_clean_next",
+        run_id="test-batch-source-replace",
+        partitions=[
+            {"partition_key": "freq=30/trade_date=2026-04-24", "freq": 30, "trade_date": date(2026, 4, 24), "written_rows": 2},
+            {"partition_key": "freq=60/trade_date=2026-04-24", "freq": 60, "trade_date": date(2026, 4, 24), "written_rows": 1},
+        ],
+    )
+
+    event_lines = (tmp_path / "manifest/source_partition_events/stk_mins.jsonl").read_text(encoding="utf-8").splitlines()
+    queue_items = service.list_items(include_done=True)
+    assert replace_calls == 1
+    assert len(summary) == 2
+    assert len(event_lines) == 2
+    assert {item["freq_value"] for item in queue_items} == {30, 60}
+
+
 def test_indicator_recalc_queue_list_outputs_suggested_command_and_mark_done(tmp_path, capsys) -> None:
     pytest.importorskip("pandas")
     pytest.importorskip("pyarrow")

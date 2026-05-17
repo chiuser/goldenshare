@@ -34,6 +34,7 @@ class LakeConsoleSettings:
     compute_progress_interval_seconds: int = 2
     compute_stale_heartbeat_seconds: int = 1800
     compute_max_unit_retries: int = 1
+    compute_checkpoint_interval_units: int = 100
 
 
 def load_settings(*, lake_root: str | None = None, require_lake_root: bool = True) -> LakeConsoleSettings:
@@ -78,6 +79,7 @@ def load_settings(*, lake_root: str | None = None, require_lake_root: bool = Tru
         compute_progress_interval_seconds=_config_int(config_file, "compute_progress_interval_seconds") or 2,
         compute_stale_heartbeat_seconds=_config_int(config_file, "compute_stale_heartbeat_seconds") or 1800,
         compute_max_unit_retries=_config_int(config_file, "compute_max_unit_retries") or 1,
+        compute_checkpoint_interval_units=_config_int(config_file, "compute_checkpoint_interval_units") or 100,
     )
 
 

@@ -36,15 +36,14 @@ def test_plan_stk_mins_qfq_builds_dry_run_graph_without_writes(tmp_path: Path) -
     assert summary["run"]["effective_config"]["compute_bucket_count"] == 2
     assert summary["metrics"] == {
         "partition_count": 1,
-        "unit_count": 2,
+        "unit_count": 1,
         "publish_partition_count": 1,
-        "expected_candidate_part_count": 2,
+        "expected_candidate_part_count": 1,
     }
-    assert [unit["unit_key"] for unit in summary["units"]] == [
-        "freq=30/trade_date=2026-03-02/bucket=00",
-        "freq=30/trade_date=2026-03-02/bucket=01",
-    ]
+    assert [unit["unit_key"] for unit in summary["units"]] == ["freq=30/trade_date=2026-03-02"]
+    assert "bucket=" not in summary["units"][0]["output_paths"][0]
     assert summary["publish_partitions"][0]["partition_key"] == "freq=30/trade_date=2026-03-02"
+    assert summary["publish_partitions"][0]["expected_candidate_part_count"] == 1
     assert summary["candidate_part_manifest"]["status"] == "not_created_in_dry_run"
     source_roles = {item["source_role"] for item in summary["run"]["input_snapshot"]["source_items"]}
     assert source_roles == {"clean_next", "adj_factor", "latest_adj_factor", "security_identity_map"}
@@ -101,10 +100,11 @@ def test_prepare_stk_mins_qfq_run_persists_manifest_and_releases_lock(tmp_path: 
     assert (manifest_root / "events.jsonl").exists()
     run_payload = json.loads((manifest_root / "run.json").read_text(encoding="utf-8"))
     assert run_payload["status"] == "planned"
-    assert run_payload["metrics"]["unit_count"] == 2
+    assert run_payload["metrics"]["unit_count"] == 1
     unit_rows = read_parquet_rows(manifest_root / "units.parquet")
-    assert len(unit_rows) == 2
-    assert unit_rows[0]["unit_key"] == "freq=30/trade_date=2026-03-02/bucket=00"
+    assert len(unit_rows) == 1
+    assert unit_rows[0]["unit_key"] == "freq=30/trade_date=2026-03-02"
+    assert "bucket=" not in unit_rows[0]["output_paths_json"]
     candidate_rows = read_parquet_rows(manifest_root / "candidate_parts.parquet")
     assert candidate_rows == []
     publish_rows = read_parquet_rows(manifest_root / "publish_partitions.parquet")

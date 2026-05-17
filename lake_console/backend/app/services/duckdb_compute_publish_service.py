@@ -1346,27 +1346,33 @@ class DuckDbComputePublishService:
 
     def _record_indicator_recalc_events(self, *, run_id: str, partitions: list[dict[str, Any]]) -> list[dict[str, Any]]:
         service = IndicatorRecalcQueueService(lake_root=self.lake_root)
-        results: list[dict[str, Any]] = []
+        event_partitions: list[dict[str, Any]] = []
         for partition in partitions:
             parsed = _parse_partition_key(str(partition["partition_key"]))
             metadata = _partition_metadata(_resolve_lake_path(self.lake_root, str(partition["target_path"])))
-            result = service.record_source_partition_replaced(
-                layer="research/stk_mins_by_date_clean_next",
-                freq=int(parsed["freq"]),
-                trade_date=parsed["trade_date"],
-                run_id=run_id,
-                written_rows=int(metadata["row_count"]),
-            )
-            results.append(
+            event_partitions.append(
                 {
                     "partition_key": partition["partition_key"],
-                    "event_id": result["event"]["event_id"],
-                    "event_written": bool(result.get("event_written")),
-                    "queue_id": result["queue_item"]["queue_id"],
-                    "queue_status": result["queue_item"]["status"],
+                    "freq": int(parsed["freq"]),
+                    "trade_date": parsed["trade_date"],
+                    "written_rows": int(metadata["row_count"]),
                 }
             )
-        return results
+        batch_results = service.record_source_partitions_replaced(
+            layer="research/stk_mins_by_date_clean_next",
+            partitions=event_partitions,
+            run_id=run_id,
+        )
+        return [
+            {
+                "partition_key": result["partition_key"],
+                "event_id": result["event"]["event_id"],
+                "event_written": bool(result.get("event_written")),
+                "queue_id": result["queue_item"]["queue_id"],
+                "queue_status": result["queue_item"]["status"],
+            }
+            for result in batch_results
+        ]
 
     def _replace_formal_partition_from_candidate(self, *, run_id: str, partition: dict[str, Any]) -> dict[str, Any]:
         partition_key = str(partition["partition_key"])
