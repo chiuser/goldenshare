@@ -20,6 +20,7 @@ compute_max_active_writers = 1
 compute_progress_interval_seconds = 3
 compute_stale_heartbeat_seconds = 1200
 compute_max_unit_retries = 2
+compute_checkpoint_interval_units = 77
 """,
         encoding="utf-8",
     )
@@ -36,3 +37,4 @@ compute_max_unit_retries = 2
     assert settings.compute_progress_interval_seconds == 3
     assert settings.compute_stale_heartbeat_seconds == 1200
     assert settings.compute_max_unit_retries == 2
+    assert settings.compute_checkpoint_interval_units == 77

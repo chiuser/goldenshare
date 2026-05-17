@@ -172,10 +172,16 @@ def test_clean_next_refresh_keeps_gate_publishing_when_queue_upsert_fails(
         run_id="seed-old-passed-gate",
     )
 
-    def fail_upsert(self: IndicatorRecalcQueueService, event: dict[str, object]) -> dict[str, object]:
+    def fail_record(
+        self: IndicatorRecalcQueueService,
+        *,
+        layer: str,
+        partitions: list[dict[str, object]],
+        run_id: str,
+    ) -> list[dict[str, object]]:
         raise RuntimeError("queue boom")
 
-    monkeypatch.setattr(IndicatorRecalcQueueService, "upsert_pending_from_source_event", fail_upsert)
+    monkeypatch.setattr(IndicatorRecalcQueueService, "record_source_partitions_replaced", fail_record)
 
     with pytest.raises(RuntimeError, match="queue boom"):
         CleanNextRefreshService(lake_root=tmp_path, progress=lambda _: None).refresh(
@@ -189,7 +195,7 @@ def test_clean_next_refresh_keeps_gate_publishing_when_queue_upsert_fails(
     assert gate_rows[0]["status"] == "publishing"
     assert gate_rows[0]["source_run_id"] == "raw-run-1"
     assert gate_rows[0]["write_revision"] == "raw-run-1:raw_tushare:freq=1:trade_date=2026-05-08"
-    assert len(_source_event_rows(tmp_path)) == 1
+    assert _source_event_rows(tmp_path) == []
     assert IndicatorRecalcQueueService(lake_root=tmp_path).list_items() == []
 
 

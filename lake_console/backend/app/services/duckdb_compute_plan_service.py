@@ -303,39 +303,36 @@ class DuckDbComputePlanService:
         for partition in partitions:
             partition_key = f"freq={partition.freq}/trade_date={partition.trade_date.isoformat()}"
             target_path = self.lake_root / "research" / "stk_mins_by_date_clean_next" / partition_key
-            expected_candidate_paths: list[str] = []
-            for bucket in range(self.settings.compute_bucket_count):
-                unit_key = f"{partition_key}/bucket={bucket:02d}"
-                candidate_part_path = (
-                    self.lake_root
-                    / "_tmp"
-                    / "duckdb_compute"
-                    / run_id
-                    / "candidate_parts"
-                    / "research"
-                    / "stk_mins_by_date_clean_next"
-                    / partition_key
-                    / f"bucket={bucket:02d}"
-                    / "part-000.parquet"
-                )
-                expected_candidate_paths.append(_relpath(candidate_part_path, self.lake_root))
-                units.append(
-                    {
-                        "run_id": run_id,
-                        "unit_key": unit_key,
-                        "continuity_key": f"freq={partition.freq}/bucket={bucket:02d}",
-                        "publish_partition_key": partition_key,
-                        "input_paths": {
-                            "clean_next": [_relpath(path, self.lake_root) for path in partition.clean_files],
-                            "adj_factor": [_relpath(path, self.lake_root) for path in partition.adj_files],
-                        },
-                        "output_paths": [_relpath(candidate_part_path, self.lake_root)],
-                        "duckdb_sql_template": "stk_mins_qfq_by_partition_bucket_v1",
-                        "expected_output_role": "qfq_candidate_part",
-                        "status": "pending",
-                        "error_code": None,
-                    }
-                )
+            unit_key = partition_key
+            candidate_part_path = (
+                self.lake_root
+                / "_tmp"
+                / "duckdb_compute"
+                / run_id
+                / "candidate_parts"
+                / "research"
+                / "stk_mins_by_date_clean_next"
+                / partition_key
+                / "part-000.parquet"
+            )
+            expected_candidate_paths = [_relpath(candidate_part_path, self.lake_root)]
+            units.append(
+                {
+                    "run_id": run_id,
+                    "unit_key": unit_key,
+                    "continuity_key": partition_key,
+                    "publish_partition_key": partition_key,
+                    "input_paths": {
+                        "clean_next": [_relpath(path, self.lake_root) for path in partition.clean_files],
+                        "adj_factor": [_relpath(path, self.lake_root) for path in partition.adj_files],
+                    },
+                    "output_paths": [_relpath(candidate_part_path, self.lake_root)],
+                    "duckdb_sql_template": "stk_mins_qfq_by_partition_v2",
+                    "expected_output_role": "qfq_candidate_part",
+                    "status": "pending",
+                    "error_code": None,
+                }
+            )
             publish_partitions.append(
                 {
                     "run_id": run_id,
@@ -404,6 +401,7 @@ class DuckDbComputePlanService:
             "compute_progress_interval_seconds": self.settings.compute_progress_interval_seconds,
             "compute_stale_heartbeat_seconds": self.settings.compute_stale_heartbeat_seconds,
             "compute_max_unit_retries": self.settings.compute_max_unit_retries,
+            "compute_checkpoint_interval_units": self.settings.compute_checkpoint_interval_units,
         }
 
 

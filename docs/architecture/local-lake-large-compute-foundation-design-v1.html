@@ -249,8 +249,8 @@
       正式写入必须受控发布，任何失败都不能污染正式数据。
     </p>
     <div class="meta-grid">
-      <div class="meta"><span>状态</span><strong>待评审</strong></div>
-      <div class="meta"><span>更新时间</span><strong>2026-05-16</strong></div>
+      <div class="meta"><span>状态</span><strong>M5 已发布，下游待重建</strong></div>
+      <div class="meta"><span>更新时间</span><strong>2026-05-17</strong></div>
       <div class="meta"><span>适用工程</span><strong>lake_console</strong></div>
       <div class="meta"><span>第一落地场景</span><strong>stk_mins qfq candidate</strong></div>
     </div>
@@ -442,14 +442,14 @@
           <td><code>unit_key</code></td>
           <td>string</td>
           <td>硬约束</td>
-          <td>单个 DuckDB 执行单元唯一键。必须能从 <code>run_id + continuity_key + publish_partition_key + bucket</code> 稳定生成。</td>
+          <td>单个 DuckDB 执行单元唯一键。qfq 本期直接等于 <code>publish_partition_key</code>；未来递推/重排任务如需 bucket，必须把 bucket 作为 layout 规则单独评审。</td>
         </tr>
         <tr>
           <td><code>ComputeUnit</code></td>
           <td><code>continuity_key</code></td>
           <td>string</td>
           <td>硬约束</td>
-          <td>连续性边界，例如 MACD 是股票代码维度，qfq 可以是目标分区或 bucket。不能破坏递推连续性。</td>
+          <td>连续性边界，例如 MACD 是股票代码维度，qfq 本期是目标发布分区。不能破坏递推连续性。</td>
         </tr>
         <tr>
           <td><code>ComputeUnit</code></td>
@@ -896,7 +896,8 @@
 发布分区：为了数据资产组织和查询，例如 freq=1/trade_date=2026-05-14</pre>
     <p>
       DuckDB 可以按 <code>ts_code_bucket</code>、月份或分区写出中间产物；但正式发布仍必须按目标分区组织。
-      如果目标分区是 <code>freq + trade_date</code>，最终就必须由 single writer 汇总所有 bucket 后再发布。
+      如果某个后续任务确实需要 bucket，最终就必须由 single writer 汇总所有 bucket 后再发布。
+      qfq 本期已经确认不再使用 bucket，直接按 <code>freq + trade_date</code> 输出 candidate。
     </p>
   </section>
 
@@ -1134,7 +1135,7 @@
         <tr>
           <td>qfq clean_next candidate</td>
           <td>逐行变换，不递推；依赖 identity map 与 adj_factor snapshot。</td>
-          <td>全量用 <code>freq + trade_month + ts_code_bucket</code>；小窗口可用 <code>freq + trade_date + ts_code_bucket</code>。</td>
+          <td>本期统一按正式发布分区执行：<code>freq + trade_date</code>。不再额外拆 <code>ts_code_bucket</code>。</td>
           <td><code>freq + trade_date</code></td>
         </tr>
         <tr>
@@ -1223,9 +1224,9 @@
       <tbody>
         <tr>
           <td>qfq 行级变换</td>
-          <td>全量推荐按 <code>freq + trade_month + ts_code_bucket</code> 切；日常增量可按 <code>freq + trade_date + ts_code_bucket</code> 切。</td>
+          <td>本期按 <code>freq + trade_date</code> 切。一个正式发布分区对应一个 candidate 文件。</td>
           <td>不允许不同 compute 使用不同 <code>adj_factor</code> 快照或不同 identity map。</td>
-          <td>同一 <code>freq + trade_date</code> 下所有预期 bucket 完成，且行数、重复 key、schema、完备性审计通过；月级 unit 也必须拆成日级发布分区审计。</td>
+          <td>同一 <code>freq + trade_date</code> 的唯一 candidate 完成，且行数、重复 key、schema、完备性审计通过。</td>
         </tr>
         <tr>
           <td>90/120 聚合</td>
@@ -1255,24 +1256,29 @@
     </table>
 
     <h3>6.3 ComputeUnit 必须可解释、可复现、可比对</h3>
-    <pre>unit_key = job_type + dataset_key + input_snapshot_key + continuity_key + compute_window_key + bucket_key
+    <pre>qfq_unit_key = freq=&lt;freq&gt;/trade_date=&lt;YYYY-MM-DD&gt;
+unit_key = job_type + dataset_key + input_snapshot_key + continuity_key + compute_window_key + bucket_key
 publish_partition_key = formal target partition, such as freq=1/trade_date=2026-05-14
 write_revision = run_id + unit_key + input_checksum + code_version</pre>
     <p>
-      <code>unit_key</code> 必须稳定。相同输入、相同代码版本、相同配置生成的 compute units 必须一致。
+      <code>unit_key</code> 必须稳定。qfq 本期没有递推依赖，也不再使用 bucket 作为 compute unit。
+      相同输入、相同代码版本、相同配置生成的 compute units 必须一致。
       否则失败后无法解释“到底哪一块算过、哪一块没算、哪一块需要重跑”。
     </p>
 
     <h3>6.4 不要把 compute unit 数量做爆</h3>
     <p>
-      以全量股票分钟线为例，如果按 <code>freq + trade_date + bucket</code> 直接生成任务，
-      5 个源频率、约 4,000 多个交易日、32 个 bucket，会产生几十万个 compute units。
-      这会让调度、manifest、进度、错误处理本身变成负担。
+      M4-3 真实 Lake 演练暴露了一个重要问题：如果按
+      <code>freq + trade_date + bucket</code> 直接生成 qfq 任务，真实范围会从约
+      <code>21035</code> 个正式发布分区膨胀到 <code>673120</code> 个 compute units。
+      这让 manifest 反复重写和 candidate 小文件数量变成主要瓶颈，DuckDB 计算反而不是瓶颈。
     </p>
     <div class="success">
-      <strong>全量任务原则：</strong>
-      计算窗口可以按月或按较大日期窗口组织，正式发布仍按 <code>freq + trade_date</code> 做日级分区。
-      换句话说：DuckDB 可以一次算一个月内某个 bucket 的数据，但 single writer 必须按每天逐个审计和发布。
+      <strong>M4-3 收口结论：</strong>
+      qfq candidate 的执行粒度必须和正式发布粒度对齐。一个 <code>freq + trade_date</code>
+      生成一个 candidate parquet，<code>expected_candidate_part_count=1</code>。
+      后续如果要再次引入更粗窗口或 bucket，必须先证明它不会制造小文件风暴、不会绕过 candidate audit，
+      并单独更新方案文档。
     </div>
   </section>
 
@@ -1742,7 +1748,73 @@ qfq baseline 发布后至少写入：
       <code>publishing</code>，下游不得消费。
       downstream requirement 按 <code>requirement_id</code> upsert，indicator source event 按
       <code>event_id</code> 去重，避免重复执行污染账本或队列。
+      真实全量发布时必须批量写 indicator source event / queue：一次读取已有 event 和 queue，
+      一次合并本 run 的全部分区事件，再一次落盘 queue parquet。禁止按分区循环调用单分区 queue upsert，
+      否则会把 <code>21035</code> 个发布分区放大成成千上万次 queue 文件重写。
     </div>
+    <div class="note">
+      <strong>indicator queue 单分区 API 与批量 API 的当前定量口径：</strong>
+      代码里不是按“感觉上的小范围”自动切换，而是按调用入口固定。
+      <code>record_source_partition_replaced</code> 每次只登记 <code>1</code> 个
+      <code>freq + trade_date</code> 分区；<code>record_source_partitions_replaced</code>
+      一次登记 <code>N</code> 个分区，并且只重写一次
+      <code>manifest/indicator_recalc_queue/stk_mins_macd.parquet</code>。
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>当前调用入口</th>
+          <th>触发条件</th>
+          <th>当前分区数量上限/公式</th>
+          <th>queue 写入方式</th>
+          <th>结论</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>sync-stk-mins --ts-code --freq --trade-date</code></td>
+          <td>单股票、单频率、单交易日写 raw 后刷新 clean_next。</td>
+          <td><code>1</code> 个 affected partition。</td>
+          <td>单分区 API。</td>
+          <td>合理。天然只影响一个 <code>freq + trade_date</code> 分区。</td>
+        </tr>
+        <tr>
+          <td><code>sync-stk-mins --all-market --freqs --trade-date</code></td>
+          <td>全市场单交易日，多个源频率。</td>
+          <td><code>len(freqs)</code>，当前源频率集合最多 <code>5</code> 个：<code>1,5,15,30,60</code>。</td>
+          <td>当前 clean_next refresh 内部逐分区调用单分区 API。</td>
+          <td>可接受，但如果未来源频率数量扩大，需要重新评估批量写 queue。</td>
+        </tr>
+        <tr>
+          <td><code>derive-stk-mins --trade-date --targets</code></td>
+          <td>单交易日派生 90/120。</td>
+          <td><code>len(targets)</code>，当前目标集合最多 <code>2</code> 个：<code>90,120</code>。</td>
+          <td>单分区 API。</td>
+          <td>合理。每个派生目标只发布一个 <code>freq + trade_date</code> 分区。</td>
+        </tr>
+        <tr>
+          <td><code>sync-stk-mins-range</code> / <code>rebuild-stk-mins-by-date-clean-next-range</code></td>
+          <td>区间同步或区间 clean_next refresh。</td>
+          <td><code>len(freqs) × open_trade_dates</code>；例如 5 个源频率 × 约 242 个交易日约为 <code>1210</code> 个分区。</td>
+          <td>当前仍由 clean_next refresh 逐分区调用单分区 API。</td>
+          <td>这不是“小范围”。执行大区间前必须评估耗时；后续若频繁跑大区间，应改为批量 queue 写入。</td>
+        </tr>
+        <tr>
+          <td><code>derive-stk-mins-range</code> / <code>rebuild-stk-mins-derived-from-clean-range</code></td>
+          <td>区间派生 90/120。</td>
+          <td><code>len(targets) × open_trade_dates</code>；当前目标最多 2 个。</td>
+          <td>当前由 <code>derive_day</code> 循环逐分区调用单分区 API。</td>
+          <td>大历史区间不是“小范围”；若一次覆盖多年，应在执行前评估是否需要批量 queue。</td>
+        </tr>
+        <tr>
+          <td><code>finalize-stk-mins-qfq-publish</code></td>
+          <td>qfq 全量 layer cutover。</td>
+          <td>本次真实 run 为 <code>21035</code> 个发布分区。</td>
+          <td>必须使用批量 API。</td>
+          <td>已修正。禁止回退为逐分区 upsert。</td>
+        </tr>
+      </tbody>
+    </table>
     <div class="success">
       <strong>M3-C-F 小样本验证口径：</strong>
       本阶段不通过页面操作，而是通过 CLI 串起完整 publisher 链路。
@@ -1822,12 +1894,12 @@ qfq baseline 发布后至少写入：
     </p>
 
     <h3>9.1.2 UI / CLI 进度必须按阶段说人话</h3>
-    <pre>[duckdb_compute] run=... stage=compute unit=12/320 partition=freq=1/trade_date=2026-05-14 bucket=7 rows=1,230,000
+    <pre>[duckdb_compute] run=... stage=compute unit=12/21035 partition=freq=1/trade_date=2026-05-14 rows=38,900,000
 [duckdb_compute] run=... stage=audit partition=freq=1/trade_date=2026-05-14 status=passed rows=5,512,000
 [duckdb_compute] run=... stage=publishing partition=freq=1/trade_date=2026-05-14 backup=snap-xxx
 [duckdb_compute] run=... stage=blocked error_code=LC_COMPUTE_AUDIT_FAILED ledger=...</pre>
     <p>
-      进度输出必须包含阶段、当前 partition、当前 bucket、已完成数量、总数、关键行数和错误码。
+      进度输出必须包含阶段、当前 partition、已完成数量、总数、关键行数和错误码。
       不允许只输出“running”或长时间无输出。
     </p>
   </section>
@@ -2007,8 +2079,8 @@ vol/amount/exchange 不调整</pre>
         <tr>
           <td><code>bucket_count</code></td>
           <td><code>32</code></td>
-          <td>第一期用于 qfq 计算 bucket；未来若 by-month、indicator 迁入执行壳，也必须沿用稳定分桶原则。</td>
-          <td>保持和当前配置一致。约 5,500 只股票时，平均每 bucket 约 170 只股票。</td>
+          <td>不再用于 qfq candidate。保留给未来 by-month、indicator 等按股票连续性分桶的任务。</td>
+          <td>未来如果进入正式 layout，必须作为 layout 版本处理；不能随手改。</td>
         </tr>
         <tr>
           <td><code>duckdb_threads</code></td>
@@ -2216,7 +2288,8 @@ compute_bucket_count = 32
 compute_max_active_writers = 1
 compute_progress_interval_seconds = 2
 compute_stale_heartbeat_seconds = 1800
-compute_max_unit_retries = 1</pre>
+compute_max_unit_retries = 1
+compute_checkpoint_interval_units = 100</pre>
     <table>
       <thead>
         <tr>
@@ -2244,7 +2317,7 @@ compute_max_unit_retries = 1</pre>
         <tr>
           <td><code>compute_bucket_count</code></td>
           <td><code>32</code></td>
-          <td>股票代码稳定分桶数量，保持和现有 research bucket 思路一致；一旦发布就是 layout 版本。</td>
+          <td>股票代码稳定分桶数量，保留给 by-month / indicator 等未来按股票连续性分桶的任务；qfq 本期不使用它拆 candidate。</td>
         </tr>
         <tr>
           <td><code>compute_max_active_writers</code></td>
@@ -2265,6 +2338,11 @@ compute_max_unit_retries = 1</pre>
           <td><code>compute_max_unit_retries</code></td>
           <td><code>1</code></td>
           <td>compute unit 最多重试 1 次；重复失败则 run blocked，避免无限重试掩盖数据问题。</td>
+        </tr>
+        <tr>
+          <td><code>compute_checkpoint_interval_units</code></td>
+          <td><code>100</code></td>
+          <td>DuckDB compute 执行器批量落盘 manifest 的 unit 间隔。qfq 全量默认 100，失败和正常结束必须强制 flush。</td>
         </tr>
       </tbody>
     </table>
@@ -2322,7 +2400,7 @@ compute_max_unit_retries = 1</pre>
           <td>M3 single writer</td>
           <td>实现 candidate_part 汇总、审计、Kopia 写前备份和两类发布接口。</td>
           <td>publish partition + audit ledger。</td>
-          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。M3-B 已落地 Kopia 写前备份：只写 <code>prewrite_backup.json</code> 与 Lake job backup record，snapshot 聚合到正式 clean_next 根路径和 <code>manifest</code> 根路径，不进入 formal publishing。M3-C-A 落地正式发布前只读预检：校验 <code>run.json</code>、<code>prewrite_backup.json</code>、<code>publish_partitions.parquet</code>、candidate 文件、目标正式路径、当前 gate 状态和 downstream requirement 计划；命令为 <code>preflight-stk-mins-qfq-publish --run-id ...</code>，不替换正式分区、不写 formal gate、不写 downstream requirement、不写 indicator queue。M3-C-B 已落地持锁生成 gate publishing 计划：命令为 <code>prepare-stk-mins-qfq-gate-publish-plan --run-id ...</code>，只写 run-local <code>gate_publish_plan.json</code> 与 <code>run.json</code> 阶段状态，不写正式 <code>clean_next_partition_gate.parquet</code>，不替换正式分区。M3-C-C 已落地 publisher 内部正式 gate publishing 步骤：持锁读取 <code>gate_publish_plan.json</code>，写正式 <code>clean_next_partition_gate.parquet</code> 为 <code>publishing</code> 并推进 <code>publish_partitions.parquet</code> 状态；仍不替换正式分区、不写 downstream、不写 <code>gate=passed</code>。M3-C-D 已落地 publisher 内部正式分区原子替换与 formal audit：只允许在同 run 的 gate 已经是 <code>publishing</code> 后执行，把 candidate_part 通过 <code>replace_directory_atomically</code> 替换到正式 clean_next 分区，写 <code>formal_audit_ledger.parquet</code>，并把 <code>publish_partitions.parquet</code> 推进到 <code>published</code>；仍不写 downstream、不写 queue、不写 <code>gate=passed</code>。M3-C-E 已落地 publisher 内部下游通知与 final gate passed：要求 M3-C-D 成功且 formal audit 为空，先 upsert downstream requirement，再写 indicator source event / queue，最后才把 gate 改为 <code>passed</code>；queue 失败时 gate 保持 <code>publishing</code>，重复执行不会重复污染 event/queue。M3-C-F 已完成临时 Lake root CLI 小样本验证：1 个正式分区、32 个 candidate bucket、formal audit 0 issue、<code>run.status=published</code>、<code>gate=passed</code>、downstream requirement 3 条、indicator queue 1 条 pending，重复 finalize 为幂等。</td>
+          <td>M3-A 已落地 candidate_part 汇总与审计：只写 <code>audit_ledger.parquet</code> 和 <code>publish_partitions.parquet</code> 审计状态，不发布正式分区、不写 formal gate、不写 downstream queue。M3-B 已落地 Kopia 写前备份：只写 <code>prewrite_backup.json</code> 与 Lake job backup record，snapshot 聚合到正式 clean_next 根路径和 <code>manifest</code> 根路径，不进入 formal publishing。M3-C-A 落地正式发布前只读预检：校验 <code>run.json</code>、<code>prewrite_backup.json</code>、<code>publish_partitions.parquet</code>、candidate 文件、目标正式路径、当前 gate 状态和 downstream requirement 计划；命令为 <code>preflight-stk-mins-qfq-publish --run-id ...</code>，不替换正式分区、不写 formal gate、不写 downstream requirement、不写 indicator queue。M3-C-B 已落地持锁生成 gate publishing 计划：命令为 <code>prepare-stk-mins-qfq-gate-publish-plan --run-id ...</code>，只写 run-local <code>gate_publish_plan.json</code> 与 <code>run.json</code> 阶段状态，不写正式 <code>clean_next_partition_gate.parquet</code>，不替换正式分区。M3-C-C 已落地 publisher 内部正式 gate publishing 步骤：持锁读取 <code>gate_publish_plan.json</code>，写正式 <code>clean_next_partition_gate.parquet</code> 为 <code>publishing</code> 并推进 <code>publish_partitions.parquet</code> 状态；仍不替换正式分区、不写 downstream、不写 <code>gate=passed</code>。M3-C-D 已落地 publisher 内部正式分区原子替换与 formal audit：只允许在同 run 的 gate 已经是 <code>publishing</code> 后执行，把 candidate_part 通过 <code>replace_directory_atomically</code> 替换到正式 clean_next 分区，写 <code>formal_audit_ledger.parquet</code>，并把 <code>publish_partitions.parquet</code> 推进到 <code>published</code>；仍不写 downstream、不写 queue、不写 <code>gate=passed</code>。M3-C-E 已落地 publisher 内部下游通知与 final gate passed：要求 M3-C-D 成功且 formal audit 为空，先 upsert downstream requirement，再写 indicator source event / queue，最后才把 gate 改为 <code>passed</code>；queue 失败时 gate 保持 <code>publishing</code>，重复执行不会重复污染 event/queue。M3-C-F 已完成临时 Lake root CLI 小样本验证：1 个正式分区、1 个 candidate、formal audit 0 issue、<code>run.status=published</code>、<code>gate=passed</code>、downstream requirement 3 条、indicator queue 1 条 pending，重复 finalize 为幂等。</td>
         </tr>
         <tr>
           <td>M4 qfq 接入</td>
@@ -2337,10 +2415,13 @@ compute_max_unit_retries = 1</pre>
             <code>audit_ledger.parquet</code>、可发布报告。
           </td>
           <td>
-            M4-0 文档口径已更新；M4-1 全量 readiness scan 通过；
-            M4-2/M4-3/M4-4 真实范围 candidate compute 与 audit 完成；
-            candidate schema、row count、key set、checksum、input snapshot 和 qfq factor coverage 全部通过；
-            正式 <code>research/stk_mins_by_date_clean_next</code>、formal gate、downstream queue 均未修改。
+            M4-0/M4-1/M4-2 已完成；M4-3 第一次真实运行发现 bucket 级 unit 与逐 unit manifest
+            重写导致文件数量和 manifest 写入成为瓶颈，旧 run
+            <code>20260517T024717Z-stk-mins-qfq-554d6c</code> 已废弃，不得复用。
+            修正后 run <code>20260517T044621Z-stk-mins-qfq-c906ef</code> 已按
+            <code>freq + trade_date</code> 分区级 candidate 完成真实全量 compute 与 audit：
+            <code>21035</code> 个 candidate 分区、<code>4,425,051,708</code> 行、
+            candidate audit issue 数为 <code>0</code>。
           </td>
         </tr>
         <tr>
@@ -2355,6 +2436,12 @@ compute_max_unit_retries = 1</pre>
             <code>backup -> preflight -> gate plan -> gate publishing -> formal replace/audit -> downstream requirement/indicator queue -> final gate passed</code>
             顺序执行；下游 derived / research / indicator 在 gate 非 passed 时全部阻断；
             发布后下游失效范围和重建队列完整落盘。
+            run <code>20260517T044621Z-stk-mins-qfq-c906ef</code> 已完成真实发布：
+            <code>publish_partitions=published</code> 为 <code>21035</code>，
+            formal audit issue 数为 <code>0</code>，同 run 的 clean_next gate
+            <code>passed</code> 为 <code>21035</code>，downstream requirement 已写入
+            <code>derived/stk_mins_by_date</code>、<code>research/stk_mins_by_symbol_month</code>
+            和 <code>indicator/*</code> 三类 pending 重建提示。
           </td>
         </tr>
         <tr>
@@ -2424,7 +2511,12 @@ compute_max_unit_retries = 1</pre>
         <tr>
           <td>M4-3 candidate compute</td>
           <td>生成完整 qfq candidate part。</td>
-          <td>执行 <code>compute-stk-mins-qfq-candidates</code>，只写 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts</code>。</td>
+          <td>
+            执行 <code>compute-stk-mins-qfq-candidates</code>，只写
+            <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts</code>。本阶段必须使用
+            <code>freq + trade_date</code> 分区级 unit；candidate path 不允许再含
+            <code>bucket=xx</code>。
+          </td>
           <td>不写 formal gate，不替换 clean_next，不写 downstream queue。</td>
         </tr>
         <tr>
@@ -2442,10 +2534,62 @@ compute_max_unit_retries = 1</pre>
       </tbody>
     </table>
     <div class="warning">
-      <strong>M4 成功不等于正式切换成功。</strong>
-      M4 只表示已经生成一份可审计、可发布的 qfq candidate。
-      只有进入 M5 并完成 publisher 全链路后，正式 clean_next 才会变成前复权价格口径。
+      <strong>当前状态：</strong>
+      M4 candidate 与 M5 publisher 全链路已经完成，正式
+      <code>research/stk_mins_by_date_clean_next</code> 已切换为前复权价格口径。
+      下游 derived、by-month research、indicator 仍必须按 downstream requirement 单独重建；
+      在这些下游重建完成前，不能把“clean_next 已切换”误写成“全部衍生资产都已同步更新”。
     </div>
+  </section>
+
+  <section class="card">
+    <h2>14.2 M4-3 粒度收口与 checkpoint 规则</h2>
+    <p>
+      M4-3 第一次真实范围运行证明：qfq 这种逐行前复权计算没有递推依赖，继续按
+      <code>freq + trade_date + bucket</code> 拆 unit 没有带来有效安全收益，反而制造了几十万个
+      candidate 小文件和 manifest 重写。新的规则是把 qfq 的 compute unit、candidate 文件和
+      publish partition 对齐到同一个粒度。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>项目</th>
+          <th>旧口径</th>
+          <th>新口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>ComputeUnit</td>
+          <td><code>freq/trade_date/bucket</code></td>
+          <td><code>freq/trade_date</code></td>
+        </tr>
+        <tr>
+          <td>candidate 文件</td>
+          <td>每个 bucket 一个 parquet</td>
+          <td>每个正式发布分区一个 parquet</td>
+        </tr>
+        <tr>
+          <td><code>expected_candidate_part_count</code></td>
+          <td><code>compute_bucket_count</code></td>
+          <td><code>1</code></td>
+        </tr>
+        <tr>
+          <td>manifest checkpoint</td>
+          <td>每个 unit 开始和结束都重写 <code>units.parquet</code>，结束还重写 <code>candidate_parts.parquet</code></td>
+          <td>内存维护状态，每完成一批 unit 后批量写 manifest；失败和正常结束必须立即 flush</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>安全边界不变：</strong>
+      candidate compute 仍只写 <code>_tmp</code>；正式安全边界仍在 candidate audit 与 M5 publisher。
+      checkpoint 不是正式发布证明，不能绕过 audit、Kopia prewrite、formal gate、downstream queue。
+    </div>
+    <p>
+      旧 run <code>20260517T024717Z-stk-mins-qfq-554d6c</code> 已在真实运行中暴露粒度问题并废弃。
+      后续不得复用这个 run，必须在本节规则落地后重新执行 M4-1 / M4-2 / M4-3。
+    </p>
   </section>
 
   <section class="card">

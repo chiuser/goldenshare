@@ -89,12 +89,33 @@ class DuckDbComputeExecutorService:
             skipped = 0
             failed = 0
             total_rows = 0
+            changed_since_checkpoint = 0
+            checkpoint_interval = max(1, int(self.settings.compute_checkpoint_interval_units))
             for index, unit in enumerate(units, start=1):
                 unit_key = str(unit["unit_key"])
                 if _candidate_is_complete(candidate_by_unit.get(unit_key), self.lake_root):
                     if str(unit.get("status")) != "succeeded":
                         units_by_key[unit_key] = {**unit, "status": "succeeded", "error_code": None}
+                        changed_since_checkpoint += 1
                     skipped += 1
+                    if changed_since_checkpoint >= checkpoint_interval:
+                        _flush_compute_checkpoint(
+                            manifest_root=manifest_root,
+                            units=list(units_by_key.values()),
+                            candidate_parts=list(candidate_by_unit.values()),
+                            run_payload=run_payload,
+                            metrics={
+                                "executed_unit_count": executed,
+                                "skipped_unit_count": skipped,
+                                "failed_unit_count": failed,
+                                "candidate_part_count": len(candidate_by_unit),
+                                "candidate_row_count": sum(int(row.get("row_count") or 0) for row in candidate_by_unit.values()),
+                                "last_unit_index": index,
+                                "unit_count": len(units),
+                            },
+                        )
+                        changed_since_checkpoint = 0
+                        lock_service.heartbeat(run_id=run_id)
                     continue
                 _emit_progress(
                     progress_callback,
@@ -107,7 +128,6 @@ class DuckDbComputeExecutorService:
                     },
                 )
                 units_by_key[unit_key] = {**unit, "status": "running", "error_code": None}
-                _write_units_manifest(manifest_root / "units.parquet", list(units_by_key.values()))
                 lock_service.heartbeat(run_id=run_id)
                 try:
                     part = self._compute_unit_candidate(
@@ -118,7 +138,21 @@ class DuckDbComputeExecutorService:
                 except Exception as exc:
                     failed += 1
                     units_by_key[unit_key] = {**unit, "status": "failed", "error_code": "LC_COMPUTE_UNIT_FAILED"}
-                    _write_units_manifest(manifest_root / "units.parquet", list(units_by_key.values()))
+                    _flush_compute_checkpoint(
+                        manifest_root=manifest_root,
+                        units=list(units_by_key.values()),
+                        candidate_parts=list(candidate_by_unit.values()),
+                        run_payload=run_payload,
+                        metrics={
+                            "executed_unit_count": executed,
+                            "skipped_unit_count": skipped,
+                            "failed_unit_count": failed,
+                            "candidate_part_count": len(candidate_by_unit),
+                            "candidate_row_count": sum(int(row.get("row_count") or 0) for row in candidate_by_unit.values()),
+                            "last_unit_index": index,
+                            "unit_count": len(units),
+                        },
+                    )
                     run_payload = {
                         **run_payload,
                         "status": "failed",
@@ -145,10 +179,26 @@ class DuckDbComputeExecutorService:
                     raise
                 candidate_by_unit[unit_key] = part
                 units_by_key[unit_key] = {**unit, "status": "succeeded", "error_code": None}
-                _write_units_manifest(manifest_root / "units.parquet", list(units_by_key.values()))
-                _write_candidate_parts_manifest(manifest_root / "candidate_parts.parquet", list(candidate_by_unit.values()))
                 executed += 1
                 total_rows += int(part["row_count"])
+                changed_since_checkpoint += 1
+                if changed_since_checkpoint >= checkpoint_interval:
+                    _flush_compute_checkpoint(
+                        manifest_root=manifest_root,
+                        units=list(units_by_key.values()),
+                        candidate_parts=list(candidate_by_unit.values()),
+                        run_payload=run_payload,
+                        metrics={
+                            "executed_unit_count": executed,
+                            "skipped_unit_count": skipped,
+                            "failed_unit_count": failed,
+                            "candidate_part_count": len(candidate_by_unit),
+                            "candidate_row_count": sum(int(row.get("row_count") or 0) for row in candidate_by_unit.values()),
+                            "last_unit_index": index,
+                            "unit_count": len(units),
+                        },
+                    )
+                    changed_since_checkpoint = 0
                 lock_service.heartbeat(run_id=run_id)
                 _emit_progress(
                     progress_callback,
@@ -168,6 +218,21 @@ class DuckDbComputeExecutorService:
                 failed = len([row for row in final_units if str(row.get("status")) != "succeeded"])
                 raise RuntimeError(f"仍有 {failed} 个 ComputeUnit 未成功，不能进入 compute_completed。")
 
+            _flush_compute_checkpoint(
+                manifest_root=manifest_root,
+                units=final_units,
+                candidate_parts=list(candidate_by_unit.values()),
+                run_payload=run_payload,
+                metrics={
+                    "executed_unit_count": executed,
+                    "skipped_unit_count": skipped,
+                    "failed_unit_count": failed,
+                    "candidate_part_count": len(candidate_by_unit),
+                    "candidate_row_count": sum(int(row.get("row_count") or 0) for row in candidate_by_unit.values()),
+                    "last_unit_index": len(units),
+                    "unit_count": len(units),
+                },
+            )
             elapsed = time.perf_counter() - started
             run_payload = {
                 **run_payload,
@@ -222,14 +287,10 @@ class DuckDbComputeExecutorService:
         clean_paths = _resolve_existing_paths(self.lake_root, input_paths.get("clean_next") or [], label="clean_next")
         adj_paths = _resolve_existing_paths(self.lake_root, input_paths.get("adj_factor") or [], label="adj_factor")
         output_path = _resolve_candidate_output(self.lake_root, str(unit["run_id"]), str(output_paths[0]))
-        bucket = _parse_bucket_from_unit_key(str(unit["unit_key"]))
-        bucket_count = int(self.settings.compute_bucket_count)
         metrics = connection.execute(
             _unit_metrics_sql(),
             [
                 [str(path) for path in clean_paths],
-                bucket_count,
-                bucket,
                 [str(path) for path in adj_paths],
                 [str(path) for path in latest_adj_paths],
             ],
@@ -255,8 +316,6 @@ class DuckDbComputeExecutorService:
             _unit_copy_sql(tmp_output),
             [
                 [str(path) for path in clean_paths],
-                bucket_count,
-                bucket,
                 [str(path) for path in adj_paths],
                 [str(path) for path in latest_adj_paths],
             ],
@@ -276,6 +335,30 @@ class DuckDbComputeExecutorService:
         return self.lake_root / "manifest" / "duckdb_compute" / "runs" / run_id
 
 
+def _flush_compute_checkpoint(
+    *,
+    manifest_root: Path,
+    units: list[dict[str, Any]],
+    candidate_parts: list[dict[str, Any]],
+    run_payload: dict[str, Any],
+    metrics: dict[str, Any],
+) -> None:
+    checkpoint_at = _utc_now_iso()
+    _write_units_manifest(manifest_root / "units.parquet", units)
+    _write_candidate_parts_manifest(manifest_root / "candidate_parts.parquet", candidate_parts)
+    _write_json_atomic(
+        manifest_root / "run.json",
+        {
+            **run_payload,
+            "m2_checkpoint": {
+                "status": "running",
+                "checkpoint_at": checkpoint_at,
+                "metrics": metrics,
+            },
+        },
+    )
+
+
 def _unit_metrics_sql() -> str:
     return """
     with clean as (
@@ -292,7 +375,6 @@ def _unit_metrics_sql() -> str:
             cast(vol as bigint) as vol,
             cast(amount as double) as amount
         from read_parquet(?, hive_partitioning=1)
-        where hash(ts_code) % ? = ?
     ),
     day_factor as (
         select
@@ -351,7 +433,6 @@ def _unit_copy_sql(output_path: Path) -> str:
                 cast(amount as double) as amount,
                 cast(exchange as varchar) as exchange
             from read_parquet(?, hive_partitioning=1)
-            where hash(ts_code) % ? = ?
         ),
         day_factor as (
             select
@@ -515,13 +596,6 @@ def _assert_inside_lake(path: Path, lake_root: Path, *, label: str) -> None:
     resolved_root = lake_root.resolve()
     if path != resolved_root and resolved_root not in path.parents:
         raise RuntimeError(f"{label} 路径必须位于 Lake Root 内：{path}")
-
-
-def _parse_bucket_from_unit_key(unit_key: str) -> int:
-    for part in unit_key.split("/"):
-        if part.startswith("bucket="):
-            return int(part.removeprefix("bucket="))
-    raise ValueError(f"unit_key 缺少 bucket：{unit_key}")
 
 
 def _read_json(path: Path) -> dict[str, Any]:
