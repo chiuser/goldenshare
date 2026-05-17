@@ -12,7 +12,7 @@ from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCom
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
-from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
+from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker, SubjectCompletenessMatrixExecutor
 
 
 def _admin_headers(app_client, user_factory) -> dict[str, str]:
@@ -1138,6 +1138,82 @@ def test_date_subject_matrix_worker_passes_when_subject_universe_is_empty(app_cl
     assert run.actual_cell_count == 0
     assert run.missing_cell_count == 0
     assert run.operator_message == "审计通过，对象池在本窗口内为空。"
+
+
+def test_date_subject_matrix_worker_truncates_subject_details_globally(
+    app_client,
+    user_factory,
+    db_session,
+    monkeypatch,
+) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    monkeypatch.setattr(SubjectCompletenessMatrixExecutor, "DETAIL_LIMIT", 2)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 3, 30), is_open=True, pretrade_date=date(2026, 3, 27)),
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 3, 31), is_open=True, pretrade_date=date(2026, 3, 30)),
+            Security(ts_code="000001.SZ", name="平安银行", list_status="L", list_date=date(1991, 4, 3), security_type="EQUITY"),
+            Security(ts_code="001257.SZ", name="立新能源", list_status="L", list_date=date(2022, 7, 27), security_type="EQUITY"),
+            Security(ts_code="002001.SZ", name="新和成", list_status="L", list_date=date(2004, 6, 25), security_type="EQUITY"),
+        ]
+    )
+    db_session.execute(
+        text(
+            """
+            create table core.equity_adj_factor (
+                ts_code text not null,
+                trade_date date not null,
+                adj_factor numeric not null
+            )
+            """
+        )
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "adj_factor",
+            "start_date": "2026-03-30",
+            "end_date": "2026-03-31",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.result_status == "failed"
+    assert run.expected_cell_count == 6
+    assert run.actual_cell_count == 0
+    assert run.missing_cell_count == 6
+    assert run.affected_bucket_count == 2
+    assert run.affected_subject_count == 3
+    assert run.detail_truncated is True
+
+    gaps = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGap)
+            .where(DatasetSubjectCompletenessGap.run_id == run.id)
+            .order_by(DatasetSubjectCompletenessGap.bucket_value.asc())
+        )
+    )
+    assert len(gaps) == 2
+    assert [gap.missing_cell_count for gap in gaps] == [3, 3]
+
+    details = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run.id)
+            .order_by(
+                DatasetSubjectCompletenessGapDetail.bucket_value.asc(),
+                DatasetSubjectCompletenessGapDetail.subject_key.asc(),
+            )
+        )
+    )
+    assert len(details) == 2
+    assert {detail.bucket_value for detail in details} == {date(2026, 3, 30)}
 
 
 def test_date_subject_matrix_worker_stops_large_queued_range_before_target_read(db_session) -> None:

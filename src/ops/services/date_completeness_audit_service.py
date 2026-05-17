@@ -101,6 +101,15 @@ class SubjectCompletenessMatrixResult:
     detail_truncated: bool
 
 
+@dataclass(frozen=True, slots=True)
+class SubjectCompletenessBucketResult:
+    expected_cell_count: int
+    actual_cell_count: int
+    missing_cell_count: int
+    missing_subject_keys: tuple[str, ...]
+    detail_count: int
+
+
 class ExpectedBucketPlanner:
     def plan(
         self,
@@ -455,6 +464,8 @@ class ActualBucketReader:
 
 class SubjectCompletenessMatrixExecutor:
     DETAIL_LIMIT = 5000
+    PROGRESS_COMMIT_INTERVAL = 1
+    STATEMENT_TIMEOUT_SQL = "set local statement_timeout = '60s'"
     SQL_IDENTIFIER_PATTERN = ActualBucketReader.SQL_IDENTIFIER_PATTERN
     SQL_COLUMN_PATTERN = ActualBucketReader.SQL_COLUMN_PATTERN
 
@@ -468,47 +479,74 @@ class SubjectCompletenessMatrixExecutor:
     ) -> SubjectCompletenessMatrixResult:
         completeness = definition.completeness
         self._validate_supported(run=run, completeness=completeness)
+        self._clear_existing_result_rows(session, run)
         if not expected_buckets:
             return self._empty_result(actual_bucket_count=0)
 
-        sql_context = self._build_sql_context(run=run, completeness=completeness, expected_buckets=expected_buckets)
-        summary = self._read_summary(session, sql_context=sql_context)
-        gap_summaries = self._read_gap_summaries(session, sql_context=sql_context, completeness=completeness)
-        details, detail_truncated = self._read_details(
-            session,
-            sql_context=sql_context,
-            completeness=completeness,
-            target_table=run.target_table,
-        )
-        samples_by_bucket: dict[date, list[dict[str, str | None]]] = {}
-        for detail in details:
-            samples = samples_by_bucket.setdefault(detail.bucket_value, [])
-            if len(samples) < 20:
-                samples.append({"subject_key": detail.subject_key, "subject_name": detail.subject_name})
+        context = self._build_bucket_context(run=run, completeness=completeness)
+        expected_cell_count = 0
+        actual_cell_count = 0
+        missing_cell_count = 0
+        affected_bucket_count = 0
+        actual_bucket_count = 0
+        affected_subject_keys: set[str] = set()
+        written_detail_count = 0
+        detail_truncated = False
 
-        gap_summaries = tuple(
-            SubjectCompletenessGapSummary(
-                bucket_kind=item.bucket_kind,
-                bucket_value=item.bucket_value,
-                subject_kind=item.subject_kind,
-                missing_cell_count=item.missing_cell_count,
-                affected_subject_count=item.affected_subject_count,
-                sample_subjects=tuple(samples_by_bucket.get(item.bucket_value, [])),
+        for index, bucket in enumerate(expected_buckets, start=1):
+            self._mark_bucket_started(
+                session,
+                run=run,
+                bucket=bucket,
+                processed_bucket_count=index - 1,
+                total_bucket_count=len(expected_buckets),
             )
-            for item in gap_summaries
-        )
+            bucket_result = self._execute_bucket(
+                session,
+                run=run,
+                completeness=completeness,
+                context=context,
+                bucket=bucket,
+                detail_remaining=max(self.DETAIL_LIMIT - written_detail_count, 0),
+            )
+            expected_cell_count += bucket_result.expected_cell_count
+            actual_cell_count += bucket_result.actual_cell_count
+            missing_cell_count += bucket_result.missing_cell_count
+            if bucket_result.missing_cell_count:
+                affected_bucket_count += 1
+            if bucket_result.actual_cell_count:
+                actual_bucket_count += 1
+            affected_subject_keys.update(bucket_result.missing_subject_keys)
+            written_detail_count += bucket_result.detail_count
+            if bucket_result.detail_count < bucket_result.missing_cell_count:
+                detail_truncated = True
+            if index % self.PROGRESS_COMMIT_INTERVAL == 0 or index == len(expected_buckets):
+                self._mark_bucket_completed(
+                    session,
+                    run=run,
+                    bucket=bucket,
+                    processed_bucket_count=index,
+                    total_bucket_count=len(expected_buckets),
+                    expected_cell_count=expected_cell_count,
+                    actual_cell_count=actual_cell_count,
+                    missing_cell_count=missing_cell_count,
+                    affected_bucket_count=affected_bucket_count,
+                    affected_subject_count=len(affected_subject_keys),
+                    actual_bucket_count=actual_bucket_count,
+                    detail_truncated=detail_truncated,
+                )
 
         return SubjectCompletenessMatrixResult(
             subject_key_fields=tuple(completeness.subject_key_fields),
-            actual_key_fields=tuple(dict.fromkeys((*completeness.actual_key_fields, str(run.observed_field)))),
-            expected_cell_count=int(summary["expected_cell_count"]),
-            actual_cell_count=int(summary["actual_cell_count"]),
-            missing_cell_count=int(summary["missing_cell_count"]),
-            affected_bucket_count=int(summary["affected_bucket_count"]),
-            affected_subject_count=int(summary["affected_subject_count"]),
-            actual_bucket_count=int(summary["actual_bucket_count"]),
-            gap_summaries=gap_summaries,
-            details=tuple(details[: self.DETAIL_LIMIT]),
+            actual_key_fields=tuple(dict.fromkeys((*completeness.actual_key_fields, run.observed_field))),
+            expected_cell_count=expected_cell_count,
+            actual_cell_count=actual_cell_count,
+            missing_cell_count=missing_cell_count,
+            affected_bucket_count=affected_bucket_count,
+            affected_subject_count=len(affected_subject_keys),
+            actual_bucket_count=actual_bucket_count,
+            gap_summaries=(),
+            details=(),
             detail_truncated=detail_truncated,
         )
 
@@ -538,207 +576,213 @@ class SubjectCompletenessMatrixExecutor:
         cls._sql_table_identifier(str(completeness.universe_source_table))
         cls._sql_table_identifier(run.target_table)
 
-    def _build_sql_context(
+    def _build_bucket_context(
         self,
         *,
         run: DatasetDateCompletenessRun,
         completeness: DatasetCompletenessDefinition,
-        expected_buckets: list[DateCompletenessBucket],
     ) -> dict[str, object]:
-        expected_sql, expected_params = self._expected_buckets_values(expected_buckets)
         status_sql, status_params = self._status_filter(completeness)
+        filter_sql, filter_params = ActualBucketReader()._row_identity_filter_clause(run.row_identity_filters_json or {})
         universe_table = self._sql_table_identifier(str(completeness.universe_source_table))
         target_table = self._sql_table_identifier(run.target_table)
-        subject_key_field = self._sql_column_identifier(str(completeness.subject_key_fields[0]))
         actual_key_field = self._sql_column_identifier(str(completeness.actual_key_fields[0]))
         observed_field = self._sql_column_identifier(run.observed_field)
         universe_key_field = self._sql_column_identifier(str(completeness.universe_key_field))
         universe_name_field = self._sql_column_identifier(str(completeness.universe_name_field or completeness.universe_key_field))
         lifecycle_start_field = self._sql_column_identifier(str(completeness.lifecycle_start_field or completeness.universe_key_field))
         lifecycle_end_field = self._sql_column_identifier(str(completeness.lifecycle_end_field or completeness.universe_key_field))
-        subject_kind = str(completeness.subject_kind)
-        bucket_kind = expected_buckets[0].bucket_kind
-        matrix_cte = f"""
-            with expected_buckets(bucket_value) as (
-                values {expected_sql}
-            ),
-            expected_matrix as (
+        bucket_sql = f"""
+            with expected as (
                 select
-                    b.bucket_value as bucket_value,
                     u.{universe_key_field} as subject_key,
                     u.{universe_name_field} as subject_name,
                     u.{lifecycle_start_field} as lifecycle_start,
                     u.{lifecycle_end_field} as lifecycle_end
-                from expected_buckets b
-                join {universe_table} u
-                  on (u.{lifecycle_start_field} is null or u.{lifecycle_start_field} <= b.bucket_value)
-                 and (u.{lifecycle_end_field} is null or u.{lifecycle_end_field} >= b.bucket_value)
+                from {universe_table} u
                 where u.{universe_key_field} is not null
-                {status_sql}
+                  and (u.{lifecycle_start_field} is null or u.{lifecycle_start_field} <= :bucket_value)
+                  and (u.{lifecycle_end_field} is null or u.{lifecycle_end_field} >= :bucket_value)
+                  {status_sql}
             ),
-            actual_matrix as (
+            actual as (
                 select distinct
-                    {observed_field} as bucket_value,
                     {actual_key_field} as subject_key
                 from {target_table}
-                where {observed_field} between :start_date and :end_date
+                where {observed_field} = :bucket_value
                   and {actual_key_field} is not null
+                  {filter_sql}
             ),
-            covered_matrix as (
-                select e.bucket_value, e.subject_key
-                from expected_matrix e
-                join actual_matrix a
-                  on a.bucket_value = e.bucket_value
-                 and a.subject_key = e.subject_key
-            ),
-            missing_matrix as (
+            checked as (
                 select
-                    e.bucket_value,
                     e.subject_key,
                     e.subject_name,
                     e.lifecycle_start,
-                    e.lifecycle_end
-                from expected_matrix e
-                left join actual_matrix a
-                  on a.bucket_value = e.bucket_value
-                 and a.subject_key = e.subject_key
-                where a.subject_key is null
+                    e.lifecycle_end,
+                    a.subject_key as actual_subject_key
+                from expected e
+                left join actual a on a.subject_key = e.subject_key
             )
+            select
+                subject_key,
+                subject_name,
+                lifecycle_start,
+                lifecycle_end,
+                actual_subject_key
+            from checked
+            order by subject_key asc
         """
         return {
-            "matrix_cte": matrix_cte,
-            "params": {
-                "start_date": run.start_date,
-                "end_date": run.end_date,
-                **expected_params,
-                **status_params,
-            },
-            "bucket_kind": bucket_kind,
-            "subject_kind": subject_kind,
-            "subject_key_field": subject_key_field,
-            "actual_key_field": actual_key_field,
-            "observed_field": observed_field,
+            "bucket_sql": bucket_sql,
+            "params": {**status_params, **filter_params},
         }
 
-    def _read_summary(self, session: Session, *, sql_context: dict[str, object]) -> dict[str, int]:
-        row = session.execute(
-            text(
-                f"""
-                {sql_context["matrix_cte"]}
-                select
-                    (select count(*) from expected_matrix) as expected_cell_count,
-                    (select count(*) from covered_matrix) as actual_cell_count,
-                    (select count(*) from missing_matrix) as missing_cell_count,
-                    (select count(distinct bucket_value) from missing_matrix) as affected_bucket_count,
-                    (select count(distinct subject_key) from missing_matrix) as affected_subject_count,
-                    (select count(distinct bucket_value) from covered_matrix) as actual_bucket_count
-                """
-            ),
-            sql_context["params"],
-        ).one()
-        return {
-            "expected_cell_count": int(row.expected_cell_count or 0),
-            "actual_cell_count": int(row.actual_cell_count or 0),
-            "missing_cell_count": int(row.missing_cell_count or 0),
-            "affected_bucket_count": int(row.affected_bucket_count or 0),
-            "affected_subject_count": int(row.affected_subject_count or 0),
-            "actual_bucket_count": int(row.actual_bucket_count or 0),
-        }
-
-    def _read_gap_summaries(
+    def _execute_bucket(
         self,
         session: Session,
         *,
-        sql_context: dict[str, object],
+        run: DatasetDateCompletenessRun,
         completeness: DatasetCompletenessDefinition,
-    ) -> tuple[SubjectCompletenessGapSummary, ...]:
+        context: dict[str, object],
+        bucket: DateCompletenessBucket,
+        detail_remaining: int,
+    ) -> SubjectCompletenessBucketResult:
+        self._set_local_statement_timeout(session)
         rows = session.execute(
-            text(
-                f"""
-                {sql_context["matrix_cte"]}
-                select
-                    bucket_value,
-                    count(*) as missing_cell_count,
-                    count(distinct subject_key) as affected_subject_count
-                from missing_matrix
-                group by bucket_value
-                order by bucket_value asc
-                """
-            ),
-            sql_context["params"],
+            text(str(context["bucket_sql"])),
+            {**dict(context["params"]), "bucket_value": bucket.value},
         ).all()
-        return tuple(
-            SubjectCompletenessGapSummary(
-                bucket_kind=str(sql_context["bucket_kind"]),
-                bucket_value=ActualBucketReader._value_to_date(row.bucket_value),
-                subject_kind=str(completeness.subject_kind),
-                missing_cell_count=int(row.missing_cell_count or 0),
-                affected_subject_count=int(row.affected_subject_count or 0),
-                sample_subjects=(),
+        expected_cell_count = len(rows)
+        missing_rows = [row for row in rows if row.actual_subject_key is None]
+        missing_cell_count = len(missing_rows)
+        actual_cell_count = expected_cell_count - missing_cell_count
+        if not missing_rows:
+            return SubjectCompletenessBucketResult(
+                expected_cell_count=expected_cell_count,
+                actual_cell_count=actual_cell_count,
+                missing_cell_count=0,
+                missing_subject_keys=(),
+                detail_count=0,
             )
-            for row in rows
-        )
 
-    def _read_details(
-        self,
-        session: Session,
-        *,
-        sql_context: dict[str, object],
-        completeness: DatasetCompletenessDefinition,
-        target_table: str,
-    ) -> tuple[list[SubjectCompletenessGapDetail], bool]:
-        rows = session.execute(
-            text(
-                f"""
-                {sql_context["matrix_cte"]}
-                select
-                    bucket_value,
-                    subject_key,
-                    subject_name,
-                    lifecycle_start,
-                    lifecycle_end
-                from missing_matrix
-                order by bucket_value asc, subject_key asc
-                limit :detail_limit
-                """
-            ),
-            {**dict(sql_context["params"]), "detail_limit": self.DETAIL_LIMIT + 1},
-        ).all()
-        detail_rows = rows[: self.DETAIL_LIMIT]
-        details: list[SubjectCompletenessGapDetail] = []
+        missing_subject_keys = tuple(str(row.subject_key) for row in missing_rows)
+        detail_rows = missing_rows[:detail_remaining]
+        sample_subjects = tuple(
+            {"subject_key": str(row.subject_key), "subject_name": row.subject_name}
+            for row in detail_rows[:20]
+        )
+        gap_row = DatasetSubjectCompletenessGap(
+            run_id=run.id,
+            dataset_key=run.dataset_key,
+            bucket_kind=bucket.bucket_kind,
+            bucket_value=bucket.value,
+            subject_kind=str(completeness.subject_kind),
+            subject_key_fields_json=list(completeness.subject_key_fields),
+            actual_key_fields_json=list(dict.fromkeys((*completeness.actual_key_fields, run.observed_field))),
+            missing_cell_count=missing_cell_count,
+            affected_subject_count=len(set(missing_subject_keys)),
+            sample_subjects_json=list(sample_subjects),
+        )
+        session.add(gap_row)
+        session.flush()
+
         subject_key_field = str(completeness.subject_key_fields[0])
         actual_key_field = str(completeness.actual_key_fields[0])
-        observed_field = str(sql_context["observed_field"])
+        observed_field = str(run.observed_field)
         for row in detail_rows:
-            bucket_value = ActualBucketReader._value_to_date(row.bucket_value)
             subject_key = str(row.subject_key)
-            details.append(
-                SubjectCompletenessGapDetail(
-                    bucket_kind=str(sql_context["bucket_kind"]),
-                    bucket_value=bucket_value,
+            session.add(
+                DatasetSubjectCompletenessGapDetail(
+                    run_id=run.id,
+                    gap_id=gap_row.id,
+                    dataset_key=run.dataset_key,
+                    bucket_kind=bucket.bucket_kind,
+                    bucket_value=bucket.value,
                     subject_kind=str(completeness.subject_kind),
                     subject_key=subject_key,
                     subject_name=row.subject_name,
                     subject_key_json={subject_key_field: subject_key},
-                    actual_key_json={actual_key_field: subject_key, observed_field: bucket_value.isoformat()},
+                    actual_key_json={actual_key_field: subject_key, observed_field: bucket.value.isoformat()},
                     lifecycle_start=ActualBucketReader._value_to_date(row.lifecycle_start) if row.lifecycle_start is not None else None,
                     lifecycle_end=ActualBucketReader._value_to_date(row.lifecycle_end) if row.lifecycle_end is not None else None,
                     reason_code="missing_subject_bucket",
                     reason_message="该对象在该日期桶处于有效生命周期内，但目标表缺少对应行。",
-                    target_table=target_table,
+                    target_table=run.target_table,
                 )
             )
-        return details, len(rows) > self.DETAIL_LIMIT
+        return SubjectCompletenessBucketResult(
+            expected_cell_count=expected_cell_count,
+            actual_cell_count=actual_cell_count,
+            missing_cell_count=missing_cell_count,
+            missing_subject_keys=missing_subject_keys,
+            detail_count=len(detail_rows),
+        )
 
     @staticmethod
-    def _expected_buckets_values(expected_buckets: list[DateCompletenessBucket]) -> tuple[str, dict[str, date]]:
-        values_sql: list[str] = []
-        params: dict[str, date] = {}
-        for index, bucket in enumerate(expected_buckets):
-            param_name = f"expected_bucket_{index}"
-            values_sql.append(f"(:{param_name})")
-            params[param_name] = bucket.value
-        return ", ".join(values_sql), params
+    def _clear_existing_result_rows(session: Session, run: DatasetDateCompletenessRun) -> None:
+        session.execute(delete(DatasetDateCompletenessGap).where(DatasetDateCompletenessGap.run_id == run.id))
+        session.execute(delete(DatasetDateCompletenessExclusion).where(DatasetDateCompletenessExclusion.run_id == run.id))
+        session.execute(delete(DatasetSubjectCompletenessGapDetail).where(DatasetSubjectCompletenessGapDetail.run_id == run.id))
+        session.execute(delete(DatasetSubjectCompletenessGap).where(DatasetSubjectCompletenessGap.run_id == run.id))
+        session.commit()
+
+    @classmethod
+    def _set_local_statement_timeout(cls, session: Session) -> None:
+        bind = session.get_bind()
+        if bind.dialect.name != "postgresql":
+            return
+        session.execute(text(cls.STATEMENT_TIMEOUT_SQL))
+
+    @staticmethod
+    def _mark_bucket_started(
+        session: Session,
+        *,
+        run: DatasetDateCompletenessRun,
+        bucket: DateCompletenessBucket,
+        processed_bucket_count: int,
+        total_bucket_count: int,
+    ) -> None:
+        run.current_stage = "reading_actual"
+        run.current_bucket_value = bucket.value
+        run.current_bucket_label = bucket.label
+        run.processed_bucket_count = processed_bucket_count
+        run.progress_message = f"正在处理第 {processed_bucket_count + 1}/{total_bucket_count} 个日期桶：{bucket.label}。"
+        run.heartbeat_at = _utcnow()
+        session.commit()
+
+    @staticmethod
+    def _mark_bucket_completed(
+        session: Session,
+        *,
+        run: DatasetDateCompletenessRun,
+        bucket: DateCompletenessBucket,
+        processed_bucket_count: int,
+        total_bucket_count: int,
+        expected_cell_count: int,
+        actual_cell_count: int,
+        missing_cell_count: int,
+        affected_bucket_count: int,
+        affected_subject_count: int,
+        actual_bucket_count: int,
+        detail_truncated: bool,
+    ) -> None:
+        run.current_stage = "reading_actual"
+        run.current_bucket_value = bucket.value
+        run.current_bucket_label = bucket.label
+        run.processed_bucket_count = processed_bucket_count
+        run.expected_cell_count = expected_cell_count
+        run.actual_cell_count = actual_cell_count
+        run.missing_cell_count = missing_cell_count
+        run.affected_bucket_count = affected_bucket_count
+        run.affected_subject_count = affected_subject_count
+        run.actual_bucket_count = actual_bucket_count
+        run.detail_truncated = detail_truncated
+        run.progress_message = (
+            f"已处理 {processed_bucket_count}/{total_bucket_count} 个日期桶，"
+            f"当前 {bucket.label}，已发现 {missing_cell_count} 个缺失对象日期单元。"
+        )
+        run.heartbeat_at = _utcnow()
+        session.commit()
 
     @classmethod
     def _status_filter(cls, completeness: DatasetCompletenessDefinition) -> tuple[str, dict[str, str]]:
@@ -1004,50 +1048,6 @@ class DateCompletenessAuditExecutor:
     ) -> None:
         session.execute(delete(DatasetDateCompletenessGap).where(DatasetDateCompletenessGap.run_id == run.id))
         session.execute(delete(DatasetDateCompletenessExclusion).where(DatasetDateCompletenessExclusion.run_id == run.id))
-        session.execute(delete(DatasetSubjectCompletenessGapDetail).where(DatasetSubjectCompletenessGapDetail.run_id == run.id))
-        session.execute(delete(DatasetSubjectCompletenessGap).where(DatasetSubjectCompletenessGap.run_id == run.id))
-
-        gap_rows_by_bucket: dict[date, DatasetSubjectCompletenessGap] = {}
-        for gap in result.gap_summaries:
-            gap_row = DatasetSubjectCompletenessGap(
-                run_id=run.id,
-                dataset_key=run.dataset_key,
-                bucket_kind=gap.bucket_kind,
-                bucket_value=gap.bucket_value,
-                subject_kind=gap.subject_kind,
-                subject_key_fields_json=list(result.subject_key_fields),
-                actual_key_fields_json=list(result.actual_key_fields),
-                missing_cell_count=gap.missing_cell_count,
-                affected_subject_count=gap.affected_subject_count,
-                sample_subjects_json=list(gap.sample_subjects),
-            )
-            session.add(gap_row)
-            gap_rows_by_bucket[gap.bucket_value] = gap_row
-        session.flush()
-
-        for detail in result.details:
-            gap_row = gap_rows_by_bucket.get(detail.bucket_value)
-            if gap_row is None:
-                continue
-            session.add(
-                DatasetSubjectCompletenessGapDetail(
-                    run_id=run.id,
-                    gap_id=gap_row.id,
-                    dataset_key=run.dataset_key,
-                    bucket_kind=detail.bucket_kind,
-                    bucket_value=detail.bucket_value,
-                    subject_kind=detail.subject_kind,
-                    subject_key=detail.subject_key,
-                    subject_name=detail.subject_name,
-                    subject_key_json=detail.subject_key_json,
-                    actual_key_json=detail.actual_key_json,
-                    lifecycle_start=detail.lifecycle_start,
-                    lifecycle_end=detail.lifecycle_end,
-                    reason_code=detail.reason_code,
-                    reason_message=detail.reason_message,
-                    target_table=detail.target_table,
-                )
-            )
         for item in excluded:
             session.add(
                 DatasetDateCompletenessExclusion(

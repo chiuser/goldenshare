@@ -1,6 +1,6 @@
 # 日期对象矩阵审计性能与可观测性专项优化方案 v1
 
-- 状态：M0/M1 已进入落地；M2 及以后待评审/排期
+- 状态：M0/M1 已落地；M2 本轮落地；M3 及以后待评审/排期
 - 更新时间：2026-05-17
 - 适用范围：`ops` 审查中心 `date_subject_matrix` 对象矩阵完整性审计
 - 关联文档：
@@ -35,6 +35,13 @@
 
 本专项只解决问题 2：对象矩阵审计效率与可观测性。
 
+本专项的设计原则：
+
+1. 能稳定复用的能力，沉淀为通用执行骨架。
+2. 不能稳定复用的业务语义，不做硬抽象。
+3. 第一版只覆盖当前已经存在的股票类 `trade_date × ts_code` 对象矩阵审计。
+4. 后续如果要支持指数、ETF、基金、板块等对象池，必须单独补对象池 resolver 与语义评审，不允许假装所有对象池都可以共用股票生命周期规则。
+
 不在本专项解决：
 
 1. 停牌、上市首日、源端不产出等对象矩阵口径问题。
@@ -44,6 +51,41 @@
 5. TaskRun、freshness、dataset status snapshot 等其他 Ops 主链路调整。
 
 对象池口径问题将作为后续独立专项处理。
+
+### 2.1 当前第一版直接覆盖范围
+
+当前代码中已经配置 `date_subject_matrix` 的数据集如下：
+
+| 数据集 | 目标表 | 对象类型 | 对象池策略 | 对象键 |
+|---|---|---|---|---|
+| `adj_factor` | `core.equity_adj_factor` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
+| `daily` | `core_serving.equity_daily_bar` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
+| `daily_basic` | `core_serving.equity_daily_basic` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
+| `stk_limit` | `core_serving.equity_stk_limit` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
+| `stk_factor_pro` | `core_serving.equity_factor_pro` | `stock` | `stock_basic_active_lifecycle` | `ts_code` |
+
+M2 第一版只承诺覆盖以上 5 个数据集。它们共享的是“执行方式”，不是所有对象池业务语义。
+
+### 2.2 可通用与不可硬通用的边界
+
+可通用能力：
+
+1. 按日期桶循环执行，避免一次性构造全年大矩阵。
+2. 单桶 expected / actual / missing 计算流程。
+3. run 进度、heartbeat、当前桶、已处理桶数更新。
+4. gap summary、gap detail 的写入节制与截断标记。
+5. statement timeout、错误收敛、失败时保留最后进度。
+6. API 与前端进度展示字段。
+
+不可硬通用能力：
+
+1. 对象池来源与生命周期规则。
+2. 停牌、上市首日、源端不产出等业务排除语义。
+3. 指数、ETF、基金、板块等非股票对象的有效对象池定义。
+4. 每张目标表的索引选择与 SQL 性能门禁。
+5. 是否需要对象池日快照。
+
+因此，M2 的实现形态应是“小通用执行内核 + 显式对象池 resolver”，而不是一个覆盖所有对象类型的万能 DSL。
 
 ---
 
@@ -188,7 +230,8 @@ run
 1. 仍保持审计只读业务表。
 2. 仍写入现有审计结果表。
 3. 不把对象池口径问题混入本轮。
-4. 第一版可以只支持 `subject_kind=stock`、单字段 `ts_code`，与当前实现一致。
+4. 第一版只支持 `subject_kind=stock`、单字段 `ts_code`，与当前实现一致。
+5. 通用的是 executor 生命周期与分桶执行方式；对象池语义通过 resolver 显式接入，不在 executor 主流程里写死更多业务规则。
 
 ---
 
@@ -228,9 +271,27 @@ run
 
 ## 7. SQL 执行策略
 
-### 7.1 单桶差集 SQL
+### 7.1 执行结构
 
-每个日期桶只查询当天键集合：
+M2 第一版拆成两层：
+
+| 层 | 职责 | 是否通用 |
+|---|---|---|
+| 分桶执行内核（当前落在 `SubjectCompletenessMatrixExecutor` 内部） | 分桶循环、进度心跳、结果写入、错误收敛、detail limit | 通用 |
+| 对象池读取逻辑（当前只实现 `stock_basic_active_lifecycle`） | 根据对象池策略读取某个日期桶应存在的对象集合 | 半通用，按策略实现 |
+| 实际对象读取逻辑 | 根据目标表、日期字段、对象键读取某桶实际存在对象 | 通用，但依赖目标表索引 |
+
+第一版只实现一个对象池 resolver：
+
+| resolver | 支持对象 | 来源 | 规则 |
+|---|---|---|---|
+| `stock_basic_active_lifecycle` | 股票 | `core_serving.security_serving` | `list_status in active_status_values` 且 `list_date <= bucket_value <= delist_date` |
+
+后续新增对象类型时，只允许新增 resolver，不允许把指数、基金、板块规则硬塞进股票 resolver。
+
+### 7.2 单桶差集 SQL
+
+每个日期桶只查询当天键集合。以下 SQL 是股票类 resolver 的第一版示意，不是所有对象池的通用 SQL：
 
 ```sql
 with expected as (
@@ -265,25 +326,19 @@ select
 
 细节查询可复用同一桶逻辑，仅在 `missing_count > 0` 且 detail 剩余额度大于 0 时读取样本。
 
-### 7.2 全局 affected_subject_count
+### 7.3 全局 affected_subject_count
 
-为了避免保存全部缺失 cell，本轮建议在 worker session 内创建临时表：
+为了避免保存全部缺失 cell，M2 第一版不使用数据库临时表，而是在 worker 进程内用 Python `set` 记录缺失对象键。
 
-```sql
-create temporary table audit_missing_subject_seen (
-  subject_key varchar primary key
-) on commit preserve rows;
-```
+这样做的原因：
 
-每个桶将缺失 subject_key 去重插入临时表，最终：
+1. 当前测试环境使用 SQLite，PostgreSQL 临时表不能作为主逻辑直接落地。
+2. 当前第一版只覆盖股票对象池，去重对象规模约几千只，内存可控。
+3. `affected_subject_count` 统计的是“出现过缺失的不同对象数”，用 `set` 可以准确表达该语义。
 
-```sql
-select count(*) from audit_missing_subject_seen;
-```
+后续如果对象池规模显著变大，再单独评估 PostgreSQL 临时表或物化中间表方案；不得在 M2 第一版中引入数据库方言绑定。
 
-这样可以得到准确的 `affected_subject_count`，同时空间上限约等于对象池规模，而不是缺失 cell 总量。
-
-### 7.3 detail 写入策略
+### 7.4 detail 写入策略
 
 沿用当前全局 detail limit，建议：
 
@@ -291,20 +346,20 @@ select count(*) from audit_missing_subject_seen;
 2. 每个日期桶最多写入 `per_bucket_detail_limit` 条，避免单日异常吃满全部 detail。
 3. run 上设置 `detail_truncated=true` 表示 detail 被截断。
 
-第一版可保持当前 `DETAIL_LIMIT=1000`，后续再根据页面体验调整。
+第一版保持当前代码口径 `DETAIL_LIMIT=5000`，不在本轮改变 detail 截断行为。
 
-### 7.4 事务与提交
+### 7.5 事务与提交
 
 推荐：
 
-1. 每处理 `N` 个 bucket commit 一次，默认 `N=5` 或 `10`。
-2. 每个 commit 前更新 run 进度和 heartbeat。
+1. M2 第一版每处理 1 个 bucket commit 一次，优先保证页面进度与故障定位可见。
+2. 每个 bucket commit 前更新 run 进度和 heartbeat。
 3. 若中途失败，已写入的部分 gap/detail 保留，run 标记为 `error`。
 4. 新 run 不复用旧 run 结果，不做断点续跑。
 
 说明：保留部分结果有利于诊断，但页面必须明确显示 run 为失败，不允许误认为审计结论。
 
-### 7.5 statement timeout
+### 7.6 statement timeout
 
 对象矩阵审计 worker 应在每个单桶 SQL 前设置本地超时：
 
@@ -352,18 +407,19 @@ on core_serving.equity_factor_pro (trade_date, ts_code);
 
 ### 8.3 其他数据集索引策略
 
-后续每个 `date_subject_matrix` 数据集接入前，都必须确认目标表是否具备：
+后续每个 `date_subject_matrix` 数据集接入前，都必须按目标表逐项确认是否具备：
 
 ```text
 (observed_field, actual_key_field)
 ```
 
-方向的索引。
+方向的索引或等价访问路径。索引不能作为框架自动行为，必须逐表评估数据量、现有主键方向、写入影响和磁盘空间。
 
 示例：
 
 | 数据集 | 建议索引 |
 |---|---|
+| `adj_factor` | `(trade_date, ts_code)` |
 | `daily` | `(trade_date, ts_code)` |
 | `daily_basic` | `(trade_date, ts_code)` |
 | `stk_limit` | `(trade_date, ts_code)` |
@@ -451,37 +507,54 @@ on core_serving.equity_factor_pro (trade_date, ts_code);
 
 ### M2：按日期桶执行小闭环
 
-目标：替换全范围大 CTE。
+目标：替换全范围大 CTE，并沉淀可复用的对象矩阵分桶执行骨架。
+
+落地状态：已完成第一版小闭环。当前实现保留 `SubjectCompletenessMatrixExecutor` 入口名称，但内部已从全范围大 CTE 改为按日期桶执行；结果写入在每个 bucket 内完成，最终收尾只更新 run 汇总状态，不再删除分桶写入的 subject gap/detail。
+
+覆盖范围：
+
+1. 只覆盖当前 5 个股票类对象矩阵数据集。
+2. 只支持 `subject_kind=stock`。
+3. 只支持单字段对象键 `ts_code`。
+4. 只支持 `universe_strategy=stock_basic_active_lifecycle`。
+5. 不处理停牌、上市首日、源端不产出等业务排除口径。
 
 任务：
 
-1. 新增 bucket-by-bucket 对象矩阵 executor。
-2. 每个 bucket 独立统计 expected / covered / missing。
-3. 每个 bucket 写入 gap summary。
-4. 按全局 detail limit 写入 detail。
-5. 每 N 个 bucket commit 一次。
-6. 保持普通 `date_bucket` 审计路径不变。
+1. 保留 `SubjectCompletenessMatrixExecutor` 入口名称，内部改为分桶循环、进度、结果写入和错误收敛。
+2. 使用最小对象池读取逻辑，第一版只实现 `stock_basic_active_lifecycle`。
+3. 使用最小实际对象读取逻辑，按 `target_table + observed_field + actual_key_fields` 读取某个 bucket 的实际对象键。
+4. 每个 bucket 独立统计 expected / covered / missing。
+5. 每个 bucket 写入 gap summary。
+6. 按全局 detail limit 与每桶 detail limit 写入 detail。
+7. 每个 bucket commit 一次，并更新 run 进度与 heartbeat。
+8. 保持普通 `date_bucket` 审计路径不变。
+9. 不新增对象池排除表，不修改 `DatasetDefinition.completeness` 语义。
 
 验收：
 
 1. `stk_factor_pro` 8 个交易日以内审计结果与旧逻辑一致。
 2. 运行中能看到 processed bucket 递增。
 3. 中途取消后 run 能收敛为 error/canceled。
+4. `daily`、`daily_basic`、`adj_factor`、`stk_limit` 小窗口审计能复用同一执行骨架。
+5. 非 `stock_basic_active_lifecycle` 的对象池策略必须明确报“不支持”，不得静默套用股票规则。
 
 ### M3：覆盖索引与查询计划优化
 
-目标：真正降低宽表读取成本。
+目标：真正降低目标表读取成本，但索引必须逐表评估，不能作为通用框架自动创建。
 
 任务：
 
 1. 为 `core_serving.equity_factor_pro` 增加 `(trade_date, ts_code)` 索引。
-2. 对 `daily`、`daily_basic`、`stk_limit` 检查是否已有等价索引。
+2. 对 `daily`、`daily_basic`、`adj_factor`、`stk_limit` 检查是否已有等价索引。
 3. 用 `EXPLAIN ANALYZE` 固化单桶查询性能基线。
+4. 若某表数据量较小且现有索引足够，不强制新增索引。
 
 验收：
 
 1. `stk_factor_pro` 单桶查询命中合适索引。
 2. 单桶统计查询稳定在秒级以内，目标为 100ms 以内。
+3. 每个新增索引都有明确目标表、查询路径、磁盘空间和回滚说明。
 
 ### M4：恢复大范围审计能力
 
@@ -529,6 +602,23 @@ ops.dataset_subject_universe_snapshot
 3. 容易与 DatasetDefinition 事实源产生重复事实。
 
 因此 M5 不是首选。
+
+### M6：非股票对象池扩展评审（后置）
+
+目标：如果未来要把指数、ETF、基金、板块等对象矩阵接入审计，先评审对象池语义，再新增 resolver。
+
+进入条件：
+
+1. M2/M3 在股票类 5 个数据集上稳定。
+2. 新对象类型已经明确“什么对象在什么日期应该存在”。
+3. 已确认目标表业务键、生命周期字段、停用/退市/失效规则。
+4. 已确认目标表访问路径与索引策略。
+
+禁止事项：
+
+1. 禁止复用 `stock_basic_active_lifecycle` 去审计非股票对象。
+2. 禁止为了省事把对象池语义写死在 executor 主流程里。
+3. 禁止在未确认语义前把数据集配置为 `date_subject_matrix`。
 
 ---
 
@@ -588,7 +678,7 @@ ops.dataset_subject_universe_snapshot
 ### 12.2 回滚
 
 1. M1 字段新增可保留，不影响旧路径。
-2. M2 executor 切换应保留旧 executor 类，但不作为默认路径；若新 executor 有问题，可通过代码回滚恢复旧逻辑。
+2. M2 executor 切换应以代码提交为回滚边界；若新 executor 有问题，通过 git 回滚恢复，不在仓库里长期保留双主链或兼容分支。
 3. M3 索引可单独 drop，不影响表数据。
 4. 不涉及业务数据表写入，回滚不需要修复业务数据。
 
@@ -603,3 +693,4 @@ ops.dataset_subject_universe_snapshot
 3. 再做 M3：补 `stk_factor_pro` 覆盖索引并验证。
 4. M4 前不要继续扩大对象矩阵数据集接入。
 5. 对象池口径问题作为独立方案，在 M2/M3 稳定后再处理。
+6. 非股票对象池扩展必须走 M6 评审，不得在 M2 中顺手实现。
