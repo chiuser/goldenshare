@@ -4,6 +4,7 @@ import hashlib
 import json
 import os
 import subprocess
+import time
 from dataclasses import dataclass
 from datetime import date, datetime, timezone
 from pathlib import Path
@@ -523,7 +524,7 @@ def _write_json_atomic(path: Path, payload: dict[str, Any]) -> None:
     with tmp_path.open("w", encoding="utf-8") as file:
         json.dump(payload, file, ensure_ascii=False, sort_keys=True, indent=2, default=str)
         file.write("\n")
-    tmp_path.replace(path)
+    _replace_with_retry(tmp_path, path)
 
 
 def _write_parquet_manifest(path: Path, rows: list[dict[str, Any]], *, columns: list[str]) -> None:
@@ -536,7 +537,18 @@ def _write_parquet_manifest(path: Path, rows: list[dict[str, Any]], *, columns: 
     tmp_path = path.with_name(f".{path.name}.{os.getpid()}.{uuid4().hex}.tmp")
     frame = pd.DataFrame(rows, columns=columns)
     frame.to_parquet(tmp_path, index=False, engine="pyarrow", compression="zstd")
-    tmp_path.replace(path)
+    _replace_with_retry(tmp_path, path)
+
+
+def _replace_with_retry(tmp_path: Path, path: Path, *, attempts: int = 3) -> None:
+    for attempt in range(1, attempts + 1):
+        try:
+            tmp_path.replace(path)
+            return
+        except FileNotFoundError:
+            if attempt >= attempts or not tmp_path.exists():
+                raise
+            time.sleep(0.2 * attempt)
 
 
 def _append_event(path: Path, event: dict[str, Any]) -> None:
