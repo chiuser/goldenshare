@@ -2326,15 +2326,36 @@ compute_max_unit_retries = 1</pre>
         </tr>
         <tr>
           <td>M4 qfq 接入</td>
-          <td>把 qfq candidate builder 接入执行壳，生成完整 candidate root。</td>
-          <td>qfq candidate root + candidate audit ledger。</td>
-          <td>样本窗口审计通过；输出 schema、row count、key set、checksum、样本价格核验全部通过。</td>
+          <td>
+            重新定义为“真实 Lake 上的 qfq readiness + 全量 candidate 生成与审计”。
+            当前 qfq builder、candidate compute、candidate audit、Kopia 备份和 publisher 小样本闭环已在 M2/M3 落地，
+            因此 M4 不再重复开发 builder，而是把真实数据规模跑到“可发布但未发布”的状态。
+          </td>
+          <td>
+            <code>readiness-stk-mins-qfq</code> 只读扫描结果、真实 Lake run manifest、
+            <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts/...</code>、
+            <code>audit_ledger.parquet</code>、可发布报告。
+          </td>
+          <td>
+            M4-0 文档口径已更新；M4-1 全量 readiness scan 通过；
+            M4-2/M4-3/M4-4 真实范围 candidate compute 与 audit 完成；
+            candidate schema、row count、key set、checksum、input snapshot 和 qfq factor coverage 全部通过；
+            正式 <code>research/stk_mins_by_date_clean_next</code>、formal gate、downstream queue 均未修改。
+          </td>
         </tr>
         <tr>
           <td>M5 clean_next 发布</td>
-          <td>用 layer cutover 把完整 qfq candidate 发布到正式 clean_next，并复用现有 gate。</td>
+          <td>
+            在 M4 可发布报告通过并经人工确认后，用已落地的 publisher 链路执行 layer cutover，
+            把完整 qfq candidate 发布到正式 clean_next，并复用现有 gate。
+          </td>
           <td>正式 clean_next + clean_next_partition_gate。</td>
-          <td>下游 derived / research / indicator 在 gate 非 passed 时全部阻断；发布后下游失效范围和重建队列完整落盘。</td>
+          <td>
+            发布必须按
+            <code>backup -> preflight -> gate plan -> gate publishing -> formal replace/audit -> downstream requirement/indicator queue -> final gate passed</code>
+            顺序执行；下游 derived / research / indicator 在 gate 非 passed 时全部阻断；
+            发布后下游失效范围和重建队列完整落盘。
+          </td>
         </tr>
         <tr>
           <td>M6 复用扩展</td>
@@ -2344,6 +2365,73 @@ compute_max_unit_retries = 1</pre>
         </tr>
       </tbody>
     </table>
+  </section>
+
+  <section class="card">
+    <h2>14.1 M4 当前执行口径</h2>
+    <p>
+      M4 的边界已经从“开发 qfq builder”调整为“真实 Lake 的 qfq candidate 生产前门禁与候选产物审计”。
+      这次调整是因为 M2/M3 已经完成了 builder、candidate、audit、backup、publisher 的代码闭环，
+      继续把 M4 写成 builder 开发会误导后续执行。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>子阶段</th>
+          <th>目标</th>
+          <th>允许动作</th>
+          <th>禁止动作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>M4-0 文档收口</td>
+          <td>把阶段定义改成与当前代码一致。</td>
+          <td>更新本文档中的 M4/M5 说明。</td>
+          <td>不改 Lake 数据，不补无关功能。</td>
+        </tr>
+        <tr>
+          <td>M4-1 readiness scan</td>
+          <td>在真实 Lake 上做只读前置检查，避免全量跑数中途才发现硬阻断。</td>
+          <td>
+            执行 <code>readiness-stk-mins-qfq --start-date ... --end-date ... --freqs ...</code>，
+            检查 clean_next 分区、adj_factor 同日分区、latest adj_factor、security_identity_map、
+            磁盘空间、DuckDB temp 目录、全局写锁、历史 qfq run、formal gate。
+            输出只保留汇总计数与少量样本，不输出全量分区清单。
+          </td>
+          <td>不创建 run manifest，不写 candidate，不替换 clean_next，不写 gate，不写 downstream queue。</td>
+        </tr>
+        <tr>
+          <td>M4-2 run manifest</td>
+          <td>为真实范围创建可复现的 run manifest。</td>
+          <td>执行 <code>prepare-stk-mins-qfq-run</code>，写 <code>manifest/duckdb_compute/runs/&lt;run_id&gt;</code>。</td>
+          <td>不执行 DuckDB 计算，不发布正式分区。</td>
+        </tr>
+        <tr>
+          <td>M4-3 candidate compute</td>
+          <td>生成完整 qfq candidate part。</td>
+          <td>执行 <code>compute-stk-mins-qfq-candidates</code>，只写 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts</code>。</td>
+          <td>不写 formal gate，不替换 clean_next，不写 downstream queue。</td>
+        </tr>
+        <tr>
+          <td>M4-4 candidate audit</td>
+          <td>证明 candidate 可发布。</td>
+          <td>执行 <code>audit-stk-mins-qfq-candidates</code>，写 <code>audit_ledger.parquet</code> 和 publish manifest 审计状态。</td>
+          <td>不进入 Kopia 备份和 formal publish，除非进入 M5 并再次人工确认。</td>
+        </tr>
+        <tr>
+          <td>M4-5 可发布报告</td>
+          <td>给出是否能进入 M5 的明确证据。</td>
+          <td>汇总 run_id、输入快照、candidate 行数、分区数、checksum、审计结果、磁盘占用和剩余风险。</td>
+          <td>不把“candidate 已通过”误写成“正式 clean_next 已切换”。</td>
+        </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>M4 成功不等于正式切换成功。</strong>
+      M4 只表示已经生成一份可审计、可发布的 qfq candidate。
+      只有进入 M5 并完成 publisher 全链路后，正式 clean_next 才会变成前复权价格口径。
+    </div>
   </section>
 
   <section class="card">

@@ -8,9 +8,21 @@ from lake_console.backend.app.services.duckdb_compute_executor_service import Du
 from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDbComputePlanService
 from lake_console.backend.app.services.duckdb_compute_prewrite_backup_service import DuckDbComputePrewriteBackupService
 from lake_console.backend.app.services.duckdb_compute_publish_service import DuckDbComputePublishService
+from lake_console.backend.app.services.duckdb_compute_readiness_service import DuckDbComputeReadinessService
 
 
 def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
+    readiness_parser = subparsers.add_parser(
+        "readiness-stk-mins-qfq",
+        help="M4-1 只读检查真实 Lake 是否具备生成 stk_mins qfq candidate 的前置条件",
+    )
+    add_lake_root_arg(readiness_parser)
+    readiness_parser.add_argument("--start-date", required=True, help="起始交易日，格式 YYYY-MM-DD")
+    readiness_parser.add_argument("--end-date", required=True, help="结束交易日，格式 YYYY-MM-DD")
+    readiness_parser.add_argument("--freq", default=None, type=int, help="单个分钟频率")
+    readiness_parser.add_argument("--freqs", default=None, help="多个分钟频率，逗号分隔；默认使用 --freq 或全频率")
+    readiness_parser.set_defaults(handler=_handle_readiness_stk_mins_qfq)
+
     parser = subparsers.add_parser("plan-stk-mins-qfq", help="只读生成 stk_mins qfq 大计算 dry-run plan")
     add_lake_root_arg(parser)
     parser.add_argument("--start-date", required=True, help="起始交易日，格式 YYYY-MM-DD")
@@ -93,6 +105,18 @@ def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     add_lake_root_arg(finalize_parser)
     finalize_parser.add_argument("--run-id", required=True, help="publish-stk-mins-qfq-formal 通过后的 run_id")
     finalize_parser.set_defaults(handler=_handle_finalize_stk_mins_qfq_publish)
+
+
+def _handle_readiness_stk_mins_qfq(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    freqs = parse_freqs(args.freqs, fallback=args.freq)
+    summary = DuckDbComputeReadinessService(settings=settings).scan_stk_mins_qfq_readiness(
+        start_date=args.start_date,
+        end_date=args.end_date,
+        freqs=freqs,
+    )
+    print_json(summary)
+    return 0 if summary["ready"] else 2
 
 
 def _handle_plan_stk_mins_qfq(args: argparse.Namespace) -> int:
