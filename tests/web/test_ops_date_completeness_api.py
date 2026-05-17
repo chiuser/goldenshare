@@ -12,7 +12,11 @@ from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCom
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
-from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker, SubjectCompletenessMatrixExecutor
+from src.ops.services.date_completeness_audit_service import (
+    DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT,
+    DateCompletenessAuditWorker,
+    SubjectCompletenessMatrixExecutor,
+)
 
 
 def _admin_headers(app_client, user_factory) -> dict[str, str]:
@@ -242,7 +246,7 @@ def test_create_date_completeness_run_rejects_invalid_range(app_client, user_fac
     assert response.json()["code"] == "validation_error"
 
 
-def test_create_date_subject_matrix_run_rejects_large_manual_range(app_client, user_factory, db_session) -> None:
+def test_create_date_subject_matrix_run_allows_annual_sized_manual_range(app_client, user_factory, db_session) -> None:
     headers = _admin_headers(app_client, user_factory)
     start_date = date(2026, 1, 1)
     open_dates = [start_date + timedelta(days=index) for index in range(31)]
@@ -269,10 +273,47 @@ def test_create_date_subject_matrix_run_rejects_large_manual_range(app_client, u
         },
     )
 
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["run_status"] == "queued"
+    assert payload["dataset_key"] == "adj_factor"
+    assert db_session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "adj_factor")) is not None
+
+
+def test_create_date_subject_matrix_run_rejects_beyond_single_run_limit(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    start_date = date(2026, 1, 1)
+    open_dates = [
+        start_date + timedelta(days=index)
+        for index in range(DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT + 1)
+    ]
+    db_session.add_all(
+        [
+            TradeCalendar(
+                exchange="SSE",
+                trade_date=value,
+                is_open=True,
+                pretrade_date=value - timedelta(days=1),
+            )
+            for value in open_dates
+        ]
+    )
+    db_session.commit()
+
+    response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "adj_factor",
+            "start_date": open_dates[0].isoformat(),
+            "end_date": open_dates[-1].isoformat(),
+        },
+    )
+
     assert response.status_code == 422
     payload = response.json()
     assert payload["code"] == "date_subject_matrix_range_too_large"
-    assert "31 个日期桶" in payload["message"]
+    assert f"{DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT + 1} 个日期桶" in payload["message"]
     assert db_session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "adj_factor")) is None
 
 
@@ -1218,7 +1259,10 @@ def test_date_subject_matrix_worker_truncates_subject_details_globally(
 
 def test_date_subject_matrix_worker_stops_large_queued_range_before_target_read(db_session) -> None:
     start_date = date(2026, 1, 1)
-    open_dates = [start_date + timedelta(days=index) for index in range(31)]
+    open_dates = [
+        start_date + timedelta(days=index)
+        for index in range(DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT + 1)
+    ]
     db_session.add_all(
         [
             TradeCalendar(
@@ -1261,9 +1305,9 @@ def test_date_subject_matrix_worker_stops_large_queued_range_before_target_read(
     assert completed.id == run.id
     assert completed.run_status == "failed"
     assert completed.result_status == "error"
-    assert completed.expected_bucket_count == 31
+    assert completed.expected_bucket_count == DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT + 1
     assert completed.processed_bucket_count == 0
     assert completed.current_stage == "error"
-    assert completed.operator_message == "对象矩阵审计范围超过当前安全上限，已停止执行。请缩小日期范围，或等待分桶执行能力上线后再运行大范围审计。"
+    assert completed.operator_message == "对象矩阵审计范围超过当前单次安全上限，已停止执行。请缩小日期范围后再运行。"
     assert completed.progress_message == completed.operator_message
     assert completed.heartbeat_at is not None

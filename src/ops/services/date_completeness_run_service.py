@@ -157,7 +157,7 @@ class DateCompletenessRunCommandService:
             status_code=422,
             code="date_subject_matrix_range_too_large",
             message=(
-                "对象矩阵审计当前处于止血保护阶段，"
+                "对象矩阵审计范围超过当前单次安全上限，"
                 f"本次范围包含 {expected_count} 个日期桶，超过安全上限 {DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT} 个。"
                 "请缩小日期范围后再创建审计。"
             ),

@@ -19,14 +19,14 @@ from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCo
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
 
 
-DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT = 30
+DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT = 400
 
 
 class DateSubjectMatrixRangeTooLargeError(ValueError):
     def __init__(self, *, expected_bucket_count: int) -> None:
         self.expected_bucket_count = expected_bucket_count
         self.operator_message = (
-            "对象矩阵审计范围超过当前安全上限，已停止执行。请缩小日期范围，或等待分桶执行能力上线后再运行大范围审计。"
+            "对象矩阵审计范围超过当前单次安全上限，已停止执行。请缩小日期范围后再运行。"
         )
         super().__init__(
             "date_subject_matrix range contains "
