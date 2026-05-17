@@ -1,6 +1,6 @@
 # 日期对象矩阵审计性能与可观测性专项优化方案 v1
 
-- 状态：M0/M1 已落地；M2 本轮落地；M3 及以后待评审/排期
+- 状态：M0/M1 已落地；M2 已落地；M3 只读评估已完成，暂不新增索引；M4 及以后待评审/排期
 - 更新时间：2026-05-17
 - 适用范围：`ops` 审查中心 `date_subject_matrix` 对象矩阵完整性审计
 - 关联文档：
@@ -381,31 +381,68 @@ set local statement_timeout = '60s';
 
 ## 8. 索引策略
 
-### 8.1 `stk_factor_pro` 建议索引
+### 8.1 覆盖索引含义
 
-目标表：`core_serving.equity_factor_pro`
+本方案里说的覆盖索引，指目标表上能同时满足：
 
-建议新增：
+1. 用 `trade_date` 快速定位某个日期桶。
+2. 直接从索引里读出 `ts_code`。
 
-```sql
-create index concurrently if not exists idx_equity_factor_pro_trade_date_ts_code
-on core_serving.equity_factor_pro (trade_date, ts_code);
+也就是：
+
+```text
+(trade_date, ts_code)
 ```
 
-理由：
+它和现有主键方向不同：
 
-1. 对象矩阵审计按日期桶读取 `ts_code`。
-2. 当前 `idx_equity_factor_pro_trade_date` 只能定位日期，不能覆盖 `ts_code`。
-3. `stk_factor_pro` 是宽表，覆盖索引能减少 heap 读取。
+1. `(ts_code, trade_date)` 适合“先给股票，再查日期”。
+2. `(trade_date, ts_code)` 适合“先给日期桶，再查该日有哪些股票”。
 
-### 8.2 索引 rollout 约束
+对象矩阵审计属于第二种访问方式。
+
+在 PostgreSQL 中，如果可见性条件满足，这类索引还有机会让查询走 index-only scan，减少回表读取；即使不能完全 index-only，也能减少宽表读取压力。
+
+### 8.2 M3 只读评估结论
+
+评估日期：2026-05-17
+
+评估库：生产库，只读 `EXPLAIN (ANALYZE, BUFFERS)`
+
+评估日期桶：`2026-05-15`
+
+当前 5 个 `date_subject_matrix` 数据集的单桶查询都已进入毫秒级。M3 本轮结论是：**先不新增索引，继续使用 M2 分桶执行结果观察真实年度任务耗时**。
+
+| 数据集 | 目标表 | 当前大小 | 现有访问路径 | 单表实际对象读取 | 单桶完整矩阵查询 | 判断 |
+|---|---|---:|---|---:|---:|---|
+| `adj_factor` | `core.equity_adj_factor` | 2028 MB | `idx_equity_adj_factor_trade_date` + heap | 3.237 ms | 16.431 ms | 当前不加索引 |
+| `daily` | `core_serving.equity_daily_bar` | 3468 MB | `idx_equity_daily_bar_trade_date` + heap | 3.399 ms | 16.517 ms | 当前不加索引 |
+| `daily_basic` | `core_serving.equity_daily_basic` | 4320 MB | `idx_equity_daily_basic_trade_date` + heap | 3.543 ms | 16.885 ms | 当前不加索引 |
+| `stk_limit` | `core_serving.equity_stk_limit` | 541 MB | `idx_equity_stk_limit_trade_date` + heap | 5.081 ms | 18.782 ms | 当前不加索引 |
+| `stk_factor_pro` | `core_serving.equity_factor_pro` | 5131 MB | `idx_equity_factor_pro_trade_date` + heap | 6.460 ms | 19.529 ms | 暂不立即加索引，保留为候选 |
+
+说明：
+
+1. `stk_factor_pro` 的确是最需要关注的表。单日实际对象读取用了 `Bitmap Heap Scan`，访问 `2077` 个 heap block，说明 `(trade_date, ts_code)` 覆盖索引仍有优化价值。
+2. 但当前 M2 单桶完整矩阵查询已经约 `20ms`，即使按年度 `328` 个交易日粗略估算，数据库读取部分也不再是“一小时级”瓶颈。
+3. 新增索引会增加磁盘占用、写入维护成本和建索引过程的生产风险，因此本轮不应因为“看起来更完整”而直接加。
+4. 下一步应先部署并运行 M2 分桶执行，用真实 run 耗时判断是否还需要 M3-B 索引落地。
+
+### 8.3 索引 rollout 约束
 
 1. 必须使用 concurrent index，避免长时间阻塞业务读写。
 2. Alembic migration 必须先检查真实 head。
 3. 生产执行前必须评估磁盘空间。
 4. 索引创建失败不得影响现有数据。
 
-### 8.3 其他数据集索引策略
+如果 M2 部署后 `stk_factor_pro` 年度审计仍明显超过目标耗时，再单独进入 M3-B，候选 SQL 为：
+
+```sql
+create index concurrently if not exists idx_equity_factor_pro_trade_date_ts_code
+on core_serving.equity_factor_pro (trade_date, ts_code);
+```
+
+### 8.4 其他数据集索引策略
 
 后续每个 `date_subject_matrix` 数据集接入前，都必须按目标表逐项确认是否具备：
 
@@ -415,15 +452,15 @@ on core_serving.equity_factor_pro (trade_date, ts_code);
 
 方向的索引或等价访问路径。索引不能作为框架自动行为，必须逐表评估数据量、现有主键方向、写入影响和磁盘空间。
 
-示例：
+当前 M3 评估后的口径：
 
-| 数据集 | 建议索引 |
+| 数据集 | 索引判断 |
 |---|---|
-| `adj_factor` | `(trade_date, ts_code)` |
-| `daily` | `(trade_date, ts_code)` |
-| `daily_basic` | `(trade_date, ts_code)` |
-| `stk_limit` | `(trade_date, ts_code)` |
-| `stk_factor_pro` | `(trade_date, ts_code)` |
+| `adj_factor` | 现有日期索引足够，暂不新增 |
+| `daily` | 现有日期索引足够，暂不新增 |
+| `daily_basic` | 现有日期索引足够，暂不新增 |
+| `stk_limit` | 现有日期索引足够，暂不新增 |
+| `stk_factor_pro` | 保留 `(trade_date, ts_code)` 为候选索引，等待 M2 线上真实耗时验证 |
 
 若已有等价索引，可以不新增。
 
@@ -543,18 +580,26 @@ on core_serving.equity_factor_pro (trade_date, ts_code);
 
 目标：真正降低目标表读取成本，但索引必须逐表评估，不能作为通用框架自动创建。
 
-任务：
+M3 拆为两步：
+
+1. M3-A：只读评估现有查询计划、体量、现有索引和单桶耗时。
+2. M3-B：只有当 M3-A 证明有必要，才创建具体索引。
+
+M3-A 已完成，结论是：5 张表单桶完整矩阵查询都在 `20ms` 内，暂不进入 M3-B。
+
+原候选任务：
 
 1. 为 `core_serving.equity_factor_pro` 增加 `(trade_date, ts_code)` 索引。
 2. 对 `daily`、`daily_basic`、`adj_factor`、`stk_limit` 检查是否已有等价索引。
 3. 用 `EXPLAIN ANALYZE` 固化单桶查询性能基线。
 4. 若某表数据量较小且现有索引足够，不强制新增索引。
 
-验收：
+当前验收结论：
 
-1. `stk_factor_pro` 单桶查询命中合适索引。
-2. 单桶统计查询稳定在秒级以内，目标为 100ms 以内。
-3. 每个新增索引都有明确目标表、查询路径、磁盘空间和回滚说明。
+1. `stk_factor_pro` 当前命中 `idx_equity_factor_pro_trade_date`，单桶完整矩阵查询约 `19.529ms`。
+2. 5 张表单桶查询均稳定在 `100ms` 以内。
+3. 本轮没有新增索引，因此没有索引回滚项。
+4. 若后续真实年度 run 仍超过目标，再进入 M3-B，并补充磁盘空间、建索引 SQL、回滚 SQL 和验证命令。
 
 ### M4：恢复大范围审计能力（本轮落地）
 
