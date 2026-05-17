@@ -218,7 +218,7 @@ interface NewsPanelItem {
 2. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，且 `channels='公司'` 样本可作为个股新闻板块数据。
 3. 新闻速览与个股新闻分别由 `GET /api/v1/wealth/market/news/briefs` 和 `GET /api/v1/wealth/market/news/stocks` 返回；页面侧可组合为 `MarketNewsPanelGroup`。
 4. 新闻接口不读取页面全局 `tradingDay/tradeDate`，只按 `newsWindow` 查询。
-5. 查询候选集必须删除 `content` 为空的新闻，并按 `content` 严格去重；相同 `content` 只保留发布时间最新的一条。
+5. 查询候选集必须删除 `content` 为空的新闻，并按最终展示标题严格去重；展示标题生成规则为优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字。相同展示标题只保留发布时间最新的一条，发布时间相同时按 `row_key_hash ASC` 稳定选择。
 6. 旧 `marketNewsFlash` / `marketOverviewNewsBlocks` 不进入当前模型。
 
 ---

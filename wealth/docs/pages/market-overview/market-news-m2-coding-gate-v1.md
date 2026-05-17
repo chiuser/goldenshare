@@ -356,6 +356,7 @@ LIMIT :query_limit;
    - 正常响应包含两类数组字段；
    - item `clickable=false`；
    - 排序为 `publishTime` 倒序；
+   - 候选集过滤 `content` 为空的记录，并按最终展示标题去重；当两条新闻 `title` 相同但 `content` 不同时，只保留发布时间最新的一条；
    - config invalid 返回 error。
 3. 前端真实 API 展示校验：
    - 两个新闻板块都在页面上；

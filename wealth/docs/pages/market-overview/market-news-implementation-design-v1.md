@@ -242,8 +242,8 @@ row_key_hash, news_time, title, content, channels, src
 1. 查询 `news_time` 落在 `newsWindow.startAt <= news_time <= newsWindow.endAt` 的新闻。
 2. 筛选条件：`channels IS DISTINCT FROM '公司'`。
 3. `content IS NULL` 或 trim 后为空字符串的行直接剔除。
-4. 按 `content` 严格去重：相同 `content` 只保留 `news_time` 最新的一条。
-5. `title` 为空但 `content` 有值时，由后端截取 `content` 前 80 字生成展示标题；前端不得拼接。
+4. 后端生成最终展示标题 `displayTitle`：优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字；前端不得拼接。
+5. 按 `displayTitle` 严格去重：相同 `displayTitle` 只保留 `news_time` 最新的一条；若 `news_time` 相同，则按 `row_key_hash asc` 稳定选择。
 6. 排序：去重后按 `news_time desc, row_key_hash asc`。
 7. 截断：每个板块按配置取 `queryLimit=300` 条候选新闻；前端只按 `visibleItemCount=10` 控制可见窗口。
 
@@ -266,8 +266,8 @@ row_key_hash, news_time, title, content, channels, src
 1. 查询 `news_time` 落在 `newsWindow.startAt <= news_time <= newsWindow.endAt` 的新闻。
 2. 筛选条件：`channels = '公司'`。
 3. `content IS NULL` 或 trim 后为空字符串的行直接剔除。
-4. 按 `content` 严格去重：相同 `content` 只保留 `news_time` 最新的一条。
-5. `title` 为空但 `content` 有值时，由后端截取 `content` 前 80 字生成展示标题；前端不得拼接。
+4. 后端生成最终展示标题 `displayTitle`：优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字；前端不得拼接。
+5. 按 `displayTitle` 严格去重：相同 `displayTitle` 只保留 `news_time` 最新的一条；若 `news_time` 相同，则按 `row_key_hash asc` 稳定选择。
 6. 排序：去重后按 `news_time desc, row_key_hash asc`。
 7. 本期不从标题中解析股票代码，也不做股票主数据关联；`subject` 可为空。
 

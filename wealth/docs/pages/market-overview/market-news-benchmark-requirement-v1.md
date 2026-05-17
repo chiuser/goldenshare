@@ -83,7 +83,7 @@
 2. 契约冻结：`visibleItemCount/newsId/publishTime/displayTime/title/category/source/subject/clickable` 字段在本期冻结。
 3. 配置一致性：配置文件、文档、代码读取的 key 必须一致，默认 `visibleItemCount=10`，每个板块单次至少取 `queryLimit=300` 条候选新闻。
 4. 默认行为显式：新闻不跟随页面全局交易日；查询窗口固定为“当前自然日的前一天 00:00:00 到当前服务器时间”，时区 `Asia/Shanghai`。
-5. 排序筛选确定性：候选集必须先删除 `content` 为空的新闻，再按 `content` 严格去重，每个 `content` 只保留发布时间最新的一条，最后按 `publishTime desc` 排序。
+5. 排序筛选确定性：候选集必须先删除 `content` 为空的新闻，再生成最终展示标题 `displayTitle`（优先 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字），按 `displayTitle` 严格去重；相同 `displayTitle` 只保留发布时间最新的一条，最后按 `publishTime desc` 排序。
 6. 性能预算前置：单次接口 P95 `< 300ms`，payload `< 600KB`。
 7. 可观测标准化：异常码统一登记，debug 输出结构与其它市场总览模块一致。
 8. 用户可见结果优先：验收以两个新闻板块的标题、时间、省略、滚动和不可点击为主。
@@ -173,11 +173,12 @@
 1. `core_serving_light.news` 是 Tushare `news` 的 serving light 查询出口，接口文档见 `docs/sources/tushare/大模型语料专题数据/0143_新闻快讯.md`。
 2. 本期新闻速览与个股新闻都只读 `core_serving_light.news`，不直接读 `raw_tushare.news`，不使用 `anns_d`、`major_news` 或其它新闻/公告源。
 3. 查询候选集必须满足 `content` 非空；`content IS NULL` 或 trim 后为空字符串的记录直接剔除。
-4. 去重以 `content` 为唯一口径；相同 `content` 只保留 `news_time` 最新的一条。
-5. 最终返回顺序为去重后的 `news_time DESC`。
-6. 每个板块默认取 `queryLimit=300` 条候选新闻，保证一天新闻量较大时滚动池足够长；前端仍只按 `visibleItemCount=10` 控制可见高度。
-7. `channels = '公司'` 是个股新闻板块的唯一分类规则；非公司频道进入新闻速览。
-8. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，并补充样本 SQL；若真实取值不同，必须先停下重新确认口径。
+4. 去重以最终展示标题 `displayTitle` 为唯一口径；`displayTitle` 生成规则为优先使用 trim 后非空 `title`，否则截取 trim 后 `content` 前 80 字。
+5. 相同 `displayTitle` 只保留 `news_time` 最新的一条；若 `news_time` 相同，则按 `row_key_hash ASC` 稳定选择。
+6. 最终返回顺序为去重后的 `news_time DESC, row_key_hash ASC`。
+7. 每个板块默认取 `queryLimit=300` 条候选新闻，保证一天新闻量较大时滚动池足够长；前端仍只按 `visibleItemCount=10` 控制可见高度。
+8. `channels = '公司'` 是个股新闻板块的唯一分类规则；非公司频道进入新闻速览。
+9. 编码前必须确认线上 `core_serving_light.news.channels` 的真实取值包含 `公司`，并补充样本 SQL；若真实取值不同，必须先停下重新确认口径。
 
 ---
 

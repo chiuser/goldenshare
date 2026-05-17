@@ -58,6 +58,22 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
     )
     _add_news(
         db_session,
+        row_key_hash="market-news-title-duplicate-new",
+        news_time=in_window_time + timedelta(minutes=7),
+        title="同一展示标题",
+        channels="宏观",
+        content="同一展示标题的较新正文",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="market-news-title-duplicate-old",
+        news_time=in_window_time + timedelta(minutes=6),
+        title="同一展示标题",
+        channels="宏观",
+        content="同一展示标题的较旧正文",
+    )
+    _add_news(
+        db_session,
         row_key_hash="market-news-002",
         news_time=in_window_time + timedelta(minutes=4),
         title=None,
@@ -96,6 +112,22 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
         channels="公司",
         content="某上市公司发布一季度经营进展正文",
     )
+    _add_news(
+        db_session,
+        row_key_hash="stock-news-title-duplicate-new",
+        news_time=in_window_time + timedelta(minutes=2),
+        title="同一公司标题",
+        channels="公司",
+        content="同一公司标题的较新正文",
+    )
+    _add_news(
+        db_session,
+        row_key_hash="stock-news-title-duplicate-old",
+        news_time=in_window_time,
+        title="同一公司标题",
+        channels="公司",
+        content="同一公司标题的较旧正文",
+    )
     db_session.commit()
 
     briefs_response = app_client.get(
@@ -111,13 +143,16 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
     assert briefs_payload["newsBriefs"]["panelKey"] == "newsBriefs"
     assert briefs_payload["newsBriefs"]["visibleItemCount"] == 10
     assert [item["newsId"] for item in briefs_payload["newsBriefs"]["items"]] == [
+        "market-news-title-duplicate-new",
         "market-news-001",
         "market-news-002",
+        "market-news-duplicate-old",
     ]
-    assert briefs_payload["newsBriefs"]["items"][0]["title"] == "央行公开市场开展逆回购操作"
+    assert briefs_payload["newsBriefs"]["items"][0]["title"] == "同一展示标题"
     assert briefs_payload["newsBriefs"]["items"][0]["category"] == "market"
     assert briefs_payload["newsBriefs"]["items"][0]["clickable"] is False
-    assert briefs_payload["newsBriefs"]["items"][1]["title"] == "市场流动性保持合理充裕"
+    assert briefs_payload["newsBriefs"]["items"][2]["title"] == "市场流动性保持合理充裕"
+    assert briefs_payload["newsBriefs"]["items"][3]["title"] == "重复旧新闻"
     assert briefs_payload["debugInfo"]["modules"][0]["moduleKey"] == "newsBriefs"
 
     stocks_response = app_client.get(
@@ -128,7 +163,10 @@ def test_market_news_endpoints_return_split_panels(app_client, db_session) -> No
     stocks_payload = stocks_response.json()
     assert stocks_payload["pageStatus"]["status"] == "READY"
     assert stocks_payload["stockNews"]["panelKey"] == "stockNews"
-    assert [item["newsId"] for item in stocks_payload["stockNews"]["items"]] == ["stock-news-001"]
+    assert [item["newsId"] for item in stocks_payload["stockNews"]["items"]] == [
+        "stock-news-title-duplicate-new",
+        "stock-news-001",
+    ]
     assert stocks_payload["stockNews"]["items"][0]["category"] == "stock"
     assert stocks_payload["stockNews"]["items"][0]["subject"] is None
     assert stocks_payload["stockNews"]["items"][0]["clickable"] is False

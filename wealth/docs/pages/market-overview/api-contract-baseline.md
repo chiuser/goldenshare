@@ -181,7 +181,7 @@ subjectiveMarketConclusion
 2. 连板天梯：独立模块接口 `GET /api/v1/wealth/market/streak-ladder`，基于 `equity_limit_list / limit_list_d`，分组固定“首板/二板/三板/四板/五板及以上”，并全量返回 `boardCount`。
 3. 板块速览统一 DC 口径：本轮冻结为 `core_serving.dc_daily + core_serving.board_moneyflow_dc + core_serving.dc_index` 组合源。`dc_daily` 承接板块涨跌榜与热力图主行情，`board_moneyflow_dc` 承接资金流入/流出榜，`dc_index` 承接名称、类型、上涨/下跌家数、领涨股等结构补充信息。
 4. 模块级 delayed 仅用于 debug mode；正式产品默认展示页面级状态。
-5. 新闻速览与个股新闻：分别使用独立模块接口 `GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`；页面侧再组合为双列新闻组。本期 item 不可点击，不使用旧顶部统一快讯条。新闻接口不接收 `tradeDate`，按“昨日 00:00 到当前服务器时间”的 `newsWindow` 查询，并按 `content` 非空、严格去重后返回。
+5. 新闻速览与个股新闻：分别使用独立模块接口 `GET /api/v1/wealth/market/news/briefs` 与 `GET /api/v1/wealth/market/news/stocks`；页面侧再组合为双列新闻组。本期 item 不可点击，不使用旧顶部统一快讯条。新闻接口不接收 `tradeDate`，按“昨日 00:00 到当前服务器时间”的 `newsWindow` 查询；候选集先过滤 `content` 为空的新闻，再按最终展示标题严格去重后返回。
 
 ## 性能原则
 

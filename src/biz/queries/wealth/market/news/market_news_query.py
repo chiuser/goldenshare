@@ -34,16 +34,16 @@ class MarketNewsQuery:
         window_end_at: datetime,
         limit: int,
     ) -> NewsQueryResult:
+        display_title = _display_title_expr()
         deduped = (
             select(
                 NewsLight.row_key_hash.label("row_key_hash"),
                 NewsLight.news_time.label("news_time"),
-                NewsLight.title.label("title"),
-                NewsLight.content.label("content"),
+                display_title.label("display_title"),
                 NewsLight.src.label("src"),
                 func.row_number()
                 .over(
-                    partition_by=NewsLight.content,
+                    partition_by=display_title,
                     order_by=(NewsLight.news_time.desc(), NewsLight.row_key_hash.asc()),
                 )
                 .label("content_rank"),
@@ -60,8 +60,7 @@ class MarketNewsQuery:
             select(
                 deduped.c.row_key_hash,
                 deduped.c.news_time,
-                deduped.c.title,
-                deduped.c.content,
+                deduped.c.display_title,
                 deduped.c.src,
             )
             .where(deduped.c.content_rank == 1)
@@ -74,7 +73,7 @@ class MarketNewsQuery:
                 NewsQueryRow(
                     news_id=row.row_key_hash,
                     publish_time=row.news_time,
-                    title=_build_display_title(title=row.title, content=row.content),
+                    title=row.display_title,
                     source=row.src,
                 )
                 for row in rows
@@ -96,6 +95,6 @@ def _has_nonempty_content():
     return func.length(func.trim(NewsLight.content)) > 0
 
 
-def _build_display_title(*, title: str | None, content: str | None) -> str:
-    text = (title or "").strip() or (content or "").strip()
-    return text[:80]
+def _display_title_expr():
+    title_or_content = func.coalesce(func.nullif(func.trim(NewsLight.title), ""), func.trim(NewsLight.content))
+    return func.substr(title_or_content, 1, 80)
