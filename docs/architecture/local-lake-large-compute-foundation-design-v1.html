@@ -2402,6 +2402,20 @@ compute_max_unit_retries = 1</pre>
           <td>不创建 run manifest，不写 candidate，不替换 clean_next，不写 gate，不写 downstream queue。</td>
         </tr>
         <tr>
+          <td>M4-1 历史 run 收口</td>
+          <td>处理 readiness scan 发现的未完成历史 qfq run。</td>
+          <td>
+            对确认未进入正式发布阶段的 run，可执行
+            <code>abandon-stk-mins-qfq-run --run-id ... --reason ...</code>。
+            该命令只把 run manifest 标记为 <code>abandoned</code> 并追加事件，
+            保留 candidate/tmp/backup 记录用于追溯。
+          </td>
+          <td>
+            不删除 Kopia snapshot，不删除正式数据，不修改 formal gate，不写 downstream queue；
+            若 run 已进入 <code>publishing/published</code> 或 formal gate 已引用该 run，必须拒绝废弃。
+          </td>
+        </tr>
+        <tr>
           <td>M4-2 run manifest</td>
           <td>为真实范围创建可复现的 run manifest。</td>
           <td>执行 <code>prepare-stk-mins-qfq-run</code>，写 <code>manifest/duckdb_compute/runs/&lt;run_id&gt;</code>。</td>

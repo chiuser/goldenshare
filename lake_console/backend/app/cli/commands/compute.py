@@ -9,6 +9,7 @@ from lake_console.backend.app.services.duckdb_compute_plan_service import DuckDb
 from lake_console.backend.app.services.duckdb_compute_prewrite_backup_service import DuckDbComputePrewriteBackupService
 from lake_console.backend.app.services.duckdb_compute_publish_service import DuckDbComputePublishService
 from lake_console.backend.app.services.duckdb_compute_readiness_service import DuckDbComputeReadinessService
+from lake_console.backend.app.services.duckdb_compute_run_lifecycle_service import DuckDbComputeRunLifecycleService
 
 
 def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.ArgumentParser]) -> None:
@@ -22,6 +23,15 @@ def register_compute_commands(subparsers: argparse._SubParsersAction[argparse.Ar
     readiness_parser.add_argument("--freq", default=None, type=int, help="单个分钟频率")
     readiness_parser.add_argument("--freqs", default=None, help="多个分钟频率，逗号分隔；默认使用 --freq 或全频率")
     readiness_parser.set_defaults(handler=_handle_readiness_stk_mins_qfq)
+
+    abandon_parser = subparsers.add_parser(
+        "abandon-stk-mins-qfq-run",
+        help="废弃尚未进入正式发布阶段的 stk_mins qfq run；不删除数据，不修改正式分区",
+    )
+    add_lake_root_arg(abandon_parser)
+    abandon_parser.add_argument("--run-id", required=True, help="需要废弃的 run_id")
+    abandon_parser.add_argument("--reason", required=True, help="废弃原因，会写入 run manifest 事件")
+    abandon_parser.set_defaults(handler=_handle_abandon_stk_mins_qfq_run)
 
     parser = subparsers.add_parser("plan-stk-mins-qfq", help="只读生成 stk_mins qfq 大计算 dry-run plan")
     add_lake_root_arg(parser)
@@ -117,6 +127,16 @@ def _handle_readiness_stk_mins_qfq(args: argparse.Namespace) -> int:
     )
     print_json(summary)
     return 0 if summary["ready"] else 2
+
+
+def _handle_abandon_stk_mins_qfq_run(args: argparse.Namespace) -> int:
+    settings = settings_from_args(args)
+    summary = DuckDbComputeRunLifecycleService(settings=settings).abandon_stk_mins_qfq_run(
+        run_id=args.run_id,
+        reason=args.reason,
+    )
+    print_json(summary)
+    return 0 if summary["status"] == "abandoned" else 2
 
 
 def _handle_plan_stk_mins_qfq(args: argparse.Namespace) -> int:
