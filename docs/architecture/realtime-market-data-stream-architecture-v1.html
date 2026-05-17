@@ -404,6 +404,10 @@ pre {
           <strong>一句话口径：</strong>
           Redis 不会自己刷新；刷新动作来自服务端 realtime collector。collector 只在交易日的 9:30-11:30、13:00-15:00 请求 Tushare，再把返回的股票实时日线写入 Redis。
         </div>
+        <div class="callout warning">
+          <strong>2026-05-17 配置收口修订：</strong>
+          本方案的实时日线 V1 已落地，但后续扩展实时分钟前，实时日线与实时分钟的运行配置必须统一进入 realtime feed config 单一读取层。collector、CLI、Biz API、Ops API 不得继续分散读取 Settings 或保留运行配置硬编码；日线当前 lease TTL 行为保持不变，但必须从配置对象读取。
+        </div>
       </div>
     </section>
 

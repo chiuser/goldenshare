@@ -551,6 +551,12 @@ td { color: #344139; }
           这里只看实时采集链路是否正常：collector 是否在交易日的 9:30-11:30、13:00-15:00 内按 6 秒节奏刷新、Redis 当前批次是否可读、Tushare 返回是否稳定。
           不展示离线任务，不展示 freshness，不把实时轮询塞进任务中心。
         </p>
+        <div class="copy" style="margin: 12px 0 0;">
+          <div class="copy-title">2026-05-17 扩展口径</div>
+          <div>
+            本页面设计稿最初只覆盖“股票实时日线”。接入 A 股实时分钟后，不新增菜单，继续使用“实时流监控”一级菜单；页面结构必须升级为“股票实时日线 + 股票实时分钟”分组。分钟分组按 <span class="mono">1MIN/5MIN/15MIN/30MIN/60MIN</span> 展示 feed health。页面仍然只消费 Ops health API，不直接调用业务快照 API、不读 Redis、不自行判断交易时段。
+          </div>
+        </div>
         <div class="hero-actions">
           <span class="chip">V1 feed：股票实时日线</span>
           <span class="chip">上游：Tushare 0372 rt_k</span>

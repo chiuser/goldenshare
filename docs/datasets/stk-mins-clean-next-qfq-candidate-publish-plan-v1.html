@@ -389,8 +389,11 @@ vwap</pre>
       不能各自临时修价格。否则未来 MACD、MA、BOLL 可能各自用不同的复权逻辑，结果会再次失控。
     </p>
     <p>
-      因此，全量重建的 candidate builder 与日常增量的 affected partition refresh 必须复用同一套 raw -> clean transform。
-      不能出现“全量 candidate 做了前复权，但日常 refresh 仍写除权价”的双口径。
+      因此，全量重建与日常增量必须复用同一个计算黑盒：
+      <code>ComputeRequest + transform_key=stk_mins.clean_next.qfq</code>。
+      两者只允许输入范围不同：全量 baseline 输入完整目标范围，日常增量输入 Adapter 从 affected partitions
+      翻译出来的分区请求。黑盒内部不能知道它是“全量”“日常同步”“单股票补数”还是“人工修复”触发。
+      不能出现“全量 candidate 做了前复权，但日常发布仍写除权价”的双口径。
     </p>
   </section>
 
@@ -548,30 +551,48 @@ qfq_vwap  = raw_vwap  * qfq_ratio   -- vwap 是价格字段，也必须同口径
 
   <section class="card">
     <h2>5. 命令设计</h2>
-    <p>命令必须拆成 build / audit / publish 三段，禁止一个命令从构建直接替换正式层。</p>
+    <p>
+      当前实现已经收敛到 DuckDB Compute 执行壳命令组，必须按
+      prepare / compute / audit / backup / preflight / publish / finalize 分阶段执行；
+      禁止一个命令从构建直接替换正式层。
+    </p>
     <div class="note">
       <strong>实现约束：</strong>
-      命令名可以保持 qfq 专项语义，但底层必须生成
+      命令名以 <code>stk-mins-qfq</code> 为专项语义，底层必须生成
       <code>manifest/duckdb_compute/runs/&lt;run_id&gt;/...</code> 的 ComputeRun / ComputeUnit /
       CandidatePart / PublishPartition 账本。不得再写入
       <code>manifest/stk_mins_qfq_candidate</code> 这种独立 qfq manifest 命名空间。
     </div>
-    <h3>5.1 构建 candidate</h3>
-    <pre>lake-console build-stk-mins-clean-next-qfq-candidate \
+    <h3>5.1 前置检查与 run manifest</h3>
+    <pre>lake-console readiness-stk-mins-qfq \
+  --start-date 2009-01-01 \
+  --end-date 2026-05-15 \
+  --freqs 1,5,15,30,60
+
+lake-console prepare-stk-mins-qfq-run \
   --start-date 2009-01-01 \
   --end-date 2026-05-15 \
   --freqs 1,5,15,30,60</pre>
     <p>行为：</p>
     <ol>
-      <li>只写 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate/research/stk_mins_by_date_clean_next</code>。</li>
-      <li>不写正式 <code>research/stk_mins_by_date_clean_next</code>。</li>
-      <li>不写 derived、by-month research、indicator。</li>
-      <li>输出 progress：当前 freq、trade_date、raw rows、kept rows、filtered rows、factor missing rows。</li>
-      <li>写入本次 DuckDB ComputeRun、ComputeUnit、CandidatePart manifest。</li>
+      <li><code>readiness-stk-mins-qfq</code> 只读检查 clean_next、adj_factor、latest adj_factor、identity map、磁盘空间、历史 run 与 gate。</li>
+      <li><code>prepare-stk-mins-qfq-run</code> 写 <code>manifest/duckdb_compute/runs/&lt;run_id&gt;/...</code>，不执行 DuckDB 计算。</li>
+      <li>run manifest 中的 qfq unit 以 <code>freq + trade_date</code> 为粒度，不再按 bucket 拆碎。</li>
     </ol>
 
-    <h3>5.2 审计 candidate</h3>
-    <pre>lake-console audit-stk-mins-clean-next-qfq-candidate \
+    <h3>5.2 构建 candidate</h3>
+    <pre>lake-console compute-stk-mins-qfq-candidates \
+  --run-id &lt;run_id&gt;</pre>
+    <p>行为：</p>
+    <ol>
+      <li>只写 <code>_tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts/research/stk_mins_by_date_clean_next/freq=*/trade_date=*/part-000.parquet</code>。</li>
+      <li>不写正式 <code>research/stk_mins_by_date_clean_next</code>。</li>
+      <li>不写 derived、by-month research、indicator。</li>
+      <li>写入本次 CandidatePart manifest，并按配置批量 checkpoint，避免逐 unit 重写 manifest。</li>
+    </ol>
+
+    <h3>5.3 审计 candidate</h3>
+    <pre>lake-console audit-stk-mins-qfq-candidates \
   --run-id &lt;run_id&gt;</pre>
     <p>行为：</p>
     <ol>
@@ -581,17 +602,31 @@ qfq_vwap  = raw_vwap  * qfq_ratio   -- vwap 是价格字段，也必须同口径
       <li>不修改正式 clean_next。</li>
     </ol>
 
-    <h3>5.3 发布 candidate</h3>
-    <pre>lake-console publish-stk-mins-clean-next-qfq-candidate \
-  --run-id &lt;run_id&gt; \
-  --confirm-replace-clean-next</pre>
+    <h3>5.4 备份与正式发布</h3>
+    <pre>lake-console backup-stk-mins-qfq-prewrite \
+  --run-id &lt;run_id&gt;
+
+lake-console preflight-stk-mins-qfq-publish \
+  --run-id &lt;run_id&gt;
+
+lake-console prepare-stk-mins-qfq-gate-publish-plan \
+  --run-id &lt;run_id&gt;
+
+lake-console stage-stk-mins-qfq-gate-publishing \
+  --run-id &lt;run_id&gt;
+
+lake-console publish-stk-mins-qfq-formal \
+  --run-id &lt;run_id&gt;
+
+lake-console finalize-stk-mins-qfq-publish \
+  --run-id &lt;run_id&gt;</pre>
     <p>行为：</p>
     <ol>
       <li>检查 candidate 审计状态必须为 passed。</li>
       <li>复核 input snapshot，确认 raw、adj_factor、identity map、配置和代码版本未漂移。</li>
       <li>Kopia 备份当前正式 <code>clean_next</code>、gate、quality ledger、downstream requirement、factor snapshot manifest。</li>
       <li>备份成功后，才允许将目标正式 gate 置为 <code>publishing</code>，阻断下游消费。</li>
-      <li>用 layer cutover 方式发布完整 candidate root 到正式 <code>clean_next</code>。</li>
+      <li>按 <code>freq + trade_date</code> 正式分区做原子替换，并执行 formal audit。</li>
       <li>写入 downstream source event / derived rebuild requirement / indicator queue 或对应失效记录。</li>
       <li>写入 publish record。</li>
       <li>只有下游通知和发布记录都成功后，才能将正式 gate 置为 <code>passed</code>。</li>

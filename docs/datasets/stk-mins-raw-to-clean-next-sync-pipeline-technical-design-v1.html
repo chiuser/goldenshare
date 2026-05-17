@@ -343,7 +343,7 @@
         <h1>stk_mins raw -> clean_next 同步链路详细技术方案 v1</h1>
         <p>
           本文承接《stk_mins raw -> clean_next 同步链路方案 v1》的拍板结论，把现有
-          raw 同步、clean_next 重建、审计、问题账本、下游读取能力整理成一套标准链路。
+          raw 同步、ComputeRequest、候选计算、审计、问题账本、下游读取能力整理成一套标准链路。
           目标不是再造一套新系统，而是把已经存在的能力串成安全、可阻断、可审计的主链。
         </p>
         <div class="pill-row">
@@ -356,11 +356,11 @@
       <aside class="card">
         <div class="meta-row">
           <div class="label">状态</div>
-          <div class="value">待评审</div>
+          <div class="value">按 ComputeRequest 黑盒语义修订中</div>
         </div>
         <div class="meta-row">
           <div class="label">更新时间</div>
-          <div class="value">2026-05-13</div>
+          <div class="value">2026-05-17</div>
         </div>
         <div class="meta-row">
           <div class="label">适用范围</div>
@@ -387,7 +387,7 @@
           <tr>
             <td>J1</td>
             <td>同步命令最终默认强制刷新 <code>clean_next</code>，不留长期跳过分支。</td>
-            <td>raw 发布成功后必须进入 clean_next refresh。不能长期提供 <code>--skip-clean-next</code> 这类分叉语义。</td>
+            <td>raw 发布成功后必须把受影响分区转换为 <code>ComputeRequest</code>，交给计算黑盒生成并发布 clean_next；不能长期提供 <code>--skip-clean-next</code> 这类分叉语义。</td>
           </tr>
           <tr>
             <td>J2</td>
@@ -397,7 +397,7 @@
           <tr>
             <td>J3</td>
             <td>单股票补数后不允许只 patch <code>clean_next</code> 单股票。</td>
-            <td>只要 raw 的某个 <code>freq + trade_date</code> 分区被改动，clean_next 就按整个 affected partition 从 raw 重建。</td>
+            <td>只要 raw 的某个 <code>freq + trade_date</code> 分区被改动，上游 Adapter 就按整个分区生成 ComputeRequest；黑盒不感知“单股票补数”这种触发原因。</td>
           </tr>
           <tr>
             <td>J4</td>
@@ -428,19 +428,19 @@
             <td>raw 同步</td>
             <td><code>lake_console/backend/app/services/tushare_stk_mins_sync_service.py</code></td>
             <td>从 Tushare 拉取分钟线，写入 <code>raw_tushare/stk_mins_by_date/freq=*/trade_date=*</code>。</td>
-            <td>保留请求、分页、限速、分区写入能力；新增标准 affected partitions 输出，并在 raw 发布后强制触发 clean_next refresh。</td>
+            <td>保留请求、分页、限速、分区写入能力；新增标准 affected partitions 输出，并在 raw 发布后强制进入 ComputeRequest 黑盒发布。</td>
           </tr>
           <tr>
-            <td>正式 clean_next 重建</td>
-            <td><code>StkMinsCleanService.rebuild_formal_clean_next_from_raw</code></td>
-            <td>从 raw 分区生成 <code>research/stk_mins_by_date_clean_next</code>，保留正式 11 列 schema。</td>
-            <td>作为 clean_next refresh 的核心构建能力复用，但需要沉淀为按 affected partitions 调用的内部服务。</td>
+            <td>ComputeRequest Adapter</td>
+            <td>新增薄 Adapter，输入上游 affected partitions，输出通用 <code>ComputeRequest</code>。</td>
+            <td>只负责把“哪些分区需要处理”翻译为输入路径、输出候选路径、transform_key 和 audit_contract。</td>
+            <td>Adapter 属于上游事件层；它可以知道 affected partition，但计算黑盒不能知道触发原因。</td>
           </tr>
           <tr>
-            <td>clean_next 基础审计</td>
-            <td><code>StkMinsCleanService.audit_formal_clean_next_layer</code></td>
-            <td>检查字段、时间、价格结构、成交量额、身份账本、退市、上市日前、重复 key。</td>
-            <td>作为 refresh 后第一道强门禁。任何 failed 都阻断 clean_next 通过状态。</td>
+            <td>候选计算与审计黑盒</td>
+            <td>复用 DuckDB compute / candidate audit / publish 链路。</td>
+            <td>接收 <code>ComputeRequest</code>，执行 transform，生成 candidate，审计 candidate，不关心数据从哪里触发。</td>
+            <td>作为 clean_next 发布前强门禁。任何 failed 都阻断 clean_next 通过状态。</td>
           </tr>
           <tr>
             <td>clean_next 完整性审计</td>
@@ -483,12 +483,12 @@
       <h2>3. 当前缺口</h2>
       <div class="grid-2">
         <div class="mini-card">
-          <h3>raw 同步后没有标准 clean_next refresh</h3>
-          <p>现有同步命令可以写 raw，但 clean_next 重建仍主要是独立命令能力。后续必须接成同步后的强制步骤。</p>
+          <h3>raw 同步后没有标准 ComputeRequest</h3>
+          <p>现有同步命令可以写 raw，但后续 clean_next 生成还没有统一进入“输入切片 -> transform -> candidate -> audit -> publish”的黑盒流程。</p>
         </div>
         <div class="mini-card">
-          <h3>affected partitions 还不是一等模型</h3>
-          <p>代码中会触碰分区，但缺少统一对象承载本次影响了哪些 <code>freq + trade_date</code>，导致 clean/audit/downstream 难以稳定串联。</p>
+          <h3>affected partitions 与计算请求边界不清</h3>
+          <p>affected partitions 应只属于上游事件层；计算黑盒的输入必须是更干净的 <code>ComputeRequest</code>，否则会把“为什么变更”的语义带进计算层。</p>
         </div>
         <div class="mini-card">
           <h3>审计结果还没有统一通过状态</h3>
@@ -528,12 +528,12 @@
           <text class="svg-sub" x="500" y="120">freq + trade_date</text>
 
           <rect class="node clean" x="730" y="60" width="210" height="88"></rect>
-          <text class="svg-title" x="750" y="96">D. clean_next refresh</text>
-          <text class="svg-sub" x="750" y="120">从 raw 完整重建分区</text>
+          <text class="svg-title" x="750" y="96">D. ComputeRequest</text>
+          <text class="svg-sub" x="750" y="120">输入切片 + transform</text>
 
           <rect class="node audit" x="980" y="60" width="150" height="88"></rect>
-          <text class="svg-title" x="1000" y="96">E. scoped audit</text>
-          <text class="svg-sub" x="1000" y="120">强门禁</text>
+          <text class="svg-title" x="1000" y="96">E. compute/audit</text>
+          <text class="svg-sub" x="1000" y="120">黑盒强门禁</text>
 
           <path class="arrow" d="M210 104 H250"></path>
           <path class="arrow" d="M440 104 H480"></path>
@@ -585,8 +585,9 @@
       <h2>5. 标准模型</h2>
       <h3>5.1 AffectedPartition：通用受影响分区模型</h3>
       <p>
-        affected partition 不应该只是 stk_mins 的临时结构，而应该是 Lake 写入链路的通用模型。
+        affected partition 不应该只是 stk_mins 的临时结构，而应该是 Lake 写入链路的通用上游事件模型。
         它表示“某次写入实际改变了哪个数据集、哪个层、哪个物理分区”。stk_mins 只是其中一种特化。
+        但它不是计算黑盒的输入模型；它只能由 Adapter 翻译成 <code>ComputeRequest</code> 后再进入计算链路。
       </p>
       <table class="table">
         <thead>
@@ -660,8 +661,30 @@
         </tbody>
       </table>
 
-      <h3>5.2 CleanNextRefreshResult</h3>
-      <p>这是 clean_next refresh 的结果单。同步命令最终展示给人的结果也应该来自它。</p>
+      <h3>5.2 ComputeRequest：计算黑盒唯一输入</h3>
+      <p>
+        ComputeRequest 是计算黑盒看到的唯一事实。它不包含“单股票补数”“日常同步”“手动修复”等触发原因，
+        只表达“拿哪些输入、执行哪个 transform、产出哪个 candidate、按什么规则审计”。
+      </p>
+      <pre><code>fields:
+  request_id
+  dataset_key                  # stk_mins
+  transform_key                # stk_mins.clean_next.qfq
+  input_paths                  # raw_tushare/stk_mins_by_date/freq=*/trade_date=*/...
+  reference_paths              # adj_factor、latest_adj_factor、security_identity_map
+  output_candidate_path        # _tmp/duckdb_compute/&lt;run_id&gt;/candidate_parts/...
+  expected_output_schema       # STK_MINS_FIELDS 11 列
+  audit_contract_key           # stk_mins.clean_next.qfq.partition
+  publish_target_path          # research/stk_mins_by_date_clean_next/freq=*/trade_date=*
+  partition_key                # freq=1/trade_date=2026-05-10
+  write_revision               # 上游写入修订号，仅用于发布账本和 gate</code></pre>
+      <div class="callout">
+        设计红线：ComputeRequest 里不能出现 <code>sync_scope</code>、<code>single_symbol</code>、<code>manual_backfill</code>、
+        <code>repair_reason</code> 这类上游触发语义。它们可以留在上游 run summary 中，但不能进入计算黑盒。
+      </div>
+
+      <h3>5.3 CandidatePublishResult</h3>
+      <p>这是候选计算、审计、发布后的结果单。同步命令最终展示给人的 clean_next 结果也应该来自它。</p>
       <table class="table">
         <thead>
           <tr>
@@ -699,7 +722,7 @@
         </tbody>
       </table>
 
-      <h3>5.3 CleanNextGateStatus</h3>
+      <h3>5.4 CleanNextGateStatus</h3>
       <p>
         Gate 是给下游看的状态，不是给 raw 同步看的状态。它解决一句话：
         “这个 <code>freq + trade_date</code> 的 clean_next 分区，能不能被下游使用？”
@@ -729,7 +752,7 @@ fields:
         但长期建议沉淀 gate manifest，因为下游不应该每次都重新扫描完整问题账本。
       </div>
 
-      <h3>5.4 问题账本版本与结构</h3>
+      <h3>5.5 问题账本版本与结构</h3>
       <p>
         问题账本本质上是一个给接口和前端消费的 issue 记录本，不是审计流水日志。
         它应该长期保持为唯一文件：<code>manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet</code>。
@@ -860,22 +883,22 @@ target fields:
           </tr>
           <tr>
             <td>3</td>
-            <td>同步服务输出 affected partitions。</td>
-            <td>当前代码已有 <code>freq/trade_date</code> 维度，需要整理成标准对象。</td>
-            <td>没有 affected partitions 不能继续刷新 clean_next。</td>
-          </tr>
-          <tr>
-            <td>4</td>
-            <td>clean_next refresh 从 affected raw 分区完整重建 clean_next 候选分区。</td>
-            <td><code>rebuild_formal_clean_next_from_raw</code> 的构建规则与 11 列正式 schema。</td>
-            <td>构建失败则保持旧 clean_next，不发布半成品。</td>
-          </tr>
-          <tr>
-            <td>5</td>
-            <td>执行 scoped audit。</td>
-            <td><code>audit_formal_clean_next_layer</code> 与 <code>audit_formal_clean_next_completeness</code>。</td>
-            <td>任何 issue 都写账本并标记 gate blocked。</td>
-          </tr>
+              <td>同步服务输出 affected partitions，并由 Adapter 转成 ComputeRequest。</td>
+              <td>当前代码已有 <code>freq/trade_date</code> 维度；新增薄 Adapter 只做模型翻译。</td>
+              <td>没有 affected partitions 不能生成 ComputeRequest；ComputeRequest 不携带触发原因。</td>
+            </tr>
+            <tr>
+              <td>4</td>
+              <td>计算黑盒执行 <code>stk_mins.clean_next.qfq</code> transform，生成 clean_next candidate。</td>
+              <td>复用 DuckDB compute 执行器；transform 内部负责代码归一、清洗过滤、前复权计算和 11 列输出。</td>
+              <td>计算失败则保持旧 clean_next，不发布半成品。</td>
+            </tr>
+            <tr>
+              <td>5</td>
+              <td>执行 candidate audit。</td>
+              <td>复用 DuckDB candidate audit；审计 schema、重复 key、非法结构、完整性、因子覆盖和样本复权。</td>
+              <td>任何 issue 都写账本并标记 gate blocked。</td>
+            </tr>
           <tr>
             <td>6</td>
             <td>审计通过后发布 clean_next，并写 gate passed。</td>
@@ -890,17 +913,18 @@ target fields:
           </tr>
         </tbody>
       </table>
-      <h3>6.1 同步与 clean refresh 的触发粒度</h3>
+      <h3>6.1 同步与 clean_next 发布的触发粒度</h3>
       <p>
         第一版不做并行流水线，按串行小批次推进。原则是：一个 raw 分区批次发布成功后，
-        立刻刷新这批 affected partitions 的 clean_next，而不是等整个超长同步命令全部跑完。
+        立刻把这批 affected partitions 转成 ComputeRequest，交给黑盒生成并发布 clean_next，
+        而不是等整个超长同步命令全部跑完。
       </p>
       <table class="table">
         <thead>
           <tr>
             <th>场景</th>
             <th>raw 发布粒度</th>
-            <th>clean_next refresh 粒度</th>
+            <th>clean_next 发布粒度</th>
             <th>原因</th>
           </tr>
         </thead>
@@ -908,26 +932,26 @@ target fields:
           <tr>
             <td>单日全市场，多个 freq</td>
             <td>每个 <code>freq + trade_date</code> 完成全市场 raw 后发布。</td>
-            <td>该 <code>freq + trade_date</code> 发布后立即 refresh。</td>
+            <td>该 <code>freq + trade_date</code> 发布后立即生成 ComputeRequest 并执行黑盒发布。</td>
             <td>避免 1min 已经更新但 clean_next 长时间滞后。</td>
           </tr>
           <tr>
             <td>区间全市场，按窗口请求</td>
             <td>每个 <code>freq + window</code> 会产生多个 trade_date 分区。</td>
-            <td>该窗口内已发布的 affected partitions 批量 refresh，然后再进入下一窗口。</td>
+            <td>该窗口内已发布的 affected partitions 批量转成 ComputeRequest，然后再进入下一窗口。</td>
             <td>减少长任务失败时的滞后面，同时避免每只股票触发一次 clean。</td>
           </tr>
           <tr>
             <td>单股票补数</td>
             <td>raw 层仍可能是单股票 merge 到完整分区。</td>
-            <td>按完整 <code>freq + trade_date</code> 分区从 raw 重建 clean_next。</td>
+            <td>按完整 <code>freq + trade_date</code> 分区生成 ComputeRequest，不把单股票语义传给计算黑盒。</td>
             <td>不能只 patch clean_next 单股票，否则绕过分区审计。</td>
           </tr>
         </tbody>
       </table>
       <div class="callout">
         换句话说：不是“整个 raw 都同步完才清洗”，也不是“每请求一只股票就清洗”。
-        正确粒度是 raw 分区已经完整发布以后，按 affected partition 批量刷新 clean_next。
+        正确粒度是 raw 分区已经完整发布以后，按 affected partition 批量生成 ComputeRequest。
       </div>
 
       <h3>6.2 raw 原子发布失败时怎么处理</h3>
@@ -970,7 +994,11 @@ target fields:
 
     <section class="card section">
       <h2>7. scoped audit 标准化</h2>
-      <p>scoped audit 的输入只允许是 affected partitions。它不做全湖扫描，也不接受“顺手审一下别的日期”。</p>
+      <p>
+        scoped audit 的输入只允许来自 ComputeRequest 产出的 candidate 分区或刚发布的正式分区。
+        affected partitions 只能由 Adapter 翻译成 ComputeRequest，不能直接喂给审计黑盒。
+        它不做全湖扫描，也不接受“顺手审一下别的日期”。
+      </p>
       <table class="table">
         <thead>
           <tr>
@@ -1095,13 +1123,13 @@ target fields:
 默认行为：
   1. 写 raw
   2. 输出 affected partitions
-  3. 强制刷新 clean_next
-  4. scoped audit
-  5. 写 gate
+  3. Adapter 生成 ComputeRequest
+  4. 计算黑盒生成并审计 candidate
+  5. 发布 clean_next 并写 gate
   6. 如果 clean_next blocked，则命令整体以失败状态退出，但 raw 已保留</code></pre>
 
-      <h3>10.2 独立 refresh 命令</h3>
-      <p>独立命令用于 raw 已经更新、clean_next 未通过或需要人工重跑的场景。它不是绕过主链的长期分支。</p>
+      <h3>10.2 独立 publish 命令</h3>
+      <p>独立命令用于 raw 已经更新、clean_next 未通过或需要人工重跑的场景。它重新生成 ComputeRequest 并走同一个黑盒，不是绕过主链的长期分支。</p>
       <pre><code>lake-console refresh-stk-mins-clean-next \
   --freq 1 \
   --trade-date 2026-05-08
@@ -1115,7 +1143,7 @@ lake-console refresh-stk-mins-clean-next-range \
       <pre><code>[stk_mins_clean_next] blocked affected=3 passed=2 blocked=1
 [stk_mins_clean_next] ledger=manifest/stk_mins_quality/clean_next_completeness_issue_ledger.parquet
 [stk_mins_clean_next] blocked_partition freq=1 trade_date=2026-05-08 issue_count=4
-[stk_mins_clean_next] next: inspect ledger, repair raw or run dedicated repair command, then refresh clean_next again</code></pre>
+[stk_mins_clean_next] next: inspect ledger, repair raw or run dedicated repair command, then publish clean_next again</code></pre>
     </section>
 
     <section class="card section">
@@ -1177,20 +1205,20 @@ lake-console refresh-stk-mins-clean-next-range \
           </tr>
           <tr>
             <td>M4</td>
-            <td>封装 <code>CleanNextRefreshService</code>。</td>
-            <td>复用 formal clean_next rebuild/audit 能力，新增统一 refresh 编排。</td>
+            <td>封装 affected partition -> ComputeRequest Adapter。</td>
+            <td>只做模型翻译，不做计算、不做审计、不做发布。</td>
             <td>
-              输入 affected partitions 后，按分区从 raw 重建 clean_next，执行 scoped audit，
-              更新 issue ledger 和 gate，并返回标准结果。
+              输入 affected partitions 后，产出 ComputeRequest：
+              input_paths、reference_paths、transform_key、candidate_path、audit_contract、publish_target。
             </td>
-            <td>dry-run/apply 都可用；clean_next blocked 时返回明确账本路径和阻断分区。</td>
-            <td>不做单股票 patch clean_next；单股票补数也必须按完整 affected partition 从 raw 重建。</td>
+            <td>dry-run 可检查 request 完整性；输出中不能包含 sync_scope / single_symbol 等触发语义。</td>
+            <td>不做单股票 patch clean_next；不让 Adapter 承载 QFQ、审计或 gate 逻辑。</td>
           </tr>
           <tr>
             <td>M5</td>
-            <td>把 clean_next 强制接入 <code>sync-stk-mins</code> / <code>sync-stk-mins-range</code>。</td>
-            <td>只改 stk_mins 同步命令与同步服务，不改其他数据集。</td>
-            <td>raw 发布成功后必须刷新对应 clean_next；命令输出 raw/clean_next/gate/ledger 的结果。</td>
+            <td>把 ComputeRequest 黑盒接入 <code>sync-stk-mins</code> / <code>sync-stk-mins-range</code>。</td>
+            <td>只改 stk_mins 同步命令与同步服务到黑盒入口的连接，不改其他数据集。</td>
+            <td>raw 发布成功后必须执行 candidate compute/audit/publish；命令输出 raw/candidate/gate/ledger 的结果。</td>
             <td>小窗口真实同步后，raw 与 clean_next gate 同步推进；失败时 raw 保留、下游阻断。</td>
             <td>不保留长期 <code>--skip-clean-next</code> 分支；不允许 sync 成功但 clean_next 状态沉默失败。</td>
           </tr>
@@ -1220,7 +1248,7 @@ lake-console refresh-stk-mins-clean-next-range \
             <td>
               选择 1 个单日全市场小样本和 1 个单股票补数样本，验证 raw、clean_next、ledger、gate、downstream 全链路。
             </td>
-            <td>真实样本能证明：同步后 clean_next 被强制刷新，下游只消费 passed 分区，blocked 有可读账本。</td>
+            <td>真实样本能证明：同步后 clean_next 被强制发布，下游只消费 passed 分区，blocked 有可读账本。</td>
             <td>不做全量长跑；不顺手扩展到其他数据集；不把验证样本当作生产修复动作。</td>
           </tr>
         </tbody>
@@ -1238,15 +1266,16 @@ lake-console refresh-stk-mins-clean-next-range \
           <h3>单元测试</h3>
           <ul>
             <li>affected partitions 输出完整。</li>
-            <li>single-symbol raw merge 后仍按完整 partition refresh clean_next。</li>
+            <li>single-symbol raw merge 后仍按完整 partition 生成 ComputeRequest，不把单股票语义传进计算层。</li>
             <li>clean_next audit 有 issue 时不写 gate passed。</li>
             <li>gate blocked 时 derived/research/indicator 报错并给出账本路径。</li>
+            <li>ComputeRequest 不允许包含 <code>sync_scope</code>、<code>single_symbol</code>、<code>manual_backfill</code>、<code>repair_reason</code>。</li>
           </ul>
         </div>
         <div class="mini-card">
           <h3>CLI 冒烟</h3>
           <ul>
-            <li>单日小范围同步：raw、clean_next、gate 同步产生。</li>
+            <li>单日小范围同步：raw、ComputeRequest、candidate、clean_next、gate 同步产生。</li>
             <li>构造缺 bar 样本：命令失败，账本有记录。</li>
             <li>修复后 refresh：gate 从 blocked 变 passed。</li>
             <li>下游重建只消费 passed 分区。</li>
@@ -1288,7 +1317,7 @@ lake-console refresh-stk-mins-clean-next-range \
             </td>
           </tr>
           <tr>
-            <td>clean_next refresh + gate</td>
+            <td>clean_next publish + gate</td>
             <td>通过</td>
             <td>
               clean_next 同步生成 <code>22</code> 个分区，<code>issue_count=0</code>，
@@ -1356,7 +1385,7 @@ lake-console refresh-stk-mins-clean-next-range \
             </td>
           </tr>
           <tr>
-            <td>clean_next refresh + gate</td>
+            <td>clean_next publish + gate</td>
             <td>通过</td>
             <td>
               clean_next 生成 <code>22</code> 个分区，<code>rows=1044618</code>；
@@ -1411,7 +1440,7 @@ lake-console refresh-stk-mins-clean-next-range \
             </td>
           </tr>
           <tr>
-            <td>clean_next refresh + gate</td>
+            <td>clean_next publish + gate</td>
             <td>通过</td>
             <td>
               <code>freq=5</code> clean_next 行数 <code>5692576</code>，
@@ -1471,7 +1500,7 @@ lake-console refresh-stk-mins-clean-next-range \
             </td>
           </tr>
           <tr>
-            <td>clean_next refresh + gate</td>
+            <td>clean_next publish + gate</td>
             <td>通过</td>
             <td>
               clean_next 生成 <code>22</code> 个分区，行数 <code>27995466</code>；
@@ -1501,14 +1530,161 @@ lake-console refresh-stk-mins-clean-next-range \
       </table>
       <h3>13.5 扩频验证结论</h3>
       <ol>
-        <li><code>2024-01 freq=60</code>、<code>freq=30</code>、<code>freq=5</code>、<code>freq=15</code>、<code>freq=1</code> 均已跑通 raw -> clean_next -> gate -> by-month research。</li>
+        <li><code>2024-01 freq=60</code>、<code>freq=30</code>、<code>freq=5</code>、<code>freq=15</code>、<code>freq=1</code> 均已跑通 raw -> clean_next -> gate -> by-month research。后续实现需要把这条链路收敛为 raw -> ComputeRequest -> candidate/audit/publish -> gate。</li>
         <li>所有已验证频率的 <code>clean_next_partition_gate</code> 均为 <code>passed</code>，问题账本 <code>clean_next_completeness_issue_ledger</code> 仍为 <code>0</code> 行。</li>
         <li>下一步可以基于同一链路进入更大历史窗口，但仍应按月份或可控区间推进，禁止一次性无门禁地全量铺开。</li>
       </ol>
     </section>
 
     <section class="card section">
-      <h2>14. 非目标</h2>
+      <h2>14. 代码行级修改方案（干净语义版，上一版作废）</h2>
+      <div class="danger">
+        本节替代上一版“在 cleaner 里补 helper/cache/qfq 逻辑”的行级方案。上一版作废。
+        新原则是：同步链只输出事实变更；Adapter 只翻译请求；计算、审计、发布是黑盒；
+        黑盒不关心触发原因，不把上游上下文带进 transform。
+      </div>
+
+      <h3>14.1 同步入口只负责 raw 写入与变更事件</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>文件与行号</th>
+            <th>当前问题</th>
+            <th>修改方案</th>
+            <th>禁止事项</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>lake_console/backend/app/services/tushare_stk_mins_sync_service.py:176-178</code>、<code>242</code>、<code>974-987</code></td>
+            <td>同步服务在 raw 写入后直接调用 <code>CleanNextRefreshService</code>，把同步上下文侵入 clean_next 构建。</td>
+            <td>
+              保留 <code>AffectedPartition</code> 输出；把 <code>_refresh_clean_next_or_raise</code> 改成调用新的
+              <code>StkMinsComputeRequestAdapter</code> 与 compute publish 黑盒。返回结果字段从
+              <code>clean_next_refresh</code> 改为 <code>clean_next_publish</code> 或等价人话摘要。
+            </td>
+            <td>禁止在同步服务里拼 QFQ SQL、审计规则、因子缓存或单股票特殊清洗逻辑。</td>
+          </tr>
+          <tr>
+            <td><code>lake_console/backend/app/services/affected_partition.py:7</code></td>
+            <td><code>AffectedPartition</code> 当前容易被误用成计算输入。</td>
+            <td>保留为上游事件模型；补充转换方法或新 Adapter 使用的只读字段校验。</td>
+            <td>禁止把 <code>affected_partition</code> 直接传入 compute executor / audit / publish。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>14.2 Adapter 只做模型翻译</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>文件与行号</th>
+            <th>新增或修改</th>
+            <th>职责</th>
+            <th>红线</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>新增 <code>lake_console/backend/app/services/stk_mins_compute_request_adapter.py</code></td>
+            <td>新增 <code>build_requests(affected_partitions)</code>。</td>
+            <td>
+              把 <code>freq/trade_date</code> 事件翻译成 <code>ComputeRequest</code>：
+              <code>input_paths</code>、<code>reference_paths</code>、<code>transform_key</code>、
+              <code>candidate_path</code>、<code>audit_contract_key</code>、<code>publish_target_path</code>。
+            </td>
+            <td>禁止包含 <code>sync_scope</code>、<code>single_symbol</code>、<code>manual_backfill</code>、<code>repair_reason</code>。</td>
+          </tr>
+          <tr>
+            <td>新增 <code>lake_console/backend/app/services/compute_request.py</code> 或放入现有 compute 模型文件</td>
+            <td>定义 <code>ComputeRequest</code> dataclass / TypedDict。</td>
+            <td>作为 compute 黑盒唯一输入模型，供 plan / executor / audit / publish 共享。</td>
+            <td>禁止为 stk_mins 同步场景定制字段名；该模型必须能被后续其他 Lake 计算复用。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>14.3 clean_next 构建逻辑退出 cleaner，进入 compute 黑盒</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>文件与行号</th>
+            <th>当前问题</th>
+            <th>修改方案</th>
+            <th>验收点</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>lake_console/backend/app/services/stk_mins_clean_next_refresh_service.py:36-141</code></td>
+            <td>当前服务直接调用 cleaner rebuild、audit、gate、queue，成为一条平行计算链。</td>
+            <td>
+              改为薄门面，或废弃内部 rebuild 逻辑：输入 affected partitions 后先转 ComputeRequest，
+              再调用 compute/audit/publish 黑盒。gate 与 queue 写入仍由 publish 阶段负责。
+            </td>
+            <td>blocked 时不能先写 queue；queue 成功后才能 final gate passed；失败时 gate 不放行。</td>
+          </tr>
+          <tr>
+            <td><code>lake_console/backend/app/services/stk_mins_clean_service.py:289-401</code>、<code>960</code></td>
+            <td><code>_rebuild_formal_clean_next_from_raw</code> 当前承担 raw -> clean_next 写入，容易继续膨胀。</td>
+            <td>
+              不再作为日常 sync 后的主构建链。保留必要的只读审计/规则函数，或拆出纯规则函数供 compute SQL/审计复用；
+              不再新增 QFQ helper/cache/写 gate/写 queue。
+            </td>
+            <td>新链路不得再从同步入口直接调用该 rebuild 方法写正式 clean_next。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>14.4 compute / audit / publish 承接黑盒流程</h3>
+      <table class="table">
+        <thead>
+          <tr>
+            <th>文件与行号</th>
+            <th>修改方案</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>lake_console/backend/app/services/duckdb_compute_plan_service.py:255-330</code></td>
+            <td>增加从 <code>ComputeRequest</code> 生成分区级 unit / publish_partition 的入口。</td>
+            <td>现有全量 qfq plan 继续可用；新增入口用于日常 raw affected partition 转来的请求，不混入触发原因。</td>
+          </tr>
+          <tr>
+            <td><code>lake_console/backend/app/services/duckdb_compute_executor_service.py:276-323</code>、<code>362-470</code></td>
+            <td>新增或参数化 <code>transform_key=stk_mins.clean_next.qfq</code> 的 SQL。</td>
+            <td>
+              输入 raw 分区、adj_factor、latest factor、security_identity_map，输出正式 11 列 clean_next candidate。
+              计算阶段只看输入文件和 transform，不看同步来源。
+            </td>
+          </tr>
+          <tr>
+            <td><code>lake_console/backend/app/services/duckdb_compute_audit_service.py</code></td>
+            <td>candidate audit 读取 <code>audit_contract_key=stk_mins.clean_next.qfq.partition</code>。</td>
+            <td>审计 schema、重复 key、结构性非法值、完备性、因子覆盖、过滤行解释，不做写入。</td>
+          </tr>
+          <tr>
+            <td><code>lake_console/backend/app/services/duckdb_compute_publish_service.py:1320-1392</code></td>
+            <td>复用现有 publishing gate、atomic replace、downstream queue、final passed 顺序。</td>
+            <td>发布阶段负责 clean_next gate 与 downstream queue；同步入口和 cleaner 都不再自行写这些状态。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>14.5 测试门禁同步改造</h3>
+      <ul>
+        <li><code>lake_console/backend/tests/test_tushare_stk_mins_sync_service.py</code>：验证 sync 只输出 affected partitions，并通过 Adapter 进入黑盒；不能 monkeypatch <code>CleanNextRefreshService.refresh</code> 作为主断言。</li>
+        <li><code>lake_console/backend/tests/test_stk_mins_clean_next_refresh_service.py</code>：若保留该服务，只测薄门面转发和错误传播；不再测试它直接 rebuild/audit/publish。</li>
+        <li><code>lake_console/backend/tests/test_stk_mins_clean_service.py</code>：保留规则/审计测试；删除“同步后 rebuild 主链”语义断言。</li>
+        <li><code>lake_console/backend/tests/test_duckdb_compute_plan_service.py</code>：新增 ComputeRequest 转 unit 测试，并断言请求不含上游触发字段。</li>
+        <li><code>lake_console/backend/tests/test_duckdb_compute_executor_service.py</code>：新增 raw -> qfq clean_next 11 列 candidate 输出测试。</li>
+        <li><code>lake_console/backend/tests/test_duckdb_compute_publish_service.py</code>：确认 queue 写失败时 gate 不 passed；重复执行不重复污染 event/queue。</li>
+      </ul>
+    </section>
+
+    <section class="card section">
+      <h2>15. 非目标</h2>
       <ul>
         <li>不修改远程 PostgreSQL，不读写远程 <code>goldenshare-db</code>。</li>
         <li>不把 Lake Console 接回生产 Ops。</li>

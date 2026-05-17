@@ -811,7 +811,7 @@
     </p>
     <p>
       另外，<code>stk_mins_sync</code> 的 Sync Center 链路已经落地：
-      <code>plan -> Kopia 写前备份 -> raw sync -> clean_next refresh + gate -> 人工确认 -> derived 90/120 -> 人工确认 -> by-month research</code>。
+      <code>plan -> Kopia 写前备份 -> raw sync -> clean_next publish + gate -> 人工确认 -> derived 90/120 -> 人工确认 -> by-month research</code>。
       因此本方案不能另起一套与 Sync Center 脱节的锁、备份、gate 或下游重建链路。qfq 是一个改变
       <code>clean_next</code> 价格语义的受控维护动作，必须复用或扩展现有 Sync Center 基础设施，
       而不是绕过它。
@@ -841,9 +841,9 @@
           <td>保留为 clean_next 正式消费门禁，不替换。</td>
         </tr>
         <tr>
-          <td><code>CleanNextRefreshService</code></td>
-          <td>raw affected partition 更新后，重建 clean_next、审计、写 gate、通知 indicator queue。</td>
-          <td>日常分区刷新链路保留；qfq 发布后，若日常刷新继续写 clean_next，必须调用同一套 qfq 分区构建和受控发布能力，不能绕过 gate。</td>
+          <td><code>ComputeRequest Adapter / clean_next publish</code></td>
+          <td>raw affected partition 更新后，先转换为 <code>ComputeRequest</code>，再交给计算、审计、发布黑盒。</td>
+          <td>日常分区发布链路必须与 qfq baseline 复用同一套 transform / audit / publish 能力；Adapter 只做模型翻译，不能承载计算逻辑。</td>
         </tr>
         <tr>
           <td>basic audit</td>
@@ -947,7 +947,7 @@
   <section class="card">
     <h2>4.1 全局写锁模型</h2>
     <p>
-      qfq baseline 是 layer cutover，不允许和 raw sync、clean_next refresh、derived、by-month、indicator 写入并发。
+      qfq baseline 是 layer cutover，不允许和 raw sync、clean_next publish、derived、by-month、indicator 写入并发。
       写锁不是性能优化，而是防止正式路径、gate 和下游通知互相踩踏的安全边界。
     </p>
     <table>
@@ -1782,7 +1782,7 @@ qfq baseline 发布后至少写入：
           <td><code>sync-stk-mins --all-market --freqs --trade-date</code></td>
           <td>全市场单交易日，多个源频率。</td>
           <td><code>len(freqs)</code>，当前源频率集合最多 <code>5</code> 个：<code>1,5,15,30,60</code>。</td>
-          <td>当前 clean_next refresh 内部逐分区调用单分区 API。</td>
+          <td>当前 clean_next 发布链路内部逐分区调用单分区 API。</td>
           <td>可接受，但如果未来源频率数量扩大，需要重新评估批量写 queue。</td>
         </tr>
         <tr>
@@ -1794,9 +1794,9 @@ qfq baseline 发布后至少写入：
         </tr>
         <tr>
           <td><code>sync-stk-mins-range</code> / <code>rebuild-stk-mins-by-date-clean-next-range</code></td>
-          <td>区间同步或区间 clean_next refresh。</td>
+          <td>区间同步或区间 clean_next 发布。</td>
           <td><code>len(freqs) × open_trade_dates</code>；例如 5 个源频率 × 约 242 个交易日约为 <code>1210</code> 个分区。</td>
-          <td>当前仍由 clean_next refresh 逐分区调用单分区 API。</td>
+          <td>当前仍由 clean_next 发布链路逐分区调用单分区 API。</td>
           <td>这不是“小范围”。执行大区间前必须评估耗时；后续若频繁跑大区间，应改为批量 queue 写入。</td>
         </tr>
         <tr>
@@ -1936,7 +1936,7 @@ qfq baseline 发布后至少写入：
     </table>
 
     <h3>9.2.1 qfq baseline 必须走 layer cutover</h3>
-    <pre>1. 通过 LakeJobLockService 获取现有 Sync Center 全局 Lake 写入锁，禁止 raw sync / clean_next refresh / derived / indicator 并发写入。
+    <pre>1. 通过 LakeJobLockService 获取现有 Sync Center 全局 Lake 写入锁，禁止 raw sync / clean_next publish / derived / indicator 并发写入。
 2. 记录 input snapshot：raw partitions、adj_factor、security_identity_map、代码版本、配置。
 3. 生成完整 qfq candidate root，例如 _tmp/duckdb_compute/&lt;run_id&gt;/candidate/research/stk_mins_by_date_clean_next。
 4. 对 candidate 做全量 audit：schema、行数、duplicate key、完备性、qfq factor coverage、样本价格核验。
@@ -1967,6 +1967,10 @@ qfq baseline 发布后至少写入：
 -> publish to research/stk_mins_by_date_clean_next
 -> clean_next_partition_gate
 -> downstream rebuild requirement（后续 derived / by-month / MACD 专项再处理）</pre>
+    <p>
+      这里的 DuckDB compute 是黑盒能力：它只接收输入文件、引用文件、transform key、审计契约和目标路径。
+      全量 baseline 与日常增量的差别只在输入范围，不在 transform 语义；不能让“同步原因”“单股票补数”“人工修复”等上下文进入计算层。
+    </p>
     <p>qfq 计算本身继续遵守：</p>
     <pre>qfq_ratio = adj_factor(ts_code, trade_date) / latest_adj_factor(ts_code)
 open/high/low/close/vwap *= qfq_ratio
@@ -2219,7 +2223,7 @@ memory_budget:
         </tr>
         <tr>
           <td>全局写锁</td>
-          <td>qfq baseline 期间必须占用 Lake 写入锁；禁止 sync center、raw sync、clean_next refresh、derived、indicator 并发写入。</td>
+          <td>qfq baseline 期间必须占用 Lake 写入锁；禁止 sync center、raw sync、clean_next publish、derived、indicator 并发写入。</td>
           <td>否则正式路径、gate、queue 会互相踩踏。</td>
         </tr>
         <tr>

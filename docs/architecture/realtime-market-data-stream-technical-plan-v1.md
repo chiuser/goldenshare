@@ -12,6 +12,19 @@
 审计时间：2026-05-14，开市验证时间：2026-05-15
 审计范围：源接口、collector、Redis、业务 API、Ops API、前端页面、部署配置、测试验收。
 
+### 0.0 2026-05-17 配置收口修订
+
+实时日线 V1 已经上线，但当前代码里配置消费还分散在 collector、CLI、Biz API、Ops API 和 Tushare client；`src/foundation/realtime/stock_rt_daily.py` 里还存在 `LEASE_TTL_SECONDS = 30` 运行配置硬编码。进入实时分钟流开发前，必须把实时日线与实时分钟一起收口到统一的 realtime feed config 读取层。
+
+修订口径：
+
+1. 新增 `src/foundation/realtime/feed_config.py` 或同等职责模块，统一从 `Settings` / env 构建 realtime feed 配置对象。
+2. 日线配置对象命名建议为 `RealtimeStockRtDailyConfig`，分钟配置对象命名建议为 `RealtimeStockRtMinConfig`。
+3. collector、CLI、Biz API、Ops API 不再各自直接读取 `settings.realtime_stock_rt_daily_*` / `settings.realtime_stock_rt_min_*`。
+4. `LEASE_TTL_SECONDS` 必须进入配置模型；日线默认保持当前行为 `30` 秒，但不得继续硬编码在 collector 文件里。
+5. 配置关系必须集中校验：采集间隔、启用频率数、feed 级限速、lease TTL、stale 阈值、TTL、stream 裁剪之间不能各自为政。
+6. 本修订不改变实时日线 V1 的业务行为，只改变配置事实源和读取边界。
+
 ### 0.1 已经收敛的主线
 
 | 链路 | 当前结论 |
@@ -25,6 +38,7 @@
 | Ops 页面 API | `GET /api/v1/ops/realtime/stock-rt-daily/health` 作为页面唯一数据源。 |
 | 前端页面 | 只展示实时 feed 健康，不展示任务中心、不展示离线 freshness、不提供手动同步。 |
 | 非采集时段 | 显示空闲/非采集时段，不按 20 秒 stale 阈值误报失败。 |
+| 配置读取 | 下一轮必须收口为 realtime feed config 单一读取层；旧的分散 `Settings` 读取不作为后续开发基线。 |
 
 ### 0.2 本轮发现并已补齐的设计点
 
@@ -61,6 +75,7 @@
 | Ops 页面 API | `GET /api/v1/ops/realtime/stock-rt-daily/health` 是实时流监控页面唯一 API。 | 页面不得自行拼 Redis key，不调用业务快照 API，不自行推导交易日/交易时段。 |
 | 前端轮询 | 页面进入先读一次；仅当 health API 返回 `page_polling_enabled=true` 时，每 1 分钟局部刷新状态。 | 禁止整页刷新；非交易时段停止定时轮询。 |
 | 部署 | 生产必须有 Redis 和独立 collector systemd service。 | Redis 只监听本机；部署验收必须覆盖 Redis、collector、业务 API、Ops health API。 |
+| 配置收口 | 所有 realtime feed 运行配置必须由统一配置对象输出。 | 不允许 collector、CLI、Biz API、Ops API、前端页面各自读取或硬编码同一类运行事实。 |
 
 ### 0.5 待解决事项
 
@@ -71,6 +86,7 @@
 | P0 | Collector + Redis batch pointer 最小闭环。 | `--max-cycles 1` 能发布 batch；API 只能读 current batch；写失败不切 pointer。 |
 | P0 | 业务 API 与 Ops health API。 | 两个 API 都只读 Redis；错误态、空闲态、stale 态测试覆盖。 |
 | P0 | 实时流监控页面。 | 只消费 health API；状态局部刷新；非交易时段停止轮询；不展示 TaskRun/freshness。 |
+| P0 | realtime feed config 单一读取层。 | 日线与分钟统一从配置对象读取；日线 `LEASE_TTL_SECONDS` 硬编码退场；配置关系测试通过。 |
 | P1 | WebSocket 推送。 | 基于 V1 Redis current batch 和 delta stream 单独设计，不进入 V1。 |
 
 ### 0.6 前端页面 API 设计结论
@@ -120,6 +136,7 @@ V1 不进入离线数据集主链，不创建 `DatasetDefinition`，不写 raw/c
 src/
   foundation/
     realtime/             # 新增：实时源、collector、Redis 状态层
+      feed_config.py      # 下一轮新增：realtime feed 配置单一读取层
   biz/
     api/
       realtime.py         # 新增：业务实时快照 API
@@ -518,7 +535,7 @@ goldenshare realtime-stock-rt-daily-serve --max-cycles 1
 
 ### 8.2 配置项
 
-新增到 `src/foundation/config/settings.py`：
+新增到 `src/foundation/config/settings.py`，并由 `src/foundation/realtime/feed_config.py` 统一读取、校验和下发给 collector / API / Ops 查询：
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -527,6 +544,7 @@ goldenshare realtime-stock-rt-daily-serve --max-cycles 1
 | `REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS` | `6` | 轮询间隔 |
 | `REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS` | `09:30-11:30,13:00-15:00` | 源站请求时间窗口，Asia/Shanghai |
 | `REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE` | `10` | feed 级限速 |
+| `REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS` | `30` | collector lease TTL；保持日线当前行为，但不得硬编码在 collector 内 |
 | `REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS` | `20` | API/Ops 判定采集滞后的阈值 |
 | `REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS` | `259200` | 快照批次 TTL，覆盖午休、隔夜和周末展示 |
 | `REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES` | `3` | 保留最近批次数 |
@@ -547,7 +565,7 @@ while running:
     sleep until next check
     continue
 
-  acquire lease
+  acquire lease(config.lease_ttl_seconds)
   if not acquired:
     sleep(interval)
     continue
@@ -562,7 +580,7 @@ while running:
   write stream quote_changed events for changed symbols
   write health ok
   cleanup old batches
-  sleep until next 6-second slot
+  sleep until next config.poll_interval_seconds slot
 ```
 
 ### 8.4 非采集时段与交易时段外语义
@@ -863,6 +881,7 @@ REALTIME_STOCK_RT_DAILY_ENABLED=1
 REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS=6
 REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS=09:30-11:30,13:00-15:00
 REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE=10
+REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30
 REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS=20
 REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS=259200
 REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES=3

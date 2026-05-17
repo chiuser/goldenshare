@@ -118,6 +118,8 @@
 4. Goldenshare 自增字段如 `api_name/fetched_at/raw_payload/source/created_at/updated_at` 不是源站输出字段；可以用于生产表内部治理，但不得混入 `source_fields` 或 Lake raw 字段白名单。
 5. 如果源字段参与业务身份，例如 `category/type/freq/market/hot_type/is_new`，必须用真实样本验证它是否应进入主键、`conflict_columns`、`raw_conflict_columns` 或 `row_identity_filters`。不得默认使用 `(ts_code, trade_date)`。
 6. 如果发现源站文档更新导致字段缺失，例如新增估值字段、分类字段，优先补齐字段链路；若需要重建表，必须先取得明确确认，再新增 Alembic 迁移。
+7. 对支持 `fields` 的 Tushare 接口，字段验证必须拆成三步：不传 `fields` 看默认返回、按源文档字段显式请求、按业务关键字段补充请求。不得因为一次手写 `fields` 没带某字段，或默认返回没出现某字段，就判断源接口不支持该字段。
+8. `freq/category/type/market/hot_type/is_new/time/trade_time` 等会影响身份、主键、Redis key、幂等、分组、频率、市场或时间语义的字段，即使源文档未列出或默认返回未出现，也必须显式放入 `fields` 做真实请求验证；验证结果必须写入“真实样本是否返回”和备注。
 
 ---
 
@@ -258,6 +260,7 @@
 - 不得从 `dataset_key` 前缀反推 source；source 事实只能来自这里。
 - `source_fields` 会被 `DatasetSourceClient` 传给连接器作为源端 `fields`；不要把字段白名单写进 request builder。
 - 有些 Tushare 接口默认不返回全部字段，必须用 `source_fields` 显式请求需要的字段。新增或修改字段时，测试要覆盖 connector 收到的 `fields`。
+- 不得把“本次请求的 `fields` 没带某字段”解释成“源接口没有该字段”。如果字段影响数据身份或业务语义，必须先显式请求验证，再决定是否进入 `source_fields`、主键或 Redis key。
 
 ### 4.4 `date_model`
 

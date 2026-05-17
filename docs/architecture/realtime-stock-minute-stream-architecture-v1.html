@@ -1,0 +1,1172 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>A股实时分钟流架构方案 v1</title>
+<style>
+:root {
+  --page: #f5f7fb;
+  --surface: #ffffff;
+  --soft: #f8fafc;
+  --line: #d8e0ea;
+  --text: #334155;
+  --muted: #64748b;
+  --title: #0f172a;
+  --blue: #1f5499;
+  --blue-soft: #eaf2ff;
+  --green: #0f7a55;
+  --green-soft: #e6f4ee;
+  --amber: #a16207;
+  --amber-soft: #fef3c7;
+  --red: #b42318;
+  --red-soft: #fee4e2;
+  --violet: #5b4b8a;
+  --violet-soft: #eeeafd;
+  --mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+  --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+}
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0;
+  background: var(--page);
+  color: var(--text);
+  font-family: var(--sans);
+  font-size: 14px;
+  line-height: 1.58;
+}
+a { color: var(--blue); text-decoration: none; }
+a:hover { text-decoration: underline; }
+code, pre { font-family: var(--mono); }
+.shell {
+  min-height: 100vh;
+  display: grid;
+  grid-template-columns: 270px minmax(0, 1fr);
+}
+.side {
+  position: sticky;
+  top: 0;
+  height: 100vh;
+  overflow: auto;
+  padding: 18px 14px;
+  background: #fbfcff;
+  border-right: 1px solid var(--line);
+}
+.brand {
+  padding: 4px 8px 14px;
+  border-bottom: 1px solid var(--line);
+  margin-bottom: 12px;
+}
+.brand-title {
+  color: var(--title);
+  font-weight: 800;
+  font-size: 15px;
+}
+.brand-sub {
+  margin-top: 4px;
+  color: var(--muted);
+  font-size: 12px;
+}
+.nav a {
+  display: block;
+  padding: 7px 8px;
+  border-radius: 7px;
+  color: #475467;
+  font-size: 13px;
+}
+.nav a:hover {
+  background: #eef2f7;
+  color: var(--title);
+  text-decoration: none;
+}
+.main {
+  min-width: 0;
+  padding: 28px 32px 64px;
+}
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  align-items: start;
+}
+h1 {
+  margin: 0 0 8px;
+  color: var(--title);
+  font-size: 28px;
+  line-height: 1.2;
+}
+.lead {
+  max-width: 1020px;
+  margin: 0;
+  color: var(--muted);
+}
+.meta {
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  padding: 12px;
+  display: grid;
+  gap: 7px;
+}
+.meta-row {
+  display: flex;
+  justify-content: space-between;
+  gap: 14px;
+  font-size: 12px;
+}
+.meta-row span:first-child { color: var(--muted); }
+.meta-row span:last-child {
+  color: var(--title);
+  font-family: var(--mono);
+  text-align: right;
+}
+.section {
+  margin-top: 14px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  overflow: hidden;
+}
+.section-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  padding: 13px 15px;
+  background: var(--soft);
+  border-bottom: 1px solid var(--line);
+}
+.section-header h2 {
+  margin: 0;
+  color: var(--title);
+  font-size: 16px;
+  line-height: 1.2;
+}
+.section-header p {
+  margin: 4px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+.section-body { padding: 15px; }
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.grid-4 {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 10px;
+}
+.card {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+}
+.card h3 {
+  margin: 0 0 7px;
+  color: var(--title);
+  font-size: 14px;
+}
+.card p {
+  margin: 0;
+  color: var(--muted);
+}
+.pill-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.pill {
+  display: inline-flex;
+  align-items: center;
+  padding: 3px 8px;
+  border-radius: 999px;
+  background: #eef2f7;
+  color: #344054;
+  font-size: 12px;
+  white-space: nowrap;
+}
+.pill.blue { background: var(--blue-soft); color: var(--blue); }
+.pill.green { background: var(--green-soft); color: var(--green); }
+.pill.amber { background: var(--amber-soft); color: var(--amber); }
+.pill.red { background: var(--red-soft); color: var(--red); }
+.pill.violet { background: var(--violet-soft); color: var(--violet); }
+.callout {
+  border: 1px solid var(--line);
+  border-left: 4px solid var(--blue);
+  border-radius: 9px;
+  background: #fbfcff;
+  padding: 12px;
+  margin-top: 12px;
+}
+.callout.warning { border-left-color: var(--amber); background: #fffaf0; }
+.callout.danger { border-left-color: var(--red); background: #fff7f6; }
+.flow {
+  display: grid;
+  grid-template-columns: repeat(6, minmax(0, 1fr));
+  gap: 8px;
+  align-items: stretch;
+}
+.flow-node {
+  border: 1px solid var(--line);
+  border-radius: 10px;
+  background: #fff;
+  padding: 12px;
+  min-height: 96px;
+  position: relative;
+}
+.flow-node:not(:last-child)::after {
+  content: ">";
+  position: absolute;
+  right: -8px;
+  top: 36px;
+  color: var(--muted);
+  font-family: var(--mono);
+  font-weight: 700;
+}
+.flow-node b {
+  display: block;
+  color: var(--title);
+  margin-bottom: 6px;
+}
+.flow-node span {
+  display: block;
+  color: var(--muted);
+  font-size: 12px;
+}
+table {
+  width: 100%;
+  border-collapse: collapse;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  overflow: hidden;
+}
+th, td {
+  border-bottom: 1px solid var(--line);
+  border-right: 1px solid var(--line);
+  padding: 9px 10px;
+  text-align: left;
+  vertical-align: top;
+}
+th {
+  background: #f1f5f9;
+  color: var(--title);
+  font-size: 12px;
+}
+td { color: var(--text); }
+tr:last-child td { border-bottom: 0; }
+th:last-child, td:last-child { border-right: 0; }
+.code-block {
+  background: #0f172a;
+  color: #dbeafe;
+  border-radius: 10px;
+  padding: 13px;
+  overflow: auto;
+  font-size: 12px;
+}
+.small { color: var(--muted); font-size: 12px; }
+.decision {
+  border-left: 4px solid var(--amber);
+  background: #fffdf3;
+}
+.decision h3 { color: #7c4a03; }
+.recommend {
+  color: var(--green);
+  font-weight: 700;
+}
+.no {
+  color: var(--red);
+  font-weight: 700;
+}
+@media (max-width: 1080px) {
+  .shell { grid-template-columns: 1fr; }
+  .side { position: static; height: auto; }
+  .hero, .grid-2, .grid-3, .grid-4, .flow { grid-template-columns: 1fr; }
+  .flow-node::after { display: none; }
+  .main { padding: 20px 16px 44px; }
+}
+</style>
+</head>
+<body>
+<div class="shell">
+  <aside class="side">
+    <div class="brand">
+      <div class="brand-title">A股实时分钟流</div>
+      <div class="brand-sub">Tushare rt_min 调研后方案 v1</div>
+    </div>
+    <nav class="nav">
+      <a href="#summary">0. 结论</a>
+      <a href="#decisions">1. 已拍板结论</a>
+      <a href="#source">2. 源接口事实</a>
+      <a href="#scope">3. V1 边界</a>
+      <a href="#architecture">4. 架构关系</a>
+      <a href="#redis">5. Redis 模型</a>
+      <a href="#collector">6. Collector</a>
+      <a href="#config">7. 配置模型</a>
+      <a href="#api">8. API 契约</a>
+      <a href="#ops">9. Ops 观测</a>
+      <a href="#quality">10. 质量与风险</a>
+      <a href="#milestones">11. 里程碑</a>
+      <a href="#implementation-audit">12. 落代码前审计</a>
+      <a href="#acceptance">13. 验收标准</a>
+      <a href="#appendix">14. 调研记录</a>
+    </nav>
+  </aside>
+
+  <main class="main">
+    <section class="hero">
+      <div>
+        <h1>A股实时分钟流架构方案 v1</h1>
+        <p class="lead">
+          本文只讨论 Tushare 0374 <code>rt_min</code> 的 A 股实时分钟能力。它不是离线数据集，不落业务历史库，不进入 TaskRun / freshness / date audit。核心目标是：服务端在交易时段内轮询源站，把每个频率的最新分钟 K 线快照写入 Redis，业务 API、Ops 页面和后续 WebSocket 都只消费 Redis。
+        </p>
+      </div>
+      <div class="meta">
+        <div class="meta-row"><span>状态</span><span>已评审 / 待开发</span></div>
+        <div class="meta-row"><span>日期</span><span>2026-05-17</span></div>
+        <div class="meta-row"><span>主接口</span><span>rt_min</span></div>
+        <div class="meta-row"><span>源文档</span><span>docs/sources/tushare/.../0374</span></div>
+        <div class="meta-row"><span>主线</span><span>Realtime Feed</span></div>
+      </div>
+    </section>
+
+    <section id="summary" class="section">
+      <div class="section-header">
+        <div>
+          <h2>0. 调研结论</h2>
+          <p>先把容易混淆的事实说清楚，避免方案跑偏。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>主接口选择</h3>
+            <p><code>rt_min</code> 是实时分钟最新快照接口，适合做实时流主链。<code>rt_min_daily</code> 是单只股票当日分钟序列接口，不适合作为全市场实时主采集。</p>
+          </div>
+          <div class="card">
+            <h3>身份字段</h3>
+            <p>实时分钟的一条快照不能只靠 <code>ts_code</code> 识别，必须使用 <code>freq + ts_code</code>。源端显式请求 <code>freq</code> 后会返回该字段。</p>
+          </div>
+          <div class="card">
+            <h3>采集形态</h3>
+            <p>实测 <code>rt_min(ts_code="3*.SZ,6*.SH,0*.SZ,9*.BJ")</code> 支持全市场通配符，周末返回上一交易日最后一分钟快照。</p>
+          </div>
+        </div>
+        <div class="callout warning">
+          <b>重要修正：</b>第一次调研时因为手写 <code>fields</code> 未包含 <code>freq</code>，误判为接口不返回 <code>freq</code>。复测确认：显式请求 <code>fields=ts_code,freq,time,open,close,high,low,vol,amount</code> 时，单代码、多代码、全市场通配符都返回 <code>freq</code>。后续实现必须把 <code>freq</code> 纳入字段契约和身份键。
+        </div>
+        <div class="callout">
+          <b>2026-05-17 再审计补充：</b>本地源文档 <code>0374_A股实时分钟.md</code> 的输出参数表没有列出 <code>freq</code>，但 <code>tushareMcp</code> 实测 <code>rt_min(ts_code="600000.SH", freq="1MIN", fields=["ts_code","freq","time","open","close","high","low","vol","amount"])</code> 返回 <code>freq="1MIN"</code>、<code>time="2026-05-15 15:00:00"</code>。因此实现以“当前代码 + 实测行为”校准，测试必须覆盖显式 <code>fields</code>，不能只按本地输出表推断。
+        </div>
+      </div>
+    </section>
+
+    <section id="decisions" class="section">
+      <div class="section-header">
+        <div>
+          <h2>1. 已拍板结论</h2>
+          <p>以下结论来自 2026-05-17 评审拍板，后续实现必须按这里执行。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card decision">
+            <h3>D1：V1 开启哪些频率？</h3>
+            <p>源端支持 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code>。如果全部开启，每轮要请求 5 次源站，每批约 <code>5529 * 5</code> 条快照。</p>
+            <p class="small"><span class="recommend">结论：</span>V1 五个频率全部开启：<code>1MIN/5MIN/15MIN/30MIN/60MIN</code>。</p>
+          </div>
+          <div class="card decision">
+            <h3>D2：Redis feed 如何分层？</h3>
+            <p>方案 A：一个 feed，快照 key 使用 <code>freq:ts_code</code>。方案 B：每个频率一个 feed，例如 <code>tushare_stock_rt_min_1min</code>。</p>
+            <p class="small"><span class="recommend">结论：</span>每个频率一个 feed。它和源站请求一一对应，健康状态、stale、失败隔离更清楚，也最少改动现有 realtime store。</p>
+          </div>
+          <div class="card decision">
+            <h3>D3：采集频率与限速</h3>
+            <p>实时分钟五个频率同时开，会按频率数放大请求量。Tushare 当前权限上限为 500 次/分钟，但 V1 不追求高频刷新。</p>
+            <p class="small"><span class="recommend">结论：</span>每个 feed 交易时段内每 <code>30</code> 秒采集一次。采集间隔必须做成配置项；V1 可先走服务端配置，后续纳入数据运营后台“实时流配置中心”。</p>
+          </div>
+          <div class="card decision">
+            <h3>D4：业务 API 是否允许默认频率？</h3>
+            <p>如果 API 不传 <code>freq</code> 默认查 <code>1MIN</code>，调用简单但语义可能不清楚；强制传 <code>freq</code> 更明确。</p>
+            <p class="small"><span class="recommend">结论：</span>API 必须显式传 <code>freq</code>，接口层不接受默认值。前端可以默认选中 <code>1MIN</code>，但请求时仍必须带上 <code>freq</code>。</p>
+          </div>
+          <div class="card decision">
+            <h3>D5：是否接入 <code>rt_min_daily</code>？</h3>
+            <p><code>rt_min_daily</code> 只适合单只股票当日分钟序列，不支持多代码/通配符。周末实测返回空。</p>
+            <p class="small"><span class="recommend">结论：</span>暂时不接入。它可能更适合日内开盘时段获取单股当日分钟序列，等真实场景明确后另立题。</p>
+          </div>
+          <div class="card decision">
+            <h3>D6：停牌/退市旧时间行如何展示？</h3>
+            <p>全市场返回中少量股票的 <code>time</code> 停在旧日期，这与实时日线一致，不能让 feed 整体失败。</p>
+            <p class="small"><span class="recommend">结论：</span>保留行，逐条暴露 <code>quote_time</code>。feed 健康看 collector 成功时间，不看所有股票时间是否等于今天。</p>
+          </div>
+          <div class="card decision">
+            <h3>D7：Ops 页面形态</h3>
+            <p>实时流监控已有股票实时日线卡片。实时分钟可以作为同一菜单下的第二个 feed group。</p>
+            <p class="small"><span class="recommend">结论：</span>必须做。复用“实时流监控”一级菜单，不新增菜单；页面增加“股票实时分钟”分组，按频率展示健康。</p>
+          </div>
+          <div class="card decision">
+            <h3>D8：开市验证门禁</h3>
+            <p>当前实测在周末/收市完成，只能证明接口返回上一交易日收盘快照，不能证明开市时分钟推进和稳定性。</p>
+            <p class="small"><span class="recommend">结论：</span>生产启用前必须做一次开市验证，记录行数、耗时、<code>time</code> 推进、字段完整性和异常旧时间行。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="source" class="section">
+      <div class="section-header">
+        <div>
+          <h2>2. 源接口事实</h2>
+          <p>以本地文档、MCP 和真实请求共同校准。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>接口</th>
+              <th>用途</th>
+              <th>输入</th>
+              <th>输出</th>
+              <th>结论</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>rt_min</code></td>
+              <td>A 股实时分钟最新 K 线</td>
+              <td><code>freq</code> 必填；<code>ts_code</code> 必填；支持多代码；实测支持通配符。</td>
+              <td><code>ts_code,freq,time,open,close,high,low,vol,amount</code>。其中 <code>freq</code> 需要显式放入 <code>fields</code>。</td>
+              <td>V1 主链候选。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min_daily</code></td>
+              <td>单只股票当日开盘以来分钟序列</td>
+              <td><code>freq</code> 必填；<code>ts_code</code> 必填；文档说明仅单代码。</td>
+              <td>多行分钟序列，包含 <code>freq</code>。</td>
+              <td>不做 V1 主链，只作为后续单股分时详情候选。</td>
+            </tr>
+            <tr>
+              <td><code>rt_idx_min</code></td>
+              <td>指数实时分钟</td>
+              <td>类似 <code>rt_min</code>，但指数代码池不同。</td>
+              <td>类似 <code>rt_min</code>。</td>
+              <td>不是本轮目标，但架构应能复用 feed 模型。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <b>真实请求摘要：</b><code>rt_min</code> 全市场通配符在 2026-05-17 周日返回 5529 行；其中 SZ 2898、SH 2317、BJ 314。<code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 均返回 5529 行。<code>limit=10</code> 和 <code>offset=1000</code> 对全市场通配符实测没有改变返回行数，因此 V1 不依赖分页拉全市场。
+        </div>
+      </div>
+    </section>
+
+    <section id="scope" class="section">
+      <div class="section-header">
+        <div>
+          <h2>3. V1 边界</h2>
+          <p>先把不做什么说清楚。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card">
+            <h3>V1 做</h3>
+            <div class="pill-row">
+              <span class="pill green">实时 collector</span>
+              <span class="pill green">Redis 最新快照</span>
+              <span class="pill green">短期 batch/delta stream</span>
+              <span class="pill green">业务 snapshot API</span>
+              <span class="pill green">Ops health API</span>
+              <span class="pill green">实时流监控页面扩展</span>
+            </div>
+          </div>
+          <div class="card">
+            <h3>V1 不做</h3>
+            <div class="pill-row">
+              <span class="pill red">不落业务历史库</span>
+              <span class="pill red">不建 DatasetDefinition</span>
+              <span class="pill red">不进 TaskRun</span>
+              <span class="pill red">不进 freshness/date audit</span>
+              <span class="pill red">不做 rt_min_daily 分时详情</span>
+              <span class="pill red">不做 WebSocket 正式推送</span>
+            </div>
+          </div>
+        </div>
+        <div class="callout warning">
+          实时分钟和离线 <code>stk_mins</code> 是两条系统。离线分钟行情追求可追溯、可重跑、可落库；实时分钟只追求当前最新快照、短期事件流和低延迟读取。不要把离线 ingestion 的 DatasetDefinition / ExecutionPlan / writer 引入实时主链。
+        </div>
+      </div>
+    </section>
+
+    <section id="architecture" class="section">
+      <div class="section-header">
+        <div>
+          <h2>4. 架构关系</h2>
+          <p>复用当前 realtime 子系统，但新增股票实时分钟 feed。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="flow">
+          <div class="flow-node">
+            <b>Market Clock</b>
+            <span>交易日 + 采集时段判断</span>
+          </div>
+          <div class="flow-node">
+            <b>Collector</b>
+            <span>按频率请求 rt_min</span>
+          </div>
+          <div class="flow-node">
+            <b>Normalizer</b>
+            <span>校验 freq/ts_code/time</span>
+          </div>
+          <div class="flow-node">
+            <b>Redis Store</b>
+            <span>batch + current pointer</span>
+          </div>
+          <div class="flow-node">
+            <b>Biz API</b>
+            <span>按 freq + ts_codes 查快照</span>
+          </div>
+          <div class="flow-node">
+            <b>Ops API</b>
+            <span>健康、行数、耗时、错误</span>
+          </div>
+        </div>
+        <div class="callout">
+          服务端 collector 是唯一会请求 Tushare 的组件。业务 API、Ops 页面、后续 WebSocket 均不得直接请求 Tushare，也不得自行扫描 Redis 拼装事实，只能读取当前 feed 的 <code>current_batch</code>。
+        </div>
+      </div>
+    </section>
+
+    <section id="redis" class="section">
+      <div class="section-header">
+        <div>
+          <h2>5. Redis 模型</h2>
+          <p>推荐每个频率一个 feed，快照仍保留源端 freq 字段。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card">
+            <h3>推荐 feed_key</h3>
+            <pre class="code-block">tushare_stock_rt_min_1min
+tushare_stock_rt_min_5min
+tushare_stock_rt_min_15min
+tushare_stock_rt_min_30min
+tushare_stock_rt_min_60min</pre>
+          </div>
+          <div class="card">
+            <h3>快照业务身份</h3>
+            <pre class="code-block">identity = {
+  "freq": "1MIN",
+  "ts_code": "600000.SH"
+}
+
+snapshot_key = ts_code
+feed_key 已经表达 freq</pre>
+          </div>
+        </div>
+        <table style="margin-top: 12px;">
+          <thead>
+            <tr>
+              <th>Redis key</th>
+              <th>含义</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>rt:feed:{feed_key}:current_batch</code></td>
+              <td>当前完整批次指针，最后一步切换。</td>
+            </tr>
+            <tr>
+              <td><code>rt:feed:{feed_key}:batch:{batch_id}:snapshot:{ts_code}</code></td>
+              <td>某一频率 feed 下，某只股票的最新分钟 K 快照。值中仍保留 <code>freq</code>。</td>
+            </tr>
+            <tr>
+              <td><code>rt:feed:{feed_key}:batch:{batch_id}:meta</code></td>
+              <td>批次元信息：行数、源接口耗时、发布时间、请求参数、频率。</td>
+            </tr>
+            <tr>
+              <td><code>rt:feed:{feed_key}:stream:batch</code></td>
+              <td>批次发布事件，支撑观测和后续推送。</td>
+            </tr>
+            <tr>
+              <td><code>rt:feed:{feed_key}:stream:delta</code></td>
+              <td>变化股票事件，后续 WebSocket 可消费。</td>
+            </tr>
+            <tr>
+              <td><code>rt:feed:{feed_key}:health</code></td>
+              <td>collector 运行状态、最后请求、错误、当前批次年龄。</td>
+            </tr>
+          </tbody>
+        </table>
+        <div class="callout warning">
+          如果评审选择“单一 feed + <code>freq:ts_code</code> 复合 snapshot key”，则需要扩展当前 realtime store 的快照读取接口，使它支持通用 identity key，而不是只按 <code>ts_code</code> 读。推荐每频率一个 feed，是为了保持实现边界更稳。
+        </div>
+      </div>
+    </section>
+
+    <section id="collector" class="section">
+      <div class="section-header">
+        <div>
+          <h2>6. Collector 设计</h2>
+          <p>交易时段内采集，非交易时段只写健康空闲状态。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-3">
+          <div class="card">
+            <h3>请求参数</h3>
+            <pre class="code-block">api_name = "rt_min"
+params = {
+  "ts_code": "3*.SZ,6*.SH,0*.SZ,9*.BJ",
+  "freq": "1MIN"
+}
+fields = [
+  "ts_code", "freq", "time",
+  "open", "close", "high", "low",
+  "vol", "amount"
+]</pre>
+          </div>
+          <div class="card">
+            <h3>交易时段</h3>
+            <p>沿用当前实时日线口径：交易日的 <code>09:30-11:30</code>、<code>13:00-15:00</code> 请求源站。其他时间不请求 Tushare。</p>
+          </div>
+          <div class="card">
+            <h3>采集间隔</h3>
+            <p>V1 每个频率 feed 的采集间隔为 <code>30</code> 秒，必须通过服务端配置控制，不允许写死。后续实时流配置中心应统一管理实时日线和实时分钟的启停、频率、间隔与阈值。</p>
+          </div>
+          <div class="card">
+            <h3>字段校验</h3>
+            <p>每行必须有 <code>ts_code</code>、<code>freq</code>、<code>time</code>。若源端返回 <code>freq</code> 与请求频率不一致，该行进入异常统计，不静默覆盖。</p>
+          </div>
+        </div>
+        <div class="callout">
+          <b>批次发布顺序：</b>先完整写入某频率的新 batch snapshot、index、meta 和 stream 事件，再切换 <code>current_batch</code>。读取方永远只读 current pointer 指向的完整批次，避免半批数据。
+        </div>
+        <div class="callout warning">
+          <b>调度约束：</b>“一个 systemd 服务”不等于“一个串行大循环”。实现时必须按 feed 判断是否到期，逐个 feed 独立执行、独立捕获异常、独立写 health；单个频率超时或失败不能阻塞日线和其他分钟频率。若采用串行实现，必须用配置化 source timeout 与测试证明五频率一轮可以稳定落在采集间隔内；否则应使用有界并发执行，但仍保持同一个 collector service。
+        </div>
+      </div>
+    </section>
+
+    <section id="config" class="section">
+      <div class="section-header">
+        <div>
+          <h2>7. 配置模型与落地边界</h2>
+          <p>先把“现在如何配置”和“后续配置中心如何接管”分清楚，避免散落到 env、代码常量和页面展示里。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card">
+            <h3>当前日线现状</h3>
+            <p>股票实时日线已经有服务端配置项，例如启停、采集间隔、交易时段、stale 阈值、TTL、保留批次数、stream 裁剪和通配符。它们来自 <code>Settings</code> / env，不是从数据运营后台页面配置。</p>
+          </div>
+          <div class="card">
+            <h3>分钟 V1 落地边界</h3>
+            <p>股票实时分钟 V1 也先走服务端配置，不在本轮实现可编辑配置页面。但实现时必须从配置读取，不允许把 <code>30</code> 秒、五个频率、交易时段、阈值写死在 collector、API 或前端里。</p>
+          </div>
+        </div>
+
+        <div class="callout warning">
+          <b>配置审计硬门禁：</b>实时分钟开发前必须把所有新增配置项集中声明在 <code>Settings</code> 的 realtime 区域，并同步写入部署 env 示例、Ops health 返回、测试用例和本文档。V1 的持久化位置是服务端 env 文件（生产为 <code>/etc/goldenshare/web.env</code>），不是页面常量，也不是散落在 collector 内的 Python 常量。后续若建设配置中心，必须先设计单一配置读取服务，再让 collector、API 和 Ops 页面统一消费。
+        </div>
+        <div class="callout">
+          <b>本次必须收口：</b>在实时分钟 collector 开发前，先新增 <code>src/foundation/realtime/feed_config.py</code> 或同等职责模块，作为 realtime feed 配置的单一读取层。该模块负责从 <code>Settings</code> / env 生成 <code>RealtimeStockRtDailyConfig</code> 与 <code>RealtimeStockRtMinConfig</code>，并集中校验配置关系。日线已有代码也必须改为消费该配置对象，不能继续让 collector、CLI、Biz API、Ops API 分散读取 <code>settings.realtime_stock_rt_daily_*</code>；日线当前硬编码的 <code>LEASE_TTL_SECONDS = 30</code> 必须在本次一并退场，进入统一配置模型。
+        </div>
+
+        <table style="margin-top: 12px;">
+          <thead>
+            <tr>
+              <th>配置项</th>
+              <th>V1 建议值</th>
+              <th>归属</th>
+              <th>说明与关联约束</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_ENABLED</code></td>
+              <td><code>false</code></td>
+              <td>服务端 env / Settings</td>
+              <td>控制股票实时分钟 collector 是否启用。默认关闭，部署验收后再打开。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_ENABLED_FREQS</code></td>
+              <td><code>1MIN,5MIN,15MIN,30MIN,60MIN</code></td>
+              <td>服务端 env / Settings</td>
+              <td>控制启用哪些频率。V1 拍板为五个频率全开，但仍必须配置化。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS</code></td>
+              <td><code>30</code></td>
+              <td>服务端 env / Settings</td>
+              <td>每个频率 feed 的采集间隔。五频率全开时约等于每 30 秒 5 次源站请求，约 10 次/分钟。它决定源站请求量、stale 阈值和 lease TTL 的下限。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_COLLECTION_SESSIONS</code></td>
+              <td><code>09:30-11:30,13:00-15:00</code></td>
+              <td>服务端 env / Settings</td>
+              <td>源站请求窗口。非交易日、非交易时段不请求 Tushare。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS</code></td>
+              <td><code>90</code>（建议）</td>
+              <td>服务端 env / Settings</td>
+              <td>只用于采集时段内判断 Redis 当前批次是否滞后，不用于非采集时段误报。建议至少大于 <code>poll_interval_seconds * 2</code>，避免一次正常抖动就被判 stale。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE</code></td>
+              <td><code>20</code>（建议）</td>
+              <td>服务端 env / Settings</td>
+              <td>用于运行观测和后续硬限流。必须满足 <code>enabled_freq_count * 60 / poll_interval_seconds &lt;= max_calls_per_minute</code>。V1 五频率、30 秒间隔的理论请求量约 10 次/分钟。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS</code></td>
+              <td><code>90</code>（建议）</td>
+              <td>服务端 env / Settings</td>
+              <td>避免多个 collector 同时刷新同一个 feed。必须覆盖单个 feed 的源站请求、归一化、Redis 发布和网络抖动；建议不小于 <code>poll_interval_seconds * 3</code>。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_SOURCE_TIMEOUT_SECONDS</code></td>
+              <td><code>20</code>（建议）</td>
+              <td>服务端 env / Settings</td>
+              <td>单次请求 Tushare 的超时上限。必须小于 lease TTL，并与 poll interval 匹配；超时只影响对应 feed，不应拖死其他 feed。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_SNAPSHOT_TTL_SECONDS</code></td>
+              <td><code>259200</code></td>
+              <td>服务端 env / Settings</td>
+              <td>沿用实时日线 TTL 口径，覆盖午休、隔夜和周末展示。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_KEEP_RECENT_BATCHES</code></td>
+              <td><code>3</code></td>
+              <td>服务端 env / Settings</td>
+              <td>每个频率 feed 仅保留最近批次，避免 Redis 长期膨胀。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_BATCH_STREAM_MAXLEN</code></td>
+              <td><code>5000</code>（建议）</td>
+              <td>服务端 env / Settings</td>
+              <td>批次发布事件 stream 裁剪上限。用于 Ops 观测与后续排障，不用于业务历史沉淀。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_DELTA_STREAM_MAXLEN</code></td>
+              <td><code>200000</code>（建议）</td>
+              <td>服务端 env / Settings</td>
+              <td>逐股票变化事件 stream 裁剪上限。为后续 WebSocket 预留；若内存压力明显，应先调小该值，而不是改变快照 key 模型。</td>
+            </tr>
+            <tr>
+              <td><code>REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN</code></td>
+              <td><code>3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
+              <td>服务端 env / Settings</td>
+              <td>请求全市场通配符。该值属于源站采集配置，只能由 collector 使用；业务 API 和前端不得暴露或传入通配符。</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="callout">
+          <b>后续配置中心边界：</b>数据运营后台“实时流配置中心”应统一管理实时日线与实时分钟的启停、采集间隔、启用频率、stale 阈值、TTL、stream 裁剪和源站限速。V1 的 Ops 页面只读 health API 展示配置与运行状态，不提供编辑能力；配置编辑能力必须另立需求，避免本轮实现被配置后台拖大。
+        </div>
+        <div class="callout">
+          <b>配置关系基线：</b>配置不是孤立开关。<code>poll_interval_seconds</code> 决定理论请求量；<code>enabled_freqs</code> 放大请求量；<code>max_calls_per_minute</code> 必须覆盖理论请求量；<code>lease_ttl_seconds</code> 必须大于单 feed 最长处理时间；<code>stale_after_seconds</code> 必须大于正常采集间隔加抖动；<code>snapshot_ttl_seconds</code> 和 <code>keep_recent_batches</code> 共同决定 Redis 保留规模。任何改动这些配置的需求，都必须先重新计算关系，不允许只改一个值。
+        </div>
+        <div class="callout warning">
+          <b>实现约束：</b>前端不得写死 30 秒、五频率或交易时段；业务 API 不得根据页面常量推导配置；Ops API 必须从服务端配置与 Redis health 汇总出展示字段。后续如果切到数据库配置，collector、API、Ops 页面都应通过同一个配置读取服务消费，不允许各自读不同事实源。
+        </div>
+      </div>
+    </section>
+
+    <section id="api" class="section">
+      <div class="section-header">
+        <div>
+          <h2>8. API 契约草案</h2>
+          <p>只定义读取 Redis 的服务端 API，不暴露 Tushare 参数。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card">
+            <h3>业务快照 API</h3>
+            <pre class="code-block">GET /api/v1/realtime/stock-rt-min
+  ?freq=1MIN
+  &ts_codes=600000.SH,000001.SZ</pre>
+            <p>返回指定频率、指定股票列表的当前分钟快照。单次 <code>ts_codes</code> 上限建议沿用 200。</p>
+          </div>
+          <div class="card">
+            <h3>Ops 健康 API</h3>
+            <pre class="code-block">GET /api/v1/ops/realtime/stock-rt-min/health
+GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
+            <p>不触发采集，只读 Redis health 和 current batch meta。页面局部刷新。</p>
+          </div>
+        </div>
+        <div class="callout warning">
+          API 不接受 Tushare 通配符，不接受 <code>limit/offset</code>，不允许缺省 <code>freq</code>，不让调用方理解源站分页。调用方只知道我们的业务概念：频率、股票代码列表、当前快照。
+        </div>
+      </div>
+    </section>
+
+    <section id="ops" class="section">
+      <div class="section-header">
+        <div>
+          <h2>9. Ops 观测</h2>
+          <p>复用“实时流监控”菜单，增加股票实时分钟分组。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>页面区域</th>
+              <th>显示内容</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>总览卡片</td>
+              <td>启用频率数、运行中 feed 数、最近成功采集时间、当前采集状态</td>
+              <td>帮助运营确认实时分钟整体是否在线。</td>
+            </tr>
+            <tr>
+              <td>频率明细</td>
+              <td><code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 各自的状态、行数、批次年龄、源站耗时、错误</td>
+              <td>如果每频率一个 feed，这里天然按 feed 展示。</td>
+            </tr>
+            <tr>
+              <td>异常提示</td>
+              <td>Redis 不可用、源站请求失败、字段缺失、freq 不一致、stale</td>
+              <td>只展示观测问题，不影响业务库。</td>
+            </tr>
+            <tr>
+              <td>刷新策略</td>
+              <td>交易时段内 1 分钟局部刷新；非采集时段不轮询或低频刷新</td>
+              <td>页面刷新不触发 collector，不请求 Tushare。</td>
+            </tr>
+            <tr>
+              <td>配置中心待办</td>
+              <td>实时流启停、启用频率、采集间隔、stale 阈值、错误阈值</td>
+              <td>V1 先用服务端配置承载；后续在数据运营后台建设“实时流配置中心”，统一覆盖实时日线与实时分钟。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="quality" class="section">
+      <div class="section-header">
+        <div>
+          <h2>10. 质量与风险</h2>
+          <p>这些点必须在实现和验收里卡住。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <div class="grid-2">
+          <div class="card">
+            <h3>字段风险</h3>
+            <p><code>freq</code> 是关键身份字段。实现必须显式请求并校验；测试要覆盖 connector payload 的 <code>fields</code>，防止再次只看默认字段。</p>
+          </div>
+          <div class="card">
+            <h3>分页风险</h3>
+            <p>文档写有 <code>limit/offset</code>，但全市场通配符实测不受影响。V1 不依赖分页；如果后续发现开市时分页行为变化，再单独评估。</p>
+          </div>
+          <div class="card">
+            <h3>旧行情时间</h3>
+            <p>少量股票可能停在旧日期。不能把这当 feed 失败；业务返回应保留每只股票自己的 <code>time</code>。</p>
+          </div>
+          <div class="card">
+            <h3>写入规模</h3>
+            <p>单频率每批约 5529 条。五频率同时开约 27645 条。Redis TTL 72 小时 + 最近 3 批可控，但 stream delta 需要裁剪。</p>
+          </div>
+          <div class="card">
+            <h3>配置风险</h3>
+            <p>采集间隔、启用频率和 stale 阈值必须来自配置。V1 不做页面配置，但不能把 <code>30</code> 秒、五频率、阈值写死在 collector 逻辑里。</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section id="milestones" class="section">
+      <div class="section-header">
+        <div>
+          <h2>11. 里程碑建议</h2>
+          <p>按小步推进，避免把实时分钟、指数实时、WebSocket 混在一起。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>阶段</th>
+              <th>目标</th>
+              <th>输出</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>M1</td>
+              <td>拍板结果入档</td>
+              <td>冻结 V1 范围：五频率全开、每频率 30 秒、每频率一个 feed、<code>freq</code> 必传、Ops 必做。</td>
+            </tr>
+            <tr>
+              <td>M2</td>
+              <td>实时配置单一读取层收口</td>
+              <td>新增 realtime feed config 单一读取层；日线与分钟配置统一从该层读取；日线 <code>LEASE_TTL_SECONDS</code> 硬编码退场；配置关系测试通过。</td>
+            </tr>
+            <tr>
+              <td>M3</td>
+              <td>开市真实验证</td>
+              <td>记录行数、耗时、<code>time</code> 推进、字段完整性、异常旧时间样本。</td>
+            </tr>
+            <tr>
+              <td>M4</td>
+              <td>实现 provider / normalizer / collector</td>
+              <td>只写 Redis，不落库；支持配置启用频率与采集间隔。</td>
+            </tr>
+            <tr>
+              <td>M5</td>
+              <td>实现业务 API 与 Ops API</td>
+              <td>按 <code>freq + ts_codes</code> 查快照；按 feed 查健康。</td>
+            </tr>
+            <tr>
+              <td>M6</td>
+              <td>Ops 页面扩展</td>
+              <td>实时流监控新增股票实时分钟分组。</td>
+            </tr>
+            <tr>
+              <td>M7</td>
+              <td>远程部署与交易时段验收</td>
+              <td>collector service、Redis current batch、API、页面联调通过。</td>
+            </tr>
+            <tr>
+              <td>M8</td>
+              <td>后续 WebSocket</td>
+              <td>基于 delta stream 做推送，不进入 V1。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="implementation-audit" class="section">
+      <div class="section-header">
+        <div>
+          <h2>12. 落代码前链路审计</h2>
+          <p>基于当前 realtime 日线代码逐项核验，下面这些是实现时必须遵守的边界。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>链路点</th>
+              <th>当前代码事实</th>
+              <th>实时分钟实现约束</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>配置来源</td>
+              <td>实时日线已经通过 <code>Settings</code> / env 配置启停、采集间隔、交易时段、stale、TTL、保留批次等；不是后台页面配置。</td>
+              <td>实时分钟 V1 同样走 <code>Settings</code> / env。不得把 <code>30</code> 秒、五频率、交易时段或阈值写死到 collector、API 或前端。</td>
+            </tr>
+            <tr>
+              <td>collector 服务拓扑</td>
+              <td>当前部署脚本和 sudoers 只管理一个 <code>goldenshare-realtime-collector.service</code>。</td>
+              <td>V1 优先扩展现有 realtime collector 服务，让它同时承载日线和分钟 feed。好处是部署脚本、sudoers、unit 同步、状态检查和远程验收不扩一套；风险是如果循环写成串行大循环，分钟故障可能拖慢日线。因此实现必须做到 feed 级独立 try/catch、独立 lease、独立 health、独立 batch；某个分钟频率失败只能标记该 feed degraded，不能拖死日线。不要擅自新增第二个 systemd 服务；若未来因为耗时、故障隔离或容量压力需要拆服务，必须同步部署脚本、sudoers、unit 同步、监控和运维验收方案。现有 CLI 命令名 <code>realtime-stock-rt-daily-serve</code> 已不适合作为多 feed collector 长期入口，M2/M4 必须收口为通用入口，例如 <code>realtime-collector-serve</code>，并同步 systemd <code>ExecStart</code>。</td>
+            </tr>
+            <tr>
+              <td>Tushare 客户端限速</td>
+              <td><code>TushareHttpClient</code> 当前只对 <code>rt_k</code> 特判读取日线实时配置；<code>rt_min</code> 若不处理，会回落到通用 Tushare 限速。</td>
+              <td><code>rt_min</code> 必须接入 realtime feed config 的限速口径。由于五个频率都调用同一个源接口 <code>rt_min</code>，客户端限速应按 <code>api_name=rt_min</code> 聚合，控制全体分钟 feed 的总请求量，而不是给每个频率各自一套 20/min。这样才能保证“五频率、30 秒间隔”约 10 次/分钟的总请求量不被代码路径绕开。</td>
+            </tr>
+            <tr>
+              <td>Redis 快照键</td>
+              <td><code>RealtimeStateStore</code> 的 snapshot key 以 <code>ts_code</code> 为核心，读取接口也是 <code>feed_key + batch_id + ts_codes</code>。</td>
+              <td>按频率拆 feed 是必要约束：<code>tushare_stock_rt_min_1min</code> 等。Redis key 示例为 <code>rt:feed:tushare_stock_rt_min_1min:batch:{batch_id}:snapshot:600000.SH</code>。该 key 长度在百字节量级，Redis 字典查询主要是 O(1) 哈希查找，V1 每批约数千到数万 key，不是主要性能瓶颈；真正要关注的是源站请求耗时、网络、Redis 写入批量和 stream 裁剪。为避免未来误判，V1 不因 key 较长去改短命名或改复合键；如果未来 Redis 内存或网络成为瓶颈，应先通过 Redis memory、keyspace、pipeline 写入耗时和 API latency 证据判断，而不是凭 key 字符串长度下结论。不要在 V1 改造 store 去支持 <code>freq:ts_code</code> 复合键。</td>
+            </tr>
+            <tr>
+              <td>批次发布</td>
+              <td>当前 store 在 Redis transaction 内写 batch snapshot / meta / current pointer / stream，满足“完整批次后切 current”。</td>
+              <td>实时分钟必须复用该发布语义。每个频率独立发布 batch，不允许 API 读半批，也不允许页面直接扫 Redis key 拼结果。</td>
+            </tr>
+            <tr>
+              <td>lease TTL</td>
+              <td>实时日线 collector 里当前有 <code>LEASE_TTL_SECONDS = 30</code> 常量。</td>
+              <td>实时分钟不要无脑复制硬编码 TTL。lease TTL 是实时流通用配置，不是分钟线局部参数。它应进入统一配置模型，至少要覆盖单个 feed 一轮请求、归一化、Redis 发布和网络抖动，避免长耗时导致租约提前过期。实现和测试必须覆盖 lease TTL 配置解析与过期边界。</td>
+            </tr>
+            <tr>
+              <td>源站请求字段</td>
+              <td>日线 provider 显式传 fields；本次调研已确认 <code>rt_min</code> 只有显式请求 <code>freq</code> 才能稳定拿到身份字段。</td>
+              <td>分钟 provider 必须显式请求 <code>ts_code,freq,time,open,close,high,low,vol,amount</code>，并校验返回 <code>freq</code> 与请求频率一致。</td>
+            </tr>
+            <tr>
+              <td>业务 API</td>
+              <td>日线 API 只要求 <code>ts_codes</code>，读取固定日线 feed。</td>
+              <td>分钟 API 必须同时要求 <code>freq</code> 和 <code>ts_codes</code>；缺任一项都返回 400。API 只能按 <code>freq</code> 映射到对应 feed，禁止默认 <code>1MIN</code> 或扫描全部频率。</td>
+            </tr>
+            <tr>
+              <td>Ops health</td>
+              <td>现有 Ops realtime health API 和前端页面只服务股票实时日线单 feed。</td>
+              <td>分钟 V1 不能只加一个后端接口就完事。Ops 页面、schema、query key、类型定义要升级为“日线 + 分钟分组”，分钟分组按五个频率展示。</td>
+            </tr>
+            <tr>
+              <td>页面轮询</td>
+              <td>现有页面按 health API 返回的 <code>page_polling_enabled</code> 和 <code>recommended_poll_interval_seconds</code> 局部刷新。</td>
+              <td>继续保持页面只读 health API；前端不得自己判断交易日/交易时段，不得用页面常量决定 collector 行为。</td>
+            </tr>
+            <tr>
+              <td>测试门禁</td>
+              <td>现有测试覆盖日线 collector、业务 API、Ops health。</td>
+              <td>分钟必须新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离、Ops 多频率 health、页面分组渲染、非采集时段不请求源站。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="acceptance" class="section">
+      <div class="section-header">
+        <div>
+          <h2>13. 验收标准</h2>
+          <p>本节是开发完成判定标准。没有全部满足，不算实时分钟 V1 完成。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>验收项</th>
+              <th>必须满足的标准</th>
+              <th>建议测试覆盖</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td>Settings 收敛</td>
+              <td>实时日线与实时分钟所有运行配置必须通过 realtime feed config 单一读取层输出；collector、CLI、Biz API、Ops API 不得分散读取 <code>settings.realtime_stock_rt_daily_*</code> 或 <code>settings.realtime_stock_rt_min_*</code>；不得保留 <code>LEASE_TTL_SECONDS</code> 这类运行配置硬编码。</td>
+              <td>配置单元测试覆盖默认值、env 覆盖、非法关系拒绝、日线 lease TTL 从配置读取、分钟五频率配置解析。</td>
+            </tr>
+            <tr>
+              <td>配置关系校验</td>
+              <td><code>enabled_freq_count * 60 / poll_interval_seconds &lt;= max_calls_per_minute</code> 必须被校验；<code>lease_ttl_seconds</code> 必须覆盖采集间隔与源站超时；<code>stale_after_seconds</code> 必须大于正常采集间隔加抖动。</td>
+              <td>测试非法频率、过低 max calls、过低 lease TTL、过低 stale 阈值时启动配置构建失败。</td>
+            </tr>
+            <tr>
+              <td>Collector 全链路</td>
+              <td>同一个 realtime collector 服务中，日线和分钟 feed 独立运行。任一分钟频率失败只影响该 feed 的 health，不影响日线和其他分钟频率。systemd 仍只管理一个 realtime collector 服务，但启动命令必须从日线专属语义收口为通用 collector 语义。</td>
+              <td>collector 测试覆盖五频率发布、单频率异常隔离、非采集时段不请求源站、Redis 不可用降级、lease 未获取时跳过；部署脚本检查覆盖通用 collector 命令。</td>
+            </tr>
+            <tr>
+              <td>Tushare 限速</td>
+              <td><code>rt_min</code> 全频率必须共享同一个源接口限速桶，限速值来自 realtime feed config。五频率全开、30 秒间隔时，实际总请求量应约为 10 次/分钟，不能回落到通用 Tushare 默认限速。</td>
+              <td>单元测试覆盖 <code>rt_min</code> 限速读取分钟配置；collector 调度测试覆盖五频率一轮请求数与 health 中的 request count。</td>
+            </tr>
+            <tr>
+              <td>Redis feed 隔离</td>
+              <td>五个分钟频率必须写入不同 feed key；同一个 <code>ts_code</code> 在不同频率下不能覆盖；读取 API 必须按 <code>freq</code> 定位 feed。</td>
+              <td>state store / API 测试覆盖 <code>1MIN</code> 与 <code>5MIN</code> 同股票不同快照、current batch 独立、missing codes 独立。</td>
+            </tr>
+            <tr>
+              <td>源接口字段契约</td>
+              <td>provider 必须显式请求 <code>ts_code,freq,time,open,close,high,low,vol,amount</code>；返回 <code>freq</code> 与请求不一致时不能静默覆盖。</td>
+              <td>provider 单元测试校验 Tushare 请求 payload 的 fields 和 params；normalizer 测试覆盖缺 <code>freq</code>、缺 <code>ts_code</code>、freq 不一致。</td>
+            </tr>
+            <tr>
+              <td>业务 API</td>
+              <td><code>GET /api/v1/realtime/stock-rt-min</code> 必须显式要求 <code>freq</code> 与 <code>ts_codes</code>；缺参返回 400；不允许默认 <code>1MIN</code>；不接受通配符和源站分页参数。</td>
+              <td>Web API 测试覆盖成功读取、缺 <code>freq</code>、非法 <code>freq</code>、缺 <code>ts_codes</code>、超过 200 个代码、feed 不可用。</td>
+            </tr>
+            <tr>
+              <td>Ops API 与页面</td>
+              <td>实时流监控页面必须展示日线和分钟分组；分钟按五个频率展示 health。页面只读 Ops health API，不直接调用业务 API、不读 Redis、不自行判断交易时段。</td>
+              <td>Ops API 测试覆盖多 feed health 聚合；前端测试覆盖分组渲染、五频率状态、错误态、页面局部轮询条件。</td>
+            </tr>
+            <tr>
+              <td>部署与环境</td>
+              <td>env 示例、远程 env 配置说明、systemd collector 启动命令、部署脚本行为必须与单服务承载方案一致。新增配置项必须可在 health API 中观测。</td>
+              <td>部署脚本静态检查、配置示例检查、health payload schema 测试、远程 smoke 验收。</td>
+            </tr>
+            <tr>
+              <td>开市真实验收</td>
+              <td>生产启用前必须在开市时段记录全频率返回行数、源站耗时、Redis 写入耗时、<code>time</code> 是否推进、异常旧时间样本、Ops 页面状态。</td>
+              <td>开市 smoke 记录归档；如果任一频率异常，必须定位到源站、配置、collector、Redis 或页面中的具体层级。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+
+    <section id="appendix" class="section">
+      <div class="section-header">
+        <div>
+          <h2>14. 调研记录</h2>
+          <p>这些结论来自 2026-05-17 周末/收市环境，开市仍需复验。</p>
+        </div>
+      </div>
+      <div class="section-body">
+        <table>
+          <thead>
+            <tr>
+              <th>请求</th>
+              <th>结果</th>
+              <th>备注</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>rt_min(600000.SH, 1MIN)</code></td>
+              <td>1 行，<code>time=2026-05-15 15:00:00</code></td>
+              <td>周末返回上一交易日收盘分钟。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min(600000.SH,000001.SZ, 1MIN)</code></td>
+              <td>2 行</td>
+              <td>支持多代码。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min(3*.SZ,6*.SH,0*.SZ,9*.BJ, 1MIN)</code></td>
+              <td>5529 行</td>
+              <td>支持全市场通配符。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min(..., limit=10)</code> / <code>offset=1000</code></td>
+              <td>仍返回 5529 行</td>
+              <td>全市场通配符下分页参数实测未改变返回规模。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min_daily(600000.SH, 1MIN)</code></td>
+              <td>周末返回 0 行</td>
+              <td>只适合交易时段内单股当日分时序列，不做 V1 主链。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min_daily(多代码/通配符)</code></td>
+              <td>参数校验失败</td>
+              <td>印证它不是全市场采集接口。</td>
+            </tr>
+            <tr>
+              <td><code>rt_min(..., fields=ts_code,freq,...)</code></td>
+              <td>返回 <code>freq</code>，且无缺失</td>
+              <td>字段契约必须显式包含 <code>freq</code>。</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </section>
+  </main>
+</div>
+</body>
+</html>
