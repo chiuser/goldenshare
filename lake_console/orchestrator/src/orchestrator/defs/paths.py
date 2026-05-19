@@ -35,3 +35,11 @@ def raw_trade_calendar_path(root: Path) -> Path:
 
 def silver_trade_calendar_path(root: Path) -> Path:
     return lake_path(root, SILVER, "calendar", "trade_calendar", "full", "part-000.parquet")
+
+
+def raw_stock_basic_path(root: Path) -> Path:
+    return lake_path(root, RAW, "tushare", "stock_basic", "full", "part-000.parquet")
+
+
+def silver_stock_basic_path(root: Path) -> Path:
+    return lake_path(root, SILVER, "basic", "stock_basic", "full", "part-000.parquet")

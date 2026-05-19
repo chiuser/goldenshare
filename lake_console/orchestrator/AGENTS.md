@@ -59,9 +59,21 @@ https://docs.dagster.io/guides/test/asset-checks
 
 1. 所有 asset checks 必须注册进正式 `Definitions`，并能被 `load_from_defs_folder` 自动发现。
 2. 验收 assets + checks 时，必须通过 Dagster asset job / asset selection / implicit global asset job 执行。
-3. 后续 schedule、sensor、backfill、自动化运行必须基于正式 `Definitions` 解析 assets 与 checks。
-4. 禁止只在临时测试脚本里 import checks，却不让 Dagster code location 正式加载。
-5. 禁止用只跑 asset 的 `dagster.materialize()` 结果替代 asset checks 验收。
+3. 当前版本验证 asset job 时，优先使用 `Definitions.resolve_implicit_global_asset_job_def()`；不要继续沿用已有重命名 warning 的旧入口作为新示例。
+4. 后续 schedule、sensor、backfill、自动化运行必须基于正式 `Definitions` 解析 assets 与 checks。
+5. 若验收目标是 Dagster UI 可观测，必须通过 UI materialize，或显式使用 UI 当前正式 `DAGSTER_HOME` 对应 instance 执行 job；临时 `dagster.materialize()` 不保证运行记录出现在当前 UI。
+6. 禁止只在临时测试脚本里 import checks，却不让 Dagster code location 正式加载。
+7. 禁止用只跑 asset 的 `dagster.materialize()` 结果替代 asset checks 验收。
+
+### 提交前检查门禁
+
+提交前必须看 `git status --short`，不能只看 `git diff --stat`。
+
+原因：
+
+1. `git diff --stat` 不显示未跟踪的新文件。
+2. Dagster slice 经常新增 asset/check/job 文件；若只看 diff stat，容易漏掉 untracked 文件。
+3. 提交前必须确认新增文件、修改文件、生成物是否都符合本轮范围。
 
 ### Dynamic Partitions 持久化门禁
 

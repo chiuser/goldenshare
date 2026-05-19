@@ -923,6 +923,16 @@ os.replace(tmp, target)</code></pre>
           <td>checks 必须来自正式 Dagster definitions，不能只靠临时脚本 import。</td>
         </tr>
         <tr>
+          <td>Dagster UI 可观测验收</td>
+          <td>通过 UI materialize，或显式使用 UI 当前正式 <code>DAGSTER_HOME</code> 对应 instance 执行 job。</td>
+          <td>临时 <code>dagster.materialize()</code> 不保证运行记录出现在当前 UI。</td>
+        </tr>
+        <tr>
+          <td>提交前文件检查</td>
+          <td>必须查看 <code>git status --short</code>。</td>
+          <td><code>git diff --stat</code> 不显示 untracked 文件，不能作为唯一提交检查依据。</td>
+        </tr>
+        <tr>
           <td>文档一致性</td>
           <td>对照本文与第一期方案文档</td>
           <td>字段、路径、check 名称、阻断口径一致。</td>
@@ -939,16 +949,20 @@ os.replace(tmp, target)</code></pre>
     <pre><code>正确验收模型：
   1. 所有 assets 和 asset checks 必须注册进 Definitions
   2. 通过 Dagster asset job / asset selection / implicit global asset job 执行
-  3. schedule、sensor、backfill、自动化也必须基于正式 Definitions 解析
+  3. 本地脚本验证优先使用 Definitions.resolve_implicit_global_asset_job_def()
+  4. 若要在 Dagster UI 看到运行记录，必须使用 UI 当前正式 instance 执行
+  5. schedule、sensor、backfill、自动化也必须基于正式 Definitions 解析
 
 禁止：
   1. 只在测试脚本里临时 import checks，却不让 load_from_defs_folder 自动发现
   2. 把 dagster.materialize() 当成完整的生产运行模型
   3. 用只跑 asset 的结果替代 asset checks 验收
+  4. 用临时 dagster.materialize() 的成功结果代表 UI 已可观测
 
 允许：
   1. dagster.materialize() 可用于只跑 asset 的小范围冒烟验证
-  2. asset checks 回归必须使用 Definitions + asset job / selection</code></pre>
+  2. asset checks 回归必须使用 Definitions + asset job / selection
+  3. UI 验收必须通过 UI materialize，或绑定正式 DAGSTER_HOME 对应 instance</code></pre>
   </section>
 
   <section>
