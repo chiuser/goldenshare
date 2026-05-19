@@ -82,6 +82,8 @@ src/
 
 - `tushareMcp`：用于验证 Tushare 接口真实行为，重点覆盖输入参数、输出字段、`limit/offset` 分页、时间过滤、权限积分、是否支持不传时间拉全集、样本返回结构与行数。
 - `tushare-data` skill：用于帮助理解 Tushare 接口文档、接口家族关系、数据集背景、研究任务拆解，以及把自然语言需求映射到可能相关的数据接口。
+- 获取 Tushare 数据源中某个数据集的相关信息时，可以使用 `tushare-data` skill 辅助理解，例如接口家族、数据域背景、常见字段、可能相关接口和研究路径。skill 路径：`/Users/congming/.codex/skills/tushare-data/SKILL.md`。
+- 需要实测请求接口、验证真实输入输出、确认返回字段、样本行数、分页行为、权限积分、日期过滤或空结果原因时，必须使用 `tushareMcp` 做真实请求核验；不得用 `tushare-data` skill、线上文档或经验替代实测。
 - 严格实现口径：涉及 request builder、`DatasetDefinition`、ingestion plan、字段契约、文档补丁或参数口径调整时，先看当前代码，再看 `docs/sources/tushare/**`，再用 `tushareMcp` 实测，`tushare-data` skill 只做辅助理解。
 - 文档与研究口径：做接口梳理、目录盘点、任务拆解、研究路径建议时，可先结合 `docs/sources/tushare/**` 和 `tushare-data` skill；一旦要落到真实参数或实现契约，必须回到 `tushareMcp` 做验证。
 - 字段核验口径：对支持 `fields` 的接口，至少核验三类请求结果：不传 `fields` 的默认返回、按文档字段显式请求、按业务关键字段补充请求。缺少第三步时，禁止回答“接口没有该字段”。

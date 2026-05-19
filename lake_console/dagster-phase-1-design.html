@@ -1,0 +1,1250 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 第一期方案设计：市场广度最小闭环</title>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --paper: #fffaf0;
+      --ink: #18222d;
+      --muted: #66717d;
+      --line: #ddcdb6;
+      --raw: #dff3ff;
+      --silver: #eceff4;
+      --gold: #ffe4a5;
+      --green: #dff1df;
+      --red: #ffe1d8;
+      --blue: #dfefff;
+      --code: #273747;
+      --accent: #b77720;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 12% 0%, rgba(255, 228, 165, 0.42), transparent 34rem),
+        linear-gradient(180deg, #fbf7ef 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 38px 26px 80px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 240, 0.93);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(74, 52, 28, 0.08);
+    }
+
+    header {
+      padding: 34px;
+    }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.18;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.8vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+
+    p {
+      margin: 8px 0 13px;
+    }
+
+    a {
+      color: #8a520d;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: var(--code);
+      background: rgba(39, 55, 71, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0;
+      overflow-x: auto;
+      background: #243241;
+      color: #f7f1e7;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .subtitle {
+      max-width: 980px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .chip,
+    .card,
+    .callout,
+    .warning {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fffdf7;
+    }
+
+    .chip {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chip strong,
+    .card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .card {
+      padding: 18px;
+    }
+
+    .callout {
+      border-left: 5px solid var(--accent);
+      background: #fff2d7;
+      padding: 14px 16px;
+      color: #5c4217;
+    }
+
+    .warning {
+      border-left: 5px solid #c65b42;
+      background: var(--red);
+      padding: 14px 16px;
+      color: #693423;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      margin: 14px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 880px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #eadfce;
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f0e0ca;
+      color: #332414;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin: 2px 4px 2px 0;
+      color: #263340;
+      background: #eee4d1;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tag.raw { background: var(--raw); }
+    .tag.silver { background: var(--silver); }
+    .tag.gold { background: var(--gold); }
+    .tag.meta { background: var(--green); }
+    .tag.run { background: var(--blue); }
+    .tag.stop { background: var(--red); }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: minmax(190px, 0.9fr) minmax(70px, 0.2fr) minmax(240px, 1.4fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-box {
+      border: 1px solid #cdbca3;
+      border-radius: 16px;
+      background: #fffdf8;
+      padding: 14px;
+      min-height: 68px;
+    }
+
+    .arrow {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: #8a632e;
+      font-weight: 800;
+      font-size: 24px;
+    }
+
+    .flow-title {
+      display: block;
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .path {
+      display: block;
+      margin-top: 5px;
+      word-break: break-all;
+    }
+
+    @media (max-width: 760px) {
+      main {
+        padding: 22px 14px 60px;
+      }
+
+      header,
+      section {
+        padding: 20px;
+        border-radius: 18px;
+      }
+
+      .flow-row {
+        grid-template-columns: 1fr;
+      }
+
+      .arrow {
+        transform: rotate(90deg);
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 第一期方案设计：市场广度最小闭环</h1>
+    <p class="subtitle">
+      本文是下一步开发前置设计文档，只覆盖第一期闭环：旧数据湖数据进入新 <code>&lt;LAKE_ROOT&gt;/raw</code> 后，
+      由 Dagster 管理 <code>trade_calendar</code>、<code>stock_basic</code>、<code>stock_daily</code>、<code>market_breadth_daily</code> 的资产、分区、运行状态和质量检查。
+    </p>
+    <div class="meta-grid">
+      <div class="chip"><strong>文档状态</strong>第一期开发前设计稿</div>
+      <div class="chip"><strong>项目位置</strong><code>lake_console/orchestrator</code></div>
+      <div class="chip"><strong>数据根目录</strong><code>/Volumes/datasource/data_lake</code></div>
+      <div class="chip"><strong>第一期范围</strong>2026 年 4 月 A 股交易日</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 第一期开工边界</h2>
+    <div class="callout">
+      第一期只解决一个问题：把旧数据湖中已存在的数据放入新 <code>&lt;LAKE_ROOT&gt;/raw</code> 后，验证 Dagster 是否能稳定管理本地 Parquet 数据湖的资产依赖、交易日分区、DuckDB 计算和小颗粒度 checks。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>项目</th>
+          <th>第一期口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>数据来源</td>
+          <td>旧数据湖已有数据进入新 <code>&lt;LAKE_ROOT&gt;/raw</code>。本文不展开旧路径细节，不把旧路径写入 Dagster asset 正式 path。</td>
+        </tr>
+        <tr>
+          <td>数据生产</td>
+          <td>不属于第一期开发内容。第一期 asset 以新 raw 路径中的文件作为输入事实。</td>
+        </tr>
+        <tr>
+          <td>外部接口</td>
+          <td>第一期不实现 Tushare 拉取链路，不新增 <code>TushareResource</code>。</td>
+        </tr>
+        <tr>
+          <td>远程数据库</td>
+          <td>第一期不从 prod DB 拉取数据。</td>
+        </tr>
+        <tr>
+          <td>资产数量</td>
+          <td>只做 <code>trade_calendar</code>、<code>stock_basic</code>、<code>stock_daily</code>、<code>market_breadth_daily</code> 和一个手动交易日分区同步步骤。</td>
+        </tr>
+        <tr>
+          <td>自动化</td>
+          <td>第一期分步骤手动执行，不上 sensor 自动同步，不做 schedule。</td>
+        </tr>
+        <tr>
+          <td>服务层</td>
+          <td>第一期不写 ClickHouse serving，不做 prod release package，不改线上 API。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 第一版资产图</h2>
+    <p>
+      第一版资产图从交易日历开始，因为 A 股交易日必须以 <code>silver_trade_calendar</code> 为事实唯一口径。
+      <code>cn_a_trade_days</code> 不是第二套日历，它只是 Dagster 内部保存的一组可运行交易日 key。
+    </p>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_trade_calendar</span>
+          读取新 raw 路径中的完整交易日历文件。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_trade_calendar</span>
+          标准化日期、交易所和开市字段，作为交易日事实源。
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_trade_calendar</span>
+          筛选 <code>2026-04-01</code> 到 <code>2026-04-30</code> 的 <code>SSE is_open=true</code> 日期。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag run">partition</span> cn_a_trade_days</span>
+          手动注册到 Dagster dynamic partitions，供后续按交易日运行。
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_stock_daily[trade_date]</span>
+          按已注册交易日读取新 raw 中的股票日线文件。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_stock_daily[trade_date]</span>
+          标准化字段和类型，处理完全重复行，保留基础事实语义。
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_stock_basic</span>
+          读取新 raw 路径中的股票基础信息完整文件。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_stock_basic</span>
+          标准化股票基础信息，用于判断某个交易日理论上市股票集合。
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_stock_basic</span>
+          提供 <code>list_date</code> / <code>delist_date</code> 生命周期信息。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">check</span> silver_stock_daily completeness checks</span>
+          校验当日日线是否覆盖理论上市股票集合。第一期为观察型 check，但必须输出差异统计和样本。
+        </div>
+      </div>
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_stock_daily[trade_date]</span>
+          以 <code>pct_chg</code> 为输入。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag gold">gold</span> gold_market_breadth_daily[trade_date]</span>
+          计算上涨、下跌、平盘、总数和红盘率。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 目录和命名</h2>
+    <p>第一期代码目录按数据主题域组织，不使用含义不清的万能分类。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>主题域</th>
+          <th>含义</th>
+          <th>第一期是否使用</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>basic</code></td>
+          <td>证券基础资料，例如股票基础信息、证券池。</td>
+          <td>是，<code>stock_basic</code></td>
+        </tr>
+        <tr>
+          <td><code>calendar</code></td>
+          <td>交易日历、开闭市事实。</td>
+          <td>是，<code>trade_calendar</code></td>
+        </tr>
+        <tr>
+          <td><code>quote</code></td>
+          <td>行情事实，例如股票日线、指数日线、分钟线。</td>
+          <td>是，<code>stock_daily</code></td>
+        </tr>
+        <tr>
+          <td><code>breadth</code></td>
+          <td>市场广度，例如涨跌分布、红盘率。</td>
+          <td>是，<code>market_breadth_daily</code></td>
+        </tr>
+        <tr>
+          <td><code>limit</code> / <code>sector</code> / <code>flow</code> / <code>factor</code></td>
+          <td>涨跌停、板块、资金流、因子等后续主题域。</td>
+          <td>否</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>建议代码摆放</h3>
+    <pre><code>lake_console/orchestrator/src/orchestrator/defs/
+  resources.py
+  partitions.py
+  jobs/
+    sync_trade_day_partitions.py
+  assets/
+    raw/
+      tushare/
+        trade_calendar.py
+        stock_basic.py
+        stock_daily.py
+    silver/
+      basic/
+        stock_basic.py
+      calendar/
+        trade_calendar.py
+      quote/
+        stock_daily.py
+    gold/
+      breadth/
+        market_breadth_daily.py
+  checks/
+    basic/
+      stock_basic.py
+    calendar/
+      trade_calendar.py
+    quote/
+      stock_daily.py
+    breadth/
+      market_breadth_daily.py</code></pre>
+
+    <p>
+      Dagster 脚手架当前使用 <code>load_from_defs_folder</code>，因此后续定义可以放入 <code>defs</code> 子目录下，由项目入口统一加载。
+      基础行情资产只定义一次，其他 gold 资产通过依赖复用，禁止在多个页面或主题文件里重复定义同一个 asset key。
+    </p>
+  </section>
+
+  <section>
+    <h2>4. 物理路径</h2>
+    <p>第一期 <code>LAKE_ROOT</code> 明确为 <code>/Volumes/datasource/data_lake</code>。所有正式资产路径都在 <code>&lt;LAKE_ROOT&gt;/raw</code>、<code>&lt;LAKE_ROOT&gt;/silver</code>、<code>&lt;LAKE_ROOT&gt;/gold</code> 三层下。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Asset</th>
+          <th>路径</th>
+          <th>分区</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/raw/tushare/trade_calendar/full/part-000.parquet</code></td>
+          <td>不按交易日分区</td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/calendar/trade_calendar/full/part-000.parquet</code></td>
+          <td>不按交易日分区</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/raw/tushare/stock_basic/full/part-000.parquet</code></td>
+          <td>不按交易日分区</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/basic/stock_basic/full/part-000.parquet</code></td>
+          <td>不按交易日分区</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td><code>cn_a_trade_days</code></td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td><code>cn_a_trade_days</code></td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/gold/breadth/market_breadth_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td><code>cn_a_trade_days</code></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 分区设计</h2>
+    <p>
+      第一期使用 Dagster <code>DynamicPartitionsDefinition</code>，名称为 <code>cn_a_trade_days</code>。
+      partition key 来自 <code>silver_trade_calendar</code>，不使用自然日、工作日或手写节假日规则推导 A 股交易日。
+    </p>
+
+    <div class="cards">
+      <div class="card">
+        <strong>输入事实</strong>
+        <code>silver_trade_calendar</code> 中 <code>exchange="SSE"</code>、<code>is_open=true</code> 的日期。
+      </div>
+      <div class="card">
+        <strong>注册范围</strong>
+        只注册 <code>2026-04-01</code> 到 <code>2026-04-30</code> 范围内的开市日。
+      </div>
+      <div class="card">
+        <strong>保存位置</strong>
+        由 Dagster instance storage 保存。当前本机 Dagster storage 使用 <code>goldenshare_dagster</code>。
+      </div>
+      <div class="card">
+        <strong>使用方式</strong>
+        <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、<code>gold_market_breadth_daily</code> 共享这组交易日 key。
+      </div>
+      <div class="card">
+        <strong>不使用分区的资产</strong>
+        <code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code> 和交易日历完整文件不按 <code>cn_a_trade_days</code> 分区。
+      </div>
+    </div>
+
+    <h3>手动同步步骤</h3>
+    <p>
+      第一期定义一个手动触发的 Dagster job/op，例如 <code>sync_cn_a_trade_day_partitions</code>。
+      它读取 <code>silver_trade_calendar</code>，筛出 2026 年 4 月开市日，然后调用 Dagster dynamic partitions add request，把日期注册到 <code>cn_a_trade_days</code>。
+    </p>
+
+    <pre><code>silver_trade_calendar
+  -> filter exchange = "SSE"
+  -> filter is_open = true
+  -> filter 2026-04-01 <= trade_date <= 2026-04-30
+  -> add partition keys to cn_a_trade_days</code></pre>
+
+    <p>
+      注册后，Dagster 执行某个分区资产时，asset 函数通过 <code>context.partition_key</code> 拿到日期，例如 <code>2026-04-08</code>，
+      再用这个日期拼出对应 Parquet 输入路径和输出路径。
+    </p>
+  </section>
+
+  <section>
+    <h2>6. 资产说明卡</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Asset</th>
+          <th>层级</th>
+          <th>业务含义</th>
+          <th>输入</th>
+          <th>输出</th>
+          <th>核心规则</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><span class="tag raw">raw</span></td>
+          <td>Tushare 交易日历原始文件在新 raw 路径下的资产记录。</td>
+          <td>新 raw 路径中的 <code>trade_calendar/full/part-000.parquet</code>。</td>
+          <td>Dagster materialization metadata：路径、行数、字段列表。</td>
+          <td>读取文件并执行 raw checks；不把旧路径写入 asset path。</td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><span class="tag silver">silver</span></td>
+          <td>A 股交易日事实源。</td>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/calendar/trade_calendar/full/part-000.parquet</code></td>
+          <td><code>cal_date</code> 标准化为 <code>trade_date</code>，<code>is_open</code> 标准化为布尔语义。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><span class="tag raw">raw</span></td>
+          <td>Tushare 股票基础信息原始文件在新 raw 路径下的资产记录。</td>
+          <td>新 raw 路径中的 <code>stock_basic/full/part-000.parquet</code>。</td>
+          <td>Dagster materialization metadata：路径、行数、字段列表。</td>
+          <td>读取文件并执行 raw checks；不把旧路径写入 asset path。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><span class="tag silver">silver</span></td>
+          <td>标准化股票基础信息，用于判断某个交易日理论上市股票集合。</td>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/basic/stock_basic/full/part-000.parquet</code></td>
+          <td>日期字段转 date，保留 <code>list_status</code>、<code>list_date</code>、<code>delist_date</code> 等生命周期字段；不生成页面股票池资产。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><span class="tag raw">raw</span></td>
+          <td>Tushare A 股日线原始文件在新 raw 路径下的分区资产记录。</td>
+          <td>按 <code>context.partition_key</code> 读取新 raw 中对应交易日文件。</td>
+          <td>Dagster materialization metadata：路径、行数、字段列表。</td>
+          <td>缺失对应分区文件时直接失败。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><span class="tag silver">silver</span></td>
+          <td>标准化 A 股日线基础事实表。</td>
+          <td><code>raw_tushare_stock_daily[trade_date]</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>字段标准化、类型转换、<code>change</code> 改名为 <code>change_amount</code>、完全重复行去重并上报数量、主键内容冲突失败。</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><span class="tag gold">gold</span></td>
+          <td>每日市场涨跌分布。</td>
+          <td><code>silver_stock_daily[trade_date]</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/gold/breadth/market_breadth_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>按当前服务口径计算上涨、下跌、平盘、总数和红盘率。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. 字段和计算口径</h2>
+
+    <h3>trade_calendar</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>层级</th>
+          <th>字段</th>
+          <th>口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw</td>
+          <td><code>exchange</code>、<code>cal_date</code>、<code>is_open</code>、<code>pretrade_date</code></td>
+          <td>按 Tushare <code>trade_cal</code> 文档字段理解。<code>pretrade_date</code> 若存在则保留并标准化。</td>
+        </tr>
+        <tr>
+          <td>silver</td>
+          <td><code>exchange</code>、<code>trade_date</code>、<code>is_open</code>、<code>pretrade_date</code></td>
+          <td><code>cal_date</code> 改为 <code>trade_date</code>，日期字段转为 date，<code>is_open</code> 转为布尔语义。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>stock_basic</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>层级</th>
+          <th>字段</th>
+          <th>口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw</td>
+          <td><code>ts_code</code>、<code>symbol</code>、<code>name</code>、<code>area</code>、<code>industry</code>、<code>fullname</code>、<code>enname</code>、<code>cnspell</code>、<code>market</code>、<code>exchange</code>、<code>curr_type</code>、<code>list_status</code>、<code>list_date</code>、<code>delist_date</code>、<code>is_hs</code>、<code>act_name</code>、<code>act_ent_type</code></td>
+          <td>按 Tushare <code>stock_basic</code> 文档字段。第一期 raw 路径使用旧湖已有 parquet 进入新 raw。</td>
+        </tr>
+        <tr>
+          <td>silver</td>
+          <td><code>ts_code</code>、<code>symbol</code>、<code>name</code>、<code>area</code>、<code>industry</code>、<code>market</code>、<code>exchange</code>、<code>list_status</code>、<code>list_date</code>、<code>delist_date</code>、<code>is_hs</code></td>
+          <td><code>list_date</code>、<code>delist_date</code> 转 date；<code>ts_code</code> 唯一；保留生命周期字段用于 <code>silver_stock_daily</code> 完整性观察 check。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      判断某个交易日理论上市股票集合时，不只依赖当前 <code>list_status = 'L'</code>。
+      第一 期使用生命周期口径：
+    </p>
+    <pre><code>list_date <= trade_date
+and (delist_date is null or delist_date > trade_date)</code></pre>
+
+    <h3>stock_daily</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>层级</th>
+          <th>字段</th>
+          <th>口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw</td>
+          <td><code>ts_code</code>、<code>trade_date</code>、<code>open</code>、<code>high</code>、<code>low</code>、<code>close</code>、<code>pre_close</code>、<code>change</code>、<code>pct_chg</code>、<code>vol</code>、<code>amount</code></td>
+          <td>按 Tushare A 股日线文档字段。raw 层字段为 <code>change</code>，不是 <code>change_amount</code>。</td>
+        </tr>
+        <tr>
+          <td>silver</td>
+          <td><code>ts_code</code>、<code>trade_date</code>、<code>open</code>、<code>high</code>、<code>low</code>、<code>close</code>、<code>pre_close</code>、<code>change_amount</code>、<code>pct_chg</code>、<code>vol</code>、<code>amount</code></td>
+          <td><code>change</code> 标准化为 <code>change_amount</code>。<code>trade_date</code> 转 date，数值字段转数值类型。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>market_breadth_daily</h3>
+    <p>当前服务代码核验结果：涨跌分布以当天 <code>stock_daily</code> 中 <code>pct_chg</code> 非空的记录作为统计母体，不额外引入股票池、上市状态、停牌状态、ST 标记或其他证券范围过滤。</p>
+    <pre><code>输入过滤：
+  trade_date = partition_key
+  pct_chg is not null
+
+计算：
+  up_count = count(pct_chg > 0)
+  down_count = count(pct_chg < 0)
+  flat_count = count(pct_chg == 0)
+  total_count = up_count + down_count + flat_count
+  red_rate = round(up_count / total_count * 100, 2)，total_count 为 0 时为 0.0</code></pre>
+    <p>
+      历史窗口不单独建 asset。后续查询 1 个月、3 个月、其他窗口时，应从 <code>gold_market_breadth_daily</code> 按交易日窗口读取。
+    </p>
+  </section>
+
+  <section>
+    <h2>8. Resources</h2>
+    <p>第一期只注册两个 Dagster resource。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Resource</th>
+          <th>职责</th>
+          <th>第一期消费者</th>
+          <th>失败边界</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>LakeRootResource</code></td>
+          <td>提供 <code>&lt;LAKE_ROOT&gt;</code>，并确保 asset 读写只落到约定的 <code>&lt;LAKE_ROOT&gt;/raw|silver|gold</code> 路径。</td>
+          <td>所有第一期 assets 和 checks。</td>
+          <td>湖根不可用时，相关 asset/check 失败；不应让 Dagster code location 在加载时崩掉。</td>
+        </tr>
+        <tr>
+          <td><code>DuckDBResource</code></td>
+          <td>执行 Parquet 读取、标准化、聚合和写入。</td>
+          <td><code>silver_trade_calendar</code>、<code>silver_stock_basic</code>、<code>silver_stock_daily</code>、<code>gold_market_breadth_daily</code> 及相关 checks。</td>
+          <td>SQL 或文件访问失败时，对应 run/check 失败，并在 Dagster UI 中可见。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p class="warning">
+      第一期开工时不新增 <code>TushareResource</code>、ClickHouse resource、业务 metadata PostgreSQL resource。Dagster 自己的 PostgreSQL instance storage 已经由 <code>DAGSTER_HOME/dagster.yaml</code> 管理，不在 assets 中作为业务 resource 使用。
+    </p>
+  </section>
+
+  <section>
+    <h2>9. Checks 清单</h2>
+    <p>check 粒度原则：一个 check 只验证一个资产属性，禁止把多个质量规则塞进一个大 check。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Check 名称</th>
+          <th>验证内容</th>
+          <th>第一期门禁</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>raw_trade_calendar_file_exists</code></td>
+          <td>新 raw 路径下文件存在。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>raw_trade_calendar_required_columns</code></td>
+          <td>包含 <code>exchange</code>、<code>cal_date</code>、<code>is_open</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>raw_trade_calendar_contains_required_exchange</code></td>
+          <td>包含第一期必需交易所，当前为 <code>SSE</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><code>silver_trade_calendar_unique_exchange_trade_date</code></td>
+          <td><code>exchange + trade_date</code> 唯一。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><code>silver_trade_calendar_required_columns_non_null</code></td>
+          <td><code>exchange</code>、<code>trade_date</code>、<code>is_open</code> 不为空。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><code>silver_trade_calendar_has_open_days_in_poc_range</code></td>
+          <td>2026 年 4 月范围内存在 <code>SSE is_open=true</code> 的交易日。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>raw_stock_basic_file_exists</code></td>
+          <td>新 raw 路径下文件存在。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>raw_stock_basic_row_count_positive</code></td>
+          <td>行数大于 0。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>raw_stock_basic_required_columns</code></td>
+          <td>包含 <code>ts_code</code>、<code>symbol</code>、<code>name</code>、<code>market</code>、<code>exchange</code>、<code>list_status</code>、<code>list_date</code>、<code>delist_date</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>raw_stock_basic_ts_code_present</code></td>
+          <td><code>ts_code</code> 不为空。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver_stock_basic_unique_ts_code</code></td>
+          <td><code>ts_code</code> 唯一。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver_stock_basic_required_columns_non_null</code></td>
+          <td><code>ts_code</code>、<code>symbol</code>、<code>name</code>、<code>list_date</code> 不为空。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver_stock_basic_lifecycle_dates_valid</code></td>
+          <td><code>delist_date</code> 为空或大于等于 <code>list_date</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver_stock_basic_has_listed_records</code></td>
+          <td>存在 <code>list_status = 'L'</code> 的记录。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver_stock_basic_known_list_status_values</code></td>
+          <td><code>list_status</code> 只允许已知集合：<code>L</code>、<code>D</code>、<code>P</code>、<code>G</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>raw_stock_daily_file_exists</code></td>
+          <td>当前 <code>trade_date</code> 分区文件存在。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>raw_stock_daily_row_count_positive</code></td>
+          <td>当前交易日 raw 行数大于 0。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>raw_stock_daily_required_columns</code></td>
+          <td>包含 Tushare A 股日线第一期必需字段，字段名使用 raw 口径 <code>change</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>raw_stock_daily_partition_date_matches</code></td>
+          <td>文件内 <code>trade_date</code> 只等于当前 <code>partition_key</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_row_count_positive</code></td>
+          <td>当前交易日 silver 行数大于 0。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_unique_ts_code_trade_date</code></td>
+          <td><code>ts_code + trade_date</code> 唯一。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_conflicting_duplicate_absent</code></td>
+          <td>同一 <code>ts_code + trade_date</code> 不允许出现字段内容冲突。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_required_columns_non_null</code></td>
+          <td><code>ts_code</code>、<code>trade_date</code>、参与涨跌分布的 <code>pct_chg</code> 不为空。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_partition_date_matches</code></td>
+          <td>文件内 <code>trade_date</code> 只等于当前 <code>partition_key</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_price_sanity</code></td>
+          <td><code>high >= low</code>，价格字段不为负。</td>
+          <td>观察</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td>
+          <td>在第一期标准化口径下，silver 行数不大于 raw 行数。</td>
+          <td>观察</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_row_count_matches_listed_stock_count</code></td>
+          <td>当日日线数量等于当日理论上市股票数量。观察型 check 必须输出 <code>daily_count</code>、<code>listed_stock_count</code>、<code>diff_count</code>。</td>
+          <td>观察</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_covers_listed_stock_universe</code></td>
+          <td>每个当日理论上市股票都存在一条日线，多出来的日线也要上报。观察型 check 必须输出 <code>missing_count</code>、<code>extra_count</code>、<code>missing_sample_ts_codes</code>、<code>extra_sample_ts_codes</code>。</td>
+          <td>观察</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_row_count_is_one</code></td>
+          <td>每个交易日只产出一行。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_counts_add_up</code></td>
+          <td><code>up_count + down_count + flat_count = total_count</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_total_count_positive</code></td>
+          <td><code>total_count &gt; 0</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_red_rate_range</code></td>
+          <td><code>red_rate</code> 在 0 到 100 之间。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_red_rate_formula</code></td>
+          <td><code>red_rate = round(up_count / total_count * 100, 2)</code>。</td>
+          <td>阻断</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_matches_silver_recompute</code></td>
+          <td>从 <code>silver_stock_daily.pct_chg</code> 重新聚合，结果与 gold 一致。</td>
+          <td>阻断</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>重复行上报</h3>
+    <p>
+      <code>silver_stock_daily</code> 允许对完全重复行做 distinct，但不能静默处理。
+      asset materialization metadata 必须上报 <code>duplicate_removed_count</code>。
+      同一 <code>ts_code + trade_date</code> 出现字段内容冲突时，直接失败。
+    </p>
+
+    <h3>stock_basic 完整性观察 check</h3>
+    <p>
+      <code>silver_stock_daily_row_count_matches_listed_stock_count</code> 和
+      <code>silver_stock_daily_covers_listed_stock_universe</code> 第一期不阻断下游运行，但必须把差异暴露到 Dagster UI。
+      观察不是忽略问题，而是在第一期先收集差异样本，再决定后续是否升级为阻断门禁。
+    </p>
+    <pre><code>listed_universe(trade_date):
+  list_date <= trade_date
+  and (delist_date is null or delist_date > trade_date)
+
+row_count check metadata:
+  trade_date
+  daily_count
+  listed_stock_count
+  diff_count
+
+coverage check metadata:
+  trade_date
+  missing_count
+  extra_count
+  missing_sample_ts_codes
+  extra_sample_ts_codes</code></pre>
+  </section>
+
+  <section>
+    <h2>10. 第一期开发表达</h2>
+    <p>下一步开发不得改变本设计的范围。建议分五步实现，每一步都能单独验证。</p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>步骤</th>
+          <th>开发内容</th>
+          <th>验收</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>1</td>
+          <td>实现 <code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>cn_a_trade_days</code> 分区定义。</td>
+          <td>Dagster code location 能加载；不要求移动盘可用时加载即失败。</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>实现 <code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code> 和 calendar checks。</td>
+          <td>能生成 silver 交易日历文件；2026 年 4 月开市日检查通过。</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>实现手动 <code>sync_cn_a_trade_day_partitions</code>。</td>
+          <td>Dagster 中注册 2026 年 4 月 <code>SSE is_open=true</code> 的 partition keys。</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>实现 <code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code> 和 stock basic checks。</td>
+          <td>能生成 silver 股票基础信息文件；生命周期和 <code>list_status</code> checks 通过。</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>实现 <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、<code>gold_market_breadth_daily</code> 和对应 checks。</td>
+          <td>能按已注册交易日生成 silver/gold，并在 UI 中看到 materialization metadata、check 状态和 stock basic 完整性差异 metadata。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>手动运行顺序</h3>
+    <pre><code>1. 确认第一期所需文件已经位于 &lt;LAKE_ROOT&gt;/raw 路径
+2. materialize raw_tushare_trade_calendar
+3. materialize silver_trade_calendar
+4. 手动运行 sync_cn_a_trade_day_partitions
+5. materialize raw_tushare_stock_basic
+6. materialize silver_stock_basic
+7. 对 2026 年 4 月已注册交易日 materialize raw_tushare_stock_daily
+8. materialize silver_stock_daily
+9. materialize gold_market_breadth_daily
+10. 查看 materialization metadata 和 checks</code></pre>
+  </section>
+
+  <section>
+    <h2>11. 第一期开工禁止项</h2>
+    <div class="warning">
+      下面内容不属于第一期方案。开发时不得为了“顺手”把它们带进去。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>禁止项</th>
+          <th>说明</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>不写 Tushare 拉取链路</td>
+          <td>第一期不新增 <code>TushareResource</code>，不设计源接口请求参数。</td>
+        </tr>
+        <tr>
+          <td>不从 prod DB 拉数据</td>
+          <td>第一期不接 prod PostgreSQL，也不通过远程库补数据。</td>
+        </tr>
+        <tr>
+          <td>不设计 raw 数据生产机制</td>
+          <td>第一期只消费新 raw 路径中已经存在的文件。</td>
+        </tr>
+        <tr>
+          <td>不写 ClickHouse serving</td>
+          <td>第一期只到 gold Parquet。</td>
+        </tr>
+        <tr>
+          <td>不写发布包</td>
+          <td>第一期不做本地到 prod 的 release package。</td>
+        </tr>
+        <tr>
+          <td>不上自动 sensor / schedule</td>
+          <td>第一期交易日分区同步手动触发。</td>
+        </tr>
+        <tr>
+          <td>不批量迁移其他数据集</td>
+          <td>第一期只围绕 <code>trade_calendar</code>、<code>stock_basic</code>、<code>stock_daily</code>、<code>market_breadth_daily</code>。</td>
+        </tr>
+        <tr>
+          <td>不把旧数据湖路径写入 asset path</td>
+          <td>旧数据湖是第一期数据来源背景，不是 Dagster 正式 asset path。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>12. 依据</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>类别</th>
+          <th>依据</th>
+          <th>用于本文的结论</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Dagster 官方</td>
+          <td><a href="https://docs.dagster.io/guides/build/assets/defining-assets">Defining assets</a></td>
+          <td>asset 表达长期存在的数据对象，asset 函数负责产生或记录 materialization。</td>
+        </tr>
+        <tr>
+          <td>Dagster 官方</td>
+          <td><a href="https://docs.dagster.io/guides/build/external-resources/defining-resources">Defining resources</a></td>
+          <td>外部能力通过 resources 注入 asset/check 逻辑。</td>
+        </tr>
+        <tr>
+          <td>Dagster 官方</td>
+          <td><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Partitioning assets</a>、<a href="https://docs.dagster.io/api/dagster/partitions">Partitions API</a></td>
+          <td>dynamic partitions 适合运行时确定 partition keys 的场景；第一期交易日 key 来自 <code>silver_trade_calendar</code>。</td>
+        </tr>
+        <tr>
+          <td>Dagster 官方</td>
+          <td><a href="https://docs.dagster.io/guides/test/asset-checks">Asset checks</a></td>
+          <td>check 应验证单个资产属性，第一期禁止大 check。</td>
+        </tr>
+        <tr>
+          <td>当前代码</td>
+          <td><code>src/biz/queries/wealth/market/breadth/breadth_metrics_query.py</code></td>
+          <td>当前涨跌分布按 <code>pct_chg</code> 计算 up/down/flat/total/red_rate。</td>
+        </tr>
+        <tr>
+          <td>当前代码</td>
+          <td><code>src/biz/queries/wealth/market/breadth/breadth_history_query.py</code></td>
+          <td>当前历史窗口按 <code>SSE is_open=true</code> 交易日取最近交易日序列。</td>
+        </tr>
+        <tr>
+          <td>本地 Tushare 文档</td>
+          <td><code>docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md</code></td>
+          <td>A 股日线 raw 字段使用 <code>change</code>。</td>
+        </tr>
+        <tr>
+          <td>本地 Tushare 文档</td>
+          <td><code>docs/sources/tushare/股票数据/基础数据/0026_交易日历.md</code></td>
+          <td>交易日历 raw 字段包括 <code>exchange</code>、<code>cal_date</code>、<code>is_open</code>。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>
