@@ -299,7 +299,7 @@
       <div class="chip"><strong>项目目录</strong><code>lake_console/orchestrator</code></div>
       <div class="chip"><strong>Lake Root</strong><code>/Volumes/datasource/data_lake</code></div>
       <div class="chip"><strong>第一期范围</strong>trade calendar、stock basic、stock daily、market breadth</div>
-      <div class="chip"><strong>明确不做</strong>Tushare 同步、ClickHouse serving、prod release、自动调度</div>
+      <div class="chip"><strong>文档状态</strong>第一期已实现，补齐收口记录</div>
     </div>
   </header>
 
@@ -1008,6 +1008,52 @@ os.replace(tmp, target)</code></pre>
   missing_count 表示“按 stock_basic 生命周期看理论上应该有日线，但当天 stock_daily 中没有出现”的股票数量。
   当前差异多出现在 ST、*ST 或其他可能存在停牌/特殊交易状态的股票上。
   因为第一期尚未引入停牌、暂停上市、特殊交易状态等更细数据，这两个 check 保持 WARN，不升级为阻断。</code></pre>
+
+    <h3>Slice 5 全月验证记录</h3>
+    <p>
+      Slice 5 只实现 <code>gold_market_breadth_daily</code> 和 breadth checks。
+      计算口径对齐当前服务代码：以 <code>pct_chg is not null</code> 为统计母体，按 <code>pct_chg &gt; 0</code>、
+      <code>pct_chg &lt; 0</code>、<code>pct_chg = 0</code> 计算涨跌平，不额外过滤停牌、ST、退市、上市首日或股票池。
+    </p>
+    <pre><code>验证顺序：
+  1. 审计当前服务代码 src/biz/queries/wealth/market/breadth/breadth_metrics_query.py
+  2. materialize 2026-04-01 单日 gold_market_breadth_daily
+  3. 通过 Definitions.resolve_implicit_global_asset_job_def() 跑单日 gold asset + checks
+  4. 对 2026-04 全月 21 个 partition 逐日执行 gold asset + checks
+
+验证结果：
+  partitions: 21
+  all_success: true
+  每个交易日 check events: 6
+  failures: 0
+  gold schema:
+    trade_date date
+    up_count bigint
+    down_count bigint
+    flat_count bigint
+    total_count bigint
+    red_rate double
+  total_count 范围: 5460 ~ 5498
+  red_rate 范围: 13.05 ~ 94.24</code></pre>
+
+    <h3>第一期最终 definitions 状态</h3>
+    <pre><code>assets: 7
+asset checks: 34
+jobs: 1
+resources:
+  duckdb
+  lake_root
+dynamic partitions:
+  cn_a_trade_days: 2026-04 共 21 个交易日</code></pre>
+
+    <h3>Dagster / 本地验证踩坑沉淀</h3>
+    <pre><code>1. dagster.materialize() 适合小范围 asset 冒烟，但不能替代 asset + checks 验收。
+2. UI 可观测验收必须使用 UI 当前正式 DAGSTER_HOME 对应 instance，或直接在 UI materialize。
+3. partitioned asset checks 应绑定 asset 对象，例如 asset=silver_stock_daily，避免在 check 上显式写 partitions_def。
+4. ASSET_CHECK_EVALUATION 事件的 event.event_specific_data 本身就是 AssetCheckEvaluation。
+5. DuckDB 读取 Hive 分区目录下 raw parquet 做字段契约核验时，必须显式 hive_partitioning=false。
+6. git diff --stat 不显示 untracked 文件，提交前必须看 git status --short。
+7. UI 中 asset 显示 code location / group 为 "-"，通常表示当前 code location 未 reload 到最新 definition，而不是 group_name 未写。</code></pre>
   </section>
 
   <section>
@@ -1058,9 +1104,9 @@ Slice 5:
         </thead>
         <tbody>
         <tr>
-          <td>DuckDB Python 依赖尚未加入</td>
-          <td>LLD 明确需要 <code>duckdb</code>。</td>
-          <td>正式编码前执行 <code>uv add duckdb</code>，并同步 <code>uv.lock</code>。</td>
+          <td>DuckDB Python 依赖</td>
+          <td>已加入 <code>pyproject.toml</code> 和 <code>uv.lock</code>，第一期 assets/checks 使用 in-memory DuckDB connection。</td>
+          <td>后续若出现大计算 spill，再按配置门禁评估是否设置 DuckDB temp directory。</td>
         </tr>
         <tr>
           <td>DuckDB Hive 分区自动推断</td>
@@ -1071,6 +1117,11 @@ Slice 5:
           <td>stock daily 与 listed universe 存在差异</td>
           <td>第一期做观察 check，输出差异统计和样本。</td>
           <td>收集差异后再决定是否升级为阻断。</td>
+        </tr>
+        <tr>
+          <td>Dagster UI code location 缓存</td>
+          <td>若 UI 中新 asset 只有 materialization 事件但 code location / group 显示为 <code>-</code>，需要 reload definitions 或重启 <code>dg dev</code>。</td>
+          <td>最终 UI 验收时必须确认 asset definition、group、checks 和 materialization records 都来自同一个正式 instance。</td>
         </tr>
         <tr>
           <td>未来接入 Tushare 同步</td>

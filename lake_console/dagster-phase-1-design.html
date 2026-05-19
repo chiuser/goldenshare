@@ -298,7 +298,7 @@
       由 Dagster 管理 <code>trade_calendar</code>、<code>stock_basic</code>、<code>stock_daily</code>、<code>market_breadth_daily</code> 的资产、分区、运行状态和质量检查。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>第一期开发前设计稿</div>
+      <div class="chip"><strong>文档状态</strong>第一期已实现，进入收口验收</div>
       <div class="chip"><strong>项目位置</strong><code>lake_console/orchestrator</code></div>
       <div class="chip"><strong>数据根目录</strong><code>/Volumes/datasource/data_lake</code></div>
       <div class="chip"><strong>第一期范围</strong>2026 年 4 月 A 股交易日</div>
@@ -1211,7 +1211,72 @@ coverage check metadata:
   </section>
 
   <section>
-    <h2>12. 依据</h2>
+    <h2>12. 第一期实际完成记录</h2>
+    <p>
+      第一期开工边界未变化：只围绕 <code>trade_calendar</code>、<code>stock_basic</code>、<code>stock_daily</code>、
+      <code>market_breadth_daily</code>，只到本地 gold Parquet，不实现 Tushare 同步、ClickHouse serving、prod release 或自动调度。
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>项目</th>
+          <th>实际结果</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>资产数量</td>
+          <td>7 个 asset：<code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code>、<code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code>、<code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、<code>gold_market_breadth_daily</code>。</td>
+        </tr>
+        <tr>
+          <td>质量检查</td>
+          <td>34 个 asset checks，保持“一个 check 验证一个资产属性”的口径。</td>
+        </tr>
+        <tr>
+          <td>分区</td>
+          <td><code>cn_a_trade_days</code> 已注册 2026-04 的 21 个 <code>SSE is_open=true</code> 交易日。</td>
+        </tr>
+        <tr>
+          <td>数据产出</td>
+          <td>已生成 2026-04 全月 <code>silver_stock_daily</code> 与 <code>gold_market_breadth_daily</code> Parquet 分区。</td>
+        </tr>
+        <tr>
+          <td>验证结果</td>
+          <td>2026-04 全月 market breadth gold 21 个分区全部成功，6 个 breadth checks 全部通过。</td>
+        </tr>
+        <tr>
+          <td>观察项</td>
+          <td><code>stock_daily</code> 与 <code>stock_basic</code> 生命周期推导的理论上市股票集合存在差异，保持 WARN 观察，不阻断第一期闭环。</td>
+        </tr>
+        <tr>
+          <td>提交记录</td>
+          <td><code>3bf3dcf4</code> calendar slices，<code>d02b0a15</code> stock basic slice，<code>4e168d60</code> stock daily slice，<code>4d5d9148</code> market breadth slice。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>实际验证命令</h3>
+    <pre><code>uv run dg check defs
+DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+
+# 验证 dynamic partitions
+DagsterInstance.get().get_dynamic_partitions("cn_a_trade_days")
+
+# 验证 assets + checks
+Definitions.resolve_implicit_global_asset_job_def().execute_in_process(
+    partition_key="2026-04-01",
+    instance=DagsterInstance.get(),
+)
+
+# 全月验证
+for partition_key in 2026-04 registered trade days:
+    execute assets + checks with the formal Dagster instance</code></pre>
+  </section>
+
+  <section>
+    <h2>13. 依据</h2>
     <div class="table-wrap">
       <table>
         <thead>
