@@ -51,6 +51,30 @@ https://docs.dagster.io/guides/test/asset-checks
 3. 自由发挥迁移多个数据集。
 4. 用旧 `lake_console` 运行账本机制包装成新的 Dagster 资产。
 
+### Asset Checks 运行门禁
+
+当前 Dagster 版本的 `dagster.materialize()` 可用于轻量 asset 冒烟验证，但不接受 `asset_checks=` 参数，不能代表完整的 asset + checks 运行模型。
+
+规则：
+
+1. 所有 asset checks 必须注册进正式 `Definitions`，并能被 `load_from_defs_folder` 自动发现。
+2. 验收 assets + checks 时，必须通过 Dagster asset job / asset selection / implicit global asset job 执行。
+3. 后续 schedule、sensor、backfill、自动化运行必须基于正式 `Definitions` 解析 assets 与 checks。
+4. 禁止只在临时测试脚本里 import checks，却不让 Dagster code location 正式加载。
+5. 禁止用只跑 asset 的 `dagster.materialize()` 结果替代 asset checks 验收。
+
+### Dynamic Partitions 持久化门禁
+
+注册 dynamic partitions 时，必须使用正式 Dagster instance。
+
+规则：
+
+1. 本地验证 dynamic partition 注册时，必须显式使用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 对应的 `DagsterInstance`。
+2. 若使用 `job.execute_in_process()` 验证注册逻辑，必须传入 `instance=DagsterInstance.get()`。
+3. 验证注册结果时，必须从同一个正式 instance 调用 `get_dynamic_partitions(...)` 读取。
+4. 禁止用默认 `execute_in_process()` 的临时 instance 验证 dynamic partition 注册结果。
+5. 禁止看到 job `success=True` 就认定 partition keys 已持久注册。
+
 ---
 
 ## Tushare 数据源依据门禁
@@ -102,6 +126,16 @@ duckdb_compute/_tmp
 4. 旧数据湖不是废弃数据，而是迁移来源。
 5. 迁移一个数据集时，可以读取、审计、复制、对比旧路径数据，但最终新资产必须落到 `data_lake/raw|silver|gold`。
 6. 不得在未获明确指令前创建移动盘目录、复制大数据文件或重写历史数据。
+
+### DuckDB 读取 raw parquet 门禁
+
+读取 `trade_date=...` 这类 Hive 分区目录下的 raw parquet 时，DuckDB 默认可能从目录名推断同名分区列。
+
+规则：
+
+1. 若目的是核验文件内部 raw 字段契约、字段类型或源站镜像口径，必须使用 `hive_partitioning=false`。
+2. 若目的是按数据湖分区批量读取数据，必须明确说明使用的是目录分区列还是文件内部字段。
+3. 禁止把 DuckDB 自动推断出来的目录分区列，误当成 parquet 文件内部真实字段。
 
 ---
 

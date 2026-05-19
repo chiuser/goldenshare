@@ -1,0 +1,1027 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 第一期 Low Level Design：市场广度最小闭环</title>
+  <style>
+    :root {
+      --bg: #f5efe4;
+      --paper: #fffaf1;
+      --paper-2: #fffdf8;
+      --ink: #17212b;
+      --muted: #64717f;
+      --line: #ddccb3;
+      --accent: #b66d16;
+      --accent-2: #276b74;
+      --raw: #dff2ff;
+      --silver: #edf1f5;
+      --gold: #ffe5a8;
+      --green: #dff1df;
+      --red: #ffe0d8;
+      --warn: #fff0c6;
+      --code-bg: #fff7e6;
+      --code-ink: #162331;
+      --code-line: #e1cda9;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% 0%, rgba(255, 226, 165, 0.46), transparent 34rem),
+        radial-gradient(circle at 90% 12%, rgba(116, 173, 181, 0.18), transparent 28rem),
+        linear-gradient(180deg, #fbf6ec 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 38px 26px 82px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.94);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(76, 54, 28, 0.08);
+    }
+
+    header {
+      padding: 34px;
+    }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.6vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+
+    p {
+      margin: 8px 0 13px;
+    }
+
+    a {
+      color: #8b520e;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: #233348;
+      background: rgba(35, 51, 72, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid var(--code-line);
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.58;
+      box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7);
+    }
+
+    pre code {
+      color: inherit;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+      font-size: inherit;
+    }
+
+    .subtitle {
+      max-width: 980px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .chip,
+    .card,
+    .callout,
+    .warning {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-2);
+    }
+
+    .chip {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chip strong,
+    .card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .card {
+      padding: 18px;
+    }
+
+    .callout {
+      border-left: 5px solid var(--accent);
+      background: #fff1d4;
+      padding: 14px 16px;
+      color: #594017;
+    }
+
+    .warning {
+      border-left: 5px solid #c65a42;
+      background: var(--red);
+      padding: 14px 16px;
+      color: #663422;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      margin: 14px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 920px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #eadfce;
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f0dfc8;
+      color: #332414;
+      font-weight: 700;
+    }
+
+    tr:last-child td {
+      border-bottom: none;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin: 2px 4px 2px 0;
+      color: #263340;
+      background: #eee4d1;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tag.raw { background: var(--raw); }
+    .tag.silver { background: var(--silver); }
+    .tag.gold { background: var(--gold); }
+    .tag.meta { background: var(--green); }
+    .tag.block { background: var(--red); }
+    .tag.warn { background: var(--warn); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 12px;
+      margin-top: 16px;
+    }
+
+    .flow-item {
+      min-height: 118px;
+      padding: 15px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fffdf8;
+      position: relative;
+    }
+
+    .flow-item::after {
+      content: "";
+      position: absolute;
+      right: 16px;
+      top: 20px;
+      width: 10px;
+      height: 10px;
+      border-top: 2px solid var(--accent-2);
+      border-right: 2px solid var(--accent-2);
+      transform: rotate(45deg);
+      opacity: 0.55;
+    }
+
+    .flow-title {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 800;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .ok {
+      color: #286b2f;
+      font-weight: 700;
+    }
+
+    .danger {
+      color: #a33d2c;
+      font-weight: 700;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 第一期 Low Level Design</h1>
+    <p class="subtitle">
+      本文档是《Dagster 第一期方案设计：市场广度最小闭环》的低层技术设计。
+      它用于指导下一步编码落地，重点写清模块结构、asset/resource/check/partition 的实现边界、DuckDB 读写口径、metadata 输出和验证门禁。
+    </p>
+    <div class="meta-grid">
+      <div class="chip"><strong>项目目录</strong><code>lake_console/orchestrator</code></div>
+      <div class="chip"><strong>Lake Root</strong><code>/Volumes/datasource/data_lake</code></div>
+      <div class="chip"><strong>第一期范围</strong>trade calendar、stock basic、stock daily、market breadth</div>
+      <div class="chip"><strong>明确不做</strong>Tushare 同步、ClickHouse serving、prod release、自动调度</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 依据与边界</h2>
+    <div class="callout">
+      本低层设计只承接第一期已确认方案，不扩展新需求。第一期 raw 数据来自已经准备好的新湖 raw 文件；Dagster 负责登记、校验、标准化、计算和观测。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>依据</th>
+          <th>用途</th>
+          <th>本文采用口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>lake_console/dagster-phase-1-design.html</code></td>
+          <td>第一期业务与数据资产方案</td>
+          <td>本文所有 asset、path、字段、check 只从该方案下钻，不另造资产范围。</td>
+        </tr>
+        <tr>
+          <td><code>lake_console/orchestrator/AGENTS.md</code></td>
+          <td>Dagster 目录开发门禁</td>
+          <td>raw/silver/gold 三层、Tushare 事实核验、DuckDB hive partition 读取门禁。</td>
+        </tr>
+        <tr>
+          <td><a href="https://docs.dagster.io/guides/build/assets">Dagster 官方 assets 文档</a></td>
+          <td>资产定义依据</td>
+          <td>使用 <code>@dg.asset</code> 表达长期存在、可观测、可重跑的数据资产。</td>
+        </tr>
+        <tr>
+          <td><a href="https://docs.dagster.io/guides/build/external-resources/defining-resources">Dagster 官方 resources 文档</a></td>
+          <td>外部能力注入依据</td>
+          <td>使用 resource 管理 Lake Root 与 DuckDB，不把路径和连接逻辑散落到 asset 内部。</td>
+        </tr>
+        <tr>
+          <td><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Dagster 官方 partitions</a> / <a href="https://docs.dagster.io/guides/test/asset-checks">checks 文档</a></td>
+          <td>分区与质量检查依据</td>
+          <td>交易日使用 dynamic partitions；质量检查使用 asset checks，阻断和观察分开。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>第一期不进入实现的内容</h3>
+    <pre><code>不实现 TushareResource
+不调用 Tushare 接口
+不设计 raw 更新流程
+不写 ClickHouse serving
+不写 prod release package
+不新建 goldenshare_lake_meta 表
+不迁移更多数据集
+不复用旧 lake_jobs / duckdb_compute 运行账本</code></pre>
+  </section>
+
+  <section>
+    <h2>2. 目标文件结构</h2>
+    <p>
+      脚手架已经通过 <code>load_from_defs_folder</code> 加载 <code>src/orchestrator/defs</code>。
+      第一期开工时只在这个目录下新增 Dagster 定义文件，避免在仓库其他位置散落编排逻辑。
+    </p>
+    <pre><code>lake_console/orchestrator/
+  src/orchestrator/
+    definitions.py
+    defs/
+      __init__.py
+      partitions.py
+      resources.py
+      paths.py
+      duckdb_sql.py
+      assets/
+        __init__.py
+        calendar.py
+        basic.py
+        quote.py
+        breadth.py
+      checks/
+        __init__.py
+        calendar_checks.py
+        basic_checks.py
+        quote_checks.py
+        breadth_checks.py
+      jobs/
+        __init__.py
+        calendar_trade_day_partitions.py
+  tests/
+    test_phase1_paths.py
+    test_phase1_sql_contracts.py</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>文件</th>
+          <th>职责</th>
+          <th>禁止</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>partitions.py</code></td>
+          <td>定义 <code>cn_a_trade_days</code> 动态分区。</td>
+          <td>不得手写自然日或节假日规则。</td>
+        </tr>
+        <tr>
+          <td><code>resources.py</code></td>
+          <td>定义 <code>LakeRootResource</code>、<code>DuckDBResource</code>。</td>
+          <td>不得在 code location 加载时因为移动盘缺失直接崩溃。</td>
+        </tr>
+        <tr>
+          <td><code>paths.py</code></td>
+          <td>集中生成 raw/silver/gold 路径。</td>
+          <td>不得出现旧湖路径或 <code>manifest</code>、<code>research</code>、<code>duckdb_compute</code>。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_sql.py</code></td>
+          <td>集中保存 SQL 片段和 SQL 构造函数。</td>
+          <td>不得把复杂 SQL 字符串散落在多个 asset 函数里。</td>
+        </tr>
+        <tr>
+          <td><code>assets/*.py</code></td>
+          <td>定义 raw、silver、gold 数据资产。</td>
+          <td>不得把同一个 asset 在多个页面或主题文件中重复定义。</td>
+        </tr>
+        <tr>
+          <td><code>checks/*.py</code></td>
+          <td>定义一个属性一个 check 的质量检查。</td>
+          <td>不得写大而全的混合 check。</td>
+        </tr>
+        <tr>
+          <td><code>jobs/calendar_trade_day_partitions.py</code></td>
+          <td>定义手动同步交易日 dynamic partitions 的 job/op。</td>
+          <td>不得把它包装成 raw/silver/gold 数据资产；不得把其他数据集的 partition 同步逻辑塞进这个文件。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>文件命名和组织门禁</h3>
+    <pre><code>命名原则：
+  文件名必须体现数据域或资产职责
+  一个文件只承接一个清晰主题
+  后续新增 partition 同步时，按数据集或数据域新增文件
+
+允许：
+  jobs/calendar_trade_day_partitions.py
+  jobs/quote_stock_daily_partitions.py
+  jobs/minute_stock_bar_partitions.py
+
+禁止：
+  jobs/sync_partitions.py
+  jobs/jobs.py
+  jobs/utils.py
+  assets/common.py
+  checks/all_checks.py</code></pre>
+  </section>
+
+  <section>
+    <h2>3. 资产图与执行顺序</h2>
+    <div class="flow">
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_trade_calendar</span>
+        登记并校验新湖 raw 交易日历文件。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag silver">silver</span> silver_trade_calendar</span>
+        将 <code>cal_date</code> 标准化为 date 类型 <code>trade_date</code>。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag meta">job</span> sync_cn_a_trade_day_partitions</span>
+        读取 silver 交易日历，注册 2026-04 开市交易日。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_stock_basic</span>
+        登记并校验 stock basic raw 文件。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag silver">silver</span> silver_stock_basic</span>
+        标准化生命周期字段，提供上市股票集合观察依据。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_stock_daily[trade_date]</span>
+        按交易日分区登记并校验 stock daily raw 文件。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag silver">silver</span> silver_stock_daily[trade_date]</span>
+        标准化字段、类型、重复行和主键冲突。
+      </div>
+      <div class="flow-item">
+        <span class="flow-title"><span class="tag gold">gold</span> gold_market_breadth_daily[trade_date]</span>
+        计算涨跌分布和红盘率。
+      </div>
+    </div>
+
+    <h3>手动执行顺序</h3>
+    <pre><code>1. materialize raw_tushare_trade_calendar
+2. materialize silver_trade_calendar
+3. run sync_cn_a_trade_day_partitions
+4. materialize raw_tushare_stock_basic
+5. materialize silver_stock_basic
+6. materialize raw_tushare_stock_daily for 2026-04 trade days
+7. materialize silver_stock_daily for 2026-04 trade days
+8. materialize gold_market_breadth_daily for 2026-04 trade days
+9. review materialization metadata and asset checks in Dagster UI</code></pre>
+  </section>
+
+  <section>
+    <h2>4. Resource 低层设计</h2>
+    <h3>LakeRootResource</h3>
+    <pre><code>class LakeRootResource(dg.ConfigurableResource):
+    root_path: str = "/Volumes/datasource/data_lake"
+
+    def root(self) -> Path:
+        return Path(self.root_path)
+
+    def ensure_available_for_run(self) -> None:
+        # asset 执行时检查，不在 dg dev 加载 code location 时检查
+        # 必须存在 root/raw、root/silver、root/gold
+
+    def raw_path(self, *parts: str) -> Path:
+        # 只能返回 root/raw 下路径
+
+    def silver_path(self, *parts: str) -> Path:
+        # 只能返回 root/silver 下路径
+
+    def gold_path(self, *parts: str) -> Path:
+        # 只能返回 root/gold 下路径</code></pre>
+    <div class="callout">
+      <code>LakeRootResource</code> 只管理新湖三层路径。
+      旧湖路径只允许作为人工数据准备来源，不进入 asset path、resource 配置或 Dagster metadata 的正式路径口径。
+    </div>
+
+    <h3>DuckDBResource</h3>
+    <pre><code>class DuckDBResource(dg.ConfigurableResource):
+    # 第一期使用 in-memory connection，不引入持久 DuckDB 数据库文件
+    local_temp_directory: str | None = None
+
+    @contextmanager
+    def connect(self):
+        # duckdb.connect(":memory:")
+        # 如配置 local_temp_directory，则 SET temp_directory
+        # 每次 asset/check 使用独立连接，避免跨 run 状态污染</code></pre>
+    <div class="warning">
+      第一期开工需要给 <code>pyproject.toml</code> 增加 <code>duckdb</code> 依赖。
+      当前项目已安装 Dagster 与 dagster-postgres，但 Python 环境里还没有 <code>duckdb</code> 包。
+      是否配置 DuckDB 本地临时目录，需要单独按配置项门禁确认；本文不擅自指定新的隐藏目录。
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 路径与字段契约</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Asset</th>
+          <th>物理路径</th>
+          <th>文件内部字段契约</th>
+          <th>读取门禁</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>raw/tushare/trade_calendar/full/part-000.parquet</code></td>
+          <td><code>cal_date/pretrade_date</code> 为 <code>YYYYMMDD</code> 字符串；<code>is_open</code> 为 <code>0/1</code> 整数。</td>
+          <td>无 Hive 分区目录影响。</td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><code>silver/calendar/trade_calendar/full/part-000.parquet</code></td>
+          <td><code>trade_date/pretrade_date</code> 为 date；<code>is_open</code> 为 boolean。</td>
+          <td>以 silver 作为 A 股交易日事实唯一口径。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td><code>raw/tushare/stock_basic/full/part-000.parquet</code></td>
+          <td>Tushare 显式字段 17 列，日期字段保持源站字符串。</td>
+          <td>未来 Tushare 同步时必须显式请求完整字段，不用默认字段。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver/basic/stock_basic/full/part-000.parquet</code></td>
+          <td><code>list_date/delist_date</code> 转 date；保留生命周期判断字段。</td>
+          <td>用于观察 stock daily 与理论上市股票集合差异。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>文件内 <code>trade_date</code> 为 <code>YYYYMMDD</code> 字符串；字段名为 <code>change</code>。</td>
+          <td>核验文件内部字段时必须 <code>hive_partitioning=false</code>。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td><code>trade_date</code> 为 date；<code>change</code> 改名为 <code>change_amount</code>。</td>
+          <td>与 partition key 比较时统一转 date 后比较。</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold/breadth/market_breadth_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>一日一行，输出涨跌分布和红盘率。</td>
+          <td>只依赖 <code>silver_stock_daily</code>，不额外过滤股票池。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. Asset 实现细节</h2>
+    <h3>通用 materialization metadata</h3>
+    <pre><code>metadata = {
+  "path": target_path,
+  "row_count": row_count,
+  "columns": column_names,
+  "partition_key": context.partition_key,      # 分区资产才有
+  "layer": "raw" | "silver" | "gold",
+  "data_contract": "source_mirror" | "standardized" | "business_fact"
+}</code></pre>
+
+    <h3>raw_tushare_trade_calendar</h3>
+    <pre><code>@dg.asset(key="raw_tushare_trade_calendar")
+def raw_tushare_trade_calendar(lake_root, duckdb) -> dg.MaterializeResult:
+    path = lake_root.raw_path("tushare", "trade_calendar", "full", "part-000.parquet")
+    lake_root.ensure_available_for_run()
+    assert_file_exists(path)
+    schema = duckdb_describe(path)
+    row_count = duckdb_count(path)
+    return dg.MaterializeResult(metadata={
+        "path": str(path),
+        "row_count": row_count,
+        "columns": schema.columns,
+        "raw_contract": "trade_cal source mirror: cal_date/pretrade_date YYYYMMDD, is_open 0/1"
+    })</code></pre>
+
+    <h3>silver_trade_calendar</h3>
+    <pre><code>SELECT
+  exchange,
+  strptime(cal_date, '%Y%m%d')::DATE AS trade_date,
+  CASE WHEN is_open = 1 THEN true ELSE false END AS is_open,
+  CASE
+    WHEN pretrade_date IS NULL OR pretrade_date = '' THEN NULL
+    ELSE strptime(pretrade_date, '%Y%m%d')::DATE
+  END AS pretrade_date
+FROM read_parquet(:raw_path)</code></pre>
+
+    <h3>raw_tushare_stock_basic</h3>
+    <pre><code>@dg.asset(key="raw_tushare_stock_basic")
+def raw_tushare_stock_basic(lake_root, duckdb) -> dg.MaterializeResult:
+    path = lake_root.raw_path("tushare", "stock_basic", "full", "part-000.parquet")
+    # 只登记和校验现有 raw 文件；第一期不调用 Tushare
+    # metadata 必须包含 path、row_count、columns、list_status_distribution</code></pre>
+
+    <h3>silver_stock_basic</h3>
+    <pre><code>SELECT
+  ts_code,
+  symbol,
+  name,
+  area,
+  industry,
+  market,
+  exchange,
+  list_status,
+  CASE WHEN list_date IS NULL OR list_date = '' THEN NULL ELSE strptime(list_date, '%Y%m%d')::DATE END AS list_date,
+  CASE WHEN delist_date IS NULL OR delist_date = '' THEN NULL ELSE strptime(delist_date, '%Y%m%d')::DATE END AS delist_date,
+  is_hs
+FROM read_parquet(:raw_path)</code></pre>
+
+    <h3>raw_tushare_stock_daily</h3>
+    <pre><code>@dg.asset(
+    key="raw_tushare_stock_daily",
+    partitions_def=cn_a_trade_days,
+)
+def raw_tushare_stock_daily(context, lake_root, duckdb) -> dg.MaterializeResult:
+    partition_key = context.partition_key          # YYYY-MM-DD
+    path = lake_root.raw_path("tushare", "stock_daily", f"trade_date={partition_key}", "part-000.parquet")
+    # 关键：读文件内部字段必须 hive_partitioning=false
+    df_contract = read_parquet(path, hive_partitioning=False)
+    # 文件内 trade_date 是 YYYYMMDD 字符串，需要归一化后与 partition_key 比较
+    # 第一期开工缺文件直接失败</code></pre>
+
+    <h3>silver_stock_daily</h3>
+    <pre><code>WITH raw AS (
+  SELECT *
+  FROM read_parquet(:raw_path, hive_partitioning=false)
+),
+conflicts AS (
+  SELECT
+    ts_code,
+    trade_date,
+    COUNT(DISTINCT hash(open, high, low, close, pre_close, change, pct_chg, vol, amount)) AS fact_versions
+  FROM raw
+  GROUP BY ts_code, trade_date
+  HAVING fact_versions > 1
+),
+deduped AS (
+  SELECT DISTINCT *
+  FROM raw
+)
+SELECT
+  ts_code,
+  strptime(trade_date, '%Y%m%d')::DATE AS trade_date,
+  open,
+  high,
+  low,
+  close,
+  pre_close,
+  change AS change_amount,
+  pct_chg,
+  vol,
+  amount
+FROM deduped</code></pre>
+    <div class="warning">
+      如果 <code>conflicts</code> 有行，asset 必须失败，不能自动挑一条事实。
+      完全重复行可以 <code>distinct</code>，但必须输出 <code>duplicate_removed_count</code>、<code>duplicate_key_count</code>、<code>duplicate_sample_rows</code>。
+    </div>
+
+    <h3>gold_market_breadth_daily</h3>
+    <pre><code>SELECT
+  trade_date,
+  SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END) AS up_count,
+  SUM(CASE WHEN pct_chg < 0 THEN 1 ELSE 0 END) AS down_count,
+  SUM(CASE WHEN pct_chg = 0 THEN 1 ELSE 0 END) AS flat_count,
+  COUNT(*) AS total_count,
+  CASE
+    WHEN COUNT(*) = 0 THEN 0.0
+    ELSE ROUND(SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END) * 100.0 / COUNT(*), 2)
+  END AS red_rate
+FROM read_parquet(:silver_path)
+WHERE trade_date = :partition_date
+  AND pct_chg IS NOT NULL
+GROUP BY trade_date</code></pre>
+  </section>
+
+  <section>
+    <h2>7. Dynamic Partitions 设计</h2>
+    <p>
+      <code>cn_a_trade_days</code> 是 Dagster dynamic partitions 定义。它保存 Dagster 认识的交易日 partition keys。
+      第一期开工时不从自然日推导，也不手写节假日；只从 <code>silver_trade_calendar</code> 读取 <code>SSE is_open=true</code> 的日期。
+    </p>
+    <pre><code>cn_a_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_trade_days")</code></pre>
+
+    <h3>手动同步 job</h3>
+    <pre><code>@dg.op
+def sync_cn_a_trade_day_partitions(context, lake_root, duckdb):
+    silver_path = lake_root.silver_path("calendar", "trade_calendar", "full", "part-000.parquet")
+    keys = duckdb_query("""
+      SELECT strftime(trade_date, '%Y-%m-%d') AS partition_key
+      FROM read_parquet(?)
+      WHERE exchange = 'SSE'
+        AND is_open = true
+        AND trade_date BETWEEN DATE '2026-04-01' AND DATE '2026-04-30'
+      ORDER BY trade_date
+    """, [silver_path])
+
+    context.instance.add_dynamic_partitions("cn_a_trade_days", keys)
+    context.log.info(f"registered {len(keys)} cn_a_trade_days partition keys")</code></pre>
+
+    <div class="callout">
+      这个 job 只是注册 Dagster partition keys，不产出 raw/silver/gold 数据文件，所以不定义成数据资产。
+    </div>
+
+    <h3>持久 instance 门禁</h3>
+    <p>
+      注册 dynamic partitions 时，必须使用正式 Dagster instance。
+      如果直接调用 <code>job.execute_in_process()</code> 且不传 <code>instance</code>，Dagster 会使用临时 instance；
+      job 可能显示成功，但 partition keys 不会进入本地正式 <code>DAGSTER_HOME</code> 对应的持久状态。
+    </p>
+    <pre><code>本地验证必须使用：
+  os.environ["DAGSTER_HOME"] = "/Users/congming/.goldenshare/dagster_home"
+  instance = dg.DagsterInstance.get()
+  job.execute_in_process(instance=instance, resources={...})
+
+验证注册结果必须从同一个正式 instance 读取：
+  keys = instance.get_dynamic_partitions("cn_a_trade_days")
+
+禁止：
+  1. 用默认 execute_in_process() 的临时 instance 验证 dynamic partition 注册
+  2. 看到 job success=True 就认定 partition keys 已持久注册
+  3. 不读取正式 DAGSTER_HOME 对应 instance 就进入下游分区资产开发</code></pre>
+  </section>
+
+  <section>
+    <h2>8. Asset Checks 低层设计</h2>
+    <p>
+      每个 check 只验证一个属性。阻断 check 使用 blocking 语义；观察 check 不阻断下游运行，但必须在 metadata 中输出差异统计和样本。
+    </p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Asset</th>
+          <th>Check</th>
+          <th>实现要点</th>
+          <th>门禁</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td><code>raw_trade_calendar_required_columns</code></td>
+          <td>必须包含 <code>exchange/cal_date/is_open/pretrade_date</code>。</td>
+          <td><span class="tag block">阻断</span></td>
+        </tr>
+        <tr>
+          <td><code>silver_trade_calendar</code></td>
+          <td><code>silver_trade_calendar_has_open_days_in_poc_range</code></td>
+          <td>2026-04 范围内存在 <code>SSE is_open=true</code> 的交易日。</td>
+          <td><span class="tag block">阻断</span></td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_basic</code></td>
+          <td><code>silver_stock_basic_known_list_status_values</code></td>
+          <td><code>list_status</code> 只允许 <code>L/D/P/G</code>。</td>
+          <td><span class="tag block">阻断</span></td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>raw_stock_daily_partition_date_matches</code></td>
+          <td>文件内 <code>YYYYMMDD</code> 与 partition key 归一化为 date 后一致。</td>
+          <td><span class="tag block">阻断</span></td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_conflicting_duplicate_absent</code></td>
+          <td>同一 <code>ts_code + trade_date</code> 不允许事实字段冲突。</td>
+          <td><span class="tag block">阻断</span></td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_row_count_matches_listed_stock_count</code></td>
+          <td>输出 <code>daily_count/listed_stock_count/diff_count</code>。</td>
+          <td><span class="tag warn">观察</span></td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_daily_covers_listed_stock_universe</code></td>
+          <td>输出 <code>missing_count/extra_count/missing_sample_ts_codes/extra_sample_ts_codes</code>。</td>
+          <td><span class="tag warn">观察</span></td>
+        </tr>
+        <tr>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><code>gold_market_breadth_matches_silver_recompute</code></td>
+          <td>从 silver 重新聚合，和 gold 结果一致。</td>
+          <td><span class="tag block">阻断</span></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>check metadata 格式</h3>
+    <pre><code>AssetCheckResult(
+  passed=passed,
+  metadata={
+    "row_count": ...,
+    "diff_count": ...,
+    "sample_rows": ...,
+    "sample_keys": ...
+  }
+)</code></pre>
+  </section>
+
+  <section>
+    <h2>9. 写文件与原子替换策略</h2>
+    <p>
+      silver/gold asset 会生成新的 parquet 文件。写入时使用同目录临时文件，然后原子替换正式文件。
+      这样可以避免 run 中途失败时留下半个正式文件。
+    </p>
+    <pre><code>target = .../part-000.parquet
+tmp = .../part-000.parquet.tmp
+
+COPY (SELECT ...) TO tmp (FORMAT PARQUET)
+validate tmp row count and schema
+os.replace(tmp, target)</code></pre>
+
+    <div class="warning">
+      raw 文件第一期不由 Dagster 生产，只登记和校验。
+      silver/gold 可以由 Dagster 写入；任何写入路径必须由 <code>LakeRootResource</code> 生成，禁止字符串拼接到旧湖目录。
+    </div>
+  </section>
+
+  <section>
+    <h2>10. 测试与验证门禁</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>验证项</th>
+          <th>命令或方式</th>
+          <th>通过标准</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Dagster definitions 加载</td>
+          <td><code>uv run dg check defs</code></td>
+          <td>code location 能加载，移动盘缺失不应导致导入失败。</td>
+        </tr>
+        <tr>
+          <td>raw schema 核验</td>
+          <td><code>read_parquet(path, hive_partitioning=false)</code></td>
+          <td>stock daily 文件内部 <code>trade_date</code> 是 <code>YYYYMMDD</code> 字符串。</td>
+        </tr>
+        <tr>
+          <td>交易日 partitions</td>
+          <td>运行 <code>sync_cn_a_trade_day_partitions</code></td>
+          <td>使用正式 <code>DAGSTER_HOME</code> 对应 instance 注册，只注册 2026-04 的 <code>SSE is_open=true</code> 日期。</td>
+        </tr>
+        <tr>
+          <td>silver/gold 产出</td>
+          <td>materialize 2026-04 单日样本，再扩到全月</td>
+          <td>metadata 中可见 path、row_count、columns、重复行统计、完整性观察差异。</td>
+        </tr>
+        <tr>
+          <td>asset checks 回归</td>
+          <td>使用 <code>Definitions</code> 注册 assets 与 asset checks，再通过 asset job / selection 执行。</td>
+          <td>checks 必须来自正式 Dagster definitions，不能只靠临时脚本 import。</td>
+        </tr>
+        <tr>
+          <td>文档一致性</td>
+          <td>对照本文与第一期方案文档</td>
+          <td>字段、路径、check 名称、阻断口径一致。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>Dagster materialize 与 asset checks 门禁</h3>
+    <p>
+      当前 Dagster 版本的 <code>dagster.materialize()</code> 是轻量脚本验证 API，不接受 <code>asset_checks=</code> 参数。
+      它可以用于只验证 assets 的临时运行，但不能作为完整的 asset + checks 验收模型。
+    </p>
+    <pre><code>正确验收模型：
+  1. 所有 assets 和 asset checks 必须注册进 Definitions
+  2. 通过 Dagster asset job / asset selection / implicit global asset job 执行
+  3. schedule、sensor、backfill、自动化也必须基于正式 Definitions 解析
+
+禁止：
+  1. 只在测试脚本里临时 import checks，却不让 load_from_defs_folder 自动发现
+  2. 把 dagster.materialize() 当成完整的生产运行模型
+  3. 用只跑 asset 的结果替代 asset checks 验收
+
+允许：
+  1. dagster.materialize() 可用于只跑 asset 的小范围冒烟验证
+  2. asset checks 回归必须使用 Definitions + asset job / selection</code></pre>
+  </section>
+
+  <section>
+    <h2>11. 开发切片建议</h2>
+    <pre><code>Slice 1:
+  paths.py
+  resources.py
+  partitions.py
+  raw_tushare_trade_calendar
+  silver_trade_calendar
+  calendar checks
+
+Slice 2:
+  sync_cn_a_trade_day_partitions job
+  verify 2026-04 dynamic partitions
+
+Slice 3:
+  raw_tushare_stock_basic
+  silver_stock_basic
+  stock basic checks
+
+Slice 4:
+  raw_tushare_stock_daily
+  silver_stock_daily
+  duplicate/conflict metadata
+  stock daily checks
+
+Slice 5:
+  gold_market_breadth_daily
+  breadth checks
+  end-to-end materialization review</code></pre>
+    <div class="callout">
+      每个 slice 都应该先跑最小样本，再扩大到 2026 年 4 月全月。
+      不要一次性把所有资产和 checks 堆进去。
+    </div>
+  </section>
+
+  <section>
+    <h2>12. 已知风险与后续决策</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>风险</th>
+          <th>当前处理</th>
+          <th>后续决策点</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>DuckDB Python 依赖尚未加入</td>
+          <td>LLD 明确需要 <code>duckdb</code>。</td>
+          <td>正式编码前执行 <code>uv add duckdb</code>，并同步 <code>uv.lock</code>。</td>
+        </tr>
+        <tr>
+          <td>DuckDB Hive 分区自动推断</td>
+          <td>AGENTS 已写门禁，本文再次写入 raw 读取口径。</td>
+          <td>实现 helper，默认显式传入 <code>hive_partitioning=false</code> 做 raw contract 核验。</td>
+        </tr>
+        <tr>
+          <td>stock daily 与 listed universe 存在差异</td>
+          <td>第一期做观察 check，输出差异统计和样本。</td>
+          <td>收集差异后再决定是否升级为阻断。</td>
+        </tr>
+        <tr>
+          <td>未来接入 Tushare 同步</td>
+          <td>raw 字段已按源站镜像口径设计。</td>
+          <td>第二期再引入 <code>TushareResource</code>、同步请求、分页与 source metadata。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+</main>
+</body>
+</html>

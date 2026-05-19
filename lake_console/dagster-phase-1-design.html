@@ -707,7 +707,7 @@
         <tr>
           <td>raw</td>
           <td><code>exchange</code>、<code>cal_date</code>、<code>is_open</code>、<code>pretrade_date</code></td>
-          <td>按 Tushare <code>trade_cal</code> 文档字段理解。<code>pretrade_date</code> 若存在则保留并标准化。</td>
+          <td>按 Tushare <code>trade_cal</code> 源站镜像口径保留。<code>cal_date</code>、<code>pretrade_date</code> 为 <code>YYYYMMDD</code> 字符串，<code>is_open</code> 为 <code>0/1</code> 整数。</td>
         </tr>
         <tr>
           <td>silver</td>
@@ -764,7 +764,7 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
         <tr>
           <td>raw</td>
           <td><code>ts_code</code>、<code>trade_date</code>、<code>open</code>、<code>high</code>、<code>low</code>、<code>close</code>、<code>pre_close</code>、<code>change</code>、<code>pct_chg</code>、<code>vol</code>、<code>amount</code></td>
-          <td>按 Tushare A 股日线文档字段。raw 层字段为 <code>change</code>，不是 <code>change_amount</code>。</td>
+          <td>按 Tushare A 股日线源站镜像口径保留。文件内 <code>trade_date</code> 为 <code>YYYYMMDD</code> 字符串；raw 层字段为 <code>change</code>，不是 <code>change_amount</code>。</td>
         </tr>
         <tr>
           <td>silver</td>
@@ -852,7 +852,7 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
         <tr>
           <td><code>raw_tushare_trade_calendar</code></td>
           <td><code>raw_trade_calendar_required_columns</code></td>
-          <td>包含 <code>exchange</code>、<code>cal_date</code>、<code>is_open</code>。</td>
+          <td>包含 <code>exchange</code>、<code>cal_date</code>、<code>is_open</code>、<code>pretrade_date</code>。</td>
           <td>阻断</td>
         </tr>
         <tr>
@@ -954,7 +954,7 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
         <tr>
           <td><code>raw_tushare_stock_daily</code></td>
           <td><code>raw_stock_daily_partition_date_matches</code></td>
-          <td>文件内 <code>trade_date</code> 只等于当前 <code>partition_key</code>。</td>
+          <td>文件内 <code>YYYYMMDD</code> 字符串格式的 <code>trade_date</code> 与当前 <code>partition_key</code> 归一化为同一 date 后必须一致。</td>
           <td>阻断</td>
         </tr>
         <tr>
@@ -984,7 +984,7 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
         <tr>
           <td><code>silver_stock_daily</code></td>
           <td><code>silver_stock_daily_partition_date_matches</code></td>
-          <td>文件内 <code>trade_date</code> 只等于当前 <code>partition_key</code>。</td>
+          <td>文件内 date 类型的 <code>trade_date</code> 与当前 <code>partition_key</code> 归一化为同一 date 后必须一致。</td>
           <td>阻断</td>
         </tr>
         <tr>
@@ -1054,9 +1054,30 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
     <h3>重复行上报</h3>
     <p>
       <code>silver_stock_daily</code> 允许对完全重复行做 distinct，但不能静默处理。
-      asset materialization metadata 必须上报 <code>duplicate_removed_count</code>。
-      同一 <code>ts_code + trade_date</code> 出现字段内容冲突时，直接失败。
+      完全重复行是“可自动清理的问题”，第一期不阻断，但 asset materialization metadata 必须暴露差异统计和样本。
+      同一 <code>ts_code + trade_date</code> 出现字段内容冲突，是“同一事实主键下存在多个事实版本”，直接失败。
     </p>
+    <pre><code>完全重复行处理：
+  处理方式：
+    distinct 后继续产出 silver_stock_daily
+  阻断行为：
+    不阻断
+  asset materialization metadata 必须输出：
+    duplicate_removed_count: 被 distinct 移除的完全重复行数
+    duplicate_key_count: 出现完全重复的 ts_code + trade_date 主键数量
+    duplicate_sample_rows: 完全重复行样本，至少包含 ts_code、trade_date、open、high、low、close、pre_close、change_amount、pct_chg、vol、amount
+
+字段内容冲突处理：
+  判定方式：
+    同一 ts_code + trade_date 下，除完全重复外，任一事实字段出现不同值
+  阻断行为：
+    阻断，silver_stock_daily materialization 失败
+  失败 metadata / check metadata 必须输出：
+    conflict_key_count: 出现字段内容冲突的 ts_code + trade_date 主键数量
+    conflict_sample_keys: 冲突主键样本，至少包含 ts_code、trade_date
+    conflict_sample_rows: 冲突行样本，必须展示同一主键下的不同字段值
+  禁止：
+    禁止自动选择第一行、最后一行、最大值、最小值或任意一行作为正确事实</code></pre>
 
     <h3>stock_basic 完整性观察 check</h3>
     <p>
