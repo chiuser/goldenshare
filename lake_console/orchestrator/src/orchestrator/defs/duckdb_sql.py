@@ -89,6 +89,15 @@ STOCK_DAILY_SILVER_REQUIRED_COLUMNS = (
     "amount",
 )
 
+MARKET_BREADTH_DAILY_COLUMNS = (
+    "trade_date",
+    "up_count",
+    "down_count",
+    "flat_count",
+    "total_count",
+    "red_rate",
+)
+
 
 def duckdb_string(value: str | Path) -> str:
     escaped = str(value).replace("'", "''")
@@ -172,6 +181,29 @@ def silver_stock_daily_select(raw_path: Path) -> str:
     return f"""
 SELECT DISTINCT *
 FROM ({stock_daily_normalized_select(raw_path)}) normalized
+"""
+
+
+def market_breadth_daily_select(silver_stock_daily_path: Path, partition_key: str) -> str:
+    partition_date = f"DATE {duckdb_string(partition_key)}"
+    up_count = "COALESCE(SUM(CASE WHEN pct_chg > 0 THEN 1 ELSE 0 END), 0)"
+    down_count = "COALESCE(SUM(CASE WHEN pct_chg < 0 THEN 1 ELSE 0 END), 0)"
+    flat_count = "COALESCE(SUM(CASE WHEN pct_chg = 0 THEN 1 ELSE 0 END), 0)"
+    total_count = "COUNT(*)"
+    return f"""
+SELECT
+  {partition_date} AS trade_date,
+  CAST({up_count} AS BIGINT) AS up_count,
+  CAST({down_count} AS BIGINT) AS down_count,
+  CAST({flat_count} AS BIGINT) AS flat_count,
+  CAST({total_count} AS BIGINT) AS total_count,
+  CASE
+    WHEN {total_count} = 0 THEN 0.0
+    ELSE ROUND(({up_count}) * 100.0 / {total_count}, 2)
+  END AS red_rate
+FROM {read_parquet(silver_stock_daily_path, hive_partitioning=False)}
+WHERE trade_date = {partition_date}
+  AND pct_chg IS NOT NULL
 """
 
 

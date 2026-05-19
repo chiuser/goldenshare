@@ -65,3 +65,14 @@ def silver_stock_daily_path(root: Path, partition_key: str) -> Path:
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
+
+
+def gold_market_breadth_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "breadth",
+        "market_breadth_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
