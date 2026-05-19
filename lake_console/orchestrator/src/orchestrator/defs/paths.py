@@ -43,3 +43,25 @@ def raw_stock_basic_path(root: Path) -> Path:
 
 def silver_stock_basic_path(root: Path) -> Path:
     return lake_path(root, SILVER, "basic", "stock_basic", "full", "part-000.parquet")
+
+
+def raw_stock_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "stock_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def silver_stock_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "stock_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )

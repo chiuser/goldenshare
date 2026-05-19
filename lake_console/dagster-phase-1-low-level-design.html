@@ -963,6 +963,51 @@ os.replace(tmp, target)</code></pre>
   1. dagster.materialize() 可用于只跑 asset 的小范围冒烟验证
   2. asset checks 回归必须使用 Definitions + asset job / selection
   3. UI 验收必须通过 UI materialize，或绑定正式 DAGSTER_HOME 对应 instance</code></pre>
+
+    <h3>Slice 4 全月验证记录</h3>
+    <p>
+      Slice 4 按“先核验 raw 文件，再单日，再全月”的方式验证。
+      2026 年 4 月共有 21 个 <code>SSE is_open=true</code> 交易日；对应
+      <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>
+      文件全部存在，raw 文件内部字段齐全，文件内部 <code>trade_date</code> 与 partition key 一致。
+    </p>
+    <pre><code>验证顺序：
+  1. 从 silver_trade_calendar 读取 2026-04 已注册交易日
+  2. 检查 21 个 raw stock_daily 分区文件存在
+  3. 检查 raw 必需字段与文件内部 trade_date
+  4. materialize 2026-04-01 单日 raw/silver stock_daily
+  5. 通过 Definitions.resolve_implicit_global_asset_job_def() 跑单日 assets + checks
+  6. 对 2026-04 全月 21 个 partition 逐日执行 assets + checks
+
+验证结果：
+  partitions: 21
+  blocking failures: 0
+  每个交易日 check events: 13
+  每个交易日 WARN: 2
+  WARN checks:
+    silver_stock_daily_row_count_matches_listed_stock_count
+    silver_stock_daily_covers_listed_stock_universe</code></pre>
+
+    <h3>Slice 4 WARN 解释</h3>
+    <p>
+      两个 WARN 都来自 stock basic 完整性观察 check，不代表 stock daily materialization 失败。
+      它们的含义是：用 <code>silver_stock_basic</code> 的生命周期字段推导“理论上市股票集合”，再和当天
+      <code>silver_stock_daily</code> 实际有日线的股票集合对比。
+    </p>
+    <pre><code>理论上市股票集合：
+  list_date <= trade_date
+  and (delist_date is null or delist_date > trade_date)
+
+2026-04 观察结果：
+  daily_count 范围: 5460 ~ 5498
+  daily_count - listed_stock_count 范围: -52 ~ -6
+  missing_count 范围: 6 ~ 52
+  extra_count: 0
+
+解释：
+  missing_count 表示“按 stock_basic 生命周期看理论上应该有日线，但当天 stock_daily 中没有出现”的股票数量。
+  当前差异多出现在 ST、*ST 或其他可能存在停牌/特殊交易状态的股票上。
+  因为第一期尚未引入停牌、暂停上市、特殊交易状态等更细数据，这两个 check 保持 WARN，不升级为阻断。</code></pre>
   </section>
 
   <section>

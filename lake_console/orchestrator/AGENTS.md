@@ -65,6 +65,18 @@ https://docs.dagster.io/guides/test/asset-checks
 6. 禁止只在临时测试脚本里 import checks，却不让 Dagster code location 正式加载。
 7. 禁止用只跑 asset 的 `dagster.materialize()` 结果替代 asset checks 验收。
 
+### Partitioned Asset Checks API 门禁
+
+对 partitioned asset 增加 asset checks 时，优先让 check 绑定资产对象，不要给 check 手写 `partitions_def`。
+
+规则：
+
+1. 推荐写法：`@dg.asset_check(asset=silver_stock_daily, blocking=True)`。
+2. 避免写法：`@dg.asset_check(asset="silver_stock_daily", partitions_def=cn_a_trade_days, ...)`。
+3. 原因：当前 Dagster 版本在 `asset_check` 上显式指定 `partitions_def` 会触发 preview warning；绑定 partitioned asset 对象时，check 会继承 asset 的分区语义。
+4. 验证 partitioned checks 时，必须显式传入 `partition_key`；否则不能说明具体交易日分区已经验收。
+5. 读取 `ASSET_CHECK_EVALUATION` 事件时，`event.event_specific_data` 本身就是 `AssetCheckEvaluation`；不要再访问不存在的 `.asset_check_evaluation` 属性。
+
 ### 提交前检查门禁
 
 提交前必须看 `git status --short`，不能只看 `git diff --stat`。

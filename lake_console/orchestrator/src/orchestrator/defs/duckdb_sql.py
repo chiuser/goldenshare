@@ -61,6 +61,34 @@ STOCK_BASIC_SILVER_REQUIRED_COLUMNS = (
 
 STOCK_BASIC_KNOWN_LIST_STATUS_VALUES = ("L", "D", "P", "G")
 
+STOCK_DAILY_RAW_REQUIRED_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "change",
+    "pct_chg",
+    "vol",
+    "amount",
+)
+
+STOCK_DAILY_SILVER_REQUIRED_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "change_amount",
+    "pct_chg",
+    "vol",
+    "amount",
+)
+
 
 def duckdb_string(value: str | Path) -> str:
     escaped = str(value).replace("'", "''")
@@ -119,6 +147,31 @@ SELECT
   END AS delist_date,
   is_hs
 FROM {read_parquet(raw_path, hive_partitioning=False)}
+"""
+
+
+def stock_daily_normalized_select(raw_path: Path) -> str:
+    return f"""
+SELECT
+  ts_code,
+  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  CAST(open AS DOUBLE) AS open,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(close AS DOUBLE) AS close,
+  CAST(pre_close AS DOUBLE) AS pre_close,
+  CAST(change AS DOUBLE) AS change_amount,
+  CAST(pct_chg AS DOUBLE) AS pct_chg,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount
+FROM {read_parquet(raw_path, hive_partitioning=False)}
+"""
+
+
+def silver_stock_daily_select(raw_path: Path) -> str:
+    return f"""
+SELECT DISTINCT *
+FROM ({stock_daily_normalized_select(raw_path)}) normalized
 """
 
 
