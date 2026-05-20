@@ -566,7 +566,7 @@
         <tr>
           <td><code>silver_stock_basic</code></td>
           <td><code>silver/basic/stock_basic/full/part-000.parquet</code></td>
-          <td><code>list_date/delist_date</code> 标准化为 DATE；保留生命周期字段用于历史交易日股票池计算。</td>
+          <td><code>list_date/delist_date</code> 标准化为 DATE；第二期正式只保留当前 <code>list_status='L'</code> 股票，作为 <code>silver_stock_daily</code> 标准事实过滤的股票池。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_stock_daily[date]</code></td>
@@ -1019,19 +1019,40 @@ def silver_stock_suspend_daily(context, lake_root, duckdb):
       </table>
     </div>
 
-    <h3>9.2 改造 stock_daily 完整性 checks</h3>
-    <pre><code>listed_universe:
+    <h3>9.2 改造 stock_daily 标准事实与完整性 checks</h3>
+    <p>
+      本 LLD 的 stock daily 口径以 <code>dagster-stock-daily-migration-low-level-design.html</code> 为准。
+      <code>raw_tushare_stock_daily</code> 保持源镜像，不做股票池过滤；
+      <code>silver_stock_daily</code> 才生成后续市场宽度消费的标准事实分区。
+    </p>
+    <pre><code>current_listed_universe:
   silver_stock_basic
-  where list_date <= trade_date
-    and (delist_date is null or delist_date > trade_date)
+  where list_status = 'L'
+
+silver_stock_daily:
+  raw_tushare_stock_daily
+  join current_listed_universe using (ts_code)
+  where trade_date >= DATE '2014-01-01'
+    and trade_date >= list_date
+    and (
+      ts_code not like '%.BJ'
+      or trade_date >= DATE '2021-11-15'
+    )
 
 full_day_suspended:
   silver_stock_suspend_daily
   where suspend_type = 'S'
     and suspend_timing is null
 
-expected_daily_universe:
-  listed_universe - full_day_suspended</code></pre>
+intraday_suspended:
+  silver_stock_suspend_daily
+  where suspend_type = 'S'
+    and suspend_timing is not null</code></pre>
+
+    <div class="warning">
+      <code>full_day_suspended</code> 和 <code>intraday_suspended</code> 用于完整性观测和解释，不用于把 raw 日线提前过滤掉。
+      只有全日停牌可以解释“当日无日线”；盘中停牌必须作为样本上报，不能当成无日线。
+    </div>
 
     <div class="table-wrap">
       <table>
@@ -1048,13 +1069,37 @@ expected_daily_universe:
           <td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td>
           <td><code>silver_stock_daily</code></td>
           <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
-          <td>第二期 WARN，稳定后再讨论是否 blocking。</td>
+          <td>第二期 WARN，作为覆盖率观测；不阻断 silver 写入。</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily_covers_expected_tradable_universe</code></td>
           <td><code>silver_stock_daily</code></td>
           <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
           <td>第二期 WARN，必须输出完整差异 metadata。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_current_listed_only</code></td>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_basic</code></td>
+          <td>blocking；不允许出现非当前 <code>list_status='L'</code> 股票。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_after_list_date_only</code></td>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_basic</code></td>
+          <td>blocking；不允许出现 <code>trade_date &lt; list_date</code>。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_bj_after_market_open_only</code></td>
+          <td><code>silver_stock_daily</code></td>
+          <td>-</td>
+          <td>blocking；BJ 股票不允许出现 <code>2021-11-15</code> 前日线。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_price_sanity</code></td>
+          <td><code>silver_stock_daily</code></td>
+          <td>-</td>
+          <td>blocking；价格非负，且 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。</td>
         </tr>
         </tbody>
       </table>
@@ -1074,8 +1119,14 @@ expected_daily_universe:
   full_day_suspend_sample_ts_codes
   intraday_suspend_sample_rows</code></pre>
 
+    <p>
+      <code>silver_stock_suspend_daily</code> 需要在 silver 层修正 14 条已确认盘中停牌缺失 timing 的历史记录：
+      修正后的值写入 <code>suspend_timing</code> 业务字段；修正数量、规则版本和样本写入 materialization metadata。
+      禁止新增 <code>is_manual_corrected</code> 这类 parquet 标记字段，禁止把修正命中做成 blocking check。
+    </p>
+
     <div class="warning">
-      日内停牌不能直接当作“可以没有日线”的解释。只有 <code>suspend_type='S'</code> 且 <code>suspend_timing is null</code> 的全日停牌，才从 expected universe 中剔除。
+      日内停牌不能直接当作“可以没有日线”的解释。只有 <code>suspend_type='S'</code> 且 <code>suspend_timing is null</code> 的全日停牌，才能解释日线缺失；盘中停牌只进入差异 metadata。
     </div>
   </section>
 
@@ -1126,6 +1177,12 @@ expected_daily_universe:
       进入 2.1 后，这两个 raw assets 会改成 Tushare API 写入，同一个 job 如果继续存在，也会跟随 asset 当前实现变成 API 拉取。
       因此 2.0.6 必须先完成历史 quote 日频迁移，避免后续再用一个名字叫 bootstrap、实际却跑 API 的入口。
     </p>
+    <p>
+      当前全历史迁移审计口径已经收紧：迁移下限为 <code>2014-01-01</code>，实际首个交易日为 <code>2014-01-02</code>；
+      旧湖 <code>daily</code> 与 <code>suspend_d</code> 共同最新日期为 <code>2026-05-15</code>；
+      可迁移 SSE 开市日为 <code>3004</code> 个。<code>raw_tushare_stock_daily</code> 必须保留旧湖源记录全集；
+      <code>silver_stock_daily</code> 才应用当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、2014 起始日四类过滤。
+    </p>
 
     <div class="table-wrap">
       <table>
@@ -1154,13 +1211,13 @@ expected_daily_universe:
           <td><code>silver_stock_daily[trade_date]</code></td>
           <td>新湖 stock daily raw</td>
           <td>新湖 <code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>由正式 silver asset 生成；重复完全行可 distinct 并上报；冲突键失败。</td>
+          <td>由正式 silver asset 生成；重复完全行可 distinct 并上报；冲突键失败；只保留当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、<code>2014-01-01</code> 起的标准事实行。</td>
         </tr>
         <tr>
           <td><code>silver_stock_suspend_daily[trade_date]</code></td>
           <td>新湖 suspend_d raw</td>
           <td>新湖 <code>silver/quote/stock_suspend_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
-          <td>由正式 silver asset 生成；<code>suspend_type</code> 只允许已知值；业务键不冲突。</td>
+          <td>由正式 silver asset 生成；<code>suspend_type</code> 只允许已知值；业务键不冲突；14 条已确认盘中停牌 timing 修正写入 <code>suspend_timing</code> 业务字段，审计留痕写 metadata。</td>
         </tr>
         </tbody>
       </table>
@@ -1179,6 +1236,7 @@ expected_daily_universe:
       and is_open = true
 
   runnable_keys = daily_keys intersect suspend_keys intersect calendar_open_keys
+    filtered by trade_date >= 2014-01-01
   missing_suspend_keys = daily_keys - suspend_keys
   excluded_non_open_day_keys = (daily_keys union suspend_keys) - calendar_open_keys
 
@@ -1204,12 +1262,15 @@ Slice 2.0.6 execution:
      - raw/silver row_count
      - failed blocking checks
      - stock_daily unexplained_missing_count / unexplained_extra_count
+     - stock_daily standard-fact filter counts
+     - suspend_timing_correction_count
   6. stop on systematic failure; do not continue blind batch execution
   7. final report lists migrated_count, failed_count, skipped_missing_suspend_count, excluded_non_open_day_count, first/last migrated trade_date</code></pre>
 
     <div class="warning">
       2.0.6 不新增业务资产定义；它生成的是已有 quote assets 的历史 partitions、materializations 和 check evaluations。
       不生产 <code>gold_market_breadth_daily</code>，不运行 readiness gate，不调用 Tushare API，不启用 sensor。
+      若 <code>silver_stock_daily</code> 未应用最新四类过滤，或 <code>silver_stock_suspend_daily</code> 未应用 14 条 timing 修正，禁止进入全历史批量迁移。
     </div>
 
     <h3>10.3 ongoing jobs</h3>

@@ -1,0 +1,724 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster Stock Daily 历史迁移设计</title>
+  <style>
+    :root {
+      --bg: #f5efe4;
+      --paper: #fffaf1;
+      --paper-2: #fffdf8;
+      --ink: #17212b;
+      --muted: #66727f;
+      --line: #ddccb3;
+      --accent: #9e5f12;
+      --accent-2: #286b73;
+      --raw: #dff2ff;
+      --silver: #edf1f5;
+      --gold: #ffe5a8;
+      --green: #dff1df;
+      --warn: #fff0c6;
+      --red: #ffe0d8;
+      --code-bg: #fff7e6;
+      --code-ink: #17212b;
+      --code-line: #e2cda8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% -4%, rgba(255, 229, 168, 0.52), transparent 34rem),
+        radial-gradient(circle at 100% 10%, rgba(40, 107, 115, 0.16), transparent 32rem),
+        linear-gradient(180deg, #fbf6ec 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 38px 26px 82px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(76, 54, 28, 0.08);
+    }
+
+    header { padding: 34px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.6vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 20px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    .lead {
+      max-width: 980px;
+      color: #374554;
+      font-size: 18px;
+    }
+
+    .muted { color: var(--muted); }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 3px 10px;
+      font-size: 13px;
+      font-weight: 700;
+      border: 1px solid rgba(23, 33, 43, 0.12);
+      white-space: nowrap;
+    }
+
+    .raw { background: var(--raw); }
+    .silver { background: var(--silver); }
+    .gold { background: var(--gold); }
+    .check { background: var(--green); }
+    .warn { background: var(--warn); }
+    .risk { background: var(--red); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 18px;
+      padding: 16px;
+    }
+
+    .metric-grid {
+      display: grid;
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+      gap: 12px;
+      margin-top: 14px;
+    }
+
+    .metric {
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .metric strong {
+      display: block;
+      font-size: 24px;
+      line-height: 1.15;
+      color: var(--accent);
+    }
+
+    .metric span {
+      display: block;
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      overflow: hidden;
+      border-radius: 16px;
+      background: var(--paper-2);
+      margin: 12px 0 18px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f6ead8;
+      font-weight: 800;
+    }
+
+    code {
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border: 1px solid var(--code-line);
+      border-radius: 7px;
+      padding: 1px 5px;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 16px;
+      padding: 16px;
+      overflow-x: auto;
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border: 1px solid var(--code-line);
+      border-radius: 16px;
+      line-height: 1.55;
+    }
+
+    pre code {
+      padding: 0;
+      border: 0;
+      background: transparent;
+    }
+
+    ul,
+    ol { padding-left: 22px; }
+
+    li { margin: 6px 0; }
+
+    .flow {
+      display: grid;
+      gap: 10px;
+      margin: 16px 0 8px;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 220px minmax(0, 1fr);
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .flow-node {
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 16px;
+      padding: 14px;
+    }
+
+    .flow-node strong {
+      display: block;
+      margin-bottom: 5px;
+    }
+
+    .diagram {
+      margin: 14px 0 18px;
+      padding: 18px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-2);
+    }
+
+    .diagram svg {
+      max-width: 100%;
+    }
+
+    .arrow {
+      color: var(--accent-2);
+      font-weight: 800;
+      text-align: center;
+      margin: 4px 0;
+    }
+
+    @media (max-width: 860px) {
+      main { padding: 24px 16px 56px; }
+      header,
+      section { border-radius: 18px; padding: 20px; }
+      .grid,
+      .metric-grid,
+      .flow-row { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <p class="muted">Goldenshare Dagster / Stock Daily Migration / 2026-05-21</p>
+    <h1>Stock Daily 历史迁移设计</h1>
+    <p class="lead">
+      本文档单独记录 <code>daily</code> 从旧湖迁移到新湖的口径。它不是一个孤立数据集迁移，
+      必须同时依赖 <code>stock_basic</code> 提供股票池边界，依赖 <code>suspend_d</code> 修正停牌语义，
+      最终让 <code>silver_stock_daily</code> 成为后续 <code>gold_market_breadth_daily</code> 可稳定消费的标准事实资产。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 核心结论</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag raw">raw</span>
+        <h3>raw_tushare_stock_daily 保持源站镜像</h3>
+        <p>
+          <code>raw_tushare_stock_daily</code> 不做当前上市股票过滤，不做上市日过滤，不做 BJ 起始日过滤。
+          它继续保留旧湖中按 Tushare <code>daily</code> 源口径取得的全部日线记录。
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag silver">silver</span>
+        <h3>silver_stock_daily 才定义标准事实边界</h3>
+        <p>
+          <code>silver_stock_daily</code> 从 raw 中筛选出：<code>2014-01-01</code> 之后、当前上市股票、
+          股票上市日之后、BJ 自 <code>2021-11-15</code> 起的数据，并完成字段类型标准化。
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag check">check</span>
+        <h3>停牌语义不再混淆</h3>
+        <p>
+          全日停牌仍然定义为 <code>suspend_type='S' AND suspend_timing IS NULL</code>。
+          盘中临时停牌定义为 <code>suspend_type='S' AND suspend_timing IS NOT NULL</code>。
+          旧湖中 14 条缺失 <code>suspend_timing</code> 的盘中停牌，必须在 silver 层修正。
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag warn">boundary</span>
+        <h3>日期类型原则</h3>
+        <p>
+          raw 中的 Tushare 日期字段保持源站字符串，例如 <code>trade_date='20260515'</code>。
+          silver 中具备明确日期语义的字段统一标准化为 <code>DATE</code>。
+        </p>
+      </div>
+      <div class="card">
+        <span class="tag check">decision</span>
+        <h3>已拍板实现边界</h3>
+        <p>
+          <code>silver_stock_basic</code> 正式只保留 <code>list_status='L'</code>；
+          <code>silver_stock_daily_price_sanity</code> 作为阻断 check；
+          14 条 <code>suspend_timing</code> 修正规则先放代码常量，数据修补完成且检查稳定后删除。
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 数据范围与审计结果</h2>
+    <p>
+      审计以新口径模拟目标 silver 结果：时间从 <code>2014-01-01</code> 开始，实际首个交易日为
+      <code>2014-01-02</code>；旧湖 <code>daily</code> 与 <code>suspend_d</code> 当前共同最新日期为
+      <code>2026-05-15</code>。
+    </p>
+
+    <div class="metric-grid">
+      <div class="metric"><strong>3004</strong><span>SSE 开市日</span></div>
+      <div class="metric"><strong>0</strong><span>daily 缺失交易日</span></div>
+      <div class="metric"><strong>0</strong><span>suspend_d 缺失交易日</span></div>
+      <div class="metric"><strong>5517</strong><span>当前上市股票数</span></div>
+      <div class="metric"><strong>11,831,646</strong><span>daily raw 旧湖行数</span></div>
+      <div class="metric"><strong>11,296,595</strong><span>目标 silver daily 行数</span></div>
+      <div class="metric"><strong>0</strong><span>目标 silver 冲突键</span></div>
+      <div class="metric"><strong>14</strong><span>suspend_timing 修正数</span></div>
+    </div>
+
+    <table>
+      <thead>
+        <tr>
+          <th>审计项</th>
+          <th>结果</th>
+          <th>含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>交易日覆盖</td>
+          <td><code>2014-01-02</code> 至 <code>2026-05-15</code>，共 <code>3004</code> 个开市日</td>
+          <td>旧湖 daily 与 suspend_d 分区都齐备，可以进入全量 bootstrap。</td>
+        </tr>
+        <tr>
+          <td>stock_basic</td>
+          <td>总数 <code>5842</code>；当前上市 <code>5517</code>；当前 BJ <code>313</code></td>
+          <td>silver 股票池使用当前 <code>list_status='L'</code>。</td>
+        </tr>
+        <tr>
+          <td>daily raw</td>
+          <td><code>11,831,646</code> 行</td>
+          <td>raw 保留旧湖源口径，不做业务过滤。</td>
+        </tr>
+        <tr>
+          <td>daily 目标 silver</td>
+          <td><code>11,296,595</code> 行，覆盖 <code>5517</code> 只当前上市股票</td>
+          <td>应用当前上市、上市日、BJ 起始日、2014 起始日过滤后的标准事实结果。</td>
+        </tr>
+        <tr>
+          <td>daily 质量</td>
+          <td>重复键 <code>0</code>，内容冲突 <code>0</code>，完全重复行 <code>0</code>，<code>pct_chg</code> 空值 <code>0</code>，价格异常 <code>0</code></td>
+          <td>新口径下，silver daily 的唯一性、冲突、非空、分区日期和价格 sanity 都可以作为阻断 checks。</td>
+        </tr>
+        <tr>
+          <td>suspend_d</td>
+          <td>raw 行数 <code>385,128</code>；修正后全日停牌 key <code>368,201</code>；盘中停牌 key <code>2,198</code></td>
+          <td>修正 14 条 timing 后，全日停牌与 daily 冲突数为 <code>0</code>。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 迁移过程时序图</h2>
+    <p>
+      这张图描述一次历史 bootstrap 的完整顺序。关键点是：raw 先保持源镜像写入新湖；
+      stock basic 和 suspend 先生成可被 daily 使用的 silver 事实；daily 的 silver 再基于这些上游事实做筛选和标准化；
+      checks 负责阻断质量问题，Dagster metadata 负责记录修正留痕。
+    </p>
+    <div class="diagram">
+      <pre class="mermaid">sequenceDiagram
+    autonumber
+    participant OP as Operator
+    participant DG as Dagster Job
+    participant OL as Old Lake
+    participant DB as DuckDB
+    participant RAW as New Lake raw
+    participant SIL as New Lake silver
+    participant CK as Asset Checks
+    participant UI as Dagster Metadata/UI
+
+    OP->>DG: 启动历史 bootstrap（2014-01-02 至 2026-05-15）
+
+    rect rgb(223, 242, 255)
+      DG->>OL: 读取 stock_basic current parquet
+      DG->>DB: 投影 Tushare stock_basic raw 字段
+      DB->>RAW: 写 raw_tushare_stock_basic/full/part-000.parquet
+      CK->>RAW: raw stock_basic checks
+      DB->>SIL: 生成 silver_stock_basic（只保留 list_status='L'，日期转 DATE）
+      CK->>SIL: silver stock_basic checks
+    end
+
+    loop 每个交易日 partition
+      rect rgb(223, 242, 255)
+        DG->>OL: 读取 suspend_d/trade_date=YYYY-MM-DD
+        DG->>DB: 保持 Tushare raw 字段，统一类型
+        DB->>RAW: 写 raw_tushare_suspend_d[date]
+        CK->>RAW: raw suspend_d checks
+        DB->>SIL: 生成 silver_stock_suspend_daily[date]
+        DB->>SIL: 对 14 条已知盘中停牌补写 suspend_timing
+        CK->>SIL: silver suspend_d checks
+        SIL->>UI: materialization metadata 记录修正数量、规则版本、样本
+      end
+
+      rect rgb(237, 241, 245)
+        DG->>OL: 读取 daily/trade_date=YYYY-MM-DD
+        DG->>DB: 投影 Tushare daily raw 字段，不做业务筛选
+        DB->>RAW: 写 raw_tushare_stock_daily[date]
+        CK->>RAW: raw stock_daily checks
+        DB->>SIL: 从 raw 生成 silver_stock_daily[date]
+        DB->>SIL: 过滤：2014 后、当前上市、上市日后、BJ 自 2021-11-15 起
+        DB->>SIL: 标准化：trade_date 转 DATE，change 改 change_amount
+        CK->>SIL: silver stock_daily blocking checks
+      end
+    end
+
+    DG->>UI: 展示 materializations、checks、row_count、修正留痕
+    UI-->>OP: 验收全量迁移结果</pre>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 数据资产口径</h2>
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-node">
+          <span class="tag raw">raw</span>
+          <strong>raw_tushare_stock_basic</strong>
+          <code>raw/tushare/stock_basic/full/part-000.parquet</code>
+        </div>
+        <div class="flow-node">
+          保持 Tushare <code>stock_basic</code> 显式字段全集，日期字段在 raw 中保持 <code>YYYYMMDD</code> 字符串或 null。
+        </div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-node">
+          <span class="tag silver">silver</span>
+          <strong>silver_stock_basic</strong>
+          <code>silver/basic/stock_basic/full/part-000.parquet</code>
+        </div>
+        <div class="flow-node">
+          标准化日期字段为 <code>DATE</code>。本迁移口径下，silver 股票池只保留当前 <code>list_status='L'</code> 的股票。
+        </div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-node">
+          <span class="tag raw">raw</span>
+          <strong>raw_tushare_stock_daily[trade_date]</strong>
+          <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>
+        </div>
+        <div class="flow-node">
+          保持 Tushare <code>daily</code> 源口径，保留旧湖该交易日全部日线记录。raw 中 <code>trade_date</code> 保持
+          <code>YYYYMMDD</code> 字符串，字段名仍为 <code>change</code>。
+        </div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-node">
+          <span class="tag silver">silver</span>
+          <strong>silver_stock_daily[trade_date]</strong>
+          <code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>
+        </div>
+        <div class="flow-node">
+          从 raw 中筛选标准事实：<code>trade_date &gt;= 2014-01-01</code>、当前上市股票、<code>trade_date &gt;= list_date</code>、
+          <code>.BJ</code> 只保留 <code>2021-11-15</code> 及之后。字段标准化：<code>trade_date</code> 转
+          <code>DATE</code>，<code>change</code> 改为 <code>change_amount</code>，数值字段转统一数值类型。
+        </div>
+      </div>
+      <div class="arrow">↓</div>
+      <div class="flow-row">
+        <div class="flow-node">
+          <span class="tag gold">gold</span>
+          <strong>gold_market_breadth_daily[trade_date]</strong>
+        </div>
+        <div class="flow-node">
+          下游市场宽度只消费 <code>silver_stock_daily</code>，不直接读取 raw，不在 gold 层重复做股票池过滤。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 停复牌修正口径</h2>
+    <p>
+      <code>suspend_d</code> raw 保持源镜像，不修改源字段。旧湖和 Tushare 当前接口中存在 14 条盘中停牌记录，
+      <code>suspend_type='S'</code> 但 <code>suspend_timing</code> 为空。它们会被误判为全日停牌，
+      因此必须在 <code>silver_stock_suspend_daily</code> 层补充 timing。这里的“修正”是实实在在写入
+      <code>suspend_timing</code> 业务字段：raw 中为空，silver 中写成确认后的盘中停牌时间。
+      但 silver parquet 不额外增加 <code>is_manual_corrected</code>、<code>correction_reason</code>
+      这类人工修正标记字段，避免污染业务数据结构。
+    </p>
+
+    <pre><code>全日停牌:
+  suspend_type = 'S'
+  and suspend_timing is null
+
+盘中临时停牌:
+  suspend_type = 'S'
+  and suspend_timing is not null</code></pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>日期</th>
+          <th>股票</th>
+          <th>名称</th>
+          <th>补充 suspend_timing</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>2014-01-02</code></td><td><code>000566.SZ</code></td><td>海南海药</td><td><code>13:55-15:00</code></td></tr>
+        <tr><td><code>2014-03-13</code></td><td><code>000678.SZ</code></td><td>襄阳轴承</td><td><code>13:02-15:00</code></td></tr>
+        <tr><td><code>2015-03-20</code></td><td><code>000078.SZ</code></td><td>ST海王</td><td><code>10:29-15:00</code></td></tr>
+        <tr><td><code>2015-04-27</code></td><td><code>000609.SZ</code></td><td>*ST中迪</td><td><code>10:16-15:00</code></td></tr>
+        <tr><td><code>2015-05-21</code></td><td><code>000655.SZ</code></td><td>金岭矿业</td><td><code>11:07-15:00</code></td></tr>
+        <tr><td><code>2015-07-06</code></td><td><code>000055.SZ</code></td><td>方大集团</td><td><code>10:36-15:00</code></td></tr>
+        <tr><td><code>2016-02-22</code></td><td><code>000159.SZ</code></td><td>国际实业</td><td><code>10:55-15:00</code></td></tr>
+        <tr><td><code>2016-03-16</code></td><td><code>000510.SZ</code></td><td>新金路</td><td><code>14:43-15:00</code></td></tr>
+        <tr><td><code>2016-03-25</code></td><td><code>000533.SZ</code></td><td>顺钠股份</td><td><code>13:48-15:00</code></td></tr>
+        <tr><td><code>2016-08-18</code></td><td><code>000659.SZ</code></td><td>珠海中富</td><td><code>13:44-15:00</code></td></tr>
+        <tr><td><code>2016-10-19</code></td><td><code>000711.SZ</code></td><td>ST京蓝</td><td><code>13:15-15:00</code></td></tr>
+        <tr><td><code>2017-08-14</code></td><td><code>300272.SZ</code></td><td>开能健康</td><td><code>10:02-15:00</code></td></tr>
+        <tr><td><code>2017-08-16</code></td><td><code>000498.SZ</code></td><td>山东路桥</td><td><code>09:48-15:00</code></td></tr>
+        <tr><td><code>2017-12-08</code></td><td><code>300731.SZ</code></td><td>科创新源</td><td><code>09:30-10:00</code></td></tr>
+      </tbody>
+    </table>
+
+    <h3>Dagster 留痕方式</h3>
+    <p>
+      不新增 <code>silver_suspend_d_known_timing_corrections_applied</code> 这类 check。
+      Dagster 官方支持在 asset materialization 上附加 metadata，并在 Asset Details 的 Activity 中展示。
+      因此修正结果写入 silver parquet 的 <code>suspend_timing</code> 字段；修正过程的审计留痕采用
+      materialization metadata，而不是额外 parquet 字段或 blocking check。
+      14 条修正规则在实现中先放代码常量；等后续数据修补完成、全量 checks 稳定通过后，删除这段临时修正常量。
+      这不是长期数据模型的一部分。
+    </p>
+    <pre><code>silver_stock_suspend_daily materialization metadata:
+  path
+  row_count
+  columns
+  partition_key
+  suspend_timing_correction_count
+  suspend_timing_correction_policy
+  suspend_timing_correction_version
+  suspend_timing_correction_sample_rows</code></pre>
+    <p>
+      这样做的含义是：业务结果已经被修正，<code>suspend_timing</code> 不再是空值；但数据结构保持干净，
+      仍然只有 <code>ts_code</code>、<code>trade_date</code>、<code>suspend_timing</code>、
+      <code>suspend_type</code> 四个业务字段。Dagster 运行事件负责记录“本次 materialize 应用了多少条修正规则、
+      规则版本是什么、样本是什么”。
+    </p>
+  </section>
+
+  <section>
+    <h2>6. Checks 设计</h2>
+    <h3>raw_tushare_stock_daily</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>阻断</th>
+          <th>口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>raw_stock_daily_file_exists</code></td><td>是</td><td>目标分区 raw parquet 必须存在。</td></tr>
+        <tr><td><code>raw_stock_daily_row_count_positive</code></td><td>是</td><td>交易日 raw 行数必须大于 0。</td></tr>
+        <tr><td><code>raw_stock_daily_required_columns</code></td><td>是</td><td>必须包含 Tushare daily 字段：<code>ts_code/trade_date/open/high/low/close/pre_close/change/pct_chg/vol/amount</code>。</td></tr>
+        <tr><td><code>raw_stock_daily_partition_date_matches</code></td><td>是</td><td>raw 内部 <code>trade_date</code> 字符串转换后必须等于 partition key。</td></tr>
+      </tbody>
+    </table>
+
+    <h3>silver_stock_daily</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>阻断</th>
+          <th>口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>silver_stock_daily_row_count_positive</code></td><td>是</td><td>标准事实分区必须有数据。</td></tr>
+        <tr><td><code>silver_stock_daily_unique_ts_code_trade_date</code></td><td>是</td><td><code>ts_code + trade_date</code> 必须唯一。</td></tr>
+        <tr><td><code>silver_stock_daily_conflicting_duplicate_absent</code></td><td>是</td><td>同一 key 出现不同字段内容时直接失败。</td></tr>
+        <tr><td><code>silver_stock_daily_required_columns_non_null</code></td><td>是</td><td><code>ts_code</code>、<code>trade_date</code>、<code>pct_chg</code> 不允许为空。</td></tr>
+        <tr><td><code>silver_stock_daily_partition_date_matches</code></td><td>是</td><td>silver 内部 <code>trade_date</code> 是 <code>DATE</code>，必须等于 partition key。</td></tr>
+        <tr><td><code>silver_stock_daily_current_listed_only</code></td><td>是</td><td>不允许出现非当前 <code>list_status='L'</code> 股票。</td></tr>
+        <tr><td><code>silver_stock_daily_after_list_date_only</code></td><td>是</td><td>不允许出现股票上市日前日线。</td></tr>
+        <tr><td><code>silver_stock_daily_bj_after_market_open_only</code></td><td>是</td><td>BJ 股票不允许出现 <code>2021-11-15</code> 前日线。</td></tr>
+        <tr><td><code>silver_stock_daily_price_sanity</code></td><td>是</td><td>阻断。价格字段不允许为负；不允许 <code>high &lt; low</code>；必须满足 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。审计结果为 0。</td></tr>
+        <tr><td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td><td>否</td><td>观测项。silver 经过筛选，行数应小于等于 raw。</td></tr>
+      </tbody>
+    </table>
+
+    <h3>silver_stock_suspend_daily</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Check</th>
+          <th>阻断</th>
+          <th>口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr><td><code>silver_suspend_d_known_type_values</code></td><td>是</td><td><code>suspend_type</code> 只能为 <code>S/R</code>。</td></tr>
+        <tr><td><code>silver_suspend_d_unique_business_key</code></td><td>是</td><td><code>ts_code + trade_date + suspend_type + coalesce(suspend_timing,'')</code> 不重复。</td></tr>
+        <tr><td><code>silver_suspend_d_full_day_not_conflict_with_daily</code></td><td>否</td><td>观测项。修正后全日停牌但 daily 有记录应为 0；若未来 Tushare 源再次出现歧义，先上报样本。</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 推进顺序</h2>
+    <ol>
+      <li>先更新 Phase 2 方案文档和 LLD，把本文档确认的 daily 迁移口径同步进去。</li>
+      <li>改造 <code>silver_stock_basic</code>，只输出当前 <code>list_status='L'</code> 股票，并调整对应 checks。</li>
+      <li>改造 <code>silver_stock_suspend_daily</code>，增加 14 条 timing 修正常量，并通过 materialization metadata 留痕，不新增修正命中 check；数据修补完成且检查稳定后删除修正常量。</li>
+      <li>改造 <code>silver_stock_daily</code>，从 raw 中执行当前上市、上市日、BJ 起始日、2014 起始日过滤。</li>
+      <li>保留 <code>raw_tushare_stock_daily</code> 源镜像口径，不做业务筛选。</li>
+      <li>重写 stock daily 完整性观测口径，避免把盘中停牌误判为全日停牌。</li>
+      <li>跑 <code>2014-01-02</code> 至 <code>2026-05-15</code> 全量 bootstrap 验收。</li>
+      <li>全量迁移验收通过后，再进入 Tushare API 新数据续更新，避免历史 bootstrap 与新数据同步混在一起。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>8. 当前代码差距</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>位置</th>
+          <th>当前状态</th>
+          <th>需要调整</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>duckdb_sql.py / silver_stock_basic_select</code></td>
+          <td>当前保留所有 <code>list_status</code>。</td>
+          <td>本迁移口径下，silver basic 应只保留 <code>list_status='L'</code>。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_sql.py / silver_stock_daily_select</code></td>
+          <td>当前只是 <code>SELECT DISTINCT *</code>。</td>
+          <td>需要加入 stock_basic join 和四类过滤：2014 起始日后、当前上市、上市日后、BJ 起始日后。</td>
+        </tr>
+        <tr>
+          <td><code>duckdb_sql.py / silver_stock_suspend_daily_select</code></td>
+          <td>当前只做类型标准化。</td>
+          <td>需要加入 14 条 <code>suspend_timing</code> 修正。</td>
+        </tr>
+        <tr>
+          <td><code>stock_daily_checks.py</code></td>
+          <td>仍包含旧的完整性 WARN 口径。</td>
+          <td>需要按新 silver 股票池和修正后的 suspend 语义重写。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>9. 不做的事</h2>
+    <ul>
+      <li>本轮不把 raw 也改成当前上市股票子集，raw 必须继续保留源镜像口径。</li>
+      <li>本轮不接入 Tushare API 续更新；API 新数据更新属于后续 Slice。</li>
+      <li>本轮不引入 ClickHouse serving 和 prod release。</li>
+      <li>本轮不让下游 gold 资产主动补上游；上游准备和下游生产仍应分开。</li>
+    </ul>
+  </section>
+</main>
+<script type="module">
+  import mermaid from "https://cdn.jsdelivr.net/npm/mermaid@10/dist/mermaid.esm.min.mjs";
+
+  mermaid.initialize({
+    startOnLoad: true,
+    securityLevel: "loose",
+    theme: "base",
+    themeVariables: {
+      background: "#fffdf8",
+      mainBkg: "#fffaf1",
+      secondBkg: "#edf1f5",
+      tertiaryBkg: "#dff2ff",
+      primaryColor: "#fffaf1",
+      primaryTextColor: "#17212b",
+      primaryBorderColor: "#ddccb3",
+      lineColor: "#286b73",
+      actorBkg: "#fff7e6",
+      actorBorder: "#ddccb3",
+      actorTextColor: "#17212b",
+      signalColor: "#17212b",
+      signalTextColor: "#17212b",
+      noteBkgColor: "#fff0c6",
+      noteTextColor: "#17212b",
+      noteBorderColor: "#ddccb3"
+    }
+  });
+</script>
+</body>
+</html>

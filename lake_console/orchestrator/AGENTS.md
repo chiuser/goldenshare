@@ -161,6 +161,19 @@ duckdb_compute/_tmp
 2. 若目的是按数据湖分区批量读取数据，必须明确说明使用的是目录分区列还是文件内部字段。
 3. 禁止把 DuckDB 自动推断出来的目录分区列，误当成 parquet 文件内部真实字段。
 
+### Silver 层时间字段标准化门禁
+
+`raw` 层保持源站镜像口径，`silver` 层负责形成 Goldenshare 内部稳定可计算的数据事实。因此 `silver` 层必须对时间语义字段做类型标准化，但不能断章取义、机械转换。
+
+规则：
+
+1. `silver` 层中具备明确“日期”语义的字段必须标准化为 `DATE`，例如 `trade_date`、`list_date`、`delist_date`、`cal_date`、`pretrade_date`、`ann_date`、`start_date`、`end_date`。
+2. `raw` 层中的同名字段仍按源站契约保留，例如 Tushare `daily.trade_date` 在 raw 中保持 `YYYYMMDD` 字符串。
+3. 具备具体时刻语义的字段不得硬转 `DATE`，应按真实语义标准化为 `TIMESTAMP` 或保留为字符串，例如 `trade_time`、`update_time`、`created_at`、`datetime`。
+4. 周期、月份、报告期、财报期等字段不得按字段名直接转 `DATE`，必须先定义语义再确定类型，例如 `period`、`report_period`、`end_date` 在不同接口中可能分别表示月份、报告期或自然日期。
+5. 对时间字段类型做任何修改前，必须核验源接口文档、旧湖实际 parquet 和当前代码消费者；禁止只凭字段名猜测类型。
+6. 相关 asset checks 必须围绕标准化后的类型设计，例如 `silver_stock_daily.trade_date` 应按 `DATE` 与 partition key 比较，而不是按 raw 字符串比较。
+
 ---
 
 ## 数据资产迁移门禁
