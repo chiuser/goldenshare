@@ -3,6 +3,8 @@ from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.bootstrap import bootstrap_full_file_to_raw
+from orchestrator.defs.bootstrap.specs.trade_calendar import trade_calendar_bootstrap_spec
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -48,23 +50,17 @@ def raw_tushare_trade_calendar(
     duckdb: DuckDBResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    path = raw_trade_calendar_path(lake_root.root())
-    if not path.exists():
-        raise FileNotFoundError(f"Missing raw trade calendar file: {path}")
-
-    with duckdb.connect() as connection:
-        columns = _column_names(connection, path, hive_partitioning=False)
-        row_count = _row_count(connection, path, hive_partitioning=False)
+    spec = trade_calendar_bootstrap_spec(lake_root.root())
+    metadata = bootstrap_full_file_to_raw(spec, duckdb)
 
     return dg.MaterializeResult(
         metadata={
-            "path": str(path),
-            "row_count": row_count,
-            "columns": columns,
+            **metadata,
             "layer": "raw",
             "source_api": "trade_cal",
             "data_contract": "source_mirror",
             "raw_contract": "cal_date/pretrade_date YYYYMMDD string, is_open 0/1 integer",
+            "cast_summary": "cal_date/pretrade_date -> YYYYMMDD string; is_open boolean -> 0/1 integer.",
         }
     )
 

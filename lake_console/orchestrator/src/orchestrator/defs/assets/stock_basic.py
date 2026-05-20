@@ -4,6 +4,8 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.bootstrap import bootstrap_full_file_to_raw
+from orchestrator.defs.bootstrap.specs.stock_basic import stock_basic_bootstrap_spec
 from orchestrator.defs.duckdb_sql import (
     STOCK_BASIC_RAW_COLUMNS,
     copy_query_to_parquet,
@@ -74,13 +76,11 @@ def raw_tushare_stock_basic(
     duckdb: DuckDBResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
+    spec = stock_basic_bootstrap_spec(lake_root.root())
+    metadata = bootstrap_full_file_to_raw(spec, duckdb)
     path = raw_stock_basic_path(lake_root.root())
-    if not path.exists():
-        raise FileNotFoundError(f"Missing raw stock basic file: {path}")
 
     with duckdb.connect() as connection:
-        columns = _column_names(connection, path, hive_partitioning=False)
-        row_count = _row_count(connection, path, hive_partitioning=False)
         list_status_distribution = _list_status_distribution(
             connection,
             path,
@@ -89,15 +89,14 @@ def raw_tushare_stock_basic(
 
     return dg.MaterializeResult(
         metadata={
-            "path": str(path),
-            "row_count": row_count,
-            "columns": columns,
+            **metadata,
             "layer": "raw",
             "source_api": "stock_basic",
             "data_contract": "source_mirror",
             "raw_contract": "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings.",
             "expected_source_columns": list(STOCK_BASIC_RAW_COLUMNS),
             "list_status_distribution": list_status_distribution,
+            "cast_summary": "stock_basic explicit fields only; date fields remain YYYYMMDD strings or null.",
         }
     )
 
