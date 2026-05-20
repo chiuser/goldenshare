@@ -1,5 +1,16 @@
 from pathlib import Path
 
+from orchestrator.defs.corrections.suspend_full_day import (
+    suspend_full_day_raw_overrides_values_sql,
+    suspend_full_day_ranges_values_sql,
+)
+from orchestrator.defs.corrections.suspend_timing import (
+    suspend_timing_corrections_values_sql,
+)
+
+STOCK_DAILY_MIN_TRADE_DATE = "2014-01-01"
+BJ_MARKET_OPEN_DATE = "2021-11-15"
+
 TRADE_CALENDAR_RAW_REQUIRED_COLUMNS = (
     "exchange",
     "cal_date",
@@ -253,6 +264,7 @@ SELECT
   END AS delist_date,
   is_hs
 FROM {read_parquet(raw_path, hive_partitioning=False)}
+WHERE list_status = 'L'
 """
 
 
@@ -274,10 +286,29 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
-def silver_stock_daily_select(raw_path: Path) -> str:
+def silver_stock_daily_select(raw_path: Path, silver_stock_basic_path: Path) -> str:
     return f"""
-SELECT DISTINCT *
-FROM ({stock_daily_normalized_select(raw_path)}) normalized
+WITH normalized AS (
+  {stock_daily_normalized_select(raw_path)}
+),
+deduped AS (
+  SELECT DISTINCT *
+  FROM normalized
+),
+current_listed AS (
+  SELECT DISTINCT ts_code, list_date
+  FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
+  WHERE list_status = 'L'
+)
+SELECT deduped.*
+FROM deduped
+INNER JOIN current_listed USING (ts_code)
+WHERE deduped.trade_date >= DATE {duckdb_string(STOCK_DAILY_MIN_TRADE_DATE)}
+  AND deduped.trade_date >= current_listed.list_date
+  AND (
+    NOT ends_with(deduped.ts_code, '.BJ')
+    OR deduped.trade_date >= DATE {duckdb_string(BJ_MARKET_OPEN_DATE)}
+  )
 """
 
 
@@ -295,8 +326,80 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
-def silver_stock_suspend_daily_select(raw_path: Path) -> str:
-    return suspend_d_normalized_select(raw_path)
+def silver_stock_suspend_daily_select(raw_path: Path, partition_key: str) -> str:
+    partition_date = f"DATE {duckdb_string(partition_key)}"
+    return f"""
+WITH normalized AS (
+  {suspend_d_normalized_select(raw_path)}
+),
+corrections(ts_code, trade_date, corrected_suspend_timing) AS (
+  {suspend_timing_corrections_values_sql()}
+),
+full_day_patch_ranges(ts_code, name, start_date, end_date) AS (
+  {suspend_full_day_ranges_values_sql()}
+),
+full_day_raw_overrides(
+  ts_code,
+  name,
+  trade_date,
+  corrected_suspend_type,
+  corrected_suspend_timing
+) AS (
+  {suspend_full_day_raw_overrides_values_sql()}
+),
+corrected AS (
+  SELECT
+    normalized.ts_code,
+    normalized.trade_date,
+    COALESCE(corrections.corrected_suspend_timing, normalized.suspend_timing)
+      AS suspend_timing,
+    normalized.suspend_type
+  FROM normalized
+  LEFT JOIN corrections
+    ON normalized.ts_code = corrections.ts_code
+   AND normalized.trade_date = corrections.trade_date
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM full_day_raw_overrides
+    WHERE full_day_raw_overrides.ts_code = normalized.ts_code
+      AND full_day_raw_overrides.trade_date = normalized.trade_date
+  )
+),
+full_day_patches AS (
+  SELECT
+    ts_code,
+    {partition_date} AS trade_date,
+    NULL::VARCHAR AS suspend_timing,
+    'S'::VARCHAR AS suspend_type
+  FROM full_day_patch_ranges
+  WHERE {partition_date} BETWEEN start_date AND end_date
+),
+eligible_full_day_patches AS (
+  SELECT full_day_patches.*
+  FROM full_day_patches
+  WHERE NOT EXISTS (
+    SELECT 1
+    FROM corrected
+    WHERE corrected.ts_code = full_day_patches.ts_code
+      AND corrected.trade_date = full_day_patches.trade_date
+      AND corrected.suspend_type = 'S'
+      AND corrected.suspend_timing IS NULL
+  )
+)
+SELECT
+  ts_code,
+  trade_date,
+  suspend_timing,
+  suspend_type
+FROM corrected
+UNION ALL
+SELECT
+  ts_code,
+  trade_date,
+  suspend_timing,
+  suspend_type
+FROM eligible_full_day_patches
+"""
 
 
 def market_breadth_daily_select(silver_stock_daily_path: Path, partition_key: str) -> str:

@@ -118,6 +118,12 @@ def silver_stock_basic(
         raise FileNotFoundError(f"Missing raw stock basic file: {raw_path}")
 
     with duckdb.connect() as connection:
+        source_row_count = _row_count(connection, raw_path, hive_partitioning=False)
+        source_list_status_distribution = _list_status_distribution(
+            connection,
+            raw_path,
+            hive_partitioning=False,
+        )
         _replace_parquet_from_query(
             connection,
             silver_stock_basic_select(raw_path),
@@ -135,9 +141,14 @@ def silver_stock_basic(
         metadata={
             "path": str(target_path),
             "row_count": row_count,
+            "source_row_count": source_row_count,
+            "kept_row_count": row_count,
+            "filtered_out_row_count": source_row_count - row_count,
             "columns": columns,
             "layer": "silver",
-            "data_contract": "standardized_stock_basic_lifecycle",
+            "data_contract": "current_listed_stock_basic_lifecycle",
+            "filter_policy": "silver_stock_basic keeps only current list_status='L' stocks.",
+            "source_list_status_distribution": source_list_status_distribution,
             "list_status_distribution": list_status_distribution,
         }
     )

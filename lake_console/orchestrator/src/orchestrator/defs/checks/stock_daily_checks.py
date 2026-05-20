@@ -8,8 +8,10 @@ from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import raw_tushare_stock_daily, silver_stock_daily
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
+    BJ_MARKET_OPEN_DATE,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
+    STOCK_DAILY_MIN_TRADE_DATE,
     count_parquet_query,
     describe_parquet_query,
     read_parquet,
@@ -486,7 +488,163 @@ def silver_stock_daily_partition_date_matches(
 
 @dg.asset_check(
     asset=silver_stock_daily,
-    blocking=False,
+    additional_deps=[silver_stock_basic],
+    blocking=True,
+)
+def silver_stock_daily_current_listed_only(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
+    basic_path = silver_stock_basic_path(lake_root.root())
+    for path in (daily_path, basic_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    with duckdb.connect() as connection:
+        non_current_count = connection.execute(
+            f"""
+            SELECT count(*) AS non_current_count
+            FROM {read_parquet(daily_path, hive_partitioning=False)} daily
+            LEFT JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+              ON daily.ts_code = basic.ts_code
+            WHERE basic.ts_code IS NULL
+               OR basic.list_status != 'L'
+            """
+        ).fetchone()[0]
+        rows = connection.execute(
+            f"""
+            SELECT daily.ts_code, daily.trade_date, basic.list_status
+            FROM {read_parquet(daily_path, hive_partitioning=False)} daily
+            LEFT JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+              ON daily.ts_code = basic.ts_code
+            WHERE basic.ts_code IS NULL
+               OR basic.list_status != 'L'
+            ORDER BY daily.ts_code
+            LIMIT 10
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=non_current_count == 0,
+        metadata={
+            "path": str(daily_path),
+            "stock_basic_path": str(basic_path),
+            "partition_key": partition_key,
+            "non_current_listed_count": int(non_current_count),
+            "non_current_listed_sample_rows": _sample_dicts(
+                ["ts_code", "trade_date", "list_status"], rows
+            ),
+        },
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_daily,
+    additional_deps=[silver_stock_basic],
+    blocking=True,
+)
+def silver_stock_daily_after_list_date_only(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
+    basic_path = silver_stock_basic_path(lake_root.root())
+    for path in (daily_path, basic_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    with duckdb.connect() as connection:
+        before_list_date_count = connection.execute(
+            f"""
+            SELECT count(*) AS before_list_date_count
+            FROM {read_parquet(daily_path, hive_partitioning=False)} daily
+            INNER JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+              ON daily.ts_code = basic.ts_code
+            WHERE daily.trade_date < basic.list_date
+            """
+        ).fetchone()[0]
+        rows = connection.execute(
+            f"""
+            SELECT daily.ts_code, daily.trade_date, basic.list_date
+            FROM {read_parquet(daily_path, hive_partitioning=False)} daily
+            INNER JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+              ON daily.ts_code = basic.ts_code
+            WHERE daily.trade_date < basic.list_date
+            ORDER BY daily.ts_code, daily.trade_date
+            LIMIT 10
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=before_list_date_count == 0,
+        metadata={
+            "path": str(daily_path),
+            "stock_basic_path": str(basic_path),
+            "partition_key": partition_key,
+            "before_list_date_count": int(before_list_date_count),
+            "before_list_date_sample_rows": _sample_dicts(
+                ["ts_code", "trade_date", "list_date"], rows
+            ),
+        },
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_daily,
+    blocking=True,
+)
+def silver_stock_daily_bj_after_market_open_only(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    path = silver_stock_daily_path(lake_root.root(), partition_key)
+    if not path.exists():
+        return _missing_file_result(path)
+
+    with duckdb.connect() as connection:
+        bj_before_open_count = connection.execute(
+            f"""
+            SELECT count(*) AS bj_before_open_count
+            FROM {read_parquet(path, hive_partitioning=False)}
+            WHERE ends_with(ts_code, '.BJ')
+              AND trade_date < DATE '{BJ_MARKET_OPEN_DATE}'
+            """
+        ).fetchone()[0]
+        rows = connection.execute(
+            f"""
+            SELECT ts_code, trade_date
+            FROM {read_parquet(path, hive_partitioning=False)}
+            WHERE ends_with(ts_code, '.BJ')
+              AND trade_date < DATE '{BJ_MARKET_OPEN_DATE}'
+            ORDER BY ts_code, trade_date
+            LIMIT 10
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=bj_before_open_count == 0,
+        metadata={
+            "path": str(path),
+            "partition_key": partition_key,
+            "bj_market_open_date": BJ_MARKET_OPEN_DATE,
+            "bj_before_market_open_count": int(bj_before_open_count),
+            "bj_before_market_open_sample_rows": _sample_dicts(
+                ["ts_code", "trade_date"], rows
+            ),
+        },
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_daily,
+    blocking=True,
 )
 def silver_stock_daily_price_sanity(
     context: dg.AssetCheckExecutionContext,
@@ -509,6 +667,10 @@ def silver_stock_daily_price_sanity(
                OR low < 0
                OR close < 0
                OR pre_close < 0
+               OR open > high
+               OR open < low
+               OR close > high
+               OR close < low
             """
         ).fetchone()[0]
         rows = connection.execute(
@@ -521,15 +683,25 @@ def silver_stock_daily_price_sanity(
                OR low < 0
                OR close < 0
                OR pre_close < 0
+               OR open > high
+               OR open < low
+               OR close > high
+               OR close < low
             LIMIT 10
             """
         ).fetchall()
 
-    return _warn_result(
+    return dg.AssetCheckResult(
         passed=anomaly_count == 0,
         metadata={
             "path": str(path),
             "partition_key": partition_key,
+            "blocking_rules": [
+                "price fields must be non-negative",
+                "high >= low",
+                "high >= open >= low",
+                "high >= close >= low",
+            ],
             "anomaly_count": int(anomaly_count),
             "anomaly_sample_rows": _sample_dicts(
                 ["ts_code", "trade_date", "open", "high", "low", "close", "pre_close"],
@@ -589,8 +761,13 @@ def _expected_tradable_universe_metadata(
     WITH listed AS (
       SELECT DISTINCT ts_code
       FROM {read_parquet(basic_path, hive_partitioning=False)}
-      WHERE list_date <= DATE '{partition_key}'
-        AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
+      WHERE list_status = 'L'
+        AND DATE '{partition_key}' >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}'
+        AND list_date <= DATE '{partition_key}'
+        AND (
+          NOT ends_with(ts_code, '.BJ')
+          OR DATE '{partition_key}' >= DATE '{BJ_MARKET_OPEN_DATE}'
+        )
     ),
     full_day_suspended AS (
       SELECT DISTINCT suspend.ts_code

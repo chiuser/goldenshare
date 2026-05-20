@@ -5,7 +5,6 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.duckdb_sql import (
-    STOCK_BASIC_KNOWN_LIST_STATUS_VALUES,
     STOCK_BASIC_RAW_REQUIRED_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
     count_parquet_query,
@@ -335,7 +334,7 @@ def silver_stock_basic_has_listed_records(
 
 
 @dg.asset_check(asset="silver_stock_basic", blocking=True)
-def silver_stock_basic_known_list_status_values(
+def silver_stock_basic_current_listed_only(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
@@ -343,13 +342,11 @@ def silver_stock_basic_known_list_status_values(
     if not path.exists():
         return _missing_file_result(path)
 
-    allowed_values = ", ".join(
-        duckdb_string(value) for value in STOCK_BASIC_KNOWN_LIST_STATUS_VALUES
-    )
+    allowed_values = duckdb_string("L")
     with duckdb.connect() as connection:
-        unknown_count = connection.execute(
+        non_listed_count = connection.execute(
             f"""
-            SELECT count(*) AS unknown_count
+            SELECT count(*) AS non_listed_count
             FROM {read_parquet(path, hive_partitioning=False)}
             WHERE list_status IS NULL
                OR list_status NOT IN ({allowed_values})
@@ -368,12 +365,12 @@ def silver_stock_basic_known_list_status_values(
         ).fetchall()
 
     return dg.AssetCheckResult(
-        passed=unknown_count == 0,
+        passed=non_listed_count == 0,
         metadata={
             "path": str(path),
-            "known_list_status_values": list(STOCK_BASIC_KNOWN_LIST_STATUS_VALUES),
-            "unknown_list_status_row_count": int(unknown_count),
-            "unknown_list_status_sample_values": _sample_dicts(
+            "required_list_status_values": ["L"],
+            "non_listed_row_count": int(non_listed_count),
+            "non_listed_sample_values": _sample_dicts(
                 ["list_status", "row_count"], rows
             ),
         },

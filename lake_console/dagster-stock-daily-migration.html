@@ -297,7 +297,8 @@
         <p>
           全日停牌仍然定义为 <code>suspend_type='S' AND suspend_timing IS NULL</code>。
           盘中临时停牌定义为 <code>suspend_type='S' AND suspend_timing IS NOT NULL</code>。
-          旧湖中 14 条缺失 <code>suspend_timing</code> 的盘中停牌，必须在 silver 层修正。
+          旧湖中 14 条缺失 <code>suspend_timing</code> 的盘中停牌，必须在 silver 层修正；
+          旧湖缺失的长期全日停牌记录也只在 silver 层补充，不回写 raw。
         </p>
       </div>
       <div class="card">
@@ -314,7 +315,8 @@
         <p>
           <code>silver_stock_basic</code> 正式只保留 <code>list_status='L'</code>；
           <code>silver_stock_daily_price_sanity</code> 作为阻断 check；
-          14 条 <code>suspend_timing</code> 修正规则先放代码常量，数据修补完成且检查稳定后删除。
+          14 条 <code>suspend_timing</code> 修正规则先放代码常量；
+          全日停牌缺失补充以已审计 <code>S</code> 清单为依据，通过 Dagster metadata 留痕。
         </p>
       </div>
     </div>
@@ -549,6 +551,59 @@
       </tbody>
     </table>
 
+    <h3>全日停牌缺失补充口径</h3>
+    <p>
+      除 14 条盘中停牌 timing 修正外，历史 <code>suspend_d</code> 还存在一类问题：
+      某些股票在较长时间内没有 <code>daily</code> 记录，人工审计确认其原因是全日停牌，
+      但旧湖 <code>suspend_d</code> 没有覆盖对应 <code>S + suspend_timing NULL</code> 记录。
+      这类数据不回写 raw；raw 继续保持源镜像。补充只发生在
+      <code>silver_stock_suspend_daily</code>，作为标准事实层对停牌事实的补齐。
+    </p>
+    <p>
+      最新审计以旧湖最新 <code>daily</code> 为准，而不是以新湖是否已经跑过分区为准。
+      人工未标 <code>S</code> 的 3 条缺失已在旧湖补齐 <code>daily</code>；
+      当前剩余缺失为 <code>29</code> 只股票、<code>4022</code> 个交易日，全部被已标
+      <code>S</code> 的清单覆盖。<code>920188.BJ</code> 悦龙科技
+      <code>2026-03-30</code> 和 <code>2026-03-31</code> 旧湖已经有 <code>daily</code>，
+      不应进入全日停牌补充。
+    </p>
+
+    <pre><code>全日停牌补充记录:
+  ts_code = 审计清单中的股票代码
+  trade_date = 审计清单覆盖的交易日
+  suspend_type = 'S'
+  suspend_timing = NULL</code></pre>
+
+    <div class="callout">
+      <strong>补充清单生成原则：</strong>
+      不能机械按 CSV 原始区间全量补。必须先用旧湖最新 <code>daily</code> 重新计算
+      <code>unexplained_missing</code>，再取
+      <code>当前仍缺 daily 的记录 ∩ 人工标记 S 的区间</code> 生成补充清单。
+      如果某个日期已经存在 <code>daily</code>，即使 CSV 区间标了 <code>S</code>，也不能补全日停牌。
+    </div>
+
+    <p>
+      <code>silver_stock_suspend_daily</code> 生成时应执行：
+    </p>
+    <pre><code>silver_suspend =
+  raw suspend_d 标准化结果
+  + 14 条盘中停牌 timing 修正后的结果
+  + 当前仍缺 daily 且人工确认 S 的全日停牌补充记录</code></pre>
+
+    <p>
+      冲突处理必须保守：若同一 <code>ts_code + trade_date</code> 在 raw suspend 中已有非
+      <code>S + NULL</code> 的记录，且补充规则试图再写入全日停牌，应直接失败并输出冲突样本；
+      若补充规则覆盖的日期在旧湖最新 <code>daily</code> 中已有记录，应跳过或在生成补充清单阶段剔除，
+      禁止制造“全日停牌但有日线”的新冲突。
+    </p>
+    <p>
+      已人工拍板的 raw 冲突例外只在 silver 层修正，不直接改 raw 文件：
+      <code>688766.SH</code> 普冉股份 <code>2025-11-26</code> 在 silver 中输出为
+      <code>S + NULL</code>，raw 中同日同股票的 <code>R + NULL</code> 不进入 silver；
+      <code>688005.SH</code> 容百科技 <code>2026-01-16</code> 在 silver 中输出为
+      <code>S + NULL</code>。这类例外必须通过 Dagster metadata 记录 raw override 数量、版本和样本。
+    </p>
+
     <h3>Dagster 留痕方式</h3>
     <p>
       不新增 <code>silver_suspend_d_known_timing_corrections_applied</code> 这类 check。
@@ -566,12 +621,22 @@
   suspend_timing_correction_count
   suspend_timing_correction_policy
   suspend_timing_correction_version
-  suspend_timing_correction_sample_rows</code></pre>
+  suspend_timing_correction_sample_rows
+  full_day_suspend_patch_count
+  full_day_suspend_patch_rule_version
+  full_day_suspend_patch_source
+  full_day_suspend_patch_sample_rows
+  full_day_suspend_patch_conflict_count
+  full_day_suspend_raw_override_key_count
+  full_day_suspend_raw_override_removed_row_count
+  full_day_suspend_raw_override_rule_version
+  full_day_suspend_raw_override_source
+  full_day_suspend_raw_override_sample_rows</code></pre>
     <p>
       这样做的含义是：业务结果已经被修正，<code>suspend_timing</code> 不再是空值；但数据结构保持干净，
       仍然只有 <code>ts_code</code>、<code>trade_date</code>、<code>suspend_timing</code>、
-      <code>suspend_type</code> 四个业务字段。Dagster 运行事件负责记录“本次 materialize 应用了多少条修正规则、
-      规则版本是什么、样本是什么”。
+      <code>suspend_type</code> 四个业务字段。Dagster 运行事件负责记录“本次 materialize 应用了多少条
+      timing 修正规则、补了多少条全日停牌、规则版本是什么、样本是什么”。
     </p>
   </section>
 
@@ -639,7 +704,7 @@
     <ol>
       <li>先更新 Phase 2 方案文档和 LLD，把本文档确认的 daily 迁移口径同步进去。</li>
       <li>改造 <code>silver_stock_basic</code>，只输出当前 <code>list_status='L'</code> 股票，并调整对应 checks。</li>
-      <li>改造 <code>silver_stock_suspend_daily</code>，增加 14 条 timing 修正常量，并通过 materialization metadata 留痕，不新增修正命中 check；数据修补完成且检查稳定后删除修正常量。</li>
+      <li>改造 <code>silver_stock_suspend_daily</code>，增加 14 条 timing 修正常量；增加全日停牌缺失补充规则；两类修正都通过 materialization metadata 留痕，不新增修正命中 blocking check。</li>
       <li>改造 <code>silver_stock_daily</code>，从 raw 中执行当前上市、上市日、BJ 起始日、2014 起始日过滤。</li>
       <li>保留 <code>raw_tushare_stock_daily</code> 源镜像口径，不做业务筛选。</li>
       <li>重写 stock daily 完整性观测口径，避免把盘中停牌误判为全日停牌。</li>
@@ -672,7 +737,7 @@
         <tr>
           <td><code>duckdb_sql.py / silver_stock_suspend_daily_select</code></td>
           <td>当前只做类型标准化。</td>
-          <td>需要加入 14 条 <code>suspend_timing</code> 修正。</td>
+          <td>需要加入 14 条 <code>suspend_timing</code> 修正，并 union 人工确认的全日停牌补充记录。</td>
         </tr>
         <tr>
           <td><code>stock_daily_checks.py</code></td>
