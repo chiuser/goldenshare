@@ -72,17 +72,23 @@
 #### A. `raw_tushare.suspend_d`
 
 - 审计字段：`api_name`, `fetched_at`, `raw_payload`
-- 业务字段：`ts_code`, `suspend_date`, `resume_date`, `ann_date`, `suspend_reason`, `reason_type`
-- 索引建议：
-  - `idx_raw_tushare_suspend_d_suspend_date(suspend_date)`
-  - `idx_raw_tushare_suspend_d_ts_code_suspend_date(ts_code, suspend_date)`
+- 业务字段：`ts_code`, `trade_date`, `suspend_timing`, `suspend_type`
+- 字段长度：
+  - `suspend_timing`：`varchar(128)`，源端可能返回多个日内停牌时段，例如 `09:30-10:31,10:31-13:02,13:42-14:57`，禁止截断。
+  - `suspend_type`：`varchar(16)`，当前枚举为 `S` / `R`。
+- 索引：
+  - `uq_raw_tushare_suspend_d_row_key_hash(row_key_hash)`
+  - `idx_raw_tushare_suspend_d_trade_date(trade_date)`
+  - `idx_raw_tushare_suspend_d_ts_code_trade_date(ts_code, trade_date)`
 
 #### B. `core_serving.equity_suspend_d`
 
-- 对外字段与 raw 业务字段一致（不带 raw 审计字段）
-- 索引建议：
-  - `idx_equity_suspend_d_suspend_date(suspend_date)`
-  - `idx_equity_suspend_d_ts_code_suspend_date(ts_code, suspend_date)`
+- 对外字段与 raw 业务字段一致（不带 raw 审计字段）：`ts_code`, `trade_date`, `suspend_timing`, `suspend_type`
+- 字段长度与 raw 保持一致，`suspend_timing` 为 `varchar(128)`，不得截断日内多时段信息。
+- 索引：
+  - `uq_equity_suspend_d_row_key_hash(row_key_hash)`
+  - `idx_equity_suspend_d_trade_date(trade_date)`
+  - `idx_equity_suspend_d_ts_code_trade_date(ts_code, trade_date)`
 
 ### 5.3 幂等策略（待评审拍板）
 
@@ -109,7 +115,7 @@
 
 - 数据状态页分组：`股票`
 - 健康度口径：
-  - 展示日期范围：`suspend_date` 最小~最大
+  - 展示日期范围：`trade_date` 最小~最大
   - 同时展示最近同步日期（来自任务成功时间）
 - 异常展示：中文摘要 + 原始错误可展开
 

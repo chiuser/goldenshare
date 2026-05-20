@@ -36,6 +36,7 @@ from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
 from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
 from src.foundation.models.raw.raw_index_mins import RawIndexMins
 from src.foundation.models.raw.raw_index_basic import RawIndexBasic
+from src.foundation.models.raw.raw_suspend_d import RawSuspendD
 from src.foundation.models.raw.raw_ths_daily import RawThsDaily
 
 
@@ -152,13 +153,15 @@ def test_stock_st_serving_model_matches_expected_keys() -> None:
     }
 
 
-def test_suspend_d_serving_model_matches_expected_keys() -> None:
+def test_suspend_d_models_match_expected_keys_and_lengths() -> None:
     assert [column.name for column in EquitySuspendD.__table__.primary_key.columns] == ["id"]
     assert {index.name for index in EquitySuspendD.__table__.indexes} == {
         "uq_equity_suspend_d_row_key_hash",
         "idx_equity_suspend_d_trade_date",
         "idx_equity_suspend_d_ts_code_trade_date",
     }
+    assert RawSuspendD.__table__.columns["suspend_timing"].type.length == 128
+    assert EquitySuspendD.__table__.columns["suspend_timing"].type.length == 128
 
 
 def test_stk_nineturn_serving_model_matches_expected_keys() -> None:

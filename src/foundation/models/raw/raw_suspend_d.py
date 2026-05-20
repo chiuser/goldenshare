@@ -21,9 +21,8 @@ class RawSuspendD(Base):
     row_key_hash: Mapped[str] = mapped_column(String(64), nullable=False)
     ts_code: Mapped[str] = mapped_column(String(16), nullable=False)
     trade_date: Mapped[date] = mapped_column(Date, nullable=False)
-    suspend_timing: Mapped[str | None] = mapped_column(String(32))
+    suspend_timing: Mapped[str | None] = mapped_column(String(128))
     suspend_type: Mapped[str | None] = mapped_column(String(16))
     api_name: Mapped[str] = mapped_column(String(32), nullable=False, server_default=text("'suspend_d'"))
     fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False, server_default=text("now()"))
     raw_payload: Mapped[str | None] = mapped_column(Text)
-
