@@ -294,7 +294,7 @@
         <tbody>
         <tr>
           <td>自动化链路</td>
-          <td>新增明确命名的 asset jobs：<code>quote_daily_job</code> 负责同一个 <code>trade_date</code> 的 raw 拉取、raw checks、silver 生成和 silver checks；<code>daily_market_breadth_job</code> 只负责 gold 生成和 gold checks，并由 declarative automation 在 market_breadth_upstream_readiness 后触发。</td>
+          <td>新增明确命名的 asset jobs：<code>quote_daily_job</code> 负责同一个 <code>trade_date</code> 的 raw 拉取、raw checks、silver 生成和 silver checks；<code>daily_market_breadth_job</code> 只负责 gold 生成和 gold checks。下游触发优先使用 declarative automation 表达 <code>market_breadth_upstream_readiness</code>；若 Slice 2.2.2 小样本验证不通过，必须停下来讨论 asset sensor 后备方案。</td>
         </tr>
         <tr>
           <td>历史 bootstrap</td>
@@ -306,7 +306,7 @@
         </tr>
         <tr>
           <td>触发方式</td>
-          <td><code>cn_a_trade_day_sensor</code> 负责注册已完成交易日并触发 quote 日频链路；下游业务资产优先使用 declarative automation 等待 market_breadth_upstream_readiness，不默认用 asset sensor 触发生产。</td>
+          <td><code>cn_a_trade_day_sensor</code> 负责注册已完成交易日并触发 quote 日频链路；下游业务资产优先使用 declarative automation 等待 <code>market_breadth_upstream_readiness</code>，不默认用 asset sensor 触发生产。asset sensor 只作为验证不通后的后备方案或通知/告警用途。</td>
         </tr>
         <tr>
           <td>schedule</td>
@@ -380,7 +380,7 @@
         <tr>
           <td>Declarative Automation</td>
           <td><a href="https://docs.dagster.io/guides/automate/declarative-automation">Declarative Automation</a>：<code>AutomationCondition.eager()</code> 和 <code>on_missing()</code> 可基于上游资产状态请求下游资产；官方说明上游 partition 未 materialized 或仍在运行时，下游不会被请求。</td>
-          <td>第二期优先用 declarative automation 表达“上游没好，下游先不请求；上游好了，再触发下游”。LLD 需要重点验证如何把 blocking checks 纳入 readiness 判断。</td>
+          <td>第二期优先用 declarative automation 表达“上游没好，下游先不请求；上游好了，再触发下游”。Slice 2.2.2 需要重点验证如何把 blocking checks 纳入 readiness 判断。</td>
         </tr>
         <tr>
           <td>Asset check 依赖</td>
@@ -499,7 +499,7 @@
         <tr>
           <td><code>Slice 2.2</code></td>
           <td>补齐低频基础数据更新、下游 readiness gate 和自动化触发。</td>
-          <td><code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>cn_a_trade_day_sensor</code>、<code>daily_market_breadth_job</code>、declarative automation readiness 条件、可选 schedule 兜底、latest completed trade date 规则。</td>
+          <td><code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>cn_a_trade_day_sensor</code>、<code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底、latest completed trade date 规则。</td>
           <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
           <td>Dagster UI 能看到 quote_daily_job、breadth job 和自动化条件；上游未就绪时下游不启动 run，上游就绪后下游才被触发。</td>
         </tr>
@@ -634,7 +634,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
         <tbody>
         <tr>
           <td>0</td>
-          <td>自动化安全门禁先定：<code>cn_a_trade_day_sensor</code> 默认 <code>STOPPED</code>，下游 declarative automation 不先打开大范围自动生产。</td>
+          <td>自动化安全门禁先定：<code>cn_a_trade_day_sensor</code> 默认 <code>STOPPED</code>，下游 readiness gate 不先打开大范围自动生产。</td>
           <td>避免一启动 daemon 就扫描交易日、注册大量 partitions、触发大量 quote 日频 runs。</td>
           <td>文档和配置口径明确，开发验证阶段只手动触发或小范围 backfill。</td>
         </tr>
@@ -664,21 +664,27 @@ gold_market_breadth_daily[trade_date]</code></pre>
         </tr>
         <tr>
           <td>5</td>
-          <td>实现 <code>market_breadth_upstream_readiness</code> 和 <code>daily_market_breadth_job</code>。</td>
-          <td>下游 gold 只能等自己真正需要的上游：calendar、basic、quote daily。不能主动补上游，也不能等待无关资产族。</td>
-          <td>readiness 明确包含 materialization + blocking checks；前置条件不满足时不请求下游；满足后只生产 <code>gold_market_breadth_daily</code>。</td>
-        </tr>
-        <tr>
-          <td>6</td>
           <td>接入 Tushare API 续更新：<code>TushareResource</code>、<code>daily</code>、<code>suspend_d</code> 的新交易日 raw 写入。</td>
           <td>先有历史 bootstrap 和 checks，再接 API 续更新，才能证明两种来源写入同一契约、同一 raw path、同一 checks。</td>
           <td>任选一个已完成新交易日，Tushare API 写入 raw，和 bootstrap raw 共享字段契约与 checks；<code>source_method=tushare_api</code> 只进入 metadata。</td>
         </tr>
         <tr>
+          <td>6</td>
+          <td>小范围启用 <code>cn_a_trade_day_sensor</code>，只注册/触发已完成交易日的 <code>quote_daily_job</code>。</td>
+          <td>只有历史 bootstrap、Tushare raw 拉取、raw/silver checks 都跑通后，sensor 才有稳定的上游 job 可以触发。</td>
+          <td>传感器默认 <code>STOPPED</code>；人工小范围验证后确认不会注册或运行未来 open day。</td>
+        </tr>
+        <tr>
           <td>7</td>
-          <td>最后开启自动化验证：小范围启用 <code>cn_a_trade_day_sensor</code>，验证 declarative automation readiness gate。</td>
+          <td>实现 <code>market_breadth_upstream_readiness</code> 和 <code>daily_market_breadth_job</code>，并验证下游自动化门禁。</td>
           <td>只有上游 job、checks、readiness 都稳定后，自动化才有意义。</td>
-          <td>传感器不会误跑未来交易日；落后多个交易日时按一个交易日一个 partition run 补齐；下游只在 readiness 通过后触发。</td>
+          <td>readiness 明确包含 materialization + blocking checks；前置条件不满足时不请求下游；满足后只生产 <code>gold_market_breadth_daily</code>。优先验证 declarative automation；若验证不通，停下讨论 asset sensor 后备。</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>全链路验收和收口。</td>
+          <td>最后再做 2026-04 全月和最近已完成交易日的小范围自动化验证，避免前面问题被批量 run 放大。</td>
+          <td>落后多个交易日时按一个交易日一个 partition run 补齐；下游只在 readiness 通过后触发；无多余生成物。</td>
         </tr>
         </tbody>
       </table>
@@ -859,7 +865,7 @@ defs/schedules/daily_market_breadth_schedule.py
 12. quote_daily_job 执行 silver_stock_daily / silver_stock_suspend_daily 相关 checks
 
 下游业务资产生产顺序：
-13. declarative automation 评估 market_breadth_upstream_readiness
+13. readiness gate（优先 declarative automation）评估 market_breadth_upstream_readiness
 14. 如果前置条件通过，请求 gold_market_breadth_daily[trade_date] 或发起 daily_market_breadth_job[trade_date]
 15. breadth job materialize gold_market_breadth_daily[trade_date]
 16. breadth job 执行 gold_market_breadth_daily checks
@@ -881,7 +887,7 @@ defs/schedules/daily_market_breadth_schedule.py
     <div class="warning">
       <strong>硬门禁：</strong>
       ready 不等于只看 <code>silver_stock_daily[date]</code> 是否 materialized。
-      第二期后续 LLD 必须专门设计 <code>market_breadth_upstream_readiness</code> 状态：quote 日频链路完成且 raw/silver 层阻断 checks 全部通过，<code>stock_basic</code> 和 <code>trade_calendar</code> 这些低频基础资产也已就绪后，下游才允许触发。
+      LLD 和实现必须专门设计 <code>market_breadth_upstream_readiness</code> 状态：quote 日频链路完成且 raw/silver 层阻断 checks 全部通过，<code>stock_basic</code> 和 <code>trade_calendar</code> 这些低频基础资产也已就绪后，下游才允许触发。
       仅靠 “silver materialized” 判断会漏掉质量门禁，不能作为下游生产依据。
     </div>
 
@@ -935,14 +941,14 @@ defs/schedules/daily_market_breadth_schedule.py
             + <code>silver_stock_basic</code> ready
             + <code>silver_trade_calendar</code> ready。
           </td>
-          <td>这是下游触发依据；LLD 需要明确状态查询方式、失败状态和重试口径。</td>
+          <td>这是下游触发依据；Slice 2.2.2 需要用小样本验证状态查询方式、失败状态和重试口径。</td>
         </tr>
         </tbody>
       </table>
     </div>
 
     <div class="callout">
-      Dagster 可以实现这种“等待”能力，但这里的等待不是一个已经启动的 run 卡在 RUNNING 状态。
+      第二期目标是通过 Dagster 自动化层表达这种“等待”能力，但这里的等待不是一个已经启动的 run 卡在 RUNNING 状态。
       推荐做法是：declarative automation 暂不请求下游资产，等待下一次条件评估；
       如果后续 LLD 证明必须使用 asset sensor，则由 sensor 返回 <code>SkipReason</code>，不发起下游 <code>RunRequest</code>。
       一旦上游 materialization 和 checks 满足，再发起下游 job。
@@ -969,7 +975,7 @@ quote_daily_job[2026-05-15]
 quote_daily_job[2026-05-18]
 quote_daily_job[2026-05-19]
 
-quote_daily_job 成功后，再由 declarative automation readiness gate 分别触发：
+quote_daily_job 成功后，再由 readiness gate 分别触发：
 daily_market_breadth_job[2026-05-13]
 daily_market_breadth_job[2026-05-14]
 daily_market_breadth_job[2026-05-15]
@@ -979,7 +985,7 @@ daily_market_breadth_job[2026-05-19]</code></pre>
     <div class="callout">
       这 5 个 quote_daily run 可以由一次 backfill 提交，也可以由 sensor 一次返回多个 <code>RunRequest</code>。
       但第一版不采用“一个 run 传 <code>start_date/end_date</code> 拉 5 天，然后在 run 内部拆 5 个文件”的方式。
-      原因是单日 quote_daily run 更容易看状态、查 metadata、定位失败和重跑单日；下游业务 run 则由 declarative automation readiness gate 在 quote_daily_job 成功后触发。
+      原因是单日 quote_daily run 更容易看状态、查 metadata、定位失败和重跑单日；下游业务 run 则由 readiness gate 在 quote_daily_job 成功后触发。readiness gate 优先用 declarative automation 实现；若 Slice 2.2.2 验证不通，再按确认后的 asset sensor 后备方案处理。
     </div>
   </section>
 
@@ -1024,11 +1030,11 @@ silver / gold / checks</code></pre>
         </tr>
         <tr>
           <td>路径口径</td>
-          <td>正式 asset path 只写新湖路径，例如 <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；旧湖路径只允许出现在 bootstrap 脚本参数和文档说明中。</td>
+          <td>正式 asset path 只写新湖路径，例如 <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；旧湖路径只允许出现在 bootstrap spec / migration entrypoint 参数和文档说明中。</td>
         </tr>
         <tr>
           <td>metadata 口径</td>
-          <td>数据文件本身不增加 <code>source_method</code> 这类系统字段；Dagster materialization metadata 可以记录 <code>source_method=old_lake_bootstrap</code>、行数、字段列表和类型纠偏摘要。旧湖路径只在文档和 bootstrap 参数中出现，不写入正式资产字段。</td>
+          <td>数据文件本身不增加 <code>source_method</code> 这类系统字段；Dagster materialization metadata 可以记录 <code>source_method=old_lake_bootstrap</code>、行数、字段列表和类型纠偏摘要。旧湖路径只在文档和 bootstrap spec / migration entrypoint 参数中出现，不写入正式资产字段。</td>
         </tr>
         <tr>
           <td>下游口径</td>
@@ -1410,7 +1416,12 @@ suspend_timing string，可为空
     <p>
       对某一个具体数据集来说，bootstrap 通常只执行一次，用来把旧湖历史数据拉齐到新湖 raw。
       但 bootstrap 这套“读旧湖、字段投影、类型纠偏、写新 raw、跑 raw checks”的工具链会被后续大量数据集复用。
+      因此 bootstrap 入口、spec 和通用执行逻辑长期保留，用作迁移审计记录和后续类似数据集接入的复用基础。
       后续每个数据集只应该补充自己的 bootstrap spec，不应该重新发明一套 copy/cast/check 流程，也不应该把 bootstrap 做成日常生产链路。
+    </p>
+    <p>
+      口径拆清楚：bootstrap 通用引擎只负责“旧湖 → 新湖 raw”的历史迁移；bootstrap migration job 可以在同一次验证里继续 materialize 对应 silver 和 checks，
+      但 silver 仍由正式 silver asset 生成，不由 bootstrap 引擎单独生成另一套结果。
     </p>
 
     <pre><code>BootstrapDatasetSpec:
@@ -1445,7 +1456,7 @@ suspend_timing string，可为空
         <tr>
           <td><code>bootstrap/migration_jobs.py</code></td>
           <td>提供历史迁移入口，例如 <code>bootstrap_quote_daily_job</code>、<code>bootstrap_basic_update_job</code>。这些入口只服务历史拉齐。</td>
-          <td>bootstrap 是历史迁移工具链，不属于日常生产 job 集合；不得被 sensor、schedule 或 declarative automation 触发。</td>
+          <td>bootstrap 是长期保留的历史迁移工具链，不属于日常生产 job 集合；不得被 sensor、schedule 或 declarative automation 触发。</td>
         </tr>
         <tr>
           <td>通用 raw contract checks</td>
@@ -1798,7 +1809,7 @@ business key duplicate count: 0</code></pre>
       stock_basic.py
       stock_daily.py
   sensors/
-    cn_a_trade_day_sensor.py  # 注册交易日并触发 quote_daily_job
+    cn_a_trade_day_sensor.py  # 注册交易日并短期触发 quote_daily_job
     market_breadth_readiness_alerts.py
                               # 后备：通知、告警或复杂自定义触发，不作为默认生产触发
   schedules/
@@ -1837,7 +1848,7 @@ business key duplicate count: 0</code></pre>
         </tr>
         <tr>
           <td>自动化入口</td>
-          <td>Dagster UI 能看到 <code>quote_daily_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code> 和下游 declarative automation 条件；sensor 不默认乱跑大范围历史。</td>
+          <td>Dagster UI 能看到 <code>quote_daily_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code> 和下游 readiness gate 条件（优先 declarative automation）；sensor 不默认乱跑大范围历史。</td>
         </tr>
         <tr>
           <td>单日验证</td>
@@ -1845,7 +1856,7 @@ business key duplicate count: 0</code></pre>
         </tr>
         <tr>
           <td>全月验证</td>
-          <td>2026-04 全月 21 个 quote_daily 分区跑通；declarative automation readiness gate 触发对应 breadth 分区；market breadth checks 保持通过；stock_daily 新完整性 check 输出差异 metadata，<code>unexplained_missing_count=0</code>。</td>
+          <td>2026-04 全月 21 个 quote_daily 分区跑通；readiness gate 只在前置条件通过后触发对应 breadth 分区。优先使用 declarative automation；若小样本验证不通，则必须先确认 asset sensor 后备方案后再验收。market breadth checks 保持通过；stock_daily 新完整性 check 输出差异 metadata，<code>unexplained_missing_count=0</code>。</td>
         </tr>
         <tr>
           <td>生成物</td>
@@ -1857,13 +1868,13 @@ business key duplicate count: 0</code></pre>
   </section>
 
   <section>
-    <h2>13. 已确认 / 待拍板项</h2>
+    <h2>13. 已确认口径与开发跟进项</h2>
     <div class="table-wrap">
       <table>
         <thead>
         <tr>
           <th>问题</th>
-          <th>建议</th>
+          <th>已确认口径</th>
           <th>原因</th>
         </tr>
         </thead>
@@ -1885,7 +1896,7 @@ business key duplicate count: 0</code></pre>
         </tr>
         <tr>
           <td>上游未就绪时如何“等待”？</td>
-          <td>等待优先发生在 declarative automation 层：不请求下游资产，等待下一次条件评估。若 LLD 证明需要 asset sensor 后备，则 sensor 返回 <code>SkipReason</code>，不发起下游 <code>RunRequest</code>。不是启动一个下游 run 后卡住。</td>
+          <td>等待优先发生在 declarative automation 层：不请求下游资产，等待下一次条件评估。若 Slice 2.2.2 验证证明需要 asset sensor 后备，则 sensor 返回 <code>SkipReason</code>，不发起下游 <code>RunRequest</code>。不是启动一个下游 run 后卡住。</td>
           <td>这符合 Dagster 的自动化模型，也更容易观测和重试。</td>
         </tr>
         <tr>
