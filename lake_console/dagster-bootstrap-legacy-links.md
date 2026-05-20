@@ -30,6 +30,7 @@
 | `suspend_d` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/suspend_d/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/suspend_d/trade_date={partition_key}/part-000.parquet` | `suspend_d_bootstrap_spec` / `SUSPEND_D_BOOTSTRAP_SELECT_TEMPLATE` | 暂未新增独立 job，当前通过 asset selection 验证 | 已完成 Slice 2.0.3 单日验证 |
 | `trade_calendar` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/trade_cal/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet` | `trade_calendar_bootstrap_spec` / `TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_calendar_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_basic` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet` | `stock_basic_bootstrap_spec` / `STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_basic_update_job` | 已完成 Slice 2.0.4 验证 |
+| `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_quote_daily_job` | 已完成 Slice 2.0.5 验证 |
 
 ## 已确认的迁移纠偏规则
 
@@ -54,6 +55,16 @@
 - `list_date/delist_date` 保持 `YYYYMMDD` 字符串或 null；日期标准化只在 silver 层做。
 - `empty_policy=require_positive`。
 
+### `stock_daily`
+
+- 旧湖实际路径是 `raw_tushare/daily/trade_date={partition_key}/part-000.parquet`，不是 `stock_daily` 目录。
+- 旧湖 `trade_date` 是 Parquet `DATE`，新湖 raw 必须纠偏为 Tushare 源站镜像的 `YYYYMMDD` 字符串。
+- 新湖 raw 字段名保留 Tushare `daily` 源字段 `change`；silver 层再标准化为 `change_amount`。
+- `empty_policy=require_positive`，因为已完成交易日的股票日线 raw 不应为空。
+- `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` 会经过 Python `str.format(...)` 渲染；SQL 正则中的 `{8}` 必须写成 `{{8}}`，否则会被误识别成 format 占位符。
+- Slice 2.0.5 已用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 跑通 2026-04 全月 21 个交易日。
+- 2026-04 验证结果：`bootstrap_quote_daily_job` 全部分区成功，raw/silver blocking checks 全部通过，`silver_stock_daily_covers_expected_tradable_universe` 全部通过，`unexplained_missing_count=0` 且 `unexplained_extra_count=0`。
+
 ## 清理门禁
 
 清理某个具体数据集旧链路前，必须至少完成以下审计：
@@ -73,4 +84,3 @@
 - 若后续还有相似数据集需要参考迁移写法，可以保留 spec/template/job 作为迁移审计和模板。
 - 若该数据集已经完全进入 Tushare 日常更新链路，且旧链路不再需要重跑，可以在完成清理门禁后删除具体 spec/template/job。
 - 删除旧链路不得影响通用 bootstrap 引擎，也不得影响新湖 raw/silver/gold 正式资产。
-

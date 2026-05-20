@@ -4,7 +4,9 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import raw_tushare_stock_daily, silver_stock_daily
+from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
@@ -17,6 +19,7 @@ from orchestrator.defs.paths import (
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
@@ -574,11 +577,153 @@ def silver_stock_daily_row_count_not_greater_than_raw(
     )
 
 
+def _expected_tradable_universe_metadata(
+    connection,
+    *,
+    partition_key: str,
+    daily_path: Path,
+    basic_path: Path,
+    suspend_path: Path,
+) -> dict[str, Any]:
+    universe_cte = f"""
+    WITH listed AS (
+      SELECT DISTINCT ts_code
+      FROM {read_parquet(basic_path, hive_partitioning=False)}
+      WHERE list_date <= DATE '{partition_key}'
+        AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
+    ),
+    full_day_suspended AS (
+      SELECT DISTINCT suspend.ts_code
+      FROM {read_parquet(suspend_path, hive_partitioning=False)} suspend
+      INNER JOIN listed USING (ts_code)
+      WHERE suspend.trade_date = DATE '{partition_key}'
+        AND suspend.suspend_type = 'S'
+        AND suspend.suspend_timing IS NULL
+    ),
+    intraday_suspended AS (
+      SELECT DISTINCT
+        suspend.ts_code,
+        suspend.suspend_type,
+        suspend.suspend_timing
+      FROM {read_parquet(suspend_path, hive_partitioning=False)} suspend
+      INNER JOIN listed USING (ts_code)
+      WHERE suspend.trade_date = DATE '{partition_key}'
+        AND suspend.suspend_type = 'S'
+        AND suspend.suspend_timing IS NOT NULL
+    ),
+    expected AS (
+      SELECT ts_code
+      FROM listed
+      EXCEPT
+      SELECT ts_code
+      FROM full_day_suspended
+    ),
+    daily AS (
+      SELECT DISTINCT ts_code
+      FROM {read_parquet(daily_path, hive_partitioning=False)}
+      WHERE trade_date = DATE '{partition_key}'
+    ),
+    missing AS (
+      SELECT expected.ts_code
+      FROM expected
+      LEFT JOIN daily USING (ts_code)
+      WHERE daily.ts_code IS NULL
+    ),
+    extra AS (
+      SELECT daily.ts_code
+      FROM daily
+      LEFT JOIN expected USING (ts_code)
+      WHERE expected.ts_code IS NULL
+    )
+    """
+    counts = connection.execute(
+        f"""
+        {universe_cte}
+        SELECT
+          (SELECT count(*) FROM listed) AS listed_count,
+          (SELECT count(*) FROM full_day_suspended) AS full_day_suspend_count,
+          (SELECT count(*) FROM intraday_suspended) AS intraday_suspend_count,
+          (SELECT count(*) FROM expected) AS expected_count,
+          (SELECT count(*) FROM daily) AS daily_count,
+          (SELECT count(*) FROM missing) AS unexplained_missing_count,
+          (SELECT count(*) FROM extra) AS unexplained_extra_count
+        """
+    ).fetchone()
+    missing_rows = connection.execute(
+        f"""
+        {universe_cte}
+        SELECT ts_code
+        FROM missing
+        ORDER BY ts_code
+        LIMIT 20
+        """
+    ).fetchall()
+    extra_rows = connection.execute(
+        f"""
+        {universe_cte}
+        SELECT ts_code
+        FROM extra
+        ORDER BY ts_code
+        LIMIT 20
+        """
+    ).fetchall()
+    full_day_suspend_rows = connection.execute(
+        f"""
+        {universe_cte}
+        SELECT ts_code
+        FROM full_day_suspended
+        ORDER BY ts_code
+        LIMIT 20
+        """
+    ).fetchall()
+    intraday_suspend_rows = connection.execute(
+        f"""
+        {universe_cte}
+        SELECT ts_code, suspend_type, suspend_timing
+        FROM intraday_suspended
+        ORDER BY ts_code, suspend_timing
+        LIMIT 20
+        """
+    ).fetchall()
+
+    (
+        listed_count,
+        full_day_suspend_count,
+        intraday_suspend_count,
+        expected_count,
+        daily_count,
+        unexplained_missing_count,
+        unexplained_extra_count,
+    ) = counts
+    return {
+        "daily_path": str(daily_path),
+        "stock_basic_path": str(basic_path),
+        "stock_suspend_daily_path": str(suspend_path),
+        "trade_date": partition_key,
+        "listed_count": int(listed_count),
+        "full_day_suspend_count": int(full_day_suspend_count),
+        "explained_by_full_day_suspend_count": int(full_day_suspend_count),
+        "intraday_suspend_count": int(intraday_suspend_count),
+        "expected_count": int(expected_count),
+        "daily_count": int(daily_count),
+        "diff_count": int(daily_count - expected_count),
+        "unexplained_missing_count": int(unexplained_missing_count),
+        "unexplained_extra_count": int(unexplained_extra_count),
+        "missing_sample_ts_codes": [row[0] for row in missing_rows],
+        "extra_sample_ts_codes": [row[0] for row in extra_rows],
+        "full_day_suspend_sample_ts_codes": [row[0] for row in full_day_suspend_rows],
+        "intraday_suspend_sample_rows": _sample_dicts(
+            ["ts_code", "suspend_type", "suspend_timing"], intraday_suspend_rows
+        ),
+    }
+
+
 @dg.asset_check(
     asset=silver_stock_daily,
+    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
     blocking=False,
 )
-def silver_stock_daily_row_count_matches_listed_stock_count(
+def silver_stock_daily_row_count_matches_expected_tradable_count(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -586,42 +731,32 @@ def silver_stock_daily_row_count_matches_listed_stock_count(
     partition_key = context.partition_key
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
     basic_path = silver_stock_basic_path(lake_root.root())
-    if not daily_path.exists():
-        return _missing_file_result(daily_path)
-    if not basic_path.exists():
-        return _missing_file_result(basic_path)
+    suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
+    for path in (daily_path, basic_path, suspend_path):
+        if not path.exists():
+            return _missing_file_result(path)
 
     with duckdb.connect() as connection:
-        daily_count = connection.execute(
-            count_parquet_query(daily_path, hive_partitioning=False)
-        ).fetchone()[0]
-        listed_stock_count = connection.execute(
-            f"""
-            SELECT count(*) AS listed_stock_count
-            FROM {read_parquet(basic_path, hive_partitioning=False)}
-            WHERE list_date <= DATE '{partition_key}'
-              AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
-            """
-        ).fetchone()[0]
+        metadata = _expected_tradable_universe_metadata(
+            connection,
+            partition_key=partition_key,
+            daily_path=daily_path,
+            basic_path=basic_path,
+            suspend_path=suspend_path,
+        )
 
     return _warn_result(
-        passed=daily_count == listed_stock_count,
-        metadata={
-            "daily_path": str(daily_path),
-            "stock_basic_path": str(basic_path),
-            "trade_date": partition_key,
-            "daily_count": int(daily_count),
-            "listed_stock_count": int(listed_stock_count),
-            "diff_count": int(daily_count - listed_stock_count),
-        },
+        passed=metadata["daily_count"] == metadata["expected_count"],
+        metadata=metadata,
     )
 
 
 @dg.asset_check(
     asset=silver_stock_daily,
+    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
     blocking=False,
 )
-def silver_stock_daily_covers_listed_stock_universe(
+def silver_stock_daily_covers_expected_tradable_universe(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -629,102 +764,24 @@ def silver_stock_daily_covers_listed_stock_universe(
     partition_key = context.partition_key
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
     basic_path = silver_stock_basic_path(lake_root.root())
-    if not daily_path.exists():
-        return _missing_file_result(daily_path)
-    if not basic_path.exists():
-        return _missing_file_result(basic_path)
+    suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
+    for path in (daily_path, basic_path, suspend_path):
+        if not path.exists():
+            return _missing_file_result(path)
 
     with duckdb.connect() as connection:
-        missing_count = connection.execute(
-            f"""
-            WITH listed AS (
-              SELECT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_date <= DATE '{partition_key}'
-                AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
-            ),
-            daily AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(daily_path, hive_partitioning=False)}
-              WHERE trade_date = DATE '{partition_key}'
-            )
-            SELECT count(*) AS missing_count
-            FROM listed
-            LEFT JOIN daily USING (ts_code)
-            WHERE daily.ts_code IS NULL
-            """
-        ).fetchone()[0]
-        extra_count = connection.execute(
-            f"""
-            WITH listed AS (
-              SELECT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_date <= DATE '{partition_key}'
-                AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
-            ),
-            daily AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(daily_path, hive_partitioning=False)}
-              WHERE trade_date = DATE '{partition_key}'
-            )
-            SELECT count(*) AS extra_count
-            FROM daily
-            LEFT JOIN listed USING (ts_code)
-            WHERE listed.ts_code IS NULL
-            """
-        ).fetchone()[0]
-        missing_rows = connection.execute(
-            f"""
-            WITH listed AS (
-              SELECT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_date <= DATE '{partition_key}'
-                AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
-            ),
-            daily AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(daily_path, hive_partitioning=False)}
-              WHERE trade_date = DATE '{partition_key}'
-            )
-            SELECT listed.ts_code
-            FROM listed
-            LEFT JOIN daily USING (ts_code)
-            WHERE daily.ts_code IS NULL
-            ORDER BY listed.ts_code
-            LIMIT 20
-            """
-        ).fetchall()
-        extra_rows = connection.execute(
-            f"""
-            WITH listed AS (
-              SELECT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_date <= DATE '{partition_key}'
-                AND (delist_date IS NULL OR delist_date > DATE '{partition_key}')
-            ),
-            daily AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(daily_path, hive_partitioning=False)}
-              WHERE trade_date = DATE '{partition_key}'
-            )
-            SELECT daily.ts_code
-            FROM daily
-            LEFT JOIN listed USING (ts_code)
-            WHERE listed.ts_code IS NULL
-            ORDER BY daily.ts_code
-            LIMIT 20
-            """
-        ).fetchall()
+        metadata = _expected_tradable_universe_metadata(
+            connection,
+            partition_key=partition_key,
+            daily_path=daily_path,
+            basic_path=basic_path,
+            suspend_path=suspend_path,
+        )
 
     return _warn_result(
-        passed=missing_count == 0 and extra_count == 0,
-        metadata={
-            "daily_path": str(daily_path),
-            "stock_basic_path": str(basic_path),
-            "trade_date": partition_key,
-            "missing_count": int(missing_count),
-            "extra_count": int(extra_count),
-            "missing_sample_ts_codes": [row[0] for row in missing_rows],
-            "extra_sample_ts_codes": [row[0] for row in extra_rows],
-        },
+        passed=(
+            metadata["unexplained_missing_count"] == 0
+            and metadata["unexplained_extra_count"] == 0
+        ),
+        metadata=metadata,
     )

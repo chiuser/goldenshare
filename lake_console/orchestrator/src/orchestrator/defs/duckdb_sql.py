@@ -137,6 +137,27 @@ STOCK_DAILY_SILVER_REQUIRED_COLUMNS = (
     "amount",
 )
 
+STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE = """
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CASE
+    WHEN trade_date IS NULL OR trim(CAST(trade_date AS VARCHAR)) = '' THEN NULL
+    WHEN regexp_matches(trim(CAST(trade_date AS VARCHAR)), '^\\d{{8}}$')
+      THEN trim(CAST(trade_date AS VARCHAR))
+    ELSE strftime(CAST(trade_date AS DATE), '%Y%m%d')
+  END AS trade_date,
+  CAST(open AS DOUBLE) AS open,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(close AS DOUBLE) AS close,
+  CAST(pre_close AS DOUBLE) AS pre_close,
+  CAST(change AS DOUBLE) AS change,
+  CAST(pct_chg AS DOUBLE) AS pct_chg,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount
+FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
+"""
+
 SUSPEND_D_RAW_COLUMNS = (
     "ts_code",
     "trade_date",

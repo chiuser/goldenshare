@@ -4,6 +4,8 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.bootstrap import bootstrap_partition_to_raw
+from orchestrator.defs.bootstrap.specs.stock_daily import stock_daily_bootstrap_spec
 from orchestrator.defs.duckdb_sql import (
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     copy_query_to_parquet,
@@ -249,25 +251,19 @@ def raw_tushare_stock_daily(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    path = raw_stock_daily_path(lake_root.root(), partition_key)
-    if not path.exists():
-        raise FileNotFoundError(f"Missing raw stock daily file: {path}")
-
-    with duckdb.connect() as connection:
-        columns = _column_names(connection, path, hive_partitioning=False)
-        row_count = _row_count(connection, path, hive_partitioning=False)
+    spec = stock_daily_bootstrap_spec(lake_root.root())
+    metadata = bootstrap_partition_to_raw(spec, partition_key, duckdb)
 
     return dg.MaterializeResult(
         metadata={
-            "path": str(path),
-            "row_count": row_count,
-            "columns": columns,
+            **metadata,
             "partition_key": partition_key,
             "layer": "raw",
             "source_api": "daily",
             "data_contract": "source_mirror",
             "raw_contract": "Tushare daily source mirror: trade_date YYYYMMDD string, field name change.",
             "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
+            "cast_summary": "trade_date DATE/duckdb string -> YYYYMMDD string; numeric quote fields -> DOUBLE.",
         }
     )
 
