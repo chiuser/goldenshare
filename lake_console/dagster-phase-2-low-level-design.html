@@ -1623,14 +1623,14 @@ quote_daily assets:
         <tr>
           <td>2.0.5</td>
           <td>stock_daily 历史迁移和完整性 checks 改造。</td>
-          <td><code>bootstrap/specs/stock_daily.py</code>、<code>stock_daily_checks.py</code>。</td>
-          <td>2026-04 全月历史迁移、silver、checks 通过；完整性 WARN 输出完整差异 metadata；<code>unexplained_missing_count=0</code>。</td>
+          <td><code>bootstrap/specs/stock_daily.py</code>、<code>stock_daily_checks.py</code>、<code>duckdb_sql.py</code> 中 stock daily / stock basic / suspend_d silver 口径改造。</td>
+          <td>单日和 2026-04 小范围验证通过；确认 raw 不过滤，silver 执行当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、2014 起始日四类过滤；14 条 <code>suspend_timing</code> 修正生效；完整性 WARN 输出完整差异 metadata。</td>
         </tr>
         <tr>
           <td>2.0.6</td>
           <td>quote 日频全历史 bootstrap 收口。</td>
           <td><code>bootstrap_quote_daily_job</code>、dynamic partitions 注册脚本/执行入口、批量验收汇总。</td>
-          <td>完成旧湖 <code>daily</code>/<code>suspend_d</code> 覆盖审计；可运行分区批量迁移到新湖 raw/silver；缺失 <code>suspend_d</code> 的日期不静默造空；输出 migrated/failed/skipped 汇总。</td>
+          <td>完成旧湖 <code>daily</code>/<code>suspend_d</code> 覆盖审计；对 <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 3004 个目标交易日分批迁移到新湖 raw/silver；缺失 <code>suspend_d</code> 的日期不静默造空；输出 migrated/failed/skipped、过滤统计和修正统计汇总。</td>
         </tr>
         <tr>
           <td>2.1</td>
@@ -1654,7 +1654,7 @@ quote_daily assets:
           <td>2.2.3</td>
           <td>全链路验收和收口。</td>
           <td>文档、AGENTS、提交前清理。</td>
-          <td>2026-04 全月 bootstrap + quote + breadth 通过；无多余生成物。</td>
+          <td>2.0.6 全历史 quote bootstrap 已收口；2026-04 全月 quote + breadth 作为自动化小范围验收通过；无多余生成物。</td>
         </tr>
         </tbody>
       </table>
@@ -1677,7 +1677,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
 DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
   uv run python -m orchestrator.dev_checks.run_quote_daily --partition 2026-04-01
 
-# 全月验证
+# 2026-04 小范围自动化验证
 DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
   uv run python -m orchestrator.dev_checks.run_quote_daily_month --month 2026-04</code></pre>
 
@@ -1700,7 +1700,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Bootstrap</td>
-          <td>旧湖历史迁移写入新湖 raw 后，字段与 Tushare 契约一致；metadata 有 <code>source_method=old_lake_bootstrap</code>；迁移入口不被任何自动化引用。</td>
+          <td>旧湖历史迁移写入新湖 raw 后，字段与 Tushare 契约一致；metadata 有 <code>source_method=old_lake_bootstrap</code>；2.0.6 覆盖 <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 3004 个目标交易日；迁移入口不被任何自动化引用。</td>
         </tr>
         <tr>
           <td>Tushare API</td>
@@ -1716,7 +1716,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>全月数据</td>
-          <td>2026-04 全月 21 个交易日 quote/breadth 通过；stock daily 完整性新增口径解释掉停牌导致的缺口。</td>
+          <td>2026-04 全月 21 个交易日 quote/breadth 作为自动化小范围验收通过；stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
         </tr>
         <tr>
           <td>提交前</td>

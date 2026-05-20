@@ -1991,7 +1991,7 @@ full-day suspend conflicts after correction: 0</code></pre>
         </tr>
         <tr>
           <td>全月验证</td>
-          <td>2026-04 全月 21 个 quote_daily 分区跑通；readiness gate 只在前置条件通过后触发对应 breadth 分区。优先使用 declarative automation；若小样本验证不通，则必须先确认 asset sensor 后备方案后再验收。market breadth checks 保持通过；stock_daily 新完整性 check 输出差异 metadata，<code>unexplained_missing_count=0</code>。</td>
+          <td>2026-04 全月 21 个 quote_daily 分区跑通；readiness gate 只在前置条件通过后触发对应 breadth 分区。优先使用 declarative automation；若小样本验证不通，则必须先确认 asset sensor 后备方案后再验收。market breadth checks 保持通过；stock_daily 新完整性 check 输出完整差异 metadata，并与当前审计结论一致。</td>
         </tr>
         <tr>
           <td>生成物</td>
