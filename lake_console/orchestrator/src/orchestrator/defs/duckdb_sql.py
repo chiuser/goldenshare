@@ -89,6 +89,28 @@ STOCK_DAILY_SILVER_REQUIRED_COLUMNS = (
     "amount",
 )
 
+SUSPEND_D_RAW_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "suspend_timing",
+    "suspend_type",
+)
+
+SUSPEND_D_RAW_REQUIRED_COLUMNS = SUSPEND_D_RAW_COLUMNS
+
+SUSPEND_D_SILVER_REQUIRED_COLUMNS = SUSPEND_D_RAW_COLUMNS
+
+SUSPEND_D_KNOWN_TYPE_VALUES = ("S", "R")
+
+SUSPEND_D_BOOTSTRAP_SELECT_TEMPLATE = """
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  strftime(CAST(trade_date AS DATE), '%Y%m%d') AS trade_date,
+  CAST(suspend_timing AS VARCHAR) AS suspend_timing,
+  CAST(suspend_type AS VARCHAR) AS suspend_type
+FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
+"""
+
 MARKET_BREADTH_DAILY_COLUMNS = (
     "trade_date",
     "up_count",
@@ -104,9 +126,15 @@ def duckdb_string(value: str | Path) -> str:
     return f"'{escaped}'"
 
 
-def read_parquet(path: Path, *, hive_partitioning: bool = False) -> str:
+def read_parquet(
+    path: Path,
+    *,
+    hive_partitioning: bool = False,
+    union_by_name: bool = False,
+) -> str:
     hive = "true" if hive_partitioning else "false"
-    return f"read_parquet({duckdb_string(path)}, hive_partitioning={hive})"
+    union = ", union_by_name=true" if union_by_name else ""
+    return f"read_parquet({duckdb_string(path)}, hive_partitioning={hive}{union})"
 
 
 def describe_parquet_query(path: Path, *, hive_partitioning: bool = False) -> str:
@@ -182,6 +210,24 @@ def silver_stock_daily_select(raw_path: Path) -> str:
 SELECT DISTINCT *
 FROM ({stock_daily_normalized_select(raw_path)}) normalized
 """
+
+
+def suspend_d_normalized_select(raw_path: Path) -> str:
+    return f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  CASE
+    WHEN suspend_timing IS NULL OR trim(CAST(suspend_timing AS VARCHAR)) = '' THEN NULL
+    ELSE CAST(suspend_timing AS VARCHAR)
+  END AS suspend_timing,
+  CAST(suspend_type AS VARCHAR) AS suspend_type
+FROM {read_parquet(raw_path, hive_partitioning=False)}
+"""
+
+
+def silver_stock_suspend_daily_select(raw_path: Path) -> str:
+    return suspend_d_normalized_select(raw_path)
 
 
 def market_breadth_daily_select(silver_stock_daily_path: Path, partition_key: str) -> str:
