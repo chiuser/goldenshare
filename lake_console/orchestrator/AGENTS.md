@@ -212,9 +212,10 @@ duckdb_compute/_tmp
 
 1. `LakeRootResource` 不应阻断 `dg dev` 启动；应在 lake asset 执行前检查可用性。
 2. `TushareResource` 缺 token 时不应让整个 code location 崩掉；只让依赖它的 asset 失败。
-3. `DuckDBResource` 必须约束临时目录和输出路径，不允许把大计算 spill 写到未知系统目录。
-4. `PostgreSQL` 分清 Dagster 内部库 `goldenshare_dagster` 和业务 metadata 库 `goldenshare_lake_meta`。
-5. `ClickHouseResource` 只服务本地 serving 表，不代表生产查询链路。
+3. `TushareResource` token 必须通过 `dg.EnvVar("TUSHARE_TOKEN")` 注入；本机变量由 `~/.bash_profile` 提供。禁止硬编码 token，禁止写入 `dagster.yaml`、`.env`、`~/.goldenshare/*.sh`、设计文档、Parquet metadata、Dagster materialization metadata 或日志。
+4. `DuckDBResource` 必须约束临时目录和输出路径，不允许把大计算 spill 写到未知系统目录。
+5. `PostgreSQL` 分清 Dagster 内部库 `goldenshare_dagster` 和业务 metadata 库 `goldenshare_lake_meta`。
+6. `ClickHouseResource` 只服务本地 serving 表，不代表生产查询链路。
 
 ---
 

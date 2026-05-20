@@ -1,0 +1,1951 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 第二期方案设计：自动化执行链路与停复牌校验</title>
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --paper: #fffaf1;
+      --ink: #17212b;
+      --muted: #66727f;
+      --line: #dccdb8;
+      --raw: #dff3ff;
+      --silver: #eef1f5;
+      --gold: #ffe6a8;
+      --check: #ddf1df;
+      --warn: #ffe2d6;
+      --accent: #a96716;
+      --code-bg: #fff7e7;
+      --code-ink: #243241;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% -8%, rgba(255, 230, 168, 0.56), transparent 34rem),
+        radial-gradient(circle at 100% 12%, rgba(223, 243, 255, 0.66), transparent 30rem),
+        linear-gradient(180deg, #fbf6ed 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1260px;
+      margin: 0 auto;
+      padding: 38px 26px 80px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(74, 52, 28, 0.08);
+    }
+
+    header { padding: 34px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.18;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.8vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    a {
+      color: #80500f;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: var(--code-ink);
+      background: rgba(36, 50, 65, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid #ead8bd;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    .subtitle {
+      max-width: 990px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(230px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .chip,
+    .card,
+    .callout,
+    .warning {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fffdf7;
+    }
+
+    .chip {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chip strong,
+    .card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .card { padding: 18px; }
+
+    .callout {
+      border-left: 5px solid var(--accent);
+      background: #fff1d2;
+      padding: 14px 16px;
+      color: #5c4217;
+    }
+
+    .warning {
+      border-left: 5px solid #c65b42;
+      background: var(--warn);
+      padding: 14px 16px;
+      color: #693423;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      margin: 14px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 900px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #eadfce;
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f0e0ca;
+      color: #332414;
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin: 2px 4px 2px 0;
+      color: #263340;
+      background: #eee4d1;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .tag.raw { background: var(--raw); }
+    .tag.silver { background: var(--silver); }
+    .tag.gold { background: var(--gold); }
+    .tag.check { background: var(--check); }
+    .tag.warn { background: var(--warn); }
+    .tag.auto { background: #e6edff; }
+
+    .flow {
+      display: grid;
+      gap: 12px;
+      margin: 16px 0;
+    }
+
+    .flow-row {
+      display: grid;
+      grid-template-columns: 1fr auto 1fr auto 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .flow-box {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: #fffdf8;
+      padding: 14px;
+      min-height: 96px;
+    }
+
+    .flow-title {
+      display: block;
+      margin-bottom: 6px;
+      font-weight: 800;
+    }
+
+    .arrow {
+      align-self: center;
+      color: var(--accent);
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    ul { padding-left: 22px; }
+
+    li { margin: 5px 0; }
+
+    @media (max-width: 900px) {
+      main { padding: 22px 14px 56px; }
+      header,
+      section { border-radius: 18px; padding: 20px; }
+      .flow-row { grid-template-columns: 1fr; }
+      .arrow { transform: rotate(90deg); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 第二期方案设计：自动化执行链路与停复牌校验</h1>
+    <p class="subtitle">
+      本文是第二期开发前置设计文档。目标不是扩大业务范围，而是把第一期手动执行的资产链路收敛成可重复、可观测、可回填的 Dagster 流程，
+      并把 Tushare raw 拉取纳入 Dagster 资产链路，让 <code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code> 都有明确的接入口径。
+    </p>
+    <div class="meta-grid">
+      <div class="chip"><strong>文档状态</strong>第二期开发前设计稿</div>
+      <div class="chip"><strong>项目位置</strong><code>lake_console/orchestrator</code></div>
+      <div class="chip"><strong>Lake Root</strong><code>/Volumes/datasource/data_lake</code></div>
+      <div class="chip"><strong>设计依据</strong>第一期实现 + Dagster 官方文档 + Tushare MCP 实测 + 旧湖 parquet 审计</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 第二期目标和边界</h2>
+    <div class="callout">
+      第一期已经有资产图、分区和 checks，但没有自动化触发，也没有形成“历史 raw 拉齐 + Tushare 续更新”的完整数据来源链路。
+      第二期的核心是先把旧湖已经拉过的历史数据按 Tushare 字段契约 bootstrap 到新湖 raw，再用 Dagster 接入 Tushare 拉取新数据，由 quote 日频链路执行 raw checks 和 silver 生产，再由下游业务链路在 readiness 通过后生成 gold 和下游 checks。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>事项</th>
+          <th>第二期口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>自动化链路</td>
+          <td>新增明确命名的 asset jobs：<code>quote_daily_job</code> 负责同一个 <code>trade_date</code> 的 raw 拉取、raw checks、silver 生成和 silver checks；<code>daily_market_breadth_job</code> 只负责 gold 生成和 gold checks，并由 declarative automation 在 market_breadth_upstream_readiness 后触发。</td>
+        </tr>
+        <tr>
+          <td>历史 bootstrap</td>
+          <td>新增 <code>Slice 2.0</code>：从旧湖读取已有历史数据，按 Tushare 源站字段契约投影、类型纠偏并写入新湖 raw。它是一次性节省时间和接口成本的历史拉齐步骤，不改变长期数据来源口径。</td>
+        </tr>
+        <tr>
+          <td>数据拉取</td>
+          <td>第二期纳入 <code>TushareResource</code>。历史日期优先由旧湖 bootstrap 拉齐；bootstrap 之后的新日期由 <code>daily</code> 与 <code>suspend_d</code> 按已完成交易日拉取；<code>trade_cal</code> 与 <code>stock_basic</code> 按低频基础数据更新，不混进日频 quote / breadth 链路反复跑。</td>
+        </tr>
+        <tr>
+          <td>触发方式</td>
+          <td><code>cn_a_trade_day_sensor</code> 负责注册已完成交易日并触发 quote 日频链路；下游业务资产优先使用 declarative automation 等待 market_breadth_upstream_readiness，不默认用 asset sensor 触发生产。</td>
+        </tr>
+        <tr>
+          <td>schedule</td>
+          <td>可作为第二步接入，用于固定时间触发“检查最近应跑交易日”。但不能绕过 dynamic partitions 注册，也不能直接假设自然日就是交易日。</td>
+        </tr>
+        <tr>
+          <td>新增数据集</td>
+          <td>引入 <code>suspend_d</code> 每日停复牌信息：<code>raw_tushare_suspend_d[trade_date]</code> 与 <code>silver_stock_suspend_daily[trade_date]</code>。</td>
+        </tr>
+        <tr>
+          <td>数据来源</td>
+          <td>新湖 raw 的正式字段口径永远对齐 Tushare 源站。旧湖可以作为历史 bootstrap 来源，但写入新湖前必须纠偏成 Tushare 源站镜像；bootstrap 完成后，新数据由 Tushare API 续更新。</td>
+        </tr>
+        <tr>
+          <td>不做内容</td>
+          <td>不引入 ClickHouse serving、不做 prod release、不迁移更多业务页面资产、不把旧 <code>lake_jobs</code> 或旧运行账本带回来。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Dagster 官方依据</h2>
+    <p>本节只记录会影响第二期技术方案的 Dagster 事实依据，不靠猜。</p>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>主题</th>
+          <th>官方依据</th>
+          <th>对本项目的设计影响</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Asset job</td>
+          <td><a href="https://docs.dagster.io/guides/build/jobs/asset-jobs">Dagster Asset jobs</a>：job 是 assets 执行和监控的主要单元，可手动、schedule 或 sensor 触发。</td>
+          <td>第二期必须定义正式 asset job，不能继续只靠临时脚本或 UI 手点。</td>
+        </tr>
+        <tr>
+          <td>Partitioned job</td>
+          <td><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Partitioning assets</a>：同分区 assets 的图可以按同一个 partition key 发起运行；官方示例也展示了 partitioned asset job 与 schedule/sensor 的组合。</td>
+          <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code>、<code>gold_market_breadth_daily</code> 应共享 <code>cn_a_trade_days</code>。</td>
+        </tr>
+        <tr>
+          <td>Dynamic partitions</td>
+          <td><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Partitioning assets</a> 中 dynamic partitions 示例使用 sensor 返回 <code>SensorResult</code>，同时包含 <code>RunRequest(partition_key=...)</code> 和 <code>build_add_request(...)</code>。</td>
+          <td>第二期优先把“注册已完成交易日 + 发起对应分区运行”收敛到 sensor，而不是保留一个纯手动 partition 注册 job。</td>
+        </tr>
+        <tr>
+          <td>Backfill</td>
+          <td><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/backfilling-data">Backfilling data</a>：backfill 用于运行不存在或需要更新的历史 partitions；默认覆盖 <code>N</code> 个 partitions 时会发起 <code>N</code> 个独立 runs。</td>
+          <td>本项目第一版 backfill 采用“一个交易日一个 run”。落后 5 个交易日时，是一次性提交 5 个 partition runs，而不是一个 run 内部拉区间并拆分。</td>
+        </tr>
+        <tr>
+          <td>Schedule</td>
+          <td><a href="https://docs.dagster.io/guides/automate/schedules">Dagster Schedules</a>：schedule 用于按固定间隔自动执行 job，默认时区为 UTC，可显式设置 <code>execution_timezone</code>。</td>
+          <td>本地 A 股每日任务如果上 schedule，必须显式设置 <code>Asia/Shanghai</code>，并且目标 partition 必须来自交易日事实，不是自然日。</td>
+        </tr>
+        <tr>
+          <td>Sensor</td>
+          <td><a href="https://docs.dagster.io/guides/automate/sensors">Dagster Sensors</a>：sensor 根据外部状态变化发起 <code>RunRequest</code>，run key 可避免重复运行，cursor 可管理高频状态。</td>
+          <td>本项目可以用 sensor 观察 <code>silver_trade_calendar</code>、raw 文件是否就绪或 Tushare 同步状态，再按“已完成交易日”发起 asset job。</td>
+        </tr>
+        <tr>
+          <td>Asset sensors</td>
+          <td><a href="https://docs.dagster.io/guides/automate/asset-sensors">Dagster Asset sensors</a>：asset sensor 可以监听资产 materialization，并在条件满足时触发下游 job；不满足时可以返回 <code>SkipReason</code>。</td>
+          <td>第二期不把 asset sensor 作为默认下游生产触发方案；优先留给通知、审计告警或 declarative automation 难以表达的复杂自定义触发。</td>
+        </tr>
+        <tr>
+          <td>Declarative Automation</td>
+          <td><a href="https://docs.dagster.io/guides/automate/declarative-automation">Declarative Automation</a>：<code>AutomationCondition.eager()</code> 和 <code>on_missing()</code> 可基于上游资产状态请求下游资产；官方说明上游 partition 未 materialized 或仍在运行时，下游不会被请求。</td>
+          <td>第二期优先用 declarative automation 表达“上游没好，下游先不请求；上游好了，再触发下游”。LLD 需要重点验证如何把 blocking checks 纳入 readiness 判断。</td>
+        </tr>
+        <tr>
+          <td>Asset check 依赖</td>
+          <td><a href="https://docs.dagster.io/api/dagster/asset-checks">Asset checks API</a>：<code>additional_deps</code> 可声明 check 依赖的其他资产；<code>blocking=True</code> 且 ERROR 失败时会阻断下游。</td>
+          <td><code>silver_stock_daily</code> 的完整性 check 读取 <code>silver_stock_basic</code> 和 <code>silver_stock_suspend_daily</code>，必须用 <code>additional_deps</code> 明确告诉 Dagster。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 第二期资产图</h2>
+    <p>
+      第二期不改变第一期的 <code>raw / silver / gold</code> 三层资产分类，只补上停复牌事实，并把手动执行顺序收敛到 Dagster 自动化入口。
+    </p>
+
+    <div class="flow">
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_trade_calendar</span>
+          A 股交易日事实唯一口径。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag auto">sensor</span> cn_a_trade_day_sensor</span>
+          读取 open trading days，注册 dynamic partition keys，发起 quote 日频资产更新。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag auto">job</span> quote_daily_job</span>
+          准备 quote 日频行情资产，不负责业务 gold。
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_stock_daily[trade_date]</span>
+          股票日线源站镜像。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_stock_daily[trade_date]</span>
+          标准化日线事实。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag gold">gold</span> gold_market_breadth_daily[trade_date]</span>
+          当前服务口径的涨跌分布。
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_suspend_d[trade_date]</span>
+          每日停复牌源站镜像。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag silver">silver</span> silver_stock_suspend_daily[trade_date]</span>
+          标准化停复牌事实。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag check">check</span> stock daily completeness</span>
+          与 <code>silver_stock_basic</code> 一起解释当日日线缺失。
+        </div>
+      </div>
+
+      <div class="flow-row">
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag auto">automation</span> market_breadth_ready_condition</span>
+          优先用 declarative automation 判断 market_breadth_upstream_readiness。
+        </div>
+        <div class="arrow">→</div>
+        <div class="flow-box">
+          <span class="flow-title"><span class="tag auto">job</span> daily_market_breadth_job</span>
+          只负责 <code>gold_market_breadth_daily</code> 和 gold checks。
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 第二期 Slice 拆分</h2>
+    <p>
+      为避免一次贪多，第二期按三个 slice 推进。Slice 2.0 先用旧湖把历史 raw 拉齐到新湖；Slice 2.1 再让 Tushare 日频续更新和 quote 日频链路跑通；Slice 2.2 最后把低频基础数据更新、下游 readiness gate 和自动化触发收口。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Slice</th>
+          <th>目标</th>
+          <th>包含内容</th>
+          <th>不包含内容</th>
+          <th>验收结果</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>Slice 2.0</code></td>
+          <td>旧湖历史数据 bootstrap 到新湖 raw。</td>
+          <td>读取旧湖 <code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code>，按 Tushare 字段契约投影和类型纠偏，写入新湖 raw 目标路径，并执行 raw checks。</td>
+          <td>不调用 Tushare API，不生成新的业务口径，不把旧湖路径写入 Dagster 正式 asset path。</td>
+          <td>新湖 raw 历史数据字段看起来与 Tushare 直接拉取结果一致；后续 silver、gold 和 checks 不需要知道 raw 来自旧湖 bootstrap 还是 Tushare API。</td>
+        </tr>
+        <tr>
+          <td><code>Slice 2.1</code></td>
+          <td>跑通 Tushare 日频 raw 拉取到 quote 日频行情资产的单日链路。</td>
+          <td><code>TushareResource</code>、<code>quote_daily_job</code>、<code>raw_tushare_stock_daily</code> 从 <code>daily</code> 拉取、<code>raw_tushare_suspend_d</code> 从 <code>suspend_d</code> 拉取、raw checks、silver checks、单日/全月验证。</td>
+          <td>不让下游业务 job 主动补上游，不启用长期自动 sensor，不做 ClickHouse/prod release，不改线上 API。</td>
+          <td>手动触发 <code>quote_daily_job</code>，能从 Tushare 拉取指定已完成交易日的新 raw，并生成 quote 日频 silver/check metadata。</td>
+        </tr>
+        <tr>
+          <td><code>Slice 2.2</code></td>
+          <td>补齐低频基础数据更新、下游 readiness gate 和自动化触发。</td>
+          <td><code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>cn_a_trade_day_sensor</code>、<code>daily_market_breadth_job</code>、declarative automation readiness 条件、可选 schedule 兜底、latest completed trade date 规则。</td>
+          <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
+          <td>Dagster UI 能看到 quote_daily_job、breadth job 和自动化条件；上游未就绪时下游不启动 run，上游就绪后下游才被触发。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>4.1 Job 拆分原则</h3>
+    <div class="warning">
+      <strong>原则：</strong>
+      禁止设计一个全局大 <code>daily_foundation_job</code> 来囊括所有日频数据集。
+      日频资产必须按数据域、资产族和下游依赖边界拆成可并行的小 job，避免下游被无关数据集卡住。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>job 类型</th>
+          <th>边界</th>
+          <th>说明</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>quote_daily_job</code></td>
+          <td><code>stock_daily</code>、<code>suspend_d</code> 这类 quote 日频行情资产族。</td>
+          <td>第二期先落这个 job，服务 market breadth 的最小闭环。</td>
+        </tr>
+        <tr>
+          <td><code>basic_update_job</code></td>
+          <td><code>stock_basic</code> 这类低频基础快照资产。</td>
+          <td>不跟 quote 日频 run 反复跑；下游只检查它是否已就绪。</td>
+        </tr>
+        <tr>
+          <td><code>calendar_update_job</code></td>
+          <td><code>trade_calendar</code> 这类交易日历资产。</td>
+          <td>负责维护交易日事实和 dynamic partitions 的依据。</td>
+        </tr>
+        <tr>
+          <td>未来其它日频 job</td>
+          <td>例如 <code>fundflow_daily_job</code>、<code>limit_daily_job</code>、<code>factor_daily_job</code>。</td>
+          <td>后续单独讨论如何把基础数据集装进若干可并行的合理 job。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      下游 readiness 必须从下游视角定义依赖集合。
+      例如 <code>market_breadth_upstream_readiness</code> 只等待 market breadth 真正需要的 quote 日频资产、stock basic 和交易日历，不等待无关的资金流、涨停、因子等其它资产族。
+    </p>
+
+    <h3>4.2 市场宽度上游 job 分组</h3>
+    <p>
+      市场宽度第一版上游明确拆成三个 job。拆分依据是更新节奏、分区模型和下游依赖边界，而不是简单按“都是基础数据”合成一个大任务。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>job</th>
+          <th>包含资产</th>
+          <th>更新模型</th>
+          <th>职责边界</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>calendar_update_job</code></td>
+          <td><code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code></td>
+          <td>低频区间更新，不按每日行情分区反复跑。</td>
+          <td>维护 A 股交易日事实，为 <code>cn_a_trade_days</code> dynamic partitions 提供依据。</td>
+        </tr>
+        <tr>
+          <td><code>basic_update_job</code></td>
+          <td><code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code></td>
+          <td>低频全量快照，不按 <code>trade_date</code> 分区。</td>
+          <td>维护股票生命周期主数据，供市场宽度完整性 checks 计算当日应有行情股票集合。</td>
+        </tr>
+        <tr>
+          <td><code>quote_daily_job</code></td>
+          <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code></td>
+          <td>日频，按 <code>cn_a_trade_days</code> 的 <code>trade_date</code> partition 运行。</td>
+          <td>维护市场宽度需要的 quote 日频资产族；不包含资金流、涨停、因子等无关资产。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><code>calendar_update_job
+  ↓
+cn_a_trade_days / partition keys
+
+basic_update_job
+  ↓
+silver_stock_basic
+
+quote_daily_job[trade_date]
+  ↓
+silver_stock_daily[trade_date]
+silver_stock_suspend_daily[trade_date]
+
+market_breadth_upstream_readiness 通过
+  ↓
+daily_market_breadth_job[trade_date]
+  ↓
+gold_market_breadth_daily[trade_date]</code></pre>
+
+    <div class="warning">
+      <code>daily_market_breadth_job</code> 不拉取、不修复、不补齐任何上游资产。
+      它只在 <code>calendar_update_job</code>、<code>basic_update_job</code> 和 <code>quote_daily_job[trade_date]</code> 对应的前置条件通过后，生产 <code>gold_market_breadth_daily[trade_date]</code>。
+    </div>
+
+    <h3>4.3 开发顺序和前后依赖</h3>
+    <p>
+      第二期内容很多，开发时必须按依赖顺序推进。不能先做下游 gold，也不能先打开自动化触发。
+      每一步只解决一个边界清晰的问题，完成验证后再进入下一步。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>顺序</th>
+          <th>开发目标</th>
+          <th>为什么必须在这个位置</th>
+          <th>完成门禁</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>0</td>
+          <td>自动化安全门禁先定：<code>cn_a_trade_day_sensor</code> 默认 <code>STOPPED</code>，下游 declarative automation 不先打开大范围自动生产。</td>
+          <td>避免一启动 daemon 就扫描交易日、注册大量 partitions、触发大量 quote 日频 runs。</td>
+          <td>文档和配置口径明确，开发验证阶段只手动触发或小范围 backfill。</td>
+        </tr>
+        <tr>
+          <td>1</td>
+          <td>实现 bootstrap 历史迁移通用引擎：<code>BootstrapDatasetSpec</code>、<code>old_lake_executor</code>、<code>bootstrap/specs/**</code>、统一 raw 写入、metadata 和 raw contract checks。</td>
+          <td>旧湖进入新湖不是日常生产链路，但后续很多数据集都需要复用这套“读旧湖、投影字段、纠偏类型、写新 raw、跑 raw checks”的迁移工具链。</td>
+          <td>至少能用一个小样本证明：旧湖读取、字段投影、类型纠偏、新湖 raw 写入、raw checks 全链路可重复；同时确认 bootstrap 不被 sensor、schedule 或 declarative automation 触发。</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>先让 <code>suspend_d</code> 作为 bootstrap 引擎第一个使用者。</td>
+          <td><code>suspend_d</code> 字段少但能覆盖 partition bootstrap、<code>suspend_timing</code> 类型漂移、nullable string cast、<code>allow_empty</code> 和 raw checks，适合作为迁移引擎首个验证对象。</td>
+          <td>单日历史迁移能写入新 raw 并生成 silver；raw/silver checks 通过；不触发 quote/breadth 自动化。</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>做 <code>calendar_update_job</code> 和 <code>basic_update_job</code> 的历史迁移准备：<code>trade_calendar</code>、<code>stock_basic</code> 从旧湖拉齐到新湖 raw/silver。</td>
+          <td><code>cn_a_trade_days</code> dynamic partitions 的事实依据来自 <code>silver_trade_calendar</code>；市场宽度完整性 checks 需要 <code>silver_stock_basic</code>。</td>
+          <td>交易日历和 stock_basic raw/silver checks 通过；能得到 2026-04 已完成交易日集合；未来 open day 不会被立即运行。</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>做 <code>stock_daily</code> 历史迁移和完整性 checks 改造。</td>
+          <td>先用 <code>suspend_d</code> 跑稳 bootstrap 引擎，再处理数据量更大、重复/冲突/完整性逻辑更多的 <code>stock_daily</code>，避免把引擎问题和数据质量问题搅在一起。</td>
+          <td>2026-04 的 <code>raw/silver_stock_daily</code> 跑通；raw/silver blocking checks 通过；完整性 WARN 输出完整差异 metadata，<code>unexplained_missing_count=0</code>。</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>实现 <code>market_breadth_upstream_readiness</code> 和 <code>daily_market_breadth_job</code>。</td>
+          <td>下游 gold 只能等自己真正需要的上游：calendar、basic、quote daily。不能主动补上游，也不能等待无关资产族。</td>
+          <td>readiness 明确包含 materialization + blocking checks；前置条件不满足时不请求下游；满足后只生产 <code>gold_market_breadth_daily</code>。</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>接入 Tushare API 续更新：<code>TushareResource</code>、<code>daily</code>、<code>suspend_d</code> 的新交易日 raw 写入。</td>
+          <td>先有历史 bootstrap 和 checks，再接 API 续更新，才能证明两种来源写入同一契约、同一 raw path、同一 checks。</td>
+          <td>任选一个已完成新交易日，Tushare API 写入 raw，和 bootstrap raw 共享字段契约与 checks；<code>source_method=tushare_api</code> 只进入 metadata。</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>最后开启自动化验证：小范围启用 <code>cn_a_trade_day_sensor</code>，验证 declarative automation readiness gate。</td>
+          <td>只有上游 job、checks、readiness 都稳定后，自动化才有意义。</td>
+          <td>传感器不会误跑未来交易日；落后多个交易日时按一个交易日一个 partition run 补齐；下游只在 readiness 通过后触发。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="warning">
+      顺序门禁：任何后续开发如果想跳过前置步骤，必须先说明不会破坏依赖关系。
+      例如：不能在 <code>silver_trade_calendar</code> 和 <code>cn_a_trade_days</code> 未验证前批量跑 quote 日频；不能在 <code>market_breadth_upstream_readiness</code> 未定义前自动触发 <code>daily_market_breadth_job</code>。
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 自动化执行链路设计</h2>
+
+    <h3>5.1 第二期推荐入口</h3>
+    <pre><code>defs/jobs/quote_daily.py
+  quote_daily_job
+    selection:
+      raw_tushare_stock_daily
+      raw_tushare_suspend_d
+      silver_stock_daily
+      silver_stock_suspend_daily
+    partitions_def:
+      cn_a_trade_days
+
+defs/jobs/basic_update.py
+  basic_update_job
+    selection:
+      raw_tushare_stock_basic
+      silver_stock_basic
+    partition:
+      no partition / full snapshot
+
+defs/jobs/calendar_update.py
+  calendar_update_job
+    selection:
+      raw_tushare_trade_calendar
+      silver_trade_calendar
+    partition:
+      low-frequency calendar window
+
+defs/jobs/daily_market_breadth.py
+  daily_market_breadth_job
+    selection:
+      gold_market_breadth_daily
+    partitions_def:
+      cn_a_trade_days
+
+defs/sensors/cn_a_trade_day_sensor.py
+  cn_a_trade_day_sensor
+    1. 计算 latest_completed_trade_date
+    2. 读取 silver_trade_calendar 中 open=true 且 trade_date <= latest_completed_trade_date 的日期
+    3. 与 cn_a_trade_days 已注册 keys 对比，得到 eligible_new_keys
+    4. 使用 cn_a_trade_days.build_add_request(eligible_new_keys) 注册 dynamic partitions
+    5. 为需要运行且未成功跑过的 eligible key 生成 quote_daily_job 的 RunRequest(partition_key=key)
+    6. run_key 使用 quote_daily:{trade_date}，避免重复发起
+
+defs/assets/gold/market_breadth.py
+  gold_market_breadth_daily
+    automation_condition:
+      优先使用 Dagster declarative automation 表达下游 ready 触发
+    readiness:
+      quote_daily materialized and blocking checks passed
+      basic_update ready
+      calendar_update ready
+
+defs/sensors/market_breadth_readiness_alerts.py
+  默认不作为生产触发入口
+  仅在以下情况考虑：
+    1. 通知或审计告警
+    2. declarative automation 无法表达的复杂自定义触发
+    3. LLD 验证后确认 checks readiness 必须通过自定义 sensor 查询
+
+defs/schedules/quote_daily_schedule.py
+  可选兜底
+    固定时间触发“最近应跑交易日”的 quote 日频检查，不直接替代 cn_a_trade_day_sensor
+
+defs/schedules/daily_market_breadth_schedule.py
+  可选兜底
+    固定时间触发下游 readiness 检查，不直接替代 declarative automation</code></pre>
+
+    <div class="warning">
+      <strong>职责边界：</strong>
+      下游业务 job 永远不主动补上游。<code>daily_market_breadth_job</code> 只消费已经准备好的 quote 日频资产和低频基础资产；
+      如果前置条件不满足，优先等待 declarative automation 下一次评估，而不是在下游 job 内部调用 Tushare 或重跑 quote 日频。
+    </div>
+
+    <h3>5.2 交易日历超前时的硬门禁</h3>
+    <div class="warning">
+      <strong>关键口径：</strong>
+      <code>silver_trade_calendar</code> 可能提前包含全年交易日历。例如当前真实日期是 <code>2026-05-19</code>，
+      但日历里可能已经有 <code>2026-12-31 open=true</code>。这些未来 open day 只是“日历事实”，不是“数据已经发生”。
+      sensor 禁止把未来 open day 注册后立即触发运行。
+    </div>
+
+    <pre><code>sensor 必须区分两件事：
+
+1. 日历中存在的 open day
+   silver_trade_calendar 里 open=true 的日期，可能包含未来日期。
+
+2. 已完成交易日 eligible day
+   open=true
+   且 trade_date <= latest_completed_trade_date
+   且该交易日的数据理论上已经可以产生。
+
+只允许 eligible day 进入：
+  cn_a_trade_days.build_add_request(...)
+  RunRequest(partition_key=...)
+
+禁止：
+  把全年 open days 一次性注册后全部运行
+  把未来 open day 注册后立即运行
+  用自然日 today 直接替代 latest_completed_trade_date</code></pre>
+
+    <p>
+      <code>latest_completed_trade_date</code> 的第一版可按保守规则确定：只取小于当前自然日的最近 open day。
+      如果后续希望在收盘后运行当天数据，必须再引入明确的“数据源已完成更新”判断，例如固定收盘后安全时间、raw 文件就绪检查或 Tushare 同步完成状态。
+    </p>
+
+    <h3>5.3 为什么不是继续手动 job</h3>
+    <p>
+      第一期开了一个 <code>sync_cn_a_trade_day_partitions</code> 手动 job，职责只有注册 partitions。
+      第二期如果继续手动跑，就没有解决“资产从上游到下游自动生成”的问题。
+      因此第二期应把 partition 注册和 partition run 发起连接起来。
+    </p>
+
+    <h3>5.4 为什么 cn_a_trade_day_sensor 优先于 schedule</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>方案</th>
+          <th>优点</th>
+          <th>风险</th>
+          <th>第二期建议</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>只用 schedule</td>
+          <td>固定时间运行，直观。</td>
+          <td>schedule 本身不知道哪天是 A 股交易日，也不能跳过未注册 dynamic partition。</td>
+          <td>不作为第一选择。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_trade_day_sensor</code> + dynamic partition request</td>
+          <td>能基于 <code>silver_trade_calendar</code> 注册真实交易日，同时发起对应分区 run。</td>
+          <td>需要 dagster-daemon 运行；sensor 状态、run_key、cursor 要设计清楚。</td>
+          <td>第二期推荐。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_trade_day_sensor</code> + schedule</td>
+          <td>sensor 负责发现/注册/触发，schedule 负责固定时间兜底检查。</td>
+          <td>实现稍多，需要防重复。</td>
+          <td>第二期可以先 sensor，schedule 作为验收后增强项。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>5.5 运行顺序</h3>
+    <p>
+      <code>Slice 2.0</code> 的旧湖 bootstrap 是一次性历史拉齐动作，不由 sensor 反复触发。
+      下面的每日自动化顺序适用于 bootstrap 完成后的新增交易日续更新。
+    </p>
+    <pre><code>quote 日频资产更新顺序：
+1. 确认 LakeRootResource 可用
+2. 计算 latest_completed_trade_date
+3. 从 silver_trade_calendar 找到 eligible trade_date
+4. sensor 注册 eligible trade_date 到 cn_a_trade_days
+5. sensor 发起 quote_daily_job[trade_date]
+6. quote_daily_job materialize raw_tushare_stock_daily[trade_date]：调用 Tushare daily 并写 raw
+7. quote_daily_job 执行 raw_stock_daily checks；失败则阻断 silver_stock_daily
+8. quote_daily_job materialize raw_tushare_suspend_d[trade_date]：调用 Tushare suspend_d 并写 raw
+9. quote_daily_job 执行 raw_suspend_d checks；失败则阻断 silver_stock_suspend_daily
+10. quote_daily_job materialize silver_stock_daily[trade_date]
+11. quote_daily_job materialize silver_stock_suspend_daily[trade_date]
+12. quote_daily_job 执行 silver_stock_daily / silver_stock_suspend_daily 相关 checks
+
+下游业务资产生产顺序：
+13. declarative automation 评估 market_breadth_upstream_readiness
+14. 如果前置条件通过，请求 gold_market_breadth_daily[trade_date] 或发起 daily_market_breadth_job[trade_date]
+15. breadth job materialize gold_market_breadth_daily[trade_date]
+16. breadth job 执行 gold_market_breadth_daily checks
+17. 如果前置条件不通过，不请求下游 run，等待下一次 automation evaluation 或上游 materialization 事件</code></pre>
+
+    <div class="warning">
+      <strong>门禁：</strong>
+      raw checks 是 raw 写入后的入厂质检，必须发生在 silver 加工前。
+      <code>blocking=True</code> 的 raw check 失败时，不允许继续生成 silver，更不允许继续生成 gold。
+    </div>
+
+    <h3>5.6 下游 job 前置条件</h3>
+    <p>
+      <code>daily_market_breadth_job</code> 的职责只限于 <code>gold_market_breadth_daily</code> 和 gold checks。
+      它的前置条件必须优先由 declarative automation 在启动下游 run 前判断；不满足时不启动下游 run。
+      asset sensor 只作为通知、告警或复杂自定义触发的后备方案。
+    </p>
+
+    <div class="warning">
+      <strong>硬门禁：</strong>
+      ready 不等于只看 <code>silver_stock_daily[date]</code> 是否 materialized。
+      第二期后续 LLD 必须专门设计 <code>market_breadth_upstream_readiness</code> 状态：quote 日频链路完成且 raw/silver 层阻断 checks 全部通过，<code>stock_basic</code> 和 <code>trade_calendar</code> 这些低频基础资产也已就绪后，下游才允许触发。
+      仅靠 “silver materialized” 判断会漏掉质量门禁，不能作为下游生产依据。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>前置条件</th>
+          <th>判断口径</th>
+          <th>不满足时行为</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>partition 已注册</td>
+          <td><code>trade_date</code> 已存在于 <code>cn_a_trade_days</code> dynamic partitions。</td>
+          <td>不发起 breadth run，等待 <code>cn_a_trade_day_sensor</code> 注册。</td>
+        </tr>
+        <tr>
+          <td>交易日已完成</td>
+          <td><code>trade_date <= latest_completed_trade_date</code>，不能用未来 open day 触发下游。</td>
+          <td>declarative automation 不请求下游；若使用 sensor 后备，则返回 <code>SkipReason</code>。</td>
+        </tr>
+        <tr>
+          <td>基础行情 silver 已就绪</td>
+          <td><code>silver_stock_daily[trade_date]</code> 已 materialized，且 <code>raw_tushare_stock_daily</code> / <code>silver_stock_daily</code> 相关 blocking checks 全部通过。</td>
+          <td>等待 quote_daily_job，不主动调用 Tushare。</td>
+        </tr>
+        <tr>
+          <td>停复牌 silver 已就绪</td>
+          <td><code>silver_stock_suspend_daily[trade_date]</code> 已 materialized，且 <code>raw_tushare_suspend_d</code> / <code>silver_stock_suspend_daily</code> 相关 blocking checks 全部通过；0 行停复牌也必须有空 parquet 和 metadata。</td>
+          <td>等待 quote_daily_job，不主动补 raw。</td>
+        </tr>
+        <tr>
+          <td>基础数据已就绪</td>
+          <td><code>silver_trade_calendar</code>、<code>silver_stock_basic</code> 已 materialized，且对应 checks 通过。</td>
+          <td>等待 <code>basic_update_job</code> 或 <code>calendar_update_job</code>。</td>
+        </tr>
+        <tr>
+          <td>关键 checks 通过</td>
+          <td>raw/silver 层 blocking checks 成功；WARN 型完整性 check 可带 metadata 进入 gold，但不能静默。</td>
+          <td>blocking 失败则不发起 breadth run；WARN 继续但必须可见。</td>
+        </tr>
+        <tr>
+          <td>market_breadth_upstream_readiness</td>
+          <td>
+            <code>silver_stock_daily[trade_date]</code> materialized
+            + stock daily raw/silver blocking checks passed
+            + <code>silver_stock_suspend_daily[trade_date]</code> materialized
+            + suspend raw/silver blocking checks passed
+            + <code>silver_stock_basic</code> ready
+            + <code>silver_trade_calendar</code> ready。
+          </td>
+          <td>这是下游触发依据；LLD 需要明确状态查询方式、失败状态和重试口径。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="callout">
+      Dagster 可以实现这种“等待”能力，但这里的等待不是一个已经启动的 run 卡在 RUNNING 状态。
+      推荐做法是：declarative automation 暂不请求下游资产，等待下一次条件评估；
+      如果后续 LLD 证明必须使用 asset sensor，则由 sensor 返回 <code>SkipReason</code>，不发起下游 <code>RunRequest</code>。
+      一旦上游 materialization 和 checks 满足，再发起下游 job。
+    </div>
+
+    <h3>5.7 一个交易日一个交易日生产</h3>
+    <p>
+      “一个交易日一个交易日生产”不是说操作上只能手动点一天，而是说 Dagster 的最小运行和观测单元是一个 <code>trade_date</code> partition。
+      如果日线落后 5 个交易日，可以一次发起一个 backfill 或 sensor 批量提交 5 个 <code>RunRequest</code>；但每个 quote_daily run 只负责一个交易日的 raw、checks、silver 链路。
+      下游 gold run 只在对应交易日的 market breadth 上游前置条件满足后再启动。
+    </p>
+
+    <pre><code>如果 stock_daily 缺口是：
+2026-05-13
+2026-05-14
+2026-05-15
+2026-05-18
+2026-05-19
+
+Dagster quote 日频执行模型是：
+quote_daily_job[2026-05-13]
+quote_daily_job[2026-05-14]
+quote_daily_job[2026-05-15]
+quote_daily_job[2026-05-18]
+quote_daily_job[2026-05-19]
+
+quote_daily_job 成功后，再由 declarative automation readiness gate 分别触发：
+daily_market_breadth_job[2026-05-13]
+daily_market_breadth_job[2026-05-14]
+daily_market_breadth_job[2026-05-15]
+daily_market_breadth_job[2026-05-18]
+daily_market_breadth_job[2026-05-19]</code></pre>
+
+    <div class="callout">
+      这 5 个 quote_daily run 可以由一次 backfill 提交，也可以由 sensor 一次返回多个 <code>RunRequest</code>。
+      但第一版不采用“一个 run 传 <code>start_date/end_date</code> 拉 5 天，然后在 run 内部拆 5 个文件”的方式。
+      原因是单日 quote_daily run 更容易看状态、查 metadata、定位失败和重跑单日；下游业务 run 则由 declarative automation readiness gate 在 quote_daily_job 成功后触发。
+    </div>
+  </section>
+
+  <section>
+    <h2>6. Tushare 数据源拉取接入方案</h2>
+    <p>
+      本节把 <code>tushare-data</code> 技能理解、本地源文档、现有 request builder、<code>tushareMCP</code> 实测和旧湖/新湖 parquet 字段审计合并成第二期接入口径。
+      第二期的数据来源分两步：历史日期先从旧湖 bootstrap 到新湖 raw；bootstrap 之后的新日期再由 Tushare API 续更新。
+    </p>
+
+    <h3>6.1 历史 bootstrap 口径</h3>
+    <div class="callout">
+      旧湖已经拉取过大量历史数据，第二期没有必要为了旧日期重新消耗 Tushare 接口和时间。
+      但旧湖文件不能原样复制：新湖 raw 必须看起来像 Tushare 源站直接返回的数据，所以 bootstrap 必须做字段投影和类型纠偏。
+    </div>
+    <pre><code>旧湖 parquet
+  ↓  DuckDB 读取、字段投影、类型纠偏
+新湖 raw/tushare/.../part-000.parquet
+  ↓  raw checks
+silver / gold / checks</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>规则</th>
+          <th>口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>旧湖角色</td>
+          <td>只作为历史 bootstrap 来源，用来节约旧日期重复拉取成本；不是 Dagster 长期正式数据路径，也不是新湖 raw 字段契约来源。</td>
+        </tr>
+        <tr>
+          <td>字段口径</td>
+          <td>写入新湖 raw 前，必须按 Tushare 源站字段白名单投影；旧湖多余字段不进入新湖 raw，缺少字段必须失败或显式记录为阻断问题。</td>
+        </tr>
+        <tr>
+          <td>类型口径</td>
+          <td>新湖 raw 保持源站镜像：例如 <code>daily.trade_date</code> 和 <code>suspend_d.trade_date</code> 为 <code>YYYYMMDD</code> 字符串，<code>trade_cal.is_open</code> 为 <code>0/1</code>。</td>
+        </tr>
+        <tr>
+          <td>路径口径</td>
+          <td>正式 asset path 只写新湖路径，例如 <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；旧湖路径只允许出现在 bootstrap 脚本参数和文档说明中。</td>
+        </tr>
+        <tr>
+          <td>metadata 口径</td>
+          <td>数据文件本身不增加 <code>source_method</code> 这类系统字段；Dagster materialization metadata 可以记录 <code>source_method=old_lake_bootstrap</code>、行数、字段列表和类型纠偏摘要。旧湖路径只在文档和 bootstrap 参数中出现，不写入正式资产字段。</td>
+        </tr>
+        <tr>
+          <td>下游口径</td>
+          <td>后续 silver、gold 和 checks 不区分 raw 来自旧湖 bootstrap 还是 Tushare API，只认新湖 raw 字段契约和路径。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6.2 接入总表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>数据集</th>
+          <th>Tushare 接口</th>
+          <th>第二期接入方式</th>
+          <th>输入参数</th>
+          <th>raw 字段契约</th>
+          <th>更新频率</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>stock_daily</code></td>
+          <td><code>daily</code></td>
+          <td>每个已完成交易日按 <code>trade_date</code> 拉全市场。</td>
+          <td><code>trade_date=YYYYMMDD</code>；不传 <code>ts_code</code>。</td>
+          <td><code>ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount</code></td>
+          <td>quote 日频行情资产，由 <code>quote_daily_job</code> 更新；下游 jobs 只依赖并复用，不重复拉取。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_d</code></td>
+          <td><code>suspend_d</code></td>
+          <td>每个已完成交易日按 <code>trade_date</code> 拉全市场停复牌记录。</td>
+          <td><code>trade_date=YYYYMMDD</code>；不传 <code>ts_code</code>，不传 <code>suspend_type</code>。</td>
+          <td><code>ts_code, trade_date, suspend_timing, suspend_type</code></td>
+          <td>quote 日频行情辅助资产，由 <code>quote_daily_job</code> 更新；用于下游完整性 checks。</td>
+        </tr>
+        <tr>
+          <td><code>trade_calendar</code></td>
+          <td><code>trade_cal</code></td>
+          <td>按日期区间拉取 SSE 日历，用于更新 raw/silver 交易日事实。</td>
+          <td><code>exchange=SSE</code>、<code>start_date</code>、<code>end_date</code>；不默认只传 <code>is_open=1</code>。</td>
+          <td><code>exchange, cal_date, is_open, pretrade_date</code></td>
+          <td>低频基础数据，不混进日频 quote / breadth 链路反复跑。</td>
+        </tr>
+        <tr>
+          <td><code>stock_basic</code></td>
+          <td><code>stock_basic</code></td>
+          <td>全量快照拉取，覆盖上市、退市、暂停上市、过会未交易状态。</td>
+          <td><code>list_status=L,D,P,G</code>，显式 fields；不按 <code>trade_date</code> 拉。</td>
+          <td><code>ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type</code></td>
+          <td>低频基础数据，用于生命周期股票池和完整性 checks。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6.3 Tushare 参数生成策略</h3>
+    <p>
+      第二期禁止把 Tushare 的可选参数原样暴露成 Dagster 正式资产输入。
+      正式 asset 的参数必须由资产类型和 partition key 生成，避免把局部查询结果写入全市场正式分区。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>数据集</th>
+          <th>Dagster 输入</th>
+          <th>Tushare 参数</th>
+          <th>字段</th>
+          <th>禁止口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_stock_daily[2026-05-19]</code></td>
+          <td><code>partition_key="2026-05-19"</code></td>
+          <td><code>{"trade_date": "20260519"}</code></td>
+          <td><code>ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount</code></td>
+          <td>正式分区不传 <code>ts_code</code>；不传 <code>start_date/end_date</code> 拉多日后内部拆分。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_suspend_d[2026-05-19]</code></td>
+          <td><code>partition_key="2026-05-19"</code></td>
+          <td><code>{"trade_date": "20260519"}</code></td>
+          <td><code>ts_code, trade_date, suspend_timing, suspend_type</code></td>
+          <td>正式分区不传 <code>ts_code</code>；不传 <code>suspend_type</code>，避免只写 <code>S</code> 或 <code>R</code> 的局部结果。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td>低频区间配置，例如 <code>2026</code> 年。</td>
+          <td><code>{"exchange": "SSE", "start_date": "20260101", "end_date": "20261231"}</code></td>
+          <td><code>exchange, cal_date, is_open, pretrade_date</code></td>
+          <td>raw 不默认传 <code>is_open=1</code>，因为 raw 要保留开市和休市事实；silver 再筛交易日。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td>低频全量更新，不按 <code>trade_date</code> 分区。</td>
+          <td><code>{"list_status": "L,D,P,G"}</code></td>
+          <td><code>ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type</code></td>
+          <td>不按某个 <code>trade_date</code> 拉股票池；历史股票池由 silver/check 阶段按 <code>list_date/delist_date</code> 计算。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>日线单日例子</h4>
+    <pre><code>partition_key = "2026-05-19"
+api_trade_date = partition_key.replace("-", "")
+
+request:
+  api_name = "daily"
+  params = {"trade_date": "20260519"}
+  fields = [
+    "ts_code", "trade_date", "open", "high", "low", "close",
+    "pre_close", "change", "pct_chg", "vol", "amount",
+  ]
+
+output:
+  raw/tushare/stock_daily/trade_date=2026-05-19/part-000.parquet
+
+raw file:
+  trade_date 字段保持 Tushare 源站字符串 "20260519"
+  路径分区保持可读日期 trade_date=2026-05-19</code></pre>
+
+    <h4>日线落后 5 个交易日例子</h4>
+    <pre><code>missing_partition_keys = [
+  "2026-05-13",
+  "2026-05-14",
+  "2026-05-15",
+  "2026-05-18",
+  "2026-05-19",
+]
+
+for partition_key in missing_partition_keys:
+  RunRequest(partition_key=partition_key)
+
+每个 run 内部只生成一个 Tushare daily 请求：
+2026-05-13 -> {"trade_date": "20260513"}
+2026-05-14 -> {"trade_date": "20260514"}
+2026-05-15 -> {"trade_date": "20260515"}
+2026-05-18 -> {"trade_date": "20260518"}
+2026-05-19 -> {"trade_date": "20260519"}</code></pre>
+
+    <h4>交易日历区间例子</h4>
+    <pre><code>calendar_window = 2026
+
+request:
+  api_name = "trade_cal"
+  params = {
+    "exchange": "SSE",
+    "start_date": "20260101",
+    "end_date": "20261231",
+  }
+  fields = ["exchange", "cal_date", "is_open", "pretrade_date"]
+
+output:
+  raw/tushare/trade_calendar/full/part-000.parquet
+
+raw file:
+  is_open 字段保持 Tushare 源站 0/1
+
+silver:
+  把 cal_date 标准化为 DATE
+  把 is_open 标准化为 boolean
+  只用 is_open=true 且 trade_date <= latest_completed_trade_date 的日期注册 dynamic partitions</code></pre>
+
+    <h3>6.4 MCP 实测摘要</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>接口</th>
+          <th>实测请求</th>
+          <th>实测结论</th>
+          <th>设计影响</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>daily</code></td>
+          <td><code>daily(trade_date="20260401")</code></td>
+          <td>返回全市场日线，默认字段与文档一致；<code>daily(trade_date="20260404")</code> 非交易日返回空数组。</td>
+          <td>每日 raw 拉取必须只针对 eligible completed trade day；<code>stock_daily</code> 空结果在交易日应失败，非交易日不应发起请求。</td>
+        </tr>
+        <tr>
+          <td><code>daily</code></td>
+          <td><code>daily(ts_code="000001.SZ", start_date="20260401", end_date="20260403")</code></td>
+          <td>可按单股票区间返回多日。</td>
+          <td>第二期正式分区不使用局部股票请求覆盖全市场分区；该能力只作为调试或未来专项补数依据。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_d</code></td>
+          <td><code>suspend_d(trade_date="20260401")</code></td>
+          <td>返回 18 行，<code>S=15</code>、<code>R=3</code>，字段为 <code>ts_code/trade_date/suspend_timing/suspend_type</code>。</td>
+          <td>正式 raw 分区要拉全类型，不传 <code>suspend_type</code>，避免局部结果覆盖正式分区。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_d</code></td>
+          <td><code>suspend_d(ts_code="000959.SZ", start_date="20260401", end_date="20260403")</code></td>
+          <td>可按单股票区间返回多日。</td>
+          <td>只作为调试或专项补数依据，不作为正式分区写入方式。</td>
+        </tr>
+        <tr>
+          <td><code>trade_cal</code></td>
+          <td><code>trade_cal(exchange="SSE", start_date="20260401", end_date="20260407")</code></td>
+          <td>返回自然日历，包含开市和休市；<code>is_open=1</code> 可只筛开市日。</td>
+          <td>raw 交易日历应保留开闭市事实，silver 再筛 <code>is_open=true</code> 生成交易日 keys。</td>
+        </tr>
+        <tr>
+          <td><code>trade_cal</code></td>
+          <td><code>trade_cal(exchange="SSE", start_date="20261228", end_date="20261231")</code></td>
+          <td>能返回未来 open day。</td>
+          <td>sensor 必须使用 <code>latest_completed_trade_date</code> 截断，禁止看到未来 open day 就注册并运行。</td>
+        </tr>
+        <tr>
+          <td><code>stock_basic</code></td>
+          <td><code>stock_basic(ts_code="000001.SZ", list_status="L,D,P,G")</code></td>
+          <td>显式 fields 能返回完整生命周期字段。</td>
+          <td>第二期 raw 快照必须显式请求完整字段，不能只拿默认字段。</td>
+        </tr>
+        <tr>
+          <td><code>stock_basic</code></td>
+          <td><code>stock_basic(ts_code="000018.SZ", list_status="D")</code></td>
+          <td>能返回退市股票和 <code>delist_date</code>。</td>
+          <td>生命周期股票池必须包含退市状态，否则历史日期完整性 checks 会失真。</td>
+        </tr>
+        <tr>
+          <td><code>stock_basic</code></td>
+          <td><code>stock_basic(list_status="L")</code></td>
+          <td>样本中可能出现未来 <code>list_date</code>。</td>
+          <td>完整性 checks 不能直接把全量快照当成任意历史日股票池，必须按 <code>list_date <= trade_date</code> 和 <code>delist_date</code> 过滤。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6.5 TushareResource 边界</h3>
+    <div class="callout">
+      Tushare token 已拍定使用环境变量 <code>TUSHARE_TOKEN</code>，由本机 <code>~/.bash_profile</code> 提供。
+      Dagster 侧必须通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入 <code>TushareResource</code>。
+      文档只记录变量名和读取方式，不记录 token 值；禁止硬编码，禁止写入 <code>dagster.yaml</code>、<code>.env</code> 或散落 env 文件。
+    </div>
+    <pre><code>TushareResource 职责：
+1. 通过 dg.EnvVar("TUSHARE_TOKEN") 获取 token，不把 token 写入 dagster.yaml、代码常量、文档或日志。
+2. 提供按 api_name 调用的薄封装，例如 call("daily", params, fields)。
+3. 记录 request metadata：api_name、params、fields、fetched_at、row_count。
+4. 对参数错误、权限错误、空结果、网络错误分层抛错。
+5. 不负责 silver/gold 计算，不负责业务口径判断。
+
+TushareResource 不应做：
+1. 不在 dg dev 启动时因为 token 缺失让整个 code location 崩掉。
+2. 不自行决定交易日。
+3. 不把局部 ts_code/suspend_type 查询结果写成正式全市场 raw 分区。
+4. 不吞掉异常后写半成品 parquet。</code></pre>
+
+    <h3>6.6 raw 写入策略</h3>
+    <p>
+      raw asset materialize 的职责从第一期“确认已有 raw 文件”升级为“写入符合 Tushare 契约的 raw parquet、记录 metadata”。
+      日常生产写入来源是 Tushare API；旧湖 bootstrap 是历史迁移入口，可以写入同一套新湖 raw 路径，但不作为每日 raw asset 的长期分支。
+      写入必须使用临时文件加原子替换，避免失败时污染正式分区。
+    </p>
+    <pre><code>raw_tushare_stock_daily[trade_date]:
+  request:
+    api_name = daily
+    params = {"trade_date": "YYYYMMDD"}
+    fields = stock_daily raw 字段白名单
+  output:
+    raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet
+  empty policy:
+    eligible 交易日 row_count 必须 > 0，否则失败
+
+raw_tushare_suspend_d[trade_date]:
+  request:
+    api_name = suspend_d
+    params = {"trade_date": "YYYYMMDD"}
+    fields = suspend_d raw 字段白名单
+  output:
+    raw/tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet
+  empty policy:
+    row_count 可以 = 0，但必须写空 parquet 并记录 row_count=0
+
+raw_tushare_trade_calendar:
+  request:
+    api_name = trade_cal
+    params = {"exchange": "SSE", "start_date": "...", "end_date": "..."}
+  output:
+    raw/tushare/trade_calendar/full/part-000.parquet
+  update policy:
+    低频区间覆盖全量文件，不进入日频 quote / breadth run
+
+raw_tushare_stock_basic:
+  request:
+    api_name = stock_basic
+    params = {"list_status": "L,D,P,G"}
+  output:
+    raw/tushare/stock_basic/full/part-000.parquet
+  update policy:
+    低频全量覆盖文件，不进入日频 quote / breadth run</code></pre>
+
+    <div class="warning">
+      历史迁移和 Tushare 日常生产必须共享同一套 raw 字段契约、路径函数和 raw checks。
+      <code>old_lake_bootstrap</code> 和 <code>tushare_api</code> 只能体现在 Dagster materialization metadata 中，不能体现在 raw parquet 的业务字段中，也不能成为下游判断逻辑。
+    </div>
+
+    <h3>6.7 旧湖 / 新湖字段风险</h3>
+    <div class="warning">
+      旧湖只能作为历史 bootstrap 和对照来源，不能作为第二期 raw 字段契约来源。
+      新 raw 必须以 Tushare 源站输出字段为准，尤其是日期和空字符串类型。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>数据集</th>
+          <th>已发现风险</th>
+          <th>第二期处理</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>daily</code></td>
+          <td>旧湖 <code>daily.trade_date</code> 是 Parquet <code>DATE</code>，Tushare 源站返回 <code>YYYYMMDD</code> 字符串。</td>
+          <td>新 raw 保持字符串，silver 再标准化为 <code>DATE</code>。第一期新湖 <code>stock_daily</code> 已按此口径纠偏。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_d</code></td>
+          <td>旧湖 <code>trade_date</code> 是 <code>DATE</code>；<code>suspend_timing</code> 有分区类型推断差异，空分区可能被推成 <code>INTEGER/NULL</code>。</td>
+          <td>新 raw 写入时显式投影为字符串；批量审计旧湖时使用 <code>union_by_name=true</code> 或显式 cast。</td>
+        </tr>
+        <tr>
+          <td><code>trade_cal</code></td>
+          <td>旧湖 <code>is_open</code> 是 boolean；Tushare 源站返回 0/1。</td>
+          <td>新 raw 保持 0/1，silver 再标准化为 boolean。</td>
+        </tr>
+        <tr>
+          <td><code>stock_basic</code></td>
+          <td>接口会返回未来 <code>list_date</code>；全量快照不能直接当任意历史日期股票池。</td>
+          <td>完整性 check 必须使用 <code>list_date <= trade_date</code> 和 <code>delist_date</code> 生命周期过滤。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h4>suspend_timing 类型漂移处理</h4>
+    <p>
+      旧湖 <code>suspend_d</code> 的 <code>suspend_timing</code> 类型不可信：部分分区全空时 DuckDB 可能推断为 <code>INTEGER/NULL</code>，
+      有实际日内停牌时间的分区才会是 <code>VARCHAR</code>。这个问题只允许存在于旧湖读取阶段，不能带进新湖 raw。
+    </p>
+    <pre><code>旧湖读取和 bootstrap 写新湖时必须显式投影：
+
+select
+  cast(ts_code as varchar) as ts_code,
+  strftime(cast(trade_date as date), '%Y%m%d') as trade_date,
+  cast(suspend_timing as varchar) as suspend_timing,
+  cast(suspend_type as varchar) as suspend_type
+from read_parquet(
+  '/旧湖/raw_tushare/suspend_d/trade_date=*/part-000.parquet',
+  union_by_name=true
+)
+
+新湖 raw 契约：
+suspend_timing string，可为空
+
+禁止：
+1. 直接 cp 旧湖 suspend_d parquet 到新湖 raw
+2. 依赖 DuckDB 自动推断 suspend_timing 类型
+3. 把 INTEGER/NULL 类型继续传播到新湖 raw</code></pre>
+
+    <div class="warning">
+      新湖 <code>raw_tushare_suspend_d</code> 写入后必须做 schema check：
+      <code>suspend_timing</code> 只能是字符串列或空值，不能保留旧湖分区推断出来的整数类型。
+    </div>
+
+    <h4>bootstrap 通用机制</h4>
+    <p>
+      对某一个具体数据集来说，bootstrap 通常只执行一次，用来把旧湖历史数据拉齐到新湖 raw。
+      但 bootstrap 这套“读旧湖、字段投影、类型纠偏、写新 raw、跑 raw checks”的工具链会被后续大量数据集复用。
+      后续每个数据集只应该补充自己的 bootstrap spec，不应该重新发明一套 copy/cast/check 流程，也不应该把 bootstrap 做成日常生产链路。
+    </p>
+
+    <pre><code>BootstrapDatasetSpec:
+  dataset_key
+  old_lake_path_pattern
+  new_lake_path_pattern
+  partition_type
+  source_fields
+  target_raw_fields
+  field_cast_rules
+  partition_key_mapping
+  empty_policy
+  business_key
+  row_count_policy
+  checks_to_run</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>抽象层</th>
+          <th>职责</th>
+          <th>设计口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>BootstrapDatasetSpec</code></td>
+          <td>描述一个旧湖数据集如何读、如何投影、如何 cast、如何写入新湖 raw。</td>
+          <td>每个数据集一份 spec，禁止散落成一堆手工命令。</td>
+        </tr>
+        <tr>
+          <td><code>bootstrap/migration_jobs.py</code></td>
+          <td>提供历史迁移入口，例如 <code>bootstrap_quote_daily_job</code>、<code>bootstrap_basic_update_job</code>。这些入口只服务历史拉齐。</td>
+          <td>bootstrap 是历史迁移工具链，不属于日常生产 job 集合；不得被 sensor、schedule 或 declarative automation 触发。</td>
+        </tr>
+        <tr>
+          <td>通用 raw contract checks</td>
+          <td>校验新湖 raw 是否符合目标源站契约。</td>
+          <td>bootstrap 和 Tushare API 写入结果必须复用同一套 raw checks。</td>
+        </tr>
+        <tr>
+          <td>source metadata</td>
+          <td>记录来源方式、行数、字段列表、类型纠偏摘要。</td>
+          <td><code>source_method=old_lake_bootstrap</code> 只进 Dagster metadata，不进 parquet 业务字段。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><code>suspend_d bootstrap spec 示例：
+dataset_key: raw_tushare_suspend_d
+old_lake_path_pattern: raw_tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet
+new_lake_path_pattern: raw/tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet
+partition_type: trade_date
+partition_key_mapping:
+  path partition: YYYY-MM-DD
+  raw field trade_date: YYYYMMDD
+field_cast_rules:
+  ts_code: varchar
+  trade_date: DATE -> YYYYMMDD string
+  suspend_timing: varchar nullable
+  suspend_type: varchar
+empty_policy: allow_empty
+business_key:
+  ts_code + trade_date + suspend_type + coalesce(suspend_timing, '')
+checks_to_run:
+  raw_suspend_d_required_columns
+  raw_suspend_d_partition_date_matches
+  raw_suspend_d_schema_matches_tushare_contract</code></pre>
+
+    <div class="warning">
+      通用原则：旧湖 bootstrap 是一种来源方式，不是一套单独的数据契约。
+      新湖 raw 契约永远以目标源站契约为准；bootstrap 和 Tushare API 写入同一路径、同一字段契约、同一套 raw checks。
+    </div>
+  </section>
+
+  <section>
+    <h2>7. raw checks 执行门禁</h2>
+    <p>
+      raw checks 的执行节点是 raw asset materialize 完成之后、对应 silver asset 开始之前。
+      这相当于“原料入厂质检”：raw 不合格，就不能继续加工 silver。
+    </p>
+
+    <pre><code>quote 日频链路：
+raw asset materialize
+  ↓
+raw asset checks
+  ↓  only if blocking checks passed
+silver asset materialize
+  ↓
+silver asset checks
+  ↓
+market_breadth_upstream_readiness
+  ↓  declarative automation checks readiness
+
+下游业务链路：
+gold asset materialize
+  ↓
+gold asset checks</code></pre>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>raw asset</th>
+          <th>blocking checks</th>
+          <th>特殊口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td>文件存在、字段完整、<code>trade_date</code> 与 partition key 匹配、<code>row_count > 0</code>、业务键不冲突。</td>
+          <td>eligible 交易日如果返回 0 行，应失败，不继续生成 <code>silver_stock_daily</code>。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_suspend_d</code></td>
+          <td>文件存在、字段完整、<code>trade_date</code> 与 partition key 匹配、<code>suspend_type</code> 字段存在。</td>
+          <td><code>row_count = 0</code> 是合法结果，代表当天无停复牌记录；但必须有空 parquet 和 metadata。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_trade_calendar</code></td>
+          <td>字段完整、包含 <code>SSE</code>、<code>cal_date</code> 不为空、<code>is_open</code> 只允许 0/1。</td>
+          <td>这是低频基础数据，失败会影响 <code>cn_a_trade_day_sensor</code> 和 dynamic partitions，不直接进入日频 quote / breadth run。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_stock_basic</code></td>
+          <td>字段完整、<code>ts_code</code> 非空、<code>list_status</code> 只允许 <code>L/D/P/G</code>、生命周期日期格式合法。</td>
+          <td>这是低频基础数据，失败会影响 stock daily 完整性 checks。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. suspend_d 字段核验</h2>
+    <p>
+      本节按照本目录 AGENTS 门禁执行：<code>tushare-data</code> skill 用于理解接口定位，真实字段与样本通过本地文档、<code>tushareMCP</code> 和旧湖 parquet 交叉校验。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>来源</th>
+          <th>核验结果</th>
+          <th>结论</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>tushare-data</code> skill</td>
+          <td>每日停复牌属于 A 股行情事实辅助数据，用于解释交易日内股票是否应有行情记录。</td>
+          <td>只作为接口选型和业务理解辅助，不替代实测。</td>
+        </tr>
+        <tr>
+          <td>本地 Tushare 文档</td>
+          <td><code>docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md</code> 记录接口 <code>suspend_d</code>，输出字段为 <code>ts_code</code>、<code>trade_date</code>、<code>suspend_timing</code>、<code>suspend_type</code>。</td>
+          <td>字段集合明确，但样例表存在列展示不够直观的问题，不能只凭样例判断字段顺序。</td>
+        </tr>
+        <tr>
+          <td><code>tushareMCP.suspend_d(trade_date="20260401")</code></td>
+          <td>默认返回 18 行，字段为 <code>ts_code</code>、<code>trade_date</code>、<code>suspend_timing</code>、<code>suspend_type</code>；其中 <code>S=15</code>、<code>R=3</code>。</td>
+          <td>默认字段等于文档输出字段。</td>
+        </tr>
+        <tr>
+          <td>显式 fields 请求</td>
+          <td><code>fields=["ts_code","trade_date","suspend_timing","suspend_type"]</code> 返回字段和值与默认请求一致。</td>
+          <td>第二期 raw 字段白名单就是这四列，不加系统字段。</td>
+        </tr>
+        <tr>
+          <td>区间请求</td>
+          <td><code>start_date="20260401", end_date="20260403"</code> 可返回跨日数据，包含多个 <code>trade_date</code>。</td>
+          <td>第二期 Tushare 拉取可按单日或区间实现；无论怎么请求，写 Lake 时都必须按 <code>trade_date</code> 分区替换。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_type</code> 过滤</td>
+          <td><code>suspend_type="S"</code> 能只返回停牌记录。</td>
+          <td>正式 raw 分区不应只写某个类型的局部结果；过滤只用于检查或临时调试。</td>
+        </tr>
+        <tr>
+          <td>旧湖 parquet</td>
+          <td><code>/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/suspend_d</code> 中 2026-04 有 21 个交易日、495 行、<code>S=380</code>、<code>R=115</code>，业务键重复为 0。</td>
+          <td>旧湖有可迁移数据，但不能盲拷贝到新 raw。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>旧湖发现的字段类型问题</h3>
+    <div class="warning">
+      旧湖 <code>suspend_d</code> 的 <code>trade_date</code> 已经是 Parquet <code>DATE</code>，而 Tushare 源站返回的是 <code>YYYYMMDD</code> 字符串。
+      旧湖部分分区中 <code>suspend_timing</code> 全空，DuckDB 会推断成 <code>INTEGER/NULL</code>；有实际日内停牌时间的分区会是 <code>VARCHAR</code>。
+      因此第二期迁移新 raw 时必须显式重写字段类型，不能直接复制旧湖文件。
+    </div>
+
+    <pre><code>第二期新 raw 字段契约：
+ts_code         string   例如 000001.SZ
+trade_date      string   源站镜像，YYYYMMDD
+suspend_timing  string   可为空，例如 14:51-14:57
+suspend_type    string   S / R
+
+第二期 silver 字段契约：
+ts_code         string
+trade_date      date     从 YYYYMMDD 标准化
+suspend_timing  string
+suspend_type    string   S / R</code></pre>
+  </section>
+
+  <section>
+    <h2>9. suspend_d 资产说明卡</h2>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>资产</th>
+          <th>层级</th>
+          <th>业务含义</th>
+          <th>分区</th>
+          <th>路径</th>
+          <th>上游/下游</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_suspend_d</code></td>
+          <td><span class="tag raw">raw</span></td>
+          <td>Tushare <code>suspend_d</code> 每日停复牌源站镜像。历史分区可由旧湖 bootstrap 写入，但必须纠偏成 Tushare 源站契约；新增分区由 <code>TushareResource</code> 按交易日拉取并写入同一路径。</td>
+          <td><code>cn_a_trade_days</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/raw/tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>上游：旧湖 bootstrap 或 Tushare <code>suspend_d</code> 接口；下游：<code>silver_stock_suspend_daily</code></td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_suspend_daily</code></td>
+          <td><span class="tag silver">silver</span></td>
+          <td>标准化后的股票每日停复牌事实，用于解释某交易日股票日线缺失是否合理。</td>
+          <td><code>cn_a_trade_days</code></td>
+          <td><code>&lt;LAKE_ROOT&gt;/silver/quote/stock_suspend_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>上游：<code>raw_tushare_suspend_d</code>；下游：<code>silver_stock_daily</code> 完整性 checks</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>空结果策略</h3>
+    <p>
+      <code>suspend_d</code> 可能某个交易日返回 0 行。第二期要求 Dagster-managed raw 仍然写一个空 parquet 分区，并上报 <code>row_count=0</code>。
+      原因是“有空文件且 row_count=0”代表已经查询/迁移确认无记录；“没有文件”代表 raw 未准备好，不能被 downstream checks 当成无停牌。
+    </p>
+  </section>
+
+  <section>
+    <h2>10. stock_daily 完整性 checks 新口径</h2>
+    <p>
+      第一期完整性 check 用 <code>silver_stock_basic</code> 判断当日上市股票集合，所以每个交易日都会出现 WARN。
+      第二期引入 <code>silver_stock_suspend_daily</code> 后，check 的语义应从“上市股票都必须有日线”升级为“上市且当日应有行情的股票必须有日线”。
+    </p>
+
+    <h3>10.1 期望股票集合</h3>
+    <pre><code>listed_universe =
+  silver_stock_basic
+  where list_date <= trade_date
+    and (delist_date is null or delist_date > trade_date)
+
+full_day_suspended =
+  silver_stock_suspend_daily
+  where suspend_type = 'S'
+    and suspend_timing is null
+
+expected_daily_universe =
+  listed_universe - full_day_suspended</code></pre>
+
+    <div class="warning">
+      <strong>日内停牌不能直接当成无日线解释。</strong>
+      如果 <code>suspend_type='S'</code> 且 <code>suspend_timing</code> 不为空，例如旧湖 2026-04-30 的 <code>301599.SZ</code>、<code>14:51-14:57</code>，
+      第二期默认只上报为 <code>intraday_suspend_count</code>，不从 expected universe 中剔除。
+    </div>
+
+    <h3>10.2 check 清单</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>check</th>
+          <th>绑定资产</th>
+          <th>依赖资产</th>
+          <th>口径</th>
+          <th>严重级别</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_suspend_d_required_columns</code></td>
+          <td><code>raw_tushare_suspend_d</code></td>
+          <td>-</td>
+          <td>必须包含 <code>ts_code</code>、<code>trade_date</code>、<code>suspend_timing</code>、<code>suspend_type</code>。</td>
+          <td>blocking</td>
+        </tr>
+        <tr>
+          <td><code>raw_suspend_d_partition_date_matches</code></td>
+          <td><code>raw_tushare_suspend_d</code></td>
+          <td>-</td>
+          <td>文件内部 <code>trade_date</code> 解析后必须等于 partition key。</td>
+          <td>blocking</td>
+        </tr>
+        <tr>
+          <td><code>silver_suspend_d_known_type_values</code></td>
+          <td><code>silver_stock_suspend_daily</code></td>
+          <td>-</td>
+          <td><code>suspend_type</code> 只能是 <code>S</code> 或 <code>R</code>。</td>
+          <td>blocking</td>
+        </tr>
+        <tr>
+          <td><code>silver_suspend_d_unique_business_key</code></td>
+          <td><code>silver_stock_suspend_daily</code></td>
+          <td>-</td>
+          <td><code>ts_code + trade_date + suspend_type + coalesce(suspend_timing,'')</code> 不重复。</td>
+          <td>blocking</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_covers_expected_tradable_universe</code></td>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
+          <td>当日日线必须覆盖 <code>listed_universe - full_day_suspended</code>。</td>
+          <td>第二期先 WARN；稳定后可升级 blocking</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_unexplained_missing_sample</code></td>
+          <td><code>silver_stock_daily</code></td>
+          <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
+          <td>必须输出 <code>listed_count</code>、<code>full_day_suspend_count</code>、<code>expected_count</code>、<code>daily_count</code>、<code>unexplained_missing_count</code>、样本股票。</td>
+          <td>观测型 metadata，不做大 check</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>10.3 2026-04 预验证结果</h3>
+    <p>
+      用旧湖 <code>suspend_d</code> 对第一期 2026-04 全月 <code>silver_stock_daily</code> WARN 做预验证：
+      每天原始 missing_count 范围为 6 到 52；剔除全日停牌记录后，21 个交易日的 <code>unexplained_after_full_suspend</code> 全部为 0。
+    </p>
+    <pre><code>预验证摘要：
+2026-04 trade days: 21
+stock_daily 原始 missing_count: 6 ~ 52
+full-day suspend explained count: 等于每日 missing_count
+unexplained_after_full_suspend: 全部为 0
+old lake suspend_d April rows: 495
+suspend_type distribution: S=380, R=115
+business key duplicate count: 0</code></pre>
+  </section>
+
+  <section>
+    <h2>11. 文件组织建议</h2>
+    <p>继续遵守第一期“单一职责、按数据集命名”的文件组织原则，禁止把多个数据集的逻辑塞进宽泛文件。</p>
+    <pre><code>lake_console/orchestrator/src/orchestrator/defs/
+  resources.py                # LakeRootResource, DuckDBResource, TushareResource
+  assets/
+    stock_daily.py            # raw_tushare_stock_daily, silver_stock_daily
+    suspend_d.py              # raw_tushare_suspend_d, silver_stock_suspend_daily
+    trade_calendar.py         # raw_tushare_trade_calendar, silver_trade_calendar
+    stock_basic.py            # raw_tushare_stock_basic, silver_stock_basic
+  checks/
+    raw_tushare_checks.py     # raw 层字段、分区、空结果策略 checks
+    suspend_d_checks.py       # suspend_d 自身 checks
+    stock_daily_checks.py     # 增加依赖 suspend_d 的 stock_daily 完整性 checks
+    trade_calendar_checks.py  # trade_calendar 自身 checks
+    stock_basic_checks.py     # stock_basic 自身 checks
+  jobs/
+    quote_daily.py       # quote_daily_job，quote 日频行情资产更新
+    basic_update.py      # basic_update_job，低频基础数据更新
+    calendar_update.py   # calendar_update_job，交易日历资产更新
+    daily_market_breadth.py   # daily_market_breadth_job
+  bootstrap/
+    dataset_spec.py      # BootstrapDatasetSpec
+    source_method.py     # BootstrapSourceMethod
+    old_lake_executor.py # 历史迁移执行器
+    migration_jobs.py    # migration-only bootstrap entrypoints
+    specs/
+      suspend_d.py       # suspend_d 作为第一个 bootstrap 使用者
+      trade_calendar.py
+      stock_basic.py
+      stock_daily.py
+  sensors/
+    cn_a_trade_day_sensor.py  # 注册交易日并触发 quote_daily_job
+    market_breadth_readiness_alerts.py
+                              # 后备：通知、告警或复杂自定义触发，不作为默认生产触发
+  schedules/
+    quote_daily.py       # 可选固定时间兜底检查 quote 日频
+    daily_market_breadth.py   # 可选固定时间兜底检查下游 readiness
+  automation/
+    market_breadth_ready.py   # declarative automation readiness 条件设计说明或封装</code></pre>
+  </section>
+
+  <section>
+    <h2>12. 第二期验收门禁</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>验收项</th>
+          <th>必须看到什么</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Definitions 加载</td>
+          <td><code>uv run dg check defs</code> 通过。</td>
+        </tr>
+        <tr>
+          <td>历史 bootstrap</td>
+          <td>旧湖 <code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code> 已按 Tushare 字段契约写入新湖 raw；materialization metadata 记录 <code>source_method=old_lake_bootstrap</code>、行数、字段列表和类型纠偏摘要。</td>
+        </tr>
+        <tr>
+          <td>资产数量</td>
+          <td>新增 <code>raw_tushare_suspend_d</code> 和 <code>silver_stock_suspend_daily</code>；<code>raw_tushare_stock_daily</code> 从“确认已有文件”升级为“写入符合 Tushare 契约的 raw”；原第一期资产不改名、不迁移路径。</td>
+        </tr>
+        <tr>
+          <td>字段契约</td>
+          <td><code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code> 的 raw 字段与 Tushare 源站核验结果一致；日期在 raw 保持源站字符串或 0/1，在 silver 再做标准化。</td>
+        </tr>
+        <tr>
+          <td>自动化入口</td>
+          <td>Dagster UI 能看到 <code>quote_daily_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code> 和下游 declarative automation 条件；sensor 不默认乱跑大范围历史。</td>
+        </tr>
+        <tr>
+          <td>单日验证</td>
+          <td>2026-04-01 单日 quote_daily_job 成功，能看到 bootstrap 或 Tushare 请求 metadata、raw/silver materialization metadata 和 checks；前置条件通过后 breadth job 只生成 gold 和 gold checks。</td>
+        </tr>
+        <tr>
+          <td>全月验证</td>
+          <td>2026-04 全月 21 个 quote_daily 分区跑通；declarative automation readiness gate 触发对应 breadth 分区；market breadth checks 保持通过；stock_daily 新完整性 check 输出差异 metadata，<code>unexplained_missing_count=0</code>。</td>
+        </tr>
+        <tr>
+          <td>生成物</td>
+          <td>不得提交 <code>.venv</code>、<code>__pycache__</code>、临时 parquet、临时脚本输出。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>13. 已确认 / 待拍板项</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>问题</th>
+          <th>建议</th>
+          <th>原因</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>旧湖历史数据是否先 bootstrap 到新湖？</td>
+          <td>已确认纳入第二期 Slice 2.0。旧湖只用于节约历史日期重复拉取成本，写入新湖前必须纠偏到 Tushare 源站字段契约。</td>
+          <td>这样既节约时间，又不破坏新湖 raw “源站镜像”的长期定义。</td>
+        </tr>
+        <tr>
+          <td>第二期是否实现 <code>TushareResource</code> 拉取 raw？</td>
+          <td>已确认纳入第二期。<code>daily</code> 与 <code>suspend_d</code> 进入 <code>quote_daily_job</code> 的日常更新；<code>trade_cal</code> 与 <code>stock_basic</code> 分别进入 <code>calendar_update_job</code> 和 <code>basic_update_job</code> 的低频更新。</td>
+          <td>如果不接入 raw 拉取，新交易日没有 raw 数据，自动化链路只能调度但无法真正生产新分区。</td>
+        </tr>
+        <tr>
+          <td>下游 job 是否可以主动补上游？</td>
+          <td>不可以。<code>daily_market_breadth_job</code> 只负责 gold；上游缺失时等待 quote_daily_job 或上游 backfill，不在下游内部调用 Tushare。</td>
+          <td>避免多个下游 job 重复拉取、覆盖 raw、污染 metadata 和触发限流。</td>
+        </tr>
+        <tr>
+          <td>上游未就绪时如何“等待”？</td>
+          <td>等待优先发生在 declarative automation 层：不请求下游资产，等待下一次条件评估。若 LLD 证明需要 asset sensor 后备，则 sensor 返回 <code>SkipReason</code>，不发起下游 <code>RunRequest</code>。不是启动一个下游 run 后卡住。</td>
+          <td>这符合 Dagster 的自动化模型，也更容易观测和重试。</td>
+        </tr>
+        <tr>
+          <td>ready 是否只等于 silver materialized？</td>
+          <td>不等于。ready 必须表示 market breadth 的上游依赖整体通过质量门禁：<code>silver_stock_daily</code> materialized + stock daily raw/silver blocking checks passed + <code>silver_stock_suspend_daily</code> materialized + suspend raw/silver blocking checks passed + <code>silver_stock_basic</code> ready + <code>silver_trade_calendar</code> ready。</td>
+          <td>如果只看 materialized，可能绕过质量门禁，导致下游消费不合格数据。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_d</code> 0 行交易日是否写空 parquet？</td>
+          <td>要求写空 parquet。</td>
+          <td>这样可以区分“已确认无停复牌记录”和“raw 未准备好”。</td>
+        </tr>
+        <tr>
+          <td>新完整性 check 是否 blocking？</td>
+          <td>第二期先 WARN，完成 2026-04 全月验证后再决定是否升级 blocking。</td>
+          <td>check 是在定义数据边界，不能在业务语义未完全沉淀前直接阻断。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_trade_day_sensor</code> 是否默认 RUNNING？</td>
+          <td>第二期先默认 STOPPED。代码中可以定义 sensor，但本地启动 Dagster daemon 时不让它自动扫描交易日、注册分区并触发 <code>quote_daily_job</code>。</td>
+          <td>必须先人工验证 <code>latest_completed_trade_date</code>、旧湖 bootstrap、Tushare 拉取、raw/silver checks 和 readiness gate。否则一启动就可能自动注册大量 partitions、触发大量 quote 日频 runs。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_trade_day_sensor</code> 长期是否应该直接触发 quote？</td>
+          <td>短期可以触发 <code>quote_daily_job</code>，且 <code>quote_daily_job</code> 同时包含 <code>stock_daily</code> 和 <code>suspend_d</code>。长期更优雅方向是 sensor 只注册已完成交易日 partition，各资产族通过 declarative automation / on-missing 响应缺失分区。</td>
+          <td>短期方案简单好验收；长期方案能让交易日发现和数据域生产解耦，但必须先验证 Dagster 当前版本对 dynamic partitions + declarative automation 的组合行为。</td>
+        </tr>
+        <tr>
+          <td>Tushare token 配置如何管理？</td>
+          <td>使用 <code>TUSHARE_TOKEN</code> 环境变量，由本机 <code>~/.bash_profile</code> 提供；Dagster 侧通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入 <code>TushareResource</code>。</td>
+          <td>token 是敏感配置，禁止硬编码，禁止写入 <code>dagster.yaml</code>、<code>.env</code>、设计文档、metadata 或日志。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>14. 参考资料</h2>
+    <ul>
+      <li><a href="https://docs.dagster.io/guides/build/jobs/asset-jobs">Dagster 官方文档：Asset jobs</a></li>
+      <li><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Dagster 官方文档：Partitioning assets / Dynamic partitions</a></li>
+      <li><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/backfilling-data">Dagster 官方文档：Backfilling data</a></li>
+      <li><a href="https://docs.dagster.io/guides/automate/schedules">Dagster 官方文档：Schedules</a></li>
+      <li><a href="https://docs.dagster.io/guides/automate/sensors">Dagster 官方文档：Sensors</a></li>
+      <li><a href="https://docs.dagster.io/guides/automate/asset-sensors">Dagster 官方文档：Asset sensors</a></li>
+      <li><a href="https://docs.dagster.io/guides/automate/declarative-automation">Dagster 官方文档：Declarative Automation</a></li>
+      <li><a href="https://docs.dagster.io/api/dagster/asset-checks">Dagster API 文档：Asset checks</a></li>
+      <li><code>docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md</code></li>
+      <li><code>docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md</code></li>
+      <li><code>docs/sources/tushare/股票数据/基础数据/0026_交易日历.md</code></li>
+      <li><code>docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md</code></li>
+      <li><code>docs/datasets/suspend-d-prod-raw-db-lake-export-plan.md</code></li>
+      <li><code>/Users/congming/.codex/skills/tushare-data/SKILL.md</code></li>
+      <li><code>tushareMCP.daily</code> 实测：默认字段、显式 fields、单日全市场请求、单股票区间请求、非交易日空结果。</li>
+      <li><code>tushareMCP.suspend_d</code> 实测：默认字段、显式 fields、区间请求、<code>suspend_type</code> 过滤。</li>
+      <li><code>tushareMCP.trade_cal</code> 实测：自然日返回、<code>is_open</code> 过滤、未来交易日历返回。</li>
+      <li><code>tushareMCP.stock_basic</code> 实测：<code>list_status=L,D,P,G</code> 全状态字段、退市样本、未来 <code>list_date</code> 风险。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
