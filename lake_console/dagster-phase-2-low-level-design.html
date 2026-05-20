@@ -436,8 +436,8 @@
         </tr>
         <tr>
           <td><code>duckdb_sql.py</code></td>
-          <td>已有 raw/silver 字段常量、路径读写 SQL、market breadth SQL；<code>cn_a_trade_day_partition_keys_select</code> 仍硬编码 2026-04。</td>
-          <td>新增 suspend_d 字段常量和 SQL；把交易日 key 查询改成可传 <code>end_date</code>，禁止把未来 open day 注册运行。</td>
+          <td>已有 raw/silver 字段常量、路径读写 SQL、market breadth SQL。</td>
+          <td>新增 suspend_d 字段常量和 SQL；全历史交易日 key 注册不得复用第一期硬编码 2026-04 的 POC 查询，必须基于审计后的 <code>runnable_keys</code>。</td>
         </tr>
         <tr>
           <td><code>assets/*.py</code></td>
@@ -450,9 +450,9 @@
           <td>新增 suspend_d checks；改造 stock_daily 完整性 check 依赖 suspend_d，输出差异统计和样本。</td>
         </tr>
         <tr>
-          <td><code>jobs/calendar_trade_day_partitions.py</code></td>
-          <td>第一期手动注册 2026-04 dynamic partitions 的 job。</td>
-          <td>第二期不把它作为正式自动化入口；<code>cn_a_trade_day_sensor</code> 验证通过后，只审计它是否继续保留为手动调试入口，不能让它参与正式自动化链路。</td>
+          <td><code>jobs/calendar_trade_day_partitions.py</code>（已删除）</td>
+          <td>第一期手动注册 2026-04 dynamic partitions 的 POC job。</td>
+          <td>已从代码中退役删除；第二期全历史迁移和后续自动化不得引用这个临时入口。</td>
         </tr>
         </tbody>
       </table>
@@ -478,7 +478,7 @@
     SUSPEND_D_SILVER_REQUIRED_COLUMNS
     suspend_d_normalized_select(...)
     silver_stock_suspend_daily_select(...)
-    cn_a_trade_day_partition_keys_select(..., latest_completed_trade_date)
+    completed trade day key query for audited runnable_keys
 
   bootstrap/
     __init__.py
@@ -1113,13 +1113,106 @@ expected_daily_universe:
           <td><code>bootstrap_quote_daily_job</code></td>
           <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code></td>
           <td><code>old_lake_bootstrap</code></td>
-          <td>一次性把旧湖 quote 日频历史分区拉齐到新湖 raw/silver，可按 <code>trade_date</code> backfill；完成后日常 quote 更新只走 <code>quote_daily_job</code>。</td>
+          <td>一次性把旧湖 quote 日频历史分区拉齐到新湖 raw/silver，可按 <code>trade_date</code> backfill；<code>Slice 2.0.6</code> 必须在 raw assets 切到 Tushare API 前完成。完成后日常 quote 更新只走 <code>quote_daily_job</code>。</td>
         </tr>
         </tbody>
       </table>
     </div>
 
-    <h3>10.2 ongoing jobs</h3>
+    <h3>10.2 Slice 2.0.6 全历史 quote bootstrap 执行设计</h3>
+    <p>
+      2.0.6 是从旧湖 bootstrap 切换到 Tushare API 日常更新前的收口动作。
+      当前 <code>bootstrap_quote_daily_job</code> 是 asset selection job，它选中的 <code>raw_tushare_stock_daily</code> 和 <code>raw_tushare_suspend_d</code> 目前仍走旧湖 bootstrap。
+      进入 2.1 后，这两个 raw assets 会改成 Tushare API 写入，同一个 job 如果继续存在，也会跟随 asset 当前实现变成 API 拉取。
+      因此 2.0.6 必须先完成历史 quote 日频迁移，避免后续再用一个名字叫 bootstrap、实际却跑 API 的入口。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>对象</th>
+          <th>输入</th>
+          <th>输出</th>
+          <th>验收口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_stock_daily[trade_date]</code></td>
+          <td>旧湖 <code>raw_tushare/daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>新湖 <code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>字段等于 <code>STOCK_DAILY_RAW_REQUIRED_COLUMNS</code>；<code>trade_date</code> 为 <code>YYYYMMDD</code> 字符串；<code>row_count &gt; 0</code>。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_suspend_d[trade_date]</code></td>
+          <td>旧湖 <code>raw_tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>新湖 <code>raw/tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>字段等于 <code>SUSPEND_D_RAW_COLUMNS</code>；<code>suspend_timing</code> 是 nullable string；源文件存在时允许 <code>row_count=0</code>。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily[trade_date]</code></td>
+          <td>新湖 stock daily raw</td>
+          <td>新湖 <code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>由正式 silver asset 生成；重复完全行可 distinct 并上报；冲突键失败。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_suspend_daily[trade_date]</code></td>
+          <td>新湖 suspend_d raw</td>
+          <td>新湖 <code>silver/quote/stock_suspend_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>由正式 silver asset 生成；<code>suspend_type</code> 只允许已知值；业务键不冲突。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><code>Slice 2.0.6 source coverage audit:
+  daily_keys =
+    list old_lake/raw_tushare/daily/trade_date=*/part-000.parquet
+
+  suspend_keys =
+    list old_lake/raw_tushare/suspend_d/trade_date=*/part-000.parquet
+
+  calendar_open_keys =
+    select trade_date from silver_trade_calendar
+    where exchange = 'SSE'
+      and is_open = true
+
+  runnable_keys = daily_keys intersect suspend_keys intersect calendar_open_keys
+  missing_suspend_keys = daily_keys - suspend_keys
+  excluded_non_open_day_keys = (daily_keys union suspend_keys) - calendar_open_keys
+
+  if missing_suspend_keys is not empty:
+    write summary to run output / review notes
+    do not treat missing suspend_d source as empty suspend_d data
+    only run bootstrap_quote_daily_job for explicitly accepted runnable_keys
+
+  if excluded_non_open_day_keys is not empty:
+    write summary to run output / review notes
+    do not register these dates into cn_a_trade_days
+    do not run quote daily jobs for non-SSE-open days
+
+Slice 2.0.6 execution:
+  1. confirm working tree clean
+  2. run source coverage audit
+  3. register runnable_keys into cn_a_trade_days using formal DagsterInstance
+     - retired sync_cn_a_trade_day_partitions was 2026-04 POC only
+     - full-history registration must use the audited runnable_keys
+  4. run bootstrap_quote_daily_job[trade_date] in batches
+  5. collect per-partition result:
+     - run success/failure
+     - raw/silver row_count
+     - failed blocking checks
+     - stock_daily unexplained_missing_count / unexplained_extra_count
+  6. stop on systematic failure; do not continue blind batch execution
+  7. final report lists migrated_count, failed_count, skipped_missing_suspend_count, excluded_non_open_day_count, first/last migrated trade_date</code></pre>
+
+    <div class="warning">
+      2.0.6 不新增业务资产定义；它生成的是已有 quote assets 的历史 partitions、materializations 和 check evaluations。
+      不生产 <code>gold_market_breadth_daily</code>，不运行 readiness gate，不调用 Tushare API，不启用 sensor。
+    </div>
+
+    <h3>10.3 ongoing jobs</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1159,7 +1252,7 @@ expected_daily_universe:
       </table>
     </div>
 
-    <h3>10.3 执行顺序</h3>
+    <h3>10.4 执行顺序</h3>
     <pre><code>Phase 2 historical bootstrap development order:
   1. build bootstrap common engine
   2. use suspend_d as the first bootstrap user
@@ -1173,8 +1266,9 @@ expected_daily_universe:
   4. register completed 2026-04 cn_a_trade_days partition keys from silver_trade_calendar
   5. bootstrap stock_daily for 2026-04
   6. run quote silver/checks for 2026-04
-  7. run daily_market_breadth_job[2026-04-01 ... 2026-04-30] after readiness passes
-  8. bootstrap entrypoints are not scheduled, sensed, or used as downstream readiness dependencies
+  7. Slice 2.0.6: audit full-history daily/suspend_d source coverage
+  8. Slice 2.0.6: run bootstrap_quote_daily_job for accepted runnable historical keys
+  9. bootstrap entrypoints are not scheduled, sensed, or used as downstream readiness dependencies
 
 Phase 2 ongoing:
   1. calendar_update_job / basic_update_job run low-frequency as needed
@@ -1470,6 +1564,12 @@ quote_daily assets:
           <td>stock_daily 历史迁移和完整性 checks 改造。</td>
           <td><code>bootstrap/specs/stock_daily.py</code>、<code>stock_daily_checks.py</code>。</td>
           <td>2026-04 全月历史迁移、silver、checks 通过；完整性 WARN 输出完整差异 metadata；<code>unexplained_missing_count=0</code>。</td>
+        </tr>
+        <tr>
+          <td>2.0.6</td>
+          <td>quote 日频全历史 bootstrap 收口。</td>
+          <td><code>bootstrap_quote_daily_job</code>、dynamic partitions 注册脚本/执行入口、批量验收汇总。</td>
+          <td>完成旧湖 <code>daily</code>/<code>suspend_d</code> 覆盖审计；可运行分区批量迁移到新湖 raw/silver；缺失 <code>suspend_d</code> 的日期不静默造空；输出 migrated/failed/skipped 汇总。</td>
         </tr>
         <tr>
           <td>2.1</td>

@@ -321,17 +321,5 @@ WHERE trade_date = {partition_date}
   AND pct_chg IS NOT NULL
 """
 
-
-def cn_a_trade_day_partition_keys_select(silver_path: Path) -> str:
-    return f"""
-SELECT strftime(trade_date, '%Y-%m-%d') AS partition_key
-FROM {read_parquet(silver_path, hive_partitioning=False)}
-WHERE exchange = 'SSE'
-  AND is_open = true
-  AND trade_date BETWEEN DATE '2026-04-01' AND DATE '2026-04-30'
-ORDER BY trade_date
-"""
-
-
 def copy_query_to_parquet(select_sql: str, target_path: Path) -> str:
     return f"COPY ({select_sql}) TO {duckdb_string(target_path)} (FORMAT PARQUET)"

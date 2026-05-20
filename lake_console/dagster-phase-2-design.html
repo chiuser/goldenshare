@@ -485,9 +485,9 @@
         <tr>
           <td><code>Slice 2.0</code></td>
           <td>旧湖历史数据 bootstrap 到新湖 raw。</td>
-          <td>读取旧湖 <code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code>，按 Tushare 字段契约投影和类型纠偏，写入新湖 raw 目标路径，并执行 raw checks。</td>
+          <td>读取旧湖 <code>daily</code>、<code>suspend_d</code>、<code>trade_cal</code>、<code>stock_basic</code>，按 Tushare 字段契约投影和类型纠偏，写入新湖 raw 目标路径，并执行 raw checks。先按 2026-04 小范围验证，再用 <code>Slice 2.0.6</code> 做 quote 日频全历史 bootstrap 收口。</td>
           <td>不调用 Tushare API，不生成新的业务口径，不把旧湖路径写入 Dagster 正式 asset path。</td>
-          <td>新湖 raw 历史数据字段看起来与 Tushare 直接拉取结果一致；后续 silver、gold 和 checks 不需要知道 raw 来自旧湖 bootstrap 还是 Tushare API。</td>
+          <td>新湖 raw 历史数据字段看起来与 Tushare 直接拉取结果一致；后续 silver、gold 和 checks 不需要知道 raw 来自旧湖 bootstrap 还是 Tushare API。全历史 quote bootstrap 完成后，才能把日常 raw asset 切到 Tushare API。</td>
         </tr>
         <tr>
           <td><code>Slice 2.1</code></td>
@@ -664,30 +664,107 @@ gold_market_breadth_daily[trade_date]</code></pre>
         </tr>
         <tr>
           <td>5</td>
+          <td>新增 <code>Slice 2.0.6</code>：用 <code>bootstrap_quote_daily_job</code> 做 quote 日频全历史 bootstrap 收口。</td>
+          <td>当前 <code>bootstrap_quote_daily_job</code> 仍绑定旧湖 bootstrap 实现。必须趁日常 raw asset 尚未切到 Tushare API 前，把旧湖 quote 日频历史债务尽量迁完；否则进入 2.1 后，同名 job 会跟随 asset 当前实现变成 API 拉取，不再代表旧湖迁移。</td>
+          <td>完成旧湖 <code>daily</code> 与 <code>suspend_d</code> 覆盖审计；对可迁移日期批量 materialize quote raw/silver/checks；输出成功、失败、缺失、未迁移原因汇总；确认没有把缺失的 <code>suspend_d</code> 悄悄当作空数据。</td>
+        </tr>
+        <tr>
+          <td>6</td>
           <td>接入 Tushare API 续更新：<code>TushareResource</code>、<code>daily</code>、<code>suspend_d</code> 的新交易日 raw 写入。</td>
           <td>先有历史 bootstrap 和 checks，再接 API 续更新，才能证明两种来源写入同一契约、同一 raw path、同一 checks。</td>
           <td>任选一个已完成新交易日，Tushare API 写入 raw，和 bootstrap raw 共享字段契约与 checks；<code>source_method=tushare_api</code> 只进入 metadata。</td>
         </tr>
         <tr>
-          <td>6</td>
+          <td>7</td>
           <td>小范围启用 <code>cn_a_trade_day_sensor</code>，只注册/触发已完成交易日的 <code>quote_daily_job</code>。</td>
           <td>只有历史 bootstrap、Tushare raw 拉取、raw/silver checks 都跑通后，sensor 才有稳定的上游 job 可以触发。</td>
           <td>传感器默认 <code>STOPPED</code>；人工小范围验证后确认不会注册或运行未来 open day。</td>
         </tr>
         <tr>
-          <td>7</td>
+          <td>8</td>
           <td>实现 <code>market_breadth_upstream_readiness</code> 和 <code>daily_market_breadth_job</code>，并验证下游自动化门禁。</td>
           <td>只有上游 job、checks、readiness 都稳定后，自动化才有意义。</td>
           <td>readiness 明确包含 materialization + blocking checks；前置条件不满足时不请求下游；满足后只生产 <code>gold_market_breadth_daily</code>。优先验证 declarative automation；若验证不通，停下讨论 asset sensor 后备。</td>
         </tr>
         <tr>
-          <td>8</td>
+          <td>9</td>
           <td>全链路验收和收口。</td>
           <td>最后再做 2026-04 全月和最近已完成交易日的小范围自动化验证，避免前面问题被批量 run 放大。</td>
           <td>落后多个交易日时按一个交易日一个 partition run 补齐；下游只在 readiness 通过后触发；无多余生成物。</td>
         </tr>
         </tbody>
       </table>
+    </div>
+
+    <h3>4.4 Slice 2.0.6：quote 日频全历史 bootstrap 收口</h3>
+    <p>
+      增加 <code>Slice 2.0.6</code> 的原因是：<code>bootstrap_quote_daily_job</code> 当前选中的仍是走旧湖 bootstrap 的正式 raw/silver assets。
+      这正好提供了一个窗口，可以把旧湖中已经存在的 quote 日频历史数据迁到新湖。
+      一旦进入 <code>Slice 2.1</code>，<code>raw_tushare_stock_daily</code> 和 <code>raw_tushare_suspend_d</code> 会改成 Tushare API 日常写入；
+      同一个 selection job 再运行时会跟随 asset 当前实现变成 API 拉取，不再代表旧湖 bootstrap。
+      因此必须先把历史迁移债务尽量还完，再切换日常生产实现。
+    </p>
+    <p>
+      当前已知事实也必须写进门禁：旧湖 <code>raw_tushare/daily</code> 覆盖范围大于 <code>raw_tushare/suspend_d</code>。
+      所以 2.0.6 的第一步不是直接大批量运行，而是先审计两个旧湖来源的分区覆盖，并用 <code>silver_trade_calendar</code> 的 SSE open day 做交易日门禁。
+      如果某个 <code>daily</code> 日期没有对应 <code>suspend_d</code> 源文件，不能静默写一个空停复牌文件，因为“源文件缺失”不等于“当日没有停复牌记录”。
+      如果某个旧湖日期不是 <code>silver_trade_calendar</code> 中的 SSE 开市日，也不能注册为 <code>cn_a_trade_days</code> 或运行 quote 日频 job。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>资产</th>
+          <th>旧湖来源</th>
+          <th>新湖目标</th>
+          <th>2.0.6 行为</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_stock_daily[trade_date]</code></td>
+          <td><code>raw_tushare/daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td><code>raw/tushare/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>按 Tushare <code>daily</code> 字段契约投影，<code>trade_date</code> 纠偏为 <code>YYYYMMDD</code> 字符串。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_suspend_d[trade_date]</code></td>
+          <td><code>raw_tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td><code>raw/tushare/suspend_d/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>按 Tushare <code>suspend_d</code> 字段契约投影，<code>suspend_timing</code> 保持 nullable string；源文件缺失时阻断该日期迁移。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily[trade_date]</code></td>
+          <td>来自新湖 <code>raw_tushare_stock_daily</code></td>
+          <td><code>silver/quote/stock_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>由正式 silver asset 生成，不由 bootstrap 引擎单独生成旁路结果。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_suspend_daily[trade_date]</code></td>
+          <td>来自新湖 <code>raw_tushare_suspend_d</code></td>
+          <td><code>silver/quote/stock_suspend_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+          <td>由正式 silver asset 生成，供 <code>stock_daily</code> 完整性 WARN checks 解释全日停牌缺口。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+<pre><code>Slice 2.0.6 execution:
+1. 枚举旧湖 raw_tushare/daily/trade_date=*/part-000.parquet，得到 stock_daily 候选日期集合。
+2. 枚举旧湖 raw_tushare/suspend_d/trade_date=*/part-000.parquet，得到 suspend_d 可迁移日期集合。
+3. 从 silver_trade_calendar 读取 exchange='SSE' 且 is_open=true 的 open day 集合。
+4. 计算 daily_keys ∩ suspend_keys ∩ silver_trade_calendar_open_keys，作为 bootstrap_quote_daily_job 可直接运行日期集合。
+5. 对 daily 有、suspend_d 缺失的日期输出缺失清单，停下讨论，不写空 suspend_d。
+6. 对旧湖存在但不属于 SSE open day 的日期输出 excluded_non_open_day 清单，不注册、不运行。
+7. 将可运行日期注册到 cn_a_trade_days dynamic partitions，必须使用正式 Dagster instance；第一期 2026-04 专用注册 job 已退役删除，不能作为全历史注册逻辑使用。
+8. 按 trade_date 分批运行 bootstrap_quote_daily_job[trade_date]。
+9. 每个分区执行 raw materialization、raw blocking checks、silver materialization、silver blocking/WARN checks。
+10. 输出批量汇总：success_count、failed_count、missing_suspend_source_count、excluded_non_open_day_count、raw/silver row_count 范围、未解释完整性差异。</code></pre>
+
+    <div class="warning">
+      2.0.6 不生成新的资产定义，但会生成大量新的 asset partitions 和 Dagster materialization/check 记录。
+      它不生产 <code>gold_market_breadth_daily</code>，不触发 <code>daily_market_breadth_job</code>，不调用 Tushare API，也不启用 sensor。
     </div>
 
     <div class="warning">
@@ -806,8 +883,8 @@ defs/schedules/daily_market_breadth_schedule.py
 
     <h3>5.3 为什么不是继续手动 job</h3>
     <p>
-      第一期开了一个 <code>sync_cn_a_trade_day_partitions</code> 手动 job，职责只有注册 partitions。
-      第二期如果继续手动跑，就没有解决“资产从上游到下游自动生成”的问题。
+      第一期曾经有一个 <code>sync_cn_a_trade_day_partitions</code> 手动 job，职责只有注册 2026-04 POC partitions；该临时入口已经退役删除。
+      第二期如果继续沿用这类手动 POC 链路，就没有解决“资产从上游到下游自动生成”的问题。
       因此第二期应把 partition 注册和 partition run 发起连接起来。
     </p>
 
