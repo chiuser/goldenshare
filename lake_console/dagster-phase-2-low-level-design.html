@@ -1164,7 +1164,7 @@ intraday_suspended:
           <td><code>bootstrap_quote_daily_job</code></td>
           <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code></td>
           <td><code>old_lake_bootstrap</code></td>
-          <td>一次性把旧湖 quote 日频历史分区拉齐到新湖 raw/silver，可按 <code>trade_date</code> backfill；<code>Slice 2.0.6</code> 必须在 raw assets 切到 Tushare API 前完成。完成后日常 quote 更新只走 <code>quote_daily_job</code>。</td>
+          <td>已完成并退役为活跃 job。历史 run/event 记录保留在 Dagster instance；日常 quote 更新只走 <code>quote_daily_job</code>。</td>
         </tr>
         </tbody>
       </table>
@@ -1173,9 +1173,10 @@ intraday_suspended:
     <h3>10.2 Slice 2.0.6 全历史 quote bootstrap 执行设计</h3>
     <p>
       2.0.6 是从旧湖 bootstrap 切换到 Tushare API 日常更新前的收口动作。
-      当前 <code>bootstrap_quote_daily_job</code> 是 asset selection job，它选中的 <code>raw_tushare_stock_daily</code> 和 <code>raw_tushare_suspend_d</code> 目前仍走旧湖 bootstrap。
+      2.0.6 执行时，<code>bootstrap_quote_daily_job</code> 是 asset selection job，它选中的 <code>raw_tushare_stock_daily</code> 和 <code>raw_tushare_suspend_d</code> 仍走旧湖 bootstrap。
       进入 2.1 后，这两个 raw assets 会改成 Tushare API 写入，同一个 job 如果继续存在，也会跟随 asset 当前实现变成 API 拉取。
       因此 2.0.6 必须先完成历史 quote 日频迁移，避免后续再用一个名字叫 bootstrap、实际却跑 API 的入口。
+      现在 <code>Slice 2.1</code> 已完成，活跃 <code>bootstrap_quote_daily_job</code> 已退役。
     </p>
     <p>
       当前全历史迁移审计口径已经收紧：迁移下限为 <code>2014-01-01</code>，实际首个交易日为 <code>2014-01-02</code>；
@@ -1287,7 +1288,7 @@ Slice 2.0.6 execution:
       Dagster run 记录中所有目标分区均有成功 run；历史取消 run 与一次失败 run 已由后续成功 run 覆盖。
     </div>
 
-    <h3>10.3 ongoing jobs</h3>
+    <h3>10.3 ongoing jobs and current implementation status</h3>
     <div class="table-wrap">
       <table>
         <thead>
@@ -1296,6 +1297,7 @@ Slice 2.0.6 execution:
           <th>selection</th>
           <th>source_method</th>
           <th>触发入口</th>
+          <th>当前状态</th>
         </tr>
         </thead>
         <tbody>
@@ -1304,24 +1306,28 @@ Slice 2.0.6 execution:
           <td><code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code></td>
           <td><code>tushare_api</code></td>
           <td>低频人工触发或 schedule 触发，不进入 quote 日频 run。</td>
+          <td>未实现。当前只有历史迁移入口 <code>bootstrap_calendar_job</code>；后续需单独实现，不能混入 <code>Slice 2.2.1</code>。</td>
         </tr>
         <tr>
           <td><code>basic_update_job</code></td>
           <td><code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code></td>
           <td><code>tushare_api</code></td>
           <td>低频人工触发或 schedule 触发，不进入 quote 日频 run。</td>
+          <td>未实现。当前只有历史迁移入口 <code>bootstrap_basic_update_job</code>；后续需单独实现，不能混入 <code>Slice 2.2.1</code>。</td>
         </tr>
         <tr>
           <td><code>quote_daily_job</code></td>
           <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code></td>
           <td><code>tushare_api</code></td>
           <td><code>cn_a_trade_day_sensor</code>、手动 partition run 或 backfill。</td>
+          <td>已实现并通过 <code>2026-05-20</code> 单日验证。下一步 sensor 只能触发这个 job，不得补上游或触发 gold。</td>
         </tr>
         <tr>
           <td><code>daily_market_breadth_job</code></td>
           <td><code>gold_market_breadth_daily</code></td>
           <td>不适用</td>
           <td>readiness gate；优先 declarative automation，小样本验证不通时停下讨论 asset sensor 后备；不主动补上游。</td>
+          <td>未实现。必须等 <code>cn_a_trade_day_sensor</code> 小范围验证后，再进入 readiness gate 设计和实现。</td>
         </tr>
         </tbody>
       </table>
@@ -1345,18 +1351,26 @@ Slice 2.0.6 execution:
   8. Slice 2.0.6: run bootstrap_quote_daily_job for accepted runnable historical keys [completed]
   9. bootstrap entrypoints are not scheduled, sensed, or used as downstream readiness dependencies
 
-Phase 2 ongoing:
+Phase 2 completed after Slice 2.1:
   1. Slice 2.1: switch daily quote raw assets from old_lake_bootstrap to TushareResource API [completed]
   2. validate one completed trade_date through quote_daily_job manually [completed: 2026-05-20]
-  3. calendar_update_job / basic_update_job run low-frequency as needed
-  4. cn_a_trade_day_sensor checks completed open days
-  5. sensor registers eligible dynamic partition keys
-  6. sensor launches quote_daily_job[trade_date]
-  7. quote_daily_job writes raw, runs raw checks, writes silver, runs silver checks
-  8. readiness gate evaluates market_breadth_upstream_readiness
+  3. active bootstrap_quote_daily_job retired; historical runs remain visible in Dagster instance [completed]
+
+Next implementation stage:
+  1. Slice 2.2.1: implement cn_a_trade_day_sensor
+  2. sensor default status must be STOPPED
+  3. sensor computes latest_completed_trade_date from silver_trade_calendar
+  4. sensor only registers eligible completed open days into cn_a_trade_days
+  5. sensor only triggers quote_daily_job[trade_date]
+  6. sensor must not trigger market breadth, readiness gate, schedule, backfill, or calendar/basic API update
+  7. validate with a very small date set before enabling any broader run
+
+Later stages:
+  1. calendar_update_job / basic_update_job Tushare API low-frequency updates
+  2. readiness gate evaluates market_breadth_upstream_readiness
      - preferred implementation: declarative automation
      - fallback only after discussion: asset sensor
-  9. daily_market_breadth_job[trade_date] runs only if ready</code></pre>
+  3. daily_market_breadth_job[trade_date] runs only if ready</code></pre>
   </section>
 
   <section>
@@ -1378,24 +1392,66 @@ Phase 2 ongoing:
   open_days = select from silver_trade_calendar
     where exchange = 'SSE'
       and is_open = true
+      and trade_date >= DATE '2014-01-01'
       and trade_date <= latest_completed_trade_date
 
   existing_keys = instance.get_dynamic_partitions(cn_a_trade_days.name)
-  new_keys = open_days - existing_keys
-  pending_keys = open_days that quote_daily_job has not succeeded
+  quote_materialized_keys =
+    materialized(raw_tushare_stock_daily)
+    ∩ materialized(raw_tushare_suspend_d)
+    ∩ materialized(silver_stock_daily)
+    ∩ materialized(silver_stock_suspend_daily)
+
+  pending_keys = open_days - quote_materialized_keys
+  selected_keys = first 2 pending_keys ordered by trade_date
+  keys_to_add = selected_keys - existing_keys
 
   return SensorResult(
     dynamic_partitions_requests=[
-      cn_a_trade_days.build_add_request(new_keys)
+      cn_a_trade_days.build_add_request(keys_to_add)
     ],
     run_requests=[
       RunRequest(
         partition_key=key,
         run_key=f"quote_daily:{key}"
       )
-      for key in pending_keys
+      for key in selected_keys
     ]
   )</code></pre>
+
+    <div class="callout">
+      <strong>防重复判断口径：</strong>
+      第一版不能用“<code>quote_daily_job</code> 是否成功运行过”判断某个历史分区是否待补。
+      历史 quote 分区已经由 <code>bootstrap_quote_daily_job</code> materialize 到正式 quote assets，
+      因此 sensor 必须以四个 quote 资产的 materialized partitions 交集判断是否已完成。
+      <code>cn_a_trade_days</code> 只表示这个日期是否注册为 Dagster partition key，不等于 quote raw/silver 已生产完成。
+    </div>
+
+    <div class="callout">
+      <strong>第一版安全阈值：</strong>
+      <code>MAX_RUN_REQUESTS_PER_TICK = 2</code>。如果发现多个已完成交易日待补，sensor 每个 tick 只提交最早的两个。
+      这个阈值用于防止配置错误或日历误判时一次性触发大量 <code>quote_daily_job</code> runs。
+    </div>
+
+    <div class="warning">
+      <strong>当前验证结论：</strong>
+      Slice 2.2.1 不能宣称端到端链路已通。已验证内容包括：
+      <code>dg check defs</code> 通过；<code>dagster sensor preview</code> 返回 2 个 run request；
+      sensor decision 明细只选择 <code>2026-05-18</code>、<code>2026-05-19</code>；
+      正式 daemon tick 成功注册这两个 dynamic partition keys，并创建两个
+      <code>quote_daily_job</code> runs。未验证通过的内容是：这两个 run 没有成功执行 asset 生产和 checks。
+      它们在出队阶段因当时存在多个 daemon heartbeat 冲突失败，属于运行环境/daemon 使用问题，不是
+      <code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code> 或 silver 资产内部失败。
+    </div>
+
+    <div class="warning">
+      <strong>run_key 失败重跑坑：</strong>
+      sensor 的 <code>run_key=f"quote_daily:{key}"</code> 是防重复门禁。Dagster 会认为同一个 sensor
+      run key 已经提交过，即使对应 run 最终失败，后续 sensor tick 也会跳过同一 run key。
+      本次重启 sensor 后，tick 被标记为 <code>SKIPPED</code>，日志为
+      “already completed with run keys: quote_daily:2026-05-18, quote_daily:2026-05-19”。
+      因此不要为了补跑而修改 run key 规则；需要补跑时应使用 Dagster UI、手动 partition run 或后续明确设计的重试流程。
+    </div>
 
     <div class="warning">
       <code>silver_trade_calendar</code> 可能包含全年未来交易日。sensor 必须使用 <code>latest_completed_trade_date</code> 截断，只允许已完成交易日进入 <code>build_add_request</code> 和 <code>RunRequest</code>。
@@ -1652,13 +1708,13 @@ quote_daily assets:
           <td>2.1</td>
           <td>Tushare API 续更新。</td>
           <td><code>TushareResource</code>、raw asset 日常 Tushare 写入、<code>quote_daily_job</code>。</td>
-          <td>任选已完成交易日能从 Tushare 写 raw，和历史迁移 raw 共享字段契约与 checks。</td>
+          <td>已完成：<code>quote_daily_job[2026-05-20]</code> 成功从 Tushare 写 raw，并和历史迁移 raw 共享字段契约与 checks。</td>
         </tr>
         <tr>
           <td>2.2.1</td>
           <td>cn_a_trade_day_sensor。</td>
           <td><code>sensors/cn_a_trade_day_sensor.py</code>。</td>
-          <td>默认 STOPPED；只注册/触发已完成交易日；不会跑未来 open day。</td>
+          <td>下一步：默认 STOPPED；只注册/触发已完成交易日；不会跑未来 open day；只触发 <code>quote_daily_job</code>。</td>
         </tr>
         <tr>
           <td>2.2.2</td>
@@ -1793,8 +1849,14 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         <tr>
           <td>未来 open day 被误注册并运行。</td>
           <td>2.2.1</td>
-          <td>已拍定防错口径，待实现校验。</td>
-          <td><code>silver_trade_calendar</code> 是全年交易日计划表，不代表未来数据已经发生。sensor 必须先计算 <code>latest_completed_trade_date</code>，只允许 <code>trade_date <= latest_completed_trade_date</code> 的 open days 注册和运行；默认 <code>STOPPED</code>，先人工验证不会误跑未来日期。关闭条件：小范围验证 2026-04 和最近几个已完成交易日，确认不会注册或运行未来 open day。</td>
+          <td>实现与安全验证已完成；端到端生产验收未完成。</td>
+          <td><code>silver_trade_calendar</code> 是全年交易日计划表，不代表未来数据已经发生。sensor 必须先计算 <code>latest_completed_trade_date</code>，只允许 <code>trade_date <= latest_completed_trade_date</code> 且 <code>trade_date >= 2014-01-01</code> 的 open days 注册和运行；默认 <code>STOPPED</code>。已确认不会注册或运行未来 open day，也不会误把 bootstrap 已完成历史分区当成待补。尚未关闭的验收项：需要有一个由 sensor 提交的 <code>quote_daily_job</code> run 真正执行成功，并完成 raw/silver materialization 与 checks。</td>
+        </tr>
+        <tr>
+          <td>sensor run_key 去重会阻止失败 run 自动二次提交。</td>
+          <td>2.2.1</td>
+          <td>已踩坑并记录。</td>
+          <td>如果 sensor 已经用 <code>run_key=quote_daily:{trade_date}</code> 提交过 run，即使该 run 因 daemon/launcher 问题失败，后续 tick 也会跳过同一 run key。这个行为保护了防重复语义，不能通过改随机 run key 绕开。关闭条件：后续明确失败 run 的补跑流程，例如 UI retry、手动 partition run 或专门的重试策略。</td>
         </tr>
         </tbody>
       </table>
