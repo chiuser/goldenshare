@@ -666,7 +666,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
           <td>5</td>
           <td>新增 <code>Slice 2.0.6</code>：用 <code>bootstrap_quote_daily_job</code> 做 quote 日频全历史 bootstrap 收口。</td>
           <td>当前 <code>bootstrap_quote_daily_job</code> 仍绑定旧湖 bootstrap 实现。必须趁日常 raw asset 尚未切到 Tushare API 前，把旧湖 quote 日频历史债务尽量迁完；否则进入 2.1 后，同名 job 会跟随 asset 当前实现变成 API 拉取，不再代表旧湖迁移。</td>
-          <td>完成旧湖 <code>daily</code> 与 <code>suspend_d</code> 覆盖审计；对 <code>2014-01-02</code> 至最新共同交易日的可迁移日期批量 materialize quote raw/silver/checks；输出成功、失败、缺失、未迁移原因、过滤统计和 14 条停牌 timing 修正汇总；确认没有把缺失的 <code>suspend_d</code> 悄悄当作空数据。</td>
+          <td>已完成：<code>2014-01-02</code> 至 <code>2026-05-15</code> 共 <code>3004</code> 个交易日均有成功 run；新湖 quote raw/silver 分区缺失为 <code>0</code>，完整性 missing/extra 为 <code>0/0</code>。</td>
         </tr>
         <tr>
           <td>6</td>
@@ -773,6 +773,16 @@ gold_market_breadth_daily[trade_date]</code></pre>
     <div class="warning">
       2.0.6 不生成新的资产定义，但会生成大量新的 asset partitions 和 Dagster materialization/check 记录。
       它不生产 <code>gold_market_breadth_daily</code>，不触发 <code>daily_market_breadth_job</code>，不调用 Tushare API，也不启用 sensor。
+    </div>
+
+    <div class="callout">
+      <strong>当前状态：</strong>
+      <code>Slice 2.0.6</code> 已完成。<code>bootstrap_quote_daily_job</code> 已把
+      <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 <code>3004</code> 个 SSE 开市日
+      stock daily 与 suspend_d 历史分区写入新湖 raw/silver，并通过最终审计。
+      因此，下一步可以进入 <code>Slice 2.1</code>，将 <code>raw_tushare_stock_daily</code>
+      和 <code>raw_tushare_suspend_d</code> 的日常生产实现从旧湖 bootstrap 切换为
+      <code>TushareResource</code> API 拉取。切换时仍需按小样本先验证，不能直接启用 sensor。
     </div>
 
     <div class="warning">
@@ -1787,7 +1797,7 @@ silver_stock_daily =
     <p>
       <code>silver_stock_basic</code> 正式只保留当前 <code>list_status='L'</code> 的股票。
       当前审计结果：stock basic raw 共 <code>5842</code> 行，当前上市 <code>5517</code> 行；按上述 silver 口径，
-      <code>2014-01-02</code> 至 <code>2026-05-15</code> 目标 <code>silver_stock_daily</code> 为 <code>11,296,595</code> 行，
+      <code>2014-01-02</code> 至 <code>2026-05-15</code> 已验收 <code>silver_stock_daily</code> 为 <code>11,296,600</code> 行，
       覆盖 <code>5517</code> 只当前上市股票。
     </p>
 
@@ -1895,21 +1905,29 @@ silver_stock_daily =
 
     <h3>10.4 最新审计结果</h3>
     <p>
-      按最新迁移口径模拟目标 silver：<code>2014-01-02</code> 至 <code>2026-05-15</code> 共 <code>3004</code> 个开市日；
-      daily 与 suspend_d 分区齐备；目标 silver daily 行数 <code>11,296,595</code>；
+      按最新迁移口径完成全量历史 bootstrap 验收：<code>2014-01-02</code> 至 <code>2026-05-15</code> 共 <code>3004</code> 个开市日；
+      新湖 <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、<code>raw_tushare_suspend_d</code>、
+      <code>silver_stock_suspend_daily</code> 均覆盖 <code>3004/3004</code> 分区，缺失交易日为 <code>0</code>；
+      目标 silver daily 行数 <code>11,296,600</code>；
       <code>ts_code + trade_date</code> 重复冲突为 <code>0</code>，<code>pct_chg</code> 空值为 <code>0</code>，价格合理性异常为 <code>0</code>。
-      14 条 <code>suspend_timing</code> 修正后，全日停牌但 daily 有记录的冲突数为 <code>0</code>。
+      14 条 <code>suspend_timing</code> 修正和全日停牌缺失补充规则应用后，全日停牌但 silver daily 有记录的冲突数为 <code>0</code>。
+      Dagster 正式 instance 中，<code>bootstrap_quote_daily_job</code> 所有目标分区均已有成功 run；取消 run 和一次失败 run 均已由后续成功 run 覆盖。
     </p>
-    <pre><code>预验证摘要：
+    <pre><code>全量 bootstrap 验收摘要：
 range: 2014-01-02 ~ 2026-05-15
 SSE open days: 3004
 current listed stock count: 5517
-target silver_stock_daily rows: 11296595
+raw_tushare_stock_daily rows: 11831651
+silver_stock_daily rows: 11296600
+raw_tushare_suspend_d rows: 385128
+silver_stock_suspend_daily rows: 389147
 duplicate/conflict keys: 0
 pct_chg null count: 0
 price sanity issue count: 0
 suspend_timing corrections: 14
-full-day suspend conflicts after correction: 0</code></pre>
+full-day suspend conflicts after correction: 0
+unexplained stock_daily missing/extra: 0 / 0
+bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
   </section>
 
   <section>

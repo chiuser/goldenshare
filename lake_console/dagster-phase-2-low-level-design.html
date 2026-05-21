@@ -1273,6 +1273,20 @@ Slice 2.0.6 execution:
       若 <code>silver_stock_daily</code> 未应用最新四类过滤，或 <code>silver_stock_suspend_daily</code> 未应用 14 条 timing 修正，禁止进入全历史批量迁移。
     </div>
 
+    <div class="callout">
+      <strong>执行验收状态：</strong>
+      <code>Slice 2.0.6</code> 已完成。新湖
+      <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、
+      <code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code>
+      均覆盖 <code>3004/3004</code> 个目标交易日，缺失分区为 <code>0</code>。
+      最终行数为：stock daily raw <code>11,831,651</code>，
+      stock daily silver <code>11,296,600</code>，suspend_d raw <code>385,128</code>，
+      suspend_d silver <code>389,147</code>。关键质量项均为 <code>0</code>：
+      silver daily 主键重复、<code>pct_chg</code> 空值、价格异常、股票池越界、上市日前数据、BJ 开市日前数据、
+      suspend_d 非法类型、业务键重复、全日停牌但 silver daily 有记录、完整性 missing/extra。
+      Dagster run 记录中所有目标分区均有成功 run；历史取消 run 与一次失败 run 已由后续成功 run 覆盖。
+    </div>
+
     <h3>10.3 ongoing jobs</h3>
     <div class="table-wrap">
       <table>
@@ -1315,32 +1329,34 @@ Slice 2.0.6 execution:
 
     <h3>10.4 执行顺序</h3>
     <pre><code>Phase 2 historical bootstrap development order:
-  1. build bootstrap common engine
-  2. use suspend_d as the first bootstrap user
+  1. build bootstrap common engine [completed]
+  2. use suspend_d as the first bootstrap user [completed]
      - validate partition bootstrap
      - validate suspend_timing type correction
      - validate allow_empty
      - validate raw checks
-  3. bootstrap calendar/basic
+  3. bootstrap calendar/basic [completed]
      - bootstrap_calendar_job
      - bootstrap_basic_update_job
-  4. register completed 2026-04 cn_a_trade_days partition keys from silver_trade_calendar
-  5. bootstrap stock_daily for 2026-04
-  6. run quote silver/checks for 2026-04
-  7. Slice 2.0.6: audit full-history daily/suspend_d source coverage
-  8. Slice 2.0.6: run bootstrap_quote_daily_job for accepted runnable historical keys
+  4. register completed 2026-04 cn_a_trade_days partition keys from silver_trade_calendar [completed]
+  5. bootstrap stock_daily for 2026-04 [completed]
+  6. run quote silver/checks for 2026-04 [completed]
+  7. Slice 2.0.6: audit full-history daily/suspend_d source coverage [completed]
+  8. Slice 2.0.6: run bootstrap_quote_daily_job for accepted runnable historical keys [completed]
   9. bootstrap entrypoints are not scheduled, sensed, or used as downstream readiness dependencies
 
 Phase 2 ongoing:
-  1. calendar_update_job / basic_update_job run low-frequency as needed
-  2. cn_a_trade_day_sensor checks completed open days
-  3. sensor registers eligible dynamic partition keys
-  4. sensor launches quote_daily_job[trade_date]
-  5. quote_daily_job writes raw, runs raw checks, writes silver, runs silver checks
-  6. readiness gate evaluates market_breadth_upstream_readiness
+  1. Slice 2.1: switch daily quote raw assets from old_lake_bootstrap to TushareResource API
+  2. validate one completed trade_date through quote_daily_job manually
+  3. calendar_update_job / basic_update_job run low-frequency as needed
+  4. cn_a_trade_day_sensor checks completed open days
+  5. sensor registers eligible dynamic partition keys
+  6. sensor launches quote_daily_job[trade_date]
+  7. quote_daily_job writes raw, runs raw checks, writes silver, runs silver checks
+  8. readiness gate evaluates market_breadth_upstream_readiness
      - preferred implementation: declarative automation
      - fallback only after discussion: asset sensor
-  7. daily_market_breadth_job[trade_date] runs only if ready</code></pre>
+  9. daily_market_breadth_job[trade_date] runs only if ready</code></pre>
   </section>
 
   <section>

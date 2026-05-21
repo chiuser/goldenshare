@@ -630,13 +630,22 @@ git status --short</code></pre>
         <tr><td>交易日分区数</td><td><code>3004</code></td></tr>
         <tr><td>daily raw 缺失交易日</td><td><code>0</code></td></tr>
         <tr><td>suspend_d raw 缺失交易日</td><td><code>0</code></td></tr>
-        <tr><td>目标 silver daily 行数</td><td><code>11,296,595</code> 左右；若变动必须解释源数据变化。</td></tr>
+        <tr><td>目标 silver daily 行数</td><td>实际验收 <code>11,296,600</code>；若后续变动必须解释源数据变化。</td></tr>
         <tr><td>silver daily 冲突键</td><td><code>0</code></td></tr>
         <tr><td>silver daily <code>pct_chg</code> 空值</td><td><code>0</code></td></tr>
         <tr><td>silver daily 价格异常</td><td><code>0</code></td></tr>
         <tr><td>全日停牌但 daily 有记录</td><td><code>0</code>，作为观测项验收。</td></tr>
       </tbody>
     </table>
+    <div class="callout">
+      <strong>执行验收结论：</strong>
+      <code>bootstrap_quote_daily_job</code> 已完成 <code>3004</code> 个目标交易日的
+      stock daily 与 suspend_d 历史 bootstrap。新湖
+      <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、
+      <code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code>
+      均覆盖 <code>3004/3004</code> 分区，缺失交易日为 <code>0</code>。
+      Dagster run 记录中所有目标分区均有成功 run；取消 run 和一次失败 run 只作为历史执行噪音保留。
+    </div>
   </section>
 
   <section>
@@ -706,15 +715,16 @@ git status --short</code></pre>
   <section>
     <h2>10. 分步开发计划</h2>
     <ol>
-      <li>Slice A：新增 <code>corrections/suspend_timing.py</code>，只包含 14 条修正常量和 SQL helper，跑 <code>dg check defs</code>。</li>
-      <li>Slice B：改造 <code>silver_stock_basic</code> 只保留 <code>L</code>，更新 stock basic checks，跑 full asset job 验证。</li>
-      <li>Slice C：改造 <code>silver_stock_suspend_daily</code> 写入修正 timing 和 materialization metadata，单日验证 <code>2014-01-02</code>。</li>
-      <li>Slice D：改造 <code>silver_stock_daily</code> 四类过滤和 metadata，新增/调整 silver daily checks。</li>
-      <li>Slice E：确认并注册 2014-2026 交易日 dynamic partitions，小批量回填。</li>
-      <li>Slice F：全量历史回填和验收，输出最终审计结果。</li>
+      <li>Slice A：新增 <code>corrections/suspend_timing.py</code>，只包含 14 条修正常量和 SQL helper，跑 <code>dg check defs</code>。状态：已完成。</li>
+      <li>Slice B：改造 <code>silver_stock_basic</code> 只保留 <code>L</code>，更新 stock basic checks，跑 full asset job 验证。状态：已完成。</li>
+      <li>Slice C：改造 <code>silver_stock_suspend_daily</code> 写入修正 timing 和 materialization metadata，单日验证 <code>2014-01-02</code>。状态：已完成。</li>
+      <li>Slice D：改造 <code>silver_stock_daily</code> 四类过滤和 metadata，新增/调整 silver daily checks。状态：已完成。</li>
+      <li>Slice E：确认并注册 2014-2026 交易日 dynamic partitions，小批量回填。状态：已完成。</li>
+      <li>Slice F：全量历史回填和验收，输出最终审计结果。状态：已完成，目标分区 <code>3004/3004</code> 成功覆盖。</li>
     </ol>
     <p>
-      每个 Slice 单独验证、单独提交。任一 Slice 触发停下条件，不继续推进下一步。
+      历史迁移 LLD 已收口。下一步进入 Phase 2 <code>Slice 2.1</code>：
+      将 quote 日频 raw assets 从旧湖 bootstrap 切换为 <code>TushareResource</code> API 拉取，并先用单个已完成交易日小样本验证。
     </p>
   </section>
 </main>

@@ -335,8 +335,8 @@
       <div class="metric"><strong>0</strong><span>daily 缺失交易日</span></div>
       <div class="metric"><strong>0</strong><span>suspend_d 缺失交易日</span></div>
       <div class="metric"><strong>5517</strong><span>当前上市股票数</span></div>
-      <div class="metric"><strong>11,831,646</strong><span>daily raw 旧湖行数</span></div>
-      <div class="metric"><strong>11,296,595</strong><span>目标 silver daily 行数</span></div>
+      <div class="metric"><strong>11,831,651</strong><span>daily raw 新湖行数</span></div>
+      <div class="metric"><strong>11,296,600</strong><span>silver daily 验收行数</span></div>
       <div class="metric"><strong>0</strong><span>目标 silver 冲突键</span></div>
       <div class="metric"><strong>14</strong><span>suspend_timing 修正数</span></div>
     </div>
@@ -353,7 +353,7 @@
         <tr>
           <td>交易日覆盖</td>
           <td><code>2014-01-02</code> 至 <code>2026-05-15</code>，共 <code>3004</code> 个开市日</td>
-          <td>旧湖 daily 与 suspend_d 分区都齐备，可以进入全量 bootstrap。</td>
+          <td>全量 bootstrap 已完成；新湖 daily/suspend raw 与 silver 分区均覆盖 <code>3004/3004</code>。</td>
         </tr>
         <tr>
           <td>stock_basic</td>
@@ -362,12 +362,12 @@
         </tr>
         <tr>
           <td>daily raw</td>
-          <td><code>11,831,646</code> 行</td>
+          <td><code>11,831,651</code> 行</td>
           <td>raw 保留旧湖源口径，不做业务过滤。</td>
         </tr>
         <tr>
           <td>daily 目标 silver</td>
-          <td><code>11,296,595</code> 行，覆盖 <code>5517</code> 只当前上市股票</td>
+          <td><code>11,296,600</code> 行，覆盖 <code>5517</code> 只当前上市股票</td>
           <td>应用当前上市、上市日、BJ 起始日、2014 起始日过滤后的标准事实结果。</td>
         </tr>
         <tr>
@@ -377,11 +377,20 @@
         </tr>
         <tr>
           <td>suspend_d</td>
-          <td>raw 行数 <code>385,128</code>；修正后全日停牌 key <code>368,201</code>；盘中停牌 key <code>2,198</code></td>
-          <td>修正 14 条 timing 后，全日停牌与 daily 冲突数为 <code>0</code>。</td>
+          <td>raw 行数 <code>385,128</code>；silver 行数 <code>389,147</code>；修正后全日停牌 key <code>372,223</code>；盘中停牌 key <code>2,196</code></td>
+          <td>修正 14 条 timing 并补齐全日停牌缺失区间后，全日停牌与 silver daily 冲突数为 <code>0</code>。</td>
         </tr>
       </tbody>
     </table>
+
+    <div class="callout">
+      <strong>当前执行状态：</strong>
+      <code>bootstrap_quote_daily_job</code> 已完成 <code>2014-01-02</code> 至 <code>2026-05-15</code>
+      全量历史 bootstrap。Dagster 正式 instance 中，<code>3004</code> 个目标分区均已有成功 run；
+      当前没有 <code>STARTED</code>、<code>QUEUED</code> 或 <code>CANCELING</code> 残留。
+      历史上存在 <code>2091</code> 条取消 run 和 <code>1</code> 条失败 run（<code>2026-04-01</code>），
+      但对应分区后续均已有成功 run，最终数据不受影响。
+    </div>
   </section>
 
   <section>
@@ -714,35 +723,35 @@
   </section>
 
   <section>
-    <h2>8. 当前代码差距</h2>
+    <h2>8. 当前实现状态</h2>
     <table>
       <thead>
         <tr>
           <th>位置</th>
           <th>当前状态</th>
-          <th>需要调整</th>
+          <th>结论</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td><code>duckdb_sql.py / silver_stock_basic_select</code></td>
-          <td>当前保留所有 <code>list_status</code>。</td>
-          <td>本迁移口径下，silver basic 应只保留 <code>list_status='L'</code>。</td>
+          <td>已只保留 <code>list_status='L'</code>。</td>
+          <td>符合本迁移口径；raw stock_basic 仍保留源镜像全状态。</td>
         </tr>
         <tr>
           <td><code>duckdb_sql.py / silver_stock_daily_select</code></td>
-          <td>当前只是 <code>SELECT DISTINCT *</code>。</td>
-          <td>需要加入 stock_basic join 和四类过滤：2014 起始日后、当前上市、上市日后、BJ 起始日后。</td>
+          <td>已加入 stock_basic join 和四类过滤：2014 起始日后、当前上市、上市日后、BJ 起始日后。</td>
+          <td>全量验收 missing/extra 为 <code>0/0</code>。</td>
         </tr>
         <tr>
           <td><code>duckdb_sql.py / silver_stock_suspend_daily_select</code></td>
-          <td>当前只做类型标准化。</td>
-          <td>需要加入 14 条 <code>suspend_timing</code> 修正，并 union 人工确认的全日停牌补充记录。</td>
+          <td>已加入 14 条 <code>suspend_timing</code> 修正、人工确认的全日停牌补充记录和 2 条 raw override。</td>
+          <td>重跑 bootstrap 不会冲掉修正结果，因为修正规则已固化在 silver 生成逻辑中。</td>
         </tr>
         <tr>
           <td><code>stock_daily_checks.py</code></td>
-          <td>仍包含旧的完整性 WARN 口径。</td>
-          <td>需要按新 silver 股票池和修正后的 suspend 语义重写。</td>
+          <td>已按新 silver 股票池和修正后的 suspend 语义重写。</td>
+          <td>全量审计中完整性 missing/extra 为 <code>0/0</code>。</td>
         </tr>
       </tbody>
     </table>
@@ -752,7 +761,7 @@
     <h2>9. 不做的事</h2>
     <ul>
       <li>本轮不把 raw 也改成当前上市股票子集，raw 必须继续保留源镜像口径。</li>
-      <li>本轮不接入 Tushare API 续更新；API 新数据更新属于后续 Slice。</li>
+      <li>本轮不接入 Tushare API 续更新；全量 bootstrap 已完成，API 新数据更新进入下一步 Slice 2.1。</li>
       <li>本轮不引入 ClickHouse serving 和 prod release。</li>
       <li>本轮不让下游 gold 资产主动补上游；上游准备和下游生产仍应分开。</li>
     </ul>
