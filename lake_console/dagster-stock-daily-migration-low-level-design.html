@@ -723,8 +723,10 @@ git status --short</code></pre>
       <li>Slice F：全量历史回填和验收，输出最终审计结果。状态：已完成，目标分区 <code>3004/3004</code> 成功覆盖。</li>
     </ol>
     <p>
-      历史迁移 LLD 已收口。下一步进入 Phase 2 <code>Slice 2.1</code>：
-      将 quote 日频 raw assets 从旧湖 bootstrap 切换为 <code>TushareResource</code> API 拉取，并先用单个已完成交易日小样本验证。
+      历史迁移 LLD 已收口。Phase 2 <code>Slice 2.1</code> 已将 quote 日频 raw assets
+      从旧湖 bootstrap 切换为 <code>TushareResource</code> API 拉取，并完成
+      <code>2026-05-20</code> 单日 <code>quote_daily_job</code> 验证。后续自动触发与下游 readiness
+      gate 不属于本历史迁移 LLD。
     </p>
   </section>
 </main>

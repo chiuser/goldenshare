@@ -3,8 +3,6 @@ from pathlib import Path
 
 import dagster as dg
 
-from orchestrator.defs.bootstrap import bootstrap_partition_to_raw
-from orchestrator.defs.bootstrap.specs.suspend_d import suspend_d_bootstrap_spec
 from orchestrator.defs.corrections.suspend_full_day import (
     SUSPEND_FULL_DAY_PATCH_SOURCE,
     SUSPEND_FULL_DAY_PATCH_VERSION,
@@ -30,7 +28,16 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_trade_days
 from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
+
+
+SUSPEND_D_RAW_COLUMN_TYPES = {
+    "ts_code": "VARCHAR",
+    "trade_date": "VARCHAR",
+    "suspend_timing": "VARCHAR",
+    "suspend_type": "VARCHAR",
+}
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -270,11 +277,21 @@ def raw_tushare_suspend_d(
     context: dg.AssetExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
+    tushare: TushareResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    spec = suspend_d_bootstrap_spec(lake_root.root())
-    metadata = bootstrap_partition_to_raw(spec, partition_key, duckdb)
+    metadata = fetch_tushare_partition_to_raw(
+        tushare=tushare,
+        duckdb=duckdb,
+        api_name="suspend_d",
+        api_params={"trade_date": partition_key.replace("-", "")},
+        fields=SUSPEND_D_RAW_REQUIRED_COLUMNS,
+        column_types=SUSPEND_D_RAW_COLUMN_TYPES,
+        target_path=raw_suspend_d_path(lake_root.root(), partition_key),
+        partition_key=partition_key,
+        allow_empty=True,
+    )
 
     return dg.MaterializeResult(
         metadata={
@@ -287,7 +304,7 @@ def raw_tushare_suspend_d(
                 "suspend_timing nullable string."
             ),
             "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
-            "cast_summary": "trade_date DATE -> YYYYMMDD string; suspend_timing -> nullable string.",
+            "write_summary": "Tushare API rows written to raw parquet with explicit source contract fields.",
         }
     )
 

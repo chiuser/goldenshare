@@ -4,8 +4,6 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.bootstrap import bootstrap_partition_to_raw
-from orchestrator.defs.bootstrap.specs.stock_daily import stock_daily_bootstrap_spec
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
@@ -24,7 +22,8 @@ from orchestrator.defs.paths import (
     silver_stock_basic_path,
     silver_stock_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 
 
 STOCK_DAILY_COLUMNS = [
@@ -40,6 +39,20 @@ STOCK_DAILY_COLUMNS = [
     "vol",
     "amount",
 ]
+
+STOCK_DAILY_RAW_COLUMN_TYPES = {
+    "ts_code": "VARCHAR",
+    "trade_date": "VARCHAR",
+    "open": "DOUBLE",
+    "high": "DOUBLE",
+    "low": "DOUBLE",
+    "close": "DOUBLE",
+    "pre_close": "DOUBLE",
+    "change": "DOUBLE",
+    "pct_chg": "DOUBLE",
+    "vol": "DOUBLE",
+    "amount": "DOUBLE",
+}
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -332,11 +345,21 @@ def raw_tushare_stock_daily(
     context: dg.AssetExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
+    tushare: TushareResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    spec = stock_daily_bootstrap_spec(lake_root.root())
-    metadata = bootstrap_partition_to_raw(spec, partition_key, duckdb)
+    metadata = fetch_tushare_partition_to_raw(
+        tushare=tushare,
+        duckdb=duckdb,
+        api_name="daily",
+        api_params={"trade_date": partition_key.replace("-", "")},
+        fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
+        column_types=STOCK_DAILY_RAW_COLUMN_TYPES,
+        target_path=raw_stock_daily_path(lake_root.root(), partition_key),
+        partition_key=partition_key,
+        allow_empty=False,
+    )
 
     return dg.MaterializeResult(
         metadata={
@@ -347,7 +370,7 @@ def raw_tushare_stock_daily(
             "data_contract": "source_mirror",
             "raw_contract": "Tushare daily source mirror: trade_date YYYYMMDD string, field name change.",
             "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
-            "cast_summary": "trade_date DATE/duckdb string -> YYYYMMDD string; numeric quote fields -> DOUBLE.",
+            "write_summary": "Tushare API rows written to raw parquet with explicit source contract fields.",
         }
     )
 

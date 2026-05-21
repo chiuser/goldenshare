@@ -780,9 +780,11 @@ gold_market_breadth_daily[trade_date]</code></pre>
       <code>Slice 2.0.6</code> 已完成。<code>bootstrap_quote_daily_job</code> 已把
       <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 <code>3004</code> 个 SSE 开市日
       stock daily 与 suspend_d 历史分区写入新湖 raw/silver，并通过最终审计。
-      因此，下一步可以进入 <code>Slice 2.1</code>，将 <code>raw_tushare_stock_daily</code>
-      和 <code>raw_tushare_suspend_d</code> 的日常生产实现从旧湖 bootstrap 切换为
-      <code>TushareResource</code> API 拉取。切换时仍需按小样本先验证，不能直接启用 sensor。
+      <code>Slice 2.1</code> 已完成单日验证：<code>quote_daily_job[2026-05-20]</code>
+      通过 <code>TushareResource</code> 拉取 <code>daily</code> 和 <code>suspend_d</code>，
+      成功生成 quote raw/silver 分区，raw stock daily <code>5498</code> 行，
+      raw suspend_d <code>31</code> 行，<code>22</code> 个 asset checks 全部通过。
+      活跃 <code>bootstrap_quote_daily_job</code> 已退役，历史 run/event 记录仍保留在 Dagster instance 中。
     </div>
 
     <div class="warning">
