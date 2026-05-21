@@ -499,9 +499,9 @@
         <tr>
           <td><code>Slice 2.2</code></td>
           <td>补齐自动发现/触发、低频基础数据更新、下游 readiness gate 和自动化触发。</td>
-          <td>下一步先进入 <code>Slice 2.2.1</code>：实现 <code>cn_a_trade_day_sensor</code>，只发现已完成交易日、注册 partition key、触发 <code>quote_daily_job</code>。之后再处理 <code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底。</td>
+          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、触发 <code>quote_daily_job</code> run request。下一步需要补充 quote 源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题；之后再处理 <code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底。</td>
           <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
-          <td>Dagster UI 能看到 quote_daily_job、breadth job 和自动化条件；上游未就绪时下游不启动 run，上游就绪后下游才被触发。</td>
+          <td>当前阶段已能看到 <code>quote_daily_job</code> 和 <code>cn_a_trade_day_sensor</code>；sensor 安全边界已验证，但 sensor 触发的 quote run 端到端成功仍未关闭。后续必须看到源站 ready 后当天 quote 分区自动生产成功，下游 readiness 再按质量门禁触发。</td>
         </tr>
         </tbody>
       </table>
@@ -678,7 +678,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
           <td>7</td>
           <td>小范围启用 <code>cn_a_trade_day_sensor</code>，只注册/触发已完成交易日的 <code>quote_daily_job</code>。</td>
           <td>只有历史 bootstrap、Tushare raw 拉取、raw/silver checks 都跑通后，sensor 才有稳定的上游 job 可以触发。</td>
-          <td>下一步：传感器默认 <code>STOPPED</code>；人工小范围验证后确认不会注册或运行未来 open day。</td>
+          <td>已完成第一版实现与安全验证：传感器默认 <code>STOPPED</code>；不会注册或运行未来 open day；不会误把 bootstrap 已完成历史分区当成待补。未关闭项：sensor 触发的 quote run 端到端成功验收；新增项：补充 quote 源站 readiness，支持当天交易日源站更新后当天生产。</td>
         </tr>
         <tr>
           <td>8</td>
@@ -786,16 +786,16 @@ gold_market_breadth_daily[trade_date]</code></pre>
       成功生成 quote raw/silver 分区，raw stock daily <code>5498</code> 行，
       raw suspend_d <code>31</code> 行，<code>22</code> 个 asset checks 全部通过。
       活跃 <code>bootstrap_quote_daily_job</code> 已退役，历史 run/event 记录仍保留在 Dagster instance 中。
+      <code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code>：Definitions 加载、preview、
+      待补日期识别、dynamic partition 注册和 run request 提交均已验证。<code>2026-05-18</code>、
+      <code>2026-05-19</code> 后续已由人工 backfill 成功补齐。
     </div>
 
     <div class="callout">
-      <strong>进入下一阶段评估：</strong>
-      当前已具备进入 <code>Slice 2.2.1 cn_a_trade_day_sensor</code> 的条件。
-      理由是：历史 quote bootstrap 已收口；Tushare API 单日 quote 链路已成功；<code>quote_daily_job</code>
-      已作为正式日频入口存在；dynamic partition 机制已在正式 instance 中验证；当前缺口已经从“给定日期能否生产”
-      转变为“系统能否自动发现已完成且缺失的交易日并触发生产”。
-      但 <code>Slice 2.2.1</code> 只能解决 quote 自动触发，不能顺手实现 market breadth readiness、gold 自动化、
-      schedule 兜底或 calendar/basic API 更新。
+      <strong>下一阶段评估：</strong>
+      当前不应直接进入更大范围自动化。原因是 <code>cn_a_trade_day_sensor</code> 仍采用第一版保守口径：
+      只处理小于当前自然日的最近已完成交易日，不能覆盖“今天是交易日且 Tushare 晚间已发布当天数据”的需求。
+      下一步必须先设计并验证 quote 源站 readiness，再决定如何开启日常自动运行。
     </div>
 
     <div class="warning">
@@ -807,7 +807,9 @@ gold_market_breadth_daily[trade_date]</code></pre>
       但两个 run <code>c59d4674-910d-4025-ae7f-a12082e8f640</code>、
       <code>f349009e-ccf0-40e0-a345-5bc6e52f4ee1</code> 因当时存在多个 daemon heartbeat 冲突，在出队阶段失败，
       没有实际执行 asset 生产。因此只能说“sensor 发现/注册/提交 run request 链路已验证”，不能说
-      “sensor 触发 quote 生产链路已端到端通过”。
+      “sensor 触发 quote 生产链路已端到端通过”。随后 <code>2026-05-18</code> 和
+      <code>2026-05-19</code> 已由人工 backfill 成功，这证明 <code>quote_daily_job</code> 本身可生产这两个分区，
+      但不能替代 sensor 触发后的端到端验收。
     </div>
 
     <div class="warning">
@@ -923,6 +925,22 @@ defs/schedules/daily_market_breadth_schedule.py
     <p>
       <code>latest_completed_trade_date</code> 的第一版可按保守规则确定：只取小于当前自然日的最近 open day。
       如果后续希望在收盘后运行当天数据，必须再引入明确的“数据源已完成更新”判断，例如固定收盘后安全时间、raw 文件就绪检查或 Tushare 同步完成状态。
+    </p>
+
+    <div class="warning">
+      <strong>新增需求变更：Tushare 源站 readiness 与当天交易日更新。</strong>
+      Tushare 日线源站每天发布时间不精确，可能在当晚 <code>19:00</code> 或 <code>20:00</code> 左右才产出。
+      业务期望是：如果今天是交易日，例如 <code>2026-05-21</code>，那么当 Tushare 源站当天数据已经可用后，
+      本地新湖应该尽快拉取当天数据，而不是等到第二天才把 <code>2026-05-21</code> 作为“昨天的已完成交易日”处理。
+    </div>
+
+    <p>
+      因此后续不能只依赖 <code>latest_completed_trade_date &lt; current_date</code>。
+      新设计需要把 quote 自动化拆成两层判断：
+      <code>calendar readiness</code> 判断某天是否是交易日；
+      <code>quote source readiness</code> 判断 Tushare 的 <code>daily(trade_date=YYYYMMDD)</code>
+      和必要的 <code>suspend_d(trade_date=YYYYMMDD)</code> 是否已经可用。
+      只有交易日成立且源站 ready，sensor 才允许注册/触发当天 <code>quote_daily_job</code>。
     </p>
 
     <div class="callout">
@@ -2122,6 +2140,16 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
           <td><code>cn_a_trade_day_sensor</code> 长期是否应该直接触发 quote？</td>
           <td>短期可以触发 <code>quote_daily_job</code>，且 <code>quote_daily_job</code> 同时包含 <code>stock_daily</code> 和 <code>suspend_d</code>。长期更优雅方向是 sensor 只注册已完成交易日 partition，各资产族通过 declarative automation / on-missing 响应缺失分区。</td>
           <td>短期方案简单好验收；长期方案能让交易日发现和数据域生产解耦，但必须先验证 Dagster 当前版本对 dynamic partitions + declarative automation 的组合行为。</td>
+        </tr>
+        <tr>
+          <td>当天是交易日时，最新 quote 日期是否可以是今天？</td>
+          <td>可以，但不能只靠交易日历。必须先确认 Tushare 源站当天 <code>daily</code> 已 ready；ready 后才允许触发今天的 <code>quote_daily_job</code>。</td>
+          <td>这是 <code>Slice 2.2.1</code> 后新增需求。当前代码仍是保守口径：只取小于当前自然日的最近 open day。后续需新增 quote source readiness 设计和实测。</td>
+        </tr>
+        <tr>
+          <td>Tushare 源站更新时间不确定怎么办？</td>
+          <td>sensor 负责轮询探测，而不是源站推送。源站未 ready 时不发 run request、不写 raw、不消耗 <code>run_key</code>；下一 tick 继续检查。</td>
+          <td>轮询间隔、ready 判定方式、空结果语义、失败重试窗口和日志留痕都需要在下一轮 LLD 中拍清楚。</td>
         </tr>
         <tr>
           <td>Tushare token 配置如何管理？</td>
