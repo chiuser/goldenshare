@@ -496,6 +496,19 @@ scripts/local-lake-console.sh
 
 每轮只做一个清晰目标。
 
+### 文件命名与摆放门禁
+
+文件和目录必须按“职责边界”和“数据集边界”组织，禁止把多个长期演进方向塞进宽泛文件。
+
+Dagster orchestrator 目录额外遵守：
+
+1. Dagster Definitions 放在 `lake_console/orchestrator/src/orchestrator/defs/**`：只放 asset、check、job、sensor、resource、bootstrap spec 这类 Dagster 装载对象或强相关定义。
+2. 源站可用性探测不放 `defs`：例如 Tushare 日线探测放 `lake_console/orchestrator/src/orchestrator/source_readiness/tushare/stock_daily.py`，后续其它数据集按数据集单文件拆分，禁止堆到一个宽泛 `tushare_readiness.py`。
+3. sensor 只做编排：`defs/sensors/cn_a_trade_day_sensor.py` 负责读日历、调用 readiness helper、注册 dynamic partition、发 `RunRequest`，不直接写 parquet，不塞业务探测细节。
+4. resource 只做外部能力封装：`defs/resources.py` 继续放 `TushareResource`、`DuckDBResource`、`LakeRootResource`，不放具体数据集逻辑。
+5. 文件命名必须体现数据集或职责：例如 `stock_daily.py`、`suspend_d.py`、`calendar_trade_day_partitions.py`，禁止 `utils.py`、`types.py`、`sync_partitions.py` 这种长期会爆炸的宽泛命名。
+6. 已有历史 helper 暂不在业务 slice 中顺手搬家；若后续要整理，应单独做结构治理，不夹在业务开发任务里。
+
 Lake 数据集同步研发必须额外遵守：
 
 1. Lake 命令优先面向文件事实和本地全量资产管理，不要先按生产 Ops/调度/状态系统的心智去设计。

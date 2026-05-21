@@ -1364,11 +1364,13 @@ Phase 2 completed through Slice 2.2.1:
   10. sensor-triggered quote_daily_job end-to-end success [not closed]
 
 Next implementation stage:
-  1. design quote source readiness for Tushare same-day publication
-  2. allow today's trading day only after Tushare source readiness passes
-  3. keep future open days blocked
-  4. define retry/backoff and run_key behavior for source-not-ready vs run-failed
-  5. validate with one current or recent trading day before enabling broader automation
+  1. Slice 2.2.1b: design quote source readiness for Tushare same-day publication
+  2. allow today's trading day only after Tushare daily source readiness passes
+  3. do not use suspend_d to decide source readiness in the first version
+  4. start same-day probing at 16:00 Asia/Shanghai and evaluate about every 10 minutes
+  5. keep future open days blocked
+  6. define retry/backoff and run_key behavior for source-not-ready vs run-failed
+  7. validate with one current or recent trading day before enabling broader automation
 
 Later stages:
   1. calendar_update_job / basic_update_job Tushare API low-frequency updates
@@ -1467,7 +1469,7 @@ Later stages:
       如果未来要收盘后跑当天，需要新增“数据源已完成更新”的依据，不能直接用自然日 today。
     </div>
 
-    <h3>11.1.1 新增需求：quote source readiness 与当天交易日</h3>
+    <h3>11.1.1 Slice 2.2.1b：quote source readiness 与当天交易日</h3>
     <p>
       新需求来自日常使用口径：Tushare 源站的当日日线发布时间不精确，可能在当晚 <code>19:00</code> 或
       <code>20:00</code> 左右才可用。本地新湖期望在 Tushare 源站当天数据可用后尽快拉取，而不是固定等到第二天。
@@ -1479,12 +1481,13 @@ Later stages:
                   else latest open day before today
 
   if candidate_day == today:
-    do not run quote_daily_job immediately after market close by calendar alone
-    poll Tushare source readiness first
+    if local time < 16:00 Asia/Shanghai:
+      skip without probing Tushare
+    poll Tushare source readiness about every 10 minutes after 16:00
     only trigger quote_daily_job[today] after daily(trade_date=today) is ready
 
   if source is not ready:
-    return SkipReason / no RunRequest
+    return Chinese SkipReason / no RunRequest
     keep sensor alive for next tick
 
   if source is ready:
@@ -1500,9 +1503,55 @@ Later stages:
     </div>
 
     <p>
-      实现前必须补一轮 LLD 设计和小样本验证：如何轻量探测 <code>daily(trade_date=YYYYMMDD)</code> 已 ready，
-      <code>suspend_d</code> 空结果如何区分“确实无停复牌”和“源站未更新”，探测失败是否写入任何 raw 文件，
-      sensor 的 <code>run_key</code> 是否只在源站 ready 后生成，以及轮询频率、重试窗口、日志/metadata 如何记录。
+      第一版 ready 判定只以 <code>daily(trade_date=YYYYMMDD)</code> 为准。<code>suspend_d</code> 不参与 ready 判断，
+      因为它在真实业务上可能合法返回 0 行，不能单独区分“确实无停复牌”和“源站未更新”。
+      <code>quote_daily_job</code> 真正运行时仍会同时拉取 <code>daily</code> 和 <code>suspend_d</code>。
+    </p>
+
+    <p>
+      实现落点不得放在 <code>defs/tushare_readiness.py</code> 这类宽泛文件中。
+      源站可用性探测不是 Dagster Definitions 本身，应放在独立业务 helper 包：
+      <code>lake_console/orchestrator/src/orchestrator/source_readiness/tushare/stock_daily.py</code>。
+      <code>defs/sensors/cn_a_trade_day_sensor.py</code> 只负责调用该 helper、注册 partition 和发起 <code>RunRequest</code>。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>跳过场景</th>
+          <th>中文说明</th>
+          <th>行为</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>没有可用交易日</td>
+          <td>没有从交易日历中找到符合条件的已完成上交所开市日。</td>
+          <td>不注册分区，不发起运行。</td>
+        </tr>
+        <tr>
+          <td>没有待补数据</td>
+          <td>当前所有符合条件的行情日频分区都已经生成完成，没有待补数据。</td>
+          <td>不发起运行。</td>
+        </tr>
+        <tr>
+          <td>当天未到探测窗口</td>
+          <td>今天是交易日，但还没到 16:00，不开始探测 Tushare 日线。</td>
+          <td>不调用 Tushare，不发起运行。</td>
+        </tr>
+        <tr>
+          <td>当天源站未就绪</td>
+          <td>今天是交易日，也已经进入探测窗口，但 Tushare 日线还没有返回有效数据。</td>
+          <td>不写 raw，不占用 <code>run_key</code>，等待下一次 sensor tick。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <p>
+      传感器间隔调整为 <code>minimum_interval_seconds=600</code>。这是 Dagster sensor 的最小评估间隔，
+      不是严格 cron；实际效果是 daemon 正常运行时，16:00 之后大约每 10 分钟探测一次源站。
     </p>
 
     <h3>11.1.2 防未来交易日误跑流程</h3>
@@ -1760,6 +1809,12 @@ quote_daily assets:
           <td>已实现：默认 STOPPED；只注册/触发已完成交易日；不会跑未来 open day；只触发 <code>quote_daily_job</code> run request。安全验证通过；sensor 触发 quote run 的端到端成功验收未关闭。新增需求要求后续补充 quote source readiness，支持当天交易日源站 ready 后当天生产。</td>
         </tr>
         <tr>
+          <td>2.2.1b</td>
+          <td>quote source readiness 和当天交易日生产。</td>
+          <td><code>source_readiness/tushare/stock_daily.py</code>、<code>sensors/cn_a_trade_day_sensor.py</code>。</td>
+          <td>待实现：今天是交易日时，16:00 前不探测；16:00 后约每 10 分钟探测 <code>daily(trade_date=YYYYMMDD)</code>；源站未 ready 时只返回中文跳过原因，不发起运行、不写 raw、不占用 <code>run_key</code>；源站 ready 后才触发当天 <code>quote_daily_job</code>。第一版不使用 <code>suspend_d</code> 判断 ready。</td>
+        </tr>
+        <tr>
           <td>2.2.2</td>
           <td>market breadth readiness 和下游自动化。</td>
           <td><code>automation/market_breadth_ready.py</code>、<code>jobs/daily_market_breadth.py</code>。</td>
@@ -1897,15 +1952,15 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Tushare 当天日线发布时间不确定，sensor 不能只靠交易日历判断当天能跑。</td>
-          <td>2.2 后续新增需求</td>
-          <td>已识别需求，未设计实现。</td>
-          <td>新增 <code>quote_source_readiness</code> 设计：在今天是 SSE 开市日时，sensor 可以把今天作为候选日期，但必须先探测 Tushare <code>daily(trade_date=YYYYMMDD)</code> 是否已经可用。源站未 ready 时只返回 <code>SkipReason</code> 或不发 run request，不写 raw 文件，不占用 <code>run_key</code>。关闭条件：完成 LLD、小样本实测和一天内轮询验证。</td>
+          <td>2.2.1b</td>
+          <td>已拍板设计口径，未实现。</td>
+          <td>新增 <code>quote_source_readiness</code> 设计：在今天是 SSE 开市日时，sensor 可以把今天作为候选日期，但 16:00 前不探测；16:00 后约每 10 分钟探测 Tushare <code>daily(trade_date=YYYYMMDD)</code> 是否已经可用。源站未 ready 时只返回中文跳过原因或不发 run request，不写 raw 文件，不占用 <code>run_key</code>。关闭条件：完成实现、小样本实测和一天内轮询验证。</td>
         </tr>
         <tr>
           <td>最新交易日口径需要支持“今天交易且源站已发布”时取今天，而不是固定取昨天。</td>
-          <td>2.2 后续新增需求</td>
+          <td>2.2.1b</td>
           <td>当前代码仍是保守口径：小于当前自然日的最近 open day。</td>
-          <td>后续需把 <code>latest_completed_trade_date</code> 拆成“日历候选日期”和“源站已 ready 日期”。如果今天是交易日且 Tushare 已发布当天 daily，则最新可生产日期应是今天；如果今天不是交易日或源站未 ready，则回退到最近已完成且已 ready 的交易日。关闭条件：sensor 不误跑未来日期，也能在 Tushare 当天数据发布后触发当天 quote 生产。</td>
+          <td>后续需把 <code>latest_completed_trade_date</code> 拆成“日历候选日期”和“源站已 ready 日期”。如果今天是交易日且 Tushare 已发布当天 <code>daily</code>，则最新可生产日期应是今天；如果今天不是交易日或源站未 ready，则回退到最近已完成且已 ready 的交易日。第一版不使用 <code>suspend_d</code> 判断 ready。关闭条件：sensor 不误跑未来日期，也能在 Tushare 当天数据发布后触发当天 quote 生产。</td>
         </tr>
         <tr>
           <td>sensor run_key 去重会阻止失败 run 自动二次提交。</td>
