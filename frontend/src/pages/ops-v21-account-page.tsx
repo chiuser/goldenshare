@@ -664,7 +664,6 @@ export function OpsV21AccountPage() {
                 title={resetTarget ? `重置密码 · ${resetTarget.username}` : "重置密码"}
                 description="只重置目标账号密码，不在本轮扩大到更深的账号流程改造。"
                 size="sm"
-                withinPortal={false}
                 footer={(
                   <>
                     <Button variant="subtle" color="gray" onClick={() => setResetTarget(null)}>
