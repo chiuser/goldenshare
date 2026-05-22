@@ -69,12 +69,19 @@ def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
     }
 
 
+MARKET_BREADTH_AUTOMATION_CONDITION = (
+    dg.AutomationCondition.missing()
+    & dg.AutomationCondition.all_deps_blocking_checks_passed()
+)
+
+
 @dg.asset(
     name="gold_market_breadth_daily",
     deps=["silver_stock_daily"],
     partitions_def=cn_a_trade_days,
     group_name="breadth",
     description="Daily market breadth facts computed from standardized stock daily quotes.",
+    automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,
 )
 def gold_market_breadth_daily(
     context: dg.AssetExecutionContext,

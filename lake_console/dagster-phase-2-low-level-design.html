@@ -541,8 +541,7 @@
     basic_update.py
     suspend_update.py
     stock_daily_update.py
-    # future:
-    # daily_market_breadth.py
+    daily_market_breadth.py
 
   sensors/
     cn_a_trade_day_sensor.py
@@ -1372,7 +1371,7 @@ Slice 2.0.6 execution:
           <td><code>gold_market_breadth_daily</code></td>
           <td>不适用</td>
           <td><code>gold_market_breadth_daily</code> declarative automation；小样本验证不通时停下讨论 asset sensor 后备；不主动补上游。</td>
-          <td>未实现。交易日注册、资产族 sensors、<code>stock_daily_update_job</code> 已通过小范围验证；下一步给 <code>gold_market_breadth_daily</code> 增加直接上游质量门禁，并实现只生产 gold 的 job。</td>
+          <td>已实现。<code>gold_market_breadth_daily</code> 声明 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>；<code>daily_market_breadth_job</code> 只选择 gold asset 和 gold checks。</td>
         </tr>
         </tbody>
       </table>
@@ -1413,7 +1412,7 @@ not allowed in job files:
     <div class="warning">
       <strong>实现门禁：</strong>
       业务 gold job 只读依赖共享基础资产，不把共享基础资产放进自己的 selection 中重复写。
-      这条规则必须在后续 <code>gold_market_breadth_daily</code> automation 和 <code>daily_market_breadth_job</code> 设计中显式体现。
+      这条规则已在 <code>gold_market_breadth_daily</code> automation 和 <code>daily_market_breadth_job</code> 中体现。
       最新补充：<code>suspend_d</code> 对 <code>stock_daily</code> 也是上游只读依赖；<code>stock_daily</code> 更新入口不得 selection <code>suspend_d</code>。
     </div>
 
@@ -1518,13 +1517,12 @@ Phase 2 completed through Slice 2.2.1e:
       - stock_basic_sensor triggers basic_update_job when daily full snapshot freshness/checks are not ready
       - stock_daily_sensor triggers stock_daily_update_job only after stock_basic, suspend_d and Tushare daily source readiness pass
   24. Slice 2.2.1e: formal instance preview for all four sensors [completed: current data ready, all sensors skipped safely]
+  25. Slice 2.2.2b: add gold_market_breadth_daily declarative automation and daily_market_breadth_job [completed]
+  26. Slice 2.2.2b: validate daily_market_breadth_job[2026-05-21] in formal instance [completed: run_id 2b336cba-cf28-4a21-9d5b-93df9c9c21ee, only gold_market_breadth_daily materialized, all six gold checks passed]
 
 Next implementation stage:
-  1. add declarative automation condition to gold_market_breadth_daily
-     - missing()
-     - all_deps_blocking_checks_passed()
-     - direct dependency is silver_stock_daily
-  2. add daily_market_breadth_job after gold automation behavior is implemented and validated
+  1. validate declarative automation behavior only in a short controlled window, then stop automation sensor
+  2. run limited market breadth date-window acceptance after automation behavior is confirmed
 
 Later stages:
   1. gold_market_breadth_daily automation evaluates direct silver_stock_daily readiness
@@ -2076,7 +2074,7 @@ stock daily assets:
           <td>2.2.2</td>
           <td>market breadth declarative automation 和下游自动化。</td>
           <td><code>assets/market_breadth.py</code>、<code>jobs/daily_market_breadth.py</code>。</td>
-          <td><code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游；通过后只跑 gold。</td>
+          <td>已实现：<code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游；通过后只跑 gold。后续只做小范围运行验收，不做长跨度回填。</td>
         </tr>
         <tr>
           <td>2.2.3</td>
@@ -2140,11 +2138,11 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Automation</td>
-          <td>四个 sensors 默认 STOPPED；<code>cn_a_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 后续必须保证 <code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游。</td>
+          <td>四个 sensors 默认 STOPPED；<code>cn_a_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>。</td>
         </tr>
         <tr>
           <td>全月数据</td>
-          <td>2026-04 全月 21 个交易日 quote 链路已作为历史迁移和 checks 小范围验收通过；breadth 自动化验收等待 <code>gold_market_breadth_daily</code> declarative automation 与 <code>daily_market_breadth_job</code> 后续实现。stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
+          <td>2026-04 全月 21 个交易日 quote 链路已作为历史迁移和 checks 小范围验收通过；breadth 自动化入口已实现，等待单日和后续小范围运行验收。stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
         </tr>
         <tr>
           <td>提交前</td>
@@ -2181,8 +2179,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         <tr>
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
           <td>2.2.2</td>
-          <td>已完成 <code>2.2.2a</code> 小样本验证。</td>
-          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。关闭条件调整为：下一轮直接在 <code>gold_market_breadth_daily</code> 上实现 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，再让 <code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过后运行。若 gold 自动化仍无法可靠驱动下游，再停下讨论 asset sensor 后备方案。</td>
+          <td>已完成 <code>2.2.2a</code> 小样本验证；<code>2.2.2b</code> 已落地实现。</td>
+          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。<code>gold_market_breadth_daily</code> 已使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，<code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过后运行。单日运行已完成，关闭条件剩余：短窗口 automation 验证。</td>
         </tr>
         <tr>
           <td><code>cn_a_trade_day_sensor</code> 已从 quote 调度职责中解耦。</td>

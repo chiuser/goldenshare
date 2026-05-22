@@ -514,7 +514,7 @@
         <tr>
           <td><code>Slice 2.2</code></td>
           <td>补齐自动发现/触发、基础资产 API 更新、下游 declarative automation 和自动化触发。</td>
-          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、当时触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充股票日线源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题。<code>Slice 2.2.1c</code> 已补齐 <code>calendar_update_job</code> / <code>basic_update_job</code> 的 Tushare API 写入，并重新梳理日频 job。<code>Slice 2.2.1d</code> 已把 <code>suspend_d</code> 从股票日线更新入口中拆出。<code>Slice 2.2.1e</code> 已完成 sensor 分拆：<code>cn_a_trade_day_sensor</code> 只注册 partition；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别触发对应资产族 job。完成这些后，再处理 <code>daily_market_breadth_job</code>、<code>gold_market_breadth_daily</code> 的 declarative automation 条件、可选 schedule 兜底。</td>
+          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、当时触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充股票日线源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题。<code>Slice 2.2.1c</code> 已补齐 <code>calendar_update_job</code> / <code>basic_update_job</code> 的 Tushare API 写入，并重新梳理日频 job。<code>Slice 2.2.1d</code> 已把 <code>suspend_d</code> 从股票日线更新入口中拆出。<code>Slice 2.2.1e</code> 已完成 sensor 分拆：<code>cn_a_trade_day_sensor</code> 只注册 partition；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别触发对应资产族 job。<code>Slice 2.2.2b</code> 已补齐 <code>daily_market_breadth_job</code> 和 <code>gold_market_breadth_daily</code> 的 declarative automation 条件；后续只做小范围运行验收和可选 schedule 兜底。</td>
           <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
           <td>当前阶段已能看到 <code>stock_daily_update_job</code>、<code>suspend_update_job</code>、基础更新 jobs，以及 <code>cn_a_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>。四个 sensor 已通过正式 instance preview：当前数据已就绪，因此均安全 skip；<code>cn_a_trade_day_sensor</code> 没有产生 run request。进入下游 readiness 前，必须继续把 blocking checks passed、stock_basic freshness 和 full snapshot 并发保护纳入技术方案。</td>
         </tr>
@@ -758,7 +758,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
           <td>9</td>
           <td>实现 <code>gold_market_breadth_daily</code> 的 declarative automation 和 <code>daily_market_breadth_job</code>，并验证下游自动化门禁。</td>
           <td>市场宽度的直接业务输入只有 <code>silver_stock_daily[trade_date]</code>；<code>suspend_d</code>、<code>stock_basic</code>、<code>trade_calendar</code> 是生成标准日线事实的上游前置，不在 market breadth 层重复汇总。</td>
-          <td><code>Slice 2.2.2a</code> 已完成可行性验证：当前 Dagster 1.13.5 能用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code> 表达“直接上游 materialized 且 blocking checks 通过后才请求下游”。因此下一步不再新增 <code>market_breadth_upstream_readiness</code> asset，而是直接给 <code>gold_market_breadth_daily</code> 设计自动化条件，再实现只生产 gold 的 <code>daily_market_breadth_job</code>。</td>
+          <td>已完成 <code>Slice 2.2.2b</code>：<code>gold_market_breadth_daily</code> 使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>；新增 active <code>daily_market_breadth_job</code>，selection 只包含 <code>gold_market_breadth_daily</code> 和 gold checks，不新增 <code>market_breadth_upstream_readiness</code> asset。正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只 materialize <code>gold_market_breadth_daily</code>，6 个 gold checks 全部通过。</td>
         </tr>
         <tr>
           <td>10</td>
@@ -953,9 +953,9 @@ defs/jobs/calendar_update.py
 defs/jobs/daily_market_breadth.py
   daily_market_breadth_job
     status:
-      future / not active in current code
+      active
     selection:
-      gold_market_breadth_daily
+      gold_market_breadth_daily + gold checks
     partitions_def:
       cn_a_trade_days
 
@@ -2198,8 +2198,8 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
                          # stock_daily_update_job，股票日线独立更新入口
     basic_update.py      # basic_update_job，stock_basic 日更全量快照更新
     calendar_update.py   # calendar_update_job，交易日历资产更新
-    # future:
-    # daily_market_breadth.py   # daily_market_breadth_job
+    daily_market_breadth.py
+                         # daily_market_breadth_job，市场宽度 gold 独立更新入口
   bootstrap/
     dataset_spec.py      # BootstrapDatasetSpec
     source_method.py     # BootstrapSourceMethod
@@ -2219,7 +2219,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
     stock_daily_update.py  # 可选固定时间兜底检查股票日线更新
     daily_market_breadth.py   # 可选固定时间兜底检查下游 readiness
   automation/
-    market_breadth_ready.py   # declarative automation readiness 条件设计说明或封装</code></pre>
+    # 当前不需要额外 market breadth readiness asset；gold asset 上直接声明 automation condition</code></pre>
   </section>
 
   <section>
@@ -2251,11 +2251,11 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>自动化入口</td>
-          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>cn_a_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>；sensor 默认 <code>STOPPED</code>，不默认乱跑大范围历史。<code>daily_market_breadth_job</code> 和 <code>gold_market_breadth_daily</code> 的 declarative automation 条件仍是后续工作；历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。</td>
+          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>；sensor 默认 <code>STOPPED</code>，不默认乱跑大范围历史。<code>gold_market_breadth_daily</code> 已声明 declarative automation 条件；历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。</td>
         </tr>
         <tr>
           <td>单日验证</td>
-          <td>2026-04-01 单日 <code>stock_daily_update_job</code> 成功，能看到 Tushare 请求 metadata、raw/silver materialization metadata 和 checks；前置条件通过后 breadth job 只生成 gold 和 gold checks。历史 bootstrap 验证记录仍保留。</td>
+          <td>2026-04-01 单日 <code>stock_daily_update_job</code> 成功，能看到 Tushare 请求 metadata、raw/silver materialization metadata 和 checks；<code>2026-05-21</code> 单日 <code>daily_market_breadth_job</code> 成功，只生成 <code>gold_market_breadth_daily</code> 和 gold checks，没有写上游资产。历史 bootstrap 验证记录仍保留。</td>
         </tr>
         <tr>
           <td>全月验证</td>
