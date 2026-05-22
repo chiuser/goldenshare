@@ -409,7 +409,8 @@
       当前 Dagster 1.13.5 中，<code>AutomationCondition.missing()</code> 与
       <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，可以表达“直接上游已 materialized 且 blocking checks 通过时，请求缺失下游”。
       失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
-      同时确认该能力只看直接 asset deps；如果检查项挂在间接上游或共享基础资产上，必须通过显式 readiness gate 汇总，不能指望自动穿透。
+      同时确认该能力只看直接 asset deps；如果某个下游确实需要多个非直接前置条件，必须另行显式设计。
+      但 market breadth 的直接业务输入已经收敛为 <code>silver_stock_daily</code>，因此本轮不再为它新增显式 readiness asset。
     </div>
 
     <div class="callout">
@@ -550,7 +551,7 @@
     stock_daily_sensor.py
     readiness.py
     # future:
-    # market_breadth_readiness_alerts.py
+    # market_breadth_alerts.py
 
   source_readiness/
     tushare/
@@ -986,7 +987,7 @@ def silver_stock_suspend_daily(context, lake_root, duckdb):
         <tr>
           <td><code>gold_market_breadth_daily</code></td>
           <td>依赖 <code>silver_stock_daily</code>，计算涨跌分布。</td>
-          <td>计算口径不变。下游触发改由 readiness gate 控制，必要时通过 upstream blocking checks 实现质量门禁。</td>
+          <td>计算口径不变。下游触发由 <code>gold_market_breadth_daily</code> 的 declarative automation 控制，判断直接上游 <code>silver_stock_daily</code> 是否通过 blocking checks。</td>
         </tr>
         </tbody>
       </table>
@@ -1300,7 +1301,7 @@ Slice 2.0.6 execution:
 
     <div class="warning">
       2.0.6 不新增业务资产定义；它生成的是已有 quote assets 的历史 partitions、materializations 和 check evaluations。
-      不生产 <code>gold_market_breadth_daily</code>，不运行 readiness gate，不调用 Tushare API，不启用 sensor。
+      不生产 <code>gold_market_breadth_daily</code>，不运行下游 gold 自动化，不调用 Tushare API，不启用 sensor。
       若 <code>silver_stock_daily</code> 未应用最新四类过滤，或 <code>silver_stock_suspend_daily</code> 未应用 14 条 timing 修正，禁止进入全历史批量迁移。
     </div>
 
@@ -1370,8 +1371,8 @@ Slice 2.0.6 execution:
           <td><code>daily_market_breadth_job</code></td>
           <td><code>gold_market_breadth_daily</code></td>
           <td>不适用</td>
-          <td>readiness gate；优先 declarative automation，小样本验证不通时停下讨论 asset sensor 后备；不主动补上游。</td>
-          <td>未实现。交易日注册、资产族 sensors、<code>stock_daily_update_job</code> 已通过小范围验证；下一步进入 market breadth readiness gate 设计和实现。</td>
+          <td><code>gold_market_breadth_daily</code> declarative automation；小样本验证不通时停下讨论 asset sensor 后备；不主动补上游。</td>
+          <td>未实现。交易日注册、资产族 sensors、<code>stock_daily_update_job</code> 已通过小范围验证；下一步给 <code>gold_market_breadth_daily</code> 增加直接上游质量门禁，并实现只生产 gold 的 job。</td>
         </tr>
         </tbody>
       </table>
@@ -1412,7 +1413,7 @@ not allowed in job files:
     <div class="warning">
       <strong>实现门禁：</strong>
       业务 gold job 只读依赖共享基础资产，不把共享基础资产放进自己的 selection 中重复写。
-      这条规则必须在后续 <code>market_breadth_upstream_readiness</code> 和 <code>daily_market_breadth_job</code> 设计中显式体现。
+      这条规则必须在后续 <code>gold_market_breadth_daily</code> automation 和 <code>daily_market_breadth_job</code> 设计中显式体现。
       最新补充：<code>suspend_d</code> 对 <code>stock_daily</code> 也是上游只读依赖；<code>stock_daily</code> 更新入口不得 selection <code>suspend_d</code>。
     </div>
 
@@ -1456,9 +1457,9 @@ daily_market_breadth_job:
     checks_for_assets(gold_market_breadth_daily)
   readonly prerequisites:
     silver_stock_daily[trade_date]
-    silver_stock_suspend_daily[trade_date]
-    silver_stock_basic
-    silver_trade_calendar
+  automation prerequisite:
+    silver_stock_daily[trade_date] materialized
+    silver_stock_daily blocking checks passed
 
 forbidden:
   stock_daily_update_job selects raw_tushare_suspend_d
@@ -1497,7 +1498,7 @@ Phase 2 completed through Slice 2.2.1e:
   6. cn_a_trade_day_sensor computes eligible trade dates from silver_trade_calendar, including same-day registration only after 16:00 [completed]
   7. cn_a_trade_day_sensor only registers eligible open days into cn_a_trade_days and never registers future open days [completed]
   8. early sensor version triggered quote_daily_job[trade_date] run requests for validation only [historical, retired]
-  9. sensor must not trigger market breadth, readiness gate, schedule, backfill, or calendar/basic API update [completed]
+  9. sensor must not trigger market breadth, downstream gold automation, schedule, backfill, or calendar/basic API update [completed]
   10. sensor-triggered quote_daily_job end-to-end success [completed historically: 2026-05-21; active trigger moved later]
   11. Slice 2.2.1b: implement stock daily source readiness for Tushare same-day publication [completed]
   12. today's trading day is only allowed after Tushare daily source readiness passes [completed]
@@ -1519,16 +1520,17 @@ Phase 2 completed through Slice 2.2.1e:
   24. Slice 2.2.1e: formal instance preview for all four sensors [completed: current data ready, all sensors skipped safely]
 
 Next implementation stage:
-  1. implement explicit readiness gate for market_breadth_upstream_readiness
-     - required because all_deps_blocking_checks_passed only covers direct deps
-     - market breadth needs non-direct prerequisites: suspend_d, stock_basic, trade_calendar
-  2. add daily_market_breadth_job only after readiness gate behavior is implemented and validated
+  1. add declarative automation condition to gold_market_breadth_daily
+     - missing()
+     - all_deps_blocking_checks_passed()
+     - direct dependency is silver_stock_daily
+  2. add daily_market_breadth_job after gold automation behavior is implemented and validated
 
 Later stages:
-  1. readiness gate evaluates market_breadth_upstream_readiness
+  1. gold_market_breadth_daily automation evaluates direct silver_stock_daily readiness
      - preferred implementation: declarative automation
      - fallback only after discussion: asset sensor
-  2. daily_market_breadth_job[trade_date] runs only if ready</code></pre>
+  2. daily_market_breadth_job[trade_date] runs only if silver_stock_daily is ready</code></pre>
   </section>
 
   <section>
@@ -1714,9 +1716,9 @@ stock_daily_sensor:
     <div class="warning">
       <strong>设计边界：</strong>
       这里的 readiness 是“源站 readiness”，表示 Tushare 当天 raw 数据是否已经可拉取；
-      它不同于后面的 <code>market_breadth_upstream_readiness</code>。
+      它不同于后面的 market breadth 下游自动化条件。
       源站 readiness 与上游基础资产 readiness 共同决定 <code>stock_daily_update_job</code> 能不能跑；
-      market breadth readiness 决定 quote raw/silver 和 checks 通过后，下游 gold 能不能跑。
+      market breadth 下游自动化只判断 <code>silver_stock_daily</code> 这个直接标准事实资产和它的 blocking checks。
     </div>
 
     <p>
@@ -1851,7 +1853,7 @@ stock daily assets:
     <div class="warning">
       资产族 sensor 已作为当前实现落地。后续如果要把某些资产族从 sensor 迁移到 declarative automation，
       仍必须用当前 Dagster 版本小样本验证：dynamic partition key 新增后，automation 是否能稳定发现 missing partition 并请求对应资产族；
-      同时不能绕过 raw/silver blocking checks、freshness 和 market breadth readiness gate。
+      同时不能绕过 raw/silver blocking checks、freshness 和下游 gold 自动化门禁。
     </div>
 
     <h3>11.3 已完成迁移成本回顾</h3>
@@ -1926,20 +1928,20 @@ stock daily assets:
     </p>
 
     <h3>12.1 ready 条件</h3>
-<pre><code>market_breadth_upstream_readiness[trade_date]:
+<pre><code>gold_market_breadth_daily[trade_date] automation:
   partition exists in cn_a_trade_days
   trade_date is not a future open day
   same-day partition is allowed only after cn_a_trade_day_sensor has registered it
   silver_stock_daily[trade_date] materialized
-  raw_tushare_stock_daily[trade_date] blocking checks passed
   silver_stock_daily[trade_date] blocking checks passed
-  silver_stock_suspend_daily[trade_date] materialized
-  raw_tushare_suspend_d[trade_date] blocking checks passed
-  silver_stock_suspend_daily[trade_date] blocking checks passed
-  silver_stock_basic materialized and blocking checks passed
-  silver_stock_basic freshness satisfies current trade_date
-  stock_basic update is not selected by daily_market_breadth_job
-  silver_trade_calendar materialized and blocking checks passed</code></pre>
+  gold_market_breadth_daily[trade_date] is missing</code></pre>
+
+    <div class="callout">
+      口径修正：market breadth 的计算只读取 <code>silver_stock_daily</code>。
+      <code>suspend_d</code>、<code>stock_basic</code>、<code>trade_calendar</code> 是生成 <code>silver_stock_daily</code> 的前置门禁，
+      不再为 market breadth 单独新增 <code>market_breadth_upstream_readiness</code> asset。
+      如果这些上游不合格，问题应在 <code>stock_daily_sensor</code>、<code>stock_daily_update_job</code> 或 <code>silver_stock_daily</code> checks 中暴露。
+    </div>
 
     <h3>12.2 实现优先级</h3>
     <div class="callout">
@@ -1947,9 +1949,8 @@ stock daily assets:
       declarative automation 可以可靠读取直接上游 blocking checks；
       正式 instance 只读检查也确认 <code>2026-05-22</code> 的 <code>stock_basic</code>、<code>suspend_d</code>、<code>stock_daily</code>
       readiness 状态均可读取且为 ready。
-      但 <code>gold_market_breadth_daily</code> 当前直接依赖只有 <code>silver_stock_daily</code>，
-      因此下一轮不能直接给 gold asset 加 automation 条件；必须先实现 <code>market_breadth_upstream_readiness</code>
-      来承载非直接前置条件。
+      <code>gold_market_breadth_daily</code> 当前直接依赖只有 <code>silver_stock_daily</code>，这与业务口径一致；
+      因此下一轮应直接给 gold asset 加 automation 条件，而不是新增中间 readiness asset。
     </div>
 
     <div class="table-wrap">
@@ -1965,7 +1966,7 @@ stock daily assets:
         <tr>
           <td>1</td>
           <td>Declarative automation + upstream blocking checks。</td>
-          <td>当前 Dagster 版本验证通过，能表达上游缺失不请求、上游 checks 失败不继续。</td>
+          <td>当前 Dagster 版本验证通过，适用于 <code>gold_market_breadth_daily</code> 这种只依赖直接标准事实资产的下游生产。</td>
         </tr>
         <tr>
           <td>2</td>
@@ -2073,9 +2074,9 @@ stock daily assets:
         </tr>
         <tr>
           <td>2.2.2</td>
-          <td>market breadth readiness 和下游自动化。</td>
-          <td><code>automation/market_breadth_ready.py</code>、<code>jobs/daily_market_breadth.py</code>。</td>
-          <td>上游未就绪不请求下游；上游 checks 通过后只跑 gold。</td>
+          <td>market breadth declarative automation 和下游自动化。</td>
+          <td><code>assets/market_breadth.py</code>、<code>jobs/daily_market_breadth.py</code>。</td>
+          <td><code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游；通过后只跑 gold。</td>
         </tr>
         <tr>
           <td>2.2.3</td>
@@ -2139,11 +2140,11 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Automation</td>
-          <td>四个 sensors 默认 STOPPED；<code>cn_a_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth readiness gate 后续必须保证上游未就绪时不请求下游。</td>
+          <td>四个 sensors 默认 STOPPED；<code>cn_a_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 后续必须保证 <code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游。</td>
         </tr>
         <tr>
           <td>全月数据</td>
-          <td>2026-04 全月 21 个交易日 quote 链路已作为历史迁移和 checks 小范围验收通过；breadth 自动化验收等待 <code>market_breadth_upstream_readiness</code> 与 <code>daily_market_breadth_job</code> 后续实现。stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
+          <td>2026-04 全月 21 个交易日 quote 链路已作为历史迁移和 checks 小范围验收通过；breadth 自动化验收等待 <code>gold_market_breadth_daily</code> declarative automation 与 <code>daily_market_breadth_job</code> 后续实现。stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
         </tr>
         <tr>
           <td>提交前</td>
@@ -2181,7 +2182,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
           <td>2.2.2</td>
           <td>已完成 <code>2.2.2a</code> 小样本验证。</td>
-          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。关闭条件调整为：下一轮必须实现显式 <code>market_breadth_upstream_readiness</code>，再让 <code>daily_market_breadth_job</code> 只在该 gate 通过后运行。若显式 gate 仍无法可靠驱动下游，再停下讨论 asset sensor 后备方案。</td>
+          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。关闭条件调整为：下一轮直接在 <code>gold_market_breadth_daily</code> 上实现 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，再让 <code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过后运行。若 gold 自动化仍无法可靠驱动下游，再停下讨论 asset sensor 后备方案。</td>
         </tr>
         <tr>
           <td><code>cn_a_trade_day_sensor</code> 已从 quote 调度职责中解耦。</td>

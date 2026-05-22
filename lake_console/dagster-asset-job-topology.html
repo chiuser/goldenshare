@@ -326,7 +326,7 @@
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
       当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>。
-      <code>gold_market_breadth_daily</code> asset 和 checks 已存在，但 <code>daily_market_breadth_job</code> 与 <code>market_breadth_upstream_readiness</code> 仍属于后续设计。
+      <code>gold_market_breadth_daily</code> asset 和 checks 已存在，但 <code>daily_market_breadth_job</code> 与 <code>gold_market_breadth_daily</code> declarative automation 仍属于后续设计。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册交易日 partition，具体数据集更新由资产族 sensor 接管。
     </div>
@@ -439,9 +439,9 @@
         <text x="668" y="534" class="svg-note">当前上市 + 上市日后过滤</text>
 
         <rect x="650" y="340" width="245" height="78" class="node node-future" />
-        <text x="668" y="368" class="svg-label">market_breadth_readiness</text>
-        <text x="668" y="391" class="svg-note">future gate</text>
-        <text x="668" y="409" class="svg-note">materialized + checks passed</text>
+        <text x="668" y="368" class="svg-label">gold automation</text>
+        <text x="668" y="391" class="svg-note">future condition</text>
+        <text x="668" y="409" class="svg-note">silver_stock_daily checks</text>
 
         <rect x="955" y="465" width="195" height="78" class="node node-gold" />
         <text x="973" y="493" class="svg-label">gold_market_breadth_daily</text>
@@ -464,8 +464,8 @@
     </div>
 
     <div class="warning">
-      注意：图中的 <code>market_breadth_readiness</code> 是后续要实现的 gate，不是当前代码里已经存在的 asset。
-      当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；更严格的上游 checks readiness 需要后续补齐。
+      注意：图中的 <code>gold automation</code> 是后续要加到 <code>gold_market_breadth_daily</code> 上的 declarative automation 条件，不是当前代码里已经存在的新 asset。
+      当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；这与市场宽度计算只消费标准日线事实的口径一致。
     </div>
   </section>
 
@@ -686,8 +686,8 @@
         <text x="868" y="156" class="svg-note">只读依赖 basic + suspend</text>
 
         <rect x="565" y="245" width="240" height="76" class="node node-future" />
-        <text x="583" y="274" class="svg-label">market_breadth_readiness</text>
-        <text x="583" y="297" class="svg-note">上游 materialized + checks passed</text>
+        <text x="583" y="274" class="svg-label">gold automation</text>
+        <text x="583" y="297" class="svg-note">silver_stock_daily checks passed</text>
 
         <rect x="850" y="245" width="250" height="76" class="node node-gold" />
         <text x="868" y="274" class="svg-label">daily_market_breadth_job</text>
@@ -714,7 +714,7 @@
       </div>
       <div class="card">
         <strong>业务 Gold 生产</strong>
-        <code>daily_market_breadth_job</code> 只生产 <code>gold_market_breadth_daily</code>，上游不 ready 就不请求。
+        <code>daily_market_breadth_job</code> 只生产 <code>gold_market_breadth_daily</code>，直接输入 <code>silver_stock_daily</code> 未通过质量门禁就不请求。
       </div>
     </div>
   </section>
@@ -766,7 +766,7 @@
           <td>Gold readiness</td>
           <td><code>gold_market_breadth_daily</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
           <td><code>Slice 2.2.2a</code> 已验证：Dagster declarative automation 能判断直接上游 blocking checks，但不会穿透非直接上游。</td>
-          <td>下一步必须专门实现 <code>market_breadth_upstream_readiness</code>，把 stock daily、suspend_d、stock_basic、calendar 的质量门禁汇总为触发前置条件。</td>
+          <td>下一步不新增 readiness asset；直接在 <code>gold_market_breadth_daily</code> 上使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，等待直接上游 <code>silver_stock_daily</code> 通过质量门禁。</td>
         </tr>
         </tbody>
       </table>
@@ -802,14 +802,12 @@
 
     <h3>6.2 后续开发建议顺序</h3>
 <pre><code>Next recommended slices:
-1. market_breadth_upstream_readiness
-   - explicit gate required by Slice 2.2.2a validation
-   - do not rely on transitive automation checks
-   - check stock daily raw/silver materialized for trade_date
-   - check stock daily raw/silver blocking checks passed
-   - check suspend_d partition readiness
-   - check silver_stock_basic freshness and blocking checks passed
-   - check silver_trade_calendar readiness
+1. gold_market_breadth_daily declarative automation
+   - no new market_breadth_upstream_readiness asset
+   - direct upstream is silver_stock_daily
+   - condition: missing()
+   - condition: all_deps_blocking_checks_passed()
+   - do not try to re-check stock_basic / suspend_d / calendar at breadth layer
 
 2. daily_market_breadth_job
    - selection only: gold_market_breadth_daily + gold checks
