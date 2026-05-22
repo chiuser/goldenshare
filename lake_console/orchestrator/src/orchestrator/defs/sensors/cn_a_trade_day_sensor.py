@@ -9,7 +9,7 @@ import dagster as dg
 import duckdb
 
 from orchestrator.defs.duckdb_sql import STOCK_DAILY_MIN_TRADE_DATE
-from orchestrator.defs.jobs.quote_daily import quote_daily_job
+from orchestrator.defs.jobs.stock_quote_daily_update import stock_quote_daily_update_job
 from orchestrator.defs.partitions import cn_a_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.source_readiness.tushare.stock_daily import (
@@ -156,13 +156,13 @@ def _cursor_payload(decision: TradeDaySensorDecision, evaluated_at: datetime) ->
 
 
 @dg.sensor(
-    job=quote_daily_job,
+    job=stock_quote_daily_update_job,
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     required_resource_keys={"lake_root", "duckdb", "tushare"},
     description=(
         "Registers completed China A-share trading day partitions and triggers "
-        "quote_daily_job for missing quote daily partitions."
+        "stock_quote_daily_update_job for missing quote daily partitions."
     ),
 )
 def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
@@ -246,7 +246,7 @@ def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
     run_requests = [
         dg.RunRequest(
             partition_key=key,
-            run_key=f"quote_daily:{key}",
+            run_key=f"stock_quote_daily:{key}",
             tags={
                 "triggered_by": "cn_a_trade_day_sensor",
                 "latest_completed_trade_date": decision.latest_completed_trade_date or "",

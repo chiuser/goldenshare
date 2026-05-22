@@ -26,24 +26,13 @@ def fetch_tushare_partition_to_raw(
     field_names = tuple(fields)
     _validate_contract(field_names, column_types)
 
-    rows: list[dict[str, Any]] = []
-    page_count = 0
-    offset = 0
-    while True:
-        page_params = {**dict(api_params), "limit": limit, "offset": offset}
-        result = tushare.call(api_name, page_params, field_names)
-        page_rows = result.rows
-        if result.columns != field_names and (result.columns or page_rows):
-            raise RuntimeError(
-                f"Tushare {api_name} returned columns {list(result.columns)}, "
-                f"expected {list(field_names)}."
-            )
-
-        rows.extend(page_rows)
-        page_count += 1
-        if len(page_rows) < limit:
-            break
-        offset += limit
+    rows, page_count = _fetch_all_pages(
+        tushare=tushare,
+        api_name=api_name,
+        api_params=api_params,
+        field_names=field_names,
+        limit=limit,
+    )
 
     if not allow_empty and not rows:
         raise RuntimeError(
@@ -71,6 +60,86 @@ def fetch_tushare_partition_to_raw(
         "limit": limit,
         "partition_key": partition_key,
     }
+
+
+def fetch_tushare_full_file_to_raw(
+    *,
+    tushare: TushareResource,
+    duckdb: DuckDBResource,
+    api_name: str,
+    api_params: Mapping[str, Any],
+    fields: Sequence[str],
+    column_types: Mapping[str, str],
+    target_path: Path,
+    allow_empty: bool,
+    limit: int = TUSHARE_API_PAGE_LIMIT,
+) -> dict[str, Any]:
+    field_names = tuple(fields)
+    _validate_contract(field_names, column_types)
+
+    rows, page_count = _fetch_all_pages(
+        tushare=tushare,
+        api_name=api_name,
+        api_params=api_params,
+        field_names=field_names,
+        limit=limit,
+    )
+
+    if not allow_empty and not rows:
+        raise RuntimeError(
+            f"Tushare {api_name} returned 0 rows; raw source mirror will not write "
+            "an empty full-file asset."
+        )
+
+    _write_rows_to_parquet(
+        duckdb=duckdb,
+        rows=rows,
+        fields=field_names,
+        column_types=column_types,
+        target_path=target_path,
+    )
+
+    return {
+        "path": str(target_path),
+        "row_count": len(rows),
+        "columns": list(field_names),
+        "source_method": TUSHARE_API_SOURCE_METHOD,
+        "api_name": api_name,
+        "params": dict(api_params),
+        "fields": list(field_names),
+        "page_count": page_count,
+        "limit": limit,
+    }
+
+
+def _fetch_all_pages(
+    *,
+    tushare: TushareResource,
+    api_name: str,
+    api_params: Mapping[str, Any],
+    field_names: tuple[str, ...],
+    limit: int,
+) -> tuple[list[dict[str, Any]], int]:
+    rows: list[dict[str, Any]] = []
+    page_count = 0
+    offset = 0
+    while True:
+        page_params = {**dict(api_params), "limit": limit, "offset": offset}
+        result = tushare.call(api_name, page_params, field_names)
+        page_rows = result.rows
+        if result.columns != field_names and (result.columns or page_rows):
+            raise RuntimeError(
+                f"Tushare {api_name} returned columns {list(result.columns)}, "
+                f"expected {list(field_names)}."
+            )
+
+        rows.extend(page_rows)
+        page_count += 1
+        if len(page_rows) < limit:
+            break
+        offset += limit
+
+    return rows, page_count
 
 
 def _validate_contract(fields: tuple[str, ...], column_types: Mapping[str, str]) -> None:

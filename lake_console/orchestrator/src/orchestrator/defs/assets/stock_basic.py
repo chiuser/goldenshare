@@ -4,8 +4,6 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.bootstrap import bootstrap_full_file_to_raw
-from orchestrator.defs.bootstrap.specs.stock_basic import stock_basic_bootstrap_spec
 from orchestrator.defs.duckdb_sql import (
     STOCK_BASIC_RAW_COLUMNS,
     copy_query_to_parquet,
@@ -15,7 +13,12 @@ from orchestrator.defs.duckdb_sql import (
     silver_stock_basic_select,
 )
 from orchestrator.defs.paths import raw_stock_basic_path, silver_stock_basic_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
+
+
+STOCK_BASIC_API_PARAMS = {"list_status": "L,D,P,G"}
+STOCK_BASIC_RAW_COLUMN_TYPES = {field: "VARCHAR" for field in STOCK_BASIC_RAW_COLUMNS}
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -74,11 +77,20 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 def raw_tushare_stock_basic(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
+    tushare: TushareResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    spec = stock_basic_bootstrap_spec(lake_root.root())
-    metadata = bootstrap_full_file_to_raw(spec, duckdb)
     path = raw_stock_basic_path(lake_root.root())
+    metadata = fetch_tushare_full_file_to_raw(
+        tushare=tushare,
+        duckdb=duckdb,
+        api_name="stock_basic",
+        api_params=STOCK_BASIC_API_PARAMS,
+        fields=STOCK_BASIC_RAW_COLUMNS,
+        column_types=STOCK_BASIC_RAW_COLUMN_TYPES,
+        target_path=path,
+        allow_empty=False,
+    )
 
     with duckdb.connect() as connection:
         list_status_distribution = _list_status_distribution(
@@ -96,7 +108,7 @@ def raw_tushare_stock_basic(
             "raw_contract": "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings.",
             "expected_source_columns": list(STOCK_BASIC_RAW_COLUMNS),
             "list_status_distribution": list_status_distribution,
-            "cast_summary": "stock_basic explicit fields only; date fields remain YYYYMMDD strings or null.",
+            "update_policy": "low_frequency_full_file_api_update",
         }
     )
 

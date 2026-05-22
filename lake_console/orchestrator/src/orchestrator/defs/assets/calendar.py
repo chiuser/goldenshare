@@ -1,18 +1,30 @@
 import os
+from datetime import datetime
 from pathlib import Path
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 
-from orchestrator.defs.bootstrap import bootstrap_full_file_to_raw
-from orchestrator.defs.bootstrap.specs.trade_calendar import trade_calendar_bootstrap_spec
 from orchestrator.defs.duckdb_sql import (
+    TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
     silver_trade_calendar_select,
 )
 from orchestrator.defs.paths import raw_trade_calendar_path, silver_trade_calendar_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
+
+
+CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
+TRADE_CALENDAR_START_DATE = "20140101"
+TRADE_CALENDAR_RAW_COLUMN_TYPES = {
+    "exchange": "VARCHAR",
+    "cal_date": "VARCHAR",
+    "is_open": "INTEGER",
+    "pretrade_date": "VARCHAR",
+}
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -48,10 +60,24 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 def raw_tushare_trade_calendar(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
+    tushare: TushareResource,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    spec = trade_calendar_bootstrap_spec(lake_root.root())
-    metadata = bootstrap_full_file_to_raw(spec, duckdb)
+    end_date = f"{datetime.now(CN_A_TIMEZONE).year}1231"
+    metadata = fetch_tushare_full_file_to_raw(
+        tushare=tushare,
+        duckdb=duckdb,
+        api_name="trade_cal",
+        api_params={
+            "exchange": "SSE",
+            "start_date": TRADE_CALENDAR_START_DATE,
+            "end_date": end_date,
+        },
+        fields=TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
+        column_types=TRADE_CALENDAR_RAW_COLUMN_TYPES,
+        target_path=raw_trade_calendar_path(lake_root.root()),
+        allow_empty=False,
+    )
 
     return dg.MaterializeResult(
         metadata={
@@ -60,7 +86,9 @@ def raw_tushare_trade_calendar(
             "source_api": "trade_cal",
             "data_contract": "source_mirror",
             "raw_contract": "cal_date/pretrade_date YYYYMMDD string, is_open 0/1 integer",
-            "cast_summary": "cal_date/pretrade_date -> YYYYMMDD string; is_open boolean -> 0/1 integer.",
+            "update_policy": "low_frequency_full_file_api_update",
+            "calendar_start_date": TRADE_CALENDAR_START_DATE,
+            "calendar_end_date": end_date,
         }
     )
 
