@@ -403,6 +403,14 @@
       开发前验证门禁：Dagster 当前版本中 declarative automation 与 blocking asset checks 的组合行为，必须在 Slice 2.2.2 小样本验证。
       如果无法直接表达“checks passed 后再触发”，不得硬猜实现；应停下汇报，再决定是否改用只负责 readiness 判断的 asset sensor 后备方案。
     </div>
+
+    <div class="callout">
+      <strong>Slice 2.2.2a 已验证：</strong>
+      当前 Dagster 1.13.5 中，<code>AutomationCondition.missing()</code> 与
+      <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，可以表达“直接上游已 materialized 且 blocking checks 通过时，请求缺失下游”。
+      失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
+      同时确认该能力只看直接 asset deps；如果检查项挂在间接上游或共享基础资产上，必须通过显式 readiness gate 汇总，不能指望自动穿透。
+    </div>
   </section>
 
   <section>
@@ -1502,8 +1510,10 @@ Phase 2 completed through Slice 2.2.1e:
   24. Slice 2.2.1e: formal instance preview for all four sensors [completed: current data ready, all sensors skipped safely]
 
 Next implementation stage:
-  1. implement readiness gate for market_breadth_upstream_readiness
-  2. add daily_market_breadth_job only after readiness behavior is validated
+  1. implement explicit readiness gate for market_breadth_upstream_readiness
+     - required because all_deps_blocking_checks_passed only covers direct deps
+     - market breadth needs non-direct prerequisites: suspend_d, stock_basic, trade_calendar
+  2. add daily_market_breadth_job only after readiness gate behavior is implemented and validated
 
 Later stages:
   1. readiness gate evaluates market_breadth_upstream_readiness
@@ -1923,6 +1933,16 @@ stock daily assets:
   silver_trade_calendar materialized and blocking checks passed</code></pre>
 
     <h3>12.2 实现优先级</h3>
+    <div class="callout">
+      <strong>2.2.2a 验证结果：</strong>
+      declarative automation 可以可靠读取直接上游 blocking checks；
+      正式 instance 只读检查也确认 <code>2026-05-22</code> 的 <code>stock_basic</code>、<code>suspend_d</code>、<code>stock_daily</code>
+      readiness 状态均可读取且为 ready。
+      但 <code>gold_market_breadth_daily</code> 当前直接依赖只有 <code>silver_stock_daily</code>，
+      因此下一轮不能直接给 gold asset 加 automation 条件；必须先实现 <code>market_breadth_upstream_readiness</code>
+      来承载非直接前置条件。
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>
@@ -2151,8 +2171,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         <tr>
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
           <td>2.2.2</td>
-          <td>待验证，不能提前拍死。</td>
-          <td>用小样本验证 Dagster 当前版本是否能表达“上游 materialized + blocking checks passed 后再触发下游”。关闭条件：验证通过并能让 <code>daily_market_breadth_job</code> 只在 readiness 通过后运行。若不能表达，必须停下讨论 asset sensor 后备方案。</td>
+          <td>已完成 <code>2.2.2a</code> 小样本验证。</td>
+          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。关闭条件调整为：下一轮必须实现显式 <code>market_breadth_upstream_readiness</code>，再让 <code>daily_market_breadth_job</code> 只在该 gate 通过后运行。若显式 gate 仍无法可靠驱动下游，再停下讨论 asset sensor 后备方案。</td>
         </tr>
         <tr>
           <td><code>cn_a_trade_day_sensor</code> 已从 quote 调度职责中解耦。</td>

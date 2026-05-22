@@ -754,7 +754,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
           <td>9</td>
           <td>实现 <code>market_breadth_upstream_readiness</code> 和 <code>daily_market_breadth_job</code>，并验证下游自动化门禁。</td>
           <td>只有上游 job、checks、readiness 都稳定后，自动化才有意义。</td>
-          <td>readiness 明确包含 materialization + blocking checks；前置条件不满足时不请求下游；满足后只生产 <code>gold_market_breadth_daily</code>。优先验证 declarative automation；若验证不通，停下讨论 asset sensor 后备。</td>
+          <td><code>Slice 2.2.2a</code> 已完成可行性验证：当前 Dagster 1.13.5 能用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code> 表达“直接上游 materialized 且 blocking checks 通过后才请求下游”；但该能力只覆盖直接 asset deps，不会自动穿透 <code>suspend_d</code>、<code>stock_basic</code>、<code>trade_calendar</code> 这些非直接前置。因此下一步必须先显式设计 <code>market_breadth_upstream_readiness</code>，再实现只生产 <code>gold_market_breadth_daily</code> 的 <code>daily_market_breadth_job</code>。</td>
         </tr>
         <tr>
           <td>10</td>
@@ -1217,6 +1217,17 @@ stock_daily_sensor
       仅靠 “silver materialized” 判断会漏掉质量门禁，不能作为下游生产依据。
     </div>
 
+    <div class="callout">
+      <strong>Slice 2.2.2a 验证结论：</strong>
+      当前 Dagster 1.13.5 的 <code>AutomationCondition.all_deps_blocking_checks_passed()</code>
+      可以读取直接上游 asset 的 blocking check 结果；正式 instance 中也能可靠读到
+      <code>2026-05-22</code> 的 <code>stock_basic</code>、<code>suspend_d</code>、<code>stock_daily</code>
+      materialization 与 checks 状态，均为 ready。
+      但 <code>all_deps_blocking_checks_passed()</code> 只检查直接依赖，不会自动覆盖间接上游或共享基础资产。
+      所以 <code>gold_market_breadth_daily</code> 不能只依赖 <code>silver_stock_daily</code> 后直接开启 automation；
+      必须先增加显式 <code>market_breadth_upstream_readiness</code> 门禁。
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>
@@ -1267,7 +1278,7 @@ stock_daily_sensor
             + <code>silver_stock_basic</code> ready
             + <code>silver_trade_calendar</code> ready。
           </td>
-          <td>这是下游触发依据；Slice 2.2.2 需要用小样本验证状态查询方式、失败状态和重试口径。</td>
+          <td>这是下游触发依据；<code>Slice 2.2.2a</code> 已证明直接 deps checks 可被 declarative automation 判断，但完整 readiness 必须由显式 gate 汇总非直接前置。</td>
         </tr>
         </tbody>
       </table>
@@ -2288,7 +2299,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>上游未就绪时如何“等待”？</td>
-          <td>等待优先发生在 declarative automation 层：不请求下游资产，等待下一次条件评估。若 Slice 2.2.2 验证证明需要 asset sensor 后备，则 sensor 返回 <code>SkipReason</code>，不发起下游 <code>RunRequest</code>。不是启动一个下游 run 后卡住。</td>
+          <td>等待优先发生在 declarative automation 层：不请求下游资产，等待下一次条件评估。<code>Slice 2.2.2a</code> 已证明直接上游 blocking checks 可被 automation 判断；但 market breadth 仍需要显式 readiness gate 汇总非直接上游。若显式 gate 后仍无法可靠触发，再讨论 asset sensor 后备。不是启动一个下游 run 后卡住。</td>
           <td>这符合 Dagster 的自动化模型，也更容易观测和重试。</td>
         </tr>
         <tr>

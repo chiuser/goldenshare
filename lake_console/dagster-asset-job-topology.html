@@ -759,8 +759,8 @@
         <tr>
           <td>Gold readiness</td>
           <td><code>gold_market_breadth_daily</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
-          <td>仅靠 asset deps 不足以表达 raw/silver blocking checks、stock_basic freshness、calendar readiness。</td>
-          <td>下一步专门实现 <code>market_breadth_upstream_readiness</code>，把质量门禁作为触发前置条件。</td>
+          <td><code>Slice 2.2.2a</code> 已验证：Dagster declarative automation 能判断直接上游 blocking checks，但不会穿透非直接上游。</td>
+          <td>下一步必须专门实现 <code>market_breadth_upstream_readiness</code>，把 stock daily、suspend_d、stock_basic、calendar 的质量门禁汇总为触发前置条件。</td>
         </tr>
         </tbody>
       </table>
@@ -795,8 +795,10 @@
     </div>
 
     <h3>6.2 后续开发建议顺序</h3>
-    <pre><code>Next recommended slices:
+<pre><code>Next recommended slices:
 1. market_breadth_upstream_readiness
+   - explicit gate required by Slice 2.2.2a validation
+   - do not rely on transitive automation checks
    - check stock daily raw/silver materialized for trade_date
    - check stock daily raw/silver blocking checks passed
    - check suspend_d partition readiness

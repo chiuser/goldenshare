@@ -98,6 +98,18 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 6. `cn_a_trade_day_sensor` 的长期职责应收敛为注册已完成交易日 partition；各资产族可以有自己的 sensor，例如 `suspend_d_sensor`、`stock_basic_sensor`、`stock_daily_sensor`，分别围绕本资产族判断缺失、freshness、checks 和上游 ready。
 7. 新增资产族 sensor 前，方案文档必须列清：输入状态、ready 条件、run key、cursor 内容、最大单 tick 请求数、失败重跑策略、是否允许注册 partition，以及与其它 sensor 的边界。
 
+### Declarative Automation 验证门禁
+
+涉及下游自动触发时，不能只看 Dagster API 名字就假设它能覆盖全部质量门禁。
+
+当前 Dagster 1.13.5 已验证的口径：
+
+1. `AutomationCondition.all_deps_blocking_checks_passed()` 可以判断直接上游 asset 的 blocking checks 是否通过。
+2. 该条件只覆盖直接 asset deps，不会自动穿透检查间接上游或共享基础资产；例如 `gold_market_breadth_daily` 只直接依赖 `silver_stock_daily` 时，不能靠它自动覆盖 `suspend_d`、`stock_basic`、`trade_calendar` 的 checks。
+3. 需要多个非直接前置条件时，必须设计显式 readiness gate、readiness asset，或经过确认的 asset sensor 后备方案；禁止把“直接 deps checks 通过”误当成“整条上游链路 ready”。
+4. `AutomationCondition.on_missing()` 带有 cursor / initial evaluation 语义，不能在一次性小样本验证中简单等同于“当前资产缺失”；做 API 验证时必须明确使用场景并记录结果。
+5. 启用新的 declarative automation 前，必须先用临时 Definitions 验证条件行为，再只读检查正式 Dagster instance 中 materialization 和 check 状态可被可靠读取。
+
 ### Full Snapshot 并发保护门禁
 
 `stock_basic` 这类 full snapshot asset 写的是单个全量文件。并发运行时，即使 `.tmp + os.replace` 能避免半截文件，也可能出现重复打接口、后完成 run 覆盖先完成 run、metadata 观测混乱等问题。
