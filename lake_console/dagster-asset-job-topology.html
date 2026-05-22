@@ -490,7 +490,7 @@
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td>无分区，全量文件</td>
           <td><code>calendar_update_job</code> 调 Tushare <code>trade_cal</code>，再标准化。</td>
-          <td>低频区间更新，未来可 schedule；不随每个 quote 分区反复跑。</td>
+          <td>低频区间更新，未来可 schedule；不随每个股票日线分区反复跑。</td>
           <td>交易日事实源，服务 sensor / dynamic partitions / downstream readiness。</td>
         </tr>
         <tr>
@@ -499,7 +499,7 @@
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td>无分区，全量文件</td>
           <td><code>basic_update_job</code> 调 Tushare <code>stock_basic</code>，silver 只保留当前 <code>L</code>。</td>
-          <td><strong>目标应为日更全量快照</strong>，且应在 quote / gold 之前完成。</td>
+          <td><strong>目标应为日更全量快照</strong>，且应在股票日线 / gold 之前完成。</td>
           <td>共享基础资产；影响当日新股是否进入 <code>silver_stock_daily</code>。</td>
         </tr>
         <tr>
@@ -526,7 +526,7 @@
           <td><span class="tag gold">gold</span></td>
           <td><code>cn_a_trade_days</code></td>
           <td>当前 asset 已实现；正式业务 job / readiness 尚未实现。</td>
-          <td>跟随 quote 日频完成后生产。</td>
+          <td>跟随股票日线、停复牌和基础资产 readiness 通过后生产。</td>
           <td>业务结果资产；不拉取、不修复、不补齐上游。</td>
         </tr>
         </tbody>
@@ -570,7 +570,7 @@
         <text x="53" y="344" class="svg-note">daily only; readonly upstreams</text>
 
         <rect x="325" y="292" width="250" height="78" class="node node-silver" />
-        <text x="343" y="321" class="svg-label">quote daily assets</text>
+        <text x="343" y="321" class="svg-label">stock daily assets</text>
         <text x="343" y="344" class="svg-note">partitioned raw/silver</text>
 
         <rect x="680" y="185" width="230" height="78" class="node node-future" />
@@ -652,7 +652,7 @@
   <section>
     <h2>5. 触发方式与日内时序</h2>
     <p>
-      第二期后续研发模式应把“基础资产准备”和“业务资产生产”分层：基础资产先更新并通过 checks；quote 分区再按交易日生产；gold 业务资产最后在 readiness 通过后生产。
+      第二期后续研发模式应把“基础资产准备”和“业务资产生产”分层：基础资产先更新并通过 checks；股票日线分区再按交易日生产；gold 业务资产最后在 readiness 通过后生产。
     </p>
 
     <div class="diagram">
@@ -667,7 +667,7 @@
         <rect x="35" y="85" width="220" height="86" class="node node-job" />
         <text x="53" y="114" class="svg-label">basic_update_job</text>
         <text x="53" y="137" class="svg-note">日更 full snapshot</text>
-        <text x="53" y="156" class="svg-note">必须早于 quote / gold</text>
+        <text x="53" y="156" class="svg-note">必须早于 stock daily / gold</text>
 
         <rect x="300" y="85" width="220" height="86" class="node node-job" />
         <text x="318" y="114" class="svg-label">calendar_update_job</text>
@@ -677,7 +677,7 @@
         <rect x="565" y="85" width="240" height="86" class="node node-sensor" />
         <text x="583" y="114" class="svg-label">cn_a_trade_day_sensor</text>
         <text x="583" y="137" class="svg-note">16:00 后探测 daily ready</text>
-        <text x="583" y="156" class="svg-note">注册 partition + 发 quote run</text>
+        <text x="583" y="156" class="svg-note">注册 partition + 发 stock daily run</text>
 
         <rect x="850" y="85" width="250" height="86" class="node node-job" />
         <text x="868" y="114" class="svg-label">stock_daily_update_job</text>
@@ -801,8 +801,9 @@
    - do not update suspend_d or stock_basic inside stock_daily job
 
 2. market_breadth_upstream_readiness
-   - check quote assets materialized for trade_date
-   - check quote raw/silver blocking checks passed
+   - check stock daily raw/silver materialized for trade_date
+   - check stock daily raw/silver blocking checks passed
+   - check suspend_d partition readiness
    - check silver_stock_basic freshness and blocking checks passed
    - check silver_trade_calendar readiness
 
