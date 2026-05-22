@@ -51,6 +51,35 @@ https://docs.dagster.io/guides/test/asset-checks
 3. 自由发挥迁移多个数据集。
 4. 用旧 `lake_console` 运行账本机制包装成新的 Dagster 资产。
 
+### Job / Asset 职责边界门禁
+
+Dagster job 只做流程入口和 asset selection，不承接具体数据生产逻辑。
+
+依据：
+
+1. Dagster 官方 asset jobs 文档中，asset job 是从一组 assets selection 定义出来的执行入口。
+2. Dagster 官方 software-defined assets 口径中，asset definition 才描述资产如何由上游和计算逻辑生成。
+
+规则：
+
+1. `defs/jobs/**` 文件只能定义 job 名称、asset selection、checks selection、description 等入口信息。
+2. `defs/jobs/**` 禁止直接调用 Tushare、DuckDB SQL、parquet 写入、路径拼接、字段转换、停牌修正、业务过滤或质量判断。
+3. 具体拉取源数据、写 raw、生成 silver/gold 的代码必须放在 `defs/assets/**` 对应资产函数中。
+4. 多个 asset 复用的通用能力应放在 resource 或 helper 中，例如 `TushareResource` 和 Tushare parquet 写入 helper；不能复制到多个 job 文件里。
+5. 质量判断必须放在 `defs/checks/**`，或者作为 asset materialization 前必须失败的资产内部校验；禁止把质量判断写进 job。
+6. job 可以组合多个资产形成执行入口，但不能为了控制执行顺序伪造数据血缘；真实依赖必须通过 asset `deps` 或 check `additional_deps` 表达。
+7. 下游业务 job 不得在自己的 asset 代码里重复实现上游数据集拉取；需要完整链路时，应新增或调整组合 asset job 的 selection。
+
+推荐心智模型：
+
+```text
+Job      = 这次要跑哪些资产
+Asset    = 这个资产怎么生成
+Resource = 怎么连接外部系统
+Helper   = 多个资产复用的小工具
+Check    = 这个资产生成后是否合格
+```
+
 ### Asset Checks 运行门禁
 
 当前 Dagster 版本的 `dagster.materialize()` 可用于轻量 asset 冒烟验证，但不接受 `asset_checks=` 参数，不能代表完整的 asset + checks 运行模型。
