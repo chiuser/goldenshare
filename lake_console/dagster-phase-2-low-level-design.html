@@ -406,7 +406,7 @@
 
     <div class="callout">
       <strong>Slice 2.2.2a 已验证：</strong>
-      当前 Dagster 1.13.5 中，<code>AutomationCondition.missing()</code> 与
+      当前 Dagster 1.13.6 中，<code>AutomationCondition.missing()</code> 与
       <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，可以表达“直接上游已 materialized 且 blocking checks 通过时，请求缺失下游”。
       失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
       同时确认该能力只看直接 asset deps；如果某个下游确实需要多个非直接前置条件，必须另行显式设计。
@@ -1986,7 +1986,8 @@ stock daily assets:
 
     <div class="warning">
       <strong>短窗口 automation 验证结论：</strong>
-      <code>dagster sensor preview default_automation_condition_sensor</code> 不能像普通 sensor 一样预览，当前版本会返回
+      <code>dagster sensor preview default_automation_condition_sensor</code> 和自定义 <code>market_breadth_automation_sensor</code>
+      都不能像普通 sensor 一样预览，当前版本会返回
       <code>NotImplementedError</code>；automation condition 的安全验证应使用 <code>dg.evaluate_automation_conditions(...)</code> 做只读评估。
       2026-05-23 正式 instance 最新只读评估结果显示，从空 cursor 评估 <code>gold_market_breadth_daily</code> 会请求
       <code>2975</code> 个缺失分区，范围从 <code>2014-01-02</code> 到 <code>2026-03-31</code>。

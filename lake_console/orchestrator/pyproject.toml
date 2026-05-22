@@ -3,8 +3,8 @@ name = "orchestrator"
 requires-python = ">=3.10,<3.15"
 version = "0.1.0"
 dependencies = [
-    "dagster==1.13.5",
-    "dagster-postgres>=0.29.5",
+    "dagster==1.13.6",
+    "dagster-postgres>=0.29.6",
     "duckdb>=1.5.2",
     "tushare>=1.4.20",
 ]

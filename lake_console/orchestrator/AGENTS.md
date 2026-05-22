@@ -102,7 +102,7 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 
 涉及下游自动触发时，不能只看 Dagster API 名字就假设它能覆盖全部质量门禁。
 
-当前 Dagster 1.13.5 已验证的口径：
+当前 Dagster 1.13.6 已验证的口径：
 
 1. `AutomationCondition.all_deps_blocking_checks_passed()` 可以判断直接上游 asset 的 blocking checks 是否通过。
 2. 该条件只覆盖直接 asset deps，不会自动穿透检查间接上游或共享基础资产；不要把“直接 deps checks 通过”误当成“整条上游链路 ready”。

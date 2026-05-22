@@ -1245,7 +1245,7 @@ stock_daily_sensor
 
     <div class="callout">
       <strong>Slice 2.2.2a 验证结论：</strong>
-      当前 Dagster 1.13.5 的 <code>AutomationCondition.all_deps_blocking_checks_passed()</code>
+      当前 Dagster 1.13.6 的 <code>AutomationCondition.all_deps_blocking_checks_passed()</code>
       可以读取直接上游 asset 的 blocking check 结果；正式 instance 中也能可靠读到
       <code>2026-05-22</code> 的 <code>stock_basic</code>、<code>suspend_d</code>、<code>stock_daily</code>
       materialization 与 checks 状态，均为 ready。
@@ -1263,7 +1263,8 @@ stock_daily_sensor
       默认 <code>STOPPED</code>，评估间隔保守设置，并给自动触发 runs 打上 <code>asset_family=market_breadth</code>
       等可观测标签。
       <code>cn_a_trade_day_sensor</code> 已经负责交易日 partition 注册；非交易日没有 partition key，即使 automation sensor 评估也不会产生非交易日分区 run。
-      启用前必须先用 <code>dg.evaluate_automation_conditions(...)</code> 只读确认请求分区范围。
+      启用前必须先用 <code>dg.evaluate_automation_conditions(...)</code> 只读确认请求分区范围；<code>dagster sensor preview</code>
+      不支持 automation condition sensor 的普通预览。
     </div>
 
     <div class="callout">
