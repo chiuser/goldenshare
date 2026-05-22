@@ -499,9 +499,9 @@
         <tr>
           <td><code>Slice 2.2</code></td>
           <td>补齐自动发现/触发、低频基础数据更新、下游 readiness gate 和自动化触发。</td>
-          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、触发 <code>quote_daily_job</code> run request。下一步新增 <code>Slice 2.2.1b</code> 补充 quote 源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题；之后再处理 <code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底。</td>
+          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充 quote 源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题；之后再处理 <code>trade_cal</code> 区间更新、<code>stock_basic</code> 全量快照更新、<code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底。</td>
           <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
-          <td>当前阶段已能看到 <code>quote_daily_job</code> 和 <code>cn_a_trade_day_sensor</code>；sensor 安全边界已验证，但 sensor 触发的 quote run 端到端成功仍未关闭。后续必须看到源站 ready 后当天 quote 分区自动生产成功，下游 readiness 再按质量门禁触发。</td>
+          <td>当前阶段已能看到 <code>quote_daily_job</code> 和 <code>cn_a_trade_day_sensor</code>；sensor 安全边界和 quote source readiness 逻辑已验证，但 sensor 触发的 quote run 端到端成功仍未关闭。后续必须看到源站 ready 后当天 quote 分区自动生产成功，下游 readiness 再按质量门禁触发。</td>
         </tr>
         </tbody>
       </table>
@@ -682,9 +682,9 @@ gold_market_breadth_daily[trade_date]</code></pre>
         </tr>
         <tr>
           <td>8</td>
-          <td>新增 <code>Slice 2.2.1b</code>：quote 源站 readiness 和当天交易日生产。</td>
+          <td>实现 <code>Slice 2.2.1b</code>：quote 源站 readiness 和当天交易日生产。</td>
           <td>Tushare 当日日线发布时间不精确，不能只靠交易日历判断今天能跑。今天是交易日时，16:00 前不探测；16:00 后约每 10 分钟探测一次 <code>daily(trade_date=YYYYMMDD)</code>。只有 <code>daily</code> 已 ready，才允许注册今天 partition 并触发 <code>quote_daily_job[today]</code>。</td>
-          <td>源站未 ready 时只返回中文跳过原因，不发 <code>RunRequest</code>，不写 raw，不占用 <code>run_key</code>；源站 ready 后单日 quote 链路能自动生产成功。第一版 readiness 只以 <code>daily</code> 为准，<code>suspend_d</code> 不参与 ready 判断。</td>
+          <td>已完成：源站未 ready 时只返回中文跳过原因，不发 <code>RunRequest</code>，不写 raw，不占用 <code>run_key</code>；源站 ready 后才允许注册今天 partition 并触发当天 <code>quote_daily_job</code>。第一版 readiness 只以 <code>daily</code> 为准，<code>suspend_d</code> 不参与 ready 判断。</td>
         </tr>
         <tr>
           <td>9</td>
@@ -2159,7 +2159,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         <tr>
           <td>当天是交易日时，最新 quote 日期是否可以是今天？</td>
           <td>可以，但不能只靠交易日历。必须先确认 Tushare 源站当天 <code>daily</code> 已 ready；ready 后才允许触发今天的 <code>quote_daily_job</code>。</td>
-          <td>这是 <code>Slice 2.2.1</code> 后新增为 <code>Slice 2.2.1b</code> 的需求。当前代码仍是保守口径：只取小于当前自然日的最近 open day。后续需新增 quote source readiness 设计和实测。</td>
+          <td><code>Slice 2.2.1b</code> 已实现该口径：当前代码仍保留小于当前自然日的已完成交易日逻辑，同时新增当天交易日 16:00 后的 Tushare <code>daily</code> readiness 探测。</td>
         </tr>
         <tr>
           <td>Tushare 源站更新时间不确定怎么办？</td>
