@@ -328,7 +328,7 @@
       当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>。
       <code>gold_market_breadth_daily</code> asset 和 checks 已存在，但 <code>daily_market_breadth_job</code> 与 <code>market_breadth_upstream_readiness</code> 仍属于后续设计。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
-      最新设计口径是：<code>cn_a_trade_day_sensor</code> 长期只注册交易日 partition，具体数据集更新由资产族 sensor 接管。
+      最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册交易日 partition，具体数据集更新由资产族 sensor 接管。
     </div>
 
     <div class="table-wrap">
@@ -356,9 +356,9 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>；后续新增 <code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code></td>
-          <td>当前 sensor 已能注册已完成交易日并触发股票日线；目标是拆成多 sensor：交易日注册与资产族生产分离。</td>
-          <td>多 sensor 方案下，每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code></td>
+          <td>已拆成多 sensor：交易日注册与资产族生产分离。</td>
+          <td><code>cn_a_trade_day_sensor</code> 不触发数据生产；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
         </tr>
         <tr>
           <td>Checks</td>
@@ -796,26 +796,19 @@
 
     <h3>6.2 后续开发建议顺序</h3>
     <pre><code>Next recommended slices:
-1. multi-sensor trigger split
-   - cn_a_trade_day_sensor only registers cn_a_trade_days
-   - add suspend_d_sensor for suspend_update_job
-   - add stock_basic_sensor for basic_update_job
-   - add stock_daily_sensor for stock_daily_update_job
-   - every sensor checks materialized + blocking checks passed, not just file existence
-
-2. stock_daily readiness gate
+1. stock_daily readiness gate
    - check silver_stock_basic freshness and blocking checks passed
    - check silver_stock_suspend_daily[trade_date] materialized and blocking checks passed
    - do not update suspend_d or stock_basic inside stock_daily job
 
-3. market_breadth_upstream_readiness
+2. market_breadth_upstream_readiness
    - check stock daily raw/silver materialized for trade_date
    - check stock daily raw/silver blocking checks passed
    - check suspend_d partition readiness
    - check silver_stock_basic freshness and blocking checks passed
    - check silver_trade_calendar readiness
 
-4. daily_market_breadth_job
+3. daily_market_breadth_job
    - selection only: gold_market_breadth_daily + gold checks
    - no stock_basic / calendar / quote selection
    - no Tushare calls
