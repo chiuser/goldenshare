@@ -316,7 +316,7 @@
     <div class="meta-grid">
       <div class="chip"><strong>文档类型</strong>资产 / Job / 触发拓扑图</div>
       <div class="chip"><strong>代码范围</strong><code>lake_console/orchestrator/src/orchestrator/defs</code></div>
-      <div class="chip"><strong>当前阶段</strong>Phase 2 已完成至 <code>Slice 2.2.1d</code></div>
+      <div class="chip"><strong>当前阶段</strong>Phase 2 已完成至 <code>Slice 2.2.1e</code></div>
       <div class="chip"><strong>核心原则</strong>基础资产单独更新，业务资产只读依赖，job 只做 selection，ready 必须 checks 全绿</div>
     </div>
   </header>
@@ -635,7 +635,7 @@
           <td><code>stock_daily_update_job</code></td>
           <td><code>stock_daily</code> raw/silver + checks</td>
           <td>单个交易日股票日线链路；只读依赖 basic 和 suspend。</td>
-          <td><code>cn_a_trade_day_sensor</code>、人工 partition run、backfill。</td>
+          <td><code>stock_daily_sensor</code>、人工 partition run、backfill。</td>
           <td>已完成拆分：不再 selection <code>suspend_d</code> 或 <code>stock_basic</code>。</td>
         </tr>
         <tr>
@@ -677,7 +677,7 @@
 
         <rect x="565" y="85" width="240" height="86" class="node node-sensor" />
         <text x="583" y="114" class="svg-label">cn_a_trade_day_sensor</text>
-        <text x="583" y="137" class="svg-note">目标：只注册交易日 partition</text>
+        <text x="583" y="137" class="svg-note">当前：只注册交易日 partition</text>
         <text x="583" y="156" class="svg-note">资产族 sensor 响应 missing + ready</text>
 
         <rect x="850" y="85" width="250" height="86" class="node node-job" />
@@ -796,24 +796,19 @@
 
     <h3>6.2 后续开发建议顺序</h3>
     <pre><code>Next recommended slices:
-1. stock_daily readiness gate
-   - check silver_stock_basic freshness and blocking checks passed
-   - check silver_stock_suspend_daily[trade_date] materialized and blocking checks passed
-   - do not update suspend_d or stock_basic inside stock_daily job
-
-2. market_breadth_upstream_readiness
+1. market_breadth_upstream_readiness
    - check stock daily raw/silver materialized for trade_date
    - check stock daily raw/silver blocking checks passed
    - check suspend_d partition readiness
    - check silver_stock_basic freshness and blocking checks passed
    - check silver_trade_calendar readiness
 
-3. daily_market_breadth_job
+2. daily_market_breadth_job
    - selection only: gold_market_breadth_daily + gold checks
    - no stock_basic / calendar / quote selection
    - no Tushare calls
 
-5. automation validation
+3. automation validation
    - first small sample
    - then limited date window
    - only after that consider broader automation</code></pre>
