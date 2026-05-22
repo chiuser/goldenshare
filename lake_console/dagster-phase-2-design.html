@@ -390,7 +390,7 @@
         <tr>
           <td>Declarative Automation</td>
           <td><a href="https://docs.dagster.io/guides/automate/declarative-automation">Declarative Automation</a>：<code>AutomationCondition.eager()</code> 和 <code>on_missing()</code> 可基于上游资产状态请求下游资产；官方说明上游 partition 未 materialized 或仍在运行时，下游不会被请求。</td>
-          <td>第二期优先用 declarative automation 表达“上游没好，下游先不请求；上游好了，再触发下游”。Slice 2.2.2 需要重点验证如何把 blocking checks 纳入 readiness 判断。</td>
+          <td>第二期优先用 declarative automation 表达“上游没好，下游先不请求；上游好了，再触发下游”。<a href="https://docs.dagster.io/guides/automate/declarative-automation/automation-condition-sensors">Automation condition sensors</a> 支持自定义 sensor target；market breadth 不使用全局默认 sensor，改用自定义 <code>market_breadth_automation_sensor</code>。</td>
         </tr>
         <tr>
           <td>Asset check 依赖</td>
@@ -514,7 +514,7 @@
         <tr>
           <td><code>Slice 2.2</code></td>
           <td>补齐自动发现/触发、基础资产 API 更新、下游 declarative automation 和自动化触发。</td>
-          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、当时触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充股票日线源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题。<code>Slice 2.2.1c</code> 已补齐 <code>calendar_update_job</code> / <code>basic_update_job</code> 的 Tushare API 写入，并重新梳理日频 job。<code>Slice 2.2.1d</code> 已把 <code>suspend_d</code> 从股票日线更新入口中拆出。<code>Slice 2.2.1e</code> 已完成 sensor 分拆：<code>cn_a_trade_day_sensor</code> 只注册 partition；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别触发对应资产族 job。<code>Slice 2.2.2b</code> 已补齐 <code>daily_market_breadth_job</code> 和 <code>gold_market_breadth_daily</code> 的 declarative automation 条件；后续只做小范围运行验收和可选 schedule 兜底。</td>
+          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、当时触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充股票日线源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题。<code>Slice 2.2.1c</code> 已补齐 <code>calendar_update_job</code> / <code>basic_update_job</code> 的 Tushare API 写入，并重新梳理日频 job。<code>Slice 2.2.1d</code> 已把 <code>suspend_d</code> 从股票日线更新入口中拆出。<code>Slice 2.2.1e</code> 已完成 sensor 分拆：<code>cn_a_trade_day_sensor</code> 只注册 partition；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别触发对应资产族 job。<code>Slice 2.2.2b</code> 已补齐 <code>daily_market_breadth_job</code> 和 <code>gold_market_breadth_daily</code> 的 declarative automation 条件；<code>Slice 2.2.2c</code> 已新增自定义 <code>market_breadth_automation_sensor</code>，不用全局默认 automation sensor 作为正式触发入口。</td>
           <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
           <td>当前阶段已能看到 <code>stock_daily_update_job</code>、<code>suspend_update_job</code>、基础更新 jobs，以及 <code>cn_a_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>。四个 sensor 已通过正式 instance preview：当前数据已就绪，因此均安全 skip；<code>cn_a_trade_day_sensor</code> 没有产生 run request。进入下游 readiness 前，必须继续把 blocking checks passed、stock_basic freshness 和 full snapshot 并发保护纳入技术方案。</td>
         </tr>
@@ -758,7 +758,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
           <td>9</td>
           <td>实现 <code>gold_market_breadth_daily</code> 的 declarative automation 和 <code>daily_market_breadth_job</code>，并验证下游自动化门禁。</td>
           <td>市场宽度的直接业务输入只有 <code>silver_stock_daily[trade_date]</code>；<code>suspend_d</code>、<code>stock_basic</code>、<code>trade_calendar</code> 是生成标准日线事实的上游前置，不在 market breadth 层重复汇总。</td>
-          <td>已完成 <code>Slice 2.2.2b</code>：<code>gold_market_breadth_daily</code> 使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>；新增 active <code>daily_market_breadth_job</code>，selection 只包含 <code>gold_market_breadth_daily</code> 和 gold checks，不新增 <code>market_breadth_upstream_readiness</code> asset。正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只 materialize <code>gold_market_breadth_daily</code>，6 个 gold checks 全部通过。</td>
+          <td>已完成 <code>Slice 2.2.2b</code>：<code>gold_market_breadth_daily</code> 使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>；新增 active <code>daily_market_breadth_job</code>，selection 只包含 <code>gold_market_breadth_daily</code> 和 gold checks，不新增 <code>market_breadth_upstream_readiness</code> asset。正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只 materialize <code>gold_market_breadth_daily</code>，6 个 gold checks 全部通过。最新短窗口只读评估发现：从空 cursor 评估 <code>gold_market_breadth_daily</code> 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此当前不得直接启动默认 automation sensor；历史缺失分区走 UI 分批 backfill，日常触发使用自定义 <code>market_breadth_automation_sensor</code>。</td>
         </tr>
         <tr>
           <td>10</td>
@@ -975,6 +975,19 @@ defs/assets/gold/market_breadth.py
       silver_stock_daily[trade_date] materialized
       silver_stock_daily blocking checks passed
 
+defs/sensors/market_breadth_automation_sensor.py
+  market_breadth_automation_sensor
+    status:
+      custom AutomationConditionSensorDefinition
+    target:
+      only gold_market_breadth_daily
+    default_status:
+      STOPPED
+    interval:
+      explicit and conservative
+    note:
+      replaces default_automation_condition_sensor for market breadth
+
 defs/sensors/suspend_d_sensor.py
   监听 cn_a_trade_days 中已注册但 suspend_d 未 ready 的分区
   目标 raw/silver 分区缺失时触发 suspend_update_job[trade_date]
@@ -1007,6 +1020,16 @@ defs/schedules/daily_market_breadth_schedule.py
       <strong>职责边界：</strong>
       下游业务 job 永远不主动补上游。<code>daily_market_breadth_job</code> 只消费已经准备好的 <code>silver_stock_daily</code>；
       如果前置条件不满足，优先等待 declarative automation 下一次评估，而不是在下游 job 内部调用 Tushare 或重跑股票日线。
+    </div>
+
+    <div class="callout">
+      <strong>Automation sensor 新口径：</strong>
+      不使用 Dagster 自动生成的全局 <code>default_automation_condition_sensor</code> 作为 market breadth 的正式触发入口。
+      已新增自定义 <code>market_breadth_automation_sensor</code>，使用 <code>AutomationConditionSensorDefinition</code>
+      只 target <code>gold_market_breadth_daily</code>。
+      这样能把扫描范围、默认状态、评估频率、run tags、metadata 和启用策略收敛到 market breadth 资产族内。
+      这不是为了解决历史 <code>2975</code> 个分区补齐问题；历史缺失分区仍通过 Dagster UI 分批 backfill。
+      自定义 automation sensor 只负责日常新增交易日后的 gold 自动生产。
     </div>
 
     <h3>5.1.1 新拍板：多 Sensor 触发模型</h3>
@@ -1193,11 +1216,12 @@ stock_daily_sensor
 12. stock_daily_update_job 执行 silver_stock_daily 相关 checks
 
 下游业务资产生产顺序：
-13. declarative automation 评估 gold_market_breadth_daily[trade_date] 是否缺失，以及直接上游 silver_stock_daily[trade_date] 的 blocking checks 是否通过
-14. 如果直接上游标准事实通过质量门禁，请求 gold_market_breadth_daily[trade_date] 或发起 daily_market_breadth_job[trade_date]
-15. breadth job materialize gold_market_breadth_daily[trade_date]
-16. breadth job 执行 gold_market_breadth_daily checks
-17. 如果前置条件不通过，不请求下游 run，等待下一次 automation evaluation 或上游 materialization 事件</code></pre>
+13. market_breadth_automation_sensor 只评估 gold_market_breadth_daily 这个目标资产族
+14. declarative automation 评估 gold_market_breadth_daily[trade_date] 是否缺失，以及直接上游 silver_stock_daily[trade_date] 的 blocking checks 是否通过
+15. 如果直接上游标准事实通过质量门禁，请求 gold_market_breadth_daily[trade_date] 或发起 daily_market_breadth_job[trade_date]
+16. breadth job materialize gold_market_breadth_daily[trade_date]
+17. breadth job 执行 gold_market_breadth_daily checks
+18. 如果前置条件不通过，不请求下游 run，等待下一次 automation evaluation 或上游 materialization 事件</code></pre>
 
     <div class="warning">
       <strong>门禁：</strong>
@@ -1227,8 +1251,19 @@ stock_daily_sensor
       materialization 与 checks 状态，均为 ready。
       <code>all_deps_blocking_checks_passed()</code> 只检查直接依赖，不会自动穿透间接上游；这正好符合当前 market breadth 口径：
       <code>gold_market_breadth_daily</code> 只把 <code>silver_stock_daily</code> 当作直接标准事实输入。
-      因此下一步应直接在 <code>gold_market_breadth_daily</code> 上使用 <code>missing()</code> +
+      因此当前直接在 <code>gold_market_breadth_daily</code> 上使用 <code>missing()</code> +
       <code>all_deps_blocking_checks_passed()</code>，不新增 <code>market_breadth_upstream_readiness</code>。
+    </div>
+
+    <div class="callout">
+      <strong>Slice 2.2.2c 设计口径：</strong>
+      当前代码已经声明 <code>gold_market_breadth_daily</code> 的 automation condition，并已新增自定义
+      <code>AutomationConditionSensorDefinition</code>。
+      <code>market_breadth_automation_sensor</code> 只 target <code>gold_market_breadth_daily</code>，
+      默认 <code>STOPPED</code>，评估间隔保守设置，并给自动触发 runs 打上 <code>asset_family=market_breadth</code>
+      等可观测标签。
+      <code>cn_a_trade_day_sensor</code> 已经负责交易日 partition 注册；非交易日没有 partition key，即使 automation sensor 评估也不会产生非交易日分区 run。
+      启用前必须先用 <code>dg.evaluate_automation_conditions(...)</code> 只读确认请求分区范围。
     </div>
 
     <div class="callout">
@@ -2251,7 +2286,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>自动化入口</td>
-          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>；sensor 默认 <code>STOPPED</code>，不默认乱跑大范围历史。<code>gold_market_breadth_daily</code> 已声明 declarative automation 条件；历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。</td>
+          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>、<code>market_breadth_automation_sensor</code>；sensor 默认 <code>STOPPED</code>，不默认乱跑大范围历史。<code>gold_market_breadth_daily</code> 已声明 declarative automation 条件；<code>market_breadth_automation_sensor</code> 已替代全局默认 automation sensor 作为 market breadth 正式触发入口。历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。</td>
         </tr>
         <tr>
           <td>单日验证</td>
@@ -2357,6 +2392,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
       <li><a href="https://docs.dagster.io/guides/automate/sensors">Dagster 官方文档：Sensors</a></li>
       <li><a href="https://docs.dagster.io/guides/automate/asset-sensors">Dagster 官方文档：Asset sensors</a></li>
       <li><a href="https://docs.dagster.io/guides/automate/declarative-automation">Dagster 官方文档：Declarative Automation</a></li>
+      <li><a href="https://docs.dagster.io/guides/automate/declarative-automation/automation-condition-sensors">Dagster 官方文档：Automation condition sensors</a></li>
       <li><a href="https://docs.dagster.io/api/dagster/asset-checks">Dagster API 文档：Asset checks</a></li>
       <li><code>docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md</code></li>
       <li><code>docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md</code></li>

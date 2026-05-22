@@ -388,7 +388,7 @@
         <tr>
           <td>Declarative Automation</td>
           <td><a href="https://docs.dagster.io/guides/automate/declarative-automation">Declarative Automation</a></td>
-          <td>优先用它表达“上游没好就不请求下游，上游好了再请求下游”。asset sensor 只作为通知或复杂后备。</td>
+          <td>优先用它表达“上游没好就不请求下游，上游好了再请求下游”。正式触发入口应通过 <a href="https://docs.dagster.io/guides/automate/declarative-automation/automation-condition-sensors">Automation condition sensors</a> 自定义 target；asset sensor 只作为通知或复杂后备。</td>
         </tr>
         <tr>
           <td>Asset job selection / concurrency</td>
@@ -1519,16 +1519,16 @@ Phase 2 completed through Slice 2.2.1e:
   24. Slice 2.2.1e: formal instance preview for all four sensors [completed: current data ready, all sensors skipped safely]
   25. Slice 2.2.2b: add gold_market_breadth_daily declarative automation and daily_market_breadth_job [completed]
   26. Slice 2.2.2b: validate daily_market_breadth_job[2026-05-21] in formal instance [completed: run_id 2b336cba-cf28-4a21-9d5b-93df9c9c21ee, only gold_market_breadth_daily materialized, all six gold checks passed]
+  27. Slice 2.2.2c: add market_breadth_automation_sensor as the dedicated automation condition sensor [completed]
 
 Next implementation stage:
-  1. validate declarative automation behavior only in a short controlled window, then stop automation sensor
-  2. run limited market breadth date-window acceptance after automation behavior is confirmed
+  1. use Dagster UI to backfill historical gold_market_breadth_daily partitions in controlled batches
+  2. run limited market breadth date-window acceptance after historical batches are reviewed
+  3. before enabling market_breadth_automation_sensor, run a read-only automation condition evaluation to confirm the requested partition range
 
 Later stages:
-  1. gold_market_breadth_daily automation evaluates direct silver_stock_daily readiness
-     - preferred implementation: declarative automation
-     - fallback only after discussion: asset sensor
-  2. daily_market_breadth_job[trade_date] runs only if silver_stock_daily is ready</code></pre>
+  1. market_breadth_automation_sensor remains STOPPED until the historical gap is under control
+  2. daily_market_breadth_job[trade_date] runs only if silver_stock_daily direct blocking checks are ready</code></pre>
   </section>
 
   <section>
@@ -1963,13 +1963,13 @@ stock daily assets:
         <tbody>
         <tr>
           <td>1</td>
-          <td>Declarative automation + upstream blocking checks。</td>
-          <td>当前 Dagster 版本验证通过，适用于 <code>gold_market_breadth_daily</code> 这种只依赖直接标准事实资产的下游生产。</td>
+          <td>自定义 <code>AutomationConditionSensorDefinition</code> + upstream blocking checks。</td>
+          <td>当前 Dagster 版本验证通过，适用于 <code>gold_market_breadth_daily</code> 这种只依赖直接标准事实资产的下游生产。正式入口不使用全局默认 sensor，而是使用 <code>market_breadth_automation_sensor</code>，只 target market breadth 资产族。</td>
         </tr>
         <tr>
           <td>2</td>
           <td>Asset sensor 后备，只负责查询 readiness 后发起下游 run 或返回 <code>SkipReason</code>。</td>
-          <td>只有 declarative automation 无法表达 checks readiness 时使用。</td>
+          <td>只有 declarative automation 无法表达 checks readiness，或必须强控单 tick 分区数量、复杂中文 skip reason、复杂业务窗口时使用。</td>
         </tr>
         <tr>
           <td>3</td>
@@ -1982,6 +1982,91 @@ stock daily assets:
 
     <div class="warning">
       如果必须使用 asset sensor 后备，它也不能主动补上游。它只能返回 <code>SkipReason</code> 或触发 <code>daily_market_breadth_job</code>。
+    </div>
+
+    <div class="warning">
+      <strong>短窗口 automation 验证结论：</strong>
+      <code>dagster sensor preview default_automation_condition_sensor</code> 不能像普通 sensor 一样预览，当前版本会返回
+      <code>NotImplementedError</code>；automation condition 的安全验证应使用 <code>dg.evaluate_automation_conditions(...)</code> 做只读评估。
+      2026-05-23 正式 instance 最新只读评估结果显示，从空 cursor 评估 <code>gold_market_breadth_daily</code> 会请求
+      <code>2975</code> 个缺失分区，范围从 <code>2014-01-02</code> 到 <code>2026-03-31</code>。
+      连续第二次 tick 模拟仍请求同一批缺失分区，因此在历史 gold 大量缺失时，不能短暂开启
+      <code>default_automation_condition_sensor</code> 做小窗口验证；否则可能触发大范围历史 runs。
+      后续不把默认 automation sensor 作为正式触发入口；历史缺失分区通过 UI 分批 backfill，日常触发改为自定义
+      <code>market_breadth_automation_sensor</code>。
+    </div>
+
+    <h3>12.3 自定义 AutomationConditionSensorDefinition 设计</h3>
+<pre><code>defs/sensors/market_breadth_automation_sensor.py
+  market_breadth_automation_sensor =
+    dg.AutomationConditionSensorDefinition(
+      name="market_breadth_automation_sensor",
+      target=dg.AssetSelection.assets(gold_market_breadth_daily),
+      default_status=dg.DefaultSensorStatus.STOPPED,
+      minimum_interval_seconds=600,
+      run_tags={
+        "trigger": "automation_condition",
+        "asset_family": "market_breadth",
+      },
+      description="Evaluate market breadth declarative automation only.",
+      emit_backfills=True,
+      use_user_code_server=False,
+    )</code></pre>
+
+    <div class="callout">
+      <strong>控制目标：</strong>
+      自定义 automation sensor 的目的不是解决历史 <code>2975</code> 个缺失分区。
+      历史分区补齐仍通过 Dagster UI 分批 backfill。
+      这个 sensor 的职责是把日常 market breadth 自动触发从全局默认 sensor 中收敛出来，明确控制 target、默认状态、评估频率、run tags、description 和启用策略。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>控制项</th>
+          <th>第一版口径</th>
+          <th>原因</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>target</td>
+          <td>只选择 <code>gold_market_breadth_daily</code>。</td>
+          <td>避免默认全局 sensor 扫描其它未来带 automation condition 的资产。</td>
+        </tr>
+        <tr>
+          <td>default_status</td>
+          <td><code>STOPPED</code>。</td>
+          <td>上线前必须先做只读评估；历史 gold 补齐前不得自动开启。</td>
+        </tr>
+        <tr>
+          <td>minimum_interval_seconds</td>
+          <td>建议第一版 <code>600</code> 秒。</td>
+          <td>market breadth 不需要高频评估；Dagster sensor interval 是最小间隔，不是精确 cron。</td>
+        </tr>
+        <tr>
+          <td>run_tags</td>
+          <td>至少包含 <code>trigger=automation_condition</code> 和 <code>asset_family=market_breadth</code>。</td>
+          <td>方便 Dagster UI 中区分人工 run、UI backfill 和 automation run。</td>
+        </tr>
+        <tr>
+          <td>非交易日</td>
+          <td>不在本 sensor 里重复判断自然日。</td>
+          <td><code>cn_a_trade_day_sensor</code> 控制 <code>cn_a_trade_days</code> partition 注册；非交易日没有 partition key，即使评估也不会生成非交易日分区。</td>
+        </tr>
+        <tr>
+          <td>历史缺失</td>
+          <td>不靠 sensor 限流解决。</td>
+          <td>历史补齐应由 UI backfill 分批执行；sensor 启用前必须用 <code>dg.evaluate_automation_conditions(...)</code> 确认请求范围。</td>
+        </tr>
+        <tr>
+          <td><code>use_user_code_server</code></td>
+          <td>第一版不启用。</td>
+          <td>当前只使用 Dagster 内置 condition；未来若写自定义业务 condition，例如最近 N 个 A 股交易日、业务冻结标记或复杂窗口，再单独验证。</td>
+        </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
@@ -2073,8 +2158,8 @@ stock daily assets:
         <tr>
           <td>2.2.2</td>
           <td>market breadth declarative automation 和下游自动化。</td>
-          <td><code>assets/market_breadth.py</code>、<code>jobs/daily_market_breadth.py</code>。</td>
-          <td>已实现：<code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游；通过后只跑 gold。后续只做小范围运行验收，不做长跨度回填。</td>
+          <td><code>assets/market_breadth.py</code>、<code>jobs/daily_market_breadth.py</code>、<code>sensors/market_breadth_automation_sensor.py</code>。</td>
+          <td>已实现 asset condition、gold job 和自定义 <code>AutomationConditionSensorDefinition</code>：<code>silver_stock_daily</code> 直接质量门禁未通过时不请求下游；通过后只跑 gold。<code>market_breadth_automation_sensor</code> 替代全局默认 automation sensor；历史 gold 缺失分区仍用 UI 分批 backfill，不做长跨度自动触发。</td>
         </tr>
         <tr>
           <td>2.2.3</td>
@@ -2138,7 +2223,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Automation</td>
-          <td>四个 sensors 默认 STOPPED；<code>cn_a_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>。</td>
+          <td>业务 sensors 默认 STOPPED；<code>cn_a_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用自定义 <code>market_breadth_automation_sensor</code>，不直接打开 <code>default_automation_condition_sensor</code>。</td>
         </tr>
         <tr>
           <td>全月数据</td>
@@ -2180,7 +2265,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
           <td>2.2.2</td>
           <td>已完成 <code>2.2.2a</code> 小样本验证；<code>2.2.2b</code> 已落地实现。</td>
-          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。<code>gold_market_breadth_daily</code> 已使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，<code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过后运行。单日运行已完成，关闭条件剩余：短窗口 automation 验证。</td>
+          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。<code>gold_market_breadth_daily</code> 已使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，<code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过后运行。单日运行已完成；短窗口只读验证已完成，但最新评估仍会请求 <code>2975</code> 个历史缺失分区，因此关闭条件改为：不直接启用默认 automation sensor，历史缺失分区走 UI 分批 backfill，并使用自定义 <code>market_breadth_automation_sensor</code> 作为正式触发入口。</td>
         </tr>
         <tr>
           <td><code>cn_a_trade_day_sensor</code> 已从 quote 调度职责中解耦。</td>
@@ -2239,6 +2324,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
       <li><a href="https://docs.dagster.io/api/dagster/asset-checks">Dagster API 文档：Asset checks</a></li>
       <li><a href="https://docs.dagster.io/guides/automate/sensors">Dagster 官方文档：Sensors</a></li>
       <li><a href="https://docs.dagster.io/guides/automate/declarative-automation">Dagster 官方文档：Declarative Automation</a></li>
+      <li><a href="https://docs.dagster.io/guides/automate/declarative-automation/automation-condition-sensors">Dagster 官方文档：Automation condition sensors</a></li>
       <li><code>lake_console/dagster-phase-2-design.html</code></li>
       <li><code>lake_console/dagster-phase-1-low-level-design.html</code></li>
       <li><code>lake_console/orchestrator/AGENTS.md</code></li>

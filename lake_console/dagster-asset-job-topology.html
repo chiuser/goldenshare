@@ -316,7 +316,7 @@
     <div class="meta-grid">
       <div class="chip"><strong>文档类型</strong>资产 / Job / 触发拓扑图</div>
       <div class="chip"><strong>代码范围</strong><code>lake_console/orchestrator/src/orchestrator/defs</code></div>
-      <div class="chip"><strong>当前阶段</strong>Phase 2 已完成至 <code>Slice 2.2.1e</code></div>
+      <div class="chip"><strong>当前阶段</strong>Phase 2 已完成至 <code>Slice 2.2.2c</code></div>
       <div class="chip"><strong>核心原则</strong>基础资产单独更新，业务资产只读依赖，job 只做 selection，ready 必须 checks 全绿</div>
     </div>
   </header>
@@ -328,6 +328,8 @@
       当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>。
       <code>gold_market_breadth_daily</code> asset、checks、declarative automation 和 <code>daily_market_breadth_job</code> 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
+      短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
+      当前已新增自定义 <code>market_breadth_automation_sensor</code>，只 target <code>gold_market_breadth_daily</code>，用来替代全局默认 automation sensor 作为 market breadth 的日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册交易日 partition，具体数据集更新由资产族 sensor 接管。
     </div>
@@ -465,8 +467,9 @@
     </div>
 
     <div class="warning">
-      注意：图中的 <code>gold automation</code> 是后续要加到 <code>gold_market_breadth_daily</code> 上的 declarative automation 条件，不是当前代码里已经存在的新 asset。
+      注意：图中的 <code>gold automation</code> 是当前已经声明在 <code>gold_market_breadth_daily</code> 上的 declarative automation 条件，不是一个新 asset。
       当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；这与市场宽度计算只消费标准日线事实的口径一致。
+      由于历史 gold 分区大量缺失，默认 automation sensor 暂不启用；历史补齐走 UI 分批 backfill，日常触发使用自定义 <code>market_breadth_automation_sensor</code>。
     </div>
   </section>
 
@@ -643,7 +646,7 @@
           <td><code>daily_market_breadth_job</code></td>
           <td>已实现；只选择 <code>gold_market_breadth_daily</code> + gold checks。</td>
           <td>市场宽度 gold。</td>
-          <td>目标由 <code>gold_market_breadth_daily</code> declarative automation 或人工 partition run 触发。</td>
+          <td>目标由自定义 <code>market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能写 quote/basic/calendar。</td>
         </tr>
         </tbody>
@@ -767,7 +770,7 @@
           <td>Gold readiness</td>
           <td><code>gold_market_breadth_daily</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
           <td><code>Slice 2.2.2a</code> 已验证：Dagster declarative automation 能判断直接上游 blocking checks，但不会穿透非直接上游。</td>
-          <td>已实现：不新增 readiness asset；直接在 <code>gold_market_breadth_daily</code> 上使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，等待直接上游 <code>silver_stock_daily</code> 通过质量门禁。</td>
+          <td>已实现：不新增 readiness asset；直接在 <code>gold_market_breadth_daily</code> 上使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，等待直接上游 <code>silver_stock_daily</code> 通过质量门禁。短窗口只读评估显示当前仍会请求 <code>2975</code> 个历史缺失分区，因此不直接开启默认全局 automation sensor；当前使用只 target market breadth 的自定义 automation sensor 作为正式入口。</td>
         </tr>
         </tbody>
       </table>
@@ -804,9 +807,9 @@
     <h3>6.2 后续开发建议顺序</h3>
 <pre><code>Next recommended slices:
 1. automation validation
-   - first small sample
-   - then limited date window
-   - only after that consider broader automation
+   - market_breadth_automation_sensor uses explicit target and STOPPED default
+   - evaluate requested partitions before turning it on
+   - do not use it for historical 2975-partition catch-up
 
 2. market breadth small-window acceptance
    - run only gold_market_breadth_daily + gold checks
