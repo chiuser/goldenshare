@@ -757,6 +757,12 @@
           <td>保持：<code>suspend_update_job</code> 负责写 suspend；<code>stock_daily_update_job</code> 只写 stock daily，并只读校验 suspend ready。</td>
         </tr>
         <tr>
+          <td>Stock daily automation</td>
+          <td>当前由 <code>stock_daily_sensor</code> 汇总交易日、stock basic freshness、suspend ready 和 Tushare source readiness。</td>
+          <td><code>missing()</code> + <code>all_deps_blocking_checks_passed()</code> 只能覆盖直接上游 checks，不能表达 raw 日线源站 ready，也不能自动表达 full snapshot freshness。</td>
+          <td>保持现状：不把股票日线链路替换为 declarative automation；后续只在 freshness/source readiness 显式资产化后再评估。</td>
+        </tr>
+        <tr>
           <td>Gold readiness</td>
           <td><code>gold_market_breadth_daily</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
           <td><code>Slice 2.2.2a</code> 已验证：Dagster declarative automation 能判断直接上游 blocking checks，但不会穿透非直接上游。</td>

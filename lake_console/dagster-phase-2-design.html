@@ -1228,6 +1228,20 @@ stock_daily_sensor
       必须先增加显式 <code>market_breadth_upstream_readiness</code> 门禁。
     </div>
 
+    <div class="callout">
+      <strong>对 stock daily 的补充结论：</strong>
+      现有股票日线链路不适合直接替换成 <code>missing()</code> +
+      <code>all_deps_blocking_checks_passed()</code>。
+      <code>raw_tushare_stock_daily</code> 没有上游 asset，它需要的是交易日 partition、16:00 后同日窗口和 Tushare
+      <code>daily(trade_date)</code> 源站 ready 判断，不是直接上游 checks 判断。
+      <code>silver_stock_daily</code> 虽然直接依赖 <code>raw_tushare_stock_daily</code>、
+      <code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code>，理论上可以借鉴直接上游 checks 门禁；
+      但 <code>silver_stock_basic</code> 还必须满足当日 freshness，这不是
+      <code>all_deps_blocking_checks_passed()</code> 自动表达的能力。
+      因此当前继续保留 <code>stock_daily_sensor</code>：它同时判断 stock basic freshness、suspend 分区 ready
+      和 Tushare 日线源站 ready，再触发 <code>stock_daily_update_job</code>。
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>

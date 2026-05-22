@@ -411,6 +411,15 @@
       失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
       同时确认该能力只看直接 asset deps；如果检查项挂在间接上游或共享基础资产上，必须通过显式 readiness gate 汇总，不能指望自动穿透。
     </div>
+
+    <div class="callout">
+      <strong>stock daily 不切换实现：</strong>
+      <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code> 不适合作为现有股票日线链路的完整替代。
+      <code>raw_tushare_stock_daily</code> 没有直接上游 asset，需要的是 Tushare 源站 ready 判断；
+      <code>silver_stock_daily</code> 可以受益于直接上游 checks 判断，但仍额外需要 <code>silver_stock_basic</code>
+      当日 freshness 和 <code>silver_stock_suspend_daily[trade_date]</code> 分区 ready。
+      所以当前实现继续使用 <code>stock_daily_sensor</code> 汇总这些门禁，不迁移到 declarative automation。
+    </div>
   </section>
 
   <section>
