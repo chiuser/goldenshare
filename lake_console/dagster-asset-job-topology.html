@@ -1,0 +1,821 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 资产与 Job 拓扑梳理</title>
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --paper: #fffaf1;
+      --paper-2: #fffdf8;
+      --ink: #17212b;
+      --muted: #64717f;
+      --line: #dccbb4;
+      --raw: #dff2ff;
+      --silver: #edf1f5;
+      --gold: #ffe4a3;
+      --job: #e7edff;
+      --sensor: #e5f4e9;
+      --check: #ddf1df;
+      --warn: #fff0c6;
+      --danger: #ffe0d8;
+      --accent: #9a5d12;
+      --accent-2: #266b74;
+      --code-bg: #fff7e6;
+      --code-ink: #1b2b3b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 9% -6%, rgba(255, 228, 163, 0.58), transparent 34rem),
+        radial-gradient(circle at 96% 10%, rgba(116, 173, 181, 0.18), transparent 32rem),
+        linear-gradient(180deg, #fbf6ed 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 38px 26px 80px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(74, 52, 28, 0.08);
+    }
+
+    header { padding: 34px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.6vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    a {
+      color: #7c4f0e;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: var(--code-ink);
+      background: rgba(35, 51, 72, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid #e2cdaa;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.56;
+    }
+
+    .subtitle {
+      max-width: 1020px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .chip,
+    .card,
+    .callout,
+    .warning {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-2);
+    }
+
+    .chip {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chip strong,
+    .card strong {
+      display: block;
+      color: var(--ink);
+      font-size: 16px;
+      margin-bottom: 4px;
+    }
+
+    .card { padding: 18px; }
+
+    .callout {
+      border-left: 5px solid var(--accent);
+      background: #fff1d4;
+      padding: 14px 16px;
+      color: #594017;
+    }
+
+    .warning {
+      border-left: 5px solid #c65a42;
+      background: var(--danger);
+      padding: 14px 16px;
+      color: #663422;
+    }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: white;
+      margin: 14px 0;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 960px;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid #eadfce;
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+      background: #f0dfc8;
+      color: #332414;
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      white-space: nowrap;
+      border-radius: 999px;
+      padding: 3px 8px;
+      margin: 2px 4px 2px 0;
+      color: #263340;
+      background: #eee4d1;
+      font-size: 12px;
+      font-weight: 700;
+    }
+
+    .raw { background: var(--raw); }
+    .silver { background: var(--silver); }
+    .gold { background: var(--gold); }
+    .job { background: var(--job); }
+    .sensor { background: var(--sensor); }
+    .check { background: var(--check); }
+    .warn { background: var(--warn); }
+
+    .diagram {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 20px;
+      background: #fffdf8;
+      margin: 16px 0;
+      padding: 12px;
+    }
+
+    svg {
+      display: block;
+      min-width: 1080px;
+      width: 100%;
+      height: auto;
+    }
+
+    .svg-title {
+      font-weight: 800;
+      fill: #17212b;
+      font-size: 18px;
+    }
+
+    .svg-small {
+      fill: #596978;
+      font-size: 12px;
+    }
+
+    .svg-label {
+      fill: #17212b;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .svg-note {
+      fill: #445464;
+      font-size: 12px;
+    }
+
+    .node {
+      stroke: #8b7a62;
+      stroke-width: 1.2;
+      rx: 14;
+    }
+
+    .node-raw { fill: var(--raw); }
+    .node-silver { fill: var(--silver); }
+    .node-gold { fill: var(--gold); }
+    .node-job { fill: var(--job); }
+    .node-sensor { fill: var(--sensor); }
+    .node-check { fill: var(--check); }
+    .node-warn { fill: var(--warn); }
+    .node-future {
+      fill: #ffffff;
+      stroke: #a78d66;
+      stroke-dasharray: 6 4;
+    }
+
+    .arrow {
+      stroke: #8b7048;
+      stroke-width: 2;
+      fill: none;
+      marker-end: url(#arrow);
+    }
+
+    .arrow-soft {
+      stroke: #8997a5;
+      stroke-width: 1.7;
+      fill: none;
+      stroke-dasharray: 5 4;
+      marker-end: url(#arrow-soft);
+    }
+
+    .rule-list {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    @media (max-width: 900px) {
+      main { padding: 22px 14px 56px; }
+      header,
+      section { border-radius: 18px; padding: 20px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 资产与 Job 拓扑梳理</h1>
+    <p class="subtitle">
+      本文用于把当前 Dagster orchestrator 中的 asset 层级、依赖关系、资产归属、job selection、更新频率和触发方式放到一张研发地图里。
+      它同时区分“当前代码事实”和“后续应遵守的研发模式”，避免业务 job 偷偷写共享基础资产，也避免 full snapshot 并发写入变成隐性坑。
+    </p>
+    <div class="meta-grid">
+      <div class="chip"><strong>文档类型</strong>资产 / Job / 触发拓扑图</div>
+      <div class="chip"><strong>代码范围</strong><code>lake_console/orchestrator/src/orchestrator/defs</code></div>
+      <div class="chip"><strong>当前阶段</strong>Phase 2 已完成至 <code>Slice 2.2.1d</code></div>
+      <div class="chip"><strong>核心原则</strong>基础资产单独更新，业务资产只读依赖，job 只做 selection</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 代码事实快照</h2>
+    <div class="callout">
+      当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>。
+      <code>gold_market_breadth_daily</code> asset 和 checks 已存在，但 <code>daily_market_breadth_job</code> 与 <code>market_breadth_upstream_readiness</code> 仍属于后续设计。
+      最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>模块</th>
+          <th>当前文件</th>
+          <th>职责</th>
+          <th>设计判断</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Assets</td>
+          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code></td>
+          <td>定义 raw / silver / gold 资产如何生成。</td>
+          <td>资产函数是真正生产数据的地方，Tushare 拉取、DuckDB 转换、Parquet 写入都在 asset/helper 中。</td>
+        </tr>
+        <tr>
+          <td>Jobs</td>
+          <td><code>defs/jobs/*.py</code></td>
+          <td>只定义 asset selection 和 checks selection。</td>
+          <td>符合门禁：job 文件不直接调用 Tushare、不写 SQL、不拼路径。</td>
+        </tr>
+        <tr>
+          <td>Sensor</td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code></td>
+          <td>注册已完成交易日 dynamic partitions，并在上游 ready 后触发 <code>stock_daily_update_job</code>。</td>
+          <td>短期触发 stock daily job；长期可迁移为只注册 partitions，由各资产族 automation 响应。</td>
+        </tr>
+        <tr>
+          <td>Checks</td>
+          <td><code>defs/checks/*.py</code></td>
+          <td>raw/silver/gold 的质量门禁和观测。</td>
+          <td>blocking checks 是下游 readiness 的组成部分；WARN checks 只做观测。</td>
+        </tr>
+        <tr>
+          <td>Resources</td>
+          <td><code>defs/resources.py</code></td>
+          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>。</td>
+          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 通过 <code>dg.EnvVar</code> 注入。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Asset 层级与依赖图</h2>
+    <p>
+      当前资产分为 <code>calendar</code>、<code>basic</code>、<code>quote</code>、<code>breadth</code> 四个 asset group。
+      真正的数据层级仍然只认 <code>raw</code>、<code>silver</code>、<code>gold</code>。
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1180 610" role="img" aria-label="Dagster asset dependency graph">
+        <defs>
+          <marker id="arrow" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#8b7048" />
+          </marker>
+          <marker id="arrow-soft" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#8997a5" />
+          </marker>
+        </defs>
+
+        <text x="24" y="34" class="svg-title">当前 Asset Graph：raw → silver → gold</text>
+        <text x="24" y="56" class="svg-small">实线是当前 asset deps；虚线是 check/readiness 或未来自动化关系。</text>
+
+        <rect x="30" y="90" width="245" height="78" class="node node-raw" />
+        <text x="48" y="118" class="svg-label">raw_tushare_trade_calendar</text>
+        <text x="48" y="141" class="svg-note">raw / calendar / full file</text>
+        <text x="48" y="159" class="svg-note">Tushare trade_cal</text>
+
+        <rect x="335" y="90" width="245" height="78" class="node node-silver" />
+        <text x="353" y="118" class="svg-label">silver_trade_calendar</text>
+        <text x="353" y="141" class="svg-note">silver / calendar / full file</text>
+        <text x="353" y="159" class="svg-note">交易日事实唯一口径</text>
+
+        <rect x="30" y="215" width="245" height="78" class="node node-raw" />
+        <text x="48" y="243" class="svg-label">raw_tushare_stock_basic</text>
+        <text x="48" y="266" class="svg-note">raw / basic / full file</text>
+        <text x="48" y="284" class="svg-note">Tushare stock_basic 全状态</text>
+
+        <rect x="335" y="215" width="245" height="78" class="node node-silver" />
+        <text x="353" y="243" class="svg-label">silver_stock_basic</text>
+        <text x="353" y="266" class="svg-note">silver / basic / full file</text>
+        <text x="353" y="284" class="svg-note">当前 list_status='L'</text>
+
+        <rect x="30" y="340" width="245" height="78" class="node node-raw" />
+        <text x="48" y="368" class="svg-label">raw_tushare_suspend_d</text>
+        <text x="48" y="391" class="svg-note">raw / quote / trade_date</text>
+        <text x="48" y="409" class="svg-note">Tushare suspend_d</text>
+
+        <rect x="335" y="340" width="245" height="78" class="node node-silver" />
+        <text x="353" y="368" class="svg-label">silver_stock_suspend_daily</text>
+        <text x="353" y="391" class="svg-note">silver / quote / trade_date</text>
+        <text x="353" y="409" class="svg-note">停复牌标准事实</text>
+
+        <rect x="30" y="465" width="245" height="78" class="node node-raw" />
+        <text x="48" y="493" class="svg-label">raw_tushare_stock_daily</text>
+        <text x="48" y="516" class="svg-note">raw / quote / trade_date</text>
+        <text x="48" y="534" class="svg-note">Tushare daily</text>
+
+        <rect x="650" y="465" width="245" height="78" class="node node-silver" />
+        <text x="668" y="493" class="svg-label">silver_stock_daily</text>
+        <text x="668" y="516" class="svg-note">silver / quote / trade_date</text>
+        <text x="668" y="534" class="svg-note">当前上市 + 上市日后过滤</text>
+
+        <rect x="650" y="340" width="245" height="78" class="node node-future" />
+        <text x="668" y="368" class="svg-label">market_breadth_readiness</text>
+        <text x="668" y="391" class="svg-note">future gate</text>
+        <text x="668" y="409" class="svg-note">materialized + checks passed</text>
+
+        <rect x="955" y="465" width="195" height="78" class="node node-gold" />
+        <text x="973" y="493" class="svg-label">gold_market_breadth_daily</text>
+        <text x="973" y="516" class="svg-note">gold / breadth / trade_date</text>
+        <text x="973" y="534" class="svg-note">涨跌分布</text>
+
+        <path class="arrow" d="M275 129 C300 129, 310 129, 335 129" />
+        <path class="arrow" d="M275 254 C300 254, 310 254, 335 254" />
+        <path class="arrow" d="M275 379 C300 379, 310 379, 335 379" />
+        <path class="arrow" d="M275 504 C420 504, 505 504, 650 504" />
+        <path class="arrow" d="M580 254 C620 254, 620 458, 650 490" />
+        <path class="arrow" d="M895 504 C920 504, 930 504, 955 504" />
+
+        <path class="arrow-soft" d="M580 129 C620 129, 615 345, 650 365" />
+        <path class="arrow-soft" d="M580 379 C610 379, 620 379, 650 379" />
+        <path class="arrow-soft" d="M772 418 C772 440, 772 445, 772 465" />
+        <path class="arrow-soft" d="M580 254 C650 254, 700 310, 735 340" />
+        <path class="arrow-soft" d="M580 129 C700 150, 750 265, 773 340" />
+      </svg>
+    </div>
+
+    <div class="warning">
+      注意：图中的 <code>market_breadth_readiness</code> 是后续要实现的 gate，不是当前代码里已经存在的 asset。
+      当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；更严格的上游 checks readiness 需要后续补齐。
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Asset 归属与更新频率</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>资产族</th>
+          <th>Asset</th>
+          <th>层级</th>
+          <th>分区</th>
+          <th>当前生产方式</th>
+          <th>目标更新频率</th>
+          <th>归属判断</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><span class="tag">calendar</span></td>
+          <td><code>raw_tushare_trade_calendar</code> → <code>silver_trade_calendar</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td>无分区，全量文件</td>
+          <td><code>calendar_update_job</code> 调 Tushare <code>trade_cal</code>，再标准化。</td>
+          <td>低频区间更新，未来可 schedule；不随每个 quote 分区反复跑。</td>
+          <td>交易日事实源，服务 sensor / dynamic partitions / downstream readiness。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">basic</span></td>
+          <td><code>raw_tushare_stock_basic</code> → <code>silver_stock_basic</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td>无分区，全量文件</td>
+          <td><code>basic_update_job</code> 调 Tushare <code>stock_basic</code>，silver 只保留当前 <code>L</code>。</td>
+          <td><strong>目标应为日更全量快照</strong>，且应在 quote / gold 之前完成。</td>
+          <td>共享基础资产；影响当日新股是否进入 <code>silver_stock_daily</code>。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">quote</span></td>
+          <td><code>raw_tushare_suspend_d</code> → <code>silver_stock_suspend_daily</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td><code>cn_a_trade_days</code></td>
+          <td>只由 <code>suspend_update_job</code> 写；股票日线更新入口只读等待该分区 ready。</td>
+          <td>交易日日频；允许空结果但必须写合法 schema。</td>
+          <td>stock_daily 生产前必须准备好的上游事实；后续对 stock_daily 只读。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">quote</span></td>
+          <td><code>raw_tushare_stock_daily</code> → <code>silver_stock_daily</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td><code>cn_a_trade_days</code></td>
+          <td><code>stock_daily_update_job</code> 调 Tushare <code>daily</code>，只写 stock daily raw/silver。</td>
+          <td>交易日日频；当天 16:00 后由 sensor 探测源站 ready。</td>
+          <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">breadth</span></td>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td><span class="tag gold">gold</span></td>
+          <td><code>cn_a_trade_days</code></td>
+          <td>当前 asset 已实现；正式业务 job / readiness 尚未实现。</td>
+          <td>跟随 quote 日频完成后生产。</td>
+          <td>业务结果资产；不拉取、不修复、不补齐上游。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Job 与 Asset Selection 关系</h2>
+    <p>
+      Job 的职责是“这次跑哪些资产”，不是“这些资产怎么生成”。因此同一个 asset 可以被不同 job 选中，但必须有清晰目的，不能让多个业务 job 随意写共享基础资产。
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1180 470" role="img" aria-label="Job and asset selection map">
+        <defs>
+          <marker id="arrow2" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#8b7048" />
+          </marker>
+        </defs>
+        <text x="24" y="34" class="svg-title">Job Selection Map：谁负责写，谁只读依赖</text>
+
+        <rect x="35" y="78" width="230" height="78" class="node node-job" />
+        <text x="53" y="107" class="svg-label">calendar_update_job</text>
+        <text x="53" y="130" class="svg-note">selection: calendar raw/silver</text>
+
+        <rect x="325" y="78" width="250" height="78" class="node node-silver" />
+        <text x="343" y="107" class="svg-label">trade_calendar assets</text>
+        <text x="343" y="130" class="svg-note">shared read-only prerequisite</text>
+
+        <rect x="35" y="185" width="230" height="78" class="node node-job" />
+        <text x="53" y="214" class="svg-label">basic_update_job</text>
+        <text x="53" y="237" class="svg-note">selection: stock_basic raw/silver</text>
+
+        <rect x="325" y="185" width="250" height="78" class="node node-silver" />
+        <text x="343" y="214" class="svg-label">stock_basic assets</text>
+        <text x="343" y="237" class="svg-note">daily full snapshot target</text>
+
+        <rect x="35" y="292" width="230" height="78" class="node node-job" />
+        <text x="53" y="321" class="svg-label">stock_daily_update_job</text>
+        <text x="53" y="344" class="svg-note">daily only; readonly upstreams</text>
+
+        <rect x="325" y="292" width="250" height="78" class="node node-silver" />
+        <text x="343" y="321" class="svg-label">quote daily assets</text>
+        <text x="343" y="344" class="svg-note">partitioned raw/silver</text>
+
+        <rect x="680" y="185" width="230" height="78" class="node node-future" />
+        <text x="698" y="214" class="svg-label">daily_market_breadth_job</text>
+        <text x="698" y="237" class="svg-note">future: only gold selection</text>
+
+        <rect x="975" y="185" width="170" height="78" class="node node-gold" />
+        <text x="993" y="214" class="svg-label">gold breadth</text>
+        <text x="993" y="237" class="svg-note">business output</text>
+
+        <path d="M265 117 C290 117, 300 117, 325 117" class="arrow" marker-end="url(#arrow2)" />
+        <path d="M265 224 C290 224, 300 224, 325 224" class="arrow" marker-end="url(#arrow2)" />
+        <path d="M265 331 C290 331, 300 331, 325 331" class="arrow" marker-end="url(#arrow2)" />
+        <path d="M910 224 C935 224, 950 224, 975 224" class="arrow" marker-end="url(#arrow2)" />
+
+        <path d="M575 224 C615 224, 635 224, 680 224" class="arrow-soft" />
+        <path d="M575 117 C650 130, 665 180, 680 207" class="arrow-soft" />
+        <path d="M575 331 C650 318, 665 270, 680 241" class="arrow-soft" />
+
+        <rect x="675" y="310" width="470" height="90" class="node node-warn" />
+        <text x="695" y="340" class="svg-label">禁止模式</text>
+        <text x="695" y="365" class="svg-note">后续 stock_daily_update_job 不得 selection suspend_d / stock_basic</text>
+        <text x="695" y="386" class="svg-note">gold job 也不得 selection 基础资产；都只能 readiness 只读依赖。</text>
+      </svg>
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Job</th>
+          <th>当前 selection</th>
+          <th>写入资产</th>
+          <th>触发方式</th>
+          <th>风险 / 待改造点</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>calendar_update_job</code></td>
+          <td><code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code> + checks</td>
+          <td>交易日历 raw/silver full file。</td>
+          <td>当前人工触发；未来低频 schedule。</td>
+          <td>不能被业务 gold job selection；sensor 只读它。</td>
+        </tr>
+        <tr>
+          <td><code>basic_update_job</code></td>
+          <td><code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code> + checks</td>
+          <td>stock_basic raw/silver full file。</td>
+          <td>当前人工触发；目标改为日更最先执行。</td>
+          <td>已改为日更 full snapshot 口径；并发限制作为后续独立设计项。</td>
+        </tr>
+        <tr>
+          <td><code>suspend_update_job</code></td>
+          <td><code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code> + checks</td>
+          <td>单个交易日停复牌 raw/silver。</td>
+          <td>人工单分区或未来自动化。</td>
+          <td>最新口径：它应成为 <code>suspend_d</code> 的唯一正式写入口；<code>stock_daily</code> 只读依赖它的结果。</td>
+        </tr>
+        <tr>
+          <td><code>stock_daily_update_job</code></td>
+          <td><code>stock_daily</code> raw/silver + checks</td>
+          <td>单个交易日股票日线链路；只读依赖 basic 和 suspend。</td>
+          <td><code>cn_a_trade_day_sensor</code>、人工 partition run、backfill。</td>
+          <td>已完成拆分：不再 selection <code>suspend_d</code> 或 <code>stock_basic</code>。</td>
+        </tr>
+        <tr>
+          <td><code>daily_market_breadth_job</code></td>
+          <td>未实现；目标只选择 <code>gold_market_breadth_daily</code> + gold checks。</td>
+          <td>市场宽度 gold。</td>
+          <td>目标由 readiness / declarative automation 触发。</td>
+          <td>不能补上游，不能拉 Tushare，不能写 quote/basic/calendar。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 触发方式与日内时序</h2>
+    <p>
+      第二期后续研发模式应把“基础资产准备”和“业务资产生产”分层：基础资产先更新并通过 checks；quote 分区再按交易日生产；gold 业务资产最后在 readiness 通过后生产。
+    </p>
+
+    <div class="diagram">
+      <svg viewBox="0 0 1180 390" role="img" aria-label="Daily trigger sequence">
+        <defs>
+          <marker id="arrow3" markerWidth="10" markerHeight="10" refX="8" refY="3" orient="auto" markerUnits="strokeWidth">
+            <path d="M0,0 L0,6 L9,3 z" fill="#8b7048" />
+          </marker>
+        </defs>
+        <text x="24" y="34" class="svg-title">推荐日内时序：先基础，后 quote，最后 gold</text>
+
+        <rect x="35" y="85" width="220" height="86" class="node node-job" />
+        <text x="53" y="114" class="svg-label">basic_update_job</text>
+        <text x="53" y="137" class="svg-note">日更 full snapshot</text>
+        <text x="53" y="156" class="svg-note">必须早于 quote / gold</text>
+
+        <rect x="300" y="85" width="220" height="86" class="node node-job" />
+        <text x="318" y="114" class="svg-label">calendar_update_job</text>
+        <text x="318" y="137" class="svg-note">低频区间更新</text>
+        <text x="318" y="156" class="svg-note">提供交易日事实</text>
+
+        <rect x="565" y="85" width="240" height="86" class="node node-sensor" />
+        <text x="583" y="114" class="svg-label">cn_a_trade_day_sensor</text>
+        <text x="583" y="137" class="svg-note">16:00 后探测 daily ready</text>
+        <text x="583" y="156" class="svg-note">注册 partition + 发 quote run</text>
+
+        <rect x="850" y="85" width="250" height="86" class="node node-job" />
+        <text x="868" y="114" class="svg-label">stock_daily_update_job</text>
+        <text x="868" y="137" class="svg-note">only stock daily</text>
+        <text x="868" y="156" class="svg-note">只读依赖 basic + suspend</text>
+
+        <rect x="565" y="245" width="240" height="76" class="node node-future" />
+        <text x="583" y="274" class="svg-label">market_breadth_readiness</text>
+        <text x="583" y="297" class="svg-note">上游 materialized + checks passed</text>
+
+        <rect x="850" y="245" width="250" height="76" class="node node-gold" />
+        <text x="868" y="274" class="svg-label">daily_market_breadth_job</text>
+        <text x="868" y="297" class="svg-note">future: only gold</text>
+
+        <path d="M255 128 C270 128, 282 128, 300 128" class="arrow" marker-end="url(#arrow3)" />
+        <path d="M520 128 C540 128, 545 128, 565 128" class="arrow" marker-end="url(#arrow3)" />
+        <path d="M805 128 C825 128, 830 128, 850 128" class="arrow" marker-end="url(#arrow3)" />
+        <path d="M975 171 C975 220, 820 235, 805 278" class="arrow-soft" />
+        <path d="M805 283 C825 283, 830 283, 850 283" class="arrow" marker-end="url(#arrow3)" />
+        <path d="M145 171 C230 250, 480 250, 565 278" class="arrow-soft" />
+        <path d="M410 171 C490 230, 530 250, 565 278" class="arrow-soft" />
+      </svg>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <strong>基础资产准备</strong>
+        <code>stock_basic</code> 是日更 full snapshot，<code>suspend_d</code> 是日频停复牌事实。二者都应在 <code>stock_daily</code> 生产前完成。
+      </div>
+      <div class="card">
+        <strong>Stock Daily 生产</strong>
+        后续 <code>stock_daily_update_job</code> 只写日线 raw/silver；它只读校验 <code>silver_stock_basic</code> 和 <code>silver_stock_suspend_daily</code>。
+      </div>
+      <div class="card">
+        <strong>业务 Gold 生产</strong>
+        <code>daily_market_breadth_job</code> 只生产 <code>gold_market_breadth_daily</code>，上游不 ready 就不请求。
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 现状问题与后续研发模式</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>观察点</th>
+          <th>当前状态</th>
+          <th>风险</th>
+          <th>建议模式</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>stock_basic</code> 更新频率</td>
+          <td><code>basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径。</td>
+          <td>新股上市日如果 stock_basic 未先更新，<code>silver_stock_daily</code> 可能静默过滤新股。</td>
+          <td>后续实现 freshness check 和当天生产前置门禁。</td>
+        </tr>
+        <tr>
+          <td>共享基础资产 selection</td>
+          <td>当前 <code>daily_market_breadth_job</code> 还未实现，正是定规矩的窗口。</td>
+          <td>如果业务 gold job 把基础资产加入 selection，会造成重复写、并发覆盖和职责混乱。</td>
+          <td>业务 job 只选择业务 gold；基础资产只读依赖，通过 readiness 校验。</td>
+        </tr>
+        <tr>
+          <td>Full snapshot 并发</td>
+          <td><code>stock_basic</code> 写单个 full parquet 文件。</td>
+          <td>两个 run 并发会重复请求 Tushare，最终文件由后完成者覆盖，metadata 也会混乱。</td>
+          <td>先保证唯一写入口，再评估 Dagster run queue / concurrency pool / tag concurrency 等正式机制。</td>
+        </tr>
+        <tr>
+          <td>Quote 资产多入口</td>
+          <td>已拆分：只有 <code>suspend_update_job</code> 选择 suspend assets。</td>
+          <td>如果未来重新把 suspend 放回 stock daily selection，会破坏原子 job 和只读依赖原则。</td>
+          <td>保持：<code>suspend_update_job</code> 负责写 suspend；<code>stock_daily_update_job</code> 只写 stock daily，并只读校验 suspend ready。</td>
+        </tr>
+        <tr>
+          <td>Gold readiness</td>
+          <td><code>gold_market_breadth_daily</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
+          <td>仅靠 asset deps 不足以表达 raw/silver blocking checks、stock_basic freshness、calendar readiness。</td>
+          <td>下一步专门实现 <code>market_breadth_upstream_readiness</code>，把质量门禁作为触发前置条件。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>6.1 推荐研发模式</h3>
+    <div class="rule-list">
+      <div class="card">
+        <strong>一个资产，一个清晰归属</strong>
+        每个 asset 必须归属到一个资产族：calendar、basic、quote、breadth。资产族决定它的 job 入口、更新频率和 checks 口径。
+      </div>
+      <div class="card">
+        <strong>共享基础资产单独写</strong>
+        <code>stock_basic</code>、<code>trade_calendar</code> 只能由自己的 update job 写。业务 job 只能只读依赖。
+      </div>
+      <div class="card">
+        <strong>Job 是入口，不是逻辑容器</strong>
+        job 文件只写 <code>define_asset_job</code> 和 selection。拉取、写文件、SQL、质量判断都不进 job。
+      </div>
+      <div class="card">
+        <strong>Checks 是边界，不是装饰</strong>
+        blocking check 定义能不能继续生产；WARN check 定义可观测差异。readiness 必须读 checks 状态。
+      </div>
+      <div class="card">
+        <strong>Sensor 只负责发现和触发</strong>
+        sensor 不写业务数据，不修上游，不生产 gold。它只判断什么时候可以提交 run request。
+      </div>
+      <div class="card">
+        <strong>并发保护作为保险丝</strong>
+        先通过 job selection 设计避免重复写；再用 Dagster concurrency 保护 full snapshot 写入。
+      </div>
+    </div>
+
+    <h3>6.2 后续开发建议顺序</h3>
+    <pre><code>Next recommended slices:
+1. stock_daily readiness gate
+   - check silver_stock_basic freshness and blocking checks passed
+   - check silver_stock_suspend_daily[trade_date] materialized and blocking checks passed
+   - do not update suspend_d or stock_basic inside stock_daily job
+
+2. market_breadth_upstream_readiness
+   - check quote assets materialized for trade_date
+   - check quote raw/silver blocking checks passed
+   - check silver_stock_basic freshness and blocking checks passed
+   - check silver_trade_calendar readiness
+
+3. daily_market_breadth_job
+   - selection only: gold_market_breadth_daily + gold checks
+   - no stock_basic / calendar / quote selection
+   - no Tushare calls
+
+4. automation validation
+   - first small sample
+   - then limited date window
+   - only after that consider broader automation</code></pre>
+  </section>
+</main>
+</body>
+</html>

@@ -294,7 +294,7 @@
         <tbody>
         <tr>
           <td>自动化链路</td>
-          <td>新增明确命名的 asset jobs：<code>suspend_update_job</code> 提供停复牌独立更新入口；<code>stock_quote_daily_update_job</code> 负责同一个 <code>trade_date</code> 的股票日线 quote 完整链路；<code>daily_market_breadth_job</code> 只负责 gold 生成和 gold checks。Job 代码只做 asset selection，不写 Tushare 拉取、parquet 写入、SQL 转换或质量判断。下游触发优先使用 declarative automation 表达 <code>market_breadth_upstream_readiness</code>；若 Slice 2.2.2 小样本验证不通过，必须停下来讨论 asset sensor 后备方案。</td>
+          <td>新增明确命名的 asset jobs：<code>suspend_update_job</code> 提供停复牌独立更新入口；<code>stock_daily_update_job</code> 只负责同一个 <code>trade_date</code> 的股票日线 raw/silver；<code>daily_market_breadth_job</code> 只负责 gold 生成和 gold checks。Job 代码只做 asset selection，不写 Tushare 拉取、parquet 写入、SQL 转换或质量判断。下游触发优先使用 declarative automation 表达 <code>market_breadth_upstream_readiness</code>；若 Slice 2.2.2 小样本验证不通过，必须停下来讨论 asset sensor 后备方案。</td>
         </tr>
         <tr>
           <td>历史 bootstrap</td>
@@ -302,7 +302,7 @@
         </tr>
         <tr>
           <td>数据拉取</td>
-          <td>第二期纳入 <code>TushareResource</code>。历史日期优先由旧湖 bootstrap 拉齐；bootstrap 之后的新日期由 <code>daily</code> 与 <code>suspend_d</code> 按已完成交易日拉取；<code>trade_cal</code> 与 <code>stock_basic</code> 按低频基础数据更新，不混进日频 quote / breadth 链路反复跑。</td>
+          <td>第二期纳入 <code>TushareResource</code>。历史日期优先由旧湖 bootstrap 拉齐；bootstrap 之后的新日期由 <code>daily</code> 与 <code>suspend_d</code> 按已完成交易日拉取。<code>trade_cal</code> 是低频区间基础资产；<code>stock_basic</code> 改按日更全量快照基础资产理解，因为新股上市当日会影响 <code>silver_stock_daily</code> 的股票池过滤和完整性检查。业务 gold job 只读消费这些基础资产，不把它们加入自己的 selection 里重复写。</td>
         </tr>
         <tr>
           <td>触发方式</td>
@@ -346,6 +346,16 @@
           <td>Asset job</td>
           <td><a href="https://docs.dagster.io/guides/build/jobs/asset-jobs">Dagster Asset jobs</a>：job 是 assets 执行和监控的主要单元，可手动、schedule 或 sensor 触发。</td>
           <td>第二期必须定义正式 asset job，不能继续只靠临时脚本或 UI 手点。</td>
+        </tr>
+        <tr>
+          <td>Job selection 边界</td>
+          <td><a href="https://docs.dagster.io/guides/build/jobs/asset-jobs">Dagster Asset jobs</a>：asset job 由 asset selection 定义，多个 jobs 可以选择重叠资产。</td>
+          <td>如果业务 job 把 <code>stock_basic</code> 加入 selection，它就会生产 <code>stock_basic</code>，不是只读依赖。共享基础资产必须有独立更新入口，下游业务 job 通过 readiness/checks 只读消费。</td>
+        </tr>
+        <tr>
+          <td>Concurrency</td>
+          <td><a href="https://docs.dagster.io/guides/operate/managing-concurrency">Managing concurrency</a>：Dagster 支持 run 级、tag 级以及 op/asset 级并发限制；具体能力和配置需以当前版本文档和本地验证为准。</td>
+          <td><code>stock_basic</code> 这类 full snapshot asset 写同一个全量文件，必须在方案中分析并发风险。设计上先避免多个 job 写同一资产，必要时再加 Dagster concurrency 作为保险丝。</td>
         </tr>
         <tr>
           <td>Partitioned job</td>
@@ -411,8 +421,8 @@
         </div>
         <div class="arrow">→</div>
         <div class="flow-box">
-          <span class="flow-title"><span class="tag auto">job</span> stock_quote_daily_update_job</span>
-          准备股票日线 quote 完整链路，不负责业务 gold。
+          <span class="flow-title"><span class="tag auto">job</span> stock_daily_update_job</span>
+          只写股票日线 raw/silver；只读等待 stock basic 与 suspend ready。
         </div>
       </div>
 
@@ -467,7 +477,7 @@
   <section>
     <h2>4. 第二期 Slice 拆分</h2>
     <p>
-      为避免一次贪多，第二期按三个 slice 推进。Slice 2.0 先用旧湖把历史 raw 拉齐到新湖；Slice 2.1 再让 Tushare 日频续更新和 quote 日频链路跑通；Slice 2.2 最后把低频基础数据更新、下游 readiness gate 和自动化触发收口。
+      为避免一次贪多，第二期按三个 slice 推进。Slice 2.0 先用旧湖把历史 raw 拉齐到新湖；Slice 2.1 再让 Tushare 日频续更新和 quote 日频链路跑通；Slice 2.2 最后把共享基础数据更新、下游 readiness gate 和自动化触发收口。
     </p>
 
     <div class="table-wrap">
@@ -498,10 +508,10 @@
         </tr>
         <tr>
           <td><code>Slice 2.2</code></td>
-          <td>补齐自动发现/触发、低频基础数据更新、下游 readiness gate 和自动化触发。</td>
-          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充 quote 源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题。<code>Slice 2.2.1c</code> 已补齐低频 <code>calendar_update_job</code> / <code>basic_update_job</code>，同时重新梳理 quote job：新增 <code>suspend_update_job</code> 和 <code>stock_quote_daily_update_job</code>，退役活跃 <code>quote_daily_job</code> 命名，避免后续入口含糊；之后再处理 <code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底。</td>
+          <td>补齐自动发现/触发、基础资产 API 更新、下游 readiness gate 和自动化触发。</td>
+          <td><code>Slice 2.2.1</code> 已实现 <code>cn_a_trade_day_sensor</code> 的第一版：发现已完成交易日、注册 partition key、触发 <code>quote_daily_job</code> run request。<code>Slice 2.2.1b</code> 已补充 quote 源站 readiness，解决 Tushare 当天数据发布时间不确定和当天交易日更新问题。<code>Slice 2.2.1c</code> 已补齐 <code>calendar_update_job</code> / <code>basic_update_job</code> 的 Tushare API 写入，并重新梳理 quote job。<code>Slice 2.2.1d</code> 已把 <code>suspend_d</code> 从股票日线更新入口中拆出：<code>suspend_update_job</code> 是停复牌唯一正式写入口，<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。完成这两项后，再处理 <code>daily_market_breadth_job</code>、readiness gate 条件（优先 declarative automation）、可选 schedule 兜底。</td>
           <td>不引入更多业务数据集，不做大范围历史回填自动开启。</td>
-          <td>当前阶段已能看到 <code>stock_quote_daily_update_job</code>、低频基础更新 jobs 和 <code>cn_a_trade_day_sensor</code>；sensor 安全边界、quote source readiness、sensor 触发 quote run 的端到端成功均已验证。下一步进入下游 readiness 自动化。</td>
+          <td>当前阶段已能看到 <code>stock_daily_update_job</code>、<code>suspend_update_job</code>、基础更新 jobs 和 <code>cn_a_trade_day_sensor</code>；sensor 安全边界、quote source readiness、sensor 触发 quote run 的端到端成功均已验证。进入下游 readiness 前，必须继续把 blocking checks passed、stock_basic freshness 和 full snapshot 并发保护纳入技术方案。</td>
         </tr>
         </tbody>
       </table>
@@ -530,14 +540,14 @@
           <td>提供停复牌独立更新入口；只选择 <code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code> 和对应 checks，不拉日线、不生产 gold。</td>
         </tr>
         <tr>
-          <td><code>stock_quote_daily_update_job</code></td>
-          <td><code>stock_daily</code> + <code>suspend_d</code> 组成的股票日线 quote 完整链路。</td>
-          <td>作为 sensor 和人工单日更新的正式入口；替代活跃 <code>quote_daily_job</code>，避免“quote”范围过宽和“daily”语义含糊。</td>
+          <td><code>stock_daily_update_job</code></td>
+          <td><code>stock_daily</code> 股票日线资产族。</td>
+          <td>只选择 <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code> 和对应 checks；只读依赖 <code>silver_stock_suspend_daily[trade_date]</code> 与 <code>silver_stock_basic</code>。</td>
         </tr>
         <tr>
           <td><code>basic_update_job</code></td>
-          <td><code>stock_basic</code> 这类低频基础快照资产。</td>
-          <td>不跟 quote 日频 run 反复跑；下游只检查它是否已就绪。</td>
+          <td><code>stock_basic</code> 日更全量快照基础资产。</td>
+          <td>不按 <code>trade_date</code> 分区，但必须在日线 quote 和业务 gold 之前保持足够新；下游只检查它是否已就绪，不在自己的 selection 中重复写。</td>
         </tr>
         <tr>
           <td><code>calendar_update_job</code></td>
@@ -556,6 +566,23 @@
     <p>
       下游 readiness 必须从下游视角定义依赖集合。
       例如 <code>market_breadth_upstream_readiness</code> 只等待 market breadth 真正需要的 quote 日频资产、stock basic 和交易日历，不等待无关的资金流、涨停、因子等其它资产族。
+    </p>
+
+    <h3>4.1.1 共享基础资产只读依赖和并发门禁</h3>
+    <div class="warning">
+      <strong>新门禁：</strong>
+      业务 gold job 依赖共享基础资产时，首先校验上游是否满足条件，其次只能只读消费。
+      禁止为了方便把 <code>stock_basic</code>、<code>trade_calendar</code> 这类基础资产加入业务 job selection 里重复写。
+    </div>
+    <p>
+      <code>stock_basic</code> 虽然是 full snapshot，不按 <code>trade_date</code> 分区，但它不是“偶尔更新一下就行”的低频资产。
+      新股上市当天，Tushare <code>daily</code> 可能已经出现该股票日线；如果 <code>silver_stock_basic</code> 没有先更新，<code>silver_stock_daily</code> 会把这只股票过滤掉，完整性检查也可能因为股票池本身缺失而看不到问题。
+      因此 <code>stock_basic</code> 后续要按“日更全量快照基础资产”设计 freshness，并在 quote / gold 生产前完成。
+      <code>suspend_d</code> 同样要从股票日线生产中拆出来：它是 <code>stock_daily</code> 生产前必须准备好的日频上游事实，<code>stock_daily</code> 只能只读校验它是否 ready，不应在自己的 job selection 中顺手更新。
+    </p>
+    <p>
+      对 full snapshot asset 还必须考虑并发。两个 job 同时写 <code>raw_tushare_stock_basic</code> / <code>silver_stock_basic</code> 时，原子替换只能避免半截文件，不能避免重复请求、最后完成者覆盖最终文件、metadata 观测混乱。
+      后续方案必须列清是否使用 Dagster run queue limits、concurrency pools、run executor limits 或 run tag concurrency limits 等并发机制；并发限制只是保险丝，不能替代“只有一个正式更新入口”的设计纪律。
     </p>
 
     <h3>4.2 市场宽度上游 job 分组</h3>
@@ -583,14 +610,14 @@
         <tr>
           <td><code>basic_update_job</code></td>
           <td><code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code></td>
-          <td>低频全量快照，不按 <code>trade_date</code> 分区。</td>
-          <td>raw 保留 Tushare 全状态主数据；silver 只输出当前 <code>list_status='L'</code> 股票池，供 <code>silver_stock_daily</code> 标准事实过滤和完整性观测使用。</td>
+          <td>日更全量快照，不按 <code>trade_date</code> 分区。</td>
+          <td>raw 保留 Tushare 全状态主数据；silver 只输出当前 <code>list_status='L'</code> 股票池，供 <code>silver_stock_daily</code> 标准事实过滤和完整性观测使用。该 job 是 stock basic 的正式写入口，业务 gold job 只读依赖它。</td>
         </tr>
         <tr>
-          <td><code>stock_quote_daily_update_job</code></td>
-          <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code></td>
+          <td><code>stock_daily_update_job</code></td>
+          <td><code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code></td>
           <td>日频，按 <code>cn_a_trade_days</code> 的 <code>trade_date</code> partition 运行。</td>
-          <td>维护市场宽度需要的股票日线 quote 完整链路；不包含资金流、涨停、因子等无关资产。Job 文件只做 selection，Tushare 拉取仍在 assets 中。</td>
+          <td>维护市场宽度需要的股票日线标准事实；只读依赖 <code>silver_stock_basic</code> 和 <code>silver_stock_suspend_daily[trade_date]</code>。Job 文件只做 selection，Tushare 拉取仍在 assets 中。</td>
         </tr>
         </tbody>
       </table>
@@ -608,10 +635,9 @@ suspend_update_job[trade_date]
   ↓
 silver_stock_suspend_daily[trade_date]
 
-stock_quote_daily_update_job[trade_date]
+stock_daily_update_job[trade_date]
   ↓
 silver_stock_daily[trade_date]
-silver_stock_suspend_daily[trade_date]
 
 market_breadth_upstream_readiness 通过
   ↓
@@ -621,7 +647,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
 
     <div class="warning">
       <code>daily_market_breadth_job</code> 不拉取、不修复、不补齐任何上游资产。
-      它只在 <code>calendar_update_job</code>、<code>basic_update_job</code> 和 <code>stock_quote_daily_update_job[trade_date]</code> 对应的前置条件通过后，生产 <code>gold_market_breadth_daily[trade_date]</code>。
+      它只在 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job[trade_date]</code> 和 <code>stock_daily_update_job[trade_date]</code> 对应的前置条件通过后，生产 <code>gold_market_breadth_daily[trade_date]</code>。
     </div>
 
     <h3>4.3 开发顺序和前后依赖</h3>
@@ -692,14 +718,26 @@ gold_market_breadth_daily[trade_date]</code></pre>
         <tr>
           <td>8</td>
           <td>实现 <code>Slice 2.2.1b</code>：quote 源站 readiness 和当天交易日生产。</td>
-          <td>Tushare 当日日线发布时间不精确，不能只靠交易日历判断今天能跑。今天是交易日时，16:00 前不探测；16:00 后约每 10 分钟探测一次 <code>daily(trade_date=YYYYMMDD)</code>。只有 <code>daily</code> 已 ready，才允许注册今天 partition 并触发 <code>stock_quote_daily_update_job[today]</code>。</td>
-          <td>已完成：源站未 ready 时只返回中文跳过原因，不发 <code>RunRequest</code>，不写 raw，不占用 <code>run_key</code>；源站 ready 后才允许注册今天 partition 并触发当天 <code>quote_daily_job</code>。第一版 readiness 只以 <code>daily</code> 为准，<code>suspend_d</code> 不参与 ready 判断。</td>
+          <td>Tushare 当日日线发布时间不精确，不能只靠交易日历判断今天能跑。今天是交易日时，16:00 前不探测；16:00 后约每 10 分钟探测一次 <code>daily(trade_date=YYYYMMDD)</code>。只有 <code>daily</code> 已 ready，且 stock basic 与 suspend 上游已 ready，才允许注册今天 partition 并触发 <code>stock_daily_update_job[today]</code>。</td>
+          <td>已完成：源站未 ready 时只返回中文跳过原因，不发 <code>RunRequest</code>，不写 raw，不占用 <code>run_key</code>；源站 ready 后才允许注册今天 partition。早期验证触发 <code>quote_daily_job</code>，<code>Slice 2.2.1d</code> 后正式触发目标改为 <code>stock_daily_update_job</code>。第一版 readiness 只以 <code>daily</code> 为准，<code>suspend_d</code> 不参与源站 ready 判断。</td>
         </tr>
         <tr>
           <td>8.5</td>
-          <td>实现 <code>Slice 2.2.1c</code>：低频基础资产 API 更新，并重整 quote job 入口。</td>
-          <td>当前 <code>quote_daily_job</code> 已验证链路可行，但命名和职责边界不够精确。进入下游 readiness 前，必须先把 job 层梳理清楚：job 只做入口 selection，不写具体拉取；<code>calendar_update_job</code> / <code>basic_update_job</code> 独立维护共享基础资产；<code>suspend_update_job</code> 提供停复牌独立入口；<code>stock_quote_daily_update_job</code> 作为股票日线 quote 完整链路入口。</td>
-          <td>已完成：低频基础 raw asset 已切到 Tushare API；新增 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_quote_daily_update_job</code>；退役活跃 <code>quote_daily_job</code> 命名但保留历史 run/event；sensor 触发目标改为 <code>stock_quote_daily_update_job</code>；所有 job 文件只包含 asset/check selection。</td>
+          <td>实现 <code>Slice 2.2.1c</code>：基础资产 API 更新，并重整 quote job 入口。</td>
+          <td>此前 <code>quote_daily_job</code> 已验证链路可行，但命名和职责边界不够精确。进入下游 readiness 前，必须先把 job 层梳理清楚：job 只做入口 selection，不写具体拉取；<code>calendar_update_job</code> / <code>basic_update_job</code> 独立维护共享基础资产；<code>suspend_update_job</code> 提供停复牌独立入口；<code>stock_quote_daily_update_job</code> 只作为过渡期股票日线 quote 组合入口。</td>
+          <td>已完成：基础 raw asset 已切到 Tushare API；新增 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、过渡期 <code>stock_quote_daily_update_job</code>；退役活跃 <code>quote_daily_job</code> 命名但保留历史 run/event；所有 job 文件只包含 asset/check selection。</td>
+        </tr>
+        <tr>
+          <td>8.6</td>
+          <td>补齐共享基础资产日更和并发门禁设计。</td>
+          <td><code>stock_basic</code> 会影响当日新股日线是否能进入 <code>silver_stock_daily</code>，不能继续按“低频”理解。下游业务 job 只能只读依赖 <code>silver_stock_basic</code>，不把它加入自己的 selection；full snapshot 写入需要评估 Dagster concurrency。</td>
+          <td>已完成代码口径：<code>basic_update_job</code> 和 materialization metadata 已改成日更全量快照；并发限制方案保留为后续独立设计项。</td>
+        </tr>
+        <tr>
+          <td>8.7</td>
+          <td>拆分 <code>suspend_d</code> 和 <code>stock_daily</code> 更新入口。</td>
+          <td><code>suspend_d</code> 是 <code>stock_daily</code> 生产前必须准备好的上游事实，不应由股票日线更新 job 顺手写入。<code>suspend_update_job</code> 负责写停复牌；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读校验 <code>silver_stock_suspend_daily[trade_date]</code> 与 <code>silver_stock_basic</code> ready。</td>
+          <td>已完成：<code>stock_daily_update_job</code> 只 selection 日线 raw/silver；sensor 触发目标改为 <code>stock_daily_update_job</code>；缺 basic 或 suspend 时只 skipped，不主动补上游。正式 instance 已验证 <code>stock_daily_update_job[2026-05-22]</code> 成功，run id 为 <code>67553f3b-0961-44d2-be31-3e24dd71f954</code>，只 materialize <code>raw_tushare_stock_daily</code> 与 <code>silver_stock_daily</code>。</td>
         </tr>
         <tr>
           <td>9</td>
@@ -725,7 +763,8 @@ gold_market_breadth_daily[trade_date]</code></pre>
       同一个 selection job 再运行时会跟随 asset 当前实现变成 API 拉取，不再代表旧湖 bootstrap。
       因此必须先把历史迁移债务尽量还完，再切换日常生产实现。
       该窗口已经关闭，活跃 <code>bootstrap_quote_daily_job</code> 已退役。<code>Slice 2.1</code> 和 <code>Slice 2.2.1b</code> 已用 <code>quote_daily_job</code> 验证日常 quote 链路；
-      <code>Slice 2.2.1c</code> 后，活跃入口应收敛到命名更清晰的 <code>stock_quote_daily_update_job</code>。
+      <code>Slice 2.2.1c</code> 后，活跃入口曾收敛到命名更清晰的 <code>stock_quote_daily_update_job</code>；
+      <code>Slice 2.2.1d</code> 后进一步拆分为 <code>suspend_update_job</code> 和 <code>stock_daily_update_job</code>。
     </p>
     <p>
       当前已知事实也必须写进门禁：旧湖 <code>raw_tushare/daily</code> 覆盖范围大于 <code>raw_tushare/suspend_d</code>。
@@ -817,21 +856,23 @@ gold_market_breadth_daily[trade_date]</code></pre>
       <code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、
       <code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code> 四个 quote assets 均已 materialized，
       <code>22</code> 个 asset checks 全部通过。
-      <code>Slice 2.2.1c</code> 已完成代码重整：低频 <code>raw_tushare_trade_calendar</code>
+      <code>Slice 2.2.1c</code> 已完成代码重整：<code>raw_tushare_trade_calendar</code>
       与 <code>raw_tushare_stock_basic</code> 改为 Tushare API 写入；
-      活跃 quote 入口从 <code>quote_daily_job</code> 收敛为
-      <code>stock_quote_daily_update_job</code>；<code>cn_a_trade_day_sensor</code>
-      后续触发目标也已改为 <code>stock_quote_daily_update_job</code>。
+      活跃 quote 入口从 <code>quote_daily_job</code> 先收敛为
+      <code>stock_quote_daily_update_job</code>，随后在 <code>Slice 2.2.1d</code> 拆分为
+      <code>suspend_update_job</code> 和 <code>stock_daily_update_job</code>；<code>cn_a_trade_day_sensor</code>
+      后续触发目标也已改为 <code>stock_daily_update_job</code>。
+      新增门禁要求：<code>stock_basic</code> 后续按日更全量快照基础资产管理，业务 gold job 只读依赖，不得重复写入 selection。
     </div>
 
     <div class="callout">
       <strong>下一阶段评估：</strong>
       quote 日频自动发现、源站 readiness、dynamic partition 注册和股票日线 quote 生产链路已经打通。
       <code>calendar_update_job</code> 维护 <code>silver_trade_calendar</code>，
-      <code>basic_update_job</code> 维护 <code>silver_stock_basic</code>，
+      <code>basic_update_job</code> 维护日更全量快照 <code>silver_stock_basic</code>，
       <code>suspend_update_job</code> 提供停复牌独立更新入口，
-      <code>stock_quote_daily_update_job</code> 替代活跃 <code>quote_daily_job</code> 作为股票日线 quote 完整链路入口。
-      这些入口稳定后，下一步进入 <code>market_breadth_upstream_readiness</code>
+      <code>stock_daily_update_job</code> 替代活跃 <code>stock_quote_daily_update_job</code> 作为股票日线更新入口；它只读等待 stock basic 与 suspend ready。
+      这些入口稳定后，需要先把共享基础资产 readiness 和 full snapshot 并发保护补进下游方案，再进入 <code>market_breadth_upstream_readiness</code>
       和 <code>daily_market_breadth_job</code> 的下游自动化设计。
     </div>
 
@@ -842,8 +883,8 @@ gold_market_breadth_daily[trade_date]</code></pre>
       本轮 <code>2026-05-21</code> 由 <code>cn_a_trade_day_sensor</code> 触发的
       <code>quote_daily_job</code> 已成功执行，并完成 raw/silver materialization 与全部 checks。
       因此可以认为：sensor 发现交易日、注册 partition、提交 run request、触发 quote 生产的最小闭环已通过。
-      <code>Slice 2.2.1c</code> 后，同类验收目标统一切换为
-      <code>stock_quote_daily_update_job</code>。
+      <code>Slice 2.2.1d</code> 后，同类验收目标统一切换为
+      <code>stock_daily_update_job</code>。
     </div>
 
     <div class="warning">
@@ -864,17 +905,15 @@ gold_market_breadth_daily[trade_date]</code></pre>
     partitions_def:
       cn_a_trade_days
 
-defs/jobs/stock_quote_daily_update.py
-  stock_quote_daily_update_job
+defs/jobs/stock_daily_update.py
+  stock_daily_update_job
     selection:
-      raw_tushare_suspend_d
-      silver_stock_suspend_daily
       raw_tushare_stock_daily
       silver_stock_daily
     partitions_def:
       cn_a_trade_days
     note:
-      this replaces active quote_daily_job after Slice 2.2.1c validation
+      Slice 2.2.1d 后替代活跃 stock_quote_daily_update_job
 
 defs/jobs/basic_update.py
   basic_update_job
@@ -905,8 +944,8 @@ defs/sensors/cn_a_trade_day_sensor.py
     2. 读取 silver_trade_calendar 中 open=true、trade_date >= 2014-01-01 且 trade_date <= latest_completed_trade_date 的日期
     3. 读取四个 quote 资产的 materialized partitions，判断哪些 eligible key 还没有完成 quote raw/silver 全链路
     4. 对本 tick 选中的 pending key，如尚未注册到 cn_a_trade_days，使用 cn_a_trade_days.build_add_request(...) 注册 dynamic partitions
-    5. Slice 2.2.1c 后，为本 tick 选中的 pending key 生成 stock_quote_daily_update_job 的 RunRequest(partition_key=key)
-    6. run_key 使用 stock_quote_daily:{trade_date}，避免重复发起
+    5. Slice 2.2.1d 后，为本 tick 选中的 pending key 生成 stock_daily_update_job 的 RunRequest(partition_key=key)
+    6. run_key 使用 stock_daily_update:{trade_date}，避免重复发起
     7. 第一版 MAX_RUN_REQUESTS_PER_TICK = 2，避免一次 tick 误触发大批量 runs
 
 defs/assets/gold/market_breadth.py
@@ -935,7 +974,7 @@ defs/schedules/daily_market_breadth_schedule.py
 
     <div class="warning">
       <strong>职责边界：</strong>
-      下游业务 job 永远不主动补上游。<code>daily_market_breadth_job</code> 只消费已经准备好的 quote 日频资产和低频基础资产；
+      下游业务 job 永远不主动补上游。<code>daily_market_breadth_job</code> 只消费已经准备好的 quote 日频资产和共享基础资产；
       如果前置条件不满足，优先等待 declarative automation 下一次评估，而不是在下游 job 内部调用 Tushare 或重跑 quote 日频。
     </div>
 
@@ -984,7 +1023,7 @@ defs/schedules/daily_market_breadth_schedule.py
       <code>calendar readiness</code> 判断某天是否是交易日；
       <code>quote source readiness</code> 判断 Tushare 的 <code>daily(trade_date=YYYYMMDD)</code>
       是否已经可用。
-      只有交易日成立且源站 ready，sensor 才允许注册/触发当天股票日线 quote job；<code>Slice 2.2.1c</code> 后目标为 <code>stock_quote_daily_update_job</code>。
+      只有交易日成立、源站 ready 且上游基础资产 ready，sensor 才允许注册/触发当天股票日线 job；<code>Slice 2.2.1d</code> 后目标为 <code>stock_daily_update_job</code>。
       第一版不使用 <code>suspend_d</code> 判断 ready，因为 <code>suspend_d</code> 在某个交易日合法情况下可以返回 0 行，
       无法单独区分“确实没有停复牌记录”和“源站尚未更新”。
     </p>
@@ -1010,7 +1049,7 @@ defs/schedules/daily_market_breadth_schedule.py
     <div class="warning">
       <strong>run_key 去重坑：</strong>
       历史 <code>quote_daily_job</code> 入口曾使用 <code>run_key=quote_daily:{trade_date}</code> 防重复；
-      <code>Slice 2.2.1c</code> 后正式入口改为 <code>run_key=stock_quote_daily:{trade_date}</code>。
+      <code>Slice 2.2.1d</code> 后正式入口改为 <code>run_key=stock_daily_update:{trade_date}</code>。
       这个机制会按 run key 去重，
       不区分前一次 run 最终是成功还是失败。本次 <code>2026-05-18</code>、<code>2026-05-19</code>
       的 run 已由 sensor 提交过，但因多 daemon 冲突失败；再次启动 sensor 时，Dagster 正确跳过了这两个
@@ -1070,14 +1109,12 @@ defs/schedules/daily_market_breadth_schedule.py
 2. 计算 latest_completed_trade_date
 3. 从 silver_trade_calendar 找到 eligible trade_date
 4. sensor 注册 eligible trade_date 到 cn_a_trade_days
-5. Slice 2.2.1c 后，sensor 发起 stock_quote_daily_update_job[trade_date]
-6. stock_quote_daily_update_job materialize raw_tushare_suspend_d[trade_date]：asset 内调用 Tushare suspend_d 并写 raw
-7. stock_quote_daily_update_job 执行 raw_suspend_d checks；失败则阻断 silver_stock_suspend_daily
-8. stock_quote_daily_update_job materialize silver_stock_suspend_daily[trade_date]
-9. stock_quote_daily_update_job materialize raw_tushare_stock_daily[trade_date]：asset 内调用 Tushare daily 并写 raw
-10. stock_quote_daily_update_job 执行 raw_stock_daily checks；失败则阻断 silver_stock_daily
-11. stock_quote_daily_update_job materialize silver_stock_daily[trade_date]
-12. stock_quote_daily_update_job 执行 silver_stock_daily / silver_stock_suspend_daily 相关 checks
+5. Slice 2.2.1d 后，sensor 先确认 silver_stock_basic 和 silver_stock_suspend_daily[trade_date] 已 ready
+6. sensor 发起 stock_daily_update_job[trade_date]
+7. stock_daily_update_job materialize raw_tushare_stock_daily[trade_date]：asset 内调用 Tushare daily 并写 raw
+8. stock_daily_update_job 执行 raw_stock_daily checks；失败则阻断 silver_stock_daily
+9. stock_daily_update_job materialize silver_stock_daily[trade_date]
+10. stock_daily_update_job 执行 silver_stock_daily 相关 checks
 
 下游业务资产生产顺序：
 13. readiness gate（优先 declarative automation）评估 market_breadth_upstream_readiness
@@ -1102,7 +1139,7 @@ defs/schedules/daily_market_breadth_schedule.py
     <div class="warning">
       <strong>硬门禁：</strong>
       ready 不等于只看 <code>silver_stock_daily[date]</code> 是否 materialized。
-      LLD 和实现必须专门设计 <code>market_breadth_upstream_readiness</code> 状态：quote 日频链路完成且 raw/silver 层阻断 checks 全部通过，<code>stock_basic</code> 和 <code>trade_calendar</code> 这些低频基础资产也已就绪后，下游才允许触发。
+      LLD 和实现必须专门设计 <code>market_breadth_upstream_readiness</code> 状态：quote 日频链路完成且 raw/silver 层阻断 checks 全部通过，<code>stock_basic</code> 和 <code>trade_calendar</code> 这些共享基础资产也已就绪后，下游才允许触发。
       仅靠 “silver materialized” 判断会漏掉质量门禁，不能作为下游生产依据。
     </div>
 
@@ -1129,12 +1166,12 @@ defs/schedules/daily_market_breadth_schedule.py
         <tr>
           <td>基础行情 silver 已就绪</td>
           <td><code>silver_stock_daily[trade_date]</code> 已 materialized，且 <code>raw_tushare_stock_daily</code> / <code>silver_stock_daily</code> 相关 blocking checks 全部通过。</td>
-          <td>等待 <code>stock_quote_daily_update_job</code>，不主动调用 Tushare。</td>
+          <td>等待 <code>stock_daily_update_job</code>，不主动调用 Tushare。</td>
         </tr>
         <tr>
           <td>停复牌 silver 已就绪</td>
           <td><code>silver_stock_suspend_daily[trade_date]</code> 已 materialized，且 <code>raw_tushare_suspend_d</code> / <code>silver_stock_suspend_daily</code> 相关 blocking checks 全部通过；0 行停复牌也必须有空 parquet 和 metadata。</td>
-          <td>等待 <code>stock_quote_daily_update_job</code> 或 <code>suspend_update_job</code>，不主动补 raw。</td>
+          <td>等待 <code>suspend_update_job</code> 和 <code>stock_daily_update_job</code>，不主动补 raw。</td>
         </tr>
         <tr>
           <td>基础数据已就绪</td>
@@ -1183,14 +1220,14 @@ defs/schedules/daily_market_breadth_schedule.py
 2026-05-18
 2026-05-19
 
-Dagster quote 日频执行模型是：
-stock_quote_daily_update_job[2026-05-13]
-stock_quote_daily_update_job[2026-05-14]
-stock_quote_daily_update_job[2026-05-15]
-stock_quote_daily_update_job[2026-05-18]
-stock_quote_daily_update_job[2026-05-19]
+Dagster stock daily 执行模型是：
+stock_daily_update_job[2026-05-13]
+stock_daily_update_job[2026-05-14]
+stock_daily_update_job[2026-05-15]
+stock_daily_update_job[2026-05-18]
+stock_daily_update_job[2026-05-19]
 
-stock_quote_daily_update_job 成功后，再由 readiness gate 分别触发：
+stock_daily_update_job 成功后，再由 readiness gate 分别触发：
 daily_market_breadth_job[2026-05-13]
 daily_market_breadth_job[2026-05-14]
 daily_market_breadth_job[2026-05-15]
@@ -1198,9 +1235,9 @@ daily_market_breadth_job[2026-05-18]
 daily_market_breadth_job[2026-05-19]</code></pre>
 
     <div class="callout">
-      这 5 个 <code>stock_quote_daily_update_job</code> runs 可以由一次 backfill 提交，也可以由 sensor 一次返回多个 <code>RunRequest</code>。
+      这 5 个 <code>stock_daily_update_job</code> runs 可以由一次 backfill 提交，也可以由 sensor 一次返回多个 <code>RunRequest</code>。
       但第一版不采用“一个 run 传 <code>start_date/end_date</code> 拉 5 天，然后在 run 内部拆 5 个文件”的方式。
-      原因是单日 quote run 更容易看状态、查 metadata、定位失败和重跑单日；下游业务 run 则由 readiness gate 在 <code>stock_quote_daily_update_job</code> 成功后触发。readiness gate 优先用 declarative automation 实现；若 Slice 2.2.2 验证不通，再按确认后的 asset sensor 后备方案处理。
+      原因是单日 stock daily run 更容易看状态、查 metadata、定位失败和重跑单日；下游业务 run 则由 readiness gate 在 <code>stock_daily_update_job</code> 成功后触发。readiness gate 优先用 declarative automation 实现；若 Slice 2.2.2 验证不通，再按确认后的 asset sensor 后备方案处理。
     </div>
   </section>
 
@@ -1279,7 +1316,7 @@ silver / gold / checks</code></pre>
           <td>每个已完成交易日按 <code>trade_date</code> 拉全市场。</td>
           <td><code>trade_date=YYYYMMDD</code>；不传 <code>ts_code</code>。</td>
           <td><code>ts_code, trade_date, open, high, low, close, pre_close, change, pct_chg, vol, amount</code></td>
-          <td>股票日线 quote 资产，由 <code>stock_quote_daily_update_job</code> 更新；下游 jobs 只依赖并复用，不重复拉取。</td>
+          <td>股票日线 quote 资产，由 <code>stock_daily_update_job</code> 更新；下游 jobs 只依赖并复用，不重复拉取。</td>
         </tr>
         <tr>
           <td><code>suspend_d</code></td>
@@ -1287,7 +1324,7 @@ silver / gold / checks</code></pre>
           <td>每个已完成交易日按 <code>trade_date</code> 拉全市场停复牌记录。</td>
           <td><code>trade_date=YYYYMMDD</code>；不传 <code>ts_code</code>，不传 <code>suspend_type</code>。</td>
           <td><code>ts_code, trade_date, suspend_timing, suspend_type</code></td>
-          <td>停复牌可由 <code>suspend_update_job</code> 独立更新，也会作为 <code>stock_quote_daily_update_job</code> 的组成资产被选择；用于下游完整性 checks。</td>
+          <td>停复牌只由 <code>suspend_update_job</code> 独立更新；<code>stock_daily_update_job</code> 只读依赖它，用于完整性 checks。</td>
         </tr>
         <tr>
           <td><code>trade_calendar</code></td>
@@ -1303,7 +1340,7 @@ silver / gold / checks</code></pre>
           <td>全量快照拉取，覆盖上市、退市、暂停上市、过会未交易状态。</td>
           <td><code>list_status=L,D,P,G</code>，显式 fields；不按 <code>trade_date</code> 拉。</td>
           <td><code>ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type</code></td>
-          <td>低频基础数据。raw 保存全状态源镜像；第二期 <code>silver_stock_basic</code> 只保留当前 <code>L</code>，用于 stock daily 标准事实过滤。</td>
+          <td>日更全量快照基础数据。raw 保存全状态源镜像；第二期 <code>silver_stock_basic</code> 只保留当前 <code>L</code>，用于 stock daily 标准事实过滤。它不按 <code>trade_date</code> 分区，但必须在日线 quote 和 gold 生产前完成 freshness 门禁。</td>
         </tr>
         </tbody>
       </table>
@@ -1350,7 +1387,7 @@ silver / gold / checks</code></pre>
         </tr>
         <tr>
           <td><code>raw_tushare_stock_basic</code></td>
-          <td>低频全量更新，不按 <code>trade_date</code> 分区。</td>
+          <td>日更全量快照，不按 <code>trade_date</code> 分区。</td>
           <td><code>{"list_status": "L,D,P,G"}</code></td>
           <td><code>ts_code, symbol, name, area, industry, fullname, enname, cnspell, market, exchange, curr_type, list_status, list_date, delist_date, is_hs, act_name, act_ent_type</code></td>
           <td>不按某个 <code>trade_date</code> 拉股票池；历史股票池由 silver/check 阶段按 <code>list_date/delist_date</code> 计算。</td>
@@ -1551,7 +1588,8 @@ raw_tushare_stock_basic:
   output:
     raw/tushare/stock_basic/full/part-000.parquet
   update policy:
-    低频全量覆盖文件，不进入日频 quote / breadth run</code></pre>
+    日更全量覆盖文件，不按 trade_date 分区；由 basic_update_job 负责写入，
+    quote / breadth 等下游只读依赖，并通过 readiness 确认 freshness</code></pre>
 
     <div class="warning">
       历史迁移和 Tushare 日常生产必须共享同一套 raw 字段契约、路径函数和 raw checks。
@@ -1766,7 +1804,7 @@ gold asset checks</code></pre>
         <tr>
           <td><code>raw_tushare_stock_basic</code></td>
           <td>字段完整、<code>ts_code</code> 非空、<code>list_status</code> 只允许 <code>L/D/P/G</code>、生命周期日期格式合法。</td>
-          <td>这是低频基础数据，失败会影响 stock daily 完整性 checks。</td>
+          <td>这是日更全量快照基础数据，失败会影响 stock daily 标准化和完整性 checks。</td>
         </tr>
         </tbody>
       </table>
@@ -2068,9 +2106,9 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
     stock_basic_checks.py     # stock_basic 自身 checks
   jobs/
     suspend_update.py    # suspend_update_job，停复牌独立更新入口
-    stock_quote_daily_update.py
-                         # stock_quote_daily_update_job，股票日线 quote 完整链路入口
-    basic_update.py      # basic_update_job，低频基础数据更新
+    stock_daily_update.py
+                         # stock_daily_update_job，股票日线独立更新入口
+    basic_update.py      # basic_update_job，stock_basic 日更全量快照更新
     calendar_update.py   # calendar_update_job，交易日历资产更新
     daily_market_breadth.py   # daily_market_breadth_job
   bootstrap/
@@ -2083,7 +2121,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
       stock_basic.py
       stock_daily.py
   sensors/
-    cn_a_trade_day_sensor.py  # 注册交易日并短期触发 stock_quote_daily_update_job
+    cn_a_trade_day_sensor.py  # 注册交易日并在上游 ready 后触发 stock_daily_update_job
     market_breadth_readiness_alerts.py
                               # 后备：通知、告警或复杂自定义触发，不作为默认生产触发
   schedules/
@@ -2122,11 +2160,11 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>自动化入口</td>
-          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_quote_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code> 和下游 readiness gate 条件（优先 declarative automation）；sensor 不默认乱跑大范围历史。历史 <code>quote_daily_job</code> run/event 保留可查。</td>
+          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>cn_a_trade_day_sensor</code> 和下游 readiness gate 条件（优先 declarative automation）；sensor 不默认乱跑大范围历史。历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。</td>
         </tr>
         <tr>
           <td>单日验证</td>
-          <td>2026-04-01 单日 <code>stock_quote_daily_update_job</code> 成功，能看到 Tushare 请求 metadata、raw/silver materialization metadata 和 checks；前置条件通过后 breadth job 只生成 gold 和 gold checks。历史 bootstrap 验证记录仍保留。</td>
+          <td>2026-04-01 单日 <code>stock_daily_update_job</code> 成功，能看到 Tushare 请求 metadata、raw/silver materialization metadata 和 checks；前置条件通过后 breadth job 只生成 gold 和 gold checks。历史 bootstrap 验证记录仍保留。</td>
         </tr>
         <tr>
           <td>全月验证</td>
@@ -2160,12 +2198,12 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>第二期是否实现 <code>TushareResource</code> 拉取 raw？</td>
-          <td>已确认纳入第二期。<code>suspend_d</code> 进入 <code>suspend_update_job</code> 和 <code>stock_quote_daily_update_job</code>；<code>daily</code> 进入 <code>stock_quote_daily_update_job</code>；<code>trade_cal</code> 与 <code>stock_basic</code> 分别进入 <code>calendar_update_job</code> 和 <code>basic_update_job</code> 的低频更新。</td>
+          <td>已确认纳入第二期。<code>suspend_d</code> 进入 <code>suspend_update_job</code>；<code>daily</code> 进入 <code>stock_daily_update_job</code>；<code>trade_cal</code> 进入 <code>calendar_update_job</code> 的低频区间更新；<code>stock_basic</code> 进入 <code>basic_update_job</code> 的日更全量快照更新。</td>
           <td>如果不接入 raw 拉取，新交易日没有 raw 数据，自动化链路只能调度但无法真正生产新分区。</td>
         </tr>
         <tr>
           <td>下游 job 是否可以主动补上游？</td>
-          <td>不可以。<code>daily_market_breadth_job</code> 只负责 gold；上游缺失时等待 <code>stock_quote_daily_update_job</code>、低频基础 update job 或上游 backfill，不在下游内部调用 Tushare。</td>
+          <td>不可以。<code>daily_market_breadth_job</code> 只负责 gold；上游缺失时等待 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、共享基础 update job 或上游 backfill，不在下游内部调用 Tushare。</td>
           <td>避免多个下游 job 重复拉取、覆盖 raw、污染 metadata 和触发限流。</td>
         </tr>
         <tr>
@@ -2190,17 +2228,17 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td><code>cn_a_trade_day_sensor</code> 是否默认 RUNNING？</td>
-          <td>第二期先默认 STOPPED。代码中可以定义 sensor，但本地启动 Dagster daemon 时不让它自动扫描交易日、注册分区并触发 quote 日频 job。<code>Slice 2.2.1c</code> 后，sensor 触发目标应改为 <code>stock_quote_daily_update_job</code>。</td>
+          <td>第二期先默认 STOPPED。代码中可以定义 sensor，但本地启动 Dagster daemon 时不让它自动扫描交易日、注册分区并触发 quote 日频 job。<code>Slice 2.2.1d</code> 后，sensor 触发目标已改为 <code>stock_daily_update_job</code>。</td>
           <td>必须先人工验证 <code>latest_completed_trade_date</code>、旧湖 bootstrap、Tushare 拉取、raw/silver checks 和 readiness gate。否则一启动就可能自动注册大量 partitions、触发大量 quote 日频 runs。</td>
         </tr>
         <tr>
           <td><code>cn_a_trade_day_sensor</code> 长期是否应该直接触发 quote？</td>
-          <td>短期可以触发股票日线 quote 完整链路。<code>Slice 2.2.1c</code> 前已由 <code>quote_daily_job</code> 验证；<code>Slice 2.2.1c</code> 后应改为 <code>stock_quote_daily_update_job</code>，并保留 <code>suspend_update_job</code> 作为停复牌独立入口。长期更优雅方向是 sensor 只注册已完成交易日 partition，各资产族通过 declarative automation / on-missing 响应缺失分区。</td>
+          <td>短期可以触发股票日线更新入口。<code>Slice 2.2.1c</code> 前已由 <code>quote_daily_job</code> 验证；<code>Slice 2.2.1d</code> 后改为 <code>stock_daily_update_job</code>，并保留 <code>suspend_update_job</code> 作为停复牌独立入口。长期更优雅方向是 sensor 只注册已完成交易日 partition，各资产族通过 declarative automation / on-missing 响应缺失分区。</td>
           <td>短期方案简单好验收；长期方案能让交易日发现和数据域生产解耦，但必须先验证 Dagster 当前版本对 dynamic partitions + declarative automation 的组合行为。</td>
         </tr>
         <tr>
           <td>当天是交易日时，最新 quote 日期是否可以是今天？</td>
-          <td>可以，但不能只靠交易日历。必须先确认 Tushare 源站当天 <code>daily</code> 已 ready；ready 后才允许触发今天的股票日线 quote job。<code>Slice 2.2.1c</code> 后该目标应为 <code>stock_quote_daily_update_job</code>。</td>
+          <td>可以，但不能只靠交易日历。必须先确认 Tushare 源站当天 <code>daily</code> 已 ready，且 stock basic / suspend 上游已 ready；ready 后才允许触发今天的股票日线 job。<code>Slice 2.2.1d</code> 后该目标为 <code>stock_daily_update_job</code>。</td>
           <td><code>Slice 2.2.1b</code> 已实现该口径：当前代码仍保留小于当前自然日的已完成交易日逻辑，同时新增当天交易日 16:00 后的 Tushare <code>daily</code> readiness 探测。</td>
         </tr>
         <tr>

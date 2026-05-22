@@ -108,7 +108,7 @@ def raw_tushare_stock_basic(
             "raw_contract": "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings.",
             "expected_source_columns": list(STOCK_BASIC_RAW_COLUMNS),
             "list_status_distribution": list_status_distribution,
-            "update_policy": "low_frequency_full_file_api_update",
+            "update_policy": "daily_full_snapshot_api_update",
         }
     )
 

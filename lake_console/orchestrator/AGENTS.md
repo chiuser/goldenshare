@@ -70,6 +70,33 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 6. job 可以组合多个资产形成执行入口，但不能为了控制执行顺序伪造数据血缘；真实依赖必须通过 asset `deps` 或 check `additional_deps` 表达。
 7. 下游业务 job 不得在自己的 asset 代码里重复实现上游数据集拉取；需要完整链路时，应新增或调整组合 asset job 的 selection。
 
+### 上游基础资产只读依赖门禁
+
+业务 gold job 依赖上游基础资产时，必须先校验上游是否已经满足生产条件，再只读消费；禁止把共享基础资产随手加入业务 job 的 selection 里一起写。
+
+规则：
+
+1. `stock_basic`、`trade_calendar`、`suspend_d` 这类会被其它资产消费的上游事实资产，必须有明确且唯一的正式更新入口。
+2. 下游业务 job 只能通过 readiness / blocking checks 确认基础资产已 materialized、checks 已通过、freshness 满足当日生产条件。
+3. 下游业务 job 不得为了“省一步”把 `raw_tushare_stock_basic`、`silver_stock_basic`、`raw_tushare_trade_calendar`、`silver_trade_calendar` 等共享基础资产放入自己的 selection。
+4. 如果某个下游业务确实需要从 raw 到 silver 到 gold 的组合入口，必须在方案文档中单独说明该 job 的写入范围、只读依赖范围、重复执行影响和并发保护；不能默认扩大 selection。
+5. `stock_basic` 虽然是 full snapshot、不是 `trade_date` 分区资产，但新股上市会影响当日日线标准化和完整性检查，因此应按“日更全量快照基础资产”设计 freshness，不应简单归为低频资产。
+6. `suspend_d` 是 `stock_daily` 生产前必须准备好的上游资产；`stock_daily` 生产 job 只读依赖 `silver_stock_suspend_daily`，不得把 `raw_tushare_suspend_d` / `silver_stock_suspend_daily` 放进自己的 selection 中顺手更新。
+7. 每个涉及共享基础资产的方案文档必须列清：负责写入的 job、只读消费的 jobs、readiness 条件、blocking checks、更新频率、失败时下游行为。
+
+### Full Snapshot 并发保护门禁
+
+`stock_basic` 这类 full snapshot asset 写的是单个全量文件。并发运行时，即使 `.tmp + os.replace` 能避免半截文件，也可能出现重复打接口、后完成 run 覆盖先完成 run、metadata 观测混乱等问题。
+
+规则：
+
+1. 设计主线是减少重复写入：共享 full snapshot asset 只能由自己的正式更新 job 负责写入。
+2. 并发保护是保险丝，不是放任多个业务 job 都写同一个 asset 的理由。
+3. 对 full snapshot asset 或其更新 job，如存在并发触发风险，方案文档必须分析是否需要 Dagster concurrency 限制。
+4. 可选保护包括 run queue limits、concurrency pools、run executor limits、run tag concurrency limits 等 Dagster 官方并发机制；使用前必须查当前 Dagster 官方文档和本地版本行为，不得凭记忆配置。
+5. 如果启用 Dagster concurrency，必须同步说明配置位置、作用范围、排队表现、UI 可见性、失败/取消后的恢复方式，以及是否依赖 PostgreSQL instance storage。
+6. 禁止用自造锁文件、临时 pid 文件或散落脚本锁替代 Dagster 正式并发机制；若确需外部锁，必须先单独设计并获确认。
+
 推荐心智模型：
 
 ```text

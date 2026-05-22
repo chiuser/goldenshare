@@ -9,5 +9,7 @@ basic_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(raw_tushare_stock_basic, silver_stock_basic)
         | dg.AssetSelection.checks_for_assets(raw_tushare_stock_basic, silver_stock_basic)
     ),
-    description="Low-frequency job that updates Tushare stock_basic raw/silver assets.",
+    description=(
+        "Daily full-snapshot job that updates Tushare stock_basic raw/silver assets."
+    ),
 )

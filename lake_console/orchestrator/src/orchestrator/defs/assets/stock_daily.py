@@ -5,6 +5,7 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
@@ -21,6 +22,7 @@ from orchestrator.defs.paths import (
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
@@ -377,7 +379,7 @@ def raw_tushare_stock_daily(
 
 @dg.asset(
     name="silver_stock_daily",
-    deps=[raw_tushare_stock_daily, silver_stock_basic],
+    deps=[raw_tushare_stock_daily, silver_stock_basic, silver_stock_suspend_daily],
     partitions_def=cn_a_trade_days,
     group_name="quote",
     description="Standardized stock daily quote data derived from Tushare daily raw data.",
@@ -391,11 +393,14 @@ def silver_stock_daily(
     partition_key = context.partition_key
     raw_path = raw_stock_daily_path(lake_root.root(), partition_key)
     basic_path = silver_stock_basic_path(lake_root.root())
+    suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
     target_path = silver_stock_daily_path(lake_root.root(), partition_key)
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock daily file: {raw_path}")
     if not basic_path.exists():
         raise FileNotFoundError(f"Missing silver stock basic file: {basic_path}")
+    if not suspend_path.exists():
+        raise FileNotFoundError(f"Missing silver stock suspend file: {suspend_path}")
 
     with duckdb.connect() as connection:
         conflict_key_count = _conflict_key_count(connection, raw_path)
@@ -431,6 +436,7 @@ def silver_stock_daily(
             "path": str(target_path),
             "raw_path": str(raw_path),
             "stock_basic_path": str(basic_path),
+            "stock_suspend_daily_path": str(suspend_path),
             "row_count": row_count,
             "columns": columns,
             "partition_key": partition_key,
@@ -439,6 +445,10 @@ def silver_stock_daily(
             "filter_policy": (
                 "Keep current listed stocks only; keep rows on/after list_date; "
                 "keep BJ stocks only on/after 2021-11-15; raw remains source mirror."
+            ),
+            "upstream_ready_policy": (
+                "silver_stock_basic and silver_stock_suspend_daily partition must exist before "
+                "silver_stock_daily is produced; suspend facts are read-only prerequisites."
             ),
             **filter_counts,
             "duplicate_removed_count": duplicate_removed_count,
