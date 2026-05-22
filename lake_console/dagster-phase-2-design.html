@@ -938,15 +938,12 @@ defs/jobs/daily_market_breadth.py
     partitions_def:
       cn_a_trade_days
 
-    defs/sensors/cn_a_trade_day_sensor.py
+defs/sensors/cn_a_trade_day_sensor.py
   cn_a_trade_day_sensor
     1. 计算 latest_completed_trade_date
     2. 读取 silver_trade_calendar 中 open=true、trade_date >= 2014-01-01 且 trade_date <= latest_completed_trade_date 的日期
-    3. 读取股票日线 raw/silver 的 materialized partitions，判断哪些 eligible key 还没有完成 stock daily raw/silver
-    4. 对本 tick 选中的 pending key，如尚未注册到 cn_a_trade_days，使用 cn_a_trade_days.build_add_request(...) 注册 dynamic partitions
-    5. Slice 2.2.1d 后，为本 tick 选中的 pending key 生成 stock_daily_update_job 的 RunRequest(partition_key=key)
-    6. run_key 使用 stock_daily_update:{trade_date}，避免重复发起
-    7. 第一版 MAX_RUN_REQUESTS_PER_TICK = 2，避免一次 tick 误触发大批量 runs
+    3. 长期收敛为只注册 cn_a_trade_days dynamic partition keys
+    4. 不直接写任何数据资产，不直接替代各资产族 sensor
 
 defs/assets/gold/market_breadth.py
   gold_market_breadth_daily
@@ -957,6 +954,18 @@ defs/assets/gold/market_breadth.py
       suspend_d partition materialized and blocking checks passed
       stock_basic daily full snapshot ready
       trade_calendar ready
+
+defs/sensors/suspend_d_sensor.py
+  监听 cn_a_trade_days 中已注册但 suspend_d 未 ready 的分区
+  只有目标分区 raw/silver 缺失或 blocking checks 未通过时，才触发 suspend_update_job[trade_date]
+
+defs/sensors/stock_basic_sensor.py
+  判断 stock_basic full snapshot 是否满足当日 freshness 和 blocking checks
+  未 ready 时触发 basic_update_job
+
+defs/sensors/stock_daily_sensor.py
+  监听 cn_a_trade_days 中已注册但 stock_daily 未 ready 的分区
+  只有 stock_basic ready、suspend_d[trade_date] ready、Tushare daily 源站 ready 时，才触发 stock_daily_update_job[trade_date]
 
 defs/sensors/market_breadth_readiness_alerts.py
   默认不作为生产触发入口
@@ -977,6 +986,45 @@ defs/schedules/daily_market_breadth_schedule.py
       <strong>职责边界：</strong>
       下游业务 job 永远不主动补上游。<code>daily_market_breadth_job</code> 只消费已经准备好的股票日线、停复牌和共享基础资产；
       如果前置条件不满足，优先等待 declarative automation 下一次评估，而不是在下游 job 内部调用 Tushare 或重跑股票日线。
+    </div>
+
+    <h3>5.1.1 新拍板：多 Sensor 触发模型</h3>
+    <div class="callout">
+      <strong>最新口径：</strong>
+      <code>cn_a_trade_day_sensor</code> 长期只做“交易日注册器”：发现已完成交易日并注册 <code>cn_a_trade_days</code>。
+      具体数据集更新由资产族自己的 sensor 负责，例如 <code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>。
+      这样避免一个 sensor 变成巨型调度脚本，也让每个资产族的 ready 条件、run key、cursor 和失败重跑策略都保持单一职责。
+    </div>
+
+    <pre><code>推荐触发关系：
+cn_a_trade_day_sensor
+  发现已完成交易日
+  注册 cn_a_trade_days partition
+  不发具体数据生产 run
+
+suspend_d_sensor
+  读取 cn_a_trade_days
+  判断 raw_tushare_suspend_d / silver_stock_suspend_daily 是否缺失或 blocking checks 未通过
+  触发 suspend_update_job[trade_date]
+
+stock_basic_sensor
+  判断 silver_stock_basic 是否满足当日 freshness
+  判断 stock_basic blocking checks 是否通过
+  触发 basic_update_job
+
+stock_daily_sensor
+  读取 cn_a_trade_days
+  判断 stock daily raw/silver 是否缺失
+  判断 stock_basic ready
+  判断 suspend_d[trade_date] ready
+  判断 Tushare daily(trade_date) 源站 ready
+  触发 stock_daily_update_job[trade_date]</code></pre>
+
+    <div class="warning">
+      <strong>核心门禁：</strong>
+      ready 不能只看文件存在，也不能只看 asset 是否 materialized。
+      下游能否生产，必须依赖上游数据完整性和质量：上游 asset 已 materialized，并且对应 blocking checks 全部通过。
+      对 full snapshot 资产，还必须确认 freshness；对 partitioned 资产，必须按同一个 <code>partition_key</code> 检查 materialization 和 checks。
     </div>
 
     <h3>5.2 交易日历超前时的硬门禁</h3>

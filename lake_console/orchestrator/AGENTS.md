@@ -84,6 +84,20 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 6. `suspend_d` 是 `stock_daily` 生产前必须准备好的上游资产；`stock_daily` 生产 job 只读依赖 `silver_stock_suspend_daily`，不得把 `raw_tushare_suspend_d` / `silver_stock_suspend_daily` 放进自己的 selection 中顺手更新。
 7. 每个涉及共享基础资产的方案文档必须列清：负责写入的 job、只读消费的 jobs、readiness 条件、blocking checks、更新频率、失败时下游行为。
 
+### Readiness 与 Sensor 触发门禁
+
+任何 sensor、schedule、declarative automation 或手动触发链路在判断下游是否可以生产时，禁止只看“文件存在”或“asset 曾经 materialized”。
+
+规则：
+
+1. ready 必须至少包含目标上游 asset 已 materialized，且该 asset 对应的 blocking checks 全部通过。
+2. full snapshot 资产还必须额外判断 freshness，例如 `stock_basic` 是否满足当日生产需要；不能因为历史上 materialized 过就永久视为 ready。
+3. partitioned 上游资产必须按同一个 `partition_key` 判断 materialization 和 checks，例如 `silver_stock_suspend_daily[trade_date]`。
+4. WARN checks 只作为观测信号，不阻断生产；但 WARN metadata 必须可见，不能被静默吞掉。
+5. sensor 只能提交满足门禁的 `RunRequest`；门禁不满足时返回清晰 `SkipReason` 或不请求下游，不得在下游 job 内部补上游。
+6. `cn_a_trade_day_sensor` 的长期职责应收敛为注册已完成交易日 partition；各资产族可以有自己的 sensor，例如 `suspend_d_sensor`、`stock_basic_sensor`、`stock_daily_sensor`，分别围绕本资产族判断缺失、freshness、checks 和上游 ready。
+7. 新增资产族 sensor 前，方案文档必须列清：输入状态、ready 条件、run key、cursor 内容、最大单 tick 请求数、失败重跑策略、是否允许注册 partition，以及与其它 sensor 的边界。
+
 ### Full Snapshot 并发保护门禁
 
 `stock_basic` 这类 full snapshot asset 写的是单个全量文件。并发运行时，即使 `.tmp + os.replace` 能避免半截文件，也可能出现重复打接口、后完成 run 覆盖先完成 run、metadata 观测混乱等问题。

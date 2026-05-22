@@ -1498,12 +1498,12 @@ Later stages:
   <section>
     <h2>11. Sensor 与 Dynamic Partitions</h2>
     <p>
-      第二期短期方案中，<code>cn_a_trade_day_sensor</code> 的职责是：找已完成交易日、注册 partition key、在上游 ready 后触发股票日线 job。
-      <code>Slice 2.2.1b</code> 已用 <code>quote_daily_job</code> 验证该机制可行；<code>Slice 2.2.1d</code> 后触发目标已改为 <code>stock_daily_update_job</code>。
-      <code>suspend_d</code> 由 <code>suspend_update_job</code> 写，<code>stock_daily_update_job</code> 只读依赖它，不再 selection 它。
+      第二期当前代码中，<code>cn_a_trade_day_sensor</code> 已能发现已完成交易日、注册 partition key，并在上游 ready 后触发股票日线 job。
+      最新设计口径进一步收敛为多 sensor 模型：<code>cn_a_trade_day_sensor</code> 长期只注册 <code>cn_a_trade_days</code> partition；
+      <code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别负责各自资产族的缺失、freshness、checks 和上游 ready 判断。
     </p>
 
-    <h3>11.1 短期方案：sensor 触发 stock_daily_update_job</h3>
+    <h3>11.1 当前实现：cn_a_trade_day_sensor 触发 stock_daily_update_job</h3>
     <p>
       短期方案的优点是简单、明确、容易验收。一个交易日被确认完成后，sensor 注册分区；
       只有 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> 已 ready 时，才发起同一天的股票日线 job。
@@ -1544,7 +1544,61 @@ Later stages:
       )
       for key in selected_keys
     ]
-  )</code></pre>
+	  )</code></pre>
+
+    <h3>11.1a 目标方案：多 Sensor 分层触发</h3>
+    <p>
+      目标方案把“交易日发现”和“资产族生产”拆开。Dagster sensor 是轮询机制，不是消息队列推送；
+      因此 partition 注册后，不是立刻同步调用其它 sensor，而是等待各资产族 sensor 在下一次 tick 中读取正式 instance 状态并判断是否需要触发。
+    </p>
+
+    <pre><code>target sensors:
+  cn_a_trade_day_sensor:
+    input:
+      silver_trade_calendar
+      current time
+    output:
+      cn_a_trade_days dynamic partition keys
+    no RunRequest for data production jobs
+
+  suspend_d_sensor:
+    input:
+      cn_a_trade_days
+      raw_tushare_suspend_d materialized partitions
+      silver_stock_suspend_daily materialized partitions
+      suspend_d blocking check status
+    output:
+      suspend_update_job[trade_date]
+
+  stock_basic_sensor:
+    input:
+      latest silver_stock_basic materialization
+      stock_basic blocking check status
+      stock_basic freshness policy
+    output:
+      basic_update_job
+
+  stock_daily_sensor:
+    input:
+      cn_a_trade_days
+      stock_daily raw/silver materialized partitions
+      stock_daily blocking check status
+      stock_basic readiness
+      suspend_d[trade_date] readiness
+      Tushare daily source readiness
+    output:
+      stock_daily_update_job[trade_date]</code></pre>
+
+    <div class="warning">
+      <strong>Readiness 硬门禁：</strong>
+      下游 sensor 判断上游 ready 时，不能只看文件存在，也不能只看 asset 是否 materialized。
+      ready 必须包含：目标上游 asset 已 materialized、对应 blocking checks 全部通过；如果是 full snapshot，还必须满足 freshness；如果是 partitioned asset，必须按同一个 <code>partition_key</code> 判断。
+      WARN checks 不阻断生产，但 WARN metadata 必须可见。
+    </div>
+
+    <div class="callout">
+      多 sensor 方案的迁移成本是低到中等：asset key、物理路径、partition 定义不变；主要改动是把当前 <code>cn_a_trade_day_sensor</code> 中的 stock daily 触发逻辑迁出，新增资产族 sensor，并为每个 sensor 明确 run key、cursor、最大单 tick 请求数和失败重跑策略。
+    </div>
 
     <div class="callout">
       <strong>防重复判断口径：</strong>
