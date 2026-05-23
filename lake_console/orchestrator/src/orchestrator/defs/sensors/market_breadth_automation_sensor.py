@@ -12,7 +12,7 @@ market_breadth_automation_sensor = dg.AutomationConditionSensorDefinition(
         "trigger": "automation_condition",
         "asset_family": "market_breadth",
     },
-    description="Evaluate market breadth declarative automation only.",
+    description="市场涨跌分布缺失且上游检查通过时，触发生成任务。",
     emit_backfills=True,
     use_user_code_server=False,
 )

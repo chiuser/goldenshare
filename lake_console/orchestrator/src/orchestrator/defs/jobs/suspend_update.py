@@ -9,7 +9,5 @@ suspend_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(raw_tushare_suspend_d, silver_stock_suspend_daily)
         | dg.AssetSelection.checks_for_assets(raw_tushare_suspend_d, silver_stock_suspend_daily)
     ),
-    description=(
-        "Partitioned job that updates Tushare suspend_d raw and stock suspend silver assets."
-    ),
+    description="更新股票停复牌原始表和标准表。",
 )

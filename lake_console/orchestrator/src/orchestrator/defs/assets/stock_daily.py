@@ -341,7 +341,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     name="raw_tushare_stock_daily",
     partitions_def=cn_a_trade_days,
     group_name="quote",
-    description="Tushare stock daily raw partition registered under the new raw lake path.",
+    description="Tushare 股票日线原始数据。",
 )
 def raw_tushare_stock_daily(
     context: dg.AssetExecutionContext,
@@ -382,7 +382,7 @@ def raw_tushare_stock_daily(
     deps=[raw_tushare_stock_daily, silver_stock_basic, silver_stock_suspend_daily],
     partitions_def=cn_a_trade_days,
     group_name="quote",
-    description="Standardized stock daily quote data derived from Tushare daily raw data.",
+    description="股票日线标准表，按上市状态和交易规则过滤。",
 )
 def silver_stock_daily(
     context: dg.AssetExecutionContext,

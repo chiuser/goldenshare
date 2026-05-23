@@ -72,7 +72,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 @dg.asset(
     name="raw_tushare_stock_basic",
     group_name="basic",
-    description="Tushare stock_basic raw file registered under the new raw lake path.",
+    description="Tushare 股票基础信息原始数据。",
 )
 def raw_tushare_stock_basic(
     lake_root: LakeRootResource,
@@ -117,7 +117,7 @@ def raw_tushare_stock_basic(
     name="silver_stock_basic",
     deps=["raw_tushare_stock_basic"],
     group_name="basic",
-    description="Standardized stock basic lifecycle data derived from Tushare stock_basic raw data.",
+    description="当前上市股票基础信息标准表，记录股票生命周期。",
 )
 def silver_stock_basic(
     lake_root: LakeRootResource,

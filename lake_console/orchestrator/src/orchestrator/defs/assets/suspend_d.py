@@ -271,7 +271,7 @@ def _full_day_raw_override_metadata(
     name="raw_tushare_suspend_d",
     partitions_def=cn_a_trade_days,
     group_name="quote",
-    description="Tushare suspend_d raw partition written to the new raw lake path.",
+    description="Tushare 停复牌日频原始数据。",
 )
 def raw_tushare_suspend_d(
     context: dg.AssetExecutionContext,
@@ -314,7 +314,7 @@ def raw_tushare_suspend_d(
     deps=[raw_tushare_suspend_d],
     partitions_def=cn_a_trade_days,
     group_name="quote",
-    description="Standardized stock daily suspend facts derived from Tushare suspend_d raw data.",
+    description="股票日频停复牌标准表，记录停牌类型和时段。",
 )
 def silver_stock_suspend_daily(
     context: dg.AssetExecutionContext,

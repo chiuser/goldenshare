@@ -36,10 +36,7 @@ def _cursor_payload(
     job_name="suspend_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
-    description=(
-        "Triggers suspend_update_job for registered trading day partitions whose "
-        "suspend_d raw/silver assets are missing."
-    ),
+    description="停复牌分区缺失时，触发停复牌更新任务。",
 )
 def suspend_d_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)

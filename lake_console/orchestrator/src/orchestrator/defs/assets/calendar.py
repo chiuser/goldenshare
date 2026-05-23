@@ -55,7 +55,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 @dg.asset(
     name="raw_tushare_trade_calendar",
     group_name="calendar",
-    description="Tushare trade_cal raw file registered under the new raw lake path.",
+    description="Tushare 交易日历原始数据。",
 )
 def raw_tushare_trade_calendar(
     lake_root: LakeRootResource,
@@ -97,7 +97,7 @@ def raw_tushare_trade_calendar(
     name="silver_trade_calendar",
     deps=["raw_tushare_trade_calendar"],
     group_name="calendar",
-    description="Standardized A-share trading calendar derived from Tushare trade_cal raw data.",
+    description="A股交易日历标准表，提供上交所开市日口径。",
 )
 def silver_trade_calendar(
     lake_root: LakeRootResource,

@@ -9,8 +9,5 @@ daily_market_breadth_job = dg.define_asset_job(
         dg.AssetSelection.assets(gold_market_breadth_daily)
         | dg.AssetSelection.checks_for_assets(gold_market_breadth_daily)
     ),
-    description=(
-        "Partitioned market breadth job that updates only gold market breadth "
-        "assets and their checks for one trade_date partition."
-    ),
+    description="更新市场涨跌分布日表。",
 )

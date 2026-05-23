@@ -51,10 +51,7 @@ def _cursor_payload(
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     required_resource_keys={"tushare"},
-    description=(
-        "Triggers stock_daily_update_job only after stock_basic, suspend_d and "
-        "Tushare daily source readiness gates pass."
-    ),
+    description="股票基础信息、停复牌和源站日线就绪后，触发日线更新任务。",
 )
 def stock_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)

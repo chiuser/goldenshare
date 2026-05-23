@@ -80,7 +80,7 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
     deps=["silver_stock_daily"],
     partitions_def=cn_a_trade_days,
     group_name="breadth",
-    description="Daily market breadth facts computed from standardized stock daily quotes.",
+    description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
     automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,
 )
 def gold_market_breadth_daily(

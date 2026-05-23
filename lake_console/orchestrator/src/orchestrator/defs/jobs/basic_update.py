@@ -9,7 +9,5 @@ basic_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(raw_tushare_stock_basic, silver_stock_basic)
         | dg.AssetSelection.checks_for_assets(raw_tushare_stock_basic, silver_stock_basic)
     ),
-    description=(
-        "Daily full-snapshot job that updates Tushare stock_basic raw/silver assets."
-    ),
+    description="更新股票基础信息原始表和标准表。",
 )

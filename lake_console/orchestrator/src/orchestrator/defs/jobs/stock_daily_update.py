@@ -15,9 +15,5 @@ stock_daily_update_job = dg.define_asset_job(
             silver_stock_daily,
         )
     ),
-    description=(
-        "Partitioned stock daily job that updates only Tushare daily raw/silver "
-        "assets for one trade_date partition. Upstream stock_basic and suspend_d "
-        "assets must already be ready."
-    ),
+    description="更新股票日线原始表和标准表，要求基础信息和停复牌已就绪。",
 )

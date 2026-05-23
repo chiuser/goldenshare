@@ -128,10 +128,7 @@ def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime)
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     required_resource_keys={"lake_root", "duckdb"},
-    description=(
-        "Registers eligible China A-share trading days into cn_a_trade_days. "
-        "It does not trigger data update jobs."
-    ),
+    description="注册已完成的A股交易日分区，不触发数据更新任务。",
 )
 def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)

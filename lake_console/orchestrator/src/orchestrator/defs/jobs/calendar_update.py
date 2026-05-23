@@ -9,7 +9,5 @@ calendar_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(raw_tushare_trade_calendar, silver_trade_calendar)
         | dg.AssetSelection.checks_for_assets(raw_tushare_trade_calendar, silver_trade_calendar)
     ),
-    description=(
-        "Low-frequency job that updates Tushare trade calendar raw/silver assets."
-    ),
+    description="更新交易日历原始表和标准表。",
 )

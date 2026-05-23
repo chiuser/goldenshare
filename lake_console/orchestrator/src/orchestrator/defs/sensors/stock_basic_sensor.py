@@ -31,10 +31,7 @@ def _cursor_payload(
     job_name="basic_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
-    description=(
-        "Triggers basic_update_job when stock_basic full snapshot is not fresh enough "
-        "for the latest registered trading day."
-    ),
+    description="股票基础信息未满足最新交易日要求时，触发更新任务。",
 )
 def stock_basic_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
