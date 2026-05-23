@@ -8,6 +8,8 @@
 
 上级规则仍然生效：仓库根 `AGENTS.md` 与 `lake_console/AGENTS.md` 的约束必须继续遵守；若本文件与上级规则冲突，以更严格、更靠近本目录的规则为准。
 
+编码、重构、命名、文件组织变更前，必须遵守本目录长期编码规范：`lake_console/orchestrator/CODING_STANDARDS.md`。该文档是硬门禁，后续新增编码规范优先追加到该文档。
+
 ---
 
 ## 项目定位
