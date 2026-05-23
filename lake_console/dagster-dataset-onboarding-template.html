@@ -581,7 +581,70 @@ fetch_tushare_full_file_to_raw(
   </section>
 
   <section>
-    <h2>10. Checks 设计模板</h2>
+    <h2>10. Dagster UI 说明文案门禁</h2>
+    <div class="danger">
+      <strong>description 必须认真写。</strong>
+      Dagster UI 中 asset、job、sensor、automation sensor、check 等组件的 <code>description</code>
+      是给人看的入口说明，不允许随便写英文占位、技术废话或含糊描述。
+    </div>
+
+    <h3>统一规则</h3>
+    <ul>
+      <li>必须使用中文。</li>
+      <li>必须简明，优先一行内表达清楚。</li>
+      <li>必须清楚表达该组件的能力和用途：它是什么、负责什么、什么时候会被用到。</li>
+      <li>不要写实现细节堆砌，例如 “partitioned job”、“registered under new raw lake path”、“asset selection”。</li>
+      <li>不要写临时口径、历史迁移口径或过期设计口径。</li>
+      <li>列表页会截断长文本，因此 UI description 只写核心说明；复杂边界写进设计文档。</li>
+    </ul>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>组件</th>
+          <th>推荐表达</th>
+          <th>示例</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw asset</td>
+          <td>说明数据来源和原始数据内容。</td>
+          <td><code>Tushare 股票日线原始数据。</code></td>
+        </tr>
+        <tr>
+          <td>silver asset</td>
+          <td>说明标准事实表的业务口径。</td>
+          <td><code>股票日线标准表，按上市状态和交易规则过滤。</code></td>
+        </tr>
+        <tr>
+          <td>gold asset</td>
+          <td>说明业务结果表表达的指标或页面/API 能力。</td>
+          <td><code>市场涨跌分布日表，统计上涨、下跌和平盘数量。</code></td>
+        </tr>
+        <tr>
+          <td>job</td>
+          <td>说明这个入口会更新什么，不写具体 selection 细节。</td>
+          <td><code>更新股票日线原始表和标准表，要求基础信息和停复牌已就绪。</code></td>
+        </tr>
+        <tr>
+          <td>sensor / automation sensor</td>
+          <td>说明触发条件和触发目标，不写内部实现。</td>
+          <td><code>停复牌分区缺失时，触发停复牌更新任务。</code></td>
+        </tr>
+        <tr>
+          <td>check</td>
+          <td>说明验证的单一属性。</td>
+          <td><code>校验日线价格字段范围合理。</code></td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>11. Checks 设计模板</h2>
     <div class="note">
       <strong>原则：</strong>
       一个 check 验证一个资产属性。blocking check 定义边界，WARN check 做观测。WARN 失败必须能看到 metadata，不能静默。
@@ -626,7 +689,7 @@ fetch_tushare_full_file_to_raw(
   </section>
 
   <section>
-    <h2>11. Job 设计模板</h2>
+    <h2>12. Job 设计模板</h2>
     <div class="danger">
       <strong>job 不是业务逻辑容器。</strong>
       <code>defs/jobs/**</code> 只能定义 job 名称、asset selection、checks selection、description。
@@ -674,12 +737,12 @@ dataset_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(raw_asset, silver_asset)
         | dg.AssetSelection.checks_for_assets(raw_asset, silver_asset)
     ),
-    description="Partitioned job that updates only this dataset family.",
+    description="更新某数据集原始表和标准表。",
 )</code></pre>
   </section>
 
   <section>
-    <h2>12. Sensor 与 Automation 模板</h2>
+    <h2>13. Sensor 与 Automation 模板</h2>
     <div class="grid">
       <div class="card">
         <span class="tag blue">partition sensor</span>
@@ -748,7 +811,7 @@ dataset_update_job = dg.define_asset_job(
   </section>
 
   <section>
-    <h2>13. 历史 bootstrap 模板</h2>
+    <h2>14. 历史 bootstrap 模板</h2>
     <p>
       bootstrap 是“旧湖历史数据节约时间地进入新湖 raw”的迁移工具，不是日常生产分支。
       通用 bootstrap 引擎可以长期保留，具体数据集 spec 和旧链路必须记录到 legacy links。
@@ -793,7 +856,7 @@ dataset_update_job = dg.define_asset_job(
   </section>
 
   <section>
-    <h2>14. Backfill 与恢复模板</h2>
+    <h2>15. Backfill 与恢复模板</h2>
     <ul>
       <li>大范围历史补齐优先用 Dagster UI 分批 backfill，不要让 sensor/automation 一次吞历史缺口。</li>
       <li>dynamic partitions 必须先在正式 instance 注册，不能用临时 instance 验证。</li>
@@ -805,7 +868,7 @@ dataset_update_job = dg.define_asset_job(
   </section>
 
   <section>
-    <h2>15. 开发切片模板</h2>
+    <h2>16. 开发切片模板</h2>
     <div class="table-wrap">
       <table>
         <thead>
@@ -852,7 +915,7 @@ dataset_update_job = dg.define_asset_job(
   </section>
 
   <section>
-    <h2>16. 验收命令与检查</h2>
+    <h2>17. 验收命令与检查</h2>
     <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
 uv run dg check defs
 
@@ -869,7 +932,7 @@ git status --short</code></pre>
   </section>
 
   <section>
-    <h2>17. 接入前最终 Checklist</h2>
+    <h2>18. 接入前最终 Checklist</h2>
     <div class="table-wrap">
       <table>
         <thead>
@@ -883,6 +946,7 @@ git status --short</code></pre>
         <tr><td>依据</td><td>当前代码、旧湖数据、本地 Tushare 文档、tushareMCP 实测都已核验。</td><td>□</td></tr>
         <tr><td>层级</td><td>raw/silver/gold 分类清楚，没有 support/reference 新层级。</td><td>□</td></tr>
         <tr><td>命名</td><td>asset/job/sensor/file 名称单一职责，不宽泛。</td><td>□</td></tr>
+        <tr><td>UI 文案</td><td>asset/job/sensor/check 的 description 已用中文简明表达能力和用途。</td><td>□</td></tr>
         <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入。</td><td>□</td></tr>
         <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
@@ -899,12 +963,13 @@ git status --short</code></pre>
   </section>
 
   <section>
-    <h2>18. 反模式清单</h2>
+    <h2>19. 反模式清单</h2>
     <ul>
       <li>把所有 Tushare 接口一次性接进 Dagster。</li>
       <li>按脚本名设计 asset，而不是按长期存在的数据结果设计 asset。</li>
       <li>raw 层做业务过滤，导致源镜像不可恢复。</li>
       <li>job 里写拉取、SQL、路径、质量判断。</li>
+      <li>description 随便写英文占位、技术废话或过期口径。</li>
       <li>下游 job 主动补上游。</li>
       <li>只看文件存在或 materialized，就认为上游 ready。</li>
       <li>把 WARN check 失败静默吞掉。</li>
