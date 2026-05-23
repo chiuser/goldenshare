@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 数据集资产接入综合模板</title>
+  <style>
+    :root {
+      --bg: #f7f3ea;
+      --paper: #fffaf0;
+      --ink: #26312f;
+      --muted: #65706b;
+      --line: #d8cdb8;
+      --raw: #dff2ff;
+      --silver: #e8edf2;
+      --gold: #ffe5a8;
+      --green: #dff3df;
+      --warn: #fff0c2;
+      --risk: #ffd9ce;
+      --blue: #dfeaff;
+      --code-bg: #fffdf8;
+      --code-ink: #1f2a28;
+      --accent: #2f6f73;
+    }
+
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: radial-gradient(circle at top left, #fff7df 0, var(--bg) 38%, #efe6d3 100%);
+      color: var(--ink);
+      font-family: ui-serif, "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+      line-height: 1.65;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 44px 28px 80px;
+    }
+    header {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 240, 0.88);
+      border-radius: 24px;
+      padding: 34px 38px;
+      box-shadow: 0 20px 60px rgba(68, 55, 32, 0.12);
+    }
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      letter-spacing: 0.02em;
+    }
+    h2 {
+      margin: 46px 0 14px;
+      font-size: 24px;
+      border-left: 7px solid var(--accent);
+      padding-left: 14px;
+    }
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+    }
+    p { margin: 8px 0 12px; }
+    a { color: #175f6a; }
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      color: var(--code-ink);
+      background: #fff4d6;
+      border: 1px solid #ead8a8;
+      padding: 1px 5px;
+      border-radius: 5px;
+    }
+    pre {
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px;
+      overflow-x: auto;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    pre code {
+      background: transparent;
+      border: 0;
+      padding: 0;
+      color: inherit;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255, 250, 240, 0.95);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #efe3ca;
+      font-weight: 700;
+    }
+    ul, ol { padding-left: 24px; }
+    li { margin: 5px 0; }
+    .subtitle {
+      color: var(--muted);
+      max-width: 900px;
+      font-size: 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin: 16px 0;
+    }
+    .card {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 240, 0.92);
+      border-radius: 18px;
+      padding: 16px 18px;
+    }
+    .tag {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      margin-bottom: 8px;
+      border: 1px solid rgba(0,0,0,0.08);
+    }
+    .raw { background: var(--raw); }
+    .silver { background: var(--silver); }
+    .gold { background: var(--gold); }
+    .check { background: var(--green); }
+    .warn { background: var(--warn); }
+    .risk { background: var(--risk); }
+    .blue { background: var(--blue); }
+    .note, .warning, .danger {
+      border-radius: 16px;
+      padding: 14px 16px;
+      margin: 14px 0;
+      border: 1px solid var(--line);
+    }
+    .note { background: #eef8ee; }
+    .warning { background: #fff3c9; }
+    .danger { background: #ffe1d9; }
+    .table-wrap { overflow-x: auto; margin: 14px 0 22px; }
+    .flow {
+      background: #fffdf8;
+      border: 1px dashed #c8b894;
+      border-radius: 16px;
+      padding: 16px;
+      margin: 16px 0;
+    }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 数据集资产接入综合模板</h1>
+    <p class="subtitle">
+      本模板用于后续把一个新的 Tushare / 本地数据湖数据集接入 Dagster。
+      它把 Phase 1、Phase 2、stock daily 迁移和 asset/job topology 中踩过的坑抽象成固定检查项：
+      先分析、再设计、再切片实现，禁止凭经验直接写 asset。
+    </p>
+    <p class="small">
+      参考文档：
+      <a href="dagster-phase-2-design.html">Phase 2 设计</a>、
+      <a href="dagster-phase-2-low-level-design.html">Phase 2 LLD</a>、
+      <a href="dagster-stock-daily-migration.html">Stock Daily 迁移设计</a>、
+      <a href="dagster-stock-daily-migration-low-level-design.html">Stock Daily 迁移 LLD</a>、
+      <a href="dagster-asset-job-topology.html">Asset / Job Topology</a>、
+      <a href="dagster-bootstrap-legacy-links.md">Bootstrap Legacy Links</a>。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 使用方式：先填模板，再写代码</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag blue">Step 1</span>
+        <h3>先定数据产品和资产边界</h3>
+        <p>不要从脚本出发，也不要一口气把一个接口家族全搬进 Dagster。先回答：这个数据集长期存在的结果是什么，会被谁消费，值得不值得单独重跑和检查。</p>
+      </div>
+      <div class="card">
+        <span class="tag blue">Step 2</span>
+        <h3>再定 raw / silver / gold</h3>
+        <p>资产分类只认三层：raw、silver、gold。不要再造 support、reference、manifest 这类资产层级概念。用途可以记录，但不能替代层级。</p>
+      </div>
+      <div class="card">
+        <span class="tag blue">Step 3</span>
+        <h3>最后设计 job 和 sensor</h3>
+        <p>job 只是“这次要跑哪些资产”的入口；sensor 只是“什么时候请求某个 job”的触发器。具体拉取、转换、写文件都必须在 asset 或 helper/resource 中。</p>
+      </div>
+    </div>
+
+    <div class="danger">
+      <strong>硬门禁：</strong>
+      新数据集接入前必须先形成设计记录。没有字段契约、分区模型、路径、checks、job selection、sensor 触发和验收计划，不允许写 asset 代码。
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 数据集接入总流程</h2>
+    <div class="flow">
+      <pre><code>业务需求 / 下游消费
+  -> 数据集说明卡
+  -> Tushare 文档 + tushareMCP 实测 + 旧湖审计
+  -> raw 字段契约与路径
+  -> silver 标准事实口径
+  -> checks 清单：blocking / WARN
+  -> asset deps / check additional_deps
+  -> job selection
+  -> sensor / automation / backfill 策略
+  -> 单日验证
+  -> 小批量验证
+  -> 全量 backfill 或日常自动化
+  -> 文档同步与提交</code></pre>
+    </div>
+
+    <div class="note">
+      <strong>核心判断：</strong>
+      如果一个数据集还没有说明清楚“结果是什么、如何分区、谁写、谁读、怎么判断合格、失败后怎么恢复”，就还不能进入开发。
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 数据集说明卡模板</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>项目</th>
+          <th>必须填写的内容</th>
+          <th>说明</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>数据集名称</td>
+          <td>中文名、Tushare 接口名、内部 asset 名候选。</td>
+          <td>例：每日停复牌，Tushare <code>suspend_d</code>，raw asset <code>raw_tushare_suspend_d</code>。</td>
+        </tr>
+        <tr>
+          <td>业务含义</td>
+          <td>这个数据长期代表什么事实。</td>
+          <td>不要写“脚本会下载数据”；要写“每日停复牌事实”“股票日线标准事实”。</td>
+        </tr>
+        <tr>
+          <td>下游消费</td>
+          <td>哪些 silver/gold/check/API 会使用它。</td>
+          <td>判断是否是共享基础资产、是否需要独立 job 和 readiness。</td>
+        </tr>
+        <tr>
+          <td>所属层级</td>
+          <td><code>raw</code> / <code>silver</code> / <code>gold</code>。</td>
+          <td>分类只按数据层，不按用途另造分类。</td>
+        </tr>
+        <tr>
+          <td>分区模型</td>
+          <td>无分区 full file、<code>trade_date</code>、其它事件日期、多维分区。</td>
+          <td>交易日优先使用 <code>cn_a_trade_days</code> dynamic partitions；full snapshot 不设置 partitions_def。</td>
+        </tr>
+        <tr>
+          <td>源站契约</td>
+          <td>接口、参数、分页、显式字段、默认字段、业务关键字段。</td>
+          <td>必须用 Tushare 文档 + <code>tushareMCP</code> 实测核验。</td>
+        </tr>
+        <tr>
+          <td>新湖路径</td>
+          <td>raw/silver/gold 的物理路径。</td>
+          <td>必须落在 <code>/Volumes/datasource/data_lake/raw|silver|gold</code> 下。</td>
+        </tr>
+        <tr>
+          <td>字段与类型</td>
+          <td>raw 字段、silver 字段、类型转换、改名规则。</td>
+          <td>raw 保源镜像；silver 日期字段标准化为 <code>DATE</code>。</td>
+        </tr>
+        <tr>
+          <td>checks</td>
+          <td>blocking checks、WARN checks、metadata、样本输出。</td>
+          <td>一个 check 验证一个属性，不写大而全 check。</td>
+        </tr>
+        <tr>
+          <td>job / sensor</td>
+          <td>谁负责写、谁只读依赖、触发条件、run_key、最大单 tick 数。</td>
+          <td>禁止下游 job 顺手补上游。</td>
+        </tr>
+        <tr>
+          <td>历史迁移</td>
+          <td>是否需要旧湖 bootstrap、旧路径、迁移范围、清理策略。</td>
+          <td>旧路径只做输入和文档记录，不进入 parquet 字段。</td>
+        </tr>
+        <tr>
+          <td>验收计划</td>
+          <td>单日、小批量、全量、UI 可观测、失败恢复。</td>
+          <td>必须使用正式 Dagster instance 做最终验收。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 层级判断模板：raw / silver / gold</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag raw">raw</span>
+        <h3>源站镜像层</h3>
+        <p>raw 只表达“源站返回了什么”。字段名、日期字符串、0/1 枚举、空值口径尽量与 Tushare 显式字段契约一致。</p>
+        <ul>
+          <li>不做业务过滤，例如不按当前上市股票裁剪 raw 日线。</li>
+          <li>不写 <code>source_method</code>、旧湖路径、bootstrap metadata 到 parquet 字段。</li>
+          <li>source_method、api_name、params、fields、row_count 只进 materialization metadata。</li>
+          <li>raw 空结果要按数据集语义拍板：如 <code>suspend_d</code> 允许空 parquet；<code>daily</code> 开市日 0 行必须失败。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag silver">silver</span>
+        <h3>标准事实层</h3>
+        <p>silver 是 Goldenshare 内部稳定可计算的事实层。字段类型、主键、日期、去重、过滤边界都在这里定义。</p>
+        <ul>
+          <li>具备日期语义的字段统一转 <code>DATE</code>。</li>
+          <li>字段可改成内部稳定名称，例如 raw <code>change</code> 到 silver <code>change_amount</code>。</li>
+          <li>完全重复行可以 distinct，但必须上报 <code>duplicate_removed_count</code> 和样本。</li>
+          <li>同一业务 key 多版本内容冲突必须失败。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag gold">gold</span>
+        <h3>业务结果层</h3>
+        <p>gold 是面向页面、API、serving 或发布的业务结果。它不重复修 raw，也不绕过 silver 质量门禁。</p>
+        <ul>
+          <li>直接消费标准事实 asset，例如 <code>gold_market_breadth_daily</code> 只消费 <code>silver_stock_daily</code>。</li>
+          <li>gold checks 验证业务公式和输出语义。</li>
+          <li>Declarative automation 只适合围绕直接上游质量门禁触发。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="warning">
+      <strong>不要造层级概念：</strong>
+      <code>trade_calendar</code>、<code>stock_basic</code>、<code>suspend_d</code> 可以是基础资产、共享资产、前置资产，但层级仍然只能是 raw/silver/gold。
+      “基础”“引用”“支撑”只能作为用途描述，不能作为资产分类。
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 命名规则模板</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>对象</th>
+          <th>推荐模式</th>
+          <th>示例</th>
+          <th>注意</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw asset</td>
+          <td><code>raw_{source}_{dataset}</code></td>
+          <td><code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code></td>
+          <td>source 放名称里是为了直观看出来源；metadata 仍记录 <code>api_name</code>。</td>
+        </tr>
+        <tr>
+          <td>silver asset</td>
+          <td><code>silver_{domain?}_{entity}_{grain}</code> 或简化为稳定事实名</td>
+          <td><code>silver_stock_daily</code>、<code>silver_trade_calendar</code>、<code>silver_stock_suspend_daily</code></td>
+          <td>不要随手加很大的词，例如没有必要就不要加 <code>market</code>。</td>
+        </tr>
+        <tr>
+          <td>gold asset</td>
+          <td><code>gold_{business}_{entity}_{grain}</code></td>
+          <td><code>gold_market_breadth_daily</code></td>
+          <td>从页面/API/业务结果反推，而不是从脚本名反推。</td>
+        </tr>
+        <tr>
+          <td>job</td>
+          <td><code>{asset_family}_update_job</code> 或 <code>{business}_job</code></td>
+          <td><code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code></td>
+          <td>job 名要表达写入范围，不能叫过宽泛的 <code>foundation_daily_job</code>。</td>
+        </tr>
+        <tr>
+          <td>sensor</td>
+          <td><code>{asset_family}_sensor</code></td>
+          <td><code>stock_daily_sensor</code>、<code>suspend_d_sensor</code></td>
+          <td><code>cn_a_trade_day_sensor</code> 只注册交易日分区，不承接所有数据集生产。</td>
+        </tr>
+        <tr>
+          <td>文件名</td>
+          <td>按数据集或资产族单一职责命名</td>
+          <td><code>stock_daily.py</code>、<code>suspend_d_checks.py</code></td>
+          <td>禁止用 <code>types.py</code>、<code>sync_partitions.py</code> 这类过宽泛文件名。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 新湖路径模板</h2>
+    <pre><code># trade_date 分区 raw
+data_lake/raw/tushare/{dataset}/trade_date=YYYY-MM-DD/part-000.parquet
+
+# trade_date 分区 silver
+data_lake/silver/{domain}/{dataset_or_fact}/trade_date=YYYY-MM-DD/part-000.parquet
+
+# trade_date 分区 gold
+data_lake/gold/{business}/{asset_name}/trade_date=YYYY-MM-DD/part-000.parquet
+
+# full snapshot raw
+data_lake/raw/tushare/{dataset}/full/part-000.parquet
+
+# full snapshot silver
+data_lake/silver/{domain}/{dataset}/full/part-000.parquet</code></pre>
+
+    <div class="danger">
+      <strong>路径禁区：</strong>
+      新 Dagster asset path 不得出现旧湖概念，例如 <code>raw_tushare</code>、<code>manifest</code>、<code>derived</code>、<code>research</code>、<code>lake_jobs</code>。
+      旧湖路径只允许作为 bootstrap 输入参数和迁移审计记录。
+    </div>
+  </section>
+
+  <section>
+    <h2>7. Tushare 拉取设计模板</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>检查项</th>
+          <th>必须产出</th>
+          <th>踩坑沉淀</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>接口文档</td>
+          <td>本地 <code>docs/sources/tushare/**</code> 对应文档路径。</td>
+          <td>不能凭接口名或历史印象写参数。</td>
+        </tr>
+        <tr>
+          <td>真实请求</td>
+          <td>用 <code>tushareMCP</code> 验证默认 fields、显式 fields、业务关键 fields。</td>
+          <td>一次没有请求某字段，不能说明源站没有该字段。</td>
+        </tr>
+        <tr>
+          <td>参数模型</td>
+          <td>必填参数、可选参数、分页参数、日期参数、是否支持全集。</td>
+          <td>支持日期参数不等于应该按日期驱动。</td>
+        </tr>
+        <tr>
+          <td>分页策略</td>
+          <td><code>limit=6000</code>、<code>offset=0/6000/...</code> 或接口特定策略。</td>
+          <td>必须估算请求量、耗时、配额影响。</td>
+        </tr>
+        <tr>
+          <td>空结果策略</td>
+          <td><code>allow_empty=true/false</code> 和业务解释。</td>
+          <td>停复牌某天 0 行是正常；日线开市日 0 行是失败。</td>
+        </tr>
+        <tr>
+          <td>敏感配置</td>
+          <td><code>TUSHARE_TOKEN</code> 通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入。</td>
+          <td>禁止写入代码、文档、dagster.yaml、.env、metadata、日志。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><code>raw asset 调用模式：
+fetch_tushare_partition_to_raw(
+  api_name="daily",
+  api_params={"trade_date": partition_key.replace("-", "")},
+  fields=EXPLICIT_RAW_FIELDS,
+  column_types=RAW_COLUMN_TYPES,
+  allow_empty=False,
+)
+
+full snapshot 调用模式：
+fetch_tushare_full_file_to_raw(
+  api_name="stock_basic",
+  api_params={"list_status": "L,D,P,G"},
+  fields=EXPLICIT_RAW_FIELDS,
+  column_types=RAW_COLUMN_TYPES,
+  allow_empty=False,
+)</code></pre>
+  </section>
+
+  <section>
+    <h2>8. 字段与类型定义模板</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag raw">raw fields</span>
+        <h3>源镜像字段</h3>
+        <ul>
+          <li>字段顺序必须显式定义。</li>
+          <li>字段类型必须为 DuckDB 写 parquet 明确声明。</li>
+          <li>Tushare 日期字段在 raw 中通常保持 <code>YYYYMMDD</code> 字符串。</li>
+          <li>Tushare 数值字段可按源契约写为数值类型，但不要做业务派生。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag silver">silver fields</span>
+        <h3>标准事实字段</h3>
+        <ul>
+          <li>明确日期语义字段转 <code>DATE</code>。</li>
+          <li>明确时刻语义字段按语义转 <code>TIMESTAMP</code> 或保留字符串。</li>
+          <li>报告期、月份、周期字段不能凭字段名硬转 DATE。</li>
+          <li>字段改名必须记录，例如 <code>change</code> 到 <code>change_amount</code>。</li>
+        </ul>
+      </div>
+      <div class="card">
+        <span class="tag check">schema checks</span>
+        <h3>字段契约检查</h3>
+        <ul>
+          <li>raw required columns。</li>
+          <li>raw schema matches source contract。</li>
+          <li>silver required columns non-null。</li>
+          <li>partition date matches。</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="warning">
+      <strong>DuckDB 小坑：</strong>
+      读取 <code>trade_date=...</code> 目录下 parquet 时，DuckDB 可能自动推断目录分区列。
+      核验 parquet 内部字段契约时必须使用 <code>hive_partitioning=false</code>。
+    </div>
+  </section>
+
+  <section>
+    <h2>9. Asset 定义模板</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>资产类型</th>
+          <th>asset 代码职责</th>
+          <th>必须返回的 metadata</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw partitioned asset</td>
+          <td>调用 Tushare 或 bootstrap helper，写 raw parquet。</td>
+          <td><code>path</code>、<code>row_count</code>、<code>columns</code>、<code>source_method</code>、<code>api_name</code>、脱敏 <code>params</code>、<code>partition_key</code>。</td>
+        </tr>
+        <tr>
+          <td>raw full asset</td>
+          <td>拉全量快照，原子替换 full parquet。</td>
+          <td><code>path</code>、<code>row_count</code>、<code>columns</code>、分布统计、<code>update_policy</code>。</td>
+        </tr>
+        <tr>
+          <td>silver asset</td>
+          <td>读取 raw 和真实上游标准事实，做类型标准化、去重、过滤、修正。</td>
+          <td><code>path</code>、<code>raw_path</code>、<code>row_count</code>、<code>columns</code>、过滤统计、重复/冲突统计、修正统计。</td>
+        </tr>
+        <tr>
+          <td>gold asset</td>
+          <td>读取 silver 标准事实，生成业务结果。</td>
+          <td><code>path</code>、上游路径、行数、公式口径、业务摘要。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>asset deps 判断</h3>
+    <ul>
+      <li>真实数据输入用 asset <code>deps</code> 表达。</li>
+      <li>质量检查额外需要的前置资产，用 check 的 <code>additional_deps</code> 表达。</li>
+      <li>不要为了“执行顺序”伪造血缘。</li>
+      <li>共享基础资产只读依赖，不能随手放进下游 job selection。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>10. Checks 设计模板</h2>
+    <div class="note">
+      <strong>原则：</strong>
+      一个 check 验证一个资产属性。blocking check 定义边界，WARN check 做观测。WARN 失败必须能看到 metadata，不能静默。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>层级</th>
+          <th>blocking checks 候选</th>
+          <th>WARN / 观测 checks 候选</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>raw</td>
+          <td>文件存在、行数策略、字段完整、schema 契约、分区日期匹配、业务 key 可解析。</td>
+          <td>源端行数波动、字段类型漂移样本、分页统计。</td>
+        </tr>
+        <tr>
+          <td>silver</td>
+          <td>主键唯一、冲突重复不存在、必要字段非空、日期类型和分区匹配、枚举值合法、价格/数值合理。</td>
+          <td>覆盖率差异、row_count 与 raw 关系、缺失样本、多余样本、解释性统计。</td>
+        </tr>
+        <tr>
+          <td>gold</td>
+          <td>业务公式正确、行数符合粒度、关键指标范围、与 silver 重新聚合一致。</td>
+          <td>趋势指标、异常波动、可视化 numeric metadata。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>metadata 最低要求</h3>
+    <ul>
+      <li>失败数量，例如 <code>mismatch_count</code>、<code>duplicate_key_count</code>、<code>anomaly_count</code>。</li>
+      <li>样本行，例如 <code>sample_rows</code>、<code>missing_sample_ts_codes</code>。</li>
+      <li>输入路径和 partition key。</li>
+      <li>规则说明，例如 price sanity 的规则列表。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>11. Job 设计模板</h2>
+    <div class="danger">
+      <strong>job 不是业务逻辑容器。</strong>
+      <code>defs/jobs/**</code> 只能定义 job 名称、asset selection、checks selection、description。
+      不允许在 job 里调用 Tushare、DuckDB、路径函数、字段转换或质量判断。
+    </div>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>job 类型</th>
+          <th>selection 规则</th>
+          <th>示例</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>单资产族 raw/silver 更新</td>
+          <td>选择本资产族 raw + silver + checks。</td>
+          <td><code>suspend_update_job</code>、<code>stock_daily_update_job</code>。</td>
+        </tr>
+        <tr>
+          <td>full snapshot 更新</td>
+          <td>选择 full raw + full silver + checks，并分析并发保护。</td>
+          <td><code>basic_update_job</code>。</td>
+        </tr>
+        <tr>
+          <td>业务 gold 更新</td>
+          <td>只选择业务 gold asset + gold checks，不写共享上游。</td>
+          <td><code>daily_market_breadth_job</code>。</td>
+        </tr>
+        <tr>
+          <td>历史 bootstrap job</td>
+          <td>只用于迁移验收，不进入日常生产，不被 sensor 触发。</td>
+          <td>旧湖到新湖 raw 的一次性迁移入口。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <pre><code>推荐 job skeleton：
+dataset_update_job = dg.define_asset_job(
+    name="dataset_update_job",
+    selection=(
+        dg.AssetSelection.assets(raw_asset, silver_asset)
+        | dg.AssetSelection.checks_for_assets(raw_asset, silver_asset)
+    ),
+    description="Partitioned job that updates only this dataset family.",
+)</code></pre>
+  </section>
+
+  <section>
+    <h2>12. Sensor 与 Automation 模板</h2>
+    <div class="grid">
+      <div class="card">
+        <span class="tag blue">partition sensor</span>
+        <h3>交易日注册器</h3>
+        <p><code>cn_a_trade_day_sensor</code> 只读取 <code>silver_trade_calendar</code>，注册合法交易日 dynamic partition，不触发数据生产。</p>
+      </div>
+      <div class="card">
+        <span class="tag blue">asset-family sensor</span>
+        <h3>资产族 sensor</h3>
+        <p>每个资产族自己的 sensor 判断缺失、freshness、blocking checks、源站 ready，再触发自己的 job。</p>
+      </div>
+      <div class="card">
+        <span class="tag blue">declarative automation</span>
+        <h3>直接上游自动化</h3>
+        <p>适用于 gold 只依赖一个标准事实上游时，例如 <code>missing() &amp; all_deps_blocking_checks_passed()</code>。</p>
+      </div>
+    </div>
+
+    <h3>sensor 必填设计项</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>项目</th>
+          <th>要求</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>默认状态</td>
+          <td>默认 <code>STOPPED</code>，人工验证后再启用。</td>
+        </tr>
+        <tr>
+          <td>输入状态</td>
+          <td>dynamic partitions、materialization、blocking checks、freshness、source readiness。</td>
+        </tr>
+        <tr>
+          <td>ready 条件</td>
+          <td>不能只看文件存在，必须看 materialized + blocking checks passed；full snapshot 还要 freshness。</td>
+        </tr>
+        <tr>
+          <td>run_key</td>
+          <td>必须稳定，例如 <code>stock_daily_update:{trade_date}</code>。失败重跑不要随机改 key。</td>
+        </tr>
+        <tr>
+          <td>cursor</td>
+          <td>只做观测和排障，不作为正确性依据。</td>
+        </tr>
+        <tr>
+          <td>单 tick 限制</td>
+          <td>必须设置最大请求数，例如当前资产族 sensor 通常是 2。</td>
+        </tr>
+        <tr>
+          <td>失败策略</td>
+          <td>失败 run 通过 UI retry、手动 run 或专门重试策略处理，sensor 不无限重试。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="warning">
+      <strong>Declarative automation 边界：</strong>
+      <code>all_deps_blocking_checks_passed()</code> 只覆盖直接上游 asset，不会穿透间接上游。
+      如果下游真实只消费 <code>silver_stock_daily</code>，就围绕它设计；如果需要多个非直接前置条件，必须单独设计 readiness gate 或 sensor 方案。
+    </div>
+  </section>
+
+  <section>
+    <h2>13. 历史 bootstrap 模板</h2>
+    <p>
+      bootstrap 是“旧湖历史数据节约时间地进入新湖 raw”的迁移工具，不是日常生产分支。
+      通用 bootstrap 引擎可以长期保留，具体数据集 spec 和旧链路必须记录到 legacy links。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>检查项</th>
+          <th>要求</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>旧湖路径</td>
+          <td>只作为 input pattern 和审计记录，不进入新湖 parquet 字段。</td>
+        </tr>
+        <tr>
+          <td>字段纠偏</td>
+          <td>旧湖写入新湖 raw 前必须向 Tushare 源字段契约对齐。</td>
+        </tr>
+        <tr>
+          <td>类型漂移</td>
+          <td>必要时使用 <code>union_by_name=true</code> 和显式 cast，例如 <code>suspend_timing</code>。</td>
+        </tr>
+        <tr>
+          <td>写入方式</td>
+          <td><code>.tmp</code> 文件写成功后 <code>os.replace</code> 原子替换。</td>
+        </tr>
+        <tr>
+          <td>source_method</td>
+          <td><code>old_lake_bootstrap</code> 只进 Dagster metadata，不进 parquet 字段。</td>
+        </tr>
+        <tr>
+          <td>日常生产</td>
+          <td>bootstrap job 不被 sensor、schedule、declarative automation 触发。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>14. Backfill 与恢复模板</h2>
+    <ul>
+      <li>大范围历史补齐优先用 Dagster UI 分批 backfill，不要让 sensor/automation 一次吞历史缺口。</li>
+      <li>dynamic partitions 必须先在正式 instance 注册，不能用临时 instance 验证。</li>
+      <li>当前曾遇到 UI backfill preview 对复杂 selection 报 <code>Multiple initial assets not yet supported</code>，遇到时不要强行猜结果，改用明确分区范围和 failed/missing 策略。</li>
+      <li>某个 run 因 gRPC / user code server 短暂不可达失败时，先判断是否进入业务 step；若没有进入 step，通常可以单独重跑失败分区。</li>
+      <li>full snapshot asset 并发写入必须考虑 Dagster concurrency 机制；不要自造锁文件。</li>
+      <li>退市后不会自动回刷历史 <code>silver_stock_daily</code> 分区；历史重算必须显式发起。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>15. 开发切片模板</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>Slice</th>
+          <th>目标</th>
+          <th>禁止顺手做</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Slice A：设计与实测</td>
+          <td>完成说明卡、Tushare 实测、字段契约、路径和 checks 草案。</td>
+          <td>禁止写 asset 代码。</td>
+        </tr>
+        <tr>
+          <td>Slice B：raw asset</td>
+          <td>只实现 raw 拉取/写入和 raw checks。</td>
+          <td>禁止顺手生成 silver/gold。</td>
+        </tr>
+        <tr>
+          <td>Slice C：silver asset</td>
+          <td>实现标准化、去重、过滤、silver checks。</td>
+          <td>禁止加 sensor 或自动化。</td>
+        </tr>
+        <tr>
+          <td>Slice D：job</td>
+          <td>定义本资产族 update job，只做 selection。</td>
+          <td>禁止把共享上游塞进下游 job selection。</td>
+        </tr>
+        <tr>
+          <td>Slice E：sensor / automation</td>
+          <td>实现触发条件、ready 门禁、run_key、cursor、单 tick 限制。</td>
+          <td>禁止默认 RUNNING 或大范围触发。</td>
+        </tr>
+        <tr>
+          <td>Slice F：backfill / 验收</td>
+          <td>单日、小批量、全量、UI 可观测、文档同步。</td>
+          <td>禁止把验收失败绕过或改成非阻断。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>16. 验收命令与检查</h2>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run dg check defs
+
+cd /Users/congming/github/goldenshare
+python3 scripts/check_docs_integrity.py
+git diff --check
+git status --short</code></pre>
+
+    <div class="warning">
+      <strong>正式 instance 验收：</strong>
+      需要 UI 可见、dynamic partitions 持久化、sensor 状态或 backfill 记录时，必须使用
+      <code>DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home</code> 对应的正式 Dagster instance。
+    </div>
+  </section>
+
+  <section>
+    <h2>17. 接入前最终 Checklist</h2>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>类别</th>
+          <th>必须确认</th>
+          <th>完成</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr><td>依据</td><td>当前代码、旧湖数据、本地 Tushare 文档、tushareMCP 实测都已核验。</td><td>□</td></tr>
+        <tr><td>层级</td><td>raw/silver/gold 分类清楚，没有 support/reference 新层级。</td><td>□</td></tr>
+        <tr><td>命名</td><td>asset/job/sensor/file 名称单一职责，不宽泛。</td><td>□</td></tr>
+        <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入。</td><td>□</td></tr>
+        <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
+        <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
+        <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 metadata 和样本。</td><td>□</td></tr>
+        <tr><td>deps</td><td>asset deps 表达真实输入；check additional_deps 表达质量依赖。</td><td>□</td></tr>
+        <tr><td>job</td><td>job 只做 selection；共享基础资产有唯一写入口。</td><td>□</td></tr>
+        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义。</td><td>□</td></tr>
+        <tr><td>bootstrap</td><td>如需旧湖迁移，spec、legacy links、清理边界已记录。</td><td>□</td></tr>
+        <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
+        <tr><td>文档同步</td><td>对应 Phase / LLD / topology / AGENTS 如有口径变更已同步。</td><td>□</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
+    <h2>18. 反模式清单</h2>
+    <ul>
+      <li>把所有 Tushare 接口一次性接进 Dagster。</li>
+      <li>按脚本名设计 asset，而不是按长期存在的数据结果设计 asset。</li>
+      <li>raw 层做业务过滤，导致源镜像不可恢复。</li>
+      <li>job 里写拉取、SQL、路径、质量判断。</li>
+      <li>下游 job 主动补上游。</li>
+      <li>只看文件存在或 materialized，就认为上游 ready。</li>
+      <li>把 WARN check 失败静默吞掉。</li>
+      <li>用 sensor 一次性触发大量历史分区。</li>
+      <li>把旧湖路径写入新湖 parquet 字段。</li>
+      <li>遇到 DuckDB hive partition 推断时，把目录列误当成文件内部字段。</li>
+      <li>把 full snapshot 资产塞进多个业务 job selection，导致重复写和并发覆盖。</li>
+      <li>文档不更新，导致代码事实和设计口径脱节。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
