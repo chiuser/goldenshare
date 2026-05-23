@@ -864,6 +864,11 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         </thead>
         <tbody>
         <tr>
+	          <td>3.0.0</td>
+	          <td>验证 <code>BackfillPolicy.single_run()</code> 是否适合 index daily 历史回补。</td>
+	          <td>已在临时 <code>/private/tmp</code> Dagster instance 验证：可一个 run 处理多个分区，分区 materialization 可观测；checks 以 range 级别记录一次成功评价。正式实现必须全链路 range-aware。</td>
+	        </tr>
+        <tr>
 	          <td>3.0.1</td>
 	          <td>本地 metadata 表与维护 job 设计落地：active pool / 主要指数名单。</td>
 	          <td>只做本地 PostgreSQL schema、resource、asset、update job 骨架和 checks；不访问 prod，不拉 Tushare。</td>
@@ -881,7 +886,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td>3.2</td>
           <td>实现 <code>raw_tushare_index_daily</code> 和 <code>silver_index_daily</code>。</td>
-          <td>先单日少量验证，再评估历史补齐。</td>
+          <td>先单日少量验证，再用 <code>BackfillPolicy.single_run()</code> 小范围 range backfill 验证；raw/silver 与对应 checks 必须统一支持 range-aware 执行。</td>
         </tr>
         <tr>
           <td>3.3</td>

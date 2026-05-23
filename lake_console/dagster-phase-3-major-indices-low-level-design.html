@@ -774,10 +774,19 @@ silver_index_daily 对同一 range 读取 raw 分区
 
     <div class="callout">
       <strong>实现前验证门禁：</strong>
-      Slice 3.2.0 必须先用临时小样本 asset 验证本地 Dagster 1.13.6 的
-      <code>BackfillPolicy.single_run()</code> 能否满足“一个 run 写多分区、checks 可见、UI 分区状态可观测”。
-      如果验证失败，必须停下来讨论后备方案，不能私自改成自定义 op job。
+      Slice 3.0.0 已使用临时 <code>/private/tmp</code> Dagster instance 验证本地 Dagster 1.13.6 的
+      <code>BackfillPolicy.single_run()</code> 行为，没有污染正式 Dagster instance 或正式湖。
     </div>
+
+    <h3>Slice 3.0.0 验证结论</h3>
+    <ul>
+      <li><code>BackfillPolicy.single_run()</code> 可用于 index daily 历史回补：<code>dg launch --partition-range</code> 对 3 个测试日期只生成 1 个 run。</li>
+      <li>asset 代码必须使用 <code>context.partition_keys</code> 或 <code>context.partition_key_range</code> 处理分区集合；不能把 <code>context.partition_key</code> 作为 range backfill 主逻辑。</li>
+      <li>range run 会为每个分区写入 materialization 记录，<code>get_materialized_partitions()</code> 与 <code>get_status_by_partition()</code> 都能看到分区状态。</li>
+      <li>blocking check 可执行，但验证中 check 成功记录是 range 级别一次 evaluation，metadata 中包含本次检查覆盖的 partition keys；不是每个分区单独一条 SUCCEEDED check 记录。</li>
+      <li>如果 job selection 中混入未声明 <code>BackfillPolicy.single_run()</code> 的 partitioned asset，CLI 会拒绝 <code>--partition-range</code>，要求改用 UI/daemon backfill 或让所有 selected assets 统一声明 single-run policy。</li>
+      <li>因此 <code>index_daily_history_backfill_job</code> 选择的 raw/silver index daily 资产及对应代码必须统一 range-aware；checks 设计必须接受 range 级别评价，并在 metadata 中清晰列出覆盖分区。</li>
+    </ul>
 
     <h3>staging 目录</h3>
     <pre><code>data_lake/raw/tushare/index_daily/_staging/run_id=&lt;run_id&gt;/chunks/{ts_code}-{page}.parquet</code></pre>
@@ -972,7 +981,7 @@ probe_index_daily_ready(
         <tr>
           <td>3.0.0</td>
           <td>验证 <code>BackfillPolicy.single_run()</code> 小样本行为。</td>
-          <td>明确能否用于 index daily 历史回补；不通则停下讨论。</td>
+          <td>已完成。结论：可用于 index daily 历史回补，但 selected assets 必须统一声明 single-run policy，asset/check 代码必须 range-aware。</td>
         </tr>
 	        <tr>
 	          <td>3.0.1</td>
@@ -1048,8 +1057,8 @@ git status --short</code></pre>
         <tbody>
         <tr>
           <td><code>BackfillPolicy.single_run()</code> 行为不满足 UI/check 可观测要求。</td>
-          <td>历史回补无法按当前方案进入 Dagster asset job。</td>
-          <td>Slice 3.0.0 先验证；不通就停下讨论后备方案。</td>
+          <td>已验证可用于历史回补，但 checks 是 range 级别成功评价，不是每个分区单独一条成功评价。</td>
+          <td>后续 index daily 历史回补继续采用该路线；raw/silver assets 必须统一 single-run，checks metadata 必须列出覆盖分区。</td>
         </tr>
         <tr>
           <td>有效指数数量过大。</td>
