@@ -1685,6 +1685,7 @@ dependencies = [
     { name = "dagster" },
     { name = "dagster-postgres" },
     { name = "duckdb" },
+    { name = "psycopg2-binary" },
     { name = "tushare" },
 ]
 
@@ -1699,6 +1700,7 @@ requires-dist = [
     { name = "dagster", specifier = "==1.13.6" },
     { name = "dagster-postgres", specifier = ">=0.29.6" },
     { name = "duckdb", specifier = ">=1.5.2" },
+    { name = "psycopg2-binary", specifier = ">=2.9.12" },
     { name = "tushare", specifier = ">=1.4.20" },
 ]
 

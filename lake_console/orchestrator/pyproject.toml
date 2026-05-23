@@ -6,6 +6,7 @@ dependencies = [
     "dagster==1.13.6",
     "dagster-postgres>=0.29.6",
     "duckdb>=1.5.2",
+    "psycopg2-binary>=2.9.12",
     "tushare>=1.4.20",
 ]
 
@@ -30,5 +31,4 @@ root_module = "orchestrator"
 registry_modules = [
     "orchestrator.components.*",
 ]
-
 

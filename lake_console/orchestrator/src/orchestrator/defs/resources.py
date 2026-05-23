@@ -45,6 +45,68 @@ class DuckDBResource(dg.ConfigurableResource):
             connection.close()
 
 
+class LakeMetaPostgresResource(dg.ConfigurableResource):
+    postgres_url: str = "postgresql://congming@localhost:5432/goldenshare_lake_meta"
+
+    @contextmanager
+    def connect(self):
+        try:
+            import psycopg2
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Missing psycopg2-binary dependency in the Dagster orchestrator environment."
+            ) from exc
+
+        connection = psycopg2.connect(self.postgres_url)
+        try:
+            yield connection
+        finally:
+            connection.close()
+
+    def ensure_index_metadata_tables(self) -> None:
+        ddl_statements = (
+            """
+            CREATE TABLE IF NOT EXISTS index_daily_active_pool (
+              ts_code TEXT PRIMARY KEY,
+              display_name TEXT
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS index_daily_active_pool_history (
+              id BIGSERIAL PRIMARY KEY,
+              ts_code TEXT NOT NULL,
+              before_payload JSONB,
+              after_payload JSONB,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              dagster_run_id TEXT
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS market_major_indices (
+              rank INT NOT NULL,
+              ts_code TEXT NOT NULL,
+              display_name TEXT,
+              PRIMARY KEY (rank),
+              UNIQUE (ts_code)
+            )
+            """,
+            """
+            CREATE TABLE IF NOT EXISTS market_major_indices_change_history (
+              id BIGSERIAL PRIMARY KEY,
+              before_payload JSONB,
+              after_payload JSONB,
+              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
+              dagster_run_id TEXT
+            )
+            """,
+        )
+        with self.connect() as connection:
+            with connection.cursor() as cursor:
+                for statement in ddl_statements:
+                    cursor.execute(statement)
+            connection.commit()
+
+
 @dataclass(frozen=True)
 class TushareResult:
     rows: list[dict[str, Any]]
@@ -102,6 +164,7 @@ defs = dg.Definitions(
     resources={
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
+        "lake_meta_postgres": LakeMetaPostgresResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
     }
 )
