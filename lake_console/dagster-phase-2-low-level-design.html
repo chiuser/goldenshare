@@ -1084,6 +1084,14 @@ intraday_suspended:
       只有全日停牌可以解释“当日无日线”；盘中停牌必须作为样本上报，不能当成无日线。
     </div>
 
+    <div class="warning">
+      <strong>历史分区重算语义：</strong>
+      <code>silver_stock_basic</code> 是当前上市股票池快照。股票退市后，日常 stock basic 更新不会自动回刷既有
+      <code>silver_stock_daily</code> 历史分区；历史分区只有在人工 backfill 或显式重跑时才会重新生成。
+      重跑时会读取最新 <code>silver_stock_basic</code>，因此结果可能和早先 materialize 的历史文件不同。
+      这是当前设计边界，不能在日常更新链路中偷偷触发大范围历史重算。
+    </div>
+
     <div class="table-wrap">
       <table>
         <thead>

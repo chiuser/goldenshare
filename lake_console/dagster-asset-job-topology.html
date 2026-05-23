@@ -743,6 +743,12 @@
           <td>后续实现 freshness check 和当天生产前置门禁。</td>
         </tr>
         <tr>
+          <td>退市后的历史分区</td>
+          <td><code>silver_stock_basic</code> 只代表当前上市股票池；既有 <code>silver_stock_daily</code> 历史分区不会随 stock basic 日更自动回刷。</td>
+          <td>如果显式重跑历史分区，会按最新股票池重新过滤，结果可能不同于早先 materialize 的历史文件。</td>
+          <td>历史重算必须作为人工 backfill 或专项迁移动作发起，不能由日常 <code>basic_update_job</code> 隐式触发。</td>
+        </tr>
+        <tr>
           <td>共享基础资产 selection</td>
           <td><code>daily_market_breadth_job</code> 已实现，selection 只包含 market breadth gold asset 和 gold checks。</td>
           <td>如果业务 gold job 把基础资产加入 selection，会造成重复写、并发覆盖和职责混乱。</td>

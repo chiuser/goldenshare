@@ -2082,6 +2082,14 @@ silver_stock_daily =
       <code>2014-01-02</code> 至 <code>2026-05-15</code> 已验收 <code>silver_stock_daily</code> 为 <code>11,296,600</code> 行，
       覆盖 <code>5517</code> 只当前上市股票。
     </p>
+    <div class="warning">
+      <strong>退市后的历史分区边界：</strong>
+      <code>silver_stock_basic</code> 是日更全量快照，代表当前上市股票池，不是任意历史日期的股票池账本。
+      当某只股票后续退市时，日常 <code>basic_update_job</code> 只更新当前股票池；
+      已经生成过的 <code>silver_stock_daily[trade_date]</code> 历史分区不会自动追溯清理。
+      若后续显式重跑某个历史分区，该分区会按最新 <code>silver_stock_basic</code> 重新过滤，
+      因此历史重跑是有意操作，不能被 stock basic 日更隐式触发。
+    </div>
 
     <h3>10.2 suspend_d 修正与完整性观测</h3>
     <p>

@@ -251,6 +251,16 @@
           上市日后、BJ 自 <code>2021-11-15</code> 起。silver 日期字段统一为 <code>DATE</code>。
         </p>
       </div>
+      <div class="card">
+        <span class="tag risk">History</span>
+        <h3>历史分区重算语义</h3>
+        <p>
+          <code>silver_stock_basic</code> 是当前 <code>list_status='L'</code> 快照，不保存任意历史时点股票池。
+          当股票退市后，日常更新不会自动追溯清理既有 <code>silver_stock_daily</code> 历史分区。
+          如果人工或 backfill 显式重跑某个历史分区，该分区会按最新 <code>silver_stock_basic</code>
+          重新生成，因此结果可能不同于最初生成时的历史文件。
+        </p>
+      </div>
     </div>
   </section>
 
