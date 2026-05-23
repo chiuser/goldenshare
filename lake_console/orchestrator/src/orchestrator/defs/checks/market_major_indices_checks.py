@@ -8,12 +8,18 @@ from orchestrator.defs.assets.market_major_indices import (
     MARKET_MAJOR_INDICES_COLUMNS,
     gold_market_major_indices,
 )
+from orchestrator.defs.assets.index_basic import silver_index_basic
+from orchestrator.defs.assets.index_daily_active_pool import silver_index_daily_active_pool
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     read_parquet,
 )
-from orchestrator.defs.paths import gold_market_major_indices_path
+from orchestrator.defs.paths import (
+    gold_market_major_indices_path,
+    silver_index_basic_path,
+    silver_index_daily_active_pool_path,
+)
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
 
@@ -197,5 +203,99 @@ def gold_market_major_indices_rank_continuous(
             "max_rank": max_rank,
             "null_rank_count": null_rank_count,
             "duplicate_rank_samples": _sample_dicts(["rank", "row_count"], duplicate_rows),
+        },
+    )
+
+
+@dg.asset_check(
+    asset=gold_market_major_indices,
+    additional_deps=[silver_index_daily_active_pool],
+    blocking=True,
+)
+def gold_market_major_indices_codes_exist_in_active_pool(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    major_indices_path = gold_market_major_indices_path(lake_root.root())
+    active_pool_path = silver_index_daily_active_pool_path(lake_root.root())
+    for path in (major_indices_path, active_pool_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    missing_codes_sql = f"""
+    SELECT major_indices.ts_code, major_indices."rank"
+    FROM {read_parquet(major_indices_path, hive_partitioning=False)} major_indices
+    LEFT JOIN {read_parquet(active_pool_path, hive_partitioning=False)} active_pool
+      ON major_indices.ts_code = active_pool.ts_code
+    WHERE active_pool.ts_code IS NULL
+    """
+    with duckdb.connect() as connection:
+        missing_count = int(
+            connection.execute(
+                f"SELECT count(*) FROM ({missing_codes_sql}) missing_codes"
+            ).fetchone()[0]
+        )
+        rows = connection.execute(
+            f"""
+            {missing_codes_sql}
+            ORDER BY "rank", ts_code
+            LIMIT 20
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=missing_count == 0,
+        metadata={
+            "major_indices_path": str(major_indices_path),
+            "active_pool_path": str(active_pool_path),
+            "missing_count": missing_count,
+            "missing_sample_rows": _sample_dicts(["ts_code", "rank"], rows),
+        },
+    )
+
+
+@dg.asset_check(
+    asset=gold_market_major_indices,
+    additional_deps=[silver_index_basic],
+    blocking=True,
+)
+def gold_market_major_indices_codes_exist_in_index_basic(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    major_indices_path = gold_market_major_indices_path(lake_root.root())
+    index_basic_path = silver_index_basic_path(lake_root.root())
+    for path in (major_indices_path, index_basic_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    missing_codes_sql = f"""
+    SELECT major_indices.ts_code, major_indices."rank"
+    FROM {read_parquet(major_indices_path, hive_partitioning=False)} major_indices
+    LEFT JOIN {read_parquet(index_basic_path, hive_partitioning=False)} index_basic
+      ON major_indices.ts_code = index_basic.ts_code
+    WHERE index_basic.ts_code IS NULL
+    """
+    with duckdb.connect() as connection:
+        missing_count = int(
+            connection.execute(
+                f"SELECT count(*) FROM ({missing_codes_sql}) missing_codes"
+            ).fetchone()[0]
+        )
+        rows = connection.execute(
+            f"""
+            {missing_codes_sql}
+            ORDER BY "rank", ts_code
+            LIMIT 20
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=missing_count == 0,
+        metadata={
+            "major_indices_path": str(major_indices_path),
+            "index_basic_path": str(index_basic_path),
+            "missing_count": missing_count,
+            "missing_sample_rows": _sample_dicts(["ts_code", "rank"], rows),
         },
     )

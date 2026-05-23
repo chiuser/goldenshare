@@ -552,14 +552,14 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
 	          <td>初始化 <code>silver_index_daily_active_pool</code>。</td>
 	          <td>远程 prod PostgreSQL <code>ops.index_series_active</code>，只读过滤 <code>resource='index_daily'</code>。</td>
 	          <td>写本地 <code>index_daily_active_pool</code> 当前表和 <code>index_daily_active_pool_history</code>；materialize <code>silver_index_daily_active_pool</code> Parquet。</td>
-	          <td>当前表、history、Parquet asset 行数一致；初始化完成后不再读 prod。依赖 <code>silver_index_basic</code> 的跨资产校验延后到 index basic 接入后补齐。</td>
+	          <td>当前表、history、Parquet asset 行数一致；初始化完成后不再读 prod。Slice 3.1 已补齐依赖 <code>silver_index_basic</code> 的跨资产校验。</td>
 	        </tr>
 	        <tr>
 	          <td>3.0.2</td>
 	          <td>初始化 <code>gold_market_major_indices</code>。</td>
 	          <td>远程 prod <code>major_indices.cn_a.v1.json</code>。</td>
 	          <td>写本地 <code>market_major_indices</code> 当前表和 <code>market_major_indices_change_history</code>；materialize <code>gold_market_major_indices</code> Parquet。</td>
-	          <td>正好 10 行；rank 连续；ts_code 不重复；初始化完成后不再读 prod JSON。依赖 active pool / index basic 的跨资产校验延后到后续 Slice 补齐。</td>
+	          <td>正好 10 行；rank 连续；ts_code 不重复；初始化完成后不再读 prod JSON。Slice 3.1 已补齐依赖 active pool / <code>silver_index_basic</code> 的跨资产校验。</td>
 	        </tr>
 	        </tbody>
 	      </table>
@@ -677,7 +677,7 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
             调用 <code>index_basic</code>，不传 <code>market</code>，显式传 13 字段，<code>limit/offset</code> 分页。
             写 <code>raw/tushare/index_basic/full/part-000.parquet</code>。
           </td>
-          <td><code>path,row_count,columns,page_count,market_distribution,source_method=tushare_api_full_snapshot</code></td>
+          <td><code>path,row_count,columns,page_count,market_distribution,source_method=tushare_api</code></td>
         </tr>
         <tr>
           <td><code>silver_index_basic</code></td>
@@ -685,7 +685,7 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
             读取 raw；日期字段转 <code>DATE</code>；按 <code>ready_for_trade_date</code> 过滤终止指数：
             <code>exp_date is null OR exp_date &gt; ready_for_trade_date</code>。
           </td>
-          <td><code>ready_for_trade_date,source_row_count,kept_row_count,terminated_removed_count,market_distribution</code></td>
+          <td><code>ready_for_trade_date,source_row_count,kept_row_count,filtered_out_row_count,source_terminated_index_count,market_distribution</code></td>
         </tr>
         <tr>
 	          <td><code>silver_index_daily_active_pool</code></td>
@@ -941,7 +941,7 @@ probe_index_daily_ready(
         </tr>
         <tr>
 	          <td><code>silver_index_daily_active_pool</code></td>
-	          <td>池非空、code 唯一、所有 code 存在于 <code>silver_index_basic</code>、无终止指数。</td>
+	          <td>池非空、code 唯一、所有 code 存在于 <code>silver_index_basic</code>。</td>
 	          <td>新增/移除摘要、history id。</td>
         </tr>
         <tr>
@@ -956,7 +956,7 @@ probe_index_daily_ready(
         </tr>
         <tr>
 	          <td><code>gold_market_major_indices</code></td>
-	          <td>正好 10 个、rank 连续且唯一、code 不重复、全部存在于 active pool。</td>
+	          <td>正好 10 个、rank 连续且唯一、code 不重复、全部存在于 active pool 和 <code>silver_index_basic</code>。</td>
 	          <td>新增/移除/排序变化摘要、history id。</td>
 	        </tr>
 	        <tr>
@@ -999,7 +999,7 @@ probe_index_daily_ready(
         <tr>
           <td>3.1</td>
           <td>实现 <code>raw_tushare_index_basic</code>、<code>silver_index_basic</code>、checks、<code>index_basic_update_job</code>。</td>
-          <td>显式 fields、分页、终止指数过滤、<code>ready_for_trade_date</code> metadata 均验证通过。</td>
+          <td>已完成。显式 fields、分页、终止指数过滤、<code>ready_for_trade_date</code> metadata 均验证通过；raw 13,538 行，silver 12,598 行，过滤终止指数 940 条；active pool 1130 个 code 和主要指数 10 个 code 均被 <code>silver_index_basic</code> 覆盖。</td>
         </tr>
         <tr>
           <td>3.2</td>

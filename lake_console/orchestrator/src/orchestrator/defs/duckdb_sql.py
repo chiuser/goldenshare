@@ -200,6 +200,24 @@ MARKET_BREADTH_DAILY_COLUMNS = (
     "red_rate",
 )
 
+INDEX_BASIC_RAW_COLUMNS = (
+    "ts_code",
+    "name",
+    "fullname",
+    "market",
+    "publisher",
+    "index_type",
+    "category",
+    "base_date",
+    "base_point",
+    "list_date",
+    "weight_rule",
+    "desc",
+    "exp_date",
+)
+
+INDEX_BASIC_SILVER_COLUMNS = INDEX_BASIC_RAW_COLUMNS
+
 
 def duckdb_string(value: str | Path) -> str:
     escaped = str(value).replace("'", "''")
@@ -422,6 +440,41 @@ SELECT
 FROM {read_parquet(silver_stock_daily_path, hive_partitioning=False)}
 WHERE trade_date = {partition_date}
   AND pct_chg IS NOT NULL
+"""
+
+
+def _index_basic_date_expression(column_name: str) -> str:
+    return f"""
+CASE
+  WHEN {column_name} IS NULL OR trim(CAST({column_name} AS VARCHAR)) = '' THEN NULL
+  ELSE CAST(try_strptime(trim(CAST({column_name} AS VARCHAR)), '%Y%m%d') AS DATE)
+END
+"""
+
+
+def silver_index_basic_select(raw_path: Path, ready_for_trade_date: str) -> str:
+    ready_date = f"DATE {duckdb_string(ready_for_trade_date)}"
+    return f"""
+WITH normalized AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(name AS VARCHAR) AS name,
+    CAST(fullname AS VARCHAR) AS fullname,
+    CAST(market AS VARCHAR) AS market,
+    CAST(publisher AS VARCHAR) AS publisher,
+    CAST(index_type AS VARCHAR) AS index_type,
+    CAST(category AS VARCHAR) AS category,
+    {_index_basic_date_expression("base_date")} AS base_date,
+    CAST(base_point AS DOUBLE) AS base_point,
+    {_index_basic_date_expression("list_date")} AS list_date,
+    CAST(weight_rule AS VARCHAR) AS weight_rule,
+    CAST("desc" AS VARCHAR) AS "desc",
+    {_index_basic_date_expression("exp_date")} AS exp_date
+  FROM {read_parquet(raw_path, hive_partitioning=False)}
+)
+SELECT *
+FROM normalized
+WHERE exp_date IS NULL OR exp_date > {ready_date}
 """
 
 def copy_query_to_parquet(select_sql: str, target_path: Path) -> str:

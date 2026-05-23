@@ -403,7 +403,7 @@ raw_tushare_index_daily    silver_index_daily_active_pool
     <h3>Tushare 源站字段审计结果</h3>
     <div class="note">
       <strong>审计时间：</strong>
-      2026-05-23。审计依据为本地 Tushare 文档、<code>tushare-data</code> 技能口径、<code>tushareMCP</code> 实测和本地 Tushare SDK 实测。
+      2026-05-23 首次审计，2026-05-24 Slice 3.1 开发前复核。审计依据为本地 Tushare 文档、<code>tushare-data</code> 技能口径、<code>tushareMCP</code> 实测和本地 Tushare SDK 实测。
     </div>
 
     <div class="table-wrap">
@@ -636,17 +636,17 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tbody>
         <tr>
           <td><code>raw_tushare_index_basic</code></td>
-          <td>文件存在、字段完整、行数大于 0、<code>ts_code</code> 非空。</td>
-          <td>市场分布、终止指数数量。</td>
+          <td>文件存在、字段等于显式 13 字段、行数大于 0、<code>ts_code</code> 唯一且非空、日期字符串可解析。</td>
+          <td>市场分布、终止指数数量、分页数量。</td>
         </tr>
         <tr>
           <td><code>silver_index_basic</code></td>
-          <td><code>ts_code</code> 唯一、名称非空、日期字段合法、终止指数已过滤。</td>
-          <td>过滤数量、按 market/publisher/category 分布。</td>
+          <td><code>ts_code</code> 唯一且非空、核心字段非空、日期字段为 <code>DATE</code>、不包含 <code>exp_date &lt;= ready_for_trade_date</code> 的终止指数。</td>
+          <td>过滤数量、<code>ready_for_trade_date</code>、按 market 分布。</td>
         </tr>
         <tr>
           <td><code>silver_index_daily_active_pool</code></td>
-          <td>池非空、<code>ts_code</code> 唯一、所有 code 存在于 <code>silver_index_basic</code>、无终止指数。</td>
+          <td>池非空、<code>ts_code</code> 唯一、所有 code 存在于 <code>silver_index_basic</code>。</td>
           <td>与上次 materialization 的新增/移除数量。</td>
         </tr>
         <tr>
@@ -659,9 +659,9 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
           <td><code>ts_code+trade_date</code> 唯一、只包含 active pool、价格字段合理、关键字段非空。</td>
           <td>active pool 覆盖率、缺失 active 指数样本。</td>
         </tr>
-        <tr>
+	        <tr>
 	          <td><code>gold_market_major_indices</code></td>
-	          <td>正好 10 个、rank 连续且唯一、code 不重复、全部存在于 active pool。</td>
+	          <td>正好 10 个、rank 连续且唯一、code 不重复、全部存在于 active pool 和 <code>silver_index_basic</code>。</td>
 	          <td>与上次 materialization 的新增/移除/排序变化摘要。</td>
 	        </tr>
 	        <tr>
@@ -688,10 +688,10 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tbody>
         <tr><td><code>raw_tushare_index_basic</code></td><td>无</td></tr>
         <tr><td><code>silver_index_basic</code></td><td><code>raw_tushare_index_basic</code></td></tr>
-        <tr><td><code>silver_index_daily_active_pool</code></td><td><code>silver_index_basic</code></td></tr>
+        <tr><td><code>silver_index_daily_active_pool</code></td><td>无直接 asset deps；由本地 metadata 表 materialize，cross-asset checks 通过 <code>additional_deps=[silver_index_basic]</code> 校验 code 覆盖。</td></tr>
         <tr><td><code>raw_tushare_index_daily</code></td><td><code>silver_index_basic</code></td></tr>
         <tr><td><code>silver_index_daily</code></td><td><code>raw_tushare_index_daily</code>、<code>silver_index_basic</code>、<code>silver_index_daily_active_pool</code></td></tr>
-	        <tr><td><code>gold_market_major_indices</code></td><td><code>silver_index_basic</code>、<code>silver_index_daily_active_pool</code></td></tr>
+	        <tr><td><code>gold_market_major_indices</code></td><td>无直接 asset deps；由本地 metadata 表 materialize，cross-asset checks 通过 <code>additional_deps</code> 校验 active pool 与 <code>silver_index_basic</code> 覆盖。</td></tr>
 	        <tr><td><code>gold_market_major_indices_daily</code></td><td><code>silver_index_daily</code>、<code>silver_index_basic</code>、<code>gold_market_major_indices</code></td></tr>
         </tbody>
       </table>
@@ -881,7 +881,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td>3.1</td>
           <td>实现 <code>raw_tushare_index_basic</code> 和 <code>silver_index_basic</code>。</td>
-          <td>验证终止指数过滤和 freshness。</td>
+          <td>已完成：显式 13 字段拉取 Tushare <code>index_basic</code>；raw 13,538 行，silver 12,598 行，按 <code>ready_for_trade_date=2026-05-22</code> 过滤终止指数 940 条；active pool 1130 个 code 和主要指数 10 个 code 均被 <code>silver_index_basic</code> 覆盖。</td>
         </tr>
         <tr>
           <td>3.2</td>
@@ -909,6 +909,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <li>Dagster UI 能看到所有 Phase 3 assets、jobs、checks、sensors，description 为中文简明说明。</li>
       <li><code>raw_tushare_index_basic</code> 和 <code>raw_tushare_index_daily</code> materialization metadata 包含请求数、行数、字段列表、路径。</li>
       <li><code>silver_index_basic</code> 不包含终止指数。</li>
+      <li>Slice 3.1 已验证：<code>raw_tushare_index_basic</code> 为 13,538 行，<code>silver_index_basic</code> 为 12,598 行，<code>exp_date &lt;= 2026-05-22</code> 的终止指数为 0。</li>
       <li><code>silver_index_daily</code> 只包含 active pool 内指数。</li>
 	      <li><code>gold_market_major_indices</code> 固定 10 个指数，rank 连续，且全部在 active pool 中。</li>
       <li><code>gold_market_major_indices_daily</code> 每个交易日固定 10 行，方向公式正确。</li>

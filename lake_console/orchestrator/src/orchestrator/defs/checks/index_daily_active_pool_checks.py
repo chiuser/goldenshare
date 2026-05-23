@@ -8,12 +8,13 @@ from orchestrator.defs.assets.index_daily_active_pool import (
     INDEX_DAILY_ACTIVE_POOL_COLUMNS,
     silver_index_daily_active_pool,
 )
+from orchestrator.defs.assets.index_basic import silver_index_basic
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     read_parquet,
 )
-from orchestrator.defs.paths import silver_index_daily_active_pool_path
+from orchestrator.defs.paths import silver_index_basic_path, silver_index_daily_active_pool_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
 
@@ -138,5 +139,52 @@ def silver_index_daily_active_pool_unique_ts_code(
             "path": str(path),
             "duplicate_key_count": duplicate_key_count,
             "duplicate_sample_keys": _sample_dicts(["ts_code", "row_count"], rows),
+        },
+    )
+
+
+@dg.asset_check(
+    asset=silver_index_daily_active_pool,
+    additional_deps=[silver_index_basic],
+    blocking=True,
+)
+def silver_index_daily_active_pool_codes_exist_in_index_basic(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    active_pool_path = silver_index_daily_active_pool_path(lake_root.root())
+    index_basic_path = silver_index_basic_path(lake_root.root())
+    for path in (active_pool_path, index_basic_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    missing_codes_sql = f"""
+    SELECT active_pool.ts_code
+    FROM {read_parquet(active_pool_path, hive_partitioning=False)} active_pool
+    LEFT JOIN {read_parquet(index_basic_path, hive_partitioning=False)} index_basic
+      ON active_pool.ts_code = index_basic.ts_code
+    WHERE index_basic.ts_code IS NULL
+    """
+    with duckdb.connect() as connection:
+        missing_count = int(
+            connection.execute(
+                f"SELECT count(*) FROM ({missing_codes_sql}) missing_codes"
+            ).fetchone()[0]
+        )
+        rows = connection.execute(
+            f"""
+            {missing_codes_sql}
+            ORDER BY ts_code
+            LIMIT 20
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=missing_count == 0,
+        metadata={
+            "active_pool_path": str(active_pool_path),
+            "index_basic_path": str(index_basic_path),
+            "missing_count": missing_count,
+            "missing_sample_ts_codes": [row[0] for row in rows],
         },
     )
