@@ -505,23 +505,26 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
 	        <tr>
 	          <td>prod 初始化只读入口</td>
 	          <td>
-	            仅 Slice 3.0.2 使用。
-	            <code>index_daily_active_pool_initialize_job</code> 一次性只读远程 prod PostgreSQL
-	            <code>ops.index_series_active</code>，过滤 <code>resource='index_daily'</code>；
-	            <code>market_major_indices_initialize_job</code> 一次性读取远程 prod 的
+	            仅 Slice 3.0.2 使用。<code>ProdReadOnlyPostgresResource</code> 在运行时读取
+	            <code>GOLDENSHARE_PROD_DATABASE_URL</code>，只读查询
+	            <code>ops.index_series_active resource='index_daily'</code>；
+	            <code>ProdStrategyConfigFileResource</code> 通过只读 SSH 读取生产
 	            <code>major_indices.cn_a.v1.json</code>。
 	          </td>
 	          <td><code>index_daily_active_pool_initialize_job</code>、<code>market_major_indices_initialize_job</code></td>
-	          <td>缺失时不能初始化对应本地 metadata asset；不得退化为硬编码。</td>
+	          <td>缺失时 code location 不崩，只在初始化 run 中失败；不得退化为硬编码或本地假数据。</td>
 	        </tr>
         </tbody>
       </table>
     </div>
 
     <div class="warning">
-	      <strong>规则冲突提醒：</strong>
-	      当前 <code>lake_console/AGENTS.md</code> 只为 <code>index_mins</code> active pool 放开了 <code>ops.index_series_active</code>。
-	      Phase 3 实现一次性初始化 <code>index_daily</code> active pool 前，必须同步补充白名单口径，且只允许只读、只读 <code>resource='index_daily'</code>。
+	      <strong>远程只读白名单：</strong>
+	      <code>lake_console/AGENTS.md</code> 已为 Slice 3.0.2 增加明确例外：
+	      <code>index_daily_active_pool_initialize_job</code> 只能一次性只读
+	      <code>ops.index_series_active resource='index_daily'</code>；
+	      <code>market_major_indices_initialize_job</code> 只能一次性只读生产
+	      <code>major_indices.cn_a.v1.json</code>。两者初始化后都不得继续与 prod 同步。
 	    </div>
 
 	    <h3>初始化动作归属</h3>
@@ -549,14 +552,14 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
 	          <td>初始化 <code>silver_index_daily_active_pool</code>。</td>
 	          <td>远程 prod PostgreSQL <code>ops.index_series_active</code>，只读过滤 <code>resource='index_daily'</code>。</td>
 	          <td>写本地 <code>index_daily_active_pool</code> 当前表和 <code>index_daily_active_pool_history</code>；materialize <code>silver_index_daily_active_pool</code> Parquet。</td>
-	          <td>当前表、history、Parquet asset 行数一致；所有 code 存在于 <code>silver_index_basic</code> 且未终止；初始化完成后不再读 prod。</td>
+	          <td>当前表、history、Parquet asset 行数一致；初始化完成后不再读 prod。依赖 <code>silver_index_basic</code> 的跨资产校验延后到 index basic 接入后补齐。</td>
 	        </tr>
 	        <tr>
 	          <td>3.0.2</td>
 	          <td>初始化 <code>gold_market_major_indices</code>。</td>
 	          <td>远程 prod <code>major_indices.cn_a.v1.json</code>。</td>
 	          <td>写本地 <code>market_major_indices</code> 当前表和 <code>market_major_indices_change_history</code>；materialize <code>gold_market_major_indices</code> Parquet。</td>
-	          <td>正好 10 行；rank 连续；ts_code 不重复；全部存在于 active pool；初始化完成后不再读 prod JSON。</td>
+	          <td>正好 10 行；rank 连续；ts_code 不重复；初始化完成后不再读 prod JSON。依赖 active pool / index basic 的跨资产校验延后到后续 Slice 补齐。</td>
 	        </tr>
 	        </tbody>
 	      </table>
@@ -991,7 +994,7 @@ probe_index_daily_ready(
 	        <tr>
 	          <td>3.0.2</td>
 	          <td>实现 active pool / 主要指数名单 metadata assets 与初始化 job。</td>
-	          <td>active pool 从远程 prod DB <code>ops.index_series_active resource='index_daily'</code> 一次性初始化；主要指数名单从远程 prod <code>major_indices.cn_a.v1.json</code> 一次性初始化；本地当前表、history 和 Parquet asset 一致，初始化后不再同步远程。</td>
+	          <td>已完成。active pool 从远程 prod DB <code>ops.index_series_active resource='index_daily'</code> 一次性初始化 1130 行；主要指数名单从远程 prod <code>major_indices.cn_a.v1.json</code> 一次性初始化 10 行；本地当前表、history 和 Parquet asset 一致，初始化后不再同步远程。</td>
         </tr>
         <tr>
           <td>3.1</td>
@@ -1066,14 +1069,14 @@ git status --short</code></pre>
           <td>在 <code>silver_index_basic</code> 完成后先输出有效指数数量和请求量测算，再决定回补批次。</td>
         </tr>
 	        <tr>
-	          <td>prod active pool 初始化与现有 AGENTS 白名单不一致。</td>
-	          <td>实现时触碰远程 ops 表会违反当前 lake_console 规则。</td>
-	          <td>实现 Slice 3.0.2 前先同步规则，只允许一次性只读 <code>resource='index_daily'</code>。</td>
+	          <td>prod active pool 初始化必须严格受控。</td>
+	          <td>如果泛化读取远程 ops 表，会破坏 lake console 的远程隔离边界。</td>
+	          <td><code>lake_console/AGENTS.md</code> 已白名单化：仅 <code>index_daily_active_pool_initialize_job</code> 可一次性只读 <code>ops.index_series_active resource='index_daily'</code>，初始化后不再同步。</td>
 	        </tr>
 	        <tr>
-	          <td>prod 主要指数 JSON 初始化入口未白名单化。</td>
-	          <td>实现时如果直接读取远程 <code>major_indices.cn_a.v1.json</code>，可能与 lake console 的远程读取门禁冲突。</td>
-	          <td>实现 Slice 3.0.2 前同步规则：只允许一次性只读该 JSON，初始化后不得继续同步远程。</td>
+	          <td>prod 主要指数 JSON 初始化必须严格受控。</td>
+	          <td>如果长期读取远程 JSON，会形成第二事实源和远程运行依赖。</td>
+	          <td><code>lake_console/AGENTS.md</code> 已白名单化：仅 <code>market_major_indices_initialize_job</code> 可一次性只读该 JSON，初始化后本地 metadata 表是唯一事实源。</td>
 	        </tr>
 	        <tr>
 	          <td><code>index_daily</code> 源站 ready 时间未知。</td>
