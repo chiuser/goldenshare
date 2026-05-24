@@ -698,15 +698,16 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
         <tr>
           <td><code>raw_tushare_index_daily</code></td>
           <td>
-            分区资产。单日运行按 <code>ts_code + trade_date</code> 请求；历史 range backfill 按
+            分区资产。请求列表来自 <code>silver_index_daily_active_pool</code>；单日运行按
+            <code>ts_code + trade_date</code> 请求；历史回补按
             <code>ts_code + start_date/end_date</code> 请求，先写 staging，再按日期一次性生成完整 raw 分区。
           </td>
-          <td><code>path,row_count,requested_code_count,returned_code_count,page_count,source_method,empty_code_samples</code></td>
+          <td><code>row_count,active_pool_count,page_count,request_count,partition_row_counts,source_method,empty_index_code_count</code></td>
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
           <td>
-            读取 raw、<code>silver_index_basic</code> 和 active pool；只保留 active pool 内指数；
+            读取 raw 和 active pool；只保留 active pool 内指数；
             <code>trade_date</code> 转 <code>DATE</code>，<code>change</code> 改为 <code>change_amount</code>。
           </td>
           <td><code>path,row_count,raw_row_count,active_pool_count,missing_active_count,coverage_rate</code></td>
@@ -738,35 +739,63 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
       不允许按 <code>ts_code × trade_date</code> 请求历史数据。历史回补必须按 <code>ts_code + start_date/end_date</code> 拉时间序列。
     </div>
 
-    <h3>优先技术路线</h3>
+    <h3>正式技术路线</h3>
     <p>
-      <code>raw_tushare_index_daily</code> 与 <code>silver_index_daily</code> 从第一版开始设计为可支持单分区运行和 range backfill。
-      历史回补 job 仍使用 <code>define_asset_job</code> 做 asset selection，不写 op 逻辑。
+      <code>raw_tushare_index_daily</code> 与 <code>silver_index_daily</code> 继续使用
+      <code>cn_a_trade_days</code> dynamic partitions，服务单日更新、sensor 和 UI 分区观测。
+      但历史回补不再使用 Dagster 原生 <code>--partition-range</code>。
+      正式入口仍命名为 <code>index_daily_history_backfill_job</code>，其职责是接收
+      <code>start_date/end_date/dry_run/force</code>，从 <code>silver_trade_calendar</code>
+      生成按日期排序的目标交易日列表，再执行受控历史回补。
     </p>
-    <pre><code>raw_tushare_index_daily(
-  partitions_def=cn_a_trade_days,
-  backfill_policy=dg.BackfillPolicy.single_run(),
-)
+    <pre><code>index_daily_history_backfill_job(config)
+  config:
+    start_date: "YYYY-MM-DD"
+    end_date: "YYYY-MM-DD"
+    dry_run: true | false
+    force: true | false
 
-silver_index_daily(
-  partitions_def=cn_a_trade_days,
-  backfill_policy=dg.BackfillPolicy.single_run(),
-)
+  execution:
+    read silver_trade_calendar
+    select SSE open days between start_date and end_date
+    sort by trade_date
+    read silver_index_daily_active_pool
+    fetch index_daily by ts_code + start_date/end_date + limit/offset
+    write staging
+    rebuild raw partitions by trade_date
+    rebuild silver partitions by trade_date
+    emit materialization/check metadata</code></pre>
 
-index_daily_history_backfill_job = dg.define_asset_job(
-  name="index_daily_history_backfill_job",
-  selection=AssetSelection.assets(raw_tushare_index_daily, silver_index_daily)
-            | AssetSelection.checks_for_assets(raw_tushare_index_daily, silver_index_daily),
-)</code></pre>
+    <div class="danger">
+      <strong>替换旧实现：</strong>
+      当前 <code>index_daily_history_backfill_job</code> 已替换为普通 Dagster job，
+      通过 run config 接收 <code>start_date/end_date/dry_run/force</code>。
+      它不再是 <code>define_asset_job</code>，也不再拥有 <code>PartitionsDefinition</code>；
+      误用原生 <code>--partition-range</code> 会报 <code>Job has no PartitionsDefinition</code>，
+      不会进入资产执行。
+    </div>
 
-    <h3>range backfill 执行流程</h3>
-    <pre><code>读取 partition range -> 得到 start_date/end_date
-读取 silver_index_basic 有效指数列表
-for ts_code in effective_codes:
-  调用 index_daily(ts_code, start_date, end_date, fields, limit, offset)
-  将结果写入 staging chunk
+    <h3>受控历史回补执行流程</h3>
+    <div class="callout">
+      <strong>请求范围：</strong>
+      Slice 3.2 使用 <code>silver_index_daily_active_pool</code> 作为 <code>index_daily</code> 请求列表。
+      当前 active pool 约 1,130 个 code；禁止在本链路中默认改回 <code>silver_index_basic</code> 全部有效指数。
+    </div>
+    <div class="warning">
+      <strong>请求节流：</strong>
+      Tushare <code>index_daily</code> 当前会限制 <code>500次/分钟</code>。正式 helper 必须在逐 code 请求之间加入最小间隔，
+      并在 materialization metadata 中输出 <code>min_request_interval_seconds</code>、<code>request_count</code> 和
+      <code>page_count</code>，避免 active pool 单日更新撞限。
+    </div>
+    <pre><code>读取 run config -> start_date/end_date/dry_run/force
+读取 silver_trade_calendar -> SSE open days
+生成 target_trade_dates 并按日期排序
+读取 silver_index_daily_active_pool 指数列表
+for ts_code in active_pool_codes:
+  调用 index_daily(ts_code, start_date, end_date, fields, limit=8000, offset=0/8000/...)
+  将结果写入 staging
 
-DuckDB 读取 staging chunks
+DuckDB 读取 staging
 按 trade_date 分组
 for trade_date in target_dates:
   生成 raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet.tmp
@@ -783,19 +812,29 @@ silver_index_daily 对同一 range 读取 raw 分区
 
     <h3>Slice 3.0.0 验证结论</h3>
     <ul>
-      <li><code>BackfillPolicy.single_run()</code> 可用于 index daily 历史回补：<code>dg launch --partition-range</code> 对 3 个测试日期只生成 1 个 run。</li>
-      <li>asset 代码必须使用 <code>context.partition_keys</code> 或 <code>context.partition_key_range</code> 处理分区集合；不能把 <code>context.partition_key</code> 作为 range backfill 主逻辑。</li>
+      <li><code>BackfillPolicy.single_run()</code> 可让一个 run 处理多个分区：临时验证中 <code>dg launch --partition-range</code> 对 3 个测试日期只生成 1 个 run。</li>
+      <li>多分区运行代码必须使用 <code>context.partition_keys</code> 或 <code>context.partition_key_range</code> 处理分区集合；不能把 <code>context.partition_key</code> 作为多分区主逻辑。</li>
       <li>range run 会为每个分区写入 materialization 记录，<code>get_materialized_partitions()</code> 与 <code>get_status_by_partition()</code> 都能看到分区状态。</li>
       <li>blocking check 可执行，但验证中 check 成功记录是 range 级别一次 evaluation，metadata 中包含本次检查覆盖的 partition keys；不是每个分区单独一条 SUCCEEDED check 记录。</li>
       <li>如果 job selection 中混入未声明 <code>BackfillPolicy.single_run()</code> 的 partitioned asset，CLI 会拒绝 <code>--partition-range</code>，要求改用 UI/daemon backfill 或让所有 selected assets 统一声明 single-run policy。</li>
-      <li>因此 <code>index_daily_history_backfill_job</code> 选择的 raw/silver index daily 资产及对应代码必须统一 range-aware；checks 设计必须接受 range 级别评价，并在 metadata 中清晰列出覆盖分区。</li>
+      <li>Slice 3.2 正式验证发现：named dynamic partitions 的 <code>--partition-range</code> 会按 Dagster instance 中 partition key 的注册顺序展开，不一定等同自然日期连续区间。</li>
+      <li>结论修正：<code>BackfillPolicy.single_run()</code> 可复用“一次 run 处理多个分区”的能力，但不能继续用原生 <code>--partition-range</code> 选择目标日期。正式 history job 必须自己从 <code>silver_trade_calendar</code> 生成有序目标交易日。</li>
+      <li>Slice 3.2 已完成正式替换：<code>raw_tushare_index_daily</code> 与 <code>silver_index_daily</code> 不再声明 <code>BackfillPolicy.single_run()</code>，历史入口由普通 job 负责；误用 <code>--partition-range</code> 会在 CLI 层失败。</li>
+    </ul>
+
+    <h3>分页与请求量口径</h3>
+    <ul>
+      <li>不人为拆小批次。历史回补默认使用完整 <code>start_date/end_date</code> 区间请求，避免请求次数膨胀。</li>
+      <li><code>index_daily</code> 单次请求上限按 <code>limit=8000</code> 设计；只有某个 <code>ts_code</code> 在目标区间返回超过 8000 行时，才继续请求 <code>offset=8000/16000/...</code>。</li>
+      <li>请求数按 <code>active_pool_count × 每个指数分页数</code> 估算，不按 <code>active_pool_count × trade_date_count</code> 估算。</li>
+      <li>正式代码保留通用 Tushare 默认 <code>limit=6000</code>，但 <code>index_daily</code> 专用路径已使用 <code>limit=8000</code>，并在 metadata 中记录。</li>
     </ul>
 
     <h3>staging 目录</h3>
-    <pre><code>data_lake/raw/tushare/index_daily/_staging/run_id=&lt;run_id&gt;/chunks/{ts_code}-{page}.parquet</code></pre>
+    <pre><code>data_lake/raw/tushare/index_daily/_staging/run_id=&lt;run_id&gt;/{ts_code}-{page}.parquet</code></pre>
 	    <p>
 	      staging 不是正式资产，不参与 asset graph，不被下游读取。它的生命周期只属于本次历史回补 run：
-	      run 开始时创建；拉取分页数据时写入 chunks；目标 raw 分区全部写入并验证通过后删除；
+	      run 开始时创建；拉取分页数据时写入 staging；目标 raw 分区全部写入并验证通过后删除；
 	      run 失败时短期保留用于排错，metadata 必须记录 staging 路径和失败 code 样本，排错完成后人工清理。
 	      后续重跑必须使用新的 <code>run_id</code> 目录，不复用旧 staging。
 	    </p>
@@ -840,9 +879,9 @@ silver_index_daily 对同一 range 读取 raw 分区
         </tr>
         <tr>
           <td><code>index_daily_history_backfill_job</code></td>
-          <td><code>raw_tushare_index_daily</code>、<code>silver_index_daily</code> 与 checks</td>
-          <td>partition range</td>
-          <td>手动历史回补；不挂 sensor；优先走 <code>BackfillPolicy.single_run()</code>。</td>
+          <td>受控历史回补逻辑；复用 raw/silver 写入与 checks 口径</td>
+          <td><code>start_date,end_date,dry_run,force</code></td>
+          <td>手动历史回补；不挂 sensor；禁止使用原生 <code>--partition-range</code>；按 <code>silver_trade_calendar</code> 生成有序交易日。</td>
         </tr>
 	        <tr>
 	          <td><code>market_major_indices_initialize_job</code></td>
@@ -947,12 +986,12 @@ probe_index_daily_ready(
         <tr>
           <td><code>raw_tushare_index_daily</code></td>
           <td>文件存在、字段完整、分区日期匹配、行数大于 0、<code>ts_code+trade_date</code> 唯一。</td>
-          <td>请求指数数、返回指数数、空返回 code 样本、分页统计。</td>
+          <td>active pool 数、分页数、请求数、空返回 code 数、分区行数。</td>
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
-          <td>只包含 active pool、<code>ts_code+trade_date</code> 唯一、价格字段合理、关键字段非空、active 覆盖率 100%。</td>
-          <td>缺失 active code 样本、被过滤 code 数。</td>
+          <td>只包含 active pool、<code>ts_code+trade_date</code> 唯一、价格字段合理、关键字段非空。active 覆盖率第一版为 WARN 观测，不作为阻断。</td>
+          <td>缺失 active code 样本、额外 code 样本、覆盖率。</td>
         </tr>
         <tr>
 	          <td><code>gold_market_major_indices</code></td>
@@ -984,7 +1023,7 @@ probe_index_daily_ready(
         <tr>
           <td>3.0.0</td>
           <td>验证 <code>BackfillPolicy.single_run()</code> 小样本行为。</td>
-          <td>已完成。结论：可用于 index daily 历史回补，但 selected assets 必须统一声明 single-run policy，asset/check 代码必须 range-aware。</td>
+          <td>已完成。结论修正：可复用“一次 run 处理多个分区”的能力，但不能用 named dynamic partitions 的原生 <code>--partition-range</code> 选择历史目标日期；history job 必须从 <code>silver_trade_calendar</code> 生成有序交易日。</td>
         </tr>
 	        <tr>
 	          <td>3.0.1</td>
@@ -1004,7 +1043,7 @@ probe_index_daily_ready(
         <tr>
           <td>3.2</td>
           <td>实现 <code>raw_tushare_index_daily</code>、<code>silver_index_daily</code>、日频 job 与历史回补。</td>
-          <td>单日验证和小范围 range backfill 验证通过；无 <code>ts_code × trade_date</code> 请求。</td>
+          <td>已完成受控历史回补入口。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，raw/silver 每日 1,125 行，3 天共 6 条 materialization 与 33 条 check evaluation 可见，阻断 checks 通过，active 覆盖率 WARN 可观测。<code>index_daily_update_job[2026-05-22]</code> 单日回归成功。</td>
         </tr>
         <tr>
           <td>3.3</td>
@@ -1040,7 +1079,7 @@ git status --short</code></pre>
       <li><code>index_basic</code> 全量分页必须返回多页，metadata 记录 page_count 和 market 分布。</li>
       <li><code>silver_index_basic</code> 不包含 <code>exp_date &lt;= ready_for_trade_date</code> 的终止指数。</li>
       <li><code>index_daily</code> 单日验证选择一个已完成交易日，raw 字段保持 Tushare 字段，silver 改 <code>change_amount</code>。</li>
-      <li>历史 range backfill 小样本必须证明最终每个日期只生成一次完整 <code>part-000.parquet</code>。</li>
+      <li>历史回补小样本必须证明最终每个日期只生成一次完整 <code>part-000.parquet</code>。</li>
 	      <li>active pool 和主要指数名单的本地 PostgreSQL 当前表、history、Parquet asset 三者一致。</li>
       <li>gold daily 固定 10 行，rank 连续，方向公式由 <code>pct_chg</code> 派生。</li>
     </ul>
@@ -1059,14 +1098,14 @@ git status --short</code></pre>
         </thead>
         <tbody>
         <tr>
-          <td><code>BackfillPolicy.single_run()</code> 行为不满足 UI/check 可观测要求。</td>
-          <td>已验证可用于历史回补，但 checks 是 range 级别成功评价，不是每个分区单独一条成功评价。</td>
-          <td>后续 index daily 历史回补继续采用该路线；raw/silver assets 必须统一 single-run，checks metadata 必须列出覆盖分区。</td>
+          <td>named dynamic partitions 的原生 <code>--partition-range</code> 不按自然日期排序。</td>
+          <td>历史回补可能覆盖非预期交易日。</td>
+          <td>正式历史回补不使用原生 <code>--partition-range</code>；<code>index_daily_history_backfill_job</code> 已改为普通 job，由 <code>silver_trade_calendar</code> 生成有序目标交易日。</td>
         </tr>
         <tr>
-          <td>有效指数数量过大。</td>
+          <td>active pool 数量过大。</td>
           <td>日频同步和历史回补请求量过高。</td>
-          <td>在 <code>silver_index_basic</code> 完成后先输出有效指数数量和请求量测算，再决定回补批次。</td>
+          <td>在 <code>silver_index_daily_active_pool</code> 完成后先输出 active pool 数量和请求量测算，再决定回补批次。</td>
         </tr>
 	        <tr>
 	          <td>prod active pool 初始化必须严格受控。</td>

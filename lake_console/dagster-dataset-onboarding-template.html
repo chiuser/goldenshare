@@ -457,7 +457,7 @@ data_lake/silver/{domain}/{dataset}/full/part-000.parquet</code></pre>
         </tr>
         <tr>
           <td>分页策略</td>
-          <td><code>limit=6000</code>、<code>offset=0/6000/...</code> 或接口特定策略。</td>
+          <td>按接口真实上限设计，例如通用 Tushare helper 默认 <code>limit=6000</code>，<code>index_daily</code> 专用路径使用 <code>limit=8000</code>。</td>
           <td>必须估算请求量、耗时、配额影响。</td>
         </tr>
         <tr>
@@ -537,6 +537,11 @@ fetch_tushare_full_file_to_raw(
 
   <section>
     <h2>9. Asset 定义模板</h2>
+    <div class="warning">
+      <strong>请求范围必须先定义。</strong>
+      如果源接口只能按对象逐个请求，例如 <code>ts_code</code>、<code>fund_code</code>、<code>index_code</code>，
+      必须先明确请求对象池来自哪里、数量是多少、是否会进入 raw 范围。禁止在代码里临时决定“拉全量还是拉 active 池”。
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -950,12 +955,14 @@ git status --short</code></pre>
         <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入。</td><td>□</td></tr>
         <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
+        <tr><td>请求范围</td><td>逐对象接口的对象池、请求量、分页量、耗时和不可接受量级已评估；raw 范围与设计文档一致。</td><td>□</td></tr>
         <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 metadata 和样本。</td><td>□</td></tr>
         <tr><td>deps</td><td>asset deps 表达真实输入；check additional_deps 表达质量依赖。</td><td>□</td></tr>
         <tr><td>job</td><td>job 只做 selection；共享基础资产有唯一写入口。</td><td>□</td></tr>
         <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义。</td><td>□</td></tr>
         <tr><td>bootstrap</td><td>如需旧湖迁移，spec、legacy links、清理边界已记录。</td><td>□</td></tr>
         <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
+        <tr><td>range 回补</td><td>如使用 dynamic partition range，必须在资产代码里校验实际 <code>partition_keys</code> 与自然日期区间期望一致；不能只凭 CLI 文本判断覆盖范围。</td><td>□</td></tr>
         <tr><td>文档同步</td><td>对应 Phase / LLD / topology / AGENTS 如有口径变更已同步。</td><td>□</td></tr>
         </tbody>
       </table>

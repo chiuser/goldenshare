@@ -218,6 +218,34 @@ INDEX_BASIC_RAW_COLUMNS = (
 
 INDEX_BASIC_SILVER_COLUMNS = INDEX_BASIC_RAW_COLUMNS
 
+INDEX_DAILY_RAW_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "change",
+    "pct_chg",
+    "vol",
+    "amount",
+)
+
+INDEX_DAILY_SILVER_COLUMNS = (
+    "ts_code",
+    "trade_date",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "change_amount",
+    "pct_chg",
+    "vol",
+    "amount",
+)
+
 
 def duckdb_string(value: str | Path) -> str:
     escaped = str(value).replace("'", "''")
@@ -475,6 +503,43 @@ WITH normalized AS (
 SELECT *
 FROM normalized
 WHERE exp_date IS NULL OR exp_date > {ready_date}
+"""
+
+
+def index_daily_normalized_select(raw_path: Path) -> str:
+    return f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  CAST(open AS DOUBLE) AS open,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(close AS DOUBLE) AS close,
+  CAST(pre_close AS DOUBLE) AS pre_close,
+  CAST(change AS DOUBLE) AS change_amount,
+  CAST(pct_chg AS DOUBLE) AS pct_chg,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount
+FROM {read_parquet(raw_path, hive_partitioning=False)}
+"""
+
+
+def silver_index_daily_select(raw_path: Path, active_pool_path: Path) -> str:
+    return f"""
+WITH normalized AS (
+  {index_daily_normalized_select(raw_path)}
+),
+deduped AS (
+  SELECT DISTINCT *
+  FROM normalized
+),
+active_pool AS (
+  SELECT DISTINCT ts_code
+  FROM {read_parquet(active_pool_path, hive_partitioning=False)}
+)
+SELECT deduped.*
+FROM deduped
+INNER JOIN active_pool USING (ts_code)
 """
 
 def copy_query_to_parquet(select_sql: str, target_path: Path) -> str:

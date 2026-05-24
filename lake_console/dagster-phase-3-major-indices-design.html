@@ -326,8 +326,8 @@ raw_tushare_index_daily    silver_index_daily_active_pool
 
     <p>图中要点：</p>
     <ul>
-      <li><code>raw_tushare_index_daily</code> 依赖 <code>silver_index_basic</code>，因为 Tushare <code>index_daily</code> 需要按有效指数 <code>ts_code</code> 逐个请求。</li>
-      <li><code>silver_index_daily</code> 依赖 active 池，active 池决定哪些指数进入标准事实层。</li>
+      <li><code>raw_tushare_index_daily</code> 依赖 <code>silver_index_daily_active_pool</code>，因为 Tushare <code>index_daily</code> 必须按 <code>ts_code</code> 逐个请求，第一版只拉 active 池内指数。</li>
+      <li><code>silver_index_daily</code> 继续依赖 active 池，active 池决定哪些指数进入标准事实层。</li>
 	      <li><code>gold_market_major_indices</code> 是首页主要指数名单资产，决定展示哪 10 个指数和顺序。</li>
       <li><code>gold_market_major_indices_daily</code> 是最终页面/API 可消费的业务结果资产。</li>
     </ul>
@@ -372,15 +372,15 @@ raw_tushare_index_daily    silver_index_daily_active_pool
           <td><code>raw_tushare_index_daily</code></td>
           <td>raw</td>
           <td><code>cn_a_trade_days</code></td>
-          <td>Tushare 指数日线原始数据，按有效指数逐个拉取。</td>
-          <td>Tushare <code>index_daily</code> + <code>silver_index_basic</code></td>
+          <td>Tushare 指数日线原始数据，按 active 池指数逐个拉取。</td>
+          <td>Tushare <code>index_daily</code> + <code>silver_index_daily_active_pool</code></td>
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
           <td>silver</td>
           <td><code>cn_a_trade_days</code></td>
           <td>active 指数日线标准表，只保留 active 池内指数。</td>
-          <td><code>raw_tushare_index_daily</code> + <code>silver_index_basic</code> + <code>silver_index_daily_active_pool</code></td>
+          <td><code>raw_tushare_index_daily</code> + <code>silver_index_daily_active_pool</code></td>
         </tr>
         <tr>
 	          <td><code>gold_market_major_indices</code></td>
@@ -470,28 +470,28 @@ raw_tushare_index_daily    silver_index_daily_active_pool
     "category", "base_date", "base_point", "list_date",
     "weight_rule", "desc", "exp_date",
   ],
-  limit=6000,
-  offset=0/6000/12000...
+  limit=8000,
+  offset=0/8000/16000...
 )
 
 index_daily(
-  ts_code="来自 silver_index_basic 的有效指数代码",
+  ts_code="来自 silver_index_daily_active_pool 的指数代码",
   trade_date="YYYYMMDD",
   fields=[
     "ts_code", "trade_date", "open", "high", "low", "close",
     "pre_close", "change", "pct_chg", "vol", "amount",
   ],
-  limit=6000,
-  offset=0/6000...
+  limit=8000,
+  offset=0/8000...
 )
 
 index_daily(
-  ts_code="来自 silver_index_basic 的有效指数代码",
+  ts_code="来自 silver_index_daily_active_pool 的指数代码",
   start_date="YYYYMMDD",
   end_date="YYYYMMDD",
   fields=[同上],
-  limit=6000,
-  offset=0/6000...
+  limit=8000,
+  offset=0/8000...
 )</code></pre>
   </section>
 
@@ -689,8 +689,8 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr><td><code>raw_tushare_index_basic</code></td><td>无</td></tr>
         <tr><td><code>silver_index_basic</code></td><td><code>raw_tushare_index_basic</code></td></tr>
         <tr><td><code>silver_index_daily_active_pool</code></td><td>无直接 asset deps；由本地 metadata 表 materialize，cross-asset checks 通过 <code>additional_deps=[silver_index_basic]</code> 校验 code 覆盖。</td></tr>
-        <tr><td><code>raw_tushare_index_daily</code></td><td><code>silver_index_basic</code></td></tr>
-        <tr><td><code>silver_index_daily</code></td><td><code>raw_tushare_index_daily</code>、<code>silver_index_basic</code>、<code>silver_index_daily_active_pool</code></td></tr>
+        <tr><td><code>raw_tushare_index_daily</code></td><td><code>silver_index_daily_active_pool</code></td></tr>
+        <tr><td><code>silver_index_daily</code></td><td><code>raw_tushare_index_daily</code>、<code>silver_index_daily_active_pool</code></td></tr>
 	        <tr><td><code>gold_market_major_indices</code></td><td>无直接 asset deps；由本地 metadata 表 materialize，cross-asset checks 通过 <code>additional_deps</code> 校验 active pool 与 <code>silver_index_basic</code> 覆盖。</td></tr>
 	        <tr><td><code>gold_market_major_indices_daily</code></td><td><code>silver_index_daily</code>、<code>silver_index_basic</code>、<code>gold_market_major_indices</code></td></tr>
         </tbody>
@@ -808,31 +808,56 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       Tushare <code>index_daily</code> 是按 <code>ts_code</code> 拉时间序列的接口，不是按交易日拉全市场截面的接口。
       历史回补禁止按“有效指数数 × 交易日数”逐日逐指数请求，否则请求量会爆炸。
     </div>
+    <div class="callout">
+      <strong>Slice 3.2 请求范围纠偏：</strong>
+      日常更新和历史回补都以 <code>silver_index_daily_active_pool</code> 为请求列表。当前 active pool 约 1,130 个 code；
+      若按 <code>silver_index_basic</code> 全部有效指数拉取，会达到约 12,598 个 code，日频请求量不可接受。
+      后续实现不得退回全量有效指数作为默认请求范围。
+    </div>
+    <div class="warning">
+      <strong>Tushare 频率限制：</strong>
+      正式单日验证时已触发 <code>index_daily</code> 的 <code>500次/分钟</code> 限制。
+      因此 <code>index_daily</code> 拉取 helper 必须内置节流，metadata 必须记录最小请求间隔和实际请求数；禁止无节流循环打接口。
+    </div>
 
     <h3>日常更新</h3>
     <p>
-      日频同步只处理一个已注册交易日，因此可以按有效指数逐个请求当天数据。它属于常规生产链路，由 sensor / job 触发。
+      日频同步只处理一个已注册交易日，按 active 池指数逐个请求当天数据。它属于常规生产链路，由 sensor / job 触发。
     </p>
     <pre><code>index_daily_update_job[trade_date]
-  -> 读取 silver_index_basic 中有效 ts_code
+  -> 读取 silver_index_daily_active_pool 中 ts_code
   -> 对每个 ts_code 调用 index_daily(ts_code, trade_date=YYYYMMDD)
   -> 合并写 raw_tushare_index_daily[trade_date]
-  -> silver_index_daily[trade_date] 再按 active pool 过滤</code></pre>
+  -> silver_index_daily[trade_date] 校验并保留 active pool 内指数</code></pre>
 
     <h3>历史补齐</h3>
     <p>
-      历史补齐必须进入 Dagster，但不能混入日常生产链路。建议单独定义
-      <code>index_daily_history_backfill_job</code>，只允许手动触发，不被 sensor、schedule 或 declarative automation 调用。
+      历史补齐必须进入 Dagster，但不能混入日常生产链路。正式入口仍命名为
+      <code>index_daily_history_backfill_job</code>，但它不能再使用 Dagster 原生
+      <code>--partition-range</code>。该 job 必须通过 run config 显式接收
+      <code>start_date/end_date/dry_run/force</code>，再从 <code>silver_trade_calendar</code>
+      读取 SSE 开市日，按 <code>trade_date</code> 自然顺序生成目标交易日列表。
     </p>
-    <pre><code>index_daily_history_backfill_job[start_date, end_date]
-  -> 读取 silver_index_basic 中有效 ts_code
-  -> 对每个 ts_code 调用 index_daily(ts_code, start_date, end_date)
-  -> 分页拉取完整时间序列
+    <pre><code>index_daily_history_backfill_job(config: start_date, end_date, dry_run, force)
+  -> 读取 silver_trade_calendar 中 SSE is_open=true 的交易日
+  -> 截取 start_date/end_date 内的目标交易日并按日期排序
+  -> 读取 silver_index_daily_active_pool 中 ts_code
+  -> 对每个 ts_code 调用 index_daily(ts_code, start_date, end_date, limit=8000, offset=...)
+  -> 分页拉取完整时间序列，并只保留目标交易日
   -> 写入本次 backfill 专用 staging 目录
   -> DuckDB 读取 staging
   -> 按 trade_date 分组
   -> 每个 trade_date 只生成一次完整 raw 分区 part-000.parquet
-  -> silver_index_daily[trade_date] 再按 active pool 过滤</code></pre>
+  -> silver_index_daily[trade_date] 校验并保留 active pool 内指数</code></pre>
+
+    <div class="danger">
+      <strong>原生 range 禁用：</strong>
+      <code>cn_a_trade_days</code> 目前是 named dynamic partitions，Dagster 原生
+      <code>--partition-range</code> 会按 partition key 的注册顺序展开，不保证等同自然日期顺序。
+      因此历史回补禁止使用 <code>dg launch --partition-range</code> 作为正式入口。
+      当前 <code>index_daily_history_backfill_job</code> 已改为普通 Dagster job，不再拥有
+      <code>PartitionsDefinition</code>；误用 <code>--partition-range</code> 会直接失败，不会进入资产执行。
+    </div>
 
     <div class="danger">
       <strong>文件写入原则：</strong>
@@ -842,12 +867,16 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
 
     <p>历史补齐的请求和写入模型：</p>
     <ul>
-      <li>请求次数按 <code>有效指数数量 × 每个指数分页数</code> 计算，不按 <code>有效指数数量 × 交易日数量</code> 计算。</li>
+      <li>请求次数按 <code>active pool 数量 × 每个指数分页数</code> 计算，不按 <code>active pool 数量 × 交易日数量</code> 计算。</li>
+      <li><code>index_daily</code> 单次请求上限按 <code>limit=8000</code> 设计；只有单个指数在目标区间返回超过 8000 行时，才通过 <code>offset=8000/16000/...</code> 继续分页。</li>
+      <li>不再人为拆小批次。历史回补默认用完整 <code>start_date/end_date</code> 区间请求，分页只由 Tushare <code>limit/offset</code> 决定，避免请求次数膨胀。</li>
       <li>最终写文件次数按目标交易日数计算，每个 <code>trade_date</code> 分区只写一次完整 <code>part-000.parquet</code>。</li>
 	      <li>staging 数据只服务本次回补 run，不作为正式 raw/silver/gold 资产，不允许下游直接读取；成功后删除，失败时短期保留用于排错，不承诺长期存在。</li>
-      <li>历史回补 metadata 必须记录 <code>source_method=tushare_api_range_backfill</code>、请求 code 数、分页数、staging 路径、目标交易日数、写入行数和失败 code 样本。</li>
-      <li>日频同步 metadata 使用 <code>source_method=tushare_api_daily</code>，与历史回补区分。</li>
-      <li>全量历史开始前，必须先输出有效指数数量、交易日数量、预计请求数、预计耗时和 Tushare 配额影响。</li>
+      <li>历史回补 metadata 必须记录 <code>source_method=tushare_api</code>、请求 code 数、分页数、staging 路径、目标交易日数、写入行数和失败 code 样本；是否为历史回补由 run config 中的 <code>start_date/end_date</code> 与目标交易日列表判断。</li>
+      <li>日频同步 metadata 同样使用 <code>source_method=tushare_api</code>，并通过 <code>use_trade_date=true</code> 表明它是单日请求。</li>
+      <li>dynamic partition 的 range 展开不再作为历史回补依据；正式历史回补只能使用 <code>silver_trade_calendar</code> 生成的有序目标交易日列表。</li>
+      <li>Slice 3.2 已完成受控历史回补入口：<code>dry_run=true</code> 只输出计划，不访问 Tushare、不写湖；<code>force=false</code> 遇到既有 raw/silver 文件会失败；只有 <code>force=true</code> 才允许原子替换。</li>
+      <li>全量历史开始前，必须先输出 active pool 数量、交易日数量、预计请求数、预计耗时和 Tushare 配额影响。</li>
     </ul>
   </section>
 
@@ -886,7 +915,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td>3.2</td>
           <td>实现 <code>raw_tushare_index_daily</code> 和 <code>silver_index_daily</code>。</td>
-          <td>先单日少量验证，再用 <code>BackfillPolicy.single_run()</code> 小范围 range backfill 验证；raw/silver 与对应 checks 必须统一支持 range-aware 执行。</td>
+          <td>已完成受控入口：请求范围改为 active pool；<code>index_daily_history_backfill_job</code> 已替换为 run config 驱动的普通 job。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，raw/silver 每日 1,125 行，3 天共 6 条 materialization 与 33 条 check evaluation 可见，阻断 checks 全部通过，coverage WARN 显示 active pool 1,130 个 code 中有 5 个无返回。单日 <code>index_daily_update_job[2026-05-22]</code> 回归成功。</td>
         </tr>
         <tr>
           <td>3.3</td>
@@ -924,7 +953,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <li>Phase 3 从“财势乾坤首页市场总览 - 主要指数”下游 API 反推资产图。</li>
       <li><code>raw_tushare_index_basic</code> 和 <code>raw_tushare_index_daily</code> 都从 Tushare 重新拉取，不使用旧湖 bootstrap。</li>
       <li><code>silver_index_basic</code> 过滤终止指数；<code>index_basic</code> 虽然是 full snapshot，也必须按日更基础资产设计 freshness。</li>
-      <li><code>raw_tushare_index_daily</code> 的拉取范围使用 <code>silver_index_basic</code> 中有效指数 <code>ts_code</code>，不拉终止指数，也不按 active pool 限缩 raw。</li>
+      <li><code>raw_tushare_index_daily</code> 的拉取范围使用 <code>silver_index_daily_active_pool</code> 中的指数代码；这是为了避免按全部有效指数产生过高请求量。active pool 的 code 覆盖由其自身 checks 校验 <code>silver_index_basic</code>。</li>
       <li><code>silver_index_daily_active_pool</code> 作为 silver asset，决定哪些指数进入 <code>silver_index_daily</code>。</li>
       <li><code>silver_index_daily_active_pool</code> 由 prod PostgreSQL <code>ops.index_series_active</code> 中 <code>resource='index_daily'</code> 一次性初始化；初始化后只本地维护，不再与 prod 同步。</li>
 	      <li><code>gold_market_major_indices</code> 作为 gold 业务名单 asset，决定首页主要指数展示哪 10 个和顺序。</li>
@@ -941,7 +970,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
   <section>
     <h2>15. 待评审风险点</h2>
     <ul>
-      <li>历史 index daily 全量补齐的请求量可能较大，LLD 前必须先测算有效指数数量、每个指数分页数、目标交易日数量、预计耗时和配额影响。</li>
+      <li>历史 index daily 全量补齐的请求量可能较大，执行前必须先测算 active pool 数量、每个指数分页数、目标交易日数量、预计耗时和配额影响。</li>
       <li>一次性读取 prod DB / prod JSON 需要明确只读连接方式、权限、字段白名单和审计记录。</li>
 	      <li>本地 PostgreSQL metadata 表结构需要在 LLD 中细化，包括当前表、change history、Dagster run id 和回滚方式。</li>
       <li>Tushare <code>index_daily</code> 的真实 ready 时间和空结果行为还需要结合日频 sensor 小样本验证；分页行为已完成源站实测。</li>
