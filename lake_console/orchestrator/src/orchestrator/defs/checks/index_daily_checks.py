@@ -646,7 +646,7 @@ def evaluate_silver_index_daily_active_pool_coverage(
     )
 
 
-INDEX_DAILY_CHECK_EVALUATORS = (
+INDEX_DAILY_HISTORY_BACKFILL_CHECK_EVALUATORS = (
     IndexDailyCheckEvaluator(
         asset_key=RAW_INDEX_DAILY_ASSET_KEY,
         check_name="raw_index_daily_file_exists",
@@ -706,12 +706,6 @@ INDEX_DAILY_CHECK_EVALUATORS = (
         check_name="silver_index_daily_price_sanity",
         blocking=True,
         evaluate=evaluate_silver_index_daily_price_sanity,
-    ),
-    IndexDailyCheckEvaluator(
-        asset_key=SILVER_INDEX_DAILY_ASSET_KEY,
-        check_name="silver_index_daily_active_pool_coverage",
-        blocking=False,
-        evaluate=evaluate_silver_index_daily_active_pool_coverage,
     ),
 )
 

@@ -25,6 +25,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
 from orchestrator.defs.tushare_api_io import fetch_tushare_index_daily_to_raw_partitions
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 INDEX_DAILY_RAW_COLUMN_TYPES = {
@@ -84,16 +85,31 @@ def _sample_dicts(columns: list[str], rows: list[tuple[Any, ...]]) -> list[dict[
     return samples
 
 
-def load_active_index_codes(connection, active_pool_path: Path) -> list[str]:
+def load_active_index_entries(connection, active_pool_path: Path) -> list[dict[str, str]]:
     rows = connection.execute(
         f"""
-        SELECT DISTINCT ts_code
+        SELECT DISTINCT
+          ts_code,
+          COALESCE(NULLIF(trim(display_name), ''), '-') AS name
         FROM {read_parquet(active_pool_path, hive_partitioning=False)}
         WHERE ts_code IS NOT NULL AND trim(ts_code) != ''
         ORDER BY ts_code
         """
     ).fetchall()
-    return [str(row[0]) for row in rows]
+    return [
+        {
+            "ts_code": str(row[0]),
+            "name": str(row[1]) if row[1] is not None else "-",
+        }
+        for row in rows
+    ]
+
+
+def load_active_index_codes(connection, active_pool_path: Path) -> list[str]:
+    return [
+        active_index_entry["ts_code"]
+        for active_index_entry in load_active_index_entries(connection, active_pool_path)
+    ]
 
 
 def _conflict_key_count(connection, raw_path: Path) -> int:
@@ -211,6 +227,7 @@ def materialize_silver_index_daily_partitions(
     lake_root_path: Path,
     duckdb: DuckDBResource,
     partition_keys: Sequence[str],
+    log: DgStdoutLogger | None = None,
 ) -> dict[str, dict[str, Any]]:
     active_pool_path = silver_index_daily_active_pool_path(lake_root_path)
     if not active_pool_path.exists():
@@ -256,6 +273,22 @@ def materialize_silver_index_daily_partitions(
                 "duplicate_removed_count": duplicate_removed_count,
                 "duplicate_sample_rows": duplicate_sample_rows,
             }
+            if log:
+                log.stdout(
+                    "silver_partition_written",
+                    partition_key=partition_key,
+                    trade_date=partition_key.replace("-", ""),
+                    rows=row_count,
+                    raw_rows=raw_row_count,
+                    path=target_path,
+                )
+
+    if log:
+        log.stdout(
+            "silver_partitions_completed",
+            partitions=len(partition_metadata),
+            total_rows=sum(item["row_count"] for item in partition_metadata.values()),
+        )
 
     return partition_metadata
 
@@ -280,21 +313,23 @@ def raw_tushare_index_daily(
         raise FileNotFoundError(f"Missing silver index daily active pool file: {active_pool_path}")
 
     with duckdb.connect() as connection:
-        active_index_codes = load_active_index_codes(connection, active_pool_path)
+        active_index_entries = load_active_index_entries(connection, active_pool_path)
 
     target_paths = {
         partition_key: raw_index_daily_path(lake_root.root(), partition_key)
         for partition_key in partition_keys
     }
+    log = DgStdoutLogger("index_daily")
     metadata = fetch_tushare_index_daily_to_raw_partitions(
         tushare=tushare,
         duckdb=duckdb,
-        active_index_codes=active_index_codes,
+        active_index_entries=active_index_entries,
         partition_keys=partition_keys,
         fields=INDEX_DAILY_RAW_COLUMNS,
         column_types=INDEX_DAILY_RAW_COLUMN_TYPES,
         target_paths=target_paths,
         staging_dir=raw_index_daily_staging_dir(lake_root.root(), context.run_id),
+        log=log,
     )
 
     return dg.MaterializeResult(
@@ -327,6 +362,7 @@ def silver_index_daily(
         lake_root_path=lake_root.root(),
         duckdb=duckdb,
         partition_keys=partition_keys,
+        log=DgStdoutLogger("index_daily"),
     )
 
     total_row_count = sum(item["row_count"] for item in partition_metadata.values())

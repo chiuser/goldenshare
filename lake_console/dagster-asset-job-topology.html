@@ -323,7 +323,7 @@
     </p>
     <div class="meta-grid">
       <div class="chip"><strong>文档类型</strong>资产 / Job / 触发拓扑图</div>
-      <div class="chip"><strong>代码范围</strong><code>lake_console/orchestrator/src/orchestrator/defs</code></div>
+      <div class="chip"><strong>代码范围</strong><code>lake_console/orchestrator/src/orchestrator</code></div>
       <div class="chip"><strong>当前阶段</strong>Phase 3 已实现到指数日线与主要指数 metadata 链路；<code>gold_market_major_indices_daily</code> 仍未落地。</div>
       <div class="chip"><strong>核心原则</strong>基础资产单独更新，业务资产只读依赖，job 只做 selection，ready 必须 checks 全绿</div>
     </div>
@@ -383,6 +383,12 @@
           <td><code>defs/resources.py</code></td>
           <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>LakeMetaPostgresResource</code>、<code>ProdStrategyConfigFileResource</code>、<code>TushareResource</code>。</td>
           <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 通过 <code>dg.EnvVar</code> 注入。主要指数名单初始化只读 prod JSON；active pool 不再保留 prod DB 初始化入口。</td>
+        </tr>
+        <tr>
+          <td>Runtime Utils</td>
+          <td><code>orchestrator/utils/dg_log_helper.py</code></td>
+          <td>提供 <code>DgStdoutLogger</code>，把长耗时步骤的过程日志写入 Dagster Run 页面 step stdout。</td>
+          <td>不是 Dagster definition，不放进 <code>defs</code>；只做运行过程观测，不替代 materialization metadata 或 asset check metadata。</td>
         </tr>
         </tbody>
       </table>

@@ -661,7 +661,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td><code>silver_index_daily</code></td>
           <td><code>ts_code+trade_date</code> 唯一、只包含 active pool、价格字段合理、关键字段非空。</td>
-          <td>active pool 覆盖率、缺失 active 指数样本。</td>
+          <td>active pool 覆盖率检查当前暂停自动执行，等待重新设计后再恢复；现阶段不随日频更新或历史回补自动触发。</td>
         </tr>
 	        <tr>
 	          <td><code>gold_market_major_indices</code></td>
@@ -963,7 +963,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td>3.2</td>
           <td>实现 <code>raw_tushare_index_daily</code> 和 <code>silver_index_daily</code>。</td>
-          <td>已完成受控入口：请求范围改为 active pool；<code>index_daily_history_backfill_job</code> 已替换为 run config 驱动的普通 job。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，raw/silver 每日 1,125 行，3 天共 6 条 materialization 与 33 条 check evaluation 可见，阻断 checks 全部通过，coverage WARN 显示 active pool 1,130 个 code 中有 5 个无返回。单日 <code>index_daily_update_job[2026-05-22]</code> 回归成功。</td>
+          <td>已完成受控入口：请求范围改为 active pool；<code>index_daily_history_backfill_job</code> 已替换为 run config 驱动的普通 job。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，阻断 checks 全部通过。<code>silver_index_daily_active_pool_coverage</code> 当前噪音较大，已暂停随日频更新和历史回补自动执行，等待重新设计后恢复。</td>
         </tr>
         <tr>
           <td>3.2.1</td>
@@ -1040,7 +1040,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <li><code>gold_market_major_indices_daily</code> 尚未实现；下一步需要明确输出字段、缺失行情处理、方向公式和 checks。</li>
       <li>Phase 3 指数类 sensors 与 <code>index_daily</code> source readiness 尚未实现；Tushare <code>index_daily</code> 的真实 ready 时间和空结果行为还需要单日小样本验证。</li>
       <li>主要指数名单的本地 metadata 人工维护写表入口尚未实现；active pool 已在 Slice 3.2.1 支持完整列表替换。</li>
-      <li>Slice 3.2 小样本中 active pool 1,130 个 code 有 5 个无 <code>index_daily</code> 返回；当前作为 coverage WARN 观测，后续全量回补前需要继续审计是否属于预期。</li>
+      <li><code>silver_index_daily_active_pool_coverage</code> 当前噪音较大，已暂停自动执行；后续需要重新设计“合理缺失”和“中间断档”口径，再决定是否恢复为 WARN 或升级为 blocking。</li>
     </ul>
   </section>
 </main>

@@ -2,10 +2,11 @@ import os
 from pathlib import Path
 import shutil
 import time
-from typing import Any, Mapping, Sequence
+from typing import Any, Iterable, Mapping, Sequence
 
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
 from orchestrator.defs.resources import DuckDBResource, TushareResource
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 TUSHARE_API_SOURCE_METHOD = "tushare_api"
@@ -120,13 +121,14 @@ def fetch_tushare_index_daily_to_raw_partitions(
     *,
     tushare: TushareResource,
     duckdb: DuckDBResource,
-    active_index_codes: Sequence[str],
+    active_index_entries: Sequence[Mapping[str, Any]],
     partition_keys: Sequence[str],
     fields: Sequence[str],
     column_types: Mapping[str, str],
     target_paths: Mapping[str, Path],
     staging_dir: Path,
     limit: int = TUSHARE_INDEX_DAILY_PAGE_LIMIT,
+    log: DgStdoutLogger | None = None,
 ) -> dict[str, Any]:
     field_names = tuple(fields)
     _validate_contract(field_names, column_types)
@@ -134,8 +136,8 @@ def fetch_tushare_index_daily_to_raw_partitions(
     if not selected_partition_keys:
         raise ValueError("index_daily partition_keys must not be empty.")
 
-    index_codes = tuple(dict.fromkeys(code.strip() for code in active_index_codes if code.strip()))
-    if not index_codes:
+    index_entries = _normalize_active_index_entries(active_index_entries)
+    if not index_entries:
         raise RuntimeError("silver_index_daily_active_pool has no ts_code values.")
 
     missing_target_paths = [
@@ -157,6 +159,17 @@ def fetch_tushare_index_daily_to_raw_partitions(
     use_trade_date = len(selected_partition_keys) == 1
     start_date = min(source_dates)
     end_date = max(source_dates)
+    request_date_label = start_date if use_trade_date else f"{start_date}..{end_date}"
+
+    if log:
+        log.stdout(
+            "fetch_start",
+            partitions=len(selected_partition_keys),
+            date=request_date_label,
+            active_pool=len(index_entries),
+            limit=limit,
+            staging_dir=staging_dir,
+        )
 
     page_count = 0
     written_page_file_count = 0
@@ -165,9 +178,13 @@ def fetch_tushare_index_daily_to_raw_partitions(
     last_request_started_at: float | None = None
 
     try:
-        for index_code in index_codes:
+        for index_position, index_entry in enumerate(index_entries, start=1):
+            index_code = index_entry["ts_code"]
+            index_name = index_entry["name"]
             offset = 0
             code_had_rows = False
+            code_page_count = 0
+            code_row_count = 0
             while True:
                 api_params: dict[str, Any] = {
                     "ts_code": index_code,
@@ -197,6 +214,7 @@ def fetch_tushare_index_daily_to_raw_partitions(
                     )
 
                 page_count += 1
+                code_page_count += 1
                 if page_rows:
                     code_had_rows = True
                     page_path = staging_dir / f"{_safe_file_stem(index_code)}-{offset}.parquet"
@@ -209,11 +227,23 @@ def fetch_tushare_index_daily_to_raw_partitions(
                     )
                     written_page_file_count += 1
                     source_row_count += len(page_rows)
+                    code_row_count += len(page_rows)
 
                 if len(result.rows) < limit:
                     break
                 offset += limit
 
+            if log:
+                log.stdout(
+                    "fetch_progress",
+                    progress=f"{index_position}/{len(index_entries)}",
+                    date=request_date_label,
+                    code=index_code,
+                    name=index_name,
+                    rows=code_row_count,
+                    pages=code_page_count,
+                    total_rows=source_row_count,
+                )
             if not code_had_rows:
                 empty_index_code_count += 1
 
@@ -230,11 +260,21 @@ def fetch_tushare_index_daily_to_raw_partitions(
             target_paths=target_paths,
             fields=field_names,
             column_types=column_types,
+            log=log,
         )
     except Exception:
+        if log:
+            log.stdout("staging_retained", staging_dir=staging_dir, reason="exception")
         raise
     else:
-        shutil.rmtree(staging_dir)
+        try:
+            shutil.rmtree(staging_dir)
+        except Exception:
+            if log:
+                log.stdout("staging_retained", staging_dir=staging_dir, reason="cleanup_failed")
+            raise
+        if log:
+            log.stdout("staging_cleaned", staging_dir=staging_dir)
 
     return {
         "source_method": TUSHARE_API_SOURCE_METHOD,
@@ -247,8 +287,8 @@ def fetch_tushare_index_daily_to_raw_partitions(
         },
         "fields": list(field_names),
         "limit": limit,
-        "active_pool_count": len(index_codes),
-        "estimated_request_count": len(index_codes),
+        "active_pool_count": len(index_entries),
+        "estimated_request_count": len(index_entries),
         "page_count": page_count,
         "request_count": page_count,
         "min_request_interval_seconds": TUSHARE_INDEX_DAILY_MIN_REQUEST_INTERVAL_SECONDS,
@@ -304,8 +344,16 @@ def _write_index_daily_partitions_from_pages(
     target_paths: Mapping[str, Path],
     fields: tuple[str, ...],
     column_types: Mapping[str, str],
+    log: DgStdoutLogger | None = None,
 ) -> dict[str, int]:
     partition_row_counts: dict[str, int] = {}
+    if log:
+        log.stdout(
+            "staging_split_start",
+            partitions=len(partition_source_dates),
+            trade_date=_source_date_range_label(partition_source_dates.values()),
+        )
+
     with duckdb.connect() as connection:
         source_query = read_parquet(page_glob, hive_partitioning=False, union_by_name=True)
         source_dates_sql = ", ".join(duckdb_string(value) for value in partition_source_dates.values())
@@ -359,8 +407,52 @@ def _write_index_daily_partitions_from_pages(
             partition_row_counts[partition_key] = row_counts_by_source_date[
                 partition_source_dates[partition_key]
             ]
+            if log:
+                log.stdout(
+                    "raw_partition_written",
+                    partition_key=partition_key,
+                    trade_date=partition_source_dates[partition_key],
+                    rows=partition_row_counts[partition_key],
+                    path=target_path,
+                )
+
+    if log:
+        log.stdout(
+            "raw_partitions_completed",
+            partitions=len(partition_row_counts),
+            total_rows=sum(partition_row_counts.values()),
+        )
 
     return partition_row_counts
+
+
+def _normalize_active_index_entries(
+    active_index_entries: Sequence[Mapping[str, Any]],
+) -> tuple[dict[str, str], ...]:
+    normalized_entries: list[dict[str, str]] = []
+    seen_codes: set[str] = set()
+    for active_index_entry in active_index_entries:
+        raw_ts_code = active_index_entry.get("ts_code")
+        if raw_ts_code is None:
+            continue
+        ts_code = str(raw_ts_code).strip()
+        if not ts_code or ts_code in seen_codes:
+            continue
+        seen_codes.add(ts_code)
+        raw_name = active_index_entry.get("name")
+        name = str(raw_name).strip() if raw_name is not None else "-"
+        name = name or "-"
+        normalized_entries.append({"ts_code": ts_code, "name": name})
+    return tuple(normalized_entries)
+
+
+def _source_date_range_label(source_dates: Iterable[str]) -> str:
+    sorted_source_dates = sorted(set(source_dates))
+    if not sorted_source_dates:
+        return "-"
+    if len(sorted_source_dates) == 1:
+        return sorted_source_dates[0]
+    return f"{sorted_source_dates[0]}..{sorted_source_dates[-1]}"
 
 
 def _validate_contract(fields: tuple[str, ...], column_types: Mapping[str, str]) -> None:

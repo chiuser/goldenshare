@@ -9,10 +9,10 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
 
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMN_TYPES,
-    load_active_index_codes,
+    load_active_index_entries,
     materialize_silver_index_daily_partitions,
 )
-from orchestrator.defs.checks.index_daily_checks import INDEX_DAILY_CHECK_EVALUATORS
+from orchestrator.defs.checks.index_daily_checks import INDEX_DAILY_HISTORY_BACKFILL_CHECK_EVALUATORS
 from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_RAW_COLUMNS,
     duckdb_string,
@@ -31,6 +31,7 @@ from orchestrator.defs.tushare_api_io import (
     TUSHARE_INDEX_DAILY_PAGE_LIMIT,
     fetch_tushare_index_daily_to_raw_partitions,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 RAW_INDEX_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily")
@@ -73,7 +74,7 @@ def materialize_index_daily_history_backfill(
         )
 
     _ensure_dynamic_partitions_registered(context, target_trade_dates)
-    active_index_codes = _load_active_index_codes(
+    active_index_entries = _load_active_index_entries(
         lake_root_path=lake_root_path,
         duckdb=duckdb,
     )
@@ -89,9 +90,9 @@ def materialize_index_daily_history_backfill(
         "force": config.force,
         "target_trade_dates": target_trade_dates,
         "target_partition_count": len(target_trade_dates),
-        "active_pool_count": len(active_index_codes),
-        "estimated_request_count": len(active_index_codes),
-        "estimated_page_count": len(active_index_codes),
+        "active_pool_count": len(active_index_entries),
+        "estimated_request_count": len(active_index_entries),
+        "estimated_page_count": len(active_index_entries),
         "limit": TUSHARE_INDEX_DAILY_PAGE_LIMIT,
         "target_paths": {
             partition_key: str(target_paths[partition_key])
@@ -121,21 +122,24 @@ def materialize_index_daily_history_backfill(
             f"{existing_paths[:20]}"
         )
 
+    log = DgStdoutLogger("index_daily")
     raw_metadata = fetch_tushare_index_daily_to_raw_partitions(
         tushare=tushare,
         duckdb=duckdb,
-        active_index_codes=active_index_codes,
+        active_index_entries=active_index_entries,
         partition_keys=target_trade_dates,
         fields=INDEX_DAILY_RAW_COLUMNS,
         column_types=INDEX_DAILY_RAW_COLUMN_TYPES,
         target_paths=target_paths,
         staging_dir=raw_index_daily_staging_dir(lake_root_path, context.run_id),
         limit=TUSHARE_INDEX_DAILY_PAGE_LIMIT,
+        log=log,
     )
     silver_partition_metadata = materialize_silver_index_daily_partitions(
         lake_root_path=lake_root_path,
         duckdb=duckdb,
         partition_keys=target_trade_dates,
+        log=log,
     )
 
     for partition_key in target_trade_dates:
@@ -210,7 +214,7 @@ def evaluate_index_daily_history_backfill_checks(
                 partition_key=partition_key,
             ),
         }
-        for check_evaluator in INDEX_DAILY_CHECK_EVALUATORS:
+        for check_evaluator in INDEX_DAILY_HISTORY_BACKFILL_CHECK_EVALUATORS:
             result = check_evaluator.evaluate((partition_key,), lake_root.root(), duckdb)
             context.log_event(
                 dg.AssetCheckEvaluation(
@@ -288,20 +292,20 @@ def _ensure_dynamic_partitions_registered(
         )
 
 
-def _load_active_index_codes(
+def _load_active_index_entries(
     *,
     lake_root_path: Path,
     duckdb: DuckDBResource,
-) -> list[str]:
+) -> list[dict[str, str]]:
     active_pool_path = silver_index_daily_active_pool_path(lake_root_path)
     if not active_pool_path.exists():
         raise FileNotFoundError(f"Missing silver index daily active pool file: {active_pool_path}")
 
     with duckdb.connect() as connection:
-        active_index_codes = load_active_index_codes(connection, active_pool_path)
-    if not active_index_codes:
+        active_index_entries = load_active_index_entries(connection, active_pool_path)
+    if not active_index_entries:
         raise RuntimeError("silver_index_daily_active_pool has no ts_code values.")
-    return active_index_codes
+    return active_index_entries
 
 
 def _existing_index_daily_files(

@@ -299,7 +299,10 @@
 
     paths.py
     resources.py
-    tushare_api_io.py</code></pre>
+    tushare_api_io.py
+
+  utils/
+    dg_log_helper.py</code></pre>
 
     <h3>后续待新增</h3>
     <pre><code>lake_console/orchestrator/src/orchestrator/
@@ -823,6 +826,16 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
       并在 materialization metadata 中输出 <code>min_request_interval_seconds</code>、<code>request_count</code> 和
       <code>page_count</code>，避免 active pool 单日更新撞限。
     </div>
+    <div class="callout">
+      <strong>stdout 观测：</strong>
+      <code>orchestrator/utils/dg_log_helper.py</code> 提供 <code>DgStdoutLogger</code>，
+      只通过 <code>print(..., flush=True)</code> 写入 Dagster Run 页面 step stdout。
+      <code>index_daily</code> 拉取和历史回补必须输出 <code>fetch_start</code>、逐 code
+      <code>fetch_progress</code>、<code>staging_split_start</code>、<code>raw_partition_written</code>、
+      <code>raw_partitions_completed</code>、<code>staging_cleaned</code>、<code>silver_partition_written</code>
+      和 <code>silver_partitions_completed</code>。stdout 仅用于运行过程观测，不替代 materialization metadata
+      或 asset check metadata。
+    </div>
     <pre><code>读取 run config -> start_date/end_date/dry_run/force
 读取 silver_trade_calendar -> SSE open days
 生成 target_trade_dates 并按日期排序
@@ -1094,8 +1107,8 @@ probe_index_daily_ready(
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
-          <td>只包含 active pool、<code>ts_code+trade_date</code> 唯一、价格字段合理、关键字段非空。active 覆盖率第一版为 WARN 观测，不作为阻断。</td>
-          <td>缺失 active code 样本、额外 code 样本、覆盖率。</td>
+          <td>只包含 active pool、<code>ts_code+trade_date</code> 唯一、价格字段合理、关键字段非空。active 覆盖率检查当前暂停自动执行。</td>
+          <td><code>silver_index_daily_active_pool_coverage</code> 暂不随 <code>index_daily_update_job</code> 或 <code>index_daily_history_backfill_job</code> 自动触发，等待重新设计后恢复。</td>
         </tr>
         <tr>
 	          <td><code>gold_market_major_indices</code></td>
@@ -1147,7 +1160,7 @@ probe_index_daily_ready(
         <tr>
           <td>3.2</td>
           <td>实现 <code>raw_tushare_index_daily</code>、<code>silver_index_daily</code>、日频 job 与历史回补。</td>
-          <td>已完成受控历史回补入口。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，raw/silver 每日 1,125 行，3 天共 6 条 materialization 与 33 条 check evaluation 可见，阻断 checks 通过，active 覆盖率 WARN 可观测。<code>index_daily_update_job[2026-05-22]</code> 单日回归成功。</td>
+          <td>已完成受控历史回补入口。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，阻断 checks 通过。<code>silver_index_daily_active_pool_coverage</code> 当前暂停自动执行，不再随日频更新或历史回补产生噪音 WARN。</td>
         </tr>
         <tr>
           <td>3.2.1</td>
@@ -1257,9 +1270,9 @@ git status --short</code></pre>
           <td>放到 Slice 3.4；默认 STOPPED，先 preview，再单日验证。</td>
         </tr>
         <tr>
-          <td>Slice 3.2 小样本存在 active pool 覆盖 WARN。</td>
-          <td>1,130 个 active code 中有 5 个没有 index daily 返回，可能影响主要指数覆盖或未来全量验收。</td>
-          <td>当前作为 WARN 观测；全量历史回补前需要继续审计样本，不能直接升级为 blocking。</td>
+          <td><code>silver_index_daily_active_pool_coverage</code> 当前暂停自动执行。</td>
+          <td>现有口径会把大量合理缺失也标为 WARN，噪音过大，无法作为有效质量信号。</td>
+          <td>重新设计“合理缺失”和“中间断档”口径后，再决定恢复为 WARN 或升级为 blocking。</td>
         </tr>
         </tbody>
       </table>
