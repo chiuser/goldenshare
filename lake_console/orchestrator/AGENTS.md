@@ -53,6 +53,32 @@ https://docs.dagster.io/guides/test/asset-checks
 3. 自由发挥迁移多个数据集。
 4. 用旧 `lake_console` 运行账本机制包装成新的 Dagster 资产。
 
+### 正式 Dagster 环境执行门禁
+
+当前本地 Dagster 环境按正式生产环境对待，不是测试环境，也不是可以随意试跑的沙盒。
+
+规则：
+
+1. 禁止 Codex 未经用户明确批准自行运行任何 Dagster 执行动作，包括但不限于 `dg`、`dagster`、`uv run dg`、job、sensor、backfill、materialize、asset check、automation evaluation、临时 Python evaluator 或任何会读取/触碰正式 Dagster instance 的脚本。
+2. 禁止把正式 Dagster instance、正式数据湖、正式 PostgreSQL、正式 Tushare token 或正在运行的任务当作 test case 使用。
+3. 允许在不触发 Dagster 执行、不读取正式运行状态、不写正式环境的前提下做静态分析，例如阅读代码、阅读文档、搜索文件和整理方案。
+4. 如确实需要执行任何 Dagster 相关命令，必须先列出完整命令、工作目录、目标 `DAGSTER_HOME`、读写范围、可能影响、回滚方式和为什么必须执行，等待用户明确同意后才能运行。
+5. 即使只是“验证一下 evaluator / check / definitions”，只要会访问正式 instance、正式湖、正式数据库或可能干扰正在运行的任务，也必须按生产操作审批，禁止自行执行。
+6. 用户未明确批准时，任务收口只能说明“未运行验证，原因是正式 Dagster 环境执行门禁”，不能用自行试跑来替代审计。
+
+### 设计确认先于代码修改门禁
+
+任何 Dagster 相关代码改动必须先完成设计确认。禁止一边想一边改、先改了再解释、先写代码再补方案。
+
+规则：
+
+1. 涉及 asset、resource、check、job、sensor、partition、backfill、automation、metadata、路径、字段契约、数据质量口径或生产触发逻辑的任何改动，必须先输出设计方案、影响范围、涉及文件、数据读写影响、验收方式和风险点。
+2. 用户明确确认设计方案前，禁止修改正式 Python 代码、配置文件、Dagster definitions、数据湖文件、数据库表或运行入口。
+3. 用户指出现有实现有问题时，默认先做代码审计和方案讨论；不得直接把口头理解落成代码。
+4. 如果需要先做验证来支撑设计，必须把验证方案单独列出并等待用户批准；验证不得触碰正式 Dagster 生产环境，除非用户明确批准并接受影响范围。
+5. 文档修改也要区分“记录已确认口径”和“提出待确认方案”；未经确认的方案不得写成已实现或已拍板事实。
+6. 紧急修复也不能绕过设计确认；至少必须先说明要恢复什么、为什么恢复、会改哪些文件、是否会影响正在运行任务，并等待用户批准。
+
 ### Job / Asset 职责边界门禁
 
 Dagster job 只做流程入口和 asset selection，不承接具体数据生产逻辑。
