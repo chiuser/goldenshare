@@ -312,23 +312,27 @@
       <pre><code>raw_tushare_index_basic
         ↓
 silver_index_basic
-        ├──────────────┐
-        ↓              ↓
-raw_tushare_index_daily    silver_index_daily_active_pool
-        └──────────────┬──────────────┘
-                       ↓
-              silver_index_daily
-                       ↓
-	gold_market_major_indices
-                       ↓
-        gold_market_major_indices_daily</code></pre>
+        │
+        ├── cross checks ──→ silver_index_daily_active_pool
+        │                         ↓
+        │                raw_tushare_index_daily
+        │                         ↓
+        │                 silver_index_daily
+        │                         ↓
+        └─────────────────────────┬──────────────┐
+                                  ↓              ↓
+                    gold_market_major_indices    │
+                                  └──────┬───────┘
+                                         ↓
+                       gold_market_major_indices_daily</code></pre>
     </div>
 
     <p>图中要点：</p>
     <ul>
       <li><code>raw_tushare_index_daily</code> 依赖 <code>silver_index_daily_active_pool</code>，因为 Tushare <code>index_daily</code> 必须按 <code>ts_code</code> 逐个请求，第一版只拉 active 池内指数。</li>
       <li><code>silver_index_daily</code> 继续依赖 active 池，active 池决定哪些指数进入标准事实层。</li>
-	      <li><code>gold_market_major_indices</code> 是首页主要指数名单资产，决定展示哪 10 个指数和顺序。</li>
+	      <li><code>silver_index_daily_active_pool</code> 与 <code>gold_market_major_indices</code> 都来自本地 metadata 当前表；它们与 <code>silver_index_basic</code> 的一致性通过 cross-asset checks 校验，不伪造直接数据血缘。</li>
+	      <li><code>gold_market_major_indices</code> 是首页主要指数名单资产，决定展示哪 10 个指数和顺序；它不依赖 <code>silver_index_daily</code>。</li>
       <li><code>gold_market_major_indices_daily</code> 是最终页面/API 可消费的业务结果资产。</li>
     </ul>
   </section>
@@ -366,19 +370,19 @@ raw_tushare_index_daily    silver_index_daily_active_pool
           <td>silver</td>
           <td>无分区，本地 metadata asset</td>
           <td>指数日线 active 池标准表，决定哪些指数进入 <code>silver_index_daily</code>。</td>
-          <td>本地 PostgreSQL metadata 表 + <code>silver_index_basic</code></td>
+          <td>本地 PostgreSQL metadata 表；通过 checks 校验 <code>silver_index_basic</code> 覆盖</td>
         </tr>
         <tr>
           <td><code>raw_tushare_index_daily</code></td>
           <td>raw</td>
-          <td><code>cn_a_trade_days</code></td>
+          <td>当前代码：<code>cn_a_trade_days</code>；Slice 3.2.2 后切为 <code>cn_a_index_trade_days</code></td>
           <td>Tushare 指数日线原始数据，按 active 池指数逐个拉取。</td>
           <td>Tushare <code>index_daily</code> + <code>silver_index_daily_active_pool</code></td>
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
           <td>silver</td>
-          <td><code>cn_a_trade_days</code></td>
+          <td>当前代码：<code>cn_a_trade_days</code>；Slice 3.2.2 后切为 <code>cn_a_index_trade_days</code></td>
           <td>active 指数日线标准表，只保留 active 池内指数。</td>
           <td><code>raw_tushare_index_daily</code> + <code>silver_index_daily_active_pool</code></td>
         </tr>
@@ -386,13 +390,13 @@ raw_tushare_index_daily    silver_index_daily_active_pool
 	          <td><code>gold_market_major_indices</code></td>
           <td>gold</td>
           <td>无分区，本地 metadata asset</td>
-	          <td>首页主要指数名单，固定 10 个指数和展示顺序。</td>
-          <td>本地 PostgreSQL metadata 表 + <code>silver_index_basic</code> + <code>silver_index_daily_active_pool</code></td>
+          <td>首页主要指数名单，固定 10 个指数和展示顺序。</td>
+          <td>本地 PostgreSQL metadata 表；通过 checks 校验 active pool 与 <code>silver_index_basic</code> 覆盖</td>
         </tr>
         <tr>
           <td><code>gold_market_major_indices_daily</code></td>
           <td>gold</td>
-          <td><code>cn_a_trade_days</code></td>
+          <td>规划：<code>cn_a_index_trade_days</code></td>
           <td>首页主要指数日表，输出 10 个指数卡片事实。</td>
 	          <td><code>silver_index_daily</code> + <code>silver_index_basic</code> + <code>gold_market_major_indices</code></td>
         </tr>
@@ -497,7 +501,7 @@ index_daily(
 
   <section>
     <h2>6. 本地维护模型</h2>
-	    <p>active 池和主要指数名单不使用 YAML 作为长期事实源，避免外部文件和 Dagster asset 出现双事实源。初始化后，本地 PostgreSQL metadata 表是唯一事实源，Dagster update job 是唯一修改入口。</p>
+	    <p>active 池和主要指数名单不使用 YAML 作为长期事实源，避免外部文件和 Dagster asset 出现双事实源。初始化后，本地 PostgreSQL metadata 表是唯一事实源。Slice 3.2.1 已为 active 池补齐完整列表替换维护入口；主要指数名单的本地维护写表入口仍未实现，后续必须单独设计。</p>
 
     <div class="grid">
       <div class="card">
@@ -532,10 +536,10 @@ goldenshare_lake_meta.market_major_indices_change_history</code></pre>
 	          <td><code>index_daily_active_pool_initialize_job</code></td>
 	          <td>Slice 3.0.2 执行。只读远程 prod PostgreSQL <code>ops.index_series_active</code>，过滤 <code>resource='index_daily'</code>，写入本地 <code>index_daily_active_pool</code> 和 history，再 materialize <code>silver_index_daily_active_pool</code>；不得自动同步。初始化阶段 <code>display_name</code> 先留空。</td>
 	        </tr>
-        <tr>
+	        <tr>
 	          <td>维护 active 池</td>
 	          <td><code>index_daily_active_pool_update_job</code></td>
-	          <td>通过 Dagster Launchpad run config 提交当前 active 指数列表，校验后覆盖当前表并写 history。</td>
+	          <td>Slice 3.2.1 执行。通过 <code>source_mode=local_replacement</code> 和完整 <code>items</code> 列表替换本地当前表，写入新增/删除/更新 history，再 materialize <code>silver_index_daily_active_pool</code> 并运行 checks。它是完整替换，不是增量更新。</td>
         </tr>
         <tr>
 	          <td>初始化主要指数名单</td>
@@ -545,7 +549,7 @@ goldenshare_lake_meta.market_major_indices_change_history</code></pre>
 	        <tr>
 	          <td>维护主要指数名单</td>
 	          <td><code>market_major_indices_update_job</code></td>
-	          <td>通过 Dagster Launchpad run config 提交当前 10 个指数和 rank，校验后覆盖当前表并写 history。</td>
+	          <td>当前代码只读取本地 <code>market_major_indices</code> 当前表，重新生成 <code>gold_market_major_indices</code> 并运行 checks；不接收 <code>items</code> run config，不写当前表，不写 history。真正的本地维护写表入口是后续任务。</td>
         </tr>
         </tbody>
       </table>
@@ -553,7 +557,12 @@ goldenshare_lake_meta.market_major_indices_change_history</code></pre>
 
     <div class="danger">
       <strong>禁止绕过 Dagster：</strong>
-      不允许直接手改本地 metadata 表后让下游使用。所有变更必须通过 Dagster update job 写表、写 history、materialize asset、跑 checks。
+      active 池不允许直接手改本地 metadata 表后让下游使用；必须通过 <code>index_daily_active_pool_update_job</code> 的完整替换配置写表、写 history、materialize asset、跑 checks。主要指数名单在正式维护写表入口实现前仍不得手改表后让下游使用。
+    </div>
+
+    <div class="note">
+      <strong>Launchpad 口径：</strong>
+      Dagster 原生 Launchpad 不会自动把当前 active pool 的 1130 行预填到配置输入框。完整替换时，<code>items</code> 需要由用户准备并粘贴；本 Slice 不提供导出 YAML 模板工具。
     </div>
   </section>
 
@@ -698,6 +707,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
     </div>
 
     <h3>job selection</h3>
+    <p>下表同时列出已实现入口和后续规划入口。当前已实现到 Slice 3.2.1；下一步先推进 Slice 3.2.2 资产族交易日分区拆分，之后再进入 <code>market_major_indices_daily_job</code>。</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -726,7 +736,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td><code>index_daily_update_job</code></td>
           <td><code>raw_tushare_index_daily</code>、<code>silver_index_daily</code> 及 checks</td>
-          <td><code>silver_index_basic</code>、<code>silver_index_daily_active_pool</code></td>
+          <td><code>silver_index_daily_active_pool</code>；<code>silver_index_basic</code> 通过 active pool checks / sensor readiness 保证，不作为本 job 的写入范围</td>
         </tr>
 	        <tr>
 	          <td><code>market_major_indices_initialize_job</code></td>
@@ -755,6 +765,45 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
 
   <section>
     <h2>10. 触发与自动化策略</h2>
+    <p>本节是后续 Slice 3.4 规划。当前代码尚未实现 Phase 3 指数类 sensors，也尚未实现 <code>source_readiness/tushare/index_daily.py</code>；现有 Phase 2 sensors 不承担主要指数链路。</p>
+    <div class="danger">
+      <strong>Slice 3.2.2 前置门禁：</strong>
+      当前 <code>cn_a_trade_days</code> 被股票链路和指数链路共用，但两个资产族的历史范围不同。
+      股票日线当前从 2014 年开始，指数日线需要更早历史。继续共用同一个 dynamic partition 集合，会让指数早期日期污染股票
+      <code>suspend_d</code>、<code>stock_daily</code>、<code>market_breadth</code> 的 sensor 和待补判断。
+      因此指数历史全量回填前，必须先完成资产族交易日分区拆分。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>分区定义</th>
+          <th>资产族</th>
+          <th>起点口径</th>
+          <th>负责资产 / 触发器</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>cn_a_stock_trade_days</code></td>
+          <td>股票行情资产族</td>
+          <td><code>2014-01-01</code> 起的 SSE open day，实际首个交易日为 <code>2014-01-02</code>。</td>
+          <td><code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code>、<code>gold_market_breadth_daily</code> 及股票相关 sensors。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_index_trade_days</code></td>
+          <td>指数行情资产族</td>
+          <td>以扩展后的 <code>silver_trade_calendar</code> 为事实源，支持指数历史起点，例如 <code>1990-12-19</code> 或后续拍板的指数起点。</td>
+          <td><code>raw_tushare_index_daily</code>、<code>silver_index_daily</code>、<code>gold_market_major_indices_daily</code>、<code>index_basic</code> freshness 判断、指数相关 sensors 和 <code>index_daily_history_backfill_job</code>。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+    <div class="note">
+      <strong>原则：</strong>
+      <code>silver_trade_calendar</code> 是完整交易日事实表；dynamic partitions 是“某个资产族允许 Dagster 管理和生产的 key 集合”。
+      每个日频资产族必须有自己的 partition definition，不得默认共用一个全局 <code>cn_a_trade_days</code>。
+    </div>
     <div class="table-wrap">
       <table>
         <thead>
@@ -768,7 +817,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td><code>index_basic_sensor</code></td>
           <td>
-            以 <code>cn_a_trade_days</code> 已注册 partition key 作为业务日期来源。
+            以 <code>cn_a_index_trade_days</code> 已注册 partition key 作为业务日期来源。
             对候选 <code>trade_date</code>，若 <code>silver_index_basic</code> 最近一次成功 materialization
             没有声明 <code>ready_for_trade_date &gt;= trade_date</code>，
             或对应 blocking checks 未全部通过，
@@ -794,11 +843,11 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <strong>full snapshot freshness 口径：</strong>
       <code>silver_index_basic</code> 本身不分区，不能天然知道“哪一天 ready”。因此 <code>index_basic_update_job</code>
       materialize <code>silver_index_basic</code> 时，必须在 metadata 中记录 <code>ready_for_trade_date</code>。
-      sensor 用 <code>cn_a_trade_days</code> 的 partition key 作为要生产的交易日，再用
+      sensor 用 <code>cn_a_index_trade_days</code> 的 partition key 作为要生产的交易日，再用
       <code>ready_for_trade_date</code> 和 blocking checks 判断该 full snapshot 是否能服务这个交易日。
     </div>
 
-	    <p>active pool 和主要指数名单属于人工维护资产，默认不需要 sensor 自动修改；维护动作通过手动 Dagster update job 发起。</p>
+	    <p>active pool 和主要指数名单属于人工维护资产，默认不需要 sensor 自动修改。active pool 已支持通过 <code>index_daily_active_pool_update_job</code> 完整替换维护；主要指数名单的正式人工维护写表入口后续单独设计。</p>
   </section>
 
   <section>
@@ -836,11 +885,13 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <code>index_daily_history_backfill_job</code>，但它不能再使用 Dagster 原生
       <code>--partition-range</code>。该 job 必须通过 run config 显式接收
       <code>start_date/end_date/dry_run/force</code>，再从 <code>silver_trade_calendar</code>
-      读取 SSE 开市日，按 <code>trade_date</code> 自然顺序生成目标交易日列表。
+      读取 SSE 开市日，按 <code>trade_date</code> 自然顺序生成目标交易日列表，并校验这些日期已经注册到
+      <code>cn_a_index_trade_days</code>。
     </p>
     <pre><code>index_daily_history_backfill_job(config: start_date, end_date, dry_run, force)
   -> 读取 silver_trade_calendar 中 SSE is_open=true 的交易日
   -> 截取 start_date/end_date 内的目标交易日并按日期排序
+  -> 校验目标交易日已注册到 cn_a_index_trade_days
   -> 读取 silver_index_daily_active_pool 中 ts_code
   -> 对每个 ts_code 调用 index_daily(ts_code, start_date, end_date, limit=8000, offset=...)
   -> 分页拉取完整时间序列，并只保留目标交易日
@@ -852,7 +903,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
 
     <div class="danger">
       <strong>原生 range 禁用：</strong>
-      <code>cn_a_trade_days</code> 目前是 named dynamic partitions，Dagster 原生
+      named dynamic partitions 的原生
       <code>--partition-range</code> 会按 partition key 的注册顺序展开，不保证等同自然日期顺序。
       因此历史回补禁止使用 <code>dg launch --partition-range</code> 作为正式入口。
       当前 <code>index_daily_history_backfill_job</code> 已改为普通 Dagster job，不再拥有
@@ -871,10 +922,11 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <li><code>index_daily</code> 单次请求上限按 <code>limit=8000</code> 设计；只有单个指数在目标区间返回超过 8000 行时，才通过 <code>offset=8000/16000/...</code> 继续分页。</li>
       <li>不再人为拆小批次。历史回补默认用完整 <code>start_date/end_date</code> 区间请求，分页只由 Tushare <code>limit/offset</code> 决定，避免请求次数膨胀。</li>
       <li>最终写文件次数按目标交易日数计算，每个 <code>trade_date</code> 分区只写一次完整 <code>part-000.parquet</code>。</li>
-	      <li>staging 数据只服务本次回补 run，不作为正式 raw/silver/gold 资产，不允许下游直接读取；成功后删除，失败时短期保留用于排错，不承诺长期存在。</li>
+      <li>staging 数据只服务本次回补 run，不作为正式 raw/silver/gold 资产，不允许下游直接读取；成功后删除，失败时短期保留用于排错，不承诺长期存在。</li>
       <li>历史回补 metadata 必须记录 <code>source_method=tushare_api</code>、请求 code 数、分页数、staging 路径、目标交易日数、写入行数和失败 code 样本；是否为历史回补由 run config 中的 <code>start_date/end_date</code> 与目标交易日列表判断。</li>
       <li>日频同步 metadata 同样使用 <code>source_method=tushare_api</code>，并通过 <code>use_trade_date=true</code> 表明它是单日请求。</li>
       <li>dynamic partition 的 range 展开不再作为历史回补依据；正式历史回补只能使用 <code>silver_trade_calendar</code> 生成的有序目标交易日列表。</li>
+      <li>Slice 3.2.2 完成前，不得执行指数全量历史回补；否则 2014 年以前交易日不会进入目标分区，或会误用股票链路的 <code>cn_a_trade_days</code>。</li>
       <li>Slice 3.2 已完成受控历史回补入口：<code>dry_run=true</code> 只输出计划，不访问 Tushare、不写湖；<code>force=false</code> 遇到既有 raw/silver 文件会失败；只有 <code>force=true</code> 才允许原子替换。</li>
       <li>全量历史开始前，必须先输出 active pool 数量、交易日数量、预计请求数、预计耗时和 Tushare 配额影响。</li>
     </ul>
@@ -918,14 +970,29 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
           <td>已完成受控入口：请求范围改为 active pool；<code>index_daily_history_backfill_job</code> 已替换为 run config 驱动的普通 job。<code>2026-05-20...2026-05-22</code> dry run 只选中 3 个目标交易日；实际验证成功，raw/silver 每日 1,125 行，3 天共 6 条 materialization 与 33 条 check evaluation 可见，阻断 checks 全部通过，coverage WARN 显示 active pool 1,130 个 code 中有 5 个无返回。单日 <code>index_daily_update_job[2026-05-22]</code> 回归成功。</td>
         </tr>
         <tr>
+          <td>3.2.1</td>
+          <td>实现 active pool 本地完整替换维护入口。</td>
+          <td><code>index_daily_active_pool_update_job</code> 支持 <code>source_mode=local_replacement</code> 和完整 <code>items</code> 列表；写当前表、写 history、materialize silver asset、执行 checks。Launchpad 不会自动预填当前列表，本轮不提供导出模板。</td>
+        </tr>
+        <tr>
+          <td>3.2.2</td>
+          <td>拆分资产族交易日 partitions，并同步改造股票链路和指数链路。</td>
+          <td>新增 <code>cn_a_stock_trade_days</code> 与 <code>cn_a_index_trade_days</code>；股票资产和股票 sensors 切到 stock 分区，指数资产、index basic freshness、index daily history backfill 和后续主要指数 gold 切到 index 分区；扩展 <code>silver_trade_calendar</code> 到指数历史所需起点；完成后才能执行指数全量历史回填。</td>
+        </tr>
+        <tr>
           <td>3.3</td>
-	          <td>实现 <code>gold_market_major_indices</code> 和 <code>gold_market_major_indices_daily</code>。</td>
-          <td>只服务主要指数模块，不扩展其它指数业务。</td>
+	          <td>实现 <code>gold_market_major_indices_daily</code> 及对应 job/checks。</td>
+          <td><code>gold_market_major_indices</code> 静态名单资产已在 3.0.2 完成；本 Slice 只生产主要指数日线 gold，不扩展其它指数业务。</td>
         </tr>
         <tr>
           <td>3.4</td>
-          <td>传感器、自动化和全链路验收。</td>
-          <td>默认 STOPPED，小范围验证后再考虑启用。</td>
+          <td>实现 Phase 3 指数类 sensors、source readiness 和自动化。</td>
+          <td>默认 STOPPED，小范围 preview / 单日验证后再考虑启用。</td>
+        </tr>
+        <tr>
+          <td>3.5</td>
+          <td>全链路验收与文档收口。</td>
+          <td>验证主要指数链路从 Tushare raw 到 gold 页面资产全链路可观测。</td>
         </tr>
         </tbody>
       </table>
@@ -935,11 +1002,12 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
   <section>
     <h2>13. 验收标准</h2>
     <ul>
-      <li>Dagster UI 能看到所有 Phase 3 assets、jobs、checks、sensors，description 为中文简明说明。</li>
+      <li>最终验收时，Dagster UI 能看到所有 Phase 3 assets、jobs、checks、sensors，description 为中文简明说明。当前 3.2.1 结束时尚未实现 <code>gold_market_major_indices_daily</code> 和 Phase 3 指数类 sensors。</li>
       <li><code>raw_tushare_index_basic</code> 和 <code>raw_tushare_index_daily</code> materialization metadata 包含请求数、行数、字段列表、路径。</li>
       <li><code>silver_index_basic</code> 不包含终止指数。</li>
       <li>Slice 3.1 已验证：<code>raw_tushare_index_basic</code> 为 13,538 行，<code>silver_index_basic</code> 为 12,598 行，<code>exp_date &lt;= 2026-05-22</code> 的终止指数为 0。</li>
       <li><code>silver_index_daily</code> 只包含 active pool 内指数。</li>
+      <li>执行指数全量历史回填前，必须先完成 Slice 3.2.2，使股票链路使用 <code>cn_a_stock_trade_days</code>、指数链路使用 <code>cn_a_index_trade_days</code>。</li>
 	      <li><code>gold_market_major_indices</code> 固定 10 个指数，rank 连续，且全部在 active pool 中。</li>
       <li><code>gold_market_major_indices_daily</code> 每个交易日固定 10 行，方向公式正确。</li>
       <li>任一上游未 ready 时，下游 job 不主动补上游。</li>
@@ -959,22 +1027,24 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
 	      <li><code>gold_market_major_indices</code> 作为 gold 业务名单 asset，决定首页主要指数展示哪 10 个和顺序。</li>
 	      <li><code>gold_market_major_indices</code> 由 prod <code>major_indices.cn_a.v1.json</code> 一次性初始化；初始化后只本地维护，不再与 prod 同步。</li>
 	      <li>active pool 和主要指数名单不使用 YAML 作为长期事实源，避免 YAML 与 Dagster asset 双事实源。</li>
-	      <li>active pool 和主要指数名单使用本地 PostgreSQL metadata 表作为唯一事实源，所有人工变更必须通过 Dagster update job。</li>
+      <li>active pool 和主要指数名单使用本地 PostgreSQL metadata 表作为唯一事实源。active pool 已支持通过 Dagster run config 提交完整列表替换；主要指数名单维护入口后续单独实现。</li>
       <li>下游对上游是 deps，不是 selection；下游 job 不主动补上游。</li>
       <li><code>index_basic</code> 和 <code>index_daily</code> 请求都必须显式指定完整 <code>fields</code>，禁止依赖 Tushare 默认返回字段。</li>
       <li><code>index_daily</code> 历史回补按 <code>ts_code + start_date/end_date</code> 拉区间，不按 <code>ts_code × trade_date</code> 逐日请求。</li>
       <li><code>index_daily</code> 历史回补先写 staging，再按 <code>trade_date</code> 一次性生成完整 raw 分区文件；禁止每拉一个 code 就重复覆盖目标 parquet。</li>
+      <li>日频资产不得默认共用一个全局交易日分区。股票资产族使用 <code>cn_a_stock_trade_days</code>，指数资产族使用 <code>cn_a_index_trade_days</code>；<code>silver_trade_calendar</code> 只作为完整交易日事实源。</li>
     </ol>
   </section>
 
   <section>
     <h2>15. 待评审风险点</h2>
     <ul>
-      <li>历史 index daily 全量补齐的请求量可能较大，执行前必须先测算 active pool 数量、每个指数分页数、目标交易日数量、预计耗时和配额影响。</li>
-      <li>一次性读取 prod DB / prod JSON 需要明确只读连接方式、权限、字段白名单和审计记录。</li>
-	      <li>本地 PostgreSQL metadata 表结构需要在 LLD 中细化，包括当前表、change history、Dagster run id 和回滚方式。</li>
-      <li>Tushare <code>index_daily</code> 的真实 ready 时间和空结果行为还需要结合日频 sensor 小样本验证；分页行为已完成源站实测。</li>
-	      <li>历史回补 staging 只作为临时运行目录，成功后删除；失败恢复方式、重复运行覆盖策略需要在 LLD 中细化。</li>
+      <li>历史 index daily 全量补齐尚未执行；执行前必须先测算 active pool 数量、每个指数分页数、目标交易日数量、预计耗时和配额影响，并先跑 dry run。</li>
+      <li>当前代码仍存在共享 <code>cn_a_trade_days</code> 的历史包袱。Slice 3.2.2 未完成前，不得直接执行从 1990 年开始的指数全量历史回填。</li>
+      <li><code>gold_market_major_indices_daily</code> 尚未实现；下一步需要明确输出字段、缺失行情处理、方向公式和 checks。</li>
+      <li>Phase 3 指数类 sensors 与 <code>index_daily</code> source readiness 尚未实现；Tushare <code>index_daily</code> 的真实 ready 时间和空结果行为还需要单日小样本验证。</li>
+      <li>主要指数名单的本地 metadata 人工维护写表入口尚未实现；active pool 已在 Slice 3.2.1 支持完整列表替换。</li>
+      <li>Slice 3.2 小样本中 active pool 1,130 个 code 有 5 个无 <code>index_daily</code> 返回；当前作为 coverage WARN 观测，后续全量回补前需要继续审计是否属于预期。</li>
     </ul>
   </section>
 </main>
