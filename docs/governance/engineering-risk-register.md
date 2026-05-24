@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-05-17
+更新时间：2026-05-24
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -39,6 +39,7 @@
 | RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
 | RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`；历史实现曾在 planner 阶段远程 fallback，且依赖来源藏在 `dc_index_board_codes` selector 中 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 | RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`；历史实现中依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` selector 中 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
+| RISK-2026-05-24-011 | P0 | Dagster dynamic partition 范围扩展先于生产消费者切换，导致股票链路误跑指数历史范围交易日 | Dagster orchestrator、本地新湖股票 raw/silver/gold 分区、Dagster run/event/check 观测记录 | Closed | [Dagster Phase 3 主要指数方案](/Users/congming/github/goldenshare/lake_console/dagster-phase-3-major-indices-design.html)、[Dagster Phase 3 LLD](/Users/congming/github/goldenshare/lake_console/dagster-phase-3-major-indices-low-level-design.html)、[数据资产接入模板](/Users/congming/github/goldenshare/lake_console/dagster-dataset-onboarding-template.html) |
 
 ---
 
@@ -539,3 +540,65 @@
 3. 本地 `ThsIndex` 没有板块代码时，planner 直接失败，并提示先维护 `ths_index` 同花顺板块列表数据。
 4. 工作流顺序测试已锁住：任何包含 `ths_member` 的工作流必须先执行 `ths_index`。
 5. 定向测试覆盖本地命中、空池失败、显式 `ts_code` 与显式 `con_code`。
+
+---
+
+## 14. RISK-2026-05-24-011 处理要求
+
+风险说明：
+
+1. Dagster Phase 3 Slice 3.2.2 拆分股票与指数资产族分区时，先把全局备份分区 `cn_a_trade_days` 扩展到更早历史范围。
+2. 当时股票生产资产、股票 sensors、market breadth automation 等消费者尚未全部切换到 `cn_a_stock_trade_days`。
+3. 扩展后的 `cn_a_trade_days` 被仍然绑定在旧分区集合上的生产消费者读取，导致 `suspend_d`、`stock_daily`、`gold_market_breadth_daily` 等股票链路错误看到 2014 年以前或未来日期。
+4. 部分 sensor / automation 在错误分区集合上提交 run request，造成 Dagster run/event/check 记录污染，并在本地新湖生成了非法股票资产分区文件。
+5. 事故暴露的问题不是单个 asset 计算逻辑错误，而是迁移顺序错误：共享 dynamic partition 的范围变更先于全量消费者审计、切换和自动化隔离。
+
+事故经过：
+
+1. 设计目标是保留 `cn_a_trade_days` 作为全量 SSE open day 备份分区，同时新增 `cn_a_stock_trade_days` 和 `cn_a_index_trade_days`。
+2. 实施时先扩展了 `cn_a_trade_days`，但没有先确认所有股票生产资产、checks、jobs、sensors、automation condition sensors、history/backfill 入口和 readiness helper 已经脱离旧分区集合。
+3. `market_breadth_automation_sensor` 和股票相关 sensors 在未完全隔离的状态下读取到扩展后的分区范围。
+4. 用户发现 `market breadth` 开始跑 2014 年以前数据，并手动停止运行、关闭所有 sensors。
+5. 事故后执行清理：停止所有 sensors，删除异常 active/failed run 与 failed backfill 记录，清理非法湖目录，删除未来备份分区 key，并复查股票 raw/silver/gold 文件范围与 materialization 状态。
+
+根因：
+
+1. 把“备份分区扩展”误认为无害元数据动作，没有把 dynamic partition 视为会驱动 sensors、automation、jobs 和 asset selection 的生产事实。
+2. 没有在扩展共享分区前做全量消费者审计，遗漏了仍然绑定旧分区集合的自动化消费者。
+3. 迁移顺序错误：应该先关闭自动化、切换生产消费者到资产族分区、验证 preview / definitions / 小范围结果，再扩展备份分区。
+4. 文档和执行步骤没有把“先切换生产链路，再扩展备份集合”写成硬门禁。
+5. 当时缺少股票资产族分区合法性的正式 blocking asset checks，导致质量门禁不够显式。
+
+当前决策：
+
+1. 股票生产资产统一使用 `cn_a_stock_trade_days`，指数生产资产统一使用 `cn_a_index_trade_days`。
+2. `cn_a_trade_days` 只作为全量 SSE open day 备份和对照分区集合，不再作为正式生产资产、sensor、automation 或 history backfill 的分区来源。
+3. 分区范围、日期边界、资产族归属这类质量门禁必须实现为正式 blocking asset checks，不在业务 asset 写入函数中混入定制化写前 guard。
+4. 扩展任何 dynamic partition 范围前，必须先关闭相关 sensors / automation，并完成生产消费者审计与切换。
+5. 新增或改造日频资产时，必须在数据资产接入模板中明确选择资产族分区，禁止默认复用全局分区。
+
+处理要求：
+
+1. 所有生产资产必须按资产族绑定 partition definition；禁止新增生产 asset 依赖 `cn_a_trade_days`。
+2. 扩展分区范围前必须审计并列清消费者，至少覆盖 assets、asset checks、jobs、sensors、automation condition sensors、history/backfill 入口和 readiness helper。
+3. 分区迁移必须按顺序执行：关闭自动化 -> 切换生产消费者 -> `dg check defs` -> preview 验证 -> 小范围只读审计 -> 注册新范围 -> 小范围生产验证。
+4. 如果某个变更会扩大 partition key 范围，必须先评估是否会触发 missing/on_missing、sensor pending 判断、history backfill 或任何自动化补跑。
+5. 事故类清理必须同时覆盖 Dagster instance 记录与物理湖文件；只清一边不算完成。
+6. 数据资产接入模板必须把资产族 partition、消费者审计、自动化隔离和 blocking partition checks 作为必填项。
+
+关闭门禁：
+
+1. 股票资产、股票 sensors、stock daily readiness 和 market breadth automation 已改读 `cn_a_stock_trade_days`。
+2. 指数资产、index basic freshness、index daily history backfill 已改读 `cn_a_index_trade_days`。
+3. `cn_a_trade_days` 保留为备份和对照分区集合，不进入生产资产分区定义。
+4. 已补 `stock_partition_checks.py`，用正式 blocking asset checks 验证股票资产族分区合法性。
+5. 已清理事故期间产生的异常 run/backfill 记录、非法湖目录和未来备份 partition keys。
+6. 已将事故原则写入 `lake_console/orchestrator/AGENTS.md` 和 `lake_console/dagster-dataset-onboarding-template.html`。
+
+关闭记录（2026-05-24）：
+
+1. 事故后验证 `FAILED_RUNS=0`、`ACTIVE_RUNS=0`、`FAILED_BACKFILLS=0`。
+2. 所有 Dagster sensors 已停用后再恢复到默认受控状态，避免继续提交异常 run request。
+3. 股票相关物理文件范围复查通过：`raw_tushare_stock_daily`、`raw_tushare_suspend_d`、`silver_stock_daily`、`silver_stock_suspend_daily`、`gold_market_breadth_daily` 均保持 `2014-01-02` 至 `2026-05-22` 范围，无 2014 年以前或未来分区。
+4. 代码层已补充 `cn_a_stock_trade_days`、`cn_a_index_trade_days`，并把股票与指数生产链路从全局分区中拆出。
+5. 文档层已同步 Phase 2、Phase 3、stock daily 迁移文档、asset/job topology 和数据资产接入模板。

@@ -188,6 +188,8 @@ Check    = 这个资产生成后是否合格
 7. `cn_a_trade_days` 只作为全量 SSE open day 备份和对照分区集合保留；新增生产 asset、sensor、history backfill 不得依赖它作为正式业务分区。
 8. 扩展某个资产族历史范围时，必须同时说明该资产族分区起点、注册来源、是否影响其它资产族 sensors，以及是否需要保留或更新全量备份分区。
 9. 如果历史范围拆分影响既有资产族，必须先完成生产资产、sensors、automation、jobs 的分区切换，再扩展全量备份分区；不得先扩大共享分区后再补迁生产链路。
+10. 任何 dynamic partition 范围扩展都必须先做消费者审计，至少覆盖：assets、asset checks、jobs、sensors、automation condition sensors、history/backfill 入口和 readiness helper；审计未清零前不得运行注册或生产任务。
+11. 调整分区事实源时，必须先关闭相关 sensors / automation，再完成代码切换、`dg check defs`、preview 验证和小范围只读审计，最后才允许注册更大范围分区。
 
 ---
 
