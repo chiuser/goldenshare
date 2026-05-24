@@ -7,7 +7,6 @@ from pathlib import Path
 import dagster as dg
 import duckdb
 
-from orchestrator.defs.duckdb_sql import STOCK_DAILY_MIN_TRADE_DATE
 from orchestrator.defs.partitions import cn_a_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
@@ -15,6 +14,9 @@ from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 MAX_PARTITION_KEYS_PER_TICK = 2
 SAME_DAY_PARTITION_REGISTER_START = time(16, 0)
+FULL_TRADE_DAY_MIN_DATE = "1990-01-01"
+STOCK_TRADE_DAY_MIN_DATE = "2014-01-01"
+INDEX_TRADE_DAY_MIN_DATE = "1990-01-01"
 
 
 @dataclass(frozen=True)
@@ -32,6 +34,7 @@ def resolve_latest_completed_trade_date(
     connection: duckdb.DuckDBPyConnection,
     calendar_path: Path,
     today: datetime,
+    min_trade_date: str,
 ) -> str | None:
     row = connection.execute(
         """
@@ -42,7 +45,7 @@ def resolve_latest_completed_trade_date(
           AND trade_date >= CAST(? AS DATE)
           AND trade_date < CAST(? AS DATE)
         """,
-        [str(calendar_path), STOCK_DAILY_MIN_TRADE_DATE, today.date().isoformat()],
+        [str(calendar_path), min_trade_date, today.date().isoformat()],
     ).fetchone()
     return row[0] if row and row[0] else None
 
@@ -51,6 +54,7 @@ def load_completed_open_day_keys(
     connection: duckdb.DuckDBPyConnection,
     calendar_path: Path,
     latest_completed_trade_date: str,
+    min_trade_date: str,
 ) -> tuple[str, ...]:
     rows = connection.execute(
         """
@@ -62,7 +66,7 @@ def load_completed_open_day_keys(
           AND trade_date <= CAST(? AS DATE)
         ORDER BY trade_date
         """,
-        [str(calendar_path), STOCK_DAILY_MIN_TRADE_DATE, latest_completed_trade_date],
+        [str(calendar_path), min_trade_date, latest_completed_trade_date],
     ).fetchall()
     return tuple(row[0] for row in rows)
 
@@ -124,13 +128,13 @@ def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime)
     return json.dumps(payload, ensure_ascii=True, sort_keys=True)
 
 
-@dg.sensor(
-    default_status=dg.DefaultSensorStatus.STOPPED,
-    minimum_interval_seconds=600,
-    required_resource_keys={"lake_root", "duckdb"},
-    description="注册已完成的A股交易日分区，不触发数据更新任务。",
-)
-def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+def build_trade_day_partition_registration_result(
+    context: dg.SensorEvaluationContext,
+    *,
+    dynamic_partitions: dg.DynamicPartitionsDefinition,
+    min_trade_date: str,
+    partition_set_label: str,
+) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     lake_root = context.resources.lake_root
     duckdb_resource = context.resources.duckdb
@@ -149,6 +153,7 @@ def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
             connection,
             calendar_path,
             evaluated_at,
+            min_trade_date,
         )
         if latest_completed_trade_date is None:
             eligible_open_day_keys = ()
@@ -157,14 +162,20 @@ def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
                 connection,
                 calendar_path,
                 latest_completed_trade_date,
+                min_trade_date,
             )
         today_is_open = is_sse_open_day(connection, calendar_path, today)
 
-    if today_is_open and same_day_register_window_started and today not in eligible_open_day_keys:
+    if (
+        today >= min_trade_date
+        and today_is_open
+        and same_day_register_window_started
+        and today not in eligible_open_day_keys
+    ):
         eligible_open_day_keys = (*eligible_open_day_keys, today)
 
     existing_dynamic_partition_keys = set(
-        context.instance.get_dynamic_partitions(cn_a_trade_days.name)
+        context.instance.get_dynamic_partitions(dynamic_partitions.name)
     )
     decision = build_trade_day_partition_decision(
         eligible_open_day_keys=eligible_open_day_keys,
@@ -180,7 +191,7 @@ def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         elif decision.today_is_open and not decision.same_day_register_window_started:
             skip_reason = "今天是交易日，但还没到 16:00，暂不注册今天的交易日分区。"
         else:
-            skip_reason = "当前所有符合条件的交易日分区都已经注册。"
+            skip_reason = f"当前所有符合条件的{partition_set_label}交易日分区都已经注册。"
         return dg.SensorResult(
             skip_reason=skip_reason,
             cursor=_cursor_payload(decision, evaluated_at),
@@ -188,7 +199,22 @@ def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
 
     return dg.SensorResult(
         dynamic_partitions_requests=[
-            cn_a_trade_days.build_add_request(list(decision.selected_keys))
+            dynamic_partitions.build_add_request(list(decision.selected_keys))
         ],
         cursor=_cursor_payload(decision, evaluated_at),
+    )
+
+
+@dg.sensor(
+    default_status=dg.DefaultSensorStatus.STOPPED,
+    minimum_interval_seconds=600,
+    required_resource_keys={"lake_root", "duckdb"},
+    description="注册全量A股交易日备份分区，不触发数据更新任务。",
+)
+def cn_a_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+    return build_trade_day_partition_registration_result(
+        context,
+        dynamic_partitions=cn_a_trade_days,
+        min_trade_date=FULL_TRADE_DAY_MIN_DATE,
+        partition_set_label="全量备份",
     )

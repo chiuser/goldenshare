@@ -264,7 +264,7 @@
         <tr>
           <td>分区模型</td>
           <td>无分区 full file、<code>trade_date</code>、其它事件日期、多维分区。</td>
-          <td>交易日优先使用 <code>cn_a_trade_days</code> dynamic partitions；full snapshot 不设置 partitions_def。</td>
+          <td>交易日必须按资产族选择 dynamic partitions，例如股票用 <code>cn_a_stock_trade_days</code>，指数用 <code>cn_a_index_trade_days</code>；<code>cn_a_trade_days</code> 只做全量备份和对照。full snapshot 不设置 partitions_def。</td>
         </tr>
         <tr>
           <td>源站契约</td>
@@ -284,7 +284,7 @@
         <tr>
           <td>checks</td>
           <td>blocking checks、WARN checks、metadata、样本输出。</td>
-          <td>一个 check 验证一个属性，不写大而全 check。</td>
+          <td>一个 check 验证一个属性，不写大而全 check。分区范围、日期边界、资产族归属等门禁应做成正式 blocking asset check，不混入业务 asset 写入函数。</td>
         </tr>
         <tr>
           <td>job / sensor</td>

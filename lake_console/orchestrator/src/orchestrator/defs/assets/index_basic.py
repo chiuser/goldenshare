@@ -13,7 +13,7 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
     silver_index_basic_select,
 )
-from orchestrator.defs.partitions import cn_a_trade_days
+from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
@@ -93,10 +93,13 @@ def _require_ready_for_trade_date_registered(
     if not trade_date:
         raise ValueError("ready_for_trade_date is required for silver_index_basic.")
 
-    registered_trade_days = set(context.instance.get_dynamic_partitions(cn_a_trade_days.name))
+    registered_trade_days = set(
+        context.instance.get_dynamic_partitions(cn_a_index_trade_days.name)
+    )
     if trade_date not in registered_trade_days:
         raise RuntimeError(
-            f"ready_for_trade_date {trade_date} is not registered in cn_a_trade_days."
+            f"ready_for_trade_date {trade_date} is not registered in "
+            f"{cn_a_index_trade_days.name}."
         )
     return trade_date
 

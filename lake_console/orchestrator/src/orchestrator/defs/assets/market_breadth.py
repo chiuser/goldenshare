@@ -10,7 +10,7 @@ from orchestrator.defs.duckdb_sql import (
     market_breadth_daily_select,
     read_parquet,
 )
-from orchestrator.defs.partitions import cn_a_trade_days
+from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
     gold_market_breadth_daily_path,
     silver_stock_daily_path,
@@ -78,7 +78,7 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
 @dg.asset(
     name="gold_market_breadth_daily",
     deps=["silver_stock_daily"],
-    partitions_def=cn_a_trade_days,
+    partitions_def=cn_a_stock_trade_days,
     group_name="breadth",
     description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
     automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,

@@ -18,7 +18,7 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
-TRADE_CALENDAR_START_DATE = "20140101"
+TRADE_CALENDAR_START_DATE = "19900101"
 TRADE_CALENDAR_RAW_COLUMN_TYPES = {
     "exchange": "VARCHAR",
     "cal_date": "VARCHAR",

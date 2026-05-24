@@ -99,6 +99,7 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 5. sensor 只能提交满足门禁的 `RunRequest`；门禁不满足时返回清晰 `SkipReason` 或不请求下游，不得在下游 job 内部补上游。
 6. `cn_a_trade_day_sensor` 的长期职责应收敛为注册已完成交易日 partition；各资产族可以有自己的 sensor，例如 `suspend_d_sensor`、`stock_basic_sensor`、`stock_daily_sensor`，分别围绕本资产族判断缺失、freshness、checks 和上游 ready。
 7. 新增资产族 sensor 前，方案文档必须列清：输入状态、ready 条件、run key、cursor 内容、最大单 tick 请求数、失败重跑策略、是否允许注册 partition，以及与其它 sensor 的边界。
+8. 分区范围、日期边界、资产族归属这类质量门禁，优先实现为正式 blocking asset check；禁止在业务 asset 写入函数里混入定制化的写前 guard，除非方案文档明确批准这种异常设计。
 
 ### Declarative Automation 验证门禁
 
@@ -183,6 +184,10 @@ Check    = 这个资产生成后是否合格
 3. 验证注册结果时，必须从同一个正式 instance 调用 `get_dynamic_partitions(...)` 读取。
 4. 禁止用默认 `execute_in_process()` 的临时 instance 验证 dynamic partition 注册结果。
 5. 禁止看到 job `success=True` 就认定 partition keys 已持久注册。
+6. 日频资产不得默认共用全局交易日分区。正式生产资产必须按资产族选择 partition definition，例如股票行情使用 `cn_a_stock_trade_days`，指数行情使用 `cn_a_index_trade_days`。
+7. `cn_a_trade_days` 只作为全量 SSE open day 备份和对照分区集合保留；新增生产 asset、sensor、history backfill 不得依赖它作为正式业务分区。
+8. 扩展某个资产族历史范围时，必须同时说明该资产族分区起点、注册来源、是否影响其它资产族 sensors，以及是否需要保留或更新全量备份分区。
+9. 如果历史范围拆分影响既有资产族，必须先完成生产资产、sensors、automation、jobs 的分区切换，再扩展全量备份分区；不得先扩大共享分区后再补迁生产链路。
 
 ---
 

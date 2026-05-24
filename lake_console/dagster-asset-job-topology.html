@@ -331,7 +331,8 @@
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
       当前已新增自定义 <code>market_breadth_automation_sensor</code>，只 target <code>gold_market_breadth_daily</code>，用来替代全局默认 automation sensor 作为 market breadth 的日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
-      最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册交易日 partition，具体数据集更新由资产族 sensor 接管。
+      最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
+      股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。
     </div>
 
     <div class="table-wrap">
@@ -359,15 +360,15 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册与资产族生产分离。</td>
-          <td><code>cn_a_trade_day_sensor</code> 不触发数据生产；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
+          <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
         </tr>
         <tr>
           <td>Checks</td>
           <td><code>defs/checks/*.py</code></td>
           <td>raw/silver/gold 的质量门禁和观测。</td>
-          <td>blocking checks 是下游 readiness 的组成部分；WARN checks 只做观测。</td>
+          <td>blocking checks 是下游 readiness 的组成部分；股票分区合法性也通过 blocking checks 表达；WARN checks 只做观测。</td>
         </tr>
         <tr>
           <td>Resources</td>
@@ -511,7 +512,7 @@
           <td><span class="tag">quote</span></td>
           <td><code>raw_tushare_suspend_d</code> → <code>silver_stock_suspend_daily</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
-          <td><code>cn_a_trade_days</code></td>
+          <td><code>cn_a_stock_trade_days</code></td>
           <td>只由 <code>suspend_update_job</code> 写；股票日线更新入口只读等待该分区 ready。</td>
           <td>交易日日频；允许空结果但必须写合法 schema。</td>
           <td>stock_daily 生产前必须准备好的上游事实；后续对 stock_daily 只读。</td>
@@ -520,7 +521,7 @@
           <td><span class="tag">quote</span></td>
           <td><code>raw_tushare_stock_daily</code> → <code>silver_stock_daily</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
-          <td><code>cn_a_trade_days</code></td>
+          <td><code>cn_a_stock_trade_days</code></td>
           <td><code>stock_daily_update_job</code> 调 Tushare <code>daily</code>，只写 stock daily raw/silver。</td>
           <td>交易日日频；当天 16:00 后由 sensor 探测源站 ready。</td>
           <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready。</td>
@@ -529,7 +530,7 @@
           <td><span class="tag">breadth</span></td>
           <td><code>gold_market_breadth_daily</code></td>
           <td><span class="tag gold">gold</span></td>
-          <td><code>cn_a_trade_days</code></td>
+          <td><code>cn_a_stock_trade_days</code></td>
           <td>asset、gold checks、declarative automation、<code>daily_market_breadth_job</code> 均已实现。</td>
           <td>跟随 <code>silver_stock_daily</code> 直接质量门禁通过后生产。</td>
           <td>业务结果资产；不拉取、不修复、不补齐上游。</td>

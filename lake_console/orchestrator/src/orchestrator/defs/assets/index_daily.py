@@ -16,7 +16,7 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
     silver_index_daily_select,
 )
-from orchestrator.defs.partitions import cn_a_trade_days
+from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import (
     raw_index_daily_path,
     raw_index_daily_staging_dir,
@@ -55,37 +55,8 @@ INDEX_DAILY_SILVER_COLUMN_TYPES = {
     "amount": "DOUBLE",
 }
 
-DAGSTER_PARTITION_RANGE_START_TAG = "dagster/asset_partition_range_start"
-DAGSTER_PARTITION_RANGE_END_TAG = "dagster/asset_partition_range_end"
-
-
 def _selected_partition_keys(context: dg.AssetExecutionContext) -> tuple[str, ...]:
-    partition_keys = tuple(sorted(set(context.partition_keys)))
-    _ensure_partition_keys_match_requested_natural_range(context, partition_keys)
-    return partition_keys
-
-
-def _ensure_partition_keys_match_requested_natural_range(
-    context: dg.AssetExecutionContext,
-    partition_keys: tuple[str, ...],
-) -> None:
-    range_start = context.run_tags.get(DAGSTER_PARTITION_RANGE_START_TAG)
-    range_end = context.run_tags.get(DAGSTER_PARTITION_RANGE_END_TAG)
-    if not range_start or not range_end:
-        return
-
-    registered_trade_days = set(context.instance.get_dynamic_partitions(cn_a_trade_days.name))
-    expected_partition_keys = tuple(
-        sorted(key for key in registered_trade_days if range_start <= key <= range_end)
-    )
-    if partition_keys != expected_partition_keys:
-        raise RuntimeError(
-            "Unsafe dynamic partition range expansion for index_daily history backfill. "
-            f"Requested natural date range {range_start}...{range_end}, expected "
-            f"{list(expected_partition_keys)}, but Dagster expanded to {list(partition_keys)}. "
-            "Do not use dynamic partition --partition-range until a controlled natural-date "
-            "backfill launcher is implemented."
-        )
+    return tuple(sorted(set(context.partition_keys)))
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -292,7 +263,7 @@ def materialize_silver_index_daily_partitions(
 @dg.asset(
     name="raw_tushare_index_daily",
     deps=[silver_index_daily_active_pool],
-    partitions_def=cn_a_trade_days,
+    partitions_def=cn_a_index_trade_days,
     group_name="index",
     description="Tushare 指数日线原始数据，按有效指数池拉取。",
 )
@@ -341,7 +312,7 @@ def raw_tushare_index_daily(
 @dg.asset(
     name="silver_index_daily",
     deps=[raw_tushare_index_daily, silver_index_daily_active_pool],
-    partitions_def=cn_a_trade_days,
+    partitions_def=cn_a_index_trade_days,
     group_name="index",
     description="指数日线标准表，仅保留有效指数池中的指数。",
 )

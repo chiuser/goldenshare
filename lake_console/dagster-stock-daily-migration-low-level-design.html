@@ -550,7 +550,9 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
     <h2>7. Partition 与历史回填执行</h2>
     <p>
       <code>raw_tushare_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_daily</code>、
-      <code>silver_stock_suspend_daily</code> 都使用 <code>cn_a_trade_days</code> dynamic partitions。
+      <code>silver_stock_suspend_daily</code> 在 Phase 3 Slice 3.2.2 后都使用 <code>cn_a_stock_trade_days</code> dynamic partitions。
+      <code>cn_a_trade_days</code> 保留为全量交易日备份分区集合，不再作为股票资产正式分区定义。
+      股票资产族分区范围通过正式 blocking asset checks 验证，不在 raw/silver asset 写入函数中保留定制化写前 guard。
       历史迁移前必须确认 <code>2014-01-02</code> 至 <code>2026-05-15</code> 的 3004 个交易日 partition key
       已经注册到正式 Dagster instance。
     </p>
@@ -570,7 +572,7 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         </tr>
         <tr>
           <td>2</td>
-          <td>把缺失的交易日注册到 <code>cn_a_trade_days</code>。</td>
+          <td>把缺失的交易日注册到 <code>cn_a_stock_trade_days</code>。</td>
           <td>必须使用正式 <code>DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home</code>。</td>
         </tr>
         <tr>

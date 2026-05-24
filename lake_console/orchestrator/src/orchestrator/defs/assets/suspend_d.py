@@ -26,7 +26,7 @@ from orchestrator.defs.duckdb_sql import (
     suspend_d_normalized_select,
     silver_stock_suspend_daily_select,
 )
-from orchestrator.defs.partitions import cn_a_trade_days
+from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
@@ -269,7 +269,7 @@ def _full_day_raw_override_metadata(
 
 @dg.asset(
     name="raw_tushare_suspend_d",
-    partitions_def=cn_a_trade_days,
+    partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     description="Tushare 停复牌日频原始数据。",
 )
@@ -312,7 +312,7 @@ def raw_tushare_suspend_d(
 @dg.asset(
     name="silver_stock_suspend_daily",
     deps=[raw_tushare_suspend_d],
-    partitions_def=cn_a_trade_days,
+    partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     description="股票日频停复牌标准表，记录停牌类型和时段。",
 )

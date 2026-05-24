@@ -375,14 +375,14 @@ silver_index_basic
         <tr>
           <td><code>raw_tushare_index_daily</code></td>
           <td>raw</td>
-          <td>当前代码：<code>cn_a_trade_days</code>；Slice 3.2.2 后切为 <code>cn_a_index_trade_days</code></td>
+          <td><code>cn_a_index_trade_days</code></td>
           <td>Tushare 指数日线原始数据，按 active 池指数逐个拉取。</td>
           <td>Tushare <code>index_daily</code> + <code>silver_index_daily_active_pool</code></td>
         </tr>
         <tr>
           <td><code>silver_index_daily</code></td>
           <td>silver</td>
-          <td>当前代码：<code>cn_a_trade_days</code>；Slice 3.2.2 后切为 <code>cn_a_index_trade_days</code></td>
+          <td><code>cn_a_index_trade_days</code></td>
           <td>active 指数日线标准表，只保留 active 池内指数。</td>
           <td><code>raw_tushare_index_daily</code> + <code>silver_index_daily_active_pool</code></td>
         </tr>
@@ -707,7 +707,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
     </div>
 
     <h3>job selection</h3>
-    <p>下表同时列出已实现入口和后续规划入口。当前已实现到 Slice 3.2.1；下一步先推进 Slice 3.2.2 资产族交易日分区拆分，之后再进入 <code>market_major_indices_daily_job</code>。</p>
+    <p>下表同时列出已实现入口和后续规划入口。当前已实现到 Slice 3.2.2；下一步进入 <code>market_major_indices_daily_job</code> 前，可以先执行指数历史回补 dry run 和小范围回填验收。</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -768,10 +768,10 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
     <p>本节是后续 Slice 3.4 规划。当前代码尚未实现 Phase 3 指数类 sensors，也尚未实现 <code>source_readiness/tushare/index_daily.py</code>；现有 Phase 2 sensors 不承担主要指数链路。</p>
     <div class="danger">
       <strong>Slice 3.2.2 前置门禁：</strong>
-      当前 <code>cn_a_trade_days</code> 被股票链路和指数链路共用，但两个资产族的历史范围不同。
+      当前 <code>cn_a_trade_days</code> 曾被股票链路和指数链路共用，但两个资产族的历史范围不同。
       股票日线当前从 2014 年开始，指数日线需要更早历史。继续共用同一个 dynamic partition 集合，会让指数早期日期污染股票
       <code>suspend_d</code>、<code>stock_daily</code>、<code>market_breadth</code> 的 sensor 和待补判断。
-      因此指数历史全量回填前，必须先完成资产族交易日分区拆分。
+      因此指数历史全量回填前，必须先完成资产族交易日分区拆分；原 <code>cn_a_trade_days</code> 保留为全量备份分区集合，不再作为正式生产资产的 partitions 定义。
     </div>
     <div class="table-wrap">
       <table>
@@ -785,15 +785,21 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         </thead>
         <tbody>
         <tr>
+          <td><code>cn_a_trade_days</code></td>
+          <td>全量备份 / 对照分区集合</td>
+          <td>扩展后的 <code>silver_trade_calendar</code> 中全部 SSE open day，起点随交易日历扩到 <code>19900101</code>，实际首个 open day 为 <code>1990-12-19</code>。</td>
+          <td><code>cn_a_trade_day_sensor</code> 只负责注册该备份集合，不触发任何数据更新；正式生产资产不再依赖它。</td>
+        </tr>
+        <tr>
           <td><code>cn_a_stock_trade_days</code></td>
           <td>股票行情资产族</td>
-          <td><code>2014-01-01</code> 起的 SSE open day，实际首个交易日为 <code>2014-01-02</code>。</td>
+          <td><code>2014-01-01</code> 起且不晚于当前自然日的 SSE open day，实际首个交易日为 <code>2014-01-02</code>。</td>
           <td><code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、<code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code>、<code>gold_market_breadth_daily</code> 及股票相关 sensors。</td>
         </tr>
         <tr>
           <td><code>cn_a_index_trade_days</code></td>
           <td>指数行情资产族</td>
-          <td>以扩展后的 <code>silver_trade_calendar</code> 为事实源，支持指数历史起点，例如 <code>1990-12-19</code> 或后续拍板的指数起点。</td>
+          <td>以扩展后的 <code>silver_trade_calendar</code> 为事实源，支持 <code>1990-12-19</code> 起且不晚于当前自然日的指数交易日。</td>
           <td><code>raw_tushare_index_daily</code>、<code>silver_index_daily</code>、<code>gold_market_major_indices_daily</code>、<code>index_basic</code> freshness 判断、指数相关 sensors 和 <code>index_daily_history_backfill_job</code>。</td>
         </tr>
         </tbody>
@@ -802,7 +808,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
     <div class="note">
       <strong>原则：</strong>
       <code>silver_trade_calendar</code> 是完整交易日事实表；dynamic partitions 是“某个资产族允许 Dagster 管理和生产的 key 集合”。
-      每个日频资产族必须有自己的 partition definition，不得默认共用一个全局 <code>cn_a_trade_days</code>。
+      每个日频资产族必须有自己的 partition definition，不得默认共用一个全局 <code>cn_a_trade_days</code>；全局 <code>cn_a_trade_days</code> 只做备份、排障和对照。
     </div>
     <div class="table-wrap">
       <table>
@@ -926,7 +932,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <li>历史回补 metadata 必须记录 <code>source_method=tushare_api</code>、请求 code 数、分页数、staging 路径、目标交易日数、写入行数和失败 code 样本；是否为历史回补由 run config 中的 <code>start_date/end_date</code> 与目标交易日列表判断。</li>
       <li>日频同步 metadata 同样使用 <code>source_method=tushare_api</code>，并通过 <code>use_trade_date=true</code> 表明它是单日请求。</li>
       <li>dynamic partition 的 range 展开不再作为历史回补依据；正式历史回补只能使用 <code>silver_trade_calendar</code> 生成的有序目标交易日列表。</li>
-      <li>Slice 3.2.2 完成前，不得执行指数全量历史回补；否则 2014 年以前交易日不会进入目标分区，或会误用股票链路的 <code>cn_a_trade_days</code>。</li>
+      <li>Slice 3.2.2 已拆分资产族分区。执行指数全量历史回补前，仍必须确认目标日期已注册到 <code>cn_a_index_trade_days</code>。</li>
       <li>Slice 3.2 已完成受控历史回补入口：<code>dry_run=true</code> 只输出计划，不访问 Tushare、不写湖；<code>force=false</code> 遇到既有 raw/silver 文件会失败；只有 <code>force=true</code> 才允许原子替换。</li>
       <li>全量历史开始前，必须先输出 active pool 数量、交易日数量、预计请求数、预计耗时和 Tushare 配额影响。</li>
     </ul>
@@ -977,7 +983,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
         <tr>
           <td>3.2.2</td>
           <td>拆分资产族交易日 partitions，并同步改造股票链路和指数链路。</td>
-          <td>新增 <code>cn_a_stock_trade_days</code> 与 <code>cn_a_index_trade_days</code>；股票资产和股票 sensors 切到 stock 分区，指数资产、index basic freshness、index daily history backfill 和后续主要指数 gold 切到 index 分区；扩展 <code>silver_trade_calendar</code> 到指数历史所需起点；完成后才能执行指数全量历史回填。</td>
+          <td>已完成并收敛事故后口径。保留 <code>cn_a_trade_days</code> 作为全量备份；新增 <code>cn_a_stock_trade_days</code> 与 <code>cn_a_index_trade_days</code>；股票资产和股票 sensors 切到 stock 分区，指数资产、index basic freshness、index daily history backfill 和后续主要指数 gold 切到 index 分区；<code>silver_trade_calendar</code> 起点扩到 <code>19900101</code>。股票资产族额外使用正式 blocking partition checks 验证分区合法性，不在业务写入函数里保留定制化 guard。</td>
         </tr>
         <tr>
           <td>3.3</td>
@@ -1040,7 +1046,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
     <h2>15. 待评审风险点</h2>
     <ul>
       <li>历史 index daily 全量补齐尚未执行；执行前必须先测算 active pool 数量、每个指数分页数、目标交易日数量、预计耗时和配额影响，并先跑 dry run。</li>
-      <li>当前代码仍存在共享 <code>cn_a_trade_days</code> 的历史包袱。Slice 3.2.2 未完成前，不得直接执行从 1990 年开始的指数全量历史回填。</li>
+      <li>当前代码已拆分股票 / 指数资产族分区。执行从 1990 年开始的指数全量历史回填前，必须先确认 <code>cn_a_index_trade_days</code> 已覆盖目标交易日。</li>
       <li><code>gold_market_major_indices_daily</code> 尚未实现；下一步需要明确输出字段、缺失行情处理、方向公式和 checks。</li>
       <li>Phase 3 指数类 sensors 与 <code>index_daily</code> source readiness 尚未实现；Tushare <code>index_daily</code> 的真实 ready 时间和空结果行为还需要单日小样本验证。</li>
       <li>主要指数名单的本地 metadata 人工维护写表入口尚未实现；active pool 已在 Slice 3.2.1 支持完整列表替换。</li>

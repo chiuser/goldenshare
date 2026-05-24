@@ -26,9 +26,11 @@ RAW_SUSPEND_D_CHECKS = (
     "raw_suspend_d_partition_date_matches",
     "raw_suspend_d_required_columns",
     "raw_suspend_d_schema_matches_tushare_contract",
+    "raw_suspend_d_stock_partition_key_allowed",
 )
 SILVER_SUSPEND_D_CHECKS = (
     "silver_suspend_d_known_type_values",
+    "silver_suspend_d_stock_partition_key_allowed",
     "silver_suspend_d_unique_business_key",
 )
 RAW_STOCK_DAILY_CHECKS = (
@@ -36,6 +38,7 @@ RAW_STOCK_DAILY_CHECKS = (
     "raw_stock_daily_partition_date_matches",
     "raw_stock_daily_required_columns",
     "raw_stock_daily_row_count_positive",
+    "raw_stock_daily_stock_partition_key_allowed",
 )
 SILVER_STOCK_DAILY_BLOCKING_CHECKS = (
     "silver_stock_daily_after_list_date_only",
@@ -46,6 +49,7 @@ SILVER_STOCK_DAILY_BLOCKING_CHECKS = (
     "silver_stock_daily_price_sanity",
     "silver_stock_daily_required_columns_non_null",
     "silver_stock_daily_row_count_positive",
+    "silver_stock_daily_stock_partition_key_allowed",
     "silver_stock_daily_unique_ts_code_trade_date",
 )
 

@@ -3,7 +3,7 @@ from datetime import datetime
 
 import dagster as dg
 
-from orchestrator.defs.partitions import cn_a_trade_days
+from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     status_payload,
@@ -35,8 +35,11 @@ def _cursor_payload(
 )
 def stock_basic_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
+    today = evaluated_at.date().isoformat()
     registered_keys = tuple(
-        sorted(context.instance.get_dynamic_partitions(cn_a_trade_days.name))
+        key
+        for key in sorted(context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name))
+        if key <= today
     )
     if not registered_keys:
         return dg.SensorResult(

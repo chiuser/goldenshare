@@ -18,7 +18,7 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
-from orchestrator.defs.partitions import cn_a_trade_days
+from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import (
     raw_index_daily_path,
     raw_index_daily_staging_dir,
@@ -273,7 +273,9 @@ def _ensure_dynamic_partitions_registered(
     context: dg.OpExecutionContext,
     target_trade_dates: list[str],
 ) -> None:
-    registered_partition_keys = set(context.instance.get_dynamic_partitions(cn_a_trade_days.name))
+    registered_partition_keys = set(
+        context.instance.get_dynamic_partitions(cn_a_index_trade_days.name)
+    )
     missing_partition_keys = [
         partition_key
         for partition_key in target_trade_dates
@@ -282,7 +284,7 @@ def _ensure_dynamic_partitions_registered(
     if missing_partition_keys:
         raise RuntimeError(
             "index_daily history backfill target trade dates are not registered in "
-            f"{cn_a_trade_days.name}: {missing_partition_keys}"
+            f"{cn_a_index_trade_days.name}: {missing_partition_keys}"
         )
 
 
