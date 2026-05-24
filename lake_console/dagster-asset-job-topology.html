@@ -164,6 +164,14 @@
       color: #663422;
     }
 
+    .note {
+      color: var(--muted);
+      background: rgba(255, 247, 230, 0.72);
+      border-left: 4px solid var(--accent-2);
+      border-radius: 12px;
+      padding: 10px 12px;
+    }
+
     .table-wrap {
       overflow-x: auto;
       border: 1px solid var(--line);
@@ -316,7 +324,7 @@
     <div class="meta-grid">
       <div class="chip"><strong>文档类型</strong>资产 / Job / 触发拓扑图</div>
       <div class="chip"><strong>代码范围</strong><code>lake_console/orchestrator/src/orchestrator/defs</code></div>
-      <div class="chip"><strong>当前阶段</strong>Phase 2 已完成至 <code>Slice 2.2.2c</code></div>
+      <div class="chip"><strong>当前阶段</strong>Phase 3 已实现到指数日线与主要指数 metadata 链路；<code>gold_market_major_indices_daily</code> 仍未落地。</div>
       <div class="chip"><strong>核心原则</strong>基础资产单独更新，业务资产只读依赖，job 只做 selection，ready 必须 checks 全绿</div>
     </div>
   </header>
@@ -325,7 +333,7 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>index_basic_update_job</code>、<code>index_daily_active_pool_update_job</code>、<code>index_daily_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>market_major_indices_initialize_job</code> 和 <code>market_major_indices_update_job</code>。
       <code>gold_market_breadth_daily</code> asset、checks、declarative automation 和 <code>daily_market_breadth_job</code> 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
@@ -348,7 +356,7 @@
         <tbody>
         <tr>
           <td>Assets</td>
-          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code></td>
+          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>index_daily_active_pool.py</code>、<code>market_major_indices.py</code></td>
           <td>定义 raw / silver / gold 资产如何生成。</td>
           <td>资产函数是真正生产数据的地方，Tushare 拉取、DuckDB 转换、Parquet 写入都在 asset/helper 中。</td>
         </tr>
@@ -360,7 +368,7 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>market_breadth_automation_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册与资产族生产分离。</td>
           <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
         </tr>
@@ -373,8 +381,8 @@
         <tr>
           <td>Resources</td>
           <td><code>defs/resources.py</code></td>
-          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>。</td>
-          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 通过 <code>dg.EnvVar</code> 注入。</td>
+          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>LakeMetaPostgresResource</code>、<code>ProdStrategyConfigFileResource</code>、<code>TushareResource</code>。</td>
+          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 通过 <code>dg.EnvVar</code> 注入。主要指数名单初始化只读 prod JSON；active pool 不再保留 prod DB 初始化入口。</td>
         </tr>
         </tbody>
       </table>
@@ -384,8 +392,11 @@
   <section>
     <h2>2. Asset 层级与依赖图</h2>
     <p>
-      当前资产分为 <code>calendar</code>、<code>basic</code>、<code>quote</code>、<code>breadth</code> 四个 asset group。
+      当前已落地资产覆盖 <code>calendar</code>、<code>basic</code>、<code>quote</code>、<code>breadth</code>、<code>index</code>、<code>market</code> 等 asset group。
       真正的数据层级仍然只认 <code>raw</code>、<code>silver</code>、<code>gold</code>。
+    </p>
+    <p class="note">
+      下方大图保留股票 quote 到 market breadth 的主链路视图；Phase 3 新增的指数链路在图后表格中单独列出，避免把 active pool、主要指数名单和日线分区关系混成一张难以阅读的大图。
     </p>
 
     <div class="diagram">
@@ -472,6 +483,46 @@
       当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；这与市场宽度计算只消费标准日线事实的口径一致。
       由于历史 gold 分区大量缺失，默认 automation sensor 暂不启用；历史补齐走 UI 分批 backfill，日常触发使用自定义 <code>market_breadth_automation_sensor</code>。
     </div>
+
+    <h3>2.1 Phase 3 指数链路代码事实</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>资产</th>
+          <th>层级 / 分区</th>
+          <th>当前直接依赖</th>
+          <th>当前生产入口</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td><code>raw_tushare_index_basic</code> → <code>silver_index_basic</code></td>
+          <td>raw/silver full file</td>
+          <td>Tushare <code>index_basic</code>；silver 以 <code>cn_a_index_trade_days</code> 中的验证日期判断有效指数。</td>
+          <td><code>index_basic_update_job</code></td>
+        </tr>
+        <tr>
+          <td><code>silver_index_daily_active_pool</code></td>
+          <td>silver full file，本地 metadata 资产</td>
+          <td>本地 PostgreSQL <code>index_daily_active_pool</code> 当前表；cross checks 校验代码存在于 <code>silver_index_basic</code>。</td>
+          <td><code>index_daily_active_pool_update_job</code>；<code>source_mode=local_replacement</code> 做完整替换，默认 <code>local_metadata</code> 只读本地当前表重新物化。</td>
+        </tr>
+        <tr>
+          <td><code>raw_tushare_index_daily</code> → <code>silver_index_daily</code></td>
+          <td>raw/silver，<code>cn_a_index_trade_days</code> 分区</td>
+          <td><code>silver_index_daily_active_pool</code>。raw 按 active pool 中的指数代码调用 Tushare <code>index_daily</code>。</td>
+          <td><code>index_daily_update_job</code>；历史区间使用 <code>index_daily_history_backfill_job</code>。</td>
+        </tr>
+        <tr>
+          <td><code>gold_market_major_indices</code></td>
+          <td>gold full file，本地 metadata 资产</td>
+          <td>本地 PostgreSQL <code>market_major_indices</code> 当前表；初始化入口只读 prod JSON。</td>
+          <td><code>market_major_indices_initialize_job</code> 或 <code>market_major_indices_update_job</code>。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
   </section>
 
   <section>
@@ -525,6 +576,42 @@
           <td><code>stock_daily_update_job</code> 调 Tushare <code>daily</code>，只写 stock daily raw/silver。</td>
           <td>交易日日频；当天 16:00 后由 sensor 探测源站 ready。</td>
           <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>raw_tushare_index_basic</code> → <code>silver_index_basic</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td>无分区，全量文件</td>
+          <td><code>index_basic_update_job</code> 调 Tushare <code>index_basic</code>，silver 过滤终止指数。</td>
+          <td>低频或日更 full snapshot，先确保 <code>cn_a_index_trade_days</code> 已注册验证日期。</td>
+          <td>指数基础信息事实源；active pool 与主要指数名单通过 checks 校验代码有效性。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>silver_index_daily_active_pool</code></td>
+          <td><span class="tag silver">silver</span></td>
+          <td>无分区，本地 metadata full file</td>
+          <td><code>index_daily_active_pool_update_job</code> 读取本地 metadata，或通过 <code>source_mode=local_replacement</code> 完整替换。</td>
+          <td>人工维护；不是 Tushare 同步资产。</td>
+          <td>决定 <code>index_daily</code> 拉取范围；当前代码无 prod DB 初始化入口。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>raw_tushare_index_daily</code> → <code>silver_index_daily</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td><code>cn_a_index_trade_days</code></td>
+          <td><code>index_daily_update_job</code> 按 active pool 拉 Tushare <code>index_daily</code>；历史区间用 <code>index_daily_history_backfill_job</code>。</td>
+          <td>交易日日频或历史批量。</td>
+          <td>指数日线标准事实；服务后续主要指数日线 gold。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">market</span></td>
+          <td><code>gold_market_major_indices</code></td>
+          <td><span class="tag gold">gold</span></td>
+          <td>无分区，本地 metadata full file</td>
+          <td><code>market_major_indices_initialize_job</code> 可一次性只读 prod JSON；<code>market_major_indices_update_job</code> 从本地当前表重新物化。</td>
+          <td>人工维护。</td>
+          <td>首页主要指数名单；当前还没有 <code>gold_market_major_indices_daily</code> 资产。</td>
         </tr>
         <tr>
           <td><span class="tag">breadth</span></td>
@@ -581,7 +668,7 @@
 
         <rect x="680" y="185" width="230" height="78" class="node node-future" />
         <text x="698" y="214" class="svg-label">daily_market_breadth_job</text>
-        <text x="698" y="237" class="svg-note">future: only gold selection</text>
+        <text x="698" y="237" class="svg-note">active: only gold selection</text>
 
         <rect x="975" y="185" width="170" height="78" class="node node-gold" />
         <text x="993" y="214" class="svg-label">gold breadth</text>
@@ -644,6 +731,48 @@
           <td>已完成拆分：不再 selection <code>suspend_d</code> 或 <code>stock_basic</code>。</td>
         </tr>
         <tr>
+          <td><code>index_basic_update_job</code></td>
+          <td><code>raw_tushare_index_basic</code>、<code>silver_index_basic</code> + checks</td>
+          <td>指数基础信息 raw/silver full file。</td>
+          <td>人工触发；未来可低频或日更。</td>
+          <td>依赖 <code>cn_a_index_trade_days</code> 中的验证日期；不得由业务 gold job 代写。</td>
+        </tr>
+        <tr>
+          <td><code>index_daily_active_pool_update_job</code></td>
+          <td><code>silver_index_daily_active_pool</code> + checks</td>
+          <td>本地 metadata active pool silver 文件与本地当前表 / history。</td>
+          <td>人工 Launchpad 配置；默认只读本地 metadata，<code>local_replacement</code> 才完整替换。</td>
+          <td>当前没有 <code>index_daily_active_pool_initialize_job</code>，也没有 prod DB 初始化入口。</td>
+        </tr>
+        <tr>
+          <td><code>index_daily_update_job</code></td>
+          <td><code>raw_tushare_index_daily</code>、<code>silver_index_daily</code> + checks</td>
+          <td>单个交易日指数日线 raw/silver。</td>
+          <td>人工分区运行；未来可由指数资产族 sensor 接管。</td>
+          <td>只按 active pool 拉取；不生产主要指数 gold。</td>
+        </tr>
+        <tr>
+          <td><code>index_daily_history_backfill_job</code></td>
+          <td>普通 Dagster job，按配置区间批量拉取 / 写入指数日线。</td>
+          <td>历史区间内的 index daily raw/silver materialization 与 check evaluations。</td>
+          <td>人工显式配置运行。</td>
+          <td>不是 native partition range asset job；用于受控历史补数。</td>
+        </tr>
+        <tr>
+          <td><code>market_major_indices_initialize_job</code></td>
+          <td><code>gold_market_major_indices</code> 使用 <code>source_mode=prod_initialization</code></td>
+          <td>一次性只读 prod JSON 后写本地 metadata 与 gold 文件。</td>
+          <td>人工一次性初始化。</td>
+          <td>唯一保留的远程只读初始化入口；不读取 prod DB。</td>
+        </tr>
+        <tr>
+          <td><code>market_major_indices_update_job</code></td>
+          <td><code>gold_market_major_indices</code> + checks</td>
+          <td>从本地 metadata 当前表重新物化主要指数名单。</td>
+          <td>人工维护。</td>
+          <td>当前不接收 items 更新名单；只重读本地当前表。</td>
+        </tr>
+        <tr>
           <td><code>daily_market_breadth_job</code></td>
           <td>已实现；只选择 <code>gold_market_breadth_daily</code> + gold checks。</td>
           <td>市场宽度 gold。</td>
@@ -658,7 +787,7 @@
   <section>
     <h2>5. 触发方式与日内时序</h2>
     <p>
-      第二期后续研发模式应把“基础资产准备”和“业务资产生产”分层：基础资产先更新并通过 checks；股票日线分区再按交易日生产；gold 业务资产最后在 readiness 通过后生产。
+      后续研发模式应把“基础资产准备”和“业务资产生产”分层：基础资产先更新并通过 checks；股票 / 指数日线分区再按交易日生产；gold 业务资产最后在 readiness 通过后生产。
     </p>
 
     <div class="diagram">
@@ -696,7 +825,7 @@
 
         <rect x="850" y="245" width="250" height="76" class="node node-gold" />
         <text x="868" y="274" class="svg-label">daily_market_breadth_job</text>
-        <text x="868" y="297" class="svg-note">future: only gold</text>
+        <text x="868" y="297" class="svg-note">active: only gold</text>
 
         <path d="M255 128 C270 128, 282 128, 300 128" class="arrow" marker-end="url(#arrow3)" />
         <path d="M520 128 C540 128, 545 128, 565 128" class="arrow" marker-end="url(#arrow3)" />

@@ -564,10 +564,10 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
 	        </tr>
 	        <tr>
 	          <td>3.0.2</td>
-	          <td>初始化 <code>silver_index_daily_active_pool</code>。</td>
-	          <td>远程 prod PostgreSQL <code>ops.index_series_active</code>，只读过滤 <code>resource='index_daily'</code>。</td>
-	          <td>写本地 <code>index_daily_active_pool</code> 当前表和 <code>index_daily_active_pool_history</code>；materialize <code>silver_index_daily_active_pool</code> Parquet。</td>
-	          <td>当前表、history、Parquet asset 行数一致；初始化完成后不再读 prod。Slice 3.1 已补齐依赖 <code>silver_index_basic</code> 的跨资产校验。</td>
+	          <td>维护 / 刷新 <code>silver_index_daily_active_pool</code>。</td>
+	          <td>当前只允许读取本地 <code>index_daily_active_pool</code> 当前表，或通过 Launchpad 显式传入 <code>source_mode=local_replacement</code> 与完整 <code>items</code> 做本地完整替换。远程 prod DB 初始化入口已退役删除。</td>
+	          <td><code>local_replacement</code> 会写本地 <code>index_daily_active_pool</code> 当前表和 <code>index_daily_active_pool_history</code>，再 materialize <code>silver_index_daily_active_pool</code> Parquet；默认 <code>local_metadata</code> 只读本地当前表并重新物化。</td>
+	          <td>items 非空、ts_code 不重复、所有代码必须存在于 <code>silver_index_basic</code>；当前表、history、Parquet asset 行数一致；Slice 3.1 已补齐依赖 <code>silver_index_basic</code> 的跨资产校验。</td>
 	        </tr>
 	        <tr>
 	          <td>3.0.2</td>

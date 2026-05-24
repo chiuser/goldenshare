@@ -2261,7 +2261,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Automation</td>
-          <td>业务 sensors 默认 STOPPED；<code>stock_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用自定义 <code>market_breadth_automation_sensor</code>，不直接打开 <code>default_automation_condition_sensor</code>。</td>
+          <td>本 Phase 2 LLD 收口表只列股票 quote / market breadth 范围：业务 sensors 默认 STOPPED；<code>stock_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用自定义 <code>market_breadth_automation_sensor</code>，不直接打开 <code>default_automation_condition_sensor</code>。Phase 3 新增的指数 jobs / sensors 见 Phase 3 设计和 LLD。</td>
         </tr>
         <tr>
           <td>全月数据</td>

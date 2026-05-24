@@ -286,9 +286,9 @@
         </tr>
         <tr>
           <td><code>silver_index_daily_active_pool</code></td>
-          <td>一次性从 prod PostgreSQL <code>ops.index_series_active</code> 初始化</td>
+          <td>本地 PostgreSQL metadata 当前表 <code>goldenshare_lake_meta.index_daily_active_pool</code></td>
           <td>否</td>
-          <td>初始化条件 <code>resource='index_daily'</code>。初始化后只以本地 PostgreSQL metadata 表为准。</td>
+          <td>当前代码不再保留 prod DB 初始化入口。日常维护通过 <code>index_daily_active_pool_update_job</code> 的 <code>source_mode=local_replacement</code> 完整替换本地当前表并留 history；默认 <code>local_metadata</code> 只读取本地当前表重新物化。</td>
         </tr>
         <tr>
 	          <td><code>gold_market_major_indices</code></td>
@@ -302,7 +302,7 @@
 
     <div class="warning">
       <strong>远程只做初始化：</strong>
-	      prod DB 和 prod JSON 只作为第一次导入来源。初始化完成后，active 池和主要指数名单都必须通过本地 Dagster update job 维护，不再自动或手动同步远程。
+	      当前代码只保留主要指数名单读取 prod JSON 的初始化入口。active 池的 prod DB 初始化入口已经退役删除，不能再通过 Dagster 读取远程 <code>ops.index_series_active</code>；active 池和主要指数名单后续都必须通过本地 Dagster update job 维护，不再自动或手动同步远程。
     </div>
   </section>
 
@@ -998,14 +998,14 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
   <section>
     <h2>13. 验收标准</h2>
     <ul>
-      <li>最终验收时，Dagster UI 能看到所有 Phase 3 assets、jobs、checks、sensors，description 为中文简明说明。当前 3.2.1 结束时尚未实现 <code>gold_market_major_indices_daily</code> 和 Phase 3 指数类 sensors。</li>
+      <li>最终验收时，Dagster UI 能看到所有 Phase 3 assets、jobs、checks、sensors，description 为中文简明说明。当前已实现到 Slice 3.2.2；<code>gold_market_major_indices_daily</code> 和 Phase 3 指数类数据生产 sensors 尚未实现。</li>
       <li><code>raw_tushare_index_basic</code> 和 <code>raw_tushare_index_daily</code> materialization metadata 包含请求数、行数、字段列表、路径。</li>
       <li><code>silver_index_basic</code> 不包含终止指数。</li>
       <li>Slice 3.1 已验证：<code>raw_tushare_index_basic</code> 为 13,538 行，<code>silver_index_basic</code> 为 12,598 行，<code>exp_date &lt;= 2026-05-22</code> 的终止指数为 0。</li>
       <li><code>silver_index_daily</code> 只包含 active pool 内指数。</li>
-      <li>执行指数全量历史回填前，必须先完成 Slice 3.2.2，使股票链路使用 <code>cn_a_stock_trade_days</code>、指数链路使用 <code>cn_a_index_trade_days</code>。</li>
+      <li>Slice 3.2.2 已完成资产族分区拆分：股票链路使用 <code>cn_a_stock_trade_days</code>，指数链路使用 <code>cn_a_index_trade_days</code>；指数历史回填前仍必须确认目标日期已注册到指数分区。</li>
 	      <li><code>gold_market_major_indices</code> 固定 10 个指数，rank 连续，且全部在 active pool 中。</li>
-      <li><code>gold_market_major_indices_daily</code> 每个交易日固定 10 行，方向公式正确。</li>
+      <li>后续实现 <code>gold_market_major_indices_daily</code> 时，每个交易日应固定 10 行，方向公式正确。</li>
       <li>任一上游未 ready 时，下游 job 不主动补上游。</li>
       <li>初始化来源和本地维护 history 可追溯。</li>
     </ul>
@@ -1019,7 +1019,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
       <li><code>silver_index_basic</code> 过滤终止指数；<code>index_basic</code> 虽然是 full snapshot，也必须按日更基础资产设计 freshness。</li>
       <li><code>raw_tushare_index_daily</code> 的拉取范围使用 <code>silver_index_daily_active_pool</code> 中的指数代码；这是为了避免按全部有效指数产生过高请求量。active pool 的 code 覆盖由其自身 checks 校验 <code>silver_index_basic</code>。</li>
       <li><code>silver_index_daily_active_pool</code> 作为 silver asset，决定哪些指数进入 <code>silver_index_daily</code>。</li>
-      <li><code>silver_index_daily_active_pool</code> 由 prod PostgreSQL <code>ops.index_series_active</code> 中 <code>resource='index_daily'</code> 一次性初始化；初始化后只本地维护，不再与 prod 同步。</li>
+      <li><code>silver_index_daily_active_pool</code> 当前只以本地 PostgreSQL metadata 当前表为准；历史上的 prod PostgreSQL 初始化入口已经退役删除，后续通过 <code>index_daily_active_pool_update_job</code> 的本地完整替换配置维护。</li>
 	      <li><code>gold_market_major_indices</code> 作为 gold 业务名单 asset，决定首页主要指数展示哪 10 个和顺序。</li>
 	      <li><code>gold_market_major_indices</code> 由 prod <code>major_indices.cn_a.v1.json</code> 一次性初始化；初始化后只本地维护，不再与 prod 同步。</li>
 	      <li>active pool 和主要指数名单不使用 YAML 作为长期事实源，避免 YAML 与 Dagster asset 双事实源。</li>

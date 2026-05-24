@@ -737,7 +737,8 @@ git status --short</code></pre>
     <p>
       历史迁移 LLD 已收口。Phase 2 <code>Slice 2.1</code> 已将 quote 日频 raw assets
       从旧湖 bootstrap 切换为 <code>TushareResource</code> API 拉取，并完成
-      <code>2026-05-20</code> 单日 <code>quote_daily_job</code> 验证。后续自动触发与下游 readiness
+      <code>2026-05-20</code> 单日早期 <code>quote_daily_job</code> 验证。当前活跃入口已拆分为
+      <code>suspend_update_job</code> 与 <code>stock_daily_update_job</code>；后续自动触发与下游 readiness
       gate 不属于本历史迁移 LLD。
     </p>
   </section>

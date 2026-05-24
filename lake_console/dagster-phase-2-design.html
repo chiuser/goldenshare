@@ -2329,7 +2329,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>自动化入口</td>
-          <td>Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>、<code>market_breadth_automation_sensor</code>；sensor 默认 <code>STOPPED</code>，不默认乱跑大范围历史。<code>gold_market_breadth_daily</code> 已声明 declarative automation 条件；<code>market_breadth_automation_sensor</code> 已替代全局默认 automation sensor 作为 market breadth 正式触发入口。历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。</td>
+          <td>本 Phase 2 收口表只列股票 quote / market breadth 范围：Dagster UI 能看到 <code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_trade_day_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>、<code>market_breadth_automation_sensor</code>；sensor 默认 <code>STOPPED</code>，不默认乱跑大范围历史。<code>gold_market_breadth_daily</code> 已声明 declarative automation 条件；<code>market_breadth_automation_sensor</code> 已替代全局默认 automation sensor 作为 market breadth 正式触发入口。历史 <code>quote_daily_job</code> / <code>stock_quote_daily_update_job</code> run/event 保留可查。Phase 3 新增的指数 jobs / sensors 见 Phase 3 设计和 LLD。</td>
         </tr>
         <tr>
           <td>单日验证</td>

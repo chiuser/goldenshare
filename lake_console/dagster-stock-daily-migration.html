@@ -766,7 +766,7 @@
         <tr>
           <td><code>raw_tushare_stock_daily / raw_tushare_suspend_d</code></td>
           <td>历史 bootstrap 已完成；Phase 2 Slice 2.1 已将日常 quote raw 写入切换为 <code>TushareResource</code> API。</td>
-          <td><code>quote_daily_job[2026-05-20]</code> 单日验证通过，历史迁移链路不再作为日常 quote 更新入口。</td>
+          <td>早期 <code>quote_daily_job[2026-05-20]</code> 单日验证通过；当前活跃入口已拆分为 <code>suspend_update_job</code> 与 <code>stock_daily_update_job</code>，历史迁移链路不再作为日常 quote 更新入口。</td>
         </tr>
       </tbody>
     </table>
@@ -776,7 +776,7 @@
     <h2>9. 不做的事</h2>
     <ul>
       <li>本轮不把 raw 也改成当前上市股票子集，raw 必须继续保留源镜像口径。</li>
-      <li>本历史迁移文档不承载 Tushare API 续更新实现；API 日常更新已在 Phase 2 Slice 2.1 接入，由 <code>quote_daily_job</code> 承载。</li>
+      <li>本历史迁移文档不承载 Tushare API 续更新实现；API 日常更新已在 Phase 2 Slice 2.1 接入，当前活跃入口为 <code>suspend_update_job</code> 与 <code>stock_daily_update_job</code>，不再由已退役的 <code>quote_daily_job</code> 承载。</li>
       <li>本轮不引入 ClickHouse serving 和 prod release。</li>
       <li>本轮不让下游 gold 资产主动补上游；上游准备和下游生产仍应分开。</li>
     </ul>
