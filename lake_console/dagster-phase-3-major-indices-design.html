@@ -532,14 +532,9 @@ goldenshare_lake_meta.market_major_indices_change_history</code></pre>
         </thead>
         <tbody>
 	        <tr>
-	          <td>初始化 active 池</td>
-	          <td><code>index_daily_active_pool_initialize_job</code></td>
-	          <td>Slice 3.0.2 执行。只读远程 prod PostgreSQL <code>ops.index_series_active</code>，过滤 <code>resource='index_daily'</code>，写入本地 <code>index_daily_active_pool</code> 和 history，再 materialize <code>silver_index_daily_active_pool</code>；不得自动同步。初始化阶段 <code>display_name</code> 先留空。</td>
-	        </tr>
-	        <tr>
 	          <td>维护 active 池</td>
 	          <td><code>index_daily_active_pool_update_job</code></td>
-	          <td>Slice 3.2.1 执行。通过 <code>source_mode=local_replacement</code> 和完整 <code>items</code> 列表替换本地当前表，写入新增/删除/更新 history，再 materialize <code>silver_index_daily_active_pool</code> 并运行 checks。它是完整替换，不是增量更新。</td>
+	          <td>Slice 3.2.1 执行。通过 <code>source_mode=local_replacement</code> 和完整 <code>items</code> 列表替换本地当前表，写入新增/删除/更新 history，再 materialize <code>silver_index_daily_active_pool</code> 并运行 checks。它是 active pool 的唯一正式维护入口；完整替换，不是增量更新。</td>
         </tr>
         <tr>
 	          <td>初始化主要指数名单</td>
@@ -723,11 +718,6 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
           <td><code>raw_tushare_index_basic</code>、<code>silver_index_basic</code> 及 checks</td>
           <td>无</td>
         </tr>
-	        <tr>
-	          <td><code>index_daily_active_pool_initialize_job</code></td>
-	          <td><code>silver_index_daily_active_pool</code> 及 checks</td>
-	          <td><code>silver_index_basic</code>；远程 prod DB 只读初始化来源</td>
-	        </tr>
 	        <tr>
 	          <td><code>index_daily_active_pool_update_job</code></td>
 	          <td><code>silver_index_daily_active_pool</code> 及 checks</td>
@@ -963,7 +953,7 @@ data_lake/gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet
 	        <tr>
 	          <td>3.0.2</td>
 	          <td>一次性初始化 active pool 和主要指数名单。</td>
-	          <td>已完成：active pool 从 <code>ops.index_series_active resource='index_daily'</code> 一次性初始化 1130 行；主要指数名单从 <code>major_indices.cn_a.v1.json</code> 一次性初始化 10 行。已写本地 metadata 当前表、history 和 Parquet asset，初始化后不再同步远程。</td>
+	          <td>已完成并收敛当前口径：active pool 当前表已完成初始化，后续只通过 <code>index_daily_active_pool_update_job</code> 本地完整替换维护，旧远程初始化入口已退役删除；主要指数名单从 <code>major_indices.cn_a.v1.json</code> 一次性初始化 10 行，初始化后不再同步远程。</td>
         </tr>
         <tr>
           <td>3.1</td>

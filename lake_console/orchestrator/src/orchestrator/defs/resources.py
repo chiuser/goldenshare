@@ -4,7 +4,6 @@ from dataclasses import dataclass
 from datetime import UTC, datetime
 import hashlib
 import json
-import os
 from pathlib import Path
 import subprocess
 from typing import Any
@@ -111,33 +110,6 @@ class LakeMetaPostgresResource(dg.ConfigurableResource):
             connection.commit()
 
 
-class ProdReadOnlyPostgresResource(dg.ConfigurableResource):
-    env_var_name: str = "GOLDENSHARE_PROD_DATABASE_URL"
-
-    @contextmanager
-    def connect(self):
-        try:
-            import psycopg2
-        except ModuleNotFoundError as exc:
-            raise RuntimeError(
-                "Missing psycopg2-binary dependency in the Dagster orchestrator environment."
-            ) from exc
-
-        postgres_url = os.environ.get(self.env_var_name, "").strip()
-        if not postgres_url:
-            raise RuntimeError(
-                f"Missing {self.env_var_name}; cannot read prod PostgreSQL for explicit "
-                "metadata initialization."
-            )
-
-        connection = psycopg2.connect(postgres_url.replace("postgresql+psycopg", "postgresql"))
-        connection.set_session(readonly=True, autocommit=False)
-        try:
-            yield connection
-        finally:
-            connection.close()
-
-
 @dataclass(frozen=True)
 class ProdStrategyConfigFile:
     payload: dict[str, Any]
@@ -238,7 +210,6 @@ defs = dg.Definitions(
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
         "lake_meta_postgres": LakeMetaPostgresResource(),
-        "prod_read_only_postgres": ProdReadOnlyPostgresResource(),
         "prod_strategy_config_file": ProdStrategyConfigFileResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
     }

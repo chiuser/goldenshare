@@ -211,7 +211,7 @@ taste-skill 管审美和 redesign 方法
     - `core_serving.index_monthly_serving`
 11. 使用 `prod-raw-db` 或 `prod-core-db` 导出数据时，禁止 `select *`；必须按数据集字段白名单显式投影。`prod-raw-db` 不得导出 `api_name`、`fetched_at`、`raw_payload`，`prod-core-db` 不得导出 `source`、`created_at`、`updated_at`。
 12. Lake raw 层默认保留源站输出字段白名单；若经审计确认某些请求派生维度或 serving 修复字段是当前最佳事实的一部分，可以在方案文档中升级为 Lake 正式事实字段。无论后续数据来自 `raw_tushare` 还是 `core/core_serving`，`api_name`、`fetched_at`、`raw_payload`、`source`、`created_at`、`updated_at` 等 Goldenshare 自增系统字段一律禁止带入；字段名若与对外 Lake 口径不一致，必须先映射回 Lake 约定字段名。
-13. 除 `prod-raw-db` 与已批准的 `prod-core-db` 只读导出源站数据外，不允许通过远程数据库补充文件事实、任务状态、数据集状态或股票池。额外例外必须逐项白名单化：`index_mins` active pool 本地快照只允许只读查询 `ops.index_series_active` 中 `resource='index_mins'` 的记录，并写入本地 manifest；Dagster orchestrator 的 `index_daily_active_pool_initialize_job` 只允许一次性只读查询 `ops.index_series_active` 中 `resource='index_daily'` 的记录，并写入本地 `goldenshare_lake_meta.index_daily_active_pool`。以上例外不得泛化到其他 `ops.*` 表或其他 resource。
+13. 除 `prod-raw-db` 与已批准的 `prod-core-db` 只读导出源站数据外，不允许通过远程数据库补充文件事实、任务状态、数据集状态或股票池。额外例外必须逐项白名单化：`index_mins` active pool 本地快照只允许只读查询 `ops.index_series_active` 中 `resource='index_mins'` 的记录，并写入本地 manifest。以上例外不得泛化到其他 `ops.*` 表或其他 resource。
 14. Dagster orchestrator 的 `market_major_indices_initialize_job` 只允许一次性通过只读 SSH 读取生产服务器上的 `major_indices.cn_a.v1.json`，并写入本地 `goldenshare_lake_meta.market_major_indices`；初始化后不得继续与生产 JSON 同步，也不得写生产服务器。
 15. 不允许使用生产 `ops.task_run`、`ops.schedule`、`ops.dataset_status_snapshot`、`ops.dataset_layer_snapshot_current`。
 16. 不允许接入生产 scheduler/worker。

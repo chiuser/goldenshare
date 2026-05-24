@@ -288,7 +288,6 @@
 
 	    jobs/
 	      index_basic_update.py
-	      index_daily_active_pool_initialize.py
 	      index_daily_active_pool_update.py
 	      index_daily_update.py
 	      index_daily_history_backfill.py
@@ -525,26 +524,22 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
 	        <tr>
 	          <td>prod 初始化只读入口</td>
 	          <td>
-	            仅 Slice 3.0.2 使用。<code>ProdReadOnlyPostgresResource</code> 在运行时读取
-	            <code>GOLDENSHARE_PROD_DATABASE_URL</code>，只读查询
-	            <code>ops.index_series_active resource='index_daily'</code>；
-	            <code>ProdStrategyConfigFileResource</code> 通过只读 SSH 读取生产
-	            <code>major_indices.cn_a.v1.json</code>。
+	            仅 <code>market_major_indices_initialize_job</code> 使用。<code>ProdStrategyConfigFileResource</code>
+	            通过只读 SSH 读取生产 <code>major_indices.cn_a.v1.json</code>。
+	            active pool 不再保留从 prod DB 初始化的 Dagster 入口，后续只通过本地完整替换维护。
 	          </td>
-	          <td><code>index_daily_active_pool_initialize_job</code>、<code>market_major_indices_initialize_job</code></td>
+	          <td><code>market_major_indices_initialize_job</code></td>
 	          <td>缺失时 code location 不崩，只在初始化 run 中失败；不得退化为硬编码或本地假数据。</td>
 	        </tr>
         </tbody>
       </table>
     </div>
 
-    <div class="warning">
+	    <div class="warning">
 	      <strong>远程只读白名单：</strong>
-	      <code>lake_console/AGENTS.md</code> 已为 Slice 3.0.2 增加明确例外：
-	      <code>index_daily_active_pool_initialize_job</code> 只能一次性只读
-	      <code>ops.index_series_active resource='index_daily'</code>；
+	      <code>lake_console/AGENTS.md</code> 当前只保留主要指数名单初始化例外：
 	      <code>market_major_indices_initialize_job</code> 只能一次性只读生产
-	      <code>major_indices.cn_a.v1.json</code>。两者初始化后都不得继续与 prod 同步。
+	      <code>major_indices.cn_a.v1.json</code>。active pool 的 prod DB 初始化入口已退役删除，不再允许通过 Dagster 读取远程 active pool。
 	    </div>
 
 	    <h3>初始化动作归属</h3>
@@ -710,8 +705,7 @@ gold_market_major_indices_daily_path(root, "2026-05-21")
 	        <tr>
 	          <td><code>silver_index_daily_active_pool</code></td>
 	          <td>
-	            默认从本地 PostgreSQL 当前表读取并写 silver Parquet；初始化 job 通过 <code>source_mode=prod_initialization</code>
-	            一次性读取 prod active pool 并写本地当前表/history；update job 通过 <code>source_mode=local_replacement</code>
+	            默认从本地 PostgreSQL 当前表读取并写 silver Parquet；update job 通过 <code>source_mode=local_replacement</code>
 	            和完整 <code>items</code> 列表替换本地当前表并写 history。
 	            校验所有 code 存在于 <code>silver_index_basic</code> 且未终止。
 	          </td>
@@ -904,12 +898,6 @@ silver_index_daily 对同一 range 读取 raw 分区
           <td><code>ready_for_trade_date</code></td>
           <td>日更 full snapshot。job 不写逻辑，asset 使用 config 标记服务到哪个交易日。</td>
         </tr>
-	        <tr>
-	          <td><code>index_daily_active_pool_initialize_job</code></td>
-	          <td><code>silver_index_daily_active_pool</code> 与 checks</td>
-	          <td>无人工输入；只读远程 prod <code>ops.index_series_active resource='index_daily'</code></td>
-	          <td>一次性初始化 active pool；初始化完成后不再同步远程。</td>
-	        </tr>
 	        <tr>
 	          <td><code>index_daily_active_pool_update_job</code></td>
 	          <td><code>silver_index_daily_active_pool</code> 与 checks</td>
@@ -1149,7 +1137,7 @@ probe_index_daily_ready(
 	        <tr>
 	          <td>3.0.2</td>
 	          <td>实现 active pool / 主要指数名单 metadata assets 与初始化 job。</td>
-	          <td>已完成。active pool 从远程 prod DB <code>ops.index_series_active resource='index_daily'</code> 一次性初始化 1130 行；主要指数名单从远程 prod <code>major_indices.cn_a.v1.json</code> 一次性初始化 10 行；本地当前表、history 和 Parquet asset 一致，初始化后不再同步远程。</td>
+	          <td>已完成并收敛当前口径。active pool 当前表已完成初始化，后续只通过 <code>index_daily_active_pool_update_job</code> 本地完整替换维护，旧远程初始化入口已退役删除；主要指数名单从远程 prod <code>major_indices.cn_a.v1.json</code> 一次性初始化 10 行；本地当前表、history 和 Parquet asset 一致，初始化后不再同步远程。</td>
         </tr>
         <tr>
           <td>3.1</td>
@@ -1239,9 +1227,9 @@ git status --short</code></pre>
           <td>当前 active pool 为 1,130 个 code。历史全量回补前仍必须 dry run 输出交易日数量、预计请求数、分页数、预计耗时和配额影响。</td>
         </tr>
 	        <tr>
-	          <td>prod active pool 初始化必须严格受控。</td>
-	          <td>如果泛化读取远程 ops 表，会破坏 lake console 的远程隔离边界。</td>
-	          <td><code>lake_console/AGENTS.md</code> 已白名单化：仅 <code>index_daily_active_pool_initialize_job</code> 可一次性只读 <code>ops.index_series_active resource='index_daily'</code>，初始化后不再同步。</td>
+	          <td>prod active pool 初始化入口已退役。</td>
+	          <td>继续保留该入口会让 active pool 出现第二事实源，并破坏本地完整替换维护口径。</td>
+	          <td>已删除旧初始化 job 和 active pool 的远程初始化 source mode；active pool 只能通过本地完整替换维护。</td>
 	        </tr>
 	        <tr>
 	          <td>prod 主要指数 JSON 初始化必须严格受控。</td>
