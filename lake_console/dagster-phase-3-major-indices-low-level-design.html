@@ -854,6 +854,48 @@ for trade_date in target_dates:
 silver_index_daily 对同一 range 读取 raw 分区
 按 active pool 生成 silver 分区</code></pre>
 
+    <h3>按指数代码修复入口</h3>
+    <p>
+      已新增 <code>index_daily_repair_by_codes_job</code>，用于修复少量指数代码的漏拉或断档。
+      它是手动维护入口，不挂 sensor/schedule，不维护 active pool，不替代日频更新和历史全量回补。
+    </p>
+    <pre><code>index_daily_repair_by_codes_job(config)
+  config:
+    ts_codes: ["399803.SZ"]
+    start_date: "YYYY-MM-DD"
+    end_date: "YYYY-MM-DD"
+    dry_run: true | false
+    force: true | false
+
+  steps:
+    validate ts_codes are non-empty, unique, and in silver_index_daily_active_pool
+    load SSE open trade dates from silver_trade_calendar
+    ensure target dates are registered in cn_a_index_trade_days
+    fetch Tushare index_daily by ts_code + start_date/end_date + limit=8000 + offset
+    group fetched rows by trade_date
+    for each affected trade_date:
+      read existing raw partition
+      remove existing rows for requested ts_codes
+      merge fetched rows
+      validate raw schema and uniqueness
+      write tmp parquet and os.replace target part-000.parquet
+      regenerate silver_index_daily partition
+      evaluate existing blocking checks</code></pre>
+
+    <div class="danger">
+      <strong>不能覆盖整天分区为单 code 数据：</strong>
+      <code>raw_tushare_index_daily[trade_date]</code> 和 <code>silver_index_daily[trade_date]</code>
+      都是按交易日聚合多个指数的分区文件。按 code 修复时必须合并到既有分区，
+      只能替换指定 <code>ts_code</code> 的行，禁止删除同日其它 active pool 指数行。
+    </div>
+    <ul>
+      <li><code>dry_run=true</code> 只输出目标 code、目标交易日、预计请求数、已有分区状态和影响路径；不访问 Tushare、不写湖。</li>
+      <li><code>force=false</code> 遇到目标日期范围内已有同 code 行时直接失败；需要替换旧行时必须显式设置 <code>force=true</code>。</li>
+      <li><code>force=true</code> 才允许替换指定 code 旧行。</li>
+      <li>metadata 必须包含 <code>requested_ts_codes</code>、<code>returned_ts_codes</code>、<code>affected_partition_count</code>、<code>returned_row_count</code>、<code>inserted_row_count</code>、<code>replaced_row_count</code>、<code>still_missing_trade_dates_by_code</code>。</li>
+      <li>本入口不执行已暂停的 <code>silver_index_daily_active_pool_coverage</code>；coverage 口径后续单独重设。</li>
+    </ul>
+
     <div class="callout">
       <strong>实现前验证门禁：</strong>
       Slice 3.0.0 已使用临时 <code>/private/tmp</code> Dagster instance 验证本地 Dagster 1.13.6 的
@@ -893,7 +935,7 @@ silver_index_daily 对同一 range 读取 raw 分区
 
   <section>
     <h2>7. Jobs 与 Selection</h2>
-    <p>当前已实现到 Slice 3.2.2：index basic、metadata 初始化、index daily 单日更新、受控历史回补、active pool 完整替换维护入口，以及资产族交易日分区拆分均已落地。下一步进入 <code>market_major_indices_daily_job</code> 前，可以先执行指数历史回补 dry run 和小范围回填验收。</p>
+    <p>当前已实现到 Slice 3.2.3：index basic、metadata 初始化、index daily 单日更新、受控历史回补、active pool 完整替换维护入口、资产族交易日分区拆分，以及按 code 修复指数日线入口均已落地。下一步进入 <code>market_major_indices_daily_job</code> 前，应先由用户按需执行指数补数或修复，并完成只读审计。</p>
     <div class="table-wrap">
       <table>
         <thead>
@@ -928,6 +970,12 @@ silver_index_daily 对同一 range 读取 raw 分区
           <td>受控历史回补逻辑；复用 raw/silver 写入与 checks 口径</td>
           <td><code>start_date,end_date,dry_run,force</code></td>
           <td>手动历史回补；不挂 sensor；禁止使用原生 <code>--partition-range</code>；按 <code>silver_trade_calendar</code> 生成有序交易日。</td>
+        </tr>
+        <tr>
+          <td><code>index_daily_repair_by_codes_job</code></td>
+          <td>按少量 <code>ts_code</code> 修复已有 index daily raw/silver 分区</td>
+          <td><code>ts_codes,start_date,end_date,dry_run,force</code></td>
+          <td>手动维护入口；<code>dry_run=true</code> 不访问 Tushare、不写湖；实际补数只替换指定 code 行，不执行 coverage check。</td>
         </tr>
 	        <tr>
 	          <td><code>market_major_indices_initialize_job</code></td>
@@ -1173,6 +1221,11 @@ probe_index_daily_ready(
           <td>已完成并收敛事故后口径。保留 <code>cn_a_trade_days</code> 作为全量备份；新增 <code>cn_a_stock_trade_days</code>、<code>cn_a_index_trade_days</code>；股票资产、股票 sensors、股票 freshness/readiness 改读 stock 分区；指数资产、index basic freshness、index daily history backfill 改读 index 分区；<code>silver_trade_calendar</code> 起点扩到 <code>19900101</code>。股票资产族额外使用正式 blocking partition checks 验证分区合法性，不在业务写入函数里保留定制化 guard。</td>
         </tr>
         <tr>
+          <td>3.2.3</td>
+          <td>实现 <code>index_daily_repair_by_codes_job</code>。</td>
+          <td>已实现。用于按少量 <code>ts_code</code> 和日期区间修复指数日线；<code>dry_run=true</code> 不访问 Tushare、不写湖；实际补数必须合并进已有交易日分区，不得覆盖删除其它指数行。</td>
+        </tr>
+        <tr>
           <td>3.3</td>
           <td>实现 <code>gold_market_major_indices_daily</code>、对应 checks 和 <code>market_major_indices_daily_job</code>。</td>
           <td><code>gold_market_major_indices</code> 静态名单资产已完成；本 Slice 只生产最终日线 gold，每个交易日固定 10 行，checks 全绿。</td>
@@ -1273,6 +1326,11 @@ git status --short</code></pre>
           <td><code>silver_index_daily_active_pool_coverage</code> 当前暂停自动执行。</td>
           <td>现有口径会把大量合理缺失也标为 WARN，噪音过大，无法作为有效质量信号。</td>
           <td>重新设计“合理缺失”和“中间断档”口径后，再决定恢复为 WARN 或升级为 blocking。</td>
+        </tr>
+        <tr>
+          <td>缺少按 <code>ts_code</code> 修复指数日线的维护入口。</td>
+          <td>未实现专用入口前，单个指数漏拉只能重跑更大范围历史回补，成本高且会覆盖同区间全部 active pool 指数。</td>
+          <td><code>index_daily_repair_by_codes_job</code> 已实现；修复时只替换指定 code 行，并保留同日其它指数数据。</td>
         </tr>
         </tbody>
       </table>
