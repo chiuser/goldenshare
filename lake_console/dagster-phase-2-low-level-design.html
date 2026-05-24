@@ -435,7 +435,7 @@
 
   <section>
     <h2>3. 当前代码基线</h2>
-    <p>第二期开发必须从第一期实际代码出发，不靠文档想象。以下是当前基线和需要改造的点。</p>
+    <p>本节按当前代码事实维护，避免 Phase 2 文档停留在早期设计状态。后续开发必须从真实实现出发，不靠文档想象。</p>
 
     <div class="table-wrap">
       <table>
@@ -454,33 +454,33 @@
         </tr>
         <tr>
           <td><code>paths.py</code></td>
-          <td><code>DEFAULT_LAKE_ROOT=/Volumes/datasource/data_lake</code>；已有 trade_calendar、stock_basic、stock_daily、market_breadth 路径函数。</td>
-          <td>新增 <code>raw_suspend_d_path</code> 和 <code>silver_stock_suspend_daily_path</code>；保持 forbidden legacy path 校验。</td>
+          <td><code>DEFAULT_LAKE_ROOT=/Volumes/datasource/data_lake</code>；已有 trade_calendar、stock_basic、stock_daily、suspend_d、market_breadth 以及 Phase 3 指数相关路径函数。</td>
+          <td>继续保持 raw/silver/gold 三层路径和 forbidden legacy path 校验；新增资产路径必须与 asset key 口径一致。</td>
         </tr>
         <tr>
           <td><code>resources.py</code></td>
-          <td>已有 <code>LakeRootResource</code> 和 <code>DuckDBResource</code>；DuckDB 使用默认临时目录。</td>
-          <td>新增 <code>TushareResource</code> 前必须做配置审计；不新增 DuckDB temp 配置，继续用默认。</td>
+          <td>已有 <code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、本地 metadata PostgreSQL resource 等；DuckDB 使用默认临时目录。</td>
+          <td>Tushare token 仍只能通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入；不新增散落 env 文件，不新增 DuckDB temp 配置。</td>
         </tr>
         <tr>
           <td><code>partitions.py</code></td>
-          <td>已有 <code>cn_a_stock_trade_days = DynamicPartitionsDefinition(...)</code>。</td>
-          <td>继续复用；注册范围从第一期 2026-04 手动验证，扩展为 <code>stock_trade_day_sensor</code> 基于合法交易日注册，今天开市日仅 16:00 后可注册。</td>
+          <td>当前包含 <code>cn_a_trade_days</code>、<code>cn_a_stock_trade_days</code>、<code>cn_a_index_trade_days</code> 三套 dynamic partitions。</td>
+          <td><code>cn_a_trade_days</code> 只作为全量 SSE open day 备份；股票生产资产和 market breadth 使用 <code>cn_a_stock_trade_days</code>；指数资产使用 <code>cn_a_index_trade_days</code>。股票分区由 <code>stock_trade_day_sensor</code> 基于合法交易日注册，今天开市日仅 16:00 后可注册。</td>
         </tr>
         <tr>
           <td><code>duckdb_sql.py</code></td>
-          <td>已有 raw/silver 字段常量、路径读写 SQL、market breadth SQL。</td>
-          <td>新增 suspend_d 字段常量和 SQL；全历史交易日 key 注册不得复用第一期硬编码 2026-04 的 POC 查询，必须基于审计后的 <code>runnable_keys</code>。</td>
+          <td>已有 raw/silver 字段常量、路径读写 SQL、suspend_d SQL、stock daily 标准化 SQL、market breadth SQL。</td>
+          <td>新数据集继续按数据域补充字段契约和 SQL helper；全历史交易日 key 注册不得复用第一期硬编码 2026-04 的 POC 查询，必须基于交易日历和资产族分区事实。</td>
         </tr>
         <tr>
           <td><code>assets/*.py</code></td>
-          <td>第一期 raw asset 主要是“确认已有 raw 文件”，silver/gold 负责 DuckDB 转换。</td>
-          <td>raw asset 的日常生产升级为调用 Tushare 写 raw；历史 bootstrap 作为迁移工具写入同一路径、同字段契约，并只通过 metadata 标记来源。</td>
+          <td>股票 quote raw assets 已切到 Tushare API；silver/gold 负责 DuckDB 转换；历史 bootstrap 只保留为迁移工具链。</td>
+          <td>新增 raw asset 必须明确日常来源；历史 bootstrap 只能作为迁移 source method，不得重新进入日常 sensor/schedule/automation。</td>
         </tr>
         <tr>
           <td><code>checks/*.py</code></td>
-          <td>已有 calendar、stock_basic、stock_daily、market_breadth checks。partitioned checks 已按 asset 对象绑定。</td>
-          <td>新增 suspend_d checks；改造 stock_daily 完整性 check 依赖 suspend_d，输出差异统计和样本。</td>
+          <td>已有 calendar、stock_basic、stock_daily、suspend_d、market_breadth 以及股票分区合法性 checks。partitioned checks 已按 asset 对象绑定。</td>
+          <td>继续保持“一项 check 验证一个属性”；分区合法性、日期范围和资产族归属必须用正式 blocking asset checks 表达。</td>
         </tr>
         <tr>
           <td><code>jobs/calendar_trade_day_partitions.py</code>（已删除）</td>
@@ -543,6 +543,7 @@
     calendar_checks.py
     stock_basic_checks.py
     stock_daily_checks.py
+    stock_partition_checks.py
     suspend_d_checks.py
     market_breadth_checks.py
 
@@ -554,12 +555,15 @@
     daily_market_breadth.py
 
   sensors/
+    cn_a_trade_day_sensor.py
+    index_trade_day_sensor.py
     stock_trade_day_sensor.py
     suspend_d_sensor.py
     stock_basic_sensor.py
     stock_daily_sensor.py
+    market_breadth_automation_sensor.py
     readiness.py
-    # future:
+    # future only / not current code:
     # market_breadth_alerts.py
 
   source_readiness/
@@ -883,8 +887,8 @@ from read_parquet(
         </tr>
         <tr>
           <td><code>trade_cal</code></td>
-          <td>低频区间配置，例如 2026 年。</td>
-          <td><code>{"exchange": "SSE", "start_date": "20260101", "end_date": "20261231"}</code></td>
+          <td>full 文件配置，当前实现从 <code>19900101</code> 拉到当前年份年末。</td>
+          <td><code>{"exchange": "SSE", "start_date": "19900101", "end_date": "当前年份1231"}</code></td>
           <td><code>exchange, cal_date, is_open, pretrade_date</code></td>
         </tr>
         <tr>
@@ -986,7 +990,7 @@ def silver_stock_suspend_daily(context, lake_root, duckdb):
         <tr>
           <td><code>raw_tushare_trade_calendar</code></td>
           <td>检查 full raw 文件是否存在。</td>
-          <td>日常低频更新调用 <code>trade_cal(exchange=SSE,start_date,end_date)</code> 写 raw。历史 bootstrap 由迁移入口完成。</td>
+          <td>日常 full 文件更新调用 <code>trade_cal(exchange=SSE,start_date,end_date)</code> 写 raw。历史 bootstrap 由迁移入口完成。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_stock_basic</code></td>
@@ -1353,8 +1357,8 @@ Slice 2.0.6 execution:
           <td><code>calendar_update_job</code></td>
           <td><code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code></td>
           <td><code>tushare_api</code></td>
-          <td>低频人工触发或 schedule 触发，不进入股票行情日频 run。</td>
-          <td>已实现。job 文件只做 selection；raw asset 通过 <code>trade_cal(exchange=SSE,start_date=20140101,end_date=当前年份1231)</code> 写 full raw 文件。</td>
+          <td>人工触发；schedule 仍是后续可选兜底，不进入股票行情日频 run。</td>
+          <td>已实现。job 文件只做 selection；raw asset 通过 <code>trade_cal(exchange=SSE,start_date=19900101,end_date=当前年份1231)</code> 写 full raw 文件。</td>
         </tr>
         <tr>
           <td><code>basic_update_job</code></td>
@@ -1459,7 +1463,7 @@ not allowed in job files:
         </tr>
         <tr>
           <td><code>raw_tushare_trade_calendar</code> / <code>silver_trade_calendar</code></td>
-          <td><code>calendar_update_job</code>。这是低频区间基础资产，负责交易日事实。</td>
+          <td><code>calendar_update_job</code>。这是 full 文件基础资产，负责交易日事实。</td>
           <td>sensor 读取它决定 completed trade days；gold readiness 只检查它是否就绪，不在业务 job 中更新。</td>
           <td>并发风险低于 <code>stock_basic</code>，但如果后续 schedule 和人工入口都能触发，也必须在方案中列出并发策略。</td>
         </tr>
@@ -1552,19 +1556,26 @@ Later stages:
   <section>
     <h2>11. Sensor 与 Dynamic Partitions</h2>
     <p>
-      第二期当前代码中，<code>stock_trade_day_sensor</code> 已收敛为交易日 partition 注册器，不再触发股票日线 job。
+      第二期当前代码中，<code>cn_a_trade_day_sensor</code> 已收敛为全量 SSE open day 备份分区注册器，不触发任何数据生产 job。
+      <code>stock_trade_day_sensor</code> 已收敛为股票资产族交易日 partition 注册器，不再触发股票日线 job。
       <code>Slice 2.2.1e</code> 已落地多 sensor 模型：<code>stock_trade_day_sensor</code> 只注册 <code>cn_a_stock_trade_days</code> partition；
       <code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别负责各自资产族的缺失、freshness、checks 和上游 ready 判断。
     </p>
 
     <h3>11.1 当前实现：多 Sensor 分层触发</h3>
     <p>
-      一个交易日被确认后，<code>stock_trade_day_sensor</code> 只注册分区；
+      一个交易日被确认后，<code>cn_a_trade_day_sensor</code> 可注册全量备份分区，<code>stock_trade_day_sensor</code> 只注册股票资产族分区；
       分区注册完成后，各资产族 sensor 在自己的 tick 中读取正式 instance 状态并决定是否触发本资产族 job。
       job 文件仍只通过 asset selection 选择资产和 checks；具体拉取、写 parquet、SQL 转换都在 asset/helper 中。
     </p>
 
-    <pre><code>stock_trade_day_sensor algorithm:
+    <pre><code>cn_a_trade_day_sensor algorithm:
+  open_days = select all SSE open days from silver_trade_calendar
+  keys_to_add = first 2 open_days not in cn_a_trade_days
+  return SensorResult(dynamic_partitions_requests=[...])
+  no RunRequest for data production jobs
+
+stock_trade_day_sensor algorithm:
   latest_completed_trade_date = resolve_latest_completed_trade_date(now)
 
   open_days = select from silver_trade_calendar
@@ -1607,6 +1618,14 @@ stock_daily_sensor:
     </p>
 
     <pre><code>target sensors:
+  cn_a_trade_day_sensor:
+    input:
+      silver_trade_calendar
+      current time
+    output:
+      cn_a_trade_days dynamic partition keys
+    no RunRequest for data production jobs
+
   stock_trade_day_sensor:
     input:
       silver_trade_calendar

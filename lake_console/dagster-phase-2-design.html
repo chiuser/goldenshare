@@ -313,11 +313,11 @@
         </tr>
         <tr>
           <td>数据拉取</td>
-          <td>第二期纳入 <code>TushareResource</code>。历史日期优先由旧湖 bootstrap 拉齐；bootstrap 之后的新日期由 <code>daily</code> 与 <code>suspend_d</code> 按交易日分区拉取，其中当天股票日线必须等 Tushare 源站 ready。<code>trade_cal</code> 是低频区间基础资产；<code>stock_basic</code> 改按日更全量快照基础资产理解，因为新股上市当日会影响 <code>silver_stock_daily</code> 的股票池过滤和完整性检查。业务 gold job 只读消费这些基础资产，不把它们加入自己的 selection 里重复写。</td>
+          <td>第二期纳入 <code>TushareResource</code>。历史日期优先由旧湖 bootstrap 拉齐；bootstrap 之后的新日期由 <code>daily</code> 与 <code>suspend_d</code> 按交易日分区拉取，其中当天股票日线必须等 Tushare 源站 ready。<code>trade_cal</code> 由 <code>calendar_update_job</code> 维护 full 文件，当前代码为支持指数历史已扩展为 <code>trade_cal(exchange=SSE,start_date=19900101,end_date=当前年份1231)</code>；它仍不进入股票行情日频或 breadth job selection。<code>stock_basic</code> 改按日更全量快照基础资产理解，因为新股上市当日会影响 <code>silver_stock_daily</code> 的股票池过滤和完整性检查。业务 gold job 只读消费这些基础资产，不把它们加入自己的 selection 里重复写。</td>
         </tr>
         <tr>
           <td>触发方式</td>
-          <td><code>Slice 2.2.1e</code> 后，<code>stock_trade_day_sensor</code> 只负责注册交易日 partition；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别负责资产族更新触发。<code>stock_daily_sensor</code> 只有在 stock basic、suspend_d 和 Tushare daily readiness 门禁通过后才触发 <code>stock_daily_update_job</code>。下游 market breadth 优先使用 declarative automation 等待直接输入 <code>silver_stock_daily</code> ready；asset sensor 只作为验证不通后的后备方案或通知/告警用途。</td>
+          <td><code>Slice 2.2.1e</code> 后，股票链路使用多 sensor 模型：<code>cn_a_trade_day_sensor</code> 只注册全量 SSE open day 备份分区 <code>cn_a_trade_days</code>；<code>stock_trade_day_sensor</code> 只注册股票资产族分区 <code>cn_a_stock_trade_days</code>；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别负责资产族更新触发。<code>stock_daily_sensor</code> 只有在 stock basic、suspend_d 和 Tushare daily readiness 门禁通过后才触发 <code>stock_daily_update_job</code>。下游 market breadth 优先使用 declarative automation 等待直接输入 <code>silver_stock_daily</code> ready；asset sensor 只作为验证不通后的后备方案或通知/告警用途。</td>
         </tr>
         <tr>
           <td>schedule</td>
@@ -621,8 +621,8 @@
         <tr>
           <td><code>calendar_update_job</code></td>
           <td><code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code></td>
-          <td>低频区间更新，不按每日行情分区反复跑。</td>
-          <td>维护 A 股交易日事实，为 <code>cn_a_stock_trade_days</code> dynamic partitions 提供依据。</td>
+          <td>full 文件更新，不按每日行情分区反复跑。</td>
+          <td>维护 A 股交易日事实；当前请求起点为 <code>19900101</code>，为 <code>cn_a_trade_days</code> 全量备份、<code>cn_a_stock_trade_days</code> 股票分区和 <code>cn_a_index_trade_days</code> 指数分区提供依据。</td>
         </tr>
         <tr>
           <td><code>basic_update_job</code></td>
@@ -642,7 +642,10 @@
 
     <pre><code>calendar_update_job
   ↓
-cn_a_stock_trade_days / partition keys
+silver_trade_calendar
+  ↓
+cn_a_trade_days backup partitions
+cn_a_stock_trade_days stock partitions
 
 basic_update_job
   ↓
@@ -959,7 +962,16 @@ defs/jobs/calendar_update.py
       raw_tushare_trade_calendar
       silver_trade_calendar
     partition:
-      low-frequency calendar window
+      no partition / full trade calendar file
+    request:
+      trade_cal(exchange=SSE,start_date=19900101,end_date=当前年份1231)
+
+defs/sensors/cn_a_trade_day_sensor.py
+  cn_a_trade_day_sensor
+    1. 读取 silver_trade_calendar 中全量 SSE open day
+    2. 注册 cn_a_trade_days dynamic partition keys
+    3. 只作为全量备份和对照分区集合
+    4. 不直接写任何数据资产，不触发任何数据生产 job
 
 defs/jobs/daily_market_breadth.py
   daily_market_breadth_job
@@ -1012,6 +1024,7 @@ defs/sensors/stock_daily_sensor.py
   监听 cn_a_stock_trade_days 中已注册但 stock_daily 未 ready 的分区
   只有 stock_basic ready、suspend_d[trade_date] ready、Tushare daily 源站 ready 时，才触发 stock_daily_update_job[trade_date]
 
+future only / not current code:
 defs/sensors/market_breadth_alerts.py
   默认不作为生产触发入口
   仅在以下情况考虑：
@@ -1019,10 +1032,12 @@ defs/sensors/market_breadth_alerts.py
     2. declarative automation 无法表达的复杂自定义触发
     3. LLD 验证后确认 gold 自动化必须通过自定义 sensor 查询
 
+future only / not current code:
 defs/schedules/stock_daily_update_schedule.py
   可选兜底
     固定时间触发“最近应跑交易日”的股票日线检查，不直接替代 stock_trade_day_sensor
 
+future only / not current code:
 defs/schedules/daily_market_breadth_schedule.py
   可选兜底
     固定时间触发下游 readiness 检查，不直接替代 declarative automation</code></pre>
@@ -1046,12 +1061,18 @@ defs/schedules/daily_market_breadth_schedule.py
     <h3>5.1.1 新拍板：多 Sensor 触发模型</h3>
     <div class="callout">
       <strong>最新口径：</strong>
-      <code>stock_trade_day_sensor</code> 当前只做“交易日注册器”：发现合法交易日并注册 <code>cn_a_stock_trade_days</code>。
+      <code>cn_a_trade_day_sensor</code> 当前只注册全量 SSE open day 备份分区 <code>cn_a_trade_days</code>，不触发数据生产；
+      <code>stock_trade_day_sensor</code> 当前只做“股票资产族交易日注册器”：发现合法交易日并注册 <code>cn_a_stock_trade_days</code>。
       具体数据集更新由资产族自己的 sensor 负责，例如 <code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code>。
       这样避免一个 sensor 变成巨型调度脚本，也让每个资产族的 ready 条件、run key、cursor 和失败重跑策略都保持单一职责。
     </div>
 
     <pre><code>推荐触发关系：
+cn_a_trade_day_sensor
+  读取 silver_trade_calendar 中全量 SSE open day
+  注册 cn_a_trade_days backup partition
+  不发具体数据生产 run
+
 stock_trade_day_sensor
   发现合法交易日
   注册 cn_a_stock_trade_days partition
@@ -1465,7 +1486,7 @@ silver / gold / checks</code></pre>
           <td>按日期区间拉取 SSE 日历，用于更新 raw/silver 交易日事实。</td>
           <td><code>exchange=SSE</code>、<code>start_date</code>、<code>end_date</code>；不默认只传 <code>is_open=1</code>。</td>
           <td><code>exchange, cal_date, is_open, pretrade_date</code></td>
-          <td>低频基础数据，不混进日频股票行情 / breadth 链路反复跑。</td>
+          <td>full 文件基础数据，不混进日频股票行情 / breadth 链路反复跑；当前实现请求 <code>19900101</code> 至当前年份年末的 SSE 日历。</td>
         </tr>
         <tr>
           <td><code>stock_basic</code></td>
@@ -1513,8 +1534,8 @@ silver / gold / checks</code></pre>
         </tr>
         <tr>
           <td><code>raw_tushare_trade_calendar</code></td>
-          <td>低频区间配置，例如 <code>2026</code> 年。</td>
-          <td><code>{"exchange": "SSE", "start_date": "20260101", "end_date": "20261231"}</code></td>
+          <td>full 文件配置，当前实现从 <code>19900101</code> 拉到当前年份年末。</td>
+          <td><code>{"exchange": "SSE", "start_date": "19900101", "end_date": "当前年份1231"}</code></td>
           <td><code>exchange, cal_date, is_open, pretrade_date</code></td>
           <td>raw 不默认传 <code>is_open=1</code>，因为 raw 要保留开市和休市事实；silver 再筛交易日。</td>
         </tr>
@@ -1574,7 +1595,7 @@ request:
   api_name = "trade_cal"
   params = {
     "exchange": "SSE",
-    "start_date": "20260101",
+    "start_date": "19900101",
     "end_date": "20261231",
   }
   fields = ["exchange", "cal_date", "is_open", "pretrade_date"]
@@ -1714,7 +1735,7 @@ raw_tushare_trade_calendar:
   output:
     raw/tushare/trade_calendar/full/part-000.parquet
   update policy:
-    低频区间覆盖全量文件，不进入日频股票行情 / breadth run
+    full 文件覆盖交易日历，不进入日频股票行情 / breadth run
 
 raw_tushare_stock_basic:
   request:
@@ -1934,7 +1955,7 @@ gold asset checks</code></pre>
         <tr>
           <td><code>raw_tushare_trade_calendar</code></td>
           <td>字段完整、包含 <code>SSE</code>、<code>cal_date</code> 不为空、<code>is_open</code> 只允许 0/1。</td>
-          <td>这是低频基础数据，失败会影响 <code>stock_trade_day_sensor</code> 和 dynamic partitions，不直接进入日频股票行情 / breadth run。</td>
+          <td>这是 full 文件基础数据，失败会影响 <code>cn_a_trade_day_sensor</code>、<code>stock_trade_day_sensor</code> 和相关 dynamic partitions，不直接进入日频股票行情 / breadth run。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_stock_basic</code></td>
@@ -2265,14 +2286,16 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
       stock_basic.py
       stock_daily.py
   sensors/
-    stock_trade_day_sensor.py  # 只注册交易日 partition，不触发数据生产 job
+    cn_a_trade_day_sensor.py   # 只注册全量 SSE open day 备份分区
+    stock_trade_day_sensor.py  # 只注册股票资产族交易日 partition，不触发数据生产 job
     suspend_d_sensor.py       # 触发 suspend_update_job
     stock_basic_sensor.py     # 触发 basic_update_job
     stock_daily_sensor.py     # 触发 stock_daily_update_job
-    market_breadth_alerts.py  # 后备：通知、告警或复杂自定义触发，不作为默认生产触发
-  schedules/
-    stock_daily_update.py  # 可选固定时间兜底检查股票日线更新
-    daily_market_breadth.py   # 可选固定时间兜底检查下游 readiness
+    market_breadth_automation_sensor.py  # 市场宽度 declarative automation 专用 sensor
+  future only / not current code:
+    sensors/market_breadth_alerts.py     # 后备：通知、告警或复杂自定义触发
+    schedules/stock_daily_update.py      # 可选固定时间兜底检查股票日线更新
+    schedules/daily_market_breadth.py    # 可选固定时间兜底检查下游 readiness
   automation/
     # 当前不需要额外 market breadth readiness asset；gold asset 上直接声明 automation condition</code></pre>
   </section>
@@ -2344,7 +2367,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>第二期是否实现 <code>TushareResource</code> 拉取 raw？</td>
-          <td>已确认纳入第二期。<code>suspend_d</code> 进入 <code>suspend_update_job</code>；<code>daily</code> 进入 <code>stock_daily_update_job</code>；<code>trade_cal</code> 进入 <code>calendar_update_job</code> 的低频区间更新；<code>stock_basic</code> 进入 <code>basic_update_job</code> 的日更全量快照更新。</td>
+          <td>已确认纳入第二期。<code>suspend_d</code> 进入 <code>suspend_update_job</code>；<code>daily</code> 进入 <code>stock_daily_update_job</code>；<code>trade_cal</code> 进入 <code>calendar_update_job</code> 的 full 文件更新；<code>stock_basic</code> 进入 <code>basic_update_job</code> 的日更全量快照更新。</td>
           <td>如果不接入 raw 拉取，新交易日没有 raw 数据，自动化链路只能调度但无法真正生产新分区。</td>
         </tr>
         <tr>
