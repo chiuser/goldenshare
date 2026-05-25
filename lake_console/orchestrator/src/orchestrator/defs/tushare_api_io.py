@@ -10,6 +10,7 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
 )
 from orchestrator.defs.resources import DuckDBResource, TushareResource
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 TUSHARE_API_SOURCE_METHOD = "tushare_api"
@@ -132,6 +133,7 @@ def fetch_tushare_index_daily_by_code_to_raw(
     staging_dir: Path,
     write_mode: str,
     limit: int = TUSHARE_INDEX_DAILY_PAGE_LIMIT,
+    log: DgStdoutLogger | None = None,
 ) -> dict[str, Any]:
     if write_mode != "replace":
         raise ValueError("index_daily raw-by-code only supports write_mode='replace'.")
@@ -143,6 +145,16 @@ def fetch_tushare_index_daily_by_code_to_raw(
         "start_date": start_date,
         "end_date": end_date,
     }
+    if log:
+        log.stdout(
+            "fetch_start",
+            code=ts_code,
+            start_date=start_date,
+            end_date=end_date,
+            write_mode=write_mode,
+            limit=limit,
+            staging_dir=staging_dir,
+        )
     rows, page_count = _fetch_all_pages(
         tushare=tushare,
         api_name="index_daily",
@@ -160,6 +172,15 @@ def fetch_tushare_index_daily_by_code_to_raw(
             "Tushare index_daily returned 0 rows for "
             f"ts_code={ts_code}, start_date={start_date}, end_date={end_date}."
         )
+    if log:
+        log.stdout(
+            "fetch_progress",
+            code=ts_code,
+            start_date=start_date,
+            end_date=end_date,
+            rows=len(window_rows),
+            pages=page_count,
+        )
 
     if staging_dir.exists():
         raise RuntimeError(f"Index daily by-code staging directory already exists: {staging_dir}")
@@ -174,6 +195,15 @@ def fetch_tushare_index_daily_by_code_to_raw(
             column_types=column_types,
             target_path=staging_path,
         )
+        if log:
+            log.stdout("staging_written", rows=len(window_rows), path=staging_path)
+            log.stdout(
+                "raw_by_code_replace_start",
+                code=ts_code,
+                start_date=start_date,
+                end_date=end_date,
+                path=target_path,
+            )
         output_row_count = _replace_index_daily_by_code_window(
             duckdb=duckdb,
             ts_code=ts_code,
@@ -185,9 +215,26 @@ def fetch_tushare_index_daily_by_code_to_raw(
             staging_path=staging_path,
         )
     except Exception:
+        if log:
+            log.stdout("staging_retained", staging_dir=staging_dir, reason="exception")
         raise
     else:
-        shutil.rmtree(staging_dir)
+        try:
+            shutil.rmtree(staging_dir)
+        except Exception:
+            if log:
+                log.stdout("staging_retained", staging_dir=staging_dir, reason="cleanup_failed")
+            raise
+        if log:
+            log.stdout(
+                "raw_by_code_written",
+                code=ts_code,
+                start_date=start_date,
+                end_date=end_date,
+                rows=output_row_count,
+                path=target_path,
+            )
+            log.stdout("staging_cleaned", staging_dir=staging_dir)
 
     return {
         "source_method": TUSHARE_API_SOURCE_METHOD,

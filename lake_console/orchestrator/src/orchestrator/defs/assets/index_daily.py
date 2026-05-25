@@ -394,6 +394,7 @@ def raw_tushare_index_daily_by_code(
             ts_code,
         ),
         write_mode=config.write_mode,
+        log=DgStdoutLogger("index_daily"),
     )
 
     return dg.MaterializeResult(
