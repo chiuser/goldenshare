@@ -5,3 +5,4 @@ import dagster as dg
 cn_a_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_trade_days")
 cn_a_stock_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_stock_trade_days")
 cn_a_index_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_index_trade_days")
+cn_a_index_ts_codes = dg.DynamicPartitionsDefinition(name="cn_a_index_ts_codes")

@@ -852,7 +852,7 @@ silver_index_daily_update_job[trade_date]
       <tr>
         <td><code>write_mode</code></td>
         <td>enum</td>
-        <td>写入模式，第一版支持 <code>replace</code> 与 <code>merge</code>。</td>
+        <td>写入模式，第一版只支持 <code>replace</code>。</td>
         <td>必须显式传入；sensor 日更默认使用 <code>replace</code>。</td>
       </tr>
       </tbody>
@@ -875,8 +875,8 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td><code>merge</code></td>
-        <td>只按 <code>ts_code + trade_date</code> upsert 本次返回行，不主动删除区间内源站没有返回的行。</td>
-        <td>谨慎用于补充性写入。若要确保某日源站数据覆盖本地，优先使用 <code>replace</code>。</td>
+        <td>第一版暂不实现。</td>
+        <td>后续只有在明确需要补充性 upsert，且不会削弱数据覆盖校验时再单独设计。</td>
       </tr>
       </tbody>
     </table>
@@ -913,6 +913,11 @@ silver_index_daily_update_job[trade_date]
         <td>触发 raw 更新</td>
         <td>为每个 <code>ts_code</code> 发 <code>RunRequest(partition_key=ts_code)</code>，config 使用当天日期窗口。</td>
         <td>run_key 使用 <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;</code> 防重复。</td>
+      </tr>
+      <tr>
+        <td>单 tick 限流</td>
+        <td>每次 sensor tick 最多提交 <code>500</code> 个 <code>RunRequest</code>。</td>
+        <td>sensor 默认 <code>STOPPED</code>；首次启用前必须 preview，不能跳过预览直接长期开启。</td>
       </tr>
       </tbody>
     </table>
@@ -1010,7 +1015,7 @@ silver_index_daily_update_job[trade_date]
       <tr>
         <td><code>raw_tushare_index_daily</code></td>
         <td>旧 trade_date raw asset。</td>
-        <td>新 raw asset 上线后进入 deprecated 阶段；确认无下游后移除。旧 raw 文件保留为审计资料，除非用户另行批准清理。</td>
+        <td>新链路开发完成并跑完历史重建后立即删除旧 definition。旧 raw 文件保留为审计资料，除非用户另行批准清理。</td>
       </tr>
       <tr>
         <td><code>index_daily_history_backfill_job</code></td>
@@ -1029,10 +1034,10 @@ silver_index_daily_update_job[trade_date]
     <ol>
       <li>阶段一：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code>，但不删除旧定义。</li>
       <li>阶段一：把旧 active pool jobs 从 active Definitions 中移除或标记不可生产使用，确保 UI 不再有可误点的旧生产入口。</li>
-      <li>阶段一：保留旧 asset 定义一个过渡期，放入清晰的 deprecated group/description，避免历史 run 中的 asset 链接突然不可解析。</li>
+      <li>阶段一：旧 asset 定义只在新链路开发和历史重建期间临时保留，避免迁移中断；不做长期 deprecated 保留。</li>
       <li>阶段一：完成新 raw 小范围验证和 silver 小范围重建验证。</li>
       <li>阶段二：做 <code>rg</code> 引用审计，确认旧 active pool asset/job/check/path/PG 表没有当前代码消费者。</li>
-      <li>阶段二：移除旧 asset/check/job 定义；历史 Dagster run/event 不删除，只作为审计记录保留。</li>
+      <li>阶段二：新链路开发完成并跑完历史重建后，立即移除旧 asset/check/job 定义；历史 Dagster run/event 不删除，只作为审计记录保留。</li>
       <li>阶段二：PG 表只在用户明确批准、且已有导出备份后退场；退场动作必须单独执行，不混在业务代码提交里。</li>
     </ol>
 
@@ -1101,7 +1106,7 @@ silver_index_daily_update_job[trade_date]
       </div>
       <div class="card">
         <h3>历史 UI 链接风险</h3>
-        <p>旧 asset 定义立即删除可能让历史 run 的资产跳转不稳定。建议先 deprecated 过渡，再移除。</p>
+        <p>旧 asset 定义不长期保留。新链路完成并跑完历史重建后立即删除旧链路；历史 run/event 保留审计，不物理清理。</p>
       </div>
       <div class="card">
         <h3>Sensor run 爆炸</h3>
@@ -1119,7 +1124,7 @@ silver_index_daily_update_job[trade_date]
   </section>
 
   <section>
-    <h2>13. 待拍板问题</h2>
+    <h2>13. 已拍板口径与后续评估</h2>
     <table>
       <thead>
       <tr>
@@ -1130,19 +1135,19 @@ silver_index_daily_update_job[trade_date]
       <tbody>
       <tr>
         <td><code>write_mode</code> 是否保留 <code>merge</code></td>
-        <td>建议保留，但日更 sensor 默认只用 <code>replace</code>。若用户希望第一版更简单，也可以只实现 <code>replace</code>。</td>
+        <td>已拍板：第一版只实现 <code>replace</code>，<code>merge</code> 暂不实现。</td>
       </tr>
       <tr>
-        <td>旧 asset 定义 deprecated 过渡多久</td>
-        <td>建议至少覆盖一次新链路全量验收周期，确认历史 UI 可接受后再移除。</td>
+        <td>旧 asset 定义保留多久</td>
+        <td>已拍板：不长期保留。新链路开发完成并跑完历史重建后，立即进入旧链路删除 slice。</td>
       </tr>
       <tr>
         <td>Silver 自动触发是否进入第一轮</td>
-        <td>建议第一轮先 raw-by-code 跑通，Silver 用单独 job 手工验证；自动 silver sensor 作为后续 Slice。</td>
+        <td>已拍板：当前不设计、不实现；到 Slice C 改造 <code>silver_index_daily</code> 时再评估。</td>
       </tr>
       <tr>
         <td>每日 sensor 单 tick 最大 run 数</td>
-        <td>建议先设一个保守上限，例如 100 或 200，避免误配置时一次性打爆 run 队列。具体值开发前再拍板。</td>
+        <td>已拍板：设计值为 <code>500</code>；首次启用前必须 preview。</td>
       </tr>
       </tbody>
     </table>

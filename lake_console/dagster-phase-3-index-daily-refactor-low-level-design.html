@@ -526,13 +526,13 @@
     <pre>class IndexDailyRawUpdateConfig(dg.Config):
     start_date: str
     end_date: str
-    write_mode: Literal["replace", "merge"]</pre>
+    write_mode: Literal["replace"]</pre>
     <ul>
       <li><code>start_date</code> 和 <code>end_date</code> 接受 <code>YYYY-MM-DD</code>，请求 Tushare 前转换为 <code>YYYYMMDD</code>。</li>
       <li>必须校验 <code>start_date &lt;= end_date</code>。</li>
       <li>必须校验 <code>start_date &gt;= 2000-01-01</code>。</li>
       <li>Sensor 日更默认传 <code>write_mode="replace"</code>。</li>
-      <li>人工补数可选择 <code>replace</code> 或 <code>merge</code>，但 LLD 建议优先使用 <code>replace</code>。</li>
+      <li>人工补数第一版也只允许 <code>replace</code>；<code>merge</code> 暂不实现。</li>
     </ul>
 
     <h3>6.2 Tushare 请求</h3>
@@ -559,10 +559,8 @@ fields = INDEX_DAILY_RAW_COLUMNS</pre>
 6. if write_mode == "replace":
      delete existing rows where trade_date in requested window
      append fetched rows
-   if write_mode == "merge":
-     upsert fetched rows by ts_code + trade_date
 7. validate output has only raw contract columns
-8. COPY merged query TO target.tmp
+8. COPY rebuilt query TO target.tmp
 9. os.replace(target.tmp, target)
 10. return MaterializeResult metadata</pre>
     <p>
@@ -810,7 +808,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>单 tick 限流</td>
-        <td>开发前需拍板，例如 100 或 200；不能无限提交全部 codes。</td>
+        <td>固定为 <code>500</code>；不能无限提交全部 codes。首次启用前必须 preview。</td>
       </tr>
       <tr>
         <td>SkipReason</td>
@@ -833,7 +831,7 @@ def index_daily_sensor(context):
       <li>改造 <code>index_daily_checks.py</code>，去掉 active pool coverage 依赖。</li>
       <li>改造 <code>market_major_indices_checks.py</code> 中对 <code>silver_index_daily_active_pool</code> 的依赖。</li>
       <li>确认 <code>rg "silver_index_daily_active_pool|index_daily_active_pool"</code> 只剩退场文档或明确保留定义。</li>
-      <li>过渡期后再移除旧 asset/check 文件；不在同一 slice 顺手删除 PG 表。</li>
+      <li>新链路开发完成并跑完历史重建后，立即移除旧 asset/check/job 定义；不在同一 slice 顺手删除 PG 表。</li>
     </ol>
 
     <h3>11.2 PG 表退场</h3>
@@ -860,7 +858,7 @@ def index_daily_sensor(context):
     <ul>
       <li>不删除 Dagster PostgreSQL 中旧 run/event/backfill 记录。</li>
       <li>旧 run 保持审计用途；新 run 通过 asset/job 名称和 tags 区分。</li>
-      <li>为了避免 UI 历史 asset 链接突然不可解析，旧 asset definition 可保留一个过渡期，并放到清晰的 deprecated group/description。</li>
+      <li>旧 asset definition 只在开发和历史重建期间临时保留；新链路跑完历史重建后立即删除，不做长期 deprecated 保留。</li>
       <li>旧 job 不应继续作为 active 生产入口出现，避免用户误点。</li>
     </ul>
   </section>
@@ -931,7 +929,7 @@ def index_daily_sensor(context):
   </section>
 
   <section>
-    <h2>14. 待拍板项</h2>
+    <h2>14. 已拍板口径与后续评估</h2>
     <table>
       <thead>
       <tr>
@@ -942,19 +940,19 @@ def index_daily_sensor(context):
       <tbody>
       <tr>
         <td>第一版是否实现 <code>merge</code></td>
-        <td>如果想降低复杂度，第一版只实现 <code>replace</code> 也可以；但本文按设计文档保留两种模式。</td>
+        <td>已拍板：第一版只实现 <code>replace</code>，不实现 <code>merge</code>。</td>
       </tr>
       <tr>
         <td>Sensor 单 tick 最大请求数</td>
-        <td>建议开发前拍板一个保守值，例如 100 或 200。</td>
+        <td>已拍板：固定为 <code>500</code>；首次启用前必须 preview。</td>
       </tr>
       <tr>
         <td>Silver 自动触发是否随第一轮实现</td>
-        <td>建议不放入第一轮。先手工验证 silver job，再设计 <code>silver_index_daily_sensor</code>。</td>
+        <td>已拍板：当前不设计、不实现；到 Slice C 改造 <code>silver_index_daily</code> 时再评估。</td>
       </tr>
       <tr>
         <td>旧 asset definition 保留多久</td>
-        <td>建议至少保留到新链路完成一次全量验收，并确认 UI 历史链接没有明显问题。</td>
+        <td>已拍板：不长期保留。新链路开发完成并跑完历史重建后，立即进入旧链路删除 slice。</td>
       </tr>
       </tbody>
     </table>

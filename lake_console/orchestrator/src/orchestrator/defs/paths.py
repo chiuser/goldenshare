@@ -123,6 +123,29 @@ def raw_index_daily_staging_dir(root: Path, run_id: str) -> Path:
     return lake_path(root, RAW, "tushare", "index_daily", "_staging", f"run_id={run_id}")
 
 
+def raw_index_daily_by_code_path(root: Path, ts_code: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "index_daily_by_code",
+        f"ts_code={ts_code}",
+        "part-000.parquet",
+    )
+
+
+def raw_index_daily_by_code_staging_dir(root: Path, run_id: str, ts_code: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "index_daily_by_code",
+        "_staging",
+        f"run_id={run_id}",
+        f"ts_code={ts_code}",
+    )
+
+
 def silver_index_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,
