@@ -221,6 +221,7 @@ def fetch_tushare_index_daily_by_code_to_raw(
     else:
         try:
             shutil.rmtree(staging_dir)
+            _remove_empty_staging_parent_dirs(staging_dir)
         except Exception:
             if log:
                 log.stdout("staging_retained", staging_dir=staging_dir, reason="cleanup_failed")
@@ -251,6 +252,15 @@ def fetch_tushare_index_daily_by_code_to_raw(
         "row_count": output_row_count,
         "path": str(target_path),
     }
+
+
+def _remove_empty_staging_parent_dirs(staging_dir: Path) -> None:
+    """Remove empty run-level staging parents left after a successful write."""
+    for directory in (staging_dir.parent, staging_dir.parent.parent):
+        try:
+            directory.rmdir()
+        except OSError:
+            break
 
 
 def _fetch_all_pages(
