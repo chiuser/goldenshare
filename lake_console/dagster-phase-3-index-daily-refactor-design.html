@@ -1,0 +1,1168 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster Phase 3 Index Daily 重构设计</title>
+  <style>
+    :root {
+      --bg: #f6f2ea;
+      --paper: #fffdf7;
+      --ink: #1d2433;
+      --muted: #687386;
+      --line: #ddd5c7;
+      --strong: #0f5f6d;
+      --strong-2: #8a4b18;
+      --danger: #9f2f2f;
+      --ok: #2f6f3e;
+      --code-bg: #f0eadf;
+      --card: #ffffff;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background:
+        radial-gradient(circle at top left, rgba(15, 95, 109, 0.12), transparent 30rem),
+        linear-gradient(180deg, #faf7ef 0%, var(--bg) 100%);
+      color: var(--ink);
+      font-family: "Songti SC", "Noto Serif CJK SC", "Source Han Serif SC", Georgia, serif;
+      line-height: 1.72;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 42px 0 72px;
+    }
+
+    header {
+      padding: 34px 38px;
+      border: 1px solid var(--line);
+      border-radius: 28px;
+      background: rgba(255, 253, 247, 0.88);
+      box-shadow: 0 24px 60px rgba(68, 54, 31, 0.10);
+    }
+
+    h1 {
+      margin: 0 0 10px;
+      font-size: clamp(32px, 5vw, 54px);
+      letter-spacing: -0.04em;
+      line-height: 1.08;
+    }
+
+    h2 {
+      margin: 46px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 2px solid var(--line);
+      font-size: 28px;
+      letter-spacing: -0.02em;
+    }
+
+    h3 {
+      margin: 26px 0 8px;
+      font-size: 21px;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .badge-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 20px;
+    }
+
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      padding: 6px 12px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff9ec;
+      color: #3d4654;
+      font-size: 14px;
+    }
+
+    section {
+      margin-top: 28px;
+      padding: 28px 32px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background: rgba(255, 253, 247, 0.92);
+    }
+
+    .callout {
+      margin: 18px 0;
+      padding: 16px 18px;
+      border-left: 5px solid var(--strong);
+      border-radius: 14px;
+      background: #eef7f4;
+    }
+
+    .danger {
+      border-left-color: var(--danger);
+      background: #fff0ed;
+    }
+
+    .warn {
+      border-left-color: var(--strong-2);
+      background: #fff6e8;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .card {
+      padding: 18px;
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--card);
+    }
+
+    .card h3 {
+      margin-top: 0;
+      color: var(--strong);
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 6px;
+      background: var(--code-bg);
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow-x: auto;
+      padding: 18px;
+      border-radius: 16px;
+      background: #17202a;
+      color: #f8f0dd;
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 14px;
+      line-height: 1.6;
+    }
+
+    table {
+      width: 100%;
+      margin: 16px 0 22px;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: #fff;
+    }
+
+    th,
+    td {
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f2eadb;
+      color: #2f3847;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td {
+      border-bottom: 0;
+    }
+
+    ul,
+    ol {
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 7px 0;
+    }
+
+    .status {
+      font-weight: 700;
+      color: var(--strong);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .diagram {
+      margin: 22px 0;
+      padding: 20px;
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      background:
+        linear-gradient(135deg, rgba(15, 95, 109, 0.08), transparent 32%),
+        #fffaf0;
+    }
+
+    .diagram-title {
+      margin: 0 0 14px;
+      color: var(--strong);
+      font-size: 20px;
+      font-weight: 800;
+    }
+
+    .diagram-grid {
+      display: grid;
+      grid-template-columns: 1fr 56px 1fr 56px 1fr;
+      gap: 10px;
+      align-items: stretch;
+    }
+
+    .diagram-col {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      min-width: 0;
+    }
+
+    .diagram-col h4 {
+      margin: 0 0 2px;
+      color: #435064;
+      font-size: 14px;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    .node {
+      padding: 12px 13px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #fff;
+      box-shadow: 0 8px 20px rgba(68, 54, 31, 0.07);
+      font-size: 14px;
+    }
+
+    .node strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+
+    .node.partition {
+      border-color: #99c7c9;
+      background: #f0fbfa;
+    }
+
+    .node.sensor {
+      border-color: #d7a86d;
+      background: #fff5e4;
+    }
+
+    .node.job {
+      border-color: #9fb4dc;
+      background: #f3f6ff;
+    }
+
+    .node.asset {
+      border-color: #9ec79d;
+      background: #f4fbf2;
+    }
+
+    .node.check {
+      border-color: #d9a2a2;
+      background: #fff5f5;
+    }
+
+    .node.file {
+      border-style: dashed;
+      background: #fffdf7;
+    }
+
+    .arrow-col {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 18px;
+      color: var(--strong);
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 24px;
+      font-weight: 800;
+    }
+
+    .arrow-note {
+      writing-mode: vertical-rl;
+      color: var(--muted);
+      font-size: 12px;
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      letter-spacing: 0.08em;
+    }
+
+    .sequence {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(120px, 1fr));
+      gap: 10px;
+      margin-top: 16px;
+    }
+
+    .step {
+      position: relative;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 15px;
+      background: #fff;
+      font-size: 14px;
+    }
+
+    .step::after {
+      content: "→";
+      position: absolute;
+      right: -17px;
+      top: 50%;
+      transform: translateY(-50%);
+      color: var(--strong);
+      font-weight: 900;
+    }
+
+    .step:last-child::after {
+      display: none;
+    }
+
+    .step b {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--strong);
+    }
+
+    @media (max-width: 900px) {
+      .diagram-grid,
+      .sequence {
+        display: block;
+      }
+
+      .diagram-col,
+      .step {
+        margin-bottom: 12px;
+      }
+
+      .arrow-col,
+      .step::after {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster Phase 3 Index Daily 重构设计</h1>
+    <p class="subtitle">
+      本文是指数日线 <code>index_daily</code> 的新方案设计文档。它不是当前代码事实说明，
+      而是后续重构落地前的准口径草案。本文只描述设计，不表示已经修改代码或执行迁移。
+    </p>
+    <div class="badge-row">
+      <span class="badge">目标起点：2000-01-01</span>
+      <span class="badge">Raw 分区：cn_a_index_ts_codes</span>
+      <span class="badge">Raw 粒度：ts_code</span>
+      <span class="badge">Silver 粒度：trade_date</span>
+      <span class="badge">初始化来源：外部 CSV</span>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 设计结论</h2>
+    <div class="callout">
+      <p>
+        新方案把 <code>index_daily</code> 从“按交易日拉全部指数”改成“按指数代码拉一段时间窗口”。
+        Raw 层使用 <code>cn_a_index_ts_codes</code> dynamic partitions 承载指数代码；Silver 层继续按交易日分区，
+        保持下游业务查询和现有 <code>silver_index_daily</code> 事实口径稳定。
+      </p>
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>层级</th>
+        <th>目标资产</th>
+        <th>分区</th>
+        <th>职责</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Raw</td>
+        <td><code>raw_tushare_index_daily_by_code[ts_code]</code></td>
+        <td><code>cn_a_index_ts_codes</code></td>
+        <td>按单个指数代码向 Tushare 拉取 <code>start_date</code> 到 <code>end_date</code> 的日线数据，写入该代码自己的 raw parquet。</td>
+      </tr>
+      <tr>
+        <td>Silver</td>
+        <td><code>silver_index_daily[trade_date]</code></td>
+        <td><code>cn_a_index_trade_days</code></td>
+        <td>从 raw-by-code 文件中按交易日抽取、标准化、去重、校验，产出按交易日组织的标准事实表。</td>
+      </tr>
+      <tr>
+        <td>Sensor</td>
+        <td><code>index_daily_sensor</code></td>
+        <td>读取 <code>cn_a_index_ts_codes</code></td>
+        <td>判断交易日和 Tushare 源站 ready 后，为每个指数代码发起 raw 更新 run。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      这套方案的核心取舍是：Raw 层更适合“按代码拉取与修复”，Silver 层更适合“按交易日服务下游”。
+      两者不再强行使用同一个分区维度。
+    </p>
+  </section>
+
+  <section>
+    <h2>2. 当前代码事实与问题</h2>
+    <p>本轮设计前已阅读当前 <code>lake_console/orchestrator</code> 下相关代码与文档，当前实现的主要事实如下。</p>
+    <table>
+      <thead>
+      <tr>
+        <th>当前实现</th>
+        <th>代码事实</th>
+        <th>重构原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Active pool</td>
+        <td>
+          <code>silver_index_daily_active_pool</code> 由本地 PostgreSQL
+          <code>goldenshare_lake_meta.index_daily_active_pool</code> 生成；
+          另有 <code>index_daily_active_pool_update_job</code> 维护入口。
+        </td>
+        <td>为了决定拉哪些指数而维护一张 PG 池表，机制偏重；后续改为 <code>cn_a_index_ts_codes</code> dynamic partitions，由外部 CSV 初始化。</td>
+      </tr>
+      <tr>
+        <td>Raw 按交易日</td>
+        <td>
+          当前 <code>raw_tushare_index_daily[trade_date]</code> 写入
+          <code>raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>。
+        </td>
+        <td>单指数补数时必须按交易日改很多文件；按代码维护 raw 更自然，也更适合 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 的请求方式。</td>
+      </tr>
+      <tr>
+        <td>Silver 按交易日</td>
+        <td>
+          当前 <code>silver_index_daily[trade_date]</code> 写入
+          <code>silver/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>。
+        </td>
+        <td>这个口径适合下游按日查询，保留不变；变化只发生在上游 raw 组织方式和生成方式。</td>
+      </tr>
+      <tr>
+        <td>历史回填</td>
+        <td>
+          当前有 <code>index_daily_history_backfill_job</code> 这类 op job，通过 config 指定大区间。
+        </td>
+        <td>新方案应优先使用 partitioned asset job，让 UI 能按 <code>ts_code</code> 选择分区；历史大批量可以接受 run 数较多，但分区状态更清晰。</td>
+      </tr>
+      <tr>
+        <td>按代码修复</td>
+        <td>
+          当前有 <code>index_daily_repair_by_codes_job</code>，本质是在旧的 trade_date raw 布局上做代码级修复。
+        </td>
+        <td>新 raw-by-code 布局天然支持单代码重跑，修复入口应退化为普通的分区重跑，不再需要专门 repair job。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 目标架构</h2>
+    <pre>外部 CSV
+  └─ 初始化 Dynamic Partitions: cn_a_index_ts_codes
+       ├─ 000001.SH
+       ├─ 399001.SZ
+       └─ ...
+
+index_daily_sensor
+  ├─ 判断今天是否交易日
+  ├─ 判断 Tushare index_daily 是否 ready
+  ├─ 读取 cn_a_index_ts_codes
+  └─ 为每个 ts_code 发 RunRequest
+
+index_daily_update_job[ts_code]
+  └─ raw_tushare_index_daily_by_code[ts_code]
+       └─ raw/tushare/index_daily_by_code/ts_code=&lt;TS_CODE&gt;/part-000.parquet
+
+silver_index_daily_update_job[trade_date]
+  └─ silver_index_daily[trade_date]
+       └─ silver/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</pre>
+    <div class="warn callout">
+      <p>
+        关键约束：Raw asset 使用 <code>cn_a_index_ts_codes</code> 分区，Silver asset 使用
+        <code>cn_a_index_trade_days</code> 分区。两者分区维度不同，因此不应该强行塞进同一个
+        partitioned asset job。否则 UI 的 partition selection 会变得含混，后续 backfill 和排错也容易乱。
+      </p>
+    </div>
+
+    <div class="diagram">
+      <p class="diagram-title">3.1 Asset / Check / Partition / Job / Sensor / Run 关系总图</p>
+      <div class="diagram-grid">
+        <div class="diagram-col">
+          <h4>Partitions</h4>
+          <div class="node partition">
+            <strong><code>cn_a_index_ts_codes</code></strong>
+            指数代码动态分区。由外部 CSV 初始化，例：<code>000001.SH</code>、<code>399001.SZ</code>。
+          </div>
+          <div class="node partition">
+            <strong><code>cn_a_index_trade_days</code></strong>
+            指数日线 silver 的交易日分区，例：<code>2026-05-22</code>。
+          </div>
+        </div>
+
+        <div class="arrow-col">
+          <span>→</span>
+          <span class="arrow-note">读取/选择</span>
+        </div>
+
+        <div class="diagram-col">
+          <h4>Sensors / Jobs / Runs</h4>
+          <div class="node sensor">
+            <strong><code>index_daily_sensor</code></strong>
+            判断交易日 + 源站 ready，读取 <code>cn_a_index_ts_codes</code>，为每个指数代码发起一个 raw 更新请求。
+          </div>
+          <div class="node job">
+            <strong><code>index_daily_update_job[ts_code]</code></strong>
+            partitioned asset job。每个 Dagster run 对应一个 <code>ts_code</code>，run config 提供 <code>start_date/end_date/write_mode</code>。
+          </div>
+          <div class="node job">
+            <strong><code>silver_index_daily_update_job[trade_date]</code></strong>
+            建议新增的 trade_date partitioned job。它只负责把 raw-by-code 汇总为某个交易日的 silver。
+          </div>
+        </div>
+
+        <div class="arrow-col">
+          <span>→</span>
+          <span class="arrow-note">materialize</span>
+        </div>
+
+        <div class="diagram-col">
+          <h4>Assets / Checks / Files</h4>
+          <div class="node asset">
+            <strong><code>raw_tushare_index_daily_by_code[ts_code]</code></strong>
+            Raw 源镜像资产，按指数代码保存一段时间窗口的数据。
+          </div>
+          <div class="node check">
+            <strong>Raw checks</strong>
+            文件存在、字段契约、partition key 匹配、<code>ts_code + trade_date</code> 唯一。
+          </div>
+          <div class="node file">
+            <strong>Raw file</strong>
+            <code>raw/tushare/index_daily_by_code/ts_code=&lt;TS_CODE&gt;/part-000.parquet</code>
+          </div>
+          <div class="node asset">
+            <strong><code>silver_index_daily[trade_date]</code></strong>
+            Silver 标准事实资产，按交易日读取 raw-by-code 结果并标准化。
+          </div>
+          <div class="node check">
+            <strong>Silver checks</strong>
+            分区日期匹配、唯一性、字段契约、价格合理性、覆盖率观测。
+          </div>
+          <div class="node file">
+            <strong>Silver file</strong>
+            <code>silver/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="diagram">
+      <p class="diagram-title">3.2 日更触发时序图</p>
+      <div class="sequence">
+        <div class="step">
+          <b>1. Sensor tick</b>
+          <code>index_daily_sensor</code> 被 Dagster daemon 轮询评估。
+        </div>
+        <div class="step">
+          <b>2. 交易日判断</b>
+          只处理已完成或已进入探测窗口的 A 股交易日。
+        </div>
+        <div class="step">
+          <b>3. 源站 ready</b>
+          对 Tushare <code>index_daily</code> 做只读探测，不写 parquet。
+        </div>
+        <div class="step">
+          <b>4. 读取代码分区</b>
+          从 <code>cn_a_index_ts_codes</code> 读取全部待更新指数代码。
+        </div>
+        <div class="step">
+          <b>5. 发起 raw runs</b>
+          为每个 <code>ts_code</code> 发 <code>index_daily_update_job</code> RunRequest。
+        </div>
+        <div class="step">
+          <b>6. Silver 刷新</b>
+          raw 完成后，再按 <code>trade_date</code> 触发或手工执行 silver 更新。
+        </div>
+      </div>
+    </div>
+
+    <p>
+      从这张图看，<code>run</code> 不是单独的数据资产，而是 Dagster 对一次执行的记录：
+      raw 日更阶段的一个 run 对应一个 <code>ts_code</code> 分区；
+      silver 刷新阶段的一个 run 对应一个 <code>trade_date</code> 分区。
+      Checks 绑定在对应 asset 上，用来判定本次 materialization 是否满足质量门禁。
+    </p>
+  </section>
+
+  <section>
+    <h2>4. Dynamic Partitions 设计</h2>
+    <h3>4.1 分区定义</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>名称</th>
+        <th>类型</th>
+        <th>含义</th>
+        <th>初始化方式</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>cn_a_index_ts_codes</code></td>
+        <td><code>DynamicPartitionsDefinition</code></td>
+        <td>指数日线 raw 层允许更新的指数代码集合。</td>
+        <td>从外部 CSV 一次性导入，不新增正式 Dagster job。</td>
+      </tr>
+      </tbody>
+    </table>
+    <h3>4.2 CSV 初始化口径</h3>
+    <p>
+      第一版初始化来源使用：
+      <code>/Users/congming/github/goldenshare/lake_console/reports/index_daily_continuous_since_list_date_after_20000101.csv</code>。
+      这份 CSV 是按“从 2000-01-01 观察，且从指数上市日之后连续性满足要求”的口径生成的候选指数集合。
+    </p>
+    <p>初始化不是生产 job，只是一次性注册 dynamic partition key。建议实现为受控命令或一次性脚本，执行后删除临时脚本，保留导入审计结果。</p>
+    <table>
+      <thead>
+      <tr>
+        <th>操作</th>
+        <th>口径</th>
+        <th>注意事项</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>新增</td>
+        <td>从 CSV 读取 <code>ts_code</code>，调用 <code>cn_a_index_ts_codes.build_add_request(keys)</code> 或 Dagster instance API 注册。</td>
+        <td>必须使用正式 <code>DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home</code>；未经用户确认不得执行。</td>
+      </tr>
+      <tr>
+        <td>删除</td>
+        <td>原则上先退役，不优先物理删除 partition key。</td>
+        <td>删除 key 不会自动删除 raw parquet 或历史 materialization；误删会造成 UI 状态和文件状态脱节。</td>
+      </tr>
+      <tr>
+        <td>修改</td>
+        <td>Dynamic partition key 不做 rename；改代码等同于新增新 key、退役旧 key。</td>
+        <td>必须记录旧 key 对应 raw 文件是否保留、迁移或废弃。</td>
+      </tr>
+      <tr>
+        <td>查询</td>
+        <td>通过 Dagster UI 或 instance API 查看当前 <code>cn_a_index_ts_codes</code> keys。</td>
+        <td>实现前应确认 UI 是否满足日常增删查需求；批量导入仍建议命令化。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. Asset 设计</h2>
+    <h3>5.1 Raw asset</h3>
+    <table>
+      <tbody>
+      <tr>
+        <th>Asset key</th>
+        <td><code>raw_tushare_index_daily_by_code</code></td>
+      </tr>
+      <tr>
+        <th>Partitions</th>
+        <td><code>cn_a_index_ts_codes</code></td>
+      </tr>
+      <tr>
+        <th>Partition key</th>
+        <td><code>ts_code</code>，例如 <code>000001.SH</code></td>
+      </tr>
+      <tr>
+        <th>物理路径</th>
+        <td><code>raw/tushare/index_daily_by_code/ts_code=&lt;TS_CODE&gt;/part-000.parquet</code></td>
+      </tr>
+      <tr>
+        <th>源接口</th>
+        <td><code>index_daily(ts_code, start_date, end_date, limit, offset)</code></td>
+      </tr>
+      <tr>
+        <th>字段口径</th>
+        <td>Raw 保持 Tushare 源镜像；日期字段保持源站字符串口径，不在 raw 层标准化为 DATE。</td>
+      </tr>
+      <tr>
+        <th>Materialization metadata</th>
+        <td>记录 <code>ts_code</code>、<code>start_date</code>、<code>end_date</code>、<code>write_mode</code>、<code>row_count</code>、<code>page_count</code>、<code>path</code>、<code>source_method=tushare_api</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      Raw asset 不再读取 <code>silver_index_daily_active_pool</code>，也不再读本地 PostgreSQL active pool。
+      它只相信自己的 dynamic partition key，即 <code>cn_a_index_ts_codes</code>。
+    </p>
+
+    <h3>5.2 Silver asset</h3>
+    <table>
+      <tbody>
+      <tr>
+        <th>Asset key</th>
+        <td><code>silver_index_daily</code></td>
+      </tr>
+      <tr>
+        <th>Partitions</th>
+        <td><code>cn_a_index_trade_days</code></td>
+      </tr>
+      <tr>
+        <th>Partition key</th>
+        <td><code>trade_date</code>，例如 <code>2026-05-22</code></td>
+      </tr>
+      <tr>
+        <th>物理路径</th>
+        <td><code>silver/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></td>
+      </tr>
+      <tr>
+        <th>读取来源</th>
+        <td>读取 raw-by-code 文件集合，抽取目标 <code>trade_date</code> 对应行。</td>
+      </tr>
+      <tr>
+        <th>字段口径</th>
+        <td>Silver 日期字段统一标准化为 DATE；数值字段做类型标准化；主键为 <code>ts_code + trade_date</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout">
+      <p>
+        <code>silver_index_daily</code> 的 asset key 建议保留，因为它的业务含义没有变：按交易日产出的指数日线标准事实表。
+        变化的是它的上游 raw 组织方式，不是下游语义。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. Job 设计</h2>
+    <h3>6.1 Raw 更新 job</h3>
+    <table>
+      <tbody>
+      <tr>
+        <th>Job</th>
+        <td><code>index_daily_update_job</code></td>
+      </tr>
+      <tr>
+        <th>类型</th>
+        <td>Partitioned asset job</td>
+      </tr>
+      <tr>
+        <th>Partition set</th>
+        <td><code>cn_a_index_ts_codes</code></td>
+      </tr>
+      <tr>
+        <th>Selection</th>
+        <td><code>raw_tushare_index_daily_by_code</code> 及 raw checks。</td>
+      </tr>
+      <tr>
+        <th>Config</th>
+        <td><code>start_date</code>、<code>end_date</code>、<code>write_mode</code></td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      这个 job 的 UI 行为应该类似当前用户截图里的 partitioned asset job：启动时选择一个或多个 <code>ts_code</code> 分区。
+      但 sensor 自动触发时会为每个 <code>ts_code</code> 发独立 <code>RunRequest</code>，因此日常自动化会产生较多 run；这点已接受。
+    </p>
+
+    <h3>6.2 Silver 更新 job</h3>
+    <table>
+      <tbody>
+      <tr>
+        <th>Job</th>
+        <td><code>silver_index_daily_update_job</code>（建议新增）</td>
+      </tr>
+      <tr>
+        <th>类型</th>
+        <td>Partitioned asset job</td>
+      </tr>
+      <tr>
+        <th>Partition set</th>
+        <td><code>cn_a_index_trade_days</code></td>
+      </tr>
+      <tr>
+        <th>Selection</th>
+        <td><code>silver_index_daily</code> 及 silver checks。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="warn callout">
+      <p>
+        不建议让 <code>index_daily_update_job</code> 同时 selection raw-by-code 和 silver-by-date。
+        因为两个 asset 的 partition key 语义完全不同，一个是指数代码，一个是交易日。
+        分开两个 job，可以避免 UI 选择分区时出现“到底选的是代码还是日期”的歧义。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. Run Config 契约</h2>
+    <p>Raw 更新 job 的 config 只表达时间窗口和写入方式，不再表达指数代码。指数代码来自 partition key。</p>
+    <pre>ops 或 asset config:
+  start_date: "2026-05-22"
+  end_date: "2026-05-22"
+  write_mode: "replace"</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>类型</th>
+        <th>含义</th>
+        <th>校验</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>start_date</code></td>
+        <td>string</td>
+        <td>请求 Tushare 的起始日期，配置中建议用 <code>YYYY-MM-DD</code>，请求时转换为 <code>YYYYMMDD</code>。</td>
+        <td>必须不早于 <code>2000-01-01</code>；必须小于等于 <code>end_date</code>。</td>
+      </tr>
+      <tr>
+        <td><code>end_date</code></td>
+        <td>string</td>
+        <td>请求 Tushare 的结束日期。</td>
+        <td>不得大于当前已完成交易日，除非是明确的人工验证。</td>
+      </tr>
+      <tr>
+        <td><code>write_mode</code></td>
+        <td>enum</td>
+        <td>写入模式，第一版支持 <code>replace</code> 与 <code>merge</code>。</td>
+        <td>必须显式传入；sensor 日更默认使用 <code>replace</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>7.1 write_mode 语义</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>模式</th>
+        <th>语义</th>
+        <th>适用场景</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>replace</code></td>
+        <td>把当前 <code>ts_code</code> 文件中落在 <code>[start_date,end_date]</code> 区间内的旧行删除，再写入本次 Tushare 返回行；区间外历史保留。</td>
+        <td>日更单日、指定窗口重刷、修正某一段历史。它不是整文件删除重建，除非时间窗口覆盖整段历史。</td>
+      </tr>
+      <tr>
+        <td><code>merge</code></td>
+        <td>只按 <code>ts_code + trade_date</code> upsert 本次返回行，不主动删除区间内源站没有返回的行。</td>
+        <td>谨慎用于补充性写入。若要确保某日源站数据覆盖本地，优先使用 <code>replace</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. Sensor 设计</h2>
+    <h3>8.1 index_daily_sensor</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>步骤</th>
+        <th>行为</th>
+        <th>失败/跳过口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>判断交易日</td>
+        <td>读取 <code>silver_trade_calendar</code> 或既有交易日 partition，只处理已完成交易日。</td>
+        <td>非交易日直接 Skip，不发 run。</td>
+      </tr>
+      <tr>
+        <td>判断源站 ready</td>
+        <td>使用 Tushare <code>index_daily</code> 做只读探测，不写文件。</td>
+        <td>源站未 ready 时 Skip，不占用 run key。</td>
+      </tr>
+      <tr>
+        <td>读取代码集合</td>
+        <td>从 formal Dagster instance 读取 <code>cn_a_index_ts_codes</code> dynamic partition keys。</td>
+        <td>没有可用代码时 Skip，并输出中文原因。</td>
+      </tr>
+      <tr>
+        <td>触发 raw 更新</td>
+        <td>为每个 <code>ts_code</code> 发 <code>RunRequest(partition_key=ts_code)</code>，config 使用当天日期窗口。</td>
+        <td>run_key 使用 <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;</code> 防重复。</td>
+      </tr>
+      </tbody>
+    </table>
+    <pre>RunRequest 示例:
+  job_name: index_daily_update_job
+  partition_key: "000001.SH"
+  run_key: "index_daily:2026-05-22:000001.SH"
+  run_config:
+    start_date: "2026-05-22"
+    end_date: "2026-05-22"
+    write_mode: "replace"
+  tags:
+    asset_family: "index_daily"
+    trade_date: "2026-05-22"
+    index_ts_code: "000001.SH"</pre>
+    <div class="warn callout">
+      <p>
+        Sensor 触发多代码时会产生多个 run。之前讨论已经接受这类 runs 展示较多的问题。
+        第一版不通过 GraphQL 或私有 API 强行创建 UI 聚合 backfill，避免引入更难维护的机制。
+      </p>
+    </div>
+
+    <h3>8.2 Silver 更新触发</h3>
+    <p>
+      由于 raw 和 silver 分区维度不同，Silver 更新建议作为单独阶段处理：
+      日更时可在 raw-by-code 全部成功后，由后续 <code>silver_index_daily_sensor</code> 或人工触发
+      <code>silver_index_daily_update_job[trade_date]</code>；历史迁移时则先跑 raw code backfill，再跑 silver trade_date backfill。
+    </p>
+    <p>
+      第一版重构可以先落 raw-by-code 与手工 silver 刷新；自动化 silver 触发作为后续独立 Slice，
+      避免在同一轮里把跨分区 readiness 判断做复杂。
+    </p>
+  </section>
+
+  <section>
+    <h2>9. Checks 与质量门禁</h2>
+    <h3>9.1 Raw checks</h3>
+    <ul>
+      <li><code>raw_index_daily_by_code_file_exists</code>：目标 raw 文件存在。</li>
+      <li><code>raw_index_daily_by_code_required_columns</code>：字段集合符合 Tushare <code>index_daily</code> 显式字段契约。</li>
+      <li><code>raw_index_daily_by_code_partition_matches</code>：文件内 <code>ts_code</code> 必须等于 partition key。</li>
+      <li><code>raw_index_daily_by_code_unique_key</code>：<code>ts_code + trade_date</code> 唯一。</li>
+      <li><code>raw_index_daily_by_code_date_range_observed</code>：metadata 中上报实际最小/最大 <code>trade_date</code>，不一定阻断。</li>
+    </ul>
+    <h3>9.2 Silver checks</h3>
+    <ul>
+      <li><code>silver_index_daily_file_exists</code>：目标 silver 分区文件存在。</li>
+      <li><code>silver_index_daily_partition_date_matches</code>：文件内 <code>trade_date</code> 必须等于分区日期。</li>
+      <li><code>silver_index_daily_unique_key</code>：<code>ts_code + trade_date</code> 唯一。</li>
+      <li><code>silver_index_daily_required_columns</code>：字段契约完整。</li>
+      <li><code>silver_index_daily_price_sanity</code>：价格字段非负，且 high/low/open/close 关系合理。</li>
+      <li><code>silver_index_daily_coverage_observed</code>：按 <code>cn_a_index_ts_codes</code> 与上市日期口径输出覆盖率、缺失代码样本；第一版建议先 WARN/metadata，避免误阻断。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>10. 旧实现安全退场</h2>
+    <div class="danger callout">
+      <p>
+        旧实现退场不能一次性硬删。要先停写、再切新链路、再做引用审计、最后才清理定义和表。
+        目标是：不误触发旧任务，不让 UI 出现明显错误入口，不破坏历史 run/event 可追溯性。
+      </p>
+    </div>
+
+    <h3>10.1 退场对象清单</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>对象</th>
+        <th>当前用途</th>
+        <th>退场策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>silver_index_daily_active_pool</code></td>
+        <td>当前指数日线 active pool 文件资产。</td>
+        <td>新链路不再依赖。第一阶段保留定义但移出生产 jobs；第二阶段确认无引用后移除。</td>
+      </tr>
+      <tr>
+        <td><code>index_daily_active_pool_update_job</code></td>
+        <td>维护 active pool 的 job。</td>
+        <td>新链路上线后从 active Definitions 移除，避免 UI 误点执行。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare_lake_meta.index_daily_active_pool</code></td>
+        <td>旧 active pool PG 表。</td>
+        <td>停止写入，导出审计 CSV，引用清零后再由用户明确批准是否 drop。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare_lake_meta.index_daily_active_pool_history</code></td>
+        <td>旧 active pool 历史表。</td>
+        <td>同上。不要误删同 schema 下其它 metadata 表。</td>
+      </tr>
+      <tr>
+        <td><code>raw_tushare_index_daily</code></td>
+        <td>旧 trade_date raw asset。</td>
+        <td>新 raw asset 上线后进入 deprecated 阶段；确认无下游后移除。旧 raw 文件保留为审计资料，除非用户另行批准清理。</td>
+      </tr>
+      <tr>
+        <td><code>index_daily_history_backfill_job</code></td>
+        <td>旧大区间 op backfill job。</td>
+        <td>新 partitioned raw job 替代后移除 active job，避免 UI 出现两个都能跑的历史入口。</td>
+      </tr>
+      <tr>
+        <td><code>index_daily_repair_by_codes_job</code></td>
+        <td>旧 trade_date raw 布局上的按代码修复 job。</td>
+        <td>被 <code>index_daily_update_job[ts_code]</code> 替代，移除 active job。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>10.2 两阶段退场流程</h3>
+    <ol>
+      <li>阶段一：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code>，但不删除旧定义。</li>
+      <li>阶段一：把旧 active pool jobs 从 active Definitions 中移除或标记不可生产使用，确保 UI 不再有可误点的旧生产入口。</li>
+      <li>阶段一：保留旧 asset 定义一个过渡期，放入清晰的 deprecated group/description，避免历史 run 中的 asset 链接突然不可解析。</li>
+      <li>阶段一：完成新 raw 小范围验证和 silver 小范围重建验证。</li>
+      <li>阶段二：做 <code>rg</code> 引用审计，确认旧 active pool asset/job/check/path/PG 表没有当前代码消费者。</li>
+      <li>阶段二：移除旧 asset/check/job 定义；历史 Dagster run/event 不删除，只作为审计记录保留。</li>
+      <li>阶段二：PG 表只在用户明确批准、且已有导出备份后退场；退场动作必须单独执行，不混在业务代码提交里。</li>
+    </ol>
+
+    <h3>10.3 Dagster 历史执行记录口径</h3>
+    <p>
+      旧 Dagster run/event/backfill 记录不做物理删除。删除 Dagster PostgreSQL 事件记录会破坏审计链路，也容易造成 UI 历史页面异常。
+      正确做法是让旧 job 从 active Definitions 退场，让新 job 使用新名称和新 tags，从时间线和名称上区分新旧链路。
+    </p>
+  </section>
+
+  <section>
+    <h2>11. 迁移实施顺序</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>步骤</th>
+        <th>目标</th>
+        <th>验收</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Slice 1</td>
+        <td>新增 <code>cn_a_index_ts_codes</code> partition 定义与 CSV 初始化方案。</td>
+        <td>只验证 partition keys 可注册和查询；不拉 Tushare，不写数据湖。</td>
+      </tr>
+      <tr>
+        <td>Slice 2</td>
+        <td>新增 <code>raw_tushare_index_daily_by_code</code>、路径函数、raw checks、<code>index_daily_update_job</code>。</td>
+        <td>单个 <code>ts_code</code>、短时间窗口验证 raw 写入和 checks。</td>
+      </tr>
+      <tr>
+        <td>Slice 3</td>
+        <td>改造 <code>silver_index_daily</code> 从 raw-by-code 读取，新增/调整 silver checks。</td>
+        <td>单个交易日验证 silver 与旧口径对比，确认字段和行数合理。</td>
+      </tr>
+      <tr>
+        <td>Slice 4</td>
+        <td>新增 <code>index_daily_sensor</code>，只触发 raw-by-code 更新。</td>
+        <td>Preview 确认 run requests 只指向 <code>index_daily_update_job</code>，不误触发 silver/gold/旧 jobs。</td>
+      </tr>
+      <tr>
+        <td>Slice 5</td>
+        <td>退役 active pool 旧 jobs 和旧 repair/history jobs。</td>
+        <td>UI active job 列表不再出现旧生产入口；历史 runs 仍可查看。</td>
+      </tr>
+      <tr>
+        <td>Slice 6</td>
+        <td>历史 raw-by-code 初始化与 silver trade_date 重建。</td>
+        <td>按 2000-01-01 起点完成批量验证；输出行数、缺口、异常样本审计报告。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>12. 风险与避坑</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>混合分区 job 风险</h3>
+        <p>不要把 <code>cn_a_index_ts_codes</code> 和 <code>cn_a_index_trade_days</code> 两套分区的 assets 放进同一个 partitioned asset job。UI 会很难表达“这个 partition 到底是什么”。</p>
+      </div>
+      <div class="card">
+        <h3>Active pool 退场风险</h3>
+        <p>PG 表不能先 drop。必须先停止写入、导出审计、清零引用，再由用户明确批准退场。</p>
+      </div>
+      <div class="card">
+        <h3>历史 UI 链接风险</h3>
+        <p>旧 asset 定义立即删除可能让历史 run 的资产跳转不稳定。建议先 deprecated 过渡，再移除。</p>
+      </div>
+      <div class="card">
+        <h3>Sensor run 爆炸</h3>
+        <p>每天为每个 <code>ts_code</code> 发 run 会增加 run 数量。第一版接受这个代价，用 tags、run_key、限流降低排查成本。</p>
+      </div>
+      <div class="card">
+        <h3>write_mode 误解</h3>
+        <p><code>replace</code> 是替换指定日期窗口，不是默认删除整份代码文件。实现和 UI 文案必须写清楚。</p>
+      </div>
+      <div class="card">
+        <h3>日志口径</h3>
+        <p>之前 stdout 方案存在 UI/命令行落点混淆。新链路如需进度日志，应单独设计 Dagster UI 可观测方式，不在本方案里顺手扩展。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>13. 待拍板问题</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>问题</th>
+        <th>建议口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>write_mode</code> 是否保留 <code>merge</code></td>
+        <td>建议保留，但日更 sensor 默认只用 <code>replace</code>。若用户希望第一版更简单，也可以只实现 <code>replace</code>。</td>
+      </tr>
+      <tr>
+        <td>旧 asset 定义 deprecated 过渡多久</td>
+        <td>建议至少覆盖一次新链路全量验收周期，确认历史 UI 可接受后再移除。</td>
+      </tr>
+      <tr>
+        <td>Silver 自动触发是否进入第一轮</td>
+        <td>建议第一轮先 raw-by-code 跑通，Silver 用单独 job 手工验证；自动 silver sensor 作为后续 Slice。</td>
+      </tr>
+      <tr>
+        <td>每日 sensor 单 tick 最大 run 数</td>
+        <td>建议先设一个保守上限，例如 100 或 200，避免误配置时一次性打爆 run 队列。具体值开发前再拍板。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>14. 验收标准</h2>
+    <ul>
+      <li>新 raw asset 可以按单个 <code>ts_code</code> 和指定时间窗口从 Tushare 拉取并原子写入。</li>
+      <li><code>cn_a_index_ts_codes</code> 可由 CSV 初始化，且 UI/API 可查询。</li>
+      <li>不再需要 <code>index_daily_active_pool</code> PG 表驱动日常指数池。</li>
+      <li>Silver 仍按 <code>trade_date</code> 产出，并保持下游查询口径稳定。</li>
+      <li>旧 jobs 不再出现在 active 生产入口里，避免 UI 误点。</li>
+      <li>旧 Dagster run/event 记录保留可审计，不做危险清理。</li>
+      <li>任何 PG 表退场都有导出备份、引用审计和用户明确批准。</li>
+    </ul>
+    <p class="small">
+      本文档生成时未执行 Dagster 命令、未写入数据湖、未注册 dynamic partitions。
+    </p>
+  </section>
+</main>
+</body>
+</html>
