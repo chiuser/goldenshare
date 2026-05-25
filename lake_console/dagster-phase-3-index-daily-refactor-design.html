@@ -925,8 +925,8 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>单 tick 限流</td>
-        <td>每次 sensor tick 最多提交 <code>500</code> 个 <code>RunRequest</code>。</td>
-        <td>sensor 默认 <code>STOPPED</code>；首次启用前必须 preview，不能跳过预览直接长期开启。</td>
+        <td>当前验证阶段每次 sensor tick 最多提交 <code>1</code> 个 <code>RunRequest</code>。</td>
+        <td>sensor 默认 <code>STOPPED</code>；首次启用前必须 preview，验证通过后再单独拍板是否恢复到批量上限。</td>
       </tr>
       <tr>
         <td>cursor</td>
@@ -1163,7 +1163,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>每日 sensor 单 tick 最大 run 数</td>
-        <td>已拍板：设计值为 <code>500</code>；首次启用前必须 preview。</td>
+        <td>当前验证阶段已按用户要求收敛为 <code>1</code>；验证通过后再单独拍板是否恢复到批量上限。</td>
       </tr>
       </tbody>
     </table>

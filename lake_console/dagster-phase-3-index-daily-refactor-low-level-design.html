@@ -809,7 +809,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>单 tick 限流</td>
-        <td>固定为 <code>500</code>；不能无限提交全部 codes。首次启用前必须 preview。</td>
+        <td>当前验证阶段固定为 <code>1</code>；不能无限提交全部 codes。首次启用前必须 preview，验证通过后再单独拍板是否恢复到批量上限。</td>
       </tr>
       <tr>
         <td>SkipReason</td>
@@ -817,7 +817,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>cursor</td>
-        <td>记录 <code>target_trade_date</code>、<code>next_pending_offset</code>、<code>pending_count</code> 和 <code>selected_count</code>。正确性仍来自 raw-by-code 文件中是否已有目标 <code>trade_date</code>；cursor 只用于 948 个代码超过 500 上限时推进批次，避免每次都卡在排序前 500 个。</td>
+        <td>记录 <code>target_trade_date</code>、<code>next_pending_offset</code>、<code>pending_count</code> 和 <code>selected_count</code>。正确性仍来自 raw-by-code 文件中是否已有目标 <code>trade_date</code>；cursor 只用于代码数量超过单 tick 上限时推进批次，避免每次都卡在同一批缺口。</td>
       </tr>
       </tbody>
     </table>
@@ -945,7 +945,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>Sensor 单 tick 最大请求数</td>
-        <td>已拍板：固定为 <code>500</code>；首次启用前必须 preview。</td>
+        <td>当前验证阶段已按用户要求固定为 <code>1</code>；首次启用前必须 preview，验证通过后再单独拍板是否恢复到批量上限。</td>
       </tr>
       <tr>
         <td>Silver 自动触发是否随第一轮实现</td>
