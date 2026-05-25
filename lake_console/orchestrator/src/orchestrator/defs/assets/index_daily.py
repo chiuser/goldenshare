@@ -13,9 +13,9 @@ from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
+    duckdb_string,
     index_daily_normalized_select,
     read_parquet,
-    silver_index_daily_select,
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import (
@@ -255,6 +255,247 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     os.replace(temporary_path, target_path)
 
 
+def _registered_index_ts_codes(context: dg.AssetExecutionContext) -> tuple[str, ...]:
+    codes = tuple(sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name)))
+    if not codes:
+        raise RuntimeError(f"{cn_a_index_ts_codes.name} has no registered partition keys.")
+    return codes
+
+
+def _read_parquet_paths(paths: Sequence[Path], *, union_by_name: bool = False) -> str:
+    path_values = ", ".join(duckdb_string(path) for path in paths)
+    union_clause = ", union_by_name=true" if union_by_name else ""
+    return f"read_parquet([{path_values}], hive_partitioning=false{union_clause})"
+
+
+def _index_daily_by_code_normalized_select(
+    raw_paths: Sequence[Path],
+    source_trade_date: str,
+) -> str:
+    return f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  CAST(open AS DOUBLE) AS open,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(close AS DOUBLE) AS close,
+  CAST(pre_close AS DOUBLE) AS pre_close,
+  CAST(change AS DOUBLE) AS change_amount,
+  CAST(pct_chg AS DOUBLE) AS pct_chg,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount
+FROM {_read_parquet_paths(raw_paths, union_by_name=True)}
+WHERE CAST(trade_date AS VARCHAR) = {duckdb_string(source_trade_date)}
+"""
+
+
+def _conflict_key_count_from_normalized_sql(connection, normalized_sql: str) -> int:
+    return int(
+        connection.execute(
+            f"""
+            WITH distinct_rows AS (
+              SELECT DISTINCT *
+              FROM ({normalized_sql}) normalized
+            )
+            SELECT count(*) AS conflict_key_count
+            FROM (
+              SELECT ts_code, trade_date
+              FROM distinct_rows
+              GROUP BY ts_code, trade_date
+              HAVING count(*) > 1
+            ) conflict_keys
+            """
+        ).fetchone()[0]
+    )
+
+
+def _conflict_sample_keys_from_normalized_sql(
+    connection,
+    normalized_sql: str,
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        f"""
+        WITH distinct_rows AS (
+          SELECT DISTINCT *
+          FROM ({normalized_sql}) normalized
+        )
+        SELECT ts_code, trade_date, count(*) AS version_count
+        FROM distinct_rows
+        GROUP BY ts_code, trade_date
+        HAVING count(*) > 1
+        ORDER BY ts_code, trade_date
+        LIMIT 10
+        """
+    ).fetchall()
+    return _sample_dicts(["ts_code", "trade_date", "version_count"], rows)
+
+
+def _duplicate_removed_count_from_normalized_sql(connection, normalized_sql: str) -> int:
+    row = connection.execute(
+        f"""
+        WITH normalized AS (
+          {normalized_sql}
+        ),
+        deduped AS (
+          SELECT DISTINCT *
+          FROM normalized
+        )
+        SELECT
+          (SELECT count(*) FROM normalized) - (SELECT count(*) FROM deduped)
+            AS duplicate_removed_count
+        """
+    ).fetchone()
+    return int(row[0])
+
+
+def _duplicate_sample_rows_from_normalized_sql(
+    connection,
+    normalized_sql: str,
+) -> list[dict[str, Any]]:
+    rows = connection.execute(
+        f"""
+        WITH normalized AS (
+          {normalized_sql}
+        )
+        SELECT
+          ts_code,
+          trade_date,
+          open,
+          high,
+          low,
+          close,
+          pre_close,
+          change_amount,
+          pct_chg,
+          vol,
+          amount,
+          count(*) AS duplicate_row_count
+        FROM normalized
+        GROUP BY
+          ts_code,
+          trade_date,
+          open,
+          high,
+          low,
+          close,
+          pre_close,
+          change_amount,
+          pct_chg,
+          vol,
+          amount
+        HAVING count(*) > 1
+        ORDER BY ts_code, trade_date
+        LIMIT 10
+        """
+    ).fetchall()
+    return _sample_dicts([*INDEX_DAILY_SILVER_COLUMNS, "duplicate_row_count"], rows)
+
+
+def materialize_silver_index_daily_partitions_from_raw_by_code(
+    *,
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+    partition_keys: Sequence[str],
+    registered_index_codes: Sequence[str],
+    log: DgStdoutLogger | None = None,
+) -> dict[str, dict[str, Any]]:
+    index_codes = tuple(sorted(set(registered_index_codes)))
+    if not index_codes:
+        raise RuntimeError(f"{cn_a_index_ts_codes.name} has no registered partition keys.")
+
+    raw_paths_by_code = {
+        index_code: raw_index_daily_by_code_path(lake_root_path, index_code)
+        for index_code in index_codes
+    }
+    missing_raw_paths = [
+        str(raw_path)
+        for raw_path in raw_paths_by_code.values()
+        if not raw_path.exists()
+    ]
+    if missing_raw_paths:
+        raise FileNotFoundError(
+            "Missing raw index daily by-code files for registered index codes: "
+            f"{missing_raw_paths[:20]}"
+        )
+
+    raw_paths = tuple(raw_paths_by_code.values())
+    partition_metadata: dict[str, dict[str, Any]] = {}
+    with duckdb.connect() as connection:
+        for partition_key in tuple(sorted(set(partition_keys))):
+            source_trade_date = partition_key.replace("-", "")
+            target_path = silver_index_daily_path(lake_root_path, partition_key)
+            normalized_sql = _index_daily_by_code_normalized_select(
+                raw_paths,
+                source_trade_date,
+            )
+            conflict_key_count = _conflict_key_count_from_normalized_sql(
+                connection,
+                normalized_sql,
+            )
+            if conflict_key_count:
+                raise RuntimeError(
+                    "raw_tushare_index_daily_by_code has conflicting duplicate rows for "
+                    f"{partition_key}: "
+                    f"{_conflict_sample_keys_from_normalized_sql(connection, normalized_sql)}"
+                )
+
+            raw_row_count = int(
+                connection.execute(f"SELECT count(*) FROM ({normalized_sql}) normalized").fetchone()[
+                    0
+                ]
+            )
+            duplicate_removed_count = _duplicate_removed_count_from_normalized_sql(
+                connection,
+                normalized_sql,
+            )
+            duplicate_sample_rows = _duplicate_sample_rows_from_normalized_sql(
+                connection,
+                normalized_sql,
+            )
+            _replace_parquet_from_query(
+                connection,
+                f"""
+                SELECT DISTINCT *
+                FROM ({normalized_sql}) normalized
+                ORDER BY ts_code
+                """,
+                target_path,
+            )
+            columns = _column_names(connection, target_path)
+            row_count = _row_count(connection, target_path)
+            partition_metadata[partition_key] = {
+                "partition_key": partition_key,
+                "path": str(target_path),
+                "source_code_count": len(index_codes),
+                "source_file_count": len(raw_paths),
+                "missing_raw_file_count": 0,
+                "raw_row_count": raw_row_count,
+                "row_count": row_count,
+                "columns": columns,
+                "duplicate_removed_count": duplicate_removed_count,
+                "duplicate_sample_rows": duplicate_sample_rows,
+            }
+            if log:
+                log.stdout(
+                    "silver_partition_written",
+                    partition_key=partition_key,
+                    trade_date=source_trade_date,
+                    rows=row_count,
+                    raw_rows=raw_row_count,
+                    path=target_path,
+                )
+
+    if log:
+        log.stdout(
+            "silver_partitions_completed",
+            partitions=len(partition_metadata),
+            total_rows=sum(item["row_count"] for item in partition_metadata.values()),
+        )
+
+    return partition_metadata
+
+
 def materialize_silver_index_daily_partitions(
     *,
     lake_root_path: Path,
@@ -425,10 +666,15 @@ def raw_tushare_index_daily(
 
 @dg.asset(
     name="silver_index_daily",
-    deps=[raw_tushare_index_daily, silver_index_daily_active_pool],
+    deps=[
+        dg.AssetDep(
+            raw_tushare_index_daily_by_code,
+            partition_mapping=dg.AllPartitionMapping(),
+        )
+    ],
     partitions_def=cn_a_index_trade_days,
     group_name="index",
-    description="指数日线标准表，仅保留有效指数池中的指数。",
+    description="指数日线标准表，从按指数代码分区的 raw 文件集合按交易日生成。",
 )
 def silver_index_daily(
     context: dg.AssetExecutionContext,
@@ -437,10 +683,12 @@ def silver_index_daily(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_keys = _selected_partition_keys(context)
-    partition_metadata = materialize_silver_index_daily_partitions(
+    registered_index_codes = _registered_index_ts_codes(context)
+    partition_metadata = materialize_silver_index_daily_partitions_from_raw_by_code(
         lake_root_path=lake_root.root(),
         duckdb=duckdb,
         partition_keys=partition_keys,
+        registered_index_codes=registered_index_codes,
         log=DgStdoutLogger("index_daily"),
     )
 
@@ -453,6 +701,12 @@ def silver_index_daily(
             "row_count": total_row_count,
             "partition_metadata": partition_metadata,
             "expected_columns": list(INDEX_DAILY_SILVER_COLUMNS),
-            "filter_policy": "silver_index_daily keeps only codes from silver_index_daily_active_pool.",
+            "source_asset": "raw_tushare_index_daily_by_code",
+            "source_partition_set": cn_a_index_ts_codes.name,
+            "source_code_count": len(registered_index_codes),
+            "filter_policy": (
+                "silver_index_daily reads registered cn_a_index_ts_codes raw-by-code files "
+                "and filters rows by the current trade_date partition."
+            ),
         }
     )

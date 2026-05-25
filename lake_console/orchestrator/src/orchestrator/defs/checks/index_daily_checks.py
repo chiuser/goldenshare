@@ -12,7 +12,7 @@ from orchestrator.defs.assets.index_daily import (
     raw_tushare_index_daily,
     silver_index_daily,
 )
-from orchestrator.defs.assets.index_daily_active_pool import silver_index_daily_active_pool
+from orchestrator.defs.assets.index_basic import silver_index_basic
 from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_RAW_COLUMNS,
     INDEX_DAILY_SILVER_COLUMNS,
@@ -22,10 +22,11 @@ from orchestrator.defs.duckdb_sql import (
     index_daily_normalized_select,
     read_parquet,
 )
+from orchestrator.defs.partitions import cn_a_index_ts_codes
 from orchestrator.defs.paths import (
     raw_index_daily_by_code_path,
     raw_index_daily_path,
-    silver_index_daily_active_pool_path,
+    silver_index_basic_path,
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -91,6 +92,13 @@ def _warn_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCheckResult:
         severity=dg.AssetCheckSeverity.WARN,
         metadata=metadata,
     )
+
+
+def _values_table_sql(values: Sequence[str], column_name: str) -> str:
+    if not values:
+        return f"(SELECT CAST(NULL AS VARCHAR) AS {column_name} WHERE FALSE)"
+    rows = ", ".join(f"({duckdb_string(value)})" for value in values)
+    return f"(VALUES {rows}) AS registered({column_name})"
 
 
 def _required_columns_result(
@@ -599,6 +607,55 @@ def evaluate_silver_index_daily_required_columns_and_types(
     )
 
 
+def evaluate_silver_index_daily_partition_date_matches(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    mismatch_counts: dict[str, int] = {}
+    mismatch_samples: dict[str, list[dict[str, Any]]] = {}
+    missing_paths = []
+    with duckdb.connect() as connection:
+        for partition_key in partition_keys:
+            path = silver_index_daily_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            mismatch_rows_sql = f"""
+            SELECT ts_code, trade_date
+            FROM {read_parquet(path, hive_partitioning=False)}
+            WHERE trade_date IS NULL
+               OR CAST(trade_date AS DATE) != DATE {duckdb_string(partition_key)}
+            """
+            mismatch_counts[partition_key] = int(
+                connection.execute(
+                    f"SELECT count(*) FROM ({mismatch_rows_sql}) mismatch_rows"
+                ).fetchone()[0]
+            )
+            rows = connection.execute(
+                f"""
+                {mismatch_rows_sql}
+                ORDER BY ts_code, trade_date
+                LIMIT 10
+                """
+            ).fetchall()
+            mismatch_samples[partition_key] = _sample_dicts(["ts_code", "trade_date"], rows)
+
+    failed_partitions = [
+        partition_key for partition_key, mismatch_count in mismatch_counts.items() if mismatch_count
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths and not failed_partitions,
+        metadata={
+            "partition_keys": list(partition_keys),
+            "mismatch_counts": mismatch_counts,
+            "mismatch_samples": mismatch_samples,
+            "missing_paths": missing_paths,
+            "failed_partitions": failed_partitions,
+        },
+    )
+
+
 def evaluate_silver_index_daily_unique_ts_code_trade_date(
     partition_keys: tuple[str, ...],
     lake_root_path: Path,
@@ -660,12 +717,37 @@ def evaluate_silver_index_daily_conflicting_duplicate_absent(
     missing_paths = []
     with duckdb.connect() as connection:
         for partition_key in partition_keys:
-            raw_path = raw_index_daily_path(lake_root_path, partition_key)
-            if not raw_path.exists():
-                missing_paths.append(str(raw_path))
+            path = silver_index_daily_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
                 continue
-            conflict_counts[partition_key] = _conflict_key_count(connection, raw_path)
-            conflict_samples[partition_key] = _conflict_sample_keys(connection, raw_path)
+            conflict_counts[partition_key] = int(
+                connection.execute(
+                    f"""
+                    SELECT count(*) AS conflict_key_count
+                    FROM (
+                      SELECT ts_code, trade_date
+                      FROM {read_parquet(path, hive_partitioning=False)}
+                      GROUP BY ts_code, trade_date
+                      HAVING count(*) > 1
+                    ) conflict_keys
+                    """
+                ).fetchone()[0]
+            )
+            rows = connection.execute(
+                f"""
+                SELECT ts_code, trade_date, count(*) AS version_count
+                FROM {read_parquet(path, hive_partitioning=False)}
+                GROUP BY ts_code, trade_date
+                HAVING count(*) > 1
+                ORDER BY ts_code, trade_date
+                LIMIT 10
+                """
+            ).fetchall()
+            conflict_samples[partition_key] = _sample_dicts(
+                ["ts_code", "trade_date", "version_count"],
+                rows,
+            )
 
     failed_partitions = [
         partition_key for partition_key, conflict_count in conflict_counts.items() if conflict_count
@@ -742,44 +824,68 @@ def evaluate_silver_index_daily_price_sanity(
     )
 
 
-def evaluate_silver_index_daily_active_pool_coverage(
+def evaluate_silver_index_daily_registered_code_coverage(
     partition_keys: tuple[str, ...],
     lake_root_path: Path,
     duckdb: DuckDBResource,
+    registered_index_codes: Sequence[str],
 ) -> dg.AssetCheckResult:
-    active_pool_path = silver_index_daily_active_pool_path(lake_root_path)
-    if not active_pool_path.exists():
+    index_basic_path = silver_index_basic_path(lake_root_path)
+    if not registered_index_codes:
         return _warn_result(
             False,
             {
-                "active_pool_path": str(active_pool_path),
+                "registered_code_count": 0,
+                "missing_registered_codes": True,
+            },
+        )
+    if not index_basic_path.exists():
+        return _warn_result(
+            False,
+            {
+                "index_basic_path": str(index_basic_path),
                 "missing_file": True,
             },
         )
 
+    registered_codes = tuple(sorted(set(registered_index_codes)))
+    registered_codes_sql = _values_table_sql(registered_codes, "ts_code")
     coverage_results: dict[str, Any] = {}
     missing_paths = []
     with duckdb.connect() as connection:
-        active_pool_count = _row_count(connection, active_pool_path)
+        registered_code_count = len(registered_codes)
         for partition_key in partition_keys:
             silver_path = silver_index_daily_path(lake_root_path, partition_key)
             if not silver_path.exists():
                 missing_paths.append(str(silver_path))
                 continue
+            effective_codes_sql = f"""
+            SELECT registered.ts_code
+            FROM {registered_codes_sql}
+            INNER JOIN {read_parquet(index_basic_path, hive_partitioning=False)} basic
+              ON registered.ts_code = basic.ts_code
+            WHERE (basic.list_date IS NULL OR basic.list_date <= DATE {duckdb_string(partition_key)})
+              AND (basic.exp_date IS NULL OR basic.exp_date > DATE {duckdb_string(partition_key)})
+            """
             missing_codes_sql = f"""
-            SELECT active_pool.ts_code
-            FROM {read_parquet(active_pool_path, hive_partitioning=False)} active_pool
+            SELECT effective.ts_code
+            FROM ({effective_codes_sql}) effective
             LEFT JOIN {read_parquet(silver_path, hive_partitioning=False)} daily
-              ON active_pool.ts_code = daily.ts_code
+              ON effective.ts_code = daily.ts_code
             WHERE daily.ts_code IS NULL
             """
             extra_codes_sql = f"""
             SELECT daily.ts_code
             FROM {read_parquet(silver_path, hive_partitioning=False)} daily
-            LEFT JOIN {read_parquet(active_pool_path, hive_partitioning=False)} active_pool
-              ON daily.ts_code = active_pool.ts_code
-            WHERE active_pool.ts_code IS NULL
+            LEFT JOIN ({effective_codes_sql}) effective
+              ON daily.ts_code = effective.ts_code
+            WHERE effective.ts_code IS NULL
             """
+            effective_count = int(
+                connection.execute(
+                    f"SELECT count(*) FROM ({effective_codes_sql}) effective_codes"
+                ).fetchone()[0]
+            )
             missing_count = int(
                 connection.execute(
                     f"SELECT count(*) FROM ({missing_codes_sql}) missing_codes"
@@ -806,28 +912,30 @@ def evaluate_silver_index_daily_active_pool_coverage(
                 """
             ).fetchall()
             coverage_results[partition_key] = {
-                "active_pool_count": active_pool_count,
+                "registered_code_count": registered_code_count,
+                "effective_code_count": effective_count,
                 "silver_row_count": silver_row_count,
-                "missing_active_count": missing_count,
+                "missing_registered_count": missing_count,
                 "extra_count": extra_count,
                 "coverage_rate": (
-                    round((active_pool_count - missing_count) * 100.0 / active_pool_count, 4)
-                    if active_pool_count
+                    round((effective_count - missing_count) * 100.0 / effective_count, 4)
+                    if effective_count
                     else 0.0
                 ),
-                "missing_active_samples": [row[0] for row in missing_rows],
+                "missing_registered_samples": [row[0] for row in missing_rows],
                 "extra_samples": [row[0] for row in extra_rows],
             }
 
     passed = not missing_paths and all(
-        result["missing_active_count"] == 0 and result["extra_count"] == 0
+        result["missing_registered_count"] == 0 and result["extra_count"] == 0
         for result in coverage_results.values()
     )
     return _warn_result(
         passed,
         {
             "partition_keys": list(partition_keys),
-            "active_pool_path": str(active_pool_path),
+            "index_basic_path": str(index_basic_path),
+            "registered_code_count": len(registered_codes),
             "coverage_results": coverage_results,
             "missing_paths": missing_paths,
         },
@@ -1055,6 +1163,19 @@ def silver_index_daily_required_columns_and_types(
 
 
 @dg.asset_check(asset=silver_index_daily, blocking=True)
+def silver_index_daily_partition_date_matches(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_silver_index_daily_partition_date_matches(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=silver_index_daily, blocking=True)
 def silver_index_daily_unique_ts_code_trade_date(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -1095,16 +1216,20 @@ def silver_index_daily_price_sanity(
 
 @dg.asset_check(
     asset=silver_index_daily,
-    additional_deps=[silver_index_daily_active_pool],
+    additional_deps=[silver_index_basic],
     blocking=False,
 )
-def silver_index_daily_active_pool_coverage(
+def silver_index_daily_registered_code_coverage(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    return evaluate_silver_index_daily_active_pool_coverage(
+    registered_index_codes = tuple(
+        sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
+    )
+    return evaluate_silver_index_daily_registered_code_coverage(
         _selected_partition_keys(context),
         lake_root.root(),
         duckdb,
+        registered_index_codes,
     )
