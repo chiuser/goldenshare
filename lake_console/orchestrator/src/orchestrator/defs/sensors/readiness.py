@@ -155,10 +155,12 @@ def _check_passed_for_materialization(
         limit=CHECK_HISTORY_LIMIT,
     )
     for record in records:
+        if record.status.value not in {"SUCCEEDED", "FAILED"}:
+            continue
         event = record.event
         dagster_event = event.dagster_event if event else None
         evaluation = dagster_event.event_specific_data if dagster_event else None
-        target = evaluation.target_materialization_data if evaluation else None
+        target = getattr(evaluation, "target_materialization_data", None)
         if not target or target.storage_id != materialization_storage_id:
             continue
         if not evaluation.blocking:
