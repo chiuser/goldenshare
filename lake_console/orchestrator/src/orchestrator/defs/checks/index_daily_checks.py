@@ -8,6 +8,7 @@ import dagster as dg
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMN_TYPES,
     INDEX_DAILY_SILVER_COLUMN_TYPES,
+    raw_tushare_index_daily_by_code,
     raw_tushare_index_daily,
     silver_index_daily,
 )
@@ -17,10 +18,12 @@ from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_SILVER_COLUMNS,
     count_parquet_query,
     describe_parquet_query,
+    duckdb_string,
     index_daily_normalized_select,
     read_parquet,
 )
 from orchestrator.defs.paths import (
+    raw_index_daily_by_code_path,
     raw_index_daily_path,
     silver_index_daily_active_pool_path,
     silver_index_daily_path,
@@ -306,6 +309,191 @@ def evaluate_raw_index_daily_unique_ts_code_trade_date(
     with duckdb.connect() as connection:
         for partition_key in partition_keys:
             path = raw_index_daily_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            duplicate_keys_sql = f"""
+            SELECT ts_code, trade_date, count(*) AS row_count
+            FROM {read_parquet(path, hive_partitioning=False)}
+            GROUP BY ts_code, trade_date
+            HAVING count(*) > 1
+            """
+            duplicate_counts[partition_key] = int(
+                connection.execute(
+                    f"SELECT count(*) FROM ({duplicate_keys_sql}) duplicate_keys"
+                ).fetchone()[0]
+            )
+            rows = connection.execute(
+                f"""
+                {duplicate_keys_sql}
+                ORDER BY ts_code, trade_date
+                LIMIT 10
+                """
+            ).fetchall()
+            duplicate_samples[partition_key] = _sample_dicts(
+                ["ts_code", "trade_date", "row_count"], rows
+            )
+
+    failed_partitions = [
+        partition_key for partition_key, duplicate_count in duplicate_counts.items() if duplicate_count
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths and not failed_partitions,
+        metadata={
+            "partition_keys": list(partition_keys),
+            "duplicate_counts": duplicate_counts,
+            "duplicate_samples": duplicate_samples,
+            "missing_paths": missing_paths,
+            "failed_partitions": failed_partitions,
+        },
+    )
+
+
+def evaluate_raw_index_daily_by_code_file_exists(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    del duckdb
+    missing_paths = [
+        str(raw_index_daily_by_code_path(lake_root_path, partition_key))
+        for partition_key in partition_keys
+        if not raw_index_daily_by_code_path(lake_root_path, partition_key).exists()
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths,
+        metadata={
+            "partition_keys": list(partition_keys),
+            "missing_paths": missing_paths,
+        },
+    )
+
+
+def evaluate_raw_index_daily_by_code_row_count_positive(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    row_counts: dict[str, int] = {}
+    missing_paths = []
+    with duckdb.connect() as connection:
+        for partition_key in partition_keys:
+            path = raw_index_daily_by_code_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            row_counts[partition_key] = _row_count(connection, path)
+
+    zero_row_partitions = [
+        partition_key for partition_key, row_count in row_counts.items() if row_count <= 0
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths and not zero_row_partitions,
+        metadata={
+            "partition_keys": list(partition_keys),
+            "row_counts": row_counts,
+            "missing_paths": missing_paths,
+            "zero_row_partitions": zero_row_partitions,
+        },
+    )
+
+
+def evaluate_raw_index_daily_by_code_required_columns_and_types(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    results: dict[str, Any] = {}
+    missing_paths = []
+    with duckdb.connect() as connection:
+        for partition_key in partition_keys:
+            path = raw_index_daily_by_code_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            results[partition_key] = _required_columns_result(
+                connection=connection,
+                path=path,
+                required_columns=INDEX_DAILY_RAW_COLUMNS,
+                expected_types=INDEX_DAILY_RAW_COLUMN_TYPES,
+            )
+
+    failed_partitions = [
+        partition_key
+        for partition_key, result in results.items()
+        if result["missing_columns"] or result["unexpected_columns"] or result["type_mismatches"]
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths and not failed_partitions,
+        metadata={
+            "partition_keys": list(partition_keys),
+            "results": results,
+            "missing_paths": missing_paths,
+            "failed_partitions": failed_partitions,
+        },
+    )
+
+
+def evaluate_raw_index_daily_by_code_partition_code_matches(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    mismatch_counts: dict[str, int] = {}
+    mismatch_samples: dict[str, list[dict[str, Any]]] = {}
+    missing_paths = []
+    with duckdb.connect() as connection:
+        for partition_key in partition_keys:
+            path = raw_index_daily_by_code_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            mismatch_rows_sql = f"""
+            SELECT ts_code, trade_date
+            FROM {read_parquet(path, hive_partitioning=False)}
+            WHERE ts_code IS NULL
+               OR CAST(ts_code AS VARCHAR) != {duckdb_string(partition_key)}
+            """
+            mismatch_counts[partition_key] = int(
+                connection.execute(
+                    f"SELECT count(*) FROM ({mismatch_rows_sql}) mismatch_rows"
+                ).fetchone()[0]
+            )
+            rows = connection.execute(
+                f"""
+                {mismatch_rows_sql}
+                ORDER BY ts_code, trade_date
+                LIMIT 10
+                """
+            ).fetchall()
+            mismatch_samples[partition_key] = _sample_dicts(["ts_code", "trade_date"], rows)
+
+    failed_partitions = [
+        partition_key for partition_key, mismatch_count in mismatch_counts.items() if mismatch_count
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths and not failed_partitions,
+        metadata={
+            "partition_keys": list(partition_keys),
+            "mismatch_counts": mismatch_counts,
+            "mismatch_samples": mismatch_samples,
+            "missing_paths": missing_paths,
+            "failed_partitions": failed_partitions,
+        },
+    )
+
+
+def evaluate_raw_index_daily_by_code_unique_ts_code_trade_date(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    duplicate_counts: dict[str, int] = {}
+    duplicate_samples: dict[str, list[dict[str, Any]]] = {}
+    missing_paths = []
+    with duckdb.connect() as connection:
+        for partition_key in partition_keys:
+            path = raw_index_daily_by_code_path(lake_root_path, partition_key)
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
@@ -769,6 +957,71 @@ def raw_index_daily_unique_ts_code_trade_date(
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     return evaluate_raw_index_daily_unique_ts_code_trade_date(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_tushare_index_daily_by_code, blocking=True)
+def raw_index_daily_by_code_file_exists(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_raw_index_daily_by_code_file_exists(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_tushare_index_daily_by_code, blocking=True)
+def raw_index_daily_by_code_row_count_positive(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_raw_index_daily_by_code_row_count_positive(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_tushare_index_daily_by_code, blocking=True)
+def raw_index_daily_by_code_required_columns_and_types(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_raw_index_daily_by_code_required_columns_and_types(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_tushare_index_daily_by_code, blocking=True)
+def raw_index_daily_by_code_partition_code_matches(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_raw_index_daily_by_code_partition_code_matches(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_tushare_index_daily_by_code, blocking=True)
+def raw_index_daily_by_code_unique_ts_code_trade_date(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_raw_index_daily_by_code_unique_ts_code_trade_date(
         _selected_partition_keys(context),
         lake_root.root(),
         duckdb,
