@@ -108,21 +108,6 @@ def silver_index_basic_path(root: Path) -> Path:
     return lake_path(root, SILVER, "index_basic", "full", "part-000.parquet")
 
 
-def raw_index_daily_path(root: Path, partition_key: str) -> Path:
-    return lake_path(
-        root,
-        RAW,
-        "tushare",
-        "index_daily",
-        f"trade_date={partition_key}",
-        "part-000.parquet",
-    )
-
-
-def raw_index_daily_staging_dir(root: Path, run_id: str) -> Path:
-    return lake_path(root, RAW, "tushare", "index_daily", "_staging", f"run_id={run_id}")
-
-
 def raw_index_daily_by_code_path(root: Path, ts_code: str) -> Path:
     return lake_path(
         root,
@@ -154,10 +139,6 @@ def silver_index_daily_path(root: Path, partition_key: str) -> Path:
         f"trade_date={partition_key}",
         "part-000.parquet",
     )
-
-
-def silver_index_daily_active_pool_path(root: Path) -> Path:
-    return lake_path(root, SILVER, "index_daily_active_pool", "full", "part-000.parquet")
 
 
 def gold_market_major_indices_path(root: Path) -> Path:

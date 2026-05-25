@@ -36,7 +36,7 @@ class MarketMajorIndicesConfig(dg.Config):
 def load_market_major_indices_rows(
     lake_meta_postgres: LakeMetaPostgresResource,
 ) -> list[dict[str, Any]]:
-    lake_meta_postgres.ensure_index_metadata_tables()
+    lake_meta_postgres.ensure_market_major_indices_tables()
     with lake_meta_postgres.connect() as connection:
         with connection.cursor() as cursor:
             cursor.execute(
@@ -63,7 +63,7 @@ def initialize_market_major_indices_from_prod(
     prod_strategy_config_file: ProdStrategyConfigFileResource,
     run_id: str,
 ) -> dict[str, Any]:
-    lake_meta_postgres.ensure_index_metadata_tables()
+    lake_meta_postgres.ensure_market_major_indices_tables()
     _ensure_market_major_indices_is_empty(lake_meta_postgres)
     strategy_config = prod_strategy_config_file.read_major_indices_definition()
     rows = _parse_market_major_indices_rows(strategy_config.payload)

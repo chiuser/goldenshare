@@ -329,43 +329,43 @@
       <tbody>
       <tr>
         <td><code>defs/assets/index_daily.py</code></td>
-        <td><code>raw_tushare_index_daily</code> 和 <code>silver_index_daily</code> 均按 <code>cn_a_index_trade_days</code> 分区，并依赖 <code>silver_index_daily_active_pool</code>。</td>
-        <td>新增 raw-by-code asset；改造 silver 从 raw-by-code 读取；移除 active pool 依赖。</td>
+        <td>当前只保留 <code>raw_tushare_index_daily_by_code</code> 和 <code>silver_index_daily</code>。raw 按 <code>cn_a_index_ts_codes</code> 分区，silver 按 <code>cn_a_index_trade_days</code> 分区。</td>
+        <td>旧 <code>raw_tushare_index_daily</code> 和 active pool 依赖已从代码主链移除。</td>
       </tr>
       <tr>
         <td><code>defs/assets/index_daily_active_pool.py</code></td>
-        <td>从本地 PG <code>index_daily_active_pool</code> 生成 active pool parquet。</td>
-        <td>退役为历史链路，不进入新生产路径；PG 表退场需单独审批。</td>
+        <td>已删除。旧职责是从本地 PG <code>index_daily_active_pool</code> 生成 active pool parquet。</td>
+        <td>不进入新生产路径；PG 表仍保留，退场需单独审批。</td>
       </tr>
       <tr>
         <td><code>defs/checks/index_daily_checks.py</code></td>
-        <td>raw/silver checks 绑定旧 asset key，并有 active pool coverage check。</td>
-        <td>新增 raw-by-code checks；silver coverage 改为基于 <code>cn_a_index_ts_codes</code> 和 <code>silver_index_basic</code> 的观测。</td>
+        <td>raw checks 绑定 <code>raw_tushare_index_daily_by_code</code>；silver checks 绑定 <code>silver_index_daily</code>。</td>
+        <td>旧 raw-by-date checks 和 active pool coverage 已删除；silver coverage 基于 <code>cn_a_index_ts_codes</code> 和 <code>silver_index_basic</code> 观测。</td>
       </tr>
       <tr>
         <td><code>defs/jobs/index_daily_update.py</code></td>
-        <td>当前 selection 同时包含旧 raw 和 silver。</td>
-        <td>改为 raw-by-code partitioned asset job，只 selection <code>raw_tushare_index_daily_by_code</code> 和 raw checks。</td>
+        <td>只 selection <code>raw_tushare_index_daily_by_code</code> 和 raw checks。</td>
+        <td>已是 raw-by-code partitioned asset job，不写 silver。</td>
       </tr>
       <tr>
         <td><code>defs/backfills/index_daily_history.py</code></td>
-        <td>旧历史回填 op job，按交易日 raw + active pool 生成 silver。</td>
-        <td>退场；历史初始化改用 raw code partitions + silver trade date partitions 的两阶段流程。</td>
+        <td>已删除。旧职责是按交易日 raw + active pool 生成 silver。</td>
+        <td>历史初始化改用 raw code partitions + silver trade date partitions 的两阶段流程。</td>
       </tr>
       <tr>
         <td><code>defs/backfills/index_daily_repair_by_codes.py</code></td>
-        <td>旧 raw-by-date 布局上的按代码修复入口。</td>
-        <td>退场；单代码修复直接重跑 <code>index_daily_update_job[ts_code]</code>。</td>
+        <td>已删除。旧职责是 raw-by-date 布局上的按代码修复入口。</td>
+        <td>单代码修复直接重跑 <code>index_daily_update_job[ts_code]</code>。</td>
       </tr>
       <tr>
         <td><code>defs/checks/market_major_indices_checks.py</code></td>
-        <td>当前仍通过 <code>silver_index_daily_active_pool</code> 做部分检查依赖。</td>
-        <td>退役 active pool 前必须重写这部分检查，否则会留下隐藏依赖。</td>
+        <td>主要指数名单 checks 不再依赖 active pool。</td>
+        <td>新增 <code>gold_market_major_indices_codes_exist_in_registered_index_ts_codes</code>，校验主要指数代码存在于 <code>cn_a_index_ts_codes</code>。</td>
       </tr>
       <tr>
         <td><code>defs/paths.py</code></td>
-        <td>当前 raw index daily 路径为 <code>raw/tushare/index_daily/trade_date=...</code>。</td>
-        <td>新增 <code>raw/tushare/index_daily_by_code/ts_code=...</code>，旧路径只保留审计和退场用途。</td>
+        <td>当前新链路 raw index daily 路径为 <code>raw/tushare/index_daily_by_code/ts_code=...</code>。</td>
+        <td>旧 <code>raw/tushare/index_daily/trade_date=...</code> 路径函数已从代码删除；旧物理文件只保留审计用途。</td>
       </tr>
       </tbody>
     </table>
@@ -826,12 +826,12 @@ def index_daily_sensor(context):
     <h2>11. 退场 LLD</h2>
     <h3>11.1 代码引用清理顺序</h3>
     <ol>
-      <li>先新增新链路，不删除旧链路。</li>
-      <li>验证新 raw-by-code 小样本可运行后，从 active job 列表中移除 <code>index_daily_active_pool_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>index_daily_repair_by_codes_job</code>。</li>
-      <li>改造 <code>index_daily_checks.py</code>，去掉 active pool coverage 依赖。</li>
-      <li>改造 <code>market_major_indices_checks.py</code> 中对 <code>silver_index_daily_active_pool</code> 的依赖。</li>
-      <li>确认 <code>rg "silver_index_daily_active_pool|index_daily_active_pool"</code> 只剩退场文档或明确保留定义。</li>
-      <li>新链路开发完成并跑完历史重建后，立即移除旧 asset/check/job 定义；不在同一 slice 顺手删除 PG 表。</li>
+      <li>已完成：新增新链路，并保留资产 key <code>silver_index_daily</code> 的下游语义。</li>
+      <li>已完成：从 active Definitions 删除 <code>index_daily_active_pool_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>index_daily_repair_by_codes_job</code>。</li>
+      <li>已完成：<code>index_daily_checks.py</code> 已去掉旧 raw-by-date checks 和 active pool coverage 依赖。</li>
+      <li>已完成：<code>market_major_indices_checks.py</code> 已去掉 <code>silver_index_daily_active_pool</code> 依赖，改为检查 <code>cn_a_index_ts_codes</code>。</li>
+      <li>已完成：旧 path/helper/backfill/repair 文件从代码主链删除。</li>
+      <li>仍保留：PG 表、旧物理 raw parquet、Dagster 历史 run/event；这些不在本 Slice 清理。</li>
     </ol>
 
     <h3>11.2 PG 表退场</h3>
@@ -858,7 +858,7 @@ def index_daily_sensor(context):
     <ul>
       <li>不删除 Dagster PostgreSQL 中旧 run/event/backfill 记录。</li>
       <li>旧 run 保持审计用途；新 run 通过 asset/job 名称和 tags 区分。</li>
-      <li>旧 asset definition 只在开发和历史重建期间临时保留；新链路跑完历史重建后立即删除，不做长期 deprecated 保留。</li>
+      <li>旧 asset/job definition 已从 active Definitions 删除，不再作为生产入口出现。</li>
       <li>旧 job 不应继续作为 active 生产入口出现，避免用户误点。</li>
     </ul>
   </section>
@@ -890,14 +890,14 @@ def index_daily_sensor(context):
         <td>经批准后单个交易日验证，与旧结果做行数和样本对比。</td>
       </tr>
       <tr>
-        <td>D</td>
-        <td>新增 <code>index_daily_sensor</code> 和 source readiness helper。</td>
-        <td>先 preview，不开长期 sensor；确认只触发 raw job。</td>
-      </tr>
-      <tr>
         <td>E</td>
         <td>旧 active pool jobs/backfill/repair 退场，处理 market major indices 隐藏依赖。</td>
         <td>UI active job 列表无旧生产入口；引用审计清零。</td>
+      </tr>
+      <tr>
+        <td>D</td>
+        <td>新增 <code>index_daily_sensor</code> 和 source readiness helper。</td>
+        <td>先 preview，不开长期 sensor；确认只触发 raw job。</td>
       </tr>
       <tr>
         <td>F</td>

@@ -333,7 +333,7 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>index_basic_update_job</code>、<code>index_daily_active_pool_update_job</code>、<code>index_daily_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>market_major_indices_initialize_job</code> 和 <code>market_major_indices_update_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_initialize_job</code> 和 <code>market_major_indices_update_job</code>。
       <code>gold_market_breadth_daily</code> asset、checks、declarative automation 和 <code>daily_market_breadth_job</code> 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
@@ -356,7 +356,7 @@
         <tbody>
         <tr>
           <td>Assets</td>
-          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>index_daily_active_pool.py</code>、<code>market_major_indices.py</code></td>
+          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code></td>
           <td>定义 raw / silver / gold 资产如何生成。</td>
           <td>资产函数是真正生产数据的地方，Tushare 拉取、DuckDB 转换、Parquet 写入都在 asset/helper 中。</td>
         </tr>
@@ -402,7 +402,7 @@
       真正的数据层级仍然只认 <code>raw</code>、<code>silver</code>、<code>gold</code>。
     </p>
     <p class="note">
-      下方大图保留股票 quote 到 market breadth 的主链路视图；Phase 3 新增的指数链路在图后表格中单独列出，避免把 active pool、主要指数名单和日线分区关系混成一张难以阅读的大图。
+      下方大图保留股票 quote 到 market breadth 的主链路视图；Phase 3 新增的指数链路在图后表格中单独列出，避免把主要指数名单、代码分区和日线分区关系混成一张难以阅读的大图。
     </p>
 
     <div class="diagram">
@@ -509,16 +509,16 @@
           <td><code>index_basic_update_job</code></td>
         </tr>
         <tr>
-          <td><code>silver_index_daily_active_pool</code></td>
-          <td>silver full file，本地 metadata 资产</td>
-          <td>本地 PostgreSQL <code>index_daily_active_pool</code> 当前表；cross checks 校验代码存在于 <code>silver_index_basic</code>。</td>
-          <td><code>index_daily_active_pool_update_job</code>；<code>source_mode=local_replacement</code> 做完整替换，默认 <code>local_metadata</code> 只读本地当前表重新物化。</td>
+          <td><code>raw_tushare_index_daily_by_code</code></td>
+          <td>raw，<code>cn_a_index_ts_codes</code> 分区</td>
+          <td>分区 key 即指数代码；asset 调用 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 并写入 raw-by-code 文件。</td>
+          <td><code>index_daily_update_job</code>；只选择 raw-by-code asset 和 raw checks。</td>
         </tr>
         <tr>
-          <td><code>raw_tushare_index_daily</code> → <code>silver_index_daily</code></td>
-          <td>raw/silver，<code>cn_a_index_trade_days</code> 分区</td>
-          <td><code>silver_index_daily_active_pool</code>。raw 按 active pool 中的指数代码调用 Tushare <code>index_daily</code>。</td>
-          <td><code>index_daily_update_job</code>；历史区间使用 <code>index_daily_history_backfill_job</code>。</td>
+          <td><code>silver_index_daily</code></td>
+          <td>silver，<code>cn_a_index_trade_days</code> 分区</td>
+          <td>读取已注册 <code>cn_a_index_ts_codes</code> 对应的 raw-by-code 文件集合，按当前交易日抽取并标准化。</td>
+          <td><code>silver_index_daily_update_job</code>；只选择 silver asset 和 silver checks。</td>
         </tr>
         <tr>
           <td><code>gold_market_major_indices</code></td>
@@ -590,24 +590,24 @@
           <td>无分区，全量文件</td>
           <td><code>index_basic_update_job</code> 调 Tushare <code>index_basic</code>，silver 过滤终止指数。</td>
           <td>低频或日更 full snapshot，先确保 <code>cn_a_index_trade_days</code> 已注册验证日期。</td>
-          <td>指数基础信息事实源；active pool 与主要指数名单通过 checks 校验代码有效性。</td>
+          <td>指数基础信息事实源；主要指数名单通过 checks 校验代码有效性。</td>
         </tr>
         <tr>
           <td><span class="tag">index</span></td>
-          <td><code>silver_index_daily_active_pool</code></td>
+          <td><code>raw_tushare_index_daily_by_code</code></td>
+          <td><span class="tag raw">raw</span></td>
+          <td><code>cn_a_index_ts_codes</code></td>
+          <td><code>index_daily_update_job</code> 按指数代码分区拉 Tushare <code>index_daily</code>。</td>
+          <td>交易日日频或历史批量，时间窗口由 run config 提供。</td>
+          <td>指数日线 raw 源镜像；不再依赖本地 metadata active pool。</td>
+        </tr>
+        <tr>
+          <td><span class="tag">index</span></td>
+          <td><code>silver_index_daily</code></td>
           <td><span class="tag silver">silver</span></td>
-          <td>无分区，本地 metadata full file</td>
-          <td><code>index_daily_active_pool_update_job</code> 读取本地 metadata，或通过 <code>source_mode=local_replacement</code> 完整替换。</td>
-          <td>人工维护；不是 Tushare 同步资产。</td>
-          <td>决定 <code>index_daily</code> 拉取范围；当前代码无 prod DB 初始化入口。</td>
-        </tr>
-        <tr>
-          <td><span class="tag">index</span></td>
-          <td><code>raw_tushare_index_daily</code> → <code>silver_index_daily</code></td>
-          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td><code>cn_a_index_trade_days</code></td>
-          <td><code>index_daily_update_job</code> 按 active pool 拉 Tushare <code>index_daily</code>；历史区间用 <code>index_daily_history_backfill_job</code>。</td>
-          <td>交易日日频或历史批量。</td>
+          <td><code>silver_index_daily_update_job</code> 从 raw-by-code 文件集合按交易日生成。</td>
+          <td>交易日日频或历史批量；当前不自动触发。</td>
           <td>指数日线标准事实；服务后续主要指数日线 gold。</td>
         </tr>
         <tr>
@@ -744,25 +744,18 @@
           <td>依赖 <code>cn_a_index_trade_days</code> 中的验证日期；不得由业务 gold job 代写。</td>
         </tr>
         <tr>
-          <td><code>index_daily_active_pool_update_job</code></td>
-          <td><code>silver_index_daily_active_pool</code> + checks</td>
-          <td>本地 metadata active pool silver 文件与本地当前表 / history。</td>
-          <td>人工 Launchpad 配置；默认只读本地 metadata，<code>local_replacement</code> 才完整替换。</td>
-          <td>当前没有 <code>index_daily_active_pool_initialize_job</code>，也没有 prod DB 初始化入口。</td>
-        </tr>
-        <tr>
           <td><code>index_daily_update_job</code></td>
-          <td><code>raw_tushare_index_daily</code>、<code>silver_index_daily</code> + checks</td>
-          <td>单个交易日指数日线 raw/silver。</td>
+          <td><code>raw_tushare_index_daily_by_code</code> + raw checks</td>
+          <td>单个指数代码的 raw-by-code 文件。</td>
           <td>人工分区运行；未来可由指数资产族 sensor 接管。</td>
-          <td>只按 active pool 拉取；不生产主要指数 gold。</td>
+          <td>不写 silver，不读取 PG active pool，不生产主要指数 gold。</td>
         </tr>
         <tr>
-          <td><code>index_daily_history_backfill_job</code></td>
-          <td>普通 Dagster job，按配置区间批量拉取 / 写入指数日线。</td>
-          <td>历史区间内的 index daily raw/silver materialization 与 check evaluations。</td>
-          <td>人工显式配置运行。</td>
-          <td>不是 native partition range asset job；用于受控历史补数。</td>
+          <td><code>silver_index_daily_update_job</code></td>
+          <td><code>silver_index_daily</code> + silver checks</td>
+          <td>单个交易日指数日线 silver 分区。</td>
+          <td>人工分区运行；后续再评估是否自动触发。</td>
+          <td>只消费 raw-by-code 文件集合，不调用 Tushare，不写 raw。</td>
         </tr>
         <tr>
           <td><code>market_major_indices_initialize_job</code></td>

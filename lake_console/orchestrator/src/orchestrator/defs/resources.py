@@ -66,24 +66,8 @@ class LakeMetaPostgresResource(dg.ConfigurableResource):
         finally:
             connection.close()
 
-    def ensure_index_metadata_tables(self) -> None:
+    def ensure_market_major_indices_tables(self) -> None:
         ddl_statements = (
-            """
-            CREATE TABLE IF NOT EXISTS index_daily_active_pool (
-              ts_code TEXT PRIMARY KEY,
-              display_name TEXT
-            )
-            """,
-            """
-            CREATE TABLE IF NOT EXISTS index_daily_active_pool_history (
-              id BIGSERIAL PRIMARY KEY,
-              ts_code TEXT NOT NULL,
-              before_payload JSONB,
-              after_payload JSONB,
-              created_at TIMESTAMPTZ NOT NULL DEFAULT now(),
-              dagster_run_id TEXT
-            )
-            """,
             """
             CREATE TABLE IF NOT EXISTS market_major_indices (
               rank INT NOT NULL,

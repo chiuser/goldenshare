@@ -9,16 +9,15 @@ from orchestrator.defs.assets.market_major_indices import (
     gold_market_major_indices,
 )
 from orchestrator.defs.assets.index_basic import silver_index_basic
-from orchestrator.defs.assets.index_daily_active_pool import silver_index_daily_active_pool
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     read_parquet,
 )
+from orchestrator.defs.partitions import cn_a_index_ts_codes
 from orchestrator.defs.paths import (
     gold_market_major_indices_path,
     silver_index_basic_path,
-    silver_index_daily_active_pool_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
@@ -207,49 +206,37 @@ def gold_market_major_indices_rank_continuous(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_major_indices,
-    additional_deps=[silver_index_daily_active_pool],
-    blocking=True,
-)
-def gold_market_major_indices_codes_exist_in_active_pool(
+@dg.asset_check(asset=gold_market_major_indices, blocking=True)
+def gold_market_major_indices_codes_exist_in_registered_index_ts_codes(
+    context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     major_indices_path = gold_market_major_indices_path(lake_root.root())
-    active_pool_path = silver_index_daily_active_pool_path(lake_root.root())
-    for path in (major_indices_path, active_pool_path):
-        if not path.exists():
-            return _missing_file_result(path)
+    if not major_indices_path.exists():
+        return _missing_file_result(major_indices_path)
 
-    missing_codes_sql = f"""
-    SELECT major_indices.ts_code, major_indices."rank"
-    FROM {read_parquet(major_indices_path, hive_partitioning=False)} major_indices
-    LEFT JOIN {read_parquet(active_pool_path, hive_partitioning=False)} active_pool
-      ON major_indices.ts_code = active_pool.ts_code
-    WHERE active_pool.ts_code IS NULL
-    """
+    registered_codes = set(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
     with duckdb.connect() as connection:
-        missing_count = int(
-            connection.execute(
-                f"SELECT count(*) FROM ({missing_codes_sql}) missing_codes"
-            ).fetchone()[0]
-        )
         rows = connection.execute(
             f"""
-            {missing_codes_sql}
+            SELECT ts_code, "rank"
+            FROM {read_parquet(major_indices_path, hive_partitioning=False)}
             ORDER BY "rank", ts_code
-            LIMIT 20
             """
         ).fetchall()
 
+    missing_rows = [
+        row for row in rows if row[0] is None or str(row[0]) not in registered_codes
+    ]
     return dg.AssetCheckResult(
-        passed=missing_count == 0,
+        passed=not missing_rows,
         metadata={
             "major_indices_path": str(major_indices_path),
-            "active_pool_path": str(active_pool_path),
-            "missing_count": missing_count,
-            "missing_sample_rows": _sample_dicts(["ts_code", "rank"], rows),
+            "dynamic_partitions_def": cn_a_index_ts_codes.name,
+            "registered_code_count": len(registered_codes),
+            "missing_count": len(missing_rows),
+            "missing_sample_rows": _sample_dicts(["ts_code", "rank"], missing_rows[:20]),
         },
     )
 

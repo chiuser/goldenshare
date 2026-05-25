@@ -429,7 +429,7 @@
 
   <section>
     <h2>2. 当前代码事实与问题</h2>
-    <p>本轮设计前已阅读当前 <code>lake_console/orchestrator</code> 下相关代码与文档，当前实现的主要事实如下。</p>
+    <p>本轮设计前已阅读当前 <code>lake_console/orchestrator</code> 下相关代码与文档。Slice E 后，旧 active pool / raw-by-trade-date 链路已经从 active Definitions 和代码生产入口退场，当前事实如下。</p>
     <table>
       <thead>
       <tr>
@@ -442,17 +442,17 @@
       <tr>
         <td>Active pool</td>
         <td>
-          <code>silver_index_daily_active_pool</code> 由本地 PostgreSQL
-          <code>goldenshare_lake_meta.index_daily_active_pool</code> 生成；
-          另有 <code>index_daily_active_pool_update_job</code> 维护入口。
+          <code>silver_index_daily_active_pool</code> asset、active pool checks 和
+          <code>index_daily_active_pool_update_job</code> 已从 active Definitions 删除。
+          PostgreSQL 中已有 <code>index_daily_active_pool</code> / history 表未 drop、未 truncate。
         </td>
-        <td>为了决定拉哪些指数而维护一张 PG 池表，机制偏重；后续改为 <code>cn_a_index_ts_codes</code> dynamic partitions，由外部 CSV 初始化。</td>
+        <td>指数池来源已经切到 <code>cn_a_index_ts_codes</code> dynamic partitions，由外部 CSV 初始化；旧 PG 表只保留为后续单独清理对象。</td>
       </tr>
       <tr>
         <td>Raw 按交易日</td>
         <td>
-          当前 <code>raw_tushare_index_daily[trade_date]</code> 写入
-          <code>raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>。
+          旧 <code>raw_tushare_index_daily[trade_date]</code> asset 和旧 raw-by-date checks 已删除。
+          旧物理文件 <code>raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code> 保留，不在本 Slice 物理删除。
         </td>
         <td>单指数补数时必须按交易日改很多文件；按代码维护 raw 更自然，也更适合 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 的请求方式。</td>
       </tr>
@@ -467,14 +467,14 @@
       <tr>
         <td>历史回填</td>
         <td>
-          当前有 <code>index_daily_history_backfill_job</code> 这类 op job，通过 config 指定大区间。
+          <code>index_daily_history_backfill_job</code> 已从 active Definitions 删除。
         </td>
         <td>新方案应优先使用 partitioned asset job，让 UI 能按 <code>ts_code</code> 选择分区；历史大批量可以接受 run 数较多，但分区状态更清晰。</td>
       </tr>
       <tr>
         <td>按代码修复</td>
         <td>
-          当前有 <code>index_daily_repair_by_codes_job</code>，本质是在旧的 trade_date raw 布局上做代码级修复。
+          <code>index_daily_repair_by_codes_job</code> 已从 active Definitions 删除。
         </td>
         <td>新 raw-by-code 布局天然支持单代码重跑，修复入口应退化为普通的分区重跑，不再需要专门 repair job。</td>
       </tr>
@@ -987,58 +987,56 @@ silver_index_daily_update_job[trade_date]
       <thead>
       <tr>
         <th>对象</th>
-        <th>当前用途</th>
+        <th>当前状态</th>
         <th>退场策略</th>
       </tr>
       </thead>
       <tbody>
       <tr>
         <td><code>silver_index_daily_active_pool</code></td>
-        <td>当前指数日线 active pool 文件资产。</td>
-        <td>新链路不再依赖。第一阶段保留定义但移出生产 jobs；第二阶段确认无引用后移除。</td>
+        <td>旧指数日线 active pool 文件资产，Slice E 已删除 active definition。</td>
+        <td>新链路不再依赖；当前代码不再消费该 asset。</td>
       </tr>
       <tr>
         <td><code>index_daily_active_pool_update_job</code></td>
-        <td>维护 active pool 的 job。</td>
-        <td>新链路上线后从 active Definitions 移除，避免 UI 误点执行。</td>
+        <td>旧维护 active pool 的 job，Slice E 已删除 active definition。</td>
+        <td>不再作为 UI 可执行生产入口出现，避免误点执行。</td>
       </tr>
       <tr>
         <td><code>goldenshare_lake_meta.index_daily_active_pool</code></td>
-        <td>旧 active pool PG 表。</td>
+        <td>旧 active pool PG 表，当前不再由代码创建或写入。</td>
         <td>停止写入，导出审计 CSV，引用清零后再由用户明确批准是否 drop。</td>
       </tr>
       <tr>
         <td><code>goldenshare_lake_meta.index_daily_active_pool_history</code></td>
-        <td>旧 active pool 历史表。</td>
+        <td>旧 active pool 历史表，当前不再由代码创建或写入。</td>
         <td>同上。不要误删同 schema 下其它 metadata 表。</td>
       </tr>
       <tr>
         <td><code>raw_tushare_index_daily</code></td>
         <td>旧 trade_date raw asset。</td>
-        <td>新链路开发完成并跑完历史重建后立即删除旧 definition。旧 raw 文件保留为审计资料，除非用户另行批准清理。</td>
+        <td>旧 definition 已删除。旧 raw 文件保留为审计资料，除非用户另行批准清理。</td>
       </tr>
       <tr>
         <td><code>index_daily_history_backfill_job</code></td>
         <td>旧大区间 op backfill job。</td>
-        <td>新 partitioned raw job 替代后移除 active job，避免 UI 出现两个都能跑的历史入口。</td>
+        <td>新 partitioned raw job 已替代旧入口，避免 UI 出现两个都能跑的历史入口。</td>
       </tr>
       <tr>
         <td><code>index_daily_repair_by_codes_job</code></td>
         <td>旧 trade_date raw 布局上的按代码修复 job。</td>
-        <td>被 <code>index_daily_update_job[ts_code]</code> 替代，移除 active job。</td>
+        <td>已被 <code>index_daily_update_job[ts_code]</code> 替代并移除 active job。</td>
       </tr>
       </tbody>
     </table>
 
     <h3>10.2 两阶段退场流程</h3>
     <ol>
-      <li>阶段一：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code>，但不删除旧定义。</li>
-      <li>阶段一：把旧 active pool jobs 从 active Definitions 中移除或标记不可生产使用，确保 UI 不再有可误点的旧生产入口。</li>
-      <li>阶段一：旧 asset 定义只在新链路开发和历史重建期间临时保留，避免迁移中断；不做长期 deprecated 保留。</li>
-      <li>阶段一：完成新 raw 小范围验证和 silver 小范围重建验证。</li>
-      <li>阶段二：做 <code>rg</code> 引用审计，确认旧 active pool asset/job/check/path/PG 表没有当前代码消费者。</li>
-      <li>阶段二：新链路开发完成并跑完历史重建后，立即移除旧 asset/check/job 定义；历史 Dagster run/event 不删除，只作为审计记录保留。</li>
-      <li>阶段二：PG 表只在用户明确批准、且已有导出备份后退场；退场动作必须单独执行，不混在业务代码提交里。</li>
+      <li>已完成：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code> 和 <code>silver_index_daily_update_job</code>。</li>
+      <li>已完成：旧 active pool asset/check/job、旧 raw-by-date asset/check/helper、旧 history backfill / repair job 已从 active Definitions 和代码主链删除。</li>
+      <li>已完成：<code>gold_market_major_indices</code> 的 hidden dependency 已从 active pool 改为校验 <code>cn_a_index_ts_codes</code> 注册代码集合。</li>
+      <li>保留：历史 Dagster run/event 不删除，只作为审计记录保留。</li>
+      <li>保留：旧 PG 表和旧 raw-by-date parquet 文件不在本 Slice 物理删除；后续如果清理，必须单独备份、列清单并取得用户批准。</li>
     </ol>
 
     <h3>10.3 Dagster 历史执行记录口径</h3>
@@ -1075,17 +1073,17 @@ silver_index_daily_update_job[trade_date]
         <td>单个交易日验证 silver 与旧口径对比，确认字段和行数合理。</td>
       </tr>
       <tr>
-        <td>Slice 4</td>
+        <td>Slice E</td>
+        <td>旧 active pool、旧 raw-by-date、旧 repair/history jobs 退场。</td>
+        <td>代码引用审计清零；active Definitions 不再暴露旧生产入口。</td>
+      </tr>
+      <tr>
+        <td>Slice D</td>
         <td>新增 <code>index_daily_sensor</code>，只触发 raw-by-code 更新。</td>
         <td>Preview 确认 run requests 只指向 <code>index_daily_update_job</code>，不误触发 silver/gold/旧 jobs。</td>
       </tr>
       <tr>
-        <td>Slice 5</td>
-        <td>退役 active pool 旧 jobs 和旧 repair/history jobs。</td>
-        <td>UI active job 列表不再出现旧生产入口；历史 runs 仍可查看。</td>
-      </tr>
-      <tr>
-        <td>Slice 6</td>
+        <td>Slice F</td>
         <td>历史 raw-by-code 初始化与 silver trade_date 重建。</td>
         <td>按 2000-01-01 起点完成批量验证；输出行数、缺口、异常样本审计报告。</td>
       </tr>
@@ -1106,7 +1104,7 @@ silver_index_daily_update_job[trade_date]
       </div>
       <div class="card">
         <h3>历史 UI 链接风险</h3>
-        <p>旧 asset 定义不长期保留。新链路完成并跑完历史重建后立即删除旧链路；历史 run/event 保留审计，不物理清理。</p>
+        <p>旧 active Definitions 已提前退场，避免 UI 误点旧入口；历史 run/event 保留审计，不物理清理。</p>
       </div>
       <div class="card">
         <h3>Sensor run 爆炸</h3>
@@ -1139,7 +1137,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>旧 asset 定义保留多久</td>
-        <td>已拍板：不长期保留。新链路开发完成并跑完历史重建后，立即进入旧链路删除 slice。</td>
+        <td>已拍板并执行：不长期保留；旧 active Definitions 已在 Slice E 退场。旧 PG 表和旧 parquet 文件只作为单独清理对象保留。</td>
       </tr>
       <tr>
         <td>Silver 自动触发是否进入第一轮</td>
