@@ -925,8 +925,8 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>单 tick 限流</td>
-        <td>当前验证阶段每次 sensor tick 最多提交 <code>1</code> 个 <code>RunRequest</code>。</td>
-        <td>sensor 默认 <code>STOPPED</code>；首次启用前必须 preview，验证通过后再单独拍板是否恢复到批量上限。</td>
+        <td>每次 sensor tick 最多提交 <code>500</code> 个 <code>RunRequest</code>。</td>
+        <td>sensor 默认 <code>STOPPED</code>；首次启用前必须 preview，已完成单 tick 限制为 1 的小样本真实触发验证。</td>
       </tr>
       <tr>
         <td>cursor</td>
@@ -960,13 +960,63 @@ silver_index_daily_update_job[trade_date]
     <h3>8.2 Silver 更新触发</h3>
     <p>
       由于 raw 和 silver 分区维度不同，Silver 更新建议作为单独阶段处理：
-      日更时可在 raw-by-code 全部成功后，由后续 <code>silver_index_daily_sensor</code> 或人工触发
+      日更时在 raw-by-code 全部成功后，由后续 <code>silver_index_daily_sensor</code> 自动触发
       <code>silver_index_daily_update_job[trade_date]</code>；历史迁移时则先跑 raw code backfill，再跑 silver trade_date backfill。
     </p>
     <p>
-      第一版重构可以先落 raw-by-code 与手工 silver 刷新；自动化 silver 触发作为后续独立 Slice，
-      避免在同一轮里把跨分区 readiness 判断做复杂。
+      当前代码尚未实现 <code>silver_index_daily_sensor</code>。该需求进入后续独立 Slice，避免和 raw-by-code
+      重构、历史重建混在一起。
     </p>
+    <table>
+      <thead>
+      <tr>
+        <th>设计项</th>
+        <th><code>silver_index_daily_sensor</code> 口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>职责</td>
+        <td>只判断某个 <code>trade_date</code> 的 raw-by-code 是否已经足以生成 silver，并触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+      </tr>
+      <tr>
+        <td>不做什么</td>
+        <td>不调用 Tushare，不补 raw，不注册 <code>cn_a_index_ts_codes</code>，不注册 <code>cn_a_index_trade_days</code>，不做历史批量回填。</td>
+      </tr>
+      <tr>
+        <td>候选日期</td>
+        <td>只考虑已经注册到 <code>cn_a_index_trade_days</code> 的交易日。第一版日常自动化只处理最新一个待生成 silver 的交易日；历史日期仍通过 UI/backfill 人工分批处理。</td>
+      </tr>
+      <tr>
+        <td>Ready 条件</td>
+        <td>
+          读取 <code>cn_a_index_ts_codes</code>，计算目标日期应参与的指数代码集合；每个代码的
+          <code>raw_tushare_index_daily_by_code[ts_code]</code> 文件必须包含目标 <code>trade_date</code>，
+          且该 raw asset 分区最近一次 blocking checks 必须通过。
+        </td>
+      </tr>
+      <tr>
+        <td>缺口处理</td>
+        <td>任一应参与代码缺 raw、缺目标日期或 raw blocking checks 未通过，则返回中文 skip reason，并在 cursor/log metadata 中输出缺口统计和样本；不触发 silver。</td>
+      </tr>
+      <tr>
+        <td>触发方式</td>
+        <td>提交 <code>RunRequest(job_name="silver_index_daily_update_job", partition_key=trade_date)</code>。</td>
+      </tr>
+      <tr>
+        <td>run key</td>
+        <td><code>silver_index_daily:&lt;trade_date&gt;</code>，避免同一个交易日重复提交。</td>
+      </tr>
+      <tr>
+        <td>单 tick 数量</td>
+        <td>第一版最多触发 1 个 <code>trade_date</code> 的 silver run，因为 silver 是按交易日聚合资产，不需要像 raw-by-code 一样每个代码一个 run。</td>
+      </tr>
+      <tr>
+        <td>cursor</td>
+        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>ready_code_count</code>、<code>missing_code_count</code>、<code>selected_trade_date</code>。cursor 只做观测，不替代文件和 checks 判断。</td>
+      </tr>
+      </tbody>
+    </table>
   </section>
 
   <section>
@@ -1098,12 +1148,17 @@ silver_index_daily_update_job[trade_date]
       <tr>
         <td>Slice D</td>
         <td>已实现：新增 <code>index_daily_sensor</code>，只触发 raw-by-code 更新。</td>
-        <td>静态检查；UI preview 由用户手工执行，确认 run requests 只指向 <code>index_daily_update_job</code>。</td>
+        <td>已验收：UI preview 正常；验证阶段将单 tick 限制为 <code>1</code> 后，<code>index_daily_sensor</code> 已成功触发一次 <code>index_daily_update_job</code> raw run；验证后上限恢复为 <code>500</code>。</td>
       </tr>
       <tr>
         <td>Slice F</td>
         <td>历史 raw-by-code 初始化与 silver trade_date 重建。</td>
         <td>按 2000-01-01 起点完成批量验证；输出行数、缺口、异常样本审计报告。</td>
+      </tr>
+      <tr>
+        <td>Slice G</td>
+        <td>新增 <code>silver_index_daily_sensor</code>，在 raw-by-code 当日数据全部 ready 且 raw blocking checks 通过后，自动触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+        <td>只做日常最新交易日自动化；不做历史批量，不调用 Tushare，不写 raw。</td>
       </tr>
       </tbody>
     </table>
@@ -1159,11 +1214,11 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>Silver 自动触发是否进入第一轮</td>
-        <td>已拍板：当前不设计、不实现；到 Slice C 改造 <code>silver_index_daily</code> 时再评估。</td>
+        <td>已更新：当前代码尚未实现；设计为后续 Slice G 新增 <code>silver_index_daily_sensor</code>，等待 raw-by-code 和 raw blocking checks ready 后再触发 silver。</td>
       </tr>
       <tr>
         <td>每日 sensor 单 tick 最大 run 数</td>
-        <td>当前验证阶段已按用户要求收敛为 <code>1</code>；验证通过后再单独拍板是否恢复到批量上限。</td>
+        <td>已恢复为 <code>500</code>。验证阶段曾临时限制为 <code>1</code>，并已完成一次真实 raw run 触发验收。</td>
       </tr>
       </tbody>
     </table>

@@ -406,6 +406,9 @@
       index_daily_sensor.py
         index_daily_sensor
 
+      silver_index_daily_sensor.py
+        silver_index_daily_sensor               # 后续 Slice G
+
   source_readiness/
     tushare/
       index_daily.py
@@ -809,7 +812,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>单 tick 限流</td>
-        <td>当前验证阶段固定为 <code>1</code>；不能无限提交全部 codes。首次启用前必须 preview，验证通过后再单独拍板是否恢复到批量上限。</td>
+        <td>固定为 <code>500</code>；不能无限提交全部 codes。首次启用前必须 preview。验证阶段曾临时限制为 <code>1</code>，并已完成一次真实 raw run 触发验收。</td>
       </tr>
       <tr>
         <td>SkipReason</td>
@@ -818,6 +821,71 @@ def index_daily_sensor(context):
       <tr>
         <td>cursor</td>
         <td>记录 <code>target_trade_date</code>、<code>next_pending_offset</code>、<code>pending_count</code> 和 <code>selected_count</code>。正确性仍来自 raw-by-code 文件中是否已有目标 <code>trade_date</code>；cursor 只用于代码数量超过单 tick 上限时推进批次，避免每次都卡在同一批缺口。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>10.3 <code>silver_index_daily_sensor</code>（后续 Slice G）</h3>
+    <p>
+      当前代码尚未实现 <code>silver_index_daily_sensor</code>。该 sensor 的目标是补齐
+      <code>index_daily_sensor</code> 只触发 raw 后，silver 仍需人工触发的问题。
+      它只触发 <code>silver_index_daily_update_job</code>，不调用 Tushare，不写 raw。
+    </p>
+    <pre>@dg.sensor(
+    job_name="silver_index_daily_update_job",
+    default_status=dg.DefaultSensorStatus.STOPPED,
+    minimum_interval_seconds=600,
+    required_resource_keys={"lake_root", "duckdb"},
+)
+def silver_index_daily_sensor(context):
+    # 1. 读取 cn_a_index_trade_days，选择最新一个待生成 silver 的交易日
+    # 2. 读取 cn_a_index_ts_codes，计算应参与该交易日的指数代码集合
+    # 3. 检查每个 raw-by-code 文件是否包含目标 trade_date
+    # 4. 检查 raw_tushare_index_daily_by_code[ts_code] blocking checks 是否通过
+    # 5. 全部 ready 后，触发 silver_index_daily_update_job[trade_date]</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>项目</th>
+        <th>口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>输入状态</td>
+        <td><code>cn_a_index_trade_days</code>、<code>cn_a_index_ts_codes</code>、raw-by-code parquet 文件、raw asset materialization/check history。</td>
+      </tr>
+      <tr>
+        <td>候选日期</td>
+        <td>只选已经注册的指数交易日。第一版只处理最新一个待生成 silver 的交易日；历史重建继续使用 UI/backfill。</td>
+      </tr>
+      <tr>
+        <td>raw ready 条件</td>
+        <td>
+          每个应参与代码必须满足：raw 文件存在、文件内包含目标 <code>trade_date</code>、
+          <code>raw_tushare_index_daily_by_code[ts_code]</code> 最近一次 blocking checks 全部通过。
+          如果当前 Dagster API 不能可靠读取 raw check 状态，必须停下讨论，不能退化成只看文件存在。
+        </td>
+      </tr>
+      <tr>
+        <td>RunRequest</td>
+        <td><code>job_name="silver_index_daily_update_job"</code>，<code>partition_key=trade_date</code>，<code>run_key="silver_index_daily:&lt;trade_date&gt;"</code>。</td>
+      </tr>
+      <tr>
+        <td>tags</td>
+        <td><code>triggered_by=silver_index_daily_sensor</code>、<code>asset_family=index_daily</code>、<code>trade_date=&lt;trade_date&gt;</code>。</td>
+      </tr>
+      <tr>
+        <td>SkipReason</td>
+        <td>必须中文清晰，例如“指数日线 raw 仍有缺口，暂不生成 silver”“指数日线 raw blocking checks 未全部通过”。</td>
+      </tr>
+      <tr>
+        <td>cursor</td>
+        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>ready_code_count</code>、<code>missing_code_count</code>、<code>selected_trade_date</code>。cursor 只用于观测，不作为 ready 判断依据。</td>
+      </tr>
+      <tr>
+        <td>边界</td>
+        <td>不补 raw，不重跑失败 raw，不触发 <code>index_daily_update_job</code>，不处理历史多日批量。</td>
       </tr>
       </tbody>
     </table>
@@ -898,12 +966,17 @@ def index_daily_sensor(context):
       <tr>
         <td>D</td>
         <td>已实现：新增 <code>index_daily_sensor</code> 和 <code>source_readiness/tushare/index_daily.py</code>。</td>
-        <td>静态检查；UI preview 由用户手工执行，确认只触发 raw job。</td>
+        <td>已验收：UI preview 正常；单 tick 限制为 <code>1</code> 的验证阶段已成功触发一次 <code>index_daily_update_job</code> raw run；验证后上限恢复为 <code>500</code>。</td>
       </tr>
       <tr>
         <td>F</td>
         <td>历史 raw-by-code 初始化和 silver trade_date 重建。</td>
         <td>输出完整审计报告；PG 表不在本切片 drop。</td>
+      </tr>
+      <tr>
+        <td>G</td>
+        <td>新增 <code>silver_index_daily_sensor</code>，把日常 raw-by-code ready 后的 silver 生成自动化。</td>
+        <td>只处理最新交易日；不调用 Tushare，不写 raw，不做历史批量。</td>
       </tr>
       </tbody>
     </table>
@@ -926,6 +999,7 @@ def index_daily_sensor(context):
       <li>执行 <code>index_daily_update_job[ts_code]</code> 单代码小窗口。</li>
       <li>执行 <code>silver_index_daily_update_job[trade_date]</code> 单交易日。</li>
       <li>Preview 或短暂开启 <code>index_daily_sensor</code>。</li>
+      <li>后续 Slice G 中 Preview 或短暂开启 <code>silver_index_daily_sensor</code>。</li>
     </ul>
   </section>
 
@@ -945,11 +1019,11 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>Sensor 单 tick 最大请求数</td>
-        <td>当前验证阶段已按用户要求固定为 <code>1</code>；首次启用前必须 preview，验证通过后再单独拍板是否恢复到批量上限。</td>
+        <td>已恢复为 <code>500</code>。验证阶段曾按用户要求固定为 <code>1</code>，并已完成一次真实 raw run 触发验收。</td>
       </tr>
       <tr>
         <td>Silver 自动触发是否随第一轮实现</td>
-        <td>已拍板：当前不设计、不实现；到 Slice C 改造 <code>silver_index_daily</code> 时再评估。</td>
+        <td>已更新：当前代码尚未实现；作为后续 Slice G 设计 <code>silver_index_daily_sensor</code>，只在 raw-by-code 目标日期齐备且 raw blocking checks 通过后触发 silver。</td>
       </tr>
       <tr>
         <td>旧 asset definition 保留多久</td>

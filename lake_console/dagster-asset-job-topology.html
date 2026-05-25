@@ -340,7 +340,7 @@
       当前已新增自定义 <code>market_breadth_automation_sensor</code>，只 target <code>gold_market_breadth_daily</code>，用来替代全局默认 automation sensor 作为 market breadth 的日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
-      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver。
+      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；后续 Slice G 将新增 <code>silver_index_daily_sensor</code>，在 raw-by-code 全部 ready 且 raw blocking checks 通过后触发 <code>silver_index_daily_update_job</code>。
       股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。
     </div>
 
@@ -608,7 +608,7 @@
           <td><span class="tag silver">silver</span></td>
           <td><code>cn_a_index_trade_days</code></td>
           <td><code>silver_index_daily_update_job</code> 从 raw-by-code 文件集合按交易日生成。</td>
-          <td>交易日日频或历史批量；当前不自动触发。</td>
+          <td>交易日日频或历史批量；当前不自动触发，后续 Slice G 由 <code>silver_index_daily_sensor</code> 自动触发日常最新交易日。</td>
           <td>指数日线标准事实；服务后续主要指数日线 gold。</td>
         </tr>
         <tr>
@@ -755,7 +755,7 @@
           <td><code>silver_index_daily_update_job</code></td>
           <td><code>silver_index_daily</code> + silver checks</td>
           <td>单个交易日指数日线 silver 分区。</td>
-          <td>人工分区运行；后续再评估是否自动触发。</td>
+          <td>人工分区运行；后续 Slice G 增加 <code>silver_index_daily_sensor</code> 后，可由 sensor 触发日常最新交易日。</td>
           <td>只消费 raw-by-code 文件集合，不调用 Tushare，不写 raw。</td>
         </tr>
         <tr>

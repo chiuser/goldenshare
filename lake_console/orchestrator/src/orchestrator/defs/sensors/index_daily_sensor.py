@@ -15,7 +15,7 @@ from orchestrator.source_readiness.tushare.index_daily import (
 
 
 INDEX_DAILY_SOURCE_PROBE_START = time(16, 0)
-MAX_RUN_REQUESTS_PER_TICK = 1
+MAX_RUN_REQUESTS_PER_TICK = 500
 
 
 def _load_cursor(cursor: str | None) -> dict[str, Any]:
