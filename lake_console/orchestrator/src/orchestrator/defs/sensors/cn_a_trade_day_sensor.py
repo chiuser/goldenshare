@@ -16,7 +16,7 @@ MAX_PARTITION_KEYS_PER_TICK = 2
 SAME_DAY_PARTITION_REGISTER_START = time(16, 0)
 FULL_TRADE_DAY_MIN_DATE = "1990-01-01"
 STOCK_TRADE_DAY_MIN_DATE = "2014-01-01"
-INDEX_TRADE_DAY_MIN_DATE = "1990-01-01"
+INDEX_TRADE_DAY_MIN_DATE = "2000-01-01"
 
 
 @dataclass(frozen=True)
@@ -128,6 +128,29 @@ def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime)
     return json.dumps(payload, ensure_ascii=True, sort_keys=True)
 
 
+def _log_trade_day_partition_decision(
+    context: dg.SensorEvaluationContext,
+    *,
+    decision: TradeDayPartitionDecision,
+    dynamic_partitions: dg.DynamicPartitionsDefinition,
+    min_trade_date: str,
+    partition_set_label: str,
+) -> None:
+    context.log.info(
+        "event=trade_day_partition_registration "
+        f"partition_set_label={partition_set_label} "
+        f"dynamic_partitions={dynamic_partitions.name} "
+        f"min_trade_date={min_trade_date} "
+        f"today={decision.today} "
+        f"today_is_open={decision.today_is_open} "
+        f"same_day_register_window_started={decision.same_day_register_window_started} "
+        f"latest_completed_trade_date={decision.latest_completed_trade_date or '-'} "
+        f"eligible_open_day_count={decision.eligible_open_day_count} "
+        f"unregistered_count={len(decision.unregistered_keys)} "
+        f"selected_keys={list(decision.selected_keys)}"
+    )
+
+
 def build_trade_day_partition_registration_result(
     context: dg.SensorEvaluationContext,
     *,
@@ -183,6 +206,13 @@ def build_trade_day_partition_registration_result(
         today=today,
         today_is_open=today_is_open,
         same_day_register_window_started=same_day_register_window_started,
+    )
+    _log_trade_day_partition_decision(
+        context,
+        decision=decision,
+        dynamic_partitions=dynamic_partitions,
+        min_trade_date=min_trade_date,
+        partition_set_label=partition_set_label,
     )
 
     if not decision.selected_keys:
