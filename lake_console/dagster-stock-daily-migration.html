@@ -296,7 +296,7 @@
         <h3>退市后的历史分区不自动回刷</h3>
         <p>
           <code>silver_stock_basic</code> 是当前上市股票池快照。若后续某只股票退市，
-          日常 <code>basic_update_job</code> 只会更新当前股票池，不会自动重写过去已经生成的
+          日常 <code>stock_basic_update_job</code> 只会更新当前股票池，不会自动重写过去已经生成的
           <code>silver_stock_daily[trade_date]</code> 历史分区。只有显式对历史分区发起重跑时，
           该分区才会按当时最新的 <code>silver_stock_basic</code> 重新过滤。
         </p>

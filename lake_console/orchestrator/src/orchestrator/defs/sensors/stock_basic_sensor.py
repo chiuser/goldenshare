@@ -28,7 +28,7 @@ def _cursor_payload(
 
 
 @dg.sensor(
-    job_name="basic_update_job",
+    job_name="stock_basic_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     description="股票基础信息未满足最新交易日要求时，触发更新任务。",

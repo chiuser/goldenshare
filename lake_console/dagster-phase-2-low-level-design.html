@@ -549,7 +549,7 @@
 
   jobs/
     calendar_update.py
-    basic_update.py
+    stock_basic_update.py
     suspend_update.py
     stock_daily_update.py
     daily_market_breadth.py
@@ -1361,7 +1361,7 @@ Slice 2.0.6 execution:
           <td>已实现。job 文件只做 selection；raw asset 通过 <code>trade_cal(exchange=SSE,start_date=19900101,end_date=当前年份1231)</code> 写 full raw 文件。</td>
         </tr>
         <tr>
-          <td><code>basic_update_job</code></td>
+          <td><code>stock_basic_update_job</code></td>
           <td><code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code></td>
           <td><code>tushare_api</code></td>
           <td>日更人工触发或后续 schedule/sensor 触发；不进入业务 gold job selection。</td>
@@ -1451,7 +1451,7 @@ not allowed in job files:
         <tbody>
         <tr>
           <td><code>raw_tushare_stock_basic</code> / <code>silver_stock_basic</code></td>
-          <td><code>basic_update_job</code>。这是日更全量快照基础资产，不按 <code>trade_date</code> 分区。</td>
+          <td><code>stock_basic_update_job</code>。这是日更全量快照基础资产，不按 <code>trade_date</code> 分区。</td>
           <td><code>stock_daily_update_job</code> 和 <code>daily_market_breadth_job</code> 不应把它加入 selection。它们只能通过 asset deps、checks 或 readiness 判断读取已完成结果。</td>
           <td>后续方案必须评估 run queue limits、concurrency pools、run executor limits 或 run tag concurrency limits。目标是防止两个 run 同时覆盖 full raw/silver 文件，并避免重复请求 Tushare。</td>
         </tr>
@@ -1502,7 +1502,7 @@ forbidden:
      - validate raw checks
   3. bootstrap calendar/basic [completed]
      - historical bootstrap entrypoints were used for migration only
-     - active calendar/basic production now uses calendar_update_job/basic_update_job
+     - active calendar/basic production now uses calendar_update_job/stock_basic_update_job
   4. register completed 2026-04 cn_a_stock_trade_days partition keys from silver_trade_calendar [completed]
   5. bootstrap stock_daily for 2026-04 [completed]
   6. run quote silver/checks for 2026-04 [completed]
@@ -1527,7 +1527,7 @@ Phase 2 completed through Slice 2.2.1e:
   14. same-day probing starts at 16:00 Asia/Shanghai and evaluates about every 10 minutes [completed]
   15. future open days remain blocked [completed]
   16. source-not-ready does not create RunRequest or consume run_key [completed]
-  17. Slice 2.2.1c: implement calendar_update_job / basic_update_job Tushare API updates [completed]
+  17. Slice 2.2.1c: implement calendar_update_job / stock_basic_update_job Tushare API updates [completed]
   18. Slice 2.2.1c: add suspend_update_job and stock_quote_daily_update_job [completed]
   19. Slice 2.2.1c: retire active quote_daily_job naming and point the early trade-day sensor trigger to stock_quote_daily_update_job [completed historically]
   20. Slice 2.2.1d: retire active stock_quote_daily_update_job and add stock_daily_update_job [completed]
@@ -1536,7 +1536,7 @@ Phase 2 completed through Slice 2.2.1e:
   23. Slice 2.2.1e: split sensors by responsibility [completed]
       - stock_trade_day_sensor only registers cn_a_stock_trade_days partitions
       - suspend_d_sensor triggers suspend_update_job for missing suspend partitions
-      - stock_basic_sensor triggers basic_update_job when daily full snapshot freshness/checks are not ready
+      - stock_basic_sensor triggers stock_basic_update_job when daily full snapshot freshness/checks are not ready
       - stock_daily_sensor triggers stock_daily_update_job only after stock_basic, suspend_d and Tushare daily source readiness pass
   24. Slice 2.2.1e: formal instance preview for all four sensors [completed: current data ready, all sensors skipped safely]
   25. Slice 2.2.2b: add gold_market_breadth_daily declarative automation and daily_market_breadth_job [completed]
@@ -1601,7 +1601,7 @@ suspend_d_sensor:
 
 stock_basic_sensor:
   target_trade_date = latest registered partition
-  request basic_update_job if stock_basic full snapshot is not fresh or blocking checks are not green
+  request stock_basic_update_job if stock_basic full snapshot is not fresh or blocking checks are not green
 
 stock_daily_sensor:
   pending = registered partitions not materialized by both raw_tushare_stock_daily and silver_stock_daily
@@ -1649,7 +1649,7 @@ stock_daily_sensor:
       stock_basic blocking check status
       stock_basic freshness policy
     output:
-      basic_update_job
+      stock_basic_update_job
 
   stock_daily_sensor:
     input:
@@ -1684,7 +1684,7 @@ stock_daily_sensor:
     <div class="callout">
       <strong>第一版安全阈值：</strong>
       <code>stock_trade_day_sensor</code> 每 tick 最多注册 2 个 partition key；<code>suspend_d_sensor</code> 与 <code>stock_daily_sensor</code> 每 tick 最多提交 2 个 run request。
-      这些阈值用于防止配置错误或日历误判时一次性触发大量 runs。<code>stock_basic_sensor</code> 是 full snapshot，每 tick 最多提交 1 个 <code>basic_update_job</code>。
+      这些阈值用于防止配置错误或日历误判时一次性触发大量 runs。<code>stock_basic_sensor</code> 是 full snapshot，每 tick 最多提交 1 个 <code>stock_basic_update_job</code>。
     </div>
 
     <div class="warning">
@@ -2234,7 +2234,7 @@ stock daily assets:
         <tr>
           <td>2.2.1c</td>
           <td>基础 API 更新与过渡期 quote job 重整。</td>
-          <td><code>tushare_api_io.py</code>、<code>calendar.py</code>、<code>stock_basic.py</code>、<code>jobs/calendar_update.py</code>、<code>jobs/basic_update.py</code>、<code>jobs/suspend_update.py</code>、过渡期 <code>stock_quote_daily_update_job</code>、<code>sensors/stock_trade_day_sensor.py</code>。</td>
+          <td><code>tushare_api_io.py</code>、<code>calendar.py</code>、<code>stock_basic.py</code>、<code>jobs/calendar_update.py</code>、<code>jobs/stock_basic_update.py</code>、<code>jobs/suspend_update.py</code>、过渡期 <code>stock_quote_daily_update_job</code>、<code>sensors/stock_trade_day_sensor.py</code>。</td>
           <td>已实现：full raw asset 切到 Tushare API；新增正式基础 update jobs；退役活跃 <code>quote_daily_job</code>；当时 sensor 目标过渡到 <code>stock_quote_daily_update_job</code>。</td>
         </tr>
         <tr>
@@ -2247,7 +2247,7 @@ stock daily assets:
           <td>2.2.1e</td>
           <td>Sensor 分拆与质量门禁触发。</td>
           <td><code>sensors/stock_trade_day_sensor.py</code>、<code>sensors/suspend_d_sensor.py</code>、<code>sensors/stock_basic_sensor.py</code>、<code>sensors/stock_daily_sensor.py</code>、<code>sensors/readiness.py</code>。</td>
-          <td>已实现：<code>stock_trade_day_sensor</code> 只注册 partition；资产族 sensor 分别触发 <code>suspend_update_job</code>、<code>basic_update_job</code>、<code>stock_daily_update_job</code>。正式 instance preview 结果显示当前数据已 ready，四个 sensor 均安全 skip。后续发现 readiness helper 曾把 <code>AssetCheckEvaluationPlanned</code> 当成最终 evaluation 读取，已在 <code>c90c54ae</code> 修复为只处理 <code>SUCCEEDED</code> / <code>FAILED</code> 的真实 check 结果。</td>
+          <td>已实现：<code>stock_trade_day_sensor</code> 只注册 partition；资产族 sensor 分别触发 <code>suspend_update_job</code>、<code>stock_basic_update_job</code>、<code>stock_daily_update_job</code>。正式 instance preview 结果显示当前数据已 ready，四个 sensor 均安全 skip。后续发现 readiness helper 曾把 <code>AssetCheckEvaluationPlanned</code> 当成最终 evaluation 读取，已在 <code>c90c54ae</code> 修复为只处理 <code>SUCCEEDED</code> / <code>FAILED</code> 的真实 check 结果。</td>
         </tr>
         <tr>
           <td>2.2.2</td>

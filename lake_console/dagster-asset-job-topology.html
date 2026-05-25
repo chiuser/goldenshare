@@ -333,7 +333,7 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>index_basic_update_job</code>、<code>index_daily_active_pool_update_job</code>、<code>index_daily_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>market_major_indices_initialize_job</code> 和 <code>market_major_indices_update_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>index_basic_update_job</code>、<code>index_daily_active_pool_update_job</code>、<code>index_daily_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>market_major_indices_initialize_job</code> 和 <code>market_major_indices_update_job</code>。
       <code>gold_market_breadth_daily</code> asset、checks、declarative automation 和 <code>daily_market_breadth_job</code> 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
@@ -561,7 +561,7 @@
           <td><code>raw_tushare_stock_basic</code> → <code>silver_stock_basic</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td>无分区，全量文件</td>
-          <td><code>basic_update_job</code> 调 Tushare <code>stock_basic</code>，silver 只保留当前 <code>L</code>。</td>
+          <td><code>stock_basic_update_job</code> 调 Tushare <code>stock_basic</code>，silver 只保留当前 <code>L</code>。</td>
           <td><strong>目标应为日更全量快照</strong>，且应在股票日线 / gold 之前完成。</td>
           <td>共享基础资产；影响当日新股是否进入 <code>silver_stock_daily</code>。</td>
         </tr>
@@ -657,7 +657,7 @@
         <text x="343" y="130" class="svg-note">shared read-only prerequisite</text>
 
         <rect x="35" y="185" width="230" height="78" class="node node-job" />
-        <text x="53" y="214" class="svg-label">basic_update_job</text>
+        <text x="53" y="214" class="svg-label">stock_basic_update_job</text>
         <text x="53" y="237" class="svg-note">selection: stock_basic raw/silver</text>
 
         <rect x="325" y="185" width="250" height="78" class="node node-silver" />
@@ -716,7 +716,7 @@
           <td>不能被业务 gold job selection；sensor 只读它。</td>
         </tr>
         <tr>
-          <td><code>basic_update_job</code></td>
+          <td><code>stock_basic_update_job</code></td>
           <td><code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code> + checks</td>
           <td>stock_basic raw/silver full file。</td>
           <td>当前人工触发；目标改为日更最先执行。</td>
@@ -806,7 +806,7 @@
         <text x="24" y="34" class="svg-title">推荐日内时序：先基础，后 quote，最后 gold</text>
 
         <rect x="35" y="85" width="220" height="86" class="node node-job" />
-        <text x="53" y="114" class="svg-label">basic_update_job</text>
+        <text x="53" y="114" class="svg-label">stock_basic_update_job</text>
         <text x="53" y="137" class="svg-note">日更 full snapshot</text>
         <text x="53" y="156" class="svg-note">必须早于 stock daily / gold</text>
 
@@ -874,7 +874,7 @@
         <tbody>
         <tr>
           <td><code>stock_basic</code> 更新频率</td>
-          <td><code>basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径。</td>
+          <td><code>stock_basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径。</td>
           <td>新股上市日如果 stock_basic 未先更新，<code>silver_stock_daily</code> 可能静默过滤新股。</td>
           <td>后续实现 freshness check 和当天生产前置门禁。</td>
         </tr>
@@ -882,7 +882,7 @@
           <td>退市后的历史分区</td>
           <td><code>silver_stock_basic</code> 只代表当前上市股票池；既有 <code>silver_stock_daily</code> 历史分区不会随 stock basic 日更自动回刷。</td>
           <td>如果显式重跑历史分区，会按最新股票池重新过滤，结果可能不同于早先 materialize 的历史文件。</td>
-          <td>历史重算必须作为人工 backfill 或专项迁移动作发起，不能由日常 <code>basic_update_job</code> 隐式触发。</td>
+          <td>历史重算必须作为人工 backfill 或专项迁移动作发起，不能由日常 <code>stock_basic_update_job</code> 隐式触发。</td>
         </tr>
         <tr>
           <td>共享基础资产 selection</td>
