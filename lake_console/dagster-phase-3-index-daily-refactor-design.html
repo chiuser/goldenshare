@@ -452,7 +452,7 @@
         <td>Raw 按交易日</td>
         <td>
           旧 <code>raw_tushare_index_daily[trade_date]</code> asset 和旧 raw-by-date checks 已删除。
-          旧物理文件 <code>raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code> 保留，不在本 Slice 物理删除。
+          旧物理文件 <code>raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code> 已按用户确认删除，避免 UI 和物理湖路径继续误导新链路。
         </td>
         <td>单指数补数时必须按交易日改很多文件；按代码维护 raw 更自然，也更适合 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 的请求方式。</td>
       </tr>
@@ -602,11 +602,15 @@ silver_index_daily_update_job[trade_date]
           从 <code>cn_a_index_ts_codes</code> 读取全部待更新指数代码。
         </div>
         <div class="step">
-          <b>5. 发起 raw runs</b>
-          为每个 <code>ts_code</code> 发 <code>index_daily_update_job</code> RunRequest。
+          <b>5. 判断 raw 缺口</b>
+          扫描 raw-by-code 文件，找出还没有目标 <code>trade_date</code> 的 <code>ts_code</code>。
         </div>
         <div class="step">
-          <b>6. Silver 刷新</b>
+          <b>6. 发起 raw runs</b>
+          只为缺失的 <code>ts_code</code> 发 <code>index_daily_update_job</code> RunRequest。
+        </div>
+        <div class="step">
+          <b>7. Silver 刷新</b>
           raw 完成后，再按 <code>trade_date</code> 触发或手工执行 silver 更新。
         </div>
       </div>
@@ -901,13 +905,18 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>判断源站 ready</td>
-        <td>使用 Tushare <code>index_daily</code> 做只读探测，不写文件。</td>
+        <td>使用 <code>source_readiness/tushare/index_daily.py</code> 对 Tushare <code>index_daily</code> 做只读探测，不写文件。</td>
         <td>源站未 ready 时 Skip，不占用 run key。</td>
       </tr>
       <tr>
         <td>读取代码集合</td>
         <td>从 formal Dagster instance 读取 <code>cn_a_index_ts_codes</code> dynamic partition keys。</td>
         <td>没有可用代码时 Skip，并输出中文原因。</td>
+      </tr>
+      <tr>
+        <td>判断 raw 缺口</td>
+        <td>读取 raw-by-code 文件，确认每个 <code>ts_code</code> 是否已经包含目标 <code>trade_date</code>。</td>
+        <td>已有目标日期的代码不再触发；缺失代码才进入本 tick 候选。</td>
       </tr>
       <tr>
         <td>触发 raw 更新</td>
@@ -919,6 +928,11 @@ silver_index_daily_update_job[trade_date]
         <td>每次 sensor tick 最多提交 <code>500</code> 个 <code>RunRequest</code>。</td>
         <td>sensor 默认 <code>STOPPED</code>；首次启用前必须 preview，不能跳过预览直接长期开启。</td>
       </tr>
+      <tr>
+        <td>cursor</td>
+        <td>记录目标交易日、下一批缺口偏移量、缺口数量和本次选择数量。</td>
+        <td>cursor 只推进批次；是否缺数据仍以 raw 文件里是否已有目标 <code>trade_date</code> 为准。</td>
+      </tr>
       </tbody>
     </table>
     <pre>RunRequest 示例:
@@ -926,9 +940,12 @@ silver_index_daily_update_job[trade_date]
   partition_key: "000001.SH"
   run_key: "index_daily:2026-05-22:000001.SH"
   run_config:
-    start_date: "2026-05-22"
-    end_date: "2026-05-22"
-    write_mode: "replace"
+    ops:
+      raw_tushare_index_daily_by_code:
+        config:
+          start_date: "2026-05-22"
+          end_date: "2026-05-22"
+          write_mode: "replace"
   tags:
     asset_family: "index_daily"
     trade_date: "2026-05-22"
@@ -1015,7 +1032,7 @@ silver_index_daily_update_job[trade_date]
       <tr>
         <td><code>raw_tushare_index_daily</code></td>
         <td>旧 trade_date raw asset。</td>
-        <td>旧 definition 已删除。旧 raw 文件保留为审计资料，除非用户另行批准清理。</td>
+        <td>旧 definition 已删除。旧 raw-by-date parquet 已按用户确认物理删除；Dagster 历史 run/event 继续保留为审计记录。</td>
       </tr>
       <tr>
         <td><code>index_daily_history_backfill_job</code></td>
@@ -1035,8 +1052,9 @@ silver_index_daily_update_job[trade_date]
       <li>已完成：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code> 和 <code>silver_index_daily_update_job</code>。</li>
       <li>已完成：旧 active pool asset/check/job、旧 raw-by-date asset/check/helper、旧 history backfill / repair job 已从 active Definitions 和代码主链删除。</li>
       <li>已完成：<code>gold_market_major_indices</code> 的 hidden dependency 已从 active pool 改为校验 <code>cn_a_index_ts_codes</code> 注册代码集合。</li>
+      <li>已完成：按用户确认，旧 raw-by-date parquet 与 active pool parquet 已物理删除；历史 Dagster run/event 不删除。</li>
       <li>保留：历史 Dagster run/event 不删除，只作为审计记录保留。</li>
-      <li>保留：旧 PG 表和旧 raw-by-date parquet 文件不在本 Slice 物理删除；后续如果清理，必须单独备份、列清单并取得用户批准。</li>
+      <li>保留：旧 PG 表不在本 Slice 物理删除；后续如果清理，必须单独备份、列清单并取得用户批准。</li>
     </ol>
 
     <h3>10.3 Dagster 历史执行记录口径</h3>
@@ -1079,8 +1097,8 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>Slice D</td>
-        <td>新增 <code>index_daily_sensor</code>，只触发 raw-by-code 更新。</td>
-        <td>Preview 确认 run requests 只指向 <code>index_daily_update_job</code>，不误触发 silver/gold/旧 jobs。</td>
+        <td>已实现：新增 <code>index_daily_sensor</code>，只触发 raw-by-code 更新。</td>
+        <td>静态检查；UI preview 由用户手工执行，确认 run requests 只指向 <code>index_daily_update_job</code>。</td>
       </tr>
       <tr>
         <td>Slice F</td>

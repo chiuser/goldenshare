@@ -365,7 +365,7 @@
       <tr>
         <td><code>defs/paths.py</code></td>
         <td>当前新链路 raw index daily 路径为 <code>raw/tushare/index_daily_by_code/ts_code=...</code>。</td>
-        <td>旧 <code>raw/tushare/index_daily/trade_date=...</code> 路径函数已从代码删除；旧物理文件只保留审计用途。</td>
+        <td>旧 <code>raw/tushare/index_daily/trade_date=...</code> 路径函数已从代码删除；旧物理文件已按用户确认删除，避免误导新链路。</td>
       </tr>
       </tbody>
     </table>
@@ -764,7 +764,7 @@ WHERE trade_date = '&lt;YYYYMMDD&gt;'
       </tr>
       <tr>
         <th>函数</th>
-        <td><code>probe_index_daily_source_ready(tushare, trade_date)</code></td>
+        <td><code>check_index_daily_source_readiness(tushare, trade_date)</code></td>
       </tr>
       <tr>
         <th>职责</th>
@@ -773,8 +773,8 @@ WHERE trade_date = '&lt;YYYYMMDD&gt;'
       </tbody>
     </table>
     <p>
-      探测代码可以选择一个稳定指数作为 probe code，例如上证指数，但实现前必须用 <code>tushareMcp</code> 验证当天 ready 判定是否可靠。
-      如果单 probe code 不可靠，必须重新设计多 probe 策略，不能直接落代码。
+      第一版 probe code 固定为 <code>000001.SH</code>，请求 <code>index_daily(ts_code, start_date=end_date=YYYYMMDD, limit=1, offset=0)</code>，
+      显式字段为 <code>ts_code,trade_date</code>。如果后续实测发现单 probe code 不可靠，必须重新设计多 probe 策略，不能静默放宽 ready 判断。
     </p>
 
     <h3>10.2 <code>index_daily_sensor</code></h3>
@@ -782,14 +782,15 @@ WHERE trade_date = '&lt;YYYYMMDD&gt;'
     job=index_daily_update_job,
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
-    required_resource_keys={"tushare"},
+    required_resource_keys={"lake_root", "duckdb", "tushare"},
 )
 def index_daily_sensor(context):
     # 1. 读取指数交易日
     # 2. 只处理待更新 trade_date
     # 3. 16:00 后探测 Tushare index_daily ready
     # 4. 读取 cn_a_index_ts_codes
-    # 5. 为每个 ts_code 发 RunRequest</pre>
+    # 5. 扫描 raw-by-code 是否已有目标 trade_date
+    # 6. 为缺失的 ts_code 发 RunRequest</pre>
     <table>
       <thead>
       <tr>
@@ -816,7 +817,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>cursor</td>
-        <td>只记录观测信息，不作为正确性依据。正确性来自正式 instance 的 partitions 和 run/materialization 状态。</td>
+        <td>记录 <code>target_trade_date</code>、<code>next_pending_offset</code>、<code>pending_count</code> 和 <code>selected_count</code>。正确性仍来自 raw-by-code 文件中是否已有目标 <code>trade_date</code>；cursor 只用于 948 个代码超过 500 上限时推进批次，避免每次都卡在排序前 500 个。</td>
       </tr>
       </tbody>
     </table>
@@ -831,7 +832,7 @@ def index_daily_sensor(context):
       <li>已完成：<code>index_daily_checks.py</code> 已去掉旧 raw-by-date checks 和 active pool coverage 依赖。</li>
       <li>已完成：<code>market_major_indices_checks.py</code> 已去掉 <code>silver_index_daily_active_pool</code> 依赖，改为检查 <code>cn_a_index_ts_codes</code>。</li>
       <li>已完成：旧 path/helper/backfill/repair 文件从代码主链删除。</li>
-      <li>仍保留：PG 表、旧物理 raw parquet、Dagster 历史 run/event；这些不在本 Slice 清理。</li>
+      <li>仍保留：PG 表、Dagster 历史 run/event；旧 raw-by-date parquet 已按用户确认物理删除。</li>
     </ol>
 
     <h3>11.2 PG 表退场</h3>
@@ -896,8 +897,8 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>D</td>
-        <td>新增 <code>index_daily_sensor</code> 和 source readiness helper。</td>
-        <td>先 preview，不开长期 sensor；确认只触发 raw job。</td>
+        <td>已实现：新增 <code>index_daily_sensor</code> 和 <code>source_readiness/tushare/index_daily.py</code>。</td>
+        <td>静态检查；UI preview 由用户手工执行，确认只触发 raw job。</td>
       </tr>
       <tr>
         <td>F</td>

@@ -340,6 +340,7 @@
       当前已新增自定义 <code>market_breadth_automation_sensor</code>，只 target <code>gold_market_breadth_daily</code>，用来替代全局默认 automation sensor 作为 market breadth 的日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
+      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver。
       股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。
     </div>
 
@@ -368,7 +369,7 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>market_breadth_automation_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>market_breadth_automation_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册与资产族生产分离。</td>
           <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
         </tr>
@@ -598,7 +599,7 @@
           <td><span class="tag raw">raw</span></td>
           <td><code>cn_a_index_ts_codes</code></td>
           <td><code>index_daily_update_job</code> 按指数代码分区拉 Tushare <code>index_daily</code>。</td>
-          <td>交易日日频或历史批量，时间窗口由 run config 提供。</td>
+          <td>交易日日频或历史批量，时间窗口由 run config 提供；日更由 <code>index_daily_sensor</code> 在源站 ready 后触发。</td>
           <td>指数日线 raw 源镜像；不再依赖本地 metadata active pool。</td>
         </tr>
         <tr>
@@ -747,7 +748,7 @@
           <td><code>index_daily_update_job</code></td>
           <td><code>raw_tushare_index_daily_by_code</code> + raw checks</td>
           <td>单个指数代码的 raw-by-code 文件。</td>
-          <td>人工分区运行；未来可由指数资产族 sensor 接管。</td>
+          <td><code>index_daily_sensor</code>、人工分区运行或 UI backfill。</td>
           <td>不写 silver，不读取 PG active pool，不生产主要指数 gold。</td>
         </tr>
         <tr>
@@ -931,7 +932,7 @@
       </div>
       <div class="card">
         <strong>Sensor 按资产族拆分</strong>
-        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed，并提交对应 run request。
+        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>index_daily_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed 或源站 ready，并提交对应 run request。
       </div>
       <div class="card">
         <strong>并发保护作为保险丝</strong>
