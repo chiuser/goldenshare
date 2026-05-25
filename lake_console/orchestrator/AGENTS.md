@@ -79,6 +79,27 @@ https://docs.dagster.io/guides/test/asset-checks
 5. 文档修改也要区分“记录已确认口径”和“提出待确认方案”；未经确认的方案不得写成已实现或已拍板事实。
 6. 紧急修复也不能绕过设计确认；至少必须先说明要恢复什么、为什么恢复、会改哪些文件、是否会影响正在运行任务，并等待用户批准。
 
+### 文档目录归档门禁
+
+`lake_console` 下的 Dagster 相关文档必须按文档职责归档，禁止继续散落在 `lake_console` 根目录或随手新建目录。
+
+当前固定目录：
+
+```text
+lake_console/docs/design        # 设计方案、阶段方案、LLD、迁移方案、重构方案
+lake_console/docs/architecture  # 架构说明、系统关系、资产/Job 拓扑、长期结构说明
+lake_console/docs/templates     # 开发模板、资产说明卡模板、迁移检查清单、方案模板
+```
+
+规则：
+
+1. 新增或迁移设计相关文档，必须放到 `lake_console/docs/design/`。
+2. 新增或迁移架构说明相关文档，必须放到 `lake_console/docs/architecture/`。
+3. 新增或迁移开发模板相关文档，必须放到 `lake_console/docs/templates/`。
+4. 如果某个文档同时具备多种属性，按主要用途归档；必要时在其它文档中用链接引用，不复制多份。
+5. 修改旧文档路径时，必须同步修正文档之间的链接和引用，避免出现死链或旧路径口径。
+6. 新增文档前必须先判断是否应更新已有设计文档，禁止为同一主题不断新增平行文档导致口径分裂。
+
 ### Job / Asset 职责边界门禁
 
 Dagster job 只做流程入口和 asset selection，不承接具体数据生产逻辑。
