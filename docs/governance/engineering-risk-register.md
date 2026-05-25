@@ -39,7 +39,7 @@
 | RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
 | RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`；历史实现曾在 planner 阶段远程 fallback，且依赖来源藏在 `dc_index_board_codes` selector 中 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 | RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`；历史实现中依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` selector 中 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
-| RISK-2026-05-24-011 | P0 | Dagster dynamic partition 范围扩展先于生产消费者切换，导致股票链路误跑指数历史范围交易日 | Dagster orchestrator、本地新湖股票 raw/silver/gold 分区、Dagster run/event/check 观测记录 | Closed | [Dagster Phase 3 主要指数方案](/Users/congming/github/goldenshare/lake_console/dagster-phase-3-major-indices-design.html)、[Dagster Phase 3 LLD](/Users/congming/github/goldenshare/lake_console/dagster-phase-3-major-indices-low-level-design.html)、[数据资产接入模板](/Users/congming/github/goldenshare/lake_console/dagster-dataset-onboarding-template.html) |
+| RISK-2026-05-24-011 | P0 | Dagster dynamic partition 范围扩展先于生产消费者切换，导致股票链路误跑指数历史范围交易日 | Dagster orchestrator、本地新湖股票 raw/silver/gold 分区、Dagster run/event/check 观测记录 | Closed | [Dagster Phase 3 主要指数方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-phase-3-major-indices-design.html)、[Dagster Phase 3 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-phase-3-major-indices-low-level-design.html)、[数据资产接入模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html) |
 
 ---
 
@@ -593,7 +593,7 @@
 3. `cn_a_trade_days` 保留为备份和对照分区集合，不进入生产资产分区定义。
 4. 已补 `stock_partition_checks.py`，用正式 blocking asset checks 验证股票资产族分区合法性。
 5. 已清理事故期间产生的异常 run/backfill 记录、非法湖目录和未来备份 partition keys。
-6. 已将事故原则写入 `lake_console/orchestrator/AGENTS.md` 和 `lake_console/dagster-dataset-onboarding-template.html`。
+6. 已将事故原则写入 `lake_console/orchestrator/AGENTS.md` 和 `lake_console/docs/templates/dagster-dataset-onboarding-template.html`。
 
 关闭记录（2026-05-24）：
 
