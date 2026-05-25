@@ -1186,6 +1186,30 @@ stock_daily_sensor
       sensor 自动再发同一个 run key，而应通过 Dagster UI/手动分区 run/明确的重试策略处理。
     </div>
 
+    <div class="warning">
+      <strong>asset check 历史事件类型踩坑：</strong>
+      <code>2026-05-25</code> 自动化页面中 <code>stock_daily_sensor</code> tick 曾报错：
+      <code>AssetCheckEvaluationPlanned</code> 没有 <code>target_materialization_data</code>。
+      根因不是股票日线生产逻辑，也不是 Tushare 源站 readiness，而是
+      <code>sensors/readiness.py</code> 在读取 Dagster asset check 历史时，把“检查计划执行”的
+      <code>AssetCheckEvaluationPlanned</code> 当成“检查结果”的 <code>AssetCheckEvaluation</code> 处理。
+      Dagster 的 check 历史会同时记录 planned event 和最终 evaluation event；只有最终
+      <code>SUCCEEDED</code> / <code>FAILED</code> 的 evaluation event 才能用于判断 blocking check 是否通过，
+      也只有它才可能携带指向目标 materialization 的 <code>target_materialization_data</code>。
+    </div>
+
+    <p>
+      该问题由 <code>Slice 2.2.1e</code> 的 sensor readiness helper 引入，首次提交为
+      <code>59d09b36 feat: split dagster trade day sensors</code>；此前不一定复现，是因为旧链路没有这层
+      readiness 历史扫描，或当时 check 历史中没有未完成 planned 记录排在扫描范围内。
+      修复提交为 <code>c90c54ae fix: skip planned asset checks in stock readiness</code>：
+      <code>_check_passed_for_materialization()</code> 只处理 <code>SUCCEEDED</code> / <code>FAILED</code>
+      的真实检查结果，跳过 <code>PLANNED</code> 等未完成记录，并防御式读取
+      <code>target_materialization_data</code>。
+      修复后的口径是保守的：planned 不算通过，也不算失败；没有真实完成结果时，sensor 继续等待，不发下游
+      <code>RunRequest</code>。
+    </p>
+
     <h3>5.3 为什么不是继续手动 job</h3>
     <p>
       第一期曾经有一个 <code>sync_cn_a_trade_day_partitions</code> 手动 job，职责只有注册 2026-04 POC partitions；该临时入口已经退役删除。
@@ -2419,6 +2443,11 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
           <td>Tushare token 配置如何管理？</td>
           <td>使用 <code>TUSHARE_TOKEN</code> 环境变量，由本机 <code>~/.bash_profile</code> 提供；Dagster 侧通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入 <code>TushareResource</code>。</td>
           <td>token 是敏感配置，禁止硬编码，禁止写入 <code>dagster.yaml</code>、<code>.env</code>、设计文档、metadata 或日志。</td>
+        </tr>
+        <tr>
+          <td>sensor readiness 能否直接读取任意 asset check 历史事件？</td>
+          <td>不能。readiness 只能使用已完成的 asset check evaluation 结果；必须跳过 <code>PLANNED</code>、运行中、被跳过或无目标 materialization 的记录。</td>
+          <td>Dagster 会为 asset check 记录 planned event 和最终 evaluation event。planned 只表示“准备执行”，不是质量结果；把它当结果会导致 sensor tick 报错或误判门禁。</td>
         </tr>
         </tbody>
       </table>

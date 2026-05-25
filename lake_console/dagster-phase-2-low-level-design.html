@@ -1714,6 +1714,62 @@ stock_daily_sensor:
     </div>
 
     <div class="warning">
+      <strong>asset check planned event 踩坑：</strong>
+      <code>2026-05-25</code> 自动化页面中 <code>stock_daily_sensor</code> 触发时报
+      <code>SensorExecutionError</code>，内部异常为
+      <code>AttributeError: 'AssetCheckEvaluationPlanned' object has no attribute 'target_materialization_data'</code>。
+      调用链为：<code>stock_daily_sensor</code> 检查候选交易日时调用
+      <code>stock_basic_ready_for_trade_date()</code>，再进入 <code>dataset_readiness_status()</code> /
+      <code>asset_readiness_status()</code> / <code>_check_passed_for_materialization()</code>。
+      该 helper 使用 <code>instance.event_log_storage.get_asset_check_execution_history()</code>
+      扫描 check 历史，但没有过滤状态，直接把 <code>event_specific_data</code> 当成最终
+      <code>AssetCheckEvaluation</code> 读取 <code>target_materialization_data</code>。
+    </div>
+
+    <p>
+      根因是 Dagster 的 asset check 历史并不只包含最终结果。一次 check 可能先写入
+      <code>AssetCheckEvaluationPlanned</code>，表示该检查被计划执行；真正的质量结果是后续的
+      <code>AssetCheckEvaluation</code>，其中才有 <code>passed</code>、<code>blocking</code>、
+      <code>partition</code> 和 <code>target_materialization_data</code>。
+      因此 readiness helper 读取 check 历史时，必须先按完成状态过滤：只处理
+      <code>SUCCEEDED</code> / <code>FAILED</code> 记录；<code>PLANNED</code>、运行中、被跳过或没有
+      <code>target_materialization_data</code> 的记录都不能用于证明某个 materialization 的 blocking checks 已通过。
+    </p>
+
+    <pre><code># 错误口径
+for record in get_asset_check_execution_history(...):
+    evaluation = record.event.dagster_event.event_specific_data
+    target = evaluation.target_materialization_data
+
+# 正确口径
+for record in get_asset_check_execution_history(...):
+    if record.status.value not in {"SUCCEEDED", "FAILED"}:
+        continue
+    evaluation = record.event.dagster_event.event_specific_data
+    target = getattr(evaluation, "target_materialization_data", None)
+    if not target or target.storage_id != materialization_storage_id:
+        continue</code></pre>
+
+    <p>
+      修复提交为 <code>c90c54ae fix: skip planned asset checks in stock readiness</code>，
+      改动点集中在
+      <code>lake_console/orchestrator/src/orchestrator/defs/sensors/readiness.py</code> 的
+      <code>_check_passed_for_materialization()</code>。
+      修复后，planned event 不会让 sensor 报错，也不会被视为通过；如果没有对应 materialization 的真实完成 check
+      结果，readiness 返回缺失或未通过，<code>stock_daily_sensor</code> 继续等待并返回 skip reason，
+      不发起 <code>stock_daily_update_job</code>。
+      这属于调度观测层修复，不改变 asset、job selection、Tushare 请求、raw/silver/gold 写入或路径契约。
+    </p>
+
+    <div class="callout">
+      <strong>防复发规则：</strong>
+      后续所有 sensor、automation 后备或 readiness helper 只要读取 Dagster event log / asset check history，
+      必须显式区分 planned event 和 evaluation event；不得用异常捕获掩盖事件类型误判，也不得把“检查已计划”解释成“检查已通过”。
+      若需要证明某个 asset 当前版本 ready，必须同时满足：对应 materialization 存在、check evaluation 已完成、
+      evaluation 指向同一个 <code>materialization_storage_id</code>、blocking check 为 true 且结果 passed。
+    </div>
+
+    <div class="warning">
       <code>silver_trade_calendar</code> 可能包含全年未来交易日。<code>stock_trade_day_sensor</code> 必须截断未来日期：小于当前自然日的 open day 可注册，今天是开市日时仅 16:00 后可注册今天 partition。
       该 sensor 只返回 <code>build_add_request</code>，不返回数据生产 <code>RunRequest</code>。
     </div>
@@ -2191,7 +2247,7 @@ stock daily assets:
           <td>2.2.1e</td>
           <td>Sensor 分拆与质量门禁触发。</td>
           <td><code>sensors/stock_trade_day_sensor.py</code>、<code>sensors/suspend_d_sensor.py</code>、<code>sensors/stock_basic_sensor.py</code>、<code>sensors/stock_daily_sensor.py</code>、<code>sensors/readiness.py</code>。</td>
-          <td>已实现：<code>stock_trade_day_sensor</code> 只注册 partition；资产族 sensor 分别触发 <code>suspend_update_job</code>、<code>basic_update_job</code>、<code>stock_daily_update_job</code>。正式 instance preview 结果显示当前数据已 ready，四个 sensor 均安全 skip。</td>
+          <td>已实现：<code>stock_trade_day_sensor</code> 只注册 partition；资产族 sensor 分别触发 <code>suspend_update_job</code>、<code>basic_update_job</code>、<code>stock_daily_update_job</code>。正式 instance preview 结果显示当前数据已 ready，四个 sensor 均安全 skip。后续发现 readiness helper 曾把 <code>AssetCheckEvaluationPlanned</code> 当成最终 evaluation 读取，已在 <code>c90c54ae</code> 修复为只处理 <code>SUCCEEDED</code> / <code>FAILED</code> 的真实 check 结果。</td>
         </tr>
         <tr>
           <td>2.2.2</td>
