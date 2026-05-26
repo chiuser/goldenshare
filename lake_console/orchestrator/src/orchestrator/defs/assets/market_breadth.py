@@ -70,7 +70,7 @@ def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
 
 
 MARKET_BREADTH_AUTOMATION_CONDITION = (
-    dg.AutomationCondition.missing()
+    dg.AutomationCondition.on_missing()
     & dg.AutomationCondition.all_deps_blocking_checks_passed()
 )
 

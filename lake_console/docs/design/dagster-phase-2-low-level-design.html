@@ -416,8 +416,8 @@
 
     <div class="callout">
       <strong>Slice 2.2.2a 已验证：</strong>
-      当前 Dagster 1.13.6 中，<code>AutomationCondition.missing()</code> 与
-      <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，可以表达“直接上游已 materialized 且 blocking checks 通过时，请求缺失下游”。
+      当前 Dagster 1.13.6 中，<code>AutomationCondition.on_missing()</code> 与
+      <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，用于表达“直接上游同分区可用且 blocking checks 通过时，请求缺失下游”。
       失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
       同时确认该能力只看直接 asset deps；如果某个下游确实需要多个非直接前置条件，必须另行显式设计。
       但 market breadth 的直接业务输入已经收敛为 <code>silver_stock_daily</code>，因此本轮不再为它新增显式 readiness asset。
@@ -1393,7 +1393,7 @@ Slice 2.0.6 execution:
           <td><code>gold_market_breadth_daily</code></td>
           <td>不适用</td>
           <td><code>gold_market_breadth_daily</code> declarative automation；小样本验证不通时停下讨论 asset sensor 后备；不主动补上游。</td>
-          <td>已实现。<code>gold_market_breadth_daily</code> 声明 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>；<code>daily_market_breadth_job</code> 只选择 gold asset 和 gold checks。</td>
+          <td>已实现。<code>gold_market_breadth_daily</code> 声明 <code>on_missing()</code> + <code>all_deps_blocking_checks_passed()</code>；<code>daily_market_breadth_job</code> 只选择 gold asset 和 gold checks。<code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 证明裸 <code>missing()</code> 条件可能在上游同分区文件不存在时误触发。</td>
         </tr>
         </tbody>
       </table>
@@ -1542,6 +1542,7 @@ Phase 2 completed through Slice 2.2.1e:
   25. Slice 2.2.2b: add gold_market_breadth_daily declarative automation and daily_market_breadth_job [completed]
   26. Slice 2.2.2b: validate daily_market_breadth_job[2026-05-21] in formal instance [completed: run_id 2b336cba-cf28-4a21-9d5b-93df9c9c21ee, only gold_market_breadth_daily materialized, all six gold checks passed]
   27. Slice 2.2.2c: add market_breadth_automation_sensor as the dedicated automation condition sensor [completed]
+  28. Slice 2.2.2c fix: replace missing() with on_missing() after run 19aa0df9-01a9-4c36-afc7-b95a20298b25 exposed a premature request for gold_market_breadth_daily[2026-05-26] while silver_stock_daily[2026-05-26] was absent [completed]
 
 Next implementation stage:
   1. use Dagster UI to backfill historical gold_market_breadth_daily partitions in controlled batches
@@ -2317,7 +2318,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Automation</td>
-          <td>本 Phase 2 LLD 收口表只列股票 quote / market breadth 范围：业务 sensors 默认 STOPPED；<code>stock_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用自定义 <code>market_breadth_automation_sensor</code>，不直接打开 <code>default_automation_condition_sensor</code>。Phase 3 新增的指数 jobs / sensors 见 Phase 3 设计和 LLD。</td>
+          <td>本 Phase 2 LLD 收口表只列股票 quote / market breadth 范围：业务 sensors 默认 STOPPED；<code>stock_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>on_missing()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用自定义 <code>market_breadth_automation_sensor</code>，不直接打开 <code>default_automation_condition_sensor</code>。Phase 3 新增的指数 jobs / sensors 见 Phase 3 设计和 LLD。</td>
         </tr>
         <tr>
           <td>全月数据</td>
@@ -2358,8 +2359,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         <tr>
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
           <td>2.2.2</td>
-          <td>已完成 <code>2.2.2a</code> 小样本验证；<code>2.2.2b</code> 已落地实现。</td>
-          <td>结论：直接上游 materialized + blocking checks passed 可以用 declarative automation 表达；间接上游不会自动覆盖。<code>gold_market_breadth_daily</code> 已使用 <code>missing()</code> + <code>all_deps_blocking_checks_passed()</code>，<code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过后运行。单日运行已完成；短窗口只读验证已完成，但最新评估仍会请求 <code>2975</code> 个历史缺失分区，因此关闭条件改为：不直接启用默认 automation sensor，历史缺失分区走 UI 分批 backfill，并使用自定义 <code>market_breadth_automation_sensor</code> 作为正式触发入口。</td>
+          <td>已完成 <code>2.2.2a</code> 小样本验证；<code>2.2.2b</code> 已落地实现；<code>19aa0df9</code> 后已修正触发条件。</td>
+          <td>结论：直接上游 checks passed 可以用 declarative automation 表达，但不能用裸 <code>missing()</code> 推断上游同分区已 materialized。<code>gold_market_breadth_daily</code> 已改用 <code>on_missing()</code> + <code>all_deps_blocking_checks_passed()</code>，<code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过且同分区可用后运行。历史缺失分区走 UI 分批 backfill，并使用自定义 <code>market_breadth_automation_sensor</code> 作为正式触发入口。</td>
         </tr>
         <tr>
           <td><code>stock_trade_day_sensor</code> 已从 quote 调度职责中解耦。</td>
