@@ -1,173 +1,65 @@
 import os
+from collections.abc import Sequence
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.assets.index_daily import (
+    INDEX_DAILY_SILVER_COLUMNS,
+    silver_index_daily,
+)
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
+    duckdb_string,
+    read_parquet,
 )
-from orchestrator.defs.paths import gold_market_major_indices_path
-from orchestrator.defs.resources import (
-    DuckDBResource,
-    LakeMetaPostgresResource,
-    LakeRootResource,
-    ProdStrategyConfigFileResource,
+from orchestrator.defs.partitions import cn_a_index_trade_days
+from orchestrator.defs.paths import gold_market_major_indices_daily_path, silver_index_daily_path
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.seeds.market.major_indices import (
+    MAJOR_INDICES_SEED_COLUMNS,
+    load_major_indices_seed,
 )
 
 
-LOCAL_METADATA_SOURCE_MODE = "local_metadata"
-PROD_INITIALIZATION_SOURCE_MODE = "prod_initialization"
+MARKET_MAJOR_INDICES_DAILY_COLUMNS = (
+    "trade_date",
+    "rank",
+    "ts_code",
+    "display_name",
+    "open",
+    "high",
+    "low",
+    "close",
+    "pre_close",
+    "change_amount",
+    "pct_chg",
+    "vol",
+    "amount",
+)
 
-MARKET_MAJOR_INDICES_COLUMNS = ("rank", "ts_code", "display_name")
-MARKET_MAJOR_INDICES_COLUMN_TYPES = {
+MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES = {
+    "trade_date": "DATE",
     "rank": "INTEGER",
     "ts_code": "VARCHAR",
     "display_name": "VARCHAR",
+    "open": "DOUBLE",
+    "high": "DOUBLE",
+    "low": "DOUBLE",
+    "close": "DOUBLE",
+    "pre_close": "DOUBLE",
+    "change_amount": "DOUBLE",
+    "pct_chg": "DOUBLE",
+    "vol": "DOUBLE",
+    "amount": "DOUBLE",
 }
 
 
-class MarketMajorIndicesConfig(dg.Config):
-    source_mode: Literal["local_metadata", "prod_initialization"] = LOCAL_METADATA_SOURCE_MODE
-
-
-def load_market_major_indices_rows(
-    lake_meta_postgres: LakeMetaPostgresResource,
-) -> list[dict[str, Any]]:
-    lake_meta_postgres.ensure_market_major_indices_tables()
-    with lake_meta_postgres.connect() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute(
-                """
-                SELECT rank, ts_code, display_name
-                FROM market_major_indices
-                ORDER BY rank
-                """
-            )
-            rows = cursor.fetchall()
-    return [
-        {
-            "rank": row[0],
-            "ts_code": row[1],
-            "display_name": row[2],
-        }
-        for row in rows
-    ]
-
-
-def initialize_market_major_indices_from_prod(
-    *,
-    lake_meta_postgres: LakeMetaPostgresResource,
-    prod_strategy_config_file: ProdStrategyConfigFileResource,
-    run_id: str,
-) -> dict[str, Any]:
-    lake_meta_postgres.ensure_market_major_indices_tables()
-    _ensure_market_major_indices_is_empty(lake_meta_postgres)
-    strategy_config = prod_strategy_config_file.read_major_indices_definition()
-    rows = _parse_market_major_indices_rows(strategy_config.payload)
-    _replace_market_major_indices_rows(
-        lake_meta_postgres=lake_meta_postgres,
-        rows=rows,
-        run_id=run_id,
-    )
-    return {
-        "source_mode": PROD_INITIALIZATION_SOURCE_MODE,
-        "remote_source": strategy_config.metadata["remote_source"],
-        "source_content_sha256": strategy_config.metadata["content_sha256"],
-        "initialized_row_count": len(rows),
-        "history_count": 1,
-    }
-
-
-def _ensure_market_major_indices_is_empty(
-    lake_meta_postgres: LakeMetaPostgresResource,
-) -> None:
-    with lake_meta_postgres.connect() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("SELECT count(*) FROM market_major_indices")
-            row_count = int(cursor.fetchone()[0])
-    if row_count > 0:
-        raise RuntimeError(
-            "market_major_indices already has local rows; initialization is one-time only. "
-            "Use market_major_indices_update_job for local maintenance."
-        )
-
-
-def _parse_market_major_indices_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
-    if payload.get("moduleKey") != "majorIndices":
-        raise RuntimeError("Prod major indices strategy config moduleKey is not majorIndices.")
-    if payload.get("market") != "CN_A":
-        raise RuntimeError("Prod major indices strategy config market is not CN_A.")
-
-    index_codes = payload.get("payload", {}).get("indexCodes")
-    if not isinstance(index_codes, list):
-        raise RuntimeError("Prod major indices strategy config payload.indexCodes must be a list.")
-
-    codes = [str(item).strip() for item in index_codes]
-    if len(codes) != 10:
-        raise RuntimeError("Prod major indices strategy config must contain exactly 10 index codes.")
-    if any(not code for code in codes):
-        raise RuntimeError("Prod major indices strategy config contains empty index code.")
-    if len(set(codes)) != len(codes):
-        raise RuntimeError("Prod major indices strategy config contains duplicate index codes.")
-
-    return [
-        {
-            "rank": index + 1,
-            "ts_code": code,
-            "display_name": None,
-        }
-        for index, code in enumerate(codes)
-    ]
-
-
-def _replace_market_major_indices_rows(
-    *,
-    lake_meta_postgres: LakeMetaPostgresResource,
-    rows: list[dict[str, Any]],
-    run_id: str,
-) -> None:
-    with lake_meta_postgres.connect() as connection:
-        with connection.cursor() as cursor:
-            cursor.execute("LOCK TABLE market_major_indices IN EXCLUSIVE MODE")
-            cursor.execute("SELECT count(*) FROM market_major_indices")
-            existing_row_count = int(cursor.fetchone()[0])
-            if existing_row_count > 0:
-                raise RuntimeError(
-                    "market_major_indices changed before initialization completed; "
-                    "initialization aborted."
-                )
-
-            cursor.executemany(
-                """
-                INSERT INTO market_major_indices (rank, ts_code, display_name)
-                VALUES (%s, %s, %s)
-                """,
-                [(row["rank"], row["ts_code"], row["display_name"]) for row in rows],
-            )
-            cursor.execute(
-                """
-                INSERT INTO market_major_indices_change_history (
-                  before_payload,
-                  after_payload,
-                  dagster_run_id
-                )
-                VALUES (NULL, %s::jsonb, %s)
-                """,
-                (
-                    _json_payload({"items": rows}),
-                    run_id,
-                ),
-            )
-        connection.commit()
-
-
-def _json_payload(value: dict[str, Any]) -> str:
-    import json
-
-    return json.dumps(value, ensure_ascii=True, sort_keys=True)
+def _selected_partition_keys(context: dg.AssetExecutionContext) -> tuple[str, ...]:
+    return tuple(sorted(set(context.partition_keys)))
 
 
 def _column_names(connection, path: Path) -> list[str]:
@@ -181,85 +73,190 @@ def _row_count(connection, path: Path) -> int:
     )
 
 
-def _replace_rows_to_parquet(
-    duckdb: DuckDBResource,
-    rows: list[dict[str, Any]],
-    target_path: Path,
-) -> None:
+def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+    samples = []
+    for row in rows:
+        sample = {}
+        for column, value in zip(columns, row, strict=True):
+            sample[column] = value.isoformat() if hasattr(value, "isoformat") else value
+        samples.append(sample)
+    return samples
+
+
+def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    pending_parquet_path = target_path.with_name(f"{target_path.name}.tmp")
-    if pending_parquet_path.exists():
-        pending_parquet_path.unlink()
+    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
+    if temporary_path.exists():
+        temporary_path.unlink()
 
-    with duckdb.connect() as connection:
-        column_defs = ", ".join(
-            f"{_quote_identifier(column)} {MARKET_MAJOR_INDICES_COLUMN_TYPES[column]}"
-            for column in MARKET_MAJOR_INDICES_COLUMNS
+    connection.execute(copy_query_to_parquet(select_sql, temporary_path))
+    os.replace(temporary_path, target_path)
+
+
+def _create_major_indices_seed_table(connection, table_name: str = "major_indices_seed") -> int:
+    rows = load_major_indices_seed()
+    connection.execute(
+        f"""
+        CREATE TEMP TABLE {table_name} (
+          rank INTEGER,
+          ts_code VARCHAR,
+          display_name VARCHAR
         )
-        connection.execute(f"CREATE TEMP TABLE major_indices_rows ({column_defs})")
-        placeholders = ", ".join("?" for _ in MARKET_MAJOR_INDICES_COLUMNS)
-        values = [[row.get(column) for column in MARKET_MAJOR_INDICES_COLUMNS] for row in rows]
-        connection.executemany(f"INSERT INTO major_indices_rows VALUES ({placeholders})", values)
-        select_sql = ", ".join(
-            f"CAST({_quote_identifier(column)} AS {MARKET_MAJOR_INDICES_COLUMN_TYPES[column]}) "
-            f"AS {_quote_identifier(column)}"
-            for column in MARKET_MAJOR_INDICES_COLUMNS
-        )
-        connection.execute(
-            copy_query_to_parquet(f"SELECT {select_sql} FROM major_indices_rows", pending_parquet_path)
-        )
-
-    os.replace(pending_parquet_path, target_path)
+        """
+    )
+    connection.executemany(
+        f"INSERT INTO {table_name} VALUES (?, ?, ?)",
+        [(row.rank, row.ts_code, row.display_name) for row in rows],
+    )
+    return len(rows)
 
 
-def _quote_identifier(value: str) -> str:
-    return f'"{value.replace(chr(34), chr(34) + chr(34))}"'
+def _major_indices_daily_select_sql(
+    *,
+    seed_table_name: str,
+    silver_path: Path,
+    partition_key: str,
+) -> str:
+    silver_columns = set(INDEX_DAILY_SILVER_COLUMNS)
+    required_silver_columns = {
+        "trade_date",
+        "ts_code",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change_amount",
+        "pct_chg",
+        "vol",
+        "amount",
+    }
+    missing_silver_columns = sorted(required_silver_columns - silver_columns)
+    if missing_silver_columns:
+        raise RuntimeError(f"INDEX_DAILY_SILVER_COLUMNS missing: {missing_silver_columns}")
+
+    return f"""
+    SELECT
+      CAST(silver.trade_date AS DATE) AS trade_date,
+      CAST(seed.rank AS INTEGER) AS rank,
+      CAST(seed.ts_code AS VARCHAR) AS ts_code,
+      CAST(seed.display_name AS VARCHAR) AS display_name,
+      CAST(silver.open AS DOUBLE) AS open,
+      CAST(silver.high AS DOUBLE) AS high,
+      CAST(silver.low AS DOUBLE) AS low,
+      CAST(silver.close AS DOUBLE) AS close,
+      CAST(silver.pre_close AS DOUBLE) AS pre_close,
+      CAST(silver.change_amount AS DOUBLE) AS change_amount,
+      CAST(silver.pct_chg AS DOUBLE) AS pct_chg,
+      CAST(silver.vol AS DOUBLE) AS vol,
+      CAST(silver.amount AS DOUBLE) AS amount
+    FROM {seed_table_name} seed
+    INNER JOIN {read_parquet(silver_path, hive_partitioning=False)} silver
+      ON seed.ts_code = silver.ts_code
+     AND silver.trade_date = DATE {duckdb_string(partition_key)}
+    ORDER BY seed.rank
+    """
+
+
+def _missing_seed_codes_in_silver(
+    connection,
+    *,
+    seed_table_name: str,
+    silver_path: Path,
+    partition_key: str,
+) -> tuple[int, list[dict[str, Any]]]:
+    missing_sql = f"""
+    SELECT seed.rank, seed.ts_code, seed.display_name
+    FROM {seed_table_name} seed
+    LEFT JOIN {read_parquet(silver_path, hive_partitioning=False)} silver
+      ON seed.ts_code = silver.ts_code
+     AND silver.trade_date = DATE {duckdb_string(partition_key)}
+    WHERE silver.ts_code IS NULL
+    """
+    missing_count = int(
+        connection.execute(f"SELECT count(*) FROM ({missing_sql}) missing_codes").fetchone()[0]
+    )
+    rows = connection.execute(
+        f"""
+        {missing_sql}
+        ORDER BY rank, ts_code
+        LIMIT 20
+        """
+    ).fetchall()
+    return missing_count, _sample_dicts(["rank", "ts_code", "display_name"], rows)
 
 
 @dg.asset(
-    name="gold_market_major_indices",
+    name="gold_market_major_indices_daily",
+    deps=[silver_index_daily],
+    partitions_def=cn_a_index_trade_days,
     group_name="market",
-    description="首页主要指数名单，定义展示的指数和顺序。",
+    description="首页主要指数日线结果，读取版本化 seed 名单和 silver_index_daily 当日行情生成。",
 )
-def gold_market_major_indices(
+def gold_market_major_indices_daily(
     context: dg.AssetExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
-    lake_meta_postgres: LakeMetaPostgresResource,
-    prod_strategy_config_file: ProdStrategyConfigFileResource,
-    config: MarketMajorIndicesConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    initialization_metadata: dict[str, Any] = {"source_mode": config.source_mode}
-    if config.source_mode == PROD_INITIALIZATION_SOURCE_MODE:
-        initialization_metadata = initialize_market_major_indices_from_prod(
-            lake_meta_postgres=lake_meta_postgres,
-            prod_strategy_config_file=prod_strategy_config_file,
-            run_id=context.run_id,
-        )
-
-    rows = load_market_major_indices_rows(lake_meta_postgres)
-    if not rows:
-        raise RuntimeError(
-            "market_major_indices is empty; initialize or maintain local metadata before "
-            "materializing gold_market_major_indices."
-        )
-
-    target_path = gold_market_major_indices_path(lake_root.root())
-    _replace_rows_to_parquet(duckdb, rows, target_path)
+    partition_keys = _selected_partition_keys(context)
+    partition_metadata: dict[str, dict[str, Any]] = {}
 
     with duckdb.connect() as connection:
-        columns = _column_names(connection, target_path)
-        row_count = _row_count(connection, target_path)
+        seed_count = _create_major_indices_seed_table(connection)
+        for partition_key in partition_keys:
+            silver_path = silver_index_daily_path(lake_root.root(), partition_key)
+            if not silver_path.exists():
+                raise FileNotFoundError(
+                    f"Missing silver_index_daily partition before generating major indices: "
+                    f"{silver_path}"
+                )
 
+            missing_count, missing_samples = _missing_seed_codes_in_silver(
+                connection,
+                seed_table_name="major_indices_seed",
+                silver_path=silver_path,
+                partition_key=partition_key,
+            )
+            if missing_count:
+                raise RuntimeError(
+                    "silver_index_daily is missing major index rows for "
+                    f"{partition_key}: {missing_samples}"
+                )
+
+            target_path = gold_market_major_indices_daily_path(lake_root.root(), partition_key)
+            _replace_parquet_from_query(
+                connection,
+                _major_indices_daily_select_sql(
+                    seed_table_name="major_indices_seed",
+                    silver_path=silver_path,
+                    partition_key=partition_key,
+                ),
+                target_path,
+            )
+            columns = _column_names(connection, target_path)
+            row_count = _row_count(connection, target_path)
+            partition_metadata[partition_key] = {
+                "partition_key": partition_key,
+                "path": str(target_path),
+                "row_count": row_count,
+                "columns": columns,
+                "seed_row_count": seed_count,
+                "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
+                "source_asset": "silver_index_daily",
+                "source_path": str(silver_path),
+            }
+
+    total_row_count = sum(item["row_count"] for item in partition_metadata.values())
     return dg.MaterializeResult(
         metadata={
-            "path": str(target_path),
-            "row_count": row_count,
-            "columns": columns,
             "layer": "gold",
-            "data_contract": "market_major_indices",
-            "source_table": "goldenshare_lake_meta.market_major_indices",
-            **initialization_metadata,
+            "data_contract": "market_major_indices_daily",
+            "partition_keys": list(partition_keys),
+            "row_count": total_row_count,
+            "partition_metadata": partition_metadata,
+            "expected_columns": list(MARKET_MAJOR_INDICES_DAILY_COLUMNS),
+            "seed_source": "orchestrator.seeds.market.major_indices",
+            "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
         }
     )

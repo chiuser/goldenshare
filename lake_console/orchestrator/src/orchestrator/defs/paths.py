@@ -141,10 +141,6 @@ def silver_index_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
-def gold_market_major_indices_path(root: Path) -> Path:
-    return lake_path(root, GOLD, "market", "major_indices", "full", "part-000.parquet")
-
-
 def gold_market_major_indices_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

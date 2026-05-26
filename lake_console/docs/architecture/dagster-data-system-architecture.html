@@ -874,11 +874,11 @@
             <td>负责打开 DuckDB 连接、设置 PRAGMA、约束 temp 目录在 Lake Root 内。</td>
           </tr>
           <tr>
-            <td><code>LakeMetaPostgresResource</code></td>
+            <td>本地业务 metadata PostgreSQL</td>
             <td><code>goldenshare_lake_meta</code></td>
             <td>业务 metadata 写入与查询</td>
             <td>可以作为关键资源，但不应影响 Dagster 内部 storage</td>
-            <td>保存数据源、schema、发布包、同步记录、质量快照等业务治理表。</td>
+            <td>保存数据源、schema、发布包、同步记录、质量快照等业务治理表。当前 orchestrator 代码已不再注册主要指数 metadata 专用 resource；如后续重新接入，必须单独设计。</td>
           </tr>
           <tr>
             <td><code>ClickHouseResource</code></td>

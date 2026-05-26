@@ -179,7 +179,7 @@
       <div class="chip"><strong>当前准口径</strong>raw 按指数代码分区，silver 按交易日分区。</div>
       <div class="chip"><strong>旧口径状态</strong>旧链路已从 active Definitions 退场，文档不再保留旧实现教程。</div>
       <div class="chip"><strong>当前阶段</strong>raw-by-code 已完成历史回填，silver 历史生成正在推进。</div>
-      <div class="chip"><strong>后续重点</strong>补齐 <code>silver_index_daily_sensor</code>，让 silver 自动响应 raw ready。</div>
+      <div class="chip"><strong>后续重点</strong>主要指数名单 seed 化，并生成 <code>gold_market_major_indices_daily</code>。</div>
     </div>
   </header>
 
@@ -213,11 +213,11 @@
         </tr>
         <tr>
           <td>日更如何触发</td>
-          <td><code>index_trade_day_sensor</code> 只注册指数交易日；<code>index_daily_sensor</code> 在源站 ready 后触发 raw-by-code；silver 自动触发留给 <code>silver_index_daily_sensor</code>。</td>
+          <td><code>index_trade_day_sensor</code> 只注册指数交易日；<code>index_daily_sensor</code> 在源站 ready 后触发 raw-by-code；<code>silver_index_daily_sensor</code> 在 raw 全部 ready 后触发 silver。</td>
         </tr>
         <tr>
           <td>主要指数名单如何使用</td>
-          <td><code>gold_market_major_indices</code> 是首页展示名单，不再充当指数日线生产池。它只需要校验名单代码存在于 <code>silver_index_basic</code> 和 <code>cn_a_index_ts_codes</code>。</td>
+          <td>主要指数名单已从独立 Dagster asset 退场，改为仓库内 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>。它是 <code>gold_market_major_indices_daily[trade_date]</code> 的版本化参考数据，不再由 PostgreSQL metadata 表维护。</td>
         </tr>
       </tbody>
     </table>
@@ -236,11 +236,12 @@ cn_a_index_trade_days dynamic partitions
 
 raw_tushare_index_basic
   -> silver_index_basic
-       used by index metadata checks and major index list checks
+       used by major index seed checks
 
-gold_market_major_indices
-  -> homepage major index display list
-       checked against silver_index_basic and cn_a_index_ts_codes</code></pre>
+major_indices.cn_a.csv seed
+  + silver_index_daily[trade_date]
+  -> gold_market_major_indices_daily[trade_date]
+       path: gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet</code></pre>
 
     <div class="cards">
       <div class="card">
@@ -255,8 +256,8 @@ gold_market_major_indices
       </div>
       <div class="card">
         <span class="tag gold">gold</span>
-        <strong><code>gold_market_major_indices</code></strong>
-        首页主要指数展示名单。它不是日线 active pool，不驱动 <code>index_daily</code> 请求范围。
+        <strong><code>gold_market_major_indices_daily</code></strong>
+        首页主要指数日线结果。主要指数名单来自 seed CSV，不再作为独立 asset 或 metadata 表维护。
       </div>
     </div>
   </section>
@@ -286,6 +287,12 @@ gold_market_major_indices
           <td>不触发 raw；缺 raw 文件时失败。</td>
         </tr>
         <tr>
+          <td><span class="tag job">job</span></td>
+          <td><code>market_major_indices_daily_update_job</code></td>
+          <td>只 materialize <code>gold_market_major_indices_daily[trade_date]</code> 及其 gold checks。</td>
+          <td>不触发 index raw/silver，不调用 Tushare；主要指数名单只读 seed CSV。</td>
+        </tr>
+        <tr>
           <td><span class="tag sensor">sensor</span></td>
           <td><code>index_trade_day_sensor</code></td>
           <td>从交易日历注册 <code>cn_a_index_trade_days</code>。</td>
@@ -298,10 +305,10 @@ gold_market_major_indices
           <td>单 tick 最大 500 个 run request；不触发 silver。</td>
         </tr>
         <tr>
-          <td><span class="tag sensor">planned</span></td>
+          <td><span class="tag sensor">sensor</span></td>
           <td><code>silver_index_daily_sensor</code></td>
-          <td>后续用于判断 raw-by-code 全部 ready 后触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
-          <td>未实现。Slice G 单独设计和开发。</td>
+          <td>判断 raw-by-code 全部 ready 后触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+          <td>不调用 Tushare，不补 raw，只触发 silver job。</td>
         </tr>
       </tbody>
     </table>
