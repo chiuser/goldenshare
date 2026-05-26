@@ -773,7 +773,7 @@ gold_market_breadth_daily[trade_date]</code></pre>
           <td>9</td>
           <td>实现 <code>gold_market_breadth_daily</code> 的 declarative automation 和 <code>daily_market_breadth_job</code>，并验证下游自动化门禁。</td>
           <td>市场宽度的直接业务输入只有 <code>silver_stock_daily[trade_date]</code>；<code>suspend_d</code>、<code>stock_basic</code>、<code>trade_calendar</code> 是生成标准日线事实的上游前置，不在 market breadth 层重复汇总。</td>
-          <td>已完成 <code>Slice 2.2.2b</code>：<code>gold_market_breadth_daily</code> 使用 <code>on_missing()</code> + <code>all_deps_blocking_checks_passed()</code>；新增 active <code>daily_market_breadth_job</code>，selection 只包含 <code>gold_market_breadth_daily</code> 和 gold checks，不新增 <code>market_breadth_upstream_readiness</code> asset。正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只 materialize <code>gold_market_breadth_daily</code>，6 个 gold checks 全部通过。后续 <code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 暴露 <code>missing()</code> + checks 条件会在 <code>silver_stock_daily[2026-05-26]</code> 文件不存在时误触发，因此正式口径改为 <code>on_missing()</code>。历史缺失分区走 UI 分批 backfill，日常触发使用自定义 <code>market_breadth_automation_sensor</code>。</td>
+          <td>已完成 <code>Slice 2.2.2b</code>：<code>gold_market_breadth_daily</code> 使用 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>；新增 active <code>daily_market_breadth_job</code>，selection 只包含 <code>gold_market_breadth_daily</code> 和 gold checks，不新增 <code>market_breadth_upstream_readiness</code> asset。正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只 materialize <code>gold_market_breadth_daily</code>，6 个 gold checks 全部通过。后续 <code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 暴露 <code>on_missing()</code> 口径不能可靠表达“直接上游更新后继续推动下游”：它曾在 <code>silver_stock_daily[2026-05-26]</code> 文件不存在时误触发，且失败后不会因为上游后来 ready 而自然重新请求。因此正式口径改为 <code>eager()</code>，由直接上游 <code>silver_stock_daily</code> 更新来推动 gold。历史缺失分区走 UI 分批 backfill，日常触发使用自定义 <code>market_breadth_automation_sensor</code>。</td>
         </tr>
         <tr>
           <td>10</td>
@@ -994,7 +994,7 @@ defs/sensors/stock_trade_day_sensor.py
 defs/assets/gold/market_breadth.py
   gold_market_breadth_daily
     automation_condition:
-      on_missing() + all_deps_blocking_checks_passed()
+      eager() + all_deps_blocking_checks_passed()
     readiness:
       silver_stock_daily[trade_date] materialized
       silver_stock_daily blocking checks passed
@@ -1308,9 +1308,9 @@ stock_daily_sensor
       materialization 与 checks 状态，均为 ready。
       <code>all_deps_blocking_checks_passed()</code> 只检查直接依赖，不会自动穿透间接上游；这正好符合当前 market breadth 口径：
       <code>gold_market_breadth_daily</code> 只把 <code>silver_stock_daily</code> 当作直接标准事实输入。
-      <code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 后续暴露了一个边界：<code>missing()</code> +
-      <code>all_deps_blocking_checks_passed()</code> 不足以可靠表达“上游同分区已 materialized”。
-      因此当前直接在 <code>gold_market_breadth_daily</code> 上使用 <code>on_missing()</code> +
+      <code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 后续暴露了一个边界：<code>on_missing()</code> +
+      <code>all_deps_blocking_checks_passed()</code> 不适合作为 market breadth 的日常跟进触发，因为它更偏“补新 missing”，不等价于“直接上游更新完成后推动下游”。
+      因此当前直接在 <code>gold_market_breadth_daily</code> 上使用 <code>eager()</code> +
       <code>all_deps_blocking_checks_passed()</code>，不新增 <code>market_breadth_upstream_readiness</code>。
     </div>
 
