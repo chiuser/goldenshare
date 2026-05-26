@@ -420,7 +420,7 @@
       <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，用于表达“直接上游同分区可用且 blocking checks 通过时，请求缺失下游”。
       失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
       同时确认该能力只看直接 asset deps；如果某个下游确实需要多个非直接前置条件，必须另行显式设计。
-      但 market breadth 的直接业务输入已经收敛为 <code>silver_stock_daily</code>，因此本轮不再为它新增显式 readiness asset。
+      但 breadth gold 的直接业务输入已经收敛为 <code>silver_stock_daily</code>，因此本轮不再为它们新增显式 readiness asset。
     </div>
 
     <div class="callout">
@@ -1395,6 +1395,13 @@ Slice 2.0.6 execution:
           <td><code>gold_market_breadth_daily</code> declarative automation；小样本验证不通时停下讨论 asset sensor 后备；不主动补上游。</td>
           <td>已实现。<code>gold_market_breadth_daily</code> 声明 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>；<code>daily_market_breadth_job</code> 只选择 gold asset 和 gold checks。<code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 证明 <code>on_missing()</code> 口径不适合表达“直接上游更新后推动下游”：它曾在上游文件不存在时误触发，且失败后不会因为上游后来 ready 而自然重新请求。</td>
         </tr>
+        <tr>
+          <td><code>stock_return_distribution_daily_job</code></td>
+          <td><code>gold_stock_return_distribution</code></td>
+          <td>不适用</td>
+          <td><code>gold_stock_return_distribution</code> declarative automation；不主动补上游。</td>
+          <td>已实现。该 job 只选择股票涨跌幅区间分布 gold asset 和对应 checks；直接输入同样是 <code>silver_stock_daily</code>。<code>pct_chg</code> 非空由 <code>silver_stock_daily_required_columns_non_null</code> 阻断保障，gold 层不得再用 <code>pct_chg IS NOT NULL</code> 静默过滤。</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -1540,18 +1547,19 @@ Phase 2 completed through Slice 2.2.1e:
       - stock_daily_sensor triggers stock_daily_update_job only after stock_basic, suspend_d and Tushare daily source readiness pass
   24. Slice 2.2.1e: formal instance preview for all four sensors [completed: current data ready, all sensors skipped safely]
   25. Slice 2.2.2b: add gold_market_breadth_daily declarative automation and daily_market_breadth_job [completed]
-  26. Slice 2.2.2b: validate daily_market_breadth_job[2026-05-21] in formal instance [completed: run_id 2b336cba-cf28-4a21-9d5b-93df9c9c21ee, only gold_market_breadth_daily materialized, all six gold checks passed]
+  26. Slice 2.2.2b: validate daily_market_breadth_job[2026-05-21] in formal instance [completed: run_id 2b336cba-cf28-4a21-9d5b-93df9c9c21ee, only gold_market_breadth_daily materialized, then-existing gold checks passed]
   27. Slice 2.2.2c: add market_breadth_automation_sensor as the dedicated automation condition sensor [completed]
   28. Slice 2.2.2c fix: replace on_missing() with eager() after run 19aa0df9-01a9-4c36-afc7-b95a20298b25 exposed that missing-style automation is not reliable for direct-upstream-following market breadth updates [completed]
+  29. Add gold_stock_return_distribution and stock_return_distribution_daily_job with the same direct-upstream automation model [completed]
 
 Next implementation stage:
-  1. use Dagster UI to backfill historical gold_market_breadth_daily partitions in controlled batches
-  2. run limited market breadth date-window acceptance after historical batches are reviewed
-  3. before enabling market_breadth_automation_sensor, run a read-only automation condition evaluation to confirm the requested partition range
+  1. use Dagster UI to backfill historical breadth gold partitions in controlled batches
+  2. run limited breadth gold date-window acceptance after historical batches are reviewed
+  3. before enabling breadth automation sensors, run a read-only automation condition evaluation to confirm the requested partition range
 
 Later stages:
-  1. market_breadth_automation_sensor remains STOPPED until the historical gap is under control
-  2. daily_market_breadth_job[trade_date] runs only if silver_stock_daily direct blocking checks are ready</code></pre>
+  1. breadth automation sensors remain STOPPED until the historical gap is under control
+  2. breadth gold jobs run only if silver_stock_daily direct blocking checks are ready</code></pre>
   </section>
 
   <section>
@@ -2026,13 +2034,22 @@ stock daily assets:
   same-day partition is allowed only after stock_trade_day_sensor has registered it
   silver_stock_daily[trade_date] materialized
   silver_stock_daily[trade_date] blocking checks passed
-  gold_market_breadth_daily[trade_date] is missing</code></pre>
+  direct upstream silver_stock_daily[trade_date] updated
+
+gold_stock_return_distribution[trade_date] automation:
+  partition exists in cn_a_stock_trade_days
+  trade_date is not a future open day
+  same-day partition is allowed only after stock_trade_day_sensor has registered it
+  silver_stock_daily[trade_date] materialized
+  silver_stock_daily[trade_date] blocking checks passed
+  direct upstream silver_stock_daily[trade_date] updated</code></pre>
 
     <div class="callout">
-      口径修正：market breadth 的计算只读取 <code>silver_stock_daily</code>。
+      口径修正：breadth gold 资产的计算只读取 <code>silver_stock_daily</code>。
       <code>suspend_d</code>、<code>stock_basic</code>、<code>trade_calendar</code> 是生成 <code>silver_stock_daily</code> 的前置门禁，
-      不再为 market breadth 单独新增 <code>market_breadth_upstream_readiness</code> asset。
+      不再为 breadth gold 单独新增 readiness asset。
       如果这些上游不合格，问题应在 <code>stock_daily_sensor</code>、<code>stock_daily_update_job</code> 或 <code>silver_stock_daily</code> checks 中暴露。
+      <code>pct_chg</code> 非空同样属于 <code>silver_stock_daily</code> 的 blocking check 边界；gold 层不得用 <code>pct_chg IS NOT NULL</code> 过滤来掩盖上游质量问题。
     </div>
 
     <h3>12.2 实现优先级</h3>
@@ -2058,7 +2075,7 @@ stock daily assets:
         <tr>
           <td>1</td>
           <td>自定义 <code>AutomationConditionSensorDefinition</code> + upstream blocking checks。</td>
-          <td>当前 Dagster 版本验证通过，适用于 <code>gold_market_breadth_daily</code> 这种只依赖直接标准事实资产的下游生产。正式入口不使用全局默认 sensor，而是使用 <code>market_breadth_automation_sensor</code>，只 target market breadth 资产族。</td>
+          <td>当前 Dagster 版本验证通过，适用于 breadth gold 这种只依赖直接标准事实资产的下游生产。正式入口不使用全局默认 sensor，而是使用每个 gold asset 自己的 automation sensor，只 target 单个目标资产。</td>
         </tr>
         <tr>
           <td>2</td>
@@ -2083,12 +2100,12 @@ stock daily assets:
       <code>dagster sensor preview default_automation_condition_sensor</code> 和自定义 <code>market_breadth_automation_sensor</code>
       都不能像普通 sensor 一样预览，当前版本会返回
       <code>NotImplementedError</code>；automation condition 的安全验证应使用 <code>dg.evaluate_automation_conditions(...)</code> 做只读评估。
-      2026-05-23 正式 instance 最新只读评估结果显示，从空 cursor 评估 <code>gold_market_breadth_daily</code> 会请求
+      2026-05-23 正式 instance 只读评估结果显示，从空 cursor 评估 <code>gold_market_breadth_daily</code> 会请求
       <code>2975</code> 个缺失分区，范围从 <code>2014-01-02</code> 到 <code>2026-03-31</code>。
       连续第二次 tick 模拟仍请求同一批缺失分区，因此在历史 gold 大量缺失时，不能短暂开启
       <code>default_automation_condition_sensor</code> 做小窗口验证；否则可能触发大范围历史 runs。
       后续不把默认 automation sensor 作为正式触发入口；历史缺失分区通过 UI 分批 backfill，日常触发改为自定义
-      <code>market_breadth_automation_sensor</code>。
+      breadth automation sensors。
     </div>
 
     <h3>12.3 自定义 AutomationConditionSensorDefinition 设计</h3>
@@ -2104,6 +2121,22 @@ stock daily assets:
         "asset_family": "market_breadth",
       },
       description="Evaluate market breadth declarative automation only.",
+      emit_backfills=True,
+      use_user_code_server=False,
+    )
+
+defs/sensors/stock_return_distribution_automation_sensor.py
+  stock_return_distribution_automation_sensor =
+    dg.AutomationConditionSensorDefinition(
+      name="stock_return_distribution_automation_sensor",
+      target=dg.AssetSelection.assets(gold_stock_return_distribution),
+      default_status=dg.DefaultSensorStatus.STOPPED,
+      minimum_interval_seconds=600,
+      run_tags={
+        "trigger": "automation_condition",
+        "asset_family": "stock_return_distribution",
+      },
+      description="Evaluate stock return distribution declarative automation only.",
       emit_backfills=True,
       use_user_code_server=False,
     )</code></pre>
@@ -2318,7 +2351,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>Automation</td>
-          <td>本 Phase 2 LLD 收口表只列股票 quote / market breadth 范围：业务 sensors 默认 STOPPED；<code>stock_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；market breadth 的 declarative automation 已声明为 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用自定义 <code>market_breadth_automation_sensor</code>，不直接打开 <code>default_automation_condition_sensor</code>。Phase 3 新增的指数 jobs / sensors 见 Phase 3 设计和 LLD。</td>
+          <td>本 Phase 2 LLD 收口表只列股票 quote / breadth gold 范围：业务 sensors 默认 STOPPED；<code>stock_trade_day_sensor</code> 不注册未来交易日且不请求数据生产 run；<code>stock_daily_sensor</code> 在 source readiness 或上游 basic/suspend readiness 未通过时不请求股票日线 job；breadth gold 的 declarative automation 已声明为 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，正式触发入口使用各自的自定义 automation sensor，不直接打开 <code>default_automation_condition_sensor</code>。Phase 3 新增的指数 jobs / sensors 见 Phase 3 设计和 LLD。</td>
         </tr>
         <tr>
           <td>全月数据</td>
@@ -2360,7 +2393,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
           <td>2.2.2</td>
           <td>已完成 <code>2.2.2a</code> 小样本验证；<code>2.2.2b</code> 已落地实现；<code>19aa0df9</code> 后已修正触发条件。</td>
-          <td>结论：直接上游 checks passed 可以用 declarative automation 表达，但 <code>on_missing()</code> 更偏补新 missing，不适合表达“直接上游更新后推动下游”。<code>gold_market_breadth_daily</code> 已改用 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，<code>daily_market_breadth_job</code> 只在 <code>silver_stock_daily</code> 直接质量门禁通过且同分区可用后运行。历史缺失分区走 UI 分批 backfill，并使用自定义 <code>market_breadth_automation_sensor</code> 作为正式触发入口。</td>
+          <td>结论：直接上游 checks passed 可以用 declarative automation 表达，但 <code>on_missing()</code> 更偏补新 missing，不适合表达“直接上游更新后推动下游”。breadth gold 资产已改用 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，对应 gold job 只在 <code>silver_stock_daily</code> 直接质量门禁通过且同分区可用后运行。历史缺失分区走 UI 分批 backfill，并使用自定义 automation sensor 作为正式触发入口。</td>
         </tr>
         <tr>
           <td><code>stock_trade_day_sensor</code> 已从 quote 调度职责中解耦。</td>

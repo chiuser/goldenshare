@@ -467,7 +467,36 @@ SELECT
   END AS red_rate
 FROM {read_parquet(silver_stock_daily_path, hive_partitioning=False)}
 WHERE trade_date = {partition_date}
-  AND pct_chg IS NOT NULL
+"""
+
+
+def stock_return_distribution_select(silver_stock_daily_path: Path, partition_key: str) -> str:
+    partition_date = f"DATE {duckdb_string(partition_key)}"
+    down_gt_7 = "COALESCE(SUM(CASE WHEN pct_chg < -7 THEN 1 ELSE 0 END), 0)"
+    down_5_7 = "COALESCE(SUM(CASE WHEN pct_chg >= -7 AND pct_chg < -5 THEN 1 ELSE 0 END), 0)"
+    down_3_5 = "COALESCE(SUM(CASE WHEN pct_chg >= -5 AND pct_chg < -3 THEN 1 ELSE 0 END), 0)"
+    down_0_3 = "COALESCE(SUM(CASE WHEN pct_chg >= -3 AND pct_chg < 0 THEN 1 ELSE 0 END), 0)"
+    flat = "COALESCE(SUM(CASE WHEN pct_chg = 0 THEN 1 ELSE 0 END), 0)"
+    up_0_3 = "COALESCE(SUM(CASE WHEN pct_chg > 0 AND pct_chg <= 3 THEN 1 ELSE 0 END), 0)"
+    up_3_5 = "COALESCE(SUM(CASE WHEN pct_chg > 3 AND pct_chg <= 5 THEN 1 ELSE 0 END), 0)"
+    up_5_7 = "COALESCE(SUM(CASE WHEN pct_chg > 5 AND pct_chg <= 7 THEN 1 ELSE 0 END), 0)"
+    up_gt_7 = "COALESCE(SUM(CASE WHEN pct_chg > 7 THEN 1 ELSE 0 END), 0)"
+    total_count = "COUNT(*)"
+    return f"""
+SELECT
+  {partition_date} AS trade_date,
+  CAST({down_gt_7} AS BIGINT) AS down_gt_7_count,
+  CAST({down_5_7} AS BIGINT) AS down_5_7_count,
+  CAST({down_3_5} AS BIGINT) AS down_3_5_count,
+  CAST({down_0_3} AS BIGINT) AS down_0_3_count,
+  CAST({flat} AS BIGINT) AS flat_count,
+  CAST({up_0_3} AS BIGINT) AS up_0_3_count,
+  CAST({up_3_5} AS BIGINT) AS up_3_5_count,
+  CAST({up_5_7} AS BIGINT) AS up_5_7_count,
+  CAST({up_gt_7} AS BIGINT) AS up_gt_7_count,
+  CAST({total_count} AS BIGINT) AS total_count
+FROM {read_parquet(silver_stock_daily_path, hive_partitioning=False)}
+WHERE trade_date = {partition_date}
 """
 
 

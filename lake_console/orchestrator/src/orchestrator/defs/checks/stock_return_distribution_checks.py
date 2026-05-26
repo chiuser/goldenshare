@@ -4,17 +4,33 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
+from orchestrator.defs.assets.stock_return_distribution import (
+    STOCK_RETURN_DISTRIBUTION_COLUMNS,
+    gold_stock_return_distribution,
+)
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
-    market_breadth_daily_select,
     read_parquet,
+    stock_return_distribution_select,
 )
 from orchestrator.defs.paths import (
-    gold_market_breadth_daily_path,
+    gold_stock_return_distribution_path,
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+
+
+RETURN_BUCKET_COLUMNS = (
+    "down_gt_7_count",
+    "down_5_7_count",
+    "down_3_5_count",
+    "down_0_3_count",
+    "flat_count",
+    "up_0_3_count",
+    "up_3_5_count",
+    "up_5_7_count",
+    "up_gt_7_count",
+)
 
 
 def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
@@ -37,57 +53,44 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
-def _gold_row(connection, path: Path) -> dict[str, Any] | None:
+def _distribution_row(connection, path: Path) -> dict[str, Any] | None:
     row = connection.execute(
         f"""
-        SELECT
-          trade_date,
-          up_count,
-          down_count,
-          flat_count,
-          total_count,
-          red_rate
+        SELECT {", ".join(STOCK_RETURN_DISTRIBUTION_COLUMNS)}
         FROM {read_parquet(path, hive_partitioning=False)}
         LIMIT 1
         """
     ).fetchone()
     if row is None:
         return None
-    return {
+    result = {
         "trade_date": row[0].isoformat() if hasattr(row[0], "isoformat") else row[0],
-        "up_count": int(row[1]),
-        "down_count": int(row[2]),
-        "flat_count": int(row[3]),
-        "total_count": int(row[4]),
-        "red_rate": float(row[5]),
     }
+    for column, value in zip(STOCK_RETURN_DISTRIBUTION_COLUMNS[1:], row[1:], strict=True):
+        result[column] = int(value)
+    return result
 
 
 def _recomputed_row(connection, silver_path: Path, partition_key: str) -> dict[str, Any] | None:
-    row = connection.execute(market_breadth_daily_select(silver_path, partition_key)).fetchone()
+    row = connection.execute(stock_return_distribution_select(silver_path, partition_key)).fetchone()
     if row is None:
         return None
-    return {
+    result = {
         "trade_date": row[0].isoformat() if hasattr(row[0], "isoformat") else row[0],
-        "up_count": int(row[1]),
-        "down_count": int(row[2]),
-        "flat_count": int(row[3]),
-        "total_count": int(row[4]),
-        "red_rate": float(row[5]),
     }
+    for column, value in zip(STOCK_RETURN_DISTRIBUTION_COLUMNS[1:], row[1:], strict=True):
+        result[column] = int(value)
+    return result
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_row_count_is_one(
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_row_count_is_one(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
@@ -106,33 +109,31 @@ def gold_market_breadth_row_count_is_one(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_counts_add_up(
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_counts_add_up(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
+    bucket_sum_expression = " + ".join(RETURN_BUCKET_COLUMNS)
     with duckdb.connect() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE up_count + down_count + flat_count != total_count
+            WHERE {bucket_sum_expression} != total_count
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
-            SELECT trade_date, up_count, down_count, flat_count, total_count
+            SELECT {", ".join(STOCK_RETURN_DISTRIBUTION_COLUMNS)}
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE up_count + down_count + flat_count != total_count
+            WHERE {bucket_sum_expression} != total_count
             LIMIT 10
             """
         ).fetchall()
@@ -143,60 +144,19 @@ def gold_market_breadth_counts_add_up(
             "path": str(path),
             "partition_key": partition_key,
             "mismatch_count": int(mismatch_count),
-            "mismatch_sample_rows": _sample_dicts(
-                ["trade_date", "up_count", "down_count", "flat_count", "total_count"],
-                rows,
-            ),
+            "mismatch_sample_rows": _sample_dicts(STOCK_RETURN_DISTRIBUTION_COLUMNS, rows),
         },
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_total_count_positive(
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_total_count_matches_silver(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
-    if not path.exists():
-        return _missing_file_result(path)
-
-    with duckdb.connect() as connection:
-        rows = connection.execute(
-            f"""
-            SELECT trade_date, total_count
-            FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE total_count <= 0
-            LIMIT 10
-            """
-        ).fetchall()
-
-    return dg.AssetCheckResult(
-        passed=not rows,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "invalid_row_count": len(rows),
-            "invalid_sample_rows": _sample_dicts(["trade_date", "total_count"], rows),
-        },
-    )
-
-
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_total_count_matches_silver(
-    context: dg.AssetCheckExecutionContext,
-    lake_root: LakeRootResource,
-    duckdb: DuckDBResource,
-) -> dg.AssetCheckResult:
-    partition_key = context.partition_key
-    gold_path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    gold_path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
     silver_path = silver_stock_daily_path(lake_root.root(), partition_key)
     if not gold_path.exists():
         return _missing_file_result(gold_path)
@@ -227,26 +187,24 @@ def gold_market_breadth_total_count_matches_silver(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_red_rate_range(
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
     if not path.exists():
         return _missing_file_result(path)
 
     with duckdb.connect() as connection:
         rows = connection.execute(
             f"""
-            SELECT trade_date, red_rate
+            SELECT trade_date
             FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE red_rate < 0 OR red_rate > 100
+            WHERE trade_date IS NULL
+               OR CAST(trade_date AS DATE) != DATE '{partition_key}'
             LIMIT 10
             """
         ).fetchall()
@@ -257,73 +215,19 @@ def gold_market_breadth_red_rate_range(
             "path": str(path),
             "partition_key": partition_key,
             "invalid_row_count": len(rows),
-            "invalid_sample_rows": _sample_dicts(["trade_date", "red_rate"], rows),
+            "invalid_sample_rows": _sample_dicts(["trade_date"], rows),
         },
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_red_rate_formula(
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_recomputed_from_silver(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
-    path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
-    if not path.exists():
-        return _missing_file_result(path)
-
-    with duckdb.connect() as connection:
-        rows = connection.execute(
-            f"""
-            SELECT
-              trade_date,
-              up_count,
-              total_count,
-              red_rate,
-              CASE
-                WHEN total_count = 0 THEN 0.0
-                ELSE ROUND(up_count * 100.0 / total_count, 2)
-              END AS expected_red_rate
-            FROM {read_parquet(path, hive_partitioning=False)}
-            WHERE ABS(
-              red_rate - CASE
-                WHEN total_count = 0 THEN 0.0
-                ELSE ROUND(up_count * 100.0 / total_count, 2)
-              END
-            ) > 0.000001
-            LIMIT 10
-            """
-        ).fetchall()
-
-    return dg.AssetCheckResult(
-        passed=not rows,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "invalid_row_count": len(rows),
-            "invalid_sample_rows": _sample_dicts(
-                ["trade_date", "up_count", "total_count", "red_rate", "expected_red_rate"],
-                rows,
-            ),
-        },
-    )
-
-
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
-def gold_market_breadth_matches_silver_recompute(
-    context: dg.AssetCheckExecutionContext,
-    lake_root: LakeRootResource,
-    duckdb: DuckDBResource,
-) -> dg.AssetCheckResult:
-    partition_key = context.partition_key
-    gold_path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    gold_path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
     silver_path = silver_stock_daily_path(lake_root.root(), partition_key)
     if not gold_path.exists():
         return _missing_file_result(gold_path)
@@ -331,17 +235,16 @@ def gold_market_breadth_matches_silver_recompute(
         return _missing_file_result(silver_path)
 
     with duckdb.connect() as connection:
-        gold_row = _gold_row(connection, gold_path)
+        gold_row = _distribution_row(connection, gold_path)
         recomputed_row = _recomputed_row(connection, silver_path, partition_key)
 
-    passed = gold_row == recomputed_row
     return dg.AssetCheckResult(
-        passed=passed,
+        passed=gold_row == recomputed_row,
         metadata={
             "gold_path": str(gold_path),
             "silver_path": str(silver_path),
             "partition_key": partition_key,
-            "gold_row": gold_row or {},
-            "recomputed_row": recomputed_row or {},
+            "gold_row": gold_row,
+            "recomputed_row": recomputed_row,
         },
     )

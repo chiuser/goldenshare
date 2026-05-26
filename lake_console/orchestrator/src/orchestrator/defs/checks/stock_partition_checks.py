@@ -5,6 +5,7 @@ import dagster as dg
 
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
 from orchestrator.defs.assets.stock_daily import raw_tushare_stock_daily, silver_stock_daily
+from orchestrator.defs.assets.stock_return_distribution import gold_stock_return_distribution
 from orchestrator.defs.assets.suspend_d import raw_tushare_suspend_d, silver_stock_suspend_daily
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 
@@ -68,6 +69,13 @@ def silver_stock_daily_stock_partition_key_allowed(
 
 @dg.asset_check(asset=gold_market_breadth_daily, blocking=True)
 def gold_market_breadth_stock_partition_key_allowed(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return _stock_partition_key_allowed_result(context)
+
+
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)

@@ -333,11 +333,11 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code> 和 <code>market_major_indices_daily_update_job</code>。
-      <code>gold_market_breadth_daily</code> asset、checks、declarative automation 和 <code>daily_market_breadth_job</code> 均已存在。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code> 和 <code>market_major_indices_daily_update_job</code>。
+      <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 breadth gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
-      当前已新增自定义 <code>market_breadth_automation_sensor</code>，只 target <code>gold_market_breadth_daily</code>，用来替代全局默认 automation sensor 作为 market breadth 的日常触发入口。
+      当前已新增自定义 <code>market_breadth_automation_sensor</code> 和 <code>stock_return_distribution_automation_sensor</code>，分别只 target 自己的 breadth gold asset，用来替代全局默认 automation sensor 作为日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 在目标交易日全部注册指数代码都有成功 <code>index_daily_update_job</code> run 后触发 <code>silver_index_daily_update_job</code>，且手动 UI/backfill 补跑可通过 <code>dagster/partition</code> + 单日 run config 被识别。
@@ -357,7 +357,7 @@
         <tbody>
         <tr>
           <td>Assets</td>
-          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code></td>
+          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code>、<code>stock_return_distribution.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code></td>
           <td>定义 raw / silver / gold 资产如何生成。</td>
           <td>资产函数是真正生产数据的地方，Tushare 拉取、DuckDB 转换、Parquet 写入都在 asset/helper 中。</td>
         </tr>
@@ -369,7 +369,7 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>market_breadth_automation_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册与资产族生产分离。</td>
           <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
         </tr>
@@ -629,6 +629,15 @@
           <td>跟随 <code>silver_stock_daily</code> 直接质量门禁通过后生产。</td>
           <td>业务结果资产；不拉取、不修复、不补齐上游。</td>
         </tr>
+        <tr>
+          <td><span class="tag">breadth</span></td>
+          <td><code>gold_stock_return_distribution</code></td>
+          <td><span class="tag gold">gold</span></td>
+          <td><code>cn_a_stock_trade_days</code></td>
+          <td>asset、gold checks、declarative automation、<code>stock_return_distribution_daily_job</code> 均已实现。</td>
+          <td>跟随 <code>silver_stock_daily</code> 直接质量门禁通过后生产。</td>
+          <td>股票涨跌幅区间分布；不在 gold 层过滤 <code>pct_chg</code> 空值。</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -674,7 +683,7 @@
         <text x="343" y="344" class="svg-note">partitioned raw/silver</text>
 
         <rect x="680" y="185" width="230" height="78" class="node node-future" />
-        <text x="698" y="214" class="svg-label">daily_market_breadth_job</text>
+        <text x="698" y="214" class="svg-label">breadth gold jobs</text>
         <text x="698" y="237" class="svg-note">active: only gold selection</text>
 
         <rect x="975" y="185" width="170" height="78" class="node node-gold" />
@@ -772,6 +781,13 @@
           <td>目标由自定义 <code>market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能写 quote/basic/calendar。</td>
         </tr>
+        <tr>
+          <td><code>stock_return_distribution_daily_job</code></td>
+          <td>已实现；只选择 <code>gold_stock_return_distribution</code> + gold checks。</td>
+          <td>股票涨跌幅区间分布 gold。</td>
+          <td>目标由自定义 <code>stock_return_distribution_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
+          <td>不能补上游，不能拉 Tushare，不能在 gold 层过滤 <code>pct_chg</code> 空值。</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -841,7 +857,7 @@
       </div>
       <div class="card">
         <strong>业务 Gold 生产</strong>
-        <code>daily_market_breadth_job</code> 只生产 <code>gold_market_breadth_daily</code>，直接输入 <code>silver_stock_daily</code> 未通过质量门禁就不请求。
+        breadth gold jobs 只生产各自 gold 资产，直接输入 <code>silver_stock_daily</code> 未通过质量门禁就不请求。
       </div>
     </div>
   </section>
@@ -873,7 +889,7 @@
         </tr>
         <tr>
           <td>共享基础资产 selection</td>
-          <td><code>daily_market_breadth_job</code> 已实现，selection 只包含 market breadth gold asset 和 gold checks。</td>
+          <td>breadth gold jobs 已实现，selection 只包含各自 gold asset 和对应 gold checks。</td>
           <td>如果业务 gold job 把基础资产加入 selection，会造成重复写、并发覆盖和职责混乱。</td>
           <td>业务 job 只选择业务 gold；基础资产只读依赖，通过 readiness 校验。</td>
         </tr>
@@ -897,9 +913,9 @@
         </tr>
         <tr>
           <td>Gold readiness</td>
-          <td><code>gold_market_breadth_daily</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
+          <td><code>gold_market_breadth_daily</code> 和 <code>gold_stock_return_distribution</code> 当前只在 asset deps 上依赖 <code>silver_stock_daily</code>。</td>
           <td><code>Slice 2.2.2a</code> 已验证：Dagster declarative automation 能判断直接上游 blocking checks，但不会穿透非直接上游。</td>
-          <td>已实现：不新增 readiness asset；直接在 <code>gold_market_breadth_daily</code> 上使用 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，在直接上游 <code>silver_stock_daily</code> 更新后推动 market breadth 跟进。短窗口只读评估曾显示旧 missing 口径会请求大量历史缺失分区，因此不直接开启默认全局 automation sensor；当前使用只 target market breadth 的自定义 automation sensor 作为正式入口，历史缺失分区仍走 UI 分批 backfill。</td>
+          <td>已实现：不新增 readiness asset；breadth gold 资产均使用 <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，在直接上游 <code>silver_stock_daily</code> 更新后推动下游跟进。短窗口只读评估曾显示旧 missing 口径会请求大量历史缺失分区，因此不直接开启默认全局 automation sensor；当前使用只 target 单个 gold asset 的自定义 automation sensor 作为正式入口，历史缺失分区仍走 UI 分批 backfill。</td>
         </tr>
         </tbody>
       </table>

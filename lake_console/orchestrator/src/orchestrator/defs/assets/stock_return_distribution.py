@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import dagster as dg
 
@@ -7,15 +8,36 @@ from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
-    market_breadth_daily_select,
     read_parquet,
+    stock_return_distribution_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
-    gold_market_breadth_daily_path,
+    gold_stock_return_distribution_path,
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+
+
+STOCK_RETURN_DISTRIBUTION_COLUMNS = (
+    "trade_date",
+    "down_gt_7_count",
+    "down_5_7_count",
+    "down_3_5_count",
+    "down_0_3_count",
+    "flat_count",
+    "up_0_3_count",
+    "up_3_5_count",
+    "up_5_7_count",
+    "up_gt_7_count",
+    "total_count",
+)
+
+
+STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION = (
+    dg.AutomationCondition.eager()
+    & dg.AutomationCondition.all_deps_blocking_checks_passed()
+)
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -43,47 +65,44 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     os.replace(temporary_path, target_path)
 
 
-def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
+def _distribution_row(connection, path: Path) -> dict[str, Any]:
     row = connection.execute(
         f"""
         SELECT
           trade_date,
-          up_count,
-          down_count,
+          down_gt_7_count,
+          down_5_7_count,
+          down_3_5_count,
+          down_0_3_count,
           flat_count,
-          total_count,
-          red_rate
+          up_0_3_count,
+          up_3_5_count,
+          up_5_7_count,
+          up_gt_7_count,
+          total_count
         FROM {read_parquet(path, hive_partitioning=False)}
         """
     ).fetchone()
     if row is None:
         return {}
-    trade_date, up_count, down_count, flat_count, total_count, red_rate = row
-    return {
-        "trade_date": trade_date.isoformat() if hasattr(trade_date, "isoformat") else trade_date,
-        "up_count": int(up_count),
-        "down_count": int(down_count),
-        "flat_count": int(flat_count),
-        "total_count": int(total_count),
-        "red_rate": float(red_rate),
+
+    result: dict[str, Any] = {
+        "trade_date": row[0].isoformat() if hasattr(row[0], "isoformat") else row[0],
     }
-
-
-MARKET_BREADTH_AUTOMATION_CONDITION = (
-    dg.AutomationCondition.eager()
-    & dg.AutomationCondition.all_deps_blocking_checks_passed()
-)
+    for column, value in zip(STOCK_RETURN_DISTRIBUTION_COLUMNS[1:], row[1:], strict=True):
+        result[column] = int(value)
+    return result
 
 
 @dg.asset(
-    name="gold_market_breadth_daily",
+    name="gold_stock_return_distribution",
     deps=["silver_stock_daily"],
     partitions_def=cn_a_stock_trade_days,
     group_name="breadth",
-    description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
-    automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,
+    description="股票涨跌幅区间分布日表，按 pct_chg 统计九段收益率区间数量。",
+    automation_condition=STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION,
 )
-def gold_market_breadth_daily(
+def gold_stock_return_distribution(
     context: dg.AssetExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -91,19 +110,19 @@ def gold_market_breadth_daily(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     silver_path = silver_stock_daily_path(lake_root.root(), partition_key)
-    target_path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    target_path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
     if not silver_path.exists():
         raise FileNotFoundError(f"Missing silver stock daily file: {silver_path}")
 
     with duckdb.connect() as connection:
         _replace_parquet_from_query(
             connection,
-            market_breadth_daily_select(silver_path, partition_key),
+            stock_return_distribution_select(silver_path, partition_key),
             target_path,
         )
         columns = _column_names(connection, target_path, hive_partitioning=False)
         row_count = _row_count(connection, target_path, hive_partitioning=False)
-        breadth_row = _breadth_row(connection, target_path)
+        distribution_row = _distribution_row(connection, target_path)
 
     return dg.MaterializeResult(
         metadata={
@@ -113,12 +132,12 @@ def gold_market_breadth_daily(
             "columns": columns,
             "partition_key": partition_key,
             "layer": "gold",
-            "data_contract": "market_breadth_daily",
+            "data_contract": "stock_return_distribution",
             "calculation_contract": (
                 "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
-                "up/down/flat by pct_chg > 0/< 0/= 0; "
-                "red_rate = round(up_count / total_count * 100, 2)."
+                "gold aggregation does not filter pct_chg nulls; "
+                "nine return buckets must add up to total_count."
             ),
-            "breadth_row": breadth_row,
+            "distribution_row": distribution_row,
         }
     )
