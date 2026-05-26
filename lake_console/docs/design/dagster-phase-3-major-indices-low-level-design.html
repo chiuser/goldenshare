@@ -398,13 +398,87 @@ silver_index_daily_update_job[trade_date]
   </section>
 
   <section>
-    <h2>7. 后续开发入口</h2>
-    <ol>
-      <li>完成当前 <code>silver_index_daily</code> 历史生成结果审计。</li>
-      <li>开发 Slice G：<code>silver_index_daily_sensor</code>。</li>
-      <li>评估是否需要清理旧 Dagster historical materializations。此动作只影响 UI 历史展示，不删除当前软件定义资产。</li>
-      <li>如需清理遗留 PostgreSQL active pool 表，另起数据库清理方案，先备份再审批。</li>
-    </ol>
+    <h2>7. Phase 3 剩余任务整合</h2>
+    <p>
+      截至当前代码事实，Phase 3 已完成指数日线 raw-by-code 主链、<code>silver_index_daily</code>
+      生成入口、旧 active pool 链路退场，以及 <code>gold_market_major_indices</code>
+      首页主要指数名单资产。剩余工作必须按下表推进，避免一边补 silver 自动触发，一边误把旧 active pool 或旧 raw-by-date 口径带回来。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>顺序</th>
+          <th>任务</th>
+          <th>目标</th>
+          <th>验收口径</th>
+          <th>边界</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>完成当前 <code>silver_index_daily</code> 历史生成结果审计。</td>
+          <td>确认 <code>silver_index_daily[trade_date]</code> 历史分区已经基于 946 个注册 raw-by-code 文件完整生成。</td>
+          <td>审计分区覆盖、row count 范围、字段契约、<code>ts_code + trade_date</code> 唯一性、冲突重复、价格 sanity、registered code coverage、失败/取消 run 是否已被后续成功 run 覆盖。</td>
+          <td>这是只读审计和结果汇总；如果发现问题，先停下来确认修复方案，不直接改生产代码。</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>开发 Slice G：<code>silver_index_daily_sensor</code>。</td>
+          <td>补齐 raw 自动更新后 silver 仍需人工触发的问题。</td>
+          <td>sensor 只在目标交易日所有注册 <code>raw_tushare_index_daily_by_code[ts_code]</code> 已 materialized 且 raw blocking checks 全部通过后，触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+          <td>不调用 Tushare，不补 raw，不重跑失败 raw，不处理历史多日批量；只触发 silver job。</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>评估是否需要清理旧 Dagster historical materializations。</td>
+          <td>判断 UI 中旧 <code>raw_tushare_index_daily</code>、已删除代码分区等历史记录是否会继续造成误导。</td>
+          <td>先列出候选 asset keys、历史 materialization 数量、是否仍有 software-defined asset、清理后 UI 表现、是否影响审计追溯。</td>
+          <td>这是评估项，不是默认执行项。清理 historical materializations 只影响 Dagster event/UI 历史展示，不删除当前软件定义资产，也不删除数据湖 parquet。执行前必须单独确认。</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>如需清理遗留 PostgreSQL active pool 表，另起数据库清理方案。</td>
+          <td>判断 <code>goldenshare_lake_meta.index_daily_active_pool*</code> 是否需要从本地 PostgreSQL 中删除。</td>
+          <td>清理方案必须列出表清单、当前行数、历史用途、备份方式、回滚方式、是否与 <code>market_major_indices</code> 同 schema 但无依赖冲突。</td>
+          <td>数据库清理必须单独备份和审批。不得在 Phase 3 功能开发 slice 中顺手 drop/truncate 表。</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>设计并实现 <code>gold_market_major_indices_daily[trade_date]</code>。</td>
+          <td>把“主要指数名单”与 <code>silver_index_daily[trade_date]</code> 结合，生成首页主要指数日线结果。</td>
+          <td>输出文件位于 <code>gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；行数应等于主要指数名单数量；保留 rank、ts_code、display_name 和当日行情字段。</td>
+          <td>不得重新维护 active pool，不直接调用 Tushare；只读 <code>gold_market_major_indices</code> 和 <code>silver_index_daily[trade_date]</code>。</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>新增主要指数日线 gold checks 和 job。</td>
+          <td>让主要指数日线 gold 资产具备独立生产入口和质量门禁。</td>
+          <td>新增 job 只 selection <code>gold_market_major_indices_daily</code> 和对应 checks；checks 至少覆盖文件存在、分区日期一致、row_count 等于名单数量、rank 连续、ts_code 唯一、名单代码在 silver 当日均有数据、价格 sanity。</td>
+          <td>job 不 selection index raw/silver，不调用 Tushare，不修上游。</td>
+        </tr>
+        <tr>
+          <td>7</td>
+          <td>设计主要指数日线自动触发。</td>
+          <td>在 <code>silver_index_daily[trade_date]</code> 和 <code>gold_market_major_indices</code> ready 后触发 gold 日线。</td>
+          <td>优先评估 declarative automation 是否足够表达直接上游 checks；如需更细控制，再设计专用 sensor。</td>
+          <td>自动触发方案必须先写设计，不和 asset/job 实现混在同一个 slice 中自由发挥。</td>
+        </tr>
+        <tr>
+          <td>8</td>
+          <td>Phase 3 全链路验收与文档收口。</td>
+          <td>跑通指数交易日注册、index raw by code、silver index daily、major indices daily gold 的完整链路。</td>
+          <td>Dagster UI 能观测 assets/jobs/checks/sensors；metadata 可见；无旧 active pool 入口；文档与代码事实一致。</td>
+          <td>不引入 ClickHouse/prod release；如要接入首页 serving 或 prod 发布，另起下一阶段方案。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="warning">
+      <strong>特别说明：</strong>
+      上表第 3、4 项是清理评估，不是功能开发主线。它们的目标是降低 UI 和数据库遗留对象对后续开发的误导；
+      但任何历史记录清理或 PostgreSQL 表清理都必须单独列方案、单独审批，不能在 Slice G 或主要指数日线开发中顺手执行。
+    </div>
     <p class="small">
       详细实现细节继续维护在 <a href="dagster-phase-3-index-daily-refactor-low-level-design.html">Index Daily 重构 LLD</a>。
     </p>

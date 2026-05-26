@@ -407,7 +407,7 @@
         index_daily_sensor
 
       silver_index_daily_sensor.py
-        silver_index_daily_sensor               # 后续 Slice G
+        silver_index_daily_sensor               # 已实现，触发日常最新交易日 silver
 
   source_readiness/
     tushare/
@@ -825,10 +825,10 @@ def index_daily_sensor(context):
       </tbody>
     </table>
 
-    <h3>10.3 <code>silver_index_daily_sensor</code>（后续 Slice G）</h3>
+    <h3>10.3 <code>silver_index_daily_sensor</code>（Slice G 已实现）</h3>
     <p>
-      当前代码尚未实现 <code>silver_index_daily_sensor</code>。该 sensor 的目标是补齐
-      <code>index_daily_sensor</code> 只触发 raw 后，silver 仍需人工触发的问题。
+      当前代码已实现 <code>silver_index_daily_sensor</code>。该 sensor 的目标是补齐
+      <code>index_daily_sensor</code> 只触发 raw 后，silver 日常最新交易日仍需人工触发的问题。
       它只触发 <code>silver_index_daily_update_job</code>，不调用 Tushare，不写 raw。
     </p>
     <pre>@dg.sensor(
@@ -842,7 +842,8 @@ def silver_index_daily_sensor(context):
     # 2. 读取 cn_a_index_ts_codes，计算应参与该交易日的指数代码集合
     # 3. 检查每个 raw-by-code 文件是否包含目标 trade_date
     # 4. 检查 raw_tushare_index_daily_by_code[ts_code] blocking checks 是否通过
-    # 5. 全部 ready 后，触发 silver_index_daily_update_job[trade_date]</pre>
+    # 5. 如果 silver 已生成但 checks 未全绿，跳过并等待人工处理
+    # 6. 全部 ready 后，触发 silver_index_daily_update_job[trade_date]</pre>
     <table>
       <thead>
       <tr>
@@ -857,7 +858,7 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>候选日期</td>
-        <td>只选已经注册的指数交易日。第一版只处理最新一个待生成 silver 的交易日；历史重建继续使用 UI/backfill。</td>
+        <td>只选已经注册且不晚于当前自然日的指数交易日。第一版只处理最新一个待生成 silver 的交易日；历史重建继续使用 UI/backfill。</td>
       </tr>
       <tr>
         <td>raw ready 条件</td>
@@ -865,6 +866,13 @@ def silver_index_daily_sensor(context):
           每个应参与代码必须满足：raw 文件存在、文件内包含目标 <code>trade_date</code>、
           <code>raw_tushare_index_daily_by_code[ts_code]</code> 最近一次 blocking checks 全部通过。
           如果当前 Dagster API 不能可靠读取 raw check 状态，必须停下讨论，不能退化成只看文件存在。
+        </td>
+      </tr>
+      <tr>
+        <td>silver 已失败行为</td>
+        <td>
+          如果 <code>silver_index_daily[trade_date]</code> 已 materialized 但 blocking checks 未全绿，
+          sensor 不自动重跑，返回中文跳过原因，避免每 10 分钟重复提交失败 run。
         </td>
       </tr>
       <tr>
@@ -881,7 +889,7 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>cursor</td>
-        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>ready_code_count</code>、<code>missing_code_count</code>、<code>selected_trade_date</code>。cursor 只用于观测，不作为 ready 判断依据。</td>
+        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>ready_code_count</code>、<code>missing_code_count</code>、<code>failed_check_code_count</code>、<code>selected_trade_date</code>。cursor 只用于观测，不作为 ready 判断依据。</td>
       </tr>
       <tr>
         <td>边界</td>
@@ -975,8 +983,8 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>G</td>
-        <td>新增 <code>silver_index_daily_sensor</code>，把日常 raw-by-code ready 后的 silver 生成自动化。</td>
-        <td>只处理最新交易日；不调用 Tushare，不写 raw，不做历史批量。</td>
+        <td>已实现：新增 <code>silver_index_daily_sensor</code>，把日常 raw-by-code ready 后的 silver 生成自动化。</td>
+        <td>只处理最新交易日；不调用 Tushare，不写 raw，不做历史批量；silver 已生成但 checks 未全绿时不自动重跑。</td>
       </tr>
       </tbody>
     </table>
@@ -999,7 +1007,7 @@ def silver_index_daily_sensor(context):
       <li>执行 <code>index_daily_update_job[ts_code]</code> 单代码小窗口。</li>
       <li>执行 <code>silver_index_daily_update_job[trade_date]</code> 单交易日。</li>
       <li>Preview 或短暂开启 <code>index_daily_sensor</code>。</li>
-      <li>后续 Slice G 中 Preview 或短暂开启 <code>silver_index_daily_sensor</code>。</li>
+      <li>Preview 或短暂开启 <code>silver_index_daily_sensor</code>。</li>
     </ul>
   </section>
 
@@ -1023,7 +1031,7 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>Silver 自动触发是否随第一轮实现</td>
-        <td>已更新：当前代码尚未实现；作为后续 Slice G 设计 <code>silver_index_daily_sensor</code>，只在 raw-by-code 目标日期齐备且 raw blocking checks 通过后触发 silver。</td>
+        <td>已实现：<code>silver_index_daily_sensor</code> 只在 raw-by-code 目标日期齐备且 raw blocking checks 通过后触发 <code>silver_index_daily_update_job</code>；不补 raw、不调用 Tushare、不自动修复 failed silver checks。</td>
       </tr>
       <tr>
         <td>旧 asset definition 保留多久</td>

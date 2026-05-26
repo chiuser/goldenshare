@@ -52,6 +52,21 @@ SILVER_STOCK_DAILY_BLOCKING_CHECKS = (
     "silver_stock_daily_stock_partition_key_allowed",
     "silver_stock_daily_unique_ts_code_trade_date",
 )
+RAW_INDEX_DAILY_BY_CODE_CHECKS = (
+    "raw_index_daily_by_code_file_exists",
+    "raw_index_daily_by_code_partition_code_matches",
+    "raw_index_daily_by_code_required_columns_and_types",
+    "raw_index_daily_by_code_row_count_positive",
+    "raw_index_daily_by_code_unique_ts_code_trade_date",
+)
+SILVER_INDEX_DAILY_BLOCKING_CHECKS = (
+    "silver_index_daily_conflicting_duplicate_absent",
+    "silver_index_daily_partition_date_matches",
+    "silver_index_daily_price_sanity",
+    "silver_index_daily_required_columns_and_types",
+    "silver_index_daily_row_count_positive",
+    "silver_index_daily_unique_ts_code_trade_date",
+)
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")
 SILVER_STOCK_BASIC_ASSET_KEY = dg.AssetKey("silver_stock_basic")
@@ -59,6 +74,8 @@ RAW_SUSPEND_D_ASSET_KEY = dg.AssetKey("raw_tushare_suspend_d")
 SILVER_STOCK_SUSPEND_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_suspend_daily")
 RAW_STOCK_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_stock_daily")
 SILVER_STOCK_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_daily")
+RAW_INDEX_DAILY_BY_CODE_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily_by_code")
+SILVER_INDEX_DAILY_ASSET_KEY = dg.AssetKey("silver_index_daily")
 
 
 @dataclass(frozen=True)
@@ -106,6 +123,14 @@ SUSPEND_D_READINESS_SPECS = (
 STOCK_DAILY_READINESS_SPECS = (
     AssetReadinessSpec(RAW_STOCK_DAILY_ASSET_KEY, RAW_STOCK_DAILY_CHECKS),
     AssetReadinessSpec(SILVER_STOCK_DAILY_ASSET_KEY, SILVER_STOCK_DAILY_BLOCKING_CHECKS),
+)
+RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC = AssetReadinessSpec(
+    RAW_INDEX_DAILY_BY_CODE_ASSET_KEY,
+    RAW_INDEX_DAILY_BY_CODE_CHECKS,
+)
+SILVER_INDEX_DAILY_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_INDEX_DAILY_ASSET_KEY,
+    SILVER_INDEX_DAILY_BLOCKING_CHECKS,
 )
 
 
@@ -292,6 +317,28 @@ def stock_daily_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         STOCK_DAILY_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def raw_index_daily_by_code_ready_for_code(
+    instance: dg.DagsterInstance,
+    index_code: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC,
+        partition_key=index_code,
+    )
+
+
+def silver_index_daily_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_INDEX_DAILY_READINESS_SPEC,
         partition_key=trade_date,
     )
 
