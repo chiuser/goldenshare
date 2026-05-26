@@ -24,6 +24,8 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.seeds.market.major_indices import (
     EXPECTED_MAJOR_INDICES_COUNT,
+    MajorIndexSeedRow,
+    active_major_indices_seed_rows,
     load_major_indices_seed,
 )
 
@@ -89,10 +91,22 @@ def _seed_rows_metadata() -> dict[str, Any]:
                 "rank": row.rank,
                 "ts_code": row.ts_code,
                 "display_name": row.display_name,
+                "effective_start_date": row.effective_start_date.isoformat(),
+                "effective_end_date": row.effective_end_date.isoformat()
+                if row.effective_end_date
+                else None,
             }
             for row in rows[:EXPECTED_MAJOR_INDICES_COUNT]
         ],
     }
+
+
+def _seed_values_sql(seed_rows: Sequence[MajorIndexSeedRow]) -> str:
+    values_sql = ", ".join(
+        f"({row.rank}, {duckdb_string(row.ts_code)}, {_nullable_duckdb_string(row.display_name)})"
+        for row in seed_rows
+    )
+    return f"(VALUES {values_sql}) AS seed(rank, ts_code, display_name)"
 
 
 @dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
@@ -224,13 +238,13 @@ def gold_market_major_indices_daily_row_count_matches_seed(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    seed_rows = load_major_indices_seed()
-    expected_row_count = len(seed_rows)
+    expected_row_counts: dict[str, int] = {}
     row_counts: dict[str, int] = {}
     missing_paths = []
 
     with duckdb.connect() as connection:
         for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+            expected_row_counts[partition_key] = len(active_major_indices_seed_rows(partition_key))
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
@@ -239,13 +253,13 @@ def gold_market_major_indices_daily_row_count_matches_seed(
     failed_partitions = [
         partition_key
         for partition_key, row_count in row_counts.items()
-        if row_count != expected_row_count
+        if row_count != expected_row_counts[partition_key]
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
         metadata={
             "row_counts": row_counts,
-            "expected_row_count": expected_row_count,
+            "expected_row_counts": expected_row_counts,
             "missing_paths": missing_paths,
             "failed_partitions": failed_partitions,
             **_seed_rows_metadata(),
@@ -259,22 +273,23 @@ def gold_market_major_indices_daily_seed_codes_present(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    seed_rows = load_major_indices_seed()
-    seed_codes = tuple(row.ts_code for row in seed_rows)
+    active_seed_codes: dict[str, list[str]] = {}
     missing_counts: dict[str, int] = {}
     missing_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
-    values_sql = ", ".join(
-        f"({row.rank}, {duckdb_string(row.ts_code)}, {_nullable_duckdb_string(row.display_name)})"
-        for row in seed_rows
-    )
-    seed_sql = f"(VALUES {values_sql}) AS seed(rank, ts_code, display_name)"
     with duckdb.connect() as connection:
         for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+            active_seed_rows = active_major_indices_seed_rows(partition_key)
+            active_seed_codes[partition_key] = [row.ts_code for row in active_seed_rows]
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
+            if not active_seed_rows:
+                missing_counts[partition_key] = 0
+                missing_samples[partition_key] = []
+                continue
+            seed_sql = _seed_values_sql(active_seed_rows)
             missing_sql = f"""
             SELECT seed.rank, seed.ts_code, seed.display_name
             FROM {seed_sql}
@@ -306,7 +321,7 @@ def gold_market_major_indices_daily_seed_codes_present(
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
         metadata={
-            "seed_codes": list(seed_codes),
+            "active_seed_codes": active_seed_codes,
             "missing_counts": missing_counts,
             "missing_samples": missing_samples,
             "missing_paths": missing_paths,
@@ -365,26 +380,62 @@ def gold_market_major_indices_daily_unique_ts_code(
 
 
 @dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
-def gold_market_major_indices_daily_rank_continuous(
+def gold_market_major_indices_daily_rank_matches_active_seed_order(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
     results: dict[str, Any] = {}
+    missing_seed_rows: dict[str, list[dict[str, Any]]] = {}
+    unexpected_rows: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
     with duckdb.connect() as connection:
         for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+            active_seed_rows = active_major_indices_seed_rows(partition_key)
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
+            if active_seed_rows:
+                seed_sql = _seed_values_sql(active_seed_rows)
+                missing_sql = f"""
+                SELECT seed.rank, seed.ts_code, seed.display_name
+                FROM {seed_sql}
+                LEFT JOIN {read_parquet(path, hive_partitioning=False)} daily
+                  ON seed.rank = daily.rank
+                 AND seed.ts_code = daily.ts_code
+                WHERE daily.ts_code IS NULL
+                """
+                unexpected_sql = f"""
+                SELECT daily.rank, daily.ts_code, daily.display_name
+                FROM {read_parquet(path, hive_partitioning=False)} daily
+                LEFT JOIN {seed_sql}
+                  ON seed.rank = daily.rank
+                 AND seed.ts_code = daily.ts_code
+                WHERE seed.ts_code IS NULL
+                """
+                missing_seed_rows[partition_key] = _sample_dicts(
+                    ["rank", "ts_code", "display_name"],
+                    connection.execute(
+                        f"{missing_sql} ORDER BY rank, ts_code LIMIT 20"
+                    ).fetchall(),
+                )
+                unexpected_rows[partition_key] = _sample_dicts(
+                    ["rank", "ts_code", "display_name"],
+                    connection.execute(
+                        f"{unexpected_sql} ORDER BY rank, ts_code LIMIT 20"
+                    ).fetchall(),
+                )
+            else:
+                missing_seed_rows[partition_key] = []
+                unexpected_rows[partition_key] = []
+
             row = connection.execute(
                 f"""
                 SELECT
                   count(*) AS row_count,
                   count(DISTINCT rank) AS distinct_rank_count,
-                  min(rank) AS min_rank,
-                  max(rank) AS max_rank,
+                  count(DISTINCT ts_code) AS distinct_code_count,
                   count(*) FILTER (WHERE rank IS NULL) AS null_rank_count
                 FROM {read_parquet(path, hive_partitioning=False)}
                 """
@@ -392,26 +443,29 @@ def gold_market_major_indices_daily_rank_continuous(
             results[partition_key] = {
                 "row_count": int(row[0]),
                 "distinct_rank_count": int(row[1]),
-                "min_rank": row[2],
-                "max_rank": row[3],
-                "null_rank_count": int(row[4]),
+                "distinct_code_count": int(row[2]),
+                "null_rank_count": int(row[3]),
+                "active_seed_ranks": [row.rank for row in active_seed_rows],
             }
 
     failed_partitions = [
         partition_key
         for partition_key, result in results.items()
         if not (
-            result["row_count"] > 0
+            result["row_count"] == len(result["active_seed_ranks"])
             and result["null_rank_count"] == 0
             and result["distinct_rank_count"] == result["row_count"]
-            and result["min_rank"] == 1
-            and result["max_rank"] == result["row_count"]
+            and result["distinct_code_count"] == result["row_count"]
+            and not missing_seed_rows.get(partition_key)
+            and not unexpected_rows.get(partition_key)
         )
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
         metadata={
             "results": results,
+            "missing_seed_rows": missing_seed_rows,
+            "unexpected_rows": unexpected_rows,
             "missing_paths": missing_paths,
             "failed_partitions": failed_partitions,
         },

@@ -448,14 +448,14 @@ silver_index_daily_update_job[trade_date]
           <td>5</td>
           <td>Slice H0：主要指数名单 seed 化。</td>
           <td>让旧 <code>gold_market_major_indices</code> 独立 asset、初始化 job、更新 job 和旧 checks 从 active Definitions 退场。</td>
-          <td>新增 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>，字段固定为 <code>rank,ts_code,display_name</code>，初始内容与当前已确认名单一致。</td>
+          <td>新增 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>，字段固定为 <code>rank,ts_code,display_name,effective_start_date,effective_end_date</code>。<code>effective_start_date</code> 第一版按当前新湖 <code>silver_index_daily</code> 首个可用日期填写，<code>effective_end_date</code> 为空表示仍生效。</td>
           <td>不 drop PostgreSQL <code>market_major_indices*</code> 表，不清历史 Dagster run/event，不删除旧 gold parquet；这些如需处理必须单独出清理方案。</td>
         </tr>
         <tr>
           <td>6</td>
           <td>Slice H1：实现 <code>gold_market_major_indices_daily[trade_date]</code>、checks 和 job。</td>
-          <td>把 seed 名单与 <code>silver_index_daily[trade_date]</code> 结合，生成首页主要指数日线结果。</td>
-          <td>输出文件位于 <code>gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；行数等于 seed 行数；保留 <code>trade_date/rank/ts_code/display_name</code> 和当日行情字段。</td>
+          <td>把当日已生效 seed 名单与 <code>silver_index_daily[trade_date]</code> 结合，生成首页主要指数日线结果。</td>
+          <td>输出文件位于 <code>gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；行数等于当日 active seed 行数；保留 <code>trade_date/rank/ts_code/display_name</code> 和当日行情字段。<code>rank</code> 保留 seed 固定顺序，历史早期允许有缺口，不做按日重排。</td>
           <td><code>market_major_indices_daily_update_job</code> 只 selection daily gold asset 和 gold checks；不 selection index raw/silver，不调用 Tushare，不修上游。</td>
         </tr>
         <tr>

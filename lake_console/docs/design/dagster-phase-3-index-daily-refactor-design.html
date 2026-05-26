@@ -1101,7 +1101,7 @@ silver_index_daily_update_job[trade_date]
     <ol>
       <li>已完成：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code> 和 <code>silver_index_daily_update_job</code>。</li>
       <li>已完成：旧 active pool asset/check/job、旧 raw-by-date asset/check/helper、旧 history backfill / repair job 已从 active Definitions 和代码主链删除。</li>
-      <li>已完成：主要指数名单已从独立 <code>gold_market_major_indices</code> asset 退场，改为仓库 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>；后续由 <code>gold_market_major_indices_daily[trade_date]</code> 直接读取 seed 和 <code>silver_index_daily[trade_date]</code>。</li>
+      <li>已完成：主要指数名单已从独立 <code>gold_market_major_indices</code> asset 退场，改为仓库带生效期 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>；后续由 <code>gold_market_major_indices_daily[trade_date]</code> 直接读取当日已生效 seed 和 <code>silver_index_daily[trade_date]</code>。</li>
       <li>已完成：按用户确认，旧 raw-by-date parquet 与 active pool parquet 已物理删除；历史 Dagster run/event 不删除。</li>
       <li>保留：历史 Dagster run/event 不删除，只作为审计记录保留。</li>
       <li>保留：旧 PG 表不在本 Slice 物理删除；后续如果清理，必须单独备份、列清单并取得用户批准。</li>

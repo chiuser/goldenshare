@@ -21,6 +21,7 @@ from orchestrator.defs.paths import gold_market_major_indices_daily_path, silver
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.seeds.market.major_indices import (
     MAJOR_INDICES_SEED_COLUMNS,
+    active_major_indices_seed_rows,
     load_major_indices_seed,
 )
 
@@ -100,15 +101,37 @@ def _create_major_indices_seed_table(connection, table_name: str = "major_indice
         CREATE TEMP TABLE {table_name} (
           rank INTEGER,
           ts_code VARCHAR,
-          display_name VARCHAR
+          display_name VARCHAR,
+          effective_start_date DATE,
+          effective_end_date DATE
         )
         """
     )
     connection.executemany(
-        f"INSERT INTO {table_name} VALUES (?, ?, ?)",
-        [(row.rank, row.ts_code, row.display_name) for row in rows],
+        f"INSERT INTO {table_name} VALUES (?, ?, ?, ?, ?)",
+        [
+            (
+                row.rank,
+                row.ts_code,
+                row.display_name,
+                row.effective_start_date,
+                row.effective_end_date,
+            )
+            for row in rows
+        ],
     )
     return len(rows)
+
+
+def _active_seed_filter_sql(partition_key: str, *, seed_alias: str = "seed") -> str:
+    trade_date_sql = f"DATE {duckdb_string(partition_key)}"
+    return f"""
+    {seed_alias}.effective_start_date <= {trade_date_sql}
+    AND (
+      {seed_alias}.effective_end_date IS NULL
+      OR {trade_date_sql} <= {seed_alias}.effective_end_date
+    )
+    """
 
 
 def _major_indices_daily_select_sql(
@@ -154,6 +177,7 @@ def _major_indices_daily_select_sql(
     INNER JOIN {read_parquet(silver_path, hive_partitioning=False)} silver
       ON seed.ts_code = silver.ts_code
      AND silver.trade_date = DATE {duckdb_string(partition_key)}
+    WHERE {_active_seed_filter_sql(partition_key)}
     ORDER BY seed.rank
     """
 
@@ -171,7 +195,8 @@ def _missing_seed_codes_in_silver(
     LEFT JOIN {read_parquet(silver_path, hive_partitioning=False)} silver
       ON seed.ts_code = silver.ts_code
      AND silver.trade_date = DATE {duckdb_string(partition_key)}
-    WHERE silver.ts_code IS NULL
+    WHERE {_active_seed_filter_sql(partition_key)}
+      AND silver.ts_code IS NULL
     """
     missing_count = int(
         connection.execute(f"SELECT count(*) FROM ({missing_sql}) missing_codes").fetchone()[0]
@@ -205,6 +230,7 @@ def gold_market_major_indices_daily(
     with duckdb.connect() as connection:
         seed_count = _create_major_indices_seed_table(connection)
         for partition_key in partition_keys:
+            active_seed_rows = active_major_indices_seed_rows(partition_key)
             silver_path = silver_index_daily_path(lake_root.root(), partition_key)
             if not silver_path.exists():
                 raise FileNotFoundError(
@@ -242,6 +268,9 @@ def gold_market_major_indices_daily(
                 "row_count": row_count,
                 "columns": columns,
                 "seed_row_count": seed_count,
+                "active_seed_row_count": len(active_seed_rows),
+                "inactive_seed_row_count": seed_count - len(active_seed_rows),
+                "active_seed_codes": [row.ts_code for row in active_seed_rows],
                 "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
                 "source_asset": "silver_index_daily",
                 "source_path": str(silver_path),

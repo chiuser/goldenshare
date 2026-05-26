@@ -524,7 +524,7 @@
         <tr>
           <td><code>gold_market_major_indices_daily</code></td>
           <td>gold，<code>cn_a_index_trade_days</code> 分区</td>
-          <td>读取仓库 seed <code>major_indices.cn_a.csv</code> 和 <code>silver_index_daily[trade_date]</code>，生成首页主要指数日线结果。</td>
+          <td>读取仓库带生效期 seed <code>major_indices.cn_a.csv</code> 和 <code>silver_index_daily[trade_date]</code>，只输出当日已生效的主要指数日线结果。</td>
           <td><code>market_major_indices_daily_update_job</code>；只选择 daily gold asset 和 gold checks。</td>
         </tr>
         </tbody>

@@ -217,7 +217,7 @@
         </tr>
         <tr>
           <td>主要指数名单如何使用</td>
-          <td>主要指数名单已从独立 Dagster asset 退场，改为仓库内 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>。它是 <code>gold_market_major_indices_daily[trade_date]</code> 的版本化参考数据，不再由 PostgreSQL metadata 表维护。</td>
+          <td>主要指数名单已从独立 Dagster asset 退场，改为仓库内 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>。它是带生效日期的版本化参考数据，不再由 PostgreSQL metadata 表维护。<code>gold_market_major_indices_daily[trade_date]</code> 只要求当日已经生效的主要指数存在。</td>
         </tr>
       </tbody>
     </table>
@@ -257,7 +257,7 @@ major_indices.cn_a.csv seed
       <div class="card">
         <span class="tag gold">gold</span>
         <strong><code>gold_market_major_indices_daily</code></strong>
-        首页主要指数日线结果。主要指数名单来自 seed CSV，不再作为独立 asset 或 metadata 表维护。
+        首页主要指数日线结果。主要指数名单来自带生效期的 seed CSV，不再作为独立 asset 或 metadata 表维护；历史日期允许只输出当日已生效指数。
       </div>
     </div>
   </section>
@@ -290,7 +290,7 @@ major_indices.cn_a.csv seed
           <td><span class="tag job">job</span></td>
           <td><code>market_major_indices_daily_update_job</code></td>
           <td>只 materialize <code>gold_market_major_indices_daily[trade_date]</code> 及其 gold checks。</td>
-          <td>不触发 index raw/silver，不调用 Tushare；主要指数名单只读 seed CSV。</td>
+          <td>不触发 index raw/silver，不调用 Tushare；主要指数名单只读带生效日期的 seed CSV。</td>
         </tr>
         <tr>
           <td><span class="tag sensor">sensor</span></td>

@@ -1,22 +1,22 @@
 import json
+from collections.abc import Mapping
 from datetime import datetime
-from pathlib import Path
-from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
-from orchestrator.defs.paths import raw_index_daily_by_code_path
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     CN_A_SENSOR_TIMEZONE,
-    raw_index_daily_by_code_ready_for_code,
     silver_index_daily_ready_for_trade_date,
 )
 
 
 MAX_STATUS_SAMPLE_COUNT = 20
+RAW_SUCCESS_RUN_QUERY_LIMIT = 5000
+INDEX_DAILY_RAW_JOB_NAME = "index_daily_update_job"
+INDEX_DAILY_RAW_OP_NAME = "raw_tushare_index_daily_by_code"
+DAGSTER_PARTITION_TAG = "dagster/partition"
 
 
 def _asset_status_payload(status: AssetReadinessStatus) -> dict[str, object]:
@@ -46,42 +46,76 @@ def _latest_registered_trade_date(
     return eligible_trade_days[-1] if eligible_trade_days else None
 
 
-def _raw_by_code_has_trade_date(
-    connection,
-    raw_path: Path,
-    compact_trade_date: str,
-) -> bool:
-    if not raw_path.exists():
-        return False
-    row = connection.execute(
-        f"""
-        SELECT count(*) > 0 AS has_trade_date
-        FROM {read_parquet(raw_path, hive_partitioning=False)}
-        WHERE CAST(trade_date AS VARCHAR) = ?
-        """,
-        [compact_trade_date],
-    ).fetchone()
-    return bool(row and row[0])
+def _raw_update_run_config_trade_date(run_config: Mapping[str, object]) -> str | None:
+    ops_config = run_config.get("ops")
+    if not isinstance(ops_config, Mapping):
+        return None
+    raw_op_config = ops_config.get(INDEX_DAILY_RAW_OP_NAME)
+    if not isinstance(raw_op_config, Mapping):
+        return None
+    raw_asset_config = raw_op_config.get("config")
+    if not isinstance(raw_asset_config, Mapping):
+        return None
+
+    start_date = raw_asset_config.get("start_date")
+    end_date = raw_asset_config.get("end_date")
+    if not isinstance(start_date, str) or not isinstance(end_date, str):
+        return None
+    if start_date != end_date:
+        return None
+    return start_date
 
 
-def _raw_file_date_presence(
-    *,
-    lake_root_path: Path,
-    duckdb_resource,
-    index_codes: tuple[str, ...],
+def _successful_raw_update_codes_for_trade_date(
+    instance: dg.DagsterInstance,
+    registered_index_codes: tuple[str, ...],
     trade_date: str,
-) -> dict[str, bool]:
-    compact_trade_date = trade_date.replace("-", "")
-    presence: dict[str, bool] = {}
-    with duckdb_resource.connect() as connection:
-        for index_code in index_codes:
-            raw_path = raw_index_daily_by_code_path(lake_root_path, index_code)
-            presence[index_code] = _raw_by_code_has_trade_date(
-                connection,
-                raw_path,
-                compact_trade_date,
-            )
-    return presence
+) -> tuple[set[str], int, bool]:
+    registered_code_set = set(registered_index_codes)
+    tagged_successful_runs = instance.get_runs(
+        filters=dg.RunsFilter(
+            job_name=INDEX_DAILY_RAW_JOB_NAME,
+            statuses=[dg.DagsterRunStatus.SUCCESS],
+            tags={
+                "asset_family": "index_daily",
+                "trade_date": trade_date,
+            },
+        ),
+        limit=RAW_SUCCESS_RUN_QUERY_LIMIT,
+    )
+    successful_codes = {
+        index_code
+        for run in tagged_successful_runs
+        if (index_code := run.tags.get("index_ts_code")) in registered_code_set
+    }
+    missing_codes = tuple(
+        index_code for index_code in registered_index_codes if index_code not in successful_codes
+    )
+
+    fallback_successful_runs = []
+    if missing_codes:
+        fallback_successful_runs = instance.get_runs(
+            filters=dg.RunsFilter(
+                job_name=INDEX_DAILY_RAW_JOB_NAME,
+                statuses=[dg.DagsterRunStatus.SUCCESS],
+                tags={DAGSTER_PARTITION_TAG: missing_codes},
+            ),
+            limit=RAW_SUCCESS_RUN_QUERY_LIMIT,
+        )
+        for run in fallback_successful_runs:
+            index_code = run.tags.get(DAGSTER_PARTITION_TAG)
+            if index_code not in registered_code_set:
+                continue
+            if _raw_update_run_config_trade_date(run.run_config) != trade_date:
+                continue
+            successful_codes.add(index_code)
+
+    success_run_count = len(tagged_successful_runs) + len(fallback_successful_runs)
+    query_limit_reached = (
+        len(tagged_successful_runs) >= RAW_SUCCESS_RUN_QUERY_LIMIT
+        or len(fallback_successful_runs) >= RAW_SUCCESS_RUN_QUERY_LIMIT
+    )
+    return successful_codes, success_run_count, query_limit_reached
 
 
 def _cursor_payload(
@@ -90,26 +124,27 @@ def _cursor_payload(
     target_trade_date: str | None,
     registered_trade_day_count: int,
     registered_code_count: int,
-    ready_code_count: int,
-    missing_code_count: int,
-    failed_check_code_count: int,
+    successful_code_count: int,
+    missing_success_code_count: int,
+    raw_success_run_count: int,
+    raw_success_run_query_limit_reached: bool,
     selected_trade_date: str | None,
     silver_status: AssetReadinessStatus | None,
-    missing_code_samples: tuple[str, ...],
-    failed_check_samples: dict[str, dict[str, object]],
+    missing_success_code_samples: tuple[str, ...],
 ) -> str:
     payload = {
         "evaluated_at": evaluated_at.isoformat(),
         "target_trade_date": target_trade_date,
         "registered_trade_day_count": registered_trade_day_count,
         "registered_code_count": registered_code_count,
-        "ready_code_count": ready_code_count,
-        "missing_code_count": missing_code_count,
-        "failed_check_code_count": failed_check_code_count,
+        "successful_code_count": successful_code_count,
+        "missing_success_code_count": missing_success_code_count,
+        "raw_success_run_count": raw_success_run_count,
+        "raw_success_run_query_limit": RAW_SUCCESS_RUN_QUERY_LIMIT,
+        "raw_success_run_query_limit_reached": raw_success_run_query_limit_reached,
         "selected_trade_date": selected_trade_date,
         "silver_status": _asset_status_payload(silver_status) if silver_status else None,
-        "missing_code_samples": list(missing_code_samples),
-        "failed_check_samples": failed_check_samples,
+        "missing_success_code_samples": list(missing_success_code_samples),
     }
     return json.dumps(payload, ensure_ascii=True, sort_keys=True)
 
@@ -118,8 +153,7 @@ def _cursor_payload(
     job_name="silver_index_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
-    required_resource_keys={"lake_root", "duckdb"},
-    description="指数日线 raw-by-code 全部 ready 后，触发 silver 分区生成任务。",
+    description="指数日线 raw-by-code 更新任务全部成功后，触发 silver 分区生成任务。",
 )
 def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
@@ -136,13 +170,13 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             target_trade_date=None,
             registered_trade_day_count=0,
             registered_code_count=len(registered_index_codes),
-            ready_code_count=0,
-            missing_code_count=0,
-            failed_check_code_count=0,
+            successful_code_count=0,
+            missing_success_code_count=0,
+            raw_success_run_count=0,
+            raw_success_run_query_limit_reached=False,
             selected_trade_date=None,
             silver_status=None,
-            missing_code_samples=(),
-            failed_check_samples={},
+            missing_success_code_samples=(),
         )
         return dg.SensorResult(
             skip_reason="没有注册指数交易日分区，无法触发指数日线 silver 生成。",
@@ -155,13 +189,13 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             target_trade_date=None,
             registered_trade_day_count=len(registered_trade_days),
             registered_code_count=0,
-            ready_code_count=0,
-            missing_code_count=0,
-            failed_check_code_count=0,
+            successful_code_count=0,
+            missing_success_code_count=0,
+            raw_success_run_count=0,
+            raw_success_run_query_limit_reached=False,
             selected_trade_date=None,
             silver_status=None,
-            missing_code_samples=(),
-            failed_check_samples={},
+            missing_success_code_samples=(),
         )
         return dg.SensorResult(
             skip_reason="没有注册指数代码分区，无法触发指数日线 silver 生成。",
@@ -175,13 +209,13 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             target_trade_date=None,
             registered_trade_day_count=len(registered_trade_days),
             registered_code_count=len(registered_index_codes),
-            ready_code_count=0,
-            missing_code_count=0,
-            failed_check_code_count=0,
+            successful_code_count=0,
+            missing_success_code_count=0,
+            raw_success_run_count=0,
+            raw_success_run_query_limit_reached=False,
             selected_trade_date=None,
             silver_status=None,
-            missing_code_samples=(),
-            failed_check_samples={},
+            missing_success_code_samples=(),
         )
         return dg.SensorResult(
             skip_reason="没有符合当前日期窗口的指数交易日分区。",
@@ -198,13 +232,13 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             target_trade_date=target_trade_date,
             registered_trade_day_count=len(registered_trade_days),
             registered_code_count=len(registered_index_codes),
-            ready_code_count=0,
-            missing_code_count=0,
-            failed_check_code_count=0,
+            successful_code_count=0,
+            missing_success_code_count=0,
+            raw_success_run_count=0,
+            raw_success_run_query_limit_reached=False,
             selected_trade_date=None,
             silver_status=silver_status,
-            missing_code_samples=(),
-            failed_check_samples={},
+            missing_success_code_samples=(),
         )
         return dg.SensorResult(
             skip_reason="最新指数交易日的 silver_index_daily 分区已经生成完成并通过 blocking checks。",
@@ -217,13 +251,13 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             target_trade_date=target_trade_date,
             registered_trade_day_count=len(registered_trade_days),
             registered_code_count=len(registered_index_codes),
-            ready_code_count=0,
-            missing_code_count=0,
-            failed_check_code_count=0,
+            successful_code_count=0,
+            missing_success_code_count=0,
+            raw_success_run_count=0,
+            raw_success_run_query_limit_reached=False,
             selected_trade_date=None,
             silver_status=silver_status,
-            missing_code_samples=(),
-            failed_check_samples={},
+            missing_success_code_samples=(),
         )
         return dg.SensorResult(
             skip_reason=(
@@ -233,57 +267,40 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             cursor=cursor,
         )
 
-    lake_root = context.resources.lake_root
-    lake_root.ensure_available_for_run()
-    file_presence = _raw_file_date_presence(
-        lake_root_path=lake_root.root(),
-        duckdb_resource=context.resources.duckdb,
-        index_codes=registered_index_codes,
-        trade_date=target_trade_date,
+    successful_codes, raw_success_run_count, raw_success_run_query_limit_reached = (
+        _successful_raw_update_codes_for_trade_date(
+            context.instance,
+            registered_index_codes,
+            target_trade_date,
+        )
     )
-
-    ready_codes = []
-    missing_codes = []
-    failed_check_samples: dict[str, dict[str, object]] = {}
-    for index_code in registered_index_codes:
-        if not file_presence[index_code]:
-            missing_codes.append(index_code)
-            continue
-
-        raw_status = raw_index_daily_by_code_ready_for_code(context.instance, index_code)
-        if raw_status.ready:
-            ready_codes.append(index_code)
-            continue
-
-        if len(failed_check_samples) < MAX_STATUS_SAMPLE_COUNT:
-            failed_check_samples[index_code] = _asset_status_payload(raw_status)
-
-    missing_code_samples = tuple(missing_codes[:MAX_STATUS_SAMPLE_COUNT])
+    missing_success_codes = tuple(
+        index_code for index_code in registered_index_codes if index_code not in successful_codes
+    )
+    missing_success_code_samples = missing_success_codes[:MAX_STATUS_SAMPLE_COUNT]
     cursor = _cursor_payload(
         evaluated_at=evaluated_at,
         target_trade_date=target_trade_date,
         registered_trade_day_count=len(registered_trade_days),
         registered_code_count=len(registered_index_codes),
-        ready_code_count=len(ready_codes),
-        missing_code_count=len(missing_codes),
-        failed_check_code_count=len(registered_index_codes) - len(ready_codes) - len(missing_codes),
-        selected_trade_date=target_trade_date
-        if len(ready_codes) == len(registered_index_codes)
-        else None,
+        successful_code_count=len(successful_codes),
+        missing_success_code_count=len(missing_success_codes),
+        raw_success_run_count=raw_success_run_count,
+        raw_success_run_query_limit_reached=raw_success_run_query_limit_reached,
+        selected_trade_date=target_trade_date if not missing_success_codes else None,
         silver_status=silver_status,
-        missing_code_samples=missing_code_samples,
-        failed_check_samples=failed_check_samples,
+        missing_success_code_samples=missing_success_code_samples,
     )
 
-    if missing_codes:
+    if missing_success_codes:
+        skip_reason = "指数日线 raw update job 仍有未成功代码，暂不生成 silver。"
+        if raw_success_run_query_limit_reached:
+            skip_reason = (
+                "指数日线 raw update job 成功记录查询达到上限且仍有未成功代码，"
+                "暂不生成 silver。"
+            )
         return dg.SensorResult(
-            skip_reason="指数日线 raw-by-code 仍有缺口，暂不生成 silver。",
-            cursor=cursor,
-        )
-
-    if failed_check_samples:
-        return dg.SensorResult(
-            skip_reason="指数日线 raw-by-code blocking checks 未全部通过，暂不生成 silver。",
+            skip_reason=skip_reason,
             cursor=cursor,
         )
 
