@@ -1,0 +1,1450 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster Run Contract 治理方案：Tags、Config、Metadata 与 Cursor</title>
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --paper: #fffaf1;
+      --paper-2: #fffdf8;
+      --ink: #17212b;
+      --muted: #64717f;
+      --line: #dccbb4;
+      --accent: #9a5d12;
+      --accent-2: #286b74;
+      --green: #dff1df;
+      --warn: #fff0c6;
+      --danger: #ffe0d8;
+      --blue: #e7edff;
+      --code-bg: #fff7e6;
+      --code-ink: #1b2b3b;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 8% -4%, rgba(255, 228, 163, 0.54), transparent 34rem),
+        radial-gradient(circle at 96% 9%, rgba(116, 173, 181, 0.18), transparent 32rem),
+        linear-gradient(180deg, #fbf6ed 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 38px 26px 84px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(74, 52, 28, 0.08);
+    }
+
+    header { padding: 34px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3,
+    h4 {
+      line-height: 1.2;
+      letter-spacing: -0.02em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.5vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 26px 0 10px;
+      font-size: 20px;
+    }
+
+    h4 {
+      margin: 20px 0 8px;
+      font-size: 16px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    a {
+      color: #7c4f0e;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: var(--code-ink);
+      background: rgba(35, 51, 72, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid #e2cdaa;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.56;
+    }
+
+    pre code {
+      color: inherit;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+      font-size: inherit;
+    }
+
+    ul { padding-left: 22px; }
+
+    li { margin: 5px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 22px;
+      background: var(--paper-2);
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 12px 13px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #513615;
+      background: #f7ecd7;
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+
+    th:last-child,
+    td:last-child { border-right: 0; }
+
+    .subtitle {
+      max-width: 1040px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 14px;
+      margin-top: 22px;
+    }
+
+    .chip,
+    .card,
+    .callout,
+    .warning,
+    .danger {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper-2);
+    }
+
+    .chip {
+      padding: 12px 14px;
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .chip strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+      font-size: 15px;
+    }
+
+    .card { padding: 17px; }
+
+    .card h3 { margin-top: 0; }
+
+    .callout,
+    .warning,
+    .danger {
+      margin: 16px 0;
+      padding: 15px 17px;
+    }
+
+    .callout {
+      border-color: #bdd0d4;
+      background: #eef7f6;
+    }
+
+    .warning {
+      border-color: #e8c976;
+      background: var(--warn);
+    }
+
+    .danger {
+      border-color: #e7a391;
+      background: var(--danger);
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--blue);
+      color: #273a68;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .ok { background: var(--green); color: #1d572f; }
+    .warn-tag { background: var(--warn); color: #70510c; }
+    .danger-tag { background: var(--danger); color: #7b2d1d; }
+    .muted { color: var(--muted); }
+    .nowrap { white-space: nowrap; }
+
+    @media (max-width: 760px) {
+      main { padding: 22px 14px 62px; }
+      header,
+      section {
+        border-radius: 18px;
+        padding: 20px;
+      }
+      table {
+        display: block;
+        overflow-x: auto;
+      }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster Run Contract 治理方案</h1>
+    <p class="subtitle">
+      本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据，不直接修改任何 asset、job、sensor 或正式 Dagster instance。
+    </p>
+    <div class="meta-grid">
+      <div class="chip"><strong>文档状态</strong>治理专项方案，待评审后执行代码整改</div>
+      <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
+      <div class="chip"><strong>非目标</strong>不定义飞书发送策略，不新增通知能力，不运行 Dagster</div>
+      <div class="chip"><strong>更新日期</strong>2026-05-27</div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 背景与问题</h2>
+    <p>
+      当前项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。
+    </p>
+    <p>
+      这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
+    </p>
+    <div class="danger">
+      <strong>治理原则：</strong>先定义契约，再审计现状，再逐项修正。禁止为了当前一个通知噪音或一个 sensor 门禁，继续新增未经定义的 tag、config 字段或 cursor 字段。
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 外部依据与可借鉴边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>来源</th>
+        <th>相关口径</th>
+        <th>对本项目的约束</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><a href="https://docs.dagster.io/guides/build/assets/metadata-and-tags">Dagster Asset metadata and tags</a></td>
+        <td>Asset tags 用于资产过滤、搜索和组织；metadata 用于更丰富的资产描述或运行产物事实。</td>
+        <td>Asset tags 只能放低基数、静态、对 UI 过滤有实际价值的信息；行数、路径、样本、schema 等事实进入 metadata。</td>
+      </tr>
+      <tr>
+        <td><a href="https://docs.dagster.io/api/dagster/schedules-sensors">Dagster RunRequest API</a></td>
+        <td><code>RunRequest</code> 明确区分 <code>run_key</code>、<code>run_config</code>、<code>tags</code>。</td>
+        <td>执行参数进入 <code>run_config</code>；本项目第一版不新增自定义 run tags，只读取 Dagster 系统 tags。日期、代码、批次数量这类动态信息不能借 run tags 传递。</td>
+      </tr>
+      <tr>
+        <td><a href="https://docs.dagster.io/api/dagster/jobs">Dagster Jobs API</a></td>
+        <td>Job 定义支持 <code>tags</code>、<code>run_tags</code>、<code>metadata</code>，三者作用不同。</td>
+        <td>Job 定义层 tags 只服务定义分类；<code>run_tags</code> 不作为默认扩展点。只有出现明确调度策略或外部系统契约，并先更新本文档，才允许讨论自定义 run tags。</td>
+      </tr>
+      <tr>
+        <td><a href="https://docs.dagster.io/guides/operate/configuration/run-configuration">Dagster Run configuration</a></td>
+        <td>Run config 是运行时配置，供 asset/op/resource 消费并由 schema 校验。</td>
+        <td>Run config 只能放会改变本次执行行为的参数，不能放通知、UI 分类、批次统计或下游观测状态。</td>
+      </tr>
+      <tr>
+        <td><a href="https://docs.dagster.io/guides/operate/managing-concurrency">Dagster Managing concurrency</a></td>
+        <td>Dagster 并发控制可以使用 pools 或 run tag limits。</td>
+        <td>Run tags 未来可能参与调度控制，因此必须稳定、受控、可审计，不能随意新增高歧义 key。</td>
+      </tr>
+      <tr>
+        <td><a href="https://docs.getdbt.com/reference/resource-configs/tags">dbt tags</a> / <a href="https://docs.getdbt.com/reference/resource-configs/meta">dbt meta</a></td>
+        <td>dbt tags 常用于选择和组织资源；<code>meta</code> 承载结构化自定义元数据。</td>
+        <td>标签应服务选择和治理，不应承载复杂结构；结构化描述进入 metadata。</td>
+      </tr>
+      <tr>
+        <td><a href="https://docs.datahub.com/docs/tags/">DataHub Tags</a> / <a href="https://docs.datahub.com/docs/domains/">Domains</a></td>
+        <td>Tags 是轻量分类；Domains 是更正式的业务域归属。</td>
+        <td>不要用大量自由 tags 模拟业务模型；本项目第一版只保留确实会用于过滤、审计或自动化的最小标签。</td>
+      </tr>
+      <tr>
+        <td><a href="https://github.com/OpenLineage/OpenLineage/blob/main/spec/OpenLineage.md">OpenLineage Spec</a></td>
+        <td>Job、Run、Dataset 有不同实体边界，运行事实和数据集事实通过不同 facets 表达。</td>
+        <td>本项目必须区分 asset 定义事实、run 执行事实、materialization 产物事实和 sensor 私有状态。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 四类信息的边界定义</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>类别</th>
+        <th>定义</th>
+        <th>应该放什么</th>
+        <th>禁止放什么</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>tags</code></td>
+        <td>低成本、低基数或可索引的字符串标签，用于过滤、查询和资产组织。Run records 上第一版只读取 Dagster 系统 tags。</td>
+        <td>资产静态分类；Dagster 系统生成的 partition、backfill、sensor、schedule、from_ui 等运行事实。</td>
+        <td>行数、样本行、文件路径、错误详情、完整 schema、复杂 JSON。</td>
+      </tr>
+      <tr>
+        <td><code>run_config</code></td>
+        <td>本次 run 的执行输入，会被 asset/op/resource 读取并改变执行行为。</td>
+        <td>源接口查询窗口、写入模式、明确的执行参数。</td>
+        <td>通知策略、UI 分类、batch 统计、owner、行数、ready 状态。</td>
+      </tr>
+      <tr>
+        <td><code>metadata</code></td>
+        <td>资产定义、materialization、asset check 或 event 上的结构化说明和事实。</td>
+        <td>路径、行数、schema、源接口、数据契约、质量检查统计、样本。</td>
+        <td>触发来源、sensor 私有 offset、通知开关、会影响执行的参数。</td>
+      </tr>
+      <tr>
+        <td><code>cursor</code></td>
+        <td>某个 sensor 自己的私有进度和上次评估摘要。</td>
+        <td>上次评估时间、目标日期、offset、决策摘要、少量诊断样本。</td>
+        <td>跨 sensor 契约、下游 readiness 唯一事实源、业务数据事实、长期审计口径。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>一句话规则：</strong><code>run_config</code> 改变执行，asset tags 只做资产分类，run records 第一版只读 Dagster 系统 tags，asset/materialization metadata 描述资产与产物事实，cursor 只服务 sensor 自己。
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 命名空间规则</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>命名空间</th>
+        <th>归属</th>
+        <th>规则</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>dagster/*</code></td>
+        <td>Dagster 系统</td>
+        <td>只读，不自造，不覆盖，不把自定义语义塞进该命名空间。</td>
+        <td>Dagster 会生成 <code>dagster/partition</code>、<code>dagster/backfill</code>、<code>dagster/sensor_name</code> 等系统 tags；伪造会污染 UI、查询和后续升级。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/*</code></td>
+        <td>本项目自定义 asset tags 和 metadata</td>
+        <td>所有跨模块可见的自定义 key 必须使用该前缀，并在本文档或后续契约文档登记；第一版不用于 run tags。</td>
+        <td>避免与 Dagster、第三方插件和未来系统 key 冲突；也便于静态扫描。</td>
+      </tr>
+      <tr>
+        <td>无前缀 config 字段</td>
+        <td>具体 asset/op 的 typed config</td>
+        <td>Config 字段使用 Python config model 的局部业务名，不加 <code>goldenshare/</code> 前缀。</td>
+        <td>Run config 是代码消费的结构化输入，不是全局标签字典；命名应贴近 asset 业务参数。</td>
+      </tr>
+      <tr>
+        <td>无前缀 cursor 字段</td>
+        <td>具体 sensor 私有 JSON</td>
+        <td>Cursor 顶层字段遵守本文档最小规范，sensor-specific 信息放入 <code>details</code>。</td>
+        <td>Cursor 不对外共享，不需要全局前缀；但需要基本结构方便排错和迁移。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. Asset Tags 第一版字段</h2>
+    <p>
+      Asset tags 第一版只定义两个字段：层级和数据域。标签只服务 UI 过滤、资产组织和低基数分类，不承载具体数据集名称、运行日期、批次状态或质量统计。数据域取值学习 <code>docs/sources/tushare/**</code> 的目录语言，但在 UI 中做简化展示；具体 Tushare 来源目录和文档路径进入 metadata，不进入 tag。
+    </p>
+
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>是否必填</th>
+        <th>允许值</th>
+        <th>适用对象</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>goldenshare/layer</code></td>
+        <td>是，正式数据资产必填</td>
+        <td><code>原始层</code>、<code>标准层</code>、<code>正式层</code></td>
+        <td>所有落到 <code>data_lake/raw|silver|gold</code> 的 asset</td>
+        <td>Lake 三层是本项目硬边界，且在 UI、文档、路径、checks 中反复使用。值使用中文是为了让 Dagster UI 中的资产过滤更直观；代码内部路径仍然使用 <code>raw</code>、<code>silver</code>、<code>gold</code>。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/data_domain</code></td>
+        <td>是，正式数据资产必填</td>
+        <td><code>基础数据</code>、<code>行情数据</code>、<code>指数专题</code>、<code>项目配置</code>、<code>衍生指标</code></td>
+        <td>所有正式数据资产</td>
+        <td>该字段用于少量稳定的数据域过滤。<code>基础数据</code>、<code>行情数据</code>、<code>指数专题</code> 来自 Tushare 本地文档目录；<code>项目配置</code> 和 <code>衍生指标</code> 用于非 Tushare 源资产。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.1 当前数据域归类</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>数据域</th>
+        <th>当前覆盖数据集</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>基础数据</code></td>
+        <td><code>stock_basic</code>、<code>trade_cal</code></td>
+        <td>本地 Tushare 文档把股票基础信息和交易日历放在 <code>股票数据 / 基础数据</code> 下。UI tag 保留二级目录名，具体上级目录和文档路径由 metadata 记录。</td>
+      </tr>
+      <tr>
+        <td><code>行情数据</code></td>
+        <td><code>daily</code>、<code>suspend_d</code></td>
+        <td>本地 Tushare 文档把 A 股日线行情和每日停复牌信息都放在 <code>股票数据 / 行情数据</code> 下。停复牌不单独造新分类，避免偏离既有文档目录体系。</td>
+      </tr>
+      <tr>
+        <td><code>指数专题</code></td>
+        <td><code>index_basic</code>、<code>index_daily</code></td>
+        <td>本地 Tushare 文档把指数基本信息和指数日线行情放在 <code>指数专题</code> 下。该目录本身已经是稳定一级分类。</td>
+      </tr>
+      <tr>
+        <td><code>项目配置</code></td>
+        <td><code>market_major_indices</code></td>
+        <td>主要指数名单来自项目 seed/config，不是 Tushare API 目录中的数据集。单独归为项目配置，便于和源站数据区分。</td>
+      </tr>
+      <tr>
+        <td><code>衍生指标</code></td>
+        <td><code>market_breadth</code>、<code>stock_return_distribution</code></td>
+        <td>市场宽度和股票涨跌幅分布由湖内标准层资产计算得到，不直接对应 Tushare 源目录。归为衍生指标，表达其作为正式层分析产物的性质。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div class="warning">
+      <strong>明确不定义 <code>goldenshare/data_family</code>：</strong>具体数据集身份由 asset key 和中文名映射表达，不再把 <code>stock_daily</code>、<code>index_daily</code> 这类数据集名搬进 tag。否则未来 500 个资产会变成 500 个 family，失去分类价值。
+    </div>
+
+    <div class="warning">
+      <strong>暂不定义的 asset tags：</strong><code>owner</code>、<code>sensitivity</code>、<code>source_system</code>、<code>freshness_class</code> 第一版不进入 asset tags。原因分别是：当前没有多 owner 运维流程；本地 lake 目前没有分级隐私治理；source 更适合作为 definition metadata；freshness 已由 checks/readiness 表达，提前做 tag 会形成重复口径。
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 数据集中文名映射</h2>
+    <p>
+      具体数据集名称不作为 tag。为了让 UI、文档、通知和错误信息使用中文展示，第一版新增单独 Python 映射文件承载“稳定数据集 id 到中文名”的关系。
+    </p>
+
+    <pre><code>lake_console/orchestrator/src/orchestrator/defs/catalog/name_mapping.py
+
+DATASET_CHINESE_NAMES = {
+    "stock_basic": "股票基础信息",
+    "trade_cal": "交易日历",
+    "daily": "A股日线行情",
+    "suspend_d": "每日停复牌信息",
+    "index_basic": "指数基本信息",
+    "index_daily": "指数日线行情",
+    "market_major_indices": "主要指数名单",
+    "market_breadth": "市场宽度",
+    "stock_return_distribution": "股票涨跌幅分布",
+}</code></pre>
+
+    <table>
+      <thead>
+      <tr>
+        <th>数据集 id</th>
+        <th>中文名</th>
+        <th>来源</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>stock_basic</code></td>
+        <td>股票基础信息</td>
+        <td><code>docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md</code></td>
+        <td>直接采用 Tushare 本地文档标题，避免 UI 和通知中继续暴露英文 API 名。</td>
+      </tr>
+      <tr>
+        <td><code>trade_cal</code></td>
+        <td>交易日历</td>
+        <td><code>docs/sources/tushare/股票数据/基础数据/0026_交易日历.md</code></td>
+        <td>当前 Dagster 生产链路使用 A 股交易日历；期货、港股、美股同名日历未来接入时必须使用更明确 id。</td>
+      </tr>
+      <tr>
+        <td><code>daily</code></td>
+        <td>A股日线行情</td>
+        <td><code>docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md</code></td>
+        <td>采用 Tushare 文档标题；不使用 <code>stock_daily</code> 作为展示名，避免混淆 API 名和资产名。</td>
+      </tr>
+      <tr>
+        <td><code>suspend_d</code></td>
+        <td>每日停复牌信息</td>
+        <td><code>docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md</code></td>
+        <td>采用 Tushare 文档标题；虽然它是股票日线前置事实，但展示名不应另造分类。</td>
+      </tr>
+      <tr>
+        <td><code>index_basic</code></td>
+        <td>指数基本信息</td>
+        <td><code>docs/sources/tushare/指数专题/0094_指数基本信息.md</code></td>
+        <td>采用 Tushare 文档标题；归属数据域为 <code>指数专题</code>。</td>
+      </tr>
+      <tr>
+        <td><code>index_daily</code></td>
+        <td>指数日线行情</td>
+        <td><code>docs/sources/tushare/指数专题/0095_指数日线行情.md</code></td>
+        <td>采用 Tushare 文档标题；当前项目的指数日线指 A 股指数专题，不指期货数据下的同名 API。</td>
+      </tr>
+      <tr>
+        <td><code>market_major_indices</code></td>
+        <td>主要指数名单</td>
+        <td>项目 seed/config</td>
+        <td>该数据集不是 Tushare API，中文名用于表达项目内配置事实。</td>
+      </tr>
+      <tr>
+        <td><code>market_breadth</code></td>
+        <td>市场宽度</td>
+        <td>湖内衍生指标</td>
+        <td>该数据集由标准层行情计算得到，不直接对应 Tushare 文档标题。</td>
+      </tr>
+      <tr>
+        <td><code>stock_return_distribution</code></td>
+        <td>股票涨跌幅分布</td>
+        <td>湖内衍生指标</td>
+        <td>该数据集由标准层行情计算得到，不直接对应 Tushare 文档标题。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>映射表边界：</strong><code>name_mapping.py</code> 第一版只放中文名，不放 run tags、运行状态或 UI 模板。以后新增数据集时，先确认本地 Tushare 文档标题；非 Tushare 数据集必须说明中文名来源。
+    </div>
+  </section>
+
+  <section>
+    <h2>7. Run Tags 第一版口径</h2>
+    <p>
+      Run tags 第一版不定义任何自定义字段。Tags 只适合做分类和过滤，不适合传递日期、批次成员、完成数量、通知策略等动态信息。当前已有自定义 run tags 是待迁移债务，不能继续扩展。
+    </p>
+
+    <table>
+      <thead>
+      <tr>
+        <th>系统 tag</th>
+        <th>使用方式</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>dagster/backfill</code></td>
+        <td>只读，用于识别 UI backfill 或 Dagster automation backfill 的子 run。</td>
+        <td>Dagster 已有原生 backfill 总任务语义，不需要自定义 batch tag 模拟。</td>
+      </tr>
+      <tr>
+        <td><code>dagster/partition</code></td>
+        <td>只读，用于理解本次 run 的 Dagster partition key。</td>
+        <td>分区 key 是 Dagster 系统事实，不能用自定义 tag 重复维护。</td>
+      </tr>
+      <tr>
+        <td><code>dagster/sensor_name</code></td>
+        <td>只读，用于识别 run 是否由 sensor 发起。</td>
+        <td>触发来源已有系统 tag，删除 <code>triggered_by</code> 这类重复字段。</td>
+      </tr>
+      <tr>
+        <td><code>dagster/schedule_name</code></td>
+        <td>只读，用于识别 run 是否由 schedule 发起。</td>
+        <td>触发来源已有系统 tag，不再自定义 trigger 字段。</td>
+      </tr>
+      <tr>
+        <td><code>dagster/from_ui</code></td>
+        <td>只读，用于识别人工 UI 发起。</td>
+        <td>人工触发来源属于 Dagster 系统事实，不需要自定义 tag。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>7.1 明确删除的自定义 run tags</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>现有或曾讨论字段</th>
+        <th>最终口径</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>triggered_by</code>、<code>trigger</code></td>
+        <td>删除；改读 Dagster 系统 trigger tags。</td>
+        <td>触发来源是 Dagster 已有系统事实，自定义字段会形成重复口径。</td>
+      </tr>
+      <tr>
+        <td><code>asset_family</code></td>
+        <td>删除；资产分类使用 asset tags 和 asset key。</td>
+        <td>资产分类不是单次 run 的动态事实，放 run tags 会重复。</td>
+      </tr>
+      <tr>
+        <td><code>trade_date</code></td>
+        <td>删除；不替换为 <code>goldenshare/logical_date</code>。</td>
+        <td>日期是运行输入或资产分区语义，不适合作为自定义 tag 传递给下游。</td>
+      </tr>
+      <tr>
+        <td><code>index_ts_code</code></td>
+        <td>删除；指数代码由 Dagster partition key 表达。</td>
+        <td>partition key 已经是指数代码，自定义 tag 是重复信息。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/batch_type</code>、<code>goldenshare/batch_member_type</code>、<code>goldenshare/batch_key</code>、<code>goldenshare/batch_member_key</code>、<code>goldenshare/batch_expected_count</code></td>
+        <td>不定义。</td>
+        <td>这些字段是在用 tag 传递批次信息，不是分类过滤项。批量总状态应使用 Dagster backfill 或正式批次状态事实，不能把 run tags 当临时数据库。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/notify_scope</code>、<code>goldenshare/concurrency_group</code></td>
+        <td>不定义。</td>
+        <td>当前没有正式通知路由和并发 tag 策略，不预留会影响调度或形成重复事实的字段。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>7.2 指数 Silver 触发安全设计</h3>
+    <p>
+      删除自定义 run tags 前，必须先保证 <code>silver_index_daily_sensor</code> 不误判。当前 sensor 依赖 <code>asset_family</code>、<code>trade_date</code>、<code>index_ts_code</code> 查询 raw run 成功状态；直接删 tags 会让 sensor 退化为解析 run config，风险不可接受。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>设计点</th>
+        <th>最终口径</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Silver 门禁事实源</td>
+        <td>改为 raw 文件事实：所有注册指数代码的 raw 文件必须存在，并且都包含目标 <code>trade_date</code> 数据。</td>
+        <td>Silver 真正消费的是 raw 文件，不是 run 记录。run 成功不能证明文件仍存在，也不能证明文件里有目标日期。</td>
+      </tr>
+      <tr>
+        <td>禁止误判</td>
+        <td>任何 raw 文件缺失、目标日期缺失、扫描异常、扫描超时或扫描不完整，都只能 <code>SkipReason</code>，不得触发 silver run。</td>
+        <td>门禁宁可保守 skip，也不能在上游不完整时生成 silver。</td>
+      </tr>
+      <tr>
+        <td>性能边界</td>
+        <td>禁止在 sensor hot path 中查询大量 asset check history 或大量 run records；raw readiness 检查必须是轻量文件事实检查。</td>
+        <td>此前 sensor 侧重 IO 和大量历史查询曾导致 gRPC deadline exceeded，不能重复。</td>
+      </tr>
+      <tr>
+        <td>Cursor 用途</td>
+        <td>Cursor 只记录诊断摘要，例如目标日期、注册代码数、ready 数、缺失样本和评估耗时；不能把 cursor 当作跨 tick 的正向 ready 事实。</td>
+        <td>跨 tick 缓存 ready 状态可能被外部文件变化污染。触发 silver 必须来自本次完整检查结果。</td>
+      </tr>
+      <tr>
+        <td>整改顺序</td>
+        <td>先迁移 <code>silver_index_daily_sensor</code> 到 raw 文件事实门禁；静态确认不再依赖旧 run tags/config；再删除 <code>index_daily_sensor</code> 里的自定义 run tags。</td>
+        <td>顺序错误会直接影响 silver 自动触发，属于数据安全风险。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. Run Config 使用规范与 Launchpad UX</h2>
+    <p>
+      Run config 是执行输入，不是观测标签。最终态必须同时满足两层要求：底层 asset/op 使用 typed config 保证校验；面向 Dagster UI 的 job 暴露简化 config，让 Launchpad 不是空白深层 YAML，而是可 scaffold、可理解、只需要填写关键字段的表单。
+    </p>
+
+    <table>
+      <thead>
+      <tr>
+        <th>规范</th>
+        <th>原因</th>
+        <th>落地要求</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>每个 asset/op 的 config 必须由 <code>dg.Config</code> typed model 定义。</td>
+        <td>typed config 可以让 Dagster 做 schema 展示和校验，避免裸 dict 在 sensor 中失控。</td>
+        <td>这是底层执行契约，不能因为增加 UI 简化 config 而取消。</td>
+      </tr>
+      <tr>
+        <td>有手动 UI 运行需求的 job 必须提供 job-level 简化 config。</td>
+        <td>用户在 Launchpad 点击 Add config 时，不应该面对空白页面或深层 <code>ops/.../config/...</code> 结构。</td>
+        <td>使用 <code>ConfigMapping</code> 或 job <code>config</code> 将简单输入映射到底层 typed config。</td>
+      </tr>
+      <tr>
+        <td>Config 不携带通知、batch、trigger、owner、UI 分类。</td>
+        <td>这些字段不改变 asset 执行，放入 config 会污染 Launchpad 和运行契约。</td>
+        <td>通知与批量总状态另行设计；owner 或分类用 asset tags/metadata。</td>
+      </tr>
+      <tr>
+        <td>Config 字段变更必须做消费者审计。</td>
+        <td>Config 是执行契约，改名或改语义会影响 UI 手动 run、sensor run、backfill repair 和历史文档。</td>
+        <td>变更前列出所有 <code>run_config</code> 构造点、Launchpad 使用方式、sensor readiness 读取点和文档。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>8.1 指数日线 UI Config 最终态</h3>
+    <p>
+      <code>index_daily_update_job</code> 的 UI 配置最终态只暴露简化字段。底层 <code>IndexDailyRawByCodeConfig</code> 仍保留 <code>start_date</code>、<code>end_date</code>、<code>write_mode</code>，由 job-level mapping 生成。
+    </p>
+    <p>
+      <code>trade_date</code> 必须有字段说明但不设置危险默认日期；<code>write_mode</code> 可以默认 <code>replace</code>。如果 Launchpad 中 Add config 仍然只能得到空白编辑器或要求用户手写深层 <code>ops</code> 结构，则该 job 尚未达到本节定义的最终态。
+    </p>
+    <pre><code># Launchpad 展示目标
+trade_date: "2026-05-26"
+write_mode: "replace"</code></pre>
+
+    <table>
+      <thead>
+      <tr>
+        <th>UI 字段</th>
+        <th>底层映射</th>
+        <th>允许值</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>trade_date</code></td>
+        <td><code>start_date = trade_date</code>，<code>end_date = trade_date</code></td>
+        <td><code>YYYY-MM-DD</code></td>
+        <td>手动补某一天指数 raw-by-code 时，用户只关心业务日期，不应填写两个相同的日期字段。</td>
+      </tr>
+      <tr>
+        <td><code>write_mode</code></td>
+        <td><code>write_mode</code></td>
+        <td><code>replace</code></td>
+        <td>当前只允许替换写入。保留字段是为了让写入行为显式，但默认值应由 config schema 提供。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>8.2 底层 Typed Config 字段</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>Config model</th>
+        <th>字段</th>
+        <th>允许值</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td rowspan="3"><code>IndexDailyRawByCodeConfig</code></td>
+        <td><code>start_date</code></td>
+        <td><code>YYYY-MM-DD</code></td>
+        <td>Tushare 指数日线 raw-by-code asset 需要知道本次源接口查询窗口的开始日期；该字段直接改变源站请求范围。</td>
+      </tr>
+      <tr>
+        <td><code>end_date</code></td>
+        <td><code>YYYY-MM-DD</code></td>
+        <td>Tushare 指数日线 raw-by-code asset 需要知道本次源接口查询窗口的结束日期；该字段直接改变源站请求范围。</td>
+      </tr>
+      <tr>
+        <td><code>write_mode</code></td>
+        <td><code>replace</code></td>
+        <td>当前 raw-by-code 文件写入只允许替换模式。保留字段是为了让写入模式显式，而不是隐含在 asset 代码或 sensor 逻辑里。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>8.3 不采用二维分区</h3>
+    <p>
+      Dagster 支持 <code>MultiPartitionsDefinition</code>，可以表达“指数代码 x 日期”的笛卡尔积分区；本地 Dagster 1.13.6 也存在 <code>MultiPartitionsDefinition</code>、<code>MultiPartitionKey</code> 和 <code>MultiToSingleDimensionPartitionMapping</code>。但当前指数交易日约 6393 个、指数代码约 946 个，笛卡尔积约 604 万 partitions，远超 Dagster 官方建议单 asset 控制在 100,000 partitions 以内的量级。
+    </p>
+    <div class="danger">
+      <strong>最终口径：</strong>不采用“指数代码 x 日期”二维分区作为指数日线 raw 主模型。raw 继续按指数代码分区，日期通过 job-level 简化 config 输入；silver 继续按交易日分区。
+    </div>
+
+    <div class="warning">
+      <strong>后续审计要求：</strong>如果发现其它 asset 需要 config，必须先补充到本节，说明字段消费者、执行影响、允许值、失败行为和为什么不能由 partition key 或 resource 配置表达。
+    </div>
+  </section>
+
+  <section>
+    <h2>9. Metadata 使用规范</h2>
+    <p>
+      Metadata 分为三类：asset definition metadata、materialization metadata、asset check metadata。它们都可以承载结构化信息，但语义不同。第一版优先使用 Dagster 标准 metadata key；只有标准 key 无法表达时，才使用 <code>goldenshare/*</code>。
+    </p>
+
+    <h3>9.1 Asset Definition Metadata</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>是否必填</th>
+        <th>格式</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>goldenshare/source_system</code></td>
+        <td>正式数据资产必填</td>
+        <td>见 9.1.1 source system 枚举</td>
+        <td>source system 是资产定义事实，不是每次运行事实。放在 metadata 中可以表达 raw、seed、derived 等来源，不污染 asset tags。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/source_api</code></td>
+        <td>源站 API asset 必填，其它资产为空</td>
+        <td>源接口稳定名称，例如 <code>daily</code>、<code>index_daily</code></td>
+        <td>源接口名用于追溯 Tushare 文档、字段契约和请求参数。它比 <code>source_system</code> 更细，但不是 UI 过滤主轴。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/source_category_path</code></td>
+        <td>Tushare 源站 API asset 必填，其它资产为空</td>
+        <td>本地 Tushare 目录路径，例如 <code>股票数据 / 行情数据</code></td>
+        <td>asset tag 中的 <code>data_domain</code> 是简化中文分类；完整 Tushare 目录路径需要保留在 metadata 中，方便后续核对源文档而不污染 tag 枚举。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/source_doc</code></td>
+        <td>源站 API asset 必填，其它资产可选</td>
+        <td>仓库内文档路径或官方文档 URL</td>
+        <td>仓库规则要求涉及 Tushare 参数和字段时先查文档。把源文档挂到定义 metadata，能减少后续无依据改接口。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/data_contract</code></td>
+        <td>正式数据资产必填</td>
+        <td>资产设计文档中定义的契约 id，不做全局枚举</td>
+        <td>数据契约会随资产族设计演进，不适合做全局固定枚举；但每个资产必须明确自己遵守哪份契约。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/path_template</code></td>
+        <td>有湖文件产物的 asset 必填</td>
+        <td>不含具体 run id 的路径模板</td>
+        <td>定义层应说明资产长期写到哪里；具体本次文件 URI 放 materialization metadata。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>9.1.1 Source System 枚举</h4>
+    <table>
+      <thead>
+      <tr>
+        <th>枚举值</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>tushare</code></td>
+        <td>源数据直接来自 Tushare API，需要追溯 Tushare 文档、字段和请求参数。</td>
+      </tr>
+      <tr>
+        <td><code>derived</code></td>
+        <td>资产由湖内上游资产计算得到，不直接调用外部源站。</td>
+      </tr>
+      <tr>
+        <td><code>seed</code></td>
+        <td>资产来自仓库维护的静态 seed 文件，治理口径不同于外部 API。</td>
+      </tr>
+      <tr>
+        <td><code>old_lake_bootstrap</code></td>
+        <td>只用于一次性迁移来源或 bootstrap 记录，提醒维护者该来源不是长期正式写入口。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>9.2 Materialization Metadata</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>是否必填</th>
+        <th>格式</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>dagster/uri</code></td>
+        <td>有单一主产物路径时必填</td>
+        <td>实际文件或目录 URI</td>
+        <td>Dagster 标准 metadata key，适合表达本次 materialization 的实际产物位置。</td>
+      </tr>
+      <tr>
+        <td><code>dagster/row_count</code></td>
+        <td>表格型产物必填</td>
+        <td>非负整数</td>
+        <td>Dagster 标准 metadata key，行数是排错、质量检查和历史对比的核心事实。</td>
+      </tr>
+      <tr>
+        <td><code>dagster/column_schema</code></td>
+        <td>正式表格型产物推荐</td>
+        <td>Dagster column schema metadata</td>
+        <td>schema 是资产产物事实，适合放 metadata；不适合用 tag 表达。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/source_row_count</code></td>
+        <td>发生源到目标转换时必填</td>
+        <td>非负整数</td>
+        <td>用于核对源端行数与目标行数，支撑 reject、dedupe 和质量排查。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/duplicate_removed_count</code></td>
+        <td>执行去重时必填</td>
+        <td>非负整数</td>
+        <td>去重会影响行数，必须显式暴露，不能只在日志中出现。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/rejected_row_count</code></td>
+        <td>存在 reject 流程时必填</td>
+        <td>非负整数</td>
+        <td>仓库规则要求任何 reject 都必须解释到 reason code 和样本，不能静默跳过。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/reject_reason_counts</code></td>
+        <td>存在 reject 流程时必填</td>
+        <td>JSON object，key 为 reason code，value 为数量</td>
+        <td>单个 reject 总数不足以排查原因；需要知道每类拒绝原因的规模。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/sample_rows</code></td>
+        <td>只有排错必要时可选</td>
+        <td>最多 10 行脱敏样本</td>
+        <td>样本对排错有价值，但可能让 metadata 过重；只在失败、冲突或 reject 时使用。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>9.3 Asset Check Metadata</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>是否必填</th>
+        <th>格式</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>goldenshare/check_scope</code></td>
+        <td>推荐</td>
+        <td><code>schema</code>、<code>row_count</code>、<code>key_uniqueness</code>、<code>partition_alignment</code>、<code>value_sanity</code>、<code>freshness</code></td>
+        <td>检查名往往较长且资产特定；scope 提供低基数分类，便于后续汇总质量风险。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/checked_row_count</code></td>
+        <td>检查扫描行集时推荐</td>
+        <td>非负整数</td>
+        <td>说明检查覆盖了多少行，避免只知道 pass/fail 而不知道检查范围。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/failed_row_count</code></td>
+        <td>检查能定位失败行时推荐</td>
+        <td>非负整数</td>
+        <td>失败规模影响处置优先级；必须区别单行异常和大规模质量事故。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/failure_samples</code></td>
+        <td>失败时可选</td>
+        <td>最多 10 行样本</td>
+        <td>提供人工排错入口，但避免在 check metadata 中堆积大量数据。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>10. Sensor Cursor 使用规范</h2>
+    <p>
+      Cursor 是 sensor 私有状态，不是跨 sensor 契约。它可以帮助诊断最近一次 tick 为什么 skip 或 request，但不能作为下游资产 ready 的唯一事实源。
+    </p>
+
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>是否必填</th>
+        <th>格式或枚举</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>schema_version</code></td>
+        <td>必填</td>
+        <td><code>1</code></td>
+        <td>Cursor 结构会随 sensor 演进。显式版本可以安全读取旧 cursor，而不是靠 try/except 猜结构。</td>
+      </tr>
+      <tr>
+        <td><code>evaluated_at</code></td>
+        <td>必填</td>
+        <td>ISO 8601 datetime，使用项目传感器时区</td>
+        <td>排查 sensor tick 时必须知道这份 cursor 对应的评估时间。</td>
+      </tr>
+      <tr>
+        <td><code>decision</code></td>
+        <td>必填</td>
+        <td>见 10.1 decision 枚举</td>
+        <td>人看 cursor 时应先知道这次 tick 做了什么，而不是从多组计数字段推断。</td>
+      </tr>
+      <tr>
+        <td><code>target_date</code></td>
+        <td>有目标日期时必填</td>
+        <td><code>YYYY-MM-DD</code> 或 <code>null</code></td>
+        <td>大多数日频 sensor 都围绕某个业务日期评估；该字段只用于 sensor 私有诊断，不进入 run tags，也不作为下游 ready 事实。</td>
+      </tr>
+      <tr>
+        <td><code>selected_count</code></td>
+        <td>有 run 或 partition request 时必填</td>
+        <td>非负整数</td>
+        <td>展示本次 tick 实际选择了多少个请求，避免只看样本列表。</td>
+      </tr>
+      <tr>
+        <td><code>blocked_count</code></td>
+        <td>有门禁判断时推荐</td>
+        <td>非负整数</td>
+        <td>展示门禁挡住了多少候选项，帮助判断是全部 ready、全部 blocked，还是只是没有候选。</td>
+      </tr>
+      <tr>
+        <td><code>sample_keys</code></td>
+        <td>有大量候选或缺失项时推荐</td>
+        <td>最多 20 个字符串</td>
+        <td>样本有助于排错，但 cursor 不能变成大列表仓库；必须限制数量。</td>
+      </tr>
+      <tr>
+        <td><code>details</code></td>
+        <td>可选</td>
+        <td>sensor 私有 JSON object</td>
+        <td>保留各 sensor 的诊断空间，但所有跨 sensor 通用字段必须放在顶层。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>10.1 Cursor Decision 枚举</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>枚举值</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>skip</code></td>
+        <td>本次 tick 没有提交任何请求。需要和“提交了 0 个但有错误”区分。</td>
+      </tr>
+      <tr>
+        <td><code>request_runs</code></td>
+        <td>本次 tick 提交了一个或多个 <code>RunRequest</code>。</td>
+      </tr>
+      <tr>
+        <td><code>register_partitions</code></td>
+        <td>本次 tick 只注册 dynamic partitions，不触发数据生产 run。</td>
+      </tr>
+      <tr>
+        <td><code>notify</code></td>
+        <td>本次 tick 只发送外部通知，不提交生产 run，也不注册 partitions。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>11. 框架目录与静态门禁</h2>
+    <p>
+      规则写完后，必须用代码结构固化。否则新的 asset、job、sensor 仍然会继续裸写 dict。第一版框架不定义自定义 run tags，只放中文名映射、asset tag 常量、config mapping、RunRequest 构造、cursor 和 metadata 辅助。
+    </p>
+    <pre><code>lake_console/orchestrator/src/orchestrator/defs/catalog/
+  __init__.py
+  name_mapping.py  # 数据集 id 到中文名的稳定映射
+
+lake_console/orchestrator/src/orchestrator/defs/run_contracts/
+  __init__.py
+  asset_tags.py    # asset tag key、中文枚举值和构造函数
+  configs.py       # job-level config mapping 与 typed config 辅助
+  requests.py      # 代码侧 RunRequest 构造，不能解决 UI 空白问题
+  cursors.py       # cursor payload builder
+  metadata.py      # metadata key 与标准字段辅助</code></pre>
+
+    <table>
+      <thead>
+      <tr>
+        <th>门禁</th>
+        <th>原因</th>
+        <th>执行方式</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Sensor 禁止直接手写自定义 <code>tags={...}</code> 和深层 <code>run_config={...}</code>。</td>
+        <td>裸 dict 是当前口径扩散的主要来源。</td>
+        <td>新增静态检查脚本或扩展 docs/code integrity 检查。第一版 <code>RunRequest.tags</code> 不允许出现自定义 tags；需要 tags 时必须先更新本文档。</td>
+      </tr>
+      <tr>
+        <td>Asset tags 必须来自 <code>asset_tags.py</code>。</td>
+        <td>避免 <code>原始层</code>、<code>raw</code>、<code>Raw</code> 等同义值并存。</td>
+        <td><code>rg</code> 检查 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 只通过 contract helper 构造。</td>
+      </tr>
+      <tr>
+        <td>RunRequest 必须通过 builder 创建。</td>
+        <td>builder 可以统一 run key、partition key 和代码侧 run config，但它只解决编码一致性，不解决 Launchpad 空白问题。</td>
+        <td>把现有 sensor 逐个迁移到 <code>build_*_run_request</code>；UI 体验必须由 job-level config mapping 解决。</td>
+      </tr>
+      <tr>
+        <td>新增字段必须先改本文档。</td>
+        <td>字段一旦进入 asset tags、run records、materialization metadata 或 cursor，就可能被下游依赖。</td>
+        <td>PR/提交前检查文档是否同步；未登记字段不得进入正式代码。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>12. Milestone 开发计划</h2>
+    <p>
+      本专项按依赖顺序推进，不做一次性全仓重写。每个 milestone 只能解决一个明确问题；前置门禁未完成时，后续 milestone 不得提前进入编码。
+    </p>
+
+    <h3>12.1 依赖主线</h3>
+    <pre><code>M0 方案冻结
+  -> M1 契约基础框架
+    -> M2 silver_index_daily_sensor 脱离旧 run tags/config
+      -> M3 index_daily_update_job 与 index_daily_sensor 契约清理
+        -> M4 其它 sensors / automation / 飞书展示清理
+          -> M5 asset tags 与中文名映射接入
+            -> M6 metadata 分层治理
+              -> M7 cursor 标准化
+                -> M8 静态门禁与收尾审计</code></pre>
+
+    <table>
+      <thead>
+      <tr>
+        <th>Milestone</th>
+        <th>目标</th>
+        <th>前置依赖</th>
+        <th>改动范围</th>
+        <th>验收门禁</th>
+        <th>明确不做</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>M0</code> 方案冻结</td>
+        <td>确认本文档字段集合、删除口径、风险排序和开发顺序。</td>
+        <td>无。</td>
+        <td>只改本文档。</td>
+        <td>用户 review 通过；第 13 节审计表没有待补代码事实。</td>
+        <td>不改 Python 代码，不运行 Dagster，不清理任何历史 run。</td>
+      </tr>
+      <tr>
+        <td><code>M1</code> 契约基础框架</td>
+        <td>建立后续整改要复用的最小代码框架，先做到不改变运行行为。</td>
+        <td><code>M0</code>。</td>
+        <td>
+          新增 <code>defs/catalog/name_mapping.py</code>；
+          新增 <code>defs/run_contracts/asset_tags.py</code>、<code>metadata.py</code>、<code>cursors.py</code>、<code>requests.py</code>、<code>configs.py</code>。
+        </td>
+        <td>
+          只新增常量、枚举、纯函数和 builder；
+          不修改任何 job selection、sensor target、automation condition；
+          <code>py_compile</code>、<code>git diff --check</code>、文档检查通过。
+        </td>
+        <td>不接入 asset definitions，不删除旧 tags，不改 Launchpad config。</td>
+      </tr>
+      <tr>
+        <td><code>M2</code> Silver 门禁脱旧依赖</td>
+        <td>把 <code>silver_index_daily_sensor</code> 从“查询 raw run tags/config”迁移到“读取 raw 文件事实”。</td>
+        <td><code>M1</code>。</td>
+        <td>
+          <code>defs/sensors/silver_index_daily_sensor.py</code>；
+          如需复用，新增指数 raw readiness helper；
+          相关 sensor 单元级纯函数测试。
+        </td>
+        <td>
+          <code>silver_index_daily_sensor</code> 不再使用 <code>RunsFilter</code> 查询 <code>asset_family/trade_date/index_ts_code</code>；
+          不再解析 raw run <code>run_config</code>；
+          raw 文件缺失、目标日期缺失、扫描异常、扫描不完整一律 <code>SkipReason</code>；
+          不触发任何真实 Dagster run。
+        </td>
+        <td>
+          不修改 <code>index_daily_sensor</code> tags；
+          不新增 readiness asset；
+          不读取 asset check history；
+          不扩大 job selection。
+        </td>
+      </tr>
+      <tr>
+        <td><code>M3</code> 指数 raw 运行契约清理</td>
+        <td>在 silver 门禁安全后，删除指数 raw run 的自定义 tags，并改善 UI 手动 config。</td>
+        <td><code>M2</code>。</td>
+        <td>
+          <code>defs/jobs/index_daily_update.py</code>；
+          <code>defs/sensors/index_daily_sensor.py</code>；
+          <code>defs/assets/index_daily.py</code> 只在必须时调整 typed config 注释或描述。
+        </td>
+        <td>
+          <code>index_daily_sensor</code> 不再写 <code>triggered_by/asset_family/trade_date/index_ts_code</code>；
+          <code>IndexDailyRawByCodeConfig</code> 保留；
+          job-level 简化 config 只暴露 <code>trade_date</code>、<code>write_mode</code>；
+          sensor 侧不再裸写深层 <code>ops/.../config</code> dict。
+        </td>
+        <td>
+          不改 raw 分区模型；
+          不采用二维 partitions；
+          不修改 raw/silver/gold 文件路径；
+          不补跑任何指数数据。
+        </td>
+      </tr>
+      <tr>
+        <td><code>M4</code> 低风险 run tags 清理</td>
+        <td>清理不参与数据门禁的自定义 tags，并让飞书展示回到 Dagster 系统 tags。</td>
+        <td><code>M3</code>。</td>
+        <td>
+          <code>stock_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>；
+          <code>*_automation_sensor.py</code>；
+          <code>feishu_run_status_sensor.py</code>。
+        </td>
+        <td>
+          生产 sensor 不再写 <code>triggered_by</code>、<code>trigger</code>、<code>asset_family</code>、<code>target_trade_date</code> 自定义 run tags；
+          飞书 Trigger 只读 <code>dagster/sensor_name</code>、<code>dagster/schedule_name</code>、<code>dagster/from_ui</code>；
+          job selection、automation condition、default status 不变。
+        </td>
+        <td>
+          不做飞书聚合重构；
+          不新增通知策略 tag；
+          不改 sensor 触发业务门禁。
+        </td>
+      </tr>
+      <tr>
+        <td><code>M5</code> Asset tags 与中文名接入</td>
+        <td>把低基数中文 asset tags 和数据集中文名映射接入 definitions。</td>
+        <td><code>M1</code>，建议在 <code>M4</code> 后执行，避免和 run tag 清理混在一起。</td>
+        <td>各资产族 <code>defs/assets/**/*.py</code>，必要时同步架构/phase 文档。</td>
+        <td>
+          正式 lake asset 具备 <code>goldenshare/layer</code> 和 <code>goldenshare/data_domain</code>；
+          取值只来自 <code>asset_tags.py</code>；
+          具体数据集名只来自 <code>name_mapping.py</code>，不进入 asset tag。
+        </td>
+        <td>
+          不新增 <code>data_family</code>；
+          不定义 owner、sensitivity、freshness_class；
+          不批量猜测未审计资产归类。
+        </td>
+      </tr>
+      <tr>
+        <td><code>M6</code> Metadata 分层治理</td>
+        <td>把 definition metadata、materialization metadata、check metadata 的职责拆清并逐资产族收敛。</td>
+        <td><code>M5</code>。</td>
+        <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code>，按资产族分批。</td>
+        <td>
+          路径、行数、schema、样本继续留在 runtime metadata；
+          源系统、源文档、数据契约、路径模板进入 definition metadata；
+          check scope、扫描行数、失败样本进入 check metadata；
+          每批迁移有字段清单和消费者审计。
+        </td>
+        <td>
+          不改变 asset 计算逻辑；
+          不重命名已有业务字段；
+          不把 metadata 字段当 run config 或 run tags 使用。
+        </td>
+      </tr>
+      <tr>
+        <td><code>M7</code> Cursor 标准化</td>
+        <td>统一 sensor cursor 的诊断结构，避免 cursor 变成跨 sensor 契约或长期事实源。</td>
+        <td><code>M2</code> 后可以开始，建议在对应 sensor 逻辑稳定后逐个做。</td>
+        <td><code>defs/sensors/**/*.py</code>。</td>
+        <td>
+          新 cursor 顶层包含 <code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code>；
+          cursor 不保存跨 tick 正向 ready 事实；
+          缺失或格式异常的旧 cursor 按安全默认值处理。
+        </td>
+        <td>
+          不读取正式 Dagster instance 做迁移；
+          不把 cursor 用作 silver readiness；
+          不为了兼容旧字段保留双写长期口径。
+        </td>
+      </tr>
+      <tr>
+        <td><code>M8</code> 静态门禁与收尾审计</td>
+        <td>把治理规则变成可检查门禁，防止后续又散开。</td>
+        <td><code>M3</code>、<code>M4</code>、<code>M5</code> 至少完成；<code>M6/M7</code> 可分批纳入。</td>
+        <td>文档检查脚本、静态扫描脚本、相关测试文档。</td>
+        <td>
+          静态检查禁止未登记自定义 run tags；
+          禁止 sensor 裸写深层 run_config；
+          检查 asset tag 取值只能来自 helper；
+          检查新增 contract 字段必须登记。
+        </td>
+        <td>
+          不运行 <code>dg</code>、Dagster job、sensor、automation evaluation；
+          如果后续需要正式 Dagster 定义检查，必须单独列命令、影响范围并获得明确批准。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="warning">
+      <strong>历史 run 处理口径：</strong>本文档定义的是新契约。历史 run records 中已经存在的旧 tags/config 不在正式代码里长期兼容。删除旧 tags 前必须先让当前自动触发链路脱离旧 tags/config，尤其是 <code>silver_index_daily_sensor</code>。
+    </div>
+    <div class="danger">
+      <strong>禁止越级：</strong>在 <code>M2</code> 完成前，不得删除 <code>index_daily_sensor</code> 写入的 <code>asset_family/trade_date/index_ts_code</code>；在 <code>M3</code> 完成前，不得把指数 raw run tags 删除视为完成；在 <code>M8</code> 完成前，不得认为治理专项已经收口。
+    </div>
+  </section>
+
+  <section>
+    <h2>13. 本轮代码审计结论</h2>
+    <p>
+      本节按“文档中要求删除或清理的 run tags / run config 口径”回读当前代码后形成。结论是：这些字段不能一刀切删除，必须先拆清写入点、读取点和数据安全影响。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>文件</th>
+        <th>当前代码事实</th>
+        <th>删除安全性</th>
+        <th>修正方案</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>defs/sensors/index_daily_sensor.py</code></td>
+        <td>每个 raw-by-code <code>RunRequest</code> 手写深层 <code>run_config</code>，并写入 <code>triggered_by</code>、<code>asset_family</code>、<code>trade_date</code>、<code>index_ts_code</code>。</td>
+        <td><strong>不能先删。</strong><code>silver_index_daily_sensor</code> 当前会读取这些 tags 判断 raw run 是否成功；先删会让 silver 门禁退化到解析 run config fallback，容易误判或漏判。</td>
+        <td>先完成 silver 门禁迁移；再删除这些自定义 run tags。深层 <code>run_config</code> 不直接删除，而是由 <code>index_daily_update_job</code> 的 job-level 简化 config / builder 统一生成。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/silver_index_daily_sensor.py</code></td>
+        <td>主路径用 <code>RunsFilter(job_name=index_daily_update_job, status=SUCCESS, tags={asset_family, trade_date})</code> 查询成功 raw runs，再从 <code>index_ts_code</code> tag 聚合代码；fallback 用 <code>dagster/partition</code> 加解析历史 <code>run_config</code> 的日期。</td>
+        <td><strong>最高风险点。</strong>它是删除指数自定义 tags 前必须先改的消费者。只删 tags 不改它，会影响 <code>silver_index_daily</code> 自动触发。</td>
+        <td>把门禁事实源改为 raw 文件事实：目标交易日下，所有注册指数代码的 raw 文件存在且包含目标日期数据；任何缺失、异常、超时或扫描不完整都只 skip，不触发 silver。迁移完成后删除 run tags/config 读取逻辑。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/stock_daily_sensor.py</code></td>
+        <td>只在提交 <code>stock_daily_update_job</code> 时写 <code>triggered_by=stock_daily_sensor</code>。</td>
+        <td>数据生产低风险；当前代码没有其它生产门禁读取它。影响主要是飞书 Trigger 展示。</td>
+        <td>删除 <code>triggered_by</code>，飞书改读 <code>dagster/sensor_name</code>、<code>dagster/schedule_name</code>、<code>dagster/from_ui</code>。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/suspend_d_sensor.py</code></td>
+        <td>只在提交 <code>suspend_update_job</code> 时写 <code>triggered_by=suspend_d_sensor</code>。</td>
+        <td>数据生产低风险；当前代码没有其它生产门禁读取它。影响主要是飞书 Trigger 展示。</td>
+        <td>同 <code>stock_daily_sensor</code>：删除自定义 tag，通知侧读 Dagster 系统 tags。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/stock_basic_sensor.py</code></td>
+        <td>提交 <code>stock_basic_update_job</code> 时写 <code>triggered_by</code> 和 <code>target_trade_date</code>；同时 cursor 已记录 <code>target_trade_date</code>、ready 状态和 reason。</td>
+        <td>数据生产低风险；<code>target_trade_date</code> 没有被生产链路读取。它作为 run tag 是重复诊断信息。</td>
+        <td>删除两个自定义 run tags；目标日期诊断只保留在 cursor / SkipReason / readiness 结果中。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/market_breadth_automation_sensor.py</code></td>
+        <td><code>AutomationConditionSensorDefinition</code> 写 <code>run_tags={trigger: automation_condition, asset_family: market_breadth}</code>。</td>
+        <td>数据生产低风险；当前没有生产门禁读取这些 tags。影响主要是通知展示和 UI 筛选。</td>
+        <td>删除自定义 <code>run_tags</code>；来源识别回到 Dagster 系统 sensor/backfill 信息。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/stock_return_distribution_automation_sensor.py</code></td>
+        <td><code>AutomationConditionSensorDefinition</code> 写 <code>run_tags={trigger: automation_condition, asset_family: stock_return_distribution}</code>。</td>
+        <td>数据生产低风险；当前没有生产门禁读取这些 tags。影响主要是通知展示和 UI 筛选。</td>
+        <td>同上，删除自定义 <code>run_tags</code>。</td>
+      </tr>
+      <tr>
+        <td><code>defs/sensors/feishu_run_status_sensor.py</code></td>
+        <td>读取 <code>triggered_by</code> 作为 Trigger 展示优先级，然后才读 <code>dagster/sensor_name</code> / <code>dagster/schedule_name</code> / <code>dagster/from_ui</code>。</td>
+        <td>不影响数据生产，但会让旧自定义 tag 继续显得“被支持”。</td>
+        <td>通知展示改为只依赖 Dagster 系统 tags；历史 run 里旧 <code>triggered_by</code> 不作为新契约保留。</td>
+      </tr>
+      <tr>
+        <td><code>defs/jobs/index_daily_update.py</code></td>
+        <td>当前 job 只有 asset selection，没有 job-level config mapping；UI Launchpad 需要用户理解底层 <code>ops/raw_tushare_index_daily_by_code/config</code> 结构。</td>
+        <td>不能靠删除 config 解决。<code>IndexDailyRawByCodeConfig</code> 是 raw asset 的执行契约，直接删除会破坏源接口日期窗口。</td>
+        <td>新增 job-level 简化 config：UI 只填 <code>trade_date</code> 和 <code>write_mode</code>，内部映射到 <code>start_date/end_date/write_mode</code>。</td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/index_daily.py</code></td>
+        <td><code>IndexDailyRawByCodeConfig</code> 是 typed config，字段为 <code>start_date</code>、<code>end_date</code>、<code>write_mode</code>；asset 内部读取它生成 Tushare 请求窗口。</td>
+        <td>不能删除；这是正确的底层 typed config。问题在于 UI 暴露层太深，以及 sensor 裸写深层 dict。</td>
+        <td>保留 typed config；把手动运行和 sensor 构造都收敛到 job-level mapping / RunRequest builder。</td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
+        <td>当前正式 asset definition 基本只设置 <code>group_name</code>，尚未系统接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>；materialization/check metadata 已有大量行数、路径、样本、契约字段。</td>
+        <td>不是本轮“删除 run tags”风险点，但后续接入 asset tags / metadata helper 时必须逐资产核对，不能批量猜。</td>
+        <td>按资产族分批迁移 metadata 和 asset tags；每批迁移前先核对对应 asset/check 现有 metadata 字段，不做全仓一次性替换。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div class="danger">
+      <strong>安全结论：</strong>指数链路必须先改 <code>silver_index_daily_sensor</code>，再删 <code>index_daily_sensor</code> 的 <code>asset_family/trade_date/index_ts_code</code>。其它 <code>triggered_by/trigger/asset_family</code> 多数只是展示或筛选噪音，但也要同步飞书展示逻辑，不能留下“旧 tag 仍是新契约”的错觉。
+    </div>
+  </section>
+</main>
+</body>
+</html>

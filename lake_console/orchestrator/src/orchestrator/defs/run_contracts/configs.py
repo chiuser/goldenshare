@@ -1,0 +1,37 @@
+"""Typed config helpers for job-level run configuration."""
+
+from datetime import datetime
+from typing import Literal
+
+import dagster as dg
+
+
+class IndexDailyUpdateJobConfig(dg.Config):
+    trade_date: str
+    write_mode: Literal["replace"] = "replace"
+
+
+def normalize_iso_trade_date(value: str, *, field_name: str = "trade_date") -> str:
+    stripped = value.strip()
+    try:
+        parsed = datetime.strptime(stripped, "%Y-%m-%d").date()
+    except ValueError as error:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format.") from error
+    if parsed < datetime.strptime("2000-01-01", "%Y-%m-%d").date():
+        raise ValueError(f"{field_name} must not be earlier than 2000-01-01.")
+    return parsed.isoformat()
+
+
+def build_index_daily_raw_op_config(config: IndexDailyUpdateJobConfig) -> dict[str, object]:
+    normalized_trade_date = normalize_iso_trade_date(config.trade_date)
+    return {
+        "ops": {
+            "raw_tushare_index_daily_by_code": {
+                "config": {
+                    "start_date": normalized_trade_date,
+                    "end_date": normalized_trade_date,
+                    "write_mode": config.write_mode,
+                }
+            }
+        }
+    }

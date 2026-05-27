@@ -1,0 +1,27 @@
+"""Stable Chinese display names for dataset identifiers."""
+
+from types import MappingProxyType
+
+
+DATASET_CHINESE_NAMES = MappingProxyType(
+    {
+        "stock_basic": "股票基础信息",
+        "trade_cal": "交易日历",
+        "daily": "A股日线行情",
+        "suspend_d": "每日停复牌信息",
+        "index_basic": "指数基本信息",
+        "index_daily": "指数日线行情",
+        "market_major_indices": "主要指数名单",
+        "market_breadth": "市场宽度",
+        "stock_return_distribution": "股票涨跌幅分布",
+    }
+)
+
+
+def get_dataset_chinese_name(dataset_id: str) -> str:
+    """Return the registered Chinese display name for a stable dataset id."""
+
+    try:
+        return DATASET_CHINESE_NAMES[dataset_id]
+    except KeyError as error:
+        raise KeyError(f"Unknown dataset id for Chinese name mapping: {dataset_id!r}") from error
