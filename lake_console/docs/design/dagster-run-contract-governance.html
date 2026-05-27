@@ -258,7 +258,7 @@
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M5 已实施，M6-M8 待推进</div>
+      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M6 已实施，M7-M8 待推进</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
       <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
       <div class="chip"><strong>更新日期</strong>2026-05-28</div>
@@ -268,7 +268,7 @@
   <section>
     <h2>1. 背景与问题</h2>
     <p>
-      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M4 已先处理 run tags 与指数日线主入口 config，metadata 与 cursor 标准化仍按后续 milestone 推进。
+      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M6 已先处理 run tags、指数日线主入口 config、asset tags、中文名和 metadata 分层；cursor 标准化仍按后续 milestone 推进。
     </p>
     <p>
       这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
@@ -895,7 +895,10 @@ write_mode: "replace"</code></pre>
   <section>
     <h2>9. Metadata 使用规范</h2>
     <p>
-      Metadata 分为三类：asset definition metadata、materialization metadata、asset check metadata。它们都可以承载结构化信息，但语义不同。第一版优先使用 Dagster 标准 metadata key；只有标准 key 无法表达时，才使用 <code>goldenshare/*</code>。
+      Metadata 分为三类：asset definition metadata、materialization metadata、asset check metadata。它们都可以承载结构化信息，但语义不同。M6 已把当前 15 个正式 asset 和 10 个 checks 文件按这三层收敛：优先使用 Dagster 标准 metadata key；只有标准 key 无法表达时，才使用 <code>goldenshare/*</code>。
+    </p>
+    <p>
+      M6 审计确认：迁移前 <code>MaterializeResult.metadata</code> 混有定义事实、运行事实和排错事实，checks 中也存在 <code>path/raw_path/silver_path</code>、<code>row_count/invalid_count/missing_count</code>、<code>sample_rows/samples/mismatch_samples</code> 等多套命名。迁移后，新代码不再双写旧字段；历史 run metadata 保持历史样子。
     </p>
 
     <h3>9.1 Asset Definition Metadata</h3>
@@ -909,6 +912,18 @@ write_mode: "replace"</code></pre>
       </tr>
       </thead>
       <tbody>
+      <tr>
+        <td><code>goldenshare/dataset_id</code></td>
+        <td>正式数据资产必填</td>
+        <td><code>name_mapping.py</code> 中登记的数据集 id</td>
+        <td>数据集身份是资产长期定义事实，必须稳定可审计；不放入 asset tag，避免 tag 枚举随数据集数量膨胀。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/dataset_name</code></td>
+        <td>正式数据资产必填</td>
+        <td><code>name_mapping.py</code> 中登记的中文名</td>
+        <td>中文名用于人读和 UI 辅助识别；Dagster tag value 不允许中文，因此中文名进入 definition metadata。</td>
+      </tr>
       <tr>
         <td><code>goldenshare/source_system</code></td>
         <td>正式数据资产必填</td>
@@ -1035,8 +1050,17 @@ write_mode: "replace"</code></pre>
         <td>最多 10 行脱敏样本</td>
         <td>样本对排错有价值，但可能让 metadata 过重；只在失败、冲突或 reject 时使用。</td>
       </tr>
+      <tr>
+        <td><code>goldenshare/ready_for_trade_date</code></td>
+        <td>仅 <code>silver_index_basic</code> 当前写入</td>
+        <td><code>YYYY-MM-DD</code></td>
+        <td><code>index_basic</code> 的有效名单依赖目标交易日；主入口自动选择最新已注册指数交易日，并把实际使用日期记录为本次 materialization 事实。对应 check 读取同一个 namespaced key，不再读取旧裸字段。</td>
+      </tr>
       </tbody>
     </table>
+    <div class="warning">
+      <strong>M6 迁移口径：</strong>runtime metadata 中不再重复写 <code>layer</code>、<code>source_api</code>、<code>data_contract</code>、<code>raw_contract</code> 这类定义事实；路径、行数、列结构分别使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。如果某个产物是多分区汇总，分区明细必须放在 <code>goldenshare/partition_metadata</code> 等明确业务字段里。
+    </div>
 
     <h3>9.3 Asset Check Metadata</h3>
     <table>
@@ -1052,7 +1076,7 @@ write_mode: "replace"</code></pre>
       <tr>
         <td><code>goldenshare/check_scope</code></td>
         <td>推荐</td>
-        <td><code>schema</code>、<code>row_count</code>、<code>key_uniqueness</code>、<code>partition_alignment</code>、<code>value_sanity</code>、<code>freshness</code></td>
+        <td><code>file_exists</code>、<code>schema</code>、<code>row_count</code>、<code>key_uniqueness</code>、<code>partition_alignment</code>、<code>value_sanity</code>、<code>freshness</code>、<code>referential_integrity</code>、<code>reconciliation</code></td>
         <td>检查名往往较长且资产特定；scope 提供低基数分类，便于后续汇总质量风险。</td>
       </tr>
       <tr>
@@ -1073,8 +1097,29 @@ write_mode: "replace"</code></pre>
         <td>最多 10 行样本</td>
         <td>提供人工排错入口，但避免在 check metadata 中堆积大量数据。</td>
       </tr>
+      <tr>
+        <td><code>goldenshare/file_path</code></td>
+        <td>单文件 check 推荐</td>
+        <td>实际被检查的文件路径</td>
+        <td>单文件路径统一到一个字段，避免继续散落为 <code>path</code>、<code>raw_path</code>、<code>silver_path</code>、<code>gold_path</code>。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/input_file_paths</code></td>
+        <td>多输入文件 check 推荐</td>
+        <td>路径数组或按分区组织的路径对象</td>
+        <td>多输入检查需要保留输入集合；字段名显式表达“被检查输入”，不和单文件主路径混用。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/missing_file_paths</code></td>
+        <td>文件缺失 check 推荐</td>
+        <td>缺失路径数组</td>
+        <td>缺失路径是失败原因，不应和正常输入路径混在同一个字段里。</td>
+      </tr>
       </tbody>
     </table>
+    <div class="warning">
+      <strong>M6 迁移口径：</strong>所有 asset check metadata 必须经 <code>build_check_metadata(...)</code> 写入。check 仍可保留资产特定字段，例如 <code>goldenshare/missing_columns</code>、<code>goldenshare/duplicate_sample_keys</code>，但不得重新裸写未命名空间化的 <code>path</code>、<code>row_count</code>、<code>columns</code>、<code>schema</code>。
+    </div>
   </section>
 
   <section>
@@ -1381,18 +1426,18 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>M6</code> Metadata 分层治理</td>
-        <td>把 definition metadata、materialization metadata、check metadata 的职责拆清并逐资产族收敛。</td>
+        <td>已完成：把 definition metadata、materialization metadata、check metadata 的职责拆清并接入当前正式资产与 checks。</td>
         <td><code>M5</code>。</td>
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code>，按资产族分批。</td>
         <td>
-          路径、行数、schema、样本继续留在 runtime metadata；
+          路径、行数、schema、样本继续留在 materialization/check runtime metadata；
           源系统、源文档、数据契约、路径模板进入 definition metadata；
           check scope、扫描行数、失败样本进入 check metadata；
-          每批迁移有字段清单和消费者审计。
+          <code>ready_for_trade_date</code> 的 producer/consumer 已同批迁移到 <code>goldenshare/ready_for_trade_date</code>。
         </td>
         <td>
           不改变 asset 计算逻辑；
-          不重命名已有业务字段；
+          历史 run metadata 不迁移，新代码不做旧字段双写；
           不把 metadata 字段当 run config 或 run tags 使用。
         </td>
       </tr>
@@ -1515,9 +1560,9 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
-        <td>当前 15 个正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code> 和 <code>goldenshare/dataset_name</code>；materialization/check metadata 仍有大量行数、路径、样本、契约字段。</td>
-        <td>M5 已覆盖 asset definition 层低基数分类；M6 仍需继续治理 runtime/check metadata。</td>
-        <td>后续按资产族分批迁移 metadata；每批迁移前先核对对应 asset/check 现有 metadata 字段，不做全仓一次性替换。</td>
+        <td>当前 15 个正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
+        <td>M5 覆盖 asset definition 层低基数分类；M6 已覆盖 definition/materialization/check 三层 metadata。旧历史 run metadata 不迁移。</td>
+        <td>后续 M7 进入 sensor cursor 标准化；M8 再把 metadata 契约纳入静态门禁，避免新增 asset/check 又裸写旧字段。</td>
       </tr>
       </tbody>
     </table>

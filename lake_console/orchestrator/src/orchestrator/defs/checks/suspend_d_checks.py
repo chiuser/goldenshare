@@ -4,7 +4,10 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.assets.suspend_d import raw_tushare_suspend_d, silver_stock_suspend_daily
+from orchestrator.defs.assets.suspend_d import (
+    raw_tushare_suspend_d,
+    silver_stock_suspend_daily,
+)
 from orchestrator.defs.duckdb_sql import (
     SUSPEND_D_KNOWN_TYPE_VALUES,
     SUSPEND_D_RAW_REQUIRED_COLUMNS,
@@ -15,6 +18,7 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
 RAW_SUSPEND_D_EXPECTED_SCHEMA = {
@@ -26,7 +30,9 @@ RAW_SUSPEND_D_EXPECTED_SCHEMA = {
 
 
 def _describe_columns(connection, path: Path) -> list[tuple[str, str]]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return [(row[0], row[1]) for row in rows]
 
 
@@ -34,7 +40,9 @@ def _column_names(connection, path: Path) -> list[str]:
     return [name for name, _type_name in _describe_columns(connection, path)]
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -47,10 +55,13 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=False,
-        metadata={
-            "path": str(path),
-            "missing_file": True,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_file": True,
+            },
+        ),
     )
 
 
@@ -66,11 +77,14 @@ def raw_suspend_d_file_exists(
     path = raw_suspend_d_path(lake_root.root(), partition_key)
     return dg.AssetCheckResult(
         passed=path.exists(),
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "exists": path.exists(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "exists": path.exists(),
+            },
+        ),
     )
 
 
@@ -91,16 +105,21 @@ def raw_suspend_d_required_columns(
     with duckdb.connect() as connection:
         columns = _column_names(connection, path)
 
-    missing_columns = [column for column in SUSPEND_D_RAW_REQUIRED_COLUMNS if column not in columns]
+    missing_columns = [
+        column for column in SUSPEND_D_RAW_REQUIRED_COLUMNS if column not in columns
+    ]
     return dg.AssetCheckResult(
         passed=not missing_columns,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "columns": columns,
-            "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
-            "missing_columns": missing_columns,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "observed_columns": columns,
+                "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
+                "missing_columns": missing_columns,
+            },
+        ),
     )
 
 
@@ -139,14 +158,17 @@ def raw_suspend_d_partition_date_matches(
 
     return dg.AssetCheckResult(
         passed=mismatch_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "mismatch_count": int(mismatch_count),
-            "mismatch_sample_rows": _sample_dicts(
-                ["ts_code", "trade_date", "suspend_type", "suspend_timing"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "mismatch_count": int(mismatch_count),
+                "mismatch_sample_rows": _sample_dicts(
+                    ["ts_code", "trade_date", "suspend_type", "suspend_timing"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -183,15 +205,18 @@ def raw_suspend_d_schema_matches_tushare_contract(
     }
     return dg.AssetCheckResult(
         passed=not missing_columns and not type_mismatches,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "row_count": int(row_count),
-            "schema": schema,
-            "expected_schema": RAW_SUSPEND_D_EXPECTED_SCHEMA,
-            "missing_columns": missing_columns,
-            "type_mismatches": type_mismatches,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "checked_row_count": int(row_count),
+                "observed_schema": schema,
+                "expected_schema": RAW_SUSPEND_D_EXPECTED_SCHEMA,
+                "missing_columns": missing_columns,
+                "type_mismatches": type_mismatches,
+            },
+        ),
     )
 
 
@@ -212,18 +237,23 @@ def silver_suspend_d_known_type_values(
     with duckdb.connect() as connection:
         columns = _column_names(connection, path)
         missing_columns = [
-            column for column in SUSPEND_D_SILVER_REQUIRED_COLUMNS if column not in columns
+            column
+            for column in SUSPEND_D_SILVER_REQUIRED_COLUMNS
+            if column not in columns
         ]
         if missing_columns:
             return dg.AssetCheckResult(
                 passed=False,
-                metadata={
-                    "path": str(path),
-                    "partition_key": partition_key,
-                    "columns": columns,
-                    "required_columns": list(SUSPEND_D_SILVER_REQUIRED_COLUMNS),
-                    "missing_columns": missing_columns,
-                },
+                metadata=build_check_metadata(
+                    check_scope=CheckScope.SCHEMA,
+                    extra_metadata={
+                        "file_path": str(path),
+                        "partition_key": partition_key,
+                        "observed_columns": columns,
+                        "required_columns": list(SUSPEND_D_SILVER_REQUIRED_COLUMNS),
+                        "missing_columns": missing_columns,
+                    },
+                ),
             )
 
         invalid_count = connection.execute(
@@ -254,18 +284,21 @@ def silver_suspend_d_known_type_values(
 
     return dg.AssetCheckResult(
         passed=invalid_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "known_values": list(SUSPEND_D_KNOWN_TYPE_VALUES),
-            "invalid_count": int(invalid_count),
-            "invalid_sample_rows": _sample_dicts(
-                ["ts_code", "trade_date", "suspend_type", "suspend_timing"], rows
-            ),
-            "suspend_type_distribution": _sample_dicts(
-                ["suspend_type", "row_count"], distribution_rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "known_values": list(SUSPEND_D_KNOWN_TYPE_VALUES),
+                "invalid_count": int(invalid_count),
+                "invalid_sample_rows": _sample_dicts(
+                    ["ts_code", "trade_date", "suspend_type", "suspend_timing"], rows
+                ),
+                "suspend_type_distribution": _sample_dicts(
+                    ["suspend_type", "row_count"], distribution_rows
+                ),
+            },
+        ),
     )
 
 
@@ -308,19 +341,28 @@ def silver_suspend_d_unique_business_key(
 
     return dg.AssetCheckResult(
         passed=duplicate_key_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "business_key": [
-                "ts_code",
-                "trade_date",
-                "suspend_type",
-                "coalesce(suspend_timing, '')",
-            ],
-            "duplicate_key_count": int(duplicate_key_count),
-            "duplicate_sample_keys": _sample_dicts(
-                ["ts_code", "trade_date", "suspend_type", "suspend_timing_key", "row_count"],
-                rows,
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "business_key": [
+                    "ts_code",
+                    "trade_date",
+                    "suspend_type",
+                    "coalesce(suspend_timing, '')",
+                ],
+                "duplicate_key_count": int(duplicate_key_count),
+                "duplicate_sample_keys": _sample_dicts(
+                    [
+                        "ts_code",
+                        "trade_date",
+                        "suspend_type",
+                        "suspend_timing_key",
+                        "row_count",
+                    ],
+                    rows,
+                ),
+            },
+        ),
     )

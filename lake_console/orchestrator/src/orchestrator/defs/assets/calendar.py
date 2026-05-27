@@ -13,13 +13,21 @@ from orchestrator.defs.duckdb_sql import (
     silver_trade_calendar_select,
 )
 from orchestrator.defs.paths import raw_trade_calendar_path, silver_trade_calendar_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
@@ -33,7 +41,9 @@ TRADE_CALENDAR_RAW_COLUMN_TYPES = {
 }
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -42,9 +52,9 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
@@ -62,7 +72,19 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     name="raw_tushare_trade_calendar",
     group_name="calendar",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.BASIC_DATA),
-    metadata=build_dataset_metadata(dataset_id="trade_cal"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="trade_cal",
+        source_system=SourceSystem.TUSHARE,
+        source_api="trade_cal",
+        source_category_path="股票数据 / 基础数据",
+        source_doc="docs/sources/tushare/股票数据/基础数据/0026_交易日历.md",
+        data_contract="source_mirror",
+        path_template="data_lake/raw/tushare/trade_calendar/full/part-000.parquet",
+        extra_metadata={
+            "raw_contract": "cal_date/pretrade_date YYYYMMDD string, is_open 0/1 integer",
+            "update_policy": "low_frequency_full_file_api_update",
+        },
+    ),
     description="Tushare 交易日历原始数据。",
 )
 def raw_tushare_trade_calendar(
@@ -90,13 +112,12 @@ def raw_tushare_trade_calendar(
     return dg.MaterializeResult(
         metadata={
             **metadata,
-            "layer": "raw",
-            "source_api": "trade_cal",
-            "data_contract": "source_mirror",
-            "raw_contract": "cal_date/pretrade_date YYYYMMDD string, is_open 0/1 integer",
-            "update_policy": "low_frequency_full_file_api_update",
-            "calendar_start_date": TRADE_CALENDAR_START_DATE,
-            "calendar_end_date": end_date,
+            **build_materialization_metadata(
+                extra_metadata={
+                    "calendar_start_date": TRADE_CALENDAR_START_DATE,
+                    "calendar_end_date": end_date,
+                }
+            ),
         }
     )
 
@@ -106,7 +127,12 @@ def raw_tushare_trade_calendar(
     deps=["raw_tushare_trade_calendar"],
     group_name="calendar",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
-    metadata=build_dataset_metadata(dataset_id="trade_cal"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="trade_cal",
+        source_system=SourceSystem.DERIVED,
+        data_contract="standardized_trade_calendar",
+        path_template="data_lake/silver/calendar/trade_calendar/full/part-000.parquet",
+    ),
     description="A股交易日历标准表，提供上交所开市日口径。",
 )
 def silver_trade_calendar(
@@ -129,11 +155,9 @@ def silver_trade_calendar(
         row_count = _row_count(connection, target_path, hive_partitioning=False)
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "row_count": row_count,
-            "columns": columns,
-            "layer": "silver",
-            "data_contract": "standardized_trade_calendar",
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+        )
     )

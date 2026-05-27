@@ -15,9 +15,12 @@ from orchestrator.defs.paths import (
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -30,10 +33,13 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=False,
-        metadata={
-            "path": str(path),
-            "missing_file": True,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_file": True,
+            },
+        ),
     )
 
 
@@ -63,8 +69,12 @@ def _gold_row(connection, path: Path) -> dict[str, Any] | None:
     }
 
 
-def _recomputed_row(connection, silver_path: Path, partition_key: str) -> dict[str, Any] | None:
-    row = connection.execute(market_breadth_daily_select(silver_path, partition_key)).fetchone()
+def _recomputed_row(
+    connection, silver_path: Path, partition_key: str
+) -> dict[str, Any] | None:
+    row = connection.execute(
+        market_breadth_daily_select(silver_path, partition_key)
+    ).fetchone()
     if row is None:
         return None
     return {
@@ -98,11 +108,14 @@ def gold_market_breadth_row_count_is_one(
 
     return dg.AssetCheckResult(
         passed=row_count == 1,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "row_count": int(row_count),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "checked_row_count": int(row_count),
+            },
+        ),
     )
 
 
@@ -139,15 +152,24 @@ def gold_market_breadth_counts_add_up(
 
     return dg.AssetCheckResult(
         passed=mismatch_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "mismatch_count": int(mismatch_count),
-            "mismatch_sample_rows": _sample_dicts(
-                ["trade_date", "up_count", "down_count", "flat_count", "total_count"],
-                rows,
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "mismatch_count": int(mismatch_count),
+                "mismatch_sample_rows": _sample_dicts(
+                    [
+                        "trade_date",
+                        "up_count",
+                        "down_count",
+                        "flat_count",
+                        "total_count",
+                    ],
+                    rows,
+                ),
+            },
+        ),
     )
 
 
@@ -177,12 +199,17 @@ def gold_market_breadth_total_count_positive(
 
     return dg.AssetCheckResult(
         passed=not rows,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "invalid_row_count": len(rows),
-            "invalid_sample_rows": _sample_dicts(["trade_date", "total_count"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "invalid_row_count": len(rows),
+                "invalid_sample_rows": _sample_dicts(
+                    ["trade_date", "total_count"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -217,13 +244,16 @@ def gold_market_breadth_total_count_matches_silver(
 
     return dg.AssetCheckResult(
         passed=int(gold_total_count) == int(silver_row_count),
-        metadata={
-            "gold_path": str(gold_path),
-            "silver_path": str(silver_path),
-            "partition_key": partition_key,
-            "gold_total_count": int(gold_total_count),
-            "silver_row_count": int(silver_row_count),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "gold_file_path": str(gold_path),
+                "silver_file_path": str(silver_path),
+                "partition_key": partition_key,
+                "gold_total_count": int(gold_total_count),
+                "silver_row_count": int(silver_row_count),
+            },
+        ),
     )
 
 
@@ -253,12 +283,15 @@ def gold_market_breadth_red_rate_range(
 
     return dg.AssetCheckResult(
         passed=not rows,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "invalid_row_count": len(rows),
-            "invalid_sample_rows": _sample_dicts(["trade_date", "red_rate"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "invalid_row_count": len(rows),
+                "invalid_sample_rows": _sample_dicts(["trade_date", "red_rate"], rows),
+            },
+        ),
     )
 
 
@@ -301,15 +334,24 @@ def gold_market_breadth_red_rate_formula(
 
     return dg.AssetCheckResult(
         passed=not rows,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "invalid_row_count": len(rows),
-            "invalid_sample_rows": _sample_dicts(
-                ["trade_date", "up_count", "total_count", "red_rate", "expected_red_rate"],
-                rows,
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "invalid_row_count": len(rows),
+                "invalid_sample_rows": _sample_dicts(
+                    [
+                        "trade_date",
+                        "up_count",
+                        "total_count",
+                        "red_rate",
+                        "expected_red_rate",
+                    ],
+                    rows,
+                ),
+            },
+        ),
     )
 
 
@@ -337,11 +379,14 @@ def gold_market_breadth_matches_silver_recompute(
     passed = gold_row == recomputed_row
     return dg.AssetCheckResult(
         passed=passed,
-        metadata={
-            "gold_path": str(gold_path),
-            "silver_path": str(silver_path),
-            "partition_key": partition_key,
-            "gold_row": gold_row or {},
-            "recomputed_row": recomputed_row or {},
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "gold_file_path": str(gold_path),
+                "silver_file_path": str(silver_path),
+                "partition_key": partition_key,
+                "gold_row": gold_row or {},
+                "recomputed_row": recomputed_row or {},
+            },
+        ),
     )

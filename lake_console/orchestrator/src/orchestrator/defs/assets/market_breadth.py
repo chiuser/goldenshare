@@ -21,10 +21,16 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -33,9 +39,9 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
@@ -66,7 +72,9 @@ def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
         return {}
     trade_date, up_count, down_count, flat_count, total_count, red_rate = row
     return {
-        "trade_date": trade_date.isoformat() if hasattr(trade_date, "isoformat") else trade_date,
+        "trade_date": trade_date.isoformat()
+        if hasattr(trade_date, "isoformat")
+        else trade_date,
         "up_count": int(up_count),
         "down_count": int(down_count),
         "flat_count": int(flat_count),
@@ -87,7 +95,19 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
     partitions_def=cn_a_stock_trade_days,
     group_name="breadth",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.DERIVED_METRIC),
-    metadata=build_dataset_metadata(dataset_id="market_breadth"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="market_breadth",
+        source_system=SourceSystem.DERIVED,
+        data_contract="market_breadth_daily",
+        path_template="data_lake/gold/market_breadth/trade_date={partition_key}/part-000.parquet",
+        extra_metadata={
+            "calculation_contract": (
+                "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
+                "up/down/flat by pct_chg > 0/< 0/= 0; "
+                "red_rate = round(up_count / total_count * 100, 2)."
+            )
+        },
+    ),
     description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
     automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,
 )
@@ -114,19 +134,14 @@ def gold_market_breadth_daily(
         breadth_row = _breadth_row(connection, target_path)
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "silver_path": str(silver_path),
-            "row_count": row_count,
-            "columns": columns,
-            "partition_key": partition_key,
-            "layer": "gold",
-            "data_contract": "market_breadth_daily",
-            "calculation_contract": (
-                "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
-                "up/down/flat by pct_chg > 0/< 0/= 0; "
-                "red_rate = round(up_count / total_count * 100, 2)."
-            ),
-            "breadth_row": breadth_row,
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+            extra_metadata={
+                "silver_file_path": str(silver_path),
+                "partition_key": partition_key,
+                "breadth_row": breadth_row,
+            },
+        )
     )

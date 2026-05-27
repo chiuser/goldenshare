@@ -22,6 +22,7 @@ from orchestrator.defs.paths import (
     silver_index_basic_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.seeds.market.major_indices import (
     EXPECTED_MAJOR_INDICES_COUNT,
     MajorIndexSeedRow,
@@ -35,22 +36,30 @@ def _selected_partition_keys(context: dg.AssetCheckExecutionContext) -> tuple[st
 
 
 def _column_names(connection, path: Path) -> list[str]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return [row[0] for row in rows]
 
 
 def _column_types(connection, path: Path) -> dict[str, str]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return {row[0]: str(row[1]).upper() for row in rows}
 
 
 def _row_count(connection, path: Path) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=False)).fetchone()[0]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=False)
+        ).fetchone()[0]
     )
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -63,10 +72,13 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=False,
-        metadata={
-            "path": str(path),
-            "missing_file": True,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_file": True,
+            },
+        ),
     )
 
 
@@ -74,9 +86,13 @@ def _nullable_duckdb_string(value: str | None) -> str:
     return "NULL::VARCHAR" if value is None else duckdb_string(value)
 
 
-def _daily_paths(lake_root_path: Path, partition_keys: tuple[str, ...]) -> dict[str, Path]:
+def _daily_paths(
+    lake_root_path: Path, partition_keys: tuple[str, ...]
+) -> dict[str, Path]:
     return {
-        partition_key: gold_market_major_indices_daily_path(lake_root_path, partition_key)
+        partition_key: gold_market_major_indices_daily_path(
+            lake_root_path, partition_key
+        )
         for partition_key in partition_keys
     }
 
@@ -118,10 +134,15 @@ def gold_market_major_indices_daily_file_exists(
     missing_paths = [str(path) for path in paths.values() if not path.exists()]
     return dg.AssetCheckResult(
         passed=not missing_paths,
-        metadata={
-            "paths": {partition_key: str(path) for partition_key, path in paths.items()},
-            "missing_paths": missing_paths,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "input_file_paths": {
+                    partition_key: str(path) for partition_key, path in paths.items()
+                },
+                "missing_file_paths": missing_paths,
+            },
+        ),
     )
 
 
@@ -143,10 +164,14 @@ def gold_market_major_indices_daily_required_columns_and_types(
             columns = _column_names(connection, path)
             column_types = _column_types(connection, path)
             missing_columns = [
-                column for column in MARKET_MAJOR_INDICES_DAILY_COLUMNS if column not in columns
+                column
+                for column in MARKET_MAJOR_INDICES_DAILY_COLUMNS
+                if column not in columns
             ]
             unexpected_columns = [
-                column for column in columns if column not in MARKET_MAJOR_INDICES_DAILY_COLUMNS
+                column
+                for column in columns
+                if column not in MARKET_MAJOR_INDICES_DAILY_COLUMNS
             ]
             type_mismatches = {
                 column: {
@@ -157,7 +182,7 @@ def gold_market_major_indices_daily_required_columns_and_types(
                 if column in column_types and column_types[column] != expected_type
             }
             results[partition_key] = {
-                "columns": columns,
+                "observed_columns": columns,
                 "column_types": column_types,
                 "missing_columns": missing_columns,
                 "unexpected_columns": unexpected_columns,
@@ -167,16 +192,21 @@ def gold_market_major_indices_daily_required_columns_and_types(
     failed_partitions = [
         partition_key
         for partition_key, result in results.items()
-        if result["missing_columns"] or result["unexpected_columns"] or result["type_mismatches"]
+        if result["missing_columns"]
+        or result["unexpected_columns"]
+        or result["type_mismatches"]
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "results": results,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-            "expected_columns": list(MARKET_MAJOR_INDICES_DAILY_COLUMNS),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "results": results,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+                "expected_columns": list(MARKET_MAJOR_INDICES_DAILY_COLUMNS),
+            },
+        ),
     )
 
 
@@ -191,7 +221,9 @@ def gold_market_major_indices_daily_partition_date_matches(
     missing_paths = []
 
     with duckdb.connect() as connection:
-        for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+        for partition_key, path in _daily_paths(
+            lake_root.root(), _selected_partition_keys(context)
+        ).items():
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
@@ -219,16 +251,21 @@ def gold_market_major_indices_daily_partition_date_matches(
             )
 
     failed_partitions = [
-        partition_key for partition_key, mismatch_count in mismatch_counts.items() if mismatch_count
+        partition_key
+        for partition_key, mismatch_count in mismatch_counts.items()
+        if mismatch_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "mismatch_counts": mismatch_counts,
-            "mismatch_samples": mismatch_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "mismatch_counts": mismatch_counts,
+                "mismatch_samples": mismatch_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -243,8 +280,12 @@ def gold_market_major_indices_daily_row_count_matches_seed(
     missing_paths = []
 
     with duckdb.connect() as connection:
-        for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
-            expected_row_counts[partition_key] = len(active_major_indices_seed_rows(partition_key))
+        for partition_key, path in _daily_paths(
+            lake_root.root(), _selected_partition_keys(context)
+        ).items():
+            expected_row_counts[partition_key] = len(
+                active_major_indices_seed_rows(partition_key)
+            )
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
@@ -257,13 +298,16 @@ def gold_market_major_indices_daily_row_count_matches_seed(
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "row_counts": row_counts,
-            "expected_row_counts": expected_row_counts,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-            **_seed_rows_metadata(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "row_counts": row_counts,
+                "expected_row_counts": expected_row_counts,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+                **_seed_rows_metadata(),
+            },
+        ),
     )
 
 
@@ -279,7 +323,9 @@ def gold_market_major_indices_daily_seed_codes_present(
     missing_paths = []
 
     with duckdb.connect() as connection:
-        for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+        for partition_key, path in _daily_paths(
+            lake_root.root(), _selected_partition_keys(context)
+        ).items():
             active_seed_rows = active_major_indices_seed_rows(partition_key)
             active_seed_codes[partition_key] = [row.ts_code for row in active_seed_rows]
             if not path.exists():
@@ -316,17 +362,22 @@ def gold_market_major_indices_daily_seed_codes_present(
             )
 
     failed_partitions = [
-        partition_key for partition_key, missing_count in missing_counts.items() if missing_count
+        partition_key
+        for partition_key, missing_count in missing_counts.items()
+        if missing_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "active_seed_codes": active_seed_codes,
-            "missing_counts": missing_counts,
-            "missing_samples": missing_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "active_seed_codes": active_seed_codes,
+                "missing_counts": missing_counts,
+                "missing_samples": missing_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -341,7 +392,9 @@ def gold_market_major_indices_daily_unique_ts_code(
     missing_paths = []
 
     with duckdb.connect() as connection:
-        for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+        for partition_key, path in _daily_paths(
+            lake_root.root(), _selected_partition_keys(context)
+        ).items():
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
@@ -363,19 +416,26 @@ def gold_market_major_indices_daily_unique_ts_code(
                 LIMIT 10
                 """
             ).fetchall()
-            duplicate_samples[partition_key] = _sample_dicts(["ts_code", "row_count"], rows)
+            duplicate_samples[partition_key] = _sample_dicts(
+                ["ts_code", "row_count"], rows
+            )
 
     failed_partitions = [
-        partition_key for partition_key, duplicate_count in duplicate_counts.items() if duplicate_count
+        partition_key
+        for partition_key, duplicate_count in duplicate_counts.items()
+        if duplicate_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "duplicate_counts": duplicate_counts,
-            "duplicate_samples": duplicate_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "duplicate_counts": duplicate_counts,
+                "duplicate_samples": duplicate_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -391,7 +451,9 @@ def gold_market_major_indices_daily_rank_matches_active_seed_order(
     missing_paths = []
 
     with duckdb.connect() as connection:
-        for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+        for partition_key, path in _daily_paths(
+            lake_root.root(), _selected_partition_keys(context)
+        ).items():
             active_seed_rows = active_major_indices_seed_rows(partition_key)
             if not path.exists():
                 missing_paths.append(str(path))
@@ -441,7 +503,7 @@ def gold_market_major_indices_daily_rank_matches_active_seed_order(
                 """
             ).fetchone()
             results[partition_key] = {
-                "row_count": int(row[0]),
+                "checked_row_count": int(row[0]),
                 "distinct_rank_count": int(row[1]),
                 "distinct_code_count": int(row[2]),
                 "null_rank_count": int(row[3]),
@@ -462,13 +524,16 @@ def gold_market_major_indices_daily_rank_matches_active_seed_order(
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "results": results,
-            "missing_seed_rows": missing_seed_rows,
-            "unexpected_rows": unexpected_rows,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "results": results,
+                "missing_seed_rows": missing_seed_rows,
+                "unexpected_rows": unexpected_rows,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -483,7 +548,9 @@ def gold_market_major_indices_daily_price_sanity(
     missing_paths = []
 
     with duckdb.connect() as connection:
-        for partition_key, path in _daily_paths(lake_root.root(), _selected_partition_keys(context)).items():
+        for partition_key, path in _daily_paths(
+            lake_root.root(), _selected_partition_keys(context)
+        ).items():
             if not path.exists():
                 missing_paths.append(str(path))
                 continue
@@ -514,21 +581,35 @@ def gold_market_major_indices_daily_price_sanity(
                 """
             ).fetchall()
             invalid_samples[partition_key] = _sample_dicts(
-                ["rank", "ts_code", "trade_date", "open", "high", "low", "close", "pre_close"],
+                [
+                    "rank",
+                    "ts_code",
+                    "trade_date",
+                    "open",
+                    "high",
+                    "low",
+                    "close",
+                    "pre_close",
+                ],
                 rows,
             )
 
     failed_partitions = [
-        partition_key for partition_key, invalid_count in invalid_counts.items() if invalid_count
+        partition_key
+        for partition_key, invalid_count in invalid_counts.items()
+        if invalid_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "invalid_counts": invalid_counts,
-            "invalid_samples": invalid_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "invalid_counts": invalid_counts,
+                "invalid_samples": invalid_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -560,7 +641,9 @@ def gold_market_major_indices_seed_codes_exist_in_index_basic(
     """
     with duckdb.connect() as connection:
         missing_count = int(
-            connection.execute(f"SELECT count(*) FROM ({missing_sql}) missing_codes").fetchone()[0]
+            connection.execute(
+                f"SELECT count(*) FROM ({missing_sql}) missing_codes"
+            ).fetchone()[0]
         )
         rows = connection.execute(
             f"""
@@ -572,12 +655,17 @@ def gold_market_major_indices_seed_codes_exist_in_index_basic(
 
     return dg.AssetCheckResult(
         passed=missing_count == 0,
-        metadata={
-            "index_basic_path": str(index_basic_path),
-            "missing_count": missing_count,
-            "missing_sample_rows": _sample_dicts(["rank", "ts_code", "display_name"], rows),
-            **_seed_rows_metadata(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+            extra_metadata={
+                "index_basic_file_path": str(index_basic_path),
+                "missing_count": missing_count,
+                "missing_sample_rows": _sample_dicts(
+                    ["rank", "ts_code", "display_name"], rows
+                ),
+                **_seed_rows_metadata(),
+            },
+        ),
     )
 
 
@@ -586,7 +674,9 @@ def gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     seed_rows = load_major_indices_seed()
-    registered_codes = set(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
+    registered_codes = set(
+        context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name)
+    )
     missing_rows = [
         (row.rank, row.ts_code, row.display_name)
         for row in seed_rows
@@ -594,14 +684,17 @@ def gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes(
     ]
     return dg.AssetCheckResult(
         passed=not missing_rows,
-        metadata={
-            "dynamic_partitions_def": cn_a_index_ts_codes.name,
-            "registered_code_count": len(registered_codes),
-            "missing_count": len(missing_rows),
-            "missing_sample_rows": _sample_dicts(
-                ["rank", "ts_code", "display_name"],
-                missing_rows[:20],
-            ),
-            **_seed_rows_metadata(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "dynamic_partitions_def": cn_a_index_ts_codes.name,
+                "registered_code_count": len(registered_codes),
+                "missing_count": len(missing_rows),
+                "missing_sample_rows": _sample_dicts(
+                    ["rank", "ts_code", "display_name"],
+                    missing_rows[:20],
+                ),
+                **_seed_rows_metadata(),
+            },
+        ),
     )

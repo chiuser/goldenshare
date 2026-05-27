@@ -590,8 +590,8 @@
           <td><code>raw_tushare_index_basic</code> → <code>silver_index_basic</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td>无分区，全量文件</td>
-          <td><code>index_basic_update_job</code> 调 Tushare <code>index_basic</code>，silver 过滤终止指数。</td>
-          <td>低频或日更 full snapshot，先确保 <code>cn_a_index_trade_days</code> 已注册验证日期。</td>
+          <td><code>index_basic_update_job</code> 调 Tushare <code>index_basic</code>，silver 使用最新已注册指数交易日过滤终止指数。</td>
+          <td>低频或日更 full snapshot，先确保 <code>cn_a_index_trade_days</code> 已注册可用交易日。</td>
           <td>指数基础信息事实源；主要指数名单通过 checks 校验代码有效性。</td>
         </tr>
         <tr>
@@ -752,7 +752,7 @@
           <td><code>raw_tushare_index_basic</code>、<code>silver_index_basic</code> + checks</td>
           <td>指数基础信息 raw/silver full file。</td>
           <td>人工触发；未来可低频或日更。</td>
-          <td>依赖 <code>cn_a_index_trade_days</code> 中的验证日期；不得由业务 gold job 代写。</td>
+          <td>自动使用 <code>cn_a_index_trade_days</code> 中最新已注册指数交易日；不得由业务 gold job 代写。</td>
         </tr>
         <tr>
           <td><code>index_daily_update_job</code></td>

@@ -22,7 +22,11 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 
 
 STOCK_RETURN_DISTRIBUTION_COLUMNS = (
@@ -46,7 +50,9 @@ STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION = (
 )
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -55,9 +61,9 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
@@ -95,7 +101,9 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
     result: dict[str, Any] = {
         "trade_date": row[0].isoformat() if hasattr(row[0], "isoformat") else row[0],
     }
-    for column, value in zip(STOCK_RETURN_DISTRIBUTION_COLUMNS[1:], row[1:], strict=True):
+    for column, value in zip(
+        STOCK_RETURN_DISTRIBUTION_COLUMNS[1:], row[1:], strict=True
+    ):
         result[column] = int(value)
     return result
 
@@ -106,7 +114,21 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
     partitions_def=cn_a_stock_trade_days,
     group_name="breadth",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.DERIVED_METRIC),
-    metadata=build_dataset_metadata(dataset_id="stock_return_distribution"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stock_return_distribution",
+        source_system=SourceSystem.DERIVED,
+        data_contract="stock_return_distribution",
+        path_template=(
+            "data_lake/gold/stock_return_distribution/trade_date={partition_key}/part-000.parquet"
+        ),
+        extra_metadata={
+            "calculation_contract": (
+                "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
+                "gold aggregation does not filter pct_chg nulls; "
+                "nine return buckets must add up to total_count."
+            )
+        },
+    ),
     description="股票涨跌幅区间分布日表，按 pct_chg 统计九段收益率区间数量。",
     automation_condition=STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION,
 )
@@ -133,19 +155,14 @@ def gold_stock_return_distribution(
         distribution_row = _distribution_row(connection, target_path)
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "silver_path": str(silver_path),
-            "row_count": row_count,
-            "columns": columns,
-            "partition_key": partition_key,
-            "layer": "gold",
-            "data_contract": "stock_return_distribution",
-            "calculation_contract": (
-                "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
-                "gold aggregation does not filter pct_chg nulls; "
-                "nine return buckets must add up to total_count."
-            ),
-            "distribution_row": distribution_row,
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+            extra_metadata={
+                "silver_file_path": str(silver_path),
+                "partition_key": partition_key,
+                "distribution_row": distribution_row,
+            },
+        )
     )

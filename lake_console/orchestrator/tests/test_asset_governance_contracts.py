@@ -1,20 +1,37 @@
 import re
 import unittest
 
-from orchestrator.defs.assets.calendar import raw_tushare_trade_calendar, silver_trade_calendar
-from orchestrator.defs.assets.index_basic import raw_tushare_index_basic, silver_index_basic
+from orchestrator.defs.assets.calendar import (
+    raw_tushare_trade_calendar,
+    silver_trade_calendar,
+)
+from orchestrator.defs.assets.index_basic import (
+    raw_tushare_index_basic,
+    silver_index_basic,
+)
 from orchestrator.defs.assets.index_daily import (
     raw_tushare_index_daily_by_code,
     silver_index_daily,
 )
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
-from orchestrator.defs.assets.market_major_indices import gold_market_major_indices_daily
-from orchestrator.defs.assets.stock_basic import raw_tushare_stock_basic, silver_stock_basic
-from orchestrator.defs.assets.stock_daily import raw_tushare_stock_daily, silver_stock_daily
+from orchestrator.defs.assets.market_major_indices import (
+    gold_market_major_indices_daily,
+)
+from orchestrator.defs.assets.stock_basic import (
+    raw_tushare_stock_basic,
+    silver_stock_basic,
+)
+from orchestrator.defs.assets.stock_daily import (
+    raw_tushare_stock_daily,
+    silver_stock_daily,
+)
 from orchestrator.defs.assets.stock_return_distribution import (
     gold_stock_return_distribution,
 )
-from orchestrator.defs.assets.suspend_d import raw_tushare_suspend_d, silver_stock_suspend_daily
+from orchestrator.defs.assets.suspend_d import (
+    raw_tushare_suspend_d,
+    silver_stock_suspend_daily,
+)
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
 from orchestrator.defs.run_contracts.asset_tags import (
     ASSET_LAYER_TAG,
@@ -24,8 +41,11 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.metadata import (
+    DATA_CONTRACT_METADATA_KEY,
     DATASET_ID_METADATA_KEY,
     DATASET_NAME_METADATA_KEY,
+    PATH_TEMPLATE_METADATA_KEY,
+    SOURCE_SYSTEM_METADATA_KEY,
     build_dataset_metadata,
 )
 
@@ -44,7 +64,12 @@ ASSET_CONTRACTS = {
     silver_stock_daily: ("silver", "quote_data", "daily", "A股日线行情"),
     raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
     silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
-    raw_tushare_index_daily_by_code: ("raw", "index_topic", "index_daily", "指数日线行情"),
+    raw_tushare_index_daily_by_code: (
+        "raw",
+        "index_topic",
+        "index_daily",
+        "指数日线行情",
+    ),
     silver_index_daily: ("silver", "index_topic", "index_daily", "指数日线行情"),
     gold_market_major_indices_daily: (
         "gold",
@@ -99,7 +124,12 @@ class AssetGovernanceContractTests(unittest.TestCase):
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         self.assertEqual(len(ASSET_CONTRACTS), 15)
 
-        for asset, (layer, data_domain, dataset_id, dataset_name) in ASSET_CONTRACTS.items():
+        for asset, (
+            layer,
+            data_domain,
+            dataset_id,
+            dataset_name,
+        ) in ASSET_CONTRACTS.items():
             with self.subTest(asset=asset.key.to_user_string()):
                 spec = asset.get_asset_spec()
 
@@ -110,3 +140,6 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
                 self.assertEqual(spec.metadata[DATASET_ID_METADATA_KEY], dataset_id)
                 self.assertEqual(spec.metadata[DATASET_NAME_METADATA_KEY], dataset_name)
+                self.assertIn(SOURCE_SYSTEM_METADATA_KEY, spec.metadata)
+                self.assertIn(DATA_CONTRACT_METADATA_KEY, spec.metadata)
+                self.assertIn(PATH_TEMPLATE_METADATA_KEY, spec.metadata)

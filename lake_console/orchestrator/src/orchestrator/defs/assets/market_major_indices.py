@@ -17,14 +17,21 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days
-from orchestrator.defs.paths import gold_market_major_indices_daily_path, silver_index_daily_path
+from orchestrator.defs.paths import (
+    gold_market_major_indices_daily_path,
+    silver_index_daily_path,
+)
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.seeds.market.major_indices import (
     MAJOR_INDICES_SEED_COLUMNS,
     active_major_indices_seed_rows,
@@ -70,17 +77,23 @@ def _selected_partition_keys(context: dg.AssetExecutionContext) -> tuple[str, ..
 
 
 def _column_names(connection, path: Path) -> list[str]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return [row[0] for row in rows]
 
 
 def _row_count(connection, path: Path) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=False)).fetchone()[0]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=False)
+        ).fetchone()[0]
     )
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -100,7 +113,9 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     os.replace(temporary_path, target_path)
 
 
-def _create_major_indices_seed_table(connection, table_name: str = "major_indices_seed") -> int:
+def _create_major_indices_seed_table(
+    connection, table_name: str = "major_indices_seed"
+) -> int:
     rows = load_major_indices_seed()
     connection.execute(
         f"""
@@ -162,7 +177,9 @@ def _major_indices_daily_select_sql(
     }
     missing_silver_columns = sorted(required_silver_columns - silver_columns)
     if missing_silver_columns:
-        raise RuntimeError(f"INDEX_DAILY_SILVER_COLUMNS missing: {missing_silver_columns}")
+        raise RuntimeError(
+            f"INDEX_DAILY_SILVER_COLUMNS missing: {missing_silver_columns}"
+        )
 
     return f"""
     SELECT
@@ -205,7 +222,9 @@ def _missing_seed_codes_in_silver(
       AND silver.ts_code IS NULL
     """
     missing_count = int(
-        connection.execute(f"SELECT count(*) FROM ({missing_sql}) missing_codes").fetchone()[0]
+        connection.execute(
+            f"SELECT count(*) FROM ({missing_sql}) missing_codes"
+        ).fetchone()[0]
     )
     rows = connection.execute(
         f"""
@@ -223,7 +242,20 @@ def _missing_seed_codes_in_silver(
     partitions_def=cn_a_index_trade_days,
     group_name="market",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.INDEX_TOPIC),
-    metadata=build_dataset_metadata(dataset_id="market_major_indices_daily"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="market_major_indices_daily",
+        source_system=SourceSystem.DERIVED,
+        data_contract="market_major_indices_daily",
+        path_template=(
+            "data_lake/gold/market_major_indices_daily/trade_date={partition_key}/part-000.parquet"
+        ),
+        extra_metadata={
+            "source_asset": "silver_index_daily",
+            "seed_source": "orchestrator.seeds.market.major_indices",
+            "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
+            "expected_columns": list(MARKET_MAJOR_INDICES_DAILY_COLUMNS),
+        },
+    ),
     description="首页主要指数日线结果，读取版本化 seed 名单和 silver_index_daily 当日行情生成。",
 )
 def gold_market_major_indices_daily(
@@ -258,7 +290,9 @@ def gold_market_major_indices_daily(
                     f"{partition_key}: {missing_samples}"
                 )
 
-            target_path = gold_market_major_indices_daily_path(lake_root.root(), partition_key)
+            target_path = gold_market_major_indices_daily_path(
+                lake_root.root(), partition_key
+            )
             _replace_parquet_from_query(
                 connection,
                 _major_indices_daily_select_sql(
@@ -272,28 +306,28 @@ def gold_market_major_indices_daily(
             row_count = _row_count(connection, target_path)
             partition_metadata[partition_key] = {
                 "partition_key": partition_key,
-                "path": str(target_path),
-                "row_count": row_count,
-                "columns": columns,
+                "file_path": str(target_path),
+                "output_row_count": row_count,
+                "output_columns": columns,
                 "seed_row_count": seed_count,
                 "active_seed_row_count": len(active_seed_rows),
                 "inactive_seed_row_count": seed_count - len(active_seed_rows),
                 "active_seed_codes": [row.ts_code for row in active_seed_rows],
                 "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
                 "source_asset": "silver_index_daily",
-                "source_path": str(silver_path),
+                "source_file_path": str(silver_path),
             }
 
-    total_row_count = sum(item["row_count"] for item in partition_metadata.values())
+    total_row_count = sum(
+        item["output_row_count"] for item in partition_metadata.values()
+    )
     return dg.MaterializeResult(
-        metadata={
-            "layer": "gold",
-            "data_contract": "market_major_indices_daily",
-            "partition_keys": list(partition_keys),
-            "row_count": total_row_count,
-            "partition_metadata": partition_metadata,
-            "expected_columns": list(MARKET_MAJOR_INDICES_DAILY_COLUMNS),
-            "seed_source": "orchestrator.seeds.market.major_indices",
-            "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
-        }
+        metadata=build_materialization_metadata(
+            row_count=total_row_count,
+            columns=MARKET_MAJOR_INDICES_DAILY_COLUMNS,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "partition_metadata": partition_metadata,
+            },
+        )
     )

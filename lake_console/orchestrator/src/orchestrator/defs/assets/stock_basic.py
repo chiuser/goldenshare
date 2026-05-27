@@ -13,13 +13,21 @@ from orchestrator.defs.duckdb_sql import (
     silver_stock_basic_select,
 )
 from orchestrator.defs.paths import raw_stock_basic_path, silver_stock_basic_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
@@ -27,7 +35,9 @@ STOCK_BASIC_API_PARAMS = {"list_status": "L,D,P,G"}
 STOCK_BASIC_RAW_COLUMN_TYPES = {field: "VARCHAR" for field in STOCK_BASIC_RAW_COLUMNS}
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -36,9 +46,9 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
@@ -79,7 +89,22 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     name="raw_tushare_stock_basic",
     group_name="basic",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.BASIC_DATA),
-    metadata=build_dataset_metadata(dataset_id="stock_basic"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stock_basic",
+        source_system=SourceSystem.TUSHARE,
+        source_api="stock_basic",
+        source_category_path="股票数据 / 基础数据",
+        source_doc="docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md",
+        data_contract="source_mirror",
+        path_template="data_lake/raw/tushare/stock_basic/full/part-000.parquet",
+        extra_metadata={
+            "raw_contract": (
+                "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings."
+            ),
+            "expected_source_columns": list(STOCK_BASIC_RAW_COLUMNS),
+            "update_policy": "daily_full_snapshot_api_update",
+        },
+    ),
     description="Tushare 股票基础信息原始数据。",
 )
 def raw_tushare_stock_basic(
@@ -110,13 +135,9 @@ def raw_tushare_stock_basic(
     return dg.MaterializeResult(
         metadata={
             **metadata,
-            "layer": "raw",
-            "source_api": "stock_basic",
-            "data_contract": "source_mirror",
-            "raw_contract": "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings.",
-            "expected_source_columns": list(STOCK_BASIC_RAW_COLUMNS),
-            "list_status_distribution": list_status_distribution,
-            "update_policy": "daily_full_snapshot_api_update",
+            **build_materialization_metadata(
+                extra_metadata={"list_status_distribution": list_status_distribution}
+            ),
         }
     )
 
@@ -126,7 +147,15 @@ def raw_tushare_stock_basic(
     deps=["raw_tushare_stock_basic"],
     group_name="basic",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
-    metadata=build_dataset_metadata(dataset_id="stock_basic"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stock_basic",
+        source_system=SourceSystem.DERIVED,
+        data_contract="current_listed_stock_basic_lifecycle",
+        path_template="data_lake/silver/basic/stock_basic/full/part-000.parquet",
+        extra_metadata={
+            "filter_policy": "silver_stock_basic keeps only current list_status='L' stocks."
+        },
+    ),
     description="当前上市股票基础信息标准表，记录股票生命周期。",
 )
 def silver_stock_basic(
@@ -160,17 +189,16 @@ def silver_stock_basic(
         )
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "row_count": row_count,
-            "source_row_count": source_row_count,
-            "kept_row_count": row_count,
-            "filtered_out_row_count": source_row_count - row_count,
-            "columns": columns,
-            "layer": "silver",
-            "data_contract": "current_listed_stock_basic_lifecycle",
-            "filter_policy": "silver_stock_basic keeps only current list_status='L' stocks.",
-            "source_list_status_distribution": source_list_status_distribution,
-            "list_status_distribution": list_status_distribution,
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+            extra_metadata={
+                "source_row_count": source_row_count,
+                "kept_row_count": row_count,
+                "filtered_out_row_count": source_row_count - row_count,
+                "source_list_status_distribution": source_list_status_distribution,
+                "list_status_distribution": list_status_distribution,
+            },
+        )
     )

@@ -26,20 +26,25 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
 def _selected_partition_keys(context: dg.AssetCheckExecutionContext) -> tuple[str, ...]:
     return tuple(sorted(set(context.partition_keys)))
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
     return [row[0] for row in rows]
 
 
-def _column_types(connection, path: Path, *, hive_partitioning: bool = False) -> dict[str, str]:
+def _column_types(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> dict[str, str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -48,13 +53,15 @@ def _column_types(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -68,7 +75,10 @@ def _warn_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=passed,
         severity=dg.AssetCheckSeverity.WARN,
-        metadata=metadata,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            extra_metadata=metadata,
+        ),
     )
 
 
@@ -89,7 +99,9 @@ def _required_columns_result(
     columns = _column_names(connection, path)
     column_types = _column_types(connection, path)
     missing_columns = [column for column in required_columns if column not in columns]
-    unexpected_columns = [column for column in columns if column not in required_columns]
+    unexpected_columns = [
+        column for column in columns if column not in required_columns
+    ]
     type_mismatches = {
         column: {
             "expected": expected_type,
@@ -99,7 +111,7 @@ def _required_columns_result(
         if column in column_types and column_types[column] != expected_type
     }
     return {
-        "columns": columns,
+        "observed_columns": columns,
         "column_types": column_types,
         "required_columns": list(required_columns),
         "missing_columns": missing_columns,
@@ -121,10 +133,13 @@ def evaluate_raw_index_daily_by_code_file_exists(
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "missing_paths": missing_paths,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "missing_file_paths": missing_paths,
+            },
+        ),
     )
 
 
@@ -144,16 +159,21 @@ def evaluate_raw_index_daily_by_code_row_count_positive(
             row_counts[partition_key] = _row_count(connection, path)
 
     zero_row_partitions = [
-        partition_key for partition_key, row_count in row_counts.items() if row_count <= 0
+        partition_key
+        for partition_key, row_count in row_counts.items()
+        if row_count <= 0
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not zero_row_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "row_counts": row_counts,
-            "missing_paths": missing_paths,
-            "zero_row_partitions": zero_row_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "row_counts": row_counts,
+                "missing_file_paths": missing_paths,
+                "zero_row_partitions": zero_row_partitions,
+            },
+        ),
     )
 
 
@@ -180,16 +200,21 @@ def evaluate_raw_index_daily_by_code_required_columns_and_types(
     failed_partitions = [
         partition_key
         for partition_key, result in results.items()
-        if result["missing_columns"] or result["unexpected_columns"] or result["type_mismatches"]
+        if result["missing_columns"]
+        or result["unexpected_columns"]
+        or result["type_mismatches"]
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "results": results,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "results": results,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -225,20 +250,27 @@ def evaluate_raw_index_daily_by_code_partition_code_matches(
                 LIMIT 10
                 """
             ).fetchall()
-            mismatch_samples[partition_key] = _sample_dicts(["ts_code", "trade_date"], rows)
+            mismatch_samples[partition_key] = _sample_dicts(
+                ["ts_code", "trade_date"], rows
+            )
 
     failed_partitions = [
-        partition_key for partition_key, mismatch_count in mismatch_counts.items() if mismatch_count
+        partition_key
+        for partition_key, mismatch_count in mismatch_counts.items()
+        if mismatch_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "mismatch_counts": mismatch_counts,
-            "mismatch_samples": mismatch_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "mismatch_counts": mismatch_counts,
+                "mismatch_samples": mismatch_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -279,17 +311,22 @@ def evaluate_raw_index_daily_by_code_unique_ts_code_trade_date(
             )
 
     failed_partitions = [
-        partition_key for partition_key, duplicate_count in duplicate_counts.items() if duplicate_count
+        partition_key
+        for partition_key, duplicate_count in duplicate_counts.items()
+        if duplicate_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "duplicate_counts": duplicate_counts,
-            "duplicate_samples": duplicate_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "duplicate_counts": duplicate_counts,
+                "duplicate_samples": duplicate_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -309,16 +346,21 @@ def evaluate_silver_index_daily_row_count_positive(
             row_counts[partition_key] = _row_count(connection, path)
 
     zero_row_partitions = [
-        partition_key for partition_key, row_count in row_counts.items() if row_count <= 0
+        partition_key
+        for partition_key, row_count in row_counts.items()
+        if row_count <= 0
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not zero_row_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "row_counts": row_counts,
-            "missing_paths": missing_paths,
-            "zero_row_partitions": zero_row_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "row_counts": row_counts,
+                "missing_file_paths": missing_paths,
+                "zero_row_partitions": zero_row_partitions,
+            },
+        ),
     )
 
 
@@ -345,16 +387,21 @@ def evaluate_silver_index_daily_required_columns_and_types(
     failed_partitions = [
         partition_key
         for partition_key, result in results.items()
-        if result["missing_columns"] or result["unexpected_columns"] or result["type_mismatches"]
+        if result["missing_columns"]
+        or result["unexpected_columns"]
+        or result["type_mismatches"]
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "results": results,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "results": results,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -390,20 +437,27 @@ def evaluate_silver_index_daily_partition_date_matches(
                 LIMIT 10
                 """
             ).fetchall()
-            mismatch_samples[partition_key] = _sample_dicts(["ts_code", "trade_date"], rows)
+            mismatch_samples[partition_key] = _sample_dicts(
+                ["ts_code", "trade_date"], rows
+            )
 
     failed_partitions = [
-        partition_key for partition_key, mismatch_count in mismatch_counts.items() if mismatch_count
+        partition_key
+        for partition_key, mismatch_count in mismatch_counts.items()
+        if mismatch_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "mismatch_counts": mismatch_counts,
-            "mismatch_samples": mismatch_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "mismatch_counts": mismatch_counts,
+                "mismatch_samples": mismatch_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -444,17 +498,22 @@ def evaluate_silver_index_daily_unique_ts_code_trade_date(
             )
 
     failed_partitions = [
-        partition_key for partition_key, duplicate_count in duplicate_counts.items() if duplicate_count
+        partition_key
+        for partition_key, duplicate_count in duplicate_counts.items()
+        if duplicate_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "duplicate_counts": duplicate_counts,
-            "duplicate_samples": duplicate_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "duplicate_counts": duplicate_counts,
+                "duplicate_samples": duplicate_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -501,17 +560,22 @@ def evaluate_silver_index_daily_conflicting_duplicate_absent(
             )
 
     failed_partitions = [
-        partition_key for partition_key, conflict_count in conflict_counts.items() if conflict_count
+        partition_key
+        for partition_key, conflict_count in conflict_counts.items()
+        if conflict_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "conflict_counts": conflict_counts,
-            "conflict_samples": conflict_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "conflict_counts": conflict_counts,
+                "conflict_samples": conflict_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -561,17 +625,22 @@ def evaluate_silver_index_daily_price_sanity(
             )
 
     failed_partitions = [
-        partition_key for partition_key, invalid_count in invalid_counts.items() if invalid_count
+        partition_key
+        for partition_key, invalid_count in invalid_counts.items()
+        if invalid_count
     ]
     return dg.AssetCheckResult(
         passed=not missing_paths and not failed_partitions,
-        metadata={
-            "partition_keys": list(partition_keys),
-            "invalid_counts": invalid_counts,
-            "invalid_samples": invalid_samples,
-            "missing_paths": missing_paths,
-            "failed_partitions": failed_partitions,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "invalid_counts": invalid_counts,
+                "invalid_samples": invalid_samples,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
     )
 
 
@@ -594,7 +663,7 @@ def evaluate_silver_index_daily_registered_code_coverage(
         return _warn_result(
             False,
             {
-                "index_basic_path": str(index_basic_path),
+                "index_basic_file_path": str(index_basic_path),
                 "missing_file": True,
             },
         )
@@ -643,9 +712,9 @@ def evaluate_silver_index_daily_registered_code_coverage(
                 ).fetchone()[0]
             )
             extra_count = int(
-                connection.execute(f"SELECT count(*) FROM ({extra_codes_sql}) extra_codes").fetchone()[
-                    0
-                ]
+                connection.execute(
+                    f"SELECT count(*) FROM ({extra_codes_sql}) extra_codes"
+                ).fetchone()[0]
             )
             silver_row_count = _row_count(connection, silver_path)
             missing_rows = connection.execute(
@@ -669,7 +738,9 @@ def evaluate_silver_index_daily_registered_code_coverage(
                 "missing_registered_count": missing_count,
                 "extra_count": extra_count,
                 "coverage_rate": (
-                    round((effective_count - missing_count) * 100.0 / effective_count, 4)
+                    round(
+                        (effective_count - missing_count) * 100.0 / effective_count, 4
+                    )
                     if effective_count
                     else 0.0
                 ),
@@ -685,10 +756,10 @@ def evaluate_silver_index_daily_registered_code_coverage(
         passed,
         {
             "partition_keys": list(partition_keys),
-            "index_basic_path": str(index_basic_path),
+            "index_basic_file_path": str(index_basic_path),
             "registered_code_count": len(registered_codes),
             "coverage_results": coverage_results,
-            "missing_paths": missing_paths,
+            "missing_file_paths": missing_paths,
         },
     )
 

@@ -10,6 +10,7 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
 )
 from orchestrator.defs.resources import DuckDBResource, TushareResource
+from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
@@ -56,18 +57,19 @@ def fetch_tushare_partition_to_raw(
         target_path=target_path,
     )
 
-    return {
-        "path": str(target_path),
-        "row_count": len(rows),
-        "columns": list(field_names),
-        "source_method": TUSHARE_API_SOURCE_METHOD,
-        "api_name": api_name,
-        "params": dict(api_params),
-        "fields": list(field_names),
-        "page_count": page_count,
-        "limit": limit,
-        "partition_key": partition_key,
-    }
+    return build_materialization_metadata(
+        uri=target_path,
+        row_count=len(rows),
+        columns=field_names,
+        extra_metadata={
+            "source_method": TUSHARE_API_SOURCE_METHOD,
+            "params": dict(api_params),
+            "fields": list(field_names),
+            "page_count": page_count,
+            "limit": limit,
+            "partition_key": partition_key,
+        },
+    )
 
 
 def fetch_tushare_full_file_to_raw(
@@ -107,17 +109,18 @@ def fetch_tushare_full_file_to_raw(
         target_path=target_path,
     )
 
-    return {
-        "path": str(target_path),
-        "row_count": len(rows),
-        "columns": list(field_names),
-        "source_method": TUSHARE_API_SOURCE_METHOD,
-        "api_name": api_name,
-        "params": dict(api_params),
-        "fields": list(field_names),
-        "page_count": page_count,
-        "limit": limit,
-    }
+    return build_materialization_metadata(
+        uri=target_path,
+        row_count=len(rows),
+        columns=field_names,
+        extra_metadata={
+            "source_method": TUSHARE_API_SOURCE_METHOD,
+            "params": dict(api_params),
+            "fields": list(field_names),
+            "page_count": page_count,
+            "limit": limit,
+        },
+    )
 
 
 def fetch_tushare_index_daily_by_code_to_raw(
@@ -183,7 +186,9 @@ def fetch_tushare_index_daily_by_code_to_raw(
         )
 
     if staging_dir.exists():
-        raise RuntimeError(f"Index daily by-code staging directory already exists: {staging_dir}")
+        raise RuntimeError(
+            f"Index daily by-code staging directory already exists: {staging_dir}"
+        )
     staging_dir.mkdir(parents=True, exist_ok=False)
     staging_path = staging_dir / "fetched.parquet"
 
@@ -224,7 +229,9 @@ def fetch_tushare_index_daily_by_code_to_raw(
             _remove_empty_staging_parent_dirs(staging_dir)
         except Exception:
             if log:
-                log.stdout("staging_retained", staging_dir=staging_dir, reason="cleanup_failed")
+                log.stdout(
+                    "staging_retained", staging_dir=staging_dir, reason="cleanup_failed"
+                )
             raise
         if log:
             log.stdout(
@@ -237,21 +244,23 @@ def fetch_tushare_index_daily_by_code_to_raw(
             )
             log.stdout("staging_cleaned", staging_dir=staging_dir)
 
-    return {
-        "source_method": TUSHARE_API_SOURCE_METHOD,
-        "api_name": "index_daily",
-        "params": api_params,
-        "fields": list(field_names),
-        "limit": limit,
-        "ts_code": ts_code,
-        "start_date": start_date,
-        "end_date": end_date,
-        "write_mode": write_mode,
-        "page_count": page_count,
-        "fetched_row_count": len(window_rows),
-        "row_count": output_row_count,
-        "path": str(target_path),
-    }
+    return build_materialization_metadata(
+        uri=target_path,
+        row_count=output_row_count,
+        columns=field_names,
+        extra_metadata={
+            "source_method": TUSHARE_API_SOURCE_METHOD,
+            "params": api_params,
+            "fields": list(field_names),
+            "limit": limit,
+            "ts_code": ts_code,
+            "start_date": start_date,
+            "end_date": end_date,
+            "write_mode": write_mode,
+            "page_count": page_count,
+            "fetched_row_count": len(window_rows),
+        },
+    )
 
 
 def _remove_empty_staging_parent_dirs(staging_dir: Path) -> None:
@@ -338,7 +347,9 @@ def _replace_index_daily_by_code_window(
         FROM {staging_query}
         """
         if target_path.exists():
-            existing_query = read_parquet(target_path, hive_partitioning=False, union_by_name=True)
+            existing_query = read_parquet(
+                target_path, hive_partitioning=False, union_by_name=True
+            )
             output_sql = f"""
             WITH existing_rows AS (
               SELECT {select_sql}
@@ -370,16 +381,18 @@ def _replace_index_daily_by_code_window(
 
         connection.execute(copy_query_to_parquet(output_sql, temporary_path))
         output_row_count = int(
-            connection.execute(count_parquet_query(temporary_path, hive_partitioning=False)).fetchone()[
-                0
-            ]
+            connection.execute(
+                count_parquet_query(temporary_path, hive_partitioning=False)
+            ).fetchone()[0]
         )
 
     os.replace(temporary_path, target_path)
     return output_row_count
 
 
-def _validate_contract(fields: tuple[str, ...], column_types: Mapping[str, str]) -> None:
+def _validate_contract(
+    fields: tuple[str, ...], column_types: Mapping[str, str]
+) -> None:
     if not fields:
         raise ValueError("Tushare raw fields must be explicit.")
     missing_types = [field for field in fields if field not in column_types]
@@ -410,8 +423,12 @@ def _write_rows_to_parquet(
         connection.execute(f"CREATE TEMP TABLE api_rows ({column_defs})")
         if rows:
             placeholders = ", ".join("?" for _ in fields)
-            values = [[_clean_value(row.get(field)) for field in fields] for row in rows]
-            connection.executemany(f"INSERT INTO api_rows VALUES ({placeholders})", values)
+            values = [
+                [_clean_value(row.get(field)) for field in fields] for row in rows
+            ]
+            connection.executemany(
+                f"INSERT INTO api_rows VALUES ({placeholders})", values
+            )
 
         select_sql = ", ".join(
             f"CAST({_quote_identifier(field)} AS {column_types[field]}) AS {_quote_identifier(field)}"

@@ -1,6 +1,9 @@
 import os
+from collections.abc import Sequence
+from datetime import datetime
 from pathlib import Path
 from typing import Any
+from zoneinfo import ZoneInfo
 
 import dagster as dg
 
@@ -15,13 +18,22 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    READY_FOR_TRADE_DATE_METADATA_KEY,
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
@@ -41,19 +53,21 @@ INDEX_BASIC_RAW_COLUMN_TYPES = {
     "exp_date": "VARCHAR",
 }
 
-
-class IndexBasicConfig(dg.Config):
-    ready_for_trade_date: str
+CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 def _column_names(connection, path: Path) -> list[str]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return [row[0] for row in rows]
 
 
 def _row_count(connection, path: Path) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=False)).fetchone()[0]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=False)
+        ).fetchone()[0]
     )
 
 
@@ -91,30 +105,55 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     os.replace(pending_parquet_path, target_path)
 
 
-def _require_ready_for_trade_date_registered(
-    context: dg.AssetExecutionContext,
-    ready_for_trade_date: str,
-) -> str:
-    trade_date = ready_for_trade_date.strip()
-    if not trade_date:
-        raise ValueError("ready_for_trade_date is required for silver_index_basic.")
+def _latest_registered_index_trade_date(
+    registered_trade_days: Sequence[str],
+    today: str,
+) -> str | None:
+    eligible_trade_days = tuple(
+        trade_date
+        for trade_date in sorted(set(registered_trade_days))
+        if trade_date <= today
+    )
+    return eligible_trade_days[-1] if eligible_trade_days else None
 
-    registered_trade_days = set(
+
+def _resolve_ready_for_trade_date(context: dg.AssetExecutionContext) -> str:
+    today = datetime.now(CN_A_TIMEZONE).date().isoformat()
+    registered_trade_days = tuple(
         context.instance.get_dynamic_partitions(cn_a_index_trade_days.name)
     )
-    if trade_date not in registered_trade_days:
-        raise RuntimeError(
-            f"ready_for_trade_date {trade_date} is not registered in "
-            f"{cn_a_index_trade_days.name}."
-        )
-    return trade_date
+    ready_for_trade_date = _latest_registered_index_trade_date(
+        registered_trade_days,
+        today,
+    )
+    if ready_for_trade_date:
+        return ready_for_trade_date
+
+    raise RuntimeError(
+        "silver_index_basic cannot resolve ready_for_trade_date: "
+        f"{cn_a_index_trade_days.name} has no registered trade date on or before "
+        f"{today}. Run index_trade_day_sensor first or register index trade day "
+        "partitions."
+    )
 
 
 @dg.asset(
     name="raw_tushare_index_basic",
     group_name="index",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
-    metadata=build_dataset_metadata(dataset_id="index_basic"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="index_basic",
+        source_system=SourceSystem.TUSHARE,
+        source_api="index_basic",
+        source_category_path="指数专题",
+        source_doc="docs/sources/tushare/指数专题/0094_指数基本信息.md",
+        data_contract="source_mirror",
+        path_template="data_lake/raw/tushare/index_basic/full/part-000.parquet",
+        extra_metadata={
+            "expected_source_columns": list(INDEX_BASIC_RAW_COLUMNS),
+            "update_policy": "daily_full_snapshot_api_update",
+        },
+    ),
     description="Tushare 指数基础信息原始数据。",
 )
 def raw_tushare_index_basic(
@@ -142,13 +181,12 @@ def raw_tushare_index_basic(
     return dg.MaterializeResult(
         metadata={
             **metadata,
-            "layer": "raw",
-            "source_api": "index_basic",
-            "data_contract": "source_mirror",
-            "expected_source_columns": list(INDEX_BASIC_RAW_COLUMNS),
-            "market_distribution": market_distribution,
-            "terminated_index_count": terminated_index_count,
-            "update_policy": "daily_full_snapshot_api_update",
+            **build_materialization_metadata(
+                extra_metadata={
+                    "market_distribution": market_distribution,
+                    "terminated_index_count": terminated_index_count,
+                }
+            ),
         }
     )
 
@@ -158,20 +196,30 @@ def raw_tushare_index_basic(
     deps=[raw_tushare_index_basic],
     group_name="index",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
-    metadata=build_dataset_metadata(dataset_id="index_basic"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="index_basic",
+        source_system=SourceSystem.DERIVED,
+        data_contract="effective_index_basic",
+        path_template="data_lake/silver/index_basic/full/part-000.parquet",
+        extra_metadata={
+            "filter_policy": (
+                "silver_index_basic automatically uses the latest registered "
+                "cn_a_index_trade_days date, and keeps indexes with exp_date "
+                "null or exp_date > ready_for_trade_date."
+            ),
+            "expected_columns": list(INDEX_BASIC_SILVER_COLUMNS),
+        },
+    ),
+    config_schema={},
     description="有效指数基础信息标准表，排除已终止指数。",
 )
 def silver_index_basic(
     context: dg.AssetExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
-    config: IndexBasicConfig,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
-    ready_for_trade_date = _require_ready_for_trade_date_registered(
-        context,
-        config.ready_for_trade_date,
-    )
+    ready_for_trade_date = _resolve_ready_for_trade_date(context)
     raw_path = raw_index_basic_path(lake_root.root())
     target_path = silver_index_basic_path(lake_root.root())
     if not raw_path.exists():
@@ -180,7 +228,9 @@ def silver_index_basic(
     with duckdb.connect() as connection:
         source_row_count = _row_count(connection, raw_path)
         source_market_distribution = _market_distribution(connection, raw_path)
-        source_terminated_index_count = _raw_terminated_index_count(connection, raw_path)
+        source_terminated_index_count = _raw_terminated_index_count(
+            connection, raw_path
+        )
         _replace_parquet_from_query(
             connection,
             silver_index_basic_select(raw_path, ready_for_trade_date),
@@ -191,23 +241,18 @@ def silver_index_basic(
         market_distribution = _market_distribution(connection, target_path)
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "row_count": row_count,
-            "source_row_count": source_row_count,
-            "kept_row_count": row_count,
-            "filtered_out_row_count": source_row_count - row_count,
-            "source_terminated_index_count": source_terminated_index_count,
-            "columns": columns,
-            "layer": "silver",
-            "data_contract": "effective_index_basic",
-            "ready_for_trade_date": ready_for_trade_date,
-            "filter_policy": (
-                "silver_index_basic keeps indexes with exp_date null or "
-                "exp_date > ready_for_trade_date."
-            ),
-            "source_market_distribution": source_market_distribution,
-            "market_distribution": market_distribution,
-            "expected_columns": list(INDEX_BASIC_SILVER_COLUMNS),
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+            extra_metadata={
+                "source_row_count": source_row_count,
+                "kept_row_count": row_count,
+                "filtered_out_row_count": source_row_count - row_count,
+                "source_terminated_index_count": source_terminated_index_count,
+                READY_FOR_TRADE_DATE_METADATA_KEY: ready_for_trade_date,
+                "source_market_distribution": source_market_distribution,
+                "market_distribution": market_distribution,
+            },
+        )
     )

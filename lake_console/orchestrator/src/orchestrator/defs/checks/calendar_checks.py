@@ -7,21 +7,25 @@ import dagster as dg
 from orchestrator.defs.duckdb_sql import (
     TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
     describe_parquet_query,
-    duckdb_string,
     read_parquet,
 )
 from orchestrator.defs.paths import raw_trade_calendar_path, silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
     return [row[0] for row in rows]
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -34,10 +38,13 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=False,
-        metadata={
-            "path": str(path),
-            "missing_file": True,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_file": True,
+            },
+        ),
     )
 
 
@@ -46,10 +53,13 @@ def raw_trade_calendar_file_exists(lake_root: LakeRootResource) -> dg.AssetCheck
     path = raw_trade_calendar_path(lake_root.root())
     return dg.AssetCheckResult(
         passed=path.exists(),
-        metadata={
-            "path": str(path),
-            "exists": path.exists(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "exists": path.exists(),
+            },
+        ),
     )
 
 
@@ -66,16 +76,21 @@ def raw_trade_calendar_required_columns(
         columns = _column_names(connection, path, hive_partitioning=False)
 
     missing_columns = [
-        column for column in TRADE_CALENDAR_RAW_REQUIRED_COLUMNS if column not in columns
+        column
+        for column in TRADE_CALENDAR_RAW_REQUIRED_COLUMNS
+        if column not in columns
     ]
     return dg.AssetCheckResult(
         passed=not missing_columns,
-        metadata={
-            "path": str(path),
-            "columns": columns,
-            "required_columns": list(TRADE_CALENDAR_RAW_REQUIRED_COLUMNS),
-            "missing_columns": missing_columns,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "file_path": str(path),
+                "observed_columns": columns,
+                "required_columns": list(TRADE_CALENDAR_RAW_REQUIRED_COLUMNS),
+                "missing_columns": missing_columns,
+            },
+        ),
     )
 
 
@@ -99,11 +114,14 @@ def raw_trade_calendar_contains_required_exchange(
 
     return dg.AssetCheckResult(
         passed=row_count > 0,
-        metadata={
-            "path": str(path),
-            "required_exchange": "SSE",
-            "row_count": int(row_count),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "required_exchange": "SSE",
+                "checked_row_count": int(row_count),
+            },
+        ),
     )
 
 
@@ -131,13 +149,16 @@ def silver_trade_calendar_unique_exchange_trade_date(
     duplicate_count = len(rows)
     return dg.AssetCheckResult(
         passed=duplicate_count == 0,
-        metadata={
-            "path": str(path),
-            "duplicate_key_count": duplicate_count,
-            "duplicate_sample_keys": _sample_dicts(
-                ["exchange", "trade_date", "row_count"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "file_path": str(path),
+                "duplicate_key_count": duplicate_count,
+                "duplicate_sample_keys": _sample_dicts(
+                    ["exchange", "trade_date", "row_count"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -173,9 +194,14 @@ def silver_trade_calendar_required_columns_non_null(
 
     return dg.AssetCheckResult(
         passed=null_count == 0,
-        metadata={
-            "path": str(path),
-            "null_row_count": int(null_count),
-            "null_sample_rows": _sample_dicts(["exchange", "trade_date", "is_open"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "null_row_count": int(null_count),
+                "null_sample_rows": _sample_dicts(
+                    ["exchange", "trade_date", "is_open"], rows
+                ),
+            },
+        ),
     )

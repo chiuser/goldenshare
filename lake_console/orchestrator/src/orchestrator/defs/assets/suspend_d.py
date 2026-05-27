@@ -28,13 +28,21 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 
 
@@ -46,7 +54,9 @@ SUSPEND_D_RAW_COLUMN_TYPES = {
 }
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -55,9 +65,9 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
@@ -155,7 +165,9 @@ def _full_day_patch_conflict_rows(
         {
             "ts_code": row[0],
             "name": row[1],
-            "trade_date": row[2].isoformat() if hasattr(row[2], "isoformat") else row[2],
+            "trade_date": row[2].isoformat()
+            if hasattr(row[2], "isoformat")
+            else row[2],
             "raw_suspend_type": row[3],
             "raw_suspend_timing": row[4],
         }
@@ -278,7 +290,25 @@ def _full_day_raw_override_metadata(
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
-    metadata=build_dataset_metadata(dataset_id="suspend_d"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="suspend_d",
+        source_system=SourceSystem.TUSHARE,
+        source_api="suspend_d",
+        source_category_path="股票数据 / 行情数据",
+        source_doc="docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md",
+        data_contract="source_mirror",
+        path_template="data_lake/raw/tushare/suspend_d/trade_date={partition_key}/part-000.parquet",
+        extra_metadata={
+            "raw_contract": (
+                "Tushare suspend_d source mirror: trade_date YYYYMMDD string, "
+                "suspend_timing nullable string."
+            ),
+            "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
+            "write_summary": (
+                "Tushare API rows written to raw parquet with explicit source contract fields."
+            ),
+        },
+    ),
     description="Tushare 停复牌日频原始数据。",
 )
 def raw_tushare_suspend_d(
@@ -301,20 +331,7 @@ def raw_tushare_suspend_d(
         allow_empty=True,
     )
 
-    return dg.MaterializeResult(
-        metadata={
-            **metadata,
-            "layer": "raw",
-            "source_api": "suspend_d",
-            "data_contract": "source_mirror",
-            "raw_contract": (
-                "Tushare suspend_d source mirror: trade_date YYYYMMDD string, "
-                "suspend_timing nullable string."
-            ),
-            "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
-            "write_summary": "Tushare API rows written to raw parquet with explicit source contract fields.",
-        }
-    )
+    return dg.MaterializeResult(metadata=metadata)
 
 
 @dg.asset(
@@ -323,7 +340,17 @@ def raw_tushare_suspend_d(
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
-    metadata=build_dataset_metadata(dataset_id="suspend_d"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="suspend_d",
+        source_system=SourceSystem.DERIVED,
+        data_contract="standardized_stock_suspend_daily",
+        path_template=(
+            "data_lake/silver/stock_suspend_daily/trade_date={partition_key}/part-000.parquet"
+        ),
+        extra_metadata={
+            "correction_policy": "Apply suspend timing corrections and full-day suspend patches."
+        },
+    ),
     description="股票日频停复牌标准表，记录停牌类型和时段。",
 )
 def silver_stock_suspend_daily(
@@ -349,16 +376,18 @@ def silver_stock_suspend_daily(
                 description=(
                     "Full-day suspend patch conflicts with existing raw suspend_d rows."
                 ),
-                metadata={
-                    "raw_path": str(raw_path),
-                    "partition_key": partition_key,
-                    "full_day_suspend_patch_conflict_count": len(
-                        full_day_patch_conflict_rows
-                    ),
-                    "full_day_suspend_patch_conflict_sample_rows": (
-                        full_day_patch_conflict_rows
-                    ),
-                },
+                metadata=build_materialization_metadata(
+                    extra_metadata={
+                        "raw_file_path": str(raw_path),
+                        "partition_key": partition_key,
+                        "full_day_suspend_patch_conflict_count": len(
+                            full_day_patch_conflict_rows
+                        ),
+                        "full_day_suspend_patch_conflict_sample_rows": (
+                            full_day_patch_conflict_rows
+                        ),
+                    }
+                ),
             )
 
         full_day_patch_count, full_day_patch_sample_rows = _full_day_patch_metadata(
@@ -385,35 +414,35 @@ def silver_stock_suspend_daily(
         correction_count = _suspend_timing_correction_count(connection, target_path)
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "raw_path": str(raw_path),
-            "row_count": row_count,
-            "columns": columns,
-            "partition_key": partition_key,
-            "layer": "silver",
-            "data_contract": "standardized_stock_suspend_daily",
-            "suspend_timing_correction_count": correction_count,
-            "suspend_timing_correction_version": SUSPEND_TIMING_CORRECTION_VERSION,
-            "suspend_timing_correction_sample_rows": suspend_timing_correction_samples(),
-            "full_day_suspend_patch_count": full_day_patch_count,
-            "full_day_suspend_patch_rule_version": SUSPEND_FULL_DAY_PATCH_VERSION,
-            "full_day_suspend_patch_source": SUSPEND_FULL_DAY_PATCH_SOURCE,
-            "full_day_suspend_patch_sample_rows": full_day_patch_sample_rows,
-            "full_day_suspend_patch_conflict_count": 0,
-            "full_day_suspend_raw_override_key_count": full_day_raw_override_key_count,
-            "full_day_suspend_raw_override_removed_row_count": (
-                full_day_raw_override_removed_row_count
-            ),
-            "full_day_suspend_raw_override_rule_version": (
-                SUSPEND_FULL_DAY_RAW_OVERRIDE_VERSION
-            ),
-            "full_day_suspend_raw_override_source": SUSPEND_FULL_DAY_RAW_OVERRIDE_SOURCE,
-            "full_day_suspend_raw_override_sample_rows": (
-                full_day_raw_override_sample_rows
-            ),
-            "full_day_suspend_raw_override_rule_sample_rows": (
-                suspend_full_day_raw_override_samples()
-            ),
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+            extra_metadata={
+                "raw_file_path": str(raw_path),
+                "partition_key": partition_key,
+                "suspend_timing_correction_count": correction_count,
+                "suspend_timing_correction_version": SUSPEND_TIMING_CORRECTION_VERSION,
+                "suspend_timing_correction_sample_rows": suspend_timing_correction_samples(),
+                "full_day_suspend_patch_count": full_day_patch_count,
+                "full_day_suspend_patch_rule_version": SUSPEND_FULL_DAY_PATCH_VERSION,
+                "full_day_suspend_patch_source": SUSPEND_FULL_DAY_PATCH_SOURCE,
+                "full_day_suspend_patch_sample_rows": full_day_patch_sample_rows,
+                "full_day_suspend_patch_conflict_count": 0,
+                "full_day_suspend_raw_override_key_count": full_day_raw_override_key_count,
+                "full_day_suspend_raw_override_removed_row_count": (
+                    full_day_raw_override_removed_row_count
+                ),
+                "full_day_suspend_raw_override_rule_version": (
+                    SUSPEND_FULL_DAY_RAW_OVERRIDE_VERSION
+                ),
+                "full_day_suspend_raw_override_source": SUSPEND_FULL_DAY_RAW_OVERRIDE_SOURCE,
+                "full_day_suspend_raw_override_sample_rows": (
+                    full_day_raw_override_sample_rows
+                ),
+                "full_day_suspend_raw_override_rule_sample_rows": (
+                    suspend_full_day_raw_override_samples()
+                ),
+            },
+        )
     )

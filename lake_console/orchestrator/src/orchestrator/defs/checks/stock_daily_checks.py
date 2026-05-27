@@ -5,7 +5,10 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
-from orchestrator.defs.assets.stock_daily import raw_tushare_stock_daily, silver_stock_daily
+from orchestrator.defs.assets.stock_daily import (
+    raw_tushare_stock_daily,
+    silver_stock_daily,
+)
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
@@ -24,6 +27,7 @@ from orchestrator.defs.paths import (
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
 STOCK_DAILY_COLUMNS = [
@@ -41,14 +45,18 @@ STOCK_DAILY_COLUMNS = [
 ]
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
     return [row[0] for row in rows]
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -61,17 +69,23 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=False,
-        metadata={
-            "path": str(path),
-            "missing_file": True,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_file": True,
+            },
+        ),
     )
 
 
 def _warn_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=passed,
-        metadata=metadata,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            extra_metadata=metadata,
+        ),
         severity=dg.AssetCheckSeverity.WARN,
     )
 
@@ -165,11 +179,14 @@ def raw_stock_daily_file_exists(
     path = raw_stock_daily_path(lake_root.root(), partition_key)
     return dg.AssetCheckResult(
         passed=path.exists(),
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "exists": path.exists(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "exists": path.exists(),
+            },
+        ),
     )
 
 
@@ -194,11 +211,14 @@ def raw_stock_daily_row_count_positive(
 
     return dg.AssetCheckResult(
         passed=row_count > 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "row_count": int(row_count),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "checked_row_count": int(row_count),
+            },
+        ),
     )
 
 
@@ -219,16 +239,21 @@ def raw_stock_daily_required_columns(
     with duckdb.connect() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
 
-    missing_columns = [column for column in STOCK_DAILY_RAW_REQUIRED_COLUMNS if column not in columns]
+    missing_columns = [
+        column for column in STOCK_DAILY_RAW_REQUIRED_COLUMNS if column not in columns
+    ]
     return dg.AssetCheckResult(
         passed=not missing_columns,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "columns": columns,
-            "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
-            "missing_columns": missing_columns,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "observed_columns": columns,
+                "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
+                "missing_columns": missing_columns,
+            },
+        ),
     )
 
 
@@ -265,12 +290,15 @@ def raw_stock_daily_partition_date_matches(
 
     return dg.AssetCheckResult(
         passed=mismatch_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "mismatch_count": int(mismatch_count),
-            "mismatch_sample_rows": _sample_dicts(["ts_code", "trade_date"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "mismatch_count": int(mismatch_count),
+                "mismatch_sample_rows": _sample_dicts(["ts_code", "trade_date"], rows),
+            },
+        ),
     )
 
 
@@ -295,11 +323,14 @@ def silver_stock_daily_row_count_positive(
 
     return dg.AssetCheckResult(
         passed=row_count > 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "row_count": int(row_count),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "checked_row_count": int(row_count),
+            },
+        ),
     )
 
 
@@ -337,14 +368,17 @@ def silver_stock_daily_unique_ts_code_trade_date(
 
     return dg.AssetCheckResult(
         passed=duplicate_key_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "duplicate_key_count": int(duplicate_key_count),
-            "duplicate_sample_keys": _sample_dicts(
-                ["ts_code", "trade_date", "row_count"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "duplicate_key_count": int(duplicate_key_count),
+                "duplicate_sample_keys": _sample_dicts(
+                    ["ts_code", "trade_date", "row_count"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -369,13 +403,16 @@ def silver_stock_daily_conflicting_duplicate_absent(
 
     return dg.AssetCheckResult(
         passed=conflict_key_count == 0,
-        metadata={
-            "raw_path": str(raw_path),
-            "partition_key": partition_key,
-            "conflict_key_count": conflict_key_count,
-            "conflict_sample_keys": conflict_sample_keys,
-            "conflict_sample_rows": conflict_sample_rows,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "raw_file_path": str(raw_path),
+                "partition_key": partition_key,
+                "conflict_key_count": conflict_key_count,
+                "conflict_sample_keys": conflict_sample_keys,
+                "conflict_sample_rows": conflict_sample_rows,
+            },
+        ),
     )
 
 
@@ -396,18 +433,23 @@ def silver_stock_daily_required_columns_non_null(
     with duckdb.connect() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
         missing_columns = [
-            column for column in STOCK_DAILY_SILVER_REQUIRED_COLUMNS if column not in columns
+            column
+            for column in STOCK_DAILY_SILVER_REQUIRED_COLUMNS
+            if column not in columns
         ]
         if missing_columns:
             return dg.AssetCheckResult(
                 passed=False,
-                metadata={
-                    "path": str(path),
-                    "partition_key": partition_key,
-                    "columns": columns,
-                    "required_columns": list(STOCK_DAILY_SILVER_REQUIRED_COLUMNS),
-                    "missing_columns": missing_columns,
-                },
+                metadata=build_check_metadata(
+                    check_scope=CheckScope.SCHEMA,
+                    extra_metadata={
+                        "file_path": str(path),
+                        "partition_key": partition_key,
+                        "observed_columns": columns,
+                        "required_columns": list(STOCK_DAILY_SILVER_REQUIRED_COLUMNS),
+                        "missing_columns": missing_columns,
+                    },
+                ),
             )
 
         null_count = connection.execute(
@@ -434,13 +476,18 @@ def silver_stock_daily_required_columns_non_null(
 
     return dg.AssetCheckResult(
         passed=null_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "required_non_null_columns": ["ts_code", "trade_date", "pct_chg"],
-            "null_row_count": int(null_count),
-            "null_sample_rows": _sample_dicts(["ts_code", "trade_date", "pct_chg"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "required_non_null_columns": ["ts_code", "trade_date", "pct_chg"],
+                "null_row_count": int(null_count),
+                "null_sample_rows": _sample_dicts(
+                    ["ts_code", "trade_date", "pct_chg"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -477,12 +524,15 @@ def silver_stock_daily_partition_date_matches(
 
     return dg.AssetCheckResult(
         passed=mismatch_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "mismatch_count": int(mismatch_count),
-            "mismatch_sample_rows": _sample_dicts(["ts_code", "trade_date"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "mismatch_count": int(mismatch_count),
+                "mismatch_sample_rows": _sample_dicts(["ts_code", "trade_date"], rows),
+            },
+        ),
     )
 
 
@@ -529,15 +579,18 @@ def silver_stock_daily_current_listed_only(
 
     return dg.AssetCheckResult(
         passed=non_current_count == 0,
-        metadata={
-            "path": str(daily_path),
-            "stock_basic_path": str(basic_path),
-            "partition_key": partition_key,
-            "non_current_listed_count": int(non_current_count),
-            "non_current_listed_sample_rows": _sample_dicts(
-                ["ts_code", "trade_date", "list_status"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(daily_path),
+                "stock_basic_file_path": str(basic_path),
+                "partition_key": partition_key,
+                "non_current_listed_count": int(non_current_count),
+                "non_current_listed_sample_rows": _sample_dicts(
+                    ["ts_code", "trade_date", "list_status"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -582,15 +635,18 @@ def silver_stock_daily_after_list_date_only(
 
     return dg.AssetCheckResult(
         passed=before_list_date_count == 0,
-        metadata={
-            "path": str(daily_path),
-            "stock_basic_path": str(basic_path),
-            "partition_key": partition_key,
-            "before_list_date_count": int(before_list_date_count),
-            "before_list_date_sample_rows": _sample_dicts(
-                ["ts_code", "trade_date", "list_date"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(daily_path),
+                "stock_basic_file_path": str(basic_path),
+                "partition_key": partition_key,
+                "before_list_date_count": int(before_list_date_count),
+                "before_list_date_sample_rows": _sample_dicts(
+                    ["ts_code", "trade_date", "list_date"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -630,15 +686,18 @@ def silver_stock_daily_bj_after_market_open_only(
 
     return dg.AssetCheckResult(
         passed=bj_before_open_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "bj_market_open_date": BJ_MARKET_OPEN_DATE,
-            "bj_before_market_open_count": int(bj_before_open_count),
-            "bj_before_market_open_sample_rows": _sample_dicts(
-                ["ts_code", "trade_date"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "bj_market_open_date": BJ_MARKET_OPEN_DATE,
+                "bj_before_market_open_count": int(bj_before_open_count),
+                "bj_before_market_open_sample_rows": _sample_dicts(
+                    ["ts_code", "trade_date"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -693,21 +752,32 @@ def silver_stock_daily_price_sanity(
 
     return dg.AssetCheckResult(
         passed=anomaly_count == 0,
-        metadata={
-            "path": str(path),
-            "partition_key": partition_key,
-            "blocking_rules": [
-                "price fields must be non-negative",
-                "high >= low",
-                "high >= open >= low",
-                "high >= close >= low",
-            ],
-            "anomaly_count": int(anomaly_count),
-            "anomaly_sample_rows": _sample_dicts(
-                ["ts_code", "trade_date", "open", "high", "low", "close", "pre_close"],
-                rows,
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                "blocking_rules": [
+                    "price fields must be non-negative",
+                    "high >= low",
+                    "high >= open >= low",
+                    "high >= close >= low",
+                ],
+                "anomaly_count": int(anomaly_count),
+                "anomaly_sample_rows": _sample_dicts(
+                    [
+                        "ts_code",
+                        "trade_date",
+                        "open",
+                        "high",
+                        "low",
+                        "close",
+                        "pre_close",
+                    ],
+                    rows,
+                ),
+            },
+        ),
     )
 
 
@@ -739,8 +809,8 @@ def silver_stock_daily_row_count_not_greater_than_raw(
     return _warn_result(
         passed=silver_count <= raw_count,
         metadata={
-            "raw_path": str(raw_path),
-            "silver_path": str(silver_path),
+            "raw_file_path": str(raw_path),
+            "silver_file_path": str(silver_path),
             "partition_key": partition_key,
             "raw_count": int(raw_count),
             "silver_count": int(silver_count),
@@ -874,7 +944,7 @@ def _expected_tradable_universe_metadata(
     ) = counts
     return {
         "daily_path": str(daily_path),
-        "stock_basic_path": str(basic_path),
+        "stock_basic_file_path": str(basic_path),
         "stock_suspend_daily_path": str(suspend_path),
         "trade_date": partition_key,
         "listed_count": int(listed_count),

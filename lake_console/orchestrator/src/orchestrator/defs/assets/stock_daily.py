@@ -24,13 +24,21 @@ from orchestrator.defs.paths import (
     silver_stock_daily_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
     build_asset_tags,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 
 
@@ -63,7 +71,9 @@ STOCK_DAILY_RAW_COLUMN_TYPES = {
 }
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -72,13 +82,15 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
-def _sample_dicts(columns: list[str], rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: list[str], rows: list[tuple[Any, ...]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -348,7 +360,24 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
-    metadata=build_dataset_metadata(dataset_id="daily"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="daily",
+        source_system=SourceSystem.TUSHARE,
+        source_api="daily",
+        source_category_path="股票数据 / 行情数据",
+        source_doc="docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md",
+        data_contract="source_mirror",
+        path_template="data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet",
+        extra_metadata={
+            "raw_contract": (
+                "Tushare daily source mirror: trade_date YYYYMMDD string, field name change."
+            ),
+            "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
+            "write_summary": (
+                "Tushare API rows written to raw parquet with explicit source contract fields."
+            ),
+        },
+    ),
     description="Tushare 股票日线原始数据。",
 )
 def raw_tushare_stock_daily(
@@ -371,18 +400,7 @@ def raw_tushare_stock_daily(
         allow_empty=False,
     )
 
-    return dg.MaterializeResult(
-        metadata={
-            **metadata,
-            "partition_key": partition_key,
-            "layer": "raw",
-            "source_api": "daily",
-            "data_contract": "source_mirror",
-            "raw_contract": "Tushare daily source mirror: trade_date YYYYMMDD string, field name change.",
-            "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
-            "write_summary": "Tushare API rows written to raw parquet with explicit source contract fields.",
-        }
-    )
+    return dg.MaterializeResult(metadata=metadata)
 
 
 @dg.asset(
@@ -391,7 +409,22 @@ def raw_tushare_stock_daily(
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
-    metadata=build_dataset_metadata(dataset_id="daily"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="daily",
+        source_system=SourceSystem.DERIVED,
+        data_contract="standardized_stock_daily_quote",
+        path_template="data_lake/silver/stock_daily/trade_date={partition_key}/part-000.parquet",
+        extra_metadata={
+            "filter_policy": (
+                "Keep current listed stocks only; keep rows on/after list_date; "
+                "keep BJ stocks only on/after 2021-11-15; raw remains source mirror."
+            ),
+            "upstream_ready_policy": (
+                "silver_stock_basic and silver_stock_suspend_daily partition must exist before "
+                "silver_stock_daily is produced; suspend facts are read-only prerequisites."
+            ),
+        },
+    ),
     description="股票日线标准表，按上市状态和交易规则过滤。",
 )
 def silver_stock_daily(
@@ -419,13 +452,19 @@ def silver_stock_daily(
                 description=(
                     "Conflicting stock daily facts found for the same ts_code + trade_date."
                 ),
-                metadata={
-                    "path": str(raw_path),
-                    "partition_key": partition_key,
-                    "conflict_key_count": conflict_key_count,
-                    "conflict_sample_keys": _conflict_sample_keys(connection, raw_path),
-                    "conflict_sample_rows": _conflict_sample_rows(connection, raw_path),
-                },
+                metadata=build_materialization_metadata(
+                    extra_metadata={
+                        "raw_file_path": str(raw_path),
+                        "partition_key": partition_key,
+                        "conflict_key_count": conflict_key_count,
+                        "conflict_sample_keys": _conflict_sample_keys(
+                            connection, raw_path
+                        ),
+                        "conflict_sample_rows": _conflict_sample_rows(
+                            connection, raw_path
+                        ),
+                    }
+                ),
             )
 
         duplicate_removed_count = _duplicate_removed_count(connection, raw_path)
@@ -442,28 +481,20 @@ def silver_stock_daily(
         row_count = _row_count(connection, target_path, hive_partitioning=False)
 
     return dg.MaterializeResult(
-        metadata={
-            "path": str(target_path),
-            "raw_path": str(raw_path),
-            "stock_basic_path": str(basic_path),
-            "stock_suspend_daily_path": str(suspend_path),
-            "row_count": row_count,
-            "columns": columns,
-            "partition_key": partition_key,
-            "layer": "silver",
-            "data_contract": "standardized_stock_daily_quote",
-            "filter_policy": (
-                "Keep current listed stocks only; keep rows on/after list_date; "
-                "keep BJ stocks only on/after 2021-11-15; raw remains source mirror."
-            ),
-            "upstream_ready_policy": (
-                "silver_stock_basic and silver_stock_suspend_daily partition must exist before "
-                "silver_stock_daily is produced; suspend facts are read-only prerequisites."
-            ),
-            **filter_counts,
-            "duplicate_removed_count": duplicate_removed_count,
-            "duplicate_key_count": duplicate_key_count,
-            "duplicate_sample_rows": duplicate_sample_rows,
-            "conflict_key_count": conflict_key_count,
-        }
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=columns,
+            extra_metadata={
+                "raw_file_path": str(raw_path),
+                "stock_basic_file_path": str(basic_path),
+                "stock_suspend_daily_file_path": str(suspend_path),
+                "partition_key": partition_key,
+                **filter_counts,
+                "duplicate_removed_count": duplicate_removed_count,
+                "duplicate_key_count": duplicate_key_count,
+                "duplicate_sample_rows": duplicate_sample_rows,
+                "conflict_key_count": conflict_key_count,
+            },
+        )
     )

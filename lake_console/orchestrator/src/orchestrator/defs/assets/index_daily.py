@@ -12,7 +12,6 @@ from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
-    read_parquet,
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import (
@@ -20,7 +19,11 @@ from orchestrator.defs.paths import (
     raw_index_daily_by_code_staging_dir,
     silver_index_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
     DataDomain,
@@ -30,7 +33,11 @@ from orchestrator.defs.run_contracts.configs import (
     IndexDailyRawByCodeConfig,
     normalize_iso_trade_date,
 )
-from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
+from orchestrator.defs.run_contracts.metadata import (
+    SourceSystem,
+    build_asset_definition_metadata,
+    build_materialization_metadata,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_index_daily_by_code_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
@@ -64,7 +71,9 @@ INDEX_DAILY_SILVER_COLUMN_TYPES = {
 }
 
 
-def _source_date_window_from_config(config: IndexDailyRawByCodeConfig) -> tuple[str, str]:
+def _source_date_window_from_config(
+    config: IndexDailyRawByCodeConfig,
+) -> tuple[str, str]:
     trade_date = normalize_iso_trade_date(config.trade_date).replace("-", "")
     return trade_date, trade_date
 
@@ -73,7 +82,9 @@ def _selected_partition_keys(context: dg.AssetExecutionContext) -> tuple[str, ..
     return tuple(sorted(set(context.partition_keys)))
 
 
-def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
+def _column_names(
+    connection, path: Path, *, hive_partitioning: bool = False
+) -> list[str]:
     rows = connection.execute(
         describe_parquet_query(path, hive_partitioning=hive_partitioning)
     ).fetchall()
@@ -82,13 +93,15 @@ def _column_names(connection, path: Path, *, hive_partitioning: bool = False) ->
 
 def _row_count(connection, path: Path, *, hive_partitioning: bool = False) -> int:
     return int(
-        connection.execute(count_parquet_query(path, hive_partitioning=hive_partitioning)).fetchone()[
-            0
-        ]
+        connection.execute(
+            count_parquet_query(path, hive_partitioning=hive_partitioning)
+        ).fetchone()[0]
     )
 
 
-def _sample_dicts(columns: list[str], rows: list[tuple[Any, ...]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: list[str], rows: list[tuple[Any, ...]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -109,9 +122,13 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 
 
 def _registered_index_ts_codes(context: dg.AssetExecutionContext) -> tuple[str, ...]:
-    codes = tuple(sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name)))
+    codes = tuple(
+        sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
+    )
     if not codes:
-        raise RuntimeError(f"{cn_a_index_ts_codes.name} has no registered partition keys.")
+        raise RuntimeError(
+            f"{cn_a_index_ts_codes.name} has no registered partition keys."
+        )
     return codes
 
 
@@ -184,7 +201,9 @@ def _conflict_sample_keys_from_normalized_sql(
     return _sample_dicts(["ts_code", "trade_date", "version_count"], rows)
 
 
-def _duplicate_removed_count_from_normalized_sql(connection, normalized_sql: str) -> int:
+def _duplicate_removed_count_from_normalized_sql(
+    connection, normalized_sql: str
+) -> int:
     row = connection.execute(
         f"""
         WITH normalized AS (
@@ -255,7 +274,9 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
 ) -> dict[str, dict[str, Any]]:
     index_codes = tuple(sorted(set(registered_index_codes)))
     if not index_codes:
-        raise RuntimeError(f"{cn_a_index_ts_codes.name} has no registered partition keys.")
+        raise RuntimeError(
+            f"{cn_a_index_ts_codes.name} has no registered partition keys."
+        )
 
     raw_paths_by_code = {
         index_code: raw_index_daily_by_code_path(lake_root_path, index_code)
@@ -294,9 +315,9 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
                 )
 
             raw_row_count = int(
-                connection.execute(f"SELECT count(*) FROM ({normalized_sql}) normalized").fetchone()[
-                    0
-                ]
+                connection.execute(
+                    f"SELECT count(*) FROM ({normalized_sql}) normalized"
+                ).fetchone()[0]
             )
             duplicate_removed_count = _duplicate_removed_count_from_normalized_sql(
                 connection,
@@ -319,13 +340,13 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
             row_count = _row_count(connection, target_path)
             partition_metadata[partition_key] = {
                 "partition_key": partition_key,
-                "path": str(target_path),
+                "file_path": str(target_path),
                 "source_code_count": len(index_codes),
                 "source_file_count": len(raw_paths),
                 "missing_raw_file_count": 0,
                 "raw_row_count": raw_row_count,
-                "row_count": row_count,
-                "columns": columns,
+                "output_row_count": row_count,
+                "output_columns": columns,
                 "duplicate_removed_count": duplicate_removed_count,
                 "duplicate_sample_rows": duplicate_sample_rows,
             }
@@ -343,7 +364,9 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
         log.stdout(
             "silver_partitions_completed",
             partitions=len(partition_metadata),
-            total_rows=sum(item["row_count"] for item in partition_metadata.values()),
+            total_rows=sum(
+                item["output_row_count"] for item in partition_metadata.values()
+            ),
         )
 
     return partition_metadata
@@ -354,7 +377,18 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
     partitions_def=cn_a_index_ts_codes,
     group_name="index",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
-    metadata=build_dataset_metadata(dataset_id="index_daily"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="index_daily",
+        source_system=SourceSystem.TUSHARE,
+        source_api="index_daily",
+        source_category_path="指数专题",
+        source_doc="docs/sources/tushare/指数专题/0095_指数日线行情.md",
+        data_contract="source_mirror_by_code",
+        path_template=(
+            "data_lake/raw/tushare/index_daily_by_code/ts_code={partition_key}/part-000.parquet"
+        ),
+        extra_metadata={"expected_source_columns": list(INDEX_DAILY_RAW_COLUMNS)},
+    ),
     description="Tushare 指数日线原始数据，按指数代码分区拉取并保存源站镜像。",
 )
 def raw_tushare_index_daily_by_code(
@@ -387,15 +421,9 @@ def raw_tushare_index_daily_by_code(
         log=DgStdoutLogger("index_daily"),
     )
 
-    return dg.MaterializeResult(
-        metadata={
-            **metadata,
-            "layer": "raw",
-            "source_api": "index_daily",
-            "data_contract": "source_mirror_by_code",
-            "expected_source_columns": list(INDEX_DAILY_RAW_COLUMNS),
-        }
-    )
+    return dg.MaterializeResult(metadata=metadata)
+
+
 @dg.asset(
     name="silver_index_daily",
     deps=[
@@ -407,7 +435,21 @@ def raw_tushare_index_daily_by_code(
     partitions_def=cn_a_index_trade_days,
     group_name="index",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
-    metadata=build_dataset_metadata(dataset_id="index_daily"),
+    metadata=build_asset_definition_metadata(
+        dataset_id="index_daily",
+        source_system=SourceSystem.DERIVED,
+        data_contract="active_index_daily",
+        path_template="data_lake/silver/index_daily/trade_date={partition_key}/part-000.parquet",
+        extra_metadata={
+            "expected_columns": list(INDEX_DAILY_SILVER_COLUMNS),
+            "source_asset": "raw_tushare_index_daily_by_code",
+            "source_partition_set": cn_a_index_ts_codes.name,
+            "filter_policy": (
+                "silver_index_daily reads registered cn_a_index_ts_codes raw-by-code files "
+                "and filters rows by the current trade_date partition."
+            ),
+        },
+    ),
     description="指数日线标准表，从按指数代码分区的 raw 文件集合按交易日生成。",
 )
 def silver_index_daily(
@@ -426,21 +468,17 @@ def silver_index_daily(
         log=DgStdoutLogger("index_daily"),
     )
 
-    total_row_count = sum(item["row_count"] for item in partition_metadata.values())
+    total_row_count = sum(
+        item["output_row_count"] for item in partition_metadata.values()
+    )
     return dg.MaterializeResult(
-        metadata={
-            "layer": "silver",
-            "data_contract": "active_index_daily",
-            "partition_keys": list(partition_keys),
-            "row_count": total_row_count,
-            "partition_metadata": partition_metadata,
-            "expected_columns": list(INDEX_DAILY_SILVER_COLUMNS),
-            "source_asset": "raw_tushare_index_daily_by_code",
-            "source_partition_set": cn_a_index_ts_codes.name,
-            "source_code_count": len(registered_index_codes),
-            "filter_policy": (
-                "silver_index_daily reads registered cn_a_index_ts_codes raw-by-code files "
-                "and filters rows by the current trade_date partition."
-            ),
-        }
+        metadata=build_materialization_metadata(
+            row_count=total_row_count,
+            columns=INDEX_DAILY_SILVER_COLUMNS,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "partition_metadata": partition_metadata,
+                "source_code_count": len(registered_index_codes),
+            },
+        )
     )

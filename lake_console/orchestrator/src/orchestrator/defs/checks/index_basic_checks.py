@@ -19,6 +19,8 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
+from orchestrator.defs.run_contracts.metadata import READY_FOR_TRADE_DATE_METADATA_KEY
 
 
 INDEX_BASIC_SILVER_COLUMN_TYPES = {
@@ -30,16 +32,22 @@ INDEX_BASIC_SILVER_COLUMN_TYPES = {
 
 
 def _column_names(connection, path: Path) -> list[str]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return [row[0] for row in rows]
 
 
 def _column_types(connection, path: Path) -> dict[str, str]:
-    rows = connection.execute(describe_parquet_query(path, hive_partitioning=False)).fetchall()
+    rows = connection.execute(
+        describe_parquet_query(path, hive_partitioning=False)
+    ).fetchall()
     return {row[0]: str(row[1]).upper() for row in rows}
 
 
-def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list[dict[str, Any]]:
+def _sample_dicts(
+    columns: Sequence[str], rows: Sequence[Sequence[Any]]
+) -> list[dict[str, Any]]:
     samples = []
     for row in rows:
         sample = {}
@@ -52,10 +60,13 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=False,
-        metadata={
-            "path": str(path),
-            "missing_file": True,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_file": True,
+            },
+        ),
     )
 
 
@@ -70,7 +81,7 @@ def _latest_ready_for_trade_date(instance: dg.DagsterInstance) -> str | None:
     materialization = records[0].asset_materialization
     if materialization is None:
         return None
-    metadata_value = materialization.metadata.get("ready_for_trade_date")
+    metadata_value = materialization.metadata.get(READY_FOR_TRADE_DATE_METADATA_KEY)
     if metadata_value is None:
         return None
     value = getattr(metadata_value, "value", metadata_value)
@@ -82,10 +93,13 @@ def raw_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckRes
     path = raw_index_basic_path(lake_root.root())
     return dg.AssetCheckResult(
         passed=path.exists(),
-        metadata={
-            "path": str(path),
-            "exists": path.exists(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "exists": path.exists(),
+            },
+        ),
     )
 
 
@@ -100,15 +114,20 @@ def raw_index_basic_row_count_positive(
 
     with duckdb.connect() as connection:
         row_count = int(
-            connection.execute(count_parquet_query(path, hive_partitioning=False)).fetchone()[0]
+            connection.execute(
+                count_parquet_query(path, hive_partitioning=False)
+            ).fetchone()[0]
         )
 
     return dg.AssetCheckResult(
         passed=row_count > 0,
-        metadata={
-            "path": str(path),
-            "row_count": row_count,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "checked_row_count": row_count,
+            },
+        ),
     )
 
 
@@ -124,17 +143,24 @@ def raw_index_basic_required_columns(
     with duckdb.connect() as connection:
         columns = _column_names(connection, path)
 
-    missing_columns = [column for column in INDEX_BASIC_RAW_COLUMNS if column not in columns]
-    unexpected_columns = [column for column in columns if column not in INDEX_BASIC_RAW_COLUMNS]
+    missing_columns = [
+        column for column in INDEX_BASIC_RAW_COLUMNS if column not in columns
+    ]
+    unexpected_columns = [
+        column for column in columns if column not in INDEX_BASIC_RAW_COLUMNS
+    ]
     return dg.AssetCheckResult(
         passed=not missing_columns and not unexpected_columns,
-        metadata={
-            "path": str(path),
-            "columns": columns,
-            "required_columns": list(INDEX_BASIC_RAW_COLUMNS),
-            "missing_columns": missing_columns,
-            "unexpected_columns": unexpected_columns,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "file_path": str(path),
+                "observed_columns": columns,
+                "required_columns": list(INDEX_BASIC_RAW_COLUMNS),
+                "missing_columns": missing_columns,
+                "unexpected_columns": unexpected_columns,
+            },
+        ),
     )
 
 
@@ -179,12 +205,17 @@ def raw_index_basic_unique_ts_code(
 
     return dg.AssetCheckResult(
         passed=missing_count == 0 and duplicate_key_count == 0,
-        metadata={
-            "path": str(path),
-            "missing_ts_code_count": missing_count,
-            "duplicate_key_count": duplicate_key_count,
-            "duplicate_sample_keys": _sample_dicts(["ts_code", "row_count"], duplicate_rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_ts_code_count": missing_count,
+                "duplicate_key_count": duplicate_key_count,
+                "duplicate_sample_keys": _sample_dicts(
+                    ["ts_code", "row_count"], duplicate_rows
+                ),
+            },
+        ),
     )
 
 
@@ -232,13 +263,16 @@ def raw_index_basic_date_strings_parseable(
 
     return dg.AssetCheckResult(
         passed=invalid_date_count == 0,
-        metadata={
-            "path": str(path),
-            "invalid_date_count": invalid_date_count,
-            "invalid_date_sample_rows": _sample_dicts(
-                ["ts_code", "field_name", "field_value"], rows
-            ),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+            extra_metadata={
+                "file_path": str(path),
+                "invalid_date_count": invalid_date_count,
+                "invalid_date_sample_rows": _sample_dicts(
+                    ["ts_code", "field_name", "field_value"], rows
+                ),
+            },
+        ),
     )
 
 
@@ -247,10 +281,13 @@ def silver_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheck
     path = silver_index_basic_path(lake_root.root())
     return dg.AssetCheckResult(
         passed=path.exists(),
-        metadata={
-            "path": str(path),
-            "exists": path.exists(),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.FILE_EXISTS,
+            extra_metadata={
+                "file_path": str(path),
+                "exists": path.exists(),
+            },
+        ),
     )
 
 
@@ -267,8 +304,12 @@ def silver_index_basic_required_columns_and_types(
         columns = _column_names(connection, path)
         column_types = _column_types(connection, path)
 
-    missing_columns = [column for column in INDEX_BASIC_SILVER_COLUMNS if column not in columns]
-    unexpected_columns = [column for column in columns if column not in INDEX_BASIC_SILVER_COLUMNS]
+    missing_columns = [
+        column for column in INDEX_BASIC_SILVER_COLUMNS if column not in columns
+    ]
+    unexpected_columns = [
+        column for column in columns if column not in INDEX_BASIC_SILVER_COLUMNS
+    ]
     type_mismatches = {
         column: {
             "expected": expected_type,
@@ -279,15 +320,18 @@ def silver_index_basic_required_columns_and_types(
     }
     return dg.AssetCheckResult(
         passed=not missing_columns and not unexpected_columns and not type_mismatches,
-        metadata={
-            "path": str(path),
-            "columns": columns,
-            "column_types": column_types,
-            "required_columns": list(INDEX_BASIC_SILVER_COLUMNS),
-            "missing_columns": missing_columns,
-            "unexpected_columns": unexpected_columns,
-            "type_mismatches": type_mismatches,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "file_path": str(path),
+                "observed_columns": columns,
+                "column_types": column_types,
+                "required_columns": list(INDEX_BASIC_SILVER_COLUMNS),
+                "missing_columns": missing_columns,
+                "unexpected_columns": unexpected_columns,
+                "type_mismatches": type_mismatches,
+            },
+        ),
     )
 
 
@@ -302,15 +346,20 @@ def silver_index_basic_row_count_positive(
 
     with duckdb.connect() as connection:
         row_count = int(
-            connection.execute(count_parquet_query(path, hive_partitioning=False)).fetchone()[0]
+            connection.execute(
+                count_parquet_query(path, hive_partitioning=False)
+            ).fetchone()[0]
         )
 
     return dg.AssetCheckResult(
         passed=row_count > 0,
-        metadata={
-            "path": str(path),
-            "row_count": row_count,
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "checked_row_count": row_count,
+            },
+        ),
     )
 
 
@@ -355,12 +404,17 @@ def silver_index_basic_unique_ts_code(
 
     return dg.AssetCheckResult(
         passed=missing_count == 0 and duplicate_key_count == 0,
-        metadata={
-            "path": str(path),
-            "missing_ts_code_count": missing_count,
-            "duplicate_key_count": duplicate_key_count,
-            "duplicate_sample_keys": _sample_dicts(["ts_code", "row_count"], duplicate_rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "file_path": str(path),
+                "missing_ts_code_count": missing_count,
+                "duplicate_key_count": duplicate_key_count,
+                "duplicate_sample_keys": _sample_dicts(
+                    ["ts_code", "row_count"], duplicate_rows
+                ),
+            },
+        ),
     )
 
 
@@ -405,12 +459,15 @@ def silver_index_basic_required_fields_non_null(
 
     return dg.AssetCheckResult(
         passed=null_count == 0,
-        metadata={
-            "path": str(path),
-            "required_non_null_columns": list(required_non_null_columns),
-            "null_row_count": null_count,
-            "null_sample_rows": _sample_dicts(["ts_code", "name", "market"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.ROW_COUNT,
+            extra_metadata={
+                "file_path": str(path),
+                "required_non_null_columns": list(required_non_null_columns),
+                "null_row_count": null_count,
+                "null_sample_rows": _sample_dicts(["ts_code", "name", "market"], rows),
+            },
+        ),
     )
 
 
@@ -428,10 +485,13 @@ def silver_index_basic_no_terminated_indexes(
     if not ready_for_trade_date:
         return dg.AssetCheckResult(
             passed=False,
-            metadata={
-                "path": str(path),
-                "missing_ready_for_trade_date_metadata": True,
-            },
+            metadata=build_check_metadata(
+                check_scope=CheckScope.PARTITION_ALIGNMENT,
+                extra_metadata={
+                    "file_path": str(path),
+                    "missing_ready_for_trade_date_metadata": True,
+                },
+            ),
         )
 
     with duckdb.connect() as connection:
@@ -459,10 +519,15 @@ def silver_index_basic_no_terminated_indexes(
 
     return dg.AssetCheckResult(
         passed=terminated_count == 0,
-        metadata={
-            "path": str(path),
-            "ready_for_trade_date": ready_for_trade_date,
-            "terminated_count": terminated_count,
-            "terminated_sample_rows": _sample_dicts(["ts_code", "name", "exp_date"], rows),
-        },
+        metadata=build_check_metadata(
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            extra_metadata={
+                "file_path": str(path),
+                "ready_for_trade_date": ready_for_trade_date,
+                "terminated_count": terminated_count,
+                "terminated_sample_rows": _sample_dicts(
+                    ["ts_code", "name", "exp_date"], rows
+                ),
+            },
+        ),
     )
