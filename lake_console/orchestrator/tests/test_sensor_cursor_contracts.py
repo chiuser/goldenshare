@@ -1,7 +1,6 @@
 import json
 import unittest
 from datetime import datetime
-from pathlib import Path
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.run_contracts.cursors import (
@@ -141,16 +140,6 @@ class SensorCursorContractTests(unittest.TestCase):
         self.assertNotIn("next_pending_offset", payload)
         self.assertEqual(payload["target_date"], "2026-05-26")
         self.assertEqual(payload["details"]["next_pending_offset"], 1)
-
-    def test_sensor_files_do_not_serialize_cursor_locally(self) -> None:
-        sensors_dir = Path("src/orchestrator/defs/sensors")
-        forbidden_literals = ("json.dumps(", "json.loads(", "import json")
-
-        for path in sorted(sensors_dir.glob("*.py")):
-            with self.subTest(path=str(path)):
-                text = path.read_text()
-                for literal in forbidden_literals:
-                    self.assertNotIn(literal, text)
 
 
 if __name__ == "__main__":

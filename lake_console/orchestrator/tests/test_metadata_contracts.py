@@ -99,26 +99,6 @@ class MetadataContractTests(unittest.TestCase):
         self.assertNotIn("row_count", metadata)
         self.assertNotIn("columns", metadata)
 
-    def test_check_files_do_not_write_legacy_metadata_keys(self) -> None:
-        checks_dir = Path("src/orchestrator/defs/checks")
-        legacy_key_literals = (
-            '"path":',
-            '"raw_path":',
-            '"silver_path":',
-            '"gold_path":',
-            '"paths":',
-            '"missing_paths":',
-            '"row_count":',
-            '"columns":',
-            '"schema":',
-        )
-
-        for path in sorted(checks_dir.glob("*.py")):
-            with self.subTest(path=str(path)):
-                text = path.read_text()
-                for literal in legacy_key_literals:
-                    self.assertNotIn(literal, text)
-
 
 if __name__ == "__main__":
     unittest.main()

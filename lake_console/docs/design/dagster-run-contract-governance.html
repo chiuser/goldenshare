@@ -258,7 +258,7 @@
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M7 已实施，M8 待推进</div>
+      <div class="chip"><strong>文档状态</strong>治理专项第一轮已收口；M1-M8 已实施</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
       <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
       <div class="chip"><strong>更新日期</strong>2026-05-28</div>
@@ -268,7 +268,7 @@
   <section>
     <h2>1. 背景与问题</h2>
     <p>
-      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M7 已先处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层和 cursor 标准化；M8 继续补静态门禁。
+      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M8 已先处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层、cursor 标准化和静态门禁。
     </p>
     <p>
       这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
@@ -1467,13 +1467,13 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       <tr>
         <td><code>M8</code> 静态门禁与收尾审计</td>
         <td>把治理规则变成可检查门禁，防止后续又散开。</td>
-        <td><code>M3</code>、<code>M4</code>、<code>M5</code> 至少完成；<code>M6/M7</code> 可分批纳入。</td>
-        <td>文档检查脚本、静态扫描脚本、相关测试文档。</td>
+        <td>已实施；在 M3-M7 全部完成后收口。</td>
+        <td><code>tests/test_run_contract_static_gates.py</code>、治理文档。</td>
         <td>
-          静态检查禁止未登记自定义 run tags；
-          禁止 sensor 裸写深层 run_config；
-          检查 asset tag 取值只能来自 helper；
-          检查新增 contract 字段必须登记。
+          静态检查禁止 sensor 裸写 cursor JSON、<code>RunRequest</code>、项目 run tags 和深层 run config；
+          asset definition 的 <code>tags</code> / <code>metadata</code> 必须来自 helper；
+          check metadata 必须经 <code>build_check_metadata</code>；
+          asset/check metadata 不得裸写已治理旧 key。
         </td>
         <td>
           不运行 <code>dg</code>、Dagster job、sensor、automation evaluation；
@@ -1485,8 +1485,10 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
     <div class="warning">
       <strong>历史 run 处理口径：</strong>本文档定义的是新契约。历史 run records 中已经存在的旧 tags/config 不在正式代码里长期兼容。删除旧 tags 前必须先让当前自动触发链路脱离旧 tags/config，尤其是 <code>silver_index_daily_sensor</code>。
     </div>
-    <div class="danger">
-      <strong>禁止越级：</strong>在 <code>M2</code> 完成前，不得删除 <code>index_daily_sensor</code> 写入的 <code>asset_family/trade_date/index_ts_code</code>；在 <code>M3</code> 完成前，不得把指数 raw run tags 删除视为完成；在 <code>M8</code> 完成前，不得认为治理专项已经收口。
+    <div class="note">
+      <strong>收口口径：</strong>M8 完成后，tags/config/metadata/cursor 第一轮治理专项已收口。
+      后续新增契约字段或放宽门禁，必须先登记到本文档，再接入对应静态检查；不得绕开 helper
+      或在局部文件里重新发明临时字段。
     </div>
   </section>
 
@@ -1569,7 +1571,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
         <td>当前 15 个正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
         <td>M5 覆盖 asset definition 层低基数分类；M6 已覆盖 definition/materialization/check 三层 metadata。旧历史 run metadata 不迁移。</td>
-        <td>M7 已完成 sensor cursor 标准化；M8 再把 metadata/cursor 契约纳入静态门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
+        <td>M8 已把 metadata/cursor 等治理契约纳入静态门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
       </tr>
       </tbody>
     </table>

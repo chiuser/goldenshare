@@ -1,0 +1,212 @@
+import ast
+import unittest
+from pathlib import Path
+
+
+DEFS_DIR = Path("src/orchestrator/defs")
+ASSETS_DIR = DEFS_DIR / "assets"
+CHECKS_DIR = DEFS_DIR / "checks"
+SENSORS_DIR = DEFS_DIR / "sensors"
+
+SENSOR_FORBIDDEN_STRING_LITERALS = {
+    "triggered_by",
+    "asset_family",
+    "index_ts_code",
+    "raw_tushare_index_daily_by_code",
+}
+
+LEGACY_METADATA_KEYS = {
+    "path",
+    "raw_path",
+    "silver_path",
+    "gold_path",
+    "paths",
+    "missing_paths",
+    "row_count",
+    "columns",
+    "schema",
+    "layer",
+    "source_api",
+    "data_contract",
+}
+
+
+def _python_files(directory: Path) -> tuple[Path, ...]:
+    return tuple(
+        path for path in sorted(directory.glob("*.py")) if path.name != "__init__.py"
+    )
+
+
+def _sensor_definition_files() -> tuple[Path, ...]:
+    return tuple(path for path in _python_files(SENSORS_DIR) if path.name.endswith("_sensor.py"))
+
+
+def _parse_python_file(path: Path) -> ast.Module:
+    return ast.parse(path.read_text(), filename=str(path))
+
+
+def _call_name(node: ast.AST) -> str | None:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+def _is_call_named(node: ast.AST, name: str) -> bool:
+    return isinstance(node, ast.Call) and _call_name(node.func) == name
+
+
+def _keyword_value(call: ast.Call, keyword_name: str) -> ast.AST | None:
+    for keyword in call.keywords:
+        if keyword.arg == keyword_name:
+            return keyword.value
+    return None
+
+
+def _direct_string_keys(dict_node: ast.Dict) -> set[str]:
+    return {
+        key.value
+        for key in dict_node.keys
+        if isinstance(key, ast.Constant) and isinstance(key.value, str)
+    }
+
+
+def _dict_keys_for_keyword(call: ast.Call, keyword_name: str) -> set[str]:
+    value = _keyword_value(call, keyword_name)
+    return _direct_string_keys(value) if isinstance(value, ast.Dict) else set()
+
+
+def _node_location(path: Path, node: ast.AST) -> str:
+    return f"{path}:{getattr(node, 'lineno', '?')}"
+
+
+class RunContractStaticGateTests(unittest.TestCase):
+    def test_sensor_files_use_run_contract_helpers(self) -> None:
+        issues = []
+
+        for path in _sensor_definition_files():
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if isinstance(node, ast.Import):
+                    if any(alias.name == "json" for alias in node.names):
+                        issues.append(f"{_node_location(path, node)} imports json")
+                elif isinstance(node, ast.ImportFrom):
+                    if node.module == "json":
+                        issues.append(f"{_node_location(path, node)} imports from json")
+                elif isinstance(node, ast.Call):
+                    call_name = _call_name(node.func)
+                    if call_name == "RunRequest":
+                        issues.append(
+                            f"{_node_location(path, node)} constructs RunRequest directly"
+                        )
+                    for keyword in node.keywords:
+                        if keyword.arg in {"tags", "run_tags"}:
+                            issues.append(
+                                f"{_node_location(path, node)} writes {keyword.arg}"
+                            )
+                elif isinstance(node, ast.Attribute):
+                    if (
+                        isinstance(node.value, ast.Name)
+                        and node.value.id == "json"
+                        and node.attr in {"dumps", "loads"}
+                    ):
+                        issues.append(
+                            f"{_node_location(path, node)} serializes cursor locally"
+                        )
+                elif isinstance(node, ast.Dict):
+                    if "ops" in _direct_string_keys(node):
+                        issues.append(
+                            f"{_node_location(path, node)} writes deep run_config"
+                        )
+                elif isinstance(node, ast.Constant) and isinstance(node.value, str):
+                    if node.value in SENSOR_FORBIDDEN_STRING_LITERALS:
+                        issues.append(
+                            f"{_node_location(path, node)} uses legacy run contract "
+                            f"literal {node.value!r}"
+                        )
+
+        self.assertEqual(issues, [])
+
+    def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
+        issues = []
+
+        for path in _python_files(ASSETS_DIR):
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
+                    continue
+                for decorator in node.decorator_list:
+                    if not _is_call_named(decorator, "asset"):
+                        continue
+
+                    tags_value = _keyword_value(decorator, "tags")
+                    metadata_value = _keyword_value(decorator, "metadata")
+                    if not _is_call_named(tags_value, "build_asset_tags"):
+                        issues.append(
+                            f"{_node_location(path, decorator)} asset {node.name} "
+                            "does not use build_asset_tags(...)"
+                        )
+                    if not _is_call_named(
+                        metadata_value,
+                        "build_asset_definition_metadata",
+                    ):
+                        issues.append(
+                            f"{_node_location(path, decorator)} asset {node.name} "
+                            "does not use build_asset_definition_metadata(...)"
+                        )
+
+        self.assertEqual(issues, [])
+
+    def test_asset_check_results_use_check_metadata_builder(self) -> None:
+        issues = []
+
+        for path in _python_files(CHECKS_DIR):
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if not _is_call_named(node, "AssetCheckResult"):
+                    continue
+                metadata_value = _keyword_value(node, "metadata")
+                if metadata_value is not None and not _is_call_named(
+                    metadata_value,
+                    "build_check_metadata",
+                ):
+                    issues.append(
+                        f"{_node_location(path, node)} AssetCheckResult metadata "
+                        "does not use build_check_metadata(...)"
+                    )
+
+        self.assertEqual(issues, [])
+
+    def test_metadata_dicts_do_not_write_legacy_keys(self) -> None:
+        issues = []
+
+        for path in (*_python_files(ASSETS_DIR), *_python_files(CHECKS_DIR)):
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+
+                checked_keys = set()
+                call_name = _call_name(node.func)
+                if call_name in {
+                    "build_materialization_metadata",
+                    "build_check_metadata",
+                    "MaterializeResult",
+                    "AssetCheckResult",
+                }:
+                    checked_keys |= _dict_keys_for_keyword(node, "metadata")
+                    checked_keys |= _dict_keys_for_keyword(node, "extra_metadata")
+
+                legacy_keys = checked_keys & LEGACY_METADATA_KEYS
+                if legacy_keys:
+                    issues.append(
+                        f"{_node_location(path, node)} writes legacy metadata keys "
+                        f"{sorted(legacy_keys)}"
+                    )
+
+        self.assertEqual(issues, [])
+
+
+if __name__ == "__main__":
+    unittest.main()
