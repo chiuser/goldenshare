@@ -369,9 +369,9 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code></td>
-          <td>已拆成多 sensor：交易日注册与资产族生产分离。</td>
-          <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready。</td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code></td>
+          <td>已拆成多 sensor：交易日注册、资产族生产和运行告警分离。</td>
+          <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready；飞书 run status sensors 只监听 <code>STARTED</code>、<code>SUCCESS</code>、<code>FAILURE</code>，默认停止，不提交 <code>RunRequest</code>。</td>
         </tr>
         <tr>
           <td>Checks</td>
@@ -382,8 +382,8 @@
         <tr>
           <td>Resources</td>
           <td><code>defs/resources.py</code></td>
-          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>。</td>
-          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 通过 <code>dg.EnvVar</code> 注入。主要指数名单改为仓库 seed 文件，不再注册本地 PostgreSQL metadata 或 prod JSON 初始化 resource。</td>
+          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>FeishuWebhookResource</code>。</td>
+          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 和飞书 webhook 配置通过环境变量读取，敏感值不写入代码、文档、metadata 或日志。主要指数名单改为仓库 seed 文件，不再注册本地 PostgreSQL metadata 或 prod JSON 初始化 resource。</td>
         </tr>
         <tr>
           <td>Runtime Utils</td>
@@ -946,6 +946,10 @@
       <div class="card">
         <strong>Sensor 门禁必须轻量</strong>
         <code>silver_index_daily_sensor</code> 的门禁只读 <code>index_daily_update_job</code> 成功 run 记录，并支持 UI/backfill run 的 <code>dagster/partition</code> + 单日 run config fallback；不在 evaluation 中逐 code 扫 raw parquet 或 raw check history，重检查放在 asset run 和 checks 中。
+      </div>
+      <div class="card">
+        <strong>告警不参与生产</strong>
+        <code>feishu_run_status_sensor.py</code> 只发送 run started/succeeded/failed 通知，默认停止；发送失败只能影响告警可观测日志，不能阻断、重试或回滚任何 asset 写入。
       </div>
       <div class="card">
         <strong>并发保护作为保险丝</strong>

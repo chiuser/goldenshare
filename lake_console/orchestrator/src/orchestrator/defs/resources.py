@@ -8,6 +8,7 @@ from typing import Any
 import dagster as dg
 import duckdb
 
+from orchestrator.defs.notifications.feishu import FeishuWebhookResource
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, GOLD, RAW, SILVER, lake_path
 
 
@@ -103,5 +104,6 @@ defs = dg.Definitions(
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
+        "feishu": FeishuWebhookResource(),
     }
 )

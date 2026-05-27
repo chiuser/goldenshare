@@ -874,6 +874,13 @@
             <td>负责打开 DuckDB 连接、设置 PRAGMA、约束 temp 目录在 Lake Root 内。</td>
           </tr>
           <tr>
+            <td><code>FeishuWebhookResource</code></td>
+            <td><code>GOLDENSHARE_FEISHU_WEBHOOK_URL</code>, <code>GOLDENSHARE_FEISHU_WEBHOOK_SECRET</code>, <code>GOLDENSHARE_DAGSTER_WEB_URL</code></td>
+            <td>run status 告警</td>
+            <td>不阻断</td>
+            <td>只由飞书 run status sensors 使用，覆盖 <code>STARTED</code>、<code>SUCCESS</code>、<code>FAILURE</code>；通知失败只能影响告警日志，不能影响资产生产或业务数据写入。</td>
+          </tr>
+          <tr>
             <td>本地业务 metadata PostgreSQL</td>
             <td><code>goldenshare_lake_meta</code></td>
             <td>业务 metadata 写入与查询</td>

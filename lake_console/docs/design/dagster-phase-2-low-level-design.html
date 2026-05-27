@@ -561,10 +561,12 @@
     suspend_d_sensor.py
     stock_basic_sensor.py
     stock_daily_sensor.py
+    feishu_run_status_sensor.py
     market_breadth_automation_sensor.py
     readiness.py
-    # future only / not current code:
-    # market_breadth_alerts.py
+
+  notifications/
+    feishu.py
 
   source_readiness/
     tushare/
@@ -903,6 +905,48 @@ from read_parquet(
 
     <div class="callout">
       正式全市场分区禁止传 <code>ts_code</code>、<code>suspend_type</code> 这类局部过滤参数，避免把局部数据写成正式 raw 分区。
+    </div>
+
+    <h3>7.2 Feishu run status 告警配置审计表</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>审计项</th>
+          <th>口径</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>配置名</td>
+          <td><code>GOLDENSHARE_FEISHU_WEBHOOK_URL</code>、<code>GOLDENSHARE_FEISHU_WEBHOOK_SECRET</code>、<code>GOLDENSHARE_DAGSTER_WEB_URL</code></td>
+        </tr>
+        <tr>
+          <td>配置性质</td>
+          <td>飞书 webhook URL 和 secret 均按敏感配置处理；只允许作为环境变量存在，不写入代码、文档、<code>dagster.yaml</code>、<code>.env</code>、数据库或日志。</td>
+        </tr>
+        <tr>
+          <td>读取方式</td>
+          <td><code>FeishuWebhookResource</code> 运行时通过 <code>dg.EnvVar(...).get_value(default="")</code> 读取，支持 secret 和 Dagster Web URL 为空。</td>
+        </tr>
+        <tr>
+          <td>消费者</td>
+          <td><code>feishu_run_started_sensor</code>、<code>feishu_run_succeeded_sensor</code>、<code>feishu_run_failed_sensor</code>。三个 sensor 分别监听 <code>STARTED</code>、<code>SUCCESS</code>、<code>FAILURE</code>，默认均为 <code>STOPPED</code>。</td>
+        </tr>
+        <tr>
+          <td>缺失行为</td>
+          <td>缺少 webhook URL 时不影响 code location 加载；如果 sensor 被开启且发送失败，只记录 sensor 日志，不触发任何业务 run，也不影响 asset 写入。</td>
+        </tr>
+        <tr>
+          <td>消息边界</td>
+          <td>消息固定包含 <code>Dagster</code>、job name、run id、status、partition、backfill、trigger 和可选 run URL；失败消息额外包含失败摘要。正文截断，不输出 webhook URL、secret、Tushare token 或其它环境变量值。</td>
+        </tr>
+        <tr>
+          <td>飞书侧建议</td>
+          <td>建议启用签名校验，不建议启用 IP 白名单；如启用关键词校验，关键词应包含 <code>Dagster</code>。</td>
+        </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
