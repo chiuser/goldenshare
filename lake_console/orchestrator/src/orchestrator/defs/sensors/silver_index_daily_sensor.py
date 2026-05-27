@@ -4,6 +4,7 @@ from datetime import datetime
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
+from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     IndexDailyRawFileReadiness,
     check_index_daily_raw_files_for_trade_date,
@@ -241,14 +242,9 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
 
     return dg.SensorResult(
         run_requests=[
-            dg.RunRequest(
+            build_run_request(
                 partition_key=target_trade_date,
                 run_key=f"silver_index_daily:{target_trade_date}",
-                tags={
-                    "triggered_by": "silver_index_daily_sensor",
-                    "asset_family": "index_daily",
-                    "trade_date": target_trade_date,
-                },
             )
         ],
         cursor=cursor,

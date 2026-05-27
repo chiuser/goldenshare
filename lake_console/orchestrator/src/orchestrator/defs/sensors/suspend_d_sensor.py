@@ -4,6 +4,7 @@ from datetime import datetime
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     RAW_SUSPEND_D_ASSET_KEY,
@@ -70,10 +71,9 @@ def suspend_d_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
 
     return dg.SensorResult(
         run_requests=[
-            dg.RunRequest(
+            build_run_request(
                 partition_key=key,
                 run_key=f"suspend_d_update:{key}",
-                tags={"triggered_by": "suspend_d_sensor"},
             )
             for key in selected_keys
         ],

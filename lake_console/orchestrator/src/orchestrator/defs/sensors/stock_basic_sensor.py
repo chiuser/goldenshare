@@ -4,6 +4,7 @@ from datetime import datetime
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     status_payload,
@@ -71,12 +72,8 @@ def stock_basic_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
 
     return dg.SensorResult(
         run_requests=[
-            dg.RunRequest(
+            build_run_request(
                 run_key=f"stock_basic_update:{target_trade_date}",
-                tags={
-                    "triggered_by": "stock_basic_sensor",
-                    "target_trade_date": target_trade_date,
-                },
             )
         ],
         cursor=cursor,

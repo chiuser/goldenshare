@@ -255,20 +255,20 @@
   <header>
     <h1>Dagster Run Contract 治理方案</h1>
     <p class="subtitle">
-      本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据，不直接修改任何 asset、job、sensor 或正式 Dagster instance。
+      本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项方案，待评审后执行代码整改</div>
+      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M4 已实施，M5-M8 待推进</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
-      <div class="chip"><strong>非目标</strong>不定义飞书发送策略，不新增通知能力，不运行 Dagster</div>
-      <div class="chip"><strong>更新日期</strong>2026-05-27</div>
+      <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
+      <div class="chip"><strong>更新日期</strong>2026-05-28</div>
     </div>
   </header>
 
   <section>
     <h2>1. 背景与问题</h2>
     <p>
-      当前项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。
+      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M4 已先处理 run tags 与指数日线主入口 config，metadata 与 cursor 标准化仍按后续 milestone 推进。
     </p>
     <p>
       这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
@@ -678,7 +678,7 @@ DATASET_CHINESE_NAMES = {
 
     <h3>7.2 指数 Silver 触发安全设计</h3>
     <p>
-      删除自定义 run tags 前，必须先保证 <code>silver_index_daily_sensor</code> 不误判。当前 sensor 依赖 <code>asset_family</code>、<code>trade_date</code>、<code>index_ts_code</code> 查询 raw run 成功状态；直接删 tags 会让 sensor 退化为解析 run config，风险不可接受。
+      删除指数链路自定义 run tags 前，必须先保证 <code>silver_index_daily_sensor</code> 不误判。M2 已经把它从“查询 raw run tags/config”迁移为“读取 raw 文件事实”；M4 只是在这个前提下删除它自己提交 silver run 时残留的 <code>triggered_by/asset_family/trade_date</code> tags。
     </p>
     <table>
       <thead>
@@ -1335,10 +1335,10 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>M4</code> 低风险 run tags 清理</td>
-        <td>清理不参与数据门禁的自定义 tags，并让飞书展示回到 Dagster 系统 tags。</td>
+        <td>已完成：清理不参与数据门禁的自定义 tags，并让飞书展示回到 Dagster 系统 tags。</td>
         <td><code>M3B</code>。</td>
         <td>
-          <code>stock_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>；
+          <code>stock_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>silver_index_daily_sensor.py</code>；
           <code>*_automation_sensor.py</code>；
           <code>feishu_run_status_sensor.py</code>。
         </td>
@@ -1451,45 +1451,45 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/sensors/silver_index_daily_sensor.py</code></td>
-        <td>主路径用 <code>RunsFilter(job_name=index_daily_update_job, status=SUCCESS, tags={asset_family, trade_date})</code> 查询成功 raw runs，再从 <code>index_ts_code</code> tag 聚合代码；fallback 用 <code>dagster/partition</code> 加解析历史 <code>run_config</code> 的日期。</td>
-        <td><strong>最高风险点。</strong>它是删除指数自定义 tags 前必须先改的消费者。只删 tags 不改它，会影响 <code>silver_index_daily</code> 自动触发。</td>
-        <td>把门禁事实源改为 raw 文件事实：目标交易日下，所有注册指数代码的 raw 文件存在且包含目标日期数据；任何缺失、异常、超时或扫描不完整都只 skip，不触发 silver。迁移完成后删除 run tags/config 读取逻辑。</td>
+        <td>当前门禁事实源已经是 raw 文件事实：目标交易日下，所有注册指数代码的 raw 文件必须存在且包含目标日期数据。提交 <code>silver_index_daily_update_job</code> 时不再写 <code>triggered_by/asset_family/trade_date</code> 自定义 run tags。</td>
+        <td>已完成最高风险前置迁移；删除残留 run tags 不影响 <code>silver_index_daily</code> 自动触发门禁。</td>
+        <td>保留 raw 文件扫描、silver 已 ready / 已 materialized 但 checks 未全绿保护、cursor 诊断和 <code>SkipReason</code>；不读取 raw run tags/config。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/stock_daily_sensor.py</code></td>
-        <td>只在提交 <code>stock_daily_update_job</code> 时写 <code>triggered_by=stock_daily_sensor</code>。</td>
-        <td>数据生产低风险；当前代码没有其它生产门禁读取它。影响主要是飞书 Trigger 展示。</td>
-        <td>删除 <code>triggered_by</code>，飞书改读 <code>dagster/sensor_name</code>、<code>dagster/schedule_name</code>、<code>dagster/from_ui</code>。</td>
+        <td>提交 <code>stock_daily_update_job</code> 时不再写 <code>triggered_by=stock_daily_sensor</code>。</td>
+        <td>数据生产低风险；当前代码没有其它生产门禁读取它。来源展示交给 Dagster 系统 tags。</td>
+        <td>保留原有 readiness、source readiness、run key、partition key、cursor 和单 tick 请求上限。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/suspend_d_sensor.py</code></td>
-        <td>只在提交 <code>suspend_update_job</code> 时写 <code>triggered_by=suspend_d_sensor</code>。</td>
-        <td>数据生产低风险；当前代码没有其它生产门禁读取它。影响主要是飞书 Trigger 展示。</td>
-        <td>同 <code>stock_daily_sensor</code>：删除自定义 tag，通知侧读 Dagster 系统 tags。</td>
+        <td>提交 <code>suspend_update_job</code> 时不再写 <code>triggered_by=suspend_d_sensor</code>。</td>
+        <td>数据生产低风险；当前代码没有其它生产门禁读取它。来源展示交给 Dagster 系统 tags。</td>
+        <td>保留原有缺失分区判断、run key、partition key、cursor 和单 tick 请求上限。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/stock_basic_sensor.py</code></td>
-        <td>提交 <code>stock_basic_update_job</code> 时写 <code>triggered_by</code> 和 <code>target_trade_date</code>；同时 cursor 已记录 <code>target_trade_date</code>、ready 状态和 reason。</td>
-        <td>数据生产低风险；<code>target_trade_date</code> 没有被生产链路读取。它作为 run tag 是重复诊断信息。</td>
-        <td>删除两个自定义 run tags；目标日期诊断只保留在 cursor / SkipReason / readiness 结果中。</td>
+        <td>提交 <code>stock_basic_update_job</code> 时不再写 <code>triggered_by</code> 和 <code>target_trade_date</code> run tags；cursor 继续记录 <code>target_trade_date</code>、ready 状态和 reason。</td>
+        <td>数据生产低风险；<code>target_trade_date</code> 作为 run tag 是重复诊断信息。</td>
+        <td>目标日期诊断只保留在 cursor / SkipReason / readiness 结果中。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/market_breadth_automation_sensor.py</code></td>
-        <td><code>AutomationConditionSensorDefinition</code> 写 <code>run_tags={trigger: automation_condition, asset_family: market_breadth}</code>。</td>
-        <td>数据生产低风险；当前没有生产门禁读取这些 tags。影响主要是通知展示和 UI 筛选。</td>
-        <td>删除自定义 <code>run_tags</code>；来源识别回到 Dagster 系统 sensor/backfill 信息。</td>
+        <td><code>AutomationConditionSensorDefinition</code> 不再写 <code>run_tags={trigger: automation_condition, asset_family: market_breadth}</code>。</td>
+        <td>数据生产低风险；当前没有生产门禁读取这些 tags。</td>
+        <td>保留 target、default status、automation condition、interval、backfill 口径和 user code server 口径。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/stock_return_distribution_automation_sensor.py</code></td>
-        <td><code>AutomationConditionSensorDefinition</code> 写 <code>run_tags={trigger: automation_condition, asset_family: stock_return_distribution}</code>。</td>
-        <td>数据生产低风险；当前没有生产门禁读取这些 tags。影响主要是通知展示和 UI 筛选。</td>
-        <td>同上，删除自定义 <code>run_tags</code>。</td>
+        <td><code>AutomationConditionSensorDefinition</code> 不再写 <code>run_tags={trigger: automation_condition, asset_family: stock_return_distribution}</code>。</td>
+        <td>数据生产低风险；当前没有生产门禁读取这些 tags。</td>
+        <td>保留 target、default status、automation condition、interval、backfill 口径和 user code server 口径。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/feishu_run_status_sensor.py</code></td>
-        <td>读取 <code>triggered_by</code> 作为 Trigger 展示优先级，然后才读 <code>dagster/sensor_name</code> / <code>dagster/schedule_name</code> / <code>dagster/from_ui</code>。</td>
-        <td>不影响数据生产，但会让旧自定义 tag 继续显得“被支持”。</td>
-        <td>通知展示改为只依赖 Dagster 系统 tags；历史 run 里旧 <code>triggered_by</code> 不作为新契约保留。</td>
+        <td>Trigger 展示只读 <code>dagster/sensor_name</code> / <code>dagster/schedule_name</code> / <code>dagster/from_ui</code>，不再读取旧 <code>triggered_by</code>。</td>
+        <td>不影响数据生产；旧自定义 tag 不再被视作正式展示来源。</td>
+        <td>历史 run 里旧 <code>triggered_by</code> 不作为新契约保留；无系统来源时展示 <code>-</code>。</td>
       </tr>
       <tr>
         <td><code>defs/jobs/index_daily_update.py</code></td>
@@ -1513,7 +1513,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
     </table>
 
     <div class="danger">
-      <strong>安全结论：</strong>指数链路必须先改 <code>silver_index_daily_sensor</code>，再删 <code>index_daily_sensor</code> 的 <code>asset_family/trade_date/index_ts_code</code>。其它 <code>triggered_by/trigger/asset_family</code> 多数只是展示或筛选噪音，但也要同步飞书展示逻辑，不能留下“旧 tag 仍是新契约”的错觉。
+      <strong>安全结论：</strong>指数链路已按 <code>M2/M3/M4</code> 顺序完成：先让 <code>silver_index_daily_sensor</code> 脱离 raw run tags/config，再删除 <code>index_daily_sensor</code> 的 raw 自定义 tags，最后清理 silver 和其它低风险传感器残留 tags。飞书展示只读 Dagster 系统 tags，避免留下“旧 tag 仍是新契约”的错觉。
     </div>
   </section>
 </main>

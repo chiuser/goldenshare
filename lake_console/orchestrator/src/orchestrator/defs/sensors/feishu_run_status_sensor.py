@@ -10,7 +10,6 @@ DAGSTER_BACKFILL_TAG = "dagster/backfill"
 DAGSTER_FROM_UI_TAG = "dagster/from_ui"
 DAGSTER_SCHEDULE_TAG = "dagster/schedule_name"
 DAGSTER_SENSOR_TAG = "dagster/sensor_name"
-TRIGGERED_BY_TAG = "triggered_by"
 FAILURE_DETAIL_MAX_LENGTH = 1200
 
 
@@ -20,7 +19,7 @@ def _tag_value(tags: Mapping[str, str], key: str) -> str:
 
 
 def _trigger_value(tags: Mapping[str, str]) -> str:
-    for key in (TRIGGERED_BY_TAG, DAGSTER_SENSOR_TAG, DAGSTER_SCHEDULE_TAG):
+    for key in (DAGSTER_SENSOR_TAG, DAGSTER_SCHEDULE_TAG):
         value = tags.get(key)
         if value:
             return value

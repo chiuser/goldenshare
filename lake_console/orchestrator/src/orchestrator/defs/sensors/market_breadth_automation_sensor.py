@@ -8,10 +8,6 @@ market_breadth_automation_sensor = dg.AutomationConditionSensorDefinition(
     target=dg.AssetSelection.assets(gold_market_breadth_daily),
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
-    run_tags={
-        "trigger": "automation_condition",
-        "asset_family": "market_breadth",
-    },
     description="市场涨跌分布缺失且上游检查通过时，触发生成任务。",
     emit_backfills=True,
     use_user_code_server=False,
