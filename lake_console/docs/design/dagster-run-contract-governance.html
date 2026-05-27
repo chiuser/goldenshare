@@ -772,6 +772,9 @@ DATASET_CHINESE_NAMES = {
     <pre><code># Launchpad 展示目标
 trade_date: "2026-05-26"
 write_mode: "replace"</code></pre>
+    <p>
+      M3B UI 验收结论：实际点击 <code>Scaffold Missing Config</code> 后，Dagster 只生成必填字段 <code>trade_date: ''</code>；<code>write_mode</code> 因为 schema 默认值是 <code>replace</code>，不是 missing config，所以不会自动出现在 scaffold 结果里。该行为符合预期：只填写 <code>trade_date</code> 时，Dagster validation 会用默认值补齐 <code>write_mode=replace</code>。
+    </p>
 
     <table>
       <thead>
@@ -1322,11 +1325,12 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
           文档明确 <code>Add config</code> 空白/深层 YAML 是运行契约可维护性问题；
           主入口已单日化为 <code>trade_date/write_mode</code>；
           记录 <code>ConfigMapping</code> 不是当前 partitioned asset job 的实现路径；
-          写清静态与 UI 验证门禁。
+          写清静态与 UI 验证门禁；
+          记录 <code>Scaffold Missing Config</code> 只生成必填 <code>trade_date</code>，<code>write_mode</code> 由默认值补齐。
         </td>
         <td>
           不运行 Dagster；
-          不承诺 <code>Add config</code> 自动填满模板，只承诺 schema 正确后可通过 Scaffold Missing Config 生成结构。
+          不承诺 <code>Add config</code> 自动填满模板；<code>Scaffold Missing Config</code> 只承诺生成 missing required config，不负责展开已有默认值的字段。
         </td>
       </tr>
       <tr>
