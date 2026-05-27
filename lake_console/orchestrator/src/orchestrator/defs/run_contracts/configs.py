@@ -4,11 +4,15 @@ from datetime import datetime
 from typing import Literal
 
 import dagster as dg
+from pydantic import Field
 
 
 class IndexDailyUpdateJobConfig(dg.Config):
-    trade_date: str
-    write_mode: Literal["replace"] = "replace"
+    trade_date: str = Field(description="指数日线 raw-by-code 本次更新的目标交易日，格式 YYYY-MM-DD。")
+    write_mode: Literal["replace"] = Field(
+        default="replace",
+        description="指数日线 raw-by-code 写入模式；当前只允许替换写入。",
+    )
 
 
 def normalize_iso_trade_date(value: str, *, field_name: str = "trade_date") -> str:
@@ -35,3 +39,16 @@ def build_index_daily_raw_op_config(config: IndexDailyUpdateJobConfig) -> dict[s
             }
         }
     }
+
+
+def build_index_daily_update_job_run_config(
+    *,
+    trade_date: str,
+    write_mode: Literal["replace"] = "replace",
+) -> dict[str, object]:
+    return build_index_daily_raw_op_config(
+        IndexDailyUpdateJobConfig(
+            trade_date=trade_date,
+            write_mode=write_mode,
+        )
+    )

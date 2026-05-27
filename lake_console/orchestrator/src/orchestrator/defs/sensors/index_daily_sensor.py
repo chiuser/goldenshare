@@ -8,6 +8,8 @@ import dagster as dg
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import raw_index_daily_by_code_path
+from orchestrator.defs.run_contracts.configs import build_index_daily_update_job_run_config
+from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from orchestrator.source_readiness.tushare.index_daily import (
     check_index_daily_source_readiness,
@@ -253,26 +255,13 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
 
     return dg.SensorResult(
         run_requests=[
-            dg.RunRequest(
+            build_run_request(
                 partition_key=index_code,
                 run_key=f"index_daily:{target_trade_date}:{index_code}",
-                run_config={
-                    "ops": {
-                        "raw_tushare_index_daily_by_code": {
-                            "config": {
-                                "start_date": target_trade_date,
-                                "end_date": target_trade_date,
-                                "write_mode": "replace",
-                            }
-                        }
-                    }
-                },
-                tags={
-                    "triggered_by": "index_daily_sensor",
-                    "asset_family": "index_daily",
-                    "trade_date": target_trade_date,
-                    "index_ts_code": index_code,
-                },
+                run_config=build_index_daily_update_job_run_config(
+                    trade_date=target_trade_date,
+                    write_mode="replace",
+                ),
             )
             for index_code in selected_codes
         ],
