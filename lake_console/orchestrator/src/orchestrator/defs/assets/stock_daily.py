@@ -25,6 +25,12 @@ from orchestrator.defs.paths import (
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 
 
@@ -341,6 +347,8 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     name="raw_tushare_stock_daily",
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_dataset_metadata(dataset_id="daily"),
     description="Tushare 股票日线原始数据。",
 )
 def raw_tushare_stock_daily(
@@ -382,6 +390,8 @@ def raw_tushare_stock_daily(
     deps=[raw_tushare_stock_daily, silver_stock_basic, silver_stock_suspend_daily],
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_dataset_metadata(dataset_id="daily"),
     description="股票日线标准表，按上市状态和交易规则过滤。",
 )
 def silver_stock_daily(

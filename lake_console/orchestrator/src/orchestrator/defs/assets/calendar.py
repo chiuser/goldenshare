@@ -14,6 +14,12 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import raw_trade_calendar_path, silver_trade_calendar_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
@@ -55,6 +61,8 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 @dg.asset(
     name="raw_tushare_trade_calendar",
     group_name="calendar",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.BASIC_DATA),
+    metadata=build_dataset_metadata(dataset_id="trade_cal"),
     description="Tushare 交易日历原始数据。",
 )
 def raw_tushare_trade_calendar(
@@ -97,6 +105,8 @@ def raw_tushare_trade_calendar(
     name="silver_trade_calendar",
     deps=["raw_tushare_trade_calendar"],
     group_name="calendar",
+    tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
+    metadata=build_dataset_metadata(dataset_id="trade_cal"),
     description="A股交易日历标准表，提供上交所开市日口径。",
 )
 def silver_trade_calendar(

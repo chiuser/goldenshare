@@ -8,17 +8,17 @@ DATA_DOMAIN_TAG = "goldenshare/data_domain"
 
 
 class AssetLayer(str, Enum):
-    RAW = "原始层"
-    SILVER = "标准层"
-    GOLD = "正式层"
+    RAW = "raw"
+    SILVER = "silver"
+    GOLD = "gold"
 
 
 class DataDomain(str, Enum):
-    BASIC = "基础数据"
-    QUOTE = "行情数据"
-    INDEX = "指数专题"
-    PROJECT_CONFIG = "项目配置"
-    DERIVED_METRIC = "衍生指标"
+    BASIC_DATA = "basic_data"
+    QUOTE_DATA = "quote_data"
+    INDEX_TOPIC = "index_topic"
+    PROJECT_CONFIG = "project_config"
+    DERIVED_METRIC = "derived_metric"
 
 
 def _coerce_asset_layer(layer: AssetLayer | str) -> AssetLayer:

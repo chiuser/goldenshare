@@ -16,6 +16,12 @@ from orchestrator.defs.paths import (
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 
 
 def _column_names(connection, path: Path, *, hive_partitioning: bool = False) -> list[str]:
@@ -80,6 +86,8 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
     deps=["silver_stock_daily"],
     partitions_def=cn_a_stock_trade_days,
     group_name="breadth",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.DERIVED_METRIC),
+    metadata=build_dataset_metadata(dataset_id="market_breadth"),
     description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
     automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,
 )

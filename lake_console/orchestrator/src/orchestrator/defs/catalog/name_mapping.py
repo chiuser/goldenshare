@@ -12,6 +12,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "index_basic": "指数基本信息",
         "index_daily": "指数日线行情",
         "market_major_indices": "主要指数名单",
+        "market_major_indices_daily": "主要指数日线",
         "market_breadth": "市场宽度",
         "stock_return_distribution": "股票涨跌幅分布",
     }

@@ -16,6 +16,12 @@ from orchestrator.defs.duckdb_sql import (
 from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
@@ -107,6 +113,8 @@ def _require_ready_for_trade_date_registered(
 @dg.asset(
     name="raw_tushare_index_basic",
     group_name="index",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
+    metadata=build_dataset_metadata(dataset_id="index_basic"),
     description="Tushare 指数基础信息原始数据。",
 )
 def raw_tushare_index_basic(
@@ -149,6 +157,8 @@ def raw_tushare_index_basic(
     name="silver_index_basic",
     deps=[raw_tushare_index_basic],
     group_name="index",
+    tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
+    metadata=build_dataset_metadata(dataset_id="index_basic"),
     description="有效指数基础信息标准表，排除已终止指数。",
 )
 def silver_index_basic(

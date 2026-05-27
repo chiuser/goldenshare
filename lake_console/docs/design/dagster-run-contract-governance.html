@@ -258,7 +258,7 @@
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M4 已实施，M5-M8 待推进</div>
+      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M5 已实施，M6-M8 待推进</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
       <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
       <div class="chip"><strong>更新日期</strong>2026-05-28</div>
@@ -420,8 +420,11 @@
   <section>
     <h2>5. Asset Tags 第一版字段</h2>
     <p>
-      Asset tags 第一版只定义两个字段：层级和数据域。标签只服务 UI 过滤、资产组织和低基数分类，不承载具体数据集名称、运行日期、批次状态或质量统计。数据域取值学习 <code>docs/sources/tushare/**</code> 的目录语言，但在 UI 中做简化展示；具体 Tushare 来源目录和文档路径进入 metadata，不进入 tag。
+      Asset tags 第一版只定义两个字段：层级和数据域。标签只服务 UI 过滤、资产组织和低基数分类，不承载具体数据集名称、运行日期、批次状态或质量统计。数据域取值学习 <code>docs/sources/tushare/**</code> 的目录语言，但 tag value 必须使用 Dagster 允许的英文枚举；中文数据集名称进入 definition metadata，不进入 tag。
     </p>
+    <div class="warning">
+      <strong>Dagster 版本约束：</strong>当前 Dagster 1.13.6 会严格校验 asset tag value，只允许英数字、<code>_</code>、<code>-</code>、<code>.</code>。中文 tag value 会导致 code location 加载失败，因此 M5 正式口径改为英文 tags + 中文 metadata。
+    </div>
 
     <table>
       <thead>
@@ -437,16 +440,16 @@
       <tr>
         <td><code>goldenshare/layer</code></td>
         <td>是，正式数据资产必填</td>
-        <td><code>原始层</code>、<code>标准层</code>、<code>正式层</code></td>
+        <td><code>raw</code>、<code>silver</code>、<code>gold</code></td>
         <td>所有落到 <code>data_lake/raw|silver|gold</code> 的 asset</td>
-        <td>Lake 三层是本项目硬边界，且在 UI、文档、路径、checks 中反复使用。值使用中文是为了让 Dagster UI 中的资产过滤更直观；代码内部路径仍然使用 <code>raw</code>、<code>silver</code>、<code>gold</code>。</td>
+        <td>Lake 三层是本项目硬边界，且在 UI、文档、路径、checks 中反复使用。值使用英文是 Dagster tag 校验要求；中文含义由文档和 metadata 表达。</td>
       </tr>
       <tr>
         <td><code>goldenshare/data_domain</code></td>
         <td>是，正式数据资产必填</td>
-        <td><code>基础数据</code>、<code>行情数据</code>、<code>指数专题</code>、<code>项目配置</code>、<code>衍生指标</code></td>
+        <td><code>basic_data</code>、<code>quote_data</code>、<code>index_topic</code>、<code>project_config</code>、<code>derived_metric</code></td>
         <td>所有正式数据资产</td>
-        <td>该字段用于少量稳定的数据域过滤。<code>基础数据</code>、<code>行情数据</code>、<code>指数专题</code> 来自 Tushare 本地文档目录；<code>项目配置</code> 和 <code>衍生指标</code> 用于非 Tushare 源资产。</td>
+        <td>该字段用于少量稳定的数据域过滤。英文值用于满足 Dagster tag 校验；中文业务含义来自 Tushare 本地文档目录和本治理文档。</td>
       </tr>
       </tbody>
     </table>
@@ -462,27 +465,27 @@
       </thead>
       <tbody>
       <tr>
-        <td><code>基础数据</code></td>
+        <td><code>basic_data</code>（基础数据）</td>
         <td><code>stock_basic</code>、<code>trade_cal</code></td>
         <td>本地 Tushare 文档把股票基础信息和交易日历放在 <code>股票数据 / 基础数据</code> 下。UI tag 保留二级目录名，具体上级目录和文档路径由 metadata 记录。</td>
       </tr>
       <tr>
-        <td><code>行情数据</code></td>
+        <td><code>quote_data</code>（行情数据）</td>
         <td><code>daily</code>、<code>suspend_d</code></td>
         <td>本地 Tushare 文档把 A 股日线行情和每日停复牌信息都放在 <code>股票数据 / 行情数据</code> 下。停复牌不单独造新分类，避免偏离既有文档目录体系。</td>
       </tr>
       <tr>
-        <td><code>指数专题</code></td>
-        <td><code>index_basic</code>、<code>index_daily</code></td>
+        <td><code>index_topic</code>（指数专题）</td>
+        <td><code>index_basic</code>、<code>index_daily</code>、<code>market_major_indices_daily</code></td>
         <td>本地 Tushare 文档把指数基本信息和指数日线行情放在 <code>指数专题</code> 下。该目录本身已经是稳定一级分类。</td>
       </tr>
       <tr>
-        <td><code>项目配置</code></td>
-        <td><code>market_major_indices</code></td>
-        <td>主要指数名单来自项目 seed/config，不是 Tushare API 目录中的数据集。单独归为项目配置，便于和源站数据区分。</td>
+        <td><code>project_config</code>（项目配置）</td>
+        <td>本批暂无 asset 接入</td>
+        <td>主要指数名单 seed 目前只是 <code>gold_market_major_indices_daily</code> 的只读输入，不注册为独立 Dagster asset；未来真正配置资产接入时再使用该域。</td>
       </tr>
       <tr>
-        <td><code>衍生指标</code></td>
+        <td><code>derived_metric</code>（衍生指标）</td>
         <td><code>market_breadth</code>、<code>stock_return_distribution</code></td>
         <td>市场宽度和股票涨跌幅分布由湖内标准层资产计算得到，不直接对应 Tushare 源目录。归为衍生指标，表达其作为正式层分析产物的性质。</td>
       </tr>
@@ -514,6 +517,7 @@ DATASET_CHINESE_NAMES = {
     "index_basic": "指数基本信息",
     "index_daily": "指数日线行情",
     "market_major_indices": "主要指数名单",
+    "market_major_indices_daily": "主要指数日线",
     "market_breadth": "市场宽度",
     "stock_return_distribution": "股票涨跌幅分布",
 }</code></pre>
@@ -569,6 +573,12 @@ DATASET_CHINESE_NAMES = {
         <td>主要指数名单</td>
         <td>项目 seed/config</td>
         <td>该数据集不是 Tushare API，中文名用于表达项目内配置事实。</td>
+      </tr>
+      <tr>
+        <td><code>market_major_indices_daily</code></td>
+        <td>主要指数日线</td>
+        <td>湖内指数专题结果</td>
+        <td>当前 Dagster asset 是主要指数日线结果，不是 seed 名单本身；它读取 seed 和 <code>silver_index_daily</code> 生成正式层结果。</td>
       </tr>
       <tr>
         <td><code>market_breadth</code></td>
@@ -1174,7 +1184,7 @@ write_mode: "replace"</code></pre>
 
 lake_console/orchestrator/src/orchestrator/defs/run_contracts/
   __init__.py
-  asset_tags.py    # asset tag key、中文枚举值和构造函数
+  asset_tags.py    # asset tag key、英文枚举值和构造函数
   configs.py       # typed config 与 run_config 构造辅助
   requests.py      # 代码侧 RunRequest 构造，不能解决 UI 空白问题
   cursors.py       # cursor payload builder
@@ -1355,11 +1365,11 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>M5</code> Asset tags 与中文名接入</td>
-        <td>把低基数中文 asset tags 和数据集中文名映射接入 definitions。</td>
+        <td>已完成：把低基数英文 asset tags 和数据集中文名 metadata 接入当前正式 asset definitions。</td>
         <td><code>M1</code>，建议在 <code>M4</code> 后执行，避免和 run tag 清理混在一起。</td>
         <td>各资产族 <code>defs/assets/**/*.py</code>，必要时同步架构/phase 文档。</td>
         <td>
-          正式 lake asset 具备 <code>goldenshare/layer</code> 和 <code>goldenshare/data_domain</code>；
+          正式 lake asset 具备 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code> 和 <code>goldenshare/dataset_name</code>；
           取值只来自 <code>asset_tags.py</code>；
           具体数据集名只来自 <code>name_mapping.py</code>，不进入 asset tag。
         </td>
@@ -1505,9 +1515,9 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
-        <td>当前正式 asset definition 基本只设置 <code>group_name</code>，尚未系统接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>；materialization/check metadata 已有大量行数、路径、样本、契约字段。</td>
-        <td>不是本轮“删除 run tags”风险点，但后续接入 asset tags / metadata helper 时必须逐资产核对，不能批量猜。</td>
-        <td>按资产族分批迁移 metadata 和 asset tags；每批迁移前先核对对应 asset/check 现有 metadata 字段，不做全仓一次性替换。</td>
+        <td>当前 15 个正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code> 和 <code>goldenshare/dataset_name</code>；materialization/check metadata 仍有大量行数、路径、样本、契约字段。</td>
+        <td>M5 已覆盖 asset definition 层低基数分类；M6 仍需继续治理 runtime/check metadata。</td>
+        <td>后续按资产族分批迁移 metadata；每批迁移前先核对对应 asset/check 现有 metadata 字段，不做全仓一次性替换。</td>
       </tr>
       </tbody>
     </table>

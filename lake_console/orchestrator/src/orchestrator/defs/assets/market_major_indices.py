@@ -19,6 +19,12 @@ from orchestrator.defs.duckdb_sql import (
 from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import gold_market_major_indices_daily_path, silver_index_daily_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 from orchestrator.seeds.market.major_indices import (
     MAJOR_INDICES_SEED_COLUMNS,
     active_major_indices_seed_rows,
@@ -216,6 +222,8 @@ def _missing_seed_codes_in_silver(
     deps=[silver_index_daily],
     partitions_def=cn_a_index_trade_days,
     group_name="market",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.INDEX_TOPIC),
+    metadata=build_dataset_metadata(dataset_id="market_major_indices_daily"),
     description="首页主要指数日线结果，读取版本化 seed 名单和 silver_index_daily 当日行情生成。",
 )
 def gold_market_major_indices_daily(

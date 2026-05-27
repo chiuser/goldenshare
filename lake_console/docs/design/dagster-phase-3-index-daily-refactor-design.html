@@ -949,12 +949,11 @@ silver_index_daily_update_job[trade_date]
     <h3>8.2 Silver 更新触发</h3>
     <p>
       由于 raw 和 silver 分区维度不同，Silver 更新建议作为单独阶段处理：
-      日更时在 raw-by-code 全部成功后，由后续 <code>silver_index_daily_sensor</code> 自动触发
+      日更时在全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后，由 <code>silver_index_daily_sensor</code> 自动触发
       <code>silver_index_daily_update_job[trade_date]</code>；历史迁移时则先跑 raw code backfill，再跑 silver trade_date backfill。
     </p>
     <p>
-      当前代码尚未实现 <code>silver_index_daily_sensor</code>。该需求进入后续独立 Slice，避免和 raw-by-code
-      重构、历史重建混在一起。
+      当前代码已实现 <code>silver_index_daily_sensor</code>。它只触发 silver，不补 raw、不调用 Tushare、不读取 raw run tags/config。
     </p>
     <table>
       <thead>
@@ -1203,7 +1202,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>Silver 自动触发是否进入第一轮</td>
-        <td>已更新：当前代码尚未实现；设计为后续 Slice G 新增 <code>silver_index_daily_sensor</code>，等待 raw-by-code 和 raw blocking checks ready 后再触发 silver。</td>
+        <td>已实现：<code>silver_index_daily_sensor</code> 等待全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 silver；不读取 raw run tags/config。</td>
       </tr>
       <tr>
         <td>每日 sensor 单 tick 最大 run 数</td>

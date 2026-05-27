@@ -17,6 +17,12 @@ from orchestrator.defs.paths import (
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 
 
 STOCK_RETURN_DISTRIBUTION_COLUMNS = (
@@ -99,6 +105,8 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
     deps=["silver_stock_daily"],
     partitions_def=cn_a_stock_trade_days,
     group_name="breadth",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.DERIVED_METRIC),
+    metadata=build_dataset_metadata(dataset_id="stock_return_distribution"),
     description="股票涨跌幅区间分布日表，按 pct_chg 统计九段收益率区间数量。",
     automation_condition=STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION,
 )

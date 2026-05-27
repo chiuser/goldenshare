@@ -2,7 +2,11 @@
 
 from enum import Enum
 
+from orchestrator.defs.catalog import get_dataset_chinese_name
 
+
+DATASET_ID_METADATA_KEY = "goldenshare/dataset_id"
+DATASET_NAME_METADATA_KEY = "goldenshare/dataset_name"
 SOURCE_SYSTEM_METADATA_KEY = "goldenshare/source_system"
 SOURCE_API_METADATA_KEY = "goldenshare/source_api"
 SOURCE_CATEGORY_PATH_METADATA_KEY = "goldenshare/source_category_path"
@@ -74,6 +78,15 @@ def build_definition_metadata(
     if source_doc:
         metadata[SOURCE_DOC_METADATA_KEY] = source_doc
     return metadata
+
+
+def build_dataset_metadata(*, dataset_id: str) -> dict[str, str]:
+    """Build stable dataset identity metadata for an asset definition."""
+
+    return {
+        DATASET_ID_METADATA_KEY: dataset_id,
+        DATASET_NAME_METADATA_KEY: get_dataset_chinese_name(dataset_id),
+    }
 
 
 def build_check_metadata(

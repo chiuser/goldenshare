@@ -14,6 +14,12 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import raw_stock_basic_path, silver_stock_basic_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
@@ -72,6 +78,8 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 @dg.asset(
     name="raw_tushare_stock_basic",
     group_name="basic",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.BASIC_DATA),
+    metadata=build_dataset_metadata(dataset_id="stock_basic"),
     description="Tushare 股票基础信息原始数据。",
 )
 def raw_tushare_stock_basic(
@@ -117,6 +125,8 @@ def raw_tushare_stock_basic(
     name="silver_stock_basic",
     deps=["raw_tushare_stock_basic"],
     group_name="basic",
+    tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
+    metadata=build_dataset_metadata(dataset_id="stock_basic"),
     description="当前上市股票基础信息标准表，记录股票生命周期。",
 )
 def silver_stock_basic(

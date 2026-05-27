@@ -21,10 +21,16 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.run_contracts.asset_tags import (
+    AssetLayer,
+    DataDomain,
+    build_asset_tags,
+)
 from orchestrator.defs.run_contracts.configs import (
     IndexDailyRawByCodeConfig,
     normalize_iso_trade_date,
 )
+from orchestrator.defs.run_contracts.metadata import build_dataset_metadata
 from orchestrator.defs.tushare_api_io import fetch_tushare_index_daily_by_code_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
@@ -347,6 +353,8 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
     name="raw_tushare_index_daily_by_code",
     partitions_def=cn_a_index_ts_codes,
     group_name="index",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
+    metadata=build_dataset_metadata(dataset_id="index_daily"),
     description="Tushare 指数日线原始数据，按指数代码分区拉取并保存源站镜像。",
 )
 def raw_tushare_index_daily_by_code(
@@ -398,6 +406,8 @@ def raw_tushare_index_daily_by_code(
     ],
     partitions_def=cn_a_index_trade_days,
     group_name="index",
+    tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.INDEX_TOPIC),
+    metadata=build_dataset_metadata(dataset_id="index_daily"),
     description="指数日线标准表，从按指数代码分区的 raw 文件集合按交易日生成。",
 )
 def silver_index_daily(

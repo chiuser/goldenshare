@@ -835,14 +835,14 @@ def index_daily_sensor(context):
     job_name="silver_index_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    required_resource_keys={"lake_root", "duckdb"},
 )
 def silver_index_daily_sensor(context):
     # 1. 读取 cn_a_index_trade_days，选择最新一个待生成 silver 的交易日
     # 2. 读取 cn_a_index_ts_codes，计算应参与该交易日的指数代码集合
-    # 3. 查询 index_daily_update_job 的 SUCCESS run 记录
-    # 4. 按自定义 tags 或 UI run_config fallback 聚合已成功 raw 更新
-    # 5. 如果 silver 已生成但 checks 未全绿，跳过并等待人工处理
-    # 6. 全部注册代码都有成功 raw run 后，触发 silver_index_daily_update_job[trade_date]</pre>
+    # 3. 如果 silver 已生成但 checks 未全绿，跳过并等待人工处理
+    # 4. 逐代码确认 raw-by-code 文件存在且包含目标 trade_date
+    # 5. 全部注册代码文件事实 ready 后，触发 silver_index_daily_update_job[trade_date]</pre>
     <table>
       <thead>
       <tr>
@@ -853,28 +853,24 @@ def silver_index_daily_sensor(context):
       <tbody>
       <tr>
         <td>输入状态</td>
-        <td><code>cn_a_index_trade_days</code>、<code>cn_a_index_ts_codes</code>、Dagster run storage 中 <code>index_daily_update_job</code> 的成功运行记录。</td>
+        <td><code>cn_a_index_trade_days</code>、<code>cn_a_index_ts_codes</code>、目标交易日的 raw-by-code parquet 文件事实。</td>
       </tr>
       <tr>
         <td>候选日期</td>
         <td>只选已经注册且不晚于当前自然日的指数交易日。第一版只处理最新一个待生成 silver 的交易日；历史重建继续使用 UI/backfill。</td>
       </tr>
       <tr>
-        <td>raw run success 门禁</td>
+        <td>raw 文件事实门禁</td>
         <td>
-          每个应参与代码必须存在一条成功的 <code>index_daily_update_job</code> run。优先识别
-          <code>asset_family=index_daily</code>、<code>trade_date=&lt;目标交易日&gt;</code>、<code>index_ts_code=&lt;代码&gt;</code>
-          这组三个自定义 tags；如果是 UI/backfill 手动补跑且没有自定义 tags，则用 Dagster 系统 tag
-          <code>dagster/partition=&lt;代码&gt;</code> 识别代码，并要求 run config 中
-          <code>trade_date=&lt;目标交易日&gt;</code>。该门禁不读取 raw parquet，不扫描 raw asset materialization 或 check history。
+          每个注册指数代码都必须存在对应 raw-by-code parquet 文件，且文件中包含目标 <code>trade_date</code>。
+          该门禁不读取 Dagster run tags/config，不扫描 raw asset materialization 或 check history。
         </td>
       </tr>
       <tr>
         <td>质量检查边界</td>
         <td>
-          <code>index_daily_update_job</code> selection 包含 raw asset 和 raw blocking checks；
-          blocking ERROR check 失败会导致 raw run 失败，因此 sensor 只把 run success 当作进入 silver 的轻量门禁。
-          真正的 raw 文件读取、目标日期筛选、去重和 silver 质量检查仍在 <code>silver_index_daily</code> asset 与 silver checks 中完成。
+          sensor 只做文件存在和目标日期存在的进门门禁；真正的去重、字段类型、行数、价格 sanity、
+          registered code coverage 和 silver 输出质量仍在 <code>silver_index_daily</code> asset 与 silver checks 中完成。
         </td>
       </tr>
       <tr>
@@ -890,19 +886,19 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>tags</td>
-        <td><code>triggered_by=silver_index_daily_sensor</code>、<code>asset_family=index_daily</code>、<code>trade_date=&lt;trade_date&gt;</code>。</td>
+        <td>不写项目自定义 run tags；只保留 Dagster 分区语义、<code>partition_key=trade_date</code> 和稳定 <code>run_key</code>。</td>
       </tr>
       <tr>
         <td>SkipReason</td>
-        <td>必须中文清晰，例如“指数日线 raw update job 仍有未成功代码，暂不生成 silver”。</td>
+        <td>必须中文清晰，例如“指数日线 raw-by-code 文件仍有缺失代码，暂不生成 silver”。</td>
       </tr>
       <tr>
         <td>cursor</td>
-        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>successful_code_count</code>、<code>missing_success_code_count</code>、<code>selected_trade_date</code> 和少量缺失代码样本。cursor 只用于观测，不作为 ready 判断依据。</td>
+        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>raw_ready_code_count</code>、<code>missing_raw_file_count</code>、<code>missing_raw_trade_date_count</code>、<code>selected_trade_date</code> 和少量缺失代码样本。cursor 只用于观测，不作为 ready 判断依据。</td>
       </tr>
       <tr>
         <td>边界</td>
-        <td>不补 raw，不重跑失败 raw，不触发 <code>index_daily_update_job</code>，不读取 raw parquet，不扫描 raw check history，不处理历史多日批量。</td>
+        <td>不补 raw，不重跑失败 raw，不触发 <code>index_daily_update_job</code>，不读取 run tags/config，不扫描 raw check history，不处理历史多日批量。</td>
       </tr>
       </tbody>
     </table>
@@ -917,10 +913,10 @@ def silver_index_daily_sensor(context):
         这把“能否进门”的轻量判断做成了 N 个文件扫描加 N 组 Dagster event history 查询，容易超过 gRPC sensor evaluation 时限。
       </p>
       <p>
-        修复口径：sensor 只查 <code>index_daily_update_job</code> 的成功 run 记录，并按自定义 tags 或 UI run_config fallback
-        聚合是否覆盖全部注册代码。raw 文件存在、目标日期过滤、去重、字段类型和
-        silver 输出质量继续由 <code>silver_index_daily</code> asset 与 checks 承担。后续 sensor 门禁不得再把大规模 parquet 扫描或
-        per-code check history 扫描放进 evaluation 函数；重检查应进入 run/check 层。
+        正式口径：sensor 只读 raw-by-code 文件事实，确认文件存在且包含目标日期；不再读取 raw run tags/config，
+        也不扫描 raw asset materialization 或 check history。去重、字段类型和 silver 输出质量继续由
+        <code>silver_index_daily</code> asset 与 checks 承担。后续 sensor 门禁不得再把 per-code check history 扫描放进
+        evaluation 函数；重检查应进入 run/check 层。
       </p>
     </div>
   </section>
@@ -1009,8 +1005,8 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>G</td>
-        <td>已实现：新增 <code>silver_index_daily_sensor</code>，并改造为基于 <code>index_daily_update_job</code> 成功 run 记录的轻量门禁。</td>
-        <td>只处理最新交易日；不调用 Tushare，不写 raw，不读 raw parquet，不扫 raw check history，不做历史批量；silver 已生成但 checks 未全绿时不自动重跑。</td>
+        <td>已实现：新增 <code>silver_index_daily_sensor</code>，并改造为基于 raw-by-code 文件事实的轻量门禁。</td>
+        <td>只处理最新交易日；不调用 Tushare，不写 raw，不读 raw run tags/config，不扫 raw check history，不做历史批量；silver 已生成但 checks 未全绿时不自动重跑。</td>
       </tr>
       </tbody>
     </table>
@@ -1057,7 +1053,7 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>Silver 自动触发是否随第一轮实现</td>
-        <td>已实现：<code>silver_index_daily_sensor</code> 只在目标交易日所有注册指数代码都有成功 <code>index_daily_update_job</code> run 后触发 <code>silver_index_daily_update_job</code>；不补 raw、不调用 Tushare、不读取 raw parquet、不扫描 raw check history、不自动修复 failed silver checks。</td>
+        <td>已实现：<code>silver_index_daily_sensor</code> 只在目标交易日所有注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 <code>silver_index_daily_update_job</code>；不补 raw、不调用 Tushare、不读取 raw run tags/config、不扫描 raw check history、不自动修复 failed silver checks。</td>
       </tr>
       <tr>
         <td>旧 asset definition 保留多久</td>
