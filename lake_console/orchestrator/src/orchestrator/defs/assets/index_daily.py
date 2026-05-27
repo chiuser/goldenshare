@@ -1,8 +1,7 @@
 import os
 from collections.abc import Sequence
-from datetime import datetime
 from pathlib import Path
-from typing import Any, Literal
+from typing import Any
 
 import dagster as dg
 
@@ -22,6 +21,10 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.run_contracts.configs import (
+    IndexDailyRawByCodeConfig,
+    normalize_iso_trade_date,
+)
 from orchestrator.defs.tushare_api_io import fetch_tushare_index_daily_by_code_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
@@ -55,30 +58,9 @@ INDEX_DAILY_SILVER_COLUMN_TYPES = {
 }
 
 
-class IndexDailyRawByCodeConfig(dg.Config):
-    start_date: str
-    end_date: str
-    write_mode: Literal["replace"]
-
-
-def _source_date_from_config(value: str, field_name: str) -> str:
-    stripped = value.strip()
-    try:
-        parsed = datetime.strptime(stripped, "%Y-%m-%d").date()
-    except ValueError as error:
-        raise ValueError(f"{field_name} must use YYYY-MM-DD format.") from error
-
-    if parsed < datetime.strptime("2000-01-01", "%Y-%m-%d").date():
-        raise ValueError(f"{field_name} must not be earlier than 2000-01-01.")
-    return parsed.strftime("%Y%m%d")
-
-
 def _source_date_window_from_config(config: IndexDailyRawByCodeConfig) -> tuple[str, str]:
-    start_date = _source_date_from_config(config.start_date, "start_date")
-    end_date = _source_date_from_config(config.end_date, "end_date")
-    if start_date > end_date:
-        raise ValueError("start_date must be earlier than or equal to end_date.")
-    return start_date, end_date
+    trade_date = normalize_iso_trade_date(config.trade_date).replace("-", "")
+    return trade_date, trade_date
 
 
 def _selected_partition_keys(context: dg.AssetExecutionContext) -> tuple[str, ...]:

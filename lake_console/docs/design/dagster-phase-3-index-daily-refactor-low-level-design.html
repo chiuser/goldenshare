@@ -386,7 +386,7 @@
 
     assets/
       index_daily.py
-        IndexDailyRawUpdateConfig
+        IndexDailyRawByCodeConfig
         raw_tushare_index_daily_by_code
         silver_index_daily
         materialize_silver_index_daily_partitions(...)
@@ -517,7 +517,7 @@
       </tr>
       <tr>
         <th>Config</th>
-        <td><code>IndexDailyRawUpdateConfig(start_date, end_date, write_mode)</code></td>
+        <td><code>IndexDailyRawByCodeConfig(trade_date, write_mode)</code></td>
       </tr>
       <tr>
         <th>Output</th>
@@ -527,14 +527,13 @@
     </table>
 
     <h3>6.1 Config 类型</h3>
-    <pre>class IndexDailyRawUpdateConfig(dg.Config):
-    start_date: str
-    end_date: str
+    <pre>class IndexDailyRawByCodeConfig(dg.Config):
+    trade_date: str
     write_mode: Literal["replace"]</pre>
     <ul>
-      <li><code>start_date</code> 和 <code>end_date</code> 接受 <code>YYYY-MM-DD</code>，请求 Tushare 前转换为 <code>YYYYMMDD</code>。</li>
-      <li>必须校验 <code>start_date &lt;= end_date</code>。</li>
-      <li>必须校验 <code>start_date &gt;= 2000-01-01</code>。</li>
+      <li><code>trade_date</code> 接受 <code>YYYY-MM-DD</code>，请求 Tushare 前转换为 <code>YYYYMMDD</code>。</li>
+      <li>asset 内部把 <code>trade_date</code> 映射为 <code>start_date=end_date=trade_date</code>。</li>
+      <li>必须校验 <code>trade_date &gt;= 2000-01-01</code>。</li>
       <li>Sensor 日更默认传 <code>write_mode="replace"</code>。</li>
       <li>人工补数第一版也只允许 <code>replace</code>；<code>merge</code> 暂不实现。</li>
     </ul>
@@ -543,8 +542,8 @@
     <pre>api_name = "index_daily"
 params = {
   "ts_code": context.partition_key,
-  "start_date": "YYYYMMDD",
-  "end_date": "YYYYMMDD",
+  "start_date": "YYYYMMDD",  # derived from trade_date
+  "end_date": "YYYYMMDD",    # derived from trade_date
   "limit": 8000,
   "offset": 0 / 8000 / ...
 }
@@ -809,7 +808,7 @@ def index_daily_sensor(context):
       </tr>
       <tr>
         <td>run config</td>
-        <td><code>start_date=trade_date</code>、<code>end_date=trade_date</code>、<code>write_mode=replace</code></td>
+        <td><code>trade_date=&lt;目标交易日&gt;</code>、<code>write_mode=replace</code></td>
       </tr>
       <tr>
         <td>单 tick 限流</td>
@@ -867,7 +866,7 @@ def silver_index_daily_sensor(context):
           <code>asset_family=index_daily</code>、<code>trade_date=&lt;目标交易日&gt;</code>、<code>index_ts_code=&lt;代码&gt;</code>
           这组三个自定义 tags；如果是 UI/backfill 手动补跑且没有自定义 tags，则用 Dagster 系统 tag
           <code>dagster/partition=&lt;代码&gt;</code> 识别代码，并要求 run config 中
-          <code>start_date=end_date=&lt;目标交易日&gt;</code>。该门禁不读取 raw parquet，不扫描 raw asset materialization 或 check history。
+          <code>trade_date=&lt;目标交易日&gt;</code>。该门禁不读取 raw parquet，不扫描 raw asset materialization 或 check history。
         </td>
       </tr>
       <tr>

@@ -405,7 +405,7 @@
         <td>Raw</td>
         <td><code>raw_tushare_index_daily_by_code[ts_code]</code></td>
         <td><code>cn_a_index_ts_codes</code></td>
-        <td>按单个指数代码向 Tushare 拉取 <code>start_date</code> 到 <code>end_date</code> 的日线数据，写入该代码自己的 raw parquet。</td>
+        <td>按单个指数代码和单个 <code>trade_date</code> 向 Tushare 拉取日线数据，内部使用 <code>start_date=end_date=trade_date</code>，写入该代码自己的 raw parquet。</td>
       </tr>
       <tr>
         <td>Silver</td>
@@ -539,7 +539,7 @@ silver_index_daily_update_job[trade_date]
           </div>
           <div class="node job">
             <strong><code>index_daily_update_job[ts_code]</code></strong>
-            partitioned asset job。每个 Dagster run 对应一个 <code>ts_code</code>，run config 提供 <code>start_date/end_date/write_mode</code>。
+            partitioned asset job。每个 Dagster run 对应一个 <code>ts_code</code>，run config 提供 <code>trade_date/write_mode</code>。
           </div>
           <div class="node job">
             <strong><code>silver_index_daily_update_job[trade_date]</code></strong>
@@ -785,7 +785,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <th>Config</th>
-        <td><code>start_date</code>、<code>end_date</code>、<code>write_mode</code></td>
+        <td><code>trade_date</code>、<code>write_mode</code></td>
       </tr>
       </tbody>
     </table>
@@ -826,10 +826,9 @@ silver_index_daily_update_job[trade_date]
 
   <section>
     <h2>7. Run Config 契约</h2>
-    <p>Raw 更新 job 的 config 只表达时间窗口和写入方式，不再表达指数代码。指数代码来自 partition key。</p>
+    <p>Raw 更新 job 的 config 只表达目标交易日和写入方式，不再表达指数代码。指数代码来自 partition key；底层 Tushare 请求窗口由 asset 内部映射为 <code>start_date=end_date=trade_date</code>。</p>
     <pre>ops 或 asset config:
-  start_date: "2026-05-22"
-  end_date: "2026-05-22"
+  trade_date: "2026-05-22"
   write_mode: "replace"</pre>
     <table>
       <thead>
@@ -842,16 +841,10 @@ silver_index_daily_update_job[trade_date]
       </thead>
       <tbody>
       <tr>
-        <td><code>start_date</code></td>
+        <td><code>trade_date</code></td>
         <td>string</td>
-        <td>请求 Tushare 的起始日期，配置中建议用 <code>YYYY-MM-DD</code>，请求时转换为 <code>YYYYMMDD</code>。</td>
-        <td>必须不早于 <code>2000-01-01</code>；必须小于等于 <code>end_date</code>。</td>
-      </tr>
-      <tr>
-        <td><code>end_date</code></td>
-        <td>string</td>
-        <td>请求 Tushare 的结束日期。</td>
-        <td>不得大于当前已完成交易日，除非是明确的人工验证。</td>
+        <td>本次 raw-by-code 更新的目标交易日，配置中使用 <code>YYYY-MM-DD</code>，请求 Tushare 前转换为 <code>YYYYMMDD</code>。</td>
+        <td>必须不早于 <code>2000-01-01</code>；主入口不接受日期区间。</td>
       </tr>
       <tr>
         <td><code>write_mode</code></td>
@@ -874,8 +867,8 @@ silver_index_daily_update_job[trade_date]
       <tbody>
       <tr>
         <td><code>replace</code></td>
-        <td>把当前 <code>ts_code</code> 文件中落在 <code>[start_date,end_date]</code> 区间内的旧行删除，再写入本次 Tushare 返回行；区间外历史保留。</td>
-        <td>日更单日、指定窗口重刷、修正某一段历史。它不是整文件删除重建，除非时间窗口覆盖整段历史。</td>
+        <td>把当前 <code>ts_code</code> 文件中目标 <code>trade_date</code> 的旧行删除，再写入本次 Tushare 返回行；其它日期历史保留。</td>
+        <td>日更单日、单日缺口修复。区间修复不是主入口能力，如需支持必须单独设计 repair 入口。</td>
       </tr>
       <tr>
         <td><code>merge</code></td>
@@ -943,13 +936,9 @@ silver_index_daily_update_job[trade_date]
     ops:
       raw_tushare_index_daily_by_code:
         config:
-          start_date: "2026-05-22"
-          end_date: "2026-05-22"
+          trade_date: "2026-05-22"
           write_mode: "replace"
-  tags:
-    asset_family: "index_daily"
-    trade_date: "2026-05-22"
-    index_ts_code: "000001.SH"</pre>
+  tags: {}</pre>
     <div class="warn callout">
       <p>
         Sensor 触发多代码时会产生多个 run。之前讨论已经接受这类 runs 展示较多的问题。

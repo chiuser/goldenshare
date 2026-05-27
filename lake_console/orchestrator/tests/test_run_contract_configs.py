@@ -7,7 +7,7 @@ from orchestrator.defs.run_contracts.requests import build_run_request
 
 
 class RunContractConfigTests(unittest.TestCase):
-    def test_index_daily_update_job_run_config_maps_trade_date_to_raw_window(self) -> None:
+    def test_index_daily_update_job_run_config_uses_trade_date_schema(self) -> None:
         self.assertEqual(
             build_index_daily_update_job_run_config(
                 trade_date="2026-05-26",
@@ -17,8 +17,7 @@ class RunContractConfigTests(unittest.TestCase):
                 "ops": {
                     "raw_tushare_index_daily_by_code": {
                         "config": {
-                            "start_date": "2026-05-26",
-                            "end_date": "2026-05-26",
+                            "trade_date": "2026-05-26",
                             "write_mode": "replace",
                         }
                     }
@@ -47,7 +46,7 @@ class RunContractConfigTests(unittest.TestCase):
         self.assertEqual(request.partition_key, "000001.SH")
         self.assertEqual(
             request.run_config["ops"]["raw_tushare_index_daily_by_code"]["config"][
-                "start_date"
+                "trade_date"
             ],
             "2026-05-26",
         )

@@ -1,4 +1,4 @@
-"""Typed config helpers for job-level run configuration."""
+"""Typed config helpers for Dagster run configuration."""
 
 from datetime import datetime
 from typing import Literal
@@ -7,7 +7,7 @@ import dagster as dg
 from pydantic import Field
 
 
-class IndexDailyUpdateJobConfig(dg.Config):
+class IndexDailyRawByCodeConfig(dg.Config):
     trade_date: str = Field(description="指数日线 raw-by-code 本次更新的目标交易日，格式 YYYY-MM-DD。")
     write_mode: Literal["replace"] = Field(
         default="replace",
@@ -26,14 +26,13 @@ def normalize_iso_trade_date(value: str, *, field_name: str = "trade_date") -> s
     return parsed.isoformat()
 
 
-def build_index_daily_raw_op_config(config: IndexDailyUpdateJobConfig) -> dict[str, object]:
+def build_index_daily_raw_op_config(config: IndexDailyRawByCodeConfig) -> dict[str, object]:
     normalized_trade_date = normalize_iso_trade_date(config.trade_date)
     return {
         "ops": {
             "raw_tushare_index_daily_by_code": {
                 "config": {
-                    "start_date": normalized_trade_date,
-                    "end_date": normalized_trade_date,
+                    "trade_date": normalized_trade_date,
                     "write_mode": config.write_mode,
                 }
             }
@@ -47,7 +46,7 @@ def build_index_daily_update_job_run_config(
     write_mode: Literal["replace"] = "replace",
 ) -> dict[str, object]:
     return build_index_daily_raw_op_config(
-        IndexDailyUpdateJobConfig(
+        IndexDailyRawByCodeConfig(
             trade_date=trade_date,
             write_mode=write_mode,
         )
