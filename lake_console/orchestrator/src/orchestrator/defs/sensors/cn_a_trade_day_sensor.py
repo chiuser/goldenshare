@@ -1,4 +1,3 @@
-import json
 from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime, time
@@ -9,6 +8,10 @@ import duckdb
 
 from orchestrator.defs.partitions import cn_a_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 
@@ -114,18 +117,32 @@ def build_trade_day_partition_decision(
 
 
 def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime) -> str:
-    payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "latest_completed_trade_date": decision.latest_completed_trade_date,
-        "today": decision.today,
-        "today_is_open": decision.today_is_open,
-        "same_day_register_window_started": decision.same_day_register_window_started,
-        "eligible_open_day_count": decision.eligible_open_day_count,
-        "unregistered_count": len(decision.unregistered_keys),
-        "selected_keys": list(decision.selected_keys),
-        "max_partition_keys_per_tick": MAX_PARTITION_KEYS_PER_TICK,
-    }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    cursor_decision = (
+        SensorCursorDecision.REGISTER_PARTITIONS
+        if decision.selected_keys
+        else SensorCursorDecision.SKIP
+    )
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=cursor_decision,
+        target_date=decision.latest_completed_trade_date,
+        selected_count=len(decision.selected_keys),
+        blocked_count=max(
+            0,
+            len(decision.unregistered_keys) - len(decision.selected_keys),
+        ),
+        sample_keys=decision.selected_keys,
+        details={
+            "latest_completed_trade_date": decision.latest_completed_trade_date,
+            "today": decision.today,
+            "today_is_open": decision.today_is_open,
+            "same_day_register_window_started": decision.same_day_register_window_started,
+            "eligible_open_day_count": decision.eligible_open_day_count,
+            "unregistered_count": len(decision.unregistered_keys),
+            "selected_keys": list(decision.selected_keys),
+            "max_partition_keys_per_tick": MAX_PARTITION_KEYS_PER_TICK,
+        },
+    )
 
 
 def _log_trade_day_partition_decision(

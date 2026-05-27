@@ -258,7 +258,7 @@
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M6 已实施，M7-M8 待推进</div>
+      <div class="chip"><strong>文档状态</strong>治理专项方案；M1-M7 已实施，M8 待推进</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
       <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
       <div class="chip"><strong>更新日期</strong>2026-05-28</div>
@@ -268,7 +268,7 @@
   <section>
     <h2>1. 背景与问题</h2>
     <p>
-      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M6 已先处理 run tags、指数日线主入口 config、asset tags、中文名和 metadata 分层；cursor 标准化仍按后续 milestone 推进。
+      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M7 已先处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层和 cursor 标准化；M8 继续补静态门禁。
     </p>
     <p>
       这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
@@ -1127,6 +1127,13 @@ write_mode: "replace"</code></pre>
     <p>
       Cursor 是 sensor 私有状态，不是跨 sensor 契约。它可以帮助诊断最近一次 tick 为什么 skip 或 request，但不能作为下游资产 ready 的唯一事实源。
     </p>
+    <div class="note">
+      <strong>M7 已实施口径：</strong>所有会写 cursor 的普通 sensor 已统一使用
+      <code>build_sensor_cursor(...)</code> 写出 v1 结构。<code>index_daily_sensor</code>
+      需要跨 tick 推进 raw-by-code 批次，<code>next_pending_offset</code> 只允许放在
+      <code>details.next_pending_offset</code>；缺失、非法或旧无版本 cursor 按安全默认值处理，
+      即从 offset 0 重新开始扫描，正确性仍由 raw 文件事实和 <code>run_key</code> 去重保证。
+    </div>
 
     <table>
       <thead>
@@ -1444,12 +1451,12 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       <tr>
         <td><code>M7</code> Cursor 标准化</td>
         <td>统一 sensor cursor 的诊断结构，避免 cursor 变成跨 sensor 契约或长期事实源。</td>
-        <td><code>M2</code> 后可以开始，建议在对应 sensor 逻辑稳定后逐个做。</td>
+        <td>已实施；在 M6 metadata 分层后推进。</td>
         <td><code>defs/sensors/**/*.py</code>。</td>
         <td>
           新 cursor 顶层包含 <code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code>；
-          cursor 不保存跨 tick 正向 ready 事实；
-          缺失或格式异常的旧 cursor 按安全默认值处理。
+          cursor 不保存跨 tick 正向 ready 事实；所有 sensor 文件不再本地手写 <code>json.dumps</code> / <code>json.loads</code>；
+          <code>index_daily_sensor</code> 的 <code>next_pending_offset</code> 只保存在 <code>details</code>。
         </td>
         <td>
           不读取正式 Dagster instance 做迁移；
@@ -1524,7 +1531,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/sensors/stock_basic_sensor.py</code></td>
-        <td>提交 <code>stock_basic_update_job</code> 时不再写 <code>triggered_by</code> 和 <code>target_trade_date</code> run tags；cursor 继续记录 <code>target_trade_date</code>、ready 状态和 reason。</td>
+        <td>提交 <code>stock_basic_update_job</code> 时不再写 <code>triggered_by</code> 和 <code>target_trade_date</code> run tags；cursor 顶层使用 <code>target_date</code>，ready 状态和 reason 放入 <code>details</code>。</td>
         <td>数据生产低风险；<code>target_trade_date</code> 作为 run tag 是重复诊断信息。</td>
         <td>目标日期诊断只保留在 cursor / SkipReason / readiness 结果中。</td>
       </tr>
@@ -1562,7 +1569,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
         <td>当前 15 个正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
         <td>M5 覆盖 asset definition 层低基数分类；M6 已覆盖 definition/materialization/check 三层 metadata。旧历史 run metadata 不迁移。</td>
-        <td>后续 M7 进入 sensor cursor 标准化；M8 再把 metadata 契约纳入静态门禁，避免新增 asset/check 又裸写旧字段。</td>
+        <td>M7 已完成 sensor cursor 标准化；M8 再把 metadata/cursor 契约纳入静态门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
       </tr>
       </tbody>
     </table>

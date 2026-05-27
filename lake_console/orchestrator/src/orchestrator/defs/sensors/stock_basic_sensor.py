@@ -1,9 +1,12 @@
-import json
 from datetime import datetime
 
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
@@ -15,17 +18,30 @@ from orchestrator.defs.sensors.readiness import (
 def _cursor_payload(
     *,
     evaluated_at: datetime,
+    decision: SensorCursorDecision,
     target_trade_date: str | None,
     ready: bool | None,
     readiness_reason: str | None,
+    asset_statuses: dict[str, object] | None = None,
 ) -> str:
-    payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "target_trade_date": target_trade_date,
+    details: dict[str, object] = {
         "ready": ready,
         "readiness_reason": readiness_reason,
     }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    if asset_statuses is not None:
+        details["asset_statuses"] = asset_statuses
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=decision,
+        target_date=target_trade_date,
+        selected_count=1 if decision == SensorCursorDecision.REQUEST_RUNS else 0,
+        sample_keys=(
+            (target_trade_date,)
+            if decision == SensorCursorDecision.REQUEST_RUNS and target_trade_date
+            else ()
+        ),
+        details=details,
+    )
 
 
 @dg.sensor(
@@ -47,6 +63,7 @@ def stock_basic_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
             skip_reason="当前还没有已注册交易日分区，暂不触发股票基础信息日更快照。",
             cursor=_cursor_payload(
                 evaluated_at=evaluated_at,
+                decision=SensorCursorDecision.SKIP,
                 target_trade_date=None,
                 ready=None,
                 readiness_reason="no registered trade day partitions",
@@ -55,14 +72,19 @@ def stock_basic_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
 
     target_trade_date = registered_keys[-1]
     readiness = stock_basic_ready_for_trade_date(context.instance, target_trade_date)
-    cursor_payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "target_trade_date": target_trade_date,
-        "ready": readiness.ready,
-        "readiness_reason": readiness.reason,
-        "asset_statuses": status_payload(readiness),
-    }
-    cursor = json.dumps(cursor_payload, ensure_ascii=True, sort_keys=True)
+    cursor_decision = (
+        SensorCursorDecision.SKIP
+        if readiness.ready
+        else SensorCursorDecision.REQUEST_RUNS
+    )
+    cursor = _cursor_payload(
+        evaluated_at=evaluated_at,
+        decision=cursor_decision,
+        target_trade_date=target_trade_date,
+        ready=readiness.ready,
+        readiness_reason=readiness.reason,
+        asset_statuses=status_payload(readiness),
+    )
 
     if readiness.ready:
         return dg.SensorResult(

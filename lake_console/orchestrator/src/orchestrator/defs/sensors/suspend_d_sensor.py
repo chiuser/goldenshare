@@ -1,9 +1,12 @@
-import json
 from datetime import datetime
 
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
@@ -23,14 +26,25 @@ def _cursor_payload(
     pending_keys: tuple[str, ...],
     selected_keys: tuple[str, ...],
 ) -> str:
-    payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "registered_count": registered_count,
-        "pending_count": len(pending_keys),
-        "selected_keys": list(selected_keys),
-        "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-    }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    decision = (
+        SensorCursorDecision.REQUEST_RUNS
+        if selected_keys
+        else SensorCursorDecision.SKIP
+    )
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=decision,
+        target_date=selected_keys[0] if selected_keys else None,
+        selected_count=len(selected_keys),
+        blocked_count=max(0, len(pending_keys) - len(selected_keys)),
+        sample_keys=selected_keys if selected_keys else pending_keys,
+        details={
+            "registered_count": registered_count,
+            "pending_count": len(pending_keys),
+            "selected_keys": list(selected_keys),
+            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+        },
+    )
 
 
 @dg.sensor(

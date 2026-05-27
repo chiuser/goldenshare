@@ -1,4 +1,3 @@
-import json
 from datetime import datetime, time
 from pathlib import Path
 from typing import Any
@@ -9,6 +8,12 @@ from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import raw_index_daily_by_code_path
 from orchestrator.defs.run_contracts.configs import build_index_daily_update_job_run_config
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+    load_sensor_cursor,
+    sensor_cursor_details,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from orchestrator.source_readiness.tushare.index_daily import (
@@ -18,16 +23,6 @@ from orchestrator.source_readiness.tushare.index_daily import (
 
 INDEX_DAILY_SOURCE_PROBE_START = time(16, 0)
 MAX_RUN_REQUESTS_PER_TICK = 500
-
-
-def _load_cursor(cursor: str | None) -> dict[str, Any]:
-    if not cursor:
-        return {}
-    try:
-        payload = json.loads(cursor)
-    except json.JSONDecodeError:
-        return {}
-    return payload if isinstance(payload, dict) else {}
 
 
 def _latest_runnable_trade_date(
@@ -89,8 +84,8 @@ def _select_pending_codes(
     if not pending_codes:
         return (), 0
 
-    cursor_trade_date = cursor_payload.get("target_trade_date")
-    raw_offset = cursor_payload.get("next_pending_offset", 0)
+    cursor_trade_date = cursor_payload.get("target_date")
+    raw_offset = sensor_cursor_details(cursor_payload).get("next_pending_offset", 0)
     start_offset = raw_offset if cursor_trade_date == target_trade_date else 0
     if not isinstance(start_offset, int) or start_offset < 0:
         start_offset = 0
@@ -115,21 +110,30 @@ def _cursor_payload(
     selected_codes: tuple[str, ...],
     next_pending_offset: int,
 ) -> str:
-    payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "today": today,
-        "registered_trade_day_count": registered_trade_day_count,
-        "registered_code_count": registered_code_count,
-        "target_trade_date": target_trade_date,
-        "source_ready": source_ready,
-        "source_row_count": source_row_count,
-        "pending_count": pending_count,
-        "selected_count": len(selected_codes),
-        "selected_codes": list(selected_codes),
-        "next_pending_offset": next_pending_offset,
-        "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-    }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    decision = (
+        SensorCursorDecision.REQUEST_RUNS
+        if selected_codes
+        else SensorCursorDecision.SKIP
+    )
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=decision,
+        target_date=target_trade_date,
+        selected_count=len(selected_codes),
+        blocked_count=max(0, pending_count - len(selected_codes)),
+        sample_keys=selected_codes,
+        details={
+            "today": today,
+            "registered_trade_day_count": registered_trade_day_count,
+            "registered_code_count": registered_code_count,
+            "source_ready": source_ready,
+            "source_row_count": source_row_count,
+            "pending_count": pending_count,
+            "selected_codes": list(selected_codes),
+            "next_pending_offset": next_pending_offset,
+            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+        },
+    )
 
 
 @dg.sensor(
@@ -231,7 +235,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         trade_date=target_trade_date,
     )
     selected_codes, next_pending_offset = _select_pending_codes(
-        cursor_payload=_load_cursor(context.cursor),
+        cursor_payload=load_sensor_cursor(context.cursor),
         target_trade_date=target_trade_date,
         pending_codes=pending_codes,
     )

@@ -1,9 +1,12 @@
-import json
 from datetime import datetime
 
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
@@ -33,18 +36,38 @@ def _cursor_payload(
     source_not_ready_keys: tuple[str, ...],
     readiness_details: dict[str, object],
 ) -> str:
-    payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "registered_count": registered_count,
-        "pending_count": len(pending_keys),
-        "selected_keys": list(selected_keys),
-        "blocked_basic_keys": list(blocked_basic_keys),
-        "blocked_suspend_keys": list(blocked_suspend_keys),
-        "source_not_ready_keys": list(source_not_ready_keys),
-        "readiness_details": readiness_details,
-        "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-    }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    blocked_keys = (*blocked_basic_keys, *blocked_suspend_keys, *source_not_ready_keys)
+    decision = (
+        SensorCursorDecision.REQUEST_RUNS
+        if selected_keys
+        else SensorCursorDecision.SKIP
+    )
+    target_date = (
+        selected_keys[0]
+        if selected_keys
+        else pending_keys[0]
+        if pending_keys
+        else None
+    )
+    sample_keys = selected_keys or blocked_keys or pending_keys
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=decision,
+        target_date=target_date,
+        selected_count=len(selected_keys),
+        blocked_count=len(blocked_keys),
+        sample_keys=sample_keys,
+        details={
+            "registered_count": registered_count,
+            "pending_count": len(pending_keys),
+            "selected_keys": list(selected_keys),
+            "blocked_basic_keys": list(blocked_basic_keys),
+            "blocked_suspend_keys": list(blocked_suspend_keys),
+            "source_not_ready_keys": list(source_not_ready_keys),
+            "readiness_details": readiness_details,
+            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+        },
+    )
 
 
 @dg.sensor(

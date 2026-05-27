@@ -923,8 +923,8 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>cursor</td>
-        <td>记录目标交易日、下一批缺口偏移量、缺口数量和本次选择数量。</td>
-        <td>cursor 只推进批次；是否缺数据仍以 raw 文件里是否已有目标 <code>trade_date</code> 为准。</td>
+        <td>使用 v1 cursor 顶层记录 <code>target_date</code>、<code>decision</code>、<code>selected_count</code>、<code>blocked_count</code> 和样本；下一批缺口偏移量只保存在 <code>details.next_pending_offset</code>。</td>
+        <td>cursor 只推进同一个 sensor 的批次；是否缺数据仍以 raw 文件里是否已有目标 <code>trade_date</code> 为准。</td>
       </tr>
       </tbody>
     </table>
@@ -979,13 +979,13 @@ silver_index_daily_update_job[trade_date]
         <td>Ready 条件</td>
         <td>
           读取 <code>cn_a_index_ts_codes</code>，计算目标日期应参与的指数代码集合；每个代码的
-          <code>raw_tushare_index_daily_by_code[ts_code]</code> 文件必须包含目标 <code>trade_date</code>，
-          且该 raw asset 分区最近一次 blocking checks 必须通过。
+          <code>raw_tushare_index_daily_by_code[ts_code]</code> 文件必须包含目标 <code>trade_date</code>。
+          该 sensor 不扫描 raw check history；真正的数据质量由 raw/silver asset checks 暴露。
         </td>
       </tr>
       <tr>
         <td>缺口处理</td>
-        <td>任一应参与代码缺 raw、缺目标日期或 raw blocking checks 未通过，则返回中文 skip reason，并在 cursor/log metadata 中输出缺口统计和样本；不触发 silver。</td>
+        <td>任一应参与代码缺 raw 文件或缺目标日期，则返回中文 skip reason，并在 cursor/log metadata 中输出缺口统计和样本；不触发 silver。</td>
       </tr>
       <tr>
         <td>触发方式</td>
@@ -1001,7 +1001,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>cursor</td>
-        <td>记录 <code>evaluated_at</code>、<code>target_trade_date</code>、<code>registered_code_count</code>、<code>ready_code_count</code>、<code>missing_code_count</code>、<code>selected_trade_date</code>。cursor 只做观测，不替代文件和 checks 判断。</td>
+        <td>使用 v1 cursor 顶层记录 <code>target_date</code>、<code>decision</code>、<code>selected_count</code>、<code>blocked_count</code> 和缺失样本；raw ready 数、缺文件数、缺目标日期数、<code>selected_trade_date</code> 放入 <code>details</code>。cursor 只做观测，不替代文件判断。</td>
       </tr>
       </tbody>
     </table>
@@ -1145,7 +1145,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>Slice G</td>
-        <td>新增 <code>silver_index_daily_sensor</code>，在 raw-by-code 当日数据全部 ready 且 raw blocking checks 通过后，自动触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+        <td>新增 <code>silver_index_daily_sensor</code>，在所有注册指数代码的 raw-by-code 文件都包含当日数据后，自动触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
         <td>只做日常最新交易日自动化；不做历史批量，不调用 Tushare，不写 raw。</td>
       </tr>
       </tbody>

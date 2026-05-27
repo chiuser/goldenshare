@@ -1,9 +1,12 @@
-import json
 from datetime import datetime
 
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     IndexDailyRawFileReadiness,
@@ -62,22 +65,42 @@ def _cursor_payload(
     raw_scan_error_code: str | None = None,
     raw_scan_error: str | None = None,
 ) -> str:
-    payload = {
-        "evaluated_at": evaluated_at.isoformat(),
-        "target_trade_date": target_trade_date,
-        "registered_trade_day_count": registered_trade_day_count,
-        "registered_code_count": registered_code_count,
-        "raw_ready_code_count": raw_ready_code_count,
-        "missing_raw_file_count": missing_raw_file_count,
-        "missing_raw_trade_date_count": missing_raw_trade_date_count,
-        "selected_trade_date": selected_trade_date,
-        "silver_status": _asset_status_payload(silver_status) if silver_status else None,
-        "missing_raw_file_samples": list(missing_raw_file_samples),
-        "missing_raw_trade_date_samples": list(missing_raw_trade_date_samples),
-        "raw_scan_error_code": raw_scan_error_code,
-        "raw_scan_error": raw_scan_error,
-    }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    decision = (
+        SensorCursorDecision.REQUEST_RUNS
+        if selected_trade_date
+        else SensorCursorDecision.SKIP
+    )
+    blocked_count = missing_raw_file_count + missing_raw_trade_date_count
+    if raw_scan_error:
+        blocked_count = max(blocked_count, registered_code_count)
+    sample_keys = (
+        missing_raw_file_samples
+        or missing_raw_trade_date_samples
+        or ((selected_trade_date,) if selected_trade_date else ())
+    )
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=decision,
+        target_date=target_trade_date,
+        selected_count=1 if selected_trade_date else 0,
+        blocked_count=blocked_count,
+        sample_keys=sample_keys,
+        details={
+            "registered_trade_day_count": registered_trade_day_count,
+            "registered_code_count": registered_code_count,
+            "raw_ready_code_count": raw_ready_code_count,
+            "missing_raw_file_count": missing_raw_file_count,
+            "missing_raw_trade_date_count": missing_raw_trade_date_count,
+            "selected_trade_date": selected_trade_date,
+            "silver_status": _asset_status_payload(silver_status)
+            if silver_status
+            else None,
+            "missing_raw_file_samples": list(missing_raw_file_samples),
+            "missing_raw_trade_date_samples": list(missing_raw_trade_date_samples),
+            "raw_scan_error_code": raw_scan_error_code,
+            "raw_scan_error": raw_scan_error,
+        },
+    )
 
 
 def _raw_file_readiness_cursor_fields(
