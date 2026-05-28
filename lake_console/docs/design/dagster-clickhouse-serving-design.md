@@ -1,6 +1,6 @@
 # Dagster ClickHouse Serving 接入设计
 
-更新时间：2026-05-27
+更新时间：2026-05-28
 
 ## 1. 背景与目标
 
@@ -69,6 +69,36 @@ gold_stock_return_distribution[trade_date]
 ```
 
 这两个资产都直接依赖 `silver_stock_daily[trade_date]`，并且已经通过各自 gold checks 管理数据质量。
+
+重构后当前代码对照：
+
+```text
+defs/assets/market_breadth.py
+  gold_market_breadth_daily
+  automation_condition = eager() & all_deps_blocking_checks_passed()
+
+defs/assets/stock_return_distribution.py
+  gold_stock_return_distribution
+  automation_condition = eager() & all_deps_blocking_checks_passed()
+
+defs/jobs/daily_market_breadth.py
+  daily_market_breadth_job
+  只选择 gold_market_breadth_daily + 对应 checks
+
+defs/jobs/stock_return_distribution_daily.py
+  stock_return_distribution_daily_job
+  只选择 gold_stock_return_distribution + 对应 checks
+
+defs/sensors/market_breadth_automation_sensor.py
+  market_breadth_automation_sensor
+  只 target gold_market_breadth_daily，默认 STOPPED
+
+defs/sensors/stock_return_distribution_automation_sensor.py
+  stock_return_distribution_automation_sensor
+  只 target gold_stock_return_distribution，默认 STOPPED
+```
+
+因此 ClickHouse serving 设计必须把这两个 gold assets 当作直接上游，不能回到旧的“普通 sensor 手写文件探测”或“下游补上游”的口径。
 
 ### 2.3 本地 ClickHouse 事实
 
@@ -325,7 +355,8 @@ updated_at DateTime
 1. `flat_count` 已来自 `gold_market_breadth_daily`，不重复保存一份。
 2. `total_count` 以 `gold_market_breadth_daily.total_count` 为主。
 3. `gold_stock_return_distribution.total_count` 必须通过 check 与 `gold_market_breadth_daily.total_count` 一致。
-4. ClickHouse serving 表不重新计算这些字段，只保存 gold 结果的 serving 副本。
+4. `gold_stock_return_distribution.flat_count` 不进入 ClickHouse 表，但必须通过 check 与 `gold_market_breadth_daily.flat_count` 一致；否则说明两个 gold 资产对同一天的“平盘数量”口径或数据源出现偏差。
+5. ClickHouse serving 表不重新计算这些字段，只保存 gold 结果的 serving 副本。
 
 表引擎草案：
 
@@ -432,9 +463,10 @@ V1 / V2 尚未执行前，可以按设计调整。
 3. 校验两个 gold 文件都存在。
 4. 校验两边 `trade_date` 一致。
 5. 校验两边 `total_count` 一致。
-6. 删除 ClickHouse 目标表中同一 `trade_date` 的旧数据。
-7. 插入合并后的 1 行 serving 数据。
-8. 返回 materialization metadata。
+6. 校验两边 `flat_count` 一致。
+7. 删除 ClickHouse 目标表中同一 `trade_date` 的旧数据。
+8. 插入合并后的 1 行 serving 数据。
+9. 返回 materialization metadata。
 
 伪流程：
 
@@ -444,6 +476,7 @@ ch_share_fact_market_breadth_daily[date]
   read gold_stock_return_distribution parquet
   validate same trade_date
   validate same total_count
+  validate same flat_count
   DELETE FROM goldenshare_serving.share_fact_market_breadth_daily WHERE trade_date = date
   INSERT INTO goldenshare_serving.share_fact_market_breadth_daily VALUES (...)
   emit metadata
@@ -466,6 +499,9 @@ ch_share_fact_market_breadth_date_matches_partition
 
 ch_share_fact_market_breadth_total_count_matches_gold
   ClickHouse total_count 必须等于两个 gold asset 的 total_count。
+
+ch_share_fact_market_breadth_flat_count_matches_gold
+  ClickHouse flat_count 必须等于两个 gold asset 的 flat_count。
 
 ch_share_fact_market_breadth_breadth_fields_match_gold
   up_count / down_count / flat_count / red_rate 必须等于 gold_market_breadth_daily。
@@ -657,7 +693,7 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 
 ## 12. 配置审计表
 
-| 配置名 | 默认值 | 来源 | 消费者 | 是否敏感 | 说明 |
+| 配置名 | 本地约定值 | 来源 | 消费者 | 是否敏感 | 说明 |
 |---|---:|---|---|---|---|
 | `CLICKHOUSE_HOST` | `127.0.0.1` | 环境变量 | `ClickhouseResource` | 否 | 本地 ClickHouse host |
 | `CLICKHOUSE_PORT` | `9000` | 环境变量 | `ClickhouseResource` | 否 | native TCP 端口 |
@@ -670,8 +706,8 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 
 1. 不新增散落 env 文件。
 2. 不把密码写入代码、文档、Dagster metadata 或日志。
-3. ClickHouse runtime 连接配置统一走环境变量，不做“一半环境变量、一半代码默认”的混搭。
-4. `CLICKHOUSE_PORT` 在 Python 中必须被转换成 `int` 后传给 `ClickhouseResource`。
+3. ClickHouse runtime 连接配置统一走环境变量，不做“一半环境变量、一半代码默认”的混搭；表中的“本地约定值”是本机应该配置成什么，不是 Python 代码里的 fallback。
+4. `CLICKHOUSE_PORT` 在 Python 中必须被转换成 `int` 后传给 `ClickhouseResource`。Slice CH-2 需要先核验当前 `dagster-clickhouse` 的 `ClickhouseResource` 构造参数和 Dagster `EnvVar` 对整数配置的支持方式；如果不能干净表达“env 注入 + int 转换 + definitions 加载不连接”，必须停下讨论，不能硬编码端口或自造临时配置。
 5. Flyway migration 可以使用独立 JDBC URL，但 host / port / user / password / database 口径必须与本地 ClickHouse 配置一致。
 6. Flyway 使用 HTTP `8123`，Dagster runtime 使用 native `9000`；这是工具协议差异，不代表业务配置分裂。
 7. `flyway repair` 禁止作为日常命令；需要用户明确批准。
@@ -685,12 +721,13 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 目标：
 
 1. 安装或确认本机 Flyway CLI 可用。
-2. 新增独立 ClickHouse Flyway migration 环境。
-3. 新增 `flyway.conf` 和 `sql/` 目录。
-4. 新增 `V1__create_goldenshare_serving_database.sql`。
-5. 新增 `V2__create_share_fact_market_breadth_daily.sql`。
-6. 执行 `flyway info` / `flyway migrate` / `flyway validate`。
-7. 提供明确执行命令。
+2. 确认 Flyway 能识别 ClickHouse JDBC 连接，必要时明确 ClickHouse JDBC driver / plugin 的安装方式。
+3. 新增独立 ClickHouse Flyway migration 环境。
+4. 新增 `flyway.conf` 和 `sql/` 目录。
+5. 新增 `V1__create_goldenshare_serving_database.sql`。
+6. 新增 `V2__create_share_fact_market_breadth_daily.sql`。
+7. 执行 `flyway info` / `flyway migrate` / `flyway validate`。
+8. 提供明确执行命令。
 
 不做：
 
@@ -702,10 +739,11 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 验收：
 
 1. Flyway CLI 可执行。
-2. ClickHouse 中能看到数据库和表。
-3. 表结构与契约一致。
-4. Flyway schema history 可查询。
-5. `flyway validate` 通过。
+2. Flyway 的 ClickHouse JDBC 连接能力已被验证，不把“CLI 存在”误判成“ClickHouse migration 可用”。
+3. ClickHouse 中能看到数据库和表。
+4. 表结构与契约一致。
+5. Flyway schema history 可查询。
+6. `flyway validate` 通过。
 
 ### Slice CH-2：dagster-clickhouse Resource
 
@@ -715,6 +753,7 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 2. 注册官方 `ClickhouseResource`，resource key 为 `clickhouse`。
 3. 使用 native `9000`。
 4. 完成 resource 配置审计。
+5. 明确 `CLICKHOUSE_HOST`、`CLICKHOUSE_PORT`、`CLICKHOUSE_USER`、`CLICKHOUSE_PASSWORD`、`CLICKHOUSE_DATABASE` 的 env 注入方式和缺失行为。
 
 不做：
 
@@ -728,6 +767,7 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 2. resource 只有在实际调用时才连接 ClickHouse。
 3. 本地连接错误清晰暴露。
 4. 沙箱内 native 连接限制不误判为 ClickHouse 配置失败。
+5. 不出现硬编码 host / port / user / database 的代码 fallback。
 
 ### Slice CH-3：`ch_share_fact_market_breadth_daily` asset
 
