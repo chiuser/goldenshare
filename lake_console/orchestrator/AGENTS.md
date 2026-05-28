@@ -79,6 +79,20 @@ https://docs.dagster.io/guides/test/asset-checks
 5. 文档修改也要区分“记录已确认口径”和“提出待确认方案”；未经确认的方案不得写成已实现或已拍板事实。
 6. 紧急修复也不能绕过设计确认；至少必须先说明要恢复什么、为什么恢复、会改哪些文件、是否会影响正在运行任务，并等待用户批准。
 
+### 正式方案优先门禁
+
+Dagster orchestrator 是正式项目，不接受“先跑通再说”的默认开发方式。任何进入正式代码、正式文档、正式 Definitions、正式数据湖路径或正式数据库对象的设计，必须按长期方案对待。
+
+规则：
+
+1. 默认输出正式方案，不得用“先跑通”“临时先这样”“以后再补”掩盖设计评估不足。
+2. 正式方案必须在设计阶段考虑长期契约、字段 schema、definition metadata、materialization metadata、asset checks、UI 可观测性、自动化边界、迁移成本、退场成本和文档同步。
+3. 如果确实需要验证系统能力，必须明确标记为“验证动作”或“验证代码”，不得伪装成正式链路，不得接入 active Definitions，不得写入正式数据湖或正式数据库，除非用户明确批准。
+4. 验证代码或验证配置必须有明确删除条件、负责人为当前任务、清理步骤和验收方式；禁止让验证代码沉淀成历史包袱。
+5. 对 Dagster、ClickHouse、Tushare、schema metadata、automation、checks、partitions 等平台能力不确定时，必须先查官方文档、看当前代码、必要时做经批准的最小验证；禁止不懂装懂或凭印象编码。
+6. 新增正式资产时，稳定字段契约应优先写入 asset definition metadata；materialization metadata 只记录本次运行实际结果，例如 path、row_count、observed columns、样本和统计。不得只依赖 materialization metadata 承载正式资产契约。
+7. 若发现早期实现是为了验证或过渡而遗留的临时口径，必须主动提出清理或重构方案，不能继续在临时方案上叠补丁。
+
 ### 文档目录归档门禁
 
 `lake_console` 下的 Dagster 相关文档必须按文档职责归档，禁止继续散落在 `lake_console` 根目录或随手新建目录。

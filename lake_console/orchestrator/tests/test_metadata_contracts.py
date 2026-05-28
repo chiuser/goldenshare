@@ -12,6 +12,7 @@ from orchestrator.defs.run_contracts.metadata import (
     DATASET_NAME_METADATA_KEY,
     FAILED_ROW_COUNT_METADATA_KEY,
     FILE_PATH_METADATA_KEY,
+    OBSERVED_COLUMNS_METADATA_KEY,
     PATH_TEMPLATE_METADATA_KEY,
     SOURCE_API_METADATA_KEY,
     SOURCE_CATEGORY_PATH_METADATA_KEY,
@@ -23,6 +24,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_check_metadata,
     build_materialization_metadata,
 )
+from orchestrator.defs.run_contracts.column_schema import ColumnContract
 
 
 class MetadataContractTests(unittest.TestCase):
@@ -50,6 +52,48 @@ class MetadataContractTests(unittest.TestCase):
         self.assertEqual(metadata[DATA_CONTRACT_METADATA_KEY], "source_mirror")
         self.assertIn("stock_daily", metadata[PATH_TEMPLATE_METADATA_KEY])
 
+    def test_asset_definition_metadata_can_register_column_schema(self) -> None:
+        metadata = build_asset_definition_metadata(
+            dataset_id="daily",
+            source_system=SourceSystem.TUSHARE,
+            data_contract="source_mirror",
+            column_schema=(
+                ColumnContract("ts_code", "VARCHAR", "股票代码"),
+                ColumnContract("trade_date", "VARCHAR", "源站交易日，YYYYMMDD 字符串"),
+            ),
+        )
+
+        schema_metadata = metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY]
+        columns = schema_metadata.schema.columns
+        self.assertEqual([column.name for column in columns], ["ts_code", "trade_date"])
+        self.assertEqual([column.type for column in columns], ["VARCHAR", "VARCHAR"])
+        self.assertEqual(
+            [column.description for column in columns],
+            ["股票代码", "源站交易日，YYYYMMDD 字符串"],
+        )
+
+    def test_asset_definition_metadata_rejects_duplicate_column_names(self) -> None:
+        with self.assertRaises(ValueError):
+            build_asset_definition_metadata(
+                dataset_id="daily",
+                source_system=SourceSystem.TUSHARE,
+                data_contract="source_mirror",
+                column_schema=(
+                    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+                    ColumnContract("ts_code", "VARCHAR", "重复股票代码"),
+                ),
+            )
+
+    def test_column_contract_rejects_empty_fields(self) -> None:
+        with self.assertRaises(ValueError):
+            ColumnContract("", "VARCHAR", "股票代码")
+
+        with self.assertRaises(ValueError):
+            ColumnContract("ts_code", "", "股票代码")
+
+        with self.assertRaises(ValueError):
+            ColumnContract("ts_code", "VARCHAR", "")
+
     def test_materialization_metadata_uses_dagster_standard_keys(self) -> None:
         metadata = build_materialization_metadata(
             uri=Path("/tmp/example.parquet"),
@@ -65,6 +109,32 @@ class MetadataContractTests(unittest.TestCase):
         self.assertNotIn("path", metadata)
         self.assertNotIn("row_count", metadata)
         self.assertNotIn("columns", metadata)
+
+    def test_materialization_metadata_records_observed_columns(self) -> None:
+        metadata = build_materialization_metadata(
+            uri=Path("/tmp/example.parquet"),
+            row_count=3,
+            observed_columns=("ts_code", "trade_date"),
+            extra_metadata={"partition_key": "2026-05-26"},
+        )
+
+        self.assertEqual(metadata[DAGSTER_URI_METADATA_KEY], "/tmp/example.parquet")
+        self.assertEqual(metadata[DAGSTER_ROW_COUNT_METADATA_KEY], 3)
+        self.assertEqual(
+            metadata[OBSERVED_COLUMNS_METADATA_KEY],
+            ["ts_code", "trade_date"],
+        )
+        self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, metadata)
+        self.assertEqual(metadata["goldenshare/partition_key"], "2026-05-26")
+
+    def test_materialization_metadata_rejects_mixed_schema_and_observation(
+        self,
+    ) -> None:
+        with self.assertRaises(ValueError):
+            build_materialization_metadata(
+                columns=("ts_code",),
+                observed_columns=("ts_code",),
+            )
 
     def test_materialization_metadata_rejects_legacy_top_level_keys(self) -> None:
         with self.assertRaises(ValueError):
@@ -92,7 +162,7 @@ class MetadataContractTests(unittest.TestCase):
         self.assertEqual(metadata[CHECKED_ROW_COUNT_METADATA_KEY], 3)
         self.assertEqual(metadata[FAILED_ROW_COUNT_METADATA_KEY], 0)
         self.assertEqual(
-            metadata["goldenshare/observed_columns"], ["ts_code", "trade_date"]
+            metadata[OBSERVED_COLUMNS_METADATA_KEY], ["ts_code", "trade_date"]
         )
         self.assertEqual(metadata["goldenshare/missing_columns"], [])
         self.assertNotIn("path", metadata)

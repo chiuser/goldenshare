@@ -8,6 +8,10 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.catalog import get_dataset_chinese_name
+from orchestrator.defs.run_contracts.column_schema import (
+    ColumnContract,
+    build_column_schema_metadata,
+)
 
 
 DAGSTER_URI_METADATA_KEY = "dagster/uri"
@@ -31,6 +35,7 @@ REJECTED_ROW_COUNT_METADATA_KEY = "goldenshare/rejected_row_count"
 REJECT_REASON_COUNTS_METADATA_KEY = "goldenshare/reject_reason_counts"
 SAMPLE_ROWS_METADATA_KEY = "goldenshare/sample_rows"
 READY_FOR_TRADE_DATE_METADATA_KEY = "goldenshare/ready_for_trade_date"
+OBSERVED_COLUMNS_METADATA_KEY = "goldenshare/observed_columns"
 
 CHECK_SCOPE_METADATA_KEY = "goldenshare/check_scope"
 CHECKED_ROW_COUNT_METADATA_KEY = "goldenshare/checked_row_count"
@@ -90,6 +95,7 @@ def build_definition_metadata(
     *,
     source_system: SourceSystem | str,
     data_contract: str,
+    column_schema: Sequence[ColumnContract] | None = None,
     path_template: str | None = None,
     source_api: str | None = None,
     source_category_path: str | None = None,
@@ -110,6 +116,10 @@ def build_definition_metadata(
         metadata[SOURCE_CATEGORY_PATH_METADATA_KEY] = source_category_path
     if source_doc:
         metadata[SOURCE_DOC_METADATA_KEY] = source_doc
+    if column_schema is not None:
+        metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY] = build_column_schema_metadata(
+            column_schema
+        )
     metadata.update(_namespace_goldenshare_metadata(extra_metadata or {}))
     return metadata
 
@@ -119,6 +129,7 @@ def build_asset_definition_metadata(
     dataset_id: str,
     source_system: SourceSystem | str,
     data_contract: str,
+    column_schema: Sequence[ColumnContract] | None = None,
     path_template: str | None = None,
     source_api: str | None = None,
     source_category_path: str | None = None,
@@ -136,6 +147,7 @@ def build_asset_definition_metadata(
             source_api=source_api,
             source_category_path=source_category_path,
             source_doc=source_doc,
+            column_schema=column_schema,
             extra_metadata=extra_metadata,
         ),
     }
@@ -155,9 +167,13 @@ def build_materialization_metadata(
     uri: str | Path | None = None,
     row_count: int | None = None,
     columns: Sequence[str] | Sequence[tuple[str, str]] | None = None,
+    observed_columns: Sequence[str] | None = None,
     extra_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build materialization metadata with Dagster standard keys first."""
+
+    if columns is not None and observed_columns is not None:
+        raise ValueError("columns and observed_columns cannot be used together.")
 
     metadata: dict[str, Any] = {}
     if uri is not None:
@@ -168,6 +184,8 @@ def build_materialization_metadata(
         metadata[DAGSTER_ROW_COUNT_METADATA_KEY] = row_count
     if columns is not None:
         metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY] = _table_schema_metadata(columns)
+    if observed_columns is not None:
+        metadata[OBSERVED_COLUMNS_METADATA_KEY] = list(observed_columns)
     metadata.update(_namespace_goldenshare_metadata(extra_metadata or {}))
     return metadata
 
@@ -269,7 +287,7 @@ def _namespace_goldenshare_metadata(
         elif key == "row_count":
             namespaced[CHECKED_ROW_COUNT_METADATA_KEY] = value
         elif key == "columns":
-            namespaced[f"{GOLDENSHARE_METADATA_PREFIX}observed_columns"] = value
+            namespaced[OBSERVED_COLUMNS_METADATA_KEY] = value
         elif key == "schema":
             namespaced[f"{GOLDENSHARE_METADATA_PREFIX}observed_schema"] = value
         else:
