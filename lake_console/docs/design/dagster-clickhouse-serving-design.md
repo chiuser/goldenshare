@@ -4,7 +4,7 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入与第一张 serving asset 定义。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving checks / job / automation 尚未接入。
+本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义，以及 serving checks / job 接入。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation 尚未接入。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -138,7 +138,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；checks / job / automation 尚未接入。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；automation 尚未接入。
 
 本地已知坑：
 
@@ -880,6 +880,27 @@ replace mode:
 4. run 中不 materialize 上游 raw / silver / gold。
 
 ### Slice CH-4：Checks 与 job
+
+状态：已完成。
+
+当前实现结果：
+
+```text
+checks:
+  ch_share_fact_market_breadth_row_count_is_one
+  ch_share_fact_market_breadth_date_matches_partition
+  ch_share_fact_market_breadth_total_count_matches_gold
+  ch_share_fact_market_breadth_flat_count_matches_gold
+  ch_share_fact_market_breadth_breadth_fields_match_gold
+  ch_share_fact_market_breadth_distribution_fields_match_gold
+
+job:
+  clickhouse_share_fact_market_breadth_update_job
+
+selection:
+  ch_share_fact_market_breadth_daily
+  checks_for_assets(ch_share_fact_market_breadth_daily)
+```
 
 目标：
 
