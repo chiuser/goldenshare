@@ -556,7 +556,7 @@ fields = INDEX_DAILY_RAW_COLUMNS</pre>
     <h3>6.3 写入算法</h3>
     <pre>1. lake_root.ensure_available_for_run()
 2. ts_code = context.partition_key
-3. validate config dates and write_mode
+3. validate trade_date/write_mode and derive source start_date=end_date
 4. fetch Tushare pages into staging parquet
 5. read existing target parquet if exists
 6. if write_mode == "replace":

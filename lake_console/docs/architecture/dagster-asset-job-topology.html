@@ -513,7 +513,7 @@
         <tr>
           <td><code>raw_tushare_index_daily_by_code</code></td>
           <td>raw，<code>cn_a_index_ts_codes</code> 分区</td>
-          <td>分区 key 即指数代码；asset 调用 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 并写入 raw-by-code 文件。</td>
+          <td>分区 key 即指数代码；主入口 run config 是 <code>trade_date/write_mode</code>，asset 内部把 <code>trade_date</code> 映射成 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 的单日请求窗口，并写入 raw-by-code 文件。</td>
           <td><code>index_daily_update_job</code>；只选择 raw-by-code asset 和 raw checks。</td>
         </tr>
         <tr>

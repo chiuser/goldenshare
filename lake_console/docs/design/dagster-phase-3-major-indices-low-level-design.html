@@ -364,7 +364,7 @@ silver_index_daily_update_job[trade_date]
   </section>
 
   <section>
-    <h2>6. 当前验收事实</h2>
+    <h2>6. 历史验收记录与当前确认口径</h2>
     <table>
       <thead>
         <tr>
@@ -375,15 +375,15 @@ silver_index_daily_update_job[trade_date]
       <tbody>
         <tr>
           <td><code>cn_a_index_ts_codes</code></td>
-          <td>当前注册 946 个指数代码。</td>
+          <td>历史验收记录显示：当时注册 946 个指数代码。当前注册数量必须以只读审计或正式 Dagster UI 为准，不在本文档写死。</td>
         </tr>
         <tr>
           <td>raw-by-code 文件</td>
-          <td>946 个注册代码均存在文件，字段契约一致，最新交易日覆盖完整。</td>
+          <td>历史验收记录显示：当时注册代码均存在文件，字段契约一致，且当时最新交易日覆盖完整。当前文件覆盖和最新交易日完整性必须重新只读审计确认。</td>
         </tr>
         <tr>
           <td>raw checks</td>
-          <td>当前注册代码对应 raw blocking checks 全绿。</td>
+          <td>历史验收记录显示：当时注册代码对应 raw blocking checks 全绿。当前 checks 状态必须以正式 Dagster UI 或只读审计为准。</td>
         </tr>
         <tr>
           <td>removed codes</td>
@@ -419,7 +419,7 @@ silver_index_daily_update_job[trade_date]
         <tr>
           <td>1</td>
           <td>完成当前 <code>silver_index_daily</code> 历史生成结果审计。</td>
-          <td>确认 <code>silver_index_daily[trade_date]</code> 历史分区已经基于 946 个注册 raw-by-code 文件完整生成。</td>
+          <td>确认 <code>silver_index_daily[trade_date]</code> 历史分区已经基于当前注册 raw-by-code 文件集合完整生成；注册代码数量以只读审计结果为准，不在本文档写死。</td>
           <td>审计分区覆盖、row count 范围、字段契约、<code>ts_code + trade_date</code> 唯一性、冲突重复、价格 sanity、registered code coverage、失败/取消 run 是否已被后续成功 run 覆盖。</td>
           <td>这是只读审计和结果汇总；如果发现问题，先停下来确认修复方案，不直接改生产代码。</td>
         </tr>
