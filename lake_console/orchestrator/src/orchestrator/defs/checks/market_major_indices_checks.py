@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -64,7 +65,12 @@ def _sample_dicts(
     for row in rows:
         sample = {}
         for column, value in zip(columns, row, strict=True):
-            sample[column] = value.isoformat() if hasattr(value, "isoformat") else value
+            if hasattr(value, "isoformat"):
+                sample[column] = value.isoformat()
+            elif isinstance(value, Decimal):
+                sample[column] = float(value)
+            else:
+                sample[column] = value
         samples.append(sample)
     return samples
 
@@ -514,10 +520,10 @@ def gold_market_major_indices_daily_rank_matches_active_seed_order(
         partition_key
         for partition_key, result in results.items()
         if not (
-            result["row_count"] == len(result["active_seed_ranks"])
+            result["checked_row_count"] == len(result["active_seed_ranks"])
             and result["null_rank_count"] == 0
-            and result["distinct_rank_count"] == result["row_count"]
-            and result["distinct_code_count"] == result["row_count"]
+            and result["distinct_rank_count"] == result["checked_row_count"]
+            and result["distinct_code_count"] == result["checked_row_count"]
             and not missing_seed_rows.get(partition_key)
             and not unexpected_rows.get(partition_key)
         )
