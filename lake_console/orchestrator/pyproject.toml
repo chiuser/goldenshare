@@ -4,6 +4,7 @@ requires-python = ">=3.10,<3.15"
 version = "0.1.0"
 dependencies = [
     "dagster==1.13.6",
+    "dagster-clickhouse==0.29.6",
     "dagster-postgres>=0.29.6",
     "duckdb>=1.5.2",
     "psycopg2-binary>=2.9.12",

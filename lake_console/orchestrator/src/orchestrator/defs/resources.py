@@ -7,6 +7,7 @@ from typing import Any
 
 import dagster as dg
 import duckdb
+from dagster_clickhouse import ClickhouseResource
 
 from orchestrator.defs.notifications.feishu import FeishuWebhookResource
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, GOLD, RAW, SILVER, lake_path
@@ -104,6 +105,13 @@ defs = dg.Definitions(
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
+        "clickhouse": ClickhouseResource(
+            host=dg.EnvVar("CLICKHOUSE_HOST"),
+            port=dg.EnvVar.int("CLICKHOUSE_PORT"),
+            user=dg.EnvVar("CLICKHOUSE_USER"),
+            password=dg.EnvVar("CLICKHOUSE_PASSWORD"),
+            database=dg.EnvVar("CLICKHOUSE_DATABASE"),
+        ),
         "feishu": FeishuWebhookResource(),
     }
 )

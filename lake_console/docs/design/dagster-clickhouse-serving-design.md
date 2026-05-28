@@ -4,7 +4,7 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装与连通性验证。当前代码还没有安装 `dagster-clickhouse`，也没有把 ClickHouse 注册到 Dagster resources 中。
+本地 ClickHouse 已完成基础安装、Flyway migration 与 Dagster resource 接入。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving asset / job / check 尚未接入。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -42,23 +42,35 @@
 
 ```text
 dagster==1.13.6
+dagster-clickhouse==0.29.6
 dagster-postgres>=0.29.6
 duckdb>=1.5.2
 psycopg2-binary>=2.9.12
 tushare>=1.4.20
 ```
 
+当前 ClickHouse runtime 依赖会额外安装：
+
+```text
+clickhouse-driver
+tzlocal
+```
+
+当前已接入：
+
+```text
+ClickhouseResource
+ClickHouse migration
+ClickHouse serving 数据库
+ClickHouse serving 表契约
+```
+
 当前还没有：
 
 ```text
-dagster-clickhouse
-clickhouse-connect
-clickhouse-driver
-ClickhouseResource
 ClickHouse serving asset
 ClickHouse serving checks
 ClickHouse serving job
-ClickHouse migration
 ```
 
 当前已存在的直接上游 gold assets：
@@ -654,7 +666,7 @@ lake_console/orchestrator/src/orchestrator/defs/resources.py
 
 说明：
 
-1. 第一版直接在现有 `resources.py` 注册，保持与 `LakeRootResource`、`DuckDBResource`、`TushareResource` 同级。
+1. 第一版已直接在现有 `resources.py` 注册，保持与 `LakeRootResource`、`DuckDBResource`、`TushareResource` 同级。
 2. 如果后续 ClickHouse resource 配置、封装方法、测试替身明显变复杂，再按职责拆到 `orchestrator/clickhouse/`，但这不是第一版动作。
 3. `dg dev` / definitions 加载时不能因为 ClickHouse 未启动而崩溃；只有 asset 实际运行时才连接。
 
@@ -707,7 +719,7 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 1. 不新增散落 env 文件。
 2. 不把密码写入代码、文档、Dagster metadata 或日志。
 3. ClickHouse runtime 连接配置统一走环境变量，不做“一半环境变量、一半代码默认”的混搭；表中的“本地约定值”是本机应该配置成什么，不是 Python 代码里的 fallback。
-4. `CLICKHOUSE_PORT` 在 Python 中必须被转换成 `int` 后传给 `ClickhouseResource`。Slice CH-2 需要先核验当前 `dagster-clickhouse` 的 `ClickhouseResource` 构造参数和 Dagster `EnvVar` 对整数配置的支持方式；如果不能干净表达“env 注入 + int 转换 + definitions 加载不连接”，必须停下讨论，不能硬编码端口或自造临时配置。
+4. `CLICKHOUSE_PORT` 在 Python 中必须通过 `dg.EnvVar.int("CLICKHOUSE_PORT")` 传给 `ClickhouseResource`；当前已核验可表达“env 注入 + int 转换 + definitions 加载不连接”，禁止硬编码端口或自造临时配置。
 5. Flyway migration 可以使用独立 JDBC URL，但 host / port / user / password / database 口径必须与本地 ClickHouse 配置一致。
 6. Flyway 使用 HTTP `8123`，Dagster runtime 使用 native `9000`；这是工具协议差异，不代表业务配置分裂。
 7. `flyway repair` 禁止作为日常命令；需要用户明确批准。
@@ -766,6 +778,28 @@ Schema history table: default.flyway_schema_history
 6. `flyway validate` 通过。
 
 ### Slice CH-2：dagster-clickhouse Resource
+
+状态：已完成。
+
+当前实现结果：
+
+```text
+dagster-clickhouse==0.29.6
+resource key: clickhouse
+runtime protocol: native TCP 9000
+database: goldenshare_serving
+```
+
+配置来源：
+
+```text
+~/.bash_profile
+  CLICKHOUSE_HOST
+  CLICKHOUSE_PORT
+  CLICKHOUSE_USER
+  CLICKHOUSE_PASSWORD
+  CLICKHOUSE_DATABASE
+```
 
 目标：
 
