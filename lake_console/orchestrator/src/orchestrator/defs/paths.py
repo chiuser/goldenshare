@@ -1,6 +1,8 @@
 from pathlib import Path
 
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
+PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
+PATH_TEMPLATE_PARTITION_KEY = "{partition_key}"
 
 RAW = "raw"
 SILVER = "silver"
@@ -27,6 +29,10 @@ def lake_path(root: Path, layer: str, *parts: str) -> Path:
         raise ValueError(f"New Dagster lake paths must not contain legacy path parts: {names}")
 
     return root / layer / Path(*parts)
+
+
+def lake_path_template(path: Path) -> str:
+    return path.as_posix()
 
 
 def raw_trade_calendar_path(root: Path) -> Path:

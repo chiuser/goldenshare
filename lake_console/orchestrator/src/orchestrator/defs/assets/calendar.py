@@ -12,7 +12,12 @@ from orchestrator.defs.duckdb_sql import (
     describe_parquet_query,
     silver_trade_calendar_select,
 )
-from orchestrator.defs.paths import raw_trade_calendar_path, silver_trade_calendar_path
+from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    lake_path_template,
+    raw_trade_calendar_path,
+    silver_trade_calendar_path,
+)
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
@@ -79,7 +84,9 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
         source_category_path="股票数据 / 基础数据",
         source_doc="docs/sources/tushare/股票数据/基础数据/0026_交易日历.md",
         data_contract="source_mirror",
-        path_template="data_lake/raw/tushare/trade_calendar/full/part-000.parquet",
+        path_template=lake_path_template(
+            raw_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         extra_metadata={
             "raw_contract": "cal_date/pretrade_date YYYYMMDD string, is_open 0/1 integer",
             "update_policy": "low_frequency_full_file_api_update",
@@ -131,7 +138,9 @@ def raw_tushare_trade_calendar(
         dataset_id="trade_cal",
         source_system=SourceSystem.DERIVED,
         data_contract="standardized_trade_calendar",
-        path_template="data_lake/silver/calendar/trade_calendar/full/part-000.parquet",
+        path_template=lake_path_template(
+            silver_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
     ),
     description="A股交易日历标准表，提供上交所开市日口径。",
 )

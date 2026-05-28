@@ -12,7 +12,12 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
     silver_stock_basic_select,
 )
-from orchestrator.defs.paths import raw_stock_basic_path, silver_stock_basic_path
+from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    lake_path_template,
+    raw_stock_basic_path,
+    silver_stock_basic_path,
+)
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
@@ -96,7 +101,9 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
         source_category_path="股票数据 / 基础数据",
         source_doc="docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md",
         data_contract="source_mirror",
-        path_template="data_lake/raw/tushare/stock_basic/full/part-000.parquet",
+        path_template=lake_path_template(
+            raw_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         extra_metadata={
             "raw_contract": (
                 "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings."
@@ -151,7 +158,9 @@ def raw_tushare_stock_basic(
         dataset_id="stock_basic",
         source_system=SourceSystem.DERIVED,
         data_contract="current_listed_stock_basic_lifecycle",
-        path_template="data_lake/silver/basic/stock_basic/full/part-000.parquet",
+        path_template=lake_path_template(
+            silver_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         extra_metadata={
             "filter_policy": "silver_stock_basic keeps only current list_status='L' stocks."
         },

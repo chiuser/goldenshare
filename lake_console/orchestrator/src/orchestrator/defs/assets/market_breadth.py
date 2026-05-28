@@ -12,7 +12,10 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
     gold_market_breadth_daily_path,
+    lake_path_template,
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -99,7 +102,12 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
         dataset_id="market_breadth",
         source_system=SourceSystem.DERIVED,
         data_contract="market_breadth_daily",
-        path_template="data_lake/gold/market_breadth/trade_date={partition_key}/part-000.parquet",
+        path_template=lake_path_template(
+            gold_market_breadth_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
         extra_metadata={
             "calculation_contract": (
                 "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "

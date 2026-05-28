@@ -17,7 +17,12 @@ from orchestrator.defs.duckdb_sql import (
     silver_index_basic_select,
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days
-from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
+from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    lake_path_template,
+    raw_index_basic_path,
+    silver_index_basic_path,
+)
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
@@ -148,7 +153,9 @@ def _resolve_ready_for_trade_date(context: dg.AssetExecutionContext) -> str:
         source_category_path="指数专题",
         source_doc="docs/sources/tushare/指数专题/0094_指数基本信息.md",
         data_contract="source_mirror",
-        path_template="data_lake/raw/tushare/index_basic/full/part-000.parquet",
+        path_template=lake_path_template(
+            raw_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         extra_metadata={
             "expected_source_columns": list(INDEX_BASIC_RAW_COLUMNS),
             "update_policy": "daily_full_snapshot_api_update",
@@ -200,7 +207,9 @@ def raw_tushare_index_basic(
         dataset_id="index_basic",
         source_system=SourceSystem.DERIVED,
         data_contract="effective_index_basic",
-        path_template="data_lake/silver/index_basic/full/part-000.parquet",
+        path_template=lake_path_template(
+            silver_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
         extra_metadata={
             "filter_policy": (
                 "silver_index_basic automatically uses the latest registered "

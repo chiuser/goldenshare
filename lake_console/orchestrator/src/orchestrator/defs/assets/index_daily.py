@@ -15,6 +15,9 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
+    lake_path_template,
     raw_index_daily_by_code_path,
     raw_index_daily_by_code_staging_dir,
     silver_index_daily_path,
@@ -384,8 +387,11 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
         source_category_path="指数专题",
         source_doc="docs/sources/tushare/指数专题/0095_指数日线行情.md",
         data_contract="source_mirror_by_code",
-        path_template=(
-            "data_lake/raw/tushare/index_daily_by_code/ts_code={partition_key}/part-000.parquet"
+        path_template=lake_path_template(
+            raw_index_daily_by_code_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
         ),
         extra_metadata={"expected_source_columns": list(INDEX_DAILY_RAW_COLUMNS)},
     ),
@@ -439,7 +445,12 @@ def raw_tushare_index_daily_by_code(
         dataset_id="index_daily",
         source_system=SourceSystem.DERIVED,
         data_contract="active_index_daily",
-        path_template="data_lake/silver/index_daily/trade_date={partition_key}/part-000.parquet",
+        path_template=lake_path_template(
+            silver_index_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
         extra_metadata={
             "expected_columns": list(INDEX_DAILY_SILVER_COLUMNS),
             "source_asset": "raw_tushare_index_daily_by_code",

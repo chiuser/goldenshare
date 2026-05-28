@@ -27,7 +27,13 @@ from orchestrator.defs.duckdb_sql import (
     silver_stock_suspend_daily_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
-from orchestrator.defs.paths import raw_suspend_d_path, silver_stock_suspend_daily_path
+from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
+    lake_path_template,
+    raw_suspend_d_path,
+    silver_stock_suspend_daily_path,
+)
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
@@ -297,7 +303,9 @@ def _full_day_raw_override_metadata(
         source_category_path="股票数据 / 行情数据",
         source_doc="docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md",
         data_contract="source_mirror",
-        path_template="data_lake/raw/tushare/suspend_d/trade_date={partition_key}/part-000.parquet",
+        path_template=lake_path_template(
+            raw_suspend_d_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
         extra_metadata={
             "raw_contract": (
                 "Tushare suspend_d source mirror: trade_date YYYYMMDD string, "
@@ -344,8 +352,11 @@ def raw_tushare_suspend_d(
         dataset_id="suspend_d",
         source_system=SourceSystem.DERIVED,
         data_contract="standardized_stock_suspend_daily",
-        path_template=(
-            "data_lake/silver/stock_suspend_daily/trade_date={partition_key}/part-000.parquet"
+        path_template=lake_path_template(
+            silver_stock_suspend_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
         ),
         extra_metadata={
             "correction_policy": "Apply suspend timing corrections and full-day suspend patches."

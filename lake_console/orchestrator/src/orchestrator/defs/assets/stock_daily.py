@@ -19,6 +19,9 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
+    lake_path_template,
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
@@ -367,7 +370,9 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
         source_category_path="股票数据 / 行情数据",
         source_doc="docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md",
         data_contract="source_mirror",
-        path_template="data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet",
+        path_template=lake_path_template(
+            raw_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
         extra_metadata={
             "raw_contract": (
                 "Tushare daily source mirror: trade_date YYYYMMDD string, field name change."
@@ -413,7 +418,9 @@ def raw_tushare_stock_daily(
         dataset_id="daily",
         source_system=SourceSystem.DERIVED,
         data_contract="standardized_stock_daily_quote",
-        path_template="data_lake/silver/stock_daily/trade_date={partition_key}/part-000.parquet",
+        path_template=lake_path_template(
+            silver_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
         extra_metadata={
             "filter_policy": (
                 "Keep current listed stocks only; keep rows on/after list_date; "

@@ -33,6 +33,26 @@ from orchestrator.defs.assets.suspend_d import (
     silver_stock_suspend_daily,
 )
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
+from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
+    gold_market_breadth_daily_path,
+    gold_market_major_indices_daily_path,
+    gold_stock_return_distribution_path,
+    lake_path_template,
+    raw_index_basic_path,
+    raw_index_daily_by_code_path,
+    raw_stock_basic_path,
+    raw_stock_daily_path,
+    raw_suspend_d_path,
+    raw_trade_calendar_path,
+    silver_index_basic_path,
+    silver_index_daily_path,
+    silver_stock_basic_path,
+    silver_stock_daily_path,
+    silver_stock_suspend_daily_path,
+    silver_trade_calendar_path,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     ASSET_LAYER_TAG,
     DATA_DOMAIN_TAG,
@@ -91,6 +111,69 @@ ASSET_CONTRACTS = {
     ),
 }
 
+ASSET_PATH_TEMPLATES = {
+    raw_tushare_trade_calendar: lake_path_template(
+        raw_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    silver_trade_calendar: lake_path_template(
+        silver_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    raw_tushare_stock_basic: lake_path_template(
+        raw_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    silver_stock_basic: lake_path_template(
+        silver_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    raw_tushare_suspend_d: lake_path_template(
+        raw_suspend_d_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_stock_suspend_daily: lake_path_template(
+        silver_stock_suspend_daily_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            PATH_TEMPLATE_PARTITION_KEY,
+        )
+    ),
+    raw_tushare_stock_daily: lake_path_template(
+        raw_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_stock_daily: lake_path_template(
+        silver_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    raw_tushare_index_basic: lake_path_template(
+        raw_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    silver_index_basic: lake_path_template(
+        silver_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    raw_tushare_index_daily_by_code: lake_path_template(
+        raw_index_daily_by_code_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            PATH_TEMPLATE_PARTITION_KEY,
+        )
+    ),
+    silver_index_daily: lake_path_template(
+        silver_index_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    gold_market_major_indices_daily: lake_path_template(
+        gold_market_major_indices_daily_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            PATH_TEMPLATE_PARTITION_KEY,
+        )
+    ),
+    gold_market_breadth_daily: lake_path_template(
+        gold_market_breadth_daily_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            PATH_TEMPLATE_PARTITION_KEY,
+        )
+    ),
+    gold_stock_return_distribution: lake_path_template(
+        gold_stock_return_distribution_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            PATH_TEMPLATE_PARTITION_KEY,
+        )
+    ),
+}
+
 
 class AssetGovernanceContractTests(unittest.TestCase):
     def test_build_asset_tags_returns_dagster_legal_values(self) -> None:
@@ -142,4 +225,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
                 self.assertEqual(spec.metadata[DATASET_NAME_METADATA_KEY], dataset_name)
                 self.assertIn(SOURCE_SYSTEM_METADATA_KEY, spec.metadata)
                 self.assertIn(DATA_CONTRACT_METADATA_KEY, spec.metadata)
-                self.assertIn(PATH_TEMPLATE_METADATA_KEY, spec.metadata)
+                self.assertEqual(
+                    spec.metadata[PATH_TEMPLATE_METADATA_KEY],
+                    ASSET_PATH_TEMPLATES[asset],
+                )

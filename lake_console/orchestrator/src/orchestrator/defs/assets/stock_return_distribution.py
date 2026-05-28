@@ -13,7 +13,10 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
     gold_stock_return_distribution_path,
+    lake_path_template,
     silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -118,8 +121,11 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
         dataset_id="stock_return_distribution",
         source_system=SourceSystem.DERIVED,
         data_contract="stock_return_distribution",
-        path_template=(
-            "data_lake/gold/stock_return_distribution/trade_date={partition_key}/part-000.parquet"
+        path_template=lake_path_template(
+            gold_stock_return_distribution_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
         ),
         extra_metadata={
             "calculation_contract": (

@@ -155,6 +155,19 @@ class RunContractStaticGateTests(unittest.TestCase):
                             f"{_node_location(path, decorator)} asset {node.name} "
                             "does not use build_asset_definition_metadata(...)"
                         )
+                    if _is_call_named(metadata_value, "build_asset_definition_metadata"):
+                        path_template_value = _keyword_value(
+                            metadata_value,
+                            "path_template",
+                        )
+                        if isinstance(path_template_value, ast.Constant) and isinstance(
+                            path_template_value.value,
+                            str,
+                        ):
+                            issues.append(
+                                f"{_node_location(path, path_template_value)} asset "
+                                f"{node.name} writes path_template literal"
+                            )
 
         self.assertEqual(issues, [])
 

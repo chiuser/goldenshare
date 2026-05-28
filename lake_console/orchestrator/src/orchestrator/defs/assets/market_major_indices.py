@@ -18,7 +18,10 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days
 from orchestrator.defs.paths import (
+    PATH_TEMPLATE_LAKE_ROOT,
+    PATH_TEMPLATE_PARTITION_KEY,
     gold_market_major_indices_daily_path,
+    lake_path_template,
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -246,8 +249,11 @@ def _missing_seed_codes_in_silver(
         dataset_id="market_major_indices_daily",
         source_system=SourceSystem.DERIVED,
         data_contract="market_major_indices_daily",
-        path_template=(
-            "data_lake/gold/market_major_indices_daily/trade_date={partition_key}/part-000.parquet"
+        path_template=lake_path_template(
+            gold_market_major_indices_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
         ),
         extra_metadata={
             "source_asset": "silver_index_daily",
