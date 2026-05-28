@@ -67,6 +67,26 @@ SILVER_INDEX_DAILY_BLOCKING_CHECKS = (
     "silver_index_daily_row_count_positive",
     "silver_index_daily_unique_ts_code_trade_date",
 )
+SILVER_INDEX_BASIC_BLOCKING_CHECKS = (
+    "silver_index_basic_file_exists",
+    "silver_index_basic_required_columns_and_types",
+    "silver_index_basic_row_count_positive",
+    "silver_index_basic_unique_ts_code",
+    "silver_index_basic_required_fields_non_null",
+    "silver_index_basic_no_terminated_indexes",
+)
+GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
+    "gold_market_major_indices_daily_file_exists",
+    "gold_market_major_indices_daily_required_columns_and_types",
+    "gold_market_major_indices_daily_partition_date_matches",
+    "gold_market_major_indices_daily_row_count_matches_seed",
+    "gold_market_major_indices_daily_seed_codes_present",
+    "gold_market_major_indices_daily_unique_ts_code",
+    "gold_market_major_indices_daily_rank_matches_active_seed_order",
+    "gold_market_major_indices_daily_price_sanity",
+    "gold_market_major_indices_seed_codes_exist_in_index_basic",
+    "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes",
+)
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")
 SILVER_STOCK_BASIC_ASSET_KEY = dg.AssetKey("silver_stock_basic")
@@ -76,6 +96,10 @@ RAW_STOCK_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_stock_daily")
 SILVER_STOCK_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_daily")
 RAW_INDEX_DAILY_BY_CODE_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily_by_code")
 SILVER_INDEX_DAILY_ASSET_KEY = dg.AssetKey("silver_index_daily")
+SILVER_INDEX_BASIC_ASSET_KEY = dg.AssetKey("silver_index_basic")
+GOLD_MARKET_MAJOR_INDICES_DAILY_ASSET_KEY = dg.AssetKey(
+    "gold_market_major_indices_daily"
+)
 
 
 @dataclass(frozen=True)
@@ -131,6 +155,14 @@ RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC = AssetReadinessSpec(
 SILVER_INDEX_DAILY_READINESS_SPEC = AssetReadinessSpec(
     SILVER_INDEX_DAILY_ASSET_KEY,
     SILVER_INDEX_DAILY_BLOCKING_CHECKS,
+)
+SILVER_INDEX_BASIC_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_INDEX_BASIC_ASSET_KEY,
+    SILVER_INDEX_BASIC_BLOCKING_CHECKS,
+)
+GOLD_MARKET_MAJOR_INDICES_DAILY_READINESS_SPEC = AssetReadinessSpec(
+    GOLD_MARKET_MAJOR_INDICES_DAILY_ASSET_KEY,
+    GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS,
 )
 
 
@@ -339,6 +371,24 @@ def silver_index_daily_ready_for_trade_date(
     return asset_readiness_status(
         instance,
         SILVER_INDEX_DAILY_READINESS_SPEC,
+        partition_key=trade_date,
+    )
+
+
+def silver_index_basic_ready(instance: dg.DagsterInstance) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_INDEX_BASIC_READINESS_SPEC,
+    )
+
+
+def gold_market_major_indices_daily_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        GOLD_MARKET_MAJOR_INDICES_DAILY_READINESS_SPEC,
         partition_key=trade_date,
     )
 

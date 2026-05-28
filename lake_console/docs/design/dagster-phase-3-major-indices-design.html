@@ -179,7 +179,7 @@
       <div class="chip"><strong>当前准口径</strong>raw 按指数代码分区，silver 按交易日分区。</div>
       <div class="chip"><strong>旧口径状态</strong>旧链路已从 active Definitions 退场，文档不再保留旧实现教程。</div>
       <div class="chip"><strong>当前代码阶段</strong>raw-by-code、silver、主要指数日线 gold asset/job/checks 均已进入 active definitions。</div>
-      <div class="chip"><strong>后续重点</strong>只读审计历史分区覆盖，并单独设计主要指数日线自动触发或 serving 发布。</div>
+      <div class="chip"><strong>后续重点</strong>只读审计历史分区覆盖和 serving 发布。</div>
     </div>
   </header>
 
@@ -247,7 +247,7 @@ major_indices.cn_a.csv seed
       <div class="card">
         <span class="tag raw">raw</span>
         <strong><code>raw_tushare_index_daily_by_code</code></strong>
-        以 <code>ts_code</code> 为 partition key。run config 提供 <code>start_date</code>、<code>end_date</code>、<code>write_mode=replace</code>。
+        以 <code>ts_code</code> 为 partition key。主入口 run config 提供 <code>trade_date</code>、<code>write_mode=replace</code>，asset 内部映射为源接口单日窗口。
       </div>
       <div class="card">
         <span class="tag silver">silver</span>
@@ -309,6 +309,12 @@ major_indices.cn_a.csv seed
           <td><code>silver_index_daily_sensor</code></td>
           <td>判断 raw-by-code 全部 ready 后触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
           <td>不调用 Tushare，不补 raw，只触发 silver job。</td>
+        </tr>
+        <tr>
+          <td><span class="tag sensor">sensor</span></td>
+          <td><code>market_major_indices_daily_sensor</code></td>
+          <td>判断 <code>silver_index_daily[trade_date]</code>、<code>silver_index_basic</code>、主要指数 seed 和 seed code 输入都 ready 后，触发 <code>market_major_indices_daily_update_job[trade_date]</code>。</td>
+          <td>默认停止；不触发 index raw/silver，不补 seed，不写自定义 run tags。</td>
         </tr>
       </tbody>
     </table>
@@ -420,8 +426,8 @@ data_lake/raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code><
         </tr>
         <tr>
           <td>主要指数日线自动触发</td>
-          <td>待设计</td>
-          <td>当前没有专用 automation sensor；如需日常自动触发，必须单独设计，不在本文件中假设已存在。</td>
+          <td>已实现</td>
+          <td><code>market_major_indices_daily_sensor</code> 已进入 active definitions：只处理最新已注册指数交易日，先确认 gold 未完成、<code>silver_index_daily</code> ready、<code>silver_index_basic</code> ready，并用轻量门禁确认 seed code 已注册且存在于 <code>silver_index_basic</code> 和当日 <code>silver_index_daily</code>。</td>
         </tr>
       </tbody>
     </table>

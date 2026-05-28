@@ -270,8 +270,8 @@ silver_index_daily_update_job[trade_date]
         <tr>
           <td><code>index_daily_update_job</code></td>
           <td><code>ts_code</code></td>
-          <td><code>start_date</code>、<code>end_date</code>、<code>write_mode=replace</code></td>
-          <td>第一版只支持 <code>replace</code>。语义是替换该代码文件中请求窗口内旧行，窗口外保留。</td>
+          <td><code>trade_date</code>、<code>write_mode=replace</code></td>
+          <td>主入口只支持单个交易日修复；asset 内部映射为源接口 <code>start_date=end_date=trade_date</code>，第一版只支持 <code>replace</code>。</td>
         </tr>
         <tr>
           <td><code>silver_index_daily_update_job</code></td>
@@ -460,10 +460,10 @@ silver_index_daily_update_job[trade_date]
         </tr>
         <tr>
           <td>7</td>
-          <td>Slice H2 待设计：主要指数日线自动触发。</td>
-          <td>在 <code>silver_index_daily[trade_date]</code> ready 且 seed checks 通过后触发 daily gold。</td>
-          <td>优先评估 declarative automation 是否足够表达直接上游 checks；如需更细控制，再设计专用 sensor。</td>
-          <td>当前代码没有专用主要指数日线 automation sensor。自动触发方案必须先写设计，不和已完成的 seed/asset/job/check 实现混在同一个 slice 中自由发挥。</td>
+          <td>Slice H2 已完成：主要指数日线自动触发。</td>
+          <td>新增 <code>market_major_indices_daily_sensor</code>，在最新已注册指数交易日的 <code>silver_index_daily[trade_date]</code> ready、<code>silver_index_basic</code> ready，且 seed code 已注册并存在于 <code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 后触发 daily gold。</td>
+          <td>采用专用普通 sensor，不采用纯 declarative automation；原因是 H2 门禁包含 seed、动态分区和 <code>silver_index_basic</code> 这类非直接输入。</td>
+          <td>sensor 默认停止；只提交 <code>market_major_indices_daily_update_job[trade_date]</code>，不触发 index raw/silver，不新增 run tags、run config、readiness asset 或二维 partitions。</td>
         </tr>
         <tr>
           <td>8</td>
