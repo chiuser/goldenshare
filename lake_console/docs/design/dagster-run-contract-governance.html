@@ -440,9 +440,9 @@
       <tr>
         <td><code>goldenshare/layer</code></td>
         <td>是，正式数据资产必填</td>
-        <td><code>raw</code>、<code>silver</code>、<code>gold</code></td>
-        <td>所有落到 <code>data_lake/raw|silver|gold</code> 的 asset</td>
-        <td>Lake 三层是本项目硬边界，且在 UI、文档、路径、checks 中反复使用。值使用英文是 Dagster tag 校验要求；中文含义由文档和 metadata 表达。</td>
+        <td><code>raw</code>、<code>silver</code>、<code>gold</code>、<code>serving</code></td>
+        <td>所有正式数据资产，包括落到 <code>data_lake/raw|silver|gold</code> 的 Lake asset，以及同步到 ClickHouse 的 serving asset。</td>
+        <td>Lake 三层是本项目硬边界；ClickHouse serving 是查询副本层，不伪装成 gold。值使用英文是 Dagster tag 校验要求；中文含义由文档和 metadata 表达。</td>
       </tr>
       <tr>
         <td><code>goldenshare/data_domain</code></td>
@@ -898,7 +898,7 @@ ops:
   <section>
     <h2>9. Metadata 使用规范</h2>
     <p>
-      Metadata 分为三类：asset definition metadata、materialization metadata、asset check metadata。它们都可以承载结构化信息，但语义不同。M6 已把当前 15 个正式 asset 和 10 个 checks 文件按这三层收敛：优先使用 Dagster 标准 metadata key；只有标准 key 无法表达时，才使用 <code>goldenshare/*</code>。
+      Metadata 分为三类：asset definition metadata、materialization metadata、asset check metadata。它们都可以承载结构化信息，但语义不同。M6 已把当前正式 asset 和 checks 文件按这三层收敛：优先使用 Dagster 标准 metadata key；只有标准 key 无法表达时，才使用 <code>goldenshare/*</code>。
     </p>
     <p>
       M6 审计确认：迁移前 <code>MaterializeResult.metadata</code> 混有定义事实、运行事实和排错事实，checks 中也存在 <code>path/raw_path/silver_path</code>、<code>row_count/invalid_count/missing_count</code>、<code>sample_rows/samples/mismatch_samples</code> 等多套命名。迁移后，新代码不再双写旧字段；历史 run metadata 保持历史样子。
@@ -1572,7 +1572,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
-        <td>当前 15 个正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
+        <td>当前正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；ClickHouse serving asset 使用 <code>serving</code> layer；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
         <td>M5 覆盖 asset definition 层低基数分类；M6 已覆盖 definition/materialization/check 三层 metadata。旧历史 run metadata 不迁移。</td>
         <td>M8 已把 metadata/cursor 等治理契约纳入静态门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
       </tr>

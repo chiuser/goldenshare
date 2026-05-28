@@ -11,6 +11,7 @@ class AssetLayer(str, Enum):
     RAW = "raw"
     SILVER = "silver"
     GOLD = "gold"
+    SERVING = "serving"
 
 
 class DataDomain(str, Enum):

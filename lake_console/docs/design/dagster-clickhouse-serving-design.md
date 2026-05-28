@@ -4,7 +4,7 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装、Flyway migration 与 Dagster resource 接入。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving asset / job / check 尚未接入。
+本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入与第一张 serving asset 定义。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving checks / job / automation 尚未接入。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -63,12 +63,12 @@ ClickhouseResource
 ClickHouse migration
 ClickHouse serving 数据库
 ClickHouse serving 表契约
+ClickHouse serving asset
 ```
 
 当前还没有：
 
 ```text
-ClickHouse serving asset
 ClickHouse serving checks
 ClickHouse serving job
 ```
@@ -138,7 +138,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；尚未接入 Dagster resource / asset / job。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；checks / job / automation 尚未接入。
 
 本地已知坑：
 
@@ -476,9 +476,12 @@ V1 / V2 尚未执行前，可以按设计调整。
 4. 校验两边 `trade_date` 一致。
 5. 校验两边 `total_count` 一致。
 6. 校验两边 `flat_count` 一致。
-7. 删除 ClickHouse 目标表中同一 `trade_date` 的旧数据。
-8. 插入合并后的 1 行 serving 数据。
-9. 返回 materialization metadata。
+7. 在同一 ClickHouse 连接中执行 `SET lightweight_deletes_sync = 1`。
+8. 删除 ClickHouse 目标表中同一 `trade_date` 的旧数据。
+9. 删除后立即查询该日期行数，必须为 `0`，否则失败且不插入。
+10. 插入合并后的 1 行 serving 数据。
+11. 插入后立即查询该日期行数，必须为 `1`，否则失败。
+12. 返回 materialization metadata。
 
 伪流程：
 
@@ -489,12 +492,22 @@ ch_share_fact_market_breadth_daily[date]
   validate same trade_date
   validate same total_count
   validate same flat_count
+  SET lightweight_deletes_sync = 1
   DELETE FROM goldenshare_serving.share_fact_market_breadth_daily WHERE trade_date = date
+  assert count(date) = 0
   INSERT INTO goldenshare_serving.share_fact_market_breadth_daily VALUES (...)
+  assert count(date) = 1
   emit metadata
 ```
 
 第一版不做 merge，不做 ClickHouse materialized view，不做异步队列。
+
+同步语义说明：
+
+1. `DELETE FROM` 在 ClickHouse MergeTree 中属于 lightweight delete；默认实现会标记删除，物理清理由后续 merge 完成。
+2. CH-3 明确设置 `lightweight_deletes_sync = 1`，要求 delete 标记同步完成后再继续。
+3. CH-3 在 delete 后立即执行同日 `count()` 断言，避免同一天重跑时旧行仍可见或重复插入。
+4. 如果 delete 成功但 insert 失败，ClickHouse 当日 serving 副本可能暂时缺失；由于 ClickHouse 是副本层，重新运行同一分区即可恢复。
 
 ## 9. Checks 设计
 
@@ -824,6 +837,27 @@ database: goldenshare_serving
 5. 不出现硬编码 host / port / user / database 的代码 fallback。
 
 ### Slice CH-3：`ch_share_fact_market_breadth_daily` asset
+
+状态：已完成。
+
+当前实现结果：
+
+```text
+asset key: ch_share_fact_market_breadth_daily
+group: serving
+partition: cn_a_stock_trade_days
+direct deps:
+  gold_market_breadth_daily
+  gold_stock_return_distribution
+write target:
+  goldenshare_serving.share_fact_market_breadth_daily
+replace mode:
+  SET lightweight_deletes_sync = 1
+  DELETE by trade_date
+  assert zero rows
+  INSERT one row
+  assert one row
+```
 
 目标：
 
