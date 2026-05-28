@@ -791,7 +791,7 @@
         </tr>
         <tr>
           <td><code>clickhouse_share_fact_market_breadth_update_job</code></td>
-          <td>已实现；只选择 <code>ch_share_fact_market_breadth_daily</code> + serving checks。</td>
+          <td>已实现并完成小范围验收；只选择 <code>ch_share_fact_market_breadth_daily</code> + serving checks。</td>
           <td>ClickHouse 行情事实市场宽度 serving 副本。</td>
           <td>目标由自定义 <code>clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能写 gold/silver/raw。</td>

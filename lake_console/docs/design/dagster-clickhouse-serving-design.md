@@ -4,7 +4,7 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入，以及 serving automation 入口定义。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation sensor 默认 `STOPPED`，尚未默认长期启用。
+本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入、serving automation 入口定义，以及第一轮小范围运行验收。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation sensor 默认 `STOPPED`，尚未默认长期启用。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -67,6 +67,7 @@ ClickHouse serving asset
 ClickHouse serving checks
 ClickHouse serving job
 ClickHouse serving automation sensor
+ClickHouse serving 单日与小范围 backfill 验收
 ```
 
 当前还没有：
@@ -140,7 +141,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 已定义 automation 入口，默认 `STOPPED`。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 已定义 automation 入口，默认 `STOPPED`；Slice CH-6 的单日 checks 验收和小范围 backfill 验收已完成。
 
 本地已知坑：
 
@@ -459,8 +460,7 @@ Dagster runtime
 `V1` / `V2` 规则：
 
 ```text
-V1 / V2 尚未执行前，可以按设计调整。
-一旦 flyway migrate 成功执行过，V1 / V2 就成为历史事实，不能再回头改。
+当前 V1 / V2 已经通过 flyway migrate 成功执行，已经成为历史事实，不能再回头改。
 后续如果要加字段或改结构，必须新增 V3 / V4。
 ```
 
@@ -880,6 +880,7 @@ replace mode:
 2. ClickHouse 中出现对应 `trade_date` 1 行。
 3. 重跑同一天不会重复插入。
 4. run 中不 materialize 上游 raw / silver / gold。
+5. 已完成 `2026-05-28` 单日写入与重跑验证，确认 replace 写入不会产生重复行。
 
 ### Slice CH-4：Checks 与 job
 
@@ -915,6 +916,7 @@ selection:
 1. 单日 run checks 全部通过。
 2. ClickHouse 行数、日期、字段值与两个 gold assets 一致。
 3. run 中不 materialize 上游 gold / silver / raw。
+4. 已完成单日 serving checks 验证，6 个 ClickHouse checks 均通过。
 
 ### Slice CH-5：自动化入口
 
@@ -941,7 +943,7 @@ automation sensor:
 1. 为 `ch_share_fact_market_breadth_daily` 添加 automation condition。
 2. 新增专用 `clickhouse_share_fact_market_breadth_automation_sensor`。
 3. sensor 默认 `STOPPED`。
-4. 小范围开启一个 tick 验证。
+4. 自动化入口已定义，长期启用仍需按运营节奏决定。
 
 不做：
 
@@ -955,14 +957,24 @@ automation sensor:
 2. 不触发 gold 上游 job。
 3. 不触发 raw / silver / Tushare。
 4. 启用前必须先做请求范围评估，避免历史缺失分区被一次性请求。
+5. 当前默认保持 `STOPPED`；是否长期打开不作为第一版表开发完成的阻塞条件。
 
 ### Slice CH-6：小范围 backfill 与文档收口
 
-目标：
+状态：已完成第一轮验收。
+
+已完成：
 
 1. 小范围 backfill 最近若干交易日。
-2. 验证 UI 中 serving asset、checks、job、automation sensor 可观测。
-3. 同步架构文档和“大火箭”状态。
+2. 单日 serving checks 验收。
+3. 验证 `clickhouse_share_fact_market_breadth_update_job` 可用于人工分区运行和小范围 backfill。
+4. 验证 ClickHouse 中同一 `trade_date` 只有 1 行，不因重跑产生重复。
+
+仍保留的运营决策：
+
+1. 是否长期启用 `clickhouse_share_fact_market_breadth_automation_sensor`。
+2. 是否做更大范围历史 backfill。
+3. 是否把本地 API 查询切到 ClickHouse serving 表。
 
 不做：
 
@@ -1027,7 +1039,7 @@ ClickHouse 不使用根 Alembic，也不新增 ClickHouse Alembic 分支。
 
 ## 15. 第一版完成定义
 
-第一版完成需要满足：
+第一版已满足：
 
 1. `goldenshare_serving.share_fact_market_breadth_daily` 由 migration 创建。
 2. `dagster-clickhouse==0.29.6` 已安装。
@@ -1037,4 +1049,5 @@ ClickHouse 不使用根 Alembic，也不新增 ClickHouse Alembic 分支。
 6. `clickhouse_share_fact_market_breadth_update_job` 只负责 ClickHouse serving asset。
 7. `clickhouse_share_fact_market_breadth_automation_sensor` 已定义，默认 `STOPPED`。
 8. 所有 serving checks 通过。
-9. 文档同步到 Phase / architecture 相关文档。
+9. 已完成小范围 backfill 验收。
+10. 文档同步到 design / architecture 相关文档。
