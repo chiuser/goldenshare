@@ -174,6 +174,7 @@
       <a href="../design/dagster-phase-2-low-level-design.html">Phase 2 LLD</a>、
       <a href="../design/dagster-stock-daily-migration.html">Stock Daily 迁移设计</a>、
       <a href="../design/dagster-stock-daily-migration-low-level-design.html">Stock Daily 迁移 LLD</a>、
+      <a href="../design/dagster-run-contract-governance.html">Run Contract Governance</a>、
       <a href="../architecture/dagster-asset-job-topology.html">Asset / Job Topology</a>、
       <a href="../design/dagster-bootstrap-legacy-links.md">Bootstrap Legacy Links</a>。
     </p>
@@ -202,6 +203,12 @@
     <div class="danger">
       <strong>硬门禁：</strong>
       新数据集接入前必须先形成设计记录。没有字段契约、分区模型、路径、checks、job selection、sensor 触发和验收计划，不允许写 asset 代码。
+    </div>
+
+    <div class="warning">
+      <strong>治理契约门禁：</strong>
+      新 asset / check / sensor 必须遵守 <a href="../design/dagster-run-contract-governance.html">Run Contract Governance</a>。
+      禁止新增未登记的 asset tag、run tag、metadata key、cursor 字段或手填 config 口径；确需新增字段，先更新治理文档和静态门禁，再进入代码实现。
     </div>
   </section>
 
@@ -259,7 +266,17 @@
         <tr>
           <td>所属层级</td>
           <td><code>raw</code> / <code>silver</code> / <code>gold</code>。</td>
-          <td>分类只按数据层，不按用途另造分类。</td>
+          <td>分类只按数据层，不按用途另造分类；asset tag value 使用英文枚举 <code>raw</code>、<code>silver</code>、<code>gold</code>。</td>
+        </tr>
+        <tr>
+          <td>数据域</td>
+          <td><code>basic_data</code> / <code>quote_data</code> / <code>index_topic</code> / <code>project_config</code> / <code>derived_metric</code>。</td>
+          <td>必须说明归类依据。Tushare 数据优先按 <code>docs/sources/tushare/**</code> 的目录语义归类；不要为每个具体数据集新增一个 tag value。</td>
+        </tr>
+        <tr>
+          <td>中文名映射</td>
+          <td><code>defs/catalog/name_mapping.py</code> 中的 <code>dataset_id -> 中文名</code>。</td>
+          <td>中文名进入 <code>goldenshare/dataset_name</code> definition metadata，不进入 asset tag；未登记中文名不得接入 asset definition。</td>
         </tr>
         <tr>
           <td>分区模型</td>
@@ -284,12 +301,22 @@
         <tr>
           <td>checks</td>
           <td>blocking checks、WARN checks、metadata、样本输出。</td>
-          <td>一个 check 验证一个属性，不写大而全 check。分区范围、日期边界、资产族归属等门禁应做成正式 blocking asset check，不混入业务 asset 写入函数。</td>
+          <td>一个 check 验证一个属性，不写大而全 check。metadata 必须通过 <code>build_check_metadata(...)</code> 写入。分区范围、日期边界、资产族归属等门禁应做成正式 blocking asset check，不混入业务 asset 写入函数。</td>
+        </tr>
+        <tr>
+          <td>metadata 分层</td>
+          <td>definition metadata、materialization metadata、check metadata 各自字段。</td>
+          <td>定义事实进入 asset definition；本次产物事实进入 materialization；本次检查事实进入 check。禁止把 <code>layer/path/row_count/columns/source_api/data_contract</code> 等旧 top-level key 裸写回 runtime metadata。</td>
+        </tr>
+        <tr>
+          <td>运营 run config</td>
+          <td>需要运营手填的业务字段、默认值、字段说明和 typed config。</td>
+          <td>只暴露业务动作字段，不暴露源接口内部窗口或隐藏不变量。需要 UI 手动运行的入口必须说明 <code>Scaffold Missing Config</code> 后运营应填写什么。</td>
         </tr>
         <tr>
           <td>job / sensor</td>
           <td>谁负责写、谁只读依赖、触发条件、run_key、最大单 tick 数。</td>
-          <td>禁止下游 job 顺手补上游。</td>
+          <td>禁止下游 job 顺手补上游。sensor 提交 run 必须使用 <code>build_run_request(...)</code>，cursor 必须使用 <code>build_sensor_cursor(...)</code>。</td>
         </tr>
         <tr>
           <td>历史迁移</td>
@@ -347,6 +374,78 @@
       <strong>不要造层级概念：</strong>
       <code>trade_calendar</code>、<code>stock_basic</code>、<code>suspend_d</code> 可以是基础资产、共享资产、前置资产，但层级仍然只能是 raw/silver/gold。
       “基础”“引用”“支撑”只能作为用途描述，不能作为资产分类。
+    </div>
+  </section>
+
+  <section>
+    <h2>4A. Run Contract 治理门禁</h2>
+    <p>
+      本节是 <a href="../design/dagster-run-contract-governance.html">Run Contract Governance</a> 的接入摘要。
+      新数据集设计时必须先按下表填写；代码实现时必须使用对应 helper，不能在 asset/check/sensor 文件里裸写新契约。
+    </p>
+
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>对象</th>
+          <th>允许口径</th>
+          <th>禁止事项</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>Asset tags</td>
+          <td>只使用 <code>build_asset_tags(layer=..., data_domain=...)</code>；layer 为 <code>raw/silver/gold</code>，data domain 为治理文档登记的英文枚举。</td>
+          <td>禁止中文 tag value；禁止把具体数据集名、日期、批次、owner、source、freshness 放进 asset tag。</td>
+        </tr>
+        <tr>
+          <td>中文名</td>
+          <td>新增 <code>dataset_id</code> 时同步登记 <code>DATASET_CHINESE_NAMES</code>，asset definition 使用 <code>build_asset_definition_metadata(dataset_id=...)</code> 自动写入中文名。</td>
+          <td>禁止在多个 asset 文件里各自手写中文名；禁止未登记时静默回退英文名。</td>
+        </tr>
+        <tr>
+          <td>Definition metadata</td>
+          <td>使用 <code>build_asset_definition_metadata(...)</code>，至少写清 <code>dataset_id</code>、<code>source_system</code>、<code>data_contract</code>、<code>path_template</code>；Tushare asset 还要写 <code>source_api</code>、<code>source_category_path</code>、<code>source_doc</code>。</td>
+          <td>禁止把 source、contract、路径模板重复写进每次 materialization metadata。</td>
+        </tr>
+        <tr>
+          <td>Path template</td>
+          <td>必须由 <code>defs/paths.py</code> 的真实路径函数配合 <code>lake_path_template(...)</code> 生成。</td>
+          <td>禁止在 asset decorator 的 <code>path_template=...</code> 中手写字符串，避免 metadata 展示路径与真实写入路径分裂。</td>
+        </tr>
+        <tr>
+          <td>Materialization metadata</td>
+          <td>使用 <code>build_materialization_metadata(...)</code>；实际 URI、行数、列结构优先使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。</td>
+          <td>禁止裸写旧 key：<code>path</code>、<code>row_count</code>、<code>columns</code>、<code>layer</code>、<code>source_api</code>、<code>data_contract</code>。</td>
+        </tr>
+        <tr>
+          <td>Check metadata</td>
+          <td>所有 <code>AssetCheckResult(metadata=...)</code> 必须使用 <code>build_check_metadata(...)</code>，并写清 <code>CheckScope</code>、检查行数、失败数量、路径和失败样本。</td>
+          <td>禁止裸写 <code>path/raw_path/silver_path/gold_path/paths/missing_paths/row_count/columns/schema</code> 等未命名空间化字段。</td>
+        </tr>
+        <tr>
+          <td>RunRequest</td>
+          <td>sensor 必须通过 <code>build_run_request(...)</code> 创建 run request。</td>
+          <td>禁止在 sensor 文件里直接写 <code>dg.RunRequest(...)</code>、<code>tags={...}</code> 或 <code>run_tags={...}</code>；第一版不定义项目自定义 run tags。</td>
+        </tr>
+        <tr>
+          <td>Run config</td>
+          <td>手动入口使用 <code>dg.Config</code> typed config 表达业务动作字段；sensor 与 UI 共用 builder，避免三套 YAML 口径。</td>
+          <td>禁止让运营记忆深层源接口参数；禁止在 sensor 文件里裸写深层 <code>ops:</code> config dict。</td>
+        </tr>
+        <tr>
+          <td>Sensor cursor</td>
+          <td>使用 <code>build_sensor_cursor(...)</code> 写 v1 顶层字段：<code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code>。</td>
+          <td>禁止 sensor 文件导入 <code>json</code> 自己序列化 cursor；禁止把 cursor 当跨 sensor readiness 事实源。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <div class="danger">
+      <strong>静态门禁：</strong>
+      <code>tests/test_run_contract_static_gates.py</code> 已经把上述规则纳入测试。新增 asset/check/sensor 如果绕开 helper，测试必须失败；不要为了通过测试去放宽门禁，除非先更新治理文档并说明原因。
     </div>
   </section>
 
@@ -576,6 +675,41 @@ fetch_tushare_full_file_to_raw(
       </table>
     </div>
 
+    <h3>asset decorator 最低骨架</h3>
+    <pre><code>@dg.asset(
+    name="raw_tushare_dataset",
+    partitions_def=...,  # full snapshot 不设置 partitions_def
+    group_name="...",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="dataset_id",
+        source_system=SourceSystem.TUSHARE,
+        source_api="tushare_api_name",
+        source_category_path="股票数据/行情数据",
+        source_doc="docs/sources/tushare/...",
+        data_contract="dataset_raw_contract",
+        path_template=lake_path_template(
+            raw_dataset_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+        ),
+    ),
+    description="Tushare 某数据集原始数据。",
+)
+def raw_tushare_dataset(...) -> dg.MaterializeResult:
+    ...
+    return dg.MaterializeResult(
+        metadata=build_materialization_metadata(
+            uri=target_path,
+            row_count=row_count,
+            columns=RAW_COLUMNS,
+            extra_metadata={...},
+        )
+    )</code></pre>
+
+    <div class="warning">
+      <strong>模板里的省略号不是自由发挥口子。</strong>
+      新增 <code>dataset_id</code>、<code>data_domain</code>、metadata key、路径函数、typed config 字段前，都必须先在设计记录中说明依据；已有 helper 能表达的内容不允许手写 dict 绕过。
+    </div>
+
     <h3>asset deps 判断</h3>
     <ul>
       <li>真实数据输入用 asset <code>deps</code> 表达。</li>
@@ -686,10 +820,11 @@ fetch_tushare_full_file_to_raw(
 
     <h3>metadata 最低要求</h3>
     <ul>
-      <li>失败数量，例如 <code>mismatch_count</code>、<code>duplicate_key_count</code>、<code>anomaly_count</code>。</li>
-      <li>样本行，例如 <code>sample_rows</code>、<code>missing_sample_ts_codes</code>。</li>
-      <li>输入路径和 partition key。</li>
-      <li>规则说明，例如 price sanity 的规则列表。</li>
+      <li>必须通过 <code>build_check_metadata(...)</code> 写入，且必须声明 <code>CheckScope</code>。</li>
+      <li>失败数量，例如 <code>goldenshare/failed_row_count</code>、<code>goldenshare/mismatch_count</code>、<code>goldenshare/duplicate_key_count</code>。</li>
+      <li>样本行，例如 <code>goldenshare/failure_samples</code>、<code>goldenshare/missing_sample_ts_codes</code>。</li>
+      <li>输入路径和 partition key 必须使用明确命名字段，例如 <code>goldenshare/file_path</code>、<code>goldenshare/input_file_paths</code>、<code>goldenshare/missing_file_paths</code>。</li>
+      <li>规则说明，例如 price sanity 的规则列表，必须使用 <code>goldenshare/*</code> 项目 key。</li>
     </ul>
   </section>
 
@@ -794,7 +929,7 @@ dataset_update_job = dg.define_asset_job(
         </tr>
         <tr>
           <td>cursor</td>
-          <td>只做观测和排障，不作为正确性依据。</td>
+          <td>只做观测和排障，不作为正确性依据；必须使用 <code>build_sensor_cursor(...)</code> 的 v1 结构。</td>
         </tr>
         <tr>
           <td>单 tick 限制</td>
@@ -812,6 +947,11 @@ dataset_update_job = dg.define_asset_job(
       <strong>Declarative automation 边界：</strong>
       <code>all_deps_blocking_checks_passed()</code> 只覆盖直接上游 asset，不会穿透间接上游。
       如果下游真实只消费 <code>silver_stock_daily</code>，就围绕它设计；如果需要多个非直接前置条件，必须单独设计 readiness gate 或 sensor 方案。
+    </div>
+
+    <div class="danger">
+      <strong>sensor 代码门禁：</strong>
+      sensor 文件不得直接构造 <code>RunRequest</code>，不得写 <code>tags</code> / <code>run_tags</code>，不得自行 <code>json.dumps</code> / <code>json.loads</code> cursor，且不得裸写深层 <code>ops</code> run config。需要提交 run 时使用 <code>build_run_request(...)</code>；需要记录诊断时使用 <code>build_sensor_cursor(...)</code>。
     </div>
   </section>
 
@@ -922,6 +1062,10 @@ dataset_update_job = dg.define_asset_job(
   <section>
     <h2>17. 验收命令与检查</h2>
     <pre><code>cd /Users/congming/github/goldenshare
+cd lake_console/orchestrator
+.venv/bin/python -B -m unittest discover -s tests
+.venv/bin/ruff check
+cd /Users/congming/github/goldenshare
 python3 scripts/check_docs_integrity.py
 git diff --check
 git status --short</code></pre>
@@ -949,18 +1093,25 @@ git status --short</code></pre>
         <tbody>
         <tr><td>依据</td><td>当前代码、旧湖数据、本地 Tushare 文档、tushareMCP 实测都已核验。</td><td>□</td></tr>
         <tr><td>层级</td><td>raw/silver/gold 分类清楚，没有 support/reference 新层级。</td><td>□</td></tr>
+        <tr><td>Asset tags</td><td>已使用 <code>build_asset_tags(...)</code>，layer/data_domain 均为治理文档登记的英文枚举。</td><td>□</td></tr>
+        <tr><td>中文名</td><td><code>dataset_id</code> 已登记到 <code>DATASET_CHINESE_NAMES</code>，中文名只进入 definition metadata。</td><td>□</td></tr>
         <tr><td>命名</td><td>asset/job/sensor/file 名称单一职责，不宽泛。</td><td>□</td></tr>
         <tr><td>UI 文案</td><td>asset/job/sensor/check 的 description 已用中文简明表达能力和用途。</td><td>□</td></tr>
-        <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入。</td><td>□</td></tr>
+        <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入；definition <code>path_template</code> 由真实路径函数生成。</td><td>□</td></tr>
+        <tr><td>Definition metadata</td><td>已使用 <code>build_asset_definition_metadata(...)</code> 写清数据集身份、source、contract 和路径模板。</td><td>□</td></tr>
+        <tr><td>Materialization metadata</td><td>已使用 <code>build_materialization_metadata(...)</code>，路径、行数、列结构使用 Dagster 标准 key。</td><td>□</td></tr>
         <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
         <tr><td>请求范围</td><td>逐对象接口的对象池、请求量、分页量、耗时和不可接受量级已评估；raw 范围与设计文档一致。</td><td>□</td></tr>
-        <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 metadata 和样本。</td><td>□</td></tr>
+        <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 <code>build_check_metadata(...)</code>、scope、数量和样本。</td><td>□</td></tr>
         <tr><td>deps</td><td>asset deps 表达真实输入；check additional_deps 表达质量依赖。</td><td>□</td></tr>
         <tr><td>job</td><td>job 只做 selection；共享基础资产有唯一写入口。</td><td>□</td></tr>
-        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义。</td><td>□</td></tr>
+        <tr><td>run config</td><td>手动入口使用 typed config 和业务动作字段；sensor 与 UI 共用 builder，不裸写深层 dict。</td><td>□</td></tr>
+        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义；RunRequest 和 cursor 都通过治理 helper 构造。</td><td>□</td></tr>
+        <tr><td>run tags</td><td>没有新增项目自定义 run tags；如确需新增，已先登记治理文档并补静态门禁。</td><td>□</td></tr>
         <tr><td>bootstrap</td><td>如需旧湖迁移，spec、legacy links、清理边界已记录。</td><td>□</td></tr>
         <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
+        <tr><td>静态门禁</td><td><code>unittest</code>、<code>ruff</code>、文档完整性检查和 <code>git diff --check</code> 已通过。</td><td>□</td></tr>
         <tr><td>range 回补</td><td>如使用 dynamic partition range，必须在资产代码里校验实际 <code>partition_keys</code> 与自然日期区间期望一致；不能只凭 CLI 文本判断覆盖范围。</td><td>□</td></tr>
         <tr><td>文档同步</td><td>对应 Phase / LLD / topology / AGENTS 如有口径变更已同步。</td><td>□</td></tr>
         </tbody>
@@ -978,6 +1129,11 @@ git status --short</code></pre>
       <li>description 随便写英文占位、技术废话或过期口径。</li>
       <li>下游 job 主动补上游。</li>
       <li>只看文件存在或 materialized，就认为上游 ready。</li>
+      <li>新增 asset 时手写 <code>tags={...}</code> 或中文 tag value。</li>
+      <li>新增中文名却不登记 <code>name_mapping.py</code>。</li>
+      <li>在 asset decorator 里手写 <code>path_template</code> 字符串。</li>
+      <li>在 materialization/check metadata 里裸写 <code>path</code>、<code>row_count</code>、<code>columns</code>、<code>source_api</code>、<code>data_contract</code> 等旧 key。</li>
+      <li>sensor 直接写 <code>RunRequest</code>、自定义 run tags、深层 <code>ops</code> config 或本地 JSON cursor。</li>
       <li>把 WARN check 失败静默吞掉。</li>
       <li>用 sensor 一次性触发大量历史分区。</li>
       <li>把旧湖路径写入新湖 parquet 字段。</li>
