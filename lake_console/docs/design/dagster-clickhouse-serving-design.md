@@ -126,7 +126,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. 当前没有非系统业务表，尚未创建 `goldenshare_serving`。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；尚未接入 Dagster resource / asset / job。
 
 本地已知坑：
 
@@ -717,6 +717,26 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/clickhouse_share_fact_ma
 ## 13. 落地步骤
 
 ### Slice CH-1：ClickHouse migration 基础
+
+状态：已完成。
+
+当前执行结果：
+
+```text
+Flyway CLI: 12.6.2
+Flyway ClickHouse plugin: 10.24.0
+ClickHouse JDBC driver: clickhouse-jdbc-0.9.8-all.jar
+JDBC URL: jdbc:clickhouse://127.0.0.1:8123/default
+Schema history table: default.flyway_schema_history
+已执行 migration: V1 / V2
+```
+
+本地注意事项：
+
+1. Homebrew 安装的 Flyway 12.6.2 已自带 ClickHouse database plugin。
+2. Flyway CLI 不自带 ClickHouse JDBC driver，需要把 `clickhouse-jdbc-0.9.8-all.jar` 放入 `clickhouse_migrations/drivers/`。
+3. 本地 ClickHouse `default` 用户为空密码，但 Flyway 必须显式传 `-password=`；只传 `-user=default` 会触发 `REQUIRED_PASSWORD`。
+4. Codex 沙箱内 Java/Flyway 连接本机 ClickHouse 会遇到 `SocketException: Operation not permitted`，执行 Flyway 连接和迁移命令需要在沙箱外运行。
 
 目标：
 
