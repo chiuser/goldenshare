@@ -406,7 +406,7 @@ def ch_share_fact_market_breadth_breadth_fields_match_gold(
             clickhouse_rows=clickhouse_rows,
             extra_metadata={
                 **breadth_metadata,
-                "checked_fields": BREADTH_VALUE_COLUMNS,
+                "checked_fields": list(BREADTH_VALUE_COLUMNS),
                 "mismatch_count": len(mismatches),
                 "mismatch_sample_rows": mismatches[:10],
             },
@@ -466,7 +466,7 @@ def ch_share_fact_market_breadth_distribution_fields_match_gold(
             clickhouse_rows=clickhouse_rows,
             extra_metadata={
                 **distribution_metadata,
-                "checked_fields": DISTRIBUTION_VALUE_COLUMNS,
+                "checked_fields": list(DISTRIBUTION_VALUE_COLUMNS),
                 "mismatch_count": len(mismatches),
                 "mismatch_sample_rows": mismatches[:10],
             },
