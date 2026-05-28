@@ -316,7 +316,7 @@
         <ul>
           <li>不做业务过滤，例如不按当前上市股票裁剪 raw 日线。</li>
           <li>不写 <code>source_method</code>、旧湖路径、bootstrap metadata 到 parquet 字段。</li>
-          <li>source_method、api_name、params、fields、row_count 只进 materialization metadata。</li>
+          <li>路径、行数、列结构使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；源请求参数、fields、page_count 等只进 materialization metadata，不进 parquet 字段。</li>
           <li>raw 空结果要按数据集语义拍板：如 <code>suspend_d</code> 允许空 parquet；<code>daily</code> 开市日 0 行必须失败。</li>
         </ul>
       </div>
@@ -383,13 +383,13 @@
         </tr>
         <tr>
           <td>job</td>
-          <td><code>{asset_family}_update_job</code> 或 <code>{business}_job</code></td>
+          <td><code>{dataset_or_domain}_update_job</code> 或 <code>{business}_job</code></td>
           <td><code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code></td>
           <td>job 名要表达写入范围，不能叫过宽泛的 <code>foundation_daily_job</code>。</td>
         </tr>
         <tr>
           <td>sensor</td>
-          <td><code>{asset_family}_sensor</code></td>
+          <td><code>{dataset_or_domain}_sensor</code></td>
           <td><code>stock_daily_sensor</code>、<code>suspend_d_sensor</code></td>
           <td><code>cn_a_trade_day_sensor</code> 只注册交易日分区，不承接所有数据集生产。</td>
         </tr>
@@ -555,22 +555,22 @@ fetch_tushare_full_file_to_raw(
         <tr>
           <td>raw partitioned asset</td>
           <td>调用 Tushare 或 bootstrap helper，写 raw parquet。</td>
-          <td><code>path</code>、<code>row_count</code>、<code>columns</code>、<code>source_method</code>、<code>api_name</code>、脱敏 <code>params</code>、<code>partition_key</code>。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；项目字段必须使用 <code>goldenshare/*</code> 或已登记 helper，例如脱敏请求参数、fields、page_count、partition summary。</td>
         </tr>
         <tr>
           <td>raw full asset</td>
           <td>拉全量快照，原子替换 full parquet。</td>
-          <td><code>path</code>、<code>row_count</code>、<code>columns</code>、分布统计、<code>update_policy</code>。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；分布统计、source row count、update policy 使用已登记项目 metadata key。</td>
         </tr>
         <tr>
           <td>silver asset</td>
           <td>读取 raw 和真实上游标准事实，做类型标准化、去重、过滤、修正。</td>
-          <td><code>path</code>、<code>raw_path</code>、<code>row_count</code>、<code>columns</code>、过滤统计、重复/冲突统计、修正统计。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；过滤、重复、冲突、修正统计使用明确命名的项目 metadata key，不裸写 <code>raw_path</code>、<code>row_count</code>、<code>columns</code>。</td>
         </tr>
         <tr>
           <td>gold asset</td>
           <td>读取 silver 标准事实，生成业务结果。</td>
-          <td><code>path</code>、上游路径、行数、公式口径、业务摘要。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；上游摘要、公式口径和业务统计使用已登记项目 metadata key。</td>
         </tr>
         </tbody>
       </table>
@@ -848,8 +848,8 @@ dataset_update_job = dg.define_asset_job(
           <td><code>.tmp</code> 文件写成功后 <code>os.replace</code> 原子替换。</td>
         </tr>
         <tr>
-          <td>source_method</td>
-          <td><code>old_lake_bootstrap</code> 只进 Dagster metadata，不进 parquet 字段。</td>
+          <td>bootstrap source method</td>
+          <td><code>old_lake_bootstrap</code> 只允许作为迁移审计 metadata，不进 parquet 字段，也不作为新生产链路判断条件。</td>
         </tr>
         <tr>
           <td>日常生产</td>
@@ -921,10 +921,7 @@ dataset_update_job = dg.define_asset_job(
 
   <section>
     <h2>17. 验收命令与检查</h2>
-    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
-uv run dg check defs
-
-cd /Users/congming/github/goldenshare
+    <pre><code>cd /Users/congming/github/goldenshare
 python3 scripts/check_docs_integrity.py
 git diff --check
 git status --short</code></pre>
@@ -933,6 +930,8 @@ git status --short</code></pre>
       <strong>正式 instance 验收：</strong>
       需要 UI 可见、dynamic partitions 持久化、sensor 状态或 backfill 记录时，必须使用
       <code>DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home</code> 对应的正式 Dagster instance。
+      包括 <code>uv run dg check defs</code> 在内的任何 Dagster 命令都必须先按 orchestrator
+      执行门禁列出命令、读写范围和影响，并取得明确批准。
     </div>
   </section>
 

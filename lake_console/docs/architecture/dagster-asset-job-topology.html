@@ -334,10 +334,10 @@
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
       当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code> 和 <code>market_major_indices_daily_update_job</code>。
-      <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 breadth gold assets、checks、declarative automation 和各自 gold job 均已存在。
+      <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
-      当前已新增自定义 <code>market_breadth_automation_sensor</code> 和 <code>stock_return_distribution_automation_sensor</code>，分别只 target 自己的 breadth gold asset，用来替代全局默认 automation sensor 作为日常触发入口。
+      当前已新增自定义 <code>market_breadth_automation_sensor</code> 和 <code>stock_return_distribution_automation_sensor</code>，分别只 target 自己的 gold asset，用来替代全局默认 automation sensor 作为日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 在目标交易日全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 <code>silver_index_daily_update_job</code>。
@@ -525,7 +525,7 @@
         <tr>
           <td><code>gold_market_major_indices_daily</code></td>
           <td>gold，<code>cn_a_index_trade_days</code> 分区</td>
-          <td>读取仓库带生效期 seed <code>major_indices.cn_a.csv</code> 和 <code>silver_index_daily[trade_date]</code>，只输出当日已生效的主要指数日线结果。</td>
+          <td>读取仓库带生效期 seed <code>src/orchestrator/seeds/market/major_indices.cn_a.csv</code> 和 <code>silver_index_daily[trade_date]</code>，只输出当日已生效的主要指数日线结果。</td>
           <td><code>market_major_indices_daily_update_job</code>；只选择 daily gold asset 和 gold checks。</td>
         </tr>
         </tbody>
@@ -926,7 +926,7 @@
     <div class="rule-list">
       <div class="card">
         <strong>一个资产，一个清晰归属</strong>
-        每个 asset 必须归属到一个资产族：calendar、basic、quote、breadth。资产族决定它的 job 入口、更新频率和 checks 口径。
+        每个 asset 必须归属到一个稳定归类：calendar、basic、quote、index、breadth / derived metric、market gold 等。归类决定它的 job 入口、更新频率和 checks 口径；不要重新发明临时资产族或 run tag。
       </div>
       <div class="card">
         <strong>共享基础资产单独写</strong>

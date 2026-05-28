@@ -203,7 +203,7 @@
     <h1>Stock Daily 历史迁移 Low Level Design</h1>
     <p class="lead">
       本文档把 <code>dagster-stock-daily-migration.html</code> 中已经拍板的历史迁移设计落成技术实现方案。
-      本轮只覆盖旧湖到新湖的历史 bootstrap，不接入 Tushare API 续更新，不引入 sensor、schedule、ClickHouse 或 prod release。
+      它是历史 bootstrap 记录，不是当前日常生产入口说明；当前 Tushare API 更新、sensor、run contract 和 metadata helper 口径以 Phase 2 收口文档、topology 和 run contract governance 为准。
     </p>
   </header>
 
@@ -452,27 +452,27 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr>
           <td><code>raw_tushare_stock_basic</code></td>
           <td>继续使用 bootstrap full file；不改 raw 源字段。</td>
-          <td><code>row_count</code>、<code>columns</code>、<code>list_status_distribution</code>。</td>
+          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、<code>list_status_distribution</code>。</td>
         </tr>
         <tr>
           <td><code>silver_stock_basic</code></td>
           <td>使用新 SQL 只保留 <code>list_status='L'</code>；日期字段转 <code>DATE</code>。</td>
-          <td><code>row_count</code>、<code>columns</code>、<code>source_row_count</code>、<code>filtered_out_count</code>、<code>list_status_distribution</code>。</td>
+          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、<code>source_row_count</code>、<code>filtered_out_count</code>、<code>list_status_distribution</code>。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_suspend_d[date]</code></td>
           <td>继续使用 bootstrap partition；允许 0 行；raw 中 <code>trade_date</code> 是 <code>YYYYMMDD</code> 字符串。</td>
-          <td><code>row_count</code>、<code>columns</code>、<code>source_method</code>、<code>partition_key</code>。</td>
+          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、迁移审计 <code>source_method</code>、<code>partition_key</code>。</td>
         </tr>
         <tr>
           <td><code>silver_stock_suspend_daily[date]</code></td>
           <td>日期转 <code>DATE</code>；14 条已知盘中停牌修正写入 <code>suspend_timing</code>。</td>
-          <td><code>row_count</code>、<code>columns</code>、<code>suspend_timing_correction_count</code>、<code>suspend_timing_correction_version</code>、<code>suspend_timing_correction_sample_rows</code>。</td>
+          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、<code>suspend_timing_correction_count</code>、<code>suspend_timing_correction_version</code>、<code>suspend_timing_correction_sample_rows</code>。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_stock_daily[date]</code></td>
           <td>继续使用 bootstrap partition；保留旧湖该交易日全部 daily 源记录；不做股票池过滤。</td>
-          <td><code>row_count</code>、<code>columns</code>、<code>source_method</code>、<code>partition_key</code>。</td>
+          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、迁移审计 <code>source_method</code>、<code>partition_key</code>。</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily[date]</code></td>
@@ -597,6 +597,10 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
   <section>
     <h2>8. 验证计划</h2>
     <h3>8.1 静态验证</h3>
+    <p class="muted">
+      本节是历史迁移验收记录。当前若要重新运行任何 Dagster 命令，必须按 orchestrator
+      执行门禁先列命令、正式 <code>DAGSTER_HOME</code>、读写范围和影响，并取得明确批准。
+    </p>
     <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
 uv run dg check defs
 git diff --check
@@ -727,7 +731,7 @@ git status --short</code></pre>
   <section>
     <h2>10. 分步开发计划</h2>
     <ol>
-      <li>Slice A：新增 <code>corrections/suspend_timing.py</code>，只包含 14 条修正常量和 SQL helper，跑 <code>dg check defs</code>。状态：已完成。</li>
+      <li>Slice A：新增 <code>corrections/suspend_timing.py</code>，只包含 14 条修正常量和 SQL helper，历史验收曾跑 <code>dg check defs</code>。状态：已完成。</li>
       <li>Slice B：改造 <code>silver_stock_basic</code> 只保留 <code>L</code>，更新 stock basic checks，跑 full asset job 验证。状态：已完成。</li>
       <li>Slice C：改造 <code>silver_stock_suspend_daily</code> 写入修正 timing 和 materialization metadata，单日验证 <code>2014-01-02</code>。状态：已完成。</li>
       <li>Slice D：改造 <code>silver_stock_daily</code> 四类过滤和 metadata，新增/调整 silver daily checks。状态：已完成。</li>

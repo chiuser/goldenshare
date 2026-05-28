@@ -266,7 +266,8 @@
     <p class="muted">Goldenshare Dagster / Stock Daily Migration / 2026-05-21</p>
     <h1>Stock Daily 历史迁移设计</h1>
     <p class="lead">
-      本文档单独记录 <code>daily</code> 从旧湖迁移到新湖的口径。它不是一个孤立数据集迁移，
+      本文档单独记录 <code>daily</code> 从旧湖迁移到新湖的历史口径。它不是当前日常生产入口说明，也不是新 asset/check metadata 的通用模板。
+      当前活跃入口以 <code>stock_daily_update_job</code>、<code>suspend_update_job</code> 和 topology 文档为准。它不是一个孤立数据集迁移，
       必须同时依赖 <code>stock_basic</code> 提供股票池边界，依赖 <code>suspend_d</code> 修正停牌语义，
       最终让 <code>silver_stock_daily</code> 成为后续 <code>gold_market_breadth_daily</code> 可稳定消费的标准事实资产。
     </p>

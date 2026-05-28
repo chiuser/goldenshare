@@ -1,61 +1,65 @@
-# orchestrator
+# Goldenshare Dagster Orchestrator
 
-## Getting started
+`lake_console/orchestrator` is the local Dagster project for the Goldenshare
+Parquet lake. It is a formal data orchestration project, not a scaffold or
+scratch Dagster tutorial.
 
-### Installing dependencies
+## Current Scope
 
-**Option 1: uv**
+The active code location is loaded from `src/orchestrator/defs` and currently
+contains lake assets, asset checks, asset jobs, sensors, run-contract helpers,
+Feishu run-status notifications, and shared resources.
 
-Ensure [`uv`](https://docs.astral.sh/uv/) is installed following their [official documentation](https://docs.astral.sh/uv/getting-started/installation/).
+Current resource keys are:
 
-Create a virtual environment, and install the required dependencies using _sync_:
+- `lake_root`
+- `duckdb`
+- `tushare`
+- `feishu`
+
+Sensitive values are read from environment variables. Do not write tokens,
+webhook URLs, or secrets into code, docs, metadata, logs, `dagster.yaml`, or
+local env files committed to the repo.
+
+## Required Reading
+
+Before changing Dagster definitions, read:
+
+- [AGENTS.md](/Users/congming/github/goldenshare/AGENTS.md)
+- [lake_console/AGENTS.md](/Users/congming/github/goldenshare/lake_console/AGENTS.md)
+- [orchestrator/AGENTS.md](/Users/congming/github/goldenshare/lake_console/orchestrator/AGENTS.md)
+- [CODING_STANDARDS.md](/Users/congming/github/goldenshare/lake_console/orchestrator/CODING_STANDARDS.md)
+- [Dagster run contract governance](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-run-contract-governance.html)
+- [Dagster asset/job topology](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-asset-job-topology.html)
+
+## Execution Gate
+
+The local Dagster instance is treated as a formal environment. Do not casually
+run `dg`, Dagster jobs, sensors, backfills, materializations, automation
+evaluations, or scripts that read the formal Dagster instance.
+
+Any Dagster execution must first list the exact command, working directory,
+`DAGSTER_HOME`, read/write scope, expected impact, and rollback plan, then wait
+for explicit approval.
+
+Static code and documentation checks are allowed.
+
+## Common Static Checks
+
+From this directory:
 
 ```bash
-uv sync
+.venv/bin/python -B -m unittest discover -s tests
+ruff check tests
 ```
 
-Then, activate the virtual environment:
-
-| OS | Command |
-| --- | --- |
-| MacOS | ```source .venv/bin/activate``` |
-| Windows | ```.venv\Scripts\activate``` |
-
-**Option 2: pip**
-
-Install the python dependencies with [pip](https://pypi.org/project/pip/):
+From the repository root:
 
 ```bash
-python3 -m venv .venv
+python3 scripts/check_docs_integrity.py
+git diff --check
+git status --short
 ```
 
-Then activate the virtual environment:
-
-| OS | Command |
-| --- | --- |
-| MacOS | ```source .venv/bin/activate``` |
-| Windows | ```.venv\Scripts\activate``` |
-
-Install the required dependencies:
-
-```bash
-pip install -e ".[dev]"
-```
-
-### Running Dagster
-
-Start the Dagster UI web server:
-
-```bash
-dg dev
-```
-
-Open http://localhost:3000 in your browser to see the project.
-
-## Learn more
-
-To learn more about this template and Dagster in general:
-
-- [Dagster Documentation](https://docs.dagster.io/)
-- [Dagster University](https://courses.dagster.io/)
-- [Dagster Slack Community](https://dagster.io/slack)
+These checks do not replace Dagster runtime validation. They are the safe
+default for code/documentation governance work.

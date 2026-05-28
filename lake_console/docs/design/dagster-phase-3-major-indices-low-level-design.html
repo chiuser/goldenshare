@@ -390,8 +390,8 @@ silver_index_daily_update_job[trade_date]
           <td><code>489017.CNI</code> 和 <code>399333.SZ</code> 已从 partitions 和数据湖 raw 文件中删除。历史 materialization 只作为 Dagster event 记录存在。</td>
         </tr>
         <tr>
-          <td>silver 历史生成</td>
-          <td>用户已启动运行。运行期间不建议修改 orchestrator 代码，文档修改不影响已启动 run。</td>
+          <td>silver 生成入口</td>
+          <td><code>silver_index_daily_update_job</code>、<code>silver_index_daily_sensor</code> 均已进入 active definitions；实际历史覆盖进度不在本文档中写死，后续必须通过只读审计确认。</td>
         </tr>
       </tbody>
     </table>
@@ -401,9 +401,9 @@ silver_index_daily_update_job[trade_date]
     <h2>7. Phase 3 剩余任务整合</h2>
     <p>
       截至当前代码事实，Phase 3 已完成指数日线 raw-by-code 主链、<code>silver_index_daily</code>
-      生成入口、旧 active pool 链路退场。主要指数名单不再作为独立 Dagster asset，
-      而是收敛为仓库 seed 文件；剩余工作必须按下表推进，避免一边实现 daily gold，
-      一边把旧 metadata 表或旧 raw-by-date 口径带回来。
+      生成入口、<code>silver_index_daily_sensor</code>、主要指数名单 seed 化、
+      <code>gold_market_major_indices_daily</code> asset/checks/job，以及旧 active pool 链路退场。
+      剩余工作必须按下表推进，避免把旧 metadata 表、旧 raw-by-date 口径或未设计的自动触发能力带回来。
     </p>
     <table>
       <thead>
@@ -427,8 +427,8 @@ silver_index_daily_update_job[trade_date]
           <td>2</td>
           <td>Slice G 已完成：<code>silver_index_daily_sensor</code>。</td>
           <td>补齐 raw 自动更新后 silver 仍需人工触发的问题。</td>
-          <td>sensor 只在目标交易日所有注册 <code>raw_tushare_index_daily_by_code[ts_code]</code> 已 materialized 且 raw blocking checks 全部通过后，触发 <code>silver_index_daily_update_job[trade_date]</code>。</td>
-          <td>不调用 Tushare，不补 raw，不重跑失败 raw，不处理历史多日批量；只触发 silver job。</td>
+          <td>sensor 只读 raw-by-code 文件事实：全部注册指数代码的 raw parquet 文件必须存在，且都包含目标交易日数据；真正的数据质量检查仍由 raw/silver asset checks 承担。</td>
+          <td>不调用 Tushare，不补 raw，不重跑失败 raw，不读取 raw run tags/config 或 raw check history，不处理历史多日批量；只触发 silver job。</td>
         </tr>
         <tr>
           <td>3</td>
@@ -446,24 +446,24 @@ silver_index_daily_update_job[trade_date]
         </tr>
         <tr>
           <td>5</td>
-          <td>Slice H0：主要指数名单 seed 化。</td>
+          <td>Slice H0 已完成：主要指数名单 seed 化。</td>
           <td>让旧 <code>gold_market_major_indices</code> 独立 asset、初始化 job、更新 job 和旧 checks 从 active Definitions 退场。</td>
-          <td>新增 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>，字段固定为 <code>rank,ts_code,display_name,effective_start_date,effective_end_date</code>。<code>effective_start_date</code> 第一版按当前新湖 <code>silver_index_daily</code> 首个可用日期填写，<code>effective_end_date</code> 为空表示仍生效。</td>
+          <td>seed 文件位于 <code>src/orchestrator/seeds/market/major_indices.cn_a.csv</code>，字段固定为 <code>rank,ts_code,display_name,effective_start_date,effective_end_date</code>。<code>effective_end_date</code> 为空表示仍生效。</td>
           <td>不 drop PostgreSQL <code>market_major_indices*</code> 表，不清历史 Dagster run/event，不删除旧 gold parquet；这些如需处理必须单独出清理方案。</td>
         </tr>
         <tr>
           <td>6</td>
-          <td>Slice H1：实现 <code>gold_market_major_indices_daily[trade_date]</code>、checks 和 job。</td>
+          <td>Slice H1 已完成：实现 <code>gold_market_major_indices_daily[trade_date]</code>、checks 和 job。</td>
           <td>把当日已生效 seed 名单与 <code>silver_index_daily[trade_date]</code> 结合，生成首页主要指数日线结果。</td>
           <td>输出文件位于 <code>gold/market/major_indices_daily/trade_date=YYYY-MM-DD/part-000.parquet</code>；行数等于当日 active seed 行数；保留 <code>trade_date/rank/ts_code/display_name</code> 和当日行情字段。<code>rank</code> 保留 seed 固定顺序，历史早期允许有缺口，不做按日重排。</td>
           <td><code>market_major_indices_daily_update_job</code> 只 selection daily gold asset 和 gold checks；不 selection index raw/silver，不调用 Tushare，不修上游。</td>
         </tr>
         <tr>
           <td>7</td>
-          <td>Slice H2：设计主要指数日线自动触发。</td>
+          <td>Slice H2 待设计：主要指数日线自动触发。</td>
           <td>在 <code>silver_index_daily[trade_date]</code> ready 且 seed checks 通过后触发 daily gold。</td>
           <td>优先评估 declarative automation 是否足够表达直接上游 checks；如需更细控制，再设计专用 sensor。</td>
-          <td>自动触发方案必须先写设计，不和 seed cutover、asset/job/check 实现混在同一个 slice 中自由发挥。</td>
+          <td>当前代码没有专用主要指数日线 automation sensor。自动触发方案必须先写设计，不和已完成的 seed/asset/job/check 实现混在同一个 slice 中自由发挥。</td>
         </tr>
         <tr>
           <td>8</td>

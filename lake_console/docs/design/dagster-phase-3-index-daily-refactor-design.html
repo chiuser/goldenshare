@@ -913,7 +913,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>触发 raw 更新</td>
-        <td>为每个 <code>ts_code</code> 发 <code>RunRequest(partition_key=ts_code)</code>，config 使用当天日期窗口。</td>
+        <td>为每个 <code>ts_code</code> 通过 <code>build_run_request(...)</code> 提交 raw 更新请求，config 使用当天 <code>trade_date</code>。</td>
         <td>run_key 使用 <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;</code> 防重复。</td>
       </tr>
       <tr>
@@ -989,7 +989,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>触发方式</td>
-        <td>提交 <code>RunRequest(job_name="silver_index_daily_update_job", partition_key=trade_date)</code>。</td>
+        <td>通过 <code>build_run_request(...)</code> 提交 <code>silver_index_daily_update_job[trade_date]</code>。</td>
       </tr>
       <tr>
         <td>run key</td>
@@ -1089,7 +1089,7 @@ silver_index_daily_update_job[trade_date]
     <ol>
       <li>已完成：新增 <code>cn_a_index_ts_codes</code>、<code>raw_tushare_index_daily_by_code</code>、<code>index_daily_update_job</code> 和 <code>silver_index_daily_update_job</code>。</li>
       <li>已完成：旧 active pool asset/check/job、旧 raw-by-date asset/check/helper、旧 history backfill / repair job 已从 active Definitions 和代码主链删除。</li>
-      <li>已完成：主要指数名单已从独立 <code>gold_market_major_indices</code> asset 退场，改为仓库带生效期 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>；后续由 <code>gold_market_major_indices_daily[trade_date]</code> 直接读取当日已生效 seed 和 <code>silver_index_daily[trade_date]</code>。</li>
+      <li>已完成：主要指数名单已从独立 <code>gold_market_major_indices</code> asset 退场，改为仓库带生效期 seed 文件 <code>src/orchestrator/seeds/market/major_indices.cn_a.csv</code>；后续由 <code>gold_market_major_indices_daily[trade_date]</code> 直接读取当日已生效 seed 和 <code>silver_index_daily[trade_date]</code>。</li>
       <li>已完成：按用户确认，旧 raw-by-date parquet 与 active pool parquet 已物理删除；历史 Dagster run/event 不删除。</li>
       <li>保留：历史 Dagster run/event 不删除，只作为审计记录保留。</li>
       <li>保留：旧 PG 表不在本 Slice 物理删除；后续如果清理，必须单独备份、列清单并取得用户批准。</li>

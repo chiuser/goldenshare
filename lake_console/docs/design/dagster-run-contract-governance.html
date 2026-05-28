@@ -731,7 +731,7 @@ DATASET_CHINESE_NAMES = {
   <section>
     <h2>8. Run Config 使用规范与 Launchpad UX</h2>
     <p>
-      Run config 是执行输入，不是观测标签。最终态必须同时满足两层要求：底层 asset/op 使用 typed config 保证校验；面向 Dagster UI 的 job 暴露简化 config，让 Launchpad 不是空白深层 YAML，而是可 scaffold、可理解、只需要填写关键字段的表单。
+      Run config 是执行输入，不是观测标签。最终态必须满足两层要求：底层 asset/op 使用 typed config 保证校验；面向 Dagster UI 的手动入口只暴露业务动作字段，不能要求运营记忆源接口内部窗口、旧 run tags 或隐藏不变量。
     </p>
 
     <table>
@@ -750,7 +750,7 @@ DATASET_CHINESE_NAMES = {
       </tr>
       <tr>
         <td>有手动 UI 运行需求的入口必须提供简化 config schema。</td>
-        <td>用户在 Launchpad 点击 Add config 时，不应该面对空白页面或深层 <code>ops/.../config/...</code> 结构。</td>
+        <td>用户在 Launchpad 点击 Add config / Scaffold Missing Config 时，应看到有说明的业务字段，而不是空白编辑器或源接口内部参数。</td>
         <td>优先用 Dagster 原生 <code>dg.Config</code> schema 表达业务动作输入；带分区定义的 asset job 不得未经验证直接挂 <code>ConfigMapping</code>。</td>
       </tr>
       <tr>
@@ -768,20 +768,23 @@ DATASET_CHINESE_NAMES = {
 
     <h3>8.1 指数日线 UI Config 最终态</h3>
     <p>
-      <code>index_daily_update_job</code> 的 UI 配置最终态只暴露简化字段。这里不是“UI 好看”问题，而是 run config 在资产族变多后是否可维护、可审计、可被运营正确使用的问题。手动运行不能要求运营记忆深层 YAML 和隐藏不变量。
+      <code>index_daily_update_job</code> 的 UI 配置最终态只暴露简化业务字段。这里不是“UI 好看”问题，而是 run config 在资产族变多后是否可维护、可审计、可被运营正确使用的问题。手动运行不能要求运营记忆 Tushare 内部窗口和隐藏不变量。
     </p>
     <p>
-      M3B 已把 <code>raw_tushare_index_daily_by_code</code> 的正式 UI config 从 <code>start_date/end_date/write_mode</code> 收敛为 <code>trade_date/write_mode</code>。asset 内部把 <code>trade_date</code> 映射成 <code>start_date = end_date = trade_date</code>，底层 Tushare 请求窗口不再暴露给运营。
+      M3B 已把 <code>raw_tushare_index_daily_by_code</code> 的正式 UI config 从 <code>start_date/end_date/write_mode</code> 收敛为 <code>trade_date/write_mode</code>。由于当前入口仍是带指数代码分区的 asset job，Launchpad 里仍显示 Dagster 原生 <code>ops/raw_tushare_index_daily_by_code/config</code> 层级；治理目标是把该 config 节点下的字段收敛成业务动作字段，而不是强行把配置提升成 job 顶层。
     </p>
     <p>
-      <code>trade_date</code> 必须有字段说明但不设置危险默认日期；<code>write_mode</code> 可以默认 <code>replace</code>。如果 Launchpad 中 Add config 或 Scaffold Missing Config 后仍然只能得到空白编辑器，或仍要求用户手写 <code>start_date/end_date</code>，则该 job 尚未达到本节定义的最终态。
+      asset 内部把 <code>trade_date</code> 映射成 <code>start_date = end_date = trade_date</code>，底层 Tushare 请求窗口不再暴露给运营。<code>trade_date</code> 必须有字段说明但不设置危险默认日期；<code>write_mode</code> 可以默认 <code>replace</code>。如果 Launchpad 中 Add config 或 Scaffold Missing Config 后仍然只能得到空白编辑器，或仍要求用户手写 <code>start_date/end_date</code>，则该 job 尚未达到本节定义的最终态。
     </p>
     <p>
-      M3 静态验证发现：当前 Dagster 版本不允许给带分区定义的 asset job 直接挂 <code>ConfigMapping</code>，否则 job config schema 解析会失败。因此 <code>index_daily_update_job</code> 在保持“指数代码是分区语义”的前提下，本轮不能把 Launchpad 外部配置改成顶层 <code>trade_date/write_mode</code>。M3 只清理 sensor 自定义 run tags，并把 sensor 侧配置生成收敛到 builder；UI 手动配置治理需要单独设计，不得用破坏分区 job 的方式硬接。
+      M3 静态验证发现：当前 Dagster 版本不适合给带分区定义的 asset job 直接挂 <code>ConfigMapping</code> 来强接顶层 config。因此 M3B 没有绕开 asset job，也没有改变“指数代码是分区语义”的模型，而是治理 asset typed config 本身。
     </p>
-    <pre><code># Launchpad 展示目标
-trade_date: "2026-05-26"
-write_mode: "replace"</code></pre>
+    <pre><code># Launchpad / sensor 正式 config 形态
+ops:
+  raw_tushare_index_daily_by_code:
+    config:
+      trade_date: "2026-05-26"
+      write_mode: "replace"</code></pre>
     <p>
       M3B UI 验收结论：实际点击 <code>Scaffold Missing Config</code> 后，Dagster 只生成必填字段 <code>trade_date: ''</code>；<code>write_mode</code> 因为 schema 默认值是 <code>replace</code>，不是 missing config，所以不会自动出现在 scaffold 结果里。该行为符合预期：只填写 <code>trade_date</code> 时，Dagster validation 会用默认值补齐 <code>write_mode=replace</code>。
     </p>
@@ -1557,9 +1560,9 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/jobs/index_daily_update.py</code></td>
-        <td>当前 job 只有 asset selection，没有 job-level config mapping；UI Launchpad 需要用户理解底层 <code>ops/raw_tushare_index_daily_by_code/config</code> 结构。</td>
-        <td>不能靠删除 config 解决；也不能用 <code>ConfigMapping</code> 强接顶层 config，因为当前 partitioned asset job schema 已验证不支持该路径。</td>
-        <td>M3B 改为治理 asset typed config：主入口 UI 只填 <code>trade_date</code> 和 <code>write_mode</code>，asset 内部映射到 Tushare <code>start_date=end_date=trade_date</code>。</td>
+        <td>当前 job 只有 asset selection，没有 job-level config mapping；Launchpad 使用 Dagster 原生 <code>ops/raw_tushare_index_daily_by_code/config</code> 层级。</td>
+        <td>不再暴露源接口窗口；当前 asset typed config 只接受 <code>trade_date/write_mode</code>，旧 <code>start_date/end_date</code> 不是正式手填口径。</td>
+        <td>M3B 已落地：sensor 与 UI 共同使用 <code>trade_date</code>，asset 内部映射到 Tushare <code>start_date=end_date=trade_date</code>。</td>
       </tr>
       <tr>
         <td><code>defs/assets/index_daily.py</code></td>

@@ -292,14 +292,14 @@
   <header>
     <h1>Dagster 第一期 Low Level Design</h1>
     <p class="subtitle">
-      本文档是《Dagster 第一期方案设计：市场广度最小闭环》的低层技术设计。
-      它用于指导下一步编码落地，重点写清模块结构、asset/resource/check/partition 的实现边界、DuckDB 读写口径、metadata 输出和验证门禁。
+      本文档是《Dagster 第一期方案设计：市场广度最小闭环》的历史低层技术设计与收口记录。
+      它保留第一期模块结构、asset/resource/check/partition 的实现边界、DuckDB 读写口径、metadata 输出和验证门禁；当前新增实现必须优先遵守 run contract governance、topology 和最新 Phase 文档。
     </p>
     <div class="meta-grid">
       <div class="chip"><strong>项目目录</strong><code>lake_console/orchestrator</code></div>
       <div class="chip"><strong>Lake Root</strong><code>/Volumes/datasource/data_lake</code></div>
       <div class="chip"><strong>第一期范围</strong>trade calendar、stock basic、stock daily、market breadth</div>
-      <div class="chip"><strong>文档状态</strong>第一期已实现，补齐收口记录</div>
+      <div class="chip"><strong>文档状态</strong>历史阶段文档；已按 M6/M8 口径修正 metadata 表述</div>
     </div>
   </header>
 
@@ -615,14 +615,19 @@
   <section>
     <h2>6. Asset 实现细节</h2>
     <h3>通用 materialization metadata</h3>
-    <pre><code>metadata = {
-  "path": target_path,
-  "row_count": row_count,
-  "columns": column_names,
-  "partition_key": context.partition_key,      # 分区资产才有
-  "layer": "raw" | "silver" | "gold",
-  "data_contract": "source_mirror" | "standardized" | "business_fact"
-}</code></pre>
+    <pre><code>metadata = build_materialization_metadata(
+  uri=target_path,
+  row_count=row_count,
+  columns=column_names,
+  extra_metadata={
+    "partition_key": context.partition_key,      # 分区资产才有
+  },
+)</code></pre>
+    <p class="small">
+      当前治理口径：<code>layer</code> 放 asset tags；<code>data_contract</code> 放 definition metadata；
+      materialization metadata 的路径、行数和列结构分别使用 <code>dagster/uri</code>、
+      <code>dagster/row_count</code>、<code>dagster/column_schema</code>。
+    </p>
 
     <h3>raw_tushare_trade_calendar</h3>
     <pre><code>@dg.asset(key="raw_tushare_trade_calendar")
@@ -632,12 +637,13 @@ def raw_tushare_trade_calendar(lake_root, duckdb) -> dg.MaterializeResult:
     assert_file_exists(path)
     schema = duckdb_describe(path)
     row_count = duckdb_count(path)
-    return dg.MaterializeResult(metadata={
-        "path": str(path),
-        "row_count": row_count,
-        "columns": schema.columns,
-        "raw_contract": "trade_cal source mirror: cal_date/pretrade_date YYYYMMDD, is_open 0/1"
-    })</code></pre>
+    return dg.MaterializeResult(
+        metadata=build_materialization_metadata(
+            uri=path,
+            row_count=row_count,
+            columns=schema.columns,
+        )
+    )</code></pre>
 
     <h3>silver_trade_calendar</h3>
     <pre><code>SELECT
@@ -655,7 +661,8 @@ FROM read_parquet(:raw_path)</code></pre>
 def raw_tushare_stock_basic(lake_root, duckdb) -> dg.MaterializeResult:
     path = lake_root.raw_path("tushare", "stock_basic", "full", "part-000.parquet")
     # 只登记和校验现有 raw 文件；第一期不调用 Tushare
-    # metadata 必须包含 path、row_count、columns、list_status_distribution</code></pre>
+    # metadata 使用 dagster/uri、dagster/row_count、dagster/column_schema；
+    # list_status_distribution 等业务统计放入已登记的项目 metadata key。</code></pre>
 
     <h3>silver_stock_basic</h3>
     <pre><code>SELECT
@@ -899,7 +906,7 @@ os.replace(tmp, target)</code></pre>
         <tbody>
         <tr>
           <td>Dagster definitions 加载</td>
-          <td><code>uv run dg check defs</code></td>
+          <td><code>uv run dg check defs</code>；当前执行前必须先获得正式 Dagster 环境审批。</td>
           <td>code location 能加载，移动盘缺失不应导致导入失败。</td>
         </tr>
         <tr>
@@ -915,7 +922,7 @@ os.replace(tmp, target)</code></pre>
         <tr>
           <td>silver/gold 产出</td>
           <td>materialize 2026-04 单日样本，再扩到全月</td>
-          <td>metadata 中可见 path、row_count、columns、重复行统计、完整性观察差异。</td>
+          <td>materialization metadata 中可见 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>、重复行统计、完整性观察差异。</td>
         </tr>
         <tr>
           <td>asset checks 回归</td>

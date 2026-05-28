@@ -1328,8 +1328,8 @@ stock_daily_sensor
       当前代码已经声明 breadth gold asset 的 automation condition，并已新增自定义
       <code>AutomationConditionSensorDefinition</code>。
       <code>market_breadth_automation_sensor</code> 与 <code>stock_return_distribution_automation_sensor</code> 分别只 target 自己的 gold asset，
-      默认 <code>STOPPED</code>，评估间隔保守设置，并给自动触发 runs 打上各自的 <code>asset_family</code>
-      等可观测标签。
+      默认 <code>STOPPED</code>，评估间隔保守设置；治理专项 M4 后不再给自动触发 runs 写
+      <code>asset_family</code> 等项目自定义 run tags，触发来源以 Dagster 系统 tag / sensor tick 为准。
       <code>stock_trade_day_sensor</code> 已经负责交易日 partition 注册；非交易日没有 partition key，即使 automation sensor 评估也不会产生非交易日分区 run。
       启用前必须先用 <code>dg.evaluate_automation_conditions(...)</code> 只读确认请求分区范围；<code>dagster sensor preview</code>
       不支持 automation condition sensor 的普通预览。
@@ -1615,7 +1615,7 @@ raw file:
 ]
 
 for partition_key in missing_partition_keys:
-  RunRequest(partition_key=partition_key)
+  build_run_request(partition_key=partition_key, run_key=f"stock_daily_update:{partition_key}")
 
 每个 run 内部只生成一个 Tushare daily 请求：
 2026-05-13 -> {"trade_date": "20260513"}

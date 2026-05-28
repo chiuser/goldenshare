@@ -956,7 +956,7 @@ def silver_index_daily_sensor(context):
     <h3>11.3 Dagster 历史记录</h3>
     <ul>
       <li>不删除 Dagster PostgreSQL 中旧 run/event/backfill 记录。</li>
-      <li>旧 run 保持审计用途；新 run 通过 asset/job 名称和 tags 区分。</li>
+      <li>旧 run 保持审计用途；新 run 通过 asset/job 名称、Dagster 系统 tag 和当前 run contract 区分，不新增项目自定义 run tags。</li>
       <li>旧 asset/job definition 已从 active Definitions 删除，不再作为生产入口出现。</li>
       <li>旧 job 不应继续作为 active 生产入口出现，避免用户误点。</li>
     </ul>

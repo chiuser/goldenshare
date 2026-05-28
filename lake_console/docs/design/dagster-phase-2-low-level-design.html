@@ -415,12 +415,12 @@
     </div>
 
     <div class="callout">
-      <strong>Slice 2.2.2a 已验证：</strong>
+      <strong>Slice 2.2.2a 历史验证结论，已被后续事故修正：</strong>
       当前 Dagster 1.13.6 中，<code>AutomationCondition.on_missing()</code> 与
-      <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 组合后，用于表达“直接上游同分区可用且 blocking checks 通过时，请求缺失下游”。
-      失败场景也符合预期：上游缺失时不请求，下游直接上游 blocking check 失败时不请求。
-      同时确认该能力只看直接 asset deps；如果某个下游确实需要多个非直接前置条件，必须另行显式设计。
-      但 breadth gold 的直接业务输入已经收敛为 <code>silver_stock_daily</code>，因此本轮不再为它们新增显式 readiness asset。
+      <code>AutomationCondition.all_deps_blocking_checks_passed()</code> 曾被用来表达“直接上游同分区可用且 blocking checks 通过时，请求缺失下游”。
+      后续 <code>19aa0df9-01a9-4c36-afc7-b95a20298b25</code> 证明这个口径不适合 breadth gold 的日常跟进触发：
+      它更偏“补新 missing”，不等价于“直接上游更新完成后推动下游”。当前正式口径已经改为
+      <code>eager()</code> + <code>all_deps_blocking_checks_passed()</code>，且只看直接 asset deps；如果某个下游确实需要多个非直接前置条件，必须另行显式设计。
     </div>
 
     <div class="callout">
@@ -995,10 +995,11 @@ def raw_tushare_suspend_d(context, lake_root, duckdb, tushare):
   write rows to parquet
 
   return MaterializeResult(metadata={
-    path, row_count, columns, partition_key,
-    source_api="suspend_d",
-    source_method="tushare_api",
-    data_contract="source_mirror",
+    "dagster/uri": target_path,
+    "dagster/row_count": row_count,
+    "dagster/column_schema": columns,
+    "goldenshare/partition_key": partition_key,
+    "goldenshare/source_method": "tushare_api",
   })
 
 @dg.asset(
@@ -1855,7 +1856,7 @@ for record in get_asset_check_execution_history(...):
 
   if source is ready:
     register cn_a_stock_trade_days partition key if needed
-    emit RunRequest(partition_key=today)</code></pre>
+    emit build_run_request(partition_key=today, run_key="stock_daily_update:{today}")</code></pre>
 
     <div class="warning">
       <strong>设计边界：</strong>
@@ -2160,10 +2161,6 @@ gold_stock_return_distribution[trade_date] automation:
       target=dg.AssetSelection.assets(gold_market_breadth_daily),
       default_status=dg.DefaultSensorStatus.STOPPED,
       minimum_interval_seconds=600,
-      run_tags={
-        "trigger": "automation_condition",
-        "asset_family": "market_breadth",
-      },
       description="Evaluate market breadth declarative automation only.",
       emit_backfills=True,
       use_user_code_server=False,
@@ -2176,10 +2173,6 @@ defs/sensors/stock_return_distribution_automation_sensor.py
       target=dg.AssetSelection.assets(gold_stock_return_distribution),
       default_status=dg.DefaultSensorStatus.STOPPED,
       minimum_interval_seconds=600,
-      run_tags={
-        "trigger": "automation_condition",
-        "asset_family": "stock_return_distribution",
-      },
       description="Evaluate stock return distribution declarative automation only.",
       emit_backfills=True,
       use_user_code_server=False,
@@ -2189,7 +2182,7 @@ defs/sensors/stock_return_distribution_automation_sensor.py
       <strong>控制目标：</strong>
       自定义 automation sensor 的目的不是解决历史 <code>2975</code> 个缺失分区。
       历史分区补齐仍通过 Dagster UI 分批 backfill。
-      这个 sensor 的职责是把日常 market breadth 自动触发从全局默认 sensor 中收敛出来，明确控制 target、默认状态、评估频率、run tags、description 和启用策略。
+      这个 sensor 的职责是把日常 market breadth 自动触发从全局默认 sensor 中收敛出来，明确控制 target、默认状态、评估频率、description 和启用策略；run tag 口径遵守治理专项，不再写项目自定义 tags。
     </div>
 
     <div class="table-wrap">
@@ -2219,8 +2212,8 @@ defs/sensors/stock_return_distribution_automation_sensor.py
         </tr>
         <tr>
           <td>run_tags</td>
-          <td>至少包含 <code>trigger=automation_condition</code> 和 <code>asset_family=market_breadth</code>。</td>
-          <td>方便 Dagster UI 中区分人工 run、UI backfill 和 automation run。</td>
+          <td>不写项目自定义 <code>run_tags</code>。</td>
+          <td>触发来源由 Dagster 系统 tag / sensor tick 表达；治理专项 M4 已删除 <code>trigger/asset_family</code> 这类自定义 run tags。</td>
         </tr>
         <tr>
           <td>非交易日</td>
@@ -2346,7 +2339,7 @@ defs/sensors/stock_return_distribution_automation_sensor.py
 
   <section>
     <h2>14. 验证命令与验收</h2>
-    <p>下面是开发时的验证口径，不代表现在要立即执行。</p>
+    <p>下面是开发时的历史验证口径，不代表现在要立即执行。当前如需执行任何 Dagster 命令、读取正式 instance 或触发 job/sensor/automation，必须先按 orchestrator 执行门禁单独列命令、读写范围和影响，并取得明确批准。</p>
 
     <pre><code># Definitions 结构验证
 cd lake_console/orchestrator
@@ -2399,7 +2392,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         </tr>
         <tr>
           <td>全月数据</td>
-          <td>2026-04 全月 21 个交易日 quote 链路已作为历史迁移和 checks 小范围验收通过；breadth 自动化入口已实现，等待单日和后续小范围运行验收。stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
+          <td>2026-04 全月 21 个交易日 quote 链路已作为历史迁移和 checks 小范围验收通过；breadth / return distribution 自动化入口已进入 active definitions，是否完成实际运行验收以 Dagster UI 和后续只读审计记录为准。stock daily 完整性 metadata 能解释缺失、多余、全日停牌和盘中停牌样本。</td>
         </tr>
         <tr>
           <td>提交前</td>
@@ -2430,8 +2423,8 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         <tr>
           <td>Tushare token 是敏感配置，容易被误写进代码、文档或 Dagster 配置文件。</td>
           <td>2.0.1</td>
-          <td>已拍定方案，待实现校验。</td>
-          <td>使用 <code>TUSHARE_TOKEN</code> + <code>dg.EnvVar("TUSHARE_TOKEN")</code>。实现时必须按 7.1 配置审计表执行，禁止硬编码、禁止写入 <code>dagster.yaml</code> 或散落 env 文件。关闭条件：<code>TushareResource</code> 能读取 env var，缺 token 时 code location 不崩，依赖 Tushare 的 asset run 给出清晰错误。</td>
+          <td>已实现。</td>
+          <td>当前 <code>TushareResource</code> 使用 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入；禁止硬编码、禁止写入 <code>dagster.yaml</code> 或散落 env 文件。缺 token 时由依赖 Tushare 的 asset run 给出清晰错误，不把敏感值写入代码、文档、metadata 或日志。</td>
         </tr>
         <tr>
           <td>Declarative automation 与 blocking checks 的组合行为需要本地版本验证。</td>
@@ -2448,14 +2441,14 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
         <tr>
           <td>bootstrap 历史迁移和 Tushare 日常生产容易写成两套 raw 契约。</td>
           <td>2.0.2 起持续</td>
-          <td>待实现校验。</td>
-          <td>字段常量、路径函数、raw checks 必须共用；<code>source_method</code> 只作为 materialization metadata，不作为业务字段或下游判断逻辑。关闭条件：bootstrap raw 与 Tushare API raw 能共用同一套 checks，下游 silver/gold 不区分来源。</td>
+          <td>历史迁移口径已收口；新生产链路不得复用 bootstrap 作为日常入口。</td>
+          <td>字段常量、路径函数、raw checks 必须共用；<code>source_method</code> 只作为迁移审计 metadata，不作为业务字段或下游判断逻辑。关闭条件：bootstrap raw 与 Tushare API raw 能共用同一套 checks，下游 silver/gold 不区分来源。</td>
         </tr>
         <tr>
           <td>旧湖 <code>suspend_d</code> 不同日期分区里，同一个字段可能被 DuckDB 推断成不同类型。</td>
           <td>2.0.3</td>
-          <td>已识别风险，待实现校验。</td>
-          <td>典型例子是 <code>suspend_timing</code>：有值的分区像字符串，全空分区可能被推断成 <code>INTEGER/NULL</code>。bootstrap 读取旧湖时必须 <code>union_by_name=true</code> 按字段名合并，并显式 <code>cast(suspend_timing as varchar)</code>；写入新 raw 后，schema check 必须确认它是 nullable string，否则阻断后续 silver。关闭条件：<code>suspend_d</code> 单日和 2026-04 全月 bootstrap 验证通过。</td>
+          <td>已完成历史迁移验证。</td>
+          <td>典型例子是 <code>suspend_timing</code>：有值的分区像字符串，全空分区可能被推断成 <code>INTEGER/NULL</code>。bootstrap 读取旧湖时使用 <code>union_by_name=true</code> 按字段名合并，并显式 <code>cast(suspend_timing as varchar)</code>；写入新 raw 后，schema check 确认它是 nullable string，否则阻断后续 silver。<code>suspend_d</code> 单日和 2026-04 全月 bootstrap 验证已完成。</td>
         </tr>
         <tr>
           <td>未来 open day 被误注册并运行。</td>

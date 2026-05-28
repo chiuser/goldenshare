@@ -415,6 +415,12 @@ from read_parquet({old_path}, hive_partitioning=false)</code></pre>
 
   <section>
     <h2>6. 写入与 metadata</h2>
+    <div class="warning">
+      本节描述的是旧湖 bootstrap 迁移 helper 的迁移审计输出，不是新生产 asset/check
+      metadata 的通用模板。新生产 asset/check 必须遵守 run contract governance：
+      路径、行数、列结构分别使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、
+      <code>dagster/column_schema</code>，check metadata 统一经 <code>build_check_metadata(...)</code>。
+    </div>
     <pre><code>bootstrap write flow:
   1. render old_lake source path
   2. render new_lake raw target path
@@ -507,8 +513,8 @@ from read_parquet({old_path}, hive_partitioning=false)</code></pre>
       <tbody>
         <tr><td>□</td><td>spec 文件命名体现数据集。</td><td>例如 <code>bootstrap/specs/stock_daily.py</code>，不要写宽泛 <code>types.py</code> 或大杂烩文件。</td></tr>
         <tr><td>□</td><td>select template 只输出 target_raw_fields。</td><td>字段顺序必须稳定。</td></tr>
-        <tr><td>□</td><td>旧湖路径不写入 parquet。</td><td>只允许进入 spec、台账或 metadata。</td></tr>
-        <tr><td>□</td><td><code>source_method</code> 不写入 parquet。</td><td>只允许进入 materialization metadata。</td></tr>
+        <tr><td>□</td><td>旧湖路径不写入 parquet。</td><td>只允许进入 spec、台账或迁移审计 metadata。</td></tr>
+        <tr><td>□</td><td><code>source_method</code> 不写入 parquet。</td><td>只允许进入迁移审计 metadata，不作为下游业务判断条件。</td></tr>
         <tr><td>□</td><td>写入使用 tmp + os.replace。</td><td>避免半文件污染正式 raw。</td></tr>
         <tr><td>□</td><td>失败时清理 tmp。</td><td>避免后续误读临时文件。</td></tr>
         <tr><td>□</td><td>migration-only job 不被 sensor/schedule 引用。</td><td>迁移入口不能进入日常链路。</td></tr>

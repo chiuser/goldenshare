@@ -289,8 +289,8 @@
     <div class="meta-grid">
       <div class="chip"><strong>文档性质</strong>早期架构 review 文档；下方旧湖映射仍是设计参考，已实现清单以 Phase 2 / Phase 3 文档为准。</div>
       <div class="chip"><strong>当前 Dagster 项目</strong><code>lake_console/orchestrator</code> 已包含正式 assets、resources、jobs、checks、sensors，不再是脚手架空项目。</div>
-      <div class="chip"><strong>当前数据集事实源</strong><code>lake_console/backend/app/catalog/datasets</code> 的 59 个 <code>LakeDatasetDefinition</code>。</div>
-      <div class="chip"><strong>当前 PostgreSQL</strong><code>goldenshare_dagster</code> 承载 Dagster 状态；<code>goldenshare_lake_meta</code> 已用于指数 active pool 与主要指数名单 metadata。</div>
+      <div class="chip"><strong>当前数据集事实源</strong>Dagster active definitions 以 <code>lake_console/orchestrator/src/orchestrator/defs</code> 为准；旧 Lake Console catalog 只作迁移参考。</div>
+      <div class="chip"><strong>当前 PostgreSQL</strong><code>goldenshare_dagster</code> 承载 Dagster 状态；当前 orchestrator 代码不注册 <code>goldenshare_lake_meta</code> resource。</div>
       <div class="chip"><strong>长期方向</strong>如果 Dagster 能承接主要治理能力，<code>lake_console</code> 产品形态将逐步退场。</div>
       <div class="chip"><strong>新 Lake 根路径</strong>Dagster 新资产只使用 <code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>。</div>
     </div>
@@ -755,7 +755,7 @@
   <section>
     <h2>4. 映射到 Dagster：Assets 与 Resources</h2>
     <p class="note">
-      下表保留的是早期把旧湖模型映射到 Dagster 的总体建议，不是当前已落地清单。当前 <code>lake_console/orchestrator</code> 已落地股票 quote / market breadth 以及指数基础信息、active pool、index daily、主要指数名单等资产；具体代码事实以 Phase 2 / Phase 3 文档和 <code>defs</code> 目录为准。
+      下表保留的是早期把旧湖模型映射到 Dagster 的总体建议，不是当前已落地清单。当前 <code>lake_console/orchestrator</code> 已落地股票 quote / market breadth、指数基础信息、index daily、主要指数日线等资产；旧 active pool 和主要指数名单独立 metadata asset 已从 active definitions 退场。具体代码事实以 Phase 2 / Phase 3 文档和 <code>defs</code> 目录为准。
     </p>
 
     <h3>Assets 分类表</h3>
@@ -885,7 +885,7 @@
             <td><code>goldenshare_lake_meta</code></td>
             <td>业务 metadata 写入与查询</td>
             <td>可以作为关键资源，但不应影响 Dagster 内部 storage</td>
-            <td>保存数据源、schema、发布包、同步记录、质量快照等业务治理表。当前 orchestrator 代码已不再注册主要指数 metadata 专用 resource；如后续重新接入，必须单独设计。</td>
+            <td>这是未来可选的业务治理账本方向。当前 orchestrator 代码不注册 <code>goldenshare_lake_meta</code> resource；旧指数 active pool / 主要指数 metadata 表即使仍存在，也只是遗留数据库对象，不是 active 生产依赖。如后续重新接入，必须单独设计。</td>
           </tr>
           <tr>
             <td><code>ClickHouseResource</code></td>
@@ -1000,9 +1000,9 @@
           </tr>
           <tr>
             <td><code>goldenshare_lake_meta</code></td>
-            <td>已用于指数链路 metadata；当前包含 index daily active pool 与主要指数名单相关本地表。</td>
-            <td>Dagster assets、Lake Console API、本地发布工具。</td>
-            <td>当前已落地：<code>index_daily_active_pool</code>、<code>index_daily_active_pool_history</code>、<code>market_major_indices</code>、<code>market_major_indices_change_history</code>。未来可继续承载数据源登记、schema 版本、资产登记、同步记录、发布结果等业务 metadata。</td>
+            <td>业务 metadata 库，当前不被 active orchestrator resource 依赖。</td>
+            <td>未来可能服务 Dagster assets、Lake Console API、本地发布工具；当前主要指数名单已改为仓库 seed 文件。</td>
+            <td>旧 <code>index_daily_active_pool*</code>、<code>market_major_indices*</code> 表如仍存在，只作为遗留对象和清理评估对象；未来如要承载数据源登记、schema 版本、资产登记、同步记录或发布结果，必须单独设计。</td>
             <td>Dagster 内部 run/event/schedule 表；大体量行情明细。</td>
           </tr>
         </tbody>
@@ -1011,7 +1011,7 @@
 
     <h3><code>goldenshare_lake_meta</code> 的表意向示例</h3>
     <p class="note">
-      本节保留早期业务 metadata 规划。当前 Phase 3 已先落地指数 active pool 与主要指数名单相关表；下面的数据源登记、schema、发布包等表仍是未来方向，不代表当前已建表。
+      本节保留早期业务 metadata 规划。当前 active orchestrator 代码不依赖 <code>goldenshare_lake_meta</code>；旧指数 active pool / 主要指数 metadata 表不再是生产主链。下面的数据源登记、schema、发布包等表仍是未来方向，不代表当前已建表或已接入。
     </p>
     <div class="table-wrap">
       <table>
@@ -1072,13 +1072,13 @@
   </section>
 
   <section>
-    <h2>6. 建议的第一阶段落地顺序</h2>
+    <h2>6. 当前落地状态与后续方向</h2>
     <ol class="list">
-      <li>先只定义 <code>LakeRootResource</code> 和 <code>lake_root_health</code> asset，用来验证 Dagster 装配与 lake root 可用性展示。</li>
-      <li>再把 <code>LakeCatalogResource</code> 接入，让 Dagster asset metadata 复用当前 catalog，避免手写两份资产事实源。</li>
-      <li>选择 <code>stk_mins</code> 作为第一条真实链路候选，因为它已经有 raw / silver / gold 的多节点关系。</li>
-      <li>等 raw/silver/gold 跑通后，再引入本地 ClickHouse serving assets。</li>
-      <li>早期曾建议不要过早建设 <code>goldenshare_lake_meta</code>；当前 Phase 3 已按“确有业务需要再建表”的原则，先落地指数 active pool 与主要指数名单 metadata 表。发布包流程仍留到后续。</li>
+      <li>已落地：<code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>FeishuWebhookResource</code>。</li>
+      <li>已落地：股票交易日、基础资料、停复牌、股票日线、市场宽度、股票涨跌幅分布、指数基础信息、指数日线和主要指数日线相关 assets / checks / jobs / sensors。</li>
+      <li>已落地：asset tags、中文数据集名、definition/materialization/check metadata 分层、sensor cursor 和静态门禁。</li>
+      <li>未落地：<code>LakeCatalogResource</code>、<code>lake_root_health</code> asset、ClickHouse serving assets、发布包流程；这些仍是后续单独设计项，不应从早期建议中直接照抄实现。</li>
+      <li>当前原则：除非已有明确业务账本需求和配置审计，<code>goldenshare_lake_meta</code> 不作为新 Dagster 资产的默认依赖。</li>
     </ol>
     <p class="warning">
       这份文档不建议在 <code>dg dev</code> 启动时阻断式检查移动 SSD。更合理的方式是：Dagster 正常启动，lake 相关 asset 执行前检查 Lake Root；不可用时记录为 run/check 失败。
@@ -1096,7 +1096,7 @@
       <li><code>research/stk_mins_by_date_clean_next</code> 在 qfq 前是 silver；qfq 后结果应拆成独立 gold asset，避免原地替换造成语义混乱。</li>
       <li>当前 <code>derived</code> 默认按 gold 处理。</li>
       <li>Dagster asset 以 <code>LakeNodeDefinition</code> 为粒度，而不是以 <code>LakeDatasetDefinition</code> 为粒度。</li>
-      <li><code>goldenshare_lake_meta</code> 只在明确业务账本需要时建表；当前已落地指数 active pool 与主要指数名单 metadata 表，其它数据源登记、发布包等表仍不提前建设。</li>
+      <li><code>goldenshare_lake_meta</code> 只在明确业务账本需要时接入；当前 active orchestrator 代码不注册它作为 resource，旧 active pool / 主要指数 metadata 表不再是生产依赖。</li>
     </ul>
   </section>
 </main>

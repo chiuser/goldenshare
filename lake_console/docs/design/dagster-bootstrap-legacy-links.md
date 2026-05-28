@@ -19,7 +19,7 @@
 
 1. 新湖正式资产路径只允许位于 `data_lake/raw`、`data_lake/silver`、`data_lake/gold`。
 2. 旧湖路径只允许出现在本文档、bootstrap spec、migration-only job 或迁移审计记录中。
-3. `source_method=old_lake_bootstrap` 只允许进入 Dagster materialization metadata，不允许进入 Parquet 业务字段。
+3. `source_method=old_lake_bootstrap` 只允许进入迁移审计 metadata，不允许进入 Parquet 业务字段，也不能作为下游业务判断条件。
 4. 后续日常生产必须走 `TushareResource` 或对应正式资源，不允许继续依赖旧湖 bootstrap 链路。
 5. 清理旧链路前必须做引用审计、Definitions 审计、运行记录审计和路径契约审计。
 
@@ -73,7 +73,7 @@
 2. Dagster Definitions 审计：确认没有 sensor、schedule、ongoing job、declarative automation 或 readiness gate 引用该旧链路。
 3. 运行记录审计：确认该数据集历史 bootstrap 已完成，materialization metadata 中能查到迁移记录。
 4. 路径契约审计：确认正式 asset path 中没有旧湖路径概念，Parquet 字段中没有 `source_method`、旧湖路径或 bootstrap 系统字段。
-5. 验证审计：删除或调整后必须通过 `uv run dg check defs`，并通过相关 raw/silver assets 和 checks 验证。
+5. 验证审计：删除或调整后先做静态编译、单元测试、文档完整性检查和引用扫描；如确需运行 `dg check defs` 或相关 Dagster 验证，必须按正式 Dagster 环境执行门禁单独列命令和影响范围，并取得明确批准。
 
 ## 保留策略
 

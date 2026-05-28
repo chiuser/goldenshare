@@ -178,8 +178,8 @@
     <div class="meta-grid">
       <div class="chip"><strong>当前准口径</strong>raw 按指数代码分区，silver 按交易日分区。</div>
       <div class="chip"><strong>旧口径状态</strong>旧链路已从 active Definitions 退场，文档不再保留旧实现教程。</div>
-      <div class="chip"><strong>当前阶段</strong>raw-by-code 已完成历史回填，silver 历史生成正在推进。</div>
-      <div class="chip"><strong>后续重点</strong>主要指数名单 seed 化，并生成 <code>gold_market_major_indices_daily</code>。</div>
+      <div class="chip"><strong>当前代码阶段</strong>raw-by-code、silver、主要指数日线 gold asset/job/checks 均已进入 active definitions。</div>
+      <div class="chip"><strong>后续重点</strong>只读审计历史分区覆盖，并单独设计主要指数日线自动触发或 serving 发布。</div>
     </div>
   </header>
 
@@ -217,7 +217,7 @@
         </tr>
         <tr>
           <td>主要指数名单如何使用</td>
-          <td>主要指数名单已从独立 Dagster asset 退场，改为仓库内 seed 文件 <code>orchestrator/seeds/market/major_indices.cn_a.csv</code>。它是带生效日期的版本化参考数据，不再由 PostgreSQL metadata 表维护。<code>gold_market_major_indices_daily[trade_date]</code> 只要求当日已经生效的主要指数存在。</td>
+          <td>主要指数名单已从独立 Dagster asset 退场，改为仓库内 seed 文件 <code>src/orchestrator/seeds/market/major_indices.cn_a.csv</code>。它是带生效日期的版本化参考数据，不再由 PostgreSQL metadata 表维护。<code>gold_market_major_indices_daily[trade_date]</code> 只要求当日已经生效的主要指数存在。</td>
         </tr>
       </tbody>
     </table>
@@ -404,14 +404,24 @@ data_lake/raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code><
           <td>946 个注册代码均有 raw 文件；最新交易日覆盖完整；raw blocking checks 全绿。</td>
         </tr>
         <tr>
-          <td>silver 历史生成</td>
-          <td>进行中</td>
-          <td>由 <code>silver_index_daily_update_job</code> 生成，当前不建议在运行期间修改 orchestrator 代码。</td>
+          <td>silver 生成入口</td>
+          <td>已实现</td>
+          <td><code>silver_index_daily_update_job</code> 只选择 <code>silver_index_daily</code> 和对应 checks；实际历史覆盖进度以正式 Dagster UI / 数据湖只读审计为准，本文件不再用“进行中”描述运行状态。</td>
         </tr>
         <tr>
           <td>silver 自动触发</td>
-          <td>待开发</td>
-          <td>Slice G：新增 <code>silver_index_daily_sensor</code>。</td>
+          <td>已实现</td>
+          <td><code>silver_index_daily_sensor</code> 已进入 active definitions：只读 raw-by-code 文件事实，确认全部注册指数代码的 raw 文件存在且包含目标交易日后，才触发 <code>silver_index_daily_update_job</code>。</td>
+        </tr>
+        <tr>
+          <td>主要指数日线 gold</td>
+          <td>已实现</td>
+          <td><code>gold_market_major_indices_daily</code>、对应 checks 和 <code>market_major_indices_daily_update_job</code> 已进入 active definitions；主要指数名单来自 seed 文件，不再维护独立 Dagster asset。</td>
+        </tr>
+        <tr>
+          <td>主要指数日线自动触发</td>
+          <td>待设计</td>
+          <td>当前没有专用 automation sensor；如需日常自动触发，必须单独设计，不在本文件中假设已存在。</td>
         </tr>
       </tbody>
     </table>
