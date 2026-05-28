@@ -4,7 +4,7 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义，以及 serving checks / job 接入。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation 尚未接入。
+本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入，以及 serving automation 入口定义。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation sensor 默认 `STOPPED`，尚未默认长期启用。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -64,13 +64,15 @@ ClickHouse migration
 ClickHouse serving 数据库
 ClickHouse serving 表契约
 ClickHouse serving asset
+ClickHouse serving checks
+ClickHouse serving job
+ClickHouse serving automation sensor
 ```
 
 当前还没有：
 
 ```text
-ClickHouse serving checks
-ClickHouse serving job
+ClickHouse serving 默认长期自动化
 ```
 
 当前已存在的直接上游 gold assets：
@@ -138,7 +140,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；automation 尚未接入。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 已定义 automation 入口，默认 `STOPPED`。
 
 本地已知坑：
 
@@ -916,6 +918,24 @@ selection:
 
 ### Slice CH-5：自动化入口
 
+状态：已完成。
+
+当前实现结果：
+
+```text
+asset condition:
+  ch_share_fact_market_breadth_daily
+    eager() & all_deps_blocking_checks_passed()
+
+automation sensor:
+  clickhouse_share_fact_market_breadth_automation_sensor
+    target = ch_share_fact_market_breadth_daily
+    default_status = STOPPED
+    minimum_interval_seconds = 600
+    emit_backfills = true
+    use_user_code_server = false
+```
+
 目标：
 
 1. 为 `ch_share_fact_market_breadth_daily` 添加 automation condition。
@@ -934,6 +954,7 @@ selection:
 1. 只有两个 gold 直接上游 ready 时才请求 ClickHouse serving asset。
 2. 不触发 gold 上游 job。
 3. 不触发 raw / silver / Tushare。
+4. 启用前必须先做请求范围评估，避免历史缺失分区被一次性请求。
 
 ### Slice CH-6：小范围 backfill 与文档收口
 

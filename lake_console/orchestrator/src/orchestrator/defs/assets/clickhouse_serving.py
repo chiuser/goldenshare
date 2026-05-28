@@ -49,6 +49,11 @@ CLICKHOUSE_MARKET_BREADTH_COLUMNS = (
     "updated_at",
 )
 
+CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
+    dg.AutomationCondition.eager()
+    & dg.AutomationCondition.all_deps_blocking_checks_passed()
+)
+
 
 def _read_single_row(
     connection,
@@ -197,6 +202,7 @@ def _replace_clickhouse_partition(client, row: tuple[Any, ...]) -> None:
         },
     ),
     description="ClickHouse 行情事实市场宽度日表，由两个 gold 资产合并生成 serving 副本。",
+    automation_condition=CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION,
 )
 def ch_share_fact_market_breadth_daily(
     context: dg.AssetExecutionContext,
