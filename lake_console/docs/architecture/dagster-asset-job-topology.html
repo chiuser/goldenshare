@@ -586,6 +586,15 @@
           <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready。</td>
         </tr>
         <tr>
+          <td><span class="tag">quote</span></td>
+          <td><code>raw_tushare_adj_factor</code> → <code>silver_adj_factor</code></td>
+          <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
+          <td><code>cn_a_stock_current_trade_days</code></td>
+          <td>asset 与 blocking checks 已实现；历史 bootstrap、job 和 sensor 尚未执行或接入。</td>
+          <td>目标为交易日早盘日更；后续由 <code>stock_current_trade_day_sensor</code> 注册当天分区，再由 <code>stock_adj_factor_sensor</code> 在 9:30 后触发。</td>
+          <td>复权因子标准事实；silver 只保留当前上市且已上市股票，供后续分钟线 qfq 使用。</td>
+        </tr>
+        <tr>
           <td><span class="tag">index</span></td>
           <td><code>raw_tushare_index_basic</code> → <code>silver_index_basic</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>

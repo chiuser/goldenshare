@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；历史 bootstrap 迁移尚未执行。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；历史 bootstrap 迁移尚未执行。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -328,6 +328,7 @@ Readiness：
 - 增加 `raw_tushare_adj_factor`、`silver_adj_factor`。
 - 增加 raw/silver blocking checks。
 - 只做静态编译、单元测试和临时 DuckDB 文件测试。
+- 状态：已完成；未新增 job/sensor，未执行正式 Dagster materialization。
 
 ### A4：Job 与 sensor
 

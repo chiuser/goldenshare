@@ -6,6 +6,13 @@ from orchestrator.defs.assets.calendar import (
     raw_tushare_trade_calendar,
     silver_trade_calendar,
 )
+from orchestrator.defs.assets.adj_factor import (
+    ADJ_FACTOR_COLUMNS,
+    ADJ_FACTOR_RAW_COLUMN_TYPES,
+    ADJ_FACTOR_SILVER_COLUMN_TYPES,
+    raw_tushare_adj_factor,
+    silver_adj_factor,
+)
 from orchestrator.defs.assets.clickhouse_serving import (
     CLICKHOUSE_MARKET_BREADTH_COLUMNS,
     ch_share_fact_market_breadth_daily,
@@ -50,6 +57,8 @@ from orchestrator.defs.assets.suspend_d import (
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
 from orchestrator.defs.checks.index_basic_checks import INDEX_BASIC_SILVER_COLUMN_TYPES
 from orchestrator.defs.duckdb_sql import (
+    ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
+    ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     INDEX_BASIC_RAW_COLUMNS,
     INDEX_BASIC_SILVER_COLUMNS,
     INDEX_DAILY_RAW_COLUMNS,
@@ -70,6 +79,7 @@ from orchestrator.defs.paths import (
     gold_market_major_indices_daily_path,
     gold_stock_return_distribution_path,
     lake_path_template,
+    raw_adj_factor_path,
     raw_index_basic_path,
     raw_index_daily_by_code_path,
     raw_stock_basic_path,
@@ -78,6 +88,7 @@ from orchestrator.defs.paths import (
     raw_trade_calendar_path,
     silver_index_basic_path,
     silver_index_daily_path,
+    silver_adj_factor_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_suspend_daily_path,
@@ -97,12 +108,14 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
+    RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
+    SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
@@ -131,6 +144,8 @@ ASSET_CONTRACTS = {
     silver_stock_suspend_daily: ("silver", "quote_data", "suspend_d", "每日停复牌信息"),
     raw_tushare_stock_daily: ("raw", "quote_data", "daily", "A股日线行情"),
     silver_stock_daily: ("silver", "quote_data", "daily", "A股日线行情"),
+    raw_tushare_adj_factor: ("raw", "quote_data", "adj_factor", "复权因子"),
+    silver_adj_factor: ("silver", "quote_data", "adj_factor", "复权因子"),
     raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
     silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
     raw_tushare_index_daily_by_code: (
@@ -194,6 +209,12 @@ ASSET_PATH_TEMPLATES = {
     silver_stock_daily: lake_path_template(
         silver_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
     ),
+    raw_tushare_adj_factor: lake_path_template(
+        raw_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_adj_factor: lake_path_template(
+        silver_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
+    ),
     raw_tushare_index_basic: lake_path_template(
         raw_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
     ),
@@ -234,12 +255,14 @@ ASSET_COLUMN_SCHEMAS = {
     raw_tushare_stock_basic: RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     raw_tushare_suspend_d: RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     raw_tushare_stock_daily: RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    raw_tushare_adj_factor: RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
     silver_stock_basic: SILVER_STOCK_BASIC_SCHEMA,
     silver_stock_suspend_daily: SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     silver_stock_daily: SILVER_STOCK_DAILY_SCHEMA,
+    silver_adj_factor: SILVER_ADJ_FACTOR_SCHEMA,
     silver_index_basic: SILVER_INDEX_BASIC_SCHEMA,
     silver_index_daily: SILVER_INDEX_DAILY_SCHEMA,
     gold_market_breadth_daily: GOLD_MARKET_BREADTH_DAILY_SCHEMA,
@@ -279,7 +302,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 16)
+        self.assertEqual(len(ASSET_CONTRACTS), 18)
 
         for asset, (
             layer,
@@ -357,6 +380,14 @@ class AssetGovernanceContractTests(unittest.TestCase):
             {column.name: column.type for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA},
         )
         self.assertEqual(
+            ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_ADJ_FACTOR_SCHEMA),
+        )
+        self.assertEqual(
+            ADJ_FACTOR_RAW_COLUMN_TYPES,
+            {column.name: column.type for column in RAW_TUSHARE_ADJ_FACTOR_SCHEMA},
+        )
+        self.assertEqual(
             SUSPEND_D_RAW_COLUMNS,
             tuple(column.name for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA),
         )
@@ -397,6 +428,18 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
             tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_ADJ_FACTOR_SCHEMA),
+        )
+        self.assertEqual(
+            ADJ_FACTOR_COLUMNS,
+            tuple(column.name for column in SILVER_ADJ_FACTOR_SCHEMA),
+        )
+        self.assertEqual(
+            ADJ_FACTOR_SILVER_COLUMN_TYPES,
+            {column.name: column.type for column in SILVER_ADJ_FACTOR_SCHEMA},
         )
         self.assertEqual(
             SUSPEND_D_SILVER_REQUIRED_COLUMNS,
