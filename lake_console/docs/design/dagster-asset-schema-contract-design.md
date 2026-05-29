@@ -316,7 +316,15 @@ ch_share_fact_market_breadth_daily
 2. `uv run dg check defs` 通过。
 3. 不改变 gold / serving 生成结果。
 
-### Slice SC-4：推广到 silver
+### Slice SC-4：推广到 silver（已落地）
+
+状态：
+
+1. `silver_trade_calendar`、`silver_stock_basic`、`silver_stock_daily`、`silver_stock_suspend_daily`、`silver_index_basic`、`silver_index_daily` 均已注册 definition column schema。
+2. silver 层日期字段按标准化后的真实类型注册为 `DATE`。
+3. `silver_stock_daily` 与 `silver_index_daily` 的变动值字段统一注册为 `change_amount`，不使用 raw 层 `change`。
+4. silver 层运行时列信息已收敛为 `goldenshare/observed_columns`，不再用 materialization metadata 承载稳定字段契约。
+5. 相关 silver 列常量已从 schema contract 派生，避免字段契约维护两份。
 
 范围：
 
@@ -334,6 +342,7 @@ silver_index_daily
 1. silver 日期字段必须按标准化后的真实类型写。
 2. `change_amount` 不能写成 raw 的 `change`。
 3. `silver_stock_daily` / `silver_index_daily` 的价格字段类型必须与实际 parquet 一致。
+4. materialization metadata 只记录本次运行观察列，不再承担稳定 schema 职责。
 
 验收：
 

@@ -14,6 +14,7 @@ from orchestrator.defs.assets.index_basic import (
     silver_index_basic,
 )
 from orchestrator.defs.assets.index_daily import (
+    INDEX_DAILY_SILVER_COLUMN_TYPES,
     raw_tushare_index_daily_by_code,
     silver_index_daily,
 )
@@ -41,6 +42,15 @@ from orchestrator.defs.assets.suspend_d import (
     silver_stock_suspend_daily,
 )
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
+from orchestrator.defs.checks.index_basic_checks import INDEX_BASIC_SILVER_COLUMN_TYPES
+from orchestrator.defs.duckdb_sql import (
+    INDEX_BASIC_SILVER_COLUMNS,
+    INDEX_DAILY_SILVER_COLUMNS,
+    STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
+    STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
+    SUSPEND_D_SILVER_REQUIRED_COLUMNS,
+    TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -73,6 +83,12 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+    SILVER_INDEX_BASIC_SCHEMA,
+    SILVER_INDEX_DAILY_SCHEMA,
+    SILVER_STOCK_BASIC_SCHEMA,
+    SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
+    SILVER_TRADE_CALENDAR_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
     DATA_CONTRACT_METADATA_KEY,
@@ -196,6 +212,12 @@ ASSET_PATH_TEMPLATES = {
 }
 
 ASSET_COLUMN_SCHEMAS = {
+    silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
+    silver_stock_basic: SILVER_STOCK_BASIC_SCHEMA,
+    silver_stock_suspend_daily: SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
+    silver_stock_daily: SILVER_STOCK_DAILY_SCHEMA,
+    silver_index_basic: SILVER_INDEX_BASIC_SCHEMA,
+    silver_index_daily: SILVER_INDEX_DAILY_SCHEMA,
     gold_market_breadth_daily: GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     gold_stock_return_distribution: GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     gold_market_major_indices_daily: GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
@@ -259,7 +281,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
                         ASSET_PATH_TEMPLATES[asset],
                     )
 
-    def test_gold_and_serving_assets_register_definition_column_schema(
+    def test_assets_register_definition_column_schema(
         self,
     ) -> None:
         for asset, expected_schema in ASSET_COLUMN_SCHEMAS.items():
@@ -281,9 +303,41 @@ class AssetGovernanceContractTests(unittest.TestCase):
                     [column.description for column in expected_schema],
                 )
 
-    def test_gold_and_serving_column_constants_are_derived_from_schema(
+    def test_silver_gold_and_serving_column_constants_are_derived_from_schema(
         self,
     ) -> None:
+        self.assertEqual(
+            TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_TRADE_CALENDAR_SCHEMA),
+        )
+        self.assertEqual(
+            STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_STOCK_BASIC_SCHEMA),
+        )
+        self.assertEqual(
+            STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            SUSPEND_D_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_STOCK_SUSPEND_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            INDEX_BASIC_SILVER_COLUMNS,
+            tuple(column.name for column in SILVER_INDEX_BASIC_SCHEMA),
+        )
+        self.assertEqual(
+            INDEX_BASIC_SILVER_COLUMN_TYPES,
+            {column.name: column.type for column in SILVER_INDEX_BASIC_SCHEMA},
+        )
+        self.assertEqual(
+            INDEX_DAILY_SILVER_COLUMNS,
+            tuple(column.name for column in SILVER_INDEX_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            INDEX_DAILY_SILVER_COLUMN_TYPES,
+            {column.name: column.type for column in SILVER_INDEX_DAILY_SCHEMA},
+        )
         self.assertEqual(
             MARKET_BREADTH_DAILY_COLUMNS,
             tuple(column.name for column in GOLD_MARKET_BREADTH_DAILY_SCHEMA),

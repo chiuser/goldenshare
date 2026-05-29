@@ -37,6 +37,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_STOCK_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -45,19 +48,7 @@ from orchestrator.defs.run_contracts.metadata import (
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 
 
-STOCK_DAILY_COLUMNS = [
-    "ts_code",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change_amount",
-    "pct_chg",
-    "vol",
-    "amount",
-]
+STOCK_DAILY_COLUMNS = tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA)
 
 STOCK_DAILY_RAW_COLUMN_TYPES = {
     "ts_code": "VARCHAR",
@@ -418,6 +409,7 @@ def raw_tushare_stock_daily(
         dataset_id="daily",
         source_system=SourceSystem.DERIVED,
         data_contract="standardized_stock_daily_quote",
+        column_schema=SILVER_STOCK_DAILY_SCHEMA,
         path_template=lake_path_template(
             silver_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
@@ -491,7 +483,7 @@ def silver_stock_daily(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
             extra_metadata={
                 "raw_file_path": str(raw_path),
                 "stock_basic_file_path": str(basic_path),

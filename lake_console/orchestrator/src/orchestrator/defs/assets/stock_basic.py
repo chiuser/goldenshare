@@ -28,6 +28,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_STOCK_BASIC_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -158,6 +161,7 @@ def raw_tushare_stock_basic(
         dataset_id="stock_basic",
         source_system=SourceSystem.DERIVED,
         data_contract="current_listed_stock_basic_lifecycle",
+        column_schema=SILVER_STOCK_BASIC_SCHEMA,
         path_template=lake_path_template(
             silver_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
@@ -201,7 +205,7 @@ def silver_stock_basic(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
             extra_metadata={
                 "source_row_count": source_row_count,
                 "kept_row_count": row_count,

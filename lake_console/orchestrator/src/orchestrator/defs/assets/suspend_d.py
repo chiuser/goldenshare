@@ -44,6 +44,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -352,6 +355,7 @@ def raw_tushare_suspend_d(
         dataset_id="suspend_d",
         source_system=SourceSystem.DERIVED,
         data_contract="standardized_stock_suspend_daily",
+        column_schema=SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
         path_template=lake_path_template(
             silver_stock_suspend_daily_path(
                 PATH_TEMPLATE_LAKE_ROOT,
@@ -428,7 +432,7 @@ def silver_stock_suspend_daily(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
             extra_metadata={
                 "raw_file_path": str(raw_path),
                 "partition_key": partition_key,

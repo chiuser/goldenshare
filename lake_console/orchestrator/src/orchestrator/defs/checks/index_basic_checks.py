@@ -19,15 +19,15 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import raw_index_basic_path, silver_index_basic_path
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_INDEX_BASIC_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.metadata import READY_FOR_TRADE_DATE_METADATA_KEY
 
 
 INDEX_BASIC_SILVER_COLUMN_TYPES = {
-    **INDEX_BASIC_RAW_COLUMN_TYPES,
-    "base_date": "DATE",
-    "list_date": "DATE",
-    "exp_date": "DATE",
+    column.name: column.type for column in SILVER_INDEX_BASIC_SCHEMA
 }
 
 

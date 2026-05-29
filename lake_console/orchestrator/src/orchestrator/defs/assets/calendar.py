@@ -28,6 +28,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_TRADE_CALENDAR_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -138,6 +141,7 @@ def raw_tushare_trade_calendar(
         dataset_id="trade_cal",
         source_system=SourceSystem.DERIVED,
         data_contract="standardized_trade_calendar",
+        column_schema=SILVER_TRADE_CALENDAR_SCHEMA,
         path_template=lake_path_template(
             silver_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
@@ -167,6 +171,6 @@ def silver_trade_calendar(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
         )
     )

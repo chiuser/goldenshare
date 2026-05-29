@@ -33,6 +33,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_INDEX_BASIC_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     READY_FOR_TRADE_DATE_METADATA_KEY,
     SourceSystem,
@@ -207,6 +210,7 @@ def raw_tushare_index_basic(
         dataset_id="index_basic",
         source_system=SourceSystem.DERIVED,
         data_contract="effective_index_basic",
+        column_schema=SILVER_INDEX_BASIC_SCHEMA,
         path_template=lake_path_template(
             silver_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
@@ -216,7 +220,6 @@ def raw_tushare_index_basic(
                 "cn_a_index_trade_days date, and keeps indexes with exp_date "
                 "null or exp_date > ready_for_trade_date."
             ),
-            "expected_columns": list(INDEX_BASIC_SILVER_COLUMNS),
         },
     ),
     config_schema={},
@@ -253,7 +256,7 @@ def silver_index_basic(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
             extra_metadata={
                 "source_row_count": source_row_count,
                 "kept_row_count": row_count,

@@ -30,19 +30,7 @@ from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
-STOCK_DAILY_COLUMNS = [
-    "ts_code",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change_amount",
-    "pct_chg",
-    "vol",
-    "amount",
-]
+STOCK_DAILY_COLUMNS = tuple(STOCK_DAILY_SILVER_REQUIRED_COLUMNS)
 
 
 def _column_names(

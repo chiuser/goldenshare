@@ -32,6 +32,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_INDEX_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.configs import (
     IndexDailyRawByCodeConfig,
     normalize_iso_trade_date,
@@ -60,17 +63,7 @@ INDEX_DAILY_RAW_COLUMN_TYPES = {
 }
 
 INDEX_DAILY_SILVER_COLUMN_TYPES = {
-    "ts_code": "VARCHAR",
-    "trade_date": "DATE",
-    "open": "DOUBLE",
-    "high": "DOUBLE",
-    "low": "DOUBLE",
-    "close": "DOUBLE",
-    "pre_close": "DOUBLE",
-    "change_amount": "DOUBLE",
-    "pct_chg": "DOUBLE",
-    "vol": "DOUBLE",
-    "amount": "DOUBLE",
+    column.name: column.type for column in SILVER_INDEX_DAILY_SCHEMA
 }
 
 
@@ -445,6 +438,7 @@ def raw_tushare_index_daily_by_code(
         dataset_id="index_daily",
         source_system=SourceSystem.DERIVED,
         data_contract="active_index_daily",
+        column_schema=SILVER_INDEX_DAILY_SCHEMA,
         path_template=lake_path_template(
             silver_index_daily_path(
                 PATH_TEMPLATE_LAKE_ROOT,
@@ -452,7 +446,6 @@ def raw_tushare_index_daily_by_code(
             )
         ),
         extra_metadata={
-            "expected_columns": list(INDEX_DAILY_SILVER_COLUMNS),
             "source_asset": "raw_tushare_index_daily_by_code",
             "source_partition_set": cn_a_index_ts_codes.name,
             "filter_policy": (
@@ -485,7 +478,7 @@ def silver_index_daily(
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             row_count=total_row_count,
-            columns=INDEX_DAILY_SILVER_COLUMNS,
+            observed_columns=INDEX_DAILY_SILVER_COLUMNS,
             extra_metadata={
                 "partition_keys": list(partition_keys),
                 "partition_metadata": partition_metadata,

@@ -7,6 +7,14 @@ from orchestrator.defs.corrections.suspend_full_day import (
 from orchestrator.defs.corrections.suspend_timing import (
     suspend_timing_corrections_values_sql,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    SILVER_INDEX_BASIC_SCHEMA,
+    SILVER_INDEX_DAILY_SCHEMA,
+    SILVER_STOCK_BASIC_SCHEMA,
+    SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
+    SILVER_TRADE_CALENDAR_SCHEMA,
+)
 
 STOCK_DAILY_MIN_TRADE_DATE = "2014-01-01"
 BJ_MARKET_OPEN_DATE = "2021-11-15"
@@ -18,11 +26,8 @@ TRADE_CALENDAR_RAW_REQUIRED_COLUMNS = (
     "pretrade_date",
 )
 
-TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS = (
-    "exchange",
-    "trade_date",
-    "is_open",
-    "pretrade_date",
+TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_TRADE_CALENDAR_SCHEMA
 )
 
 TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE = """
@@ -76,18 +81,8 @@ STOCK_BASIC_RAW_REQUIRED_COLUMNS = (
     "delist_date",
 )
 
-STOCK_BASIC_SILVER_REQUIRED_COLUMNS = (
-    "ts_code",
-    "symbol",
-    "name",
-    "area",
-    "industry",
-    "market",
-    "exchange",
-    "list_status",
-    "list_date",
-    "delist_date",
-    "is_hs",
+STOCK_BASIC_SILVER_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_STOCK_BASIC_SCHEMA
 )
 
 STOCK_BASIC_KNOWN_LIST_STATUS_VALUES = ("L", "D", "P", "G")
@@ -134,18 +129,8 @@ STOCK_DAILY_RAW_REQUIRED_COLUMNS = (
     "amount",
 )
 
-STOCK_DAILY_SILVER_REQUIRED_COLUMNS = (
-    "ts_code",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change_amount",
-    "pct_chg",
-    "vol",
-    "amount",
+STOCK_DAILY_SILVER_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_STOCK_DAILY_SCHEMA
 )
 
 STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE = """
@@ -178,7 +163,9 @@ SUSPEND_D_RAW_COLUMNS = (
 
 SUSPEND_D_RAW_REQUIRED_COLUMNS = SUSPEND_D_RAW_COLUMNS
 
-SUSPEND_D_SILVER_REQUIRED_COLUMNS = SUSPEND_D_RAW_COLUMNS
+SUSPEND_D_SILVER_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_STOCK_SUSPEND_DAILY_SCHEMA
+)
 
 SUSPEND_D_KNOWN_TYPE_VALUES = ("S", "R")
 
@@ -216,7 +203,7 @@ INDEX_BASIC_RAW_COLUMNS = (
     "exp_date",
 )
 
-INDEX_BASIC_SILVER_COLUMNS = INDEX_BASIC_RAW_COLUMNS
+INDEX_BASIC_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_BASIC_SCHEMA)
 
 INDEX_DAILY_RAW_COLUMNS = (
     "ts_code",
@@ -232,19 +219,7 @@ INDEX_DAILY_RAW_COLUMNS = (
     "amount",
 )
 
-INDEX_DAILY_SILVER_COLUMNS = (
-    "ts_code",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change_amount",
-    "pct_chg",
-    "vol",
-    "amount",
-)
+INDEX_DAILY_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_DAILY_SCHEMA)
 
 
 def duckdb_string(value: str | Path) -> str:
