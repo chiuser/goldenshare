@@ -286,7 +286,14 @@ lake_console/orchestrator/tests/test_asset_governance_contracts.py
 3. 资产数据不变。
 4. checks 不变。
 
-### Slice SC-3：推广到 gold + serving
+### Slice SC-3：推广到 gold + serving（已落地）
+
+状态：
+
+1. `gold_market_breadth_daily`、`gold_stock_return_distribution`、`gold_market_major_indices_daily`、`ch_share_fact_market_breadth_daily` 均已注册 definition column schema。
+2. gold / serving 层运行时列信息已收敛为 `goldenshare/observed_columns`，不再用 materialization metadata 承载稳定字段契约。
+3. ClickHouse serving schema 已按 Flyway V2 表契约注册为 `Date`、`UInt32`、`Float64`、`DateTime`。
+4. 本次未修改 SQL、checks、jobs、sensors、automation 或 ClickHouse 表结构。
 
 范围：
 

@@ -25,6 +25,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -32,18 +35,8 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 
 
-STOCK_RETURN_DISTRIBUTION_COLUMNS = (
-    "trade_date",
-    "down_gt_7_count",
-    "down_5_7_count",
-    "down_3_5_count",
-    "down_0_3_count",
-    "flat_count",
-    "up_0_3_count",
-    "up_3_5_count",
-    "up_5_7_count",
-    "up_gt_7_count",
-    "total_count",
+STOCK_RETURN_DISTRIBUTION_COLUMNS = tuple(
+    column.name for column in GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA
 )
 
 
@@ -127,6 +120,7 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
                 PATH_TEMPLATE_PARTITION_KEY,
             )
         ),
+        column_schema=GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
         extra_metadata={
             "calculation_contract": (
                 "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
@@ -164,7 +158,7 @@ def gold_stock_return_distribution(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
             extra_metadata={
                 "silver_file_path": str(silver_path),
                 "partition_key": partition_key,

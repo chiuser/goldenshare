@@ -5,6 +5,10 @@ from orchestrator.defs.assets.calendar import (
     raw_tushare_trade_calendar,
     silver_trade_calendar,
 )
+from orchestrator.defs.assets.clickhouse_serving import (
+    CLICKHOUSE_MARKET_BREADTH_COLUMNS,
+    ch_share_fact_market_breadth_daily,
+)
 from orchestrator.defs.assets.index_basic import (
     raw_tushare_index_basic,
     silver_index_basic,
@@ -14,6 +18,7 @@ from orchestrator.defs.assets.index_daily import (
     silver_index_daily,
 )
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
+from orchestrator.defs.assets.market_breadth import MARKET_BREADTH_DAILY_COLUMNS
 from orchestrator.defs.assets.market_major_indices import (
     MARKET_MAJOR_INDICES_DAILY_COLUMNS,
     MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES,
@@ -28,6 +33,7 @@ from orchestrator.defs.assets.stock_daily import (
     silver_stock_daily,
 )
 from orchestrator.defs.assets.stock_return_distribution import (
+    STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
 )
 from orchestrator.defs.assets.suspend_d import (
@@ -63,7 +69,10 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+    GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+    GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
     DATA_CONTRACT_METADATA_KEY,
@@ -114,6 +123,12 @@ ASSET_CONTRACTS = {
         "derived_metric",
         "stock_return_distribution",
         "股票涨跌幅分布",
+    ),
+    ch_share_fact_market_breadth_daily: (
+        "serving",
+        "derived_metric",
+        "ch_share_fact_market_breadth_daily",
+        "ClickHouse 市场宽度日表",
     ),
 }
 
@@ -180,6 +195,13 @@ ASSET_PATH_TEMPLATES = {
     ),
 }
 
+ASSET_COLUMN_SCHEMAS = {
+    gold_market_breadth_daily: GOLD_MARKET_BREADTH_DAILY_SCHEMA,
+    gold_stock_return_distribution: GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+    gold_market_major_indices_daily: GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+    ch_share_fact_market_breadth_daily: CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+}
+
 
 class AssetGovernanceContractTests(unittest.TestCase):
     def test_build_asset_tags_returns_dagster_legal_values(self) -> None:
@@ -211,7 +233,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 15)
+        self.assertEqual(len(ASSET_CONTRACTS), 16)
 
         for asset, (
             layer,
@@ -231,32 +253,44 @@ class AssetGovernanceContractTests(unittest.TestCase):
                 self.assertEqual(spec.metadata[DATASET_NAME_METADATA_KEY], dataset_name)
                 self.assertIn(SOURCE_SYSTEM_METADATA_KEY, spec.metadata)
                 self.assertIn(DATA_CONTRACT_METADATA_KEY, spec.metadata)
-                self.assertEqual(
-                    spec.metadata[PATH_TEMPLATE_METADATA_KEY],
-                    ASSET_PATH_TEMPLATES[asset],
-                )
+                if asset in ASSET_PATH_TEMPLATES:
+                    self.assertEqual(
+                        spec.metadata[PATH_TEMPLATE_METADATA_KEY],
+                        ASSET_PATH_TEMPLATES[asset],
+                    )
 
-    def test_market_major_indices_daily_registers_definition_column_schema(
+    def test_gold_and_serving_assets_register_definition_column_schema(
         self,
     ) -> None:
-        spec = gold_market_major_indices_daily.get_asset_spec()
-        schema_metadata = spec.metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY]
-        columns = schema_metadata.schema.columns
+        for asset, expected_schema in ASSET_COLUMN_SCHEMAS.items():
+            with self.subTest(asset=asset.key.to_user_string()):
+                spec = asset.get_asset_spec()
+                schema_metadata = spec.metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY]
+                columns = schema_metadata.schema.columns
 
+                self.assertEqual(
+                    [column.name for column in columns],
+                    [column.name for column in expected_schema],
+                )
+                self.assertEqual(
+                    [column.type for column in columns],
+                    [column.type for column in expected_schema],
+                )
+                self.assertEqual(
+                    [column.description for column in columns],
+                    [column.description for column in expected_schema],
+                )
+
+    def test_gold_and_serving_column_constants_are_derived_from_schema(
+        self,
+    ) -> None:
         self.assertEqual(
-            [column.name for column in columns],
-            [column.name for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA],
+            MARKET_BREADTH_DAILY_COLUMNS,
+            tuple(column.name for column in GOLD_MARKET_BREADTH_DAILY_SCHEMA),
         )
         self.assertEqual(
-            [column.type for column in columns],
-            [column.type for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA],
-        )
-        self.assertEqual(
-            [column.description for column in columns],
-            [
-                column.description
-                for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
-            ],
+            STOCK_RETURN_DISTRIBUTION_COLUMNS,
+            tuple(column.name for column in GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA),
         )
         self.assertEqual(
             MARKET_MAJOR_INDICES_DAILY_COLUMNS,
@@ -268,4 +302,8 @@ class AssetGovernanceContractTests(unittest.TestCase):
                 column.name: column.type
                 for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
             },
+        )
+        self.assertEqual(
+            CLICKHOUSE_MARKET_BREADTH_COLUMNS,
+            tuple(column.name for column in CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA),
         )

@@ -24,10 +24,18 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_MARKET_BREADTH_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
     build_materialization_metadata,
+)
+
+
+MARKET_BREADTH_DAILY_COLUMNS = tuple(
+    column.name for column in GOLD_MARKET_BREADTH_DAILY_SCHEMA
 )
 
 
@@ -108,6 +116,7 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
                 PATH_TEMPLATE_PARTITION_KEY,
             )
         ),
+        column_schema=GOLD_MARKET_BREADTH_DAILY_SCHEMA,
         extra_metadata={
             "calculation_contract": (
                 "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
@@ -145,7 +154,7 @@ def gold_market_breadth_daily(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=columns,
+            observed_columns=columns,
             extra_metadata={
                 "silver_file_path": str(silver_path),
                 "partition_key": partition_key,

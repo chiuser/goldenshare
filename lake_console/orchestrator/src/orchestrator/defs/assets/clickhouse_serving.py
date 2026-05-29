@@ -22,6 +22,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -31,22 +34,8 @@ from orchestrator.defs.run_contracts.metadata import (
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 CLICKHOUSE_MARKET_BREADTH_TABLE = "goldenshare_serving.share_fact_market_breadth_daily"
-CLICKHOUSE_MARKET_BREADTH_COLUMNS = (
-    "trade_date",
-    "up_count",
-    "down_count",
-    "flat_count",
-    "total_count",
-    "red_rate",
-    "down_gt_7_count",
-    "down_5_7_count",
-    "down_3_5_count",
-    "down_0_3_count",
-    "up_0_3_count",
-    "up_3_5_count",
-    "up_5_7_count",
-    "up_gt_7_count",
-    "updated_at",
+CLICKHOUSE_MARKET_BREADTH_COLUMNS = tuple(
+    column.name for column in CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA
 )
 
 CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
@@ -196,6 +185,7 @@ def _replace_clickhouse_partition(client, row: tuple[Any, ...]) -> None:
         dataset_id="ch_share_fact_market_breadth_daily",
         source_system=SourceSystem.DERIVED,
         data_contract="share_fact_market_breadth_daily",
+        column_schema=CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
         extra_metadata={
             "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
             "replace_contract": "sync delete by trade_date, then insert exactly one row",
@@ -266,7 +256,7 @@ def ch_share_fact_market_breadth_daily(
                 f"?trade_date={partition_key}"
             ),
             row_count=1,
-            columns=CLICKHOUSE_MARKET_BREADTH_COLUMNS,
+            observed_columns=CLICKHOUSE_MARKET_BREADTH_COLUMNS,
             extra_metadata={
                 "partition_key": partition_key,
                 "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
