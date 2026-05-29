@@ -1,0 +1,102 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+CLICKHOUSE_HOME="${HOME}/.goldenshare/clickhouse"
+CLICKHOUSE_BIN="${CLICKHOUSE_HOME}/bin/clickhouse"
+CLICKHOUSE_CONFIG="${CLICKHOUSE_HOME}/config/config.xml"
+CLICKHOUSE_PID="${CLICKHOUSE_HOME}/clickhouse.pid"
+CLICKHOUSE_LOG="${CLICKHOUSE_HOME}/logs/clickhouse-server.log"
+CLICKHOUSE_ERR_LOG="${CLICKHOUSE_HOME}/logs/clickhouse-server.err.log"
+HTTP_URL="http://127.0.0.1:8123/?query=SELECT%201"
+NATIVE_HOST="127.0.0.1"
+NATIVE_PORT="9000"
+MAX_WAIT_SECONDS=30
+
+fail() {
+  echo "ERROR: $*" >&2
+  exit 1
+}
+
+require_file() {
+  local path="$1"
+  local label="$2"
+  [[ -e "${path}" ]] || fail "${label} not found: ${path}"
+}
+
+http_ready() {
+  curl -fsS "${HTTP_URL}" >/dev/null 2>&1
+}
+
+native_ready() {
+  "${CLICKHOUSE_BIN}" client \
+    --host "${NATIVE_HOST}" \
+    --port "${NATIVE_PORT}" \
+    --query "SELECT 1" >/dev/null 2>&1
+}
+
+wait_until_ready() {
+  local waited=0
+
+  while (( waited < MAX_WAIT_SECONDS )); do
+    if http_ready && native_ready; then
+      return 0
+    fi
+    sleep 1
+    waited=$((waited + 1))
+  done
+
+  return 1
+}
+
+print_diagnostics() {
+  echo
+  echo "ClickHouse did not become ready within ${MAX_WAIT_SECONDS}s."
+  echo "Recent stderr log:"
+  if [[ -f "${CLICKHOUSE_ERR_LOG}" ]]; then
+    tail -40 "${CLICKHOUSE_ERR_LOG}" || true
+  else
+    echo "- missing ${CLICKHOUSE_ERR_LOG}"
+  fi
+  echo
+  echo "Recent server log:"
+  if [[ -f "${CLICKHOUSE_LOG}" ]]; then
+    tail -40 "${CLICKHOUSE_LOG}" || true
+  else
+    echo "- missing ${CLICKHOUSE_LOG}"
+  fi
+}
+
+require_file "${CLICKHOUSE_BIN}" "ClickHouse binary"
+require_file "${CLICKHOUSE_CONFIG}" "ClickHouse config"
+
+if http_ready && native_ready; then
+  echo "ClickHouse is already running."
+  "${CLICKHOUSE_BIN}" client \
+    --host "${NATIVE_HOST}" \
+    --port "${NATIVE_PORT}" \
+    --query "SELECT version(), currentDatabase()"
+  exit 0
+fi
+
+if [[ -f "${CLICKHOUSE_PID}" ]]; then
+  old_pid="$(cat "${CLICKHOUSE_PID}" 2>/dev/null || true)"
+  if [[ -n "${old_pid}" ]] && ! ps -p "${old_pid}" >/dev/null 2>&1; then
+    echo "Found stale pid file: ${CLICKHOUSE_PID} (pid=${old_pid})"
+  fi
+fi
+
+echo "Starting ClickHouse with config: ${CLICKHOUSE_CONFIG}"
+"${CLICKHOUSE_BIN}" server --daemon \
+  --config-file "${CLICKHOUSE_CONFIG}" \
+  --pid-file "${CLICKHOUSE_PID}"
+
+if ! wait_until_ready; then
+  print_diagnostics
+  exit 1
+fi
+
+echo "ClickHouse is ready."
+"${CLICKHOUSE_BIN}" client \
+  --host "${NATIVE_HOST}" \
+  --port "${NATIVE_PORT}" \
+  --query "SELECT version(), currentDatabase()"
