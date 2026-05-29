@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；历史 bootstrap 迁移尚未执行。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6 历史 silver 文件生成 helper 已设计，正式写入仍需单独审批。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -79,6 +79,21 @@
 - 若把退市股票生命周期也纳入，仍存在部分退市股票缺口；这些缺口不进入本次 silver 口径。
 
 这些是历史审计记录，不冒充当前实时状态。开发前仍需做一次只读复核，确认旧湖路径、字段和分区范围没有变化。
+
+### 2.5 M5 历史 raw bootstrap 执行记录
+
+M5 已经按一次性直接迁移口径完成旧湖 raw 到新湖 raw 的 bootstrap，并注册 `cn_a_stock_current_trade_days` 历史分区：
+
+- 读取旧湖：`/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor`
+- 写入新湖 raw：`/Volumes/datasource/data_lake/raw/tushare/adj_factor`
+- 分区数：`4215`
+- 范围：`2009-01-05` 至 `2026-05-15`
+- 行数：`14,959,706`
+- 新湖 raw 字段：`ts_code VARCHAR`、`trade_date VARCHAR`、`adj_factor DOUBLE`
+- 注册分区：`cn_a_stock_current_trade_days` 从 `0` 增至 `4215`
+- 审计结论：无分区日期错配、无重复 `(ts_code, trade_date)`、无空或非正因子、无缺失或额外 SSE 开市日；注册分区覆盖全部目标日期。
+
+注意：M5 是文件 bootstrap 与 dynamic partition 注册，不是 Dagster asset materialization，也没有生成 raw asset check event。
 
 ## 3. 资产边界
 
@@ -196,6 +211,8 @@ FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 - bootstrap 只写新湖 raw，不直接写 silver。
 - 历史 bootstrap 范围必须对齐旧湖 `adj_factor` 最早日期到旧湖当前全量范围内的股票开市日；这些历史交易日需要先注册到 `cn_a_stock_current_trade_days`，不写非交易日分区。
 
+M5 已完成上述 raw bootstrap 和历史分区注册。M6 的历史 silver 生成是 bootstrap 收尾：它从 M5 迁移出的 raw 文件和现有 `silver_stock_basic` 生成 `silver_adj_factor` 文件。M6 不使用 `stock_adj_factor_update_job` 跑历史，因为该 job 会执行 `raw_tushare_adj_factor`，从而重新请求 Tushare 并可能覆盖 M5 raw。
+
 ## 7. 日常更新设计
 
 日常更新按交易日分区执行，但不与 `suspend_d` 共用 `cn_a_stock_trade_days`。`adj_factor` 使用独立的 `cn_a_stock_current_trade_days`：
@@ -303,8 +320,8 @@ Readiness：
 - 不设计因子历史版本体系。
 - 不保留退市股票 silver 完整性。
 - 不新增数据库表。
-- 不运行 Dagster job、sensor、backfill、materialization 或 automation evaluation。
-- 不复制旧湖大文件。
+- M6 helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
+- M6 helper 开发阶段不写正式 `silver_adj_factor` 历史文件；正式写入必须单独列命令、读写路径和回滚方式并获得批准。
 
 ## 11. 风险与待确认点
 
@@ -331,7 +348,7 @@ Readiness：
 - 增加 `adj_factor_bootstrap_spec(...)`。
 - 增加 bootstrap 纯函数/静态测试。
 - 用临时 parquet 测试 `DATE` / `YYYYMMDD` 两种旧湖输入都能生成新湖 raw 契约。
-- 状态：已完成；正式旧湖数据迁移未执行。
+- 状态：已完成；M5 已完成正式旧湖 raw bootstrap 与历史分区注册。
 
 ### A3：Assets 与 checks
 
@@ -350,9 +367,23 @@ Readiness：
 - 不运行正式 Dagster，先做代码与静态门禁验证。
 - 状态：已完成；未注册正式分区，未运行正式 Dagster job/sensor/materialization。
 
-### A5：历史 bootstrap 与日常更新验收
+### A5：历史 raw bootstrap 与分区注册
 
-- 先列命令、路径、读写范围和回滚方式，获得明确批准后再执行。
-- 历史 bootstrap 范围从旧湖 `adj_factor` 最早日期开始，按旧湖 `adj_factor` 全量范围迁移；执行前仍需只读复核旧湖当前实际范围，并列出完整命令、读写路径和回滚方式。
-- 先小范围验收，再执行旧湖 `adj_factor` 全量范围迁移。
+- 已完成一次性直接迁移，不新增 migration-only job/asset。
+- 迁移范围：`2009-01-05` 至 `2026-05-15`，共 `4215` 个分区。
+- 写入范围：仅新湖 raw，不直接写 silver。
+- 注册范围：`cn_a_stock_current_trade_days` 历史分区。
+- 状态：已完成。
+
+### A6：历史 silver 文件生成与完整性审计
+
+- 新增非 Dagster 执行 helper，发现 M5 raw 分区并生成对应 `silver_adj_factor` 文件。
+- 正式 asset `silver_adj_factor` 与历史 helper 共用同一套写入函数、SQL、路径和过滤规则。
+- 默认不覆盖已存在 silver 分区；正式全量写入前必须单独列命令、读写路径和回滚方式，并获得明确批准。
+- M6 不补 Dagster materialization/check event；历史文件审计与日常 Dagster readiness 是两个边界。
+- 状态：helper 开发中；正式历史 silver 写入未执行。
+
+### A7：日常更新验收与 sensor 启用
+
 - 日常 Tushare 更新先用单日分区验收，再启用 sensor。
+- 只处理 M5 范围之后的 current-day/catch-up 分区，不重跑历史 raw bootstrap。

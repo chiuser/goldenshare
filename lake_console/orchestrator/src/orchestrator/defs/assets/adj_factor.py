@@ -1,4 +1,5 @@
 import os
+from dataclasses import dataclass
 from pathlib import Path
 
 import dagster as dg
@@ -49,6 +50,30 @@ ADJ_FACTOR_RAW_COLUMN_TYPES = {
 ADJ_FACTOR_SILVER_COLUMN_TYPES = {
     column.name: column.type for column in SILVER_ADJ_FACTOR_SCHEMA
 }
+
+
+@dataclass(frozen=True)
+class SilverAdjFactorPartitionWriteResult:
+    raw_file_path: Path
+    stock_basic_file_path: Path
+    silver_file_path: Path
+    source_row_count: int
+    current_listed_stock_count: int
+    selected_row_count: int
+    rejected_row_count: int
+    row_count: int
+    observed_columns: tuple[str, ...]
+
+    def materialization_extra_metadata(self, partition_key: str) -> dict[str, object]:
+        return {
+            "raw_file_path": str(self.raw_file_path),
+            "stock_basic_file_path": str(self.stock_basic_file_path),
+            "partition_key": partition_key,
+            "source_row_count": self.source_row_count,
+            "current_listed_stock_count": self.current_listed_stock_count,
+            "selected_row_count": self.selected_row_count,
+            "rejected_row_count": self.rejected_row_count,
+        }
 
 
 def _column_names(
@@ -110,6 +135,48 @@ def _silver_filter_counts(connection, raw_path: Path, basic_path: Path) -> dict[
         "selected_row_count": int(row[2]),
         "rejected_row_count": int(row[3]),
     }
+
+
+def write_silver_adj_factor_partition(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    partition_key: str,
+    overwrite: bool = False,
+) -> SilverAdjFactorPartitionWriteResult:
+    raw_path = raw_adj_factor_path(lake_root, partition_key)
+    basic_path = silver_stock_basic_path(lake_root)
+    target_path = silver_adj_factor_path(lake_root, partition_key)
+    if not raw_path.exists():
+        raise FileNotFoundError(f"Missing raw adj factor file: {raw_path}")
+    if not basic_path.exists():
+        raise FileNotFoundError(f"Missing silver stock basic file: {basic_path}")
+    if target_path.exists() and not overwrite:
+        raise FileExistsError(f"Silver adj factor file already exists: {target_path}")
+
+    with duckdb.connect() as connection:
+        filter_counts = _silver_filter_counts(connection, raw_path, basic_path)
+        _replace_parquet_from_query(
+            connection,
+            silver_adj_factor_select(raw_path, basic_path),
+            target_path,
+        )
+        columns = tuple(
+            _column_names(connection, target_path, hive_partitioning=False)
+        )
+        row_count = _row_count(connection, target_path, hive_partitioning=False)
+
+    return SilverAdjFactorPartitionWriteResult(
+        raw_file_path=raw_path,
+        stock_basic_file_path=basic_path,
+        silver_file_path=target_path,
+        source_row_count=filter_counts["source_row_count"],
+        current_listed_stock_count=filter_counts["current_listed_stock_count"],
+        selected_row_count=filter_counts["selected_row_count"],
+        rejected_row_count=filter_counts["rejected_row_count"],
+        row_count=row_count,
+        observed_columns=columns,
+    )
 
 
 @dg.asset(
@@ -200,34 +267,18 @@ def silver_adj_factor(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    raw_path = raw_adj_factor_path(lake_root.root(), partition_key)
-    basic_path = silver_stock_basic_path(lake_root.root())
-    target_path = silver_adj_factor_path(lake_root.root(), partition_key)
-    if not raw_path.exists():
-        raise FileNotFoundError(f"Missing raw adj factor file: {raw_path}")
-    if not basic_path.exists():
-        raise FileNotFoundError(f"Missing silver stock basic file: {basic_path}")
-
-    with duckdb.connect() as connection:
-        filter_counts = _silver_filter_counts(connection, raw_path, basic_path)
-        _replace_parquet_from_query(
-            connection,
-            silver_adj_factor_select(raw_path, basic_path),
-            target_path,
-        )
-        columns = _column_names(connection, target_path, hive_partitioning=False)
-        row_count = _row_count(connection, target_path, hive_partitioning=False)
+    write_result = write_silver_adj_factor_partition(
+        lake_root=lake_root.root(),
+        duckdb=duckdb,
+        partition_key=partition_key,
+        overwrite=True,
+    )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
-            uri=target_path,
-            row_count=row_count,
-            observed_columns=columns,
-            extra_metadata={
-                "raw_file_path": str(raw_path),
-                "stock_basic_file_path": str(basic_path),
-                "partition_key": partition_key,
-                **filter_counts,
-            },
+            uri=write_result.silver_file_path,
+            row_count=write_result.row_count,
+            observed_columns=write_result.observed_columns,
+            extra_metadata=write_result.materialization_extra_metadata(partition_key),
         )
     )

@@ -255,6 +255,26 @@ class AdjFactorCheckTests(unittest.TestCase):
             coverage_check = _check_function(checks.silver_adj_factor_coverage_complete)
             self.assertFalse(coverage_check(context, lake_root, duckdb_resource).passed)
 
+    def test_silver_adj_factor_unique_check_catches_duplicates(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_silver_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (
+                    ("000001.SZ", TARGET_TRADE_DATE, 1.1),
+                    ("000001.SZ", TARGET_TRADE_DATE, 1.2),
+                ),
+            )
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+
+            unique_check = _check_function(
+                checks.silver_adj_factor_unique_ts_code_trade_date
+            )
+            self.assertFalse(unique_check(context, lake_root, duckdb_resource).passed)
+
     def test_stock_current_partition_allowed_status(self) -> None:
         self.assertTrue(
             checks._stock_current_partition_allowed_status(
