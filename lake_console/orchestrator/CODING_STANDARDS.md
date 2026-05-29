@@ -6,6 +6,20 @@
 
 正式代码命名必须表达长期业务含义和稳定技术职责，禁止表达临时阶段、开发过程、个人理解或一次性任务。
 
+## Asset Schema Contract 与 Metadata 规范
+
+正式 Dagster asset 的稳定字段契约必须在 asset definition metadata 中注册，禁止只靠某次 materialization metadata 承载。
+
+规则：
+
+1. 新增或修改正式 asset 时，必须在 `build_asset_definition_metadata(...)` 中显式传入 `column_schema=...`。
+2. 字段契约统一定义在 `defs/run_contracts/asset_column_schemas.py`，使用 `ColumnContract(name, type, description)` 表达字段名、类型和中文说明。
+3. `dagster/column_schema` 只允许出现在 definition metadata 中，表示“这个资产应该是什么字段契约”。
+4. materialization metadata 只记录本次运行观察结果，例如 `dagster/uri`、`dagster/row_count`、`goldenshare/observed_columns`、样本和统计。
+5. 禁止重新引入 `build_materialization_metadata(columns=...)`；运行时字段列表必须使用 `observed_columns=...`。
+6. check metadata 如需记录字段观察结果，也必须使用 `observed_columns` 或显式 `goldenshare/observed_columns`，禁止裸写 `columns`。
+7. raw、silver、gold、serving 的字段类型必须反映对应层级真实契约，不能为了 UI 好看改写实际数据类型。例如 raw 层 Tushare 日期字符串仍是 `VARCHAR`，silver/gold 标准日期才是 `DATE`。
+
 ### 禁止阶段编号进入正式代码
 
 阶段编号只允许出现在设计文档、开发计划和提交说明中，不允许进入正式代码主概念。

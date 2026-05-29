@@ -5,8 +5,6 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-import dagster as dg
-
 from orchestrator.defs.catalog import get_dataset_chinese_name
 from orchestrator.defs.run_contracts.column_schema import (
     ColumnContract,
@@ -36,6 +34,7 @@ REJECT_REASON_COUNTS_METADATA_KEY = "goldenshare/reject_reason_counts"
 SAMPLE_ROWS_METADATA_KEY = "goldenshare/sample_rows"
 READY_FOR_TRADE_DATE_METADATA_KEY = "goldenshare/ready_for_trade_date"
 OBSERVED_COLUMNS_METADATA_KEY = "goldenshare/observed_columns"
+LEGACY_COLUMNS_METADATA_KEY = "columns"
 
 CHECK_SCOPE_METADATA_KEY = "goldenshare/check_scope"
 CHECKED_ROW_COUNT_METADATA_KEY = "goldenshare/checked_row_count"
@@ -55,7 +54,7 @@ _LEGACY_METADATA_ALIASES = {
     "paths",
     "missing_paths",
     "row_count",
-    "columns",
+    LEGACY_COLUMNS_METADATA_KEY,
     "schema",
 }
 
@@ -166,14 +165,10 @@ def build_materialization_metadata(
     *,
     uri: str | Path | None = None,
     row_count: int | None = None,
-    columns: Sequence[str] | Sequence[tuple[str, str]] | None = None,
     observed_columns: Sequence[str] | None = None,
     extra_metadata: Mapping[str, Any] | None = None,
 ) -> dict[str, Any]:
     """Build materialization metadata with Dagster standard keys first."""
-
-    if columns is not None and observed_columns is not None:
-        raise ValueError("columns and observed_columns cannot be used together.")
 
     metadata: dict[str, Any] = {}
     if uri is not None:
@@ -182,8 +177,6 @@ def build_materialization_metadata(
         if row_count < 0:
             raise ValueError("row_count must be non-negative.")
         metadata[DAGSTER_ROW_COUNT_METADATA_KEY] = row_count
-    if columns is not None:
-        metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY] = _table_schema_metadata(columns)
     if observed_columns is not None:
         metadata[OBSERVED_COLUMNS_METADATA_KEY] = list(observed_columns)
     metadata.update(_namespace_goldenshare_metadata(extra_metadata or {}))
@@ -229,19 +222,6 @@ def build_check_metadata(
     return metadata
 
 
-def _table_schema_metadata(
-    columns: Sequence[str] | Sequence[tuple[str, str]],
-) -> dg.MetadataValue:
-    table_columns: list[dg.TableColumn] = []
-    for column in columns:
-        if isinstance(column, tuple):
-            name, type_name = column
-        else:
-            name, type_name = column, "unknown"
-        table_columns.append(dg.TableColumn(str(name), str(type_name)))
-    return dg.MetadataValue.table_schema(dg.TableSchema(columns=table_columns))
-
-
 def _namespace_goldenshare_metadata(
     metadata: Mapping[str, Any],
     *,
@@ -251,6 +231,11 @@ def _namespace_goldenshare_metadata(
     for key, value in metadata.items():
         if key.startswith("dagster/") or key.startswith(GOLDENSHARE_METADATA_PREFIX):
             namespaced[key] = value
+        elif key == LEGACY_COLUMNS_METADATA_KEY:
+            raise ValueError(
+                "'columns' is no longer accepted in runtime metadata. Use "
+                "'observed_columns' or 'goldenshare/observed_columns'."
+            )
         elif key in _LEGACY_METADATA_ALIASES and not allow_legacy_aliases:
             raise ValueError(
                 f"{key!r} is a legacy metadata key. Use the typed builder argument "
@@ -286,8 +271,6 @@ def _namespace_goldenshare_metadata(
             namespaced[MISSING_FILE_PATHS_METADATA_KEY] = [str(path) for path in value]
         elif key == "row_count":
             namespaced[CHECKED_ROW_COUNT_METADATA_KEY] = value
-        elif key == "columns":
-            namespaced[OBSERVED_COLUMNS_METADATA_KEY] = value
         elif key == "schema":
             namespaced[f"{GOLDENSHARE_METADATA_PREFIX}observed_schema"] = value
         else:

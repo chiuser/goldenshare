@@ -6,7 +6,7 @@
 
 当前 Dagster UI 的 asset columns 表中，部分资产字段 `type` 显示为 `unknown`，字段描述为空。
 
-直接原因是当前代码主要把字段 schema 放在 materialization metadata 中：
+历史原因是早期代码主要把字段 schema 放在 materialization metadata 中：
 
 ```text
 build_materialization_metadata(columns=...)
@@ -192,9 +192,7 @@ build_asset_definition_metadata(
 
 build_materialization_metadata(
     row_count=...,
-    extra_metadata={
-        "observed_columns": columns,
-    },
+    observed_columns=columns,
 )
 ```
 
@@ -382,7 +380,16 @@ raw_tushare_index_daily_by_code
 2. raw checks 继续使用源站字段契约。
 3. 不改 Tushare 请求和 raw parquet 字段。
 
-### Slice SC-6：收口与门禁固化
+### Slice SC-6：收口与门禁固化（已落地）
+
+状态：
+
+1. `build_materialization_metadata(...)` 已删除 `columns=` 过渡参数，只接受 `observed_columns=...` 记录运行时观察列。
+2. `dagster/column_schema` 只允许由 `build_asset_definition_metadata(..., column_schema=...)` 写入 asset definition metadata。
+3. `build_check_metadata(...)` 不再接受裸 `columns` runtime metadata；如需记录字段观察结果，必须使用 `observed_columns` 或显式 `goldenshare/observed_columns`。
+4. Bootstrap 通用迁移 helper 已改为通过 `build_materialization_metadata(uri=..., row_count=..., observed_columns=...)` 返回 metadata。
+5. 静态门禁已固化：正式 `@dg.asset` 必须显式注册 `column_schema`，任何 `build_materialization_metadata(columns=...)` callsite 都会失败。
+6. 开发模板已更新，新增数据集和 bootstrap 迁移模板不再传播旧 `columns` 口径。
 
 目标：
 
@@ -393,10 +400,12 @@ raw_tushare_index_daily_by_code
 
 验收：
 
-1. `rg "columns=.*_COLUMNS"` 审计不再出现把稳定 schema 只写到 materialization metadata 的新口径。
-2. `uv run dg check defs` 通过。
-3. `python3 scripts/check_docs_integrity.py` 通过。
-4. `git diff --check` 通过。
+1. `rg "build_materialization_metadata\\([^)]*columns=" lake_console/orchestrator/src lake_console/orchestrator/tests` 无结果。
+2. `uv run python -m unittest tests.test_metadata_contracts` 通过。
+3. `uv run python -m unittest tests.test_asset_governance_contracts` 通过。
+4. `uv run python -m unittest tests.test_run_contract_static_gates` 通过。
+5. `python3 scripts/check_docs_integrity.py` 通过。
+6. `git diff --check` 通过。
 
 ## 8. 验收方案
 
@@ -405,7 +414,7 @@ raw_tushare_index_daily_by_code
 每个 Slice 至少执行：
 
 ```text
-uv run dg check defs
+uv run dg check defs  # 需单独批准后执行
 python3 scripts/check_docs_integrity.py
 git diff --check
 git status --short

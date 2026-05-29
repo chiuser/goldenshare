@@ -98,13 +98,17 @@ class MetadataContractTests(unittest.TestCase):
         metadata = build_materialization_metadata(
             uri=Path("/tmp/example.parquet"),
             row_count=3,
-            columns=("ts_code", "trade_date"),
+            observed_columns=("ts_code", "trade_date"),
             extra_metadata={"partition_key": "2026-05-26"},
         )
 
         self.assertEqual(metadata[DAGSTER_URI_METADATA_KEY], "/tmp/example.parquet")
         self.assertEqual(metadata[DAGSTER_ROW_COUNT_METADATA_KEY], 3)
-        self.assertIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, metadata)
+        self.assertEqual(
+            metadata[OBSERVED_COLUMNS_METADATA_KEY],
+            ["ts_code", "trade_date"],
+        )
+        self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, metadata)
         self.assertEqual(metadata["goldenshare/partition_key"], "2026-05-26")
         self.assertNotIn("path", metadata)
         self.assertNotIn("row_count", metadata)
@@ -127,13 +131,10 @@ class MetadataContractTests(unittest.TestCase):
         self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, metadata)
         self.assertEqual(metadata["goldenshare/partition_key"], "2026-05-26")
 
-    def test_materialization_metadata_rejects_mixed_schema_and_observation(
-        self,
-    ) -> None:
-        with self.assertRaises(ValueError):
+    def test_materialization_metadata_rejects_removed_columns_parameter(self) -> None:
+        with self.assertRaises(TypeError):
             build_materialization_metadata(
                 columns=("ts_code",),
-                observed_columns=("ts_code",),
             )
 
     def test_materialization_metadata_rejects_legacy_top_level_keys(self) -> None:
@@ -145,13 +146,13 @@ class MetadataContractTests(unittest.TestCase):
                 extra_metadata={"path": "/tmp/example.parquet"}
             )
 
-    def test_check_metadata_namespaces_legacy_details(self) -> None:
+    def test_check_metadata_namespaces_approved_runtime_details(self) -> None:
         metadata = build_check_metadata(
             check_scope=CheckScope.SCHEMA,
             extra_metadata={
                 "path": "/tmp/example.parquet",
                 "row_count": 3,
-                "columns": ["ts_code", "trade_date"],
+                "observed_columns": ["ts_code", "trade_date"],
                 "missing_columns": [],
             },
             failed_row_count=0,
@@ -168,6 +169,14 @@ class MetadataContractTests(unittest.TestCase):
         self.assertNotIn("path", metadata)
         self.assertNotIn("row_count", metadata)
         self.assertNotIn("columns", metadata)
+
+    def test_check_metadata_rejects_legacy_columns_key(self) -> None:
+        legacy_columns_key = "col" + "umns"
+        with self.assertRaises(ValueError):
+            build_check_metadata(
+                check_scope=CheckScope.SCHEMA,
+                extra_metadata={legacy_columns_key: ["ts_code", "trade_date"]},
+            )
 
 
 if __name__ == "__main__":

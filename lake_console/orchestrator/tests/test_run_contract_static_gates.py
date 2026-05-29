@@ -81,6 +81,20 @@ def _node_location(path: Path, node: ast.AST) -> str:
     return f"{path}:{getattr(node, 'lineno', '?')}"
 
 
+def _check_metadata_builder_names(tree: ast.Module) -> set[str]:
+    builder_names = {"build_check_metadata"}
+    for node in tree.body:
+        if not isinstance(node, ast.FunctionDef):
+            continue
+        for child in ast.walk(node):
+            if isinstance(child, ast.Return) and _is_call_named(
+                child.value,
+                "build_check_metadata",
+            ):
+                builder_names.add(node.name)
+    return builder_names
+
+
 class RunContractStaticGateTests(unittest.TestCase):
     def test_sensor_files_use_run_contract_helpers(self) -> None:
         issues = []
@@ -156,6 +170,15 @@ class RunContractStaticGateTests(unittest.TestCase):
                             "does not use build_asset_definition_metadata(...)"
                         )
                     if _is_call_named(metadata_value, "build_asset_definition_metadata"):
+                        column_schema_value = _keyword_value(
+                            metadata_value,
+                            "column_schema",
+                        )
+                        if column_schema_value is None:
+                            issues.append(
+                                f"{_node_location(path, metadata_value)} asset "
+                                f"{node.name} does not register column_schema"
+                            )
                         path_template_value = _keyword_value(
                             metadata_value,
                             "path_template",
@@ -176,14 +199,18 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         for path in _python_files(CHECKS_DIR):
             tree = _parse_python_file(path)
+            check_metadata_builder_names = _check_metadata_builder_names(tree)
             for node in ast.walk(tree):
                 if not _is_call_named(node, "AssetCheckResult"):
                     continue
                 metadata_value = _keyword_value(node, "metadata")
-                if metadata_value is not None and not _is_call_named(
-                    metadata_value,
-                    "build_check_metadata",
+                if (
+                    metadata_value is not None
+                    and isinstance(metadata_value, ast.Call)
+                    and _call_name(metadata_value.func) in check_metadata_builder_names
                 ):
+                    continue
+                if metadata_value is not None:
                     issues.append(
                         f"{_node_location(path, node)} AssetCheckResult metadata "
                         "does not use build_check_metadata(...)"
@@ -202,6 +229,12 @@ class RunContractStaticGateTests(unittest.TestCase):
 
                 checked_keys = set()
                 call_name = _call_name(node.func)
+                if call_name == "build_materialization_metadata":
+                    if _keyword_value(node, "columns") is not None:
+                        issues.append(
+                            f"{_node_location(path, node)} uses removed "
+                            "materialization columns keyword"
+                        )
                 if call_name in {
                     "build_materialization_metadata",
                     "build_check_metadata",

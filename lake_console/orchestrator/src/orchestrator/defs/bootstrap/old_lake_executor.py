@@ -11,6 +11,7 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
 )
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.metadata import build_materialization_metadata
 
 
 TRADE_DATE_PARTITION_PATTERN = re.compile(r"^\d{4}-\d{2}-\d{2}$")
@@ -64,15 +65,17 @@ def _bootstrap_to_raw(
             tmp_path.unlink()
         raise
 
-    return {
-        "path": str(target_path),
-        "row_count": row_count,
-        "columns": list(columns),
-        "source_method": spec.source_method_metadata,
-        "bootstrap_spec": spec.dataset_key,
-        "partition_key": partition_key,
-        "empty_policy": spec.empty_policy,
-    }
+    return build_materialization_metadata(
+        uri=target_path,
+        row_count=row_count,
+        observed_columns=columns,
+        extra_metadata={
+            "source_method": spec.source_method_metadata,
+            "bootstrap_spec": spec.dataset_key,
+            "partition_key": partition_key,
+            "empty_policy": spec.empty_policy,
+        },
+    )
 
 
 def _render_select_sql(

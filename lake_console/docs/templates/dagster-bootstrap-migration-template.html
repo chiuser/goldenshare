@@ -418,8 +418,10 @@ from read_parquet({old_path}, hive_partitioning=false)</code></pre>
     <div class="warning">
       本节描述的是旧湖 bootstrap 迁移 helper 的迁移审计输出，不是新生产 asset/check
       metadata 的通用模板。新生产 asset/check 必须遵守 run contract governance：
-      路径、行数、列结构分别使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、
-      <code>dagster/column_schema</code>，check metadata 统一经 <code>build_check_metadata(...)</code>。
+      稳定字段契约写在 asset definition metadata 的 <code>dagster/column_schema</code>；
+      materialization metadata 的路径、行数、本次写入字段分别使用 <code>dagster/uri</code>、
+      <code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；
+      check metadata 统一经 <code>build_check_metadata(...)</code>。
     </div>
     <pre><code>bootstrap write flow:
   1. render old_lake source path
@@ -438,9 +440,9 @@ from read_parquet({old_path}, hive_partitioning=false)</code></pre>
         </tr>
       </thead>
       <tbody>
-        <tr><td><code>path</code></td><td>新湖 raw 目标路径。</td></tr>
-        <tr><td><code>row_count</code></td><td>写入行数。</td></tr>
-        <tr><td><code>columns</code></td><td>写入字段列表，用于确认 raw contract。</td></tr>
+        <tr><td><code>dagster/uri</code></td><td>新湖 raw 目标路径。</td></tr>
+        <tr><td><code>dagster/row_count</code></td><td>写入行数。</td></tr>
+        <tr><td><code>goldenshare/observed_columns</code></td><td>本次写入字段列表，用于确认 raw contract。</td></tr>
         <tr><td><code>source_method</code></td><td>固定为 <code>old_lake_bootstrap</code>，只进 metadata。</td></tr>
         <tr><td><code>bootstrap_spec</code></td><td>具体 spec 名称或 dataset_key。</td></tr>
         <tr><td><code>partition_key</code></td><td>分区迁移时记录交易日；full 文件可为空。</td></tr>

@@ -343,7 +343,7 @@
         <ul>
           <li>不做业务过滤，例如不按当前上市股票裁剪 raw 日线。</li>
           <li>不写 <code>source_method</code>、旧湖路径、bootstrap metadata 到 parquet 字段。</li>
-          <li>路径、行数、列结构使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；源请求参数、fields、page_count 等只进 materialization metadata，不进 parquet 字段。</li>
+          <li>definition metadata 必须注册稳定字段契约 <code>dagster/column_schema</code>；materialization metadata 只记录 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、源请求参数、fields、page_count 等运行观察信息。</li>
           <li>raw 空结果要按数据集语义拍板：如 <code>suspend_d</code> 允许空 parquet；<code>daily</code> 开市日 0 行必须失败。</li>
         </ul>
       </div>
@@ -416,7 +416,7 @@
         </tr>
         <tr>
           <td>Materialization metadata</td>
-          <td>使用 <code>build_materialization_metadata(...)</code>；实际 URI、行数、列结构优先使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。</td>
+          <td>使用 <code>build_materialization_metadata(...)</code>；实际 URI、行数、本次输出列使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>。稳定字段契约只放在 definition metadata 的 <code>dagster/column_schema</code>。</td>
           <td>禁止裸写旧 key：<code>path</code>、<code>row_count</code>、<code>columns</code>、<code>layer</code>、<code>source_api</code>、<code>data_contract</code>。</td>
         </tr>
         <tr>
@@ -654,22 +654,22 @@ fetch_tushare_full_file_to_raw(
         <tr>
           <td>raw partitioned asset</td>
           <td>调用 Tushare 或 bootstrap helper，写 raw parquet。</td>
-          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；项目字段必须使用 <code>goldenshare/*</code> 或已登记 helper，例如脱敏请求参数、fields、page_count、partition summary。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；项目字段必须使用 <code>goldenshare/*</code> 或已登记 helper，例如脱敏请求参数、fields、page_count、partition summary。</td>
         </tr>
         <tr>
           <td>raw full asset</td>
           <td>拉全量快照，原子替换 full parquet。</td>
-          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；分布统计、source row count、update policy 使用已登记项目 metadata key。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；分布统计、source row count、update policy 使用已登记项目 metadata key。</td>
         </tr>
         <tr>
           <td>silver asset</td>
           <td>读取 raw 和真实上游标准事实，做类型标准化、去重、过滤、修正。</td>
-          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；过滤、重复、冲突、修正统计使用明确命名的项目 metadata key，不裸写 <code>raw_path</code>、<code>row_count</code>、<code>columns</code>。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；过滤、重复、冲突、修正统计使用明确命名的项目 metadata key，不裸写 <code>raw_path</code>、<code>row_count</code>、<code>columns</code>。</td>
         </tr>
         <tr>
           <td>gold asset</td>
           <td>读取 silver 标准事实，生成业务结果。</td>
-          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；上游摘要、公式口径和业务统计使用已登记项目 metadata key。</td>
+          <td><code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；上游摘要、公式口径和业务统计使用已登记项目 metadata key。</td>
         </tr>
         </tbody>
       </table>
@@ -688,6 +688,7 @@ fetch_tushare_full_file_to_raw(
         source_category_path="股票数据/行情数据",
         source_doc="docs/sources/tushare/...",
         data_contract="dataset_raw_contract",
+        column_schema=RAW_DATASET_SCHEMA,
         path_template=lake_path_template(
             raw_dataset_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
@@ -700,7 +701,7 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
-            columns=RAW_COLUMNS,
+            observed_columns=observed_columns,
             extra_metadata={...},
         )
     )</code></pre>
@@ -1099,7 +1100,7 @@ git status --short</code></pre>
         <tr><td>UI 文案</td><td>asset/job/sensor/check 的 description 已用中文简明表达能力和用途。</td><td>□</td></tr>
         <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入；definition <code>path_template</code> 由真实路径函数生成。</td><td>□</td></tr>
         <tr><td>Definition metadata</td><td>已使用 <code>build_asset_definition_metadata(...)</code> 写清数据集身份、source、contract 和路径模板。</td><td>□</td></tr>
-        <tr><td>Materialization metadata</td><td>已使用 <code>build_materialization_metadata(...)</code>，路径、行数、列结构使用 Dagster 标准 key。</td><td>□</td></tr>
+        <tr><td>Materialization metadata</td><td>已使用 <code>build_materialization_metadata(...)</code>，路径、行数使用 Dagster 标准 key；本次输出列使用 <code>goldenshare/observed_columns</code>。</td><td>□</td></tr>
         <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
         <tr><td>请求范围</td><td>逐对象接口的对象池、请求量、分页量、耗时和不可接受量级已评估；raw 范围与设计文档一致。</td><td>□</td></tr>
