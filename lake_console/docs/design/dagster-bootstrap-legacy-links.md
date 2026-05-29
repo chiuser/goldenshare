@@ -31,6 +31,7 @@
 | `trade_calendar` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/trade_cal/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet` | `trade_calendar_bootstrap_spec` / `TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_calendar_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_basic` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet` | `stock_basic_bootstrap_spec` / `STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_basic_update_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_quote_daily_job` | 已完成 Slice 2.0.5 验证 |
+| `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 暂未新增独立 job | M2 spec 已实现，正式迁移未执行 |
 
 ## 已确认的迁移纠偏规则
 
@@ -64,6 +65,14 @@
 - `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` 会经过 Python `str.format(...)` 渲染；SQL 正则中的 `{8}` 必须写成 `{{8}}`，否则会被误识别成 format 占位符。
 - Slice 2.0.5 已用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 跑通 2026-04 全月 21 个交易日。
 - 2026-04 验证结果：`bootstrap_quote_daily_job` 全部分区成功，raw/silver blocking checks 全部通过，`silver_stock_daily_covers_expected_tradable_universe` 全部通过，`unexplained_missing_count=0` 且 `unexplained_extra_count=0`。
+
+### `adj_factor`
+
+- 旧湖实际路径是 `raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet`。
+- 旧湖 `trade_date` 是 Parquet `DATE`，但新湖 raw 契约必须写成 Tushare 源站镜像的 `YYYYMMDD` 字符串。
+- `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` 同时兼容旧湖 `DATE` 和 `YYYYMMDD` 字符串输入。
+- `empty_policy=require_positive`，因为已完成交易日的复权因子 raw 不应为空。
+- M2 只实现 spec 与临时 parquet 单元测试，尚未执行正式旧湖迁移；正式迁移前必须再次只读复核旧湖当前范围。
 
 ## 清理门禁
 
