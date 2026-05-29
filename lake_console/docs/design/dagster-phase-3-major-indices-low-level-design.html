@@ -391,7 +391,7 @@ silver_index_daily_update_job[trade_date]
         </tr>
         <tr>
           <td>silver 生成入口</td>
-          <td><code>silver_index_daily_update_job</code>、<code>silver_index_daily_sensor</code> 均已进入 active definitions；实际历史覆盖进度不在本文档中写死，后续必须通过只读审计确认。</td>
+          <td><code>silver_index_daily_update_job</code>、<code>silver_index_daily_sensor</code> 均已进入 active definitions；历史生成结果已由用户完成自验，本文件不写死具体行数，后续如需复核仍以只读审计为准。</td>
         </tr>
       </tbody>
     </table>
@@ -403,7 +403,7 @@ silver_index_daily_update_job[trade_date]
       截至当前代码事实，Phase 3 已完成指数日线 raw-by-code 主链、<code>silver_index_daily</code>
       生成入口、<code>silver_index_daily_sensor</code>、主要指数名单 seed 化、
       <code>gold_market_major_indices_daily</code> asset/checks/job，以及旧 active pool 链路退场。
-      剩余工作必须按下表推进，避免把旧 metadata 表、旧 raw-by-date 口径或未设计的自动触发能力带回来。
+      当前功能主线已收口。下表保留各项任务的最终状态和后续边界，避免把旧 metadata 表、旧 raw-by-date 口径或未设计的自动触发能力带回来。
     </p>
     <table>
       <thead>
@@ -418,10 +418,10 @@ silver_index_daily_update_job[trade_date]
       <tbody>
         <tr>
           <td>1</td>
-          <td>完成当前 <code>silver_index_daily</code> 历史生成结果审计。</td>
-          <td>确认 <code>silver_index_daily[trade_date]</code> 历史分区已经基于当前注册 raw-by-code 文件集合完整生成；注册代码数量以只读审计结果为准，不在本文档写死。</td>
-          <td>审计分区覆盖、row count 范围、字段契约、<code>ts_code + trade_date</code> 唯一性、冲突重复、价格 sanity、registered code coverage、失败/取消 run 是否已被后续成功 run 覆盖。</td>
-          <td>这是只读审计和结果汇总；如果发现问题，先停下来确认修复方案，不直接改生产代码。</td>
+          <td>已完成：<code>silver_index_daily</code> 历史生成结果审计。</td>
+          <td>确认 <code>silver_index_daily[trade_date]</code> 历史分区已经基于当前注册 raw-by-code 文件集合生成。</td>
+          <td>用户已完成自验；后续如需复核，仍按分区覆盖、row count 范围、字段契约、<code>ts_code + trade_date</code> 唯一性、冲突重复、价格 sanity、registered code coverage、失败/取消 run 是否已被后续成功 run 覆盖来审计。</td>
+          <td>这是结果验收记录，不代表允许在日常 sensor 中做重 IO 或重 check history 扫描。</td>
         </tr>
         <tr>
           <td>2</td>
@@ -467,9 +467,9 @@ silver_index_daily_update_job[trade_date]
         </tr>
         <tr>
           <td>8</td>
-          <td>Phase 3 全链路验收与文档收口。</td>
-          <td>跑通指数交易日注册、index raw by code、silver index daily、major indices daily gold 的完整链路。</td>
-          <td>Dagster UI 能观测 assets/jobs/checks/sensors；metadata 可见；无旧 active pool 入口；文档与代码事实一致。</td>
+          <td>已完成：Phase 3 全链路验收与文档收口。</td>
+          <td>指数交易日注册、index raw by code、silver index daily、major indices daily gold 的完整链路已完成自验。</td>
+          <td>Dagster UI 可观测 assets/jobs/checks/sensors；metadata 可见；旧 active pool 入口已退场；文档按当前代码事实收口。</td>
           <td>不引入 ClickHouse/prod release；如要接入首页 serving 或 prod 发布，另起下一阶段方案。</td>
         </tr>
       </tbody>

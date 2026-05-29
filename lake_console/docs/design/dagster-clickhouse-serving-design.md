@@ -4,7 +4,7 @@
 
 ## 1. 背景与目标
 
-本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入、serving automation 入口定义，以及第一轮小范围运行验收。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation sensor 默认 `STOPPED`，尚未默认长期启用。
+本地 ClickHouse 已完成基础安装、Flyway migration、Dagster resource 接入、第一张 serving asset 定义、serving checks / job 接入、serving automation 入口定义、历史补齐和小范围运行验收。当前代码已经安装 `dagster-clickhouse==0.29.6`，并把官方 `ClickhouseResource` 注册为 Dagster resource；serving automation sensor 默认 `STOPPED`，是否长期启用由运营验证后决定。
 
 本设计目标是：让 Dagster 把已经生成的 Parquet gold 资产同步到本地 ClickHouse serving 表，并用 Dagster assets、jobs、checks 和 automation 管理 ClickHouse 表的数据状态。
 
@@ -67,10 +67,10 @@ ClickHouse serving asset
 ClickHouse serving checks
 ClickHouse serving job
 ClickHouse serving automation sensor
-ClickHouse serving 单日与小范围 backfill 验收
+ClickHouse serving 单日、小范围 backfill 与历史补齐验收
 ```
 
-当前还没有：
+当前尚未默认长期启用：
 
 ```text
 ClickHouse serving 默认长期自动化
@@ -141,7 +141,7 @@ interserver_http_port = 9009
 2. native `9000` 正在监听 `127.0.0.1:9000`。
 3. 在 Codex 沙箱内直接连 native `9000` 可能报 `Operation not permitted` 或 I/O error，这是沙箱网络限制，不代表 ClickHouse 配置失败。
 4. 经批准在沙箱外执行 native client，`SELECT version(), currentDatabase()` 返回 `26.6.1.141 default`。
-5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 已定义 automation 入口，默认 `STOPPED`；Slice CH-6 的单日 checks 验收和小范围 backfill 验收已完成。
+5. Slice CH-1 已通过 Flyway 创建 `goldenshare_serving` 数据库和 `goldenshare_serving.share_fact_market_breadth_daily` 空表；Slice CH-2 已接入 Dagster resource；Slice CH-3 已接入 serving asset；Slice CH-4 已接入 serving checks 和 job；Slice CH-5 已定义 automation 入口，默认 `STOPPED`；Slice CH-6 的单日 checks 验收、小范围 backfill 验收和历史补齐已由用户完成。
 
 本地已知坑：
 
@@ -1050,4 +1050,10 @@ ClickHouse 不使用根 Alembic，也不新增 ClickHouse Alembic 分支。
 7. `clickhouse_share_fact_market_breadth_automation_sensor` 已定义，默认 `STOPPED`。
 8. 所有 serving checks 通过。
 9. 已完成小范围 backfill 验收。
-10. 文档同步到 design / architecture 相关文档。
+10. 已完成历史补齐验收，`gold_market_breadth_daily` 与 `gold_stock_return_distribution` 共同进入 ClickHouse serving 表的链路已收口。
+11. 文档同步到 design / architecture 相关文档。
+
+当前边界：
+
+1. ClickHouse serving 表是副本层，不是 raw / silver / gold 的事实源。
+2. automation sensor 仍默认 `STOPPED`；长期启用属于运营策略，不影响第一版开发收口。

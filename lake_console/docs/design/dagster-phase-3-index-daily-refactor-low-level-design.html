@@ -1000,8 +1000,8 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>F</td>
-        <td>历史 raw-by-code 初始化和 silver trade_date 重建。</td>
-        <td>输出完整审计报告；PG 表不在本切片 drop。</td>
+        <td>已完成：历史 raw-by-code 初始化和 silver trade_date 重建。</td>
+        <td>用户已完成历史生成和自验；PG 表不在本切片 drop。</td>
       </tr>
       <tr>
         <td>G</td>
@@ -1031,6 +1031,9 @@ def silver_index_daily_sensor(context):
       <li>Preview 或短暂开启 <code>index_daily_sensor</code>。</li>
       <li>Preview 或短暂开启 <code>silver_index_daily_sensor</code>。</li>
     </ul>
+    <p class="small">
+      2026-05-29 收口记录：上述 Dagster UI / run 验证已由用户自行完成，本轮文档同步不重复执行正式 Dagster 命令。
+    </p>
   </section>
 
   <section>
@@ -1062,7 +1065,7 @@ def silver_index_daily_sensor(context):
       </tbody>
     </table>
     <p class="small">
-      本文档生成时未执行任何 Dagster 命令、未注册 dynamic partitions、未写数据湖、未修改 Python 代码。
+      本文档初版生成时未执行任何 Dagster 命令、未注册 dynamic partitions、未写数据湖、未修改 Python 代码。当前收口状态基于用户自行完成的 UI / run 验证记录。
     </p>
   </section>
 </main>

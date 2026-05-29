@@ -86,24 +86,24 @@ asset checks
 
 当前 `lake_console/orchestrator/src/orchestrator/defs/assets/*.py` 中共有 16 个正式 asset：
 
-| Asset | 层级 | 当前问题 |
+| Asset | 层级 | 当前状态 |
 |---|---|---|
-| `raw_tushare_trade_calendar` | raw | definition metadata 未注册字段契约 |
-| `silver_trade_calendar` | silver | definition metadata 未注册字段契约 |
-| `raw_tushare_stock_basic` | raw | definition metadata 未注册字段契约 |
-| `silver_stock_basic` | silver | definition metadata 未注册字段契约 |
-| `raw_tushare_stock_daily` | raw | definition metadata 未注册字段契约 |
-| `silver_stock_daily` | silver | definition metadata 未注册字段契约 |
-| `raw_tushare_suspend_d` | raw | definition metadata 未注册字段契约 |
-| `silver_stock_suspend_daily` | silver | definition metadata 未注册字段契约 |
-| `raw_tushare_index_basic` | raw | definition metadata 未注册字段契约 |
-| `silver_index_basic` | silver | definition metadata 未注册字段契约 |
-| `raw_tushare_index_daily_by_code` | raw | definition metadata 未注册字段契约 |
-| `silver_index_daily` | silver | definition metadata 未注册字段契约 |
-| `gold_market_breadth_daily` | gold | definition metadata 未注册字段契约 |
-| `gold_stock_return_distribution` | gold | definition metadata 未注册字段契约 |
-| `gold_market_major_indices_daily` | gold | materialization metadata 已有列名，但 type / desc 不完整 |
-| `ch_share_fact_market_breadth_daily` | serving | definition metadata 未注册字段契约 |
+| `raw_tushare_trade_calendar` | raw | 已注册 definition column schema |
+| `silver_trade_calendar` | silver | 已注册 definition column schema |
+| `raw_tushare_stock_basic` | raw | 已注册 definition column schema |
+| `silver_stock_basic` | silver | 已注册 definition column schema |
+| `raw_tushare_stock_daily` | raw | 已注册 definition column schema |
+| `silver_stock_daily` | silver | 已注册 definition column schema |
+| `raw_tushare_suspend_d` | raw | 已注册 definition column schema |
+| `silver_stock_suspend_daily` | silver | 已注册 definition column schema |
+| `raw_tushare_index_basic` | raw | 已注册 definition column schema |
+| `silver_index_basic` | silver | 已注册 definition column schema |
+| `raw_tushare_index_daily_by_code` | raw | 已注册 definition column schema |
+| `silver_index_daily` | silver | 已注册 definition column schema |
+| `gold_market_breadth_daily` | gold | 已注册 definition column schema |
+| `gold_stock_return_distribution` | gold | 已注册 definition column schema |
+| `gold_market_major_indices_daily` | gold | 已注册 definition column schema |
+| `ch_share_fact_market_breadth_daily` | serving | 已注册 definition column schema |
 
 本方案不改：
 
@@ -425,6 +425,7 @@ git status --short
 1. `uv run dg check defs` 属于 Dagster definitions 加载验证，执行前仍需按正式环境门禁确认。
 2. 本改造不要求运行 job / sensor / backfill。
 3. 如需单日 materialize 验证 UI，必须单独列命令并获得确认。
+4. 2026-05-29 已由用户自行完成 definitions 与 UI 验收；本轮文档只记录验收状态，不重复执行正式 Dagster 命令。
 
 ### 8.2 UI 验收
 
@@ -444,6 +445,13 @@ git status --short
 3. 字段顺序与定义契约一致。
 4. reload definitions 后 definition schema 可见。
 5. 单日 materialize 后 runtime metadata 仍能看到 row_count、path、observed columns。
+
+验收结论：
+
+1. SC-1 至 SC-6 已完成开发与收口。
+2. 16 个正式 asset 已接入 definition column schema。
+3. 用户已完成 UI 自验，确认 schema contract 口径可用。
+4. 历史 materialization metadata 不刷新，这是预期；如需清理旧 event log，另起方案。
 
 ### 8.3 数据不变验收
 
@@ -521,3 +529,8 @@ git status --short
 5. 所有现有 checks、jobs、sensors、automation definitions 加载正常。
 6. UI columns 表不再大面积出现 `unknown` 和空 desc。
 7. 新增资产的编码规范中明确要求 definition column schema。
+
+当前状态：
+
+1. 已完成。
+2. 后续新增 asset 必须继续遵守 `CODING_STANDARDS.md` 中的 schema contract 门禁。

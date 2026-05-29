@@ -489,7 +489,7 @@
     <div class="warning">
       注意：图中的 <code>gold automation</code> 是当前已经声明在 <code>gold_market_breadth_daily</code> 上的 declarative automation 条件，不是一个新 asset。
       当前 <code>gold_market_breadth_daily</code> 只显式依赖 <code>silver_stock_daily</code>；这与市场宽度计算只消费标准日线事实的口径一致。
-      由于历史 gold 分区大量缺失，默认 automation sensor 暂不启用；历史补齐走 UI 分批 backfill，日常触发使用自定义 <code>market_breadth_automation_sensor</code>。
+      历史 gold 分区补齐已由用户完成自验；日常触发继续使用自定义 <code>market_breadth_automation_sensor</code>，默认是否长期启用按运营验证策略决定。
     </div>
 
     <h3>2.1 Phase 3 指数链路代码事实</h3>
@@ -965,17 +965,21 @@
       </div>
     </div>
 
-    <h3>6.2 后续开发建议顺序</h3>
-<pre><code>Next recommended slices:
-1. automation validation
-   - market_breadth_automation_sensor uses explicit target and STOPPED default
-   - evaluate requested partitions before turning it on
-   - do not use it for historical 2975-partition catch-up
+    <h3>6.2 当前收口状态</h3>
+<pre><code>Closed as of 2026-05-29:
+1. Schema contract
+   - 16 formal assets expose definition column schema
+   - runtime metadata uses observed_columns
 
-2. market breadth small-window acceptance
-   - run only gold_market_breadth_daily + gold checks
-   - no stock_basic / calendar / quote selection
-   - no Tushare calls</code></pre>
+2. Stock breadth gold + ClickHouse serving
+   - gold_market_breadth_daily and gold_stock_return_distribution are implemented
+   - ch_share_fact_market_breadth_daily, checks, job, automation sensor are implemented
+   - historical catch-up and small-window acceptance were user-verified
+
+3. Phase 3 index daily / major indices
+   - raw-by-code, silver_index_daily, silver_index_daily_sensor are implemented
+   - major indices seed, daily gold asset, checks, job and sensor are implemented
+   - old active pool production path has retired from active definitions</code></pre>
   </section>
 </main>
 </body>
