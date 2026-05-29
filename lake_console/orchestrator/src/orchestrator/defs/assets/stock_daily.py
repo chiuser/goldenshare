@@ -38,6 +38,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -51,17 +52,7 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 STOCK_DAILY_COLUMNS = tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA)
 
 STOCK_DAILY_RAW_COLUMN_TYPES = {
-    "ts_code": "VARCHAR",
-    "trade_date": "VARCHAR",
-    "open": "DOUBLE",
-    "high": "DOUBLE",
-    "low": "DOUBLE",
-    "close": "DOUBLE",
-    "pre_close": "DOUBLE",
-    "change": "DOUBLE",
-    "pct_chg": "DOUBLE",
-    "vol": "DOUBLE",
-    "amount": "DOUBLE",
+    column.name: column.type for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA
 }
 
 
@@ -361,6 +352,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
         source_category_path="股票数据 / 行情数据",
         source_doc="docs/sources/tushare/股票数据/行情数据/0027_A股日线行情.md",
         data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_STOCK_DAILY_SCHEMA,
         path_template=lake_path_template(
             raw_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
@@ -368,7 +360,6 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
             "raw_contract": (
                 "Tushare daily source mirror: trade_date YYYYMMDD string, field name change."
             ),
-            "required_columns": list(STOCK_DAILY_RAW_REQUIRED_COLUMNS),
             "write_summary": (
                 "Tushare API rows written to raw parquet with explicit source contract fields."
             ),

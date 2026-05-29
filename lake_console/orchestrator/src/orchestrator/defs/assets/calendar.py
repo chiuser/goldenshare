@@ -29,6 +29,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -42,10 +43,7 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
 TRADE_CALENDAR_START_DATE = "19900101"
 TRADE_CALENDAR_RAW_COLUMN_TYPES = {
-    "exchange": "VARCHAR",
-    "cal_date": "VARCHAR",
-    "is_open": "INTEGER",
-    "pretrade_date": "VARCHAR",
+    column.name: column.type for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA
 }
 
 
@@ -87,6 +85,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
         source_category_path="股票数据 / 基础数据",
         source_doc="docs/sources/tushare/股票数据/基础数据/0026_交易日历.md",
         data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
         path_template=lake_path_template(
             raw_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
         ),

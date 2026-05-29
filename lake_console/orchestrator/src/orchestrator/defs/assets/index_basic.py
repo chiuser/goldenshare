@@ -34,6 +34,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -46,19 +47,7 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
 INDEX_BASIC_RAW_COLUMN_TYPES = {
-    "ts_code": "VARCHAR",
-    "name": "VARCHAR",
-    "fullname": "VARCHAR",
-    "market": "VARCHAR",
-    "publisher": "VARCHAR",
-    "index_type": "VARCHAR",
-    "category": "VARCHAR",
-    "base_date": "VARCHAR",
-    "base_point": "DOUBLE",
-    "list_date": "VARCHAR",
-    "weight_rule": "VARCHAR",
-    "desc": "VARCHAR",
-    "exp_date": "VARCHAR",
+    column.name: column.type for column in RAW_TUSHARE_INDEX_BASIC_SCHEMA
 }
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -156,11 +145,11 @@ def _resolve_ready_for_trade_date(context: dg.AssetExecutionContext) -> str:
         source_category_path="指数专题",
         source_doc="docs/sources/tushare/指数专题/0094_指数基本信息.md",
         data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_INDEX_BASIC_SCHEMA,
         path_template=lake_path_template(
             raw_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
         extra_metadata={
-            "expected_source_columns": list(INDEX_BASIC_RAW_COLUMNS),
             "update_policy": "daily_full_snapshot_api_update",
         },
     ),

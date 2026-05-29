@@ -1,6 +1,6 @@
 # Dagster Asset Schema Contract 改造方案
 
-更新时间：2026-05-28
+更新时间：2026-05-29
 
 ## 1. 背景
 
@@ -350,7 +350,14 @@ silver_index_daily
 2. 现有 silver checks 继续通过。
 3. 不改变 silver parquet 写入逻辑。
 
-### Slice SC-5：推广到 raw
+### Slice SC-5：推广到 raw（已落地）
+
+状态：
+
+1. `raw_tushare_trade_calendar`、`raw_tushare_stock_basic`、`raw_tushare_stock_daily`、`raw_tushare_suspend_d`、`raw_tushare_index_basic`、`raw_tushare_index_daily_by_code` 均已注册 definition column schema。
+2. raw 层字段契约保持源站镜像口径：Tushare 日期字符串仍注册为 `VARCHAR`，`raw_tushare_trade_calendar.is_open` 注册为 `INTEGER`，股票/指数日线 raw 字段继续使用 `change`。
+3. Tushare raw 写入 helper 的运行时列信息已从旧 `columns=` 收敛为 `goldenshare/observed_columns`；`fields` 作为本次请求观测信息继续保留在 materialization metadata。
+4. raw 字段常量和 raw column type maps 已从 schema contract 派生，避免字段契约维护两份。
 
 范围：
 

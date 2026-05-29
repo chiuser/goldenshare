@@ -3,6 +3,84 @@
 from orchestrator.defs.run_contracts.column_schema import ColumnContract
 
 
+RAW_TUSHARE_TRADE_CALENDAR_SCHEMA = (
+    ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("cal_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("is_open", "INTEGER", "Tushare 原始开市标识，1 表示开市，0 表示休市"),
+    ColumnContract("pretrade_date", "VARCHAR", "上一交易日，YYYYMMDD 字符串"),
+)
+
+RAW_TUSHARE_STOCK_BASIC_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("symbol", "VARCHAR", "股票简称代码"),
+    ColumnContract("name", "VARCHAR", "股票名称"),
+    ColumnContract("area", "VARCHAR", "地域"),
+    ColumnContract("industry", "VARCHAR", "所属行业"),
+    ColumnContract("fullname", "VARCHAR", "股票全称"),
+    ColumnContract("enname", "VARCHAR", "英文全称"),
+    ColumnContract("cnspell", "VARCHAR", "拼音缩写"),
+    ColumnContract("market", "VARCHAR", "市场类型"),
+    ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("curr_type", "VARCHAR", "交易货币"),
+    ColumnContract("list_status", "VARCHAR", "上市状态，沿用 Tushare 原始值"),
+    ColumnContract("list_date", "VARCHAR", "上市日期，YYYYMMDD 字符串"),
+    ColumnContract("delist_date", "VARCHAR", "退市日期，YYYYMMDD 字符串或空"),
+    ColumnContract("is_hs", "VARCHAR", "沪深港通标识"),
+    ColumnContract("act_name", "VARCHAR", "实控人名称"),
+    ColumnContract("act_ent_type", "VARCHAR", "实控人企业性质"),
+)
+
+RAW_TUSHARE_STOCK_DAILY_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("open", "DOUBLE", "当日开盘价"),
+    ColumnContract("high", "DOUBLE", "当日最高价"),
+    ColumnContract("low", "DOUBLE", "当日最低价"),
+    ColumnContract("close", "DOUBLE", "当日收盘价"),
+    ColumnContract("pre_close", "DOUBLE", "前一交易日收盘价"),
+    ColumnContract("change", "DOUBLE", "源站原始变动值字段，raw 层不改名"),
+    ColumnContract("pct_chg", "DOUBLE", "涨跌幅，百分比"),
+    ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 股票日线口径"),
+    ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 股票日线口径"),
+)
+
+RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("suspend_timing", "VARCHAR", "停牌时段，沿用 Tushare 原始字符串或空"),
+    ColumnContract("suspend_type", "VARCHAR", "停复牌类型，沿用 Tushare 原始值"),
+)
+
+RAW_TUSHARE_INDEX_BASIC_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "指数代码"),
+    ColumnContract("name", "VARCHAR", "指数简称"),
+    ColumnContract("fullname", "VARCHAR", "指数全称"),
+    ColumnContract("market", "VARCHAR", "市场或发布方市场分类"),
+    ColumnContract("publisher", "VARCHAR", "发布方"),
+    ColumnContract("index_type", "VARCHAR", "指数类型"),
+    ColumnContract("category", "VARCHAR", "指数分类"),
+    ColumnContract("base_date", "VARCHAR", "基日，YYYYMMDD 字符串"),
+    ColumnContract("base_point", "DOUBLE", "基点"),
+    ColumnContract("list_date", "VARCHAR", "发布日期或上市日期，YYYYMMDD 字符串"),
+    ColumnContract("weight_rule", "VARCHAR", "加权方式"),
+    ColumnContract("desc", "VARCHAR", "指数说明"),
+    ColumnContract("exp_date", "VARCHAR", "终止日期，YYYYMMDD 字符串或空"),
+)
+
+RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "指数代码"),
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("open", "DOUBLE", "当日开盘点位"),
+    ColumnContract("high", "DOUBLE", "当日最高点位"),
+    ColumnContract("low", "DOUBLE", "当日最低点位"),
+    ColumnContract("close", "DOUBLE", "当日收盘点位"),
+    ColumnContract("pre_close", "DOUBLE", "前一交易日收盘点位"),
+    ColumnContract("change", "DOUBLE", "源站原始变动值字段，raw 层不改名"),
+    ColumnContract("pct_chg", "DOUBLE", "涨跌幅，百分比"),
+    ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 指数日线口径"),
+    ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 指数日线口径"),
+)
+
 SILVER_TRADE_CALENDAR_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "交易所代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

@@ -60,7 +60,7 @@ def fetch_tushare_partition_to_raw(
     return build_materialization_metadata(
         uri=target_path,
         row_count=len(rows),
-        columns=field_names,
+        observed_columns=field_names,
         extra_metadata={
             "source_method": TUSHARE_API_SOURCE_METHOD,
             "params": dict(api_params),
@@ -112,7 +112,7 @@ def fetch_tushare_full_file_to_raw(
     return build_materialization_metadata(
         uri=target_path,
         row_count=len(rows),
-        columns=field_names,
+        observed_columns=field_names,
         extra_metadata={
             "source_method": TUSHARE_API_SOURCE_METHOD,
             "params": dict(api_params),
@@ -247,7 +247,7 @@ def fetch_tushare_index_daily_by_code_to_raw(
     return build_materialization_metadata(
         uri=target_path,
         row_count=output_row_count,
-        columns=field_names,
+        observed_columns=field_names,
         extra_metadata={
             "source_method": TUSHARE_API_SOURCE_METHOD,
             "params": api_params,

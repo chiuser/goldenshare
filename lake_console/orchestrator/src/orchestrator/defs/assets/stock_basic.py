@@ -29,6 +29,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -40,7 +41,9 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
 
 
 STOCK_BASIC_API_PARAMS = {"list_status": "L,D,P,G"}
-STOCK_BASIC_RAW_COLUMN_TYPES = {field: "VARCHAR" for field in STOCK_BASIC_RAW_COLUMNS}
+STOCK_BASIC_RAW_COLUMN_TYPES = {
+    column.name: column.type for column in RAW_TUSHARE_STOCK_BASIC_SCHEMA
+}
 
 
 def _column_names(
@@ -104,6 +107,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
         source_category_path="股票数据 / 基础数据",
         source_doc="docs/sources/tushare/股票数据/基础数据/0025_股票基础信息.md",
         data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_STOCK_BASIC_SCHEMA,
         path_template=lake_path_template(
             raw_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
@@ -111,7 +115,6 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
             "raw_contract": (
                 "Tushare stock_basic explicit fields; date fields remain YYYYMMDD strings."
             ),
-            "expected_source_columns": list(STOCK_BASIC_RAW_COLUMNS),
             "update_policy": "daily_full_snapshot_api_update",
         },
     ),

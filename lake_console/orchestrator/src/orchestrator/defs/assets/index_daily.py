@@ -33,6 +33,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.configs import (
@@ -49,17 +50,7 @@ from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 INDEX_DAILY_RAW_COLUMN_TYPES = {
-    "ts_code": "VARCHAR",
-    "trade_date": "VARCHAR",
-    "open": "DOUBLE",
-    "high": "DOUBLE",
-    "low": "DOUBLE",
-    "close": "DOUBLE",
-    "pre_close": "DOUBLE",
-    "change": "DOUBLE",
-    "pct_chg": "DOUBLE",
-    "vol": "DOUBLE",
-    "amount": "DOUBLE",
+    column.name: column.type for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA
 }
 
 INDEX_DAILY_SILVER_COLUMN_TYPES = {
@@ -380,13 +371,13 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
         source_category_path="指数专题",
         source_doc="docs/sources/tushare/指数专题/0095_指数日线行情.md",
         data_contract="source_mirror_by_code",
+        column_schema=RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
         path_template=lake_path_template(
             raw_index_daily_by_code_path(
                 PATH_TEMPLATE_LAKE_ROOT,
                 PATH_TEMPLATE_PARTITION_KEY,
             )
         ),
-        extra_metadata={"expected_source_columns": list(INDEX_DAILY_RAW_COLUMNS)},
     ),
     description="Tushare 指数日线原始数据，按指数代码分区拉取并保存源站镜像。",
 )

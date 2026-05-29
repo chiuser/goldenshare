@@ -8,6 +8,12 @@ from orchestrator.defs.corrections.suspend_timing import (
     suspend_timing_corrections_values_sql,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_INDEX_BASIC_SCHEMA,
+    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
+    RAW_TUSHARE_STOCK_BASIC_SCHEMA,
+    RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
+    RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
@@ -19,11 +25,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 STOCK_DAILY_MIN_TRADE_DATE = "2014-01-01"
 BJ_MARKET_OPEN_DATE = "2021-11-15"
 
-TRADE_CALENDAR_RAW_REQUIRED_COLUMNS = (
-    "exchange",
-    "cal_date",
-    "is_open",
-    "pretrade_date",
+TRADE_CALENDAR_RAW_REQUIRED_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA
 )
 
 TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS = tuple(
@@ -50,24 +53,8 @@ SELECT
 FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 """
 
-STOCK_BASIC_RAW_COLUMNS = (
-    "ts_code",
-    "symbol",
-    "name",
-    "area",
-    "industry",
-    "fullname",
-    "enname",
-    "cnspell",
-    "market",
-    "exchange",
-    "curr_type",
-    "list_status",
-    "list_date",
-    "delist_date",
-    "is_hs",
-    "act_name",
-    "act_ent_type",
+STOCK_BASIC_RAW_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_STOCK_BASIC_SCHEMA
 )
 
 STOCK_BASIC_RAW_REQUIRED_COLUMNS = (
@@ -115,18 +102,8 @@ SELECT
 FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 """
 
-STOCK_DAILY_RAW_REQUIRED_COLUMNS = (
-    "ts_code",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change",
-    "pct_chg",
-    "vol",
-    "amount",
+STOCK_DAILY_RAW_REQUIRED_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA
 )
 
 STOCK_DAILY_SILVER_REQUIRED_COLUMNS = tuple(
@@ -154,11 +131,8 @@ SELECT
 FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 """
 
-SUSPEND_D_RAW_COLUMNS = (
-    "ts_code",
-    "trade_date",
-    "suspend_timing",
-    "suspend_type",
+SUSPEND_D_RAW_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA
 )
 
 SUSPEND_D_RAW_REQUIRED_COLUMNS = SUSPEND_D_RAW_COLUMNS
@@ -187,36 +161,14 @@ MARKET_BREADTH_DAILY_COLUMNS = (
     "red_rate",
 )
 
-INDEX_BASIC_RAW_COLUMNS = (
-    "ts_code",
-    "name",
-    "fullname",
-    "market",
-    "publisher",
-    "index_type",
-    "category",
-    "base_date",
-    "base_point",
-    "list_date",
-    "weight_rule",
-    "desc",
-    "exp_date",
+INDEX_BASIC_RAW_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_INDEX_BASIC_SCHEMA
 )
 
 INDEX_BASIC_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_BASIC_SCHEMA)
 
-INDEX_DAILY_RAW_COLUMNS = (
-    "ts_code",
-    "trade_date",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change",
-    "pct_chg",
-    "vol",
-    "amount",
+INDEX_DAILY_RAW_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA
 )
 
 INDEX_DAILY_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_DAILY_SCHEMA)

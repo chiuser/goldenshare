@@ -2,6 +2,7 @@ import re
 import unittest
 
 from orchestrator.defs.assets.calendar import (
+    TRADE_CALENDAR_RAW_COLUMN_TYPES,
     raw_tushare_trade_calendar,
     silver_trade_calendar,
 )
@@ -10,10 +11,12 @@ from orchestrator.defs.assets.clickhouse_serving import (
     ch_share_fact_market_breadth_daily,
 )
 from orchestrator.defs.assets.index_basic import (
+    INDEX_BASIC_RAW_COLUMN_TYPES,
     raw_tushare_index_basic,
     silver_index_basic,
 )
 from orchestrator.defs.assets.index_daily import (
+    INDEX_DAILY_RAW_COLUMN_TYPES,
     INDEX_DAILY_SILVER_COLUMN_TYPES,
     raw_tushare_index_daily_by_code,
     silver_index_daily,
@@ -26,10 +29,12 @@ from orchestrator.defs.assets.market_major_indices import (
     gold_market_major_indices_daily,
 )
 from orchestrator.defs.assets.stock_basic import (
+    STOCK_BASIC_RAW_COLUMN_TYPES,
     raw_tushare_stock_basic,
     silver_stock_basic,
 )
 from orchestrator.defs.assets.stock_daily import (
+    STOCK_DAILY_RAW_COLUMN_TYPES,
     raw_tushare_stock_daily,
     silver_stock_daily,
 )
@@ -38,17 +43,24 @@ from orchestrator.defs.assets.stock_return_distribution import (
     gold_stock_return_distribution,
 )
 from orchestrator.defs.assets.suspend_d import (
+    SUSPEND_D_RAW_COLUMN_TYPES,
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
 )
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
 from orchestrator.defs.checks.index_basic_checks import INDEX_BASIC_SILVER_COLUMN_TYPES
 from orchestrator.defs.duckdb_sql import (
+    INDEX_BASIC_RAW_COLUMNS,
     INDEX_BASIC_SILVER_COLUMNS,
+    INDEX_DAILY_RAW_COLUMNS,
     INDEX_DAILY_SILVER_COLUMNS,
+    STOCK_BASIC_RAW_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
+    STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
+    SUSPEND_D_RAW_COLUMNS,
     SUSPEND_D_SILVER_REQUIRED_COLUMNS,
+    TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
     TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
 )
 from orchestrator.defs.paths import (
@@ -83,6 +95,12 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+    RAW_TUSHARE_INDEX_BASIC_SCHEMA,
+    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
+    RAW_TUSHARE_STOCK_BASIC_SCHEMA,
+    RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
+    RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
@@ -212,6 +230,12 @@ ASSET_PATH_TEMPLATES = {
 }
 
 ASSET_COLUMN_SCHEMAS = {
+    raw_tushare_trade_calendar: RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
+    raw_tushare_stock_basic: RAW_TUSHARE_STOCK_BASIC_SCHEMA,
+    raw_tushare_suspend_d: RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
+    raw_tushare_stock_daily: RAW_TUSHARE_STOCK_DAILY_SCHEMA,
+    raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
+    raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
     silver_stock_basic: SILVER_STOCK_BASIC_SCHEMA,
     silver_stock_suspend_daily: SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
@@ -284,6 +308,8 @@ class AssetGovernanceContractTests(unittest.TestCase):
     def test_assets_register_definition_column_schema(
         self,
     ) -> None:
+        self.assertEqual(len(ASSET_COLUMN_SCHEMAS), len(ASSET_CONTRACTS))
+
         for asset, expected_schema in ASSET_COLUMN_SCHEMAS.items():
             with self.subTest(asset=asset.key.to_user_string()):
                 spec = asset.get_asset_spec()
@@ -303,9 +329,63 @@ class AssetGovernanceContractTests(unittest.TestCase):
                     [column.description for column in expected_schema],
                 )
 
-    def test_silver_gold_and_serving_column_constants_are_derived_from_schema(
+    def test_column_constants_are_derived_from_schema(
         self,
     ) -> None:
+        self.assertEqual(
+            TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA),
+        )
+        self.assertEqual(
+            TRADE_CALENDAR_RAW_COLUMN_TYPES,
+            {column.name: column.type for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA},
+        )
+        self.assertEqual(
+            STOCK_BASIC_RAW_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_STOCK_BASIC_SCHEMA),
+        )
+        self.assertEqual(
+            STOCK_BASIC_RAW_COLUMN_TYPES,
+            {column.name: column.type for column in RAW_TUSHARE_STOCK_BASIC_SCHEMA},
+        )
+        self.assertEqual(
+            STOCK_DAILY_RAW_REQUIRED_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            STOCK_DAILY_RAW_COLUMN_TYPES,
+            {column.name: column.type for column in RAW_TUSHARE_STOCK_DAILY_SCHEMA},
+        )
+        self.assertEqual(
+            SUSPEND_D_RAW_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            SUSPEND_D_RAW_COLUMN_TYPES,
+            {
+                column.name: column.type
+                for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA
+            },
+        )
+        self.assertEqual(
+            INDEX_BASIC_RAW_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_INDEX_BASIC_SCHEMA),
+        )
+        self.assertEqual(
+            INDEX_BASIC_RAW_COLUMN_TYPES,
+            {column.name: column.type for column in RAW_TUSHARE_INDEX_BASIC_SCHEMA},
+        )
+        self.assertEqual(
+            INDEX_DAILY_RAW_COLUMNS,
+            tuple(column.name for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA),
+        )
+        self.assertEqual(
+            INDEX_DAILY_RAW_COLUMN_TYPES,
+            {
+                column.name: column.type
+                for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA
+            },
+        )
         self.assertEqual(
             TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
             tuple(column.name for column in SILVER_TRADE_CALENDAR_SCHEMA),

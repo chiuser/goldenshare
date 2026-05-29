@@ -45,6 +45,7 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -56,10 +57,7 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
 
 
 SUSPEND_D_RAW_COLUMN_TYPES = {
-    "ts_code": "VARCHAR",
-    "trade_date": "VARCHAR",
-    "suspend_timing": "VARCHAR",
-    "suspend_type": "VARCHAR",
+    column.name: column.type for column in RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA
 }
 
 
@@ -306,6 +304,7 @@ def _full_day_raw_override_metadata(
         source_category_path="股票数据 / 行情数据",
         source_doc="docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md",
         data_contract="source_mirror",
+        column_schema=RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
         path_template=lake_path_template(
             raw_suspend_d_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
         ),
@@ -314,7 +313,6 @@ def _full_day_raw_override_metadata(
                 "Tushare suspend_d source mirror: trade_date YYYYMMDD string, "
                 "suspend_timing nullable string."
             ),
-            "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
             "write_summary": (
                 "Tushare API rows written to raw parquet with explicit source contract fields."
             ),
