@@ -175,6 +175,21 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 5. `AutomationCondition.on_missing()` 带有 cursor / initial evaluation 语义，不能在一次性小样本验证中简单等同于“当前资产缺失”；做 API 验证时必须明确使用场景并记录结果。
 6. 启用新的 declarative automation 前，必须先用临时 Definitions 验证条件行为，再只读检查正式 Dagster instance 中 materialization 和 check 状态可被可靠读取。
 
+### 历史批量审计与事件补录门禁
+
+历史 bootstrap、历史 backfill、runless event 补录、批量 readiness 复核这类动作，不能照搬日常 sensor 的逐分区 readiness 写法。
+
+规则：
+
+1. 开始任何历史批量操作前，必须先估算操作量，至少列出：partition 数、asset 数、blocking check 数、预计 event log 查询次数、预计写入文件数、预计补录 event 数。
+2. 若分区数超过 100，或 `partition_count * blocking_check_count` 超过 1000，禁止在 dry-run 中逐分区调用 `asset_readiness_status(...)` 做全量深扫。
+3. 大批量历史审计必须优先使用批量口径：materialized partition 集合、registered partition 集合、文件分区集合、每个 check 的 succeeded/failed 计数、集合差异和少量样本 readiness。
+4. `asset_readiness_status(...)` 适用于日常 sensor、单日 repair、小样本验证和最终抽样，不适合作为上千分区历史 dry-run 的主循环。
+5. 正式执行方案必须区分“日常门禁”和“历史批量审计”：日常门禁判断某个分区能不能跑；历史批量审计判断整体集合是否一致、是否全绿、是否存在差异样本。
+6. 对 runless event 补录，必须先用批量只读审计确认上游 event 事实和文件事实，再按 dry-run、小样本、全量执行；不得在全量命令里重复做高成本逐分区 event history 深扫。
+7. 如果执行中发现 dry-run 明显慢于预期，必须停下重新评估查询模型，优先改成聚合审计或分批审计；禁止硬等或继续扩大到写入阶段。
+8. 任何新增历史批量 helper，都必须在设计文档中写清楚采用的是聚合审计还是逐分区审计；若选择逐分区审计，必须解释规模为什么可接受。
+
 ### Full Snapshot 并发保护门禁
 
 `stock_basic` 这类 full snapshot asset 写的是单个全量文件。并发运行时，即使 `.tmp + os.replace` 能避免半截文件，也可能出现重复打接口、后完成 run 覆盖先完成 run、metadata 观测混乱等问题。
