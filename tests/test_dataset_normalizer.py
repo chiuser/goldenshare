@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from datetime import date
 from datetime import datetime
+from decimal import Decimal
 
 from src.foundation.datasets.registry import get_dataset_definition
 from src.foundation.ingestion.normalizer import DatasetNormalizer
@@ -41,6 +42,49 @@ def test_dc_daily_normalizer_rejects_missing_category() -> None:
 
     assert batch.rows_rejected == 1
     assert batch.rejected_reasons == {"normalize.required_field_missing:category": 1}
+    assert batch.rows_normalized == []
+
+
+def test_cyq_chips_normalizer_parses_date_and_decimals() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("cyq_chips"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-cyq-chips",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260424",
+                    "ts_code": "600000.SH",
+                    "price": "10.1200",
+                    "percent": "1.2300",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    assert batch.rows_normalized[0]["trade_date"] == date(2026, 4, 24)
+    assert batch.rows_normalized[0]["ts_code"] == "600000.SH"
+    assert batch.rows_normalized[0]["price"] == Decimal("10.1200")
+    assert batch.rows_normalized[0]["percent"] == Decimal("1.2300")
+
+
+def test_cyq_chips_normalizer_rejects_missing_price() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("cyq_chips"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-cyq-chips-missing-price",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[{"trade_date": "20260424", "ts_code": "600000.SH", "percent": "1.23"}],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.required_field_missing:price": 1}
     assert batch.rows_normalized == []
 
 

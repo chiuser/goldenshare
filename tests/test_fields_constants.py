@@ -52,6 +52,7 @@ def test_dataset_definition_source_fields_cover_market_and_board_resources() -> 
     assert "adj_factor" in _source_fields("adj_factor")
     assert "close" in _source_fields("daily_basic")
     assert "winner_rate" in _source_fields("cyq_perf")
+    assert tuple(_source_fields("cyq_chips")) == ("ts_code", "trade_date", "price", "percent")
     assert "net_mf_amount" in _source_fields("moneyflow")
     assert tuple(_source_fields("margin")) == (
         "trade_date",

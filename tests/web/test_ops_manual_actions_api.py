@@ -61,6 +61,10 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     actions = _actions_by_key(payload)
     assert any(action["action_key"] == "dc_hot.maintain" for action in leader_board_group["actions"])
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
+    assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
+    assert actions["cyq_chips.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert actions["cyq_chips.maintain"]["time_form"]["default_mode"] == "point"
+    assert [item["mode"] for item in actions["cyq_chips.maintain"]["time_form"]["modes"]] == ["point", "range"]
     assert actions["daily.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["daily.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["daily.maintain"]["time_form"]["modes"]] == ["point", "range"]
@@ -128,6 +132,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         "daily.maintain",
         "adj_factor.maintain",
         "cyq_perf.maintain",
+        "cyq_chips.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",
@@ -417,6 +422,7 @@ def test_ops_manual_action_task_run_returns_readable_time_validation_message(app
         "daily.maintain",
         "adj_factor.maintain",
         "cyq_perf.maintain",
+        "cyq_chips.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",

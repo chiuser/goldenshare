@@ -42,6 +42,7 @@ EXPECTED_DOMAIN_KEYS: dict[str, set[str]] = {
         "stk_auction_c",
         "stk_mins",
         "suspend_d",
+        "cyq_chips",
         "cyq_perf",
         "margin",
         "limit_list_d",

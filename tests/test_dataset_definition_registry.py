@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 72
+    assert len(definition_keys) == 73
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -45,7 +45,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 65,
-            "pool": 7,
+            "pool": 8,
         }
     )
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
@@ -131,6 +131,37 @@ def test_dataset_definition_projects_daily_basic_subject_completeness_facts() ->
     assert definition.completeness.lifecycle_end_field == "delist_date"
     assert definition.completeness.status_field == "list_status"
     assert definition.completeness.active_status_values == ("L",)
+
+
+def test_dataset_definition_projects_cyq_chips_raw_view_facts() -> None:
+    definition = get_dataset_definition("cyq_chips")
+
+    assert definition.identity.display_name == "每日筹码分布"
+    assert definition.source.api_name == "cyq_chips"
+    assert definition.source.source_fields == ("ts_code", "trade_date", "price", "percent")
+    assert definition.source.request_builder_key == "_cyq_chips_params"
+    assert definition.date_model.date_axis == "trade_open_day"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.audit_applicable is False
+    assert definition.completeness.scope == "not_applicable"
+    assert definition.storage.raw_table == "raw_tushare.cyq_chips"
+    assert definition.storage.target_table == "raw_tushare.cyq_chips"
+    assert definition.storage.serving_table == "core_serving.equity_cyq_chips"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.storage.conflict_columns == ("ts_code", "trade_date", "price")
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.unit_builder_key == "build_cyq_chips_units"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "ts_code"
+    assert definition.planning.universe.override_fields == ("ts_code",)
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("core_security_active_equities", "tushare_preferred"),
+    ]
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 2000
+    assert definition.observability.freshness_policy == "continuous_open_day"
+    assert definition.normalization.decimal_fields == ("price", "percent")
+    assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
 
 
 def test_dataset_definition_projects_stk_limit_subject_completeness_facts() -> None:
@@ -729,6 +760,7 @@ def test_dataset_definition_removes_dead_exchange_filter_from_target_daily_datas
         "daily",
         "adj_factor",
         "cyq_perf",
+        "cyq_chips",
         "fund_daily",
         "index_daily",
         "index_daily_basic",
@@ -807,6 +839,8 @@ def test_dataset_definition_storage_layer_facts_are_explicit() -> None:
     assert get_dataset_definition("stk_mins").storage.serving_table is None
     assert get_dataset_definition("index_mins").storage.layer_plan == "raw-only"
     assert get_dataset_definition("index_mins").storage.serving_table is None
+    assert get_dataset_definition("cyq_chips").storage.layer_plan == "raw->serving_view"
+    assert get_dataset_definition("cyq_chips").storage.serving_table == "core_serving.equity_cyq_chips"
 
 
 def test_dataset_definition_projection_only_owns_freshness_projection() -> None:

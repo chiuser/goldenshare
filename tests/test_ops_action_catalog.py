@@ -153,6 +153,7 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "irm_qa_sh",
         "irm_qa_sz",
     ]
+    assert "cyq_chips" not in [step.dataset_key for step in daily_market_close.steps]
 
     assert [param.key for param in daily_moneyflow.parameters] == ["trade_date", "start_date", "end_date"]
     assert daily_moneyflow.workflow_profile == "point_incremental"

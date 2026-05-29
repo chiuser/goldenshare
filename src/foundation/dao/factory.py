@@ -69,6 +69,7 @@ from src.foundation.models.raw.raw_block_trade import RawBlockTrade
 from src.foundation.models.raw.raw_bse_mapping import RawBseMapping
 from src.foundation.models.raw.raw_daily import RawDaily
 from src.foundation.models.raw.raw_daily_basic import RawDailyBasic
+from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
@@ -203,6 +204,7 @@ class DAOFactory:
         self.raw_adj_factor = GenericDAO(session, RawAdjFactor)
         self.raw_bak_basic = GenericDAO(session, RawBakBasic)
         self.raw_daily_basic = GenericDAO(session, RawDailyBasic)
+        self.raw_cyq_chips = GenericDAO(session, RawCyqChips)
         self.raw_cyq_perf = GenericDAO(session, RawCyqPerf)
         self.raw_moneyflow = GenericDAO(session, RawMoneyflow)
         self.raw_moneyflow_ths = GenericDAO(session, RawMoneyflowThs)

@@ -8,7 +8,7 @@ import pytest
 from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
-from src.foundation.ingestion.request_builders import _index_daily_params
+from src.foundation.ingestion.request_builders import _cyq_chips_params, _index_daily_params
 
 
 def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocker) -> None:
@@ -36,6 +36,7 @@ def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocke
         ("daily", {}, {"trade_date": "20260424"}),
         ("adj_factor", {}, {"trade_date": "20260424"}),
         ("cyq_perf", {}, {"trade_date": "20260424"}),
+        ("cyq_chips", {"ts_code": "600000.SH"}, {"ts_code": "600000.SH", "trade_date": "20260424"}),
         ("fund_daily", {}, {"trade_date": "20260424"}),
         ("index_daily", {"ts_code": "000300.SH"}, {"ts_code": "000300.SH", "trade_date": "20260424"}),
         ("index_daily_basic", {}, {"trade_date": "20260424"}),
@@ -47,6 +48,14 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
     filters: dict[str, str],
     expected_request_params: dict[str, str],
 ) -> None:
+    if dataset_key == "cyq_chips":
+        fake_dao = SimpleNamespace(
+            security=SimpleNamespace(
+                get_active_equities=mocker.Mock(),
+                get_by_ts_code=mocker.Mock(return_value=SimpleNamespace(name="浦发银行")),
+            )
+        )
+        mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(
         dataset_key=dataset_key,
@@ -132,6 +141,124 @@ def test_index_daily_request_builder_requires_ts_code() -> None:
 
     with pytest.raises(ValueError, match="指数日线缺少指数代码"):
         _index_daily_params(request, date(2026, 4, 24), {})
+
+
+def test_cyq_chips_default_point_request_uses_tushare_active_equity_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(
+                return_value=[
+                    SimpleNamespace(ts_code="600000.SH", name="浦发银行", source="biying"),
+                    SimpleNamespace(ts_code="000002.SZ", name="万科A", source="tushare"),
+                    SimpleNamespace(ts_code="000001.SZ", name="平安银行", source="tushare"),
+                ]
+            ),
+            get_by_ts_code=mocker.Mock(side_effect=AssertionError("default cyq_chips requests must use the active equity pool")),
+        ),
+        trade_calendar=SimpleNamespace(get_open_dates=mocker.Mock(side_effect=AssertionError("cyq_chips range/point must not expand by trade calendar"))),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="cyq_chips",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "000001.SZ", "trade_date": "20260424"},
+        {"ts_code": "000002.SZ", "trade_date": "20260424"},
+    ]
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 4, 24), date(2026, 4, 24)]
+    assert {unit.progress_context.get("security_name") for unit in plan.units} == {"平安银行", "万科A"}
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {2000}
+    fake_dao.security.get_active_equities.assert_called_once_with()
+    fake_dao.security.get_by_ts_code.assert_not_called()
+    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+
+
+def test_cyq_chips_default_range_keeps_one_unit_per_stock_without_trade_day_expansion(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(
+                return_value=[
+                    SimpleNamespace(ts_code="000001.SZ", name="平安银行", source="tushare"),
+                    SimpleNamespace(ts_code="000002.SZ", name="万科A", source="tushare"),
+                ]
+            ),
+            get_by_ts_code=mocker.Mock(side_effect=AssertionError("default cyq_chips requests must use the active equity pool")),
+        ),
+        trade_calendar=SimpleNamespace(get_open_dates=mocker.Mock(side_effect=AssertionError("cyq_chips must not expand range by trade day"))),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="cyq_chips",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 20), end_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "range_rebuild"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "000001.SZ", "start_date": "20260420", "end_date": "20260424"},
+        {"ts_code": "000002.SZ", "start_date": "20260420", "end_date": "20260424"},
+    ]
+    assert [unit.trade_date for unit in plan.units] == [None, None]
+    assert {unit.progress_context["start_date"] for unit in plan.units} == {"2026-04-20"}
+    assert {unit.progress_context["end_date"] for unit in plan.units} == {"2026-04-24"}
+    fake_dao.security.get_active_equities.assert_called_once_with()
+    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+
+
+def test_cyq_chips_explicit_codes_bypass_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(side_effect=AssertionError("explicit cyq_chips requests must not scan the active equity pool")),
+            get_by_ts_code=mocker.Mock(
+                side_effect=lambda code: SimpleNamespace(name={"000001.SZ": "平安银行", "600000.SH": "浦发银行"}.get(code))
+            ),
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="cyq_chips",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 20), end_date=date(2026, 4, 24)),
+        filters={"ts_code": "600000.sh,000001.sz"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "000001.SZ", "start_date": "20260420", "end_date": "20260424"},
+        {"ts_code": "600000.SH", "start_date": "20260420", "end_date": "20260424"},
+    ]
+    assert {unit.progress_context.get("security_name") for unit in plan.units} == {"平安银行", "浦发银行"}
+    fake_dao.security.get_active_equities.assert_not_called()
+    assert [call.args[0] for call in fake_dao.security.get_by_ts_code.call_args_list] == ["000001.SZ", "600000.SH"]
+
+
+def test_cyq_chips_request_builder_requires_ts_code() -> None:
+    request = SimpleNamespace(
+        run_profile="point_incremental",
+        trade_date=date(2026, 4, 24),
+        start_date=None,
+        end_date=None,
+        params={},
+    )
+
+    with pytest.raises(ValueError, match="每日筹码分布缺少股票代码"):
+        _cyq_chips_params(request, date(2026, 4, 24), {})
 
 
 def test_dataset_action_resolver_reports_required_filter_with_display_label(mocker) -> None:
@@ -379,7 +506,7 @@ def test_biying_moneyflow_rejects_empty_stock_pool(mocker) -> None:
 
 @pytest.mark.parametrize(
     "dataset_key",
-    ("daily", "adj_factor", "cyq_perf", "fund_daily", "index_daily", "index_daily_basic"),
+    ("daily", "adj_factor", "cyq_perf", "cyq_chips", "fund_daily", "index_daily", "index_daily_basic"),
 )
 def test_dataset_action_resolver_rejects_removed_exchange_filter(mocker, dataset_key: str) -> None:
     resolver = DatasetActionResolver(mocker.Mock())

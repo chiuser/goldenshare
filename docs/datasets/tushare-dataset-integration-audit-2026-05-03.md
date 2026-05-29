@@ -374,7 +374,7 @@
 | 274 | 中央结算系统持股明细 | `ccass_hold_detail` |  |
 | 275 | 机构调研表 | `stk_surv` |  |
 | 292 | 卖方盈利预测数据 | `report_rc` |  |
-| 294 | 每日筹码分布 | `cyq_chips` |  |
+| 294 | 每日筹码分布 | `cyq_chips` | 已接入：`raw_tushare.cyq_chips`；`core_serving.equity_cyq_chips` 普通 view 直出 raw；手动维护可见，不加入每日工作流。 |
 | 295 | 中央结算系统持股汇总 | `ccass_hold` |  |
 | 353 | 股票开盘集合竞价数据 | `stk_auction_o` |  |
 | 354 | 股票收盘集合竞价数据 | `stk_auction_c` |  |

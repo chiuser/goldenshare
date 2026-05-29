@@ -28,6 +28,7 @@ FRESHNESS_POLICY_BY_DATASET: dict[str, FreshnessPolicy] = {
     "broker_recommend": PERIOD_BUCKET,
     "bse_mapping": SNAPSHOT_RUN_TRACE,
     "cctv_news": CONTINUOUS_NATURAL_DAY,
+    "cyq_chips": CONTINUOUS_OPEN_DAY,
     "cyq_perf": CONTINUOUS_OPEN_DAY,
     "daily": CONTINUOUS_OPEN_DAY,
     "daily_basic": CONTINUOUS_OPEN_DAY,

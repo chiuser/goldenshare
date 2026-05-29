@@ -1,4 +1,4 @@
-from sqlalchemy import BigInteger, Float, String
+from sqlalchemy import BigInteger, Float, Numeric, String
 
 from src.foundation.models.core.etf_basic import EtfBasic
 from src.foundation.models.core.fund_adj_factor import FundAdjFactor
@@ -31,6 +31,7 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
+from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
 from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
@@ -183,6 +184,16 @@ def test_cyq_perf_serving_model_matches_expected_keys() -> None:
         "idx_equity_cyq_perf_trade_date",
         "idx_equity_cyq_perf_ts_code_trade_date",
     }
+
+
+def test_cyq_chips_raw_model_matches_expected_keys() -> None:
+    assert [column.name for column in RawCyqChips.__table__.primary_key.columns] == ["ts_code", "trade_date", "price"]
+    assert {index.name for index in RawCyqChips.__table__.indexes} == {
+        "idx_raw_tushare_cyq_chips_trade_date",
+        "idx_raw_tushare_cyq_chips_ts_code_trade_date",
+    }
+    assert isinstance(RawCyqChips.__table__.columns["price"].type, Numeric)
+    assert isinstance(RawCyqChips.__table__.columns["percent"].type, Numeric)
 
 
 def test_stk_factor_pro_serving_model_matches_expected_keys() -> None:

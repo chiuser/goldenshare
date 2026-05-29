@@ -17,6 +17,18 @@ class RecordingConnector:
         return [dict(row) for row in self.rows]
 
 
+class PaginatedConnector:
+    def __init__(self, pages: dict[int, list[dict[str, object]]]) -> None:
+        self.calls: list[dict[str, object]] = []
+        self.pages = pages
+
+    def call(self, api_name: str, params=None, fields=None):  # type: ignore[no-untyped-def]
+        params_dict = dict(params or {})
+        self.calls.append({"api_name": api_name, "params": params_dict, "fields": tuple(fields or ())})
+        offset = int(params_dict.get("offset") or 0)
+        return [dict(row) for row in self.pages.get(offset, [])]
+
+
 class RateLimitedOnceConnector:
     def __init__(self) -> None:
         self.calls = 0
@@ -216,6 +228,62 @@ def test_research_report_source_client_passes_definition_fields(monkeypatch) -> 
                 "report_code",
             ),
         }
+    ]
+
+
+def test_cyq_chips_source_client_uses_offset_limit_pagination(monkeypatch) -> None:  # type: ignore[no-untyped-def]
+    connector = PaginatedConnector(
+        {
+            0: [
+                {"ts_code": "600000.SH", "trade_date": "20260424", "price": "10.01", "percent": "1.01"},
+                {"ts_code": "600000.SH", "trade_date": "20260424", "price": "10.02", "percent": "1.02"},
+            ],
+            2: [
+                {"ts_code": "600000.SH", "trade_date": "20260424", "price": "10.03", "percent": "1.03"},
+            ],
+        }
+    )
+    monkeypatch.setattr(source_client_module, "create_source_connector", lambda source_key: connector)
+
+    result = DatasetSourceClient().fetch(
+        definition=get_dataset_definition("cyq_chips"),
+        unit=PlanUnitSnapshot(
+            unit_id="cyq-chips-u1",
+            dataset_key="cyq_chips",
+            source_key="tushare",
+            trade_date=None,
+            request_params={"ts_code": "600000.SH", "start_date": "20260420", "end_date": "20260424"},
+            progress_context={},
+            pagination_policy="offset_limit",
+            page_limit=2,
+        ),
+    )
+
+    assert result.request_count == 2
+    assert len(result.rows_raw) == 3
+    assert connector.calls == [
+        {
+            "api_name": "cyq_chips",
+            "params": {
+                "ts_code": "600000.SH",
+                "start_date": "20260420",
+                "end_date": "20260424",
+                "offset": 0,
+                "limit": 2,
+            },
+            "fields": ("ts_code", "trade_date", "price", "percent"),
+        },
+        {
+            "api_name": "cyq_chips",
+            "params": {
+                "ts_code": "600000.SH",
+                "start_date": "20260420",
+                "end_date": "20260424",
+                "offset": 2,
+                "limit": 2,
+            },
+            "fields": ("ts_code", "trade_date", "price", "percent"),
+        },
     ]
 
 

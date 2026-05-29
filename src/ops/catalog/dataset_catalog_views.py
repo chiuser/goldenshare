@@ -117,6 +117,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("hk_basic", "hk_reference_data", 10),
         DatasetCatalogItem("us_basic", "us_reference_data", 10),
         DatasetCatalogItem("cyq_perf", "technical_indicators", 10),
+        DatasetCatalogItem("cyq_chips", "technical_indicators", 15),
         DatasetCatalogItem("stk_nineturn", "technical_indicators", 20),
         DatasetCatalogItem("stk_factor_pro", "technical_indicators", 30),
     ),

@@ -32,6 +32,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
 
     assert "daily.maintain" in actions
     assert "dc_hot.maintain" in actions
+    assert "cyq_chips.maintain" in actions
     assert "index_weight.maintain" in actions
     assert "index_mins.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
@@ -92,6 +93,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert stk_auction_c["freshness_policy"] == "continuous_open_day"
     assert [param["key"] for param in daily["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
 
+    cyq_chips = actions["cyq_chips.maintain"]
+    assert cyq_chips["target_display_name"] == "每日筹码分布"
+    assert cyq_chips["group_key"] == "technical_indicators"
+    assert cyq_chips["group_label"] == "技术指标"
+    assert cyq_chips["freshness_policy"] == "continuous_open_day"
+    assert [param["key"] for param in cyq_chips["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
     bse_mapping = actions["bse_mapping.maintain"]
     assert bse_mapping["group_key"] == "reference_data"
     assert bse_mapping["group_label"] == "A股基础数据"
@@ -127,6 +135,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     for action_key in (
         "adj_factor.maintain",
         "cyq_perf.maintain",
+        "cyq_chips.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",

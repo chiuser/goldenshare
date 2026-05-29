@@ -674,6 +674,94 @@ def _build_stock_company_units(planner: DatasetUnitPlanner, request: ValidatedDa
     )
 
 
+def _build_cyq_chips_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    targets = _resolve_cyq_chips_targets(planner=planner, request=request, definition=definition)
+    if request.run_profile == "point_incremental":
+        if request.trade_date is None:
+            raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "每日筹码分布单日维护缺少交易日期")
+        unit_trade_date = request.trade_date
+        date_values = {"trade_date": request.trade_date.isoformat()}
+    elif request.run_profile == "range_rebuild":
+        if request.start_date is None or request.end_date is None:
+            raise DatasetUnitPlanner._planning_error("range_required", "每日筹码分布区间维护必须同时填写开始日期和结束日期")
+        unit_trade_date = None
+        date_values = {
+            "start_date": request.start_date.isoformat(),
+            "end_date": request.end_date.isoformat(),
+        }
+    else:
+        raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"每日筹码分布不支持该运行模式：{request.run_profile}")
+
+    units: list[PlanUnitSnapshot] = []
+    for ordinal, (ts_code, security_name) in enumerate(targets):
+        merged_values = {"ts_code": ts_code, **date_values}
+        progress_context = {"unit": "stock", "ts_code": ts_code, **date_values}
+        if security_name:
+            progress_context["security_name"] = security_name
+        units.append(
+            PlanUnitSnapshot(
+                unit_id=build_unit_id(
+                    dataset_key=request.dataset_key,
+                    anchor=unit_trade_date,
+                    merged_values=merged_values,
+                    ordinal=ordinal,
+                ),
+                dataset_key=request.dataset_key,
+                source_key=request.source_key or definition.source.source_key_default,
+                trade_date=unit_trade_date,
+                request_params=request_builder(request, unit_trade_date, {"ts_code": ts_code}),
+                progress_context=progress_context,
+                pagination_policy="offset_limit",
+                page_limit=definition.planning.page_limit,
+            )
+        )
+    return units
+
+
+def _resolve_cyq_chips_targets(
+    *,
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+) -> list[tuple[str, str | None]]:
+    universe = definition.planning.universe
+    if definition.planning.universe_policy != "pool" or universe is None:
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "每日筹码分布缺少对象池规划配置")
+    if universe.request_field != "ts_code" or universe.override_fields != ("ts_code",):
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "每日筹码分布对象池配置必须绑定 ts_code")
+    actual_sources = tuple((source.type, source.resource) for source in universe.sources)
+    if actual_sources != (("core_security_active_equities", "tushare_preferred"),):
+        raise DatasetUnitPlanner._planning_error("unknown_universe_policy", "每日筹码分布对象池来源配置不符合当前主链")
+
+    explicit_codes = split_multi_values(request.params.get("ts_code"))
+    if explicit_codes:
+        targets = []
+        get_by_ts_code = getattr(planner.dao.security, "get_by_ts_code", None)
+        for code in sorted({str(item).strip().upper() for item in explicit_codes if str(item).strip()}):
+            security = get_by_ts_code(code) if callable(get_by_ts_code) else None
+            targets.append((code, getattr(security, "name", None) or None))
+        return targets
+
+    securities = list(planner.dao.security.get_active_equities())
+    tushare_targets = [
+        (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
+        for item in securities
+        if str(getattr(item, "source", "tushare") or "").strip().lower() == "tushare"
+        and str(getattr(item, "ts_code", "") or "").strip()
+    ]
+    all_targets = [
+        (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
+        for item in securities
+        if str(getattr(item, "ts_code", "") or "").strip()
+    ]
+    targets_by_code = {code: (code, name) for code, name in (tushare_targets or all_targets) if code}
+    targets = [targets_by_code[code] for code in sorted(targets_by_code)]
+    if not targets:
+        raise DatasetUnitPlanner._planning_error("universe_empty", "每日筹码分布需要先准备股票主数据")
+    return targets
+
+
 def _build_stk_mins_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     raw_freqs = split_multi_values(request.params.get("freq"))
@@ -987,6 +1075,7 @@ def _build_biying_units(
 _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetActionRequest, DatasetDefinition], list[PlanUnitSnapshot]]] = {
     "build_biying_equity_daily_units": _build_biying_equity_daily_units,
     "build_biying_moneyflow_units": _build_biying_moneyflow_units,
+    "build_cyq_chips_units": _build_cyq_chips_units,
     "build_cctv_news_units": _build_cctv_news_units,
     "build_dc_member_units": _build_dc_member_units,
     "build_major_news_units": _build_major_news_units,
