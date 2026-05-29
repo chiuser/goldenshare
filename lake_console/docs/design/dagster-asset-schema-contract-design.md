@@ -256,7 +256,14 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/metadata.py
 3. 没有 data lake 写入。
 4. 没有 Dagster run。
 
-### Slice SC-2：单资产试点
+### Slice SC-2：单资产试点（已按 `gold_market_major_indices_daily` 落地）
+
+状态：
+
+1. 已新增 `asset_column_schemas.py`，先注册 `GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA`。
+2. `gold_market_major_indices_daily` 已在 definition metadata 注册 `dagster/column_schema`。
+3. 该资产的 materialization metadata 已从旧 `columns=` 改为 `observed_columns=`。
+4. `MARKET_MAJOR_INDICES_DAILY_COLUMNS` 和 `MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES` 已从 schema contract 派生，避免字段契约维护两份。
 
 目标：
 
@@ -269,6 +276,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/metadata.py
 ```text
 lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py
 lake_console/orchestrator/src/orchestrator/defs/assets/market_major_indices.py
+lake_console/orchestrator/tests/test_asset_governance_contracts.py
 ```
 
 验收：
@@ -481,4 +489,3 @@ git status --short
 5. 所有现有 checks、jobs、sensors、automation definitions 加载正常。
 6. UI columns 表不再大面积出现 `unknown` 和空 desc。
 7. 新增资产的编码规范中明确要求 definition column schema。
-

@@ -15,6 +15,8 @@ from orchestrator.defs.assets.index_daily import (
 )
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
 from orchestrator.defs.assets.market_major_indices import (
+    MARKET_MAJOR_INDICES_DAILY_COLUMNS,
+    MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES,
     gold_market_major_indices_daily,
 )
 from orchestrator.defs.assets.stock_basic import (
@@ -60,8 +62,12 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     DATA_CONTRACT_METADATA_KEY,
+    DAGSTER_COLUMN_SCHEMA_METADATA_KEY,
     DATASET_ID_METADATA_KEY,
     DATASET_NAME_METADATA_KEY,
     PATH_TEMPLATE_METADATA_KEY,
@@ -229,3 +235,37 @@ class AssetGovernanceContractTests(unittest.TestCase):
                     spec.metadata[PATH_TEMPLATE_METADATA_KEY],
                     ASSET_PATH_TEMPLATES[asset],
                 )
+
+    def test_market_major_indices_daily_registers_definition_column_schema(
+        self,
+    ) -> None:
+        spec = gold_market_major_indices_daily.get_asset_spec()
+        schema_metadata = spec.metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY]
+        columns = schema_metadata.schema.columns
+
+        self.assertEqual(
+            [column.name for column in columns],
+            [column.name for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA],
+        )
+        self.assertEqual(
+            [column.type for column in columns],
+            [column.type for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA],
+        )
+        self.assertEqual(
+            [column.description for column in columns],
+            [
+                column.description
+                for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
+            ],
+        )
+        self.assertEqual(
+            MARKET_MAJOR_INDICES_DAILY_COLUMNS,
+            tuple(column.name for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA),
+        )
+        self.assertEqual(
+            MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES,
+            {
+                column.name: column.type
+                for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
+            },
+        )

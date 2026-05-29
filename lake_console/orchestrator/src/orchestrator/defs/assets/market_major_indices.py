@@ -30,6 +30,9 @@ from orchestrator.defs.run_contracts.asset_tags import (
     DataDomain,
     build_asset_tags,
 )
+from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+)
 from orchestrator.defs.run_contracts.metadata import (
     SourceSystem,
     build_asset_definition_metadata,
@@ -42,36 +45,12 @@ from orchestrator.seeds.market.major_indices import (
 )
 
 
-MARKET_MAJOR_INDICES_DAILY_COLUMNS = (
-    "trade_date",
-    "rank",
-    "ts_code",
-    "display_name",
-    "open",
-    "high",
-    "low",
-    "close",
-    "pre_close",
-    "change_amount",
-    "pct_chg",
-    "vol",
-    "amount",
+MARKET_MAJOR_INDICES_DAILY_COLUMNS = tuple(
+    column.name for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
 )
 
 MARKET_MAJOR_INDICES_DAILY_COLUMN_TYPES = {
-    "trade_date": "DATE",
-    "rank": "INTEGER",
-    "ts_code": "VARCHAR",
-    "display_name": "VARCHAR",
-    "open": "DOUBLE",
-    "high": "DOUBLE",
-    "low": "DOUBLE",
-    "close": "DOUBLE",
-    "pre_close": "DOUBLE",
-    "change_amount": "DOUBLE",
-    "pct_chg": "DOUBLE",
-    "vol": "DOUBLE",
-    "amount": "DOUBLE",
+    column.name: column.type for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
 }
 
 
@@ -255,11 +234,11 @@ def _missing_seed_codes_in_silver(
                 PATH_TEMPLATE_PARTITION_KEY,
             )
         ),
+        column_schema=GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
         extra_metadata={
             "source_asset": "silver_index_daily",
             "seed_source": "orchestrator.seeds.market.major_indices",
             "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
-            "expected_columns": list(MARKET_MAJOR_INDICES_DAILY_COLUMNS),
         },
     ),
     description="首页主要指数日线结果，读取版本化 seed 名单和 silver_index_daily 当日行情生成。",
@@ -330,7 +309,11 @@ def gold_market_major_indices_daily(
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             row_count=total_row_count,
-            columns=MARKET_MAJOR_INDICES_DAILY_COLUMNS,
+            observed_columns=(
+                next(iter(partition_metadata.values()))["output_columns"]
+                if partition_metadata
+                else ()
+            ),
             extra_metadata={
                 "partition_keys": list(partition_keys),
                 "partition_metadata": partition_metadata,
