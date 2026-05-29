@@ -44,6 +44,12 @@ RAW_TUSHARE_STOCK_DAILY_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 股票日线口径"),
 )
 
+RAW_TUSHARE_ADJ_FACTOR_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
+    ColumnContract("adj_factor", "DOUBLE", "复权因子"),
+)
+
 RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
@@ -114,6 +120,12 @@ SILVER_STOCK_DAILY_SCHEMA = (
     ColumnContract("pct_chg", "DOUBLE", "涨跌幅，百分比"),
     ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 股票日线口径"),
     ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 股票日线口径"),
+)
+
+SILVER_ADJ_FACTOR_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("adj_factor", "DOUBLE", "复权因子"),
 )
 
 SILVER_STOCK_SUSPEND_DAILY_SCHEMA = (

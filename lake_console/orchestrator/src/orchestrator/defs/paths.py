@@ -62,6 +62,17 @@ def raw_stock_daily_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def raw_adj_factor_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "adj_factor",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def raw_suspend_d_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,
@@ -79,6 +90,17 @@ def silver_stock_daily_path(root: Path, partition_key: str) -> Path:
         SILVER,
         "quote",
         "stock_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def silver_adj_factor_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "adj_factor",
         f"trade_date={partition_key}",
         "part-000.parquet",
     )

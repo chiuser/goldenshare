@@ -8,12 +8,14 @@ from orchestrator.defs.corrections.suspend_timing import (
     suspend_timing_corrections_values_sql,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
+    SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
@@ -110,6 +112,14 @@ STOCK_DAILY_SILVER_REQUIRED_COLUMNS = tuple(
     column.name for column in SILVER_STOCK_DAILY_SCHEMA
 )
 
+ADJ_FACTOR_RAW_REQUIRED_COLUMNS = tuple(
+    column.name for column in RAW_TUSHARE_ADJ_FACTOR_SCHEMA
+)
+
+ADJ_FACTOR_SILVER_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_ADJ_FACTOR_SCHEMA
+)
+
 STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE = """
 SELECT
   CAST(ts_code AS VARCHAR) AS ts_code,
@@ -128,6 +138,19 @@ SELECT
   CAST(pct_chg AS DOUBLE) AS pct_chg,
   CAST(vol AS DOUBLE) AS vol,
   CAST(amount AS DOUBLE) AS amount
+FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
+"""
+
+ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE = """
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CASE
+    WHEN trade_date IS NULL OR trim(CAST(trade_date AS VARCHAR)) = '' THEN NULL
+    WHEN regexp_matches(trim(CAST(trade_date AS VARCHAR)), '^\\d{{8}}$')
+      THEN trim(CAST(trade_date AS VARCHAR))
+    ELSE strftime(CAST(trade_date AS DATE), '%Y%m%d')
+  END AS trade_date,
+  CAST(adj_factor AS DOUBLE) AS adj_factor
 FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 """
 
@@ -282,6 +305,33 @@ WHERE deduped.trade_date >= DATE {duckdb_string(STOCK_DAILY_MIN_TRADE_DATE)}
     NOT ends_with(deduped.ts_code, '.BJ')
     OR deduped.trade_date >= DATE {duckdb_string(BJ_MARKET_OPEN_DATE)}
   )
+"""
+
+
+def adj_factor_normalized_select(raw_path: Path) -> str:
+    return f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  CAST(adj_factor AS DOUBLE) AS adj_factor
+FROM {read_parquet(raw_path, hive_partitioning=False)}
+"""
+
+
+def silver_adj_factor_select(raw_path: Path, silver_stock_basic_path: Path) -> str:
+    return f"""
+WITH normalized AS (
+  {adj_factor_normalized_select(raw_path)}
+),
+current_listed AS (
+  SELECT DISTINCT ts_code, list_date
+  FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
+  WHERE list_status = 'L'
+)
+SELECT normalized.*
+FROM normalized
+INNER JOIN current_listed USING (ts_code)
+WHERE normalized.trade_date >= current_listed.list_date
 """
 
 
