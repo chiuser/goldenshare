@@ -3,6 +3,7 @@ import unittest
 from pathlib import Path
 from unittest.mock import ANY, patch
 
+import dagster as dg
 import duckdb
 
 from orchestrator.defs.assets import adj_factor as adj_factor_assets
@@ -11,9 +12,12 @@ from orchestrator.defs.bootstrap.adj_factor_silver_history import (
     GENERATED_STATUS,
     SKIPPED_EXISTING_STATUS,
     discover_adj_factor_raw_partition_keys,
+    plan_adj_factor_silver_history,
+    report_adj_factor_silver_history,
     write_adj_factor_silver_history,
     write_adj_factor_silver_history_partition,
 )
+from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     duckdb_string,
@@ -204,6 +208,68 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
             )
 
         self.assertEqual(audit.status, GENERATED_STATUS)
+
+    def test_dry_run_report_does_not_write_silver_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_raw_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("000001.SZ", "20260529", 1.1),),
+            )
+            _write_silver_stock_basic_file(
+                root,
+                (("000001.SZ", "L", "2020-01-01"),),
+            )
+
+            report = report_adj_factor_silver_history(
+                lake_root=root,
+                duckdb=DuckDBResource(),
+                partition_keys=[TARGET_TRADE_DATE],
+                dry_run=True,
+                require_raw_ready=False,
+            )
+            target_path = silver_adj_factor_path(root, TARGET_TRADE_DATE)
+
+        self.assertTrue(report.dry_run)
+        self.assertEqual(report.plan.planned_write_count, 1)
+        self.assertEqual(report.partition_audits, ())
+        self.assertFalse(target_path.exists())
+
+    def test_plan_can_require_raw_readiness(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_raw_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("000001.SZ", "20260529", 1.1),),
+            )
+            _write_silver_stock_basic_file(
+                root,
+                (("000001.SZ", "L", "2020-01-01"),),
+            )
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(
+                cn_a_stock_current_trade_days.name,
+                [TARGET_TRADE_DATE],
+            )
+
+            plan = plan_adj_factor_silver_history(
+                lake_root=root,
+                duckdb=DuckDBResource(),
+                instance=instance,
+                partition_keys=[TARGET_TRADE_DATE],
+            )
+            with self.assertRaisesRegex(ValueError, "raw_tushare_adj_factor is not ready"):
+                report_adj_factor_silver_history(
+                    lake_root=root,
+                    duckdb=DuckDBResource(),
+                    instance=instance,
+                    partition_keys=[TARGET_TRADE_DATE],
+                    dry_run=False,
+                )
+
+        self.assertEqual(plan.raw_not_ready_partition_keys, (TARGET_TRADE_DATE,))
 
     def test_bulk_generation_skips_existing_targets_by_default(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

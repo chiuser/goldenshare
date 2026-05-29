@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6 历史 silver 文件生成 helper 已实现；M6B raw bootstrap 事件补录已完成；M6C/M6D 历史 silver 文件生成与事件补录待执行。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C/M6D 历史 silver 文件生成与事件补录 helper 已实现，正式执行待审批。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -342,7 +342,8 @@ Readiness：
 - 不保留退市股票 silver 完整性。
 - 不新增数据库表。
 - M6/M6B helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
-- M6 helper 开发阶段不写正式 `silver_adj_factor` 历史文件；正式写入必须单独列命令、读写路径和回滚方式并获得批准。
+- M6C helper 开发阶段不写正式 `silver_adj_factor` 历史文件；正式写入必须单独列命令、读写路径和回滚方式并获得批准。
+- M6D helper 开发阶段不写正式 `silver_adj_factor` event log；正式补录必须先 dry-run、小样本，再全量。
 - M6B helper 开发阶段不写正式 Dagster event log；正式补录必须先 dry-run、小样本，再全量。
 
 ## 11. 风险与待确认点
@@ -403,7 +404,22 @@ Readiness：
 - 正式 asset `silver_adj_factor` 与历史 helper 共用同一套写入函数、SQL、路径和过滤规则。
 - 默认不覆盖已存在 silver 分区；正式全量写入前必须单独列命令、读写路径和回滚方式，并获得明确批准。
 - M6 必须拆成两段执行：M6C 生成 silver 历史文件，M6D 补录 silver runless materialization/check events；只写文件不补 event 会导致 Dagster UI/readiness 仍不可见。
-- 状态：M6C helper 已完成；正式历史 silver 写入未执行；M6D silver event helper 待实现。
+- 状态：M6C/M6D helper 已完成；正式历史 silver 文件写入和 silver event log 补录均未执行。
+
+### A6C：Silver 历史文件生成
+
+- 使用非 Dagster 执行 helper 从已迁移 raw 和 `silver_stock_basic` 生成 `silver_adj_factor` 文件。
+- helper 支持 dry-run plan、raw readiness 前置确认、默认跳过已存在 silver 文件。
+- 正式执行必须按 dry-run、3 分区样本、全量剩余分区推进。
+- 状态：helper 已完成；正式历史 silver 写入未执行。
+
+### A6D：Silver bootstrap event 补录
+
+- 新增非 Dagster component helper，使用 `DagsterInstance.report_runless_asset_event(...)` 补录 `silver_adj_factor` materialization 与 10 个 silver blocking check events。
+- event 补录前逐分区只读审计 silver 文件、`silver_stock_basic` 和 registered partitions。
+- 正式执行必须按 dry-run、3 分区样本、全量剩余分区推进。
+- runless events 不产生 Runs 页面记录，也不触发飞书 run status 通知。
+- 状态：helper 已完成；正式 silver event log 补录未执行。
 
 ### A6B：Raw bootstrap event 补录
 
