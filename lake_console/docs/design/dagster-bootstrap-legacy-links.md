@@ -31,7 +31,7 @@
 | `trade_calendar` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/trade_cal/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet` | `trade_calendar_bootstrap_spec` / `TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_calendar_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_basic` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet` | `stock_basic_bootstrap_spec` / `STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_basic_update_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_quote_daily_job` | 已完成 Slice 2.0.5 验证 |
-| `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 未新增独立 job；M5 使用受控 Python 命令直接调用现有 bootstrap executor | M5 raw 迁移已完成；silver 历史文件生成仍需单独审批 |
+| `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 未新增独立 job；M5 使用受控 Python 命令直接调用现有 bootstrap executor；M6B 使用 runless events 补录 Dagster 事件事实 | M5 raw 迁移已完成；M6B raw event 补录已完成；M6C/M6D silver 文件与事件补录待执行 |
 
 ## 已确认的迁移纠偏规则
 
@@ -75,7 +75,10 @@
 - M5 已完成正式旧湖 raw 迁移：`4215` 个分区，范围 `2009-01-05` 至 `2026-05-15`，总行数 `14,959,706`。
 - M5 已把上述 `4215` 个日期注册到正式 `cn_a_stock_current_trade_days`。
 - M5 不等同于 Dagster materialization：它没有补 raw asset materialization event，也没有生成 raw asset check event。
+- M6B 已通过 `DagsterInstance.report_runless_asset_event(...)` 对已迁移 raw 文件补录 `raw_tushare_adj_factor` materialization 与 raw blocking check events；最终 `4215` 个 raw 分区可见，8 个 raw blocking checks 均为 `succeeded=4215, failed=0`。
 - M6 的 silver 历史文件生成属于 bootstrap 收尾，不能使用 `stock_adj_factor_update_job` 跑历史，因为该 job 会重新请求 Tushare raw。
+- M6 必须继续补录 `silver_adj_factor` 的 runless materialization 与 silver blocking check events，否则 Dagster UI/readiness 仍无法识别 silver 文件事实。
+- M6B runless events 不产生 Runs 页面记录，也不会触发飞书 run status 通知。
 
 ## 清理门禁
 

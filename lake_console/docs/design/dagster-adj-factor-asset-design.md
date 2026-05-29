@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6 历史 silver 文件生成 helper 已设计，正式写入仍需单独审批。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6 历史 silver 文件生成 helper 已实现；M6B raw bootstrap 事件补录已完成；M6C/M6D 历史 silver 文件生成与事件补录待执行。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -94,6 +94,27 @@ M5 已经按一次性直接迁移口径完成旧湖 raw 到新湖 raw 的 bootst
 - 审计结论：无分区日期错配、无重复 `(ts_code, trade_date)`、无空或非正因子、无缺失或额外 SSE 开市日；注册分区覆盖全部目标日期。
 
 注意：M5 是文件 bootstrap 与 dynamic partition 注册，不是 Dagster asset materialization，也没有生成 raw asset check event。
+
+### 2.6 M6B Dagster 事件补录口径
+
+Dagster UI 和 readiness 看的是 Dagster event log，不会主动扫描 `data_lake/raw/...` 下是否已有 parquet 文件。因此 M5 完成后，`raw_tushare_adj_factor` 在 UI 中仍会显示没有 materialization，这是预期行为，不表示文件不存在。
+
+M6B 使用 Dagster 官方 `DagsterInstance.report_runless_asset_event(...)` 补录 runless asset events：
+
+- 对 M5 raw 分区逐个只读审计。
+- 只对审计通过的分区补录 `raw_tushare_adj_factor[date]` materialization。
+- 随后补录 raw blocking check evaluation，并绑定到刚补录的 materialization storage id。
+- 不运行 `stock_adj_factor_update_job`，避免重新请求 Tushare 或覆盖 M5 raw。
+- 不产生 Runs 页面记录，也不会触发飞书 run status 通知。
+
+M6B 已按 dry-run、小样本、全量三步完成：
+
+- dry-run：raw 分区 `4215`，注册分区 `4215`，范围 `2009-01-05` 至 `2026-05-15`，raw-only/partition-only 差异 `0`，审计失败 `0`。
+- 小样本：补录 `2009-01-05`、`2017-09-01`、`2026-05-15` 三个分区，共 `27` 条 event；三者 readiness 均为 ready。
+- 全量：补录剩余 `4212` 个分区，共 `37908` 条 event。
+- 最终核验：`raw_tushare_adj_factor` materialized 分区数为 `4215`；8 个 raw blocking checks 均为 `succeeded=4215, failed=0`。
+
+M6B 只解决 raw asset 在 Dagster UI/readiness 中不可见的问题，不补 silver 事件；silver 文件和 silver event 仍是 M6C/M6D 单独步骤。
 
 ## 3. 资产边界
 
@@ -211,7 +232,7 @@ FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 - bootstrap 只写新湖 raw，不直接写 silver。
 - 历史 bootstrap 范围必须对齐旧湖 `adj_factor` 最早日期到旧湖当前全量范围内的股票开市日；这些历史交易日需要先注册到 `cn_a_stock_current_trade_days`，不写非交易日分区。
 
-M5 已完成上述 raw bootstrap 和历史分区注册。M6 的历史 silver 生成是 bootstrap 收尾：它从 M5 迁移出的 raw 文件和现有 `silver_stock_basic` 生成 `silver_adj_factor` 文件。M6 不使用 `stock_adj_factor_update_job` 跑历史，因为该 job 会执行 `raw_tushare_adj_factor`，从而重新请求 Tushare 并可能覆盖 M5 raw。
+M5 已完成上述 raw bootstrap 和历史分区注册。M6 的历史 silver 生成是 bootstrap 收尾：它从 M5 迁移出的 raw 文件和现有 `silver_stock_basic` 生成 `silver_adj_factor` 文件。M6 不使用 `stock_adj_factor_update_job` 跑历史，因为该 job 会执行 `raw_tushare_adj_factor`，从而重新请求 Tushare 并可能覆盖 M5 raw。M6B 额外补录 raw 的 Dagster 事件事实，使 UI 和 readiness 能识别 M5 已迁移 raw。
 
 ## 7. 日常更新设计
 
@@ -320,8 +341,9 @@ Readiness：
 - 不设计因子历史版本体系。
 - 不保留退市股票 silver 完整性。
 - 不新增数据库表。
-- M6 helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
+- M6/M6B helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
 - M6 helper 开发阶段不写正式 `silver_adj_factor` 历史文件；正式写入必须单独列命令、读写路径和回滚方式并获得批准。
+- M6B helper 开发阶段不写正式 Dagster event log；正式补录必须先 dry-run、小样本，再全量。
 
 ## 11. 风险与待确认点
 
@@ -380,8 +402,16 @@ Readiness：
 - 新增非 Dagster 执行 helper，发现 M5 raw 分区并生成对应 `silver_adj_factor` 文件。
 - 正式 asset `silver_adj_factor` 与历史 helper 共用同一套写入函数、SQL、路径和过滤规则。
 - 默认不覆盖已存在 silver 分区；正式全量写入前必须单独列命令、读写路径和回滚方式，并获得明确批准。
-- M6 不补 Dagster materialization/check event；历史文件审计与日常 Dagster readiness 是两个边界。
-- 状态：helper 开发中；正式历史 silver 写入未执行。
+- M6 必须拆成两段执行：M6C 生成 silver 历史文件，M6D 补录 silver runless materialization/check events；只写文件不补 event 会导致 Dagster UI/readiness 仍不可见。
+- 状态：M6C helper 已完成；正式历史 silver 写入未执行；M6D silver event helper 待实现。
+
+### A6B：Raw bootstrap event 补录
+
+- 新增非 Dagster component helper，使用 `DagsterInstance.report_runless_asset_event(...)` 补录 M5 raw 文件对应的 materialization 与 raw blocking check events。
+- 正式补录前必须 dry-run，并确认 raw 文件集合与 `cn_a_stock_current_trade_days` 注册集合对齐。
+- 正式补录先做 3 个分区小样本，再全量补录。
+- runless events 不产生 Runs 页面记录，也不触发飞书 run status 通知。
+- 状态：已完成；最终 `4215` 个 raw 分区可被 Dagster UI/readiness 识别，8 个 raw blocking checks 均全绿。
 
 ### A7：日常更新验收与 sensor 启用
 
