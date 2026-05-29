@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；历史 bootstrap 迁移尚未执行。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；历史 bootstrap 迁移尚未执行。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -241,21 +241,31 @@ write_mode = replace partition
 | listed stock only | 是 | `ts_code` 必须来自 `silver_stock_basic` 当前上市股票 |
 | coverage complete | 是 | 覆盖 `silver_stock_basic` 中 `list_date <= partition_date` 的全部当前上市股票 |
 
-## 9. Job / Sensor / Readiness 初步口径
+## 9. Job / Sensor / Readiness 口径
 
-本文只明确资产设计，job/sensor 细节后续单独 review。
+日常入口已按下列口径接入 active definitions；正式运行、分区注册和历史 bootstrap 仍需后续单独审批。
 
-建议入口：
+更新入口：
 
 - `stock_adj_factor_update_job`
   - selection：`raw_tushare_adj_factor`、`silver_adj_factor` 及两者 blocking checks。
   - 不扩大到 `stock_basic` 更新；`silver_stock_basic` 是只读前置依赖。
+  - 不提供 run config，不写自定义 run tags。
 
-建议 sensor：
+分区注册 sensor：
+
+- `stock_current_trade_day_sensor`
+  - 只注册 `cn_a_stock_current_trade_days`，不触发数据更新任务。
+  - 只处理当天日期：上海时间 06:00 后，如果当天是 `silver_trade_calendar` 中 SSE 开市日且尚未注册，则注册当天分区。
+  - 不做历史补齐；历史分区注册和旧湖 bootstrap 留到后续迁移验收。
+
+更新触发 sensor：
 
 - `stock_adj_factor_sensor`
   - 只处理最新一个已注册且不晚于当前上海日期的 `cn_a_stock_current_trade_days` 分区。
-  - 先确认 `silver_stock_basic` ready，再请求 `stock_adj_factor_update_job[trade_date]`。
+  - 09:30 前不触发；09:30 后才允许提交 `stock_adj_factor_update_job[trade_date]`。
+  - 先确认 `silver_stock_basic` 已 materialized 且 blocking checks 通过；按本轮确认口径，不要求 `stock_basic` materialization date >= 目标交易日。
+  - 若目标 `adj_factor` 分区已 ready，则 skip；若已 materialized 但 blocking checks 未全绿，则保守 skip，避免失败循环。
   - 不写自定义 run tags。
   - cursor 使用 M7 标准结构。
 
@@ -268,7 +278,7 @@ write_mode = replace partition
 
 - 新增独立 dynamic partitions：`cn_a_stock_current_trade_days`。
 - 新增专用分区注册 sensor：`stock_current_trade_day_sensor`。
-- `stock_current_trade_day_sensor` 的职责只注册 `cn_a_stock_current_trade_days`，不触发数据更新任务。
+- `stock_current_trade_day_sensor` 的职责只注册当天的 `cn_a_stock_current_trade_days`，不触发数据更新任务，不补历史分区。
 - 历史初始化时，`cn_a_stock_current_trade_days` 从旧湖 `adj_factor` 最早日期开始，承载旧湖 `adj_factor` 全量范围内的股票开市日。
 - 每天早上 6:00 后读取交易日历；如果当天是股票开市日，则把当天日期注册到 `cn_a_stock_current_trade_days`。
 - `raw_tushare_adj_factor` 和 `silver_adj_factor` 使用 `cn_a_stock_current_trade_days`，不使用共享的 `cn_a_stock_trade_days`。
@@ -333,11 +343,12 @@ Readiness：
 ### A4：Job 与 sensor
 
 - 增加 `stock_current_trade_day_sensor`，只注册 `cn_a_stock_current_trade_days`。
-- `stock_current_trade_day_sensor` 每天 6:00 后把当天股票开市日注册到 `cn_a_stock_current_trade_days`。
+- `stock_current_trade_day_sensor` 每天 6:00 后把当天股票开市日注册到 `cn_a_stock_current_trade_days`，不补历史分区。
 - 增加 `stock_adj_factor_update_job`。
 - 增加 `stock_adj_factor_sensor`。
 - 接入 readiness helper。
 - 不运行正式 Dagster，先做代码与静态门禁验证。
+- 状态：已完成；未注册正式分区，未运行正式 Dagster job/sensor/materialization。
 
 ### A5：历史 bootstrap 与日常更新验收
 

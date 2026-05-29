@@ -333,12 +333,13 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code> 和 <code>market_major_indices_daily_update_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code> 和 <code>market_major_indices_daily_update_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
       当前已新增自定义 <code>market_breadth_automation_sensor</code>、<code>stock_return_distribution_automation_sensor</code> 和 <code>clickhouse_share_fact_market_breadth_automation_sensor</code>，分别只 target 自己的 gold / serving asset，用来替代全局默认 automation sensor 作为日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
+      复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 在目标交易日全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 <code>silver_index_daily_update_job</code>；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
@@ -590,8 +591,8 @@
           <td><code>raw_tushare_adj_factor</code> → <code>silver_adj_factor</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_current_trade_days</code></td>
-          <td>asset 与 blocking checks 已实现；历史 bootstrap、job 和 sensor 尚未执行或接入。</td>
-          <td>目标为交易日早盘日更；后续由 <code>stock_current_trade_day_sensor</code> 注册当天分区，再由 <code>stock_adj_factor_sensor</code> 在 9:30 后触发。</td>
+          <td>asset、blocking checks、<code>stock_adj_factor_update_job</code> 和两个 sensors 已实现；历史 bootstrap 尚未执行。</td>
+          <td>交易日早盘日更；<code>stock_current_trade_day_sensor</code> 注册当天分区，<code>stock_adj_factor_sensor</code> 在 9:30 后触发。</td>
           <td>复权因子标准事实；silver 只保留当前上市且已上市股票，供后续分钟线 qfq 使用。</td>
         </tr>
         <tr>
@@ -755,6 +756,13 @@
           <td>单个交易日股票日线链路；只读依赖 basic 和 suspend。</td>
           <td><code>stock_daily_sensor</code>、人工 partition run、backfill。</td>
           <td>已完成拆分：不再 selection <code>suspend_d</code> 或 <code>stock_basic</code>。</td>
+        </tr>
+        <tr>
+          <td><code>stock_adj_factor_update_job</code></td>
+          <td><code>raw_tushare_adj_factor</code>、<code>silver_adj_factor</code> + checks</td>
+          <td>单个股票当前交易日复权因子 raw/silver；只读依赖 stock_basic。</td>
+          <td><code>stock_adj_factor_sensor</code>、人工 partition run、后续历史 backfill。</td>
+          <td>不 selection <code>stock_basic</code>；sensor 对 stock_basic 只看 materialization + blocking checks，不要求目标日 freshness。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>

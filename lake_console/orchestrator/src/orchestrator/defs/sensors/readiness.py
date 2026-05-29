@@ -52,6 +52,28 @@ SILVER_STOCK_DAILY_BLOCKING_CHECKS = (
     "silver_stock_daily_stock_partition_key_allowed",
     "silver_stock_daily_unique_ts_code_trade_date",
 )
+RAW_ADJ_FACTOR_CHECKS = (
+    "raw_adj_factor_file_exists",
+    "raw_adj_factor_partition_date_matches",
+    "raw_adj_factor_positive_factor",
+    "raw_adj_factor_required_columns",
+    "raw_adj_factor_row_count_positive",
+    "raw_adj_factor_schema_matches_tushare_contract",
+    "raw_adj_factor_stock_current_partition_key_allowed",
+    "raw_adj_factor_unique_ts_code_trade_date",
+)
+SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (
+    "silver_adj_factor_coverage_complete",
+    "silver_adj_factor_file_exists",
+    "silver_adj_factor_listed_stock_only",
+    "silver_adj_factor_partition_date_matches",
+    "silver_adj_factor_positive_factor",
+    "silver_adj_factor_required_columns",
+    "silver_adj_factor_row_count_positive",
+    "silver_adj_factor_schema_matches_contract",
+    "silver_adj_factor_stock_current_partition_key_allowed",
+    "silver_adj_factor_unique_ts_code_trade_date",
+)
 RAW_INDEX_DAILY_BY_CODE_CHECKS = (
     "raw_index_daily_by_code_file_exists",
     "raw_index_daily_by_code_partition_code_matches",
@@ -94,6 +116,8 @@ RAW_SUSPEND_D_ASSET_KEY = dg.AssetKey("raw_tushare_suspend_d")
 SILVER_STOCK_SUSPEND_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_suspend_daily")
 RAW_STOCK_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_stock_daily")
 SILVER_STOCK_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_daily")
+RAW_ADJ_FACTOR_ASSET_KEY = dg.AssetKey("raw_tushare_adj_factor")
+SILVER_ADJ_FACTOR_ASSET_KEY = dg.AssetKey("silver_adj_factor")
 RAW_INDEX_DAILY_BY_CODE_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily_by_code")
 SILVER_INDEX_DAILY_ASSET_KEY = dg.AssetKey("silver_index_daily")
 SILVER_INDEX_BASIC_ASSET_KEY = dg.AssetKey("silver_index_basic")
@@ -147,6 +171,10 @@ SUSPEND_D_READINESS_SPECS = (
 STOCK_DAILY_READINESS_SPECS = (
     AssetReadinessSpec(RAW_STOCK_DAILY_ASSET_KEY, RAW_STOCK_DAILY_CHECKS),
     AssetReadinessSpec(SILVER_STOCK_DAILY_ASSET_KEY, SILVER_STOCK_DAILY_BLOCKING_CHECKS),
+)
+ADJ_FACTOR_READINESS_SPECS = (
+    AssetReadinessSpec(RAW_ADJ_FACTOR_ASSET_KEY, RAW_ADJ_FACTOR_CHECKS),
+    AssetReadinessSpec(SILVER_ADJ_FACTOR_ASSET_KEY, SILVER_ADJ_FACTOR_BLOCKING_CHECKS),
 )
 RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC = AssetReadinessSpec(
     RAW_INDEX_DAILY_BY_CODE_ASSET_KEY,
@@ -331,6 +359,12 @@ def stock_basic_ready_for_trade_date(
     )
 
 
+def stock_basic_ready_without_freshness(
+    instance: dg.DagsterInstance,
+) -> DatasetReadinessStatus:
+    return dataset_readiness_status(instance, STOCK_BASIC_READINESS_SPECS)
+
+
 def suspend_d_ready_for_trade_date(
     instance: dg.DagsterInstance,
     trade_date: str,
@@ -349,6 +383,17 @@ def stock_daily_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         STOCK_DAILY_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def adj_factor_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> DatasetReadinessStatus:
+    return dataset_readiness_status(
+        instance,
+        ADJ_FACTOR_READINESS_SPECS,
         partition_key=trade_date,
     )
 
