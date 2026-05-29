@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C/M6D 历史 silver 文件生成与事件补录 helper 已实现，正式执行待审批。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录 helper 已实现，正式执行待审批。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -115,6 +115,19 @@ M6B 已按 dry-run、小样本、全量三步完成：
 - 最终核验：`raw_tushare_adj_factor` materialized 分区数为 `4215`；8 个 raw blocking checks 均为 `succeeded=4215, failed=0`。
 
 M6B 只解决 raw asset 在 Dagster UI/readiness 中不可见的问题，不补 silver 事件；silver 文件和 silver event 仍是 M6C/M6D 单独步骤。
+
+### 2.7 M6C 历史 silver 文件生成执行记录
+
+M6C 已按 dry-run、小样本、全量三步完成：
+
+- dry-run：raw materialized 分区 `4215`，8 个 raw blocking checks 均为 `succeeded=4215, failed=0`；raw 分区 `4215`，注册分区 `4215`，raw-only/partition-only 差异 `0`。
+- 目标检查：执行前已有 silver 分区 `0`，计划写入 `4215` 个分区，`silver_stock_basic` 文件存在。
+- 小样本：生成 `2009-01-05`、`2017-09-01`、`2026-05-15` 三个分区；样本 silver checks 审计失败分区数 `0`。
+- 全量：跳过已存在样本分区 `3` 个，生成剩余 `4212` 个分区。
+- 最终只读审计：`silver_adj_factor` 文件分区 `4215`，注册分区 `4215`，范围 `2009-01-05` 至 `2026-05-15`，silver-only/partition-only 差异 `0`，审计失败分区数 `0`。
+- silver 总行数：`13,908,872`。
+
+注意：M6C 只写 `silver_adj_factor` parquet 文件，不补 Dagster event。M6C 完成后，Dagster UI/readiness 仍不会把 silver 视为 ready；必须继续执行 M6D silver runless event 补录。
 
 ## 3. 资产边界
 
@@ -342,7 +355,7 @@ Readiness：
 - 不保留退市股票 silver 完整性。
 - 不新增数据库表。
 - M6/M6B helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
-- M6C helper 开发阶段不写正式 `silver_adj_factor` 历史文件；正式写入必须单独列命令、读写路径和回滚方式并获得批准。
+- M6C 已完成正式 `silver_adj_factor` 历史文件写入；M6D event 补录前不得把 silver readiness 视为已完成。
 - M6D helper 开发阶段不写正式 `silver_adj_factor` event log；正式补录必须先 dry-run、小样本，再全量。
 - M6B helper 开发阶段不写正式 Dagster event log；正式补录必须先 dry-run、小样本，再全量。
 
@@ -411,7 +424,7 @@ Readiness：
 - 使用非 Dagster 执行 helper 从已迁移 raw 和 `silver_stock_basic` 生成 `silver_adj_factor` 文件。
 - helper 支持 dry-run plan、raw readiness 前置确认、默认跳过已存在 silver 文件。
 - 正式执行必须按 dry-run、3 分区样本、全量剩余分区推进。
-- 状态：helper 已完成；正式历史 silver 写入未执行。
+- 状态：已完成；`4215` 个历史 silver 分区已生成并通过全量只读审计。
 
 ### A6D：Silver bootstrap event 补录
 
