@@ -1,5 +1,7 @@
 from pathlib import Path
 
+from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
+
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
 PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
 PATH_TEMPLATE_PARTITION_KEY = "{partition_key}"
@@ -51,12 +53,28 @@ def silver_stock_basic_path(root: Path) -> Path:
     return lake_path(root, SILVER, "basic", "stock_basic", "full", "part-000.parquet")
 
 
+def silver_stock_identity_map_path(root: Path) -> Path:
+    return lake_path(root, SILVER, "basic", "stock_identity_map", "part-000.parquet")
+
+
 def raw_stock_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,
         RAW,
         "tushare",
         "stock_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def raw_stk_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "tushare",
+        "stk_mins",
+        f"freq={normalize_stk_mins_freq(freq)}",
         f"trade_date={partition_key}",
         "part-000.parquet",
     )

@@ -1,0 +1,920 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster stk_mins 资产落地设计</title>
+  <style>
+    :root {
+      --bg: #f4efe4;
+      --paper: #fffaf1;
+      --paper-2: #fffdf8;
+      --ink: #17212b;
+      --muted: #66727f;
+      --line: #dccdb8;
+      --accent: #286b73;
+      --accent-2: #9e5f12;
+      --raw: #dff3ff;
+      --silver: #eef1f5;
+      --gold: #ffe6a8;
+      --green: #dff1df;
+      --warn: #fff0c6;
+      --red: #ffe0d8;
+      --code-bg: #fff7e7;
+      --code-ink: #243241;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 7% -8%, rgba(255, 230, 168, 0.55), transparent 34rem),
+        radial-gradient(circle at 104% 12%, rgba(40, 107, 115, 0.18), transparent 32rem),
+        linear-gradient(180deg, #fbf6ed 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1280px;
+      margin: 0 auto;
+      padding: 38px 26px 82px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 250, 241, 0.95);
+      border-radius: 24px;
+      box-shadow: 0 18px 48px rgba(74, 52, 28, 0.08);
+    }
+
+    header { padding: 34px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.2;
+      letter-spacing: -0.03em;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(34px, 4.8vw, 58px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 20px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    a {
+      color: #80500f;
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: var(--code-ink);
+      background: rgba(36, 50, 65, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid #ead8bd;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 18px;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper-2);
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-bottom: 1px solid #ead8bd;
+      border-right: 1px solid #ead8bd;
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #f7ecd7;
+      font-size: 13px;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th:last-child,
+    td:last-child { border-right: 0; }
+
+    ul,
+    ol {
+      margin: 8px 0 14px;
+      padding-left: 24px;
+    }
+
+    li { margin: 5px 0; }
+
+    .subtitle {
+      max-width: 980px;
+      color: #374554;
+      font-size: 18px;
+    }
+
+    .pill-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin: 18px 0 4px;
+    }
+
+    .pill {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      padding: 4px 10px;
+      border: 1px solid rgba(23, 33, 43, 0.12);
+      font-size: 13px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .raw { background: var(--raw); }
+    .silver { background: var(--silver); }
+    .gold { background: var(--gold); }
+    .ok { background: var(--green); }
+    .warn { background: var(--warn); }
+    .risk { background: var(--red); }
+    .neutral { background: #f3eee4; }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 14px;
+      margin-top: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 16px;
+      padding: 16px;
+    }
+
+    .card h3 { margin-top: 0; }
+
+    .note {
+      border-left: 5px solid var(--accent);
+      background: rgba(223, 243, 255, 0.55);
+      border-radius: 14px;
+      padding: 13px 15px;
+      margin: 14px 0;
+    }
+
+    .warning {
+      border-left: 5px solid var(--accent-2);
+      background: rgba(255, 240, 198, 0.58);
+      border-radius: 14px;
+      padding: 13px 15px;
+      margin: 14px 0;
+    }
+
+    .danger {
+      border-left: 5px solid #b9472f;
+      background: rgba(255, 224, 216, 0.62);
+      border-radius: 14px;
+      padding: 13px 15px;
+      margin: 14px 0;
+    }
+
+    .timeline {
+      display: grid;
+      gap: 12px;
+      margin-top: 12px;
+    }
+
+    .step {
+      display: grid;
+      grid-template-columns: 110px minmax(0, 1fr);
+      gap: 14px;
+      align-items: start;
+      border: 1px solid var(--line);
+      background: var(--paper-2);
+      border-radius: 16px;
+      padding: 15px;
+    }
+
+    .step strong {
+      display: inline-flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 34px;
+      border-radius: 999px;
+      background: #f3e1c4;
+      color: #5d3b0d;
+      font-size: 13px;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    @media (max-width: 760px) {
+      main { padding: 22px 14px 60px; }
+      header,
+      section { border-radius: 18px; padding: 20px; }
+      .step { grid-template-columns: 1fr; }
+      table { display: block; overflow-x: auto; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="pill-row">
+      <span class="pill ok">核心口径已拍板</span>
+      <span class="pill neutral">设计文档</span>
+      <span class="pill raw">raw: backup clean_next</span>
+      <span class="pill silver">silver: 标准化 clean_next</span>
+      <span class="pill gold">gold: qfq 分钟线</span>
+    </div>
+    <h1>Dagster stk_mins 资产落地设计</h1>
+    <p class="subtitle">
+      本文定义股票分钟线 <code>stk_mins</code> 在新 Dagster lake 中的正式分层、分区、资产拆分、历史导入和后续增量路线。
+      已拍板口径：按交易日分区，按分钟频度拆不同资产；raw 保存 backup 中的原始 clean_next，silver 做代码与停复牌口径标准化，gold 存前复权后的分钟线。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 状态与范围</h2>
+    <table>
+      <tr><th>项目</th><th>口径</th></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成。</td></tr>
+      <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
+      <tr><td>不涉及</td><td>本轮不执行旧湖迁移，不运行 Dagster job/sensor/backfill，不注册分区，不写正式数据湖。</td></tr>
+      <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
+      <tr><td>基础依赖</td><td><code>silver_stock_identity_map</code> 作为正式业务数据 asset 承载股票代码身份映射，供分钟线 silver 标准化使用。</td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. 依据</h2>
+    <h3>2.1 本地规则与现有代码</h3>
+    <ul>
+      <li><code>lake_console/orchestrator/AGENTS.md</code>：Dagster 正式项目门禁、partition/backfill 设计门禁、历史批量审计与事件补录门禁。</li>
+      <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：正式资产命名、schema contract、definition metadata 与 materialization metadata 边界。</li>
+      <li><code>lake_console/orchestrator/src/orchestrator/defs/partitions.py</code>：当前股票日频分区为 <code>cn_a_stock_trade_days</code>，adj factor 使用 <code>cn_a_stock_current_trade_days</code>。</li>
+      <li><code>lake_console/docs/design/dagster-adj-factor-asset-design.md</code>：旧湖 raw bootstrap、dynamic partition 注册、runless materialization/check event 补录的可复用方法。</li>
+      <li><code>docs/datasets/stk-mins-clean-next-vs-silver-stock-daily-code-audit-v1.md</code>：clean_next 与新湖 stock daily 的代码集合审计结果。</li>
+    </ul>
+
+    <h3>2.2 Dagster 官方依据</h3>
+    <ul>
+      <li><a href="https://docs.dagster.io/guides/build/assets">Assets</a>：asset 是持久化对象，asset definition 描述资产如何生成与更新。</li>
+      <li><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Partitioning assets</a>：Dagster 支持按时间、静态类别、动态分区和二维分区管理资产；官方建议单 asset partition 数不超过 100,000，以避免 UI 变慢。</li>
+      <li><a href="https://docs.dagster.io/guides/test/asset-checks">Asset checks</a>：asset check 用于验证数据资产的具体质量属性；partitioned check 应与被检查 asset 使用同一个 partition definition。</li>
+      <li><a href="https://docs.dagster.io/guides/automate/sensors">Sensors</a>：sensor 适合根据外部或上游状态生成 RunRequest，后续日常增量需要专用 sensor 承载门禁。</li>
+    </ul>
+
+    <h3>2.3 已有审计事实</h3>
+    <table>
+      <tr><th>事实</th><th>结论</th></tr>
+      <tr>
+        <td>新湖 stock daily 日期范围</td>
+        <td><code>raw_tushare_stock_daily</code> 与 <code>silver_stock_daily</code> 当前均为 <code>2014-01-02</code> 至 <code>2026-05-29</code>，日期范围一致，但股票集合不同。</td>
+      </tr>
+      <tr>
+        <td>旧湖正式 clean_next 范围</td>
+        <td>旧湖正式 clean_next 五个频度曾审计到 <code>2009-01-05</code> 至 <code>2026-05-15</code>，这是正式旧湖记录，不等同于本次 backup 目录事实。</td>
+      </tr>
+      <tr>
+        <td>clean_next vs stock daily</td>
+        <td>不能按同日股票数 strict equality 做门禁；差异主要来自停牌结构行和代码映射口径。</td>
+      </tr>
+      <tr>
+        <td>adj factor</td>
+        <td><code>silver_adj_factor</code> 已接入并补齐至 <code>2026-05-29</code>，是 gold qfq 的正式前置依赖。</td>
+      </tr>
+      <tr>
+        <td>旧湖身份映射</td>
+        <td>
+          旧湖 <code>manifest/security_identity/security_identity_map.parquet</code> 当前字段为
+          <code>latest_ts_code/source_ts_code/valid_from/valid_to/effective_list_date/effective_delist_date/identity_source/confidence/reason/created_at</code>。
+          已知生成来源为 <code>stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code> 三类基础事实。
+        </td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>2.4 M0 前置只读审计结果</h2>
+    <p>
+      M0 按只读口径执行：不写仓库代码、不写新湖、不注册 Dagster partitions、不补录 events、不运行
+      <code>dg</code>、job、sensor、backfill。大范围统计使用 DuckDB parquet metadata 和路径聚合，不把分钟明细全量拉回 Python。
+    </p>
+
+    <h3>2.4.1 backup clean_next 文件事实</h3>
+    <table>
+      <tr><th>freq</th><th>分区数</th><th>日期范围</th><th>parquet 文件数</th><th>footer 行数</th><th>文件名形态</th><th>异常</th></tr>
+      <tr><td><code>1</code></td><td>4209</td><td><code>2009-01-05</code> 至 <code>2026-05-07</code></td><td>4209</td><td>3,320,552,341</td><td><code>part-000.parquet</code> 4209</td><td>缺文件 0；多文件 0；空文件 0</td></tr>
+      <tr><td><code>5</code></td><td>4209</td><td><code>2009-01-05</code> 至 <code>2026-05-07</code></td><td>4209</td><td>678,617,463</td><td><code>part-000.parquet</code> 4208；<code>part-00000.parquet</code> 1</td><td>缺文件 0；多文件 0；空文件 0</td></tr>
+      <tr><td><code>15</code></td><td>4209</td><td><code>2009-01-05</code> 至 <code>2026-05-07</code></td><td>4209</td><td>235,444,385</td><td><code>part-000.parquet</code> 4208；<code>part-00000.parquet</code> 1</td><td>缺文件 0；多文件 0；空文件 0</td></tr>
+      <tr><td><code>30</code></td><td>4209</td><td><code>2009-01-05</code> 至 <code>2026-05-07</code></td><td>4209</td><td>124,599,033</td><td><code>part-000.parquet</code> 4093；<code>part-00000.parquet</code> 116</td><td>缺文件 0；多文件 0；空文件 0</td></tr>
+      <tr><td><code>60</code></td><td>4209</td><td><code>2009-01-05</code> 至 <code>2026-05-07</code></td><td>4209</td><td>69,372,832</td><td><code>part-000.parquet</code> 4208；<code>part-00000.parquet</code> 1</td><td>缺文件 0；多文件 0；空文件 0</td></tr>
+    </table>
+    <p>
+      五个频度的日期集合完全一致：共同分区数与并集分区数均为 <code>4209</code>，范围为 <code>2009-01-05</code> 至 <code>2026-05-07</code>。
+      因为 backup 中部分历史文件名为 <code>part-00000.parquet</code>，M2 bootstrap 读取来源必须使用 <code>*.parquet</code>，不能硬编码只读 <code>part-000.parquet</code>。
+      只读复核确认，这 119 个 <code>part-00000.parquet</code> 分区同目录下均不存在 <code>part-000.parquet</code>；新湖 raw 写入必须统一归一成
+      <code>part-000.parquet</code>，不得继承 backup 的历史文件名差异。
+    </p>
+
+    <h3>2.4.2 backup schema 与样本 sanity</h3>
+    <table>
+      <tr><th>字段</th><th>backup 类型</th><th>M1 raw 契约建议</th><th>说明</th></tr>
+      <tr><td><code>ts_code</code></td><td><code>VARCHAR</code></td><td><code>VARCHAR</code></td><td>样本无空代码。</td></tr>
+      <tr><td><code>freq</code></td><td><code>BIGINT</code></td><td><code>INTEGER</code></td><td>footer 统计显示每个文件内 <code>freq</code> 均等于目录频度。</td></tr>
+      <tr><td><code>trade_time</code></td><td><code>TIMESTAMP</code></td><td><code>TIMESTAMP</code></td><td>footer 统计显示每个文件 <code>trade_time</code> 日期均等于目录 <code>trade_date</code>。</td></tr>
+      <tr><td><code>open/close/high/low</code></td><td><code>DOUBLE</code></td><td><code>DOUBLE</code></td><td>样本最小价格为正数。</td></tr>
+      <tr><td><code>vol</code></td><td><code>BIGINT</code></td><td><code>BIGINT</code></td><td>样本允许 <code>0</code>，对应停牌结构行或无成交分钟。</td></tr>
+      <tr><td><code>amount</code></td><td><code>DOUBLE</code></td><td><code>DOUBLE</code></td><td>样本允许 <code>0.0</code>。</td></tr>
+      <tr><td><code>exchange</code></td><td><code>VARCHAR</code> 或 parquet <code>NULL</code></td><td><code>VARCHAR</code></td><td>历史分区存在全空 <code>exchange</code> 导致的 schema variant；bootstrap select 必须显式 cast 为 <code>VARCHAR</code>。</td></tr>
+      <tr><td><code>vwap</code></td><td><code>DOUBLE</code></td><td><code>DOUBLE</code></td><td>样本最小值为正数。</td></tr>
+    </table>
+    <p>
+      首日、中间日、末日样本均通过 <code>ts_code + trade_time</code> 去重检查；样本重复键为 0。M0 未对 44 亿级明细做全量去重扫描，
+      后续 M2/M3 的批量审计必须继续采用分区聚合和样本结合的性能安全策略。
+    </p>
+
+    <h3>2.4.3 新湖目标与依赖事实</h3>
+    <table>
+      <tr><th>对象</th><th>只读结果</th></tr>
+      <tr><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins</code></td><td>当前不存在，可作为 clean target；M3 执行前仍需再次只读确认。</td></tr>
+      <tr><td><code>silver_stock_daily</code></td><td>3014 分区，<code>2014-01-02</code> 至 <code>2026-05-29</code>，11,351,615 行。</td></tr>
+      <tr><td><code>silver_stock_suspend_daily</code></td><td>3014 分区，<code>2014-01-02</code> 至 <code>2026-05-29</code>，389,400 行。</td></tr>
+      <tr><td><code>silver_adj_factor</code></td><td>4225 分区，<code>2009-01-05</code> 至 <code>2026-05-29</code>，13,964,087 行。</td></tr>
+      <tr><td><code>silver_stock_basic</code></td><td>5525 行，5525 个股票代码，全部 <code>list_status='L'</code>。</td></tr>
+    </table>
+
+    <h3>2.4.4 identity map 来源审计</h3>
+    <table>
+      <tr><th>项目</th><th>结果</th></tr>
+      <tr><td>来源文件</td><td><code>/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet</code> 存在。</td></tr>
+      <tr><td>新湖目标</td><td><code>/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet</code> 当前不存在。</td></tr>
+      <tr><td>schema</td><td>与设计字段一致：<code>latest_ts_code/source_ts_code/valid_from/valid_to/effective_list_date/effective_delist_date/identity_source/confidence/reason/created_at</code>。</td></tr>
+      <tr><td>行数</td><td>6089 行；<code>source_ts_code</code> 6089 个，无重复；<code>latest_ts_code</code> 5837 个。</td></tr>
+      <tr><td>空值与日期</td><td><code>latest_ts_code/source_ts_code/valid_from/effective_list_date</code> 无空；日期区间非法 0。</td></tr>
+      <tr><td>来源枚举</td><td><code>stock_basic/confirmed</code> 5837 行；<code>bse_mapping/confirmed</code> 239 行；<code>namechange/inferred</code> 13 行。</td></tr>
+      <tr><td>冲突映射</td><td>同一 <code>source_ts_code</code> 映射多个 <code>latest_ts_code</code> 的冲突数为 0。</td></tr>
+    </table>
+
+    <h3>2.4.5 M3 迁移规模估算</h3>
+    <table>
+      <tr><th>项目</th><th>估算</th></tr>
+      <tr><td>分钟线历史日期分区</td><td>4209 个 <code>cn_a_stock_mins_trade_days</code> keys。</td></tr>
+      <tr><td>raw asset-partitions</td><td>5 个 raw assets × 4209 日期 = 21,045 个分区事件对象。</td></tr>
+      <tr><td>raw runless events</td><td>按当前设计 7 个 raw checks 估算：21,045 × (1 materialization + 7 checks) = 168,360 条。</td></tr>
+      <tr><td>identity map events</td><td>1 个 materialization + 9 个 blocking checks，约 10 条。</td></tr>
+      <tr><td>总事件量估算</td><td>约 168,370 条 runless events；M1 若调整 check 数，M3 事件估算需同步更新。</td></tr>
+      <tr><td>总 raw 行数</td><td>按 parquet footer 精确加总为 4,428,586,054 行；M2/M3 helper 必须复用 footer/聚合审计口径，不做 Python 明细全量扫描。</td></tr>
+    </table>
+    <p>
+      M0 未发现阻塞 M1 的事实问题。M1 可以进入契约基础开发，但必须把 <code>exchange</code> 的历史 <code>NULL</code> schema variant
+      和 backup 文件名 <code>part-00000.parquet</code> 纳入 bootstrap 设计；读取允许 <code>*.parquet</code>，写入统一 <code>part-000.parquet</code>。
+    </p>
+  </section>
+
+  <section>
+    <h2>3. 已拍板设计</h2>
+    <div class="grid">
+      <div class="card">
+        <h3>分区</h3>
+        <p>新增并独立使用 <code>cn_a_stock_mins_trade_days</code>。</p>
+        <p>它服务 <code>stk_mins</code> 资产族，不污染 <code>cn_a_stock_trade_days</code>、<code>cn_a_stock_current_trade_days</code>。</p>
+      </div>
+      <div class="card">
+        <h3>频度</h3>
+        <p><code>freq</code> 不进入 Dagster partition key。</p>
+        <p>五个固定频度拆成 sibling assets：<code>1m</code>、<code>5m</code>、<code>15m</code>、<code>30m</code>、<code>60m</code>。</p>
+      </div>
+      <div class="card">
+        <h3>raw</h3>
+        <p>保存 backup 中的原始 clean_next 数据，作为新湖的历史 raw 基线。</p>
+        <p>历史导入方法参考 adj factor：bootstrap 文件、注册分区、补录 runless events。</p>
+      </div>
+      <div class="card">
+        <h3>silver / gold</h3>
+        <p>silver 对 raw 做标准化，统一代码与停复牌口径。</p>
+        <p>gold 保存基于 <code>silver_adj_factor</code> 计算后的 qfq 分钟线。</p>
+      </div>
+      <div class="card">
+        <h3>身份映射</h3>
+        <p><code>silver_stock_identity_map</code> 是正式业务资产，不是临时 manifest。</p>
+        <p>它负责把历史源代码映射到标准股票代码，后续由基础数据事实重建。</p>
+      </div>
+    </div>
+
+    <div class="note">
+      <strong>为什么不使用 MultiPartitionsDefinition(date x freq)：</strong>
+      <code>date x freq</code> 的规模本身可以接受，但本项目已确认 <code>freq</code> 是质量边界和运维边界。
+      拆成不同 asset 后，UI、checks、backfill、历史修复和失败定位更直接；日期仍是调度和回填边界。
+    </div>
+  </section>
+
+  <section>
+    <h2>4. Partition 设计</h2>
+    <pre><code>cn_a_stock_mins_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_stock_mins_trade_days"
+)</code></pre>
+
+    <table>
+      <tr><th>项目</th><th>口径</th></tr>
+      <tr><td>分区键</td><td><code>YYYY-MM-DD</code> 股票交易日。</td></tr>
+      <tr><td>历史起点</td><td>按 backup clean_next 当前事实，从 <code>2009-01-05</code> 起步；正式开发前需再次只读复核。</td></tr>
+      <tr><td>历史终点</td><td>按 backup clean_next 当前事实，到 backup 最新交易日；历史导入执行前需重新只读确认。</td></tr>
+      <tr><td>日常注册</td><td>后续新增 <code>stk_mins</code> 专用分区注册 sensor，不能复用或污染股票日频分区。</td></tr>
+      <tr><td>不做</td><td>不按股票代码分区，不按分钟时间分区，不做 <code>date x stock x freq</code>。</td></tr>
+    </table>
+
+    <div class="warning">
+      <strong>边界：</strong>
+      <code>cn_a_stock_trade_days</code> 当前服务 stock daily 链路，实际数据从 <code>2014-01-02</code> 开始。
+      <code>stk_mins</code> 历史从 <code>2009-01-05</code> 开始，因此必须独立分区，不能共用股票日频分区。
+    </div>
+  </section>
+
+  <section>
+    <h2>5. Asset 拆分</h2>
+    <h3>5.1 基础资产：stock identity map</h3>
+    <table>
+      <tr><th>Asset key</th><th>中文名</th><th>分区</th><th>来源</th><th>物理路径</th></tr>
+      <tr>
+        <td><code>silver_stock_identity_map</code></td>
+        <td>股票身份映射</td>
+        <td>无分区，full snapshot</td>
+        <td>M1-M3 初始 bootstrap 来自旧湖身份映射；长期由 <code>silver_stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code> 生成</td>
+        <td><code>data_lake/silver/basic/stock_identity_map/part-000.parquet</code></td>
+      </tr>
+    </table>
+
+    <p>
+      <code>silver_stock_identity_map</code> 不是分钟线专用临时表，而是“股票代码身份归一”的基础业务资产。
+      raw 分钟线会保留 backup 原始代码；silver 分钟线标准化时通过该资产把 <code>source_ts_code</code> 归一到 <code>latest_ts_code</code>。
+    </p>
+
+    <h3>5.2 Raw assets</h3>
+    <table>
+      <tr><th>Asset key</th><th>分区</th><th>来源</th><th>物理路径</th></tr>
+      <tr><td><code>raw_stk_mins_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">backup 原始 clean_next</td><td><code>data_lake/raw/tushare/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>raw_stk_mins_5m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=5/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>raw_stk_mins_15m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=15/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>raw_stk_mins_30m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=30/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>raw_stk_mins_60m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=60/trade_date={partition_key}/part-000.parquet</code></td></tr>
+    </table>
+
+    <p>
+      raw 层命名不包含 <code>backup</code> 或 <code>legacy</code>，因为 backup 是历史 bootstrap 来源，不是长期业务语义。
+      materialization metadata 可以记录 <code>source_method=backup_clean_next_bootstrap</code>，但正式 asset key 不被一次性迁移来源污染。
+    </p>
+
+    <h3>5.3 Silver assets</h3>
+    <table>
+      <tr><th>Asset key</th><th>分区</th><th>输入</th><th>物理路径</th></tr>
+      <tr><td><code>silver_stk_mins_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">对应 raw + 身份映射 + stock daily/suspend/basic 门禁</td><td><code>data_lake/silver/quote/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>silver_stk_mins_5m</code></td><td><code>data_lake/silver/quote/stk_mins/freq=5/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>silver_stk_mins_15m</code></td><td><code>data_lake/silver/quote/stk_mins/freq=15/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>silver_stk_mins_30m</code></td><td><code>data_lake/silver/quote/stk_mins/freq=30/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>silver_stk_mins_60m</code></td><td><code>data_lake/silver/quote/stk_mins/freq=60/trade_date={partition_key}/part-000.parquet</code></td></tr>
+    </table>
+
+    <h3>5.4 Gold qfq assets</h3>
+    <table>
+      <tr><th>Asset key</th><th>分区</th><th>输入</th><th>物理路径</th></tr>
+      <tr><td><code>gold_stk_mins_qfq_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">对应 silver + <code>silver_adj_factor</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_5m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=5/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_15m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=15/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_30m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=30/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_60m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=60/trade_date={partition_key}/part-000.parquet</code></td></tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. Stock Identity Map 资产设计</h2>
+    <p>
+      <code>silver_stock_identity_map</code> 是股票代码身份归一资产。它解决“同一只股票历史上可能出现过多个交易代码”的问题，
+      让分钟线、日线、停复牌、复权因子在 silver/gold 层使用同一套标准代码口径。
+    </p>
+
+    <h3>6.1 业务职责</h3>
+    <ul>
+      <li>把旧代码、北交所旧代码、名称变更导致的历史代码统一映射到当前标准代码。</li>
+      <li>解释 <code>stk_mins</code> 与 <code>silver_stock_daily</code> 的股票集合差异，区分真实缺失和代码变更。</li>
+      <li>支持 <code>silver_stk_mins_*</code> 标准化，以及 <code>gold_stk_mins_qfq_*</code> 与 <code>silver_adj_factor</code> 的代码对齐。</li>
+      <li>保留映射来源、置信度和原因，方便后续排查“为什么这条分钟线被归到这个股票代码”。</li>
+    </ul>
+
+    <h3>6.2 字段契约</h3>
+    <table>
+      <tr><th>字段</th><th>类型</th><th>说明</th><th>原因</th></tr>
+      <tr><td><code>latest_ts_code</code></td><td><code>VARCHAR</code></td><td>标准股票代码。</td><td>silver/gold 层最终使用的股票代码。</td></tr>
+      <tr><td><code>source_ts_code</code></td><td><code>VARCHAR</code></td><td>源代码或历史代码。</td><td>raw clean_next 中出现的代码，用于 join 映射。</td></tr>
+      <tr><td><code>valid_from</code></td><td><code>DATE</code></td><td>映射有效起始日期。</td><td>为后续审计映射区间和历史追溯保留时间边界。</td></tr>
+      <tr><td><code>valid_to</code></td><td><code>DATE</code></td><td>映射有效结束日期，可为空。</td><td>退市或历史区间结束时需要明确边界。</td></tr>
+      <tr><td><code>effective_list_date</code></td><td><code>DATE</code></td><td>标准股票上市日期。</td><td>支持过滤上市日前分钟线和解释覆盖范围。</td></tr>
+      <tr><td><code>effective_delist_date</code></td><td><code>DATE</code></td><td>标准股票退市日期，可为空。</td><td>当前主口径不服务退市股票，但保留字段便于审计历史来源。</td></tr>
+      <tr><td><code>identity_source</code></td><td><code>VARCHAR</code></td><td>映射来源枚举。</td><td>允许值为 <code>stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code>。</td></tr>
+      <tr><td><code>confidence</code></td><td><code>VARCHAR</code></td><td>置信度枚举。</td><td><code>stock_basic</code> 与 <code>bse_mapping</code> 为 <code>confirmed</code>；<code>namechange</code> 推断映射为 <code>inferred</code>。</td></tr>
+      <tr><td><code>reason</code></td><td><code>VARCHAR</code></td><td>映射原因。</td><td>排查和审计时需要看到可读原因。</td></tr>
+      <tr><td><code>created_at</code></td><td><code>TIMESTAMP WITH TIME ZONE</code></td><td>本次生成时间。</td><td>full snapshot 每次重建后需要知道生成批次时间。</td></tr>
+    </table>
+
+    <h3>6.3 初始 bootstrap 来源</h3>
+    <table>
+      <tr><th>阶段</th><th>来源</th><th>目标</th><th>说明</th></tr>
+      <tr>
+        <td>M1-M3</td>
+        <td><code>/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet</code></td>
+        <td><code>data_lake/silver/basic/stock_identity_map/part-000.parquet</code></td>
+        <td>作为初始化来源，一次性 bootstrap 到新湖；不是长期运行时 fallback。</td>
+      </tr>
+    </table>
+    <p>
+      初始 bootstrap 必须只读复核旧湖文件 schema、行数、<code>source_ts_code</code> 唯一性、枚举值和日期字段。
+      写入新湖后必须补录 runless materialization 与 blocking check events，否则 Dagster UI/readiness 无法识别该基础资产已经可用。
+    </p>
+
+    <h3>6.4 长期生成逻辑</h3>
+    <p>长期口径不是继续读取旧湖 manifest，而是由新湖基础事实重建 full snapshot。</p>
+    <table>
+      <tr><th>输入</th><th>用途</th><th>状态边界</th></tr>
+      <tr>
+        <td><code>silver_stock_basic</code></td>
+        <td>生成 <code>source_ts_code = latest_ts_code</code> 的基础身份行，并提供上市/退市日期。</td>
+        <td>当前 Dagster 已有正式资产；按当前业务口径只服务当前上市股票池。</td>
+      </tr>
+      <tr>
+        <td><code>bse_mapping</code></td>
+        <td>生成北交所旧代码到新代码映射，置信度为 <code>confirmed</code>。</td>
+        <td>后续需在 Dagster 中接成正式基础资产，不能长期读旧 lake_console manifest。</td>
+      </tr>
+      <tr>
+        <td><code>namechange</code></td>
+        <td>根据曾用名历史推断少量历史代码到当前代码的映射，置信度为 <code>inferred</code>。</td>
+        <td>后续需在 Dagster 中接成正式基础资产；推断规则必须有专项测试和冲突检查。</td>
+      </tr>
+    </table>
+
+    <p>
+      生成规则保持 full snapshot：每次上游基础事实更新后重新生成整张 <code>silver_stock_identity_map</code>。
+      当前数据规模只有几千行，重建比增量维护更稳，更容易审计，也避免历史窗口被局部补丁污染。
+    </p>
+
+    <h3>6.5 更新入口与触发机制</h3>
+    <ul>
+      <li>正式资产：<code>silver_stock_identity_map</code>。</li>
+      <li>正式 job：后续单独设计 <code>stock_identity_map_update_job</code>，selection 只包含该 asset 及其 checks，不顺手更新分钟线。</li>
+      <li>触发条件：<code>silver_stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code> 任一上游更新并通过 blocking checks 后，允许重建身份映射。</li>
+      <li>消费门禁：<code>silver_stk_mins_*</code> 只读依赖该 asset，必须确认 materialized 且 blocking checks passed 后才允许生成。</li>
+      <li>历史初始化：M1-M3 只做 bootstrap 和事件补录；不把旧湖 manifest 做成日常依赖。</li>
+    </ul>
+
+    <h3>6.6 Blocking checks</h3>
+    <ul>
+      <li>文件存在且行数大于 0。</li>
+      <li>schema 与字段契约完全一致。</li>
+      <li><code>source_ts_code</code> 非空且唯一。</li>
+      <li><code>latest_ts_code</code> 非空。</li>
+      <li><code>identity_source</code> 只能为 <code>stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code>。</li>
+      <li><code>confidence</code> 只能为 <code>confirmed</code>、<code>inferred</code>。</li>
+      <li><code>valid_to</code> 若非空，必须不早于 <code>valid_from</code>。</li>
+      <li>同一 <code>source_ts_code</code> 不允许映射到多个不同 <code>latest_ts_code</code>。</li>
+      <li><code>namechange</code> 推断映射如果与已确认映射冲突，必须 fail，不允许静默覆盖。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>7. Raw 层导入设计</h2>
+    <p>raw 层保存 backup 中的原始 clean_next 数据，作为新湖历史分钟线基线。</p>
+
+    <table>
+      <tr><th>项目</th><th>口径</th></tr>
+      <tr><td>读取来源</td><td><code>/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq=*/trade_date=*/part-000.parquet</code>，正式执行前重新只读复核路径和文件名。</td></tr>
+      <tr><td>写入目标</td><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>。</td></tr>
+      <tr><td>迁移方式</td><td>复用 adj factor 已验证的方式：先实现 bootstrap spec/helper，再 dry-run、小样本、全量执行。</td></tr>
+      <tr><td>事件补录</td><td>raw 文件迁移后，使用 runless materialization/check events 补录 Dagster 事件事实，让 UI 与 readiness 识别历史分区。</td></tr>
+      <tr><td>覆盖策略</td><td>默认不覆盖已有合格目标分区；中断后先审计目标，再跳过已合格分区继续。</td></tr>
+    </table>
+
+    <h3>Raw checks</h3>
+    <ul>
+      <li>文件存在。</li>
+      <li>schema 与 raw contract 一致。</li>
+      <li>文件内 <code>freq</code> 与 asset 频度一致。</li>
+      <li>文件内日期或分区日期与 <code>partition_key</code> 一致。</li>
+      <li><code>ts_code + trade_time</code> 唯一。</li>
+      <li>价格、成交量、成交额字段满足 backup clean_next 的历史容忍口径；停牌结构行允许存在。</li>
+      <li>分区 key 已注册到 <code>cn_a_stock_mins_trade_days</code>。</li>
+    </ul>
+
+    <div class="warning">
+      <strong>待开发前只读复核：</strong>
+      backup clean_next 的历史 schema、文件名、全量分区范围、五个频度文件覆盖率必须在 M0 再审计一次，不把此前聊天中的结果当成实时事实。
+    </div>
+  </section>
+
+  <section>
+    <h2>8. Silver 标准化设计</h2>
+    <p>
+      silver 层目标不是简单复制 raw，而是把 raw clean_next 调整为新 Dagster lake 中可长期消费的标准事实。
+      标准化重点是代码口径、交易日口径、停复牌口径和字段契约。
+    </p>
+
+    <h3>8.1 代码口径</h3>
+    <ul>
+      <li>使用 <code>silver_stock_identity_map</code> 把旧代码归一到当前标准代码，例如 <code>000022.SZ -> 001872.SZ</code>、北交所旧代码到 <code>920xxx.BJ</code>。</li>
+      <li>silver 分钟线不得直接读取旧湖 manifest；只能依赖新湖正式 asset <code>silver_stock_identity_map</code>。</li>
+      <li>同一 <code>trade_time + latest_ts_code</code> 如果同时出现旧代码和新代码行，必须先审计价格是否完全一致；一致时按新代码保留一行，不一致时 fail check，不静默择优。</li>
+    </ul>
+
+    <h3>8.2 停复牌口径</h3>
+    <ul>
+      <li>不能要求 silver stk_mins 与 <code>silver_stock_daily</code> 每日股票集合完全相等。</li>
+      <li>预期股票集合应按以下口径判断：<code>silver_stock_daily[trade_date]</code> 中有行情的股票，加上 <code>silver_stock_suspend_daily[trade_date]</code> 中可解释停牌的股票。</li>
+      <li>raw clean_next 中可由停牌表解释的结构行允许进入 silver，不作为缺失或脏数据。</li>
+      <li>不在 stock daily 中、也不在 suspend_d 中、且无法被身份映射解释的股票，进入待审计差异，不直接写成 green。</li>
+    </ul>
+
+    <h3>8.3 字段契约</h3>
+    <table>
+      <tr><th>字段</th><th>类型</th><th>说明</th></tr>
+      <tr><td><code>ts_code</code></td><td><code>VARCHAR</code></td><td>标准化后的股票代码。</td></tr>
+      <tr><td><code>freq</code></td><td><code>INTEGER</code></td><td>分钟频度，取值为 1、5、15、30、60。</td></tr>
+      <tr><td><code>trade_date</code></td><td><code>DATE</code></td><td>交易日。</td></tr>
+      <tr><td><code>trade_time</code></td><td><code>TIMESTAMP</code></td><td>分钟 bar 时间。</td></tr>
+      <tr><td><code>open</code> / <code>high</code> / <code>low</code> / <code>close</code></td><td><code>DOUBLE</code></td><td>未复权价格。</td></tr>
+      <tr><td><code>vol</code></td><td><code>DOUBLE</code></td><td>成交量；历史 raw 可能是整数，silver 统一为数值契约。</td></tr>
+      <tr><td><code>amount</code></td><td><code>DOUBLE</code></td><td>成交额。</td></tr>
+      <tr><td><code>exchange</code></td><td><code>VARCHAR</code></td><td>交易所。</td></tr>
+      <tr><td><code>vwap</code></td><td><code>DOUBLE</code></td><td>成交均价。</td></tr>
+    </table>
+
+    <div class="note">
+      <strong>追溯字段：</strong>
+      是否在 silver 物理字段中保留 <code>source_ts_code</code> 需要在 schema 开发前单独拍板。
+      默认建议不放入正式主字段，避免破坏 clean_next 面向计算的简洁 schema；映射统计和样本写入 materialization/check metadata。
+    </div>
+
+    <h3>8.4 Silver checks</h3>
+    <ul>
+      <li>schema 与字段类型一致。</li>
+      <li><code>freq</code>、<code>trade_date</code>、<code>trade_time</code> 与分区一致。</li>
+      <li><code>ts_code + trade_time</code> 唯一。</li>
+      <li>标准代码必须存在于 <code>silver_stock_basic</code> 当前上市股票池，或被设计文档明确允许。</li>
+      <li>代码集合差异必须能被 <code>stock_daily</code>、<code>suspend_d</code>、identity map 三类口径解释。</li>
+      <li>不可解释差异必须作为 blocking check failure，不能静默落入 silver。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>9. Gold qfq 设计</h2>
+    <p>
+      gold 层保存前复权后的分钟线，输入为标准化后的 silver stk_mins 与 <code>silver_adj_factor</code>。
+      gold 是计算结果，不回写 raw/silver，也不覆盖原始 clean_next。
+    </p>
+
+    <h3>9.1 计算口径</h3>
+    <pre><code>qfq_price = original_price * adj_factor(trade_date) / latest_adj_factor(ts_code)</code></pre>
+
+    <ul>
+      <li><code>adj_factor(trade_date)</code> 来自同一股票同一交易日的 <code>silver_adj_factor</code>。</li>
+      <li><code>latest_adj_factor(ts_code)</code> 使用当前最新可用复权因子作为前复权基准。</li>
+      <li>若某只股票最新复权因子发生变化，需要从该股票最早可用分钟线日期向后重算 gold qfq。</li>
+      <li>gold qfq 不记录历史版本；它表达当前最新复权口径下的分钟线结果。</li>
+    </ul>
+
+    <h3>9.2 Gold checks</h3>
+    <ul>
+      <li>gold 行数与对应 silver 分区一致。</li>
+      <li><code>ts_code + trade_time</code> 唯一。</li>
+      <li>qfq 后价格非负；停牌结构行按 silver 允许口径处理。</li>
+      <li>每个 <code>ts_code + trade_date</code> 都能找到 <code>silver_adj_factor</code>。</li>
+      <li>抽样复算 qfq 公式，确认 open/high/low/close 一致。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>10. Jobs 与 Sensors 初步边界</h2>
+    <p>本节只定义边界，不提前锁死最终 job/sensor 名称。编码前需按 sensor tags、readiness、run request/cursor 门禁再出详细方案。</p>
+
+    <table>
+      <tr><th>对象</th><th>职责</th><th>边界</th></tr>
+      <tr>
+        <td>历史 raw bootstrap helper</td>
+        <td>从 backup 导入 raw 文件，注册 <code>cn_a_stock_mins_trade_days</code> 历史分区。</td>
+        <td>不运行正式 asset job；执行前必须 dry-run、小样本、全量三步审批。</td>
+      </tr>
+      <tr>
+        <td>raw event 补录 helper</td>
+        <td>补录 raw materialization 与 raw checks。</td>
+        <td>只追加 event log，不写文件，不产生 Runs 页面记录。</td>
+      </tr>
+      <tr>
+        <td>历史 silver/gold 生成 helper</td>
+        <td>批量生成历史 silver 和 gold 文件。</td>
+        <td>不重新请求 Tushare，不通过日常 job 覆盖 raw。</td>
+      </tr>
+      <tr>
+        <td>日常 update jobs</td>
+        <td>按单日分区更新五个频度 raw/silver/gold。</td>
+        <td>job 只做 asset selection，不写业务逻辑。</td>
+      </tr>
+      <tr>
+        <td>日常 sensors</td>
+        <td>注册分钟线交易日分区，并在上游 ready 后提交 run。</td>
+        <td>sensor 只做门禁，不在下游 job 内补上游。</td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>11. 分阶段引入计划</h2>
+    <div class="timeline">
+      <div class="step">
+        <strong>M0</strong>
+        <div>
+          <h3>只读审计与契约确认</h3>
+          <p>复核 backup clean_next 五频度分区范围、文件名、schema、行数、字段类型、停牌结构行、代码映射差异；复核旧湖身份映射 schema、枚举值、唯一性和生成来源。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M1</strong>
+        <div>
+          <h3>契约基础</h3>
+          <p>新增 <code>cn_a_stock_mins_trade_days</code>、五频度 raw path/schema、<code>silver_stock_identity_map</code> path/schema、数据集中文名和后续 definition metadata 的字段契约输入。只改契约和纯 helper，不写正式湖。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M2</strong>
+        <div>
+          <h3>Bootstrap spec 与测试</h3>
+          <p>按 adj factor 方式实现五频度 raw bootstrap spec/helper，并实现 <code>silver_stock_identity_map</code> 初始 bootstrap helper。测试使用临时目录，不读写正式湖。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M3</strong>
+        <div>
+          <h3>Raw 与身份映射历史迁移 / event 补录</h3>
+          <p>经单独批准后执行 dry-run、小样本、全量迁移；注册 <code>cn_a_stock_mins_trade_days</code> 历史分区；补录 raw 与 <code>silver_stock_identity_map</code> materialization/check events。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M4</strong>
+        <div>
+          <h3>Silver assets 与 checks</h3>
+          <p>接入五个 silver assets，落地代码映射、停复牌、stock daily 对齐 checks。先做代码和测试，不执行正式历史生成。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M5</strong>
+        <div>
+          <h3>Silver 历史生成与 event 补录</h3>
+          <p>按批量 helper 生成历史 silver 文件，再补录 runless events。执行前同样走 dry-run、小样本、全量审批。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M6</strong>
+        <div>
+          <h3>Gold qfq assets 与 checks</h3>
+          <p>接入五个 gold qfq assets，依赖 <code>silver_adj_factor</code>，实现 qfq 公式、完整性 checks 和重算边界。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M7</strong>
+        <div>
+          <h3>Gold 历史生成与 event 补录</h3>
+          <p>批量生成 qfq 历史文件并补录 materialization/check events；不与日常 sensor 混用。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M8</strong>
+        <div>
+          <h3>日常 job/sensor 接入</h3>
+          <p>设计并接入日常分区注册 sensor、五频度更新 job、readiness 门禁、飞书通知口径。默认 STOPPED，启用前单独审批。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M9</strong>
+        <div>
+          <h3>文档、静态门禁与运维收口</h3>
+          <p>更新 asset/job topology、run contract governance、asset 接入模板和静态测试，防止新增分钟线资产绕开分区、metadata、checks、sensor tags 门禁。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>12. 风险与处理原则</h2>
+    <table>
+      <tr><th>风险</th><th>处理原则</th></tr>
+      <tr>
+        <td>backup clean_next 与旧湖正式 clean_next 文件名/范围不一致</td>
+        <td>M0 必须只读复核，bootstrap 不靠历史印象拼路径。</td>
+      </tr>
+      <tr>
+        <td>silver 标准化时旧代码和新代码同日冲突</td>
+        <td>同值可去重；不同值必须 fail check，不能静默选择。</td>
+      </tr>
+      <tr>
+        <td>身份映射从 bootstrap 来源变成长期生成来源时口径漂移</td>
+        <td><code>silver_stock_identity_map</code> 字段契约和 checks 先固定；长期生成逻辑必须生成同一契约，不允许消费者改读旧湖 manifest。</td>
+      </tr>
+      <tr>
+        <td>停牌结构行被误判为 daily 缺失</td>
+        <td>expected universe 使用 <code>stock_daily + suspend_d</code>，不使用 stock daily strict equality。</td>
+      </tr>
+      <tr>
+        <td>qfq 最新因子变化导致历史需重算</td>
+        <td>gold qfq 明确是当前复权口径结果；因子变化后按受影响股票回刷历史 gold。</td>
+      </tr>
+      <tr>
+        <td>历史批量补录 event 过慢</td>
+        <td>必须用聚合审计和样本 readiness，不允许上千分区逐个深扫 event history。</td>
+      </tr>
+    </table>
+  </section>
+
+  <section>
+    <h2>13. 非目标</h2>
+    <ul>
+      <li>不把 <code>freq</code> 放入 run config。</li>
+      <li>不使用 <code>date x stock x freq</code> 分区。</li>
+      <li>不把 backup/legacy 写入正式 asset key。</li>
+      <li>不把旧湖 <code>security_identity_map</code> 作为长期运行时依赖；它只作为初始化 bootstrap 来源。</li>
+      <li>不把 qfq 结果原地覆盖 raw 或 silver。</li>
+      <li>不在本设计中接入 90/120 分钟派生、by-symbol-month 重排或 MACD 等指标资产。</li>
+      <li>不把旧 lake_console 运行账本作为 Dagster 正式运行状态。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>14. 待后续单独拍板</h2>
+    <ol>
+      <li>silver 是否物理保留 <code>source_ts_code</code> 追溯字段。</li>
+      <li>日常增量 raw 是继续从 Tushare <code>stk_mins</code> 拉取，还是先只接入历史 baseline 后再单独设计增量。</li>
+      <li>qfq gold 的小数精度、字段命名和是否保留原始未复权价格字段。</li>
+      <li>历史 qfq 大规模重算的并发、临时目录、磁盘空间和恢复策略。</li>
+      <li><code>bse_mapping</code> 与 <code>namechange</code> 在 Dagster 中接成正式资产的具体 milestone。</li>
+    </ol>
+    <div class="danger">
+      <strong>门禁：</strong>
+      上述待拍板事项在进入对应 milestone 前必须逐项确认。禁止在编码时靠临场判断补齐这些口径。
+    </div>
+  </section>
+
+  <section>
+    <h2>15. 验证口径</h2>
+    <p>开发阶段只做静态和临时目录测试，不运行正式 Dagster，不读写正式 instance。</p>
+    <ul>
+      <li>契约阶段：编译路径、schema、partition、metadata helper；静态门禁确认没有新增 active asset/job/sensor。</li>
+      <li>bootstrap 阶段：临时目录小样本迁移，验证字段、路径、分区 key 和 event 补录 helper。</li>
+      <li>silver 阶段：临时 DuckDB 文件覆盖代码映射、停牌解释、不可解释差异、重复键冲突。</li>
+      <li>gold 阶段：临时 DuckDB 文件覆盖 qfq 公式、因子缺失、行数一致、字段类型。</li>
+      <li>正式执行阶段：每次写正式湖或正式 event log 前，单独列命令、工作目录、DAGSTER_HOME、读写范围、预计数量和回滚方式，等待明确批准。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

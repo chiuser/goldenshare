@@ -44,6 +44,20 @@ RAW_TUSHARE_STOCK_DAILY_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 股票日线口径"),
 )
 
+RAW_STK_MINS_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("freq", "INTEGER", "分钟频度，允许值为 1、5、15、30、60"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("open", "DOUBLE", "分钟 bar 开盘价"),
+    ColumnContract("close", "DOUBLE", "分钟 bar 收盘价"),
+    ColumnContract("high", "DOUBLE", "分钟 bar 最高价"),
+    ColumnContract("low", "DOUBLE", "分钟 bar 最低价"),
+    ColumnContract("vol", "BIGINT", "成交量，沿用 backup clean_next 口径"),
+    ColumnContract("amount", "DOUBLE", "成交额，沿用 backup clean_next 口径"),
+    ColumnContract("exchange", "VARCHAR", "交易所代码；历史全空分区归一为 VARCHAR"),
+    ColumnContract("vwap", "DOUBLE", "成交均价"),
+)
+
 RAW_TUSHARE_ADJ_FACTOR_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
@@ -106,6 +120,19 @@ SILVER_STOCK_BASIC_SCHEMA = (
     ColumnContract("list_date", "DATE", "上市日期"),
     ColumnContract("delist_date", "DATE", "退市日期；当前上市股票通常为空"),
     ColumnContract("is_hs", "VARCHAR", "沪深港通标识"),
+)
+
+SILVER_STOCK_IDENTITY_MAP_SCHEMA = (
+    ColumnContract("latest_ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("source_ts_code", "VARCHAR", "源代码或历史代码"),
+    ColumnContract("valid_from", "DATE", "映射有效起始日期"),
+    ColumnContract("valid_to", "DATE", "映射有效结束日期，可为空"),
+    ColumnContract("effective_list_date", "DATE", "标准股票上市日期"),
+    ColumnContract("effective_delist_date", "DATE", "标准股票退市日期，可为空"),
+    ColumnContract("identity_source", "VARCHAR", "映射来源枚举"),
+    ColumnContract("confidence", "VARCHAR", "映射置信度枚举"),
+    ColumnContract("reason", "VARCHAR", "映射原因"),
+    ColumnContract("created_at", "TIMESTAMP WITH TIME ZONE", "本次生成时间"),
 )
 
 SILVER_STOCK_DAILY_SCHEMA = (

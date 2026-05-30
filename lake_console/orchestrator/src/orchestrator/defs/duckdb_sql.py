@@ -8,6 +8,7 @@ from orchestrator.defs.corrections.suspend_timing import (
     suspend_timing_corrections_values_sql,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_STK_MINS_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
@@ -18,6 +19,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_INDEX_BASIC_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
+    SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
@@ -112,6 +114,12 @@ STOCK_DAILY_SILVER_REQUIRED_COLUMNS = tuple(
     column.name for column in SILVER_STOCK_DAILY_SCHEMA
 )
 
+STK_MINS_RAW_REQUIRED_COLUMNS = tuple(column.name for column in RAW_STK_MINS_SCHEMA)
+
+SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_STOCK_IDENTITY_MAP_SCHEMA
+)
+
 ADJ_FACTOR_RAW_REQUIRED_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_ADJ_FACTOR_SCHEMA
 )
@@ -138,6 +146,45 @@ SELECT
   CAST(pct_chg AS DOUBLE) AS pct_chg,
   CAST(vol AS DOUBLE) AS vol,
   CAST(amount AS DOUBLE) AS amount
+FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
+"""
+
+STK_MINS_BOOTSTRAP_SELECT_TEMPLATE = """
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(freq AS INTEGER) AS freq,
+  CAST(trade_time AS TIMESTAMP) AS trade_time,
+  CAST(open AS DOUBLE) AS open,
+  CAST(close AS DOUBLE) AS close,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(vol AS BIGINT) AS vol,
+  CAST(amount AS DOUBLE) AS amount,
+  CAST(exchange AS VARCHAR) AS exchange,
+  CAST(vwap AS DOUBLE) AS vwap
+FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
+"""
+
+STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE = """
+SELECT
+  CAST(latest_ts_code AS VARCHAR) AS latest_ts_code,
+  CAST(source_ts_code AS VARCHAR) AS source_ts_code,
+  CAST(valid_from AS DATE) AS valid_from,
+  CASE
+    WHEN valid_to IS NULL OR trim(CAST(valid_to AS VARCHAR)) = '' THEN NULL
+    ELSE CAST(valid_to AS DATE)
+  END AS valid_to,
+  CAST(effective_list_date AS DATE) AS effective_list_date,
+  CASE
+    WHEN effective_delist_date IS NULL
+      OR trim(CAST(effective_delist_date AS VARCHAR)) = ''
+    THEN NULL
+    ELSE CAST(effective_delist_date AS DATE)
+  END AS effective_delist_date,
+  CAST(identity_source AS VARCHAR) AS identity_source,
+  CAST(confidence AS VARCHAR) AS confidence,
+  CAST(reason AS VARCHAR) AS reason,
+  CAST(created_at AS TIMESTAMP WITH TIME ZONE) AS created_at
 FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 """
 
