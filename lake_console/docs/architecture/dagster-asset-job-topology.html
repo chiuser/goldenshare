@@ -359,7 +359,7 @@
         <tbody>
         <tr>
           <td>Assets</td>
-          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>market_breadth.py</code>、<code>stock_return_distribution.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code></td>
+          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>adj_factor.py</code>、<code>market_breadth.py</code>、<code>stock_return_distribution.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code></td>
           <td>定义 raw / silver / gold 资产如何生成。</td>
           <td>资产函数是真正生产数据的地方，Tushare 拉取、DuckDB 转换、Parquet 写入都在 asset/helper 中。</td>
         </tr>
@@ -371,7 +371,7 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>market_major_indices_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>stock_current_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>market_major_indices_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>stock_adj_factor_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册、资产族生产和运行告警分离。</td>
           <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready；飞书 run status sensors 只监听 <code>STARTED</code>、<code>SUCCESS</code>、<code>FAILURE</code>，默认停止，不提交 <code>RunRequest</code>。</td>
         </tr>
@@ -591,7 +591,7 @@
           <td><code>raw_tushare_adj_factor</code> → <code>silver_adj_factor</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_current_trade_days</code></td>
-          <td>asset、blocking checks、<code>stock_adj_factor_update_job</code> 和两个 sensors 已实现；历史 bootstrap 尚未执行。</td>
+          <td>asset、blocking checks、<code>stock_adj_factor_update_job</code> 和两个 sensors 已实现；历史 raw/silver 文件与 Dagster event log 已对齐到 <code>2026-05-29</code>。</td>
           <td>交易日早盘日更；<code>stock_current_trade_day_sensor</code> 注册当天分区，<code>stock_adj_factor_sensor</code> 在 9:30 后触发。</td>
           <td>复权因子标准事实；silver 只保留当前上市且已上市股票，供后续分钟线 qfq 使用。</td>
         </tr>
@@ -761,8 +761,8 @@
           <td><code>stock_adj_factor_update_job</code></td>
           <td><code>raw_tushare_adj_factor</code>、<code>silver_adj_factor</code> + checks</td>
           <td>单个股票当前交易日复权因子 raw/silver；只读依赖 stock_basic。</td>
-          <td><code>stock_adj_factor_sensor</code>、人工 partition run、后续历史 backfill。</td>
-          <td>不 selection <code>stock_basic</code>；sensor 对 stock_basic 只看 materialization + blocking checks，不要求目标日 freshness。</td>
+          <td><code>stock_adj_factor_sensor</code>、人工 partition run；历史 bootstrap 已完成，后续只保留人工 repair/backfill 能力。</td>
+          <td>不 selection <code>stock_basic</code>；sensor 对 stock_basic 只看 materialization + blocking checks，不要求目标日 freshness。当前历史与 2026-05-15 后缺口已补齐至 <code>2026-05-29</code>。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>

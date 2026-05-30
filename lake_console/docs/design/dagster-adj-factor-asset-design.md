@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录 helper 已实现，正式执行待审批。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录已完成；A7 已通过人工 job 补齐 `2026-05-15` 之后缺口至 `2026-05-29`，且 `stock_current_trade_day_sensor` 与 `stock_adj_factor_sensor` 已启用。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -128,6 +128,35 @@ M6C 已按 dry-run、小样本、全量三步完成：
 - silver 总行数：`13,908,872`。
 
 注意：M6C 只写 `silver_adj_factor` parquet 文件，不补 Dagster event。M6C 完成后，Dagster UI/readiness 仍不会把 silver 视为 ready；必须继续执行 M6D silver runless event 补录。
+
+### 2.8 M6D 历史 silver event 补录执行记录
+
+M6D 已按 dry-run、小样本、全量三步完成：
+
+- dry-run：执行前 `silver_adj_factor` materialized 分区 `0`，10 个 silver blocking checks 均为 `succeeded=0, failed=0`；silver 文件分区 `4215`，注册分区 `4215`，silver-only/partition-only 差异 `0`，审计失败分区数 `0`。
+- 计划事件数：`4215 * (1 materialization + 10 checks) = 46365`。
+- 小样本：补录 `2009-01-05`、`2017-09-01`、`2026-05-15` 三个分区，共 `33` 条 event；三者 `silver_adj_factor` readiness 和 `adj_factor_ready_for_trade_date(...)` 均为 ready。
+- 全量：排除已补录样本分区 `3` 个，补录剩余 `4212` 个分区，共 `46332` 条 event。
+- 最终核验：`raw_tushare_adj_factor` 和 `silver_adj_factor` materialized 分区数均为 `4215`；raw 8 个 blocking checks、silver 10 个 blocking checks 均为 `succeeded=4215, failed=0`。
+
+M6D 使用批量审计口径执行：只在样本和最终抽样阶段调用 readiness，不在 4215 分区 dry-run 或全量补录中逐分区深扫 `asset_readiness_status(...)`。
+
+### 2.9 A7 `2026-05-15` 后缺口补齐记录
+
+M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后先补注册 `2026-05-15` 之后、截至 `2026-05-29` 的股票开市日分区，再由人工启动 `stock_adj_factor_update_job` 补齐这些分区的 raw/silver 与 checks。
+
+本次只读核验结果：
+
+- `cn_a_stock_current_trade_days` 注册分区数：`4225`，范围 `2009-01-05` 至 `2026-05-29`。
+- `raw_tushare_adj_factor` 文件分区数：`4225`，范围 `2009-01-05` 至 `2026-05-29`。
+- `silver_adj_factor` 文件分区数：`4225`，范围 `2009-01-05` 至 `2026-05-29`。
+- `raw_tushare_adj_factor` materialized 分区数：`4225`，范围 `2009-01-05` 至 `2026-05-29`。
+- `silver_adj_factor` materialized 分区数：`4225`，范围 `2009-01-05` 至 `2026-05-29`。
+- `2026-05-18` 至 `2026-05-29` 的 10 个补齐交易日均已注册、raw 文件存在、silver 文件存在，且 `adj_factor_ready_for_trade_date(...)` 返回 ready。
+- raw 8 个 blocking checks 均为 `succeeded=4225, failed=0`。
+- silver 10 个 blocking checks 均为 `succeeded=4225, failed=0`。
+
+上述补齐不是历史 bootstrap 重跑，也不是 sensor 自动触发验收；它是对 M6D 之后缺口分区的一次人工 job 补齐。之后已只读确认 `stock_current_trade_day_sensor` 与 `stock_adj_factor_sensor` 为 `RUNNING`，下一步需要观察下一个股票开市日的自然闭环。
 
 ## 3. 资产边界
 
@@ -294,7 +323,7 @@ write_mode = replace partition
 
 ## 9. Job / Sensor / Readiness 口径
 
-日常入口已按下列口径接入 active definitions；正式运行、分区注册和历史 bootstrap 仍需后续单独审批。
+日常入口已按下列口径接入 active definitions；历史 raw/silver 文件与 Dagster event log 已对齐到 `2026-05-29`，两个日常 sensor 已启用。
 
 更新入口：
 
@@ -355,9 +384,9 @@ Readiness：
 - 不保留退市股票 silver 完整性。
 - 不新增数据库表。
 - M6/M6B helper 开发阶段不运行 Dagster job、sensor、backfill、materialization、asset check 或 automation evaluation。
-- M6C 已完成正式 `silver_adj_factor` 历史文件写入；M6D event 补录前不得把 silver readiness 视为已完成。
-- M6D helper 开发阶段不写正式 `silver_adj_factor` event log；正式补录必须先 dry-run、小样本，再全量。
-- M6B helper 开发阶段不写正式 Dagster event log；正式补录必须先 dry-run、小样本，再全量。
+- M6C 已完成正式 `silver_adj_factor` 历史文件写入。
+- M6D 已完成正式 `silver_adj_factor` event log 补录；历史 raw/silver 文件事实和 Dagster event log 事实已对齐。
+- 后续如再做批量文件生成或 runless event 补录，仍必须先 dry-run、小样本，再全量；不得在大批量分区上逐分区深扫 readiness。
 
 ## 11. 风险与待确认点
 
@@ -391,7 +420,7 @@ Readiness：
 - 增加 `raw_tushare_adj_factor`、`silver_adj_factor`。
 - 增加 raw/silver blocking checks。
 - 只做静态编译、单元测试和临时 DuckDB 文件测试。
-- 状态：已完成；未新增 job/sensor，未执行正式 Dagster materialization。
+- 状态：已完成；assets/checks 已接入 active definitions，历史与补齐分区的 materialization/check event 已对齐到 `2026-05-29`。
 
 ### A4：Job 与 sensor
 
@@ -401,7 +430,7 @@ Readiness：
 - 增加 `stock_adj_factor_sensor`。
 - 接入 readiness helper。
 - 不运行正式 Dagster，先做代码与静态门禁验证。
-- 状态：已完成；未注册正式分区，未运行正式 Dagster job/sensor/materialization。
+- 状态：已完成；job/sensors 已接入 active definitions，历史分区已注册到 `2026-05-29`；`stock_current_trade_day_sensor` 与 `stock_adj_factor_sensor` 已启用。
 
 ### A5：历史 raw bootstrap 与分区注册
 
@@ -417,7 +446,7 @@ Readiness：
 - 正式 asset `silver_adj_factor` 与历史 helper 共用同一套写入函数、SQL、路径和过滤规则。
 - 默认不覆盖已存在 silver 分区；正式全量写入前必须单独列命令、读写路径和回滚方式，并获得明确批准。
 - M6 必须拆成两段执行：M6C 生成 silver 历史文件，M6D 补录 silver runless materialization/check events；只写文件不补 event 会导致 Dagster UI/readiness 仍不可见。
-- 状态：M6C/M6D helper 已完成；正式历史 silver 文件写入和 silver event log 补录均未执行。
+- 状态：已完成；正式历史 silver 文件写入和 silver event log 补录均已执行，最终历史范围覆盖 `2009-01-05` 至 `2026-05-15`。
 
 ### A6C：Silver 历史文件生成
 
@@ -432,7 +461,7 @@ Readiness：
 - event 补录前逐分区只读审计 silver 文件、`silver_stock_basic` 和 registered partitions。
 - 正式执行必须按 dry-run、3 分区样本、全量剩余分区推进。
 - runless events 不产生 Runs 页面记录，也不触发飞书 run status 通知。
-- 状态：helper 已完成；正式 silver event log 补录未执行。
+- 状态：已完成；最终 `4215` 个 silver 分区可被 Dagster UI/readiness 识别，10 个 silver blocking checks 均全绿。
 
 ### A6B：Raw bootstrap event 补录
 
@@ -446,3 +475,6 @@ Readiness：
 
 - 日常 Tushare 更新先用单日分区验收，再启用 sensor。
 - 只处理 M5 范围之后的 current-day/catch-up 分区，不重跑历史 raw bootstrap。
+- 状态：部分完成；`2026-05-18` 至 `2026-05-29` 缺口已通过人工 `stock_adj_factor_update_job` 补齐并通过只读核验。
+- 当前只读 instance 查询显示：`stock_current_trade_day_sensor` 和 `stock_adj_factor_sensor` 均为 `RUNNING`。
+- 待完成：观察下一个股票开市日是否由 06:00 分区注册和 09:30 后更新触发自然闭环。
