@@ -231,6 +231,20 @@ class DatasetRequestValidator:
     def _coerce_value(self, field: DatasetInputField, value):  # type: ignore[no-untyped-def]
         if value is None:
             return None
+        if field.multi_value:
+            if isinstance(value, (list, tuple, set)):
+                values = value
+            else:
+                text = str(value).strip()
+                values = [] if not text else [part.strip() for part in text.split(",") if part.strip()]
+            normalized_values = [str(item).strip() for item in values if str(item).strip()]
+            if field.enum_values:
+                invalid = [item for item in normalized_values if item not in field.enum_values]
+                if invalid:
+                    raise self._error("invalid_enum", f"{self._field_label(field, field.name)}不在可选范围内：{', '.join(invalid)}")
+            if not normalized_values and field.required:
+                raise self._error("empty_not_allowed", f"{self._field_label(field, field.name)}不能为空")
+            return normalized_values
         if field.field_type == "date":
             parsed = self._to_optional_date(value)
             if parsed is None:

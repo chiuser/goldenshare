@@ -89,6 +89,17 @@ def test_validator_accepts_dc_member_multi_select_filter() -> None:
     assert validated.params["idx_type"] == ["概念板块", "行业板块"]
 
 
+def test_validator_preserves_multi_value_string_filters_as_values() -> None:
+    validated = _validate(
+        dataset_key="cyq_chips",
+        run_profile="range_rebuild",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2025, 1, 2), end_date=date(2026, 5, 29)),
+        filters={"ts_code": ["600501.SH"]},
+    )
+
+    assert validated.params["ts_code"] == ["600501.SH"]
+
+
 def test_validator_accepts_normalized_month_key_for_month_window_dataset() -> None:
     validated = _validate(
         dataset_key="broker_recommend",

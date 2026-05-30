@@ -68,7 +68,8 @@ def test_dataset_action_resolver_does_not_inject_dead_exchange_filter(
 
     assert "exchange" not in plan.filters
     if "ts_code" in filters:
-        assert plan.filters["ts_code"] == filters["ts_code"]
+        expected_filter_value = [filters["ts_code"]] if dataset_key == "cyq_chips" else filters["ts_code"]
+        assert plan.filters["ts_code"] == expected_filter_value
     assert plan.filters["trade_date"] == date(2026, 4, 24)
     assert plan.units[0].request_params == expected_request_params
     assert "exchange" not in plan.units[0].request_params
@@ -276,6 +277,31 @@ def test_cyq_chips_explicit_codes_bypass_active_pool(mocker) -> None:
     assert {unit.progress_context.get("security_name") for unit in plan.units} == {"平安银行", "浦发银行"}
     fake_dao.security.get_active_equities.assert_not_called()
     assert [call.args[0] for call in fake_dao.security.get_by_ts_code.call_args_list] == ["000001.SZ", "600000.SH"]
+
+
+def test_cyq_chips_explicit_code_list_builds_clean_tushare_params(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(side_effect=AssertionError("explicit cyq_chips requests must not scan the active equity pool")),
+            get_by_ts_code=mocker.Mock(return_value=SimpleNamespace(name="航天晨光")),
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="cyq_chips",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2025, 1, 2), end_date=date(2026, 5, 29)),
+        filters={"ts_code": ["600501.SH"]},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.filters["ts_code"] == ["600501.SH"]
+    assert plan.units[0].request_params == {"ts_code": "600501.SH", "start_date": "20250102", "end_date": "20260529"}
+    assert plan.units[0].progress_context["ts_code"] == "600501.SH"
+    assert fake_dao.security.get_by_ts_code.call_args.args == ("600501.SH",)
 
 
 def test_cyq_chips_request_builder_requires_ts_code() -> None:
