@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 与临时目录测试已完成，正式迁移未执行。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>本轮不执行旧湖迁移，不运行 Dagster job/sensor/backfill，不注册分区，不写正式数据湖。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -631,12 +631,21 @@
 
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>读取来源</td><td><code>/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq=*/trade_date=*/part-000.parquet</code>，正式执行前重新只读复核路径和文件名。</td></tr>
+      <tr><td>读取来源</td><td><code>/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq=*/trade_date=*/*.parquet</code>，正式执行前重新只读复核路径和文件名。</td></tr>
       <tr><td>写入目标</td><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>。</td></tr>
       <tr><td>迁移方式</td><td>复用 adj factor 已验证的方式：先实现 bootstrap spec/helper，再 dry-run、小样本、全量执行。</td></tr>
       <tr><td>事件补录</td><td>raw 文件迁移后，使用 runless materialization/check events 补录 Dagster 事件事实，让 UI 与 readiness 识别历史分区。</td></tr>
       <tr><td>覆盖策略</td><td>默认不覆盖已有合格目标分区；中断后先审计目标，再跳过已合格分区继续。</td></tr>
     </table>
+
+    <h3>M2 已落地的 bootstrap helper</h3>
+    <ul>
+      <li><code>stk_mins_bootstrap_spec(freq, lake_root, backup_root)</code> 固定五个 raw dataset key：<code>raw_stk_mins_1m</code>、<code>raw_stk_mins_5m</code>、<code>raw_stk_mins_15m</code>、<code>raw_stk_mins_30m</code>、<code>raw_stk_mins_60m</code>。</li>
+      <li>backup 来源目录允许 <code>part-000.parquet</code> 或 <code>part-00000.parquet</code>，但每个 <code>freq + trade_date</code> 必须恰好一个 parquet 文件。</li>
+      <li><code>bootstrap_stk_mins_partition_to_raw(...)</code> 写新湖 raw 时始终输出 <code>part-000.parquet</code>，默认拒绝覆盖已有目标文件。</li>
+      <li><code>stock_identity_map_bootstrap_spec(...)</code> 与 <code>bootstrap_stock_identity_map_to_silver(...)</code> 只服务 <code>silver_stock_identity_map</code> 初始 full snapshot，默认拒绝覆盖已有目标文件。</li>
+      <li>M2 不新增 active Dagster asset/job/sensor/check，不注册分区，不补录 events，不执行正式迁移。</li>
+    </ul>
 
     <h3>Raw checks</h3>
     <ul>
@@ -790,7 +799,7 @@
         <strong>M2</strong>
         <div>
           <h3>Bootstrap spec 与测试</h3>
-          <p>按 adj factor 方式实现五频度 raw bootstrap spec/helper，并实现 <code>silver_stock_identity_map</code> 初始 bootstrap helper。测试使用临时目录，不读写正式湖。</p>
+          <p>已按 adj factor 方式实现五频度 raw bootstrap spec/helper，并实现 <code>silver_stock_identity_map</code> 初始 bootstrap helper。测试使用临时目录，不读写正式湖；正式迁移留到 M3 单独审批执行。</p>
         </div>
       </div>
       <div class="step">
