@@ -63,6 +63,7 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
     autoSize: true,
     height,
     layout: {
+      attributionLogo: false,
       background: { type: ColorType.Solid, color: "transparent" },
       fontFamily: "var(--cs-font-family-number)",
       textColor: chartColors.text,

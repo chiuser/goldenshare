@@ -18,7 +18,6 @@ export function StockChartToolbar({ stock, periods, activePeriod, onPeriodChange
             <span className="stock-code">{stock.tsCode}</span>
             <span className="stock-sector">{stock.sector}</span>
           </div>
-          <div className="stock-detail-toolbar-stock-sub">乾坤行情 / 个股详情 / P0 Mock 行情</div>
         </div>
         <div className="stock-detail-periods" aria-label="周期切换">
           <span className="toolbar-title">周期</span>

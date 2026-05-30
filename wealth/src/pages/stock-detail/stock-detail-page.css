@@ -67,6 +67,9 @@
 }
 
 .stock-detail-toolbar-stock {
+  align-items: center;
+  display: flex;
+  height: 100%;
   min-width: 210px;
 }
 
@@ -89,12 +92,6 @@
   color: var(--cs-color-text-secondary);
   font-size: 11px;
   padding: 2px 6px;
-}
-
-.stock-detail-toolbar-stock-sub {
-  color: var(--cs-color-text-muted);
-  font-size: 11px;
-  margin-top: 2px;
 }
 
 .stock-detail-periods,
