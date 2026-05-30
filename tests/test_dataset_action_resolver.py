@@ -232,18 +232,19 @@ def test_cyq_chips_default_long_range_chunks_by_stock_and_date_window(mocker) ->
     request = DatasetActionRequest(
         dataset_key="cyq_chips",
         action="maintain",
-        time_input=DatasetTimeInput(mode="range", start_date=date(2025, 1, 1), end_date=date(2026, 1, 10)),
+        time_input=DatasetTimeInput(mode="range", start_date=date(2018, 1, 2), end_date=date(2026, 5, 29)),
     )
 
     plan = resolver.build_plan(request)
 
-    assert plan.planning.unit_count == 2
+    assert plan.planning.unit_count == 3
     assert [unit.request_params for unit in plan.units] == [
-        {"ts_code": "000001.SZ", "start_date": "20250101", "end_date": "20251231"},
-        {"ts_code": "000001.SZ", "start_date": "20260101", "end_date": "20260110"},
+        {"ts_code": "000001.SZ", "start_date": "20180102", "end_date": "20201231"},
+        {"ts_code": "000001.SZ", "start_date": "20210101", "end_date": "20231231"},
+        {"ts_code": "000001.SZ", "start_date": "20240101", "end_date": "20260529"},
     ]
-    assert [unit.progress_context["start_date"] for unit in plan.units] == ["2025-01-01", "2026-01-01"]
-    assert [unit.progress_context["end_date"] for unit in plan.units] == ["2025-12-31", "2026-01-10"]
+    assert [unit.progress_context["start_date"] for unit in plan.units] == ["2018-01-02", "2021-01-01", "2024-01-01"]
+    assert [unit.progress_context["end_date"] for unit in plan.units] == ["2020-12-31", "2023-12-31", "2026-05-29"]
     fake_dao.trade_calendar.get_open_dates.assert_not_called()
 
 

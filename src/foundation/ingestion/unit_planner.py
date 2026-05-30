@@ -19,7 +19,7 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 
 
-CYQ_CHIPS_RANGE_WINDOW_DAYS = 365
+CYQ_CHIPS_RANGE_WINDOW_DAYS = 1095
 
 
 class DatasetUnitPlanner:
