@@ -80,14 +80,14 @@ def _read_raw_rows(connection, path: Path) -> list[dict[str, Any]]:
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
-def _read_current_listed_stock_codes(connection, path: Path) -> set[str]:
+def _read_current_listed_stock_names(connection, path: Path) -> dict[str, str]:
     rows = connection.execute(
         f"""
-        SELECT ts_code
+        SELECT ts_code, name
         FROM {read_parquet(path, hive_partitioning=False)}
         """
     ).fetchall()
-    return {str(row[0]) for row in rows}
+    return {str(row[0]): str(row[1]) for row in rows}
 
 
 def _replace_silver_rows(
@@ -216,15 +216,18 @@ def silver_namechange(
 
     with duckdb.connect() as connection:
         raw_rows = _read_raw_rows(connection, raw_path)
-        current_listed_stock_codes = _read_current_listed_stock_codes(
+        current_listed_stock_names = _read_current_listed_stock_names(
             connection, stock_basic_path
         )
 
     filtered_rows = [
-        row for row in raw_rows if str(row.get("ts_code")) in current_listed_stock_codes
+        row for row in raw_rows if str(row.get("ts_code")) in current_listed_stock_names
     ]
 
-    timeline = build_latest_announcement_namechange_timeline(filtered_rows)
+    timeline = build_latest_announcement_namechange_timeline(
+        filtered_rows,
+        stock_basic_names=current_listed_stock_names,
+    )
     if timeline.blocking_conflict_count:
         raise RuntimeError(
             "Namechange timeline canonicalization failed: "
@@ -252,11 +255,14 @@ def silver_namechange(
                 "stock_basic_file_path": str(stock_basic_path),
                 "source_row_count": timeline.source_row_count,
                 "raw_source_row_count": len(raw_rows),
-                "current_listed_stock_count": len(current_listed_stock_codes),
+                "current_listed_stock_count": len(current_listed_stock_names),
                 "filtered_delisted_row_count": len(raw_rows) - len(filtered_rows),
                 "selected_event_count": timeline.selected_event_count,
                 "duplicate_removed_count": 0,
                 "merged_same_name_count": timeline.merged_same_name_count,
+                "diff_name_same_start_stock_basic_resolved_count": (
+                    timeline.diff_name_same_start_stock_basic_resolved_count
+                ),
                 "same_name_same_end_reason_resolved_count": (
                     timeline.same_name_same_end_reason_resolved_count
                 ),

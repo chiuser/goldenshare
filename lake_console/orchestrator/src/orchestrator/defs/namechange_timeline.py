@@ -83,6 +83,7 @@ class NamechangeTimelineResult:
     source_row_count: int
     selected_event_count: int
     merged_same_name_count: int
+    diff_name_same_start_stock_basic_resolved_count: int
     same_name_same_end_reason_resolved_count: int
     same_name_diff_end_resolved_count: int
     unresolved_conflict_count: int
@@ -111,6 +112,8 @@ class NamechangeTimelineResult:
 
 def build_latest_announcement_namechange_timeline(
     raw_rows: list[dict[str, Any]],
+    *,
+    stock_basic_names: dict[str, str] | None = None,
 ) -> NamechangeTimelineResult:
     """Build one non-overlapping name interval timeline per stock code."""
 
@@ -136,7 +139,9 @@ def build_latest_announcement_namechange_timeline(
         selected_events,
         unresolved_samples,
         resolution_counts,
-    ) = _select_latest_announcement_events(events)
+    ) = _select_latest_announcement_events(
+        events, stock_basic_names=stock_basic_names or {}
+    )
     merged_events, merged_count = _merge_adjacent_same_name_events(selected_events)
     rows, final_invalid_samples = _close_intervals(merged_events)
     invalid_samples.extend(final_invalid_samples)
@@ -157,6 +162,9 @@ def build_latest_announcement_namechange_timeline(
         source_row_count=len(raw_rows),
         selected_event_count=len(selected_events),
         merged_same_name_count=merged_count,
+        diff_name_same_start_stock_basic_resolved_count=resolution_counts[
+            "diff_name_same_start_stock_basic"
+        ],
         same_name_same_end_reason_resolved_count=resolution_counts[
             "same_name_same_end_reason"
         ],
@@ -219,6 +227,8 @@ def _normalize_event(row: dict[str, Any]) -> NamechangeEvent:
 
 def _select_latest_announcement_events(
     events: list[NamechangeEvent],
+    *,
+    stock_basic_names: dict[str, str],
 ) -> tuple[list[NamechangeEvent], list[dict[str, Any]], dict[str, int]]:
     grouped: dict[tuple[str, date], list[NamechangeEvent]] = defaultdict(list)
     for event in events:
@@ -227,6 +237,7 @@ def _select_latest_announcement_events(
     selected: list[NamechangeEvent] = []
     unresolved_samples: list[dict[str, Any]] = []
     resolution_counts = {
+        "diff_name_same_start_stock_basic": 0,
         "same_name_same_end_reason": 0,
         "same_name_diff_end": 0,
     }
@@ -250,6 +261,15 @@ def _select_latest_announcement_events(
         if resolved_event is not None:
             selected.append(resolved_event)
             continue
+        resolved_event = _resolve_stock_basic_name_candidates(
+            key=key,
+            candidates=unique_candidates,
+            stock_basic_names=stock_basic_names,
+            resolution_counts=resolution_counts,
+        )
+        if resolved_event is not None:
+            selected.append(resolved_event)
+            continue
         if len(unique_candidates) != 1:
             unresolved_samples.append(
                 {
@@ -263,6 +283,46 @@ def _select_latest_announcement_events(
         selected.append(unique_candidates[0])
 
     return selected, unresolved_samples, resolution_counts
+
+
+def _resolve_stock_basic_name_candidates(
+    *,
+    key: tuple[str, date],
+    candidates: list[NamechangeEvent],
+    stock_basic_names: dict[str, str],
+    resolution_counts: dict[str, int],
+) -> NamechangeEvent | None:
+    if len(candidates) <= 1:
+        return candidates[0] if candidates else None
+
+    stock_basic_name = stock_basic_names.get(key[0])
+    if not stock_basic_name:
+        return None
+
+    if len({event.name for event in candidates}) <= 1:
+        return None
+
+    non_name_signatures = {
+        (
+            event.ts_code,
+            event.start_date,
+            event.end_date,
+            event.ann_date,
+            event.change_reason,
+        )
+        for event in candidates
+    }
+    if len(non_name_signatures) != 1:
+        return None
+
+    matching_candidates = [
+        event for event in candidates if event.name == stock_basic_name
+    ]
+    if len(matching_candidates) != 1:
+        return None
+
+    resolution_counts["diff_name_same_start_stock_basic"] += 1
+    return matching_candidates[0]
 
 
 def _resolve_equivalent_same_name_candidates(

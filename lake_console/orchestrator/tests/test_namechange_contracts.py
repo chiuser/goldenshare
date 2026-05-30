@@ -145,6 +145,35 @@ class NamechangeContractTests(unittest.TestCase):
         self.assertEqual(result.unresolved_conflict_count, 1)
         self.assertGreater(result.blocking_conflict_count, 0)
 
+    def test_diff_name_same_start_chooses_stock_basic_name_when_only_name_differs(
+        self,
+    ) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row("000001.SZ", "名称A", "20200101", "20200131", "20200101"),
+                _row("000001.SZ", "名称B", "20200101", "20200131", "20200101"),
+            ],
+            stock_basic_names={"000001.SZ": "名称B"},
+        )
+
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.diff_name_same_start_stock_basic_resolved_count, 1)
+        self.assertEqual(result.rows[0]["name"], "名称B")
+
+    def test_diff_name_same_start_keeps_blocking_when_other_fields_differ(
+        self,
+    ) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row("000001.SZ", "名称A", "20200101", "20200131", "20200101"),
+                _row("000001.SZ", "名称B", "20200101", "20200229", "20200101"),
+            ],
+            stock_basic_names={"000001.SZ": "名称B"},
+        )
+
+        self.assertEqual(result.unresolved_conflict_count, 1)
+        self.assertGreater(result.blocking_conflict_count, 0)
+
     def test_same_name_same_end_prefers_specific_reason_over_other(self) -> None:
         result = build_latest_announcement_namechange_timeline(
             [

@@ -243,6 +243,7 @@ diff 口径：
 12. `latest_announcement_timeline_v2` 增加两个正式裁决规则：
    - `摘星` 与 `撤销*ST` 视为同义变更原因；同名同区间下，如果候选里同时存在 `其他` 和非 `其他` 原因，优先保留非 `其他` 的具体原因。
    - 对 `same_name_diff_end`，如果候选的 `ts_code/name/start_date/ann_date/归一后 change_reason` 都一致，只是 `end_date` 不同，则选择 `end_date` 更新的候选；前提是在当前 `start_date` 到最大 `end_date` 之间不存在同一股票其它名称生效记录，否则继续阻断。
+   - 对 `diff_name_same_start`，只有当候选行除了 `name` 之外其它字段完全一致时，才允许用 `silver_stock_basic.name` 对齐选择当前上市股票名称；如果其它字段也不同、stock basic 名称未命中或命中不唯一，继续阻断。
 
 相邻区间 gap 前置审计：
 
@@ -334,7 +335,7 @@ raw materialization metadata：
 | source system | `DERIVED` |
 | data contract | `standardized_namechange_event_timeline_full_snapshot` |
 | partitions | 无 |
-| deps | `raw_tushare_namechange` |
+| deps | `raw_tushare_namechange`、`silver_stock_basic` |
 | path | `/Volumes/datasource/data_lake/silver/basic/namechange/full/part-000.parquet` |
 
 silver 字段契约：
@@ -357,7 +358,7 @@ silver 转换规则：
 5. 不保留旧湖-only 记录，不做旧湖 correction。
 6. 使用 `latest_announcement_timeline_v2` 生成标准名称时间线。
 7. 同一 `ts_code + start_date` 下，选择 `ann_date` 最新的公告版本；`ann_date` 为空视为低优先级。
-8. 同一 `ts_code + start_date + ann_date` 下仍有多行时，优先选择带 `end_date` 的版本；若同名候选只存在原因或结束日差异，则按 v2 同名裁决规则处理；如果仍无法唯一确定，直接失败。
+8. 同一 `ts_code + start_date + ann_date` 下仍有多行时，优先选择带 `end_date` 的版本；若同名候选只存在原因或结束日差异，则按 v2 同名裁决规则处理；若不同名候选只有 `name` 不同且其它字段完全一致，则按 `silver_stock_basic.name` 对齐选择；如果仍无法唯一确定，直接失败。
 9. 按 `ts_code/start_date` 生成时间线，连续相同 `name` 的噪声记录合并为一个区间。
 10. 如果当前段源 `end_date` 为空，或源 `end_date >= 下一段 start_date`，则用 `下一段 start_date - 1 day` 闭合当前段，避免 overlap。
 11. 如果当前段源 `end_date < 下一段 start_date`，保留源 `end_date`，允许中间存在 gap。
@@ -380,6 +381,7 @@ silver materialization metadata：
 | `duplicate_removed_count` | silver 端发现并移除的完全重复行数，正常应为 0 |
 | `open_interval_count` | `end_date IS NULL` 行数，仅观测 |
 | `canonicalization_rule_version` | 固定为 `latest_announcement_timeline_v2` |
+| `diff_name_same_start_stock_basic_resolved_count` | v2 规则中“除名称外完全一致”的不同名称冲突按 `silver_stock_basic.name` 自动裁决的数量 |
 | `same_name_same_end_reason_resolved_count` | v2 规则中同名同区间原因差异被自动裁决的数量 |
 | `same_name_diff_end_resolved_count` | v2 规则中同名不同结束日被自动裁决的数量 |
 | `unresolved_interval_conflict_count` | 归并后仍无法解释的区间矛盾数量；必须为 0 |
