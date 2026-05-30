@@ -177,8 +177,10 @@ wealth/src/pages/stock-detail/
 3. [ ] hover 十字线可用。
 4. [ ] tooltip 内容可见。
 5. [ ] tooltip 换边符合 Showcase：靠右时固定在 K 线区左侧安全位置，靠左时固定在右侧安全位置，不跟随十字线贴边。
-6. [ ] MA / BOLL 可切换。
-7. [ ] 周期按钮 active 状态正确。
+6. [ ] 默认 latest-value/price-line 彩条已关闭，不能把最新值固定标签当成坐标浮标。
+7. [ ] Y 轴浮标由 `subscribeCrosshairMove` 驱动，随鼠标所在 panel 的 Y 坐标变化。
+8. [ ] MA / BOLL 可切换。
+9. [ ] 周期按钮 active 状态正确。
 
 ### 6.4 右侧信息栏
 
@@ -302,3 +304,4 @@ npm run build
 |---|---|---|---|
 | v1 | 2026-05-30 | 初版：冻结股票详情页编码前门禁与 TopMarketBar 共享前置任务 | Codex |
 | v1.1 | 2026-05-30 | 回填路由与 `lightweight-charts` 拍板结论 | Codex |
+| v1.2 | 2026-05-30 | 补充默认 latest-value 彩条关闭与 Y 轴浮标门禁 | Codex |

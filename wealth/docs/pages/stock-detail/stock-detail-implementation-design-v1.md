@@ -270,12 +270,14 @@ wealth/src/
 2. 图表实现路线已确认采用 “TradingView 优先，canvas 兜底”。
 3. 首轮明确使用 `lightweight-charts` 完成 K 线、成交量、MACD、KDJ 的基础绘制和联动。
 4. 对 TradingView 难以原样覆盖的区域，优先通过外层 React 组件和 CSS 覆盖层精修，包括工具栏、tooltip、crosshair、指标栏、右侧轴视觉和面板比例。
-5. 只有当以下关键项经过验证仍不可控时，才允许退回本地 canvas：
+5. `lightweight-charts` 默认的 series 最新值标签不得直接作为页面坐标浮标使用；K 线、均线、MACD、成交量、KDJ 等 series 必须关闭默认 latest-value/price-line 标签，避免出现固定在最新数据点的彩色值条。
+6. 坐标轴浮标必须由 `subscribeCrosshairMove` 驱动，随鼠标所在 panel 的 Y 坐标变化；视觉使用品牌金弱背景，不使用红绿，避免与涨跌含义冲突。
+7. 只有当以下关键项经过验证仍不可控时，才允许退回本地 canvas：
    - 四图 crosshair 联动无法稳定实现；
    - 图表面板比例、右侧坐标轴宽度或底部时间轴无法贴近 Showcase；
    - tooltip / 浮标 / 指标覆盖层无法与设计 token 对齐；
    - TradingView 默认交互或品牌元素无法按本项目设计隐藏或约束。
-6. 若触发 canvas 兜底，必须先记录失败证据和影响面，不能直接改实现路线。
+8. 若触发 canvas 兜底，必须先记录失败证据和影响面，不能直接改实现路线。
 
 ### 5.6 `StockInfoRail`
 
@@ -406,7 +408,8 @@ npm run build
 4. 实现周期和 overlay 切换。
 5. 对照 Showcase 逐步精修图表尺寸、坐标、网格、字体、tooltip 与面板比例。
 6. tooltip 换边口径必须与 Showcase 对齐：鼠标靠近 K 线区右侧时，tooltip 固定出现在 K 线主图区左侧安全位置；鼠标靠近左侧时，tooltip 固定出现在右侧安全位置。它不是贴着十字线左侧浮动。
-7. 若 TradingView 路线无法满足关键高保真项，按“证据 -> 评审 -> canvas 兜底”的顺序处理。
+7. 关闭 `lightweight-charts` 默认 latest-value/price-line 标签，改由 `subscribeCrosshairMove` 输出当前 panel 的 Y 轴浮标。
+8. 若 TradingView 路线无法满足关键高保真项，按“证据 -> 评审 -> canvas 兜底”的顺序处理。
 
 ### M3：右侧信息栏
 
@@ -457,3 +460,4 @@ npm run build
 |---|---|---|---|
 | v1 | 2026-05-30 | 初版：冻结股票详情页实现分层与 TopMarketBar 共享抽象任务 | Codex |
 | v1.1 | 2026-05-30 | 回填路由与 `lightweight-charts` 拍板结论，并补充当前代码审计结果 | Codex |
+| v1.2 | 2026-05-30 | 明确关闭默认 latest-value 彩条，并用 `subscribeCrosshairMove` 承接 Y 轴浮标 | Codex |

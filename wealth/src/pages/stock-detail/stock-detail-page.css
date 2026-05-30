@@ -259,6 +259,27 @@
   width: 100%;
 }
 
+.chart-axis-float-label {
+  align-items: center;
+  background: rgba(247, 199, 107, 0.16);
+  border: 1px solid rgba(247, 199, 107, 0.34);
+  border-radius: 5px;
+  box-shadow: 0 8px 18px rgba(0, 0, 0, 0.24);
+  color: var(--cs-color-text-primary);
+  display: inline-flex;
+  font-family: var(--cs-font-family-number);
+  font-size: 11px;
+  height: 20px;
+  justify-content: center;
+  min-width: 54px;
+  padding: 0 6px;
+  pointer-events: none;
+  position: absolute;
+  right: 8px;
+  transform: translateY(-50%);
+  z-index: 7;
+}
+
 .kline-tooltip {
   background: var(--cs-color-chart-tooltip-bg);
   border: 1px solid var(--cs-color-chart-tooltip-border);

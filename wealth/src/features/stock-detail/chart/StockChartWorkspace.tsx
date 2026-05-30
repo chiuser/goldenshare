@@ -7,6 +7,8 @@ import {
   LineSeries,
   createChart,
   type IChartApi,
+  type ISeriesApi,
+  type SeriesType,
   type Time,
 } from "lightweight-charts";
 
@@ -25,6 +27,14 @@ interface ChartRefs {
   macd: HTMLDivElement | null;
   volume: HTMLDivElement | null;
   kdj: HTMLDivElement | null;
+}
+
+type ChartPanelKey = keyof ChartRefs;
+
+interface AxisFloatLabelState {
+  panel: ChartPanelKey;
+  top: number;
+  value: string;
 }
 
 const chartColors = {
@@ -53,8 +63,8 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
     },
     crosshair: {
       mode: CrosshairMode.Normal,
-      vertLine: { color: "rgba(247, 199, 107, 0.72)", labelBackgroundColor: "#1e293b" },
-      horzLine: { color: "rgba(247, 199, 107, 0.52)", labelBackgroundColor: "#1e293b" },
+      vertLine: { color: "rgba(247, 199, 107, 0.72)", labelBackgroundColor: "#1e293b", labelVisible: false },
+      horzLine: { color: "rgba(247, 199, 107, 0.52)", labelBackgroundColor: "#1e293b", labelVisible: false },
     },
     rightPriceScale: {
       borderColor: chartColors.axis,
@@ -76,6 +86,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
   const [overlay, setOverlay] = useState<StockMainOverlay>("MA");
   const [hoverIndex, setHoverIndex] = useState(candles.length - 1);
   const [tooltipSide, setTooltipSide] = useState<"left" | "right">("right");
+  const [axisFloatLabel, setAxisFloatLabel] = useState<AxisFloatLabelState | null>(null);
   const latest = candles[hoverIndex] ?? candles.at(-1);
 
   const candleData = useMemo(
@@ -110,6 +121,8 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       borderDownColor: chartColors.down,
       borderUpColor: chartColors.up,
       downColor: "rgba(24, 208, 146, 0.78)",
+      lastValueVisible: false,
+      priceLineVisible: false,
       wickDownColor: chartColors.down,
       wickUpColor: chartColors.up,
       upColor: "rgba(255, 77, 90, 0.82)",
@@ -117,8 +130,9 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
     klineSeries.setData(candleData);
 
     const addLine = (chart: IChartApi, color: string, key: keyof StockCandlePoint) => {
-      const series = chart.addSeries(LineSeries, { color, lineWidth: 1, priceLineVisible: false });
+      const series = chart.addSeries(LineSeries, { color, lastValueVisible: false, lineWidth: 1, priceLineVisible: false });
       series.setData(candles.map((point) => ({ time: point.time as Time, value: Number(point[key]) })));
+      return series;
     };
 
     if (overlay === "MA") {
@@ -133,6 +147,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
 
     const volumeSeries = volumeChart.addSeries(HistogramSeries, {
       base: 0,
+      lastValueVisible: false,
       priceFormat: { type: "volume" },
       priceLineVisible: false,
     });
@@ -144,7 +159,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       })),
     );
 
-    const macdBars = macdChart.addSeries(HistogramSeries, { base: 0, priceLineVisible: false });
+    const macdBars = macdChart.addSeries(HistogramSeries, { base: 0, lastValueVisible: false, priceLineVisible: false });
     macdBars.setData(
       candles.map((point) => ({
         time: point.time as Time,
@@ -155,18 +170,52 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
     addLine(macdChart, chartColors.brand, "dif");
     addLine(macdChart, chartColors.blue, "dea");
 
-    addLine(kdjChart, chartColors.brand, "k");
+    const kdjReferenceLine = addLine(kdjChart, chartColors.brand, "k");
     addLine(kdjChart, chartColors.blue, "d");
     addLine(kdjChart, chartColors.purple, "j");
+
+    const updateAxisFloatLabel = (
+      panel: ChartPanelKey,
+      series: ISeriesApi<SeriesType>,
+      pointY: number | undefined,
+      formatter: (value: number) => string,
+    ) => {
+      const host = chartRefs.current[panel];
+      if (!host || pointY === undefined || pointY < 0 || pointY > host.clientHeight) {
+        setAxisFloatLabel(null);
+        return;
+      }
+      const price = series.coordinateToPrice(pointY);
+      const numericPrice = Number(price);
+      if (!Number.isFinite(numericPrice)) {
+        setAxisFloatLabel(null);
+        return;
+      }
+      const labelHeight = 20;
+      const top = Math.min(Math.max(pointY, labelHeight / 2), Math.max(labelHeight / 2, host.clientHeight - labelHeight / 2));
+      setAxisFloatLabel({ panel, top, value: formatter(numericPrice) });
+    };
 
     klineChart.subscribeCrosshairMove((param) => {
       if (param.point && chartRefs.current.kline) {
         const width = chartRefs.current.kline.clientWidth;
         setTooltipSide(param.point.x > width * 0.62 ? "left" : "right");
       }
-      if (!param.time) return;
+      updateAxisFloatLabel("kline", klineSeries, param.point?.y, formatPriceAxisValue);
+      if (!param.time) {
+        return;
+      }
       const nextIndex = candles.findIndex((point) => point.time === param.time);
       if (nextIndex >= 0) setHoverIndex(nextIndex);
+    });
+    macdChart.subscribeCrosshairMove((param) => {
+      updateAxisFloatLabel("macd", macdBars, param.point?.y, formatSignedAxisValue);
+    });
+    volumeChart.subscribeCrosshairMove((param) => {
+      updateAxisFloatLabel("volume", volumeSeries, param.point?.y, formatCompactAxisValue);
+    });
+    kdjChart.subscribeCrosshairMove((param) => {
+      updateAxisFloatLabel("kdj", kdjReferenceLine, param.point?.y, formatPriceAxisValue);
     });
 
     charts.forEach((chart) => chart.timeScale().fitContent());
@@ -202,12 +251,14 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
             }}
           />
           {latest ? <KlineTooltip point={latest} side={tooltipSide} /> : null}
+          {axisFloatLabel?.panel === "kline" ? <AxisFloatLabel label={axisFloatLabel} /> : null}
         </div>
 
         <IndicatorChartPanel
           hostRef={(node) => {
             chartRefs.current.macd = node;
           }}
+          axisFloatLabel={axisFloatLabel?.panel === "macd" ? axisFloatLabel : null}
           metrics={
             latest
               ? [
@@ -223,6 +274,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
           hostRef={(node) => {
             chartRefs.current.volume = node;
           }}
+          axisFloatLabel={axisFloatLabel?.panel === "volume" ? axisFloatLabel : null}
           metrics={latest ? [["总量", latest.volume], ["MA5", latest.ma5], ["MA10", latest.ma15]] : []}
           title="成交量"
         />
@@ -230,6 +282,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
           hostRef={(node) => {
             chartRefs.current.kdj = node;
           }}
+          axisFloatLabel={axisFloatLabel?.panel === "kdj" ? axisFloatLabel : null}
           metrics={
             latest
               ? [
@@ -267,6 +320,29 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
         </div>
       </div>
     </section>
+  );
+}
+
+function formatPriceAxisValue(value: number): string {
+  return value.toFixed(2);
+}
+
+function formatSignedAxisValue(value: number): string {
+  return value.toFixed(2);
+}
+
+function formatCompactAxisValue(value: number): string {
+  const absValue = Math.abs(value);
+  if (absValue >= 1_000_000) return `${(value / 1_000_000).toFixed(2)}M`;
+  if (absValue >= 1_000) return `${(value / 1_000).toFixed(2)}K`;
+  return value.toFixed(0);
+}
+
+function AxisFloatLabel({ label }: { label: AxisFloatLabelState }) {
+  return (
+    <span aria-label="图表Y轴浮标" className="chart-axis-float-label" style={{ top: label.top }}>
+      {label.value}
+    </span>
   );
 }
 
@@ -329,10 +405,12 @@ function KlineTooltip({ point, side }: { point: StockCandlePoint; side: "left" |
 }
 
 function IndicatorChartPanel({
+  axisFloatLabel,
   hostRef,
   metrics,
   title,
 }: {
+  axisFloatLabel?: AxisFloatLabelState | null;
   hostRef: (node: HTMLDivElement | null) => void;
   metrics: [string, number][];
   title: string;
@@ -351,6 +429,7 @@ function IndicatorChartPanel({
         </button>
       </div>
       <div className="chart-host" ref={hostRef} />
+      {axisFloatLabel ? <AxisFloatLabel label={axisFloatLabel} /> : null}
     </div>
   );
 }
