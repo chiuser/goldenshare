@@ -1,5 +1,6 @@
 .stock-detail-app {
   --stock-detail-breadcrumb-action-bar-height: 42px;
+  --stock-detail-chart-panel-header-height: 28px;
   --stock-detail-chart-toolbar-height: 44px;
   --stock-detail-right-rail-min-width: 344px;
   --stock-detail-right-rail-max-width: 408px;
@@ -196,6 +197,8 @@
 
 .stock-detail-chart-panel {
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
+  display: grid;
+  grid-template-rows: var(--stock-detail-chart-panel-header-height) minmax(0, 1fr);
   min-height: 0;
   position: relative;
 }
@@ -209,14 +212,11 @@
   background: linear-gradient(180deg, rgba(12, 19, 33, 0.94), rgba(12, 19, 33, 0.64));
   display: flex;
   gap: 8px;
-  height: 28px;
-  left: 0;
+  height: var(--stock-detail-chart-panel-header-height);
   overflow: hidden;
   padding: 0 9px;
   pointer-events: none;
-  position: absolute;
-  right: 0;
-  top: 0;
+  position: relative;
   z-index: 5;
 }
 

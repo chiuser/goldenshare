@@ -97,7 +97,7 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
     },
     timeScale: {
       borderColor: chartColors.axis,
-      rightOffset: 4,
+      rightOffset: 1,
       timeVisible: false,
       visible: showTimeScale,
     },
@@ -410,7 +410,7 @@ function formatCompactAxisValue(value: number): string {
 
 function AxisFloatLabel({ label }: { label: AxisFloatLabelState }) {
   return (
-    <span aria-label="图表Y轴浮标" className="chart-axis-float-label" style={{ top: label.top }}>
+    <span aria-label="图表Y轴浮标" className="chart-axis-float-label" style={{ top: `calc(var(--stock-detail-chart-panel-header-height) + ${label.top}px)` }}>
       {label.value}
     </span>
   );

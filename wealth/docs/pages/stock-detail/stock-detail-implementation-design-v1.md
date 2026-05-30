@@ -275,12 +275,14 @@ wealth/src/
 7. 十字坐标线必须在 K 线主图、MACD、成交量、KDJ 四个 panel 上按同一横轴时间同步显示；数据同步使用 `setCrosshairPosition/clearCrosshairPosition`，视觉竖线使用图表工作台外层共享 overlay，避免四个独立 chart 实例因内部坐标轴宽度差异产生像素错位。
 8. 十字坐标线视觉使用更密的短虚线/点线，避免长虚线造成终端感不足。
 9. 四个 chart 的 `rightPriceScale.minimumWidth` 必须使用同一固定宽度，确保 MACD、成交量、KDJ 与 K 线主图右侧坐标轴和绘图区右边界对齐；不得依赖 `lightweight-charts` 按各 panel 文本自动计算轴宽。
-10. 只有当以下关键项经过验证仍不可控时，才允许退回本地 canvas：
+10. 各 panel 的指标信息条必须是正常布局行，不得绝对定位覆盖图表 canvas；图表区域应从指标信息条下方紧贴开始。
+11. `timeScale.rightOffset` 只能保留少量安全留白，禁止在最右侧留下明显空白区。
+12. 只有当以下关键项经过验证仍不可控时，才允许退回本地 canvas：
    - 四图 crosshair 联动无法稳定实现；
    - 图表面板比例、右侧坐标轴宽度或底部时间轴无法贴近 Showcase；
    - tooltip / 浮标 / 指标覆盖层无法与设计 token 对齐；
    - TradingView 默认交互或品牌元素无法按本项目设计隐藏或约束。
-11. 若触发 canvas 兜底，必须先记录失败证据和影响面，不能直接改实现路线。
+13. 若触发 canvas 兜底，必须先记录失败证据和影响面，不能直接改实现路线。
 
 ### 5.6 `StockInfoRail`
 
@@ -415,8 +417,10 @@ npm run build
 8. 使用 `setCrosshairPosition/clearCrosshairPosition` 同步四个图表 panel 的同一横轴时间数据状态。
 9. 使用图表工作台外层共享 overlay 绘制贯穿四个 panel 的竖向十字线，原生 chart 竖线不得作为最终视觉来源。
 10. 四个 chart 统一 `rightPriceScale.minimumWidth`，保证右侧坐标轴和绘图区右边界一致。
-11. 十字线线型使用更密的短虚线/点线。
-12. 若 TradingView 路线无法满足关键高保真项，按“证据 -> 评审 -> canvas 兜底”的顺序处理。
+11. 指标信息条以正常布局行承载，不覆盖 MACD、成交量、KDJ 等指标图形。
+12. 右侧时间轴留白保持极小，不允许出现明显空白段。
+13. 十字线线型使用更密的短虚线/点线。
+14. 若 TradingView 路线无法满足关键高保真项，按“证据 -> 评审 -> canvas 兜底”的顺序处理。
 
 ### M3：右侧信息栏
 
@@ -470,3 +474,4 @@ npm run build
 | v1.2 | 2026-05-30 | 明确关闭默认 latest-value 彩条，并用 `subscribeCrosshairMove` 承接 Y 轴浮标 | Codex |
 | v1.3 | 2026-05-30 | 补充四图同一横轴时间 crosshair 同步与短虚线视觉口径 | Codex |
 | v1.4 | 2026-05-30 | 补充共享竖向 crosshair overlay 与统一右侧坐标轴宽度口径 | Codex |
+| v1.5 | 2026-05-30 | 补充指标信息条不覆盖图表和右侧留白收敛口径 | Codex |
