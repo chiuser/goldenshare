@@ -838,10 +838,7 @@ def _raw_content_checks(
             WHERE ts_code IS NULL OR trim(ts_code) = ''
                OR open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
                OR vwap IS NULL
-               OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0 OR vwap <= 0
-               OR high < low
-               OR open < low OR open > high
-               OR close < low OR close > high
+               OR open < 0 OR high < 0 OR low < 0 OR close < 0 OR vwap < 0
                OR vol IS NULL OR vol < 0
                OR amount IS NULL OR amount < 0
             """

@@ -10,6 +10,7 @@ from orchestrator.defs.bootstrap.stk_mins_migration import (
     RAW_STK_MINS_CHECKS,
     SILVER_STOCK_IDENTITY_MAP_ASSET_KEY,
     SILVER_STOCK_IDENTITY_MAP_CHECKS,
+    audit_stk_mins_raw_partition,
     migrate_stk_mins_raw_history,
     migrate_stock_identity_map_snapshot,
     plan_stk_mins_migration,
@@ -315,6 +316,78 @@ class StkMinsMigrationTests(unittest.TestCase):
                     partition_keys=[PARTITION_KEY],
                     dry_run=False,
                 )
+
+    def test_raw_price_sanity_allows_legacy_zero_low(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            lake_root = root / "data_lake"
+            raw_path = raw_stk_mins_path(lake_root, 1, PARTITION_KEY)
+            raw_path.parent.mkdir(parents=True, exist_ok=True)
+            with duckdb.connect(database=":memory:") as connection:
+                connection.execute(
+                    f"""
+                    COPY (
+                      SELECT
+                        '600515.SH'::VARCHAR AS ts_code,
+                        1::INTEGER AS freq,
+                        TIMESTAMP '2026-05-07 09:32:00' AS trade_time,
+                        5.83::DOUBLE AS open,
+                        5.83::DOUBLE AS close,
+                        5.83::DOUBLE AS high,
+                        0.0::DOUBLE AS low,
+                        10000::BIGINT AS vol,
+                        58300.0::DOUBLE AS amount,
+                        NULL::VARCHAR AS exchange,
+                        5.83::DOUBLE AS vwap
+                    ) TO {duckdb_string(raw_path)} (FORMAT PARQUET)
+                    """
+                )
+
+            audit = audit_stk_mins_raw_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=1,
+                partition_key=PARTITION_KEY,
+                registered_partition_keys={PARTITION_KEY},
+            )
+
+        self.assertTrue(audit.passed)
+
+    def test_raw_price_sanity_allows_legacy_zero_quote_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            lake_root = root / "data_lake"
+            raw_path = raw_stk_mins_path(lake_root, 5, PARTITION_KEY)
+            raw_path.parent.mkdir(parents=True, exist_ok=True)
+            with duckdb.connect(database=":memory:") as connection:
+                connection.execute(
+                    f"""
+                    COPY (
+                      SELECT
+                        '000007.SZ'::VARCHAR AS ts_code,
+                        5::INTEGER AS freq,
+                        TIMESTAMP '2026-05-07 09:35:00' AS trade_time,
+                        0.0::DOUBLE AS open,
+                        0.0::DOUBLE AS close,
+                        0.0::DOUBLE AS high,
+                        0.0::DOUBLE AS low,
+                        0::BIGINT AS vol,
+                        0.0::DOUBLE AS amount,
+                        NULL::VARCHAR AS exchange,
+                        0.0::DOUBLE AS vwap
+                    ) TO {duckdb_string(raw_path)} (FORMAT PARQUET)
+                    """
+                )
+
+            audit = audit_stk_mins_raw_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=5,
+                partition_key=PARTITION_KEY,
+                registered_partition_keys={PARTITION_KEY},
+            )
+
+        self.assertTrue(audit.passed)
 
     def test_reports_identity_map_events_and_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
