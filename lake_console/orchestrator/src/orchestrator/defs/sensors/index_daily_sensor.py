@@ -15,6 +15,12 @@ from orchestrator.defs.run_contracts.cursors import (
     sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from orchestrator.source_readiness.tushare.index_daily import (
     check_index_daily_source_readiness,
@@ -140,6 +146,11 @@ def _cursor_payload(
     job_name="index_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.INDEX_TOPIC,
+        target_layer=SensorTargetLayer.RAW,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     required_resource_keys={"lake_root", "duckdb", "tushare"},
     description="Tushare 指数日线源站 ready 后，触发 raw-by-code 更新任务。",
 )

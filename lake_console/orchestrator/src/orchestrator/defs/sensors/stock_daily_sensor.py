@@ -8,6 +8,12 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     RAW_STOCK_DAILY_ASSET_KEY,
@@ -74,6 +80,11 @@ def _cursor_payload(
     job_name="stock_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.QUOTE_DATA,
+        target_layer=SensorTargetLayer.RAW_SILVER,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     required_resource_keys={"tushare"},
     description="股票基础信息、停复牌和源站日线就绪后，触发日线更新任务。",
 )

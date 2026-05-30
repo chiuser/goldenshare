@@ -2,6 +2,12 @@ import ast
 import unittest
 from pathlib import Path
 
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+)
+
 
 DEFS_DIR = Path("src/orchestrator/defs")
 ASSETS_DIR = DEFS_DIR / "assets"
@@ -30,6 +36,13 @@ LEGACY_METADATA_KEYS = {
     "data_contract",
 }
 
+SENSOR_DEFINITION_CALL_NAMES = {
+    "sensor",
+    "run_status_sensor",
+    "run_failure_sensor",
+    "AutomationConditionSensorDefinition",
+}
+
 
 def _python_files(directory: Path) -> tuple[Path, ...]:
     return tuple(
@@ -38,7 +51,9 @@ def _python_files(directory: Path) -> tuple[Path, ...]:
 
 
 def _sensor_definition_files() -> tuple[Path, ...]:
-    return tuple(path for path in _python_files(SENSORS_DIR) if path.name.endswith("_sensor.py"))
+    return tuple(
+        path for path in _python_files(SENSORS_DIR) if path.name.endswith("_sensor.py")
+    )
 
 
 def _parse_python_file(path: Path) -> ast.Module:
@@ -55,6 +70,12 @@ def _call_name(node: ast.AST) -> str | None:
 
 def _is_call_named(node: ast.AST, name: str) -> bool:
     return isinstance(node, ast.Call) and _call_name(node.func) == name
+
+
+def _is_sensor_definition_call(node: ast.AST) -> bool:
+    return isinstance(node, ast.Call) and (
+        _call_name(node.func) in SENSOR_DEFINITION_CALL_NAMES
+    )
 
 
 def _keyword_value(call: ast.Call, keyword_name: str) -> ast.AST | None:
@@ -79,6 +100,16 @@ def _dict_keys_for_keyword(call: ast.Call, keyword_name: str) -> set[str]:
 
 def _node_location(path: Path, node: ast.AST) -> str:
     return f"{path}:{getattr(node, 'lineno', '?')}"
+
+
+def _enum_attribute(node: ast.AST, enum_name: str) -> str | None:
+    if not isinstance(node, ast.Attribute):
+        return None
+    if not isinstance(node.value, ast.Name):
+        return None
+    if node.value.id != enum_name:
+        return None
+    return node.attr
 
 
 def _check_metadata_builder_names(tree: ast.Module) -> set[str]:
@@ -115,9 +146,17 @@ class RunContractStaticGateTests(unittest.TestCase):
                             f"{_node_location(path, node)} constructs RunRequest directly"
                         )
                     for keyword in node.keywords:
-                        if keyword.arg in {"tags", "run_tags"}:
+                        if keyword.arg == "run_tags":
                             issues.append(
-                                f"{_node_location(path, node)} writes {keyword.arg}"
+                                f"{_node_location(path, node)} writes run_tags"
+                            )
+                        elif keyword.arg == "tags" and not (
+                            _is_sensor_definition_call(node)
+                            and _is_call_named(keyword.value, "build_sensor_tags")
+                        ):
+                            issues.append(
+                                f"{_node_location(path, node)} writes tags without "
+                                "build_sensor_tags(...)"
                             )
                 elif isinstance(node, ast.Attribute):
                     if (
@@ -140,6 +179,54 @@ class RunContractStaticGateTests(unittest.TestCase):
                             f"literal {node.value!r}"
                         )
 
+        self.assertEqual(issues, [])
+
+    def test_sensor_definitions_use_registered_definition_tags(self) -> None:
+        issues = []
+        sensor_definition_count = 0
+
+        for path in _sensor_definition_files():
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if not _is_sensor_definition_call(node):
+                    continue
+                sensor_definition_count += 1
+                tags_value = _keyword_value(node, "tags")
+                if not _is_call_named(tags_value, "build_sensor_tags"):
+                    issues.append(
+                        f"{_node_location(path, node)} sensor definition does not "
+                        "use build_sensor_tags(...)"
+                    )
+                    continue
+
+                sensor_domain = _keyword_value(tags_value, "sensor_domain")
+                target_layer = _keyword_value(tags_value, "target_layer")
+                role = _keyword_value(tags_value, "role")
+
+                domain_member = _enum_attribute(sensor_domain, "SensorDomain")
+                target_layer_member = _enum_attribute(
+                    target_layer,
+                    "SensorTargetLayer",
+                )
+                role_member = _enum_attribute(role, "SensorRole")
+
+                if domain_member not in SensorDomain.__members__:
+                    issues.append(
+                        f"{_node_location(path, sensor_domain or node)} uses "
+                        "unregistered SensorDomain"
+                    )
+                if target_layer_member not in SensorTargetLayer.__members__:
+                    issues.append(
+                        f"{_node_location(path, target_layer or node)} uses "
+                        "unregistered SensorTargetLayer"
+                    )
+                if role_member not in SensorRole.__members__:
+                    issues.append(
+                        f"{_node_location(path, role or node)} uses "
+                        "unregistered SensorRole"
+                    )
+
+        self.assertEqual(sensor_definition_count, 17)
         self.assertEqual(issues, [])
 
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:

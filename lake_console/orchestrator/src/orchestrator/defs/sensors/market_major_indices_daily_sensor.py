@@ -8,6 +8,12 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.market_major_indices_input_readiness import (
     MarketMajorIndicesInputReadiness,
     check_market_major_indices_inputs_for_trade_date,
@@ -175,6 +181,11 @@ def _cursor_payload(
     job_name="market_major_indices_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.INDEX_TOPIC,
+        target_layer=SensorTargetLayer.GOLD,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     required_resource_keys={"lake_root", "duckdb"},
     description="指数日线 silver 和主要指数 seed 输入 ready 后，触发主要指数日线 gold 分区生成任务。",
 )

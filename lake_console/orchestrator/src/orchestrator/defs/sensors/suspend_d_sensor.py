@@ -8,6 +8,12 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     RAW_SUSPEND_D_ASSET_KEY,
@@ -51,6 +57,11 @@ def _cursor_payload(
     job_name="suspend_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.QUOTE_DATA,
+        target_layer=SensorTargetLayer.RAW_SILVER,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     description="停复牌分区缺失时，触发停复牌更新任务。",
 )
 def suspend_d_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:

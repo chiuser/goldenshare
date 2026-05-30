@@ -12,6 +12,12 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 
@@ -255,6 +261,11 @@ def build_trade_day_partition_registration_result(
 @dg.sensor(
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.BASIC_DATA,
+        target_layer=SensorTargetLayer.PARTITION,
+        role=SensorRole.PARTITION_REGISTRATION,
+    ),
     required_resource_keys={"lake_root", "duckdb"},
     description="注册全量A股交易日备份分区，不触发数据更新任务。",
 )

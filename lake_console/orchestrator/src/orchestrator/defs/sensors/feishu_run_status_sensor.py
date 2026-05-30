@@ -3,6 +3,12 @@ from collections.abc import Mapping
 import dagster as dg
 
 from orchestrator.defs.notifications.feishu import FeishuWebhookResource, truncate_text
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 
 
 DAGSTER_PARTITION_TAG = "dagster/partition"
@@ -114,6 +120,11 @@ def _send_run_status_alert(
 @dg.run_status_sensor(
     run_status=dg.DagsterRunStatus.STARTED,
     default_status=dg.DefaultSensorStatus.STOPPED,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.PLATFORM_OBSERVABILITY,
+        target_layer=SensorTargetLayer.PLATFORM,
+        role=SensorRole.RUN_STATUS_NOTIFICATION,
+    ),
     description="Dagster run 启动时发送飞书自定义机器人告警。",
 )
 def feishu_run_started_sensor(
@@ -130,6 +141,11 @@ def feishu_run_started_sensor(
 @dg.run_status_sensor(
     run_status=dg.DagsterRunStatus.SUCCESS,
     default_status=dg.DefaultSensorStatus.STOPPED,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.PLATFORM_OBSERVABILITY,
+        target_layer=SensorTargetLayer.PLATFORM,
+        role=SensorRole.RUN_STATUS_NOTIFICATION,
+    ),
     description="Dagster run 成功时发送飞书自定义机器人告警。",
 )
 def feishu_run_succeeded_sensor(
@@ -145,6 +161,11 @@ def feishu_run_succeeded_sensor(
 
 @dg.run_failure_sensor(
     default_status=dg.DefaultSensorStatus.STOPPED,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.PLATFORM_OBSERVABILITY,
+        target_layer=SensorTargetLayer.PLATFORM,
+        role=SensorRole.RUN_STATUS_NOTIFICATION,
+    ),
     description="Dagster run 失败时发送飞书自定义机器人告警。",
 )
 def feishu_run_failed_sensor(

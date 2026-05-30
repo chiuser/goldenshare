@@ -258,17 +258,17 @@
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项第一轮已收口；M1-M8 已实施</div>
+      <div class="chip"><strong>文档状态</strong>治理专项第一轮已收口；M1-M8 与 sensor definition tags 已实施</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
       <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
-      <div class="chip"><strong>更新日期</strong>2026-05-28</div>
+      <div class="chip"><strong>更新日期</strong>2026-05-30</div>
     </div>
   </header>
 
   <section>
     <h2>1. 背景与问题</h2>
     <p>
-      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M8 已先处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层、cursor 标准化和静态门禁。
+      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M8 已先处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层、cursor 标准化和静态门禁；后续已补充 sensor definition tags，用于 Automation 页面搜索和过滤。
     </p>
     <p>
       这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
@@ -471,8 +471,8 @@
       </tr>
       <tr>
         <td><code>quote_data</code>（行情数据）</td>
-        <td><code>daily</code>、<code>suspend_d</code></td>
-        <td>本地 Tushare 文档把 A 股日线行情和每日停复牌信息都放在 <code>股票数据 / 行情数据</code> 下。停复牌不单独造新分类，避免偏离既有文档目录体系。</td>
+        <td><code>daily</code>、<code>suspend_d</code>、<code>adj_factor</code></td>
+        <td>本地 Tushare 文档把 A 股日线行情、每日停复牌信息和复权因子都放在股票行情链路下。停复牌和复权因子不单独造新分类，避免偏离既有文档目录体系。</td>
       </tr>
       <tr>
         <td><code>index_topic</code>（指数专题）</td>
@@ -499,6 +499,51 @@
     <div class="warning">
       <strong>暂不定义的 asset tags：</strong><code>owner</code>、<code>sensitivity</code>、<code>source_system</code>、<code>freshness_class</code> 第一版不进入 asset tags。原因分别是：当前没有多 owner 运维流程；本地 lake 目前没有分级隐私治理；source 更适合作为 definition metadata；freshness 已由 checks/readiness 表达，提前做 tag 会形成重复口径。
     </div>
+
+    <h3>5.2 Sensor Definition Tags 第一版字段</h3>
+    <p>
+      Sensor definition tags 用于 Dagster Automation 页面搜索和过滤 sensor，不写入 run records，也不改变 sensor 的触发逻辑。Automation 页面仍按 code location 显示 <code>orchestrator</code> 折叠组；本项目只承诺通过 tags 过滤，不承诺目录式分组。
+    </p>
+    <div class="warning">
+      <strong>边界：</strong>sensor tags 不是 run tags。日期、分区、缺失数量、run 状态、cursor offset 和 Tushare 探测结果都不能进入 sensor definition tags；这类信息继续放在 cursor、metadata、SkipReason 或 Dagster 系统事件里。
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>是否必填</th>
+        <th>允许值</th>
+        <th>适用对象</th>
+        <th>定义原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>goldenshare/sensor_domain</code></td>
+        <td>是，所有正式 sensor definition 必填</td>
+        <td><code>basic_data</code>、<code>quote_data</code>、<code>index_topic</code>、<code>derived_metric</code>、<code>platform_observability</code></td>
+        <td>普通 sensor、run status sensor、run failure sensor、AutomationCondition sensor。</td>
+        <td>表达 sensor 归属的数据域或平台观测域。前四个值与 asset <code>goldenshare/data_domain</code> 对齐；<code>platform_observability</code> 是正式平台观测分类，用于飞书、Slack、Teams 等运行通知类 sensor。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/sensor_target_layer</code></td>
+        <td>是，所有正式 sensor definition 必填</td>
+        <td><code>partition</code>、<code>raw</code>、<code>silver</code>、<code>raw_silver</code>、<code>gold</code>、<code>serving</code>、<code>platform</code></td>
+        <td>所有正式 sensor definition。</td>
+        <td>表达 sensor 直接影响的目标层级。sensor 可能只注册分区、触发 raw/silver/gold/serving asset，也可能只做平台通知；不能硬塞进 asset layer。</td>
+      </tr>
+      <tr>
+        <td><code>goldenshare/sensor_role</code></td>
+        <td>是，所有正式 sensor definition 必填</td>
+        <td><code>partition_registration</code>、<code>asset_update</code>、<code>automation_condition</code>、<code>run_status_notification</code></td>
+        <td>所有正式 sensor definition。</td>
+        <td>表达 sensor 的职责类型，方便运营按“分区注册 / 资产更新 / 声明式自动化 / 运行通知”过滤，而不是靠名称猜用途。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      当前实现要求所有 sensor definition 的 tags 均通过 <code>defs/run_contracts/sensor_tags.py</code> 的 <code>build_sensor_tags(...)</code> 构造。新增或修改 sensor 时，必须同步更新分类方案文档和静态门禁。
+    </p>
   </section>
 
   <section>
@@ -1240,6 +1285,7 @@ ops:
 lake_console/orchestrator/src/orchestrator/defs/run_contracts/
   __init__.py
   asset_tags.py    # asset tag key、英文枚举值和构造函数
+  sensor_tags.py   # sensor definition tag key、英文枚举值和构造函数
   configs.py       # typed config 与 run_config 构造辅助
   requests.py      # 代码侧 RunRequest 构造，不能解决 UI 空白问题
   cursors.py       # cursor payload builder
@@ -1255,9 +1301,9 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </thead>
       <tbody>
       <tr>
-        <td>Sensor 禁止直接手写自定义 <code>tags={...}</code> 和深层 <code>run_config={...}</code>。</td>
-        <td>裸 dict 是当前口径扩散的主要来源。</td>
-        <td>新增静态检查脚本或扩展 docs/code integrity 检查。第一版 <code>RunRequest.tags</code> 不允许出现自定义 tags；需要 tags 时必须先更新本文档。</td>
+        <td>Sensor definition tags 必须来自 <code>sensor_tags.py</code>；sensor 仍禁止 <code>run_tags={...}</code>、裸 <code>tags</code> dict 和深层 <code>run_config={...}</code>。</td>
+        <td>Definition tags 服务 Automation 页面分类；run tags 和裸 dict 是运行契约扩散的主要来源，不能混用。</td>
+        <td>静态测试要求所有 active sensor definition 都带 <code>goldenshare/sensor_domain</code>、<code>goldenshare/sensor_target_layer</code>、<code>goldenshare/sensor_role</code>，且只能通过 <code>build_sensor_tags(...)</code> 构造。</td>
       </tr>
       <tr>
         <td>Asset tags 必须来自 <code>asset_tags.py</code>。</td>
@@ -1271,7 +1317,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td>新增字段必须先改本文档。</td>
-        <td>字段一旦进入 asset tags、run records、materialization metadata 或 cursor，就可能被下游依赖。</td>
+        <td>字段一旦进入 asset tags、sensor tags、run records、materialization metadata 或 cursor，就可能被下游依赖。</td>
         <td>PR/提交前检查文档是否同步；未登记字段不得进入正式代码。</td>
       </tr>
       </tbody>
@@ -1293,7 +1339,8 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
           -> M5 asset tags 与中文名映射接入
             -> M6 metadata 分层治理
               -> M7 cursor 标准化
-                -> M8 静态门禁与收尾审计</code></pre>
+                -> M8 静态门禁与收尾审计
+                  -> Sensor definition tags 分类收口</code></pre>
 
     <table>
       <thead>
@@ -1469,11 +1516,12 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>M8</code> 静态门禁与收尾审计</td>
-        <td>把治理规则变成可检查门禁，防止后续又散开。</td>
+        <td>把治理规则变成可检查门禁，防止后续又散开；后续补充 sensor definition tags 分类门禁。</td>
         <td>已实施；在 M3-M7 全部完成后收口。</td>
         <td><code>tests/test_run_contract_static_gates.py</code>、治理文档。</td>
         <td>
           静态检查禁止 sensor 裸写 cursor JSON、<code>RunRequest</code>、项目 run tags 和深层 run config；
+          sensor definition tags 必须来自 <code>build_sensor_tags(...)</code>；
           asset definition 的 <code>tags</code> / <code>metadata</code> 必须来自 helper；
           check metadata 必须经 <code>build_check_metadata</code>；
           asset/check metadata 不得裸写已治理旧 key。
@@ -1490,7 +1538,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
     </div>
     <div class="note">
       <strong>收口口径：</strong>M8 完成后，tags/config/metadata/cursor 第一轮治理专项已收口。
-      后续新增契约字段或放宽门禁，必须先登记到本文档，再接入对应静态检查；不得绕开 helper
+      Sensor definition tags 已作为后续分类补丁纳入同一套门禁。后续新增契约字段或放宽门禁，必须先登记到本文档，再接入对应静态检查；不得绕开 helper
       或在局部文件里重新发明临时字段。
     </div>
   </section>
@@ -1574,7 +1622,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
         <td>当前正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；ClickHouse serving asset 使用 <code>serving</code> layer；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
         <td>M5 覆盖 asset definition 层低基数分类；M6 已覆盖 definition/materialization/check 三层 metadata。旧历史 run metadata 不迁移。</td>
-        <td>M8 已把 metadata/cursor 等治理契约纳入静态门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
+        <td>M8 已把 metadata/cursor 等治理契约纳入静态门禁；后续补充的 sensor definition tags 也已纳入同一套门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
       </tr>
       </tbody>
     </table>

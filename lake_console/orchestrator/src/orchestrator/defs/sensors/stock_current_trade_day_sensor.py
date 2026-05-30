@@ -9,6 +9,12 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.cn_a_trade_day_sensor import is_sse_open_day
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
@@ -94,6 +100,11 @@ def _skip_reason(decision: StockCurrentTradeDayRegistrationDecision) -> str:
 @dg.sensor(
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.QUOTE_DATA,
+        target_layer=SensorTargetLayer.PARTITION,
+        role=SensorRole.PARTITION_REGISTRATION,
+    ),
     required_resource_keys={"lake_root", "duckdb"},
     description="每天 06:00 后注册当天股票当前交易日分区，不触发数据更新任务。",
 )

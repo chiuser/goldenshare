@@ -8,6 +8,12 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     IndexDailyRawFileReadiness,
     check_index_daily_raw_files_for_trade_date,
@@ -133,6 +139,11 @@ def _raw_file_readiness_cursor_fields(
     job_name="silver_index_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.INDEX_TOPIC,
+        target_layer=SensorTargetLayer.SILVER,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     required_resource_keys={"lake_root", "duckdb"},
     description="指数日线 raw-by-code 文件包含目标交易日数据后，触发 silver 分区生成任务。",
 )

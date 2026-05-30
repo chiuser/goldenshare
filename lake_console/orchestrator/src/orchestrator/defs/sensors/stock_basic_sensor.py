@@ -8,6 +8,12 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     status_payload,
@@ -48,6 +54,11 @@ def _cursor_payload(
     job_name="stock_basic_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.BASIC_DATA,
+        target_layer=SensorTargetLayer.RAW_SILVER,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     description="股票基础信息未满足最新交易日要求时，触发更新任务。",
 )
 def stock_basic_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:

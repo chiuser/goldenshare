@@ -8,6 +8,12 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SensorDomain,
+    SensorRole,
+    SensorTargetLayer,
+    build_sensor_tags,
+)
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
@@ -98,6 +104,11 @@ def _run_request_for_trade_date(trade_date: str):
     job_name="stock_adj_factor_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.QUOTE_DATA,
+        target_layer=SensorTargetLayer.RAW_SILVER,
+        role=SensorRole.ASSET_UPDATE,
+    ),
     description="股票当前交易日分区和基础信息 checks 就绪后，触发复权因子更新任务。",
 )
 def stock_adj_factor_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
