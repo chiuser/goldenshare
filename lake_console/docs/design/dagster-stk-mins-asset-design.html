@@ -267,14 +267,14 @@
     <div class="pill-row">
       <span class="pill ok">核心口径已拍板</span>
       <span class="pill neutral">设计文档</span>
-      <span class="pill raw">raw: backup clean_next</span>
+      <span class="pill raw">raw: backup baseline / Tushare daily / prod DB repair</span>
       <span class="pill silver">silver: 标准化 clean_next</span>
       <span class="pill gold">gold: qfq 分钟线</span>
     </div>
     <h1>Dagster stk_mins 资产落地设计</h1>
     <p class="subtitle">
       本文定义股票分钟线 <code>stk_mins</code> 在新 Dagster lake 中的正式分层、分区、资产拆分、历史导入和后续增量路线。
-      已拍板口径：按交易日分区，按分钟频度拆不同资产；raw 保存 backup 中的原始 clean_next，silver 做代码与停复牌口径标准化，gold 存前复权后的分钟线。
+      已拍板口径：按交易日分区，按分钟频度拆不同资产；raw 历史基线来自 backup clean_next，日常增量来自 Tushare，人工补数可来自 prod DB；silver 做代码与停复牌口径标准化，gold 存前复权后的分钟线。
     </p>
   </header>
 
@@ -284,7 +284,7 @@
       <tr><th>项目</th><th>口径</th></tr>
       <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化与 Tushare 日常增量代码已实现，默认未启用；M4B prod DB raw 补数入口已实现为手动 job，默认不自动触发。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
-      <tr><td>不涉及</td><td>M4/M4B 不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不执行正式 backfill，不覆盖 M3 历史 baseline，不启用 sensor，不运行 Dagster job/sensor/backfill。</td></tr>
+      <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增 prod DB 自动 sensor。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
       <tr><td>基础依赖</td><td><code>silver_stock_identity_map</code> 作为正式业务数据 asset 承载股票代码身份映射，供分钟线 silver 标准化使用。</td></tr>
     </table>
@@ -393,7 +393,7 @@
     <table>
       <tr><th>项目</th><th>结果</th></tr>
       <tr><td>来源文件</td><td><code>/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet</code> 存在。</td></tr>
-      <tr><td>新湖目标</td><td><code>/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet</code> 当前不存在。</td></tr>
+      <tr><td>新湖目标</td><td>M0 审计时 <code>/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet</code> 不存在；M3 已完成初始化写入和 runless event 补录。</td></tr>
       <tr><td>schema</td><td>与设计字段一致：<code>latest_ts_code/source_ts_code/valid_from/valid_to/effective_list_date/effective_delist_date/identity_source/confidence/reason/created_at</code>。</td></tr>
       <tr><td>行数</td><td>6089 行；<code>source_ts_code</code> 6089 个，无重复；<code>latest_ts_code</code> 5837 个。</td></tr>
       <tr><td>空值与日期</td><td><code>latest_ts_code/source_ts_code/valid_from/effective_list_date</code> 无空；日期区间非法 0。</td></tr>
@@ -432,8 +432,8 @@
       </div>
       <div class="card">
         <h3>raw</h3>
-        <p>保存 backup 中的原始 clean_next 数据，作为新湖的历史 raw 基线。</p>
-        <p>历史导入方法参考 adj factor：bootstrap 文件、注册分区、补录 runless events。</p>
+        <p>历史基线保存 backup 中的原始 clean_next 数据；日常增量从 Tushare <code>stk_mins</code> 拉取；人工 repair/backfill 可从 prod DB 只读抽取。</p>
+        <p>历史导入方法参考 adj factor：bootstrap 文件、注册分区、补录 runless events。三个来源写入同一套 raw asset key、路径、schema 和 checks。</p>
       </div>
       <div class="card">
         <h3>silver / gold</h3>
@@ -465,7 +465,7 @@
       <tr><td>分区键</td><td><code>YYYY-MM-DD</code> 股票交易日。</td></tr>
       <tr><td>历史起点</td><td>按 backup clean_next 当前事实，从 <code>2009-01-05</code> 起步；正式开发前需再次只读复核。</td></tr>
       <tr><td>历史终点</td><td>按 backup clean_next 当前事实，到 backup 最新交易日；历史导入执行前需重新只读确认。</td></tr>
-      <tr><td>日常注册</td><td>后续新增 <code>stk_mins</code> 专用分区注册 sensor，不能复用或污染股票日频分区。</td></tr>
+      <tr><td>日常注册</td><td>已实现 <code>stock_mins_trade_day_sensor</code>：上海时间 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，不补历史，不能复用或污染股票日频分区。</td></tr>
       <tr><td>不做</td><td>不按股票代码分区，不按分钟时间分区，不做 <code>date x stock x freq</code>。</td></tr>
     </table>
 
@@ -498,7 +498,7 @@
     <h3>5.2 Raw assets</h3>
     <table>
       <tr><th>Asset key</th><th>分区</th><th>来源</th><th>物理路径</th></tr>
-      <tr><td><code>raw_stk_mins_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">backup 原始 clean_next</td><td><code>data_lake/raw/tushare/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>raw_stk_mins_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">历史基线来自 backup clean_next；日常来自 Tushare；人工补数来自 prod DB</td><td><code>data_lake/raw/tushare/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
       <tr><td><code>raw_stk_mins_5m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=5/trade_date={partition_key}/part-000.parquet</code></td></tr>
       <tr><td><code>raw_stk_mins_15m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=15/trade_date={partition_key}/part-000.parquet</code></td></tr>
       <tr><td><code>raw_stk_mins_30m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=30/trade_date={partition_key}/part-000.parquet</code></td></tr>
@@ -669,7 +669,7 @@
       <li>日常股票池来自 <code>silver_stock_basic</code> 当前上市股票；这是只读前置事实，不进入 <code>stock_mins_raw_update_job</code> selection。</li>
       <li>日常拉取窗口固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>；分页固定使用 <code>limit=8000</code> 与递增 <code>offset</code>，不把分页、股票池 offset 或分钟窗口暴露为 run config。</li>
       <li>若目标 raw 文件已存在且通过 raw 检查，asset 复用文件并返回 materialization metadata；若目标存在但不合格，直接失败，不覆盖历史 baseline。</li>
-      <li><code>2026-05-08</code> 之后的历史缺口不由 sensor 自动追；后续必须单独列 backfill 命令、范围、请求量和回滚方式，经审批后执行。</li>
+      <li><code>2026-05-08</code> 之后的历史缺口不由 sensor 自动追；M4B 已提供 prod DB 手动补数 job，实际执行仍必须单独列 backfill 命令、范围、请求量和回滚方式，经审批后执行。</li>
     </ul>
 
     <h3>M4B 已落地的 prod DB raw 补数入口</h3>
@@ -981,7 +981,7 @@
     <h2>14. 待后续单独拍板</h2>
     <ol>
       <li>silver 是否物理保留 <code>source_ts_code</code> 追溯字段。</li>
-      <li><code>2026-05-08</code> 之后 raw 缺口 backfill 的执行窗口、分批大小、预计请求量和失败恢复策略。</li>
+      <li><code>2026-05-08</code> 之后 raw 缺口补齐的执行结果、最终完整性审计和是否需要分批补录说明。</li>
       <li>qfq gold 的小数精度、字段命名和是否保留原始未复权价格字段。</li>
       <li>历史 qfq 大规模重算的并发、临时目录、磁盘空间和恢复策略。</li>
       <li><code>bse_mapping</code> 与 <code>namechange</code> 在 Dagster 中接成正式资产的具体 milestone。</li>

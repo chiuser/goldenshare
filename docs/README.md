@@ -156,6 +156,7 @@ docs/
 - [指数历史分钟行情 Lake 双模式接入方案 v1](/Users/congming/github/goldenshare/docs/datasets/index-mins-dual-source-lake-plan-v1.md)
 - [股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md)
 - [股票历史分钟行情 Lake 股票池生命周期过滤方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-security-universe-filter-plan-v1.md)
+- [stk_mins clean_next 与新湖股票日线代码集合审计 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-next-vs-silver-stock-daily-code-audit-v1.md)
 - [股票分钟线指标系统设计方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-system-plan-v1.md)
 - [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md)
 - [股票分钟线技术指标开发指南与门禁清单 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-development-guide-v1.md)
