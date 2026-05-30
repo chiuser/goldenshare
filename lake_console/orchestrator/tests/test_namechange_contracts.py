@@ -6,11 +6,15 @@ import unittest
 import duckdb
 
 from orchestrator.defs.assets.namechange import NAMECHANGE_RAW_COLUMN_TYPES
+from orchestrator.defs.checks.namechange_checks import (
+    raw_namechange_overlap_interval_observed,
+)
 from orchestrator.defs.duckdb_sql import NAMECHANGE_RAW_COLUMNS
 from orchestrator.defs.namechange_timeline import (
     build_latest_announcement_namechange_timeline,
 )
-from orchestrator.defs.resources import DuckDBResource, TushareResult
+from orchestrator.defs.paths import raw_namechange_path
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResult
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_distinct_to_raw
 
 
@@ -69,6 +73,40 @@ class NamechangeContractTests(unittest.TestCase):
         self.assertEqual(metadata["dagster/row_count"], 1)
         self.assertEqual(metadata["goldenshare/source_row_count"], 2)
         self.assertEqual(metadata["goldenshare/duplicate_removed_count"], 1)
+
+    def test_raw_overlap_observation_check_sql_runs_on_duckdb(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            target_path = raw_namechange_path(Path(tmpdir))
+            target_path.parent.mkdir(parents=True, exist_ok=True)
+            with duckdb.connect(database=":memory:") as connection:
+                connection.execute(
+                    f"""
+                    COPY (
+                      SELECT
+                        '000001.SZ' AS ts_code,
+                        '名称A' AS name,
+                        '20200101' AS start_date,
+                        '20200110' AS end_date,
+                        '20200101' AS ann_date,
+                        '其他' AS change_reason
+                      UNION ALL
+                      SELECT
+                        '000001.SZ' AS ts_code,
+                        '名称B' AS name,
+                        '20200105' AS start_date,
+                        NULL AS end_date,
+                        '20200104' AS ann_date,
+                        '其他' AS change_reason
+                    ) TO '{target_path.as_posix()}' (FORMAT PARQUET)
+                    """
+                )
+
+            result = raw_namechange_overlap_interval_observed(
+                lake_root=LakeRootResource(root_path=tmpdir),
+                duckdb=DuckDBResource(),
+            )
+
+        self.assertTrue(result.passed)
 
     def test_latest_announcement_timeline_handles_huangtai(self) -> None:
         result = build_latest_announcement_namechange_timeline(

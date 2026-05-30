@@ -405,7 +405,7 @@ def raw_namechange_overlap_interval_observed(
             END AS end_dt
           FROM {read_parquet(path, hive_partitioning=False)}
         ),
-        overlaps AS (
+        overlap_pairs AS (
           SELECT
             a.ts_code,
             a.name AS left_name,
@@ -424,11 +424,11 @@ def raw_namechange_overlap_interval_observed(
            AND b.start_dt <= a.end_dt
         )
         SELECT *
-        FROM overlaps
+        FROM overlap_pairs
         """
         overlap_count = int(
             connection.execute(
-                f"SELECT count(*) FROM ({overlap_sql}) overlaps"
+                f"SELECT count(*) FROM ({overlap_sql}) overlap_rows"
             ).fetchone()[0]
         )
         rows = connection.execute(
