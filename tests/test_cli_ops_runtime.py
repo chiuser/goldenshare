@@ -73,7 +73,7 @@ def test_ops_scheduler_serve_runs_multiple_cycles(mocker) -> None:
     scheduler = mocker.Mock()
     scheduler.run_once.side_effect = [[], []]
     scheduler_cls = mocker.patch("src.cli.OperationsScheduler", return_value=scheduler)
-    sleep = mocker.patch("src.cli.time.sleep")
+    sleep = mocker.patch("src.cli_parts.ops_handlers.time.sleep")
 
     result = CliRunner().invoke(app, ["ops-scheduler-serve", "--limit", "10", "--sleep-seconds", "1", "--max-cycles", "2"])
 
@@ -98,7 +98,7 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
     reconcile_service.reconcile_stale_task_runs.side_effect = [[], []]
     reconcile_cls = mocker.patch("src.cli.OperationsTaskRunReconciliationService", return_value=reconcile_service)
     open_counts = mocker.patch("src.cli._open_task_run_counts", side_effect=[(0, 1), (0, 0)])
-    sleep = mocker.patch("src.cli.time.sleep")
+    sleep = mocker.patch("src.cli_parts.ops_handlers.time.sleep")
 
     result = CliRunner().invoke(app, ["ops-worker-serve", "--limit", "2", "--sleep-seconds", "1", "--max-cycles", "2"])
 
@@ -111,6 +111,34 @@ def test_ops_worker_serve_runs_multiple_cycles(mocker) -> None:
     sleep.assert_called_once_with(1.0)
     assert "ops-worker-serve: 本轮新接任务=1 等待中=0 执行中=1 自动收敛=0" in result.stdout
     assert "ops-worker-serve: 本轮新接任务=0 等待中=0 执行中=0 自动收敛=0" in result.stdout
+
+
+def test_ops_task_completion_worker_serve_runs_multiple_cycles(mocker) -> None:
+    session_context = mocker.MagicMock()
+    session = mocker.Mock()
+    session_context.__enter__.return_value = session
+    session_context.__exit__.return_value = False
+    mocker.patch("src.cli.SessionLocal", return_value=session_context)
+
+    worker = mocker.Mock()
+    worker.run_cycle.side_effect = [2, 0]
+    worker_cls = mocker.patch("src.cli.TaskRunCompletionWorker", return_value=worker)
+    sleep = mocker.patch("src.cli_parts.ops_handlers.time.sleep")
+
+    result = CliRunner().invoke(
+        app,
+        ["ops-task-completion-worker-serve", "--batch-size", "7", "--sleep-seconds", "1", "--max-cycles", "2"],
+    )
+
+    assert result.exit_code == 0
+    worker_cls.assert_called_once_with()
+    assert worker.run_cycle.call_args_list == [
+        mocker.call(session, batch_size=7),
+        mocker.call(session, batch_size=7),
+    ]
+    sleep.assert_called_once_with(1.0)
+    assert "ops-task-completion-worker-serve: 本轮处理=2" in result.stdout
+    assert "ops-task-completion-worker-serve: 本轮处理=0" in result.stdout
 
 
 def test_ops_reconcile_task_runs_previews_by_default(mocker) -> None:

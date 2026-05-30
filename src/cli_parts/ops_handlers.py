@@ -388,6 +388,27 @@ def run_ops_date_completeness_worker_serve(
         time.sleep(sleep_seconds)
 
 
+def run_ops_task_completion_worker_serve(
+    *,
+    session_local,
+    worker_cls,
+    batch_size: int,
+    sleep_seconds: float,
+    max_cycles: int | None,
+    echo_fn: Callable[[str], None],
+) -> None:
+    cycles = 0
+    worker = worker_cls()
+    while True:
+        with session_local() as session:
+            processed = worker.run_cycle(session, batch_size=batch_size)
+            echo_fn(f"ops-task-completion-worker-serve: 本轮处理={processed}")
+        cycles += 1
+        if max_cycles is not None and cycles >= max_cycles:
+            break
+        time.sleep(sleep_seconds)
+
+
 def run_ops_scheduler_serve(
     *,
     session_local,

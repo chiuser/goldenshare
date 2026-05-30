@@ -29,6 +29,7 @@ from src.cli_parts.ops_handlers import (
     run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
     run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
+    run_ops_task_completion_worker_serve as _run_ops_task_completion_worker_serve_impl,
     run_ops_validate_market_mood as _run_ops_validate_market_mood_impl,
     run_ops_worker_run as _run_ops_worker_run_impl,
     run_ops_worker_serve as _run_ops_worker_serve_impl,
@@ -55,7 +56,7 @@ from src.foundation.services.migration import RawTushareBootstrapService
 from src.foundation.services.migration import StockStMissingDateRepairService
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
 from src.ops.models.ops.task_run import TaskRun
-from src.ops.runtime import OperationsScheduler, OperationsWorker
+from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunCompletionWorker
 from src.ops.services.operations_daily_health_report_service import DailyHealthReportService
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.ops.services.operations_default_single_source_seed_service import DefaultSingleSourceSeedService
@@ -528,6 +529,31 @@ def ops_scheduler_serve(
         session_local=SessionLocal,
         scheduler_cls=OperationsScheduler,
         limit=limit,
+        sleep_seconds=sleep_seconds,
+        max_cycles=max_cycles,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-task-completion-worker-serve")
+def ops_task_completion_worker_serve(
+    batch_size: int = typer.Option(
+        get_settings().ops_task_completion_worker_batch_size,
+        min=1,
+        max=1000,
+        help="Maximum completed task runs to process per cycle.",
+    ),
+    sleep_seconds: float = typer.Option(
+        float(get_settings().ops_task_completion_worker_poll_seconds),
+        min=1.0,
+        help="Seconds to sleep between completion worker cycles.",
+    ),
+    max_cycles: int | None = typer.Option(None, min=1, help="Optional max cycles for testing or one-off runs."),
+) -> None:
+    _run_ops_task_completion_worker_serve_impl(
+        session_local=SessionLocal,
+        worker_cls=TaskRunCompletionWorker,
+        batch_size=batch_size,
         sleep_seconds=sleep_seconds,
         max_cycles=max_cycles,
         echo_fn=typer.echo,

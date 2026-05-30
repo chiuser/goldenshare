@@ -85,6 +85,19 @@ class Settings(BaseSettings):
         default="3*.SZ,6*.SH,0*.SZ,9*.BJ",
         alias="REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN",
     )
+    ops_task_completion_worker_poll_seconds: int = Field(
+        default=5,
+        alias="OPS_TASK_COMPLETION_WORKER_POLL_SECONDS",
+    )
+    ops_task_completion_worker_batch_size: int = Field(
+        default=20,
+        alias="OPS_TASK_COMPLETION_WORKER_BATCH_SIZE",
+    )
+    ops_task_notify_feishu_enabled: bool = Field(default=False, alias="OPS_TASK_NOTIFY_FEISHU_ENABLED")
+    goldenshare_feishu_webhook_url: str = Field(default="", alias="GOLDENSHARE_FEISHU_WEBHOOK_URL")
+    goldenshare_feishu_webhook_secret: str = Field(default="", alias="GOLDENSHARE_FEISHU_WEBHOOK_SECRET")
+    ops_task_notify_timeout_seconds: int = Field(default=5, alias="OPS_TASK_NOTIFY_TIMEOUT_SECONDS")
+    ops_public_base_url: str = Field(default="", alias="OPS_PUBLIC_BASE_URL")
     model_config = SettingsConfigDict(extra="ignore")
 
 

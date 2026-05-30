@@ -421,15 +421,11 @@ def test_worker_claims_queued_task_run_and_marks_success(db_session, task_run_fa
     assert dispatcher.calls == [task_run.id]
 
 
-def test_worker_refreshes_snapshot_after_workflow_success(db_session, task_run_factory, monkeypatch) -> None:
-    calls: list[tuple[str, str, bool]] = []
-
-    class FakeSnapshotService:
-        def refresh_for_target(self, session, *, target_type, target_key, strict, today=None):  # type: ignore[no-untyped-def]
-            calls.append((target_type, target_key, strict))
-            return 7
-
-    monkeypatch.setattr("src.ops.runtime.worker.DatasetStatusSnapshotService", FakeSnapshotService)
+def test_worker_does_not_refresh_snapshot_after_workflow_success(db_session, task_run_factory, mocker) -> None:
+    refresh = mocker.patch(
+        "src.ops.services.operations_dataset_status_snapshot_service.DatasetStatusSnapshotService.refresh_for_target",
+        side_effect=AssertionError("ops worker must not refresh dataset snapshots in the main queue path"),
+    )
     task_run_factory(
         task_type="workflow",
         resource_key=None,
@@ -446,18 +442,18 @@ def test_worker_refreshes_snapshot_after_workflow_success(db_session, task_run_f
 
     assert result is not None
     assert result.status == "success"
-    assert calls == [("workflow", "daily_moneyflow_maintenance", True)]
+    refresh.assert_not_called()
+    snapshot_issues = db_session.scalars(
+        select(TaskRunIssue).where(TaskRunIssue.task_run_id == result.id).where(TaskRunIssue.code == "dataset_snapshot_refresh_failed")
+    ).all()
+    assert snapshot_issues == []
 
 
-def test_worker_skips_snapshot_refresh_for_maintenance_action(db_session, task_run_factory, monkeypatch) -> None:
-    calls: list[tuple[str, str, bool]] = []
-
-    class FakeSnapshotService:
-        def refresh_for_target(self, session, *, target_type, target_key, strict, today=None):  # type: ignore[no-untyped-def]
-            calls.append((target_type, target_key, strict))
-            return 1
-
-    monkeypatch.setattr("src.ops.runtime.worker.DatasetStatusSnapshotService", FakeSnapshotService)
+def test_worker_skips_snapshot_refresh_for_maintenance_action(db_session, task_run_factory, mocker) -> None:
+    refresh = mocker.patch(
+        "src.ops.services.operations_dataset_status_snapshot_service.DatasetStatusSnapshotService.refresh_for_target",
+        side_effect=AssertionError("ops worker must not refresh dataset snapshots in the main queue path"),
+    )
     task_run_factory(
         task_type="maintenance_action",
         resource_key=None,
@@ -474,10 +470,14 @@ def test_worker_skips_snapshot_refresh_for_maintenance_action(db_session, task_r
 
     assert result is not None
     assert result.status == "success"
-    assert calls == []
+    refresh.assert_not_called()
 
 
-def test_worker_cancels_queued_task_run_before_dispatch(db_session, task_run_factory) -> None:
+def test_worker_cancels_queued_task_run_before_dispatch(db_session, task_run_factory, mocker) -> None:
+    refresh = mocker.patch(
+        "src.ops.services.operations_dataset_status_snapshot_service.DatasetStatusSnapshotService.refresh_for_target",
+        side_effect=AssertionError("canceled queued tasks must not refresh dataset snapshots"),
+    )
     requested_at = datetime(2026, 3, 30, 10, 0, tzinfo=timezone.utc)
     task_run = task_run_factory(
         status="queued",
@@ -493,9 +493,15 @@ def test_worker_cancels_queued_task_run_before_dispatch(db_session, task_run_fac
     assert result.status == "canceled"
     assert result.status_reason_code == "canceled_before_start"
     assert dispatcher.calls == []
+    refresh.assert_not_called()
 
 
-def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factory) -> None:
+def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factory, mocker) -> None:
+    refresh = mocker.patch(
+        "src.ops.services.operations_dataset_status_snapshot_service.DatasetStatusSnapshotService.refresh_for_target",
+        side_effect=AssertionError("failed task finalization must not refresh dataset snapshots"),
+    )
+
     class RaisingDispatcher:
         def dispatch(self, session, task_run):  # type: ignore[no-untyped-def]
             raise RuntimeError("boom")
@@ -510,6 +516,7 @@ def test_worker_records_issue_when_dispatcher_raises(db_session, task_run_factor
     issue = db_session.get(TaskRunIssue, result.primary_issue_id)
     assert issue is not None
     assert issue.code == "worker_error"
+    refresh.assert_not_called()
 
 
 def test_task_run_progress_updates_current_running_node_rows(db_session, task_run_factory, task_run_node_factory) -> None:

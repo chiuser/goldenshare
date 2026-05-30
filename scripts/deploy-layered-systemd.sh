@@ -14,6 +14,7 @@ WEB_SERVICE="${WEB_SERVICE:-goldenshare-web.service}"
 WORKER_SERVICE="${WORKER_SERVICE:-goldenshare-ops-worker.service}"
 SCHEDULER_SERVICE="${SCHEDULER_SERVICE:-goldenshare-ops-scheduler.service}"
 DATE_COMPLETENESS_WORKER_SERVICE="${DATE_COMPLETENESS_WORKER_SERVICE:-goldenshare-date-completeness-worker.service}"
+TASK_COMPLETION_WORKER_SERVICE="${TASK_COMPLETION_WORKER_SERVICE:-goldenshare-ops-task-completion-worker.service}"
 REALTIME_COLLECTOR_SERVICE="${REALTIME_COLLECTOR_SERVICE:-goldenshare-realtime-collector.service}"
 
 DEPLOY_FOUNDATION="${DEPLOY_FOUNDATION:-1}"
@@ -35,6 +36,7 @@ WEB_UNIT_SRC="${WEB_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-web.service}"
 WORKER_UNIT_SRC="${WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-worker.service}"
 SCHEDULER_UNIT_SRC="${SCHEDULER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-scheduler.service}"
 DATE_COMPLETENESS_WORKER_UNIT_SRC="${DATE_COMPLETENESS_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-date-completeness-worker.service}"
+TASK_COMPLETION_WORKER_UNIT_SRC="${TASK_COMPLETION_WORKER_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-ops-task-completion-worker.service}"
 REALTIME_COLLECTOR_UNIT_SRC="${REALTIME_COLLECTOR_UNIT_SRC:-${SCRIPT_DIR}/goldenshare-realtime-collector.service}"
 
 HEALTH_URL="${HEALTH_URL:-http://127.0.0.1:8000/api/health}"
@@ -92,6 +94,7 @@ sync_units_if_needed() {
   local worker_dst="${SYSTEMD_UNIT_DIR}/${WORKER_SERVICE}"
   local scheduler_dst="${SYSTEMD_UNIT_DIR}/${SCHEDULER_SERVICE}"
   local date_completeness_worker_dst="${SYSTEMD_UNIT_DIR}/${DATE_COMPLETENESS_WORKER_SERVICE}"
+  local task_completion_worker_dst="${SYSTEMD_UNIT_DIR}/${TASK_COMPLETION_WORKER_SERVICE}"
   local realtime_collector_dst="${SYSTEMD_UNIT_DIR}/${REALTIME_COLLECTOR_SERVICE}"
 
   if sync_systemd_unit "${WEB_UNIT_SRC}" "${web_dst}"; then
@@ -104,6 +107,9 @@ sync_units_if_needed() {
     changed=1
   fi
   if sync_systemd_unit "${DATE_COMPLETENESS_WORKER_UNIT_SRC}" "${date_completeness_worker_dst}"; then
+    changed=1
+  fi
+  if sync_systemd_unit "${TASK_COMPLETION_WORKER_UNIT_SRC}" "${task_completion_worker_dst}"; then
     changed=1
   fi
   if sync_systemd_unit "${REALTIME_COLLECTOR_UNIT_SRC}" "${realtime_collector_dst}"; then
@@ -152,6 +158,7 @@ ensure_sudo_ready() {
   - systemctl restart/status goldenshare-ops-worker.service
   - systemctl restart/status goldenshare-ops-scheduler.service
   - systemctl restart/status goldenshare-date-completeness-worker.service
+  - systemctl restart/status/enable goldenshare-ops-task-completion-worker.service
   - systemctl restart/status goldenshare-realtime-collector.service
   - systemctl enable goldenshare-realtime-collector.service
 EOF
@@ -188,6 +195,17 @@ restart_layer_services() {
       exit 1
       ;;
   esac
+}
+
+restart_task_completion_worker_if_needed() {
+  if [[ "${DEPLOY_FOUNDATION}" == "1" || "${DEPLOY_OPS}" == "1" ]]; then
+    log "启用 Ops 任务完成副作用 worker 自启动"
+    sudo_systemctl enable "${TASK_COMPLETION_WORKER_SERVICE}" >/dev/null
+    log "重启 Ops 任务完成副作用 worker"
+    sudo_systemctl restart "${TASK_COMPLETION_WORKER_SERVICE}"
+  else
+    log "跳过 Ops 任务完成副作用 worker 重启（DEPLOY_FOUNDATION=0 且 DEPLOY_OPS=0）"
+  fi
 }
 
 print_service_status() {
@@ -341,6 +359,8 @@ main() {
     log "跳过 Ops 层重启（DEPLOY_OPS=0）"
   fi
 
+  restart_task_completion_worker_if_needed
+
   if [[ "${DEPLOY_PLATFORM}" == "1" ]]; then
     restart_layer_services platform
   else
@@ -371,6 +391,7 @@ main() {
   print_service_status "${WORKER_SERVICE}"
   print_service_status "${SCHEDULER_SERVICE}"
   print_service_status "${DATE_COMPLETENESS_WORKER_SERVICE}"
+  print_service_status "${TASK_COMPLETION_WORKER_SERVICE}"
   print_service_status "${REALTIME_COLLECTOR_SERVICE}"
 
   log "分层发版完成"

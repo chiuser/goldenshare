@@ -5,6 +5,7 @@ __all__ = [
     "OpsRuntimeCommandService",
     "OpsScheduleCommandService",
     "OpsStdRuleCommandService",
+    "TaskRunCompletionService",
     "TaskRunCommandService",
 ]
 
@@ -34,6 +35,10 @@ def __getattr__(name: str):
         from src.ops.services.std_rule_service import OpsStdRuleCommandService
 
         return OpsStdRuleCommandService
+    if name == "TaskRunCompletionService":
+        from src.ops.services.task_run_completion_service import TaskRunCompletionService
+
+        return TaskRunCompletionService
     if name == "TaskRunCommandService":
         from src.ops.services.task_run_service import TaskRunCommandService
 

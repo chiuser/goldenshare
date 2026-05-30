@@ -1,4 +1,10 @@
-__all__ = ["OperationsScheduler", "OperationsWorker", "TaskRunDispatchOutcome", "TaskRunDispatcher"]
+__all__ = [
+    "OperationsScheduler",
+    "OperationsWorker",
+    "TaskRunCompletionWorker",
+    "TaskRunDispatchOutcome",
+    "TaskRunDispatcher",
+]
 
 
 def __getattr__(name: str):
@@ -17,4 +23,8 @@ def __getattr__(name: str):
         from src.ops.runtime.worker import OperationsWorker
 
         return OperationsWorker
+    if name == "TaskRunCompletionWorker":
+        from src.ops.runtime.task_completion_worker import TaskRunCompletionWorker
+
+        return TaskRunCompletionWorker
     raise AttributeError(name)

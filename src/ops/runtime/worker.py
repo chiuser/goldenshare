@@ -6,11 +6,9 @@ from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from src.app.exceptions import WebAppError
-from src.foundation.datasets.registry import get_dataset_action_key
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.runtime.task_run_dispatcher import TaskRunDispatchOutcome, TaskRunDispatcher
-from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
 from src.utils import truncate_text
 
 
@@ -156,9 +154,6 @@ class OperationsWorker:
         if final_status == "canceled":
             task_run.canceled_at = task_run.canceled_at or now
         session.commit()
-        refresh_error = self._refresh_snapshot_for_task_run(session, task_run)
-        if refresh_error is not None:
-            self._record_snapshot_refresh_failure(session, task_run.id, refresh_error)
         session.refresh(task_run)
         return task_run
 
@@ -186,74 +181,3 @@ class OperationsWorker:
         task_run.primary_issue_id = issue.id
         session.commit()
         return issue
-
-    def _record_snapshot_refresh_failure(self, session: Session, task_run_id: int, error_message: str) -> None:
-        task_run = session.get(TaskRun, task_run_id)
-        if task_run is None:
-            return
-        issue = TaskRunIssue(
-            task_run_id=task_run_id,
-            node_id=None,
-            severity="warning",
-            code="dataset_snapshot_refresh_failed",
-            title="数据状态刷新失败",
-            operator_message="任务已结束，但数据状态快照刷新失败。",
-            suggested_action="可以先查看业务数据；数据状态页可能暂时没有刷新。",
-            technical_message=truncate_text(error_message, self.MAX_TECHNICAL_MESSAGE_LENGTH),
-            technical_payload_json={"source_phase": "snapshot_refresh", "task_run_id": task_run_id},
-            object_json=dict(task_run.current_object_json or {}),
-            source_phase="snapshot_refresh",
-            fingerprint=f"{task_run_id}:dataset_snapshot_refresh_failed",
-            occurred_at=datetime.now(timezone.utc),
-        )
-        try:
-            session.add(issue)
-            session.commit()
-        except Exception:
-            session.rollback()
-
-    @staticmethod
-    def _refresh_snapshot_for_task_run(session: Session, task_run: TaskRun) -> str | None:
-        refresh_target = OperationsWorker._snapshot_refresh_target(task_run)
-        if refresh_target is None:
-            return None
-        if isinstance(refresh_target, str):
-            return refresh_target
-        target_type, target_key = refresh_target
-        bind = session.get_bind()
-        if bind is None:
-            return "数据状态快照刷新缺少数据库连接。"
-        try:
-            with Session(bind=bind, autoflush=False, autocommit=False, future=True) as snapshot_session:
-                refreshed = DatasetStatusSnapshotService().refresh_for_target(
-                    snapshot_session,
-                    target_type=target_type,
-                    target_key=target_key,
-                    strict=True,
-                )
-            if refreshed <= 0:
-                return f"数据状态快照刷新未产生记录：{target_type}:{target_key}。"
-            return None
-        except Exception as exc:
-            return str(exc)
-
-    @staticmethod
-    def _snapshot_refresh_target(task_run: TaskRun) -> tuple[str, str] | str | None:
-        if task_run.task_type == "dataset_action":
-            if not task_run.resource_key:
-                return None
-            try:
-                return (
-                    "dataset_action",
-                    get_dataset_action_key(task_run.resource_key, task_run.action or "maintain"),
-                )
-            except KeyError as exc:
-                return str(exc)
-        if task_run.task_type == "workflow":
-            target_key = str((task_run.request_payload_json or {}).get("target_key") or "").strip()
-            if not target_key:
-                return "数据状态快照刷新缺少 workflow target_key。"
-            return ("workflow", target_key)
-        if task_run.task_type == "maintenance_action":
-            return None
-        return None

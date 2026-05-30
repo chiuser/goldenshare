@@ -17,8 +17,8 @@ usage() {
 选项:
   --branch <name>         指定分支（等价于位置参数）
   --platform-only         仅发布 platform(web)
-  --ops-only              仅发布 ops(scheduler)
-  --foundation-only       仅发布 foundation(worker)
+  --ops-only              仅发布 ops(scheduler/date-completeness/task-completion)
+  --foundation-only       仅发布 foundation(worker/task-completion)
   --seed-default-source   启用“默认单源规则缺失检测 + 按需初始化”（默认启用）
   --skip-seed-default-source 关闭“默认单源规则缺失检测 + 按需初始化”
   --seed-source <key>     初始化使用的数据源（默认 tushare）
