@@ -1,0 +1,827 @@
+# Dagster namechange 资产接入方案
+
+状态：设计 roadmap；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线口径。
+
+更新时间：2026-05-30
+
+## 1. 目标与边界
+
+本方案只定义 Tushare `namechange`（股票曾用名 / 历史名称变更记录）接入 Dagster 的正式资产路线。
+
+本次只关注 Dagster 资产接入：
+
+- 新增 `raw_tushare_namechange`。
+- 新增 `silver_namechange`。
+- 新增对应 asset checks。
+- 新增 `namechange_update_job`。
+- 新增日更触发 sensor：`stock_namechange_sensor`。
+
+本次明确不处理：
+
+- 不从旧湖 bootstrap。
+- 不生成旧 `manifest/security_reference/tushare_namechange.parquet`。
+- 不改造任何下游服务或历史消费者。
+- 不讨论 `stk_mins_clean_service`、身份映射、分钟线清洗等其它需求。
+- 不引入 gold / serving / ClickHouse。
+- 不把旧湖独有记录作为 correction 或人工补丁写入新湖；第一版完全接受 Tushare 最新 full snapshot。
+
+## 2. 依据与已读门禁
+
+开发前必须先读并遵守：
+
+- `lake_console/orchestrator/AGENTS.md`
+- `lake_console/orchestrator/CODING_STANDARDS.md`
+- `lake_console/docs/design/dagster-asset-schema-contract-design.md`
+- `lake_console/docs/templates/dagster-dataset-onboarding-template.html`
+- `docs/sources/tushare/股票数据/基础数据/0100_股票曾用名.md`
+
+已完成的调研动作：
+
+- 使用 `tushare-data` skill 理解 `namechange` 属于股票基础数据 / 基础主数据类接口。
+- 使用 `tushareMcp.namechange` 实测默认返回、显式 fields 返回、按公告日期范围返回。
+- 只读审计旧湖 `raw_tushare/namechange/current/part-000.parquet` 与 manifest 文件。
+- 审计当前 Dagster `adj_factor`、`stock_basic`、bootstrap、paths、schema contract、Tushare IO helper 的实现方式。
+
+## 3. 业务说明卡
+
+| 项目 | 结论 |
+|---|---|
+| 数据集名称 | 股票曾用名 |
+| Tushare 接口 | `namechange` |
+| 业务含义 | A 股股票名称历史变更区间事实，记录某只股票在某段时间使用过的证券名称及变更原因。 |
+| 数据域 | `basic_data` |
+| 层级 | raw / silver |
+| 分区模型 | full snapshot，不设置 `partitions_def` |
+| 更新方式 | 直接从 Tushare API 拉取全集分页快照，原子替换 full parquet |
+| 旧湖用途 | 只作为调研证据，不作为本次集成数据来源 |
+| 下游消费 | 本方案不设计下游消费；后续如有下游需求，单独设计依赖关系 |
+| 第一版 job | `namechange_update_job` |
+| 第一版 sensor | `stock_namechange_sensor`，跟随 `stock_current_trade_day_sensor` 注册出的当天交易日信号 |
+
+## 4. Tushare 接口契约
+
+本地文档：
+
+```text
+docs/sources/tushare/股票数据/基础数据/0100_股票曾用名.md
+```
+
+接口：
+
+```text
+namechange
+```
+
+输入参数：
+
+| 参数 | 类型 | 必填 | 说明 | 本方案口径 |
+|---|---|---:|---|---|
+| `ts_code` | str | 否 | TS 股票代码 | 第一版 full snapshot 不传；后续手动 repair 可评估是否支持 |
+| `start_date` | str | 否 | 公告开始日期 | 第一版 full snapshot 不传 |
+| `end_date` | str | 否 | 公告结束日期 | 第一版 full snapshot 不传 |
+| `limit` | int | 否 | 分页长度 | 由现有 Tushare helper 统一注入 |
+| `offset` | int | 否 | 分页偏移 | 由现有 Tushare helper 统一注入 |
+
+输出字段：
+
+| 字段 | Tushare 类型 | 默认返回 | 说明 |
+|---|---|---:|---|
+| `ts_code` | str | 是 | 股票代码 |
+| `name` | str | 是 | 证券名称 |
+| `start_date` | str | 是 | 名称生效开始日期，`YYYYMMDD` |
+| `end_date` | str | 是 | 名称生效结束日期，`YYYYMMDD` 或空 |
+| `ann_date` | str | 是 | 公告日期，`YYYYMMDD` 或空 |
+| `change_reason` | str | 是 | 变更原因 |
+
+名称区间语义：
+
+1. 如果一行只有 `start_date`，没有 `end_date`，表示从 `start_date` 开始，该股票使用这一行的 `name`。
+2. 如果一行同时有 `start_date` 和 `end_date`，表示这一行的 `name` 使用到 `end_date`；`end_date` 之后的第一个交易日，应切换到后续名称记录。
+3. 因此，Tushare 最新数据中出现“旧区间补上 `end_date` + 新区间新增 open interval”是正常更新形态，不是 raw 层冲突。
+4. raw 层不能用 `ts_code + start_date` 作为唯一键阻断；raw 只做全字段完全一致去重。区间解释和异常观测放在 silver checks。
+
+MCP 实测结论：
+
+- `ts_code=000001.SZ` 默认返回字段与显式 fields 返回字段一致。
+- Tushare 返回日期是 `YYYYMMDD` 字符串，不是 DATE。
+- `start_date/end_date` 输入参数按公告日期过滤，不是按名称生效日期过滤。
+- 源站会返回完全重复行。例如 `000001.SZ` 和 `688287.SH` 查询结果中存在所有字段完全一致的重复记录。
+
+因此第一版 raw 写入必须：
+
+- 显式请求字段 `ts_code,name,start_date,end_date,ann_date,change_reason`。
+- 使用 full snapshot，不按公告日期或生效日期分区。
+- 对所有字段完全一致的行做 `DISTINCT`。
+- 在 materialization metadata 上报去重前后行数和 `duplicate_removed_count`。
+
+## 5. 旧湖审计结论
+
+旧湖文件：
+
+```text
+/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/namechange/current/part-000.parquet
+/Volumes/datasource/goldenshare-tushare-lake/manifest/security_reference/tushare_namechange.parquet
+```
+
+只读审计结果：
+
+| 项目 | 结果 |
+|---|---:|
+| raw 文件数 | 1 |
+| raw 行数 | 20,265 |
+| 股票代码数 | 6,113 |
+| raw 与 manifest 差异 | 0 |
+| 完全重复行 | 0 |
+| `ts_code` 空值 | 0 |
+| `name` 空值 | 0 |
+| `start_date` 空值 | 0 |
+| `end_date` 空值 | 12,008 |
+| `ann_date` 空值 | 15,295 |
+| `change_reason` 空值 | 0 |
+| `start_date` 范围 | 1990-12-01 至 2026-05-19 |
+| `ann_date` 范围 | 2010-06-23 至 2026-05-15 |
+| `end_date < start_date` | 0 |
+
+旧湖字段类型：
+
+| 字段 | 旧湖类型 |
+|---|---|
+| `ts_code` | `VARCHAR` |
+| `name` | `VARCHAR` |
+| `start_date` | `DATE` |
+| `end_date` | `DATE` |
+| `ann_date` | `DATE` |
+| `change_reason` | `VARCHAR` |
+
+本方案不使用旧湖 bootstrap 的原因：
+
+1. `namechange` 是 full snapshot 类型，直接从 Tushare 拉取全集更符合正式口径。
+2. 旧湖快照与 Tushare 最新 distinct 数据高度一致，但旧湖已落后于当前线上变化。
+3. 旧湖日期列已被转成 DATE，而 raw 层正式契约应保持 Tushare `YYYYMMDD` 字符串。
+4. 旧湖只作为历史对照和风险审计依据，不作为正式 bootstrap 来源。
+
+### 5.1 Tushare 最新 vs 旧湖 distinct diff
+
+2026-05-30 已完成一次事实 diff。临时 CSV / Markdown 报告仅用于当轮审计复核，长期结论以内嵌在本方案中的统计和口径为准。
+
+diff 口径：
+
+- 对旧湖与 Tushare 最新数据分别按 6 个源字段做全字段 distinct。
+- 6 个字段为：`ts_code,name,start_date,end_date,ann_date,change_reason`。
+- 两边共同记录必须 6 个字段逐字段完全一致。
+
+结果：
+
+| 指标 | 旧湖 curated | Tushare 最新 |
+|---|---:|---:|
+| 原始行数 | 20,265 | 34,528 |
+| 全字段 distinct 行数 | 20,265 | 20,315 |
+| 全字段重复行数 | 0 | 14,213 |
+| 股票代码数 | 6,113 | 6,117 |
+
+| Diff 指标 | 数量 |
+|---|---:|
+| 两边全字段共同 distinct 行 | 20,263 |
+| 旧湖独有 distinct 行 | 2 |
+| Tushare 最新独有 distinct 行 | 52 |
+
+结论：
+
+1. 旧湖与 Tushare 最新 distinct 数据主体一致，可以直接采用 Tushare 最新 full snapshot 作为正式来源。
+2. Tushare 源站会返回大量全字段重复行，raw 入湖必须先做全字段 distinct。
+3. 旧湖独有 2 行为 `003033.SZ 征和工业`、`601963.SH 重庆银行` 的 2020-12-22 初始名称记录；第一版不保留、不补写、不做 correction，完全接受 Tushare 最新 full snapshot。
+4. Tushare-only 52 行主要是 2026 年 5 月之后发生或确认的名称、ST、退市变化；其中部分 `start_date` 早于 2026-05，是旧名称区间在新公告后补上 `end_date` 的正常区间闭合。
+5. 因为 Tushare-only 主要是新近变化，第一版采用 Tushare full replace 比旧湖 bootstrap 更合理。
+
+### 5.2 Tushare 最新区间异常预审计
+
+开发前必须先做一次区间审计，不能靠“理论上应该没有矛盾”来写 checks。2026-05-30 已对 Tushare 最新数据完成 NC-0 只读审计。临时 CSV / Markdown 报告仅用于当轮复核，长期结论以内嵌在本方案中的统计和口径为准。
+
+基础统计：
+
+| 指标 | 数量 |
+|---|---:|
+| Tushare 最新原始行数 | 34,528 |
+| Tushare 最新全字段 distinct 行数 | 20,315 |
+| 全字段重复行数 | 14,213 |
+| 股票代码数 | 6,117 |
+| `end_date IS NULL` 行数 | 12,036 |
+| 存在多条 open interval 的股票代码数 | 2,882 |
+| open interval 之后还有更晚 `start_date` 行的股票代码数 | 2,879 |
+| 同一 `ts_code + start_date` 存在多种 `name/end_date/ann_date/change_reason` 变体的 key 数 | 1,824 |
+| 按原始 distinct 行直接判断的区间重叠 pair 数 | 13,375 |
+
+候选策略审计结果：
+
+| 策略 | 输出行数 | unresolved conflict | 结论 |
+|---|---:|---:|---|
+| `source_distinct_only` | 20,315 | 18,081 | 失败；只做 raw distinct 会保留大量多 open / overlap |
+| `prefer_closed_same_event` | 18,541 | 9,308 | 失败；只在同一事件里优先闭合版本仍不足以解释时间线 |
+| `timeline_candidate` | 14,474 | 23 | 失败；能消掉大部分冲突，但没有正确理解同一生效日的多次公告 |
+| `latest_announcement_timeline` | 14,419 | 0 | 通过；作为 NC-3 silver 正式规则 |
+
+说人话解释：
+
+- `ann_date` 是公告日期，不是名称生效日期。
+- `start_date` 才是变更生效日，表示这一行的 `name` 从哪天开始使用。
+- 同一 `ts_code + start_date` 如果出现多条记录，不能简单当重复，也不能随便保留第一条；它可能表示同一个生效日之前发生了多次公告，后公告会修正前公告的“变更后简称”。
+- 因此 raw 层仍只做全字段 distinct，保留源站事实；silver 层必须按公告语义整理成“某只股票在某段日期使用哪个名称”的唯一时间线。
+
+已确认的 silver 规则：
+
+1. raw 层只做全字段 distinct，不对多 open / overlap 做 blocking。
+2. silver 采用 `latest_announcement_timeline_v1` 规则。
+3. 同一 `ts_code + start_date` 下，优先选择 `ann_date` 最新的公告版本；`ann_date` 为空视为低优先级。
+4. 如果同一 `ts_code + start_date + ann_date` 仍存在多行，优先保留带 `end_date` 的版本；如果仍无法唯一确定，则 `silver_namechange` 失败。
+5. 选定每个生效日的有效公告后，按 `ts_code/start_date` 排序生成名称时间线。
+6. 连续相同 `name` 的噪声记录需要合并为一个区间。
+7. 前一段名称的 `end_date` 由下一段名称的 `start_date - 1 day` 推导；最后一段当前名称 `end_date` 为空。
+8. 最终表必须满足：同一股票同一时间点最多只能命中一个名称区间；同一股票最多只能有一个当前 open interval。
+9. 如果归并逻辑无法解释某个股票的区间矛盾，`silver_namechange` 直接失败，并在 metadata / check metadata 中输出股票代码、样本区间和原因。
+
+皇台酒业示例：
+
+| ts_code | name | start_date | end_date |
+|---|---|---|---|
+| `000995.SZ` | `*ST皇台` | `2018-05-03` | `2020-12-15` |
+| `000995.SZ` | `皇台酒业` | `2020-12-16` | `2022-04-28` |
+| `000995.SZ` | `*ST皇台` | `2022-04-29` | `2023-08-17` |
+| `000995.SZ` | `皇台酒业` | `2023-08-18` | 空 |
+
+这个口径是开发门禁：NC-3 必须实现 `latest_announcement_timeline_v1`，不得回退成 raw distinct，也不得把 unresolved conflict 临时降级为 WARN。
+
+## 6. 资产设计
+
+### 6.1 `raw_tushare_namechange`
+
+| 项目 | 口径 |
+|---|---|
+| asset key | `raw_tushare_namechange` |
+| group | `basic` |
+| layer tag | `raw` |
+| data domain tag | `basic_data` |
+| source system | `TUSHARE` |
+| source api | `namechange` |
+| source doc | `docs/sources/tushare/股票数据/基础数据/0100_股票曾用名.md` |
+| data contract | `source_mirror_deduplicated_full_snapshot` |
+| partitions | 无 |
+| path | `/Volumes/datasource/data_lake/raw/tushare/namechange/full/part-000.parquet` |
+
+raw 字段契约：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `ts_code` | `VARCHAR` | 股票代码 |
+| `name` | `VARCHAR` | 证券名称 |
+| `start_date` | `VARCHAR` | 名称生效开始日期，Tushare 原始 `YYYYMMDD` 字符串 |
+| `end_date` | `VARCHAR` | 名称生效结束日期，Tushare 原始 `YYYYMMDD` 字符串或空 |
+| `ann_date` | `VARCHAR` | 公告日期，Tushare 原始 `YYYYMMDD` 字符串或空 |
+| `change_reason` | `VARCHAR` | 变更原因 |
+
+raw 写入规则：
+
+1. 调用 `fetch_tushare_full_file_to_raw(...)` 或新增同职责 full snapshot helper。
+2. 参数不传 `ts_code/start_date/end_date`。
+3. 分页使用现有 Tushare helper 的 `limit/offset` 模型。
+4. 写入前对所有字段完全一致的行做 distinct。
+5. 如果 distinct 后 0 行，直接失败。
+6. 使用 `.tmp` + `os.replace` 原子替换。
+7. 不写旧湖路径、source method、manifest 信息到 parquet 字段。
+
+raw materialization metadata：
+
+| metadata | 说明 |
+|---|---|
+| `dagster/uri` | raw parquet 路径 |
+| `dagster/row_count` | distinct 后行数 |
+| `goldenshare/observed_columns` | 本次输出字段 |
+| `source_method` | `tushare_api` |
+| `api_name` | `namechange` |
+| `params` | 脱敏后的请求参数，第一版为空 dict 加分页参数摘要 |
+| `fields` | 显式请求字段 |
+| `page_count` | 分页页数 |
+| `source_row_count` | 去重前行数 |
+| `duplicate_removed_count` | 完全重复行去重数量 |
+
+### 6.2 `silver_namechange`
+
+| 项目 | 口径 |
+|---|---|
+| asset key | `silver_namechange` |
+| group | `basic` |
+| layer tag | `silver` |
+| data domain tag | `basic_data` |
+| source system | `DERIVED` |
+| data contract | `standardized_namechange_event_timeline_full_snapshot` |
+| partitions | 无 |
+| deps | `raw_tushare_namechange` |
+| path | `/Volumes/datasource/data_lake/silver/basic/namechange/full/part-000.parquet` |
+
+silver 字段契约：
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `ts_code` | `VARCHAR` | 股票代码 |
+| `name` | `VARCHAR` | 变更后证券简称，即该区间内实际使用的名称 |
+| `start_date` | `DATE` | 名称变更生效日 |
+| `end_date` | `DATE` | 该名称使用结束日；当前仍有效时为空 |
+| `ann_date` | `DATE` | 选中这段名称变更事实的公告日期；源站为空时保留为空 |
+| `change_reason` | `VARCHAR` | 变更原因 |
+
+silver 转换规则：
+
+1. 从 raw 读取。
+2. `start_date/end_date/ann_date` 从 `YYYYMMDD` 字符串标准化为 DATE。
+3. `ts_code/name/start_date/change_reason` 必须非空。
+4. 不按当前上市股票过滤。
+5. 不保留旧湖-only 记录，不做旧湖 correction。
+6. 使用 `latest_announcement_timeline_v1` 生成标准名称时间线。
+7. 同一 `ts_code + start_date` 下，选择 `ann_date` 最新的公告版本；`ann_date` 为空视为低优先级。
+8. 同一 `ts_code + start_date + ann_date` 下仍有多行时，优先选择带 `end_date` 的版本；如果仍无法唯一确定，直接失败。
+9. 按 `ts_code/start_date` 生成时间线，连续相同 `name` 的噪声记录合并为一个区间。
+10. 前一段名称的 `end_date` 由下一段名称的 `start_date - 1 day` 推导；最后一段当前名称 `end_date` 为空。
+11. silver 最终输出必须是可解释的标准名称区间：同一股票同一时间点最多命中一个名称区间；同一股票最多只有一个当前 open interval。
+12. 如果标准化归并后仍存在无法解释的多 open / overlap 矛盾，直接失败，不允许静默 WARN。
+13. 完全重复行理论上已在 raw 去掉；silver 仍检查不存在完全重复行。
+
+silver materialization metadata：
+
+| metadata | 说明 |
+|---|---|
+| `dagster/uri` | silver parquet 路径 |
+| `dagster/row_count` | silver 行数 |
+| `goldenshare/observed_columns` | 本次输出字段 |
+| `source_row_count` | raw 行数 |
+| `duplicate_removed_count` | silver 端发现并移除的完全重复行数，正常应为 0 |
+| `open_interval_count` | `end_date IS NULL` 行数，仅观测 |
+| `canonicalization_rule_version` | 固定为 `latest_announcement_timeline_v1` |
+| `unresolved_interval_conflict_count` | 归并后仍无法解释的区间矛盾数量；必须为 0 |
+
+## 7. 路径函数
+
+新增路径函数：
+
+```python
+def raw_namechange_path(root: Path) -> Path:
+    return lake_path(root, RAW, "tushare", "namechange", "full", "part-000.parquet")
+
+def silver_namechange_path(root: Path) -> Path:
+    return lake_path(root, SILVER, "basic", "namechange", "full", "part-000.parquet")
+```
+
+路径约束：
+
+- 不使用 `raw_tushare`。
+- 不使用 `manifest`。
+- 不使用旧湖路径。
+- 不新增 `reference` 层级。
+
+## 8. Schema Contract
+
+在 `lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schemas.py` 新增：
+
+```text
+RAW_TUSHARE_NAMECHANGE_SCHEMA
+SILVER_NAMECHANGE_SCHEMA
+```
+
+并确保：
+
+- asset definition metadata 通过 `build_asset_definition_metadata(..., column_schema=...)` 注册 `dagster/column_schema`。
+- materialization metadata 不承载稳定字段契约。
+- runtime 字段列表只使用 `observed_columns`。
+- 新增 schema 后，同步更新 asset governance 测试中的资产清单。
+
+## 9. 中文名映射
+
+必须在 `defs/catalog/name_mapping.py` 登记：
+
+| dataset_id | 中文名 |
+|---|---|
+| `namechange` | 股票曾用名 |
+
+中文名只进入 definition metadata，不进入 asset tag。
+
+## 10. Checks 设计
+
+### 10.1 raw blocking checks
+
+| check | 功能 | 失败含义 |
+|---|---|---|
+| `raw_namechange_file_exists` | raw parquet 必须存在 | raw 没有成功生成 |
+| `raw_namechange_row_count_positive` | raw 行数必须大于 0 | Tushare 全量快照为空，不允许静默写入 |
+| `raw_namechange_required_columns` | 字段必须等于 raw contract | 源字段缺失或写入列错误 |
+| `raw_namechange_schema_matches_tushare_contract` | parquet 类型必须匹配 raw schema | 类型漂移或写入 helper 配置错误 |
+| `raw_namechange_required_fields_non_null` | `ts_code/name/start_date/change_reason` 非空 | 源关键字段不可用 |
+| `raw_namechange_date_string_format_valid` | 日期字符串必须为 `YYYYMMDD` 或空 | raw 日期格式不符合 Tushare 契约 |
+| `raw_namechange_exact_duplicate_absent` | 所有字段完全一致的重复行必须不存在 | raw 去重逻辑失效 |
+
+### 10.2 raw WARN checks
+
+| check | 功能 | 说明 |
+|---|---|---|
+| `raw_namechange_multi_open_interval_observed` | 统计每个股票 `end_date IS NULL` 多行情况 | raw 是源镜像快照，只观测源站现实，不阻断 |
+| `raw_namechange_overlap_interval_observed` | 统计按 raw 原始 distinct 行直接判断的区间重叠情况 | 用于 NC-0 / NC-3 归并设计，不阻断 raw 入湖 |
+| `raw_namechange_reason_distribution_observed` | 输出 `change_reason` 分布 | 用于观测 ST / *ST / 改名 / 终止上市等结构 |
+
+### 10.3 silver blocking checks
+
+| check | 功能 | 失败含义 |
+|---|---|---|
+| `silver_namechange_file_exists` | silver parquet 必须存在 | silver 没有成功生成 |
+| `silver_namechange_row_count_positive` | silver 行数必须大于 0 | 标准表为空 |
+| `silver_namechange_required_columns` | 字段必须等于 silver contract | 输出列错误 |
+| `silver_namechange_schema_matches_contract` | 类型必须匹配 silver schema | 日期未标准化或类型漂移 |
+| `silver_namechange_required_fields_non_null` | `ts_code/name/start_date/change_reason` 非空 | 标准事实关键字段不可用 |
+| `silver_namechange_date_order_valid` | `end_date` 非空时必须 `end_date >= start_date` | 区间日期非法 |
+| `silver_namechange_exact_duplicate_absent` | 所有字段完全一致的重复行必须不存在 | 标准表重复 |
+| `silver_namechange_current_open_interval_unique` | 同一股票最多只能有一个 `end_date IS NULL` 当前名称区间 | 标准表无法唯一判断当前名称 |
+| `silver_namechange_interval_overlap_absent` | 同一股票任意两个名称区间不能重叠 | 标准表无法唯一判断历史日期名称 |
+
+### 10.4 silver WARN checks
+
+第一版不把区间矛盾放到 silver WARN。原因很简单：`silver_namechange` 是标准事实表，如果同一股票同一天能命中多个名称，后续所有依赖都会被污染。
+
+允许保留的 WARN 只做结构观测，例如 `change_reason` 分布、open interval 行数分布；但这些 WARN 不能替代 blocking 区间一致性检查。
+
+所有 checks 必须：
+
+- 使用 `@dg.asset_check(..., blocking=True/False)`。
+- 使用 `build_check_metadata(...)`。
+- 写清 `CheckScope`。
+- 输出数量、样本、路径，不裸写旧 metadata key。
+
+## 11. Job 设计
+
+新增：
+
+```text
+lake_console/orchestrator/src/orchestrator/defs/jobs/namechange_update.py
+```
+
+job：
+
+```text
+namechange_update_job
+```
+
+selection：
+
+```text
+raw_tushare_namechange
+silver_namechange
+checks_for_assets(raw_tushare_namechange, silver_namechange)
+```
+
+职责：
+
+- 只作为流程入口。
+- 不调用 Tushare。
+- 不写 DuckDB SQL。
+- 不拼路径。
+- 不做质量判断。
+
+UI description：
+
+```text
+更新股票曾用名原始表和标准表。
+```
+
+## 12. Sensor / Automation 设计
+
+第一版新增 `stock_namechange_sensor`，但它不自己判断交易日历，不注册 partition。
+
+触发关系：
+
+```text
+stock_current_trade_day_sensor
+  -> 注册 cn_a_stock_current_trade_days[trade_date]
+  -> stock_namechange_sensor 读取最新已注册 current trade day
+  -> 触发 namechange_update_job
+```
+
+这样设计的原因：
+
+1. `namechange` 是基础数据 full snapshot，不适合按 `trade_date` 分区存储。
+2. 但业务上希望日更，所以可以复用 `stock_current_trade_day_sensor` 注册出来的“今天是股票交易日”信号。
+3. `stock_current_trade_day_sensor` 仍然只负责注册 `cn_a_stock_current_trade_days`，不触发数据生产；具体生产由 `stock_namechange_sensor` 负责。
+4. `namechange_update_job` 仍是 unpartitioned job，因为它每次覆盖 full snapshot 文件。
+
+`stock_namechange_sensor` 第一版口径：
+
+| 项目 | 口径 |
+|---|---|
+| 文件 | `defs/sensors/stock_namechange_sensor.py` |
+| target job | `namechange_update_job` |
+| default status | `STOPPED` |
+| minimum interval | 600 秒 |
+| 触发来源 | `cn_a_stock_current_trade_days` 最新已注册且不晚于上海当天的 key |
+| 触发窗口 | 暂定 09:30 后；如开发前确认 Tushare `namechange` 没有盘中入库约束，可再改为 06:00 后 |
+| run key | `stock_namechange_update:{trade_date}` |
+| partition_key | 无，`namechange_update_job` 不是 partitioned job |
+| run config | 第一版无 |
+| 重复触发 | 同一 `trade_date` 只提交一次；失败后人工 retry，不做无限自动重试 |
+| cursor | 只记录观测信息：target date、是否已注册、是否已提交、skip reason |
+
+禁止：
+
+- `stock_namechange_sensor` 不调用 Tushare。
+- `stock_namechange_sensor` 不读写 parquet。
+- `stock_namechange_sensor` 不做区间审计。
+- `stock_namechange_sensor` 不注册 dynamic partitions。
+- 不新增 declarative automation；full snapshot 基础资产第一版走普通 sensor。
+
+后续如果要把多个 basic full snapshot 合并成基础资产日更编排，必须另起设计；不能把其它数据集顺手塞进 `stock_namechange_sensor`。
+
+## 13. Run Config
+
+第一版不暴露运营 run config。
+
+`namechange_update_job` 固定执行 full snapshot：
+
+- 不要求运营填写日期。
+- 不要求运营填写 `ts_code`。
+- 不暴露 Tushare `start_date/end_date`。
+- 不暴露分页参数。
+
+如后续需要单股票 repair，应单独设计 typed config，不在第一版混入。
+
+## 14. 历史迁移与旧湖边界
+
+本次不使用 bootstrap。
+
+| 模板检查项 | 本方案结论 |
+|---|---|
+| 是否需要旧湖迁移 | 不需要 |
+| 旧湖路径是否进入 parquet | 不允许 |
+| 是否新增 bootstrap spec | 不新增 |
+| 是否更新 legacy links | 不需要，除非后续决定记录“未采用旧湖 bootstrap”的调研结论 |
+| 是否清理旧湖或旧 manifest | 不处理 |
+
+旧湖只作为调研依据：
+
+- 证明该数据集历史形态是 full snapshot。
+- 识别旧湖日期类型与 raw 正式契约不一致。
+- 识别旧湖已落后于线上。
+
+## 15. 开发文件清单
+
+预计新增 / 修改文件：
+
+| 文件 | 动作 |
+|---|---|
+| `defs/paths.py` | 新增 `raw_namechange_path`、`silver_namechange_path` |
+| `defs/run_contracts/asset_column_schemas.py` | 新增 raw/silver schema |
+| `defs/catalog/name_mapping.py` | 新增 `namechange -> 股票曾用名` |
+| `defs/duckdb_sql.py` | 新增字段常量、silver select SQL、日期转换 SQL |
+| `defs/assets/namechange.py` | 新增 raw/silver assets |
+| `defs/checks/namechange_checks.py` | 新增 raw/silver checks |
+| `defs/checks/__init__.py` | 如当前自动发现需要，加入导出 |
+| `defs/jobs/namechange_update.py` | 新增 job |
+| `defs/jobs/__init__.py` | 如当前自动发现需要，加入导出 |
+| `defs/sensors/stock_namechange_sensor.py` | 新增日更触发 sensor |
+| `defs/sensors/__init__.py` | 如当前自动发现需要，加入导出 |
+| `tests/test_asset_governance_contracts.py` | 新增 asset schema contract 断言 |
+| `tests/test_run_contract_static_gates.py` | 确认新增 asset/check/job 不破坏静态门禁 |
+| `docs/architecture/dagster-asset-job-topology.html` | 开发完成后同步 active asset/job/check 状态 |
+
+不应修改：
+
+- 旧湖文件。
+- 旧 manifest 文件。
+- 下游服务代码。
+- ClickHouse。
+- stock daily / adj factor / index daily 现有链路。
+
+## 16. 开发切片 Roadmap
+
+### NC-0：开发前源数据区间审计
+
+状态：已完成。2026-05-30 审计确认 `latest_announcement_timeline_v1` 可把当前 Tushare 最新数据归并成唯一名称时间线，`unresolved_interval_conflict_count=0`。
+
+目标：
+
+- 使用最新 Tushare full snapshot distinct 数据重新审计多 open、同 start 变体、区间重叠。
+- 输出统计和样本。
+- 明确 silver 区间归并规则是否足以把当前源数据标准化为唯一名称区间表。
+
+禁止：
+
+- 不写代码。
+- 不把审计结果拍脑袋降级为 WARN。
+- 不用旧湖数据修补 Tushare。
+
+验收：
+
+- 已完成 NC-0 只读审计，并将关键统计、失败策略和最终规则写入本方案。
+- 已确认不能使用 `source_distinct_only`、`prefer_closed_same_event` 或旧 `timeline_candidate` 作为 silver 规则。
+- 已确认 NC-3 必须实现 `latest_announcement_timeline_v1`，并让 unresolved conflict blocking checks 作为正式门禁。
+
+### NC-1：契约与路径
+
+目标：
+
+- 新增路径函数。
+- 新增 raw/silver schema contract。
+- 新增中文名映射。
+- 新增 DuckDB 字段常量和类型常量。
+
+禁止：
+
+- 不新增 asset。
+- 不新增 job。
+- 不请求 Tushare。
+- 不写数据湖。
+
+验收：
+
+- `test_asset_governance_contracts` 中 schema 派生常量可通过。
+- `git diff --check` 通过。
+
+### NC-2：raw asset 与 raw checks
+
+目标：
+
+- 实现 `raw_tushare_namechange`。
+- 接入 Tushare full snapshot 拉取。
+- 实现 raw exact distinct。
+- 实现 raw blocking/WARN checks。
+
+禁止：
+
+- 不生成 silver。
+- 不新增 sensor。
+- 不处理旧 manifest。
+
+验收：
+
+- 单次运行 raw 后，raw 文件字段为 Tushare raw contract。
+- metadata 可见 `source_row_count`、`duplicate_removed_count`。
+- raw blocking checks 通过。
+
+### NC-3：silver asset 与 silver checks
+
+目标：
+
+- 实现 `silver_namechange`。
+- 日期字段标准化为 DATE。
+- 实现 `latest_announcement_timeline_v1` 区间归并和 blocking checks。
+
+禁止：
+
+- 不做业务过滤。
+- 不保留旧湖-only 记录。
+- 不静默保留无法解释的源站区间矛盾。
+- 不新增下游 consumer。
+
+验收：
+
+- silver 文件字段类型符合 schema contract。
+- `end_date < start_date` 为 0。
+- 完全重复行为 0。
+- `canonicalization_rule_version=latest_announcement_timeline_v1`。
+- 归并后 `unresolved_interval_conflict_count=0`。
+- `silver_namechange_current_open_interval_unique` 通过。
+- `silver_namechange_interval_overlap_absent` 通过。
+
+### NC-4：job 与 UI 入口
+
+目标：
+
+- 新增 `namechange_update_job`。
+- selection 只包含 `raw_tushare_namechange`、`silver_namechange` 和对应 checks。
+
+禁止：
+
+- job 文件不得包含 Tushare、DuckDB、路径拼接或质量逻辑。
+- 不新增 sensor。
+
+验收：
+
+- UI 能看到 job。
+- job 描述为中文。
+- run 只 materialize `namechange` 资产族。
+
+### NC-5：日更 sensor
+
+目标：
+
+- 新增 `stock_namechange_sensor`。
+- 读取 `cn_a_stock_current_trade_days` 最新已注册交易日。
+- 触发 unpartitioned `namechange_update_job`。
+
+禁止：
+
+- 不在 sensor 中调用 Tushare。
+- 不在 sensor 中做 DuckDB 区间审计。
+- 不新增 partitioned namechange asset。
+
+验收：
+
+- sensor 默认 `STOPPED`。
+- preview 只能看到 `namechange_update_job` run request，不能触发其它 job。
+- 同一交易日不会重复提交。
+
+### NC-6：正式验收与文档同步
+
+目标：
+
+- 使用正式 Dagster instance 运行一次 `namechange_update_job`。
+- 验证 raw/silver materialization metadata。
+- 验证 checks。
+- 短窗口验证 `stock_namechange_sensor`，确认只提交 `namechange_update_job`。
+- 更新 topology 文档。
+
+需要用户批准后才能执行：
+
+```text
+uv run dg check defs
+UI 或正式 instance 中运行 namechange_update_job
+```
+
+禁止：
+
+- 不做历史 backfill。
+- 不改旧消费者。
+
+## 17. 验收计划
+
+### 静态验证
+
+```text
+uv run python -m unittest tests.test_metadata_contracts
+uv run python -m unittest tests.test_asset_governance_contracts
+uv run python -m unittest tests.test_run_contract_static_gates
+python3 scripts/check_docs_integrity.py
+git diff --check
+git status --short
+```
+
+### Dagster definitions 验证
+
+必须单独获得用户批准后执行：
+
+```text
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run dg check defs
+```
+
+### UI 单次运行验收
+
+必须单独获得用户批准后执行：
+
+1. 在 Dagster UI 运行 `namechange_update_job`。
+2. 确认只执行 `raw_tushare_namechange`、`silver_namechange` 和对应 checks。
+3. 确认 raw materialization metadata 包含：
+   - `dagster/uri`
+   - `dagster/row_count`
+   - `goldenshare/observed_columns`
+   - `source_row_count`
+   - `duplicate_removed_count`
+   - `page_count`
+4. 确认 silver materialization metadata 包含：
+   - `dagster/uri`
+   - `dagster/row_count`
+   - `goldenshare/observed_columns`
+   - `open_interval_count`
+   - `canonicalization_rule_version`
+   - `unresolved_interval_conflict_count`
+5. 确认 blocking checks 全部通过。
+6. 确认 raw WARN checks 可见且有统计 metadata。
+7. 确认 `stock_namechange_sensor` 默认 STOPPED；如短暂开启验证，必须只触发 `namechange_update_job`。
+
+## 18. 接入模板 Checklist 对照
+
+| 类别 | 模板要求 | 本方案结论 |
+|---|---|---|
+| 依据 | 当前代码、旧湖数据、本地 Tushare 文档、tushareMCP 实测都已核验 | 已完成 |
+| 层级 | raw/silver/gold 分类清楚，没有 support/reference 新层级 | raw + silver |
+| Asset tags | 使用 `build_asset_tags(...)`，layer/data_domain 为登记枚举 | `raw/silver` + `basic_data` |
+| 中文名 | `dataset_id` 登记中文名 | 需新增 `namechange -> 股票曾用名` |
+| 命名 | asset/job/check 文件名单一职责 | `namechange.py`、`namechange_checks.py`、`namechange_update.py` |
+| UI 文案 | description 中文简明 | 已列入开发要求 |
+| 路径 | 新路径位于 data_lake raw/silver；path_template 由真实路径函数生成 | 已明确 |
+| Definition metadata | 使用 `build_asset_definition_metadata(...)` | 已明确 |
+| Materialization metadata | 使用 `build_materialization_metadata(...)` 和 `observed_columns` | 已明确 |
+| 字段 | raw 源镜像，silver 日期标准化 | 已明确 |
+| Tushare | 参数、字段、分页、空结果、样本行数已实测 | 已完成基础实测；开发前可补一次全量页数实测 |
+| 请求范围 | 对象池/分页量/耗时评估 | full snapshot，不需要对象池；需在首次运行记录 page_count |
+| checks | blocking/WARN 分清，metadata 有数量和样本 | 已列清 |
+| deps | asset deps 表达真实输入 | `silver_namechange` 依赖 `raw_tushare_namechange` |
+| job | job 只做 selection | 已明确 |
+| run config | typed config / 业务动作字段 | 第一版无 run config |
+| sensor | ready/run_key/cursor/tick 限制 | 第一版新增 `stock_namechange_sensor`，跟随 `cn_a_stock_current_trade_days` 当前交易日信号 |
+| run tags | 不新增项目自定义 run tags | 已明确 |
+| bootstrap | 如需旧湖迁移需 spec 和 legacy links | 不适用，不走 bootstrap |
+| 验收 | 单次 UI run、checks、metadata、失败恢复 | 已列清 |
+| 静态门禁 | unittest、文档检查、diff check | 已列清 |
+| 文档同步 | topology / 相关设计同步 | NC-5 完成后同步 |
+
+## 19. 风险与注意事项
+
+1. Tushare 源站会返回完全重复行，raw 层必须 exact distinct，否则 row count 和 checks 会被污染。
+2. `start_date/end_date` 请求参数是公告日期范围，不是名称生效日期范围；第一版不要暴露给运营。
+3. 旧湖日期列是 DATE，但 raw 正式契约是 `YYYYMMDD` 字符串，不能按旧湖类型设计 raw schema。
+4. `end_date IS NULL` 多行和区间重叠是源数据现实：raw 层只观测，silver 层必须归并；归并后仍无法解释的矛盾必须阻断。
+5. full snapshot 并发运行可能造成重复请求和后写覆盖前写；`stock_namechange_sensor` 第一版必须用 run key 和 cursor 避免同一交易日重复提交。
+6. 本方案不处理旧 manifest 或其它消费者；如果未来有人需要消费 `namechange`，应依赖 `silver_namechange` 另起设计。
