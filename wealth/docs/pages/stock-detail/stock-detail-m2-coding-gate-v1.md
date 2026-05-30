@@ -179,8 +179,12 @@ wealth/src/pages/stock-detail/
 5. [ ] tooltip 换边符合 Showcase：靠右时固定在 K 线区左侧安全位置，靠左时固定在右侧安全位置，不跟随十字线贴边。
 6. [ ] 默认 latest-value/price-line 彩条已关闭，不能把最新值固定标签当成坐标浮标。
 7. [ ] Y 轴浮标由 `subscribeCrosshairMove` 驱动，随鼠标所在 panel 的 Y 坐标变化。
-8. [ ] MA / BOLL 可切换。
-9. [ ] 周期按钮 active 状态正确。
+8. [ ] K 线主图、MACD、成交量、KDJ 四个 panel 的 crosshair 必须按同一横轴时间同步显示。
+9. [ ] 竖向十字线必须由图表工作台外层共享 overlay 绘制并贯穿四个 panel，不能依赖四个独立 chart 的原生竖线分别绘制。
+10. [ ] 四个 chart 的 `rightPriceScale.minimumWidth` 必须一致，确保右侧坐标轴和绘图区右边界对齐。
+11. [ ] 十字坐标线使用更密的短虚线/点线，不使用间距过大的长虚线。
+12. [ ] MA / BOLL 可切换。
+13. [ ] 周期按钮 active 状态正确。
 
 ### 6.4 右侧信息栏
 
@@ -305,3 +309,5 @@ npm run build
 | v1 | 2026-05-30 | 初版：冻结股票详情页编码前门禁与 TopMarketBar 共享前置任务 | Codex |
 | v1.1 | 2026-05-30 | 回填路由与 `lightweight-charts` 拍板结论 | Codex |
 | v1.2 | 2026-05-30 | 补充默认 latest-value 彩条关闭与 Y 轴浮标门禁 | Codex |
+| v1.3 | 2026-05-30 | 补充四图 crosshair 同步和短虚线视觉门禁 | Codex |
+| v1.4 | 2026-05-30 | 补充共享竖向 crosshair overlay 与统一右侧坐标轴宽度门禁 | Codex |

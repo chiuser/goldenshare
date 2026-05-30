@@ -5,6 +5,7 @@ import {
   CrosshairMode,
   HistogramSeries,
   LineSeries,
+  LineStyle,
   createChart,
   type IChartApi,
   type ISeriesApi,
@@ -37,6 +38,13 @@ interface AxisFloatLabelState {
   value: string;
 }
 
+interface ChartSyncTarget {
+  chart: IChartApi;
+  formatter: (value: number) => string;
+  series: ISeriesApi<SeriesType>;
+  valueOf: (point: StockCandlePoint) => number;
+}
+
 const chartColors = {
   grid: "rgba(148, 163, 184, 0.14)",
   axis: "rgba(148, 163, 184, 0.32)",
@@ -47,6 +55,8 @@ const chartColors = {
   blue: "#5aa7ff",
   purple: "#b794f4",
 };
+
+const rightPriceScaleWidth = 72;
 
 function buildChartOptions(height: number, showTimeScale: boolean) {
   return {
@@ -63,11 +73,25 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
     },
     crosshair: {
       mode: CrosshairMode.Normal,
-      vertLine: { color: "rgba(247, 199, 107, 0.72)", labelBackgroundColor: "#1e293b", labelVisible: false },
-      horzLine: { color: "rgba(247, 199, 107, 0.52)", labelBackgroundColor: "#1e293b", labelVisible: false },
+      vertLine: {
+        color: "rgba(247, 199, 107, 0.72)",
+        labelBackgroundColor: "#1e293b",
+        labelVisible: false,
+        visible: false,
+        style: LineStyle.Dotted,
+        width: 1 as const,
+      },
+      horzLine: {
+        color: "rgba(247, 199, 107, 0.52)",
+        labelBackgroundColor: "#1e293b",
+        labelVisible: false,
+        style: LineStyle.Dotted,
+        width: 1 as const,
+      },
     },
     rightPriceScale: {
       borderColor: chartColors.axis,
+      minimumWidth: rightPriceScaleWidth,
       scaleMargins: { bottom: 0.12, top: 0.12 },
     },
     timeScale: {
@@ -87,6 +111,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
   const [hoverIndex, setHoverIndex] = useState(candles.length - 1);
   const [tooltipSide, setTooltipSide] = useState<"left" | "right">("right");
   const [axisFloatLabel, setAxisFloatLabel] = useState<AxisFloatLabelState | null>(null);
+  const [sharedCrosshairX, setSharedCrosshairX] = useState<number | null>(null);
   const latest = candles[hoverIndex] ?? candles.at(-1);
 
   const candleData = useMemo(
@@ -173,6 +198,14 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
     const kdjReferenceLine = addLine(kdjChart, chartColors.brand, "k");
     addLine(kdjChart, chartColors.blue, "d");
     addLine(kdjChart, chartColors.purple, "j");
+    const pointByTime = new Map(candles.map((point) => [point.time, point]));
+    const syncTargets: Record<ChartPanelKey, ChartSyncTarget> = {
+      kline: { chart: klineChart, formatter: formatPriceAxisValue, series: klineSeries, valueOf: (point) => point.close },
+      macd: { chart: macdChart, formatter: formatSignedAxisValue, series: macdBars, valueOf: (point) => point.macd },
+      volume: { chart: volumeChart, formatter: formatCompactAxisValue, series: volumeSeries, valueOf: (point) => point.volume },
+      kdj: { chart: kdjChart, formatter: formatPriceAxisValue, series: kdjReferenceLine, valueOf: (point) => point.k },
+    };
+    let isSyncingCrosshair = false;
 
     const updateAxisFloatLabel = (
       panel: ChartPanelKey,
@@ -196,26 +229,59 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       setAxisFloatLabel({ panel, top, value: formatter(numericPrice) });
     };
 
+    const clearSyncedCrosshair = () => {
+      setAxisFloatLabel(null);
+      setSharedCrosshairX(null);
+      isSyncingCrosshair = true;
+      Object.values(syncTargets).forEach(({ chart }) => {
+        chart.clearCrosshairPosition();
+      });
+      isSyncingCrosshair = false;
+    };
+
+    const syncCrosshairMove = (sourcePanel: ChartPanelKey, pointY: number | undefined, time: Time | undefined) => {
+      const target = syncTargets[sourcePanel];
+      updateAxisFloatLabel(sourcePanel, target.series, pointY, target.formatter);
+
+      if (!time) {
+        clearSyncedCrosshair();
+        return;
+      }
+
+      const point = pointByTime.get(String(time));
+      if (!point) return;
+      setHoverIndex(candles.findIndex((item) => item.time === point.time));
+
+      isSyncingCrosshair = true;
+      Object.values(syncTargets).forEach(({ chart, series, valueOf }) => {
+        chart.setCrosshairPosition(valueOf(point), point.time as Time, series);
+      });
+      isSyncingCrosshair = false;
+    };
+
     klineChart.subscribeCrosshairMove((param) => {
+      if (isSyncingCrosshair) return;
       if (param.point && chartRefs.current.kline) {
         const width = chartRefs.current.kline.clientWidth;
         setTooltipSide(param.point.x > width * 0.62 ? "left" : "right");
+        setSharedCrosshairX(param.point.x);
       }
-      updateAxisFloatLabel("kline", klineSeries, param.point?.y, formatPriceAxisValue);
-      if (!param.time) {
-        return;
-      }
-      const nextIndex = candles.findIndex((point) => point.time === param.time);
-      if (nextIndex >= 0) setHoverIndex(nextIndex);
+      syncCrosshairMove("kline", param.point?.y, param.time as Time | undefined);
     });
     macdChart.subscribeCrosshairMove((param) => {
-      updateAxisFloatLabel("macd", macdBars, param.point?.y, formatSignedAxisValue);
+      if (isSyncingCrosshair) return;
+      if (param.point) setSharedCrosshairX(param.point.x);
+      syncCrosshairMove("macd", param.point?.y, param.time as Time | undefined);
     });
     volumeChart.subscribeCrosshairMove((param) => {
-      updateAxisFloatLabel("volume", volumeSeries, param.point?.y, formatCompactAxisValue);
+      if (isSyncingCrosshair) return;
+      if (param.point) setSharedCrosshairX(param.point.x);
+      syncCrosshairMove("volume", param.point?.y, param.time as Time | undefined);
     });
     kdjChart.subscribeCrosshairMove((param) => {
-      updateAxisFloatLabel("kdj", kdjReferenceLine, param.point?.y, formatPriceAxisValue);
+      if (isSyncingCrosshair) return;
+      if (param.point) setSharedCrosshairX(param.point.x);
+      syncCrosshairMove("kdj", param.point?.y, param.time as Time | undefined);
     });
 
     charts.forEach((chart) => chart.timeScale().fitContent());
@@ -228,6 +294,9 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
   return (
     <section className="stock-detail-chart-workbench" aria-label="左侧图表区">
       <div className="stock-detail-charts-area">
+        {sharedCrosshairX !== null ? (
+          <span aria-hidden="true" className="stock-detail-crosshair-vertical" style={{ left: sharedCrosshairX }} />
+        ) : null}
         <div className="stock-detail-chart-panel kline-panel" aria-label="K线主图">
           <div className="panel-header">
             <select
