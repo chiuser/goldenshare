@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>财势乾坤通用组件库 Demo v1</title>
+  <title>财势乾坤通用组件库 Demo v2.1</title>
   <style>
     /*
-      财势乾坤｜通用组件库 Demo v1
-      Path: 财势乾坤/showcase/component-library-demo-v1.html
+      财势乾坤｜通用组件库 Demo v2.1
+      Path: 财势乾坤/showcase/component-library-demo-v2.html
       Scope: Generic UI component library demo, NOT market-overview page demo.
       Rule: Core Components use Csq* names; Pattern Examples are examples only and are not Core Components.
     */
@@ -127,7 +127,14 @@
     .radius-demo span:nth-child(1){ border-radius:4px; } .radius-demo span:nth-child(2){ border-radius:8px; } .radius-demo span:nth-child(3){ border-radius:14px; }
     .shadow-demo { padding:18px; border-radius:10px; background:var(--cs-color-surface-elevated); box-shadow:var(--cs-shadow-tooltip); }
     .component-grid { display:grid; grid-template-columns:repeat(3, minmax(0, 1fr)); gap:14px; align-items:stretch; }
-    .component-card { min-height:360px; display:flex; flex-direction:column; gap:10px; }
+    .component-card { min-height:360px; display:flex; flex-direction:column; gap:10px; container-type:inline-size; }
+    /* Complex previews need enough horizontal space; do not force every component into a narrow 1/3 card. */
+    .component-card[data-component="CsqLinkedMetricList"],
+    .component-card[data-component="CsqRankTable"],
+    .component-card[data-component="CsqChartSplitPanel"],
+    .component-card[data-component="CsqHeatMapGrid"] {
+      grid-column: span 2;
+    }
     .component-card-head { display:flex; justify-content:space-between; gap:10px; align-items:start; border-bottom:1px solid var(--cs-color-border-subtle); padding-bottom:10px; }
     .component-card h3 { margin:0; font-size:16px; }
     .component-card-head p { margin:3px 0 0; color:var(--cs-color-text-secondary); }
@@ -180,14 +187,34 @@
     .tabs-demo,.range-demo,.state-toggle-bar { display:flex; gap:6px; flex-wrap:wrap; } .tabs-demo button,.range-demo button,.state-btn { border:1px solid var(--cs-color-border-subtle); background:rgba(17,28,46,.75); color:var(--cs-color-text-secondary); border-radius:7px; padding:5px 8px; cursor:pointer; } .tabs-demo .active,.range-demo .active,.state-btn.active { color:var(--cs-color-brand-accent); background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); }
     .metric-grid { display:grid; grid-template-columns:repeat(3,1fr); gap:8px; } .metric-card { background:var(--cs-color-surface-card); border:1px solid var(--cs-color-border-subtle); border-radius:9px; padding:10px; } .metric-card span { display:block; color:var(--cs-color-text-muted); font-size:12px; } .metric-card strong { display:block; font-size:22px; margin:6px 0; } .metric-card em { color:var(--cs-color-text-secondary); font-style:normal; font-size:11px; }
     .info-list div { display:grid; grid-template-columns:80px 1fr 50px; gap:8px; border-bottom:1px solid rgba(148,163,184,.10); padding:7px 0; } .info-list span,.info-list em { color:var(--cs-color-text-muted); font-style:normal; } .info-list b { text-align:right; }
-    .linked-list-preview { display:flex; flex-direction:column; gap:7px; }
-    .linked-row { min-height:42px; display:grid; grid-template-columns:28px minmax(96px,1.1fr) 76px minmax(108px,1fr) 90px 62px; align-items:center; gap:10px; padding:7px 8px; border:1px solid rgba(148,163,184,.12); border-radius:9px; background:rgba(18,27,44,.70); }
+    .linked-list-preview { display:flex; flex-direction:column; gap:7px; min-width:0; }
+    .linked-row {
+      min-height:48px;
+      display:grid;
+      grid-template-columns:32px minmax(132px,1.25fr) minmax(72px,.62fr) minmax(156px,1.12fr) minmax(118px,.82fr) minmax(72px,.55fr);
+      align-items:center;
+      gap:12px;
+      padding:8px 10px;
+      border:1px solid rgba(148,163,184,.12);
+      border-radius:9px;
+      background:rgba(18,27,44,.70);
+      overflow:hidden;
+    }
+    .linked-row > * { min-width:0; }
     .linked-row:hover,.linked-row.hover-demo { background:var(--cs-color-surface-card-hover); border-color:var(--cs-color-border-hover); }
     .linked-row.selected { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); }
-    .rank-box { display:grid; place-items:center; height:28px; border-radius:7px; background:rgba(148,163,184,.10); color:var(--cs-color-text-secondary); }
-    .identity strong,.identity em { display:block; } .identity em { color:var(--cs-color-text-muted); font-style:normal; font-family:var(--cs-font-family-number); }
-    .price-block b,.price-block em { display:block; text-align:right; } .price-block em { font-style:normal; }
-    .tag-group { display:flex; gap:6px; flex-wrap:wrap; } .meta { color:var(--cs-color-text-secondary); } .amount { text-align:right; color:var(--cs-color-text-primary); }
+    .rank-box { display:grid; place-items:center; height:28px; border-radius:7px; background:rgba(148,163,184,.10); color:var(--cs-color-text-secondary); flex:0 0 auto; }
+    .identity { min-width:0; line-height:1.2; }
+    .identity strong,.identity em { display:block; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .identity em { color:var(--cs-color-text-muted); font-style:normal; font-family:var(--cs-font-family-number); }
+    .price-block { min-width:0; }
+    .price-block b,.price-block em { display:block; text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .price-block em { font-style:normal; }
+    .tag-group { display:flex; gap:6px; flex-wrap:wrap; min-width:0; }
+    .tag-group .tag { max-width:100%; overflow:hidden; text-overflow:ellipsis; }
+    .meta { color:var(--cs-color-text-secondary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; } .amount { text-align:right; color:var(--cs-color-text-primary); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+    @container (max-width: 740px) {
+      .linked-row { grid-template-columns:32px minmax(120px,1.35fr) minmax(74px,.75fr) minmax(132px,1fr); }
+      .linked-row .meta, .linked-row .amount { display:none; }
+    }
     .progress-list { display:flex; flex-direction:column; gap:8px; } .progress-row { display:grid; grid-template-columns:64px 1fr 42px; gap:8px; align-items:center; } .progress-row div { height:8px; border-radius:999px; background:rgba(148,163,184,.14); overflow:hidden; } .progress-row i { display:block; height:100%; border-radius:999px; } .progress-row i.rise { background:var(--cs-color-market-up); } .progress-row i.fall { background:var(--cs-color-market-down); } .progress-row i.neutral { background:var(--cs-color-brand-accent); }
     .mini-table,.rank-table { width:100%; border-collapse:collapse; } .mini-table th,.mini-table td,.rank-table th,.rank-table td { border-bottom:1px solid rgba(148,163,184,.10); padding:7px 8px; } th { color:var(--cs-color-text-muted); font-weight:600; } .num-col { text-align:right; font-family:var(--cs-font-family-number); } .mini-table tr:hover,.mini-table .hover-demo,.rank-table tr:hover,.rank-table .hover-demo { background:var(--cs-color-surface-card-hover); } .mini-table .selected,.rank-table .selected { background:var(--cs-color-brand-accent-bg); }
     .rank-table td small { display:block; color:var(--cs-color-text-muted); font-family:var(--cs-font-family-number); } .rank-table-wrap { position:relative; min-height:300px; } .table-state { display:none; position:absolute; inset:44px 0 0; background:rgba(13,20,34,.92); border:1px dashed var(--cs-color-border-subtle); border-radius:9px; padding:18px; color:var(--cs-color-text-muted); } .rank-table-wrap[data-state="loading"] .table-loading,.rank-table-wrap[data-state="empty"] .table-empty,.rank-table-wrap[data-state="error"] .table-error { display:block; } .rank-table-wrap[data-state="loading"] table tbody,.rank-table-wrap[data-state="empty"] table tbody,.rank-table-wrap[data-state="error"] table tbody { opacity:.15; }
@@ -202,9 +229,275 @@
     .chart-tooltip-standalone { display:inline-flex; flex-direction:column; gap:4px; min-width:160px; } .crosshair-demo { position:relative; height:120px; border:1px solid var(--cs-color-border-subtle); border-radius:10px; background:linear-gradient(180deg,#0B1220,#0A101D); overflow:hidden; } .crosshair-v,.crosshair-h { position:absolute; background:var(--cs-color-chart-crosshair); opacity:.8; } .crosshair-v { width:1px; height:100%; left:57%; top:0; } .crosshair-h { height:1px; width:100%; left:0; top:43%; } .crosshair-demo span { position:absolute; left:calc(57% + 8px); top:calc(43% + 8px); padding:5px 7px; border-radius:7px; background:var(--cs-color-tooltip-bg); border:1px solid var(--cs-color-tooltip-border); }
     .pattern-index-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
     .state-grid { display:grid; grid-template-columns:repeat(9, minmax(0,1fr)); gap:10px; } .state-tile { min-height:92px; display:flex; flex-direction:column; gap:8px; } .state-tile span { color:var(--cs-color-text-secondary); font-size:12px; } .state-tile.hover-demo { background:var(--cs-color-surface-card-hover); border-color:var(--cs-color-border-hover); } .state-tile.selected { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); } .state-tile.active { transform:translateY(1px); background:rgba(247,199,107,.08); } .state-tile.empty { border-style:dashed; color:var(--cs-color-text-muted); } .state-tile.error { background:var(--cs-color-risk-bg); border-color:rgba(255,138,61,.34); color:var(--cs-color-risk); } .state-tile.disabled { opacity:.44; } .state-tile.delayed { background:var(--cs-color-warning-bg); border-color:rgba(245,158,11,.34); color:var(--cs-color-warning); }
+
+    /* v1 full additions: generic form, action and overlay components */
+    .button-demo-row { display:flex; flex-wrap:wrap; gap:8px; align-items:center; }
+    .csq-btn { height:30px; padding:0 12px; border-radius:var(--cs-radius-button); border:1px solid var(--cs-color-border-subtle); background:var(--cs-color-surface-card); color:var(--cs-color-text-primary); font-size:12px; cursor:pointer; display:inline-flex; align-items:center; gap:6px; transition:.16s ease; }
+    .csq-btn.primary { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); color:var(--cs-color-brand-accent); }
+    .csq-btn.ghost { background:transparent; }
+    .csq-btn.warning { background:var(--cs-color-warning-bg); border-color:rgba(245,158,11,.34); color:var(--cs-color-warning); }
+    .csq-btn:hover,.csq-btn.hover-demo { border-color:var(--cs-color-border-hover); background:var(--cs-color-surface-card-hover); }
+    .csq-btn.active-demo { transform:translateY(1px); background:rgba(247,199,107,.10); }
+    .csq-btn:disabled,.csq-btn.disabled-demo { opacity:.44; cursor:not-allowed; }
+    .csq-icon-btn { width:32px; height:32px; border-radius:9px; border:1px solid var(--cs-color-border-subtle); background:var(--cs-color-surface-card); color:var(--cs-color-text-secondary); display:inline-grid; place-items:center; cursor:pointer; transition:.16s ease; }
+    .csq-icon-btn:hover,.csq-icon-btn.hover-demo { color:var(--cs-color-brand-accent); border-color:var(--cs-color-border-hover); background:var(--cs-color-surface-card-hover); }
+    .csq-icon-btn.selected { color:var(--cs-color-brand-accent); border-color:var(--cs-color-brand-accent-border); background:var(--cs-color-brand-accent-bg); }
+    .form-stack { display:grid; gap:10px; }
+    .csq-input-wrap,.csq-select-wrap { display:flex; flex-direction:column; gap:6px; }
+    .csq-label { color:var(--cs-color-text-secondary); font-size:12px; }
+    .csq-input,.csq-select { height:34px; border-radius:8px; border:1px solid var(--cs-color-border-subtle); background:var(--cs-color-surface-input); color:var(--cs-color-text-primary); padding:0 10px; outline:none; font:12px var(--cs-font-family-base); }
+    .csq-input:hover,.csq-select:hover { border-color:var(--cs-color-border-hover); }
+    .csq-input:focus,.csq-select:focus,.csq-input.focus-demo,.csq-select.focus-demo { border-color:var(--cs-color-brand-accent-border); box-shadow:0 0 0 2px rgba(247,199,107,.08); }
+    .csq-input.error { border-color:rgba(255,138,61,.46); background:var(--cs-color-risk-bg); }
+    .field-hint { color:var(--cs-color-text-muted); font-size:11px; }
+    .field-error { color:var(--cs-color-risk); font-size:11px; }
+    .filter-bar-demo { display:flex; flex-wrap:wrap; align-items:center; gap:8px; padding:10px; border:1px solid var(--cs-color-border-subtle); border-radius:10px; background:var(--cs-color-surface-panel-subtle); }
+    .filter-chip { height:26px; padding:0 9px; border-radius:999px; display:inline-flex; align-items:center; gap:6px; background:rgba(148,163,184,.10); border:1px solid var(--cs-color-border-subtle); color:var(--cs-color-text-secondary); font-size:12px; }
+    .filter-chip.selected { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); color:var(--cs-color-brand-accent); }
+    .popover-stage { position:relative; min-height:138px; border:1px dashed var(--cs-color-border-subtle); border-radius:10px; background:linear-gradient(180deg,#0B1220,#0A101D); padding:14px; }
+    .csq-popover { position:absolute; top:50px; left:34px; width:220px; border-radius:10px; border:1px solid var(--cs-color-tooltip-border); background:var(--cs-color-tooltip-bg); box-shadow:var(--cs-shadow-tooltip); padding:10px; z-index:2; }
+    .csq-popover h4,.drawer-demo h4,.modal-card h4 { margin:0 0 6px; font-size:13px; color:var(--cs-color-text-primary); }
+    .csq-popover p,.drawer-demo p,.modal-card p { margin:0; color:var(--cs-color-text-secondary); font-size:12px; line-height:1.45; }
+    .drawer-stage,.modal-stage { position:relative; height:170px; border:1px dashed var(--cs-color-border-subtle); border-radius:10px; overflow:hidden; background:linear-gradient(180deg,#0B1220,#0A101D); }
+    .drawer-demo { position:absolute; top:0; right:0; width:44%; height:100%; border-left:1px solid var(--cs-color-border-subtle); background:var(--cs-color-surface-elevated); box-shadow:var(--cs-shadow-dropdown); padding:14px; }
+    .drawer-demo .drawer-actions,.modal-card .modal-actions { display:flex; gap:8px; margin-top:14px; }
+    .modal-mask { position:absolute; inset:0; background:rgba(2,6,23,.58); display:grid; place-items:center; }
+    .modal-card { width:260px; border-radius:12px; border:1px solid var(--cs-color-border-default); background:var(--cs-color-surface-elevated); box-shadow:var(--cs-shadow-dialog); padding:14px; }
+    .pagination-demo { display:flex; gap:6px; align-items:center; flex-wrap:wrap; }
+    .page-btn { min-width:28px; height:28px; padding:0 8px; border-radius:7px; border:1px solid var(--cs-color-border-subtle); background:var(--cs-color-surface-card); color:var(--cs-color-text-secondary); font-size:12px; cursor:pointer; }
+    .page-btn.active { background:var(--cs-color-brand-accent-bg); border-color:var(--cs-color-brand-accent-border); color:var(--cs-color-brand-accent); }
+    .page-btn:disabled { opacity:.42; cursor:not-allowed; }
+    .form-item-demo { display:grid; grid-template-columns:96px 1fr; gap:10px; align-items:start; padding:10px; border:1px solid var(--cs-color-border-subtle); border-radius:10px; background:var(--cs-color-surface-panel-subtle); }
+    .form-item-demo + .form-item-demo { margin-top:8px; }
+    .form-item-demo.required .csq-label::before { content:'* '; color:var(--cs-color-market-up); }
+
+
+
+    /* v2 additions: stock compact card and limit ladder pattern components from Review v6/v7 */
+    .stock-demo-list { display:grid; gap:9px; }
+    .csq-stock-card-v7 {
+      position:relative;
+      min-height:76px;
+      padding:8px 10px 9px;
+      border-radius:11px;
+      border:1px solid rgba(148,163,184,.16);
+      background:linear-gradient(180deg, rgba(18,27,44,.96), rgba(13,20,34,.96));
+      cursor:pointer;
+      transition:background .16s ease, border-color .16s ease, transform .16s ease, box-shadow .16s ease;
+      overflow:hidden;
+    }
+    .csq-stock-card-v7::before {
+      content:"";
+      position:absolute;
+      inset:0;
+      background:linear-gradient(135deg, rgba(255,77,90,.05), transparent 42%, rgba(247,199,107,.04));
+      opacity:.72;
+      pointer-events:none;
+    }
+    .csq-stock-card-v7:hover,
+    .csq-stock-card-v7.hover-demo {
+      background:linear-gradient(180deg, rgba(24,34,53,.98), rgba(15,23,38,.98));
+      border-color:rgba(247,199,107,.34);
+      transform:translateY(-1px);
+      box-shadow:0 8px 18px rgba(0,0,0,.22);
+    }
+    .csq-stock-card-v7.selected { border-color:var(--cs-color-brand-accent-border); background:linear-gradient(180deg, rgba(247,199,107,.10), rgba(18,27,44,.92)); }
+    .csq-stock-card-v7.disabled { opacity:.46; cursor:not-allowed; transform:none; box-shadow:none; }
+    .stock-code-pill-v7 {
+      position:relative;
+      z-index:1;
+      display:inline-flex;
+      align-items:center;
+      height:18px;
+      padding:0 7px;
+      border-radius:999px;
+      border:1px solid rgba(148,163,184,.18);
+      background:rgba(148,163,184,.08);
+      color:rgba(168,180,198,.88);
+      font-size:10px;
+      line-height:1;
+      font-family:var(--cs-font-family-number);
+      font-variant-numeric:tabular-nums;
+      margin-bottom:7px;
+    }
+    .stock-card-split-v7 {
+      position:relative;
+      z-index:1;
+      display:grid;
+      grid-template-columns:minmax(0,1.1fr) minmax(58px,.72fr) minmax(0,.95fr);
+      gap:8px;
+      align-items:end;
+    }
+    .stock-zone-v7 { display:grid; gap:4px; min-width:0; }
+    .stock-zone-v7.mid { justify-items:center; text-align:center; }
+    .stock-zone-v7.right { justify-items:end; text-align:right; }
+    .stock-name-v7 { color:var(--cs-color-text-primary); font-weight:700; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .stock-price-v7,
+    .stock-change-v7,
+    .stock-board-amount-v7 { font-family:var(--cs-font-family-number); font-variant-numeric:tabular-nums; white-space:nowrap; }
+    .stock-price-v7 { font-size:12px; font-weight:700; }
+    .stock-change-v7 { font-size:12px; font-weight:800; }
+    .stock-board-amount-v7 { color:rgba(229,237,248,.82); font-size:11px; }
+    .stock-sector-v7 { color:var(--cs-color-text-secondary); font-size:11px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
+    .stock-streak-pill-v7 {
+      display:inline-flex;
+      align-items:center;
+      height:19px;
+      padding:0 7px;
+      border-radius:999px;
+      border:1px solid rgba(255,77,90,.24);
+      background:rgba(255,77,90,.10);
+      color:#FFB4BA;
+      font-weight:700;
+      font-size:11px;
+      white-space:nowrap;
+    }
+    .stock-streak-pill-v7.brand { border-color:rgba(247,199,107,.28); background:rgba(247,199,107,.10); color:var(--cs-color-brand-accent); }
+    .ladder-pattern-preview { display:grid; gap:10px; }
+    .ladder-pattern-layer {
+      border:1px solid rgba(148,163,184,.13);
+      border-radius:10px;
+      background:rgba(13,20,34,.66);
+      overflow:hidden;
+    }
+    .ladder-pattern-layer.above { border-color:rgba(247,199,107,.30); background:linear-gradient(180deg, rgba(247,199,107,.06), rgba(13,20,34,.70)); }
+    .ladder-pattern-head {
+      display:flex;
+      align-items:center;
+      justify-content:space-between;
+      gap:10px;
+      min-height:32px;
+      padding:7px 9px;
+      border-bottom:1px solid rgba(148,163,184,.11);
+      background:rgba(18,27,44,.70);
+    }
+    .ladder-pattern-head b { color:#F2DB9A; }
+    .ladder-pattern-head span { color:var(--cs-color-text-muted); font-size:12px; }
+    .ladder-promotion-demo { display:grid; grid-template-columns:minmax(0,1fr) 30px minmax(0,1fr); gap:8px; padding:9px; align-items:stretch; }
+    .ladder-side-demo { min-width:0; border:1px solid rgba(148,163,184,.10); border-radius:9px; padding:8px; background:rgba(18,27,44,.48); }
+    .ladder-side-demo h4 { margin:0 0 8px; display:flex; justify-content:space-between; color:var(--cs-color-text-secondary); font-size:12px; font-weight:700; }
+    .ladder-arrow-demo { display:grid; place-items:center; color:var(--cs-color-brand-accent); font-size:18px; font-family:var(--cs-font-family-number); opacity:.88; }
+    .ladder-card-grid-demo { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+    .ladder-card-grid-demo.single { grid-template-columns:repeat(3,minmax(0,1fr)); padding:9px; }
+    .ladder-card-grid-demo.compact .csq-stock-card-v7 { min-height:68px; padding:7px 8px; }
+    .ladder-card-grid-demo.compact .stock-code-pill-v7 { height:16px; padding:0 6px; margin-bottom:5px; }
+    .ladder-card-grid-demo.compact .stock-name-v7 { font-size:12px; }
+    .ladder-card-grid-demo.compact .stock-card-split-v7 { grid-template-columns:minmax(0,1fr) minmax(54px,.72fr) minmax(0,.9fr); gap:6px; }
+    .ladder-expand-control-demo {
+      width:100%;
+      border:1px solid rgba(247,199,107,.24);
+      background:rgba(247,199,107,.07);
+      color:var(--cs-color-brand-accent);
+      border-radius:8px;
+      height:30px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      gap:8px;
+      cursor:pointer;
+      margin-top:8px;
+    }
+    .ladder-expand-control-demo:hover { background:rgba(247,199,107,.12); border-color:rgba(247,199,107,.38); }
+    .ladder-expand-control-demo .arrows { font-family:var(--cs-font-family-number); letter-spacing:-2px; }
+    .stock-structure-note { color:var(--cs-color-text-muted); font-size:12px; margin-top:6px; line-height:1.5; }
+
+
+
+    /* v2.1 polish: complex stock / ladder demos must not be forced into 3-card grid.
+       The component library can show simple components in a 3-column grid, but compound patterns
+       need full-width preview space to avoid squeezed cards, clipped labels, or distorted layouts. */
+    .stock-ladder-grid {
+      grid-template-columns: 1fr;
+    }
+    .stock-ladder-grid .component-card {
+      min-height: auto;
+    }
+    .stock-ladder-grid .component-preview {
+      min-height: 260px;
+      overflow: auto;
+      padding: 14px;
+    }
+    .stock-ladder-grid .component-meta {
+      grid-template-columns: repeat(4, minmax(0, 1fr));
+    }
+    .stock-ladder-grid .stock-demo-list {
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      align-items: stretch;
+    }
+    .stock-ladder-grid .csq-stock-card-v7 {
+      min-width: 226px;
+    }
+    .stock-ladder-grid .ladder-pattern-preview {
+      gap: 14px;
+    }
+    .stock-ladder-grid .ladder-pattern-layer {
+      min-width: 0;
+    }
+    .stock-ladder-grid .ladder-promotion-demo {
+      grid-template-columns: minmax(380px, 1fr) 44px minmax(380px, 1fr);
+      gap: 12px;
+      overflow-x: auto;
+      padding: 12px;
+    }
+    .stock-ladder-grid .ladder-side-demo {
+      min-width: 380px;
+      padding: 10px;
+    }
+    .stock-ladder-grid .ladder-card-grid-demo,
+    .stock-ladder-grid .ladder-card-grid-demo.single {
+      grid-template-columns: repeat(auto-fit, minmax(226px, 1fr));
+      gap: 10px;
+      padding: 10px;
+    }
+    .stock-ladder-grid .ladder-side-demo .ladder-card-grid-demo,
+    .stock-ladder-grid .ladder-side-demo .ladder-card-grid-demo.single {
+      padding: 0;
+    }
+    .stock-ladder-grid .ladder-card-grid-demo.compact .csq-stock-card-v7 {
+      min-height: 76px;
+      padding: 8px 10px 9px;
+    }
+    .stock-ladder-grid .ladder-card-grid-demo.compact .stock-code-pill-v7 {
+      height: 18px;
+      padding: 0 7px;
+      margin-bottom: 7px;
+    }
+    .stock-ladder-grid .ladder-card-grid-demo.compact .stock-name-v7 {
+      font-size: 13px;
+    }
+    .stock-ladder-grid .ladder-card-grid-demo.compact .stock-card-split-v7 {
+      grid-template-columns: minmax(0, 1.1fr) minmax(64px, .74fr) minmax(0, .98fr);
+      gap: 8px;
+    }
+    .stock-ladder-grid .stock-sector-v7,
+    .stock-ladder-grid .stock-name-v7 {
+      max-width: 100%;
+    }
+    .stock-ladder-grid .stock-board-amount-v7,
+    .stock-ladder-grid .stock-change-v7,
+    .stock-ladder-grid .stock-price-v7,
+    .stock-ladder-grid .stock-streak-pill-v7 {
+      white-space: nowrap;
+    }
+    .stock-ladder-grid .ladder-arrow-demo {
+      min-width: 44px;
+    }
+    @media (max-width: 1450px) {
+      .stock-ladder-grid .component-meta { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+      .stock-ladder-grid .ladder-promotion-demo { grid-template-columns: minmax(340px, 1fr) 36px minmax(340px, 1fr); }
+      .stock-ladder-grid .ladder-side-demo { min-width: 340px; }
+      .stock-ladder-grid .ladder-card-grid-demo,
+      .stock-ladder-grid .ladder-card-grid-demo.single { grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); }
+      .stock-ladder-grid .csq-stock-card-v7 { min-width: 210px; }
+    }
+
     @media (max-width: 1450px) {
       body { min-width: 1200px; }
       .component-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
+      .component-card[data-component="CsqLinkedMetricList"],
+      .component-card[data-component="CsqRankTable"],
+      .component-card[data-component="CsqChartSplitPanel"],
+      .component-card[data-component="CsqHeatMapGrid"] { grid-column: span 2; }
       .token-grid { grid-template-columns:repeat(2,minmax(0,1fr)); }
       .state-grid { grid-template-columns:repeat(3,minmax(0,1fr)); }
     }
@@ -217,17 +510,19 @@
         <h1>财势乾坤通用组件库 Demo</h1>
         <p>通用组件、非业务页面。Core Components 使用 Csq 前缀；Pattern Examples 仅展示组合方式，不作为 Core Component 契约。</p>
       </div>
-      <div class="version-pill">v1<span>Dark First</span></div>
+      <div class="version-pill">v2 完整版<span>Dark First</span></div>
     </div>
     <nav class="anchor-nav" aria-label="组件库锚点导航">
       
 <a href="#tokens">Token</a>
 <a href="#foundation">Foundation</a>
 <a href="#navigation">Navigation</a>
+<a href="#forms">Forms & Overlay</a>
 <a href="#data-display">Data Display</a>
 <a href="#tables">Table</a>
 <a href="#charts">Chart</a>
 <a href="#patterns">Pattern</a>
+<a href="#stock-ladder">Stock & Ladder</a>
 <a href="#states">States</a>
 
     </nav>
@@ -486,6 +781,76 @@
 </div>
 </section>
 
+
+
+<section class="demo-section" id="forms">
+  <div class="section-title-block">
+    <span>Core Components</span>
+    <h2>Interaction / Form / Overlay Components</h2>
+  </div>
+  <div class="component-grid">
+<article class="component-card" data-component="CsqButton">
+  <div class="component-card-head"><div><h3>CsqButton</h3><p>按钮</p></div><span class="layer-pill">Interaction Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>触发通用操作、提交、刷新、确认。</span></div><div><b>Props</b><span>label, variant, size, loading, disabled, icon, onClick</span></div><div><b>状态</b><span>default / hover / active / selected / loading / disabled</span></div><div><b>Token</b><span>button, brand, warning, border, motion</span></div></div>
+  <div class="component-preview"><div class="button-demo-row"><button class="csq-btn primary">主按钮</button><button class="csq-btn hover-demo">hover</button><button class="csq-btn active-demo">active</button><button class="csq-btn ghost">弱按钮</button><button class="csq-btn warning">警告</button><button class="csq-btn" disabled>disabled</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要用 CsqButton 承载业务判断；按钮只表达操作，不表达行情涨跌。</div>
+</article>
+<article class="component-card" data-component="CsqIconButton">
+  <div class="component-card-head"><div><h3>CsqIconButton</h3><p>图标按钮</p></div><span class="layer-pill">Interaction Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>承载刷新、设置、收起、更多等低文本操作。</span></div><div><b>Props</b><span>icon, ariaLabel, tooltip, selected, disabled, onClick</span></div><div><b>状态</b><span>default / hover / active / selected / loading / disabled</span></div><div><b>Token</b><span>icon-button, tooltip, brand, border</span></div></div>
+  <div class="component-preview"><div class="button-demo-row"><button class="csq-icon-btn">↻</button><button class="csq-icon-btn hover-demo">⚙</button><button class="csq-icon-btn selected">★</button><button class="csq-icon-btn">⋯</button><button class="csq-icon-btn disabled-demo">⛔</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>必须提供 ariaLabel 或 Tooltip；不要只靠图标表达关键操作。</div>
+</article>
+<article class="component-card" data-component="CsqInput">
+  <div class="component-card-head"><div><h3>CsqInput</h3><p>输入框</p></div><span class="layer-pill">Form Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>文本、代码、关键词、数值条件输入。</span></div><div><b>Props</b><span>value, placeholder, prefix, suffix, status, clearable, disabled</span></div><div><b>状态</b><span>default / hover / focus / error / loading / disabled</span></div><div><b>Token</b><span>input-bg, border, text, risk</span></div></div>
+  <div class="component-preview"><div class="form-stack"><label class="csq-input-wrap"><span class="csq-label">搜索</span><input class="csq-input" value="机器人" /></label><label class="csq-input-wrap"><span class="csq-label">focus</span><input class="csq-input focus-demo" value="000001.SZ" /></label><label class="csq-input-wrap"><span class="csq-label">error</span><input class="csq-input error" value="无效代码" /><span class="field-error">代码格式不符合校验规则</span></label></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要把具体 API 字段名写进 Core Props；业务校验由外层传入。</div>
+</article>
+<article class="component-card" data-component="CsqSelect">
+  <div class="component-card-head"><div><h3>CsqSelect</h3><p>选择器</p></div><span class="layer-pill">Form Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>单选或多选过滤条件。</span></div><div><b>Props</b><span>options, value, multiple, placeholder, searchable, disabled</span></div><div><b>状态</b><span>default / hover / focus / selected / empty / disabled</span></div><div><b>Token</b><span>select, popover, option-hover, brand</span></div></div>
+  <div class="component-preview"><div class="form-stack"><label class="csq-select-wrap"><span class="csq-label">范围</span><select class="csq-select"><option>全部</option><option>上涨</option><option>下跌</option></select></label><label class="csq-select-wrap"><span class="csq-label">selected</span><select class="csq-select focus-demo"><option>近 1 个月</option><option>近 3 个月</option></select></label><span class="field-hint">选项数据使用通用 key / label，不绑定业务对象。</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要把市场、板块、股票等业务模型固化为 CsqSelect 的唯一契约。</div>
+</article>
+<article class="component-card" data-component="CsqFilterBar">
+  <div class="component-card-head"><div><h3>CsqFilterBar</h3><p>筛选栏</p></div><span class="layer-pill">Form Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>组织搜索框、选择器、标签筛选和操作按钮。</span></div><div><b>Props</b><span>filters, values, actions, collapsed, onChange, onReset</span></div><div><b>状态</b><span>default / hover / active / selected / loading / disabled</span></div><div><b>Token</b><span>filter, chip, input, button</span></div></div>
+  <div class="component-preview"><div class="filter-bar-demo"><input class="csq-input" style="width:150px" value="新能源" /><span class="filter-chip selected">涨幅优先 ×</span><span class="filter-chip">成交额</span><span class="filter-chip">换手率</span><button class="csq-btn primary">查询</button><button class="csq-btn ghost">重置</button></div></div>
+  <div class="misuse"><b>禁止误用：</b>筛选栏只承载 UI 组织，不直接绑定某个页面 API 查询参数。</div>
+</article>
+<article class="component-card" data-component="CsqPopover">
+  <div class="component-card-head"><div><h3>CsqPopover</h3><p>浮层</p></div><span class="layer-pill">Overlay Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>轻量解释、操作菜单、字段说明。</span></div><div><b>Props</b><span>trigger, placement, content, open, width, onOpenChange</span></div><div><b>状态</b><span>default / hover / active / loading / empty / error</span></div><div><b>Token</b><span>popover-bg, border, shadow, z-popover</span></div></div>
+  <div class="component-preview"><div class="popover-stage"><button class="csq-btn primary">触发浮层</button><div class="csq-popover"><h4>字段说明</h4><p>用于展示短说明、快捷操作或菜单。内容不绑定具体业务。</p></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要把长表单或复杂流程塞进 Popover；复杂编辑用 Drawer / Modal。</div>
+</article>
+<article class="component-card" data-component="CsqDrawer">
+  <div class="component-card-head"><div><h3>CsqDrawer</h3><p>抽屉</p></div><span class="layer-pill">Overlay Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>承载侧向详情、筛选配置、局部编辑。</span></div><div><b>Props</b><span>open, title, placement, width, footer, closeOnEsc</span></div><div><b>状态</b><span>default / active / loading / empty / error / disabled</span></div><div><b>Token</b><span>drawer, overlay, shadow, z-modal</span></div></div>
+  <div class="component-preview"><div class="drawer-stage"><div class="drawer-demo"><h4>详情抽屉</h4><p>右侧进入，不影响主视图阅读。适合中等复杂度信息。</p><div class="drawer-actions"><button class="csq-btn primary">确认</button><button class="csq-btn ghost">取消</button></div></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要用 Drawer 代替主页面；高频行情信息不应被抽屉遮挡。</div>
+</article>
+<article class="component-card" data-component="CsqModal">
+  <div class="component-card-head"><div><h3>CsqModal</h3><p>对话框</p></div><span class="layer-pill">Overlay Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>确认、短表单、不可忽略的中断式提示。</span></div><div><b>Props</b><span>open, title, content, actions, size, closeable</span></div><div><b>状态</b><span>default / active / loading / error / disabled</span></div><div><b>Token</b><span>modal, mask, shadow, z-modal</span></div></div>
+  <div class="component-preview"><div class="modal-stage"><div class="modal-mask"><div class="modal-card"><h4>确认操作</h4><p>对高影响操作做确认。文案应具体、克制。</p><div class="modal-actions"><button class="csq-btn primary">确认</button><button class="csq-btn ghost">取消</button></div></div></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>不要把普通 Tooltip 或轻量说明做成 Modal，避免打断看盘。</div>
+</article>
+<article class="component-card" data-component="CsqPagination">
+  <div class="component-card-head"><div><h3>CsqPagination</h3><p>分页</p></div><span class="layer-pill">Navigation Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>长列表、数据表分页和页码跳转。</span></div><div><b>Props</b><span>page, pageSize, total, showQuickJumper, onChange</span></div><div><b>状态</b><span>default / hover / active / selected / disabled / loading</span></div><div><b>Token</b><span>pagination, button, brand, border</span></div></div>
+  <div class="component-preview"><div class="pagination-demo"><button class="page-btn" disabled>‹</button><button class="page-btn active">1</button><button class="page-btn">2</button><button class="page-btn">3</button><button class="page-btn">…</button><button class="page-btn">12</button><button class="page-btn">›</button><span class="field-hint">共 236 条</span></div></div>
+  <div class="misuse"><b>禁止误用：</b>首页速览类 TopN 不应强行分页；分页用于完整列表页。</div>
+</article>
+<article class="component-card" data-component="CsqFormItem">
+  <div class="component-card-head"><div><h3>CsqFormItem</h3><p>表单项</p></div><span class="layer-pill">Form Components</span></div>
+  <div class="component-meta"><div><b>用途</b><span>统一 label、控件、帮助、错误与必填状态。</span></div><div><b>Props</b><span>label, required, help, validateStatus, error, children</span></div><div><b>状态</b><span>default / hover / active / loading / error / disabled</span></div><div><b>Token</b><span>form-label, input, help, error</span></div></div>
+  <div class="component-preview"><div class="form-item-demo required"><span class="csq-label">提醒名称</span><div><input class="csq-input" value="价格突破提醒" /><span class="field-hint">2～24 个字符。</span></div></div><div class="form-item-demo"><span class="csq-label">阈值</span><div><input class="csq-input error" value="abc" /><span class="field-error">请输入有效数字。</span></div></div></div>
+  <div class="misuse"><b>禁止误用：</b>FormItem 只负责表单布局和校验展示，不承载业务保存逻辑。</div>
+</article>
+  </div>
+</section>
 
 <section class="demo-section" id="data-display">
   <div class="section-title-block">
@@ -1266,8 +1631,185 @@
 </section>
 
     
+
+<section class="demo-section" id="stock-ladder">
+  <div class="section-title-block"><span>Stock Domain & Ladder Patterns</span><h2>7. Stock Card & Limit Ladder Patterns</h2></div>
+  <div class="component-grid stock-ladder-grid">
+
+<article class="component-card" data-component="CsqStockCompactCard">
+  <div class="component-card-head">
+    <div><h3>CsqStockCompactCard</h3><p>紧凑型股票卡片</p></div>
+    <span class="layer-pill">Data Display</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>高密度展示股票身份、行情事实、板上成交额与板型标签。</span></div>
+    <div><b>Props</b><span>stockCode, stockName, latestPrice, changePct, sectorName, boardTradeAmount, streakText</span></div>
+    <div><b>状态</b><span>default / hover / selected / active / disabled / loading / empty / error</span></div>
+    <div><b>Token</b><span>stock-card, market-up/down, tag, number-font</span></div>
+  </div>
+  <div class="component-preview">
+    <div class="stock-demo-list">
+      <article class="csq-stock-card-v7 hover-demo" title="hover 示例：点击进入个股详情">
+        <span class="stock-code-pill-v7">603017.SH</span>
+        <div class="stock-card-split-v7">
+          <div class="stock-zone-v7 left"><span class="stock-name-v7">中衡设计</span><span class="stock-price-v7 up">12.74</span></div>
+          <div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.02%</span><span class="stock-board-amount-v7">1.27亿</span></div>
+          <div class="stock-zone-v7 right"><span class="stock-sector-v7">低空经济</span><span class="stock-streak-pill-v7">3连板</span></div>
+        </div>
+      </article>
+      <article class="csq-stock-card-v7 selected">
+        <span class="stock-code-pill-v7">002050.SZ</span>
+        <div class="stock-card-split-v7">
+          <div class="stock-zone-v7 left"><span class="stock-name-v7">三花智控</span><span class="stock-price-v7 up">25.88</span></div>
+          <div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.00%</span><span class="stock-board-amount-v7">8200万</span></div>
+          <div class="stock-zone-v7 right"><span class="stock-sector-v7">机器人</span><span class="stock-streak-pill-v7 brand">7天5板</span></div>
+        </div>
+      </article>
+      <article class="csq-stock-card-v7 disabled">
+        <span class="stock-code-pill-v7">688041.SH</span>
+        <div class="stock-card-split-v7">
+          <div class="stock-zone-v7 left"><span class="stock-name-v7">海光信息</span><span class="stock-price-v7 flat">--</span></div>
+          <div class="stock-zone-v7 mid"><span class="stock-change-v7 flat">0.00%</span><span class="stock-board-amount-v7">--</span></div>
+          <div class="stock-zone-v7 right"><span class="stock-sector-v7">算力</span><span class="stock-streak-pill-v7 brand">首板</span></div>
+        </div>
+      </article>
+    </div>
+    <div class="stock-structure-note">v2 纳入 Review v7：股票代码为左上角胶囊；卡片为左/中/右三分区。板上成交额是“只在板上发生的成交金额”。</div>
+  </div>
+  <div class="misuse"><b>禁止误用：</b>不要把 boardTradeAmount 当作封单金额或全天成交额；不要把 streakText 拆成两个字段。</div>
+</article>
+
+<article class="component-card" data-component="MarketOverviewLimitLadder">
+  <div class="component-card-head">
+    <div><h3>MarketOverviewLimitLadder</h3><p>市场总览连板天梯 Pattern</p></div>
+    <span class="layer-pill">Pattern / 非 Core</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>Pattern：展示“昨日层级 → 今日晋级层级”的连板动态结构。</span></div>
+    <div><b>Props</b><span>highestStreakLevel, specialLayer, promotionLayers, firstLayer, expandedLayerKeys</span></div>
+    <div><b>状态</b><span>default / hover / selected / loading / empty / error</span></div>
+    <div><b>Token</b><span>limit-ladder, stock-card, brand-accent</span></div>
+  </div>
+  <div class="component-preview">
+    <div class="ladder-pattern-preview">
+      <section class="ladder-pattern-layer above">
+        <div class="ladder-pattern-head"><b>五板以上</b><span>今日六板及以上｜2只</span></div>
+        <div class="ladder-card-grid-demo single compact">
+          <article class="csq-stock-card-v7"><span class="stock-code-pill-v7">600172.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">黄河旋风</span><span class="stock-price-v7 up">10.76</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.02%</span><span class="stock-board-amount-v7">3.20亿</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">通用设备</span><span class="stock-streak-pill-v7 brand">9天7板</span></div></div></article>
+          <article class="csq-stock-card-v7"><span class="stock-code-pill-v7">603017.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">中衡设计</span><span class="stock-price-v7 up">12.74</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.02%</span><span class="stock-board-amount-v7">1.27亿</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">低空经济</span><span class="stock-streak-pill-v7 brand">6板</span></div></div></article>
+        </div>
+      </section>
+      <section class="ladder-pattern-layer">
+        <div class="ladder-pattern-head"><b>昨日二板 → 今日三板</b><span>昨日全量｜今日晋级</span></div>
+        <div class="ladder-promotion-demo">
+          <div class="ladder-side-demo"><h4>昨日二板 <span>4只</span></h4><div class="ladder-card-grid-demo compact"><article class="csq-stock-card-v7"><span class="stock-code-pill-v7">002050.SZ</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">三花智控</span><span class="stock-price-v7 up">25.88</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.00%</span><span class="stock-board-amount-v7">8200万</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">机器人</span><span class="stock-streak-pill-v7">3连板</span></div></div></article><article class="csq-stock-card-v7"><span class="stock-code-pill-v7">300124.SZ</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">汇川技术</span><span class="stock-price-v7 down">68.25</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 down">-1.12%</span><span class="stock-board-amount-v7">--</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">电气设备</span><span class="stock-streak-pill-v7 brand">断板</span></div></div></article></div></div>
+          <div class="ladder-arrow-demo">→</div>
+          <div class="ladder-side-demo"><h4>今日三板 <span>2只</span></h4><div class="ladder-card-grid-demo compact"><article class="csq-stock-card-v7 selected"><span class="stock-code-pill-v7">002050.SZ</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">三花智控</span><span class="stock-price-v7 up">25.88</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.00%</span><span class="stock-board-amount-v7">8200万</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">机器人</span><span class="stock-streak-pill-v7">3连板</span></div></div></article></div></div>
+        </div>
+      </section>
+    </div>
+  </div>
+  <div class="misuse"><b>禁止误用：</b>这是市场总览 Pattern，不作为 Core Component；不要输出买卖建议。</div>
+</article>
+
+<article class="component-card" data-component="LimitLadderPromotionLayer">
+  <div class="component-card-head">
+    <div><h3>LimitLadderPromotionLayer</h3><p>昨日层级到今日晋级层级</p></div>
+    <span class="layer-pill">Internal Pattern</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>表达昨日 N-1 板全量股票与今日 N 板晋级股票。</span></div>
+    <div><b>Props</b><span>level, previousLabel, currentLabel, previousStocks, currentStocks</span></div>
+    <div><b>状态</b><span>default / hover / expanded / loading / empty / error</span></div>
+    <div><b>Token</b><span>limit-ladder-layer, arrow, stock-card</span></div>
+  </div>
+  <div class="component-preview">
+    <div class="ladder-pattern-layer">
+      <div class="ladder-pattern-head"><b>昨日首板 → 今日二板</b><span>标题不可点击</span></div>
+      <div class="ladder-promotion-demo">
+        <div class="ladder-side-demo"><h4>昨日首板 <span>14只</span></h4><div class="ladder-card-grid-demo compact"><article class="csq-stock-card-v7"><span class="stock-code-pill-v7">301596.SZ</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">瑞迪智驱</span><span class="stock-price-v7 up">42.16</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+20.01%</span><span class="stock-board-amount-v7">7100万</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">机器人</span><span class="stock-streak-pill-v7">2连板</span></div></div></article><article class="csq-stock-card-v7"><span class="stock-code-pill-v7">603997.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">继峰股份</span><span class="stock-price-v7 up">11.62</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.04%</span><span class="stock-board-amount-v7">5400万</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">汽车零部件</span><span class="stock-streak-pill-v7">2连板</span></div></div></article></div></div>
+        <div class="ladder-arrow-demo">→</div>
+        <div class="ladder-side-demo"><h4>今日二板 <span>6只</span></h4><div class="ladder-card-grid-demo compact"><article class="csq-stock-card-v7 selected"><span class="stock-code-pill-v7">301596.SZ</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">瑞迪智驱</span><span class="stock-price-v7 up">42.16</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+20.01%</span><span class="stock-board-amount-v7">7100万</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">机器人</span><span class="stock-streak-pill-v7">2连板</span></div></div></article></div></div>
+      </div>
+    </div>
+  </div>
+  <div class="misuse"><b>禁止误用：</b>昨日侧展示昨日该层级全量股票，不能只放晋级成功股票。</div>
+</article>
+
+<article class="component-card" data-component="LimitLadderSpecialLayer">
+  <div class="component-card-head">
+    <div><h3>LimitLadderSpecialLayer</h3><p>五板以上独立层</p></div>
+    <span class="layer-pill">Internal Pattern</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>只展示今日六板及以上股票，不包含今日五板。</span></div>
+    <div><b>Props</b><span>type='aboveFive', label, stocks, expanded</span></div>
+    <div><b>状态</b><span>default / hover / expanded / loading / empty / error</span></div>
+    <div><b>Token</b><span>above-five, brand-accent, stock-card</span></div>
+  </div>
+  <div class="component-preview">
+    <section class="ladder-pattern-layer above">
+      <div class="ladder-pattern-head"><b>五板以上</b><span>今日六板及以上｜弱强调</span></div>
+      <div class="ladder-card-grid-demo single compact">
+        <article class="csq-stock-card-v7"><span class="stock-code-pill-v7">600172.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">黄河旋风</span><span class="stock-price-v7 up">10.76</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.02%</span><span class="stock-board-amount-v7">3.20亿</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">通用设备</span><span class="stock-streak-pill-v7 brand">9天7板</span></div></div></article>
+        <article class="csq-stock-card-v7"><span class="stock-code-pill-v7">603017.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">中衡设计</span><span class="stock-price-v7 up">12.74</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.02%</span><span class="stock-board-amount-v7">1.27亿</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">低空经济</span><span class="stock-streak-pill-v7 brand">6板</span></div></div></article>
+      </div>
+    </section>
+  </div>
+  <div class="misuse"><b>禁止误用：</b>今日五板仍在“昨日四板 → 今日五板”，不要放入五板以上层。</div>
+</article>
+
+<article class="component-card" data-component="LimitLadderFirstLayer">
+  <div class="component-card-head">
+    <div><h3>LimitLadderFirstLayer</h3><p>首板独立层</p></div>
+    <span class="layer-pill">Internal Pattern</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>只展示今日首板股票，无昨日来源和晋级箭头。</span></div>
+    <div><b>Props</b><span>type='first', label, stocks, expanded</span></div>
+    <div><b>状态</b><span>default / hover / expanded / loading / empty / error</span></div>
+    <div><b>Token</b><span>limit-ladder-layer, stock-card, expand-control</span></div>
+  </div>
+  <div class="component-preview">
+    <section class="ladder-pattern-layer">
+      <div class="ladder-pattern-head"><b>首板</b><span>今日首板｜18只</span></div>
+      <div class="ladder-card-grid-demo single compact">
+        <article class="csq-stock-card-v7"><span class="stock-code-pill-v7">603997.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">继峰股份</span><span class="stock-price-v7 up">11.62</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.04%</span><span class="stock-board-amount-v7">5400万</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">汽车零部件</span><span class="stock-streak-pill-v7">首板</span></div></div></article>
+        <article class="csq-stock-card-v7"><span class="stock-code-pill-v7">600580.SH</span><div class="stock-card-split-v7"><div class="stock-zone-v7 left"><span class="stock-name-v7">卧龙电驱</span><span class="stock-price-v7 up">18.91</span></div><div class="stock-zone-v7 mid"><span class="stock-change-v7 up">+10.00%</span><span class="stock-board-amount-v7">2.08亿</span></div><div class="stock-zone-v7 right"><span class="stock-sector-v7">低空经济</span><span class="stock-streak-pill-v7">首板</span></div></div></article>
+      </div>
+    </section>
+  </div>
+  <div class="misuse"><b>禁止误用：</b>首板层不显示昨日来源，不显示晋级箭头。</div>
+</article>
+
+<article class="component-card" data-component="LimitLadderExpandControl">
+  <div class="component-card-head">
+    <div><h3>LimitLadderExpandControl</h3><p>单层展开 / 收起控件</p></div>
+    <span class="layer-pill">Interaction Subcomponent</span>
+  </div>
+  <div class="component-meta">
+    <div><b>用途</b><span>当某层超过 2 行 × 6 只时，控制当前层展开或收起。</span></div>
+    <div><b>Props</b><span>expanded, totalCount, visibleCount, disabled, onToggle</span></div>
+    <div><b>状态</b><span>default / hover / active / disabled</span></div>
+    <div><b>Token</b><span>expand-control, brand-accent, border</span></div>
+  </div>
+  <div class="component-preview">
+    <div class="preview-panel">
+      <div class="preview-panel-head">当前层股票 <span>18 只 / 默认显示 12 只</span></div>
+      <div class="preview-panel-body">
+        <button class="ladder-expand-control-demo" type="button" data-expanded="false"><span class="arrows">⌄⌄</span><span>展开全部</span></button>
+        <div class="stock-structure-note">点击仅改变当前层，不影响其它层级；控件不用红绿，使用品牌金弱强调。</div>
+      </div>
+    </div>
+  </div>
+  <div class="misuse"><b>禁止误用：</b>展开/收起不能改变层级结构，也不能触发股票跳转。</div>
+</article>
+
+  </div>
+</section>
+
 <section class="demo-section" id="states">
-  <div class="section-title-block"><span>Component States</span><h2>7. Component States</h2></div>
+  <div class="section-title-block"><span>Component States</span><h2>8. Component States</h2></div>
   <div class="state-grid">
     <div class="state-tile"><b>default</b><span>正常展示态</span></div>
     <div class="state-tile hover-demo"><b>hover</b><span>背景提亮，边框增强</span></div>
@@ -1306,6 +1848,16 @@
         cell.classList.add('selected');
       });
     });
+
+    document.querySelectorAll('.ladder-expand-control-demo').forEach(btn => {
+      btn.addEventListener('click', () => {
+        const expanded = btn.dataset.expanded === 'true';
+        btn.dataset.expanded = String(!expanded);
+        btn.querySelector('.arrows').textContent = expanded ? '⌄⌄' : '⌃⌃';
+        btn.querySelector('span:last-child').textContent = expanded ? '展开全部' : '收起';
+      });
+    });
+
   </script>
 </body>
 </html>

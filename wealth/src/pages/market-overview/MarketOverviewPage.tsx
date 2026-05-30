@@ -23,7 +23,6 @@ import {
 import { fetchMarketMajorIndices, type MajorIndicesDebugInfo } from "../../features/market-overview/indices/api/marketMajorIndicesApi";
 import { Breadcrumb } from "../../features/market-overview/layout/Breadcrumb";
 import { ShortcutBar } from "../../features/market-overview/layout/ShortcutBar";
-import { TopMarketBar } from "../../features/market-overview/layout/TopMarketBar";
 import { LeaderboardPanel } from "../../features/market-overview/leaderboards/LeaderboardPanel";
 import {
   buildLeaderboardsViewModelFromApi,
@@ -91,6 +90,7 @@ import {
 } from "../../features/market-overview/turnover/api/marketTurnoverAdapter";
 import { fetchMarketTurnover, type TurnoverDebugInfo } from "../../features/market-overview/turnover/api/marketTurnoverApi";
 import { SkeletonBlock } from "../../shared/ui/SkeletonBlock";
+import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import "./market-overview-page.css";
 
 const SUMMARY_FETCH_TIMEOUT_MS = 5000;

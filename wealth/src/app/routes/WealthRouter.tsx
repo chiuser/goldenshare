@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { useAuth } from "../../features/auth/model/AuthProvider";
 import { LoginPage } from "../../features/auth/ui/LoginPage";
 import { MarketOverviewPage } from "../../pages/market-overview/MarketOverviewPage";
+import { StockDetailPage } from "../../pages/stock-detail/StockDetailPage";
 import {
   addWealthRouteListener,
   buildLoginPath,
@@ -34,7 +35,18 @@ export function WealthRouter() {
     return <AuthRedirect redirectPath={currentPath} />;
   }
 
+  const stockDetailTsCode = parseStockDetailTsCode(location.pathname);
+  if (stockDetailTsCode) {
+    return <StockDetailPage tsCode={stockDetailTsCode} />;
+  }
+
   return <MarketOverviewPage />;
+}
+
+function parseStockDetailTsCode(pathname: string): string | null {
+  const match = pathname.match(/^(?:\/wealth)?\/market\/stock\/([^/]+)$/);
+  if (!match?.[1]) return null;
+  return decodeURIComponent(match[1]);
 }
 
 function AuthRedirect({ redirectPath }: { redirectPath: string }) {
@@ -43,4 +55,3 @@ function AuthRedirect({ redirectPath }: { redirectPath: string }) {
   }, [redirectPath]);
   return <LoginPage redirectPath={redirectPath} onAuthenticated={(path) => navigateWealth(path || DEFAULT_WEALTH_PATH)} />;
 }
-

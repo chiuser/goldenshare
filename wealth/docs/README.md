@@ -13,6 +13,7 @@ docs/
   templates/              # 模块开发模板（需求/实施/门禁）
   pages/                  # 页面级：页面需求、API contract、实现提示词
     market-overview/
+    stock-detail/
 ```
 
 ## Drive 原始资料
@@ -92,6 +93,9 @@ docs/
 - [新闻速览与个股新闻 M2 编码前门禁 v1](./pages/market-overview/market-news-m2-coding-gate-v1.md)
 - [市场总览 Codex 实现提示词基线](./pages/market-overview/implementation-prompt-baseline.md)
 - [市场总览 homepage 代码架构设计](./pages/market-overview/implementation-architecture-v1.md)
+- [股票详情页标杆需求 v1](./pages/stock-detail/stock-detail-benchmark-requirement-v1.md)
+- [股票详情页技术实施方案 v1](./pages/stock-detail/stock-detail-implementation-design-v1.md)
+- [股票详情页 M2 编码前门禁 v1](./pages/stock-detail/stock-detail-m2-coding-gate-v1.md)
 
 ## 模块开发模板
 

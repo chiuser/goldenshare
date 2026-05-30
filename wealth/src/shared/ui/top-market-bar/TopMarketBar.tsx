@@ -1,11 +1,12 @@
-import type { QuoteItem } from "../api/marketOverviewTypes";
-import { directionClass } from "../../../shared/lib/marketDirection";
-import { formatPoint, formatSignedPercent } from "../../../shared/lib/formatters";
+import { formatPoint, formatSignedPercent } from "../../lib/formatters";
+import { directionClass } from "../../lib/marketDirection";
+import "./top-market-bar.css";
+import type { TopMarketTicker } from "./topMarketBarTypes";
 
 const logoUrl = new URL("../../../../docs/reference/brand/logo/logo_new.png", import.meta.url).href;
 
 interface TopMarketBarProps {
-  tickers: QuoteItem[];
+  tickers: TopMarketTicker[];
   onAction: (message: string) => void;
 }
 
@@ -37,7 +38,12 @@ export function TopMarketBar({ tickers, onAction }: TopMarketBarProps) {
         <div className="ticker-track">
           <div className="ticker-segment">
             {tickers.map((ticker) => (
-              <button className="ticker-item" key={`${ticker.code}-main`} type="button" onClick={() => onAction(`进入详情：${ticker.code}`)}>
+              <button
+                className="ticker-item"
+                key={`${ticker.code}-main`}
+                type="button"
+                onClick={() => onAction(`进入详情：${ticker.code}`)}
+              >
                 <span className="ticker-name">{ticker.name}</span>
                 <span className={`num ${directionClass(ticker.direction)}`}>{formatPoint(ticker.point)}</span>
                 <span className={`ticker-meta num ${directionClass(ticker.direction)}`}>{formatSignedPercent(ticker.pct)}</span>

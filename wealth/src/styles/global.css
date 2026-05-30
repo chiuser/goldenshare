@@ -29,6 +29,31 @@ button {
   color: inherit;
 }
 
+.num {
+  font-family: var(--cs-font-family-number);
+  font-variant-numeric: tabular-nums;
+}
+
+.up {
+  color: var(--cs-color-market-up) !important;
+}
+
+.down {
+  color: var(--cs-color-market-down) !important;
+}
+
+.flat {
+  color: var(--cs-color-market-flat) !important;
+}
+
+.muted {
+  color: var(--cs-color-text-muted);
+}
+
+.secondary {
+  color: var(--cs-color-text-secondary);
+}
+
 .wealth-app-shell {
   min-height: 100vh;
 }

@@ -99,6 +99,18 @@ wealth/
 
 注意：`wealth/docs/reference/api/**` 不在 homepage 开发必读清单中。只有做历史追溯时才读取，读取后也不得作为当前 API 或数据模型依据。
 
+实现股票详情页前，还必须额外读取：
+
+1. `wealth/docs/pages/stock-detail/stock-detail-benchmark-requirement-v1.md`
+2. `wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md`
+3. `wealth/docs/pages/stock-detail/stock-detail-m2-coding-gate-v1.md`
+4. `wealth/docs/update/stock-detail-v1.4.3.html`
+5. `wealth/docs/update/03-design-tokens.md`
+6. `wealth/docs/update/04-component-guidelines.md`
+7. `wealth/docs/reference/showcase/component-library-demo-v2.2.html`
+
+股票详情页的顶部 `TopMarketBar` 必须完全复用市场总览页当前顶部栏。实现前必须先把当前 `TopMarketBar` 抽象为 shared 组件，并保证市场总览与股票详情页消费同一个组件；禁止复制、重写或引入第二套顶部栏。
+
 ---
 
 ## 技术基线
