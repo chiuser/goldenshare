@@ -267,14 +267,14 @@
     <div class="pill-row">
       <span class="pill ok">核心口径已拍板</span>
       <span class="pill neutral">设计文档</span>
-      <span class="pill raw">raw: backup baseline / Tushare daily / prod DB repair</span>
+      <span class="pill raw">raw: backup baseline / prod DB daily / Tushare fallback</span>
       <span class="pill silver">silver: 标准化 clean_next</span>
       <span class="pill gold">gold: qfq 分钟线</span>
     </div>
     <h1>Dagster stk_mins 资产落地设计</h1>
     <p class="subtitle">
       本文定义股票分钟线 <code>stk_mins</code> 在新 Dagster lake 中的正式分层、分区、资产拆分、历史导入和后续增量路线。
-      已拍板口径：按交易日分区，按分钟频度拆不同资产；raw 历史基线来自 backup clean_next，日常增量来自 Tushare，人工补数可来自 prod DB；silver 做代码与停复牌口径标准化，gold 存前复权后的分钟线。
+      已拍板口径：按交易日分区，按分钟频度拆不同资产；raw 历史基线来自 backup clean_next，默认日常增量来自 prod DB，Tushare 入口保留为人工备用；silver 做代码与停复牌口径标准化，gold 存前复权后的分钟线。
     </p>
   </header>
 
@@ -282,9 +282,9 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化与 Tushare 日常增量代码已实现，默认未启用；M4B prod DB raw 补数入口已实现为手动 job，默认不自动触发。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
-      <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增 prod DB 自动 sensor。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
+      <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
       <tr><td>基础依赖</td><td><code>silver_stock_identity_map</code> 作为正式业务数据 asset 承载股票代码身份映射，供分钟线 silver 标准化使用。</td></tr>
     </table>
@@ -432,7 +432,7 @@
       </div>
       <div class="card">
         <h3>raw</h3>
-        <p>历史基线保存 backup 中的原始 clean_next 数据；日常增量从 Tushare <code>stk_mins</code> 拉取；人工 repair/backfill 可从 prod DB 只读抽取。</p>
+        <p>历史基线保存 backup 中的原始 clean_next 数据；默认日常增量从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取；Tushare <code>stk_mins</code> 保留为人工备用入口。</p>
         <p>历史导入方法参考 adj factor：bootstrap 文件、注册分区、补录 runless events。三个来源写入同一套 raw asset key、路径、schema 和 checks。</p>
       </div>
       <div class="card">
@@ -498,7 +498,7 @@
     <h3>5.2 Raw assets</h3>
     <table>
       <tr><th>Asset key</th><th>分区</th><th>来源</th><th>物理路径</th></tr>
-      <tr><td><code>raw_stk_mins_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">历史基线来自 backup clean_next；日常来自 Tushare；人工补数来自 prod DB</td><td><code>data_lake/raw/tushare/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
+      <tr><td><code>raw_stk_mins_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_trade_days</code></td><td rowspan="5">历史基线来自 backup clean_next；默认日常来自 prod DB；Tushare 保留为人工备用入口</td><td><code>data_lake/raw/tushare/stk_mins/freq=1/trade_date={partition_key}/part-000.parquet</code></td></tr>
       <tr><td><code>raw_stk_mins_5m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=5/trade_date={partition_key}/part-000.parquet</code></td></tr>
       <tr><td><code>raw_stk_mins_15m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=15/trade_date={partition_key}/part-000.parquet</code></td></tr>
       <tr><td><code>raw_stk_mins_30m</code></td><td><code>data_lake/raw/tushare/stk_mins/freq=30/trade_date={partition_key}/part-000.parquet</code></td></tr>
@@ -634,8 +634,8 @@
       <tr><td>读取来源</td><td><code>/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq=*/trade_date=*/*.parquet</code>，正式执行前重新只读复核路径和文件名。</td></tr>
       <tr><td>写入目标</td><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>。</td></tr>
       <tr><td>迁移方式</td><td>历史 baseline 复用 adj factor 已验证的方式：先实现 bootstrap spec/helper，再 dry-run、小样本、全量执行。</td></tr>
-      <tr><td>日常增量来源</td><td>M4 已拍板并实现：从 Tushare <code>stk_mins</code> 拉取当前上市股票池的五个频度单日分钟线。</td></tr>
-      <tr><td>补数来源</td><td>M4B 已实现：允许从 prod DB 的 <code>raw_tushare.stk_mins</code> 只读抽取，写入同一套 raw assets 与路径，不新增第二套 raw asset。</td></tr>
+      <tr><td>默认日常增量来源</td><td>M4B 已拍板并实现：每天 22:00 后从 prod DB 的 <code>raw_tushare.stk_mins</code> 只读抽取当前上市股票池的五个频度单日分钟线。</td></tr>
+      <tr><td>备用来源</td><td>M4 已实现：Tushare <code>stk_mins</code> 入口保留为人工备用 job，写入同一套 raw assets 与路径，不新增第二套 raw asset。</td></tr>
       <tr><td>事件补录</td><td>raw 文件迁移后，使用 runless materialization/check events 补录 Dagster 事件事实，让 UI 与 readiness 识别历史分区。</td></tr>
       <tr><td>覆盖策略</td><td>默认不覆盖已有合格目标分区；中断后先审计目标，再跳过已合格分区继续。</td></tr>
     </table>
@@ -663,19 +663,19 @@
     <h3>M4 已落地的 raw 日常链路</h3>
     <ul>
       <li>正式 raw assets：<code>raw_stk_mins_1m</code>、<code>raw_stk_mins_5m</code>、<code>raw_stk_mins_15m</code>、<code>raw_stk_mins_30m</code>、<code>raw_stk_mins_60m</code>，asset key 与 M3 runless events 完全一致。</li>
-      <li>正式 job：<code>stock_mins_raw_update_job</code>，selection 只包含五个 raw assets 及其 blocking checks；不包含 <code>silver_stock_basic</code>、silver 分钟线或 gold qfq 分钟线。</li>
+      <li>正式 jobs：<code>stock_mins_raw_update_from_prod_job</code> 是默认日常入口；<code>stock_mins_raw_update_job</code> 是 Tushare 人工备用入口。两者 selection 都只包含五个 raw assets 及其 blocking checks；不包含 <code>silver_stock_basic</code>、silver 分钟线或 gold qfq 分钟线。</li>
       <li>分区注册 sensor：<code>stock_mins_trade_day_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，不做历史补齐。</li>
-      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:30 后只检查最新已注册日期，满足门禁后提交一个 <code>stock_mins_raw_update_job</code> run。</li>
+      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 22:00 后只检查最新已注册日期，满足门禁后提交一个 <code>stock_mins_raw_update_from_prod_job</code> run。</li>
       <li>日常股票池来自 <code>silver_stock_basic</code> 当前上市股票；这是只读前置事实，不进入 <code>stock_mins_raw_update_job</code> selection。</li>
       <li>日常拉取窗口固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>；分页固定使用 <code>limit=8000</code> 与递增 <code>offset</code>，不把分页、股票池 offset 或分钟窗口暴露为 run config。</li>
       <li>若目标 raw 文件已存在且通过 raw 检查，asset 复用文件并返回 materialization metadata；若目标存在但不合格，直接失败，不覆盖历史 baseline。</li>
-      <li><code>2026-05-08</code> 之后的历史缺口不由 sensor 自动追；M4B 已提供 prod DB 手动补数 job，实际执行仍必须单独列 backfill 命令、范围、请求量和回滚方式，经审批后执行。</li>
+      <li><code>2026-05-08</code> 之后的历史缺口不由 sensor 自动追；prod DB 缺口补齐仍必须单独列 backfill 命令、范围、请求量和回滚方式，经审批后执行。</li>
     </ul>
 
-    <h3>M4B 已落地的 prod DB raw 补数入口</h3>
+    <h3>M4B 已落地的 prod DB raw 默认日常与补数入口</h3>
     <p>
-      <code>stk_mins</code> raw 允许同时具备 Tushare 拉取与 prod DB 只读抽取两种能力。prod DB 入口用于近期缺口补齐、repair
-      或 Tushare 拉取不稳定时的受控补数；它不是历史 baseline 的替代来源，也不得绕开新湖 raw checks。
+      <code>stk_mins</code> raw 允许同时具备 Tushare 拉取与 prod DB 只读抽取两种能力。prod DB 入口已经升级为默认日常同步入口，
+      同时继续服务近期缺口补齐和 repair；它不是历史 baseline 的替代来源，也不得绕开新湖 raw checks。
     </p>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
@@ -687,7 +687,7 @@
       <tr><td>股票池</td><td>沿用 raw 日常口径，从 <code>silver_stock_basic</code> 当前上市股票池读取；这是只读前置事实，不进入 job selection。</td></tr>
       <tr><td>时间窗口</td><td>固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>，与 Tushare 入口保持一致。</td></tr>
       <tr><td>覆盖策略</td><td>目标 raw 文件已存在且通过 checks 时复用；已存在但不合格时 fail 并要求人工 repair。默认不覆盖 M3 历史 baseline。</td></tr>
-      <tr><td>sensor</td><td>第一版不新增 prod DB 自动 sensor；prod DB 入口作为手动 repair/backfill job 使用，正式执行前单独列范围、请求量、预计耗时和回滚方式。</td></tr>
+      <tr><td>sensor</td><td><code>stock_mins_raw_sensor</code> 已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>。Tushare 入口不再作为默认自动同步路径。</td></tr>
       <tr><td>配置来源</td><td><code>ProdPostgresResource</code> 运行时惰性读取 <code>PROD_POSTGRES_HOST/PORT/USER/PASSWORD/DATABASE/SSLMODE</code>；缺失配置只影响 prod DB 来源 run，不影响 Tushare 来源 raw job 加载。</td></tr>
     </table>
 
@@ -836,8 +836,8 @@
       </tr>
       <tr>
         <td><code>stock_mins_raw_sensor</code></td>
-        <td>18:30 后检查最新已注册日期并提交 raw 更新 run。</td>
-        <td>只做轻量门禁：raw 是否 ready、是否已有失败 checks、<code>silver_stock_basic</code> 是否可用；不自动追历史缺口。</td>
+        <td>22:00 后检查最新已注册日期并提交 prod DB raw 更新 run。</td>
+        <td>只做轻量门禁：raw 是否 ready、是否已有失败 checks、<code>silver_stock_basic</code> 是否可用；不自动追历史缺口，不触发 Tushare job。</td>
       </tr>
       <tr>
         <td>后续 silver/gold jobs</td>
@@ -884,13 +884,13 @@
         <strong>M4</strong>
         <div>
           <h3>Raw 正式资产化与日常增量</h3>
-          <p>接入五个 raw assets、7 个 raw blocking checks、<code>stock_mins_raw_update_job</code>、<code>stock_mins_trade_day_sensor</code> 与 <code>stock_mins_raw_sensor</code>。日常增量从 Tushare <code>stk_mins</code> 拉取当前上市股票池；sensor 默认 <code>STOPPED</code>，缺口 backfill 单独审批。</p>
+          <p>接入五个 raw assets、7 个 raw blocking checks、<code>stock_mins_raw_update_job</code>、<code>stock_mins_trade_day_sensor</code> 与 <code>stock_mins_raw_sensor</code>。当前默认日常同步已改为 22:00 后由 sensor 触发 prod DB job；Tushare job 保留为人工备用入口，缺口 backfill 单独审批。</p>
         </div>
       </div>
       <div class="step">
         <strong>M4B</strong>
         <div>
-          <h3>Prod DB raw 补数入口</h3>
+          <h3>Prod DB raw 默认日常与补数入口</h3>
           <p>已新增 <code>stock_mins_raw_update_from_prod_job</code>，从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取，按 <code>ts_code + freq + 日期窗口</code> 查询并写入同一套 raw assets。写入前补齐 <code>exchange</code> 与 <code>vwap</code>，继续复用 raw checks；不新增自动 sensor。</p>
         </div>
       </div>
@@ -973,7 +973,7 @@
       <li>不把 qfq 结果原地覆盖 raw 或 silver。</li>
       <li>不在本设计中接入 90/120 分钟派生、by-symbol-month 重排或 MACD 等指标资产。</li>
       <li>不把旧 lake_console 运行账本作为 Dagster 正式运行状态。</li>
-      <li>不把 prod DB 补数入口扩展为任意表导出能力；M4B 只允许读取 <code>raw_tushare.stk_mins</code> 的字段白名单。</li>
+      <li>不把 prod DB 分钟线来源扩展为任意表导出能力；M4B 只允许读取 <code>raw_tushare.stk_mins</code> 的字段白名单。</li>
     </ul>
   </section>
 

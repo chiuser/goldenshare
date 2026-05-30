@@ -622,7 +622,7 @@
             <td><code>stk_mins</code></td>
             <td>新 Dagster raw：<code>data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>；历史参考：<code>raw_tushare/stk_mins_by_date</code>, <code>research/stk_mins_by_date_clean_next</code>, <code>derived/stk_mins_by_date</code>, <code>research/stk_mins_by_symbol_month</code></td>
             <td><span class="tag raw">raw</span> + <span class="tag silver">silver</span> + <span class="tag gold">gold</span></td>
-            <td>当前 Dagster 已先落地五个 raw assets：<code>raw_stk_mins_1m/5m/15m/30m/60m</code>。历史 baseline 来自 backup clean_next，日常入口来自 Tushare，人工补数入口来自 prod DB；silver/gold 分钟线仍是后续里程碑。</td>
+            <td>当前 Dagster 已先落地五个 raw assets：<code>raw_stk_mins_1m/5m/15m/30m/60m</code>。历史 baseline 来自 backup clean_next，默认日常入口来自 prod DB，Tushare 入口保留为人工备用；silver/gold 分钟线仍是后续里程碑。</td>
           </tr>
           <tr>
             <td>Market Fund</td>
@@ -695,7 +695,7 @@
             <td><code>stk_mins</code></td>
             <td><code>raw_tushare_by_date</code></td>
             <td><code>data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code></td>
-            <td>历史 backup clean_next / Tushare 日常增量 / prod DB 手动补数</td>
+            <td>历史 backup clean_next / prod DB 日常增量 / Tushare 人工备用</td>
             <td><span class="tag raw">raw</span></td>
             <td><code>raw_stk_mins_1m/5m/15m/30m/60m</code></td>
           </tr>

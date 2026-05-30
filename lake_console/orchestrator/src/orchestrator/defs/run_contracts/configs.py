@@ -18,7 +18,10 @@ class IndexDailyRawByCodeConfig(dg.Config):
 class StockMinsRawConfig(dg.Config):
     source: Literal["tushare", "prod_db"] = Field(
         default="tushare",
-        description="股票分钟线 raw 写入来源；日常默认走 Tushare，repair/backfill 可固定走 prod DB。",
+        description=(
+            "股票分钟线 raw 写入来源；默认日常 sensor 使用 prod DB job，"
+            "Tushare source 保留为人工备用入口。"
+        ),
     )
 
 

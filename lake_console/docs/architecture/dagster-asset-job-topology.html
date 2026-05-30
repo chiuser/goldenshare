@@ -342,7 +342,7 @@
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       股票曾用名最新口径是：<code>raw_tushare_namechange</code> 每次从 Tushare <code>namechange</code> 拉取 full snapshot 并按全字段 exact distinct 写 raw；<code>silver_namechange</code> 使用 <code>latest_announcement_timeline_v1</code> 生成非重叠名称区间；<code>stock_namechange_sensor</code> 在股票当前交易日注册后触发 <code>namechange_update_job</code>。
-      股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 18:30 后触发 <code>stock_mins_raw_update_job</code>，不自动追 <code>2026-05-08</code> 之后历史缺口。prod DB 补数通过手动 <code>stock_mins_raw_update_from_prod_job</code> 进入同一套 raw assets，不新增平行资产或自动 sensor。
+      股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，不自动追 <code>2026-05-08</code> 之后历史缺口。Tushare job 保留为人工备用入口；两条来源写入同一套 raw assets，不新增平行资产。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 在目标交易日全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 <code>silver_index_daily_update_job</code>；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
@@ -620,7 +620,7 @@
           <td><span class="tag raw">raw</span></td>
           <td><code>cn_a_stock_mins_trade_days</code></td>
           <td>M3 历史 baseline 文件和 runless events 已对齐；M4 已接入正式 raw assets、blocking checks、<code>stock_mins_raw_update_job</code> 与两个 sensors；M4B 已新增手动 <code>stock_mins_raw_update_from_prod_job</code>。</td>
-          <td>交易日夜间日更；<code>stock_mins_trade_day_sensor</code> 18:00 后注册当天分区，<code>stock_mins_raw_sensor</code> 18:30 后触发 Tushare raw 更新。prod DB 补数必须人工指定分区执行。</td>
+          <td>交易日夜间日更；<code>stock_mins_trade_day_sensor</code> 18:00 后注册当天分区，<code>stock_mins_raw_sensor</code> 22:00 后触发 prod DB raw 更新。Tushare raw job 保留为人工备用入口。</td>
           <td>股票分钟线 raw 源镜像；只保存 backup/Tushare 原始 clean_next 事实，代码映射、停复牌对齐和 qfq 后移到 silver/gold。</td>
         </tr>
         <tr>
@@ -803,14 +803,14 @@
           <td><code>stock_mins_raw_update_job</code></td>
           <td><code>raw_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
           <td>单个交易日五个频度分钟线 raw。</td>
-          <td><code>stock_mins_raw_sensor</code>、人工 partition run；<code>2026-05-08</code> 之后缺口可走手动 prod DB 补数 job，但范围、查询量和回滚方式必须单独审批。</td>
+          <td>人工 partition run；Tushare 入口保留为备用，不再作为默认自动同步入口。</td>
           <td>不 selection <code>silver_stock_basic</code> 或任何分钟线 silver/gold；<code>silver_stock_basic</code> 只作为读取当前上市股票池的前置事实。</td>
         </tr>
         <tr>
           <td><code>stock_mins_raw_update_from_prod_job</code></td>
           <td><code>raw_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
           <td>从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取单个交易日五个频度分钟线 raw。</td>
-          <td>仅人工 partition run；不接自动 sensor，正式补数前必须单独审批范围、查询量和回滚方式。</td>
+          <td><code>stock_mins_raw_sensor</code> 在 22:00 后触发；历史缺口 backfill 仍需单独审批范围、查询量和回滚方式。</td>
           <td>与 Tushare job 写入同一套 raw assets/path/checks；通过 job config 固定 <code>source=prod_db</code>，不创建平行 asset。</td>
         </tr>
         <tr>
@@ -1060,8 +1060,9 @@
    - namechange_update_job and stock_namechange_sensor are implemented
 
 5. Stock minutes raw
-   - raw_stk_mins_1m/5m/15m/30m/60m, raw checks, Tushare raw job and sensors are implemented
-   - stock_mins_raw_update_from_prod_job is implemented as a manual prod DB repair/backfill entry
+   - raw_stk_mins_1m/5m/15m/30m/60m and raw checks are implemented
+   - stock_mins_raw_sensor defaults to stock_mins_raw_update_from_prod_job at 22:00
+   - stock_mins_raw_update_job remains as a manual Tushare fallback entry
    - silver_stk_mins_* and gold_stk_mins_qfq_* are not implemented yet</code></pre>
   </section>
 </main>

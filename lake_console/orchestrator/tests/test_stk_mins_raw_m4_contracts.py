@@ -31,6 +31,9 @@ from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     _cursor_payload as build_stock_mins_raw_sensor_cursor,
 )
 from orchestrator.defs.sensors.stock_mins_raw_sensor import (
+    STOCK_MINS_RAW_RUN_START,
+    STOCK_MINS_RAW_SENSOR_JOB_NAME,
+    STOCK_MINS_RAW_SOURCE,
     _has_materialized_check_problem,
     _latest_registered_trade_date,
     _run_request_for_trade_date,
@@ -434,13 +437,27 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(raw_cursor["decision"], "request_runs")
         self.assertEqual(raw_cursor["target_date"], "2026-05-29")
         self.assertEqual(raw_cursor["selected_count"], 1)
+        self.assertEqual(raw_cursor["details"]["source"], "prod_db")
+        self.assertEqual(
+            raw_cursor["details"]["job_name"],
+            "stock_mins_raw_update_from_prod_job",
+        )
         self.assertFalse(raw_cursor["details"]["stock_basic_freshness_required"])
 
         request = _run_request_for_trade_date("2026-05-29")
         self.assertEqual(request.partition_key, "2026-05-29")
-        self.assertEqual(request.run_key, "stock_mins_raw_update:2026-05-29")
+        self.assertEqual(
+            request.run_key,
+            "stock_mins_raw_update_from_prod:2026-05-29",
+        )
         self.assertEqual(request.tags, {})
         self.assertEqual(request.run_config, {})
+        self.assertEqual(
+            STOCK_MINS_RAW_SENSOR_JOB_NAME,
+            "stock_mins_raw_update_from_prod_job",
+        )
+        self.assertEqual(STOCK_MINS_RAW_RUN_START.isoformat(), "22:00:00")
+        self.assertEqual(STOCK_MINS_RAW_SOURCE, "prod_db")
 
     def test_latest_registered_trade_date_uses_latest_not_after_today(self) -> None:
         self.assertEqual(
