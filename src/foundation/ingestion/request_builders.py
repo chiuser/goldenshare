@@ -669,12 +669,14 @@ def _cyq_chips_params(request, anchor_date: date | None, enum_values: dict[str, 
             raise ValueError("每日筹码分布单日维护缺少交易日期")
         return {"ts_code": ts_code, "trade_date": target_date.strftime("%Y%m%d")}
     if request.run_profile == "range_rebuild":
-        if request.start_date is None or request.end_date is None:
+        start_date = enum_values.get("start_date", request.start_date)
+        end_date = enum_values.get("end_date", request.end_date)
+        if start_date is None or end_date is None:
             raise ValueError("每日筹码分布区间维护必须同时填写开始日期和结束日期")
         return {
             "ts_code": ts_code,
-            "start_date": request.start_date.strftime("%Y%m%d"),
-            "end_date": request.end_date.strftime("%Y%m%d"),
+            "start_date": _format_yyyymmdd(start_date),
+            "end_date": _format_yyyymmdd(end_date),
         }
     raise ValueError(f"每日筹码分布不支持该运行模式：{request.run_profile}")
 

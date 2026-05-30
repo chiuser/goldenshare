@@ -151,6 +151,7 @@ def test_cyq_chips_default_point_request_uses_tushare_active_equity_pool(mocker)
                     SimpleNamespace(ts_code="600000.SH", name="浦发银行", source="biying"),
                     SimpleNamespace(ts_code="000002.SZ", name="万科A", source="tushare"),
                     SimpleNamespace(ts_code="000001.SZ", name="平安银行", source="tushare"),
+                    SimpleNamespace(ts_code="000003.SZ", name="PT金田A", source="tushare", list_status="D"),
                 ]
             ),
             get_by_ts_code=mocker.Mock(side_effect=AssertionError("default cyq_chips requests must use the active equity pool")),
@@ -215,6 +216,34 @@ def test_cyq_chips_default_range_keeps_one_unit_per_stock_without_trade_day_expa
     assert {unit.progress_context["start_date"] for unit in plan.units} == {"2026-04-20"}
     assert {unit.progress_context["end_date"] for unit in plan.units} == {"2026-04-24"}
     fake_dao.security.get_active_equities.assert_called_once_with()
+    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+
+
+def test_cyq_chips_default_long_range_chunks_by_stock_and_date_window(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        security=SimpleNamespace(
+            get_active_equities=mocker.Mock(return_value=[SimpleNamespace(ts_code="000001.SZ", name="平安银行", source="tushare", list_status="L")]),
+            get_by_ts_code=mocker.Mock(side_effect=AssertionError("default cyq_chips requests must use the active equity pool")),
+        ),
+        trade_calendar=SimpleNamespace(get_open_dates=mocker.Mock(side_effect=AssertionError("cyq_chips must not expand range by trade day"))),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="cyq_chips",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2025, 1, 1), end_date=date(2026, 1, 10)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "000001.SZ", "start_date": "20250101", "end_date": "20251231"},
+        {"ts_code": "000001.SZ", "start_date": "20260101", "end_date": "20260110"},
+    ]
+    assert [unit.progress_context["start_date"] for unit in plan.units] == ["2025-01-01", "2026-01-01"]
+    assert [unit.progress_context["end_date"] for unit in plan.units] == ["2025-12-31", "2026-01-10"]
     fake_dao.trade_calendar.get_open_dates.assert_not_called()
 
 

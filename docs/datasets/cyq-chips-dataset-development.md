@@ -60,7 +60,7 @@
 
 ## 4. TushareMcp 实测记录
 
-> 说明：本次使用 `tushareMcp.cyq_chips` 做了真实请求。MCP 工具 schema 要求 `ts_code` 必填，且未暴露 `limit/offset`；这与本地源文档“支持 `limit/offset`”存在适配层差异。本轮已用 `DatasetSourceClient` 测试守住 `limit/offset` 追加与停止分页逻辑，真实源端分页随部署后小样本任务验收。
+> 说明：本次使用 `tushareMcp.cyq_chips` 做了真实请求。MCP 工具 schema 要求 `ts_code` 必填，且未暴露 `limit/offset`；生产 connector 已补充实测 `limit/offset`。源端支持分页，但超长时间区间会在深 offset 处返回“查询数据失败，请确认参数”，因此实现必须把长区间拆成较大的日期窗口，避免单个 unit 深分页。
 
 | 请求形态 | 实际请求参数 | 返回情况 | 是否分页 | 样本字段 | 结论 |
 | --- | --- | --- | --- | --- | --- |
@@ -68,7 +68,8 @@
 | 只传对象过滤 | `ts_code=600000.SH`，显式字段 `ts_code/trade_date/price/percent` | 返回多日筹码分布，输出过长被 MCP 截断，可见从最近交易日向历史日期返回 | 源文档说单次最大 2000，MCP 不暴露分页参数 | `600000.SH / 20260515 / price / percent` | 支持按股票代码取历史，但生产实现应优先使用明确时间输入，避免无上界请求。 |
 | 只传时间点 | `ts_code=600000.SH, trade_date=20260424` | 返回 139 行价格档位 | 单日单股未触发分页 | `ts_code, trade_date, price, percent` | 单日维护按股票池展开后，每只股票使用这种请求形态。 |
 | 传时间区间 | `ts_code=600000.SH, start_date=20260420, end_date=20260424` | 返回多个交易日的价格档位，输出较长 | 可能需要分页 | `ts_code, trade_date, price, percent` | 区间维护按股票池展开后，每只股票使用这种请求形态。 |
-| 分页第二页 | MCP schema 未暴露 `limit/offset` | 未能通过 MCP 验证 | 已用 SourceClient 测试覆盖分页行为 | `limit/offset` | 文档支持分页；实现保留 `offset_limit`，真实源端分页随部署后小样本任务验收。 |
+| 分页第二页 | 生产 connector：`ts_code=000001.SZ, start_date=20180102, end_date=20260529, limit=2000, offset=2000` | 返回 2000 行 | 是 | `ts_code, trade_date, price, percent` | 源端支持 `limit/offset`。 |
+| 深分页边界 | 生产 connector：同上，`offset=150000` | 返回 Tushare 参数错误 | 是 | 不适用 | 单个超长区间不能无限深翻页，planner 必须按日期窗口切分区间。 |
 
 ## 5. 请求量测算与同步策略
 
@@ -80,14 +81,14 @@
 | --- | --- | --- | --- |
 | 全市场单日 | 约 5500 次请求 | 约 27.5 分钟，不含网络、写库和重试 | 可支持；属于低频手动维护，不进入每日工作流。 |
 | 全市场一年，错误做法：股票 × 交易日 | 约 5500 × 240 = 132 万次请求 | 约 110 小时 | 禁止这样展开。 |
-| 全市场一年，正确做法：股票 × 时间区间 + 分页 | 约 5500 × 17 = 9.35 万次请求，按 139 行/日、2000 行/页粗估 | 约 7.8 小时 | 可作为长区间维护；耗时长是正常现象，运营可按 6 个月等区间分批执行。 |
+| 全市场一年，正确做法：股票 × 年度窗口 + 分页 | 约 5500 × 17 = 9.35 万次请求，按 139 行/日、2000 行/页粗估 | 约 7.8 小时 | 可作为长区间维护；耗时长是正常现象，planner 会把更长区间切成大日期窗口，避免深 offset。 |
 | 显式单只股票一年区间 | 约 17 次请求，按样本粗估 | 数分钟内 | 可支持；同属区间维护。 |
 
 因此 V1 同步策略为：
 
 1. 不填 `ts_code` 时，系统按当前上市股票池 `list_status='L'` 展开股票。
 2. 单日维护：每只股票生成一个 `ts_code + trade_date` unit。
-3. 区间维护：每只股票生成一个 `ts_code + start_date + end_date` unit，并由 `offset_limit` 分页拉完。
+3. 区间维护：每只股票按最多 365 个自然日切成若干 `ts_code + start_date + end_date` unit，并由 `offset_limit` 分页拉完；这是为了规避源端深 offset 参数错误，不是拆成“股票 × 每日”。
 4. 明确禁止把区间拆成“股票 × 交易日”这种高请求量形态。
 5. 本期不新增提交前 preview/estimate API 或 UI；只使用执行计划里的 `unit_count` 和 TaskRun 运行过程展示真实进度。
 
@@ -96,7 +97,7 @@
 | 语义层 | 本数据集答案 |
 | --- | --- |
 | 时间输入语义 | 运营提交单日或区间；`ts_code` 可选，不填表示按当前上市股票池展开。 |
-| 执行 / unit 语义 | 单日：每只股票一个 `ts_code + trade_date` unit。区间：每只股票一个 `ts_code + start_date + end_date` unit，内部按分页拉完。禁止按“股票 × 交易日”拆区间。 |
+| 执行 / unit 语义 | 单日：每只股票一个 `ts_code + trade_date` unit。区间：每只股票按最多 365 个自然日切成若干 `ts_code + start_date + end_date` unit，内部按分页拉完。禁止按“股票 × 交易日”拆区间。 |
 | freshness / audit 语义 | 本期只接 freshness，采用 `continuous_open_day` 判断最近业务日期；不接日期完整性审计，也不做日期-股票矩阵审计。 |
 
 ## 7. DatasetDefinition 设计
@@ -149,7 +150,7 @@ date_model = {
 
 1. generic planner 目前不会读取股票池。
 2. `cyq_chips` 的默认全市场维护必须按股票池扇出。
-3. `cyq_chips` 的区间维护必须按“股票 + 时间区间”生成 unit，不能按“股票 + 单日”生成大量 unit。
+3. `cyq_chips` 的区间维护必须按“股票 + 大日期窗口”生成 unit，不能按“股票 + 单日”生成大量 unit。
 4. 直接复用 `stk_mins` 的 custom builder 不合适，分钟线有频率和时间窗口概念，而 `cyq_chips` 是交易日点状数据。
 
 建议的规划事实：
@@ -176,8 +177,8 @@ planner 规则：
 
 1. `mode=point` 且没有显式 `ts_code`：读取 `list_status='L'` 股票池，为每只股票生成一个 `ts_code + trade_date` unit。
 2. `mode=point` 且有显式 `ts_code`：只为指定股票生成 `ts_code + trade_date` unit。
-3. `mode=range` 且没有显式 `ts_code`：读取 `list_status='L'` 股票池，为每只股票生成一个 `ts_code + start_date + end_date` unit。
-4. `mode=range` 且有显式 `ts_code`：只为指定股票生成 `ts_code + start_date + end_date` unit。
+3. `mode=range` 且没有显式 `ts_code`：读取 `list_status='L'` 股票池，为每只股票按最多 365 个自然日生成一个或多个 `ts_code + start_date + end_date` unit。
+4. `mode=range` 且有显式 `ts_code`：只为指定股票按最多 365 个自然日生成一个或多个 `ts_code + start_date + end_date` unit。
 
 ### 7.5 请求构造
 
@@ -193,7 +194,7 @@ planner 规则：
 }
 ```
 
-3. 区间 unit 输出：
+3. 区间 unit 输出，长区间由 planner 先切成窗口后再传给 request builder：
 
 ```python
 {
@@ -294,7 +295,7 @@ flowchart TD
 | definition registry | `cyq_chips` 定义完整，freshness policy 已登记，Ops catalog 已配置。 |
 | request builder | 单日生成 `ts_code + trade_date`；区间生成 `ts_code + start_date + end_date`。 |
 | unit planner point | 不填 `ts_code` 时，point 展开 `list_status='L'` 股票池。 |
-| unit planner range | 不填 `ts_code` 时，range 展开 `list_status='L'` 股票池，每只股票一个区间 unit；不得按交易日拆 unit。 |
+| unit planner range | 不填 `ts_code` 时，range 展开 `list_status='L'` 股票池，每只股票按最多 365 个自然日切成大窗口；不得按交易日拆 unit。 |
 | unit count | 区间任务能给出计划 unit 数；本期不新增提交前请求量/耗时预估契约。 |
 | source client pagination | `offset_limit/page_limit=2000` 能追加 `limit/offset` 并停止在不足页。 |
 | normalizer | `trade_date` 转日期，`price/percent` 转 Decimal。 |
@@ -308,7 +309,8 @@ flowchart TD
 1. 单股单日：`600000.SH + 2026-04-24`，预期约 139 行。
 2. 单股区间：`600000.SH + 2026-04-20 ~ 2026-04-24`，确认多交易日可落库。
 3. 小股票池单日：用测试池 2~3 只股票跑一个交易日，确认 unit、TaskRun、数据源卡片、freshness 一致。
-4. 小股票池区间：用测试池 2~3 只股票跑一个短区间，确认每只股票只有一个区间 unit，且源端分页拉完。
+4. 小股票池区间：用测试池 2~3 只股票跑一个短区间，确认每只股票只有一个短区间 unit，且源端分页拉完。
+5. 长区间：用单只股票跨年区间确认 planner 切出多个大窗口，request params 使用窗口内的 `start_date/end_date`，不是原始超长区间。
 
 验收必须记录：源端 fetched 行数、normalized 行数、raw written 行数、rejected 行数、reject reason code、raw 表实际行数、serving view 查询行数。
 
@@ -317,9 +319,9 @@ flowchart TD
 | 风险 | 影响 | 处理 |
 | --- | --- | --- |
 | 全市场单日请求量高 | 挤占 Tushare 当日额度 | 本期不加入每日工作流；作为低频手动维护。 |
-| 长区间维护耗时长 | 可能运行数小时 | 这是低频操作的正常成本；运营可按 6 个月等时间区间分批执行。 |
+| 长区间维护耗时长 | 可能运行数小时 | 这是低频操作的正常成本；planner 已按 365 个自然日窗口切分，运营仍可按更短时间区间分批执行。 |
 | 股票池口径不清 | 漏拉退市历史或拉取过多 | 已确认只取当前上市股票 `list_status='L'`。 |
-| MCP 未暴露分页参数 | 分页真实行为需再确认 | 已补 `DatasetSourceClient` 的 `offset_limit` 分页测试，真实源端分页随部署后小样本任务验收。 |
+| 源端深 offset 报参数错误 | 超长单元无法完整拉取 | 已通过生产 connector 复现；planner 按大日期窗口切分区间，避免单个 unit 深分页。 |
 | 完整性审计只看日期 | 某日部分股票缺失时可能被误判为完整 | 本期不接完整性审计，只接 freshness。 |
 
 ## 13. 里程碑
@@ -328,10 +330,10 @@ flowchart TD
 | --- | --- |
 | M1 | 已完成 raw ORM、DAO、Alembic 迁移与 `core_serving.equity_cyq_chips` view。 |
 | M2 | 已完成 `DatasetDefinition`、freshness policy、Ops catalog 配置；`audit_applicable=False`。 |
-| M3 | 已完成 request builder 与 `build_cyq_chips_units`。 |
+| M3 | 已完成 request builder 与 `build_cyq_chips_units`；已补长区间 365 自然日窗口切分。 |
 | M4 | 已完成 definition、planner、request builder、source pagination、normalizer、writer、Ops catalog/manual action、runtime registry 测试。 |
 | M5 | 已确认不接入 `daily_market_close_maintenance`。 |
-| M6 | 已通过 MCP 单股单日真实源接口复核；真实落库小样本需在迁移部署到目标环境后执行。 |
+| M6 | 已通过 MCP 单股单日真实源接口复核；已通过生产 connector 验证分页与深 offset 边界。 |
 | M7 | 已更新数据集接入盘点与本文档状态。 |
 
 ## 14. 已拍板结论

@@ -691,7 +691,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'adj_factor', 'display_name': '复�
   'quality': {'reject_policy': 'record_rejections', 'required_fields': ('trade_date', 'ts_code', 'price')},
   'transaction': {'commit_policy': 'unit',
                   'idempotent_write_required': True,
-                  'write_volume_assessment': '单个事务限定为一个股票 + 单日/区间 unit；区间维护不拆成股票 × 每日，源端按 offset_limit 分页拉完后一次提交。'}},
+                  'write_volume_assessment': '单个事务限定为一个股票 + 单日/最多365个自然日区间 unit；区间维护不拆成股票 × 每日，源端按 offset_limit 分页拉完后一次提交。'}},
  {'identity': {'dataset_key': 'daily', 'display_name': '股票日线', 'description': '维护股票日线数据。', 'aliases': ()},
   'domain': {'domain_key': 'equity_market', 'domain_display_name': '股票行情'},
   'source': {'source_key_default': 'tushare',

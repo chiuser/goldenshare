@@ -19,6 +19,9 @@ from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 
 
+CYQ_CHIPS_RANGE_WINDOW_DAYS = 365
+
+
 class DatasetUnitPlanner:
     def __init__(self, session: Session) -> None:
         self.session = session
@@ -680,43 +683,57 @@ def _build_cyq_chips_units(planner: DatasetUnitPlanner, request: ValidatedDatase
     if request.run_profile == "point_incremental":
         if request.trade_date is None:
             raise DatasetUnitPlanner._planning_error("missing_anchor_fields", "每日筹码分布单日维护缺少交易日期")
-        unit_trade_date = request.trade_date
-        date_values = {"trade_date": request.trade_date.isoformat()}
+        windows = [(request.trade_date, request.trade_date)]
     elif request.run_profile == "range_rebuild":
         if request.start_date is None or request.end_date is None:
             raise DatasetUnitPlanner._planning_error("range_required", "每日筹码分布区间维护必须同时填写开始日期和结束日期")
-        unit_trade_date = None
-        date_values = {
-            "start_date": request.start_date.isoformat(),
-            "end_date": request.end_date.isoformat(),
-        }
+        windows = _split_cyq_chips_date_windows(request.start_date, request.end_date)
     else:
         raise DatasetUnitPlanner._planning_error("run_profile_unsupported", f"每日筹码分布不支持该运行模式：{request.run_profile}")
 
     units: list[PlanUnitSnapshot] = []
-    for ordinal, (ts_code, security_name) in enumerate(targets):
-        merged_values = {"ts_code": ts_code, **date_values}
-        progress_context = {"unit": "stock", "ts_code": ts_code, **date_values}
-        if security_name:
-            progress_context["security_name"] = security_name
-        units.append(
-            PlanUnitSnapshot(
-                unit_id=build_unit_id(
+    ordinal = 0
+    for ts_code, security_name in targets:
+        for window_start, window_end in windows:
+            if request.run_profile == "point_incremental":
+                unit_trade_date = window_start
+                date_values = {"trade_date": window_start.isoformat()}
+            else:
+                unit_trade_date = None
+                date_values = {"start_date": window_start.isoformat(), "end_date": window_end.isoformat()}
+            merged_values = {"ts_code": ts_code, **date_values}
+            progress_context = {"unit": "stock", "ts_code": ts_code, **date_values}
+            if security_name:
+                progress_context["security_name"] = security_name
+            units.append(
+                PlanUnitSnapshot(
+                    unit_id=build_unit_id(
+                        dataset_key=request.dataset_key,
+                        anchor=unit_trade_date,
+                        merged_values=merged_values,
+                        ordinal=ordinal,
+                    ),
                     dataset_key=request.dataset_key,
-                    anchor=unit_trade_date,
-                    merged_values=merged_values,
-                    ordinal=ordinal,
-                ),
-                dataset_key=request.dataset_key,
-                source_key=request.source_key or definition.source.source_key_default,
-                trade_date=unit_trade_date,
-                request_params=request_builder(request, unit_trade_date, {"ts_code": ts_code}),
-                progress_context=progress_context,
-                pagination_policy="offset_limit",
-                page_limit=definition.planning.page_limit,
+                    source_key=request.source_key or definition.source.source_key_default,
+                    trade_date=unit_trade_date,
+                    request_params=request_builder(request, unit_trade_date, {"ts_code": ts_code, **date_values}),
+                    progress_context=progress_context,
+                    pagination_policy=definition.planning.pagination_policy,
+                    page_limit=definition.planning.page_limit,
+                )
             )
-        )
+            ordinal += 1
     return units
+
+
+def _split_cyq_chips_date_windows(start_date: date, end_date: date) -> list[tuple[date, date]]:
+    windows: list[tuple[date, date]] = []
+    cursor = start_date
+    while cursor <= end_date:
+        window_end = min(cursor + timedelta(days=CYQ_CHIPS_RANGE_WINDOW_DAYS - 1), end_date)
+        windows.append((cursor, window_end))
+        cursor = window_end + timedelta(days=1)
+    return windows
 
 
 def _resolve_cyq_chips_targets(
@@ -748,12 +765,14 @@ def _resolve_cyq_chips_targets(
         (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
         for item in securities
         if str(getattr(item, "source", "tushare") or "").strip().lower() == "tushare"
+        and str(getattr(item, "list_status", "L") or "").strip().upper() == "L"
         and str(getattr(item, "ts_code", "") or "").strip()
     ]
     all_targets = [
         (str(getattr(item, "ts_code", "") or "").strip().upper(), getattr(item, "name", None) or None)
         for item in securities
-        if str(getattr(item, "ts_code", "") or "").strip()
+        if str(getattr(item, "list_status", "L") or "").strip().upper() == "L"
+        and str(getattr(item, "ts_code", "") or "").strip()
     ]
     targets_by_code = {code: (code, name) for code, name in (tushare_targets or all_targets) if code}
     targets = [targets_by_code[code] for code in sorted(targets_by_code)]
