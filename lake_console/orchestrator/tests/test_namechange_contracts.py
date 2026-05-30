@@ -230,7 +230,7 @@ class NamechangeContractTests(unittest.TestCase):
         self.assertEqual(result.same_name_diff_end_resolved_count, 1)
         self.assertEqual(result.rows[0]["end_date"], date(2022, 5, 19))
 
-    def test_same_name_diff_end_still_blocks_when_inner_name_exists(self) -> None:
+    def test_same_name_diff_end_chooses_latest_end_even_with_inner_name(self) -> None:
         result = build_latest_announcement_namechange_timeline(
             [
                 _row("000001.SZ", "名称A", "20200101", "20200110", "20200101"),
@@ -239,8 +239,38 @@ class NamechangeContractTests(unittest.TestCase):
             ]
         )
 
-        self.assertEqual(result.unresolved_conflict_count, 1)
-        self.assertGreater(result.blocking_conflict_count, 0)
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.same_name_diff_end_resolved_count, 1)
+        self.assertEqual(result.rows[0]["end_date"], date(2020, 1, 14))
+
+    def test_manual_selected_event_resolves_case_by_case_reason_conflict(self) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row_with_reason(
+                    "300173.SZ", "ST福能", "20251223", None, "20251220", "*ST"
+                ),
+                _row_with_reason(
+                    "300173.SZ", "ST福能", "20251223", None, "20251220", "ST"
+                ),
+            ]
+        )
+
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.manual_selected_event_resolved_count, 1)
+        self.assertEqual(result.rows[0]["change_reason"], "ST")
+
+    def test_manual_selected_event_resolves_case_by_case_name_conflict(self) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row("301030.SZ", "仕净环保", "20210702", None, None),
+                _row("301030.SZ", "仕净科技", "20210702", None, None),
+            ],
+            stock_basic_names={"301030.SZ": "*ST仕净"},
+        )
+
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.manual_selected_event_resolved_count, 1)
+        self.assertEqual(result.rows[0]["name"], "仕净科技")
 
     def test_open_interval_is_closed_by_next_start_to_avoid_overlap(self) -> None:
         result = build_latest_announcement_namechange_timeline(

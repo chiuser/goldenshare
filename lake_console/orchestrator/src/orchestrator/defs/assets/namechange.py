@@ -260,6 +260,9 @@ def silver_namechange(
                 "selected_event_count": timeline.selected_event_count,
                 "duplicate_removed_count": 0,
                 "merged_same_name_count": timeline.merged_same_name_count,
+                "manual_selected_event_resolved_count": (
+                    timeline.manual_selected_event_resolved_count
+                ),
                 "diff_name_same_start_stock_basic_resolved_count": (
                     timeline.diff_name_same_start_stock_basic_resolved_count
                 ),

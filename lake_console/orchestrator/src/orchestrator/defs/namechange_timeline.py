@@ -6,10 +6,37 @@ from datetime import date, timedelta
 from typing import Any
 
 
-NAMECHANGE_TIMELINE_RULE_VERSION = "latest_announcement_timeline_v2"
+NAMECHANGE_TIMELINE_RULE_VERSION = "latest_announcement_timeline_v3"
 
 NAMECHANGE_CHANGE_REASON_EQUIVALENCE = {
     "撤销*ST": "摘星",
+}
+
+NAMECHANGE_MANUAL_SELECTED_EVENT_KEYS = {
+    (
+        "300173.SZ",
+        "ST福能",
+        date(2025, 12, 23),
+        None,
+        date(2025, 12, 20),
+        "ST",
+    ),
+    (
+        "301030.SZ",
+        "仕净科技",
+        date(2021, 7, 2),
+        None,
+        None,
+        "其他",
+    ),
+    (
+        "600610.SH",
+        "NST毅达",
+        date(2020, 8, 17),
+        date(2020, 8, 17),
+        date(2020, 8, 11),
+        "ST",
+    ),
 }
 
 
@@ -83,6 +110,7 @@ class NamechangeTimelineResult:
     source_row_count: int
     selected_event_count: int
     merged_same_name_count: int
+    manual_selected_event_resolved_count: int
     diff_name_same_start_stock_basic_resolved_count: int
     same_name_same_end_reason_resolved_count: int
     same_name_diff_end_resolved_count: int
@@ -162,6 +190,9 @@ def build_latest_announcement_namechange_timeline(
         source_row_count=len(raw_rows),
         selected_event_count=len(selected_events),
         merged_same_name_count=merged_count,
+        manual_selected_event_resolved_count=resolution_counts[
+            "manual_selected_event"
+        ],
         diff_name_same_start_stock_basic_resolved_count=resolution_counts[
             "diff_name_same_start_stock_basic"
         ],
@@ -237,6 +268,7 @@ def _select_latest_announcement_events(
     selected: list[NamechangeEvent] = []
     unresolved_samples: list[dict[str, Any]] = []
     resolution_counts = {
+        "manual_selected_event": 0,
         "diff_name_same_start_stock_basic": 0,
         "same_name_same_end_reason": 0,
         "same_name_diff_end": 0,
@@ -252,10 +284,15 @@ def _select_latest_announcement_events(
         ]
         final_candidates = with_end_date or latest_candidates
         unique_candidates = _unique_events(final_candidates)
-        resolved_event = _resolve_equivalent_same_name_candidates(
-            key=key,
+        resolved_event = _resolve_manual_selected_event_candidates(
             candidates=unique_candidates,
-            all_events=events,
+            resolution_counts=resolution_counts,
+        )
+        if resolved_event is not None:
+            selected.append(resolved_event)
+            continue
+        resolved_event = _resolve_equivalent_same_name_candidates(
+            candidates=unique_candidates,
             resolution_counts=resolution_counts,
         )
         if resolved_event is not None:
@@ -283,6 +320,26 @@ def _select_latest_announcement_events(
         selected.append(unique_candidates[0])
 
     return selected, unresolved_samples, resolution_counts
+
+
+def _resolve_manual_selected_event_candidates(
+    *,
+    candidates: list[NamechangeEvent],
+    resolution_counts: dict[str, int],
+) -> NamechangeEvent | None:
+    if len(candidates) <= 1:
+        return candidates[0] if candidates else None
+
+    selected_candidates = [
+        event
+        for event in candidates
+        if _event_identity_key(event) in NAMECHANGE_MANUAL_SELECTED_EVENT_KEYS
+    ]
+    if len(selected_candidates) != 1:
+        return None
+
+    resolution_counts["manual_selected_event"] += 1
+    return selected_candidates[0]
 
 
 def _resolve_stock_basic_name_candidates(
@@ -327,9 +384,7 @@ def _resolve_stock_basic_name_candidates(
 
 def _resolve_equivalent_same_name_candidates(
     *,
-    key: tuple[str, date],
     candidates: list[NamechangeEvent],
-    all_events: list[NamechangeEvent],
     resolution_counts: dict[str, int],
 ) -> NamechangeEvent | None:
     if len(candidates) <= 1:
@@ -367,14 +422,6 @@ def _resolve_equivalent_same_name_candidates(
         if not non_null_ends:
             return None
         latest_end = max(non_null_ends)
-        if _has_inner_other_name_event(
-            ts_code=key[0],
-            name=candidates[0].name,
-            start_date=key[1],
-            latest_end=latest_end,
-            events=all_events,
-        ):
-            return None
         latest_end_candidates = [
             event for event in candidates if event.end_date == latest_end
         ]
@@ -384,24 +431,21 @@ def _resolve_equivalent_same_name_candidates(
     return None
 
 
+def _event_identity_key(
+    event: NamechangeEvent,
+) -> tuple[str, str, date, date | None, date | None, str]:
+    return (
+        event.ts_code,
+        event.name,
+        event.start_date,
+        event.end_date,
+        event.ann_date,
+        event.change_reason,
+    )
+
+
 def _normalized_change_reason(change_reason: str) -> str:
     return NAMECHANGE_CHANGE_REASON_EQUIVALENCE.get(change_reason, change_reason)
-
-
-def _has_inner_other_name_event(
-    *,
-    ts_code: str,
-    name: str,
-    start_date: date,
-    latest_end: date,
-    events: list[NamechangeEvent],
-) -> bool:
-    return any(
-        event.ts_code == ts_code
-        and event.name != name
-        and start_date < event.start_date <= latest_end
-        for event in events
-    )
 
 
 def _merge_adjacent_same_name_events(
