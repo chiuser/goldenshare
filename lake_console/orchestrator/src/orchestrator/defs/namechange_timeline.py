@@ -6,7 +6,11 @@ from datetime import date, timedelta
 from typing import Any
 
 
-NAMECHANGE_TIMELINE_RULE_VERSION = "latest_announcement_timeline_v1"
+NAMECHANGE_TIMELINE_RULE_VERSION = "latest_announcement_timeline_v2"
+
+NAMECHANGE_CHANGE_REASON_EQUIVALENCE = {
+    "撤销*ST": "摘星",
+}
 
 
 @dataclass(frozen=True)
@@ -79,6 +83,8 @@ class NamechangeTimelineResult:
     source_row_count: int
     selected_event_count: int
     merged_same_name_count: int
+    same_name_same_end_reason_resolved_count: int
+    same_name_diff_end_resolved_count: int
     unresolved_conflict_count: int
     invalid_date_order_count: int
     overlap_count: int
@@ -126,7 +132,11 @@ def build_latest_announcement_namechange_timeline(
             continue
         events.append(event)
 
-    selected_events, unresolved_samples = _select_latest_announcement_events(events)
+    (
+        selected_events,
+        unresolved_samples,
+        resolution_counts,
+    ) = _select_latest_announcement_events(events)
     merged_events, merged_count = _merge_adjacent_same_name_events(selected_events)
     rows, final_invalid_samples = _close_intervals(merged_events)
     invalid_samples.extend(final_invalid_samples)
@@ -147,6 +157,10 @@ def build_latest_announcement_namechange_timeline(
         source_row_count=len(raw_rows),
         selected_event_count=len(selected_events),
         merged_same_name_count=merged_count,
+        same_name_same_end_reason_resolved_count=resolution_counts[
+            "same_name_same_end_reason"
+        ],
+        same_name_diff_end_resolved_count=resolution_counts["same_name_diff_end"],
         unresolved_conflict_count=len(unresolved_samples),
         invalid_date_order_count=len(invalid_samples),
         overlap_count=len(overlap_samples),
@@ -205,13 +219,17 @@ def _normalize_event(row: dict[str, Any]) -> NamechangeEvent:
 
 def _select_latest_announcement_events(
     events: list[NamechangeEvent],
-) -> tuple[list[NamechangeEvent], list[dict[str, Any]]]:
+) -> tuple[list[NamechangeEvent], list[dict[str, Any]], dict[str, int]]:
     grouped: dict[tuple[str, date], list[NamechangeEvent]] = defaultdict(list)
     for event in events:
         grouped[(event.ts_code, event.start_date)].append(event)
 
     selected: list[NamechangeEvent] = []
     unresolved_samples: list[dict[str, Any]] = []
+    resolution_counts = {
+        "same_name_same_end_reason": 0,
+        "same_name_diff_end": 0,
+    }
     for key in sorted(grouped):
         candidates = grouped[key]
         latest_ann = max(event.ann_date or date.min for event in candidates)
@@ -223,6 +241,15 @@ def _select_latest_announcement_events(
         ]
         final_candidates = with_end_date or latest_candidates
         unique_candidates = _unique_events(final_candidates)
+        resolved_event = _resolve_equivalent_same_name_candidates(
+            key=key,
+            candidates=unique_candidates,
+            all_events=events,
+            resolution_counts=resolution_counts,
+        )
+        if resolved_event is not None:
+            selected.append(resolved_event)
+            continue
         if len(unique_candidates) != 1:
             unresolved_samples.append(
                 {
@@ -235,7 +262,86 @@ def _select_latest_announcement_events(
             continue
         selected.append(unique_candidates[0])
 
-    return selected, unresolved_samples
+    return selected, unresolved_samples, resolution_counts
+
+
+def _resolve_equivalent_same_name_candidates(
+    *,
+    key: tuple[str, date],
+    candidates: list[NamechangeEvent],
+    all_events: list[NamechangeEvent],
+    resolution_counts: dict[str, int],
+) -> NamechangeEvent | None:
+    if len(candidates) <= 1:
+        return candidates[0] if candidates else None
+
+    names = {event.name for event in candidates}
+    if len(names) != 1:
+        return None
+
+    normalized_reasons = {
+        _normalized_change_reason(event.change_reason) for event in candidates
+    }
+    end_dates = {event.end_date for event in candidates}
+
+    if len(end_dates) == 1:
+        specific_reason_candidates = [
+            event
+            for event in candidates
+            if _normalized_change_reason(event.change_reason) != "其他"
+        ]
+        if specific_reason_candidates:
+            specific_reasons = {
+                _normalized_change_reason(event.change_reason)
+                for event in specific_reason_candidates
+            }
+            if len(specific_reasons) == 1:
+                resolution_counts["same_name_same_end_reason"] += 1
+                return _unique_events(specific_reason_candidates)[0]
+        if len(normalized_reasons) == 1:
+            resolution_counts["same_name_same_end_reason"] += 1
+            return candidates[0]
+
+    if len(normalized_reasons) == 1 and len(end_dates) > 1:
+        non_null_ends = [event.end_date for event in candidates if event.end_date]
+        if not non_null_ends:
+            return None
+        latest_end = max(non_null_ends)
+        if _has_inner_other_name_event(
+            ts_code=key[0],
+            name=candidates[0].name,
+            start_date=key[1],
+            latest_end=latest_end,
+            events=all_events,
+        ):
+            return None
+        latest_end_candidates = [
+            event for event in candidates if event.end_date == latest_end
+        ]
+        resolution_counts["same_name_diff_end"] += 1
+        return _unique_events(latest_end_candidates)[0]
+
+    return None
+
+
+def _normalized_change_reason(change_reason: str) -> str:
+    return NAMECHANGE_CHANGE_REASON_EQUIVALENCE.get(change_reason, change_reason)
+
+
+def _has_inner_other_name_event(
+    *,
+    ts_code: str,
+    name: str,
+    start_date: date,
+    latest_end: date,
+    events: list[NamechangeEvent],
+) -> bool:
+    return any(
+        event.ts_code == ts_code
+        and event.name != name
+        and start_date < event.start_date <= latest_end
+        for event in events
+    )
 
 
 def _merge_adjacent_same_name_events(

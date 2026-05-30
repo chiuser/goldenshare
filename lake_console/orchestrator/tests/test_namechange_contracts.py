@@ -145,6 +145,74 @@ class NamechangeContractTests(unittest.TestCase):
         self.assertEqual(result.unresolved_conflict_count, 1)
         self.assertGreater(result.blocking_conflict_count, 0)
 
+    def test_same_name_same_end_prefers_specific_reason_over_other(self) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row("000711.SZ", "ST京蓝", "20250908", None, "20250905"),
+                _row_with_reason(
+                    "000711.SZ", "ST京蓝", "20250908", None, "20250905", "摘星"
+                ),
+            ]
+        )
+
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.same_name_same_end_reason_resolved_count, 1)
+        self.assertEqual(result.rows[0]["change_reason"], "摘星")
+
+    def test_same_name_same_end_treats_cancel_star_st_as_star_removal(self) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row_with_reason(
+                    "000571.SZ", "ST大洲", "20210608", "20230627", "20210605", "摘星"
+                ),
+                _row_with_reason(
+                    "000571.SZ",
+                    "ST大洲",
+                    "20210608",
+                    "20230627",
+                    "20210605",
+                    "撤销*ST",
+                ),
+            ]
+        )
+
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.same_name_same_end_reason_resolved_count, 1)
+
+    def test_same_name_diff_end_chooses_latest_end_without_inner_name(self) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row_with_reason(
+                    "000980.SZ", "*ST众泰", "20200624", "20210419", "20200623", "*ST"
+                ),
+                _row_with_reason(
+                    "000980.SZ", "*ST众泰", "20200624", "20220519", "20200623", "*ST"
+                ),
+                _row_with_reason(
+                    "000980.SZ", "*ST众泰", "20200624", None, "20200623", "*ST"
+                ),
+                _row_with_reason(
+                    "000980.SZ", "ST众泰", "20220520", None, "20220519", "摘星"
+                ),
+            ]
+        )
+
+        self.assertEqual(result.blocking_conflict_count, 0)
+        self.assertEqual(result.same_name_diff_end_resolved_count, 1)
+        self.assertEqual(result.rows[0]["end_date"], date(2022, 5, 19))
+
+    def test_same_name_diff_end_still_blocks_when_inner_name_exists(self) -> None:
+        result = build_latest_announcement_namechange_timeline(
+            [
+                _row("000001.SZ", "名称A", "20200101", "20200110", "20200101"),
+                _row("000001.SZ", "名称A", "20200101", "20200120", "20200101"),
+                _row("000001.SZ", "名称B", "20200115", None, "20200114"),
+            ]
+        )
+
+        self.assertEqual(result.unresolved_conflict_count, 1)
+        self.assertGreater(result.blocking_conflict_count, 0)
+
     def test_open_interval_is_closed_by_next_start_to_avoid_overlap(self) -> None:
         result = build_latest_announcement_namechange_timeline(
             [
@@ -184,13 +252,17 @@ class NamechangeContractTests(unittest.TestCase):
 
 
 def _row(ts_code, name, start_date, end_date, ann_date):
+    return _row_with_reason(ts_code, name, start_date, end_date, ann_date, "其他")
+
+
+def _row_with_reason(ts_code, name, start_date, end_date, ann_date, change_reason):
     return {
         "ts_code": ts_code,
         "name": name,
         "start_date": start_date,
         "end_date": end_date,
         "ann_date": ann_date,
-        "change_reason": "其他",
+        "change_reason": change_reason,
     }
 
 

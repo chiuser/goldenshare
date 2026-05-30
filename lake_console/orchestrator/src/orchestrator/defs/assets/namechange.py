@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.duckdb_sql import (
     NAMECHANGE_RAW_COLUMNS,
     NAMECHANGE_SILVER_REQUIRED_COLUMNS,
@@ -21,6 +22,7 @@ from orchestrator.defs.paths import (
     lake_path_template,
     raw_namechange_path,
     silver_namechange_path,
+    silver_stock_basic_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -76,6 +78,16 @@ def _read_raw_rows(connection, path: Path) -> list[dict[str, Any]]:
         """
     ).fetchall()
     return [dict(zip(columns, row, strict=True)) for row in rows]
+
+
+def _read_current_listed_stock_codes(connection, path: Path) -> set[str]:
+    rows = connection.execute(
+        f"""
+        SELECT ts_code
+        FROM {read_parquet(path, hive_partitioning=False)}
+        """
+    ).fetchall()
+    return {str(row[0]) for row in rows}
 
 
 def _replace_silver_rows(
@@ -168,7 +180,7 @@ def raw_tushare_namechange(
 
 @dg.asset(
     name="silver_namechange",
-    deps=[raw_tushare_namechange],
+    deps=[raw_tushare_namechange, silver_stock_basic],
     group_name="basic",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.BASIC_DATA),
     metadata=build_asset_definition_metadata(
@@ -195,14 +207,24 @@ def silver_namechange(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     raw_path = raw_namechange_path(lake_root.root())
+    stock_basic_path = silver_stock_basic_path(lake_root.root())
     target_path = silver_namechange_path(lake_root.root())
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw namechange file: {raw_path}")
+    if not stock_basic_path.exists():
+        raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
 
     with duckdb.connect() as connection:
         raw_rows = _read_raw_rows(connection, raw_path)
+        current_listed_stock_codes = _read_current_listed_stock_codes(
+            connection, stock_basic_path
+        )
 
-    timeline = build_latest_announcement_namechange_timeline(raw_rows)
+    filtered_rows = [
+        row for row in raw_rows if str(row.get("ts_code")) in current_listed_stock_codes
+    ]
+
+    timeline = build_latest_announcement_namechange_timeline(filtered_rows)
     if timeline.blocking_conflict_count:
         raise RuntimeError(
             "Namechange timeline canonicalization failed: "
@@ -227,10 +249,20 @@ def silver_namechange(
             observed_columns=columns,
             extra_metadata={
                 "raw_file_path": str(raw_path),
+                "stock_basic_file_path": str(stock_basic_path),
                 "source_row_count": timeline.source_row_count,
+                "raw_source_row_count": len(raw_rows),
+                "current_listed_stock_count": len(current_listed_stock_codes),
+                "filtered_delisted_row_count": len(raw_rows) - len(filtered_rows),
                 "selected_event_count": timeline.selected_event_count,
                 "duplicate_removed_count": 0,
                 "merged_same_name_count": timeline.merged_same_name_count,
+                "same_name_same_end_reason_resolved_count": (
+                    timeline.same_name_same_end_reason_resolved_count
+                ),
+                "same_name_diff_end_resolved_count": (
+                    timeline.same_name_diff_end_resolved_count
+                ),
                 "open_interval_count": sum(
                     1 for row in timeline.rows if row.get("end_date") is None
                 ),

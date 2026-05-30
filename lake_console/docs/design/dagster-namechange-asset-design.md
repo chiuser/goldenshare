@@ -1,6 +1,6 @@
 # Dagster namechange 资产接入方案
 
-状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线口径。
+状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线 v2 口径。
 
 更新时间：2026-05-30
 
@@ -230,9 +230,9 @@ diff 口径：
 已确认的 silver 规则：
 
 1. raw 层只做全字段 distinct，不对多 open / overlap 做 blocking。
-2. silver 采用 `latest_announcement_timeline_v1` 规则。
+2. silver 采用 `latest_announcement_timeline_v2` 规则。
 3. 同一 `ts_code + start_date` 下，优先选择 `ann_date` 最新的公告版本；`ann_date` 为空视为低优先级。
-4. 如果同一 `ts_code + start_date + ann_date` 仍存在多行，优先保留带 `end_date` 的版本；如果仍无法唯一确定，则 `silver_namechange` 失败。
+4. 如果同一 `ts_code + start_date + ann_date` 仍存在多行，优先保留带 `end_date` 的版本；若是同名候选，继续按 v2 同名裁决规则处理；如果仍无法唯一确定，则 `silver_namechange` 失败。
 5. 选定每个生效日的有效公告后，按 `ts_code/start_date` 排序生成名称时间线。
 6. 连续相同 `name` 的噪声记录需要合并为一个区间。
 7. 如果当前段源 `end_date` 为空，或源 `end_date >= 下一段 start_date`，则用 `下一段 start_date - 1 day` 闭合当前段，避免 overlap。
@@ -240,6 +240,9 @@ diff 口径：
 9. 最后一段如果源 `end_date` 为空则保持 open；如果源端给了 `end_date`，则保留该结束日。
 10. 最终表必须满足：同一股票同一时间点最多只能命中一个名称区间；同一股票最多只能有一个当前 open interval。
 11. 如果归并逻辑无法解释某个股票的区间矛盾，`silver_namechange` 直接失败，并在 metadata / check metadata 中输出股票代码、样本区间和原因。
+12. `latest_announcement_timeline_v2` 增加两个正式裁决规则：
+   - `摘星` 与 `撤销*ST` 视为同义变更原因；同名同区间下，如果候选里同时存在 `其他` 和非 `其他` 原因，优先保留非 `其他` 的具体原因。
+   - 对 `same_name_diff_end`，如果候选的 `ts_code/name/start_date/ann_date/归一后 change_reason` 都一致，只是 `end_date` 不同，则选择 `end_date` 更新的候选；前提是在当前 `start_date` 到最大 `end_date` 之间不存在同一股票其它名称生效记录，否则继续阻断。
 
 相邻区间 gap 前置审计：
 
@@ -265,7 +268,7 @@ diff 口径：
 | `000995.SZ` | `*ST皇台` | `2022-04-29` | `2023-08-17` |
 | `000995.SZ` | `皇台酒业` | `2023-08-18` | 空 |
 
-这个口径是开发门禁：NC-3 必须实现 `latest_announcement_timeline_v1`，不得回退成 raw distinct，也不得把 unresolved conflict 临时降级为 WARN。
+这个口径是开发门禁：NC-3 必须实现 `latest_announcement_timeline_v2`，不得回退成 raw distinct，也不得把 unresolved conflict 临时降级为 WARN。
 
 ## 6. 资产设计
 
@@ -350,11 +353,11 @@ silver 转换规则：
 1. 从 raw 读取。
 2. `start_date/end_date/ann_date` 从 `YYYYMMDD` 字符串标准化为 DATE。
 3. `ts_code/name/start_date/change_reason` 必须非空。
-4. 不按当前上市股票过滤。
+4. 只保留 `silver_stock_basic` 中当前仍上市股票；退市股票不进入 `silver_namechange`。
 5. 不保留旧湖-only 记录，不做旧湖 correction。
-6. 使用 `latest_announcement_timeline_v1` 生成标准名称时间线。
+6. 使用 `latest_announcement_timeline_v2` 生成标准名称时间线。
 7. 同一 `ts_code + start_date` 下，选择 `ann_date` 最新的公告版本；`ann_date` 为空视为低优先级。
-8. 同一 `ts_code + start_date + ann_date` 下仍有多行时，优先选择带 `end_date` 的版本；如果仍无法唯一确定，直接失败。
+8. 同一 `ts_code + start_date + ann_date` 下仍有多行时，优先选择带 `end_date` 的版本；若同名候选只存在原因或结束日差异，则按 v2 同名裁决规则处理；如果仍无法唯一确定，直接失败。
 9. 按 `ts_code/start_date` 生成时间线，连续相同 `name` 的噪声记录合并为一个区间。
 10. 如果当前段源 `end_date` 为空，或源 `end_date >= 下一段 start_date`，则用 `下一段 start_date - 1 day` 闭合当前段，避免 overlap。
 11. 如果当前段源 `end_date < 下一段 start_date`，保留源 `end_date`，允许中间存在 gap。
@@ -370,10 +373,15 @@ silver materialization metadata：
 | `dagster/uri` | silver parquet 路径 |
 | `dagster/row_count` | silver 行数 |
 | `goldenshare/observed_columns` | 本次输出字段 |
-| `source_row_count` | raw 行数 |
+| `source_row_count` | 过滤当前上市股票后的 raw 行数 |
+| `raw_source_row_count` | 过滤前 raw 行数 |
+| `current_listed_stock_count` | 当前上市股票数量，来自 `silver_stock_basic` |
+| `filtered_delisted_row_count` | 因退市股票过滤掉的 raw 行数 |
 | `duplicate_removed_count` | silver 端发现并移除的完全重复行数，正常应为 0 |
 | `open_interval_count` | `end_date IS NULL` 行数，仅观测 |
-| `canonicalization_rule_version` | 固定为 `latest_announcement_timeline_v1` |
+| `canonicalization_rule_version` | 固定为 `latest_announcement_timeline_v2` |
+| `same_name_same_end_reason_resolved_count` | v2 规则中同名同区间原因差异被自动裁决的数量 |
+| `same_name_diff_end_resolved_count` | v2 规则中同名不同结束日被自动裁决的数量 |
 | `unresolved_interval_conflict_count` | 归并后仍无法解释的区间矛盾数量；必须为 0 |
 | `adjacent_gap_count` | 相邻名称区间之间存在日期 gap 的数量；只观测，不阻断 |
 | `known_adjacent_gap_count` | 已登记的相邻 gap 数量，当前应为 1 |
@@ -624,7 +632,7 @@ stock_current_trade_day_sensor
 
 ### NC-0：开发前源数据区间审计
 
-状态：已完成。2026-05-30 审计确认 `latest_announcement_timeline_v1` 可把当前 Tushare 最新数据归并成唯一名称时间线，`unresolved_interval_conflict_count=0`。
+状态：已完成。2026-05-30 审计确认 `latest_announcement_timeline_v2` 必须结合“当前上市过滤、同名原因归一、同名结束日裁决”才能继续收敛；剩余不同名称同日起冲突必须继续阻断并由人工确认。
 
 目标：
 
@@ -642,7 +650,7 @@ stock_current_trade_day_sensor
 
 - 已完成 NC-0 只读审计，并将关键统计、失败策略和最终规则写入本方案。
 - 已确认不能使用 `source_distinct_only`、`prefer_closed_same_event` 或旧 `timeline_candidate` 作为 silver 规则。
-- 已确认 NC-3 必须实现 `latest_announcement_timeline_v1`，并让 unresolved conflict blocking checks 作为正式门禁。
+- 已确认 NC-3 必须实现 `latest_announcement_timeline_v2`，并让 unresolved conflict blocking checks 作为正式门禁。
 
 ### NC-1：契约与路径
 
@@ -698,11 +706,11 @@ stock_current_trade_day_sensor
 
 - 实现 `silver_namechange`。
 - 日期字段标准化为 DATE。
-- 实现 `latest_announcement_timeline_v1` 区间归并和 blocking checks。
+- 实现 `latest_announcement_timeline_v2` 区间归并和 blocking checks。
 
 禁止：
 
-- 不做业务过滤。
+- 只保留当前上市股票，不保留退市股票。
 - 不保留旧湖-only 记录。
 - 不静默保留无法解释的源站区间矛盾。
 - 不新增下游 consumer。
@@ -712,7 +720,7 @@ stock_current_trade_day_sensor
 - silver 文件字段类型符合 schema contract。
 - `end_date < start_date` 为 0。
 - 完全重复行为 0。
-- `canonicalization_rule_version=latest_announcement_timeline_v1`。
+- `canonicalization_rule_version=latest_announcement_timeline_v2`。
 - 归并后 `unresolved_interval_conflict_count=0`。
 - `silver_namechange_current_open_interval_unique` 通过。
 - `silver_namechange_interval_overlap_absent` 通过。
