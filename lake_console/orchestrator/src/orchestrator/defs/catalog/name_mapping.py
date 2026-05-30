@@ -17,6 +17,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "market_breadth": "市场宽度",
         "stock_return_distribution": "股票涨跌幅分布",
         "ch_share_fact_market_breadth_daily": "ClickHouse 市场宽度日表",
+        "prod_ch_share_fact_market_breadth_daily": "Prod ClickHouse 市场宽度日表",
     }
 )
 

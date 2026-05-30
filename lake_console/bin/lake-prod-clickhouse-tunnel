@@ -1,0 +1,21 @@
+#!/usr/bin/env bash
+set -euo pipefail
+
+LOCAL_PORT="${PROD_CLICKHOUSE_TUNNEL_PORT:-19000}"
+REMOTE_HOST="${PROD_CLICKHOUSE_SSH_HOST:-goldenshare-prod}"
+REMOTE_HOST_ADDR="127.0.0.1"
+REMOTE_PORT="9000"
+
+echo "Starting prod ClickHouse SSH tunnel:"
+echo "  local  ${REMOTE_HOST_ADDR}:${LOCAL_PORT}"
+echo "  remote ${REMOTE_HOST}:${REMOTE_HOST_ADDR}:${REMOTE_PORT}"
+echo
+echo "Keep this process running while Dagster syncs to prod ClickHouse."
+echo "Press Ctrl-C to stop the tunnel."
+
+exec ssh -N \
+  -o ExitOnForwardFailure=yes \
+  -o ServerAliveInterval=30 \
+  -o ServerAliveCountMax=3 \
+  -L "${LOCAL_PORT}:${REMOTE_HOST_ADDR}:${REMOTE_PORT}" \
+  "${REMOTE_HOST}"

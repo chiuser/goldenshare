@@ -112,6 +112,13 @@ defs = dg.Definitions(
             password=dg.EnvVar("CLICKHOUSE_PASSWORD"),
             database=dg.EnvVar("CLICKHOUSE_DATABASE"),
         ),
+        "prod_clickhouse": ClickhouseResource(
+            host=dg.EnvVar("PROD_CLICKHOUSE_HOST"),
+            port=dg.EnvVar.int("PROD_CLICKHOUSE_PORT"),
+            user=dg.EnvVar("PROD_CLICKHOUSE_USER"),
+            password=dg.EnvVar("PROD_CLICKHOUSE_PASSWORD"),
+            database=dg.EnvVar("PROD_CLICKHOUSE_DATABASE"),
+        ),
         "feishu": FeishuWebhookResource(),
     }
 )

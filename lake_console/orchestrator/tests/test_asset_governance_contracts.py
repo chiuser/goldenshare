@@ -16,6 +16,7 @@ from orchestrator.defs.assets.adj_factor import (
 from orchestrator.defs.assets.clickhouse_serving import (
     CLICKHOUSE_MARKET_BREADTH_COLUMNS,
     ch_share_fact_market_breadth_daily,
+    prod_ch_share_fact_market_breadth_daily,
 )
 from orchestrator.defs.assets.index_basic import (
     INDEX_BASIC_RAW_COLUMN_TYPES,
@@ -179,6 +180,12 @@ ASSET_CONTRACTS = {
         "ch_share_fact_market_breadth_daily",
         "ClickHouse 市场宽度日表",
     ),
+    prod_ch_share_fact_market_breadth_daily: (
+        "serving",
+        "derived_metric",
+        "prod_ch_share_fact_market_breadth_daily",
+        "Prod ClickHouse 市场宽度日表",
+    ),
 }
 
 ASSET_PATH_TEMPLATES = {
@@ -269,6 +276,9 @@ ASSET_COLUMN_SCHEMAS = {
     gold_stock_return_distribution: GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     gold_market_major_indices_daily: GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
     ch_share_fact_market_breadth_daily: CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+    prod_ch_share_fact_market_breadth_daily: (
+        CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA
+    ),
 }
 
 
@@ -302,7 +312,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 18)
+        self.assertEqual(len(ASSET_CONTRACTS), 19)
 
         for asset, (
             layer,

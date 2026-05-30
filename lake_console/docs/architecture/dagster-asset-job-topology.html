@@ -333,11 +333,11 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code> 和 <code>market_major_indices_daily_update_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code> 和 <code>prod_clickhouse_share_fact_market_breadth_sync_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
-      当前已新增自定义 <code>market_breadth_automation_sensor</code>、<code>stock_return_distribution_automation_sensor</code> 和 <code>clickhouse_share_fact_market_breadth_automation_sensor</code>，分别只 target 自己的 gold / serving asset，用来替代全局默认 automation sensor 作为日常触发入口。
+      当前已新增自定义 <code>market_breadth_automation_sensor</code>、<code>stock_return_distribution_automation_sensor</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor</code> 和 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>，分别只 target 自己的 gold / serving asset，用来替代全局默认 automation sensor 作为日常触发入口。
       最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
@@ -814,6 +814,13 @@
           <td>目标由自定义 <code>clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能写 gold/silver/raw。</td>
         </tr>
+        <tr>
+          <td><code>prod_clickhouse_share_fact_market_breadth_sync_job</code></td>
+          <td>已实现；只选择 <code>prod_ch_share_fact_market_breadth_daily</code> + prod serving checks。</td>
+          <td>把本机 ClickHouse 市场宽度 serving 分区同步到 prod ClickHouse。</td>
+          <td>目标由自定义 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
+          <td>不能补本机 CH 上游，不能拉 Tushare，不能写 gold/silver/raw；SSH tunnel 是运行前置条件。</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -986,12 +993,13 @@
     <h3>6.2 当前收口状态</h3>
 <pre><code>Closed as of 2026-05-29:
 1. Schema contract
-   - 16 formal assets expose definition column schema
+   - 19 formal assets expose definition column schema
    - runtime metadata uses observed_columns
 
 2. Stock breadth gold + ClickHouse serving
    - gold_market_breadth_daily and gold_stock_return_distribution are implemented
    - ch_share_fact_market_breadth_daily, checks, job, automation sensor are implemented
+   - prod_ch_share_fact_market_breadth_daily, checks, sync job, automation sensor are implemented
    - historical catch-up and small-window acceptance were user-verified
 
 3. Phase 3 index daily / major indices

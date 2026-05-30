@@ -42,6 +42,10 @@ CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
     dg.AutomationCondition.eager()
     & dg.AutomationCondition.all_deps_blocking_checks_passed()
 )
+PROD_CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
+    dg.AutomationCondition.eager()
+    & dg.AutomationCondition.all_deps_blocking_checks_passed()
+)
 
 
 def _read_single_row(
@@ -128,6 +132,65 @@ def _build_clickhouse_row(
         _int_value(distribution_row, "up_gt_7_count"),
         datetime.now(CN_A_TIMEZONE).replace(tzinfo=None),
     )
+
+
+def _normalise_clickhouse_value(column: str, value: Any) -> Any:
+    if column == "trade_date":
+        return _date_iso(value)
+    if column == "updated_at":
+        if hasattr(value, "isoformat"):
+            return value.isoformat(sep=" ")
+        return str(value)
+    if column == "red_rate":
+        return float(value)
+    return int(value)
+
+
+def _clickhouse_row_dict(row: tuple[Any, ...]) -> dict[str, Any]:
+    return {
+        column: _normalise_clickhouse_value(column, value)
+        for column, value in zip(CLICKHOUSE_MARKET_BREADTH_COLUMNS, row, strict=True)
+    }
+
+
+def fetch_clickhouse_market_breadth_rows(
+    client,
+    partition_key: str,
+) -> list[dict[str, Any]]:
+    column_list = ", ".join(CLICKHOUSE_MARKET_BREADTH_COLUMNS)
+    rows = client.execute(
+        f"""
+        SELECT {column_list}
+        FROM {CLICKHOUSE_MARKET_BREADTH_TABLE}
+        WHERE trade_date = %(trade_date)s
+        ORDER BY trade_date
+        """,
+        {"trade_date": date.fromisoformat(partition_key)},
+    )
+    return [_clickhouse_row_dict(row) for row in rows]
+
+
+def _fetch_single_clickhouse_market_breadth_row(
+    client,
+    partition_key: str,
+) -> tuple[Any, ...]:
+    column_list = ", ".join(CLICKHOUSE_MARKET_BREADTH_COLUMNS)
+    rows = client.execute(
+        f"""
+        SELECT {column_list}
+        FROM {CLICKHOUSE_MARKET_BREADTH_TABLE}
+        WHERE trade_date = %(trade_date)s
+        ORDER BY trade_date
+        """,
+        {"trade_date": date.fromisoformat(partition_key)},
+    )
+    if len(rows) != 1:
+        raise RuntimeError(
+            "Local ClickHouse serving partition must contain exactly one row before "
+            "syncing to prod: "
+            f"trade_date={partition_key}, row_count={len(rows)}"
+        )
+    return tuple(rows[0])
 
 
 def _count_clickhouse_partition(client, partition_date: date) -> int:
@@ -262,6 +325,63 @@ def ch_share_fact_market_breadth_daily(
                 "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
                 "gold_market_breadth_daily_path": str(breadth_path),
                 "gold_stock_return_distribution_path": str(distribution_path),
+                "replace_mode": "sync_delete_then_insert",
+                "lightweight_deletes_sync": 1,
+            },
+        )
+    )
+
+
+@dg.asset(
+    name="prod_ch_share_fact_market_breadth_daily",
+    deps=[ch_share_fact_market_breadth_daily],
+    partitions_def=cn_a_stock_trade_days,
+    group_name="serving",
+    tags=build_asset_tags(
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.DERIVED_METRIC,
+    ),
+    metadata=build_asset_definition_metadata(
+        dataset_id="prod_ch_share_fact_market_breadth_daily",
+        source_system=SourceSystem.DERIVED,
+        data_contract="share_fact_market_breadth_daily_prod_sync",
+        column_schema=CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
+        extra_metadata={
+            "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
+            "replace_contract": "prod sync delete by trade_date, then insert local row",
+            "upstream_asset": "ch_share_fact_market_breadth_daily",
+        },
+    ),
+    description="Prod ClickHouse 行情事实市场宽度日表，由本机 ClickHouse serving 表同步生成。",
+    automation_condition=PROD_CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION,
+)
+def prod_ch_share_fact_market_breadth_daily(
+    context: dg.AssetExecutionContext,
+    clickhouse: ClickhouseResource,
+    prod_clickhouse: ClickhouseResource,
+) -> dg.MaterializeResult:
+    partition_key = context.partition_key
+    with clickhouse.get_connection() as local_client:
+        local_row = _fetch_single_clickhouse_market_breadth_row(
+            local_client,
+            partition_key,
+        )
+
+    with prod_clickhouse.get_connection() as prod_client:
+        _replace_clickhouse_partition(prod_client, local_row)
+
+    return dg.MaterializeResult(
+        metadata=build_materialization_metadata(
+            uri=(
+                f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
+                f"?trade_date={partition_key}"
+            ),
+            row_count=1,
+            observed_columns=CLICKHOUSE_MARKET_BREADTH_COLUMNS,
+            extra_metadata={
+                "partition_key": partition_key,
+                "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
+                "source_clickhouse_asset": "ch_share_fact_market_breadth_daily",
                 "replace_mode": "sync_delete_then_insert",
                 "lightweight_deletes_sync": 1,
             },
