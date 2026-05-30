@@ -618,15 +618,16 @@
     <pre><code>metadata = build_materialization_metadata(
   uri=target_path,
   row_count=row_count,
-  columns=column_names,
+  observed_columns=column_names,
   extra_metadata={
     "partition_key": context.partition_key,      # 分区资产才有
   },
 )</code></pre>
     <p class="small">
       当前治理口径：<code>layer</code> 放 asset tags；<code>data_contract</code> 放 definition metadata；
-      materialization metadata 的路径、行数和列结构分别使用 <code>dagster/uri</code>、
-      <code>dagster/row_count</code>、<code>dagster/column_schema</code>。
+      definition metadata 注册稳定字段契约 <code>dagster/column_schema</code>；
+      materialization metadata 的路径、行数和本次观察列分别使用 <code>dagster/uri</code>、
+      <code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>。
     </p>
 
     <h3>raw_tushare_trade_calendar</h3>
@@ -641,7 +642,7 @@ def raw_tushare_trade_calendar(lake_root, duckdb) -> dg.MaterializeResult:
         metadata=build_materialization_metadata(
             uri=path,
             row_count=row_count,
-            columns=schema.columns,
+            observed_columns=schema.columns,
         )
     )</code></pre>
 
@@ -661,7 +662,8 @@ FROM read_parquet(:raw_path)</code></pre>
 def raw_tushare_stock_basic(lake_root, duckdb) -> dg.MaterializeResult:
     path = lake_root.raw_path("tushare", "stock_basic", "full", "part-000.parquet")
     # 只登记和校验现有 raw 文件；第一期不调用 Tushare
-    # metadata 使用 dagster/uri、dagster/row_count、dagster/column_schema；
+    # definition metadata 注册 dagster/column_schema；
+    # materialization metadata 使用 dagster/uri、dagster/row_count、goldenshare/observed_columns；
     # list_status_distribution 等业务统计放入已登记的项目 metadata key。</code></pre>
 
     <h3>silver_stock_basic</h3>
@@ -922,7 +924,7 @@ os.replace(tmp, target)</code></pre>
         <tr>
           <td>silver/gold 产出</td>
           <td>materialize 2026-04 单日样本，再扩到全月</td>
-          <td>materialization metadata 中可见 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>、重复行统计、完整性观察差异。</td>
+          <td>definition metadata 中可见稳定字段契约 <code>dagster/column_schema</code>；materialization metadata 中可见 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、重复行统计、完整性观察差异。</td>
         </tr>
         <tr>
           <td>asset checks 回归</td>

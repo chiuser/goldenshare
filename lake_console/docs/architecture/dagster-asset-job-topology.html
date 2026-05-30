@@ -333,6 +333,7 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
+      当前 active assets 共 <code>19</code> 个，active jobs 共 <code>13</code> 个，active sensors 共 <code>15</code> 个。
       当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code> 和 <code>prod_clickhouse_share_fact_market_breadth_sync_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
@@ -360,7 +361,7 @@
         <tbody>
         <tr>
           <td>Assets</td>
-          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>adj_factor.py</code>、<code>market_breadth.py</code>、<code>stock_return_distribution.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code></td>
+          <td><code>defs/assets/calendar.py</code>、<code>stock_basic.py</code>、<code>suspend_d.py</code>、<code>stock_daily.py</code>、<code>adj_factor.py</code>、<code>market_breadth.py</code>、<code>stock_return_distribution.py</code>、<code>index_basic.py</code>、<code>index_daily.py</code>、<code>market_major_indices.py</code>、<code>clickhouse_serving.py</code></td>
           <td>定义 raw / silver / gold 资产如何生成。</td>
           <td>资产函数是真正生产数据的地方，Tushare 拉取、DuckDB 转换、Parquet 写入都在 asset/helper 中。</td>
         </tr>
@@ -372,7 +373,7 @@
         </tr>
         <tr>
           <td>Sensor</td>
-          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>stock_current_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>market_major_indices_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>stock_adj_factor_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor.py</code></td>
+          <td><code>defs/sensors/cn_a_trade_day_sensor.py</code>、<code>stock_trade_day_sensor.py</code>、<code>stock_current_trade_day_sensor.py</code>、<code>index_trade_day_sensor.py</code>、<code>index_daily_sensor.py</code>、<code>silver_index_daily_sensor.py</code>、<code>market_major_indices_daily_sensor.py</code>、<code>suspend_d_sensor.py</code>、<code>stock_basic_sensor.py</code>、<code>stock_daily_sensor.py</code>、<code>stock_adj_factor_sensor.py</code>、<code>feishu_run_status_sensor.py</code>、<code>market_breadth_automation_sensor.py</code>、<code>stock_return_distribution_automation_sensor.py</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor.py</code>、<code>prod_clickhouse_share_fact_market_breadth_automation_sensor.py</code></td>
           <td>已拆成多 sensor：交易日注册、资产族生产和运行告警分离。</td>
           <td><code>cn_a_trade_day_sensor</code> 不触发数据生产且只维护全量备份分区；每个资产族 sensor 只判断本资产族 missing、freshness、blocking checks 和上游 ready；飞书 run status sensors 只监听 <code>STARTED</code>、<code>SUCCESS</code>、<code>FAILURE</code>，默认停止，不提交 <code>RunRequest</code>。所有 sensor definition 均通过分类 tags 服务 Automation 页面过滤。</td>
         </tr>
@@ -385,8 +386,8 @@
         <tr>
           <td>Resources</td>
           <td><code>defs/resources.py</code></td>
-          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>FeishuWebhookResource</code>。</td>
-          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code> 和飞书 webhook 配置通过环境变量读取，敏感值不写入代码、文档、metadata 或日志。主要指数名单改为仓库 seed 文件，不再注册本地 PostgreSQL metadata 或 prod JSON 初始化 resource。</td>
+          <td><code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>ClickhouseResource</code>、<code>FeishuWebhookResource</code>。</td>
+          <td>外部能力集中在 resource；<code>TUSHARE_TOKEN</code>、<code>CLICKHOUSE_*</code>、<code>PROD_CLICKHOUSE_*</code> 和飞书 webhook 配置通过环境变量读取，敏感值不写入代码、文档、metadata 或日志。主要指数名单改为仓库 seed 文件，不再注册本地 PostgreSQL metadata 或 prod JSON 初始化 resource。</td>
         </tr>
         <tr>
           <td>Runtime Utils</td>

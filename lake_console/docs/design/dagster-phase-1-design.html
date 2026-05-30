@@ -634,7 +634,7 @@
           <td><span class="tag raw">raw</span></td>
           <td>Tushare 交易日历原始文件在新 raw 路径下的资产记录。</td>
           <td>新 raw 路径中的 <code>trade_calendar/full/part-000.parquet</code>。</td>
-          <td>Dagster materialization metadata：<code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。</td>
+          <td>Definition metadata 注册 <code>dagster/column_schema</code>；materialization metadata 记录 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>。</td>
           <td>读取文件并执行 raw checks；不把旧路径写入 asset path。</td>
         </tr>
         <tr>
@@ -650,7 +650,7 @@
           <td><span class="tag raw">raw</span></td>
           <td>Tushare 股票基础信息原始文件在新 raw 路径下的资产记录。</td>
           <td>新 raw 路径中的 <code>stock_basic/full/part-000.parquet</code>。</td>
-          <td>Dagster materialization metadata：<code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。</td>
+          <td>Definition metadata 注册 <code>dagster/column_schema</code>；materialization metadata 记录 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>。</td>
           <td>读取文件并执行 raw checks；不把旧路径写入 asset path。</td>
         </tr>
         <tr>
@@ -666,7 +666,7 @@
           <td><span class="tag raw">raw</span></td>
           <td>Tushare A 股日线原始文件在新 raw 路径下的分区资产记录。</td>
           <td>按 <code>context.partition_key</code> 读取新 raw 中对应交易日文件。</td>
-          <td>Dagster materialization metadata：<code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。</td>
+          <td>Definition metadata 注册 <code>dagster/column_schema</code>；materialization metadata 记录 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>。</td>
           <td>缺失对应分区文件时直接失败。</td>
         </tr>
         <tr>

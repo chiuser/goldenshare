@@ -74,7 +74,7 @@ final
 ```text
 合格：  ensure_index_metadata_tables()
 合格：  write_market_major_indices_snapshot()
-合格：  load_index_daily_active_pool()
+合格：  load_market_major_indices_seed()
 
 不合格：process_data()
 不合格：sync_all()

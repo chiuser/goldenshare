@@ -452,27 +452,27 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr>
           <td><code>raw_tushare_stock_basic</code></td>
           <td>继续使用 bootstrap full file；不改 raw 源字段。</td>
-          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、<code>list_status_distribution</code>。</td>
+          <td><code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、<code>list_status_distribution</code>；稳定 schema 在 definition metadata 的 <code>dagster/column_schema</code>。</td>
         </tr>
         <tr>
           <td><code>silver_stock_basic</code></td>
           <td>使用新 SQL 只保留 <code>list_status='L'</code>；日期字段转 <code>DATE</code>。</td>
-          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、<code>source_row_count</code>、<code>filtered_out_count</code>、<code>list_status_distribution</code>。</td>
+          <td><code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、<code>source_row_count</code>、<code>filtered_out_count</code>、<code>list_status_distribution</code>；稳定 schema 在 definition metadata 的 <code>dagster/column_schema</code>。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_suspend_d[date]</code></td>
           <td>继续使用 bootstrap partition；允许 0 行；raw 中 <code>trade_date</code> 是 <code>YYYYMMDD</code> 字符串。</td>
-          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、迁移审计 <code>source_method</code>、<code>partition_key</code>。</td>
+          <td><code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、迁移审计 <code>source_method</code>、<code>partition_key</code>；稳定 schema 在 definition metadata 的 <code>dagster/column_schema</code>。</td>
         </tr>
         <tr>
           <td><code>silver_stock_suspend_daily[date]</code></td>
           <td>日期转 <code>DATE</code>；14 条已知盘中停牌修正写入 <code>suspend_timing</code>。</td>
-          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、<code>suspend_timing_correction_count</code>、<code>suspend_timing_correction_version</code>、<code>suspend_timing_correction_sample_rows</code>。</td>
+          <td><code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、<code>suspend_timing_correction_count</code>、<code>suspend_timing_correction_version</code>、<code>suspend_timing_correction_sample_rows</code>；稳定 schema 在 definition metadata 的 <code>dagster/column_schema</code>。</td>
         </tr>
         <tr>
           <td><code>raw_tushare_stock_daily[date]</code></td>
           <td>继续使用 bootstrap partition；保留旧湖该交易日全部 daily 源记录；不做股票池过滤。</td>
-          <td><code>dagster/row_count</code>、<code>dagster/column_schema</code>、迁移审计 <code>source_method</code>、<code>partition_key</code>。</td>
+          <td><code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、迁移审计 <code>source_method</code>、<code>partition_key</code>；稳定 schema 在 definition metadata 的 <code>dagster/column_schema</code>。</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily[date]</code></td>

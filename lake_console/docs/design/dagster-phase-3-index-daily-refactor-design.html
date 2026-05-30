@@ -716,7 +716,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <th>Materialization metadata</th>
-        <td>记录本次运行事实：分区代码、由 <code>trade_date</code> 派生的源接口窗口 <code>start_date/end_date</code>、<code>write_mode</code>、分页数、请求参数、字段列表、产物 URI、行数和列结构。metadata key 以当前 M6 治理后的实现为准，使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code> 与 <code>goldenshare/*</code>，不再写旧的 top-level <code>path</code>、<code>row_count</code> 或 <code>source_method</code>。</td>
+        <td>记录本次运行事实：分区代码、由 <code>trade_date</code> 派生的源接口窗口 <code>start_date/end_date</code>、<code>write_mode</code>、分页数、请求参数、字段列表、产物 URI、行数和本次观察列。metadata key 以当前治理后的实现为准，稳定字段契约在 definition metadata 的 <code>dagster/column_schema</code>；materialization metadata 使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code> 与其它 <code>goldenshare/*</code> 运行事实，不再写旧的 top-level <code>path</code>、<code>row_count</code> 或 <code>source_method</code>。</td>
       </tr>
       </tbody>
     </table>

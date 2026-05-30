@@ -666,6 +666,15 @@ updated_at = 2026-05-28 22:09:21
 
 重跑同一分区后 prod 仍为 1 行，replace 幂等通过。
 
+全量同步口径：
+
+1. 若需要把本机 ClickHouse 现有全部 `share_fact_market_breadth_daily` 分区同步到 prod，不新增临时脚本，不绕过 Dagster。
+2. 先启动 `lake_console/bin/lake-prod-clickhouse-tunnel`，确认本机 `127.0.0.1:19000` 可访问 prod ClickHouse。
+3. 在 Dagster UI 对 `prod_clickhouse_share_fact_market_breadth_sync_job` 发起分区 backfill，选择需要同步的 `trade_date` 分区集合。
+4. 每个分区由 `prod_ch_share_fact_market_breadth_daily[trade_date]` 读取本机 CH 一行，使用同步 delete-then-insert replace 语义写入 prod CH，再执行 prod checks。
+5. 如果 tunnel 中断或 prod 不可达，对应分区 run 失败并暴露连接错误；修复 tunnel 后对 failed / missing partitions 重新 backfill。
+6. 不直接用 `clickhouse-client INSERT SELECT` 或手写脚本批量灌 prod，因为那会绕过 Dagster asset/check/event 可观测性。
+
 ### Slice PCH-6：prod sync automation
 
 状态：已完成，默认 `STOPPED`。

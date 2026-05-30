@@ -997,7 +997,7 @@ def raw_tushare_suspend_d(context, lake_root, duckdb, tushare):
   return MaterializeResult(metadata={
     "dagster/uri": target_path,
     "dagster/row_count": row_count,
-    "dagster/column_schema": columns,
+    "goldenshare/observed_columns": columns,
     "goldenshare/partition_key": partition_key,
     "goldenshare/source_method": "tushare_api",
   })

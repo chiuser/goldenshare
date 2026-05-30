@@ -1107,7 +1107,7 @@ ops:
       </tbody>
     </table>
     <div class="warning">
-      <strong>M6 迁移口径：</strong>runtime metadata 中不再重复写 <code>layer</code>、<code>source_api</code>、<code>data_contract</code>、<code>raw_contract</code> 这类定义事实；路径、行数、列结构分别使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>。如果某个产物是多分区汇总，分区明细必须放在 <code>goldenshare/partition_metadata</code> 等明确业务字段里。
+      <strong>M6 迁移口径：</strong>runtime metadata 中不再重复写 <code>layer</code>、<code>source_api</code>、<code>data_contract</code>、<code>raw_contract</code> 这类定义事实；稳定字段契约只写在 asset definition metadata 的 <code>dagster/column_schema</code>；materialization metadata 的路径、行数和本次观察列分别使用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>。如果某个产物是多分区汇总，分区明细必须放在 <code>goldenshare/partition_metadata</code> 等明确业务字段里。
     </div>
 
     <h3>9.3 Asset Check Metadata</h3>
@@ -1620,7 +1620,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/assets/**/*.py</code>、<code>defs/checks/**/*.py</code></td>
-        <td>当前正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract 和路径模板 metadata；ClickHouse serving asset 使用 <code>serving</code> layer；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>dagster/column_schema</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
+        <td>当前正式 asset definition 已接入 <code>goldenshare/layer</code>、<code>goldenshare/data_domain</code>、<code>goldenshare/dataset_id</code>、<code>goldenshare/dataset_name</code>、source、contract、路径模板和 <code>dagster/column_schema</code> metadata；ClickHouse serving asset 使用 <code>serving</code> layer；materialization metadata 已改用 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>；checks metadata 已统一经 <code>build_check_metadata</code> 写入。</td>
         <td>M5 覆盖 asset definition 层低基数分类；M6 已覆盖 definition/materialization/check 三层 metadata。旧历史 run metadata 不迁移。</td>
         <td>M8 已把 metadata/cursor 等治理契约纳入静态门禁；后续补充的 sensor definition tags 也已纳入同一套门禁，避免新增 asset/check/sensor 又裸写旧字段。</td>
       </tr>

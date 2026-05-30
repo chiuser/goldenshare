@@ -6,10 +6,10 @@
 
 当前 Dagster UI 的 asset columns 表中，部分资产字段 `type` 显示为 `unknown`，字段描述为空。
 
-历史原因是早期代码主要把字段 schema 放在 materialization metadata 中：
+历史原因是早期代码主要把字段 schema 放在 materialization metadata 中。该口径已经退场，后续禁止继续使用：
 
 ```text
-build_materialization_metadata(columns=...)
+build_materialization_metadata(columns=...)  # 历史旧口径，已禁止
   -> dagster/column_schema
 ```
 
@@ -84,7 +84,7 @@ asset checks
 
 ## 4. 改造范围
 
-当前 `lake_console/orchestrator/src/orchestrator/defs/assets/*.py` 中共有 16 个正式 asset：
+当前 `lake_console/orchestrator/src/orchestrator/defs/assets/*.py` 中共有 19 个 active table-like assets：
 
 | Asset | 层级 | 当前状态 |
 |---|---|---|
@@ -94,6 +94,8 @@ asset checks
 | `silver_stock_basic` | silver | 已注册 definition column schema |
 | `raw_tushare_stock_daily` | raw | 已注册 definition column schema |
 | `silver_stock_daily` | silver | 已注册 definition column schema |
+| `raw_tushare_adj_factor` | raw | 已注册 definition column schema |
+| `silver_adj_factor` | silver | 已注册 definition column schema |
 | `raw_tushare_suspend_d` | raw | 已注册 definition column schema |
 | `silver_stock_suspend_daily` | silver | 已注册 definition column schema |
 | `raw_tushare_index_basic` | raw | 已注册 definition column schema |
@@ -104,6 +106,7 @@ asset checks
 | `gold_stock_return_distribution` | gold | 已注册 definition column schema |
 | `gold_market_major_indices_daily` | gold | 已注册 definition column schema |
 | `ch_share_fact_market_breadth_daily` | serving | 已注册 definition column schema |
+| `prod_ch_share_fact_market_breadth_daily` | serving | 已注册 definition column schema；与本机 ClickHouse serving asset 共用同一张表契约 |
 
 本方案不改：
 
@@ -151,7 +154,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schem
 
 职责：
 
-1. 集中维护当前 16 个正式 asset 的字段契约。
+1. 集中维护当前 19 个 active table-like assets 的字段契约。
 2. 每个契约必须包含字段名、类型和中文说明。
 3. 类型口径必须与该资产实际层级一致。
 
@@ -288,7 +291,7 @@ lake_console/orchestrator/tests/test_asset_governance_contracts.py
 
 状态：
 
-1. `gold_market_breadth_daily`、`gold_stock_return_distribution`、`gold_market_major_indices_daily`、`ch_share_fact_market_breadth_daily` 均已注册 definition column schema。
+1. `gold_market_breadth_daily`、`gold_stock_return_distribution`、`gold_market_major_indices_daily`、`ch_share_fact_market_breadth_daily` 均已注册 definition column schema；后续新增的 `prod_ch_share_fact_market_breadth_daily` 与本机 ClickHouse serving asset 共用同一张表 schema contract，也已纳入最终资产清单。
 2. gold / serving 层运行时列信息已收敛为 `goldenshare/observed_columns`，不再用 materialization metadata 承载稳定字段契约。
 3. ClickHouse serving schema 已按 Flyway V2 表契约注册为 `Date`、`UInt32`、`Float64`、`DateTime`。
 4. 本次未修改 SQL、checks、jobs、sensors、automation 或 ClickHouse 表结构。
@@ -300,6 +303,7 @@ gold_market_breadth_daily
 gold_stock_return_distribution
 gold_market_major_indices_daily
 ch_share_fact_market_breadth_daily
+prod_ch_share_fact_market_breadth_daily
 ```
 
 目标：
@@ -318,7 +322,7 @@ ch_share_fact_market_breadth_daily
 
 状态：
 
-1. `silver_trade_calendar`、`silver_stock_basic`、`silver_stock_daily`、`silver_stock_suspend_daily`、`silver_index_basic`、`silver_index_daily` 均已注册 definition column schema。
+1. `silver_trade_calendar`、`silver_stock_basic`、`silver_stock_daily`、`silver_adj_factor`、`silver_stock_suspend_daily`、`silver_index_basic`、`silver_index_daily` 均已注册 definition column schema。
 2. silver 层日期字段按标准化后的真实类型注册为 `DATE`。
 3. `silver_stock_daily` 与 `silver_index_daily` 的变动值字段统一注册为 `change_amount`，不使用 raw 层 `change`。
 4. silver 层运行时列信息已收敛为 `goldenshare/observed_columns`，不再用 materialization metadata 承载稳定字段契约。
@@ -330,6 +334,7 @@ ch_share_fact_market_breadth_daily
 silver_trade_calendar
 silver_stock_basic
 silver_stock_daily
+silver_adj_factor
 silver_stock_suspend_daily
 silver_index_basic
 silver_index_daily
@@ -352,7 +357,7 @@ silver_index_daily
 
 状态：
 
-1. `raw_tushare_trade_calendar`、`raw_tushare_stock_basic`、`raw_tushare_stock_daily`、`raw_tushare_suspend_d`、`raw_tushare_index_basic`、`raw_tushare_index_daily_by_code` 均已注册 definition column schema。
+1. `raw_tushare_trade_calendar`、`raw_tushare_stock_basic`、`raw_tushare_stock_daily`、`raw_tushare_adj_factor`、`raw_tushare_suspend_d`、`raw_tushare_index_basic`、`raw_tushare_index_daily_by_code` 均已注册 definition column schema。
 2. raw 层字段契约保持源站镜像口径：Tushare 日期字符串仍注册为 `VARCHAR`，`raw_tushare_trade_calendar.is_open` 注册为 `INTEGER`，股票/指数日线 raw 字段继续使用 `change`。
 3. Tushare raw 写入 helper 的运行时列信息已从旧 `columns=` 收敛为 `goldenshare/observed_columns`；`fields` 作为本次请求观测信息继续保留在 materialization metadata。
 4. raw 字段常量和 raw column type maps 已从 schema contract 派生，避免字段契约维护两份。
@@ -363,6 +368,7 @@ silver_index_daily
 raw_tushare_trade_calendar
 raw_tushare_stock_basic
 raw_tushare_stock_daily
+raw_tushare_adj_factor
 raw_tushare_suspend_d
 raw_tushare_index_basic
 raw_tushare_index_daily_by_code
@@ -449,7 +455,7 @@ git status --short
 验收结论：
 
 1. SC-1 至 SC-6 已完成开发与收口。
-2. 16 个正式 asset 已接入 definition column schema。
+2. 19 个 active table-like assets 已接入 definition column schema。
 3. 用户已完成 UI 自验，确认 schema contract 口径可用。
 4. 历史 materialization metadata 不刷新，这是预期；如需清理旧 event log，另起方案。
 
@@ -522,7 +528,7 @@ git status --short
 
 完成后应满足：
 
-1. 所有 16 个正式 asset 都在 definition metadata 中注册 column schema。
+1. 所有 19 个 active table-like assets 都在 definition metadata 中注册 column schema。
 2. 每个字段都有 name、type、description。
 3. materialization metadata 不再承担稳定字段契约职责。
 4. runtime observed columns 仍可见。
