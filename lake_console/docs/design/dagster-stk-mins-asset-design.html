@@ -282,9 +282,9 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化与日常增量代码已实现，默认未启用。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化与 Tushare 日常增量代码已实现，默认未启用；M4B prod DB raw 补数入口已实现为手动 job，默认不自动触发。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
-      <tr><td>不涉及</td><td>M4 不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不执行正式 backfill，不覆盖 M3 历史 baseline，不启用 sensor，不运行 Dagster job/sensor/backfill。</td></tr>
+      <tr><td>不涉及</td><td>M4/M4B 不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不执行正式 backfill，不覆盖 M3 历史 baseline，不启用 sensor，不运行 Dagster job/sensor/backfill。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
       <tr><td>基础依赖</td><td><code>silver_stock_identity_map</code> 作为正式业务数据 asset 承载股票代码身份映射，供分钟线 silver 标准化使用。</td></tr>
     </table>
@@ -635,6 +635,7 @@
       <tr><td>写入目标</td><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>。</td></tr>
       <tr><td>迁移方式</td><td>历史 baseline 复用 adj factor 已验证的方式：先实现 bootstrap spec/helper，再 dry-run、小样本、全量执行。</td></tr>
       <tr><td>日常增量来源</td><td>M4 已拍板并实现：从 Tushare <code>stk_mins</code> 拉取当前上市股票池的五个频度单日分钟线。</td></tr>
+      <tr><td>补数来源</td><td>M4B 已实现：允许从 prod DB 的 <code>raw_tushare.stk_mins</code> 只读抽取，写入同一套 raw assets 与路径，不新增第二套 raw asset。</td></tr>
       <tr><td>事件补录</td><td>raw 文件迁移后，使用 runless materialization/check events 补录 Dagster 事件事实，让 UI 与 readiness 识别历史分区。</td></tr>
       <tr><td>覆盖策略</td><td>默认不覆盖已有合格目标分区；中断后先审计目标，再跳过已合格分区继续。</td></tr>
     </table>
@@ -670,6 +671,56 @@
       <li>若目标 raw 文件已存在且通过 raw 检查，asset 复用文件并返回 materialization metadata；若目标存在但不合格，直接失败，不覆盖历史 baseline。</li>
       <li><code>2026-05-08</code> 之后的历史缺口不由 sensor 自动追；后续必须单独列 backfill 命令、范围、请求量和回滚方式，经审批后执行。</li>
     </ul>
+
+    <h3>M4B 已落地的 prod DB raw 补数入口</h3>
+    <p>
+      <code>stk_mins</code> raw 允许同时具备 Tushare 拉取与 prod DB 只读抽取两种能力。prod DB 入口用于近期缺口补齐、repair
+      或 Tushare 拉取不稳定时的受控补数；它不是历史 baseline 的替代来源，也不得绕开新湖 raw checks。
+    </p>
+    <table>
+      <tr><th>项目</th><th>口径</th></tr>
+      <tr><td>正式 job</td><td><code>stock_mins_raw_update_from_prod_job</code>，selection 仍只包含五个 <code>raw_stk_mins_*</code> assets 及其 blocking checks。</td></tr>
+      <tr><td>asset key / path</td><td>复用既有 <code>raw_stk_mins_1m/5m/15m/30m/60m</code> 与 <code>raw_stk_mins_path(...)</code>，不创建 <code>raw_stk_mins_from_prod_*</code> 之类的平行资产。</td></tr>
+      <tr><td>source selector</td><td>实现时必须有明确来源选择口径：Tushare job 走 Tushare；prod job 走 prod DB。禁止在同一次 run 中混用两个来源。</td></tr>
+      <tr><td>读取表</td><td>只读 <code>raw_tushare.stk_mins</code>，字段白名单为 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount</code>；不得导出 <code>api_name/fetched_at/raw_payload</code> 等系统字段。</td></tr>
+      <tr><td>抽取方式</td><td>必须按 <code>ts_code + freq + trade_time window</code> 查询，利用 prod 表主键 <code>(ts_code,freq,trade_time)</code>。禁止用全市场单日单频度大扫作为主路径。</td></tr>
+      <tr><td>股票池</td><td>沿用 raw 日常口径，从 <code>silver_stock_basic</code> 当前上市股票池读取；这是只读前置事实，不进入 job selection。</td></tr>
+      <tr><td>时间窗口</td><td>固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>，与 Tushare 入口保持一致。</td></tr>
+      <tr><td>覆盖策略</td><td>目标 raw 文件已存在且通过 checks 时复用；已存在但不合格时 fail 并要求人工 repair。默认不覆盖 M3 历史 baseline。</td></tr>
+      <tr><td>sensor</td><td>第一版不新增 prod DB 自动 sensor；prod DB 入口作为手动 repair/backfill job 使用，正式执行前单独列范围、请求量、预计耗时和回滚方式。</td></tr>
+      <tr><td>配置来源</td><td><code>ProdPostgresResource</code> 运行时惰性读取 <code>PROD_POSTGRES_HOST/PORT/USER/PASSWORD/DATABASE/SSLMODE</code>；缺失配置只影响 prod DB 来源 run，不影响 Tushare 来源 raw job 加载。</td></tr>
+    </table>
+
+    <h4>Prod DB 字段补齐口径</h4>
+    <ul>
+      <li><code>exchange</code> 不允许写空；按 <code>ts_code</code> 后缀推导并写入分钟线 raw 口径：<code>.SH -> XSHG</code>、<code>.SZ -> XSHE</code>、<code>.BJ -> BSE</code>。遇到未知后缀必须 fail，不允许静默写空。</li>
+      <li><code>vwap</code> 允许在写入前按 <code>amount / vol</code> 推导补齐；当 <code>vol IS NULL</code>、<code>vol = 0</code> 或 <code>amount IS NULL</code> 时写 <code>0</code>，避免除零并保持 raw 历史容忍口径。</li>
+      <li><code>freq</code> 必须保持整数 <code>1/5/15/30/60</code>；prod 审计未发现其它频度值，后续实现仍需保留拒绝未知频度的测试。</li>
+      <li><code>open/close/high/low/vol/amount</code> 写入前显式 cast 到新湖 raw schema；prod 的价格与成交额来源类型为 <code>real</code>，写入新湖 <code>DOUBLE</code> 只做类型归一，不声明提升源精度。</li>
+    </ul>
+
+    <h4>M4B 配置项审计</h4>
+    <table>
+      <tr><th>配置名</th><th>默认值</th><th>来源与持久化</th><th>作用范围与消费者</th><th>依赖与生效方式</th><th>运维可见性与测试门禁</th></tr>
+      <tr><td><code>PROD_POSTGRES_HOST</code></td><td>无，必填</td><td>启动 Dagster webserver/daemon 的 shell 环境变量；不写入仓库和 metadata。</td><td rowspan="5"><code>ProdPostgresResource.connect()</code>；只在 <code>stock_mins_raw_update_from_prod_job</code> 选择 <code>source=prod_db</code> 且目标文件不存在时使用。</td><td rowspan="5">五项连接参数必须同时存在；运行时惰性读取，缺失只让 prod DB 来源 run 失败，不影响 Tushare 来源 job 加载。</td><td rowspan="7">UI/日志只暴露缺失配置名，不输出 secret 值。单元测试使用 fake resource，不访问正式 prod；SQL 白名单测试禁止 <code>SELECT *</code> 和系统字段。</td></tr>
+      <tr><td><code>PROD_POSTGRES_PORT</code></td><td>无，必填</td><td>同上；运行时转换为整数。</td></tr>
+      <tr><td><code>PROD_POSTGRES_USER</code></td><td>无，必填</td><td>同上。</td></tr>
+      <tr><td><code>PROD_POSTGRES_PASSWORD</code></td><td>无，必填</td><td>同上；不得写入文档示例、metadata 或 materialization 输出。</td></tr>
+      <tr><td><code>PROD_POSTGRES_DATABASE</code></td><td>无，必填</td><td>同上。</td></tr>
+      <tr><td><code>PROD_POSTGRES_SSLMODE</code></td><td><code>prefer</code></td><td>同上；可选。</td><td><code>ProdPostgresResource.connect()</code>。</td><td>未设置时使用 <code>prefer</code>；正式环境如需强制 SSL，由运维 env 覆盖。</td></tr>
+      <tr><td><code>connect_timeout_seconds</code></td><td><code>10</code></td><td><code>ProdPostgresResource</code> 代码默认值；不是运营手填 run config。</td><td><code>psycopg2.connect(..., connect_timeout=...)</code>。</td><td>只限制建立连接耗时；不改变查询范围、事务边界或 raw 写入语义。</td></tr>
+    </table>
+
+    <h4>M4B 已完成开发步骤</h4>
+    <ol>
+      <li>配置审计：prod DB 连接配置只来自环境变量，不硬编码连接串，不写入 materialization metadata 或日志。</li>
+      <li>新增 prod DB resource/helper：只读连接 prod DB，按字段白名单和 <code>ts_code + freq + window</code> 生成查询；测试使用 fake resource，不访问正式 prod。</li>
+      <li>新增字段归一纯函数：覆盖 <code>exchange</code> 后缀映射、未知后缀失败、<code>vwap</code> 推导、<code>vol=0</code> 保护和字段类型 cast。</li>
+      <li>改造 raw asset 写入 helper：Tushare 入口默认不变，prod job 通过 asset config 固定 <code>source=prod_db</code>；两个来源写出相同 raw schema 和排序。</li>
+      <li>新增 <code>stock_mins_raw_update_from_prod_job</code>：只新增 job 入口和固定 config/source 绑定，不改 Tushare job selection，不新增 silver/gold selection。</li>
+      <li>补测试与门禁：覆盖 prod 抽取 SQL 不使用 <code>SELECT *</code>、不导出系统字段、目标已存在复用、坏目标拒绝覆盖、五频度 job selection、raw checks 仍复用同名 checks。</li>
+      <li>执行计划单独审批：任何正式 prod 补数必须先列 dry-run、小样本、全量命令，包含日期范围、股票数量、频度、预计查询次数、预计写入文件数和回滚方式。</li>
+    </ol>
   </section>
 
   <section>
@@ -774,6 +825,11 @@
         <td>只选择五个 raw assets 及其 checks；使用 in-process executor，避免五频度并发打爆 Tushare。</td>
       </tr>
       <tr>
+        <td><code>stock_mins_raw_update_from_prod_job</code></td>
+        <td>从 prod DB 只读抽取单日五频度 raw 分区，用于近期缺口补齐或 repair。</td>
+        <td>已实现；写同一套 raw assets，不新增平行资产；不启用自动 sensor；执行前必须单独审批范围和回滚方式。</td>
+      </tr>
+      <tr>
         <td><code>stock_mins_trade_day_sensor</code></td>
         <td>18:00 后注册当天分钟线交易日分区。</td>
         <td>只注册当天；不补历史，不污染股票日频分区。</td>
@@ -829,6 +885,13 @@
         <div>
           <h3>Raw 正式资产化与日常增量</h3>
           <p>接入五个 raw assets、7 个 raw blocking checks、<code>stock_mins_raw_update_job</code>、<code>stock_mins_trade_day_sensor</code> 与 <code>stock_mins_raw_sensor</code>。日常增量从 Tushare <code>stk_mins</code> 拉取当前上市股票池；sensor 默认 <code>STOPPED</code>，缺口 backfill 单独审批。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M4B</strong>
+        <div>
+          <h3>Prod DB raw 补数入口</h3>
+          <p>已新增 <code>stock_mins_raw_update_from_prod_job</code>，从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取，按 <code>ts_code + freq + 日期窗口</code> 查询并写入同一套 raw assets。写入前补齐 <code>exchange</code> 与 <code>vwap</code>，继续复用 raw checks；不新增自动 sensor。</p>
         </div>
       </div>
       <div class="step">
@@ -910,6 +973,7 @@
       <li>不把 qfq 结果原地覆盖 raw 或 silver。</li>
       <li>不在本设计中接入 90/120 分钟派生、by-symbol-month 重排或 MACD 等指标资产。</li>
       <li>不把旧 lake_console 运行账本作为 Dagster 正式运行状态。</li>
+      <li>不把 prod DB 补数入口扩展为任意表导出能力；M4B 只允许读取 <code>raw_tushare.stk_mins</code> 的字段白名单。</li>
     </ul>
   </section>
 
@@ -935,6 +999,7 @@
       <li>契约阶段：编译路径、schema、partition、metadata helper；静态门禁确认没有新增 active asset/job/sensor。</li>
       <li>bootstrap 阶段：临时目录小样本迁移，验证字段、路径、分区 key 和 event 补录 helper。</li>
       <li>raw 日常阶段：临时目录与 fake Tushare resource 覆盖分页、<code>freq</code> 字符串归一、已存在目标复用、坏目标拒绝覆盖、七个 raw checks、job selection 与两个 sensors 的时间门禁。</li>
+      <li>prod DB raw 补数阶段：使用 fake prod DB resource 或临时数据库覆盖按 <code>ts_code + freq + window</code> 查询、字段白名单、<code>exchange</code> 后缀映射、<code>vwap</code> 推导、未知后缀失败、目标复用和 <code>stock_mins_raw_update_from_prod_job</code> selection。</li>
       <li>silver 阶段：临时 DuckDB 文件覆盖代码映射、停牌解释、不可解释差异、重复键冲突。</li>
       <li>gold 阶段：临时 DuckDB 文件覆盖 qfq 公式、因子缺失、行数一致、字段类型。</li>
       <li>正式执行阶段：每次写正式湖或正式 event log 前，单独列命令、工作目录、DAGSTER_HOME、读写范围、预计数量和回滚方式，等待明确批准。</li>

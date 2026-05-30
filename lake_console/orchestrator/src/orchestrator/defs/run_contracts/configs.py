@@ -15,6 +15,22 @@ class IndexDailyRawByCodeConfig(dg.Config):
     )
 
 
+class StockMinsRawConfig(dg.Config):
+    source: Literal["tushare", "prod_db"] = Field(
+        default="tushare",
+        description="股票分钟线 raw 写入来源；日常默认走 Tushare，repair/backfill 可固定走 prod DB。",
+    )
+
+
+STOCK_MINS_RAW_ASSET_OP_NAMES = (
+    "raw_stk_mins_1m",
+    "raw_stk_mins_5m",
+    "raw_stk_mins_15m",
+    "raw_stk_mins_30m",
+    "raw_stk_mins_60m",
+)
+
+
 def normalize_iso_trade_date(value: str, *, field_name: str = "trade_date") -> str:
     stripped = value.strip()
     try:
@@ -51,3 +67,19 @@ def build_index_daily_update_job_run_config(
             write_mode=write_mode,
         )
     )
+
+
+def build_stock_mins_raw_update_job_run_config(
+    *,
+    source: Literal["tushare", "prod_db"],
+) -> dict[str, object]:
+    return {
+        "ops": {
+            op_name: {
+                "config": {
+                    "source": source,
+                }
+            }
+            for op_name in STOCK_MINS_RAW_ASSET_OP_NAMES
+        }
+    }

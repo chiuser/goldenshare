@@ -24,7 +24,17 @@ from orchestrator.defs.paths import (
     raw_stk_mins_path,
     silver_stock_basic_path,
 )
-from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
+from orchestrator.defs.prod_db.stk_mins import (
+    assert_prod_stk_mins_source_columns,
+    fetch_prod_stk_mins_rows,
+    validate_prod_stk_mins_select_contract,
+)
+from orchestrator.defs.resources import (
+    DuckDBResource,
+    LakeRootResource,
+    ProdPostgresResource,
+    TushareResource,
+)
 from orchestrator.defs.run_contracts.asset_column_schemas import RAW_STK_MINS_SCHEMA
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
@@ -36,7 +46,12 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
+from orchestrator.defs.run_contracts.configs import StockMinsRawConfig
+from orchestrator.defs.run_contracts.stk_mins import (
+    derive_stk_mins_exchange_from_ts_code,
+    normalize_stk_mins_freq,
+    normalize_stk_mins_raw_source,
+)
 
 
 STK_MINS_RAW_COLUMNS = tuple(column.name for column in RAW_STK_MINS_SCHEMA)
@@ -64,6 +79,7 @@ class StkMinsRawWriteResult:
     empty_stock_code_count: int
     page_count: int
     source_method: str
+    query_count: int = 0
 
     def materialization_extra_metadata(
         self,
@@ -79,6 +95,7 @@ class StkMinsRawWriteResult:
             "returned_stock_code_count": self.returned_stock_code_count,
             "empty_stock_code_count": self.empty_stock_code_count,
             "page_count": self.page_count,
+            "query_count": self.query_count,
             "limit": STK_MINS_TUSHARE_PAGE_LIMIT,
         }
 
@@ -165,6 +182,58 @@ def write_raw_stk_mins_partition(
         empty_stock_code_count=stats["empty_stock_code_count"],
         page_count=stats["page_count"],
         source_method="tushare_api",
+    )
+
+
+def write_raw_stk_mins_partition_from_prod_db(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    prod_postgres: ProdPostgresResource,
+    freq: int | str,
+    partition_key: str,
+    stock_codes: Sequence[str],
+) -> StkMinsRawWriteResult:
+    normalized_freq = normalize_stk_mins_freq(freq)
+    target_path = raw_stk_mins_path(lake_root, normalized_freq, partition_key)
+    if target_path.exists():
+        return _reuse_existing_raw_stk_mins_partition(
+            duckdb=duckdb,
+            raw_path=target_path,
+            freq=normalized_freq,
+            partition_key=partition_key,
+            stock_code_count=len(stock_codes),
+        )
+
+    validate_prod_stk_mins_select_contract()
+    rows, stats = _fetch_raw_stk_mins_rows_from_prod_db(
+        prod_postgres=prod_postgres,
+        freq=normalized_freq,
+        partition_key=partition_key,
+        stock_codes=stock_codes,
+    )
+    if not rows:
+        raise RuntimeError(
+            "Prod DB stk_mins returned 0 rows for "
+            f"freq={normalized_freq}, partition={partition_key}."
+        )
+
+    _write_raw_stk_mins_rows(
+        duckdb=duckdb,
+        rows=rows,
+        target_path=target_path,
+    )
+    columns, row_count = _raw_file_columns_and_count(duckdb, target_path)
+    return StkMinsRawWriteResult(
+        raw_file_path=target_path,
+        row_count=row_count,
+        observed_columns=columns,
+        stock_code_count=len(stock_codes),
+        returned_stock_code_count=stats["returned_stock_code_count"],
+        empty_stock_code_count=stats["empty_stock_code_count"],
+        page_count=0,
+        query_count=stats["query_count"],
+        source_method="prod_db_raw_tushare",
     )
 
 
@@ -268,6 +337,50 @@ def _fetch_raw_stk_mins_rows(
     }
 
 
+def _fetch_raw_stk_mins_rows_from_prod_db(
+    *,
+    prod_postgres: ProdPostgresResource,
+    freq: int,
+    partition_key: str,
+    stock_codes: Sequence[str],
+) -> tuple[list[dict[str, object]], dict[str, int]]:
+    if not stock_codes:
+        raise RuntimeError("No current listed stock codes available for stk_mins raw.")
+
+    start_datetime, end_datetime = _partition_window(partition_key)
+    fetched_rows: list[dict[str, object]] = []
+    returned_stock_codes: set[str] = set()
+    query_count = 0
+
+    with prod_postgres.connect() as connection:
+        for stock_code in stock_codes:
+            source_rows = fetch_prod_stk_mins_rows(
+                connection,
+                ts_code=stock_code,
+                freq=freq,
+                start_datetime=start_datetime,
+                end_datetime=end_datetime,
+            )
+            query_count += 1
+            if source_rows:
+                returned_stock_codes.add(stock_code)
+            for row in source_rows:
+                fetched_rows.append(
+                    _normalize_prod_db_stk_mins_row(
+                        row,
+                        requested_ts_code=stock_code,
+                        requested_freq=freq,
+                        partition_key=partition_key,
+                    )
+                )
+
+    return fetched_rows, {
+        "query_count": query_count,
+        "returned_stock_code_count": len(returned_stock_codes),
+        "empty_stock_code_count": len(stock_codes) - len(returned_stock_codes),
+    }
+
+
 def _normalize_tushare_stk_mins_row(
     row: Mapping[str, Any],
     *,
@@ -312,6 +425,52 @@ def _normalize_tushare_stk_mins_row(
     }
 
 
+def _normalize_prod_db_stk_mins_row(
+    row: Mapping[str, Any],
+    *,
+    requested_ts_code: str,
+    requested_freq: int,
+    partition_key: str,
+) -> dict[str, object]:
+    assert_prod_stk_mins_source_columns(row)
+    ts_code = str(row.get("ts_code") or "").strip()
+    if ts_code != requested_ts_code:
+        raise RuntimeError(
+            "Prod DB stk_mins returned a row outside the requested stock code: "
+            f"requested={requested_ts_code}, actual={ts_code}."
+        )
+
+    raw_freq = normalize_stk_mins_freq(row.get("freq", ""))
+    if raw_freq != requested_freq:
+        raise RuntimeError(
+            "Prod DB stk_mins returned a row outside the requested frequency: "
+            f"requested={requested_freq}, actual={raw_freq}."
+        )
+
+    trade_time = row.get("trade_time")
+    if not trade_time or str(trade_time)[:10] != partition_key:
+        raise RuntimeError(
+            "Prod DB stk_mins returned a row outside the requested trade date: "
+            f"partition={partition_key}, trade_time={trade_time!r}."
+        )
+
+    vol = _clean_integer_value(row.get("vol"))
+    amount = _clean_numeric_value(row.get("amount"))
+    return {
+        "ts_code": ts_code,
+        "freq": requested_freq,
+        "trade_time": trade_time,
+        "open": _clean_numeric_value(row.get("open")),
+        "close": _clean_numeric_value(row.get("close")),
+        "high": _clean_numeric_value(row.get("high")),
+        "low": _clean_numeric_value(row.get("low")),
+        "vol": vol,
+        "amount": amount,
+        "exchange": derive_stk_mins_exchange_from_ts_code(ts_code),
+        "vwap": _derive_stk_mins_vwap(amount=amount, vol=vol),
+    }
+
+
 def _clean_numeric_value(value: object) -> object:
     if value is None:
         return None
@@ -336,6 +495,12 @@ def _clean_integer_value(value: object) -> int | None:
     if not number.is_integer():
         raise RuntimeError(f"stk_mins vol must be integer-like, got {value!r}.")
     return int(number)
+
+
+def _derive_stk_mins_vwap(*, amount: object, vol: int | None) -> float:
+    if amount is None or vol is None or vol == 0:
+        return 0.0
+    return float(amount) / vol
 
 
 def _write_raw_stk_mins_rows(
@@ -489,23 +654,38 @@ def _materialize_raw_stk_mins_partition(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: StockMinsRawConfig,
     freq: int,
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    source = normalize_stk_mins_raw_source(config.source)
     stock_codes = load_current_listed_stock_codes_for_stk_mins(
         lake_root=lake_root.root(),
         duckdb=duckdb,
         partition_key=partition_key,
     )
-    write_result = write_raw_stk_mins_partition(
-        lake_root=lake_root.root(),
-        duckdb=duckdb,
-        tushare=tushare,
-        freq=freq,
-        partition_key=partition_key,
-        stock_codes=stock_codes,
-    )
+    if source == "tushare":
+        write_result = write_raw_stk_mins_partition(
+            lake_root=lake_root.root(),
+            duckdb=duckdb,
+            tushare=tushare,
+            freq=freq,
+            partition_key=partition_key,
+            stock_codes=stock_codes,
+        )
+    elif source == "prod_db":
+        write_result = write_raw_stk_mins_partition_from_prod_db(
+            lake_root=lake_root.root(),
+            duckdb=duckdb,
+            prod_postgres=prod_postgres,
+            freq=freq,
+            partition_key=partition_key,
+            stock_codes=stock_codes,
+        )
+    else:
+        raise AssertionError(f"Unhandled stk_mins raw source: {source}")
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.raw_file_path,
@@ -559,12 +739,16 @@ def raw_stk_mins_1m(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: StockMinsRawConfig,
 ) -> dg.MaterializeResult:
     return _materialize_raw_stk_mins_partition(
         context=context,
         lake_root=lake_root,
         duckdb=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
+        config=config,
         freq=1,
     )
 
@@ -595,12 +779,16 @@ def raw_stk_mins_5m(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: StockMinsRawConfig,
 ) -> dg.MaterializeResult:
     return _materialize_raw_stk_mins_partition(
         context=context,
         lake_root=lake_root,
         duckdb=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
+        config=config,
         freq=5,
     )
 
@@ -631,12 +819,16 @@ def raw_stk_mins_15m(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: StockMinsRawConfig,
 ) -> dg.MaterializeResult:
     return _materialize_raw_stk_mins_partition(
         context=context,
         lake_root=lake_root,
         duckdb=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
+        config=config,
         freq=15,
     )
 
@@ -667,12 +859,16 @@ def raw_stk_mins_30m(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: StockMinsRawConfig,
 ) -> dg.MaterializeResult:
     return _materialize_raw_stk_mins_partition(
         context=context,
         lake_root=lake_root,
         duckdb=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
+        config=config,
         freq=30,
     )
 
@@ -703,12 +899,16 @@ def raw_stk_mins_60m(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
     tushare: TushareResource,
+    prod_postgres: ProdPostgresResource,
+    config: StockMinsRawConfig,
 ) -> dg.MaterializeResult:
     return _materialize_raw_stk_mins_partition(
         context=context,
         lake_root=lake_root,
         duckdb=duckdb,
         tushare=tushare,
+        prod_postgres=prod_postgres,
+        config=config,
         freq=60,
     )
 

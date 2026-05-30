@@ -1,16 +1,31 @@
 import json
 import unittest
+from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
-from orchestrator.defs.jobs.stock_mins_raw_update import stock_mins_raw_update_job
+from orchestrator.defs.jobs.stock_mins_raw_update import (
+    stock_mins_raw_update_from_prod_job,
+    stock_mins_raw_update_job,
+)
 from orchestrator.defs.paths import raw_stk_mins_path
+from orchestrator.defs.prod_db.stk_mins import (
+    PROD_STK_MINS_SELECT_SQL,
+    validate_prod_stk_mins_select_contract,
+)
 from orchestrator.defs.resources import DuckDBResource, TushareResult
+from orchestrator.defs.run_contracts.configs import (
+    build_stock_mins_raw_update_job_run_config,
+)
+from orchestrator.defs.run_contracts.stk_mins import (
+    derive_stk_mins_exchange_from_ts_code,
+)
 from orchestrator.defs.sensors import readiness
 from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     _cursor_payload as build_stock_mins_raw_sensor_cursor,
@@ -47,6 +62,12 @@ class _FakeTushare:
 class _FailingTushare:
     def call(self, api_name, params, fields):
         raise AssertionError("Tushare should not be called for reusable raw files")
+
+
+class _FakeProdPostgres:
+    @contextmanager
+    def connect(self):
+        yield object()
 
 
 class _LakeRoot:
@@ -105,6 +126,61 @@ def _write_raw_stk_mins_file(path: Path, *, open_value: float = 10.0) -> None:
 
 
 class StkMinsRawM4ContractTests(unittest.TestCase):
+    def test_prod_db_exchange_and_vwap_derivation_contract(self) -> None:
+        self.assertEqual(derive_stk_mins_exchange_from_ts_code("600000.SH"), "XSHG")
+        self.assertEqual(derive_stk_mins_exchange_from_ts_code("000001.SZ"), "XSHE")
+        self.assertEqual(derive_stk_mins_exchange_from_ts_code("920001.BJ"), "BSE")
+        with self.assertRaisesRegex(ValueError, "Unsupported stk_mins ts_code suffix"):
+            derive_stk_mins_exchange_from_ts_code("ABC.NY")
+
+        normalized = stk_mins._normalize_prod_db_stk_mins_row(
+            {
+                "ts_code": "600000.SH",
+                "freq": 1,
+                "trade_time": datetime(2026, 5, 29, 9, 30),
+                "open": 10.0,
+                "close": 10.0,
+                "high": 10.0,
+                "low": 10.0,
+                "vol": 100,
+                "amount": 1234.5,
+            },
+            requested_ts_code="600000.SH",
+            requested_freq=1,
+            partition_key=PARTITION_KEY,
+        )
+        self.assertEqual(normalized["exchange"], "XSHG")
+        self.assertEqual(normalized["vwap"], 12.345)
+        zero_volume = stk_mins._normalize_prod_db_stk_mins_row(
+            {
+                "ts_code": "000001.SZ",
+                "freq": 1,
+                "trade_time": "2026-05-29 09:30:00",
+                "open": 10.0,
+                "close": 10.0,
+                "high": 10.0,
+                "low": 10.0,
+                "vol": 0,
+                "amount": 0.0,
+            },
+            requested_ts_code="000001.SZ",
+            requested_freq=1,
+            partition_key=PARTITION_KEY,
+        )
+        self.assertEqual(zero_volume["exchange"], "XSHE")
+        self.assertEqual(zero_volume["vwap"], 0.0)
+
+    def test_prod_db_select_uses_field_whitelist(self) -> None:
+        validate_prod_stk_mins_select_contract()
+        normalized_sql = " ".join(PROD_STK_MINS_SELECT_SQL.lower().split())
+        self.assertNotIn("select *", normalized_sql)
+        self.assertNotIn("api_name", normalized_sql)
+        self.assertNotIn("fetched_at", normalized_sql)
+        self.assertNotIn("raw_payload", normalized_sql)
+        self.assertIn("where ts_code = %(ts_code)s", normalized_sql)
+        self.assertIn("and freq = %(freq)s", normalized_sql)
+        self.assertIn("trade_time >=", normalized_sql)
+
     def test_tushare_fetch_normalizes_freq_string_and_paginates(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
@@ -150,6 +226,70 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     f"SELECT freq, vol FROM read_parquet('{result.raw_file_path.as_posix()}')"
                 ).fetchone()
             self.assertEqual(row, (1, 100))
+
+    def test_prod_db_fetch_writes_same_raw_schema(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            calls = []
+
+            def fake_fetch(connection, *, ts_code, freq, start_datetime, end_datetime):
+                calls.append(
+                    {
+                        "ts_code": ts_code,
+                        "freq": freq,
+                        "start_datetime": start_datetime,
+                        "end_datetime": end_datetime,
+                    }
+                )
+                if ts_code != "600000.SH":
+                    return []
+                return [
+                    {
+                        "ts_code": "600000.SH",
+                        "freq": 1,
+                        "trade_time": datetime(2026, 5, 29, 9, 30),
+                        "open": 10.0,
+                        "close": 10.0,
+                        "high": 10.1,
+                        "low": 9.9,
+                        "vol": 100,
+                        "amount": 1234.5,
+                    }
+                ]
+
+            with patch.object(stk_mins, "fetch_prod_stk_mins_rows", fake_fetch):
+                result = stk_mins.write_raw_stk_mins_partition_from_prod_db(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    prod_postgres=_FakeProdPostgres(),
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    stock_codes=("600000.SH", "000001.SZ"),
+                )
+
+            self.assertEqual(result.source_method, "prod_db_raw_tushare")
+            self.assertEqual(result.row_count, 1)
+            self.assertEqual(result.returned_stock_code_count, 1)
+            self.assertEqual(result.empty_stock_code_count, 1)
+            self.assertEqual(result.query_count, 2)
+            self.assertEqual(
+                calls[0],
+                {
+                    "ts_code": "600000.SH",
+                    "freq": 1,
+                    "start_datetime": "2026-05-29 09:00:00",
+                    "end_datetime": "2026-05-29 19:00:00",
+                },
+            )
+
+            with DuckDBResource().connect() as connection:
+                row = connection.execute(
+                    f"""
+                    SELECT freq, vol, amount, exchange, vwap
+                    FROM read_parquet('{result.raw_file_path.as_posix()}')
+                    """
+                ).fetchone()
+            self.assertEqual(row, (1, 100, 1234.5, "XSHG", 12.345))
 
     def test_existing_valid_raw_file_is_reused_without_tushare_call(self) -> None:
         with TemporaryDirectory() as directory:
@@ -219,6 +359,27 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertIn("raw_stk_mins_60m", selection_text)
         self.assertNotIn("silver_stk_mins", selection_text)
         self.assertNotIn("silver_stock_basic", selection_text)
+
+        prod_selection_text = repr(stock_mins_raw_update_from_prod_job.selection)
+        self.assertIn("raw_stk_mins_1m", prod_selection_text)
+        self.assertIn("raw_stk_mins_60m", prod_selection_text)
+        self.assertNotIn("silver_stk_mins", prod_selection_text)
+        self.assertNotIn("silver_stock_basic", prod_selection_text)
+
+    def test_stock_mins_prod_job_run_config_sets_source_only(self) -> None:
+        run_config = build_stock_mins_raw_update_job_run_config(source="prod_db")
+        self.assertEqual(
+            sorted(run_config["ops"]),
+            [
+                "raw_stk_mins_15m",
+                "raw_stk_mins_1m",
+                "raw_stk_mins_30m",
+                "raw_stk_mins_5m",
+                "raw_stk_mins_60m",
+            ],
+        )
+        for op_config in run_config["ops"].values():
+            self.assertEqual(op_config, {"config": {"source": "prod_db"}})
 
     def test_stock_mins_trade_day_decision_registers_after_six_pm(self) -> None:
         self.assertEqual(

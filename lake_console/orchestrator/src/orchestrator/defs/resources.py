@@ -2,6 +2,7 @@ from collections.abc import Iterator, Mapping, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from datetime import UTC, datetime
+import os
 from pathlib import Path
 from typing import Any
 
@@ -100,11 +101,58 @@ class TushareResource(dg.ConfigurableResource):
         return token
 
 
+class ProdPostgresResource(dg.ConfigurableResource):
+    host_env_var: str = "PROD_POSTGRES_HOST"
+    port_env_var: str = "PROD_POSTGRES_PORT"
+    user_env_var: str = "PROD_POSTGRES_USER"
+    password_env_var: str = "PROD_POSTGRES_PASSWORD"
+    database_env_var: str = "PROD_POSTGRES_DATABASE"
+    sslmode_env_var: str = "PROD_POSTGRES_SSLMODE"
+    default_sslmode: str = "prefer"
+    connect_timeout_seconds: int = 10
+
+    @contextmanager
+    def connect(self) -> Iterator[Any]:
+        try:
+            import psycopg2
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Missing psycopg2 dependency in the Dagster orchestrator environment."
+            ) from exc
+
+        connection = psycopg2.connect(
+            host=self._required_env(self.host_env_var),
+            port=int(self._required_env(self.port_env_var)),
+            user=self._required_env(self.user_env_var),
+            password=self._required_env(self.password_env_var),
+            dbname=self._required_env(self.database_env_var),
+            sslmode=self._optional_env(self.sslmode_env_var, self.default_sslmode),
+            connect_timeout=self.connect_timeout_seconds,
+        )
+        try:
+            connection.set_session(readonly=True, autocommit=True)
+            yield connection
+        finally:
+            connection.close()
+
+    @staticmethod
+    def _required_env(name: str) -> str:
+        value = os.environ.get(name, "").strip()
+        if not value:
+            raise RuntimeError(f"Missing required prod Postgres env var: {name}.")
+        return value
+
+    @staticmethod
+    def _optional_env(name: str, default: str) -> str:
+        return os.environ.get(name, "").strip() or default
+
+
 defs = dg.Definitions(
     resources={
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
+        "prod_postgres": ProdPostgresResource(),
         "clickhouse": ClickhouseResource(
             host=dg.EnvVar("CLICKHOUSE_HOST"),
             port=dg.EnvVar.int("CLICKHOUSE_PORT"),
