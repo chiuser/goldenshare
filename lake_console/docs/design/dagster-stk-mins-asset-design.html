@@ -282,9 +282,9 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化与日常增量代码已实现，默认未启用。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
-      <tr><td>不涉及</td><td>M3 未运行 Dagster job/sensor/backfill，未请求 Tushare；历史 raw 与 identity map 通过受控 bootstrap helper 写入，Dagster UI/readiness 通过 runless events 对齐。</td></tr>
+      <tr><td>不涉及</td><td>M4 不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不执行正式 backfill，不覆盖 M3 历史 baseline，不启用 sensor，不运行 Dagster job/sensor/backfill。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
       <tr><td>基础依赖</td><td><code>silver_stock_identity_map</code> 作为正式业务数据 asset 承载股票代码身份映射，供分钟线 silver 标准化使用。</td></tr>
     </table>
@@ -382,7 +382,7 @@
     <h3>2.4.3 新湖目标与依赖事实</h3>
     <table>
       <tr><th>对象</th><th>只读结果</th></tr>
-      <tr><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins</code></td><td>当前不存在，可作为 clean target；M3 执行前仍需再次只读确认。</td></tr>
+      <tr><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins</code></td><td>M3 已写入历史 baseline：五个频度各 4,209 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-07</code>。</td></tr>
       <tr><td><code>silver_stock_daily</code></td><td>3014 分区，<code>2014-01-02</code> 至 <code>2026-05-29</code>，11,351,615 行。</td></tr>
       <tr><td><code>silver_stock_suspend_daily</code></td><td>3014 分区，<code>2014-01-02</code> 至 <code>2026-05-29</code>，389,400 行。</td></tr>
       <tr><td><code>silver_adj_factor</code></td><td>4225 分区，<code>2009-01-05</code> 至 <code>2026-05-29</code>，13,964,087 行。</td></tr>
@@ -633,7 +633,8 @@
       <tr><th>项目</th><th>口径</th></tr>
       <tr><td>读取来源</td><td><code>/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq=*/trade_date=*/*.parquet</code>，正式执行前重新只读复核路径和文件名。</td></tr>
       <tr><td>写入目标</td><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>。</td></tr>
-      <tr><td>迁移方式</td><td>复用 adj factor 已验证的方式：先实现 bootstrap spec/helper，再 dry-run、小样本、全量执行。</td></tr>
+      <tr><td>迁移方式</td><td>历史 baseline 复用 adj factor 已验证的方式：先实现 bootstrap spec/helper，再 dry-run、小样本、全量执行。</td></tr>
+      <tr><td>日常增量来源</td><td>M4 已拍板并实现：从 Tushare <code>stk_mins</code> 拉取当前上市股票池的五个频度单日分钟线。</td></tr>
       <tr><td>事件补录</td><td>raw 文件迁移后，使用 runless materialization/check events 补录 Dagster 事件事实，让 UI 与 readiness 识别历史分区。</td></tr>
       <tr><td>覆盖策略</td><td>默认不覆盖已有合格目标分区；中断后先审计目标，再跳过已合格分区继续。</td></tr>
     </table>
@@ -658,10 +659,17 @@
       <li>分区 key 已注册到 <code>cn_a_stock_mins_trade_days</code>。</li>
     </ul>
 
-    <div class="warning">
-      <strong>待开发前只读复核：</strong>
-      backup clean_next 的历史 schema、文件名、全量分区范围、五个频度文件覆盖率必须在 M0 再审计一次，不把此前聊天中的结果当成实时事实。
-    </div>
+    <h3>M4 已落地的 raw 日常链路</h3>
+    <ul>
+      <li>正式 raw assets：<code>raw_stk_mins_1m</code>、<code>raw_stk_mins_5m</code>、<code>raw_stk_mins_15m</code>、<code>raw_stk_mins_30m</code>、<code>raw_stk_mins_60m</code>，asset key 与 M3 runless events 完全一致。</li>
+      <li>正式 job：<code>stock_mins_raw_update_job</code>，selection 只包含五个 raw assets 及其 blocking checks；不包含 <code>silver_stock_basic</code>、silver 分钟线或 gold qfq 分钟线。</li>
+      <li>分区注册 sensor：<code>stock_mins_trade_day_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，不做历史补齐。</li>
+      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:30 后只检查最新已注册日期，满足门禁后提交一个 <code>stock_mins_raw_update_job</code> run。</li>
+      <li>日常股票池来自 <code>silver_stock_basic</code> 当前上市股票；这是只读前置事实，不进入 <code>stock_mins_raw_update_job</code> selection。</li>
+      <li>日常拉取窗口固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>；分页固定使用 <code>limit=8000</code> 与递增 <code>offset</code>，不把分页、股票池 offset 或分钟窗口暴露为 run config。</li>
+      <li>若目标 raw 文件已存在且通过 raw 检查，asset 复用文件并返回 materialization metadata；若目标存在但不合格，直接失败，不覆盖历史 baseline。</li>
+      <li><code>2026-05-08</code> 之后的历史缺口不由 sensor 自动追；后续必须单独列 backfill 命令、范围、请求量和回滚方式，经审批后执行。</li>
+    </ul>
   </section>
 
   <section>
@@ -745,8 +753,8 @@
   </section>
 
   <section>
-    <h2>10. Jobs 与 Sensors 初步边界</h2>
-    <p>本节只定义边界，不提前锁死最终 job/sensor 名称。编码前需按 sensor tags、readiness、run request/cursor 门禁再出详细方案。</p>
+    <h2>10. Jobs 与 Sensors 边界</h2>
+    <p>M4 已先落地 raw-only 日常入口；silver/gold 的 job 与 sensor 后移到对应 milestone 单独设计。</p>
 
     <table>
       <tr><th>对象</th><th>职责</th><th>边界</th></tr>
@@ -761,19 +769,24 @@
         <td>只追加 event log，不写文件，不产生 Runs 页面记录。</td>
       </tr>
       <tr>
-        <td>历史 silver/gold 生成 helper</td>
-        <td>批量生成历史 silver 和 gold 文件。</td>
-        <td>不重新请求 Tushare，不通过日常 job 覆盖 raw。</td>
+        <td><code>stock_mins_raw_update_job</code></td>
+        <td>单日同时更新五个频度 raw 分区。</td>
+        <td>只选择五个 raw assets 及其 checks；使用 in-process executor，避免五频度并发打爆 Tushare。</td>
       </tr>
       <tr>
-        <td>日常 update jobs</td>
-        <td>按单日分区更新五个频度 raw/silver/gold。</td>
-        <td>job 只做 asset selection，不写业务逻辑。</td>
+        <td><code>stock_mins_trade_day_sensor</code></td>
+        <td>18:00 后注册当天分钟线交易日分区。</td>
+        <td>只注册当天；不补历史，不污染股票日频分区。</td>
       </tr>
       <tr>
-        <td>日常 sensors</td>
-        <td>注册分钟线交易日分区，并在上游 ready 后提交 run。</td>
-        <td>sensor 只做门禁，不在下游 job 内补上游。</td>
+        <td><code>stock_mins_raw_sensor</code></td>
+        <td>18:30 后检查最新已注册日期并提交 raw 更新 run。</td>
+        <td>只做轻量门禁：raw 是否 ready、是否已有失败 checks、<code>silver_stock_basic</code> 是否可用；不自动追历史缺口。</td>
+      </tr>
+      <tr>
+        <td>后续 silver/gold jobs</td>
+        <td>批量或日常生成 silver/gold 文件。</td>
+        <td>不在 M4 实现；不得通过 raw job 顺手生成下游。</td>
       </tr>
     </table>
   </section>
@@ -808,42 +821,42 @@
           <h3>Raw 与身份映射历史迁移 / event 补录</h3>
           <p>已按 dry-run → 样本 → 全量顺序执行完成。新湖 raw 写入 <code>21,045</code> 个文件，五个频度各 <code>4,209</code> 个日期；<code>cn_a_stock_mins_trade_days</code> 已注册 <code>4,209</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-07</code>。</p>
           <p>已补录 raw runless events：五个 raw asset 各 <code>4,209</code> 个 materialized 分区，7 个 raw blocking checks 均为 <code>4,209</code> 绿。<code>silver_stock_identity_map</code> 已初始化为 <code>6,089</code> 行，并补录 1 个 materialization 与 9 个 blocking checks。</p>
-          <p>执行中发现 backup clean_next 历史存在 <code>low=0</code>、<code>vwap=0</code>、停牌结构行全 0、少量 OHLC 区间残留。M3 正式口径已收敛为：raw check 只拦空值、负值和空代码，保留 backup 原始 clean_next 事实；更强的数据标准化留到 M4 silver。</p>
+          <p>执行中发现 backup clean_next 历史存在 <code>low=0</code>、<code>vwap=0</code>、停牌结构行全 0、少量 OHLC 区间残留。M3 正式口径已收敛为：raw check 只拦空值、负值和空代码，保留 backup 原始 clean_next 事实；更强的数据标准化留到后续 silver milestone。</p>
         </div>
       </div>
       <div class="step">
         <strong>M4</strong>
+        <div>
+          <h3>Raw 正式资产化与日常增量</h3>
+          <p>接入五个 raw assets、7 个 raw blocking checks、<code>stock_mins_raw_update_job</code>、<code>stock_mins_trade_day_sensor</code> 与 <code>stock_mins_raw_sensor</code>。日常增量从 Tushare <code>stk_mins</code> 拉取当前上市股票池；sensor 默认 <code>STOPPED</code>，缺口 backfill 单独审批。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M5</strong>
         <div>
           <h3>Silver assets 与 checks</h3>
           <p>接入五个 silver assets，落地代码映射、停复牌、stock daily 对齐 checks。先做代码和测试，不执行正式历史生成。</p>
         </div>
       </div>
       <div class="step">
-        <strong>M5</strong>
+        <strong>M6</strong>
         <div>
           <h3>Silver 历史生成与 event 补录</h3>
           <p>按批量 helper 生成历史 silver 文件，再补录 runless events。执行前同样走 dry-run、小样本、全量审批。</p>
         </div>
       </div>
       <div class="step">
-        <strong>M6</strong>
+        <strong>M7</strong>
         <div>
           <h3>Gold qfq assets 与 checks</h3>
           <p>接入五个 gold qfq assets，依赖 <code>silver_adj_factor</code>，实现 qfq 公式、完整性 checks 和重算边界。</p>
         </div>
       </div>
       <div class="step">
-        <strong>M7</strong>
+        <strong>M8</strong>
         <div>
           <h3>Gold 历史生成与 event 补录</h3>
           <p>批量生成 qfq 历史文件并补录 materialization/check events；不与日常 sensor 混用。</p>
-        </div>
-      </div>
-      <div class="step">
-        <strong>M8</strong>
-        <div>
-          <h3>日常 job/sensor 接入</h3>
-          <p>设计并接入日常分区注册 sensor、五频度更新 job、readiness 门禁、飞书通知口径。默认 STOPPED，启用前单独审批。</p>
         </div>
       </div>
       <div class="step">
@@ -904,7 +917,7 @@
     <h2>14. 待后续单独拍板</h2>
     <ol>
       <li>silver 是否物理保留 <code>source_ts_code</code> 追溯字段。</li>
-      <li>日常增量 raw 是继续从 Tushare <code>stk_mins</code> 拉取，还是先只接入历史 baseline 后再单独设计增量。</li>
+      <li><code>2026-05-08</code> 之后 raw 缺口 backfill 的执行窗口、分批大小、预计请求量和失败恢复策略。</li>
       <li>qfq gold 的小数精度、字段命名和是否保留原始未复权价格字段。</li>
       <li>历史 qfq 大规模重算的并发、临时目录、磁盘空间和恢复策略。</li>
       <li><code>bse_mapping</code> 与 <code>namechange</code> 在 Dagster 中接成正式资产的具体 milestone。</li>
@@ -921,6 +934,7 @@
     <ul>
       <li>契约阶段：编译路径、schema、partition、metadata helper；静态门禁确认没有新增 active asset/job/sensor。</li>
       <li>bootstrap 阶段：临时目录小样本迁移，验证字段、路径、分区 key 和 event 补录 helper。</li>
+      <li>raw 日常阶段：临时目录与 fake Tushare resource 覆盖分页、<code>freq</code> 字符串归一、已存在目标复用、坏目标拒绝覆盖、七个 raw checks、job selection 与两个 sensors 的时间门禁。</li>
       <li>silver 阶段：临时 DuckDB 文件覆盖代码映射、停牌解释、不可解释差异、重复键冲突。</li>
       <li>gold 阶段：临时 DuckDB 文件覆盖 qfq 公式、因子缺失、行数一致、字段类型。</li>
       <li>正式执行阶段：每次写正式湖或正式 event log 前，单独列命令、工作目录、DAGSTER_HOME、读写范围、预计数量和回滚方式，等待明确批准。</li>

@@ -46,6 +46,14 @@ from orchestrator.defs.assets.stock_daily import (
     raw_tushare_stock_daily,
     silver_stock_daily,
 )
+from orchestrator.defs.assets.stk_mins import (
+    STK_MINS_RAW_COLUMN_TYPES,
+    raw_stk_mins_1m,
+    raw_stk_mins_5m,
+    raw_stk_mins_15m,
+    raw_stk_mins_30m,
+    raw_stk_mins_60m,
+)
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
@@ -68,6 +76,7 @@ from orchestrator.defs.duckdb_sql import (
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
+    STK_MINS_RAW_REQUIRED_COLUMNS,
     SUSPEND_D_RAW_COLUMNS,
     SUSPEND_D_SILVER_REQUIRED_COLUMNS,
     TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
@@ -85,6 +94,7 @@ from orchestrator.defs.paths import (
     raw_index_daily_by_code_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
+    raw_stk_mins_path,
     raw_suspend_d_path,
     raw_trade_calendar_path,
     silver_index_basic_path,
@@ -110,6 +120,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
+    RAW_STK_MINS_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
@@ -147,6 +158,11 @@ ASSET_CONTRACTS = {
     silver_stock_daily: ("silver", "quote_data", "daily", "A股日线行情"),
     raw_tushare_adj_factor: ("raw", "quote_data", "adj_factor", "复权因子"),
     silver_adj_factor: ("silver", "quote_data", "adj_factor", "复权因子"),
+    raw_stk_mins_1m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
+    raw_stk_mins_5m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
+    raw_stk_mins_15m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
+    raw_stk_mins_30m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
+    raw_stk_mins_60m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
     raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
     silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
     raw_tushare_index_daily_by_code: (
@@ -219,6 +235,21 @@ ASSET_PATH_TEMPLATES = {
     raw_tushare_adj_factor: lake_path_template(
         raw_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
     ),
+    raw_stk_mins_1m: lake_path_template(
+        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 1, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    raw_stk_mins_5m: lake_path_template(
+        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 5, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    raw_stk_mins_15m: lake_path_template(
+        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 15, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    raw_stk_mins_30m: lake_path_template(
+        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 30, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    raw_stk_mins_60m: lake_path_template(
+        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 60, PATH_TEMPLATE_PARTITION_KEY)
+    ),
     silver_adj_factor: lake_path_template(
         silver_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
     ),
@@ -263,6 +294,11 @@ ASSET_COLUMN_SCHEMAS = {
     raw_tushare_suspend_d: RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
     raw_tushare_stock_daily: RAW_TUSHARE_STOCK_DAILY_SCHEMA,
     raw_tushare_adj_factor: RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
+    raw_stk_mins_1m: RAW_STK_MINS_SCHEMA,
+    raw_stk_mins_5m: RAW_STK_MINS_SCHEMA,
+    raw_stk_mins_15m: RAW_STK_MINS_SCHEMA,
+    raw_stk_mins_30m: RAW_STK_MINS_SCHEMA,
+    raw_stk_mins_60m: RAW_STK_MINS_SCHEMA,
     raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
@@ -312,7 +348,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 19)
+        self.assertEqual(len(ASSET_CONTRACTS), 24)
 
         for asset, (
             layer,
@@ -396,6 +432,14 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             ADJ_FACTOR_RAW_COLUMN_TYPES,
             {column.name: column.type for column in RAW_TUSHARE_ADJ_FACTOR_SCHEMA},
+        )
+        self.assertEqual(
+            STK_MINS_RAW_REQUIRED_COLUMNS,
+            tuple(column.name for column in RAW_STK_MINS_SCHEMA),
+        )
+        self.assertEqual(
+            STK_MINS_RAW_COLUMN_TYPES,
+            {column.name: column.type for column in RAW_STK_MINS_SCHEMA},
         )
         self.assertEqual(
             SUSPEND_D_RAW_COLUMNS,

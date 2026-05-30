@@ -62,6 +62,15 @@ RAW_ADJ_FACTOR_CHECKS = (
     "raw_adj_factor_stock_current_partition_key_allowed",
     "raw_adj_factor_unique_ts_code_trade_date",
 )
+RAW_STK_MINS_CHECKS = (
+    "raw_stk_mins_file_exists_and_row_count_positive",
+    "raw_stk_mins_schema_matches_contract",
+    "raw_stk_mins_freq_matches_asset",
+    "raw_stk_mins_partition_date_matches",
+    "raw_stk_mins_unique_ts_code_trade_time",
+    "raw_stk_mins_price_volume_sanity",
+    "raw_stk_mins_stock_mins_partition_key_registered",
+)
 SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (
     "silver_adj_factor_coverage_complete",
     "silver_adj_factor_file_exists",
@@ -118,6 +127,13 @@ RAW_STOCK_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_stock_daily")
 SILVER_STOCK_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_daily")
 RAW_ADJ_FACTOR_ASSET_KEY = dg.AssetKey("raw_tushare_adj_factor")
 SILVER_ADJ_FACTOR_ASSET_KEY = dg.AssetKey("silver_adj_factor")
+RAW_STK_MINS_ASSET_KEYS = (
+    dg.AssetKey("raw_stk_mins_1m"),
+    dg.AssetKey("raw_stk_mins_5m"),
+    dg.AssetKey("raw_stk_mins_15m"),
+    dg.AssetKey("raw_stk_mins_30m"),
+    dg.AssetKey("raw_stk_mins_60m"),
+)
 RAW_INDEX_DAILY_BY_CODE_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily_by_code")
 SILVER_INDEX_DAILY_ASSET_KEY = dg.AssetKey("silver_index_daily")
 SILVER_INDEX_BASIC_ASSET_KEY = dg.AssetKey("silver_index_basic")
@@ -175,6 +191,10 @@ STOCK_DAILY_READINESS_SPECS = (
 ADJ_FACTOR_READINESS_SPECS = (
     AssetReadinessSpec(RAW_ADJ_FACTOR_ASSET_KEY, RAW_ADJ_FACTOR_CHECKS),
     AssetReadinessSpec(SILVER_ADJ_FACTOR_ASSET_KEY, SILVER_ADJ_FACTOR_BLOCKING_CHECKS),
+)
+RAW_STK_MINS_READINESS_SPECS = tuple(
+    AssetReadinessSpec(asset_key, RAW_STK_MINS_CHECKS)
+    for asset_key in RAW_STK_MINS_ASSET_KEYS
 )
 RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC = AssetReadinessSpec(
     RAW_INDEX_DAILY_BY_CODE_ASSET_KEY,
@@ -394,6 +414,17 @@ def adj_factor_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         ADJ_FACTOR_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def raw_stk_mins_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> DatasetReadinessStatus:
+    return dataset_readiness_status(
+        instance,
+        RAW_STK_MINS_READINESS_SPECS,
         partition_key=trade_date,
     )
 

@@ -226,7 +226,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 18)
+        self.assertEqual(sensor_definition_count, 20)
         self.assertEqual(issues, [])
 
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
