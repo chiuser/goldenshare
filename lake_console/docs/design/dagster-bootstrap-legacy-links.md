@@ -32,8 +32,8 @@
 | `stock_basic` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet` | `stock_basic_bootstrap_spec` / `STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_basic_update_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_quote_daily_job` | 已完成 Slice 2.0.5 验证 |
 | `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 未新增独立 job；M5 使用受控 Python 命令直接调用现有 bootstrap executor；M6B 使用 runless events 补录 Dagster 事件事实 | M5 raw 迁移已完成；M6B raw event 补录已完成；M6C silver 文件生成已完成；M6D silver event 补录已完成；A7 已补齐至 `2026-05-29` |
-| `stk_mins` | `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq={freq}/trade_date={partition_key}/*.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq={freq}/trade_date={partition_key}/part-000.parquet` | `stk_mins_bootstrap_spec` / `STK_MINS_BOOTSTRAP_SELECT_TEMPLATE` | 未新增；M2 只实现 spec/helper 与临时目录测试 | M2 spec/helper 已实现；正式 raw 迁移、分区注册和 event 补录未执行 |
-| `stock_identity_map` | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet` | `/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet` | `stock_identity_map_bootstrap_spec` / `STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE` | 未新增；M2 使用 dataset-specific silver full snapshot helper | M2 初始化 helper 已实现；正式写入和 event 补录未执行 |
+| `stk_mins` | `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq={freq}/trade_date={partition_key}/*.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq={freq}/trade_date={partition_key}/part-000.parquet` | `stk_mins_bootstrap_spec` / `STK_MINS_BOOTSTRAP_SELECT_TEMPLATE` | 未新增 active job；M3A 提供受控 CLI/helper 执行 dry-run、样本、全量迁移、分区注册和 runless event 补录 | M3A 入口已实现；正式 raw 迁移、分区注册和 event 补录未执行 |
+| `stock_identity_map` | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet` | `/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet` | `stock_identity_map_bootstrap_spec` / `STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE` | 未新增 active job；M3A 使用 dataset-specific helper 写 full snapshot，并通过 runless events 补录 UI/readiness 事实 | M3A 入口已实现；正式写入和 event 补录未执行 |
 
 ## 已确认的迁移纠偏规则
 
@@ -91,13 +91,14 @@
 - backup 目录中部分分区文件名为 `part-00000.parquet`；bootstrap 来源按 `*.parquet` 解析，但每个 `freq + trade_date` 必须恰好一个 parquet 文件。
 - 新湖 raw 目标统一为 `part-000.parquet`，不得继承 backup 文件名差异。
 - `empty_policy=require_positive`，因为已完成交易日的分钟线 raw 不应为空。
-- M2 只实现 spec/helper 与临时目录测试；正式迁移、`cn_a_stock_mins_trade_days` 注册和 runless event 补录留到 M3 单独审批。
+- M2 已实现 spec/helper 与临时目录测试；M3A 已实现受控 CLI/helper，但正式迁移、`cn_a_stock_mins_trade_days` 注册和 runless event 补录仍需按 dry-run、样本、全量步骤单独审批执行。
 
 ### `stock_identity_map`
 
 - 来源是旧湖 `manifest/security_identity/security_identity_map.parquet`，只作为 `silver_stock_identity_map` 初始 full snapshot bootstrap 来源。
 - 该数据集不是 raw 层，因此不复用 `BootstrapDatasetSpec`；M2 使用 dataset-specific helper 写入 `data_lake/silver/basic/stock_identity_map/part-000.parquet`。
 - 写入时显式归一日期字段和 `created_at` 类型，并验证行数为正、字段顺序符合 `SILVER_STOCK_IDENTITY_MAP_SCHEMA`。
+- M3A 已提供 `report-identity-map-events` 入口补录 `silver_stock_identity_map` 的 runless materialization 与 9 个 blocking check events；正式执行前仍需单独审批。
 - 长期生成逻辑后续必须由新湖基础事实重建，不允许继续把旧湖 manifest 作为日常依赖。
 
 ## 清理门禁

@@ -282,9 +282,9 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 与临时目录测试已完成，正式迁移未执行。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3A 批量迁移、分区注册和 runless event 补录入口已实现，正式 dry-run/迁移/event 补录尚未执行。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
-      <tr><td>不涉及</td><td>本轮不执行旧湖迁移，不运行 Dagster job/sensor/backfill，不注册分区，不写正式数据湖。</td></tr>
+      <tr><td>不涉及</td><td>当前代码阶段不执行旧湖迁移，不运行 Dagster job/sensor/backfill，不注册正式分区，不写正式数据湖或正式 Dagster event log。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
       <tr><td>基础依赖</td><td><code>silver_stock_identity_map</code> 作为正式业务数据 asset 承载股票代码身份映射，供分钟线 silver 标准化使用。</td></tr>
     </table>
@@ -806,7 +806,8 @@
         <strong>M3</strong>
         <div>
           <h3>Raw 与身份映射历史迁移 / event 补录</h3>
-          <p>经单独批准后执行 dry-run、小样本、全量迁移；注册 <code>cn_a_stock_mins_trade_days</code> 历史分区；补录 raw 与 <code>silver_stock_identity_map</code> materialization/check events。</p>
+          <p>已实现专用 CLI/helper：<code>stk_mins_migration_cli</code> 支持只读 dry-run、样本迁移、全量迁移、分区注册、raw runless event 补录、<code>silver_stock_identity_map</code> event 补录和最终审计。</p>
+          <p>正式执行仍必须按 dry-run → 样本 → 全量顺序单独审批；代码实现不等于已经写入正式湖或正式 Dagster event log。</p>
         </div>
       </div>
       <div class="step">
