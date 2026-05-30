@@ -123,6 +123,64 @@ def fetch_tushare_full_file_to_raw(
     )
 
 
+def fetch_tushare_full_file_distinct_to_raw(
+    *,
+    tushare: TushareResource,
+    duckdb: DuckDBResource,
+    api_name: str,
+    api_params: Mapping[str, Any],
+    fields: Sequence[str],
+    column_types: Mapping[str, str],
+    target_path: Path,
+    allow_empty: bool,
+    limit: int = TUSHARE_API_PAGE_LIMIT,
+) -> dict[str, Any]:
+    field_names = tuple(fields)
+    _validate_contract(field_names, column_types)
+
+    rows, page_count = _fetch_all_pages(
+        tushare=tushare,
+        api_name=api_name,
+        api_params=api_params,
+        field_names=field_names,
+        limit=limit,
+    )
+
+    if not allow_empty and not rows:
+        raise RuntimeError(
+            f"Tushare {api_name} returned 0 rows; raw source mirror will not write "
+            "an empty full-file asset."
+        )
+
+    row_count = _write_distinct_rows_to_parquet(
+        duckdb=duckdb,
+        rows=rows,
+        fields=field_names,
+        column_types=column_types,
+        target_path=target_path,
+    )
+    if not allow_empty and row_count == 0:
+        raise RuntimeError(
+            f"Tushare {api_name} returned 0 distinct rows; raw source mirror will not "
+            "write an empty full-file asset."
+        )
+
+    return build_materialization_metadata(
+        uri=target_path,
+        row_count=row_count,
+        observed_columns=field_names,
+        extra_metadata={
+            "source_method": TUSHARE_API_SOURCE_METHOD,
+            "params": dict(api_params),
+            "fields": list(field_names),
+            "page_count": page_count,
+            "limit": limit,
+            "source_row_count": len(rows),
+            "duplicate_removed_count": len(rows) - row_count,
+        },
+    )
+
+
 def fetch_tushare_index_daily_by_code_to_raw(
     *,
     tushare: TushareResource,
@@ -439,6 +497,52 @@ def _write_rows_to_parquet(
         )
 
     os.replace(temporary_path, target_path)
+
+
+def _write_distinct_rows_to_parquet(
+    *,
+    duckdb: DuckDBResource,
+    rows: list[dict[str, Any]],
+    fields: tuple[str, ...],
+    column_types: Mapping[str, str],
+    target_path: Path,
+) -> int:
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
+    if temporary_path.exists():
+        temporary_path.unlink()
+
+    with duckdb.connect() as connection:
+        column_defs = ", ".join(
+            f"{_quote_identifier(field)} {column_types[field]}" for field in fields
+        )
+        connection.execute(f"CREATE TEMP TABLE api_rows ({column_defs})")
+        if rows:
+            placeholders = ", ".join("?" for _ in fields)
+            values = [
+                [_clean_value(row.get(field)) for field in fields] for row in rows
+            ]
+            connection.executemany(
+                f"INSERT INTO api_rows VALUES ({placeholders})", values
+            )
+
+        select_sql = ", ".join(
+            f"CAST({_quote_identifier(field)} AS {column_types[field]}) AS {_quote_identifier(field)}"
+            for field in fields
+        )
+        output_sql = f"""
+        SELECT DISTINCT {select_sql}
+        FROM api_rows
+        """
+        connection.execute(copy_query_to_parquet(output_sql, temporary_path))
+        row_count = int(
+            connection.execute(
+                count_parquet_query(temporary_path, hive_partitioning=False)
+            ).fetchone()[0]
+        )
+
+    os.replace(temporary_path, target_path)
+    return row_count
 
 
 def _quote_identifier(value: str) -> str:

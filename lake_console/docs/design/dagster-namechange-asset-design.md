@@ -1,6 +1,6 @@
 # Dagster namechange 资产接入方案
 
-状态：设计 roadmap；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线口径。
+状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线口径。
 
 更新时间：2026-05-30
 
@@ -235,9 +235,26 @@ diff 口径：
 4. 如果同一 `ts_code + start_date + ann_date` 仍存在多行，优先保留带 `end_date` 的版本；如果仍无法唯一确定，则 `silver_namechange` 失败。
 5. 选定每个生效日的有效公告后，按 `ts_code/start_date` 排序生成名称时间线。
 6. 连续相同 `name` 的噪声记录需要合并为一个区间。
-7. 前一段名称的 `end_date` 由下一段名称的 `start_date - 1 day` 推导；最后一段当前名称 `end_date` 为空。
-8. 最终表必须满足：同一股票同一时间点最多只能命中一个名称区间；同一股票最多只能有一个当前 open interval。
-9. 如果归并逻辑无法解释某个股票的区间矛盾，`silver_namechange` 直接失败，并在 metadata / check metadata 中输出股票代码、样本区间和原因。
+7. 如果当前段源 `end_date` 为空，或源 `end_date >= 下一段 start_date`，则用 `下一段 start_date - 1 day` 闭合当前段，避免 overlap。
+8. 如果当前段源 `end_date < 下一段 start_date`，保留源 `end_date`，允许中间存在 gap。
+9. 最后一段如果源 `end_date` 为空则保持 open；如果源端给了 `end_date`，则保留该结束日。
+10. 最终表必须满足：同一股票同一时间点最多只能命中一个名称区间；同一股票最多只能有一个当前 open interval。
+11. 如果归并逻辑无法解释某个股票的区间矛盾，`silver_namechange` 直接失败，并在 metadata / check metadata 中输出股票代码、样本区间和原因。
+
+相邻区间 gap 前置审计：
+
+- 按“保留源 `end_date`，只在会 overlap 时才向前闭合”的口径，全量只发现 1 个相邻 gap：`000022.SZ 深赤湾A` 源 `end_date=2018-12-24`，下一名称 `招商港口 start_date=2018-12-26`，中间缺 `2018-12-25`。
+- 这类 gap 不阻断。它可能来自代码迁移、换股、上市主体变化、源站口径差异或停牌等历史边界；只要不 overlap，就不影响“某天最多命中一个名称”的标准事实。
+- 全量审计结果：`adjacent_gap_count=1`，`adjacent_gap_code_count=1`，`adjacent_overlap_count=0`，`multi_open_code_count=0`，`invalid_date_order_count=0`。
+- NC-3 实现时必须把这个 gap 作为已知例外登记，避免未来把 gap 误判成新增数据质量问题。
+
+已知相邻 gap 登记：
+
+| ts_code | current_name | current_start_date | current_end_date | next_name | next_start_date | gap_date | 处理口径 |
+|---|---|---|---|---|---|---|---|
+| `000022.SZ` | `深赤湾A` | `2006-10-09` | `2018-12-24` | `招商港口` | `2018-12-26` | `2018-12-25` | 已确认源数据边界；silver 不自动补齐，不阻断；metadata / WARN 样本中显式记录 |
+
+后续如果 NC-3 开发时发现新的 gap，不能自动加入放行范围，必须先做样本审计并回到本文档登记。
 
 皇台酒业示例：
 
@@ -339,10 +356,12 @@ silver 转换规则：
 7. 同一 `ts_code + start_date` 下，选择 `ann_date` 最新的公告版本；`ann_date` 为空视为低优先级。
 8. 同一 `ts_code + start_date + ann_date` 下仍有多行时，优先选择带 `end_date` 的版本；如果仍无法唯一确定，直接失败。
 9. 按 `ts_code/start_date` 生成时间线，连续相同 `name` 的噪声记录合并为一个区间。
-10. 前一段名称的 `end_date` 由下一段名称的 `start_date - 1 day` 推导；最后一段当前名称 `end_date` 为空。
-11. silver 最终输出必须是可解释的标准名称区间：同一股票同一时间点最多命中一个名称区间；同一股票最多只有一个当前 open interval。
-12. 如果标准化归并后仍存在无法解释的多 open / overlap 矛盾，直接失败，不允许静默 WARN。
-13. 完全重复行理论上已在 raw 去掉；silver 仍检查不存在完全重复行。
+10. 如果当前段源 `end_date` 为空，或源 `end_date >= 下一段 start_date`，则用 `下一段 start_date - 1 day` 闭合当前段，避免 overlap。
+11. 如果当前段源 `end_date < 下一段 start_date`，保留源 `end_date`，允许中间存在 gap。
+12. 最后一段如果源 `end_date` 为空则保持 open；如果源端给了 `end_date`，则保留该结束日。
+13. silver 最终输出必须是可解释的标准名称区间：同一股票同一时间点最多命中一个名称区间；同一股票最多只有一个当前 open interval。
+14. 如果标准化归并后仍存在无法解释的多 open / overlap 矛盾，直接失败，不允许静默 WARN。
+15. 完全重复行理论上已在 raw 去掉；silver 仍检查不存在完全重复行。
 
 silver materialization metadata：
 
@@ -356,6 +375,10 @@ silver materialization metadata：
 | `open_interval_count` | `end_date IS NULL` 行数，仅观测 |
 | `canonicalization_rule_version` | 固定为 `latest_announcement_timeline_v1` |
 | `unresolved_interval_conflict_count` | 归并后仍无法解释的区间矛盾数量；必须为 0 |
+| `adjacent_gap_count` | 相邻名称区间之间存在日期 gap 的数量；只观测，不阻断 |
+| `known_adjacent_gap_count` | 已登记的相邻 gap 数量，当前应为 1 |
+| `unknown_adjacent_gap_count` | 未登记的相邻 gap 数量；当前应为 0，若大于 0 必须失败或停止开发确认 |
+| `adjacent_gap_sample` | gap 样本，例如 `000022.SZ` 的 `2018-12-25` 空档 |
 
 ## 7. 路径函数
 
@@ -437,12 +460,13 @@ SILVER_NAMECHANGE_SCHEMA
 | `silver_namechange_exact_duplicate_absent` | 所有字段完全一致的重复行必须不存在 | 标准表重复 |
 | `silver_namechange_current_open_interval_unique` | 同一股票最多只能有一个 `end_date IS NULL` 当前名称区间 | 标准表无法唯一判断当前名称 |
 | `silver_namechange_interval_overlap_absent` | 同一股票任意两个名称区间不能重叠 | 标准表无法唯一判断历史日期名称 |
+| `silver_namechange_unknown_adjacent_gap_absent` | 未登记的相邻区间 gap 必须为 0；当前仅允许已登记的 `000022.SZ` gap | 出现新的未审计 gap，需要先回到方案文档登记 |
 
 ### 10.4 silver WARN checks
 
 第一版不把区间矛盾放到 silver WARN。原因很简单：`silver_namechange` 是标准事实表，如果同一股票同一天能命中多个名称，后续所有依赖都会被污染。
 
-允许保留的 WARN 只做结构观测，例如 `change_reason` 分布、open interval 行数分布；但这些 WARN 不能替代 blocking 区间一致性检查。
+允许保留的 WARN 只做结构观测，例如 `change_reason` 分布、open interval 行数分布、相邻区间 gap 样本；但这些 WARN 不能替代 blocking 区间一致性检查。
 
 所有 checks 必须：
 
@@ -573,7 +597,9 @@ stock_current_trade_day_sensor
 | `defs/paths.py` | 新增 `raw_namechange_path`、`silver_namechange_path` |
 | `defs/run_contracts/asset_column_schemas.py` | 新增 raw/silver schema |
 | `defs/catalog/name_mapping.py` | 新增 `namechange -> 股票曾用名` |
-| `defs/duckdb_sql.py` | 新增字段常量、silver select SQL、日期转换 SQL |
+| `defs/duckdb_sql.py` | 新增字段常量 |
+| `defs/namechange_timeline.py` | 新增 `latest_announcement_timeline_v1` 纯转换规则 |
+| `defs/tushare_api_io.py` | 新增 full snapshot exact distinct 写入 helper，不改变默认 full-file helper 语义 |
 | `defs/assets/namechange.py` | 新增 raw/silver assets |
 | `defs/checks/namechange_checks.py` | 新增 raw/silver checks |
 | `defs/checks/__init__.py` | 如当前自动发现需要，加入导出 |
@@ -583,6 +609,7 @@ stock_current_trade_day_sensor
 | `defs/sensors/__init__.py` | 如当前自动发现需要，加入导出 |
 | `tests/test_asset_governance_contracts.py` | 新增 asset schema contract 断言 |
 | `tests/test_run_contract_static_gates.py` | 确认新增 asset/check/job 不破坏静态门禁 |
+| `tests/test_namechange_contracts.py` | 新增 exact distinct 与名称时间线规则单测 |
 | `docs/architecture/dagster-asset-job-topology.html` | 开发完成后同步 active asset/job/check 状态 |
 
 不应修改：
@@ -619,6 +646,8 @@ stock_current_trade_day_sensor
 
 ### NC-1：契约与路径
 
+状态：已完成。
+
 目标：
 
 - 新增路径函数。
@@ -640,6 +669,8 @@ stock_current_trade_day_sensor
 
 ### NC-2：raw asset 与 raw checks
 
+状态：已完成。
+
 目标：
 
 - 实现 `raw_tushare_namechange`。
@@ -660,6 +691,8 @@ stock_current_trade_day_sensor
 - raw blocking checks 通过。
 
 ### NC-3：silver asset 与 silver checks
+
+状态：已完成。
 
 目标：
 
@@ -683,8 +716,12 @@ stock_current_trade_day_sensor
 - 归并后 `unresolved_interval_conflict_count=0`。
 - `silver_namechange_current_open_interval_unique` 通过。
 - `silver_namechange_interval_overlap_absent` 通过。
+- `silver_namechange_unknown_adjacent_gap_absent` 通过。
+- 已登记的 `000022.SZ` 相邻 gap 只作为 metadata / WARN 样本观测，不作为阻断。
 
 ### NC-4：job 与 UI 入口
+
+状态：已完成。
 
 目标：
 
@@ -703,6 +740,8 @@ stock_current_trade_day_sensor
 - run 只 materialize `namechange` 资产族。
 
 ### NC-5：日更 sensor
+
+状态：已完成。
 
 目标：
 
@@ -723,6 +762,8 @@ stock_current_trade_day_sensor
 - 同一交易日不会重复提交。
 
 ### NC-6：正式验收与文档同步
+
+状态：代码侧 topology 文档已同步；正式 Dagster instance / UI 验收仍需用户单独批准后执行。
 
 目标：
 
@@ -752,6 +793,7 @@ UI 或正式 instance 中运行 namechange_update_job
 uv run python -m unittest tests.test_metadata_contracts
 uv run python -m unittest tests.test_asset_governance_contracts
 uv run python -m unittest tests.test_run_contract_static_gates
+uv run python -m unittest tests.test_namechange_contracts
 python3 scripts/check_docs_integrity.py
 git diff --check
 git status --short

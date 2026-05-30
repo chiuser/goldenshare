@@ -6,6 +6,7 @@ from types import MappingProxyType
 DATASET_CHINESE_NAMES = MappingProxyType(
     {
         "stock_basic": "股票基础信息",
+        "namechange": "股票曾用名",
         "trade_cal": "交易日历",
         "daily": "A股日线行情",
         "adj_factor": "复权因子",

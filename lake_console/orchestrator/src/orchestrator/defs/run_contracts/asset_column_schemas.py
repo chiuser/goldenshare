@@ -30,6 +30,15 @@ RAW_TUSHARE_STOCK_BASIC_SCHEMA = (
     ColumnContract("act_ent_type", "VARCHAR", "实控人企业性质"),
 )
 
+RAW_TUSHARE_NAMECHANGE_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("name", "VARCHAR", "证券名称"),
+    ColumnContract("start_date", "VARCHAR", "名称生效开始日期，Tushare 原始 YYYYMMDD 字符串"),
+    ColumnContract("end_date", "VARCHAR", "名称生效结束日期，Tushare 原始 YYYYMMDD 字符串或空"),
+    ColumnContract("ann_date", "VARCHAR", "公告日期，Tushare 原始 YYYYMMDD 字符串或空"),
+    ColumnContract("change_reason", "VARCHAR", "变更原因"),
+)
+
 RAW_TUSHARE_STOCK_DAILY_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
@@ -133,6 +142,15 @@ SILVER_STOCK_IDENTITY_MAP_SCHEMA = (
     ColumnContract("confidence", "VARCHAR", "映射置信度枚举"),
     ColumnContract("reason", "VARCHAR", "映射原因"),
     ColumnContract("created_at", "TIMESTAMP WITH TIME ZONE", "本次生成时间"),
+)
+
+SILVER_NAMECHANGE_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("name", "VARCHAR", "该名称区间内实际使用的证券简称"),
+    ColumnContract("start_date", "DATE", "名称变更生效日"),
+    ColumnContract("end_date", "DATE", "该名称使用结束日；当前仍有效时为空"),
+    ColumnContract("ann_date", "DATE", "选中这段名称变更事实的公告日期；源站为空时保留为空"),
+    ColumnContract("change_reason", "VARCHAR", "变更原因"),
 )
 
 SILVER_STOCK_DAILY_SCHEMA = (
