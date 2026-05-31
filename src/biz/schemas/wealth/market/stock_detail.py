@@ -141,6 +141,7 @@ class StockKlineBarDto(BaseModel):
     preClose: float | None = None
     change: float | None = None
     changePct: float | None = None
+    amplitude: float | None = None
     vol: float | None = None
     amount: float | None = None
     turnoverRate: float | None = None

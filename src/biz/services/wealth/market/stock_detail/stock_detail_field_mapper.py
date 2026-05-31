@@ -31,6 +31,12 @@ def resolve_direction(change_pct: float | None) -> str:
     return "FLAT"
 
 
+def calculate_amplitude(*, high: float | None, low: float | None, pre_close: float | None) -> float | None:
+    if high is None or low is None or pre_close is None or pre_close == 0:
+        return None
+    return round(((high - low) / pre_close) * 100, 10)
+
+
 def build_data_status(*, expected_trade_date: date, observed_trade_date: date | None) -> StockDetailDataStatusDto:
     if observed_trade_date is None:
         return StockDetailDataStatusDto(
@@ -76,15 +82,22 @@ def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
 
 
 def build_kline_bar(row: Mapping[str, Any]) -> StockKlineBarDto:
+    open_price = to_float(row.get("open_qfq"))
+    high_price = to_float(row.get("high_qfq"))
+    low_price = to_float(row.get("low_qfq"))
+    close_price = to_float(row.get("close_qfq"))
+    pre_close = to_float(row.get("pre_close"))
+    change_pct = to_float(row.get("pct_chg"))
     return StockKlineBarDto(
         tradeDate=row["trade_date"],
-        open=to_float(row.get("open_qfq")),
-        high=to_float(row.get("high_qfq")),
-        low=to_float(row.get("low_qfq")),
-        close=to_float(row.get("close_qfq")),
-        preClose=to_float(row.get("pre_close")),
+        open=open_price,
+        high=high_price,
+        low=low_price,
+        close=close_price,
+        preClose=pre_close,
         change=to_float(row.get("change")),
-        changePct=to_float(row.get("pct_chg")),
+        changePct=change_pct,
+        amplitude=calculate_amplitude(high=high_price, low=low_price, pre_close=pre_close),
         vol=to_float(row.get("vol")),
         amount=to_float(row.get("amount")),
         turnoverRate=to_float(row.get("turnover_rate")),

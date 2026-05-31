@@ -14,6 +14,7 @@ import {
 } from "lightweight-charts";
 
 import { directionClass } from "../../../shared/lib/marketDirection";
+import type { MarketDirection } from "../../../shared/model/market";
 import type { StockCandlePoint, StockIndicatorTab, StockMainOverlay, StockPeriodKey } from "../model/stockDetailTypes";
 
 interface StockChartWorkspaceProps {
@@ -528,33 +529,60 @@ function KlineMetrics({ point, overlay }: { point: StockCandlePoint; overlay: St
 }
 
 function KlineTooltip({ point, side }: { point: StockCandlePoint; side: "left" | "right" }) {
-  const direction = point.close >= point.open ? "up" : "down";
+  const rows: Array<[string, string, string]> = [
+    ["时间", point.fullDate.replaceAll("-", ""), "secondary"],
+    ["开盘", formatTooltipNumber(point.open), directionClass(resolvePriceDirection(point.open, point.preClose))],
+    ["收盘", formatTooltipNumber(point.close), directionClass(resolvePriceDirection(point.close, point.preClose))],
+    ["最高", formatTooltipNumber(point.high), directionClass(resolvePriceDirection(point.high, point.preClose))],
+    ["最低", formatTooltipNumber(point.low), directionClass(resolvePriceDirection(point.low, point.preClose))],
+    ["涨幅", `${formatTooltipNumber(point.changePct)}%`, directionClass(resolveValueDirection(point.changePct))],
+    ["振幅", `${formatTooltipNumber(point.amplitude)}%`, "secondary"],
+    ["成交量", formatTooltipVolume(point.volume), "secondary"],
+    ["成交额", formatTooltipAmount(point.amount), "secondary"],
+    ["换手率", `${formatTooltipNumber(point.turnoverRate)}%`, "secondary"],
+  ];
   return (
     <div className={`kline-tooltip ${side}`}>
-      <div className="tooltip-title">
-        <span>{point.fullDate}</span>
-        <span>方案A</span>
-      </div>
       <div className="tooltip-grid">
-        <div className="tooltip-row">
-          <span>开</span>
-          <b>{point.open.toFixed(2)}</b>
-        </div>
-        <div className="tooltip-row">
-          <span>高</span>
-          <b className="up">{point.high.toFixed(2)}</b>
-        </div>
-        <div className="tooltip-row">
-          <span>低</span>
-          <b className="down">{point.low.toFixed(2)}</b>
-        </div>
-        <div className="tooltip-row">
-          <span>收</span>
-          <b className={direction}>{point.close.toFixed(2)}</b>
-        </div>
+        {rows.map(([label, value, tone]) => (
+          <div className="tooltip-row" key={label}>
+            <span>{label}</span>
+            <b className={tone}>{value}</b>
+          </div>
+        ))}
       </div>
     </div>
   );
+}
+
+function resolvePriceDirection(value: number, preClose: number): MarketDirection {
+  if (!Number.isFinite(value) || !Number.isFinite(preClose)) return "UNKNOWN";
+  if (value > preClose) return "UP";
+  if (value < preClose) return "DOWN";
+  return "FLAT";
+}
+
+function resolveValueDirection(value: number): MarketDirection {
+  if (!Number.isFinite(value)) return "UNKNOWN";
+  if (value > 0) return "UP";
+  if (value < 0) return "DOWN";
+  return "FLAT";
+}
+
+function formatTooltipNumber(value: number): string {
+  return value.toFixed(2);
+}
+
+function formatTooltipVolume(value: number): string {
+  if (value >= 100000000) return `${(value / 100000000).toFixed(2)}亿手`;
+  if (value >= 10000) return `${(value / 10000).toFixed(2)}万手`;
+  return `${Math.round(value)}手`;
+}
+
+function formatTooltipAmount(value: number): string {
+  if (value >= 100000) return `${(value / 100000).toFixed(2)}亿`;
+  if (value >= 10) return `${(value / 10).toFixed(2)}万`;
+  return value.toFixed(2);
 }
 
 function IndicatorChartPanel({

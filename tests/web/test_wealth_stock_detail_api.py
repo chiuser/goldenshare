@@ -140,6 +140,7 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     assert latest["high"] == 29.9
     assert latest["low"] == 28.1
     assert latest["close"] == 29.1
+    assert latest["amplitude"] == 9.5238095238
     ma = latest["factors"]["ma"]
     assert ma["ma5"] == 19.0
     assert ma["ma10"] == 18.9

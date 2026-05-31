@@ -60,8 +60,13 @@ export interface StockCandlePoint {
   high: number;
   low: number;
   close: number;
+  preClose: number;
+  changePct: number;
+  amplitude: number;
   volume: number;
   amount: number;
+  turnoverRate: number;
+  volumeRatio: number;
   ma5: number;
   ma10: number;
   ma20: number;

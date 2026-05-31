@@ -84,6 +84,7 @@ export interface StockKlineBarDto {
   preClose?: number | null;
   change?: number | null;
   changePct?: number | null;
+  amplitude?: number | null;
   vol?: number | null;
   amount?: number | null;
   turnoverRate?: number | null;

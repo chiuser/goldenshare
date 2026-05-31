@@ -50,6 +50,7 @@ function generateCandleSeries(): StockCandlePoint[] {
   const closes = raw.map((row) => row.close);
 
   return raw.map((row, index) => {
+    const previousClose = raw[Math.max(0, index - 1)]?.close ?? row.open;
     const ma5 = movingAverage(closes, index, 5);
     const ma10 = movingAverage(closes, index, 10);
     const ma20 = movingAverage(closes, index, 20);
@@ -63,6 +64,11 @@ function generateCandleSeries(): StockCandlePoint[] {
 
     return {
       ...row,
+      preClose: previousClose,
+      changePct: round(((row.close - previousClose) / previousClose) * 100),
+      amplitude: round(((row.high - row.low) / previousClose) * 100),
+      turnoverRate: round(0.8 + Math.abs(Math.sin(index / 13)) * 2.4),
+      volumeRatio: round(0.7 + Math.abs(Math.cos(index / 9)) * 1.1),
       ma5,
       ma10,
       ma20,
