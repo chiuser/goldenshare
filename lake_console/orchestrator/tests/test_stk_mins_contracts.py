@@ -9,6 +9,7 @@ from orchestrator.defs.duckdb_sql import (
     SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
     STK_MINS_BOOTSTRAP_SELECT_TEMPLATE,
     STK_MINS_RAW_REQUIRED_COLUMNS,
+    STK_MINS_SILVER_REQUIRED_COLUMNS,
     STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE,
     duckdb_string,
 )
@@ -16,14 +17,17 @@ from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     raw_stk_mins_path,
+    silver_stk_mins_path,
     silver_stock_identity_map_path,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_MINS_SCHEMA,
+    SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
+    derive_silver_stk_mins_exchange_from_ts_code,
     normalize_stk_mins_freq,
 )
 
@@ -139,6 +143,30 @@ class StkMinsContractTests(unittest.TestCase):
             tuple(column.name for column in SILVER_STOCK_IDENTITY_MAP_SCHEMA),
         )
 
+    def test_silver_stk_mins_column_schema_is_stable(self) -> None:
+        self.assertEqual(
+            [(column.name, column.type) for column in SILVER_STK_MINS_SCHEMA],
+            [
+                ("ts_code", "VARCHAR"),
+                ("freq", "INTEGER"),
+                ("trade_date", "DATE"),
+                ("trade_time", "TIMESTAMP"),
+                ("open", "DOUBLE"),
+                ("high", "DOUBLE"),
+                ("low", "DOUBLE"),
+                ("close", "DOUBLE"),
+                ("vol", "DOUBLE"),
+                ("amount", "DOUBLE"),
+                ("exchange", "VARCHAR"),
+            ],
+        )
+        self.assertNotIn("source_ts_code", STK_MINS_SILVER_REQUIRED_COLUMNS)
+        self.assertNotIn("vwap", STK_MINS_SILVER_REQUIRED_COLUMNS)
+        self.assertEqual(
+            STK_MINS_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_STK_MINS_SCHEMA),
+        )
+
     def test_stk_mins_paths_are_stable(self) -> None:
         self.assertEqual(
             raw_stk_mins_path(
@@ -149,11 +177,39 @@ class StkMinsContractTests(unittest.TestCase):
             "data_lake/raw/tushare/stk_mins/freq=30/trade_date=2026-05-07/part-000.parquet",
         )
         self.assertEqual(
+            silver_stk_mins_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                30,
+                "2026-05-07",
+            ).as_posix(),
+            "data_lake/silver/quote/stk_mins/freq=30/trade_date=2026-05-07/part-000.parquet",
+        )
+        self.assertEqual(
             silver_stock_identity_map_path(PATH_TEMPLATE_LAKE_ROOT).as_posix(),
             "data_lake/silver/basic/stock_identity_map/part-000.parquet",
         )
         with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
             raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 2, "2026-05-07")
+        with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
+            silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 2, "2026-05-07")
+
+    def test_silver_stk_mins_exchange_derivation_is_stable(self) -> None:
+        self.assertEqual(
+            derive_silver_stk_mins_exchange_from_ts_code("600000.SH"),
+            "SSE",
+        )
+        self.assertEqual(
+            derive_silver_stk_mins_exchange_from_ts_code("000001.SZ"),
+            "SZSE",
+        )
+        self.assertEqual(
+            derive_silver_stk_mins_exchange_from_ts_code("430047.BJ"),
+            "BSE",
+        )
+        with self.assertRaisesRegex(ValueError, "Unsupported silver stk_mins"):
+            derive_silver_stk_mins_exchange_from_ts_code("")
+        with self.assertRaisesRegex(ValueError, "Unsupported silver stk_mins"):
+            derive_silver_stk_mins_exchange_from_ts_code("000001.HK")
 
     def test_stk_mins_bootstrap_select_normalizes_backup_schema_variant(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

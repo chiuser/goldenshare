@@ -144,6 +144,20 @@ SILVER_STOCK_IDENTITY_MAP_SCHEMA = (
     ColumnContract("created_at", "TIMESTAMP WITH TIME ZONE", "本次生成时间"),
 )
 
+SILVER_STK_MINS_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("freq", "INTEGER", "分钟频度，允许值为 1、5、15、30、60"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("open", "DOUBLE", "标准化分钟 bar 开盘价"),
+    ColumnContract("high", "DOUBLE", "标准化分钟 bar 最高价"),
+    ColumnContract("low", "DOUBLE", "标准化分钟 bar 最低价"),
+    ColumnContract("close", "DOUBLE", "标准化分钟 bar 收盘价"),
+    ColumnContract("vol", "DOUBLE", "标准化成交量"),
+    ColumnContract("amount", "DOUBLE", "标准化成交额"),
+    ColumnContract("exchange", "VARCHAR", "标准交易所代码，允许值为 SSE、SZSE、BSE"),
+)
+
 SILVER_NAMECHANGE_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("name", "VARCHAR", "该名称区间内实际使用的证券简称"),

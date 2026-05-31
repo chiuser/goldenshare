@@ -13,6 +13,12 @@ _STK_MINS_EXCHANGE_BY_TS_CODE_SUFFIX = {
     ".BJ": "BSE",
 }
 
+_SILVER_STK_MINS_EXCHANGE_BY_TS_CODE_SUFFIX = {
+    ".SH": "SSE",
+    ".SZ": "SZSE",
+    ".BJ": "BSE",
+}
+
 
 def normalize_stk_mins_freq(freq: int | str) -> int:
     """Normalize a stock minute frequency to the canonical integer value."""
@@ -45,5 +51,17 @@ def derive_stk_mins_exchange_from_ts_code(ts_code: str) -> str:
     allowed_suffixes = ", ".join(sorted(_STK_MINS_EXCHANGE_BY_TS_CODE_SUFFIX))
     raise ValueError(
         "Unsupported stk_mins ts_code suffix for exchange derivation: "
+        f"{ts_code!r}. Allowed suffixes: {allowed_suffixes}."
+    )
+
+
+def derive_silver_stk_mins_exchange_from_ts_code(ts_code: str) -> str:
+    normalized = ts_code.strip().upper()
+    for suffix, exchange in _SILVER_STK_MINS_EXCHANGE_BY_TS_CODE_SUFFIX.items():
+        if normalized.endswith(suffix):
+            return exchange
+    allowed_suffixes = ", ".join(sorted(_SILVER_STK_MINS_EXCHANGE_BY_TS_CODE_SUFFIX))
+    raise ValueError(
+        "Unsupported silver stk_mins ts_code suffix for exchange derivation: "
         f"{ts_code!r}. Allowed suffixes: {allowed_suffixes}."
     )

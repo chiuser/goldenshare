@@ -954,6 +954,13 @@ ops:
       如果未来确实需要成交均价，应单独设计派生字段或 gold/feature 层指标，不回到本 silver 主表里临时补一列。
     </div>
 
+    <div class="note">
+      <strong>M5A 契约状态：</strong>
+      已落地 silver 字段 schema、<code>silver_stk_mins_path(root, freq, partition_key)</code>
+      路径契约和 silver 专用 exchange 后缀归一 helper。M5A 不生成 silver 文件，不新增 active asset/job/sensor/check；
+      标准化 SQL、assets、checks 和历史生成留到后续 M5B/M5C。
+    </div>
+
     <h3>8.10 Silver checks</h3>
     <ul>
       <li>schema 与字段类型一致。</li>
@@ -1137,10 +1144,17 @@ ops:
         </div>
       </div>
       <div class="step">
-        <strong>M5</strong>
+        <strong>M5A</strong>
         <div>
-          <h3>Silver assets 与 checks</h3>
-          <p>接入五个 silver assets，落地代码映射、停复牌、stock daily 对齐 checks。先做代码和测试，不执行正式历史生成。</p>
+          <h3>Silver 契约基础</h3>
+          <p>已落地 silver 字段 schema、路径函数和 silver 专用 exchange 归一 helper。该阶段只固定契约，不生成文件、不新增 Dagster definition、不补录 events。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M5B</strong>
+        <div>
+          <h3>Silver 标准化 helper 与 assets/checks</h3>
+          <p>接入五个 silver assets，落地代码映射、停复牌、1m 修正、粗频度重算、成交量/成交额归一和 blocking checks。先做代码和测试，不执行正式历史生成。</p>
         </div>
       </div>
       <div class="step">

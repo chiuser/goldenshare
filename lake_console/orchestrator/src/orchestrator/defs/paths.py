@@ -88,6 +88,18 @@ def raw_stk_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
     )
 
 
+def silver_stk_mins_path(root: Path, freq: int | str, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "quote",
+        "stk_mins",
+        f"freq={normalize_stk_mins_freq(freq)}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def raw_adj_factor_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,
