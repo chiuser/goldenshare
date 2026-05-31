@@ -8,7 +8,7 @@ import pytest
 from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
-from src.foundation.ingestion.request_builders import _cyq_chips_params, _index_daily_params
+from src.foundation.ingestion.request_builders import _cyq_chips_params, _index_daily_params, _stk_factor_pro_params
 
 
 def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocker) -> None:
@@ -317,6 +317,36 @@ def test_cyq_chips_request_builder_requires_ts_code() -> None:
         _cyq_chips_params(request, date(2026, 4, 24), {})
 
 
+def test_stk_factor_pro_request_builder_keeps_trade_date_request() -> None:
+    request = SimpleNamespace(
+        run_profile="point_incremental",
+        trade_date=date(2026, 4, 24),
+        start_date=None,
+        end_date=None,
+        params={},
+    )
+
+    assert _stk_factor_pro_params(request, date(2026, 4, 24), {}) == {"trade_date": "20260424"}
+
+
+def test_stk_factor_pro_request_builder_supports_single_code_range_unit() -> None:
+    request = SimpleNamespace(
+        run_profile="point_incremental",
+        trade_date=date(2026, 4, 24),
+        start_date=None,
+        end_date=None,
+        params={},
+    )
+
+    params = _stk_factor_pro_params(
+        request,
+        None,
+        {"ts_code": "000001.SZ", "start_date": date(2025, 1, 2), "end_date": date(2026, 4, 24)},
+    )
+
+    assert params == {"ts_code": "000001.SZ", "start_date": "20250102", "end_date": "20260424"}
+
+
 def test_stk_factor_pro_requires_adj_factor_before_planning(mocker) -> None:
     session = mocker.Mock()
     session.scalar.return_value = None
@@ -337,7 +367,11 @@ def test_stk_factor_pro_requires_adj_factor_before_planning(mocker) -> None:
 def test_stk_factor_pro_builds_point_unit_after_adj_factor_ready(mocker) -> None:
     session = mocker.Mock()
     session.scalar.return_value = "000001.SZ"
-    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=SimpleNamespace(trade_calendar=SimpleNamespace()))
+    session.scalars.return_value = []
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_latest_open_date=mocker.Mock(return_value=date(2026, 4, 23)))
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
     resolver = DatasetActionResolver(session)
     request = DatasetActionRequest(
         dataset_key="stk_factor_pro",
@@ -350,6 +384,94 @@ def test_stk_factor_pro_builds_point_unit_after_adj_factor_ready(mocker) -> None
     assert plan.planning.unit_count == 1
     assert plan.writing.write_path == "raw_only_upsert"
     assert plan.units[0].request_params == {"trade_date": "20260424"}
+    fake_dao.trade_calendar.get_latest_open_date.assert_called_once_with("SSE", date(2026, 4, 23))
+
+
+def test_stk_factor_pro_builds_adj_factor_refresh_units_for_changed_codes(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.return_value = "000001.SZ"
+    session.scalars.return_value = ["000002.SZ", "000001.SZ", "000001.SZ"]
+    execute_result = mocker.Mock()
+    execute_result.all.return_value = [
+        ("000001.SZ", date(2025, 1, 2)),
+        ("000002.SZ", date(2025, 2, 3)),
+    ]
+    session.execute.return_value = execute_result
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_latest_open_date=mocker.Mock(return_value=date(2026, 4, 23)))
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 3
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": "20260424"},
+        {"ts_code": "000001.SZ", "start_date": "20250102", "end_date": "20260424"},
+        {"ts_code": "000002.SZ", "start_date": "20250203", "end_date": "20260424"},
+    ]
+    assert plan.units[1].progress_context == {
+        "ts_code": "000001.SZ",
+        "start_date": date(2025, 1, 2),
+        "end_date": date(2026, 4, 24),
+    }
+
+
+def test_stk_factor_pro_skips_changed_code_without_raw_history(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.return_value = "000001.SZ"
+    session.scalars.return_value = ["000001.SZ", "000002.SZ"]
+    execute_result = mocker.Mock()
+    execute_result.all.return_value = [("000001.SZ", date(2025, 1, 2))]
+    session.execute.return_value = execute_result
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(get_latest_open_date=mocker.Mock(return_value=date(2026, 4, 23)))
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"trade_date": "20260424"},
+        {"ts_code": "000001.SZ", "start_date": "20250102", "end_date": "20260424"},
+    ]
+
+
+def test_stk_factor_pro_explicit_code_point_does_not_run_adj_factor_audit(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.return_value = "000001.SZ"
+    session.scalars.side_effect = AssertionError("explicit ts_code must not run full-market adj_factor audit")
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_latest_open_date=mocker.Mock(side_effect=AssertionError("explicit ts_code must not find previous trade date"))
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+        filters={"ts_code": "000001.SZ"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"trade_date": "20260424", "ts_code": "000001.SZ"}
 
 
 def test_stk_factor_pro_range_fails_when_any_trade_date_lacks_adj_factor(mocker) -> None:
@@ -371,6 +493,31 @@ def test_stk_factor_pro_range_fails_when_any_trade_date_lacks_adj_factor(mocker)
     with pytest.raises(IngestionPlanningError, match="先更新复权因子"):
         resolver.build_plan(request)
 
+    fake_dao.trade_calendar.get_open_dates.assert_called_once()
+
+
+def test_stk_factor_pro_range_does_not_run_adj_factor_audit(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.side_effect = ["000001.SZ", "000002.SZ"]
+    session.scalars.side_effect = AssertionError("range rebuild must not run full-market adj_factor audit")
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=mocker.Mock(return_value=[date(2026, 4, 23), date(2026, 4, 24)]),
+            get_latest_open_date=mocker.Mock(side_effect=AssertionError("range rebuild must not find previous trade date")),
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 23), end_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [{"trade_date": "20260423"}, {"trade_date": "20260424"}]
     fake_dao.trade_calendar.get_open_dates.assert_called_once()
 
 

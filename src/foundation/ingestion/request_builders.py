@@ -682,10 +682,19 @@ def _cyq_chips_params(request, anchor_date: date | None, enum_values: dict[str, 
 
 
 def _stk_factor_pro_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    ts_code = enum_values.get("ts_code", request.params.get("ts_code"))
+    start_date = enum_values.get("start_date")
+    end_date = enum_values.get("end_date")
+    if ts_code not in (None, "") and start_date not in (None, "") and end_date not in (None, ""):
+        return {
+            "ts_code": str(ts_code).strip().upper(),
+            "start_date": _format_yyyymmdd(start_date),
+            "end_date": _format_yyyymmdd(end_date),
+        }
+
     if anchor_date is None:
         raise ValueError("缺少日期锚点")
     params: dict[str, Any] = {"trade_date": anchor_date.strftime("%Y%m%d")}
-    ts_code = request.params.get("ts_code")
     if ts_code not in (None, ""):
         params["ts_code"] = str(ts_code).strip().upper()
     return params

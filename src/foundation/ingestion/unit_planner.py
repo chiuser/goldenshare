@@ -4,8 +4,8 @@ from calendar import monthrange
 from datetime import date, timedelta
 from typing import Any, Callable
 
-from sqlalchemy import select
-from sqlalchemy.orm import Session
+from sqlalchemy import func, select
+from sqlalchemy.orm import Session, aliased
 
 from src.foundation.config.settings import get_settings
 from src.foundation.dao.factory import DAOFactory
@@ -17,6 +17,7 @@ from src.foundation.ingestion.plan_helpers import build_plan_units, build_unit_i
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.ths_index import ThsIndex
 from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
+from src.foundation.models.raw.raw_stk_factor_pro import RawStkFactorPro
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 
 
@@ -600,6 +601,83 @@ def _ensure_stk_factor_pro_adj_factor_ready(planner: DatasetUnitPlanner, anchor:
         raise DatasetUnitPlanner._planning_error("upstream_data_not_ready", "先更新复权因子")
 
 
+def _build_stk_factor_pro_adj_factor_refresh_units(
+    planner: DatasetUnitPlanner,
+    request: ValidatedDatasetActionRequest,
+    definition: DatasetDefinition,
+    anchor: date,
+) -> list[PlanUnitSnapshot]:
+    if request.run_profile != "point_incremental":
+        return []
+    if split_multi_values(request.params.get("ts_code")):
+        return []
+
+    exchange = str(request.params.get("exchange") or planner.settings.default_exchange)
+    previous_trade_date = planner.dao.trade_calendar.get_latest_open_date(exchange, anchor - timedelta(days=1))
+    if previous_trade_date is None:
+        return []
+
+    changed_codes = _load_stk_factor_pro_adj_factor_changed_codes(
+        planner,
+        target_date=anchor,
+        previous_date=previous_trade_date,
+    )
+    raw_start_dates = _load_stk_factor_pro_raw_start_dates(planner, changed_codes)
+    universe_values = [
+        {"ts_code": code, "start_date": raw_start_dates[code], "end_date": anchor}
+        for code in changed_codes
+        if raw_start_dates.get(code) is not None
+    ]
+    if not universe_values:
+        return []
+
+    return build_plan_units(
+        request=request,
+        definition=definition,
+        anchors=[None],
+        enum_combinations=[{}],
+        request_builder=planner._resolve_request_builder(definition),
+        universe_values=universe_values,
+        pagination_policy_override=definition.planning.pagination_policy,
+        page_limit_override=definition.planning.page_limit,
+        progress_context_builder=planner._build_generic_progress_context,
+    )
+
+
+def _load_stk_factor_pro_adj_factor_changed_codes(
+    planner: DatasetUnitPlanner,
+    *,
+    target_date: date,
+    previous_date: date,
+) -> list[str]:
+    today = aliased(EquityAdjFactor)
+    previous = aliased(EquityAdjFactor)
+    stmt = (
+        select(today.ts_code)
+        .join(previous, previous.ts_code == today.ts_code)
+        .where(
+            today.trade_date == target_date,
+            previous.trade_date == previous_date,
+            today.adj_factor.is_distinct_from(previous.adj_factor),
+        )
+        .order_by(today.ts_code)
+    )
+    codes = [str(code).strip().upper() for code in planner.session.scalars(stmt) if str(code).strip()]
+    return sorted(set(codes))
+
+
+def _load_stk_factor_pro_raw_start_dates(planner: DatasetUnitPlanner, codes: list[str]) -> dict[str, date]:
+    if not codes:
+        return {}
+    stmt = (
+        select(RawStkFactorPro.ts_code, func.min(RawStkFactorPro.trade_date))
+        .where(RawStkFactorPro.ts_code.in_(codes))
+        .group_by(RawStkFactorPro.ts_code)
+    )
+    rows = planner.session.execute(stmt).all()
+    return {str(code).strip().upper(): start_date for code, start_date in rows if str(code).strip() and start_date is not None}
+
+
 def _build_stk_factor_pro_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     anchors = planner._resolve_anchors(request, definition)
@@ -624,6 +702,7 @@ def _build_stk_factor_pro_units(planner: DatasetUnitPlanner, request: ValidatedD
                 progress_context_builder=planner._build_generic_progress_context,
             )
         )
+        units.extend(_build_stk_factor_pro_adj_factor_refresh_units(planner, request, definition, anchor))
     return units
 
 

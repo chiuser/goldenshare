@@ -7,7 +7,9 @@
 1. `core_serving.equity_factor_pro` 改为从 `raw_tushare.stk_factor_pro` 直出的普通 view，不再维护第二份物理 serving 表。
 2. `stk_factor_pro` 执行前增加复权因子门禁：目标交易日必须已经存在 `core.equity_adj_factor` 数据，否则任务直接失败，并提示“先更新复权因子”。
 
-本轮不做受除权事件影响股票的自动历史重刷机制；该能力后续单独设计。
+本轮不做受除权事件影响股票的自动历史重刷机制；该能力由
+[股票技术面因子基于复权因子变化的历史重刷方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-factor-pro-adj-factor-driven-refresh-plan-v1.md)
+承接。
 
 ## 2. 当前事实
 
