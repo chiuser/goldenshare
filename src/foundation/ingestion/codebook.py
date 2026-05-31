@@ -49,6 +49,7 @@ INGESTION_ERROR_CODEBOOK: Final[tuple[IngestionCodebookEntry, ...]] = (
     IngestionCodebookEntry("units_exceeded", "执行单元数量超出限制", "planner", "缩小时间窗口或调整 unit 上限"),
     IngestionCodebookEntry("fanout_missing", "分片参数缺失且无默认值", "planner", "补齐 fanout 参数或配置默认值"),
     IngestionCodebookEntry("trade_date_anchor_required", "缺少交易日锚点", "planner", "补齐 trade_date 或 start/end 区间"),
+    IngestionCodebookEntry("upstream_data_not_ready", "上游依赖数据未就绪", "planner", "先维护依赖数据集后再重试"),
     IngestionCodebookEntry("universe_empty", "规划范围为空", "planner", "检查股票池/板块池或上游基础数据"),
     IngestionCodebookEntry("unknown_universe_policy", "未知的规划范围策略", "planner", "检查 planning.universe_policy 配置"),
     IngestionCodebookEntry("request_builder_not_found", "请求参数构造器不存在", "planner", "检查 source.request_builder_key 与注册函数"),

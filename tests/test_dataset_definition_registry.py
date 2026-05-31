@@ -187,6 +187,11 @@ def test_dataset_definition_projects_stk_factor_pro_subject_completeness_facts()
     definition = get_dataset_definition("stk_factor_pro")
 
     assert definition.storage.target_table == "core_serving.equity_factor_pro"
+    assert definition.storage.serving_table == "core_serving.equity_factor_pro"
+    assert definition.storage.raw_table == "raw_tushare.stk_factor_pro"
+    assert definition.storage.layer_plan == "raw->serving_view"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.planning.unit_builder_key == "build_stk_factor_pro_units"
     assert definition.date_model.observed_field == "trade_date"
     assert definition.completeness.scope == "date_subject_matrix"
     assert definition.completeness.subject_kind == "stock"

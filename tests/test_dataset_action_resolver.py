@@ -317,6 +317,63 @@ def test_cyq_chips_request_builder_requires_ts_code() -> None:
         _cyq_chips_params(request, date(2026, 4, 24), {})
 
 
+def test_stk_factor_pro_requires_adj_factor_before_planning(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.return_value = None
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=SimpleNamespace(trade_calendar=SimpleNamespace()))
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    with pytest.raises(IngestionPlanningError, match="先更新复权因子") as exc_info:
+        resolver.build_plan(request)
+
+    assert exc_info.value.structured_error.error_code == "upstream_data_not_ready"
+
+
+def test_stk_factor_pro_builds_point_unit_after_adj_factor_ready(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.return_value = "000001.SZ"
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=SimpleNamespace(trade_calendar=SimpleNamespace()))
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 4, 24)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.writing.write_path == "raw_only_upsert"
+    assert plan.units[0].request_params == {"trade_date": "20260424"}
+
+
+def test_stk_factor_pro_range_fails_when_any_trade_date_lacks_adj_factor(mocker) -> None:
+    session = mocker.Mock()
+    session.scalar.side_effect = ["000001.SZ", None]
+    fake_dao = SimpleNamespace(
+        trade_calendar=SimpleNamespace(
+            get_open_dates=mocker.Mock(return_value=[date(2026, 4, 23), date(2026, 4, 24)])
+        )
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(session)
+    request = DatasetActionRequest(
+        dataset_key="stk_factor_pro",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2026, 4, 23), end_date=date(2026, 4, 24)),
+    )
+
+    with pytest.raises(IngestionPlanningError, match="先更新复权因子"):
+        resolver.build_plan(request)
+
+    fake_dao.trade_calendar.get_open_dates.assert_called_once()
+
+
 def test_dataset_action_resolver_reports_required_filter_with_display_label(mocker) -> None:
     resolver = DatasetActionResolver(mocker.Mock())
     request = DatasetActionRequest(

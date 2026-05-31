@@ -16,6 +16,7 @@ from src.foundation.ingestion import request_builders
 from src.foundation.ingestion.plan_helpers import build_plan_units, build_unit_id, resolve_enum_combinations, split_multi_values
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.ths_index import ThsIndex
+from src.foundation.models.core_serving.equity_adj_factor import EquityAdjFactor
 from src.foundation.models.raw_multi.raw_biying_stock_basic import RawBiyingStockBasic
 
 
@@ -591,6 +592,41 @@ def _build_index_weight_units(planner: DatasetUnitPlanner, request: ValidatedDat
     )
 
 
+def _ensure_stk_factor_pro_adj_factor_ready(planner: DatasetUnitPlanner, anchor: date | None) -> None:
+    if anchor is None:
+        raise DatasetUnitPlanner._planning_error("trade_date_anchor_required", "股票技术面因子需要明确交易日")
+    stmt = select(EquityAdjFactor.ts_code).where(EquityAdjFactor.trade_date == anchor).limit(1)
+    if planner.session.scalar(stmt) is None:
+        raise DatasetUnitPlanner._planning_error("upstream_data_not_ready", "先更新复权因子")
+
+
+def _build_stk_factor_pro_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
+    request_builder = planner._resolve_request_builder(definition)
+    anchors = planner._resolve_anchors(request, definition)
+    enum_combinations = resolve_enum_combinations(
+        request=request,
+        fields=definition.planning.enum_fanout_fields,
+        missing_field_defaults=definition.planning.enum_fanout_defaults,
+    )
+    units: list[PlanUnitSnapshot] = []
+    for anchor in anchors:
+        _ensure_stk_factor_pro_adj_factor_ready(planner, anchor)
+        units.extend(
+            build_plan_units(
+                request=request,
+                definition=definition,
+                anchors=[anchor],
+                enum_combinations=enum_combinations,
+                request_builder=request_builder,
+                universe_values=planner._resolve_universe_values(request, definition, anchor),
+                pagination_policy_override=definition.planning.pagination_policy,
+                page_limit_override=definition.planning.page_limit,
+                progress_context_builder=planner._build_generic_progress_context,
+            )
+        )
+    return units
+
+
 def _build_stock_basic_units(planner: DatasetUnitPlanner, request: ValidatedDatasetActionRequest, definition: DatasetDefinition) -> list[PlanUnitSnapshot]:
     request_builder = planner._resolve_request_builder(definition)
     source_mode = str(request.source_key or request.params.get("source_key") or definition.source.source_key_default).strip().lower()
@@ -1104,6 +1140,7 @@ _CUSTOM_UNIT_BUILDERS: dict[str, Callable[[DatasetUnitPlanner, ValidatedDatasetA
     "build_index_mins_units": _build_index_mins_units,
     "build_index_weight_units": _build_index_weight_units,
     "build_stock_company_units": _build_stock_company_units,
+    "build_stk_factor_pro_units": _build_stk_factor_pro_units,
     "build_stk_holdernumber_units": _build_holdernumber_units,
     "build_stk_mins_units": _build_stk_mins_units,
     "build_stock_basic_units": _build_stock_basic_units,

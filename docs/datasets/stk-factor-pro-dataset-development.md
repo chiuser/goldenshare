@@ -2,7 +2,7 @@
 
 ## 1. 目标与边界
 
-- 目标：新增 `stk_factor_pro` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 服务层写入与 Ops 任务打通。
+- 目标：新增 `stk_factor_pro` 数据集，完成 Tushare 接口拉取、`raw_tushare` 落库、`core_serving` 服务层直出与 Ops 任务打通。
 - 本期边界：
   - 纳入 `daily_market_close_maintenance` 每日工作流。
   - 支持单日维护与区间维护。
@@ -49,26 +49,26 @@
 
 ### 4.2 服务层
 
-- 表：`core_serving.equity_factor_pro`
-- 主键：`(ts_code, trade_date)`
-- 索引：
-  - `idx_equity_factor_pro_trade_date`
-  - `idx_equity_factor_pro_ts_code_trade_date`
-- 系统字段：`source`, `created_at`, `updated_at`
+- 入口：`core_serving.equity_factor_pro`
+- 形态：普通 view，直接读取 `raw_tushare.stk_factor_pro`
+- 系统字段：view 中补充 `source`, `created_at`, `updated_at`，用于保持现有服务层查询模型可读
+- 写入策略：不再写第二份 serving 物理表，writer 只执行 `raw_only_upsert`
 
 ## 5. 同步策略
 
-### 5.1 日常同步（INCREMENTAL）
+### 5.1 单日维护
 
 - 必传 `trade_date`。
+- 执行前必须先确认当日 `core.equity_adj_factor` 已更新；否则失败并提示“先更新复权因子”。
 - 单交易日请求，内部 `limit/offset` 分页直至无数据。
 
-### 5.2 历史同步（FULL）
+### 5.2 区间维护
 
 - 支持：
   1. 单日（`trade_date`）
   2. 区间（`start_date + end_date`）
 - 区间模式按交易日历扇出到交易日，再逐日分页拉取。
+- 每个目标交易日都必须先通过复权因子门禁。
 - 若区间早于可用起点，返回可读提示，不报错中断。
 
 ## 6. Ops 打通
@@ -85,16 +85,17 @@
 
 ## 7. 测试覆盖
 
-- `tests/test_sync_stk_factor_pro_service.py`
-  - 增量参数校验
-  - 单日分页与写入
-  - 历史同步显式时间校验
+- `tests/test_dataset_action_resolver.py`
+  - 单日/区间执行计划
+  - 复权因子门禁
   - 区间按交易日历扇出
-- `tests/test_sync_registry.py`
-  - 资源注册校验
+- `tests/test_dataset_definition_registry.py`
+  - DatasetDefinition 存储口径、时间模型、完整性口径
+- `tests/test_dataset_runtime_registry.py`
+  - runtime registry 注册校验
 - `tests/test_ops_action_catalog.py` / `tests/web/test_ops_catalog_api.py`
   - action catalog 参数契约与目录输出
 - `tests/test_fields_constants.py`
   - `STK_FACTOR_PRO_FIELDS` 常量覆盖
-- `tests/test_extended_models.py`
-  - `equity_factor_pro` 主键与索引
+- `tests/test_dataset_writer_stk_factor_pro.py`
+  - 只写 raw DAO，不写 serving DAO
