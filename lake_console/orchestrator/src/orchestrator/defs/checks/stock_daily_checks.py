@@ -290,6 +290,76 @@ def raw_stock_daily_partition_date_matches(
     )
 
 
+def _raw_duplicate_key_metadata(
+    connection,
+    *,
+    raw_path: Path,
+) -> dict[str, Any]:
+    duplicate_sql = f"""
+    SELECT ts_code, trade_date, count(*) AS duplicate_row_count
+    FROM {read_parquet(raw_path, hive_partitioning=False)}
+    GROUP BY ts_code, trade_date
+    HAVING count(*) > 1
+    """
+    duplicate_key_count = int(
+        connection.execute(
+            f"SELECT count(*) FROM ({duplicate_sql}) duplicate_keys"
+        ).fetchone()[0]
+    )
+    duplicate_extra_row_count = int(
+        connection.execute(
+            f"""
+            SELECT COALESCE(sum(duplicate_row_count - 1), 0)
+            FROM ({duplicate_sql}) duplicate_keys
+            """
+        ).fetchone()[0]
+    )
+    rows = connection.execute(
+        f"""
+        {duplicate_sql}
+        ORDER BY ts_code, trade_date
+        LIMIT 20
+        """
+    ).fetchall()
+    return {
+        "duplicate_key_count": duplicate_key_count,
+        "duplicate_extra_row_count": duplicate_extra_row_count,
+        "duplicate_sample_rows": _sample_dicts(
+            ["ts_code", "trade_date", "duplicate_row_count"], rows
+        ),
+    }
+
+
+@dg.asset_check(
+    asset=raw_tushare_stock_daily,
+    blocking=True,
+)
+def raw_stock_daily_unique_ts_code_trade_date(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    path = raw_stock_daily_path(lake_root.root(), partition_key)
+    if not path.exists():
+        return _missing_file_result(path)
+
+    with duckdb.connect() as connection:
+        metadata = _raw_duplicate_key_metadata(connection, raw_path=path)
+
+    return dg.AssetCheckResult(
+        passed=metadata["duplicate_key_count"] == 0,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            extra_metadata={
+                "file_path": str(path),
+                "partition_key": partition_key,
+                **metadata,
+            },
+        ),
+    )
+
+
 @dg.asset_check(
     asset=silver_stock_daily,
     blocking=True,
@@ -814,6 +884,7 @@ def _expected_tradable_universe_metadata(
     daily_path: Path,
     basic_path: Path,
     suspend_path: Path,
+    daily_code_set_sql: str,
 ) -> dict[str, Any]:
     universe_cte = f"""
     WITH listed AS (
@@ -854,9 +925,7 @@ def _expected_tradable_universe_metadata(
       FROM full_day_suspended
     ),
     daily AS (
-      SELECT DISTINCT ts_code
-      FROM {read_parquet(daily_path, hive_partitioning=False)}
-      WHERE trade_date = DATE '{partition_key}'
+      {daily_code_set_sql}
     ),
     missing AS (
       SELECT expected.ts_code
@@ -953,6 +1022,99 @@ def _expected_tradable_universe_metadata(
     }
 
 
+def _raw_daily_code_set_sql(raw_path: Path, partition_key: str) -> str:
+    return f"""
+      SELECT DISTINCT ts_code
+      FROM {read_parquet(raw_path, hive_partitioning=False)}
+      WHERE CAST(strptime(trade_date, '%Y%m%d') AS DATE) = DATE '{partition_key}'
+    """
+
+
+def _silver_daily_code_set_sql(daily_path: Path, partition_key: str) -> str:
+    return f"""
+      SELECT DISTINCT ts_code
+      FROM {read_parquet(daily_path, hive_partitioning=False)}
+      WHERE trade_date = DATE '{partition_key}'
+    """
+
+
+@dg.asset_check(
+    asset=raw_tushare_stock_daily,
+    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
+    blocking=True,
+)
+def raw_stock_daily_row_count_matches_expected_tradable_count(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    daily_path = raw_stock_daily_path(lake_root.root(), partition_key)
+    basic_path = silver_stock_basic_path(lake_root.root())
+    suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
+    for path in (daily_path, basic_path, suspend_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    with duckdb.connect() as connection:
+        metadata = _expected_tradable_universe_metadata(
+            connection,
+            partition_key=partition_key,
+            daily_path=daily_path,
+            basic_path=basic_path,
+            suspend_path=suspend_path,
+            daily_code_set_sql=_raw_daily_code_set_sql(daily_path, partition_key),
+        )
+
+    return dg.AssetCheckResult(
+        passed=metadata["daily_count"] == metadata["expected_count"],
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            extra_metadata=metadata,
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=raw_tushare_stock_daily,
+    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
+    blocking=True,
+)
+def raw_stock_daily_covers_expected_tradable_universe(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    daily_path = raw_stock_daily_path(lake_root.root(), partition_key)
+    basic_path = silver_stock_basic_path(lake_root.root())
+    suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
+    for path in (daily_path, basic_path, suspend_path):
+        if not path.exists():
+            return _missing_file_result(path)
+
+    with duckdb.connect() as connection:
+        metadata = _expected_tradable_universe_metadata(
+            connection,
+            partition_key=partition_key,
+            daily_path=daily_path,
+            basic_path=basic_path,
+            suspend_path=suspend_path,
+            daily_code_set_sql=_raw_daily_code_set_sql(daily_path, partition_key),
+        )
+
+    return dg.AssetCheckResult(
+        passed=(
+            metadata["unexplained_missing_count"] == 0
+            and metadata["unexplained_extra_count"] == 0
+        ),
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            extra_metadata=metadata,
+        ),
+    )
+
+
 @dg.asset_check(
     asset=silver_stock_daily,
     additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
@@ -978,6 +1140,7 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
             daily_path=daily_path,
             basic_path=basic_path,
             suspend_path=suspend_path,
+            daily_code_set_sql=_silver_daily_code_set_sql(daily_path, partition_key),
         )
 
     return _warn_result(
@@ -1011,6 +1174,7 @@ def silver_stock_daily_covers_expected_tradable_universe(
             daily_path=daily_path,
             basic_path=basic_path,
             suspend_path=suspend_path,
+            daily_code_set_sql=_silver_daily_code_set_sql(daily_path, partition_key),
         )
 
     return _warn_result(

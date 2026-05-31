@@ -1112,7 +1112,8 @@ def silver_stock_suspend_daily(context, lake_root, duckdb):
     <p>
       本 LLD 的 stock daily 口径以 <code>dagster-stock-daily-migration-low-level-design.html</code> 为准。
       <code>raw_tushare_stock_daily</code> 保持源镜像，不做股票池过滤；
-      <code>silver_stock_daily</code> 才生成后续市场宽度消费的标准事实分区。
+      <code>silver_stock_daily</code> 才生成后续市场宽度消费的标准事实分区。raw 层虽然不做业务过滤，
+      但必须通过 blocking checks 验证 Tushare 当日返回是否覆盖“当前上市且非全日停牌”的预期可交易股票池。
     </p>
     <pre><code>current_listed_universe:
   silver_stock_basic
@@ -1162,6 +1163,24 @@ intraday_suspended:
         </tr>
         </thead>
         <tbody>
+        <tr>
+          <td><code>raw_stock_daily_unique_ts_code_trade_date</code></td>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td>-</td>
+          <td>blocking；raw 内部 <code>ts_code + trade_date</code> 必须唯一，避免重复行掩盖覆盖率问题。</td>
+        </tr>
+        <tr>
+          <td><code>raw_stock_daily_row_count_matches_expected_tradable_count</code></td>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
+          <td>blocking；raw 当日 distinct <code>ts_code</code> 数量必须等于当前上市股票池减全日停牌股票后的预期数量。</td>
+        </tr>
+        <tr>
+          <td><code>raw_stock_daily_covers_expected_tradable_universe</code></td>
+          <td><code>raw_tushare_stock_daily</code></td>
+          <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
+          <td>blocking；raw 当日不得缺少预期可交易股票，也不得多出非预期股票；全日停牌可解释缺失，盘中停牌不能解释缺失。</td>
+        </tr>
         <tr>
           <td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td>
           <td><code>silver_stock_daily</code></td>

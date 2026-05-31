@@ -60,11 +60,14 @@ SILVER_SUSPEND_D_CHECKS = (
     "silver_suspend_d_unique_business_key",
 )
 RAW_STOCK_DAILY_CHECKS = (
+    "raw_stock_daily_covers_expected_tradable_universe",
     "raw_stock_daily_file_exists",
     "raw_stock_daily_partition_date_matches",
     "raw_stock_daily_required_columns",
+    "raw_stock_daily_row_count_matches_expected_tradable_count",
     "raw_stock_daily_row_count_positive",
     "raw_stock_daily_stock_partition_key_allowed",
+    "raw_stock_daily_unique_ts_code_trade_date",
 )
 SILVER_STOCK_DAILY_BLOCKING_CHECKS = (
     "silver_stock_daily_after_list_date_only",
