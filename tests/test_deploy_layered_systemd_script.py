@@ -18,6 +18,20 @@ def test_deploy_script_manages_task_completion_worker_for_foundation_or_ops_laye
     assert 'print_service_status "${TASK_COMPLETION_WORKER_SERVICE}"' in script
 
 
+def test_deploy_script_loads_runtime_env_before_cli_self_checks() -> None:
+    script = (ROOT / "scripts" / "deploy-layered-systemd.sh").read_text(encoding="utf-8")
+
+    assert "load_runtime_env() {" in script
+    assert (
+        'log "9/12 Foundation 自检"\n'
+        "  load_runtime_env\n"
+        "  .venv/bin/goldenshare list-resources >/dev/null\n"
+        "\n"
+        '  log "10/12 Ops 自检"\n'
+        "  .venv/bin/goldenshare ops-reconcile-task-runs --stale-for-minutes 30 >/dev/null"
+    ) in script
+
+
 def test_sudoers_allows_task_completion_worker_deploy_commands() -> None:
     sudoers = (ROOT / "scripts" / "goldenshare-deploy.sudoers").read_text(encoding="utf-8")
 

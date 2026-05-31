@@ -173,6 +173,13 @@ ensure_runtime_ready() {
   require_file "${REPO_DIR}/.venv/bin/goldenshare"
 }
 
+load_runtime_env() {
+  set -a
+  # shellcheck disable=SC1090
+  source "${ENV_FILE}"
+  set +a
+}
+
 restart_layer_services() {
   local layer="$1"
   case "${layer}" in
@@ -290,9 +297,7 @@ main() {
 
   if [[ "${RUN_DB_MIGRATION}" == "1" ]]; then
     log "5/12 执行数据库迁移"
-    set -a
-    source "${ENV_FILE}"
-    set +a
+    load_runtime_env
     .venv/bin/goldenshare init-db
   else
     log "5/12 跳过数据库迁移（RUN_DB_MIGRATION=0）"
@@ -300,9 +305,7 @@ main() {
 
   if [[ "${RUN_DEFAULT_SINGLE_SOURCE_SEED}" == "1" ]]; then
     log "6/12 检测默认单源规则缺失（source=${DEFAULT_SINGLE_SOURCE_SEED_KEY}）"
-    set -a
-    source "${ENV_FILE}"
-    set +a
+    load_runtime_env
     seed_preview="$(
       .venv/bin/goldenshare ops-seed-default-single-source --source-key "${DEFAULT_SINGLE_SOURCE_SEED_KEY}"
     )"
@@ -323,9 +326,7 @@ main() {
 
   if [[ "${RUN_MONEYFLOW_MULTI_SOURCE_SEED}" == "1" ]]; then
     log "7/12 检测 moneyflow 多源融合骨架"
-    set -a
-    source "${ENV_FILE}"
-    set +a
+    load_runtime_env
     moneyflow_preview="$(
       .venv/bin/goldenshare ops-seed-moneyflow-multi-source
     )"
@@ -377,6 +378,7 @@ main() {
   fi
 
   log "9/12 Foundation 自检"
+  load_runtime_env
   .venv/bin/goldenshare list-resources >/dev/null
 
   log "10/12 Ops 自检"
