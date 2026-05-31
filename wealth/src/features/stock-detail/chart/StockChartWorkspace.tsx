@@ -664,13 +664,12 @@ function KlineMetrics({ point, overlay }: { point: StockCandlePoint; overlay: St
 }
 
 function KlineTooltip({ point, side }: { point: StockCandlePoint; side: "left" | "right" }) {
-  const candleTone = directionClass(resolveValueDirection(point.changePct));
   const rows: Array<[string, string, string]> = [
     ["时间", point.fullDate.replaceAll("-", ""), "secondary"],
-    ["开盘", formatTooltipNumber(point.open), candleTone],
-    ["收盘", formatTooltipNumber(point.close), candleTone],
-    ["最高", formatTooltipNumber(point.high), candleTone],
-    ["最低", formatTooltipNumber(point.low), candleTone],
+    ["开盘", formatTooltipNumber(point.open), directionClass(resolvePriceDirection(point.open, point.preClose))],
+    ["收盘", formatTooltipNumber(point.close), directionClass(resolvePriceDirection(point.close, point.open, { equalAsDown: true }))],
+    ["最高", formatTooltipNumber(point.high), directionClass(resolvePriceDirection(point.high, point.open, { equalAsDown: true }))],
+    ["最低", formatTooltipNumber(point.low), directionClass(resolvePriceDirection(point.low, point.preClose, { equalAsDown: true }))],
     ["涨幅", `${formatTooltipNumber(point.changePct)}%`, directionClass(resolveValueDirection(point.changePct))],
     ["振幅", `${formatTooltipNumber(point.amplitude)}%`, "secondary"],
     ["成交量", formatTooltipVolume(point.volume), "secondary"],
@@ -689,6 +688,13 @@ function KlineTooltip({ point, side }: { point: StockCandlePoint; side: "left" |
       </div>
     </div>
   );
+}
+
+function resolvePriceDirection(value: number, base: number, options: { equalAsDown?: boolean } = {}): MarketDirection {
+  if (!Number.isFinite(value) || !Number.isFinite(base)) return "UNKNOWN";
+  if (value > base) return "UP";
+  if (value < base) return "DOWN";
+  return options.equalAsDown ? "DOWN" : "FLAT";
 }
 
 function resolveValueDirection(value: number): MarketDirection {
