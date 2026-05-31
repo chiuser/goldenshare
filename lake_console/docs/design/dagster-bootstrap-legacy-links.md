@@ -103,6 +103,7 @@
 - 写入时显式归一日期字段和 `created_at` 类型，并验证行数为正、字段顺序符合 `SILVER_STOCK_IDENTITY_MAP_SCHEMA`。
 - M3 已写入 `silver_stock_identity_map` full snapshot：`6089` 行；已补录 1 个 runless materialization 与 9 个 blocking check events，最终 checks 均为 `succeeded=1, failed=0`。
 - 长期生成逻辑后续必须由新湖基础事实重建，不允许继续把旧湖 manifest 作为日常依赖。
+- 独立维护方案见 `docs/design/dagster-stock-identity-map-design.md`；本文件只记录旧湖 bootstrap 链路和退场边界。
 
 ## 清理门禁
 

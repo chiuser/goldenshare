@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 待实现 Tushare <code>merge_repair</code> 受控修复模式。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -537,6 +537,10 @@
       <code>silver_stock_identity_map</code> 是股票代码身份归一资产。它解决“同一只股票历史上可能出现过多个交易代码”的问题，
       让分钟线、日线、停复牌、复权因子在 silver/gold 层使用同一套标准代码口径。
     </p>
+    <p>
+      本节保留分钟线视角下的依赖说明；<code>silver_stock_identity_map</code> 的独立维护方案以后以
+      <code>docs/design/dagster-stock-identity-map-design.md</code> 为准。
+    </p>
 
     <h3>6.1 业务职责</h3>
     <ul>
@@ -675,7 +679,8 @@
     <h3>M4B 已落地的 prod DB raw 默认日常与补数入口</h3>
     <p>
       <code>stk_mins</code> raw 允许同时具备 Tushare 拉取与 prod DB 只读抽取两种能力。prod DB 入口已经升级为默认日常同步入口，
-      同时继续服务近期缺口补齐和 repair；它不是历史 baseline 的替代来源，也不得绕开新湖 raw checks。
+      同时继续服务近期缺口补齐和经审批的 prod DB 人工补数；它不是历史 baseline 的替代来源，也不得绕开新湖 raw checks。
+      <code>merge_repair</code> 专指 M4C 的 Tushare 受控修复模式，不能与 prod DB 补数在同一次 run 中混用。
     </p>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
@@ -721,6 +726,95 @@
       <li>补测试与门禁：覆盖 prod 抽取 SQL 不使用 <code>SELECT *</code>、不导出系统字段、目标已存在复用、坏目标拒绝覆盖、五频度 job selection、raw checks 仍复用同名 checks。</li>
       <li>执行计划单独审批：任何正式 prod 补数必须先列 dry-run、小样本、全量命令，包含日期范围、股票数量、频度、预计查询次数、预计写入文件数和回滚方式。</li>
     </ol>
+
+    <h3>M4C 待实现的 Tushare merge_repair 受控修复模式</h3>
+    <p>
+      M4/M4B 的默认写入策略是为了日常安全：目标 raw 分区文件已存在且 checks 通过时直接复用，不重复请求源站，不覆盖历史 baseline。
+      这个策略不能作为唯一能力，否则少量历史坏行无法通过 Dagster 正式链路修复。
+      M4C 需要在同一套 <code>raw_stk_mins_*</code> assets 内增加受控 <code>merge_repair</code> 模式，不新增平行 asset，不另起临时 job 分支，不绕开 raw checks。
+    </p>
+
+    <h4>Config schema 与 Launchpad Scaffold 口径</h4>
+    <p>
+      <code>write_mode</code> 必须设计为 Dagster <code>Selector</code>，而不是简单字符串。
+      目的不是让运营记住一堆散落 key，而是让 Launchpad schema 明确知道 <code>merge_repair</code> 分支下面有哪些字段。
+      用户在 UI 中选择或编辑为 <code>merge_repair</code> 分支后，Scaffold / schema panel 必须能展示并补齐 <code>stock_codes</code>、<code>start_time</code>、<code>end_time</code> 结构；如果本地 Dagster 1.13.6 UI 验证做不到这一点，M4C 不得继续按此口径上线，必须重新设计。
+    </p>
+    <pre><code># 日常安全模式：只选择 reuse_existing 分支，不需要额外参数。
+ops:
+  raw_stk_mins_1m:
+    config:
+      source: tushare
+      write_mode:
+        reuse_existing: {}
+
+# 人工修复模式：只选择 merge_repair 分支，修复参数写在该分支下面。
+ops:
+  raw_stk_mins_1m:
+    config:
+      source: tushare
+      write_mode:
+        merge_repair:
+          stock_codes:
+            - 000030.SZ
+          start_time: "09:00:00"
+          end_time: "19:00:00"</code></pre>
+
+    <ul>
+      <li><code>write_mode</code> 同一时间只能选择一个分支；<code>reuse_existing</code> 与 <code>merge_repair</code> 不能同时出现。</li>
+      <li><code>reuse_existing: {}</code> 表示日常安全模式：已有合格文件直接复用，目标不存在才按正常来源生成。</li>
+      <li><code>merge_repair</code> 表示人工修复模式：只修指定股票、当前 asset 频度、当前 partition 日期和指定时间窗口。</li>
+      <li><code>stock_codes</code> 必须是非空列表；禁止把全市场股票池塞进 repair 分支。</li>
+      <li><code>start_time</code>、<code>end_time</code> 使用 <code>HH:MM:SS</code>，日期来自 asset partition key，不允许在 config 里另填一个会与 partition 冲突的 trade date。</li>
+      <li>第一版 <code>merge_repair</code> 只允许 <code>source=tushare</code>；prod DB 近期补数继续走 <code>stock_mins_raw_update_from_prod_job</code> 的日常/缺口口径，不与 Tushare repair 在同一次 run 中混用。</li>
+    </ul>
+
+    <h4>修复写入算法</h4>
+    <ol>
+      <li>根据当前 asset 名称确定频度，例如 <code>raw_stk_mins_1m</code> 只能修 <code>1min</code>，不得通过 config 越权修其它频度。</li>
+      <li>根据 partition key 和 <code>start_time/end_time</code> 生成 Tushare 请求窗口，例如 <code>2016-12-19 09:00:00</code> 至 <code>2016-12-19 19:00:00</code>。</li>
+      <li>对 <code>stock_codes</code> 中每个代码调用 Tushare <code>stk_mins</code>，字段固定为 <code>ts_code,trade_time,open,close,high,low,vol,amount,freq,exchange,vwap</code>。</li>
+      <li>若任一指定股票返回 0 行，repair run 必须失败；不能静默认为“修好了”。</li>
+      <li>读取现有目标文件 <code>raw/tushare/stk_mins/freq={freq}/trade_date={partition_key}/part-000.parquet</code>；repair 目标文件必须已存在且能通过基础 schema 校验，缺文件场景走正常历史迁移或正常 raw 更新，不用 repair 模式临时造整日文件。</li>
+      <li>把 Tushare 返回行归一到 raw schema，并校验所有返回行都属于指定 <code>stock_codes</code>、当前 asset 频度、当前 partition 日期和请求时间窗口。</li>
+      <li>合并时只替换返回结果覆盖到的 <code>ts_code + trade_time</code> 键；如果原文件没有这些键，则追加新行。不得删除同股票同窗口内 Tushare 未返回的其它已有行，避免一次不完整源站响应扩大损坏范围。</li>
+      <li>合并后按 <code>ts_code, trade_time</code> 排序，写入临时 parquet，再用原子替换更新 <code>part-000.parquet</code>。</li>
+      <li>修复 run 必须产生正常 Dagster materialization 和 blocking check events；不得使用 runless event 伪装本次修复，也不得只写文件不让 UI/readiness 更新。</li>
+    </ol>
+
+    <h4>禁止事项与安全边界</h4>
+    <ul>
+      <li>禁止用 <code>merge_repair</code> 覆盖整个交易日分区、整频度分区或全市场股票池。</li>
+      <li>禁止在 sensor、schedule、automation 中自动生成 <code>merge_repair</code> run；该模式只允许人工明确指定。</li>
+      <li>禁止把 <code>merge_repair</code> 用作历史缺口 backfill 主路径；历史缺口仍需单独列范围、请求量、耗时和回滚方式。</li>
+      <li>禁止在 repair 中同时读取 Tushare 与 prod DB；一次 run 只能有一个来源。</li>
+      <li>禁止 repair 绕过 raw checks；合并后七个 raw blocking checks 必须继续执行，失败时该分区不能被视为 ready。</li>
+      <li>禁止把 repair 专用的股票代码、时间窗口、返回行数写成 run tags；它们属于 run config 或 materialization/check metadata，不属于分类 tag。</li>
+    </ul>
+
+    <h4>本次 18 号审计问题的 repair 示例</h4>
+    <p>
+      <code>18_reaudit_price_relation_needs_external_0930_1m.csv</code> 中剩余 6 个股票-日期组合，本地 raw 1m 与 prod DB 均查不到对应股票当天 1m 行。
+      因此应通过 M4C 的 Tushare <code>merge_repair</code> 模式按日期分别补 <code>raw_stk_mins_1m</code>，再重新审计粗频度 <code>09:30</code> 价格关系。
+    </p>
+    <table>
+      <tr><th>股票代码</th><th>名称</th><th>日期</th><th>目标 asset</th><th>repair 窗口</th></tr>
+      <tr><td><code>000030.SZ</code></td><td>富奥股份</td><td><code>2016-12-19</code></td><td><code>raw_stk_mins_1m</code></td><td><code>09:00:00</code> 至 <code>19:00:00</code></td></tr>
+      <tr><td><code>002815.SZ</code></td><td>崇达技术</td><td><code>2016-12-29</code></td><td><code>raw_stk_mins_1m</code></td><td><code>09:00:00</code> 至 <code>19:00:00</code></td></tr>
+      <tr><td><code>002815.SZ</code></td><td>崇达技术</td><td><code>2016-12-30</code></td><td><code>raw_stk_mins_1m</code></td><td><code>09:00:00</code> 至 <code>19:00:00</code></td></tr>
+      <tr><td><code>000858.SZ</code></td><td>五粮液</td><td><code>2017-01-13</code></td><td><code>raw_stk_mins_1m</code></td><td><code>09:00:00</code> 至 <code>19:00:00</code></td></tr>
+      <tr><td><code>000858.SZ</code></td><td>五粮液</td><td><code>2017-01-19</code></td><td><code>raw_stk_mins_1m</code></td><td><code>09:00:00</code> 至 <code>19:00:00</code></td></tr>
+      <tr><td><code>000858.SZ</code></td><td>五粮液</td><td><code>2017-01-23</code></td><td><code>raw_stk_mins_1m</code></td><td><code>09:00:00</code> 至 <code>19:00:00</code></td></tr>
+    </table>
+
+    <h4>M4C 验收门禁</h4>
+    <ul>
+      <li>Launchpad / Config Editor 中，<code>write_mode</code> 必须按 Selector 展示 <code>reuse_existing</code> 与 <code>merge_repair</code> 两个互斥分支。</li>
+      <li>选择 <code>merge_repair</code> 分支后，Scaffold 或 schema panel 必须能生成/展示 <code>stock_codes</code>、<code>start_time</code>、<code>end_time</code>。</li>
+      <li>单元测试必须覆盖：默认 <code>reuse_existing</code> 不重复请求、<code>merge_repair</code> 只替换返回键、双分支同时出现被拒绝、空股票列表被拒绝、目标文件缺失被拒绝、Tushare 返回 0 行被拒绝。</li>
+      <li>静态门禁必须确认 sensor 不会写 <code>merge_repair</code> config，且 run tags 不承载 repair 参数。</li>
+      <li>针对 6 个历史样本，repair 后必须复核 <code>raw_stk_mins_1m</code> 存在对应 <code>09:30:00</code> 行，并使 <code>18_reaudit_price_relation_needs_external_0930_1m.csv</code> 归零或只剩明确不可修复样本。</li>
+    </ul>
   </section>
 
   <section>
@@ -740,12 +834,22 @@
     <h3>8.2 停复牌口径</h3>
     <ul>
       <li>不能要求 silver stk_mins 与 <code>silver_stock_daily</code> 每日股票集合完全相等。</li>
-      <li>预期股票集合应按以下口径判断：<code>silver_stock_daily[trade_date]</code> 中有行情的股票，加上 <code>silver_stock_suspend_daily[trade_date]</code> 中可解释停牌的股票。</li>
-      <li>raw clean_next 中可由停牌表解释的结构行允许进入 silver，不作为缺失或脏数据。</li>
+      <li>silver 输出股票集合以 <code>silver_stock_daily[trade_date]</code> 中有行情的股票为主；全日停牌日期的数据不进入 silver 分钟线。</li>
+      <li><code>silver_stock_suspend_daily[trade_date]</code> 只用于解释 raw 中为什么会出现停牌结构行，或解释为什么某只上市股票当天没有日线和分钟线；它不是 silver 输出行的保留依据。</li>
+      <li>raw clean_next 中可由停牌表解释的 OHLC 全 0 结构行，silver 生成时删除，不作为异常写入 silver。</li>
       <li>不在 stock daily 中、也不在 suspend_d 中、且无法被身份映射解释的股票，进入待审计差异，不直接写成 green。</li>
     </ul>
 
-    <h3>8.3 字段契约</h3>
+    <h3>8.3 价格修复口径</h3>
+    <ul>
+      <li>silver 层不允许 <code>open/high/low/close</code> 出现 0、负数或空值；这比 raw 层更严格。</li>
+      <li>如果 <code>5/15/30/60</code> 分钟频度出现 OHLC 全 0，且同一股票同一交易日存在可用 <code>1m</code> 数据，则不直接失败，按 <code>1m</code> 重新聚合生成对应频度 bar。</li>
+      <li>从 <code>1m</code> 重算粗频度时，窗口内 <code>open</code> 取第一根，<code>close</code> 取最后一根，<code>high=max(high)</code>，<code>low=min(low)</code>，<code>vol=sum(vol)</code>，<code>amount=sum(amount)</code>。</li>
+      <li>如果 <code>1m</code> 自身缺失、<code>1m</code> 自身价格异常，或粗频度不能被 <code>1m</code> 重算解释，则进入 blocking check failure，不静默修复。</li>
+      <li>价格关系必须满足 <code>high >= low</code>，且 <code>open/close</code> 必须落在 <code>[low, high]</code> 内；粗频度价格关系异常优先尝试用 <code>1m</code> 重算修复，不能修复时失败。</li>
+    </ul>
+
+    <h3>8.4 字段契约</h3>
     <table>
       <tr><th>字段</th><th>类型</th><th>说明</th></tr>
       <tr><td><code>ts_code</code></td><td><code>VARCHAR</code></td><td>标准化后的股票代码。</td></tr>
@@ -755,8 +859,7 @@
       <tr><td><code>open</code> / <code>high</code> / <code>low</code> / <code>close</code></td><td><code>DOUBLE</code></td><td>未复权价格。</td></tr>
       <tr><td><code>vol</code></td><td><code>DOUBLE</code></td><td>成交量；历史 raw 可能是整数，silver 统一为数值契约。</td></tr>
       <tr><td><code>amount</code></td><td><code>DOUBLE</code></td><td>成交额。</td></tr>
-      <tr><td><code>exchange</code></td><td><code>VARCHAR</code></td><td>交易所。</td></tr>
-      <tr><td><code>vwap</code></td><td><code>DOUBLE</code></td><td>成交均价。</td></tr>
+      <tr><td><code>exchange</code></td><td><code>VARCHAR</code></td><td>标准交易所代码，按股票代码后缀归一：<code>.SH -> SSE</code>，<code>.SZ -> SZSE</code>，<code>.BJ -> BSE</code>。</td></tr>
     </table>
 
     <div class="note">
@@ -765,15 +868,49 @@
       默认建议不放入正式主字段，避免破坏 clean_next 面向计算的简洁 schema；映射统计和样本写入 materialization/check metadata。
     </div>
 
-    <h3>8.4 Silver checks</h3>
+    <div class="note">
+      <strong>vwap 口径：</strong>
+      当前审计显示 raw <code>vwap</code> 异常量过大，且 silver 主要消费目标是标准化 OHLCV 与后续 qfq 计算。
+      因此 silver 主字段契约不保留 <code>vwap</code>；raw 中的 <code>vwap</code> 只作为源事实保留，不进入 silver blocking 口径。
+      如果未来确实需要成交均价，应单独设计派生字段或 gold/feature 层指标，不回到本 silver 主表里临时补一列。
+    </div>
+
+    <h3>8.5 Silver checks</h3>
     <ul>
       <li>schema 与字段类型一致。</li>
       <li><code>freq</code>、<code>trade_date</code>、<code>trade_time</code> 与分区一致。</li>
       <li><code>ts_code + trade_time</code> 唯一。</li>
       <li>标准代码必须存在于 <code>silver_stock_basic</code> 当前上市股票池，或被设计文档明确允许。</li>
       <li>代码集合差异必须能被 <code>stock_daily</code>、<code>suspend_d</code>、identity map 三类口径解释。</li>
+      <li>全日停牌结构行不得进入 silver；可由 <code>silver_stock_suspend_daily</code> 解释的 raw 全 0 行应被删除。</li>
+      <li>非停牌粗频度全 0 或价格关系异常，必须由同股票同日期 <code>1m</code> 数据重算修复；不能重算的进入 blocking failure。</li>
+      <li><code>exchange</code> 必须按后缀归一为 <code>SSE/SZSE/BSE</code>；未知后缀或无法归一必须失败。</li>
+      <li><code>vol</code>、<code>amount</code> 不允许负数；<code>vol=0</code> 且 <code>amount!=0</code>、或 <code>vol>0</code> 且 <code>amount<=0</code> 这类自相矛盾行必须失败。</li>
+      <li><code>vwap</code> 不属于 silver 主字段，不作为 silver check 对象。</li>
       <li>不可解释差异必须作为 blocking check failure，不能静默落入 silver。</li>
     </ul>
+
+    <h3>8.6 严格审计结论</h3>
+    <p>
+      本轮只读审计输出目录为
+      <code>lake_console/reports/stk_mins_silver_audit_20260530/</code>，审计范围为 <code>2014-01-01</code> 之后的新湖 raw 五频度分钟线。
+      这些结论用于指导 silver 设计，不代表 silver 资产已经生成。
+    </p>
+    <table>
+      <tr><th>检查视角</th><th>审计结论</th><th>silver 处理口径</th></tr>
+      <tr><td>分区覆盖</td><td><code>15,070</code> 个 freq-date 分区均为 <code>ok</code>。</td><td>可作为 silver 历史输入集合。</td></tr>
+      <tr><td>时间字段</td><td><code>null_trade_time_count=0</code>，<code>partition_date_mismatch_count=0</code>。</td><td>不采用固定交易时间网格拦截，不把 <code>15:30</code> 等扩展时间直接判错。</td></tr>
+      <tr><td>exchange</td><td>股票代码后缀均可归一，<code>suffix_unmapped_count=0</code>；raw 既有 exchange 大量缺失或与新口径不同。</td><td>silver 不继承 raw exchange，统一按后缀写 <code>SSE/SZSE/BSE</code>。</td></tr>
+      <tr><td>停牌全 0</td><td>OHLC 全 0 共 <code>4,004,647</code> 行，其中 <code>3,997,028</code> 行能匹配停牌表。</td><td>匹配停牌表的全 0 行从 silver 删除。</td></tr>
+      <tr><td>非停牌粗频度全 0</td><td>未匹配停牌的 OHLC 全 0 为 <code>7,619</code> 行、<code>1,828</code> 个股票-日期组合，全部集中在 <code>5/15/30/60</code>，且全部有可用 <code>1m</code> 数据。</td><td>通过 <code>1m</code> 重算对应粗频度 bar；明细文件为 <code>12_all_ohlc_zero_without_suspend.csv</code>。</td></tr>
+      <tr><td>局部价格为 0</td><td>非全 0 的价格异常共 <code>6,122</code> 行；其中 <code>5,770</code> 行可被停牌解释，剩余 <code>352</code> 行、<code>95</code> 个股票-日期组合未被停牌解释。</td><td>停牌部分删除；非停牌部分优先用 <code>1m</code> 重算粗频度，<code>1m</code> 自身异常必须失败并人工分析。</td></tr>
+      <tr><td>价格关系</td><td>价格关系异常 <code>15,611</code> 行；主要是粗频度 <code>open_outside_range</code>。非停牌粗频度异常绝大多数有可用 <code>1m</code>，但每个粗频度仍有少量不可由正价 <code>1m</code> 解释的股票-日期组合。</td><td>先按 <code>1m</code> 重算；不能重算的作为 blocking failure。</td></tr>
+      <tr><td>vol/amount/vwap</td><td><code>vwap</code> 类异常约 <code>3,097,542</code> 行；真正不依赖 <code>vwap</code> 的 <code>vol/amount</code> 矛盾为 <code>197</code> 行。</td><td><code>vwap</code> 不进入 silver 主字段；<code>vol/amount</code> 自相矛盾行必须失败。</td></tr>
+      <tr><td>身份映射</td><td>本轮按要求未重复审计 identity mapping，因为 <code>silver_stock_identity_map</code> 已另行补充，后续 silver 开发前必须重新跑一次映射专项审计。</td><td>silver 生成必须依赖最新 <code>silver_stock_identity_map</code>，不能使用旧湖 manifest。</td></tr>
+      <tr><td>映射后重复</td><td><code>conflicting_duplicate_group_count=0</code>。</td><td>若后续重新审计仍为 0，可按标准代码去重；出现冲突时失败。</td></tr>
+      <tr><td>日线/停牌 universe</td><td><code>raw_code_not_in_daily_or_suspend_count=0</code>；<code>daily_code_not_in_mapped_raw_count</code> 仍存在，说明日线中有些股票当天没有 raw 分钟线。</td><td>分钟线不要求覆盖日线所有股票；缺失项只作为覆盖观测，不直接阻断，除非后续定义了必须覆盖的股票池。</td></tr>
+      <tr><td>名称时间线</td><td><code>missing_name_count=0</code>。</td><td>名称解释已具备，不作为当前阻塞项。</td></tr>
+    </table>
   </section>
 
   <section>
@@ -797,7 +934,7 @@
     <ul>
       <li>gold 行数与对应 silver 分区一致。</li>
       <li><code>ts_code + trade_time</code> 唯一。</li>
-      <li>qfq 后价格非负；停牌结构行按 silver 允许口径处理。</li>
+      <li>qfq 后价格非负；由于 silver 不保留全日停牌结构行，gold 也不重新生成这类行。</li>
       <li>每个 <code>ts_code + trade_date</code> 都能找到 <code>silver_adj_factor</code>。</li>
       <li>抽样复算 qfq 公式，确认 open/high/low/close 一致。</li>
     </ul>
@@ -826,8 +963,8 @@
       </tr>
       <tr>
         <td><code>stock_mins_raw_update_from_prod_job</code></td>
-        <td>从 prod DB 只读抽取单日五频度 raw 分区，用于近期缺口补齐或 repair。</td>
-        <td>已实现；写同一套 raw assets，不新增平行资产；不启用自动 sensor；执行前必须单独审批范围和回滚方式。</td>
+        <td>从 prod DB 只读抽取单日五频度 raw 分区，用于默认日常同步、近期缺口补齐或经审批的 prod DB 人工补数。</td>
+        <td>已实现；写同一套 raw assets，不新增平行资产；不承载 M4C 的 Tushare <code>merge_repair</code>；执行前必须单独审批范围和回滚方式。</td>
       </tr>
       <tr>
         <td><code>stock_mins_trade_day_sensor</code></td>
@@ -891,7 +1028,7 @@
         <strong>M4B</strong>
         <div>
           <h3>Prod DB raw 默认日常与补数入口</h3>
-          <p>已新增 <code>stock_mins_raw_update_from_prod_job</code>，从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取，按 <code>ts_code + freq + 日期窗口</code> 查询并写入同一套 raw assets。写入前补齐 <code>exchange</code> 与 <code>vwap</code>，继续复用 raw checks；不新增自动 sensor。</p>
+          <p>已新增 <code>stock_mins_raw_update_from_prod_job</code>，从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取，按 <code>ts_code + freq + 日期窗口</code> 查询并写入同一套 raw assets。写入前补齐 <code>exchange</code> 与 <code>vwap</code>，继续复用 raw checks；不新增第二个自动 sensor，默认日常触发复用 <code>stock_mins_raw_sensor</code> 并指向 prod DB job。</p>
         </div>
       </div>
       <div class="step">
