@@ -195,6 +195,51 @@
   z-index: 6;
 }
 
+.stock-detail-time-axis {
+  background: linear-gradient(180deg, rgba(10, 16, 29, 0.14), rgba(10, 16, 29, 0.9));
+  border-top: 1px solid rgba(148, 163, 184, 0.14);
+  bottom: 0;
+  height: 24px;
+  left: 0;
+  pointer-events: none;
+  position: absolute;
+  right: 0;
+  z-index: 7;
+}
+
+.stock-detail-time-axis-marker {
+  bottom: 3px;
+  color: var(--cs-color-text-secondary);
+  font: 700 11px/1 var(--cs-font-family-number);
+  min-width: 24px;
+  position: absolute;
+  text-align: center;
+  transform: translateX(-50%);
+  white-space: nowrap;
+}
+
+.stock-detail-time-axis-marker.year {
+  color: #d7e0ec;
+  transform: translateX(0);
+}
+
+.stock-detail-crosshair-date-label {
+  background: #2f6ea9;
+  border: 1px solid rgba(176, 211, 255, 0.38);
+  border-radius: 2px;
+  bottom: 2px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.32);
+  color: #eef6ff;
+  font: 700 11px/1 var(--cs-font-family-number);
+  letter-spacing: 0.01em;
+  padding: 3px 5px;
+  pointer-events: none;
+  position: absolute;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  z-index: 8;
+}
+
 .stock-detail-chart-panel {
   border-bottom: 1px solid rgba(148, 163, 184, 0.12);
   display: grid;

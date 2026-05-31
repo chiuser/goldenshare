@@ -38,6 +38,18 @@ interface AxisFloatLabelState {
   value: string;
 }
 
+interface SharedCrosshairState {
+  label: string;
+  x: number;
+}
+
+interface TimeAxisMarker {
+  key: string;
+  label: string;
+  left: number;
+  tone: "year" | "month";
+}
+
 interface ChartSyncTarget {
   chart: IChartApi;
   formatter: (value: number) => string;
@@ -56,7 +68,7 @@ const chartColors = {
   purple: "#b794f4",
 };
 
-const rightPriceScaleWidth = 72;
+const rightPriceScaleWidth = 48;
 
 function buildChartOptions(height: number, showTimeScale: boolean) {
   return {
@@ -110,9 +122,11 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
   const chartRefs = useRef<ChartRefs>({ kline: null, macd: null, volume: null, kdj: null });
   const [overlay, setOverlay] = useState<StockMainOverlay>("MA");
   const [hoverIndex, setHoverIndex] = useState(candles.length - 1);
+  const [isChartHovering, setIsChartHovering] = useState(false);
   const [tooltipSide, setTooltipSide] = useState<"left" | "right">("right");
   const [axisFloatLabel, setAxisFloatLabel] = useState<AxisFloatLabelState | null>(null);
-  const [sharedCrosshairX, setSharedCrosshairX] = useState<number | null>(null);
+  const [sharedCrosshair, setSharedCrosshair] = useState<SharedCrosshairState | null>(null);
+  const [timeAxisMarkers, setTimeAxisMarkers] = useState<TimeAxisMarker[]>([]);
   const latest = candles[hoverIndex] ?? candles.at(-1);
 
   const candleData = useMemo(
@@ -141,7 +155,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
     const klineChart = createPaneChart(chartRefs.current.kline, 280);
     const macdChart = createPaneChart(chartRefs.current.macd, 112);
     const volumeChart = createPaneChart(chartRefs.current.volume, 112);
-    const kdjChart = createPaneChart(chartRefs.current.kdj, 112, true);
+    const kdjChart = createPaneChart(chartRefs.current.kdj, 112);
 
     const klineSeries = klineChart.addSeries(CandlestickSeries, {
       borderDownColor: chartColors.down,
@@ -232,7 +246,8 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
 
     const clearSyncedCrosshair = () => {
       setAxisFloatLabel(null);
-      setSharedCrosshairX(null);
+      setSharedCrosshair(null);
+      setIsChartHovering(false);
       isSyncingCrosshair = true;
       Object.values(syncTargets).forEach(({ chart }) => {
         chart.clearCrosshairPosition();
@@ -240,11 +255,11 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       isSyncingCrosshair = false;
     };
 
-    const syncCrosshairMove = (sourcePanel: ChartPanelKey, pointY: number | undefined, time: Time | undefined) => {
+    const syncCrosshairMove = (sourcePanel: ChartPanelKey, pointX: number | undefined, pointY: number | undefined, time: Time | undefined) => {
       const target = syncTargets[sourcePanel];
       updateAxisFloatLabel(sourcePanel, target.series, pointY, target.formatter);
 
-      if (!time) {
+      if (!time || pointX === undefined) {
         clearSyncedCrosshair();
         return;
       }
@@ -252,6 +267,8 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       const point = pointByTime.get(String(time));
       if (!point) return;
       setHoverIndex(candles.findIndex((item) => item.time === point.time));
+      setIsChartHovering(true);
+      setSharedCrosshair({ x: pointX, label: formatCrosshairDateLabel(point) });
 
       isSyncingCrosshair = true;
       Object.values(syncTargets).forEach(({ chart, series, valueOf }) => {
@@ -265,38 +282,55 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       if (param.point && chartRefs.current.kline) {
         const width = chartRefs.current.kline.clientWidth;
         setTooltipSide(param.point.x > width * 0.62 ? "left" : "right");
-        setSharedCrosshairX(param.point.x);
       }
-      syncCrosshairMove("kline", param.point?.y, param.time as Time | undefined);
+      syncCrosshairMove("kline", param.point?.x, param.point?.y, param.time as Time | undefined);
     });
     macdChart.subscribeCrosshairMove((param) => {
       if (isSyncingCrosshair) return;
-      if (param.point) setSharedCrosshairX(param.point.x);
-      syncCrosshairMove("macd", param.point?.y, param.time as Time | undefined);
+      syncCrosshairMove("macd", param.point?.x, param.point?.y, param.time as Time | undefined);
     });
     volumeChart.subscribeCrosshairMove((param) => {
       if (isSyncingCrosshair) return;
-      if (param.point) setSharedCrosshairX(param.point.x);
-      syncCrosshairMove("volume", param.point?.y, param.time as Time | undefined);
+      syncCrosshairMove("volume", param.point?.x, param.point?.y, param.time as Time | undefined);
     });
     kdjChart.subscribeCrosshairMove((param) => {
       if (isSyncingCrosshair) return;
-      if (param.point) setSharedCrosshairX(param.point.x);
-      syncCrosshairMove("kdj", param.point?.y, param.time as Time | undefined);
+      syncCrosshairMove("kdj", param.point?.x, param.point?.y, param.time as Time | undefined);
     });
 
     charts.forEach((chart) => chart.timeScale().fitContent());
 
+    const updateTimeAxisMarkers = () => {
+      if (activePeriod !== "day") {
+        setTimeAxisMarkers([]);
+        return;
+      }
+      setTimeAxisMarkers(buildDailyTimeAxisMarkers(candles, kdjChart));
+    };
+    const markerFrame = window.requestAnimationFrame(updateTimeAxisMarkers);
+    const markerResizeObserver = new ResizeObserver(() => {
+      window.requestAnimationFrame(updateTimeAxisMarkers);
+    });
+    markerResizeObserver.observe(chartRefs.current.kdj);
+
     return () => {
+      window.cancelAnimationFrame(markerFrame);
+      markerResizeObserver.disconnect();
       charts.forEach((chart) => chart.remove());
     };
-  }, [candleData, candles, overlay]);
+  }, [activePeriod, candleData, candles, overlay]);
 
   return (
     <section className="stock-detail-chart-workbench" aria-label="左侧图表区">
-      <div className="stock-detail-charts-area">
-        {sharedCrosshairX !== null ? (
-          <span aria-hidden="true" className="stock-detail-crosshair-vertical" style={{ left: sharedCrosshairX }} />
+      <div className="stock-detail-charts-area" onMouseLeave={() => setIsChartHovering(false)}>
+        {timeAxisMarkers.length > 0 ? <DailyTimeAxis markers={timeAxisMarkers} /> : null}
+        {sharedCrosshair !== null ? (
+          <>
+            <span aria-hidden="true" className="stock-detail-crosshair-vertical" style={{ left: sharedCrosshair.x }} />
+            <span className="stock-detail-crosshair-date-label" style={{ left: sharedCrosshair.x }}>
+              {sharedCrosshair.label}
+            </span>
+          </>
         ) : null}
         <div className="stock-detail-chart-panel kline-panel" aria-label="K线主图">
           <div className="panel-header">
@@ -320,7 +354,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
               chartRefs.current.kline = node;
             }}
           />
-          {latest ? <KlineTooltip point={latest} side={tooltipSide} /> : null}
+          {latest && isChartHovering ? <KlineTooltip point={latest} side={tooltipSide} /> : null}
           {axisFloatLabel?.panel === "kline" ? <AxisFloatLabel label={axisFloatLabel} /> : null}
         </div>
 
@@ -390,6 +424,54 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
         </div>
       </div>
     </section>
+  );
+}
+
+function formatCrosshairDateLabel(point: StockCandlePoint): string {
+  return point.fullDate.replaceAll("-", "");
+}
+
+function getYearMonth(point: StockCandlePoint): { month: string; year: string } | null {
+  const match = point.fullDate.match(/^(\d{4})-(\d{2})-/);
+  if (!match) return null;
+  return { year: match[1] ?? "", month: match[2] ?? "" };
+}
+
+function buildDailyTimeAxisMarkers(candles: StockCandlePoint[], chart: IChartApi): TimeAxisMarker[] {
+  const markers: TimeAxisMarker[] = [];
+  let previousMonth = "";
+
+  candles.forEach((point, index) => {
+    const yearMonth = getYearMonth(point);
+    if (!yearMonth) return;
+    const isFirstPoint = index === 0;
+    const isNewMonth = yearMonth.month !== previousMonth;
+    if (!isFirstPoint && !isNewMonth) return;
+
+    const coordinate = chart.timeScale().timeToCoordinate(point.time as Time);
+    if (coordinate === null) return;
+
+    markers.push({
+      key: point.time,
+      label: isFirstPoint ? `${yearMonth.year}/${yearMonth.month}` : yearMonth.month,
+      left: coordinate,
+      tone: isFirstPoint ? "year" : "month",
+    });
+    previousMonth = yearMonth.month;
+  });
+
+  return markers;
+}
+
+function DailyTimeAxis({ markers }: { markers: TimeAxisMarker[] }) {
+  return (
+    <div aria-label="日线底部时间轴" className="stock-detail-time-axis">
+      {markers.map((marker) => (
+        <span className={`stock-detail-time-axis-marker ${marker.tone}`} key={marker.key} style={{ left: marker.left }}>
+          {marker.label}
+        </span>
+      ))}
+    </div>
   );
 }
 

@@ -274,7 +274,7 @@ wealth/src/
 6. 坐标轴浮标必须由 `subscribeCrosshairMove` 驱动，随鼠标所在 panel 的 Y 坐标变化；视觉使用品牌金弱背景，不使用红绿，避免与涨跌含义冲突。
 7. 十字坐标线必须在 K 线主图、MACD、成交量、KDJ 四个 panel 上按同一横轴时间同步显示；数据同步使用 `setCrosshairPosition/clearCrosshairPosition`，视觉竖线使用图表工作台外层共享 overlay，避免四个独立 chart 实例因内部坐标轴宽度差异产生像素错位。
 8. 十字坐标线视觉使用更密的短虚线/点线，避免长虚线造成终端感不足。
-9. 四个 chart 的 `rightPriceScale.minimumWidth` 必须使用同一固定宽度，确保 MACD、成交量、KDJ 与 K 线主图右侧坐标轴和绘图区右边界对齐；不得依赖 `lightweight-charts` 按各 panel 文本自动计算轴宽。
+9. 四个 chart 的 `rightPriceScale.minimumWidth` 必须使用同一固定宽度，确保 MACD、成交量、KDJ 与 K 线主图右侧坐标轴和绘图区右边界对齐；固定宽度应贴近刻度文字实际需要，禁止为了对齐保留过大的右侧空白；不得依赖 `lightweight-charts` 按各 panel 文本自动计算轴宽。
 10. 各 panel 的指标信息条必须是正常布局行，不得绝对定位覆盖图表 canvas；图表区域应从指标信息条下方紧贴开始。
 11. `timeScale.rightOffset` 只能保留少量安全留白，禁止在最右侧留下明显空白区。
 12. 只有当以下关键项经过验证仍不可控时，才允许退回本地 canvas：
@@ -416,11 +416,13 @@ npm run build
 7. 关闭 `lightweight-charts` 默认 latest-value/price-line 标签，改由 `subscribeCrosshairMove` 输出当前 panel 的 Y 轴浮标。
 8. 使用 `setCrosshairPosition/clearCrosshairPosition` 同步四个图表 panel 的同一横轴时间数据状态。
 9. 使用图表工作台外层共享 overlay 绘制贯穿四个 panel 的竖向十字线，原生 chart 竖线不得作为最终视觉来源。
-10. 四个 chart 统一 `rightPriceScale.minimumWidth`，保证右侧坐标轴和绘图区右边界一致。
+10. 四个 chart 统一 `rightPriceScale.minimumWidth`，保证右侧坐标轴和绘图区右边界一致，且坐标值尽量贴近右侧设置齿轮所在区域。
 11. 指标信息条以正常布局行承载，不覆盖 MACD、成交量、KDJ 等指标图形。
 12. 右侧时间轴留白保持极小，不允许出现明显空白段。
 13. 十字线线型使用更密的短虚线/点线。
-14. 若 TradingView 路线无法满足关键高保真项，按“证据 -> 评审 -> canvas 兜底”的顺序处理。
+14. 日线底部时间轴使用自定义覆盖层：最左侧展示首个数据点的 `YYYY/MM`，之后每个月展示一次 `MM` 标识；该口径只约束日线，不代表其他周期。
+15. 十字线对应底部必须显示日期标签，标签随共享竖向十字线移动，日线格式为 `YYYYMMDD`。
+16. 若 TradingView 路线无法满足关键高保真项，按“证据 -> 评审 -> canvas 兜底”的顺序处理。
 
 ### M3：右侧信息栏
 
@@ -475,3 +477,5 @@ npm run build
 | v1.3 | 2026-05-30 | 补充四图同一横轴时间 crosshair 同步与短虚线视觉口径 | Codex |
 | v1.4 | 2026-05-30 | 补充共享竖向 crosshair overlay 与统一右侧坐标轴宽度口径 | Codex |
 | v1.5 | 2026-05-30 | 补充指标信息条不覆盖图表和右侧留白收敛口径 | Codex |
+| v1.6 | 2026-05-30 | 补充右侧坐标轴固定宽度不得产生过大空白的细化口径 | Codex |
+| v1.7 | 2026-05-30 | 补充日线底部时间轴与十字线日期标签口径 | Codex |
