@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 待实现 Tushare <code>merge_repair</code> 受控修复模式。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，正式执行前仍需单独审批。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -609,7 +609,7 @@
     <h3>6.5 更新入口与触发机制</h3>
     <ul>
       <li>正式资产：<code>silver_stock_identity_map</code>。</li>
-      <li>正式 job：后续单独设计 <code>stock_identity_map_update_job</code>，selection 只包含该 asset 及其 checks，不顺手更新分钟线。</li>
+      <li>正式 job：<code>stock_identity_map_update_job</code> 已实现，selection 只包含该 asset 及其 checks，不顺手更新分钟线。</li>
       <li>触发条件：<code>silver_stock_basic</code>、<code>bse_mapping</code>、<code>namechange</code> 任一上游更新并通过 blocking checks 后，允许重建身份映射。</li>
       <li>消费门禁：<code>silver_stk_mins_*</code> 只读依赖该 asset，必须确认 materialized 且 blocking checks passed 后才允许生成。</li>
       <li>历史初始化：M1-M3 只做 bootstrap 和事件补录；不把旧湖 manifest 做成日常依赖。</li>
@@ -727,18 +727,18 @@
       <li>执行计划单独审批：任何正式 prod 补数必须先列 dry-run、小样本、全量命令，包含日期范围、股票数量、频度、预计查询次数、预计写入文件数和回滚方式。</li>
     </ol>
 
-    <h3>M4C 待实现的 Tushare merge_repair 受控修复模式</h3>
+    <h3>M4C 已实现的 Tushare merge_repair 受控修复模式</h3>
     <p>
       M4/M4B 的默认写入策略是为了日常安全：目标 raw 分区文件已存在且 checks 通过时直接复用，不重复请求源站，不覆盖历史 baseline。
       这个策略不能作为唯一能力，否则少量历史坏行无法通过 Dagster 正式链路修复。
-      M4C 需要在同一套 <code>raw_stk_mins_*</code> assets 内增加受控 <code>merge_repair</code> 模式，不新增平行 asset，不另起临时 job 分支，不绕开 raw checks。
+      M4C 已在同一套 <code>raw_stk_mins_*</code> assets 内增加受控 <code>merge_repair</code> 模式，不新增平行 asset，不另起临时 job 分支，不绕开 raw checks。
     </p>
 
     <h4>Config schema 与 Launchpad Scaffold 口径</h4>
     <p>
       <code>write_mode</code> 必须设计为 Dagster <code>Selector</code>，而不是简单字符串。
       目的不是让运营记住一堆散落 key，而是让 Launchpad schema 明确知道 <code>merge_repair</code> 分支下面有哪些字段。
-      用户在 UI 中选择或编辑为 <code>merge_repair</code> 分支后，Scaffold / schema panel 必须能展示并补齐 <code>stock_codes</code>、<code>start_time</code>、<code>end_time</code> 结构；如果本地 Dagster 1.13.6 UI 验证做不到这一点，M4C 不得继续按此口径上线，必须重新设计。
+      用户在 UI 中选择或编辑为 <code>merge_repair</code> 分支后，Scaffold / schema panel 必须能展示并补齐 <code>stock_codes</code>、<code>start_time</code>、<code>end_time</code> 结构；如果后续只读 UI 验证发现本地 Dagster 1.13.6 做不到这一点，不得执行正式 repair，必须先重新设计。
     </p>
     <pre><code># 日常安全模式：只选择 reuse_existing 分支，不需要额外参数。
 ops:
@@ -780,6 +780,7 @@ ops:
       <li>合并时只替换返回结果覆盖到的 <code>ts_code + trade_time</code> 键；如果原文件没有这些键，则追加新行。不得删除同股票同窗口内 Tushare 未返回的其它已有行，避免一次不完整源站响应扩大损坏范围。</li>
       <li>合并后按 <code>ts_code, trade_time</code> 排序，写入临时 parquet，再用原子替换更新 <code>part-000.parquet</code>。</li>
       <li>修复 run 必须产生正常 Dagster materialization 和 blocking check events；不得使用 runless event 伪装本次修复，也不得只写文件不让 UI/readiness 更新。</li>
+      <li>本次修复事实写入 materialization metadata，并经治理 helper 自动使用 <code>goldenshare/*</code> 命名空间：<code>source_method=tushare_merge_repair</code>、<code>write_mode=merge_repair</code>、<code>repair_stock_code_count</code>、<code>repair_start_time</code>、<code>repair_end_time</code>、<code>repair_returned_row_count</code>、<code>repair_replaced_row_count</code>、<code>repair_appended_row_count</code>。</li>
     </ol>
 
     <h4>禁止事项与安全边界</h4>
@@ -811,8 +812,8 @@ ops:
     <ul>
       <li>Launchpad / Config Editor 中，<code>write_mode</code> 必须按 Selector 展示 <code>reuse_existing</code> 与 <code>merge_repair</code> 两个互斥分支。</li>
       <li>选择 <code>merge_repair</code> 分支后，Scaffold 或 schema panel 必须能生成/展示 <code>stock_codes</code>、<code>start_time</code>、<code>end_time</code>。</li>
-      <li>单元测试必须覆盖：默认 <code>reuse_existing</code> 不重复请求、<code>merge_repair</code> 只替换返回键、双分支同时出现被拒绝、空股票列表被拒绝、目标文件缺失被拒绝、Tushare 返回 0 行被拒绝。</li>
-      <li>静态门禁必须确认 sensor 不会写 <code>merge_repair</code> config，且 run tags 不承载 repair 参数。</li>
+      <li>单元测试已覆盖：默认 <code>reuse_existing</code> 不重复请求、<code>merge_repair</code> 只替换返回键、双分支同时出现被拒绝、空股票列表被拒绝、目标文件缺失被拒绝、Tushare 返回 0 行被拒绝。</li>
+      <li>静态门禁必须持续确认 sensor 不会写 <code>merge_repair</code> config，且 run tags 不承载 repair 参数。</li>
       <li>针对 6 个历史样本，repair 后必须复核 <code>raw_stk_mins_1m</code> 存在对应 <code>09:30:00</code> 行，并使 <code>18_reaudit_price_relation_needs_external_0930_1m.csv</code> 归零或只剩明确不可修复样本。</li>
     </ul>
   </section>

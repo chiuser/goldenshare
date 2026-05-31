@@ -18,6 +18,7 @@ SENSOR_FORBIDDEN_STRING_LITERALS = {
     "triggered_by",
     "asset_family",
     "index_ts_code",
+    "merge_repair",
     "raw_tushare_index_daily_by_code",
 }
 
@@ -226,7 +227,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 21)
+        self.assertEqual(sensor_definition_count, 22)
         self.assertEqual(issues, [])
 
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:

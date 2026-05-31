@@ -7,6 +7,8 @@ from tempfile import TemporaryDirectory
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+import dagster as dg
+
 from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
@@ -21,7 +23,10 @@ from orchestrator.defs.prod_db.stk_mins import (
 )
 from orchestrator.defs.resources import DuckDBResource, TushareResult
 from orchestrator.defs.run_contracts.configs import (
+    STOCK_MINS_RAW_CONFIG_SCHEMA,
+    StockMinsMergeRepairConfig,
     build_stock_mins_raw_update_job_run_config,
+    parse_stock_mins_raw_config,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     derive_stk_mins_exchange_from_ts_code,
@@ -126,6 +131,72 @@ def _write_raw_stk_mins_file(path: Path, *, open_value: float = 10.0) -> None:
                 path,
             )
         )
+
+
+def _write_repair_target_raw_file(path: Path, *, row_freq: int = 1) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with DuckDBResource().connect() as connection:
+        connection.execute(
+            copy_query_to_parquet(
+                f"""
+                SELECT * FROM (
+                  SELECT
+                    '600000.SH'::VARCHAR AS ts_code,
+                    {row_freq}::INTEGER AS freq,
+                    TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                    1.0::DOUBLE AS open,
+                    1.0::DOUBLE AS close,
+                    1.0::DOUBLE AS high,
+                    1.0::DOUBLE AS low,
+                    100::BIGINT AS vol,
+                    100.0::DOUBLE AS amount,
+                    'XSHG'::VARCHAR AS exchange,
+                    1.0::DOUBLE AS vwap
+                  UNION ALL
+                  SELECT
+                    '600000.SH'::VARCHAR AS ts_code,
+                    {row_freq}::INTEGER AS freq,
+                    TIMESTAMP '2026-05-29 09:31:00' AS trade_time,
+                    2.0::DOUBLE AS open,
+                    2.0::DOUBLE AS close,
+                    2.0::DOUBLE AS high,
+                    2.0::DOUBLE AS low,
+                    200::BIGINT AS vol,
+                    400.0::DOUBLE AS amount,
+                    'XSHG'::VARCHAR AS exchange,
+                    2.0::DOUBLE AS vwap
+                  UNION ALL
+                  SELECT
+                    '000001.SZ'::VARCHAR AS ts_code,
+                    {row_freq}::INTEGER AS freq,
+                    TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                    3.0::DOUBLE AS open,
+                    3.0::DOUBLE AS close,
+                    3.0::DOUBLE AS high,
+                    3.0::DOUBLE AS low,
+                    300::BIGINT AS vol,
+                    900.0::DOUBLE AS amount,
+                    'XSHE'::VARCHAR AS exchange,
+                    3.0::DOUBLE AS vwap
+                )
+                ORDER BY ts_code, trade_time
+                """,
+                path,
+            )
+        )
+
+
+def _repair_config(
+    *,
+    stock_codes: tuple[str, ...] = ("600000.SH",),
+    start_time: str = "09:30:00",
+    end_time: str = "09:32:00",
+) -> StockMinsMergeRepairConfig:
+    return StockMinsMergeRepairConfig(
+        stock_codes=stock_codes,
+        start_time=start_time,
+        end_time=end_time,
+    )
 
 
 class StkMinsRawM4ContractTests(unittest.TestCase):
@@ -330,6 +401,210 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     request_interval_seconds=0,
                 )
 
+    def test_tushare_merge_repair_replaces_appends_and_preserves_other_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            raw_path = raw_stk_mins_path(lake_root, 1, PARTITION_KEY)
+            _write_repair_target_raw_file(raw_path)
+            tushare = _FakeTushare(
+                {
+                    ("600000.SH", 0): [
+                        {
+                            "ts_code": "600000.SH",
+                            "trade_time": "2026-05-29 09:30:00",
+                            "open": 10.0,
+                            "close": 10.0,
+                            "high": 10.0,
+                            "low": 10.0,
+                            "vol": 1000.0,
+                            "amount": 10000.0,
+                            "freq": "1min",
+                            "exchange": "XSHG",
+                            "vwap": 10.0,
+                        },
+                        {
+                            "ts_code": "600000.SH",
+                            "trade_time": "2026-05-29 09:32:00",
+                            "open": 12.0,
+                            "close": 12.0,
+                            "high": 12.0,
+                            "low": 12.0,
+                            "vol": 1200.0,
+                            "amount": 14400.0,
+                            "freq": "1min",
+                            "exchange": "XSHG",
+                            "vwap": 12.0,
+                        },
+                    ]
+                }
+            )
+
+            result = stk_mins.merge_repair_raw_stk_mins_partition_from_tushare(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                tushare=tushare,
+                freq=1,
+                partition_key=PARTITION_KEY,
+                repair_config=_repair_config(),
+                request_interval_seconds=0,
+            )
+
+            self.assertEqual(result.source_method, "tushare_merge_repair")
+            self.assertEqual(result.write_mode, "merge_repair")
+            self.assertEqual(result.repair_replaced_row_count, 1)
+            self.assertEqual(result.repair_appended_row_count, 1)
+            self.assertEqual(result.repair_returned_row_count, 2)
+            self.assertEqual(result.row_count, 4)
+
+            with DuckDBResource().connect() as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT ts_code, strftime(trade_time, '%H:%M:%S'), open
+                    FROM read_parquet('{raw_path.as_posix()}')
+                    ORDER BY ts_code, trade_time
+                    """
+                ).fetchall()
+            self.assertEqual(
+                rows,
+                [
+                    ("000001.SZ", "09:30:00", 3.0),
+                    ("600000.SH", "09:30:00", 10.0),
+                    ("600000.SH", "09:31:00", 2.0),
+                    ("600000.SH", "09:32:00", 12.0),
+                ],
+            )
+
+            metadata = result.materialization_extra_metadata(
+                partition_key=PARTITION_KEY,
+                freq=1,
+            )
+            self.assertEqual(metadata["write_mode"], "merge_repair")
+            self.assertEqual(metadata["repair_stock_code_count"], 1)
+            self.assertEqual(metadata["repair_start_time"], "09:30:00")
+            self.assertEqual(metadata["repair_end_time"], "09:32:00")
+
+    def test_tushare_merge_repair_rejects_missing_or_bad_target(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            with self.assertRaisesRegex(FileNotFoundError, "Cannot repair missing"):
+                stk_mins.merge_repair_raw_stk_mins_partition_from_tushare(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    tushare=_FakeTushare({}),
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    repair_config=_repair_config(),
+                    request_interval_seconds=0,
+                )
+
+            raw_path = raw_stk_mins_path(lake_root, 1, PARTITION_KEY)
+            _write_repair_target_raw_file(raw_path, row_freq=5)
+            with self.assertRaisesRegex(RuntimeError, "not repairable"):
+                stk_mins.merge_repair_raw_stk_mins_partition_from_tushare(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    tushare=_FakeTushare({}),
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    repair_config=_repair_config(),
+                    request_interval_seconds=0,
+                )
+
+    def test_tushare_merge_repair_rejects_empty_or_out_of_scope_source_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            raw_path = raw_stk_mins_path(lake_root, 1, PARTITION_KEY)
+            _write_repair_target_raw_file(raw_path)
+
+            with self.assertRaisesRegex(RuntimeError, "returned 0 rows"):
+                stk_mins.merge_repair_raw_stk_mins_partition_from_tushare(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    tushare=_FakeTushare({("600000.SH", 0): []}),
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    repair_config=_repair_config(),
+                    request_interval_seconds=0,
+                )
+
+            with self.assertRaisesRegex(RuntimeError, "outside the requested repair window"):
+                stk_mins.merge_repair_raw_stk_mins_partition_from_tushare(
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    tushare=_FakeTushare(
+                        {
+                            ("600000.SH", 0): [
+                                {
+                                    "ts_code": "600000.SH",
+                                    "trade_time": "2026-05-29 09:29:00",
+                                    "open": 10.0,
+                                    "close": 10.0,
+                                    "high": 10.0,
+                                    "low": 10.0,
+                                    "vol": 100.0,
+                                    "amount": 1000.0,
+                                    "freq": "1min",
+                                    "exchange": "XSHG",
+                                    "vwap": 10.0,
+                                }
+                            ]
+                        }
+                    ),
+                    freq=1,
+                    partition_key=PARTITION_KEY,
+                    repair_config=_repair_config(),
+                    request_interval_seconds=0,
+                )
+
+            invalid_rows = (
+                (
+                    {
+                        "ts_code": "000001.SZ",
+                        "trade_time": "2026-05-29 09:30:00",
+                        "freq": "1min",
+                    },
+                    "outside the requested stock code",
+                ),
+                (
+                    {
+                        "ts_code": "600000.SH",
+                        "trade_time": "2026-05-29 09:30:00",
+                        "freq": "5min",
+                    },
+                    "outside the requested frequency",
+                ),
+                (
+                    {
+                        "ts_code": "600000.SH",
+                        "trade_time": "2026-05-28 09:30:00",
+                        "freq": "1min",
+                    },
+                    "outside the requested trade date",
+                ),
+            )
+            for partial_row, error_message in invalid_rows:
+                row = {
+                    "open": 10.0,
+                    "close": 10.0,
+                    "high": 10.0,
+                    "low": 10.0,
+                    "vol": 100.0,
+                    "amount": 1000.0,
+                    "exchange": "XSHG",
+                    "vwap": 10.0,
+                }
+                row.update(partial_row)
+                with self.assertRaisesRegex(RuntimeError, error_message):
+                    stk_mins.merge_repair_raw_stk_mins_partition_from_tushare(
+                        lake_root=lake_root,
+                        duckdb=DuckDBResource(),
+                        tushare=_FakeTushare({("600000.SH", 0): [row]}),
+                        freq=1,
+                        partition_key=PARTITION_KEY,
+                        repair_config=_repair_config(),
+                        request_interval_seconds=0,
+                    )
+
     def test_raw_price_sanity_keeps_m3_legacy_zero_policy(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
@@ -382,7 +657,136 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             ],
         )
         for op_config in run_config["ops"].values():
-            self.assertEqual(op_config, {"config": {"source": "prod_db"}})
+            self.assertEqual(
+                op_config,
+                {
+                    "config": {
+                        "source": "prod_db",
+                        "write_mode": {
+                            "reuse_existing": {},
+                        },
+                    }
+                },
+            )
+
+    def test_stock_mins_raw_config_selector_contract(self) -> None:
+        @dg.asset(name="sample_stock_mins_raw", config_schema=STOCK_MINS_RAW_CONFIG_SCHEMA)
+        def sample_stock_mins_raw(context):
+            return context.op_config
+
+        job = dg.define_asset_job(
+            "sample_stock_mins_raw_job",
+            selection=[sample_stock_mins_raw.key],
+        )
+        job_def = dg.Definitions(
+            assets=[sample_stock_mins_raw],
+            jobs=[job],
+        ).resolve_job_def("sample_stock_mins_raw_job")
+
+        dg.validate_run_config(job_def, {})
+        dg.validate_run_config(
+            job_def,
+            {
+                "ops": {
+                    "sample_stock_mins_raw": {
+                        "config": {
+                            "source": "tushare",
+                            "write_mode": {
+                                "merge_repair": {
+                                    "stock_codes": ["000030.SZ"],
+                                    "start_time": "09:00:00",
+                                    "end_time": "19:00:00",
+                                }
+                            },
+                        }
+                    }
+                }
+            },
+        )
+        with self.assertRaises(dg.DagsterInvalidConfigError):
+            dg.validate_run_config(
+                job_def,
+                {
+                    "ops": {
+                        "sample_stock_mins_raw": {
+                            "config": {
+                                "source": "tushare",
+                                "write_mode": {
+                                    "reuse_existing": {},
+                                    "merge_repair": {
+                                        "stock_codes": ["000030.SZ"],
+                                        "start_time": "09:00:00",
+                                        "end_time": "19:00:00",
+                                    },
+                                },
+                            }
+                        }
+                    }
+                },
+            )
+
+    def test_stock_mins_raw_config_parser_rejects_unsafe_repair_config(self) -> None:
+        self.assertEqual(
+            parse_stock_mins_raw_config({}).write_mode,
+            "reuse_existing",
+        )
+        with self.assertRaisesRegex(ValueError, "only supports source=tushare"):
+            parse_stock_mins_raw_config(
+                {
+                    "source": "prod_db",
+                    "write_mode": {
+                        "merge_repair": {
+                            "stock_codes": ["000030.SZ"],
+                            "start_time": "09:00:00",
+                            "end_time": "19:00:00",
+                        }
+                    },
+                }
+            )
+        for invalid_config in (
+            {
+                "source": "tushare",
+                "write_mode": {
+                    "merge_repair": {
+                        "stock_codes": [],
+                        "start_time": "09:00:00",
+                        "end_time": "19:00:00",
+                    }
+                },
+            },
+            {
+                "source": "tushare",
+                "write_mode": {
+                    "merge_repair": {
+                        "stock_codes": ["000030.SZ", "000030.SZ"],
+                        "start_time": "09:00:00",
+                        "end_time": "19:00:00",
+                    }
+                },
+            },
+            {
+                "source": "tushare",
+                "write_mode": {
+                    "merge_repair": {
+                        "stock_codes": ["000030.SZ"],
+                        "start_time": "090000",
+                        "end_time": "19:00:00",
+                    }
+                },
+            },
+            {
+                "source": "tushare",
+                "write_mode": {
+                    "merge_repair": {
+                        "stock_codes": ["000030.SZ"],
+                        "start_time": "19:00:00",
+                        "end_time": "09:00:00",
+                    }
+                },
+            },
+        ):
+            with self.assertRaises(ValueError):
+                parse_stock_mins_raw_config(invalid_config)
 
     def test_stock_mins_trade_day_decision_registers_after_six_pm(self) -> None:
         self.assertEqual(
