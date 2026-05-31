@@ -42,12 +42,6 @@
   color: var(--cs-color-brand-accent);
 }
 
-.stock-detail-action-note {
-  color: var(--cs-color-text-muted);
-  font-size: 12px;
-  white-space: nowrap;
-}
-
 .stock-detail-chart-toolbar {
   align-items: center;
   background: rgba(10, 16, 29, 0.88);
@@ -481,13 +475,6 @@
 
 .stock-detail-indicator-bar .indicator-tab.unsupported {
   color: rgba(148, 163, 184, 0.68);
-}
-
-.stock-detail-indicator-bar .indicator-status {
-  color: var(--cs-color-text-muted);
-  flex: 0 0 auto;
-  font: 11px var(--cs-font-family-number);
-  white-space: nowrap;
 }
 
 .stock-detail-info-rail {

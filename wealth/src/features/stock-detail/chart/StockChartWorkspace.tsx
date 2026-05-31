@@ -73,7 +73,7 @@ const chartColors = {
   slate: "#cbd5e1",
 };
 
-const rightPriceScaleWidth = 48;
+const rightPriceScaleWidth = 56;
 const defaultVisibleDailyBars = 90;
 
 function buildChartOptions(height: number, showTimeScale: boolean) {
@@ -552,9 +552,6 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
               {tab.label}
             </button>
           ))}
-        </div>
-        <div className="indicator-status">
-          十字线：悬停图表查看｜周期：{activePeriod}｜当前：{latest?.fullDate ?? "--"}
         </div>
       </div>
     </section>

@@ -18,7 +18,6 @@ export function StockBreadcrumbActionBar({ stock }: StockBreadcrumbActionBarProp
           {stock.name} {stock.tsCode}
         </strong>
       </div>
-      <div className="stock-detail-action-note">P0 Mock 行情 · UI 高保真验证</div>
     </section>
   );
 }
