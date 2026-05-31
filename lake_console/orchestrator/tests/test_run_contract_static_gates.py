@@ -12,6 +12,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 DEFS_DIR = Path("src/orchestrator/defs")
 ASSETS_DIR = DEFS_DIR / "assets"
 CHECKS_DIR = DEFS_DIR / "checks"
+JOBS_DIR = DEFS_DIR / "jobs"
 SENSORS_DIR = DEFS_DIR / "sensors"
 
 SENSOR_FORBIDDEN_STRING_LITERALS = {
@@ -128,6 +129,28 @@ def _check_metadata_builder_names(tree: ast.Module) -> set[str]:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_stock_mins_silver_job_does_not_pull_raw_or_source_config(self) -> None:
+        path = JOBS_DIR / "stock_mins_silver_update.py"
+        source = path.read_text()
+        forbidden_fragments = (
+            "RAW_STK_MINS_ASSETS",
+            "Tushare",
+            "ProdPostgres",
+            "build_stock_mins_raw_update_job_run_config",
+            "STOCK_MINS_RAW_CONFIG_SCHEMA",
+            "raw_stk_mins_",
+            '"ops"',
+            "'ops'",
+            "run_tags",
+        )
+        issues = [
+            f"{path} contains forbidden stock_mins silver job fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        ]
+
+        self.assertEqual(issues, [])
+
     def test_sensor_files_use_run_contract_helpers(self) -> None:
         issues = []
 

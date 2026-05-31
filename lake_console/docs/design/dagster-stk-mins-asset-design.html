@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；后续任何正式 repair 仍需单独审批。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；后续任何正式 repair 或历史 silver 生成仍需单独审批。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td><code>cn_a_stock_mins_trade_days</code> 独立定义；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -961,10 +961,11 @@ ops:
     </div>
 
     <div class="note">
-      <strong>M5B 代码状态：</strong>
-      已接入五个正式 silver assets：<code>silver_stk_mins_1m/5m/15m/30m/60m</code>；
-      已落地 <code>write_silver_stk_mins_partition(...)</code> 标准化 helper 和 10 个 silver blocking checks。
-      本阶段只完成 definition、helper、checks 与临时目录单元测试；尚未生成历史 silver 文件，也未补录 Dagster materialization/check events。
+      <strong>M5B-M5D 代码状态：</strong>
+      M5B 原计划只做标准化纯函数引擎；实际提交 <code>01d25486</code> 已同时完成
+      M5B 标准化 helper、M5C 五个正式 silver assets、M5D 10 个 silver blocking checks。
+      这三个阶段只完成代码与临时目录测试；M5E 已补充 <code>stock_mins_silver_update_job</code>
+      作为正式日常入口，但尚未生成历史 silver 文件，也未补录 Dagster materialization/check events。
     </div>
 
     <h3>8.10 Silver checks</h3>
@@ -983,7 +984,7 @@ ops:
       <li>不可解释差异必须作为 blocking check failure，不能静默落入 silver。</li>
     </ul>
     <p>
-      M5B 已实现的 check 名称固定为：
+      M5D 已实现的 check 名称固定为：
       <code>silver_stk_mins_file_exists_and_row_count_positive</code>、
       <code>silver_stk_mins_schema_matches_contract</code>、
       <code>silver_stk_mins_freq_and_partition_match</code>、
@@ -994,7 +995,7 @@ ops:
       <code>silver_stk_mins_codes_exist_in_stock_daily</code>、
       <code>silver_stk_mins_no_full_day_suspend_structural_rows</code>、
       <code>silver_stk_mins_name_timeline_covered</code>。
-      这些名称已登记到 readiness 常量，后续 M6 event 补录必须逐字复用。
+      这些名称已登记到 readiness 常量，后续 M6 event 补录必须逐字复用；M5E 已补充 silver job 与静态门禁。
     </p>
 
     <h3>8.11 Materialization 与 check metadata</h3>
@@ -1173,15 +1174,36 @@ ops:
       <div class="step">
         <strong>M5B</strong>
         <div>
-          <h3>Silver 标准化 helper 与 assets/checks</h3>
-          <p>已接入五个 silver assets，落地代码映射、停牌全 0 删除、1m 价格修正 seed、粗频度按 1m 重算、成交量/成交额归一、exchange 后缀归一和 10 个 blocking checks。M5B 只完成代码与测试，不执行正式历史生成，不补录 events，也不新增 silver job/sensor。</p>
+          <h3>Silver 标准化纯函数引擎</h3>
+          <p>已在提交 <code>01d25486</code> 中落地 <code>write_silver_stk_mins_partition(...)</code> 及相关 DuckDB 标准化逻辑，覆盖代码映射、停牌全 0 删除、1m 价格修正 seed、粗频度按 1m 重算、成交量/成交额归一、exchange 后缀归一和映射后去重。测试使用临时 parquet + DuckDB，不执行正式历史生成。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M5C</strong>
+        <div>
+          <h3>Silver Assets</h3>
+          <p>已在提交 <code>01d25486</code> 中接入五个正式 assets：<code>silver_stk_mins_1m/5m/15m/30m/60m</code>。它们只读依赖对应 raw、<code>silver_stock_identity_map</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code>、<code>silver_stock_basic</code>、<code>silver_namechange</code>；粗频度额外依赖 <code>raw_stk_mins_1m</code>。M5C 不跑历史、不生成 gold、不新增 sensor。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M5D</strong>
+        <div>
+          <h3>Silver Blocking Checks</h3>
+          <p>已在提交 <code>01d25486</code> 中接入 10 个 silver blocking checks，并登记到 readiness 常量。checks 覆盖文件/行数、schema、freq/date、唯一键、价格、成交量/成交额、exchange、日线 universe、停牌结构行删除和名称时间线覆盖；不把 <code>vwap</code> 或 <code>source_ts_code</code> 当成 silver 物理字段。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M5E</strong>
+        <div>
+          <h3>Silver Job 与静态门禁</h3>
+          <p>已新增 <code>stock_mins_silver_update_job</code>，selection 只包含五个 silver assets + silver checks，不顺手跑 raw、gold 或任何 sensor；同时补 job selection 测试、静态门禁、拓扑文档和设计文档。该 job 是后续日常 silver 更新入口，不承担历史批量生成。</p>
         </div>
       </div>
       <div class="step">
         <strong>M6</strong>
         <div>
           <h3>Silver 历史生成与 event 补录</h3>
-          <p>按批量 helper 生成历史 silver 文件，再补录 runless events。执行前同样走 dry-run、小样本、全量审批。</p>
+          <p>按批量 helper 生成历史 silver 文件，再补录 runless events。执行前同样走 dry-run、小样本、全量审批，必须单独列命令、范围、事件数和回滚方式。</p>
         </div>
       </div>
       <div class="step">

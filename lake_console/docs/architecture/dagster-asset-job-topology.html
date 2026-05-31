@@ -333,8 +333,8 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active assets 共 <code>32</code> 个，用户定义 active jobs 共 <code>17</code> 个（不含 Dagster 隐式 <code>__ASSET_JOB</code>），active sensors 共 <code>22</code> 个。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code> 和 <code>prod_clickhouse_share_fact_market_breadth_sync_job</code>。
+      当前 active assets 共 <code>32</code> 个，用户定义 active jobs 共 <code>18</code> 个（不含 Dagster 隐式 <code>__ASSET_JOB</code>），active sensors 共 <code>22</code> 个。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>stock_mins_silver_update_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code> 和 <code>prod_clickhouse_share_fact_market_breadth_sync_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
@@ -343,7 +343,7 @@
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       股票曾用名最新口径是：<code>raw_tushare_namechange</code> 每次从 Tushare <code>namechange</code> 拉取 full snapshot 并按全字段 exact distinct 写 raw；<code>silver_namechange</code> 使用 <code>latest_announcement_timeline_v1</code> 生成非重叠名称区间；<code>stock_namechange_sensor</code> 在股票当前交易日注册后触发 <code>namechange_update_job</code>。
       股票身份映射最新口径是：<code>silver_stock_identity_map</code> 已成为 active full snapshot asset；它从 <code>silver_stock_basic</code> 生成当前上市股票自映射，并合并仓库 seed 中的非自映射行。<code>stock_identity_map_sensor</code> 读取 <code>cn_a_stock_trade_days</code> 最新已注册交易日，16:30 后等待 <code>silver_stock_basic</code> 与 <code>silver_namechange</code> ready 后触发 <code>stock_identity_map_update_job</code>。
-      股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>silver_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 silver assets 和 10 个 blocking checks，但历史 silver 文件与 events 尚未生成。<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，不自动追历史缺口。Tushare job 保留为人工备用入口；<code>merge_repair</code> 已作为人工 run config 接入同一套 raw assets 和 raw checks，不新增平行资产，也不与 prod DB 补数混用；该能力已用于少量已审批 1m 样本修复，后续 repair 执行前仍需单独审批。
+      股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>silver_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 silver assets、10 个 blocking checks 和 <code>stock_mins_silver_update_job</code>，但历史 silver 文件与 events 尚未生成。<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，不自动追历史缺口。Tushare job 保留为人工备用入口；<code>merge_repair</code> 已作为人工 run config 接入同一套 raw assets 和 raw checks，不新增平行资产，也不与 prod DB 补数混用；该能力已用于少量已审批 1m 样本修复，后续 repair 执行前仍需单独审批。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 在目标交易日全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 <code>silver_index_daily_update_job</code>；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
@@ -638,8 +638,8 @@
           <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code></td>
           <td><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_mins_trade_days</code></td>
-          <td>M5B 已接入正式 silver assets 与 10 个 blocking checks；依赖对应 raw、<code>silver_stock_identity_map</code>、日线、停牌、stock basic 和 namechange，粗频度额外依赖 1m raw。</td>
-          <td>历史生成与 event 补录留到 M6；当前未新增 silver job/sensor，不由 raw job 顺手生成。</td>
+          <td>提交 <code>01d25486</code> 已接入 silver 标准化 helper、正式 silver assets 与 10 个 blocking checks；依赖对应 raw、<code>silver_stock_identity_map</code>、日线、停牌、stock basic 和 namechange，粗频度额外依赖 1m raw。</td>
+          <td>已新增 <code>stock_mins_silver_update_job</code>，selection 只包含五个 silver assets + silver checks；历史生成与 event 补录留到 M6，当前不新增 silver sensor，也不由 raw job 顺手生成。</td>
           <td>股票分钟线标准事实；做代码映射、停牌全 0 删除、1m 修正、粗频度重算、成交量/成交额和 exchange 归一，不做 qfq。</td>
         </tr>
         <tr>
@@ -838,6 +838,13 @@
           <td>从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取单个交易日五个频度分钟线 raw。</td>
           <td><code>stock_mins_raw_sensor</code> 在 22:00 后触发；历史缺口 backfill 仍需单独审批范围、查询量和回滚方式。</td>
           <td>与 Tushare job 写入同一套 raw assets/path/checks；通过 job config 固定 <code>source=prod_db</code>，不创建平行 asset。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_silver_update_job</code></td>
+          <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
+          <td>单个交易日五个频度分钟线 silver 标准化。</td>
+          <td>人工 partition run；日常 silver sensor 留到历史文件与 events 对齐后单独设计。</td>
+          <td>只 selection silver assets 与 silver checks；不顺手更新 raw、gold、stock basic、stock daily、suspend、identity map 或 namechange。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>
@@ -1095,6 +1102,7 @@
    - stock_mins_raw_update_job remains as a manual Tushare fallback entry
    - Tushare merge_repair is implemented as a manual raw asset run config, not as a sensor path
    - silver_stk_mins_1m/5m/15m/30m/60m assets and checks are implemented
+   - stock_mins_silver_update_job is implemented as the silver-only daily entry
    - silver historical generation and runless events are not executed yet
    - gold_stk_mins_qfq_* is not implemented yet</code></pre>
   </section>
