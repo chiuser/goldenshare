@@ -33,7 +33,7 @@
 | `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_quote_daily_job` | 已完成 Slice 2.0.5 验证 |
 | `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 未新增独立 job；M5 使用受控 Python 命令直接调用现有 bootstrap executor；M6B 使用 runless events 补录 Dagster 事件事实 | M5 raw 迁移已完成；M6B raw event 补录已完成；M6C silver 文件生成已完成；M6D silver event 补录已完成；A7 已补齐至 `2026-05-29` |
 | `stk_mins` | `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq={freq}/trade_date={partition_key}/*.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq={freq}/trade_date={partition_key}/part-000.parquet` | `stk_mins_bootstrap_spec` / `STK_MINS_BOOTSTRAP_SELECT_TEMPLATE` | 未新增 active job；M3 使用受控 CLI/helper 执行 dry-run、样本、全量迁移、分区注册和 runless event 补录 | M3 raw 迁移、分区注册和 event 补录已完成 |
-| `stock_identity_map` | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet` | `/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet` | `stock_identity_map_bootstrap_spec` / `STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE` | 未新增 active job；M3 使用 dataset-specific helper 写 full snapshot，并通过 runless events 补录 UI/readiness 事实 | M3 初始化写入和 event 补录已完成 |
+| `stock_identity_map` | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet` | `/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet` | `stock_identity_map_bootstrap_spec` / `STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE` | 只保留为历史初始化审计；active 日常维护已切到 `silver_stock_identity_map` asset、版本化 seed、`stock_identity_map_update_job` 与 `stock_identity_map_sensor` | M3 初始化写入和 event 补录已完成；active asset 已接管日常维护 |
 
 ## 已确认的迁移纠偏规则
 
@@ -102,7 +102,7 @@
 - 该数据集不是 raw 层，因此不复用 `BootstrapDatasetSpec`；M2 使用 dataset-specific helper 写入 `data_lake/silver/basic/stock_identity_map/part-000.parquet`。
 - 写入时显式归一日期字段和 `created_at` 类型，并验证行数为正、字段顺序符合 `SILVER_STOCK_IDENTITY_MAP_SCHEMA`。
 - M3 已写入 `silver_stock_identity_map` full snapshot：`6089` 行；已补录 1 个 runless materialization 与 9 个 blocking check events，最终 checks 均为 `succeeded=1, failed=0`。
-- 长期生成逻辑后续必须由新湖基础事实重建，不允许继续把旧湖 manifest 作为日常依赖。
+- 日常维护已由 active asset 接管：当前上市股票自映射来自 `silver_stock_basic`，非自映射来自仓库 seed；旧湖 manifest 不再作为日常依赖。
 - 独立维护方案见 `docs/design/dagster-stock-identity-map-design.md`；本文件只记录旧湖 bootstrap 链路和退场边界。
 
 ## 清理门禁

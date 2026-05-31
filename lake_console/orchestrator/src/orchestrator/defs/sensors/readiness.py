@@ -21,6 +21,32 @@ SILVER_STOCK_BASIC_CHECKS = (
     "silver_stock_basic_required_columns_non_null",
     "silver_stock_basic_unique_ts_code",
 )
+SILVER_NAMECHANGE_CHECKS = (
+    "silver_namechange_file_exists",
+    "silver_namechange_row_count_positive",
+    "silver_namechange_required_columns",
+    "silver_namechange_schema_matches_contract",
+    "silver_namechange_required_fields_non_null",
+    "silver_namechange_date_order_valid",
+    "silver_namechange_exact_duplicate_absent",
+    "silver_namechange_current_open_interval_unique",
+    "silver_namechange_interval_overlap_absent",
+    "silver_namechange_unknown_adjacent_gap_absent",
+)
+SILVER_STOCK_IDENTITY_MAP_CHECKS = (
+    "silver_stock_identity_map_file_exists",
+    "silver_stock_identity_map_row_count_positive",
+    "silver_stock_identity_map_schema_matches_contract",
+    "silver_stock_identity_map_source_ts_code_present",
+    "silver_stock_identity_map_source_ts_code_unique",
+    "silver_stock_identity_map_latest_ts_code_present",
+    "silver_stock_identity_map_latest_code_exists_in_stock_basic",
+    "silver_stock_identity_map_known_identity_source",
+    "silver_stock_identity_map_known_confidence",
+    "silver_stock_identity_map_date_ranges_valid",
+    "silver_stock_identity_map_conflicting_mapping_absent",
+    "silver_stock_identity_map_seed_latest_code_explainable",
+)
 RAW_SUSPEND_D_CHECKS = (
     "raw_suspend_d_file_exists",
     "raw_suspend_d_partition_date_matches",
@@ -121,6 +147,8 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")
 SILVER_STOCK_BASIC_ASSET_KEY = dg.AssetKey("silver_stock_basic")
+SILVER_NAMECHANGE_ASSET_KEY = dg.AssetKey("silver_namechange")
+SILVER_STOCK_IDENTITY_MAP_ASSET_KEY = dg.AssetKey("silver_stock_identity_map")
 RAW_SUSPEND_D_ASSET_KEY = dg.AssetKey("raw_tushare_suspend_d")
 SILVER_STOCK_SUSPEND_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_suspend_daily")
 RAW_STOCK_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_stock_daily")
@@ -179,6 +207,18 @@ class DatasetReadinessStatus:
 STOCK_BASIC_READINESS_SPECS = (
     AssetReadinessSpec(RAW_STOCK_BASIC_ASSET_KEY, RAW_STOCK_BASIC_CHECKS),
     AssetReadinessSpec(SILVER_STOCK_BASIC_ASSET_KEY, SILVER_STOCK_BASIC_CHECKS),
+)
+SILVER_STOCK_BASIC_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_STOCK_BASIC_ASSET_KEY,
+    SILVER_STOCK_BASIC_CHECKS,
+)
+SILVER_NAMECHANGE_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_NAMECHANGE_ASSET_KEY,
+    SILVER_NAMECHANGE_CHECKS,
+)
+SILVER_STOCK_IDENTITY_MAP_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_STOCK_IDENTITY_MAP_ASSET_KEY,
+    SILVER_STOCK_IDENTITY_MAP_CHECKS,
 )
 SUSPEND_D_READINESS_SPECS = (
     AssetReadinessSpec(RAW_SUSPEND_D_ASSET_KEY, RAW_SUSPEND_D_CHECKS),
@@ -383,6 +423,39 @@ def stock_basic_ready_without_freshness(
     instance: dg.DagsterInstance,
 ) -> DatasetReadinessStatus:
     return dataset_readiness_status(instance, STOCK_BASIC_READINESS_SPECS)
+
+
+def silver_stock_basic_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_STOCK_BASIC_READINESS_SPEC,
+        min_materialization_date=trade_date,
+    )
+
+
+def silver_namechange_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_NAMECHANGE_READINESS_SPEC,
+        min_materialization_date=trade_date,
+    )
+
+
+def silver_stock_identity_map_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_STOCK_IDENTITY_MAP_READINESS_SPEC,
+        min_materialization_date=trade_date,
+    )
 
 
 def suspend_d_ready_for_trade_date(

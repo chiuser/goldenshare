@@ -84,7 +84,7 @@ asset checks
 
 ## 4. 改造范围
 
-当前 `lake_console/orchestrator/src/orchestrator/defs/assets/*.py` 中共有 19 个 active table-like assets：
+当前 `lake_console/orchestrator/src/orchestrator/defs/assets/*.py` 中共有 27 个 active table-like assets：
 
 | Asset | 层级 | 当前状态 |
 |---|---|---|
@@ -92,10 +92,18 @@ asset checks
 | `silver_trade_calendar` | silver | 已注册 definition column schema |
 | `raw_tushare_stock_basic` | raw | 已注册 definition column schema |
 | `silver_stock_basic` | silver | 已注册 definition column schema |
+| `raw_tushare_namechange` | raw | 已注册 definition column schema |
+| `silver_namechange` | silver | 已注册 definition column schema |
+| `silver_stock_identity_map` | silver | 已注册 definition column schema |
 | `raw_tushare_stock_daily` | raw | 已注册 definition column schema |
 | `silver_stock_daily` | silver | 已注册 definition column schema |
 | `raw_tushare_adj_factor` | raw | 已注册 definition column schema |
 | `silver_adj_factor` | silver | 已注册 definition column schema |
+| `raw_stk_mins_1m` | raw | 已注册 definition column schema |
+| `raw_stk_mins_5m` | raw | 已注册 definition column schema |
+| `raw_stk_mins_15m` | raw | 已注册 definition column schema |
+| `raw_stk_mins_30m` | raw | 已注册 definition column schema |
+| `raw_stk_mins_60m` | raw | 已注册 definition column schema |
 | `raw_tushare_suspend_d` | raw | 已注册 definition column schema |
 | `silver_stock_suspend_daily` | silver | 已注册 definition column schema |
 | `raw_tushare_index_basic` | raw | 已注册 definition column schema |
@@ -154,7 +162,7 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/asset_column_schem
 
 职责：
 
-1. 集中维护当前 19 个 active table-like assets 的字段契约。
+1. 集中维护当前 27 个 active table-like assets 的字段契约。
 2. 每个契约必须包含字段名、类型和中文说明。
 3. 类型口径必须与该资产实际层级一致。
 
@@ -455,7 +463,7 @@ git status --short
 验收结论：
 
 1. SC-1 至 SC-6 已完成开发与收口。
-2. 19 个 active table-like assets 已接入 definition column schema。
+2. 27 个 active table-like assets 已接入 definition column schema。
 3. 用户已完成 UI 自验，确认 schema contract 口径可用。
 4. 历史 materialization metadata 不刷新，这是预期；如需清理旧 event log，另起方案。
 
@@ -528,7 +536,7 @@ git status --short
 
 完成后应满足：
 
-1. 所有 19 个 active table-like assets 都在 definition metadata 中注册 column schema。
+1. 所有 27 个 active table-like assets 都在 definition metadata 中注册 column schema。
 2. 每个字段都有 name、type、description。
 3. materialization metadata 不再承担稳定字段契约职责。
 4. runtime observed columns 仍可见。

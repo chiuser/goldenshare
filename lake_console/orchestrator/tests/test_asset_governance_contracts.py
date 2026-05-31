@@ -47,6 +47,7 @@ from orchestrator.defs.assets.stock_basic import (
     raw_tushare_stock_basic,
     silver_stock_basic,
 )
+from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.stock_daily import (
     STOCK_DAILY_RAW_COLUMN_TYPES,
     raw_tushare_stock_daily,
@@ -80,6 +81,7 @@ from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_SILVER_COLUMNS,
     NAMECHANGE_RAW_COLUMNS,
     NAMECHANGE_SILVER_REQUIRED_COLUMNS,
+    SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
     STOCK_BASIC_RAW_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
@@ -112,6 +114,7 @@ from orchestrator.defs.paths import (
     silver_namechange_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_identity_map_path,
     silver_stock_suspend_daily_path,
     silver_trade_calendar_path,
 )
@@ -142,6 +145,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_NAMECHANGE_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
@@ -166,6 +170,12 @@ ASSET_CONTRACTS = {
     silver_stock_basic: ("silver", "basic_data", "stock_basic", "股票基础信息"),
     raw_tushare_namechange: ("raw", "basic_data", "namechange", "股票曾用名"),
     silver_namechange: ("silver", "basic_data", "namechange", "股票曾用名"),
+    silver_stock_identity_map: (
+        "silver",
+        "basic_data",
+        "stock_identity_map",
+        "股票身份映射",
+    ),
     raw_tushare_suspend_d: ("raw", "quote_data", "suspend_d", "每日停复牌信息"),
     silver_stock_suspend_daily: ("silver", "quote_data", "suspend_d", "每日停复牌信息"),
     raw_tushare_stock_daily: ("raw", "quote_data", "daily", "A股日线行情"),
@@ -236,6 +246,9 @@ ASSET_PATH_TEMPLATES = {
     ),
     silver_namechange: lake_path_template(
         silver_namechange_path(PATH_TEMPLATE_LAKE_ROOT)
+    ),
+    silver_stock_identity_map: lake_path_template(
+        silver_stock_identity_map_path(PATH_TEMPLATE_LAKE_ROOT)
     ),
     raw_tushare_suspend_d: lake_path_template(
         raw_suspend_d_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
@@ -325,6 +338,7 @@ ASSET_COLUMN_SCHEMAS = {
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
     silver_stock_basic: SILVER_STOCK_BASIC_SCHEMA,
     silver_namechange: SILVER_NAMECHANGE_SCHEMA,
+    silver_stock_identity_map: SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     silver_stock_suspend_daily: SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     silver_stock_daily: SILVER_STOCK_DAILY_SCHEMA,
     silver_adj_factor: SILVER_ADJ_FACTOR_SCHEMA,
@@ -370,7 +384,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 26)
+        self.assertEqual(len(ASSET_CONTRACTS), 27)
 
         for asset, (
             layer,
@@ -516,6 +530,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             NAMECHANGE_SILVER_COLUMN_TYPES,
             {column.name: column.type for column in SILVER_NAMECHANGE_SCHEMA},
+        )
+        self.assertEqual(
+            SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_STOCK_IDENTITY_MAP_SCHEMA),
         )
         self.assertEqual(
             STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
