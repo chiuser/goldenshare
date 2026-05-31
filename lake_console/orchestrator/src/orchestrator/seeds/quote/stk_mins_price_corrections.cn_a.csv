@@ -1,0 +1,6 @@
+freq,trade_date,ts_code,trade_time,open,high,low,close,reason
+1,2014-06-03,600463.SH,09:32:00,7.48,7.50,7.48,7.50,manual confirmed raw low=0 correction
+1,2014-06-03,600697.SH,09:33:00,18.35,18.35,18.35,18.35,manual confirmed raw low=0 correction
+1,2014-06-03,600986.SH,09:33:00,4.46,4.47,4.46,4.47,manual confirmed raw low=0 correction
+1,2014-08-04,300211.SZ,09:35:00,18.30,18.30,18.30,18.30,manual confirmed raw low=0 correction
+1,2014-12-22,600062.SH,09:34:00,20.85,20.87,20.77,20.77,manual confirmed raw close below low correction

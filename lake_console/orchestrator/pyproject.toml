@@ -21,8 +21,10 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
-[tool.hatch.build.targets.wheel]
-force-include = { "pyproject.toml" = "pyproject.toml", "src/orchestrator/seeds/market/major_indices.cn_a.csv" = "src/orchestrator/seeds/market/major_indices.cn_a.csv" }
+[tool.hatch.build.targets.wheel.force-include]
+"pyproject.toml" = "pyproject.toml"
+"src/orchestrator/seeds/market/major_indices.cn_a.csv" = "src/orchestrator/seeds/market/major_indices.cn_a.csv"
+"src/orchestrator/seeds/quote/stk_mins_price_corrections.cn_a.csv" = "src/orchestrator/seeds/quote/stk_mins_price_corrections.cn_a.csv"
 
 [tool.dg]
 directory_type = "project"
