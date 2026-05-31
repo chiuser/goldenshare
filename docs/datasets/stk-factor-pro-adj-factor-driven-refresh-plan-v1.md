@@ -1,6 +1,6 @@
 # 股票技术面因子基于复权因子变化的历史重刷方案 v1
 
-状态：已进入代码落地。当前实现口径以本文件为准，核心逻辑收敛在 `stk_factor_pro` 自己的 planner 与 request builder 中。
+状态：已落地。当前代码实现与本文件口径一致，核心逻辑收敛在 `stk_factor_pro` 自己的 planner 与 request builder 中。
 
 ## 1. 目标
 

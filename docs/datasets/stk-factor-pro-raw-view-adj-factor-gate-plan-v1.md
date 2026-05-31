@@ -1,5 +1,7 @@
 # 股票技术面因子 raw 直出与复权因子门禁方案 v1
 
+状态：已落地。`stk_factor_pro` 当前已按 `raw_only_upsert` 写入 `raw_tushare.stk_factor_pro`，`core_serving.equity_factor_pro` 已由普通 view 直出 raw。
+
 ## 1. 目标
 
 本轮只处理 `stk_factor_pro` 的两件事：
@@ -14,8 +16,8 @@
 ## 2. 当前事实
 
 - `raw_tushare.stk_factor_pro` 是 Tushare 原始数据落库表，主键为 `(ts_code, trade_date)`。
-- `core_serving.equity_factor_pro` 当前仍是物理表，与 raw 存在重复存储。
-- `DatasetWriter` 已支持 `raw_only_upsert`，但现有 writer 入口会先检查 raw DAO 和 core DAO 是否存在，因此 `core_dao_name` 暂时仍需保留为 writer 内部占位；保留不等于写 serving。
+- `core_serving.equity_factor_pro` 当前是普通 view，直接读取 `raw_tushare.stk_factor_pro`，不再维护第二份物理 serving 表。
+- `DatasetWriter` 通过 `raw_only_upsert` 只写 raw DAO；`core_dao_name` 暂时仍保留为 writer 内部占位，保留不等于写 serving。
 - `stk_factor_pro` 数据包含前复权、后复权字段，复权结果依赖 `adj_factor`。如果目标日期的复权因子未先更新，继续同步会得到不可靠结果。
 
 ## 3. 拍板口径
@@ -49,24 +51,24 @@ flowchart TD
   J --> K["core_serving.equity_factor_pro view 直接读 raw"]
 ```
 
-## 5. 实施范围
+## 5. 已实施范围
 
 1. 新增 Alembic 迁移：
-   - 删除旧 `core_serving.equity_factor_pro` 物理表。
-   - 创建同名 view，字段从 `raw_tushare.stk_factor_pro` 投影，并补充 `source/created_at/updated_at` 以满足现有 ORM 查询。
+   - 已删除旧 `core_serving.equity_factor_pro` 物理表。
+   - 已创建同名 view，字段从 `raw_tushare.stk_factor_pro` 投影，并补充 `source/created_at/updated_at` 以满足现有 ORM 查询。
    - 不删除、不清空 `raw_tushare.stk_factor_pro`。
 2. 更新 `DatasetDefinition`：
-   - `write_path` 改为 `raw_only_upsert`。
-   - `layer_plan` 改为 `raw->serving_view`。
-   - `unit_builder_key` 改为 `build_stk_factor_pro_units`。
+   - `write_path` 已改为 `raw_only_upsert`。
+   - `layer_plan` 已改为 `raw->serving_view`。
+   - `unit_builder_key` 已改为 `build_stk_factor_pro_units`。
 3. 更新 planner：
    - `build_stk_factor_pro_units` 先按现有日期模型展开目标交易日。
    - 对每个目标交易日检查 `core.equity_adj_factor` 是否已有数据。
    - 缺失则抛出结构化规划错误，不进入源接口请求。
 4. 更新测试：
-   - Definition 测试锁定 raw-only/view 口径。
-   - Resolver 测试覆盖缺复权因子失败、有复权因子通过、区间部分缺失失败。
-   - Writer 测试证明只调用 raw DAO，不写 serving DAO。
+   - Definition 测试已锁定 raw-only/view 口径。
+   - Resolver 测试已覆盖缺复权因子失败、有复权因子通过、区间部分缺失失败。
+   - Writer 测试已证明只调用 raw DAO，不写 serving DAO。
 
 ## 6. 生产清理操作
 
