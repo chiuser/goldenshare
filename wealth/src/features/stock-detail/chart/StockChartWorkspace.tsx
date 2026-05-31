@@ -67,9 +67,14 @@ const chartColors = {
   brand: "#f7c76b",
   blue: "#5aa7ff",
   purple: "#b794f4",
+  cyan: "#30d5c8",
+  amber: "#f59e0b",
+  rose: "#fb7185",
+  slate: "#cbd5e1",
 };
 
 const rightPriceScaleWidth = 48;
+const defaultVisibleDailyBars = 90;
 
 function buildChartOptions(height: number, showTimeScale: boolean) {
   return {
@@ -120,6 +125,7 @@ function buildChartOptions(height: number, showTimeScale: boolean) {
 }
 
 export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAction }: StockChartWorkspaceProps) {
+  const chartsAreaRef = useRef<HTMLDivElement | null>(null);
   const chartRefs = useRef<ChartRefs>({ kline: null, macd: null, volume: null, kdj: null });
   const [overlay, setOverlay] = useState<StockMainOverlay>("MA");
   const [hoverIndex, setHoverIndex] = useState(candles.length - 1);
@@ -144,6 +150,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
 
   useEffect(() => {
     if (typeof ResizeObserver === "undefined") return;
+    if (!chartsAreaRef.current) return;
     if (!chartRefs.current.kline || !chartRefs.current.macd || !chartRefs.current.volume || !chartRefs.current.kdj) return;
 
     const charts: IChartApi[] = [];
@@ -180,6 +187,10 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       addLine(klineChart, chartColors.brand, "ma5");
       addLine(klineChart, chartColors.blue, "ma10");
       addLine(klineChart, chartColors.purple, "ma20");
+      addLine(klineChart, chartColors.cyan, "ma30");
+      addLine(klineChart, chartColors.amber, "ma60");
+      addLine(klineChart, chartColors.rose, "ma90");
+      addLine(klineChart, chartColors.slate, "ma250");
     } else {
       addLine(klineChart, chartColors.brand, "bollUpper");
       addLine(klineChart, chartColors.blue, "bollMiddle");
@@ -299,8 +310,6 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       syncCrosshairMove("kdj", param.point?.x, param.point?.y, param.time as Time | undefined);
     });
 
-    charts.forEach((chart) => chart.timeScale().fitContent());
-
     const updateTimeAxisMarkers = () => {
       if (activePeriod !== "day") {
         setTimeAxisMarkers([]);
@@ -308,22 +317,143 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
       }
       setTimeAxisMarkers(buildDailyTimeAxisMarkers(candles, kdjChart));
     };
-    const markerFrame = window.requestAnimationFrame(updateTimeAxisMarkers);
+    let markerFrame = window.requestAnimationFrame(updateTimeAxisMarkers);
+    const queueTimeAxisMarkerUpdate = () => {
+      window.cancelAnimationFrame(markerFrame);
+      markerFrame = window.requestAnimationFrame(updateTimeAxisMarkers);
+    };
+
+    let isSyncingVisibleRange = false;
+    const applyVisibleRange = (range: { from: number; to: number }) => {
+      isSyncingVisibleRange = true;
+      charts.forEach((chart) => chart.timeScale().setVisibleLogicalRange(range));
+      isSyncingVisibleRange = false;
+      queueTimeAxisMarkerUpdate();
+    };
+
+    const visibleRangeHandlers: Array<{ chart: IChartApi; handler: () => void }> = [];
+    const syncVisibleRange = (sourceChart: IChartApi) => {
+      if (isSyncingVisibleRange) return;
+      const visibleRange = sourceChart.timeScale().getVisibleLogicalRange();
+      if (!visibleRange) return;
+
+      isSyncingVisibleRange = true;
+      charts.forEach((chart) => {
+        if (chart !== sourceChart) chart.timeScale().setVisibleLogicalRange(visibleRange);
+      });
+      isSyncingVisibleRange = false;
+      queueTimeAxisMarkerUpdate();
+    };
+
+    charts.forEach((chart) => {
+      const handler = () => syncVisibleRange(chart);
+      chart.timeScale().subscribeVisibleLogicalRangeChange(handler);
+      visibleRangeHandlers.push({ chart, handler });
+    });
+
+    if (candles.length > 0) {
+      const to = candles.length - 1;
+      const from = Math.max(0, to - defaultVisibleDailyBars + 1);
+      applyVisibleRange({ from, to });
+    } else {
+      charts.forEach((chart) => chart.timeScale().fitContent());
+    }
+
+    const chartArea = chartsAreaRef.current;
+    let dragState: { pointerId: number | null; startX: number; startRange: { from: number; to: number } } | null = null;
+    const startDrag = (clientX: number, target: EventTarget | null, button: number, pointerId: number | null = null) => {
+      if (dragState || button !== 0) return;
+      if (target instanceof Element && target.closest("button,select")) return;
+      const startRange = klineChart.timeScale().getVisibleLogicalRange();
+      if (!startRange) return;
+      dragState = {
+        pointerId,
+        startRange,
+        startX: clientX,
+      };
+    };
+    const moveDrag = (clientX: number) => {
+      if (!dragState) return;
+      const hostWidth = Math.max(1, chartRefs.current.kline?.clientWidth ?? 1);
+      const rangeWidth = dragState.startRange.to - dragState.startRange.from;
+      if (rangeWidth <= 0) return;
+
+      const deltaLogical = -((clientX - dragState.startX) * rangeWidth) / hostWidth;
+      let from = dragState.startRange.from + deltaLogical;
+      let to = dragState.startRange.to + deltaLogical;
+      const minFrom = 0;
+      const maxTo = candles.length - 1;
+      if (from < minFrom) {
+        to += minFrom - from;
+        from = minFrom;
+      }
+      if (to > maxTo) {
+        from -= to - maxTo;
+        to = maxTo;
+      }
+      if (from < minFrom || to > maxTo) return;
+
+      applyVisibleRange({ from, to });
+    };
+    const handlePointerDown = (event: PointerEvent) => {
+      startDrag(event.clientX, event.target, event.button, event.pointerId);
+      if (!dragState) return;
+      chartArea.setPointerCapture(event.pointerId);
+      event.preventDefault();
+    };
+    const handlePointerMove = (event: PointerEvent) => {
+      moveDrag(event.clientX);
+      if (dragState) event.preventDefault();
+    };
+    const clearDragState = (event: PointerEvent) => {
+      if (!dragState || event.pointerId !== dragState.pointerId) return;
+      if (chartArea.hasPointerCapture(event.pointerId)) chartArea.releasePointerCapture(event.pointerId);
+      dragState = null;
+    };
+    const handleMouseDown = (event: MouseEvent) => {
+      startDrag(event.clientX, event.target, event.button, null);
+      if (dragState) event.preventDefault();
+    };
+    const handleMouseMove = (event: MouseEvent) => {
+      moveDrag(event.clientX);
+      if (dragState) event.preventDefault();
+    };
+    const handleMouseUp = () => {
+      if (dragState?.pointerId === null) dragState = null;
+    };
+    chartArea.addEventListener("pointerdown", handlePointerDown, { capture: true });
+    chartArea.addEventListener("pointermove", handlePointerMove, { capture: true });
+    chartArea.addEventListener("pointerup", clearDragState, { capture: true });
+    chartArea.addEventListener("pointercancel", clearDragState, { capture: true });
+    chartArea.addEventListener("mousedown", handleMouseDown, { capture: true });
+    window.addEventListener("mousemove", handleMouseMove, { capture: true });
+    window.addEventListener("mouseup", handleMouseUp, { capture: true });
+
     const markerResizeObserver = new ResizeObserver(() => {
-      window.requestAnimationFrame(updateTimeAxisMarkers);
+      queueTimeAxisMarkerUpdate();
     });
     markerResizeObserver.observe(chartRefs.current.kdj);
 
     return () => {
       window.cancelAnimationFrame(markerFrame);
       markerResizeObserver.disconnect();
+      visibleRangeHandlers.forEach(({ chart, handler }) => {
+        chart.timeScale().unsubscribeVisibleLogicalRangeChange(handler);
+      });
+      chartArea.removeEventListener("pointerdown", handlePointerDown, { capture: true });
+      chartArea.removeEventListener("pointermove", handlePointerMove, { capture: true });
+      chartArea.removeEventListener("pointerup", clearDragState, { capture: true });
+      chartArea.removeEventListener("pointercancel", clearDragState, { capture: true });
+      chartArea.removeEventListener("mousedown", handleMouseDown, { capture: true });
+      window.removeEventListener("mousemove", handleMouseMove, { capture: true });
+      window.removeEventListener("mouseup", handleMouseUp, { capture: true });
       charts.forEach((chart) => chart.remove());
     };
   }, [activePeriod, candleData, candles, overlay]);
 
   return (
     <section className="stock-detail-chart-workbench" aria-label="左侧图表区">
-      <div className="stock-detail-charts-area" onMouseLeave={() => setIsChartHovering(false)}>
+      <div className="stock-detail-charts-area" ref={chartsAreaRef} onMouseLeave={() => setIsChartHovering(false)}>
         {timeAxisMarkers.length > 0 ? <DailyTimeAxis markers={timeAxisMarkers} /> : null}
         {sharedCrosshair !== null ? (
           <>
@@ -339,7 +469,10 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
               aria-label="主图指标切换"
               className="overlay-select"
               value={overlay}
-              onChange={(event) => setOverlay(event.target.value as StockMainOverlay)}
+              onChange={(event) => {
+                setOverlay(event.target.value as StockMainOverlay);
+                event.currentTarget.blur();
+              }}
             >
               <option value="MA">MA 均线</option>
               <option value="BOLL">BOLL 布林线</option>
@@ -440,17 +573,22 @@ function getYearMonth(point: StockCandlePoint): { month: string; year: string } 
 
 function buildDailyTimeAxisMarkers(candles: StockCandlePoint[], chart: IChartApi): TimeAxisMarker[] {
   const markers: TimeAxisMarker[] = [];
+  const visibleRange = chart.timeScale().getVisibleLogicalRange();
+  const fromIndex = visibleRange ? Math.max(0, Math.floor(visibleRange.from)) : 0;
+  const toIndex = visibleRange ? Math.min(candles.length - 1, Math.ceil(visibleRange.to)) : candles.length - 1;
   let previousMonth = "";
 
-  candles.forEach((point, index) => {
+  for (let index = fromIndex; index <= toIndex; index += 1) {
+    const point = candles[index];
+    if (!point) continue;
     const yearMonth = getYearMonth(point);
-    if (!yearMonth) return;
-    const isFirstPoint = index === 0;
+    if (!yearMonth) continue;
+    const isFirstPoint = index === fromIndex;
     const isNewMonth = yearMonth.month !== previousMonth;
-    if (!isFirstPoint && !isNewMonth) return;
+    if (!isFirstPoint && !isNewMonth) continue;
 
     const coordinate = chart.timeScale().timeToCoordinate(point.time as Time);
-    if (coordinate === null) return;
+    if (coordinate === null) continue;
 
     markers.push({
       key: point.time,
@@ -459,7 +597,7 @@ function buildDailyTimeAxisMarkers(candles: StockCandlePoint[], chart: IChartApi
       tone: isFirstPoint ? "year" : "month",
     });
     previousMonth = yearMonth.month;
-  });
+  }
 
   return markers;
 }
