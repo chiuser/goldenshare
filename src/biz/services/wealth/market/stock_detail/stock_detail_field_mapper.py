@@ -56,16 +56,16 @@ def build_data_status(*, expected_trade_date: date, observed_trade_date: date | 
 
 def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
     change_pct = to_float(row.get("pct_chg"))
-    close = to_float(row.get("close"))
+    close = to_float(row.get("close_qfq"))
     return StockQuoteSnapshotDto(
         tradeDate=row["trade_date"],
         price=close,
         change=to_float(row.get("change")),
         changePct=change_pct,
         direction=resolve_direction(change_pct),  # type: ignore[arg-type]
-        open=to_float(row.get("open")),
-        high=to_float(row.get("high")),
-        low=to_float(row.get("low")),
+        open=to_float(row.get("open_qfq")),
+        high=to_float(row.get("high_qfq")),
+        low=to_float(row.get("low_qfq")),
         close=close,
         preClose=to_float(row.get("pre_close")),
         turnoverRate=to_float(row.get("turnover_rate")),
@@ -78,10 +78,10 @@ def build_quote(row: Mapping[str, Any]) -> StockQuoteSnapshotDto:
 def build_kline_bar(row: Mapping[str, Any]) -> StockKlineBarDto:
     return StockKlineBarDto(
         tradeDate=row["trade_date"],
-        open=to_float(row.get("open")),
-        high=to_float(row.get("high")),
-        low=to_float(row.get("low")),
-        close=to_float(row.get("close")),
+        open=to_float(row.get("open_qfq")),
+        high=to_float(row.get("high_qfq")),
+        low=to_float(row.get("low_qfq")),
+        close=to_float(row.get("close_qfq")),
         preClose=to_float(row.get("pre_close")),
         change=to_float(row.get("change")),
         changePct=to_float(row.get("pct_chg")),

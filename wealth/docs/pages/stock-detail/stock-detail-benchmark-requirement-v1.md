@@ -134,10 +134,10 @@
 | 字段 | 来源 | 展示口径 |
 |---|---|---|
 | `observedTradeDate` | `equity_factor_pro.trade_date` | 实际数据日期。 |
-| `open` | `open` | 今开。 |
-| `high` | `high` | 最高。 |
-| `low` | `low` | 最低。 |
-| `close` | `close` | 盘后静态最新价。 |
+| `open` | `open_qfq` | 前复权今开。 |
+| `high` | `high_qfq` | 前复权最高。 |
+| `low` | `low_qfq` | 前复权最低。 |
+| `close` | `close_qfq` | 前复权盘后静态最新价。 |
 | `preClose` | `pre_close` | 昨收。 |
 | `change` | `change` | 涨跌额。 |
 | `pctChg` | `pct_chg` | 涨跌幅。 |

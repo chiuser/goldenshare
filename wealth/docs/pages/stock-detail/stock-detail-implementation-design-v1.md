@@ -268,10 +268,10 @@ wealth/src/
 
 | DTO 字段 | 来源字段 |
 |---|---|
-| `quote.open` | `open` |
-| `quote.high` | `high` |
-| `quote.low` | `low` |
-| `quote.close` | `close` |
+| `quote.open` | `open_qfq` |
+| `quote.high` | `high_qfq` |
+| `quote.low` | `low_qfq` |
+| `quote.close` | `close_qfq` |
 | `quote.preClose` | `pre_close` |
 | `quote.turnoverRate` | `turnover_rate` |
 | `quote.volumeRatio` | `volume_ratio` |

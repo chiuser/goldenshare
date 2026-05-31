@@ -24,6 +24,10 @@ def _factor_row(*, ts_code: str, trade_date: date, close: float, kdj_j: float) -
         "high": close + 0.8,
         "low": close - 1.0,
         "close": close,
+        "open_qfq": close + 9.5,
+        "high_qfq": close + 10.8,
+        "low_qfq": close + 9.0,
+        "close_qfq": close + 10.0,
         "pre_close": close - 0.2,
         "change": 0.2,
         "pct_chg": 1.25,
@@ -102,7 +106,10 @@ def test_stock_detail_page_init_returns_context_stock_quote_and_defaults(app_cli
     assert payload["stock"]["tsCode"] == "603806.SH"
     assert payload["stock"]["name"] == "福斯特"
     assert payload["quote"]["tradeDate"] == "2026-05-29"
-    assert payload["quote"]["price"] == 19.1
+    assert payload["quote"]["price"] == 29.1
+    assert payload["quote"]["open"] == 28.6
+    assert payload["quote"]["high"] == 29.9
+    assert payload["quote"]["low"] == 28.1
     assert payload["chartDefaults"]["defaultAdjustment"] == "forward"
     assert payload["chartDefaults"]["sourceAdjustment"] == "qfq"
     assert payload["chartDefaults"]["availablePeriods"] == ["day"]
@@ -129,6 +136,10 @@ def test_stock_detail_kline_returns_day_forward_bars_without_forbidden_ma(app_cl
     assert payload["meta"]["count"] == 2
     assert [bar["tradeDate"] for bar in payload["bars"]] == ["2026-05-28", "2026-05-29"]
     latest = payload["bars"][-1]
+    assert latest["open"] == 28.6
+    assert latest["high"] == 29.9
+    assert latest["low"] == 28.1
+    assert latest["close"] == 29.1
     ma = latest["factors"]["ma"]
     assert ma["ma5"] == 19.0
     assert ma["ma10"] == 18.9
