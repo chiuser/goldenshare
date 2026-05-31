@@ -23,10 +23,18 @@ export function StockChartToolbar({ stock, periods, activePeriod, onPeriodChange
           <span className="toolbar-title">周期</span>
           {periods.map((period) => (
             <button
-              className={period.key === activePeriod ? "seg-btn active" : "seg-btn"}
+              className={[period.key === activePeriod ? "seg-btn active" : "seg-btn", period.supported === false ? "unsupported" : ""]
+                .filter(Boolean)
+                .join(" ")}
               key={period.key}
               type="button"
-              onClick={() => onPeriodChange(period.key)}
+              onClick={() => {
+                if (period.supported === false) {
+                  onAction(`${period.label} 首期暂未接入真实数据`);
+                  return;
+                }
+                onPeriodChange(period.key);
+              }}
             >
               {period.label}
             </button>

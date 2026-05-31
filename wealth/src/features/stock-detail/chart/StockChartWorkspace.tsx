@@ -177,8 +177,8 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
 
     if (overlay === "MA") {
       addLine(klineChart, chartColors.brand, "ma5");
-      addLine(klineChart, chartColors.blue, "ma15");
-      addLine(klineChart, chartColors.purple, "ma30");
+      addLine(klineChart, chartColors.blue, "ma10");
+      addLine(klineChart, chartColors.purple, "ma20");
     } else {
       addLine(klineChart, chartColors.brand, "bollUpper");
       addLine(klineChart, chartColors.blue, "bollMiddle");
@@ -379,7 +379,7 @@ export function StockChartWorkspace({ candles, activePeriod, indicatorTabs, onAc
             chartRefs.current.volume = node;
           }}
           axisFloatLabel={axisFloatLabel?.panel === "volume" ? axisFloatLabel : null}
-          metrics={latest ? [["总量", latest.volume], ["MA5", latest.ma5], ["MA10", latest.ma15]] : []}
+          metrics={latest ? [["总量", latest.volume], ["MA5", latest.ma5], ["MA10", latest.ma10]] : []}
           title="成交量"
         />
         <IndicatorChartPanel
@@ -509,18 +509,19 @@ function KlineMetrics({ point, overlay }: { point: StockCandlePoint; overlay: St
     return (
       <>
         <span className="metric ma5">UPPER:{point.bollUpper.toFixed(2)}</span>
-        <span className="metric ma15">MID:{point.bollMiddle.toFixed(2)}</span>
-        <span className="metric ma30">LOWER:{point.bollLower.toFixed(2)}</span>
+      <span className="metric ma10">MID:{point.bollMiddle.toFixed(2)}</span>
+      <span className="metric ma20">LOWER:{point.bollLower.toFixed(2)}</span>
       </>
     );
   }
   return (
     <>
       <span className="metric ma5">MA5:{point.ma5.toFixed(2)}</span>
-      <span className="metric ma15">MA15:{point.ma15.toFixed(2)}</span>
+      <span className="metric ma10">MA10:{point.ma10.toFixed(2)}</span>
+      <span className="metric ma20">MA20:{point.ma20.toFixed(2)}</span>
       <span className="metric ma30">MA30:{point.ma30.toFixed(2)}</span>
       <span className="metric ma60">MA60:{point.ma60.toFixed(2)}</span>
-      <span className="metric ma120">MA120:{point.ma120.toFixed(2)}</span>
+      <span className="metric ma90">MA90:{point.ma90.toFixed(2)}</span>
       <span className="metric ma250">MA250:{point.ma250.toFixed(2)}</span>
     </>
   );

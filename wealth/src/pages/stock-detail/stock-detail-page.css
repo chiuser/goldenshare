@@ -137,9 +137,40 @@
   color: var(--cs-color-brand);
 }
 
+.stock-detail-chart-toolbar .seg-btn.unsupported {
+  opacity: 0.58;
+}
+
 .stock-detail-chart-toolbar .btn:disabled {
   cursor: not-allowed;
   opacity: 0.45;
+}
+
+.stock-detail-state-panel {
+  align-items: center;
+  background: rgba(12, 19, 33, 0.92);
+  border: 1px solid rgba(148, 163, 184, 0.16);
+  border-radius: 14px;
+  color: var(--cs-color-text-primary);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  height: calc(
+    100vh - var(--cs-layout-top-market-bar-height) - var(--stock-detail-breadcrumb-action-bar-height) -
+      var(--stock-detail-chart-toolbar-height) - 20px
+  );
+  justify-content: center;
+  margin: 10px;
+}
+
+.stock-detail-state-panel .state-title {
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.stock-detail-state-panel .state-detail {
+  color: var(--cs-color-text-muted);
+  font-size: 13px;
 }
 
 .stock-detail-main-content {
@@ -282,12 +313,12 @@
   color: var(--cs-color-brand);
 }
 
-.stock-detail-chart-panel .panel-header .ma15,
+.stock-detail-chart-panel .panel-header .ma10,
 .stock-detail-chart-panel .panel-header .dif {
   color: #5aa7ff;
 }
 
-.stock-detail-chart-panel .panel-header .ma30,
+.stock-detail-chart-panel .panel-header .ma20,
 .stock-detail-chart-panel .panel-header .dea {
   color: #b794f4;
 }

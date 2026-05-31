@@ -19,6 +19,7 @@ export type StockMainOverlay = "MA" | "BOLL";
 export interface StockPeriodOption {
   key: StockPeriodKey;
   label: string;
+  supported?: boolean;
 }
 
 export interface StockIndicatorTab {
@@ -62,10 +63,11 @@ export interface StockCandlePoint {
   volume: number;
   amount: number;
   ma5: number;
-  ma15: number;
+  ma10: number;
+  ma20: number;
   ma30: number;
   ma60: number;
-  ma120: number;
+  ma90: number;
   ma250: number;
   bollUpper: number;
   bollMiddle: number;

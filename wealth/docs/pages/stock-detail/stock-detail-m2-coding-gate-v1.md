@@ -1,227 +1,205 @@
-# 股票详情页｜M2 编码前门禁 v1
+# 股票详情页｜真实 API 接入 M2 编码前门禁 v1
 
-> 用途：在编码前冻结股票详情页首版 UI/mock 的执行门禁。  
-> 阶段：M2 开工前。  
+> 用途：在编码前冻结股票详情页真实 API 接入的执行门禁。
+> 阶段：真实 API 接入开工前。
 > 产物性质：执行清单，不通过不允许编码。
 
 关联文档：
 
 1. [股票详情页标杆需求 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stock-detail-benchmark-requirement-v1.md)
 2. [股票详情页技术实施方案 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stock-detail-implementation-design-v1.md)
-3. [Showcase：stock-detail-v1.4.3.html](/Users/congming/github/goldenshare/wealth/docs/update/stock-detail-v1.4.3.html)
+3. [股票详情页真实 API 对接方案 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stock-detail-real-api-stk-factor-pro-integration-plan-v1.html)
+4. [stk_factor_pro 数据覆盖审计 v1](/Users/congming/github/goldenshare/wealth/docs/pages/stock-detail/stk-factor-pro-data-coverage-audit-v1.md)
 
 ---
 
-## 1. 目的
+## 1. 开工前硬门禁
 
-1. 本门禁对应页面：`stockDetail`
-2. 本门禁对应需求文档：`stock-detail-benchmark-requirement-v1.md`
-3. 本门禁对应实施方案：`stock-detail-implementation-design-v1.md`
-4. 本门禁特别约束：必须先完成 `TopMarketBar` shared 抽象，才能进入股票详情页主体编码。
-
----
-
-## 2. 总门禁清单（全通过才能开工）
-
-1. [ ] `TopMarketBar` 共享抽象任务拆为独立 M0，并确认不改变市场总览现有效果。
-2. [ ] 股票详情页路由已确认并落实现：`/market/stock/:tsCode`。
-3. [ ] 图表实现方式已确认并落依赖：`lightweight-charts` 优先仿真并精修，canvas 仅作为有证据的兜底方案。
-4. [ ] `StockDetailViewModel` 字段冻结。
-5. [ ] 页面组件拆分冻结。
-6. [ ] mock adapter 输出冻结。
-7. [ ] 核心交互清单冻结。
-8. [ ] 高保真验收清单冻结。
-9. [ ] 测试命令与 smoke case 冻结。
-10. [ ] 不接真实 API、不改后端的边界冻结。
+1. [x] 已确认本轮新 API 不复用旧 `/api/v1/quote/detail/*`。
+2. [x] 已确认旧 `quote.py` / `quote_query_service.py` 当前仍被使用，本轮不删除。
+3. [x] 已确认 `defaultAdjustment` 对外为 `forward`，底层映射 `qfq`。
+4. [x] 已确认首期只展示源表已有 MA，不计算 MA15/MA120。
+5. [x] 已确认首期只接 `equity_factor_pro + security_serving`。
+6. [x] 已确认股票详情页需要复用 `pageContext.tradeDate`。
+7. [x] 已确认首期不接分钟线、资金、板块、用户动作。
 
 ---
 
-## 3. 请求与响应冻结
+## 2. API 门禁
 
-### 3.1 路由参数冻结
+### 2.1 路由门禁
 
-```ts
-interface StockDetailRouteParams {
-  tsCode: string; // e.g. 603806.SH
-}
-```
-
-参数校验规则：
-
-1. `tsCode` 为空 -> 页面 error。
-2. `tsCode` 格式非法 -> 页面 error。
-3. 首版不请求后端，不返回 HTTP 错误。
-4. 当前正式路由固定为 `/market/stock/:tsCode`。
-
-### 3.2 Mock View Model 冻结
-
-```ts
-interface StockDetailViewModel {
-  topMarketTickers: TopMarketTicker[];
-  stock: StockIdentity;
-  quote: StockQuoteSnapshot;
-  periods: StockPeriodOption[];
-  activePeriod: StockPeriodKey;
-  chart: StockChartSeries;
-  indicatorTabs: StockIndicatorTab[];
-  rightRail: {
-    sectors: RelatedSectorRow[];
-    moneyFlow: StockMoneyFlowStructure[];
-    productBoundaryNotes: string[];
-  };
-}
-```
-
-约束：
-
-1. 组件只能消费 view model。
-2. 禁止组件内自行拼 mock 业务数据。
-3. 后续真实 API 接入时，必须先重开 API 三件套。
-
----
-
-## 4. 核心样例响应（最小集合）
-
-### 4.1 正常样例
-
-```json
-{
-  "stock": {
-    "tsCode": "603806.SH",
-    "name": "福斯特",
-    "market": "CN_A",
-    "industryTags": ["光伏设备", "新材料"]
-  },
-  "quote": {
-    "price": 18.36,
-    "change": 0.35,
-    "changePct": 1.94,
-    "direction": "UP"
-  },
-  "periods": [
-    { "key": "timeShare", "label": "分时" },
-    { "key": "day", "label": "日K" },
-    { "key": "week", "label": "周K" }
-  ],
-  "activePeriod": "day"
-}
-```
-
-### 4.2 error 样例
-
-```json
-{
-  "error": {
-    "code": "STOCK_DETAIL_MOCK_UNAVAILABLE",
-    "message": "股票详情页 mock 数据不可用"
-  }
-}
-```
-
----
-
-## 5. 代码落点冻结
-
-### 5.1 共享组件 M0
+必须新增：
 
 ```text
-wealth/src/shared/ui/top-market-bar/
-  TopMarketBar.tsx
-  top-market-bar.css
-  topMarketBarTypes.ts
-  TopMarketBar.test.tsx
+GET /api/v1/wealth/market/stock-detail/page-init
+GET /api/v1/wealth/market/stock-detail/kline
 ```
 
-门禁：
+禁止：
 
-1. `TopMarketBar` 不得依赖 `features/market-overview/**`。
-2. 市场总览必须从 shared 引用。
-3. 股票详情页必须从 shared 引用。
-4. 抽象前后市场总览顶部栏视觉不变。
+1. 禁止把新接口放到 `/api/v1/quote/detail/*`。
+2. 禁止继续扩写 `src/biz/api/quote.py`。
+3. 禁止继续扩写 `src/biz/queries/quote_query_service.py`。
+4. 禁止把 schema/query/service 扁平堆在 `src/biz` 根层。
 
-### 5.2 股票详情页
+### 2.2 参数门禁
 
-```text
-wealth/src/features/stock-detail/
-wealth/src/pages/stock-detail/
-```
+`page-init`：
 
-门禁：
+| 参数 | 门禁 |
+|---|---|
+| `tsCode` | 必填。 |
+| `tradeDate` | 可选；缺省时由 context query 决定。 |
+| `debug` | 可选；默认 false。 |
 
-1. `pages/stock-detail` 只做页面编排。
-2. `features/stock-detail/chart` 负责图表。
-3. `features/stock-detail/sidebar` 负责右侧栏。
-4. `features/stock-detail/api` 只放 mock adapter。
+`kline`：
+
+| 参数 | 门禁 |
+|---|---|
+| `tsCode` | 必填。 |
+| `period` | 首期只允许 `day`。 |
+| `adjustment` | 首期只允许 `forward`。 |
+| `limit` | 默认 300，最大 2000。 |
+| `startDate/endDate` | 可选；同时传入时必须校验起止顺序。 |
 
 ---
 
-## 6. 高保真验收清单
+## 3. 数据源门禁
 
-### 6.1 顶部栏
+允许读取：
 
-1. [ ] 与市场总览使用同一 `TopMarketBar` 组件。
-2. [ ] 品牌区、导航、ticker 跑马灯、用户入口与市场总览一致。
-3. [ ] 不使用 Showcase 中旧版 top bar 的时间、状态、延迟元素。
+1. `core_serving.equity_factor_pro`
+2. `core_serving.security_serving`
+3. `trade_calendar` 仅通过 `MarketPageContextQuery` 间接使用。
 
-### 6.2 股票详情页面骨架
+禁止读取：
 
-1. [ ] 固定视口布局。
-2. [ ] 顶部栏、面包屑行动条、图表工具栏、主内容区顺序一致。
-3. [ ] 左侧图表工作台与右侧信息栏比例一致。
-4. [ ] 不出现 body 级滚动。
+1. `raw_tushare.*`
+2. `stk_mins`
+3. 板块成员表
+4. moneyflow 表
+5. 用户自选 / 提醒 / 交易计划表
 
-### 6.3 图表工作台
+---
 
-1. [ ] K 线主图存在。
-2. [ ] MACD、成交量、KDJ 三个副图区存在。
-3. [ ] hover 十字线可用。
-4. [ ] tooltip 内容可见。
-5. [ ] tooltip 换边符合 Showcase：靠右时固定在 K 线区左侧安全位置，靠左时固定在右侧安全位置，不跟随十字线贴边。
-6. [ ] 默认 latest-value/price-line 彩条已关闭，不能把最新值固定标签当成坐标浮标。
-7. [ ] Y 轴浮标由 `subscribeCrosshairMove` 驱动，随鼠标所在 panel 的 Y 坐标变化。
-8. [ ] K 线主图、MACD、成交量、KDJ 四个 panel 的 crosshair 必须按同一横轴时间同步显示。
-9. [ ] 竖向十字线必须由图表工作台外层共享 overlay 绘制并贯穿四个 panel，不能依赖四个独立 chart 的原生竖线分别绘制。
-10. [ ] 四个 chart 的 `rightPriceScale.minimumWidth` 必须一致，确保右侧坐标轴和绘图区右边界对齐；固定宽度不得造成明显右侧空白，坐标值应尽量贴近右侧设置齿轮所在区域。
-11. [ ] MACD、成交量、KDJ 等指标信息条必须是正常布局行，不能覆盖指标图形。
-12. [ ] K 线最右侧只允许少量安全留白，不能出现明显空白段。
-13. [ ] 十字坐标线使用更密的短虚线/点线，不使用间距过大的长虚线。
-14. [ ] 日线底部时间轴必须按“首个数据点 `YYYY/MM` + 每月 `MM` 标识”展示；该门禁只约束日线，不扩展到其他周期。
-15. [ ] 十字线底部日期标签必须随共享竖向十字线移动，日线格式为 `YYYYMMDD`。
-16. [ ] MA / BOLL 可切换。
-17. [ ] 周期按钮 active 状态正确。
+## 4. 字段映射门禁
 
-### 6.4 右侧信息栏
+### 4.1 复权门禁
 
-1. [ ] 股票头部显示名称、标签、代码、价格、涨跌额、涨跌幅。
-2. [ ] 盘口 tab 默认 active。
-3. [ ] 盘口摘要字段完整。
-4. [ ] 关联板块表格完整。
-5. [ ] 个股资金统计完整。
-6. [ ] 资料 tab 可切换到 placeholder。
+1. API 对外值：`forward`。
+2. 底层字段后缀：`qfq`。
+3. 响应中允许返回 `sourceAdjustment="qfq"` 作为 debug/映射说明。
+4. 不允许前端用 `qfq` 作为 adjustment 枚举值。
 
-### 6.5 Toast 与禁用能力
+### 4.2 MA 门禁
 
-1. [ ] 不支持指标点击显示 toast。
-2. [ ] 设置按钮显示 toast。
-3. [ ] 自选、提醒、交易计划首版显示 toast。
+必须返回源表已有：
+
+```text
+MA5 / MA10 / MA20 / MA30 / MA60 / MA90 / MA250
+```
+
+禁止返回：
+
+```text
+MA15 / MA120
+```
+
+禁止：
+
+1. 后端临时计算。
+2. 前端临时计算。
+3. 用别的 MA 冒充 MA15/MA120。
+
+### 4.3 KDJ 门禁
+
+映射必须写死：
+
+| DTO | 源字段 |
+|---|---|
+| `k` | `kdj_k_qfq` |
+| `d` | `kdj_d_qfq` |
+| `j` | `kdj_qfq` |
+
+---
+
+## 5. 响应对象门禁
+
+`page-init` 必须包含：
+
+1. `pageContext`
+2. `stock`
+3. `quote`
+4. `chartDefaults`
+5. `capabilities`
+6. `dataStatus`
+
+`kline` 必须包含：
+
+1. `pageContext`
+2. `stockRef`
+3. `period`
+4. `adjustment`
+5. `sourceAdjustment`
+6. `bars[]`
+7. `meta`
+8. `dataStatus`
+
+---
+
+## 6. 前端接入门禁
+
+1. 前端必须通过 `stockDetailApiClient` 请求真实 API。
+2. API DTO 必须经过 `stockDetailViewModelAdapter` 转为页面 view model。
+3. 组件禁止直接读取 API DTO。
+4. loading 状态不得展示 mock 行情。
+5. error 状态不得吞掉异常。
+6. 未接真实数据区域可以继续 mock，但必须与真实日 K 数据分离。
+7. `chartDefaults.available*` 必须驱动周期、复权、指标可用状态。
 
 ---
 
 ## 7. 测试门禁
 
-1. 单元测试：
-   - `TopMarketBar.test.tsx`
-   - `StockDetailPage.test.tsx`
-   - `stockDetailMockAdapter.test.ts`
-2. 组件交互测试：
-   - 周期切换；
-   - overlay 切换；
-   - 右侧 tab 切换；
-   - toast 出现与关闭。
-3. 页面 smoke：
-   - 股票详情页可渲染；
-   - 核心模块标题与核心字段存在。
-4. 执行命令：
+### 7.1 后端测试
+
+必须新增或更新：
+
+```text
+tests/web/test_wealth_stock_detail_api.py
+```
+
+覆盖：
+
+1. `page-init` 返回 `pageContext`。
+2. `page-init` 返回 `chartDefaults.defaultAdjustment == "forward"`。
+3. `page-init` 返回 `chartDefaults.sourceAdjustment == "qfq"`。
+4. `kline period=day adjustment=forward` 成功。
+5. `kline period!=day` 失败。
+6. `kline adjustment!=forward` 失败。
+7. `bars[].factors.ma` 不含 `ma15` / `ma120`。
+8. `bars[].factors.kdj.j` 来自 `kdj_qfq` 口径。
+
+### 7.2 前端测试
+
+必须覆盖：
+
+1. 股票详情页真实 API happy path。
+2. loading。
+3. error。
+4. chart defaults 驱动可用周期与指标。
+5. 不出现 MA15 / MA120。
+
+### 7.3 回归命令
+
+后端：
+
+```bash
+pytest -q tests/web/test_wealth_stock_detail_api.py
+```
+
+前端：
 
 ```bash
 cd wealth
@@ -230,91 +208,94 @@ npm run test
 npm run build
 ```
 
-通过标准：
-
-1. 所有命令通过。
-2. 测试覆盖用户可见结构。
-3. 无新增真实 API 调用。
-
 ---
 
 ## 8. 性能门禁
 
-1. 首屏 mock 渲染 P95 < 300ms。
-2. 图表 hover 不出现明显卡顿。
-3. `lightweight-charts` 图表实例必须限定在图表区域，不触发整页重排。
-4. 若切换到 canvas 兜底，canvas 重绘必须限定在图表区域，不触发整页重排。
-4. ticker 跑马灯保持当前性能特征。
+1. `page-init` 只查 1 行 identity + 1 行 factor。
+2. `kline` 默认 300 根，最大 2000 根。
+3. `kline` 只查询图表所需字段，不 `select *`。
+4. 必须利用 `equity_factor_pro(ts_code, trade_date)` 查询条件。
+5. 响应不得把整张宽表字段直接透出。
 
 ---
 
-## 9. 通用清单映射矩阵
+## 9. 文档一致性门禁
 
-| 原则 | 是否适用 | 落地位置 | 测试落地 | 备注 |
-|---|---|---|---|---|
-| 事实源单一原则 | 是 | Showcase + shared TopMarketBar | 页面 smoke | 顶部栏事实源是当前市场总览实现 |
-| 契约先行与冻结原则 | 是 | `StockDetailViewModel` | mock adapter test | 先冻结字段再编码 |
-| 配置一致性原则 | 否 | 本期不接策略配置 | 不适用 | 固定 mock UI |
-| 默认行为显式原则 | 是 | toast/page state | 交互测试 | 不支持操作必须 toast |
-| 排序与筛选确定性原则 | 是 | constants | 顺序断言 | 周期、指标、列表顺序固定 |
-| 性能预算前置原则 | 是 | chart renderer | build + 手动验证 | 图表不可卡顿 |
-| 可观测与异常标准化原则 | 部分适用 | page error/toast | error test | 首版无后端异常码 |
-| 测试以用户可见结果为中心原则 | 是 | page smoke | 结构与交互断言 | 不以内部分层替代验收 |
+编码完成后必须回写：
+
+1. `stock-detail-benchmark-requirement-v1.md`
+2. `stock-detail-implementation-design-v1.md`
+3. `stock-detail-m2-coding-gate-v1.md`
+4. `stock-detail-real-api-stk-factor-pro-integration-plan-v1.html`
+
+若实现与三件套不一致，必须先改文档并说明原因，不允许让代码和文档漂移。
 
 ---
 
-## 10. 模块门禁清单（复盘增强版）
+## 10. 开工签字清单
 
-1. [ ] 先证据后设计：已逐项读取 `stock-detail-v1.4.3.html`、design token、component guidelines。
-2. [ ] 先规则后实现：已冻结 TopMarketBar 共享抽象、mock view model、组件拆分。
-3. [ ] 可判定性优先：图表实现方式已在编码前确认。
-4. [ ] 状态分层明确：首版仅前端 page state，不引入后端 moduleStatus。
-5. [ ] 后端定义事实：本期不接后端；后续真实 API 单独三件套。
-6. [ ] 三件套强一致：benchmark、implementation、coding gate 无冲突项。
-7. [ ] 反超前设计：不加入交易、诊股、实时流、真实 API。
-8. [ ] 字段链路完整：UI -> mock view model -> mock adapter 可追溯。
+1. [x] `defaultAdjustment` 口径已拍板。
+2. [x] 旧 quote 链路处理方式已拍板。
+3. [x] MA 档位口径已拍板。
 
 ---
 
-## 11. 签字清单
+## 11. 本轮落地对账
 
-### 11.1 前端负责人
+### 11.1 计划硬口径落点
 
-1. [ ] 共享 TopMarketBar 抽象方案可执行。
-2. [ ] 股票详情页组件拆分可执行。
-3. [ ] 高保真验收标准明确。
+| 硬口径 | 落点 | 状态 |
+|---|---|---|
+| 新 API 不走旧 quote | `src/biz/api/wealth/market/stock_detail.py`，`src/app/api/v1/router.py` | 已落地 |
+| `page-init` 不返回 K 线数组 | `stock_detail_query_service.py` | 已落地 |
+| `kline` 只支持 `day/forward` | `stock_detail_query_service.py` 与后端测试 | 已落地 |
+| `forward -> qfq` | `stock_detail_field_mapper.py` 与 DTO `sourceAdjustment` | 已落地 |
+| 不返回 MA15/MA120 | `stockDetailTypes.ts`、`StockChartWorkspace.tsx`、后端/前端测试 | 已落地 |
+| 前端 DTO 必须经 adapter | `stockDetailViewModelAdapter.ts`、`StockDetailPage.tsx` | 已落地 |
+| loading/error 不展示 mock 行情 | `StockDetailPage.tsx`、`StockDetailPage.test.tsx` | 已落地 |
 
-### 11.2 架构/产品负责人
+### 11.2 已执行门禁
 
-1. [ ] 路由路径已确认：`/market/stock/:tsCode`。
-2. [ ] 图表实现方式已确认：`lightweight-charts` 优先，canvas 兜底。
-3. [ ] 本期只做 UI/mock，无真实 API。
+必须保留以下回归作为本轮完成条件：
+
+```bash
+pytest -q tests/web/test_wealth_stock_detail_api.py
+cd wealth && npm run typecheck
+cd wealth && npm run test
+cd wealth && npm run build
+```
+
+### 11.3 后续不在本轮处理
+
+1. 旧 `/api/v1/quote/detail/*` 下线。
+2. 分时、分钟线、周 K、月 K 真实接入。
+3. 关联板块、个股资金、用户自选/提醒/交易计划真实接入。
+4. [x] 后端 DTO 完成。
+5. [x] 后端 API 完成。
+6. [x] 前端 API client 完成。
+7. [x] 前端 adapter 完成。
+8. [x] 前后端测试完成。
+9. [x] 文档与实现复核完成。
 
 ---
 
-## 12. 已确认事项与待拍板项
+## 11. 本轮实现对账记录
 
-### 12.1 已确认事项
+实现日期：2026-05-31
 
-1. 图表实现方式已确认：TradingView 优先仿真并精修；只有关键高保真项经验证不可控时，才允许带证据评审后退回 canvas。
-2. 具体图表库已确认：首版使用 `lightweight-charts`。
-3. 股票详情页正式路由已确认：`/market/stock/:tsCode`。
+已落地：
 
-### 12.2 待拍板项
+1. 新增 `/api/v1/wealth/market/stock-detail/page-init`。
+2. 新增 `/api/v1/wealth/market/stock-detail/kline`。
+3. 前端股票详情页主行情从 mock 切到真实 `page-init + kline`。
+4. loading / error 状态不再展示 mock 主行情。
+5. `MA15 / MA120` 已从股票详情主行情类型、图表展示和测试中移除。
 
-当前无待拍板项。
+验证命令：
 
----
-
-## 13. 版本记录
-
-| 版本 | 日期 | 变更摘要 | 负责人 |
-|---|---|---|---|
-| v1 | 2026-05-30 | 初版：冻结股票详情页编码前门禁与 TopMarketBar 共享前置任务 | Codex |
-| v1.1 | 2026-05-30 | 回填路由与 `lightweight-charts` 拍板结论 | Codex |
-| v1.2 | 2026-05-30 | 补充默认 latest-value 彩条关闭与 Y 轴浮标门禁 | Codex |
-| v1.3 | 2026-05-30 | 补充四图 crosshair 同步和短虚线视觉门禁 | Codex |
-| v1.4 | 2026-05-30 | 补充共享竖向 crosshair overlay 与统一右侧坐标轴宽度门禁 | Codex |
-| v1.5 | 2026-05-30 | 补充指标信息条不覆盖图表和右侧留白收敛门禁 | Codex |
-| v1.6 | 2026-05-30 | 补充右侧坐标轴固定宽度不得产生过大空白的门禁细化 | Codex |
-| v1.7 | 2026-05-30 | 补充日线底部时间轴与十字线日期标签门禁 | Codex |
+```bash
+pytest -q tests/web/test_wealth_stock_detail_api.py
+cd wealth && npm run typecheck
+cd wealth && npm run test -- StockDetailPage
+```

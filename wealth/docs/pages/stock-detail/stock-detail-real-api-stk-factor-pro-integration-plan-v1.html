@@ -1,0 +1,995 @@
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>股票详情页真实 API 对接方案 v1 - stk_factor_pro</title>
+    <style>
+      :root {
+        color-scheme: dark;
+        --bg: #08111f;
+        --panel: #0f1b2d;
+        --panel-2: #111f34;
+        --line: #25364f;
+        --line-strong: #3b5170;
+        --text: #dbe7f7;
+        --muted: #91a2ba;
+        --gold: #d6ad5f;
+        --red: #ff4d5f;
+        --green: #19d18f;
+        --blue: #51a7ff;
+        --code: #07101d;
+        --warn: #f7c662;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      body {
+        margin: 0;
+        background: radial-gradient(circle at top left, #132642 0, var(--bg) 46%, #050a12 100%);
+        color: var(--text);
+        font-family:
+          ui-sans-serif,
+          -apple-system,
+          BlinkMacSystemFont,
+          "Segoe UI",
+          "PingFang SC",
+          "Microsoft YaHei",
+          sans-serif;
+        line-height: 1.72;
+      }
+
+      main {
+        max-width: 1180px;
+        margin: 0 auto;
+        padding: 36px 28px 72px;
+      }
+
+      h1,
+      h2,
+      h3 {
+        margin: 0;
+        line-height: 1.25;
+      }
+
+      h1 {
+        font-size: 30px;
+        letter-spacing: 0.02em;
+      }
+
+      h2 {
+        margin-top: 38px;
+        padding-top: 22px;
+        border-top: 1px solid var(--line);
+        color: #ffffff;
+        font-size: 22px;
+      }
+
+      h3 {
+        margin-top: 24px;
+        color: #ffffff;
+        font-size: 17px;
+      }
+
+      p {
+        margin: 12px 0;
+      }
+
+      a {
+        color: var(--blue);
+      }
+
+      .hero,
+      .card {
+        border: 1px solid var(--line);
+        border-radius: 18px;
+        background: linear-gradient(145deg, rgba(17, 31, 52, 0.96), rgba(11, 20, 35, 0.96));
+        box-shadow: 0 18px 50px rgba(0, 0, 0, 0.28);
+      }
+
+      .hero {
+        padding: 28px;
+      }
+
+      .hero-meta {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 10px;
+        margin-top: 18px;
+      }
+
+      .pill {
+        display: inline-flex;
+        align-items: center;
+        gap: 6px;
+        border: 1px solid rgba(214, 173, 95, 0.38);
+        border-radius: 999px;
+        padding: 5px 10px;
+        color: #f4dba5;
+        background: rgba(214, 173, 95, 0.1);
+        font-size: 13px;
+        white-space: nowrap;
+      }
+
+      .grid {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .card {
+        margin-top: 16px;
+        padding: 18px;
+      }
+
+      .note {
+        border-left: 4px solid var(--gold);
+        border-radius: 12px;
+        padding: 12px 14px;
+        color: #f5dfb6;
+        background: rgba(214, 173, 95, 0.1);
+      }
+
+      .danger {
+        border-left-color: var(--red);
+        color: #ffd0d5;
+        background: rgba(255, 77, 95, 0.1);
+      }
+
+      .ok {
+        color: var(--green);
+      }
+
+      .warn {
+        color: var(--warn);
+      }
+
+      table {
+        width: 100%;
+        margin: 14px 0 22px;
+        border-collapse: collapse;
+        overflow: hidden;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        background: rgba(8, 17, 31, 0.6);
+      }
+
+      th,
+      td {
+        padding: 10px 12px;
+        border-bottom: 1px solid var(--line);
+        text-align: left;
+        vertical-align: top;
+        font-size: 14px;
+      }
+
+      th {
+        color: #f2dca7;
+        background: rgba(214, 173, 95, 0.08);
+        font-weight: 700;
+      }
+
+      tr:last-child td {
+        border-bottom: 0;
+      }
+
+      code,
+      pre {
+        font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      }
+
+      code {
+        border: 1px solid rgba(81, 167, 255, 0.18);
+        border-radius: 6px;
+        padding: 1px 5px;
+        color: #b9d9ff;
+        background: rgba(81, 167, 255, 0.09);
+      }
+
+      pre {
+        overflow-x: auto;
+        border: 1px solid var(--line);
+        border-radius: 14px;
+        padding: 14px;
+        color: #cfe0f6;
+        background: var(--code);
+        font-size: 13px;
+        line-height: 1.58;
+      }
+
+      .relation {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 18px;
+        margin-top: 16px;
+      }
+
+      .tree {
+        border: 1px solid var(--line);
+        border-radius: 16px;
+        padding: 16px;
+        background: rgba(8, 17, 31, 0.72);
+      }
+
+      .tree ul {
+        margin: 8px 0 0 18px;
+        padding: 0;
+      }
+
+      .tree li {
+        margin: 6px 0;
+      }
+
+      .object-card {
+        border: 1px solid rgba(81, 167, 255, 0.22);
+        border-radius: 14px;
+        margin-top: 14px;
+        padding: 14px;
+        background: rgba(81, 167, 255, 0.06);
+      }
+
+      .object-card h4 {
+        margin: 0 0 8px;
+        color: #ffffff;
+      }
+
+      @media (max-width: 860px) {
+        main {
+          padding: 24px 16px 54px;
+        }
+
+        .grid,
+        .relation {
+          grid-template-columns: 1fr;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <section class="hero">
+        <h1>股票详情页真实 API 对接方案 v1</h1>
+        <p>
+          本方案用于把财势乾坤股票详情页从首版 mock UI 过渡到真实数据。首期只接入
+          <code>core_serving.equity_factor_pro</code> 与
+          <code>core_serving.security_serving</code>，覆盖日 K、日频技术指标和右侧盘口摘要中的基础信息。
+        </p>
+        <div class="hero-meta">
+          <span class="pill">页面：股票详情页</span>
+          <span class="pill">周期：首期仅 day</span>
+          <span class="pill">主源：equity_factor_pro</span>
+          <span class="pill">身份源：security_serving</span>
+          <span class="pill">不做：分钟线 / 周月线 / 资金 / 板块 / 用户动作</span>
+        </div>
+      </section>
+
+      <h2>1. 当前代码事实核验</h2>
+
+      <div class="card">
+        <h3>1.1 quote.py 与 quote_query_service.py 不是“无人使用”</h3>
+        <p>
+          当前 <code>src/biz/api/quote.py</code> 和
+          <code>src/biz/queries/quote_query_service.py</code> 仍有真实引用，不能在本轮直接删除。
+          它们更准确的状态是：<strong>旧 quote 详情链路仍在线，但不应作为财势乾坤股票详情页新 API 的主设计口径</strong>。
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>引用方</th>
+              <th>当前用途</th>
+              <th>处理建议</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>src/app/api/v1/router.py</code></td>
+              <td>仍挂载 <code>biz_quote.router</code>，暴露 <code>/api/v1/quote/detail/*</code>。</td>
+              <td>本轮不删；后续单独做 quote legacy 下线计划。</td>
+            </tr>
+            <tr>
+              <td><code>src/biz/api/market.py</code></td>
+              <td>仍复用 <code>QuoteQueryService().build_trade_calendar()</code>。</td>
+              <td>若下线 quote service，需先迁出该 calendar 能力。</td>
+            </tr>
+            <tr>
+              <td><code>tests/web/test_quote_api.py</code></td>
+              <td>覆盖 quote detail 的 page-init、kline、related-info、announcements。</td>
+              <td>测试还在，说明旧 API 当前不是死代码。</td>
+            </tr>
+            <tr>
+              <td><code>tests/integration/test_quote_qfq_parity_with_pro_bar.py</code></td>
+              <td>直接实例化 <code>QuoteQueryService</code> 做复权一致性校验。</td>
+              <td>需要迁移或重写后才能删旧 query service。</td>
+            </tr>
+            <tr>
+              <td><code>docs/platform/*</code> 与 <code>docs/product/*</code></td>
+              <td>仍记录旧 quote detail API。</td>
+              <td>后续文档清理时标记 legacy，避免污染新财富系统 API。</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          结论：股票详情新 API 应放在 <code>/api/v1/wealth/market/stock-detail/*</code> 命名空间，
+          不继续扩展旧 <code>/api/v1/quote/detail/*</code>；但 quote 旧链路是否删除，需要单独审计和替换引用。
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>1.2 market context 是页面级日期锚点</h3>
+        <p>
+          市场总览页已有统一 context：<code>GET /api/v1/wealth/market/context</code>。股票详情页也应复用这个页面级结构，
+          其中 <code>pageContext.tradeDate</code> 是“页面默认查询哪个交易日”的锚点。
+        </p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>含义</th>
+              <th>股票详情页使用方式</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>market</code></td>
+              <td>当前固定 <code>CN_A</code>。</td>
+              <td>股票详情页首期只支持 A 股股票。</td>
+            </tr>
+            <tr>
+              <td><code>tradeDate</code></td>
+              <td>页面级期望交易日；默认由交易日历和 20:00 盘后切换规则得到。</td>
+              <td>page-init 默认取该日期或该日期之前最近可用的个股数据。</td>
+            </tr>
+            <tr>
+              <td><code>prevTradeDate</code></td>
+              <td>上一交易日。</td>
+              <td>首期可用于调试与数据状态，不要求前端展示。</td>
+            </tr>
+            <tr>
+              <td><code>sessionStatus</code></td>
+              <td>PRE_OPEN / TRADING / BREAK / CLOSED。</td>
+              <td>用于说明页面是盘中还是盘后口径；不代表实时行情。</td>
+            </tr>
+            <tr>
+              <td><code>source</code></td>
+              <td>explicit 或 default。</td>
+              <td>说明日期来自用户传参还是系统默认。</td>
+            </tr>
+          </tbody>
+        </table>
+        <p class="note">
+          设计口径：新股票详情 API 返回 <code>pageContext</code>，并在模块级 <code>dataStatus</code> 中说明个股实际观测日期。
+          这样既复用页面级 tradeDate，又不会把个股缺数伪装成“已具备该交易日数据”。
+        </p>
+      </div>
+
+      <h2>2. 设计边界与性能原则</h2>
+      <div class="grid">
+        <div class="card">
+          <h3>首期必须做</h3>
+          <ul>
+            <li>股票身份：代码、名称、行业、上市状态、交易所。</li>
+            <li>日 K：只支持 <code>period=day</code>。</li>
+            <li>默认前复权日 K：产品含义为前复权，底层字段后缀为 <code>qfq</code>。</li>
+            <li>右侧盘口摘要：今开、昨收、最高、最低、换手率、量比、成交量、成交额。</li>
+            <li>指标：MA、BOLL、MACD、KDJ，全部只使用源表已有字段，不做自研计算。</li>
+          </ul>
+        </div>
+        <div class="card">
+          <h3>首期明确不做</h3>
+          <ul>
+            <li>不接分钟线、分时、周 K、月 K。</li>
+            <li>不接关联板块、个股资金结构、自选、提醒、交易计划。</li>
+            <li>不为了 UI 完整性伪造 MA15、MA120、大单净量等字段。</li>
+            <li>不复用旧 <code>/api/v1/quote/detail/*</code> 作为新页面 API。</li>
+            <li>不设计大而全的整页一次性响应，只按必要性和性能拆为 page-init 与 kline。</li>
+          </ul>
+        </div>
+      </div>
+
+      <h2>3. API 与数据对象关系图</h2>
+      <div class="relation">
+        <div class="tree">
+          <h3>接口关系</h3>
+          <ul>
+            <li>
+              <code>GET /api/v1/wealth/market/stock-detail/page-init</code>
+              <ul>
+                <li><code>StockDetailPageInitResponseDto</code></li>
+                <li>用于页面首屏：身份、最新日频摘要、图表默认值。</li>
+              </ul>
+            </li>
+            <li>
+              <code>GET /api/v1/wealth/market/stock-detail/kline</code>
+              <ul>
+                <li><code>StockDetailKlineResponseDto</code></li>
+                <li>用于图表区：日 K bars + 技术指标。</li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+        <div class="tree">
+          <h3>对象包含关系</h3>
+          <ul>
+            <li>
+              <code>StockDetailPageInitResponseDto</code>
+              <ul>
+                <li><code>pageContext</code></li>
+                <li><code>stock</code></li>
+                <li><code>quote</code></li>
+                <li><code>chartDefaults</code></li>
+                <li><code>capabilities</code></li>
+                <li><code>dataStatus</code></li>
+              </ul>
+            </li>
+            <li>
+              <code>StockDetailKlineResponseDto</code>
+              <ul>
+                <li><code>pageContext</code></li>
+                <li><code>stockRef</code></li>
+                <li><code>bars[]</code> → <code>price</code> + <code>volume</code> + <code>factors</code></li>
+                <li><code>meta</code></li>
+                <li><code>dataStatus</code></li>
+              </ul>
+            </li>
+          </ul>
+        </div>
+      </div>
+
+      <h2>4. 接口设计</h2>
+
+      <div class="card">
+        <h3>4.1 page-init</h3>
+        <pre><code>GET /api/v1/wealth/market/stock-detail/page-init?tsCode=603806.SH&amp;tradeDate=2026-05-29</code></pre>
+        <table>
+          <thead>
+            <tr>
+              <th>参数</th>
+              <th>必填</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>tsCode</code></td>
+              <td>是</td>
+              <td>股票代码，例如 <code>603806.SH</code>。首期只支持 A 股股票。</td>
+            </tr>
+            <tr>
+              <td><code>tradeDate</code></td>
+              <td>否</td>
+              <td>页面期望交易日；不传时由 <code>MarketPageContextQuery</code> 解析默认交易日。</td>
+            </tr>
+            <tr>
+              <td><code>debug</code></td>
+              <td>否</td>
+              <td>开发调试用，返回源表、观测日期、缺失说明；生产 UI 默认不展示。</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          性能口径：该接口只查 1 条 <code>security_serving</code> 和 1 条
+          <code>equity_factor_pro</code> 最新可用日频记录，不加载 K 线数组。
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>4.2 kline</h3>
+        <pre><code>GET /api/v1/wealth/market/stock-detail/kline?tsCode=603806.SH&amp;period=day&amp;adjustment=forward&amp;limit=300</code></pre>
+        <table>
+          <thead>
+            <tr>
+              <th>参数</th>
+              <th>必填</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              <td><code>tsCode</code></td>
+              <td>是</td>
+              <td>股票代码。</td>
+            </tr>
+            <tr>
+              <td><code>period</code></td>
+              <td>否</td>
+              <td>首期只允许 <code>day</code>；其他周期返回明确错误，不伪造。</td>
+            </tr>
+            <tr>
+              <td><code>adjustment</code></td>
+              <td>否</td>
+              <td>首期只允许 <code>forward</code>；对应底层 <code>*_qfq</code> 字段。</td>
+            </tr>
+            <tr>
+              <td><code>startDate</code> / <code>endDate</code></td>
+              <td>否</td>
+              <td>用于限定日期范围；不传时按 <code>limit</code> 取最近 N 根。</td>
+            </tr>
+            <tr>
+              <td><code>limit</code></td>
+              <td>否</td>
+              <td>默认 300，最大 2000。用于控制响应体大小和查询成本。</td>
+            </tr>
+          </tbody>
+        </table>
+        <p>
+          性能口径：只查询图表所需字段，不做 <code>select *</code>；依赖
+          <code>equity_factor_pro(ts_code, trade_date)</code> 主键 / 索引。
+        </p>
+      </div>
+
+      <h2>5. 数据对象定义、来源与示例</h2>
+
+      <div class="object-card">
+        <h4>5.1 MarketPageContextDto</h4>
+        <p><strong>为什么需要：</strong>这是财富系统页面级日期锚点，避免每个页面自己计算“今天应该看哪天”。</p>
+        <p><strong>来源：</strong><code>MarketPageContextQuery</code> + <code>trade_calendar</code>。</p>
+        <p><strong>性能与必要性：</strong>对象很小，所有行情页面可复用；它不携带行情数据，不会放大响应体。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>来源</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>market</code></td><td>string</td><td>固定 <code>CN_A</code></td><td>市场。</td></tr>
+            <tr><td><code>tradeDate</code></td><td>date</td><td>context query</td><td>页面期望交易日。</td></tr>
+            <tr><td><code>prevTradeDate</code></td><td>date | null</td><td>trade_calendar</td><td>上一交易日。</td></tr>
+            <tr><td><code>isTradingDay</code></td><td>boolean</td><td>trade_calendar</td><td>该日期是否开市。</td></tr>
+            <tr><td><code>sessionStatus</code></td><td>enum</td><td>系统时间 + 交易日历</td><td>PRE_OPEN / TRADING / BREAK / CLOSED。</td></tr>
+            <tr><td><code>timezone</code></td><td>string</td><td>固定</td><td>Asia/Shanghai。</td></tr>
+            <tr><td><code>generatedAt</code></td><td>datetime</td><td>系统时间</td><td>生成时间。</td></tr>
+            <tr><td><code>source</code></td><td>enum</td><td>请求参数</td><td>explicit / default。</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{
+  "market": "CN_A",
+  "tradeDate": "2026-05-29",
+  "prevTradeDate": "2026-05-28",
+  "isTradingDay": true,
+  "sessionStatus": "CLOSED",
+  "timezone": "Asia/Shanghai",
+  "generatedAt": "2026-05-31T10:15:00+08:00",
+  "source": "default"
+}</code></pre>
+      </div>
+
+      <div class="object-card">
+        <h4>5.2 StockIdentityDto</h4>
+        <p><strong>为什么需要：</strong>股票详情页右侧头部、面包屑、标题都需要稳定身份信息，不能从 K 线字段里拼。</p>
+        <p><strong>来源：</strong><code>core_serving.security_serving</code>。</p>
+        <p><strong>性能与必要性：</strong>按主键 <code>ts_code</code> 查 1 行；字段只保留首屏必要身份信息。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>源字段</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>tsCode</code></td><td>string</td><td><code>Security.ts_code</code></td><td>股票唯一代码。</td></tr>
+            <tr><td><code>symbol</code></td><td>string | null</td><td><code>Security.symbol</code></td><td>纯数字代码。</td></tr>
+            <tr><td><code>name</code></td><td>string | null</td><td><code>Security.name</code></td><td>股票名称；缺失时前端只展示代码。</td></tr>
+            <tr><td><code>exchange</code></td><td>string | null</td><td><code>Security.exchange</code></td><td>交易所。</td></tr>
+            <tr><td><code>industry</code></td><td>string | null</td><td><code>Security.industry</code></td><td>行业基础信息。</td></tr>
+            <tr><td><code>listStatus</code></td><td>string | null</td><td><code>Security.list_status</code></td><td>上市状态。</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{
+  "tsCode": "603806.SH",
+  "symbol": "603806",
+  "name": "福斯特",
+  "exchange": "SSE",
+  "industry": "光伏设备",
+  "listStatus": "L"
+}</code></pre>
+      </div>
+
+      <div class="object-card">
+        <h4>5.3 StockQuoteSnapshotDto</h4>
+        <p><strong>为什么需要：</strong>右侧盘口摘要和头部价格需要当前股票在期望交易日前后的最新日频事实。</p>
+        <p><strong>来源：</strong><code>core_serving.equity_factor_pro</code>，优先取 <code>trade_date &lt;= pageContext.tradeDate</code> 的最近一条。</p>
+        <p><strong>性能与必要性：</strong>查 1 行；不加载 K 线历史，避免 page-init 过重。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>源字段</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>observedTradeDate</code></td><td>date</td><td><code>trade_date</code></td><td>实际观测日期，可能早于页面期望日期。</td></tr>
+            <tr><td><code>open</code></td><td>number | null</td><td><code>open</code></td><td>今开。</td></tr>
+            <tr><td><code>high</code></td><td>number | null</td><td><code>high</code></td><td>最高。</td></tr>
+            <tr><td><code>low</code></td><td>number | null</td><td><code>low</code></td><td>最低。</td></tr>
+            <tr><td><code>close</code></td><td>number | null</td><td><code>close</code></td><td>收盘价；作为盘后静态“最新价”。</td></tr>
+            <tr><td><code>preClose</code></td><td>number | null</td><td><code>pre_close</code></td><td>昨收。</td></tr>
+            <tr><td><code>change</code></td><td>number | null</td><td><code>change</code></td><td>涨跌额。</td></tr>
+            <tr><td><code>pctChg</code></td><td>number | null</td><td><code>pct_chg</code></td><td>涨跌幅。</td></tr>
+            <tr><td><code>turnoverRate</code></td><td>number | null</td><td><code>turnover_rate</code></td><td>换手率。</td></tr>
+            <tr><td><code>volumeRatio</code></td><td>number | null</td><td><code>volume_ratio</code></td><td>量比。</td></tr>
+            <tr><td><code>vol</code></td><td>number | null</td><td><code>vol</code></td><td>成交量，源单位手。</td></tr>
+            <tr><td><code>amount</code></td><td>number | null</td><td><code>amount</code></td><td>成交额，源单位千元。</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{
+  "observedTradeDate": "2026-05-29",
+  "open": 18.1,
+  "high": 18.66,
+  "low": 17.98,
+  "close": 18.36,
+  "preClose": 18.39,
+  "change": -0.03,
+  "pctChg": -0.16,
+  "turnoverRate": 1.24,
+  "volumeRatio": 1.18,
+  "vol": 128600,
+  "amount": 237000
+}</code></pre>
+      </div>
+
+      <div class="object-card">
+        <h4>5.4 StockChartDefaultsDto</h4>
+        <p><strong>为什么需要：</strong>前端图表工具栏必须由后端告诉“首期能用什么”，避免 UI 暴露未接入能力。</p>
+        <p><strong>来源：</strong>首期固定规则，不读数据库。</p>
+        <p><strong>性能与必要性：</strong>对象极小；用于前端禁用非首期能力和初始化图表。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>首期值</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>defaultPeriod</code></td><td><code>"day"</code></td><td>首期默认日 K。</td></tr>
+            <tr>
+              <td><code>defaultAdjustment</code></td>
+              <td><code>"forward"</code></td>
+              <td>
+                API 外部契约统一使用 <code>forward</code> 表示前复权；底层字段后缀是 <code>qfq</code>。
+                这等价于“默认前复权 / qfq 字段”，但不把源字段后缀直接暴露成 UI 枚举。
+              </td>
+            </tr>
+            <tr><td><code>sourceAdjustment</code></td><td><code>"qfq"</code></td><td>仅用于 debug / 字段映射说明，表示读取 <code>*_qfq</code> 字段。</td></tr>
+            <tr><td><code>availablePeriods</code></td><td><code>["day"]</code></td><td>首期只有日 K 可点。</td></tr>
+            <tr><td><code>availableAdjustments</code></td><td><code>["forward"]</code></td><td>首期只支持前复权。</td></tr>
+            <tr><td><code>availableMainOverlays</code></td><td><code>["MA", "BOLL"]</code></td><td>主图可选覆盖线。</td></tr>
+            <tr><td><code>availableIndicatorTabs</code></td><td><code>["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"]</code></td><td>首期接入真实数据的指标 tab。</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{
+  "defaultPeriod": "day",
+  "defaultAdjustment": "forward",
+  "sourceAdjustment": "qfq",
+  "availablePeriods": ["day"],
+  "availableAdjustments": ["forward"],
+  "availableMainOverlays": ["MA", "BOLL"],
+  "availableIndicatorTabs": ["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"]
+}</code></pre>
+        <p class="note">
+          说明：用户拍板的 <code>qfq</code> 是底层字段口径；为了和已有工程枚举
+          <code>forward</code> 以及 <code>availableAdjustments ["forward"]</code> 保持一致，本方案把外部 API 值定为
+          <code>forward</code>，并用 <code>sourceAdjustment="qfq"</code> 显式记录字段映射。
+        </p>
+      </div>
+
+      <div class="object-card">
+        <h4>5.5 StockKlineBarDto</h4>
+        <p><strong>为什么需要：</strong>K 线图和指标图需要同一根 bar 的价格、量额和技术因子，避免前端多次拼表。</p>
+        <p><strong>来源：</strong><code>core_serving.equity_factor_pro</code>。</p>
+        <p><strong>性能与必要性：</strong>kline 接口默认 300 根；字段按图表所需选择，不返回全表宽字段。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>源字段</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>tradeDate</code></td><td>date</td><td><code>trade_date</code></td><td>交易日。</td></tr>
+            <tr><td><code>price.open/high/low/close</code></td><td>number | null</td><td><code>open_qfq/high_qfq/low_qfq/close_qfq</code></td><td>前复权价格。</td></tr>
+            <tr><td><code>price.preClose</code></td><td>number | null</td><td><code>pre_close</code></td><td>昨收。源表口径需在 debug 中说明。</td></tr>
+            <tr><td><code>price.change</code></td><td>number | null</td><td><code>change</code></td><td>涨跌额。</td></tr>
+            <tr><td><code>price.pctChg</code></td><td>number | null</td><td><code>pct_chg</code></td><td>涨跌幅。</td></tr>
+            <tr><td><code>volume.vol</code></td><td>number | null</td><td><code>vol</code></td><td>成交量，手。</td></tr>
+            <tr><td><code>volume.amount</code></td><td>number | null</td><td><code>amount</code></td><td>成交额，千元。</td></tr>
+            <tr><td><code>factors</code></td><td>object</td><td>见下节</td><td>MA/BOLL/MACD/KDJ。</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{
+  "tradeDate": "2026-05-29",
+  "price": {
+    "open": 18.1,
+    "high": 18.66,
+    "low": 17.98,
+    "close": 18.36,
+    "preClose": 18.39,
+    "change": -0.03,
+    "pctChg": -0.16
+  },
+  "volume": {
+    "vol": 128600,
+    "amount": 237000
+  },
+  "factors": {
+    "ma": {"ma5": 18.43, "ma10": 18.12, "ma20": 17.9, "ma30": 17.68, "ma60": 17.78, "ma90": 17.41, "ma250": 16.98},
+    "boll": {"upper": 19.25, "middle": 18.02, "lower": 16.79},
+    "macd": {"dif": -0.31, "dea": -0.19, "macd": -0.24},
+    "kdj": {"k": 58.03, "d": 61.37, "j": 67.5}
+  }
+}</code></pre>
+      </div>
+
+      <div class="object-card">
+        <h4>5.6 StockTechnicalFactorsDto</h4>
+        <p><strong>为什么需要：</strong>指标区必须明确字段来自哪里，不能因为 UI 要展示某条线就在前端临时计算。</p>
+        <p><strong>来源：</strong><code>equity_factor_pro</code> 的 qfq 技术因子字段。</p>
+        <p><strong>性能与必要性：</strong>只返回首期图表会用的指标。未接指标不返回，避免 DTO 变成宽表镜像。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>子对象</th>
+              <th>字段</th>
+              <th>源字段</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>ma</code></td><td><code>ma5/ma10/ma20/ma30/ma60/ma90/ma250</code></td><td><code>ma_qfq_*</code></td><td>不返回 MA15/MA120，除非后续单独定义计算。</td></tr>
+            <tr><td><code>boll</code></td><td><code>upper/middle/lower</code></td><td><code>boll_upper_qfq/boll_mid_qfq/boll_lower_qfq</code></td><td>主图覆盖线。</td></tr>
+            <tr><td><code>macd</code></td><td><code>dif/dea/macd</code></td><td><code>macd_dif_qfq/macd_dea_qfq/macd_qfq</code></td><td>指标区 MACD。</td></tr>
+            <tr><td><code>kdj</code></td><td><code>k/d/j</code></td><td><code>kdj_k_qfq/kdj_d_qfq/kdj_qfq</code></td><td><code>kdj_qfq</code> 映射为 J 值，必须写清。</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <div class="object-card">
+        <h4>5.7 DataStatusDto</h4>
+        <p><strong>为什么需要：</strong>股票详情必须区分“页面期望日期”和“个股实际有数据日期”，否则容易把旧数据展示成新数据。</p>
+        <p><strong>来源：</strong>context + 实际查询到的 <code>equity_factor_pro.trade_date</code>。</p>
+        <p><strong>性能与必要性：</strong>对象很小，但能避免误判数据时效。</p>
+        <table>
+          <thead>
+            <tr>
+              <th>字段</th>
+              <th>类型</th>
+              <th>说明</th>
+            </tr>
+          </thead>
+          <tbody>
+            <tr><td><code>expectedTradeDate</code></td><td>date</td><td>来自 pageContext.tradeDate。</td></tr>
+            <tr><td><code>observedTradeDate</code></td><td>date | null</td><td>实际数据日期。</td></tr>
+            <tr><td><code>status</code></td><td>enum</td><td>READY / DELAYED / EMPTY / ERROR。</td></tr>
+            <tr><td><code>message</code></td><td>string | null</td><td>人可读说明。</td></tr>
+          </tbody>
+        </table>
+        <pre><code>{
+  "expectedTradeDate": "2026-05-29",
+  "observedTradeDate": "2026-05-29",
+  "status": "READY",
+  "message": "日频行情与技术因子已就绪"
+}</code></pre>
+      </div>
+
+      <h2>6. 响应示例</h2>
+
+      <h3>6.1 page-init 示例</h3>
+      <pre><code>{
+  "pageContext": {
+    "market": "CN_A",
+    "tradeDate": "2026-05-29",
+    "prevTradeDate": "2026-05-28",
+    "isTradingDay": true,
+    "sessionStatus": "CLOSED",
+    "timezone": "Asia/Shanghai",
+    "generatedAt": "2026-05-31T10:15:00+08:00",
+    "source": "default"
+  },
+  "stock": {
+    "tsCode": "603806.SH",
+    "symbol": "603806",
+    "name": "福斯特",
+    "exchange": "SSE",
+    "industry": "光伏设备",
+    "listStatus": "L"
+  },
+  "quote": {
+    "observedTradeDate": "2026-05-29",
+    "open": 18.1,
+    "high": 18.66,
+    "low": 17.98,
+    "close": 18.36,
+    "preClose": 18.39,
+    "change": -0.03,
+    "pctChg": -0.16,
+    "turnoverRate": 1.24,
+    "volumeRatio": 1.18,
+    "vol": 128600,
+    "amount": 237000
+  },
+  "chartDefaults": {
+    "defaultPeriod": "day",
+    "defaultAdjustment": "forward",
+    "sourceAdjustment": "qfq",
+    "availablePeriods": ["day"],
+    "availableAdjustments": ["forward"],
+    "availableMainOverlays": ["MA", "BOLL"],
+    "availableIndicatorTabs": ["VOL", "amount", "MA", "MACD", "KDJ", "BOLL"]
+  },
+  "capabilities": {
+    "hasMinuteKline": false,
+    "hasWeekMonthKline": false,
+    "hasRealtimeQuote": false,
+    "hasMoneyFlow": false,
+    "hasUserActions": false
+  },
+  "dataStatus": {
+    "expectedTradeDate": "2026-05-29",
+    "observedTradeDate": "2026-05-29",
+    "status": "READY",
+    "message": "日频行情与技术因子已就绪"
+  }
+}</code></pre>
+
+      <h3>6.2 kline 示例</h3>
+      <pre><code>{
+  "pageContext": {
+    "market": "CN_A",
+    "tradeDate": "2026-05-29",
+    "prevTradeDate": "2026-05-28",
+    "isTradingDay": true,
+    "sessionStatus": "CLOSED",
+    "timezone": "Asia/Shanghai",
+    "generatedAt": "2026-05-31T10:15:00+08:00",
+    "source": "default"
+  },
+  "stockRef": {
+    "tsCode": "603806.SH",
+    "name": "福斯特"
+  },
+  "period": "day",
+  "adjustment": "forward",
+  "sourceAdjustment": "qfq",
+  "bars": [
+    {
+      "tradeDate": "2026-05-29",
+      "price": {"open": 18.1, "high": 18.66, "low": 17.98, "close": 18.36, "preClose": 18.39, "change": -0.03, "pctChg": -0.16},
+      "volume": {"vol": 128600, "amount": 237000},
+      "factors": {
+        "ma": {"ma5": 18.43, "ma10": 18.12, "ma20": 17.9, "ma30": 17.68, "ma60": 17.78, "ma90": 17.41, "ma250": 16.98},
+        "boll": {"upper": 19.25, "middle": 18.02, "lower": 16.79},
+        "macd": {"dif": -0.31, "dea": -0.19, "macd": -0.24},
+        "kdj": {"k": 58.03, "d": 61.37, "j": 67.5}
+      }
+    }
+  ],
+  "meta": {
+    "barCount": 1,
+    "hasMoreHistory": true,
+    "nextEndDate": "2026-05-28",
+    "limit": 300
+  },
+  "dataStatus": {
+    "expectedTradeDate": "2026-05-29",
+    "observedTradeDate": "2026-05-29",
+    "status": "READY",
+    "message": "日 K 数据已就绪"
+  }
+}</code></pre>
+
+      <h2>7. 查询与字段映射</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>页面元素</th>
+            <th>DTO 字段</th>
+            <th>源表 / 源字段</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr><td>标题股票名</td><td><code>stock.name</code></td><td><code>security_serving.name</code></td><td>缺名称时只显示代码。</td></tr>
+          <tr><td>股票代码</td><td><code>stock.tsCode</code></td><td><code>security_serving.ts_code</code></td><td>主键。</td></tr>
+          <tr><td>日 K 蜡烛</td><td><code>bars[].price</code></td><td><code>open_qfq/high_qfq/low_qfq/close_qfq</code></td><td>首期默认前复权。</td></tr>
+          <tr><td>涨跌额/涨跌幅</td><td><code>change/pctChg</code></td><td><code>change/pct_chg</code></td><td>日频源值。</td></tr>
+          <tr><td>成交量</td><td><code>volume.vol</code></td><td><code>vol</code></td><td>源单位手。</td></tr>
+          <tr><td>成交额</td><td><code>volume.amount</code></td><td><code>amount</code></td><td>源单位千元，展示层统一格式化。</td></tr>
+          <tr><td>均线</td><td><code>factors.ma</code></td><td><code>ma_qfq_5/10/20/30/60/90/250</code></td><td>不返回源表没有的 MA15/MA120。</td></tr>
+          <tr><td>BOLL</td><td><code>factors.boll</code></td><td><code>boll_upper_qfq/boll_mid_qfq/boll_lower_qfq</code></td><td>主图覆盖线。</td></tr>
+          <tr><td>MACD</td><td><code>factors.macd</code></td><td><code>macd_dif_qfq/macd_dea_qfq/macd_qfq</code></td><td>指标区。</td></tr>
+          <tr><td>KDJ</td><td><code>factors.kdj</code></td><td><code>kdj_k_qfq/kdj_d_qfq/kdj_qfq</code></td><td><code>kdj_qfq</code> 映射为 J。</td></tr>
+          <tr><td>盘口摘要</td><td><code>quote.*</code></td><td><code>equity_factor_pro</code></td><td>日频静态盘口，不是实时盘口。</td></tr>
+        </tbody>
+      </table>
+
+      <h2>8. 实施里程碑</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>目标</th>
+            <th>范围</th>
+            <th>验收</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>M1</td>
+            <td>新增 DTO 与 query/service 骨架</td>
+            <td><code>src/biz/schemas/wealth/market/stock_detail.py</code> 等模块化目录</td>
+            <td>类型与单元测试通过；不影响旧 quote。</td>
+          </tr>
+          <tr>
+            <td>M2</td>
+            <td>实现 page-init</td>
+            <td>security + latest factor row + context</td>
+            <td>真实样本 <code>603806.SH</code> 可返回身份、摘要、defaults。</td>
+          </tr>
+          <tr>
+            <td>M3</td>
+            <td>实现 kline</td>
+            <td>day + forward + bars + factors</td>
+            <td>返回 300 根以内日 K；字段单位和指标映射正确。</td>
+          </tr>
+          <tr>
+            <td>M4</td>
+            <td>前端接入真实 API</td>
+            <td>替换 stock-detail mock adapter；保留 mock fixture 用于测试</td>
+            <td>页面四态、真实 API contract test、build 通过。</td>
+          </tr>
+          <tr>
+            <td>M5</td>
+            <td>quote legacy 下线评估</td>
+            <td>单独审计 <code>/api/v1/quote/detail/*</code> 引用</td>
+            <td>无引用后再删除；不与本轮 API 接入混做。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h2>9. 风险与决策记录</h2>
+      <div class="card">
+        <h3>9.1 defaultAdjustment 的命名口径</h3>
+        <p>
+          用户拍板的业务默认是 <strong>qfq / 前复权</strong>。但 <code>availableAdjustments</code> 拍板值是
+          <code>["forward"]</code>，且现有 quote 代码也使用 <code>forward -> qfq</code> 的映射。
+        </p>
+        <p class="note">
+          因此本方案统一 API 外部值为 <code>forward</code>，同时返回 <code>sourceAdjustment="qfq"</code> 说明底层字段。
+          这样不会出现 <code>defaultAdjustment="qfq"</code> 但 <code>availableAdjustments=["forward"]</code> 的前端枚举不一致。
+        </p>
+      </div>
+
+      <div class="card">
+        <h3>9.2 旧 quote 链路</h3>
+        <p>
+          旧 quote 链路当前仍被使用，不能作为本轮“顺手删除”对象。后续若要废弃，应先做专门计划：
+        </p>
+        <ol>
+          <li>迁出 <code>src/biz/api/market.py</code> 对 <code>QuoteQueryService</code> 的 calendar 复用。</li>
+          <li>确认没有前端、测试、脚本、文档继续依赖 <code>/api/v1/quote/detail/*</code>。</li>
+          <li>删除 router include、API、schema、query service 和对应测试。</li>
+          <li>更新 docs，把旧 quote detail API 标记为已下线。</li>
+        </ol>
+      </div>
+
+      <div class="card">
+        <h3>9.3 不做自研指标计算</h3>
+        <p>
+          首期只使用 <code>stk_factor_pro</code> 已有字段。源表没有的 <code>MA15</code>、<code>MA120</code> 不返回。
+          这会让 UI 上的均线选项与 mock 期略有差异，但这是正确的：真实 API 不能为了贴 mock 去临时造字段。
+        </p>
+      </div>
+    </main>
+  </body>
+</html>

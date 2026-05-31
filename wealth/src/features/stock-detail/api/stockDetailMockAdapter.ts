@@ -51,10 +51,11 @@ function generateCandleSeries(): StockCandlePoint[] {
 
   return raw.map((row, index) => {
     const ma5 = movingAverage(closes, index, 5);
-    const ma15 = movingAverage(closes, index, 15);
+    const ma10 = movingAverage(closes, index, 10);
+    const ma20 = movingAverage(closes, index, 20);
     const ma30 = movingAverage(closes, index, 30);
     const ma60 = movingAverage(closes, index, 60);
-    const ma120 = movingAverage(closes, index, 120);
+    const ma90 = movingAverage(closes, index, 90);
     const ma250 = movingAverage(closes, index, 250);
     const volatility = 0.8 + Math.abs(Math.sin(index / 11)) * 0.42;
     const dif = round(Math.sin(index / 9) * 0.42);
@@ -63,10 +64,11 @@ function generateCandleSeries(): StockCandlePoint[] {
     return {
       ...row,
       ma5,
-      ma15,
+      ma10,
+      ma20,
       ma30,
       ma60,
-      ma120,
+      ma90,
       ma250,
       bollUpper: round(ma30 + volatility),
       bollMiddle: ma30,
