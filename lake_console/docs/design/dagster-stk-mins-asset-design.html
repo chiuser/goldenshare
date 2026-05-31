@@ -957,8 +957,14 @@ ops:
     <div class="note">
       <strong>M5A 契约状态：</strong>
       已落地 silver 字段 schema、<code>silver_stk_mins_path(root, freq, partition_key)</code>
-      路径契约和 silver 专用 exchange 后缀归一 helper。M5A 不生成 silver 文件，不新增 active asset/job/sensor/check；
-      标准化 SQL、assets、checks 和历史生成留到后续 M5B/M5C。
+      路径契约和 silver 专用 exchange 后缀归一 helper。M5A 不生成 silver 文件，不新增 active asset/job/sensor/check。
+    </div>
+
+    <div class="note">
+      <strong>M5B 代码状态：</strong>
+      已接入五个正式 silver assets：<code>silver_stk_mins_1m/5m/15m/30m/60m</code>；
+      已落地 <code>write_silver_stk_mins_partition(...)</code> 标准化 helper 和 10 个 silver blocking checks。
+      本阶段只完成 definition、helper、checks 与临时目录单元测试；尚未生成历史 silver 文件，也未补录 Dagster materialization/check events。
     </div>
 
     <h3>8.10 Silver checks</h3>
@@ -976,6 +982,20 @@ ops:
       <li><code>vwap</code> 不属于 silver 主字段，不作为 silver check 对象。</li>
       <li>不可解释差异必须作为 blocking check failure，不能静默落入 silver。</li>
     </ul>
+    <p>
+      M5B 已实现的 check 名称固定为：
+      <code>silver_stk_mins_file_exists_and_row_count_positive</code>、
+      <code>silver_stk_mins_schema_matches_contract</code>、
+      <code>silver_stk_mins_freq_and_partition_match</code>、
+      <code>silver_stk_mins_unique_ts_code_trade_time</code>、
+      <code>silver_stk_mins_price_sanity</code>、
+      <code>silver_stk_mins_volume_amount_sanity</code>、
+      <code>silver_stk_mins_exchange_matches_suffix</code>、
+      <code>silver_stk_mins_codes_exist_in_stock_daily</code>、
+      <code>silver_stk_mins_no_full_day_suspend_structural_rows</code>、
+      <code>silver_stk_mins_name_timeline_covered</code>。
+      这些名称已登记到 readiness 常量，后续 M6 event 补录必须逐字复用。
+    </p>
 
     <h3>8.11 Materialization 与 check metadata</h3>
     <ul>
@@ -1154,7 +1174,7 @@ ops:
         <strong>M5B</strong>
         <div>
           <h3>Silver 标准化 helper 与 assets/checks</h3>
-          <p>接入五个 silver assets，落地代码映射、停复牌、1m 修正、粗频度重算、成交量/成交额归一和 blocking checks。先做代码和测试，不执行正式历史生成。</p>
+          <p>已接入五个 silver assets，落地代码映射、停牌全 0 删除、1m 价格修正 seed、粗频度按 1m 重算、成交量/成交额归一、exchange 后缀归一和 10 个 blocking checks。M5B 只完成代码与测试，不执行正式历史生成，不补录 events，也不新增 silver job/sensor。</p>
         </div>
       </div>
       <div class="step">
@@ -1255,7 +1275,7 @@ ops:
       <li>bootstrap 阶段：临时目录小样本迁移，验证字段、路径、分区 key 和 event 补录 helper。</li>
       <li>raw 日常阶段：临时目录与 fake Tushare resource 覆盖分页、<code>freq</code> 字符串归一、已存在目标复用、坏目标拒绝覆盖、七个 raw checks、job selection 与两个 sensors 的时间门禁。</li>
       <li>prod DB raw 补数阶段：使用 fake prod DB resource 或临时数据库覆盖按 <code>ts_code + freq + window</code> 查询、字段白名单、<code>exchange</code> 后缀映射、<code>vwap</code> 推导、未知后缀失败、目标复用和 <code>stock_mins_raw_update_from_prod_job</code> selection。</li>
-      <li>silver 阶段：临时 DuckDB 文件覆盖代码映射、停牌解释、不可解释差异、重复键冲突。</li>
+      <li>silver 阶段：临时 DuckDB 文件覆盖 1m 标准化、代码映射、停牌结构行删除、价格修正 seed、粗频度按 1m 重算、成交量/成交额归一、exchange 归一、重复键冲突和 10 个 silver checks 的 pass/fail。</li>
       <li>gold 阶段：临时 DuckDB 文件覆盖 qfq 公式、因子缺失、行数一致、字段类型。</li>
       <li>正式执行阶段：每次写正式湖或正式 event log 前，单独列命令、工作目录、DAGSTER_HOME、读写范围、预计数量和回滚方式，等待明确批准。</li>
     </ul>

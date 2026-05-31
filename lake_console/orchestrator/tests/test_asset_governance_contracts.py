@@ -60,6 +60,11 @@ from orchestrator.defs.assets.stk_mins import (
     raw_stk_mins_15m,
     raw_stk_mins_30m,
     raw_stk_mins_60m,
+    silver_stk_mins_1m,
+    silver_stk_mins_5m,
+    silver_stk_mins_15m,
+    silver_stk_mins_30m,
+    silver_stk_mins_60m,
 )
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
@@ -112,6 +117,7 @@ from orchestrator.defs.paths import (
     silver_index_daily_path,
     silver_adj_factor_path,
     silver_namechange_path,
+    silver_stk_mins_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_identity_map_path,
@@ -143,6 +149,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
+    SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
@@ -187,6 +194,11 @@ ASSET_CONTRACTS = {
     raw_stk_mins_15m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
     raw_stk_mins_30m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
     raw_stk_mins_60m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
+    silver_stk_mins_1m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
+    silver_stk_mins_5m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
+    silver_stk_mins_15m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
+    silver_stk_mins_30m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
+    silver_stk_mins_60m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
     raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
     silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
     raw_tushare_index_daily_by_code: (
@@ -283,6 +295,21 @@ ASSET_PATH_TEMPLATES = {
     raw_stk_mins_60m: lake_path_template(
         raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 60, PATH_TEMPLATE_PARTITION_KEY)
     ),
+    silver_stk_mins_1m: lake_path_template(
+        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 1, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_stk_mins_5m: lake_path_template(
+        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 5, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_stk_mins_15m: lake_path_template(
+        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 15, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_stk_mins_30m: lake_path_template(
+        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 30, PATH_TEMPLATE_PARTITION_KEY)
+    ),
+    silver_stk_mins_60m: lake_path_template(
+        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 60, PATH_TEMPLATE_PARTITION_KEY)
+    ),
     silver_adj_factor: lake_path_template(
         silver_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
     ),
@@ -333,6 +360,11 @@ ASSET_COLUMN_SCHEMAS = {
     raw_stk_mins_15m: RAW_STK_MINS_SCHEMA,
     raw_stk_mins_30m: RAW_STK_MINS_SCHEMA,
     raw_stk_mins_60m: RAW_STK_MINS_SCHEMA,
+    silver_stk_mins_1m: SILVER_STK_MINS_SCHEMA,
+    silver_stk_mins_5m: SILVER_STK_MINS_SCHEMA,
+    silver_stk_mins_15m: SILVER_STK_MINS_SCHEMA,
+    silver_stk_mins_30m: SILVER_STK_MINS_SCHEMA,
+    silver_stk_mins_60m: SILVER_STK_MINS_SCHEMA,
     raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
@@ -384,7 +416,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 27)
+        self.assertEqual(len(ASSET_CONTRACTS), 32)
 
         for asset, (
             layer,
