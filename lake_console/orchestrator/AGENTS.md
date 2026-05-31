@@ -10,6 +10,8 @@
 
 编码、重构、命名、文件组织变更前，必须遵守本目录长期编码规范：`lake_console/orchestrator/CODING_STANDARDS.md`。该文档是硬门禁，后续新增编码规范优先追加到该文档。
 
+任何 Dagster 相关设计方案或正式代码开发开始前，必须先阅读并遵守 `lake_console/orchestrator/CODING_STANDARDS.md` 和 `lake_console/docs/design/dagster-asset-schema-contract-design.md`；禁止在未核对编码规范与 asset schema contract 口径的情况下输出方案或进入编码。
+
 ---
 
 ## 项目定位
