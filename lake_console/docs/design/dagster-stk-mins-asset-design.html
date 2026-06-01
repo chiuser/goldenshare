@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区、历史注册 CLI 与日常 silver 分区注册 sensor。正式注册 silver 历史分区仍需单独审批执行。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，日常 silver 分区注册 sensor 已实现但默认停止。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -330,7 +330,7 @@
       </tr>
       <tr>
         <td>stk_mins silver 分区错配</td>
-        <td>当前 raw 五频度各有 <code>4225</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>；silver 五频度各有 <code>3014</code> 个文件与 event，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。Dagster UI 显示 <code>4225 partitions / 1211 missing</code>，不是 silver 文件或 event 补录失败，而是 silver asset definition 继续使用 raw 全量分区导致 2009-2013 被错误纳入 silver 应有分区集合。</td>
+        <td>M6F 修正前，raw 五频度各有 <code>4225</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>；silver 五频度各有 <code>3014</code> 个文件与 event，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。当时 Dagster UI 显示 <code>4225 partitions / 1211 missing</code>，不是 silver 文件或 event 补录失败，而是 silver asset definition 继续使用 raw 全量分区导致 2009-2013 被错误纳入 silver 应有分区集合。M6F 后 silver 已切换到独立 <code>cn_a_stock_mins_silver_trade_days</code>，并已正式注册当前 <code>3014</code> 个 silver 日期；code location reload 后 UI 应以 2014+ silver 分区集合展示。</td>
       </tr>
       <tr>
         <td>旧湖身份映射</td>
@@ -477,7 +477,7 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <tr><th>项目</th><th>口径</th></tr>
       <tr><td>分区键</td><td><code>YYYY-MM-DD</code> 股票交易日。</td></tr>
       <tr><td>raw 分区</td><td><code>cn_a_stock_mins_trade_days</code>，历史起点按 raw 文件事实从 <code>2009-01-05</code> 起；当前已注册到 <code>2026-05-29</code>。它只表达 raw 分钟线可存在的日期集合，不代表 silver 也必须覆盖同样范围。</td></tr>
-      <tr><td>silver 分区</td><td>新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后且 silver 依赖链可解释的交易日。当前历史文件事实为 <code>3014</code> 个日期，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。</td></tr>
+      <tr><td>silver 分区</td><td><code>cn_a_stock_mins_silver_trade_days</code> 只注册 <code>2014-01-01</code> 之后且 silver 依赖链可解释的交易日。当前历史文件事实和正式注册分区均为 <code>3014</code> 个日期，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。</td></tr>
       <tr><td>raw 日常注册</td><td>已实现 <code>stock_mins_trade_day_sensor</code>：上海时间 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，不补历史，不能复用或污染股票日频分区。</td></tr>
       <tr><td>silver 日常注册</td><td>M6F 已实现 <code>stock_mins_silver_trade_day_sensor</code>：22:30 后检查最新 raw 分区，只有 raw 五频度、stock daily、suspend、identity map 和 namechange 门禁满足后，才把同一天注册到 <code>cn_a_stock_mins_silver_trade_days</code>。该 sensor 只注册分区，不触发 <code>stock_mins_silver_update_job</code>。</td></tr>
       <tr><td>不做</td><td>不按股票代码分区，不按分钟时间分区，不做 <code>date x stock x freq</code>。</td></tr>
@@ -538,6 +538,7 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       M6F 已把五个 silver assets 与它们的 partitioned checks 切到
       <code>cn_a_stock_mins_silver_trade_days</code>。已补录到 Dagster event log 的
       <code>silver_stk_mins_*</code> materialization/check events 仍然有效，因为 asset key 和 partition key 不变，只是 asset definition 的“应有分区集合”收窄为 2014+。
+      当前已正式注册 <code>3014</code> 个 silver 分区，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。
     </p>
 
     <h3>5.4 Gold qfq assets</h3>
@@ -981,7 +982,7 @@ ops:
       M5B 标准化 helper、M5C 五个正式 silver assets、M5D 10 个 silver blocking checks。
       这三个阶段只完成代码与临时目录测试；M5E 已补充 <code>stock_mins_silver_update_job</code>
       作为正式日常入口。M6 已完成历史 silver 文件生成与 runless event 补录；M6F 已把 silver definitions 从 raw 全量分区切到
-      <code>cn_a_stock_mins_silver_trade_days</code>，让 UI 的应有分区集合与 2014+ 文件/event 事实一致。
+      <code>cn_a_stock_mins_silver_trade_days</code>，并已正式注册当前 <code>3014</code> 个 silver 分区，让 UI 的应有分区集合与 2014+ 文件/event 事实一致。
     </div>
 
     <h3>8.10 Silver checks</h3>
@@ -1051,7 +1052,7 @@ ops:
     <p>
       M6 执行后只读复核发现：raw 分钟线五频度各有 <code>4225</code> 个分区，范围 <code>2009-01-05</code> 至
       <code>2026-05-29</code>；silver 五频度各有 <code>3014</code> 个文件与 Dagster events，范围
-      <code>2014-01-02</code> 至 <code>2026-05-29</code>。Dagster UI 显示 <code>4225 partitions / 1211 missing</code>
+      <code>2014-01-02</code> 至 <code>2026-05-29</code>。M6F 修正前 Dagster UI 显示 <code>4225 partitions / 1211 missing</code>
       的原因不是文件缺失，也不是 event 补录失败，而是 M6F 前的 silver asset definition 仍使用 raw 全量分区。
       这会把 2009-2013 年 1211 个 raw-only 日期错误解释成 silver 应有分区。
     </p>
@@ -1094,8 +1095,11 @@ ops:
       </tr>
     </table>
     <p>
-      M6F 代码落地后，正式注册 dynamic partitions 前仍需单独列命令、工作目录、<code>DAGSTER_HOME</code>、注册数量和回滚口径并等待批准。
-      注册通过后 reload code location，Dagster UI 的 silver partition universe 应收敛到 2014+ 的已生成文件范围，不再显示 2009-2013 的 1211 个 raw-only missing。
+      M6F 已按正式执行门禁完成 silver dynamic partitions 注册。执行记录：
+      <code>dry-run requested=3014 existing=0 registered=3014</code>；
+      正式注册 <code>requested=3014 existing=0 registered=3014</code>；
+      注册后复核 <code>dry-run requested=3014 existing=3014 registered=0</code>。
+      reload code location 后，Dagster UI 的 silver partition universe 应收敛到 2014+ 的已生成文件范围，不再显示 2009-2013 的 1211 个 raw-only missing。
     </p>
   </section>
 
@@ -1128,7 +1132,11 @@ ops:
 
   <section>
     <h2>10. Jobs 与 Sensors 边界</h2>
-    <p>M4 已先落地 raw-only 日常入口；silver/gold 的 job 与 sensor 后移到对应 milestone 单独设计。</p>
+    <p>
+      M4 已落地 raw-only 日常入口；M5E 已落地 <code>stock_mins_silver_update_job</code>；
+      M6F 已落地只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>。
+      当前仍未实现自动触发 <code>stock_mins_silver_update_job</code> 的日常生产 sensor，gold 的 job 与 sensor 仍留到后续 milestone 单独设计。
+    </p>
 
     <table>
       <tr><th>对象</th><th>职责</th><th>边界</th></tr>
@@ -1165,12 +1173,17 @@ ops:
       <tr>
         <td><code>stock_mins_silver_trade_day_sensor</code></td>
         <td>22:30 后检查最新 raw 分区，满足 silver 前置门禁后注册 silver 交易日分区。</td>
-        <td>只注册 <code>cn_a_stock_mins_silver_trade_days</code>，不提交 run；等待后续手动或日常 silver job 入口使用该分区。</td>
+        <td>只注册 <code>cn_a_stock_mins_silver_trade_days</code>，不提交 run；等待人工 run 或后续专门的 silver 生产 sensor 使用该分区。</td>
       </tr>
       <tr>
-        <td>后续 silver/gold jobs</td>
-        <td>批量或日常生成 silver/gold 文件。</td>
-        <td>不在 M4 实现；不得通过 raw job 顺手生成下游。</td>
+        <td><code>stock_mins_silver_update_job</code></td>
+        <td>单日生成五个频度 silver 文件并运行 silver checks。</td>
+        <td>已实现；selection 只包含 <code>silver_stk_mins_*</code> assets 与 checks，不顺手跑 raw 或 gold。</td>
+      </tr>
+      <tr>
+        <td>后续 gold jobs</td>
+        <td>批量或日常生成 qfq gold 文件。</td>
+        <td>尚未实现；不得通过 raw 或 silver job 顺手生成 gold。</td>
       </tr>
     </table>
   </section>
@@ -1282,7 +1295,7 @@ ops:
         <strong>M6F</strong>
         <div>
           <h3>Silver 独立分区修正</h3>
-          <p>已实现 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后已生成 silver 的交易日；五个 <code>silver_stk_mins_*</code> assets、checks、<code>stock_mins_silver_update_job</code>、M6 helper 和日常 silver 分区注册 sensor 全部切换到该分区。正式历史分区注册仍需单独审批执行。</p>
+          <p>已实现 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后已生成 silver 的交易日；五个 <code>silver_stk_mins_*</code> assets、checks、<code>stock_mins_silver_update_job</code>、M6 helper 和日常 silver 分区注册 sensor 全部切换到该分区。正式历史分区注册已完成：当前注册 <code>3014</code> 个 silver 日期，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。</p>
         </div>
       </div>
       <div class="step">
