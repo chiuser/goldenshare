@@ -54,7 +54,13 @@ from orchestrator.defs.assets.stock_daily import (
     silver_stock_daily,
 )
 from orchestrator.defs.assets.stk_mins import (
+    GOLD_STK_MINS_QFQ_COLUMNS,
     STK_MINS_RAW_COLUMN_TYPES,
+    gold_stk_mins_qfq_1m,
+    gold_stk_mins_qfq_5m,
+    gold_stk_mins_qfq_15m,
+    gold_stk_mins_qfq_30m,
+    gold_stk_mins_qfq_60m,
     raw_stk_mins_1m,
     raw_stk_mins_5m,
     raw_stk_mins_15m,
@@ -100,8 +106,11 @@ from orchestrator.defs.duckdb_sql import (
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
+    PATH_TEMPLATE_TS_CODE,
+    PATH_TEMPLATE_YEAR,
     gold_market_breadth_daily_path,
     gold_market_major_indices_daily_path,
+    gold_stk_mins_qfq_path,
     gold_stock_return_distribution_path,
     lake_path_template,
     raw_adj_factor_path,
@@ -139,6 +148,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+    GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
@@ -203,6 +213,11 @@ ASSET_CONTRACTS = {
     silver_stk_mins_15m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
     silver_stk_mins_30m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
     silver_stk_mins_60m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
+    gold_stk_mins_qfq_1m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
+    gold_stk_mins_qfq_5m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
+    gold_stk_mins_qfq_15m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
+    gold_stk_mins_qfq_30m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
+    gold_stk_mins_qfq_60m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
     raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
     silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
     raw_tushare_index_daily_by_code: (
@@ -344,6 +359,46 @@ ASSET_PATH_TEMPLATES = {
             PATH_TEMPLATE_PARTITION_KEY,
         )
     ),
+    gold_stk_mins_qfq_1m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            1,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
+    gold_stk_mins_qfq_5m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            5,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
+    gold_stk_mins_qfq_15m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            15,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
+    gold_stk_mins_qfq_30m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            30,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
+    gold_stk_mins_qfq_60m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            60,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
     gold_stock_return_distribution: lake_path_template(
         gold_stock_return_distribution_path(
             PATH_TEMPLATE_LAKE_ROOT,
@@ -369,6 +424,11 @@ ASSET_COLUMN_SCHEMAS = {
     silver_stk_mins_15m: SILVER_STK_MINS_SCHEMA,
     silver_stk_mins_30m: SILVER_STK_MINS_SCHEMA,
     silver_stk_mins_60m: SILVER_STK_MINS_SCHEMA,
+    gold_stk_mins_qfq_1m: GOLD_STK_MINS_QFQ_SCHEMA,
+    gold_stk_mins_qfq_5m: GOLD_STK_MINS_QFQ_SCHEMA,
+    gold_stk_mins_qfq_15m: GOLD_STK_MINS_QFQ_SCHEMA,
+    gold_stk_mins_qfq_30m: GOLD_STK_MINS_QFQ_SCHEMA,
+    gold_stk_mins_qfq_60m: GOLD_STK_MINS_QFQ_SCHEMA,
     raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
@@ -420,7 +480,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 32)
+        self.assertEqual(len(ASSET_CONTRACTS), 37)
 
         for asset, (
             layer,
@@ -446,7 +506,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
                         ASSET_PATH_TEMPLATES[asset],
                     )
 
-    def test_stk_mins_raw_and_silver_assets_use_separate_partitions(self) -> None:
+    def test_stk_mins_assets_use_expected_partitions(self) -> None:
         raw_assets = (
             raw_stk_mins_1m,
             raw_stk_mins_5m,
@@ -461,12 +521,25 @@ class AssetGovernanceContractTests(unittest.TestCase):
             silver_stk_mins_30m,
             silver_stk_mins_60m,
         )
+        gold_assets = (
+            gold_stk_mins_qfq_1m,
+            gold_stk_mins_qfq_5m,
+            gold_stk_mins_qfq_15m,
+            gold_stk_mins_qfq_30m,
+            gold_stk_mins_qfq_60m,
+        )
 
         for asset in raw_assets:
             with self.subTest(asset=asset.key.to_user_string()):
                 self.assertEqual(asset.partitions_def, cn_a_stock_mins_trade_days)
 
         for asset in silver_assets:
+            with self.subTest(asset=asset.key.to_user_string()):
+                self.assertEqual(
+                    asset.partitions_def,
+                    cn_a_stock_mins_silver_trade_days,
+                )
+        for asset in gold_assets:
             with self.subTest(asset=asset.key.to_user_string()):
                 self.assertEqual(
                     asset.partitions_def,
@@ -652,6 +725,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
                 column.name: column.type
                 for column in GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA
             },
+        )
+        self.assertEqual(
+            GOLD_STK_MINS_QFQ_COLUMNS,
+            tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA),
         )
         self.assertEqual(
             CLICKHOUSE_MARKET_BREADTH_COLUMNS,

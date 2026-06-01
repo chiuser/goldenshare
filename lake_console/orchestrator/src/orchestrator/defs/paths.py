@@ -5,6 +5,8 @@ from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
 PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
 PATH_TEMPLATE_PARTITION_KEY = "{partition_key}"
+PATH_TEMPLATE_TS_CODE = "{ts_code}"
+PATH_TEMPLATE_YEAR = "{year}"
 
 RAW = "raw"
 SILVER = "silver"
@@ -109,6 +111,8 @@ def _gold_stk_mins_qfq_ts_code_part(ts_code: str) -> str:
 
 def _gold_stk_mins_qfq_year_part(year: int | str) -> str:
     year_value = str(year)
+    if year_value == PATH_TEMPLATE_YEAR:
+        return f"year={year_value}"
     if len(year_value) != 4 or not year_value.isdigit():
         raise ValueError("gold stk_mins qfq year must be a four-digit year")
 

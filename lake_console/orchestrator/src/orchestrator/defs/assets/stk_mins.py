@@ -2,12 +2,13 @@ import math
 import os
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import date, datetime
 from pathlib import Path
 from typing import Any, Mapping, Sequence
 
 import dagster as dg
 
+from orchestrator.defs.assets.adj_factor import silver_adj_factor
 from orchestrator.defs.assets.namechange import silver_namechange
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import silver_stock_daily
@@ -27,8 +28,12 @@ from orchestrator.defs.partitions import (
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
+    PATH_TEMPLATE_TS_CODE,
+    PATH_TEMPLATE_YEAR,
+    gold_stk_mins_qfq_path,
     lake_path_template,
     raw_stk_mins_path,
+    silver_adj_factor_path,
     silver_namechange_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
@@ -48,6 +53,7 @@ from orchestrator.defs.resources import (
     TushareResource,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    GOLD_STK_MINS_QFQ_SCHEMA,
     RAW_STK_MINS_SCHEMA,
     SILVER_STK_MINS_SCHEMA,
 )
@@ -69,6 +75,12 @@ from orchestrator.defs.run_contracts.configs import (
 from orchestrator.defs.run_contracts.stk_mins import (
     derive_stk_mins_exchange_from_ts_code,
     normalize_stk_mins_freq,
+)
+from orchestrator.defs.stk_mins_qfq import (
+    GOLD_STK_MINS_QFQ_COLUMNS,
+    build_daily_qfq_coverage_sql,
+    build_daily_qfq_select_sql,
+    write_gold_stk_mins_qfq_rows_to_year_files,
 )
 from orchestrator.seeds.quote.stk_mins_price_corrections import (
     STK_MINS_PRICE_CORRECTIONS_SEED_VERSION,
@@ -196,6 +208,39 @@ class SilverStkMinsWriteResult:
         if self.one_minute_raw_file_path is not None:
             metadata["one_minute_raw_file_path"] = str(self.one_minute_raw_file_path)
         return metadata
+
+
+@dataclass(frozen=True)
+class GoldStkMinsQfqPartitionWriteResult:
+    silver_file_path: Path
+    trade_adj_factor_file_path: Path
+    latest_adj_factor_file_count: int
+    latest_adj_factor_date: str
+    output_root_path: Path
+    output_file_count: int
+    output_sample_file_paths: tuple[str, ...]
+    row_count: int
+    replacement_row_count: int
+    observed_columns: tuple[str, ...]
+
+    def materialization_extra_metadata(
+        self,
+        *,
+        partition_key: str,
+        freq: int,
+    ) -> dict[str, object]:
+        return {
+            "partition_key": partition_key,
+            "freq": freq,
+            "silver_file_path": str(self.silver_file_path),
+            "trade_adj_factor_file_path": str(self.trade_adj_factor_file_path),
+            "latest_adj_factor_file_count": self.latest_adj_factor_file_count,
+            "latest_adj_factor_date": self.latest_adj_factor_date,
+            "output_file_count": self.output_file_count,
+            "output_sample_file_paths": list(self.output_sample_file_paths),
+            "replacement_row_count": self.replacement_row_count,
+            "physical_layout": "freq_ts_code_year",
+        }
 
 
 def _freq_label(freq: int | str) -> str:
@@ -1590,6 +1635,143 @@ def write_silver_stk_mins_partition(
     )
 
 
+def _silver_adj_factor_partition_key_from_path(path: Path) -> str:
+    prefix = "trade_date="
+    partition_dir = path.parent.name
+    if not partition_dir.startswith(prefix):
+        raise ValueError(f"Invalid silver adj_factor partition path: {path}")
+    partition_key = partition_dir.removeprefix(prefix)
+    date.fromisoformat(partition_key)
+    return partition_key
+
+
+def _discover_silver_adj_factor_paths(lake_root: Path) -> tuple[Path, ...]:
+    adj_factor_root = lake_root / "silver" / "quote" / "adj_factor"
+    return tuple(sorted(adj_factor_root.glob("trade_date=*/part-000.parquet")))
+
+
+def _qfq_coverage_counts(
+    *,
+    duckdb: DuckDBResource,
+    silver_file_path: Path,
+    trade_adj_factor_file_path: Path,
+    latest_adj_factor_file_paths: Sequence[Path],
+) -> dict[str, int]:
+    coverage_sql = build_daily_qfq_coverage_sql(
+        silver_paths=[silver_file_path],
+        trade_adj_factor_paths=[trade_adj_factor_file_path],
+        latest_adj_factor_paths=latest_adj_factor_file_paths,
+    )
+    with duckdb.connect() as connection:
+        row = connection.execute(coverage_sql).fetchone()
+    if row is None:
+        raise RuntimeError("Gold stk_mins qfq coverage query returned no rows.")
+    return {
+        "silver_row_count": int(row[0]),
+        "qfq_output_row_count": int(row[1]),
+        "missing_trade_adj_factor_row_count": int(row[2]),
+        "missing_latest_adj_factor_row_count": int(row[3]),
+    }
+
+
+def _validate_gold_qfq_coverage(
+    *,
+    coverage_counts: Mapping[str, int],
+    freq: int,
+    partition_key: str,
+) -> None:
+    if coverage_counts["silver_row_count"] <= 0:
+        raise RuntimeError(
+            "Gold stk_mins qfq source silver partition is empty: "
+            f"freq={freq}, partition={partition_key}."
+        )
+    if (
+        coverage_counts["missing_trade_adj_factor_row_count"]
+        or coverage_counts["missing_latest_adj_factor_row_count"]
+        or coverage_counts["qfq_output_row_count"] != coverage_counts["silver_row_count"]
+    ):
+        raise RuntimeError(
+            "Gold stk_mins qfq factor coverage failed before write: "
+            f"freq={freq}, partition={partition_key}, counts={dict(coverage_counts)}."
+        )
+
+
+def write_gold_stk_mins_qfq_asset_partition(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+) -> GoldStkMinsQfqPartitionWriteResult:
+    normalized_freq = normalize_stk_mins_freq(freq)
+    silver_file_path = silver_stk_mins_path(lake_root, normalized_freq, partition_key)
+    trade_adj_factor_file_path = silver_adj_factor_path(lake_root, partition_key)
+    input_paths = {
+        "silver_stk_mins": silver_file_path,
+        "trade_adj_factor": trade_adj_factor_file_path,
+    }
+    _require_stk_mins_input_files(input_paths)
+
+    latest_adj_factor_file_paths = _discover_silver_adj_factor_paths(lake_root)
+    if not latest_adj_factor_file_paths:
+        raise FileNotFoundError(
+            "Missing silver adj_factor files; cannot compute gold stk_mins qfq."
+        )
+    latest_adj_factor_date = max(
+        _silver_adj_factor_partition_key_from_path(path)
+        for path in latest_adj_factor_file_paths
+    )
+    if date.fromisoformat(latest_adj_factor_date) < date.fromisoformat(partition_key):
+        raise RuntimeError(
+            "Latest silver adj_factor is older than target qfq partition: "
+            f"latest={latest_adj_factor_date}, partition={partition_key}."
+        )
+
+    coverage_counts = _qfq_coverage_counts(
+        duckdb=duckdb,
+        silver_file_path=silver_file_path,
+        trade_adj_factor_file_path=trade_adj_factor_file_path,
+        latest_adj_factor_file_paths=latest_adj_factor_file_paths,
+    )
+    _validate_gold_qfq_coverage(
+        coverage_counts=coverage_counts,
+        freq=normalized_freq,
+        partition_key=partition_key,
+    )
+    qfq_select_sql = build_daily_qfq_select_sql(
+        silver_paths=[silver_file_path],
+        trade_adj_factor_paths=[trade_adj_factor_file_path],
+        latest_adj_factor_paths=latest_adj_factor_file_paths,
+    )
+    write_results = write_gold_stk_mins_qfq_rows_to_year_files(
+        lake_root=lake_root,
+        freq=normalized_freq,
+        qfq_select_sql=qfq_select_sql,
+        replace_trade_dates=[partition_key],
+    )
+    if not write_results:
+        raise RuntimeError(
+            "Gold stk_mins qfq write produced no output files: "
+            f"freq={normalized_freq}, partition={partition_key}."
+        )
+
+    output_file_paths = tuple(str(result.path) for result in write_results)
+    return GoldStkMinsQfqPartitionWriteResult(
+        silver_file_path=silver_file_path,
+        trade_adj_factor_file_path=trade_adj_factor_file_path,
+        latest_adj_factor_file_count=len(latest_adj_factor_file_paths),
+        latest_adj_factor_date=latest_adj_factor_date,
+        output_root_path=write_results[0].path.parents[2],
+        output_file_count=len(write_results),
+        output_sample_file_paths=output_file_paths[:20],
+        row_count=coverage_counts["qfq_output_row_count"],
+        replacement_row_count=sum(
+            result.replacement_row_count for result in write_results
+        ),
+        observed_columns=GOLD_STK_MINS_QFQ_COLUMNS,
+    )
+
+
 def _materialize_raw_stk_mins_partition(
     *,
     context: dg.AssetExecutionContext,
@@ -2115,6 +2297,261 @@ def silver_stk_mins_60m(
     )
 
 
+def _materialize_gold_stk_mins_qfq_partition(
+    *,
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.MaterializeResult:
+    lake_root.ensure_available_for_run()
+    partition_key = context.partition_key
+    write_result = write_gold_stk_mins_qfq_asset_partition(
+        lake_root=lake_root.root(),
+        duckdb=duckdb,
+        freq=freq,
+        partition_key=partition_key,
+    )
+    return dg.MaterializeResult(
+        metadata=build_materialization_metadata(
+            uri=write_result.output_root_path,
+            row_count=write_result.row_count,
+            observed_columns=write_result.observed_columns,
+            extra_metadata=write_result.materialization_extra_metadata(
+                partition_key=partition_key,
+                freq=freq,
+            ),
+        )
+    )
+
+
+def _gold_stk_mins_qfq_extra_metadata(freq: int) -> dict[str, object]:
+    return {
+        "freq": freq,
+        "formula": (
+            "qfq_price = silver_price * adj_factor(trade_date) / "
+            "latest_adj_factor(ts_code)"
+        ),
+        "physical_layout": "freq + ts_code + year",
+        "price_columns": "open/high/low/close are qfq prices",
+        "non_price_columns": "vol/amount/exchange are inherited from silver stk_mins",
+        "latest_adj_factor_policy": (
+            "latest_adj_factor is generated inside DuckDB SQL from available "
+            "silver_adj_factor files; it is not a persisted asset."
+        ),
+    }
+
+
+@dg.asset(
+    name="gold_stk_mins_qfq_1m",
+    deps=[
+        silver_stk_mins_1m,
+        dg.AssetDep(
+            silver_adj_factor,
+            partition_mapping=dg.IdentityPartitionMapping(),
+        ),
+    ],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                1,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_extra_metadata(1),
+    ),
+    description="股票 1 分钟 gold 前复权行情，按股票年份文件写入。",
+)
+def gold_stk_mins_qfq_1m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=1,
+    )
+
+
+@dg.asset(
+    name="gold_stk_mins_qfq_5m",
+    deps=[
+        silver_stk_mins_5m,
+        dg.AssetDep(
+            silver_adj_factor,
+            partition_mapping=dg.IdentityPartitionMapping(),
+        ),
+    ],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                5,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_extra_metadata(5),
+    ),
+    description="股票 5 分钟 gold 前复权行情，按股票年份文件写入。",
+)
+def gold_stk_mins_qfq_5m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=5,
+    )
+
+
+@dg.asset(
+    name="gold_stk_mins_qfq_15m",
+    deps=[
+        silver_stk_mins_15m,
+        dg.AssetDep(
+            silver_adj_factor,
+            partition_mapping=dg.IdentityPartitionMapping(),
+        ),
+    ],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                15,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_extra_metadata(15),
+    ),
+    description="股票 15 分钟 gold 前复权行情，按股票年份文件写入。",
+)
+def gold_stk_mins_qfq_15m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=15,
+    )
+
+
+@dg.asset(
+    name="gold_stk_mins_qfq_30m",
+    deps=[
+        silver_stk_mins_30m,
+        dg.AssetDep(
+            silver_adj_factor,
+            partition_mapping=dg.IdentityPartitionMapping(),
+        ),
+    ],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                30,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_extra_metadata(30),
+    ),
+    description="股票 30 分钟 gold 前复权行情，按股票年份文件写入。",
+)
+def gold_stk_mins_qfq_30m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=30,
+    )
+
+
+@dg.asset(
+    name="gold_stk_mins_qfq_60m",
+    deps=[
+        silver_stk_mins_60m,
+        dg.AssetDep(
+            silver_adj_factor,
+            partition_mapping=dg.IdentityPartitionMapping(),
+        ),
+    ],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                60,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_extra_metadata(60),
+    ),
+    description="股票 60 分钟 gold 前复权行情，按股票年份文件写入。",
+)
+def gold_stk_mins_qfq_60m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=60,
+    )
+
+
 RAW_STK_MINS_ASSETS = (
     raw_stk_mins_1m,
     raw_stk_mins_5m,
@@ -2129,4 +2566,12 @@ SILVER_STK_MINS_ASSETS = (
     silver_stk_mins_15m,
     silver_stk_mins_30m,
     silver_stk_mins_60m,
+)
+
+GOLD_STK_MINS_QFQ_ASSETS = (
+    gold_stk_mins_qfq_1m,
+    gold_stk_mins_qfq_5m,
+    gold_stk_mins_qfq_15m,
+    gold_stk_mins_qfq_30m,
+    gold_stk_mins_qfq_60m,
 )

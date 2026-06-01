@@ -2,7 +2,11 @@ import unittest
 from pathlib import Path
 
 from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
-from orchestrator.defs.paths import gold_stk_mins_qfq_path
+from orchestrator.defs.paths import (
+    PATH_TEMPLATE_TS_CODE,
+    PATH_TEMPLATE_YEAR,
+    gold_stk_mins_qfq_path,
+)
 from orchestrator.defs.run_contracts import asset_column_schemas
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
@@ -19,6 +23,15 @@ class StkMinsQfqM7BContractTests(unittest.TestCase):
                 2026,
             ).as_posix(),
             "data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code=600000.SH/year=2026/part-000.parquet",
+        )
+        self.assertEqual(
+            gold_stk_mins_qfq_path(
+                Path("data_lake"),
+                5,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            ).as_posix(),
+            "data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code={ts_code}/year={year}/part-000.parquet",
         )
 
     def test_gold_qfq_path_rejects_invalid_inputs(self) -> None:
