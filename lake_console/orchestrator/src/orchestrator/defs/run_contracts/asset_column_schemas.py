@@ -158,6 +158,20 @@ SILVER_STK_MINS_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "标准交易所代码，允许值为 SSE、SZSE、BSE"),
 )
 
+GOLD_STK_MINS_QFQ_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract("freq", "INTEGER", "分钟频度，允许值为 1、5、15、30、60"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("open", "DOUBLE", "前复权分钟 bar 开盘价"),
+    ColumnContract("high", "DOUBLE", "前复权分钟 bar 最高价"),
+    ColumnContract("low", "DOUBLE", "前复权分钟 bar 最低价"),
+    ColumnContract("close", "DOUBLE", "前复权分钟 bar 收盘价"),
+    ColumnContract("vol", "DOUBLE", "成交量，沿用 silver 分钟线事实"),
+    ColumnContract("amount", "DOUBLE", "成交额，沿用 silver 分钟线事实"),
+    ColumnContract("exchange", "VARCHAR", "标准交易所代码，沿用 silver 分钟线事实"),
+)
+
 SILVER_NAMECHANGE_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("name", "VARCHAR", "该名称区间内实际使用的证券简称"),

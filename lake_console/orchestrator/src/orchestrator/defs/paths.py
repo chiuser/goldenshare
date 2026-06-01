@@ -100,6 +100,34 @@ def silver_stk_mins_path(root: Path, freq: int | str, partition_key: str) -> Pat
     )
 
 
+def _gold_stk_mins_qfq_ts_code_part(ts_code: str) -> str:
+    if not ts_code or "/" in ts_code:
+        raise ValueError("gold stk_mins qfq ts_code must be non-empty and must not contain '/'")
+
+    return f"ts_code={ts_code}"
+
+
+def _gold_stk_mins_qfq_year_part(year: int | str) -> str:
+    year_value = str(year)
+    if len(year_value) != 4 or not year_value.isdigit():
+        raise ValueError("gold stk_mins qfq year must be a four-digit year")
+
+    return f"year={year_value}"
+
+
+def gold_stk_mins_qfq_path(root: Path, freq: int | str, ts_code: str, year: int | str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "quote",
+        "stk_mins_qfq",
+        f"freq={normalize_stk_mins_freq(freq)}",
+        _gold_stk_mins_qfq_ts_code_part(ts_code),
+        _gold_stk_mins_qfq_year_part(year),
+        "part-000.parquet",
+    )
+
+
 def raw_adj_factor_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,
