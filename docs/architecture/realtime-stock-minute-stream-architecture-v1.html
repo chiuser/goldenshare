@@ -794,7 +794,7 @@ fields = [
       <div class="section-header">
         <div>
           <h2>8. API 契约</h2>
-          <p>后端读取 API 已在 M6 完成；它们只读 Redis，不暴露 Tushare 参数，前端接入留到 M7。</p>
+          <p>后端读取 API 已在 M6 完成；它们只读 Redis，不暴露 Tushare 参数。M7 已完成运营后台“实时流监控”页面接入：页面展示股票实时日线与股票实时分钟分组，分钟按 health API 返回的频率项展示。</p>
         </div>
       </div>
       <div class="section-body">
@@ -949,7 +949,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M7</td>
               <td>Ops 页面扩展</td>
-              <td>待推进：实时流监控新增股票实时分钟分组。</td>
+              <td>已完成：实时流监控页面保留股票实时日线分组，新增股票实时分钟分组；页面只调用 Ops health API，不调用业务快照 API、不读 Redis、不自行推导交易日或频率列表。</td>
             </tr>
             <tr>
               <td>M8</td>
@@ -1021,7 +1021,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>Ops health</td>
               <td>现有 Ops realtime health API 和前端页面只服务股票实时日线单 feed。</td>
-              <td>分钟 Ops health API 已完成后端读取契约：不带 <code>freq</code> 返回五频率全量，带 <code>freq</code> 仍返回同一 wrapper 且只有一个 item。Ops 页面、query key 和前端类型接入留到 M7。</td>
+              <td>分钟 Ops health API 已完成后端读取契约：不带 <code>freq</code> 返回五频率全量，带 <code>freq</code> 仍返回同一 wrapper 且只有一个 item。M7 页面接入只调用不带 <code>freq</code> 的全量 health API。</td>
             </tr>
             <tr>
               <td>页面轮询</td>
@@ -1031,7 +1031,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>测试门禁</td>
               <td>现有测试覆盖日线 collector、业务 API、Ops health。</td>
-              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；统一 collector 调度、单频率异常隔离、分钟 health、非采集时段不请求源站已在 M5 覆盖；分钟业务 API 与 Ops 多频率 health API 已在 M6 覆盖；页面分组渲染留到 M7。</td>
+              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；统一 collector 调度、单频率异常隔离、分钟 health、非采集时段不请求源站已在 M5 覆盖；分钟业务 API 与 Ops 多频率 health API 已在 M6 覆盖；实时流监控页面分组渲染已在 M7 覆盖。</td>
             </tr>
           </tbody>
         </table>
