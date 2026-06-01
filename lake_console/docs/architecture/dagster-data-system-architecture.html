@@ -622,7 +622,7 @@
             <td><code>stk_mins</code></td>
             <td>新 Dagster raw：<code>data_lake/raw/tushare/stk_mins/freq=*/trade_date=*/part-000.parquet</code>；历史参考：<code>raw_tushare/stk_mins_by_date</code>, <code>research/stk_mins_by_date_clean_next</code>, <code>derived/stk_mins_by_date</code>, <code>research/stk_mins_by_symbol_month</code></td>
             <td><span class="tag raw">raw</span> + <span class="tag silver">silver</span> + <span class="tag gold">gold</span></td>
-            <td>当前 Dagster 已落地五个 raw assets：<code>raw_stk_mins_1m/5m/15m/30m/60m</code>，以及五个 silver assets：<code>silver_stk_mins_1m/5m/15m/30m/60m</code>。raw 历史 baseline 来自 backup clean_next，默认日常入口来自 prod DB，Tushare 入口保留为人工备用；silver 标准化 definition/check/job 已实现但历史文件与 events 尚未生成；gold 分钟线仍是后续里程碑。</td>
+            <td>当前 Dagster 已落地五个 raw assets：<code>raw_stk_mins_1m/5m/15m/30m/60m</code>，以及五个 silver assets：<code>silver_stk_mins_1m/5m/15m/30m/60m</code>。raw 历史 baseline 来自 backup clean_next，默认日常入口来自 prod DB，Tushare 入口保留为人工备用；silver 标准化 definition/check/job 已实现，历史文件与 runless events 已按 <code>2014-01-01</code> 之后范围生成和补录；当前待修正项是新增 <code>cn_a_stock_mins_silver_trade_days</code> 并让 silver assets/checks 使用该 2014+ 分区，避免 UI 把 2009-2013 raw-only 日期显示为 missing；gold 分钟线仍是后续里程碑。</td>
           </tr>
           <tr>
             <td>Market Fund</td>
@@ -702,10 +702,10 @@
           <tr>
             <td><code>stk_mins</code></td>
             <td><code>clean_next_by_date</code></td>
-            <td>已定义正式路径；历史文件尚未生成：<code>data_lake/silver/quote/stk_mins/freq=*/trade_date=*/part-000.parquet</code></td>
+            <td>已定义正式路径；M6 已生成历史文件并补录 runless events，范围为 <code>2014-01-01</code> 之后：<code>data_lake/silver/quote/stk_mins/freq=*/trade_date=*/part-000.parquet</code></td>
             <td><code>raw_stk_mins_*</code>、<code>silver_stock_identity_map</code>、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code>、<code>silver_stock_basic</code>、<code>silver_namechange</code>；粗频度额外依赖 <code>raw_stk_mins_1m</code></td>
             <td><span class="tag silver">silver</span></td>
-            <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code>（definition、checks 与 <code>stock_mins_silver_update_job</code> 已实现；历史生成未执行）</td>
+            <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code>（definition、checks、<code>stock_mins_silver_update_job</code> 与 M6 历史 helper 已实现并已执行历史文件/event 补录；M6F 待切换到 <code>cn_a_stock_mins_silver_trade_days</code>）</td>
           </tr>
           <tr>
             <td><code>stk_mins</code></td>
@@ -799,8 +799,8 @@
           <tr>
             <td>silver assets</td>
             <td>清洗基准节点</td>
-            <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code>（分钟线 silver 已定义；<code>stock_mins_silver_update_job</code> 已接入，历史文件与 events 待 M6 生成/补录）</td>
-            <td>按 asset 区分 <code>freq</code>，按 <code>trade_date</code> 分区</td>
+            <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code>（分钟线 silver 已定义；<code>stock_mins_silver_update_job</code> 已接入，M6 历史文件生成与 events 补录已执行；M6F 待切换到 <code>cn_a_stock_mins_silver_trade_days</code>）</td>
+            <td>按 asset 区分 <code>freq</code>，按 <code>trade_date</code> 分区；silver 分区集合只覆盖 2014+ 可生成日期</td>
             <td><code>raw_stk_mins_*</code>，以及 <code>silver_stock_identity_map</code> / stock daily / suspend / basic 等标准事实</td>
             <td>身份映射、去重、生命周期过滤、row count 合理、拒绝原因统计。</td>
           </tr>

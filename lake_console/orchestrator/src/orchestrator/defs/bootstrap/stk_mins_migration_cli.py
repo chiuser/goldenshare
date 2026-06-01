@@ -19,6 +19,16 @@ from orchestrator.defs.bootstrap.stk_mins_migration import (
     report_stk_mins_raw_bootstrap_events,
     report_stock_identity_map_bootstrap_events,
 )
+from orchestrator.defs.bootstrap.stk_mins_silver_bootstrap_events import (
+    audit_stk_mins_silver_final_state,
+    report_stk_mins_silver_bootstrap_events,
+)
+from orchestrator.defs.bootstrap.stk_mins_silver_history import (
+    STK_MINS_SILVER_HISTORY_START_DATE,
+    all_silver_partition_keys,
+    generate_stk_mins_silver_history,
+    plan_stk_mins_silver_history,
+)
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
 from orchestrator.defs.resources import DuckDBResource
 
@@ -55,6 +65,27 @@ def main() -> None:
 
     audit_final = subparsers.add_parser("audit-final")
     _add_lake_and_backup(audit_final)
+
+    plan_silver = subparsers.add_parser("plan-silver")
+    plan_silver.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_silver_history_range(plan_silver)
+    plan_silver.add_argument("--partition-keys")
+
+    generate_silver = subparsers.add_parser("generate-silver")
+    generate_silver.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_silver_partition_selection(generate_silver)
+    generate_silver.add_argument("--skip-existing", action="store_true")
+    generate_silver.add_argument("--overwrite", action="store_true")
+
+    silver_events = subparsers.add_parser("report-silver-events")
+    silver_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_silver_partition_selection(silver_events, include_silver_files=True)
+    silver_events.add_argument("--dry-run", action="store_true")
+    silver_events.add_argument("--skip-existing-materialized", action="store_true")
+
+    silver_audit_final = subparsers.add_parser("audit-silver-final")
+    silver_audit_final.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_silver_history_range(silver_audit_final)
 
     args = parser.parse_args()
     if args.command == "dry-run":
@@ -146,6 +177,76 @@ def main() -> None:
             backup_root=Path(args.backup_root),
         )
         print(report)
+    elif args.command == "plan-silver":
+        report = plan_stk_mins_silver_history(
+            lake_root=Path(args.lake_root),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+        print(
+            {
+                "selected_partition_count": len(report.selected_partition_keys),
+                "raw_partition_counts": dict(report.raw_partition_counts),
+                "existing_silver_partition_counts": dict(
+                    report.existing_silver_partition_counts
+                ),
+                "planned_write_count": report.planned_write_count,
+                "planned_event_count": report.planned_event_count,
+                "missing_input_count": report.missing_input_count,
+                "missing_input_samples": list(report.missing_input_samples),
+                "sample_partition_keys": list(report.sample_partition_keys),
+            }
+        )
+    elif args.command == "generate-silver":
+        report = generate_stk_mins_silver_history(
+            lake_root=Path(args.lake_root),
+            duckdb=DuckDBResource(),
+            partition_keys=_selected_silver_partition_keys(args, from_raw=True),
+            skip_existing=args.skip_existing,
+            overwrite=args.overwrite,
+        )
+        print(
+            {
+                "selected_partition_count": len(report.selected_partition_keys),
+                "written_asset_partition_count": len(report.written_asset_partitions),
+                "skipped_existing_asset_partition_count": len(
+                    report.skipped_existing_asset_partitions
+                ),
+            }
+        )
+    elif args.command == "report-silver-events":
+        report = report_stk_mins_silver_bootstrap_events(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            duckdb=DuckDBResource(),
+            partition_keys=_selected_silver_partition_keys(args, from_silver=True),
+            dry_run=args.dry_run,
+            skip_existing_materialized=args.skip_existing_materialized,
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+        print(
+            {
+                "dry_run": report.dry_run,
+                "selected_partition_count": len(report.plan.selected_partition_keys),
+                "failed_partition_count": report.plan.failed_partition_count,
+                "planned_event_count": report.plan.planned_event_count,
+                "reported_asset_partition_count": len(report.reported_asset_partitions),
+                "skipped_materialized_asset_partition_count": len(
+                    report.skipped_materialized_asset_partitions
+                ),
+                "reported_event_count": report.reported_event_count,
+            }
+        )
+    elif args.command == "audit-silver-final":
+        report = audit_stk_mins_silver_final_state(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+        print(report)
 
 
 def _print_plan(args) -> None:
@@ -196,6 +297,24 @@ def _add_partition_selection(
         parser.add_argument("--all-from-raw-files", action="store_true")
 
 
+def _add_silver_history_range(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--start-date", default=STK_MINS_SILVER_HISTORY_START_DATE)
+    parser.add_argument("--end-date")
+
+
+def _add_silver_partition_selection(
+    parser: argparse.ArgumentParser,
+    *,
+    include_silver_files: bool = False,
+) -> None:
+    parser.add_argument("--partition-keys")
+    parser.add_argument("--all", action="store_true")
+    parser.add_argument("--all-from-raw-files", action="store_true")
+    if include_silver_files:
+        parser.add_argument("--all-from-silver-files", action="store_true")
+    _add_silver_history_range(parser)
+
+
 def _selected_partition_keys(args, *, from_raw: bool = False) -> tuple[str, ...]:
     if getattr(args, "partition_keys", None):
         return tuple(
@@ -210,6 +329,67 @@ def _selected_partition_keys(args, *, from_raw: bool = False) -> tuple[str, ...]
             return all_raw_partition_keys(Path(args.lake_root))
         return all_backup_partition_keys(Path(getattr(args, "backup_root", BACKUP_STK_MINS_ROOT)))
     raise ValueError("Pass --partition-keys or --all.")
+
+
+def _optional_partition_keys(args) -> tuple[str, ...] | None:
+    if getattr(args, "partition_keys", None):
+        return tuple(
+            sorted(
+                key.strip()
+                for key in args.partition_keys.split(",")
+                if key.strip()
+            )
+        )
+    return None
+
+
+def _selected_silver_partition_keys(
+    args,
+    *,
+    from_raw: bool = False,
+    from_silver: bool = False,
+) -> tuple[str, ...] | None:
+    if getattr(args, "partition_keys", None):
+        return tuple(
+            sorted(
+                key.strip()
+                for key in args.partition_keys.split(",")
+                if key.strip()
+            )
+        )
+    if getattr(args, "all_from_raw_files", False):
+        keys = all_raw_partition_keys(Path(args.lake_root))
+        return tuple(
+            key
+            for key in keys
+            if key >= args.start_date and (args.end_date is None or key <= args.end_date)
+        )
+    if getattr(args, "all_from_silver_files", False):
+        return all_silver_partition_keys(
+            Path(args.lake_root),
+            start_date=args.start_date,
+            end_date=args.end_date,
+        )
+    if getattr(args, "all", False):
+        if from_silver:
+            return all_silver_partition_keys(
+                Path(args.lake_root),
+                start_date=args.start_date,
+                end_date=args.end_date,
+            )
+        if from_raw:
+            keys = all_raw_partition_keys(Path(args.lake_root))
+            return tuple(
+                key
+                for key in keys
+                if key >= args.start_date
+                and (args.end_date is None or key <= args.end_date)
+            )
+    if from_silver:
+        return None
+    raise ValueError(
+        "Pass --partition-keys, --all, --all-from-raw-files, or --all-from-silver-files."
+    )
 
 
 if __name__ == "__main__":

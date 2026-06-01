@@ -1166,19 +1166,13 @@ def _create_silver_stk_mins_base_tables(
         CREATE TEMP TABLE {filtered_table} AS
         SELECT mapped_rows.*
         FROM {mapped_table} AS mapped_rows
-        WHERE NOT (
-          mapped_rows.open = 0
-          AND mapped_rows.high = 0
-          AND mapped_rows.low = 0
-          AND mapped_rows.close = 0
-          AND EXISTS (
+        WHERE NOT EXISTS (
             SELECT 1
             FROM {suspend_relation} AS suspend_rows
             WHERE suspend_rows.ts_code = mapped_rows.ts_code
               AND suspend_rows.trade_date = mapped_rows.trade_date
               AND suspend_rows.suspend_type = 'S'
               AND suspend_rows.suspend_timing IS NULL
-          )
         )
         """
     )
@@ -1902,8 +1896,8 @@ def _silver_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
     return {
         "freq": freq,
         "standardization_policy": (
-            "Map source codes to latest ts_code, delete full-day suspend structural "
-            "zero rows, repair known 1m price corrections from versioned seed, "
+            "Map source codes to latest ts_code, delete full-day suspend rows, "
+            "repair known 1m price corrections from versioned seed, "
             "recompute anomalous coarse bars from corrected 1m, normalize vol/amount, "
             "and derive exchange from standard code suffix."
         ),

@@ -353,6 +353,14 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                         exchange="XSHE",
                         vwap=0.0,
                     ),
+                    _raw_row(
+                        "000002.SZ",
+                        "2014-06-03 09:30:00",
+                        open_=9.0,
+                        high=9.1,
+                        low=8.9,
+                        close=9.0,
+                    ),
                 ],
             )
             _write_common_inputs(
@@ -362,6 +370,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     _identity_row("600463.SH"),
                     _identity_row("600000.SH"),
                     _identity_row("000001.SZ"),
+                    _identity_row("000002.SZ"),
                 ],
                 daily_codes=("600463.SH", "600000.SH"),
                 suspend_rows=[
@@ -370,7 +379,13 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                         "trade_date": PARTITION_KEY,
                         "suspend_type": "S",
                         "suspend_timing": None,
-                    }
+                    },
+                    {
+                        "ts_code": "000002.SZ",
+                        "trade_date": PARTITION_KEY,
+                        "suspend_type": "S",
+                        "suspend_timing": None,
+                    },
                 ],
             )
 
@@ -382,7 +397,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             )
 
             self.assertEqual(result.row_count, 2)
-            self.assertEqual(result.full_day_suspend_deleted_row_count, 1)
+            self.assertEqual(result.full_day_suspend_deleted_row_count, 2)
             self.assertEqual(result.price_correction_row_count, 1)
             self.assertEqual(result.vol_amount_normalized_row_count, 1)
             self.assertEqual(result.observed_columns, stk_mins.STK_MINS_SILVER_COLUMNS)
