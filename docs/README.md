@@ -88,6 +88,7 @@ docs/
 - [Ops Biz 表数据源展示方案 v1（已确认）](/Users/congming/github/goldenshare/docs/ops/ops-biz-table-source-display-plan-v1.md)
 - [Ops Freshness 单一事实源与旧分层观测退场计划 v1（已完成）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-single-source-layer-snapshot-retirement-plan-v1.md)
 - [Ops Freshness Policy 显式映射方案 v1（已实施）](/Users/congming/github/goldenshare/docs/ops/ops-freshness-policy-explicit-mapping-plan-v1.md)
+- [Prod 每日筹码分布 HDD Tablespace 迁移方案 v1（已执行）](/Users/congming/github/goldenshare/docs/ops/prod-cyq-chips-hdd-tablespace-migration-plan-v1.md)
 - [Ops 实时流监控页面设计 v1（HTML，待评审）](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)
 - [运维工作流目录与实现清单](/Users/congming/github/goldenshare/docs/ops/ops-workflow-catalog-v1.md)
 - [审查中心设计方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-review-center-design-v1.md)
