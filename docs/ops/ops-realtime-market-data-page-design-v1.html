@@ -536,7 +536,7 @@ td { color: #344139; }
 
   <main class="main">
     <div class="topbar">
-      <div class="crumb">数据运营后台 / 实时流监控 / 股票实时日线</div>
+      <div class="crumb">数据运营后台 / 实时流监控</div>
       <div class="admin">
         <span class="admin-badge">运行管理</span>
         <strong>admin</strong>
@@ -548,22 +548,23 @@ td { color: #344139; }
         <div class="eyebrow"><span class="pulse"></span>Realtime Feed</div>
         <h1>实时流监控</h1>
         <p class="lead">
-          这里只看实时采集链路是否正常：collector 是否在交易日的 9:30-11:30、13:00-15:00 内按 6 秒节奏刷新、Redis 当前批次是否可读、Tushare 返回是否稳定。
+          这里只看实时采集链路是否正常：collector 是否在交易日的 9:30-11:30、13:00-15:00 内按日线 6 秒、分钟 60 秒的节奏刷新，Redis 当前批次是否可读，Tushare 返回是否稳定。
           不展示离线任务，不展示 freshness，不把实时轮询塞进任务中心。
         </p>
         <div class="copy" style="margin: 12px 0 0;">
           <div class="copy-title">2026-05-17 扩展口径</div>
           <div>
-            本页面设计稿最初只覆盖“股票实时日线”。接入 A 股实时分钟后，不新增菜单，继续使用“实时流监控”一级菜单；页面结构必须升级为“股票实时日线 + 股票实时分钟”分组。分钟分组按 <span class="mono">1MIN/5MIN/15MIN/30MIN/60MIN</span> 展示 feed health。页面仍然只消费 Ops health API，不直接调用业务快照 API、不读 Redis、不自行判断交易时段。
+            本页面设计稿最初只覆盖“股票实时日线”。接入 A 股实时分钟后，不新增菜单，继续使用“实时流监控”一级菜单；页面结构已升级为“股票实时日线 + 股票实时分钟”分组。分钟分组按 <span class="mono">1MIN/5MIN/15MIN/30MIN/60MIN</span> 展示 feed health。页面仍然只消费 Ops health API，不直接调用业务快照 API、不读 Redis、不自行判断交易时段。
           </div>
         </div>
         <div class="hero-actions">
-          <span class="chip">V1 feed：股票实时日线</span>
-          <span class="chip">上游：Tushare 0372 rt_k</span>
+          <span class="chip">V1 feed：股票实时日线 + 股票实时分钟</span>
+          <span class="chip">上游：Tushare 0372 rt_k / 0374 rt_min</span>
+          <span class="chip">分钟频率：1MIN / 5MIN / 15MIN / 30MIN / 60MIN</span>
           <span class="chip">一致性：batch_id + current pointer</span>
           <span class="chip">采集窗口：交易日 9:30-11:30 / 13:00-15:00</span>
           <span class="chip">Redis：72 小时 TTL / 最近 3 批</span>
-          <span class="chip">stale 阈值：20 秒</span>
+          <span class="chip">stale 阈值：日线 20 秒 / 分钟 90 秒</span>
         </div>
       </div>
 
@@ -603,8 +604,8 @@ td { color: #344139; }
       </div>
       <div class="metric">
         <div class="name">滞后判断</div>
-        <div class="value">20s</div>
-        <div class="hint">仅采集时段内超过 20 秒显示滞后</div>
+        <div class="value">20s / 90s</div>
+        <div class="hint">日线 20 秒，分钟 90 秒，仅采集时段内生效</div>
       </div>
       <div class="metric">
         <div class="name">Redis 保留</div>
@@ -618,7 +619,7 @@ td { color: #344139; }
         <div class="panel-head">
           <div>
             <h2>Feed 列表</h2>
-            <p>V1 只有股票实时日线一个 feed，后续指数、ETF、盘口另行接入。</p>
+            <p>当前展示股票实时日线与股票实时分钟分组，后续指数、ETF、盘口另行接入。</p>
           </div>
           <span class="pill ok">正常</span>
         </div>
@@ -632,21 +633,30 @@ td { color: #344139; }
             <div class="feed-stat"><span>返回行数</span><strong>5,318</strong></div>
             <div class="feed-stat"><span>状态</span><span class="pill ok">正常</span></div>
           </div>
+          <div class="feed-row">
+            <div class="feed-main">
+              <strong>股票实时分钟</strong>
+              <span class="mono">feed_key = tushare_stock_rt_min_1min / 5min / 15min / 30min / 60min</span>
+            </div>
+            <div class="feed-stat"><span>频率</span><strong>5 项</strong></div>
+            <div class="feed-stat"><span>采集间隔</span><strong>60s</strong></div>
+            <div class="feed-stat"><span>状态</span><span class="pill info">按频率展示</span></div>
+          </div>
 
           <div class="copy">
             <div class="copy-title">页面主文案</div>
-            <div>股票实时日线在采集时段内按 6 秒节奏刷新。当前页面展示的是 Redis 当前批次快照，不代表离线数据集入库状态。</div>
+            <div>股票实时日线在采集时段内按 6 秒节奏刷新，股票实时分钟按 60 秒节奏刷新。当前页面展示的是 Redis 当前批次快照，不代表离线数据集入库状态。</div>
           </div>
 
           <div class="state-grid">
             <div class="state-card">
               <span class="pill ok">正常</span>
-              <h3>最近 20 秒内发布成功</h3>
+              <h3>最近阈值窗口内发布成功</h3>
               <p>显示绿色状态，展示最近批次、快照数量和上游耗时。</p>
             </div>
             <div class="state-card">
               <span class="pill warn">滞后</span>
-              <h3>采集时段内超过 20 秒未发布新批次</h3>
+              <h3>采集时段内超过 feed 阈值未发布新批次</h3>
               <p>仍可读取旧快照时，页面显示黄色滞后，不隐藏已有数据。</p>
             </div>
             <div class="state-card">
@@ -672,7 +682,8 @@ td { color: #344139; }
               <div class="copy" style="margin-top:0; margin-bottom:12px;">
                 <div class="copy-title">前端页面 API</div>
                 <div class="mono">GET /api/v1/ops/realtime/stock-rt-daily/health</div>
-                <div style="margin-top:6px;">页面只调用这个 health API。进入页面时先读取一次；只有 health API 返回 <span class="mono">page_polling_enabled=true</span> 时，才按 <span class="mono">recommended_poll_interval_seconds=60</span> 每 1 分钟局部更新状态区域、批次信息、错误信息和指标展示。午休、收盘后、夜间、非交易日、feed disabled 时不持续轮询。不得整页刷新，不得重新挂载整个页面，避免页面闪烁；它不触发 collector，不请求 Tushare，不写 Redis；页面也不得直接读 Redis、自行计算 stale 或 current batch。</div>
+                <div class="mono">GET /api/v1/ops/realtime/stock-rt-min/health</div>
+                <div style="margin-top:6px;">页面只调用这两个 Ops health API。进入页面时先分别读取一次；只有对应 health API 返回 <span class="mono">page_polling_enabled=true</span> 时，才按 <span class="mono">recommended_poll_interval_seconds=60</span> 每 1 分钟局部更新对应分组的状态区域、批次信息、错误信息和指标展示。午休、收盘后、夜间、非交易日、feed disabled 时不持续轮询。不得整页刷新，不得重新挂载整个页面，避免页面闪烁；它不触发 collector，不请求 Tushare，不写 Redis；页面也不得直接读 Redis、自行计算 stale、current batch 或分钟频率列表。</div>
               </div>
 
               <table style="margin-bottom:14px;">
@@ -687,7 +698,7 @@ td { color: #344139; }
                   <tr>
                     <td class="mono">status=ok</td>
                     <td><span class="pill ok">正常</span></td>
-                    <td>采集时段内最近 20 秒发布过新批次。</td>
+                    <td>采集时段内最近 feed 阈值窗口发布过新批次；日线阈值 20 秒，分钟阈值 90 秒。</td>
                   </tr>
                   <tr>
                     <td class="mono">status=idle</td>
@@ -697,7 +708,7 @@ td { color: #344139; }
                   <tr>
                     <td class="mono">status=stale</td>
                     <td><span class="pill warn">滞后</span></td>
-                    <td>采集时段内超过 20 秒未发布新批次，但旧批次可读。</td>
+                    <td>采集时段内超过 feed 阈值未发布新批次，但旧批次可读。</td>
                   </tr>
                   <tr>
                     <td class="mono">status=unavailable</td>
@@ -729,7 +740,7 @@ td { color: #344139; }
                   <tr>
                     <td>上游请求</td>
                     <td class="mono">last_request_at / source_row_count / source_elapsed_ms</td>
-                    <td>Tushare 0372 请求是否稳定、返回是否正常。</td>
+                    <td>Tushare 0372 日线或 0374 分钟请求是否稳定、返回是否正常。</td>
                   </tr>
                   <tr>
                     <td>采集窗口</td>
@@ -828,7 +839,7 @@ td { color: #344139; }
     </section>
 
     <div class="footer-note">
-      设计结论：实时流监控作为一级菜单展示，页面只关心实时 feed 健康。它不是任务中心页面，也不是数据集新鲜度页面。V1 仅在交易日 9:30-11:30、13:00-15:00 请求源站，stale 阈值 20 秒只用于采集时段内。
+      设计结论：实时流监控作为一级菜单展示，页面只关心实时 feed 健康。它不是任务中心页面，也不是数据集新鲜度页面。V1 仅在交易日 9:30-11:30、13:00-15:00 请求源站；stale 阈值只用于采集时段内，当前日线为 20 秒、分钟为 90 秒。
     </div>
   </main>
 </div>

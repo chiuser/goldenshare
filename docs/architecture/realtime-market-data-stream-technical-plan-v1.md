@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：远程发版完成 / 收市 idle 验收通过 / M2 配置单一读取层已收口 / M5 统一 collector 调度已收口 / 待下一交易时段端到端验收
+状态：日线已上线 / 分钟 M7 页面已落地 / 生产 `REALTIME_STOCK_RT_MIN_ENABLED=true` 已启用 / 收市 idle 验收通过 / 待下一交易时段端到端验收
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -27,22 +27,22 @@
 
 ### 0.0.1 2026-06-01 统一 collector 调度修订
 
-M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serve` 由 `RealtimeCollectorService` 统一调度实时日线与股票实时分钟 feed。股票实时分钟默认 `REALTIME_STOCK_RT_MIN_ENABLED=false`，因此默认生产行为仍只采集日线；启用分钟后，同一个 systemd 服务内按 feed 独立 due time 调度，日线 6 秒循环不会触发分钟每 6 秒请求。
+M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serve` 由 `RealtimeCollectorService` 统一调度实时日线与股票实时分钟 feed。代码默认 `REALTIME_STOCK_RT_MIN_ENABLED=false`，生产已在 `/etc/goldenshare/web.env` 显式开启为 `true`；启用分钟后，同一个 systemd 服务内按 feed 独立 due time 调度，日线 6 秒循环不会触发分钟每 6 秒请求。
 
-本修订不新增外部 API、不改 Ops 页面、不启用 WebSocket。分钟 feed 的业务 API 与 Ops 分组展示仍留到 M6/M7。
+M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监控”分钟分组展示。WebSocket 仍为后续独立事项，不进入当前 V1 主闭环。
 
-### 0.1 已经收敛的主线
+### 0.1 已经收敛的日线主线
 
 | 链路 | 当前结论 |
 | --- | --- |
-| 上游 | 只接 Tushare 0372 `rt_k`，使用 `ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ` 一次请求全市场。 |
-| 采集 | collector 常驻，但只在交易日的 9:30-11:30、13:00-15:00 请求源站。 |
-| 限速 | feed 级控制 10 次/分钟，即每 6 秒最多一次源站请求。 |
+| 上游 | 日线 feed 接 Tushare 0372 `rt_k`，使用 `ts_code=3*.SZ,6*.SH,0*.SZ,9*.BJ` 一次请求全市场；分钟 feed 见实时分钟方案。 |
+| 采集 | collector 常驻，但只在交易日的 9:30-11:30、13:00-15:00 请求源站。日线 6 秒，分钟 60 秒。 |
+| 限速 | 日线 feed 控制 10 次/分钟；分钟 feed 使用独立配置，五频率全开时约 5 次/分钟。 |
 | Redis 一致性 | 使用 `batch_id + current pointer`，先写完整批次，再切换当前批次。 |
 | 历史沉淀 | V1 不写业务历史库，不建 DatasetDefinition，不进 TaskRun，不进 freshness/date audit。 |
 | 业务 API | `GET /api/v1/realtime/stock-rt-daily` 只读 Redis current batch，不请求 Tushare。 |
-| Ops 页面 API | `GET /api/v1/ops/realtime/stock-rt-daily/health` 作为页面唯一数据源。 |
-| 前端页面 | 只展示实时 feed 健康，不展示任务中心、不展示离线 freshness、不提供手动同步。 |
+| Ops 页面 API | 实时流监控页面只读 Ops health API：日线读 `GET /api/v1/ops/realtime/stock-rt-daily/health`，分钟读 `GET /api/v1/ops/realtime/stock-rt-min/health`。 |
+| 前端页面 | 展示“股票实时日线”和“股票实时分钟”分组的实时 feed 健康，不展示任务中心、不展示离线 freshness、不提供手动同步。 |
 | 非采集时段 | 显示空闲/非采集时段，不按 20 秒 stale 阈值误报失败。 |
 | 配置读取 | 已收口为 realtime feed config 单一读取层；旧的分散 `Settings` 读取不作为后续开发基线。 |
 
@@ -71,14 +71,14 @@ M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serv
 
 | 链路环节 | 当前一致性结论 | 实现约束 |
 | --- | --- | --- |
-| 源接口 | 只接 Tushare 0372 `rt_k`，`ts_code` 必填，V1 使用源文档示例通配符一次拉全市场。 | 请求参数只能由 realtime provider 生成，业务 API 和页面不得透出 Tushare 通配符。 |
+| 源接口 | 日线 feed 接 Tushare 0372 `rt_k`，`ts_code` 必填，使用源文档示例通配符一次拉全市场；分钟 feed 接 Tushare 0374 `rt_min`，按频率独立 feed。 | 请求参数只能由 realtime provider 生成，业务 API 和页面不得透出 Tushare 通配符。 |
 | 采集窗口 | 必须同时满足交易日和交易时段；交易时段为 9:30-11:30、13:00-15:00，Asia/Shanghai。 | 非交易日、午休、收盘后、夜间、feed disabled 时不请求源站。 |
 | 限速 | collector feed 级限速 10 次/分钟，即 6 秒最多一次。 | 不能依赖全局 Tushare 限速作为唯一保护。 |
 | Redis 一致性 | 使用 `batch_id + current pointer`；先写完整新批次，再切换 `current_batch`。 | API 不加读锁，不扫描散 key，不读半新半旧批次。 |
 | Redis 保留 | batch snapshot/index/meta TTL 为 259200 秒；只保留最近 3 批。 | 超过 TTL 或 Redis 重启后没有 current batch 时，API 返回明确 unavailable，不伪造快照。 |
 | Redis stream | 同时写 `stream:batch` 的 `batch_published` 和 `stream:delta` 的 `quote_changed`。 | delta 只写变化股票；首批不灌全市场；必须按 maxlen 裁剪。 |
 | 业务 API | `GET /api/v1/realtime/stock-rt-daily` 只读 Redis current batch，单次 `ts_codes` 暂定 200。 | 不请求 Tushare，不接受通配符，不做全市场导出。 |
-| Ops 页面 API | `GET /api/v1/ops/realtime/stock-rt-daily/health` 是实时流监控页面唯一 API。 | 页面不得自行拼 Redis key，不调用业务快照 API，不自行推导交易日/交易时段。 |
+| Ops 页面 API | 实时流监控页面只读 `stock-rt-daily/health` 与 `stock-rt-min/health`。 | 页面不得自行拼 Redis key，不调用业务快照 API，不自行推导交易日/交易时段；分钟分组不带 `freq`，由后端返回五频率全量。 |
 | 前端轮询 | 页面进入先读一次；仅当 health API 返回 `page_polling_enabled=true` 时，每 1 分钟局部刷新状态。 | 禁止整页刷新；非交易时段停止定时轮询。 |
 | 部署 | 生产必须有 Redis 和独立 collector systemd service。 | Redis 只监听本机；部署验收必须覆盖 Redis、collector、业务 API、Ops health API。 |
 | 配置收口 | 所有 realtime feed 运行配置必须由统一配置对象输出。 | 不允许 collector、CLI、Biz API、Ops API、前端页面各自读取或硬编码同一类运行事实。 |
@@ -93,30 +93,32 @@ M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serv
 | P0 | 业务 API 与 Ops health API。 | 已完成：两个 API 都只读 Redis，错误态、空闲态、stale 态测试覆盖。 |
 | P0 | 实时流监控页面。 | 已完成：页面只消费 health API，状态局部刷新，不展示 TaskRun/freshness。 |
 | P0 | realtime feed config 单一读取层。 | 已完成：日线与分钟统一从配置对象读取；日线 lease TTL 硬编码退场；配置关系测试通过。 |
-| P0 | 下一交易时段端到端验收。 | 待交易时段验证 collector 6 秒采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。 |
+| P0 | 股票实时分钟生产启用。 | 已完成：生产 `REALTIME_STOCK_RT_MIN_ENABLED=true`，统一 collector 与 Web 已重启，收市/非采集时段 idle 验收通过。 |
+| P0 | 下一交易时段端到端验收。 | 待交易时段验证日线 6 秒采集、分钟 60 秒五频率采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。 |
 | P1 | WebSocket 推送。 | 基于 V1 Redis current batch 和 delta stream 单独设计，不进入 V1。 |
 
 ### 0.6 前端页面 API 设计结论
 
-前端页面 API 已设计，V1 页面只允许调用一个接口：
+前端页面 API 已设计，V1 页面只允许调用 Ops health API：
 
 ```http
 GET /api/v1/ops/realtime/stock-rt-daily/health
+GET /api/v1/ops/realtime/stock-rt-min/health
 ```
 
 页面调用规则：
 
-1. 页面进入时先调用一次 health API。
-2. 只有响应中的 `page_polling_enabled=true` 时，才按 `recommended_poll_interval_seconds=60` 继续局部刷新。
+1. 页面进入时分别读取日线 health 与分钟 health；两个区块独立失败、独立展示。
+2. 只有对应响应中的 `page_polling_enabled=true` 时，才按 `recommended_poll_interval_seconds=60` 继续局部刷新该区块。
 3. 页面只更新状态卡片、当前批次、错误信息、Redis 保留策略和 stream 指标，不整页刷新。
-4. 页面不得调用 `GET /api/v1/realtime/stock-rt-daily`；那个接口是行情业务页面读取股票快照用的。
-5. 页面不得自行计算交易日、交易时段、stale、current batch；这些事实都由 health API 返回。
+4. 页面不得调用 `GET /api/v1/realtime/stock-rt-daily` 或 `GET /api/v1/realtime/stock-rt-min`；业务快照 API 是行情业务页面读取快照用的。
+5. 页面不得自行计算交易日、交易时段、stale、current batch 或分钟频率列表；这些事实都由 health API 返回。
 
 ---
 
 ## 1. 目标
 
-本方案把实时行情流 V1 从架构图落成可执行的技术计划。V1 只做一件事：
+本方案最初把股票实时日线 V1 从架构图落成可执行技术计划。当前实时子系统已扩展股票实时分钟，分钟实现口径见 [A股实时分钟流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)。本文件保留为日线 feed 的主技术记录：
 
 > 服务端在交易日的 A 股连续竞价时段内每 6 秒请求一次 Tushare 0372 `rt_k` 全市场股票实时日线，把最新快照写入 Redis；业务 API 和 Ops 页面只读取 Redis 当前批次。
 
@@ -127,11 +129,11 @@ V1 不进入离线数据集主链，不创建 `DatasetDefinition`，不写 raw/c
 ## 2. 非目标
 
 1. 不落库历史实时行情。
-2. 不做分钟线、tick、盘口、指数实时、ETF 实时。
+2. 本文件不定义股票实时分钟、tick、盘口、指数实时、ETF 实时；股票实时分钟已由独立方案承接。
 3. 不做用户自定义订阅、复杂权限、复杂行情聚合。
 4. 不把实时轮询伪装成 TaskRun 任务。
 5. 不把 Redis 健康状态写入离线 freshness 或数据集卡片。
-6. 不在 V1 实现 WebSocket，但保留 Redis stream 和协议位置，后续 M5 实现。
+6. 不在当前 V1 主闭环实现 WebSocket，但保留 Redis stream 和协议位置，后续单独立项。
 
 ---
 
@@ -755,26 +757,27 @@ GET /api/v1/ops/realtime/stock-rt-daily/health
 
 ### 10.2 前端页面 API 契约
 
-Ops“实时流监控”页面 V1 只调用一个页面 API：
+Ops“实时流监控”页面 V1 只调用页面健康 API：
 
 ```http
 GET /api/v1/ops/realtime/stock-rt-daily/health
+GET /api/v1/ops/realtime/stock-rt-min/health
 ```
 
 前端规则：
 
 1. 需要管理员/运行管理权限。
-2. 页面进入时请求一次 health API。
+2. 页面进入时分别请求日线 health API 与分钟 health API。
 3. 页面不得直接读取 Redis。
 4. 页面不得调用 Tushare。
-5. 页面不得自行计算 stale、current batch、collector 是否应该请求源站；这些事实由 health API 返回。
-6. 页面不调用 `GET /api/v1/realtime/stock-rt-daily`，后者是行情业务页面读取股票快照用的业务 API。
+5. 页面不得自行计算 stale、current batch、collector 是否应该请求源站、分钟频率列表；这些事实由 health API 返回。
+6. 页面不调用 `GET /api/v1/realtime/stock-rt-daily` 或 `GET /api/v1/realtime/stock-rt-min`，二者是行情业务页面读取快照用的业务 API。
 7. 页面状态色由 `status` 驱动：`ok=绿色`、`idle=蓝色`、`stale=黄色`、`degraded=黄色/红色按错误级别`、`unavailable=红色`。
 8. 页面不得用浏览器整页刷新或重新挂载页面来更新状态，避免闪烁；只能局部更新健康状态、批次、错误和指标展示。
-9. 只有 health API 返回 `page_polling_enabled=true` 时，页面才按 `recommended_poll_interval_seconds=60` 继续轮询。
-10. 如果 health API 返回 `collection_status=idle/market_closed/disabled` 或 `page_polling_enabled=false`，页面停止定时轮询；用户重新进入页面时再读取一次即可。
+9. 只有对应 health API 返回 `page_polling_enabled=true` 时，该分组才按 `recommended_poll_interval_seconds=60` 继续轮询。
+10. 如果对应 health API 返回 `collection_status=idle/market_closed/disabled` 或 `page_polling_enabled=false`，该分组停止定时轮询；用户重新进入页面时再读取一次即可。
 
-这里的“页面轮询”只表示浏览器在交易日交易时段内每 1 分钟请求 `GET /api/v1/ops/realtime/stock-rt-daily/health`，让页面上的状态卡片和指标局部刷新。它不触发 collector，不请求 Tushare，也不改变 Redis；Redis 刷新只来自服务端 collector。
+这里的“页面轮询”只表示浏览器在交易日交易时段内每 1 分钟请求对应的 Ops health API，让页面上的状态卡片和指标局部刷新。它不触发 collector，不请求 Tushare，也不改变 Redis；Redis 刷新只来自服务端 collector。
 
 字段映射：
 
@@ -1029,6 +1032,8 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 2. 股票实时日线健康页。
 3. 不接 TaskRun，不接 freshness。
 
+说明：分钟分组已在后续 M7 落地，页面同菜单展示股票实时日线与股票实时分钟。
+
 ### M6 远程部署
 
 输出：
@@ -1042,7 +1047,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 
 后续阶段。基于 V1 Redis 当前快照和 stream 扩展，不在 V1 实现。
 
-### 13.1 当前推进状态（2026-05-15）
+### 13.1 当前推进状态（2026-06-02）
 
 已完成：
 
@@ -1053,12 +1058,14 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 5. 已补最小测试覆盖：Redis key/current batch 语义、业务快照 API、Ops health API，以及前端类型检查。
 6. 开市时段 M1 真实验证已完成，结论支持全市场通配符请求方案。
 7. 已新增 Tushare 0372 provider、实时日线 normalizer、collector loop、CLI `realtime-collector-serve`、collector systemd unit 与部署脚本挂载。
-8. 远程已发版至 `83e75b24`，`goldenshare-realtime-collector.service` 已安装、启动并启用开机自启动。
-9. 远程收市验收通过：collector `enabled=true`、`collector_running=true`、`collection_status=idle`、`last_request_at=null`，Redis 未产生 current batch / stream，说明非采集时段不会请求源站或写行情批次。
+8. 远程已发版至 `793070d3`，`goldenshare-realtime-collector.service` 已安装、启动并启用开机自启动，ExecStart 为 `goldenshare realtime-collector-serve`。
+9. 股票实时分钟 M4-M7 已完成：provider/normalizer/feed、统一 collector 调度、业务 API、Ops health API、实时流监控分钟分组均已落地。
+10. 生产已显式设置 `REALTIME_STOCK_RT_MIN_ENABLED=true`，并已重启 collector 与 Web。
+11. 远程收市验收通过：统一 collector active/running，股票实时分钟五频率 feed 被调度但因非采集时段显示 idle，不请求源站或写行情批次。
 
 未完成：
 
-1. 下一交易时段端到端验收：collector 6 秒采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。
+1. 下一交易时段端到端验收：日线 6 秒采集、分钟 60 秒五频率采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。
 2. WebSocket 推送仍是后续阶段，不在本轮范围内。
 
 ---
@@ -1088,7 +1095,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 
 ### D4 Ops 菜单位置
 
-已确认：在数据运营后台新增一级菜单“实时流监控”，V1 只展示“股票实时日线”一个 feed。当前页面设计稿按独立菜单出稿，见 [Ops 实时流监控页面设计 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)。
+已确认：在数据运营后台新增一级菜单“实时流监控”，当前页面展示“股票实时日线”和“股票实时分钟”两个分组。页面设计稿见 [Ops 实时流监控页面设计 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-market-data-page-design-v1.html)。
 
 ### D5 交易时段外文案
 

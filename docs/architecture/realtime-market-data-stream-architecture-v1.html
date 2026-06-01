@@ -359,18 +359,19 @@ pre {
       <div>
         <h1>股票实时日线流架构方案 v1</h1>
         <p class="lead">
-          本文把 V1 范围收敛为“股票实时日线数据”，以 Tushare 0372 `rt_k` 为唯一上游。
+          本文记录股票实时日线 feed 的 V1 架构，日线上游为 Tushare 0372 `rt_k`。
+          当前实时子系统已扩展股票实时分钟 feed，分钟口径见独立的 A 股实时分钟流方案。
           它不是离线数据集接入，不走 DatasetDefinition、DatasetExecutionPlan、TaskRun、freshness 或日期审计链路。
           服务器侧由 realtime collector 在交易日的 A 股连续竞价时段按固定节奏请求 Tushare，并把结果刷新到 Redis；页面和业务 API 只读取 Redis 快照。
         </p>
       </div>
       <div class="meta">
-        <div class="meta-row"><span>状态</span><span>待评审 / 待开市验证</span></div>
+        <div class="meta-row"><span>状态</span><span>日线已上线 / 分钟分组已接入</span></div>
         <div class="meta-row"><span>版本</span><span>v1</span></div>
-        <div class="meta-row"><span>日期</span><span>2026-05-14</span></div>
-        <div class="meta-row"><span>V1 范围</span><span>股票实时日线</span></div>
-        <div class="meta-row"><span>上游接口</span><span>Tushare 0372 rt_k</span></div>
-        <div class="meta-row"><span>请求频率</span><span>10 calls/min</span></div>
+        <div class="meta-row"><span>日期</span><span>2026-06-02</span></div>
+        <div class="meta-row"><span>V1 范围</span><span>股票实时日线 + 股票实时分钟</span></div>
+        <div class="meta-row"><span>上游接口</span><span>0372 rt_k / 0374 rt_min</span></div>
+        <div class="meta-row"><span>请求频率</span><span>日线 10 calls/min；分钟约 5 calls/min</span></div>
       </div>
     </section>
 
@@ -378,18 +379,18 @@ pre {
       <div class="section-header">
         <div>
           <h2>1. V1 方案摘要</h2>
-          <p>先只做股票实时日线快照：服务端采集 Tushare 0372，Redis 保存最新状态，页面/API 读取 Redis。</p>
+          <p>实时子系统以 Redis 最新快照为核心。股票实时日线已上线；股票实时分钟已接入同一个 collector、Redis 状态层、业务 API 与 Ops 页面分组。</p>
         </div>
       </div>
       <div class="section-body">
         <div class="grid-4">
           <div class="card">
-            <h3>唯一上游</h3>
-            <p>V1 只接 Tushare 0372 `rt_k`，对应“A股实时日线”。指数、ETF、盘口不进入 V1；WebSocket 作为后续推送能力预留。</p>
+            <h3>上游边界</h3>
+            <p>日线接 Tushare 0372 `rt_k`，分钟接 Tushare 0374 `rt_min`。指数、ETF、盘口不进入当前 V1；WebSocket 作为后续推送能力预留。</p>
           </div>
           <div class="card">
             <h3>服务器刷新 Redis</h3>
-            <p>独立 realtime collector 常驻运行，仅在交易日的 9:30-11:30、13:00-15:00 内每 6 秒发起 1 次 Tushare 全市场请求。</p>
+            <p>统一 realtime collector 常驻运行，仅在交易日的 9:30-11:30、13:00-15:00 内请求源站：日线每 6 秒，分钟每 60 秒按五频率调度。</p>
           </div>
           <div class="card">
             <h3>最新状态层</h3>
@@ -463,8 +464,8 @@ pre {
               <tr>
                 <td>用户体验</td>
                 <td>任务记录、任务详情、手动维护、自动任务</td>
-                <td>股票实时日线快照、数据是否滞后</td>
-                <td>V1 页面只消费股票实时日线快照查询 API</td>
+                <td>股票实时日线/分钟快照、数据是否滞后</td>
+                <td>行情业务页面消费业务快照 API；Ops 实时流监控只消费日线与分钟 health API</td>
               </tr>
             </tbody>
           </table>
@@ -981,7 +982,7 @@ pre {
       <div class="section-header">
         <div>
           <h2>9. V1 对外 API</h2>
-          <p>不先设计一堆抽象实时 API。V1 只围绕“股票实时日线快照”定义最小接口。</p>
+          <p>不先设计一堆抽象实时 API。V1 围绕股票实时日线与股票实时分钟定义最小接口，API 只读 Redis，不请求 Tushare。</p>
         </div>
       </div>
       <div class="section-body">
@@ -1005,10 +1006,24 @@ pre {
                 <td><span class="pill green">第一期</span></td>
               </tr>
               <tr>
+                <td><code>GET /api/v1/realtime/stock-rt-min</code></td>
+                <td>批量读取股票实时分钟最新快照</td>
+                <td>行情页需要按指定分钟频率读取当前分钟 K 线快照时</td>
+                <td><code>freq</code> 必填，<code>ts_codes</code> 必填且最多 200 个；按频率读取对应 Redis feed，返回缺失代码列表</td>
+                <td><span class="pill green">第一期</span></td>
+              </tr>
+              <tr>
                 <td><code>GET /api/v1/ops/realtime/stock-rt-daily/health</code></td>
                 <td>读取股票实时日线采集健康</td>
                 <td>数据运营后台“实时流监控”菜单打开时</td>
                 <td>最近请求、最近成功、最近错误、Redis 快照数量、stream 指标、`page_polling_enabled` 和 `recommended_poll_interval_seconds`</td>
+                <td><span class="pill green">第一期</span></td>
+              </tr>
+              <tr>
+                <td><code>GET /api/v1/ops/realtime/stock-rt-min/health</code></td>
+                <td>读取股票实时分钟采集健康</td>
+                <td>数据运营后台“实时流监控”菜单打开时</td>
+                <td>不带 <code>freq</code> 返回五频率全量；包含每个 feed 的状态、批次、行数、invalid 原因和轮询建议</td>
                 <td><span class="pill green">第一期</span></td>
               </tr>
               <tr>
@@ -1023,11 +1038,11 @@ pre {
         </div>
         <div class="callout">
           <strong>接口原则：</strong>
-          前端和业务调用方只传股票代码列表，单次请求上限暂定 200 个代码；调用方不需要知道 Tushare `rt_k` 的全市场通配符、请求频率或 Redis key。
+          前端和业务调用方只传业务参数，不需要知道 Tushare 全市场通配符、请求频率或 Redis key。日线业务 API 传 <code>ts_codes</code>，分钟业务 API 必须传 <code>freq + ts_codes</code>；单次 <code>ts_codes</code> 上限暂定 200 个代码。
         </div>
         <div class="callout">
           <strong>前端页面 API 已设计：</strong>
-          “实时流监控”页面 V1 只调用 `GET /api/v1/ops/realtime/stock-rt-daily/health`。页面进入先读一次；只有 health API 返回 `page_polling_enabled=true` 时，才按 `recommended_poll_interval_seconds=60` 每 1 分钟局部刷新状态区域。页面不得整页刷新，不得自行读 Redis，不得调用 Tushare，也不得自行推导交易日或交易时段。
+          “实时流监控”页面 V1 只调用 Ops health API：股票实时日线读取 <code>GET /api/v1/ops/realtime/stock-rt-daily/health</code>，股票实时分钟读取 <code>GET /api/v1/ops/realtime/stock-rt-min/health</code>。页面进入先读一次；只有对应 health API 返回 <code>page_polling_enabled=true</code> 时，才按 <code>recommended_poll_interval_seconds=60</code> 每 1 分钟局部刷新对应分组。页面不得整页刷新，不得自行读 Redis，不得调用 Tushare，也不得自行推导交易日、交易时段或分钟频率列表。
         </div>
       </div>
     </section>
@@ -1056,7 +1071,7 @@ pre {
         </div>
         <div class="callout">
           <strong>菜单建议：</strong>
-          数据运营后台新增“实时流监控”一级菜单，V1 页面只展示“股票实时日线”一个 feed 的采集状态和 Redis 状态。
+          数据运营后台新增“实时流监控”一级菜单，V1 页面展示“股票实时日线”和“股票实时分钟”两个分组的采集状态和 Redis 状态；分钟分组按 health API 返回的 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 频率项展示。
         </div>
         <div class="callout danger">
           <strong>不要做的事：</strong>
@@ -1069,7 +1084,7 @@ pre {
       <div class="section-header">
         <div>
           <h2>11. Tushare 0372 接入口径</h2>
-          <p>V1 只接股票实时日线 `rt_k`，按源文档要求传 `ts_code`，不落库历史。</p>
+          <p>本节记录股票实时日线 `rt_k` 接入口径；股票实时分钟 `rt_min` 接入口径见独立分钟方案。两者都不落库历史。</p>
         </div>
       </div>
       <div class="section-body">
@@ -1128,7 +1143,7 @@ pre {
       <div class="section-header">
         <div>
           <h2>12. 推进里程碑</h2>
-          <p>围绕股票实时日线收敛推进，不把未来可能的实时能力混入 V1。</p>
+          <p>最初围绕股票实时日线收敛推进；当前股票实时分钟已按独立方案接入同一 realtime 主线。指数、ETF、盘口仍不进入当前 V1。</p>
         </div>
       </div>
       <div class="section-body">
@@ -1163,15 +1178,15 @@ pre {
               </tr>
               <tr>
                 <td>M4 Ops 实时流监控菜单</td>
-                <td>数据运营后台单独展示股票实时日线采集健康</td>
-                <td>health API、实时流监控菜单页面</td>
+                <td>数据运营后台展示股票实时日线与股票实时分钟采集健康</td>
+                <td>日线/分钟 health API、实时流监控菜单页面</td>
                 <td>不复用 TaskRun 任务详情</td>
               </tr>
               <tr>
                 <td>M5 WebSocket 推送</td>
-                <td>在 V1 快照和 Redis stream 稳定后，增加股票实时日线 WebSocket 推送</td>
-                <td>`WS /api/v1/realtime/stock-rt-daily/ws`、订阅协议、断线重连、限流策略</td>
-                <td>不混入指数/ETF/盘口，仍只围绕股票实时日线</td>
+                <td>在 V1 快照和 Redis stream 稳定后，再单独设计 WebSocket 推送</td>
+                <td>订阅协议、断线重连、限流策略</td>
+                <td>不混入指数/ETF/盘口，也不在当前 V1 主闭环实现</td>
               </tr>
             </tbody>
           </table>
@@ -1198,7 +1213,7 @@ pre {
           </div>
           <div class="decision-item">
             <h3>D3 首期 API 形态</h3>
-            <p>已确认：V1 只做股票实时日线快照查询 API 和 Ops 健康 API；WebSocket 作为 M5 后续阶段，基于 Redis stream 实现。</p>
+            <p>已确认：V1 已提供股票实时日线与股票实时分钟快照查询 API，并提供对应 Ops 健康 API；WebSocket 作为后续阶段，基于 Redis stream 实现。</p>
           </div>
           <div class="decision-item">
             <h3>D3.1 Redis 一致性模型</h3>

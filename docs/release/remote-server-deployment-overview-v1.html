@@ -158,14 +158,14 @@
 <main>
   <header class="hero">
     <h1>Goldenshare 远程服务器部署总览 v1</h1>
-    <p class="muted">审计时间：2026-05-15 17:20 CST。审计方式：只读 SSH、systemd、Nginx、PostgreSQL、Redis、健康接口探测。</p>
+    <p class="muted">审计时间：2026-05-15 17:20 CST；实时分钟增量复核：2026-06-02 01:05 CST。审计方式：只读 SSH、systemd、Nginx、PostgreSQL、Redis、健康接口探测。</p>
     <p><strong>安全口径：</strong>本文档不记录任何密钥、Token、数据库密码、JWT Secret 或完整连接串。涉及敏感值只记录 key 名、用途与脱敏后的事实。</p>
     <div class="grid">
       <div class="card"><strong>公网域名</strong><span>wealthworld.com.cn</span></div>
       <div class="card"><strong>默认产品入口</strong><span>/wealth/login</span></div>
       <div class="card"><strong>旧运营后台入口</strong><span>/app/login</span></div>
       <div class="card"><strong>远程代码目录</strong><span>/opt/goldenshare/goldenshare</span></div>
-      <div class="card"><strong>当前分支 / 提交</strong><span>dev-interface / 39119d25</span></div>
+      <div class="card"><strong>当前分支 / 提交</strong><span>dev-interface / 793070d3</span></div>
       <div class="card"><strong>Web 内部端口</strong><span>127.0.0.1:8000</span></div>
     </div>
   </header>
@@ -214,7 +214,7 @@
       <thead><tr><th>对象</th><th>当前事实</th><th>说明</th></tr></thead>
       <tbody>
         <tr><td>远程仓库目录</td><td><code>/opt/goldenshare/goldenshare</code></td><td>目录属主 <code>goldenshare:goldenshare</code>，权限 <code>775</code>。</td></tr>
-        <tr><td>远程 Git</td><td>分支 <code>dev-interface</code>，提交 <code>39119d25</code></td><td>远程 origin 指向 Gitee：<code>https://gitee.com/chiuser/goldenshare.git</code>。</td></tr>
+        <tr><td>远程 Git</td><td>分支 <code>dev-interface</code>，提交 <code>793070d3</code></td><td>远程 origin 指向 Gitee：<code>https://gitee.com/chiuser/goldenshare.git</code>。</td></tr>
         <tr><td>Python</td><td>Python 3.13.12</td><td>虚拟环境在 <code>/opt/goldenshare/goldenshare/.venv</code>。</td></tr>
         <tr><td>Node / npm</td><td>Node v22.22.2 / npm 10.9.7</td><td>用于构建 <code>frontend</code> 与 <code>wealth</code>。</td></tr>
         <tr><td>运营后台构建产物</td><td><code>frontend/dist</code>，约 8.3M</td><td>由部署脚本默认构建。</td></tr>
@@ -232,7 +232,7 @@
         <tr><td><code>goldenshare-ops-worker.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops TaskRun worker。</td></tr>
         <tr><td><code>goldenshare-ops-scheduler.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-scheduler-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops 自动任务调度。</td></tr>
         <tr><td><code>goldenshare-date-completeness-worker.service</code></td><td class="ok">active/running</td><td>disabled</td><td><code>goldenshare ops-date-completeness-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>日期完整性审计 worker；当前运行但未设置开机自启。</td></tr>
-        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-collector-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>统一实时采集器；默认只运行股票实时日线 feed，开启 <code>REALTIME_STOCK_RT_MIN_ENABLED</code> 后同服务调度股票实时分钟 feed。</td></tr>
+        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-collector-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>统一实时采集器；生产当前 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>，同服务调度股票实时日线与五个股票实时分钟 feed。非采集时段状态为 idle。</td></tr>
       </tbody>
     </table>
     <h3>共同服务配置</h3>
@@ -416,6 +416,7 @@
         <tr><td class="warn">安全</td><td>PostgreSQL 5432 公网开放，且 <code>pg_hba.conf</code> 允许 <code>0.0.0.0/0 md5</code>。</td><td>确认是否必须；如非必须，建议按固定来源 IP 收紧。</td></tr>
         <tr><td class="warn">最小权限</td><td>除 realtime collector 外，多个应用服务未设置 <code>User=goldenshare</code>。</td><td>后续可单独设计 systemd 最小权限改造。</td></tr>
         <tr><td class="warn">审计 worker 自启</td><td><code>goldenshare-date-completeness-worker.service</code> 当前 active 但 disabled。</td><td>确认是否希望开机自启；若需要，应同步 unit 和部署策略。</td></tr>
+        <tr><td class="warn">实时分钟开市验收</td><td>生产已开启 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>，收市/非采集时段 idle 验收通过。</td><td>下一交易时段需要确认五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。</td></tr>
         <tr><td class="ok">部署权限</td><td>远程 sudoers 已同步 realtime enable 权限。</td><td>保持仓库模板与远程实际 sudoers 一致。</td></tr>
       </tbody>
     </table>

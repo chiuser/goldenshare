@@ -330,8 +330,8 @@ th:last-child, td:last-child { border-right: 0; }
         </p>
       </div>
       <div class="meta">
-        <div class="meta-row"><span>状态</span><span>已评审 / 待开发</span></div>
-        <div class="meta-row"><span>日期</span><span>2026-05-17</span></div>
+        <div class="meta-row"><span>状态</span><span>M7 已完成 / M8 待开市验收</span></div>
+        <div class="meta-row"><span>日期</span><span>2026-06-02</span></div>
         <div class="meta-row"><span>主接口</span><span>rt_min</span></div>
         <div class="meta-row"><span>源文档</span><span>docs/sources/tushare/.../0374</span></div>
         <div class="meta-row"><span>主线</span><span>Realtime Feed</span></div>
@@ -699,9 +699,9 @@ fields = [
           <tbody>
             <tr>
               <td><code>REALTIME_STOCK_RT_MIN_ENABLED</code></td>
-              <td><code>false</code></td>
+              <td><code>false</code>（代码默认）；生产当前 <code>true</code></td>
               <td>服务端 env / Settings</td>
-              <td>控制股票实时分钟 collector 是否启用。默认关闭，部署验收后再打开。</td>
+              <td>控制股票实时分钟 collector 是否启用。代码默认关闭；生产已通过 <code>/etc/goldenshare/web.env</code> 显式开启，并已重启 collector 与 Web。</td>
             </tr>
             <tr>
               <td><code>REALTIME_STOCK_RT_MIN_ENABLED_FREQS</code></td>
@@ -954,10 +954,13 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M8</td>
               <td>测试、部署与验收</td>
-              <td>collector service、Redis current batch、API、页面联调通过；WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
+              <td>进行中：生产已开启 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>，统一 collector 与 Web 已重启，收市/非采集时段 idle 验收通过；仍需下一开市时段验证五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
             </tr>
           </tbody>
         </table>
+        <div class="callout">
+          <b>2026-06-02 生产状态：</b>远程服务器当前位于 <code>dev-interface / 793070d3</code>，<code>goldenshare-realtime-collector.service</code> 使用统一入口 <code>goldenshare realtime-collector-serve</code> 且 active/running；生产 env 已设置 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>。复核时处于非采集时段，日志确认 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 五个分钟 feed 被调度并返回 idle。
+        </div>
       </div>
     </section>
 
@@ -1020,7 +1023,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             </tr>
             <tr>
               <td>Ops health</td>
-              <td>现有 Ops realtime health API 和前端页面只服务股票实时日线单 feed。</td>
+              <td>现有 Ops realtime health API 已同时服务股票实时日线与股票实时分钟；页面按两个分组展示。</td>
               <td>分钟 Ops health API 已完成后端读取契约：不带 <code>freq</code> 返回五频率全量，带 <code>freq</code> 仍返回同一 wrapper 且只有一个 item。M7 页面接入只调用不带 <code>freq</code> 的全量 health API。</td>
             </tr>
             <tr>
