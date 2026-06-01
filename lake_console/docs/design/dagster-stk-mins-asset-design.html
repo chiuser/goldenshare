@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -306,7 +306,7 @@
       <li><a href="https://docs.dagster.io/guides/build/assets">Assets</a>：asset 是持久化对象，asset definition 描述资产如何生成与更新。</li>
       <li><a href="https://docs.dagster.io/guides/build/partitions-and-backfills/partitioning-assets">Partitioning assets</a>：Dagster 支持按时间、静态类别、动态分区和二维分区管理资产；官方建议单 asset partition 数不超过 100,000，以避免 UI 变慢。</li>
       <li><a href="https://docs.dagster.io/guides/test/asset-checks">Asset checks</a>：asset check 用于验证数据资产的具体质量属性；partitioned check 应与被检查 asset 使用同一个 partition definition。</li>
-      <li><a href="https://docs.dagster.io/guides/automate/sensors">Sensors</a>：sensor 适合根据外部或上游状态生成 RunRequest，后续日常增量需要专用 sensor 承载门禁。</li>
+      <li><a href="https://docs.dagster.io/guides/automate/sensors">Sensors</a> 与 <a href="https://docs.dagster.io/api/dagster/schedules-sensors">Schedules and sensors API</a>：sensor 适合根据外部或上游状态生成 <code>RunRequest</code>；<code>partition_key</code> 用于指定目标分区，<code>run_key</code> 用于跨 tick 去重，cursor 用于记录下一轮评估状态。分钟线 silver 日常生产需要专用 sensor 承载 readiness 门禁。</li>
     </ul>
 
     <h3>2.3 已有审计事实</h3>
@@ -1101,6 +1101,75 @@ ops:
       注册后复核 <code>dry-run requested=3014 existing=3014 registered=0</code>。
       Dagster UI 已人工验收未发现分区异常；silver partition universe 已按 2014+ 的已生成文件范围展示，不再显示 2009-2013 的 1211 个 raw-only missing。
     </p>
+
+    <h3>8.14 M6G：silver 日常生产 sensor 设计方案</h3>
+    <p>
+      本轮审计结论：M6G 之前的文档只记录了“自动触发 <code>stock_mins_silver_update_job</code> 的 sensor 尚未设计和实现”，没有完整的生产 sensor 方案；当时代码也只有
+      <code>stock_mins_silver_trade_day_sensor</code>，它只注册 <code>cn_a_stock_mins_silver_trade_days</code>，不提交 <code>RunRequest</code>。
+      M6G 已新增一个独立的生产 sensor，职责是“在 silver 分区已注册且所有前置事实 ready 后，触发单日 <code>stock_mins_silver_update_job</code>”。
+    </p>
+    <table>
+      <tr><th>项目</th><th>M6G 设计口径</th><th>原因</th></tr>
+      <tr>
+        <td>sensor 名称</td>
+        <td><code>stock_mins_silver_sensor</code></td>
+        <td>与已有 <code>stock_mins_raw_sensor</code> 对称，长期表达“触发 silver asset update”，不把阶段号写进正式代码。</td>
+      </tr>
+      <tr>
+        <td>目标 job</td>
+        <td><code>job_name="stock_mins_silver_update_job"</code></td>
+        <td>该 job 已由 M5E 实现，selection 只包含五个 <code>silver_stk_mins_*</code> assets 和它们的 checks，不顺手跑 raw 或 gold。</td>
+      </tr>
+      <tr>
+        <td>触发时间</td>
+        <td>上海时间 <code>22:45</code> 后才允许提交 run。</td>
+        <td>raw 默认 22:00 生产，silver 分区注册 sensor 22:30 只注册分区；生产 sensor 延后到 22:45，给分区注册和上游 checks 留出缓冲，避免同一轮 tick 抢跑。</td>
+      </tr>
+      <tr>
+        <td>目标日期</td>
+        <td>选择 <code>cn_a_stock_mins_silver_trade_days</code> 中最新一个不晚于上海当前日期的已注册交易日。</td>
+        <td>生产 sensor 只消费 silver 分区集合，不从 raw 全量分区推断目标日期，避免把 2009-2013 raw-only 日期或未注册日期带入 silver job。</td>
+      </tr>
+      <tr>
+        <td>上游门禁</td>
+        <td>同一 <code>trade_date</code> 必须满足：raw 五频度 ready、stock daily ready、suspend ready、<code>silver_stock_identity_map</code> freshness ready、<code>silver_namechange</code> freshness ready。</td>
+        <td>这些门禁与 <code>stock_mins_silver_trade_day_sensor</code> 一致，确保“能注册 silver 分区”和“能生产 silver 文件”使用同一套事实口径。</td>
+      </tr>
+      <tr>
+        <td>目标 silver 门禁</td>
+        <td>如果 <code>silver_stk_mins_*</code> 五频度已全部 ready，则 skip；如果任一 silver 分区已 materialized 但 blocking checks 未全绿，则 skip 并提示人工修复；只有缺失且没有失败 materialization/check 状态时才提交 run。</td>
+        <td>避免重复生产已完成日期，也避免自动 sensor 对失败分区反复重跑形成噪音或覆盖需要人工判断的数据。</td>
+      </tr>
+      <tr>
+        <td>RunRequest</td>
+        <td>使用统一 helper：<code>build_run_request(run_key=f"stock_mins_silver_update:{trade_date}", partition_key=trade_date)</code>；不写 run config，不写 run tags。</td>
+        <td><code>stock_mins_silver_update_job</code> 不需要外部 config；<code>run_key</code> 负责跨 tick 去重；分类信息只写 sensor definition tags，不写到 run tags。</td>
+      </tr>
+      <tr>
+        <td>cursor</td>
+        <td>使用 M7 标准 <code>build_sensor_cursor(...)</code>，顶层写 <code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>；<code>details</code> 写 job name、窗口状态、各 readiness payload 和 skip 原因。</td>
+        <td>保持与现有 raw sensor、silver 分区注册 sensor 的诊断口径一致，方便 Automation 页面排查。</td>
+      </tr>
+      <tr>
+        <td>sensor tags</td>
+        <td><code>quote_data / silver / asset_update</code></td>
+        <td>这是正式业务资产生产 sensor，应归入行情数据域、silver 目标层和 asset update 职责。</td>
+      </tr>
+      <tr>
+        <td>明确不做</td>
+        <td>不注册 partition、不触发 raw job、不追历史缺口、不生成 gold、不读取 prod DB/Tushare、不扩大 job selection。</td>
+        <td>保持职责单一：分区注册由 <code>stock_mins_silver_trade_day_sensor</code> 完成；数据生产由 <code>stock_mins_silver_update_job</code> 完成；历史补齐继续走单独审批。</td>
+      </tr>
+    </table>
+
+    <h4>M6G 代码落地范围</h4>
+    <ul>
+      <li>已新增 <code>src/orchestrator/defs/sensors/stock_mins_silver_sensor.py</code>，默认 <code>STOPPED</code>，<code>minimum_interval_seconds=600</code>。</li>
+      <li>复用 <code>raw_stk_mins_ready_for_trade_date(...)</code>、<code>stock_daily_ready_for_trade_date(...)</code>、<code>suspend_d_ready_for_trade_date(...)</code>、<code>silver_stock_identity_map_ready_for_trade_date(...)</code>、<code>silver_namechange_ready_for_trade_date(...)</code> 和 <code>silver_stk_mins_ready_for_trade_date(...)</code>。</li>
+      <li>已新增单元测试覆盖：22:45 前 skip、无 silver 分区 skip、任一上游不 ready skip、目标 silver 已 ready skip、目标 silver 已 materialized 但 checks 未全绿 skip、全部满足时只生成一个 <code>RunRequest</code>。</li>
+      <li>已更新静态门禁：禁止该 sensor 写 <code>run_tags</code>、裸 <code>RunRequest</code>、深层 run config、raw/prod/Tushare 调用或 partition add request。</li>
+      <li>本阶段不运行 <code>dg</code>、job、sensor、backfill、materialization、check，也不读取正式 Dagster instance；开发验证只做静态编译、单元测试、文档检查。</li>
+    </ul>
   </section>
 
   <section>
@@ -1135,7 +1204,8 @@ ops:
     <p>
       M4 已落地 raw-only 日常入口；M5E 已落地 <code>stock_mins_silver_update_job</code>；
       M6F 已落地只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>。
-      当前仍未实现自动触发 <code>stock_mins_silver_update_job</code> 的日常生产 sensor，gold 的 job 与 sensor 仍留到后续 milestone 单独设计。
+      M6G 已新增 <code>stock_mins_silver_sensor</code>：它只在 silver 分区已注册、上游 readiness 全部满足且目标 silver 尚未 ready 时，触发 <code>stock_mins_silver_update_job</code>。
+      gold 的 job 与 sensor 仍留到后续 milestone 单独设计。
     </p>
 
     <table>
@@ -1174,6 +1244,11 @@ ops:
         <td><code>stock_mins_silver_trade_day_sensor</code></td>
         <td>22:30 后检查最新 raw 分区，满足 silver 前置门禁后注册 silver 交易日分区。</td>
         <td>只注册 <code>cn_a_stock_mins_silver_trade_days</code>，不提交 run；等待人工 run 或后续专门的 silver 生产 sensor 使用该分区。</td>
+      </tr>
+      <tr>
+        <td><code>stock_mins_silver_sensor</code></td>
+        <td>22:45 后检查最新已注册 silver 日期，满足上游 readiness 且目标 silver 未 ready 时，提交 <code>stock_mins_silver_update_job</code> run。</td>
+        <td>已实现，默认 <code>STOPPED</code>；不注册分区、不触发 raw、不追历史、不生成 gold，不写 run tags 或 run config。</td>
       </tr>
       <tr>
         <td><code>stock_mins_silver_update_job</code></td>
@@ -1296,6 +1371,13 @@ ops:
         <div>
           <h3>Silver 独立分区修正</h3>
           <p>已实现 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后已生成 silver 的交易日；五个 <code>silver_stk_mins_*</code> assets、checks、<code>stock_mins_silver_update_job</code>、M6 helper 和日常 silver 分区注册 sensor 全部切换到该分区。正式历史分区注册已完成：当前注册 <code>3014</code> 个 silver 日期，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。</p>
+        </div>
+      </div>
+      <div class="step">
+        <strong>M6G</strong>
+        <div>
+          <h3>Silver 日常生产 sensor</h3>
+          <p>已完成文档与代码审计，并落地自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>：22:45 后只针对最新已注册 silver 日期做 readiness 门禁，满足条件时提交单个分区 run；不注册 partition、不触发 raw、不追历史、不生成 gold，默认 <code>STOPPED</code>。</p>
         </div>
       </div>
       <div class="step">
