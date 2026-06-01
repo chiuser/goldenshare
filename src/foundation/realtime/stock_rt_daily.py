@@ -14,12 +14,11 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from src.foundation.clients import TushareHttpClient
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime.constants import (
-    STOCK_RT_DAILY_FEED_KEY,
     STOCK_RT_DAILY_SOURCE,
     STOCK_RT_DAILY_SOURCE_API_NAME,
 )
+from src.foundation.realtime.feed_config import RealtimeStockRtDailyConfig, get_realtime_stock_rt_daily_config
 from src.foundation.realtime.market_clock import RealtimeMarketClock
 from src.foundation.realtime.state_store import RealtimePublishResult, RealtimeStateStore, RealtimeStateStoreUnavailable
 
@@ -42,7 +41,6 @@ STOCK_RT_DAILY_FIELDS = (
     "bid_volume1",
     "trade_time",
 )
-LEASE_TTL_SECONDS = 30
 
 
 @dataclass(frozen=True, slots=True)
@@ -68,11 +66,12 @@ class TushareStockRtDailyProvider:
         self,
         *,
         client: TushareHttpClient | None = None,
+        config: RealtimeStockRtDailyConfig | None = None,
         ts_code_pattern: str | None = None,
     ) -> None:
-        settings = get_settings()
+        self._config = config or get_realtime_stock_rt_daily_config()
         self._client = client or TushareHttpClient()
-        self._ts_code_pattern = ts_code_pattern or settings.realtime_stock_rt_daily_ts_code_pattern
+        self._ts_code_pattern = ts_code_pattern or self._config.ts_code_pattern
 
     def fetch_all_market(self) -> StockRtDailyFetchResult:
         params = {"ts_code": self._ts_code_pattern}
@@ -91,12 +90,14 @@ class StockRtDailyCollector:
         *,
         store: RealtimeStateStore,
         provider: TushareStockRtDailyProvider | None = None,
+        config: RealtimeStockRtDailyConfig | None = None,
         clock: RealtimeMarketClock | None = None,
         now_provider: Callable[[], datetime] | None = None,
         collector_id: str | None = None,
     ) -> None:
+        self._config = config or get_realtime_stock_rt_daily_config()
         self._store = store
-        self._provider = provider or TushareStockRtDailyProvider()
+        self._provider = provider or TushareStockRtDailyProvider(config=self._config)
         self._clock = clock or RealtimeMarketClock()
         self._now_provider = now_provider or (lambda: datetime.now(CN_TIMEZONE))
         self._collector_id = collector_id or f"{socket.gethostname()}:{os.getpid()}"
@@ -109,15 +110,15 @@ class StockRtDailyCollector:
             return StockRtDailyCycleResult(status="unavailable", collection_status="unknown", message=str(exc))
 
     def _run_cycle(self, session: Session) -> StockRtDailyCycleResult:
-        settings = get_settings()
+        config = self._config
         now = self._now_provider().astimezone(CN_TIMEZONE)
         clock_context = self._clock.resolve(
             session,
-            exchange=settings.default_exchange,
-            collection_sessions=settings.realtime_stock_rt_daily_collection_sessions,
+            exchange=config.exchange,
+            collection_sessions=config.collection_sessions,
             now=now,
         )
-        if not settings.realtime_stock_rt_daily_enabled:
+        if not config.enabled:
             self._merge_health(
                 {
                     "status": "idle",
@@ -144,7 +145,7 @@ class StockRtDailyCollector:
             )
             return StockRtDailyCycleResult(status="idle", collection_status=clock_context.collection_status)
 
-        if not self._store.acquire_lease(STOCK_RT_DAILY_FEED_KEY, owner=self._collector_id, ttl_seconds=LEASE_TTL_SECONDS):
+        if not self._store.acquire_lease(config.feed_key, owner=self._collector_id, ttl_seconds=config.lease_ttl_seconds):
             return StockRtDailyCycleResult(status="skipped", collection_status="open", message="collector lease not acquired")
 
         try:
@@ -154,23 +155,23 @@ class StockRtDailyCollector:
             return StockRtDailyCycleResult(status="degraded", collection_status="open", message=str(exc))
         finally:
             try:
-                self._store.release_lease(STOCK_RT_DAILY_FEED_KEY, owner=self._collector_id)
+                self._store.release_lease(config.feed_key, owner=self._collector_id)
             except RealtimeStateStoreUnavailable:
                 pass
 
     def _run_open_cycle(self, *, now: datetime, is_trading_day: bool) -> StockRtDailyCycleResult:
-        settings = get_settings()
+        config = self._config
         requested_at = now.isoformat()
         self._record_request_timestamp()
         fetch_result = self._provider.fetch_all_market()
         received_at = self._now_provider().astimezone(CN_TIMEZONE)
         batch_id = build_batch_id(received_at)
         snapshots = normalize_stock_rt_daily_rows(fetch_result.rows, received_at=received_at)
-        previous_batch_id = self._store.get_current_batch_id(STOCK_RT_DAILY_FEED_KEY)
+        previous_batch_id = self._store.get_current_batch_id(config.feed_key)
         delta_snapshots = self._build_delta_snapshots(previous_batch_id=previous_batch_id, snapshots=snapshots)
         write_started = time.perf_counter()
         publish_result = self._store.publish_batch(
-            feed_key=STOCK_RT_DAILY_FEED_KEY,
+            feed_key=config.feed_key,
             batch_id=batch_id,
             snapshots=snapshots,
             meta={
@@ -180,10 +181,10 @@ class StockRtDailyCollector:
                 "source_row_count": len(fetch_result.rows),
                 "request_params": fetch_result.request_params,
             },
-            ttl_seconds=settings.realtime_stock_rt_daily_snapshot_ttl_seconds,
-            keep_recent_batches=settings.realtime_stock_rt_daily_keep_recent_batches,
-            batch_stream_maxlen=settings.realtime_stock_rt_daily_batch_stream_maxlen,
-            delta_stream_maxlen=settings.realtime_stock_rt_daily_delta_stream_maxlen,
+            ttl_seconds=config.storage.snapshot_ttl_seconds,
+            keep_recent_batches=config.storage.keep_recent_batches,
+            batch_stream_maxlen=config.storage.batch_stream_maxlen,
+            delta_stream_maxlen=config.storage.delta_stream_maxlen,
             delta_snapshots=delta_snapshots,
         )
         write_elapsed_ms = round((time.perf_counter() - write_started) * 1000, 2)
@@ -217,7 +218,7 @@ class StockRtDailyCollector:
         if not previous_batch_id:
             return []
         previous = self._store.get_snapshots(
-            STOCK_RT_DAILY_FEED_KEY,
+            self._config.feed_key,
             previous_batch_id,
             [snapshot["ts_code"] for snapshot in snapshots],
         )
@@ -289,9 +290,9 @@ class StockRtDailyCollector:
 
     def _merge_health(self, payload: dict[str, Any]) -> None:
         try:
-            existing = self._store.get_health(STOCK_RT_DAILY_FEED_KEY) or {}
+            existing = self._store.get_health(self._config.feed_key) or {}
             existing.update(payload)
-            self._store.set_health(STOCK_RT_DAILY_FEED_KEY, existing)
+            self._store.set_health(self._config.feed_key, existing)
         except RealtimeStateStoreUnavailable:
             raise
 

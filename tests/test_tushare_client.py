@@ -5,7 +5,15 @@ from types import SimpleNamespace
 import pytest
 import requests
 
-from src.foundation.clients.tushare_client import _API_RATE_LIMITS, _RateLimiter, TushareHttpClient, TushareRateLimitError
+from src.foundation.clients.tushare_client import (
+    _API_RATE_LIMITS,
+    _RateLimiter,
+    _get_rate_limiter,
+    _rate_limiters,
+    TushareHttpClient,
+    TushareRateLimitError,
+)
+from src.foundation.config.settings import get_settings
 
 
 def test_tushare_http_client_builds_session_with_post_retries() -> None:
@@ -84,6 +92,16 @@ def test_tushare_http_client_logs_retry_success(mocker) -> None:
 def test_tushare_index_daily_rate_limit_keeps_safety_margin() -> None:
     assert _API_RATE_LIMITS["index_daily"] == 420
     assert _API_RATE_LIMITS["index_daily"] < 500
+
+
+def test_tushare_realtime_rate_limits_use_realtime_feed_config(monkeypatch) -> None:
+    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE", "11")
+    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE", "13")
+    get_settings.cache_clear()
+    _rate_limiters.clear()
+
+    assert _get_rate_limiter("rt_k").max_calls == 11
+    assert _get_rate_limiter("rt_min").max_calls == 13
 
 
 def test_tushare_rate_limiter_spaces_calls_evenly(mocker) -> None:

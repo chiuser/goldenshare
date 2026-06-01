@@ -6,13 +6,11 @@ from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import (
-    STOCK_RT_DAILY_DISPLAY_NAME,
-    STOCK_RT_DAILY_FEED_KEY,
     RealtimeMarketClock,
     RealtimeStateStore,
     RealtimeStateStoreUnavailable,
+    get_realtime_stock_rt_daily_config,
 )
 from src.ops.schemas.realtime import OpsRealtimeStockRtDailyHealthResponse
 
@@ -32,41 +30,41 @@ class RealtimeFeedHealthQueryService:
         self._now_provider = now_provider or (lambda: datetime.now(CN_TIMEZONE))
 
     def build_stock_rt_daily_health(self, session: Session) -> OpsRealtimeStockRtDailyHealthResponse:
-        settings = get_settings()
+        config = get_realtime_stock_rt_daily_config()
         now = self._now_provider().astimezone(CN_TIMEZONE)
         clock = RealtimeMarketClock().resolve(
             session,
-            exchange=settings.default_exchange,
-            collection_sessions=settings.realtime_stock_rt_daily_collection_sessions,
+            exchange=config.exchange,
+            collection_sessions=config.collection_sessions,
             now=now,
         )
-        enabled = bool(settings.realtime_stock_rt_daily_enabled)
+        enabled = config.enabled
         collection_status = "disabled" if not enabled else clock.collection_status
         page_polling_enabled = enabled and collection_status == "open"
         base_payload = {
-            "feed_key": STOCK_RT_DAILY_FEED_KEY,
-            "display_name": STOCK_RT_DAILY_DISPLAY_NAME,
+            "feed_key": config.feed_key,
+            "display_name": config.display_name,
             "enabled": enabled,
-            "max_calls_per_minute": settings.realtime_stock_rt_daily_max_calls_per_minute,
-            "poll_interval_seconds": settings.realtime_stock_rt_daily_poll_interval_seconds,
+            "max_calls_per_minute": config.max_calls_per_minute,
+            "poll_interval_seconds": config.poll_interval_seconds,
             "is_trading_day": clock.is_trading_day,
             "collection_sessions": list(clock.collection_sessions),
             "collection_status": collection_status,
-            "stale_after_seconds": settings.realtime_stock_rt_daily_stale_after_seconds,
-            "snapshot_ttl_seconds": settings.realtime_stock_rt_daily_snapshot_ttl_seconds,
-            "keep_recent_batches": settings.realtime_stock_rt_daily_keep_recent_batches,
-            "batch_stream_maxlen": settings.realtime_stock_rt_daily_batch_stream_maxlen,
-            "delta_stream_maxlen": settings.realtime_stock_rt_daily_delta_stream_maxlen,
+            "stale_after_seconds": config.stale_after_seconds,
+            "snapshot_ttl_seconds": config.storage.snapshot_ttl_seconds,
+            "keep_recent_batches": config.storage.keep_recent_batches,
+            "batch_stream_maxlen": config.storage.batch_stream_maxlen,
+            "delta_stream_maxlen": config.storage.delta_stream_maxlen,
             "page_polling_enabled": page_polling_enabled,
             "recommended_poll_interval_seconds": OPS_HEALTH_POLL_INTERVAL_SECONDS,
         }
 
         try:
             redis_connected = self._store.ping()
-            health = self._store.get_health(STOCK_RT_DAILY_FEED_KEY) or {}
-            batch_id = self._store.get_current_batch_id(STOCK_RT_DAILY_FEED_KEY)
-            meta = self._store.get_batch_meta(STOCK_RT_DAILY_FEED_KEY, batch_id) if batch_id else None
-            snapshot_count = self._store.get_batch_snapshot_count(STOCK_RT_DAILY_FEED_KEY, batch_id) if batch_id else 0
+            health = self._store.get_health(config.feed_key) or {}
+            batch_id = self._store.get_current_batch_id(config.feed_key)
+            meta = self._store.get_batch_meta(config.feed_key, batch_id) if batch_id else None
+            snapshot_count = self._store.get_batch_snapshot_count(config.feed_key, batch_id) if batch_id else 0
         except RealtimeStateStoreUnavailable as exc:
             return OpsRealtimeStockRtDailyHealthResponse(
                 **base_payload,
@@ -87,7 +85,7 @@ class RealtimeFeedHealthQueryService:
             collection_status=collection_status,
             has_current_batch=bool(batch_id and meta),
             current_batch_age_seconds=current_batch_age_seconds,
-            stale_after_seconds=settings.realtime_stock_rt_daily_stale_after_seconds,
+            stale_after_seconds=config.stale_after_seconds,
             stored_status=_string_or_none(health.get("status")),
         )
         return OpsRealtimeStockRtDailyHealthResponse(

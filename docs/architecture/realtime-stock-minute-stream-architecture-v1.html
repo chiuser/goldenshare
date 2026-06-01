@@ -391,7 +391,7 @@ th:last-child, td:last-child { border-right: 0; }
           <div class="card decision">
             <h3>D3：采集频率与限速</h3>
             <p>实时分钟五个频率同时开，会按频率数放大请求量。Tushare 当前权限上限为 500 次/分钟，但 V1 不追求高频刷新。</p>
-            <p class="small"><span class="recommend">结论：</span>每个 feed 交易时段内每 <code>30</code> 秒采集一次。采集间隔必须做成配置项；V1 可先走服务端配置，后续纳入数据运营后台“实时流配置中心”。</p>
+            <p class="small"><span class="recommend">结论：</span>V1 初始阶段每个 feed 交易时段内每 <code>60</code> 秒采集一次。采集间隔必须做成配置项；V1 可先走服务端配置，后续纳入数据运营后台“实时流配置中心”。</p>
           </div>
           <div class="card decision">
             <h3>D4：业务 API 是否允许默认频率？</h3>
@@ -415,8 +415,8 @@ th:last-child, td:last-child { border-right: 0; }
           </div>
           <div class="card decision">
             <h3>D8：开市验证门禁</h3>
-            <p>当前实测在周末/收市完成，只能证明接口返回上一交易日收盘快照，不能证明开市时分钟推进和稳定性。</p>
-            <p class="small"><span class="recommend">结论：</span>生产启用前必须做一次开市验证，记录行数、耗时、<code>time</code> 推进、字段完整性和异常旧时间行。</p>
+            <p>2026-06-01 开市时段已完成真实验证：五频率全市场均返回 5525 行，身份字段无缺失，<code>freq</code> 与请求一致。</p>
+            <p class="small"><span class="recommend">结论：</span>验证记录见 <a href="/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-m3-open-market-validation-2026-06-01.md">M3 开市真实验证记录</a>；M4 provider / normalizer / 单频发布能力已按该记录落地。</p>
           </div>
         </div>
       </div>
@@ -645,7 +645,7 @@ fields = [
           </div>
           <div class="card">
             <h3>采集间隔</h3>
-            <p>V1 每个频率 feed 的采集间隔为 <code>30</code> 秒，必须通过服务端配置控制，不允许写死。后续实时流配置中心应统一管理实时日线和实时分钟的启停、频率、间隔与阈值。</p>
+            <p>V1 初始阶段每个频率 feed 的采集间隔为 <code>60</code> 秒，必须通过服务端配置控制，不允许写死。后续实时流配置中心应统一管理实时日线和实时分钟的启停、频率、间隔与阈值。</p>
           </div>
           <div class="card">
             <h3>字段校验</h3>
@@ -676,7 +676,7 @@ fields = [
           </div>
           <div class="card">
             <h3>分钟 V1 落地边界</h3>
-            <p>股票实时分钟 V1 也先走服务端配置，不在本轮实现可编辑配置页面。但实现时必须从配置读取，不允许把 <code>30</code> 秒、五个频率、交易时段、阈值写死在 collector、API 或前端里。</p>
+            <p>股票实时分钟 V1 也先走服务端配置，不在本轮实现可编辑配置页面。但实现时必须从配置读取，不允许把 <code>60</code> 秒、五个频率、交易时段、阈值写死在 collector、API 或前端里。</p>
           </div>
         </div>
 
@@ -684,7 +684,7 @@ fields = [
           <b>配置审计硬门禁：</b>实时分钟开发前必须把所有新增配置项集中声明在 <code>Settings</code> 的 realtime 区域，并同步写入部署 env 示例、Ops health 返回、测试用例和本文档。V1 的持久化位置是服务端 env 文件（生产为 <code>/etc/goldenshare/web.env</code>），不是页面常量，也不是散落在 collector 内的 Python 常量。后续若建设配置中心，必须先设计单一配置读取服务，再让 collector、API 和 Ops 页面统一消费。
         </div>
         <div class="callout">
-          <b>本次必须收口：</b>在实时分钟 collector 开发前，先新增 <code>src/foundation/realtime/feed_config.py</code> 或同等职责模块，作为 realtime feed 配置的单一读取层。该模块负责从 <code>Settings</code> / env 生成 <code>RealtimeStockRtDailyConfig</code> 与 <code>RealtimeStockRtMinConfig</code>，并集中校验配置关系。日线已有代码也必须改为消费该配置对象，不能继续让 collector、CLI、Biz API、Ops API 分散读取 <code>settings.realtime_stock_rt_daily_*</code>；日线当前硬编码的 <code>LEASE_TTL_SECONDS = 30</code> 必须在本次一并退场，进入统一配置模型。
+          <b>M2 收口结果：</b>实时分钟 collector 开发前置项已明确为 <code>src/foundation/realtime/feed_config.py</code> 单一读取层。该模块从 <code>Settings</code> / env 生成 <code>RealtimeStockRtDailyConfig</code> 与 <code>RealtimeStockRtMinConfig</code>，并集中校验配置关系。日线已有代码消费该配置对象，collector、CLI、Biz API、Ops API 不再分散读取 <code>settings.realtime_stock_rt_daily_*</code>；日线 lease TTL 通过 <code>REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30</code> 配置。
         </div>
 
         <table style="margin-top: 12px;">
@@ -711,9 +711,9 @@ fields = [
             </tr>
             <tr>
               <td><code>REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS</code></td>
-              <td><code>30</code></td>
+              <td><code>60</code></td>
               <td>服务端 env / Settings</td>
-              <td>每个频率 feed 的采集间隔。五频率全开时约等于每 30 秒 5 次源站请求，约 10 次/分钟。它决定源站请求量、stale 阈值和 lease TTL 的下限。</td>
+              <td>每个频率 feed 的采集间隔。五频率全开时约等于每 60 秒 5 次源站请求，约 5 次/分钟。它决定源站请求量、stale 阈值和 lease TTL 的下限。</td>
             </tr>
             <tr>
               <td><code>REALTIME_STOCK_RT_MIN_COLLECTION_SESSIONS</code></td>
@@ -731,7 +731,7 @@ fields = [
               <td><code>REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE</code></td>
               <td><code>20</code>（建议）</td>
               <td>服务端 env / Settings</td>
-              <td>用于运行观测和后续硬限流。必须满足 <code>enabled_freq_count * 60 / poll_interval_seconds &lt;= max_calls_per_minute</code>。V1 五频率、30 秒间隔的理论请求量约 10 次/分钟。</td>
+              <td>用于运行观测和后续硬限流。必须满足 <code>enabled_freq_count * 60 / poll_interval_seconds &lt;= max_calls_per_minute</code>。V1 五频率、60 秒间隔的理论请求量约 5 次/分钟。</td>
             </tr>
             <tr>
               <td><code>REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS</code></td>
@@ -785,7 +785,7 @@ fields = [
           <b>配置关系基线：</b>配置不是孤立开关。<code>poll_interval_seconds</code> 决定理论请求量；<code>enabled_freqs</code> 放大请求量；<code>max_calls_per_minute</code> 必须覆盖理论请求量；<code>lease_ttl_seconds</code> 必须大于单 feed 最长处理时间；<code>stale_after_seconds</code> 必须大于正常采集间隔加抖动；<code>snapshot_ttl_seconds</code> 和 <code>keep_recent_batches</code> 共同决定 Redis 保留规模。任何改动这些配置的需求，都必须先重新计算关系，不允许只改一个值。
         </div>
         <div class="callout warning">
-          <b>实现约束：</b>前端不得写死 30 秒、五频率或交易时段；业务 API 不得根据页面常量推导配置；Ops API 必须从服务端配置与 Redis health 汇总出展示字段。后续如果切到数据库配置，collector、API、Ops 页面都应通过同一个配置读取服务消费，不允许各自读不同事实源。
+          <b>实现约束：</b>前端不得写死 60 秒、五频率或交易时段；业务 API 不得根据页面常量推导配置；Ops API 必须从服务端配置与 Redis health 汇总出展示字段。后续如果切到数据库配置，collector、API、Ops 页面都应通过同一个配置读取服务消费，不允许各自读不同事实源。
         </div>
       </div>
     </section>
@@ -893,7 +893,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
           </div>
           <div class="card">
             <h3>配置风险</h3>
-            <p>采集间隔、启用频率和 stale 阈值必须来自配置。V1 不做页面配置，但不能把 <code>30</code> 秒、五频率、阈值写死在 collector 逻辑里。</p>
+            <p>采集间隔、启用频率和 stale 阈值必须来自配置。V1 不做页面配置，但不能把 <code>60</code> 秒、五频率、阈值写死在 collector 逻辑里。</p>
           </div>
         </div>
       </div>
@@ -919,42 +919,42 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M1</td>
               <td>拍板结果入档</td>
-              <td>冻结 V1 范围：五频率全开、每频率 30 秒、每频率一个 feed、<code>freq</code> 必传、Ops 必做。</td>
+              <td>冻结 V1 范围：五频率全开、初始每频率 60 秒、每频率一个 feed、<code>freq</code> 必传、Ops 必做。</td>
             </tr>
             <tr>
               <td>M2</td>
               <td>实时配置单一读取层收口</td>
-              <td>新增 realtime feed config 单一读取层；日线与分钟配置统一从该层读取；日线 <code>LEASE_TTL_SECONDS</code> 硬编码退场；配置关系测试通过。</td>
+              <td>realtime feed config 单一读取层已完成；日线与分钟配置统一从该层读取；日线 lease TTL 硬编码退场；配置关系测试通过。</td>
             </tr>
             <tr>
               <td>M3</td>
               <td>开市真实验证</td>
-              <td>记录行数、耗时、<code>time</code> 推进、字段完整性、异常旧时间样本。</td>
+              <td>已完成：记录行数、耗时、<code>time</code> 推进、字段完整性、异常旧时间样本。详见 <a href="/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-m3-open-market-validation-2026-06-01.md">M3 验证记录</a>。</td>
             </tr>
             <tr>
               <td>M4</td>
-              <td>实现 provider / normalizer / collector</td>
-              <td>只写 Redis，不落库；支持配置启用频率与采集间隔。</td>
+              <td>实现 provider / normalizer / 单频发布能力</td>
+              <td>已完成：按 M3 实测口径请求 <code>rt_min</code>；显式带 <code>freq</code> 与字段；异常身份行计数但不写入 snapshot；支持按频率 feed 写入 Redis，不接常驻 collector。</td>
             </tr>
             <tr>
               <td>M5</td>
+              <td>统一 realtime collector</td>
+              <td>一个 <code>realtime-collector-serve</code> 服务内调度日线与分钟 feed；feed 级独立异常、lease、health。</td>
+            </tr>
+            <tr>
+              <td>M6</td>
               <td>实现业务 API 与 Ops API</td>
               <td>按 <code>freq + ts_codes</code> 查快照；按 feed 查健康。</td>
             </tr>
             <tr>
-              <td>M6</td>
+              <td>M7</td>
               <td>Ops 页面扩展</td>
               <td>实时流监控新增股票实时分钟分组。</td>
             </tr>
             <tr>
-              <td>M7</td>
-              <td>远程部署与交易时段验收</td>
-              <td>collector service、Redis current batch、API、页面联调通过。</td>
-            </tr>
-            <tr>
               <td>M8</td>
-              <td>后续 WebSocket</td>
-              <td>基于 delta stream 做推送，不进入 V1。</td>
+              <td>测试、部署与验收</td>
+              <td>collector service、Redis current batch、API、页面联调通过；WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
             </tr>
           </tbody>
         </table>
@@ -981,17 +981,17 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>配置来源</td>
               <td>实时日线已经通过 <code>Settings</code> / env 配置启停、采集间隔、交易时段、stale、TTL、保留批次等；不是后台页面配置。</td>
-              <td>实时分钟 V1 同样走 <code>Settings</code> / env。不得把 <code>30</code> 秒、五频率、交易时段或阈值写死到 collector、API 或前端。</td>
+              <td>实时分钟 V1 同样走 <code>Settings</code> / env。不得把 <code>60</code> 秒、五频率、交易时段或阈值写死到 collector、API 或前端。</td>
             </tr>
             <tr>
               <td>collector 服务拓扑</td>
               <td>当前部署脚本和 sudoers 只管理一个 <code>goldenshare-realtime-collector.service</code>。</td>
-              <td>V1 优先扩展现有 realtime collector 服务，让它同时承载日线和分钟 feed。好处是部署脚本、sudoers、unit 同步、状态检查和远程验收不扩一套；风险是如果循环写成串行大循环，分钟故障可能拖慢日线。因此实现必须做到 feed 级独立 try/catch、独立 lease、独立 health、独立 batch；某个分钟频率失败只能标记该 feed degraded，不能拖死日线。不要擅自新增第二个 systemd 服务；若未来因为耗时、故障隔离或容量压力需要拆服务，必须同步部署脚本、sudoers、unit 同步、监控和运维验收方案。现有 CLI 命令名 <code>realtime-stock-rt-daily-serve</code> 已不适合作为多 feed collector 长期入口，M2/M4 必须收口为通用入口，例如 <code>realtime-collector-serve</code>，并同步 systemd <code>ExecStart</code>。</td>
+              <td>V1 优先扩展现有 realtime collector 服务，让它同时承载日线和分钟 feed。好处是部署脚本、sudoers、unit 同步、状态检查和远程验收不扩一套；风险是如果循环写成串行大循环，分钟故障可能拖慢日线。因此实现必须做到 feed 级独立 try/catch、独立 lease、独立 health、独立 batch；某个分钟频率失败只能标记该 feed degraded，不能拖死日线。不要擅自新增第二个 systemd 服务；若未来因为耗时、故障隔离或容量压力需要拆服务，必须同步部署脚本、sudoers、unit 同步、监控和运维验收方案。M2 已将 CLI 入口收口为 <code>realtime-collector-serve</code>，并同步 systemd <code>ExecStart</code>。</td>
             </tr>
             <tr>
               <td>Tushare 客户端限速</td>
-              <td><code>TushareHttpClient</code> 当前只对 <code>rt_k</code> 特判读取日线实时配置；<code>rt_min</code> 若不处理，会回落到通用 Tushare 限速。</td>
-              <td><code>rt_min</code> 必须接入 realtime feed config 的限速口径。由于五个频率都调用同一个源接口 <code>rt_min</code>，客户端限速应按 <code>api_name=rt_min</code> 聚合，控制全体分钟 feed 的总请求量，而不是给每个频率各自一套 20/min。这样才能保证“五频率、30 秒间隔”约 10 次/分钟的总请求量不被代码路径绕开。</td>
+              <td><code>TushareHttpClient</code> 通过 realtime feed config 获取 <code>rt_k</code> 与 <code>rt_min</code> 的实时流限速。</td>
+              <td><code>rt_min</code> 必须接入 realtime feed config 的限速口径。由于五个频率都调用同一个源接口 <code>rt_min</code>，客户端限速应按 <code>api_name=rt_min</code> 聚合，控制全体分钟 feed 的总请求量，而不是给每个频率各自一套 20/min。这样才能保证“五频率、60 秒间隔”约 5 次/分钟的总请求量不被代码路径绕开。</td>
             </tr>
             <tr>
               <td>Redis 快照键</td>
@@ -1005,7 +1005,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             </tr>
             <tr>
               <td>lease TTL</td>
-              <td>实时日线 collector 里当前有 <code>LEASE_TTL_SECONDS = 30</code> 常量。</td>
+              <td>实时日线 collector 的 lease TTL 已进入 <code>REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS</code> 配置。</td>
               <td>实时分钟不要无脑复制硬编码 TTL。lease TTL 是实时流通用配置，不是分钟线局部参数。它应进入统一配置模型，至少要覆盖单个 feed 一轮请求、归一化、Redis 发布和网络抖动，避免长耗时导致租约提前过期。实现和测试必须覆盖 lease TTL 配置解析与过期边界。</td>
             </tr>
             <tr>
@@ -1031,7 +1031,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>测试门禁</td>
               <td>现有测试覆盖日线 collector、业务 API、Ops health。</td>
-              <td>分钟必须新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离、Ops 多频率 health、页面分组渲染、非采集时段不请求源站。</td>
+              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；Ops 多频率 health、页面分组渲染、非采集时段不请求源站留到 M5-M7 覆盖。</td>
             </tr>
           </tbody>
         </table>
@@ -1072,7 +1072,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             </tr>
             <tr>
               <td>Tushare 限速</td>
-              <td><code>rt_min</code> 全频率必须共享同一个源接口限速桶，限速值来自 realtime feed config。五频率全开、30 秒间隔时，实际总请求量应约为 10 次/分钟，不能回落到通用 Tushare 默认限速。</td>
+              <td><code>rt_min</code> 全频率必须共享同一个源接口限速桶，限速值来自 realtime feed config。五频率全开、60 秒间隔时，实际总请求量应约为 5 次/分钟，不能回落到通用 Tushare 默认限速。</td>
               <td>单元测试覆盖 <code>rt_min</code> 限速读取分钟配置；collector 调度测试覆盖五频率一轮请求数与 health 中的 request count。</td>
             </tr>
             <tr>
@@ -1114,7 +1114,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
       <div class="section-header">
         <div>
           <h2>14. 调研记录</h2>
-          <p>这些结论来自 2026-05-17 周末/收市环境，开市仍需复验。</p>
+          <p>2026-05-17 周末/收市环境结论已由 2026-06-01 开市真实验证补齐。</p>
         </div>
       </div>
       <div class="section-body">

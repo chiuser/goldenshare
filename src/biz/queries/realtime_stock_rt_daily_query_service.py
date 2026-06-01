@@ -7,13 +7,12 @@ from zoneinfo import ZoneInfo
 from sqlalchemy.orm import Session
 
 from src.biz.schemas.realtime import StockRtDailySnapshotItem, StockRtDailySnapshotResponse
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import (
-    STOCK_RT_DAILY_FEED_KEY,
     RealtimeFeedUnavailable,
     RealtimeMarketClock,
     RealtimeStateStore,
     RealtimeStateStoreUnavailable,
+    get_realtime_stock_rt_daily_config,
 )
 
 
@@ -39,7 +38,7 @@ class RealtimeStockRtDailyQueryService:
         self._now_provider = now_provider or (lambda: datetime.now(CN_TIMEZONE))
 
     def build_snapshot(self, session: Session, *, ts_codes: str | None) -> StockRtDailySnapshotResponse:
-        settings = get_settings()
+        config = get_realtime_stock_rt_daily_config()
         normalized_codes = _normalize_ts_codes(ts_codes)
         if not normalized_codes:
             raise RealtimeQueryValidationError("MISSING_TS_CODES", "请提供需要查询的股票代码")
@@ -50,28 +49,28 @@ class RealtimeStockRtDailyQueryService:
             )
 
         try:
-            batch_id = self._store.get_current_batch_id(STOCK_RT_DAILY_FEED_KEY)
+            batch_id = self._store.get_current_batch_id(config.feed_key)
             if not batch_id:
                 raise RealtimeFeedUnavailable("实时行情流尚未发布可读批次")
-            meta = self._store.get_batch_meta(STOCK_RT_DAILY_FEED_KEY, batch_id)
+            meta = self._store.get_batch_meta(config.feed_key, batch_id)
             if meta is None:
                 raise RealtimeFeedUnavailable("实时行情流当前批次缺少元信息")
-            snapshots_by_code = self._store.get_snapshots(STOCK_RT_DAILY_FEED_KEY, batch_id, normalized_codes)
+            snapshots_by_code = self._store.get_snapshots(config.feed_key, batch_id, normalized_codes)
         except RealtimeStateStoreUnavailable:
             raise
 
         now = self._now_provider().astimezone(CN_TIMEZONE)
         clock = RealtimeMarketClock().resolve(
             session,
-            exchange=settings.default_exchange,
-            collection_sessions=settings.realtime_stock_rt_daily_collection_sessions,
+            exchange=config.exchange,
+            collection_sessions=config.collection_sessions,
             now=now,
         )
         age_seconds = _age_seconds(meta.get("published_at"), now)
         stale = (
             clock.collection_status == "open"
             and age_seconds is not None
-            and age_seconds > settings.realtime_stock_rt_daily_stale_after_seconds
+            and age_seconds > config.stale_after_seconds
         )
         items = [
             StockRtDailySnapshotItem.model_validate(snapshots_by_code[code])
@@ -79,12 +78,12 @@ class RealtimeStockRtDailyQueryService:
             if code in snapshots_by_code
         ]
         return StockRtDailySnapshotResponse(
-            feed_key=STOCK_RT_DAILY_FEED_KEY,
+            feed_key=config.feed_key,
             batch_id=batch_id,
             received_at=_string_or_none(meta.get("received_at")),
             published_at=_string_or_none(meta.get("published_at")),
             stale=stale,
-            stale_after_seconds=settings.realtime_stock_rt_daily_stale_after_seconds,
+            stale_after_seconds=config.stale_after_seconds,
             collection_status=clock.collection_status,
             items=items,
             missing_ts_codes=[code for code in normalized_codes if code not in snapshots_by_code],

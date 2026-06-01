@@ -61,6 +61,10 @@ class Settings(BaseSettings):
         default=10,
         alias="REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE",
     )
+    realtime_stock_rt_daily_lease_ttl_seconds: int = Field(
+        default=30,
+        alias="REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS",
+    )
     realtime_stock_rt_daily_stale_after_seconds: int = Field(
         default=20,
         alias="REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS",
@@ -84,6 +88,55 @@ class Settings(BaseSettings):
     realtime_stock_rt_daily_ts_code_pattern: str = Field(
         default="3*.SZ,6*.SH,0*.SZ,9*.BJ",
         alias="REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN",
+    )
+    realtime_stock_rt_min_enabled: bool = Field(default=False, alias="REALTIME_STOCK_RT_MIN_ENABLED")
+    realtime_stock_rt_min_enabled_freqs: str = Field(
+        default="1MIN,5MIN,15MIN,30MIN,60MIN",
+        alias="REALTIME_STOCK_RT_MIN_ENABLED_FREQS",
+    )
+    realtime_stock_rt_min_poll_interval_seconds: int = Field(
+        default=60,
+        alias="REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS",
+    )
+    realtime_stock_rt_min_collection_sessions: str = Field(
+        default="09:30-11:30,13:00-15:00",
+        alias="REALTIME_STOCK_RT_MIN_COLLECTION_SESSIONS",
+    )
+    realtime_stock_rt_min_max_calls_per_minute: int = Field(
+        default=20,
+        alias="REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE",
+    )
+    realtime_stock_rt_min_lease_ttl_seconds: int = Field(
+        default=90,
+        alias="REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS",
+    )
+    realtime_stock_rt_min_stale_after_seconds: int = Field(
+        default=90,
+        alias="REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS",
+    )
+    realtime_stock_rt_min_snapshot_ttl_seconds: int = Field(
+        default=259200,
+        alias="REALTIME_STOCK_RT_MIN_SNAPSHOT_TTL_SECONDS",
+    )
+    realtime_stock_rt_min_keep_recent_batches: int = Field(
+        default=3,
+        alias="REALTIME_STOCK_RT_MIN_KEEP_RECENT_BATCHES",
+    )
+    realtime_stock_rt_min_batch_stream_maxlen: int = Field(
+        default=5000,
+        alias="REALTIME_STOCK_RT_MIN_BATCH_STREAM_MAXLEN",
+    )
+    realtime_stock_rt_min_delta_stream_maxlen: int = Field(
+        default=200000,
+        alias="REALTIME_STOCK_RT_MIN_DELTA_STREAM_MAXLEN",
+    )
+    realtime_stock_rt_min_ts_code_pattern: str = Field(
+        default="3*.SZ,6*.SH,0*.SZ,9*.BJ",
+        alias="REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN",
+    )
+    realtime_stock_rt_min_source_timeout_seconds: int = Field(
+        default=20,
+        alias="REALTIME_STOCK_RT_MIN_SOURCE_TIMEOUT_SECONDS",
     )
     ops_task_completion_worker_poll_seconds: int = Field(
         default=5,

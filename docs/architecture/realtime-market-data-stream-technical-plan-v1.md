@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：远程发版完成 / 收市 idle 验收通过 / 待下一交易时段端到端验收
+状态：远程发版完成 / 收市 idle 验收通过 / M2 配置单一读取层已收口 / 待下一交易时段端到端验收
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -14,14 +14,14 @@
 
 ### 0.0 2026-05-17 配置收口修订
 
-实时日线 V1 已经上线，但当前代码里配置消费还分散在 collector、CLI、Biz API、Ops API 和 Tushare client；`src/foundation/realtime/stock_rt_daily.py` 里还存在 `LEASE_TTL_SECONDS = 30` 运行配置硬编码。进入实时分钟流开发前，必须把实时日线与实时分钟一起收口到统一的 realtime feed config 读取层。
+实时日线 V1 已经上线。M2 已完成配置单一读取层收口：collector、CLI、Biz API、Ops API 和 Tushare client 统一消费 realtime feed config，日线 lease TTL 不再作为 collector 文件内硬编码存在。
 
 修订口径：
 
-1. 新增 `src/foundation/realtime/feed_config.py` 或同等职责模块，统一从 `Settings` / env 构建 realtime feed 配置对象。
-2. 日线配置对象命名建议为 `RealtimeStockRtDailyConfig`，分钟配置对象命名建议为 `RealtimeStockRtMinConfig`。
+1. `src/foundation/realtime/feed_config.py` 统一从 `Settings` / env 构建 realtime feed 配置对象。
+2. 日线配置对象为 `RealtimeStockRtDailyConfig`，分钟配置对象为 `RealtimeStockRtMinConfig`。
 3. collector、CLI、Biz API、Ops API 不再各自直接读取 `settings.realtime_stock_rt_daily_*` / `settings.realtime_stock_rt_min_*`。
-4. `LEASE_TTL_SECONDS` 必须进入配置模型；日线默认保持当前行为 `30` 秒，但不得继续硬编码在 collector 文件里。
+4. `REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30` 进入配置模型，保持日线当前行为。
 5. 配置关系必须集中校验：采集间隔、启用频率数、feed 级限速、lease TTL、stale 阈值、TTL、stream 裁剪之间不能各自为政。
 6. 本修订不改变实时日线 V1 的业务行为，只改变配置事实源和读取边界。
 
@@ -38,7 +38,7 @@
 | Ops 页面 API | `GET /api/v1/ops/realtime/stock-rt-daily/health` 作为页面唯一数据源。 |
 | 前端页面 | 只展示实时 feed 健康，不展示任务中心、不展示离线 freshness、不提供手动同步。 |
 | 非采集时段 | 显示空闲/非采集时段，不按 20 秒 stale 阈值误报失败。 |
-| 配置读取 | 下一轮必须收口为 realtime feed config 单一读取层；旧的分散 `Settings` 读取不作为后续开发基线。 |
+| 配置读取 | 已收口为 realtime feed config 单一读取层；旧的分散 `Settings` 读取不作为后续开发基线。 |
 
 ### 0.2 本轮发现并已补齐的设计点
 
@@ -57,7 +57,7 @@
 | D6 | Redis 快照 TTL | 已确认 259200 秒（72 小时）+ 最近 3 批。 |
 | D7 | 非交易日是否请求源站 | 已确认必须叠加交易日 + 交易时段，其它时段不请求源站。 |
 | D8 | Ops 页面轮询频率 | 已确认只在交易日交易时段内每 1 分钟请求 health API；非交易时段不持续轮询。 |
-| M1 | 开市时段真实源接口验证 | 明天开市后验证返回行数、耗时、字段空值、`trade_time`。 |
+| M1 | 开市时段真实源接口验证 | 已完成，结论支持全市场通配符请求方案。 |
 
 ### 0.4 全链路一致性复核
 
@@ -77,16 +77,17 @@
 | 部署 | 生产必须有 Redis 和独立 collector systemd service。 | Redis 只监听本机；部署验收必须覆盖 Redis、collector、业务 API、Ops health API。 |
 | 配置收口 | 所有 realtime feed 运行配置必须由统一配置对象输出。 | 不允许 collector、CLI、Biz API、Ops API、前端页面各自读取或硬编码同一类运行事实。 |
 
-### 0.5 待解决事项
+### 0.5 当前完成状态与剩余事项
 
 | 优先级 | 事项 | 完成条件 |
 | --- | --- | --- |
-| P0 | 开市时段真实源接口验证。 | 明天开市后验证全市场返回行数、耗时、字段空值、`trade_time` 行为；结果回填本方案。 |
-| P0 | 生产 Redis 基础设施。 | 远程服务器安装 Redis，限制本机访问，配置 `REDIS_URL`，纳入部署验收。 |
-| P0 | Collector + Redis batch pointer 最小闭环。 | `--max-cycles 1` 能发布 batch；API 只能读 current batch；写失败不切 pointer。 |
-| P0 | 业务 API 与 Ops health API。 | 两个 API 都只读 Redis；错误态、空闲态、stale 态测试覆盖。 |
-| P0 | 实时流监控页面。 | 只消费 health API；状态局部刷新；非交易时段停止轮询；不展示 TaskRun/freshness。 |
-| P0 | realtime feed config 单一读取层。 | 日线与分钟统一从配置对象读取；日线 `LEASE_TTL_SECONDS` 硬编码退场；配置关系测试通过。 |
+| P0 | 开市时段真实源接口验证。 | 已完成，结论支持全市场通配符请求方案。 |
+| P0 | 生产 Redis 基础设施。 | 已完成：远程服务器 Redis、`REDIS_URL`、collector service 已纳入部署链路。 |
+| P0 | Collector + Redis batch pointer 最小闭环。 | 已完成：collector、batch writer、current pointer、stream 与 smoke 命令已落地。 |
+| P0 | 业务 API 与 Ops health API。 | 已完成：两个 API 都只读 Redis，错误态、空闲态、stale 态测试覆盖。 |
+| P0 | 实时流监控页面。 | 已完成：页面只消费 health API，状态局部刷新，不展示 TaskRun/freshness。 |
+| P0 | realtime feed config 单一读取层。 | 已完成：日线与分钟统一从配置对象读取；日线 lease TTL 硬编码退场；配置关系测试通过。 |
+| P0 | 下一交易时段端到端验收。 | 待交易时段验证 collector 6 秒采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。 |
 | P1 | WebSocket 推送。 | 基于 V1 Redis current batch 和 delta stream 单独设计，不进入 V1。 |
 
 ### 0.6 前端页面 API 设计结论
@@ -135,18 +136,18 @@ V1 不进入离线数据集主链，不创建 `DatasetDefinition`，不写 raw/c
 ```text
 src/
   foundation/
-    realtime/             # 新增：实时源、collector、Redis 状态层
-      feed_config.py      # 下一轮新增：realtime feed 配置单一读取层
+    realtime/             # 当前：实时源、collector、Redis 状态层、配置单一读取层
+      feed_config.py      # 当前：realtime feed 配置单一读取层
   biz/
     api/
-      realtime.py         # 新增：业务实时快照 API
+      realtime.py         # 当前：业务实时快照 API
     queries/
       realtime_stock_rt_daily_query_service.py
     schemas/
       realtime.py
   ops/
     api/
-      realtime.py         # 新增：Ops 实时流健康 API
+      realtime.py         # 当前：Ops 实时流健康 API
     queries/
       realtime_feed_health_query_service.py
     schemas/
@@ -154,7 +155,7 @@ src/
   app/
     api/v1/router.py      # 只做路由挂载
   cli_parts/
-    realtime_handlers.py  # 新增：collector CLI handler
+    realtime_handlers.py  # 当前：collector CLI handler
   cli.py                  # 只注册命令
 ```
 
@@ -253,7 +254,7 @@ V1 固定一次拉全市场：
 
 ### 5.3 限速
 
-V1 collector 自己控制 10 次/分钟：
+V1 通过 realtime feed config 同时控制 collector 节奏和 Tushare client 限速，日线默认 10 次/分钟：
 
 ```text
 poll_interval_seconds = 6
@@ -263,8 +264,8 @@ max_calls_per_minute = 10
 说明：
 
 1. 不依赖全局 `TUSHARE_MAX_CALLS_PER_MINUTE` 作为唯一保护。
-2. `TushareHttpClient` 可继续作为 HTTP 客户端，但 realtime collector 必须有自己的 feed 级节奏控制。
-3. 后续如果 `rt_k` 进入客户端级限速表，也不能突破 feed 级 10 次/分钟。
+2. collector 根据 `poll_interval_seconds` 控制采集节奏。
+3. `TushareHttpClient` 对 `api_name=rt_k` 读取 realtime feed config 的 `max_calls_per_minute`，不能回落到通用 Tushare 默认限速。
 
 ### 5.4 采集时间窗口
 
@@ -517,25 +518,25 @@ sequenceDiagram
 
 ## 8. Collector 技术设计
 
-### 8.1 新增 CLI
+### 8.1 CLI
 
-建议新增：
+当前命令：
 
 ```bash
-goldenshare realtime-stock-rt-daily-serve
+goldenshare realtime-collector-serve
 ```
 
-建议支持调试参数：
+已支持调试参数：
 
 ```bash
-goldenshare realtime-stock-rt-daily-serve --max-cycles 1
+goldenshare realtime-collector-serve --max-cycles 1
 ```
 
 `--max-cycles 1` 用于本地和远程 smoke，不作为业务功能暴露。
 
 ### 8.2 配置项
 
-新增到 `src/foundation/config/settings.py`，并由 `src/foundation/realtime/feed_config.py` 统一读取、校验和下发给 collector / API / Ops 查询：
+当前配置已进入 `src/foundation/config/settings.py`，并由 `src/foundation/realtime/feed_config.py` 统一读取、校验和下发给 collector / API / Ops 查询：
 
 | 环境变量 | 默认值 | 说明 |
 | --- | --- | --- |
@@ -835,13 +836,13 @@ redis-cli ping
 
 ### 11.3 systemd unit
 
-新增：
+当前 unit 模板：
 
 ```text
 scripts/goldenshare-realtime-collector.service
 ```
 
-建议内容：
+当前内容：
 
 ```ini
 [Unit]
@@ -851,7 +852,7 @@ After=network.target redis-server.service
 [Service]
 WorkingDirectory=/opt/goldenshare/goldenshare
 Environment=GOLDENSHARE_ENV_FILE=/etc/goldenshare/web.env
-ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare realtime-stock-rt-daily-serve
+ExecStart=/opt/goldenshare/goldenshare/.venv/bin/goldenshare realtime-collector-serve
 Restart=always
 RestartSec=3
 
@@ -971,7 +972,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 
 1. `redis-cli ping` 返回 `PONG`。
 2. `systemctl status goldenshare-realtime-collector.service` 正常。
-3. `goldenshare realtime-stock-rt-daily-serve --max-cycles 1` 能发布一个 batch。
+3. `goldenshare realtime-collector-serve --max-cycles 1` 能发布一个 batch。
 4. Redis 存在 `rt:feed:tushare_stock_rt_k:current_batch`。
 5. 业务 API 返回指定股票快照。
 6. Ops health API 显示最近成功刷新。
@@ -1003,7 +1004,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 1. Tushare 0372 provider。
 2. normalizer。
 3. collector loop。
-4. CLI `realtime-stock-rt-daily-serve`。
+4. CLI `realtime-collector-serve`。
 5. 单轮 smoke。
 
 ### M4 HTTP API 与 Ops 健康 API
@@ -1045,7 +1046,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 4. 数据运营后台已加入一级菜单“实时流监控”，页面只消费 health API，并按 `page_polling_enabled/recommended_poll_interval_seconds` 做局部状态刷新。
 5. 已补最小测试覆盖：Redis key/current batch 语义、业务快照 API、Ops health API，以及前端类型检查。
 6. 开市时段 M1 真实验证已完成，结论支持全市场通配符请求方案。
-7. 已新增 Tushare 0372 provider、实时日线 normalizer、collector loop、CLI `realtime-stock-rt-daily-serve`、collector systemd unit 与部署脚本挂载。
+7. 已新增 Tushare 0372 provider、实时日线 normalizer、collector loop、CLI `realtime-collector-serve`、collector systemd unit 与部署脚本挂载。
 8. 远程已发版至 `83e75b24`，`goldenshare-realtime-collector.service` 已安装、启动并启用开机自启动。
 9. 远程收市验收通过：collector `enabled=true`、`collector_running=true`、`collection_status=idle`、`last_request_at=null`，Redis 未产生 current batch / stream，说明非采集时段不会请求源站或写行情批次。
 
@@ -1087,7 +1088,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 
 已确认源站请求窗口：交易日 9:30-11:30、13:00-15:00。非采集时段页面应显示“非采集时段/空闲”，非交易日显示 `market_closed`；页面展示当前 Redis 可读批次和源端 `trade_time`，不能把非采集时段误报为采集失败。
 
-仍需明天开市后验证：开市时段的返回行数、耗时、字段完整性和 `trade_time` 行为。
+开市验证已完成：全市场通配符请求方案可用，开市时段字段完整性与耗时满足 V1 采集口径。
 
 ### D6 Redis 快照 TTL
 

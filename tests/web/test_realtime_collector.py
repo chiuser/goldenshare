@@ -25,6 +25,16 @@ class FakeStockRtDailyProvider:
         )
 
 
+class RecordingLeaseStore(InMemoryRealtimeStateStore):
+    def __init__(self) -> None:
+        super().__init__()
+        self.lease_ttls: list[int] = []
+
+    def acquire_lease(self, feed_key: str, *, owner: str, ttl_seconds: int) -> bool:
+        self.lease_ttls.append(ttl_seconds)
+        return super().acquire_lease(feed_key, owner=owner, ttl_seconds=ttl_seconds)
+
+
 def test_stock_rt_daily_collector_publishes_current_batch_and_delta(
     db_session,
     trade_calendar_factory,
@@ -73,6 +83,32 @@ def test_stock_rt_daily_collector_publishes_current_batch_and_delta(
     snapshots = store.get_snapshots(STOCK_RT_DAILY_FEED_KEY, current_batch_id or "", ["600000.SH"])
     assert snapshots["600000.SH"]["close"] == "10.02"
     assert store.get_health(STOCK_RT_DAILY_FEED_KEY)["status"] == "ok"  # type: ignore[index]
+
+
+def test_stock_rt_daily_collector_uses_configured_lease_ttl(
+    db_session,
+    trade_calendar_factory,
+    monkeypatch,
+) -> None:
+    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_ENABLED", "true")
+    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS", "44")
+    get_settings.cache_clear()
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
+    store = RecordingLeaseStore()
+    provider = FakeStockRtDailyProvider(
+        [[{"ts_code": "600000.SH", "name": "浦发银行", "close": 10.01, "trade_time": "2026-05-15 09:35:00"}]]
+    )
+    collector = StockRtDailyCollector(
+        store=store,
+        provider=provider,  # type: ignore[arg-type]
+        now_provider=lambda: datetime(2026, 5, 15, 9, 35, 0, tzinfo=CN_TIMEZONE),
+        collector_id="test-collector",
+    )
+
+    result = collector.run_cycle(db_session)
+
+    assert result.status == "ok"
+    assert store.lease_ttls == [44]
 
 
 def test_stock_rt_daily_collector_skips_source_request_outside_collection_window(
