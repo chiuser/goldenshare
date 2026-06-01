@@ -1,14 +1,21 @@
-from collections.abc import Sequence
+from collections.abc import Iterator, Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
 import dagster as dg
 
 from orchestrator.defs.assets.stk_mins import (
+    GOLD_STK_MINS_QFQ_ASSETS,
     RAW_STK_MINS_ASSETS,
     SILVER_STK_MINS_ASSETS,
     STK_MINS_RAW_COLUMN_TYPES,
     STK_MINS_SILVER_COLUMN_TYPES,
+    gold_stk_mins_qfq_1m,
+    gold_stk_mins_qfq_5m,
+    gold_stk_mins_qfq_15m,
+    gold_stk_mins_qfq_30m,
+    gold_stk_mins_qfq_60m,
     raw_stk_mins_1m,
     raw_stk_mins_5m,
     raw_stk_mins_15m,
@@ -28,7 +35,9 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import (
+    gold_stk_mins_qfq_path,
     raw_stk_mins_path,
+    silver_adj_factor_path,
     silver_namechange_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
@@ -38,6 +47,11 @@ from orchestrator.defs.paths import (
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
+from orchestrator.defs.stk_mins_qfq import (
+    GOLD_STK_MINS_QFQ_COLUMN_TYPES,
+    build_daily_qfq_coverage_sql,
+    build_daily_qfq_select_sql,
+)
 
 
 RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
@@ -106,6 +120,62 @@ SILVER_STK_MINS_CHECK_NAMES = (
     SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
 )
 
+GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
+    "gold_stk_mins_qfq_file_exists_and_row_count_positive"
+)
+GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK = (
+    "gold_stk_mins_qfq_schema_matches_contract"
+)
+GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK = (
+    "gold_stk_mins_qfq_freq_date_path_match"
+)
+GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK = (
+    "gold_stk_mins_qfq_unique_ts_code_trade_time"
+)
+GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK = "gold_stk_mins_qfq_price_sanity"
+GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK = (
+    "gold_stk_mins_qfq_row_count_matches_silver"
+)
+GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK = (
+    "gold_stk_mins_qfq_factor_coverage_complete"
+)
+GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK = (
+    "gold_stk_mins_qfq_formula_matches_silver_adj_factor"
+)
+
+GOLD_STK_MINS_QFQ_CHECK_NAMES = (
+    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+    GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+    GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
+    GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+    GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+    GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
+    GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
+    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+)
+
+GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE = 1e-6
+GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT = 20
+
+
+@dataclass(frozen=True)
+class GoldStkMinsQfqCheckCounts:
+    silver_row_count: int
+    expected_file_count: int
+    existing_file_count: int
+    missing_file_count: int
+    gold_target_row_count: int
+    missing_trade_adj_factor_row_count: int
+    missing_latest_adj_factor_row_count: int
+    qfq_output_row_count: int
+    schema_mismatch_file_count: int
+    path_mismatch_row_count: int
+    duplicate_key_count: int
+    invalid_price_row_count: int
+    formula_missing_gold_row_count: int
+    formula_unexpected_gold_row_count: int
+    formula_mismatch_row_count: int
+
 
 def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
@@ -135,20 +205,26 @@ def _check_result(
     *,
     passed: bool,
     check_scope: CheckScope,
+    asset_key: dg.AssetKey | None = None,
+    check_name: str | None = None,
     file_path: Path | None = None,
     input_file_paths: Sequence[Path] | None = None,
+    missing_file_paths: Sequence[Path] | None = None,
     checked_row_count: int | None = None,
     failed_row_count: int | None = None,
     extra_metadata: dict[str, Any] | None = None,
 ) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=passed,
+        asset_key=asset_key,
+        check_name=check_name,
         metadata=build_check_metadata(
             check_scope=check_scope,
             checked_row_count=checked_row_count,
             failed_row_count=failed_row_count,
             file_path=file_path,
             input_file_paths=input_file_paths,
+            missing_file_paths=missing_file_paths,
             extra_metadata=extra_metadata or {},
         ),
     )
@@ -188,6 +264,734 @@ def _raw_path(lake_root: LakeRootResource, freq: int, partition_key: str) -> Pat
 
 def _silver_path(lake_root: LakeRootResource, freq: int, partition_key: str) -> Path:
     return silver_stk_mins_path(lake_root.root(), freq, partition_key)
+
+
+def _gold_qfq_expected_paths(
+    connection,
+    *,
+    lake_root: Path,
+    freq: int,
+    partition_key: str,
+    silver_path: Path,
+) -> tuple[Path, ...]:
+    relation = read_parquet(silver_path, hive_partitioning=False)
+    rows = connection.execute(
+        f"""
+        SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+        FROM {relation}
+        ORDER BY ts_code
+        """
+    ).fetchall()
+    year = partition_key[:4]
+    return tuple(
+        gold_stk_mins_qfq_path(lake_root, freq, str(row[0]), year) for row in rows
+    )
+
+
+def _discover_silver_adj_factor_paths(lake_root: Path) -> tuple[Path, ...]:
+    adj_factor_root = silver_adj_factor_path(lake_root, "2000-01-01").parents[1]
+    return tuple(sorted(adj_factor_root.glob("trade_date=*/part-000.parquet")))
+
+
+def _read_parquet_paths(
+    paths: Sequence[Path],
+    *,
+    filename: bool = False,
+    union_by_name: bool = True,
+) -> str:
+    if not paths:
+        raise ValueError("read_parquet paths must not be empty.")
+    path_list = ", ".join(duckdb_string(path) for path in paths)
+    filename_clause = ", filename=true" if filename else ""
+    union_clause = ", union_by_name=true" if union_by_name else ""
+    return (
+        f"read_parquet([{path_list}], hive_partitioning=false"
+        f"{union_clause}{filename_clause})"
+    )
+
+
+def _gold_qfq_asset_key(asset) -> dg.AssetKey:
+    return asset.key
+
+
+def _gold_qfq_input_failure_results(
+    *,
+    asset_key: dg.AssetKey,
+    missing_path: Path,
+    partition_key: str,
+    freq: int,
+) -> tuple[dg.AssetCheckResult, ...]:
+    return tuple(
+        _check_result(
+            passed=False,
+            asset_key=asset_key,
+            check_name=check_name,
+            check_scope=_gold_qfq_check_scope(check_name),
+            missing_file_paths=[missing_path],
+            failed_row_count=1,
+            extra_metadata={
+                "partition_key": partition_key,
+                "freq": freq,
+                "missing_input_file": str(missing_path),
+            },
+        )
+        for check_name in GOLD_STK_MINS_QFQ_CHECK_NAMES
+    )
+
+
+def _gold_qfq_check_scope(check_name: str) -> CheckScope:
+    if check_name == GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK:
+        return CheckScope.FILE_EXISTS
+    if check_name == GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK:
+        return CheckScope.SCHEMA
+    if check_name == GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK:
+        return CheckScope.PARTITION_ALIGNMENT
+    if check_name == GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK:
+        return CheckScope.KEY_UNIQUENESS
+    if check_name == GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK:
+        return CheckScope.VALUE_SANITY
+    return CheckScope.RECONCILIATION
+
+
+def _gold_qfq_schema_mismatch_count(
+    connection,
+    paths: Sequence[Path],
+) -> tuple[int, dict[str, str], str | None]:
+    if not paths:
+        return 1, {}, "No existing gold qfq files to describe."
+
+    try:
+        rows = connection.execute(
+            f"DESCRIBE SELECT * FROM {_read_parquet_paths(paths, union_by_name=False)}"
+        ).fetchall()
+    except Exception as error:  # noqa: BLE001 - expose DuckDB schema reason in metadata.
+        return 1, {}, str(error)
+
+    observed_schema = {row[0]: row[1] for row in rows}
+    missing_columns = [
+        column for column in GOLD_STK_MINS_QFQ_COLUMN_TYPES if column not in observed_schema
+    ]
+    type_mismatches = [
+        column
+        for column, expected_type in GOLD_STK_MINS_QFQ_COLUMN_TYPES.items()
+        if observed_schema.get(column) != expected_type
+    ]
+    return len(missing_columns) + len(type_mismatches), observed_schema, None
+
+
+def _gold_qfq_counts_sql(
+    *,
+    gold_source: str,
+    partition_key: str,
+    freq: int,
+) -> str:
+    partition_date_sql = duckdb_string(partition_key)
+    return f"""
+    WITH gold_rows AS (
+      SELECT
+        CAST(ts_code AS VARCHAR) AS ts_code,
+        CAST(freq AS INTEGER) AS freq,
+        CAST(trade_date AS DATE) AS trade_date,
+        CAST(trade_time AS TIMESTAMP) AS trade_time,
+        CAST(open AS DOUBLE) AS open,
+        CAST(high AS DOUBLE) AS high,
+        CAST(low AS DOUBLE) AS low,
+        CAST(close AS DOUBLE) AS close,
+        CAST(vol AS DOUBLE) AS vol,
+        CAST(amount AS DOUBLE) AS amount,
+        CAST(exchange AS VARCHAR) AS exchange,
+        CAST(filename AS VARCHAR) AS filename,
+        regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1)
+          AS path_ts_code,
+        regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1)
+          AS path_year
+      FROM {gold_source}
+    ),
+    target_rows AS (
+      SELECT *
+      FROM gold_rows
+      WHERE trade_date = CAST({partition_date_sql} AS DATE)
+    ),
+    duplicate_groups AS (
+      SELECT ts_code, trade_time, count(*) AS duplicate_count
+      FROM target_rows
+      GROUP BY ts_code, trade_time
+      HAVING count(*) > 1
+    )
+    SELECT
+      (SELECT count(*) FROM target_rows) AS gold_target_row_count,
+      count(*) FILTER (
+        WHERE freq != {freq}
+           OR ts_code != path_ts_code
+           OR strftime(trade_date, '%Y') != path_year
+           OR (
+             trade_date = CAST({partition_date_sql} AS DATE)
+             AND CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
+           )
+      ) AS path_mismatch_row_count,
+      (SELECT count(*) FROM duplicate_groups) AS duplicate_key_count,
+      (SELECT count(*)
+       FROM target_rows
+       WHERE open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+          OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
+          OR high < low
+          OR open < low OR open > high
+          OR close < low OR close > high
+      ) AS invalid_price_row_count
+    FROM gold_rows
+    """
+
+
+def _gold_qfq_sample_queries(
+    *,
+    gold_source: str,
+    partition_key: str,
+    freq: int,
+) -> dict[str, str]:
+    partition_date_sql = duckdb_string(partition_key)
+    base_cte = f"""
+    WITH gold_rows AS (
+      SELECT
+        CAST(ts_code AS VARCHAR) AS ts_code,
+        CAST(freq AS INTEGER) AS freq,
+        CAST(trade_date AS DATE) AS trade_date,
+        CAST(trade_time AS TIMESTAMP) AS trade_time,
+        CAST(open AS DOUBLE) AS open,
+        CAST(high AS DOUBLE) AS high,
+        CAST(low AS DOUBLE) AS low,
+        CAST(close AS DOUBLE) AS close,
+        CAST(filename AS VARCHAR) AS filename,
+        regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1)
+          AS path_ts_code,
+        regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1)
+          AS path_year
+      FROM {gold_source}
+    ),
+    target_rows AS (
+      SELECT *
+      FROM gold_rows
+      WHERE trade_date = CAST({partition_date_sql} AS DATE)
+    )
+    """
+    return {
+        "path_mismatch_samples": f"""
+            {base_cte}
+            SELECT ts_code, trade_date, trade_time, freq, path_ts_code, path_year
+            FROM gold_rows
+            WHERE freq != {freq}
+               OR ts_code != path_ts_code
+               OR strftime(trade_date, '%Y') != path_year
+               OR (
+                 trade_date = CAST({partition_date_sql} AS DATE)
+                 AND CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
+               )
+            ORDER BY filename, trade_date, trade_time
+            LIMIT 5
+        """,
+        "duplicate_samples": f"""
+            {base_cte}
+            SELECT ts_code, trade_time, count(*) AS duplicate_count
+            FROM target_rows
+            GROUP BY ts_code, trade_time
+            HAVING count(*) > 1
+            ORDER BY ts_code, trade_time
+            LIMIT 5
+        """,
+        "price_samples": f"""
+            {base_cte}
+            SELECT ts_code, trade_time, open, high, low, close
+            FROM target_rows
+            WHERE open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+               OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
+               OR high < low
+               OR open < low OR open > high
+               OR close < low OR close > high
+            ORDER BY ts_code, trade_time
+            LIMIT 5
+        """,
+    }
+
+
+def _gold_qfq_formula_counts_sql(
+    *,
+    gold_source: str,
+    qfq_select_sql: str,
+    partition_key: str,
+) -> str:
+    partition_date_sql = duckdb_string(partition_key)
+    tolerance = GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE
+    return f"""
+    WITH gold_rows AS (
+      SELECT
+        CAST(ts_code AS VARCHAR) AS ts_code,
+        CAST(trade_time AS TIMESTAMP) AS trade_time,
+        CAST(open AS DOUBLE) AS open,
+        CAST(high AS DOUBLE) AS high,
+        CAST(low AS DOUBLE) AS low,
+        CAST(close AS DOUBLE) AS close
+      FROM {gold_source}
+      WHERE CAST(trade_date AS DATE) = CAST({partition_date_sql} AS DATE)
+    ),
+    expected_rows AS (
+      SELECT
+        ts_code,
+        trade_time,
+        open,
+        high,
+        low,
+        close
+      FROM ({qfq_select_sql})
+    ),
+    compared_rows AS (
+      SELECT
+        coalesce(gold_rows.ts_code, expected_rows.ts_code) AS ts_code,
+        coalesce(gold_rows.trade_time, expected_rows.trade_time) AS trade_time,
+        gold_rows.open AS gold_open,
+        expected_rows.open AS expected_open,
+        gold_rows.high AS gold_high,
+        expected_rows.high AS expected_high,
+        gold_rows.low AS gold_low,
+        expected_rows.low AS expected_low,
+        gold_rows.close AS gold_close,
+        expected_rows.close AS expected_close,
+        gold_rows.ts_code IS NULL AS missing_gold_row,
+        expected_rows.ts_code IS NULL AS unexpected_gold_row
+      FROM gold_rows
+      FULL OUTER JOIN expected_rows
+        ON gold_rows.ts_code = expected_rows.ts_code
+       AND gold_rows.trade_time = expected_rows.trade_time
+    )
+    SELECT
+      count(*) FILTER (WHERE missing_gold_row) AS missing_gold_row_count,
+      count(*) FILTER (WHERE unexpected_gold_row) AS unexpected_gold_row_count,
+      count(*) FILTER (
+        WHERE NOT missing_gold_row
+          AND NOT unexpected_gold_row
+          AND (
+            abs(gold_open - expected_open) > {tolerance}
+            OR abs(gold_high - expected_high) > {tolerance}
+            OR abs(gold_low - expected_low) > {tolerance}
+            OR abs(gold_close - expected_close) > {tolerance}
+          )
+      ) AS formula_mismatch_row_count
+    FROM compared_rows
+    """
+
+
+def _gold_qfq_formula_sample_sql(
+    *,
+    gold_source: str,
+    qfq_select_sql: str,
+    partition_key: str,
+) -> str:
+    partition_date_sql = duckdb_string(partition_key)
+    tolerance = GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE
+    return f"""
+    WITH gold_rows AS (
+      SELECT
+        CAST(ts_code AS VARCHAR) AS ts_code,
+        CAST(trade_time AS TIMESTAMP) AS trade_time,
+        CAST(open AS DOUBLE) AS open,
+        CAST(high AS DOUBLE) AS high,
+        CAST(low AS DOUBLE) AS low,
+        CAST(close AS DOUBLE) AS close
+      FROM {gold_source}
+      WHERE CAST(trade_date AS DATE) = CAST({partition_date_sql} AS DATE)
+    ),
+    expected_rows AS (
+      SELECT ts_code, trade_time, open, high, low, close
+      FROM ({qfq_select_sql})
+    ),
+    compared_rows AS (
+      SELECT
+        coalesce(gold_rows.ts_code, expected_rows.ts_code) AS ts_code,
+        coalesce(gold_rows.trade_time, expected_rows.trade_time) AS trade_time,
+        gold_rows.open AS gold_open,
+        expected_rows.open AS expected_open,
+        gold_rows.high AS gold_high,
+        expected_rows.high AS expected_high,
+        gold_rows.low AS gold_low,
+        expected_rows.low AS expected_low,
+        gold_rows.close AS gold_close,
+        expected_rows.close AS expected_close,
+        gold_rows.ts_code IS NULL AS missing_gold_row,
+        expected_rows.ts_code IS NULL AS unexpected_gold_row
+      FROM gold_rows
+      FULL OUTER JOIN expected_rows
+        ON gold_rows.ts_code = expected_rows.ts_code
+       AND gold_rows.trade_time = expected_rows.trade_time
+    )
+    SELECT
+      ts_code,
+      trade_time,
+      gold_open,
+      expected_open,
+      gold_high,
+      expected_high,
+      gold_low,
+      expected_low,
+      gold_close,
+      expected_close,
+      missing_gold_row,
+      unexpected_gold_row
+    FROM compared_rows
+    WHERE missing_gold_row
+       OR unexpected_gold_row
+       OR abs(gold_open - expected_open) > {tolerance}
+       OR abs(gold_high - expected_high) > {tolerance}
+       OR abs(gold_low - expected_low) > {tolerance}
+       OR abs(gold_close - expected_close) > {tolerance}
+    ORDER BY ts_code, trade_time
+    LIMIT 5
+    """
+
+
+def _gold_qfq_check_results(
+    *,
+    asset_key: dg.AssetKey,
+    partition_key: str,
+    freq: int,
+    counts: GoldStkMinsQfqCheckCounts,
+    output_root_path: Path,
+    input_file_paths: Sequence[Path],
+    missing_gold_paths: Sequence[Path],
+    observed_schema: dict[str, str],
+    schema_error: str | None,
+    samples: dict[str, list[dict[str, Any]]],
+) -> tuple[dg.AssetCheckResult, ...]:
+    common_metadata = {
+        "partition_key": partition_key,
+        "freq": freq,
+        "expected_file_count": counts.expected_file_count,
+        "existing_file_count": counts.existing_file_count,
+        "missing_file_count": counts.missing_file_count,
+        "gold_target_row_count": counts.gold_target_row_count,
+        "silver_row_count": counts.silver_row_count,
+        "missing_gold_file_samples": [
+            str(path) for path in missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT]
+        ],
+    }
+
+    factor_coverage_failed_count = (
+        counts.missing_trade_adj_factor_row_count
+        + counts.missing_latest_adj_factor_row_count
+        + abs(counts.silver_row_count - counts.qfq_output_row_count)
+    )
+    formula_failed_count = (
+        counts.formula_missing_gold_row_count
+        + counts.formula_unexpected_gold_row_count
+        + counts.formula_mismatch_row_count
+    )
+
+    return (
+        _check_result(
+            passed=counts.expected_file_count > 0
+            and counts.missing_file_count == 0
+            and counts.gold_target_row_count > 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+            check_scope=CheckScope.FILE_EXISTS,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            missing_file_paths=missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT],
+            checked_row_count=counts.expected_file_count,
+            failed_row_count=counts.missing_file_count,
+            extra_metadata=common_metadata,
+        ),
+        _check_result(
+            passed=counts.missing_file_count == 0
+            and counts.schema_mismatch_file_count == 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+            check_scope=CheckScope.SCHEMA,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.existing_file_count,
+            failed_row_count=counts.schema_mismatch_file_count
+            + counts.missing_file_count,
+            extra_metadata={
+                **common_metadata,
+                "observed_schema": observed_schema,
+                "expected_schema": GOLD_STK_MINS_QFQ_COLUMN_TYPES,
+                "schema_error": schema_error,
+            },
+        ),
+        _check_result(
+            passed=counts.missing_file_count == 0
+            and counts.schema_mismatch_file_count == 0
+            and counts.path_mismatch_row_count == 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
+            check_scope=CheckScope.PARTITION_ALIGNMENT,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.gold_target_row_count,
+            failed_row_count=counts.path_mismatch_row_count
+            + counts.missing_file_count
+            + counts.schema_mismatch_file_count,
+            extra_metadata={
+                **common_metadata,
+                "failure_samples": samples.get("path_mismatch_samples", []),
+            },
+        ),
+        _check_result(
+            passed=counts.missing_file_count == 0
+            and counts.schema_mismatch_file_count == 0
+            and counts.duplicate_key_count == 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.gold_target_row_count,
+            failed_row_count=counts.duplicate_key_count
+            + counts.missing_file_count
+            + counts.schema_mismatch_file_count,
+            extra_metadata={
+                **common_metadata,
+                "failure_samples": samples.get("duplicate_samples", []),
+            },
+        ),
+        _check_result(
+            passed=counts.missing_file_count == 0
+            and counts.schema_mismatch_file_count == 0
+            and counts.invalid_price_row_count == 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+            check_scope=CheckScope.VALUE_SANITY,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.gold_target_row_count,
+            failed_row_count=counts.invalid_price_row_count
+            + counts.missing_file_count
+            + counts.schema_mismatch_file_count,
+            extra_metadata={
+                **common_metadata,
+                "failure_samples": samples.get("price_samples", []),
+            },
+        ),
+        _check_result(
+            passed=counts.missing_file_count == 0
+            and counts.gold_target_row_count == counts.silver_row_count,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
+            check_scope=CheckScope.RECONCILIATION,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.silver_row_count,
+            failed_row_count=abs(counts.gold_target_row_count - counts.silver_row_count)
+            + counts.missing_file_count,
+            extra_metadata=common_metadata,
+        ),
+        _check_result(
+            passed=factor_coverage_failed_count == 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
+            check_scope=CheckScope.RECONCILIATION,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.silver_row_count,
+            failed_row_count=factor_coverage_failed_count,
+            extra_metadata={
+                **common_metadata,
+                "qfq_output_row_count": counts.qfq_output_row_count,
+                "missing_trade_adj_factor_row_count": (
+                    counts.missing_trade_adj_factor_row_count
+                ),
+                "missing_latest_adj_factor_row_count": (
+                    counts.missing_latest_adj_factor_row_count
+                ),
+            },
+        ),
+        _check_result(
+            passed=counts.missing_file_count == 0
+            and counts.schema_mismatch_file_count == 0
+            and formula_failed_count == 0,
+            asset_key=asset_key,
+            check_name=GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+            check_scope=CheckScope.RECONCILIATION,
+            file_path=output_root_path,
+            input_file_paths=input_file_paths,
+            checked_row_count=counts.gold_target_row_count,
+            failed_row_count=formula_failed_count
+            + counts.missing_file_count
+            + counts.schema_mismatch_file_count,
+            extra_metadata={
+                **common_metadata,
+                "formula_tolerance": GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE,
+                "formula_missing_gold_row_count": (
+                    counts.formula_missing_gold_row_count
+                ),
+                "formula_unexpected_gold_row_count": (
+                    counts.formula_unexpected_gold_row_count
+                ),
+                "formula_mismatch_row_count": counts.formula_mismatch_row_count,
+                "failure_samples": samples.get("formula_samples", []),
+            },
+        ),
+    )
+
+
+def _gold_stk_mins_qfq_check_results(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+    asset_key: dg.AssetKey,
+) -> tuple[dg.AssetCheckResult, ...]:
+    partition_key = context.partition_key
+    root = lake_root.root()
+    normalized_freq = normalize_stk_mins_freq(freq)
+    silver_path = _silver_path(lake_root, normalized_freq, partition_key)
+    trade_adj_factor_path = silver_adj_factor_path(root, partition_key)
+    output_root_path = gold_stk_mins_qfq_path(
+        root,
+        normalized_freq,
+        "{ts_code}",
+        partition_key[:4],
+    ).parents[2]
+
+    if not silver_path.exists():
+        return _gold_qfq_input_failure_results(
+            asset_key=asset_key,
+            missing_path=silver_path,
+            partition_key=partition_key,
+            freq=normalized_freq,
+        )
+
+    latest_adj_factor_paths = _discover_silver_adj_factor_paths(root)
+    input_file_paths = [silver_path, trade_adj_factor_path]
+    if latest_adj_factor_paths:
+        input_file_paths.append(latest_adj_factor_paths[-1])
+
+    with duckdb.connect() as connection:
+        expected_paths = _gold_qfq_expected_paths(
+            connection,
+            lake_root=root,
+            freq=normalized_freq,
+            partition_key=partition_key,
+            silver_path=silver_path,
+        )
+        missing_gold_paths = tuple(path for path in expected_paths if not path.exists())
+        existing_gold_paths = tuple(path for path in expected_paths if path.exists())
+        silver_row_count = _row_count(connection, silver_path)
+
+        schema_mismatch_count, observed_schema, schema_error = (
+            _gold_qfq_schema_mismatch_count(connection, existing_gold_paths)
+        )
+
+        gold_target_row_count = 0
+        path_mismatch_row_count = 0
+        duplicate_key_count = 0
+        invalid_price_row_count = 0
+        formula_missing_gold_row_count = 0
+        formula_unexpected_gold_row_count = 0
+        formula_mismatch_row_count = 0
+        samples: dict[str, list[dict[str, Any]]] = {}
+
+        if existing_gold_paths and schema_mismatch_count == 0:
+            gold_source = _read_parquet_paths(existing_gold_paths, filename=True)
+            (
+                gold_target_row_count,
+                path_mismatch_row_count,
+                duplicate_key_count,
+                invalid_price_row_count,
+            ) = (
+                int(value or 0)
+                for value in connection.execute(
+                    _gold_qfq_counts_sql(
+                        gold_source=gold_source,
+                        partition_key=partition_key,
+                        freq=normalized_freq,
+                    )
+                ).fetchone()
+            )
+            for sample_name, query in _gold_qfq_sample_queries(
+                gold_source=gold_source,
+                partition_key=partition_key,
+                freq=normalized_freq,
+            ).items():
+                rows = connection.execute(query).fetchall()
+                columns = [column[0] for column in connection.description]
+                samples[sample_name] = _sample_dicts(columns, rows)
+
+            if trade_adj_factor_path.exists() and latest_adj_factor_paths:
+                qfq_select_sql = build_daily_qfq_select_sql(
+                    silver_paths=[silver_path],
+                    trade_adj_factor_paths=[trade_adj_factor_path],
+                    latest_adj_factor_paths=latest_adj_factor_paths,
+                )
+                formula_counts = connection.execute(
+                    _gold_qfq_formula_counts_sql(
+                        gold_source=gold_source,
+                        qfq_select_sql=qfq_select_sql,
+                        partition_key=partition_key,
+                    )
+                ).fetchone()
+                (
+                    formula_missing_gold_row_count,
+                    formula_unexpected_gold_row_count,
+                    formula_mismatch_row_count,
+                ) = (int(value or 0) for value in formula_counts)
+                rows = connection.execute(
+                    _gold_qfq_formula_sample_sql(
+                        gold_source=gold_source,
+                        qfq_select_sql=qfq_select_sql,
+                        partition_key=partition_key,
+                    )
+                ).fetchall()
+                columns = [column[0] for column in connection.description]
+                samples["formula_samples"] = _sample_dicts(columns, rows)
+
+        if trade_adj_factor_path.exists() and latest_adj_factor_paths:
+            coverage_counts = connection.execute(
+                build_daily_qfq_coverage_sql(
+                    silver_paths=[silver_path],
+                    trade_adj_factor_paths=[trade_adj_factor_path],
+                    latest_adj_factor_paths=latest_adj_factor_paths,
+                )
+            ).fetchone()
+            (
+                _coverage_silver_row_count,
+                qfq_output_row_count,
+                missing_trade_adj_factor_row_count,
+                missing_latest_adj_factor_row_count,
+            ) = (int(value or 0) for value in coverage_counts)
+        else:
+            qfq_output_row_count = 0
+            missing_trade_adj_factor_row_count = silver_row_count
+            missing_latest_adj_factor_row_count = silver_row_count
+
+    counts = GoldStkMinsQfqCheckCounts(
+        silver_row_count=silver_row_count,
+        expected_file_count=len(expected_paths),
+        existing_file_count=len(existing_gold_paths),
+        missing_file_count=len(missing_gold_paths),
+        gold_target_row_count=gold_target_row_count,
+        missing_trade_adj_factor_row_count=missing_trade_adj_factor_row_count,
+        missing_latest_adj_factor_row_count=missing_latest_adj_factor_row_count,
+        qfq_output_row_count=qfq_output_row_count,
+        schema_mismatch_file_count=schema_mismatch_count,
+        path_mismatch_row_count=path_mismatch_row_count,
+        duplicate_key_count=duplicate_key_count,
+        invalid_price_row_count=invalid_price_row_count,
+        formula_missing_gold_row_count=formula_missing_gold_row_count,
+        formula_unexpected_gold_row_count=formula_unexpected_gold_row_count,
+        formula_mismatch_row_count=formula_mismatch_row_count,
+    )
+    return _gold_qfq_check_results(
+        asset_key=asset_key,
+        partition_key=partition_key,
+        freq=normalized_freq,
+        counts=counts,
+        output_root_path=output_root_path,
+        input_file_paths=input_file_paths,
+        missing_gold_paths=missing_gold_paths,
+        observed_schema=observed_schema,
+        schema_error=schema_error,
+        samples=samples,
+    )
 
 
 def _file_exists_and_row_count_positive(
@@ -1527,3 +2331,67 @@ SILVER_STK_MINS_CHECK_DEFINITIONS = (
 assert len(SILVER_STK_MINS_CHECK_DEFINITIONS) == len(SILVER_STK_MINS_ASSETS) * len(
     SILVER_STK_MINS_CHECK_NAMES
 )
+
+
+def _build_gold_qfq_multi_check(asset, freq: int):
+    normalized_freq = normalize_stk_mins_freq(freq)
+    asset_key = _gold_qfq_asset_key(asset)
+    specs = tuple(
+        dg.AssetCheckSpec(name=check_name, asset=asset, blocking=True)
+        for check_name in GOLD_STK_MINS_QFQ_CHECK_NAMES
+    )
+
+    @dg.multi_asset_check(
+        name=f"{asset_key.path[-1]}_blocking_checks",
+        specs=specs,
+        can_subset=False,
+    )
+    def _check(
+        context: dg.AssetCheckExecutionContext,
+        lake_root: LakeRootResource,
+        duckdb: DuckDBResource,
+    ) -> Iterator[dg.AssetCheckResult]:
+        yield from _gold_stk_mins_qfq_check_results(
+            context=context,
+            lake_root=lake_root,
+            duckdb=duckdb,
+            freq=normalized_freq,
+            asset_key=asset_key,
+        )
+
+    return _check
+
+
+gold_stk_mins_qfq_1m_blocking_checks = _build_gold_qfq_multi_check(
+    gold_stk_mins_qfq_1m,
+    1,
+)
+gold_stk_mins_qfq_5m_blocking_checks = _build_gold_qfq_multi_check(
+    gold_stk_mins_qfq_5m,
+    5,
+)
+gold_stk_mins_qfq_15m_blocking_checks = _build_gold_qfq_multi_check(
+    gold_stk_mins_qfq_15m,
+    15,
+)
+gold_stk_mins_qfq_30m_blocking_checks = _build_gold_qfq_multi_check(
+    gold_stk_mins_qfq_30m,
+    30,
+)
+gold_stk_mins_qfq_60m_blocking_checks = _build_gold_qfq_multi_check(
+    gold_stk_mins_qfq_60m,
+    60,
+)
+
+GOLD_STK_MINS_QFQ_CHECK_DEFINITIONS = (
+    gold_stk_mins_qfq_1m_blocking_checks,
+    gold_stk_mins_qfq_5m_blocking_checks,
+    gold_stk_mins_qfq_15m_blocking_checks,
+    gold_stk_mins_qfq_30m_blocking_checks,
+    gold_stk_mins_qfq_60m_blocking_checks,
+)
+
+assert sum(
+    len(check_definition.check_keys)
+    for check_definition in GOLD_STK_MINS_QFQ_CHECK_DEFINITIONS
+) == len(GOLD_STK_MINS_QFQ_ASSETS) * len(GOLD_STK_MINS_QFQ_CHECK_NAMES)

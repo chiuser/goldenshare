@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 已实现；gold qfq checks/jobs/sensors 尚未实现。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A/M8B：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 已实现；gold qfq blocking checks 已用 <code>multi_asset_check</code> 实现；gold qfq jobs/sensors 尚未实现。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -1181,7 +1181,7 @@ ops:
     <p>
       gold 层保存前复权后的分钟线，输入为标准化后的 silver stk_mins 与 <code>silver_adj_factor</code>。
       gold 是计算结果，不回写 raw/silver，也不覆盖原始 clean_next。
-      本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper 和 M8A gold assets 已实现，正式 gold checks/jobs/sensors 尚未实现。
+      本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper、M8A gold assets 和 M8B blocking checks 已实现，正式 gold jobs/sensors 尚未实现。
       任何正式写湖、Dagster job、sensor、backfill 或 event 补录仍需单独审批。
     </p>
     <div class="warning">
@@ -1546,8 +1546,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M8B</strong></td>
         <td>Gold qfq checks</td>
-        <td>接入 gold blocking checks，检查目标日期在股票年份文件中的行数、唯一键、qfq 公式、因子覆盖和路径一致性。</td>
-        <td>checks 不逐行深扫大文件；优先 DuckDB 聚合；测试覆盖 pass/fail 和 metadata helper。</td>
+        <td>已接入 gold blocking checks：每个频度一个 <code>multi_asset_check</code>，UI 展示 8 个独立 check，底层一轮 DuckDB 聚合检查目标日期在股票年份文件中的行数、唯一键、qfq 公式、因子覆盖和路径一致性。</td>
+        <td>只检查当前 partition，不扫描历史；从当日 silver 股票集合推导期望股票年份文件；测试覆盖 pass/fail 和 metadata helper。</td>
       </tr>
       <tr>
         <td><strong>M8C</strong></td>
@@ -1886,8 +1886,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>
-      当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions；尚未实现 gold checks/job/sensor，未生成正式 gold 文件，未补录 event。
-      进入 M7B 编码前必须以本文档的 <code>freq + ts_code + year</code> 物理布局为准。
+      当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions 与 M8B blocking checks；尚未实现 gold job/sensor，未生成正式 gold 文件，未补录 event。
+      后续 gold qfq job/sensor、历史生成、event 补录和 repair 开发必须继续以本文档的 <code>freq + ts_code + year</code> 物理布局为准。
     </div>
   </section>
 

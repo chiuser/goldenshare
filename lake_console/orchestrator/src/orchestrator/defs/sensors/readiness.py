@@ -113,6 +113,16 @@ SILVER_STK_MINS_CHECKS = (
     "silver_stk_mins_no_full_day_suspend_structural_rows",
     "silver_stk_mins_name_timeline_covered",
 )
+GOLD_STK_MINS_QFQ_CHECKS = (
+    "gold_stk_mins_qfq_file_exists_and_row_count_positive",
+    "gold_stk_mins_qfq_schema_matches_contract",
+    "gold_stk_mins_qfq_freq_date_path_match",
+    "gold_stk_mins_qfq_unique_ts_code_trade_time",
+    "gold_stk_mins_qfq_price_sanity",
+    "gold_stk_mins_qfq_row_count_matches_silver",
+    "gold_stk_mins_qfq_factor_coverage_complete",
+    "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
+)
 SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (
     "silver_adj_factor_coverage_complete",
     "silver_adj_factor_file_exists",
@@ -184,6 +194,13 @@ SILVER_STK_MINS_ASSET_KEYS = (
     dg.AssetKey("silver_stk_mins_15m"),
     dg.AssetKey("silver_stk_mins_30m"),
     dg.AssetKey("silver_stk_mins_60m"),
+)
+GOLD_STK_MINS_QFQ_ASSET_KEYS = (
+    dg.AssetKey("gold_stk_mins_qfq_1m"),
+    dg.AssetKey("gold_stk_mins_qfq_5m"),
+    dg.AssetKey("gold_stk_mins_qfq_15m"),
+    dg.AssetKey("gold_stk_mins_qfq_30m"),
+    dg.AssetKey("gold_stk_mins_qfq_60m"),
 )
 RAW_INDEX_DAILY_BY_CODE_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily_by_code")
 SILVER_INDEX_DAILY_ASSET_KEY = dg.AssetKey("silver_index_daily")
@@ -262,6 +279,10 @@ RAW_STK_MINS_READINESS_SPECS = tuple(
 SILVER_STK_MINS_READINESS_SPECS = tuple(
     AssetReadinessSpec(asset_key, SILVER_STK_MINS_CHECKS)
     for asset_key in SILVER_STK_MINS_ASSET_KEYS
+)
+GOLD_STK_MINS_QFQ_READINESS_SPECS = tuple(
+    AssetReadinessSpec(asset_key, GOLD_STK_MINS_QFQ_CHECKS)
+    for asset_key in GOLD_STK_MINS_QFQ_ASSET_KEYS
 )
 RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC = AssetReadinessSpec(
     RAW_INDEX_DAILY_BY_CODE_ASSET_KEY,
@@ -536,6 +557,17 @@ def silver_stk_mins_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         SILVER_STK_MINS_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def gold_stk_mins_qfq_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> DatasetReadinessStatus:
+    return dataset_readiness_status(
+        instance,
+        GOLD_STK_MINS_QFQ_READINESS_SPECS,
         partition_key=trade_date,
     )
 
