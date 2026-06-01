@@ -6,9 +6,13 @@ from sqlalchemy.orm import Session
 from src.app.auth.dependencies import require_admin
 from src.app.auth.domain import AuthenticatedUser
 from src.app.dependencies import get_db_session, get_realtime_state_store
+from src.app.exceptions import WebAppError
 from src.foundation.realtime import RealtimeStateStore
-from src.ops.queries.realtime_feed_health_query_service import RealtimeFeedHealthQueryService
-from src.ops.schemas.realtime import OpsRealtimeStockRtDailyHealthResponse
+from src.ops.queries.realtime_feed_health_query_service import (
+    RealtimeFeedHealthQueryService,
+    RealtimeFeedHealthValidationError,
+)
+from src.ops.schemas.realtime import OpsRealtimeStockRtDailyHealthResponse, OpsRealtimeStockRtMinHealthResponse
 
 
 router = APIRouter(prefix="/ops/realtime", tags=["ops"])
@@ -21,3 +25,16 @@ def get_stock_rt_daily_health(
     store: RealtimeStateStore = Depends(get_realtime_state_store),
 ) -> OpsRealtimeStockRtDailyHealthResponse:
     return RealtimeFeedHealthQueryService(store=store).build_stock_rt_daily_health(session)
+
+
+@router.get("/stock-rt-min/health", response_model=OpsRealtimeStockRtMinHealthResponse)
+def get_stock_rt_min_health(
+    freq: str | None = None,
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    store: RealtimeStateStore = Depends(get_realtime_state_store),
+) -> OpsRealtimeStockRtMinHealthResponse:
+    try:
+        return RealtimeFeedHealthQueryService(store=store).build_stock_rt_min_health(session, freq=freq)
+    except RealtimeFeedHealthValidationError as exc:
+        raise WebAppError(status_code=400, code=exc.code, message=exc.message) from exc

@@ -793,8 +793,8 @@ fields = [
     <section id="api" class="section">
       <div class="section-header">
         <div>
-          <h2>8. API 契约草案</h2>
-          <p>只定义读取 Redis 的服务端 API，不暴露 Tushare 参数。</p>
+          <h2>8. API 契约</h2>
+          <p>后端读取 API 已在 M6 完成；它们只读 Redis，不暴露 Tushare 参数，前端接入留到 M7。</p>
         </div>
       </div>
       <div class="section-body">
@@ -944,7 +944,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M6</td>
               <td>实现业务 API 与 Ops API</td>
-              <td>待推进：按 <code>freq + ts_codes</code> 查快照；按 feed 查健康。</td>
+              <td>已完成：业务 API 按 <code>freq + ts_codes</code> 查 Redis 当前快照；Ops health API 支持五频率全量与单频过滤，同一 wrapper schema。</td>
             </tr>
             <tr>
               <td>M7</td>
@@ -1021,7 +1021,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>Ops health</td>
               <td>现有 Ops realtime health API 和前端页面只服务股票实时日线单 feed。</td>
-              <td>分钟 V1 不能只加一个后端接口就完事。Ops 页面、schema、query key、类型定义要升级为“日线 + 分钟分组”，分钟分组按五个频率展示。</td>
+              <td>分钟 Ops health API 已完成后端读取契约：不带 <code>freq</code> 返回五频率全量，带 <code>freq</code> 仍返回同一 wrapper 且只有一个 item。Ops 页面、query key 和前端类型接入留到 M7。</td>
             </tr>
             <tr>
               <td>页面轮询</td>
@@ -1031,7 +1031,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>测试门禁</td>
               <td>现有测试覆盖日线 collector、业务 API、Ops health。</td>
-              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；统一 collector 调度、单频率异常隔离、分钟 health、非采集时段不请求源站已在 M5 覆盖；Ops 多频率 health API 和页面分组渲染留到 M6-M7。</td>
+              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；统一 collector 调度、单频率异常隔离、分钟 health、非采集时段不请求源站已在 M5 覆盖；分钟业务 API 与 Ops 多频率 health API 已在 M6 覆盖；页面分组渲染留到 M7。</td>
             </tr>
           </tbody>
         </table>
