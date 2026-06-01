@@ -17,6 +17,7 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stk_mins_path,
 )
+from orchestrator.defs.stk_mins_qfq import build_daily_qfq_select_sql
 from orchestrator.defs.run_contracts.asset_column_schemas import SILVER_STK_MINS_SCHEMA
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
@@ -27,7 +28,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
 REPORT_JSON = "m7a_qfq_performance_summary.json"
 REPORT_CSV = "m7a_qfq_performance_summary.csv"
 GOLD_QFQ_COLUMNS = tuple(column.name for column in SILVER_STK_MINS_SCHEMA)
-GOLD_QFQ_COLUMN_TYPES = {column.name: column.type for column in SILVER_STK_MINS_SCHEMA}
 
 
 @dataclass(frozen=True)
@@ -138,8 +138,8 @@ def run_qfq_benchmark(
                 partition_count=1,
                 select_sql=build_daily_qfq_select_sql(
                     silver_paths=[silver_path],
-                    adj_factor_paths=[adj_path],
-                    latest_adj_factor_path=latest_adj_path,
+                    trade_adj_factor_paths=[adj_path],
+                    latest_adj_factor_paths=[latest_adj_path],
                 ),
                 target_path=target_path,
                 input_paths=[silver_path, adj_path, latest_adj_path],
@@ -170,8 +170,8 @@ def run_qfq_benchmark(
                 FROM (
                   {build_daily_qfq_select_sql(
                       silver_paths=silver_paths,
-                      adj_factor_paths=adj_paths,
-                      latest_adj_factor_path=latest_adj_path,
+                      trade_adj_factor_paths=adj_paths,
+                      latest_adj_factor_paths=[latest_adj_path],
                   )}
                 )
                 WHERE ts_code = {duckdb_string(stock_code)}
@@ -207,66 +207,6 @@ def run_qfq_benchmark(
     }
     _write_report(output_dir, report)
     return report
-
-
-def build_daily_qfq_select_sql(
-    *,
-    silver_paths: Sequence[Path],
-    adj_factor_paths: Sequence[Path],
-    latest_adj_factor_path: Path,
-) -> str:
-    silver_source = _read_parquet_paths(silver_paths)
-    adj_source = _read_parquet_paths(adj_factor_paths)
-    latest_source = read_parquet(latest_adj_factor_path, hive_partitioning=False)
-    return f"""
-WITH silver_rows AS (
-  SELECT
-    CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(freq AS INTEGER) AS freq,
-    CAST(trade_date AS DATE) AS trade_date,
-    CAST(trade_time AS TIMESTAMP) AS trade_time,
-    CAST(open AS DOUBLE) AS open,
-    CAST(high AS DOUBLE) AS high,
-    CAST(low AS DOUBLE) AS low,
-    CAST(close AS DOUBLE) AS close,
-    CAST(vol AS DOUBLE) AS vol,
-    CAST(amount AS DOUBLE) AS amount,
-    CAST(exchange AS VARCHAR) AS exchange
-  FROM {silver_source}
-),
-daily_factor AS (
-  SELECT
-    CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(trade_date AS DATE) AS trade_date,
-    CAST(adj_factor AS DOUBLE) AS trade_adj_factor
-  FROM {adj_source}
-),
-latest_factor AS (
-  SELECT
-    CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(adj_factor AS DOUBLE) AS latest_adj_factor
-  FROM {latest_source}
-)
-SELECT
-  silver_rows.ts_code,
-  silver_rows.freq,
-  silver_rows.trade_date,
-  silver_rows.trade_time,
-  CAST(silver_rows.open * daily_factor.trade_adj_factor / latest_factor.latest_adj_factor AS DOUBLE) AS open,
-  CAST(silver_rows.high * daily_factor.trade_adj_factor / latest_factor.latest_adj_factor AS DOUBLE) AS high,
-  CAST(silver_rows.low * daily_factor.trade_adj_factor / latest_factor.latest_adj_factor AS DOUBLE) AS low,
-  CAST(silver_rows.close * daily_factor.trade_adj_factor / latest_factor.latest_adj_factor AS DOUBLE) AS close,
-  silver_rows.vol,
-  silver_rows.amount,
-  silver_rows.exchange
-FROM silver_rows
-INNER JOIN daily_factor
-  ON silver_rows.ts_code = daily_factor.ts_code
- AND silver_rows.trade_date = daily_factor.trade_date
-INNER JOIN latest_factor
-  ON silver_rows.ts_code = latest_factor.ts_code
-ORDER BY silver_rows.ts_code, silver_rows.trade_time
-"""
 
 
 def rewrite_qfq_partition_for_stock_code(
@@ -388,8 +328,8 @@ def _benchmark_partition_rewrite(
         target_path = scenario_dir / "rewritten" / f"trade_date={partition_key}" / "part-000.parquet"
         select_sql = build_daily_qfq_select_sql(
             silver_paths=[silver_path],
-            adj_factor_paths=[adj_path],
-            latest_adj_factor_path=latest_adj_factor_path,
+            trade_adj_factor_paths=[adj_path],
+            latest_adj_factor_paths=[latest_adj_factor_path],
         )
         _copy_select_to_parquet(select_sql, baseline_path)
         _copy_select_to_parquet(
@@ -503,15 +443,6 @@ def _require_file(path: Path) -> Path:
     if not path.exists():
         raise FileNotFoundError(f"Missing required qfq benchmark input: {path}")
     return path
-
-
-def _read_parquet_paths(paths: Sequence[Path]) -> str:
-    if not paths:
-        raise ValueError("At least one parquet path is required.")
-    if len(paths) == 1:
-        return read_parquet(paths[0], hive_partitioning=False)
-    path_list = ", ".join(duckdb_string(path) for path in paths)
-    return f"read_parquet([{path_list}], hive_partitioning=false, union_by_name=true)"
 
 
 def _write_report(output_dir: Path, report: dict[str, object]) -> None:
