@@ -5,7 +5,7 @@ from typing import Callable
 
 from sqlalchemy.orm import Session
 
-from src.foundation.realtime import StockRtDailyCollector, build_realtime_state_store, get_realtime_runtime_config
+from src.foundation.realtime import RealtimeCollectorService, build_realtime_state_store, get_realtime_runtime_config
 
 
 def run_realtime_collector_serve(
@@ -16,22 +16,25 @@ def run_realtime_collector_serve(
 ) -> None:
     config = get_realtime_runtime_config()
     store = build_realtime_state_store(config.redis_url)
-    collector = StockRtDailyCollector(store=store, config=config.stock_rt_daily)
+    collector = RealtimeCollectorService(store=store, config=config)
     cycle = 0
     while True:
         cycle += 1
-        started = time.monotonic()
         with session_local() as session:
-            result = collector.run_cycle(session)
-        echo_fn(
-            "realtime-collector-serve: "
-            f"cycle={cycle} status={result.status} collection_status={result.collection_status} "
-            f"batch_id={result.batch_id or '-'} fetched={result.fetched_rows} "
-            f"snapshots={result.snapshot_count} deltas={result.delta_count}"
-        )
-        if result.message:
-            echo_fn(f"realtime-collector-serve: message={result.message}")
+            cycle_result = collector.run_due_cycle(session)
+        if not cycle_result.feed_runs:
+            echo_fn(f"realtime-collector-serve: cycle={cycle} no_due_feeds=true")
+        for result in cycle_result.feed_runs:
+            freq = f" freq={result.freq}" if result.freq else ""
+            echo_fn(
+                "realtime-collector-serve: "
+                f"cycle={cycle} feed_key={result.feed_key}{freq} status={result.status} "
+                f"collection_status={result.collection_status} batch_id={result.batch_id or '-'} "
+                f"fetched={result.fetched_rows} snapshots={result.snapshot_count} "
+                f"deltas={result.delta_count} invalid={result.invalid_count}"
+            )
+            if result.message:
+                echo_fn(f"realtime-collector-serve: feed_key={result.feed_key}{freq} message={result.message}")
         if max_cycles is not None and cycle >= max_cycles:
             return
-        elapsed = time.monotonic() - started
-        time.sleep(max(config.stock_rt_daily.poll_interval_seconds - elapsed, 0.1))
+        time.sleep(cycle_result.next_sleep_seconds)

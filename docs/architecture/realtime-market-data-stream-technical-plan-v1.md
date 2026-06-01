@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：远程发版完成 / 收市 idle 验收通过 / M2 配置单一读取层已收口 / 待下一交易时段端到端验收
+状态：远程发版完成 / 收市 idle 验收通过 / M2 配置单一读取层已收口 / M5 统一 collector 调度已收口 / 待下一交易时段端到端验收
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -24,6 +24,12 @@
 4. `REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30` 进入配置模型，保持日线当前行为。
 5. 配置关系必须集中校验：采集间隔、启用频率数、feed 级限速、lease TTL、stale 阈值、TTL、stream 裁剪之间不能各自为政。
 6. 本修订不改变实时日线 V1 的业务行为，只改变配置事实源和读取边界。
+
+### 0.0.1 2026-06-01 统一 collector 调度修订
+
+M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serve` 由 `RealtimeCollectorService` 统一调度实时日线与股票实时分钟 feed。股票实时分钟默认 `REALTIME_STOCK_RT_MIN_ENABLED=false`，因此默认生产行为仍只采集日线；启用分钟后，同一个 systemd 服务内按 feed 独立 due time 调度，日线 6 秒循环不会触发分钟每 6 秒请求。
+
+本修订不新增外部 API、不改 Ops 页面、不启用 WebSocket。分钟 feed 的业务 API 与 Ops 分组展示仍留到 M6/M7。
 
 ### 0.1 已经收敛的主线
 

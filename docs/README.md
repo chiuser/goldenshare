@@ -50,7 +50,7 @@ docs/
 - [Workflow 时间形状与时间制度分析 v1（M2 已落地）](/Users/congming/github/goldenshare/docs/architecture/workflow-time-shape-vs-time-regime-analysis-v1.md)
 - [实时行情流架构方案 v1（HTML，日线已上线 / M2 配置收口完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)
 - [股票实时日线流技术落地方案 v1（日线已上线 / M2 配置收口完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-technical-plan-v1.md)
-- [A股实时分钟流架构方案 v1（HTML，M4 provider/normalizer/单频发布能力已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)
+- [A股实时分钟流架构方案 v1（HTML，M5 统一 collector 调度已完成）](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)
 - [股票周/月线自然锚点日期模型修正方案 v1（已实施）](/Users/congming/github/goldenshare/docs/architecture/stk-period-calendar-anchor-date-model-fix-plan-v1.md)
 - [周/月锚点交易日口径确认 v1](/Users/congming/github/goldenshare/docs/architecture/weekly-monthly-trade-date-anchor-confirmation-v1.md)
 - [Core Serving + Serving Light 分层设计 v1](/Users/congming/github/goldenshare/docs/architecture/core-serving-light-design-v1.md)

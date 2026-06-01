@@ -939,17 +939,17 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M5</td>
               <td>统一 realtime collector</td>
-              <td>一个 <code>realtime-collector-serve</code> 服务内调度日线与分钟 feed；feed 级独立异常、lease、health。</td>
+              <td>已完成：一个 <code>realtime-collector-serve</code> 服务内调度日线与分钟 feed；分钟默认关闭；feed 级独立 due time、异常、lease 与 health。</td>
             </tr>
             <tr>
               <td>M6</td>
               <td>实现业务 API 与 Ops API</td>
-              <td>按 <code>freq + ts_codes</code> 查快照；按 feed 查健康。</td>
+              <td>待推进：按 <code>freq + ts_codes</code> 查快照；按 feed 查健康。</td>
             </tr>
             <tr>
               <td>M7</td>
               <td>Ops 页面扩展</td>
-              <td>实时流监控新增股票实时分钟分组。</td>
+              <td>待推进：实时流监控新增股票实时分钟分组。</td>
             </tr>
             <tr>
               <td>M8</td>
@@ -1031,7 +1031,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>测试门禁</td>
               <td>现有测试覆盖日线 collector、业务 API、Ops health。</td>
-              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；Ops 多频率 health、页面分组渲染、非采集时段不请求源站留到 M5-M7 覆盖。</td>
+              <td>分钟 V1 分阶段新增：配置解析、五频率 feed key、provider fields 包含 <code>freq</code>、freq 必传、feed 隔离已在 M2/M4 覆盖；统一 collector 调度、单频率异常隔离、分钟 health、非采集时段不请求源站已在 M5 覆盖；Ops 多频率 health API 和页面分组渲染留到 M6-M7。</td>
             </tr>
           </tbody>
         </table>

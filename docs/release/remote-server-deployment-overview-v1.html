@@ -232,7 +232,7 @@
         <tr><td><code>goldenshare-ops-worker.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops TaskRun worker。</td></tr>
         <tr><td><code>goldenshare-ops-scheduler.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-scheduler-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops 自动任务调度。</td></tr>
         <tr><td><code>goldenshare-date-completeness-worker.service</code></td><td class="ok">active/running</td><td>disabled</td><td><code>goldenshare ops-date-completeness-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>日期完整性审计 worker；当前运行但未设置开机自启。</td></tr>
-        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-collector-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>实时采集器；当前只运行股票实时日线 feed。</td></tr>
+        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-collector-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>统一实时采集器；默认只运行股票实时日线 feed，开启 <code>REALTIME_STOCK_RT_MIN_ENABLED</code> 后同服务调度股票实时分钟 feed。</td></tr>
       </tbody>
     </table>
     <h3>共同服务配置</h3>
