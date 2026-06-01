@@ -2219,8 +2219,8 @@ silver_stock_daily =
           <td><code>silver_stock_daily_covers_expected_tradable_universe</code></td>
           <td><code>silver_stock_daily</code></td>
           <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
-          <td>观测当前上市股票池与日线覆盖差异；完整性 metadata 必须包含缺失、多余、全日停牌解释和盘中停牌样本。</td>
-          <td>第二期先 WARN；不作为 silver 写入阻断</td>
+          <td>校验当前上市股票池与 silver 日线覆盖差异；完整性 metadata 必须包含缺失、多余、全日停牌解释和盘中停牌样本。</td>
+          <td>blocking；作为 <code>silver_stock_daily</code> 标准事实表完整性门禁</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily_unexplained_missing_sample</code></td>

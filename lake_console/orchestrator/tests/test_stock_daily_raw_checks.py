@@ -6,10 +6,12 @@ from orchestrator.defs.checks import stock_daily_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.paths import (
     raw_stock_daily_path,
+    silver_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.sensors import readiness
 
 
 PARTITION_KEY = "2026-05-29"
@@ -73,6 +75,14 @@ def _raw_row(
     return {"ts_code": ts_code, "trade_date": trade_date}
 
 
+def _silver_row(
+    ts_code: str,
+    *,
+    trade_date: str = PARTITION_KEY,
+) -> dict[str, object]:
+    return {"ts_code": ts_code, "trade_date": trade_date}
+
+
 def _suspend_row(
     ts_code: str,
     *,
@@ -92,6 +102,17 @@ def _write_raw(lake_root: Path, rows: list[dict[str, object]]) -> Path:
     _write_rows(
         path,
         column_types={"ts_code": "VARCHAR", "trade_date": "VARCHAR"},
+        rows=rows,
+        order_by="ts_code, trade_date",
+    )
+    return path
+
+
+def _write_silver(lake_root: Path, rows: list[dict[str, object]]) -> Path:
+    path = silver_stock_daily_path(lake_root, PARTITION_KEY)
+    _write_rows(
+        path,
+        column_types={"ts_code": "VARCHAR", "trade_date": "DATE"},
         rows=rows,
         order_by="ts_code, trade_date",
     )
@@ -152,7 +173,40 @@ def _raw_universe_metadata(
         )
 
 
+def _silver_universe_metadata(
+    lake_root: Path,
+    *,
+    basic_rows: list[dict[str, object]],
+    suspend_rows: list[dict[str, object]],
+    silver_rows: list[dict[str, object]],
+) -> dict[str, object]:
+    silver_path = _write_silver(lake_root, silver_rows)
+    basic_path = _write_basic(lake_root, basic_rows)
+    suspend_path = _write_suspend(lake_root, suspend_rows)
+    with DuckDBResource().connect() as connection:
+        return stock_daily_checks._expected_tradable_universe_metadata(
+            connection,
+            partition_key=PARTITION_KEY,
+            daily_path=silver_path,
+            basic_path=basic_path,
+            suspend_path=suspend_path,
+            daily_code_set_sql=stock_daily_checks._silver_daily_code_set_sql(
+                silver_path, PARTITION_KEY
+            ),
+        )
+
+
 class StockDailyRawCheckTests(unittest.TestCase):
+    def test_silver_coverage_check_is_blocking_readiness_gate(self) -> None:
+        self.assertIn(
+            "silver_stock_daily_covers_expected_tradable_universe",
+            readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
+        self.assertNotIn(
+            "silver_stock_daily_row_count_matches_expected_tradable_count",
+            readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
+
     def test_raw_universe_complete_excludes_full_day_suspend(self) -> None:
         with TemporaryDirectory() as directory:
             metadata = _raw_universe_metadata(
@@ -240,6 +294,80 @@ class StockDailyRawCheckTests(unittest.TestCase):
                 }
             ],
         )
+
+    def test_silver_universe_complete_excludes_full_day_suspend(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                basic_rows=[
+                    _basic_row("000001.SZ"),
+                    _basic_row("000002.SZ"),
+                    _basic_row("000003.SZ"),
+                ],
+                suspend_rows=[_suspend_row("000003.SZ")],
+                silver_rows=[_silver_row("000001.SZ"), _silver_row("000002.SZ")],
+            )
+
+        self.assertEqual(metadata["listed_count"], 3)
+        self.assertEqual(metadata["full_day_suspend_count"], 1)
+        self.assertEqual(metadata["expected_count"], 2)
+        self.assertEqual(metadata["daily_count"], 2)
+        self.assertEqual(metadata["unexplained_missing_count"], 0)
+        self.assertEqual(metadata["unexplained_extra_count"], 0)
+
+    def test_silver_universe_reports_missing_expected_code(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                basic_rows=[_basic_row("000001.SZ"), _basic_row("000002.SZ")],
+                suspend_rows=[],
+                silver_rows=[_silver_row("000001.SZ")],
+            )
+
+        self.assertEqual(metadata["expected_count"], 2)
+        self.assertEqual(metadata["daily_count"], 1)
+        self.assertEqual(metadata["unexplained_missing_count"], 1)
+        self.assertEqual(metadata["missing_sample_ts_codes"], ["000002.SZ"])
+
+    def test_silver_universe_reports_unexpected_extra_code(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                basic_rows=[_basic_row("000001.SZ")],
+                suspend_rows=[],
+                silver_rows=[_silver_row("000001.SZ"), _silver_row("000999.SZ")],
+            )
+
+        self.assertEqual(metadata["expected_count"], 1)
+        self.assertEqual(metadata["daily_count"], 2)
+        self.assertEqual(metadata["unexplained_extra_count"], 1)
+        self.assertEqual(metadata["extra_sample_ts_codes"], ["000999.SZ"])
+
+    def test_silver_full_day_suspend_explains_missing_daily(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                basic_rows=[_basic_row("000001.SZ"), _basic_row("000002.SZ")],
+                suspend_rows=[_suspend_row("000002.SZ")],
+                silver_rows=[_silver_row("000001.SZ")],
+            )
+
+        self.assertEqual(metadata["full_day_suspend_count"], 1)
+        self.assertEqual(metadata["expected_count"], 1)
+        self.assertEqual(metadata["unexplained_missing_count"], 0)
+
+    def test_silver_intraday_suspend_does_not_explain_missing_daily(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                basic_rows=[_basic_row("000001.SZ"), _basic_row("000002.SZ")],
+                suspend_rows=[_suspend_row("000002.SZ", suspend_timing="10:00-15:00")],
+                silver_rows=[_silver_row("000001.SZ")],
+            )
+
+        self.assertEqual(metadata["intraday_suspend_count"], 1)
+        self.assertEqual(metadata["unexplained_missing_count"], 1)
+        self.assertEqual(metadata["missing_sample_ts_codes"], ["000002.SZ"])
 
 
 if __name__ == "__main__":

@@ -545,6 +545,8 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr><td><code>silver_stock_daily_bj_after_market_open_only</code></td><td>是</td><td>BJ 股票不允许出现 <code>2021-11-15</code> 前数据。</td></tr>
         <tr><td><code>silver_stock_daily_price_sanity</code></td><td>是</td><td>价格非负，且 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。</td></tr>
         <tr><td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td><td>否</td><td>观测型。silver 经筛选后行数应小于等于 raw。</td></tr>
+        <tr><td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td><td>否</td><td>观测型。只记录 silver distinct <code>ts_code</code> 数量与预期可交易股票池数量是否相等；不升级为阻断，避免和集合覆盖门禁重复。</td></tr>
+        <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>标准事实表完整性门禁。silver 当日不得缺少预期可交易股票，也不得多出非预期股票；全日停牌可解释缺失，盘中停牌不能解释缺失，missing/extra 均阻断。</td></tr>
       </tbody>
     </table>
   </section>

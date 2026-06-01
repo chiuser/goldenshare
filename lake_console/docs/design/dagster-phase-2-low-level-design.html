@@ -773,7 +773,7 @@ from read_parquet(
       按 <code>trade_date</code> 分区迁移、旧湖字段类型纠偏、nullable string cast、允许 0 行结果、写入新 raw 后复用 raw checks。
     </p>
     <div class="callout">
-      不建议第一个使用者选择 <code>stock_daily</code>。它数据量更大，重复行、冲突行、完整性 WARN 和业务检查更多，
+      不建议第一个使用者选择 <code>stock_daily</code>。它数据量更大，重复行、冲突行、完整性 checks 和业务检查更多，
       容易把 bootstrap 引擎问题和数据质量问题搅在一起。先用 <code>suspend_d</code> 把迁移引擎跑稳，再扩到 calendar/basic/stock_daily。
     </div>
   </section>
@@ -1185,13 +1185,13 @@ intraday_suspended:
           <td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td>
           <td><code>silver_stock_daily</code></td>
           <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
-          <td>第二期 WARN，作为覆盖率观测；不阻断 silver 写入。</td>
+          <td>WARN，作为数量观测；不阻断 silver 写入，避免和集合覆盖门禁重复阻断。</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily_covers_expected_tradable_universe</code></td>
           <td><code>silver_stock_daily</code></td>
           <td><code>silver_stock_basic</code>、<code>silver_stock_suspend_daily</code></td>
-          <td>第二期 WARN，必须输出完整差异 metadata。</td>
+          <td>blocking；标准事实表完整性门禁。silver 当日不得缺少预期可交易股票，也不得多出非预期股票；必须输出完整差异 metadata。</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily_current_listed_only</code></td>
@@ -2295,7 +2295,7 @@ defs/sensors/stock_return_distribution_automation_sensor.py
           <td>2.0.5</td>
           <td>stock_daily 历史迁移和完整性 checks 改造。</td>
           <td><code>bootstrap/specs/stock_daily.py</code>、<code>stock_daily_checks.py</code>、<code>duckdb_sql.py</code> 中 stock daily / stock basic / suspend_d silver 口径改造。</td>
-          <td>单日和 2026-04 小范围验证通过；确认 raw 不过滤，silver 执行当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、2014 起始日四类过滤；14 条 <code>suspend_timing</code> 修正生效；完整性 WARN 输出完整差异 metadata。</td>
+          <td>单日和 2026-04 小范围验证通过；确认 raw 不过滤，silver 执行当前上市、上市日后、BJ 自 <code>2021-11-15</code> 起、2014 起始日四类过滤；14 条 <code>suspend_timing</code> 修正生效；覆盖完整性门禁输出完整差异 metadata。</td>
         </tr>
         <tr>
           <td>2.0.6</td>

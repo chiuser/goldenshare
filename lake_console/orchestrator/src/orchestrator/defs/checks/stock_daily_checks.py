@@ -1152,7 +1152,7 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
 @dg.asset_check(
     asset=silver_stock_daily,
     additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
-    blocking=False,
+    blocking=True,
 )
 def silver_stock_daily_covers_expected_tradable_universe(
     context: dg.AssetCheckExecutionContext,
@@ -1177,10 +1177,13 @@ def silver_stock_daily_covers_expected_tradable_universe(
             daily_code_set_sql=_silver_daily_code_set_sql(daily_path, partition_key),
         )
 
-    return _warn_result(
+    return dg.AssetCheckResult(
         passed=(
             metadata["unexplained_missing_count"] == 0
             and metadata["unexplained_extra_count"] == 0
         ),
-        metadata=metadata,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            extra_metadata=metadata,
+        ),
     )

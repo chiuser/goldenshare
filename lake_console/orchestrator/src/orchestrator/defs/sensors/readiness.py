@@ -73,6 +73,7 @@ SILVER_STOCK_DAILY_BLOCKING_CHECKS = (
     "silver_stock_daily_after_list_date_only",
     "silver_stock_daily_bj_after_market_open_only",
     "silver_stock_daily_conflicting_duplicate_absent",
+    "silver_stock_daily_covers_expected_tradable_universe",
     "silver_stock_daily_current_listed_only",
     "silver_stock_daily_partition_date_matches",
     "silver_stock_daily_price_sanity",

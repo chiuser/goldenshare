@@ -702,6 +702,8 @@
         <tr><td><code>silver_stock_daily_bj_after_market_open_only</code></td><td>是</td><td>BJ 股票不允许出现 <code>2021-11-15</code> 前日线。</td></tr>
         <tr><td><code>silver_stock_daily_price_sanity</code></td><td>是</td><td>阻断。价格字段不允许为负；不允许 <code>high &lt; low</code>；必须满足 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。审计结果为 0。</td></tr>
         <tr><td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td><td>否</td><td>观测项。silver 经过筛选，行数应小于等于 raw。</td></tr>
+        <tr><td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td><td>否</td><td>观测项。记录 silver 当日 distinct <code>ts_code</code> 数量是否等于预期可交易股票池数量；不作为阻断，避免和集合覆盖 check 重复阻断。</td></tr>
+        <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>标准事实表完整性门禁。silver 当日必须覆盖全部“当前上市且非全日停牌”的股票，且不得多出非预期股票；全日停牌可解释缺失，盘中停牌不能解释缺失；missing/extra 均阻断。</td></tr>
       </tbody>
     </table>
 
