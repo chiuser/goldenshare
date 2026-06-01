@@ -9,6 +9,7 @@ from orchestrator.defs.bootstrap.stk_mins_silver_bootstrap_events import (
     SILVER_STK_MINS_ASSET_KEYS,
     SILVER_STK_MINS_CHECKS,
     audit_stk_mins_silver_bootstrap_partition,
+    register_stock_mins_silver_partitions,
     report_stk_mins_silver_bootstrap_events,
 )
 from orchestrator.defs.bootstrap.stk_mins_silver_history import (
@@ -16,7 +17,7 @@ from orchestrator.defs.bootstrap.stk_mins_silver_history import (
     plan_stk_mins_silver_history,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
-from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     raw_stk_mins_path,
     silver_namechange_path,
@@ -255,7 +256,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
             _write_valid_silver_history(lake_root)
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
-                cn_a_stock_mins_trade_days.name,
+                cn_a_stock_mins_silver_trade_days.name,
                 [PARTITION_KEY],
             )
 
@@ -280,13 +281,28 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
         self.assertEqual(report.reported_event_count, 0)
         self.assertEqual(materializations, [])
 
+    def test_event_plan_requires_silver_partition_registration(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_silver_history(lake_root)
+            instance = dg.DagsterInstance.ephemeral()
+
+            with self.assertRaisesRegex(ValueError, "not aligned"):
+                report_stk_mins_silver_bootstrap_events(
+                    instance=instance,
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    partition_keys=[PARTITION_KEY],
+                    dry_run=True,
+                )
+
     def test_reports_silver_events_and_readiness(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_silver_history(lake_root)
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
-                cn_a_stock_mins_trade_days.name,
+                cn_a_stock_mins_silver_trade_days.name,
                 [PARTITION_KEY],
             )
 
@@ -346,7 +362,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
             )
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
-                cn_a_stock_mins_trade_days.name,
+                cn_a_stock_mins_silver_trade_days.name,
                 [PARTITION_KEY],
             )
 
@@ -366,6 +382,34 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
                 )
 
         self.assertIn("silver_stk_mins_price_sanity", audit.failed_check_names)
+
+    def test_registers_silver_partitions_with_dry_run(self) -> None:
+        instance = dg.DagsterInstance.ephemeral()
+
+        dry_run = register_stock_mins_silver_partitions(
+            instance=instance,
+            partition_keys=[PARTITION_KEY],
+            dry_run=True,
+        )
+        actual = instance.get_dynamic_partitions(
+            cn_a_stock_mins_silver_trade_days.name
+        )
+        written = register_stock_mins_silver_partitions(
+            instance=instance,
+            partition_keys=[PARTITION_KEY],
+        )
+        second = register_stock_mins_silver_partitions(
+            instance=instance,
+            partition_keys=[PARTITION_KEY],
+        )
+
+        self.assertTrue(dry_run.dry_run)
+        self.assertEqual(dry_run.registered_partition_keys, (PARTITION_KEY,))
+        self.assertEqual(actual, [])
+        self.assertFalse(written.dry_run)
+        self.assertEqual(written.registered_partition_keys, (PARTITION_KEY,))
+        self.assertEqual(second.existing_partition_keys, (PARTITION_KEY,))
+        self.assertEqual(second.registered_partition_keys, ())
 
 
 if __name__ == "__main__":

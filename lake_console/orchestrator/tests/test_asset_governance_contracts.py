@@ -124,6 +124,10 @@ from orchestrator.defs.paths import (
     silver_stock_suspend_daily_path,
     silver_trade_calendar_path,
 )
+from orchestrator.defs.partitions import (
+    cn_a_stock_mins_silver_trade_days,
+    cn_a_stock_mins_trade_days,
+)
 from orchestrator.defs.run_contracts.asset_tags import (
     ASSET_LAYER_TAG,
     DATA_DOMAIN_TAG,
@@ -441,6 +445,33 @@ class AssetGovernanceContractTests(unittest.TestCase):
                         spec.metadata[PATH_TEMPLATE_METADATA_KEY],
                         ASSET_PATH_TEMPLATES[asset],
                     )
+
+    def test_stk_mins_raw_and_silver_assets_use_separate_partitions(self) -> None:
+        raw_assets = (
+            raw_stk_mins_1m,
+            raw_stk_mins_5m,
+            raw_stk_mins_15m,
+            raw_stk_mins_30m,
+            raw_stk_mins_60m,
+        )
+        silver_assets = (
+            silver_stk_mins_1m,
+            silver_stk_mins_5m,
+            silver_stk_mins_15m,
+            silver_stk_mins_30m,
+            silver_stk_mins_60m,
+        )
+
+        for asset in raw_assets:
+            with self.subTest(asset=asset.key.to_user_string()):
+                self.assertEqual(asset.partitions_def, cn_a_stock_mins_trade_days)
+
+        for asset in silver_assets:
+            with self.subTest(asset=asset.key.to_user_string()):
+                self.assertEqual(
+                    asset.partitions_def,
+                    cn_a_stock_mins_silver_trade_days,
+                )
 
     def test_assets_register_definition_column_schema(
         self,

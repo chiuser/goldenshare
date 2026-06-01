@@ -20,7 +20,10 @@ from orchestrator.defs.duckdb_sql import (
     duckdb_string,
     read_parquet,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_stock_mins_silver_trade_days,
+    cn_a_stock_mins_trade_days,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
@@ -1916,7 +1919,7 @@ def _silver_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
         silver_stock_basic,
         silver_namechange,
     ],
-    partitions_def=cn_a_stock_mins_trade_days,
+    partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -1955,7 +1958,7 @@ def silver_stk_mins_1m(
         silver_stock_basic,
         silver_namechange,
     ],
-    partitions_def=cn_a_stock_mins_trade_days,
+    partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -1994,7 +1997,7 @@ def silver_stk_mins_5m(
         silver_stock_basic,
         silver_namechange,
     ],
-    partitions_def=cn_a_stock_mins_trade_days,
+    partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -2037,7 +2040,7 @@ def silver_stk_mins_15m(
         silver_stock_basic,
         silver_namechange,
     ],
-    partitions_def=cn_a_stock_mins_trade_days,
+    partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -2080,7 +2083,7 @@ def silver_stk_mins_30m(
         silver_stock_basic,
         silver_namechange,
     ],
-    partitions_def=cn_a_stock_mins_trade_days,
+    partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(

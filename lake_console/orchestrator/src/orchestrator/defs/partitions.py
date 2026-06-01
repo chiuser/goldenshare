@@ -10,5 +10,8 @@ cn_a_stock_current_trade_days = dg.DynamicPartitionsDefinition(
 cn_a_stock_mins_trade_days = dg.DynamicPartitionsDefinition(
     name="cn_a_stock_mins_trade_days"
 )
+cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
+    name="cn_a_stock_mins_silver_trade_days"
+)
 cn_a_index_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_index_trade_days")
 cn_a_index_ts_codes = dg.DynamicPartitionsDefinition(name="cn_a_index_ts_codes")

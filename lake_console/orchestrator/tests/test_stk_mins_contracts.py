@@ -13,7 +13,10 @@ from orchestrator.defs.duckdb_sql import (
     STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE,
     duckdb_string,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
+from orchestrator.defs.partitions import (
+    cn_a_stock_mins_silver_trade_days,
+    cn_a_stock_mins_trade_days,
+)
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     raw_stk_mins_path,
@@ -82,6 +85,10 @@ class StkMinsContractTests(unittest.TestCase):
         self.assertEqual(
             cn_a_stock_mins_trade_days.name,
             "cn_a_stock_mins_trade_days",
+        )
+        self.assertEqual(
+            cn_a_stock_mins_silver_trade_days.name,
+            "cn_a_stock_mins_silver_trade_days",
         )
 
     def test_stk_mins_frequency_contract_is_stable(self) -> None:

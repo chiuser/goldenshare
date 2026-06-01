@@ -49,6 +49,14 @@ from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
 from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
     build_stock_mins_trade_day_registration_decision,
 )
+from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
+    STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
+    _cursor_payload as build_stock_mins_silver_trade_day_cursor,
+)
+from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
+    _latest_registered_raw_trade_date,
+    build_stock_mins_silver_trade_day_registration_decision,
+)
 
 
 PARTITION_KEY = "2026-05-29"
@@ -808,6 +816,44 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             (),
         )
 
+    def test_stock_mins_silver_trade_day_decision_requires_all_gates(self) -> None:
+        selected = build_stock_mins_silver_trade_day_registration_decision(
+            target_trade_date="2026-05-29",
+            register_window_started=True,
+            already_registered=False,
+            raw_ready=True,
+            stock_daily_ready=True,
+            suspend_ready=True,
+            identity_map_ready=True,
+            namechange_ready=True,
+        )
+        before_window = build_stock_mins_silver_trade_day_registration_decision(
+            target_trade_date="2026-05-29",
+            register_window_started=False,
+            already_registered=False,
+            raw_ready=True,
+            stock_daily_ready=True,
+            suspend_ready=True,
+            identity_map_ready=True,
+            namechange_ready=True,
+        )
+        raw_blocked = build_stock_mins_silver_trade_day_registration_decision(
+            target_trade_date="2026-05-29",
+            register_window_started=True,
+            already_registered=False,
+            raw_ready=False,
+            stock_daily_ready=True,
+            suspend_ready=True,
+            identity_map_ready=True,
+            namechange_ready=True,
+        )
+
+        self.assertEqual(selected.selected_keys, ("2026-05-29",))
+        self.assertEqual(before_window.selected_keys, ())
+        self.assertIn("22:30", before_window.reason)
+        self.assertEqual(raw_blocked.selected_keys, ())
+        self.assertIn("raw 五频度", raw_blocked.reason)
+
     def test_stock_mins_sensor_cursors_and_run_request_contract(self) -> None:
         trade_day_decision = build_stock_mins_trade_day_registration_decision(
             today="2026-05-29",
@@ -826,6 +872,35 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(
             trade_day_cursor["details"]["partition_set"],
             "cn_a_stock_mins_trade_days",
+        )
+
+        silver_decision = build_stock_mins_silver_trade_day_registration_decision(
+            target_trade_date="2026-05-29",
+            register_window_started=True,
+            already_registered=False,
+            raw_ready=True,
+            stock_daily_ready=True,
+            suspend_ready=True,
+            identity_map_ready=True,
+            namechange_ready=True,
+        )
+        silver_cursor = json.loads(
+            build_stock_mins_silver_trade_day_cursor(
+                decision=silver_decision,
+                evaluated_at=EVALUATED_AT,
+                raw_registered_trade_day_count=1,
+                silver_registered_trade_day_count=0,
+            )
+        )
+        self.assertEqual(silver_cursor["decision"], "register_partitions")
+        self.assertEqual(silver_cursor["target_date"], "2026-05-29")
+        self.assertEqual(
+            silver_cursor["details"]["raw_partition_set"],
+            "cn_a_stock_mins_trade_days",
+        )
+        self.assertEqual(
+            silver_cursor["details"]["partition_set"],
+            "cn_a_stock_mins_silver_trade_days",
         )
 
         raw_cursor = json.loads(
@@ -862,6 +937,10 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         )
         self.assertEqual(STOCK_MINS_RAW_RUN_START.isoformat(), "22:00:00")
         self.assertEqual(STOCK_MINS_RAW_SOURCE, "prod_db")
+        self.assertEqual(
+            STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START.isoformat(),
+            "22:30:00",
+        )
 
     def test_latest_registered_trade_date_uses_latest_not_after_today(self) -> None:
         self.assertEqual(
@@ -872,6 +951,14 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "2026-05-29",
         )
         self.assertIsNone(_latest_registered_trade_date(("2026-05-30",), EVALUATED_AT))
+        self.assertEqual(
+            _latest_registered_raw_trade_date(
+                ("2013-12-31", "2014-01-02", "2026-05-29", "2026-05-30"),
+                EVALUATED_AT,
+            ),
+            "2026-05-29",
+        )
+        self.assertIsNone(_latest_registered_raw_trade_date(("2013-12-31",), EVALUATED_AT))
 
     def test_stock_mins_sensor_detects_materialized_check_problem(self) -> None:
         self.assertTrue(

@@ -18,7 +18,7 @@ from orchestrator.defs.bootstrap.stk_mins_silver_history import (
 )
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import count_parquet_query, describe_parquet_query
-from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_stk_mins_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.metadata import (
@@ -90,6 +90,14 @@ class StkMinsSilverBootstrapEventReport:
 
 
 @dataclass(frozen=True)
+class StockMinsSilverPartitionRegistrationReport:
+    requested_partition_keys: tuple[str, ...]
+    existing_partition_keys: tuple[str, ...]
+    registered_partition_keys: tuple[str, ...]
+    dry_run: bool
+
+
+@dataclass(frozen=True)
 class StkMinsSilverFinalAuditReport:
     selected_partition_count: int
     silver_partition_counts: Mapping[int, int]
@@ -119,7 +127,7 @@ def plan_stk_mins_silver_bootstrap_events(
         )
     )
     registered_keys = set(
-        instance.get_dynamic_partitions(cn_a_stock_mins_trade_days.name)
+        instance.get_dynamic_partitions(cn_a_stock_mins_silver_trade_days.name)
     )
     unregistered_keys = tuple(
         key for key in selected_keys if key not in registered_keys
@@ -156,6 +164,30 @@ def plan_stk_mins_silver_bootstrap_events(
         unregistered_selected_partition_keys=unregistered_keys,
         missing_silver_asset_partitions=missing_silver,
         partition_audits=audits,
+    )
+
+
+def register_stock_mins_silver_partitions(
+    *,
+    instance: dg.DagsterInstance,
+    partition_keys: Sequence[str],
+    dry_run: bool = False,
+) -> StockMinsSilverPartitionRegistrationReport:
+    requested_keys = tuple(sorted(set(partition_keys)))
+    existing_keys = set(
+        instance.get_dynamic_partitions(cn_a_stock_mins_silver_trade_days.name)
+    )
+    missing_keys = tuple(key for key in requested_keys if key not in existing_keys)
+    if missing_keys and not dry_run:
+        instance.add_dynamic_partitions(
+            cn_a_stock_mins_silver_trade_days.name,
+            list(missing_keys),
+        )
+    return StockMinsSilverPartitionRegistrationReport(
+        requested_partition_keys=requested_keys,
+        existing_partition_keys=tuple(key for key in requested_keys if key in existing_keys),
+        registered_partition_keys=missing_keys,
+        dry_run=dry_run,
     )
 
 
@@ -290,7 +322,7 @@ def audit_stk_mins_silver_final_state(
     )
     silver_by_freq = discover_silver_stk_mins_partitions(lake_root)
     registered_count = len(
-        instance.get_dynamic_partitions(cn_a_stock_mins_trade_days.name)
+        instance.get_dynamic_partitions(cn_a_stock_mins_silver_trade_days.name)
     )
     materialized_counts = {
         freq: len(instance.get_materialized_partitions(asset_key))

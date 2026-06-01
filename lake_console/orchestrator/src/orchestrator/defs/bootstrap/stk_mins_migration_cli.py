@@ -21,6 +21,7 @@ from orchestrator.defs.bootstrap.stk_mins_migration import (
 )
 from orchestrator.defs.bootstrap.stk_mins_silver_bootstrap_events import (
     audit_stk_mins_silver_final_state,
+    register_stock_mins_silver_partitions,
     report_stk_mins_silver_bootstrap_events,
 )
 from orchestrator.defs.bootstrap.stk_mins_silver_history import (
@@ -76,6 +77,11 @@ def main() -> None:
     _add_silver_partition_selection(generate_silver)
     generate_silver.add_argument("--skip-existing", action="store_true")
     generate_silver.add_argument("--overwrite", action="store_true")
+
+    register_silver = subparsers.add_parser("register-silver-partitions")
+    register_silver.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_silver_partition_selection(register_silver, include_silver_files=True)
+    register_silver.add_argument("--dry-run", action="store_true")
 
     silver_events = subparsers.add_parser("report-silver-events")
     silver_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
@@ -213,6 +219,25 @@ def main() -> None:
                 "skipped_existing_asset_partition_count": len(
                     report.skipped_existing_asset_partitions
                 ),
+            }
+        )
+    elif args.command == "register-silver-partitions":
+        selected_keys = _selected_silver_partition_keys(args, from_silver=True)
+        if selected_keys is None:
+            raise ValueError(
+                "Pass --partition-keys, --all, or --all-from-silver-files."
+            )
+        report = register_stock_mins_silver_partitions(
+            instance=dg.DagsterInstance.get(),
+            partition_keys=selected_keys,
+            dry_run=args.dry_run,
+        )
+        print(
+            {
+                "dry_run": report.dry_run,
+                "requested_partition_count": len(report.requested_partition_keys),
+                "existing_partition_count": len(report.existing_partition_keys),
+                "registered_partition_count": len(report.registered_partition_keys),
             }
         )
     elif args.command == "report-silver-events":

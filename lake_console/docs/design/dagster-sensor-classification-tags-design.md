@@ -90,6 +90,8 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `cn_a_trade_day_sensor` | `defs/sensors/cn_a_trade_day_sensor.py` | `basic_data` | `partition` | `partition_registration` | 基于交易日历注册全量 A 股交易日备份分区；交易日历属于基础数据，不触发资产生产。 |
 | `stock_trade_day_sensor` | `defs/sensors/stock_trade_day_sensor.py` | `quote_data` | `partition` | `partition_registration` | 注册股票资产族交易日分区，服务股票行情链路；不触发资产生产。 |
 | `stock_current_trade_day_sensor` | `defs/sensors/stock_current_trade_day_sensor.py` | `quote_data` | `partition` | `partition_registration` | 注册复权因子使用的当天股票开市日分区；复权因子属于股票行情数据。 |
+| `stock_mins_trade_day_sensor` | `defs/sensors/stock_mins_trade_day_sensor.py` | `quote_data` | `partition` | `partition_registration` | 注册股票分钟线 raw 使用的交易日分区，服务分钟线 raw 链路；不触发资产生产。 |
+| `stock_mins_silver_trade_day_sensor` | `defs/sensors/stock_mins_silver_trade_day_sensor.py` | `quote_data` | `partition` | `partition_registration` | 注册股票分钟线 silver 使用的 2014+ 交易日分区，等待 raw、日线、停复牌、身份映射和曾用名 ready；不触发资产生产。 |
 | `index_trade_day_sensor` | `defs/sensors/index_trade_day_sensor.py` | `index_topic` | `partition` | `partition_registration` | 注册指数资产族交易日分区；不触发资产生产。 |
 | `stock_basic_sensor` | `defs/sensors/stock_basic_sensor.py` | `basic_data` | `raw_silver` | `asset_update` | 触发 `stock_basic_update_job`，该 job 写 `raw_tushare_stock_basic` 和 `silver_stock_basic`。 |
 | `suspend_d_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发停复牌 raw/silver 更新；停复牌位于股票行情数据域。 |
