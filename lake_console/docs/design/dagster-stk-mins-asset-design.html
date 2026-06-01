@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，日常 silver 分区注册 sensor 已实现但默认停止。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -330,7 +330,7 @@
       </tr>
       <tr>
         <td>stk_mins silver 分区错配</td>
-        <td>M6F 修正前，raw 五频度各有 <code>4225</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>；silver 五频度各有 <code>3014</code> 个文件与 event，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。当时 Dagster UI 显示 <code>4225 partitions / 1211 missing</code>，不是 silver 文件或 event 补录失败，而是 silver asset definition 继续使用 raw 全量分区导致 2009-2013 被错误纳入 silver 应有分区集合。M6F 后 silver 已切换到独立 <code>cn_a_stock_mins_silver_trade_days</code>，并已正式注册当前 <code>3014</code> 个 silver 日期；code location reload 后 UI 应以 2014+ silver 分区集合展示。</td>
+        <td>M6F 修正前，raw 五频度各有 <code>4225</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>；silver 五频度各有 <code>3014</code> 个文件与 event，范围 <code>2014-01-02</code> 至 <code>2026-05-29</code>。当时 Dagster UI 显示 <code>4225 partitions / 1211 missing</code>，不是 silver 文件或 event 补录失败，而是 silver asset definition 继续使用 raw 全量分区导致 2009-2013 被错误纳入 silver 应有分区集合。M6F 后 silver 已切换到独立 <code>cn_a_stock_mins_silver_trade_days</code>，并已正式注册当前 <code>3014</code> 个 silver 日期；Dagster UI 已人工验收未发现分区异常。</td>
       </tr>
       <tr>
         <td>旧湖身份映射</td>
@@ -386,7 +386,7 @@
     <h3>2.4.3 新湖目标与依赖事实</h3>
     <table>
       <tr><th>对象</th><th>只读结果</th></tr>
-      <tr><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins</code></td><td>M3 已写入历史 baseline：五个频度各 4,209 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-07</code>。M4B/prod DB 补齐与日常同步后，当前文件事实为五个频度各 4,225 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>；本处只读复核确认文件集合，不代表 Dagster event/readiness 已完成全量一致性核验。</td></tr>
+      <tr><td><code>/Volumes/datasource/data_lake/raw/tushare/stk_mins</code></td><td>M3 已写入历史 baseline：五个频度各 4,209 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-07</code>。M4B/prod DB 补齐与日常同步后，当前文件事实为五个频度各 4,225 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>；历史 baseline 的分区注册和 runless event 补录已在 M3 完成，M4B 之后新增分区由正式 raw job run 记录承载。</td></tr>
       <tr><td><code>silver_stock_daily</code></td><td>3014 分区，<code>2014-01-02</code> 至 <code>2026-05-29</code>，11,351,615 行。</td></tr>
       <tr><td><code>silver_stock_suspend_daily</code></td><td>3014 分区，<code>2014-01-02</code> 至 <code>2026-05-29</code>，389,400 行。</td></tr>
       <tr><td><code>silver_adj_factor</code></td><td>4225 分区，<code>2009-01-05</code> 至 <code>2026-05-29</code>，13,964,087 行。</td></tr>
@@ -1099,7 +1099,7 @@ ops:
       <code>dry-run requested=3014 existing=0 registered=3014</code>；
       正式注册 <code>requested=3014 existing=0 registered=3014</code>；
       注册后复核 <code>dry-run requested=3014 existing=3014 registered=0</code>。
-      reload code location 后，Dagster UI 的 silver partition universe 应收敛到 2014+ 的已生成文件范围，不再显示 2009-2013 的 1211 个 raw-only missing。
+      Dagster UI 已人工验收未发现分区异常；silver partition universe 已按 2014+ 的已生成文件范围展示，不再显示 2009-2013 的 1211 个 raw-only missing。
     </p>
   </section>
 
@@ -1368,16 +1368,15 @@ ops:
   </section>
 
   <section>
-    <h2>14. 待后续单独拍板</h2>
+    <h2>14. Gold qfq 后续单独拍板</h2>
     <ol>
-      <li>正式 Dagster event/readiness 与当前 raw 文件事实（截至 <code>2026-05-29</code>）的全量一致性核验，放在 silver 历史生成或 event 补录执行前单独审批。</li>
       <li>qfq gold 的小数精度、字段命名和是否保留原始未复权价格字段。</li>
       <li>历史 qfq 大规模重算的并发、临时目录、磁盘空间和恢复策略。</li>
-      <li><code>bse_mapping</code> 与 <code>namechange</code> 在 Dagster 中接成正式资产的具体 milestone。</li>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>
-      上述待拍板事项在进入对应 milestone 前必须逐项确认。禁止在编码时靠临场判断补齐这些口径。
+      上述事项只属于后续 qfq gold 阶段；当前 silver 阶段不再遗留待执行的文件生成、event 补录、独立分区注册或 UI 分区验收事项。
+      进入 gold milestone 前必须逐项确认，禁止在编码时靠临场判断补齐这些口径。
     </div>
   </section>
 
