@@ -6,33 +6,14 @@ from sqlalchemy.orm import Session
 
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.foundation.realtime import build_realtime_runtime_config_from_json, load_realtime_runtime_config
+from src.foundation.realtime.runtime_config_seed_service import (
+    DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG,
+    DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG,
+)
 
 
-DEFAULT_DAILY_RUNTIME_CONFIG = {
-    "enabled": True,
-    "poll_interval_seconds": 6,
-    "max_calls_per_minute": 10,
-    "lease_ttl_seconds": 30,
-    "stale_after_seconds": 20,
-    "snapshot_ttl_seconds": 259200,
-    "keep_recent_batches": 3,
-    "batch_stream_maxlen": 5000,
-    "delta_stream_maxlen": 200000,
-}
-
-DEFAULT_MIN_RUNTIME_CONFIG = {
-    "enabled": False,
-    "enabled_freqs": ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"],
-    "poll_interval_seconds": 60,
-    "max_calls_per_minute": 20,
-    "lease_ttl_seconds": 90,
-    "stale_after_seconds": 90,
-    "snapshot_ttl_seconds": 259200,
-    "keep_recent_batches": 3,
-    "batch_stream_maxlen": 5000,
-    "delta_stream_maxlen": 200000,
-    "source_timeout_seconds": 20,
-}
+DEFAULT_DAILY_RUNTIME_CONFIG = DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG
+DEFAULT_MIN_RUNTIME_CONFIG = DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG
 
 
 def seed_realtime_runtime_config(

@@ -1,11 +1,12 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
 import pytest
 from sqlalchemy import create_engine, func, select
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.foundation.realtime.runtime_config import (
     RealtimeFeedStorageConfig,
@@ -13,7 +14,11 @@ from src.foundation.realtime.runtime_config import (
     RealtimeStockRtDailyConfig,
     RealtimeStockRtMinConfig,
 )
-from src.foundation.realtime.runtime_config_seed_service import RealtimeRuntimeConfigSeedService
+from src.foundation.realtime.runtime_config_seed_service import (
+    DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG,
+    DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG,
+    RealtimeRuntimeConfigSeedService,
+)
 
 
 def _session() -> Session:
@@ -104,6 +109,21 @@ def test_realtime_runtime_config_seed_apply_creates_required_rows() -> None:
     assert _row_count(session) == 2
 
 
+def test_realtime_runtime_config_seed_default_template_creates_required_rows() -> None:
+    session = _session()
+
+    report = RealtimeRuntimeConfigSeedService().run(session, dry_run=False)
+
+    assert report.created_count == 2
+    assert report.skipped_count == 0
+    daily = session.get(RealtimeRuntimeConfigRecord, "stock_rt_daily")
+    minute = session.get(RealtimeRuntimeConfigRecord, "stock_rt_min")
+    assert daily is not None
+    assert minute is not None
+    assert daily.runtime_config_json == DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG
+    assert minute.runtime_config_json == DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG
+
+
 def test_realtime_runtime_config_seed_does_not_persist_locked_fields() -> None:
     session = _session()
 
@@ -164,13 +184,15 @@ def test_realtime_runtime_config_seed_skips_existing_rows_without_overwrite() ->
     assert minute.object_kind == "feed_group"
 
 
-def test_realtime_runtime_config_seed_rejects_invalid_env_without_partial_write(monkeypatch) -> None:
+def test_realtime_runtime_config_seed_rejects_invalid_explicit_runtime_config_without_partial_write() -> None:
     session = _session()
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "BAD")
-    get_settings.cache_clear()
+    valid_config = _runtime_config()
+    invalid_config = replace(
+        valid_config,
+        stock_rt_min=replace(valid_config.stock_rt_min, enabled_freqs=("BAD",)),
+    )
 
     with pytest.raises(ValueError, match="invalid stock realtime minute freq"):
-        RealtimeRuntimeConfigSeedService().run(session, dry_run=False)
+        RealtimeRuntimeConfigSeedService().run(session, dry_run=False, runtime_config=invalid_config)
 
     assert _row_count(session) == 0
-    get_settings.cache_clear()

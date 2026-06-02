@@ -39,7 +39,7 @@ def test_stock_rt_daily_collector_publishes_current_batch_and_delta(
     db_session,
     trade_calendar_factory,
 ) -> None:
-    config = load_test_realtime_runtime_config(db_session).stock_rt_daily
+    config = load_test_realtime_runtime_config(db_session, daily={"enabled": True}).stock_rt_daily
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
     store = InMemoryRealtimeStateStore()
     provider = FakeStockRtDailyProvider(
@@ -88,7 +88,7 @@ def test_stock_rt_daily_collector_uses_configured_lease_ttl(
     db_session,
     trade_calendar_factory,
 ) -> None:
-    config = load_test_realtime_runtime_config(db_session, daily={"lease_ttl_seconds": 44}).stock_rt_daily
+    config = load_test_realtime_runtime_config(db_session, daily={"enabled": True, "lease_ttl_seconds": 44}).stock_rt_daily
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
     store = RecordingLeaseStore()
     provider = FakeStockRtDailyProvider(
@@ -112,7 +112,7 @@ def test_stock_rt_daily_collector_skips_source_request_outside_collection_window
     db_session,
     trade_calendar_factory,
 ) -> None:
-    config = load_test_realtime_runtime_config(db_session).stock_rt_daily
+    config = load_test_realtime_runtime_config(db_session, daily={"enabled": True}).stock_rt_daily
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
     provider = FakeStockRtDailyProvider([[{"ts_code": "600000.SH"}]])
     collector = StockRtDailyCollector(
