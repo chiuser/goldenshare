@@ -43,7 +43,7 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.prod_db.stk_mins import (
     assert_prod_stk_mins_source_columns,
-    fetch_prod_stk_mins_rows,
+    fetch_prod_stk_mins_rows_for_stock_codes,
     validate_prod_stk_mins_select_contract,
 )
 from orchestrator.defs.resources import (
@@ -584,32 +584,35 @@ def _fetch_raw_stk_mins_rows_from_prod_db(
     start_datetime, end_datetime = _partition_window(partition_key)
     fetched_rows: list[dict[str, object]] = []
     returned_stock_codes: set[str] = set()
-    query_count = 0
+    requested_stock_codes = set(stock_codes)
 
     with prod_postgres.connect() as connection:
-        for stock_code in stock_codes:
-            source_rows = fetch_prod_stk_mins_rows(
-                connection,
-                ts_code=stock_code,
-                freq=freq,
-                start_datetime=start_datetime,
-                end_datetime=end_datetime,
-            )
-            query_count += 1
-            if source_rows:
-                returned_stock_codes.add(stock_code)
-            for row in source_rows:
-                fetched_rows.append(
-                    _normalize_prod_db_stk_mins_row(
-                        row,
-                        requested_ts_code=stock_code,
-                        requested_freq=freq,
-                        partition_key=partition_key,
-                    )
+        source_rows = fetch_prod_stk_mins_rows_for_stock_codes(
+            connection,
+            stock_codes=stock_codes,
+            freq=freq,
+            start_datetime=start_datetime,
+            end_datetime=end_datetime,
+        )
+        for row in source_rows:
+            ts_code = str(row.get("ts_code") or "").strip()
+            if ts_code not in requested_stock_codes:
+                raise RuntimeError(
+                    "Prod DB stk_mins returned a row outside the requested stock pool: "
+                    f"requested_count={len(requested_stock_codes)}, actual={ts_code}."
                 )
+            returned_stock_codes.add(ts_code)
+            fetched_rows.append(
+                _normalize_prod_db_stk_mins_row(
+                    row,
+                    requested_ts_code=ts_code,
+                    requested_freq=freq,
+                    partition_key=partition_key,
+                )
+            )
 
     return fetched_rows, {
-        "query_count": query_count,
+        "query_count": 1,
         "returned_stock_code_count": len(returned_stock_codes),
         "empty_stock_code_count": len(stock_codes) - len(returned_stock_codes),
     }

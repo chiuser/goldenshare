@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A/M8B/M8C/M8D：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 与 multi check 已实现；历史 gold qfq 物理文件已正式生成完成，M8D runless event 补录已按 <code>freq/year</code> “审一年、写一年”全量执行完成，最终核验五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿；M9A 已实现 <code>stock_mins_qfq_daily_update_job</code> 和默认停止的 <code>stock_mins_qfq_daily_sensor</code>，23:00 后只在当日 silver 与当日复权因子 ready、目标 gold qfq 尚未 ready 时提交单日五频度 qfq run；M9B 已实现 factor repair 的 DuckDB 检测、repair plan 和 repair check metadata 契约；M9C 已实现默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>，23:15 后只在当日五频度 gold ready 时提交 repair run，repair job 内执行 DuckDB 检测与必要回刷；正式启用或执行 repair run 仍需单独审批。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4E 已修正 prod DB 默认日常入口的逐股票查询性能缺陷，改为按 <code>freq + trade_date window + 股票池</code> 批量抽取；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A/M8B/M8C/M8D：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 与 multi check 已实现；历史 gold qfq 物理文件已正式生成完成，M8D runless event 补录已按 <code>freq/year</code> “审一年、写一年”全量执行完成，最终核验五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿；M9A 已实现 <code>stock_mins_qfq_daily_update_job</code> 和默认停止的 <code>stock_mins_qfq_daily_sensor</code>，23:00 后只在当日 silver 与当日复权因子 ready、目标 gold qfq 尚未 ready 时提交单日五频度 qfq run；M9B 已实现 factor repair 的 DuckDB 检测、repair plan 和 repair check metadata 契约；M9C 已实现默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>，23:15 后只在当日五频度 gold ready 时提交 repair run，repair job 内执行 DuckDB 检测与必要回刷；正式启用或执行 repair run 仍需单独审批。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -713,7 +713,7 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <tr><td>asset key / path</td><td>复用既有 <code>raw_stk_mins_1m/5m/15m/30m/60m</code> 与 <code>raw_stk_mins_path(...)</code>，不创建 <code>raw_stk_mins_from_prod_*</code> 之类的平行资产。</td></tr>
       <tr><td>source selector</td><td>实现时必须有明确来源选择口径：Tushare job 走 Tushare；prod job 走 prod DB。禁止在同一次 run 中混用两个来源。</td></tr>
       <tr><td>读取表</td><td>只读 <code>raw_tushare.stk_mins</code>，字段白名单为 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount</code>；不得导出 <code>api_name/fetched_at/raw_payload</code> 等系统字段。</td></tr>
-      <tr><td>抽取方式</td><td>必须按 <code>ts_code + freq + trade_time window</code> 查询，利用 prod 表主键 <code>(ts_code,freq,trade_time)</code>。禁止用全市场单日单频度大扫作为主路径。</td></tr>
+      <tr><td>抽取方式</td><td>M4E 已把 prod DB 主路径修正为按 <code>freq + trade_date window + 股票池</code> 批量查询。原 M4B 逐股票查询模型只适合受接口限制的 Tushare，不能作为 prod DB 长期日常抽取模型。</td></tr>
       <tr><td>股票池</td><td>沿用 raw 日常口径，从 <code>silver_stock_basic</code> 当前上市股票池读取；这是只读前置事实，不进入 job selection。</td></tr>
       <tr><td>时间窗口</td><td>固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>，与 Tushare 入口保持一致。</td></tr>
       <tr><td>覆盖策略</td><td>目标 raw 文件已存在且通过 checks 时复用；已存在但不合格时 fail 并要求人工 repair。默认不覆盖 M3 历史 baseline。</td></tr>
@@ -728,6 +728,25 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <li><code>freq</code> 必须保持整数 <code>1/5/15/30/60</code>；prod 审计未发现其它频度值，后续实现仍需保留拒绝未知频度的测试。</li>
       <li><code>open/close/high/low/vol/amount</code> 写入前显式 cast 到新湖 raw schema；prod 的价格与成交额来源类型为 <code>real</code>，写入新湖 <code>DOUBLE</code> 只做类型归一，不声明提升源精度。</li>
     </ul>
+
+    <h4>M4E 已落地：prod DB 批量抽取性能修正</h4>
+    <p>
+      2026-06-01/02 缺口补数时再次暴露 M4B 的性能问题：当时 prod DB 路径把 Tushare 的逐股票请求模型搬到了数据库抽取里。
+      Tushare 受源接口限制必须按股票请求；prod DB 是可批量查询的数据源，不能继续按股票切碎查询。
+      该问题主要影响性能和运行耗时，不改变既有字段契约、目标路径、checks 名称或数据分层边界。
+    </p>
+    <table>
+      <tr><th>项目</th><th>修正口径</th></tr>
+      <tr><td>目标</td><td>保留 <code>stock_mins_raw_update_from_prod_job</code>、五个 <code>raw_stk_mins_*</code> assets、raw path、raw checks 和 sensor 边界不变；只替换 prod DB 抽取 helper 的查询模型。</td></tr>
+      <tr><td>查询模型</td><td>已改为按 <code>freq + trade_date window + 股票池</code> 批量查询。正常单日五频度是每个频度一次批量查询；禁止按单只股票循环查询。</td></tr>
+      <tr><td>股票池过滤</td><td>股票池仍来自 <code>silver_stock_basic</code> 当前上市股票事实。过滤应在 SQL 层完成，例如使用临时股票池表、<code>JOIN</code>、<code>ANY</code> 或受控 batch 列表，而不是 Python 逐股票调用查询函数。</td></tr>
+      <tr><td>字段白名单</td><td>继续显式投影 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount</code>，禁止 <code>SELECT *</code>，禁止导出 <code>api_name/fetched_at/raw_payload</code> 等系统字段。</td></tr>
+      <tr><td>字段归一</td><td><code>exchange</code> 后缀映射、<code>vwap=amount/vol</code>、类型 cast、排序和写 parquet 应尽量在 SQL/DuckDB 中向量化完成；Python 只做连接、批次规划、参数校验和结果汇总，不承载分钟线明细循环计算。</td></tr>
+      <tr><td>查询次数门禁</td><td>单日默认查询次数必须随频度数量增长，而不是随股票数量增长。测试已锁定：给定多只股票时，prod DB helper 的查询调用次数不得等于股票数；五频度 job 的设计目标是约 <code>5</code> 次批量查询。</td></tr>
+      <tr><td>写入方式</td><td>仍写同一套 <code>part-000.parquet</code>，使用 DuckDB <code>COPY ... TO parquet</code> 与临时文件原子替换。目标文件已存在且 checks 通过时仍复用；已存在但不合格时仍 fail。</td></tr>
+      <tr><td>验证</td><td>使用 fake prod DB resource 锁死批量查询模型，并保留字段白名单、目标复用、坏目标拒绝覆盖等既有测试；正式补跑仍需单独审批日期范围和影响。</td></tr>
+      <tr><td>禁止项</td><td>不得新增平行 raw asset，不得新增第二个 sensor，不得把 prod DB 补数与 Tushare <code>merge_repair</code> 混在同一次 run 中，不得用 Python 逐行拼装正式 parquet。</td></tr>
+    </table>
 
     <h4>M4B 配置项审计</h4>
     <table>
@@ -744,7 +763,7 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
     <h4>M4B 已完成开发步骤</h4>
     <ol>
       <li>配置审计：prod DB 连接配置只来自环境变量，不硬编码连接串，不写入 materialization metadata 或日志。</li>
-      <li>新增 prod DB resource/helper：只读连接 prod DB，按字段白名单和 <code>ts_code + freq + window</code> 生成查询；测试使用 fake resource，不访问正式 prod。</li>
+      <li>新增 prod DB resource/helper：只读连接 prod DB，按字段白名单查询；原 M4B 逐股票查询模型已在 2026-06-01/02 缺口补数中暴露性能问题，M4E 已修正为按 <code>freq + trade_date window + 股票池</code> 批量抽取。</li>
       <li>新增字段归一纯函数：覆盖 <code>exchange</code> 后缀映射、未知后缀失败、<code>vwap</code> 推导、<code>vol=0</code> 保护和字段类型 cast。</li>
       <li>改造 raw asset 写入 helper：Tushare 入口默认不变，prod job 通过 asset config 固定 <code>source=prod_db</code>；两个来源写出相同 raw schema 和排序。</li>
       <li>新增 <code>stock_mins_raw_update_from_prod_job</code>：只新增 job 入口和固定 config/source 绑定，不改 Tushare job selection，不新增 silver/gold selection。</li>
@@ -1792,7 +1811,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <strong>M4B</strong>
         <div>
           <h3>Prod DB raw 默认日常与补数入口</h3>
-          <p>已新增 <code>stock_mins_raw_update_from_prod_job</code>，从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取，按 <code>ts_code + freq + 日期窗口</code> 查询并写入同一套 raw assets。写入前补齐 <code>exchange</code> 与 <code>vwap</code>，继续复用 raw checks；不新增第二个自动 sensor，默认日常触发复用 <code>stock_mins_raw_sensor</code> 并指向 prod DB job。经补齐和日常同步后，当前 raw 文件事实为五个频度各 <code>4,225</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>。</p>
+          <p>已新增 <code>stock_mins_raw_update_from_prod_job</code>，从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取，并在 M4E 修正为按 <code>freq + trade_date window + 股票池</code> 批量查询后写入同一套 raw assets。写入前补齐 <code>exchange</code> 与 <code>vwap</code>，继续复用 raw checks；不新增第二个自动 sensor，默认日常触发复用 <code>stock_mins_raw_sensor</code> 并指向 prod DB job。经补齐和日常同步后，当前 raw 文件事实为五个频度各 <code>4,225</code> 个分区，范围 <code>2009-01-05</code> 至 <code>2026-05-29</code>。</p>
         </div>
       </div>
       <div class="step">

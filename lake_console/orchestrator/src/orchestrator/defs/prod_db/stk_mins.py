@@ -1,6 +1,6 @@
 """Read-only prod DB extraction contract for stock minute raw assets."""
 
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from typing import Any
 
 from psycopg2.extras import RealDictCursor
@@ -30,27 +30,29 @@ SELECT
   vol,
   amount
 FROM raw_tushare.stk_mins
-WHERE ts_code = %(ts_code)s
-  AND freq = %(freq)s
+WHERE freq = %(freq)s
   AND trade_time >= %(start_datetime)s
   AND trade_time < %(end_datetime)s
-ORDER BY trade_time
+  AND ts_code = ANY(%(stock_codes)s)
+ORDER BY ts_code, trade_time
 """
 
 
-def fetch_prod_stk_mins_rows(
+def fetch_prod_stk_mins_rows_for_stock_codes(
     connection: Any,
     *,
-    ts_code: str,
+    stock_codes: Sequence[str],
     freq: int,
     start_datetime: str,
     end_datetime: str,
 ) -> list[dict[str, Any]]:
+    if not stock_codes:
+        return []
     with connection.cursor(cursor_factory=RealDictCursor) as cursor:
         cursor.execute(
             PROD_STK_MINS_SELECT_SQL,
             {
-                "ts_code": ts_code,
+                "stock_codes": list(stock_codes),
                 "freq": freq,
                 "start_datetime": start_datetime,
                 "end_datetime": end_datetime,

@@ -259,8 +259,8 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertNotIn("api_name", normalized_sql)
         self.assertNotIn("fetched_at", normalized_sql)
         self.assertNotIn("raw_payload", normalized_sql)
-        self.assertIn("where ts_code = %(ts_code)s", normalized_sql)
-        self.assertIn("and freq = %(freq)s", normalized_sql)
+        self.assertIn("ts_code = any(%(stock_codes)s)", normalized_sql)
+        self.assertIn("where freq = %(freq)s", normalized_sql)
         self.assertIn("trade_time >=", normalized_sql)
 
     def test_tushare_fetch_normalizes_freq_string_and_paginates(self) -> None:
@@ -309,22 +309,27 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                 ).fetchone()
             self.assertEqual(row, (1, 100))
 
-    def test_prod_db_fetch_writes_same_raw_schema(self) -> None:
+    def test_prod_db_path_must_not_query_per_stock(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             calls = []
 
-            def fake_fetch(connection, *, ts_code, freq, start_datetime, end_datetime):
+            def fake_fetch(
+                connection,
+                *,
+                stock_codes,
+                freq,
+                start_datetime,
+                end_datetime,
+            ):
                 calls.append(
                     {
-                        "ts_code": ts_code,
+                        "stock_codes": tuple(stock_codes),
                         "freq": freq,
                         "start_datetime": start_datetime,
                         "end_datetime": end_datetime,
                     }
                 )
-                if ts_code != "600000.SH":
-                    return []
                 return [
                     {
                         "ts_code": "600000.SH",
@@ -339,25 +344,30 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     }
                 ]
 
-            with patch.object(stk_mins, "fetch_prod_stk_mins_rows", fake_fetch):
+            with patch.object(
+                stk_mins,
+                "fetch_prod_stk_mins_rows_for_stock_codes",
+                fake_fetch,
+            ):
                 result = stk_mins.write_raw_stk_mins_partition_from_prod_db(
                     lake_root=lake_root,
                     duckdb=DuckDBResource(),
                     prod_postgres=_FakeProdPostgres(),
                     freq=1,
                     partition_key=PARTITION_KEY,
-                    stock_codes=("600000.SH", "000001.SZ"),
+                    stock_codes=("600000.SH", "000001.SZ", "920001.BJ"),
                 )
 
             self.assertEqual(result.source_method, "prod_db_raw_tushare")
             self.assertEqual(result.row_count, 1)
             self.assertEqual(result.returned_stock_code_count, 1)
-            self.assertEqual(result.empty_stock_code_count, 1)
-            self.assertEqual(result.query_count, 2)
+            self.assertEqual(result.empty_stock_code_count, 2)
+            self.assertEqual(result.query_count, 1)
+            self.assertEqual(len(calls), 1)
             self.assertEqual(
                 calls[0],
                 {
-                    "ts_code": "600000.SH",
+                    "stock_codes": ("600000.SH", "000001.SZ", "920001.BJ"),
                     "freq": 1,
                     "start_datetime": "2026-05-29 09:00:00",
                     "end_datetime": "2026-05-29 19:00:00",
@@ -372,6 +382,47 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                     """
                 ).fetchone()
             self.assertEqual(row, (1, 100, 1234.5, "XSHG", 12.345))
+
+    def test_prod_db_batch_fetch_rejects_rows_outside_stock_pool(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+
+            def fake_fetch(
+                connection,
+                *,
+                stock_codes,
+                freq,
+                start_datetime,
+                end_datetime,
+            ):
+                return [
+                    {
+                        "ts_code": "300001.SZ",
+                        "freq": 1,
+                        "trade_time": datetime(2026, 5, 29, 9, 30),
+                        "open": 10.0,
+                        "close": 10.0,
+                        "high": 10.1,
+                        "low": 9.9,
+                        "vol": 100,
+                        "amount": 1234.5,
+                    }
+                ]
+
+            with patch.object(
+                stk_mins,
+                "fetch_prod_stk_mins_rows_for_stock_codes",
+                fake_fetch,
+            ):
+                with self.assertRaisesRegex(RuntimeError, "outside the requested stock pool"):
+                    stk_mins.write_raw_stk_mins_partition_from_prod_db(
+                        lake_root=lake_root,
+                        duckdb=DuckDBResource(),
+                        prod_postgres=_FakeProdPostgres(),
+                        freq=1,
+                        partition_key=PARTITION_KEY,
+                        stock_codes=("600000.SH", "000001.SZ"),
+                    )
 
     def test_existing_valid_raw_file_is_reused_without_tushare_call(self) -> None:
         with TemporaryDirectory() as directory:
