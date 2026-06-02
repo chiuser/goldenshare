@@ -1,6 +1,6 @@
 # Dagster 股票涨跌停资产接入方案
 
-状态：调研结论已形成；尚未进入代码开发。
+状态：调研结论已形成；SL-0 关键口径已拍板；尚未进入代码开发。
 
 更新时间：2026-06-02
 
@@ -21,11 +21,12 @@
 
 核心目标：
 
-1. 历史数据先从旧湖 bootstrap 到新湖 raw。
-2. 日常默认从 prod DB 更新到新湖 raw，Tushare API 保留为人工备用和受控修复入口。
-3. raw 层保持 Tushare 源字段契约，不做业务过滤。
-4. silver 层负责日期标准化、类型标准化、去重和业务质量 checks。
-5. 不把旧湖路径、bootstrap 来源、source method 写入 parquet 字段；这些只进入 materialization metadata。
+1. 历史数据先从旧湖 bootstrap 到 `2026-05-15`。
+2. `2026-05-16` 至最新日期用 prod DB 补齐，之后日常默认从 prod DB 更新到新湖 raw。
+3. Tushare API 保留为人工备用和受控修复入口，不作为日常默认来源。
+4. raw 层保持 Tushare 源字段契约，不做业务过滤。
+5. silver 层负责日期标准化、类型标准化、去重和业务质量 checks。
+6. 不把旧湖路径、bootstrap 来源、source method 写入 parquet 字段；这些只进入 materialization metadata。
 
 ## 2. 依据
 
@@ -52,7 +53,28 @@
    - asset/check/job/sensor 分层组织。
 3. 分钟线 `stk_mins` 已实现“双来源写同一套 raw asset”的长期模式：默认日常从 prod DB 只读抽取，Tushare 作为人工备用；涨跌停资产族可以复用这个模式，但不能新建 `*_from_prod` 平行资产。
 
-### 2.2 计算与审计门禁
+### 2.2 Prod DB 生产代码审计依据
+
+已按当前代码审计旧 prod DB 生产链路，后续 Dagster 接入必须完全参考这些事实，不允许重新猜 fanout、分页或去重策略：
+
+| 数据集 | DatasetDefinition | request builder | fanout / 参数来源 | page limit | 旧 prod 去重主键 |
+|---|---|---|---|---:|---|
+| `stk_limit` | `src/foundation/datasets/definitions/market_equity.py` | `_stk_limit_params` | `trade_date`，可选 `ts_code` | 5800 | `(ts_code, trade_date)` |
+| `limit_step` | `src/foundation/datasets/definitions/market_equity.py` | `_limit_step_params` | `trade_date`，可选 `ts_code/nums` | 2000 | `(ts_code, trade_date, nums)` |
+| `limit_list_d` | `src/foundation/datasets/definitions/market_equity.py` | `_limit_list_params` | `limit_type in ('U','D','Z')`，`exchange in ('SH','SZ','BJ')` | 2500 | `(ts_code, trade_date, limit)` |
+| `limit_list_ths` | `src/foundation/datasets/definitions/market_equity.py` | `_limit_list_ths_params` | `limit_type in ('涨停池','连板池','冲刺涨停','炸板池','跌停池')`，`market in ('HS','GEM','STAR')` | 4000 | `(trade_date, ts_code, query_limit_type, query_market)` |
+| `limit_cpt_list` | `src/foundation/datasets/definitions/market_equity.py` | `_limit_cpt_list_params` | `trade_date`，可选 `ts_code` | 2000 | `(ts_code, trade_date)` |
+| `kpl_list` | `src/foundation/datasets/definitions/board_hotspot.py` | `_kpl_list_params` | `tag in ('涨停','炸板','跌停','自然涨停','竞价')` | 8000 | `(ts_code, trade_date, tag)` |
+
+旧 prod 去重事实：
+
+1. 旧系统写入使用 `raw_core_upsert`。
+2. DAO 在入库前按 conflict key 去重，`deduped_by_key[key] = row`，同一 key 后到行覆盖先到行。
+3. 未显式配置 `conflict_columns` 时，conflict key 来自 SQLAlchemy model primary key。
+4. PostgreSQL 最终使用 `ON CONFLICT DO UPDATE`，所以旧 prod DB 中保留的是每个主键的最终版本。
+5. 新湖实现不得改成凭空设计的“全字段 distinct 作为主去重策略”；应按上表主键复刻旧 prod upsert 语义，再用 exact duplicate check 防止投影或 fanout 合并后产生完全重复行。
+
+### 2.3 计算与审计门禁
 
 本资产族涉及历史分区、日常分区、fanout 合并和字段校验，所有耗时计算必须走 SQL 引擎：
 
@@ -61,7 +83,7 @@
 3. Python 只做编排、参数校验、路径拼接、SQL 结果汇总和 Dagster metadata 组装。
 4. 禁止在正式链路里用 Python 对大体量明细行做循环计算、逐行校验、逐行合并或逐行写 parquet。
 
-### 2.3 本地 Tushare 文档依据
+### 2.4 本地 Tushare 文档依据
 
 | 接口 | 本地文档 |
 ---|---|
@@ -72,7 +94,7 @@
 | `limit_cpt_list` | `docs/sources/tushare/股票数据/打板专题数据/0357_最强板块统计.md` |
 | `kpl_list` | `docs/sources/tushare/股票数据/打板专题数据/0347_开盘啦榜单数据.md` |
 
-### 2.4 Tushare MCP 实测依据
+### 2.5 Tushare MCP 实测依据
 
 已用 `tushareMcp` 做样本核验：
 
@@ -169,20 +191,27 @@ Tushare 接口：limit_list_d
 
 ## 6. Tushare 接口拉取口径
 
+正式实现必须完全参考旧 prod DB 的 request builder 和 fanout 方式：
+
+1. 参数生成以 `src/foundation/ingestion/request_builders.py` 的对应函数为准。
+2. fanout 枚举以 `src/foundation/ingestion/constants.py` 和 `DatasetDefinition.planning.enum_fanout_defaults` 为准。
+3. page limit 以旧 `DatasetDefinition.planning.page_limit` 为准。
+4. Tushare 备用入口只允许复刻旧 prod 请求方式，不允许重新发明“无 fanout 拉全集”“只拉部分市场”等新策略。
+
 ### 6.1 单接口请求形态
 
 | 接口 | 日常主参数 | 分页 | 特殊要求 |
 ---|---|---|---|
-| `stk_limit` | `trade_date=YYYYMMDD` | `limit/offset` | 显式请求 `pre_close`。 |
-| `limit_step` | `trade_date=YYYYMMDD` | `limit/offset` | 无枚举 fanout。 |
-| `limit_list_d` | `trade_date=YYYYMMDD` | `limit/offset` | 需评估是否按 `limit_type` 和 `exchange` fanout；旧系统曾按 `U/D/Z` 与 `SH/SZ/BJ` 扇出。 |
-| `limit_list_ths` | `trade_date=YYYYMMDD` | `limit/offset` | 必须按 `limit_type` 与 `market` fanout。 |
-| `limit_cpt_list` | `trade_date=YYYYMMDD` | `limit/offset` | 响应较慢，日更任务需考虑超时与重试。 |
-| `kpl_list` | `trade_date=YYYYMMDD` | `limit/offset` | 必须按 `tag` fanout。 |
+| `stk_limit` | `_stk_limit_params` 生成 `trade_date=YYYYMMDD`，可选 `ts_code` | `limit/offset`，`limit=5800` | 显式请求 `pre_close`。 |
+| `limit_step` | `_limit_step_params` 生成 `trade_date=YYYYMMDD`，可选 `ts_code/nums` | `limit/offset`，`limit=2000` | 无枚举 fanout。 |
+| `limit_list_d` | `_limit_list_params` 生成 `trade_date/limit_type/exchange`，可选 `ts_code` | `limit/offset`，`limit=2500` | 按旧 prod 口径固定 fanout，不再重新评估是否 fanout。 |
+| `limit_list_ths` | `_limit_list_ths_params` 生成 `trade_date/limit_type/market`，可选 `ts_code` | `limit/offset`，`limit=4000` | 必须按 `limit_type` 与 `market` fanout。 |
+| `limit_cpt_list` | `_limit_cpt_list_params` 生成 `trade_date=YYYYMMDD`，可选 `ts_code` | `limit/offset`，`limit=2000` | 响应较慢，日更任务需考虑超时与重试。 |
+| `kpl_list` | `_kpl_list_params` 生成 `trade_date/tag`，可选 `ts_code` | `limit/offset`，`limit=8000` | 必须按 `tag` fanout。 |
 
 ### 6.2 需要保留的 fanout 口径
 
-从旧 `DatasetDefinition` 审计到的历史 fanout 口径：
+从旧 prod `DatasetDefinition` 审计到的历史 fanout 口径，已作为新湖 Tushare 备用入口的正式口径：
 
 | 接口 | fanout 参数 |
 ---|---|
@@ -195,8 +224,10 @@ Tushare 接口：limit_list_d
 1. 需要 fanout 的接口，raw asset 内部必须显式遍历全部枚举并合并结果。
 2. fanout 参数是请求过程信息，不应写入 parquet 字段，除非 Tushare 输出字段本身包含对应业务字段。
 3. 对 prod DB 来源，fanout 查询维度只允许作为抽取过程统计，不允许作为 raw parquet 正式字段。
+4. `limit_list_ths` 的 `query_limit_type/query_market` 可在内部 staging 中用于复刻旧 prod 主键语义，但最终 raw/silver parquet 必须丢弃这两个查询字段。
+5. `limit_list_d` 不再保留“是否需要 fanout”的待确认项，正式按旧 prod `limit_type × exchange` fanout 实现。
 
-fanout 合并后不应产生完全重复行，指的是同一条源业务记录不应因为多组请求参数被重复写入。例如 `limit_list_d` 如果后续确认需要按 `exchange=SH/SZ/BJ` 扇出，请求 `exchange=SH` 和请求 `exchange=SZ` 不应该同时返回完全相同的 `000001.SZ, 20260601, U, ...` 行；如果出现这种重复，raw 写入前应按完整字段去重或直接让 duplicate check 失败。这个 check 防的是“多路请求合并造成重复写入”，不是禁止 `limit_list_ths/kpl_list` 的同股同日多类别业务事实。
+fanout 合并后不应产生完全重复行，指的是同一条源业务记录不应因为多组请求参数被重复写入。例如 `limit_list_d` 按 `exchange=SH/SZ/BJ` 扇出时，请求 `exchange=SH` 和请求 `exchange=SZ` 不应该同时返回完全相同的 `000001.SZ, 20260601, U, ...` 行。正式写入时先按旧 prod 主键 upsert 语义取每个 key 的最终版本，再用 exact duplicate check 防止投影后出现完全相同的重复行。这个 check 防的是“多路请求合并造成重复写入”，不是禁止 `limit_list_ths/kpl_list` 的同股同日多类别业务事实。
 
 ### 6.3 源站 ready 时间差异
 
@@ -261,9 +292,10 @@ rank 可能返回数字 20
 
 设计要求：
 
-1. 开发前需要用更多样本确认 Tushare 当前返回类型。
-2. raw schema contract 必须选一个长期类型，并在 bootstrap/API 两条写入路径中统一。
-3. 若 Tushare 返回类型不稳定，raw 写入 helper 应按字段契约显式 cast，避免同一 asset 不同分区 parquet schema 漂移。
+1. `limit_cpt_list.cons_nums` 按整型注册和写入。
+2. `limit_cpt_list.rank` 按整型注册和写入。
+3. bootstrap、prod DB、Tushare API 三条写入路径必须使用同一 schema contract。
+4. 若来源返回类型不稳定，raw 写入 helper 应按字段契约显式 cast，避免同一 asset 不同分区 parquet schema 漂移。
 
 ### 7.3 Prod DB 字段白名单和 cast 规则
 
@@ -309,14 +341,26 @@ cast 规则：
 | file exists | 目标分区文件必须存在。 |
 | required columns and types | 字段和 raw schema contract 一致。 |
 | partition date matches | 文件内 `trade_date` 必须等于分区日期。 |
-| row count policy | 是否允许 0 行需逐接口确认；不能默认所有榜单每天都有数据。 |
-| source key uniqueness | 只对业务上应唯一的数据集启用，例如 `stk_limit/limit_step/limit_list_d/limit_cpt_list`。 |
+| row count positive | `stk_limit` 在开市日必须非空；榜单类数据集也不允许 0 行。 |
+| prod key uniqueness / upsert result | 按旧 prod 主键语义确认同一 key 只保留最终版本。 |
 | exact duplicate absent | 多路请求或 prod DB 投影后不应产生完全重复行。 |
 
 对 `limit_list_ths` 和 `kpl_list`：
 
 1. 不允许用 `trade_date + ts_code` 做唯一性 blocking check。
-2. 应设计更细主键或使用全字段 exact duplicate check。
+2. `limit_list_ths` 的旧 prod 主键包含 `query_limit_type/query_market`，这两个字段只能在 staging/dedup 中使用，不进入最终 parquet。
+3. `kpl_list` 的旧 prod 主键是 `ts_code + trade_date + tag`。
+
+各数据集 raw 去重 / key 门禁：
+
+| 数据集 | 去重 / key 口径 |
+|---|---|
+| `stk_limit` | `(ts_code, trade_date)` |
+| `limit_step` | `(ts_code, trade_date, nums)` |
+| `limit_list_d` | `(ts_code, trade_date, limit)` |
+| `limit_list_ths` | staging 中按 `(trade_date, ts_code, query_limit_type, query_market)` 复刻旧 prod 语义；最终 parquet 丢弃 query 字段后检查 exact duplicate absent。 |
+| `limit_cpt_list` | `(ts_code, trade_date)` |
+| `kpl_list` | `(ts_code, trade_date, tag)` |
 
 ## 8. Checks 定义口径
 
@@ -329,11 +373,11 @@ raw blocking checks 用来证明“本分区源数据可以进入标准化”：
 | check 类型 | 说明 |
 |---|---|
 | 文件存在 | 目标 parquet 文件必须存在。 |
-| 行数策略 | 是否允许 0 行逐接口拍板；不能默认所有榜单每天有行。 |
+| 行数策略 | `stk_limit` 开市日必须非空；榜单类数据集也不允许 0 行。 |
 | 字段和类型 | 文件 schema 必须等于 raw schema contract。 |
 | 分区日期 | 文件内 `trade_date` 必须等于 Dagster partition key。 |
 | exact duplicate | 投影到新湖 raw 字段后不允许完全重复行。 |
-| 业务键唯一性 | 只对业务上应唯一的数据集启用。 |
+| prod key uniqueness / upsert result | 按旧 prod 主键语义确认同一 key 只保留最终版本；`limit_list_ths` 的 query key 只在 staging 中参与，不进入 parquet。 |
 prod DB 字段白名单不单独设计为 runtime asset check。它属于 helper 的静态 SQL 合同和单元测试门禁：SQL 只能列出业务字段，禁止 `SELECT *`，禁止出现 `api_name/fetched_at/raw_payload/query_limit_type/query_market`。如果代码真的把这些字段写进 parquet，`字段和类型` raw blocking check 会因为 schema 不等于 raw contract 而失败。因此不再额外设计“prod 投影字段匹配契约”这类独立 check，避免重复检查同一件事。
 
 ### 8.2 Silver blocking checks
@@ -364,24 +408,21 @@ silver 层负责标准化，不负责改变源站业务含义：
 2. 数值字段统一为稳定数值类型。
 3. 时间字段保持字符串，除非明确需要计算。
 4. 空值保持真实空值，不用哨兵值。
-5. 不默认过滤当前上市股票；如果某个 silver 要过滤股票池，必须单独拍板。
+5. 不过滤当前上市股票，保留源站榜单事实。
+6. 不因为股票已退市、未上市或不在当前 `stock_basic` 中就丢弃源榜单记录。
 
 ### 9.2 建议 silver 资产
 
 | raw asset | silver asset | 分区 | 主要处理 |
 ---|---|---|---|
-| `raw_tushare_stk_limit` | `silver_stk_limit` | `cn_a_stock_trade_days` 或专用交易日分区 | 日期转 DATE，价格字段数值化，唯一性。 |
-| `raw_tushare_limit_step` | `silver_limit_step` | 同上 | 日期转 DATE，`nums` 类型归一。 |
-| `raw_tushare_limit_list_d` | `silver_limit_list_d` | 同上 | 日期转 DATE，数值字段归一，涨/跌/炸板类型保留。 |
-| `raw_tushare_limit_list_ths` | `silver_limit_list_ths` | 同上 | 日期转 DATE，保留榜单类别、市场类型，允许同股同日多行。 |
-| `raw_tushare_limit_cpt_list` | `silver_limit_cpt_list` | 同上 | 日期转 DATE，板块统计字段数值化。 |
-| `raw_tushare_kpl_list` | `silver_kpl_list` | 同上 | 日期转 DATE，保留标签、主题、竞价/封单字段。 |
+| `raw_tushare_stk_limit` | `silver_stk_limit` | `cn_a_stock_trade_days` | 日期转 DATE，价格字段数值化，唯一性。 |
+| `raw_tushare_limit_step` | `silver_limit_step` | `cn_a_stock_trade_days` | 日期转 DATE，`nums` 类型归一。 |
+| `raw_tushare_limit_list_d` | `silver_limit_list_d` | `cn_a_stock_trade_days` | 日期转 DATE，数值字段归一，涨/跌/炸板类型保留。 |
+| `raw_tushare_limit_list_ths` | `silver_limit_list_ths` | `cn_a_stock_trade_days` | 日期转 DATE，保留榜单类别、市场类型，允许同股同日多行。 |
+| `raw_tushare_limit_cpt_list` | `silver_limit_cpt_list` | `cn_a_stock_trade_days` | 日期转 DATE，`cons_nums/rank` 转整型，板块统计字段数值化。 |
+| `raw_tushare_kpl_list` | `silver_kpl_list` | `cn_a_stock_trade_days` | 日期转 DATE，保留标签、主题、竞价/封单字段。 |
 
-分区定义建议复用股票交易日动态分区，但是否使用已有 `cn_a_stock_trade_days` 需要开发前确认：
-
-1. 若这些数据都按 A 股交易日生产，复用 `cn_a_stock_trade_days` 最简单。
-2. 若 `stk_limit` 需要早盘 current trade day 分区语义，可能要参考 `adj_factor` 的 current day 设计。
-3. 若 `kpl_list` 是次日 8:30 才更新前一交易日数据，分区仍应是数据所属 `trade_date`，不是运行自然日。
+分区定义已拍板：6 个数据集 raw/silver 全部使用 `cn_a_stock_trade_days`。即使 `kpl_list` 是次日才更新前一交易日数据，分区仍是数据所属 `trade_date`，不是运行自然日。
 
 ### 9.3 Silver checks
 
@@ -390,7 +431,7 @@ silver 层负责标准化，不负责改变源站业务含义：
 | check | 说明 |
 ---|---|
 | file exists | silver 分区文件存在。 |
-| row count policy | 是否允许空分区逐接口确认。 |
+| row count positive | 6 个数据集在开市日都不允许 0 行。 |
 | required columns and types | 字段与 silver schema contract 一致。 |
 | partition date matches | `trade_date` 等于分区日期。 |
 | exact duplicate absent | 禁止完全重复行。 |
@@ -425,6 +466,13 @@ silver 层负责标准化，不负责改变源站业务含义：
 
 ### 10.3 Bootstrap 验收
 
+初始化边界已拍板：
+
+1. 旧湖 bootstrap 只负责迁移到 `2026-05-15`。
+2. `2026-05-16` 至 prod DB 最新日期由 prod DB 补齐。
+3. 后续日常默认继续从 prod DB 更新。
+4. Tushare API 只作为人工备用或受控修复入口。
+
 每个数据集 bootstrap 前必须先做旧湖预检：
 
 1. 源路径存在。
@@ -449,40 +497,34 @@ Bootstrap 后验收：
 3. prod DB 来源和 Tushare 来源写同一套 raw asset、同一路径、同一组 checks。
 4. 不新增 `raw_tushare_xxx_from_prod` 平行资产。
 5. 同一次 run 只能选择一个来源，禁止 prod DB 与 Tushare 混用。
+6. prod DB 抽取必须参考旧 prod 生产代码的请求/fanout/去重语义，不允许自己猜。
 
 ### 11.1 Job 入口
 
-建议每个数据集保留两个入口：
-
-| 入口 | 来源 | 用途 |
-|---|---|---|
-| `*_update_from_prod_job` | prod DB | 默认日常入口和 prod DB 补数入口。 |
-| `*_update_job` | Tushare API | 人工备用和受控修复入口。 |
-
-job 只做 asset selection 和固定 config，不写请求逻辑。
-
-建议先按单接口 job 落地：
+job 已拍板为独立入口：
 
 ```text
-stk_limit_update_from_prod_job
-limit_step_update_from_prod_job
-limit_list_d_update_from_prod_job
-limit_list_ths_update_from_prod_job
-limit_cpt_list_update_from_prod_job
-kpl_list_update_from_prod_job
+stk_limit_update_job
+limit_step_update_job
+limit_list_d_update_job
+limit_list_ths_update_job
+limit_cpt_list_update_job
+kpl_list_update_job
 ```
 
-如果后续需要组合入口，再新增：
+设计要求：
 
-```text
-stock_limit_daily_update_job
-```
-
-但组合 job 不能掩盖各接口不同 readiness。
+1. 每个数据资产一个独立 job。
+2. 第一版不做组合 job。
+3. job 只做 asset selection，不写请求逻辑、不写 SQL、不做 fanout。
+4. 默认来源为 prod DB。
+5. Tushare 备用修复能力不通过组合 job 暴露；后续如需要专门 repair 入口，单独设计。
 
 ### 11.2 Sensor / readiness
 
-sensor 设计不能一刀切。
+sensor 先不做，后续再讨论。
+
+后续如果设计 sensor，必须按接口文档中的数据更新时间设置触发窗口，不能一刀切。
 
 prod DB 日常 sensor 不直接探测 Tushare，而是检查 prod DB 是否已经出现目标 `trade_date` 数据。
 
@@ -507,6 +549,7 @@ Tushare 备用入口仍需保留：
 2. Tushare helper 负责 fanout 和分页。
 3. Tushare 与 prod DB 写入相同 raw schema。
 4. 受控修复必须明确日期、接口、来源和覆盖/替换策略。
+5. Tushare 请求方式必须复刻旧 prod request builder 和 fanout 口径。
 
 ## 12. 开发切片建议
 
@@ -515,10 +558,12 @@ Tushare 备用入口仍需保留：
 目标：
 
 1. `limit_list_d` 命名口径已拍板：asset/path/API 统一使用 `limit_list_d`。
-2. 拍板 raw/silver 是否复用 `cn_a_stock_trade_days`。
-3. 拍板 silver 是否过滤当前上市股票。
-4. 拍板 `limit_cpt_list` raw 类型归一策略。
-5. 拍板每个数据集是否单独 job，还是第一版引入组合 job。
+2. raw/silver 分区已拍板：6 个数据集全部使用 `cn_a_stock_trade_days`。
+3. silver 股票池口径已拍板：不过滤当前上市股票，保留源站榜单事实。
+4. `limit_cpt_list.cons_nums/rank` 已拍板：按整型注册和写入。
+5. 历史初始化边界已拍板：旧湖到 `2026-05-15`，prod DB 补 `2026-05-16` 至最新。
+6. job 口径已拍板：每个数据资产一个独立 job，不做组合 job。
+7. sensor 已拍板：第一版不做。
 
 ### SL-1：字段契约、路径、bootstrap specs
 
@@ -537,15 +582,17 @@ Tushare 备用入口仍需保留：
 2. 实现 Tushare 备用拉取 helper。
 3. 实现 raw checks。
 4. 实现 fanout helper 和 prod DB 字段白名单校验。
-5. 单日验证每个接口。
+5. 实现按旧 prod 主键语义的 dedup/upsert 结果写入。
+6. 单日验证每个接口。
 
 ### SL-3：historical bootstrap
 
 目标：
 
-1. 从旧湖迁移历史 raw。
-2. 补 Dagster materialization/check events。
-3. 不生成 silver。
+1. 从旧湖迁移 `<= 2026-05-15` 的历史 raw。
+2. 用 prod DB 补齐 `2026-05-16` 至 prod DB 最新日期。
+3. 补 Dagster materialization/check events。
+4. 不生成 silver。
 
 ### SL-4：silver assets 与 silver checks
 
@@ -559,36 +606,38 @@ Tushare 备用入口仍需保留：
 
 目标：
 
-1. 新增单接口 prod DB 默认 update jobs。
-2. 新增单接口 Tushare 备用 update jobs。
-3. 如有必要新增组合 job。
+1. 新增 6 个独立 update jobs。
+2. 每个 job 只 selection 对应数据资产和自身 checks。
+3. 不新增组合 job。
 4. job 只做 selection。
 
 ### SL-6：sensor / automation
 
 目标：
 
-1. 根据接口文档中的接口数据更新时间设计 sensor 更新时机。
-2. 所有 sensor 默认 `STOPPED`。
-3. 不在 sensor 里做重 IO 或大量历史扫描。
+1. 第一版不实现 sensor。
+2. 后续根据接口文档中的接口数据更新时间设计 sensor 更新时机。
+3. 所有 sensor 默认 `STOPPED`。
+4. 不在 sensor 里做重 IO 或大量历史扫描。
 
 ## 13. 待拍板问题
 
-| 问题 | 建议 |
----|---|
-| `limit_cpt_list` raw 类型 | 建议按 Tushare 当前字段语义显式 cast，bootstrap 和 API 共用同一 schema。 |
-| silver 是否过滤股票池 | 建议第一版不按当前上市股票过滤，保留源站榜单事实；如需面向 A 股当前上市口径，另起 gold/serving。 |
-| 是否一次做 6 个 sensor | 不建议。建议先 job 手动验证，再按 prod DB readiness 分组做 sensor。 |
-| `limit_list_d` 是否继续 fanout `exchange` | 需要开发前用 MCP 再做一次“无 exchange vs 有 exchange”行数对比，不能凭旧实现直接决定。 |
-| prod DB 是否作为默认日常来源 | 已拍板：默认日常从 prod DB 更新，Tushare 作为备用。 |
+当前关键业务口径已拍板。后续进入开发前仍需按门禁完成两类技术确认：
+
+| 技术确认项 | 说明 |
+|---|---|
+| Tushare 备用入口实测 | 虽然请求方式参考旧 prod 代码，但真正实现前仍需用 `tushareMcp` 对显式字段、分页、fanout 样本再次做最小实测。 |
+| prod DB helper SQL | 每个 helper 必须只读字段白名单，不得 `SELECT *`，不得把系统字段和查询字段写入 parquet。 |
+| `limit_list_ths` staging key | `query_limit_type/query_market` 只用于内部 staging/dedup，不进入 parquet；开发时需用单测锁住。 |
+| sensor 更新时间 | 第一版不做；后续根据接口文档更新时间再单独拍板。 |
 
 ## 14. 结论
 
 本轮调研结论：
 
 1. 6 个数据集都具备接入 Dagster raw/silver 的条件。
-2. 旧湖 bootstrap 初始化可行。
-3. prod DB 默认日常更新可行，且比旧湖更新。
-4. Tushare API 备用更新可行。
+2. 旧湖 bootstrap 到 `2026-05-15` 可行。
+3. prod DB 补 `2026-05-16` 至最新并作为日常默认来源可行。
+4. Tushare API 备用更新可行，但必须复刻旧 prod request/fanout 方式。
 5. 主要风险不是“能不能拉到数据”，而是 fanout 漏数、类型漂移、主键误判、prod DB 系统字段污染和 readiness 时间不一致。
-6. `limit_list_d` 命名已收紧；开发前仍需完成其它 SL-0 拍板，避免把 `limit_list_ths/kpl_list` 的正常多行误判成重复数据。
+6. `limit_list_d` 命名已收紧；`limit_list_ths/kpl_list` 的正常多行不能被误判成重复数据。
