@@ -432,7 +432,7 @@ th code {
         页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
       </p>
       <div class="tag-row">
-        <span class="tag warn">状态：M7 前端配置页已接入 / 待 M8 部署与 env 收口</span>
+        <span class="tag warn">状态：M7 前端配置页已接入 / M7.1 发布生效闭环待开发 / 待 M8 部署与 env 收口</span>
         <span class="tag info">不直接编辑 env</span>
         <span class="tag info">不请求 Tushare</span>
         <span class="tag info">不改 Redis key 模型</span>
@@ -461,6 +461,7 @@ th code {
       </div>
       <p>
         结论：运行时读取已切到数据库配置事实源；M6 已提供配置中心 Ops API，发布动作会更新 runtime config 并写 revision；M7 已接入前端配置中心页面。
+        当前缺口是发布后生效状态仍只靠静态重启提示，尚未形成“已发布版本”和“collector 已应用版本”的闭环。
       </p>
     </aside>
   </section>
@@ -718,8 +719,8 @@ th code {
         <tr>
           <td><code>requires_collector_restart</code></td>
           <td><code>boolean</code></td>
-          <td>发布后是否需要重启 collector</td>
-          <td>V1 默认为 true；后续热加载完成后再调整。</td>
+          <td>配置变更是否需要通过 collector 重启生效的策略提示</td>
+          <td>只能表示“这类配置发布后需要重启才能被 collector 读取”，不能表示“当前是否仍待重启”。页面不得直接把这个字段渲染成待重启事实；待重启必须由配置版本和 collector 上报的已应用版本推导。</td>
         </tr>
         <tr>
           <td><code>updated_by_user_id</code></td>
@@ -1301,6 +1302,43 @@ th code {
         </tr>
       </tbody>
     </table>
+
+    <h3 style="margin-top:18px;">5.4 发布生效闭环 API（待 M7.1）</h3>
+    <p>
+      当前 M7 页面只能看到 <code>requires_collector_restart</code> 静态提示，无法知道 collector 是否已经重启并读取到新版本。
+      M7.1 必须补齐“已发布版本 -> collector 已应用版本 -> 页面状态”的闭环；否则页面会在手动重启后继续显示“需重启”，误导运营。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>接口/字段</th>
+          <th>用途</th>
+          <th>规则</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>apply_state</code></td>
+          <td>配置详情和对象列表返回的派生状态</td>
+          <td>由 <code>foundation.realtime_runtime_config.version</code> 与 collector 上报的 <code>applied_version</code> 推导；不是前端自行判断。</td>
+        </tr>
+        <tr>
+          <td><code>restart_pending</code></td>
+          <td>页面是否显示“待重启”</td>
+          <td>仅当对象发布版本大于 collector 已应用版本时为 true。Redis health 不可用或 collector 未上报时返回 <code>unknown</code>，不能假装已生效。</td>
+        </tr>
+        <tr>
+          <td><code>POST /api/v1/ops/realtime/config/collector/restart</code></td>
+          <td>管理员在配置中心触发 collector 重启</td>
+          <td>待开发。接口只允许重启 <code>goldenshare-realtime-collector.service</code>，不请求 Tushare、不写行情 Redis、不修改配置值。必须校验管理员权限并记录操作审计。</td>
+        </tr>
+        <tr>
+          <td><code>collector_applied_versions</code></td>
+          <td>collector 启动后上报已读取的配置版本</td>
+          <td>写入现有 Redis health 语义族，包含对象版本、collector_id、process_started_at、applied_at。配置表仍只保存配置事实，不保存运行状态。</td>
+        </tr>
+      </tbody>
+    </table>
   </section>
 
   <section class="panel section">
@@ -1370,28 +1408,152 @@ th code {
 
     <h3 style="margin-top:18px;">6.3 collector 生效</h3>
     <div class="diagram">
-      <div class="flow flow-4">
+      <div class="flow">
         <div class="node">
           <div class="node-title">发布配置</div>
-          <div class="node-text">runtime config 表版本递增，revision 记录 before/after。</div>
+          <div class="node-text">runtime config 表版本递增到 N，revision 记录 before/after。</div>
         </div>
         <div class="node">
-          <div class="node-title">页面提示</div>
-          <div class="node-text">V1 显示需要重启 collector 生效。</div>
+          <div class="node-title">页面派生待生效</div>
+          <div class="node-text">如果 collector 上报的 applied_version 小于 N，显示待重启。</div>
         </div>
         <div class="node">
-          <div class="node-title">collector 启动</div>
-          <div class="node-text">app/CLI 读取 foundation runtime config 并生成配置对象。</div>
+          <div class="node-title">重启 collector</div>
+          <div class="node-text">管理员通过页面按钮或受控运维命令重启服务。</div>
         </div>
         <div class="node">
-          <div class="node-title">采集执行</div>
-          <div class="node-text">日线和分钟 feed 使用同一配置对象。</div>
+          <div class="node-title">collector 上报版本</div>
+          <div class="node-text">启动后读取 runtime config，并把已应用对象版本写入 health。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">页面显示已应用</div>
+          <div class="node-text">配置 API 读取 health，确认 applied_version 等于 N 后显示已应用。</div>
         </div>
       </div>
     </div>
-    <p>
-      V1 不做热加载，避免把配置发布和运行中 collector 状态耦合过深。后续若要自动生效，应单独立项实现 collector 配置刷新与健康状态确认。
-    </p>
+    <div class="grid-2" style="margin-top:14px;">
+      <div class="note-card decision">
+        <strong>当前问题</strong>
+        <p>
+          当前页面读取 <code>requires_collector_restart</code> 并显示“需重启”。这个字段只是策略提示：说明这类配置发布后需要重启 collector 才会生效。
+          手动执行 <code>systemctl restart</code> 不会回写配置表，所以它不能证明“现在仍未重启”。继续直接展示会误导运营。
+        </p>
+      </div>
+      <div class="note-card decision">
+        <strong>目标口径</strong>
+        <p>
+          页面状态必须由“配置已发布版本”和“collector 已应用版本”推导。
+          <code>requires_collector_restart</code> 只保留为发布影响说明，不再作为待重启状态事实。
+        </p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">6.3.1 生效状态模型</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>事实</th>
+          <th>来源</th>
+          <th>含义</th>
+          <th>页面展示</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>published_version</code></td>
+          <td><code>foundation.realtime_runtime_config.version</code></td>
+          <td>配置中心最后一次成功发布后的配置版本。</td>
+          <td>显示当前配置版本。</td>
+        </tr>
+        <tr>
+          <td><code>requires_collector_restart</code></td>
+          <td><code>foundation.realtime_runtime_config</code></td>
+          <td>这类对象是否需要 collector 重启才能读取新配置；它是策略，不是状态。</td>
+          <td>发布影响说明：“发布后需要重启 collector 生效”。</td>
+        </tr>
+        <tr>
+          <td><code>applied_version</code></td>
+          <td>collector 写入的 Redis health</td>
+          <td>当前 collector 进程启动后实际读取并应用的对象配置版本。</td>
+          <td>若等于发布版本，显示“已应用”。</td>
+        </tr>
+        <tr>
+          <td><code>restart_pending</code></td>
+          <td>Ops Config API 派生</td>
+          <td><code>requires_collector_restart=true</code> 且 <code>published_version &gt; applied_version</code> 时为 true。</td>
+          <td>只在 true 时显示“待重启”；unknown 时显示“应用状态未知”。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">6.3.2 collector 上报规则</h3>
+    <div class="grid-3">
+      <div class="note-card">
+        <strong>上报时机</strong>
+        <p>collector 启动并成功读取 runtime config 后，立即把每个对象的 <code>applied_version</code>、<code>applied_at</code>、<code>collector_id</code>、<code>process_started_at</code> 写入对应 feed health。</p>
+      </div>
+      <div class="note-card">
+        <strong>上报位置</strong>
+        <p>复用现有 Redis health 语义族，不把运行状态写回 <code>foundation.realtime_runtime_config</code>。配置表只保存配置事实，health 保存运行事实。</p>
+      </div>
+      <div class="note-card">
+        <strong>失败处理</strong>
+        <p>Redis 不可用、health 缺失或版本缺失时，配置 API 返回 <code>apply_state.status=unknown</code>。页面不得把 unknown 展示成已应用或待重启。</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">6.3.3 页面重启按钮规则</h3>
+    <div class="grid-2">
+      <div class="note-card">
+        <strong>按钮职责</strong>
+        <p>按钮只负责触发受控重启 <code>goldenshare-realtime-collector.service</code>。它不修改配置值、不请求 Tushare、不读写行情 Redis、不直接把待重启状态改成已应用。</p>
+      </div>
+      <div class="note-card">
+        <strong>生效确认</strong>
+        <p>按钮成功只表示 systemd restart 命令执行成功。页面必须继续轮询配置详情或 health，直到 collector 上报的 <code>applied_version</code> 等于当前发布版本，才能显示“已应用”。</p>
+      </div>
+      <div class="note-card">
+        <strong>权限与安全</strong>
+        <p>重启接口必须 admin-only，并限制为单一服务名。若 Web 进程需要调用 systemd，只能配置窄权限 sudoers：允许 status/restart <code>goldenshare-realtime-collector.service</code>，禁止通配命令。</p>
+      </div>
+      <div class="note-card">
+        <strong>审计</strong>
+        <p>重启操作不是配置发布，不应伪装成配置 revision。目标态应记录为运维服务操作审计；最少要记录操作人、服务名、开始时间、结束时间、结果和错误信息。</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">6.3.4 版本状态展示规则</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>条件</th>
+          <th>页面文案</th>
+          <th>允许动作</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>applied_version == published_version</code></td>
+          <td>已应用</td>
+          <td>不显示待重启；重启按钮不强调。</td>
+        </tr>
+        <tr>
+          <td><code>applied_version &lt; published_version</code></td>
+          <td>待重启生效</td>
+          <td>展示“重启 collector”按钮和发布影响说明。</td>
+        </tr>
+        <tr>
+          <td>collector health 缺失或 Redis 不可用</td>
+          <td>应用状态未知</td>
+          <td>允许查看配置；重启按钮可用但必须提示无法确认当前应用版本。</td>
+        </tr>
+        <tr>
+          <td>重启命令成功但 collector 未上报新版本</td>
+          <td>等待 collector 上报</td>
+          <td>页面继续轮询；超时后显示重启未确认，不得改成已应用。</td>
+        </tr>
+      </tbody>
+    </table>
 
     <h3 style="margin-top:18px;">6.4 业务行情 API 读取快照</h3>
     <div class="diagram">
@@ -1521,6 +1683,12 @@ th code {
       </div>
       <div class="milestone">
         <div>
+          <h3>发布生效闭环</h3>
+          <p>collector 上报已应用配置版本；配置 API 派生 <code>restart_pending</code>；页面只在真实待生效时显示“待重启”，并提供受控 collector 重启入口。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
           <h3>测试与验收</h3>
           <p>覆盖配置校验、锁定字段拒绝、发布 revision、并发 version、前端查看/编辑态、collector 读取配置回归。</p>
         </div>
@@ -1576,6 +1744,11 @@ th code {
           <td>页面不手拼规则，不展示锁定字段编辑控件。</td>
         </tr>
         <tr>
+          <td>发布生效闭环测试</td>
+          <td>发布后版本递增、collector 上报 applied version、页面待重启/已应用/未知三态、重启接口权限与审计</td>
+          <td>手动或按钮重启 collector 后，页面不能继续因为静态 <code>requires_collector_restart</code> 显示“需重启”；必须按版本事实展示。</td>
+        </tr>
+        <tr>
           <td>文档与架构测试</td>
           <td>docs integrity、依赖矩阵</td>
           <td>新增文档索引有效；不引入 foundation -> ops 依赖。</td>
@@ -1599,7 +1772,7 @@ th code {
       </div>
       <div class="note-card decision">
         <strong>D2 发布生效方式</strong>
-        <p>推荐：V1 发布后需要重启 collector 生效；不在本轮做动态热加载。</p>
+        <p>已确认：发布后写入配置表，页面提示需要重启 collector 生效。补充口径：页面不得直接用 <code>requires_collector_restart</code> 当“待重启”状态，必须由配置版本和 collector 已应用版本推导。</p>
       </div>
       <div class="note-card decision">
         <strong>D3 V1 可编辑范围</strong>
@@ -1657,7 +1830,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：M7 前端配置页已接入 / M8 部署与 env 收口待完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环待开发 / M8 部署与 env 收口待完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

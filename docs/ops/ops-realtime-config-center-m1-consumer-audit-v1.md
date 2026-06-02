@@ -1,6 +1,6 @@
 # Ops 实时流配置中心 M1 消费者审计清单 v1
 
-状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / M7 前端配置页已接入 / 待 M8 收尾
+状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / M7 前端配置页已接入 / M7.1 发布生效闭环待开发 / 待 M8 收尾
 依据：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)、根 `AGENTS.md`、`src/AGENTS.md`、依赖矩阵  
 审计时间：2026-06-02  
 
@@ -8,7 +8,7 @@
 
 本清单记录 M1 现状消费者审计结果，并补充 M2 建表与初始化落地状态，用于后续 M3-M8 执行对账。
 
-M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。M7 已实现前端配置中心页面。远程 env 清理仍未完成。
+M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。M7 已实现前端配置中心页面。M7.1 需要补齐发布后 collector 已应用版本闭环，避免页面把静态重启策略误显示成当前待重启状态。远程 env 清理仍未完成。
 
 ## 2. M0 冻结口径
 
@@ -18,7 +18,7 @@ M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读�
 4. `REDIS_URL` 保留在部署级 env，不进入配置中心。
 5. Biz realtime API 目标态不得直接读取 runtime config，不得拼 `feed_key`、`stale`、`collection_sessions`，必须通过 `RealtimeSnapshotReader`。
 6. Ops health 允许读取 runtime config，因为它展示“应然配置 + 实然运行状态”。
-7. V1 发布配置后提示需要重启 collector，不做热加载。
+7. V1 发布配置后提示需要重启 collector，不做热加载；但“是否仍待重启”不得由 `requires_collector_restart` 静态字段决定，必须由配置发布版本和 collector 已应用版本推导。
 
 ## 3. 运行时代码消费者
 
@@ -38,6 +38,7 @@ M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读�
 | Biz 分钟查询 | `src/biz/queries/realtime_stock_rt_min_query_service.py` | 只做参数校验和 schema 映射，调用 `RealtimeSnapshotReader` 读取快照事实。 | M5 已完成；Biz 不再读 runtime config、拼 feed key 或算 stale。 |
 | Ops health | `src/ops/queries/realtime_feed_health_query_service.py` | 显式传 `session` 读取配置和 Redis health/meta，构造运行状态。 | M3 已完成；Ops health 继续展示“应然配置 + 实然状态”。 |
 | Ops 配置中心 API | `src/ops/api/realtime.py`、`src/ops/services/realtime_config_service.py` | 管理员查看、校验、发布 runtime config，发布时写 `ops.config_revision`。 | M6 已完成；不请求 Tushare、不读写 Redis。 |
+| 发布生效状态 | `src/ops/services/realtime_config_service.py`、`frontend/src/pages/ops-realtime-config-center-page.tsx`、collector health | 当前页面直接展示 `requires_collector_restart`，手动重启 collector 后不会清除该静态标记。 | M7.1 待完成：collector 上报已应用配置版本，Ops API 派生 `restart_pending/apply_state`，前端按派生状态展示。 |
 
 ## 4. 旧配置项退场映射
 
@@ -119,7 +120,8 @@ uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/ar
 2. 旧 `REALTIME_STOCK_RT_*` env 只能作为历史说明或远程 env 清理对象存在，不再作为 seed 输入。
 3. M5 已完成：Biz 直读配置和拼 Redis/feed key 的行为已退场，快照事实由 foundation `RealtimeSnapshotReader` 封装。
 4. M6 已完成：配置中心 API、发布 revision、版本冲突保护已上线。
-5. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
+5. M7.1 必须完成发布生效闭环：页面不得继续把 `requires_collector_restart` 当作“当前待重启”状态；必须按配置版本和 collector 已应用版本派生。
+6. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
 
 ## 9. M2 建表与初始化落地状态
 
@@ -201,3 +203,57 @@ M6 明确未完成、M7 已收口或仍需后续处理的内容：
 1. 前端配置中心页面已在 M7 接入，只调用配置中心 objects/detail/validate/publish/revisions API。
 2. 未清理本地或远程旧 env；这是 M8。
 3. 未改变 Ops health、Biz realtime API、collector、Redis key 或 WebSocket 设计。
+
+## 14. M7.1 发布生效闭环待收口项
+
+### 14.1 当前问题
+
+当前 `foundation.realtime_runtime_config.requires_collector_restart` 的真实语义是“这类配置发布后需要重启 collector 才能被读取”。它不是运行状态字段，也不会因为执行了 `systemctl restart goldenshare-realtime-collector.service` 自动变成 false。
+
+因此，页面如果直接把它显示成“需重启”，会出现以下误导：
+
+1. 发布后显示“需重启”，这是合理提示。
+2. 管理员已经手动重启 collector，服务也已 active。
+3. 数据库字段仍为 true。
+4. 页面继续显示“需重启”，看起来像重启没有生效。
+
+这不是 collector 是否启动的问题，而是缺少“collector 已经应用了哪个配置版本”的事实。
+
+### 14.2 目标状态模型
+
+| 状态事实 | 来源 | 含义 | 目标处理 |
+| --- | --- | --- | --- |
+| `published_version` | `foundation.realtime_runtime_config.version` | 配置中心当前发布版本。 | 配置 API 继续返回。 |
+| `requires_collector_restart` | `foundation.realtime_runtime_config` | 发布影响策略：此对象变更需要重启 collector 生效。 | 只作为提示，不作为待重启状态。 |
+| `applied_version` | collector 写入 Redis health | 当前 collector 进程实际读取并应用的配置版本。 | M7.1 新增上报。 |
+| `restart_pending` | Ops Config API 派生 | `published_version > applied_version` 时为 true。 | 前端只按该字段显示“待重启”。 |
+| `apply_state.status` | Ops Config API 派生 | `applied`、`pending_restart`、`unknown`、`restart_failed` 等。 | 前端展示状态标签。 |
+
+### 14.3 需要审计和修改的消费者
+
+| 消费者 | 当前行为 | M7.1 修改目标 |
+| --- | --- | --- |
+| collector | 启动后读取 runtime config，但不显式上报每个对象的已应用版本。 | 启动或每轮循环前，把 `stock_rt_daily`、`stock_rt_min` 的 applied version 写入 Redis health。 |
+| Ops Config API detail/list | 返回 `requires_collector_restart` 静态字段。 | 读取 Redis health，派生 `apply_state`；字段缺失时返回 unknown。 |
+| 前端配置中心 | 对 `requires_collector_restart` 显示“需重启”。 | 改为根据 `apply_state.restart_pending` 显示“待重启”；已应用显示“已应用”；未知显示“应用状态未知”。 |
+| 运维重启操作 | 当前只能手动执行 systemd 命令。 | 新增受控重启入口时，按钮只触发 restart，不直接修改 apply state；是否生效仍以 collector 上报版本为准。 |
+
+### 14.4 受控重启按钮边界
+
+若实现页面“重启 collector”按钮，必须满足以下约束：
+
+1. API 只能重启 `goldenshare-realtime-collector.service`，禁止接受任意服务名或命令。
+2. API 必须 admin-only。
+3. API 不修改 runtime config，不请求 Tushare，不读写行情 Redis，不触碰业务数据表。
+4. 如果 Web 进程需要执行 systemd，只允许配置窄权限 sudoers：`status/restart goldenshare-realtime-collector.service`。
+5. 重启命令成功不代表配置已生效；页面必须继续轮询，直到 collector 上报 `applied_version == published_version`。
+6. 重启操作不是配置发布，不应写成普通 `published` revision；需要单独运维操作审计，至少记录操作人、服务名、开始/结束时间、结果和错误。
+
+### 14.5 验收门禁
+
+1. 发布配置后，配置版本递增，页面显示“待重启生效”。
+2. 重启 collector 后，collector health 上报当前配置版本，页面显示“已应用”。
+3. Redis health 不可用或缺少版本时，页面显示“应用状态未知”，不得显示“已应用”。
+4. 重启命令成功但 collector 未上报新版本时，页面保持“等待 collector 上报”或“重启未确认”。
+5. 静态 `requires_collector_restart=true` 不得再单独驱动“需重启”标签。
+6. 配置中心发布、collector 重启、实时行情采集三件事保持边界清晰：发布写配置表，重启控制服务，采集写 Redis 快照。
