@@ -46,7 +46,7 @@
 
 1. `lake_console/orchestrator/src/orchestrator/defs/assets/**` 中尚无上述 6 个涨跌停相关 Dagster asset。
 2. 已有通用能力可复用：
-   - old lake bootstrap：`defs/bootstrap/**`
+   - 旧湖迁移 metadata / event 补录经验：`defs/bootstrap/**`，仅作口径参考，不作为历史搬运主入口
    - Tushare 分页拉取写 raw：`defs/tushare_api_io.py`
    - prod DB 只读资源：`ProdPostgresResource`
    - schema contract：`defs/run_contracts/asset_column_schemas.py`
@@ -229,7 +229,106 @@ Tushare 接口：limit_list_d
 
 fanout 合并后不应产生完全重复行，指的是同一条源业务记录不应因为多组请求参数被重复写入。例如 `limit_list_d` 按 `exchange=SH/SZ/BJ` 扇出时，请求 `exchange=SH` 和请求 `exchange=SZ` 不应该同时返回完全相同的 `000001.SZ, 20260601, U, ...` 行。正式写入时先按旧 prod 主键 upsert 语义取每个 key 的最终版本，再用 exact duplicate check 防止投影后出现完全相同的重复行。这个 check 防的是“多路请求合并造成重复写入”，不是禁止 `limit_list_ths/kpl_list` 的同股同日多类别业务事实。
 
-### 6.3 源站 ready 时间差异
+### 6.3 开发参考：`limit_list_d` 请求方式
+
+`limit_list_d` 的旧 prod 生产口径是：单个交易日不能只请求一次，必须按“涨跌停类型 × 交易所”拆成 9 路请求，再分页合并。
+
+参数含义：
+
+| 参数 | 含义 |
+|---|---|
+| `trade_date` | 目标交易日，格式 `YYYYMMDD`。 |
+| `limit_type` | 榜单类型，`U` 为涨停相关，`D` 为跌停相关，`Z` 为炸板相关。 |
+| `exchange` | 交易所市场，`SH` 上交所，`SZ` 深交所，`BJ` 北交所。 |
+
+以 `2026-05-15` 为例，必须请求：
+
+```text
+limit_list_d(trade_date=20260515, limit_type=U, exchange=SH)
+limit_list_d(trade_date=20260515, limit_type=U, exchange=SZ)
+limit_list_d(trade_date=20260515, limit_type=U, exchange=BJ)
+
+limit_list_d(trade_date=20260515, limit_type=D, exchange=SH)
+limit_list_d(trade_date=20260515, limit_type=D, exchange=SZ)
+limit_list_d(trade_date=20260515, limit_type=D, exchange=BJ)
+
+limit_list_d(trade_date=20260515, limit_type=Z, exchange=SH)
+limit_list_d(trade_date=20260515, limit_type=Z, exchange=SZ)
+limit_list_d(trade_date=20260515, limit_type=Z, exchange=BJ)
+```
+
+每一路请求都按旧 prod `page_limit=2500` 分页：
+
+```text
+limit=2500, offset=0
+limit=2500, offset=2500
+limit=2500, offset=5000
+...
+```
+
+直到返回空页或不足一页。
+
+写入规则：
+
+1. raw parquet 保留 Tushare 输出字段 `limit`。
+2. 请求参数 `limit_type/exchange` 不写入 raw parquet。
+3. 旧 prod 的 `_limit_list_row_transform` 会把输出字段 `limit` 复制成内部 `limit_type` 用于 core 表；新湖 raw 层不要沿用这个内部字段名，仍保持源字段 `limit`。
+4. 合并 9 路请求后，按旧 prod raw 主键 `(ts_code, trade_date, limit)` 复刻 upsert 语义，同 key 后到行覆盖先到行。
+5. `trade_date + ts_code` 不能作为唯一性判断，因为同一股票同日可能对应不同 `limit` 类型。
+
+### 6.4 开发参考：`kpl_list` 请求方式
+
+`kpl_list` 与 `limit_list_d` 类似，也是 fanout + 分页 + 合并，但它只有一个 fanout 维度：`tag`。
+
+旧 prod 固定请求 5 个 `tag`：
+
+```text
+涨停
+炸板
+跌停
+自然涨停
+竞价
+```
+
+以 `2026-05-15` 为例，必须请求：
+
+```text
+kpl_list(trade_date=20260515, tag=涨停)
+kpl_list(trade_date=20260515, tag=炸板)
+kpl_list(trade_date=20260515, tag=跌停)
+kpl_list(trade_date=20260515, tag=自然涨停)
+kpl_list(trade_date=20260515, tag=竞价)
+```
+
+每一路请求都按旧 prod `page_limit=8000` 分页：
+
+```text
+limit=8000, offset=0
+limit=8000, offset=8000
+limit=8000, offset=16000
+...
+```
+
+直到返回空页或不足一页。
+
+`kpl_list` 和 `limit_list_d` 的关键差异：
+
+| 对比项 | `limit_list_d` | `kpl_list` |
+|---|---|---|
+| fanout 维度 | `limit_type × exchange`，3×3 共 9 路 | 只有 `tag`，共 5 路 |
+| 请求参数是否进输出字段 | `limit_type/exchange` 不直接进 raw parquet；输出里保留源字段 `limit` | `tag` 本身就是 Tushare 输出字段，要保留进 parquet |
+| 去重 key | `(ts_code, trade_date, limit)` | `(ts_code, trade_date, tag)` |
+| 同股同日多行 | 不同 `limit` 可以多行 | 不同 `tag` 可以多行 |
+| 禁止的唯一性判断 | 不能只用 `trade_date + ts_code` 判唯一 | 不能只用 `trade_date + ts_code` 判唯一 |
+
+`kpl_list` 的实现注意点：
+
+1. `tag` 既是请求参数，也是 Tushare 输出业务字段，必须进入 raw/silver parquet。
+2. 合并 5 路请求后，按旧 prod raw 主键 `(ts_code, trade_date, tag)` 复刻 upsert 语义。
+3. 同一股票同一交易日可以因为不同 `tag` 保留多行，这不是重复。
+4. exact duplicate check 只防止完全相同的行被重复写入，不应阻断不同 `tag` 的正常业务事实。
+
+### 6.5 源站 ready 时间差异
 
 | 接口 | 文档/观察到的更新时间口径 | 对 sensor 的影响 |
 ---|---|---|
@@ -243,14 +342,14 @@ fanout 合并后不应产生完全重复行，指的是同一条源业务记录�
 设计结论：
 
 1. 这 6 个接口不应默认绑定到同一个 sensor 触发窗口。
-2. 第一版可以先做手动 job / UI backfill；sensor 在字段和历史迁移稳定后再设计。
+2. 第一版只保留手动独立 job；历史初始化按第 12 节批量迁移，不用 UI backfill 搬运历史。
 3. 若要日更自动化，应该按接口 readiness 分组，而不是简单“一个涨跌停 sensor 跑全部”。
 
 ## 7. Raw 层设计口径
 
 ### 7.1 路径
 
-建议路径：
+正式路径：
 
 ```text
 raw/tushare/stk_limit/trade_date=YYYY-MM-DD/part-000.parquet
@@ -292,8 +391,8 @@ rank 可能返回数字 20
 
 设计要求：
 
-1. `limit_cpt_list.cons_nums` 按整型注册和写入。
-2. `limit_cpt_list.rank` 按整型注册和写入。
+1. `limit_cpt_list.cons_nums` 按 `INTEGER` 注册和写入，不使用 `BIGINT` 或 `VARCHAR`。
+2. `limit_cpt_list.rank` 按 `INTEGER` 注册和写入，不使用 `BIGINT` 或 `VARCHAR`。
 3. bootstrap、prod DB、Tushare API 三条写入路径必须使用同一 schema contract。
 4. 若来源返回类型不稳定，raw 写入 helper 应按字段契约显式 cast，避免同一 asset 不同分区 parquet schema 漂移。
 
@@ -334,14 +433,14 @@ cast 规则：
 
 ### 7.4 Raw checks
 
-建议 raw blocking checks：
+正式 raw blocking checks：
 
 | check | 说明 |
 ---|---|
 | file exists | 目标分区文件必须存在。 |
 | required columns and types | 字段和 raw schema contract 一致。 |
 | partition date matches | 文件内 `trade_date` 必须等于分区日期。 |
-| row count positive | `stk_limit` 在开市日必须非空；榜单类数据集也不允许 0 行。 |
+| row count positive | 在该数据集目标日期范围内，`stk_limit` 开市日必须非空；榜单类数据集也不允许 0 行。 |
 | prod key uniqueness / upsert result | 按旧 prod 主键语义确认同一 key 只保留最终版本。 |
 | exact duplicate absent | 多路请求或 prod DB 投影后不应产生完全重复行。 |
 
@@ -373,7 +472,7 @@ raw blocking checks 用来证明“本分区源数据可以进入标准化”：
 | check 类型 | 说明 |
 |---|---|
 | 文件存在 | 目标 parquet 文件必须存在。 |
-| 行数策略 | `stk_limit` 开市日必须非空；榜单类数据集也不允许 0 行。 |
+| 行数策略 | 在该数据集目标日期范围内，`stk_limit` 开市日必须非空；榜单类数据集也不允许 0 行。 |
 | 字段和类型 | 文件 schema 必须等于 raw schema contract。 |
 | 分区日期 | 文件内 `trade_date` 必须等于 Dagster partition key。 |
 | exact duplicate | 投影到新湖 raw 字段后不允许完全重复行。 |
@@ -411,7 +510,7 @@ silver 层负责标准化，不负责改变源站业务含义：
 5. 不过滤当前上市股票，保留源站榜单事实。
 6. 不因为股票已退市、未上市或不在当前 `stock_basic` 中就丢弃源榜单记录。
 
-### 9.2 建议 silver 资产
+### 9.2 Silver 资产
 
 | raw asset | silver asset | 分区 | 主要处理 |
 ---|---|---|---|
@@ -419,19 +518,19 @@ silver 层负责标准化，不负责改变源站业务含义：
 | `raw_tushare_limit_step` | `silver_limit_step` | `cn_a_stock_trade_days` | 日期转 DATE，`nums` 类型归一。 |
 | `raw_tushare_limit_list_d` | `silver_limit_list_d` | `cn_a_stock_trade_days` | 日期转 DATE，数值字段归一，涨/跌/炸板类型保留。 |
 | `raw_tushare_limit_list_ths` | `silver_limit_list_ths` | `cn_a_stock_trade_days` | 日期转 DATE，保留榜单类别、市场类型，允许同股同日多行。 |
-| `raw_tushare_limit_cpt_list` | `silver_limit_cpt_list` | `cn_a_stock_trade_days` | 日期转 DATE，`cons_nums/rank` 转整型，板块统计字段数值化。 |
+| `raw_tushare_limit_cpt_list` | `silver_limit_cpt_list` | `cn_a_stock_trade_days` | 日期转 DATE，`cons_nums/rank` 转 `INTEGER`，板块统计字段数值化。 |
 | `raw_tushare_kpl_list` | `silver_kpl_list` | `cn_a_stock_trade_days` | 日期转 DATE，保留标签、主题、竞价/封单字段。 |
 
 分区定义已拍板：6 个数据集 raw/silver 全部使用 `cn_a_stock_trade_days`。即使 `kpl_list` 是次日才更新前一交易日数据，分区仍是数据所属 `trade_date`，不是运行自然日。
 
 ### 9.3 Silver checks
 
-建议 silver blocking checks：
+正式 silver blocking checks：
 
 | check | 说明 |
 ---|---|
 | file exists | silver 分区文件存在。 |
-| row count positive | 6 个数据集在开市日都不允许 0 行。 |
+| row count positive | 6 个数据集在各自目标日期范围内都不允许 0 行。 |
 | required columns and types | 字段与 silver schema contract 一致。 |
 | partition date matches | `trade_date` 等于分区日期。 |
 | exact duplicate absent | 禁止完全重复行。 |
@@ -449,7 +548,7 @@ silver 层负责标准化，不负责改变源站业务含义：
 
 1. 旧湖存在 6 个目标数据集的真实 parquet 分区。
 2. 旧湖字段与 Tushare MCP 显式字段整体匹配。
-3. 现有 Dagster 已有 old lake bootstrap 引擎，支持按 `trade_date` 分区复制到新湖 raw。
+3. 现有 Dagster 旧湖 bootstrap 经验可作为 metadata / event 口径参考；历史数据实际搬运按第 12 节走 DuckDB 批量写入。
 4. prod DB 已有同名 raw 表且比旧湖更新，可作为日常默认来源。
 5. Tushare API 能按 `trade_date` 拉取目标接口，可作为人工备用和受控修复来源。
 
@@ -483,7 +582,7 @@ silver 层负责标准化，不负责改变源站业务含义：
 
 Bootstrap 后验收：
 
-1. 新湖 raw 分区数等于目标交易日分区数。
+1. 新湖 raw 分区数等于该数据集目标日期范围内的 `cn_a_stock_trade_days` 分区数；不要求补齐该数据集旧湖/源站起始日之前的日期。
 2. 新湖 raw 字段只包含 Tushare raw contract 字段。
 3. materialization metadata 记录 `source_method=old_lake_bootstrap`、`bootstrap_spec`、`partition_key`、`row_count`、`observed_columns`。
 4. parquet 字段中不得出现旧湖路径、source method、bootstrap metadata。
@@ -551,7 +650,167 @@ Tushare 备用入口仍需保留：
 4. 受控修复必须明确日期、接口、来源和覆盖/替换策略。
 5. Tushare 请求方式必须复刻旧 prod request builder 和 fanout 口径。
 
-## 12. 开发切片建议
+## 12. 历史初始化执行方案：DuckDB 批量写入 + Dagster event 补登记
+
+历史初始化阶段不通过 Dagster asset job/backfill 一天一天跑。正式口径是：
+
+```text
+旧湖 parquet / prod DB
+  -> DuckDB / PostgreSQL SQL 批量审计
+  -> DuckDB 批量写新湖 raw parquet
+  -> DuckDB 批量审计新湖结果
+  -> 统一补 Dagster materialization/check events
+```
+
+原因：
+
+1. 历史分区数量多，用 Dagster job/backfill 逐分区执行太慢。
+2. 字段校验、行数统计、重复审计、分区日期校验都适合 SQL 批量完成。
+3. Dagster 在历史初始化阶段只负责后补事件，让 UI 和后续 readiness 能看到资产状态，不负责承载大批量搬运计算。
+4. 日常更新才回到 Dagster job 入口。
+
+### 12.1 执行边界
+
+| 环节 | 执行方式 | 说明 |
+|---|---|---|
+| 旧湖预检 | DuckDB SQL | 扫描旧湖 parquet，统计分区、行数、字段、重复、分区日期。 |
+| 旧湖写新湖 raw | DuckDB SQL | 从旧湖 parquet 读取、cast 到 raw schema contract、按分区写新湖 parquet。 |
+| prod DB gap 预检 | PostgreSQL SQL + DuckDB SQL | PostgreSQL 负责源表范围、行数、字段白名单；DuckDB 负责 staging 后 parquet 审计。 |
+| prod DB gap 写新湖 raw | PostgreSQL 抽取 + DuckDB SQL | 抽取 `2026-05-16` 至 prod DB 最新日期，字段白名单、cast、主键 dedup 后按分区写 parquet。 |
+| 新湖 raw 审计 | DuckDB SQL | 对新湖 raw 做行数、字段、分区日期、key uniqueness、exact duplicate 审计。 |
+| Dagster event 补登记 | 专用 CLI / helper | 只补 materialization/check event，不重新搬运数据。 |
+
+禁止事项：
+
+1. 禁止用 Python 对明细行逐行校验、逐行合并、逐行写 parquet。
+2. 禁止用 Dagster backfill 作为历史搬运主执行方式。
+3. 禁止把旧湖路径、prod DB 表名、source method、event 补登记信息写进 parquet 字段。
+4. 禁止跳过批量审计直接补 event。
+
+### 12.2 旧湖到新湖 raw 批量写入步骤
+
+每个数据集执行：
+
+1. 用 DuckDB 扫描旧湖目标目录：
+
+```text
+/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/<dataset>/trade_date=*/part-000.parquet
+```
+
+2. 只选择 `trade_date <= 2026-05-15` 的分区。
+3. 校验旧湖字段集合与目标 raw schema contract 的字段集合一致；如旧湖字段类型不同，只允许在写入 SQL 中显式 cast，不允许沿用旧湖物理类型。
+4. 校验旧湖分区目录日期与文件内 `trade_date` 一致。
+5. 用 DuckDB 将数据 cast 到目标 raw schema：
+   - `trade_date` 写为 `YYYYMMDD` 字符串。
+   - `limit_cpt_list.cons_nums/rank` 写为 `INTEGER`。
+   - 其它字段按 raw schema contract 写入。
+6. 按分区写入：
+
+```text
+raw/tushare/<dataset>/trade_date=YYYY-MM-DD/part-000.parquet
+```
+
+7. 写入必须使用 staging 临时目录，完成审计后再原子替换目标分区文件。
+
+### 12.3 prod DB gap 批量补数步骤
+
+补数范围：
+
+```text
+2026-05-16 <= trade_date <= prod DB 最新日期
+```
+
+每个数据集执行：
+
+1. 用 PostgreSQL SQL 查询 prod DB 源表日期范围、目标日期行数和字段清单。
+2. SQL 必须显式列字段白名单，不得 `SELECT *`。
+3. 不得读取或写入这些字段：
+
+```text
+api_name
+fetched_at
+raw_payload
+query_limit_type
+query_market
+```
+
+4. `limit_list_ths.query_limit_type/query_market` 允许在 staging 内部用于复刻旧 prod 主键语义，但最终 parquet 必须删除。
+5. prod DB `trade_date` 为 `DATE`，写入新湖 raw 前 cast 为 `YYYYMMDD` 字符串。
+6. 按旧 prod 主键语义做 dedup/upsert 结果选择：
+
+| 数据集 | dedup key |
+|---|---|
+| `stk_limit` | `(ts_code, trade_date)` |
+| `limit_step` | `(ts_code, trade_date, nums)` |
+| `limit_list_d` | `(ts_code, trade_date, limit)` |
+| `limit_list_ths` | staging 内按 `(trade_date, ts_code, query_limit_type, query_market)`；最终 parquet 不含 query 字段。 |
+| `limit_cpt_list` | `(ts_code, trade_date)` |
+| `kpl_list` | `(ts_code, trade_date, tag)` |
+
+7. 同一 key 多行时，按旧 prod DAO 语义保留最终版本。
+8. 用 DuckDB 按分区写入新湖 raw parquet。
+9. 写入完成后用 DuckDB 审计新湖 raw 分区，不通过则不得补 Dagster event。
+
+### 12.4 批量审计输出
+
+每个数据集至少输出一份审计结果，建议写入：
+
+```text
+lake_console/reports/stock_limit_<dataset>_migration_audit_<date>.csv
+lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
+```
+
+审计指标：
+
+| 指标 | 来源 |
+|---|---|
+| `source_partition_count` | 旧湖 / prod DB |
+| `source_row_count` | 旧湖 / prod DB |
+| `target_partition_count` | 新湖 raw |
+| `target_row_count` | 新湖 raw |
+| `schema_mismatch_count` | DuckDB |
+| `partition_date_mismatch_count` | DuckDB |
+| `duplicate_key_count` | DuckDB |
+| `exact_duplicate_count` | DuckDB |
+| `zero_row_partition_count` | DuckDB |
+| `failed_partition_samples` | DuckDB |
+
+验收要求：
+
+1. `target_partition_count` 必须等于该数据集目标日期范围内的 `cn_a_stock_trade_days` 分区数；目标日期范围以该数据集实际源数据起始日和本轮迁移/补数终止日为准。
+2. `target_row_count` 必须能解释到旧湖行数或 prod DB 行数；差异必须有原因。
+3. `schema_mismatch_count = 0`。
+4. `partition_date_mismatch_count = 0`。
+5. `duplicate_key_count = 0`。
+6. `exact_duplicate_count = 0`。
+7. `zero_row_partition_count = 0`。
+
+### 12.5 Dagster event 补登记步骤
+
+只有在批量写入和审计通过后，才允许补 Dagster event。
+
+补登记内容：
+
+1. 对每个 raw asset / partition 写 materialization event。
+2. metadata 必须包含：
+   - `source_method`：`old_lake_bootstrap` 或 `prod_db_gap_fill`
+   - `partition_key`
+   - `row_count`
+   - `dagster/uri`
+   - `goldenshare/observed_columns`
+   - `audit_report_path`
+3. 对每个 raw check 写 check event，结果必须来自 DuckDB 批量审计。
+4. event 补登记不得重新读取 Tushare，不得重新搬运 parquet。
+5. event 补登记失败不能污染 parquet；修复后可以重放 event 补登记。
+
+幂等规则：
+
+1. 同一分区 parquet 重跑使用 replace 语义。
+2. 同一批次 event 补登记必须有 batch id 或 audit report path 可追踪。
+3. 如果 parquet 已写入但 event 未补齐，允许只补 event。
+4. 如果 event 已补但 parquet 审计发现问题，必须先修 parquet，再重写对应 materialization/check event。
+
+## 13. 开发切片建议
 
 ### SL-0：设计确认与命名拍板
 
@@ -560,18 +819,18 @@ Tushare 备用入口仍需保留：
 1. `limit_list_d` 命名口径已拍板：asset/path/API 统一使用 `limit_list_d`。
 2. raw/silver 分区已拍板：6 个数据集全部使用 `cn_a_stock_trade_days`。
 3. silver 股票池口径已拍板：不过滤当前上市股票，保留源站榜单事实。
-4. `limit_cpt_list.cons_nums/rank` 已拍板：按整型注册和写入。
+4. `limit_cpt_list.cons_nums/rank` 已拍板：按 `INTEGER` 注册和写入。
 5. 历史初始化边界已拍板：旧湖到 `2026-05-15`，prod DB 补 `2026-05-16` 至最新。
 6. job 口径已拍板：每个数据资产一个独立 job，不做组合 job。
 7. sensor 已拍板：第一版不做。
 
-### SL-1：字段契约、路径、bootstrap specs
+### SL-1：字段契约、路径、migration specs
 
 目标：
 
 1. 新增 raw/silver schema contract。
 2. 新增 paths。
-3. 新增 bootstrap specs。
+3. 新增旧湖 / prod DB 批量迁移 specs。
 4. 不新增 asset/job/sensor。
 
 ### SL-2：raw assets 与 raw checks
@@ -585,14 +844,16 @@ Tushare 备用入口仍需保留：
 5. 实现按旧 prod 主键语义的 dedup/upsert 结果写入。
 6. 单日验证每个接口。
 
-### SL-3：historical bootstrap
+### SL-3：historical migration
 
 目标：
 
-1. 从旧湖迁移 `<= 2026-05-15` 的历史 raw。
-2. 用 prod DB 补齐 `2026-05-16` 至 prod DB 最新日期。
-3. 补 Dagster materialization/check events。
-4. 不生成 silver。
+1. `SL-3A`：用 DuckDB 从旧湖批量写入 `<= 2026-05-15` 的历史 raw。
+2. `SL-3B`：用 PostgreSQL + DuckDB 从 prod DB 批量补齐 `2026-05-16` 至 prod DB 最新日期。
+3. `SL-3C`：用 DuckDB 批量审计新湖 raw。
+4. `SL-3D`：统一补 Dagster materialization/check events。
+5. 不通过 Dagster backfill 搬运历史数据。
+6. 不生成 silver。
 
 ### SL-4：silver assets 与 silver checks
 
@@ -620,18 +881,19 @@ Tushare 备用入口仍需保留：
 3. 所有 sensor 默认 `STOPPED`。
 4. 不在 sensor 里做重 IO 或大量历史扫描。
 
-## 13. 待拍板问题
+## 14. 开发前技术门禁
 
-当前关键业务口径已拍板。后续进入开发前仍需按门禁完成两类技术确认：
+当前关键业务口径已拍板，不再保留“待拍板问题”。后续进入开发前，只剩必须执行的技术门禁：
 
 | 技术确认项 | 说明 |
 |---|---|
 | Tushare 备用入口实测 | 虽然请求方式参考旧 prod 代码，但真正实现前仍需用 `tushareMcp` 对显式字段、分页、fanout 样本再次做最小实测。 |
 | prod DB helper SQL | 每个 helper 必须只读字段白名单，不得 `SELECT *`，不得把系统字段和查询字段写入 parquet。 |
 | `limit_list_ths` staging key | `query_limit_type/query_market` 只用于内部 staging/dedup，不进入 parquet；开发时需用单测锁住。 |
-| sensor 更新时间 | 第一版不做；后续根据接口文档更新时间再单独拍板。 |
 
-## 14. 结论
+后续 sensor 更新时间不属于本轮待拍板项。第一版明确不做 sensor；如果未来进入 sensor slice，再根据接口文档更新时间单独设计和拍板。
+
+## 15. 结论
 
 本轮调研结论：
 
