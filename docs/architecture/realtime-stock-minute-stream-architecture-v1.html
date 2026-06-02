@@ -672,7 +672,7 @@ fields = [
         <div class="grid-2">
           <div class="card">
             <h3>当前日线现状</h3>
-            <p>股票实时日线已经有服务端配置项，例如启停、采集间隔、交易时段、stale 阈值、TTL、保留批次数、stream 裁剪和通配符。它们来自 <code>Settings</code> / env，不是从数据运营后台页面配置。</p>
+            <p>股票实时日线已经进入实时流配置中心。启停、采集间隔、stale 阈值、TTL、保留批次数和 stream 裁剪来自 <code>foundation.realtime_runtime_config</code>；交易时段、通配符和 feed key 属于 <code>config_catalog.py</code> 锁定事实。</p>
           </div>
           <div class="card">
             <h3>分钟 V1 落地边界</h3>
@@ -681,98 +681,98 @@ fields = [
         </div>
 
         <div class="callout warning">
-          <b>配置审计硬门禁：</b>实时分钟开发前必须把所有新增配置项集中声明在 <code>Settings</code> 的 realtime 区域，并同步写入部署 env 示例、Ops health 返回、测试用例和本文档。V1 的持久化位置是服务端 env 文件（生产为 <code>/etc/goldenshare/web.env</code>），不是页面常量，也不是散落在 collector 内的 Python 常量。后续若建设配置中心，必须先设计单一配置读取服务，再让 collector、API 和 Ops 页面统一消费。
+          <b>配置审计硬门禁：</b>实时分钟运行配置必须集中进入 <code>foundation.realtime_runtime_config</code>，由 <code>runtime_config.py</code> 读取并统一校验。旧 <code>REALTIME_STOCK_RT_*</code> env 已退场，不得再作为 collector、API、Ops health、测试或部署示例的当前入口。锁定事实必须留在 <code>config_catalog.py</code>，不得散落到页面常量或 provider 私有常量。
         </div>
         <div class="callout">
-          <b>M2 收口结果：</b>实时分钟 collector 开发前置项已明确为 <code>src/foundation/realtime/feed_config.py</code> 单一读取层。该模块从 <code>Settings</code> / env 生成 <code>RealtimeStockRtDailyConfig</code> 与 <code>RealtimeStockRtMinConfig</code>，并集中校验配置关系。日线已有代码消费该配置对象，collector、CLI、Biz API、Ops API 不再分散读取 <code>settings.realtime_stock_rt_daily_*</code>；日线 lease TTL 通过 <code>REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30</code> 配置。
+          <b>M8 收口结果：</b>实时分钟 collector 已切到 <code>src/foundation/realtime/runtime_config.py</code>。该模块从 <code>foundation.realtime_runtime_config</code> 读取 <code>stock_rt_daily</code> 与 <code>stock_rt_min</code>，结合 <code>config_catalog.py</code> 锁定事实生成配置对象。Biz API 已下沉到 <code>RealtimeSnapshotReader</code>，不再读取配置或拼 feed key。
         </div>
 
         <table style="margin-top: 12px;">
           <thead>
             <tr>
-              <th>配置项</th>
-              <th>V1 建议值</th>
+              <th>配置字段</th>
+              <th>当前建议值</th>
               <th>归属</th>
               <th>说明与关联约束</th>
             </tr>
           </thead>
           <tbody>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_ENABLED</code></td>
-              <td><code>false</code>（代码默认）；生产当前 <code>true</code></td>
-              <td>服务端 env / Settings</td>
-              <td>控制股票实时分钟 collector 是否启用。代码默认关闭；生产已通过 <code>/etc/goldenshare/web.env</code> 显式开启，并已重启 collector 与 Web。</td>
+              <td><code>enabled</code></td>
+              <td><code>true</code>（生产当前值）</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
+              <td>控制股票实时分钟 collector 是否启用。生产当前通过配置中心发布到配置表，不再通过 env 开启。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_ENABLED_FREQS</code></td>
+              <td><code>enabled_freqs</code></td>
               <td><code>1MIN,5MIN,15MIN,30MIN,60MIN</code></td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>控制启用哪些频率。V1 拍板为五个频率全开，但仍必须配置化。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS</code></td>
+              <td><code>poll_interval_seconds</code></td>
               <td><code>60</code></td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>每个频率 feed 的采集间隔。五频率全开时约等于每 60 秒 5 次源站请求，约 5 次/分钟。它决定源站请求量、stale 阈值和 lease TTL 的下限。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_COLLECTION_SESSIONS</code></td>
+              <td><code>collection_sessions</code></td>
               <td><code>09:30-11:30,13:00-15:00</code></td>
-              <td>服务端 env / Settings</td>
+              <td><code>config_catalog.py</code> 锁定事实</td>
               <td>源站请求窗口。非交易日、非交易时段不请求 Tushare。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS</code></td>
+              <td><code>stale_after_seconds</code></td>
               <td><code>90</code>（建议）</td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>只用于采集时段内判断 Redis 当前批次是否滞后，不用于非采集时段误报。建议至少大于 <code>poll_interval_seconds * 2</code>，避免一次正常抖动就被判 stale。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE</code></td>
+              <td><code>max_calls_per_minute</code></td>
               <td><code>20</code>（建议）</td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>用于运行观测和后续硬限流。必须满足 <code>enabled_freq_count * 60 / poll_interval_seconds &lt;= max_calls_per_minute</code>。V1 五频率、60 秒间隔的理论请求量约 5 次/分钟。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS</code></td>
+              <td><code>lease_ttl_seconds</code></td>
               <td><code>90</code>（建议）</td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>避免多个 collector 同时刷新同一个 feed。必须覆盖单个 feed 的源站请求、归一化、Redis 发布和网络抖动；建议不小于 <code>poll_interval_seconds * 3</code>。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_SOURCE_TIMEOUT_SECONDS</code></td>
+              <td><code>source_timeout_seconds</code></td>
               <td><code>20</code>（建议）</td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>单次请求 Tushare 的超时上限。必须小于 lease TTL，并与 poll interval 匹配；超时只影响对应 feed，不应拖死其他 feed。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_SNAPSHOT_TTL_SECONDS</code></td>
+              <td><code>snapshot_ttl_seconds</code></td>
               <td><code>259200</code></td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>沿用实时日线 TTL 口径，覆盖午休、隔夜和周末展示。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_KEEP_RECENT_BATCHES</code></td>
+              <td><code>keep_recent_batches</code></td>
               <td><code>3</code></td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>每个频率 feed 仅保留最近批次，避免 Redis 长期膨胀。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_BATCH_STREAM_MAXLEN</code></td>
+              <td><code>batch_stream_maxlen</code></td>
               <td><code>5000</code>（建议）</td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>批次发布事件 stream 裁剪上限。用于 Ops 观测与后续排障，不用于业务历史沉淀。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_DELTA_STREAM_MAXLEN</code></td>
+              <td><code>delta_stream_maxlen</code></td>
               <td><code>200000</code>（建议）</td>
-              <td>服务端 env / Settings</td>
+              <td><code>stock_rt_min.runtime_config_json</code></td>
               <td>逐股票变化事件 stream 裁剪上限。为后续 WebSocket 预留；若内存压力明显，应先调小该值，而不是改变快照 key 模型。</td>
             </tr>
             <tr>
-              <td><code>REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN</code></td>
+              <td><code>ts_code_pattern</code></td>
               <td><code>3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
-              <td>服务端 env / Settings</td>
+              <td><code>config_catalog.py</code> 锁定事实</td>
               <td>请求全市场通配符。该值属于源站采集配置，只能由 collector 使用；业务 API 和前端不得暴露或传入通配符。</td>
             </tr>
           </tbody>
@@ -957,12 +957,12 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             <tr>
               <td>M8</td>
               <td>测试、部署与验收</td>
-              <td>进行中：生产已开启 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>，统一 collector 与 Web 已重启，收市/非采集时段 idle 验收通过；仍需下一开市时段验证五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
+              <td>进行中：生产实时分钟启停事实已切到 <code>foundation.realtime_runtime_config</code>，统一 collector 与 Web 可在无旧 env 情况下启动；当前启停值以配置中心/DB 为准。仍需下一开市时段在启用后验证五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。WebSocket 仍为后续独立事项，不进入 V1 主闭环。</td>
             </tr>
           </tbody>
         </table>
         <div class="callout">
-          <b>2026-06-02 生产状态：</b>远程服务器当前位于 <code>dev-interface / 793070d3</code>，<code>goldenshare-realtime-collector.service</code> 使用统一入口 <code>goldenshare realtime-collector-serve</code> 且 active/running；生产 env 已设置 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>。复核时处于非采集时段，日志确认 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 五个分钟 feed 被调度并返回 idle。
+          <b>2026-06-03 生产状态：</b><code>goldenshare-realtime-collector.service</code> 使用统一入口 <code>goldenshare realtime-collector-serve</code> 且 active/running；分钟启用状态来自 <code>foundation.realtime_runtime_config</code>，旧 <code>REALTIME_STOCK_RT_MIN_ENABLED</code> env 不再作为当前口径。复核时处于非采集时段，日志确认 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 五个分钟 feed 被调度并返回 idle。
         </div>
       </div>
     </section>
@@ -1011,7 +1011,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
             </tr>
             <tr>
               <td>lease TTL</td>
-              <td>实时日线 collector 的 lease TTL 已进入 <code>REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS</code> 配置。</td>
+              <td>实时日线 collector 的 lease TTL 已进入 <code>stock_rt_daily.runtime_config_json.lease_ttl_seconds</code> 配置。</td>
               <td>实时分钟不要无脑复制硬编码 TTL。lease TTL 是实时流通用配置，不是分钟线局部参数。它应进入统一配置模型，至少要覆盖单个 feed 一轮请求、归一化、Redis 发布和网络抖动，避免长耗时导致租约提前过期。实现和测试必须覆盖 lease TTL 配置解析与过期边界。</td>
             </tr>
             <tr>
@@ -1063,8 +1063,8 @@ GET /api/v1/ops/realtime/stock-rt-min/health?freq=1MIN</pre>
           <tbody>
             <tr>
               <td>Settings 收敛</td>
-              <td>实时日线与实时分钟所有运行配置必须通过 realtime feed config 单一读取层输出；collector、CLI、Biz API、Ops API 不得分散读取 <code>settings.realtime_stock_rt_daily_*</code> 或 <code>settings.realtime_stock_rt_min_*</code>；不得保留 <code>LEASE_TTL_SECONDS</code> 这类运行配置硬编码。</td>
-              <td>配置单元测试覆盖默认值、env 覆盖、非法关系拒绝、日线 lease TTL 从配置读取、分钟五频率配置解析。</td>
+              <td>实时日线与实时分钟所有运行配置必须通过 <code>foundation.realtime_runtime_config + runtime_config.py + config_catalog.py</code> 输出；collector、CLI、Biz API、Ops API 不得分散读取旧 env 或自行拼配置事实；不得保留 <code>LEASE_TTL_SECONDS</code> 这类运行配置硬编码。</td>
+              <td>配置单元测试覆盖配置表读取、缺行 fail fast、非法关系拒绝、日线 lease TTL 从配置读取、分钟五频率配置解析。</td>
             </tr>
             <tr>
               <td>配置关系校验</td>

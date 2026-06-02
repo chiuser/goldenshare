@@ -320,15 +320,15 @@ flowchart TD
 
 ## 7. 配置项审计
 
-V1 配置统一进入 `Settings` 的 realtime 区域，并由 realtime 配置读取层输出。不得把这些值写在前端常量、API 常量或 provider 私有常量里。
+本需求尚未进入开发。M8 配置中心收口后，单股当日分时序列不得再新增独立 `REALTIME_STOCK_RT_*` env 口径；进入开发前必须重新按配置中心原则审计。V1 候选配置应作为一个独立配置对象，例如 `stock_intraday_minutes_on_demand`，其持久化位置需在开发前拍板：进入 `foundation.realtime_runtime_config`，或另建更适合按需查询的受控配置表。未拍板前，不允许把这些配置写进 `Settings`、前端常量或 provider 私有常量。
 
-| 配置名 | 默认值 | 来源与持久化 | 作用范围 | 消费者 | 依赖关系 | 测试门禁 |
+| 候选配置字段 | 建议值 | 待定持久化 | 作用范围 | 消费者 | 依赖关系 | 测试门禁 |
 | --- | --- | --- | --- | --- | --- | --- |
-| `REALTIME_STOCK_RT_MIN_DAILY_ENABLED` | `true` | env / Settings | 是否启用单股当日分时序列 API 的源站刷新能力 | Biz API / query service | 关闭时只读缓存，不请求源站 | disabled 时不打 Tushare |
-| `REALTIME_STOCK_RT_MIN_DAILY_REFRESH_COOLDOWN_SECONDS` | `60` | env / Settings | 同 key 刷新冷却时间 | query service | 应小于 TTL；应大于等于 1min 最小业务粒度 | 60 秒内重复请求命中缓存 |
-| `REALTIME_STOCK_RT_MIN_DAILY_CACHE_TTL_SECONDS` | `86400` | env / Settings | Redis 序列缓存保留时间 | Redis series store | 必须大于刷新冷却时间 | 写缓存时 TTL 正确 |
-| `REALTIME_STOCK_RT_MIN_DAILY_SOURCE_TIMEOUT_SECONDS` | `20` | env / Settings | 单次源站请求超时 | provider | 应小于 API 可接受超时 | provider 初始化使用该值 |
-| `REALTIME_STOCK_RT_MIN_DAILY_MAX_CALLS_PER_MINUTE` | `120` | env / Settings | 按需查询源站全局限速 | query service / Tushare client | 与 `rt_k`、`rt_min` 共享 Token 额度，不能超过源站权限 | 超限时返回缓存或 429 |
+| `enabled` | `true` | 待配置中心方案确认 | 是否启用单股当日分时序列 API 的源站刷新能力 | Biz API / query service | 关闭时只读缓存，不请求源站 | disabled 时不打 Tushare |
+| `refresh_cooldown_seconds` | `60` | 待配置中心方案确认 | 同 key 刷新冷却时间 | query service | 应小于 TTL；应大于等于 1min 最小业务粒度 | 60 秒内重复请求命中缓存 |
+| `cache_ttl_seconds` | `86400` | 待配置中心方案确认 | Redis 序列缓存保留时间 | Redis series store | 必须大于刷新冷却时间 | 写缓存时 TTL 正确 |
+| `source_timeout_seconds` | `20` | 待配置中心方案确认 | 单次源站请求超时 | provider | 应小于 API 可接受超时 | provider 初始化使用该值 |
+| `max_calls_per_minute` | `120` | 待配置中心方案确认 | 按需查询源站全局限速 | query service / Tushare client | 与 `rt_k`、`rt_min` 共享 Token 额度，不能超过源站权限 | 超限时返回缓存或 429 |
 
 说明：
 
@@ -345,7 +345,7 @@ V1 配置统一进入 `Settings` 的 realtime 区域，并由 realtime 配置读
 展示与编辑边界：
 
 1. 查看态左侧对象列表显示“单股当日分时序列”，右侧展示按需查询、短缓存、刷新冷却、非 collector、非 TaskRun、非历史分钟替代等配置事实。
-2. 它不进入“股票实时分钟”的五频率 collector 配置，不和 `REALTIME_STOCK_RT_MIN_ENABLED_FREQS` 混在一起。
+2. 它不进入“股票实时分钟”的五频率 collector 配置，不和 `stock_rt_min.enabled_freqs` 混在一起。
 3. 编辑态只允许修改该对象自己的按需查询配置，例如启用状态、缓存 TTL、刷新冷却和源站限速。
 4. `freq` 仍是业务 API 必填参数，配置中心不得提供“默认频率”开关。
 5. 发布校验只在编辑态展示，查看态不混入草稿差异或发布确认。

@@ -432,7 +432,7 @@ th code {
         页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
       </p>
       <div class="tag-row">
-        <span class="tag warn">状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / 待 M8 部署与 env 收口</span>
+        <span class="tag ok">状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 部署与 env 收口已完成</span>
         <span class="tag info">不直接编辑 env</span>
         <span class="tag info">不请求 Tushare</span>
         <span class="tag info">不改 Redis key 模型</span>
@@ -625,7 +625,7 @@ th code {
         <tr>
           <td><code>src/foundation/realtime/runtime_config.py</code> 从 <code>foundation.realtime_runtime_config</code> 读取可编辑配置，结合 <code>config_catalog.py</code> 锁定事实生成配置对象。</td>
           <td>M6 已解决运行时配置来源、Ops 配置 API 和发布审计问题。</td>
-          <td>后续继续实现前端配置中心页面、文档收口和本地/远程 env 清理。</td>
+          <td>前端配置中心、文档收口和本地/远程旧 env 清理已在 M7/M8 完成；后续只保持配置表为唯一运行配置事实源。</td>
         </tr>
         <tr>
           <td>Biz 查询服务已改为调用 <code>RealtimeSnapshotReader</code>，只保留参数校验和 schema 映射。</td>
@@ -1666,7 +1666,7 @@ th code {
       <div class="milestone">
         <div>
           <h3>旧 env 配置退场</h3>
-          <p>Settings 旧字段已删除；Biz 已下沉到 snapshot reader；本地/远程 env 清理留到 M8。</p>
+          <p>Settings 旧字段已删除；Biz 已下沉到 snapshot reader；本地/远程旧实时 env 已在 M8 清零。</p>
         </div>
       </div>
       <div class="milestone">
@@ -1830,7 +1830,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 部署与 env 收口待完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 部署与 env 收口已完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

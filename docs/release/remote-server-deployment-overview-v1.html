@@ -232,7 +232,7 @@
         <tr><td><code>goldenshare-ops-worker.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops TaskRun worker。</td></tr>
         <tr><td><code>goldenshare-ops-scheduler.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare ops-scheduler-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>Ops 自动任务调度。</td></tr>
         <tr><td><code>goldenshare-date-completeness-worker.service</code></td><td class="ok">active/running</td><td>disabled</td><td><code>goldenshare ops-date-completeness-worker-serve</code></td><td>未设置 User，按 systemd 默认 root</td><td>日期完整性审计 worker；当前运行但未设置开机自启。</td></tr>
-        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-collector-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>统一实时采集器；生产当前 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>，同服务调度股票实时日线与五个股票实时分钟 feed。非采集时段状态为 idle。</td></tr>
+        <tr><td><code>goldenshare-realtime-collector.service</code></td><td class="ok">active/running</td><td>enabled</td><td><code>goldenshare realtime-collector-serve</code></td><td><code>goldenshare:goldenshare</code></td><td>统一实时采集器；实时日线与股票实时分钟配置来自 <code>foundation.realtime_runtime_config</code>，同服务调度股票实时日线与五个股票实时分钟 feed。非采集时段状态为 idle。</td></tr>
       </tbody>
     </table>
     <h3>共同服务配置</h3>
@@ -322,7 +322,7 @@
         <tr><td>数据库/缓存</td><td><code>DATABASE_URL</code>、<code>REDIS_URL</code></td><td>连接串已脱敏；只记录服务事实。</td></tr>
         <tr><td>数据源</td><td><code>TUSHARE_TOKEN</code>、<code>TUSHARE_BASE_URL</code>、<code>BIYING_TOKEN</code>、<code>BIYING_BASE_URL</code></td><td>Token 不记录。</td></tr>
         <tr><td>数据维护</td><td><code>USE_SYNC_V2_DATASETS</code></td><td>当前包含 56 个数据集，V2 为唯一主链口径。</td></tr>
-        <tr><td>实时采集</td><td><code>REALTIME_STOCK_RT_DAILY_*</code></td><td>包含开关、采集时段、频率、TTL、保留批次、限速等配置。</td></tr>
+        <tr><td>实时采集</td><td><code>REDIS_URL</code> + <code>foundation.realtime_runtime_config</code></td><td><code>REDIS_URL</code> 仍为部署级 env；启停、间隔、TTL、保留批次、限速等实时流运行配置由配置中心写入配置表。</td></tr>
       </tbody>
     </table>
   </section>
@@ -416,7 +416,7 @@
         <tr><td class="warn">安全</td><td>PostgreSQL 5432 公网开放，且 <code>pg_hba.conf</code> 允许 <code>0.0.0.0/0 md5</code>。</td><td>确认是否必须；如非必须，建议按固定来源 IP 收紧。</td></tr>
         <tr><td class="warn">最小权限</td><td>除 realtime collector 外，多个应用服务未设置 <code>User=goldenshare</code>。</td><td>后续可单独设计 systemd 最小权限改造。</td></tr>
         <tr><td class="warn">审计 worker 自启</td><td><code>goldenshare-date-completeness-worker.service</code> 当前 active 但 disabled。</td><td>确认是否希望开机自启；若需要，应同步 unit 和部署策略。</td></tr>
-        <tr><td class="warn">实时分钟开市验收</td><td>生产已开启 <code>REALTIME_STOCK_RT_MIN_ENABLED=true</code>，收市/非采集时段 idle 验收通过。</td><td>下一交易时段需要确认五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。</td></tr>
+        <tr><td class="warn">实时分钟开市验收</td><td>生产实时流配置入口已切到 <code>foundation.realtime_runtime_config</code>，旧 <code>REALTIME_STOCK_RT_*</code> env 已退场；当前启停值以配置中心/DB 为准。</td><td>下一交易时段如启用实时分钟，需要确认五频率源站请求、Redis current batch、业务 API 与 Ops 页面状态。</td></tr>
         <tr><td class="ok">部署权限</td><td>远程 sudoers 已同步 realtime enable 权限。</td><td>保持仓库模板与远程实际 sudoers 一致。</td></tr>
       </tbody>
     </table>

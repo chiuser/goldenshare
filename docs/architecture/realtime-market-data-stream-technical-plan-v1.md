@@ -1,6 +1,6 @@
 # 股票实时日线流技术落地方案 v1
 
-状态：日线已上线 / 分钟 M7 页面已落地 / 生产 `REALTIME_STOCK_RT_MIN_ENABLED=true` 已启用 / 收市 idle 验收通过 / 待下一交易时段端到端验收
+状态：日线已上线 / 分钟 M7 页面已落地 / 配置中心 M8 旧 env 收口中 / 收市 idle 验收通过 / 待下一交易时段端到端验收
 上位方案：[实时行情流架构方案 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 源接口事实：[Tushare 0372 A股实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/股票数据/行情数据/0372_A股实时日线.md)  
 适用范围：Tushare 0372 `rt_k` 股票实时日线 V1
@@ -12,22 +12,22 @@
 审计时间：2026-05-14，开市验证时间：2026-05-15
 审计范围：源接口、collector、Redis、业务 API、Ops API、前端页面、部署配置、测试验收。
 
-### 0.0 2026-05-17 配置收口修订
+### 0.0 2026-06-03 配置中心收口修订
 
-实时日线 V1 已经上线。M2 已完成配置单一读取层收口：collector、CLI、Biz API、Ops API 和 Tushare client 统一消费 realtime feed config，日线 lease TTL 不再作为 collector 文件内硬编码存在。
+实时日线 V1 已经上线。配置中心 M2-M8 已把实时流运行配置从旧 `Settings/env -> feed_config.py` 迁出，当前事实为：
 
 修订口径：
 
-1. `src/foundation/realtime/feed_config.py` 统一从 `Settings` / env 构建 realtime feed 配置对象。
-2. 日线配置对象为 `RealtimeStockRtDailyConfig`，分钟配置对象为 `RealtimeStockRtMinConfig`。
-3. collector、CLI、Biz API、Ops API 不再各自直接读取 `settings.realtime_stock_rt_daily_*` / `settings.realtime_stock_rt_min_*`。
-4. `REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30` 进入配置模型，保持日线当前行为。
-5. 配置关系必须集中校验：采集间隔、启用频率数、feed 级限速、lease TTL、stale 阈值、TTL、stream 裁剪之间不能各自为政。
-6. 本修订不改变实时日线 V1 的业务行为，只改变配置事实源和读取边界。
+1. 可编辑运行配置事实源为 `foundation.realtime_runtime_config`，由实时流配置中心查看、校验和发布。
+2. `src/foundation/realtime/runtime_config.py` 读取配置表，结合 `src/foundation/realtime/config_catalog.py` 的锁定事实生成 `RealtimeRuntimeConfig`。
+3. `config_catalog.py` 锁定 source api、feed key、通配符、交易时段、exchange 等高风险事实，不允许运营页面编辑。
+4. `REDIS_URL` 仍是部署级 env；旧 `REALTIME_STOCK_RT_*` env 已从代码主链、seed 和测试入口退场。
+5. Biz realtime API 通过 foundation `RealtimeSnapshotReader` 读取快照事实，不再拼 feed key、stale 或交易时段。
+6. `requires_collector_restart` 只是发布影响策略；页面当前是否待重启由 DB 已发布版本和 collector 上报的已应用版本推导。
 
 ### 0.0.1 2026-06-01 统一 collector 调度修订
 
-M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serve` 由 `RealtimeCollectorService` 统一调度实时日线与股票实时分钟 feed。代码默认 `REALTIME_STOCK_RT_MIN_ENABLED=false`，生产已在 `/etc/goldenshare/web.env` 显式开启为 `true`；启用分钟后，同一个 systemd 服务内按 feed 独立 due time 调度，日线 6 秒循环不会触发分钟每 6 秒请求。
+M5 已完成统一 collector 调度收口：`goldenshare realtime-collector-serve` 由 `RealtimeCollectorService` 统一调度实时日线与股票实时分钟 feed。分钟是否启用由 `foundation.realtime_runtime_config` 中 `stock_rt_min.runtime_config_json.enabled` 决定，不再由 `/etc/goldenshare/web.env` 的旧 env 决定；启用分钟后，同一个 systemd 服务内按 feed 独立 due time 调度，日线 6 秒循环不会触发分钟每 6 秒请求。
 
 M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监控”分钟分组展示。WebSocket 仍为后续独立事项，不进入当前 V1 主闭环。
 
@@ -44,7 +44,7 @@ M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监�
 | Ops 页面 API | 实时流监控页面只读 Ops health API：日线读 `GET /api/v1/ops/realtime/stock-rt-daily/health`，分钟读 `GET /api/v1/ops/realtime/stock-rt-min/health`。 |
 | 前端页面 | 展示“股票实时日线”和“股票实时分钟”分组的实时 feed 健康，不展示任务中心、不展示离线 freshness、不提供手动同步。 |
 | 非采集时段 | 显示空闲/非采集时段，不按 20 秒 stale 阈值误报失败。 |
-| 配置读取 | 已收口为 realtime feed config 单一读取层；旧的分散 `Settings` 读取不作为后续开发基线。 |
+| 配置读取 | 已收口为 `foundation.realtime_runtime_config + runtime_config.py + config_catalog.py`；旧 `REALTIME_STOCK_RT_*` env 和 `feed_config.py` 不作为当前开发基线。 |
 
 ### 0.2 本轮发现并已补齐的设计点
 
@@ -93,7 +93,7 @@ M6/M7 已完成股票实时分钟业务 API、Ops health API 与“实时流监�
 | P0 | 业务 API 与 Ops health API。 | 已完成：两个 API 都只读 Redis，错误态、空闲态、stale 态测试覆盖。 |
 | P0 | 实时流监控页面。 | 已完成：页面只消费 health API，状态局部刷新，不展示 TaskRun/freshness。 |
 | P0 | realtime feed config 单一读取层。 | 已完成：日线与分钟统一从配置对象读取；日线 lease TTL 硬编码退场；配置关系测试通过。 |
-| P0 | 股票实时分钟生产启用。 | 已完成：生产 `REALTIME_STOCK_RT_MIN_ENABLED=true`，统一 collector 与 Web 已重启，收市/非采集时段 idle 验收通过。 |
+| P0 | 股票实时分钟生产配置切换。 | 已完成：生产启停事实已切到 `foundation.realtime_runtime_config`，统一 collector 与 Web 可在无旧 env 情况下启动；当前启停值以配置中心/DB 为准。 |
 | P0 | 下一交易时段端到端验收。 | 待交易时段验证日线 6 秒采集、分钟 60 秒五频率采集、Redis current batch、业务 snapshot API、Ops 页面局部刷新。 |
 | P1 | WebSocket 推送。 | 基于 V1 Redis current batch 和 delta stream 单独设计，不进入 V1。 |
 
@@ -144,8 +144,9 @@ V1 不进入离线数据集主链，不创建 `DatasetDefinition`，不写 raw/c
 ```text
 src/
   foundation/
-    realtime/             # 当前：实时源、collector、Redis 状态层、配置单一读取层
-      feed_config.py      # 当前：realtime feed 配置单一读取层
+    realtime/             # 当前：实时源、collector、Redis 状态层、运行时配置读取层
+      runtime_config.py   # 当前：读取 foundation.realtime_runtime_config + REDIS_URL
+      config_catalog.py   # 当前：锁定 source api、feed key、交易时段、通配符等事实
   biz/
     api/
       realtime.py         # 当前：业务实时快照 API
@@ -544,22 +545,15 @@ goldenshare realtime-collector-serve --max-cycles 1
 
 ### 8.2 配置项
 
-当前配置已进入 `src/foundation/config/settings.py`，并由 `src/foundation/realtime/feed_config.py` 统一读取、校验和下发给 collector / API / Ops 查询：
+当前配置事实源分两层：
 
-| 环境变量 | 默认值 | 说明 |
+| 层级 | 存放位置 | 说明 |
 | --- | --- | --- |
-| `REDIS_URL` | `redis://127.0.0.1:6379/0` | Redis 连接 |
-| `REALTIME_STOCK_RT_DAILY_ENABLED` | `false` | collector 是否启用 |
-| `REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS` | `6` | 轮询间隔 |
-| `REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS` | `09:30-11:30,13:00-15:00` | 源站请求时间窗口，Asia/Shanghai |
-| `REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE` | `10` | feed 级限速 |
-| `REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS` | `30` | collector lease TTL；保持日线当前行为，但不得硬编码在 collector 内 |
-| `REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS` | `20` | API/Ops 判定采集滞后的阈值 |
-| `REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS` | `259200` | 快照批次 TTL，覆盖午休、隔夜和周末展示 |
-| `REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES` | `3` | 保留最近批次数 |
-| `REALTIME_STOCK_RT_DAILY_BATCH_STREAM_MAXLEN` | `5000` | 批次发布事件 stream 裁剪上限 |
-| `REALTIME_STOCK_RT_DAILY_DELTA_STREAM_MAXLEN` | `200000` | 逐股票变化事件 stream 裁剪上限 |
-| `REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN` | `3*.SZ,6*.SH,0*.SZ,9*.BJ` | 0372 全市场通配符 |
+| 部署级连接配置 | `REDIS_URL` env | Redis 连接串，继续放在本地 `.env.web.local` 和远程 `/etc/goldenshare/web.env`。 |
+| 实时流可编辑运行配置 | `foundation.realtime_runtime_config.runtime_config_json` | `stock_rt_daily` 与 `stock_rt_min` 两个对象的启停、间隔、限速、TTL、保留批次、stream 裁剪、stale、lease 等配置。 |
+| 实时流锁定事实 | `src/foundation/realtime/config_catalog.py` | source api、feed key/pattern、通配符、交易时段、exchange 等高风险事实，不进配置表，不开放编辑。 |
+
+旧 `REALTIME_STOCK_RT_DAILY_*` 与 `REALTIME_STOCK_RT_MIN_*` env 已退场，不再作为运行时、seed 或测试输入。生产启停和参数调整必须通过实时流配置中心发布到 `foundation.realtime_runtime_config`，发布后按页面提示重启统一 collector 生效。
 
 ### 8.2.1 实时流配置中心交互口径
 
@@ -910,22 +904,13 @@ WantedBy=multi-user.target
 
 ### 11.5 远程 env
 
-通过 `scripts/remote-web-env.sh` 写入：
+通过 `scripts/remote-web-env.sh` 只维护部署级连接配置：
 
 ```text
 REDIS_URL=redis://127.0.0.1:6379/0
-REALTIME_STOCK_RT_DAILY_ENABLED=1
-REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS=6
-REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS=09:30-11:30,13:00-15:00
-REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE=10
-REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS=30
-REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS=20
-REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS=259200
-REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES=3
-REALTIME_STOCK_RT_DAILY_BATCH_STREAM_MAXLEN=5000
-REALTIME_STOCK_RT_DAILY_DELTA_STREAM_MAXLEN=200000
-REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 ```
+
+`REALTIME_STOCK_RT_*` 已退场，不得继续写入远程 `/etc/goldenshare/web.env`。若远程仍有旧 key，M8 只能通过 `bash scripts/remote-web-env.sh unset KEY` 删除；不得把旧 env 作为配置中心的兼容输入。
 
 ---
 
@@ -1087,7 +1072,7 @@ REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN=3*.SZ,6*.SH,0*.SZ,9*.BJ
 7. 已新增 Tushare 0372 provider、实时日线 normalizer、collector loop、CLI `realtime-collector-serve`、collector systemd unit 与部署脚本挂载。
 8. 远程已发版至 `793070d3`，`goldenshare-realtime-collector.service` 已安装、启动并启用开机自启动，ExecStart 为 `goldenshare realtime-collector-serve`。
 9. 股票实时分钟 M4-M7 已完成：provider/normalizer/feed、统一 collector 调度、业务 API、Ops health API、实时流监控分钟分组均已落地。
-10. 生产已显式设置 `REALTIME_STOCK_RT_MIN_ENABLED=true`，并已重启 collector 与 Web。
+10. 生产实时流配置入口已切到 `foundation.realtime_runtime_config`，旧 env 清理后已重启 collector 与 Web；当前启停值以配置中心/DB 为准。
 11. 远程收市验收通过：统一 collector active/running，股票实时分钟五频率 feed 被调度但因非采集时段显示 idle，不请求源站或写行情批次。
 
 未完成：

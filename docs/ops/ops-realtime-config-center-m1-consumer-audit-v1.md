@@ -1,6 +1,6 @@
 # Ops 实时流配置中心 M1 消费者审计清单 v1
 
-状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / 待 M8 收尾
+状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 env 与文档收口已完成
 依据：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)、根 `AGENTS.md`、`src/AGENTS.md`、依赖矩阵  
 审计时间：2026-06-02  
 
@@ -8,7 +8,7 @@
 
 本清单记录 M1 现状消费者审计结果，并补充 M2 建表与初始化落地状态，用于后续 M3-M8 执行对账。
 
-M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。M7 已实现前端配置中心页面。M7.1 已补齐发布后 collector 已应用版本闭环，页面不再把静态重启策略误显示成当前待重启状态。远程 env 清理仍未完成。
+M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。M7 已实现前端配置中心页面。M7.1 已补齐发布后 collector 已应用版本闭环，页面不再把静态重启策略误显示成当前待重启状态。M8 已完成本地/远程旧 env 清零和相关文档口径收口。
 
 ## 2. M0 冻结口径
 
@@ -87,10 +87,10 @@ M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读�
 
 | 文档 | 当前口径 | 后续处理 |
 | --- | --- | --- |
-| `docs/architecture/realtime-market-data-stream-technical-plan-v1.md` | 当前仍描述 `Settings/env -> feed_config.py` 为配置来源，并列出日线 env 示例。 | M8 更新为历史口径/已退场；当前口径指向配置中心和 `foundation.realtime_runtime_config`。 |
-| `docs/architecture/realtime-stock-minute-stream-architecture-v1.html` | 当前仍列出分钟 env 配置项，并记录生产 `REALTIME_STOCK_RT_MIN_ENABLED=true`。 | M8 更新为历史口径；生产启用状态迁入 runtime config。 |
-| `docs/ops/ops-realtime-config-center-showcase-v1.html` | showcase 仍展示 `REALTIME_STOCK_RT_*` 字段名。 | M7/M8 改为展示配置中心字段名或 API 返回字段，不再指导运营手填 env。 |
-| `docs/architecture/realtime-stock-intraday-minutes-on-demand-plan-v1.md` | 单股当日分时序列计划另有 `REALTIME_STOCK_RT_MIN_DAILY_*` env 设计。 | 不属于本轮 collector feed 配置退场；后续进入 rt_min_daily 需求时按配置中心总原则重新评审。 |
+| `docs/architecture/realtime-market-data-stream-technical-plan-v1.md` | 已更新为当前配置中心口径：`foundation.realtime_runtime_config + runtime_config.py + config_catalog.py`；旧 env 仅作为退场说明。 | M8 已完成。 |
+| `docs/architecture/realtime-stock-minute-stream-architecture-v1.html` | 已更新为 runtime config 字段和锁定事实口径；不再指导通过 env 开启分钟 feed。 | M8 已完成。 |
+| `docs/ops/ops-realtime-config-center-showcase-v1.html` | 已改为展示配置中心字段名或 API 返回字段，不再展示 `REALTIME_STOCK_RT_*` 字段名。 | M8 已完成。 |
+| `docs/architecture/realtime-stock-intraday-minutes-on-demand-plan-v1.md` | 已把单股当日分时序列配置改为候选字段和待配置中心方案确认；不得提前落 env。 | M8 已完成。 |
 
 ## 7. M1 验证命令
 
@@ -121,7 +121,7 @@ uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/ar
 3. M5 已完成：Biz 直读配置和拼 Redis/feed key 的行为已退场，快照事实由 foundation `RealtimeSnapshotReader` 封装。
 4. M6 已完成：配置中心 API、发布 revision、版本冲突保护已上线。
 5. M7.1 已完成发布生效闭环：页面不得继续把 `requires_collector_restart` 当作“当前待重启”状态；必须按配置版本和 collector 已应用版本派生。
-6. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
+6. M8 已完成：文档和 showcase 中旧 env 当前口径已收口为历史/已退场说明，当前运行配置指向配置中心和 runtime config 表。
 
 ## 9. M2 建表与初始化落地状态
 
@@ -156,7 +156,7 @@ M3 完成当时明确未完成、不得误判为完成的内容；其中 Setting
 1. 已删除 `src/foundation/config/settings.py` 中 `REALTIME_STOCK_RT_*` 字段。
 2. 已下沉 Biz `RealtimeSnapshotReader`；Biz 不再读取配置并拼 feed key/stale。
 3. 已实现配置中心 API 和发布审计；前端页面仍是后续配置中心阶段。
-4. 未清理本地/远程 env；这是 M8。
+4. 本地/远程旧 env 已在 M8 清零。
 
 ## 11. M4 旧 env 字段退场状态
 
@@ -167,11 +167,11 @@ M4 已完成以下内容：
 3. seed 测试删除旧 env 构造，改为验证默认模板和非法显式 runtime config 拒绝。
 4. `src/` 与 `tests/` 中旧 env 运行时/测试入口引用清零。
 
-M4 明确未完成、不得误判为完成的内容：
+M4 完成当时的剩余事项已在后续阶段收口：
 
-1. 未清理本地 `.env.web.local` 或远程 `/etc/goldenshare/web.env` 中可能残留的旧 env；这是 M8 部署退场动作。
-2. 已下沉 Biz `RealtimeSnapshotReader`。
-3. 已实现配置中心 API 和发布审计；前端页面尚未实现。
+1. 本地 `.env.web.local` 与远程 `/etc/goldenshare/web.env` 的旧 env 已在 M8 清零。
+2. Biz `RealtimeSnapshotReader` 已在 M5 下沉。
+3. 配置中心 API 与前端页面已在 M6/M7 完成。
 
 ## 12. M5 Biz SnapshotReader 下沉状态
 
@@ -182,11 +182,11 @@ M5 已完成以下内容：
 3. 外部 realtime API 路径、response schema 与错误码保持不变。
 4. Ops health 仍直接读取 runtime config，用于展示“应然配置 + 实然状态”，不属于 M5。
 
-M5 完成当时明确未完成、不得误判为完成的内容；其中配置中心 API 和发布审计已在 M6 收口：
+M5 完成当时的剩余事项已收口：
 
-1. 已实现配置中心 API 和发布审计；前端页面尚未实现。
-2. 未清理本地或远程 env；这是 M8。
-3. 未改变 Redis key 模型或 WebSocket 设计。
+1. 配置中心 API 和发布审计已在 M6 完成，前端页面已在 M7 完成。
+2. 本地或远程旧 env 已在 M8 清零。
+3. Redis key 模型未改变；WebSocket 仍是后续独立事项。
 
 ## 13. M6 Ops 配置 API 落地状态
 
@@ -198,10 +198,10 @@ M6 已完成以下内容：
 4. `validate` 只校验和返回 diff/影响，不落库；`publish` 带 version，成功后更新 `foundation.realtime_runtime_config`、写 `ops.config_revision`、清 runtime config cache。
 5. 发布后仍需要重启 collector 生效；M6 不做热加载、不请求 Tushare、不读写 Redis。
 
-M6 明确未完成、M7 已收口或仍需后续处理的内容：
+M6 完成当时的剩余事项已收口或保持边界：
 
 1. 前端配置中心页面已在 M7 接入，只调用配置中心 objects/detail/validate/publish/revisions API。
-2. 未清理本地或远程旧 env；这是 M8。
+2. 本地或远程旧 env 已在 M8 清零。
 3. 未改变 Ops health、Biz realtime API、collector、Redis key 或 WebSocket 设计。
 
 ## 14. M7.1 发布生效闭环已收口项
@@ -257,3 +257,21 @@ M6 明确未完成、M7 已收口或仍需后续处理的内容：
 4. 重启命令成功但 collector 未上报新版本时，页面保持“等待 collector 上报”或“重启未确认”。
 5. 静态 `requires_collector_restart=true` 不得再单独驱动“需重启”标签。
 6. 配置中心发布、collector 重启、实时行情采集三件事保持边界清晰：发布写配置表，重启控制服务，采集写 Redis 快照。
+
+## 15. M8 env 与文档收口状态
+
+M8 已完成以下内容：
+
+1. 本地 `.env.web.local` 已确认不存在 `REALTIME_STOCK_RT_*` key。
+2. 远程 `/etc/goldenshare/web.env` 已通过 `bash scripts/remote-web-env.sh unset KEY` 清除残留旧 key，复核结果为 `NO_REALTIME_STOCK_RT_KEYS`。
+3. 远程 `REDIS_URL` 已确认仍存在；Redis 连接配置继续作为部署级 env，不进入配置中心。
+4. 远程 `goldenshare-web.service` 与 `goldenshare-realtime-collector.service` 已在清理后重启并保持 `active`。
+5. 远程 `foundation.realtime_runtime_config` 存在 `stock_rt_daily`、`stock_rt_min` 两行；当前启停值以配置中心/DB 为准。
+6. collector 已重新上报 `realtime_config_apply_state`，其中 `stock_rt_daily.version=2`、`stock_rt_min.version=1`。
+7. 实时日线、实时分钟、远程部署、配置中心 showcase、单股当日分时序列方案已同步当前配置中心口径；旧 env 只作为历史/退场说明存在。
+
+M8 不做的事情：
+
+1. 不擅自修改 `stock_rt_daily.enabled` 或 `stock_rt_min.enabled`。
+2. 不新增配置对象、不改 Redis key、不改 collector 调度、不改 Biz/Ops API。
+3. 不处理 WebSocket；仍作为后续独立事项。

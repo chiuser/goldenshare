@@ -688,12 +688,12 @@ const realtimeObjects = {
       ["状态判断", [["stale 阈值", "90 秒"], ["页面含义", ["超过阈值显示刷新滞后"]], ["监控入口", ["实时流监控页"]]]]
     ],
     rows: [
-      ["REALTIME_STOCK_RT_MIN_ENABLED", "true", "是否启用股票实时分钟采集", "collector / Ops health", "编辑模式"],
-      ["REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN,15MIN,30MIN,60MIN", "当前采集哪些分钟频率", "collector / feed key", "编辑模式"],
-      ["REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS", "60", "每个频率的采集间隔", "collector scheduler", "编辑模式"],
-      ["REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE", "20", "分钟接口请求保护上限", "provider rate limiter", "编辑模式"],
-      ["REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS", "90", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
-      ["REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN", "3*.SZ,6*.SH,0*.SZ,9*.BJ", "源站请求范围", "provider request builder", "锁定"]
+      ["enabled", "true", "是否启用股票实时分钟采集", "collector / Ops health", "编辑模式"],
+      ["enabled_freqs", "1MIN,5MIN,15MIN,30MIN,60MIN", "当前采集哪些分钟频率", "collector / feed key", "编辑模式"],
+      ["poll_interval_seconds", "60", "每个频率的采集间隔", "collector scheduler", "编辑模式"],
+      ["max_calls_per_minute", "20", "分钟接口请求保护上限", "provider rate limiter", "编辑模式"],
+      ["stale_after_seconds", "90", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
+      ["ts_code_pattern", "3*.SZ,6*.SH,0*.SZ,9*.BJ", "源站请求范围", "provider request builder", "锁定"]
     ],
     editFields: [
       ["启用状态", "select", "启用", "关闭后 collector 不再调度该实时流对象。", ["启用", "停用"]],
@@ -704,7 +704,7 @@ const realtimeObjects = {
       ["源站请求范围", "text", "3*.SZ,6*.SH,0*.SZ,9*.BJ", "高风险项，V1 不开放编辑。", "disabled"]
     ],
     diffRows: [
-      ["REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS", "90", "120", "降低交易时段轻微网络抖动误报"]
+      ["stale_after_seconds", "90", "120", "降低交易时段轻微网络抖动误报"]
     ],
     validationRows: [
       ["请求频率", "通过", "5 个频率 / 60 秒 = 5 次/分钟，小于 20 次/分钟上限"],
@@ -729,11 +729,11 @@ const realtimeObjects = {
       ["状态判断", [["stale 阈值", "20 秒"], ["页面含义", "超过阈值显示刷新滞后"], ["监控入口", "实时流监控页"]]]
     ],
     rows: [
-      ["REALTIME_STOCK_RT_DAILY_ENABLED", "true", "是否启用股票实时日线采集", "collector / Ops health", "编辑模式"],
-      ["REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS", "6", "日线采集间隔", "collector scheduler", "编辑模式"],
-      ["REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE", "20", "日线接口请求保护上限", "provider rate limiter", "编辑模式"],
-      ["REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS", "20", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
-      ["REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS", "30", "collector feed 租约 TTL", "collector lease", "编辑模式"]
+      ["enabled", "true", "是否启用股票实时日线采集", "collector / Ops health", "编辑模式"],
+      ["poll_interval_seconds", "6", "日线采集间隔", "collector scheduler", "编辑模式"],
+      ["max_calls_per_minute", "20", "日线接口请求保护上限", "provider rate limiter", "编辑模式"],
+      ["stale_after_seconds", "20", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
+      ["lease_ttl_seconds", "30", "collector feed 租约 TTL", "collector lease", "编辑模式"]
     ],
     editFields: [
       ["启用状态", "select", "启用", "关闭后 collector 不再调度日线 feed。", ["启用", "停用"]],
@@ -769,10 +769,10 @@ const realtimeObjects = {
       ["状态判断", [["缓存 TTL", "86400 秒"], ["页面刷新", "最多 60 秒一次"], ["监控入口", "后续接入"]]]
     ],
     rows: [
-      ["REALTIME_STOCK_INTRADAY_SERIES_ENABLED", "false", "是否启用按需查询能力", "Biz API", "编辑模式"],
-      ["REALTIME_STOCK_INTRADAY_SERIES_CACHE_TTL_SECONDS", "86400", "Redis 序列缓存 TTL", "query service", "编辑模式"],
-      ["REALTIME_STOCK_INTRADAY_SERIES_REFRESH_COOLDOWN_SECONDS", "60", "同一股票同一频率刷新冷却", "query service", "编辑模式"],
-      ["REALTIME_STOCK_INTRADAY_SERIES_REQUIRE_FREQ", "true", "请求必须显式传 freq", "Biz API", "锁定"]
+      ["enabled", "false", "是否启用按需查询能力", "Biz API", "编辑模式"],
+      ["cache_ttl_seconds", "86400", "Redis 序列缓存 TTL", "query service", "编辑模式"],
+      ["refresh_cooldown_seconds", "60", "同一股票同一频率刷新冷却", "query service", "编辑模式"],
+      ["require_freq", "true", "请求必须显式传 freq", "Biz API", "锁定"]
     ],
     editFields: [
       ["启用状态", "select", "停用", "开发完成并开市验证后再启用。", ["启用", "停用"]],
