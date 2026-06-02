@@ -1,0 +1,1659 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ops 实时流配置中心技术方案 v1</title>
+<style>
+:root {
+  color-scheme: light;
+  --gs-neutral-0: #ffffff;
+  --gs-neutral-1: #f7f8fa;
+  --gs-neutral-2: #f0f2f5;
+  --gs-neutral-3: #e5e7eb;
+  --gs-neutral-4: #d1d5db;
+  --gs-neutral-5: #9ca3af;
+  --gs-neutral-6: #6b7280;
+  --gs-neutral-7: #4b5563;
+  --gs-neutral-8: #1f2937;
+  --gs-neutral-9: #0f172a;
+  --gs-brand-0: #eaf1fa;
+  --gs-brand-5: #1f5499;
+  --gs-brand-6: #154173;
+  --gs-info-0: #eaf1fa;
+  --gs-info-5: #1f5499;
+  --gs-success-0: #e4f4ec;
+  --gs-success-5: #0f8a5f;
+  --gs-warning-0: #fbefcc;
+  --gs-warning-5: #b07b00;
+  --gs-error-0: #fbe9e9;
+  --gs-error-5: #b42626;
+  --gs-radius-sm: 4px;
+  --gs-radius-md: 6px;
+  --gs-radius-lg: 10px;
+  --gs-font:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  --gs-mono: "JetBrains Mono", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 1180px;
+  background:
+    radial-gradient(circle at 50% -12%, rgba(31, 84, 153, 0.08), transparent 28%),
+    linear-gradient(180deg, #f7f8fa 0%, #f3f6f9 100%);
+  color: var(--gs-neutral-8);
+  font-family: var(--gs-font);
+  font-size: 13px;
+  line-height: 1.58;
+}
+
+.page {
+  width: 1180px;
+  margin: 0 auto;
+  padding: 28px 24px 56px;
+}
+
+.hero {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 360px;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.panel {
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-lg);
+  box-shadow: 0 12px 30px rgba(15, 23, 42, 0.04);
+}
+
+.hero-main,
+.hero-side {
+  padding: 24px;
+}
+
+.eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 14px;
+  padding: 5px 10px;
+  border: 1px solid #bdd0e8;
+  border-radius: 999px;
+  background: var(--gs-brand-0);
+  color: var(--gs-brand-6);
+  font-weight: 600;
+}
+
+.dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gs-brand-5);
+}
+
+h1,
+h2,
+h3 {
+  margin: 0;
+  color: var(--gs-neutral-9);
+  line-height: 1.3;
+}
+
+h1 {
+  font-size: 30px;
+  letter-spacing: -0.02em;
+}
+
+h2 {
+  font-size: 18px;
+}
+
+h3 {
+  font-size: 15px;
+}
+
+p {
+  margin: 8px 0 0;
+  color: var(--gs-neutral-6);
+}
+
+.meta-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+  margin-top: 16px;
+}
+
+.meta-card {
+  padding: 12px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-1);
+}
+
+.meta-label {
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.meta-value {
+  margin-top: 4px;
+  color: var(--gs-neutral-9);
+  font-family: var(--gs-mono);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.tag-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.tag {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  padding: 4px 9px;
+  border-radius: 999px;
+  background: var(--gs-neutral-1);
+  border: 1px solid var(--gs-neutral-3);
+  color: var(--gs-neutral-7);
+  font-weight: 600;
+}
+
+.tag.ok {
+  background: var(--gs-success-0);
+  border-color: rgba(15, 138, 95, 0.24);
+  color: var(--gs-success-5);
+}
+
+.tag.warn {
+  background: var(--gs-warning-0);
+  border-color: rgba(176, 123, 0, 0.24);
+  color: #825d00;
+}
+
+.tag.info {
+  background: var(--gs-info-0);
+  border-color: rgba(31, 84, 153, 0.24);
+  color: var(--gs-info-5);
+}
+
+.section {
+  margin-top: 16px;
+  padding: 20px 24px;
+}
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+  margin-bottom: 14px;
+}
+
+.section-header p {
+  max-width: 760px;
+}
+
+.grid-2 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.grid-3 {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.note-card {
+  padding: 14px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+}
+
+.note-card strong {
+  display: block;
+  color: var(--gs-neutral-9);
+  font-size: 14px;
+}
+
+.note-card code,
+.code {
+  font-family: var(--gs-mono);
+  color: var(--gs-brand-6);
+}
+
+.decision {
+  border-color: rgba(176, 123, 0, 0.32);
+  background: #fffbeb;
+}
+
+.decision strong {
+  color: #7a5200;
+}
+
+table {
+  width: 100%;
+  border-collapse: separate;
+  border-spacing: 0;
+  overflow: hidden;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+}
+
+th,
+td {
+  padding: 12px 14px;
+  border-bottom: 1px solid var(--gs-neutral-3);
+  text-align: left;
+  vertical-align: top;
+}
+
+th {
+  background: var(--gs-neutral-2);
+  color: var(--gs-neutral-7);
+  font-weight: 700;
+}
+
+tr:last-child td {
+  border-bottom: 0;
+}
+
+td code,
+th code {
+  font-family: var(--gs-mono);
+  font-size: 12px;
+}
+
+.diagram {
+  padding: 18px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+}
+
+.flow {
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 10px;
+  align-items: stretch;
+}
+
+.flow.flow-4 {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.node {
+  position: relative;
+  min-height: 86px;
+  padding: 12px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-1);
+}
+
+.node:not(:last-child)::after {
+  content: "→";
+  position: absolute;
+  top: 50%;
+  right: -18px;
+  transform: translateY(-50%);
+  color: var(--gs-neutral-5);
+  font-weight: 800;
+}
+
+.node-title {
+  color: var(--gs-neutral-9);
+  font-weight: 700;
+}
+
+.node-text {
+  margin-top: 6px;
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.sequence {
+  display: grid;
+  gap: 8px;
+}
+
+.seq-row {
+  display: grid;
+  grid-template-columns: 180px 34px minmax(0, 1fr);
+  gap: 10px;
+  align-items: start;
+}
+
+.actor {
+  padding: 8px 10px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-1);
+  color: var(--gs-neutral-9);
+  font-weight: 700;
+}
+
+.arrow {
+  padding-top: 8px;
+  color: var(--gs-neutral-5);
+  font-weight: 800;
+}
+
+.message {
+  padding: 8px 10px;
+  border-left: 3px solid var(--gs-brand-5);
+  background: var(--gs-brand-0);
+  border-radius: 0 var(--gs-radius-sm) var(--gs-radius-sm) 0;
+}
+
+.message strong {
+  color: var(--gs-neutral-9);
+}
+
+.api-block {
+  padding: 14px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: #0f172a;
+  color: #dbeafe;
+  font-family: var(--gs-mono);
+  font-size: 12px;
+  line-height: 1.7;
+  white-space: pre-wrap;
+}
+
+.milestones {
+  counter-reset: step;
+  display: grid;
+  gap: 10px;
+}
+
+.milestone {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr);
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+}
+
+.milestone::before {
+  counter-increment: step;
+  content: "M" counter(step);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 50%;
+  background: var(--gs-brand-0);
+  color: var(--gs-brand-6);
+  font-weight: 800;
+}
+
+.footer {
+  margin-top: 20px;
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+</style>
+</head>
+<body>
+<main class="page">
+  <section class="hero">
+    <div class="panel hero-main">
+      <div class="eyebrow"><span class="dot"></span>Ops Realtime Config Center</div>
+      <h1>实时流配置中心技术方案 v1</h1>
+      <p>
+        本文定义实时流配置中心的后端事实源、API、发布生效、审计记录、页面接入方式与测试门禁。
+        页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
+      </p>
+      <div class="tag-row">
+        <span class="tag warn">状态：待评审</span>
+        <span class="tag info">不直接编辑 env</span>
+        <span class="tag info">不请求 Tushare</span>
+        <span class="tag info">不改 Redis key 模型</span>
+        <span class="tag ok">配置项审计先行</span>
+      </div>
+    </div>
+    <aside class="panel hero-side">
+      <h2>当前代码事实</h2>
+      <div class="meta-grid">
+        <div class="meta-card">
+          <div class="meta-label">配置读取</div>
+          <div class="meta-value">foundation/realtime/feed_config.py</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">配置来源</div>
+          <div class="meta-value">Settings / env</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">Ops API</div>
+          <div class="meta-value">health only</div>
+        </div>
+        <div class="meta-card">
+          <div class="meta-label">修订记录</div>
+          <div class="meta-value">ops.config_revision</div>
+        </div>
+      </div>
+      <p>
+        结论：当前没有配置中心 API，也没有可发布的配置事实表。直接让页面改 env 不合理，必须先补运行时配置事实源。
+      </p>
+    </aside>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>1. 目标与非目标</h2>
+        <p>本轮目标是把实时流配置从散落的 env/Settings 口径，收敛为可查询、可校验、可发布、可审计的运营配置能力。</p>
+      </div>
+      <span class="tag warn">方案边界</span>
+    </div>
+    <div class="grid-2">
+      <div class="note-card">
+        <strong>目标</strong>
+        <p>提供实时流对象列表、配置详情、配置校验、发布、修订记录 API；前端复用 showcase 的查看态和编辑态；发布动作留下审计记录。</p>
+      </div>
+      <div class="note-card">
+        <strong>非目标</strong>
+        <p>不新增 Tushare 请求，不启动 collector，不调整实时行情 Redis key，不做 WebSocket，不把配置中心与实时流监控页面混成同一个页面。</p>
+      </div>
+      <div class="note-card">
+        <strong>核心原则</strong>
+        <p>Ops 是管理入口，不是运行时底层事实源。collector、实时快照读取服务、Ops health 必须消费同一份实时配置对象；Biz 查询只调用读取服务，禁止自己拼配置。</p>
+      </div>
+      <div class="note-card">
+        <strong>页面口径</strong>
+        <p>页面直接按 showcase 落地：左侧实时流对象，右侧对象配置；查看态只展示事实；编辑态才展示校验、diff 和发布确认。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>2. 总体架构</h2>
+        <p>当前配置事实进入 foundation 实时运行时配置域；Ops 负责管理 API 与 revision；app/CLI 负责把配置装配给 collector。Biz API 不直接读取配置表，而是调用实时快照读取服务。</p>
+      </div>
+      <span class="tag info">边界优先</span>
+    </div>
+    <div class="diagram">
+      <div class="flow">
+        <div class="node">
+          <div class="node-title">Ops 配置中心页面</div>
+          <div class="node-text">展示对象、编辑草稿、提交校验和发布。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">Ops Config API</div>
+          <div class="node-text">只做权限、管理流程、revision 写入。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">foundation.realtime_runtime_config</div>
+          <div class="node-text">运行时配置事实源，collector 和读取服务消费。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">Realtime Runtime Resolver</div>
+          <div class="node-text">统一校验并生成 RealtimeRuntimeConfig。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">collector / reader / Ops health</div>
+          <div class="node-text">统一配置对象，不再分散读取 env 或拼 Redis key。</div>
+        </div>
+      </div>
+    </div>
+    <p>
+      架构约束：<span class="code">foundation</span> 不依赖 <span class="code">ops</span>。
+      因此运行时当前配置表不放在 Ops 模型里；Ops 可以写入配置表并记录 revision，但 collector、实时快照读取服务和 Biz API 不通过 Ops 查询配置。
+    </p>
+
+    <h3 style="margin-top:18px;">2.1 命名规则</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>对象</th>
+          <th>命名</th>
+          <th>归属</th>
+          <th>人话解释</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>运行时配置事实表</td>
+          <td><code>foundation.realtime_runtime_config</code></td>
+          <td><code>foundation</code></td>
+          <td>保存实时流“应该怎么运行”的当前事实。它不是 Ops 页面私有配置，而是 collector、读取服务、Ops health 都要认的运行时事实。</td>
+        </tr>
+        <tr>
+          <td>配置修订历史表</td>
+          <td><code>ops.config_revision</code></td>
+          <td><code>ops</code></td>
+          <td>只记录谁在什么时候把配置从什么改成什么。它不是配置事实源，不能被 collector 或 Biz 当成运行时配置读取。</td>
+        </tr>
+        <tr>
+          <td>配置读取模块</td>
+          <td><code>src/foundation/realtime/runtime_config.py</code></td>
+          <td><code>foundation/realtime</code></td>
+          <td>目标命名。当前代码文件是 <code>feed_config.py</code>，配置中心落地时应同步改名，避免把“运行时配置”误解成单个 feed 的辅助配置。</td>
+        </tr>
+        <tr>
+          <td>实时快照读取服务</td>
+          <td><code>src/foundation/realtime/snapshot_reader.py</code></td>
+          <td><code>foundation/realtime</code></td>
+          <td>封装 Redis current batch、feed key、stale、交易时段判断。Biz API 调它，不自己知道底层 key 和刷新逻辑。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">2.2 目标文件结构</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>路径</th>
+          <th>职责</th>
+          <th>禁止事项</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>src/foundation/realtime/runtime_config.py</code></td>
+          <td>读取 <code>foundation.realtime_runtime_config</code>，校验配置关系，生成 <code>RealtimeRuntimeConfig</code>、<code>RealtimeStockRtDailyConfig</code>、<code>RealtimeStockRtMinConfig</code>。</td>
+          <td>不得依赖 Ops；不得读取页面草稿；不得写 revision。</td>
+        </tr>
+        <tr>
+          <td><code>src/foundation/realtime/config_catalog.py</code></td>
+          <td>注册实时流对象、显示名、锁定字段、可编辑字段、控件类型、默认展示顺序。</td>
+          <td>不得放用户草稿；不得放 Token、Redis URL 等部署秘密。</td>
+        </tr>
+        <tr>
+          <td><code>src/foundation/realtime/snapshot_reader.py</code></td>
+          <td>统一读取 Redis 快照和 meta，按 runtime config 计算 stale、missing、collection_status，返回业务查询可消费的结果。</td>
+          <td>不得暴露配置表结构给 Biz；不得请求 Tushare；不得写 Redis。</td>
+        </tr>
+        <tr>
+          <td><code>src/ops/services/realtime_config_service.py</code></td>
+          <td>配置中心管理服务：对象列表、详情、validate、publish、revisions。发布时更新 runtime config 表并写 <code>ops.config_revision</code>。</td>
+          <td>不得启动 collector；不得请求 Tushare；不得直接修改 env。</td>
+        </tr>
+        <tr>
+          <td><code>src/ops/api/realtime_config.py</code></td>
+          <td>管理员配置 API 路由，承接页面查看、校验、发布和历史查询。</td>
+          <td>不得承接行情查询；不得与 realtime monitor health API 混在同一路由里。</td>
+        </tr>
+        <tr>
+          <td><code>src/biz/queries/realtime_stock_rt_*_query_service.py</code></td>
+          <td>业务查询服务，只负责参数校验和把 snapshot reader 结果映射成业务 API schema。</td>
+          <td>目标态不得直接读取 runtime config 表、不得自己拼 <code>feed_key</code>、不得自己计算底层 stale 规则。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">2.3 当前代码事实与目标差异</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>当前实现</th>
+          <th>问题</th>
+          <th>配置中心落地目标</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>src/foundation/realtime/feed_config.py</code> 从 <code>Settings/env</code> 生成配置对象。</td>
+          <td>配置项仍以 env 为主，页面无法发布运行时配置。</td>
+          <td>改为 <code>runtime_config.py</code>，读取 <code>foundation.realtime_runtime_config</code>；env 只保留部署秘密和初始化种子。</td>
+        </tr>
+        <tr>
+          <td>Biz 查询服务直接调用 <code>get_realtime_stock_rt_*_config()</code>，并使用 <code>feed_key</code>、<code>collection_sessions</code>、<code>stale_after_seconds</code>。</td>
+          <td>Biz 层知道了采集与 Redis 细节，边界不干净。</td>
+          <td>Biz 查询服务改为调用 <code>RealtimeSnapshotReader</code>；底层 key、stale、collection_status 由 reader 封装。</td>
+        </tr>
+        <tr>
+          <td>Ops health 查询服务读取配置并读取 Redis health。</td>
+          <td>这是合理的，因为 Ops health 的职责就是展示“应该怎么运行”和“实际运行得怎么样”。</td>
+          <td>保留该方向，但配置来源统一改为 runtime config resolver。</td>
+        </tr>
+      </tbody>
+    </table>
+
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>3. 数据模型</h2>
+        <p>V1 不设计持久化 draft 表。前端编辑态在页面内形成草稿，提交 validate，确认后直接 publish；发布成功写当前配置和 revision。</p>
+      </div>
+      <span class="tag info">事实与历史分离</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>表</th>
+          <th>归属</th>
+          <th>职责</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>foundation.realtime_runtime_config</code></td>
+          <td><code>foundation</code></td>
+          <td>实时流运行时配置事实源</td>
+          <td>collector、实时快照读取服务、Ops health 读取它。env 只保留部署级秘密和初始化种子，不作为页面编辑目标。</td>
+        </tr>
+        <tr>
+          <td><code>ops.config_revision</code></td>
+          <td><code>ops</code></td>
+          <td>发布修订历史</td>
+          <td>复用现有表，<code>object_type=realtime_runtime_config</code>，<code>object_id=object_key</code>，记录 before/after 与操作人。它只做审计，不参与运行时读取。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>
+      <span class="code">ops.config_revision</span> 当前已被自动任务、探针规则、标准化规则、发布规则等 Ops 服务复用。
+      它的字段是 <span class="code">object_type/object_id/action/before_json/after_json/changed_by_user_id/changed_at</span>，
+      语义是“变更流水”，不是“当前配置”。因此本方案只复用它记录发布历史，不把它扩展成配置表。
+    </p>
+
+    <h3 style="margin-top:18px;">3.1 当前配置表建议字段</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>类型</th>
+          <th>含义</th>
+          <th>规则</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>object_key</code></td>
+          <td><code>varchar(64) pk</code></td>
+          <td>实时流对象标识，例如 <code>stock_rt_daily</code>、<code>stock_rt_min</code></td>
+          <td>由代码目录定义，禁止用户自定义。</td>
+        </tr>
+        <tr>
+          <td><code>object_kind</code></td>
+          <td><code>varchar(32)</code></td>
+          <td>对象类型</td>
+          <td><code>collector_feed</code>、<code>feed_group</code>、<code>on_demand_query</code>。</td>
+        </tr>
+        <tr>
+          <td><code>runtime_config_json</code></td>
+          <td><code>json</code></td>
+          <td>可编辑配置值</td>
+          <td>只保存白名单字段；锁定字段不进入可编辑 payload。</td>
+        </tr>
+        <tr>
+          <td><code>version</code></td>
+          <td><code>integer</code></td>
+          <td>配置版本</td>
+          <td>发布成功递增，用于并发更新保护。</td>
+        </tr>
+        <tr>
+          <td><code>requires_collector_restart</code></td>
+          <td><code>boolean</code></td>
+          <td>发布后是否需要重启 collector</td>
+          <td>V1 默认为 true；后续热加载完成后再调整。</td>
+        </tr>
+        <tr>
+          <td><code>updated_by_user_id</code></td>
+          <td><code>bigint nullable</code></td>
+          <td>最后修改人</td>
+          <td>Ops API 发布时写入。</td>
+        </tr>
+        <tr>
+          <td><code>created_at / updated_at</code></td>
+          <td><code>timestamp with time zone</code></td>
+          <td>创建与更新时间</td>
+          <td>使用数据库时间。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">3.2 初始化与缺失策略</h3>
+    <div class="grid-2">
+      <div class="note-card">
+        <strong>初始化</strong>
+        <p>建表迁移只负责表结构；初始化步骤为 <code>stock_rt_daily</code>、<code>stock_rt_min</code> 写入初始行。初始值来自当前 <code>Settings/env</code> 的已收口默认值，初始化完成后页面和服务读取数据库当前事实。</p>
+      </div>
+      <div class="note-card">
+        <strong>缺失处理</strong>
+        <p>运行时如果缺少已注册对象的配置行，应 fail fast 并在 Ops health / 配置中心显示结构化错误；不要静默回落到散落 env 字段，否则配置中心会失去事实源意义。</p>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">3.3 建表流程</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>步骤</th>
+          <th>动作</th>
+          <th>验收点</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1. 迁移 head 审计</td>
+          <td>执行 <code>uv run alembic heads</code>，记录当前真实 head。若出现多个 head，先停下处理分叉，不得继续新增迁移。</td>
+          <td>新迁移的 <code>down_revision</code> 只能接真实 head，禁止按文件名、日期或印象猜。</td>
+        </tr>
+        <tr>
+          <td>2. 新增 ORM 模型</td>
+          <td>新增 <code>src/foundation/models/meta/realtime_runtime_config.py</code>，模型名建议 <code>RealtimeRuntimeConfigRecord</code>，表名 <code>foundation.realtime_runtime_config</code>。</td>
+          <td>字段与 3.1 一致；不得把模型放进 <code>src/ops/models/**</code>，避免 collector/reader 依赖 Ops 模型。</td>
+        </tr>
+        <tr>
+          <td>3. 注册模型</td>
+          <td>在 <code>src/foundation/models/all_models.py</code> 导入新模型；确认 <code>src/app/model_registry.py</code> 通过 <code>src.foundation.models.all_models</code> 能加载它。</td>
+          <td>Alembic metadata 能看到新表；不需要让 <code>foundation</code> 反向依赖 <code>app</code> 或 <code>ops</code>。</td>
+        </tr>
+        <tr>
+          <td>4. 新增 Alembic 迁移</td>
+          <td>新增 <code>alembic/versions/&lt;next&gt;_add_realtime_runtime_config.py</code>，创建 <code>foundation.realtime_runtime_config</code> 表和必要索引。</td>
+          <td>迁移只做结构变更，不读取 Tushare、不写 Redis、不启动 collector、不清理任何业务表。</td>
+        </tr>
+        <tr>
+          <td>5. 初始化配置行</td>
+          <td>新增受控初始化逻辑或迁移后初始化命令，从当前 <code>Settings/env</code> 读取已收口默认值，upsert <code>stock_rt_daily</code>、<code>stock_rt_min</code> 两行。</td>
+          <td>初始化只执行运行时配置表写入；写入后配置中心详情 API 能读到两行；不得静默 fallback 到 env。</td>
+        </tr>
+        <tr>
+          <td>6. 写入修订记录</td>
+          <td>初始化是否写 <code>ops.config_revision</code> 可按动作类型区分。正式页面发布必须写 revision，<code>object_type=realtime_runtime_config</code>。</td>
+          <td>发布历史只记录 before/after 与操作人，不作为 runtime config 的读取来源。</td>
+        </tr>
+        <tr>
+          <td>7. 迁移验证</td>
+          <td>执行本地迁移测试，确认表存在、主键存在、JSON 字段可读写、版本字段可并发保护。</td>
+          <td>配置 resolver 测试能从数据库生成 <code>RealtimeRuntimeConfig</code>；缺行测试必须返回结构化错误。</td>
+        </tr>
+        <tr>
+          <td>8. 回滚边界</td>
+          <td>迁移 downgrade 只删除本次新增表和索引；不得删除 <code>ops.config_revision</code>，不得触碰 Redis 或业务数据表。</td>
+          <td>符合根规则：开发、迁移、测试脚本不得擅自删除、清空或重建业务数据表。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">3.4 旧配置项退场清单</h3>
+    <p>
+      当前实时流配置主要散落在 <code>src/foundation/config/settings.py</code> 的 <code>REALTIME_STOCK_RT_*</code> env 字段里。
+      配置中心上线后，这些字段不能继续作为运行时事实来源。退场分三类：部署级保留、运行时配置入库、锁定事实进入代码目录。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>旧配置项</th>
+          <th>当前默认值</th>
+          <th>退场后归属</th>
+          <th>处理方式</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>REDIS_URL</code></td>
+          <td><code>redis://127.0.0.1:6379/0</code></td>
+          <td>部署级 env</td>
+          <td>保留。它是 Redis 连接秘密/环境地址，不进入配置中心，不展示给页面。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_ENABLED</code></td>
+          <td><code>false</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.enabled</code></td>
+          <td>迁入当前配置表，可编辑。迁移初始化后从 Settings 删除该 env 字段。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS</code></td>
+          <td><code>6</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.poll_interval_seconds</code></td>
+          <td>迁入当前配置表，可编辑。collector 重启后从数据库读取。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE</code></td>
+          <td><code>10</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.max_calls_per_minute</code></td>
+          <td>迁入当前配置表，可编辑。Tushare client 限速读取 runtime config，不再读 env。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS</code></td>
+          <td><code>30</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.lease_ttl_seconds</code></td>
+          <td>迁入当前配置表，可编辑。避免 lease TTL 再次变成硬编码或 env 散点。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS</code></td>
+          <td><code>20</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.stale_after_seconds</code></td>
+          <td>迁入当前配置表，可编辑。Ops health 和 snapshot reader 使用同一值。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS</code></td>
+          <td><code>259200</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.snapshot_ttl_seconds</code></td>
+          <td>迁入当前配置表，可编辑。Redis store 发布批次时读取 runtime config。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES</code></td>
+          <td><code>3</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.keep_recent_batches</code></td>
+          <td>迁入当前配置表，可编辑。用于 Redis 批次保留策略。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_BATCH_STREAM_MAXLEN</code></td>
+          <td><code>5000</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.batch_stream_maxlen</code></td>
+          <td>迁入当前配置表，可编辑。用于 batch stream 裁剪。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_DELTA_STREAM_MAXLEN</code></td>
+          <td><code>200000</code></td>
+          <td>数据库：<code>stock_rt_daily.runtime_config_json.delta_stream_maxlen</code></td>
+          <td>迁入当前配置表，可编辑。为后续 WebSocket / delta 消费保留。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS</code></td>
+          <td><code>09:30-11:30,13:00-15:00</code></td>
+          <td>代码目录：<code>config_catalog.py</code> 锁定事实</td>
+          <td>退出现有 env。V1 不开放编辑，collector/reader/Ops health 从目录锁定值生成 runtime config。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN</code></td>
+          <td><code>3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
+          <td>代码目录：<code>config_catalog.py</code> 锁定事实</td>
+          <td>退出现有 env。源站请求范围不允许页面编辑，避免误改全市场边界。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_ENABLED</code></td>
+          <td><code>false</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.enabled</code></td>
+          <td>迁入当前配置表，可编辑。生产当前启用状态初始化写入数据库。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_ENABLED_FREQS</code></td>
+          <td><code>1MIN,5MIN,15MIN,30MIN,60MIN</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.enabled_freqs</code></td>
+          <td>迁入当前配置表，可编辑。前端必须用多选框，不再让运营手填逗号字符串。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS</code></td>
+          <td><code>60</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.poll_interval_seconds</code></td>
+          <td>迁入当前配置表，可编辑。分钟 collector 每个频率按该值独立调度。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE</code></td>
+          <td><code>20</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.max_calls_per_minute</code></td>
+          <td>迁入当前配置表，可编辑。限速计算必须和启用频率、采集间隔联动校验。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS</code></td>
+          <td><code>90</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.lease_ttl_seconds</code></td>
+          <td>迁入当前配置表，可编辑。租约 TTL 不再跟随 env 散点。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS</code></td>
+          <td><code>90</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.stale_after_seconds</code></td>
+          <td>迁入当前配置表，可编辑。Ops health 和 snapshot reader 使用同一值。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_SNAPSHOT_TTL_SECONDS</code></td>
+          <td><code>259200</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.snapshot_ttl_seconds</code></td>
+          <td>迁入当前配置表，可编辑。Redis 快照 TTL 由 runtime config 控制。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_KEEP_RECENT_BATCHES</code></td>
+          <td><code>3</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.keep_recent_batches</code></td>
+          <td>迁入当前配置表，可编辑。用于各频率 feed 的批次保留。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_BATCH_STREAM_MAXLEN</code></td>
+          <td><code>5000</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.batch_stream_maxlen</code></td>
+          <td>迁入当前配置表，可编辑。用于 batch stream 裁剪。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_DELTA_STREAM_MAXLEN</code></td>
+          <td><code>200000</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.delta_stream_maxlen</code></td>
+          <td>迁入当前配置表，可编辑。为后续 WebSocket / delta 消费保留。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_SOURCE_TIMEOUT_SECONDS</code></td>
+          <td><code>20</code></td>
+          <td>数据库：<code>stock_rt_min.runtime_config_json.source_timeout_seconds</code></td>
+          <td>迁入当前配置表，可编辑。provider 初始化从 runtime config 读取。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_COLLECTION_SESSIONS</code></td>
+          <td><code>09:30-11:30,13:00-15:00</code></td>
+          <td>代码目录：<code>config_catalog.py</code> 锁定事实</td>
+          <td>退出现有 env。V1 锁定交易时段，不进入编辑表单。</td>
+        </tr>
+        <tr>
+          <td><code>REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN</code></td>
+          <td><code>3*.SZ,6*.SH,0*.SZ,9*.BJ</code></td>
+          <td>代码目录：<code>config_catalog.py</code> 锁定事实</td>
+          <td>退出现有 env。按频率拆 feed，但源站请求通配符仍为锁定事实。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">3.5 旧配置退场执行流程</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>步骤</th>
+          <th>具体动作</th>
+          <th>完成标准</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1. 全量消费者审计</td>
+          <td>用 <code>rg "REALTIME_STOCK_RT|realtime_stock_rt|get_realtime_stock_rt"</code> 扫描 <code>src/</code>、<code>tests/</code>、<code>docs/</code>，列出每个旧配置项的消费者。</td>
+          <td>每个消费者必须标注为 collector、provider、snapshot reader、Ops health、Biz API、测试或文档；不得遗漏。</td>
+        </tr>
+        <tr>
+          <td>2. 建表并初始化</td>
+          <td>按 3.3 建表；初始化时读取当前环境中的旧 env 值，写入 <code>foundation.realtime_runtime_config</code> 当前事实。</td>
+          <td>数据库中存在 <code>stock_rt_daily</code>、<code>stock_rt_min</code> 两行；页面和 resolver 能读到与旧 env 一致的值。</td>
+        </tr>
+        <tr>
+          <td>3. 切换运行时读取</td>
+          <td><code>runtime_config.py</code> 改为从数据库当前配置 + <code>config_catalog.py</code> 锁定事实 + 部署级 env 生成 <code>RealtimeRuntimeConfig</code>。</td>
+          <td>collector、provider、Tushare 限速、Redis store 构建、snapshot reader、Ops health 都不再读取 <code>settings.realtime_stock_rt_*</code>。</td>
+        </tr>
+        <tr>
+          <td>4. 下沉 Biz 读取细节</td>
+          <td>Biz 查询服务停止直接调用 <code>get_realtime_stock_rt_*_config()</code>，改为调用 <code>RealtimeSnapshotReader</code>。</td>
+          <td>Biz API 不知道配置表、feed key、Redis key 规则和底层 stale 计算；只做参数校验和 schema 映射。</td>
+        </tr>
+        <tr>
+          <td>5. 删除 Settings 旧字段</td>
+          <td>从 <code>src/foundation/config/settings.py</code> 删除所有 <code>REALTIME_STOCK_RT_DAILY_*</code>、<code>REALTIME_STOCK_RT_MIN_*</code> 字段；保留 <code>REDIS_URL</code>。</td>
+          <td>代码中不存在 <code>settings.realtime_stock_rt_daily_*</code> 或 <code>settings.realtime_stock_rt_min_*</code> 的运行时读取。</td>
+        </tr>
+        <tr>
+          <td>6. 重写测试入口</td>
+          <td>测试不再用 <code>monkeypatch.setenv("REALTIME_STOCK_RT_*")</code> 构造运行时配置，改为插入配置表记录或构造 <code>RealtimeRuntimeConfig</code> 对象。</td>
+          <td>旧 env 测试全部退场；新增测试覆盖数据库配置、锁定配置、缺行失败、非法配置失败。</td>
+        </tr>
+        <tr>
+          <td>7. 清理本地与远程 env</td>
+          <td>本地 <code>.env.web.local</code> 和远程 <code>/etc/goldenshare/web.env</code> 移除旧 <code>REALTIME_STOCK_RT_*</code>。远程只能使用 <code>bash scripts/remote-web-env.sh unset KEY</code>。</td>
+          <td>远程 env 只保留 <code>REDIS_URL</code> 等部署级项；重启 Web 与 collector 后配置仍来自数据库。</td>
+        </tr>
+        <tr>
+          <td>8. 文档同步退场</td>
+          <td>更新实时日线、实时分钟、部署文档和 showcase：旧 env 字段改为“历史口径/已退场”，当前口径指向配置中心 API 和 runtime config 表。</td>
+          <td>文档中不再指导运营通过 env 修改启停、间隔、阈值、TTL、频率；docs integrity 通过。</td>
+        </tr>
+        <tr>
+          <td>9. 退场验收</td>
+          <td>执行引用清零检查、配置 API 测试、collector 启动测试、Ops health 测试、Biz API 快照测试。</td>
+          <td>旧 env 名称在 <code>src/</code> 运行时代码中清零；仅允许作为历史说明出现在方案文档中。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">3.6 旧配置退场后的禁止项</h3>
+    <div class="grid-3">
+      <div class="note-card">
+        <strong>禁止 fallback</strong>
+        <p>runtime config 表缺行或非法时，必须报结构化错误；禁止回退读取旧 env，否则配置中心不是单一事实源。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止双写双读</strong>
+        <p>发布配置只写 <code>foundation.realtime_runtime_config</code> 和 <code>ops.config_revision</code>；不再同步写 env，也不保留 env/db 双读逻辑。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止页面散点配置</strong>
+        <p>前端不得保存频率列表、可编辑字段、锁定字段、阈值默认值；这些都必须从配置 API 返回。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>4. 实时流对象与配置项</h2>
+        <p>对象目录由代码注册，配置表只保存当前值。页面展示名称、说明、锁定项、可编辑项全部来自 API，不在前端硬编码。</p>
+      </div>
+      <span class="tag info">对象粒度</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>对象</th>
+          <th>object_key</th>
+          <th>状态</th>
+          <th>V1 编辑口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>股票实时日线</td>
+          <td><code>stock_rt_daily</code></td>
+          <td>已上线 collector feed</td>
+          <td>可编辑启停、间隔、限速、stale、TTL、保留批次、source timeout；锁定通配符和 feed key。</td>
+        </tr>
+        <tr>
+          <td>股票实时分钟</td>
+          <td><code>stock_rt_min</code></td>
+          <td>已上线 feed group</td>
+          <td>可编辑启停、启用频率多选、间隔、限速、stale、TTL、保留批次、source timeout；锁定通配符和 feed key 规则。</td>
+        </tr>
+        <tr>
+          <td>单股当日分时序列</td>
+          <td><code>stock_intraday_minutes_on_demand</code></td>
+          <td>待开发按需查询能力</td>
+          <td>V1 配置中心只读展示或隐藏，暂不开放编辑发布。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">4.1 可编辑配置白名单</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>配置项</th>
+          <th>适用对象</th>
+          <th>控件</th>
+          <th>校验规则</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>enabled</code></td>
+          <td>日线、分钟</td>
+          <td>开关</td>
+          <td>布尔值。</td>
+        </tr>
+        <tr>
+          <td><code>enabled_freqs</code></td>
+          <td>分钟</td>
+          <td>多选框</td>
+          <td>只能选择 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code>；启用分钟时至少选择一个。</td>
+        </tr>
+        <tr>
+          <td><code>poll_interval_seconds</code></td>
+          <td>日线、分钟</td>
+          <td>数字输入</td>
+          <td>正整数；分钟 V1 默认 60 秒。</td>
+        </tr>
+        <tr>
+          <td><code>max_calls_per_minute</code></td>
+          <td>日线、分钟</td>
+          <td>数字输入</td>
+          <td>正整数；必须覆盖频率数与采集间隔推导出的请求量。</td>
+        </tr>
+        <tr>
+          <td><code>stale_after_seconds</code></td>
+          <td>日线、分钟</td>
+          <td>数字输入</td>
+          <td>正整数；必须大于等于采集间隔。</td>
+        </tr>
+        <tr>
+          <td><code>snapshot_ttl_seconds</code></td>
+          <td>日线、分钟</td>
+          <td>数字输入</td>
+          <td>正整数；当前拍板口径为 259200 秒 / 72 小时。</td>
+        </tr>
+        <tr>
+          <td><code>keep_recent_batches</code></td>
+          <td>日线、分钟</td>
+          <td>数字输入</td>
+          <td>正整数；当前拍板口径为最近 3 批。</td>
+        </tr>
+        <tr>
+          <td><code>source_timeout_seconds</code></td>
+          <td>分钟</td>
+          <td>数字输入</td>
+          <td>正整数；只影响源请求超时。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">4.2 锁定配置项</h3>
+    <div class="grid-3">
+      <div class="note-card">
+        <strong>源站与身份</strong>
+        <p><code>source_api_name</code>、<code>feed_key</code>、<code>ts_code_pattern</code> 锁定，避免页面修改源站请求边界和 Redis key。</p>
+      </div>
+      <div class="note-card">
+        <strong>部署级秘密</strong>
+        <p><code>TUSHARE_TOKEN</code>、<code>REDIS_URL</code> 继续由 env 管理，不进入配置中心。</p>
+      </div>
+      <div class="note-card">
+        <strong>采集时段</strong>
+        <p>V1 建议锁定 <code>09:30-11:30,13:00-15:00</code>，后续若开放，需要单独做交易时段配置评审。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>5. API 设计</h2>
+        <p>API 面向运营管理员，全部只操作配置中心，不请求 Tushare，不读写 Redis 快照数据。</p>
+      </div>
+      <span class="tag info">admin only</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>方法</th>
+          <th>路径</th>
+          <th>用途</th>
+          <th>调用时机</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/v1/ops/realtime/config/objects</code></td>
+          <td>获取实时流对象列表和摘要</td>
+          <td>页面首次进入、对象列表刷新。</td>
+        </tr>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/v1/ops/realtime/config/objects/{object_key}</code></td>
+          <td>获取单个对象配置详情</td>
+          <td>点击左侧实时流对象。</td>
+        </tr>
+        <tr>
+          <td><code>POST</code></td>
+          <td><code>/api/v1/ops/realtime/config/objects/{object_key}/validate</code></td>
+          <td>校验编辑草稿并返回 diff、影响和错误</td>
+          <td>编辑态修改配置、提交发布前。</td>
+        </tr>
+        <tr>
+          <td><code>PUT</code></td>
+          <td><code>/api/v1/ops/realtime/config/objects/{object_key}</code></td>
+          <td>发布配置</td>
+          <td>用户确认发布。</td>
+        </tr>
+        <tr>
+          <td><code>GET</code></td>
+          <td><code>/api/v1/ops/realtime/config/objects/{object_key}/revisions</code></td>
+          <td>查看发布历史</td>
+          <td>页面历史记录抽屉或详情区。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3 style="margin-top:18px;">5.1 配置详情响应示例</h3>
+    <div class="api-block">{
+  "object_key": "stock_rt_min",
+  "display_name": "股票实时分钟",
+  "object_kind": "feed_group",
+  "mode": "view",
+  "version": 4,
+  "requires_collector_restart": true,
+  "effective_config": {
+    "enabled": true,
+    "enabled_freqs": ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"],
+    "poll_interval_seconds": 60,
+    "max_calls_per_minute": 20,
+    "stale_after_seconds": 90,
+    "snapshot_ttl_seconds": 259200,
+    "keep_recent_batches": 3,
+    "source_timeout_seconds": 20
+  },
+  "locked_config": {
+    "source_api_name": "rt_min",
+    "ts_code_pattern": "3*.SZ,6*.SH,0*.SZ,9*.BJ",
+    "feed_key_pattern": "tushare_stock_rt_min_{freq}"
+  },
+  "fields": [
+    {"key": "enabled", "label": "是否启用", "editable": true, "control": "switch"},
+    {"key": "enabled_freqs", "label": "启用频率", "editable": true, "control": "checkbox_group"},
+    {"key": "ts_code_pattern", "label": "源站请求范围", "editable": false, "control": "locked_text"}
+  ]
+}</div>
+
+    <h3 style="margin-top:18px;">5.2 校验响应示例</h3>
+    <div class="api-block">{
+  "valid": true,
+  "errors": [],
+  "warnings": [
+    {"field": "poll_interval_seconds", "message": "发布后需要重启 collector 才会生效"}
+  ],
+  "diff": [
+    {"field": "poll_interval_seconds", "before": 60, "after": 90}
+  ],
+  "impact": {
+    "requires_collector_restart": true,
+    "affected_feeds": [
+      "tushare_stock_rt_min_1min",
+      "tushare_stock_rt_min_5min",
+      "tushare_stock_rt_min_15min",
+      "tushare_stock_rt_min_30min",
+      "tushare_stock_rt_min_60min"
+    ]
+  }
+}</div>
+
+    <h3 style="margin-top:18px;">5.3 API 边界说明</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>API 类型</th>
+          <th>路径</th>
+          <th>职责</th>
+          <th>是否读取配置表</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>配置中心 API</td>
+          <td><code>/api/v1/ops/realtime/config/*</code></td>
+          <td>管理员查看、校验、发布实时运行时配置，读取和写入 <code>foundation.realtime_runtime_config</code>，写 <code>ops.config_revision</code>。</td>
+          <td>是，这是它的主职责。</td>
+        </tr>
+        <tr>
+          <td>Ops health API</td>
+          <td><code>/api/v1/ops/realtime/*/health</code></td>
+          <td>展示“应该怎么运行”和“实际运行得怎么样”，读取 runtime config、Redis health、Redis meta。</td>
+          <td>是，因为它面向运营观测运行状态。</td>
+        </tr>
+        <tr>
+          <td>Biz 行情 API</td>
+          <td><code>/api/v1/realtime/stock-rt-daily</code>、<code>/api/v1/realtime/stock-rt-min</code></td>
+          <td>面向行情查询，只返回实时行情快照和缺失代码，不暴露配置事实。</td>
+          <td>目标态：否。Biz 调 <code>RealtimeSnapshotReader</code>，由 reader 内部消费 runtime config。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>6. 读写时序</h2>
+        <p>配置中心页面只操作配置事实；实时流监控页面继续读取 health API；业务行情页面只读快照 API。三条读取链路职责分开。</p>
+      </div>
+      <span class="tag info">流程图</span>
+    </div>
+    <h3>6.1 查看配置</h3>
+    <div class="diagram">
+      <div class="sequence">
+        <div class="seq-row">
+          <div class="actor">浏览器页面</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>GET objects</strong> 获取实时流对象目录，左侧列表渲染。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Ops Config API</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>读取 object catalog + runtime config 表</strong> 合成配置详情。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Runtime Config Resolver</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>统一校验</strong> 输出有效配置、锁定项、字段元信息。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">浏览器页面</div>
+          <div class="arrow">←</div>
+          <div class="message"><strong>展示查看态</strong> 数值用标签/表格展示，不展示发布前检查。</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">6.2 编辑、校验、发布</h3>
+    <div class="diagram">
+      <div class="sequence">
+        <div class="seq-row">
+          <div class="actor">浏览器页面</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>POST validate</strong> 提交页面内草稿，服务端按白名单和配置关系校验。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Ops Config API</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>调用 runtime config resolver</strong> 校验 enabled_freqs、请求量、stale、TTL 等规则。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">浏览器页面</div>
+          <div class="arrow">←</div>
+          <div class="message"><strong>展示 diff / 校验 / 发布影响</strong> 只在编辑态出现。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">浏览器页面</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>PUT publish</strong> 带上当前 version，防止覆盖他人更新。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">数据库</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>同事务更新 runtime config 表 + 写 config_revision</strong> 发布成功后返回新版本与重启提示。</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">6.3 collector 生效</h3>
+    <div class="diagram">
+      <div class="flow flow-4">
+        <div class="node">
+          <div class="node-title">发布配置</div>
+          <div class="node-text">runtime config 表版本递增，revision 记录 before/after。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">页面提示</div>
+          <div class="node-text">V1 显示需要重启 collector 生效。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">collector 启动</div>
+          <div class="node-text">app/CLI 读取 foundation runtime config 并生成配置对象。</div>
+        </div>
+        <div class="node">
+          <div class="node-title">采集执行</div>
+          <div class="node-text">日线和分钟 feed 使用同一配置对象。</div>
+        </div>
+      </div>
+    </div>
+    <p>
+      V1 不做热加载，避免把配置发布和运行中 collector 状态耦合过深。后续若要自动生效，应单独立项实现 collector 配置刷新与健康状态确认。
+    </p>
+
+    <h3 style="margin-top:18px;">6.4 业务行情 API 读取快照</h3>
+    <div class="diagram">
+      <div class="sequence">
+        <div class="seq-row">
+          <div class="actor">业务页面</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>GET realtime snapshot</strong> 传入 <code>ts_codes</code>，分钟接口额外传 <code>freq</code>。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Biz API</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>参数校验</strong> 校验代码数量、频率、禁止通配符和 limit/offset。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">RealtimeSnapshotReader</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>读取 runtime config + Redis</strong> 内部解析 feed key、current batch、meta、snapshot、stale、collection_status。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Biz API</div>
+          <div class="arrow">←</div>
+          <div class="message"><strong>返回业务 schema</strong> 只返回行情项、批次、stale、missing codes；不返回配置表结构。</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="margin-top:18px;">6.5 Ops health 读取状态</h3>
+    <div class="diagram">
+      <div class="sequence">
+        <div class="seq-row">
+          <div class="actor">实时流监控页面</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>GET health</strong> 每分钟局部刷新状态，非交易时段不轮询。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Ops Health Query</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>读取 runtime config</strong> 得到启停、频率、间隔、阈值、TTL、采集时段等“应然状态”。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">Redis State Store</div>
+          <div class="arrow">→</div>
+          <div class="message"><strong>读取 health/meta/current batch</strong> 得到 collector、批次、行数、错误、无效行等“实然状态”。</div>
+        </div>
+        <div class="seq-row">
+          <div class="actor">实时流监控页面</div>
+          <div class="arrow">←</div>
+          <div class="message"><strong>展示运行状态</strong> 不展示编辑控件，不承担配置发布。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>7. 前端落地口径</h2>
+        <p>前端直接复用 showcase 的页面结构和交互，不重新设计页面层级。</p>
+      </div>
+      <span class="tag ok">复用 showcase</span>
+    </div>
+    <div class="grid-2">
+      <div class="note-card">
+        <strong>查看态</strong>
+        <p>左侧点击对象，右侧展示对象说明、当前配置、锁定项、配置明细。集合型值使用标签展示，例如频率标签。</p>
+      </div>
+      <div class="note-card">
+        <strong>编辑态</strong>
+        <p>同页面切换编辑模式，只显示可编辑白名单字段。分钟频率必须使用多选框，不允许手填逗号字符串。</p>
+      </div>
+      <div class="note-card">
+        <strong>发布前检查</strong>
+        <p>只在编辑态展示，显示服务端 validate 的 diff、错误、警告和发布影响。查看态不混入发布检查。</p>
+      </div>
+      <div class="note-card">
+        <strong>页面与监控分离</strong>
+        <p>配置中心负责“应该怎么运行”；实时流监控负责“现在运行得怎么样”。两个页面不共享状态判断逻辑。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>8. 开发里程碑</h2>
+        <p>建议先评审本文的待拍板项，再进入编码。每个里程碑都要有测试覆盖，避免配置事实再次散落。</p>
+      </div>
+      <span class="tag info">实施节奏</span>
+    </div>
+    <div class="milestones">
+      <div class="milestone">
+        <div>
+          <h3>评审与拍板</h3>
+          <p>确认配置事实表归属、V1 发布生效方式、可编辑白名单、单股当日分时序列是否显示。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
+          <h3>数据模型与迁移</h3>
+          <p>先审计 Alembic 真实 head，再新增 <code>foundation.realtime_runtime_config</code> ORM 与迁移；完成初始化配置行写入，保留 <code>ops.config_revision</code> 做发布历史。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
+          <h3>旧 env 配置退场</h3>
+          <p>按 3.4 和 3.5 逐项迁移旧 <code>REALTIME_STOCK_RT_*</code>：可编辑项入库，锁定项进目录，部署秘密留 env；删除 Settings 旧字段并清理本地/远程 env。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
+          <h3>配置读取层改造</h3>
+          <p>让 app/CLI/collector/snapshot reader/Ops health 通过同一 resolver 获取实时配置对象；Biz 改为调用 snapshot reader，禁止 query 层自行拼 feed key 和 stale 规则。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
+          <h3>Ops 配置 API</h3>
+          <p>实现 object list、detail、validate、publish、revision API；校验规则复用 runtime config resolver。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
+          <h3>前端页面</h3>
+          <p>按 showcase 落到真实页面，接配置 API，不调用业务实时行情 API，不读取 Redis。</p>
+        </div>
+      </div>
+      <div class="milestone">
+        <div>
+          <h3>测试与验收</h3>
+          <p>覆盖配置校验、锁定字段拒绝、发布 revision、并发 version、前端查看/编辑态、collector 读取配置回归。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>9. 测试门禁</h2>
+        <p>配置中心修改一旦落代码，必须证明“所有消费者都从同一配置对象拿事实”。</p>
+      </div>
+      <span class="tag warn">必须覆盖</span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>测试类别</th>
+          <th>覆盖点</th>
+          <th>验收标准</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>配置 resolver 测试</td>
+          <td>默认值、数据库当前值、非法频率、空频率、请求量不足、stale 小于间隔</td>
+          <td>合法配置生成 runtime config；非法配置返回结构化错误。</td>
+        </tr>
+        <tr>
+          <td>建表与迁移测试</td>
+          <td>Alembic head、ORM 注册、表结构、初始配置行、缺行 fail fast</td>
+          <td><code>down_revision</code> 接真实 head；配置表存在且能生成 runtime config；缺少配置行时不回落 env。</td>
+        </tr>
+        <tr>
+          <td>旧配置退场测试</td>
+          <td>Settings 字段删除、旧 env 引用清零、测试入口改造、本地/远程 env 清理清单</td>
+          <td><code>src/</code> 运行时代码中不再出现 <code>settings.realtime_stock_rt_*</code>；旧 <code>REALTIME_STOCK_RT_*</code> 只允许出现在历史说明或退场文档中。</td>
+        </tr>
+        <tr>
+          <td>API 测试</td>
+          <td>对象列表、详情、validate、publish、revision、权限</td>
+          <td>非管理员不可写；锁定字段不可发布；发布后 revision 存在。</td>
+        </tr>
+        <tr>
+          <td>消费者审计测试</td>
+          <td>collector、snapshot reader、Biz realtime API、Ops health</td>
+          <td>collector/reader/Ops health 统一消费 runtime config；Biz realtime API 不直接读取配置表或拼 Redis key。</td>
+        </tr>
+        <tr>
+          <td>前端测试</td>
+          <td>查看态、编辑态、多选频率、校验错误、发布影响</td>
+          <td>页面不手拼规则，不展示锁定字段编辑控件。</td>
+        </tr>
+        <tr>
+          <td>文档与架构测试</td>
+          <td>docs integrity、依赖矩阵</td>
+          <td>新增文档索引有效；不引入 foundation -> ops 依赖。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>10. 待拍板项</h2>
+        <p>以下是进入开发前必须确认的事项。若无异议，建议按“推荐口径”执行。</p>
+      </div>
+      <span class="tag warn">Review</span>
+    </div>
+    <div class="grid-2">
+      <div class="note-card decision">
+        <strong>D1 当前配置事实表归属</strong>
+        <p>推荐：新增 <code>foundation.realtime_runtime_config</code>。Ops 只做管理 API 与 revision，不作为运行时底层依赖。</p>
+      </div>
+      <div class="note-card decision">
+        <strong>D2 发布生效方式</strong>
+        <p>推荐：V1 发布后需要重启 collector 生效；不在本轮做动态热加载。</p>
+      </div>
+      <div class="note-card decision">
+        <strong>D3 V1 可编辑范围</strong>
+        <p>推荐：只开放启停、频率、间隔、限速、stale、TTL、保留批次、source timeout；锁定通配符、Token、Redis、feed key。</p>
+      </div>
+      <div class="note-card decision">
+        <strong>D4 采集时段是否可编辑</strong>
+        <p>推荐：V1 锁定交易时段；后续单独设计“交易时段配置”。</p>
+      </div>
+      <div class="note-card decision">
+        <strong>D5 单股当日分时序列是否展示</strong>
+        <p>推荐：在配置中心可显示为只读/待接入对象；不开放编辑和发布。</p>
+      </div>
+      <div class="note-card decision">
+        <strong>D6 是否需要持久化 draft</strong>
+        <p>推荐：V1 不建 draft 表，页面内草稿 + validate + publish 即可；revision 记录发布结果。</p>
+      </div>
+    </div>
+  </section>
+
+  <section class="panel section">
+    <div class="section-header">
+      <div>
+        <h2>11. 明确禁止</h2>
+        <p>这些点不进入本方案，避免开发时走偏。</p>
+      </div>
+      <span class="tag warn">No scope creep</span>
+    </div>
+    <div class="grid-3">
+      <div class="note-card">
+        <strong>禁止 Web 直接改 env</strong>
+        <p>env 只保留部署级秘密和启动默认值，不做页面编辑目标。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止配置中心请求源站</strong>
+        <p>配置 API 不触发 Tushare 请求，不写 Redis，不启动 collector。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止前端自推导配置事实</strong>
+        <p>字段、控件、锁定项、支持频率都必须来自 API 契约。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止越界依赖</strong>
+        <p><code>foundation</code> 不依赖 <code>ops</code>，Biz 不依赖 Ops 配置查询，也不直接读取 runtime config 表。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止混淆监控与配置</strong>
+        <p>实时流监控展示运行状态；配置中心展示和发布配置事实。</p>
+      </div>
+      <div class="note-card">
+        <strong>禁止隐式兼容旧口径</strong>
+        <p>一旦配置中心上线，消费者必须走统一配置对象，不保留散落读取链路。</p>
+      </div>
+    </div>
+  </section>
+
+  <div class="footer">
+    文档版本：v1。状态：待评审。依据：当前 <span class="code">feed_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+  </div>
+</main>
+</body>
+</html>
