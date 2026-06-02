@@ -561,6 +561,33 @@ goldenshare realtime-collector-serve --max-cycles 1
 | `REALTIME_STOCK_RT_DAILY_DELTA_STREAM_MAXLEN` | `200000` | 逐股票变化事件 stream 裁剪上限 |
 | `REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN` | `3*.SZ,6*.SH,0*.SZ,9*.BJ` | 0372 全市场通配符 |
 
+### 8.2.1 实时流配置中心交互口径
+
+实时流配置中心是配置治理页面，不是实时流监控页面。
+
+当前 showcase 口径见 [Ops 实时流配置中心 Showcase v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html)。
+
+页面层级：
+
+1. 页面级：实时流配置中心。
+2. 对象级：股票实时日线、股票实时分钟、单股当日分时序列等“实时流对象”。
+3. 配置级：当前对象的采集策略、频率范围、采集窗口、限速保护、Redis 策略、状态判断和配置项明细。
+
+交互模式：
+
+1. 默认进入查看态：左侧对象列表，右侧展示当前对象配置详情。
+2. 点击左侧实时流对象，只切换右侧对象配置，不进入编辑。
+3. 点击“进入编辑模式”后，同一页面切到编辑态，只编辑当前对象。
+4. 编辑态才展示可编辑字段、草稿差异、校验结果、发布影响和发布确认。
+5. 查看态不得混入发布校验、草稿差异或提交发布按钮，避免只读信息和编辑流程混排。
+
+控件规则：
+
+1. 集合型值在查看态用标签展示，例如分钟频率 `1MIN/5MIN/15MIN/30MIN/60MIN`。
+2. `enabled_freqs` 在编辑态必须用多选控件，不允许让运营手填逗号字符串。
+3. 高风险配置如源站通配符、Token、Redis key 默认锁定，不在页面上开放普通编辑。
+4. 页面只消费服务端配置读取层输出的事实，不自行拼装配置来源或运行事实。
+
 ### 8.3 Collector 循环
 
 ```text

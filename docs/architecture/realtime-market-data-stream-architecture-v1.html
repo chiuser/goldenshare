@@ -1073,6 +1073,10 @@ pre {
           <strong>菜单建议：</strong>
           数据运营后台新增“实时流监控”一级菜单，V1 页面展示“股票实时日线”和“股票实时分钟”两个分组的采集状态和 Redis 状态；分钟分组按 health API 返回的 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code> 频率项展示。
         </div>
+        <div class="callout">
+          <strong>配置中心边界：</strong>
+          “实时流配置中心”是独立配置治理页面，不与“实时流监控”混在一起。配置中心按“实时流对象”组织，例如股票实时日线、股票实时分钟、单股当日分时序列；默认查看态只展示配置事实，点击左侧对象切换右侧配置详情；进入编辑模式后才展示草稿差异、校验结果、发布影响和发布确认。分钟频率在查看态用标签展示，在编辑态用多选控件，不允许运营手填逗号字符串。设计参考见 <a href="/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html">Ops 实时流配置中心 Showcase v1</a>。
+        </div>
         <div class="callout danger">
           <strong>不要做的事：</strong>
           不在 TaskRun 里展示实时行情轮询记录；不把实时健康写成离线 freshness；不把 Redis 快照失败当成业务数据表事务失败。

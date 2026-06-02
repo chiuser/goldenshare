@@ -779,7 +779,10 @@ fields = [
         </table>
 
         <div class="callout">
-          <b>后续配置中心边界：</b>数据运营后台“实时流配置中心”应统一管理实时日线与实时分钟的启停、采集间隔、启用频率、stale 阈值、TTL、stream 裁剪和源站限速。V1 的 Ops 页面只读 health API 展示配置与运行状态，不提供编辑能力；配置编辑能力必须另立需求，避免本轮实现被配置后台拖大。
+          <b>后续配置中心边界：</b>数据运营后台“实时流配置中心”独立于“实时流监控”。配置中心管理“实时流对象”的配置事实，例如股票实时日线、股票实时分钟、单股当日分时序列；监控页只展示当前运行健康。配置中心的最新交互参考见 <a href="/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html">Ops 实时流配置中心 Showcase v1</a>。
+        </div>
+        <div class="callout">
+          <b>配置中心交互口径：</b>默认是查看态：左侧为实时流对象列表，点击对象后右侧展示该对象配置详情和配置项明细。编辑态必须通过“进入编辑模式”切换，同一页面状态内展示可编辑字段、草稿差异、校验结果和发布影响；查看态不得混入发布确认或草稿校验。分钟频率属于集合型配置，查看态用标签展示 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code>，编辑态用多选控件，不允许让运营手填逗号字符串。
         </div>
         <div class="callout">
           <b>配置关系基线：</b>配置不是孤立开关。<code>poll_interval_seconds</code> 决定理论请求量；<code>enabled_freqs</code> 放大请求量；<code>max_calls_per_minute</code> 必须覆盖理论请求量；<code>lease_ttl_seconds</code> 必须大于单 feed 最长处理时间；<code>stale_after_seconds</code> 必须大于正常采集间隔加抖动；<code>snapshot_ttl_seconds</code> 和 <code>keep_recent_batches</code> 共同决定 Redis 保留规模。任何改动这些配置的需求，都必须先重新计算关系，不允许只改一个值。

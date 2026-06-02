@@ -1,0 +1,1066 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>实时流配置中心 Showcase v1</title>
+<style>
+:root {
+  color-scheme: light;
+  --gs-neutral-0: #ffffff;
+  --gs-neutral-1: #f7f8fa;
+  --gs-neutral-2: #f0f2f5;
+  --gs-neutral-3: #e5e7eb;
+  --gs-neutral-4: #d1d5db;
+  --gs-neutral-5: #9ca3af;
+  --gs-neutral-6: #6b7280;
+  --gs-neutral-7: #4b5563;
+  --gs-neutral-8: #1f2937;
+  --gs-neutral-9: #0f172a;
+  --gs-brand-0: #eaf1fa;
+  --gs-brand-5: #1f5499;
+  --gs-brand-6: #154173;
+  --gs-info-0: #eaf1fa;
+  --gs-info-5: #1f5499;
+  --gs-success-0: #e4f4ec;
+  --gs-success-5: #0f8a5f;
+  --gs-warning-0: #fbefcc;
+  --gs-warning-5: #b07b00;
+  --gs-error-0: #fbe9e9;
+  --gs-error-5: #b42626;
+  --gs-radius-sm: 4px;
+  --gs-radius-md: 6px;
+  --gs-page-background:
+    radial-gradient(circle at 50% -12%, rgba(31, 84, 153, 0.08), transparent 28%),
+    linear-gradient(180deg, #f7f8fa 0%, #f3f6f9 100%);
+  --gs-font:
+    -apple-system,
+    BlinkMacSystemFont,
+    "Segoe UI",
+    "PingFang SC",
+    "Hiragino Sans GB",
+    "Microsoft YaHei UI",
+    "Microsoft YaHei",
+    Roboto,
+    "Helvetica Neue",
+    Arial,
+    sans-serif;
+  --gs-mono: "JetBrains Mono", "SF Mono", "Roboto Mono", Menlo, Consolas, monospace;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  min-width: 1180px;
+  min-height: 100vh;
+  background: var(--gs-page-background);
+  color: var(--gs-neutral-8);
+  font-family: var(--gs-font);
+  font-size: 13px;
+  line-height: 1.45;
+  font-feature-settings: "tnum" 1;
+  font-variant-numeric: tabular-nums;
+}
+
+.app-shell {
+  display: grid;
+  grid-template-columns: 280px minmax(0, 1fr);
+  grid-template-rows: 80px minmax(0, 1fr);
+  min-height: 100vh;
+}
+
+.header {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 24px;
+  background: rgba(247, 248, 250, 0.92);
+  border-bottom: 1px solid var(--gs-neutral-3);
+  backdrop-filter: blur(10px);
+}
+
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.brand img {
+  width: 52px;
+  height: 52px;
+  object-fit: contain;
+}
+
+.brand-title {
+  color: var(--gs-neutral-9);
+  font-size: 18px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  line-height: 1.18;
+}
+
+.brand-subtitle {
+  margin-top: 2px;
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.header-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.header-user { text-align: right; }
+.header-user strong {
+  display: block;
+  color: var(--gs-neutral-9);
+  font-weight: 600;
+}
+.header-user span {
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.sidebar {
+  grid-row: 2;
+  padding: 16px;
+  background: var(--gs-neutral-0);
+  border-right: 1px solid var(--gs-neutral-3);
+}
+
+.nav {
+  display: grid;
+  gap: 4px;
+}
+
+.nav-item,
+.nav-parent {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 36px;
+  padding: 8px 10px;
+  border-radius: var(--gs-radius-md);
+  color: var(--gs-neutral-8);
+  font-weight: 500;
+}
+
+.nav-parent { margin-top: 4px; }
+.nav-item.child {
+  margin-left: 8px;
+  color: var(--gs-neutral-7);
+  font-size: 12px;
+}
+.nav-item.active {
+  color: var(--gs-brand-6);
+  background: var(--gs-brand-0);
+}
+.nav-item.disabled { color: var(--gs-neutral-5); }
+
+.nav-icon {
+  width: 18px;
+  height: 18px;
+  border: 1px solid var(--gs-neutral-4);
+  border-radius: var(--gs-radius-sm);
+  background: var(--gs-neutral-1);
+}
+
+.nav-item.active .nav-icon {
+  border-color: var(--gs-brand-5);
+  background: var(--gs-brand-0);
+}
+
+.sidebar-footer {
+  margin-top: 24px;
+  padding-top: 12px;
+  border-top: 1px solid var(--gs-neutral-3);
+  color: var(--gs-neutral-6);
+  font-size: 11px;
+}
+
+.main {
+  min-width: 0;
+  padding: 24px;
+}
+
+.page-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 16px;
+  margin-bottom: 16px;
+}
+
+.page-title {
+  margin: 0;
+  color: var(--gs-neutral-9);
+  font-size: 22px;
+  font-weight: 600;
+  line-height: 1.35;
+  letter-spacing: -0.01em;
+}
+
+.page-description {
+  max-width: 760px;
+  margin: 6px 0 0;
+  color: var(--gs-neutral-6);
+  font-size: 13px;
+}
+
+.button-row {
+  display: flex;
+  gap: 8px;
+}
+
+.button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  height: 32px;
+  padding: 0 12px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-sm);
+  background: var(--gs-neutral-0);
+  color: var(--gs-neutral-8);
+  font: inherit;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.button.primary {
+  border-color: var(--gs-brand-5);
+  background: var(--gs-brand-5);
+  color: var(--gs-neutral-0);
+}
+
+.button.danger {
+  border-color: #f0b4b4;
+  color: var(--gs-error-5);
+  background: var(--gs-error-0);
+}
+
+.button:disabled {
+  cursor: not-allowed;
+  color: var(--gs-neutral-5);
+  background: var(--gs-neutral-2);
+}
+
+.grid {
+  display: grid;
+  gap: 16px;
+}
+
+.grid.cols-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.config-layout {
+  display: grid;
+  grid-template-columns: 360px minmax(0, 1fr);
+  gap: 16px;
+}
+.detail-grid,
+.edit-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+}
+.edit-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+
+.section-card,
+.stat-card {
+  min-width: 0;
+  background: var(--gs-neutral-0);
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  box-shadow: none;
+}
+
+.section-card,
+.stat-card { padding: 16px; }
+
+.section-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--gs-neutral-9);
+  font-size: 16px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+.section-description {
+  margin-top: 4px;
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.stat-label {
+  color: var(--gs-neutral-6);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+.stat-value {
+  margin-top: 6px;
+  color: var(--gs-neutral-9);
+  font-size: 22px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+.stat-hint {
+  margin-top: 6px;
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 22px;
+  padding: 2px 8px;
+  border-radius: var(--gs-radius-sm);
+  font-size: 12px;
+  font-weight: 500;
+  white-space: nowrap;
+}
+.badge.info {
+  color: var(--gs-info-5);
+  background: var(--gs-info-0);
+}
+.badge.success {
+  color: var(--gs-success-5);
+  background: var(--gs-success-0);
+}
+.badge.warning {
+  color: var(--gs-warning-5);
+  background: var(--gs-warning-0);
+}
+.badge.error {
+  color: var(--gs-error-5);
+  background: var(--gs-error-0);
+}
+.badge.neutral {
+  color: var(--gs-neutral-7);
+  background: var(--gs-neutral-2);
+}
+
+.object-list {
+  display: grid;
+  gap: 8px;
+}
+
+.object-row {
+  display: grid;
+  width: 100%;
+  gap: 8px;
+  padding: 12px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.object-row.active {
+  border-color: #bed4ec;
+  background: #f8fbff;
+}
+
+.object-title-line {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 8px;
+}
+
+.object-name {
+  color: var(--gs-neutral-9);
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.object-meta {
+  color: var(--gs-neutral-6);
+  font-family: var(--gs-mono);
+  font-size: 12px;
+}
+
+.tag-row {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.value-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.breadcrumb {
+  display: flex;
+  gap: 6px;
+  align-items: center;
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.breadcrumb strong {
+  color: var(--gs-neutral-8);
+  font-weight: 600;
+}
+
+.config-panel,
+.edit-panel {
+  min-height: 132px;
+  padding: 12px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+}
+
+.config-panel-title,
+.edit-panel-title {
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: var(--gs-neutral-9);
+  font-weight: 600;
+}
+
+.config-panel-body {
+  display: grid;
+  gap: 8px;
+  margin-top: 10px;
+}
+
+.kv {
+  display: grid;
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: 8px;
+}
+.kv dt { color: var(--gs-neutral-6); }
+.kv dd {
+  margin: 0;
+  color: var(--gs-neutral-9);
+}
+
+.mono {
+  font-family: var(--gs-mono);
+  font-size: 12px;
+}
+
+.table-wrap {
+  overflow: hidden;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-md);
+  background: var(--gs-neutral-0);
+}
+
+table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+th,
+td {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--gs-neutral-3);
+  vertical-align: top;
+}
+
+th {
+  background: var(--gs-neutral-2);
+  color: var(--gs-neutral-7);
+  font-size: 12px;
+  font-weight: 600;
+  text-align: left;
+  white-space: nowrap;
+}
+
+td {
+  color: var(--gs-neutral-8);
+  font-size: 12px;
+}
+
+tbody tr:last-child td { border-bottom: 0; }
+tbody tr:nth-child(even) td { background: #fbfcfd; }
+
+.field {
+  display: grid;
+  gap: 6px;
+  margin-top: 12px;
+}
+
+.field label {
+  color: var(--gs-neutral-7);
+  font-size: 12px;
+  font-weight: 600;
+}
+
+.field input,
+.field select {
+  width: 100%;
+  height: 32px;
+  padding: 0 10px;
+  border: 1px solid var(--gs-neutral-4);
+  border-radius: var(--gs-radius-sm);
+  background: var(--gs-neutral-0);
+  color: var(--gs-neutral-9);
+  font: inherit;
+}
+
+.field input:disabled {
+  color: var(--gs-neutral-5);
+  background: var(--gs-neutral-2);
+}
+
+.field-help {
+  color: var(--gs-neutral-6);
+  font-size: 12px;
+}
+
+.checkbox-group {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.checkbox-option {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 8px;
+  border: 1px solid var(--gs-neutral-3);
+  border-radius: var(--gs-radius-sm);
+  background: var(--gs-neutral-0);
+  color: var(--gs-neutral-8);
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.checkbox-option input {
+  width: 14px;
+  height: 14px;
+  margin: 0;
+  accent-color: var(--gs-brand-5);
+}
+
+.alert {
+  padding: 12px;
+  border: 1px solid #f0d58a;
+  border-radius: var(--gs-radius-md);
+  background: #fff8e5;
+  color: #785300;
+}
+.alert strong {
+  display: block;
+  margin-bottom: 4px;
+  color: #5c4000;
+}
+
+.mode-block { display: grid; gap: 16px; }
+</style>
+</head>
+<body>
+<div class="app-shell">
+  <header class="header">
+    <div class="brand">
+      <img src="../../frontend/public/brand/logo_new.png" alt="财势乾坤图标">
+      <div>
+        <div class="brand-title">财势乾坤</div>
+        <div class="brand-subtitle">数据运营管理综合平台</div>
+      </div>
+    </div>
+    <div class="header-actions">
+      <span class="badge info">运行管理</span>
+      <div class="header-user">
+        <strong>admin</strong>
+        <span>管理员</span>
+      </div>
+    </div>
+  </header>
+
+  <aside class="sidebar">
+    <nav class="nav" aria-label="数据运营后台菜单">
+      <div class="nav-item"><span class="nav-icon"></span>今日运行</div>
+      <div class="nav-parent"><span class="nav-icon"></span>数据源</div>
+      <div class="nav-item child">数据状态总览</div>
+      <div class="nav-item child">Tushare</div>
+      <div class="nav-item child">Biying</div>
+      <div class="nav-item"><span class="nav-icon"></span>任务中心</div>
+      <div class="nav-item"><span class="nav-icon"></span>实时流监控</div>
+      <div class="nav-item active"><span class="nav-icon"></span>实时流配置中心</div>
+      <div class="nav-parent"><span class="nav-icon"></span>审查中心</div>
+      <div class="nav-item child">指数</div>
+      <div class="nav-item child">板块</div>
+      <div class="nav-item child">数据集审计</div>
+      <div class="nav-item disabled"><span class="nav-icon"></span>融合策略中心（即将开放）</div>
+      <div class="nav-item disabled"><span class="nav-icon"></span>发布中心（即将开放）</div>
+      <div class="nav-item"><span class="nav-icon"></span>帐号管理</div>
+    </nav>
+    <div class="sidebar-footer">
+      <div>版本：v2.1 · mock</div>
+      <div>构建：2026-06-02 09:20 UTC</div>
+    </div>
+  </aside>
+
+  <main class="main">
+    <div class="page-header">
+      <div>
+        <h1 class="page-title">实时流配置中心</h1>
+        <p class="page-description">先选择实时流对象，再查看或编辑它的运行配置。查看态只解释事实；编辑态才展示草稿、校验和发布影响。</p>
+      </div>
+      <div class="button-row">
+        <button class="button" type="button">刷新配置</button>
+        <button class="button" type="button" id="modeButton">进入编辑模式</button>
+        <button class="button primary" type="button">查看实时流监控</button>
+      </div>
+    </div>
+
+    <section class="grid cols-4" aria-label="配置中心总览">
+      <div class="stat-card">
+        <div class="stat-label">实时流对象</div>
+        <div class="stat-value">3</div>
+        <div class="stat-hint">日线、分钟、单股当日分时</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">已启用对象</div>
+        <div class="stat-value">2</div>
+        <div class="stat-hint">日线与分钟由 collector 采集</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">配置来源</div>
+        <div class="stat-value">统一</div>
+        <div class="stat-hint">Settings -> feed_config</div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-label">当前视图</div>
+        <div class="stat-value" id="modeStat">查看态</div>
+        <div class="stat-hint" id="modeHint">当前不展示发布确认</div>
+      </div>
+    </section>
+
+    <section class="config-layout" style="margin-top:16px;">
+      <aside class="section-card">
+        <div class="section-header">
+          <div>
+            <div class="section-title">实时流对象</div>
+            <div class="section-description">点击对象后，右侧显示该对象的配置。</div>
+          </div>
+        </div>
+        <div class="object-list" id="objectList"></div>
+      </aside>
+
+      <section class="section-card" id="detailRoot"></section>
+    </section>
+  </main>
+</div>
+
+<script>
+const realtimeObjects = {
+  "stock-rt-min": {
+    name: "股票实时分钟",
+    status: "已启用",
+    statusTone: "success",
+    meta: "rt_min · 5 个频率 feed",
+    tags: ["collector 采集", "Redis 快照"],
+    description: "当前颗粒度是“股票实时分钟”这个实时流对象；其下包含 1MIN、5MIN、15MIN、30MIN、60MIN 五个频率 feed。",
+    cards: [
+      ["采集策略", [["启用状态", "启用"], ["采集方式", "统一 collector 定时采集"], ["采集间隔", "60 秒"]]],
+      ["频率范围", [["支持频率", ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"]], ["启用频率", ["全部启用"]], ["feed key", ["按频率拆分"]]]],
+      ["采集窗口", [["交易日", ["仅交易日采集"]], ["上午", "09:30 - 11:30"], ["下午", "13:00 - 15:00"]]],
+      ["限速保护", [["上限", "20 次/分钟"], ["理论请求", "5 次/分钟"], ["租约 TTL", "90 秒"]]],
+      ["Redis 策略", [["批次 TTL", "259200 秒"], ["保留批次", ["最近 3 批"]], ["切换方式", ["batch_id + current pointer"]]]],
+      ["状态判断", [["stale 阈值", "90 秒"], ["页面含义", ["超过阈值显示刷新滞后"]], ["监控入口", ["实时流监控页"]]]]
+    ],
+    rows: [
+      ["REALTIME_STOCK_RT_MIN_ENABLED", "true", "是否启用股票实时分钟采集", "collector / Ops health", "编辑模式"],
+      ["REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN,15MIN,30MIN,60MIN", "当前采集哪些分钟频率", "collector / feed key", "编辑模式"],
+      ["REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS", "60", "每个频率的采集间隔", "collector scheduler", "编辑模式"],
+      ["REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE", "20", "分钟接口请求保护上限", "provider rate limiter", "编辑模式"],
+      ["REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS", "90", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
+      ["REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN", "3*.SZ,6*.SH,0*.SZ,9*.BJ", "源站请求范围", "provider request builder", "锁定"]
+    ],
+    editFields: [
+      ["启用状态", "select", "启用", "关闭后 collector 不再调度该实时流对象。", ["启用", "停用"]],
+      ["启用频率", "multi-check", ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"], "勾选需要采集的分钟频率。", ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"]],
+      ["采集间隔", "number", "60", "单位：秒。必须与限速上限联动校验。"],
+      ["限速上限", "number", "20", "单位：次/分钟。不得低于理论请求量。"],
+      ["stale 阈值", "number", "120", "单位：秒。示例草稿从 90 调整到 120。"],
+      ["源站请求范围", "text", "3*.SZ,6*.SH,0*.SZ,9*.BJ", "高风险项，V1 不开放编辑。", "disabled"]
+    ],
+    diffRows: [
+      ["REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS", "90", "120", "降低交易时段轻微网络抖动误报"]
+    ],
+    validationRows: [
+      ["请求频率", "通过", "5 个频率 / 60 秒 = 5 次/分钟，小于 20 次/分钟上限"],
+      ["stale 阈值", "通过", "120 秒大于采集间隔 60 秒"],
+      ["高风险配置", "通过", "源站范围和 Redis key 未被修改"]
+    ],
+    impact: "发布后需要重启统一实时流 collector 才会生效；不影响 Redis 已发布批次。"
+  },
+  "stock-rt-daily": {
+    name: "股票实时日线",
+    status: "已启用",
+    statusTone: "success",
+    meta: "rt_k · 1 个 feed",
+    tags: ["collector 采集", "6 秒间隔"],
+    description: "当前颗粒度是“股票实时日线”这个实时流对象；它只有一个日线快照 feed。",
+    cards: [
+      ["采集策略", [["启用状态", "启用"], ["采集方式", "统一 collector 定时采集"], ["采集间隔", "6 秒"]]],
+      ["源接口", [["接口", "rt_k"], ["请求范围", "全市场通配符"], ["字段", "显式 fields"]]],
+      ["采集窗口", [["交易日", "仅交易日采集"], ["上午", "09:30 - 11:30"], ["下午", "13:00 - 15:00"]]],
+      ["限速保护", [["上限", "20 次/分钟"], ["理论请求", "10 次/分钟"], ["租约 TTL", "30 秒"]]],
+      ["Redis 策略", [["批次 TTL", "259200 秒"], ["保留批次", "最近 3 批"], ["切换方式", "batch_id + current pointer"]]],
+      ["状态判断", [["stale 阈值", "20 秒"], ["页面含义", "超过阈值显示刷新滞后"], ["监控入口", "实时流监控页"]]]
+    ],
+    rows: [
+      ["REALTIME_STOCK_RT_DAILY_ENABLED", "true", "是否启用股票实时日线采集", "collector / Ops health", "编辑模式"],
+      ["REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS", "6", "日线采集间隔", "collector scheduler", "编辑模式"],
+      ["REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE", "20", "日线接口请求保护上限", "provider rate limiter", "编辑模式"],
+      ["REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS", "20", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
+      ["REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS", "30", "collector feed 租约 TTL", "collector lease", "编辑模式"]
+    ],
+    editFields: [
+      ["启用状态", "select", "启用", "关闭后 collector 不再调度日线 feed。", ["启用", "停用"]],
+      ["采集间隔", "number", "6", "单位：秒。"],
+      ["限速上限", "number", "20", "单位：次/分钟。"],
+      ["stale 阈值", "number", "20", "单位：秒。"],
+      ["租约 TTL", "number", "30", "单位：秒。"],
+      ["源接口", "text", "rt_k", "源接口不允许从页面修改。", "disabled"]
+    ],
+    diffRows: [
+      ["无", "—", "—", "当前示例没有日线草稿改动"]
+    ],
+    validationRows: [
+      ["请求频率", "通过", "6 秒一次约 10 次/分钟，小于 20 次/分钟上限"],
+      ["stale 阈值", "通过", "20 秒大于采集间隔 6 秒"],
+      ["高风险配置", "通过", "源接口未被修改"]
+    ],
+    impact: "当前没有待发布改动；保存草稿后才需要进入发布确认。"
+  },
+  "stock-intraday-series": {
+    name: "单股当日分时序列",
+    status: "待接入",
+    statusTone: "neutral",
+    meta: "rt_min_daily · 按需查询",
+    tags: ["不进 collector", "短缓存"],
+    description: "当前颗粒度是“单股当日分时序列”这个按需查询对象；它不进入 collector，只在单股详情页需要时查询并短缓存。",
+    cards: [
+      ["查询策略", [["启用状态", "待接入"], ["查询方式", "按需请求"], ["触发来源", "单股详情页"]]],
+      ["缓存策略", [["缓存位置", "Redis"], ["刷新冷却", "60 秒"], ["空结果", "不覆盖已有缓存"]]],
+      ["采集窗口", [["交易日", "仅交易时段请求源站"], ["上午", "09:30 - 11:30"], ["下午", "13:00 - 15:00"]]],
+      ["输入参数", [["股票代码", "必填"], ["频率", "必填"], ["默认值", "无默认频率"]]],
+      ["边界", [["不落库", "是"], ["不进 TaskRun", "是"], ["不做历史分钟替代", "是"]]],
+      ["状态判断", [["缓存 TTL", "86400 秒"], ["页面刷新", "最多 60 秒一次"], ["监控入口", "后续接入"]]]
+    ],
+    rows: [
+      ["REALTIME_STOCK_INTRADAY_SERIES_ENABLED", "false", "是否启用按需查询能力", "Biz API", "编辑模式"],
+      ["REALTIME_STOCK_INTRADAY_SERIES_CACHE_TTL_SECONDS", "86400", "Redis 序列缓存 TTL", "query service", "编辑模式"],
+      ["REALTIME_STOCK_INTRADAY_SERIES_REFRESH_COOLDOWN_SECONDS", "60", "同一股票同一频率刷新冷却", "query service", "编辑模式"],
+      ["REALTIME_STOCK_INTRADAY_SERIES_REQUIRE_FREQ", "true", "请求必须显式传 freq", "Biz API", "锁定"]
+    ],
+    editFields: [
+      ["启用状态", "select", "停用", "开发完成并开市验证后再启用。", ["启用", "停用"]],
+      ["缓存 TTL", "number", "86400", "单位：秒。"],
+      ["刷新冷却", "number", "60", "单位：秒。"],
+      ["必须传频率", "text", "true", "接口契约锁定，不允许页面修改。", "disabled"]
+    ],
+    diffRows: [
+      ["无", "—", "—", "能力待开发，当前不生成发布草稿"]
+    ],
+    validationRows: [
+      ["开发状态", "未通过", "该对象还没有进入实现阶段，不允许发布启用"],
+      ["接口契约", "通过", "freq 必填，不接受默认值"],
+      ["采集边界", "通过", "不进入 collector，不落库"]
+    ],
+    impact: "该对象处于待接入状态。编辑态只用于感受未来配置形态，不允许提交发布。"
+  }
+};
+
+let selectedObjectKey = "stock-rt-min";
+let mode = "view";
+
+function badge(text, tone = "neutral") {
+  return `<span class="badge ${tone}">${text}</span>`;
+}
+
+function renderValue(value) {
+  if (Array.isArray(value)) {
+    return `<span class="value-tags">${value.map((item) => badge(item, "neutral")).join("")}</span>`;
+  }
+  return value;
+}
+
+function renderObjectList() {
+  const root = document.getElementById("objectList");
+  root.innerHTML = Object.entries(realtimeObjects).map(([key, item]) => `
+    <button class="object-row ${key === selectedObjectKey ? "active" : ""}" type="button" data-object-key="${key}">
+      <div class="object-title-line">
+        <div class="object-name">${item.name}</div>
+        ${badge(item.status, item.statusTone)}
+      </div>
+      <div class="object-meta">${item.meta}</div>
+      <div class="tag-row">${item.tags.map((tag) => badge(tag, "neutral")).join("")}</div>
+    </button>
+  `).join("");
+  root.querySelectorAll("[data-object-key]").forEach((node) => {
+    node.addEventListener("click", () => {
+      selectedObjectKey = node.getAttribute("data-object-key");
+      mode = "view";
+      render();
+    });
+  });
+}
+
+function renderView(item) {
+  return `
+    <div class="mode-block">
+      <div class="detail-grid">
+        ${item.cards.map(([title, rows]) => `
+          <div class="config-panel">
+            <div class="config-panel-title">${title} ${badge("只读", "neutral")}</div>
+            <dl class="config-panel-body">
+              ${rows.map(([label, value]) => `<div class="kv"><dt>${label}</dt><dd>${renderValue(value)}</dd></div>`).join("")}
+            </dl>
+          </div>
+        `).join("")}
+      </div>
+
+      <div class="section-card" style="padding:0;border:0;">
+        <div class="section-header">
+          <div>
+            <div class="section-title">配置项明细</div>
+            <div class="section-description">明细表只解释当前配置事实，不承载发布确认。需要修改时进入编辑模式。</div>
+          </div>
+          ${badge("只读", "neutral")}
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30%;">配置项</th>
+                <th style="width:18%;">当前值</th>
+                <th style="width:18%;">含义</th>
+                <th style="width:18%;">消费者</th>
+                <th style="width:16%;">编辑策略</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${item.rows.map((row) => `
+                <tr>
+                  <td class="mono">${row[0]}</td>
+                  <td>${row[1]}</td>
+                  <td>${row[2]}</td>
+                  <td>${row[3]}</td>
+                  <td>${badge(row[4], row[4] === "锁定" ? "neutral" : "info")}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="alert">
+        <strong>查看态</strong>
+        当前页面负责“看清楚配置是什么”。点击进入编辑模式后，才会展示草稿差异、校验结果和发布影响。
+      </div>
+    </div>
+  `;
+}
+
+function renderField(field) {
+  const [label, type, value, help, extra] = field;
+  if (type === "select") {
+    return `
+      <div class="field">
+        <label>${label}</label>
+        <select>${extra.map((option) => `<option ${option === value ? "selected" : ""}>${option}</option>`).join("")}</select>
+        <div class="field-help">${help}</div>
+      </div>
+    `;
+  }
+  if (type === "multi-check") {
+    return `
+      <div class="field">
+        <label>${label}</label>
+        <div class="checkbox-group">
+          ${extra.map((option) => `
+            <label class="checkbox-option">
+              <input type="checkbox" ${value.includes(option) ? "checked" : ""}>
+              <span>${option}</span>
+            </label>
+          `).join("")}
+        </div>
+        <div class="field-help">${help}</div>
+      </div>
+    `;
+  }
+  return `
+    <div class="field">
+      <label>${label}</label>
+      <input type="${type}" value="${value}" ${extra === "disabled" ? "disabled" : ""}>
+      <div class="field-help">${help}</div>
+    </div>
+  `;
+}
+
+function renderEdit(item) {
+  const canPublish = selectedObjectKey !== "stock-intraday-series";
+  return `
+    <div class="mode-block">
+      <div class="alert">
+        <strong>编辑态</strong>
+        这里展示的是 mock 草稿。编辑态只处理当前选中的“${item.name}”，不会影响其它实时流对象。
+      </div>
+
+      <div class="edit-grid">
+        <div class="edit-panel">
+          <div class="edit-panel-title">可编辑配置 ${badge("草稿", "warning")}</div>
+          ${item.editFields.map(renderField).join("")}
+        </div>
+
+        <div class="edit-panel">
+          <div class="edit-panel-title">校验结果 ${badge(canPublish ? "通过" : "未通过", canPublish ? "success" : "error")}</div>
+          <div class="table-wrap" style="margin-top:12px;">
+            <table>
+              <thead>
+                <tr>
+                  <th style="width:28%;">检查项</th>
+                  <th style="width:18%;">结果</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${item.validationRows.map((row) => `
+                  <tr>
+                    <td>${row[0]}</td>
+                    <td>${badge(row[1], row[1] === "通过" ? "success" : "error")}</td>
+                    <td>${row[2]}</td>
+                  </tr>
+                `).join("")}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div class="section-card" style="padding:0;border:0;">
+        <div class="section-header">
+          <div>
+            <div class="section-title">草稿差异</div>
+            <div class="section-description">这里只展示本次草稿相对当前生效配置的变化。</div>
+          </div>
+          ${badge(item.diffRows.length > 0 ? `${item.diffRows.length} 项` : "无改动", "neutral")}
+        </div>
+        <div class="table-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th style="width:30%;">配置项</th>
+                <th style="width:18%;">当前值</th>
+                <th style="width:18%;">草稿值</th>
+                <th>原因</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${item.diffRows.map((row) => `
+                <tr>
+                  <td class="mono">${row[0]}</td>
+                  <td>${row[1]}</td>
+                  <td>${row[2]}</td>
+                  <td>${row[3]}</td>
+                </tr>
+              `).join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="section-card" style="padding:0;border:0;">
+        <div class="section-header">
+          <div>
+            <div class="section-title">发布影响</div>
+            <div class="section-description">发布确认只在编辑态展示，避免污染查看态。</div>
+          </div>
+          ${badge(canPublish ? "可提交" : "不可提交", canPublish ? "success" : "error")}
+        </div>
+        <div class="alert">
+          <strong>${item.name}</strong>
+          ${item.impact}
+        </div>
+        <div class="button-row" style="margin-top:12px;justify-content:flex-end;">
+          <button class="button" type="button" id="cancelEditButton">放弃草稿</button>
+          <button class="button" type="button">保存草稿</button>
+          <button class="button primary" type="button" ${canPublish ? "" : "disabled"}>提交发布确认</button>
+        </div>
+      </div>
+    </div>
+  `;
+}
+
+function renderDetail() {
+  const item = realtimeObjects[selectedObjectKey];
+  const root = document.getElementById("detailRoot");
+  root.innerHTML = `
+    <div class="section-header">
+      <div>
+        <div class="breadcrumb">
+          <span>实时流对象</span>
+          <span>/</span>
+          <strong>${item.name}</strong>
+        </div>
+        <div class="section-title" style="margin-top:6px;">${item.name}配置</div>
+        <div class="section-description">${item.description}</div>
+      </div>
+      ${badge(mode === "view" ? "查看态" : "编辑态", mode === "view" ? "success" : "warning")}
+    </div>
+    ${mode === "view" ? renderView(item) : renderEdit(item)}
+  `;
+  const cancelButton = document.getElementById("cancelEditButton");
+  if (cancelButton) {
+    cancelButton.addEventListener("click", () => {
+      mode = "view";
+      render();
+    });
+  }
+}
+
+function renderModeButton() {
+  const button = document.getElementById("modeButton");
+  const modeStat = document.getElementById("modeStat");
+  const modeHint = document.getElementById("modeHint");
+  button.textContent = mode === "view" ? "进入编辑模式" : "退出编辑模式";
+  modeStat.textContent = mode === "view" ? "查看态" : "编辑态";
+  modeHint.textContent = mode === "view" ? "当前不展示发布确认" : "当前展示草稿与校验";
+}
+
+function render() {
+  renderObjectList();
+  renderDetail();
+  renderModeButton();
+}
+
+document.getElementById("modeButton").addEventListener("click", () => {
+  mode = mode === "view" ? "edit" : "view";
+  render();
+});
+
+render();
+</script>
+</body>
+</html>
