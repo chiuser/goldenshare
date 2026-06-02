@@ -1658,7 +1658,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M6F 已落地只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>。
       M6G 已新增 <code>stock_mins_silver_sensor</code>：它只在 silver 分区已注册、上游 readiness 全部满足且目标 silver 尚未 ready 时，触发 <code>stock_mins_silver_update_job</code>。
       gold 历史 baseline 已完成：命令式生成 gold qfq 股票年份文件，并按 <code>freq/year</code> 年度批量补录 runless materialization/check events。
-      当前尚未实现日常 qfq job/sensor 与 factor repair；下一步先落日常 qfq job/sensor，再设计 factor repair。
+      M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与默认停止的 <code>stock_mins_qfq_daily_sensor</code>：它只在 23:00 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。
+      当前尚未实现的是 factor repair job/sensor；下一步进入 repair detection 与 check 契约。
     </p>
 
     <table>
@@ -1954,8 +1955,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>
-      当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions、M8B blocking checks、M8C 历史文件生成 helper/CLI 与 M8D runless event 补录 helper/CLI；正式 gold 物理文件与 Dagster event log 已完成对齐，尚未实现 gold qfq daily job/sensor 与 factor repair job/sensor。
-      后续顺序固定为：先设计并落地日常 job/sensor，再设计 factor repair。
+      当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI 与 M9A 日常 qfq job/sensor；正式 gold 物理文件与 Dagster event log 已完成对齐。
+      后续顺序固定为：先做 M9B repair detection 与 check 契约，再做 M9C factor repair job/sensor。
       所有开发必须继续以本文档的 <code>freq + ts_code + year</code> 物理布局为准。
     </div>
   </section>
