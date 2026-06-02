@@ -1,6 +1,6 @@
 # Ops 实时流配置中心 M1 消费者审计清单 v1
 
-状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / 待 M5-M8 收尾
+状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / 待 M6-M8 收尾
 依据：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)、根 `AGENTS.md`、`src/AGENTS.md`、依赖矩阵  
 审计时间：2026-06-02  
 
@@ -8,7 +8,7 @@
 
 本清单记录 M1 现状消费者审计结果，并补充 M2 建表与初始化落地状态，用于后续 M3-M8 执行对账。
 
-M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。前端配置中心 API、远程 env 清理和 Biz SnapshotReader 下沉仍未完成。
+M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。前端配置中心 API 和远程 env 清理仍未完成。
 
 ## 2. M0 冻结口径
 
@@ -34,8 +34,8 @@ M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读�
 | 股票实时分钟 provider/publisher/collector | `src/foundation/realtime/stock_rt_min.py` | 默认调用新 resolver；频率等可编辑项来自 DB，通配符和采集时段来自 catalog。 | M3 已完成。 |
 | Tushare 限速 | `src/foundation/clients/tushare_client.py` | `_get_rate_limiter()` 通过新 runtime resolver 获取实时接口限速。 | M3 已完成；无配置行时 fail fast。 |
 | Redis store dependency | `src/app/dependencies/realtime.py` | 调用 `get_realtime_runtime_config().redis_url` 构建 store。 | `REDIS_URL` 仍为部署级 env；读取通过 runtime resolver 暴露的部署级字段。 |
-| Biz 日线查询 | `src/biz/queries/realtime_stock_rt_daily_query_service.py` | 显式传 `session` 读取日线配置，仍拼 `feed_key`、`collection_sessions`、`stale_after_seconds`。 | M3 已改为 DB 配置；M5 改为调用 `RealtimeSnapshotReader`。 |
-| Biz 分钟查询 | `src/biz/queries/realtime_stock_rt_min_query_service.py` | 显式传 `session` 读取分钟配置，仍拼 `feed_key`、`collection_sessions`、`stale_after_seconds`。 | M3 已改为 DB 配置；M5 改为调用 `RealtimeSnapshotReader`。 |
+| Biz 日线查询 | `src/biz/queries/realtime_stock_rt_daily_query_service.py` | 只做参数校验和 schema 映射，调用 `RealtimeSnapshotReader` 读取快照事实。 | M5 已完成；Biz 不再读 runtime config、拼 feed key 或算 stale。 |
+| Biz 分钟查询 | `src/biz/queries/realtime_stock_rt_min_query_service.py` | 只做参数校验和 schema 映射，调用 `RealtimeSnapshotReader` 读取快照事实。 | M5 已完成；Biz 不再读 runtime config、拼 feed key 或算 stale。 |
 | Ops health | `src/ops/queries/realtime_feed_health_query_service.py` | 显式传 `session` 读取配置和 Redis health/meta，构造运行状态。 | M3 已完成；Ops health 继续展示“应然配置 + 实然状态”。 |
 
 ## 4. 旧配置项退场映射
@@ -115,7 +115,7 @@ uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/ar
 
 1. M4 已完成：`settings.realtime_stock_rt_*` 和 `monkeypatch.setenv("REALTIME_STOCK_RT_*")` 已从 `src/`、`tests/` 退场。
 2. 旧 `REALTIME_STOCK_RT_*` env 只能作为历史说明或远程 env 清理对象存在，不再作为 seed 输入。
-3. M5 完成前，Biz 直读配置和拼 Redis/feed key 的行为必须被列为未完成项。
+3. M5 已完成：Biz 直读配置和拼 Redis/feed key 的行为已退场，快照事实由 foundation `RealtimeSnapshotReader` 封装。
 4. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
 
 ## 9. M2 建表与初始化落地状态
@@ -149,7 +149,7 @@ M3 已完成以下内容：
 M3 完成当时明确未完成、不得误判为完成的内容；其中 Settings 旧字段已在 M4 收口：
 
 1. 已删除 `src/foundation/config/settings.py` 中 `REALTIME_STOCK_RT_*` 字段。
-2. 未下沉 Biz `RealtimeSnapshotReader`；Biz 仍读取配置并拼 feed key/stale，这是 M5。
+2. 已下沉 Biz `RealtimeSnapshotReader`；Biz 不再读取配置并拼 feed key/stale。
 3. 未实现配置中心 API、发布审计和前端页面；这是后续配置中心阶段。
 4. 未清理本地/远程 env；这是 M8。
 
@@ -165,5 +165,20 @@ M4 已完成以下内容：
 M4 明确未完成、不得误判为完成的内容：
 
 1. 未清理本地 `.env.web.local` 或远程 `/etc/goldenshare/web.env` 中可能残留的旧 env；这是 M8 部署退场动作。
-2. 未下沉 Biz `RealtimeSnapshotReader`；这是 M5。
+2. 已下沉 Biz `RealtimeSnapshotReader`。
 3. 未实现配置中心 API、发布审计和前端页面。
+
+## 12. M5 Biz SnapshotReader 下沉状态
+
+M5 已完成以下内容：
+
+1. 新增 foundation `RealtimeSnapshotReader`，统一封装 runtime config、feed key、Redis current batch、交易时段和 stale 判断。
+2. Biz 日线/分钟查询服务只保留参数校验、数量限制和 response schema 映射。
+3. 外部 realtime API 路径、response schema 与错误码保持不变。
+4. Ops health 仍直接读取 runtime config，用于展示“应然配置 + 实然状态”，不属于 M5。
+
+M5 明确未完成、不得误判为完成的内容：
+
+1. 未实现配置中心 API、发布审计和前端页面。
+2. 未清理本地或远程 env；这是 M8。
+3. 未改变 Redis key 模型或 WebSocket 设计。

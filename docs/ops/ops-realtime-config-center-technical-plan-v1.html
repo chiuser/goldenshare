@@ -627,9 +627,9 @@ th code {
           <td>后续继续实现 Ops 配置 API、发布写 revision、Settings 旧字段退场和远程 env 清理。</td>
         </tr>
         <tr>
-          <td>Biz 查询服务直接调用 <code>get_realtime_stock_rt_*_config()</code>，并使用 <code>feed_key</code>、<code>collection_sessions</code>、<code>stale_after_seconds</code>。</td>
-          <td>Biz 层知道了采集与 Redis 细节，边界不干净。</td>
-          <td>Biz 查询服务改为调用 <code>RealtimeSnapshotReader</code>；底层 key、stale、collection_status 由 reader 封装。</td>
+          <td>Biz 查询服务已改为调用 <code>RealtimeSnapshotReader</code>，只保留参数校验和 schema 映射。</td>
+          <td>M5 已解决 Biz 直读配置、拼 feed key、计算 stale 的边界问题。</td>
+          <td>后续继续保持该边界：Biz 不直接读取配置表，不知道 Redis key 规则。</td>
         </tr>
         <tr>
           <td>Ops health 查询服务通过 runtime resolver 读取配置，并读取 Redis health。</td>
@@ -995,7 +995,7 @@ th code {
           <td>collector、provider、Tushare 限速、Redis store 构建、snapshot reader、Ops health 都不再读取 <code>settings.realtime_stock_rt_*</code>。</td>
         </tr>
         <tr>
-          <td>4. 下沉 Biz 读取细节（待 M5）</td>
+          <td>4. 下沉 Biz 读取细节（M5 已完成）</td>
           <td>Biz 查询服务停止直接调用 <code>get_realtime_stock_rt_*_config()</code>，改为调用 <code>RealtimeSnapshotReader</code>。</td>
           <td>Biz API 不知道配置表、feed key、Redis key 规则和底层 stale 计算；只做参数校验和 schema 映射。</td>
         </tr>
@@ -1499,7 +1499,7 @@ th code {
       <div class="milestone">
         <div>
           <h3>旧 env 配置退场</h3>
-          <p>Settings 旧字段已删除；本地/远程 env 清理留到 M8。Biz 下沉 snapshot reader 后，query 层不再自行拼 feed key 和 stale 规则。</p>
+          <p>Settings 旧字段已删除；Biz 已下沉到 snapshot reader；本地/远程 env 清理留到 M8。</p>
         </div>
       </div>
       <div class="milestone">

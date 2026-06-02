@@ -23,6 +23,7 @@ from src.foundation.realtime.runtime_config import (
 )
 from src.foundation.realtime.market_clock import CollectionWindowContext, RealtimeMarketClock
 from src.foundation.realtime.redis_keys import RealtimeRedisKeys
+from src.foundation.realtime.snapshot_reader import RealtimeSnapshotReader, RealtimeSnapshotReadResult
 from src.foundation.realtime.state_store import (
     InMemoryRealtimeStateStore,
     RealtimeFeedUnavailable,
@@ -62,6 +63,8 @@ __all__ = [
     "RealtimeRedisKeys",
     "RealtimeRuntimeConfig",
     "RealtimeRuntimeConfigError",
+    "RealtimeSnapshotReader",
+    "RealtimeSnapshotReadResult",
     "RealtimeStateStore",
     "RealtimeStateStoreUnavailable",
     "RealtimeStockRtDailyConfig",
