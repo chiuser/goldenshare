@@ -340,17 +340,41 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
 
 def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     plan: GoldStkMinsQfqFactorRepairPlan,
+    *,
+    repaired_code_count: int = 0,
+    skipped_code_count: int = 0,
+    failed_code_count: int = 0,
+    rewritten_file_count: int = 0,
+    rewritten_row_count: int = 0,
+    repaired_file_samples: Sequence[str] = (),
 ) -> dict[str, Any]:
+    for name, value in (
+        ("repaired_code_count", repaired_code_count),
+        ("skipped_code_count", skipped_code_count),
+        ("failed_code_count", failed_code_count),
+        ("rewritten_file_count", rewritten_file_count),
+        ("rewritten_row_count", rewritten_row_count),
+    ):
+        if value < 0:
+            raise ValueError(f"{name} must be non-negative.")
     return build_check_metadata(
         check_scope=CheckScope.RECONCILIATION,
         checked_row_count=plan.detected_change_code_count,
-        failed_row_count=plan.missing_previous_factor_code_count,
+        failed_row_count=plan.missing_previous_factor_code_count + failed_code_count,
         extra_metadata={
             "reason": plan.reason,
             "trade_date": plan.trade_date,
             "previous_trade_date": plan.previous_trade_date,
             "can_execute_repair": plan.can_execute_repair,
             "repair_required": plan.repair_required,
+            "repaired_code_count": repaired_code_count,
+            "skipped_code_count": skipped_code_count,
+            "failed_code_count": failed_code_count,
+            "rewritten_file_count": rewritten_file_count,
+            "rewritten_row_count": rewritten_row_count,
+            "repaired_file_samples": list(
+                repaired_file_samples[:QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT]
+            ),
             "detected_change_code_count": plan.detected_change_code_count,
             "repair_required_code_count": plan.repair_required_code_count,
             "factor_changed_code_count": plan.factor_changed_code_count,
