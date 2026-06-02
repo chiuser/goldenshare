@@ -14,6 +14,16 @@ ASSETS_DIR = DEFS_DIR / "assets"
 CHECKS_DIR = DEFS_DIR / "checks"
 JOBS_DIR = DEFS_DIR / "jobs"
 SENSORS_DIR = DEFS_DIR / "sensors"
+QFQ_SOURCE_FILES = (
+    DEFS_DIR / "assets" / "stk_mins.py",
+    DEFS_DIR / "stk_mins_qfq.py",
+    DEFS_DIR / "stk_mins_qfq_factor_repair.py",
+)
+
+FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
+    "gold_stk_mins_qfq_daily_summary",
+    "gold_stk_mins_qfq_factor_repair_summary",
+}
 
 SENSOR_FORBIDDEN_STRING_LITERALS = {
     "triggered_by",
@@ -180,6 +190,80 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_qfq_factor_repair_job_only_calls_repair_op(self) -> None:
+        path = JOBS_DIR / "stock_mins_qfq_factor_repair.py"
+        source = path.read_text()
+        required_fragments = (
+            "stock_mins_qfq_factor_repair_op",
+            "cn_a_stock_mins_silver_trade_days",
+            "@dg.job",
+        )
+        forbidden_fragments = (
+            "DuckDB",
+            "duckdb",
+            "parquet",
+            "gold_stk_mins_qfq_path",
+            "silver_adj_factor",
+            "silver_stk_mins_",
+            "raw_stk_mins_",
+            "build_daily_qfq_select_sql",
+            "rewrite_qfq_year_file_for_stock_code",
+            "summary",
+            '"ops"',
+            "'ops'",
+            "run_tags",
+        )
+        issues = [
+            f"{path} misses required qfq repair job fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source
+        ]
+        issues.extend(
+            f"{path} contains forbidden qfq repair job fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_qfq_summary_entities_are_not_registered(self) -> None:
+        issues = []
+
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            if "__pycache__" in path.parts:
+                continue
+            source = path.read_text()
+            for identifier in FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS:
+                if identifier in source:
+                    issues.append(
+                        f"{path} registers forbidden gold qfq summary identifier: "
+                        f"{identifier}"
+                    )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_qfq_formal_writes_stay_on_duckdb_helpers(self) -> None:
+        issues = []
+
+        for path in QFQ_SOURCE_FILES:
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                call_name = _call_name(node.func)
+                if call_name in {"to_parquet", "write_parquet"}:
+                    issues.append(
+                        f"{_node_location(path, node)} writes qfq parquet outside "
+                        "DuckDB helper path"
+                    )
+                if call_name == "DataFrame":
+                    issues.append(
+                        f"{_node_location(path, node)} builds qfq rows through "
+                        "Python DataFrame"
+                    )
+
+        self.assertEqual(issues, [])
+
     def test_sensor_files_use_run_contract_helpers(self) -> None:
         issues = []
 
@@ -280,6 +364,31 @@ class RunContractStaticGateTests(unittest.TestCase):
                     )
 
         self.assertEqual(sensor_definition_count, 26)
+        self.assertEqual(issues, [])
+
+    def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
+        issues = []
+        expected_fragments_by_file = {
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py": (
+                "sensor_domain=SensorDomain.QUOTE_DATA",
+                "target_layer=SensorTargetLayer.GOLD",
+                "role=SensorRole.ASSET_UPDATE",
+            ),
+            SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
+                "sensor_domain=SensorDomain.QUOTE_DATA",
+                "target_layer=SensorTargetLayer.GOLD",
+                "role=SensorRole.ASSET_UPDATE",
+            ),
+        }
+
+        for path, fragments in expected_fragments_by_file.items():
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses gold qfq sensor classification fragment: {fragment}"
+                for fragment in fragments
+                if fragment not in source
+            )
+
         self.assertEqual(issues, [])
 
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:

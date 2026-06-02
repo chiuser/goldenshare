@@ -648,7 +648,7 @@
           <td><span class="tag gold">gold</span></td>
           <td><code>cn_a_stock_mins_silver_trade_days</code></td>
           <td>已接入五个 gold qfq assets 与每频度 8 个 blocking checks；物理文件按 <code>freq + ts_code + year</code> 组织，Dagster 逻辑分区仍按交易日。</td>
-          <td>历史物理文件已生成，M8D runless events 已补录完成；当前尚未新增日常 qfq job/sensor，日常入口下一步单独设计并落地。</td>
+          <td>历史物理文件已生成，M8D runless events 已补录完成；<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_job</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 均已实现，两个 sensor 默认停止，正式启用或执行 repair run 需单独审批。</td>
           <td>股票分钟线前复权成品事实；OHLC 为 qfq 后价格，<code>vol/amount/exchange</code> 沿用 silver，不新增 summary asset。</td>
         </tr>
         <tr>
@@ -1133,7 +1133,7 @@
    - gold qfq historical file generation helper/CLI is implemented and formal physical files are generated
    - gold qfq runless event backfill is completed; M8D audited by freq/year batch and wrote per-date events
    - historical baseline is now visible in Dagster UI/readiness
-   - gold qfq daily job, daily sensor, repair job and repair sensor are the next unimplemented items</code></pre>
+   - stock_mins_qfq_daily_update_job, stock_mins_qfq_daily_sensor, stock_mins_qfq_factor_repair_job and stock_mins_qfq_factor_repair_sensor are implemented; sensors remain STOPPED until separately approved</code></pre>
   </section>
 </main>
 </body>

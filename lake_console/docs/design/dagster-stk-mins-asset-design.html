@@ -1650,8 +1650,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M10</strong></td>
         <td>治理收口</td>
-        <td>更新 asset/job topology、run contract governance、asset 接入模板和静态门禁。</td>
-        <td>新增 gold qfq 资产族后，文档、测试、sensor tags、metadata/schema/path 门禁必须全部对齐。</td>
+        <td>已进入第一轮治理收口：文档、拓扑、架构和静态门禁以当前 gold qfq 代码与已执行事实为准对齐。</td>
+        <td>收口范围只包含口径纠偏和防回退门禁；不新增资产、job、sensor 或 summary entity，不启用默认停止的 qfq daily / repair sensors。</td>
       </tr>
     </table>
   </section>
@@ -1890,7 +1890,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <strong>M10</strong>
         <div>
           <h3>文档、静态门禁与运维收口</h3>
-          <p>更新 asset/job topology、run contract governance、asset 接入模板和静态测试，防止新增分钟线资产绕开分区、metadata、checks、sensor tags 门禁。</p>
+          <p>对齐 asset/job topology、architecture、sensor classification、run contract governance 与静态测试，防止 gold qfq 后续绕开分区、metadata、checks、sensor tags、DuckDB 写入和 summary 禁令。M10 不启用 sensor，不执行 Dagster run。</p>
         </div>
       </div>
     </div>
@@ -1962,7 +1962,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <div class="danger">
       <strong>门禁：</strong>
       当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 qfq job/sensor、M9B repair detection 契约与 M9C factor repair job/sensor；正式 gold 物理文件与 Dagster event log 已完成对齐。
-      后续若要启用日常 qfq 或 factor repair sensor，必须单独审批；治理收口进入 M10。
+      M10 的职责是把上述事实固化进文档和静态门禁。后续若要启用日常 qfq 或 factor repair sensor，必须单独审批并列出操作步骤、影响范围和回滚方式。
       所有开发必须继续以本文档的 <code>freq + ts_code + year</code> 物理布局为准。
     </div>
   </section>
