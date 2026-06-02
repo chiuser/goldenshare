@@ -7,6 +7,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import type {
+  RealtimeCollectorRestartResponse,
+  RealtimeConfigApplyState,
   RealtimeConfigObjectDetailResponse,
   RealtimeConfigObjectListResponse,
   RealtimeConfigRevisionListResponse,
@@ -32,6 +34,36 @@ vi.mock("@tanstack/react-router", async () => {
   };
 });
 
+const pendingApplyState: RealtimeConfigApplyState = {
+  status: "pending_restart",
+  restart_pending: true,
+  published_version: 7,
+  applied_version: 6,
+  collector_id: "collector-1",
+  applied_at: "2026-06-02T10:01:00+08:00",
+  process_started_at: "2026-06-02T10:00:00+08:00",
+  message: "配置已发布，collector 尚未应用当前版本",
+};
+
+const appliedDailyState: RealtimeConfigApplyState = {
+  status: "applied",
+  restart_pending: false,
+  published_version: 3,
+  applied_version: 3,
+  collector_id: "collector-1",
+  applied_at: "2026-06-02T10:01:00+08:00",
+  process_started_at: "2026-06-02T10:00:00+08:00",
+  message: "collector 已应用当前配置版本",
+};
+
+const appliedMinState: RealtimeConfigApplyState = {
+  ...pendingApplyState,
+  status: "applied",
+  restart_pending: false,
+  applied_version: 7,
+  message: "collector 已应用当前配置版本",
+};
+
 const objectsResponse: RealtimeConfigObjectListResponse = {
   items: [
     {
@@ -41,6 +73,7 @@ const objectsResponse: RealtimeConfigObjectListResponse = {
       enabled: true,
       version: 7,
       requires_collector_restart: true,
+      apply_state: pendingApplyState,
     },
     {
       object_key: "stock_rt_daily",
@@ -49,6 +82,7 @@ const objectsResponse: RealtimeConfigObjectListResponse = {
       enabled: false,
       version: 3,
       requires_collector_restart: true,
+      apply_state: appliedDailyState,
     },
   ],
 };
@@ -60,6 +94,7 @@ const stockRtMinDetail: RealtimeConfigObjectDetailResponse = {
   mode: "published",
   version: 7,
   requires_collector_restart: true,
+  apply_state: pendingApplyState,
   effective_config: {
     enabled: true,
     enabled_freqs: ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"],
@@ -106,6 +141,7 @@ const stockRtDailyDetail: RealtimeConfigObjectDetailResponse = {
   mode: "published",
   version: 3,
   requires_collector_restart: true,
+  apply_state: appliedDailyState,
   effective_config: {
     enabled: false,
     poll_interval_seconds: 6,
@@ -165,6 +201,15 @@ const validValidationResponse: RealtimeConfigValidateResponse = {
   },
 };
 
+const restartResponse: RealtimeCollectorRestartResponse = {
+  status: "ok",
+  service_name: "goldenshare-realtime-collector.service",
+  active: true,
+  started_at: "2026-06-02T10:05:00+08:00",
+  finished_at: "2026-06-02T10:05:02+08:00",
+  message: "collector 已重启，等待 collector 上报已应用配置版本",
+};
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -188,6 +233,7 @@ function installDefaultApiMock() {
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_daily/revisions") return { total: 0, items: [] };
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min/validate") return validValidationResponse;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min" && options?.method === "PUT") return stockRtMinDetail;
+    if (path === "/api/v1/ops/realtime/config/collector/restart") return restartResponse;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min") return stockRtMinDetail;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_daily") return stockRtDailyDetail;
     throw new Error(`unexpected api path: ${path}`);
@@ -233,9 +279,55 @@ describe("实时流配置中心页面", () => {
     renderPage();
 
     expect(await screen.findByText("当前为查看态")).toBeInTheDocument();
+    expect(await screen.findAllByText("待重启生效")).not.toHaveLength(0);
+    expect(await screen.findByText("发布版本 v7")).toBeInTheDocument();
     expect(screen.queryByText("草稿差异")).not.toBeInTheDocument();
     expect(screen.queryByText("发布影响")).not.toBeInTheDocument();
+    expect(screen.queryByText("需重启")).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "提交发布" })).not.toBeInTheDocument();
+  });
+
+  it("点击重启 collector 后调用固定重启 API，并等待 collector 上报已应用状态", async () => {
+    const notificationSpy = vi.spyOn(notifications, "show").mockReturnValue("restart-success");
+    let restarted = false;
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/realtime/config/objects") {
+        return {
+          items: objectsResponse.items.map((item) => (
+            item.object_key === "stock_rt_min" && restarted ? { ...item, apply_state: appliedMinState } : item
+          )),
+        } satisfies RealtimeConfigObjectListResponse;
+      }
+      if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min/revisions") return revisionsResponse;
+      if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min") {
+        return restarted ? { ...stockRtMinDetail, apply_state: appliedMinState } : stockRtMinDetail;
+      }
+      if (path === "/api/v1/ops/realtime/config/collector/restart") {
+        restarted = true;
+        return restartResponse;
+      }
+      throw new Error(`unexpected api path: ${path}`);
+    });
+    const user = userEvent.setup();
+    renderPage();
+
+    expect(await screen.findByText("配置已发布，collector 尚未应用当前版本")).toBeInTheDocument();
+    await user.click(screen.getByRole("button", { name: "重启 collector" }));
+
+    await waitFor(() => {
+      expect(apiRequest).toHaveBeenCalledWith("/api/v1/ops/realtime/config/collector/restart", { method: "POST" });
+      expect(notificationSpy).toHaveBeenCalledWith(expect.objectContaining({
+        title: "重启命令已执行",
+      }));
+    });
+    expect(await screen.findByText("collector 已应用当前配置版本")).toBeInTheDocument();
+    await waitFor(() => {
+      const paths = apiRequest.mock.calls.map(([path]) => String(path));
+      expect(paths.some((path) => path.includes("/health"))).toBe(false);
+      expect(paths.some((path) => path.startsWith("/api/v1/realtime/"))).toBe(false);
+      expect(paths.some((path) => path.toLowerCase().includes("tushare"))).toBe(false);
+      expect(paths.some((path) => path.toLowerCase().includes("redis"))).toBe(false);
+    });
   });
 
   it("编辑态按后端 fields 渲染 switch、number input、checkbox group 和 locked text", async () => {

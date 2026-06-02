@@ -27,6 +27,7 @@ export interface RealtimeConfigObjectSummary {
   enabled: boolean;
   version: number;
   requires_collector_restart: boolean;
+  apply_state: RealtimeConfigApplyState;
 }
 
 export interface RealtimeConfigObjectListResponse {
@@ -40,9 +41,21 @@ export interface RealtimeConfigObjectDetailResponse {
   mode: string;
   version: number;
   requires_collector_restart: boolean;
+  apply_state: RealtimeConfigApplyState;
   effective_config: Record<string, RealtimeConfigValue>;
   locked_config: Record<string, RealtimeConfigValue>;
   fields: RealtimeConfigField[];
+}
+
+export interface RealtimeConfigApplyState {
+  status: "applied" | "pending_restart" | "unknown" | string;
+  restart_pending: boolean | null;
+  published_version: number;
+  applied_version: number | null;
+  collector_id: string | null;
+  applied_at: string | null;
+  process_started_at: string | null;
+  message: string;
 }
 
 export interface RealtimeConfigValidationErrorItem {
@@ -95,4 +108,13 @@ export interface RealtimeConfigRevisionItem {
 export interface RealtimeConfigRevisionListResponse {
   items: RealtimeConfigRevisionItem[];
   total: number;
+}
+
+export interface RealtimeCollectorRestartResponse {
+  status: "ok" | "failed" | string;
+  service_name: string;
+  active: boolean;
+  started_at: string;
+  finished_at: string;
+  message: string;
 }

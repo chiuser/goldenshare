@@ -59,10 +59,14 @@ def make_realtime_runtime_config(
     *,
     daily: dict | None = None,
     minute: dict | None = None,
+    daily_version: int = 0,
+    minute_version: int = 0,
 ):
     return build_realtime_runtime_config_from_json(
         daily_config=_merged_config(DEFAULT_DAILY_RUNTIME_CONFIG, daily),
         minute_config=_merged_config(DEFAULT_MIN_RUNTIME_CONFIG, minute),
+        daily_version=daily_version,
+        minute_version=minute_version,
     )
 
 

@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from datetime import datetime, timezone
+import logging
+import subprocess
 from typing import Any
 
 from sqlalchemy import desc, select
@@ -13,9 +15,12 @@ from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeCo
 from src.foundation.realtime import (
     STOCK_RT_MIN_ALLOWED_FREQS,
     RealtimeRuntimeConfigError,
+    RealtimeStateStore,
+    RealtimeStateStoreUnavailable,
     build_realtime_runtime_config_from_json,
     clear_realtime_runtime_config_cache,
 )
+from src.foundation.realtime.config_apply_state import REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY
 from src.foundation.realtime.config_catalog import (
     STOCK_RT_DAILY_CATALOG,
     STOCK_RT_DAILY_OBJECT_KEY,
@@ -29,10 +34,12 @@ from src.ops.schemas.realtime_config import (
     RealtimeConfigDiffItem,
     RealtimeConfigField,
     RealtimeConfigFieldOption,
+    RealtimeConfigApplyState,
     RealtimeConfigImpact,
     RealtimeConfigObjectDetailResponse,
     RealtimeConfigObjectListResponse,
     RealtimeConfigObjectSummary,
+    RealtimeCollectorRestartResponse,
     RealtimeConfigPublishResponse,
     RealtimeConfigRevisionItem,
     RealtimeConfigRevisionListResponse,
@@ -44,6 +51,10 @@ from src.ops.schemas.realtime_config import (
 
 REALTIME_RUNTIME_CONFIG_OBJECT_TYPE = "realtime_runtime_config"
 PUBLISH_RESTART_MESSAGE = "发布后需要重启 collector 才会生效"
+REALTIME_COLLECTOR_SERVICE_NAME = "goldenshare-realtime-collector.service"
+SYSTEMCTL_COMMAND = "/usr/bin/systemctl"
+SUDO_COMMAND = "sudo"
+logger = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True, slots=True)
@@ -115,21 +126,27 @@ _OBJECT_SPECS: dict[str, _RealtimeConfigObjectSpec] = {
 
 
 class RealtimeConfigCommandService:
-    def list_objects(self, session: Session) -> RealtimeConfigObjectListResponse:
+    def list_objects(self, session: Session, *, store: RealtimeStateStore | None = None) -> RealtimeConfigObjectListResponse:
         records = _load_required_records(session)
         runtime = _build_valid_runtime_config(records)
         return RealtimeConfigObjectListResponse(
             items=[
-                _object_summary(spec, records[spec.catalog.object_key], runtime)
+                _object_summary(spec, records[spec.catalog.object_key], runtime, store=store)
                 for spec in _OBJECT_SPECS.values()
             ]
         )
 
-    def get_object_detail(self, session: Session, object_key: str) -> RealtimeConfigObjectDetailResponse:
+    def get_object_detail(
+        self,
+        session: Session,
+        object_key: str,
+        *,
+        store: RealtimeStateStore | None = None,
+    ) -> RealtimeConfigObjectDetailResponse:
         spec = _get_object_spec(object_key)
         records = _load_required_records(session)
         runtime = _build_valid_runtime_config(records)
-        return _object_detail(spec, records[object_key], runtime)
+        return _object_detail(spec, records[object_key], runtime, store=store)
 
     def validate_object_config(
         self,
@@ -157,6 +174,7 @@ class RealtimeConfigCommandService:
         version: int,
         runtime_config: dict[str, Any],
         changed_by_user_id: int,
+        store: RealtimeStateStore | None = None,
     ) -> RealtimeConfigPublishResponse:
         spec = _get_object_spec(object_key)
         records = _load_required_records(session)
@@ -197,7 +215,7 @@ class RealtimeConfigCommandService:
         refreshed_records = _load_required_records(session)
         runtime = _build_valid_runtime_config(refreshed_records)
         return RealtimeConfigPublishResponse(
-            **_object_detail(spec, record, runtime).model_dump(),
+            **_object_detail(spec, record, runtime, store=store).model_dump(),
             warnings=_restart_warnings(),
             impact=_impact_for_spec(spec),
             revision_id=revision_id,
@@ -229,6 +247,59 @@ class RealtimeConfigCommandService:
                 )
                 for revision, username in rows
             ],
+        )
+
+
+class RealtimeCollectorControlService:
+    def __init__(
+        self,
+        *,
+        runner: Any | None = None,
+        service_name: str = REALTIME_COLLECTOR_SERVICE_NAME,
+    ) -> None:
+        self._runner = runner or _run_systemctl_command
+        self._service_name = service_name
+
+    def restart_collector(self, *, user_id: int) -> RealtimeCollectorRestartResponse:
+        started_at = datetime.now(timezone.utc)
+        logger.info("realtime collector restart requested", extra={"user_id": user_id, "service_name": self._service_name})
+        try:
+            restart_result = self._runner(["restart", self._service_name])
+            status_result = self._runner(["status", self._service_name])
+        except Exception as exc:
+            finished_at = datetime.now(timezone.utc)
+            message = str(exc)
+            logger.error(
+                "realtime collector restart command raised",
+                extra={"user_id": user_id, "service_name": self._service_name, "result_message": message},
+            )
+            return RealtimeCollectorRestartResponse(
+                status="failed",
+                service_name=self._service_name,
+                active=False,
+                started_at=started_at.isoformat(),
+                finished_at=finished_at.isoformat(),
+                message=message,
+            )
+        finished_at = datetime.now(timezone.utc)
+        active = restart_result.returncode == 0 and status_result.returncode == 0
+        message = _systemctl_message(restart_result, status_result)
+        if active:
+            logger.info("realtime collector restart succeeded", extra={"user_id": user_id, "service_name": self._service_name})
+            status = "ok"
+        else:
+            logger.error(
+                "realtime collector restart failed",
+                extra={"user_id": user_id, "service_name": self._service_name, "result_message": message},
+            )
+            status = "failed"
+        return RealtimeCollectorRestartResponse(
+            status=status,
+            service_name=self._service_name,
+            active=active,
+            started_at=started_at.isoformat(),
+            finished_at=finished_at.isoformat(),
+            message=message,
         )
 
 
@@ -265,6 +336,8 @@ def _build_valid_runtime_config(records: dict[str, RealtimeRuntimeConfigRecord])
         return build_realtime_runtime_config_from_json(
             daily_config=records[STOCK_RT_DAILY_OBJECT_KEY].runtime_config_json,
             minute_config=records[STOCK_RT_MIN_OBJECT_KEY].runtime_config_json,
+            daily_version=records[STOCK_RT_DAILY_OBJECT_KEY].version,
+            minute_version=records[STOCK_RT_MIN_OBJECT_KEY].version,
         )
     except RealtimeRuntimeConfigError as exc:
         raise WebAppError(status_code=422, code="validation_error", message=str(exc)) from exc
@@ -363,6 +436,8 @@ def _object_summary(
     spec: _RealtimeConfigObjectSpec,
     record: RealtimeRuntimeConfigRecord,
     runtime: Any,
+    *,
+    store: RealtimeStateStore | None,
 ) -> RealtimeConfigObjectSummary:
     config = _effective_config_for_object(spec, runtime)
     return RealtimeConfigObjectSummary(
@@ -372,6 +447,7 @@ def _object_summary(
         enabled=bool(config.get("enabled")),
         version=record.version,
         requires_collector_restart=record.requires_collector_restart,
+        apply_state=_apply_state_for_record(record, store),
     )
 
 
@@ -379,6 +455,8 @@ def _object_detail(
     spec: _RealtimeConfigObjectSpec,
     record: RealtimeRuntimeConfigRecord,
     runtime: Any,
+    *,
+    store: RealtimeStateStore | None,
 ) -> RealtimeConfigObjectDetailResponse:
     return RealtimeConfigObjectDetailResponse(
         object_key=record.object_key,
@@ -386,6 +464,7 @@ def _object_detail(
         object_kind=record.object_kind,
         version=record.version,
         requires_collector_restart=record.requires_collector_restart,
+        apply_state=_apply_state_for_record(record, store),
         effective_config=_effective_config_for_object(spec, runtime),
         locked_config=_locked_config_for_spec(spec),
         fields=[
@@ -409,6 +488,68 @@ def _object_detail(
             )
             for key in spec.locked_fields
         ],
+    )
+
+
+def _apply_state_for_record(
+    record: RealtimeRuntimeConfigRecord,
+    store: RealtimeStateStore | None,
+) -> RealtimeConfigApplyState:
+    published_version = int(record.version)
+    if store is None:
+        return _unknown_apply_state(published_version=published_version, message="未提供 collector 应用状态读取入口")
+    try:
+        health = store.get_health(REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY)
+    except RealtimeStateStoreUnavailable as exc:
+        return _unknown_apply_state(published_version=published_version, message=f"读取 collector 应用状态失败：{exc}")
+    if not isinstance(health, dict):
+        return _unknown_apply_state(published_version=published_version, message="collector 尚未上报已应用配置版本")
+    objects = health.get("objects")
+    object_state = objects.get(record.object_key) if isinstance(objects, dict) else None
+    applied_version = _optional_int(object_state.get("version") if isinstance(object_state, dict) else None)
+    collector_id = _optional_text(health.get("collector_id"))
+    applied_at = _optional_text(health.get("applied_at"))
+    process_started_at = _optional_text(health.get("process_started_at"))
+    if applied_version is None:
+        return RealtimeConfigApplyState(
+            status="unknown",
+            restart_pending=None,
+            published_version=published_version,
+            applied_version=None,
+            collector_id=collector_id,
+            applied_at=applied_at,
+            process_started_at=process_started_at,
+            message="collector 应用状态缺少该对象版本",
+        )
+    if applied_version >= published_version:
+        return RealtimeConfigApplyState(
+            status="applied",
+            restart_pending=False,
+            published_version=published_version,
+            applied_version=applied_version,
+            collector_id=collector_id,
+            applied_at=applied_at,
+            process_started_at=process_started_at,
+            message="collector 已应用当前配置版本",
+        )
+    return RealtimeConfigApplyState(
+        status="pending_restart",
+        restart_pending=True,
+        published_version=published_version,
+        applied_version=applied_version,
+        collector_id=collector_id,
+        applied_at=applied_at,
+        process_started_at=process_started_at,
+        message="配置已发布，collector 尚未应用当前版本",
+    )
+
+
+def _unknown_apply_state(*, published_version: int, message: str) -> RealtimeConfigApplyState:
+    return RealtimeConfigApplyState(
+        status="unknown",
+        restart_pending=None,
+        published_version=published_version,
+        message=message,
     )
 
 
@@ -485,6 +626,47 @@ def _impact_for_spec(spec: _RealtimeConfigObjectSpec) -> RealtimeConfigImpact:
 
 def _restart_warnings() -> list[RealtimeConfigWarningItem]:
     return [RealtimeConfigWarningItem(message=PUBLISH_RESTART_MESSAGE)]
+
+
+def _optional_int(value: Any) -> int | None:
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _optional_text(value: Any) -> str | None:
+    if value is None:
+        return None
+    text = str(value).strip()
+    return text or None
+
+
+def _run_systemctl_command(args: list[str]) -> subprocess.CompletedProcess[str]:
+    return subprocess.run(
+        [SUDO_COMMAND, "-n", SYSTEMCTL_COMMAND, *args],
+        check=False,
+        capture_output=True,
+        text=True,
+        timeout=30,
+    )
+
+
+def _systemctl_message(
+    restart_result: subprocess.CompletedProcess[str],
+    status_result: subprocess.CompletedProcess[str],
+) -> str:
+    if restart_result.returncode != 0:
+        return _process_output(restart_result) or "collector 重启命令执行失败"
+    if status_result.returncode != 0:
+        return _process_output(status_result) or "collector 重启后状态检查失败"
+    return "collector 已重启，等待 collector 上报已应用配置版本"
+
+
+def _process_output(result: subprocess.CompletedProcess[str]) -> str:
+    return (result.stderr or result.stdout or "").strip()
 
 
 def _record_snapshot(record: RealtimeRuntimeConfigRecord) -> dict[str, Any]:

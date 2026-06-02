@@ -2,7 +2,11 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.foundation.realtime import InMemoryRealtimeStateStore, RealtimeCollectorService
+from src.foundation.realtime import (
+    REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY,
+    InMemoryRealtimeStateStore,
+    RealtimeCollectorService,
+)
 from src.foundation.realtime.stock_rt_daily import StockRtDailyCycleResult
 from src.foundation.realtime.stock_rt_min import StockRtMinCycleResult
 from tests.realtime_runtime_config_helpers import make_realtime_runtime_config
@@ -57,12 +61,14 @@ class FakeMinuteCollector:
 def test_realtime_collector_service_does_not_schedule_minutes_when_disabled() -> None:
     daily = FakeDailyCollector()
     minute = FakeMinuteCollector()
+    store = InMemoryRealtimeStateStore()
     service = RealtimeCollectorService(
-        store=InMemoryRealtimeStateStore(),
-        config=make_realtime_runtime_config(minute={"enabled": False}),
+        store=store,
+        config=make_realtime_runtime_config(minute={"enabled": False}, daily_version=2, minute_version=5),
         daily_collector=daily,  # type: ignore[arg-type]
         stock_rt_min_collector=minute,  # type: ignore[arg-type]
         monotonic_provider=MutableClock(100.0),
+        collector_id="collector-test",
     )
 
     result = service.run_due_cycle(None)  # type: ignore[arg-type]
@@ -70,6 +76,11 @@ def test_realtime_collector_service_does_not_schedule_minutes_when_disabled() ->
     assert daily.calls == 1
     assert minute.calls == []
     assert [item.feed_key for item in result.feed_runs] == ["tushare_stock_rt_k"]
+    apply_state = store.get_health(REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY)
+    assert apply_state is not None
+    assert apply_state["collector_id"] == "collector-test"
+    assert apply_state["objects"]["stock_rt_daily"]["version"] == 2
+    assert apply_state["objects"]["stock_rt_min"]["version"] == 5
 
 
 def test_realtime_collector_service_schedules_daily_and_minute_feeds_by_independent_due_time(

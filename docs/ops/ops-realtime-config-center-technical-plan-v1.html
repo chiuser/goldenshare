@@ -432,7 +432,7 @@ th code {
         页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
       </p>
       <div class="tag-row">
-        <span class="tag warn">状态：M7 前端配置页已接入 / M7.1 发布生效闭环待开发 / 待 M8 部署与 env 收口</span>
+        <span class="tag warn">状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / 待 M8 部署与 env 收口</span>
         <span class="tag info">不直接编辑 env</span>
         <span class="tag info">不请求 Tushare</span>
         <span class="tag info">不改 Redis key 模型</span>
@@ -461,7 +461,7 @@ th code {
       </div>
       <p>
         结论：运行时读取已切到数据库配置事实源；M6 已提供配置中心 Ops API，发布动作会更新 runtime config 并写 revision；M7 已接入前端配置中心页面。
-        当前缺口是发布后生效状态仍只靠静态重启提示，尚未形成“已发布版本”和“collector 已应用版本”的闭环。
+        M7.1 已补齐发布生效闭环：collector 上报已应用配置版本，配置中心 API 派生 <code>apply_state</code>，页面按应用状态展示并提供受控重启入口。
       </p>
     </aside>
   </section>
@@ -1303,10 +1303,10 @@ th code {
       </tbody>
     </table>
 
-    <h3 style="margin-top:18px;">5.4 发布生效闭环 API（待 M7.1）</h3>
+    <h3 style="margin-top:18px;">5.4 发布生效闭环 API（M7.1 已落地）</h3>
     <p>
-      当前 M7 页面只能看到 <code>requires_collector_restart</code> 静态提示，无法知道 collector 是否已经重启并读取到新版本。
-      M7.1 必须补齐“已发布版本 -> collector 已应用版本 -> 页面状态”的闭环；否则页面会在手动重启后继续显示“需重启”，误导运营。
+      M7.1 已补齐“已发布版本 -> collector 已应用版本 -> 页面状态”的闭环。
+      <code>requires_collector_restart</code> 仍保留为发布影响策略，但页面当前状态只读取 <code>apply_state</code>。
     </p>
     <table>
       <thead>
@@ -1330,12 +1330,12 @@ th code {
         <tr>
           <td><code>POST /api/v1/ops/realtime/config/collector/restart</code></td>
           <td>管理员在配置中心触发 collector 重启</td>
-          <td>待开发。接口只允许重启 <code>goldenshare-realtime-collector.service</code>，不请求 Tushare、不写行情 Redis、不修改配置值。必须校验管理员权限并记录操作审计。</td>
+          <td>已落地。接口只允许重启 <code>goldenshare-realtime-collector.service</code>，不请求 Tushare、不写行情 Redis、不修改配置值；本轮不写持久化审计，只写服务日志和返回接口结果。</td>
         </tr>
         <tr>
-          <td><code>collector_applied_versions</code></td>
+          <td><code>realtime_config_apply_state</code></td>
           <td>collector 启动后上报已读取的配置版本</td>
-          <td>写入现有 Redis health 语义族，包含对象版本、collector_id、process_started_at、applied_at。配置表仍只保存配置事实，不保存运行状态。</td>
+          <td>写入专用 Redis health 记录，包含对象版本、collector_id、process_started_at、applied_at。配置表仍只保存配置事实，不保存运行状态。</td>
         </tr>
       </tbody>
     </table>
@@ -1433,10 +1433,10 @@ th code {
     </div>
     <div class="grid-2" style="margin-top:14px;">
       <div class="note-card decision">
-        <strong>当前问题</strong>
+        <strong>已解决的问题</strong>
         <p>
-          当前页面读取 <code>requires_collector_restart</code> 并显示“需重启”。这个字段只是策略提示：说明这类配置发布后需要重启 collector 才会生效。
-          手动执行 <code>systemctl restart</code> 不会回写配置表，所以它不能证明“现在仍未重启”。继续直接展示会误导运营。
+          M7 前页面读取 <code>requires_collector_restart</code> 并显示“需重启”。这个字段只是策略提示：说明这类配置发布后需要重启 collector 才会生效。
+          M7.1 后页面改为读取 <code>apply_state</code>，不再用静态策略字段证明“现在仍未重启”。
         </p>
       </div>
       <div class="note-card decision">
@@ -1490,7 +1490,7 @@ th code {
     <div class="grid-3">
       <div class="note-card">
         <strong>上报时机</strong>
-        <p>collector 启动并成功读取 runtime config 后，立即把每个对象的 <code>applied_version</code>、<code>applied_at</code>、<code>collector_id</code>、<code>process_started_at</code> 写入对应 feed health。</p>
+        <p>collector 启动或每轮调度时，把每个对象的 <code>applied_version</code>、<code>applied_at</code>、<code>collector_id</code>、<code>process_started_at</code> 写入专用 Redis health 记录 <code>realtime_config_apply_state</code>。</p>
       </div>
       <div class="note-card">
         <strong>上报位置</strong>
@@ -1518,7 +1518,7 @@ th code {
       </div>
       <div class="note-card">
         <strong>审计</strong>
-        <p>重启操作不是配置发布，不应伪装成配置 revision。目标态应记录为运维服务操作审计；最少要记录操作人、服务名、开始时间、结束时间、结果和错误信息。</p>
+        <p>重启操作不是配置发布，不写 <code>ops.config_revision</code>。M7.1 只写应用服务日志并返回接口结果；若后续需要持久化运维操作审计，单独设计 <code>ops.service_operation_log</code>。</p>
       </div>
     </div>
 
@@ -1830,7 +1830,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环待开发 / M8 部署与 env 收口待完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 部署与 env 收口待完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

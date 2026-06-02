@@ -27,9 +27,11 @@ import { ApiError } from "../shared/api/errors";
 import type {
   RealtimeConfigDiffItem,
   RealtimeConfigField,
+  RealtimeConfigApplyState,
   RealtimeConfigObjectDetailResponse,
   RealtimeConfigObjectListResponse,
   RealtimeConfigObjectSummary,
+  RealtimeCollectorRestartResponse,
   RealtimeConfigRevisionItem,
   RealtimeConfigRevisionListResponse,
   RealtimeConfigValidateResponse,
@@ -43,6 +45,7 @@ import { StatCard } from "../shared/ui/stat-card";
 import { StatusBadge } from "../shared/ui/status-badge";
 
 const CONFIG_OBJECTS_API_PATH = "/api/v1/ops/realtime/config/objects";
+const CONFIG_COLLECTOR_RESTART_API_PATH = "/api/v1/ops/realtime/config/collector/restart";
 
 type PageMode = "view" | "edit";
 type DraftConfig = Record<string, RealtimeConfigValue>;
@@ -148,6 +151,28 @@ export function OpsRealtimeConfigCenterPage() {
       notifications.show({
         color: "red",
         title: "发布失败",
+        message: error instanceof Error ? error.message : "未知错误",
+      });
+    },
+  });
+
+  const restartCollectorMutation = useMutation({
+    mutationFn: () => apiRequest<RealtimeCollectorRestartResponse>(CONFIG_COLLECTOR_RESTART_API_PATH, { method: "POST" }),
+    onSuccess: async (result) => {
+      notifications.show({
+        color: result.status === "ok" ? "green" : "red",
+        title: result.status === "ok" ? "重启命令已执行" : "重启失败",
+        message: result.message,
+      });
+      await refreshObjectState(queryClient, selectedObjectKey);
+      if (result.status === "ok" && selectedObjectKey) {
+        await pollApplyStateUntilApplied(queryClient, selectedObjectKey);
+      }
+    },
+    onError: (error) => {
+      notifications.show({
+        color: "red",
+        title: "重启失败",
         message: error instanceof Error ? error.message : "未知错误",
       });
     },
@@ -263,7 +288,7 @@ export function OpsRealtimeConfigCenterPage() {
               <Group gap="xs">
                 <StatusBadge value={detail.effective_config.enabled === true ? "active" : "disabled"} />
                 <Badge variant="light" color="neutral">v{detail.version}</Badge>
-                {detail.requires_collector_restart ? <Badge variant="light" color="warning">发布后需重启 collector</Badge> : null}
+                <ApplyStateBadge applyState={detail.apply_state} />
               </Group>
             ) : null}
           >
@@ -294,7 +319,12 @@ export function OpsRealtimeConfigCenterPage() {
                   onPublish={() => publishMutation.mutate()}
                 />
               ) : (
-                <ViewModePanel detail={detail} />
+                <ViewModePanel
+                  detail={detail}
+                  restartLoading={restartCollectorMutation.isPending}
+                  restartError={restartCollectorMutation.error}
+                  onRestart={() => restartCollectorMutation.mutate()}
+                />
               )
             ) : null}
           </SectionCard>
@@ -307,12 +337,16 @@ export function OpsRealtimeConfigCenterPage() {
 }
 
 async function refreshCurrentObject(queryClient: ReturnType<typeof useQueryClient>, objectKey: string | null): Promise<void> {
+  await refreshObjectState(queryClient, objectKey);
+  if (objectKey) {
+    await queryClient.invalidateQueries({ queryKey: ["ops", "realtime-config", "revisions", objectKey] });
+  }
+}
+
+async function refreshObjectState(queryClient: ReturnType<typeof useQueryClient>, objectKey: string | null): Promise<void> {
   await queryClient.invalidateQueries({ queryKey: ["ops", "realtime-config", "objects"] });
   if (objectKey) {
-    await Promise.all([
-      queryClient.invalidateQueries({ queryKey: ["ops", "realtime-config", "detail", objectKey] }),
-      queryClient.invalidateQueries({ queryKey: ["ops", "realtime-config", "revisions", objectKey] }),
-    ]);
+    await queryClient.invalidateQueries({ queryKey: ["ops", "realtime-config", "detail", objectKey] });
   }
 }
 
@@ -351,7 +385,7 @@ function RealtimeConfigObjectItem({
           <Group gap="xs">
             <Badge variant="light" color="info">{item.object_kind}</Badge>
             <Badge variant="light" color="neutral">v{item.version}</Badge>
-            {item.requires_collector_restart ? <Badge variant="light" color="warning">需重启</Badge> : null}
+            <ApplyStateBadge applyState={item.apply_state} />
           </Group>
         </Stack>
       </Paper>
@@ -359,12 +393,116 @@ function RealtimeConfigObjectItem({
   );
 }
 
-function ViewModePanel({ detail }: { detail: RealtimeConfigObjectDetailResponse }) {
+function ApplyStateBadge({ applyState }: { applyState: RealtimeConfigApplyState }) {
+  return (
+    <Badge variant="light" color={applyStateColor(applyState.status)}>
+      {applyStateLabel(applyState.status)}
+    </Badge>
+  );
+}
+
+function ApplyStatePanel({
+  detail,
+  restartLoading,
+  restartError,
+  onRestart,
+}: {
+  detail: RealtimeConfigObjectDetailResponse;
+  restartLoading: boolean;
+  restartError: unknown;
+  onRestart: () => void;
+}) {
+  const applyState = detail.apply_state;
+  const showRestartButton = applyState.status !== "applied";
+  return (
+    <SectionCard title="发布生效状态" description="当前状态只来自 collector 上报的已应用版本，不再用发布策略字段推断。">
+      <Stack gap="md">
+        <Group gap="xs">
+          <ApplyStateBadge applyState={applyState} />
+          <Badge variant="light" color="neutral">发布版本 v{applyState.published_version}</Badge>
+          {applyState.applied_version === null ? (
+            <Badge variant="light" color="warning">未确认已应用版本</Badge>
+          ) : (
+            <Badge variant="light" color="info">已应用 v{applyState.applied_version}</Badge>
+          )}
+        </Group>
+        <Text c="dimmed" size="sm">
+          {applyState.message}
+        </Text>
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 4 }}>
+            <Stack gap={2}>
+              <Text fw={600} size="sm">Collector</Text>
+              <Text c="dimmed" size="sm">{applyState.collector_id ?? "—"}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 4 }}>
+            <Stack gap={2}>
+              <Text fw={600} size="sm">进程启动</Text>
+              <Text c="dimmed" size="sm">{formatDateTimeOrDash(applyState.process_started_at)}</Text>
+            </Stack>
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 4 }}>
+            <Stack gap={2}>
+              <Text fw={600} size="sm">上报时间</Text>
+              <Text c="dimmed" size="sm">{formatDateTimeOrDash(applyState.applied_at)}</Text>
+            </Stack>
+          </Grid.Col>
+        </Grid>
+        {restartError ? (
+          <Alert color="error" title="重启请求失败">
+            {restartError instanceof Error ? restartError.message : "未知错误"}
+          </Alert>
+        ) : null}
+        {showRestartButton ? (
+          <Group justify="flex-start">
+            <Button onClick={onRestart} loading={restartLoading}>
+              重启 collector
+            </Button>
+            <Text c="dimmed" size="sm">
+              操作只重启固定 collector 服务；页面会等待 collector 上报已应用版本。
+            </Text>
+          </Group>
+        ) : null}
+      </Stack>
+    </SectionCard>
+  );
+}
+
+function applyStateLabel(status: RealtimeConfigApplyState["status"]): string {
+  if (status === "applied") return "已应用";
+  if (status === "pending_restart") return "待重启生效";
+  return "应用状态未知";
+}
+
+function applyStateColor(status: RealtimeConfigApplyState["status"]): string {
+  if (status === "applied") return "success";
+  if (status === "pending_restart") return "warning";
+  return "neutral";
+}
+
+function ViewModePanel({
+  detail,
+  restartLoading,
+  restartError,
+  onRestart,
+}: {
+  detail: RealtimeConfigObjectDetailResponse;
+  restartLoading: boolean;
+  restartError: unknown;
+  onRestart: () => void;
+}) {
   return (
     <Stack gap="lg">
       <AlertBar tone="info" title="当前为查看态">
         这里仅展示后端已经发布生效的配置事实；校验结果、发布影响和草稿差异只会在编辑态展示。
       </AlertBar>
+      <ApplyStatePanel
+        detail={detail}
+        restartLoading={restartLoading}
+        restartError={restartError}
+        onRestart={onRestart}
+      />
       <Grid>
         <Grid.Col span={{ base: 12, md: 6 }}>
           <ConfigValueList title="有效配置" values={detail.effective_config} fields={detail.fields} />
@@ -853,4 +991,33 @@ function summarizeRevisionPayload(payload: Record<string, unknown> | null): stri
   const keys = Object.keys(payload);
   if (keys.length === 0) return "空";
   return keys.slice(0, 4).join(" / ") + (keys.length > 4 ? ` 等 ${keys.length} 项` : "");
+}
+
+function formatDateTimeOrDash(value: string | null): string {
+  return value ? formatDateTimeLabel(value) : "—";
+}
+
+async function pollApplyStateUntilApplied(
+  queryClient: ReturnType<typeof useQueryClient>,
+  objectKey: string,
+): Promise<void> {
+  for (let attempt = 0; attempt < 10; attempt += 1) {
+    if (attempt > 0) {
+      await delay(2000);
+    }
+    const detail = await queryClient.fetchQuery({
+      queryKey: ["ops", "realtime-config", "detail", objectKey],
+      queryFn: () => apiRequest<RealtimeConfigObjectDetailResponse>(objectDetailPath(objectKey)),
+    });
+    await queryClient.invalidateQueries({ queryKey: ["ops", "realtime-config", "objects"] });
+    if (detail.apply_state.status === "applied") {
+      return;
+    }
+  }
+}
+
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => {
+    window.setTimeout(resolve, ms);
+  });
 }

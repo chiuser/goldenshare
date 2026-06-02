@@ -19,10 +19,11 @@ from src.ops.schemas.realtime_config import (
     RealtimeConfigObjectListResponse,
     RealtimeConfigPublishRequest,
     RealtimeConfigPublishResponse,
+    RealtimeCollectorRestartResponse,
     RealtimeConfigRevisionListResponse,
     RealtimeConfigValidateResponse,
 )
-from src.ops.services.realtime_config_service import RealtimeConfigCommandService
+from src.ops.services.realtime_config_service import RealtimeCollectorControlService, RealtimeConfigCommandService
 
 
 router = APIRouter(prefix="/ops/realtime", tags=["ops"])
@@ -32,8 +33,9 @@ router = APIRouter(prefix="/ops/realtime", tags=["ops"])
 def list_realtime_config_objects(
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
+    store: RealtimeStateStore = Depends(get_realtime_state_store),
 ) -> RealtimeConfigObjectListResponse:
-    return RealtimeConfigCommandService().list_objects(session)
+    return RealtimeConfigCommandService().list_objects(session, store=store)
 
 
 @router.get("/config/objects/{object_key}", response_model=RealtimeConfigObjectDetailResponse)
@@ -41,8 +43,9 @@ def get_realtime_config_object(
     object_key: str,
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
+    store: RealtimeStateStore = Depends(get_realtime_state_store),
 ) -> RealtimeConfigObjectDetailResponse:
-    return RealtimeConfigCommandService().get_object_detail(session, object_key)
+    return RealtimeConfigCommandService().get_object_detail(session, object_key, store=store)
 
 
 @router.post("/config/objects/{object_key}/validate", response_model=RealtimeConfigValidateResponse)
@@ -65,6 +68,7 @@ def publish_realtime_config_object(
     body: RealtimeConfigPublishRequest,
     user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
+    store: RealtimeStateStore = Depends(get_realtime_state_store),
 ) -> RealtimeConfigPublishResponse:
     return RealtimeConfigCommandService().publish_object_config(
         session,
@@ -72,6 +76,7 @@ def publish_realtime_config_object(
         version=body.version,
         runtime_config=body.runtime_config,
         changed_by_user_id=user.id,
+        store=store,
     )
 
 
@@ -82,6 +87,13 @@ def list_realtime_config_revisions(
     session: Session = Depends(get_db_session),
 ) -> RealtimeConfigRevisionListResponse:
     return RealtimeConfigCommandService().list_revisions(session, object_key)
+
+
+@router.post("/config/collector/restart", response_model=RealtimeCollectorRestartResponse)
+def restart_realtime_collector(
+    user: AuthenticatedUser = Depends(require_admin),
+) -> RealtimeCollectorRestartResponse:
+    return RealtimeCollectorControlService().restart_collector(user_id=user.id)
 
 
 @router.get("/stock-rt-daily/health", response_model=OpsRealtimeStockRtDailyHealthResponse)

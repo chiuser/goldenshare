@@ -5,6 +5,7 @@ from src.foundation.realtime.constants import (
     STOCK_RT_MIN_SOURCE_API_NAME,
 )
 from src.foundation.realtime.collector_service import RealtimeCollectorCycleResult, RealtimeCollectorFeedRun, RealtimeCollectorService
+from src.foundation.realtime.config_apply_state import REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY, build_realtime_config_apply_state
 from src.foundation.realtime.runtime_config import (
     STOCK_RT_MIN_ALLOWED_FREQS,
     RealtimeRuntimeConfigError,
@@ -57,6 +58,7 @@ __all__ = [
     "RealtimeCollectorCycleResult",
     "RealtimeCollectorFeedRun",
     "RealtimeCollectorService",
+    "REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY",
     "RealtimeFeedStorageConfig",
     "RealtimeFeedUnavailable",
     "RealtimeMarketClock",
@@ -87,6 +89,7 @@ __all__ = [
     "TushareStockRtDailyProvider",
     "TushareStockRtMinProvider",
     "build_batch_id",
+    "build_realtime_config_apply_state",
     "build_realtime_runtime_config_from_json",
     "build_realtime_state_store",
     "clear_realtime_runtime_config_cache",

@@ -2,14 +2,25 @@ from __future__ import annotations
 
 import time
 from dataclasses import dataclass
+from datetime import datetime
+import os
+import socket
 from typing import Callable
+from zoneinfo import ZoneInfo
 
 from sqlalchemy.orm import Session
 
+from src.foundation.realtime.config_apply_state import (
+    REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY,
+    build_realtime_config_apply_state,
+)
 from src.foundation.realtime.runtime_config import RealtimeRuntimeConfig, get_realtime_runtime_config
-from src.foundation.realtime.state_store import RealtimeStateStore
+from src.foundation.realtime.state_store import RealtimeStateStore, RealtimeStateStoreUnavailable
 from src.foundation.realtime.stock_rt_daily import StockRtDailyCollector, StockRtDailyCycleResult
 from src.foundation.realtime.stock_rt_min import StockRtMinCollector, StockRtMinCycleResult
+
+
+CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 @dataclass(frozen=True, slots=True)
@@ -41,14 +52,27 @@ class RealtimeCollectorService:
         daily_collector: StockRtDailyCollector | None = None,
         stock_rt_min_collector: StockRtMinCollector | None = None,
         monotonic_provider: Callable[[], float] | None = None,
+        collector_id: str | None = None,
     ) -> None:
+        self._store = store
         self._config = config or get_realtime_runtime_config()
-        self._daily_collector = daily_collector or StockRtDailyCollector(store=store, config=self._config.stock_rt_daily)
-        self._stock_rt_min_collector = stock_rt_min_collector or StockRtMinCollector(store=store, config=self._config.stock_rt_min)
+        self._collector_id = collector_id or f"{socket.gethostname()}:{os.getpid()}"
+        self._process_started_at = datetime.now(CN_TIMEZONE).isoformat()
+        self._daily_collector = daily_collector or StockRtDailyCollector(
+            store=store,
+            config=self._config.stock_rt_daily,
+            collector_id=self._collector_id,
+        )
+        self._stock_rt_min_collector = stock_rt_min_collector or StockRtMinCollector(
+            store=store,
+            config=self._config.stock_rt_min,
+            collector_id=self._collector_id,
+        )
         self._monotonic_provider = monotonic_provider or time.monotonic
         self._next_due_at: dict[str, float] = {}
 
     def run_due_cycle(self, session: Session) -> RealtimeCollectorCycleResult:
+        self._record_config_apply_state()
         now = self._monotonic_provider()
         feed_runs: list[RealtimeCollectorFeedRun] = []
         daily_feed_key = self._config.stock_rt_daily.feed_key
@@ -87,6 +111,20 @@ class RealtimeCollectorService:
 
     def _mark_scheduled(self, feed_key: str, *, interval_seconds: int, now: float) -> None:
         self._next_due_at[feed_key] = now + interval_seconds
+
+    def _record_config_apply_state(self) -> None:
+        try:
+            self._store.set_health(
+                REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY,
+                build_realtime_config_apply_state(
+                    config=self._config,
+                    collector_id=self._collector_id,
+                    process_started_at=self._process_started_at,
+                    applied_at=datetime.now(CN_TIMEZONE),
+                ),
+            )
+        except RealtimeStateStoreUnavailable:
+            return
 
 
 def _from_daily_result(feed_key: str, result: StockRtDailyCycleResult) -> RealtimeCollectorFeedRun:

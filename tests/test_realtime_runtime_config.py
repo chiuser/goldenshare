@@ -39,7 +39,9 @@ def test_realtime_runtime_config_loads_from_database_rows() -> None:
     config = load_realtime_runtime_config(session)
 
     assert config.redis_url == "redis://127.0.0.1:6379/0"
+    assert config.stock_rt_daily.version == 1
     assert config.stock_rt_daily.lease_ttl_seconds == 44
+    assert config.stock_rt_min.version == 1
     assert config.stock_rt_min.enabled is True
     assert config.stock_rt_min.enabled_freqs == ("1MIN", "30MIN")
     assert config.stock_rt_min.poll_interval_seconds == 30

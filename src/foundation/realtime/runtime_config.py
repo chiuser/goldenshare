@@ -40,6 +40,7 @@ class RealtimeFeedStorageConfig:
 
 @dataclass(frozen=True, slots=True)
 class RealtimeStockRtDailyConfig:
+    version: int
     feed_key: str
     display_name: str
     source_api_name: str
@@ -56,6 +57,7 @@ class RealtimeStockRtDailyConfig:
 
 @dataclass(frozen=True, slots=True)
 class RealtimeStockRtMinConfig:
+    version: int
     display_name: str
     source_api_name: str
     exchange: str
@@ -103,6 +105,8 @@ def load_realtime_runtime_config(
     return build_realtime_runtime_config_from_json(
         daily_config=daily_record.runtime_config_json,
         minute_config=minute_record.runtime_config_json,
+        daily_version=daily_record.version,
+        minute_version=minute_record.version,
         settings=settings,
     )
 
@@ -136,11 +140,13 @@ def build_realtime_runtime_config_from_json(
     *,
     daily_config: Mapping[str, Any],
     minute_config: Mapping[str, Any],
+    daily_version: int = 0,
+    minute_version: int = 0,
     settings: Settings | None = None,
 ) -> RealtimeRuntimeConfig:
     source_settings = settings or get_settings()
-    stock_rt_daily = _build_stock_rt_daily_config(daily_config)
-    stock_rt_min = _build_stock_rt_min_config(minute_config)
+    stock_rt_daily = _build_stock_rt_daily_config(daily_config, version=daily_version)
+    stock_rt_min = _build_stock_rt_min_config(minute_config, version=minute_version)
     return RealtimeRuntimeConfig(
         redis_url=_non_empty_text("REDIS_URL", source_settings.redis_url),
         stock_rt_daily=stock_rt_daily,
@@ -175,7 +181,7 @@ def _get_required_record(session: Session, object_key: str, *, expected_kind: st
     return record
 
 
-def _build_stock_rt_daily_config(raw_config: Mapping[str, Any]) -> RealtimeStockRtDailyConfig:
+def _build_stock_rt_daily_config(raw_config: Mapping[str, Any], *, version: int) -> RealtimeStockRtDailyConfig:
     poll_interval_seconds = _positive_int(
         "stock_rt_daily.poll_interval_seconds",
         _required_value(raw_config, "poll_interval_seconds", object_key=STOCK_RT_DAILY_OBJECT_KEY),
@@ -201,6 +207,7 @@ def _build_stock_rt_daily_config(raw_config: Mapping[str, Any]) -> RealtimeStock
         stale_after_seconds=stale_after_seconds,
     )
     return RealtimeStockRtDailyConfig(
+        version=int(version),
         feed_key=_non_empty_text("stock_rt_daily.feed_key", STOCK_RT_DAILY_CATALOG.feed_key),
         display_name=STOCK_RT_DAILY_CATALOG.display_name,
         source_api_name=STOCK_RT_DAILY_CATALOG.source_api_name,
@@ -219,7 +226,7 @@ def _build_stock_rt_daily_config(raw_config: Mapping[str, Any]) -> RealtimeStock
     )
 
 
-def _build_stock_rt_min_config(raw_config: Mapping[str, Any]) -> RealtimeStockRtMinConfig:
+def _build_stock_rt_min_config(raw_config: Mapping[str, Any], *, version: int) -> RealtimeStockRtMinConfig:
     enabled_freqs = _parse_stock_rt_min_freqs(_required_value(raw_config, "enabled_freqs", object_key=STOCK_RT_MIN_OBJECT_KEY))
     poll_interval_seconds = _positive_int(
         "stock_rt_min.poll_interval_seconds",
@@ -246,6 +253,7 @@ def _build_stock_rt_min_config(raw_config: Mapping[str, Any]) -> RealtimeStockRt
         stale_after_seconds=stale_after_seconds,
     )
     return RealtimeStockRtMinConfig(
+        version=int(version),
         display_name=STOCK_RT_MIN_CATALOG.display_name,
         source_api_name=STOCK_RT_MIN_CATALOG.source_api_name,
         exchange=STOCK_RT_MIN_CATALOG.exchange,

@@ -20,6 +20,17 @@ class RealtimeConfigField(BaseModel):
     options: list[RealtimeConfigFieldOption] = Field(default_factory=list)
 
 
+class RealtimeConfigApplyState(BaseModel):
+    status: str
+    restart_pending: bool | None
+    published_version: int
+    applied_version: int | None = None
+    collector_id: str | None = None
+    applied_at: str | None = None
+    process_started_at: str | None = None
+    message: str
+
+
 class RealtimeConfigObjectSummary(BaseModel):
     object_key: str
     object_kind: str
@@ -27,6 +38,7 @@ class RealtimeConfigObjectSummary(BaseModel):
     enabled: bool
     version: int
     requires_collector_restart: bool
+    apply_state: RealtimeConfigApplyState
 
 
 class RealtimeConfigObjectListResponse(BaseModel):
@@ -40,6 +52,7 @@ class RealtimeConfigObjectDetailResponse(BaseModel):
     mode: str = "view"
     version: int
     requires_collector_restart: bool
+    apply_state: RealtimeConfigApplyState
     effective_config: dict[str, Any]
     locked_config: dict[str, Any]
     fields: list[RealtimeConfigField]
@@ -104,3 +117,12 @@ class RealtimeConfigRevisionItem(BaseModel):
 class RealtimeConfigRevisionListResponse(BaseModel):
     items: list[RealtimeConfigRevisionItem]
     total: int
+
+
+class RealtimeCollectorRestartResponse(BaseModel):
+    status: str
+    service_name: str
+    active: bool
+    started_at: str
+    finished_at: str
+    message: str
