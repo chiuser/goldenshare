@@ -71,10 +71,9 @@ def _sample_dicts(
     return samples
 
 
-def _warn_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCheckResult:
+def _blocking_value_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCheckResult:
     return dg.AssetCheckResult(
         passed=passed,
-        severity=dg.AssetCheckSeverity.WARN,
         metadata=build_check_metadata(
             check_scope=CheckScope.VALUE_SANITY,
             extra_metadata=metadata,
@@ -652,7 +651,7 @@ def evaluate_silver_index_daily_registered_code_coverage(
 ) -> dg.AssetCheckResult:
     index_basic_path = silver_index_basic_path(lake_root_path)
     if not registered_index_codes:
-        return _warn_result(
+        return _blocking_value_result(
             False,
             {
                 "registered_code_count": 0,
@@ -660,7 +659,7 @@ def evaluate_silver_index_daily_registered_code_coverage(
             },
         )
     if not index_basic_path.exists():
-        return _warn_result(
+        return _blocking_value_result(
             False,
             {
                 "index_basic_file_path": str(index_basic_path),
@@ -752,7 +751,7 @@ def evaluate_silver_index_daily_registered_code_coverage(
         result["missing_registered_count"] == 0 and result["extra_count"] == 0
         for result in coverage_results.values()
     )
-    return _warn_result(
+    return _blocking_value_result(
         passed,
         {
             "partition_keys": list(partition_keys),
@@ -910,7 +909,7 @@ def silver_index_daily_price_sanity(
 @dg.asset_check(
     asset=silver_index_daily,
     additional_deps=[silver_index_basic],
-    blocking=False,
+    blocking=True,
 )
 def silver_index_daily_registered_code_coverage(
     context: dg.AssetCheckExecutionContext,

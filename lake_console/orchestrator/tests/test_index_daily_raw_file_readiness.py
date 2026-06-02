@@ -6,6 +6,7 @@ from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import raw_index_daily_by_code_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
+    audit_index_daily_raw_gaps,
     check_index_daily_raw_files_for_trade_date,
 )
 
@@ -120,3 +121,48 @@ def test_index_daily_raw_file_readiness_reports_scan_errors(tmp_path: Path) -> N
     assert not result.ready
     assert result.scan_error_code
     assert result.scan_error
+
+
+def test_index_daily_raw_gap_audit_reports_earliest_middle_gap(
+    tmp_path: Path,
+) -> None:
+    _write_raw_index_daily_file(tmp_path, "000001.SH", ("20260601", "20260602"))
+    _write_raw_index_daily_file(tmp_path, "000300.SH", ("20260602",))
+
+    result = audit_index_daily_raw_gaps(
+        lake_root_path=tmp_path,
+        duckdb=DuckDBResource(),
+        registered_index_codes=("000001.SH", "000300.SH"),
+        trade_dates=("2026-06-01", "2026-06-02"),
+    )
+
+    assert not result.ready
+    assert result.expected_pair_count == 4
+    assert result.ready_pair_count == 3
+    assert result.missing_pair_count == 1
+    assert result.missing_trade_date_pair_count == 1
+    assert result.first_missing_trade_date == "2026-06-01"
+    assert result.first_missing_code_count == 1
+    assert result.first_missing_codes == ("000300.SH",)
+    assert result.missing_pair_samples == (("2026-06-01", "000300.SH"),)
+
+
+def test_index_daily_raw_gap_audit_separates_missing_files(
+    tmp_path: Path,
+) -> None:
+    _write_raw_index_daily_file(tmp_path, "000001.SH", ("20260601", "20260602"))
+
+    result = audit_index_daily_raw_gaps(
+        lake_root_path=tmp_path,
+        duckdb=DuckDBResource(),
+        registered_index_codes=("000001.SH", "000300.SH"),
+        trade_dates=("2026-06-01", "2026-06-02"),
+    )
+
+    assert not result.ready
+    assert result.missing_file_codes == ("000300.SH",)
+    assert result.missing_file_count == 1
+    assert result.missing_pair_count == 2
+    assert result.missing_trade_date_pair_count == 0
+    assert result.first_missing_trade_date == "2026-06-01"
+    assert result.first_missing_codes == ("000300.SH",)

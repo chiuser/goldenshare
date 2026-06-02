@@ -345,7 +345,7 @@
       股票身份映射最新口径是：<code>silver_stock_identity_map</code> 已成为 active full snapshot asset；它从 <code>silver_stock_basic</code> 生成当前上市股票自映射，并合并仓库 seed 中的非自映射行。<code>stock_identity_map_sensor</code> 读取 <code>cn_a_stock_trade_days</code> 最新已注册交易日，16:30 后等待 <code>silver_stock_basic</code> 与 <code>silver_namechange</code> ready 后触发 <code>stock_identity_map_update_job</code>。
       股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>silver_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 silver assets、10 个 blocking checks 和 <code>stock_mins_silver_update_job</code>。历史 silver 文件与 runless events 已按 <code>2014-01-01</code> 之后范围生成和补录；M6F 已将 silver 从 raw 全量分区切换到独立 <code>cn_a_stock_mins_silver_trade_days</code>，并完成当前 <code>3014</code> 个 silver 历史分区注册；Dagster UI 已人工验收未发现分区异常，不再把 2009-2013 的 raw-only 日期显示为 silver missing。<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，<code>stock_mins_silver_trade_day_sensor</code> 在 22:30 后只注册当天 <code>cn_a_stock_mins_silver_trade_days</code>，<code>stock_mins_silver_sensor</code> 在 22:45 后只触发已注册 silver 日期的 <code>stock_mins_silver_update_job</code>。Tushare job 保留为人工备用入口；<code>merge_repair</code> 已作为人工 run config 接入同一套 raw assets 和 raw checks，不新增平行资产，也不与 prod DB 补数混用；该能力已用于少量已审批 1m 样本修复，后续 repair 执行前仍需单独审批。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
-      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 只在 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 在目标交易日全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发 <code>silver_index_daily_update_job</code>；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
+      指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 用 DuckDB gap audit 找可运行交易日范围内最早 raw 缺口，只在该缺口日期的 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；<code>silver_index_daily_sensor</code> 先确认 raw-by-code 全窗口无空洞，再触发最早未 ready 的 <code>silver_index_daily_update_job</code>；<code>silver_index_daily_registered_code_coverage</code> 是 blocking check；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
       当前正式 sensor definition 已接入分类 tags：<code>goldenshare/sensor_domain</code>、<code>goldenshare/sensor_target_layer</code>、<code>goldenshare/sensor_role</code>。Automation 页面仍显示 <code>orchestrator</code> code location 分组，分类能力通过搜索和过滤这些 tags 实现。
       股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。
@@ -657,7 +657,7 @@
           <td><span class="tag raw">raw</span></td>
           <td><code>cn_a_index_ts_codes</code></td>
           <td><code>index_daily_update_job</code> 按指数代码分区拉 Tushare <code>index_daily</code>。</td>
-          <td>交易日日频或历史批量，主入口 run config 提供 <code>trade_date/write_mode</code>；日更由 <code>index_daily_sensor</code> 在源站 ready 后触发。</td>
+          <td>交易日日频或历史批量，主入口 run config 提供 <code>trade_date/write_mode</code>；日更由 <code>index_daily_sensor</code> 用 DuckDB gap audit 找最早 raw 缺口，并在该日期源站 ready 后触发。</td>
           <td>指数日线 raw 源镜像；不再依赖本地 metadata active pool。</td>
         </tr>
         <tr>
@@ -666,7 +666,7 @@
           <td><span class="tag silver">silver</span></td>
           <td><code>cn_a_index_trade_days</code></td>
           <td><code>silver_index_daily_update_job</code> 从 raw-by-code 文件集合按交易日生成。</td>
-          <td>交易日日频或历史批量；日常最新交易日由 <code>silver_index_daily_sensor</code> 在全部注册指数代码的 raw-by-code 文件都存在且包含目标日期数据后触发。</td>
+          <td>交易日日频或历史批量；<code>silver_index_daily_sensor</code> 先用 DuckDB gap audit 确认 raw-by-code 全窗口无空洞，再触发最早未 ready 的 silver 分区。</td>
           <td>指数日线标准事实；服务后续主要指数日线 gold。</td>
         </tr>
         <tr>
@@ -851,7 +851,7 @@
           <td><code>raw_tushare_index_basic</code>、<code>silver_index_basic</code> + checks</td>
           <td>指数基础信息 raw/silver full file。</td>
           <td>人工触发；未来可低频或日更。</td>
-          <td>自动使用 <code>cn_a_index_trade_days</code> 中最新已注册指数交易日；不得由业务 gold job 代写。</td>
+          <td>自动使用 <code>cn_a_index_trade_days</code> 中可运行交易日范围的最早 raw 缺口；不得由业务 gold job 代写。</td>
         </tr>
         <tr>
           <td><code>index_daily_update_job</code></td>
@@ -864,7 +864,7 @@
           <td><code>silver_index_daily_update_job</code></td>
           <td><code>silver_index_daily</code> + silver checks</td>
           <td>单个交易日指数日线 silver 分区。</td>
-          <td>人工分区运行、UI backfill 或 <code>silver_index_daily_sensor</code> 触发日常最新交易日。</td>
+          <td>人工分区运行、UI backfill 或 <code>silver_index_daily_sensor</code> 触发最早未 ready 的交易日。</td>
           <td>只消费 raw-by-code 文件集合，不调用 Tushare，不写 raw。</td>
         </tr>
         <tr>
@@ -1059,7 +1059,7 @@
       </div>
       <div class="card">
         <strong>Sensor 门禁必须轻量</strong>
-        <code>silver_index_daily_sensor</code> 的门禁只读 raw-by-code 文件事实：全部注册指数代码的 raw parquet 文件都存在，且都包含目标交易日数据；<code>market_major_indices_daily_sensor</code> 只查 10 个主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备；不在 evaluation 中读取旧 run tags/config。
+        <code>silver_index_daily_sensor</code> 的门禁只读 raw-by-code 文件事实：用 DuckDB gap audit 检查可生成交易日范围内全部注册指数代码的 raw parquet 文件都存在且包含对应交易日数据；<code>market_major_indices_daily_sensor</code> 只查 10 个主要指数 seed code 在注册分区、<code>silver_index_basic</code> 和当日 <code>silver_index_daily</code> 中是否齐备；不在 evaluation 中读取旧 run tags/config。
       </div>
       <div class="card">
         <strong>告警不参与生产</strong>

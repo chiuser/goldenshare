@@ -146,6 +146,7 @@ SILVER_INDEX_DAILY_BLOCKING_CHECKS = (
     "silver_index_daily_conflicting_duplicate_absent",
     "silver_index_daily_partition_date_matches",
     "silver_index_daily_price_sanity",
+    "silver_index_daily_registered_code_coverage",
     "silver_index_daily_required_columns_and_types",
     "silver_index_daily_row_count_positive",
     "silver_index_daily_unique_ts_code_trade_date",
