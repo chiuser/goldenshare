@@ -3,7 +3,7 @@ from pathlib import Path
 import duckdb
 
 from orchestrator.defs.duckdb_sql import duckdb_string
-from orchestrator.defs.paths import raw_index_daily_by_code_path
+from orchestrator.defs.paths import raw_index_daily_by_code_path, silver_index_basic_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     audit_index_daily_raw_gaps,
@@ -40,6 +40,32 @@ def _write_raw_index_daily_file_without_trade_date(root: Path, ts_code: str) -> 
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
+
+
+def _write_index_basic_file(
+    root: Path,
+    rows: tuple[tuple[str, str, str | None], ...],
+) -> Path:
+    path = silver_index_basic_path(root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    values_sql = ", ".join(
+        "("
+        f"{duckdb_string(ts_code)}, "
+        f"DATE {duckdb_string(list_date)}, "
+        f"{'NULL' if exp_date is None else 'DATE ' + duckdb_string(exp_date)}"
+        ")"
+        for ts_code, list_date, exp_date in rows
+    )
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT *
+              FROM (VALUES {values_sql}) rows(ts_code, list_date, exp_date)
+            ) TO {duckdb_string(path)} (FORMAT PARQUET)
+            """
+        )
+    return path
 
 
 def test_index_daily_raw_file_readiness_all_codes_ready(tmp_path: Path) -> None:
@@ -166,3 +192,60 @@ def test_index_daily_raw_gap_audit_separates_missing_files(
     assert result.missing_trade_date_pair_count == 0
     assert result.first_missing_trade_date == "2026-06-01"
     assert result.first_missing_codes == ("000300.SH",)
+
+
+def test_index_daily_raw_gap_audit_uses_index_basic_effective_window(
+    tmp_path: Path,
+) -> None:
+    index_basic_path = _write_index_basic_file(
+        tmp_path,
+        (
+            ("000001.SH", "2000-01-01", None),
+            ("000300.SH", "2026-06-02", None),
+            ("000999.SH", "2026-06-03", None),
+            ("000888.SH", "2000-01-01", "2026-06-01"),
+        ),
+    )
+    _write_raw_index_daily_file(tmp_path, "000001.SH", ("20260601", "20260602"))
+    _write_raw_index_daily_file(tmp_path, "000300.SH", ("20260602",))
+
+    result = audit_index_daily_raw_gaps(
+        lake_root_path=tmp_path,
+        duckdb=DuckDBResource(),
+        registered_index_codes=("000001.SH", "000300.SH", "000888.SH", "000999.SH"),
+        trade_dates=("2026-06-01", "2026-06-02"),
+        index_basic_path=index_basic_path,
+    )
+
+    assert result.ready
+    assert result.expected_pair_count == 3
+    assert result.ready_pair_count == 3
+    assert result.missing_file_codes == ()
+    assert result.missing_pair_count == 0
+
+
+def test_index_daily_raw_file_readiness_uses_index_basic_effective_window(
+    tmp_path: Path,
+) -> None:
+    index_basic_path = _write_index_basic_file(
+        tmp_path,
+        (
+            ("000001.SH", "2000-01-01", None),
+            ("000300.SH", "2026-06-03", None),
+        ),
+    )
+    _write_raw_index_daily_file(tmp_path, "000001.SH", ("20260602",))
+
+    result = check_index_daily_raw_files_for_trade_date(
+        lake_root_path=tmp_path,
+        duckdb=DuckDBResource(),
+        registered_index_codes=("000001.SH", "000300.SH"),
+        trade_date="2026-06-02",
+        index_basic_path=index_basic_path,
+    )
+
+    assert result.ready
+    assert result.registered_code_count == 2
+    assert result.ready_code_count == 2
+    assert result.missing_file_codes == ()
+    assert result.missing_trade_date_codes == ()

@@ -535,7 +535,7 @@ silver_index_daily_update_job[trade_date]
           <h4>Sensors / Jobs / Runs</h4>
           <div class="node sensor">
             <strong><code>index_daily_sensor</code></strong>
-            读取可运行交易日与 <code>cn_a_index_ts_codes</code>，用 DuckDB gap audit 找最早 raw 缺口，再对该日期做源站 ready 探测并发起 raw 更新请求。
+            读取最近 60 个可运行交易日与 <code>cn_a_index_ts_codes</code>，按 <code>silver_index_basic</code> 上市/退市日期过滤有效代码，用 DuckDB gap audit 找最早 raw 缺口，再对该日期做源站 ready 探测并发起 raw 更新请求。
           </div>
           <div class="node job">
             <strong><code>index_daily_update_job[ts_code]</code></strong>
@@ -603,7 +603,7 @@ silver_index_daily_update_job[trade_date]
         </div>
         <div class="step">
           <b>5. 判断 raw 缺口</b>
-          用 DuckDB 构造 <code>trade_date × ts_code</code> 期望集合并左连接 raw-by-code 文件事实，找出最早缺口日期和缺失 <code>ts_code</code>。
+          用 DuckDB 构造最近 60 个可运行交易日内的有效 <code>trade_date × ts_code</code> 期望集合，并左连接 raw-by-code 文件事实，找出最早缺口日期和缺失 <code>ts_code</code>。
         </div>
         <div class="step">
           <b>6. 发起 raw runs</b>
@@ -611,7 +611,7 @@ silver_index_daily_update_job[trade_date]
         </div>
         <div class="step">
           <b>7. Silver 刷新</b>
-          raw 全窗口无空洞后，再由 <code>silver_index_daily_sensor</code> 触发最早未 ready 的 silver 日期，或手工执行 silver 更新。
+          最近 60 个可运行交易日内 raw 无空洞后，再由 <code>silver_index_daily_sensor</code> 触发最早未 ready 的 silver 日期，或手工执行 silver 更新。
         </div>
       </div>
     </div>
@@ -898,7 +898,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>判断源站 ready</td>
-        <td>先用 DuckDB gap audit 找最早 raw 缺口日期，再使用 <code>source_readiness/tushare/index_daily.py</code> 对该日期的 Tushare <code>index_daily</code> 做只读探测，不写文件。</td>
+        <td>先用 DuckDB gap audit 在最近 60 个可运行交易日内找最早 raw 缺口日期，再使用 <code>source_readiness/tushare/index_daily.py</code> 对该日期的 Tushare <code>index_daily</code> 做只读探测，不写文件。</td>
         <td>源站未 ready 时 Skip，不占用 run key。</td>
       </tr>
       <tr>
@@ -908,7 +908,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>判断 raw 缺口</td>
-        <td>用 DuckDB SQL 构造可运行交易日与注册指数代码的期望矩阵，并左连接 raw-by-code 文件事实，确认最早缺失的 <code>trade_date/ts_code</code>。</td>
+        <td>用 DuckDB SQL 构造最近 60 个可运行交易日与注册指数代码的期望矩阵，并按 <code>silver_index_basic.list_date/exp_date</code> 过滤有效代码，再左连接 raw-by-code 文件事实，确认最早缺失的 <code>trade_date/ts_code</code>。</td>
         <td>已有目标日期的代码不再触发；最早缺口日期的缺失代码才进入本 tick 候选。</td>
       </tr>
       <tr>
@@ -965,7 +965,7 @@ silver_index_daily_update_job[trade_date]
       <tbody>
       <tr>
         <td>职责</td>
-        <td>先判断可生成交易日范围内 raw-by-code 是否无空洞，再触发最早未 ready 的 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+        <td>先判断最近 60 个可运行交易日内 raw-by-code 是否无有效空洞，再触发最早未 ready 的 <code>silver_index_daily_update_job[trade_date]</code>。</td>
       </tr>
       <tr>
         <td>不做什么</td>
@@ -973,13 +973,14 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>候选日期</td>
-        <td>只考虑已经注册到 <code>cn_a_index_trade_days</code> 且不晚于当前日期的交易日。日常自动化不只看最新日，而是按最早 raw 空洞、最早 silver 未 ready 的顺序推进。</td>
+        <td>只考虑已经注册到 <code>cn_a_index_trade_days</code> 且不晚于当前日期的最近 60 个交易日。日常自动化不只看最新日，而是按该窗口内最早 raw 空洞、最早 silver 未 ready 的顺序推进；更早历史缺口进入人工审计/backfill。</td>
       </tr>
       <tr>
         <td>Ready 条件</td>
         <td>
-          读取 <code>cn_a_index_ts_codes</code>，用 DuckDB gap audit 确认可生成交易日范围内每个注册代码的
+          读取 <code>cn_a_index_ts_codes</code>，用 DuckDB gap audit 确认最近 60 个可运行交易日内每个有效注册代码的
           <code>raw_tushare_index_daily_by_code[ts_code]</code> 文件都包含对应 <code>trade_date</code>。
+          有效注册代码由 <code>silver_index_basic.list_date/exp_date</code> 决定，上市前和退市后不算缺口。
           该 sensor 不扫描 raw run tags/config；真正的数据质量由 raw/silver asset checks 暴露。
         </td>
       </tr>
@@ -1145,8 +1146,8 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>Slice G</td>
-        <td>新增 <code>silver_index_daily_sensor</code>，在 DuckDB gap audit 确认可生成交易日范围 raw-by-code 无空洞后，自动触发最早未 ready 的 <code>silver_index_daily_update_job[trade_date]</code>。</td>
-        <td>不调用 Tushare，不写 raw；日常自动化按最早缺口推进，避免最新日正常时掩盖历史空洞。</td>
+        <td>新增 <code>silver_index_daily_sensor</code>，在 DuckDB gap audit 确认最近 60 个可运行交易日内 raw-by-code 无有效空洞后，自动触发最早未 ready 的 <code>silver_index_daily_update_job[trade_date]</code>。</td>
+        <td>不调用 Tushare，不写 raw；日常自动化按最近窗口内最早缺口推进，避免最新日正常时掩盖近期空洞，同时不被远期历史老洞卡死。</td>
       </tr>
       </tbody>
     </table>
@@ -1202,7 +1203,7 @@ silver_index_daily_update_job[trade_date]
       </tr>
       <tr>
         <td>Silver 自动触发是否进入第一轮</td>
-        <td>已实现：<code>silver_index_daily_sensor</code> 先用 DuckDB gap audit 确认 raw-by-code 在可生成交易日范围内无空洞，再触发最早未 ready 的 silver；不读取 raw run tags/config。</td>
+        <td>已实现：<code>silver_index_daily_sensor</code> 先用 DuckDB gap audit 确认 raw-by-code 在最近 60 个可运行交易日内无有效空洞，再触发最早未 ready 的 silver；不读取 raw run tags/config。</td>
       </tr>
       <tr>
         <td>每日 sensor 单 tick 最大 run 数</td>

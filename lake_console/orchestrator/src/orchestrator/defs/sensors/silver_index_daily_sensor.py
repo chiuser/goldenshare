@@ -3,6 +3,7 @@ from datetime import datetime
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
+from orchestrator.defs.paths import silver_index_basic_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
@@ -16,6 +17,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     MAX_RAW_GAP_SAMPLE_COUNT,
+    RAW_GAP_AUDIT_TRADE_DAY_LIMIT,
     IndexDailyRawGapAudit,
     IndexDailyRawFileReadiness,
     audit_index_daily_raw_gaps,
@@ -63,6 +65,16 @@ def _eligible_registered_trade_dates(
     return tuple(
         trade_date for trade_date in registered_trade_days if trade_date <= today
     )
+
+
+def _recent_trade_dates(
+    trade_dates: tuple[str, ...],
+    *,
+    limit: int = RAW_GAP_AUDIT_TRADE_DAY_LIMIT,
+) -> tuple[str, ...]:
+    if limit <= 0:
+        raise ValueError("limit must be positive.")
+    return trade_dates[-limit:]
 
 
 def _first_not_ready_silver_trade_date(
@@ -230,9 +242,11 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             cursor=cursor,
         )
 
-    eligible_trade_dates = _eligible_registered_trade_dates(
-        registered_trade_days,
-        evaluated_at,
+    eligible_trade_dates = _recent_trade_dates(
+        _eligible_registered_trade_dates(
+            registered_trade_days,
+            evaluated_at,
+        )
     )
     if not eligible_trade_dates:
         cursor = _cursor_payload(
@@ -254,6 +268,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         duckdb=context.resources.duckdb,
         registered_index_codes=registered_index_codes,
         trade_dates=eligible_trade_dates,
+        index_basic_path=silver_index_basic_path(context.resources.lake_root.root()),
         sample_limit=MAX_RAW_GAP_SAMPLE_COUNT,
     )
     if raw_gap_audit.scan_error:
@@ -281,7 +296,10 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             **_raw_gap_audit_cursor_fields(raw_gap_audit),
         )
         return dg.SensorResult(
-            skip_reason="指数日线 raw-by-code 仍存在历史空洞，暂不生成 silver。",
+            skip_reason=(
+                "最近 60 个可运行指数交易日内 raw-by-code 仍存在有效空洞，"
+                "暂不生成 silver。"
+            ),
             cursor=cursor,
         )
 
@@ -304,7 +322,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             missing_raw_trade_date_samples=(),
         )
         return dg.SensorResult(
-            skip_reason="所有可生成指数交易日的 silver_index_daily 分区都已经 ready。",
+            skip_reason="最近 60 个可运行指数交易日的 silver_index_daily 分区都已经 ready。",
             cursor=cursor,
         )
 
@@ -331,6 +349,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         duckdb=context.resources.duckdb,
         registered_index_codes=registered_index_codes,
         trade_date=target_trade_date,
+        index_basic_path=silver_index_basic_path(context.resources.lake_root.root()),
     )
     cursor = _cursor_payload(
         evaluated_at=evaluated_at,

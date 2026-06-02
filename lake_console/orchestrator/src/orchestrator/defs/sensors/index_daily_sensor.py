@@ -4,6 +4,7 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
+from orchestrator.defs.paths import silver_index_basic_path
 from orchestrator.defs.run_contracts.configs import build_index_daily_update_job_run_config
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
@@ -20,6 +21,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     MAX_RAW_GAP_SAMPLE_COUNT,
+    RAW_GAP_AUDIT_TRADE_DAY_LIMIT,
     audit_index_daily_raw_gaps,
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
@@ -43,6 +45,16 @@ def _runnable_trade_dates(
         for trade_date in registered_trade_days
         if trade_date < today or (trade_date == today and probe_window_started)
     )
+
+
+def _recent_trade_dates(
+    trade_dates: tuple[str, ...],
+    *,
+    limit: int = RAW_GAP_AUDIT_TRADE_DAY_LIMIT,
+) -> tuple[str, ...]:
+    if limit <= 0:
+        raise ValueError("limit must be positive.")
+    return trade_dates[-limit:]
 
 
 def _select_pending_codes(
@@ -177,7 +189,9 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
             ),
         )
 
-    runnable_trade_dates = _runnable_trade_dates(registered_trade_days, evaluated_at)
+    runnable_trade_dates = _recent_trade_dates(
+        _runnable_trade_dates(registered_trade_days, evaluated_at)
+    )
     if not runnable_trade_dates:
         return dg.SensorResult(
             skip_reason="没有符合当前时间窗口的指数交易日分区。",
@@ -202,6 +216,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         duckdb=context.resources.duckdb,
         registered_index_codes=registered_index_codes,
         trade_dates=runnable_trade_dates,
+        index_basic_path=silver_index_basic_path(lake_root.root()),
         sample_limit=max(MAX_RUN_REQUESTS_PER_TICK, MAX_RAW_GAP_SAMPLE_COUNT),
     )
     target_trade_date = raw_gap_audit.first_missing_trade_date
@@ -233,7 +248,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         )
     if raw_gap_audit.ready or target_trade_date is None:
         return dg.SensorResult(
-            skip_reason="所有可运行指数交易日的 raw-by-code 数据都已经生成完成。",
+            skip_reason="最近 60 个可运行指数交易日的 raw-by-code 数据都已经生成完成。",
             cursor=_cursor_payload(
                 evaluated_at=evaluated_at,
                 today=today,

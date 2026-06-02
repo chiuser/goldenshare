@@ -98,8 +98,8 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `stock_daily_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发股票日线 raw/silver 更新；只读 basic/suspend 门禁。 |
 | `stock_adj_factor_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发复权因子 raw/silver 更新；复权因子属于股票行情数据域。 |
 | `stock_mins_silver_sensor` | `defs/sensors/stock_mins_silver_sensor.py` | `quote_data` | `silver` | `asset_update` | 触发股票分钟线 silver 五频度更新；只消费已注册 silver 分区和上游 readiness，不注册分区、不触发 raw。 |
-| `index_daily_sensor` | `defs/sensors/index_daily_sensor.py` | `index_topic` | `raw` | `asset_update` | 用 DuckDB gap audit 找最早 raw 缺口后触发 `index_daily_update_job`，只写指数日线 raw-by-code 和 raw checks，不写 silver。 |
-| `silver_index_daily_sensor` | `defs/sensors/silver_index_daily_sensor.py` | `index_topic` | `silver` | `asset_update` | 确认 raw-by-code 全窗口无空洞后触发最早未 ready 的 `silver_index_daily_update_job`，从 raw-by-code 文件集合生成指数日线 silver。 |
+| `index_daily_sensor` | `defs/sensors/index_daily_sensor.py` | `index_topic` | `raw` | `asset_update` | 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口后触发 `index_daily_update_job`，只写指数日线 raw-by-code 和 raw checks，不写 silver。 |
+| `silver_index_daily_sensor` | `defs/sensors/silver_index_daily_sensor.py` | `index_topic` | `silver` | `asset_update` | 确认最近 60 个可运行交易日内 raw-by-code 无有效空洞后触发最早未 ready 的 `silver_index_daily_update_job`，从 raw-by-code 文件集合生成指数日线 silver。 |
 | `market_major_indices_daily_sensor` | `defs/sensors/market_major_indices_daily_sensor.py` | `index_topic` | `gold` | `asset_update` | 触发主要指数日线 gold；虽然是 gold 层，但业务域仍是指数专题。 |
 | `market_breadth_automation_sensor` | `defs/sensors/market_breadth_automation_sensor.py` | `derived_metric` | `gold` | `automation_condition` | 管理市场宽度 gold 自动触发；资产本身是衍生指标。 |
 | `stock_return_distribution_automation_sensor` | `defs/sensors/stock_return_distribution_automation_sensor.py` | `derived_metric` | `gold` | `automation_condition` | 管理股票涨跌幅分布 gold 自动触发；资产本身是衍生指标。 |

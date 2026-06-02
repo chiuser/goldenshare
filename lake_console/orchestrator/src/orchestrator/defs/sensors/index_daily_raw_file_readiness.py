@@ -8,6 +8,7 @@ from orchestrator.defs.paths import raw_index_daily_by_code_path
 from orchestrator.defs.resources import DuckDBResource
 
 MAX_RAW_GAP_SAMPLE_COUNT = 500
+RAW_GAP_AUDIT_TRADE_DAY_LIMIT = 60
 
 
 @dataclass(frozen=True)
@@ -116,12 +117,39 @@ def _observed_raw_sql(paths: tuple[Path, ...]) -> str:
     """
 
 
+def _expected_pairs_sql(*, use_index_basic: bool) -> str:
+    join_clause = ""
+    where_clause = ""
+    if use_index_basic:
+        join_clause = """
+        INNER JOIN index_basic
+          ON registered_codes.ts_code = index_basic.ts_code
+        """
+        where_clause = """
+        WHERE (index_basic.list_date IS NULL
+               OR index_basic.list_date <= target_dates.trade_date_value)
+          AND (index_basic.exp_date IS NULL
+               OR index_basic.exp_date > target_dates.trade_date_value)
+        """
+    return f"""
+    SELECT
+      target_dates.trade_date,
+      target_dates.compact_trade_date,
+      registered_codes.ts_code
+    FROM target_dates
+    CROSS JOIN registered_codes
+    {join_clause}
+    {where_clause}
+    """
+
+
 def audit_index_daily_raw_gaps(
     *,
     lake_root_path: Path,
     duckdb: DuckDBResource,
     registered_index_codes: tuple[str, ...],
     trade_dates: tuple[str, ...],
+    index_basic_path: Path | None = None,
     sample_limit: int = MAX_RAW_GAP_SAMPLE_COUNT,
 ) -> IndexDailyRawGapAudit:
     """Audit raw index daily coverage with DuckDB set operations."""
@@ -145,6 +173,11 @@ def audit_index_daily_raw_gaps(
 
     try:
         with duckdb.connect() as connection:
+            use_index_basic = index_basic_path is not None
+            if index_basic_path is not None and not index_basic_path.exists():
+                raise FileNotFoundError(
+                    f"Missing silver index basic file for raw gap audit: {index_basic_path}"
+                )
             connection.execute(
                 f"""
                 CREATE TEMP TABLE registered_codes AS
@@ -157,10 +190,26 @@ def audit_index_daily_raw_gaps(
                 CREATE TEMP TABLE target_dates AS
                 SELECT
                   CAST(trade_date AS VARCHAR) AS trade_date,
-                  CAST(compact_trade_date AS VARCHAR) AS compact_trade_date
+                  CAST(compact_trade_date AS VARCHAR) AS compact_trade_date,
+                  CAST(trade_date AS DATE) AS trade_date_value
                 FROM {_trade_dates_table_sql(target_trade_dates)}
                 """
             )
+            if index_basic_path is not None:
+                connection.execute(
+                    f"""
+                    CREATE TEMP TABLE index_basic AS
+                    SELECT
+                      CAST(ts_code AS VARCHAR) AS ts_code,
+                      CAST(list_date AS DATE) AS list_date,
+                      CAST(exp_date AS DATE) AS exp_date
+                    FROM read_parquet(
+                      {duckdb_string(index_basic_path)},
+                      hive_partitioning=false,
+                      union_by_name=true
+                    )
+                    """
+                )
             connection.execute(
                 f"""
                 CREATE TEMP TABLE missing_file_codes AS
@@ -175,14 +224,9 @@ def audit_index_daily_raw_gaps(
                 """
             )
             connection.execute(
-                """
+                f"""
                 CREATE TEMP TABLE expected_pairs AS
-                SELECT
-                  target_dates.trade_date,
-                  target_dates.compact_trade_date,
-                  registered_codes.ts_code
-                FROM target_dates
-                CROSS JOIN registered_codes
+                {_expected_pairs_sql(use_index_basic=use_index_basic)}
                 """
             )
             connection.execute(
@@ -195,6 +239,20 @@ def audit_index_daily_raw_gaps(
                  AND expected_pairs.compact_trade_date = observed.compact_trade_date
                 WHERE observed.ts_code IS NULL
                 """
+            )
+            effective_missing_file_codes = tuple(
+                row[0]
+                for row in connection.execute(
+                    """
+                    SELECT DISTINCT expected_pairs.ts_code
+                    FROM expected_pairs
+                    INNER JOIN missing_file_codes USING (ts_code)
+                    ORDER BY expected_pairs.ts_code
+                    """
+                ).fetchall()
+            )
+            expected_pair_count = int(
+                connection.execute("SELECT count(*) FROM expected_pairs").fetchone()[0]
             )
             ready_pair_count = int(
                 connection.execute(
@@ -293,7 +351,7 @@ def audit_index_daily_raw_gaps(
         trade_date_count=len(target_trade_dates),
         expected_pair_count=expected_pair_count,
         ready_pair_count=ready_pair_count,
-        missing_file_codes=missing_file_codes,
+        missing_file_codes=effective_missing_file_codes,
         missing_trade_date_pair_count=missing_trade_date_pair_count,
         missing_pair_count=missing_pair_count,
         first_missing_trade_date=first_missing_trade_date,
@@ -309,6 +367,7 @@ def check_index_daily_raw_files_for_trade_date(
     duckdb: DuckDBResource,
     registered_index_codes: tuple[str, ...],
     trade_date: str,
+    index_basic_path: Path | None = None,
 ) -> IndexDailyRawFileReadiness:
     """Check raw by-code files directly instead of inferring readiness from run tags."""
 
@@ -318,6 +377,7 @@ def check_index_daily_raw_files_for_trade_date(
         duckdb=duckdb,
         registered_index_codes=registered_codes,
         trade_dates=(trade_date,),
+        index_basic_path=index_basic_path,
         sample_limit=max(len(registered_codes), 1),
     )
     missing_file_codes = audit.missing_file_codes
