@@ -4,13 +4,14 @@ import os
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
-from typing import Sequence
+from typing import Any, Sequence
 
 import duckdb
 
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
 from orchestrator.defs.run_contracts.asset_column_schemas import GOLD_STK_MINS_QFQ_SCHEMA
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
 
 
@@ -18,6 +19,20 @@ GOLD_STK_MINS_QFQ_COLUMNS = tuple(column.name for column in GOLD_STK_MINS_QFQ_SC
 GOLD_STK_MINS_QFQ_COLUMN_TYPES = {
     column.name: column.type for column in GOLD_STK_MINS_QFQ_SCHEMA
 }
+GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME = (
+    "gold_stk_mins_qfq_factor_repair_plan_evaluated"
+)
+QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED = "no_factor_changed"
+QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED = "factor_changed"
+QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE = "new_current_code"
+QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR = "missing_previous_factor"
+QFQ_FACTOR_REPAIR_REASONS = (
+    QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
+    QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
+    QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE,
+    QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
+)
+QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
 
 
 @dataclass(frozen=True)
@@ -27,6 +42,24 @@ class GoldStkMinsQfqWriteResult:
     year: str
     row_count: int
     replacement_row_count: int
+
+
+@dataclass(frozen=True)
+class GoldStkMinsQfqFactorRepairPlan:
+    trade_date: str
+    previous_trade_date: str
+    reason: str
+    can_execute_repair: bool
+    repair_required: bool
+    detected_change_code_count: int
+    repair_required_code_count: int
+    factor_changed_code_count: int
+    new_current_code_count: int
+    missing_previous_factor_code_count: int
+    repair_required_codes: tuple[str, ...]
+    factor_changed_code_samples: tuple[str, ...]
+    new_current_code_samples: tuple[str, ...]
+    missing_previous_factor_code_samples: tuple[str, ...]
 
 
 def build_latest_adj_factor_by_code_sql(adj_factor_paths: Sequence[Path]) -> str:
@@ -169,9 +202,48 @@ def build_adj_factor_changed_codes_sql(
     *,
     current_adj_factor_path: Path,
     previous_adj_factor_path: Path,
+    silver_stock_basic_path: Path | None = None,
+    trade_date: str | None = None,
+    previous_trade_date: str | None = None,
 ) -> str:
+    _validate_repair_detection_args(
+        silver_stock_basic_path=silver_stock_basic_path,
+        trade_date=trade_date,
+        previous_trade_date=previous_trade_date,
+    )
     current_source = read_parquet(current_adj_factor_path, hive_partitioning=False)
     previous_source = read_parquet(previous_adj_factor_path, hive_partitioning=False)
+    stock_basic_cte = ""
+    stock_basic_join = ""
+    change_reason_sql = """
+    CASE
+      WHEN previous_factor.ts_code IS NULL THEN 'new_current_code'
+      ELSE 'factor_changed'
+    END
+    """
+    if silver_stock_basic_path is not None:
+        stock_basic_source = read_parquet(silver_stock_basic_path, hive_partitioning=False)
+        stock_basic_cte = f""",
+stock_basic AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(list_date AS DATE) AS list_date
+  FROM {stock_basic_source}
+)"""
+        stock_basic_join = """
+LEFT JOIN stock_basic
+  ON current_factor.ts_code = stock_basic.ts_code
+"""
+        change_reason_sql = f"""
+    CASE
+      WHEN previous_factor.ts_code IS NULL
+       AND stock_basic.list_date > DATE {duckdb_string(previous_trade_date)}
+       AND stock_basic.list_date <= DATE {duckdb_string(trade_date)}
+        THEN 'new_current_code'
+      WHEN previous_factor.ts_code IS NULL THEN 'missing_previous_factor'
+      ELSE 'factor_changed'
+    END
+        """
     return f"""
 WITH current_factor AS (
   SELECT
@@ -184,22 +256,115 @@ previous_factor AS (
     CAST(ts_code AS VARCHAR) AS ts_code,
     CAST(adj_factor AS DOUBLE) AS previous_adj_factor
   FROM {previous_source}
-)
+){stock_basic_cte}
 SELECT
   current_factor.ts_code,
   current_factor.current_adj_factor,
   previous_factor.previous_adj_factor,
-  CASE
-    WHEN previous_factor.ts_code IS NULL THEN 'new_current_code'
-    ELSE 'factor_changed'
-  END AS change_reason
+  {change_reason_sql} AS change_reason
 FROM current_factor
 LEFT JOIN previous_factor
   ON current_factor.ts_code = previous_factor.ts_code
+{stock_basic_join}
 WHERE previous_factor.ts_code IS NULL
    OR current_factor.current_adj_factor IS DISTINCT FROM previous_factor.previous_adj_factor
 ORDER BY current_factor.ts_code
 """
+
+
+def build_gold_stk_mins_qfq_factor_repair_plan(
+    *,
+    current_adj_factor_path: Path,
+    previous_adj_factor_path: Path,
+    silver_stock_basic_path: Path,
+    trade_date: str,
+    previous_trade_date: str,
+    sample_limit: int = QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT,
+) -> GoldStkMinsQfqFactorRepairPlan:
+    if sample_limit <= 0:
+        raise ValueError("sample_limit must be positive.")
+    date.fromisoformat(trade_date)
+    date.fromisoformat(previous_trade_date)
+    sql = build_adj_factor_changed_codes_sql(
+        current_adj_factor_path=current_adj_factor_path,
+        previous_adj_factor_path=previous_adj_factor_path,
+        silver_stock_basic_path=silver_stock_basic_path,
+        trade_date=trade_date,
+        previous_trade_date=previous_trade_date,
+    )
+    with duckdb.connect(database=":memory:") as connection:
+        rows = connection.execute(sql).fetchall()
+
+    factor_changed_codes = tuple(
+        str(ts_code)
+        for ts_code, _current_factor, _previous_factor, change_reason in rows
+        if change_reason == QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED
+    )
+    new_current_codes = tuple(
+        str(ts_code)
+        for ts_code, _current_factor, _previous_factor, change_reason in rows
+        if change_reason == QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE
+    )
+    missing_previous_codes = tuple(
+        str(ts_code)
+        for ts_code, _current_factor, _previous_factor, change_reason in rows
+        if change_reason == QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR
+    )
+
+    if missing_previous_codes:
+        reason = QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR
+    elif factor_changed_codes:
+        reason = QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED
+    elif new_current_codes:
+        reason = QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE
+    else:
+        reason = QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED
+
+    return GoldStkMinsQfqFactorRepairPlan(
+        trade_date=trade_date,
+        previous_trade_date=previous_trade_date,
+        reason=reason,
+        can_execute_repair=not missing_previous_codes,
+        repair_required=bool(factor_changed_codes),
+        detected_change_code_count=len(rows),
+        repair_required_code_count=len(factor_changed_codes),
+        factor_changed_code_count=len(factor_changed_codes),
+        new_current_code_count=len(new_current_codes),
+        missing_previous_factor_code_count=len(missing_previous_codes),
+        repair_required_codes=factor_changed_codes,
+        factor_changed_code_samples=factor_changed_codes[:sample_limit],
+        new_current_code_samples=new_current_codes[:sample_limit],
+        missing_previous_factor_code_samples=missing_previous_codes[:sample_limit],
+    )
+
+
+def build_gold_stk_mins_qfq_factor_repair_check_metadata(
+    plan: GoldStkMinsQfqFactorRepairPlan,
+) -> dict[str, Any]:
+    return build_check_metadata(
+        check_scope=CheckScope.RECONCILIATION,
+        checked_row_count=plan.detected_change_code_count,
+        failed_row_count=plan.missing_previous_factor_code_count,
+        extra_metadata={
+            "reason": plan.reason,
+            "trade_date": plan.trade_date,
+            "previous_trade_date": plan.previous_trade_date,
+            "can_execute_repair": plan.can_execute_repair,
+            "repair_required": plan.repair_required,
+            "detected_change_code_count": plan.detected_change_code_count,
+            "repair_required_code_count": plan.repair_required_code_count,
+            "factor_changed_code_count": plan.factor_changed_code_count,
+            "new_current_code_count": plan.new_current_code_count,
+            "missing_previous_factor_code_count": (
+                plan.missing_previous_factor_code_count
+            ),
+            "factor_changed_code_samples": list(plan.factor_changed_code_samples),
+            "new_current_code_samples": list(plan.new_current_code_samples),
+            "missing_previous_factor_code_samples": (
+                list(plan.missing_previous_factor_code_samples)
+            ),
+        },
+    )
 
 
 def write_gold_stk_mins_qfq_rows_to_year_files(
@@ -564,6 +729,26 @@ def _read_parquet_paths(paths: Sequence[Path]) -> str:
         return read_parquet(paths[0], hive_partitioning=False)
     path_list = ", ".join(duckdb_string(path) for path in paths)
     return f"read_parquet([{path_list}], hive_partitioning=false, union_by_name=true)"
+
+
+def _validate_repair_detection_args(
+    *,
+    silver_stock_basic_path: Path | None,
+    trade_date: str | None,
+    previous_trade_date: str | None,
+) -> None:
+    args = (silver_stock_basic_path, trade_date, previous_trade_date)
+    if any(item is not None for item in args) and not all(
+        item is not None for item in args
+    ):
+        raise ValueError(
+            "silver_stock_basic_path, trade_date, and previous_trade_date must "
+            "be provided together."
+        )
+    if trade_date is not None:
+        date.fromisoformat(trade_date)
+    if previous_trade_date is not None:
+        date.fromisoformat(previous_trade_date)
 
 
 def _normalize_trade_dates(trade_dates: Sequence[str]) -> tuple[str, ...]:

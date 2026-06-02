@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A/M8B/M8C/M8D：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 与 multi check 已实现；历史 gold qfq 物理文件已正式生成完成，M8D runless event 补录已按 <code>freq/year</code> “审一年、写一年”全量执行完成，最终核验五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿；M9A 已实现 <code>stock_mins_qfq_daily_update_job</code> 和默认停止的 <code>stock_mins_qfq_daily_sensor</code>，23:00 后只在当日 silver 与当日复权因子 ready、目标 gold qfq 尚未 ready 时提交单日五频度 qfq run；当前尚未实现 factor repair job/sensor。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A/M8B/M8C/M8D：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 与 multi check 已实现；历史 gold qfq 物理文件已正式生成完成，M8D runless event 补录已按 <code>freq/year</code> “审一年、写一年”全量执行完成，最终核验五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿；M9A 已实现 <code>stock_mins_qfq_daily_update_job</code> 和默认停止的 <code>stock_mins_qfq_daily_sensor</code>，23:00 后只在当日 silver 与当日复权因子 ready、目标 gold qfq 尚未 ready 时提交单日五频度 qfq run；M9B 已实现 factor repair 的 DuckDB 检测、repair plan 和 repair check metadata 契约；当前尚未实现 factor repair 的 active job/sensor。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -1333,8 +1333,13 @@ ops:
       </tr>
       <tr>
         <td>变化检测</td>
-        <td>repair job 内用 DuckDB 比较 <code>silver_adj_factor[trade_date]</code> 与上一股票交易日的 <code>silver_adj_factor[previous_trade_date]</code>，筛出因子变化股票。</td>
-        <td>几千只股票的因子差异比较很轻；没有变化时 job 直接成功，并由 repair check metadata 写明 <code>reason=no_factor_changed</code> 和 <code>changed_code_count=0</code>。</td>
+        <td>repair job 内用 DuckDB 比较 <code>silver_adj_factor[trade_date]</code> 与上一股票交易日的 <code>silver_adj_factor[previous_trade_date]</code>，并结合 <code>silver_stock_basic.list_date</code> 生成 repair plan。</td>
+        <td>几千只股票的因子差异比较很轻；M9B 已实现纯 helper，不读取正式 Dagster instance，不写 lake，不新增 active check。</td>
+      </tr>
+      <tr>
+        <td>变化分类</td>
+        <td><code>factor_changed</code> 进入历史 repair；<code>new_current_code</code> 表示新上市股票，不进入历史 repair；<code>missing_previous_factor</code> 表示非新上市股票缺上一日因子，是阻塞异常。</td>
+        <td>无变化时 <code>reason=no_factor_changed</code> 且 <code>repair_required_code_count=0</code>；缺上一日因子时 repair plan 不可执行，M9C check 必须失败。</td>
       </tr>
       <tr>
         <td>历史回刷</td>
@@ -1633,8 +1638,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M9B</strong></td>
         <td>Repair detection 与 check 契约</td>
-        <td>实现因子变化检测、repair plan 生成和 repair check metadata 口径。</td>
-        <td>无变化必须可快速成功；新增股票、缺上一日因子、普通因子变化要分开统计；不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。</td>
+        <td>已实现因子变化检测、repair plan 生成和 repair check metadata 口径。</td>
+        <td>无变化可快速成功；新增股票、缺上一日因子、普通因子变化已分开统计；不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。</td>
       </tr>
       <tr>
         <td><strong>M9C</strong></td>
@@ -1659,7 +1664,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M6G 已新增 <code>stock_mins_silver_sensor</code>：它只在 silver 分区已注册、上游 readiness 全部满足且目标 silver 尚未 ready 时，触发 <code>stock_mins_silver_update_job</code>。
       gold 历史 baseline 已完成：命令式生成 gold qfq 股票年份文件，并按 <code>freq/year</code> 年度批量补录 runless materialization/check events。
       M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与默认停止的 <code>stock_mins_qfq_daily_sensor</code>：它只在 23:00 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。
-      当前尚未实现的是 factor repair job/sensor；下一步进入 repair detection 与 check 契约。
+      M9B 已实现 factor repair detection 与 check metadata 契约。
+      当前尚未实现的是 factor repair job/sensor；下一步进入 M9C repair job 与 sensor。
     </p>
 
     <table>
