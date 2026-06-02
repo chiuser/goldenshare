@@ -205,6 +205,20 @@ Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，
 7. 如果执行中发现 dry-run 明显慢于预期，必须停下重新评估查询模型，优先改成聚合审计或分批审计；禁止硬等或继续扩大到写入阶段。
 8. 任何新增历史批量 helper，都必须在设计文档中写清楚采用的是聚合审计还是逐分区审计；若选择逐分区审计，必须解释规模为什么可接受。
 
+### Parquet 计算与写入门禁
+
+涉及分钟线、日线、历史 bootstrap、日常增量、silver/gold 派生、qfq、repair、runless event 前置审计等正式 lake Parquet 数据处理时，禁止用 Python 手搓明细计算或逐行写 Parquet。
+
+规则：
+
+1. 正式 lake parquet 的计算、过滤、join、聚合、去重、修复合并和写入必须优先使用 DuckDB SQL、`COPY ... TO parquet` 或等价的向量化/列式引擎能力；历史批量和日常增量都适用。
+2. 禁止把分钟线、日线或分区明细拉回 Python 后，用 `for` 循环、list/dict 拼装、逐行计算、逐行 merge 或逐行写文件来生成正式 lake parquet。
+3. Python 只允许做编排、参数校验、路径发现、批次规划、少量样本收集和结果汇总；不得承载正式数据集的大体量业务计算逻辑。
+4. 若确需在 Python 中处理数据，必须证明数据规模很小且不会随历史分区、股票数量、分钟行数或日常新增量增长；方案文档必须写清行数上界和为什么 DuckDB 不适用。
+5. 写正式 Parquet 时，必须使用临时文件加原子替换，例如 `.tmp + os.replace`；禁止直接覆盖目标文件导致半写入状态。
+6. 历史批量写入必须先说明物理文件冲突维度，例如 `freq/ts_code/year`，并设计串行或等价互斥保护；禁止多个任务同时写同一个目标 Parquet 文件。
+7. 代码评审时，一旦发现新增 helper 在正式路径上用 Python 手工计算大体量数据或写 Parquet，必须停止开发，改回 DuckDB/SQL 方案后才能继续。
+
 ### Full Snapshot 并发保护门禁
 
 `stock_basic` 这类 full snapshot asset 写的是单个全量文件。并发运行时，即使 `.tmp + os.replace` 能避免半截文件，也可能出现重复打接口、后完成 run 覆盖先完成 run、metadata 观测混乱等问题。

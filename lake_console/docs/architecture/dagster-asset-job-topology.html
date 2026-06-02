@@ -1104,10 +1104,11 @@
    - silver_stk_mins_1m/5m/15m/30m/60m assets and checks are implemented
    - stock_mins_silver_update_job is implemented as the silver-only daily entry
    - stock_mins_silver_sensor triggers the silver job for the latest registered silver partition after 22:45
-   - silver historical generation and runless events are not executed yet
+   - silver historical generation, runless events and 2014+ silver partition registration are completed
    - gold_stk_mins_qfq_1m/5m/15m/30m/60m assets are implemented
    - gold qfq blocking checks are implemented with one multi_asset_check per freq
-   - gold qfq daily job, daily sensor, repair job and repair sensor are not implemented yet</code></pre>
+   - gold qfq historical file generation and runless event backfill are the next milestone
+   - gold qfq daily job, daily sensor, repair job and repair sensor are deferred until the historical baseline is visible in Dagster UI/readiness</code></pre>
   </section>
 </main>
 </body>

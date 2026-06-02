@@ -713,7 +713,7 @@
             <td>正式路径已拍板并接入 asset definition metadata：<code>data_lake/gold/quote/stk_mins_qfq/freq=*/ts_code=*/year=*/part-000.parquet</code>；Dagster 逻辑分区仍按交易日。</td>
             <td><code>silver_stk_mins_*</code>, <code>silver_adj_factor</code></td>
             <td><span class="tag gold">gold</span></td>
-            <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code>（assets 与 blocking checks 已实现；job/sensor 尚未实现）</td>
+            <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code>（assets 与 blocking checks 已实现；下一步先做历史文件生成与 runless event 补录，日常 job/sensor 后移）</td>
           </tr>
           <tr>
             <td><code>stk_mins</code></td>
