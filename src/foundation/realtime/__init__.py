@@ -5,16 +5,20 @@ from src.foundation.realtime.constants import (
     STOCK_RT_MIN_SOURCE_API_NAME,
 )
 from src.foundation.realtime.collector_service import RealtimeCollectorCycleResult, RealtimeCollectorFeedRun, RealtimeCollectorService
-from src.foundation.realtime.feed_config import (
+from src.foundation.realtime.runtime_config import (
     STOCK_RT_MIN_ALLOWED_FREQS,
+    RealtimeRuntimeConfigError,
     RealtimeFeedStorageConfig,
     RealtimeRuntimeConfig,
     RealtimeStockRtDailyConfig,
     RealtimeStockRtMinConfig,
+    build_realtime_runtime_config_from_json,
+    clear_realtime_runtime_config_cache,
     get_realtime_runtime_config,
     get_realtime_stock_rt_daily_config,
     get_realtime_stock_rt_min_config,
     get_realtime_tushare_max_calls_per_minute,
+    load_realtime_runtime_config,
     normalize_stock_rt_min_freq,
 )
 from src.foundation.realtime.market_clock import CollectionWindowContext, RealtimeMarketClock
@@ -57,6 +61,7 @@ __all__ = [
     "RealtimeMarketClock",
     "RealtimeRedisKeys",
     "RealtimeRuntimeConfig",
+    "RealtimeRuntimeConfigError",
     "RealtimeStateStore",
     "RealtimeStateStoreUnavailable",
     "RealtimeStockRtDailyConfig",
@@ -79,11 +84,14 @@ __all__ = [
     "TushareStockRtDailyProvider",
     "TushareStockRtMinProvider",
     "build_batch_id",
+    "build_realtime_runtime_config_from_json",
     "build_realtime_state_store",
+    "clear_realtime_runtime_config_cache",
     "get_realtime_runtime_config",
     "get_realtime_stock_rt_daily_config",
     "get_realtime_stock_rt_min_config",
     "get_realtime_tushare_max_calls_per_minute",
+    "load_realtime_runtime_config",
     "normalize_stock_rt_min_freq",
     "normalize_stock_rt_min_rows",
     "normalize_stock_rt_daily_rows",

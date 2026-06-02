@@ -4,6 +4,9 @@ from types import SimpleNamespace
 
 import pytest
 import requests
+from sqlalchemy import create_engine
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from src.foundation.clients.tushare_client import (
     _API_RATE_LIMITS,
@@ -13,7 +16,22 @@ from src.foundation.clients.tushare_client import (
     TushareHttpClient,
     TushareRateLimitError,
 )
-from src.foundation.config.settings import get_settings
+from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
+from src.foundation.realtime import clear_realtime_runtime_config_cache
+from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
+
+
+def _runtime_config_session() -> Session:
+    engine = create_engine(
+        "sqlite+pysqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+        future=True,
+    )
+    with engine.begin() as connection:
+        connection.exec_driver_sql("ATTACH DATABASE ':memory:' AS foundation")
+        RealtimeRuntimeConfigRecord.__table__.create(connection)
+    return sessionmaker(bind=engine, autoflush=False, autocommit=False, future=True)()
 
 
 def test_tushare_http_client_builds_session_with_post_retries() -> None:
@@ -94,14 +112,20 @@ def test_tushare_index_daily_rate_limit_keeps_safety_margin() -> None:
     assert _API_RATE_LIMITS["index_daily"] < 500
 
 
-def test_tushare_realtime_rate_limits_use_realtime_feed_config(monkeypatch) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE", "11")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE", "13")
-    get_settings.cache_clear()
+def test_tushare_realtime_rate_limits_use_runtime_config(monkeypatch) -> None:
+    session = _runtime_config_session()
+    seed_realtime_runtime_config(
+        session,
+        daily={"max_calls_per_minute": 11},
+        minute={"max_calls_per_minute": 13},
+    )
+    monkeypatch.setattr("src.db.SessionLocal", lambda: session)
+    clear_realtime_runtime_config_cache()
     _rate_limiters.clear()
 
     assert _get_rate_limiter("rt_k").max_calls == 11
     assert _get_rate_limiter("rt_min").max_calls == 13
+    clear_realtime_runtime_config_cache()
 
 
 def test_tushare_rate_limiter_spaces_calls_evenly(mocker) -> None:

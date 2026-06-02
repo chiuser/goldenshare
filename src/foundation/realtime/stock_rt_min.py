@@ -18,7 +18,7 @@ from src.foundation.realtime.constants import (
     STOCK_RT_MIN_SOURCE,
     STOCK_RT_MIN_SOURCE_API_NAME,
 )
-from src.foundation.realtime.feed_config import RealtimeStockRtMinConfig, get_realtime_stock_rt_min_config, normalize_stock_rt_min_freq
+from src.foundation.realtime.runtime_config import RealtimeStockRtMinConfig, get_realtime_stock_rt_min_config, normalize_stock_rt_min_freq
 from src.foundation.realtime.market_clock import RealtimeMarketClock
 from src.foundation.realtime.state_store import RealtimePublishResult, RealtimeStateStore
 from src.foundation.realtime.state_store import RealtimeStateStoreUnavailable

@@ -38,7 +38,7 @@ class RealtimeStockRtDailyQueryService:
         self._now_provider = now_provider or (lambda: datetime.now(CN_TIMEZONE))
 
     def build_snapshot(self, session: Session, *, ts_codes: str | None) -> StockRtDailySnapshotResponse:
-        config = get_realtime_stock_rt_daily_config()
+        config = get_realtime_stock_rt_daily_config(session)
         normalized_codes = _normalize_ts_codes(ts_codes)
         if not normalized_codes:
             raise RealtimeQueryValidationError("MISSING_TS_CODES", "请提供需要查询的股票代码")

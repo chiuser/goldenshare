@@ -18,7 +18,7 @@ from src.foundation.realtime.constants import (
     STOCK_RT_DAILY_SOURCE,
     STOCK_RT_DAILY_SOURCE_API_NAME,
 )
-from src.foundation.realtime.feed_config import RealtimeStockRtDailyConfig, get_realtime_stock_rt_daily_config
+from src.foundation.realtime.runtime_config import RealtimeStockRtDailyConfig, get_realtime_stock_rt_daily_config
 from src.foundation.realtime.market_clock import RealtimeMarketClock
 from src.foundation.realtime.state_store import RealtimePublishResult, RealtimeStateStore, RealtimeStateStoreUnavailable
 

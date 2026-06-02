@@ -5,7 +5,6 @@ from zoneinfo import ZoneInfo
 
 from src.app.dependencies.realtime import get_realtime_state_store
 from src.app.web.app import app
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import (
     InMemoryRealtimeStateStore,
     STOCK_RT_DAILY_FEED_KEY,
@@ -14,6 +13,7 @@ from src.foundation.realtime import (
 )
 from src.foundation.realtime.state_store import UnavailableRealtimeStateStore
 from src.ops.queries.realtime_feed_health_query_service import RealtimeFeedHealthQueryService
+from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
 
 
 CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -65,7 +65,7 @@ def test_stock_rt_daily_snapshot_api_returns_unavailable_without_current_batch(a
 def test_stock_rt_min_snapshot_api_reads_current_batch_by_freq(app_client, db_session, trade_calendar_factory) -> None:
     today = datetime.now(CN_TIMEZONE).date()
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
-    config = get_realtime_stock_rt_min_config()
+    config = get_realtime_stock_rt_min_config(db_session)
     store = InMemoryRealtimeStateStore()
     store.publish_batch(
         feed_key=config.feed_key_for_freq("1MIN"),
@@ -104,7 +104,7 @@ def test_stock_rt_min_snapshot_api_reads_current_batch_by_freq(app_client, db_se
 def test_stock_rt_min_snapshot_api_keeps_freq_feeds_isolated(app_client, db_session, trade_calendar_factory) -> None:
     today = datetime.now(CN_TIMEZONE).date()
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
-    config = get_realtime_stock_rt_min_config()
+    config = get_realtime_stock_rt_min_config(db_session)
     store = InMemoryRealtimeStateStore()
     store.publish_batch(
         feed_key=config.feed_key_for_freq("1MIN"),
@@ -173,9 +173,7 @@ def test_stock_rt_min_snapshot_api_returns_unavailable_without_current_batch(app
     assert response.json()["code"] == "REALTIME_FEED_UNAVAILABLE"
 
 
-def test_ops_realtime_health_api_uses_health_contract(app_client, auth_token, monkeypatch, trade_calendar_factory) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_ENABLED", "true")
-    get_settings.cache_clear()
+def test_ops_realtime_health_api_uses_health_contract(app_client, auth_token, trade_calendar_factory) -> None:
     today = datetime.now(CN_TIMEZONE).date()
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
     store = InMemoryRealtimeStateStore()
@@ -224,15 +222,13 @@ def test_ops_realtime_health_api_uses_health_contract(app_client, auth_token, mo
 def test_ops_stock_rt_min_health_api_returns_all_supported_freqs(
     app_client,
     auth_token,
-    monkeypatch,
+    db_session,
     trade_calendar_factory,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN")
-    get_settings.cache_clear()
+    seed_realtime_runtime_config(db_session, minute={"enabled": True, "enabled_freqs": ["1MIN", "5MIN"]})
     today = datetime.now(CN_TIMEZONE).date()
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
-    config = get_realtime_stock_rt_min_config()
+    config = get_realtime_stock_rt_min_config(db_session)
     store = InMemoryRealtimeStateStore()
     feed_key = config.feed_key_for_freq("1MIN")
     store.publish_batch(
@@ -288,12 +284,10 @@ def test_ops_stock_rt_min_health_api_returns_all_supported_freqs(
 def test_ops_stock_rt_min_health_api_can_filter_single_freq(
     app_client,
     auth_token,
-    monkeypatch,
+    db_session,
     trade_calendar_factory,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN")
-    get_settings.cache_clear()
+    seed_realtime_runtime_config(db_session, minute={"enabled": True, "enabled_freqs": ["1MIN", "5MIN"]})
     today = datetime.now(CN_TIMEZONE).date()
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
     store = InMemoryRealtimeStateStore()
@@ -319,12 +313,10 @@ def test_ops_stock_rt_min_health_api_rejects_invalid_freq(app_client, auth_token
     assert response.json()["code"] == "INVALID_FREQ"
 
 
-def test_ops_stock_rt_min_health_query_marks_stale_and_degraded(db_session, trade_calendar_factory, monkeypatch) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN")
-    get_settings.cache_clear()
+def test_ops_stock_rt_min_health_query_marks_stale_and_degraded(db_session, trade_calendar_factory) -> None:
+    seed_realtime_runtime_config(db_session, minute={"enabled": True, "enabled_freqs": ["1MIN", "5MIN"]})
     trade_calendar_factory(exchange="SSE", trade_date=datetime(2026, 6, 1).date(), is_open=True)
-    config = get_realtime_stock_rt_min_config()
+    config = get_realtime_stock_rt_min_config(db_session)
     store = InMemoryRealtimeStateStore()
     stale_feed_key = config.feed_key_for_freq("1MIN")
     degraded_feed_key = config.feed_key_for_freq("5MIN")
@@ -365,12 +357,10 @@ def test_ops_stock_rt_min_health_query_marks_stale_and_degraded(db_session, trad
 def test_ops_stock_rt_min_health_api_returns_unavailable_for_enabled_freq_on_redis_failure(
     app_client,
     auth_token,
-    monkeypatch,
+    db_session,
     trade_calendar_factory,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN")
-    get_settings.cache_clear()
+    seed_realtime_runtime_config(db_session, minute={"enabled": True, "enabled_freqs": ["1MIN"]})
     today = datetime.now(CN_TIMEZONE).date()
     trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
     app.dependency_overrides[get_realtime_state_store] = lambda: UnavailableRealtimeStateStore("redis down")

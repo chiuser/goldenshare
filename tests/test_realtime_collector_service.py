@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import InMemoryRealtimeStateStore, RealtimeCollectorService
 from src.foundation.realtime.stock_rt_daily import StockRtDailyCycleResult
 from src.foundation.realtime.stock_rt_min import StockRtMinCycleResult
+from tests.realtime_runtime_config_helpers import make_realtime_runtime_config
 
 
 @dataclass
@@ -54,13 +54,12 @@ class FakeMinuteCollector:
         )
 
 
-def test_realtime_collector_service_does_not_schedule_minutes_when_disabled(monkeypatch) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "false")
-    get_settings.cache_clear()
+def test_realtime_collector_service_does_not_schedule_minutes_when_disabled() -> None:
     daily = FakeDailyCollector()
     minute = FakeMinuteCollector()
     service = RealtimeCollectorService(
         store=InMemoryRealtimeStateStore(),
+        config=make_realtime_runtime_config(minute={"enabled": False}),
         daily_collector=daily,  # type: ignore[arg-type]
         stock_rt_min_collector=minute,  # type: ignore[arg-type]
         monotonic_provider=MutableClock(100.0),
@@ -74,16 +73,13 @@ def test_realtime_collector_service_does_not_schedule_minutes_when_disabled(monk
 
 
 def test_realtime_collector_service_schedules_daily_and_minute_feeds_by_independent_due_time(
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN")
-    get_settings.cache_clear()
     clock = MutableClock(100.0)
     daily = FakeDailyCollector()
     minute = FakeMinuteCollector()
     service = RealtimeCollectorService(
         store=InMemoryRealtimeStateStore(),
+        config=make_realtime_runtime_config(minute={"enabled": True, "enabled_freqs": ["1MIN", "5MIN"]}),
         daily_collector=daily,  # type: ignore[arg-type]
         stock_rt_min_collector=minute,  # type: ignore[arg-type]
         monotonic_provider=clock,
@@ -109,12 +105,10 @@ def test_realtime_collector_service_schedules_daily_and_minute_feeds_by_independ
     assert minute.calls == ["1MIN", "5MIN", "1MIN", "5MIN"]
 
 
-def test_realtime_collector_service_isolates_single_minute_frequency_failure(monkeypatch) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED_FREQS", "1MIN,5MIN")
-    get_settings.cache_clear()
+def test_realtime_collector_service_isolates_single_minute_frequency_failure() -> None:
     service = RealtimeCollectorService(
         store=InMemoryRealtimeStateStore(),
+        config=make_realtime_runtime_config(minute={"enabled": True, "enabled_freqs": ["1MIN", "5MIN"]}),
         daily_collector=FakeDailyCollector(),  # type: ignore[arg-type]
         stock_rt_min_collector=FakeMinuteCollector(fail_freq="1MIN"),  # type: ignore[arg-type]
         monotonic_provider=MutableClock(100.0),

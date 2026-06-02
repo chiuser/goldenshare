@@ -44,7 +44,7 @@ class RealtimeFeedHealthQueryService:
         self._now_provider = now_provider or (lambda: datetime.now(CN_TIMEZONE))
 
     def build_stock_rt_daily_health(self, session: Session) -> OpsRealtimeStockRtDailyHealthResponse:
-        config = get_realtime_stock_rt_daily_config()
+        config = get_realtime_stock_rt_daily_config(session)
         now = self._now_provider().astimezone(CN_TIMEZONE)
         clock = RealtimeMarketClock().resolve(
             session,
@@ -127,7 +127,7 @@ class RealtimeFeedHealthQueryService:
         )
 
     def build_stock_rt_min_health(self, session: Session, *, freq: str | None = None) -> OpsRealtimeStockRtMinHealthResponse:
-        config = get_realtime_stock_rt_min_config()
+        config = get_realtime_stock_rt_min_config(session)
         requested_freqs = _requested_min_freqs(freq)
         now = self._now_provider().astimezone(CN_TIMEZONE)
         clock = RealtimeMarketClock().resolve(

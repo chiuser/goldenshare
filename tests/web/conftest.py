@@ -52,6 +52,7 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.app.auth.password_service import PasswordService
+from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
 
 
 @pytest.fixture(autouse=True)
@@ -136,6 +137,11 @@ def db_session(web_engine) -> Generator[Session, None, None]:
         session.close()
 
 
+@pytest.fixture(autouse=True)
+def default_realtime_runtime_config(db_session: Session) -> None:
+    seed_realtime_runtime_config(db_session)
+
+
 @pytest.fixture()
 def user_factory(db_session: Session) -> Callable[..., AppUser]:
     def build(
@@ -169,6 +175,8 @@ def user_factory(db_session: Session) -> Callable[..., AppUser]:
 def app_client(db_session: Session) -> Generator[TestClient, None, None]:
     from src.app.web.app import app
     from src.app.dependencies.db import get_db_session
+    from src.app.dependencies.realtime import get_realtime_state_store
+    from src.foundation.realtime import InMemoryRealtimeStateStore
 
     get_settings.cache_clear()
 
@@ -176,6 +184,7 @@ def app_client(db_session: Session) -> Generator[TestClient, None, None]:
         yield db_session
 
     app.dependency_overrides[get_db_session] = override_db_session
+    app.dependency_overrides[get_realtime_state_store] = lambda: InMemoryRealtimeStateStore()
     with TestClient(app) as client:
         yield client
     app.dependency_overrides.clear()

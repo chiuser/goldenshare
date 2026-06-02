@@ -3,29 +3,20 @@ from __future__ import annotations
 from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo
 
-import pytest
-
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import (
     InMemoryRealtimeStateStore,
     STOCK_RT_MIN_FIELDS,
     StockRtMinFeedPublisher,
     StockRtMinFetchResult,
     TushareStockRtMinProvider,
-    get_realtime_stock_rt_min_config,
     normalize_stock_rt_min_rows,
 )
 from src.foundation.realtime.constants import STOCK_RT_MIN_SOURCE_API_NAME
+from src.foundation.realtime.runtime_config import RealtimeStockRtMinConfig
+from tests.realtime_runtime_config_helpers import make_realtime_runtime_config
 
 
 CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
-
-
-@pytest.fixture(autouse=True)
-def clear_settings_cache() -> None:
-    get_settings.cache_clear()
-    yield
-    get_settings.cache_clear()
 
 
 class RecordingTushareClient:
@@ -38,8 +29,9 @@ class RecordingTushareClient:
 
 
 class FakeStockRtMinProvider:
-    def __init__(self, row_batches_by_freq: dict[str, list[list[dict]]]) -> None:
+    def __init__(self, row_batches_by_freq: dict[str, list[list[dict]]], *, config: RealtimeStockRtMinConfig) -> None:
         self.row_batches_by_freq = row_batches_by_freq
+        self.config = config
         self.calls_by_freq: dict[str, int] = {}
 
     def fetch_all_market(self, *, freq: str) -> StockRtMinFetchResult:
@@ -47,21 +39,19 @@ class FakeStockRtMinProvider:
         self.calls_by_freq[freq] = calls + 1
         batches = self.row_batches_by_freq[freq]
         rows = batches[min(calls, len(batches) - 1)]
-        config = get_realtime_stock_rt_min_config()
         return StockRtMinFetchResult(
             freq=freq,
-            feed_key=config.feed_key_for_freq(freq),
+            feed_key=self.config.feed_key_for_freq(freq),
             rows=rows,
             source_elapsed_ms=12.5,
-            request_params={"ts_code": config.ts_code_pattern, "freq": freq},
+            request_params={"ts_code": self.config.ts_code_pattern, "freq": freq},
         )
 
 
-def test_stock_rt_min_provider_requests_rt_min_with_freq_pattern_and_explicit_fields(monkeypatch) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN", "3*.SZ,6*.SH,0*.SZ,9*.BJ")
-    get_settings.cache_clear()
+def test_stock_rt_min_provider_requests_rt_min_with_freq_pattern_and_explicit_fields() -> None:
+    config = make_realtime_runtime_config().stock_rt_min
     client = RecordingTushareClient()
-    provider = TushareStockRtMinProvider(client=client)  # type: ignore[arg-type]
+    provider = TushareStockRtMinProvider(client=client, config=config)  # type: ignore[arg-type]
 
     result = provider.fetch_all_market(freq="1min")
 
@@ -133,10 +123,8 @@ def test_normalize_stock_rt_min_rows_counts_invalid_identity_rows() -> None:
     }
 
 
-def test_stock_rt_min_publish_freq_isolates_redis_feeds_and_keeps_delta_stream_ready(monkeypatch) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_KEEP_RECENT_BATCHES", "3")
-    get_settings.cache_clear()
-    config = get_realtime_stock_rt_min_config()
+def test_stock_rt_min_publish_freq_isolates_redis_feeds_and_keeps_delta_stream_ready() -> None:
+    config = make_realtime_runtime_config(minute={"keep_recent_batches": 3}).stock_rt_min
     store = InMemoryRealtimeStateStore()
     provider = FakeStockRtMinProvider(
         {
@@ -147,7 +135,8 @@ def test_stock_rt_min_publish_freq_isolates_redis_feeds_and_keeps_delta_stream_r
             "5MIN": [
                 [{"ts_code": "600000.SH", "freq": "5MIN", "time": "2026-06-01 10:35:00", "close": 10.5}]
             ],
-        }
+        },
+        config=config,
     )
     now_values = iter(
         [

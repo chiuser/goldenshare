@@ -6,7 +6,7 @@ from typing import Callable
 
 from sqlalchemy.orm import Session
 
-from src.foundation.realtime.feed_config import RealtimeRuntimeConfig, get_realtime_runtime_config
+from src.foundation.realtime.runtime_config import RealtimeRuntimeConfig, get_realtime_runtime_config
 from src.foundation.realtime.state_store import RealtimeStateStore
 from src.foundation.realtime.stock_rt_daily import StockRtDailyCollector, StockRtDailyCycleResult
 from src.foundation.realtime.stock_rt_min import StockRtMinCollector, StockRtMinCycleResult

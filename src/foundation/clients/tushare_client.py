@@ -60,7 +60,7 @@ _rate_limiters: dict[str, _RateLimiter] = {}
 
 
 def _get_rate_limiter(api_name: str | None = None) -> _RateLimiter:
-    from src.foundation.realtime.feed_config import get_realtime_tushare_max_calls_per_minute
+    from src.foundation.realtime.runtime_config import get_realtime_tushare_max_calls_per_minute
 
     settings = get_settings()
     key = api_name or "__default__"

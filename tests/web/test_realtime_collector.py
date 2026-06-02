@@ -3,8 +3,8 @@ from __future__ import annotations
 from datetime import date, datetime, timedelta
 from zoneinfo import ZoneInfo
 
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import InMemoryRealtimeStateStore, STOCK_RT_DAILY_FEED_KEY, StockRtDailyCollector, StockRtDailyFetchResult
+from tests.realtime_runtime_config_helpers import load_test_realtime_runtime_config
 
 
 CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -38,10 +38,8 @@ class RecordingLeaseStore(InMemoryRealtimeStateStore):
 def test_stock_rt_daily_collector_publishes_current_batch_and_delta(
     db_session,
     trade_calendar_factory,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_ENABLED", "true")
-    get_settings.cache_clear()
+    config = load_test_realtime_runtime_config(db_session).stock_rt_daily
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
     store = InMemoryRealtimeStateStore()
     provider = FakeStockRtDailyProvider(
@@ -65,6 +63,7 @@ def test_stock_rt_daily_collector_publishes_current_batch_and_delta(
     collector = StockRtDailyCollector(
         store=store,
         provider=provider,  # type: ignore[arg-type]
+        config=config,
         now_provider=lambda: next(now_values),
         collector_id="test-collector",
     )
@@ -88,11 +87,8 @@ def test_stock_rt_daily_collector_publishes_current_batch_and_delta(
 def test_stock_rt_daily_collector_uses_configured_lease_ttl(
     db_session,
     trade_calendar_factory,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS", "44")
-    get_settings.cache_clear()
+    config = load_test_realtime_runtime_config(db_session, daily={"lease_ttl_seconds": 44}).stock_rt_daily
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
     store = RecordingLeaseStore()
     provider = FakeStockRtDailyProvider(
@@ -101,6 +97,7 @@ def test_stock_rt_daily_collector_uses_configured_lease_ttl(
     collector = StockRtDailyCollector(
         store=store,
         provider=provider,  # type: ignore[arg-type]
+        config=config,
         now_provider=lambda: datetime(2026, 5, 15, 9, 35, 0, tzinfo=CN_TIMEZONE),
         collector_id="test-collector",
     )
@@ -114,15 +111,14 @@ def test_stock_rt_daily_collector_uses_configured_lease_ttl(
 def test_stock_rt_daily_collector_skips_source_request_outside_collection_window(
     db_session,
     trade_calendar_factory,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_DAILY_ENABLED", "true")
-    get_settings.cache_clear()
+    config = load_test_realtime_runtime_config(db_session).stock_rt_daily
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 5, 15), is_open=True)
     provider = FakeStockRtDailyProvider([[{"ts_code": "600000.SH"}]])
     collector = StockRtDailyCollector(
         store=InMemoryRealtimeStateStore(),
         provider=provider,  # type: ignore[arg-type]
+        config=config,
         now_provider=lambda: datetime(2026, 5, 15, 12, 0, 0, tzinfo=CN_TIMEZONE),
         collector_id="test-collector",
     )

@@ -39,7 +39,7 @@ class RealtimeStockRtMinQueryService:
         self._now_provider = now_provider or (lambda: datetime.now(CN_TIMEZONE))
 
     def build_snapshot(self, session: Session, *, freq: str | None, ts_codes: str | None) -> StockRtMinSnapshotResponse:
-        config = get_realtime_stock_rt_min_config()
+        config = get_realtime_stock_rt_min_config(session)
         normalized_freq = _normalize_freq(freq)
         normalized_codes = _normalize_ts_codes(ts_codes)
         if not normalized_codes:

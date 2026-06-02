@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from src.foundation.config.settings import get_settings
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
-from src.foundation.realtime.feed_config import (
+from src.foundation.realtime.runtime_config import (
     RealtimeFeedStorageConfig,
     RealtimeRuntimeConfig,
     RealtimeStockRtDailyConfig,

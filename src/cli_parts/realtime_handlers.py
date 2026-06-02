@@ -14,7 +14,8 @@ def run_realtime_collector_serve(
     max_cycles: int | None,
     echo_fn: Callable[[str], None],
 ) -> None:
-    config = get_realtime_runtime_config()
+    with session_local() as session:
+        config = get_realtime_runtime_config(session)
     store = build_realtime_state_store(config.redis_url)
     collector = RealtimeCollectorService(store=store, config=config)
     cycle = 0

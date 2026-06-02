@@ -432,7 +432,7 @@ th code {
         页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
       </p>
       <div class="tag-row">
-        <span class="tag warn">状态：待评审</span>
+        <span class="tag warn">状态：M3 读取层已切换 / API 待开发</span>
         <span class="tag info">不直接编辑 env</span>
         <span class="tag info">不请求 Tushare</span>
         <span class="tag info">不改 Redis key 模型</span>
@@ -444,11 +444,11 @@ th code {
       <div class="meta-grid">
         <div class="meta-card">
           <div class="meta-label">配置读取</div>
-          <div class="meta-value">foundation/realtime/feed_config.py</div>
+          <div class="meta-value">foundation/realtime/runtime_config.py</div>
         </div>
         <div class="meta-card">
           <div class="meta-label">配置来源</div>
-          <div class="meta-value">Settings / env</div>
+          <div class="meta-value">foundation.realtime_runtime_config</div>
         </div>
         <div class="meta-card">
           <div class="meta-label">Ops API</div>
@@ -460,7 +460,7 @@ th code {
         </div>
       </div>
       <p>
-        结论：当前没有配置中心 API，也没有可发布的配置事实表。直接让页面改 env 不合理，必须先补运行时配置事实源。
+        结论：运行时读取已切到数据库配置事实源；当前仍没有配置中心 API，发布、审计和前端配置页留到后续阶段。
       </p>
     </aside>
   </section>
@@ -557,7 +557,7 @@ th code {
           <td>配置读取模块</td>
           <td><code>src/foundation/realtime/runtime_config.py</code></td>
           <td><code>foundation/realtime</code></td>
-          <td>目标命名。当前代码文件是 <code>feed_config.py</code>，配置中心落地时应同步改名，避免把“运行时配置”误解成单个 feed 的辅助配置。</td>
+          <td>M3 已落地。该模块从运行时配置表读取可编辑配置，并结合代码目录中的锁定事实生成统一配置对象。</td>
         </tr>
         <tr>
           <td>实时快照读取服务</td>
@@ -622,9 +622,9 @@ th code {
       </thead>
       <tbody>
         <tr>
-          <td><code>src/foundation/realtime/feed_config.py</code> 从 <code>Settings/env</code> 生成配置对象。</td>
-          <td>配置项仍以 env 为主，页面无法发布运行时配置。</td>
-          <td>改为 <code>runtime_config.py</code>，读取 <code>foundation.realtime_runtime_config</code>；env 只保留部署秘密和初始化种子。</td>
+          <td><code>src/foundation/realtime/runtime_config.py</code> 从 <code>foundation.realtime_runtime_config</code> 读取可编辑配置，结合 <code>config_catalog.py</code> 锁定事实生成配置对象。</td>
+          <td>M3 已解决运行时配置来源问题；配置中心 API 和发布审计尚未实现。</td>
+          <td>后续继续实现 Ops 配置 API、发布写 revision、Settings 旧字段退场和远程 env 清理。</td>
         </tr>
         <tr>
           <td>Biz 查询服务直接调用 <code>get_realtime_stock_rt_*_config()</code>，并使用 <code>feed_key</code>、<code>collection_sessions</code>、<code>stale_after_seconds</code>。</td>
@@ -632,9 +632,9 @@ th code {
           <td>Biz 查询服务改为调用 <code>RealtimeSnapshotReader</code>；底层 key、stale、collection_status 由 reader 封装。</td>
         </tr>
         <tr>
-          <td>Ops health 查询服务读取配置并读取 Redis health。</td>
+          <td>Ops health 查询服务通过 runtime resolver 读取配置，并读取 Redis health。</td>
           <td>这是合理的，因为 Ops health 的职责就是展示“应该怎么运行”和“实际运行得怎么样”。</td>
-          <td>保留该方向，但配置来源统一改为 runtime config resolver。</td>
+          <td>保留该方向；后续配置 API 复用同一配置校验口径。</td>
         </tr>
       </tbody>
     </table>
@@ -785,8 +785,8 @@ th code {
         </tr>
         <tr>
           <td>6. 写入修订记录</td>
-          <td>初始化是否写 <code>ops.config_revision</code> 可按动作类型区分。正式页面发布必须写 revision，<code>object_type=realtime_runtime_config</code>。</td>
-          <td>发布历史只记录 before/after 与操作人，不作为 runtime config 的读取来源。</td>
+          <td>初始化不写 <code>ops.config_revision</code>。正式页面发布必须写 revision，<code>object_type=realtime_runtime_config</code>。</td>
+          <td>初始化只是种子动作；发布历史只记录 before/after 与操作人，不作为 runtime config 的读取来源。</td>
         </tr>
         <tr>
           <td>7. 迁移验证</td>
@@ -803,8 +803,8 @@ th code {
 
     <h3 style="margin-top:18px;">3.4 旧配置项退场清单</h3>
     <p>
-      当前实时流配置主要散落在 <code>src/foundation/config/settings.py</code> 的 <code>REALTIME_STOCK_RT_*</code> env 字段里。
-      配置中心上线后，这些字段不能继续作为运行时事实来源。退场分三类：部署级保留、运行时配置入库、锁定事实进入代码目录。
+      M3 之前，实时流配置主要散落在 <code>src/foundation/config/settings.py</code> 的 <code>REALTIME_STOCK_RT_*</code> env 字段里。
+      M3 之后，运行时主链已经切到 <code>foundation.realtime_runtime_config</code> 和 <code>config_catalog.py</code>；旧字段只剩初始化种子和后续退场清理。退场分三类：部署级保留、运行时配置入库、锁定事实进入代码目录。
     </p>
     <table>
       <thead>
@@ -990,24 +990,24 @@ th code {
           <td>数据库中存在 <code>stock_rt_daily</code>、<code>stock_rt_min</code> 两行；页面和 resolver 能读到与旧 env 一致的值。</td>
         </tr>
         <tr>
-          <td>3. 切换运行时读取</td>
+          <td>3. 切换运行时读取（M3 已完成）</td>
           <td><code>runtime_config.py</code> 改为从数据库当前配置 + <code>config_catalog.py</code> 锁定事实 + 部署级 env 生成 <code>RealtimeRuntimeConfig</code>。</td>
           <td>collector、provider、Tushare 限速、Redis store 构建、snapshot reader、Ops health 都不再读取 <code>settings.realtime_stock_rt_*</code>。</td>
         </tr>
         <tr>
-          <td>4. 下沉 Biz 读取细节</td>
+          <td>4. 下沉 Biz 读取细节（待 M5）</td>
           <td>Biz 查询服务停止直接调用 <code>get_realtime_stock_rt_*_config()</code>，改为调用 <code>RealtimeSnapshotReader</code>。</td>
           <td>Biz API 不知道配置表、feed key、Redis key 规则和底层 stale 计算；只做参数校验和 schema 映射。</td>
         </tr>
         <tr>
-          <td>5. 删除 Settings 旧字段</td>
+          <td>5. 删除 Settings 旧字段（待 M4）</td>
           <td>从 <code>src/foundation/config/settings.py</code> 删除所有 <code>REALTIME_STOCK_RT_DAILY_*</code>、<code>REALTIME_STOCK_RT_MIN_*</code> 字段；保留 <code>REDIS_URL</code>。</td>
           <td>代码中不存在 <code>settings.realtime_stock_rt_daily_*</code> 或 <code>settings.realtime_stock_rt_min_*</code> 的运行时读取。</td>
         </tr>
         <tr>
-          <td>6. 重写测试入口</td>
+          <td>6. 重写测试入口（M3 已完成主链测试）</td>
           <td>测试不再用 <code>monkeypatch.setenv("REALTIME_STOCK_RT_*")</code> 构造运行时配置，改为插入配置表记录或构造 <code>RealtimeRuntimeConfig</code> 对象。</td>
-          <td>旧 env 测试全部退场；新增测试覆盖数据库配置、锁定配置、缺行失败、非法配置失败。</td>
+          <td>除 seed 初始化测试外，旧 env 构造全部退场；新增测试覆盖数据库配置、锁定配置、缺行失败、非法配置失败。</td>
         </tr>
         <tr>
           <td>7. 清理本地与远程 env</td>
@@ -1492,14 +1492,14 @@ th code {
       </div>
       <div class="milestone">
         <div>
-          <h3>旧 env 配置退场</h3>
-          <p>按 3.4 和 3.5 逐项迁移旧 <code>REALTIME_STOCK_RT_*</code>：可编辑项入库，锁定项进目录，部署秘密留 env；删除 Settings 旧字段并清理本地/远程 env。</p>
+          <h3>配置读取层切换</h3>
+          <p>已新增 <code>runtime_config.py</code> 与 <code>config_catalog.py</code>，运行主链从 <code>foundation.realtime_runtime_config</code> 读取配置；旧 env 仅保留初始化种子用途。</p>
         </div>
       </div>
       <div class="milestone">
         <div>
-          <h3>配置读取层改造</h3>
-          <p>让 app/CLI/collector/snapshot reader/Ops health 通过同一 resolver 获取实时配置对象；Biz 改为调用 snapshot reader，禁止 query 层自行拼 feed key 和 stale 规则。</p>
+          <h3>旧 env 配置退场</h3>
+          <p>继续删除 Settings 旧字段并清理本地/远程 env；Biz 下沉 snapshot reader 后，query 层不再自行拼 feed key 和 stale 规则。</p>
         </div>
       </div>
       <div class="milestone">
@@ -1652,7 +1652,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：待评审。依据：当前 <span class="code">feed_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M3 读取层已切换 / 配置 API 待开发。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

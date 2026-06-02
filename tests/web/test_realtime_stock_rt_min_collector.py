@@ -3,17 +3,18 @@ from __future__ import annotations
 from datetime import date, datetime
 from zoneinfo import ZoneInfo
 
-from src.foundation.config.settings import get_settings
 from src.foundation.realtime import InMemoryRealtimeStateStore, StockRtMinCollector, StockRtMinFetchResult
-from src.foundation.realtime.feed_config import get_realtime_stock_rt_min_config
+from src.foundation.realtime.runtime_config import RealtimeStockRtMinConfig
+from tests.realtime_runtime_config_helpers import load_test_realtime_runtime_config
 
 
 CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
 
 
 class FakeStockRtMinProvider:
-    def __init__(self, row_batches_by_freq: dict[str, list[list[dict]]]) -> None:
+    def __init__(self, row_batches_by_freq: dict[str, list[list[dict]]], *, config: RealtimeStockRtMinConfig) -> None:
         self.row_batches_by_freq = row_batches_by_freq
+        self.config = config
         self.calls_by_freq: dict[str, int] = {}
 
     def fetch_all_market(self, *, freq: str) -> StockRtMinFetchResult:
@@ -21,13 +22,12 @@ class FakeStockRtMinProvider:
         self.calls_by_freq[freq] = calls + 1
         batches = self.row_batches_by_freq[freq]
         rows = batches[min(calls, len(batches) - 1)]
-        config = get_realtime_stock_rt_min_config()
         return StockRtMinFetchResult(
             freq=freq,
-            feed_key=config.feed_key_for_freq(freq),
+            feed_key=self.config.feed_key_for_freq(freq),
             rows=rows,
             source_elapsed_ms=12.5,
-            request_params={"ts_code": config.ts_code_pattern, "freq": freq},
+            request_params={"ts_code": self.config.ts_code_pattern, "freq": freq},
         )
 
 
@@ -49,11 +49,8 @@ class RecordingLeaseStore(InMemoryRealtimeStateStore):
 def test_stock_rt_min_collector_writes_health_with_freq_and_invalid_counts(
     db_session,
     trade_calendar_factory,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS", "77")
-    get_settings.cache_clear()
+    config = load_test_realtime_runtime_config(db_session, minute={"enabled": True, "lease_ttl_seconds": 77}).stock_rt_min
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 1), is_open=True)
     store = RecordingLeaseStore()
     provider = FakeStockRtMinProvider(
@@ -64,9 +61,9 @@ def test_stock_rt_min_collector_writes_health_with_freq_and_invalid_counts(
                     {"ts_code": "", "freq": "1MIN", "time": "2026-06-01 10:35:00", "close": 10.2},
                 ]
             ]
-        }
+        },
+        config=config,
     )
-    config = get_realtime_stock_rt_min_config()
     collector = StockRtMinCollector(
         store=store,
         provider=provider,  # type: ignore[arg-type]
@@ -93,13 +90,10 @@ def test_stock_rt_min_collector_writes_health_with_freq_and_invalid_counts(
 def test_stock_rt_min_collector_skips_source_request_outside_collection_window(
     db_session,
     trade_calendar_factory,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    get_settings.cache_clear()
+    config = load_test_realtime_runtime_config(db_session, minute={"enabled": True}).stock_rt_min
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 1), is_open=True)
-    provider = FakeStockRtMinProvider({"1MIN": [[{"ts_code": "600000.SH"}]]})
-    config = get_realtime_stock_rt_min_config()
+    provider = FakeStockRtMinProvider({"1MIN": [[{"ts_code": "600000.SH"}]]}, config=config)
     collector = StockRtMinCollector(
         store=InMemoryRealtimeStateStore(),
         provider=provider,  # type: ignore[arg-type]
@@ -118,12 +112,9 @@ def test_stock_rt_min_collector_skips_source_request_outside_collection_window(
 def test_stock_rt_min_collector_records_degraded_health_without_breaking_other_freq(
     db_session,
     trade_calendar_factory,
-    monkeypatch,
 ) -> None:
-    monkeypatch.setenv("REALTIME_STOCK_RT_MIN_ENABLED", "true")
-    get_settings.cache_clear()
+    config = load_test_realtime_runtime_config(db_session, minute={"enabled": True}).stock_rt_min
     trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 1), is_open=True)
-    config = get_realtime_stock_rt_min_config()
     store = InMemoryRealtimeStateStore()
     failing = StockRtMinCollector(
         store=store,
@@ -135,7 +126,8 @@ def test_stock_rt_min_collector_records_degraded_health_without_breaking_other_f
     healthy = StockRtMinCollector(
         store=store,
         provider=FakeStockRtMinProvider(
-            {"5MIN": [[{"ts_code": "600000.SH", "freq": "5MIN", "time": "2026-06-01 10:35:00"}]]}
+            {"5MIN": [[{"ts_code": "600000.SH", "freq": "5MIN", "time": "2026-06-01 10:35:00"}]]},
+            config=config,
         ),  # type: ignore[arg-type]
         config=config,
         now_provider=lambda: datetime(2026, 6, 1, 10, 35, 1, tzinfo=CN_TIMEZONE),
