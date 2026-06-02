@@ -95,6 +95,19 @@ Dagster orchestrator 是正式项目，不接受“先跑通再说”的默认�
 6. 新增正式资产时，稳定字段契约应优先写入 asset definition metadata；materialization metadata 只记录本次运行实际结果，例如 path、row_count、observed columns、样本和统计。不得只依赖 materialization metadata 承载正式资产契约。
 7. 若发现早期实现是为了验证或过渡而遗留的临时口径，必须主动提出清理或重构方案，不能继续在临时方案上叠补丁。
 
+### 开发执行自检门禁
+
+任何按计划推进的 Dagster 开发任务，在编码前必须先把计划转成可执行自检清单，禁止靠“我记得”“应该差不多”推进。
+
+规则：
+
+1. 编码前必须列出本轮硬口径：`必须`、`禁止`、`不做`、`默认`、`边界`、`验收`。如果无法列清，必须先停下补方案，不能直接改代码。
+2. 每条硬口径必须映射到具体落点：asset、check、job、sensor、resource、helper、SQL、metadata builder、cursor、CLI、测试或文档；不能只停留在设计描述。
+3. 每条硬口径必须有正反测试或静态门禁。凡是“禁止新增”“只允许”“默认不做”“不得自动触发”这类规则，都必须有反例测试或静态扫描防回退。
+4. 不得默认新增状态实体、summary asset、readiness asset、repair summary、数据库表或配置项来承载运行说明。除非用户明确拍板，优先用 run、asset check metadata、materialization metadata、cursor 或文档审计记录表达状态。
+5. 开发前发现现有设计文档、当前代码、正式数据事实或用户最新口径不一致时，必须先说明冲突并等待确认；禁止用代码补丁绕过口径冲突。
+6. 提交前必须做计划对账：说明硬口径分别落到哪些代码、哪些测试、哪些验证；未落地项必须显式说明原因，不能默认算完成。
+
 ### 文档目录归档门禁
 
 `lake_console` 下的 Dagster 相关文档必须按文档职责归档，禁止继续散落在 `lake_console` 根目录或随手新建目录。
