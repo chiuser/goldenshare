@@ -432,7 +432,7 @@ th code {
         页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
       </p>
       <div class="tag-row">
-        <span class="tag warn">状态：M3 读取层已切换 / API 待开发</span>
+        <span class="tag warn">状态：M6 Ops 配置 API 已上线 / 前端页面待开发</span>
         <span class="tag info">不直接编辑 env</span>
         <span class="tag info">不请求 Tushare</span>
         <span class="tag info">不改 Redis key 模型</span>
@@ -460,7 +460,7 @@ th code {
         </div>
       </div>
       <p>
-        结论：运行时读取已切到数据库配置事实源；当前仍没有配置中心 API，发布、审计和前端配置页留到后续阶段。
+        结论：运行时读取已切到数据库配置事实源；M6 已提供配置中心 Ops API，发布动作会更新 runtime config 并写 revision，前端配置页留到后续阶段。
       </p>
     </aside>
   </section>
@@ -623,8 +623,8 @@ th code {
       <tbody>
         <tr>
           <td><code>src/foundation/realtime/runtime_config.py</code> 从 <code>foundation.realtime_runtime_config</code> 读取可编辑配置，结合 <code>config_catalog.py</code> 锁定事实生成配置对象。</td>
-          <td>M3 已解决运行时配置来源问题；配置中心 API 和发布审计尚未实现。</td>
-          <td>后续继续实现 Ops 配置 API、发布写 revision、Settings 旧字段退场和远程 env 清理。</td>
+          <td>M6 已解决运行时配置来源、Ops 配置 API 和发布审计问题。</td>
+          <td>后续继续实现前端配置中心页面、文档收口和本地/远程 env 清理。</td>
         </tr>
         <tr>
           <td>Biz 查询服务已改为调用 <code>RealtimeSnapshotReader</code>，只保留参数校验和 schema 映射。</td>
@@ -1066,7 +1066,7 @@ th code {
           <td>股票实时日线</td>
           <td><code>stock_rt_daily</code></td>
           <td>已上线 collector feed</td>
-          <td>可编辑启停、间隔、限速、stale、TTL、保留批次、source timeout；锁定通配符和 feed key。</td>
+          <td>可编辑启停、间隔、限速、stale、TTL、保留批次、事件流长度；锁定通配符和 feed key。日线不提供 source timeout 配置项。</td>
         </tr>
         <tr>
           <td>股票实时分钟</td>
@@ -1598,7 +1598,7 @@ th code {
       </div>
       <div class="note-card decision">
         <strong>D3 V1 可编辑范围</strong>
-        <p>推荐：只开放启停、频率、间隔、限速、stale、TTL、保留批次、source timeout；锁定通配符、Token、Redis、feed key。</p>
+        <p>推荐：只开放启停、频率、间隔、限速、stale、TTL、保留批次、事件流长度；分钟额外开放 source timeout；锁定通配符、Token、Redis、feed key。</p>
       </div>
       <div class="note-card decision">
         <strong>D4 采集时段是否可编辑</strong>
@@ -1652,7 +1652,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：M3 读取层已切换 / 配置 API 待开发。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M6 Ops 配置 API 已上线 / 前端配置页待开发。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

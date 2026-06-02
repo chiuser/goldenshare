@@ -1,6 +1,6 @@
 # Ops 实时流配置中心 M1 消费者审计清单 v1
 
-状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / 待 M6-M8 收尾
+状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / 待 M7-M8 收尾
 依据：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)、根 `AGENTS.md`、`src/AGENTS.md`、依赖矩阵  
 审计时间：2026-06-02  
 
@@ -8,7 +8,7 @@
 
 本清单记录 M1 现状消费者审计结果，并补充 M2 建表与初始化落地状态，用于后续 M3-M8 执行对账。
 
-M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。前端配置中心 API 和远程 env 清理仍未完成。
+M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。前端配置中心页面和远程 env 清理仍未完成。
 
 ## 2. M0 冻结口径
 
@@ -37,6 +37,7 @@ M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读�
 | Biz 日线查询 | `src/biz/queries/realtime_stock_rt_daily_query_service.py` | 只做参数校验和 schema 映射，调用 `RealtimeSnapshotReader` 读取快照事实。 | M5 已完成；Biz 不再读 runtime config、拼 feed key 或算 stale。 |
 | Biz 分钟查询 | `src/biz/queries/realtime_stock_rt_min_query_service.py` | 只做参数校验和 schema 映射，调用 `RealtimeSnapshotReader` 读取快照事实。 | M5 已完成；Biz 不再读 runtime config、拼 feed key 或算 stale。 |
 | Ops health | `src/ops/queries/realtime_feed_health_query_service.py` | 显式传 `session` 读取配置和 Redis health/meta，构造运行状态。 | M3 已完成；Ops health 继续展示“应然配置 + 实然状态”。 |
+| Ops 配置中心 API | `src/ops/api/realtime.py`、`src/ops/services/realtime_config_service.py` | 管理员查看、校验、发布 runtime config，发布时写 `ops.config_revision`。 | M6 已完成；不请求 Tushare、不读写 Redis。 |
 
 ## 4. 旧配置项退场映射
 
@@ -79,6 +80,7 @@ M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读�
 | `tests/web/test_realtime_collector.py` | 通过 SQLite 配置表记录控制日线启用和 lease TTL。 | M3 已完成。 |
 | `tests/web/test_realtime_stock_rt_min_collector.py` | 通过 SQLite 配置表记录控制分钟启用和 lease TTL。 | M3 已完成。 |
 | `tests/web/test_realtime_api.py` | 通过 SQLite 配置表记录控制日线/分钟启用和频率。 | M3 已完成；M5 后 Biz API 测试应通过 snapshot reader。 |
+| `tests/web/test_ops_realtime_config_api.py` | 覆盖配置中心 list/detail/validate/publish/revisions、权限、锁定字段、版本冲突。 | M6 已完成。 |
 
 ## 6. 文档消费者
 
@@ -116,7 +118,8 @@ uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/ar
 1. M4 已完成：`settings.realtime_stock_rt_*` 和 `monkeypatch.setenv("REALTIME_STOCK_RT_*")` 已从 `src/`、`tests/` 退场。
 2. 旧 `REALTIME_STOCK_RT_*` env 只能作为历史说明或远程 env 清理对象存在，不再作为 seed 输入。
 3. M5 已完成：Biz 直读配置和拼 Redis/feed key 的行为已退场，快照事实由 foundation `RealtimeSnapshotReader` 封装。
-4. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
+4. M6 已完成：配置中心 API、发布 revision、版本冲突保护已上线。
+5. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
 
 ## 9. M2 建表与初始化落地状态
 
@@ -150,7 +153,7 @@ M3 完成当时明确未完成、不得误判为完成的内容；其中 Setting
 
 1. 已删除 `src/foundation/config/settings.py` 中 `REALTIME_STOCK_RT_*` 字段。
 2. 已下沉 Biz `RealtimeSnapshotReader`；Biz 不再读取配置并拼 feed key/stale。
-3. 未实现配置中心 API、发布审计和前端页面；这是后续配置中心阶段。
+3. 已实现配置中心 API 和发布审计；前端页面仍是后续配置中心阶段。
 4. 未清理本地/远程 env；这是 M8。
 
 ## 11. M4 旧 env 字段退场状态
@@ -166,7 +169,7 @@ M4 明确未完成、不得误判为完成的内容：
 
 1. 未清理本地 `.env.web.local` 或远程 `/etc/goldenshare/web.env` 中可能残留的旧 env；这是 M8 部署退场动作。
 2. 已下沉 Biz `RealtimeSnapshotReader`。
-3. 未实现配置中心 API、发布审计和前端页面。
+3. 已实现配置中心 API 和发布审计；前端页面尚未实现。
 
 ## 12. M5 Biz SnapshotReader 下沉状态
 
@@ -177,8 +180,24 @@ M5 已完成以下内容：
 3. 外部 realtime API 路径、response schema 与错误码保持不变。
 4. Ops health 仍直接读取 runtime config，用于展示“应然配置 + 实然状态”，不属于 M5。
 
-M5 明确未完成、不得误判为完成的内容：
+M5 完成当时明确未完成、不得误判为完成的内容；其中配置中心 API 和发布审计已在 M6 收口：
 
-1. 未实现配置中心 API、发布审计和前端页面。
+1. 已实现配置中心 API 和发布审计；前端页面尚未实现。
 2. 未清理本地或远程 env；这是 M8。
 3. 未改变 Redis key 模型或 WebSocket 设计。
+
+## 13. M6 Ops 配置 API 落地状态
+
+M6 已完成以下内容：
+
+1. 新增 `/api/v1/ops/realtime/config/objects`、`detail`、`validate`、`publish`、`revisions` API。
+2. 配置对象限定为 `stock_rt_daily` 和 `stock_rt_min`；单股当日分时序列不进入 M6。
+3. 配置中心只允许白名单字段发布；`source_api_name`、`exchange`、`collection_sessions`、`ts_code_pattern`、`feed_key/feed_key_pattern` 为锁定字段。
+4. `validate` 只校验和返回 diff/影响，不落库；`publish` 带 version，成功后更新 `foundation.realtime_runtime_config`、写 `ops.config_revision`、清 runtime config cache。
+5. 发布后仍需要重启 collector 生效；M6 不做热加载、不请求 Tushare、不读写 Redis。
+
+M6 明确未完成、不得误判为完成的内容：
+
+1. 未实现前端配置中心页面；这是 M7。
+2. 未清理本地或远程旧 env；这是 M8。
+3. 未改变 Ops health、Biz realtime API、collector、Redis key 或 WebSocket 设计。
