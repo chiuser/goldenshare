@@ -208,6 +208,7 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
     freq: int | str,
     qfq_select_sql: str,
     replace_trade_dates: Sequence[str],
+    fail_if_target_exists: bool = False,
 ) -> tuple[GoldStkMinsQfqWriteResult, ...]:
     normalized_freq = normalize_stk_mins_freq(freq)
     allowed_trade_dates = _normalize_trade_dates(replace_trade_dates)
@@ -246,6 +247,7 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
                 normalized_freq=normalized_freq,
                 ts_code=str(ts_code),
                 year=str(year),
+                fail_if_target_exists=fail_if_target_exists,
             )
             results.append(
                 GoldStkMinsQfqWriteResult(
@@ -378,8 +380,11 @@ def _write_gold_qfq_group_to_year_file(
     normalized_freq: int,
     ts_code: str,
     year: str,
+    fail_if_target_exists: bool,
 ) -> int:
     if target_path.exists():
+        if fail_if_target_exists:
+            raise FileExistsError(f"Gold qfq target already exists: {target_path}")
         _validate_existing_year_file(
             connection,
             target_path=target_path,

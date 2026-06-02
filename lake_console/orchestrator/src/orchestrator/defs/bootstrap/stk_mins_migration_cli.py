@@ -30,11 +30,22 @@ from orchestrator.defs.bootstrap.stk_mins_silver_history import (
     generate_stk_mins_silver_history,
     plan_stk_mins_silver_history,
 )
+from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
+    STK_MINS_QFQ_HISTORY_START_DATE,
+    generate_stk_mins_qfq_history,
+    plan_stk_mins_qfq_history,
+)
+from orchestrator.defs.bootstrap.stk_mins_qfq_bootstrap_events import (
+    audit_stk_mins_qfq_final_state,
+    plan_stk_mins_qfq_bootstrap_events,
+    report_stk_mins_qfq_bootstrap_events,
+)
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
 from orchestrator.defs.resources import DuckDBResource
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
     parser = argparse.ArgumentParser(description="stk_mins historical migration helper")
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -93,7 +104,29 @@ def main() -> None:
     silver_audit_final.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
     _add_silver_history_range(silver_audit_final)
 
-    args = parser.parse_args()
+    plan_gold_qfq = subparsers.add_parser("plan-gold-qfq-history")
+    plan_gold_qfq.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(plan_gold_qfq)
+
+    generate_gold_qfq = subparsers.add_parser("generate-gold-qfq-history")
+    generate_gold_qfq.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(generate_gold_qfq)
+
+    plan_gold_qfq_events = subparsers.add_parser("plan-gold-qfq-events")
+    plan_gold_qfq_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(plan_gold_qfq_events)
+
+    report_gold_qfq_events = subparsers.add_parser("report-gold-qfq-events")
+    report_gold_qfq_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(report_gold_qfq_events)
+    report_gold_qfq_events.add_argument("--dry-run", action="store_true")
+    report_gold_qfq_events.add_argument("--skip-existing-ready", action="store_true")
+
+    audit_gold_qfq_final = subparsers.add_parser("audit-gold-qfq-final")
+    audit_gold_qfq_final.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(audit_gold_qfq_final)
+
+    args = parser.parse_args(argv)
     if args.command == "dry-run":
         _print_plan(args)
     elif args.command == "migrate-raw":
@@ -272,6 +305,139 @@ def main() -> None:
             end_date=args.end_date,
         )
         print(report)
+    elif args.command == "plan-gold-qfq-history":
+        report = plan_stk_mins_qfq_history(
+            lake_root=Path(args.lake_root),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            duckdb_resource=DuckDBResource(),
+        )
+        print(
+            {
+                "selected_partition_count": len(report.selected_partition_keys),
+                "selected_freqs": list(report.selected_freqs),
+                "selected_years": list(report.selected_years),
+                "batch_count": len(report.batches),
+                "planned_target_file_count": report.planned_target_file_count,
+                "existing_target_file_count": report.existing_target_file_count,
+                "missing_input_count": report.missing_input_count,
+                "missing_input_samples": list(report.missing_input_samples),
+                "planned_event_count": report.planned_event_count,
+                "target_file_counts_by_batch": {
+                    f"{freq}:{year}": count
+                    for (freq, year), count in report.target_file_counts_by_batch.items()
+                },
+            }
+        )
+    elif args.command == "generate-gold-qfq-history":
+        report = generate_stk_mins_qfq_history(
+            lake_root=Path(args.lake_root),
+            duckdb_resource=DuckDBResource(),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+        )
+        print(
+            {
+                "selected_partition_count": len(report.plan.selected_partition_keys),
+                "selected_freqs": list(report.plan.selected_freqs),
+                "selected_years": list(report.plan.selected_years),
+                "batch_count": len(report.batch_results),
+                "written_file_count": report.written_file_count,
+                "written_row_count": report.written_row_count,
+                "planned_event_count": report.plan.planned_event_count,
+            }
+        )
+    elif args.command == "plan-gold-qfq-events":
+        report = plan_stk_mins_qfq_bootstrap_events(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            duckdb_resource=DuckDBResource(),
+        )
+        print(
+            {
+                "selected_partition_count": len(report.selected_partition_keys),
+                "selected_freqs": list(report.selected_freqs),
+                "selected_years": list(report.selected_years),
+                "asset_partition_count": report.asset_partition_count,
+                "planned_target_file_count": report.planned_target_file_count,
+                "existing_target_file_count": report.existing_target_file_count,
+                "missing_input_count": report.missing_input_count,
+                "missing_input_samples": list(report.missing_input_samples),
+                "planned_event_count": report.planned_event_count,
+                "materialized_partition_counts": dict(
+                    report.materialized_partition_counts
+                ),
+                "check_success_counts": dict(report.check_success_counts),
+            }
+        )
+    elif args.command == "report-gold-qfq-events":
+        report = report_stk_mins_qfq_bootstrap_events(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            duckdb=DuckDBResource(),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            dry_run=args.dry_run,
+            skip_existing_ready=args.skip_existing_ready,
+        )
+        print(
+            {
+                "dry_run": report.dry_run,
+                "selected_partition_count": len(report.plan.selected_partition_keys),
+                "selected_freqs": list(report.plan.selected_freqs),
+                "audited_asset_partition_count": len(report.partition_audits),
+                "failed_partition_count": report.failed_partition_count,
+                "reported_asset_partition_count": len(report.reported_asset_partitions),
+                "skipped_ready_asset_partition_count": len(
+                    report.skipped_ready_asset_partitions
+                ),
+                "reported_event_count": report.reported_event_count,
+            }
+        )
+    elif args.command == "audit-gold-qfq-final":
+        report = audit_stk_mins_qfq_final_state(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            duckdb_resource=DuckDBResource(),
+        )
+        print(
+            {
+                "selected_partition_count": report.selected_partition_count,
+                "selected_freqs": list(report.selected_freqs),
+                "planned_target_file_count": report.planned_target_file_count,
+                "existing_target_file_count": report.existing_target_file_count,
+                "missing_input_count": report.missing_input_count,
+                "materialized_partition_counts": dict(
+                    report.materialized_partition_counts
+                ),
+                "check_success_counts": dict(report.check_success_counts),
+                "sample_readiness": dict(report.sample_readiness),
+            }
+        )
 
 
 def _print_plan(args) -> None:
@@ -327,6 +493,14 @@ def _add_silver_history_range(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--end-date")
 
 
+def _add_gold_qfq_history_selection(parser: argparse.ArgumentParser) -> None:
+    parser.add_argument("--start-date", default=STK_MINS_QFQ_HISTORY_START_DATE)
+    parser.add_argument("--end-date")
+    parser.add_argument("--partition-keys")
+    parser.add_argument("--freqs")
+    parser.add_argument("--years")
+
+
 def _add_silver_partition_selection(
     parser: argparse.ArgumentParser,
     *,
@@ -366,6 +540,22 @@ def _optional_partition_keys(args) -> tuple[str, ...] | None:
             )
         )
     return None
+
+
+def _optional_csv_values(value: str | None) -> tuple[str, ...] | None:
+    if not value:
+        return None
+    return tuple(item.strip() for item in value.split(",") if item.strip())
+
+
+def _registered_stock_mins_silver_partition_keys() -> tuple[str, ...]:
+    return tuple(
+        sorted(
+            dg.DagsterInstance.get().get_dynamic_partitions(
+                cn_a_stock_mins_silver_trade_days.name
+            )
+        )
+    )
 
 
 def _selected_silver_partition_keys(
