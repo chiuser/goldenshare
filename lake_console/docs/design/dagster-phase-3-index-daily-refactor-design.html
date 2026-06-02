@@ -955,6 +955,28 @@ silver_index_daily_update_job[trade_date]
     <p>
       当前代码已实现 <code>silver_index_daily_sensor</code>。它只触发 silver，不补 raw、不调用 Tushare、不读取 raw run tags/config。
     </p>
+    <div class="warn callout">
+      <p>
+        待实现修复方案：<code>silver_index_daily_sensor</code> 在 raw gap audit 通过后，
+        需要用批量化的 Dagster readiness 查询选择最近 60 个交易日内最早未 ready 的
+        <code>silver_index_daily[trade_date]</code>。这里的 readiness 事实源是 Dagster
+        materialization event 与 asset check event，不是业务 parquet 明细。DuckDB 继续只用于 raw-by-code
+        文件 gap audit，不用于查询 Dagster event log。
+      </p>
+      <p>
+        正确口径：先用 <code>silver_index_daily</code> 的 materialized partition 集合找到第一个缺
+        materialization 的交易日；再只对该日期之前的已 materialized 前缀做批量 blocking check
+        复核。如果前缀内存在更早的 failed/missing check，必须返回该更早日期；只有前缀全 ready
+        时，才返回第一个缺 materialization 的日期并触发 run。若最近 60 个交易日全部 materialized，
+        则对完整窗口做批量 check 复核。
+      </p>
+      <p>
+        性能门槛：旧逐日 readiness 最坏需要 <code>60 * 7 = 420</code> 次 check history 查询；
+        新方案稳定态最多 <code>7</code> 次 check history 查询，加上窗口内 latest materialization 查询。
+        实现不得改变 blocking check 语义，不得把历史 non-blocking check event 当作通过，也不得在
+        check history 查不到目标 latest materialization 的结果时静默视为 ready。
+      </p>
+    </div>
     <table>
       <thead>
       <tr>
@@ -982,6 +1004,7 @@ silver_index_daily_update_job[trade_date]
           <code>raw_tushare_index_daily_by_code[ts_code]</code> 文件都包含对应 <code>trade_date</code>。
           有效注册代码由 <code>silver_index_basic.list_date/exp_date</code> 决定，上市前和退市后不算缺口。
           该 sensor 不扫描 raw run tags/config；真正的数据质量由 raw/silver asset checks 暴露。
+          注意：该口径只作为日常近端门禁的第一层过滤，不能直接扩展成 250 日或全历史 blocking audit。
         </td>
       </tr>
       <tr>
@@ -1179,6 +1202,18 @@ silver_index_daily_update_job[trade_date]
       <div class="card">
         <h3>日志口径</h3>
         <p>之前 stdout 方案存在 UI/命令行落点混淆。新链路如需进度日志，应单独设计 Dagster UI 可观测方式，不在本方案里顺手扩展。</p>
+      </div>
+      <div class="card">
+        <h3>长窗口 gap audit 口径风险</h3>
+        <p>
+          待处理：250 日或全历史 <code>index_daily</code> raw gap audit 不能只用
+          <code>silver_index_basic.list_date/exp_date</code> 决定 expected window。
+          实测样本 <code>950228.SH</code> 的 <code>list_date=2024-08-23</code>，
+          但 Tushare <code>index_daily</code> 在 <code>2024-08-23</code> 至
+          <code>2025-07-17</code> 返回空，<code>2025-07-18</code> 才开始返回日线。
+          后续长窗口/全历史审计必须引入每个指数的 <code>index_daily_available_from</code>
+          或等价源端可得日起点事实；否则会把源端合法空窗误判成本地 raw 缺口。
+        </p>
       </div>
     </div>
   </section>

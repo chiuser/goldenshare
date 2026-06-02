@@ -26,7 +26,7 @@ from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     CN_A_SENSOR_TIMEZONE,
-    silver_index_daily_ready_for_trade_date,
+    select_first_not_ready_silver_index_daily_partition,
 )
 
 
@@ -81,11 +81,7 @@ def _first_not_ready_silver_trade_date(
     instance: dg.DagsterInstance,
     trade_dates: tuple[str, ...],
 ) -> tuple[str | None, AssetReadinessStatus | None]:
-    for trade_date in trade_dates:
-        silver_status = silver_index_daily_ready_for_trade_date(instance, trade_date)
-        if not silver_status.ready:
-            return trade_date, silver_status
-    return None, None
+    return select_first_not_ready_silver_index_daily_partition(instance, trade_dates)
 
 
 def _cursor_payload(

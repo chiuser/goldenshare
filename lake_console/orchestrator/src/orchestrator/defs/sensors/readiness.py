@@ -3,10 +3,21 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+from dagster._core.storage.asset_check_execution_record import (
+    AssetCheckExecutionRecordStatus,
+)
 
 
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
 CHECK_HISTORY_LIMIT = 5000
+SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT = 60
+_TERMINAL_ASSET_CHECK_STATUSES = {
+    AssetCheckExecutionRecordStatus.SUCCEEDED,
+    AssetCheckExecutionRecordStatus.FAILED,
+}
+_MISSING_WITHIN_LATEST_CHECK_HISTORY_WINDOW = (
+    "missing within latest check history window"
+)
 
 RAW_STOCK_BASIC_CHECKS = (
     "raw_stock_basic_file_exists",
@@ -347,30 +358,48 @@ def _check_passed_for_materialization(
     records = instance.event_log_storage.get_asset_check_execution_history(
         check_key,
         limit=CHECK_HISTORY_LIMIT,
+        status=_TERMINAL_ASSET_CHECK_STATUSES,
     )
     for record in records:
-        if record.status.value not in {"SUCCEEDED", "FAILED"}:
+        check_result = _check_result_for_materialization_ids(
+            record,
+            {materialization_storage_id},
+        )
+        if check_result is None:
             continue
-        event = record.event
-        dagster_event = event.dagster_event if event else None
-        evaluation = dagster_event.event_specific_data if dagster_event else None
-        target = getattr(evaluation, "target_materialization_data", None)
-        if not target or target.storage_id != materialization_storage_id:
-            continue
-        if not evaluation.blocking:
-            return False
-        return record.status.value == "SUCCEEDED" and bool(evaluation.passed)
+        _, passed = check_result
+        return passed
     return None
 
 
-def asset_readiness_status(
-    instance: dg.DagsterInstance,
-    spec: AssetReadinessSpec,
+def _check_result_for_materialization_ids(
+    record,
+    materialization_storage_ids: set[int],
+) -> tuple[int, bool] | None:
+    if record.status.value not in {"SUCCEEDED", "FAILED"}:
+        return None
+    event = record.event
+    dagster_event = event.dagster_event if event else None
+    evaluation = dagster_event.event_specific_data if dagster_event else None
+    target = getattr(evaluation, "target_materialization_data", None)
+    if not target or target.storage_id not in materialization_storage_ids:
+        return None
+    if not evaluation.blocking:
+        return target.storage_id, False
+    return target.storage_id, record.status.value == "SUCCEEDED" and bool(
+        evaluation.passed
+    )
+
+
+def _asset_readiness_status_from_check_results(
     *,
-    partition_key: str | None = None,
-    min_materialization_date: str | None = None,
+    spec: AssetReadinessSpec,
+    partition_key: str | None,
+    materialization,
+    check_results: dict[str, bool | None],
+    min_materialization_date: str | None,
+    missing_check_reason: str | None = None,
 ) -> AssetReadinessStatus:
-    materialization = _latest_materialization_record(instance, spec.asset_key, partition_key)
     asset_label = _asset_key_label(spec.asset_key)
     if materialization is None:
         return AssetReadinessStatus(
@@ -392,12 +421,7 @@ def asset_readiness_status(
     missing_check_names = []
     failed_check_names = []
     for check_name in spec.blocking_check_names:
-        check_key = dg.AssetCheckKey(spec.asset_key, check_name)
-        check_passed = _check_passed_for_materialization(
-            instance,
-            check_key,
-            materialization_storage_id,
-        )
+        check_passed = check_results.get(check_name)
         if check_passed is None:
             missing_check_names.append(check_name)
         elif not check_passed:
@@ -416,7 +440,12 @@ def asset_readiness_status(
             f"before required date {min_materialization_date}"
         )
     elif missing_check_names:
-        reason = f"{asset_label} missing blocking checks: {missing_check_names}"
+        if missing_check_reason:
+            reason = (
+                f"{asset_label} {missing_check_reason}: {missing_check_names}"
+            )
+        else:
+            reason = f"{asset_label} missing blocking checks: {missing_check_names}"
     else:
         reason = f"{asset_label} failed blocking checks: {failed_check_names}"
 
@@ -433,6 +462,164 @@ def asset_readiness_status(
         failed_check_names=tuple(failed_check_names),
         reason=reason,
     )
+
+
+def asset_readiness_status(
+    instance: dg.DagsterInstance,
+    spec: AssetReadinessSpec,
+    *,
+    partition_key: str | None = None,
+    min_materialization_date: str | None = None,
+) -> AssetReadinessStatus:
+    materialization = _latest_materialization_record(instance, spec.asset_key, partition_key)
+    if materialization is None:
+        return _asset_readiness_status_from_check_results(
+            spec=spec,
+            partition_key=partition_key,
+            materialization=None,
+            check_results={},
+            min_materialization_date=min_materialization_date,
+        )
+    check_results: dict[str, bool | None] = {}
+    for check_name in spec.blocking_check_names:
+        check_key = dg.AssetCheckKey(spec.asset_key, check_name)
+        check_results[check_name] = _check_passed_for_materialization(
+            instance,
+            check_key,
+            materialization.storage_id,
+        )
+    return _asset_readiness_status_from_check_results(
+        spec=spec,
+        partition_key=partition_key,
+        materialization=materialization,
+        check_results=check_results,
+        min_materialization_date=min_materialization_date,
+    )
+
+
+def _silver_index_daily_missing_materialization_status(
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return _asset_readiness_status_from_check_results(
+        spec=SILVER_INDEX_DAILY_READINESS_SPEC,
+        partition_key=trade_date,
+        materialization=None,
+        check_results={},
+        min_materialization_date=None,
+    )
+
+
+def _silver_index_daily_statuses_for_materialized_prefix(
+    instance: dg.DagsterInstance,
+    trade_dates: tuple[str, ...],
+) -> dict[str, AssetReadinessStatus]:
+    materializations = {
+        trade_date: _latest_materialization_record(
+            instance,
+            SILVER_INDEX_DAILY_ASSET_KEY,
+            trade_date,
+        )
+        for trade_date in trade_dates
+    }
+    materialization_storage_ids = {
+        materialization.storage_id
+        for materialization in materializations.values()
+        if materialization is not None
+    }
+    check_results_by_storage_id: dict[int, dict[str, bool]] = {
+        storage_id: {} for storage_id in materialization_storage_ids
+    }
+    if materialization_storage_ids:
+        for check_name in SILVER_INDEX_DAILY_BLOCKING_CHECKS:
+            check_key = dg.AssetCheckKey(SILVER_INDEX_DAILY_ASSET_KEY, check_name)
+            matched_storage_ids: set[int] = set()
+            records = instance.event_log_storage.get_asset_check_execution_history(
+                check_key,
+                limit=CHECK_HISTORY_LIMIT,
+                status=_TERMINAL_ASSET_CHECK_STATUSES,
+            )
+            for record in records:
+                check_result = _check_result_for_materialization_ids(
+                    record,
+                    materialization_storage_ids,
+                )
+                if check_result is None:
+                    continue
+                storage_id, passed = check_result
+                if storage_id in matched_storage_ids:
+                    continue
+                check_results_by_storage_id[storage_id][check_name] = passed
+                matched_storage_ids.add(storage_id)
+                if matched_storage_ids == materialization_storage_ids:
+                    break
+
+    statuses = {}
+    for trade_date, materialization in materializations.items():
+        check_results = (
+            check_results_by_storage_id.get(materialization.storage_id, {})
+            if materialization
+            else {}
+        )
+        statuses[trade_date] = _asset_readiness_status_from_check_results(
+            spec=SILVER_INDEX_DAILY_READINESS_SPEC,
+            partition_key=trade_date,
+            materialization=materialization,
+            check_results=check_results,
+            min_materialization_date=None,
+            missing_check_reason=_MISSING_WITHIN_LATEST_CHECK_HISTORY_WINDOW,
+        )
+    return statuses
+
+
+def select_first_not_ready_silver_index_daily_partition(
+    instance: dg.DagsterInstance,
+    trade_dates: tuple[str, ...],
+) -> tuple[str | None, AssetReadinessStatus | None]:
+    if len(trade_dates) > SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT:
+        raise ValueError(
+            "silver_index_daily readiness selector is limited to the daily "
+            f"{SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT}-trade-date sensor window."
+        )
+    if not trade_dates:
+        return None, None
+
+    materialized_trade_dates = set(
+        instance.get_materialized_partitions(SILVER_INDEX_DAILY_ASSET_KEY)
+    )
+    first_missing_index = next(
+        (
+            index
+            for index, trade_date in enumerate(trade_dates)
+            if trade_date not in materialized_trade_dates
+        ),
+        None,
+    )
+    if first_missing_index == 0:
+        trade_date = trade_dates[0]
+        return trade_date, _silver_index_daily_missing_materialization_status(
+            trade_date
+        )
+
+    prefix_trade_dates = (
+        trade_dates
+        if first_missing_index is None
+        else trade_dates[:first_missing_index]
+    )
+    prefix_statuses = _silver_index_daily_statuses_for_materialized_prefix(
+        instance,
+        prefix_trade_dates,
+    )
+    for trade_date in prefix_trade_dates:
+        status = prefix_statuses[trade_date]
+        if not status.ready:
+            return trade_date, status
+
+    if first_missing_index is not None:
+        trade_date = trade_dates[first_missing_index]
+        return trade_date, _silver_index_daily_missing_materialization_status(
+            trade_date
+        )
+    return None, None
 
 
 def dataset_readiness_status(

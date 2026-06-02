@@ -864,6 +864,7 @@ def silver_index_daily_sensor(context):
         <td>
           DuckDB gap audit 会构造最近 60 个可运行交易日与注册指数代码的期望矩阵，并按 <code>silver_index_basic.list_date/exp_date</code> 过滤有效代码；每个有效注册指数代码都必须存在对应 raw-by-code parquet 文件，且文件中包含对应 <code>trade_date</code>。
           该门禁不读取 Dagster run tags/config，不扫描 raw asset materialization 或 check history。
+          注意：<code>list_date/exp_date</code> 只作为日常最近 60 个交易日门禁的第一层有效性过滤，不能直接复用为 250 日或全历史 blocking audit 的 expected start。
         </td>
       </tr>
       <tr>
@@ -899,6 +900,130 @@ def silver_index_daily_sensor(context):
       <tr>
         <td>边界</td>
         <td>不补 raw，不重跑失败 raw，不触发 <code>index_daily_update_job</code>，不读取 run tags/config，不扫描 raw check history，不处理历史多日批量。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>10.3.1 <code>silver_index_daily</code> readiness 批量查询修复方案（待实现）</h4>
+    <p>
+      背景：2026-06-02 发现 <code>silver_index_daily_sensor</code> 在最近 60 个可运行交易日都已经
+      materialized 且 blocking checks 全绿时，逐日调用 readiness 会重复扫描 Dagster check history，
+      可能超过 Dagster sensor evaluation 60 秒时限。该问题发生在 Dagster event log readiness 查询，
+      不是 raw parquet gap audit；DuckDB 继续只用于 raw-by-code 文件事实审计。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>项目</th>
+        <th>正式口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>事实源</td>
+        <td>
+          只读取 Dagster instance 中 <code>silver_index_daily</code> 的 materialization event 与
+          <code>silver_index_daily</code> blocking asset check event。不得读取业务 parquet 内容来替代
+          readiness，不得读取 raw run tags/config，也不得扫描 raw asset check history。
+        </td>
+      </tr>
+      <tr>
+        <td>窗口</td>
+        <td>
+          输入仍是已经注册、不晚于当前自然日的最近 60 个指数交易日，顺序按交易日升序。
+          该窗口只服务日常自动触发，不替代历史 backfill 或长窗口 gap audit。
+        </td>
+      </tr>
+      <tr>
+        <td>第一层剪枝</td>
+        <td>
+          先读取 <code>silver_index_daily</code> 的 materialized partition 集合，找到窗口内第一个没有
+          materialization 的交易日 <code>first_missing_materialization_date</code>。
+          如果窗口第一天就缺 materialization，则直接返回该日期作为待触发目标，不扫描 check history。
+        </td>
+      </tr>
+      <tr>
+        <td>不能直接返回 missing 的原因</td>
+        <td>
+          如果 <code>first_missing_materialization_date</code> 之前已有 materialization 的日期中存在
+          failed/missing blocking check，真正的最早未 ready 日期是前面的 failed 日期，而不是后面的
+          missing 日期。因此必须先复核 missing 日期之前的已 materialized 前缀。
+        </td>
+      </tr>
+      <tr>
+        <td>待复核前缀</td>
+        <td>
+          若存在 <code>first_missing_materialization_date</code>，只复核它之前的 materialized prefix；
+          若不存在 missing materialization，则复核完整 60 日窗口。不得复核 missing 日期之后的分区，
+          因为它们不会影响“最早未 ready 日期”的选择。
+        </td>
+      </tr>
+      <tr>
+        <td>latest materialization 绑定</td>
+        <td>
+          对待复核前缀内每个交易日读取 latest materialization record，并以其
+          <code>storage_id</code> 作为唯一匹配键。旧 materialization 的 check 通过，不能证明最新
+          materialization ready。
+        </td>
+      </tr>
+      <tr>
+        <td>blocking checks 批量查询</td>
+        <td>
+          对 <code>SILVER_INDEX_DAILY_BLOCKING_CHECKS</code> 中每个 check name 最多查询一次
+          check execution history，再按 <code>target_materialization_data.storage_id</code> 匹配前缀内的
+          latest materialization。旧逐日方案最坏是 <code>60 * 7 = 420</code> 次 check history 查询；
+          新方案稳定态最多 <code>7</code> 次 check history 查询。
+        </td>
+      </tr>
+      <tr>
+        <td>check 结果选择</td>
+        <td>
+          同一个 check 与同一个 latest materialization 若存在多条 execution event，必须取最新 event。
+          实现不得依赖未确认的 API 返回顺序；必须基于可排序字段选择最新，或在实施前先确认 Dagster
+          1.13.6 的返回顺序并用测试固定。
+        </td>
+      </tr>
+      <tr>
+        <td>fail closed</td>
+        <td>
+          check event 的 <code>blocking</code> 必须为 true，且 execution succeeded、evaluation passed
+          才算通过。历史 non-blocking check event 即使 passed 也不能算 ready。
+          如果 check history 在配置 limit 内找不到目标 latest materialization 的结果，必须返回
+          missing check，不得默认为 ready。
+        </td>
+      </tr>
+      <tr>
+        <td>返回规则</td>
+        <td>
+          按窗口升序返回第一个 not-ready 状态：前缀内 failed/missing check 优先；
+          前缀全 ready 且存在 <code>first_missing_materialization_date</code> 时，返回该 missing 日期；
+          完整窗口 materialized 且 checks 全绿时返回 all-ready skip。
+        </td>
+      </tr>
+      <tr>
+        <td>触发规则</td>
+        <td>
+          只有返回状态是未 materialized 时，sensor 才能提交
+          <code>silver_index_daily_update_job[trade_date]</code>。如果目标日期已 materialized 但 checks
+          未全绿，sensor 只返回中文 skip reason，等待人工处理，不自动重跑。
+        </td>
+      </tr>
+      <tr>
+        <td>性能预算</td>
+        <td>
+          日常 60 日窗口内，check history 查询数不得超过 blocking check 数量；若后续窗口扩大，
+          需要重新评估 <code>partition_count * blocking_check_count</code> 与 Dagster sensor evaluation
+          时限，不能把该 helper 直接扩展成历史批量审计工具。
+        </td>
+      </tr>
+      <tr>
+        <td>测试门槛</td>
+        <td>
+          必须覆盖：窗口第一天 missing 时不扫 check history；前面 failed check、后面 missing 时返回前面的 failed；
+          60 天全 ready 时 check history 只查 7 次；non-blocking 历史 event 不通过；同一 materialization 多条
+          check event 取最新；history limit 找不到目标 materialization 时 fail closed；sensor 对 failed-check
+          日期不提交 run。
+        </td>
       </tr>
       </tbody>
     </table>
@@ -1006,7 +1131,12 @@ def silver_index_daily_sensor(context):
       <tr>
         <td>G</td>
         <td>已实现：新增 <code>silver_index_daily_sensor</code>，并改造为基于 raw-by-code 文件事实的轻量门禁。</td>
-        <td>不调用 Tushare，不写 raw，不读 raw run tags/config，不扫 raw check history；日常自动化按最近 60 个可运行交易日内最早有效缺口推进，silver 已生成但 checks 未全绿时不自动重跑。</td>
+        <td>
+          不调用 Tushare，不写 raw，不读 raw run tags/config，不扫 raw check history；日常自动化按最近 60 个可运行交易日内最早有效缺口推进，silver 已生成但 checks 未全绿时不自动重跑。
+          待处理：250 日或全历史 DuckDB gap audit 需要在 SQL expected pairs 中加入 <code>index_daily_available_from</code> 或等价源端可得日起点事实。
+          已知实测样本：<code>950228.SH</code> 的 <code>silver_index_basic.list_date=2024-08-23</code>，但 Tushare <code>index_daily</code> 对 <code>2024-08-23</code> 至 <code>2025-07-17</code> 返回空，<code>2025-07-18</code> 才开始返回日线。
+          若长窗口审计仍只按 <code>list_date/exp_date</code> 生成 expected pairs，会把源端合法空窗误报为 raw 缺口。
+        </td>
       </tr>
       </tbody>
     </table>
