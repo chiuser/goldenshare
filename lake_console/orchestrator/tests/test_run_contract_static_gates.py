@@ -151,6 +151,35 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_qfq_daily_job_does_not_pull_raw_silver_or_source_config(
+        self,
+    ) -> None:
+        path = JOBS_DIR / "stock_mins_qfq_daily_update.py"
+        source = path.read_text()
+        forbidden_fragments = (
+            "RAW_STK_MINS_ASSETS",
+            "SILVER_STK_MINS_ASSETS",
+            "Tushare",
+            "ProdPostgres",
+            "build_stock_mins_raw_update_job_run_config",
+            "STOCK_MINS_RAW_CONFIG_SCHEMA",
+            "raw_stk_mins_",
+            "silver_stk_mins_",
+            "silver_adj_factor",
+            "repair",
+            "summary",
+            '"ops"',
+            "'ops'",
+            "run_tags",
+        )
+        issues = [
+            f"{path} contains forbidden stock_mins qfq job fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        ]
+
+        self.assertEqual(issues, [])
+
     def test_sensor_files_use_run_contract_helpers(self) -> None:
         issues = []
 
@@ -250,7 +279,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 24)
+        self.assertEqual(sensor_definition_count, 25)
         self.assertEqual(issues, [])
 
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
