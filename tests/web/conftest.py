@@ -31,6 +31,7 @@ from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyS
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
+from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.dataset_date_completeness_exclusion import DatasetDateCompletenessExclusion
 from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateCompletenessGap
@@ -120,6 +121,7 @@ def web_engine(configured_web_env) -> Generator:
         StdCleansingRule.__table__.create(connection)
         ConfigRevision.__table__.create(connection)
         DatasetResolutionPolicy.__table__.create(connection)
+        RealtimeRuntimeConfigRecord.__table__.create(connection)
     yield engine
     engine.dispose()
 

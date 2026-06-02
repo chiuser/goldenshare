@@ -256,6 +256,24 @@ def run_ops_seed_moneyflow_multi_source(
     echo_fn(f"updated_resolution_policy={report.updated_resolution_policy}")
 
 
+def run_ops_seed_realtime_runtime_config(
+    *,
+    session_local,
+    service_cls,
+    apply: bool,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        report = service_cls().run(session, dry_run=not apply)
+
+    mode = "apply" if apply else "dry-run"
+    echo_fn(f"ops-seed-realtime-runtime-config [{mode}]")
+    echo_fn(f"created={report.created_count}")
+    echo_fn(f"skipped={report.skipped_count}")
+    for item in report.items:
+        echo_fn(f" - {item.object_key}: status={item.status} object_kind={item.object_kind}")
+
+
 def run_ops_scheduler_tick(
     *,
     session_local,

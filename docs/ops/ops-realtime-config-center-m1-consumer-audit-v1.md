@@ -1,0 +1,135 @@
+# Ops 实时流配置中心 M1 消费者审计清单 v1
+
+状态：M1 已审计 / M2 建表与初始化已落地 / 待 M3 配置读取层改造  
+依据：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)、根 `AGENTS.md`、`src/AGENTS.md`、依赖矩阵  
+审计时间：2026-06-02  
+
+## 1. 目标
+
+本清单记录 M1 现状消费者审计结果，并补充 M2 建表与初始化落地状态，用于后续 M3-M8 执行对账。
+
+M2 已新增运行时配置表和受控初始化入口，但尚未切换运行时消费者，不改前端，不清理 env。
+
+## 2. M0 冻结口径
+
+1. 当前配置事实表固定为 `foundation.realtime_runtime_config`。
+2. `ops.config_revision` 只记录发布前后差异和操作人，不参与运行时读取。
+3. 旧 `REALTIME_STOCK_RT_*` env 只允许在初始化阶段读取一次；主链切换后不得 fallback、不得双读双写。
+4. `REDIS_URL` 保留在部署级 env，不进入配置中心。
+5. Biz realtime API 目标态不得直接读取 runtime config，不得拼 `feed_key`、`stale`、`collection_sessions`，必须通过 `RealtimeSnapshotReader`。
+6. Ops health 允许读取 runtime config，因为它展示“应然配置 + 实然运行状态”。
+7. V1 发布配置后提示需要重启 collector，不做热加载。
+
+## 3. 运行时代码消费者
+
+| 消费者 | 当前代码位置 | 当前行为 | 后续目标处理 |
+| --- | --- | --- | --- |
+| Settings/env 定义 | `src/foundation/config/settings.py` | 定义 `REALTIME_STOCK_RT_DAILY_*`、`REALTIME_STOCK_RT_MIN_*` 字段。 | M4 删除旧字段，仅保留 `REDIS_URL` 等部署级字段。 |
+| 配置构建 | `src/foundation/realtime/feed_config.py` | 从 `Settings/env` 生成 `RealtimeRuntimeConfig`。 | M3/M4 收口为 `runtime_config.py`，从数据库配置 + 代码目录锁定事实 + 部署级 env 生成配置。 |
+| package export | `src/foundation/realtime/__init__.py` | 对外导出 `get_realtime_runtime_config()`、`get_realtime_stock_rt_daily_config()`、`get_realtime_stock_rt_min_config()`。 | M3 同步导出新 runtime config API；旧命名是否保留需在 M3 逐项确认，不能保留旧 env 语义。 |
+| CLI collector | `src/cli_parts/realtime_handlers.py` | 启动时调用 `get_realtime_runtime_config()`，用 `redis_url` 构建 store，并把 config 传给 collector。 | M3 继续通过 runtime resolver 获取配置；不得直接读 env。 |
+| 统一 collector | `src/foundation/realtime/collector_service.py` | 初始化时读取 `RealtimeRuntimeConfig`；按日线和分钟配置调度。 | M3/M4 改为数据库事实配置；调度语义保持。 |
+| 股票实时日线 provider/collector | `src/foundation/realtime/stock_rt_daily.py` | 默认调用 `get_realtime_stock_rt_daily_config()`；使用启停、时段、通配符、TTL、lease、stale 等配置。 | M3/M4 改为 runtime resolver 输出；锁定通配符和采集时段来自 `config_catalog.py`。 |
+| 股票实时分钟 provider/publisher/collector | `src/foundation/realtime/stock_rt_min.py` | 默认调用 `get_realtime_stock_rt_min_config()`；使用频率、启停、时段、通配符、TTL、lease、source timeout 等配置。 | M3/M4 改为 runtime resolver 输出；频率等可编辑项入库，通配符和采集时段锁定。 |
+| Tushare 限速 | `src/foundation/clients/tushare_client.py` | `_get_rate_limiter()` 调用 `get_realtime_tushare_max_calls_per_minute()` 覆盖实时接口限速。 | M3/M4 从 runtime config 读取限速；不得再读旧 env。 |
+| Redis store dependency | `src/app/dependencies/realtime.py` | 调用 `get_realtime_runtime_config().redis_url` 构建 store。 | `REDIS_URL` 仍为部署级 env；保留该方向，但读取应通过 runtime resolver 暴露的部署级字段。 |
+| Biz 日线查询 | `src/biz/queries/realtime_stock_rt_daily_query_service.py` | 直接读取日线配置并拼 `feed_key`、`collection_sessions`、`stale_after_seconds`。 | M5 改为调用 `RealtimeSnapshotReader`；Biz 只做参数校验和 schema 映射。 |
+| Biz 分钟查询 | `src/biz/queries/realtime_stock_rt_min_query_service.py` | 直接读取分钟配置并拼 `feed_key`、`collection_sessions`、`stale_after_seconds`。 | M5 改为调用 `RealtimeSnapshotReader`；Biz 不知道 Redis key 和底层 stale 规则。 |
+| Ops health | `src/ops/queries/realtime_feed_health_query_service.py` | 读取配置和 Redis health/meta，构造运行状态。 | 保留职责，M3/M4 改为读取 runtime resolver；仍可展示配置事实。 |
+
+## 4. 旧配置项退场映射
+
+| 配置项 | 当前来源 | 当前主要消费者 | 目标归属 | 后续动作 |
+| --- | --- | --- | --- | --- |
+| `REDIS_URL` | `Settings/env` | `app/dependencies/realtime.py`、`cli_parts/realtime_handlers.py` | 部署级 env | 保留，不进入配置中心。 |
+| `REALTIME_STOCK_RT_DAILY_ENABLED` | `Settings/env` | `feed_config.py`、collector、Ops health、测试 | `stock_rt_daily.runtime_config_json.enabled` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_POLL_INTERVAL_SECONDS` | `Settings/env` | `feed_config.py`、collector scheduler、测试 | `stock_rt_daily.runtime_config_json.poll_interval_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_MAX_CALLS_PER_MINUTE` | `Settings/env` | `feed_config.py`、Tushare 限速、测试 | `stock_rt_daily.runtime_config_json.max_calls_per_minute` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_LEASE_TTL_SECONDS` | `Settings/env` | `feed_config.py`、日线 collector、测试 | `stock_rt_daily.runtime_config_json.lease_ttl_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_STALE_AFTER_SECONDS` | `Settings/env` | `feed_config.py`、Biz 查询、Ops health | `stock_rt_daily.runtime_config_json.stale_after_seconds` | M2 初始化；M5 由 snapshot reader 封装给 Biz。 |
+| `REALTIME_STOCK_RT_DAILY_SNAPSHOT_TTL_SECONDS` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_daily.runtime_config_json.snapshot_ttl_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_KEEP_RECENT_BATCHES` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_daily.runtime_config_json.keep_recent_batches` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_BATCH_STREAM_MAXLEN` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_daily.runtime_config_json.batch_stream_maxlen` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_DELTA_STREAM_MAXLEN` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_daily.runtime_config_json.delta_stream_maxlen` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_DAILY_COLLECTION_SESSIONS` | `Settings/env` | `feed_config.py`、collector、Biz 查询、Ops health | `config_catalog.py` 锁定事实 | M4 从 env 退场，不开放编辑。 |
+| `REALTIME_STOCK_RT_DAILY_TS_CODE_PATTERN` | `Settings/env` | `feed_config.py`、日线 provider | `config_catalog.py` 锁定事实 | M4 从 env 退场，不开放编辑。 |
+| `REALTIME_STOCK_RT_MIN_ENABLED` | `Settings/env` | `feed_config.py`、collector、Ops health、测试 | `stock_rt_min.runtime_config_json.enabled` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_ENABLED_FREQS` | `Settings/env` | `feed_config.py`、collector、Ops health、测试 | `stock_rt_min.runtime_config_json.enabled_freqs` | M2 初始化；前端 M7 用多选框。 |
+| `REALTIME_STOCK_RT_MIN_POLL_INTERVAL_SECONDS` | `Settings/env` | `feed_config.py`、collector scheduler、测试 | `stock_rt_min.runtime_config_json.poll_interval_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_MAX_CALLS_PER_MINUTE` | `Settings/env` | `feed_config.py`、Tushare 限速、测试 | `stock_rt_min.runtime_config_json.max_calls_per_minute` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_LEASE_TTL_SECONDS` | `Settings/env` | `feed_config.py`、分钟 collector、测试 | `stock_rt_min.runtime_config_json.lease_ttl_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_STALE_AFTER_SECONDS` | `Settings/env` | `feed_config.py`、Biz 查询、Ops health | `stock_rt_min.runtime_config_json.stale_after_seconds` | M2 初始化；M5 由 snapshot reader 封装给 Biz。 |
+| `REALTIME_STOCK_RT_MIN_SNAPSHOT_TTL_SECONDS` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_min.runtime_config_json.snapshot_ttl_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_KEEP_RECENT_BATCHES` | `Settings/env` | `feed_config.py`、Redis publish、测试 | `stock_rt_min.runtime_config_json.keep_recent_batches` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_BATCH_STREAM_MAXLEN` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_min.runtime_config_json.batch_stream_maxlen` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_DELTA_STREAM_MAXLEN` | `Settings/env` | `feed_config.py`、Redis publish | `stock_rt_min.runtime_config_json.delta_stream_maxlen` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_SOURCE_TIMEOUT_SECONDS` | `Settings/env` | `feed_config.py`、分钟 provider | `stock_rt_min.runtime_config_json.source_timeout_seconds` | M2 初始化，M4 删除 Settings 字段。 |
+| `REALTIME_STOCK_RT_MIN_COLLECTION_SESSIONS` | `Settings/env` | `feed_config.py`、collector、Biz 查询、Ops health | `config_catalog.py` 锁定事实 | M4 从 env 退场，不开放编辑。 |
+| `REALTIME_STOCK_RT_MIN_TS_CODE_PATTERN` | `Settings/env` | `feed_config.py`、分钟 provider、测试 | `config_catalog.py` 锁定事实 | M4 从 env 退场，不开放编辑。 |
+
+## 5. 测试消费者
+
+| 测试文件 | 当前入口 | 后续处理 |
+| --- | --- | --- |
+| `tests/test_realtime_feed_config.py` | 直接测试 env override、非法频率、空频率、请求量不足。 | M3/M4 改为测试数据库配置、锁定配置和结构化错误。 |
+| `tests/test_realtime_collector_service.py` | 用 `monkeypatch.setenv()` 控制分钟启停和频率。 | 改为构造 `RealtimeRuntimeConfig` 或插入配置表记录。 |
+| `tests/test_realtime_stock_rt_min.py` | 用 env 覆盖通配符、保留批次。 | 通配符改为锁定 catalog 测试；保留批次改为数据库配置测试。 |
+| `tests/test_tushare_client.py` | 用 env 覆盖实时接口限速。 | 改为 runtime config resolver 或配置表记录驱动限速。 |
+| `tests/web/test_realtime_collector.py` | 用 env 控制日线启用和 lease TTL。 | 改为配置对象或配置表记录。 |
+| `tests/web/test_realtime_stock_rt_min_collector.py` | 用 env 控制分钟启用和 lease TTL。 | 改为配置对象或配置表记录。 |
+| `tests/web/test_realtime_api.py` | 用 env 控制日线/分钟启用和频率，并直接取分钟 config。 | M5 后 Biz API 测试应通过 snapshot reader，不直接依赖旧 env。 |
+
+## 6. 文档消费者
+
+| 文档 | 当前口径 | 后续处理 |
+| --- | --- | --- |
+| `docs/architecture/realtime-market-data-stream-technical-plan-v1.md` | 当前仍描述 `Settings/env -> feed_config.py` 为配置来源，并列出日线 env 示例。 | M8 更新为历史口径/已退场；当前口径指向配置中心和 `foundation.realtime_runtime_config`。 |
+| `docs/architecture/realtime-stock-minute-stream-architecture-v1.html` | 当前仍列出分钟 env 配置项，并记录生产 `REALTIME_STOCK_RT_MIN_ENABLED=true`。 | M8 更新为历史口径；生产启用状态迁入 runtime config。 |
+| `docs/ops/ops-realtime-config-center-showcase-v1.html` | showcase 仍展示 `REALTIME_STOCK_RT_*` 字段名。 | M7/M8 改为展示配置中心字段名或 API 返回字段，不再指导运营手填 env。 |
+| `docs/architecture/realtime-stock-intraday-minutes-on-demand-plan-v1.md` | 单股当日分时序列计划另有 `REALTIME_STOCK_RT_MIN_DAILY_*` env 设计。 | 不属于本轮 collector feed 配置退场；后续进入 rt_min_daily 需求时按配置中心总原则重新评审。 |
+
+## 7. M1 验证命令
+
+运行时代码审计：
+
+```bash
+rg -n "get_realtime_runtime_config|get_realtime_stock_rt_daily_config|get_realtime_stock_rt_min_config|get_realtime_tushare_max_calls_per_minute|settings\\.realtime_stock_rt|REALTIME_STOCK_RT" src/foundation src/biz src/ops src/app src/cli_parts
+```
+
+测试入口审计：
+
+```bash
+rg -n "monkeypatch\\.setenv\\(\\\"REALTIME_STOCK_RT|get_realtime_stock_rt_daily_config|get_realtime_stock_rt_min_config|get_realtime_runtime_config|feed_config" tests
+```
+
+架构护栏：
+
+```bash
+uv run pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py
+```
+
+当前结果：`14 passed in 5.83s`。
+
+## 8. 后续门禁
+
+1. M3/M4 不允许保留 `settings.realtime_stock_rt_*` 运行时读取。
+2. M4 完成前，旧 `REALTIME_STOCK_RT_*` env 只能作为初始化输入或历史说明存在。
+3. M5 完成前，Biz 直读配置和拼 Redis/feed key 的行为必须被列为未完成项。
+4. M8 完成前，文档和 showcase 中旧 env 口径必须全部改成历史/已退场说明。
+
+## 9. M2 建表与初始化落地状态
+
+M2 已完成以下内容：
+
+1. 新增 `foundation.realtime_runtime_config` ORM：`src/foundation/models/meta/realtime_runtime_config.py`。
+2. 新增 Alembic 迁移：`alembic/versions/20260602_000116_add_realtime_runtime_config.py`，`down_revision=20260531_000115`。
+3. 新增受控初始化入口：`goldenshare ops-seed-realtime-runtime-config`，默认 dry-run，`--apply` 才写库。
+4. 初始化只创建缺失的 `stock_rt_daily`、`stock_rt_min` 两行；已有行跳过，不覆盖。
+5. 初始化只写可编辑字段到 `runtime_config_json`；`collection_sessions`、`ts_code_pattern`、`source_api_name`、`feed_key/feed_key_pattern` 等锁定事实不入库。
+
+M2 明确未完成、不得误判为完成的内容：
+
+1. 未切换 `src/foundation/realtime/feed_config.py` 的运行时读取来源。
+2. 未删除 `Settings` 中的 `REALTIME_STOCK_RT_*` 字段。
+3. 未改 collector、Biz realtime API、Ops health、前端页面。
+4. 未写 `ops.config_revision`；初始化不是发布动作，正式 publish 审计留到配置中心 API 阶段。

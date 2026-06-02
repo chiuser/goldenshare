@@ -29,6 +29,7 @@ from src.cli_parts.ops_handlers import (
     run_ops_scheduler_tick as _run_ops_scheduler_tick_impl,
     run_ops_seed_default_single_source as _run_ops_seed_default_single_source_impl,
     run_ops_seed_moneyflow_multi_source as _run_ops_seed_moneyflow_multi_source_impl,
+    run_ops_seed_realtime_runtime_config as _run_ops_seed_realtime_runtime_config_impl,
     run_ops_task_completion_worker_serve as _run_ops_task_completion_worker_serve_impl,
     run_ops_validate_market_mood as _run_ops_validate_market_mood_impl,
     run_ops_worker_run as _run_ops_worker_run_impl,
@@ -52,6 +53,7 @@ from src.foundation.config.settings import get_settings
 from src.db import SessionLocal
 from src.foundation.ingestion.linter import lint_all_dataset_definitions
 from src.foundation.ingestion.runtime_registry import DATASET_RUNTIME_REGISTRY, build_dataset_maintain_service
+from src.foundation.realtime.runtime_config_seed_service import RealtimeRuntimeConfigSeedService
 from src.foundation.services.migration import RawTushareBootstrapService
 from src.foundation.services.migration import StockStMissingDateRepairService
 from src.foundation.serving import ServingPublishService, validate_serving_coverage
@@ -440,6 +442,18 @@ def ops_seed_moneyflow_multi_source(
     _run_ops_seed_moneyflow_multi_source_impl(
         session_local=SessionLocal,
         service_cls=MoneyflowMultiSourceSeedService,
+        apply=apply,
+        echo_fn=typer.echo,
+    )
+
+
+@app.command("ops-seed-realtime-runtime-config")
+def ops_seed_realtime_runtime_config(
+    apply: bool = typer.Option(False, "--apply", help="执行写入。默认仅预览（dry-run）。"),
+) -> None:
+    _run_ops_seed_realtime_runtime_config_impl(
+        session_local=SessionLocal,
+        service_cls=RealtimeRuntimeConfigSeedService,
         apply=apply,
         echo_fn=typer.echo,
     )
