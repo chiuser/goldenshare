@@ -18,6 +18,7 @@ import {
   IconGauge,
   IconLogout,
   IconListDetails,
+  IconSettings,
   IconShieldLock,
   IconSparkles,
   IconStack2,
@@ -158,6 +159,16 @@ export function OpsShell(_props: PropsWithChildren) {
               active={location.pathname === "/ops/v21/realtime"}
               variant="light"
               color="brand"
+            />
+            <NavLink
+              component={Link}
+              to="/ops/v21/realtime/config"
+              label="实时流配置中心"
+              leftSection={<IconSettings size={16} />}
+              active={location.pathname === "/ops/v21/realtime/config"}
+              variant="subtle"
+              color="brand"
+              style={{ marginLeft: 8 }}
             />
 
             <ShellParentNavLabel label="审查中心" icon={IconStack2} active={isReviewSectionActive} />

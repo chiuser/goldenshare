@@ -1,6 +1,6 @@
 # Ops 实时流配置中心 M1 消费者审计清单 v1
 
-状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / 待 M7-M8 收尾
+状态：M1 已审计 / M2 建表与初始化已落地 / M3 配置读取层已切换 / M4 旧 env 字段已退场 / M5 Biz SnapshotReader 已下沉 / M6 Ops 配置 API 已上线 / M7 前端配置页已接入 / 待 M8 收尾
 依据：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)、根 `AGENTS.md`、`src/AGENTS.md`、依赖矩阵  
 审计时间：2026-06-02  
 
@@ -8,7 +8,7 @@
 
 本清单记录 M1 现状消费者审计结果，并补充 M2 建表与初始化落地状态，用于后续 M3-M8 执行对账。
 
-M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。前端配置中心页面和远程 env 清理仍未完成。
+M2 已新增运行时配置表和受控初始化入口。M3 已将运行时读取从旧 `feed_config.py + Settings/env` 切到 `runtime_config.py + foundation.realtime_runtime_config + config_catalog.py`。M4 已删除 `Settings` 中旧实时 env 字段，seed 初始化改为代码内受控默认模板。M5 已将 Biz realtime 快照读取下沉到 `RealtimeSnapshotReader`。M6 已实现 Ops 配置 API、发布写 revision 和版本冲突保护。M7 已实现前端配置中心页面。远程 env 清理仍未完成。
 
 ## 2. M0 冻结口径
 
@@ -196,8 +196,8 @@ M6 已完成以下内容：
 4. `validate` 只校验和返回 diff/影响，不落库；`publish` 带 version，成功后更新 `foundation.realtime_runtime_config`、写 `ops.config_revision`、清 runtime config cache。
 5. 发布后仍需要重启 collector 生效；M6 不做热加载、不请求 Tushare、不读写 Redis。
 
-M6 明确未完成、不得误判为完成的内容：
+M6 明确未完成、M7 已收口或仍需后续处理的内容：
 
-1. 未实现前端配置中心页面；这是 M7。
+1. 前端配置中心页面已在 M7 接入，只调用配置中心 objects/detail/validate/publish/revisions API。
 2. 未清理本地或远程旧 env；这是 M8。
 3. 未改变 Ops health、Biz realtime API、collector、Redis key 或 WebSocket 设计。

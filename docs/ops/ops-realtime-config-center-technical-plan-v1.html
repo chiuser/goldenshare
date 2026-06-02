@@ -432,7 +432,7 @@ th code {
         页面设计直接复用 <span class="code">ops-realtime-config-center-showcase-v1.html</span>，本方案重点收口 API 与业务逻辑。
       </p>
       <div class="tag-row">
-        <span class="tag warn">状态：M6 Ops 配置 API 已上线 / 前端页面待开发</span>
+        <span class="tag warn">状态：M7 前端配置页已接入 / 待 M8 部署与 env 收口</span>
         <span class="tag info">不直接编辑 env</span>
         <span class="tag info">不请求 Tushare</span>
         <span class="tag info">不改 Redis key 模型</span>
@@ -460,7 +460,7 @@ th code {
         </div>
       </div>
       <p>
-        结论：运行时读取已切到数据库配置事实源；M6 已提供配置中心 Ops API，发布动作会更新 runtime config 并写 revision，前端配置页留到后续阶段。
+        结论：运行时读取已切到数据库配置事实源；M6 已提供配置中心 Ops API，发布动作会更新 runtime config 并写 revision；M7 已接入前端配置中心页面。
       </p>
     </aside>
   </section>
@@ -1010,17 +1010,22 @@ th code {
           <td>旧 env 构造全部退场；新增测试覆盖数据库配置、锁定配置、缺行失败、非法配置失败和 seed 默认模板。</td>
         </tr>
         <tr>
-          <td>7. 清理本地与远程 env</td>
+          <td>7. 前端配置中心页面（M7 已完成）</td>
+          <td>新增 <code>/ops/v21/realtime/config</code> 页面和菜单入口，页面只调用配置中心 objects/detail/validate/publish/revisions API。</td>
+          <td>查看态只展示配置事实；编辑态才展示草稿、校验、diff 和发布影响；不请求 Tushare、不读 Redis、不调用实时监控 health API。</td>
+        </tr>
+        <tr>
+          <td>8. 清理本地与远程 env</td>
           <td>本地 <code>.env.web.local</code> 和远程 <code>/etc/goldenshare/web.env</code> 移除旧 <code>REALTIME_STOCK_RT_*</code>。远程只能使用 <code>bash scripts/remote-web-env.sh unset KEY</code>。</td>
           <td>远程 env 只保留 <code>REDIS_URL</code> 等部署级项；重启 Web 与 collector 后配置仍来自数据库。</td>
         </tr>
         <tr>
-          <td>8. 文档同步退场</td>
+          <td>9. 文档同步退场</td>
           <td>更新实时日线、实时分钟、部署文档和 showcase：旧 env 字段改为“历史口径/已退场”，当前口径指向配置中心 API 和 runtime config 表。</td>
           <td>文档中不再指导运营通过 env 修改启停、间隔、阈值、TTL、频率；docs integrity 通过。</td>
         </tr>
         <tr>
-          <td>9. 退场验收</td>
+          <td>10. 退场验收</td>
           <td>执行引用清零检查、配置 API 测试、collector 启动测试、Ops health 测试、Biz API 快照测试。</td>
           <td>旧 env 名称在 <code>src/</code> 运行时代码中清零；仅允许作为历史说明出现在方案文档中。</td>
         </tr>
@@ -1652,7 +1657,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：M6 Ops 配置 API 已上线 / 前端配置页待开发。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M7 前端配置页已接入 / M8 部署与 env 收口待完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

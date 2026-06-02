@@ -15,6 +15,7 @@ import { RegisterPage } from "../pages/register-page";
 import { ForgotPasswordPage } from "../pages/forgot-password-page";
 import { ResetPasswordPage } from "../pages/reset-password-page";
 import { OpsTaskDetailPage } from "../pages/ops-task-detail-page";
+import { OpsRealtimeConfigCenterPage } from "../pages/ops-realtime-config-center-page";
 import { OpsRealtimeMonitorPage } from "../pages/ops-realtime-monitor-page";
 import { OpsTodayPage } from "../pages/ops-today-page";
 import { OpsV21BiyingPage } from "../pages/ops-v21-biying-page";
@@ -354,6 +355,12 @@ const opsV21RealtimeRoute = createRoute({
   component: OpsRealtimeMonitorPage,
 });
 
+const opsV21RealtimeConfigRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/realtime/config",
+  component: OpsRealtimeConfigCenterPage,
+});
+
 const opsV21AccountRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/account",
@@ -428,6 +435,7 @@ const routeTree = rootRoute.addChildren([
     opsV21OverviewRoute,
     opsV21TodayRoute,
     opsV21RealtimeRoute,
+    opsV21RealtimeConfigRoute,
     opsV21ReviewIndexRoute,
     opsV21ReviewBoardRoute,
     opsV21ReviewDatasetAuditRoute,
