@@ -155,6 +155,7 @@ frontend/.playwright/
 frontend/playwright-report/
 frontend/test-results/
 *.tsbuildinfo
+.codegraph/
 lake_console/config.local.toml
 lake_console/.venv/
 lake_console/frontend/node_modules/
