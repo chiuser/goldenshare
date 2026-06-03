@@ -4,8 +4,13 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
 
-from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
+    duckdb_string,
+    read_parquet,
+)
 from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stk_mins_path,
@@ -21,7 +26,8 @@ from orchestrator.defs.stk_mins_qfq import (
     GoldStkMinsQfqWriteResult,
     build_daily_qfq_select_sql,
     build_gold_stk_mins_qfq_factor_repair_plan,
-    rewrite_qfq_year_file_for_stock_code,
+    build_latest_adj_factor_by_code_sql,
+    write_gold_stk_mins_qfq_rows_to_year_files,
 )
 
 
@@ -42,6 +48,17 @@ class GoldStkMinsQfqFactorRepairResult:
     rewritten_row_count: int
     repaired_file_samples: tuple[str, ...]
     code_results: tuple[GoldStkMinsQfqFactorRepairCodeResult, ...]
+    execution_model: str
+    planned_batch_count: int
+    executed_batch_count: int
+    non_empty_batch_count: int
+
+
+@dataclass(frozen=True)
+class GoldStkMinsQfqFactorRepairBatch:
+    freq: int
+    year: str
+    partition_keys: tuple[str, ...]
 
 
 def execute_gold_stk_mins_qfq_factor_repair(
@@ -77,6 +94,10 @@ def execute_gold_stk_mins_qfq_factor_repair(
             rewritten_row_count=0,
             repaired_file_samples=(),
             code_results=(),
+            execution_model="freq_year_batch",
+            planned_batch_count=0,
+            executed_batch_count=0,
+            non_empty_batch_count=0,
         )
 
     normalized_freqs = tuple(normalize_stk_mins_freq(freq) for freq in freqs)
@@ -84,89 +105,81 @@ def execute_gold_stk_mins_qfq_factor_repair(
     if not latest_adj_factor_paths:
         raise FileNotFoundError("No silver_adj_factor files available for qfq repair.")
 
-    code_results: list[GoldStkMinsQfqFactorRepairCodeResult] = []
-    repaired_file_samples: list[str] = []
-    for stock_code in plan.repair_required_codes:
-        code_result = _repair_qfq_for_stock_code(
-            lake_root=lake_root,
-            duckdb_resource=duckdb_resource,
-            stock_code=stock_code,
-            freqs=normalized_freqs,
-            selected_partition_keys=selected_partition_keys,
+    batches = _build_repair_batches(
+        freqs=normalized_freqs,
+        selected_partition_keys=selected_partition_keys,
+    )
+    write_results: list[GoldStkMinsQfqWriteResult] = []
+    with TemporaryDirectory(prefix="gold_stk_mins_qfq_factor_repair_") as temp_dir:
+        latest_adj_factor_snapshot_path = Path(temp_dir) / "latest_adj_factor.parquet"
+        _write_latest_adj_factor_snapshot(
+            duckdb_resource,
             latest_adj_factor_paths=latest_adj_factor_paths,
+            target_path=latest_adj_factor_snapshot_path,
         )
-        code_results.append(code_result)
-        for write_result in code_result.write_results:
-            if len(repaired_file_samples) < 20:
-                repaired_file_samples.append(str(write_result.path))
+        for batch in batches:
+            batch_select_sql = _build_stock_year_batch_repair_select_sql(
+                lake_root=lake_root,
+                freq=batch.freq,
+                stock_codes=plan.repair_required_codes,
+                partition_keys=batch.partition_keys,
+                latest_adj_factor_paths=(latest_adj_factor_snapshot_path,),
+            )
+            batch_write_results = write_gold_stk_mins_qfq_rows_to_year_files(
+                lake_root=lake_root,
+                freq=batch.freq,
+                qfq_select_sql=batch_select_sql,
+                replace_trade_dates=batch.partition_keys,
+                allow_empty_replacement=True,
+            )
+            write_results.extend(batch_write_results)
+
+    code_results = _build_repair_code_results(
+        repair_required_codes=plan.repair_required_codes,
+        write_results=write_results,
+    )
+    repaired_file_samples = tuple(str(result.path) for result in write_results[:20])
 
     return GoldStkMinsQfqFactorRepairResult(
         plan=plan,
         repaired_code_count=len(code_results),
         skipped_code_count=0,
-        rewritten_file_count=sum(result.rewritten_file_count for result in code_results),
-        rewritten_row_count=sum(result.rewritten_row_count for result in code_results),
-        repaired_file_samples=tuple(repaired_file_samples),
-        code_results=tuple(code_results),
+        rewritten_file_count=len(write_results),
+        rewritten_row_count=sum(result.replacement_row_count for result in write_results),
+        repaired_file_samples=repaired_file_samples,
+        code_results=code_results,
+        execution_model="freq_year_batch",
+        planned_batch_count=len(batches),
+        executed_batch_count=len(batches),
+        non_empty_batch_count=len(_non_empty_batch_keys(write_results)),
     )
 
 
-def _repair_qfq_for_stock_code(
+def _build_repair_batches(
     *,
-    lake_root: Path,
-    duckdb_resource: DuckDBResource,
-    stock_code: str,
     freqs: Sequence[int],
     selected_partition_keys: Sequence[str],
-    latest_adj_factor_paths: Sequence[Path],
-) -> GoldStkMinsQfqFactorRepairCodeResult:
-    write_results: list[GoldStkMinsQfqWriteResult] = []
+) -> tuple[GoldStkMinsQfqFactorRepairBatch, ...]:
+    batches: list[GoldStkMinsQfqFactorRepairBatch] = []
     for freq in freqs:
         for year, year_partition_keys in _partition_keys_by_year(
             selected_partition_keys
         ).items():
-            replacement_select_sql = _build_stock_year_repair_select_sql(
-                lake_root=lake_root,
-                freq=freq,
-                stock_code=stock_code,
-                partition_keys=year_partition_keys,
-                latest_adj_factor_paths=latest_adj_factor_paths,
-            )
-            replacement_row_count = _replacement_row_count(
-                duckdb_resource,
-                replacement_select_sql,
-            )
-            if replacement_row_count == 0:
-                continue
-            write_results.append(
-                rewrite_qfq_year_file_for_stock_code(
-                    lake_root=lake_root,
+            batches.append(
+                GoldStkMinsQfqFactorRepairBatch(
                     freq=freq,
-                    stock_code=stock_code,
                     year=year,
-                    replacement_select_sql=replacement_select_sql,
-                    replace_trade_dates=year_partition_keys,
+                    partition_keys=year_partition_keys,
                 )
             )
-
-    if not write_results:
-        raise RuntimeError(
-            "QFQ factor repair found changed adj factor but no silver rows to rewrite: "
-            f"ts_code={stock_code}."
-        )
-    return GoldStkMinsQfqFactorRepairCodeResult(
-        ts_code=stock_code,
-        rewritten_file_count=len(write_results),
-        rewritten_row_count=sum(result.replacement_row_count for result in write_results),
-        write_results=tuple(write_results),
-    )
+    return tuple(batches)
 
 
-def _build_stock_year_repair_select_sql(
+def _build_stock_year_batch_repair_select_sql(
     *,
     lake_root: Path,
     freq: int,
-    stock_code: str,
+    stock_codes: Sequence[str],
     partition_keys: Sequence[str],
     latest_adj_factor_paths: Sequence[Path],
 ) -> str:
@@ -185,10 +198,11 @@ def _build_stock_year_repair_select_sql(
         trade_adj_factor_paths=trade_adj_factor_paths,
         latest_adj_factor_paths=latest_adj_factor_paths,
     )
+    stock_codes_sql = _string_values_sql(stock_codes)
     return f"""
 SELECT *
 FROM ({qfq_select_sql})
-WHERE ts_code = {duckdb_string(stock_code)}
+WHERE ts_code IN ({stock_codes_sql})
 """
 
 
@@ -199,16 +213,75 @@ def _require_existing_paths(label: str, paths: Sequence[Path]) -> None:
         raise FileNotFoundError(f"Missing qfq repair {label} input files: {samples}")
 
 
-def _replacement_row_count(
+def _write_latest_adj_factor_snapshot(
     duckdb_resource: DuckDBResource,
-    replacement_select_sql: str,
-) -> int:
+    *,
+    latest_adj_factor_paths: Sequence[Path],
+    target_path: Path,
+) -> None:
+    latest_factor_sql = build_latest_adj_factor_by_code_sql(latest_adj_factor_paths)
+    target_path.parent.mkdir(parents=True, exist_ok=True)
     with duckdb_resource.connect() as connection:
-        return int(
-            connection.execute(
-                f"SELECT count(*) FROM ({replacement_select_sql})"
-            ).fetchone()[0]
+        connection.execute(
+            copy_query_to_parquet(
+                f"""
+                SELECT
+                  CAST(ts_code AS VARCHAR) AS ts_code,
+                  CAST(latest_trade_date AS DATE) AS trade_date,
+                  CAST(latest_adj_factor AS DOUBLE) AS adj_factor
+                FROM ({latest_factor_sql})
+                ORDER BY ts_code
+                """,
+                target_path,
+            )
         )
+        row_count = connection.execute(
+            f"SELECT count(*) FROM {read_parquet(target_path, hive_partitioning=False)}"
+        ).fetchone()[0]
+    if int(row_count) == 0:
+        raise ValueError("Latest adj factor snapshot is empty.")
+
+
+def _build_repair_code_results(
+    *,
+    repair_required_codes: Sequence[str],
+    write_results: Sequence[GoldStkMinsQfqWriteResult],
+) -> tuple[GoldStkMinsQfqFactorRepairCodeResult, ...]:
+    by_code: dict[str, list[GoldStkMinsQfqWriteResult]] = {
+        code: [] for code in repair_required_codes
+    }
+    for write_result in write_results:
+        by_code.setdefault(write_result.ts_code, []).append(write_result)
+
+    code_results: list[GoldStkMinsQfqFactorRepairCodeResult] = []
+    for stock_code in repair_required_codes:
+        stock_write_results = tuple(by_code.get(stock_code, ()))
+        if not stock_write_results:
+            continue
+        code_results.append(
+            GoldStkMinsQfqFactorRepairCodeResult(
+                ts_code=stock_code,
+                rewritten_file_count=len(stock_write_results),
+                rewritten_row_count=sum(
+                    result.replacement_row_count for result in stock_write_results
+                ),
+                write_results=stock_write_results,
+            )
+        )
+    return tuple(code_results)
+
+
+def _non_empty_batch_keys(
+    write_results: Sequence[GoldStkMinsQfqWriteResult],
+) -> tuple[tuple[str, str], ...]:
+    return tuple(
+        sorted(
+            {
+                (write_result.path.parent.parent.parent.name, write_result.year)
+                for write_result in write_results
+            }
+        )
+    )
 
 
 def _select_repair_partition_keys(
@@ -219,7 +292,10 @@ def _select_repair_partition_keys(
     selected = tuple(
         key
         for key in sorted(
-            {date.fromisoformat(str(partition_key).strip()).isoformat() for partition_key in registered_partition_keys}
+            {
+                date.fromisoformat(str(partition_key).strip()).isoformat()
+                for partition_key in registered_partition_keys
+            }
         )
         if key <= trade_date
     )
@@ -247,7 +323,11 @@ def _previous_trade_date(
 def _partition_keys_by_year(partition_keys: Sequence[str]) -> dict[str, tuple[str, ...]]:
     years = sorted({partition_key[:4] for partition_key in partition_keys})
     return {
-        year: tuple(partition_key for partition_key in partition_keys if partition_key[:4] == year)
+        year: tuple(
+            partition_key
+            for partition_key in partition_keys
+            if partition_key[:4] == year
+        )
         for year in years
     }
 
@@ -255,3 +335,10 @@ def _partition_keys_by_year(partition_keys: Sequence[str]) -> dict[str, tuple[st
 def _discover_silver_adj_factor_paths(lake_root: Path) -> tuple[Path, ...]:
     adj_factor_root = Path(lake_root) / "silver" / "quote" / "adj_factor"
     return tuple(sorted(adj_factor_root.glob("trade_date=*/part-000.parquet")))
+
+
+def _string_values_sql(values: Sequence[str]) -> str:
+    normalized_values = tuple(dict.fromkeys(str(value).strip() for value in values))
+    if not normalized_values:
+        raise ValueError("At least one string value is required.")
+    return ", ".join(duckdb_string(value) for value in normalized_values)

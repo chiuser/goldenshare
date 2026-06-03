@@ -37,6 +37,10 @@ from orchestrator.defs.stk_mins_qfq_factor_repair import (
 PREVIOUS_DATE = "2026-05-28"
 TRADE_DATE = "2026-05-29"
 STOCK_A = "600000.SH"
+STOCK_B = "000001.SZ"
+STOCK_C = "300001.SZ"
+
+
 def _column_types(schema) -> dict[str, str]:
     return {column.name: column.type for column in schema}
 
@@ -93,10 +97,11 @@ def _silver_row(
     trade_time: str,
     *,
     open_: float,
+    freq: int = 1,
 ) -> dict[str, object]:
     return {
         "ts_code": ts_code,
-        "freq": 1,
+        "freq": freq,
         "trade_date": trade_date,
         "trade_time": f"{trade_date} {trade_time}",
         "open": open_,
@@ -115,10 +120,9 @@ def _gold_row(
     trade_time: str,
     *,
     open_: float,
+    freq: int = 1,
 ) -> dict[str, object]:
-    row = _silver_row(ts_code, trade_date, trade_time, open_=open_)
-    row["freq"] = 1
-    return row
+    return _silver_row(ts_code, trade_date, trade_time, open_=open_, freq=freq)
 
 
 def _stock_basic_row(ts_code: str, list_date: str) -> dict[str, object]:
@@ -217,6 +221,48 @@ def _write_repair_inputs(
         )
 
 
+def _write_multi_code_repair_inputs(
+    lake_root: Path,
+    *,
+    stock_codes: tuple[str, ...],
+    freqs: tuple[int, ...],
+    partition_keys: tuple[str, ...],
+    missing_silver_codes: tuple[str, ...] = (),
+) -> None:
+    _write_stock_basic(
+        silver_stock_basic_path(lake_root),
+        [_stock_basic_row(stock_code, "1999-11-10") for stock_code in stock_codes],
+    )
+    for partition_key in partition_keys:
+        _write_adj_factor(
+            silver_adj_factor_path(lake_root, partition_key),
+            [
+                _adj_row(
+                    stock_code,
+                    partition_key,
+                    4.0 if partition_key == TRADE_DATE else 2.0,
+                )
+                for stock_code in stock_codes
+            ],
+        )
+        for freq in freqs:
+            rows = [
+                _silver_row(
+                    stock_code,
+                    partition_key,
+                    "09:30:00",
+                    open_=10.0 + index,
+                    freq=freq,
+                )
+                for index, stock_code in enumerate(stock_codes)
+                if stock_code not in missing_silver_codes
+            ]
+            _write_silver_mins(
+                silver_stk_mins_path(lake_root, freq, partition_key),
+                rows,
+            )
+
+
 class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
     def test_no_factor_change_returns_successful_noop_report(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -265,6 +311,42 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         self.assertAlmostEqual(rows[0]["open"], 5.0)
         self.assertAlmostEqual(rows[1]["open"], 20.0)
         self.assertEqual(report.rewritten_row_count, 2)
+        self.assertEqual(report.execution_model, "freq_year_batch")
+        self.assertEqual(report.planned_batch_count, 1)
+        self.assertEqual(report.executed_batch_count, 1)
+        self.assertEqual(report.non_empty_batch_count, 1)
+
+    def test_factor_change_batches_by_freq_and_year_not_by_stock_code(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            stock_codes = (STOCK_A, STOCK_B, STOCK_C)
+            freqs = (1, 5)
+            partition_keys = ("2025-05-29", PREVIOUS_DATE, TRADE_DATE)
+            _write_multi_code_repair_inputs(
+                lake_root,
+                stock_codes=stock_codes,
+                freqs=freqs,
+                partition_keys=partition_keys,
+            )
+
+            report = execute_gold_stk_mins_qfq_factor_repair(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                trade_date=TRADE_DATE,
+                registered_partition_keys=partition_keys,
+                freqs=freqs,
+            )
+
+        self.assertEqual(report.plan.factor_changed_code_count, 3)
+        self.assertEqual(report.repaired_code_count, 3)
+        self.assertEqual(report.execution_model, "freq_year_batch")
+        self.assertEqual(report.planned_batch_count, 4)
+        self.assertEqual(report.executed_batch_count, 4)
+        self.assertEqual(report.non_empty_batch_count, 4)
+        self.assertEqual(report.rewritten_file_count, 12)
+        self.assertEqual({result.ts_code for result in report.code_results}, set(stock_codes))
+        for code_result in report.code_results:
+            self.assertEqual(code_result.rewritten_file_count, 4)
 
     def test_factor_change_without_silver_rows_fails_instead_of_fake_success(
         self,
@@ -281,6 +363,34 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                     registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
                     freqs=[1],
                 )
+
+    def test_changed_code_without_any_silver_rows_is_reported_as_unrepaired(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            stock_codes = (STOCK_A, STOCK_B)
+            partition_keys = (PREVIOUS_DATE, TRADE_DATE)
+            _write_multi_code_repair_inputs(
+                lake_root,
+                stock_codes=stock_codes,
+                freqs=(1,),
+                partition_keys=partition_keys,
+                missing_silver_codes=(STOCK_B,),
+            )
+
+            report = execute_gold_stk_mins_qfq_factor_repair(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                trade_date=TRADE_DATE,
+                registered_partition_keys=partition_keys,
+                freqs=[1],
+            )
+
+        self.assertEqual(report.plan.repair_required_code_count, 2)
+        self.assertEqual(report.repaired_code_count, 1)
+        self.assertEqual(report.rewritten_file_count, 1)
+        self.assertEqual(report.code_results[0].ts_code, STOCK_A)
 
     def test_non_partitioned_op_job_emits_repair_check_events_from_run_config(
         self,

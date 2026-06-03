@@ -69,6 +69,10 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
         rewritten_file_count=report.rewritten_file_count,
         rewritten_row_count=report.rewritten_row_count,
         repaired_file_samples=report.repaired_file_samples,
+        execution_model=report.execution_model,
+        planned_batch_count=report.planned_batch_count,
+        executed_batch_count=report.executed_batch_count,
+        non_empty_batch_count=report.non_empty_batch_count,
     )
     for asset_key in GOLD_STK_MINS_QFQ_REPAIR_CHECK_ASSET_KEYS:
         context.log_event(

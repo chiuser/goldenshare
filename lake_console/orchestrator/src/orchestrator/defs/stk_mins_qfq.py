@@ -347,6 +347,10 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     rewritten_file_count: int = 0,
     rewritten_row_count: int = 0,
     repaired_file_samples: Sequence[str] = (),
+    execution_model: str = "freq_year_batch",
+    planned_batch_count: int = 0,
+    executed_batch_count: int = 0,
+    non_empty_batch_count: int = 0,
 ) -> dict[str, Any]:
     for name, value in (
         ("repaired_code_count", repaired_code_count),
@@ -354,6 +358,9 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
         ("failed_code_count", failed_code_count),
         ("rewritten_file_count", rewritten_file_count),
         ("rewritten_row_count", rewritten_row_count),
+        ("planned_batch_count", planned_batch_count),
+        ("executed_batch_count", executed_batch_count),
+        ("non_empty_batch_count", non_empty_batch_count),
     ):
         if value < 0:
             raise ValueError(f"{name} must be non-negative.")
@@ -372,6 +379,10 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
             "failed_code_count": failed_code_count,
             "rewritten_file_count": rewritten_file_count,
             "rewritten_row_count": rewritten_row_count,
+            "execution_model": execution_model,
+            "planned_batch_count": planned_batch_count,
+            "executed_batch_count": executed_batch_count,
+            "non_empty_batch_count": non_empty_batch_count,
             "repaired_file_samples": list(
                 repaired_file_samples[:QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT]
             ),
@@ -398,6 +409,7 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
     qfq_select_sql: str,
     replace_trade_dates: Sequence[str],
     fail_if_target_exists: bool = False,
+    allow_empty_replacement: bool = False,
 ) -> tuple[GoldStkMinsQfqWriteResult, ...]:
     normalized_freq = normalize_stk_mins_freq(freq)
     allowed_trade_dates = _normalize_trade_dates(replace_trade_dates)
@@ -405,10 +417,16 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
 
     with duckdb.connect(database=":memory:") as connection:
         _create_replacement_rows_table(connection, qfq_select_sql)
+        replacement_row_count = int(
+            connection.execute("SELECT count(*) FROM qfq_replacement_rows").fetchone()[0]
+        )
+        if replacement_row_count == 0 and allow_empty_replacement:
+            return ()
         _validate_replacement_rows(
             connection,
             normalized_freq=normalized_freq,
             allowed_dates_sql=allowed_dates_sql,
+            replacement_row_count=replacement_row_count,
         )
         groups = connection.execute(
             """
@@ -503,8 +521,13 @@ def _validate_replacement_rows(
     *,
     normalized_freq: int,
     allowed_dates_sql: str,
+    replacement_row_count: int | None = None,
 ) -> None:
-    row_count = connection.execute("SELECT count(*) FROM qfq_replacement_rows").fetchone()[0]
+    row_count = (
+        replacement_row_count
+        if replacement_row_count is not None
+        else connection.execute("SELECT count(*) FROM qfq_replacement_rows").fetchone()[0]
+    )
     if row_count == 0:
         raise ValueError("qfq replacement rows are empty; refusing to write gold qfq files.")
 

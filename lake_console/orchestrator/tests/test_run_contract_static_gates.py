@@ -272,6 +272,21 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_gold_qfq_factor_repair_does_not_loop_by_changed_code(self) -> None:
+        path = DEFS_DIR / "stk_mins_qfq_factor_repair.py"
+        source = path.read_text()
+        forbidden_fragments = (
+            "for stock_code in plan.repair_required_codes",
+            "_repair_qfq_for_stock_code",
+        )
+        issues = [
+            f"{path} contains forbidden stock-code primary repair loop: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        ]
+
+        self.assertEqual(issues, [])
+
     def test_sensor_files_use_run_contract_helpers(self) -> None:
         issues = []
 
