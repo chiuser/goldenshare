@@ -142,10 +142,22 @@ def _cursor_payload(
     )
 
 
+def _run_config_for_trade_date(trade_date: str) -> dict[str, object]:
+    return {
+        "ops": {
+            "stock_mins_qfq_factor_repair_op": {
+                "config": {
+                    "trade_date": trade_date,
+                }
+            }
+        }
+    }
+
+
 def _run_request_for_trade_date(trade_date: str):
     return build_run_request(
         run_key=f"stock_mins_qfq_factor_repair:{trade_date}",
-        partition_key=trade_date,
+        run_config=_run_config_for_trade_date(trade_date),
     )
 
 

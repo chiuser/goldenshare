@@ -129,13 +129,22 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIn("提交 factor repair", decision.reason)
 
         request = _run_request_for_trade_date(PARTITION_KEY)
-        self.assertEqual(request.partition_key, PARTITION_KEY)
+        self.assertIsNone(request.partition_key)
         self.assertEqual(
             request.run_key,
             f"stock_mins_qfq_factor_repair:{PARTITION_KEY}",
         )
         self.assertEqual(request.tags, {})
-        self.assertEqual(request.run_config, {})
+        self.assertEqual(
+            request.run_config,
+            {
+                "ops": {
+                    "stock_mins_qfq_factor_repair_op": {
+                        "config": {"trade_date": PARTITION_KEY}
+                    }
+                }
+            },
+        )
 
     def test_materialized_check_problem_requires_materialized_failed_status(self) -> None:
         self.assertTrue(

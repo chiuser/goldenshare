@@ -1,3 +1,5 @@
+from datetime import date
+
 import dagster as dg
 
 from orchestrator.defs.assets.stk_mins import GOLD_STK_MINS_QFQ_ASSETS
@@ -15,10 +17,28 @@ GOLD_STK_MINS_QFQ_REPAIR_CHECK_ASSET_KEYS = tuple(
     asset.key for asset in GOLD_STK_MINS_QFQ_ASSETS
 )
 
+STOCK_MINS_QFQ_FACTOR_REPAIR_CONFIG_SCHEMA = {
+    "trade_date": dg.Field(
+        str,
+        description="股票分钟线 qfq factor repair 的目标交易日，格式 YYYY-MM-DD。",
+    )
+}
 
-@dg.op(required_resource_keys={"lake_root", "duckdb"})
+
+def _trade_date_from_op_config(context: dg.OpExecutionContext) -> str:
+    raw_trade_date = str(context.op_config["trade_date"]).strip()
+    try:
+        return date.fromisoformat(raw_trade_date).isoformat()
+    except ValueError as error:
+        raise ValueError("trade_date must use YYYY-MM-DD format.") from error
+
+
+@dg.op(
+    required_resource_keys={"lake_root", "duckdb"},
+    config_schema=STOCK_MINS_QFQ_FACTOR_REPAIR_CONFIG_SCHEMA,
+)
 def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
-    trade_date = context.partition_key
+    trade_date = _trade_date_from_op_config(context)
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(

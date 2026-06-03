@@ -282,7 +282,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                     freqs=[1],
                 )
 
-    def test_partitioned_op_job_emits_repair_check_events_without_run_config(
+    def test_non_partitioned_op_job_emits_repair_check_events_from_run_config(
         self,
     ) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -295,7 +295,13 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
             )
 
             result = stock_mins_qfq_factor_repair_job.execute_in_process(
-                partition_key=TRADE_DATE,
+                run_config={
+                    "ops": {
+                        "stock_mins_qfq_factor_repair_op": {
+                            "config": {"trade_date": TRADE_DATE}
+                        }
+                    }
+                },
                 instance=instance,
                 resources={
                     "lake_root": LakeRootResource(root_path=str(lake_root)),
@@ -325,18 +331,30 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 "no_factor_changed",
             )
 
-    def test_factor_repair_job_contract_is_partitioned_and_in_process(self) -> None:
+    def test_factor_repair_job_contract_is_non_partitioned_and_in_process(self) -> None:
         self.assertEqual(
             stock_mins_qfq_factor_repair_job.name,
             STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
         )
-        self.assertEqual(
-            stock_mins_qfq_factor_repair_job.partitions_def.name,
-            cn_a_stock_mins_silver_trade_days.name,
-        )
+        self.assertIsNone(stock_mins_qfq_factor_repair_job.partitions_def)
         self.assertEqual(
             stock_mins_qfq_factor_repair_job.executor_def.name,
             "in_process",
+        )
+
+    def test_factor_repair_job_requires_trade_date_run_config(self) -> None:
+        with self.assertRaises(dg.DagsterInvalidConfigError):
+            dg.validate_run_config(stock_mins_qfq_factor_repair_job, {})
+
+        dg.validate_run_config(
+            stock_mins_qfq_factor_repair_job,
+            {
+                "ops": {
+                    "stock_mins_qfq_factor_repair_op": {
+                        "config": {"trade_date": TRADE_DATE}
+                    }
+                }
+            },
         )
 
 

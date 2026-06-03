@@ -864,10 +864,10 @@
         </tr>
         <tr>
           <td><code>stock_mins_qfq_factor_repair_job</code></td>
-          <td>维护型 partitioned op job</td>
+          <td>维护型非分区 op job</td>
           <td>检测目标交易日复权因子相对上一交易日是否变化；无变化记录成功，有变化则逐股票回刷历史 gold qfq 股票年份文件。</td>
-          <td>人工 partition run 或 <code>stock_mins_qfq_factor_repair_sensor</code> 23:15 后在当日五频度 gold ready 时自动触发。</td>
-          <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到五个 <code>gold_stk_mins_qfq_*</code> assets。</td>
+          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 23:15 后在当日五频度 gold ready 时自动传入最新目标日期。</td>
+          <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到五个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>

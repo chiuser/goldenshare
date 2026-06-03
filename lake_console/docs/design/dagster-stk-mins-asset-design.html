@@ -1667,6 +1667,12 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td>sensor 不直接检测变化股票；repair job 内用 DuckDB 生成 plan 并执行必要回刷；repair check event 挂到五个 gold qfq assets；不新增 summary；默认停止，正式执行仍需单独审批。</td>
       </tr>
       <tr>
+        <td><strong>M9D</strong></td>
+        <td>Repair job 分区建模修正</td>
+        <td>已实现：<code>stock_mins_qfq_factor_repair_job</code> 已从绑定 <code>cn_a_stock_mins_silver_trade_days</code> 的 partitioned op job 改为非分区 op job。</td>
+        <td>原因是旧 UI 会显示全历史 missing partitions，误导为 repair 历史缺口。当前口径：typed config 只暴露 <code>trade_date</code>；sensor 自动传入最新目标日期；人工 Launchpad 可 scaffold；repair check 仍按目标日期写到五个 gold qfq assets，不新增 summary entity。</td>
+      </tr>
+      <tr>
         <td><strong>M10</strong></td>
         <td>治理收口</td>
         <td>已进入第一轮治理收口：文档、拓扑、架构和静态门禁以当前 gold qfq 代码与已执行事实为准对齐。</td>
@@ -1686,6 +1692,15 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M9B 已实现 factor repair detection 与 check metadata 契约。
       M9C 已新增默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日五频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测与必要股票历史回刷。
     </p>
+    <div class="note">
+      <strong>M9D 已修正：factor repair job 不再建模为全历史分区 job。</strong>
+      旧版 <code>stock_mins_qfq_factor_repair_job</code> 曾绑定 <code>cn_a_stock_mins_silver_trade_days</code>，
+      Dagster UI 会把该维护任务解释为“每个历史交易日都应完成一次”，从而显示约 <code>3016</code> 个 missing partitions。
+      这不是 gold qfq 数据缺口，而是任务建模与真实业务语义不一致。当前 repair 已改为非分区 op job，
+      通过 typed run config 传入 <code>trade_date</code>；sensor 提交 run 时自动写入该 config，
+      人工 Launchpad 也可 scaffold 出 <code>trade_date</code>。
+      repair check event 仍挂到五个 <code>gold_stk_mins_qfq_*</code> assets 的目标日期上，不新增 summary asset。
+    </div>
 
     <table>
       <tr><th>对象</th><th>职责</th><th>边界</th></tr>
@@ -1757,7 +1772,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
         <td>检测最新 adj factor 是否相对上一交易日变化；无变化则成功，有变化则逐股票回刷历史 qfq。</td>
-        <td>已实现，默认人工/传感器触发；这是维护型 partitioned op job，经确认不使用普通 <code>define_asset_job</code>。变化检测和修复结果通过 repair check metadata 表达，不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。</td>
+        <td>已实现，默认人工/传感器触发；这是维护型非分区 op job，运行时通过 typed <code>trade_date</code> config 指定目标日期，不再产生全历史 missing partitions 噪音。变化检测和修复结果通过 repair check metadata 表达，不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_sensor</code></td>

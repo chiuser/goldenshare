@@ -138,6 +138,13 @@ def _check_metadata_builder_names(tree: ast.Module) -> set[str]:
     return builder_names
 
 
+def _is_allowed_sensor_run_config_dict(path: Path, dict_node: ast.Dict) -> bool:
+    return (
+        path.name == "stock_mins_qfq_factor_repair_sensor.py"
+        and "ops" in _direct_string_keys(dict_node)
+    )
+
+
 class RunContractStaticGateTests(unittest.TestCase):
     def test_stock_mins_silver_job_does_not_pull_raw_or_source_config(self) -> None:
         path = JOBS_DIR / "stock_mins_silver_update.py"
@@ -195,10 +202,11 @@ class RunContractStaticGateTests(unittest.TestCase):
         source = path.read_text()
         required_fragments = (
             "stock_mins_qfq_factor_repair_op",
-            "cn_a_stock_mins_silver_trade_days",
             "@dg.job",
         )
         forbidden_fragments = (
+            "cn_a_stock_mins_silver_trade_days",
+            "partitions_def",
             "DuckDB",
             "duckdb",
             "parquet",
@@ -305,7 +313,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                             f"{_node_location(path, node)} serializes cursor locally"
                         )
                 elif isinstance(node, ast.Dict):
-                    if "ops" in _direct_string_keys(node):
+                    if "ops" in _direct_string_keys(
+                        node
+                    ) and not _is_allowed_sensor_run_config_dict(path, node):
                         issues.append(
                             f"{_node_location(path, node)} writes deep run_config"
                         )
