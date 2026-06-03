@@ -58,6 +58,27 @@ src/
 3. 若 CodeGraph 结果显示契约消费者、依赖方向或运行链路不清晰，必须继续核验当前代码；禁止只凭文件名、方法名、历史印象或文档结论动手。
 4. 对重构和 contract 变更，必须在交付说明中记录已使用的 CodeGraph 工具、分析到的影响面、仍需人工确认的边界。
 5. CodeGraph 索引根为仓库根目录 `/Users/congming/github/goldenshare`；多子项目分析按目录切片，不在子目录重复初始化独立索引，除非用户明确要求。
+6. 开发前默认优先用 CodeGraph：
+   - 理解模块、调用链、架构入口：用 `codegraph_explore`
+   - 查找符号位置：用 `codegraph_search`
+   - 查调用方/被调用方：用 `codegraph_callers` / `codegraph_callees`
+   - 查重构影响面：用 `codegraph_impact`
+   - 查目录结构：用 `codegraph_files`
+   - 查索引状态：用 `codegraph_status`
+7. 开发后若切分支、pull、rebase、批量改文件或怀疑索引滞后，先执行 `codegraph sync` 与 `codegraph status`；只有 `.codegraph/` 丢失、索引异常、仓库结构大变或 CodeGraph 升级后行为不确定时，才重新执行 `codegraph init -i`。
+8. 如果 CodeGraph 提示 stale lock，先执行 `codegraph unlock`，再执行 `codegraph sync`；不得删除 `.codegraph/` 或重建索引来绕过锁问题，除非已确认索引损坏。
+9. CLI 可作为 MCP 备用能力，常用命令包括：`codegraph files --filter <dir> --max-depth <n>`、`codegraph query <symbol>`、`codegraph impact <symbol>`。
+10. `docs/architecture/codegraph-architecture-snapshot.md` 只在仓库模块边界、关键调用链、关键 contract/adapter 或主要入口文件发生实质变化时更新；普通功能改动不要求同步更新快照。
+
+---
+
+## 本机服务与网络命令规则
+
+1. 凡任务明确需要访问网络、本机数据库、本机服务、远程服务器、localhost API、npm/pip 下载、Tushare、Postgres、ClickHouse、Redis、SSH 或生产环境，不得先在沙箱里试探执行。
+2. 这类命令应直接使用本机命令行执行；若当前工具需要权限，必须直接用 `require_escalated` 申请执行，并说明原因。
+3. 只有纯本地文件读取、代码搜索、静态检查、无需网络的测试，才默认使用沙箱执行。
+4. 若已有批准过的命令前缀，应优先复用该命令前缀，不要绕到 Python、curl 或临时脚本里重新实现。
+5. 遇到 DNS、connection refused、permission denied、registry/index access、database host resolution 等明显沙箱限制信号时，不要继续在沙箱里反复尝试；应立刻切换到本机命令行或停下说明需要授权。
 
 ---
 
