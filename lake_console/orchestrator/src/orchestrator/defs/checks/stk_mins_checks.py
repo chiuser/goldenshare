@@ -908,12 +908,25 @@ def _gold_stk_mins_qfq_check_results(
                     )
                 ).fetchone()
             )
-            for sample_name, query in _gold_qfq_sample_queries(
-                gold_source=gold_source,
-                partition_key=partition_key,
-                freq=normalized_freq,
-            ).items():
-                rows = connection.execute(query).fetchall()
+            sample_queries: dict[str, str] = {}
+            if (
+                path_mismatch_row_count > 0
+                or duplicate_key_count > 0
+                or invalid_price_row_count > 0
+            ):
+                sample_queries = _gold_qfq_sample_queries(
+                    gold_source=gold_source,
+                    partition_key=partition_key,
+                    freq=normalized_freq,
+                )
+            for sample_name, failed_count in (
+                ("path_mismatch_samples", path_mismatch_row_count),
+                ("duplicate_samples", duplicate_key_count),
+                ("price_samples", invalid_price_row_count),
+            ):
+                if failed_count <= 0:
+                    continue
+                rows = connection.execute(sample_queries[sample_name]).fetchall()
                 columns = [column[0] for column in connection.description]
                 samples[sample_name] = _sample_dicts(columns, rows)
 
@@ -935,15 +948,21 @@ def _gold_stk_mins_qfq_check_results(
                     formula_unexpected_gold_row_count,
                     formula_mismatch_row_count,
                 ) = (int(value or 0) for value in formula_counts)
-                rows = connection.execute(
-                    _gold_qfq_formula_sample_sql(
-                        gold_source=gold_source,
-                        qfq_select_sql=qfq_select_sql,
-                        partition_key=partition_key,
-                    )
-                ).fetchall()
-                columns = [column[0] for column in connection.description]
-                samples["formula_samples"] = _sample_dicts(columns, rows)
+                formula_failed_count = (
+                    formula_missing_gold_row_count
+                    + formula_unexpected_gold_row_count
+                    + formula_mismatch_row_count
+                )
+                if formula_failed_count > 0:
+                    rows = connection.execute(
+                        _gold_qfq_formula_sample_sql(
+                            gold_source=gold_source,
+                            qfq_select_sql=qfq_select_sql,
+                            partition_key=partition_key,
+                        )
+                    ).fetchall()
+                    columns = [column[0] for column in connection.description]
+                    samples["formula_samples"] = _sample_dicts(columns, rows)
 
         if trade_adj_factor_path.exists() and latest_adj_factor_paths:
             coverage_counts = connection.execute(

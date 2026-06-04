@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import dagster as dg
 import duckdb
@@ -237,6 +238,100 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 ASSET_KEY,
             )
 
+    def test_gold_qfq_checks_do_not_fetch_failure_samples_when_counts_pass(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir) / "lake"
+            _write_silver(
+                lake_root,
+                [
+                    _silver_row("600000.SH", open_=10.0),
+                    _silver_row("000001.SZ", open_=30.0),
+                ],
+            )
+            _write_adj_factor(lake_root)
+            _write_gold(
+                lake_root,
+                [
+                    _gold_row("600000.SH", open_=5.0),
+                    _gold_row("000001.SZ", open_=15.0),
+                ],
+            )
+
+            with (
+                patch.object(
+                    stk_mins_checks,
+                    "_gold_qfq_sample_queries",
+                    side_effect=AssertionError("failure samples should be lazy"),
+                ),
+                patch.object(
+                    stk_mins_checks,
+                    "_gold_qfq_formula_sample_sql",
+                    side_effect=AssertionError("formula samples should be lazy"),
+                ),
+            ):
+                results = _check_results(lake_root)
+
+            self.assertTrue(all(result.passed for result in results.values()))
+
+    def test_alignment_failure_only_fetches_alignment_sample(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir) / "lake"
+            _write_silver(lake_root, [_silver_row("600000.SH", open_=10.0)])
+            _write_adj_factor(lake_root)
+            _write_rows(
+                gold_stk_mins_qfq_path(lake_root, 5, "600000.SH", 2014),
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=[_gold_row("600000.SH", open_=5.0, freq=15)],
+                order_by="trade_date, trade_time",
+            )
+
+            sample_queries = {
+                "path_mismatch_samples": f"""
+                    SELECT
+                      '600000.SH' AS ts_code,
+                      DATE '{TRADE_DATE}' AS trade_date,
+                      TIMESTAMP '{TRADE_DATE} 09:35:00' AS trade_time,
+                      15 AS freq,
+                      '600000.SH' AS path_ts_code,
+                      '2014' AS path_year
+                """,
+                "duplicate_samples": "SELECT * FROM duplicate_sample_should_not_run",
+                "price_samples": "SELECT * FROM price_sample_should_not_run",
+            }
+
+            with (
+                patch.object(
+                    stk_mins_checks,
+                    "_gold_qfq_sample_queries",
+                    return_value=sample_queries,
+                ) as sample_query_builder,
+                patch.object(
+                    stk_mins_checks,
+                    "_gold_qfq_formula_sample_sql",
+                    side_effect=AssertionError("formula samples should be lazy"),
+                ),
+            ):
+                results = _check_results(lake_root)
+
+            self.assertEqual(sample_query_builder.call_count, 1)
+            alignment_result = results[
+                stk_mins_checks.GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK
+            ]
+            self.assertFalse(alignment_result.passed)
+            self.assertEqual(
+                alignment_result.metadata["goldenshare/failure_samples"].data,
+                [
+                    {
+                        "ts_code": "600000.SH",
+                        "trade_date": TRADE_DATE,
+                        "trade_time": f"{TRADE_DATE}T09:35:00",
+                        "freq": 15,
+                        "path_ts_code": "600000.SH",
+                        "path_year": "2014",
+                    }
+                ],
+            )
+
     def test_missing_gold_file_fails_file_row_count_and_formula_checks(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir) / "lake"
@@ -329,6 +424,14 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                     stk_mins_checks.GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK
                 ].passed
             )
+            self.assertGreater(
+                len(
+                    results[
+                        stk_mins_checks.GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK
+                    ].metadata["goldenshare/failure_samples"].data
+                ),
+                0,
+            )
 
     def test_bad_prices_fail_price_sanity_check(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -343,6 +446,14 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[stk_mins_checks.GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK].passed
+            )
+            self.assertGreater(
+                len(
+                    results[
+                        stk_mins_checks.GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK
+                    ].metadata["goldenshare/failure_samples"].data
+                ),
+                0,
             )
 
     def test_row_count_mismatch_fails_reconciliation_check(self) -> None:
@@ -404,6 +515,14 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 results[
                     stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
                 ].passed
+            )
+            self.assertGreater(
+                len(
+                    results[
+                        stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
+                    ].metadata["goldenshare/failure_samples"].data
+                ),
+                0,
             )
 
     def test_check_definitions_and_readiness_names_match(self) -> None:

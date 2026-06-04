@@ -2,6 +2,8 @@
 
 审计日期：2026-06-04
 
+复审日期：2026-06-05
+
 ## 审计目标
 
 本轮审计只回答一个问题：当前新湖 Dagster asset、check、关键 helper 中，是否还存在违反性能门禁的实现，尤其是：
@@ -47,6 +49,25 @@ CodeGraph 结果：索引正常，`fetch_prod_stk_mins_rows_for_stock_codes` 只
 | P0 | 默认生产链路中存在大体量 Python 明细处理或写入，已经违反性能门禁 | 必须优先修正，修正前不应继续扩大日常依赖 |
 | P1 | 正式 asset/check 中存在明显性能风险，当前可能可跑，但缺少批量化或规模门禁 | 应在正式放大使用前修正或补强边界 |
 | P2 | 当前规模较小或属于人工/历史工具，但实现形态容易被误用 | 需要文档、测试或静态门禁约束，防止复制到大数据链路 |
+
+## 2026-06-05 复审结论
+
+本次复审重点重新查看了正式 `defs/**` 中的 DuckDB 写入、Python 明细处理、qfq check、namechange、identity map、Tushare helper、repair 和历史 event helper。结论：
+
+1. 当前已登记的 P0 均已修复，未发现新的 P0。
+2. 非 P0 风险仍存在，主要是“可运行但缺少规模边界或批量化优化”的 P1/P2。
+3. 非 P0 不阻断当前生产链路，但应按下方优先级收口，避免后续放大时再次演变成 P0。
+
+### 建议修复优先级
+
+| 顺序 | 项目 | 等级 | 为什么排在这里 | 建议动作 |
+|---:|---|---|---|---|
+| 1 | `gold_stk_mins_qfq_*` checks 无条件 sample 查询与重复深扫 | P1 | 属于日常 gold qfq 生产链路；2026-06-05 只读实测显示，真正主耗时不是文件 exists 循环，而是全绿场景仍无条件执行 sample 查询和重复 DuckDB 深扫。 | P1A 已落地：sample 懒加载，只有失败时取样本；同日复测五频度从约 `31.9s` 降到约 `19.4s`。若仍慢，再做 P1B：聚合扫描复用。 |
+| 2 | `silver_namechange` Python 时间线构建 | P1 | 正式 silver asset 中有复杂 Python 全量规则构建，当前规模小但缺少硬上限；后续 namechange 规则继续叠加会变成维护风险。 | 先加 row count/code count/耗时上限和 fail-fast；中期把过滤、去重、冲突聚合尽量下推 DuckDB。 |
+| 3 | Tushare `stk_mins` 全市场备用入口与 `merge_repair` 规模门禁 | P2 | 默认日常已经走 prod DB，但人工入口一旦误用成全市场 run，会重新进入逐股票请求和 Python rows 写入模型。 | 给 Tushare source 和 `merge_repair` 增加股票数、窗口长度、返回行数上限；超限提示走 prod DB 批量补数。 |
+| 4 | `silver_stock_identity_map` 小表构建边界 | P2 | 当前只有几千行，风险低；但它是正式 asset，仍需明确“小表 Python 规则构建”的合法边界。 | 增加输入/输出 row count 上限和测试，文档说明该模式不得复制到大表。 |
+| 5 | 历史 bootstrap / event helper 模板约束 | P2 | 当前多数是一次性工具；真正风险是未来复制旧的逐 partition helper 到新数据集。 | 增加迁移模板规则：大于 100 partitions 或 partition*checks 大于 1000 时必须使用 plan/sample/batch/final audit。 |
+| 6 | `raw_stk_mins` prod DB P0 修复后的真实 benchmark 回填 | 验证项 | P0 代码已修；还缺真实日常耗时对比，属于证据回填，不是当前代码阻塞。 | 等下一次日常 run 或单独批准 benchmark 后补 1m 与五频度耗时、row count、文件大小、内存峰值。 |
 
 ## 发现的问题
 
@@ -144,39 +165,100 @@ CodeGraph 结果：索引正常，`fetch_prod_stk_mins_rows_for_stock_codes` 只
   - Python 只传 `freq/date/window/stock_pool` 参数和接收 row count、file path、异常样本。
 - 单元测试必须禁止 prod DB 主路径出现“全量结果 list + `executemany` 写 raw parquet”的回退。
 
-### P1：`gold_stk_mins_qfq_*` check 每个分区会用 Python 构造数千个股票年份文件路径
+### P1：`gold_stk_mins_qfq_*` checks 无条件 sample 查询与重复深扫
 
 代码位置：
 
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:270`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:278`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:286`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:446`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:582`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:868`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:876`
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:893`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:911`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py:939`
 
 现状：
 
 - M8B 已经把 8 个 qfq checks 合并成每频度一个 `multi_asset_check`，避免同一频度重复深扫。
 - 但 `_gold_qfq_expected_paths(...)` 会从当日 silver 读取全部 `ts_code`，`fetchall()` 到 Python，再为每只股票构造 `freq/ts_code/year` 路径。
 - 后续用 Python `path.exists()` 拆出 missing/existing，再把大量 existing paths 拼进 DuckDB `read_parquet([...])`。
+- 当前 `_gold_stk_mins_qfq_check_results(...)` 在全绿场景也无条件执行 3 类 failure sample 查询：path mismatch、duplicate、price。
+- 当前公式 check 在 `formula_failed_count=0` 时也无条件执行 formula sample 查询。
 
-判断：
+2026-06-05 只读实测：
 
-这不是 Python 明细行计算，但它是正式 check 中的“文件级大循环”。单日单频度通常几千只股票，五频度就是几万次路径判断。日常可能还能接受，但历史补 event 或频繁 check 时会放大。
+- 测量对象：正式湖 `2026-06-04`，五个 `gold_stk_mins_qfq_*` 频度。
+- 测量方式：不运行 Dagster，不读取正式 instance，不写 lake；只用 DuckDB 读取正式 lake 文件并按当前 check helper 分段计时。
+- 输出文件：
+  - `/private/tmp/stk_mins_qfq_check_perf_20260605_073843.csv`
+  - `/private/tmp/stk_mins_qfq_check_perf_20260605_073843.json`
+
+| freq | 总耗时 | 路径构造 + exists | 占比 | sample 查询 | 占比 | gold counts | formula counts |
+|---:|---:|---:|---:|---:|---:|---:|---:|
+| 60 | 3.60s | 0.07s | 1.9% | 1.83s | 50.7% | 0.60s | 0.82s |
+| 30 | 3.83s | 0.09s | 2.4% | 2.00s | 52.1% | 0.78s | 0.64s |
+| 15 | 4.38s | 0.19s | 4.4% | 2.20s | 50.2% | 0.94s | 0.71s |
+| 5 | 5.57s | 0.44s | 7.9% | 2.51s | 45.1% | 1.48s | 0.77s |
+| 1 | 14.54s | 0.42s | 2.9% | 5.44s | 37.4% | 6.88s | 1.44s |
+
+五频度合计：
+
+- 当前总耗时约 `31.92s`。
+- 路径构造 + `exists` 合计约 `1.21s`，只占 `3.8%`。
+- sample 查询合计约 `13.97s`，占 `43.8%`。
+- `gold_counts_sql` 合计约 `10.69s`。
+- `formula_counts_sql` 合计约 `4.38s`。
+
+P1A 落地后同日只读复测：
+
+- 测量对象仍为正式湖 `2026-06-04`，不运行 Dagster，不读取正式 instance，不写 lake。
+- 复测方式：直接调用当前 `_gold_stk_mins_qfq_check_results(...)` helper，确认全绿场景 failure samples 不再被查询。
+
+| freq | P1A 后耗时 | failed checks | failure sample rows |
+|---:|---:|---:|---:|
+| 60 | 2.14s | 0 | 0 |
+| 30 | 2.04s | 0 | 0 |
+| 15 | 2.30s | 0 | 0 |
+| 5 | 2.66s | 0 | 0 |
+| 1 | 10.21s | 0 | 0 |
+
+五频度合计：
+
+- P1A 后总耗时约 `19.36s`。
+- 相比 P1A 前 `31.92s`，下降约 `39.4%`。
+- 全绿场景 `failure_sample_rows=0`，证明样本查询已按失败懒加载。
+
+判断修正：
+
+- 原先把“文件级 exists 循环”列为主瓶颈是不准确的。它确实存在，但实测占比只有 `3.8%`，不是优先优化对象。
+- 当前真正高性价比问题是：check 已经通过时仍执行 failure sample 查询。sample 只服务失败诊断，全绿场景不应付出这部分 IO。
+- 第二层问题是 `gold_counts_sql`、`formula_counts_sql` 和 coverage 查询之间存在重复读取与重复 join 空间，但这一步改动更大，应排在 sample 懒加载之后。
 
 影响：
 
 - check 可能成为 qfq 日常 job 的瓶颈。
-- 路径存在性和 schema 检查在 Python 文件系统循环中做，难以利用 DuckDB 聚合能力。
-- 如果未来股票数量或年份文件数量继续增加，耗时不可控。
+- 当前全绿场景也会浪费约 `14s` 做失败样本查询，五频度正常 run 被无意义 IO 放大。
+- 1m 的 `gold_counts_sql` 单项已经达到约 `6.88s`，后续若日常 run 仍慢，需要继续做聚合扫描复用。
 
 建议修正：
 
-- 优先做一次只读性能测量：单个最新交易日五频度 qfq checks 各耗时。
-- 若耗时不可接受，改为按 `freq/year` 聚合审计：
-  - expected code set 仍可从 silver 得到，但文件存在与 row count 尽量通过 DuckDB filename/glob/union 聚合。
-  - Python 只保留缺失路径样本，不逐文件做完整逻辑。
+- P1A：sample 懒加载，成本低、收益确定，已落地为当前代码口径。
+  - `path_mismatch_row_count > 0` 时才执行 path mismatch sample 查询。
+  - `duplicate_key_count > 0` 时才执行 duplicate sample 查询。
+  - `invalid_price_row_count > 0` 时才执行 price sample 查询。
+  - `formula_missing_gold_row_count + formula_unexpected_gold_row_count + formula_mismatch_row_count > 0` 时才执行 formula sample 查询。
+  - 正常全绿场景已从约 `31.9s` 降到约 `19.4s`，节省约 `39.4%`。
+  - check 质量口径不变；失败时仍保留 failure samples。
+- P1B：聚合扫描复用，成本中等，等 P1A 后按新耗时决定是否推进。
+  - 尽量复用 `gold_rows` / `target_rows` 中间结果，减少 `gold_counts`、formula 和 coverage 的重复读。
+  - 若需要，可以把当日 expected qfq rows 和 gold target rows 放入 DuckDB 临时表，多个 check count 复用同一轮扫描结果。
+  - 目标是把五频度全绿 check 继续压到 `10-15s` 量级。
+- 暂不优先做文件 exists 循环优化。
+  - 实测五频度只占 `1.21s`。
+  - 单独优化它预计收益小于 `5%`，性价比低。
 - 静态门禁增加“qfq check 不得退回 8 个独立深扫 check”的约束。
 
 ### P1：`silver_namechange` 使用 Python 构建完整名称时间线
@@ -378,14 +460,40 @@ repair 设计本来是小范围人工修复，这个实现可以接受。但它�
 - 1m 全市场单日写入耗时做真实只读/最小写入验证并记录。
 - 记录修改前后对比：`1m` 单频度和五频度全量至少各一组，包含耗时、row count、文件大小、内存峰值。
 
-### PA2：优化或测量 `gold_stk_mins_qfq_*` checks 的文件级循环
+### PA2：优化 `gold_stk_mins_qfq_*` checks 的 sample 查询与重复扫描
 
 优先级：P1
 
 目标：
 
-- 明确最新交易日五频度 qfq checks 的真实耗时。
-- 若耗时不可接受，改为 DuckDB 聚合文件审计，Python 只保留缺失样本。
+- 已完成最新交易日五频度只读测量，确认主瓶颈不是文件 exists 循环。
+- 第一阶段 P1A：只在 check 失败时执行 failure sample 查询，已落地。
+- 第二阶段 P1B：如果 P1A 后仍慢，再复用 DuckDB 中间结果，减少 `gold_counts` / formula / coverage 重复深扫。
+
+P1A 落地步骤：
+
+1. 保留当前每频度一个 `multi_asset_check` 的 Dagster definition 结构。
+2. 先执行现有 count SQL，得到 path mismatch、duplicate、price、formula 四类失败计数。
+3. 只有对应失败计数大于 0 时，才执行对应 sample SQL。
+4. 所有 `AssetCheckResult` 的 check name、blocking、metadata key、通过/失败口径保持不变。
+5. 单元测试证明：
+   - 全绿场景不执行 sample SQL。
+   - path mismatch / duplicate / price / formula 任一失败时，只执行对应 sample SQL。
+   - check result 仍包含原有 failure sample metadata。
+
+预期收益：
+
+- 基于 2026-06-05 只读测量，P1A 前五频度全绿 check 约 `31.9s`。
+- sample 查询约 `14.0s`，占 `43.8%`。
+- P1A 后同日复测约 `19.4s`，节省约 `39.4%`。
+- 这一步不降低质量口径，只移除通过场景的无意义诊断 IO。
+
+P1B 候选步骤：
+
+1. 对 P1A 后的新耗时再做一次只读测量。
+2. 如果五频度全绿仍明显超过可接受范围，再把 `gold_rows`、`target_rows`、expected qfq rows 复用为 DuckDB 临时表或统一 CTE。
+3. 优先合并 `gold_counts_sql` 和 formula/coverage 中重复读取 gold/silver/adj factor 的部分。
+4. P1B 改动更大，必须单独列计划和测试，不能和 P1A 混在一个补丁里。
 
 ### PA3：给 `silver_namechange` 和 `silver_stock_identity_map` 增加小表边界
 
