@@ -23,6 +23,7 @@ from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     MAX_RAW_GAP_SAMPLE_COUNT,
     RAW_GAP_AUDIT_TRADE_DAY_LIMIT,
     audit_index_daily_raw_gaps,
+    check_index_daily_raw_files_for_trade_date,
 )
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from orchestrator.source_readiness.tushare.index_daily import (
@@ -97,6 +98,8 @@ def _cursor_payload(
     audit_missing_pair_count: int | None = None,
     audit_missing_file_count: int | None = None,
     audit_missing_trade_date_pair_count: int | None = None,
+    audit_no_raw_history_count: int | None = None,
+    audit_no_raw_history_samples: tuple[str, ...] = (),
     raw_scan_error_code: str | None = None,
     raw_scan_error: str | None = None,
 ) -> str:
@@ -128,6 +131,8 @@ def _cursor_payload(
             "audit_missing_pair_count": audit_missing_pair_count,
             "audit_missing_file_count": audit_missing_file_count,
             "audit_missing_trade_date_pair_count": audit_missing_trade_date_pair_count,
+            "audit_no_raw_history_count": audit_no_raw_history_count,
+            "audit_no_raw_history_samples": list(audit_no_raw_history_samples),
             "raw_scan_error_code": raw_scan_error_code,
             "raw_scan_error": raw_scan_error,
         },
@@ -220,6 +225,8 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         sample_limit=max(MAX_RUN_REQUESTS_PER_TICK, MAX_RAW_GAP_SAMPLE_COUNT),
     )
     target_trade_date = raw_gap_audit.first_missing_trade_date
+    pending_count = raw_gap_audit.first_missing_code_count
+    pending_codes = raw_gap_audit.first_missing_codes
     if raw_gap_audit.scan_error:
         return dg.SensorResult(
             skip_reason="指数日线 raw gap audit 扫描失败，暂不触发 raw 更新。",
@@ -242,34 +249,94 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 audit_missing_trade_date_pair_count=(
                     raw_gap_audit.missing_trade_date_pair_count
                 ),
+                audit_no_raw_history_count=raw_gap_audit.no_raw_history_count,
+                audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
+                    :MAX_RAW_GAP_SAMPLE_COUNT
+                ],
                 raw_scan_error_code=raw_gap_audit.scan_error_code,
                 raw_scan_error=raw_gap_audit.scan_error,
             ),
         )
     if raw_gap_audit.ready or target_trade_date is None:
-        return dg.SensorResult(
-            skip_reason="最近 60 个可运行指数交易日的 raw-by-code 数据都已经生成完成。",
-            cursor=_cursor_payload(
-                evaluated_at=evaluated_at,
-                today=today,
-                registered_trade_day_count=len(registered_trade_days),
-                registered_code_count=len(registered_index_codes),
-                target_trade_date=None,
-                source_ready=None,
-                source_row_count=None,
-                pending_count=0,
-                selected_codes=(),
-                next_pending_offset=0,
-                audit_trade_date_count=raw_gap_audit.trade_date_count,
-                audit_expected_pair_count=raw_gap_audit.expected_pair_count,
-                audit_ready_pair_count=raw_gap_audit.ready_pair_count,
-                audit_missing_pair_count=raw_gap_audit.missing_pair_count,
-                audit_missing_file_count=raw_gap_audit.missing_file_count,
-                audit_missing_trade_date_pair_count=(
-                    raw_gap_audit.missing_trade_date_pair_count
-                ),
-            ),
+        latest_runnable_trade_date = runnable_trade_dates[-1]
+        latest_raw_status = check_index_daily_raw_files_for_trade_date(
+            lake_root_path=lake_root.root(),
+            duckdb=context.resources.duckdb,
+            registered_index_codes=registered_index_codes,
+            trade_date=latest_runnable_trade_date,
+            index_basic_path=silver_index_basic_path(lake_root.root()),
         )
+        if latest_raw_status.scan_error:
+            return dg.SensorResult(
+                skip_reason="指数日线 raw 目标交易日 presence 扫描失败，暂不触发 raw 更新。",
+                cursor=_cursor_payload(
+                    evaluated_at=evaluated_at,
+                    today=today,
+                    registered_trade_day_count=len(registered_trade_days),
+                    registered_code_count=len(registered_index_codes),
+                    target_trade_date=latest_runnable_trade_date,
+                    source_ready=None,
+                    source_row_count=None,
+                    pending_count=latest_raw_status.registered_code_count,
+                    selected_codes=(),
+                    next_pending_offset=0,
+                    audit_trade_date_count=raw_gap_audit.trade_date_count,
+                    audit_expected_pair_count=raw_gap_audit.expected_pair_count,
+                    audit_ready_pair_count=raw_gap_audit.ready_pair_count,
+                    audit_missing_pair_count=raw_gap_audit.missing_pair_count,
+                    audit_missing_file_count=raw_gap_audit.missing_file_count,
+                    audit_missing_trade_date_pair_count=(
+                        raw_gap_audit.missing_trade_date_pair_count
+                    ),
+                    audit_no_raw_history_count=raw_gap_audit.no_raw_history_count,
+                    audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
+                        :MAX_RAW_GAP_SAMPLE_COUNT
+                    ],
+                    raw_scan_error_code=latest_raw_status.scan_error_code,
+                    raw_scan_error=latest_raw_status.scan_error,
+                ),
+            )
+        if latest_raw_status.ready:
+            return dg.SensorResult(
+                skip_reason=(
+                    "最近 60 个可运行指数交易日的 raw-by-code 本地连续性正常，"
+                    "且最新目标交易日 raw 数据已经生成完成。"
+                ),
+                cursor=_cursor_payload(
+                    evaluated_at=evaluated_at,
+                    today=today,
+                    registered_trade_day_count=len(registered_trade_days),
+                    registered_code_count=len(registered_index_codes),
+                    target_trade_date=None,
+                    source_ready=None,
+                    source_row_count=None,
+                    pending_count=0,
+                    selected_codes=(),
+                    next_pending_offset=0,
+                    audit_trade_date_count=raw_gap_audit.trade_date_count,
+                    audit_expected_pair_count=raw_gap_audit.expected_pair_count,
+                    audit_ready_pair_count=raw_gap_audit.ready_pair_count,
+                    audit_missing_pair_count=raw_gap_audit.missing_pair_count,
+                    audit_missing_file_count=raw_gap_audit.missing_file_count,
+                    audit_missing_trade_date_pair_count=(
+                        raw_gap_audit.missing_trade_date_pair_count
+                    ),
+                    audit_no_raw_history_count=raw_gap_audit.no_raw_history_count,
+                    audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
+                        :MAX_RAW_GAP_SAMPLE_COUNT
+                    ],
+                ),
+            )
+        target_trade_date = latest_runnable_trade_date
+        pending_codes = tuple(
+            sorted(
+                set(
+                    latest_raw_status.missing_file_codes
+                    + latest_raw_status.missing_trade_date_codes
+                )
+            )
+        )
+        pending_count = len(pending_codes)
 
     source_readiness = check_index_daily_source_readiness(
         tushare=context.resources.tushare,
@@ -287,7 +354,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 target_trade_date=target_trade_date,
                 source_ready=False,
                 source_row_count=source_readiness.row_count,
-                pending_count=raw_gap_audit.first_missing_code_count,
+                pending_count=pending_count,
                 selected_codes=(),
                 next_pending_offset=0,
                 audit_trade_date_count=raw_gap_audit.trade_date_count,
@@ -298,10 +365,13 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 audit_missing_trade_date_pair_count=(
                     raw_gap_audit.missing_trade_date_pair_count
                 ),
+                audit_no_raw_history_count=raw_gap_audit.no_raw_history_count,
+                audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
+                    :MAX_RAW_GAP_SAMPLE_COUNT
+                ],
             ),
         )
 
-    pending_codes = raw_gap_audit.first_missing_codes
     selected_codes, next_pending_offset = _select_pending_codes(
         cursor_payload=load_sensor_cursor(context.cursor),
         target_trade_date=target_trade_date,
@@ -315,7 +385,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         target_trade_date=target_trade_date,
         source_ready=True,
         source_row_count=source_readiness.row_count,
-        pending_count=raw_gap_audit.first_missing_code_count,
+        pending_count=pending_count,
         selected_codes=selected_codes,
         next_pending_offset=next_pending_offset,
         audit_trade_date_count=raw_gap_audit.trade_date_count,
@@ -324,6 +394,10 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         audit_missing_pair_count=raw_gap_audit.missing_pair_count,
         audit_missing_file_count=raw_gap_audit.missing_file_count,
         audit_missing_trade_date_pair_count=raw_gap_audit.missing_trade_date_pair_count,
+        audit_no_raw_history_count=raw_gap_audit.no_raw_history_count,
+        audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
+            :MAX_RAW_GAP_SAMPLE_COUNT
+        ],
     )
     if not selected_codes:
         return dg.SensorResult(

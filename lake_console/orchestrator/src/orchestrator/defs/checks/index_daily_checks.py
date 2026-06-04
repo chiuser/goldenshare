@@ -22,7 +22,6 @@ from orchestrator.defs.duckdb_sql import (
 from orchestrator.defs.partitions import cn_a_index_ts_codes
 from orchestrator.defs.paths import (
     raw_index_daily_by_code_path,
-    silver_index_basic_path,
     silver_index_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -86,6 +85,29 @@ def _values_table_sql(values: Sequence[str], column_name: str) -> str:
         return f"(SELECT CAST(NULL AS VARCHAR) AS {column_name} WHERE FALSE)"
     rows = ", ".join(f"({duckdb_string(value)})" for value in values)
     return f"(VALUES {rows}) AS registered({column_name})"
+
+
+def _read_parquet_paths(paths: Sequence[Path], *, union_by_name: bool = False) -> str:
+    path_values = ", ".join(duckdb_string(path) for path in paths)
+    union_clause = ", union_by_name=true" if union_by_name else ""
+    return f"read_parquet([{path_values}], hive_partitioning=false{union_clause})"
+
+
+def _raw_present_index_codes_sql(
+    *,
+    raw_paths: Sequence[Path],
+    registered_codes_sql: str,
+    partition_key: str,
+) -> str:
+    if not raw_paths:
+        return "SELECT CAST(NULL AS VARCHAR) AS ts_code WHERE FALSE"
+    return f"""
+    SELECT DISTINCT registered.ts_code
+    FROM {registered_codes_sql}
+    INNER JOIN {_read_parquet_paths(raw_paths, union_by_name=True)} raw_daily
+      ON registered.ts_code = CAST(raw_daily.ts_code AS VARCHAR)
+    WHERE CAST(raw_daily.trade_date AS VARCHAR) = {duckdb_string(partition_key.replace("-", ""))}
+    """
 
 
 def _required_columns_result(
@@ -649,7 +671,6 @@ def evaluate_silver_index_daily_registered_code_coverage(
     duckdb: DuckDBResource,
     registered_index_codes: Sequence[str],
 ) -> dg.AssetCheckResult:
-    index_basic_path = silver_index_basic_path(lake_root_path)
     if not registered_index_codes:
         return _blocking_value_result(
             False,
@@ -658,17 +679,21 @@ def evaluate_silver_index_daily_registered_code_coverage(
                 "missing_registered_codes": True,
             },
         )
-    if not index_basic_path.exists():
-        return _blocking_value_result(
-            False,
-            {
-                "index_basic_file_path": str(index_basic_path),
-                "missing_file": True,
-            },
-        )
 
     registered_codes = tuple(sorted(set(registered_index_codes)))
     registered_codes_sql = _values_table_sql(registered_codes, "ts_code")
+    raw_paths_by_code = {
+        index_code: raw_index_daily_by_code_path(lake_root_path, index_code)
+        for index_code in registered_codes
+    }
+    existing_raw_paths = tuple(
+        raw_path for raw_path in raw_paths_by_code.values() if raw_path.exists()
+    )
+    missing_raw_file_codes = tuple(
+        index_code
+        for index_code, raw_path in raw_paths_by_code.items()
+        if not raw_path.exists()
+    )
     coverage_results: dict[str, Any] = {}
     missing_paths = []
     with duckdb.connect() as connection:
@@ -678,31 +703,28 @@ def evaluate_silver_index_daily_registered_code_coverage(
             if not silver_path.exists():
                 missing_paths.append(str(silver_path))
                 continue
-            effective_codes_sql = f"""
-            SELECT registered.ts_code
-            FROM {registered_codes_sql}
-            INNER JOIN {read_parquet(index_basic_path, hive_partitioning=False)} basic
-              ON registered.ts_code = basic.ts_code
-            WHERE (basic.list_date IS NULL OR basic.list_date <= DATE {duckdb_string(partition_key)})
-              AND (basic.exp_date IS NULL OR basic.exp_date > DATE {duckdb_string(partition_key)})
-            """
+            raw_present_codes_sql = _raw_present_index_codes_sql(
+                raw_paths=existing_raw_paths,
+                registered_codes_sql=registered_codes_sql,
+                partition_key=partition_key,
+            )
             missing_codes_sql = f"""
-            SELECT effective.ts_code
-            FROM ({effective_codes_sql}) effective
+            SELECT raw_present.ts_code
+            FROM ({raw_present_codes_sql}) raw_present
             LEFT JOIN {read_parquet(silver_path, hive_partitioning=False)} daily
-              ON effective.ts_code = daily.ts_code
+              ON raw_present.ts_code = daily.ts_code
             WHERE daily.ts_code IS NULL
             """
             extra_codes_sql = f"""
             SELECT daily.ts_code
             FROM {read_parquet(silver_path, hive_partitioning=False)} daily
-            LEFT JOIN ({effective_codes_sql}) effective
-              ON daily.ts_code = effective.ts_code
-            WHERE effective.ts_code IS NULL
+            LEFT JOIN ({raw_present_codes_sql}) raw_present
+              ON daily.ts_code = raw_present.ts_code
+            WHERE raw_present.ts_code IS NULL
             """
-            effective_count = int(
+            raw_present_count = int(
                 connection.execute(
-                    f"SELECT count(*) FROM ({effective_codes_sql}) effective_codes"
+                    f"SELECT count(*) FROM ({raw_present_codes_sql}) raw_present_codes"
                 ).fetchone()[0]
             )
             missing_count = int(
@@ -732,31 +754,36 @@ def evaluate_silver_index_daily_registered_code_coverage(
             ).fetchall()
             coverage_results[partition_key] = {
                 "registered_code_count": registered_code_count,
-                "effective_code_count": effective_count,
+                "raw_present_code_count": raw_present_count,
                 "silver_row_count": silver_row_count,
-                "missing_registered_count": missing_count,
+                "missing_raw_present_count": missing_count,
                 "extra_count": extra_count,
                 "coverage_rate": (
                     round(
-                        (effective_count - missing_count) * 100.0 / effective_count, 4
+                        (raw_present_count - missing_count)
+                        * 100.0
+                        / raw_present_count,
+                        4,
                     )
-                    if effective_count
+                    if raw_present_count
                     else 0.0
                 ),
-                "missing_registered_samples": [row[0] for row in missing_rows],
+                "missing_raw_present_samples": [row[0] for row in missing_rows],
                 "extra_samples": [row[0] for row in extra_rows],
             }
 
     passed = not missing_paths and all(
-        result["missing_registered_count"] == 0 and result["extra_count"] == 0
+        result["missing_raw_present_count"] == 0 and result["extra_count"] == 0
         for result in coverage_results.values()
     )
     return _blocking_value_result(
         passed,
         {
             "partition_keys": list(partition_keys),
-            "index_basic_file_path": str(index_basic_path),
             "registered_code_count": len(registered_codes),
+            "raw_file_count": len(existing_raw_paths),
+            "missing_raw_file_count": len(missing_raw_file_codes),
+            "missing_raw_file_samples": list(missing_raw_file_codes[:20]),
             "coverage_results": coverage_results,
             "missing_file_paths": missing_paths,
         },

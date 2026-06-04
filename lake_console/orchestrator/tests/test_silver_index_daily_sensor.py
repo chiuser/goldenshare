@@ -50,6 +50,46 @@ def _ready_gap_audit(trade_dates: tuple[str, ...]) -> IndexDailyRawGapAudit:
         first_missing_code_count=0,
         first_missing_codes=(),
         missing_pair_samples=(),
+        raw_started_code_count=1,
+    )
+
+
+def _ready_gap_audit_with_no_raw_history(
+    trade_dates: tuple[str, ...],
+) -> IndexDailyRawGapAudit:
+    return IndexDailyRawGapAudit(
+        trade_dates=trade_dates,
+        registered_code_count=2,
+        trade_date_count=len(trade_dates),
+        expected_pair_count=len(trade_dates),
+        ready_pair_count=len(trade_dates),
+        missing_file_codes=(),
+        missing_trade_date_pair_count=0,
+        missing_pair_count=0,
+        first_missing_trade_date=None,
+        first_missing_code_count=0,
+        first_missing_codes=(),
+        missing_pair_samples=(),
+        raw_started_code_count=1,
+        no_raw_history_codes=("950228.SH",),
+    )
+
+
+def _gap_audit_with_middle_gap(trade_dates: tuple[str, ...]) -> IndexDailyRawGapAudit:
+    return IndexDailyRawGapAudit(
+        trade_dates=trade_dates,
+        registered_code_count=1,
+        trade_date_count=len(trade_dates),
+        expected_pair_count=len(trade_dates),
+        ready_pair_count=len(trade_dates) - 1,
+        missing_file_codes=(),
+        missing_trade_date_pair_count=1,
+        missing_pair_count=1,
+        first_missing_trade_date="2026-06-01",
+        first_missing_code_count=1,
+        first_missing_codes=("000001.SH",),
+        missing_pair_samples=(("2026-06-01", "000001.SH"),),
+        raw_started_code_count=1,
     )
 
 
@@ -59,6 +99,16 @@ def _ready_raw_file_status(trade_date: str) -> IndexDailyRawFileReadiness:
         registered_code_count=1,
         ready_code_count=1,
         missing_file_codes=(),
+        missing_trade_date_codes=(),
+    )
+
+
+def _missing_raw_file_status(trade_date: str) -> IndexDailyRawFileReadiness:
+    return IndexDailyRawFileReadiness(
+        trade_date=trade_date,
+        registered_code_count=1,
+        ready_code_count=0,
+        missing_file_codes=("950228.SH",),
         missing_trade_date_codes=(),
     )
 
@@ -157,6 +207,58 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         self.assertEqual(len(result.run_requests), 1)
         self.assertEqual(result.run_requests[0].partition_key, "2026-06-01")
         self.assertEqual(result.run_requests[0].run_key, "silver_index_daily:2026-06-01")
+
+    def test_recent_continuity_gap_skips_without_target_presence_check(self) -> None:
+        with (
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "audit_index_daily_raw_gaps",
+                return_value=_gap_audit_with_middle_gap(("2026-06-01", "2026-06-02")),
+            ),
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "_first_not_ready_silver_trade_date",
+            ) as selector,
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "check_index_daily_raw_files_for_trade_date",
+            ) as raw_status_check,
+        ):
+            result = silver_index_daily_sensor._raw_fn(_FakeContext())
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("raw-by-code 仍存在有效空洞", result.skip_reason.skip_message)
+        selector.assert_not_called()
+        raw_status_check.assert_not_called()
+
+    def test_no_raw_history_does_not_block_continuity_but_target_presence_blocks(
+        self,
+    ) -> None:
+        missing_status = _status("2026-06-01", ready=False, materialized=False)
+
+        with (
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "audit_index_daily_raw_gaps",
+                return_value=_ready_gap_audit_with_no_raw_history(
+                    ("2026-06-01", "2026-06-02")
+                ),
+            ),
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "_first_not_ready_silver_trade_date",
+                return_value=("2026-06-01", missing_status),
+            ),
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "check_index_daily_raw_files_for_trade_date",
+                return_value=_missing_raw_file_status("2026-06-01"),
+            ),
+        ):
+            result = silver_index_daily_sensor._raw_fn(_FakeContext())
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("raw-by-code 文件仍有缺失代码", result.skip_reason.skip_message)
 
 
 if __name__ == "__main__":

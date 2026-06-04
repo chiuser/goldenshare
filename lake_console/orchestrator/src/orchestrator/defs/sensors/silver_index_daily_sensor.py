@@ -99,6 +99,8 @@ def _cursor_payload(
     missing_raw_trade_date_samples: tuple[str, ...],
     raw_scan_error_code: str | None = None,
     raw_scan_error: str | None = None,
+    no_raw_history_count: int = 0,
+    no_raw_history_samples: tuple[str, ...] = (),
 ) -> str:
     decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -134,6 +136,8 @@ def _cursor_payload(
             "missing_raw_trade_date_samples": list(missing_raw_trade_date_samples),
             "raw_scan_error_code": raw_scan_error_code,
             "raw_scan_error": raw_scan_error,
+            "no_raw_history_count": no_raw_history_count,
+            "no_raw_history_samples": list(no_raw_history_samples),
         },
     )
 
@@ -150,6 +154,8 @@ def _raw_file_readiness_cursor_fields(
             "missing_raw_trade_date_samples": (),
             "raw_scan_error_code": None,
             "raw_scan_error": None,
+            "no_raw_history_count": 0,
+            "no_raw_history_samples": (),
         }
     return {
         "raw_ready_code_count": raw_status.ready_code_count,
@@ -161,6 +167,8 @@ def _raw_file_readiness_cursor_fields(
         ],
         "raw_scan_error_code": raw_status.scan_error_code,
         "raw_scan_error": raw_status.scan_error,
+        "no_raw_history_count": 0,
+        "no_raw_history_samples": (),
     }
 
 
@@ -184,6 +192,10 @@ def _raw_gap_audit_cursor_fields(
         ),
         "raw_scan_error_code": raw_gap_audit.scan_error_code,
         "raw_scan_error": raw_gap_audit.scan_error,
+        "no_raw_history_count": raw_gap_audit.no_raw_history_count,
+        "no_raw_history_samples": raw_gap_audit.no_raw_history_codes[
+            :MAX_STATUS_SAMPLE_COUNT
+        ],
     }
 
 
@@ -316,6 +328,10 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             missing_raw_trade_date_count=0,
             missing_raw_file_samples=(),
             missing_raw_trade_date_samples=(),
+            no_raw_history_count=raw_gap_audit.no_raw_history_count,
+            no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
+                :MAX_STATUS_SAMPLE_COUNT
+            ],
         )
         return dg.SensorResult(
             skip_reason="最近 60 个可运行指数交易日的 silver_index_daily 分区都已经 ready。",

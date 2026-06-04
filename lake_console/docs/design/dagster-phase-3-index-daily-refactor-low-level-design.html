@@ -709,14 +709,15 @@ WHERE trade_date = '&lt;YYYYMMDD&gt;'
       <tr>
         <td><code>silver_index_daily_registered_code_coverage</code></td>
         <td>是</td>
-        <td>基于 <code>cn_a_index_ts_codes</code> 与 <code>silver_index_basic</code> 校验有效指数覆盖率、输出缺失代码样本；缺失有效指数时阻断 <code>silver_index_daily</code> ready。</td>
+        <td>基于目标交易日 raw 中实际存在的注册指数代码校验 silver 覆盖率、输出漏转和 extra 样本；raw-present code 漏转或 silver 多出非 raw-present code 时阻断 <code>silver_index_daily</code> ready。</td>
       </tr>
       </tbody>
     </table>
     <div class="warn callout">
       <p>
         Coverage check 不能继续叫 active pool coverage，也不能依赖 <code>silver_index_daily_active_pool</code>。
-        新口径是“注册指数代码集合 + index basic 上市日期元信息”的覆盖观测。
+        新口径是“目标交易日 raw-present 注册代码集合”的覆盖观测；它不再用
+        <code>silver_index_basic.list_date</code> 推断源端历史起点。
       </p>
     </div>
   </section>
@@ -862,9 +863,12 @@ def silver_index_daily_sensor(context):
       <tr>
         <td>raw 文件事实门禁</td>
         <td>
-          DuckDB gap audit 会构造最近 60 个可运行交易日与注册指数代码的期望矩阵，并按 <code>silver_index_basic.list_date/exp_date</code> 过滤有效代码；每个有效注册指数代码都必须存在对应 raw-by-code parquet 文件，且文件中包含对应 <code>trade_date</code>。
+          DuckDB raw 文件事实门禁分两层：最新目标日门禁检查未退市注册指数是否已有目标
+          <code>trade_date</code>；最近 60 个可运行交易日 local continuity 门禁只检查每个
+          raw 文件从本地首个已有 <code>trade_date</code> 之后是否存在中间空洞。
+          <code>silver_index_basic.list_date</code> 不再作为历史 expected start。
           该门禁不读取 Dagster run tags/config，不扫描 raw asset materialization 或 check history。
-          注意：<code>list_date/exp_date</code> 只作为日常最近 60 个交易日门禁的第一层有效性过滤，不能直接复用为 250 日或全历史 blocking audit 的 expected start。
+          注意：该口径不审源端历史前缀完整性。
         </td>
       </tr>
       <tr>
@@ -895,7 +899,7 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>cursor</td>
-        <td>使用 v1 cursor 顶层记录 <code>target_date</code>、<code>decision</code>、<code>selected_count</code>、<code>blocked_count</code> 和少量缺失代码样本；<code>registered_code_count</code>、<code>raw_ready_code_count</code>、<code>missing_raw_file_count</code>、<code>missing_raw_trade_date_count</code>、<code>selected_trade_date</code> 放入 <code>details</code>。cursor 只用于观测，不作为 ready 判断依据。</td>
+        <td>使用 v1 cursor 顶层记录 <code>target_date</code>、<code>decision</code>、<code>selected_count</code>、<code>blocked_count</code> 和少量缺失代码样本；<code>registered_code_count</code>、<code>raw_ready_code_count</code>、<code>missing_raw_file_count</code>、<code>missing_raw_trade_date_count</code>、<code>no_raw_history_count</code>、<code>selected_trade_date</code> 放入 <code>details</code>。cursor 只用于观测，不作为 ready 判断依据。</td>
       </tr>
       <tr>
         <td>边界</td>
@@ -904,7 +908,277 @@ def silver_index_daily_sensor(context):
       </tbody>
     </table>
 
-    <h4>10.3.1 <code>silver_index_daily</code> readiness 批量查询修复方案（待实现）</h4>
+    <h4>10.3.1 本地 raw 连续性 gap audit LLD（已实现）</h4>
+    <p>
+      该小节只定义 <code>index_daily</code> raw-by-code 的本地连续性审计：
+      不从 <code>index_basic.list_date</code> 开始 expected，不维护源端首个可得日事实，
+      只检查每个代码从本地 raw 首个已有交易日开始，后续交易日是否存在空洞。
+      该审计不调用 Tushare，也不在 Python 中逐代码逐交易日枚举缺口。
+      当前实现落在 <code>audit_index_daily_raw_gaps</code>，日常最新日 raw presence
+      单独由 <code>check_index_daily_raw_files_for_trade_date</code> 承担。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>项目</th>
+        <th>落地口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>审计输入</td>
+        <td>
+          <code>registered_codes</code>、目标交易日窗口、<code>silver_index_basic.exp_date</code>
+          退市边界、raw-by-code parquet 文件。raw parquet 读取必须列裁剪到
+          <code>ts_code</code>、<code>trade_date</code>。
+        </td>
+      </tr>
+      <tr>
+        <td>raw bounds</td>
+        <td>
+          DuckDB 先从 raw-by-code 计算每个代码的 <code>raw_start</code>。
+          <code>raw_start</code> 是本地连续性审计的起点；
+          <code>list_date</code> 不参与历史 expected start。
+        </td>
+      </tr>
+      <tr>
+        <td>expected pairs</td>
+        <td>
+          对有 <code>raw_start</code> 的代码，expected 起点为
+          <code>greatest(window_start, raw_start)</code>；expected 终点为目标窗口结束日，
+          并按 <code>exp_date</code> 做退市后排除：<code>trade_date &lt; exp_date</code>。
+          对没有 raw 历史的代码，不从 <code>list_date</code> 生成 expected pairs。
+        </td>
+      </tr>
+      <tr>
+        <td>无 raw 历史</td>
+        <td>
+          缺 raw 文件或 raw 文件无日期的代码输出 <code>no_raw_history</code> /
+          <code>missing_raw_file</code> 计数和样本。它不是 local continuity gap；
+          最新目标日是否需要补 raw，由日常目标日门禁处理。
+        </td>
+      </tr>
+      <tr>
+        <td>性能要求</td>
+        <td>
+          <code>raw_bounds</code>、expected pairs、observed pairs、missing pairs 全部通过 DuckDB
+          集合运算完成。禁止 Python 双重循环计算 <code>code * trade_date</code> 矩阵。
+          禁止 <code>SELECT *</code> 读取 raw parquet。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h5>10.3.1.1 性能预算与上线门槛</h5>
+    <table>
+      <thead>
+      <tr>
+        <th>场景</th>
+        <th>规模预算</th>
+        <th>耗时门槛</th>
+        <th>处理策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>日常 sensor raw 门禁</td>
+        <td>
+          <code>registered_code_count &lt;= 1200</code>，
+          <code>trade_date_count=60</code>，
+          <code>expected_pair_count &lt;= 72000</code>。
+        </td>
+        <td>
+          只读 DuckDB benchmark 目标 <code>&lt;= 3s</code>；
+          超过 <code>5s</code> 禁止接入 sensor。
+        </td>
+        <td>
+          只能保留最近 60 个可运行交易日窗口；若现算 <code>raw_bounds</code>
+          过慢，必须改成预聚合或分批方案。
+        </td>
+      </tr>
+      <tr>
+        <td>250 日 raw gap audit</td>
+        <td>
+          <code>registered_code_count &lt;= 1200</code>，
+          <code>trade_date_count=250</code>，
+          <code>expected_pair_count &lt;= 300000</code>。
+        </td>
+        <td>
+          benchmark 目标 <code>&lt;= 10s</code>；
+          超过 <code>20s</code> 或发生 DuckDB spill 时，禁止作为常规 blocking audit。
+        </td>
+        <td>
+          只能作为人工/低频维护审计或显式 dry-run；不得注册为
+          <code>silver_index_daily</code> blocking asset check，不得进入
+          <code>silver_index_daily_update_job</code> 的 checks selection。
+          必须输出缺口与 <code>no_raw_history</code> 样本。
+        </td>
+      </tr>
+      <tr>
+        <td>全历史 raw gap audit</td>
+        <td>
+          <code>registered_code_count &lt;= 1200</code>，
+          <code>trade_date_count &lt;= 7000</code>，
+          <code>expected_pair_count &lt;= 8400000</code>。
+        </td>
+        <td>
+          benchmark 目标 <code>&lt;= 120s</code>；超过该阈值、expected pairs 超过
+          <code>10000000</code>、raw 文件数超过 <code>1500</code> 或发生不可接受 spill 时，必须重设方案。
+        </td>
+        <td>
+          只允许显式人工/低频维护入口；禁止放进 sensor tick、UI 默认加载或日常 blocking check。
+          不得影响 <code>silver_index_daily_update_job</code> 更新最新分区。
+        </td>
+      </tr>
+      <tr>
+        <td>日常最新日 raw 门禁</td>
+        <td>
+          目标日只检查该日 raw 是否存在，不做历史展开。
+        </td>
+        <td>
+          必须快于连续性审计；若目标日缺 raw，应触发 raw 更新或阻断 silver。
+        </td>
+        <td>
+          用于生产补数；不替代历史连续性审计。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      benchmark 必须是只读 DuckDB 执行，不运行 Dagster job/sensor/backfill，不写 raw/silver/gold。
+      执行前必须按正式 Dagster 环境门禁列出命令、工作目录、<code>GOLDENSHARE_LAKE_ROOT</code>
+      或 lake root 来源、读写范围、影响和回滚方式，并等待批准。
+    </p>
+    <p>
+      benchmark 输出至少包含：
+      <code>registered_code_count</code>、<code>trade_date_count</code>、
+      <code>expected_pair_count</code>、<code>raw_file_count</code>、
+      <code>raw_started_code_count</code>、<code>no_raw_history_count</code>、
+      <code>observed_pair_count</code>、<code>missing_pair_count</code>、
+      <code>elapsed_ms</code>、DuckDB 临时目录和 spill 观察结果。
+      结果未落档前，不得声称性能验收完成。
+    </p>
+    <p>
+      DuckDB SQL 必须保持列裁剪，只读取 raw parquet 的 <code>ts_code</code> 与
+      <code>trade_date</code>；禁止 <code>SELECT *</code>。Python 只允许做路径枚举、
+      参数校验、少量样本收集和结果汇总，不得承载 expected matrix 或 missing pairs 的明细计算。
+    </p>
+    <pre>-- LLD 口径示意，具体路径和 relation 注册在实现阶段确定。
+WITH registered_codes AS (...),
+target_dates AS (...),
+index_basic AS (...),
+observed_raw_all AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(trade_date AS VARCHAR) AS compact_trade_date,
+    strptime(CAST(trade_date AS VARCHAR), '%Y%m%d')::DATE AS trade_date_value
+  FROM read_parquet([...], hive_partitioning=false, union_by_name=true)
+),
+raw_bounds AS (
+  SELECT
+    ts_code,
+    min(trade_date_value) AS raw_start,
+    max(trade_date_value) AS raw_end
+  FROM observed_raw_all
+  GROUP BY ts_code
+),
+no_raw_history AS (
+  SELECT registered_codes.ts_code
+  FROM registered_codes
+  LEFT JOIN raw_bounds USING (ts_code)
+  WHERE raw_bounds.ts_code IS NULL
+),
+effective_code_windows AS (
+  SELECT
+    registered_codes.ts_code,
+    greatest(
+      (SELECT min(trade_date_value) FROM target_dates),
+      raw_bounds.raw_start
+    ) AS expected_start,
+    CAST(index_basic.exp_date AS DATE) AS exp_date
+  FROM registered_codes
+  INNER JOIN raw_bounds USING (ts_code)
+  LEFT JOIN index_basic USING (ts_code)
+),
+expected_pairs AS (
+  SELECT
+    target_dates.trade_date,
+    target_dates.compact_trade_date,
+    effective_code_windows.ts_code
+  FROM target_dates
+  INNER JOIN effective_code_windows
+    ON target_dates.trade_date_value &gt;= effective_code_windows.expected_start
+   AND (
+     effective_code_windows.exp_date IS NULL
+     OR target_dates.trade_date_value &lt; effective_code_windows.exp_date
+   )
+),
+observed_raw_window AS (
+  SELECT ts_code, compact_trade_date
+  FROM observed_raw_all
+  WHERE compact_trade_date IN (
+    SELECT compact_trade_date FROM target_dates
+  )
+)
+SELECT ... FROM expected_pairs
+LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>测试样例</th>
+        <th>必须覆盖的结果</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>950228.SH</code></td>
+        <td>
+          若本地 raw 首条数据为 <code>2025-07-18</code>，
+          <code>2024-08-23</code> 至 <code>2025-07-17</code> 不生成 expected pairs；
+          <code>2025-07-18</code> 之后的窗口内缺失才生成 missing pairs。
+        </td>
+      </tr>
+      <tr>
+        <td>中间空洞</td>
+        <td>
+          raw 已有 <code>2026-06-02</code> 且 <code>raw_start</code> 早于
+          <code>2026-06-01</code> 时，若 <code>2026-06-01</code> 缺失，必须报 gap。
+        </td>
+      </tr>
+      <tr>
+        <td>前缀缺失</td>
+        <td>
+          如果本地 raw 首条数据就是 <code>2026-06-02</code>，则
+          <code>2026-06-01</code> 不作为 local continuity gap。
+        </td>
+      </tr>
+      <tr>
+        <td>退市代码</td>
+        <td>
+          若 <code>exp_date</code> 存在，只 expected <code>trade_date &lt; exp_date</code>
+          的交易日，保持当前退市边界语义不变。
+        </td>
+      </tr>
+      <tr>
+        <td>接入边界</td>
+        <td>
+          测试必须证明 <code>250</code> 日/全历史 continuity audit 不会被
+          <code>silver_index_daily_update_job</code> 选中，也不会因旧历史空洞导致日常
+          <code>silver_index_daily</code> 分区更新失败。
+        </td>
+      </tr>
+      <tr>
+        <td>无 raw 历史</td>
+        <td>
+          缺 raw 文件或 raw 文件无 <code>trade_date</code> 时，报告
+          <code>no_raw_history</code> / <code>missing_raw_file</code> 样本，不从
+          <code>list_date</code> 生成历史缺口。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>10.3.2 <code>silver_index_daily</code> readiness 批量查询修复方案（已实现）</h4>
     <p>
       背景：2026-06-02 发现 <code>silver_index_daily_sensor</code> 在最近 60 个可运行交易日都已经
       materialized 且 blocking checks 全绿时，逐日调用 readiness 会重复扫描 Dagster check history，
@@ -1133,9 +1407,10 @@ def silver_index_daily_sensor(context):
         <td>已实现：新增 <code>silver_index_daily_sensor</code>，并改造为基于 raw-by-code 文件事实的轻量门禁。</td>
         <td>
           不调用 Tushare，不写 raw，不读 raw run tags/config，不扫 raw check history；日常自动化按最近 60 个可运行交易日内最早有效缺口推进，silver 已生成但 checks 未全绿时不自动重跑。
-          待处理：250 日或全历史 DuckDB gap audit 需要在 SQL expected pairs 中加入 <code>index_daily_available_from</code> 或等价源端可得日起点事实。
-          已知实测样本：<code>950228.SH</code> 的 <code>silver_index_basic.list_date=2024-08-23</code>，但 Tushare <code>index_daily</code> 对 <code>2024-08-23</code> 至 <code>2025-07-17</code> 返回空，<code>2025-07-18</code> 才开始返回日线。
-          若长窗口审计仍只按 <code>list_date/exp_date</code> 生成 expected pairs，会把源端合法空窗误报为 raw 缺口。
+          已补充后续方案：250 日或全历史 DuckDB gap audit 改为 local raw continuity
+          口径，只检查本地 raw 首个已有交易日之后的连续性；不维护
+          <code>index_daily_available_from</code>，不从 <code>silver_index_basic.list_date</code>
+          生成历史 expected pairs。具体算法、SQL 形态和验收样例见 10.3.1 小节。
         </td>
       </tr>
       </tbody>
