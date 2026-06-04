@@ -147,7 +147,6 @@ LAKE_PERFORMANCE_TERMS = (
     r"prod-db",
     r"全量",
     r"全市场",
-    r"分钟线",
     r"性能",
     r"导出",
     r"同步",

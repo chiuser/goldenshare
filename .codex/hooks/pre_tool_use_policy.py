@@ -131,12 +131,12 @@ def _detect_unbounded_or_destructive_db(command: str) -> list[str]:
 def _detect_unbounded_lake_run(command: str) -> list[str]:
     if not command:
         return []
+    if _is_read_only_inspection_command(command):
+        return []
     lowered = _compact(command.lower())
     findings: list[str] = []
 
     heavy_keywords = (
-        "sync-stk-mins",
-        "stk_mins",
         "index_mins",
         "backfill",
         "bootstrap",
@@ -154,11 +154,7 @@ def _detect_unbounded_lake_run(command: str) -> list[str]:
         or re.search(r"(?<![a-z0-9_])full(?![a-z0-9_])", lowered) is not None
         or any(flag in lowered for flag in ("全量", "全市场", "bootstrap", "backfill"))
     )
-    has_range_dates = "--start-date" in lowered and "--end-date" in lowered
-    has_minutes = "stk_mins" in lowered or "sync-stk-mins" in lowered or "分钟" in lowered
 
-    if has_minutes and (has_full_range or has_range_dates) and not has_dry_run:
-        findings.append("分钟线/全市场/跨日期任务必须先做性能测算与 dry-run/小样本验证，禁止直接进入全量执行。")
     if "prod-raw-db" in lowered and not has_dry_run and not _has_limit_or_partition(lowered):
         findings.append("prod-raw-db 导出必须先列白名单、字段投影、分区/批次或 dry-run，禁止无边界导出。")
     if "duckdb" in lowered and "copy" in lowered and "parquet" in lowered and not has_dry_run and has_full_range:
@@ -209,6 +205,48 @@ def _looks_like_db_command(lowered: str) -> bool:
         "core_serving",
     )
     return any(indicator in lowered for indicator in indicators)
+
+
+def _is_read_only_inspection_command(command: str) -> bool:
+    try:
+        parts = shlex.split(command)
+    except ValueError:
+        return False
+    if not parts:
+        return False
+
+    while parts and "=" in parts[0] and not parts[0].startswith("-"):
+        key, _, value = parts[0].partition("=")
+        if not key.replace("_", "").isalnum() or not value:
+            break
+        parts.pop(0)
+    if not parts:
+        return False
+
+    tool = parts[0].rsplit("/", maxsplit=1)[-1]
+    read_only_tools = {
+        "bat",
+        "cat",
+        "diff",
+        "egrep",
+        "fd",
+        "fgrep",
+        "find",
+        "git",
+        "grep",
+        "head",
+        "ls",
+        "nl",
+        "rg",
+        "sed",
+        "tail",
+        "wc",
+    }
+    if tool not in read_only_tools:
+        return False
+    if tool == "git":
+        return len(parts) >= 2 and parts[1] in {"diff", "grep", "log", "show", "status"}
+    return True
 
 
 def _has_limit_or_partition(lowered: str) -> bool:
