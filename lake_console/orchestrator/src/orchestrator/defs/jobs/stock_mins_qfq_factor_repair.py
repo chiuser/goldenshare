@@ -12,7 +12,7 @@ STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME = "stock_mins_qfq_factor_repair_job"
     name=STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
     executor_def=dg.in_process_executor,
     description=(
-        "检测股票分钟线 qfq 最新复权因子变化；无变化则记录成功，有变化则逐股票回刷历史 gold qfq。"
+        "检测股票分钟线 qfq 最新复权因子变化；无变化则记录成功，有变化则按 freq/year 批量回刷历史 gold qfq。"
     ),
 )
 def stock_mins_qfq_factor_repair_job() -> None:
