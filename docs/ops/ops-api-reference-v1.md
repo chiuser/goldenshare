@@ -1359,6 +1359,41 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `SchedulePreviewRequest`：`schedule_type, cron_expr, timezone, calendar_policy, next_run_at, count`
 - `ScheduleProbeConfig`：`source_key, window_start, window_end, probe_interval_seconds, max_triggers_per_day, condition_kind, workflow_dataset_keys`
 
+`ScheduleProbeConfig.condition_kind` 当前支持：
+
+1. `freshness_latest_open`：读取本地 freshness，判断本地最新业务日是否命中最新开市日。
+2. `remote_stk_mins_ready`：仅用于 `stk_mins.maintain`，在探测窗口内请求 Tushare 分钟行情样本；源站返回最新开市日分钟行情后，再创建正式 `stk_mins.maintain` TaskRun。
+
+`remote_stk_mins_ready` 示例：
+
+```json
+{
+  "target_type": "dataset_action",
+  "target_key": "stk_mins.maintain",
+  "display_name": "股票分钟行情源站就绪后同步",
+  "schedule_type": "cron",
+  "trigger_mode": "probe",
+  "cron_expr": "*/5 15-18 * * 1-5",
+  "timezone": "Asia/Shanghai",
+  "probe_config": {
+    "source_key": "tushare",
+    "window_start": "15:20",
+    "window_end": "18:30",
+    "probe_interval_seconds": 300,
+    "max_triggers_per_day": 1,
+    "condition_kind": "remote_stk_mins_ready"
+  },
+  "params_json": {
+    "time_input": {
+      "mode": "point"
+    },
+    "filters": {
+      "freq": ["1min", "5min", "15min", "30min", "60min"]
+    }
+  }
+}
+```
+
 ### 11.2 Probe
 
 - `CreateProbeRuleRequest`：`name, dataset_key, source_key, status, window_start, window_end, probe_interval_seconds, probe_condition_json, on_success_action_json, max_triggers_per_day, timezone_name`

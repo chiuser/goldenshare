@@ -6,9 +6,16 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.app.auth.domain import AuthenticatedUser
+from src.foundation.ingestion.plan_helpers import split_multi_values
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.app.exceptions import WebAppError
+from src.ops.services.stk_mins_remote_probe_service import (
+    STK_MINS_ACTION_KEY,
+    STK_MINS_ALLOWED_FREQS,
+    STK_MINS_DATASET_KEY,
+    STK_MINS_REMOTE_READY_CONDITION,
+)
 
 
 class OpsProbeCommandService:
@@ -36,6 +43,11 @@ class OpsProbeCommandService:
             probe_interval_seconds=probe_interval_seconds,
             max_triggers_per_day=max_triggers_per_day,
             timezone_name=timezone_name,
+        )
+        self._validate_remote_condition_binding(
+            dataset_key=dataset_key,
+            probe_condition_json=probe_condition_json,
+            on_success_action_json=on_success_action_json,
         )
         rule = ProbeRule(
             name=name.strip(),
@@ -120,6 +132,11 @@ class OpsProbeCommandService:
                 raise WebAppError(status_code=422, code="validation_error", message="探测时区不能为空")
             rule.timezone_name = value
 
+        self._validate_remote_condition_binding(
+            dataset_key=rule.dataset_key,
+            probe_condition_json=dict(rule.probe_condition_json or {}),
+            on_success_action_json=dict(rule.on_success_action_json or {}),
+        )
         rule.updated_by_user_id = user.id
         after = self._snapshot(rule)
         if before == after:
@@ -220,6 +237,33 @@ class OpsProbeCommandService:
     def _ensure_positive_int(value: int, *, field_name: str) -> None:
         if value <= 0:
             raise WebAppError(status_code=422, code="validation_error", message=f"{OpsProbeCommandService._field_label(field_name)}必须大于 0")
+
+    @staticmethod
+    def _validate_remote_condition_binding(
+        *,
+        dataset_key: str,
+        probe_condition_json: dict,
+        on_success_action_json: dict,
+    ) -> None:
+        condition_kind = str((probe_condition_json or {}).get("type") or "freshness_latest_open")
+        if condition_kind != STK_MINS_REMOTE_READY_CONDITION:
+            return
+        if str(dataset_key or "").strip() != STK_MINS_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持股票历史分钟行情维护")
+        action = dict(on_success_action_json or {})
+        if str(action.get("action_type") or "dataset_action") != "dataset_action" or str(action.get("action_key") or "").strip() != STK_MINS_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持股票历史分钟行情维护")
+        request = dict(action.get("request") or {})
+        time_input = request.get("time_input")
+        if isinstance(time_input, dict) and time_input.get("trade_date") not in (None, ""):
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测不能与固定维护日期混用")
+        filters = request.get("filters")
+        freqs = split_multi_values((filters or {}).get("freq") if isinstance(filters, dict) else None)
+        if not freqs:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测必须配置分钟周期")
+        invalid = [item for item in freqs if item not in STK_MINS_ALLOWED_FREQS]
+        if invalid:
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的分钟周期：{', '.join(invalid)}")
 
     @staticmethod
     def _field_label(field_name: str) -> str:

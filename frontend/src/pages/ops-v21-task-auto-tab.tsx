@@ -85,6 +85,9 @@ type ParsedCronExpression = {
 const INTERNAL_PARAM_KEYS = new Set(["offset", "limit"]);
 const DATE_PARAM_KEYS = new Set(["trade_date", "start_date", "end_date"]);
 const PARAM_RESERVED_KEYS = new Set(["dataset_key", "action", "time_input", "filters"]);
+const FRESHNESS_LATEST_OPEN_CONDITION = "freshness_latest_open";
+const REMOTE_STK_MINS_READY_CONDITION = "remote_stk_mins_ready";
+const STK_MINS_ACTION_KEY = "stk_mins.maintain";
 const DEFAULT_PARAM_LABELS = new Map([
   ["trade_date", "维护日期"],
   ["start_date", "开始日期"],
@@ -338,6 +341,15 @@ function formatTriggerModeLabel(triggerMode: string): string {
   if (triggerMode === "probe") return "探测触发";
   if (triggerMode === "schedule_probe_fallback") return "定时 + 探测兜底";
   return "定时触发";
+}
+
+export function formatProbeConditionLabel(conditionKind: string | null | undefined): string {
+  if (conditionKind === REMOTE_STK_MINS_READY_CONDITION) return "源站已有分钟行情";
+  return "最新业务日命中最新交易日";
+}
+
+export function actionSupportsRemoteStkMinsProbe(actionType: string, actionKey: string): boolean {
+  return actionType === "dataset_action" && actionKey === STK_MINS_ACTION_KEY;
 }
 
 function formatParamValue(value: unknown): string {
@@ -734,6 +746,16 @@ export function OpsAutomationPage() {
     () => actionSupportsTriggerDayPointPolicy(selectedAction),
     [selectedAction],
   );
+  const selectedActionSupportsRemoteStkMinsProbe = actionSupportsRemoteStkMinsProbe(form.action_type, form.action_key);
+  const probeConditionOptions = useMemo(
+    () => [
+      { value: FRESHNESS_LATEST_OPEN_CONDITION, label: "最新业务日命中最新交易日" },
+      ...(selectedActionSupportsRemoteStkMinsProbe
+        ? [{ value: REMOTE_STK_MINS_READY_CONDITION, label: "源站已有分钟行情" }]
+        : []),
+    ],
+    [selectedActionSupportsRemoteStkMinsProbe],
+  );
   const effectiveCalendarPolicy = useMemo(
     () =>
       resolveEffectiveCalendarPolicy({
@@ -748,6 +770,11 @@ export function OpsAutomationPage() {
       setForm((current) => ({ ...current, repeat_mode: "daily" }));
     }
   }, [form.repeat_mode, selectedActionUsesTriggerDayPointPolicy, setForm]);
+  useEffect(() => {
+    if (form.probe_condition_kind === REMOTE_STK_MINS_READY_CONDITION && !selectedActionSupportsRemoteStkMinsProbe) {
+      setForm((current) => ({ ...current, probe_condition_kind: FRESHNESS_LATEST_OPEN_CONDITION }));
+    }
+  }, [form.probe_condition_kind, selectedActionSupportsRemoteStkMinsProbe, setForm]);
   const singleTradeCalendar = useTradeCalendarField({ value: form.selected_date });
   const rangeStartTradeCalendar = useTradeCalendarField({ value: form.start_date });
   const rangeEndTradeCalendar = useTradeCalendarField({ value: form.end_date });
@@ -1086,6 +1113,9 @@ export function OpsAutomationPage() {
       if (form.action_type === "dataset_action" && !selectedAction?.target_key) {
         throw new Error("当前数据集动作缺少维护对象，请刷新后重试。");
       }
+      if (form.probe_condition_kind === REMOTE_STK_MINS_READY_CONDITION && !selectedActionSupportsRemoteStkMinsProbe) {
+        throw new Error("源站分钟行情探测只支持股票历史分钟行情维护。");
+      }
       const scheduleType = form.schedule_type;
       const cronExpr = scheduleType === "cron"
         ? buildCronExpression(
@@ -1117,7 +1147,7 @@ export function OpsAutomationPage() {
               window_end: form.probe_window_end || null,
               probe_interval_seconds: Number(form.probe_interval_seconds || "300"),
               max_triggers_per_day: Number(form.probe_max_triggers_per_day || "1"),
-              condition_kind: form.probe_condition_kind || "freshness_latest_open",
+              condition_kind: form.probe_condition_kind || FRESHNESS_LATEST_OPEN_CONDITION,
               workflow_dataset_keys:
                 form.action_type === "workflow"
                   ? form.workflow_probe_dataset_keys
@@ -1250,7 +1280,7 @@ export function OpsAutomationPage() {
       probe_window_end: probeConfig?.window_end || "17:00",
       probe_interval_seconds: String(probeConfig?.probe_interval_seconds || 300),
       probe_max_triggers_per_day: String(probeConfig?.max_triggers_per_day || 1),
-      probe_condition_kind: probeConfig?.condition_kind || "freshness_latest_open",
+      probe_condition_kind: probeConfig?.condition_kind || FRESHNESS_LATEST_OPEN_CONDITION,
       workflow_probe_dataset_keys: probeConfig?.workflow_dataset_keys || [],
       date_mode: dateMode,
       selected_date: tradeDate || startDate || "",
@@ -1411,6 +1441,7 @@ export function OpsAutomationPage() {
                   {(detailQuery.data.trigger_mode !== "schedule" && detailQuery.data.probe_config) ? (
                     <DetailInfoPanel label="探测配置">
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测窗口</Text><Text size="sm">{detailQuery.data.probe_config.window_start || "—"} ~ {detailQuery.data.probe_config.window_end || "—"}</Text></Group>
+                      <Group justify="space-between"><Text size="sm" c="dimmed">探测条件</Text><Text size="sm">{formatProbeConditionLabel(detailQuery.data.probe_config.condition_kind)}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测频率</Text><Text size="sm">{detailQuery.data.probe_config.probe_interval_seconds} 秒</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">每日触发上限</Text><Text size="sm">{detailQuery.data.probe_config.max_triggers_per_day}</Text></Group>
                       <Group justify="space-between"><Text size="sm" c="dimmed">探测来源</Text><Text size="sm">{detailQuery.data.probe_config.source_display_name}</Text></Group>
@@ -1784,13 +1815,16 @@ export function OpsAutomationPage() {
                 />
                 <Select
                   label="探测条件"
-                  data={[
-                    { value: "freshness_latest_open", label: "最新业务日命中最新交易日" },
-                  ]}
+                  data={probeConditionOptions}
                   value={form.probe_condition_kind}
-                  onChange={(value) => setForm((current) => ({ ...current, probe_condition_kind: value || "freshness_latest_open" }))}
+                  onChange={(value) => setForm((current) => ({ ...current, probe_condition_kind: value || FRESHNESS_LATEST_OPEN_CONDITION }))}
                 />
               </SimpleGrid>
+              {form.probe_condition_kind === REMOTE_STK_MINS_READY_CONDITION ? (
+                <Text size="xs" c="dimmed">
+                  系统会在探测窗口内用少量代表股票请求 Tushare 分钟行情；源站返回目标交易日分钟行情后，再自动发起正式同步任务。
+                </Text>
+              ) : null}
               <Grid>
                 <Grid.Col span={{ base: 12, sm: 6 }}>
                   <TextInput

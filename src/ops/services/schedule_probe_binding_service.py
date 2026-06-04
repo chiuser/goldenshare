@@ -6,14 +6,25 @@ from sqlalchemy import delete
 from sqlalchemy.orm import Session
 
 from src.foundation.datasets.freshness_policies import CONTINUOUS_OPEN_DAY
+from src.foundation.ingestion.plan_helpers import split_multi_values
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.schedule import OpsSchedule
 from src.foundation.datasets.registry import get_dataset_action_key, get_dataset_definition, get_dataset_definition_by_action_key
 from src.ops.action_catalog import get_workflow_definition
 from src.app.exceptions import WebAppError
+from src.ops.services.stk_mins_remote_probe_service import (
+    STK_MINS_ACTION_KEY,
+    STK_MINS_ALLOWED_FREQS,
+    STK_MINS_DATASET_KEY,
+    STK_MINS_REMOTE_READY_CONDITION,
+)
 
 
 SUPPORTED_TRIGGER_MODES = {"schedule", "probe", "schedule_probe_fallback"}
+FRESHNESS_LATEST_OPEN_CONDITION = "freshness_latest_open"
+SUPPORTED_PROBE_CONDITIONS = {FRESHNESS_LATEST_OPEN_CONDITION, STK_MINS_REMOTE_READY_CONDITION}
+TIME_PARAM_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
+PARAM_RESERVED_KEYS = {"dataset_key", "action", "time_input", "filters"}
 
 
 @dataclass(slots=True, frozen=True)
@@ -77,21 +88,25 @@ class ScheduleProbeBindingService:
         window_start = self._normalize_time(config.get("window_start") or "15:30")
         window_end = self._normalize_time(config.get("window_end") or "17:00")
         timezone_name = str(config.get("timezone_name") or schedule.timezone or "Asia/Shanghai").strip() or "Asia/Shanghai"
-        condition_kind = str(config.get("condition_kind") or "freshness_latest_open")
-        if condition_kind != "freshness_latest_open":
+        condition_kind = str(config.get("condition_kind") or FRESHNESS_LATEST_OPEN_CONDITION)
+        if condition_kind not in SUPPORTED_PROBE_CONDITIONS:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的探测条件：{condition_kind}")
         condition_json = {"type": condition_kind}
 
+        filters = self._extract_schedule_filters(dict(schedule.params_json or {}))
+        if condition_kind == STK_MINS_REMOTE_READY_CONDITION:
+            self._validate_remote_stk_mins_schedule(schedule=schedule, filters=filters)
         dataset_targets = self._resolve_dataset_targets(schedule=schedule, config=config)
         templates: list[ProbeRuleTemplate] = []
         for dataset_key, step_key in dataset_targets:
-            self._validate_freshness_latest_open_dataset(dataset_key)
+            if condition_kind == FRESHNESS_LATEST_OPEN_CONDITION:
+                self._validate_freshness_latest_open_dataset(dataset_key)
             action_json = {
                 "action_type": "dataset_action",
                 "action_key": get_dataset_action_key(dataset_key, "maintain"),
                 "request": {
                     "time_input": {"mode": "point"},
-                    "filters": {},
+                    "filters": dict(filters) if condition_kind == STK_MINS_REMOTE_READY_CONDITION else {},
                     "run_scope": "probe_triggered",
                 },
             }
@@ -165,6 +180,45 @@ class ScheduleProbeBindingService:
                 code="validation_error",
                 message=f"{definition.display_name} 不支持“最新业务日命中最新交易日”探测条件",
             )
+
+    @classmethod
+    def _validate_remote_stk_mins_schedule(cls, *, schedule: OpsSchedule, filters: dict) -> None:
+        trigger_mode = cls._normalize_trigger_mode(schedule.trigger_mode)
+        if trigger_mode not in {"probe", "schedule_probe_fallback"}:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持探测触发或定时 + 探测兜底")
+        if schedule.target_type != "dataset_action" or schedule.target_key != STK_MINS_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持股票历史分钟行情维护")
+        if schedule.calendar_policy:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测不能与日期策略混用")
+        if cls._has_fixed_trade_date(dict(schedule.params_json or {})):
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测不能与固定维护日期混用")
+        freqs = split_multi_values(filters.get("freq"))
+        if not freqs:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测必须配置分钟周期")
+        invalid = [item for item in freqs if item not in STK_MINS_ALLOWED_FREQS]
+        if invalid:
+            raise WebAppError(status_code=422, code="validation_error", message=f"不支持的分钟周期：{', '.join(invalid)}")
+        dataset_key = cls._dataset_from_action_target(schedule.target_key)
+        if dataset_key != STK_MINS_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持股票历史分钟行情维护")
+
+    @staticmethod
+    def _extract_schedule_filters(params_json: dict) -> dict:
+        explicit = params_json.get("filters")
+        if isinstance(explicit, dict):
+            return dict(explicit)
+        return {
+            key: value
+            for key, value in params_json.items()
+            if key not in PARAM_RESERVED_KEYS and key not in TIME_PARAM_KEYS and value not in (None, "")
+        }
+
+    @staticmethod
+    def _has_fixed_trade_date(params_json: dict) -> bool:
+        if params_json.get("trade_date") not in (None, ""):
+            return True
+        time_input = params_json.get("time_input")
+        return isinstance(time_input, dict) and time_input.get("trade_date") not in (None, "")
 
     @staticmethod
     def _normalize_time(value: object) -> str:

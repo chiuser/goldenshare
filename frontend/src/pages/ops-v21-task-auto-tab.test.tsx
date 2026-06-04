@@ -2,8 +2,10 @@ import { describe, expect, it } from "vitest";
 
 import {
   actionSupportsTriggerDayPointPolicy,
+  actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
   buildCronExpression,
+  formatProbeConditionLabel,
   formatScheduleRule,
   parseCronExpression,
   resolveEffectiveCalendarPolicy,
@@ -173,5 +175,13 @@ describe("自动任务日期策略", () => {
     expect(() => buildCronExpression("intraday_interval", "19:00", [], "1", "trigger_day_point", "2")).toThrow(
       "日内高频策略最小间隔为 3 分钟。",
     );
+  });
+
+  it("only enables remote stk_mins source probing for stk_mins maintain", () => {
+    expect(actionSupportsRemoteStkMinsProbe("dataset_action", "stk_mins.maintain")).toBe(true);
+    expect(actionSupportsRemoteStkMinsProbe("dataset_action", "daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteStkMinsProbe("workflow", "stk_mins.maintain")).toBe(false);
+    expect(formatProbeConditionLabel("remote_stk_mins_ready")).toBe("源站已有分钟行情");
+    expect(formatProbeConditionLabel("freshness_latest_open")).toBe("最新业务日命中最新交易日");
   });
 });

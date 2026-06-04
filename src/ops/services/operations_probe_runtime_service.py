@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import datetime, time, timedelta, timezone
+from datetime import date, datetime, time, timedelta, timezone
 from zoneinfo import ZoneInfo
 
 from sqlalchemy import func, select
@@ -19,6 +19,11 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.foundation.config.settings import get_settings
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
+from src.ops.services.stk_mins_remote_probe_service import (
+    STK_MINS_ACTION_KEY,
+    STK_MINS_REMOTE_READY_CONDITION,
+    StkMinsRemoteReadinessProbeService,
+)
 from src.ops.services.task_run_service import TaskRunCommandService, TaskRunCreateContext
 
 
@@ -34,6 +39,7 @@ class ProbeRuntimeService:
         self.task_run_service = TaskRunCommandService()
         self.snapshot_service = DatasetStatusSnapshotService()
         self.freshness_query = OpsFreshnessQueryService()
+        self.stk_mins_remote_probe = StkMinsRemoteReadinessProbeService()
 
     def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[TaskRun], ProbeTickResult]:
         current = now or datetime.now(timezone.utc)
@@ -66,7 +72,7 @@ class ProbeRuntimeService:
                 matched, message, payload = self._evaluate_rule(session, rule, current=current)
                 rule.last_probed_at = started_at
                 if matched:
-                    task_run = self._enqueue_on_match(session, rule)
+                    task_run = self._enqueue_on_match(session, rule, probe_payload=payload)
                     task_run_id = task_run.id
                     task_run_correlation_id = str(task_run.id)
                     task_runs.append(task_run)
@@ -119,6 +125,9 @@ class ProbeRuntimeService:
         business_date = current.astimezone(ZoneInfo("Asia/Shanghai")).date()
         condition = dict(rule.probe_condition_json or {})
         condition_type = str(condition.get("type") or "freshness_latest_open")
+        if condition_type == STK_MINS_REMOTE_READY_CONDITION:
+            result = self.stk_mins_remote_probe.evaluate(session, rule, current=current)
+            return result.matched, result.message, result.payload
         if condition_type != "freshness_latest_open":
             raise ValueError(f"不支持的探测条件：{condition_type}")
         definition = get_dataset_definition(rule.dataset_key)
@@ -149,7 +158,7 @@ class ProbeRuntimeService:
             return True, "最新业务日已命中最新交易日", payload
         return False, "最新业务日尚未到最新交易日", payload
 
-    def _enqueue_on_match(self, session: Session, rule: ProbeRule) -> TaskRun:
+    def _enqueue_on_match(self, session: Session, rule: ProbeRule, *, probe_payload: dict | None = None) -> TaskRun:
         action = dict(rule.on_success_action_json or {})
         action_type = str(action.get("action_type") or "dataset_action")
         if action_type != "dataset_action":
@@ -160,6 +169,12 @@ class ProbeRuntimeService:
         definition, action_name = get_dataset_definition_by_action_key(action_key)
         request = dict(action.get("request") or {})
         time_input = dict(request.get("time_input") or {"mode": "point"})
+        condition = dict(rule.probe_condition_json or {})
+        if str(condition.get("type") or "freshness_latest_open") == STK_MINS_REMOTE_READY_CONDITION:
+            if action_key != STK_MINS_ACTION_KEY:
+                raise ValueError("源站分钟行情探测只支持股票历史分钟行情维护")
+            latest_open_date = self._parse_probe_latest_open_date(probe_payload)
+            time_input = {**time_input, "mode": "point", "trade_date": latest_open_date.isoformat()}
         filters = dict(request.get("filters") or {})
         if rule.source_key:
             filters.setdefault("source_key", rule.source_key)
@@ -253,3 +268,13 @@ class ProbeRuntimeService:
         if normalized:
             return normalized
         return get_dataset_definition(dataset_key).source.source_key_default
+
+    @staticmethod
+    def _parse_probe_latest_open_date(probe_payload: dict | None) -> date:
+        value = (probe_payload or {}).get("latest_open_date")
+        if isinstance(value, date):
+            return value
+        text = str(value or "").strip()
+        if not text:
+            raise ValueError("源站分钟行情探测命中缺少 latest_open_date")
+        return date.fromisoformat(text)

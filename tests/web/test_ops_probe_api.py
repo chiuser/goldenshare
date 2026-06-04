@@ -1,8 +1,19 @@
 from __future__ import annotations
 
-import pytest
+from datetime import date, datetime, timezone
+from types import SimpleNamespace
 
+import pytest
+from sqlalchemy import select
+
+from src.ops.models.ops.probe_run_log import ProbeRunLog
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.operations_probe_runtime_service import ProbeRuntimeService
+from src.ops.services.stk_mins_remote_probe_service import (
+    STK_MINS_REMOTE_READY_CONDITION,
+    StkMinsRemoteReadinessProbeResult,
+    StkMinsRemoteReadinessProbeService,
+)
 
 
 def test_ops_probe_list_rejects_non_admin(app_client, user_factory) -> None:
@@ -120,6 +131,36 @@ def test_ops_probe_create_returns_readable_validation_message(app_client, user_f
     assert response.json()["message"] == "探测规则名称不能为空"
 
 
+def test_ops_probe_create_rejects_invalid_remote_stk_mins_condition(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/probes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "错误分钟源站探测",
+            "dataset_key": "daily",
+            "source_key": "tushare",
+            "window_start": "15:30",
+            "window_end": "17:30",
+            "probe_interval_seconds": 180,
+            "probe_condition_json": {"type": STK_MINS_REMOTE_READY_CONDITION},
+            "on_success_action_json": {
+                "action_type": "dataset_action",
+                "action_key": "daily.maintain",
+                "request": {"time_input": {"mode": "point"}, "filters": {}},
+            },
+            "max_triggers_per_day": 2,
+            "timezone_name": "Asia/Shanghai",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "源站分钟行情探测只支持股票历史分钟行情维护"
+
+
 def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     app_client,
     user_factory,
@@ -211,3 +252,249 @@ def test_probe_runtime_uses_action_key_as_dataset_action_fact(db_session, probe_
     assert task_run.resource_key == "daily"
     assert task_run.action == "maintain"
     assert task_run.request_payload_json["resource_key"] == "daily"
+
+
+def test_stk_mins_remote_probe_uses_default_listed_tushare_sample_codes(db_session, monkeypatch) -> None:
+    class FakeSecurityDAO:
+        def __init__(self, session):
+            del session
+
+        def get_by_ts_code(self, ts_code):
+            if ts_code == "600000.SH":
+                return SimpleNamespace(source="tushare", list_status="L")
+            if ts_code == "000001.SZ":
+                return SimpleNamespace(source="other", list_status="L")
+            if ts_code == "300750.SZ":
+                return SimpleNamespace(source="tushare", list_status="D")
+            return None
+
+    monkeypatch.setattr("src.ops.services.stk_mins_remote_probe_service.SecurityDAO", FakeSecurityDAO)
+
+    samples = StkMinsRemoteReadinessProbeService._resolve_sample_codes(db_session, {})
+
+    assert samples == ["600000.SH"]
+
+
+def test_stk_mins_remote_probe_rejects_direct_non_stk_rule(db_session, probe_rule_factory) -> None:
+    rule = probe_rule_factory(
+        dataset_key="daily",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "daily.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="源站分钟行情探测只支持股票历史分钟行情维护"):
+        StkMinsRemoteReadinessProbeService().evaluate(
+            db_session,
+            rule,
+            current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+        )
+
+
+def test_stk_mins_remote_probe_builds_sample_request_from_resolver(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def get_latest_open_date(self, exchange, business_date):
+            del exchange
+            del business_date
+            return date(2026, 5, 29)
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.security = SimpleNamespace(get_by_ts_code=lambda code: SimpleNamespace(name="浦发银行"))
+
+    calls: list[dict] = []
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            calls.append({"api_name": api_name, "params": dict(params or {}), "fields": tuple(fields or ())})
+            return [{"ts_code": "600000.SH", "trade_time": "2026-05-29 15:00:00"}]
+
+    monkeypatch.setattr("src.ops.services.stk_mins_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr("src.foundation.ingestion.unit_planner.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr(
+        "src.ops.services.stk_mins_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="stk_mins",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "stk_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": "600000.SH", "freq": ["1min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = StkMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is True
+    assert result.payload["latest_open_date"] == "2026-05-29"
+    assert result.payload["checked_freqs"] == ["1min"]
+    assert result.payload["matched_freqs"] == ["1min"]
+    assert result.payload["sample_codes"] == ["600000.SH"]
+    assert calls == [
+        {
+            "api_name": "stk_mins",
+            "params": {
+                "ts_code": "600000.SH",
+                "freq": "1min",
+                "start_date": "2026-05-29 09:00:00",
+                "end_date": "2026-05-29 19:00:00",
+                "limit": 1,
+                "offset": 0,
+            },
+            "fields": ("ts_code", "trade_time"),
+        }
+    ]
+
+
+def test_stk_mins_remote_probe_requires_all_selected_freqs(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def get_latest_open_date(self, exchange, business_date):
+            del exchange
+            del business_date
+            return date(2026, 5, 29)
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.security = SimpleNamespace(get_by_ts_code=lambda code: SimpleNamespace(name="浦发银行"))
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del fields
+            if (params or {}).get("freq") == "1min":
+                return [{"ts_code": "600000.SH", "trade_time": "2026-05-29 15:00:00"}]
+            return []
+
+    monkeypatch.setattr("src.ops.services.stk_mins_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr("src.foundation.ingestion.unit_planner.DAOFactory", FakeDAOFactory)
+    monkeypatch.setattr(
+        "src.ops.services.stk_mins_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="stk_mins",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "stk_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": "600000.SH", "freq": ["1min", "5min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = StkMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.payload["checked_freqs"] == ["1min", "5min"]
+    assert result.payload["matched_freqs"] == ["1min"]
+    assert result.payload["sample_request_count"] == 2
+
+
+def test_probe_runtime_remote_stk_mins_hit_creates_task_run_with_latest_open_date(db_session, probe_rule_factory, monkeypatch) -> None:
+    rule = probe_rule_factory(
+        dataset_key="stk_mins",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "stk_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.stk_mins_remote_probe,
+        "evaluate",
+        lambda session, rule, current: StkMinsRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日分钟行情",
+            payload={"latest_open_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    task_run = task_runs[0]
+    assert task_run.resource_key == "stk_mins"
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-05-29"}
+    assert task_run.filters_json == {"freq": ["1min"]}
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.condition_matched is True
+    assert db_session.scalar(select(TaskRun).where(TaskRun.id == task_run.id)) is not None
+
+
+def test_probe_runtime_remote_stk_mins_miss_does_not_create_task_run(db_session, probe_rule_factory, monkeypatch) -> None:
+    probe_rule_factory(
+        dataset_key="stk_mins",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "stk_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"freq": ["1min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.stk_mins_remote_probe,
+        "evaluate",
+        lambda session, rule, current: StkMinsRemoteReadinessProbeResult(
+            matched=False,
+            message="源站尚未返回 1min 的最新交易日分钟行情",
+            payload={"latest_open_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "stk_mins")) is None
