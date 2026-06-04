@@ -19,6 +19,12 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
+from orchestrator.defs.sensors.index_daily_late_arrival_repair import (
+    MAX_REPAIR_ATTEMPTS_PER_CODE_PER_DAY,
+    MAX_REPAIR_CURSOR_CODE_COUNT,
+    MAX_REPAIR_RUN_REQUESTS_PER_TICK,
+    select_index_daily_pending_code_runs,
+)
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     MAX_RAW_GAP_SAMPLE_COUNT,
     RAW_GAP_AUDIT_TRADE_DAY_LIMIT,
@@ -102,12 +108,58 @@ def _cursor_payload(
     audit_no_raw_history_samples: tuple[str, ...] = (),
     raw_scan_error_code: str | None = None,
     raw_scan_error: str | None = None,
+    repair_state: dict[str, Any] | None = None,
+    repair_new_code_count: int | None = None,
+    repair_due_count: int | None = None,
+    repair_selected_count: int | None = None,
+    repair_waiting_count: int | None = None,
+    repair_exhausted_count: int | None = None,
+    repair_budget_limited_count: int | None = None,
+    repair_state_code_count: int | None = None,
+    repair_cursor_code_limit_exceeded: bool | None = None,
 ) -> str:
     decision = (
         SensorCursorDecision.REQUEST_RUNS
         if selected_codes
         else SensorCursorDecision.SKIP
     )
+    details = {
+        "today": today,
+        "registered_trade_day_count": registered_trade_day_count,
+        "registered_code_count": registered_code_count,
+        "source_ready": source_ready,
+        "source_row_count": source_row_count,
+        "pending_count": pending_count,
+        "selected_codes": list(selected_codes),
+        "next_pending_offset": next_pending_offset,
+        "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+        "max_repair_run_requests_per_tick": MAX_REPAIR_RUN_REQUESTS_PER_TICK,
+        "max_repair_attempts_per_code_per_day": (
+            MAX_REPAIR_ATTEMPTS_PER_CODE_PER_DAY
+        ),
+        "max_repair_cursor_code_count": MAX_REPAIR_CURSOR_CODE_COUNT,
+        "audit_trade_date_count": audit_trade_date_count,
+        "audit_expected_pair_count": audit_expected_pair_count,
+        "audit_ready_pair_count": audit_ready_pair_count,
+        "audit_missing_pair_count": audit_missing_pair_count,
+        "audit_missing_file_count": audit_missing_file_count,
+        "audit_missing_trade_date_pair_count": audit_missing_trade_date_pair_count,
+        "audit_no_raw_history_count": audit_no_raw_history_count,
+        "audit_no_raw_history_samples": list(audit_no_raw_history_samples),
+        "raw_scan_error_code": raw_scan_error_code,
+        "raw_scan_error": raw_scan_error,
+        "repair_new_code_count": repair_new_code_count,
+        "repair_due_count": repair_due_count,
+        "repair_selected_count": repair_selected_count,
+        "repair_waiting_count": repair_waiting_count,
+        "repair_exhausted_count": repair_exhausted_count,
+        "repair_budget_limited_count": repair_budget_limited_count,
+        "repair_state_code_count": repair_state_code_count,
+        "repair_cursor_code_limit_exceeded": repair_cursor_code_limit_exceeded,
+    }
+    if repair_state:
+        details["repair_state"] = repair_state
+
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -115,27 +167,7 @@ def _cursor_payload(
         selected_count=len(selected_codes),
         blocked_count=max(0, pending_count - len(selected_codes)),
         sample_keys=selected_codes,
-        details={
-            "today": today,
-            "registered_trade_day_count": registered_trade_day_count,
-            "registered_code_count": registered_code_count,
-            "source_ready": source_ready,
-            "source_row_count": source_row_count,
-            "pending_count": pending_count,
-            "selected_codes": list(selected_codes),
-            "next_pending_offset": next_pending_offset,
-            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-            "audit_trade_date_count": audit_trade_date_count,
-            "audit_expected_pair_count": audit_expected_pair_count,
-            "audit_ready_pair_count": audit_ready_pair_count,
-            "audit_missing_pair_count": audit_missing_pair_count,
-            "audit_missing_file_count": audit_missing_file_count,
-            "audit_missing_trade_date_pair_count": audit_missing_trade_date_pair_count,
-            "audit_no_raw_history_count": audit_no_raw_history_count,
-            "audit_no_raw_history_samples": list(audit_no_raw_history_samples),
-            "raw_scan_error_code": raw_scan_error_code,
-            "raw_scan_error": raw_scan_error,
-        },
+        details=details,
     )
 
 
@@ -343,7 +375,16 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         trade_date=target_trade_date,
         checked_at=evaluated_at,
     )
+    cursor_payload = load_sensor_cursor(context.cursor)
     if not source_readiness.is_ready:
+        repair_selection = select_index_daily_pending_code_runs(
+            cursor_payload=cursor_payload,
+            evaluated_at=evaluated_at,
+            target_trade_date=target_trade_date,
+            pending_codes=pending_codes,
+            max_initial_run_requests=0,
+            max_repair_run_requests=0,
+        )
         return dg.SensorResult(
             skip_reason="Tushare 指数日线源站还没有返回有效数据。",
             cursor=_cursor_payload(
@@ -356,7 +397,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 source_row_count=source_readiness.row_count,
                 pending_count=pending_count,
                 selected_codes=(),
-                next_pending_offset=0,
+                next_pending_offset=repair_selection.next_pending_offset,
                 audit_trade_date_count=raw_gap_audit.trade_date_count,
                 audit_expected_pair_count=raw_gap_audit.expected_pair_count,
                 audit_ready_pair_count=raw_gap_audit.ready_pair_count,
@@ -369,14 +410,30 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
                     :MAX_RAW_GAP_SAMPLE_COUNT
                 ],
+                repair_state=repair_selection.repair_state,
+                repair_new_code_count=repair_selection.new_code_count,
+                repair_due_count=repair_selection.repair_due_count,
+                repair_selected_count=repair_selection.repair_selected_count,
+                repair_waiting_count=repair_selection.repair_waiting_count,
+                repair_exhausted_count=repair_selection.repair_exhausted_count,
+                repair_budget_limited_count=(
+                    repair_selection.repair_budget_limited_count
+                ),
+                repair_state_code_count=repair_selection.repair_state_code_count,
+                repair_cursor_code_limit_exceeded=(
+                    repair_selection.repair_cursor_code_limit_exceeded
+                ),
             ),
         )
 
-    selected_codes, next_pending_offset = _select_pending_codes(
-        cursor_payload=load_sensor_cursor(context.cursor),
+    repair_selection = select_index_daily_pending_code_runs(
         target_trade_date=target_trade_date,
+        evaluated_at=evaluated_at,
+        cursor_payload=cursor_payload,
         pending_codes=pending_codes,
+        max_initial_run_requests=MAX_RUN_REQUESTS_PER_TICK,
     )
+    selected_codes = tuple(run.index_code for run in repair_selection.runs)
     cursor = _cursor_payload(
         evaluated_at=evaluated_at,
         today=today,
@@ -387,7 +444,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         source_row_count=source_readiness.row_count,
         pending_count=pending_count,
         selected_codes=selected_codes,
-        next_pending_offset=next_pending_offset,
+        next_pending_offset=repair_selection.next_pending_offset,
         audit_trade_date_count=raw_gap_audit.trade_date_count,
         audit_expected_pair_count=raw_gap_audit.expected_pair_count,
         audit_ready_pair_count=raw_gap_audit.ready_pair_count,
@@ -398,24 +455,45 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
             :MAX_RAW_GAP_SAMPLE_COUNT
         ],
+        repair_state=repair_selection.repair_state,
+        repair_new_code_count=repair_selection.new_code_count,
+        repair_due_count=repair_selection.repair_due_count,
+        repair_selected_count=repair_selection.repair_selected_count,
+        repair_waiting_count=repair_selection.repair_waiting_count,
+        repair_exhausted_count=repair_selection.repair_exhausted_count,
+        repair_budget_limited_count=repair_selection.repair_budget_limited_count,
+        repair_state_code_count=repair_selection.repair_state_code_count,
+        repair_cursor_code_limit_exceeded=(
+            repair_selection.repair_cursor_code_limit_exceeded
+        ),
     )
     if not selected_codes:
+        skip_reason = "最早缺口指数交易日没有可选择的缺失指数代码。"
+        if repair_selection.repair_cursor_code_limit_exceeded:
+            skip_reason = (
+                "指数日线 raw 补缺候选过多，疑似源端或本地系统性异常，"
+                "暂不触发 repair。"
+            )
+        elif repair_selection.repair_waiting_count:
+            skip_reason = "指数日线 raw 缺失代码尚未到达补缺 backoff 时间。"
+        elif repair_selection.repair_exhausted_count:
+            skip_reason = "指数日线 raw 缺失代码已达到当日补缺次数上限。"
         return dg.SensorResult(
-            skip_reason="最早缺口指数交易日没有可选择的缺失指数代码。",
+            skip_reason=skip_reason,
             cursor=cursor,
         )
 
     return dg.SensorResult(
         run_requests=[
             build_run_request(
-                partition_key=index_code,
-                run_key=f"index_daily:{target_trade_date}:{index_code}",
+                partition_key=run.index_code,
+                run_key=run.run_key,
                 run_config=build_index_daily_update_job_run_config(
                     trade_date=target_trade_date,
                     write_mode="replace",
                 ),
             )
-            for index_code in selected_codes
+            for run in repair_selection.runs
         ],
         cursor=cursor,
     )
