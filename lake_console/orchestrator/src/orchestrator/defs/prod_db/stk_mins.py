@@ -6,6 +6,7 @@ from orchestrator.defs.duckdb_sql import duckdb_string
 
 
 PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE = "prod_raw_pg"
+PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS = "TYPE POSTGRES, READ_ONLY"
 PROD_STK_MINS_SOURCE_COLUMNS = (
     "ts_code",
     "freq",
@@ -154,3 +155,17 @@ def validate_prod_stk_mins_duckdb_source_contract() -> None:
                 "Prod stk_mins DuckDB source is missing required column "
                 f"{required_column}."
             )
+
+
+def validate_prod_stk_mins_duckdb_attach_options_contract() -> None:
+    normalized_options = " ".join(
+        PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS.lower().replace(",", " ").split()
+    )
+    if "type postgres" not in normalized_options:
+        raise RuntimeError(
+            "Prod stk_mins DuckDB attach options must use TYPE POSTGRES."
+        )
+    if "read_only" not in normalized_options:
+        raise RuntimeError(
+            "Prod stk_mins DuckDB attach options must force READ_ONLY."
+        )

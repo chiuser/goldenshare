@@ -19,8 +19,10 @@ from orchestrator.defs.jobs.stock_mins_raw_update import (
 from orchestrator.defs.paths import raw_stk_mins_path
 from orchestrator.defs.prod_db.stk_mins import (
     PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
+    PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
     build_prod_stk_mins_duckdb_source_sql,
     build_prod_stk_mins_remote_query,
+    validate_prod_stk_mins_duckdb_attach_options_contract,
     validate_prod_stk_mins_duckdb_source_contract,
     validate_prod_stk_mins_select_contract,
 )
@@ -291,6 +293,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertIn("trade_time >=", normalized_sql)
 
     def test_prod_db_duckdb_source_uses_attached_alias_without_conninfo(self) -> None:
+        validate_prod_stk_mins_duckdb_attach_options_contract()
         source_sql = build_prod_stk_mins_duckdb_source_sql(
             stock_codes=("600000.SH", "000001.SZ"),
             freq=1,
@@ -311,6 +314,31 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "connect_timeout=",
         ):
             self.assertNotIn(forbidden_text, normalized_sql)
+
+    def test_prod_db_attach_forces_read_only(self) -> None:
+        class CapturingConnection:
+            def __init__(self):
+                self.sqls = []
+
+            def execute(self, sql):
+                self.sqls.append(sql)
+
+        connection = CapturingConnection()
+        stk_mins._attach_prod_postgres_database(
+            connection,
+            postgres_connection_string="host=example password=fake-secret",
+        )
+
+        self.assertEqual(len(connection.sqls), 1)
+        attach_sql = " ".join(connection.sqls[0].lower().replace(",", " ").split())
+        expected_options = " ".join(
+            PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS.lower().replace(",", " ").split()
+        )
+        self.assertIn(
+            f"as {PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE}",
+            attach_sql,
+        )
+        self.assertIn(expected_options, attach_sql)
 
     def test_prod_db_attach_error_omits_connection_details(self) -> None:
         class FailingConnection:

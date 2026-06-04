@@ -44,7 +44,9 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.prod_db.stk_mins import (
     PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
+    PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
     build_prod_stk_mins_duckdb_source_sql,
+    validate_prod_stk_mins_duckdb_attach_options_contract,
     validate_prod_stk_mins_select_contract,
     validate_prod_stk_mins_duckdb_source_contract,
 )
@@ -357,6 +359,7 @@ def write_raw_stk_mins_partition_from_prod_db(
 
     validate_prod_stk_mins_select_contract()
     validate_prod_stk_mins_duckdb_source_contract()
+    validate_prod_stk_mins_duckdb_attach_options_contract()
     start_datetime, end_datetime = _partition_window(partition_key)
     source_sql = build_prod_stk_mins_duckdb_source_sql(
         stock_codes=stock_codes,
@@ -780,7 +783,10 @@ def _attach_prod_postgres_database(
     attach_sql = (
         "ATTACH "
         + duckdb_string(postgres_connection_string)
-        + f" AS {PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE} (TYPE POSTGRES)"
+        + (
+            f" AS {PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE} "
+            f"({PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS})"
+        )
     )
     try:
         connection.execute(attach_sql)

@@ -208,7 +208,7 @@ CREATE TEMP TABLE prod_stk_mins_source AS SELECT * FROM (<source_sql>) AS source
 postgres_query('prod_raw_pg', '<remote query>')
 ```
 
-2. 完整 Postgres conninfo 只在执行侧 `ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES)` 使用，不再进入 `postgres_query(...)` SQL。
+2. 完整 Postgres conninfo 只在执行侧 `ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES, READ_ONLY)` 使用，不再进入 `postgres_query(...)` SQL。
 3. `ATTACH` 失败时抛出脱敏错误，不把原始 DuckDB exception chain 带入 Dagster 错误栈。
 4. 测试已锁定：
    - source SQL 不得包含 `host=`、`user=`、`password=`、`dbname=`、`connect_timeout=`。
@@ -252,14 +252,14 @@ postgres_query('prod_raw_pg', '<remote query>')
 
 ## 当前阶段结论
 
-截至当前阶段，已确认 4 个 P0，其中 P0-1 和 P0-2 已完成修复：
+截至当前阶段，已确认 4 个 P0，均已完成代码和测试收口：
 
 1. Gold qfq stock-year 共享物理文件缺少正式互斥保护；当前已加 Dagster pool 标记和门禁，正式 instance 已配置 pool limit 与 run granularity。
 2. prod DB DuckDB 批量抽取 SQL 内嵌 Postgres password，存在失败日志泄露敏感信息的风险；当前已改为 DuckDB attach alias source SQL，并增加脱敏测试。
-3. 正式 DuckDB 连接没有统一 temp/spill/thread/memory 治理，且 qfq 写入 helper 绕过 `DuckDBResource` 直接开连接。
-4. prod DB DuckDB attach 未声明 `READ_ONLY`，没有在 DuckDB extension 层强制只读。
+3. 正式 DuckDB 连接没有统一 temp/spill/thread/memory 治理，且 qfq 写入 helper 绕过 `DuckDBResource` 直接开连接；当前已收敛到统一 `connect_configured_duckdb(...)` 入口。
+4. prod DB DuckDB attach 未声明 `READ_ONLY`，没有在 DuckDB extension 层强制只读；当前已修正为统一 attach options：`TYPE POSTGRES, READ_ONLY`。
 
-P0-1、P0-2、P0-3 已完成代码和测试收口；P0-4 仍需优先修正。P0-2 失败分区按正常重跑恢复业务数据即可。
+P0-2 失败分区按正常重跑恢复业务数据即可。
 
 ---
 
@@ -406,19 +406,23 @@ P0-3 的正式原则是：**正式 `defs/**` 生产路径不再直接调用 `duc
 
 ---
 
-### P0-4：prod DB DuckDB attach 未强制 READ_ONLY
+### P0-4：prod DB DuckDB attach 未强制 READ_ONLY（已修复）
 
 #### 现状
 
 P0-2 已经修复了 `postgres_query(...)` 内嵌完整 conninfo 和 password 的问题；当前 source SQL 只引用 attach alias。
 
-但执行 attach 的 SQL 仍是：
+历史问题是执行 attach 的 SQL 曾经是：
 
 ```text
 ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES)
 ```
 
-没有声明 `READ_ONLY`。
+没有声明 `READ_ONLY`。当前已改为：
+
+```text
+ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES, READ_ONLY)
+```
 
 #### 证据
 
@@ -427,7 +431,7 @@ ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES)
 - `lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py`
   - `_attach_prod_postgres_database(...)`
 
-当前代码：
+旧代码：
 
 ```python
 attach_sql = (
@@ -459,15 +463,15 @@ DuckDB 连接本身没有第二道防线。
 
 #### 修复方向
 
-修复很小，性能影响可以视为 0：
+已按以下口径修复，性能影响视为 0：
 
-1. attach SQL 改成：
+1. attach SQL 已改成：
 
 ```text
 ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES, READ_ONLY)
 ```
 
-2. 测试补齐：
+2. 测试已补齐：
    - attach SQL 必须包含 `READ_ONLY`。
    - attach 失败错误仍脱敏。
    - source SQL 仍不得包含 conninfo/password。
