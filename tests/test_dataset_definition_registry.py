@@ -360,12 +360,19 @@ def test_stk_mins_declares_active_equity_universe_pool() -> None:
     definition = get_dataset_definition("stk_mins")
 
     assert definition.planning.universe_policy == "pool"
+    assert definition.planning.fetch_concurrency == 2
     assert definition.planning.universe is not None
     assert definition.planning.universe.request_field == "ts_code"
     assert definition.planning.universe.override_fields == ("ts_code",)
     assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
         ("core_security_active_equities", "tushare_preferred"),
     ]
+
+
+def test_dataset_fetch_concurrency_defaults_to_one_for_other_datasets() -> None:
+    assert get_dataset_definition("daily").planning.fetch_concurrency == 1
+    assert get_dataset_definition("cyq_chips").planning.fetch_concurrency == 1
+    assert get_dataset_definition("index_mins").planning.fetch_concurrency == 1
 
 
 def test_biying_definitions_declare_raw_biying_stock_universe_pool() -> None:

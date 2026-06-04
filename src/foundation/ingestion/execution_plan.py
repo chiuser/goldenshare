@@ -69,6 +69,7 @@ class PlanPlanning:
     pagination_policy: str
     chunk_size: int | None
     max_units_per_execution: int | None
+    fetch_concurrency: int
     unit_count: int
 
 

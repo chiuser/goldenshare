@@ -44,6 +44,10 @@ def lint_all_dataset_definitions() -> IngestionLintReport:
             issues.append(
                 IngestionLintIssue(dataset_key, "invalid_max_units", "max_units_per_execution 必须大于 0")
             )
+        if definition.planning.fetch_concurrency < 1 or definition.planning.fetch_concurrency > 4:
+            issues.append(
+                IngestionLintIssue(dataset_key, "invalid_fetch_concurrency", "fetch_concurrency 必须在 1 到 4 之间")
+            )
         for fanout_field in definition.planning.enum_fanout_fields:
             field_names = {field.name for field in definition.input_model.filters}
             if fanout_field not in field_names:

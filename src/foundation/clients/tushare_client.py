@@ -57,6 +57,7 @@ _API_RATE_LIMITS = {
 }
 
 _rate_limiters: dict[str, _RateLimiter] = {}
+_rate_limiters_lock = Lock()
 
 
 def _get_rate_limiter(api_name: str | None = None) -> _RateLimiter:
@@ -66,9 +67,10 @@ def _get_rate_limiter(api_name: str | None = None) -> _RateLimiter:
     key = api_name or "__default__"
     realtime_limit = get_realtime_tushare_max_calls_per_minute(api_name or "")
     max_calls_per_minute = realtime_limit or _API_RATE_LIMITS.get(api_name or "", settings.tushare_max_calls_per_minute)
-    if key not in _rate_limiters or _rate_limiters[key].max_calls != max_calls_per_minute:
-        _rate_limiters[key] = _RateLimiter(max_calls_per_minute)
-    return _rate_limiters[key]
+    with _rate_limiters_lock:
+        if key not in _rate_limiters or _rate_limiters[key].max_calls != max_calls_per_minute:
+            _rate_limiters[key] = _RateLimiter(max_calls_per_minute)
+        return _rate_limiters[key]
 
 
 class TushareHttpClient:

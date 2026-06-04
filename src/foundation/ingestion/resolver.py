@@ -78,6 +78,7 @@ class DatasetActionResolver:
                 pagination_policy=definition.planning.pagination_policy,
                 chunk_size=definition.planning.chunk_size,
                 max_units_per_execution=definition.planning.max_units_per_execution,
+                fetch_concurrency=definition.planning.fetch_concurrency,
                 unit_count=len(units),
             ),
             writing=PlanWriting(

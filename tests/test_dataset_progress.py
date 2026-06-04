@@ -1,8 +1,14 @@
 from __future__ import annotations
 
+from dataclasses import replace
+import threading
+import time
 from types import SimpleNamespace
 
+import pytest
+
 from src.foundation.datasets.registry import get_dataset_definition
+from src.foundation.ingestion.errors import IngestionError
 from src.foundation.ingestion.execution_plan import PlanUnitSnapshot, ValidatedDatasetActionRequest
 from src.foundation.ingestion.executor import IngestionExecutor
 from src.foundation.ingestion.normalizer import NormalizedBatch
@@ -316,3 +322,199 @@ def test_executor_merges_normalizer_and_writer_rejected_reasons() -> None:
     assert summary.rejected_reason_samples["write.duplicate_conflict_key_in_batch:row_key_hash"][0]["value"] == "a"
     assert captured[0][0].rejected_reason_counts == summary.rejected_reason_counts
     assert captured[0][0].rejected_reason_samples == summary.rejected_reason_samples
+
+
+def test_executor_concurrent_fetch_keeps_write_commit_and_progress_on_main_thread() -> None:
+    main_thread = threading.current_thread().name
+    captured_messages: list[str] = []
+
+    class StubSession:
+        def __init__(self) -> None:
+            self.commit_threads: list[str] = []
+            self.rollback_count = 0
+
+        def commit(self) -> None:
+            self.commit_threads.append(threading.current_thread().name)
+
+        def rollback(self) -> None:
+            self.rollback_count += 1
+
+    class ConcurrentSourceClient:
+        def __init__(self) -> None:
+            self.lock = threading.Lock()
+            self.active = 0
+            self.max_active = 0
+            self.first_two_started = threading.Barrier(2)
+
+        def fetch(self, *, definition, unit):  # type: ignore[no-untyped-def]
+            with self.lock:
+                self.active += 1
+                self.max_active = max(self.max_active, self.active)
+            try:
+                if unit.unit_id in {"u-slow", "u-fast"}:
+                    self.first_two_started.wait(timeout=2)
+                if unit.unit_id == "u-slow":
+                    time.sleep(0.05)
+                return SourceFetchResult(
+                    unit_id=unit.unit_id,
+                    request_count=1,
+                    retry_count=0,
+                    latency_ms=0,
+                    rows_raw=[{"unit_id": unit.unit_id}],
+                )
+            finally:
+                with self.lock:
+                    self.active -= 1
+
+    class StubNormalizer:
+        def __init__(self) -> None:
+            self.threads: list[str] = []
+
+        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+            self.threads.append(threading.current_thread().name)
+            return NormalizedBatch(
+                unit_id=fetch_result.unit_id,
+                rows_normalized=[{"unit_id": fetch_result.unit_id}],
+                rows_rejected=0,
+                rejected_reasons={},
+            )
+
+        def raise_if_all_rejected(self, normalized):  # type: ignore[no-untyped-def]
+            return None
+
+    class StubWriter:
+        def __init__(self) -> None:
+            self.threads: list[str] = []
+            self.write_order: list[str] = []
+
+        def write(self, **kwargs):  # type: ignore[no-untyped-def]
+            batch = kwargs["batch"]
+            self.threads.append(threading.current_thread().name)
+            self.write_order.append(batch.unit_id)
+            return WriteResult(
+                unit_id=batch.unit_id,
+                rows_written=1,
+                rows_upserted=1,
+                rows_skipped=0,
+                target_table="raw_tushare.test",
+                conflict_strategy="upsert",
+            )
+
+    units = (
+        PlanUnitSnapshot("u-slow", "major_news", "tushare", None, {}, {}),
+        PlanUnitSnapshot("u-fast", "major_news", "tushare", None, {}, {}),
+    )
+    request = ValidatedDatasetActionRequest(
+        request_id="r-1",
+        dataset_key="major_news",
+        action="maintain",
+        run_profile="no_time_refresh",
+        trigger_source="test",
+        run_id=123,
+    )
+    definition = get_dataset_definition("major_news")
+    definition = replace(definition, planning=replace(definition.planning, fetch_concurrency=2))
+    session = StubSession()
+    source_client = ConcurrentSourceClient()
+    normalizer = StubNormalizer()
+    writer = StubWriter()
+    executor = IngestionExecutor(session)
+    executor.source_client = source_client  # type: ignore[assignment]
+    executor.normalizer = normalizer  # type: ignore[assignment]
+    executor.writer = writer  # type: ignore[assignment]
+
+    summary = executor.run(
+        request=request,
+        definition=definition,
+        units=units,
+        progress_reporter=lambda snapshot, message: captured_messages.append(message),
+    )
+
+    assert summary.unit_done == 2
+    assert source_client.max_active == 2
+    assert writer.write_order == ["u-fast", "u-slow"]
+    assert normalizer.threads == [main_thread, main_thread]
+    assert writer.threads == [main_thread, main_thread]
+    assert session.commit_threads == [main_thread, main_thread]
+    assert session.rollback_count == 0
+    assert captured_messages[0].startswith("major_news：1/2")
+    assert captured_messages[1].startswith("major_news：2/2")
+
+
+def test_executor_concurrent_fetch_failure_stops_new_submission_and_does_not_write() -> None:
+    class StubSession:
+        def __init__(self) -> None:
+            self.commit_count = 0
+            self.rollback_count = 0
+
+        def commit(self) -> None:
+            self.commit_count += 1
+
+        def rollback(self) -> None:
+            self.rollback_count += 1
+
+    class FailingSourceClient:
+        def __init__(self) -> None:
+            self.started: list[str] = []
+
+        def fetch(self, *, definition, unit):  # type: ignore[no-untyped-def]
+            self.started.append(unit.unit_id)
+            if unit.unit_id == "u-fail":
+                raise RuntimeError("source boom")
+            time.sleep(0.1)
+            return SourceFetchResult(unit_id=unit.unit_id, request_count=1, retry_count=0, latency_ms=0, rows_raw=[{}])
+
+    class StubNormalizer:
+        def normalize(self, *, definition, fetch_result):  # type: ignore[no-untyped-def]
+            return NormalizedBatch(unit_id=fetch_result.unit_id, rows_normalized=[{}], rows_rejected=0, rejected_reasons={})
+
+        def raise_if_all_rejected(self, normalized):  # type: ignore[no-untyped-def]
+            return None
+
+    class StubWriter:
+        def __init__(self) -> None:
+            self.write_calls = 0
+
+        def write(self, **kwargs):  # type: ignore[no-untyped-def]
+            self.write_calls += 1
+            return WriteResult(
+                unit_id=kwargs["batch"].unit_id,
+                rows_written=1,
+                rows_upserted=1,
+                rows_skipped=0,
+                target_table="raw_tushare.test",
+                conflict_strategy="upsert",
+            )
+
+    request = ValidatedDatasetActionRequest(
+        request_id="r-1",
+        dataset_key="major_news",
+        action="maintain",
+        run_profile="no_time_refresh",
+        trigger_source="test",
+        run_id=123,
+    )
+    definition = get_dataset_definition("major_news")
+    definition = replace(definition, planning=replace(definition.planning, fetch_concurrency=2))
+    units = (
+        PlanUnitSnapshot("u-fail", "major_news", "tushare", None, {}, {}),
+        PlanUnitSnapshot("u-slow", "major_news", "tushare", None, {}, {}),
+        PlanUnitSnapshot("u-third", "major_news", "tushare", None, {}, {}),
+    )
+    session = StubSession()
+    source_client = FailingSourceClient()
+    writer = StubWriter()
+    executor = IngestionExecutor(session)
+    executor.source_client = source_client  # type: ignore[assignment]
+    executor.normalizer = StubNormalizer()  # type: ignore[assignment]
+    executor.writer = writer  # type: ignore[assignment]
+
+    with pytest.raises(IngestionError, match="source boom"):
+        executor.run(request=request, definition=definition, units=units)
+
+    assert "u-fail" in source_client.started
+    assert set(source_client.started).issubset({"u-fail", "u-slow"})
+    assert "u-third" not in source_client.started
+    assert writer.write_calls == 0
+    assert session.commit_count == 0
+    assert session.rollback_count == 1

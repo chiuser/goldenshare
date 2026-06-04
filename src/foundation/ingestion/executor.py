@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
+from dataclasses import dataclass, field
 from datetime import date
 from typing import Any
 
@@ -12,6 +14,19 @@ from src.foundation.ingestion.normalizer import DatasetNormalizer
 from src.foundation.ingestion.progress import IngestionObserver
 from src.foundation.ingestion.source_client import DatasetSourceClient
 from src.foundation.ingestion.writer import DatasetWriter
+
+
+@dataclass(slots=True)
+class _RunState:
+    rows_fetched: int = 0
+    rows_written: int = 0
+    rows_committed: int = 0
+    rows_rejected: int = 0
+    rejected_reason_counts: dict[str, int] = field(default_factory=dict)
+    rejected_reason_samples: dict[str, list[dict[str, Any]]] = field(default_factory=dict)
+    unit_done: int = 0
+    unit_failed: int = 0
+    error_counts: dict[str, int] = field(default_factory=dict)
 
 
 class IngestionRunSummary:
@@ -69,106 +84,278 @@ class IngestionExecutor:
         progress_reporter=None,  # type: ignore[no-untyped-def]
     ) -> IngestionRunSummary:
         observer = IngestionObserver(progress_reporter=progress_reporter)
-
-        rows_fetched = 0
-        rows_written = 0
-        rows_committed = 0
-        rows_rejected = 0
-        rejected_reason_counts: dict[str, int] = {}
-        rejected_reason_samples: dict[str, list[dict[str, Any]]] = {}
-        unit_done = 0
-        unit_failed = 0
-        error_counts: dict[str, int] = {}
+        state = _RunState()
 
         total_units = len(units)
-        for index, unit in enumerate(units, start=1):
-            self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
-            unit_rows_fetched = 0
-            unit_rows_written = 0
-            unit_rows_rejected = 0
-            try:
-                fetched = self.source_client.fetch(definition=definition, unit=unit)
-                normalized = self.normalizer.normalize(definition=definition, fetch_result=fetched)
-                self.normalizer.raise_if_all_rejected(normalized)
-                written = self.writer.write(
-                    definition=definition,
-                    batch=normalized,
-                    plan_unit=unit,
-                    run_profile=request.run_profile,
-                )
-                unit_rows_fetched = len(fetched.rows_raw)
-                unit_rows_written = written.rows_written
-                unit_rows_rejected = normalized.rows_rejected + int(written.rows_rejected or 0)
-                rows_fetched += unit_rows_fetched
-                rows_written += unit_rows_written
-                rows_rejected += unit_rows_rejected
-                for reason_code, count in normalized.rejected_reasons.items():
-                    rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
-                self._merge_reason_samples(rejected_reason_samples, normalized.rejected_samples)
-                for reason_code, count in written.rejected_reason_counts.items():
-                    rejected_reason_counts[reason_code] = rejected_reason_counts.get(reason_code, 0) + int(count or 0)
-                self._merge_reason_samples(rejected_reason_samples, written.rejected_reason_samples)
-                self.session.commit()
-                rows_committed += unit_rows_written
-                unit_done += 1
-            except IngestionError as exc:
-                unit_failed += 1
-                self.session.rollback()
-                error_code = exc.structured_error.error_code
-                error_counts[error_code] = error_counts.get(error_code, 0) + 1
-                raise
-            except Exception as exc:
-                unit_failed += 1
-                self.session.rollback()
-                structured = self.error_mapper.map_exception(exc=exc, phase="executor", unit_id=unit.unit_id)
-                error_counts[structured.error_code] = error_counts.get(structured.error_code, 0) + 1
-                raise IngestionError(structured) from exc
-            finally:
-                observer.report_progress(
-                    run_id=request.run_id,
-                    dataset_key=request.dataset_key,
-                    unit_total=total_units,
-                    unit_done=unit_done,
-                    unit_failed=unit_failed,
-                    rows_fetched=rows_fetched,
-                    rows_written=rows_written,
-                    rows_committed=rows_committed,
-                    rows_rejected=rows_rejected,
-                    rejected_reason_counts=rejected_reason_counts,
-                    rejected_reason_samples=rejected_reason_samples,
-                    current_object=self._build_current_object(unit),
-                    message=self._build_progress_message(
-                        progress_label=definition.observability.progress_label,
-                        current=index,
-                        total=total_units,
-                        rows_fetched=rows_fetched,
-                        rows_written=rows_written,
-                        rows_committed=rows_committed,
-                        rows_rejected=rows_rejected,
-                        unit=unit,
-                        unit_rows_fetched=unit_rows_fetched,
-                        unit_rows_written=unit_rows_written,
-                        unit_rows_committed=unit_rows_written,
-                        unit_rows_rejected=unit_rows_rejected,
-                        rejected_reason_counts=rejected_reason_counts,
-                    ),
-                )
+        fetch_concurrency = definition.planning.fetch_concurrency
+        if fetch_concurrency <= 1 or total_units <= 1:
+            self._run_units_serially(
+                request=request,
+                definition=definition,
+                units=units,
+                observer=observer,
+                state=state,
+                cancel_checker=cancel_checker,
+            )
+        else:
+            self._run_units_with_concurrent_fetch(
+                request=request,
+                definition=definition,
+                units=units,
+                observer=observer,
+                state=state,
+                cancel_checker=cancel_checker,
+                fetch_concurrency=fetch_concurrency,
+            )
 
         return IngestionRunSummary(
             dataset_key=request.dataset_key,
             run_profile=request.run_profile,
             unit_total=total_units,
-            unit_done=unit_done,
-            unit_failed=unit_failed,
-            rows_fetched=rows_fetched,
-            rows_written=rows_written,
-            rows_committed=rows_committed,
-            rows_rejected=rows_rejected,
-            rejected_reason_counts=rejected_reason_counts,
-            rejected_reason_samples=rejected_reason_samples,
+            unit_done=state.unit_done,
+            unit_failed=state.unit_failed,
+            rows_fetched=state.rows_fetched,
+            rows_written=state.rows_written,
+            rows_committed=state.rows_committed,
+            rows_rejected=state.rows_rejected,
+            rejected_reason_counts=state.rejected_reason_counts,
+            rejected_reason_samples=state.rejected_reason_samples,
             result_date=self._resolve_result_date(request),
-            message=f"共 {total_units} 个单元，成功 {unit_done} 个，失败 {unit_failed} 个",
-            error_counts=error_counts,
+            message=f"共 {total_units} 个单元，成功 {state.unit_done} 个，失败 {state.unit_failed} 个",
+            error_counts=state.error_counts,
+        )
+
+    def _run_units_serially(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        units: tuple[PlanUnitSnapshot, ...],
+        observer: IngestionObserver,
+        state: _RunState,
+        cancel_checker,
+    ) -> None:  # type: ignore[no-untyped-def]
+        total_units = len(units)
+        for unit in units:
+            self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
+            try:
+                fetched = self.source_client.fetch(definition=definition, unit=unit)
+            except Exception as exc:
+                self._handle_unit_exception(
+                    request=request,
+                    definition=definition,
+                    observer=observer,
+                    state=state,
+                    unit=unit,
+                    total_units=total_units,
+                    exc=exc,
+                )
+            self._process_fetched_unit(
+                request=request,
+                definition=definition,
+                observer=observer,
+                state=state,
+                unit=unit,
+                total_units=total_units,
+                fetched=fetched,
+            )
+
+    def _run_units_with_concurrent_fetch(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        units: tuple[PlanUnitSnapshot, ...],
+        observer: IngestionObserver,
+        state: _RunState,
+        cancel_checker,
+        fetch_concurrency: int,
+    ) -> None:  # type: ignore[no-untyped-def]
+        total_units = len(units)
+        unit_iter = iter(units)
+        in_flight: dict[Future, PlanUnitSnapshot] = {}
+
+        def submit_next(executor: ThreadPoolExecutor) -> bool:
+            try:
+                unit = next(unit_iter)
+            except StopIteration:
+                return False
+            self._ensure_not_canceled(cancel_checker=cancel_checker, run_id=request.run_id)
+            future = executor.submit(self.source_client.fetch, definition=definition, unit=unit)
+            in_flight[future] = unit
+            return True
+
+        with ThreadPoolExecutor(max_workers=fetch_concurrency) as executor:
+            for _ in range(min(fetch_concurrency, total_units)):
+                submit_next(executor)
+            try:
+                while in_flight:
+                    done, _pending = wait(in_flight, return_when=FIRST_COMPLETED)
+                    failed_future = next((future for future in done if future.exception() is not None), None)
+                    if failed_future is not None:
+                        unit = in_flight.pop(failed_future)
+                        for pending_future in in_flight:
+                            pending_future.cancel()
+                        self._handle_unit_exception(
+                            request=request,
+                            definition=definition,
+                            observer=observer,
+                            state=state,
+                            unit=unit,
+                            total_units=total_units,
+                            exc=failed_future.exception(),
+                        )
+                    for future in done:
+                        unit = in_flight.pop(future, None)
+                        if unit is None:
+                            continue
+                        self._process_fetched_unit(
+                            request=request,
+                            definition=definition,
+                            observer=observer,
+                            state=state,
+                            unit=unit,
+                            total_units=total_units,
+                            fetched=future.result(),
+                        )
+                        submit_next(executor)
+            except Exception:
+                for pending_future in in_flight:
+                    pending_future.cancel()
+                raise
+
+    def _process_fetched_unit(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        observer: IngestionObserver,
+        state: _RunState,
+        unit: PlanUnitSnapshot,
+        total_units: int,
+        fetched,
+    ) -> None:  # type: ignore[no-untyped-def]
+        unit_rows_fetched = 0
+        unit_rows_written = 0
+        unit_rows_rejected = 0
+        try:
+            normalized = self.normalizer.normalize(definition=definition, fetch_result=fetched)
+            self.normalizer.raise_if_all_rejected(normalized)
+            written = self.writer.write(
+                definition=definition,
+                batch=normalized,
+                plan_unit=unit,
+                run_profile=request.run_profile,
+            )
+            unit_rows_fetched = len(fetched.rows_raw)
+            unit_rows_written = written.rows_written
+            unit_rows_rejected = normalized.rows_rejected + int(written.rows_rejected or 0)
+            state.rows_fetched += unit_rows_fetched
+            state.rows_written += unit_rows_written
+            state.rows_rejected += unit_rows_rejected
+            for reason_code, count in normalized.rejected_reasons.items():
+                state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+            self._merge_reason_samples(state.rejected_reason_samples, normalized.rejected_samples)
+            for reason_code, count in written.rejected_reason_counts.items():
+                state.rejected_reason_counts[reason_code] = state.rejected_reason_counts.get(reason_code, 0) + int(count or 0)
+            self._merge_reason_samples(state.rejected_reason_samples, written.rejected_reason_samples)
+            self.session.commit()
+            state.rows_committed += unit_rows_written
+            state.unit_done += 1
+        except Exception as exc:
+            self._record_unit_exception(state=state, unit=unit, exc=exc)
+        finally:
+            self._report_unit_progress(
+                request=request,
+                definition=definition,
+                observer=observer,
+                state=state,
+                unit=unit,
+                total_units=total_units,
+                unit_rows_fetched=unit_rows_fetched,
+                unit_rows_written=unit_rows_written,
+                unit_rows_rejected=unit_rows_rejected,
+            )
+
+    def _handle_unit_exception(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        observer: IngestionObserver,
+        state: _RunState,
+        unit: PlanUnitSnapshot,
+        total_units: int,
+        exc: BaseException | None,
+    ) -> None:
+        error = exc or RuntimeError("unknown ingestion unit failure")
+        try:
+            self._record_unit_exception(state=state, unit=unit, exc=error)
+        finally:
+            self._report_unit_progress(
+                request=request,
+                definition=definition,
+                observer=observer,
+                state=state,
+                unit=unit,
+                total_units=total_units,
+                unit_rows_fetched=0,
+                unit_rows_written=0,
+                unit_rows_rejected=0,
+            )
+
+    def _record_unit_exception(self, *, state: _RunState, unit: PlanUnitSnapshot, exc: BaseException) -> None:
+        state.unit_failed += 1
+        self.session.rollback()
+        if isinstance(exc, IngestionError):
+            error_code = exc.structured_error.error_code
+            state.error_counts[error_code] = state.error_counts.get(error_code, 0) + 1
+            raise exc
+        structured = self.error_mapper.map_exception(exc=exc, phase="executor", unit_id=unit.unit_id)
+        state.error_counts[structured.error_code] = state.error_counts.get(structured.error_code, 0) + 1
+        raise IngestionError(structured) from exc
+
+    def _report_unit_progress(
+        self,
+        *,
+        request: ValidatedDatasetActionRequest,
+        definition: DatasetDefinition,
+        observer: IngestionObserver,
+        state: _RunState,
+        unit: PlanUnitSnapshot,
+        total_units: int,
+        unit_rows_fetched: int,
+        unit_rows_written: int,
+        unit_rows_rejected: int,
+    ) -> None:
+        observer.report_progress(
+            run_id=request.run_id,
+            dataset_key=request.dataset_key,
+            unit_total=total_units,
+            unit_done=state.unit_done,
+            unit_failed=state.unit_failed,
+            rows_fetched=state.rows_fetched,
+            rows_written=state.rows_written,
+            rows_committed=state.rows_committed,
+            rows_rejected=state.rows_rejected,
+            rejected_reason_counts=state.rejected_reason_counts,
+            rejected_reason_samples=state.rejected_reason_samples,
+            current_object=self._build_current_object(unit),
+            message=self._build_progress_message(
+                progress_label=definition.observability.progress_label,
+                current=state.unit_done + state.unit_failed,
+                total=total_units,
+                rows_fetched=state.rows_fetched,
+                rows_written=state.rows_written,
+                rows_committed=state.rows_committed,
+                rows_rejected=state.rows_rejected,
+                unit=unit,
+                unit_rows_fetched=unit_rows_fetched,
+                unit_rows_written=unit_rows_written,
+                unit_rows_committed=unit_rows_written,
+                unit_rows_rejected=unit_rows_rejected,
+                rejected_reason_counts=state.rejected_reason_counts,
+            ),
         )
 
     @staticmethod

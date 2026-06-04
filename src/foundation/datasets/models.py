@@ -168,6 +168,7 @@ class DatasetPlanningDefinition:
     chunk_size: int | None = None
     max_units_per_execution: int | None = None
     unit_builder_key: str = "generic"
+    fetch_concurrency: int = 1
 
 
 @dataclass(frozen=True, slots=True)

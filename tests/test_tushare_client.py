@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
@@ -126,6 +127,20 @@ def test_tushare_realtime_rate_limits_use_runtime_config(monkeypatch) -> None:
     assert _get_rate_limiter("rt_k").max_calls == 11
     assert _get_rate_limiter("rt_min").max_calls == 13
     clear_realtime_runtime_config_cache()
+
+
+def test_tushare_rate_limiter_initialization_is_shared_across_threads(monkeypatch) -> None:
+    monkeypatch.setattr(
+        "src.foundation.realtime.runtime_config.get_realtime_tushare_max_calls_per_minute",
+        lambda api_name: None,
+    )
+    _rate_limiters.clear()
+
+    with ThreadPoolExecutor(max_workers=2) as executor:
+        limiters = list(executor.map(lambda _index: _get_rate_limiter("stk_mins"), range(20)))
+
+    assert len({id(limiter) for limiter in limiters}) == 1
+    assert _rate_limiters["stk_mins"].max_calls == 500
 
 
 def test_tushare_rate_limiter_spaces_calls_evenly(mocker) -> None:
