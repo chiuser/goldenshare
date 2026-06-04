@@ -5,6 +5,7 @@ from collections.abc import Sequence
 from orchestrator.defs.duckdb_sql import duckdb_string
 
 
+PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE = "prod_raw_pg"
 PROD_STK_MINS_SOURCE_COLUMNS = (
     "ts_code",
     "freq",
@@ -61,7 +62,7 @@ def build_prod_stk_mins_remote_query(
 
 def build_prod_stk_mins_duckdb_source_sql(
     *,
-    postgres_connection_string: str,
+    attached_database: str = PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     stock_codes: Sequence[str],
     freq: int,
     start_datetime: str,
@@ -77,7 +78,7 @@ def build_prod_stk_mins_duckdb_source_sql(
         "SELECT "
         + ", ".join(PROD_STK_MINS_SOURCE_COLUMNS)
         + " FROM postgres_query("
-        + duckdb_string(postgres_connection_string)
+        + duckdb_string(attached_database)
         + ", "
         + duckdb_string(remote_query)
         + ")"
@@ -124,7 +125,6 @@ def validate_prod_stk_mins_select_contract() -> None:
 
 def validate_prod_stk_mins_duckdb_source_contract() -> None:
     sample_sql = build_prod_stk_mins_duckdb_source_sql(
-        postgres_connection_string="host=example dbname=example",
         stock_codes=("600000.SH",),
         freq=1,
         start_datetime="2026-05-29 09:00:00",
@@ -133,6 +133,21 @@ def validate_prod_stk_mins_duckdb_source_contract() -> None:
     normalized_sql = " ".join(sample_sql.lower().split())
     if "postgres_query(" not in normalized_sql:
         raise RuntimeError("Prod stk_mins DuckDB source must use postgres_query.")
+    if PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE not in sample_sql:
+        raise RuntimeError(
+            "Prod stk_mins DuckDB source must query an attached database alias."
+        )
+    for forbidden_text in (
+        "host=",
+        "user=",
+        "password=",
+        "dbname=",
+        "connect_timeout=",
+    ):
+        if forbidden_text in normalized_sql:
+            raise RuntimeError(
+                "Prod stk_mins DuckDB source must not embed Postgres conninfo."
+            )
     for required_column in PROD_STK_MINS_SOURCE_COLUMNS:
         if required_column not in normalized_sql:
             raise RuntimeError(

@@ -42,6 +42,7 @@ from orchestrator.defs.paths import (
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.prod_db.stk_mins import (
+    PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     build_prod_stk_mins_duckdb_source_sql,
     validate_prod_stk_mins_select_contract,
     validate_prod_stk_mins_duckdb_source_contract,
@@ -356,7 +357,6 @@ def write_raw_stk_mins_partition_from_prod_db(
     validate_prod_stk_mins_duckdb_source_contract()
     start_datetime, end_datetime = _partition_window(partition_key)
     source_sql = build_prod_stk_mins_duckdb_source_sql(
-        postgres_connection_string=prod_postgres.duckdb_connection_string(),
         stock_codes=stock_codes,
         freq=normalized_freq,
         start_datetime=start_datetime,
@@ -364,6 +364,7 @@ def write_raw_stk_mins_partition_from_prod_db(
     )
     stats = _write_raw_stk_mins_rows_from_prod_db_source(
         duckdb=duckdb,
+        postgres_connection_string=prod_postgres.duckdb_connection_string(),
         source_sql=source_sql,
         target_path=target_path,
         stock_codes=stock_codes,
@@ -639,6 +640,7 @@ def _parse_stk_mins_trade_time(value: object) -> datetime:
 def _write_raw_stk_mins_rows_from_prod_db_source(
     *,
     duckdb: DuckDBResource,
+    postgres_connection_string: str | None = None,
     source_sql: str,
     target_path: Path,
     stock_codes: Sequence[str],
@@ -664,6 +666,14 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
     with duckdb.connect() as connection:
         if load_postgres_extension:
             _load_duckdb_postgres_extension(connection)
+            if postgres_connection_string is None:
+                raise RuntimeError(
+                    "Prod DB DuckDB extraction requires a Postgres connection string."
+                )
+            _attach_prod_postgres_database(
+                connection,
+                postgres_connection_string=postgres_connection_string,
+            )
         connection.execute(
             "CREATE TEMP TABLE prod_stk_mins_source AS "
             f"SELECT * FROM ({source_sql}) AS source_rows"
@@ -758,6 +768,26 @@ def _load_duckdb_postgres_extension(connection) -> None:
                 "Install/load the DuckDB postgres extension before running "
                 "stock_mins_raw_update_from_prod_job."
             ) from install_error
+
+
+def _attach_prod_postgres_database(
+    connection,
+    *,
+    postgres_connection_string: str,
+) -> None:
+    attach_sql = (
+        "ATTACH "
+        + duckdb_string(postgres_connection_string)
+        + f" AS {PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE} (TYPE POSTGRES)"
+    )
+    try:
+        connection.execute(attach_sql)
+    except Exception:  # noqa: BLE001 - avoid leaking conninfo through DuckDB errors.
+        raise RuntimeError(
+            "DuckDB failed to attach prod Postgres for stk_mins extraction. "
+            "Check PROD_POSTGRES_* environment variables, network access, and "
+            "DuckDB postgres extension availability. Connection details are omitted."
+        ) from None
 
 
 def _clean_numeric_value(value: object) -> object:

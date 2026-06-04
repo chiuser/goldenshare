@@ -18,6 +18,8 @@ from orchestrator.defs.jobs.stock_mins_raw_update import (
 )
 from orchestrator.defs.paths import raw_stk_mins_path
 from orchestrator.defs.prod_db.stk_mins import (
+    PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
+    build_prod_stk_mins_duckdb_source_sql,
     build_prod_stk_mins_remote_query,
     validate_prod_stk_mins_duckdb_source_contract,
     validate_prod_stk_mins_select_contract,
@@ -87,7 +89,7 @@ class _FakeProdPostgres:
         yield object()
 
     def duckdb_connection_string(self) -> str:
-        return "host=unused dbname=unused"
+        return "host=unused user=fake password=fake-secret dbname=unused"
 
 
 class _LakeRoot:
@@ -288,6 +290,47 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertIn("where freq = 1", normalized_sql)
         self.assertIn("trade_time >=", normalized_sql)
 
+    def test_prod_db_duckdb_source_uses_attached_alias_without_conninfo(self) -> None:
+        source_sql = build_prod_stk_mins_duckdb_source_sql(
+            stock_codes=("600000.SH", "000001.SZ"),
+            freq=1,
+            start_datetime="2026-05-29 09:00:00",
+            end_datetime="2026-05-29 19:00:00",
+        )
+        normalized_sql = " ".join(source_sql.lower().split())
+        self.assertIn(
+            f"postgres_query('{PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE}'",
+            normalized_sql,
+        )
+        for forbidden_text in (
+            "host=",
+            "user=",
+            "password=",
+            "fake-secret",
+            "dbname=",
+            "connect_timeout=",
+        ):
+            self.assertNotIn(forbidden_text, normalized_sql)
+
+    def test_prod_db_attach_error_omits_connection_details(self) -> None:
+        class FailingConnection:
+            def execute(self, sql):
+                raise RuntimeError(
+                    "could not connect with host=example password=fake-secret"
+                )
+
+        with self.assertRaises(RuntimeError) as raised:
+            stk_mins._attach_prod_postgres_database(
+                FailingConnection(),
+                postgres_connection_string="host=example password=fake-secret",
+            )
+
+        message = str(raised.exception)
+        self.assertIn("failed to attach prod Postgres", message)
+        self.assertNotIn("fake-secret", message)
+        self.assertNotIn("password=", message)
+        self.assertIsNone(raised.exception.__cause__)
+
     def test_tushare_fetch_normalizes_freq_string_and_paginates(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
@@ -343,7 +386,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
 
             def fake_source_sql(
                 *,
-                postgres_connection_string,
                 stock_codes,
                 freq,
                 start_datetime,
@@ -363,6 +405,14 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                 stk_mins,
                 "build_prod_stk_mins_duckdb_source_sql",
                 fake_source_sql,
+            ), patch.object(
+                stk_mins,
+                "_load_duckdb_postgres_extension",
+                lambda connection: None,
+            ), patch.object(
+                stk_mins,
+                "_attach_prod_postgres_database",
+                lambda connection, *, postgres_connection_string: None,
             ):
                 result = stk_mins.write_raw_stk_mins_partition_from_prod_db(
                     lake_root=lake_root,
@@ -439,7 +489,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
 
             def fake_source_sql(
                 *,
-                postgres_connection_string,
                 stock_codes,
                 freq,
                 start_datetime,
@@ -451,6 +500,14 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                 stk_mins,
                 "build_prod_stk_mins_duckdb_source_sql",
                 fake_source_sql,
+            ), patch.object(
+                stk_mins,
+                "_load_duckdb_postgres_extension",
+                lambda connection: None,
+            ), patch.object(
+                stk_mins,
+                "_attach_prod_postgres_database",
+                lambda connection, *, postgres_connection_string: None,
             ):
                 with self.assertRaisesRegex(RuntimeError, "outside the requested"):
                     stk_mins.write_raw_stk_mins_partition_from_prod_db(

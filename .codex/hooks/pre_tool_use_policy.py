@@ -149,7 +149,11 @@ def _detect_unbounded_lake_run(command: str) -> list[str]:
         return []
 
     has_dry_run = any(flag in lowered for flag in ("--dry-run", " dry_run", "dry-run", "preview", "audit"))
-    has_full_range = any(flag in lowered for flag in ("--all", "full", "全量", "全市场", "bootstrap", "backfill"))
+    has_full_range = (
+        "--all" in lowered
+        or re.search(r"(?<![a-z0-9_])full(?![a-z0-9_])", lowered) is not None
+        or any(flag in lowered for flag in ("全量", "全市场", "bootstrap", "backfill"))
+    )
     has_range_dates = "--start-date" in lowered and "--end-date" in lowered
     has_minutes = "stk_mins" in lowered or "sync-stk-mins" in lowered or "分钟" in lowered
 
