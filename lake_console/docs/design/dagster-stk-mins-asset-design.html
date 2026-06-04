@@ -1704,6 +1704,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M9B 已实现 factor repair detection 与 check metadata 契约。
       M9C 已新增默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日五频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测与必要股票历史回刷。
       P0-1 并发保护已完成：五个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
+      P0-3 DuckDB 连接治理已落地：正式分钟线 / qfq / history event / repair 路径统一走 <code>DuckDBResource</code> 或统一连接 helper，默认参数为 <code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>、<code>max_temp_directory_size=512GB</code>、<code>memory_limit=16GB</code>、<code>threads=4</code>、<code>preserve_insertion_order=false</code>；正式 <code>defs/**</code> 路径禁止直接 <code>duckdb.connect()</code>，并已由静态门禁保护。
     </p>
     <div class="note">
       <strong>M9D 已修正：factor repair job 不再建模为全历史分区 job。</strong>

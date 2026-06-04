@@ -868,10 +868,10 @@
           </tr>
           <tr>
             <td><code>DuckDBResource</code></td>
-            <td><code>duckdb_threads</code>, <code>duckdb_memory_limit</code>, <code>duckdb_temp_directory</code></td>
+            <td><code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>, <code>max_temp_directory_size=512GB</code>, <code>memory_limit=16GB</code>, <code>threads=4</code>, <code>preserve_insertion_order=false</code></td>
             <td>silver / gold compute assets</td>
             <td>不阻断</td>
-            <td>负责打开 DuckDB 连接、设置 PRAGMA、约束 temp 目录在 Lake Root 内。</td>
+            <td>负责打开 DuckDB 连接、设置并校验统一运行参数；正式 <code>defs/**</code> 生产路径禁止绕过 <code>DuckDBResource</code> 直接 <code>duckdb.connect()</code>。</td>
           </tr>
           <tr>
             <td><code>FeishuWebhookResource</code></td>

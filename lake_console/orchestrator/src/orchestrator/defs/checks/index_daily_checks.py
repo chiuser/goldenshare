@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMN_TYPES,
     INDEX_DAILY_SILVER_COLUMN_TYPES,
@@ -171,7 +172,7 @@ def evaluate_raw_index_daily_by_code_row_count_positive(
 ) -> dg.AssetCheckResult:
     row_counts: dict[str, int] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = raw_index_daily_by_code_path(lake_root_path, partition_key)
             if not path.exists():
@@ -205,7 +206,7 @@ def evaluate_raw_index_daily_by_code_required_columns_and_types(
 ) -> dg.AssetCheckResult:
     results: dict[str, Any] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = raw_index_daily_by_code_path(lake_root_path, partition_key)
             if not path.exists():
@@ -247,7 +248,7 @@ def evaluate_raw_index_daily_by_code_partition_code_matches(
     mismatch_counts: dict[str, int] = {}
     mismatch_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = raw_index_daily_by_code_path(lake_root_path, partition_key)
             if not path.exists():
@@ -303,7 +304,7 @@ def evaluate_raw_index_daily_by_code_unique_ts_code_trade_date(
     duplicate_counts: dict[str, int] = {}
     duplicate_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = raw_index_daily_by_code_path(lake_root_path, partition_key)
             if not path.exists():
@@ -358,7 +359,7 @@ def evaluate_silver_index_daily_row_count_positive(
 ) -> dg.AssetCheckResult:
     row_counts: dict[str, int] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = silver_index_daily_path(lake_root_path, partition_key)
             if not path.exists():
@@ -392,7 +393,7 @@ def evaluate_silver_index_daily_required_columns_and_types(
 ) -> dg.AssetCheckResult:
     results: dict[str, Any] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = silver_index_daily_path(lake_root_path, partition_key)
             if not path.exists():
@@ -434,7 +435,7 @@ def evaluate_silver_index_daily_partition_date_matches(
     mismatch_counts: dict[str, int] = {}
     mismatch_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = silver_index_daily_path(lake_root_path, partition_key)
             if not path.exists():
@@ -490,7 +491,7 @@ def evaluate_silver_index_daily_unique_ts_code_trade_date(
     duplicate_counts: dict[str, int] = {}
     duplicate_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = silver_index_daily_path(lake_root_path, partition_key)
             if not path.exists():
@@ -546,7 +547,7 @@ def evaluate_silver_index_daily_conflicting_duplicate_absent(
     conflict_counts: dict[str, int] = {}
     conflict_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = silver_index_daily_path(lake_root_path, partition_key)
             if not path.exists():
@@ -608,7 +609,7 @@ def evaluate_silver_index_daily_price_sanity(
     invalid_counts: dict[str, int] = {}
     invalid_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in partition_keys:
             path = silver_index_daily_path(lake_root_path, partition_key)
             if not path.exists():
@@ -696,7 +697,7 @@ def evaluate_silver_index_daily_registered_code_coverage(
     )
     coverage_results: dict[str, Any] = {}
     missing_paths = []
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         registered_code_count = len(registered_codes)
         for partition_key in partition_keys:
             silver_path = silver_index_daily_path(lake_root_path, partition_key)

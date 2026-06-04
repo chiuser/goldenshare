@@ -230,7 +230,8 @@ Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，
 4. 若确需在 Python 中处理数据，必须证明数据规模很小且不会随历史分区、股票数量、分钟行数或日常新增量增长；方案文档必须写清行数上界和为什么 DuckDB 不适用。
 5. 写正式 Parquet 时，必须使用临时文件加原子替换，例如 `.tmp + os.replace`；禁止直接覆盖目标文件导致半写入状态。
 6. 历史批量写入必须先说明物理文件冲突维度，例如 `freq/ts_code/year`，并设计串行或等价互斥保护；禁止多个任务同时写同一个目标 Parquet 文件。
-7. 代码评审时，一旦发现新增 helper 在正式路径上用 Python 手工计算大体量数据或写 Parquet，必须停止开发，改回 DuckDB/SQL 方案后才能继续。
+7. 正式 `src/orchestrator/defs/**` 中的 DuckDB 连接必须通过 `DuckDBResource` 或 `connect_configured_duckdb(...)` 统一入口创建；禁止 asset、check、bootstrap、qfq、repair、sensor readiness helper 自行 `duckdb.connect()`，测试文件除外。
+8. 代码评审时，一旦发现新增 helper 在正式路径上用 Python 手工计算大体量数据、写 Parquet，或绕过统一 DuckDB 连接入口，必须停止开发，改回 DuckDB/SQL/统一连接方案后才能继续。
 
 ### Full Snapshot 并发保护门禁
 

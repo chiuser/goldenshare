@@ -19,6 +19,7 @@ QFQ_SOURCE_FILES = (
     DEFS_DIR / "stk_mins_qfq.py",
     DEFS_DIR / "stk_mins_qfq_factor_repair.py",
 )
+DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
 FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
     "gold_stk_mins_qfq_daily_summary",
@@ -298,6 +299,21 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "stock_mins_qfq_factor_repair_op must use "
                 "GOLD_STK_MINS_QFQ_WRITER_POOL"
             )
+
+        self.assertEqual(issues, [])
+
+    def test_formal_defs_use_centralized_duckdb_connection(self) -> None:
+        issues = []
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            if "__pycache__" in path.parts or path == DUCKDB_CONNECTION_HELPER:
+                continue
+            source = path.read_text()
+            if "duckdb.connect(" in source:
+                issues.append(f"{path} uses duckdb.connect outside the central helper")
+
+        helper_source = DUCKDB_CONNECTION_HELPER.read_text()
+        if helper_source.count("duckdb.connect(") != 1:
+            issues.append("duckdb_connection.py must be the only DuckDB connect owner")
 
         self.assertEqual(issues, [])
 

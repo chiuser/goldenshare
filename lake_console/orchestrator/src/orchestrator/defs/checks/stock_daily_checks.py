@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import (
     raw_tushare_stock_daily,
@@ -192,7 +193,7 @@ def raw_stock_daily_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -224,7 +225,7 @@ def raw_stock_daily_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
 
     missing_columns = [
@@ -259,7 +260,7 @@ def raw_stock_daily_partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -344,7 +345,7 @@ def raw_stock_daily_unique_ts_code_trade_date(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         metadata = _raw_duplicate_key_metadata(connection, raw_path=path)
 
     return dg.AssetCheckResult(
@@ -374,7 +375,7 @@ def silver_stock_daily_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -412,7 +413,7 @@ def silver_stock_daily_unique_ts_code_trade_date(
     GROUP BY ts_code, trade_date
     HAVING count(*) > 1
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_key_count = connection.execute(
             f"SELECT count(*) FROM ({duplicate_keys_sql}) duplicate_keys"
         ).fetchone()[0]
@@ -454,7 +455,7 @@ def silver_stock_daily_conflicting_duplicate_absent(
     if not raw_path.exists():
         return _missing_file_result(raw_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         conflict_key_count = _conflict_key_count(connection, raw_path)
         conflict_sample_keys = _conflict_sample_keys(connection, raw_path)
         conflict_sample_rows = _conflict_sample_rows(connection, raw_path)
@@ -488,7 +489,7 @@ def silver_stock_daily_required_columns_non_null(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
         missing_columns = [
             column
@@ -563,7 +564,7 @@ def silver_stock_daily_partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -611,7 +612,7 @@ def silver_stock_daily_current_listed_only(
         if not path.exists():
             return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         non_current_count = connection.execute(
             f"""
             SELECT count(*) AS non_current_count
@@ -669,7 +670,7 @@ def silver_stock_daily_after_list_date_only(
         if not path.exists():
             return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         before_list_date_count = connection.execute(
             f"""
             SELECT count(*) AS before_list_date_count
@@ -722,7 +723,7 @@ def silver_stock_daily_bj_after_market_open_only(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         bj_before_open_count = connection.execute(
             f"""
             SELECT count(*) AS bj_before_open_count
@@ -773,7 +774,7 @@ def silver_stock_daily_price_sanity(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         anomaly_count = connection.execute(
             f"""
             SELECT count(*) AS anomaly_count
@@ -856,7 +857,7 @@ def silver_stock_daily_row_count_not_greater_than_raw(
     if not silver_path.exists():
         return _missing_file_result(silver_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         raw_count = connection.execute(
             count_parquet_query(raw_path, hive_partitioning=False)
         ).fetchone()[0]
@@ -1056,7 +1057,7 @@ def raw_stock_daily_row_count_matches_expected_tradable_count(
         if not path.exists():
             return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         metadata = _expected_tradable_universe_metadata(
             connection,
             partition_key=partition_key,
@@ -1093,7 +1094,7 @@ def raw_stock_daily_covers_expected_tradable_universe(
         if not path.exists():
             return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         metadata = _expected_tradable_universe_metadata(
             connection,
             partition_key=partition_key,
@@ -1133,7 +1134,7 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
         if not path.exists():
             return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         metadata = _expected_tradable_universe_metadata(
             connection,
             partition_key=partition_key,
@@ -1167,7 +1168,7 @@ def silver_stock_daily_covers_expected_tradable_universe(
         if not path.exists():
             return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         metadata = _expected_tradable_universe_metadata(
             connection,
             partition_key=partition_key,

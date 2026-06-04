@@ -5,6 +5,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_ASSETS,
     RAW_STK_MINS_ASSETS,
@@ -865,7 +866,7 @@ def _gold_stk_mins_qfq_check_results(
     if latest_adj_factor_paths:
         input_file_paths.append(latest_adj_factor_paths[-1])
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         expected_paths = _gold_qfq_expected_paths(
             connection,
             lake_root=root,
@@ -1006,7 +1007,7 @@ def _file_exists_and_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = _row_count(connection, path)
 
     return _check_result(
@@ -1033,7 +1034,7 @@ def _schema_matches_contract(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = _describe_columns(connection, path)
         row_count = _row_count(connection, path)
 
@@ -1076,7 +1077,7 @@ def _freq_matches_asset(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1114,7 +1115,7 @@ def _partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1157,7 +1158,7 @@ def _unique_ts_code_trade_time(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1217,7 +1218,7 @@ def _price_volume_sanity(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1319,7 +1320,7 @@ def _silver_file_exists_and_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = _row_count(connection, path)
 
     return _check_result(
@@ -1343,7 +1344,7 @@ def _silver_schema_matches_contract(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = _describe_columns(connection, path)
         row_count = _row_count(connection, path)
 
@@ -1383,7 +1384,7 @@ def _silver_freq_and_partition_match(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1425,7 +1426,7 @@ def _silver_unique_ts_code_trade_time(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1492,7 +1493,7 @@ def _silver_price_sanity(
       OR open < low OR open > high
       OR close < low OR close > high
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1550,7 +1551,7 @@ def _silver_volume_amount_sanity(
       OR (vol > 0 AND vol < 100)
       OR (vol >= 100 AND amount <= 0)
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1609,7 +1610,7 @@ def _silver_exchange_matches_suffix(
         ELSE NULL
       END
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         row = connection.execute(
             f"""
@@ -1668,7 +1669,7 @@ def _silver_codes_exist_in_stock_daily(
     if not daily_path.exists():
         return _missing_input_file_result(path, daily_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         daily_relation = read_parquet(daily_path, hive_partitioning=False)
         row = connection.execute(
@@ -1737,7 +1738,7 @@ def _silver_no_full_day_suspend_structural_rows(
     if not suspend_path.exists():
         return _missing_input_file_result(path, suspend_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         suspend_relation = read_parquet(suspend_path, hive_partitioning=False)
         row = connection.execute(
@@ -1802,7 +1803,7 @@ def _silver_name_timeline_covered(
     if not stock_basic_path.exists():
         return _missing_input_file_result(path, stock_basic_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
         namechange_relation = read_parquet(namechange_path, hive_partitioning=False)
         stock_basic_relation = read_parquet(stock_basic_path, hive_partitioning=False)

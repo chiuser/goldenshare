@@ -6,6 +6,7 @@ from typing import Any
 import dagster as dg
 from dagster_clickhouse import ClickhouseResource
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.clickhouse_serving import (
     CLICKHOUSE_MARKET_BREADTH_COLUMNS,
     CLICKHOUSE_MARKET_BREADTH_TABLE,
@@ -241,7 +242,7 @@ def ch_share_fact_market_breadth_total_count_matches_gold(
         lake_root.root(),
         partition_key,
     )
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         breadth_row, breadth_metadata = _read_gold_row(
             connection,
             breadth_path,
@@ -312,7 +313,7 @@ def ch_share_fact_market_breadth_flat_count_matches_gold(
         lake_root.root(),
         partition_key,
     )
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         breadth_row, breadth_metadata = _read_gold_row(
             connection,
             breadth_path,
@@ -375,7 +376,7 @@ def ch_share_fact_market_breadth_breadth_fields_match_gold(
         )
 
     breadth_path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         breadth_row, breadth_metadata = _read_gold_row(
             connection,
             breadth_path,
@@ -435,7 +436,7 @@ def ch_share_fact_market_breadth_distribution_fields_match_gold(
         lake_root.root(),
         partition_key,
     )
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         distribution_row, distribution_metadata = _read_gold_row(
             connection,
             distribution_path,

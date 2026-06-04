@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.adj_factor import (
     ADJ_FACTOR_RAW_COLUMN_TYPES,
     ADJ_FACTOR_SILVER_COLUMN_TYPES,
@@ -191,7 +192,7 @@ def raw_adj_factor_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -218,7 +219,7 @@ def raw_adj_factor_schema_matches_tushare_contract(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = dict(_describe_columns(connection, path))
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
@@ -244,7 +245,7 @@ def raw_adj_factor_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path)
 
     missing_columns = [
@@ -280,7 +281,7 @@ def raw_adj_factor_partition_date_matches(
     trade_date_expression = (
         "CAST(try_strptime(trim(CAST(trade_date AS VARCHAR)), '%Y%m%d') AS DATE)"
     )
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -327,7 +328,7 @@ def raw_adj_factor_unique_ts_code_trade_date(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_count = connection.execute(
             f"""
             SELECT count(*) AS duplicate_key_count
@@ -377,7 +378,7 @@ def raw_adj_factor_positive_factor(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
             SELECT count(*) AS invalid_count
@@ -449,7 +450,7 @@ def silver_adj_factor_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -476,7 +477,7 @@ def silver_adj_factor_schema_matches_contract(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = dict(_describe_columns(connection, path))
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
@@ -502,7 +503,7 @@ def silver_adj_factor_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path)
 
     missing_columns = [
@@ -535,7 +536,7 @@ def silver_adj_factor_partition_date_matches(
         return _missing_file_result(path)
 
     partition_date = f"DATE {duckdb_string(partition_key)}"
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -580,7 +581,7 @@ def silver_adj_factor_unique_ts_code_trade_date(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_count = connection.execute(
             f"""
             SELECT count(*) AS duplicate_key_count
@@ -630,7 +631,7 @@ def silver_adj_factor_positive_factor(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
             SELECT count(*) AS invalid_count
@@ -678,7 +679,7 @@ def silver_adj_factor_listed_stock_only(
     if not basic_path.exists():
         return _missing_input_file_result([basic_path])
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
             WITH current_listed AS (
@@ -743,7 +744,7 @@ def silver_adj_factor_coverage_complete(
         return _missing_input_file_result([basic_path])
 
     partition_date = f"DATE {duckdb_string(partition_key)}"
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         summary = connection.execute(
             f"""
             WITH expected AS (

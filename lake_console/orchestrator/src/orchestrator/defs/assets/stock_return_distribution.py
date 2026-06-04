@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -144,7 +145,7 @@ def gold_stock_return_distribution(
     if not silver_path.exists():
         raise FileNotFoundError(f"Missing silver stock daily file: {silver_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         _replace_parquet_from_query(
             connection,
             stock_return_distribution_select(silver_path, partition_key),

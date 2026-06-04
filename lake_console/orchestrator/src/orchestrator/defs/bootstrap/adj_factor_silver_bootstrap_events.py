@@ -9,6 +9,7 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.adj_factor import ADJ_FACTOR_SILVER_COLUMN_TYPES
 from orchestrator.defs.bootstrap.adj_factor_silver_history import (
     TRADE_DATE_PARTITION_PATTERN,
@@ -259,7 +260,7 @@ def audit_adj_factor_silver_bootstrap_partition(
         )
 
     basic_path = silver_stock_basic_path(lake_root)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = int(
             connection.execute(
                 count_parquet_query(silver_path, hive_partitioning=False)

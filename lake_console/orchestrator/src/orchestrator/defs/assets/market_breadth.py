@@ -3,6 +3,7 @@ from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -140,7 +141,7 @@ def gold_market_breadth_daily(
     if not silver_path.exists():
         raise FileNotFoundError(f"Missing silver stock daily file: {silver_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         _replace_parquet_from_query(
             connection,
             market_breadth_daily_select(silver_path, partition_key),

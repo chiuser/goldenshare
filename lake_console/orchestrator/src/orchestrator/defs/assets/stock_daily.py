@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
@@ -435,7 +436,7 @@ def silver_stock_daily(
     if not suspend_path.exists():
         raise FileNotFoundError(f"Missing silver stock suspend file: {suspend_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         conflict_key_count = _conflict_key_count(connection, raw_path)
         if conflict_key_count > 0:
             raise dg.Failure(

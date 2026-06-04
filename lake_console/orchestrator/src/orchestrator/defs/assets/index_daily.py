@@ -5,6 +5,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_RAW_COLUMNS,
     INDEX_DAILY_SILVER_COLUMNS,
@@ -282,7 +283,7 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
 
     raw_paths = tuple(raw_paths_by_code.values())
     partition_metadata: dict[str, dict[str, Any]] = {}
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key in tuple(sorted(set(partition_keys))):
             source_trade_date = partition_key.replace("-", "")
             target_path = silver_index_daily_path(lake_root_path, partition_key)

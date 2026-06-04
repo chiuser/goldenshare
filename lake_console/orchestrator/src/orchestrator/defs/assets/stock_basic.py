@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     STOCK_BASIC_RAW_COLUMNS,
     copy_query_to_parquet,
@@ -138,7 +139,7 @@ def raw_tushare_stock_basic(
         allow_empty=False,
     )
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         list_status_distribution = _list_status_distribution(
             connection,
             path,
@@ -184,7 +185,7 @@ def silver_stock_basic(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock basic file: {raw_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         source_row_count = _row_count(connection, raw_path, hive_partitioning=False)
         source_list_status_distribution = _list_status_distribution(
             connection,

@@ -3,6 +3,7 @@ from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.corrections.suspend_full_day import (
     SUSPEND_FULL_DAY_PATCH_SOURCE,
     SUSPEND_FULL_DAY_PATCH_VERSION,
@@ -378,7 +379,7 @@ def silver_stock_suspend_daily(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw suspend_d file: {raw_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         full_day_patch_conflict_rows = _full_day_patch_conflict_rows(
             connection,
             raw_path,

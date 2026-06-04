@@ -4,6 +4,7 @@ from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
@@ -154,7 +155,7 @@ def write_silver_adj_factor_partition(
     if target_path.exists() and not overwrite:
         raise FileExistsError(f"Silver adj factor file already exists: {target_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         filter_counts = _silver_filter_counts(connection, raw_path, basic_path)
         _replace_parquet_from_query(
             connection,

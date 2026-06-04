@@ -9,6 +9,7 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.namechange import silver_namechange
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.duckdb_sql import (
@@ -164,7 +165,7 @@ def write_stock_identity_map_snapshot(
         temporary_path.unlink()
 
     fields = tuple(SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         column_defs = ", ".join(
             f"{field} {STOCK_IDENTITY_COLUMN_TYPES[field]}" for field in fields
         )
@@ -302,7 +303,7 @@ def _read_stock_basic_rows(
     duckdb: DuckDBResource,
     path: Path,
 ) -> tuple[dict[str, Any], ...]:
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT ts_code, list_date, delist_date
@@ -323,7 +324,7 @@ def _read_namechange_codes(
     duckdb: DuckDBResource,
     path: Path,
 ) -> set[str]:
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT DISTINCT ts_code

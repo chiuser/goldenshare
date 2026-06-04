@@ -10,6 +10,7 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.bootstrap.stk_mins_migration import _check_success_count
 from orchestrator.defs.bootstrap.stk_mins_silver_history import (
     STK_MINS_SILVER_HISTORY_START_DATE,
@@ -264,7 +265,7 @@ def audit_stk_mins_silver_bootstrap_partition(
     observed_columns: tuple[str, ...] = ()
     row_count: int | None = None
     if silver_path.exists():
-        with duckdb.connect() as connection:
+        with connect_configured_duckdb() as connection:
             row_count = int(
                 connection.execute(
                     count_parquet_query(silver_path, hive_partitioning=False)

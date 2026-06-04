@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.namechange import (
     NAMECHANGE_RAW_COLUMN_TYPES,
     NAMECHANGE_SILVER_COLUMN_TYPES,
@@ -133,7 +134,7 @@ def raw_namechange_row_count_positive(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         checked_row_count = _row_count(connection, path)
     return dg.AssetCheckResult(
         passed=checked_row_count > 0,
@@ -153,7 +154,7 @@ def raw_namechange_required_columns(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_columns = _column_names(connection, path)
         checked_row_count = _row_count(connection, path)
     missing_columns = [
@@ -186,7 +187,7 @@ def raw_namechange_schema_matches_tushare_contract(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = _describe_schema(connection, path)
         checked_row_count = _row_count(connection, path)
     return _schema_result(
@@ -210,7 +211,7 @@ def raw_namechange_required_fields_non_null(
         f"{field} IS NULL OR trim(CAST({field} AS VARCHAR)) = ''"
         for field in required_fields
     )
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
                 f"""
@@ -250,7 +251,7 @@ def raw_namechange_date_string_format_valid(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_count = int(
             connection.execute(
                 f"""
@@ -311,7 +312,7 @@ def raw_namechange_exact_duplicate_absent(
     if not path.exists():
         return _missing_file_result(path)
     group_columns = ", ".join(NAMECHANGE_RAW_REQUIRED_COLUMNS)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_sql = f"""
         SELECT {group_columns}, count(*) AS duplicate_row_count
         FROM {read_parquet(path, hive_partitioning=False)}
@@ -347,7 +348,7 @@ def raw_namechange_multi_open_interval_observed(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         multi_open_sql = f"""
         SELECT ts_code, count(*) AS open_interval_count
         FROM {read_parquet(path, hive_partitioning=False)}
@@ -386,7 +387,7 @@ def raw_namechange_overlap_interval_observed(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         overlap_sql = f"""
         WITH normalized AS (
           SELECT
@@ -466,7 +467,7 @@ def raw_namechange_reason_distribution_observed(
     path = raw_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT change_reason, count(*) AS checked_row_count
@@ -510,7 +511,7 @@ def silver_namechange_row_count_positive(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         checked_row_count = _row_count(connection, path)
     return dg.AssetCheckResult(
         passed=checked_row_count > 0,
@@ -530,7 +531,7 @@ def silver_namechange_required_columns(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_columns = _column_names(connection, path)
         checked_row_count = _row_count(connection, path)
     missing_columns = [
@@ -567,7 +568,7 @@ def silver_namechange_schema_matches_contract(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = _describe_schema(connection, path)
         checked_row_count = _row_count(connection, path)
     return _schema_result(
@@ -588,7 +589,7 @@ def silver_namechange_required_fields_non_null(
         return _missing_file_result(path)
     required_fields = ("ts_code", "name", "start_date", "change_reason")
     condition = " OR ".join(f"{field} IS NULL" for field in required_fields)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
                 f"""
@@ -634,7 +635,7 @@ def silver_namechange_date_order_valid(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_count = int(
             connection.execute(
                 f"""
@@ -676,7 +677,7 @@ def silver_namechange_exact_duplicate_absent(
     if not path.exists():
         return _missing_file_result(path)
     group_columns = ", ".join(NAMECHANGE_SILVER_REQUIRED_COLUMNS)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_sql = f"""
         SELECT {group_columns}, count(*) AS duplicate_row_count
         FROM {read_parquet(path, hive_partitioning=False)}
@@ -712,7 +713,7 @@ def silver_namechange_current_open_interval_unique(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         multi_open_sql = f"""
         SELECT ts_code, count(*) AS open_interval_count
         FROM {read_parquet(path, hive_partitioning=False)}
@@ -749,7 +750,7 @@ def silver_namechange_interval_overlap_absent(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows_dicts = _read_silver_rows(connection, path)
     status = analyze_namechange_silver_rows(rows_dicts)
     overlap_count = int(status["overlap_count"])
@@ -772,7 +773,7 @@ def silver_namechange_unknown_adjacent_gap_absent(
     path = silver_namechange_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows_dicts = _read_silver_rows(connection, path)
     status = analyze_namechange_silver_rows(rows_dicts)
     unknown_gap_count = int(status["unknown_adjacent_gap_count"])

@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
 from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
@@ -101,7 +102,7 @@ def gold_market_breadth_row_count_is_one(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -133,7 +134,7 @@ def gold_market_breadth_counts_add_up(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -187,7 +188,7 @@ def gold_market_breadth_total_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT trade_date, total_count
@@ -230,7 +231,7 @@ def gold_market_breadth_total_count_matches_silver(
     if not silver_path.exists():
         return _missing_file_result(silver_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         gold_total_count = connection.execute(
             f"""
             SELECT total_count
@@ -271,7 +272,7 @@ def gold_market_breadth_red_rate_range(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT trade_date, red_rate
@@ -309,7 +310,7 @@ def gold_market_breadth_red_rate_formula(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT
@@ -372,7 +373,7 @@ def gold_market_breadth_matches_silver_recompute(
     if not silver_path.exists():
         return _missing_file_result(silver_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         gold_row = _gold_row(connection, gold_path)
         recomputed_row = _recomputed_row(connection, silver_path, partition_key)
 

@@ -3,6 +3,7 @@ from pathlib import Path
 import shutil
 from typing import Any, Mapping, Sequence
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
@@ -381,7 +382,7 @@ def _replace_index_daily_by_code_window(
         for field in fields
     )
     staging_query = read_parquet(staging_path, hive_partitioning=False)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = int(
             connection.execute(
                 f"""
@@ -474,7 +475,7 @@ def _write_rows_to_parquet(
     if temporary_path.exists():
         temporary_path.unlink()
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         column_defs = ", ".join(
             f"{_quote_identifier(field)} {column_types[field]}" for field in fields
         )
@@ -512,7 +513,7 @@ def _write_distinct_rows_to_parquet(
     if temporary_path.exists():
         temporary_path.unlink()
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         column_defs = ", ".join(
             f"{_quote_identifier(field)} {column_types[field]}" for field in fields
         )

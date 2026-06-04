@@ -7,9 +7,9 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     INDEX_BASIC_RAW_COLUMNS,
-    INDEX_BASIC_SILVER_COLUMNS,
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
@@ -173,7 +173,7 @@ def raw_tushare_index_basic(
         allow_empty=False,
     )
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         market_distribution = _market_distribution(connection, path)
         terminated_index_count = _raw_terminated_index_count(connection, path)
 
@@ -226,7 +226,7 @@ def silver_index_basic(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw index basic file: {raw_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         source_row_count = _row_count(connection, raw_path)
         source_market_distribution = _market_distribution(connection, raw_path)
         source_terminated_index_count = _raw_terminated_index_count(

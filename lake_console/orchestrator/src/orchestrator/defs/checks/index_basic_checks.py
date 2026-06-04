@@ -4,8 +4,8 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_basic import (
-    INDEX_BASIC_RAW_COLUMN_TYPES,
     raw_tushare_index_basic,
     silver_index_basic,
 )
@@ -112,7 +112,7 @@ def raw_index_basic_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = int(
             connection.execute(
                 count_parquet_query(path, hive_partitioning=False)
@@ -140,7 +140,7 @@ def raw_index_basic_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path)
 
     missing_columns = [
@@ -180,7 +180,7 @@ def raw_index_basic_unique_ts_code(
     GROUP BY ts_code
     HAVING count(*) > 1
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
                 f"""
@@ -247,7 +247,7 @@ def raw_index_basic_date_strings_parseable(
       AND trim(CAST(exp_date AS VARCHAR)) != ''
       AND try_strptime(trim(CAST(exp_date AS VARCHAR)), '%Y%m%d') IS NULL
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_date_count = int(
             connection.execute(
                 f"SELECT count(*) FROM ({invalid_date_rows_sql}) invalid_dates"
@@ -300,7 +300,7 @@ def silver_index_basic_required_columns_and_types(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path)
         column_types = _column_types(connection, path)
 
@@ -344,7 +344,7 @@ def silver_index_basic_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = int(
             connection.execute(
                 count_parquet_query(path, hive_partitioning=False)
@@ -379,7 +379,7 @@ def silver_index_basic_unique_ts_code(
     GROUP BY ts_code
     HAVING count(*) > 1
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
                 f"""
@@ -428,7 +428,7 @@ def silver_index_basic_required_fields_non_null(
         return _missing_file_result(path)
 
     required_non_null_columns = ("ts_code", "name", "market")
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         null_count = int(
             connection.execute(
                 f"""
@@ -494,7 +494,7 @@ def silver_index_basic_no_terminated_indexes(
             ),
         )
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         ready_date = f"DATE {duckdb_string(ready_for_trade_date)}"
         terminated_count = int(
             connection.execute(

@@ -8,6 +8,7 @@ from typing import Any, Mapping, Sequence
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.adj_factor import silver_adj_factor
 from orchestrator.defs.assets.namechange import silver_namechange
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
@@ -268,7 +269,7 @@ def load_current_listed_stock_codes_for_stk_mins(
     if not stock_basic_path.exists():
         raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT ts_code
@@ -664,7 +665,7 @@ def _write_raw_stk_mins_rows_from_prod_db_source(
         duckdb_string(stock_code) for stock_code in requested_stock_codes
     )
     partition_date_sql = duckdb_string(partition_key)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         if load_postgres_extension:
             _load_duckdb_postgres_extension(connection)
             if postgres_connection_string is None:
@@ -828,7 +829,7 @@ def _write_raw_stk_mins_rows(
     if temporary_path.exists():
         temporary_path.unlink()
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         column_defs = ", ".join(
             f'"{column}" {STK_MINS_RAW_COLUMN_TYPES[column]}'
             for column in STK_MINS_RAW_COLUMNS
@@ -865,7 +866,7 @@ def _merge_repair_raw_stk_mins_rows(
     if temporary_path.exists():
         temporary_path.unlink()
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         column_defs = ", ".join(
             f'"{column}" {STK_MINS_RAW_COLUMN_TYPES[column]}'
             for column in STK_MINS_RAW_COLUMNS
@@ -958,7 +959,7 @@ def _raw_file_columns_and_count(
     duckdb: DuckDBResource,
     raw_path: Path,
 ) -> tuple[tuple[str, ...], int]:
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = tuple(
             row[0]
             for row in connection.execute(
@@ -985,7 +986,7 @@ def _validate_existing_raw_stk_mins_partition(
     if not raw_path.exists():
         return ("missing_file",)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         relation = read_parquet(raw_path, hive_partitioning=False)
         schema_rows = connection.execute(
             describe_parquet_query(raw_path, hive_partitioning=False)
@@ -1627,7 +1628,7 @@ def write_silver_stk_mins_partition(
     if target_path.exists() and not overwrite:
         raise FileExistsError(f"Silver stk_mins file already exists: {target_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         connection.execute(
             f"""
             CREATE TEMP TABLE stk_mins_price_corrections AS
@@ -1721,7 +1722,7 @@ def _qfq_coverage_counts(
         trade_adj_factor_paths=[trade_adj_factor_file_path],
         latest_adj_factor_paths=latest_adj_factor_file_paths,
     )
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row = connection.execute(coverage_sql).fetchone()
     if row is None:
         raise RuntimeError("Gold stk_mins qfq coverage query returned no rows.")

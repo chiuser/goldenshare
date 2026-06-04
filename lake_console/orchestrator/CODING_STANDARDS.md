@@ -20,6 +20,19 @@
 6. check metadata 如需记录字段观察结果，也必须使用 `observed_columns` 或显式 `goldenshare/observed_columns`，禁止裸写 `columns`。
 7. raw、silver、gold、serving 的字段类型必须反映对应层级真实契约，不能为了 UI 好看改写实际数据类型。例如 raw 层 Tushare 日期字符串仍是 `VARCHAR`，silver/gold 标准日期才是 `DATE`。
 
+## DuckDB 连接规范
+
+正式 `src/orchestrator/defs/**` 生产路径禁止直接调用 `duckdb.connect()`。
+
+规则：
+
+1. 只有 `orchestrator.defs.duckdb_connection.connect_configured_duckdb(...)` 可以直接创建 DuckDB 连接。
+2. asset、check、bootstrap helper、qfq helper、repair op/helper、sensor readiness helper 必须通过 `DuckDBResource` 或统一连接 helper 获取连接。
+3. DuckDB 默认连接参数固定为：`temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp`、`max_temp_directory_size=512GB`、`memory_limit=16GB`、`threads=4`、`preserve_insertion_order=false`。
+4. 正式输出排序必须由 SQL `ORDER BY` 显式保证，不能依赖 DuckDB insertion order。
+5. 测试文件可以直接创建临时 DuckDB 连接；离线 `audits/**` 工具暂不纳入本规则强制范围，但如果未来写正式 lake 或正式 Dagster event，必须改走统一连接 helper。
+6. 新增 DuckDB 配置项前必须先做配置项审计；不得把 DuckDB 参数临时散落到 env、run config、脚本常量或文档口径中。
+
 ### 禁止阶段编号进入正式代码
 
 阶段编号只允许出现在设计文档、开发计划和提交说明中，不允许进入正式代码主概念。

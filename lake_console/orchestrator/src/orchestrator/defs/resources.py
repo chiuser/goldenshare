@@ -10,6 +10,7 @@ import dagster as dg
 import duckdb
 from dagster_clickhouse import ClickhouseResource
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.notifications.feishu import FeishuWebhookResource
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, GOLD, RAW, SILVER, lake_path
 
@@ -41,11 +42,8 @@ class LakeRootResource(dg.ConfigurableResource):
 class DuckDBResource(dg.ConfigurableResource):
     @contextmanager
     def connect(self) -> Iterator[duckdb.DuckDBPyConnection]:
-        connection = duckdb.connect(database=":memory:")
-        try:
+        with connect_configured_duckdb() as connection:
             yield connection
-        finally:
-            connection.close()
 
 
 @dataclass(frozen=True)

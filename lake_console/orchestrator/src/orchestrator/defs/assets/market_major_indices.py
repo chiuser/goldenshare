@@ -5,6 +5,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_SILVER_COLUMNS,
     silver_index_daily,
@@ -252,7 +253,7 @@ def gold_market_major_indices_daily(
     partition_keys = _selected_partition_keys(context)
     partition_metadata: dict[str, dict[str, Any]] = {}
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         seed_count = _create_major_indices_seed_table(connection)
         for partition_key in partition_keys:
             active_seed_rows = active_major_indices_seed_rows(partition_key)

@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
     describe_parquet_query,
@@ -72,7 +73,7 @@ def raw_trade_calendar_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
 
     missing_columns = [
@@ -103,7 +104,7 @@ def raw_trade_calendar_contains_required_exchange(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             f"""
             SELECT count(*) AS row_count
@@ -134,7 +135,7 @@ def silver_trade_calendar_unique_exchange_trade_date(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT exchange, trade_date, count(*) AS row_count
@@ -171,7 +172,7 @@ def silver_trade_calendar_required_columns_non_null(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         null_count = connection.execute(
             f"""
             SELECT count(*) AS null_count

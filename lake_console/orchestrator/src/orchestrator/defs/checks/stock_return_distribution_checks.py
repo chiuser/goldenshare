@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
@@ -108,7 +109,7 @@ def gold_stock_return_distribution_row_count_is_one(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -138,7 +139,7 @@ def gold_stock_return_distribution_counts_add_up(
         return _missing_file_result(path)
 
     bucket_sum_expression = " + ".join(RETURN_BUCKET_COLUMNS)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -185,7 +186,7 @@ def gold_stock_return_distribution_total_count_matches_silver(
     if not silver_path.exists():
         return _missing_file_result(silver_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         gold_total_count = connection.execute(
             f"""
             SELECT total_count
@@ -223,7 +224,7 @@ def gold_stock_return_distribution_partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT trade_date
@@ -262,7 +263,7 @@ def gold_stock_return_distribution_recomputed_from_silver(
     if not silver_path.exists():
         return _missing_file_result(silver_path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         gold_row = _distribution_row(connection, gold_path)
         recomputed_row = _recomputed_row(connection, silver_path, partition_key)
 

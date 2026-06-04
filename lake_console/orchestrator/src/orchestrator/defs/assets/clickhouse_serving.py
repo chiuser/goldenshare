@@ -6,6 +6,7 @@ from zoneinfo import ZoneInfo
 import dagster as dg
 from dagster_clickhouse import ClickhouseResource
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import read_parquet
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
 from orchestrator.defs.assets.stock_return_distribution import (
@@ -271,7 +272,7 @@ def ch_share_fact_market_breadth_daily(
         partition_key,
     )
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         breadth_row = _read_single_row(
             connection,
             breadth_path,

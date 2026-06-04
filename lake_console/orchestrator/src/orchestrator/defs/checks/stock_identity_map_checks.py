@@ -4,16 +4,15 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_identity_map import (
-    STOCK_BASIC_IDENTITY_SOURCE,
     STOCK_IDENTITY_ALLOWED_CONFIDENCE,
     STOCK_IDENTITY_ALLOWED_SOURCES,
     STOCK_IDENTITY_COLUMN_TYPES,
     silver_stock_identity_map,
 )
 from orchestrator.defs.duckdb_sql import (
-    SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
     count_parquet_query,
     describe_parquet_query,
     read_parquet,
@@ -96,7 +95,7 @@ def silver_stock_identity_map_row_count_positive(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         checked_row_count = _row_count(connection, path)
     return dg.AssetCheckResult(
         passed=checked_row_count > 0,
@@ -116,7 +115,7 @@ def silver_stock_identity_map_schema_matches_contract(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         observed_schema = _describe_schema(connection, path)
         checked_row_count = _row_count(connection, path)
     expected_schema = STOCK_IDENTITY_COLUMN_TYPES
@@ -152,7 +151,7 @@ def silver_stock_identity_map_source_ts_code_present(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         failed_count = int(
             connection.execute(
                 f"""
@@ -182,7 +181,7 @@ def silver_stock_identity_map_source_ts_code_unique(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT source_ts_code, count(*) AS duplicate_count
@@ -232,7 +231,7 @@ def silver_stock_identity_map_latest_ts_code_present(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         failed_count = int(
             connection.execute(
                 f"""
@@ -268,7 +267,7 @@ def silver_stock_identity_map_latest_code_exists_in_stock_basic(
     for path in (identity_path, stock_basic_path):
         if not path.exists():
             return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT identity_map.latest_ts_code, count(*) AS row_count
@@ -345,7 +344,7 @@ def silver_stock_identity_map_date_ranges_valid(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT source_ts_code, latest_ts_code, valid_from, valid_to
@@ -391,7 +390,7 @@ def silver_stock_identity_map_conflicting_mapping_absent(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT source_ts_code, count(DISTINCT latest_ts_code) AS latest_code_count
@@ -457,7 +456,7 @@ def silver_stock_identity_map_seed_latest_code_explainable(
             ),
         )
     seed_latest_codes = tuple(sorted({row.latest_ts_code for row in seed_rows}))
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_codes = [
             code
             for code in seed_latest_codes
@@ -498,7 +497,7 @@ def _enum_check(
     path = silver_stock_identity_map_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(
             f"""
             SELECT {field_name}, count(*) AS row_count

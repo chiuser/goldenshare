@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.suspend_d import (
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
@@ -102,7 +103,7 @@ def raw_suspend_d_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path)
 
     missing_columns = [
@@ -137,7 +138,7 @@ def raw_suspend_d_partition_date_matches(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -186,7 +187,7 @@ def raw_suspend_d_schema_matches_tushare_contract(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         schema = dict(_describe_columns(connection, path))
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
@@ -234,7 +235,7 @@ def silver_suspend_d_known_type_values(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path)
         missing_columns = [
             column
@@ -327,7 +328,7 @@ def silver_suspend_d_unique_business_key(
     GROUP BY ts_code, trade_date, suspend_type, COALESCE(suspend_timing, '')
     HAVING count(*) > 1
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_key_count = connection.execute(
             f"SELECT count(*) FROM ({duplicate_keys_sql}) duplicate_keys"
         ).fetchone()[0]

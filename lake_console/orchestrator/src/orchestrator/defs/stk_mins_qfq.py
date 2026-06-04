@@ -8,6 +8,7 @@ from typing import Any, Sequence
 
 import duckdb
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
 from orchestrator.defs.run_contracts.asset_column_schemas import GOLD_STK_MINS_QFQ_SCHEMA
@@ -293,7 +294,7 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
         trade_date=trade_date,
         previous_trade_date=previous_trade_date,
     )
-    with duckdb.connect(database=":memory:") as connection:
+    with connect_configured_duckdb() as connection:
         rows = connection.execute(sql).fetchall()
 
     factor_changed_codes = tuple(
@@ -416,7 +417,7 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
     allowed_trade_dates = _normalize_trade_dates(replace_trade_dates)
     allowed_dates_sql = _date_values_sql(allowed_trade_dates)
 
-    with duckdb.connect(database=":memory:") as connection:
+    with connect_configured_duckdb() as connection:
         _create_replacement_rows_table(connection, qfq_select_sql)
         replacement_row_count = int(
             connection.execute("SELECT count(*) FROM qfq_replacement_rows").fetchone()[0]
@@ -748,7 +749,7 @@ def _validate_replacement_select_scope(
     stock_code: str,
     year: str,
 ) -> None:
-    with duckdb.connect(database=":memory:") as connection:
+    with connect_configured_duckdb() as connection:
         _create_replacement_rows_table(connection, replacement_select_sql)
         row_count, out_of_scope_count = connection.execute(
             f"""

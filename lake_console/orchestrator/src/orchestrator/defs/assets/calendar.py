@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
     copy_query_to_parquet,
@@ -157,7 +158,7 @@ def silver_trade_calendar(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw trade calendar file: {raw_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         _replace_parquet_from_query(
             connection,
             silver_trade_calendar_select(raw_path),

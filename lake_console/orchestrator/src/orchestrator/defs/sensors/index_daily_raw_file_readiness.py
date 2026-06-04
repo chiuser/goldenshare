@@ -3,6 +3,7 @@
 from dataclasses import dataclass
 from pathlib import Path
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import raw_index_daily_by_code_path
 from orchestrator.defs.resources import DuckDBResource
@@ -208,7 +209,7 @@ def audit_index_daily_raw_gaps(
     expected_pair_count = len(registered_codes) * len(target_trade_dates)
 
     try:
-        with duckdb.connect() as connection:
+        with connect_configured_duckdb() as connection:
             use_index_basic = index_basic_path is not None
             if index_basic_path is not None and not index_basic_path.exists():
                 raise FileNotFoundError(
@@ -444,7 +445,7 @@ def check_index_daily_raw_files_for_trade_date(
     )
 
     try:
-        with duckdb.connect() as connection:
+        with connect_configured_duckdb() as connection:
             use_index_basic = index_basic_path is not None
             if index_basic_path is not None and not index_basic_path.exists():
                 raise FileNotFoundError(

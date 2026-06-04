@@ -11,6 +11,7 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.bootstrap.source_method import BootstrapSourceMethod
 from orchestrator.defs.bootstrap.specs.stk_mins import (
     BACKUP_STK_MINS_ROOT,
@@ -493,7 +494,7 @@ def audit_stk_mins_raw_partition(
             checks=tuple(checks),
         )
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = int(
             connection.execute(count_parquet_query(raw_path, hive_partitioning=False)).fetchone()[0]
         )
@@ -594,7 +595,7 @@ def audit_stock_identity_map(
             checks=tuple(checks),
         )
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = int(
             connection.execute(count_parquet_query(target_path, hive_partitioning=False)).fetchone()[0]
         )

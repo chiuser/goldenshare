@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     STOCK_BASIC_RAW_REQUIRED_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
@@ -93,7 +94,7 @@ def raw_stock_basic_row_count_positive(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         row_count = connection.execute(
             count_parquet_query(path, hive_partitioning=False)
         ).fetchone()[0]
@@ -119,7 +120,7 @@ def raw_stock_basic_required_columns(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
 
     missing_columns = [
@@ -148,7 +149,7 @@ def raw_stock_basic_ts_code_present(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_count = connection.execute(
             f"""
             SELECT count(*) AS missing_count
@@ -195,7 +196,7 @@ def silver_stock_basic_unique_ts_code(
     GROUP BY ts_code
     HAVING count(*) > 1
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         duplicate_key_count = connection.execute(
             f"SELECT count(*) FROM ({duplicate_keys_sql}) duplicate_keys"
         ).fetchone()[0]
@@ -230,7 +231,7 @@ def silver_stock_basic_required_columns_non_null(
         return _missing_file_result(path)
 
     required_non_null_columns = ("ts_code", "symbol", "name", "list_date")
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         columns = _column_names(connection, path, hive_partitioning=False)
         missing_columns = [
             column
@@ -304,7 +305,7 @@ def silver_stock_basic_lifecycle_dates_valid(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
             SELECT count(*) AS invalid_count
@@ -349,7 +350,7 @@ def silver_stock_basic_has_listed_records(
     if not path.exists():
         return _missing_file_result(path)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         listed_count = connection.execute(
             f"""
             SELECT count(*) AS listed_count
@@ -382,7 +383,7 @@ def silver_stock_basic_current_listed_only(
         return _missing_file_result(path)
 
     allowed_values = duckdb_string("L")
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         non_listed_count = connection.execute(
             f"""
             SELECT count(*) AS non_listed_count

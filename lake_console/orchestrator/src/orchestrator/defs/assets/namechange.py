@@ -4,6 +4,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.duckdb_sql import (
     NAMECHANGE_RAW_COLUMNS,
@@ -102,7 +103,7 @@ def _replace_silver_rows(
         temporary_path.unlink()
 
     fields = tuple(NAMECHANGE_SILVER_REQUIRED_COLUMNS)
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         column_defs = ", ".join(
             f"{field} {NAMECHANGE_SILVER_COLUMN_TYPES[field]}" for field in fields
         )
@@ -214,7 +215,7 @@ def silver_namechange(
     if not stock_basic_path.exists():
         raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         raw_rows = _read_raw_rows(connection, raw_path)
         current_listed_stock_names = _read_current_listed_stock_names(
             connection, stock_basic_path

@@ -5,6 +5,7 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_basic import silver_index_basic
 from orchestrator.defs.assets.market_major_indices import (
     MARKET_MAJOR_INDICES_DAILY_COLUMNS,
@@ -162,7 +163,7 @@ def gold_market_major_indices_daily_required_columns_and_types(
     missing_paths = []
     results: dict[str, Any] = {}
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in paths.items():
             if not path.exists():
                 missing_paths.append(str(path))
@@ -226,7 +227,7 @@ def gold_market_major_indices_daily_partition_date_matches(
     mismatch_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in _daily_paths(
             lake_root.root(), _selected_partition_keys(context)
         ).items():
@@ -285,7 +286,7 @@ def gold_market_major_indices_daily_row_count_matches_seed(
     row_counts: dict[str, int] = {}
     missing_paths = []
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in _daily_paths(
             lake_root.root(), _selected_partition_keys(context)
         ).items():
@@ -328,7 +329,7 @@ def gold_market_major_indices_daily_seed_codes_present(
     missing_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in _daily_paths(
             lake_root.root(), _selected_partition_keys(context)
         ).items():
@@ -397,7 +398,7 @@ def gold_market_major_indices_daily_unique_ts_code(
     duplicate_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in _daily_paths(
             lake_root.root(), _selected_partition_keys(context)
         ).items():
@@ -456,7 +457,7 @@ def gold_market_major_indices_daily_rank_matches_active_seed_order(
     unexpected_rows: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in _daily_paths(
             lake_root.root(), _selected_partition_keys(context)
         ).items():
@@ -553,7 +554,7 @@ def gold_market_major_indices_daily_price_sanity(
     invalid_samples: dict[str, list[dict[str, Any]]] = {}
     missing_paths = []
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         for partition_key, path in _daily_paths(
             lake_root.root(), _selected_partition_keys(context)
         ).items():
@@ -645,7 +646,7 @@ def gold_market_major_indices_seed_codes_exist_in_index_basic(
       ON seed.ts_code = index_basic.ts_code
     WHERE index_basic.ts_code IS NULL
     """
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         missing_count = int(
             connection.execute(
                 f"SELECT count(*) FROM ({missing_sql}) missing_codes"

@@ -259,7 +259,7 @@ postgres_query('prod_raw_pg', '<remote query>')
 3. 正式 DuckDB 连接没有统一 temp/spill/thread/memory 治理，且 qfq 写入 helper 绕过 `DuckDBResource` 直接开连接。
 4. prod DB DuckDB attach 未声明 `READ_ONLY`，没有在 DuckDB extension 层强制只读。
 
-P0-1 还差正式 instance 配置执行；P0-3、P0-4 仍需优先修正。P0-2 已完成代码和测试收口，后续只需按正常失败分区重跑恢复业务数据。
+P0-1、P0-2、P0-3 已完成代码和测试收口；P0-4 仍需优先修正。P0-2 失败分区按正常重跑恢复业务数据即可。
 
 ---
 
@@ -322,26 +322,87 @@ DuckDB 官方文档依据：
 
 这违反 `orchestrator/AGENTS.md` 中 Parquet 计算与历史批量审计的性能门禁，也会直接影响正式任务稳定性。
 
-#### 修复方向
+#### 已落地修复方案
 
-需要做一次统一 DuckDB 连接治理，而不是只改单点。
+P0-3 的正式原则是：**正式 `defs/**` 生产路径不再直接调用 `duckdb.connect()`**。
 
-建议方案：
+更准确地说：
 
-1. 新增或扩展统一连接 helper，例如 `connect_configured_duckdb(...)`。
-   - 设置受控 `temp_directory`。
-   - 设置 `max_temp_directory_size`。
-   - 设置 `memory_limit`。
-   - 设置 `threads`。
-2. `DuckDBResource.connect()` 必须调用该 helper。
-3. qfq 写回 helper、历史生成、runless event 年度审计这类重型正式路径必须改为使用统一连接口径。
-4. 对仍保留的 `duckdb.connect()` 做白名单分级：
-   - tests 允许。
-   - 一次性 audit CLI 可单独说明。
-   - 小型配置表/小表 check 可暂缓，但必须有规模上界。
-   - 分钟线、日线、qfq、历史批量、repair、event 前置审计不得绕过。
-5. 增加静态门禁：
-   - 正式 `defs/assets/**`、`defs/checks/**`、`defs/bootstrap/**` 中新增直接 `duckdb.connect()` 必须被测试拦截，除非列入明确白名单。
+- 允许：统一 DuckDB 连接 helper 内部调用一次 `duckdb.connect(...)`，因为最终必须创建连接。
+- 禁止：asset / check / bootstrap / qfq / repair / sensor readiness helper 各自直接 `duckdb.connect()`。
+- 允许例外：测试文件可以直接创建临时 DuckDB 连接；`src/orchestrator/audits/**` 是离线审计工具，暂不纳入本 P0 强制范围，但后续也建议逐步复用统一 helper。
+
+第一版不新增运营配置项，不把配置散落到 env / YAML / run config。连接参数作为 orchestrator 内部固定契约，由统一 helper 集中定义；未来如需对外可调，必须另做配置项审计。
+
+已落地默认值：
+
+| 参数 | 值 | 说明 |
+|---|---:|---|
+| `temp_directory` | `/Volumes/datasource/.goldenshare_duckdb_tmp` | DuckDB spill / 临时文件统一落到数据盘，避免污染仓库、系统盘或不可控临时目录。 |
+| `max_temp_directory_size` | `512GB` | 临时目录上限，避免异常查询无限制占用磁盘。 |
+| `memory_limit` | `16GB` | 单 DuckDB 连接内存上限。 |
+| `threads` | `4` | 控制单连接并行度，避免多个 Dagster run 同时执行时把 CPU、内存和 IO 打满。 |
+| `preserve_insertion_order` | `false` | 放弃保序成本；正式输出排序必须由 SQL `ORDER BY` 显式表达。 |
+
+落地方式：
+
+1. 新增统一连接契约。
+   - 建议在 `defs/resources.py` 或独立 `defs/duckdb_connection.py` 中定义 `DuckDBConnectionSettings` 和 `connect_configured_duckdb(...)`。
+   - `connect_configured_duckdb(...)` 是正式代码中唯一允许调用 `duckdb.connect(...)` 的位置。
+   - helper 创建 `temp_directory`，再创建 `:memory:` 连接。
+   - helper 必须设置或校验上述五个参数；可通过 `duckdb.connect(config={...})` 或连接后 `SET` 实现，但最终必须用 `duckdb_settings()` 只读核验当前连接参数。
+   - 如果临时目录不可创建、配置未生效或参数非法，直接抛清晰错误，不进入数据读写。
+
+2. `DuckDBResource.connect()` 收敛到统一 helper。
+   - 所有 Dagster asset / check / op / bootstrap helper 默认通过 `DuckDBResource` 取得连接。
+   - 保留现有 resource 名称 `duckdb`，不改 Definitions 资源键，不影响 job/sensor selection。
+
+3. 清理正式重型路径。
+   - 第一批必须清理：
+     - `defs/stk_mins_qfq.py`：daily qfq、factor repair plan、stock-year 写回 helper。
+     - `defs/assets/stk_mins.py`：raw/silver/gold 分钟线正式写入路径。
+     - `defs/bootstrap/stk_mins_qfq_bootstrap_events.py`：gold qfq runless event 年度审计。
+     - `defs/bootstrap/stk_mins_silver_bootstrap_events.py`：silver 历史 event 审计。
+     - `defs/bootstrap/adj_factor_*_bootstrap_events.py`：adj factor 历史 event 审计。
+   - 第二批清理其它正式 assets/checks 中的直接连接；即使当前是小表，也不应继续扩散裸连接习惯。
+
+4. 静态门禁。
+   - `src/orchestrator/defs/**` 禁止出现 `duckdb.connect(`，唯一白名单是统一连接 helper 文件。
+   - `tests/**` 允许。
+   - `src/orchestrator/audits/**` 暂不作为 P0 强制对象；若后续 audit CLI 写正式 lake 或正式 event，必须改走统一 helper。
+
+5. 文档与编码规范同步。
+   - `orchestrator/AGENTS.md` / `CODING_STANDARDS.md` 应补充：正式 DuckDB 连接只能走统一 helper / `DuckDBResource`，不得在生产路径裸连。
+   - 设计文档必须记录上述五个默认值和“未来如需配置化必须先做配置审计”的边界。
+
+#### 落地范围与验收
+
+| 阶段 | 内容 | 验收 |
+|---|---|---|
+| P0-3A | 新增统一连接 helper，`DuckDBResource.connect()` 改用 helper。 | 单元测试验证 `temp_directory/max_temp_directory_size/memory_limit/threads/preserve_insertion_order` 生效；临时目录不可用时失败。 |
+| P0-3B | 改造 qfq daily / repair / stock-year 写回路径，禁止 qfq helper 自己开连接。 | qfq M7/M8/M9 相关测试通过；`defs/stk_mins_qfq.py` 不再出现 `duckdb.connect(`。 |
+| P0-3C | 改造分钟线 raw/silver/gold、history event、adj factor event 等重型正式路径。 | stk_mins、adj_factor、bootstrap event 测试通过；重型路径不再裸连。 |
+| P0-3D | 清理剩余正式 assets/checks 中的裸连接，或在极少数小表场景写明临时白名单和上界。 | `rg "duckdb\\.connect" src/orchestrator/defs` 只命中统一 helper。 |
+| P0-3E | 增加 static gate 并更新文档/编码规范。 | static gates 阻止新增正式裸连接；文档与代码口径一致。 |
+
+当前代码已经完成上述阶段：`DuckDBResource.connect()` 统一调用 `connect_configured_duckdb(...)`；`src/orchestrator/defs/**` 里除 `duckdb_connection.py` 外不再出现 `duckdb.connect(`。
+
+#### 性能与稳定性预估
+
+该修复目标不是让每个单独 SQL 都更快，而是让正式运行可控：
+
+- 单个大查询可能因 `threads=4` 比默认全核略慢，但多个 Dagster run 并行时整体更稳定。
+- spill 目录固定到数据盘，避免系统盘或仓库目录被大查询临时文件打爆。
+- `memory_limit=16GB` 降低单连接 OOM 和系统内存挤压风险。
+- `max_temp_directory_size=512GB` 给历史 qfq / 分钟线 / event 审计足够空间，同时保留硬上限。
+- `preserve_insertion_order=false` 减少不必要的保序开销；所有正式输出排序必须由 SQL 显式 `ORDER BY` 保证。
+
+#### 不做事项
+
+- 不改变 lake path、asset key、partition、checks、job selection、sensor 触发逻辑。
+- 不把 DuckDB 参数暴露为 run config。
+- 不新增数据库表、summary asset 或 readiness asset。
+- 不运行正式 Dagster job/sensor/backfill，不写正式 lake；本 P0 先改连接治理和测试。
 
 ---
 

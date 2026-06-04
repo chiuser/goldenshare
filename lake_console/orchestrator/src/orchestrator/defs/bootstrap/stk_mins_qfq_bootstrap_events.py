@@ -10,6 +10,7 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
     AssetCheckEvaluationTargetMaterializationData,
 )
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.bootstrap.stk_mins_migration import _check_success_count
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
@@ -348,7 +349,7 @@ def audit_stk_mins_qfq_bootstrap_batch(
     trade_adj_paths = _trade_adj_factor_paths_for_keys(lake_root, batch.partition_keys)
     latest_adj_paths = discover_silver_adj_factor_paths(lake_root)
 
-    with duckdb.connect() as connection:
+    with connect_configured_duckdb() as connection:
         expected_paths_by_date = _expected_gold_paths_by_date(
             connection,
             lake_root=lake_root,

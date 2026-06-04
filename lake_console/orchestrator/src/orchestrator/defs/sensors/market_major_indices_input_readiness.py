@@ -4,6 +4,7 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import silver_index_basic_path, silver_index_daily_path
 from orchestrator.defs.resources import DuckDBResource
@@ -138,7 +139,7 @@ def check_market_major_indices_inputs_for_trade_date(
         silver_daily_path = silver_index_daily_path(lake_root_path, trade_date)
         missing_silver_daily_file = not silver_daily_path.exists()
 
-        with duckdb.connect() as connection:
+        with connect_configured_duckdb() as connection:
             if not missing_index_basic_file:
                 missing_index_basic_seed_codes = _missing_seed_codes_in_index_basic(
                     connection,
