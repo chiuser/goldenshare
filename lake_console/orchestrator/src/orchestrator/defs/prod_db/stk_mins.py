@@ -1,9 +1,8 @@
 """Read-only prod DB extraction contract for stock minute raw assets."""
 
-from collections.abc import Mapping, Sequence
-from typing import Any
+from collections.abc import Sequence
 
-from psycopg2.extras import RealDictCursor
+from orchestrator.defs.duckdb_sql import duckdb_string
 
 
 PROD_STK_MINS_SOURCE_COLUMNS = (
@@ -18,7 +17,7 @@ PROD_STK_MINS_SOURCE_COLUMNS = (
     "amount",
 )
 
-PROD_STK_MINS_SELECT_SQL = """
+PROD_STK_MINS_SELECT_TEMPLATE = """
 SELECT
   ts_code,
   freq,
@@ -30,50 +29,74 @@ SELECT
   vol,
   amount
 FROM raw_tushare.stk_mins
-WHERE freq = %(freq)s
-  AND trade_time >= %(start_datetime)s
-  AND trade_time < %(end_datetime)s
-  AND ts_code = ANY(%(stock_codes)s)
+WHERE freq = {freq}
+  AND trade_time >= TIMESTAMP {start_datetime}
+  AND trade_time < TIMESTAMP {end_datetime}
+  AND ts_code = ANY(ARRAY[{stock_codes}]::text[])
 ORDER BY ts_code, trade_time
 """
 
 
-def fetch_prod_stk_mins_rows_for_stock_codes(
-    connection: Any,
+def build_prod_stk_mins_remote_query(
     *,
     stock_codes: Sequence[str],
     freq: int,
     start_datetime: str,
     end_datetime: str,
-) -> list[dict[str, Any]]:
+) -> str:
     if not stock_codes:
-        return []
-    with connection.cursor(cursor_factory=RealDictCursor) as cursor:
-        cursor.execute(
-            PROD_STK_MINS_SELECT_SQL,
-            {
-                "stock_codes": list(stock_codes),
-                "freq": freq,
-                "start_datetime": start_datetime,
-                "end_datetime": end_datetime,
-            },
-        )
-        rows = cursor.fetchall()
-    return [dict(row) for row in rows]
+        raise ValueError("stock_codes must not be empty for prod stk_mins query.")
+    normalized_codes = tuple(dict.fromkeys(str(code).strip() for code in stock_codes))
+    blank_codes = [code for code in normalized_codes if not code]
+    if blank_codes:
+        raise ValueError("stock_codes must not contain blank values.")
+    stock_code_literals = ", ".join(_postgres_literal(code) for code in normalized_codes)
+    return PROD_STK_MINS_SELECT_TEMPLATE.format(
+        freq=int(freq),
+        start_datetime=_postgres_literal(start_datetime),
+        end_datetime=_postgres_literal(end_datetime),
+        stock_codes=stock_code_literals,
+    )
 
 
-def assert_prod_stk_mins_source_columns(row: Mapping[str, Any]) -> None:
-    unexpected_columns = set(row) - set(PROD_STK_MINS_SOURCE_COLUMNS)
-    missing_columns = set(PROD_STK_MINS_SOURCE_COLUMNS) - set(row)
-    if unexpected_columns or missing_columns:
-        raise RuntimeError(
-            "Prod DB stk_mins row does not match the field whitelist: "
-            f"missing={sorted(missing_columns)}, unexpected={sorted(unexpected_columns)}."
-        )
+def build_prod_stk_mins_duckdb_source_sql(
+    *,
+    postgres_connection_string: str,
+    stock_codes: Sequence[str],
+    freq: int,
+    start_datetime: str,
+    end_datetime: str,
+) -> str:
+    remote_query = build_prod_stk_mins_remote_query(
+        stock_codes=stock_codes,
+        freq=freq,
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+    )
+    return (
+        "SELECT "
+        + ", ".join(PROD_STK_MINS_SOURCE_COLUMNS)
+        + " FROM postgres_query("
+        + duckdb_string(postgres_connection_string)
+        + ", "
+        + duckdb_string(remote_query)
+        + ")"
+    )
+
+
+def _postgres_literal(value: object) -> str:
+    text = str(value).replace("'", "''")
+    return f"'{text}'"
 
 
 def validate_prod_stk_mins_select_contract() -> None:
-    normalized_sql = " ".join(PROD_STK_MINS_SELECT_SQL.lower().split())
+    sample_sql = build_prod_stk_mins_remote_query(
+        stock_codes=("600000.SH", "000001.SZ"),
+        freq=1,
+        start_datetime="2026-05-29 09:00:00",
+        end_datetime="2026-05-29 19:00:00",
+    )
+    normalized_sql = " ".join(sample_sql.lower().split())
     if "select *" in normalized_sql:
         raise RuntimeError("Prod stk_mins select must not use SELECT *.")
     for forbidden_column in ("api_name", "fetched_at", "raw_payload"):
@@ -85,4 +108,34 @@ def validate_prod_stk_mins_select_contract() -> None:
         if required_column not in normalized_sql:
             raise RuntimeError(
                 f"Prod stk_mins select is missing required column {required_column}."
+            )
+    required_clauses = (
+        "where freq =",
+        "trade_time >=",
+        "trade_time <",
+        "ts_code = any(array[",
+    )
+    for clause in required_clauses:
+        if clause not in normalized_sql:
+            raise RuntimeError(
+                f"Prod stk_mins select is missing required filter clause: {clause}."
+            )
+
+
+def validate_prod_stk_mins_duckdb_source_contract() -> None:
+    sample_sql = build_prod_stk_mins_duckdb_source_sql(
+        postgres_connection_string="host=example dbname=example",
+        stock_codes=("600000.SH",),
+        freq=1,
+        start_datetime="2026-05-29 09:00:00",
+        end_datetime="2026-05-29 19:00:00",
+    )
+    normalized_sql = " ".join(sample_sql.lower().split())
+    if "postgres_query(" not in normalized_sql:
+        raise RuntimeError("Prod stk_mins DuckDB source must use postgres_query.")
+    for required_column in PROD_STK_MINS_SOURCE_COLUMNS:
+        if required_column not in normalized_sql:
+            raise RuntimeError(
+                "Prod stk_mins DuckDB source is missing required column "
+                f"{required_column}."
             )

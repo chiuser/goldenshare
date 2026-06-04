@@ -135,6 +135,21 @@ class ProdPostgresResource(dg.ConfigurableResource):
         finally:
             connection.close()
 
+    def duckdb_connection_string(self) -> str:
+        parts = {
+            "host": self._required_env(self.host_env_var),
+            "port": self._required_env(self.port_env_var),
+            "user": self._required_env(self.user_env_var),
+            "password": self._required_env(self.password_env_var),
+            "dbname": self._required_env(self.database_env_var),
+            "sslmode": self._optional_env(self.sslmode_env_var, self.default_sslmode),
+            "connect_timeout": str(self.connect_timeout_seconds),
+        }
+        return " ".join(
+            f"{key}={self._postgres_conninfo_value(value)}"
+            for key, value in parts.items()
+        )
+
     @staticmethod
     def _required_env(name: str) -> str:
         value = os.environ.get(name, "").strip()
@@ -145,6 +160,15 @@ class ProdPostgresResource(dg.ConfigurableResource):
     @staticmethod
     def _optional_env(name: str, default: str) -> str:
         return os.environ.get(name, "").strip() or default
+
+    @staticmethod
+    def _postgres_conninfo_value(value: str) -> str:
+        if not value:
+            return "''"
+        escaped = value.replace("\\", "\\\\").replace("'", "\\'")
+        if any(character.isspace() for character in escaped) or "'" in value or "\\" in value:
+            return f"'{escaped}'"
+        return escaped
 
 
 defs = dg.Definitions(

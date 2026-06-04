@@ -844,7 +844,7 @@
         <tr>
           <td><code>stock_mins_raw_update_from_prod_job</code></td>
           <td><code>raw_stk_mins_1m/5m/15m/30m/60m</code> + checks</td>
-          <td>从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取单个交易日五个频度分钟线 raw。M4E 已把 prod DB 主路径修正为按 <code>freq + trade_date window + 股票池</code> 批量抽取，避免逐股票查询。</td>
+          <td>从 prod DB <code>raw_tushare.stk_mins</code> 只读抽取单个交易日五个频度分钟线 raw。M4E 已把 prod DB 主路径修正为 DuckDB <code>postgres_query</code> 直连批量抽取并 <code>COPY</code> 写 parquet，按 <code>freq + trade_date window + 股票池</code> 查询，避免逐股票查询，也避免 Python <code>fetchall</code> / <code>executemany</code> 搬运全量分钟明细。</td>
           <td><code>stock_mins_raw_sensor</code> 在 22:00 后触发；历史缺口 backfill 仍需单独审批范围、查询量和回滚方式。</td>
           <td>与 Tushare job 写入同一套 raw assets/path/checks；通过 job config 固定 <code>source=prod_db</code>，不创建平行 asset。</td>
         </tr>

@@ -18,7 +18,8 @@ from orchestrator.defs.jobs.stock_mins_raw_update import (
 )
 from orchestrator.defs.paths import raw_stk_mins_path
 from orchestrator.defs.prod_db.stk_mins import (
-    PROD_STK_MINS_SELECT_SQL,
+    build_prod_stk_mins_remote_query,
+    validate_prod_stk_mins_duckdb_source_contract,
     validate_prod_stk_mins_select_contract,
 )
 from orchestrator.defs.resources import DuckDBResource, TushareResult
@@ -85,6 +86,9 @@ class _FakeProdPostgres:
     def connect(self):
         yield object()
 
+    def duckdb_connection_string(self) -> str:
+        return "host=unused dbname=unused"
+
 
 class _LakeRoot:
     def __init__(self, root: Path):
@@ -135,6 +139,57 @@ def _write_raw_stk_mins_file(path: Path, *, open_value: float = 10.0) -> None:
                   0.0::DOUBLE AS amount,
                   'XSHG'::VARCHAR AS exchange,
                   0.0::DOUBLE AS vwap
+                """,
+                path,
+            )
+        )
+
+
+def _write_prod_stk_mins_source_file(
+    path: Path,
+    *,
+    rows_sql: str | None = None,
+) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with DuckDBResource().connect() as connection:
+        connection.execute(
+            copy_query_to_parquet(
+                rows_sql
+                or """
+                SELECT * FROM (
+                  SELECT
+                    '600000.SH'::VARCHAR AS ts_code,
+                    1::INTEGER AS freq,
+                    TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                    10.0::DOUBLE AS open,
+                    10.0::DOUBLE AS close,
+                    10.1::DOUBLE AS high,
+                    9.9::DOUBLE AS low,
+                    100::BIGINT AS vol,
+                    1234.5::DOUBLE AS amount
+                  UNION ALL
+                  SELECT
+                    '000001.SZ'::VARCHAR AS ts_code,
+                    1::INTEGER AS freq,
+                    TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                    20.0::DOUBLE AS open,
+                    20.0::DOUBLE AS close,
+                    20.1::DOUBLE AS high,
+                    19.9::DOUBLE AS low,
+                    0::BIGINT AS vol,
+                    0.0::DOUBLE AS amount
+                  UNION ALL
+                  SELECT
+                    '920001.BJ'::VARCHAR AS ts_code,
+                    1::INTEGER AS freq,
+                    TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                    30.0::DOUBLE AS open,
+                    30.0::DOUBLE AS close,
+                    30.1::DOUBLE AS high,
+                    29.9::DOUBLE AS low,
+                    300::BIGINT AS vol,
+                    900.0::DOUBLE AS amount
+                )
                 """,
                 path,
             )
@@ -215,52 +270,22 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "Unsupported stk_mins ts_code suffix"):
             derive_stk_mins_exchange_from_ts_code("ABC.NY")
 
-        normalized = stk_mins._normalize_prod_db_stk_mins_row(
-            {
-                "ts_code": "600000.SH",
-                "freq": 1,
-                "trade_time": datetime(2026, 5, 29, 9, 30),
-                "open": 10.0,
-                "close": 10.0,
-                "high": 10.0,
-                "low": 10.0,
-                "vol": 100,
-                "amount": 1234.5,
-            },
-            requested_ts_code="600000.SH",
-            requested_freq=1,
-            partition_key=PARTITION_KEY,
-        )
-        self.assertEqual(normalized["exchange"], "XSHG")
-        self.assertEqual(normalized["vwap"], 12.345)
-        zero_volume = stk_mins._normalize_prod_db_stk_mins_row(
-            {
-                "ts_code": "000001.SZ",
-                "freq": 1,
-                "trade_time": "2026-05-29 09:30:00",
-                "open": 10.0,
-                "close": 10.0,
-                "high": 10.0,
-                "low": 10.0,
-                "vol": 0,
-                "amount": 0.0,
-            },
-            requested_ts_code="000001.SZ",
-            requested_freq=1,
-            partition_key=PARTITION_KEY,
-        )
-        self.assertEqual(zero_volume["exchange"], "XSHE")
-        self.assertEqual(zero_volume["vwap"], 0.0)
-
     def test_prod_db_select_uses_field_whitelist(self) -> None:
         validate_prod_stk_mins_select_contract()
-        normalized_sql = " ".join(PROD_STK_MINS_SELECT_SQL.lower().split())
+        validate_prod_stk_mins_duckdb_source_contract()
+        query = build_prod_stk_mins_remote_query(
+            stock_codes=("600000.SH", "000001.SZ"),
+            freq=1,
+            start_datetime="2026-05-29 09:00:00",
+            end_datetime="2026-05-29 19:00:00",
+        )
+        normalized_sql = " ".join(query.lower().split())
         self.assertNotIn("select *", normalized_sql)
         self.assertNotIn("api_name", normalized_sql)
         self.assertNotIn("fetched_at", normalized_sql)
         self.assertNotIn("raw_payload", normalized_sql)
-        self.assertIn("ts_code = any(%(stock_codes)s)", normalized_sql)
-        self.assertIn("where freq = %(freq)s", normalized_sql)
+        self.assertIn("ts_code = any(array[", normalized_sql)
+        self.assertIn("where freq = 1", normalized_sql)
         self.assertIn("trade_time >=", normalized_sql)
 
     def test_tushare_fetch_normalizes_freq_string_and_paginates(self) -> None:
@@ -312,11 +337,13 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
     def test_prod_db_path_must_not_query_per_stock(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
+            source_path = lake_root / "prod_source.parquet"
+            _write_prod_stk_mins_source_file(source_path)
             calls = []
 
-            def fake_fetch(
-                connection,
+            def fake_source_sql(
                 *,
+                postgres_connection_string,
                 stock_codes,
                 freq,
                 start_datetime,
@@ -330,24 +357,12 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                         "end_datetime": end_datetime,
                     }
                 )
-                return [
-                    {
-                        "ts_code": "600000.SH",
-                        "freq": 1,
-                        "trade_time": datetime(2026, 5, 29, 9, 30),
-                        "open": 10.0,
-                        "close": 10.0,
-                        "high": 10.1,
-                        "low": 9.9,
-                        "vol": 100,
-                        "amount": 1234.5,
-                    }
-                ]
+                return f"SELECT * FROM read_parquet('{source_path.as_posix()}')"
 
             with patch.object(
                 stk_mins,
-                "fetch_prod_stk_mins_rows_for_stock_codes",
-                fake_fetch,
+                "build_prod_stk_mins_duckdb_source_sql",
+                fake_source_sql,
             ):
                 result = stk_mins.write_raw_stk_mins_partition_from_prod_db(
                     lake_root=lake_root,
@@ -359,9 +374,9 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
                 )
 
             self.assertEqual(result.source_method, "prod_db_raw_tushare")
-            self.assertEqual(result.row_count, 1)
-            self.assertEqual(result.returned_stock_code_count, 1)
-            self.assertEqual(result.empty_stock_code_count, 2)
+            self.assertEqual(result.row_count, 3)
+            self.assertEqual(result.returned_stock_code_count, 3)
+            self.assertEqual(result.empty_stock_code_count, 0)
             self.assertEqual(result.query_count, 1)
             self.assertEqual(len(calls), 1)
             self.assertEqual(
@@ -375,46 +390,69 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             )
 
             with DuckDBResource().connect() as connection:
-                row = connection.execute(
+                rows = connection.execute(
                     f"""
                     SELECT freq, vol, amount, exchange, vwap
                     FROM read_parquet('{result.raw_file_path.as_posix()}')
+                    ORDER BY ts_code
                     """
-                ).fetchone()
-            self.assertEqual(row, (1, 100, 1234.5, "XSHG", 12.345))
+                ).fetchall()
+            self.assertEqual(
+                rows,
+                [
+                    (1, 0, 0.0, "XSHE", 0.0),
+                    (1, 100, 1234.5, "XSHG", 12.345),
+                    (1, 300, 900.0, "BSE", 3.0),
+                ],
+            )
+
+    def test_prod_db_path_does_not_use_python_row_fetch_or_executemany(self) -> None:
+        source = Path(stk_mins.__file__).read_text()
+        self.assertNotIn("fetch_prod_stk_mins_rows_for_stock_codes", source)
+        self.assertNotIn("_normalize_prod_db_stk_mins_row", source)
+        prod_section = source[
+            source.index("def write_raw_stk_mins_partition_from_prod_db")
+            : source.index("def merge_repair_raw_stk_mins_partition_from_tushare")
+        ]
+        self.assertNotIn("executemany", prod_section)
+        self.assertIn("build_prod_stk_mins_duckdb_source_sql", prod_section)
 
     def test_prod_db_batch_fetch_rejects_rows_outside_stock_pool(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
+            source_path = lake_root / "prod_source.parquet"
+            _write_prod_stk_mins_source_file(
+                source_path,
+                rows_sql="""
+                SELECT
+                  '300001.SZ'::VARCHAR AS ts_code,
+                  1::INTEGER AS freq,
+                  TIMESTAMP '2026-05-29 09:30:00' AS trade_time,
+                  10.0::DOUBLE AS open,
+                  10.0::DOUBLE AS close,
+                  10.1::DOUBLE AS high,
+                  9.9::DOUBLE AS low,
+                  100::BIGINT AS vol,
+                  1234.5::DOUBLE AS amount
+                """,
+            )
 
-            def fake_fetch(
-                connection,
+            def fake_source_sql(
                 *,
+                postgres_connection_string,
                 stock_codes,
                 freq,
                 start_datetime,
                 end_datetime,
             ):
-                return [
-                    {
-                        "ts_code": "300001.SZ",
-                        "freq": 1,
-                        "trade_time": datetime(2026, 5, 29, 9, 30),
-                        "open": 10.0,
-                        "close": 10.0,
-                        "high": 10.1,
-                        "low": 9.9,
-                        "vol": 100,
-                        "amount": 1234.5,
-                    }
-                ]
+                return f"SELECT * FROM read_parquet('{source_path.as_posix()}')"
 
             with patch.object(
                 stk_mins,
-                "fetch_prod_stk_mins_rows_for_stock_codes",
-                fake_fetch,
+                "build_prod_stk_mins_duckdb_source_sql",
+                fake_source_sql,
             ):
-                with self.assertRaisesRegex(RuntimeError, "outside the requested stock pool"):
+                with self.assertRaisesRegex(RuntimeError, "outside the requested"):
                     stk_mins.write_raw_stk_mins_partition_from_prod_db(
                         lake_root=lake_root,
                         duckdb=DuckDBResource(),

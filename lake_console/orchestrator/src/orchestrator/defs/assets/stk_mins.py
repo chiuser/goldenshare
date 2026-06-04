@@ -42,9 +42,9 @@ from orchestrator.defs.paths import (
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.prod_db.stk_mins import (
-    assert_prod_stk_mins_source_columns,
-    fetch_prod_stk_mins_rows_for_stock_codes,
+    build_prod_stk_mins_duckdb_source_sql,
     validate_prod_stk_mins_select_contract,
+    validate_prod_stk_mins_duckdb_source_contract,
 )
 from orchestrator.defs.resources import (
     DuckDBResource,
@@ -73,7 +73,6 @@ from orchestrator.defs.run_contracts.configs import (
     parse_stock_mins_raw_config,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
-    derive_stk_mins_exchange_from_ts_code,
     normalize_stk_mins_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
@@ -354,22 +353,23 @@ def write_raw_stk_mins_partition_from_prod_db(
         )
 
     validate_prod_stk_mins_select_contract()
-    rows, stats = _fetch_raw_stk_mins_rows_from_prod_db(
-        prod_postgres=prod_postgres,
+    validate_prod_stk_mins_duckdb_source_contract()
+    start_datetime, end_datetime = _partition_window(partition_key)
+    source_sql = build_prod_stk_mins_duckdb_source_sql(
+        postgres_connection_string=prod_postgres.duckdb_connection_string(),
+        stock_codes=stock_codes,
+        freq=normalized_freq,
+        start_datetime=start_datetime,
+        end_datetime=end_datetime,
+    )
+    stats = _write_raw_stk_mins_rows_from_prod_db_source(
+        duckdb=duckdb,
+        source_sql=source_sql,
+        target_path=target_path,
+        stock_codes=stock_codes,
         freq=normalized_freq,
         partition_key=partition_key,
-        stock_codes=stock_codes,
-    )
-    if not rows:
-        raise RuntimeError(
-            "Prod DB stk_mins returned 0 rows for "
-            f"freq={normalized_freq}, partition={partition_key}."
-        )
-
-    _write_raw_stk_mins_rows(
-        duckdb=duckdb,
-        rows=rows,
-        target_path=target_path,
+        load_postgres_extension=True,
     )
     columns, row_count = _raw_file_columns_and_count(duckdb, target_path)
     return StkMinsRawWriteResult(
@@ -571,53 +571,6 @@ def _fetch_raw_stk_mins_rows(
     }
 
 
-def _fetch_raw_stk_mins_rows_from_prod_db(
-    *,
-    prod_postgres: ProdPostgresResource,
-    freq: int,
-    partition_key: str,
-    stock_codes: Sequence[str],
-) -> tuple[list[dict[str, object]], dict[str, int]]:
-    if not stock_codes:
-        raise RuntimeError("No current listed stock codes available for stk_mins raw.")
-
-    start_datetime, end_datetime = _partition_window(partition_key)
-    fetched_rows: list[dict[str, object]] = []
-    returned_stock_codes: set[str] = set()
-    requested_stock_codes = set(stock_codes)
-
-    with prod_postgres.connect() as connection:
-        source_rows = fetch_prod_stk_mins_rows_for_stock_codes(
-            connection,
-            stock_codes=stock_codes,
-            freq=freq,
-            start_datetime=start_datetime,
-            end_datetime=end_datetime,
-        )
-        for row in source_rows:
-            ts_code = str(row.get("ts_code") or "").strip()
-            if ts_code not in requested_stock_codes:
-                raise RuntimeError(
-                    "Prod DB stk_mins returned a row outside the requested stock pool: "
-                    f"requested_count={len(requested_stock_codes)}, actual={ts_code}."
-                )
-            returned_stock_codes.add(ts_code)
-            fetched_rows.append(
-                _normalize_prod_db_stk_mins_row(
-                    row,
-                    requested_ts_code=ts_code,
-                    requested_freq=freq,
-                    partition_key=partition_key,
-                )
-            )
-
-    return fetched_rows, {
-        "query_count": 1,
-        "returned_stock_code_count": len(returned_stock_codes),
-        "empty_stock_code_count": len(stock_codes) - len(returned_stock_codes),
-    }
-
-
 def _normalize_tushare_stk_mins_row(
     row: Mapping[str, Any],
     *,
@@ -683,50 +636,128 @@ def _parse_stk_mins_trade_time(value: object) -> datetime:
         raise RuntimeError(f"Invalid stk_mins trade_time: {value!r}.") from error
 
 
-def _normalize_prod_db_stk_mins_row(
-    row: Mapping[str, Any],
+def _write_raw_stk_mins_rows_from_prod_db_source(
     *,
-    requested_ts_code: str,
-    requested_freq: int,
+    duckdb: DuckDBResource,
+    source_sql: str,
+    target_path: Path,
+    stock_codes: Sequence[str],
+    freq: int,
     partition_key: str,
-) -> dict[str, object]:
-    assert_prod_stk_mins_source_columns(row)
-    ts_code = str(row.get("ts_code") or "").strip()
-    if ts_code != requested_ts_code:
-        raise RuntimeError(
-            "Prod DB stk_mins returned a row outside the requested stock code: "
-            f"requested={requested_ts_code}, actual={ts_code}."
+    load_postgres_extension: bool,
+) -> dict[str, int]:
+    requested_stock_codes = tuple(
+        dict.fromkeys(str(stock_code).strip() for stock_code in stock_codes)
+    )
+    if not requested_stock_codes:
+        raise RuntimeError("No current listed stock codes available for stk_mins raw.")
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
+    if temporary_path.exists():
+        temporary_path.unlink()
+
+    requested_codes_sql = ", ".join(
+        duckdb_string(stock_code) for stock_code in requested_stock_codes
+    )
+    partition_date_sql = duckdb_string(partition_key)
+    with duckdb.connect() as connection:
+        if load_postgres_extension:
+            _load_duckdb_postgres_extension(connection)
+        connection.execute(
+            "CREATE TEMP TABLE prod_stk_mins_source AS "
+            f"SELECT * FROM ({source_sql}) AS source_rows"
+        )
+        source_row_count = int(
+            connection.execute("SELECT count(*) FROM prod_stk_mins_source").fetchone()[0]
+        )
+        if source_row_count == 0:
+            raise RuntimeError(
+                "Prod DB stk_mins returned 0 rows for "
+                f"freq={freq}, partition={partition_key}."
+            )
+
+        invalid_scope_count = int(
+            connection.execute(
+                f"""
+                SELECT count(*)
+                FROM prod_stk_mins_source
+                WHERE CAST(freq AS INTEGER) != {int(freq)}
+                   OR CAST(trade_time AS DATE) != CAST({partition_date_sql} AS DATE)
+                   OR CAST(ts_code AS VARCHAR) NOT IN ({requested_codes_sql})
+                """
+            ).fetchone()[0]
+        )
+        if invalid_scope_count:
+            raise RuntimeError(
+                "Prod DB stk_mins returned rows outside the requested stock/date/freq "
+                f"scope: invalid_row_count={invalid_scope_count}."
+            )
+
+        output_sql = _prod_db_raw_stk_mins_output_sql(freq=int(freq))
+        connection.execute(copy_query_to_parquet(output_sql, temporary_path))
+        returned_stock_code_count = int(
+            connection.execute(
+                "SELECT count(DISTINCT CAST(ts_code AS VARCHAR)) "
+                "FROM prod_stk_mins_source"
+            ).fetchone()[0]
         )
 
-    raw_freq = normalize_stk_mins_freq(row.get("freq", ""))
-    if raw_freq != requested_freq:
-        raise RuntimeError(
-            "Prod DB stk_mins returned a row outside the requested frequency: "
-            f"requested={requested_freq}, actual={raw_freq}."
-        )
-
-    trade_time = row.get("trade_time")
-    if not trade_time or str(trade_time)[:10] != partition_key:
-        raise RuntimeError(
-            "Prod DB stk_mins returned a row outside the requested trade date: "
-            f"partition={partition_key}, trade_time={trade_time!r}."
-        )
-
-    vol = _clean_integer_value(row.get("vol"))
-    amount = _clean_numeric_value(row.get("amount"))
+    os.replace(temporary_path, target_path)
     return {
-        "ts_code": ts_code,
-        "freq": requested_freq,
-        "trade_time": trade_time,
-        "open": _clean_numeric_value(row.get("open")),
-        "close": _clean_numeric_value(row.get("close")),
-        "high": _clean_numeric_value(row.get("high")),
-        "low": _clean_numeric_value(row.get("low")),
-        "vol": vol,
-        "amount": amount,
-        "exchange": derive_stk_mins_exchange_from_ts_code(ts_code),
-        "vwap": _derive_stk_mins_vwap(amount=amount, vol=vol),
+        "query_count": 1,
+        "returned_stock_code_count": returned_stock_code_count,
+        "empty_stock_code_count": len(requested_stock_codes)
+        - returned_stock_code_count,
     }
+
+
+def _prod_db_raw_stk_mins_output_sql(*, freq: int) -> str:
+    select_columns = ", ".join(
+        f"CAST({column} AS {STK_MINS_RAW_COLUMN_TYPES[column]}) AS {column}"
+        for column in ("ts_code", "freq", "trade_time", "open", "close", "high", "low")
+    )
+    return f"""
+    SELECT
+      {select_columns},
+      CAST(vol AS {STK_MINS_RAW_COLUMN_TYPES["vol"]}) AS vol,
+      CAST(amount AS {STK_MINS_RAW_COLUMN_TYPES["amount"]}) AS amount,
+      CAST(
+        CASE
+          WHEN CAST(ts_code AS VARCHAR) LIKE '%.SH' THEN 'XSHG'
+          WHEN CAST(ts_code AS VARCHAR) LIKE '%.SZ' THEN 'XSHE'
+          WHEN CAST(ts_code AS VARCHAR) LIKE '%.BJ' THEN 'BSE'
+          ELSE NULL
+        END
+        AS {STK_MINS_RAW_COLUMN_TYPES["exchange"]}
+      ) AS exchange,
+      CAST(
+        CASE
+          WHEN amount IS NULL OR vol IS NULL OR CAST(vol AS DOUBLE) = 0 THEN 0.0
+          ELSE CAST(amount AS DOUBLE) / CAST(vol AS DOUBLE)
+        END
+        AS {STK_MINS_RAW_COLUMN_TYPES["vwap"]}
+      ) AS vwap
+    FROM prod_stk_mins_source
+    ORDER BY ts_code, trade_time
+    """
+
+
+def _load_duckdb_postgres_extension(connection) -> None:
+    try:
+        connection.execute("LOAD postgres")
+        return
+    except Exception:  # noqa: BLE001 - retry with INSTALL for local envs.
+        try:
+            connection.execute("INSTALL postgres")
+            connection.execute("LOAD postgres")
+            return
+        except Exception as install_error:  # noqa: BLE001
+            raise RuntimeError(
+                "DuckDB postgres extension is required for prod DB stk_mins extraction. "
+                "Install/load the DuckDB postgres extension before running "
+                "stock_mins_raw_update_from_prod_job."
+            ) from install_error
 
 
 def _clean_numeric_value(value: object) -> object:
@@ -753,12 +784,6 @@ def _clean_integer_value(value: object) -> int | None:
     if not number.is_integer():
         raise RuntimeError(f"stk_mins vol must be integer-like, got {value!r}.")
     return int(number)
-
-
-def _derive_stk_mins_vwap(*, amount: object, vol: int | None) -> float:
-    if amount is None or vol is None or vol == 0:
-        return 0.0
-    return float(amount) / vol
 
 
 def _write_raw_stk_mins_rows(

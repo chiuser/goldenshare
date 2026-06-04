@@ -737,14 +737,15 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
     </p>
     <table>
       <tr><th>项目</th><th>修正口径</th></tr>
-      <tr><td>目标</td><td>保留 <code>stock_mins_raw_update_from_prod_job</code>、五个 <code>raw_stk_mins_*</code> assets、raw path、raw checks 和 sensor 边界不变；只替换 prod DB 抽取 helper 的查询模型。</td></tr>
+      <tr><td>目标</td><td>保留 <code>stock_mins_raw_update_from_prod_job</code>、五个 <code>raw_stk_mins_*</code> assets、raw path、raw checks 和 sensor 边界不变；只替换 prod DB 抽取与写 parquet 的数据通路。</td></tr>
       <tr><td>查询模型</td><td>已改为按 <code>freq + trade_date window + 股票池</code> 批量查询。正常单日五频度是每个频度一次批量查询；禁止按单只股票循环查询。</td></tr>
-      <tr><td>股票池过滤</td><td>股票池仍来自 <code>silver_stock_basic</code> 当前上市股票事实。过滤应在 SQL 层完成，例如使用临时股票池表、<code>JOIN</code>、<code>ANY</code> 或受控 batch 列表，而不是 Python 逐股票调用查询函数。</td></tr>
+      <tr><td>数据通路</td><td>已改为 DuckDB <code>postgres</code> extension 直连 prod DB：<code>postgres_query(...)</code> 读取字段白名单，DuckDB SQL 完成 cast、<code>exchange</code>、<code>vwap</code>、排序，并直接 <code>COPY</code> 到 parquet。Python 不再 <code>fetchall()</code> 全量分钟明细，也不再用 <code>executemany</code> 写默认 prod DB raw 文件。</td></tr>
+      <tr><td>股票池过滤</td><td>股票池仍来自 <code>silver_stock_basic</code> 当前上市股票事实。过滤在 prod SQL 中通过 <code>ts_code = ANY(...)</code> 完成，而不是 Python 逐股票调用查询函数。</td></tr>
       <tr><td>字段白名单</td><td>继续显式投影 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount</code>，禁止 <code>SELECT *</code>，禁止导出 <code>api_name/fetched_at/raw_payload</code> 等系统字段。</td></tr>
-      <tr><td>字段归一</td><td><code>exchange</code> 后缀映射、<code>vwap=amount/vol</code>、类型 cast、排序和写 parquet 应尽量在 SQL/DuckDB 中向量化完成；Python 只做连接、批次规划、参数校验和结果汇总，不承载分钟线明细循环计算。</td></tr>
+      <tr><td>字段归一</td><td><code>exchange</code> 后缀映射、<code>vwap=amount/vol</code>、类型 cast、排序和写 parquet 已下推到 SQL/DuckDB；Python 只做连接串、批次规划、参数校验和结果汇总，不承载分钟线明细循环计算。</td></tr>
       <tr><td>查询次数门禁</td><td>单日默认查询次数必须随频度数量增长，而不是随股票数量增长。测试已锁定：给定多只股票时，prod DB helper 的查询调用次数不得等于股票数；五频度 job 的设计目标是约 <code>5</code> 次批量查询。</td></tr>
       <tr><td>写入方式</td><td>仍写同一套 <code>part-000.parquet</code>，使用 DuckDB <code>COPY ... TO parquet</code> 与临时文件原子替换。目标文件已存在且 checks 通过时仍复用；已存在但不合格时仍 fail。</td></tr>
-      <tr><td>验证</td><td>使用 fake prod DB resource 锁死批量查询模型，并保留字段白名单、目标复用、坏目标拒绝覆盖等既有测试；正式补跑仍需单独审批日期范围和影响。</td></tr>
+      <tr><td>验证</td><td>使用临时 parquet 模拟 DuckDB source，锁死 DuckDB SQL 写入模型，并保留字段白名单、目标复用、坏目标拒绝覆盖等既有测试；正式补跑仍需单独审批日期范围和影响。</td></tr>
       <tr><td>禁止项</td><td>不得新增平行 raw asset，不得新增第二个 sensor，不得把 prod DB 补数与 Tushare <code>merge_repair</code> 混在同一次 run 中，不得用 Python 逐行拼装正式 parquet。</td></tr>
     </table>
 
