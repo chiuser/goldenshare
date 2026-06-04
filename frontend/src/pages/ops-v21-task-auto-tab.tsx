@@ -503,6 +503,22 @@ function policyGeneratesTimeInput(calendarPolicy: CalendarPolicy): boolean {
   );
 }
 
+export function shouldShowScheduleTimingFields(triggerMode: TriggerMode): boolean {
+  return triggerMode !== "probe";
+}
+
+export function getScheduleTimeFieldLabel(triggerMode: TriggerMode): string {
+  return triggerMode === "schedule_probe_fallback" ? "兜底执行时间" : "执行时间";
+}
+
+export function hasRequiredVisibleParameters(parameters: CatalogActionParameter[] | undefined): boolean {
+  return Boolean(
+    parameters?.some((param) =>
+      param.required && !INTERNAL_PARAM_KEYS.has(param.key) && !DATE_PARAM_KEYS.has(param.key),
+    ),
+  );
+}
+
 export function resolveEffectiveCalendarPolicy(args: {
   scheduleType: string;
   repeatMode: RepeatMode;
@@ -584,6 +600,7 @@ export function OpsAutomationPage() {
   );
   const [form, setForm] = usePersistentState("goldenshare.frontend.ops.automation.form", emptyForm);
   const [lastAction, setLastAction] = useState<ScheduleDetailResponse | null>(null);
+  const [paramsAccordionValue, setParamsAccordionValue] = useState<string | null>(null);
 
   const catalogQuery = useQuery({
     queryKey: ["ops", "catalog"],
@@ -747,6 +764,8 @@ export function OpsAutomationPage() {
     [selectedAction],
   );
   const selectedActionSupportsRemoteStkMinsProbe = actionSupportsRemoteStkMinsProbe(form.action_type, form.action_key);
+  const showScheduleTimingFields = shouldShowScheduleTimingFields(form.trigger_mode);
+  const scheduleTimeFieldLabel = getScheduleTimeFieldLabel(form.trigger_mode);
   const probeConditionOptions = useMemo(
     () => [
       { value: FRESHNESS_LATEST_OPEN_CONDITION, label: "最新业务日命中最新交易日" },
@@ -789,6 +808,15 @@ export function OpsAutomationPage() {
         : [],
     [form.action_type, selectedAction],
   );
+  const selectedActionHasRequiredParameters = useMemo(
+    () => hasRequiredVisibleParameters(selectedAction?.parameters),
+    [selectedAction?.parameters],
+  );
+  useEffect(() => {
+    if (selectedActionHasRequiredParameters) {
+      setParamsAccordionValue("params");
+    }
+  }, [selectedActionHasRequiredParameters]);
 
   const workflowProbeDatasetOptions = useMemo(
     () =>
@@ -1100,7 +1128,7 @@ export function OpsAutomationPage() {
           count: number;
         },
       }),
-    enabled: opened && Boolean(previewPayload && previewTriggerKey),
+    enabled: opened && form.trigger_mode !== "probe" && Boolean(previewPayload && previewTriggerKey),
     refetchOnWindowFocus: false,
     retry: false,
   });
@@ -1406,13 +1434,15 @@ export function OpsAutomationPage() {
                         <Text size="sm">{getScheduleTargetLabel(detailQuery.data)}</Text>
                       </DetailInfoPanel>
                     </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <DetailInfoPanel label="下次运行">
-                        <Text ff="var(--mantine-font-family-monospace)" size="sm">
-                          {formatDateTimeLabel(detailQuery.data.next_run_at)}
-                        </Text>
-                      </DetailInfoPanel>
-                    </Grid.Col>
+                    {detailQuery.data.trigger_mode !== "probe" ? (
+                      <Grid.Col span={{ base: 12, sm: 6 }}>
+                        <DetailInfoPanel label={detailQuery.data.trigger_mode === "schedule_probe_fallback" ? "下次兜底运行" : "下次运行"}>
+                          <Text ff="var(--mantine-font-family-monospace)" size="sm">
+                            {formatDateTimeLabel(detailQuery.data.next_run_at)}
+                          </Text>
+                        </DetailInfoPanel>
+                      </Grid.Col>
+                    ) : null}
                     <Grid.Col span={{ base: 12, sm: 6 }}>
                       <DetailInfoPanel label="上次触发">
                         <Text ff="var(--mantine-font-family-monospace)" size="sm">
@@ -1420,18 +1450,20 @@ export function OpsAutomationPage() {
                         </Text>
                       </DetailInfoPanel>
                     </Grid.Col>
-                    <Grid.Col span={{ base: 12, sm: 6 }}>
-                      <DetailInfoPanel label="调度策略">
-                        <Text size="sm">
-                          {formatScheduleRule(
-                            detailQuery.data.schedule_type,
-                            detailQuery.data.cron_expr,
-                            detailQuery.data.next_run_at,
-                            detailQuery.data.calendar_policy,
-                          )}
-                        </Text>
-                      </DetailInfoPanel>
-                    </Grid.Col>
+                    {detailQuery.data.trigger_mode !== "probe" ? (
+                      <Grid.Col span={{ base: 12, sm: 6 }}>
+                        <DetailInfoPanel label={detailQuery.data.trigger_mode === "schedule_probe_fallback" ? "兜底调度策略" : "调度策略"}>
+                          <Text size="sm">
+                            {formatScheduleRule(
+                              detailQuery.data.schedule_type,
+                              detailQuery.data.cron_expr,
+                              detailQuery.data.next_run_at,
+                              detailQuery.data.calendar_policy,
+                            )}
+                          </Text>
+                        </DetailInfoPanel>
+                      </Grid.Col>
+                    ) : null}
                     <Grid.Col span={{ base: 12, sm: 6 }}>
                       <DetailInfoPanel label="触发方式">
                         <Text size="sm">{formatTriggerModeLabel(detailQuery.data.trigger_mode)}</Text>
@@ -1661,17 +1693,6 @@ export function OpsAutomationPage() {
             />
           </SimpleGrid>
           <Select
-            label="执行方式"
-            data={form.trigger_mode === "probe"
-              ? [{ value: "cron", label: "按周期执行（探测触发场景下仅用于兜底）" }]
-              : [
-                { value: "once", label: "单次执行" },
-                { value: "cron", label: "按周期执行" },
-              ]}
-            value={form.schedule_type}
-            onChange={(value) => setForm((current) => ({ ...current, schedule_type: value || "once" }))}
-          />
-          <Select
             label="触发方式"
             data={[
               { value: "schedule", label: "定时触发" },
@@ -1690,113 +1711,126 @@ export function OpsAutomationPage() {
               }))
             }
           />
-          {form.schedule_type === "once" ? (
-            <Grid>
-              <Grid.Col span={{ base: 12, sm: 7 }}>
-                <DateField
-                  label="执行日期"
-                  placeholder="请选择日期"
-                  value={form.once_date}
-                  onChange={(value) => setForm((current) => ({ ...current, once_date: value }))}
-                />
-              </Grid.Col>
-              <Grid.Col span={{ base: 12, sm: 5 }}>
-                <TextInput
-                  label="执行时间"
-                  placeholder="HH:mm"
-                  type="time"
-                  value={form.once_time}
-                  onChange={(event) => setForm((current) => ({ ...current, once_time: event.currentTarget.value }))}
-                />
-              </Grid.Col>
-            </Grid>
-          ) : (
-            <Stack gap="sm">
+          {showScheduleTimingFields ? (
+            <>
               <Select
-                label="重复方式"
+                label={form.trigger_mode === "schedule_probe_fallback" ? "兜底执行方式" : "执行方式"}
                 data={[
-                  { value: "daily", label: "每天" },
-                  { value: "weekly", label: "每周" },
-                  { value: "monthly", label: "每月" },
-                  ...(selectedActionUsesTriggerDayPointPolicy ? [{ value: "intraday_interval", label: "每 N 分钟" }] : []),
+                  { value: "once", label: "单次执行" },
+                  { value: "cron", label: "按周期执行" },
                 ]}
-                value={form.repeat_mode}
-                onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
+                value={form.schedule_type}
+                onChange={(value) => setForm((current) => ({ ...current, schedule_type: value || "once" }))}
               />
-              {form.repeat_mode === "intraday_interval" ? (
-                <TextInput
-                  label="间隔分钟"
-                  description="仅新闻快讯、新闻通讯可用；最小 3 分钟。每次触发维护当天数据。"
-                  placeholder="3"
-                  type="number"
-                  min={3}
-                  value={form.intraday_interval_minutes}
-                  onChange={(event) =>
-                    setForm((current) => ({ ...current, intraday_interval_minutes: event.currentTarget.value }))}
-                />
-              ) : null}
-              {form.repeat_mode === "weekly" ? (
-                <MultiSelect
-                  label="每周执行日"
-                  data={[
-                    { value: "1", label: "周一" },
-                    { value: "2", label: "周二" },
-                    { value: "3", label: "周三" },
-                    { value: "4", label: "周四" },
-                    { value: "5", label: "周五" },
-                    { value: "6", label: "周六" },
-                    { value: "0", label: "周日" },
-                  ]}
-                  value={form.repeat_weekdays}
-                  onChange={(values) => setForm((current) => ({ ...current, repeat_weekdays: values }))}
-                  clearable={false}
-                />
-              ) : null}
-              {form.repeat_mode === "monthly" ? (
-                selectedActionUsesMonthlyLastTradingDayPolicy ? (
+              {form.schedule_type === "once" ? (
+                <Grid>
+                  <Grid.Col span={{ base: 12, sm: 7 }}>
+                    <DateField
+                      label={form.trigger_mode === "schedule_probe_fallback" ? "兜底执行日期" : "执行日期"}
+                      placeholder="请选择日期"
+                      value={form.once_date}
+                      onChange={(value) => setForm((current) => ({ ...current, once_date: value }))}
+                    />
+                  </Grid.Col>
+                  <Grid.Col span={{ base: 12, sm: 5 }}>
+                    <TextInput
+                      label={scheduleTimeFieldLabel}
+                      placeholder="HH:mm"
+                      type="time"
+                      value={form.once_time}
+                      onChange={(event) => setForm((current) => ({ ...current, once_time: event.currentTarget.value }))}
+                    />
+                  </Grid.Col>
+                </Grid>
+              ) : (
+                <Stack gap="sm">
                   <Select
-                    label="每月执行日期"
-                    description="该维护对象按每月最后一个交易日作为业务日期。"
-                    data={[{ value: "monthly_last_trading_day", label: "每月最后一个交易日" }]}
-                    value="monthly_last_trading_day"
-                    readOnly
+                    label="重复方式"
+                    data={[
+                      { value: "daily", label: "每天" },
+                      { value: "weekly", label: "每周" },
+                      { value: "monthly", label: "每月" },
+                      ...(selectedActionUsesTriggerDayPointPolicy ? [{ value: "intraday_interval", label: "每 N 分钟" }] : []),
+                    ]}
+                    value={form.repeat_mode}
+                    onChange={(value) => setForm((current) => ({ ...current, repeat_mode: (value as RepeatMode) || "daily" }))}
                   />
-                ) : selectedActionUsesMonthlyLastDayPolicy ? (
-                  <Select
-                    label="每月执行日期"
-                    description="该维护对象按自然月最后一天作为业务日期。"
-                    data={[{ value: "monthly_last_day", label: "每月最后一天" }]}
-                    value="monthly_last_day"
-                    readOnly
-                  />
-                ) : selectedActionUsesMonthlyWindowPolicy ? (
-                  <Select
-                    label="每月执行日期"
-                    description="该维护对象按自然月窗口维护，系统会自动生成当月第一天到最后一天。"
-                    data={[{ value: "monthly_window_current_month", label: "每月最后一天执行，维护当月自然月窗口" }]}
-                    value="monthly_window_current_month"
-                    readOnly
-                  />
-                ) : (
-                  <TextInput
-                    label="每月几号"
-                    placeholder="1-28"
-                    value={form.repeat_month_day}
-                    onChange={(event) => setForm((current) => ({ ...current, repeat_month_day: event.currentTarget.value }))}
-                  />
-                )
-              ) : null}
-              {form.repeat_mode !== "intraday_interval" ? (
-                <TextInput
-                  label="执行时间"
-                  placeholder="HH:mm"
-                  type="time"
-                  value={form.repeat_time}
-                  onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
-                />
-              ) : null}
-            </Stack>
-          )}
+                  {form.repeat_mode === "intraday_interval" ? (
+                    <TextInput
+                      label="间隔分钟"
+                      description="仅新闻快讯、新闻通讯可用；最小 3 分钟。每次触发维护当天数据。"
+                      placeholder="3"
+                      type="number"
+                      min={3}
+                      value={form.intraday_interval_minutes}
+                      onChange={(event) =>
+                        setForm((current) => ({ ...current, intraday_interval_minutes: event.currentTarget.value }))}
+                    />
+                  ) : null}
+                  {form.repeat_mode === "weekly" ? (
+                    <MultiSelect
+                      label="每周执行日"
+                      data={[
+                        { value: "1", label: "周一" },
+                        { value: "2", label: "周二" },
+                        { value: "3", label: "周三" },
+                        { value: "4", label: "周四" },
+                        { value: "5", label: "周五" },
+                        { value: "6", label: "周六" },
+                        { value: "0", label: "周日" },
+                      ]}
+                      value={form.repeat_weekdays}
+                      onChange={(values) => setForm((current) => ({ ...current, repeat_weekdays: values }))}
+                      clearable={false}
+                    />
+                  ) : null}
+                  {form.repeat_mode === "monthly" ? (
+                    selectedActionUsesMonthlyLastTradingDayPolicy ? (
+                      <Select
+                        label="每月执行日期"
+                        description="该维护对象按每月最后一个交易日作为业务日期。"
+                        data={[{ value: "monthly_last_trading_day", label: "每月最后一个交易日" }]}
+                        value="monthly_last_trading_day"
+                        readOnly
+                      />
+                    ) : selectedActionUsesMonthlyLastDayPolicy ? (
+                      <Select
+                        label="每月执行日期"
+                        description="该维护对象按自然月最后一天作为业务日期。"
+                        data={[{ value: "monthly_last_day", label: "每月最后一天" }]}
+                        value="monthly_last_day"
+                        readOnly
+                      />
+                    ) : selectedActionUsesMonthlyWindowPolicy ? (
+                      <Select
+                        label="每月执行日期"
+                        description="该维护对象按自然月窗口维护，系统会自动生成当月第一天到最后一天。"
+                        data={[{ value: "monthly_window_current_month", label: "每月最后一天执行，维护当月自然月窗口" }]}
+                        value="monthly_window_current_month"
+                        readOnly
+                      />
+                    ) : (
+                      <TextInput
+                        label="每月几号"
+                        placeholder="1-28"
+                        value={form.repeat_month_day}
+                        onChange={(event) => setForm((current) => ({ ...current, repeat_month_day: event.currentTarget.value }))}
+                      />
+                    )
+                  ) : null}
+                  {form.repeat_mode !== "intraday_interval" ? (
+                    <TextInput
+                      label={scheduleTimeFieldLabel}
+                      placeholder="HH:mm"
+                      type="time"
+                      value={form.repeat_time}
+                      onChange={(event) => setForm((current) => ({ ...current, repeat_time: event.currentTarget.value }))}
+                    />
+                  ) : null}
+                </Stack>
+              )}
+            </>
+          ) : null}
           <Select
             label="时区"
             data={[{ value: "Asia/Shanghai", label: "北京时间（默认）" }]}
@@ -1876,9 +1910,16 @@ export function OpsAutomationPage() {
             </Stack>
           ) : null}
 
-          <Accordion variant="separated" radius="md">
+          <Accordion
+            variant="separated"
+            radius="md"
+            value={selectedActionHasRequiredParameters ? "params" : paramsAccordionValue}
+            onChange={(value) => setParamsAccordionValue(selectedActionHasRequiredParameters ? "params" : value)}
+          >
             <Accordion.Item value="params">
-              <Accordion.Control>维护参数</Accordion.Control>
+              <Accordion.Control>
+                维护参数{selectedActionHasRequiredParameters ? "（含必填项）" : ""}
+              </Accordion.Control>
               <Accordion.Panel>
                 <Stack gap="md">
                   {(!policyGeneratesTimeInput(effectiveCalendarPolicy) && (supportsSingleDay || supportsDateRange)) ? (
@@ -2064,7 +2105,11 @@ export function OpsAutomationPage() {
                   <AlertBar title="系统将按以下参数执行（只读）">
                     <Stack gap={6}>
                       <Text size="sm">触发方式：{formatTriggerModeLabel(form.trigger_mode)}</Text>
-                      <Text size="sm">调度策略：{resolvedScheduleSummary.title}，{resolvedScheduleSummary.detail}</Text>
+                      {showScheduleTimingFields ? (
+                        <Text size="sm">
+                          {form.trigger_mode === "schedule_probe_fallback" ? "兜底策略" : "调度策略"}：{resolvedScheduleSummary.title}，{resolvedScheduleSummary.detail}
+                        </Text>
+                      ) : null}
                       {form.trigger_mode !== "schedule" ? (
                         <Text size="sm">
                           探测配置：{form.probe_window_start || "—"}~{form.probe_window_end || "—"}，每 {form.probe_interval_seconds || "300"} 秒探测，来源 {getSourceLabelFromCatalog(catalogQuery.data, form.probe_source_key)}

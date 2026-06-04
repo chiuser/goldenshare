@@ -7,8 +7,11 @@ import {
   buildCronExpression,
   formatProbeConditionLabel,
   formatScheduleRule,
+  getScheduleTimeFieldLabel,
+  hasRequiredVisibleParameters,
   parseCronExpression,
   resolveEffectiveCalendarPolicy,
+  shouldShowScheduleTimingFields,
 } from "./ops-v21-task-auto-tab";
 
 describe("自动任务日期策略", () => {
@@ -183,5 +186,50 @@ describe("自动任务日期策略", () => {
     expect(actionSupportsRemoteStkMinsProbe("workflow", "stk_mins.maintain")).toBe(false);
     expect(formatProbeConditionLabel("remote_stk_mins_ready")).toBe("源站已有分钟行情");
     expect(formatProbeConditionLabel("freshness_latest_open")).toBe("最新业务日命中最新交易日");
+  });
+
+  it("hides schedule timing fields for pure probe and relabels fallback timing", () => {
+    expect(shouldShowScheduleTimingFields("probe")).toBe(false);
+    expect(shouldShowScheduleTimingFields("schedule")).toBe(true);
+    expect(shouldShowScheduleTimingFields("schedule_probe_fallback")).toBe(true);
+    expect(getScheduleTimeFieldLabel("schedule")).toBe("执行时间");
+    expect(getScheduleTimeFieldLabel("schedule_probe_fallback")).toBe("兜底执行时间");
+  });
+
+  it("opens maintenance parameters when visible required parameters exist", () => {
+    expect(hasRequiredVisibleParameters([
+      {
+        key: "ts_code",
+        display_name: "证券代码",
+        param_type: "string",
+        description: "",
+        required: true,
+        options: [],
+        multi_value: false,
+        default_value: null,
+      },
+    ])).toBe(true);
+    expect(hasRequiredVisibleParameters([
+      {
+        key: "trade_date",
+        display_name: "交易日期",
+        param_type: "date",
+        description: "",
+        required: true,
+        options: [],
+        multi_value: false,
+        default_value: null,
+      },
+      {
+        key: "limit",
+        display_name: "分页条数",
+        param_type: "integer",
+        description: "",
+        required: true,
+        options: [],
+        multi_value: false,
+        default_value: null,
+      },
+    ])).toBe(false);
   });
 });
