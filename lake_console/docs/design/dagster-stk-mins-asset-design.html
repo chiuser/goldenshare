@@ -1703,6 +1703,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与默认停止的 <code>stock_mins_qfq_daily_sensor</code>：它只在 23:00 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。
       M9B 已实现 factor repair detection 与 check metadata 契约。
       M9C 已新增默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日五频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测与必要股票历史回刷。
+      P0-1 并发保护已完成：五个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
     </p>
     <div class="note">
       <strong>M9D 已修正：factor repair job 不再建模为全历史分区 job。</strong>
@@ -2001,14 +2002,14 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>先完成 M7B 契约修正：gold 主路径必须是 <code>freq + ts_code + year</code>，不得继续使用 <code>freq + trade_date</code> 作为物理布局。</li>
       <li>确认 gold schema：默认 OHLC 字段直接表示 qfq 后价格，<code>vol/amount/exchange</code> 沿用 silver；不保留原始未复权价格列。</li>
       <li>确认不新增 <code>gold_stk_mins_qfq_daily_summary</code> 或 <code>gold_stk_mins_qfq_factor_repair_summary</code>；repair 原因和数量写入 check metadata。</li>
-      <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。</li>
+      <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。正式 Dagster 入口必须使用统一 <code>gold_stk_mins_qfq_writer</code> concurrency pool；<code>in_process_executor</code> 只保证单 run 内顺序，不能替代跨 run 互斥。</li>
       <li>确认历史 gold baseline 文件生成采用串行或等价互斥保护，同一 <code>freq/ts_code/year</code> 文件不能被多个命令任务同时写。</li>
       <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式。</li>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>
       当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 qfq job/sensor、M9B repair detection 契约、M9C/M9D factor repair job/sensor 与 M9E 批量 repair 性能修正；正式 gold 物理文件与 Dagster event log 已完成对齐。
-      M10 的职责是把上述事实固化进文档和静态门禁。后续若要启用日常 qfq 或 factor repair sensor，必须单独审批并列出操作步骤、影响范围和回滚方式。
+      M10 的职责是把上述事实固化进文档和静态门禁。<code>gold_stk_mins_qfq_writer</code> pool limit 与 <code>dagster.yaml</code> run granularity 配置已完成；后续若要启用日常 qfq 或 factor repair sensor，仍必须单独审批操作步骤、影响范围和回滚方式。
       所有开发必须继续以本文档的 <code>freq + ts_code + year</code> 物理布局为准。
     </div>
   </section>

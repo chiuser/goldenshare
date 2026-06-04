@@ -32,8 +32,12 @@
 - `lake_console/AGENTS.md`
 - `lake_console/orchestrator/AGENTS.md`
 - `dagster-expert` skill 中 Dagster assets、asset jobs、sensors、run status sensors、asset selection、definition metadata 等参考说明
+- DuckDB 官方 PostgreSQL extension、configuration、performance tuning 文档
+- Dagster 官方 concurrency 文档
 - CodeGraph 索引与调用关系
 - 当前真实代码
+
+说明：本轮尝试按 `duckdb-docs` skill 使用本地 DuckDB docs FTS 索引，但当前环境缺少可用 `fts` 本地扩展，且在线索引刷新失败；因此 DuckDB 依据改用官方文档页面只读核验，不以历史印象替代。
 
 关键约束：
 
@@ -45,7 +49,7 @@
 
 ## 已确认 P0
 
-### P0-1：Gold qfq 物理文件共享写入缺少正式互斥保护
+### P0-1：Gold qfq 物理文件共享写入缺少正式互斥保护（已修复）
 
 #### 现状
 
@@ -90,11 +94,13 @@ data_lake/gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part
 - `lake_console/orchestrator/src/orchestrator/defs/jobs/stock_mins_qfq_daily_update.py`
 - `lake_console/orchestrator/src/orchestrator/defs/jobs/stock_mins_qfq_factor_repair.py`
 
-静态扫描结果：
+静态扫描结果与当前修复状态：
 
 - qfq daily job 与 qfq repair job 都只使用 `in_process_executor`
-- 当前 definitions 中没有发现 Dagster concurrency pool、run queue、tag concurrency 或其它正式互斥配置
-- 文档中已有“后续 job/backfill 必须串行，或用 Dagster concurrency 限制保护同一 gold qfq 文件族”的描述，但当前代码没有落地该保护
+- 已采用 Dagster 官方 concurrency pools 作为正式互斥机制。
+- 五个 `gold_stk_mins_qfq_*` assets 和 `stock_mins_qfq_factor_repair_op` 已统一声明 `pool="gold_stk_mins_qfq_writer"`。
+- 当前代码已补静态门禁，禁止 qfq 写入口绕开统一 pool 常量。
+- 正式 instance 已执行 pool limit 与 `dagster.yaml` 配置：`gold_stk_mins_qfq_writer` limit 为 `1`，pool granularity 为 `run`。
 
 #### 为什么是 P0
 
@@ -110,22 +116,36 @@ data_lake/gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part
 
 这不是 UI 噪音，也不是 metadata 小问题，而是可能造成正式 gold qfq parquet 文件内容不一致。
 
-#### 修复方向
+#### 已选修复方向
 
-需要单独设计并落地正式互斥机制，不能靠人工记忆。
+已选择 Dagster 官方 concurrency pools，不自造锁文件，不依赖人工记忆。
 
-候选方向：
+当前代码口径：
 
-1. 使用 Dagster 官方 concurrency 机制保护 qfq 文件族写入。
-   - 至少让 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 共享同一个 qfq writer concurrency key。
-   - 需要确认当前 Dagster 版本对 job/op/asset concurrency 的具体配置方式。
-2. 对 qfq 写回 helper 增加运行期互斥保护。
-   - 不建议优先自造锁文件；若确实需要外部锁，必须单独设计锁语义、恢复方式和失败处理。
-3. 静态门禁必须补上：
-   - qfq 写入 job/op/helper 必须声明或使用统一互斥口径。
-   - 禁止新增其它入口绕开该互斥口径写 `gold/quote/stk_mins_qfq`。
+1. 统一 pool 常量：`GOLD_STK_MINS_QFQ_WRITER_POOL = "gold_stk_mins_qfq_writer"`。
+2. 五个 gold qfq assets 使用该 pool。
+3. `stock_mins_qfq_factor_repair_op` 使用同一 pool。
+4. static gates 锁定该 pool 必须集中定义并被所有 qfq 写入口引用。
 
-在 P0 修复前，不建议同时启用 daily qfq sensor 和 factor repair sensor，也不建议并行 backfill qfq 日期。
+正式 instance 已执行口径：
+
+```yaml
+concurrency:
+  pools:
+    granularity: run
+run_monitoring:
+  enabled: true
+  free_slots_after_run_end_seconds: 300
+```
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+export DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home
+.venv/bin/dagster instance concurrency set gold_stk_mins_qfq_writer 1
+.venv/bin/dagster instance concurrency get gold_stk_mins_qfq_writer
+```
+
+该配置写入正式 `DAGSTER_HOME` 后持久生效；重启 Dagster web/daemon 后运行进程会读取新的 run 级别 pool granularity。后续不建议并行 backfill qfq 日期。
 
 ---
 
@@ -232,12 +252,167 @@ postgres_query('prod_raw_pg', '<remote query>')
 
 ## 当前阶段结论
 
-截至本阶段，已确认 2 个 P0，其中 P0-2 已在本轮修复：
+截至当前阶段，已确认 4 个 P0，其中 P0-1 和 P0-2 已完成修复：
 
-1. Gold qfq stock-year 共享物理文件没有正式互斥保护，存在并发覆盖导致数据不一致的风险。
+1. Gold qfq stock-year 共享物理文件缺少正式互斥保护；当前已加 Dagster pool 标记和门禁，正式 instance 已配置 pool limit 与 run granularity。
 2. prod DB DuckDB 批量抽取 SQL 内嵌 Postgres password，存在失败日志泄露敏感信息的风险；当前已改为 DuckDB attach alias source SQL，并增加脱敏测试。
+3. 正式 DuckDB 连接没有统一 temp/spill/thread/memory 治理，且 qfq 写入 helper 绕过 `DuckDBResource` 直接开连接。
+4. prod DB DuckDB attach 未声明 `READ_ONLY`，没有在 DuckDB extension 层强制只读。
 
-P0-1 仍需优先修正；它会影响 gold qfq 正式文件正确性。P0-2 已完成代码和测试收口，后续只需按正常失败分区重跑恢复业务数据。
+P0-1 还差正式 instance 配置执行；P0-3、P0-4 仍需优先修正。P0-2 已完成代码和测试收口，后续只需按正常失败分区重跑恢复业务数据。
+
+---
+
+### P0-3：正式 DuckDB 连接缺少统一 temp/spill/thread/memory 治理
+
+#### 现状
+
+当前 `DuckDBResource.connect()` 只是创建内存库连接：
+
+```python
+connection = duckdb.connect(database=":memory:")
+```
+
+没有设置：
+
+- `temp_directory`
+- `max_temp_directory_size`
+- `memory_limit`
+- `threads`
+
+同时，部分重型正式路径没有使用 `DuckDBResource`，而是直接调用 `duckdb.connect(...)`。最典型的是 gold qfq 写回 helper：
+
+```python
+with duckdb.connect(database=":memory:") as connection:
+```
+
+该 helper 是 daily qfq asset 和 factor repair 的共同写回核心，属于正式 gold 文件生产路径。
+
+#### 证据
+
+代码点：
+
+- `lake_console/orchestrator/src/orchestrator/defs/resources.py`
+  - `DuckDBResource.connect()`
+- `lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq.py`
+  - `write_gold_stk_mins_qfq_rows_to_year_files(...)`
+  - `_write_gold_qfq_group_to_year_file(...)`
+- `lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_mins_qfq_bootstrap_events.py`
+  - event 补录年度审计通过 `DuckDBResource` 连接运行大批量 gold/silver/factor 对账
+
+静态扫描结果：
+
+- `lake_console/orchestrator/src/orchestrator/defs/**` 下仍存在大量 `duckdb.connect()` 直接调用。
+- 测试文件中的直接连接不构成生产问题；正式 `assets/checks/bootstrap` 路径中的直接连接需要分级治理。
+- qfq 写回是已确认重型正式路径，不能作为“小表例外”处理。
+
+DuckDB 官方文档依据：
+
+- DuckDB 支持通过 `SET` / `PRAGMA` 配置运行参数。
+- `temp_directory`、`max_temp_directory_size`、`memory_limit`、`threads` 都是可配置项。
+- DuckDB 对超过内存的工作负载会使用临时目录；线程数过高也可能拖慢大查询。
+
+#### 为什么是 P0
+
+分钟线、qfq、历史 event 审计和 repair 都是大体量 DuckDB 查询场景。如果不显式设置 temp/spill 目录和上限，风险包括：
+
+- 大查询 spill 到默认 `.tmp` 或不可控系统目录，污染仓库或占满系统盘。
+- 多个 Dagster run 同时执行时，每个 DuckDB 连接独立使用默认线程和内存，无法统一限流。
+- 即使以后修正 `DuckDBResource`，绕过 resource 的 qfq 写回 helper 仍继续失控。
+
+这违反 `orchestrator/AGENTS.md` 中 Parquet 计算与历史批量审计的性能门禁，也会直接影响正式任务稳定性。
+
+#### 修复方向
+
+需要做一次统一 DuckDB 连接治理，而不是只改单点。
+
+建议方案：
+
+1. 新增或扩展统一连接 helper，例如 `connect_configured_duckdb(...)`。
+   - 设置受控 `temp_directory`。
+   - 设置 `max_temp_directory_size`。
+   - 设置 `memory_limit`。
+   - 设置 `threads`。
+2. `DuckDBResource.connect()` 必须调用该 helper。
+3. qfq 写回 helper、历史生成、runless event 年度审计这类重型正式路径必须改为使用统一连接口径。
+4. 对仍保留的 `duckdb.connect()` 做白名单分级：
+   - tests 允许。
+   - 一次性 audit CLI 可单独说明。
+   - 小型配置表/小表 check 可暂缓，但必须有规模上界。
+   - 分钟线、日线、qfq、历史批量、repair、event 前置审计不得绕过。
+5. 增加静态门禁：
+   - 正式 `defs/assets/**`、`defs/checks/**`、`defs/bootstrap/**` 中新增直接 `duckdb.connect()` 必须被测试拦截，除非列入明确白名单。
+
+---
+
+### P0-4：prod DB DuckDB attach 未强制 READ_ONLY
+
+#### 现状
+
+P0-2 已经修复了 `postgres_query(...)` 内嵌完整 conninfo 和 password 的问题；当前 source SQL 只引用 attach alias。
+
+但执行 attach 的 SQL 仍是：
+
+```text
+ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES)
+```
+
+没有声明 `READ_ONLY`。
+
+#### 证据
+
+代码点：
+
+- `lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py`
+  - `_attach_prod_postgres_database(...)`
+
+当前代码：
+
+```python
+attach_sql = (
+    "ATTACH "
+    + duckdb_string(postgres_connection_string)
+    + f" AS {PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE} (TYPE POSTGRES)"
+)
+```
+
+DuckDB 官方 PostgreSQL extension 文档依据：
+
+- PostgreSQL extension 允许 DuckDB 直接读写 PostgreSQL。
+- 文档提供 `ATTACH ... (TYPE postgres, READ_ONLY)` 口径，用于阻止写入操作。
+- `postgres_query(attached_database, query)` 的第一个参数应是已 attach 数据库别名。
+
+#### 为什么是 P0
+
+当前 remote query builder 只生成 `SELECT`，且正式 prod 用户也应是只读用户；但代码层没有在 DuckDB extension 层强制只读。
+
+这意味着未来只要出现以下任一情况：
+
+- helper 改成直接查询 attach schema 而不是 `postgres_query(...)`
+- remote SQL builder 被错误扩展
+- prod DB 用户权限配置被放宽
+
+DuckDB 连接本身没有第二道防线。
+
+`lake_console` 对 prod DB 的长期口径是只读审计/抽取，不允许写生产库。缺少 `READ_ONLY` 是安全边界缺失，不应留给外部账号权限兜底。
+
+#### 修复方向
+
+修复很小，性能影响可以视为 0：
+
+1. attach SQL 改成：
+
+```text
+ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES, READ_ONLY)
+```
+
+2. 测试补齐：
+   - attach SQL 必须包含 `READ_ONLY`。
+   - attach 失败错误仍脱敏。
+   - source SQL 仍不得包含 conninfo/password。
+3. 文档保留 P0-2/P0-4 的区别：
+   - P0-2 是“不泄露密码”。
+   - P0-4 是“DuckDB extension 层强制 prod DB 只读”。
 
 ## 待继续审计
 

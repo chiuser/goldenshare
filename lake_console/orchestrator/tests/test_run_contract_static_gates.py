@@ -24,6 +24,7 @@ FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
     "gold_stk_mins_qfq_daily_summary",
     "gold_stk_mins_qfq_factor_repair_summary",
 }
+GOLD_STK_MINS_QFQ_WRITER_POOL_LITERAL = "gold_stk_mins_qfq_writer"
 
 SENSOR_FORBIDDEN_STRING_LITERALS = {
     "triggered_by",
@@ -269,6 +270,34 @@ class RunContractStaticGateTests(unittest.TestCase):
                         f"{_node_location(path, node)} builds qfq rows through "
                         "Python DataFrame"
                     )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_qfq_writer_pool_is_centralized_and_required(self) -> None:
+        issues = []
+        constant_source = (DEFS_DIR / "stk_mins_qfq.py").read_text()
+        if GOLD_STK_MINS_QFQ_WRITER_POOL_LITERAL not in constant_source:
+            issues.append("qfq writer pool literal is not defined in stk_mins_qfq.py")
+
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            if "__pycache__" in path.parts or path == DEFS_DIR / "stk_mins_qfq.py":
+                continue
+            source = path.read_text()
+            if GOLD_STK_MINS_QFQ_WRITER_POOL_LITERAL in source:
+                issues.append(f"{path} hard-codes qfq writer pool literal")
+
+        assets_source = (ASSETS_DIR / "stk_mins.py").read_text()
+        if assets_source.count("pool=GOLD_STK_MINS_QFQ_WRITER_POOL") != 5:
+            issues.append("gold qfq assets must all use GOLD_STK_MINS_QFQ_WRITER_POOL")
+
+        repair_op_source = (
+            DEFS_DIR / "ops" / "stock_mins_qfq_factor_repair.py"
+        ).read_text()
+        if "pool=GOLD_STK_MINS_QFQ_WRITER_POOL" not in repair_op_source:
+            issues.append(
+                "stock_mins_qfq_factor_repair_op must use "
+                "GOLD_STK_MINS_QFQ_WRITER_POOL"
+            )
 
         self.assertEqual(issues, [])
 

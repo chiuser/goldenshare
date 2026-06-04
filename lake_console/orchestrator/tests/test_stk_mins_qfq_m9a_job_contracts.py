@@ -1,8 +1,10 @@
 import unittest
 
+from orchestrator.defs.assets.stk_mins import GOLD_STK_MINS_QFQ_ASSETS
 from orchestrator.defs.jobs.stock_mins_qfq_daily_update import (
     stock_mins_qfq_daily_update_job,
 )
+from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
 
 
 class StkMinsQfqM9AJobContractTests(unittest.TestCase):
@@ -39,6 +41,10 @@ class StkMinsQfqM9AJobContractTests(unittest.TestCase):
             stock_mins_qfq_daily_update_job.executor_def.name,
             "in_process",
         )
+
+    def test_gold_qfq_assets_use_writer_concurrency_pool(self) -> None:
+        for asset in GOLD_STK_MINS_QFQ_ASSETS:
+            self.assertEqual(asset.node_def.pool, GOLD_STK_MINS_QFQ_WRITER_POOL)
 
 
 if __name__ == "__main__":

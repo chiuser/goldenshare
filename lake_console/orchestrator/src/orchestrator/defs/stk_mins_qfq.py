@@ -22,6 +22,7 @@ GOLD_STK_MINS_QFQ_COLUMN_TYPES = {
 GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME = (
     "gold_stk_mins_qfq_factor_repair_plan_evaluated"
 )
+GOLD_STK_MINS_QFQ_WRITER_POOL = "gold_stk_mins_qfq_writer"
 QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED = "no_factor_changed"
 QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED = "factor_changed"
 QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE = "new_current_code"

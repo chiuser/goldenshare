@@ -6,6 +6,7 @@ from orchestrator.defs.assets.stk_mins import GOLD_STK_MINS_QFQ_ASSETS
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+    GOLD_STK_MINS_QFQ_WRITER_POOL,
     build_gold_stk_mins_qfq_factor_repair_check_metadata,
 )
 from orchestrator.defs.stk_mins_qfq_factor_repair import (
@@ -36,6 +37,7 @@ def _trade_date_from_op_config(context: dg.OpExecutionContext) -> str:
 @dg.op(
     required_resource_keys={"lake_root", "duckdb"},
     config_schema=STOCK_MINS_QFQ_FACTOR_REPAIR_CONFIG_SCHEMA,
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
 )
 def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
     trade_date = _trade_date_from_op_config(context)

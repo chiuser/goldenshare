@@ -78,6 +78,7 @@ from orchestrator.defs.run_contracts.stk_mins import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_COLUMNS,
+    GOLD_STK_MINS_QFQ_WRITER_POOL,
     build_daily_qfq_coverage_sql,
     build_daily_qfq_select_sql,
     write_gold_stk_mins_qfq_rows_to_year_files,
@@ -2412,6 +2413,7 @@ def _gold_stk_mins_qfq_extra_metadata(freq: int) -> dict[str, object]:
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
     metadata=build_asset_definition_metadata(
         dataset_id="stk_mins_qfq",
         source_system=SourceSystem.DERIVED,
@@ -2454,6 +2456,7 @@ def gold_stk_mins_qfq_1m(
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
     metadata=build_asset_definition_metadata(
         dataset_id="stk_mins_qfq",
         source_system=SourceSystem.DERIVED,
@@ -2496,6 +2499,7 @@ def gold_stk_mins_qfq_5m(
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
     metadata=build_asset_definition_metadata(
         dataset_id="stk_mins_qfq",
         source_system=SourceSystem.DERIVED,
@@ -2538,6 +2542,7 @@ def gold_stk_mins_qfq_15m(
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
     metadata=build_asset_definition_metadata(
         dataset_id="stk_mins_qfq",
         source_system=SourceSystem.DERIVED,
@@ -2580,6 +2585,7 @@ def gold_stk_mins_qfq_30m(
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
     metadata=build_asset_definition_metadata(
         dataset_id="stk_mins_qfq",
         source_system=SourceSystem.DERIVED,

@@ -10,6 +10,9 @@ from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
     STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
     stock_mins_qfq_factor_repair_job,
 )
+from orchestrator.defs.ops.stock_mins_qfq_factor_repair import (
+    stock_mins_qfq_factor_repair_op,
+)
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
@@ -26,6 +29,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+    GOLD_STK_MINS_QFQ_WRITER_POOL,
     QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
     QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
 )
@@ -450,6 +454,10 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         self.assertEqual(
             stock_mins_qfq_factor_repair_job.executor_def.name,
             "in_process",
+        )
+        self.assertEqual(
+            stock_mins_qfq_factor_repair_op.pool,
+            GOLD_STK_MINS_QFQ_WRITER_POOL,
         )
 
     def test_factor_repair_job_requires_trade_date_run_config(self) -> None:

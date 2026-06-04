@@ -860,14 +860,14 @@
           <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code> + checks</td>
           <td>单个交易日五个频度股票分钟线前复权 gold。</td>
           <td>人工 partition run 或 <code>stock_mins_qfq_daily_sensor</code> 23:00 后自动触发。</td>
-          <td>只 selection gold qfq assets 与 gold qfq checks；不顺手更新 raw、silver、adj factor 或执行 factor repair。</td>
+          <td>只 selection gold qfq assets 与 gold qfq checks；不顺手更新 raw、silver、adj factor 或执行 factor repair。五个 gold qfq assets 共享 <code>gold_stk_mins_qfq_writer</code> pool。</td>
         </tr>
         <tr>
           <td><code>stock_mins_qfq_factor_repair_job</code></td>
           <td>维护型非分区 op job</td>
           <td>检测目标交易日复权因子相对上一交易日是否变化；无变化记录成功，有变化则按 <code>freq/year</code> 批量回刷历史 gold qfq 股票年份文件。</td>
           <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 23:15 后在当日五频度 gold ready 时自动传入最新目标日期。</td>
-          <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到五个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音。</td>
+          <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到五个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音；repair op 使用同一个 <code>gold_stk_mins_qfq_writer</code> pool。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>
