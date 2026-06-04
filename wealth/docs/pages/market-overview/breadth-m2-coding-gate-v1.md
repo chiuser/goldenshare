@@ -25,15 +25,19 @@
 2. [ ] 请求与响应结构冻结
 3. [ ] 核心样例响应冻结
 4. [ ] 查询草案冻结
-5. [ ] 状态归并样例冻结
-6. [ ] 异常覆盖矩阵冻结
-7. [ ] 性能预算冻结
-8. [ ] 前端真实源加载态门禁冻结（loading/ready/error）
-9. [ ] 5 秒超时进入 error 且不展示 mock 回填的行为门禁冻结
-10. [ ] 本轮仅 breadth 切换到 real、其余模块 source 不变
-11. [ ] 平盘家数卡片副文案固定为“平盘率 x%”
-12. [ ] 纵轴刻度固定为 0/1500/3000/4500/6000，且无负值刻度
-13. [ ] 签字完成
+5. [ ] ClickHouse 只读连接/超时/测试替身方案冻结
+6. [ ] 状态归并样例冻结
+7. [ ] 异常覆盖矩阵冻结
+8. [ ] 性能预算冻结
+9. [ ] 前端真实源加载态门禁冻结（loading/ready/error）
+10. [ ] 5 秒超时进入 error 且不展示 mock 回填的行为门禁冻结
+11. [ ] 本轮仅 breadth 切换事实源、其余模块 source 不变
+12. [ ] 平盘家数卡片副文案固定为“平盘率 x%”
+13. [ ] 纵轴刻度固定为 0/1500/3000/4500/6000，且无负值刻度
+14. [ ] API 与前端 DTO 均包含 `totalCount` 与完整 `distributionBuckets`
+15. [ ] 当前 UI 不渲染分桶字段
+16. [ ] 本模块业务统计路径不得再聚合 `equity_daily_bar.pct_chg`
+17. [ ] 签字完成
 
 ---
 
@@ -58,17 +62,36 @@ interface BreadthRequest {
 ### 3.2 响应结构冻结
 
 ```ts
+interface BreadthDistributionBuckets {
+  downGt7Count: number;
+  down5To7Count: number;
+  down3To5Count: number;
+  down0To3Count: number;
+  up0To3Count: number;
+  up3To5Count: number;
+  up5To7Count: number;
+  upGt7Count: number;
+}
+
+interface BreadthMetrics {
+  upCount: number;
+  downCount: number;
+  flatCount: number;
+  totalCount: number;
+  redRate: number;
+  distributionBuckets: BreadthDistributionBuckets;
+}
+
+interface BreadthHistoryPoint extends BreadthMetrics {
+  tradeDate: string;
+}
+
 interface BreadthResponseData {
   tradingDay: TradingDay;
   pageStatus: PageStatus;
   breadth: {
     tradeDate: string;
-    metrics: {
-      upCount: number;
-      downCount: number;
-      flatCount: number;
-      redRate: number;
-    };
+    metrics: BreadthMetrics;
     historyByRange: {
       "1m": BreadthHistoryPoint[]; // 22 points
       "3m": BreadthHistoryPoint[]; // 62 points
@@ -104,17 +127,59 @@ interface BreadthResponseData {
       "upCount": 3421,
       "downCount": 1488,
       "flatCount": 219,
-      "redRate": 66.71
+      "totalCount": 5128,
+      "redRate": 66.71,
+      "distributionBuckets": {
+        "downGt7Count": 12,
+        "down5To7Count": 36,
+        "down3To5Count": 184,
+        "down0To3Count": 1256,
+        "up0To3Count": 2860,
+        "up3To5Count": 446,
+        "up5To7Count": 86,
+        "upGt7Count": 29
+      }
     },
     "historyByRange": {
       "1m": [
-        { "tradeDate": "2026-04-10", "upCount": 2892, "downCount": 1983 },
-        { "tradeDate": "2026-05-08", "upCount": 3421, "downCount": 1488 }
+        {
+          "tradeDate": "2026-04-10",
+          "upCount": 2892,
+          "downCount": 1983,
+          "flatCount": 253,
+          "totalCount": 5128,
+          "redRate": 56.40,
+          "distributionBuckets": {
+            "downGt7Count": 8,
+            "down5To7Count": 41,
+            "down3To5Count": 210,
+            "down0To3Count": 1724,
+            "up0To3Count": 2441,
+            "up3To5Count": 360,
+            "up5To7Count": 70,
+            "upGt7Count": 21
+          }
+        },
+        {
+          "tradeDate": "2026-05-08",
+          "upCount": 3421,
+          "downCount": 1488,
+          "flatCount": 219,
+          "totalCount": 5128,
+          "redRate": 66.71,
+          "distributionBuckets": {
+            "downGt7Count": 12,
+            "down5To7Count": 36,
+            "down3To5Count": 184,
+            "down0To3Count": 1256,
+            "up0To3Count": 2860,
+            "up3To5Count": 446,
+            "up5To7Count": 86,
+            "upGt7Count": 29
+          }
+        }
       ],
-      "3m": [
-        { "tradeDate": "2026-02-10", "upCount": 2410, "downCount": 2317 },
-        { "tradeDate": "2026-05-08", "upCount": 3421, "downCount": 1488 }
-      ]
+      "3m": []
     }
   }
 }
@@ -133,7 +198,7 @@ interface BreadthResponseData {
         "observedTradeDate": "2026-05-07",
         "lagDays": 1,
         "status": "DELAYED",
-        "note": "equity_daily_bar lagged"
+        "note": "share_fact_market_breadth_daily lagged"
       }
     ],
     "exceptions": [
@@ -150,7 +215,23 @@ interface BreadthResponseData {
   "pageStatus": { "status": "EMPTY", "displayText": "暂无可用数据" },
   "breadth": {
     "tradeDate": "2026-05-08",
-    "metrics": { "upCount": 0, "downCount": 0, "flatCount": 0, "redRate": 0 },
+    "metrics": {
+      "upCount": 0,
+      "downCount": 0,
+      "flatCount": 0,
+      "totalCount": 0,
+      "redRate": 0,
+      "distributionBuckets": {
+        "downGt7Count": 0,
+        "down5To7Count": 0,
+        "down3To5Count": 0,
+        "down0To3Count": 0,
+        "up0To3Count": 0,
+        "up3To5Count": 0,
+        "up5To7Count": 0,
+        "upGt7Count": 0
+      }
+    },
     "historyByRange": { "1m": [], "3m": [] }
   }
 }
@@ -174,21 +255,24 @@ interface BreadthResponseData {
 ## 5. 查询草案（可直接转实现）
 
 1. 当日指标查询草案：
-   - `equity_daily_bar` + `trade_date = :target_date`
-   - 样本口径：全量样本，不加 ST/停牌特例过滤；
-   - 计数样本：仅 `pct_chg is not null`；
-   - `sum(case when pct_chg>0 then 1 else 0 end) as up_count`
-   - `sum(case when pct_chg<0 then 1 else 0 end) as down_count`
-   - `sum(case when pct_chg=0 then 1 else 0 end) as flat_count`
+   - 从 `goldenshare_serving.share_fact_market_breadth_daily` 按 `trade_date = :target_date` 读取一行；
+   - 直接读取 `up_count/down_count/flat_count/total_count/red_rate`；
+   - 直接读取全部分桶列；
+   - 不再扫描或聚合 `equity_daily_bar.pct_chg`。
 2. 历史趋势查询草案：
    - 先取最近 62 个交易日（`trade_calendar.is_open=true`）；
-   - 再按 `trade_date` 聚合 `up/down` 家数；
-   - 结果按 `trade_date asc`。
-3. 回退查询草案：
-   - 不做跨日补值。
-4. 索引与排序说明：
-   - 按 `trade_date` 升序；
+   - 再从事实表读取这些交易日对应行；
+   - 结果按 `trade_date asc`；
    - `1m`=22 点、`3m`=62 点固定切片。
+3. 状态查询草案：
+   - `observedTradeDate` 来自事实表 `max(trade_date)`；
+   - `expectedTradeDate` 仍来自交易日上下文。
+4. 回退查询草案：
+   - 不做跨日补值；
+   - 不回退到旧 Postgres 个股日线聚合。
+5. 重复行处理：
+   - 每个 `trade_date` 期望单行；
+   - 发现重复行应触发 `BR_FACT_DUPLICATED` 或查询失败，不允许静默合并。
 
 ---
 
@@ -210,42 +294,46 @@ interface BreadthResponseData {
 
 | code | 覆盖用例 | 触发条件 | 预期行为 |
 |---|---|---|---|
-| `BR_SOURCE_EMPTY` | 空数据 | 目标日无样本 | 模块 EMPTY |
+| `BR_SOURCE_EMPTY` | 空数据 | 目标日无事实行 | 模块 EMPTY |
 | `BR_SOURCE_DELAYED` | 数据滞后 | observed < expected | 模块 DELAYED |
 | `BR_HISTORY_INCOMPLETE` | 历史不足 | 历史点少于 22/62 | 模块 PARTIAL（debug 提示） |
-| `BR_QUERY_FAILED` | 查询失败 | SQL/服务异常 | 模块 ERROR |
+| `BR_FACT_DUPLICATED` | 事实重复 | 单交易日多行 | 模块 ERROR |
+| `BR_QUERY_FAILED` | 查询失败 | ClickHouse/服务异常 | 模块 ERROR |
 
 ---
 
 ## 8. 性能门禁
 
 1. P95 预算：`< 200ms`
-2. 返回体预算：`< 40KB`
+2. 返回体预算：`< 60KB`
 3. 最大并发预算：按 overview 默认并发预算
-4. 超预算降级策略：先优化聚合查询与序列化，不引入复杂缓存
+4. 超预算降级策略：先优化事实表查询、连接复用与序列化，不引入复杂缓存
 
 ---
 
 ## 9. 测试门禁
 
 1. 单元测试：
-   - 指标计数与 `redRate` 计算
-   - `1m/3m` 固定点数切片
-   - `pct_chg is null` 样本不计入上/下/平
+   - DTO 包含 `totalCount` 与完整 `distributionBuckets`；
+   - `1m/3m` 固定点数切片；
+   - 当前 UI 只使用 up/down/flat/total/redRate，不渲染分桶图；
+   - 本模块查询层不再通过 `equity_daily_bar.pct_chg` 聚合业务指标。
 2. 集成测试：
-   - 正常/延迟/空/错误四态
+   - 正常/延迟/空/错误四态；
+   - ClickHouse 查询失败进入模块 error；
+   - 不回退旧聚合路径。
 3. 冒烟测试：
-   - 前端 `RangeSwitch` 可切 `1个月/3个月`
-   - 双趋势线（上涨/下跌）可渲染
-   - 真实源请求 pending 时显示 loading（不展示 mock breadth）
-   - 真实源请求超过 5 秒显示 error
-   - 平盘家数卡片副文案显示 `平盘率 x%`
-   - 纵轴刻度固定 `0/1500/3000/4500/6000`，且不出现负值刻度
+   - 前端 `RangeSwitch` 可切 `1个月/3个月`；
+   - 双趋势线（上涨/下跌）可渲染；
+   - 真实源请求 pending 时显示 loading（不展示 mock breadth）；
+   - 真实源请求超过 5 秒显示 error；
+   - 平盘家数卡片副文案显示 `平盘率 x%`；
+   - 纵轴刻度固定 `0/1500/3000/4500/6000`，且不出现负值刻度。
 4. debug 模式验证：
    - `debug=1` 返回明细；
    - 生产环境禁用 debug 输出。
 5. 渐进替换约束验证：
-   - 仅 `breadth` source 发生变化；
+   - 仅 `breadth` 事实源发生变化；
    - 非目标模块 source 与行为不变。
 
 ---
@@ -254,21 +342,24 @@ interface BreadthResponseData {
 
 ### 10.1 后端负责人
 
-1. [ ] 查询草案可实现
-2. [ ] 状态归并无歧义
-3. [ ] 异常覆盖完整
+1. [ ] ClickHouse 只读 client/config/test double 可实现
+2. [ ] 查询草案可实现
+3. [ ] 状态归并无歧义
+4. [ ] 异常覆盖完整
 
 ### 10.2 前端负责人
 
 1. [ ] 响应结构可消费
-2. [ ] 现有面板无需改样式可接入
-3. [ ] 空态/延迟态可表达
+2. [ ] 前端 DTO 可接收分桶字段
+3. [ ] 现有面板无需改样式可接入
+4. [ ] 空态/延迟态可表达
 
 ### 10.3 架构/产品负责人
 
 1. [ ] 范围未扩散
 2. [ ] 语义与当前页面一致
-3. [ ] 可进入编码阶段
+3. [ ] 分桶字段仅预埋、不渲染的口径确认
+4. [ ] 可进入编码阶段
 
 ---
 
@@ -279,3 +370,4 @@ interface BreadthResponseData {
 | v1 | 2026-05-08 | 首版：冻结涨跌分布模块编码门禁 | Codex |
 | v1.1 | 2026-05-09 | 对齐模块交付清单：新增真实源加载态/5 秒超时门禁与单模块 source 渐进替换门禁 | Codex |
 | v1.2 | 2026-05-09 | 对齐实现修复：新增平盘率副文案门禁与固定纵轴刻度门禁 | Codex |
+| v1.3 | 2026-06-05 | 门禁切到 ClickHouse 事实表口径；新增分桶字段 DTO、旧聚合路径禁用与 ClickHouse 连接门禁 | Codex |
