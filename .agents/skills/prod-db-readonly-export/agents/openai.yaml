@@ -1,0 +1,8 @@
+interface:
+  display_name: "Prod DB Readonly Export"
+  short_description: "生产库只读审计导出和字段投影门禁"
+  default_prompt: "Use $prod-db-readonly-export to plan a bounded read-only production database check."
+
+policy:
+  allow_implicit_invocation: true
+

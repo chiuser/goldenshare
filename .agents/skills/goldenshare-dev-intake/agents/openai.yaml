@@ -1,0 +1,8 @@
+interface:
+  display_name: "Goldenshare Dev Intake"
+  short_description: "开发前目标依据范围影响面和验证门禁"
+  default_prompt: "Use $goldenshare-dev-intake to prepare the development intake for this Goldenshare task."
+
+policy:
+  allow_implicit_invocation: true
+

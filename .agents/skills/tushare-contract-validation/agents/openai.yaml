@@ -1,0 +1,8 @@
+interface:
+  display_name: "Tushare Contract Validation"
+  short_description: "Tushare参数字段分页日期语义实测门禁"
+  default_prompt: "Use $tushare-contract-validation to validate the Tushare contract for this change."
+
+policy:
+  allow_implicit_invocation: true
+

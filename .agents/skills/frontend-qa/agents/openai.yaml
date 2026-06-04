@@ -1,0 +1,8 @@
+interface:
+  display_name: "Frontend QA"
+  short_description: "前端类型构建浏览器和数据页性能验收"
+  default_prompt: "Use $frontend-qa to validate this Goldenshare frontend change."
+
+policy:
+  allow_implicit_invocation: true
+

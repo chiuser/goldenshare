@@ -1,0 +1,8 @@
+interface:
+  display_name: "Lake Dataset Onboarding"
+  short_description: "Lake同步导出DuckDB和Parquet性能门禁"
+  default_prompt: "Use $lake-dataset-onboarding to plan and validate this Goldenshare Lake dataset task."
+
+policy:
+  allow_implicit_invocation: true
+
