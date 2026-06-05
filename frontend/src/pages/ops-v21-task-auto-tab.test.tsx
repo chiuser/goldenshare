@@ -6,6 +6,7 @@ import {
   actionSupportsTriggerDaySingleRangePolicy,
   buildCronExpression,
   formatProbeConditionLabel,
+  formatProbeRunCount,
   formatScheduleRule,
   getScheduleTimeFieldLabel,
   hasRequiredVisibleParameters,
@@ -186,6 +187,8 @@ describe("自动任务日期策略", () => {
     expect(actionSupportsRemoteStkMinsProbe("workflow", "stk_mins.maintain")).toBe(false);
     expect(formatProbeConditionLabel("remote_stk_mins_ready")).toBe("源站已有分钟行情");
     expect(formatProbeConditionLabel("freshness_latest_open")).toBe("最新业务日命中最新交易日");
+    expect(formatProbeRunCount(4)).toBe("已探测：4 次");
+    expect(formatProbeRunCount(undefined)).toBe("已探测：—");
   });
 
   it("hides schedule timing fields for pure probe and relabels fallback timing", () => {

@@ -26,6 +26,7 @@ import { apiRequest } from "../shared/api/client";
 import type {
   OpsCatalogResponse,
   ProbeRuleListResponse,
+  ProbeRunLogListResponse,
   ScheduleDetailResponse,
   ScheduleListResponse,
   SchedulePreviewResponse,
@@ -346,6 +347,10 @@ function formatTriggerModeLabel(triggerMode: string): string {
 export function formatProbeConditionLabel(conditionKind: string | null | undefined): string {
   if (conditionKind === REMOTE_STK_MINS_READY_CONDITION) return "源站已有分钟行情";
   return "最新业务日命中最新交易日";
+}
+
+export function formatProbeRunCount(count: number | null | undefined): string {
+  return typeof count === "number" ? `已探测：${count} 次` : "已探测：—";
 }
 
 export function actionSupportsRemoteStkMinsProbe(actionType: string, actionKey: string): boolean {
@@ -669,6 +674,25 @@ export function OpsAutomationPage() {
     queryKey: ["ops", "schedule-probes", selectedScheduleId],
     queryFn: () => apiRequest<ProbeRuleListResponse>(`/api/v1/ops/probes?schedule_id=${selectedScheduleId}&limit=50`),
     enabled: Boolean(selectedScheduleId),
+  });
+  const probeRuleIdsKey = useMemo(
+    () => (probeRulesQuery.data?.items || []).map((item) => item.id).sort((a, b) => a - b).join(","),
+    [probeRulesQuery.data?.items],
+  );
+  const probeRunCountsQuery = useQuery({
+    queryKey: ["ops", "schedule-probe-run-counts", selectedScheduleId, probeRuleIdsKey],
+    queryFn: async () => {
+      const rules = probeRulesQuery.data?.items || [];
+      const pairs = await Promise.all(
+        rules.map(async (rule) => {
+          const response = await apiRequest<ProbeRunLogListResponse>(`/api/v1/ops/probes/${rule.id}/runs?limit=1`);
+          return [rule.id, response.total] as const;
+        }),
+      );
+      return Object.fromEntries(pairs) as Record<number, number>;
+    },
+    enabled: Boolean(selectedScheduleId && probeRulesQuery.data?.items?.length),
+    refetchOnWindowFocus: false,
   });
 
   const actionItems = useMemo(() => {
@@ -1500,6 +1524,9 @@ export function OpsAutomationPage() {
                             <Text size="sm">{rule.dataset_display_name}</Text>
                             <Group gap={6}>
                               <StatusBadge value={rule.status} />
+                              <Text size="xs" c="dimmed">
+                                {formatProbeRunCount(probeRunCountsQuery.data?.[rule.id])}
+                              </Text>
                               <Text size="xs" c="dimmed">最近探测：{formatDateTimeLabel(rule.last_probed_at)}</Text>
                               <Text size="xs" c="dimmed">最近命中：{formatDateTimeLabel(rule.last_triggered_at)}</Text>
                             </Group>

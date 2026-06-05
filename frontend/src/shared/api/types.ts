@@ -675,6 +675,22 @@ export interface ProbeRuleListResponse {
   total: number;
 }
 
+export interface ProbeRunLogListResponse {
+  items: Array<{
+    id: number;
+    probe_rule_id: number;
+    status: string;
+    condition_matched: boolean;
+    message: string | null;
+    probed_at: string;
+    triggered_task_run_id: number | null;
+    duration_ms: number | null;
+    result_code: string | null;
+    result_reason: string | null;
+  }>;
+  total: number;
+}
+
 export interface ResolutionReleaseListResponse {
   items: Array<{
     id: number;
