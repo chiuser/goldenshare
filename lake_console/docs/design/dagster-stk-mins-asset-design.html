@@ -1205,7 +1205,7 @@ ops:
       gold 是计算结果，不回写 raw/silver，也不覆盖原始 clean_next。
       本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper、M8A gold assets、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 job/sensor、M9B factor repair detection 契约、M9C/M9D factor repair job/sensor、M9E factor repair 批量写回性能修正，以及 M11 90/120 派生 qfq assets 均已实现代码口径。
       正式历史 gold qfq 物理文件和 Dagster event log 已完成对齐：五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。
-      M11F 已实现 90/120 历史直写补录与 runless event 专用 CLI；正式补录尚未执行，后续必须按 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 的 dry-run、sample、full、final audit 流程单独审批推进。
+      M11F 已实现 90/120 历史直写补录与 runless event 专用 CLI；M11G 已将年度 event 补录后的复核修正为 quick audit，后续必须按 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 的 dry-run、sample、full file generation、event report、quick audit、final full audit 流程单独审批推进，禁止每年重复 full audit 扫描持续变大的 check event history。
       M9C/M11 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets 上。该 job 与 <code>stock_mins_qfq_factor_repair_sensor</code> 默认停止，正式启用或执行 repair run 仍需单独审批。
       任何新的正式写湖、Dagster job、sensor、backfill、repair 或 event 补录动作仍需单独审批。
     </p>

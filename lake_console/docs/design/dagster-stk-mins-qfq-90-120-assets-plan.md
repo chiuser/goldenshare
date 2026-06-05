@@ -1,6 +1,6 @@
 # M11: Gold stk_mins qfq 90/120 分钟资产设计方案
 
-状态：已实现代码口径；M11F 历史直写补录工具链已实现，正式补录执行待单独审批
+状态：已实现代码口径；M11F 历史直写补录工具链已实现；M11G 已将年度 event 补录后的复核口径修正为 quick audit，最终收口才执行 full audit
 日期：2026-06-05  
 范围：`lake_console/orchestrator` 正式 Dagster 新湖  
 
@@ -23,7 +23,7 @@
 1. `90/120` 并入同一个 `dataset_id=stk_mins_qfq`，不拆新的 `stk_mins_qfq_derived` dataset id。
 2. `stock_mins_qfq_daily_update_job` 和 `stock_mins_qfq_daily_sensor` 扩展为七频度 qfq：`1/5/15/30/60/90/120`。
 3. `stock_mins_qfq_factor_repair_job` 在 repair 30/60 后必须同步重建受影响的 90/120，避免派生频度滞后。
-4. M11 已完成 90/120 资产、契约和测试；M11F 已新增 derived 专用历史直写补录与 runless event helper/CLI，正式补录执行仍需单独审批并按 dry-run/sample/full/audit 流程推进。
+4. M11 已完成 90/120 资产、契约和测试；M11F 已新增 derived 专用历史直写补录与 runless event helper/CLI，正式补录执行仍需单独审批。M11G 后，年度 event 补录批次按 `dry-run -> report -> quick audit` 推进，全部年份完成后再执行一次 `full audit`。
 5. 90/120 使用 derived 专属 check name，不复用 native qfq 的 silver/adj_factor 对账 check name。
 
 ## 2. 依据与旧湖口径
@@ -295,7 +295,7 @@ M11 第一版必须同步扩展 repair：
 
 ## 11. 历史初始化
 
-历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。M11F 已实现 derived 专用工具链，但尚未执行正式补录；正式执行必须先 dry-run 审计规模，再 sample 写临时湖，最后按审批进入正式湖直写和 runless event 补录。
+历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。M11F 已实现 derived 专用工具链；正式执行必须先 dry-run 审计规模，再 sample 写临时湖，最后按审批进入正式湖直写和 runless event 补录。M11G 后，runless event 补录的年度批次复核必须使用 quick audit，避免每年重复扫描持续变大的 check event history。
 
 注意：补录流程的性能评估阶段只能只读统计正式 lake 数据，不允许任何写入动作。下列 sample/full 写入步骤只属于后续补录执行方案，经单独审批后才允许进入。
 
@@ -314,7 +314,9 @@ M11 第一版必须同步扩展 repair：
    - 复用 qfq stock-year writer。
 4. runless event backfill
    - 只为文件事实和 checks 全绿的 partitions 补 materialization/check events。
-   - 用聚合 event count 和样本 readiness 验收。
+   - 每个 `target_freq/year` 批次执行 `report-gold-qfq-derived-events --dry-run`；dry-run 的 `failed_partition_count=0` 后再执行正式 report。
+   - 年度批次写完后执行 `audit-gold-qfq-derived-final --mode quick`，只看文件事实、materialized partition counts 和样本 readiness，不扫全量 check event history。
+   - 全部年份完成后，只执行一次 `audit-gold-qfq-derived-final --mode full` 做最终 check success counts 收口。
 
 禁止上千分区逐个 Dagster backfill，也禁止逐 partition 深扫 event history 作为主验收。
 
@@ -350,7 +352,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 
 ### 12.3 M11F 历史补录性能门禁
 
-历史 90/120 补录工具链已在 M11F 实现；正式补录执行仍必须先通过只读规模评估，并按受控 CLI 的 dry-run / sample / full / final audit 顺序推进。
+历史 90/120 补录工具链已在 M11F 实现；正式补录执行仍必须先通过只读规模评估，并按受控 CLI 的 dry-run / sample / full file generation / event report / quick audit / final full audit 顺序推进。M11G 后不得在每个年度批次后执行 full audit。
 
 | 项 | 口径 |
 | --- | --- |
@@ -363,7 +365,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 | write granularity | 后续执行阶段才允许写；写入仍按 stock-year 原子替换 |
 | retry cost | 失败重跑以 `target_freq/year` 或 approved batch 为单位，不得 date * stock 小循环 |
 | disk space | 补录方案必须估算新增 parquet 大小与临时空间 |
-| event backfill | 只用聚合 event count 和样本 readiness，禁止全量逐 partition 深扫 event history |
+| event backfill | 年度批次后只做 quick audit；只用文件事实、materialized partition counts 和样本 readiness，禁止每年重复 full audit 或逐 partition 深扫 event history |
 | 拒绝策略 | 只读评估无法给出 date/object/row/file 上界，或实现需要 per-stock 主循环时，停止开发并重设方案 |
 
 ## 13. 实施步骤
@@ -407,7 +409,8 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 1. 已新增 derived 专用历史生成 helper/CLI：`plan-gold-qfq-derived-history` 与 `generate-gold-qfq-derived-history`。
 2. 已新增 derived 专用 runless event helper/CLI：`plan-gold-qfq-derived-events`、`report-gold-qfq-derived-events`、`audit-gold-qfq-derived-final`。
 3. helper 只允许 `90/120`，按 `target_freq/year` 批次规划，默认拒绝已有目标 stock-year 文件；不注册 asset/job/sensor/check，不新增 summary entity。
-4. 本轮不执行正式历史直写补录；正式执行前仍需 dry-run 规模审计、临时湖 sample、正式湖写入审批和正式 Dagster event 补录审批。
+4. M11G 已给 `audit-gold-qfq-derived-final` 增加 `--mode full|quick`：默认 `full` 保持全量 check success count；`quick` 跳过 check event history 扫描，输出 `check_success_counts={}` 与 `check_success_counts_skipped=True`。
+5. `report-gold-qfq-derived-events` 的 dry-run 和正式 report 路径不再计算 `check_success_counts`；年度补录后只能用 quick audit 轻量复核，全部年份结束后再跑一次 full audit。
 
 ## 14. Test Plan
 

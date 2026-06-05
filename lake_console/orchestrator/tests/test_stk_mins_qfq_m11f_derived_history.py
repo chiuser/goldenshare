@@ -11,6 +11,9 @@ import dagster as dg
 import duckdb
 
 from orchestrator.defs.bootstrap import stk_mins_migration_cli
+from orchestrator.defs.bootstrap import (
+    stk_mins_qfq_derived_bootstrap_events as derived_events,
+)
 from orchestrator.defs.bootstrap.stk_mins_qfq_derived_bootstrap_events import (
     GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS,
     GOLD_STK_MINS_QFQ_DERIVED_CHECKS,
@@ -414,6 +417,46 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
         self.assertEqual(second.reported_event_count, 0)
         self.assertEqual(second.skipped_ready_asset_partitions, ((90, DATE_1),))
 
+    def test_report_events_skip_check_success_counts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            generate_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1],
+                freqs=[90],
+            )
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(
+                cn_a_stock_mins_silver_trade_days.name,
+                [DATE_1],
+            )
+
+            with patch.object(
+                derived_events,
+                "_check_success_count",
+                side_effect=AssertionError("report path must not scan check history"),
+            ):
+                dry_run = report_stk_mins_qfq_derived_bootstrap_events(
+                    instance=instance,
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    registered_partition_keys=[DATE_1],
+                    freqs=[90],
+                    dry_run=True,
+                )
+                report = report_stk_mins_qfq_derived_bootstrap_events(
+                    instance=instance,
+                    lake_root=lake_root,
+                    duckdb=DuckDBResource(),
+                    registered_partition_keys=[DATE_1],
+                    freqs=[90],
+                )
+
+        self.assertEqual(dry_run.reported_event_count, 0)
+        self.assertEqual(report.reported_event_count, 9)
+
     def test_bad_derived_formula_blocks_green_events(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
@@ -477,11 +520,51 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
         self.assertEqual(final.selected_partition_count, 1)
         self.assertEqual(final.materialized_partition_counts, {90: 1})
+        self.assertFalse(final.check_success_counts_skipped)
         self.assertTrue(final.sample_readiness[f"90:{DATE_1}"])
         self.assertEqual(
             len(final.check_success_counts),
             len(GOLD_STK_MINS_QFQ_DERIVED_CHECKS),
         )
+
+    def test_quick_final_audit_skips_check_success_counts(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_valid_derived_sources(lake_root)
+            generate_stk_mins_qfq_derived_history(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                registered_partition_keys=[DATE_1],
+                freqs=[90],
+            )
+            instance = dg.DagsterInstance.ephemeral()
+            report_stk_mins_qfq_derived_bootstrap_events(
+                instance=instance,
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                registered_partition_keys=[DATE_1],
+                freqs=[90],
+            )
+
+            with patch.object(
+                derived_events,
+                "_check_success_count",
+                side_effect=AssertionError("quick audit must not scan check history"),
+            ):
+                final = audit_stk_mins_qfq_derived_final_state(
+                    instance=instance,
+                    lake_root=lake_root,
+                    registered_partition_keys=[DATE_1],
+                    freqs=[90],
+                    duckdb_resource=DuckDBResource(),
+                    include_check_success_counts=False,
+                )
+
+        self.assertEqual(final.selected_partition_count, 1)
+        self.assertEqual(final.materialized_partition_counts, {90: 1})
+        self.assertTrue(final.check_success_counts_skipped)
+        self.assertEqual(final.check_success_counts, {})
+        self.assertTrue(final.sample_readiness[f"90:{DATE_1}"])
 
     def test_cli_derived_plan_generate_report_and_audit_commands(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -554,10 +637,28 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                         "90",
                     ]
                 )
+                stk_mins_migration_cli.main(
+                    [
+                        "audit-gold-qfq-derived-final",
+                        "--lake-root",
+                        str(lake_root),
+                        "--partition-keys",
+                        DATE_1,
+                        "--freqs",
+                        "90",
+                        "--mode",
+                        "quick",
+                    ]
+                )
 
         output = buffer.getvalue()
         self.assertIn("'selected_target_freqs': [90]", output)
         self.assertIn("'reported_event_count': 9", output)
+        self.assertIn("'audit_mode': 'full'", output)
+        self.assertIn("'check_success_counts_skipped': False", output)
+        self.assertIn("'audit_mode': 'quick'", output)
+        self.assertIn("'check_success_counts_skipped': True", output)
+        self.assertIn("'check_success_counts': {}", output)
         self.assertIn("'sample_readiness': {'90:2014-06-03': True}", output)
 
 

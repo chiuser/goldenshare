@@ -105,6 +105,7 @@ class StkMinsQfqDerivedFinalAuditReport:
     missing_input_count: int
     materialized_partition_counts: Mapping[int, int]
     check_success_counts: Mapping[str, int]
+    check_success_counts_skipped: bool
     sample_readiness: Mapping[str, bool]
 
 
@@ -119,6 +120,7 @@ def plan_stk_mins_qfq_derived_bootstrap_events(
     freqs: Sequence[int | str] | None = None,
     years: Sequence[int | str] | None = None,
     duckdb_resource: DuckDBResource | None = None,
+    include_check_success_counts: bool = True,
 ) -> StkMinsQfqDerivedBootstrapEventPlan:
     """Plan derived gold qfq runless events without per-partition deep scans."""
 
@@ -143,14 +145,15 @@ def plan_stk_mins_qfq_derived_bootstrap_events(
         if freq in history_plan.selected_target_freqs
     }
     check_counts: dict[str, int] = {}
-    for freq in history_plan.selected_target_freqs:
-        asset_key = GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS[freq]
-        for check_name in GOLD_STK_MINS_QFQ_DERIVED_CHECKS:
-            key = f"{asset_key.to_user_string()}:{check_name}"
-            check_counts[key] = _check_success_count(
-                instance,
-                dg.AssetCheckKey(asset_key, check_name),
-            )
+    if include_check_success_counts:
+        for freq in history_plan.selected_target_freqs:
+            asset_key = GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS[freq]
+            for check_name in GOLD_STK_MINS_QFQ_DERIVED_CHECKS:
+                key = f"{asset_key.to_user_string()}:{check_name}"
+                check_counts[key] = _check_success_count(
+                    instance,
+                    dg.AssetCheckKey(asset_key, check_name),
+                )
     return StkMinsQfqDerivedBootstrapEventPlan(
         selected_partition_keys=history_plan.selected_partition_keys,
         selected_target_freqs=history_plan.selected_target_freqs,
@@ -193,6 +196,7 @@ def report_stk_mins_qfq_derived_bootstrap_events(
         freqs=freqs,
         years=years,
         duckdb_resource=duckdb,
+        include_check_success_counts=False,
     )
     if plan.missing_input_count:
         raise FileNotFoundError(
@@ -430,6 +434,7 @@ def audit_stk_mins_qfq_derived_final_state(
     freqs: Sequence[int | str] | None = None,
     years: Sequence[int | str] | None = None,
     duckdb_resource: DuckDBResource | None = None,
+    include_check_success_counts: bool = True,
 ) -> StkMinsQfqDerivedFinalAuditReport:
     plan = plan_stk_mins_qfq_derived_bootstrap_events(
         instance=instance,
@@ -441,6 +446,7 @@ def audit_stk_mins_qfq_derived_final_state(
         freqs=freqs,
         years=years,
         duckdb_resource=duckdb_resource,
+        include_check_success_counts=include_check_success_counts,
     )
     sample_readiness: dict[str, bool] = {}
     for partition_key in _sample_partition_keys(plan.selected_partition_keys):
@@ -464,6 +470,7 @@ def audit_stk_mins_qfq_derived_final_state(
         missing_input_count=plan.missing_input_count,
         materialized_partition_counts=plan.materialized_partition_counts,
         check_success_counts=plan.check_success_counts,
+        check_success_counts_skipped=not include_check_success_counts,
         sample_readiness=sample_readiness,
     )
 

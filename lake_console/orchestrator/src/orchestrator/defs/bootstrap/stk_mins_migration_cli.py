@@ -167,6 +167,11 @@ def main(argv: list[str] | None = None) -> None:
     )
     audit_gold_qfq_derived_final.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
     _add_gold_qfq_history_selection(audit_gold_qfq_derived_final)
+    audit_gold_qfq_derived_final.add_argument(
+        "--mode",
+        choices=("full", "quick"),
+        default="full",
+    )
 
     args = parser.parse_args(argv)
     if args.command == "dry-run":
@@ -607,9 +612,11 @@ def main(argv: list[str] | None = None) -> None:
             freqs=_optional_csv_values(args.freqs),
             years=_optional_csv_values(args.years),
             duckdb_resource=DuckDBResource(),
+            include_check_success_counts=args.mode == "full",
         )
         print(
             {
+                "audit_mode": args.mode,
                 "selected_partition_count": report.selected_partition_count,
                 "selected_target_freqs": list(report.selected_target_freqs),
                 "planned_source_file_count": report.planned_source_file_count,
@@ -620,6 +627,7 @@ def main(argv: list[str] | None = None) -> None:
                 "materialized_partition_counts": dict(
                     report.materialized_partition_counts
                 ),
+                "check_success_counts_skipped": report.check_success_counts_skipped,
                 "check_success_counts": dict(report.check_success_counts),
                 "sample_readiness": dict(report.sample_readiness),
             }
