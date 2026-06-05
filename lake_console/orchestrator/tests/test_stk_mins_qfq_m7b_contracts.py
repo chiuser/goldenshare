@@ -35,7 +35,7 @@ class StkMinsQfqM7BContractTests(unittest.TestCase):
         )
 
     def test_gold_qfq_path_rejects_invalid_inputs(self) -> None:
-        with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
+        with self.assertRaisesRegex(ValueError, "Unsupported stk_mins qfq freq"):
             gold_stk_mins_qfq_path(Path("data_lake"), 2, "600000.SH", 2026)
         with self.assertRaisesRegex(ValueError, "ts_code must be non-empty"):
             gold_stk_mins_qfq_path(Path("data_lake"), 5, "", 2026)

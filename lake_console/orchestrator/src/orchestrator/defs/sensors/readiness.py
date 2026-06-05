@@ -134,6 +134,16 @@ GOLD_STK_MINS_QFQ_CHECKS = (
     "gold_stk_mins_qfq_factor_coverage_complete",
     "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
 )
+GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
+    "gold_stk_mins_qfq_file_exists_and_row_count_positive",
+    "gold_stk_mins_qfq_schema_matches_contract",
+    "gold_stk_mins_qfq_freq_date_path_match",
+    "gold_stk_mins_qfq_unique_ts_code_trade_time",
+    "gold_stk_mins_qfq_price_sanity",
+    "gold_stk_mins_qfq_derived_source_ready",
+    "gold_stk_mins_qfq_derived_row_count_matches_source_windows",
+    "gold_stk_mins_qfq_derived_formula_matches_source",
+)
 SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (
     "silver_adj_factor_coverage_complete",
     "silver_adj_factor_file_exists",
@@ -214,6 +224,10 @@ GOLD_STK_MINS_QFQ_ASSET_KEYS = (
     dg.AssetKey("gold_stk_mins_qfq_30m"),
     dg.AssetKey("gold_stk_mins_qfq_60m"),
 )
+GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS = (
+    dg.AssetKey("gold_stk_mins_qfq_90m"),
+    dg.AssetKey("gold_stk_mins_qfq_120m"),
+)
 RAW_INDEX_DAILY_BY_CODE_ASSET_KEY = dg.AssetKey("raw_tushare_index_daily_by_code")
 SILVER_INDEX_DAILY_ASSET_KEY = dg.AssetKey("silver_index_daily")
 SILVER_INDEX_BASIC_ASSET_KEY = dg.AssetKey("silver_index_basic")
@@ -292,9 +306,17 @@ SILVER_STK_MINS_READINESS_SPECS = tuple(
     AssetReadinessSpec(asset_key, SILVER_STK_MINS_CHECKS)
     for asset_key in SILVER_STK_MINS_ASSET_KEYS
 )
-GOLD_STK_MINS_QFQ_READINESS_SPECS = tuple(
+GOLD_STK_MINS_QFQ_NATIVE_READINESS_SPECS = tuple(
     AssetReadinessSpec(asset_key, GOLD_STK_MINS_QFQ_CHECKS)
     for asset_key in GOLD_STK_MINS_QFQ_ASSET_KEYS
+)
+GOLD_STK_MINS_QFQ_DERIVED_READINESS_SPECS = tuple(
+    AssetReadinessSpec(asset_key, GOLD_STK_MINS_QFQ_DERIVED_CHECKS)
+    for asset_key in GOLD_STK_MINS_QFQ_DERIVED_ASSET_KEYS
+)
+GOLD_STK_MINS_QFQ_READINESS_SPECS = (
+    GOLD_STK_MINS_QFQ_NATIVE_READINESS_SPECS
+    + GOLD_STK_MINS_QFQ_DERIVED_READINESS_SPECS
 )
 RAW_INDEX_DAILY_BY_CODE_READINESS_SPEC = AssetReadinessSpec(
     RAW_INDEX_DAILY_BY_CODE_ASSET_KEY,

@@ -30,8 +30,14 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_FREQS,
+    STK_MINS_QFQ_DERIVED_FREQS,
+    STK_MINS_QFQ_FREQS,
+    STK_MINS_QFQ_NATIVE_FREQS,
+    STK_MINS_SOURCE_FREQS,
     derive_silver_stk_mins_exchange_from_ts_code,
     normalize_stk_mins_freq,
+    normalize_stk_mins_qfq_freq,
+    qfq_source_freq_for_derived_freq,
 )
 
 
@@ -93,12 +99,26 @@ class StkMinsContractTests(unittest.TestCase):
 
     def test_stk_mins_frequency_contract_is_stable(self) -> None:
         self.assertEqual(STK_MINS_FREQS, (1, 5, 15, 30, 60))
+        self.assertEqual(STK_MINS_SOURCE_FREQS, (1, 5, 15, 30, 60))
         self.assertEqual(normalize_stk_mins_freq(30), 30)
         self.assertEqual(normalize_stk_mins_freq("30"), 30)
         with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
             normalize_stk_mins_freq(2)
         with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
             normalize_stk_mins_freq("30min")
+
+    def test_qfq_frequency_contract_allows_derived_freqs_only_for_qfq(self) -> None:
+        self.assertEqual(STK_MINS_QFQ_NATIVE_FREQS, (1, 5, 15, 30, 60))
+        self.assertEqual(STK_MINS_QFQ_DERIVED_FREQS, (90, 120))
+        self.assertEqual(STK_MINS_QFQ_FREQS, (1, 5, 15, 30, 60, 90, 120))
+        self.assertEqual(normalize_stk_mins_qfq_freq("90"), 90)
+        self.assertEqual(normalize_stk_mins_qfq_freq(120), 120)
+        self.assertEqual(qfq_source_freq_for_derived_freq(90), 30)
+        self.assertEqual(qfq_source_freq_for_derived_freq("120"), 60)
+        with self.assertRaisesRegex(ValueError, "Unsupported stk_mins freq"):
+            normalize_stk_mins_freq(90)
+        with self.assertRaisesRegex(ValueError, "Unsupported derived stk_mins qfq freq"):
+            qfq_source_freq_for_derived_freq(30)
 
     def test_stk_mins_catalog_names_are_registered(self) -> None:
         self.assertEqual(DATASET_CHINESE_NAMES["stk_mins"], "股票分钟线")

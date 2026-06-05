@@ -1,6 +1,9 @@
 from pathlib import Path
 
-from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
+from orchestrator.defs.run_contracts.stk_mins import (
+    normalize_stk_mins_freq,
+    normalize_stk_mins_qfq_freq,
+)
 
 DEFAULT_LAKE_ROOT = "/Volumes/datasource/data_lake"
 PATH_TEMPLATE_LAKE_ROOT = Path("data_lake")
@@ -125,7 +128,7 @@ def gold_stk_mins_qfq_path(root: Path, freq: int | str, ts_code: str, year: int 
         GOLD,
         "quote",
         "stk_mins_qfq",
-        f"freq={normalize_stk_mins_freq(freq)}",
+        f"freq={normalize_stk_mins_qfq_freq(freq)}",
         _gold_stk_mins_qfq_ts_code_part(ts_code),
         _gold_stk_mins_qfq_year_part(year),
         "part-000.parquet",

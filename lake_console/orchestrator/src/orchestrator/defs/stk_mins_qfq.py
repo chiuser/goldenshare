@@ -13,7 +13,11 @@ from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, r
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
 from orchestrator.defs.run_contracts.asset_column_schemas import GOLD_STK_MINS_QFQ_SCHEMA
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
-from orchestrator.defs.run_contracts.stk_mins import normalize_stk_mins_freq
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_QFQ_DERIVED_FREQS,
+    normalize_stk_mins_qfq_freq,
+    qfq_source_freq_for_derived_freq,
+)
 
 
 GOLD_STK_MINS_QFQ_COLUMNS = tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA)
@@ -35,6 +39,24 @@ QFQ_FACTOR_REPAIR_REASONS = (
     QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
 )
 QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
+GOLD_STK_MINS_QFQ_DERIVED_WINDOWS = {
+    90: (
+        ("10:00:00", 1, "11:00:00"),
+        ("10:30:00", 1, "11:00:00"),
+        ("11:00:00", 1, "11:00:00"),
+        ("11:30:00", 2, "14:00:00"),
+        ("13:30:00", 2, "14:00:00"),
+        ("14:00:00", 2, "14:00:00"),
+        ("14:30:00", 3, "15:00:00"),
+        ("15:00:00", 3, "15:00:00"),
+    ),
+    120: (
+        ("09:30:00", 1, "10:30:00"),
+        ("10:30:00", 1, "10:30:00"),
+        ("11:30:00", 2, "14:00:00"),
+        ("14:00:00", 2, "14:00:00"),
+    ),
+}
 
 
 @dataclass(frozen=True)
@@ -44,6 +66,18 @@ class GoldStkMinsQfqWriteResult:
     year: str
     row_count: int
     replacement_row_count: int
+
+
+@dataclass(frozen=True)
+class GoldStkMinsQfqDerivedDiagnostics:
+    source_freq: int
+    target_freq: int
+    source_row_count: int
+    source_stock_day_count: int
+    expected_window_count: int
+    generated_window_count: int
+    incomplete_window_count: int
+    exchange_mismatch_window_count: int
 
 
 @dataclass(frozen=True)
@@ -200,6 +234,221 @@ FROM joined_rows
 """
 
 
+def build_gold_stk_mins_qfq_derived_select_sql(
+    *,
+    source_qfq_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+) -> str:
+    normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
+    if normalized_target_freq not in STK_MINS_QFQ_DERIVED_FREQS:
+        allowed = ", ".join(str(freq) for freq in STK_MINS_QFQ_DERIVED_FREQS)
+        raise ValueError(
+            "Gold stk_mins qfq derived select only supports derived freqs: "
+            f"{allowed}."
+        )
+    source_freq = qfq_source_freq_for_derived_freq(normalized_target_freq)
+    source = _read_parquet_paths(source_qfq_paths)
+    partition_dates_sql = _date_values_sql(_normalize_trade_dates(partition_keys))
+    stock_filter = ""
+    if stock_codes:
+        stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
+    window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
+    completion_predicate = _derived_window_completion_predicate(
+        normalized_target_freq,
+        source_row_count_column="source_row_count",
+        window_id_column="window_id",
+    )
+    return f"""
+WITH source_rows AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(freq AS INTEGER) AS freq,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(trade_time AS TIMESTAMP) AS trade_time,
+    CAST(open AS DOUBLE) AS open,
+    CAST(high AS DOUBLE) AS high,
+    CAST(low AS DOUBLE) AS low,
+    CAST(close AS DOUBLE) AS close,
+    CAST(vol AS DOUBLE) AS vol,
+    CAST(amount AS DOUBLE) AS amount,
+    CAST(exchange AS VARCHAR) AS exchange
+  FROM {source}
+  WHERE CAST(freq AS INTEGER) = {source_freq}
+    AND CAST(trade_date AS DATE) IN ({partition_dates_sql})
+    {stock_filter}
+),
+window_map AS (
+  {window_rows_sql}
+),
+windowed_rows AS (
+  SELECT
+    source_rows.*,
+    window_map.window_id,
+    window_map.target_time,
+    row_number() OVER (
+      PARTITION BY source_rows.ts_code, source_rows.trade_date, window_map.window_id
+      ORDER BY source_rows.trade_time
+    ) AS ascending_row_number,
+    row_number() OVER (
+      PARTITION BY source_rows.ts_code, source_rows.trade_date, window_map.window_id
+      ORDER BY source_rows.trade_time DESC
+    ) AS descending_row_number
+  FROM source_rows
+  INNER JOIN window_map
+    ON strftime(source_rows.trade_time, '%H:%M:%S') = window_map.source_time
+),
+aggregated_windows AS (
+  SELECT
+    ts_code,
+    {normalized_target_freq} AS freq,
+    trade_date,
+    max(trade_time) AS trade_time,
+    max(open) FILTER (WHERE ascending_row_number = 1) AS open,
+    max(close) FILTER (WHERE descending_row_number = 1) AS close,
+    max(high) AS high,
+    min(low) AS low,
+    sum(vol) AS vol,
+    sum(amount) AS amount,
+    max(exchange) AS exchange,
+    count(*) AS source_row_count,
+    count(DISTINCT exchange) AS exchange_count,
+    max(target_time) AS target_time,
+    max(window_id) AS window_id
+  FROM windowed_rows
+  GROUP BY ts_code, trade_date, window_id
+)
+SELECT
+  ts_code,
+  freq,
+  trade_date,
+  trade_time,
+  open,
+  high,
+  low,
+  close,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount,
+  exchange
+FROM aggregated_windows
+WHERE exchange_count = 1
+  AND strftime(trade_time, '%H:%M:%S') = target_time
+  AND ({completion_predicate})
+ORDER BY ts_code, trade_time
+"""
+
+
+def build_gold_stk_mins_qfq_derived_diagnostics_sql(
+    *,
+    source_qfq_paths: Sequence[Path],
+    target_freq: int | str,
+    partition_keys: Sequence[str],
+    stock_codes: Sequence[str] = (),
+) -> str:
+    normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
+    source_freq = qfq_source_freq_for_derived_freq(normalized_target_freq)
+    source = _read_parquet_paths(source_qfq_paths)
+    partition_dates_sql = _date_values_sql(_normalize_trade_dates(partition_keys))
+    stock_filter = ""
+    if stock_codes:
+        stock_filter = f"AND ts_code IN ({_string_values_sql(stock_codes)})"
+    window_rows_sql = _derived_window_rows_sql(normalized_target_freq)
+    completion_predicate = _derived_window_completion_predicate(
+        normalized_target_freq,
+        source_row_count_column="actual_windows.source_row_count",
+        window_id_column="expected_windows.window_id",
+    )
+    return f"""
+WITH source_rows AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(freq AS INTEGER) AS freq,
+    CAST(trade_date AS DATE) AS trade_date,
+    CAST(trade_time AS TIMESTAMP) AS trade_time,
+    CAST(exchange AS VARCHAR) AS exchange
+  FROM {source}
+  WHERE CAST(freq AS INTEGER) = {source_freq}
+    AND CAST(trade_date AS DATE) IN ({partition_dates_sql})
+    {stock_filter}
+),
+source_stock_days AS (
+  SELECT DISTINCT ts_code, trade_date
+  FROM source_rows
+),
+window_map AS (
+  {window_rows_sql}
+),
+expected_windows AS (
+  SELECT
+    source_stock_days.ts_code,
+    source_stock_days.trade_date,
+    window_map.window_id,
+    max(window_map.target_time) AS target_time,
+    count(*) AS expected_source_row_count
+  FROM source_stock_days
+  CROSS JOIN window_map
+  GROUP BY source_stock_days.ts_code, source_stock_days.trade_date, window_map.window_id
+),
+windowed_rows AS (
+  SELECT
+    source_rows.ts_code,
+    source_rows.trade_date,
+    source_rows.trade_time,
+    source_rows.exchange,
+    window_map.window_id,
+    window_map.target_time
+  FROM source_rows
+  INNER JOIN window_map
+    ON strftime(source_rows.trade_time, '%H:%M:%S') = window_map.source_time
+),
+actual_windows AS (
+  SELECT
+    ts_code,
+    trade_date,
+    window_id,
+    max(trade_time) AS trade_time,
+    max(target_time) AS target_time,
+    count(*) AS source_row_count,
+    count(DISTINCT exchange) AS exchange_count
+  FROM windowed_rows
+  GROUP BY ts_code, trade_date, window_id
+),
+window_status AS (
+  SELECT
+    expected_windows.ts_code,
+    expected_windows.trade_date,
+    expected_windows.window_id,
+    expected_windows.target_time,
+    expected_windows.expected_source_row_count,
+    coalesce(actual_windows.source_row_count, 0) AS source_row_count,
+    coalesce(actual_windows.exchange_count, 0) AS exchange_count,
+    actual_windows.trade_time,
+    actual_windows.source_row_count IS NOT NULL
+      AND strftime(actual_windows.trade_time, '%H:%M:%S') = expected_windows.target_time
+      AND ({completion_predicate}) AS generated
+  FROM expected_windows
+  LEFT JOIN actual_windows
+    ON expected_windows.ts_code = actual_windows.ts_code
+   AND expected_windows.trade_date = actual_windows.trade_date
+   AND expected_windows.window_id = actual_windows.window_id
+)
+SELECT
+  {source_freq} AS source_freq,
+  {normalized_target_freq} AS target_freq,
+  (SELECT count(*) FROM source_rows) AS source_row_count,
+  (SELECT count(*) FROM source_stock_days) AS source_stock_day_count,
+  count(*) AS expected_window_count,
+  count(*) FILTER (WHERE generated AND exchange_count = 1) AS generated_window_count,
+  count(*) FILTER (
+    WHERE source_row_count > 0
+      AND NOT generated
+  ) AS incomplete_window_count,
+  count(*) FILTER (WHERE exchange_count > 1) AS exchange_mismatch_window_count
+FROM window_status
+"""
+
+
 def build_adj_factor_changed_codes_sql(
     *,
     current_adj_factor_path: Path,
@@ -353,6 +602,14 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     planned_batch_count: int = 0,
     executed_batch_count: int = 0,
     non_empty_batch_count: int = 0,
+    derived_rewrite_required: bool = False,
+    derived_planned_batch_count: int = 0,
+    derived_executed_batch_count: int = 0,
+    derived_non_empty_batch_count: int = 0,
+    derived_rewritten_file_count: int = 0,
+    derived_rewritten_row_count: int = 0,
+    derived_repaired_code_count: int = 0,
+    derived_failed_code_count: int = 0,
 ) -> dict[str, Any]:
     for name, value in (
         ("repaired_code_count", repaired_code_count),
@@ -363,13 +620,24 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
         ("planned_batch_count", planned_batch_count),
         ("executed_batch_count", executed_batch_count),
         ("non_empty_batch_count", non_empty_batch_count),
+        ("derived_planned_batch_count", derived_planned_batch_count),
+        ("derived_executed_batch_count", derived_executed_batch_count),
+        ("derived_non_empty_batch_count", derived_non_empty_batch_count),
+        ("derived_rewritten_file_count", derived_rewritten_file_count),
+        ("derived_rewritten_row_count", derived_rewritten_row_count),
+        ("derived_repaired_code_count", derived_repaired_code_count),
+        ("derived_failed_code_count", derived_failed_code_count),
     ):
         if value < 0:
             raise ValueError(f"{name} must be non-negative.")
     return build_check_metadata(
         check_scope=CheckScope.RECONCILIATION,
         checked_row_count=plan.detected_change_code_count,
-        failed_row_count=plan.missing_previous_factor_code_count + failed_code_count,
+        failed_row_count=(
+            plan.missing_previous_factor_code_count
+            + failed_code_count
+            + derived_failed_code_count
+        ),
         extra_metadata={
             "reason": plan.reason,
             "trade_date": plan.trade_date,
@@ -385,6 +653,14 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
             "planned_batch_count": planned_batch_count,
             "executed_batch_count": executed_batch_count,
             "non_empty_batch_count": non_empty_batch_count,
+            "derived_rewrite_required": derived_rewrite_required,
+            "derived_planned_batch_count": derived_planned_batch_count,
+            "derived_executed_batch_count": derived_executed_batch_count,
+            "derived_non_empty_batch_count": derived_non_empty_batch_count,
+            "derived_rewritten_file_count": derived_rewritten_file_count,
+            "derived_rewritten_row_count": derived_rewritten_row_count,
+            "derived_repaired_code_count": derived_repaired_code_count,
+            "derived_failed_code_count": derived_failed_code_count,
             "repaired_file_samples": list(
                 repaired_file_samples[:QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT]
             ),
@@ -413,7 +689,7 @@ def write_gold_stk_mins_qfq_rows_to_year_files(
     fail_if_target_exists: bool = False,
     allow_empty_replacement: bool = False,
 ) -> tuple[GoldStkMinsQfqWriteResult, ...]:
-    normalized_freq = normalize_stk_mins_freq(freq)
+    normalized_freq = normalize_stk_mins_qfq_freq(freq)
     allowed_trade_dates = _normalize_trade_dates(replace_trade_dates)
     allowed_dates_sql = _date_values_sql(allowed_trade_dates)
 
@@ -778,6 +1054,52 @@ def _read_parquet_paths(paths: Sequence[Path]) -> str:
         return read_parquet(paths[0], hive_partitioning=False)
     path_list = ", ".join(duckdb_string(path) for path in paths)
     return f"read_parquet([{path_list}], hive_partitioning=false, union_by_name=true)"
+
+
+def _derived_window_rows_sql(target_freq: int) -> str:
+    rows = GOLD_STK_MINS_QFQ_DERIVED_WINDOWS.get(target_freq)
+    if rows is None:
+        allowed = ", ".join(str(freq) for freq in STK_MINS_QFQ_DERIVED_FREQS)
+        raise ValueError(f"Unsupported derived qfq freq: {target_freq}. Allowed: {allowed}.")
+    value_rows = ",\n    ".join(
+        "("
+        f"{duckdb_string(source_time)}, "
+        f"{window_id}, "
+        f"{duckdb_string(target_time)}"
+        ")"
+        for source_time, window_id, target_time in rows
+    )
+    return f"""
+  SELECT *
+  FROM (
+    VALUES
+    {value_rows}
+  ) AS rows(source_time, window_id, target_time)
+"""
+
+
+def _derived_window_completion_predicate(
+    target_freq: int,
+    *,
+    source_row_count_column: str,
+    window_id_column: str,
+) -> str:
+    if target_freq == 90:
+        return (
+            f"({source_row_count_column} = 3 OR "
+            f"({window_id_column} = 3 AND {source_row_count_column} = 2))"
+        )
+    if target_freq == 120:
+        return f"{source_row_count_column} = 2"
+    allowed = ", ".join(str(freq) for freq in STK_MINS_QFQ_DERIVED_FREQS)
+    raise ValueError(f"Unsupported derived qfq freq: {target_freq}. Allowed: {allowed}.")
+
+
+def _string_values_sql(values: Sequence[str]) -> str:
+    normalized_values = tuple(dict.fromkeys(str(value).strip() for value in values))
+    if not normalized_values:
+        raise ValueError("At least one string value is required.")
+    return ", ".join(duckdb_string(value) for value in normalized_values)
 
 
 def _validate_repair_detection_args(

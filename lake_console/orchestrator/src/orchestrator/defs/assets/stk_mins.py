@@ -78,10 +78,14 @@ from orchestrator.defs.run_contracts.configs import (
 )
 from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_freq,
+    normalize_stk_mins_qfq_freq,
+    qfq_source_freq_for_derived_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_COLUMNS,
     GOLD_STK_MINS_QFQ_WRITER_POOL,
+    build_gold_stk_mins_qfq_derived_diagnostics_sql,
+    build_gold_stk_mins_qfq_derived_select_sql,
     build_daily_qfq_coverage_sql,
     build_daily_qfq_select_sql,
     write_gold_stk_mins_qfq_rows_to_year_files,
@@ -244,6 +248,51 @@ class GoldStkMinsQfqPartitionWriteResult:
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
             "physical_layout": "freq_ts_code_year",
+        }
+
+
+@dataclass(frozen=True)
+class GoldStkMinsQfqDerivedPartitionWriteResult:
+    source_freq: int
+    source_file_count: int
+    output_root_path: Path
+    output_file_count: int
+    output_sample_file_paths: tuple[str, ...]
+    source_row_count: int
+    source_stock_day_count: int
+    expected_window_count: int
+    generated_window_count: int
+    incomplete_window_count: int
+    exchange_mismatch_window_count: int
+    replacement_row_count: int
+    observed_columns: tuple[str, ...]
+
+    @property
+    def row_count(self) -> int:
+        return self.generated_window_count
+
+    def materialization_extra_metadata(
+        self,
+        *,
+        partition_key: str,
+        freq: int,
+    ) -> dict[str, object]:
+        return {
+            "partition_key": partition_key,
+            "freq": freq,
+            "source_freq": self.source_freq,
+            "source_file_count": self.source_file_count,
+            "source_row_count": self.source_row_count,
+            "source_stock_day_count": self.source_stock_day_count,
+            "expected_window_count": self.expected_window_count,
+            "generated_window_count": self.generated_window_count,
+            "incomplete_window_count": self.incomplete_window_count,
+            "exchange_mismatch_window_count": self.exchange_mismatch_window_count,
+            "output_file_count": self.output_file_count,
+            "output_sample_file_paths": list(self.output_sample_file_paths),
+            "replacement_row_count": self.replacement_row_count,
+            "physical_layout": "freq_ts_code_year",
+            "calculation_model": "derived_from_qfq_source",
         }
 
 
@@ -1838,6 +1887,123 @@ def write_gold_stk_mins_qfq_asset_partition(
     )
 
 
+def _discover_gold_stk_mins_qfq_year_paths(
+    lake_root: Path,
+    *,
+    freq: int,
+    year: str,
+) -> tuple[Path, ...]:
+    freq_root = gold_stk_mins_qfq_path(
+        lake_root,
+        freq,
+        PATH_TEMPLATE_TS_CODE,
+        year,
+    ).parents[2]
+    return tuple(sorted(freq_root.glob(f"ts_code=*/year={year}/part-000.parquet")))
+
+
+def write_gold_stk_mins_qfq_derived_asset_partition(
+    *,
+    lake_root: Path,
+    duckdb: DuckDBResource,
+    freq: int | str,
+    partition_key: str,
+) -> GoldStkMinsQfqDerivedPartitionWriteResult:
+    normalized_freq = normalize_stk_mins_qfq_freq(freq)
+    source_freq = qfq_source_freq_for_derived_freq(normalized_freq)
+    year = date.fromisoformat(partition_key).strftime("%Y")
+    source_paths = _discover_gold_stk_mins_qfq_year_paths(
+        lake_root,
+        freq=source_freq,
+        year=year,
+    )
+    if not source_paths:
+        raise FileNotFoundError(
+            "Missing source gold qfq stock-year files for derived qfq: "
+            f"source_freq={source_freq}, target_freq={normalized_freq}, "
+            f"partition={partition_key}."
+        )
+
+    diagnostics_sql = build_gold_stk_mins_qfq_derived_diagnostics_sql(
+        source_qfq_paths=source_paths,
+        target_freq=normalized_freq,
+        partition_keys=[partition_key],
+    )
+    duckdb_resource = duckdb
+    with duckdb_resource.connect() as connection:
+        diagnostics = connection.execute(diagnostics_sql).fetchone()
+    if diagnostics is None:
+        raise RuntimeError(
+            "Gold stk_mins qfq derived diagnostics query returned no rows: "
+            f"freq={normalized_freq}, partition={partition_key}."
+        )
+    (
+        _source_freq,
+        _target_freq,
+        source_row_count,
+        source_stock_day_count,
+        expected_window_count,
+        generated_window_count,
+        incomplete_window_count,
+        exchange_mismatch_window_count,
+    ) = (int(value or 0) for value in diagnostics)
+    if source_row_count <= 0 or source_stock_day_count <= 0:
+        raise RuntimeError(
+            "Gold stk_mins qfq derived source partition has no rows: "
+            f"source_freq={source_freq}, target_freq={normalized_freq}, "
+            f"partition={partition_key}."
+        )
+    if exchange_mismatch_window_count:
+        raise RuntimeError(
+            "Gold stk_mins qfq derived source windows contain mixed exchanges: "
+            f"target_freq={normalized_freq}, partition={partition_key}, "
+            f"mismatch_window_count={exchange_mismatch_window_count}."
+        )
+    if generated_window_count <= 0:
+        raise RuntimeError(
+            "Gold stk_mins qfq derived generation produced no rows: "
+            f"target_freq={normalized_freq}, partition={partition_key}, "
+            f"expected_window_count={expected_window_count}, "
+            f"incomplete_window_count={incomplete_window_count}."
+        )
+
+    derived_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
+        source_qfq_paths=source_paths,
+        target_freq=normalized_freq,
+        partition_keys=[partition_key],
+    )
+    write_results = write_gold_stk_mins_qfq_rows_to_year_files(
+        lake_root=lake_root,
+        freq=normalized_freq,
+        qfq_select_sql=derived_select_sql,
+        replace_trade_dates=[partition_key],
+    )
+    if not write_results:
+        raise RuntimeError(
+            "Gold stk_mins qfq derived write produced no output files: "
+            f"freq={normalized_freq}, partition={partition_key}."
+        )
+
+    output_file_paths = tuple(str(result.path) for result in write_results)
+    return GoldStkMinsQfqDerivedPartitionWriteResult(
+        source_freq=source_freq,
+        source_file_count=len(source_paths),
+        output_root_path=write_results[0].path.parents[2],
+        output_file_count=len(write_results),
+        output_sample_file_paths=output_file_paths[:20],
+        source_row_count=source_row_count,
+        source_stock_day_count=source_stock_day_count,
+        expected_window_count=expected_window_count,
+        generated_window_count=generated_window_count,
+        incomplete_window_count=incomplete_window_count,
+        exchange_mismatch_window_count=exchange_mismatch_window_count,
+        replacement_row_count=sum(
+            result.replacement_row_count for result in write_results
+        ),
+        observed_columns=GOLD_STK_MINS_QFQ_COLUMNS,
+    )
+
+
 def _materialize_raw_stk_mins_partition(
     *,
     context: dg.AssetExecutionContext,
@@ -2391,6 +2557,34 @@ def _materialize_gold_stk_mins_qfq_partition(
     )
 
 
+def _materialize_gold_stk_mins_qfq_derived_partition(
+    *,
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.MaterializeResult:
+    lake_root.ensure_available_for_run()
+    partition_key = context.partition_key
+    write_result = write_gold_stk_mins_qfq_derived_asset_partition(
+        lake_root=lake_root.root(),
+        duckdb=duckdb,
+        freq=freq,
+        partition_key=partition_key,
+    )
+    return dg.MaterializeResult(
+        metadata=build_materialization_metadata(
+            uri=write_result.output_root_path,
+            row_count=write_result.row_count,
+            observed_columns=write_result.observed_columns,
+            extra_metadata=write_result.materialization_extra_metadata(
+                partition_key=partition_key,
+                freq=freq,
+            ),
+        )
+    )
+
+
 def _gold_stk_mins_qfq_extra_metadata(freq: int) -> dict[str, object]:
     return {
         "freq": freq,
@@ -2404,6 +2598,22 @@ def _gold_stk_mins_qfq_extra_metadata(freq: int) -> dict[str, object]:
         "latest_adj_factor_policy": (
             "latest_adj_factor is generated inside DuckDB SQL from available "
             "silver_adj_factor files; it is not a persisted asset."
+        ),
+    }
+
+
+def _gold_stk_mins_qfq_derived_extra_metadata(freq: int) -> dict[str, object]:
+    source_freq = qfq_source_freq_for_derived_freq(freq)
+    return {
+        "freq": freq,
+        "source_freq": source_freq,
+        "calculation_model": "derived_from_qfq_source",
+        "physical_layout": "freq + ts_code + year",
+        "price_columns": "open/high/low/close are aggregated from source qfq prices",
+        "non_price_columns": "vol/amount are summed; exchange must be unique per window",
+        "derived_contract": (
+            "90m is derived from 30m qfq windows; 120m is derived from 60m qfq "
+            "windows. Raw and silver stk_mins remain limited to source freqs."
         ),
     }
 
@@ -2623,6 +2833,80 @@ def gold_stk_mins_qfq_60m(
     )
 
 
+@dg.asset(
+    name="gold_stk_mins_qfq_90m",
+    deps=[gold_stk_mins_qfq_30m],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars_derived_from_qfq_source",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                90,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_derived_extra_metadata(90),
+    ),
+    description="股票 90 分钟 gold 前复权行情，从 30 分钟 qfq 聚合生成。",
+)
+def gold_stk_mins_qfq_90m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_derived_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=90,
+    )
+
+
+@dg.asset(
+    name="gold_stk_mins_qfq_120m",
+    deps=[gold_stk_mins_qfq_60m],
+    partitions_def=cn_a_stock_mins_silver_trade_days,
+    group_name="quote",
+    tags=build_asset_tags(layer=AssetLayer.GOLD, data_domain=DataDomain.QUOTE_DATA),
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
+    metadata=build_asset_definition_metadata(
+        dataset_id="stk_mins_qfq",
+        source_system=SourceSystem.DERIVED,
+        data_contract="qfq_stock_minute_bars_derived_from_qfq_source",
+        column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                120,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        extra_metadata=_gold_stk_mins_qfq_derived_extra_metadata(120),
+    ),
+    description="股票 120 分钟 gold 前复权行情，从 60 分钟 qfq 聚合生成。",
+)
+def gold_stk_mins_qfq_120m(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.MaterializeResult:
+    return _materialize_gold_stk_mins_qfq_derived_partition(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=120,
+    )
+
+
 RAW_STK_MINS_ASSETS = (
     raw_stk_mins_1m,
     raw_stk_mins_5m,
@@ -2645,4 +2929,19 @@ GOLD_STK_MINS_QFQ_ASSETS = (
     gold_stk_mins_qfq_15m,
     gold_stk_mins_qfq_30m,
     gold_stk_mins_qfq_60m,
+    gold_stk_mins_qfq_90m,
+    gold_stk_mins_qfq_120m,
+)
+
+GOLD_STK_MINS_QFQ_NATIVE_ASSETS = (
+    gold_stk_mins_qfq_1m,
+    gold_stk_mins_qfq_5m,
+    gold_stk_mins_qfq_15m,
+    gold_stk_mins_qfq_30m,
+    gold_stk_mins_qfq_60m,
+)
+
+GOLD_STK_MINS_QFQ_DERIVED_ASSETS = (
+    gold_stk_mins_qfq_90m,
+    gold_stk_mins_qfq_120m,
 )

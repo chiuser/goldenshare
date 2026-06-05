@@ -343,7 +343,7 @@
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       股票曾用名最新口径是：<code>raw_tushare_namechange</code> 每次从 Tushare <code>namechange</code> 拉取 full snapshot 并按全字段 exact distinct 写 raw；<code>silver_namechange</code> 使用 <code>latest_announcement_timeline_v1</code> 生成非重叠名称区间；<code>stock_namechange_sensor</code> 在股票当前交易日注册后触发 <code>namechange_update_job</code>。
       股票身份映射最新口径是：<code>silver_stock_identity_map</code> 已成为 active full snapshot asset；它从 <code>silver_stock_basic</code> 生成当前上市股票自映射，并合并仓库 seed 中的非自映射行。<code>stock_identity_map_sensor</code> 读取 <code>cn_a_stock_trade_days</code> 最新已注册交易日，16:30 后等待 <code>silver_stock_basic</code> 与 <code>silver_namechange</code> ready 后触发 <code>stock_identity_map_update_job</code>。
-      股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>silver_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 silver assets、10 个 blocking checks 和 <code>stock_mins_silver_update_job</code>；<code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code> 已接入正式 gold assets 和每频度 8 个 blocking checks。历史 silver 文件与 runless events 已按 <code>2014-01-01</code> 之后范围生成和补录；M6F 已将 silver/gold 从 raw 全量分区切换到独立 <code>cn_a_stock_mins_silver_trade_days</code>，并完成当前 <code>3014</code> 个历史分区注册；Dagster UI 已人工验收未发现 silver 分区异常，不再把 2009-2013 的 raw-only 日期显示为 silver missing。gold qfq 历史物理文件已按 <code>freq + ts_code + year</code> 生成，M8D runless events 已按 <code>freq/year</code> 年度批量补录完成，五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，<code>stock_mins_silver_trade_day_sensor</code> 在 22:30 后只注册当天 <code>cn_a_stock_mins_silver_trade_days</code>，<code>stock_mins_silver_sensor</code> 在 22:45 后只触发已注册 silver 日期的 <code>stock_mins_silver_update_job</code>，<code>stock_mins_qfq_daily_sensor</code> 在 23:00 后只触发已注册 silver 日期的 <code>stock_mins_qfq_daily_update_job</code>，<code>stock_mins_qfq_factor_repair_sensor</code> 在 23:15 后只在当日五频度 gold ready 时触发 <code>stock_mins_qfq_factor_repair_job</code>。Tushare job 保留为人工备用入口；<code>merge_repair</code> 已作为人工 run config 接入同一套 raw assets 和 raw checks，不新增平行资产，也不与 prod DB 补数混用；该能力已用于少量已审批 1m 样本修复。factor repair job/sensor 已实现但默认停止；M9E 已将 repair 写回模型修正为 <code>freq/year</code> 批量计算和批量写回，正式启用或执行 repair run 仍需单独审批。
+      股票分钟线最新口径是：<code>raw_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 raw assets；<code>silver_stk_mins_1m/5m/15m/30m/60m</code> 已接入正式 silver assets、10 个 blocking checks 和 <code>stock_mins_silver_update_job</code>；<code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code> 已接入 native qfq assets，M11 已新增 <code>gold_stk_mins_qfq_90m/120m</code> derived assets。历史 silver 文件与 runless events 已按 <code>2014-01-01</code> 之后范围生成和补录；M6F 已将 silver/gold 从 raw 全量分区切换到独立 <code>cn_a_stock_mins_silver_trade_days</code>，并完成当前 <code>3014</code> 个历史分区注册；Dagster UI 已人工验收未发现 silver 分区异常，不再把 2009-2013 的 raw-only 日期显示为 silver missing。gold qfq native 历史物理文件已按 <code>freq + ts_code + year</code> 生成，M8D runless events 已按 <code>freq/year</code> 年度批量补录完成，五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿；90/120 历史直写补录尚未执行，后续需单独设计并审批。<code>stock_mins_trade_day_sensor</code> 在 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，<code>stock_mins_raw_sensor</code> 在 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，<code>stock_mins_silver_trade_day_sensor</code> 在 22:30 后只注册当天 <code>cn_a_stock_mins_silver_trade_days</code>，<code>stock_mins_silver_sensor</code> 在 22:45 后只触发已注册 silver 日期的 <code>stock_mins_silver_update_job</code>，<code>stock_mins_qfq_daily_sensor</code> 在 23:00 后只触发已注册 silver 日期的七频度 <code>stock_mins_qfq_daily_update_job</code>，<code>stock_mins_qfq_factor_repair_sensor</code> 在 23:15 后只在当日七频度 gold ready 时触发 <code>stock_mins_qfq_factor_repair_job</code>。Tushare job 保留为人工备用入口；<code>merge_repair</code> 已作为人工 run config 接入同一套 raw assets 和 raw checks，不新增平行资产，也不与 prod DB 补数混用；该能力已用于少量已审批 1m 样本修复。factor repair job/sensor 已实现但默认停止；M9E 已将 repair 写回模型修正为 <code>freq/year</code> 批量计算和批量写回，M11 后会同步重建受影响 90/120，正式启用或执行 repair run 仍需单独审批。
       最新实现口径是：<code>cn_a_trade_day_sensor</code> 只注册全量备份分区；<code>stock_trade_day_sensor</code> 注册股票资产族分区，具体数据集更新由资产族 sensor 接管。
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口，只在该缺口日期的 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；raw gap audit 按 <code>silver_index_basic.list_date/exp_date</code> 过滤上市前和退市后代码；<code>silver_index_daily_sensor</code> 先确认最近 60 个可运行交易日内 raw-by-code 无有效空洞，再触发最早未 ready 的 <code>silver_index_daily_update_job</code>；<code>silver_index_daily_registered_code_coverage</code> 是 blocking check；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
@@ -644,11 +644,11 @@
         </tr>
         <tr>
           <td><span class="tag">quote</span></td>
-          <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code></td>
+          <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code></td>
           <td><span class="tag gold">gold</span></td>
           <td><code>cn_a_stock_mins_silver_trade_days</code></td>
-          <td>已接入五个 gold qfq assets 与每频度 8 个 blocking checks；物理文件按 <code>freq + ts_code + year</code> 组织，Dagster 逻辑分区仍按交易日。</td>
-          <td>历史物理文件已生成，M8D runless events 已补录完成；<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_job</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 均已实现，两个 sensor 默认停止，正式启用或执行 repair run 需单独审批。</td>
+          <td>已接入七个 gold qfq assets：native 五频度使用 8 个 blocking checks，90/120 derived 使用基础 checks + derived 专属 checks；物理文件按 <code>freq + ts_code + year</code> 组织，Dagster 逻辑分区仍按交易日。</td>
+          <td>native 五频度历史物理文件已生成，M8D runless events 已补录完成；M11 已新增 90/120 derived assets，但历史 90/120 直写补录尚未执行；<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_job</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 均已实现，两个 sensor 默认停止，正式启用或执行 repair run 需单独审批。</td>
           <td>股票分钟线前复权成品事实；OHLC 为 qfq 后价格，<code>vol/amount/exchange</code> 沿用 silver，不新增 summary asset。</td>
         </tr>
         <tr>
@@ -857,17 +857,17 @@
         </tr>
         <tr>
           <td><code>stock_mins_qfq_daily_update_job</code></td>
-          <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code> + checks</td>
-          <td>单个交易日五个频度股票分钟线前复权 gold。</td>
+          <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code> + checks</td>
+          <td>单个交易日七个频度股票分钟线前复权 gold。</td>
           <td>人工 partition run 或 <code>stock_mins_qfq_daily_sensor</code> 23:00 后自动触发。</td>
-          <td>只 selection gold qfq assets 与 gold qfq checks；不顺手更新 raw、silver、adj factor 或执行 factor repair。五个 gold qfq assets 共享 <code>gold_stk_mins_qfq_writer</code> pool。</td>
+          <td>只 selection gold qfq assets 与 gold qfq checks；不顺手更新 raw、silver、adj factor 或执行 factor repair。七个 gold qfq assets 共享 <code>gold_stk_mins_qfq_writer</code> pool。</td>
         </tr>
         <tr>
           <td><code>stock_mins_qfq_factor_repair_job</code></td>
           <td>维护型非分区 op job</td>
           <td>检测目标交易日复权因子相对上一交易日是否变化；无变化记录成功，有变化则按 <code>freq/year</code> 批量回刷历史 gold qfq 股票年份文件。</td>
-          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 23:15 后在当日五频度 gold ready 时自动传入最新目标日期。</td>
-          <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到五个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音；repair op 使用同一个 <code>gold_stk_mins_qfq_writer</code> pool。</td>
+          <td>人工 run 通过 typed <code>trade_date</code> run config 指定目标日期；<code>stock_mins_qfq_factor_repair_sensor</code> 23:15 后在当日七频度 gold ready 时自动传入最新目标日期。</td>
+          <td>经确认不使用普通 asset selection；不新增 summary asset；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets。job 不再绑定全历史 silver 分区，避免 UI missing partitions 噪音；repair op 使用同一个 <code>gold_stk_mins_qfq_writer</code> pool。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>
@@ -1128,12 +1128,12 @@
    - stock_mins_silver_update_job is implemented as the silver-only daily entry
    - stock_mins_silver_sensor triggers the silver job for the latest registered silver partition after 22:45
    - silver historical generation, runless events and 2014+ silver partition registration are completed
-   - gold_stk_mins_qfq_1m/5m/15m/30m/60m assets are implemented
-   - gold qfq blocking checks are implemented with one multi_asset_check per freq
+   - gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m assets are implemented
+   - gold qfq blocking checks are implemented with one multi_asset_check per freq; native and derived check contracts are split
    - gold qfq historical file generation helper/CLI is implemented and formal physical files are generated
    - gold qfq runless event backfill is completed; M8D audited by freq/year batch and wrote per-date events
    - historical baseline is now visible in Dagster UI/readiness
-   - stock_mins_qfq_daily_update_job, stock_mins_qfq_daily_sensor, stock_mins_qfq_factor_repair_job and stock_mins_qfq_factor_repair_sensor are implemented; sensors remain STOPPED until separately approved</code></pre>
+   - stock_mins_qfq_daily_update_job, stock_mins_qfq_daily_sensor, stock_mins_qfq_factor_repair_job and stock_mins_qfq_factor_repair_sensor are implemented; M11 derived 90/120 history bootstrap remains a separate approved process; sensors remain STOPPED until separately approved</code></pre>
   </section>
 </main>
 </body>

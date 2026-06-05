@@ -225,6 +225,26 @@ def _write_repair_inputs(
         )
 
 
+def _intraday_rows(
+    ts_code: str,
+    trade_date: str,
+    *,
+    freq: int,
+    trade_times: tuple[str, ...],
+    open_base: float,
+) -> list[dict[str, object]]:
+    return [
+        _silver_row(
+            ts_code,
+            trade_date,
+            trade_time,
+            open_=open_base + index,
+            freq=freq,
+        )
+        for index, trade_time in enumerate(trade_times)
+    ]
+
+
 def _write_multi_code_repair_inputs(
     lake_root: Path,
     *,
@@ -319,6 +339,86 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         self.assertEqual(report.planned_batch_count, 1)
         self.assertEqual(report.executed_batch_count, 1)
         self.assertEqual(report.non_empty_batch_count, 1)
+
+    def test_factor_repair_rebuilds_derived_90m_and_120m_after_30m_60m(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_stock_basic(
+                silver_stock_basic_path(lake_root),
+                [_stock_basic_row(STOCK_A, "1999-11-10")],
+            )
+            _write_adj_factor(
+                silver_adj_factor_path(lake_root, PREVIOUS_DATE),
+                [_adj_row(STOCK_A, PREVIOUS_DATE, 2.0)],
+            )
+            _write_adj_factor(
+                silver_adj_factor_path(lake_root, TRADE_DATE),
+                [_adj_row(STOCK_A, TRADE_DATE, 4.0)],
+            )
+            for partition_key, open_base in ((PREVIOUS_DATE, 10.0), (TRADE_DATE, 20.0)):
+                _write_silver_mins(
+                    silver_stk_mins_path(lake_root, 30, partition_key),
+                    _intraday_rows(
+                        STOCK_A,
+                        partition_key,
+                        freq=30,
+                        trade_times=(
+                            "09:30:00",
+                            "10:00:00",
+                            "10:30:00",
+                            "11:00:00",
+                            "11:30:00",
+                            "13:30:00",
+                            "14:00:00",
+                            "14:30:00",
+                            "15:00:00",
+                        ),
+                        open_base=open_base,
+                    ),
+                )
+                _write_silver_mins(
+                    silver_stk_mins_path(lake_root, 60, partition_key),
+                    _intraday_rows(
+                        STOCK_A,
+                        partition_key,
+                        freq=60,
+                        trade_times=(
+                            "09:30:00",
+                            "10:30:00",
+                            "11:30:00",
+                            "14:00:00",
+                            "15:00:00",
+                        ),
+                        open_base=open_base,
+                    ),
+                )
+
+            report = execute_gold_stk_mins_qfq_factor_repair(
+                lake_root=lake_root,
+                duckdb_resource=DuckDBResource(),
+                trade_date=TRADE_DATE,
+                registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
+                freqs=[30, 60],
+            )
+
+            rows_90m = _read_gold_rows(
+                gold_stk_mins_qfq_path(lake_root, 90, STOCK_A, 2026)
+            )
+            rows_120m = _read_gold_rows(
+                gold_stk_mins_qfq_path(lake_root, 120, STOCK_A, 2026)
+            )
+
+        self.assertTrue(report.derived_rewrite_required)
+        self.assertEqual(report.derived_planned_batch_count, 2)
+        self.assertEqual(report.derived_executed_batch_count, 2)
+        self.assertEqual(report.derived_rewritten_file_count, 2)
+        self.assertEqual(report.derived_rewritten_row_count, 10)
+        self.assertEqual(report.derived_repaired_code_count, 1)
+        self.assertEqual(report.derived_failed_code_count, 0)
+        self.assertEqual(len(rows_90m), 6)
+        self.assertEqual(len(rows_120m), 4)
 
     def test_factor_change_batches_by_freq_and_year_not_by_stock_code(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -431,7 +531,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
 
         self.assertTrue(result.success)
         self.assertEqual(stock_mins_qfq_factor_repair_job.name, STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME)
-        self.assertEqual(len(records), 5)
+        self.assertEqual(len(records), 7)
         for record in records:
             evaluation = record.event_log_entry.dagster_event.event_specific_data
             self.assertEqual(

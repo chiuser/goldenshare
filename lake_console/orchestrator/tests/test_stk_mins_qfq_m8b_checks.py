@@ -532,16 +532,22 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             for check_key in check_definition.check_keys
         )
         expected_names = sorted(
-            stk_mins_checks.GOLD_STK_MINS_QFQ_CHECK_NAMES
-            * len(stk_mins_checks.GOLD_STK_MINS_QFQ_ASSETS)
+            stk_mins_checks.GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES
+            * len(stk_mins_checks.GOLD_STK_MINS_QFQ_NATIVE_ASSETS)
+            + stk_mins_checks.GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES
+            * len(stk_mins_checks.GOLD_STK_MINS_QFQ_DERIVED_ASSETS)
         )
 
         self.assertEqual(check_names, expected_names)
         self.assertEqual(
             readiness.GOLD_STK_MINS_QFQ_CHECKS,
-            stk_mins_checks.GOLD_STK_MINS_QFQ_CHECK_NAMES,
+            stk_mins_checks.GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES,
         )
-        self.assertEqual(len(readiness.GOLD_STK_MINS_QFQ_READINESS_SPECS), 5)
+        self.assertEqual(
+            readiness.GOLD_STK_MINS_QFQ_DERIVED_CHECKS,
+            stk_mins_checks.GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES,
+        )
+        self.assertEqual(len(readiness.GOLD_STK_MINS_QFQ_READINESS_SPECS), 7)
 
 
 if __name__ == "__main__":

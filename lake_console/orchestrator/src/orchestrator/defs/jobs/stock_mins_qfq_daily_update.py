@@ -10,5 +10,5 @@ stock_mins_qfq_daily_update_job = dg.define_asset_job(
         | dg.AssetSelection.checks_for_assets(*GOLD_STK_MINS_QFQ_ASSETS)
     ),
     executor_def=dg.in_process_executor,
-    description="按单日分区生成五个股票分钟线 gold qfq 频度资产，不更新 raw/silver。",
+    description="按单日分区生成七个股票分钟线 gold qfq 频度资产，不更新 raw/silver。",
 )

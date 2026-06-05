@@ -12,19 +12,23 @@ from orchestrator.defs.duckdb_sql import (
     read_parquet,
 )
 from orchestrator.defs.paths import (
+    gold_stk_mins_qfq_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import (
-    STK_MINS_FREQS,
+    STK_MINS_QFQ_NATIVE_FREQS,
     normalize_stk_mins_freq,
+    normalize_stk_mins_qfq_freq,
+    qfq_source_freq_for_derived_freq,
 )
 from orchestrator.defs.stk_mins_qfq import (
     GoldStkMinsQfqFactorRepairPlan,
     GoldStkMinsQfqWriteResult,
     build_daily_qfq_select_sql,
+    build_gold_stk_mins_qfq_derived_select_sql,
     build_gold_stk_mins_qfq_factor_repair_plan,
     build_latest_adj_factor_by_code_sql,
     write_gold_stk_mins_qfq_rows_to_year_files,
@@ -52,6 +56,14 @@ class GoldStkMinsQfqFactorRepairResult:
     planned_batch_count: int
     executed_batch_count: int
     non_empty_batch_count: int
+    derived_rewrite_required: bool
+    derived_planned_batch_count: int
+    derived_executed_batch_count: int
+    derived_non_empty_batch_count: int
+    derived_rewritten_file_count: int
+    derived_rewritten_row_count: int
+    derived_repaired_code_count: int
+    derived_failed_code_count: int
 
 
 @dataclass(frozen=True)
@@ -67,7 +79,7 @@ def execute_gold_stk_mins_qfq_factor_repair(
     duckdb_resource: DuckDBResource,
     trade_date: str,
     registered_partition_keys: Sequence[str],
-    freqs: Sequence[int | str] = STK_MINS_FREQS,
+    freqs: Sequence[int | str] = STK_MINS_QFQ_NATIVE_FREQS,
 ) -> GoldStkMinsQfqFactorRepairResult:
     normalized_trade_date = date.fromisoformat(trade_date).isoformat()
     selected_partition_keys = _select_repair_partition_keys(
@@ -98,6 +110,14 @@ def execute_gold_stk_mins_qfq_factor_repair(
             planned_batch_count=0,
             executed_batch_count=0,
             non_empty_batch_count=0,
+            derived_rewrite_required=False,
+            derived_planned_batch_count=0,
+            derived_executed_batch_count=0,
+            derived_non_empty_batch_count=0,
+            derived_rewritten_file_count=0,
+            derived_rewritten_row_count=0,
+            derived_repaired_code_count=0,
+            derived_failed_code_count=0,
         )
 
     normalized_freqs = tuple(normalize_stk_mins_freq(freq) for freq in freqs)
@@ -134,15 +154,36 @@ def execute_gold_stk_mins_qfq_factor_repair(
             )
             write_results.extend(batch_write_results)
 
+    derived_target_freqs = _derived_target_freqs_for_native_freqs(normalized_freqs)
+    derived_write_results = _execute_derived_qfq_rebuild(
+        lake_root=lake_root,
+        target_freqs=derived_target_freqs,
+        stock_codes=plan.repair_required_codes,
+        selected_partition_keys=selected_partition_keys,
+    )
+    all_write_results = tuple(write_results) + derived_write_results
     code_results = _build_repair_code_results(
         repair_required_codes=plan.repair_required_codes,
-        write_results=write_results,
+        write_results=all_write_results,
     )
     repaired_file_samples = tuple(str(result.path) for result in write_results[:20])
+    derived_repaired_codes = {
+        write_result.ts_code for write_result in derived_write_results
+    }
+    derived_failed_code_count = (
+        len(plan.repair_required_codes) - len(derived_repaired_codes)
+        if derived_target_freqs
+        else 0
+    )
 
     return GoldStkMinsQfqFactorRepairResult(
         plan=plan,
-        repaired_code_count=len(code_results),
+        repaired_code_count=len(
+            _build_repair_code_results(
+                repair_required_codes=plan.repair_required_codes,
+                write_results=write_results,
+            )
+        ),
         skipped_code_count=0,
         rewritten_file_count=len(write_results),
         rewritten_row_count=sum(result.replacement_row_count for result in write_results),
@@ -152,6 +193,18 @@ def execute_gold_stk_mins_qfq_factor_repair(
         planned_batch_count=len(batches),
         executed_batch_count=len(batches),
         non_empty_batch_count=len(_non_empty_batch_keys(write_results)),
+        derived_rewrite_required=bool(derived_target_freqs),
+        derived_planned_batch_count=len(derived_target_freqs)
+        * len(_partition_keys_by_year(selected_partition_keys)),
+        derived_executed_batch_count=len(derived_target_freqs)
+        * len(_partition_keys_by_year(selected_partition_keys)),
+        derived_non_empty_batch_count=len(_non_empty_batch_keys(derived_write_results)),
+        derived_rewritten_file_count=len(derived_write_results),
+        derived_rewritten_row_count=sum(
+            result.replacement_row_count for result in derived_write_results
+        ),
+        derived_repaired_code_count=len(derived_repaired_codes),
+        derived_failed_code_count=derived_failed_code_count,
     )
 
 
@@ -173,6 +226,71 @@ def _build_repair_batches(
                 )
             )
     return tuple(batches)
+
+
+def _derived_target_freqs_for_native_freqs(freqs: Sequence[int]) -> tuple[int, ...]:
+    normalized_freqs = {normalize_stk_mins_freq(freq) for freq in freqs}
+    target_freqs: list[int] = []
+    if 30 in normalized_freqs:
+        target_freqs.append(90)
+    if 60 in normalized_freqs:
+        target_freqs.append(120)
+    return tuple(target_freqs)
+
+
+def _execute_derived_qfq_rebuild(
+    *,
+    lake_root: Path,
+    target_freqs: Sequence[int],
+    stock_codes: Sequence[str],
+    selected_partition_keys: Sequence[str],
+) -> tuple[GoldStkMinsQfqWriteResult, ...]:
+    write_results: list[GoldStkMinsQfqWriteResult] = []
+    if not target_freqs:
+        return ()
+    for target_freq in target_freqs:
+        normalized_target_freq = normalize_stk_mins_qfq_freq(target_freq)
+        source_freq = qfq_source_freq_for_derived_freq(normalized_target_freq)
+        for year, year_partition_keys in _partition_keys_by_year(
+            selected_partition_keys
+        ).items():
+            source_paths = _existing_gold_qfq_year_paths_for_codes(
+                lake_root=lake_root,
+                freq=source_freq,
+                year=year,
+                stock_codes=stock_codes,
+            )
+            if not source_paths:
+                continue
+            batch_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
+                source_qfq_paths=source_paths,
+                target_freq=normalized_target_freq,
+                partition_keys=year_partition_keys,
+                stock_codes=stock_codes,
+            )
+            batch_write_results = write_gold_stk_mins_qfq_rows_to_year_files(
+                lake_root=lake_root,
+                freq=normalized_target_freq,
+                qfq_select_sql=batch_select_sql,
+                replace_trade_dates=year_partition_keys,
+                allow_empty_replacement=True,
+            )
+            write_results.extend(batch_write_results)
+    return tuple(write_results)
+
+
+def _existing_gold_qfq_year_paths_for_codes(
+    *,
+    lake_root: Path,
+    freq: int,
+    year: str,
+    stock_codes: Sequence[str],
+) -> tuple[Path, ...]:
+    paths = tuple(
+        gold_stk_mins_qfq_path(lake_root, freq, stock_code, year)
+        for stock_code in stock_codes
+    )
+    return tuple(path for path in paths if path.exists())
 
 
 def _build_stock_year_batch_repair_select_sql(

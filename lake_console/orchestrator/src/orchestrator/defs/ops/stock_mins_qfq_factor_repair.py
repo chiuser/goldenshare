@@ -61,6 +61,7 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
     passed = (
         report.plan.can_execute_repair
         and missing_repair_count == 0
+        and report.derived_failed_code_count == 0
         and report.repaired_code_count == report.plan.repair_required_code_count
     )
     metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(
@@ -75,6 +76,14 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
         planned_batch_count=report.planned_batch_count,
         executed_batch_count=report.executed_batch_count,
         non_empty_batch_count=report.non_empty_batch_count,
+        derived_rewrite_required=report.derived_rewrite_required,
+        derived_planned_batch_count=report.derived_planned_batch_count,
+        derived_executed_batch_count=report.derived_executed_batch_count,
+        derived_non_empty_batch_count=report.derived_non_empty_batch_count,
+        derived_rewritten_file_count=report.derived_rewritten_file_count,
+        derived_rewritten_row_count=report.derived_rewritten_row_count,
+        derived_repaired_code_count=report.derived_repaired_code_count,
+        derived_failed_code_count=report.derived_failed_code_count,
     )
     for asset_key in GOLD_STK_MINS_QFQ_REPAIR_CHECK_ASSET_KEYS:
         context.log_event(
@@ -91,7 +100,8 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
         raise RuntimeError(
             "Gold qfq factor repair did not complete successfully: "
             f"trade_date={trade_date}, reason={report.plan.reason}, "
-            f"missing_repair_count={missing_repair_count}."
+            f"missing_repair_count={missing_repair_count}, "
+            f"derived_failed_code_count={report.derived_failed_code_count}."
         )
     context.log.info(
         "Gold qfq factor repair completed: trade_date=%s reason=%s "

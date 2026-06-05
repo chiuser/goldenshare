@@ -154,7 +154,7 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         )
 
         self.assertEqual(decision.selected_trade_date, PARTITION_KEY)
-        self.assertIn("提交五频度 qfq 更新", decision.reason)
+        self.assertIn("提交七频度 qfq 更新", decision.reason)
 
         request = _run_request_for_trade_date(PARTITION_KEY)
         self.assertEqual(request.partition_key, PARTITION_KEY)

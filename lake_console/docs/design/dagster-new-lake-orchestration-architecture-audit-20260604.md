@@ -56,7 +56,7 @@
 当前 `gold_stk_mins_qfq_*` 的 Dagster 逻辑分区是交易日：
 
 - `cn_a_stock_mins_silver_trade_days`
-- `gold_stk_mins_qfq_1m/5m/15m/30m/60m[trade_date]`
+- `gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m[trade_date]`
 
 但真实物理文件按股票年份组织：
 
@@ -98,7 +98,7 @@ data_lake/gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part
 
 - qfq daily job 与 qfq repair job 都只使用 `in_process_executor`
 - 已采用 Dagster 官方 concurrency pools 作为正式互斥机制。
-- 五个 `gold_stk_mins_qfq_*` assets 和 `stock_mins_qfq_factor_repair_op` 已统一声明 `pool="gold_stk_mins_qfq_writer"`。
+- 七个 `gold_stk_mins_qfq_*` assets 和 `stock_mins_qfq_factor_repair_op` 已统一声明 `pool="gold_stk_mins_qfq_writer"`。
 - 当前代码已补静态门禁，禁止 qfq 写入口绕开统一 pool 常量。
 - 正式 instance 已执行 pool limit 与 `dagster.yaml` 配置：`gold_stk_mins_qfq_writer` limit 为 `1`，pool granularity 为 `run`。
 
@@ -123,7 +123,7 @@ data_lake/gold/quote/stk_mins_qfq/freq={freq}/ts_code={ts_code}/year={year}/part
 当前代码口径：
 
 1. 统一 pool 常量：`GOLD_STK_MINS_QFQ_WRITER_POOL = "gold_stk_mins_qfq_writer"`。
-2. 五个 gold qfq assets 使用该 pool。
+2. 七个 gold qfq assets 使用该 pool。
 3. `stock_mins_qfq_factor_repair_op` 使用同一 pool。
 4. static gates 锁定该 pool 必须集中定义并被所有 qfq 写入口引用。
 
@@ -221,7 +221,7 @@ postgres_query('prod_raw_pg', '<remote query>')
 
 ### O1：qfq repair 改写历史数据，但事件事实集中挂在目标 trade_date
 
-当前 repair job 会根据某个目标 `trade_date` 的复权因子变化，回刷受影响股票的历史 qfq stock-year 文件。repair 结果通过五个 gold qfq assets 上的 repair check event 记录，partition 是目标 `trade_date`。
+当前 repair job 会根据某个目标 `trade_date` 的复权因子变化，回刷受影响股票的历史 qfq stock-year 文件。M11 后 repair 结果通过七个 gold qfq assets 上的 repair check event 记录，partition 是目标 `trade_date`。
 
 这个口径是此前讨论中明确选择的方案：不新增 `gold_stk_mins_qfq_factor_repair_summary`，不为每个被改写的历史日期补 materialization event。
 

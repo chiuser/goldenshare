@@ -288,7 +288,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                 issues.append(f"{path} hard-codes qfq writer pool literal")
 
         assets_source = (ASSETS_DIR / "stk_mins.py").read_text()
-        if assets_source.count("pool=GOLD_STK_MINS_QFQ_WRITER_POOL") != 5:
+        if assets_source.count("pool=GOLD_STK_MINS_QFQ_WRITER_POOL") != 7:
             issues.append("gold qfq assets must all use GOLD_STK_MINS_QFQ_WRITER_POOL")
 
         repair_op_source = (

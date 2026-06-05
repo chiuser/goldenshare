@@ -1,0 +1,473 @@
+# M11: Gold stk_mins qfq 90/120 分钟资产设计方案
+
+状态：已实现代码口径；历史直写补录待单独设计与审批  
+日期：2026-06-05  
+范围：`lake_console/orchestrator` 正式 Dagster 新湖  
+
+## 1. Summary
+
+本方案新增两个 gold 层前复权股票分钟线资产：
+
+- `gold_stk_mins_qfq_90m`
+- `gold_stk_mins_qfq_120m`
+
+90/120 不是 Tushare 或 prod DB 原生分钟频度，也不进入 raw/silver 源频度。它们是 gold qfq 资产族内的派生频度：
+
+- `90m` 从 `gold_stk_mins_qfq_30m` 聚合生成。
+- `120m` 从 `gold_stk_mins_qfq_60m` 聚合生成。
+
+本轮已完成代码、契约、测试和文档收口；不运行正式 Dagster，不写正式 lake，不读取正式 Dagster instance。
+
+## 1.1 已拍板口径
+
+1. `90/120` 并入同一个 `dataset_id=stk_mins_qfq`，不拆新的 `stk_mins_qfq_derived` dataset id。
+2. `stock_mins_qfq_daily_update_job` 和 `stock_mins_qfq_daily_sensor` 扩展为七频度 qfq：`1/5/15/30/60/90/120`。
+3. `stock_mins_qfq_factor_repair_job` 在 repair 30/60 后必须同步重建受影响的 90/120，避免派生频度滞后。
+4. 本轮先完成代码、契约和测试；历史 90/120 直写补录不混入本轮开发，后续单独设计补录流程，并必须满足性能门禁。
+5. 90/120 使用 derived 专属 check name，不复用 native qfq 的 silver/adj_factor 对账 check name。
+
+## 2. 依据与旧湖口径
+
+旧湖实现位于：
+
+- `lake_console/backend/app/services/stk_mins_derived_service.py`
+- `tests/lake_console/test_stk_mins_derived_service.py`
+- `docs/datasets/stk-mins-parquet-lake-plan-v1.md`
+- `docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md`
+
+旧湖事实：
+
+1. `DERIVED_FREQ_MAP = {90: (30, 3), 120: (60, 2)}`。
+2. `90/120` 是 derived，不写入 `raw_tushare/stk_mins_by_date`。
+3. 旧湖 `90/120` 输入是 clean 30/60；新湖 qfq 版本对应输入应是 gold qfq 30/60。
+4. 旧湖 `90m` 特殊跳过 `09:30` 的 30m bar，然后按有效日内 bar 分组。
+5. 旧湖 `120m` 按 60m bar 两两成组，不输出不完整尾组。
+
+## 3. 非目标
+
+本方案不做以下事情：
+
+1. 不新增 raw/silver 90m、120m asset。
+2. 不把 `STK_MINS_FREQS` 从 `(1, 5, 15, 30, 60)` 直接扩成七频度并污染 raw/silver/Tushare/prod DB 路径。
+3. 不读取 Tushare `stk_mins` 或 `pro_bar` 生成 90/120。
+4. 不新增 summary asset、readiness asset、数据库表或 run tags。
+5. 不改变 qfq 物理布局：继续使用 `freq/ts_code/year/part-000.parquet`。
+6. 不改变现有五频度 qfq 公式、repair check event 语义和 writer pool 互斥口径。
+7. 不在本阶段启用 sensor 或执行历史直写补录。
+
+## 4. 资产与源数据选择
+
+### 4.1 资产定义
+
+新增两个 partitioned gold assets：
+
+| asset | source asset | source freq | target freq | partition |
+| --- | --- | ---: | ---: | --- |
+| `gold_stk_mins_qfq_90m` | `gold_stk_mins_qfq_30m` | 30 | 90 | `cn_a_stock_mins_silver_trade_days` |
+| `gold_stk_mins_qfq_120m` | `gold_stk_mins_qfq_60m` | 60 | 120 | `cn_a_stock_mins_silver_trade_days` |
+
+资产 metadata：
+
+- `dataset_id=stk_mins_qfq`，90/120 通过 metadata 标记 `calculation_model=derived_from_qfq_source`。
+- `source_system=DERIVED`。
+- `data_contract=qfq_stock_minute_bars_derived_from_qfq_source`。
+- `column_schema` 使用 gold qfq schema，但字段说明必须扩展为允许 `1/5/15/30/60/90/120`，并说明 raw/silver 仍只允许五频度。
+- `path_template` 使用 `gold_stk_mins_qfq_path(..., 90|120, {ts_code}, {year})`。
+- `pool=GOLD_STK_MINS_QFQ_WRITER_POOL`，与五频度 qfq 和 factor repair 共用 writer pool。
+
+### 4.2 为什么从 gold qfq 30/60 派生
+
+同一 `ts_code + trade_date` 的 qfq 因子是日级常量：
+
+```text
+qfq_price = silver_price * adj_factor(trade_date) / latest_adj_factor(ts_code)
+```
+
+对同一天内的窗口：
+
+- `open/high/low/close` 先 qfq 再聚合，与先聚合再 qfq 等价。
+- `vol/amount/exchange` 与 qfq 无关，可从 source qfq bars 继承聚合。
+
+因此 90/120 直接从 `gold_stk_mins_qfq_30m/60m` 聚合，避免重复读取 silver 和 adj_factor，也自然继承 factor repair 后的 qfq 结果。
+
+## 5. 频度契约拆分
+
+当前 `STK_MINS_FREQS = (1, 5, 15, 30, 60)` 同时服务 raw、silver、gold qfq 五频度。M11 不能直接扩展它。
+
+拆成三组契约：
+
+```python
+STK_MINS_SOURCE_FREQS = (1, 5, 15, 30, 60)
+STK_MINS_QFQ_NATIVE_FREQS = STK_MINS_SOURCE_FREQS
+STK_MINS_QFQ_DERIVED_FREQS = (90, 120)
+STK_MINS_QFQ_FREQS = STK_MINS_QFQ_NATIVE_FREQS + STK_MINS_QFQ_DERIVED_FREQS
+```
+
+保留或迁移口径：
+
+- raw/silver/bootstrap migration/prod DB/Tushare/readiness probe 继续使用 `STK_MINS_SOURCE_FREQS`。
+- 五频度 qfq daily、history、repair detection 可继续使用 native freq 集合。
+- qfq asset registry、qfq checks、qfq daily job selection 可使用 `STK_MINS_QFQ_FREQS` 或显式资产 tuple。
+- 路径函数 `gold_stk_mins_qfq_path` 应改为 qfq 专用 normalize，不再调用只允许五频度的 `normalize_stk_mins_freq`。
+
+静态门禁必须证明：
+
+1. `raw_stk_mins_*` 和 `silver_stk_mins_*` 仍只有五个。
+2. Tushare/prod DB raw path 不接受 90/120。
+3. 只有 gold qfq derived 路径接受 90/120。
+
+## 6. 聚合口径
+
+### 6.1 90m
+
+输入：`gold_stk_mins_qfq_30m`
+
+source 日内有效 bar：
+
+```text
+10:00, 10:30, 11:00, 11:30, 13:30, 14:00, 14:30, 15:00
+```
+
+其中 `09:30` 必须跳过。
+
+输出窗口：
+
+| target trade_time | source rows |
+| --- | --- |
+| `11:00` | `10:00,10:30,11:00` |
+| `14:00` | `11:30,13:30,14:00` |
+| `15:00` | `14:30,15:00` |
+
+旧湖允许 90m 最后一个不完整窗口输出；新湖照此口径。
+
+### 6.2 120m
+
+输入：`gold_stk_mins_qfq_60m`
+
+source 日内 bar：
+
+```text
+09:30, 10:30, 11:30, 14:00, 15:00
+```
+
+输出窗口：
+
+| target trade_time | source rows |
+| --- | --- |
+| `10:30` | `09:30,10:30` |
+| `14:00` | `11:30,14:00` |
+
+`15:00` 单根尾组不输出。
+
+### 6.3 OHLCV 聚合
+
+每个 `ts_code + trade_date + window`：
+
+- `open` = source window 第一根 open
+- `close` = source window 最后一根 close
+- `high` = source window high 最大值
+- `low` = source window low 最小值
+- `vol` = source window vol 求和
+- `amount` = source window amount 求和
+- `exchange` = source window 内唯一 exchange；不唯一则失败
+- `freq` = target freq
+- `trade_time` = source window 最后一根 trade_time
+
+## 7. DuckDB 实现方案
+
+新增 helper，例如：
+
+- `build_gold_stk_mins_qfq_derived_select_sql(source_paths, source_freq, target_freq)`
+- `write_gold_stk_mins_qfq_derived_asset_partition(lake_root, duckdb, target_freq, partition_key)`
+
+执行模型：
+
+1. 读取 source gold qfq stock-year files 中目标 `partition_key` 的 rows。
+2. 在 DuckDB 中按 target freq 构造 window id。
+3. 用窗口函数生成 first/last/open/close 和聚合 high/low/vol/amount。
+4. 生成符合 `GOLD_STK_MINS_QFQ_SCHEMA` 的 replacement rows。
+5. 复用 `write_gold_stk_mins_qfq_rows_to_year_files(...)` 写回 `freq=90|120/ts_code/year`。
+6. 写入仍使用 `.tmp + os.replace` 原子替换，并受 `gold_stk_mins_qfq_writer` pool 保护。
+
+禁止：
+
+- Python 明细 row loop 聚合正式数据。
+- Python 写 Parquet 明细。
+- 为每只股票单独构造 DuckDB 查询。
+- 在 job 文件中写 DuckDB SQL、路径拼接或业务逻辑。
+
+## 8. Check 设计
+
+90/120 不能原样复用 native qfq 的 8 个 check，因为 native qfq check 中有两项直接依赖同频度 silver：
+
+- `gold_stk_mins_qfq_row_count_matches_silver`
+- `gold_stk_mins_qfq_formula_matches_silver_adj_factor`
+
+说人话：90/120 不是源头数据，要检查“它是不是从 30/60 qfq 正确聚合出来的”，而不是检查“它是不是直接按 silver + adj_factor 算出来的”。
+
+M11 check 拆分为两类：
+
+### 8.1 共用基础 checks
+
+90/120 复用现有基础 check name，并通过 shared helper 参数化到 90/120：
+
+1. file exists and row count positive
+2. schema matches contract
+3. freq/date/path match
+4. unique `ts_code + trade_time`
+5. price sanity
+
+### 8.2 derived 专属 checks
+
+新增 derived 专属 check name：
+
+1. `gold_stk_mins_qfq_derived_source_ready`
+   - source qfq asset 目标 partition 已 materialized。
+   - source qfq blocking checks 全绿。
+2. `gold_stk_mins_qfq_derived_row_count_matches_source_windows`
+   - 90m 每个 source stock-day 正常期望 3 rows。
+   - 120m 每个 source stock-day 正常期望 2 rows。
+   - 若 source 缺 bar 或 suspended 结构导致可生成窗口减少，metadata 必须记录 missing/incomplete window 样本。
+3. `gold_stk_mins_qfq_derived_formula_matches_source`
+   - 用 source qfq rows 重算 target rows，与 target parquet 对比。
+   - 对比 key：`ts_code + trade_time`。
+   - 价格容差沿用 `GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE`。
+
+### 8.3 check event 与 blocking
+
+- 90/120 checks 仍为 blocking。
+- check metadata 统一走治理 helper。
+- derived check names 稳定使用 8.2 中三个名字。
+- daily job selection 必须包含 derived 专属 checks。
+- native qfq 的 `row_count_matches_silver` / `formula_matches_silver_adj_factor` 不挂到 90/120。
+
+## 9. Daily job 与 sensor
+
+### 9.1 daily job
+
+`stock_mins_qfq_daily_update_job` 扩展为七个 qfq assets + checks。
+
+边界不变：
+
+- 不包含 raw/silver/source assets。
+- 不包含 repair op。
+- 不加 run tags/run config。
+- 继续 `in_process_executor`。
+
+执行依赖：
+
+1. 30/60 native qfq 必须先于 90/120。
+2. 通过 asset deps 表达 `90m -> 30m`、`120m -> 60m`。
+3. 同一 run 内由于 in-process executor 和 deps，写入顺序应稳定。
+4. 跨 run 互斥仍依赖 `gold_stk_mins_qfq_writer` pool。
+
+### 9.2 daily sensor
+
+`stock_mins_qfq_daily_sensor` 需要从“五频度 gold ready”升级为“七频度目标状态判断”，但门禁要分层：
+
+1. 上游门禁仍只看目标日 silver 五频度 ready、adj factor ready。
+2. 若七频度全 ready，skip。
+3. 若 native 五频度未 ready，提交 daily job。
+4. 若 native 五频度 ready 但 90/120 缺失，也提交同一个 daily job。
+5. 若任一 gold asset 已 materialized 但 blocking checks 未全绿，skip 并要求人工修复。
+
+第一版提交同一个 `stock_mins_qfq_daily_update_job`，让 selection 通过 asset deps 处理顺序，避免新增 derived-only sensor/job。
+
+## 10. Factor repair 影响
+
+当前 `stock_mins_qfq_factor_repair_job` 修的是 native 五频度 qfq。新增 90/120 后，必须避免这种错误状态：
+
+```text
+30/60 已因复权因子变化 repair，90/120 仍保留旧聚合结果。
+```
+
+M11 第一版必须同步扩展 repair：
+
+1. repair helper 完成 native 五频度批量写回后，基于被改写的 30/60 重新生成受影响股票历史 90/120。
+2. 仍按 `freq/year` 批量执行，不回到 `stock_code -> freq -> year` 小循环。
+3. repair check event 继续挂到所有 qfq assets 的目标 `trade_date` partition。
+4. repair metadata 增加：
+   - `derived_rewrite_required=true|false`
+   - `derived_planned_batch_count`
+   - `derived_rewritten_file_count`
+   - `derived_rewritten_row_count`
+5. repair 结果必须覆盖七个 qfq assets 的 check event；90/120 不能只靠日常 job 后补。
+
+## 11. 历史初始化
+
+历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。该流程不进入 M11 代码开发本轮执行范围；M11 完成后单独设计补录流程，并先过性能门禁。
+
+注意：补录流程的性能评估阶段只能只读统计正式 lake 数据，不允许任何写入动作。下列 sample/full 写入步骤只属于后续补录执行方案，经单独审批后才允许进入。
+
+阶段：
+
+1. dry-run
+   - 统计 30/60 source qfq 文件集合。
+   - 统计目标 90/120 缺失文件集合。
+   - 估算 source rows、target rows、target files、磁盘空间。
+2. sample
+   - 选择少量 `freq/year/ts_code` 或少量 trade_date 写入临时 lake。
+   - 校验 schema、row count、窗口公式、path/freq/date。
+3. full/batched file generation
+   - 推荐按 `target_freq/year` 或 `target_freq/year/bucket` 批次。
+   - DuckDB SQL 生成 replacement rows。
+   - 复用 qfq stock-year writer。
+4. runless event backfill
+   - 只为文件事实和 checks 全绿的 partitions 补 materialization/check events。
+   - 用聚合 event count 和样本 readiness 验收。
+
+禁止上千分区逐个 Dagster backfill，也禁止逐 partition 深扫 event history 作为主验收。
+
+## 12. 性能门禁
+
+### 12.1 具体评估只读门禁
+
+M11 设计和开发前若需要用正式湖数据做具体规模评估，只允许只读动作：
+
+1. 只能用 DuckDB `SELECT` / `count` / 聚合查询 / `EXPLAIN` 读取 Parquet 文件。
+2. 不允许 `COPY TO`、`CREATE TABLE`、`INSERT`、`UPDATE`、`DELETE`、`EXPORT`、`os.replace` 或任何写文件动作。
+3. 不允许写临时 lake、样本 parquet、event log、Dagster instance、数据库表或 reports 文件。
+4. 不允许运行 `dg`、Dagster job、sensor、backfill、materialization、asset check 或 evaluator。
+5. 只读评估输出只能记录在对话或后续设计文档中；若需要生成报告文件，必须单独说明并等待批准。
+
+### 12.2 本轮开发日常路径门禁
+
+| 项 | 口径 |
+| --- | --- |
+| target freqs | 2：`90/120` |
+| source freqs | `30m/60m` qfq |
+| raw/prod DB/Tushare request | 0 |
+| enum expansion | 只扩 gold qfq freq contract，不扩 raw/silver/source freq |
+| daily source rows | 约 `source_stock_day_count * (9 + 5)` |
+| daily target rows | 约 `source_stock_day_count * (3 + 2)` |
+| daily target files | 最多约 `source_stock_day_count * 2` 个 `freq/ts_code/year` 文件被重写 |
+| DuckDB scan | 只扫 source qfq 30/60 的目标日期行；不得扫 raw/silver 全量历史 |
+| DuckDB write | `COPY ... TO parquet`，按 stock-year 原子替换 |
+| Python 职责 | 参数校验、批次规划、路径发现、结果汇总 |
+| 并发保护 | `gold_stk_mins_qfq_writer` pool limit=1 |
+| 不可接受阈值 | 出现 per-stock 查询主循环、Python 明细聚合、Python 明细写 Parquet、raw/silver 90/120 频度扩散 |
+| 验收 | 单日实现的核心计算批次必须按 target freq 收敛，不能随股票数线性拆成 stock-level SQL |
+
+### 12.3 后续历史补录性能门禁
+
+历史 90/120 补录不进入 M11 本轮开发执行范围；补录方案必须单独设计，并先通过只读规模评估。
+
+| 项 | 口径 |
+| --- | --- |
+| date count | 只读统计 source 30/60 qfq 已覆盖交易日集合 |
+| object count | 只读统计 source `ts_code` 集合、stock-year 文件数、target 缺失文件数 |
+| expected source rows | 只读按 `target_freq/year` 聚合估算，不逐股票深扫 |
+| expected target rows | 90m 约每 stock-day 3 行；120m 约每 stock-day 2 行，异常窗口单独计数 |
+| expected files | `freq=90|120 / ts_code / year` 维度估算 |
+| DuckDB scan | 按 `target_freq/year` 或更粗批次聚合读 source qfq 30/60 |
+| write granularity | 后续执行阶段才允许写；写入仍按 stock-year 原子替换 |
+| retry cost | 失败重跑以 `target_freq/year` 或 approved batch 为单位，不得 date * stock 小循环 |
+| disk space | 补录方案必须估算新增 parquet 大小与临时空间 |
+| event backfill | 只用聚合 event count 和样本 readiness，禁止全量逐 partition 深扫 event history |
+| 拒绝策略 | 只读评估无法给出 date/object/row/file 上界，或实现需要 per-stock 主循环时，停止开发并重设方案 |
+
+## 13. 实施步骤
+
+### M11A 设计与契约
+
+1. 更新本设计文档和 `dagster-stk-mins-asset-design.html`。
+2. 拆分 source/native/derived/qfq freq constants。
+3. 更新 schema 描述。
+4. 增加静态门禁，确保 90/120 只出现在 gold qfq derived 路径。
+
+### M11B DuckDB helper
+
+1. 新增 qfq derived select SQL builder。
+2. 新增 daily derived partition writer。
+3. 单测覆盖 90/120 窗口、OHLCV、exchange 唯一性、缺 bar。
+4. 验证不使用 Python 明细循环。
+
+### M11C Assets 与 checks
+
+1. 新增 `gold_stk_mins_qfq_90m/120m` assets。
+2. 增加 deps 到 30/60 qfq。
+3. 增加 derived checks。
+4. 更新 asset governance / schema / path / pool tests。
+
+### M11D Daily job/sensor
+
+1. 扩展 daily job selection。
+2. 扩展 daily sensor readiness payload。
+3. 更新 sensor tags/count/static gates。
+4. 确认 run key/cursor 不变或明确版本化。
+
+### M11E Repair
+
+1. 扩展 factor repair 批量模型，在 native repair 后重建受影响 90/120。
+2. 更新 repair metadata 与 tests。
+3. 确认 check events 覆盖七个 qfq assets。
+
+### M11F History bootstrap
+
+1. 本轮不执行历史直写补录。
+2. 后续单独输出补录设计，先做性能门禁、dry-run、sample，再申请全量执行。
+
+## 14. Test Plan
+
+单元测试：
+
+1. 90m 从 30m 生成 `11:00/14:00/15:00`。
+2. 90m 跳过 `09:30`。
+3. 90m 最后两个 30m bar 可以生成 `15:00`。
+4. 120m 从 60m 生成 `10:30/14:00`。
+5. 120m 不输出 `15:00` 单根尾组。
+6. OHLCV 聚合正确。
+7. exchange 不一致失败。
+8. target rows freq/date/path/schema 正确。
+9. raw/silver normalize 不接受 90/120。
+10. qfq path normalize 接受 90/120。
+
+契约/静态测试：
+
+1. `stock_mins_qfq_daily_update_job` selection 覆盖七个 qfq assets + checks，不包含 raw/silver/source/repair。
+2. `stock_mins_qfq_factor_repair_job` 仍只调用 repair op，job 文件无业务 SQL。
+3. 90/120 assets 使用 `GOLD_STK_MINS_QFQ_WRITER_POOL`。
+4. 不新增 summary asset/path/schema/catalog。
+5. 不在 prod DB/Tushare request builder 中出现 90/120。
+
+验证命令：
+
+1. `python3 -m py_compile` 编译触达文件。
+2. 运行 qfq M7/M8/M9/M11 相关 unittest。
+3. 运行 static gates、asset governance、sensor classification。
+4. `.venv/bin/ruff check` 触达 Python 文件。
+5. `git diff --check`。
+6. `python3 scripts/check_docs_integrity.py`。
+
+明确不执行：
+
+1. 不运行 `dg`、Dagster job/sensor/backfill/materialization/check。
+2. 不读取正式 Dagster instance。
+3. 不写 `/Volumes/datasource/data_lake`。
+
+## 15. 已拍板口径
+
+本节问题已完成拍板，执行口径如下：
+
+1. `dataset_id` 共用 `stk_mins_qfq`，用 metadata 标明 `calculation_model=derived_from_qfq_source`。
+2. daily job/sensor 一次性扩展为七频度，不新增 derived-only daily sensor。
+3. factor repair 必须同步重建受影响的 90/120。
+4. 历史 90/120 直写补录不进入本轮开发；后续单独设计补录流程，并满足性能门禁。
+5. 90/120 新增 derived 专属 check name：`gold_stk_mins_qfq_derived_source_ready`、`gold_stk_mins_qfq_derived_row_count_matches_source_windows`、`gold_stk_mins_qfq_derived_formula_matches_source`。
+
+## 16. 初步结论
+
+M11 应作为 gold qfq 资产族的派生频度扩展，而不是 stk_mins 源频度扩展。
+
+最稳妥路径是：
+
+```text
+30/60 native gold qfq ready
+-> DuckDB 聚合生成 90/120 gold qfq
+-> 写入同一 qfq 物理布局
+-> derived 专属 blocking checks
+-> daily job/sensor 覆盖七频度
+-> factor repair 同步重建派生频度
+```
+
+这样可以保持 raw/silver/Tushare/prod DB 边界稳定，同时让研究和指标侧最终拥有 `1/5/15/30/60/90/120` 的统一 qfq 输入。

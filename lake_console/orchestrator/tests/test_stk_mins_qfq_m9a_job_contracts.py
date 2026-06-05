@@ -16,7 +16,7 @@ class StkMinsQfqM9AJobContractTests(unittest.TestCase):
 
         selection_text = repr(stock_mins_qfq_daily_update_job.selection)
 
-        for freq in ("1m", "5m", "15m", "30m", "60m"):
+        for freq in ("1m", "5m", "15m", "30m", "60m", "90m", "120m"):
             self.assertIn(f"gold_stk_mins_qfq_{freq}", selection_text)
 
         forbidden_selection_fragments = (

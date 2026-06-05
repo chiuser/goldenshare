@@ -3,7 +3,15 @@
 from typing import Literal
 
 
-STK_MINS_FREQS = (1, 5, 15, 30, 60)
+STK_MINS_SOURCE_FREQS = (1, 5, 15, 30, 60)
+STK_MINS_QFQ_NATIVE_FREQS = STK_MINS_SOURCE_FREQS
+STK_MINS_QFQ_DERIVED_FREQS = (90, 120)
+STK_MINS_QFQ_FREQS = STK_MINS_QFQ_NATIVE_FREQS + STK_MINS_QFQ_DERIVED_FREQS
+STK_MINS_QFQ_DERIVED_SOURCE_FREQS = {
+    90: 30,
+    120: 60,
+}
+STK_MINS_FREQS = STK_MINS_SOURCE_FREQS
 STK_MINS_RAW_SOURCES = ("tushare", "prod_db")
 StkMinsRawSource = Literal["tushare", "prod_db"]
 
@@ -21,7 +29,7 @@ _SILVER_STK_MINS_EXCHANGE_BY_TS_CODE_SUFFIX = {
 
 
 def normalize_stk_mins_freq(freq: int | str) -> int:
-    """Normalize a stock minute frequency to the canonical integer value."""
+    """Normalize a source stock minute frequency to the canonical integer value."""
 
     try:
         normalized = int(str(freq).strip())
@@ -33,6 +41,35 @@ def normalize_stk_mins_freq(freq: int | str) -> int:
         allowed = ", ".join(str(item) for item in STK_MINS_FREQS)
         raise ValueError(f"Unsupported stk_mins freq: {freq!r}. Allowed: {allowed}.")
     return normalized
+
+
+def normalize_stk_mins_qfq_freq(freq: int | str) -> int:
+    """Normalize a gold qfq stock minute frequency to the canonical integer value."""
+
+    try:
+        normalized = int(str(freq).strip())
+    except (TypeError, ValueError) as error:
+        allowed = ", ".join(str(item) for item in STK_MINS_QFQ_FREQS)
+        raise ValueError(
+            f"Unsupported stk_mins qfq freq: {freq!r}. Allowed: {allowed}."
+        ) from error
+
+    if normalized not in STK_MINS_QFQ_FREQS:
+        allowed = ", ".join(str(item) for item in STK_MINS_QFQ_FREQS)
+        raise ValueError(
+            f"Unsupported stk_mins qfq freq: {freq!r}. Allowed: {allowed}."
+        )
+    return normalized
+
+
+def qfq_source_freq_for_derived_freq(freq: int | str) -> int:
+    normalized = normalize_stk_mins_qfq_freq(freq)
+    if normalized not in STK_MINS_QFQ_DERIVED_SOURCE_FREQS:
+        allowed = ", ".join(str(item) for item in STK_MINS_QFQ_DERIVED_FREQS)
+        raise ValueError(
+            f"Unsupported derived stk_mins qfq freq: {freq!r}. Allowed: {allowed}."
+        )
+    return STK_MINS_QFQ_DERIVED_SOURCE_FREQS[normalized]
 
 
 def normalize_stk_mins_raw_source(source: str) -> StkMinsRawSource:

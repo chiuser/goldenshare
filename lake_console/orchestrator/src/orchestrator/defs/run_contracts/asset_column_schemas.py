@@ -160,7 +160,11 @@ SILVER_STK_MINS_SCHEMA = (
 
 GOLD_STK_MINS_QFQ_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
-    ColumnContract("freq", "INTEGER", "分钟频度，允许值为 1、5、15、30、60"),
+    ColumnContract(
+        "freq",
+        "INTEGER",
+        "gold qfq 分钟频度，允许值为 1、5、15、30、60、90、120；raw/silver 源频度仍只允许 1、5、15、30、60",
+    ),
     ColumnContract("trade_date", "DATE", "交易日"),
     ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
     ColumnContract("open", "DOUBLE", "前复权分钟 bar 开盘价"),

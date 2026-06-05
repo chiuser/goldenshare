@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认；M0 前置只读审计已完成；M1 契约基础已完成；M2 bootstrap spec/helper 已完成；M3 raw 迁移、<code>silver_stock_identity_map</code> 初始化、分区注册和 runless event 补录已完成；M4 raw 正式资产化已实现；默认日常同步已改为 22:00 后触发 <code>stock_mins_raw_update_from_prod_job</code>，Tushare job 保留为人工备用入口；M4E 已修正 prod DB 默认日常入口的逐股票查询性能缺陷，改为按 <code>freq + trade_date window + 股票池</code> 批量抽取；M4C 已实现 Tushare <code>merge_repair</code> 受控修复代码口径，并已按该口径完成 6 个历史 1m 样本修复与只读复核；M5A-M5E 已完成 silver 契约、标准化 helper、assets、checks 和正式 <code>stock_mins_silver_update_job</code> 入口；M6 已完成 <code>2014-01-01</code> 之后历史 silver 文件生成和 runless materialization/check event 补录；M6F 已实现并执行 <code>cn_a_stock_mins_silver_trade_days</code> 独立分区修正：silver assets/checks 使用独立 2014+ 分区，历史注册 CLI 已把当前 <code>3014</code> 个 silver 文件日期注册到正式 Dagster instance，Dagster UI 已人工验收未发现分区异常，日常 silver 分区注册 sensor 已实现但默认停止；M6G 已实现自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>，默认停止；Gold qfq 已重新拍板并完成 M7B/M7C/M8A/M8B/M8C/M8D：废弃 <code>gold_stk_mins_qfq_daily_summary</code> 和 <code>gold_stk_mins_qfq_factor_repair_summary</code> 两个实体设计，Dagster 分区按日期，物理文件按 <code>freq + ts_code + year</code>，主表 path/schema/catalog 契约已固定，DuckDB qfq select、coverage、因子变化检测和股票年份文件写回 helper 已实现，五个 <code>gold_stk_mins_qfq_*</code> assets 与 multi check 已实现；历史 gold qfq 物理文件已正式生成完成，M8D runless event 补录已按 <code>freq/year</code> “审一年、写一年”全量执行完成，最终核验五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿；M9A 已实现 <code>stock_mins_qfq_daily_update_job</code> 和默认停止的 <code>stock_mins_qfq_daily_sensor</code>，23:00 后只在当日 silver 与当日复权因子 ready、目标 gold qfq 尚未 ready 时提交单日五频度 qfq run；M9B 已实现 factor repair 的 DuckDB 检测、repair plan 和 repair check metadata 契约；M9C/M9D 已接入默认停止的 <code>stock_mins_qfq_factor_repair_job</code>/<code>stock_mins_qfq_factor_repair_sensor</code> 并修正为非分区维护型 job；首次人工 repair 曾暴露旧实现按 <code>stock_code -> freq -> year</code> 小循环，<code>2026-06-02</code> 有 <code>74</code> 只 <code>factor_changed</code> 股票时耗时明显超预期。M9E 已修正为 <code>freq/year</code> 批量检测、批量计算和批量写回，核心计算批次从 <code>changed_code_count * freq_count * year_count</code> 收敛为 <code>freq_count * year_count</code>。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；90/120 历史直写补录尚未执行，后续需单独设计并先过性能门禁。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -544,11 +544,13 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
     <h3>5.4 Gold qfq assets</h3>
     <table>
       <tr><th>Asset key</th><th>分区</th><th>输入</th><th>物理路径</th></tr>
-      <tr><td><code>gold_stk_mins_qfq_1m</code></td><td rowspan="5"><code>cn_a_stock_mins_silver_trade_days</code></td><td rowspan="5">对应 silver + <code>silver_adj_factor</code>；Dagster 仍按交易日分区，物理文件按股票和年份组织</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_1m</code></td><td rowspan="7"><code>cn_a_stock_mins_silver_trade_days</code></td><td rowspan="5">native qfq：对应 silver + <code>silver_adj_factor</code>；Dagster 仍按交易日分区，物理文件按股票和年份组织</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=1/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_5m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=5/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_15m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=15/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_30m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=30/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
       <tr><td><code>gold_stk_mins_qfq_60m</code></td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=60/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_90m</code></td><td>derived qfq：从 <code>gold_stk_mins_qfq_30m</code> 聚合生成，不进入 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=90/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
+      <tr><td><code>gold_stk_mins_qfq_120m</code></td><td>derived qfq：从 <code>gold_stk_mins_qfq_60m</code> 聚合生成，不进入 raw/silver/Tushare/prod DB 源频度</td><td><code>data_lake/gold/quote/stk_mins_qfq/freq=120/ts_code={ts_code}/year={year}/part-000.parquet</code></td></tr>
     </table>
     <p>
       这里的 <code>partition_key</code> 不进入 gold 物理目录名。<code>gold_stk_mins_qfq_5m[2026-05-29]</code> 的含义是：
@@ -1201,15 +1203,16 @@ ops:
     <p>
       gold 层保存前复权后的分钟线，输入为标准化后的 silver stk_mins 与 <code>silver_adj_factor</code>。
       gold 是计算结果，不回写 raw/silver，也不覆盖原始 clean_next。
-      本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper、M8A gold assets、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 job/sensor、M9B factor repair detection 契约、M9C/M9D factor repair job/sensor 和 M9E factor repair 批量写回性能修正均已实现。
+      本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper、M8A gold assets、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 job/sensor、M9B factor repair detection 契约、M9C/M9D factor repair job/sensor、M9E factor repair 批量写回性能修正，以及 M11 90/120 派生 qfq assets 均已实现代码口径。
       正式历史 gold qfq 物理文件和 Dagster event log 已完成对齐：五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。
-      M9C 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到五个 <code>gold_stk_mins_qfq_*</code> assets 上。该 job 与 <code>stock_mins_qfq_factor_repair_sensor</code> 默认停止，尚未正式启用或执行 repair run。
+      90/120 历史直写补录尚未执行，后续必须单独设计 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 流程并先过性能门禁。
+      M9C/M11 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets 上。该 job 与 <code>stock_mins_qfq_factor_repair_sensor</code> 默认停止，正式启用或执行 repair run 仍需单独审批。
       任何新的正式写湖、Dagster job、sensor、backfill、repair 或 event 补录动作仍需单独审批。
     </p>
     <div class="warning">
       <strong>已废弃的实体设计：</strong>
       不保留 <code>gold_stk_mins_qfq_daily_summary</code>，也不保留 <code>gold_stk_mins_qfq_factor_repair_summary</code>。
-      日常完成状态由五个 <code>gold_stk_mins_qfq_*</code> 的 materialization 和 blocking checks 表达；
+      日常完成状态由七个 <code>gold_stk_mins_qfq_*</code> 的 materialization 和 blocking checks 表达；
       repair 是否需要执行、影响哪些股票、为什么成功或跳过，由 repair job 内的 DuckDB 检测和 repair check metadata 表达。
       后续代码、schema、path、catalog、job selection、sensor 门禁和文档都不得重新引入这两个实体。
     </div>
@@ -1230,8 +1233,8 @@ ops:
       <tr><th>项目</th><th>方案</th><th>原因</th></tr>
       <tr>
         <td>资产</td>
-        <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m</code></td>
-        <td>继续按五个频度拆 asset，与 raw/silver 的资产粒度保持一致。</td>
+        <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code></td>
+        <td>native 五频度与 raw/silver 对齐；90/120 是 qfq 资产族内的 derived 频度，只从 30/60 qfq 聚合生成。</td>
       </tr>
       <tr>
         <td>分区</td>
@@ -1262,7 +1265,7 @@ ops:
 
     <h3>9.3 日常单日生成链路（M9A 已实现）</h3>
     <p>
-      日常链路只做一个交易日的五频度 qfq 生成，不在同一个 job 里顺手做历史 repair。
+      日常链路只做一个交易日的七频度 qfq 生成，不在同一个 job 里顺手做历史 repair。
       正常顺序为 raw → silver → gold qfq。
       历史 gold qfq 文件和 runless events 已补齐，UI/readiness 已对齐；M9A 已把该链路接成正式 daily job 和默认停止的 daily sensor。
     </p>
@@ -1270,13 +1273,13 @@ ops:
       <tr><th>对象</th><th>职责</th><th>边界</th></tr>
       <tr>
         <td><code>stock_mins_qfq_daily_update_job</code></td>
-        <td>选择五个 <code>gold_stk_mins_qfq_*</code> assets 及其 blocking checks。</td>
+        <td>选择七个 <code>gold_stk_mins_qfq_*</code> assets 及其 blocking checks。</td>
         <td>不触发 raw/silver，不做历史 repair，不访问 prod DB/Tushare，不写 <code>gold_stk_mins_qfq_daily_summary</code>。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
         <td>23:00 后，在最新 silver 分区 ready、<code>silver_adj_factor[trade_date]</code> ready 后触发单日 gold job。</td>
-        <td>默认 <code>STOPPED</code>；sensor 只看当前目标日期的轻量 readiness，不逐历史分区深扫；目标是否完成以五个 gold assets 的当日 materialization + blocking checks 为准。</td>
+        <td>默认 <code>STOPPED</code>；sensor 只看当前目标日期的轻量 readiness，不逐历史分区深扫；目标是否完成以七个 gold assets 的当日 materialization + blocking checks 为准。</td>
       </tr>
     </table>
     <p>
@@ -1348,8 +1351,8 @@ ops:
       <tr><th>步骤</th><th>口径</th><th>原因</th></tr>
       <tr>
         <td>监听信号</td>
-        <td><code>stock_mins_qfq_factor_repair_sensor</code> 监听当日五个 <code>gold_stk_mins_qfq_*</code> 分区全部 materialized 且 blocking checks 全绿。</td>
-        <td>只看当前目标日期五个 gold assets 的 ready 状态，不扫描历史明细；不引入 <code>gold_stk_mins_qfq_daily_summary</code>。</td>
+        <td><code>stock_mins_qfq_factor_repair_sensor</code> 监听当日七个 <code>gold_stk_mins_qfq_*</code> 分区全部 materialized 且 blocking checks 全绿。</td>
+        <td>只看当前目标日期七个 gold assets 的 ready 状态，不扫描历史明细；不引入 <code>gold_stk_mins_qfq_daily_summary</code>。</td>
       </tr>
       <tr>
         <td>变化检测</td>
@@ -1370,6 +1373,11 @@ ops:
         <td>M9E 批量修正</td>
         <td>repair 执行模型已改为：先用 DuckDB 一次性生成 changed-code plan；再按 <code>freq/year</code> 批量读取对应年份 silver、当日/历史 adj factor 和 changed code 集合；同一批次内用 DuckDB 计算所有受影响股票的 qfq replacement rows；最后按目标 <code>ts_code/year</code> 文件分组写回。</td>
         <td>这样每个 <code>freq/year</code> 批次只准备一次输入、只复用一次 latest factor 视图、只做一轮 DuckDB 计算，避免 <code>changed_code_count * freq_count * year_count</code> 级别的重复查询。Python 只允许做路径规划、批次调度和汇总，不得承载明细计算。</td>
+      </tr>
+      <tr>
+        <td>M11 derived 同步重建</td>
+        <td>native 30/60 repair 写回后，repair helper 必须按 <code>target_freq/year</code> 批量重建受影响股票历史 90/120；repair check event 覆盖七个 qfq assets。</td>
+        <td>避免 30/60 已因复权因子变化修正、90/120 仍保留旧聚合结果。derived 重建只读 qfq 30/60，不读取 raw/silver/Tushare/prod DB。</td>
       </tr>
       <tr>
         <td>完成记录</td>
@@ -1627,7 +1635,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M8A</strong></td>
         <td>Gold qfq assets</td>
-        <td>已接入五个 <code>gold_stk_mins_qfq_*</code> assets，使用 <code>cn_a_stock_mins_silver_trade_days</code>，只读依赖对应 silver 与 <code>silver_adj_factor</code>。</td>
+        <td>已接入五个 native <code>gold_stk_mins_qfq_*</code> assets，使用 <code>cn_a_stock_mins_silver_trade_days</code>，只读依赖对应 silver 与 <code>silver_adj_factor</code>。</td>
         <td>不新增 sensor；不做历史生成；asset definition metadata 已包含 schema 和由真实路径函数派生的 <code>freq + ts_code + year</code> path template。</td>
       </tr>
       <tr>
@@ -1646,7 +1654,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M8D</strong></td>
         <td>历史 runless event 补录</td>
         <td>补录 gold qfq materialization/check events；预计 <code>15070 * 9 = 135630</code> 条 runless events。</td>
-        <td>helper/CLI 已实现并正式执行完成；<code>plan</code> 只做集合与计数规划，<code>report</code> 按 <code>freq/year</code> 做年度 DuckDB 批量审计，并在每个年度批次通过后立即补录该年 event；UI 保留每个日期的 8 个 check event，但历史补录中不得逐日期重复执行深度 qfq 公式审计。最终核验结果：五个 gold qfq assets 各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿，样本 readiness 全部通过。</td>
+        <td>helper/CLI 已实现并正式执行完成；<code>plan</code> 只做集合与计数规划，<code>report</code> 按 <code>freq/year</code> 做年度 DuckDB 批量审计，并在每个年度批次通过后立即补录该年 event；UI 保留每个日期的 8 个 check event，但历史补录中不得逐日期重复执行深度 qfq 公式审计。最终核验结果：五个 native gold qfq assets 各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿，样本 readiness 全部通过。</td>
       </tr>
       <tr>
         <td><strong>M8E</strong></td>
@@ -1669,14 +1677,14 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M9C</strong></td>
         <td>Repair job 与 sensor</td>
-        <td>已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>，当日五频度 gold ready 且 23:15 后触发。</td>
-        <td>sensor 不直接检测变化股票；repair job 内用 DuckDB 生成 plan 并执行必要回刷；repair check event 挂到五个 gold qfq assets；不新增 summary；默认停止，正式执行仍需单独审批。</td>
+        <td>已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>，当日 gold qfq ready 且 23:15 后触发。</td>
+        <td>sensor 不直接检测变化股票；repair job 内用 DuckDB 生成 plan 并执行必要回刷；M11 后 repair check event 挂到七个 gold qfq assets；不新增 summary；默认停止，正式执行仍需单独审批。</td>
       </tr>
       <tr>
         <td><strong>M9D</strong></td>
         <td>Repair job 分区建模修正</td>
         <td>已实现：<code>stock_mins_qfq_factor_repair_job</code> 已从绑定 <code>cn_a_stock_mins_silver_trade_days</code> 的 partitioned op job 改为非分区 op job。</td>
-        <td>原因是旧 UI 会显示全历史 missing partitions，误导为 repair 历史缺口。当前口径：typed config 只暴露 <code>trade_date</code>；sensor 自动传入最新目标日期；人工 Launchpad 可 scaffold；repair check 仍按目标日期写到五个 gold qfq assets，不新增 summary entity。</td>
+        <td>原因是旧 UI 会显示全历史 missing partitions，误导为 repair 历史缺口。当前口径：typed config 只暴露 <code>trade_date</code>；sensor 自动传入最新目标日期；人工 Launchpad 可 scaffold；repair check 仍按目标日期写到 gold qfq assets，不新增 summary entity。</td>
       </tr>
       <tr>
         <td><strong>M9E</strong></td>
@@ -1690,6 +1698,12 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td>已进入第一轮治理收口：文档、拓扑、架构和静态门禁以当前 gold qfq 代码与已执行事实为准对齐。</td>
         <td>收口范围只包含口径纠偏和防回退门禁；不新增资产、job、sensor 或 summary entity，不启用默认停止的 qfq daily / repair sensors。</td>
       </tr>
+      <tr>
+        <td><strong>M11</strong></td>
+        <td>90/120 derived qfq assets</td>
+        <td>已实现代码口径：新增 <code>gold_stk_mins_qfq_90m</code> 与 <code>gold_stk_mins_qfq_120m</code>，并入 <code>dataset_id=stk_mins_qfq</code>；daily job/sensor 和 repair check event 扩为七频度。</td>
+        <td>90m 只从 30m qfq 聚合，120m 只从 60m qfq 聚合；raw/silver/Tushare/prod DB 仍只有五个源频度。历史 90/120 直写补录不在 M11 执行，后续需单独设计并先过性能门禁。</td>
+      </tr>
     </table>
   </section>
 
@@ -1702,8 +1716,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       gold 历史 baseline 已完成：命令式生成 gold qfq 股票年份文件，并按 <code>freq/year</code> 年度批量补录 runless materialization/check events。
       M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与默认停止的 <code>stock_mins_qfq_daily_sensor</code>：它只在 23:00 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。
       M9B 已实现 factor repair detection 与 check metadata 契约。
-      M9C 已新增默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日五频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测与必要股票历史回刷。
-      P0-1 并发保护已完成：五个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
+      M9C/M11 已新增默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。
+      P0-1 并发保护已完成：七个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
       P0-3 DuckDB 连接治理已落地：正式分钟线 / qfq / history event / repair 路径统一走 <code>DuckDBResource</code> 或统一连接 helper，默认参数为 <code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>、<code>max_temp_directory_size=512GB</code>、<code>memory_limit=16GB</code>、<code>threads=4</code>、<code>preserve_insertion_order=false</code>；正式 <code>defs/**</code> 路径禁止直接 <code>duckdb.connect()</code>，并已由静态门禁保护。
     </p>
     <div class="note">
@@ -1713,7 +1727,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       这不是 gold qfq 数据缺口，而是任务建模与真实业务语义不一致。当前 repair 已改为非分区 op job，
       通过 typed run config 传入 <code>trade_date</code>；sensor 提交 run 时自动写入该 config，
       人工 Launchpad 也可 scaffold 出 <code>trade_date</code>。
-      repair check event 仍挂到五个 <code>gold_stk_mins_qfq_*</code> assets 的目标日期上，不新增 summary asset。
+      repair check event 仍挂到七个 <code>gold_stk_mins_qfq_*</code> assets 的目标日期上，不新增 summary asset。
     </div>
 
     <table>
@@ -1775,7 +1789,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_daily_update_job</code></td>
-        <td>单日生成五个频度 qfq gold，并写入对应股票年份文件。</td>
+        <td>单日生成七个频度 qfq gold，并写入对应股票年份文件。</td>
         <td>已实现；selection 不包含 raw/silver 写入资产，不承担历史 repair，不写 <code>gold_stk_mins_qfq_daily_summary</code>。</td>
       </tr>
       <tr>
@@ -1785,12 +1799,12 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
-        <td>检测最新 adj factor 是否相对上一交易日变化；无变化则成功，有变化则按 M9E 的 <code>freq/year</code> 批量模型回刷历史 qfq。</td>
-        <td>已实现维护型非分区 op job，运行时通过 typed <code>trade_date</code> config 指定目标日期，不再产生全历史 missing partitions 噪音；变化检测和修复结果通过 repair check metadata 表达，不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。M9E 已修正旧逐股票碎循环性能缺陷。</td>
+        <td>检测最新 adj factor 是否相对上一交易日变化；无变化则成功，有变化则按 M9E 的 <code>freq/year</code> 批量模型回刷历史 native qfq，并按 M11 重建受影响 90/120。</td>
+        <td>已实现维护型非分区 op job，运行时通过 typed <code>trade_date</code> config 指定目标日期，不再产生全历史 missing partitions 噪音；变化检测、修复结果和 derived rewrite 诊断通过 repair check metadata 表达，不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。M9E 已修正旧逐股票碎循环性能缺陷。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_sensor</code></td>
-        <td>监听当日五频度 gold ready 后触发 repair job。</td>
+        <td>监听当日七频度 gold ready 后触发 repair job。</td>
         <td>已实现，默认 <code>STOPPED</code>；23:15 后评估，不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。</td>
       </tr>
     </table>
@@ -1924,7 +1938,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <strong>M8</strong>
         <div>
           <h3>Gold qfq assets、checks、历史文件生成与 event 补录</h3>
-          <p>已接入五个 <code>gold_stk_mins_qfq_*</code> assets 与 blocking checks；历史 gold qfq 股票年份文件已按 <code>freq/year</code> 生成，runless materialization/check events 已按同样批次补录完成。最终核验显示五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。</p>
+          <p>已接入五个 native <code>gold_stk_mins_qfq_*</code> assets 与 blocking checks；历史 gold qfq 股票年份文件已按 <code>freq/year</code> 生成，runless materialization/check events 已按同样批次补录完成。最终核验显示五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。M11 另行接入 90/120 derived assets，历史 90/120 补录不属于 M8。</p>
         </div>
       </div>
       <div class="step">
@@ -1974,7 +1988,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>gold sensor 门禁过重导致超时</td>
-        <td>日常 sensor 只看目标日期五个 gold assets 的 readiness，不做历史分区深扫；必要的文件事实校验放到 asset/check 内用 DuckDB 聚合完成。</td>
+        <td>日常 sensor 只看目标日期七个 gold assets 的 readiness，不做历史分区深扫；必要的文件事实校验放到 asset/check 内用 DuckDB 聚合完成。</td>
       </tr>
       <tr>
         <td>历史批量补录 event 过慢</td>
@@ -1991,7 +2005,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>不把 backup/legacy 写入正式 asset key。</li>
       <li>不把旧湖 <code>security_identity_map</code> 作为长期运行时依赖；它只作为初始化 bootstrap 来源。</li>
       <li>不把 qfq 结果原地覆盖 raw 或 silver。</li>
-      <li>不在本设计中接入 90/120 分钟派生、by-symbol-month 重排或 MACD 等指标资产。</li>
+      <li>不在本设计中接入 by-symbol-month 重排或 MACD 等指标资产；90/120 分钟派生已作为 M11 qfq 资产族扩展单独落地。</li>
       <li>不把旧 lake_console 运行账本作为 Dagster 正式运行状态。</li>
       <li>不把 prod DB 分钟线来源扩展为任意表导出能力；M4B 只允许读取 <code>raw_tushare.stk_mins</code> 的字段白名单。</li>
     </ul>

@@ -83,7 +83,7 @@ def build_stock_mins_qfq_daily_update_decision(
     elif not adj_factor_ready:
         reason = "当日复权因子尚未 ready，暂不触发股票分钟线 gold qfq 更新。"
     elif gold_ready:
-        reason = "最新股票分钟线 gold qfq 交易日的五频度分区已经 ready。"
+        reason = "最新股票分钟线 gold qfq 交易日的七频度分区已经 ready。"
     elif gold_has_materialized_check_problem:
         reason = (
             "最新股票分钟线 gold qfq 分区已生成过，但 blocking checks 未全绿，"
@@ -94,7 +94,7 @@ def build_stock_mins_qfq_daily_update_decision(
             target_trade_date=target_trade_date,
             run_window_started=True,
             selected_trade_date=target_trade_date,
-            reason="股票分钟线 gold qfq 门禁已满足，提交五频度 qfq 更新。",
+            reason="股票分钟线 gold qfq 门禁已满足，提交七频度 qfq 更新。",
         )
 
     return StockMinsQfqDailyUpdateDecision(
@@ -172,7 +172,7 @@ def _run_request_for_trade_date(trade_date: str):
         target_layer=SensorTargetLayer.GOLD,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="股票分钟线 silver 和复权因子就绪后，触发五频度 gold qfq 更新任务。",
+    description="股票分钟线 silver 和复权因子就绪后，触发七频度 gold qfq 更新任务。",
 )
 def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)

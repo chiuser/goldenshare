@@ -98,8 +98,8 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `stock_daily_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发股票日线 raw/silver 更新；只读 basic/suspend 门禁。 |
 | `stock_adj_factor_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发复权因子 raw/silver 更新；复权因子属于股票行情数据域。 |
 | `stock_mins_silver_sensor` | `defs/sensors/stock_mins_silver_sensor.py` | `quote_data` | `silver` | `asset_update` | 触发股票分钟线 silver 五频度更新；只消费已注册 silver 分区和上游 readiness，不注册分区、不触发 raw。 |
-| `stock_mins_qfq_daily_sensor` | `defs/sensors/stock_mins_qfq_daily_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 gold 五频度更新；只消费已注册 silver 分区、当日 silver readiness 和当日复权因子 readiness，不注册分区、不触发 repair。 |
-| `stock_mins_qfq_factor_repair_sensor` | `defs/sensors/stock_mins_qfq_factor_repair_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 factor repair 维护任务；只监听当日五频度 gold ready，不检测变化股票，不注册分区。 |
+| `stock_mins_qfq_daily_sensor` | `defs/sensors/stock_mins_qfq_daily_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 gold 七频度更新；只消费已注册 silver 分区、当日 silver readiness 和当日复权因子 readiness，不注册分区、不触发 repair。 |
+| `stock_mins_qfq_factor_repair_sensor` | `defs/sensors/stock_mins_qfq_factor_repair_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 factor repair 维护任务；只监听当日七频度 gold ready，不检测变化股票，不注册分区。 |
 | `index_daily_sensor` | `defs/sensors/index_daily_sensor.py` | `index_topic` | `raw` | `asset_update` | 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口后触发 `index_daily_update_job`，只写指数日线 raw-by-code 和 raw checks，不写 silver。 |
 | `silver_index_daily_sensor` | `defs/sensors/silver_index_daily_sensor.py` | `index_topic` | `silver` | `asset_update` | 确认最近 60 个可运行交易日内 raw-by-code 无有效空洞后触发最早未 ready 的 `silver_index_daily_update_job`，从 raw-by-code 文件集合生成指数日线 silver。 |
 | `market_major_indices_daily_sensor` | `defs/sensors/market_major_indices_daily_sensor.py` | `index_topic` | `gold` | `asset_update` | 触发主要指数日线 gold；虽然是 gold 层，但业务域仍是指数专题。 |

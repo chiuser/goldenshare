@@ -61,6 +61,8 @@ from orchestrator.defs.assets.stk_mins import (
     gold_stk_mins_qfq_15m,
     gold_stk_mins_qfq_30m,
     gold_stk_mins_qfq_60m,
+    gold_stk_mins_qfq_90m,
+    gold_stk_mins_qfq_120m,
     raw_stk_mins_1m,
     raw_stk_mins_5m,
     raw_stk_mins_15m,
@@ -218,6 +220,8 @@ ASSET_CONTRACTS = {
     gold_stk_mins_qfq_15m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
     gold_stk_mins_qfq_30m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
     gold_stk_mins_qfq_60m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
+    gold_stk_mins_qfq_90m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
+    gold_stk_mins_qfq_120m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
     raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
     silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
     raw_tushare_index_daily_by_code: (
@@ -399,6 +403,22 @@ ASSET_PATH_TEMPLATES = {
             PATH_TEMPLATE_YEAR,
         )
     ),
+    gold_stk_mins_qfq_90m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            90,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
+    gold_stk_mins_qfq_120m: lake_path_template(
+        gold_stk_mins_qfq_path(
+            PATH_TEMPLATE_LAKE_ROOT,
+            120,
+            PATH_TEMPLATE_TS_CODE,
+            PATH_TEMPLATE_YEAR,
+        )
+    ),
     gold_stock_return_distribution: lake_path_template(
         gold_stock_return_distribution_path(
             PATH_TEMPLATE_LAKE_ROOT,
@@ -429,6 +449,8 @@ ASSET_COLUMN_SCHEMAS = {
     gold_stk_mins_qfq_15m: GOLD_STK_MINS_QFQ_SCHEMA,
     gold_stk_mins_qfq_30m: GOLD_STK_MINS_QFQ_SCHEMA,
     gold_stk_mins_qfq_60m: GOLD_STK_MINS_QFQ_SCHEMA,
+    gold_stk_mins_qfq_90m: GOLD_STK_MINS_QFQ_SCHEMA,
+    gold_stk_mins_qfq_120m: GOLD_STK_MINS_QFQ_SCHEMA,
     raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
@@ -480,7 +502,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 37)
+        self.assertEqual(len(ASSET_CONTRACTS), 39)
 
         for asset, (
             layer,
@@ -527,6 +549,8 @@ class AssetGovernanceContractTests(unittest.TestCase):
             gold_stk_mins_qfq_15m,
             gold_stk_mins_qfq_30m,
             gold_stk_mins_qfq_60m,
+            gold_stk_mins_qfq_90m,
+            gold_stk_mins_qfq_120m,
         )
 
         for asset in raw_assets:
