@@ -218,6 +218,23 @@ Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，
 7. 如果执行中发现 dry-run 明显慢于预期，必须停下重新评估查询模型，优先改成聚合审计或分批审计；禁止硬等或继续扩大到写入阶段。
 8. 任何新增历史批量 helper，都必须在设计文档中写清楚采用的是聚合审计还是逐分区审计；若选择逐分区审计，必须解释规模为什么可接受。
 
+### 直写补录模式门禁
+
+直写补录模式，全称 `Direct Lake Bootstrap + Runless Event Backfill`，指历史大批量数据不通过 Dagster backfill 逐分区执行 asset，而是先用受控 helper / CLI 直接生成或迁移 lake parquet 文件，再用 runless materialization / asset check events 把文件事实补录为 Dagster event 事实。
+
+该模式是 `stk_mins` silver / gold 历史初始化已经采用的正式模式。后续类似历史大批量 silver/gold 初始化、旧湖迁移、物理布局重建，可以复用这个名字和流程。
+
+规则：
+
+1. 直写补录模式只适用于历史大批量初始化、迁移或重建；日常增量必须走正式 asset job / sensor，不能用直写补录绕过 Dagster 日常链路。
+2. 直写补录不是 Dagster backfill。方案文档和执行说明必须明确区分：文件生成阶段、runless event 补录阶段、最终聚合审计阶段。
+3. 文件生成阶段必须先 dry-run，再样本，再分批全量；每批写入前必须确认输入完整、目标冲突、预计文件数、预计行数和回滚方式。
+4. event 补录阶段必须先 dry-run，再样本，再分批全量；补绿 event 前必须确认对应文件事实和 blocking check 事实全部通过。
+5. 大批量补录必须使用聚合审计、集合差异、年度 / 频度 / 批次维度处理；禁止按日期、按 partition、按 check 做碎循环深扫。
+6. 文件写入必须遵守 Parquet 计算与写入门禁：大体量计算和写 parquet 使用 DuckDB SQL / `COPY ... TO parquet` 或等价列式能力，禁止 Python 明细循环写大文件。
+7. runless event log 是追加事实；正式补录前必须说明误写后的处理方式。默认不做数据库级删除回滚，只能追加更正事件或单独设计清理方案。
+8. 直写补录完成后，必须用聚合 event count、文件集合差异、少量样本 readiness 做最终验收；不得用全量逐分区 readiness 深扫作为主验收方式。
+
 ### Parquet 计算与写入门禁
 
 涉及分钟线、日线、历史 bootstrap、日常增量、silver/gold 派生、qfq、repair、runless event 前置审计等正式 lake Parquet 数据处理时，禁止用 Python 手搓明细计算或逐行写 Parquet。
