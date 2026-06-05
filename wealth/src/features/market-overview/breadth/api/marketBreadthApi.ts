@@ -49,14 +49,37 @@ export interface MarketBreadthResponse {
       upCount: number;
       downCount: number;
       flatCount: number;
+      totalCount: number;
       redRate: number;
+      distributionBuckets: BreadthDistributionBuckets;
     };
     historyByRange: {
-      "1m": Array<{ tradeDate: string; upCount: number; downCount: number }>;
-      "3m": Array<{ tradeDate: string; upCount: number; downCount: number }>;
+      "1m": BreadthHistoryPoint[];
+      "3m": BreadthHistoryPoint[];
     };
   };
   debugInfo?: BreadthDebugInfo | null;
+}
+
+export interface BreadthDistributionBuckets {
+  downGt7Count: number;
+  down5To7Count: number;
+  down3To5Count: number;
+  down0To3Count: number;
+  up0To3Count: number;
+  up3To5Count: number;
+  up5To7Count: number;
+  upGt7Count: number;
+}
+
+export interface BreadthHistoryPoint {
+  tradeDate: string;
+  upCount: number;
+  downCount: number;
+  flatCount: number;
+  totalCount: number;
+  redRate: number;
+  distributionBuckets: BreadthDistributionBuckets;
 }
 
 export class MarketBreadthApiError extends Error {

@@ -45,7 +45,7 @@ class BreadthStatusResolver:
                 history_incomplete=False,
             )
 
-        lag_days = (expected_trade_date - observed_trade_date).days
+        lag_days = max(0, (expected_trade_date - observed_trade_date).days)
         if lag_days > 0:
             module_status = ModuleStatusItemDto(
                 moduleKey="breadth",

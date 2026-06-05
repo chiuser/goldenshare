@@ -59,3 +59,16 @@ class BreadthExceptionBuilder:
             severity="error",
             message=message,
         )
+
+    @staticmethod
+    def fact_duplicated(*, message: str, trade_date: str, row_count: int) -> ModuleExceptionItemDto:
+        return ModuleExceptionItemDto(
+            module="breadth",
+            code="BR_FACT_DUPLICATED",
+            severity="error",
+            message=message,
+            details={
+                "tradeDate": trade_date,
+                "rowCount": row_count,
+            },
+        )

@@ -30,13 +30,28 @@ class PageStatusDto(BaseModel):
     asOfTime: datetime | None = None
 
 
+class BreadthDistributionBucketsDto(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    downGt7Count: int = Field(ge=0)
+    down5To7Count: int = Field(ge=0)
+    down3To5Count: int = Field(ge=0)
+    down0To3Count: int = Field(ge=0)
+    up0To3Count: int = Field(ge=0)
+    up3To5Count: int = Field(ge=0)
+    up5To7Count: int = Field(ge=0)
+    upGt7Count: int = Field(ge=0)
+
+
 class BreadthMetricsDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     upCount: int = Field(ge=0)
     downCount: int = Field(ge=0)
     flatCount: int = Field(ge=0)
+    totalCount: int = Field(ge=0)
     redRate: float = Field(ge=0, le=100)
+    distributionBuckets: BreadthDistributionBucketsDto
 
 
 class BreadthHistoryPointDto(BaseModel):
@@ -45,6 +60,10 @@ class BreadthHistoryPointDto(BaseModel):
     tradeDate: date
     upCount: int = Field(ge=0)
     downCount: int = Field(ge=0)
+    flatCount: int = Field(ge=0)
+    totalCount: int = Field(ge=0)
+    redRate: float = Field(ge=0, le=100)
+    distributionBuckets: BreadthDistributionBucketsDto
 
 
 class BreadthPayloadDto(BaseModel):

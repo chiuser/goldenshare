@@ -8,7 +8,6 @@ from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
 
 
 _CN_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -35,7 +34,7 @@ class BreadthSourceState:
 
 
 class BreadthStateQuery:
-    """Resolve expected trading day and breadth source observed date."""
+    """Resolve expected trading day for the breadth module."""
 
     def resolve_trading_day(
         self,
@@ -77,10 +76,6 @@ class BreadthStateQuery:
             session_status=session_status,
             as_of_time=local_now,
         )
-
-    def load_source_state(self, session: Session) -> BreadthSourceState:
-        observed_trade_date = session.scalar(select(func.max(EquityDailyBar.trade_date)))
-        return BreadthSourceState(observed_trade_date=observed_trade_date)
 
     @staticmethod
     def _resolve_session_status(*, local_now: datetime, is_trading_day: bool) -> str:

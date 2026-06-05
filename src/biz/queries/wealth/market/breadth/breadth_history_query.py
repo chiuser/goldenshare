@@ -1,24 +1,15 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
 from datetime import date
 
-from sqlalchemy import case, func, select
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from src.foundation.models.core.trade_calendar import TradeCalendar
-from src.foundation.models.core_serving.equity_daily_bar import EquityDailyBar
-
-
-@dataclass(frozen=True, slots=True)
-class BreadthHistoryPoint:
-    trade_date: date
-    up_count: int
-    down_count: int
 
 
 class BreadthHistoryQuery:
-    """Load breadth history points for fixed trading-day windows."""
+    """Load fixed trading-day windows for breadth facts."""
 
     def load_recent_trade_dates(
         self,
@@ -38,38 +29,3 @@ class BreadthHistoryQuery:
             .limit(limit_days)
         ).scalars().all()
         return list(reversed(rows))
-
-    def load_history_points(
-        self,
-        session: Session,
-        *,
-        trade_dates: list[date],
-    ) -> list[BreadthHistoryPoint]:
-        if not trade_dates:
-            return []
-
-        up_expr = func.sum(case((EquityDailyBar.pct_chg > 0, 1), else_=0))
-        down_expr = func.sum(case((EquityDailyBar.pct_chg < 0, 1), else_=0))
-
-        rows = session.execute(
-            select(
-                EquityDailyBar.trade_date,
-                up_expr.label("up_count"),
-                down_expr.label("down_count"),
-            )
-            .where(
-                EquityDailyBar.trade_date.in_(tuple(trade_dates)),
-                EquityDailyBar.pct_chg.is_not(None),
-            )
-            .group_by(EquityDailyBar.trade_date)
-            .order_by(EquityDailyBar.trade_date.asc())
-        ).all()
-
-        return [
-            BreadthHistoryPoint(
-                trade_date=row.trade_date,
-                up_count=int(row.up_count or 0),
-                down_count=int(row.down_count or 0),
-            )
-            for row in rows
-        ]

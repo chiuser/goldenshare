@@ -48,6 +48,14 @@ class Settings(BaseSettings):
     biz_use_serving_light: bool = Field(default=True, alias="BIZ_USE_SERVING_LIGHT")
     biz_serving_fallback: bool = Field(default=True, alias="BIZ_SERVING_FALLBACK")
     redis_url: str = Field(default="redis://127.0.0.1:6379/0", alias="REDIS_URL")
+    wealth_clickhouse_url: str = Field(default="http://127.0.0.1:8123", alias="WEALTH_CLICKHOUSE_URL")
+    wealth_clickhouse_database: str = Field(
+        default="goldenshare_serving",
+        alias="WEALTH_CLICKHOUSE_DATABASE",
+    )
+    wealth_clickhouse_user: str = Field(default="default", alias="WEALTH_CLICKHOUSE_USER")
+    wealth_clickhouse_password: str = Field(default="", alias="WEALTH_CLICKHOUSE_PASSWORD")
+    wealth_clickhouse_timeout_seconds: int = Field(default=3, alias="WEALTH_CLICKHOUSE_TIMEOUT_SECONDS")
     ops_task_completion_worker_poll_seconds: int = Field(
         default=5,
         alias="OPS_TASK_COMPLETION_WORKER_POLL_SECONDS",

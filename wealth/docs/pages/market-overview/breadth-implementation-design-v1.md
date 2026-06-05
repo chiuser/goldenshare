@@ -25,10 +25,7 @@
 2. 当前前端 DTO 与 adapter 只消费 `upCount/downCount/flatCount/redRate` 与历史 `up/down`：
    - [marketBreadthApi.ts](/Users/congming/github/goldenshare/wealth/src/features/market-overview/breadth/api/marketBreadthApi.ts)
    - [marketBreadthAdapter.ts](/Users/congming/github/goldenshare/wealth/src/features/market-overview/breadth/api/marketBreadthAdapter.ts)
-3. 当前 Web 后端实现仍通过 `core_serving.equity_daily_bar.pct_chg` 自行聚合：
-   - [breadth_metrics_query.py](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/breadth/breadth_metrics_query.py)
-   - [breadth_history_query.py](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/breadth/breadth_history_query.py)
-   - [breadth_state_query.py](/Users/congming/github/goldenshare/src/biz/queries/wealth/market/breadth/breadth_state_query.py)
+3. 历史 Web 后端实现曾通过 `core_serving.equity_daily_bar.pct_chg` 自行聚合；本轮切换后该模块业务统计不得再读取或聚合 `equity_daily_bar.pct_chg`。
 4. 新事实表已存在于 ClickHouse 侧：`goldenshare_serving.share_fact_market_breadth_daily`，字段包含上/下/平/总数、红盘率和完整涨跌幅分桶。
 5. 当前冲突与风险：
    - Web 后端主工程尚未形成通用 ClickHouse 只读查询能力；实现前必须先明确连接配置、超时、错误处理和测试替身。
@@ -61,8 +58,8 @@ src/biz/
       market/
         breadth/
           breadth_fact_query.py          # 读取 ClickHouse 市场宽度事实表
-          breadth_history_query.py       # 读取 1m/3m 历史点
-          breadth_state_query.py         # 读取 observedTradeDate
+          breadth_history_query.py       # 读取 1m/3m 交易日窗口
+          breadth_state_query.py         # 解析期望交易日上下文
           breadth_query_service.py       # 编排 metrics/history/status
   schemas/
     wealth/
@@ -82,6 +79,24 @@ src/biz/
 2. ClickHouse 连接能力若放在共享 infra/client 层，breadth 查询层只能消费只读 client，不得在模块内散落连接字符串。
 3. `trade_calendar` 仍用于解析期望交易日和窗口，不再承担业务统计口径。
 
+### 3.3 ClickHouse 基础设施配置审计
+
+> 这里是 Web 后端连接 ClickHouse 的基础设施配置，不是 breadth 模块策略配置；本模块仍然不接策略配置中心。
+
+| 配置名 | 默认值 | 来源与持久化位置 | 作用范围 | 消费者 | 生效方式 | 测试门禁 |
+|---|---|---|---|---|---|---|
+| `WEALTH_CLICKHOUSE_URL` | `http://127.0.0.1:8123` | `Settings` / env | Wealth market ClickHouse 只读查询 | `ClickHouseReadonlyClient` | 进程启动读取 | fake client/query 覆盖 API 测试 |
+| `WEALTH_CLICKHOUSE_DATABASE` | `goldenshare_serving` | `Settings` / env | ClickHouse 默认 database | `ClickHouseReadonlyClient` | 进程启动读取 | 查询 SQL 不硬编码 database 前缀 |
+| `WEALTH_CLICKHOUSE_USER` | `default` | `Settings` / env | ClickHouse HTTP 用户 | `ClickHouseReadonlyClient` | 进程启动读取 | client 参数透传 |
+| `WEALTH_CLICKHOUSE_PASSWORD` | 空字符串 | `Settings` / env | ClickHouse HTTP 密码 | `ClickHouseReadonlyClient` | 进程启动读取 | 空值不传 password |
+| `WEALTH_CLICKHOUSE_TIMEOUT_SECONDS` | `3` | `Settings` / env | HTTP timeout 与 ClickHouse `max_execution_time` | `ClickHouseReadonlyClient` | 进程启动读取 | 查询失败进入 `BR_QUERY_FAILED` |
+
+配置约束：
+
+1. 不允许在 breadth 查询层、前端或测试里重复硬编码 ClickHouse 连接串。
+2. ClickHouse client 必须只读、带请求超时，并设置查询安全参数。
+3. 查询失败只影响 breadth 模块状态，不回退到 Postgres 聚合。
+
 ---
 
 ## 4. 数据流与执行链路
@@ -90,8 +105,9 @@ src/biz/
 2. 参数校验：`market/tradeDate/debug`
 3. 主查询：
    - `breadth_fact_query`：按目标交易日读取单日市场宽度事实行；
-   - `breadth_history_query`：按最近 62 个交易日读取历史市场宽度事实行；
-   - `breadth_state_query`：读取事实表最新 `trade_date` 作为 `observedTradeDate`。
+   - `breadth_fact_query`：读取事实表最新 `trade_date` 作为 `observedTradeDate`；
+   - `breadth_history_query`：按最近 62 个交易日给出历史窗口；
+   - `breadth_fact_query`：按历史窗口批量读取历史市场宽度事实行。
 4. 结果编排：
    - 从 62 日结果切片得到 `3m`（62）和 `1m`（22）；
    - 当日 `metrics` 与历史点均携带 `totalCount` 和 `distributionBuckets`；

@@ -265,7 +265,7 @@ interface BreadthResponseData {
    - 结果按 `trade_date asc`；
    - `1m`=22 点、`3m`=62 点固定切片。
 3. 状态查询草案：
-   - `observedTradeDate` 来自事实表 `max(trade_date)`；
+   - `observedTradeDate` 来自事实表最新 `trade_date`（实现可用 `ORDER BY trade_date DESC LIMIT 1`，语义等同取最新观测日期）；
    - `expectedTradeDate` 仍来自交易日上下文。
 4. 回退查询草案：
    - 不做跨日补值；
@@ -273,6 +273,26 @@ interface BreadthResponseData {
 5. 重复行处理：
    - 每个 `trade_date` 期望单行；
    - 发现重复行应触发 `BR_FACT_DUPLICATED` 或查询失败，不允许静默合并。
+
+---
+
+## 5.1 ClickHouse 连接配置门禁
+
+> 本节只约束 Web 后端连接 ClickHouse 的基础设施配置；breadth 模块仍然没有策略配置中心配置项。
+
+| 配置名 | 默认值 | 来源 | 消费者 | 生效方式 | 门禁 |
+|---|---|---|---|---|---|
+| `WEALTH_CLICKHOUSE_URL` | `http://127.0.0.1:8123` | `Settings` / env | `ClickHouseReadonlyClient` | 重启生效 | 不得散落硬编码 |
+| `WEALTH_CLICKHOUSE_DATABASE` | `goldenshare_serving` | `Settings` / env | `ClickHouseReadonlyClient` | 重启生效 | 查询走默认 database |
+| `WEALTH_CLICKHOUSE_USER` | `default` | `Settings` / env | `ClickHouseReadonlyClient` | 重启生效 | 通过 HTTP 参数传递 |
+| `WEALTH_CLICKHOUSE_PASSWORD` | 空字符串 | `Settings` / env | `ClickHouseReadonlyClient` | 重启生效 | 空值不传 password |
+| `WEALTH_CLICKHOUSE_TIMEOUT_SECONDS` | `3` | `Settings` / env | `ClickHouseReadonlyClient` | 重启生效 | 同时用于 HTTP timeout 与 `max_execution_time` |
+
+连接实现门禁：
+
+1. client 必须只读，必须设置 timeout 与 ClickHouse 查询安全参数。
+2. 查询失败统一转换为 `BR_QUERY_FAILED`，不得回退 Postgres 聚合。
+3. API 测试必须通过 fake fact query 覆盖，不依赖真实 ClickHouse。
 
 ---
 

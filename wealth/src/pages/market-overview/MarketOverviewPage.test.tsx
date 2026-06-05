@@ -103,16 +103,95 @@ const breadthPayload = {
       upCount: 3421,
       downCount: 1488,
       flatCount: 219,
+      totalCount: 5128,
       redRate: 66.71,
+      distributionBuckets: {
+        downGt7Count: 12,
+        down5To7Count: 36,
+        down3To5Count: 184,
+        down0To3Count: 1256,
+        up0To3Count: 2860,
+        up3To5Count: 446,
+        up5To7Count: 86,
+        upGt7Count: 29,
+      },
     },
     historyByRange: {
       "1m": [
-        { tradeDate: "2026-04-27", upCount: 3200, downCount: 1600 },
-        { tradeDate: "2026-04-28", upCount: 3421, downCount: 1488 },
+        {
+          tradeDate: "2026-04-27",
+          upCount: 3200,
+          downCount: 1600,
+          flatCount: 328,
+          totalCount: 5128,
+          redRate: 62.4,
+          distributionBuckets: {
+            downGt7Count: 8,
+            down5To7Count: 30,
+            down3To5Count: 160,
+            down0To3Count: 1402,
+            up0To3Count: 2600,
+            up3To5Count: 360,
+            up5To7Count: 70,
+            upGt7Count: 21,
+          },
+        },
+        {
+          tradeDate: "2026-04-28",
+          upCount: 3421,
+          downCount: 1488,
+          flatCount: 219,
+          totalCount: 5128,
+          redRate: 66.71,
+          distributionBuckets: {
+            downGt7Count: 12,
+            down5To7Count: 36,
+            down3To5Count: 184,
+            down0To3Count: 1256,
+            up0To3Count: 2860,
+            up3To5Count: 446,
+            up5To7Count: 86,
+            upGt7Count: 29,
+          },
+        },
       ],
       "3m": [
-        { tradeDate: "2026-03-03", upCount: 2500, downCount: 2100 },
-        { tradeDate: "2026-04-28", upCount: 3421, downCount: 1488 },
+        {
+          tradeDate: "2026-03-03",
+          upCount: 2500,
+          downCount: 2100,
+          flatCount: 528,
+          totalCount: 5128,
+          redRate: 48.75,
+          distributionBuckets: {
+            downGt7Count: 10,
+            down5To7Count: 52,
+            down3To5Count: 260,
+            down0To3Count: 1778,
+            up0To3Count: 2100,
+            up3To5Count: 330,
+            up5To7Count: 55,
+            upGt7Count: 15,
+          },
+        },
+        {
+          tradeDate: "2026-04-28",
+          upCount: 3421,
+          downCount: 1488,
+          flatCount: 219,
+          totalCount: 5128,
+          redRate: 66.71,
+          distributionBuckets: {
+            downGt7Count: 12,
+            down5To7Count: 36,
+            down3To5Count: 184,
+            down0To3Count: 1256,
+            up0To3Count: 2860,
+            up3To5Count: 446,
+            up5To7Count: 86,
+            upGt7Count: 29,
+          },
+        },
       ],
     },
   },
@@ -696,6 +775,21 @@ describe("MarketOverviewPage", () => {
     await waitFor(() => {
       expect(breadthSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(3);
     });
+  });
+
+  it("accepts breadth distribution buckets without rendering bucket details in the current UI", async () => {
+    render(<MarketOverviewPage />);
+
+    const breadthSection = await screen.findByLabelText("涨跌分布");
+    await waitFor(() => {
+      expect(breadthSection.querySelectorAll(".mini-metrics .metric-card")).toHaveLength(3);
+    });
+
+    expect(within(breadthSection).getByText("上涨家数")).toBeInTheDocument();
+    expect(within(breadthSection).getByText("下跌家数")).toBeInTheDocument();
+    expect(within(breadthSection).getByText("平盘家数")).toBeInTheDocument();
+    expect(within(breadthSection).queryByText(/downGt7Count|upGt7Count|down5To7Count|up5To7Count/)).not.toBeInTheDocument();
+    expect(within(breadthSection).queryByText(/涨跌幅分桶|分桶|跌幅大于|涨幅大于/)).not.toBeInTheDocument();
   });
 
   it("shows error state when breadth request exceeds 5 seconds", async () => {
