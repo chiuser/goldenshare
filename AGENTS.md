@@ -82,6 +82,14 @@ src/
 
 ---
 
+## Codex Hook 禁用规则
+
+1. 本仓库禁止新增、恢复或启用 repo-scoped Codex hooks，包括 `.codex/hooks.json`、`.codex/hooks/**` 以及任何 `PreToolUse`、`UserPromptSubmit`、`Stop` hook。
+2. 不得用 hook 做开发门禁、提示词注入、命令阻断或交付检查；需要约束时只能写入 `AGENTS.md`、skills 或普通文档，并由用户明确确认。
+3. 若当前会话因历史缓存仍引用 hook 脚本，只允许保留本地 ignored no-op 兼容文件；不得提交或恢复 hook 注册。
+
+---
+
 ## 按计划开发执行链
 
 当用户要求“按计划开发”“按文档推进”“严格按方案执行”时，计划不只是背景材料，必须转成可核验的执行约束：
