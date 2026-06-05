@@ -273,6 +273,110 @@ M11 check 拆分为两类：
 
 第一版提交同一个 `stock_mins_qfq_daily_update_job`，让 selection 通过 asset deps 处理顺序，避免新增 derived-only sensor/job。
 
+### 9.3 daily / repair sensor readiness 超时修复
+
+#### 9.3.1 问题定位
+
+`stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 都在 tick 内调用通用 readiness helper。当前通用 helper 的单资产语义是：
+
+1. 获取目标 asset partition 的 latest materialization。
+2. 对该 asset 的每个 blocking check 调用一次 `get_asset_check_execution_history(limit=5000)`。
+3. 在 check history 中寻找绑定该 latest materialization `storage_id` 的 check result。
+
+这在单资产或少量 check 场景可接受，但 qfq daily / repair 的 fan-out 已经变成明显超时风险：
+
+| sensor | asset count | blocking check count | 当前 check history 扫描量 |
+| --- | ---: | ---: | ---: |
+| `stock_mins_qfq_daily_sensor` | silver 5 + adj factor 2 + qfq gold 7 | silver 50 + adj factor 18 + qfq gold 56 | 约 108 次 |
+| `stock_mins_qfq_factor_repair_sensor` | qfq gold 7 | qfq gold 56 | 约 56 次 |
+
+已观测到两个 sensor tick 出现 60 秒超时。该问题不是 qfq 文件或 job 本身失败，而是 sensor readiness 查询路径过重。
+
+#### 9.3.2 修复边界
+
+- 保留 `asset_readiness_status(...)` 的单分区语义，不把通用 helper 改成历史或批量工具。
+- 新增仅服务 `stock_mins_qfq_daily_sensor` 与 `stock_mins_qfq_factor_repair_sensor` 的专用 run-event 批量 readiness helper。
+- 不新增独立 repair sensor、readiness asset、summary asset、数据库表、配置项或状态实体。
+- 不改 `stock_mins_qfq_daily_update_job`、`stock_mins_qfq_factor_repair_job` 的 selection、executor、pool、tags、run key、run config、asset/check definitions 或 partition definitions。
+- 不用 DuckDB 加速 Dagster event log readiness；DuckDB 仍只用于 qfq 文件计算、repair 计算和 asset/check 内聚合校验。
+- 不运行正式 Dagster job/sensor/backfill/materialization/check；如后续要做正式 instance 只读 dry-run，必须单独列命令、`DAGSTER_HOME`、读写范围、影响和回滚方式再审批。
+
+#### 9.3.3 专用 helper 算法
+
+新增 helper 必须按下列固定算法实现：
+
+1. 输入为一个目标 `trade_date` 和一组明确的 readiness specs，调用方只能是 qfq daily / repair sensor。
+2. 对每个 asset key 获取目标 partition 的 latest materialization。
+3. materialization 缺失时，返回 not ready，并标明 `missing_materialization`。
+4. 将已 materialized 的 records 按 `run_id` 分组。
+5. 每个 distinct `run_id` 最多读取一次 run event log。
+6. 在内存中建立 `asset_key + check_name + target_materialization_data.storage_id -> latest passed/failed result` 映射。
+7. 对每个 blocking check 精确匹配 latest materialization 的 `storage_id`；旧 materialization 的 passed check 不能让新 materialization ready。
+8. 只接受 terminal check evaluation；missing、failed、非 terminal、只存在 non-blocking passed event 都 fail closed。
+9. 同一 latest materialization 上同一 check 若有多条结果，按 run event 顺序取最新结果。
+10. 返回结构继续能转换成现有 `DatasetReadinessStatus` / cursor payload，避免修改 UI 可见语义。
+
+#### 9.3.4 sensor 行为
+
+`stock_mins_qfq_daily_sensor`：
+
+1. 23:00 前直接 skip，不调用 readiness。
+2. 若 cursor 显示同一 `target_trade_date` 已提交过 qfq daily run，直接 skip，不再做 deep readiness；run_key 仍保持 `stock_mins_qfq_daily_update:{trade_date}`。
+3. 先用专用批量 helper 判断 silver 五频度 ready。
+4. 再判断 adj factor ready。
+5. 上游任一不 ready 时 skip，不提交 qfq run。
+6. 再判断七频度 qfq gold：
+   - 七频度全 ready：skip。
+   - 存在 missing materialization 且没有已 materialized 的 failed/missing blocking check：提交 `stock_mins_qfq_daily_update_job[trade_date]`。
+   - 已 materialized 但 blocking checks 未全绿：skip，不自动重跑，要求人工修复。
+
+`stock_mins_qfq_factor_repair_sensor`：
+
+1. 23:15 前直接 skip，不调用 readiness。
+2. 若 cursor 显示同一 `target_trade_date` 已提交过 repair run，直接 skip，不再做 deep readiness；run_key 仍保持 `stock_mins_qfq_factor_repair:{trade_date}`。
+3. 只用同一个 qfq gold 批量 helper 判断七频度 gold ready。
+4. 七频度全 ready 时提交 `stock_mins_qfq_factor_repair_job`，run config 仍只包含 typed `trade_date`。
+5. gold missing、failed check 或 missing latest check result 时 skip，不自动触发 daily qfq，也不自动修复 gold。
+
+#### 9.3.5 性能预算
+
+| 场景 | 当前成本 | 目标成本 | 验证门槛 |
+| --- | --- | --- | --- |
+| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 约 14 次 materialization 查询 + 不超过 4 次 run event log 读取 + 0 次 check history 扫描 | fake instance 单测证明 check history 调用数为 0；经审批的正式只读 dry-run 小于 5 秒，超过 10 秒拒绝上线 |
+| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | 约 7 次 materialization 查询 + 不超过 1 次 qfq run event log 读取 + 0 次 check history 扫描 | fake instance 单测证明 check history 调用数为 0；经审批的正式只读 dry-run 小于 3 秒，超过 5 秒拒绝上线 |
+| 同一目标日期已提交 run 后的稳定 tick | 仍可能重复 readiness 深查 | cursor 快路径直接 skip | 本地单测目标小于 1 秒，超过 2 秒拒绝上线 |
+
+本性能预算的硬指标是“check history 扫描次数必须为 0”。如果实现只能把 108/56 次降成较少次数但仍依赖每个 check 的 history scan，则不接受。
+
+#### 9.3.6 测试计划
+
+单元测试必须覆盖：
+
+1. daily sensor 在 23:00 前不调用 readiness。
+2. daily sensor 在 silver 未 ready 时 skip，不查不提交 qfq gold。
+3. daily sensor 在 adj factor 未 ready 时 skip。
+4. daily sensor 在 qfq gold missing materialization 且上游 ready 时提交 daily run。
+5. daily sensor 在七频度 qfq gold 全 ready 时 skip。
+6. daily sensor 在 gold 已 materialized 但 blocking checks failed/missing 时 skip，不自动重跑。
+7. daily sensor cursor 同日期已提交后的快路径不调用 readiness。
+8. repair sensor 在 23:15 前不调用 readiness。
+9. repair sensor 在 qfq gold missing/not ready 时 skip。
+10. repair sensor 在 qfq gold 全 ready 时提交 repair run config。
+11. repair sensor cursor 同日期已提交后的快路径不调用 readiness。
+12. 专用 helper 忽略旧 materialization 的 passed check。
+13. 专用 helper 对 missing latest check result fail closed。
+14. 专用 helper 不把 non-blocking 历史 check event 视为通过。
+15. 同一 latest materialization 多条 check result 时取最新结果。
+16. 静态回归确认未新增 summary/readiness asset，未扩大 job selection，未修改 sensor tags、run key、run config 和 cursor 主结构。
+
+本地验证命令：
+
+1. `lake_console/orchestrator/.venv/bin/python -m unittest tests.test_stock_mins_qfq_daily_sensor tests.test_stock_mins_qfq_factor_repair_sensor`
+2. `lake_console/orchestrator/.venv/bin/python -m py_compile` 针对触达 Python 文件
+3. `ruff check` 针对触达 Python 文件
+4. `git diff --check`
+5. `python3 scripts/check_docs_integrity.py`
+
 ## 10. Factor repair 影响
 
 当前 `stock_mins_qfq_factor_repair_job` 修的是 native 五频度 qfq。新增 90/120 后，必须避免这种错误状态：
@@ -397,6 +501,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 2. 扩展 daily sensor readiness payload。
 3. 更新 sensor tags/count/static gates。
 4. 确认 run key/cursor 不变或明确版本化。
+5. 后续 readiness 超时修复按 9.3 执行：仅改 qfq daily/repair sensor 专用 readiness 路径，禁止把通用 helper 扩展成历史批量 readiness 工具。
 
 ### M11E Repair
 

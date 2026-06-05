@@ -250,6 +250,34 @@ postgres_query('prod_raw_pg', '<remote query>')
 - 小型配置/映射表可以接受 Python 轻量处理，但必须有规模上界。
 - 日线、分钟线、历史批量、repair、全市场大表必须继续走 DuckDB/SQL/COPY。
 
+### O4：qfq daily / factor repair sensor readiness 在稳定态逐 check 深扫 event history
+
+当前 `stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 都调用通用 `asset_readiness_status(...)`。
+
+该通用 helper 会对每个 blocking check 单独执行 `get_asset_check_execution_history(limit=5000)`，再从 history 中寻找绑定 latest materialization `storage_id` 的结果。qfq daily sensor 稳定态会评估 silver 五频度、adj factor 两资产和 qfq gold 七频度，约 108 次 check history 扫描；factor repair sensor 会评估 qfq gold 七频度，约 56 次 check history 扫描。
+
+这已经被观测为 60 秒 sensor tick 超时风险。它不直接写业务数据，也不是 qfq 文件生产失败，所以不列为数据一致性 P0；但它会让 sensor tick 报 `DEADLINE_EXCEEDED`，影响自动触发观测和后续触发节奏。
+
+已选修复方向：
+
+1. 不改通用 `asset_readiness_status(...)` 的单分区语义。
+2. 只为 qfq daily / repair sensor 新增专用 run-event 批量 readiness helper。
+3. 先取目标日期各 asset 的 latest materialization，再按 `run_id` 分组，每个 run 只读一次 run event log。
+4. 用 `asset_key + check_name + target_materialization_data.storage_id` 精确匹配 latest materialization 的 blocking check result。
+5. missing materialization、failed check、missing latest check result、非 terminal check result 都 fail closed。
+6. 两个 sensor 增加同一目标日期已提交 run 后的 cursor 快路径，避免稳定态重复深查。
+7. 不新增独立 repair sensor、summary asset、readiness asset、数据库表或配置项，不改 job selection、run key、tags、asset/check definitions。
+
+性能门槛：
+
+| 路径 | 当前成本 | 目标成本 | 拒绝阈值 |
+| --- | --- | --- | --- |
+| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 约 14 次 materialization 查询 + 不超过 4 次 run event log 读取 + 0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 10 秒拒绝上线 |
+| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | 约 7 次 materialization 查询 + 不超过 1 次 qfq run event log 读取 + 0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 5 秒拒绝上线 |
+| 同一目标日期已提交 run 后的稳定 tick | 仍可能重复 readiness 深查 | cursor 快路径直接 skip | 本地单测超过 2 秒拒绝上线 |
+
+代码落地前必须先在 `dagster-stk-mins-asset-design.html` 和 `dagster-stk-mins-qfq-90-120-assets-plan.md` 中保持同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。
+
 ## 当前阶段结论
 
 截至当前阶段，已确认 4 个 P0，均已完成代码和测试收口：
@@ -483,7 +511,7 @@ ATTACH '<conninfo>' AS prod_raw_pg (TYPE POSTGRES, READ_ONLY)
 
 后续还需要继续补充：
 
-- 全部 sensor 的触发边界与 readiness 口径是否存在遗漏。
+- 除 qfq daily / factor repair 之外，其它 sensor 的触发边界与 readiness 口径是否存在遗漏。
 - 所有 job selection 是否存在把共享基础资产顺手写入下游 job 的情况。
 - runless event helper 是否存在历史批量逐分区深扫回退。
 - ClickHouse serving sync 的 delete/insert 与 automation 并发边界。
