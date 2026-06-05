@@ -176,8 +176,7 @@ class ProbeRuntimeService:
             latest_open_date = self._parse_probe_latest_open_date(probe_payload)
             time_input = {**time_input, "mode": "point", "trade_date": latest_open_date.isoformat()}
         filters = dict(request.get("filters") or {})
-        if rule.source_key:
-            filters.setdefault("source_key", rule.source_key)
+        filters.pop("source_key", None)
         return self.task_run_service.create_task_run(
             session,
             context=TaskRunCreateContext(

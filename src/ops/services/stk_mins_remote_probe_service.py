@@ -61,6 +61,7 @@ class StkMinsRemoteReadinessProbeService:
         action = dict(rule.on_success_action_json or {})
         request = dict(action.get("request") or {})
         filters = dict(request.get("filters") or {})
+        filters.pop("source_key", None)
         freqs = self._resolve_freqs(filters)
         sample_codes = self._resolve_sample_codes(session, filters)
         if not sample_codes:

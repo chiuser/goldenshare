@@ -110,8 +110,6 @@ class ScheduleProbeBindingService:
                     "run_scope": "probe_triggered",
                 },
             }
-            if source_key:
-                action_json["request"]["filters"]["source_key"] = source_key
             templates.append(
                 ProbeRuleTemplate(
                     dataset_key=dataset_key,

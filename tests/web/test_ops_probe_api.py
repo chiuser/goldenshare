@@ -336,7 +336,7 @@ def test_stk_mins_remote_probe_builds_sample_request_from_resolver(db_session, p
             "action_key": "stk_mins.maintain",
             "request": {
                 "time_input": {"mode": "point"},
-                "filters": {"ts_code": "600000.SH", "freq": ["1min"]},
+                "filters": {"ts_code": "600000.SH", "freq": ["1min"], "source_key": "tushare"},
                 "run_scope": "probe_triggered",
             },
         },
@@ -428,14 +428,14 @@ def test_stk_mins_remote_probe_requires_all_selected_freqs(db_session, probe_rul
 def test_probe_runtime_remote_stk_mins_hit_creates_task_run_with_latest_open_date(db_session, probe_rule_factory, monkeypatch) -> None:
     rule = probe_rule_factory(
         dataset_key="stk_mins",
-        source_key=None,
+        source_key="tushare",
         probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION},
         on_success_action_json={
             "action_type": "dataset_action",
             "action_key": "stk_mins.maintain",
             "request": {
                 "time_input": {"mode": "point"},
-                "filters": {"freq": ["1min"]},
+                "filters": {"freq": ["1min"], "source_key": "tushare"},
                 "run_scope": "probe_triggered",
             },
         },

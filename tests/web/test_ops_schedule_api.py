@@ -1032,7 +1032,8 @@ def test_ops_schedule_remote_stk_mins_probe_mode_creates_probe_rule(app_client, 
     assert rule["dataset_key"] == "stk_mins"
     assert rule["probe_condition_json"] == {"type": "remote_stk_mins_ready"}
     assert rule["on_success_action_json"]["action_key"] == "stk_mins.maintain"
-    assert rule["on_success_action_json"]["request"]["filters"] == {"freq": ["1min", "5min"], "source_key": "tushare"}
+    assert rule["source_key"] == "tushare"
+    assert rule["on_success_action_json"]["request"]["filters"] == {"freq": ["1min", "5min"]}
 
 
 @pytest.mark.parametrize(
