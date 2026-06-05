@@ -40,6 +40,15 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_bootstrap_events import (
     plan_stk_mins_qfq_bootstrap_events,
     report_stk_mins_qfq_bootstrap_events,
 )
+from orchestrator.defs.bootstrap.stk_mins_qfq_derived_bootstrap_events import (
+    audit_stk_mins_qfq_derived_final_state,
+    plan_stk_mins_qfq_derived_bootstrap_events,
+    report_stk_mins_qfq_derived_bootstrap_events,
+)
+from orchestrator.defs.bootstrap.stk_mins_qfq_derived_history import (
+    generate_stk_mins_qfq_derived_history,
+    plan_stk_mins_qfq_derived_history,
+)
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT
 from orchestrator.defs.resources import DuckDBResource
@@ -125,6 +134,39 @@ def main(argv: list[str] | None = None) -> None:
     audit_gold_qfq_final = subparsers.add_parser("audit-gold-qfq-final")
     audit_gold_qfq_final.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
     _add_gold_qfq_history_selection(audit_gold_qfq_final)
+
+    plan_gold_qfq_derived = subparsers.add_parser("plan-gold-qfq-derived-history")
+    plan_gold_qfq_derived.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(plan_gold_qfq_derived)
+
+    generate_gold_qfq_derived = subparsers.add_parser(
+        "generate-gold-qfq-derived-history"
+    )
+    generate_gold_qfq_derived.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(generate_gold_qfq_derived)
+
+    plan_gold_qfq_derived_events = subparsers.add_parser(
+        "plan-gold-qfq-derived-events"
+    )
+    plan_gold_qfq_derived_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(plan_gold_qfq_derived_events)
+
+    report_gold_qfq_derived_events = subparsers.add_parser(
+        "report-gold-qfq-derived-events"
+    )
+    report_gold_qfq_derived_events.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(report_gold_qfq_derived_events)
+    report_gold_qfq_derived_events.add_argument("--dry-run", action="store_true")
+    report_gold_qfq_derived_events.add_argument(
+        "--skip-existing-ready",
+        action="store_true",
+    )
+
+    audit_gold_qfq_derived_final = subparsers.add_parser(
+        "audit-gold-qfq-derived-final"
+    )
+    audit_gold_qfq_derived_final.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
+    _add_gold_qfq_history_selection(audit_gold_qfq_derived_final)
 
     args = parser.parse_args(argv)
     if args.command == "dry-run":
@@ -428,6 +470,150 @@ def main(argv: list[str] | None = None) -> None:
             {
                 "selected_partition_count": report.selected_partition_count,
                 "selected_freqs": list(report.selected_freqs),
+                "planned_target_file_count": report.planned_target_file_count,
+                "existing_target_file_count": report.existing_target_file_count,
+                "missing_input_count": report.missing_input_count,
+                "materialized_partition_counts": dict(
+                    report.materialized_partition_counts
+                ),
+                "check_success_counts": dict(report.check_success_counts),
+                "sample_readiness": dict(report.sample_readiness),
+            }
+        )
+    elif args.command == "plan-gold-qfq-derived-history":
+        report = plan_stk_mins_qfq_derived_history(
+            lake_root=Path(args.lake_root),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            duckdb_resource=DuckDBResource(),
+        )
+        print(
+            {
+                "selected_partition_count": len(report.selected_partition_keys),
+                "selected_target_freqs": list(report.selected_target_freqs),
+                "selected_years": list(report.selected_years),
+                "batch_count": len(report.batches),
+                "planned_source_file_count": report.planned_source_file_count,
+                "planned_source_row_count": report.planned_source_row_count,
+                "planned_source_stock_day_count": (
+                    report.planned_source_stock_day_count
+                ),
+                "planned_target_file_count": report.planned_target_file_count,
+                "planned_target_row_count": report.planned_target_row_count,
+                "existing_target_file_count": report.existing_target_file_count,
+                "missing_input_count": report.missing_input_count,
+                "missing_input_samples": list(report.missing_input_samples),
+                "planned_event_count": report.planned_event_count,
+                "target_file_counts_by_batch": {
+                    f"{freq}:{year}": estimate.planned_target_file_count
+                    for (freq, year), estimate in report.estimates_by_batch.items()
+                },
+            }
+        )
+    elif args.command == "generate-gold-qfq-derived-history":
+        report = generate_stk_mins_qfq_derived_history(
+            lake_root=Path(args.lake_root),
+            duckdb_resource=DuckDBResource(),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+        )
+        print(
+            {
+                "selected_partition_count": len(report.plan.selected_partition_keys),
+                "selected_target_freqs": list(report.plan.selected_target_freqs),
+                "selected_years": list(report.plan.selected_years),
+                "batch_count": len(report.batch_results),
+                "written_file_count": report.written_file_count,
+                "written_row_count": report.written_row_count,
+                "planned_event_count": report.plan.planned_event_count,
+            }
+        )
+    elif args.command == "plan-gold-qfq-derived-events":
+        report = plan_stk_mins_qfq_derived_bootstrap_events(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            duckdb_resource=DuckDBResource(),
+        )
+        print(
+            {
+                "selected_partition_count": len(report.selected_partition_keys),
+                "selected_target_freqs": list(report.selected_target_freqs),
+                "selected_years": list(report.selected_years),
+                "asset_partition_count": report.asset_partition_count,
+                "planned_source_file_count": report.planned_source_file_count,
+                "planned_source_row_count": report.planned_source_row_count,
+                "planned_target_file_count": report.planned_target_file_count,
+                "planned_target_row_count": report.planned_target_row_count,
+                "existing_target_file_count": report.existing_target_file_count,
+                "missing_input_count": report.missing_input_count,
+                "missing_input_samples": list(report.missing_input_samples),
+                "planned_event_count": report.planned_event_count,
+                "materialized_partition_counts": dict(
+                    report.materialized_partition_counts
+                ),
+                "check_success_counts": dict(report.check_success_counts),
+            }
+        )
+    elif args.command == "report-gold-qfq-derived-events":
+        report = report_stk_mins_qfq_derived_bootstrap_events(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            duckdb=DuckDBResource(),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            dry_run=args.dry_run,
+            skip_existing_ready=args.skip_existing_ready,
+        )
+        print(
+            {
+                "dry_run": report.dry_run,
+                "selected_partition_count": len(report.plan.selected_partition_keys),
+                "selected_target_freqs": list(report.plan.selected_target_freqs),
+                "audited_asset_partition_count": len(report.partition_audits),
+                "failed_partition_count": report.failed_partition_count,
+                "reported_asset_partition_count": len(report.reported_asset_partitions),
+                "skipped_ready_asset_partition_count": len(
+                    report.skipped_ready_asset_partitions
+                ),
+                "reported_event_count": report.reported_event_count,
+            }
+        )
+    elif args.command == "audit-gold-qfq-derived-final":
+        report = audit_stk_mins_qfq_derived_final_state(
+            instance=dg.DagsterInstance.get(),
+            lake_root=Path(args.lake_root),
+            registered_partition_keys=_registered_stock_mins_silver_partition_keys(),
+            partition_keys=_optional_partition_keys(args),
+            start_date=args.start_date,
+            end_date=args.end_date,
+            freqs=_optional_csv_values(args.freqs),
+            years=_optional_csv_values(args.years),
+            duckdb_resource=DuckDBResource(),
+        )
+        print(
+            {
+                "selected_partition_count": report.selected_partition_count,
+                "selected_target_freqs": list(report.selected_target_freqs),
+                "planned_source_file_count": report.planned_source_file_count,
+                "planned_source_row_count": report.planned_source_row_count,
                 "planned_target_file_count": report.planned_target_file_count,
                 "existing_target_file_count": report.existing_target_file_count,
                 "missing_input_count": report.missing_input_count,

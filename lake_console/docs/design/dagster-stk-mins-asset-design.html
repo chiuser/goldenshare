@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；90/120 历史直写补录尚未执行，后续需单独设计并先过性能门禁。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F 已新增 90/120 历史直写补录与 runless event 工具链，正式补录尚未执行，后续需单独审批并按性能门禁推进。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -1205,7 +1205,7 @@ ops:
       gold 是计算结果，不回写 raw/silver，也不覆盖原始 clean_next。
       本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper、M8A gold assets、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 job/sensor、M9B factor repair detection 契约、M9C/M9D factor repair job/sensor、M9E factor repair 批量写回性能修正，以及 M11 90/120 派生 qfq assets 均已实现代码口径。
       正式历史 gold qfq 物理文件和 Dagster event log 已完成对齐：五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。
-      90/120 历史直写补录尚未执行，后续必须单独设计 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 流程并先过性能门禁。
+      M11F 已实现 90/120 历史直写补录与 runless event 专用 CLI；正式补录尚未执行，后续必须按 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 的 dry-run、sample、full、final audit 流程单独审批推进。
       M9C/M11 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets 上。该 job 与 <code>stock_mins_qfq_factor_repair_sensor</code> 默认停止，正式启用或执行 repair run 仍需单独审批。
       任何新的正式写湖、Dagster job、sensor、backfill、repair 或 event 补录动作仍需单独审批。
     </p>
@@ -1702,7 +1702,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M11</strong></td>
         <td>90/120 derived qfq assets</td>
         <td>已实现代码口径：新增 <code>gold_stk_mins_qfq_90m</code> 与 <code>gold_stk_mins_qfq_120m</code>，并入 <code>dataset_id=stk_mins_qfq</code>；daily job/sensor 和 repair check event 扩为七频度。</td>
-        <td>90m 只从 30m qfq 聚合，120m 只从 60m qfq 聚合；raw/silver/Tushare/prod DB 仍只有五个源频度。历史 90/120 直写补录不在 M11 执行，后续需单独设计并先过性能门禁。</td>
+        <td>90m 只从 30m qfq 聚合，120m 只从 60m qfq 聚合；raw/silver/Tushare/prod DB 仍只有五个源频度。M11F 已实现历史 90/120 直写补录工具链；正式执行不随代码提交发生，后续需单独审批并先过性能门禁。</td>
       </tr>
     </table>
   </section>

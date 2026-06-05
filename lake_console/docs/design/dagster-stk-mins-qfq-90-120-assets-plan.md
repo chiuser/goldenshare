@@ -1,6 +1,6 @@
 # M11: Gold stk_mins qfq 90/120 分钟资产设计方案
 
-状态：已实现代码口径；历史直写补录待单独设计与审批  
+状态：已实现代码口径；M11F 历史直写补录工具链已实现，正式补录执行待单独审批
 日期：2026-06-05  
 范围：`lake_console/orchestrator` 正式 Dagster 新湖  
 
@@ -23,7 +23,7 @@
 1. `90/120` 并入同一个 `dataset_id=stk_mins_qfq`，不拆新的 `stk_mins_qfq_derived` dataset id。
 2. `stock_mins_qfq_daily_update_job` 和 `stock_mins_qfq_daily_sensor` 扩展为七频度 qfq：`1/5/15/30/60/90/120`。
 3. `stock_mins_qfq_factor_repair_job` 在 repair 30/60 后必须同步重建受影响的 90/120，避免派生频度滞后。
-4. 本轮先完成代码、契约和测试；历史 90/120 直写补录不混入本轮开发，后续单独设计补录流程，并必须满足性能门禁。
+4. M11 已完成 90/120 资产、契约和测试；M11F 已新增 derived 专用历史直写补录与 runless event helper/CLI，正式补录执行仍需单独审批并按 dry-run/sample/full/audit 流程推进。
 5. 90/120 使用 derived 专属 check name，不复用 native qfq 的 silver/adj_factor 对账 check name。
 
 ## 2. 依据与旧湖口径
@@ -53,7 +53,7 @@
 4. 不新增 summary asset、readiness asset、数据库表或 run tags。
 5. 不改变 qfq 物理布局：继续使用 `freq/ts_code/year/part-000.parquet`。
 6. 不改变现有五频度 qfq 公式、repair check event 语义和 writer pool 互斥口径。
-7. 不在本阶段启用 sensor 或执行历史直写补录。
+7. 不在本阶段启用 sensor 或执行正式历史直写补录。
 
 ## 4. 资产与源数据选择
 
@@ -295,7 +295,7 @@ M11 第一版必须同步扩展 repair：
 
 ## 11. 历史初始化
 
-历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。该流程不进入 M11 代码开发本轮执行范围；M11 完成后单独设计补录流程，并先过性能门禁。
+历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。M11F 已实现 derived 专用工具链，但尚未执行正式补录；正式执行必须先 dry-run 审计规模，再 sample 写临时湖，最后按审批进入正式湖直写和 runless event 补录。
 
 注意：补录流程的性能评估阶段只能只读统计正式 lake 数据，不允许任何写入动作。下列 sample/full 写入步骤只属于后续补录执行方案，经单独审批后才允许进入。
 
@@ -348,9 +348,9 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 | 不可接受阈值 | 出现 per-stock 查询主循环、Python 明细聚合、Python 明细写 Parquet、raw/silver 90/120 频度扩散 |
 | 验收 | 单日实现的核心计算批次必须按 target freq 收敛，不能随股票数线性拆成 stock-level SQL |
 
-### 12.3 后续历史补录性能门禁
+### 12.3 M11F 历史补录性能门禁
 
-历史 90/120 补录不进入 M11 本轮开发执行范围；补录方案必须单独设计，并先通过只读规模评估。
+历史 90/120 补录工具链已在 M11F 实现；正式补录执行仍必须先通过只读规模评估，并按受控 CLI 的 dry-run / sample / full / final audit 顺序推进。
 
 | 项 | 口径 |
 | --- | --- |
@@ -404,8 +404,10 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 
 ### M11F History bootstrap
 
-1. 本轮不执行历史直写补录。
-2. 后续单独输出补录设计，先做性能门禁、dry-run、sample，再申请全量执行。
+1. 已新增 derived 专用历史生成 helper/CLI：`plan-gold-qfq-derived-history` 与 `generate-gold-qfq-derived-history`。
+2. 已新增 derived 专用 runless event helper/CLI：`plan-gold-qfq-derived-events`、`report-gold-qfq-derived-events`、`audit-gold-qfq-derived-final`。
+3. helper 只允许 `90/120`，按 `target_freq/year` 批次规划，默认拒绝已有目标 stock-year 文件；不注册 asset/job/sensor/check，不新增 summary entity。
+4. 本轮不执行正式历史直写补录；正式执行前仍需 dry-run 规模审计、临时湖 sample、正式湖写入审批和正式 Dagster event 补录审批。
 
 ## 14. Test Plan
 
@@ -452,7 +454,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 1. `dataset_id` 共用 `stk_mins_qfq`，用 metadata 标明 `calculation_model=derived_from_qfq_source`。
 2. daily job/sensor 一次性扩展为七频度，不新增 derived-only daily sensor。
 3. factor repair 必须同步重建受影响的 90/120。
-4. 历史 90/120 直写补录不进入本轮开发；后续单独设计补录流程，并满足性能门禁。
+4. M11F 已实现历史 90/120 直写补录工具链；正式补录执行不随代码提交自动发生，必须后续单独审批并满足性能门禁。
 5. 90/120 新增 derived 专属 check name：`gold_stk_mins_qfq_derived_source_ready`、`gold_stk_mins_qfq_derived_row_count_matches_source_windows`、`gold_stk_mins_qfq_derived_formula_matches_source`。
 
 ## 16. 初步结论
