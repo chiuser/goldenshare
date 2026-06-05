@@ -63,7 +63,7 @@ CodeGraph 结果：索引正常，`fetch_prod_stk_mins_rows_for_stock_codes` 只
 | 顺序 | 项目 | 等级 | 为什么排在这里 | 建议动作 |
 |---:|---|---|---|---|
 | 1 | `gold_stk_mins_qfq_*` checks 无条件 sample 查询与重复深扫 | P1 | 属于日常 gold qfq 生产链路；2026-06-05 只读实测显示，真正主耗时不是文件 exists 循环，而是全绿场景仍无条件执行 sample 查询和重复 DuckDB 深扫。 | P1A 已落地：sample 懒加载，只有失败时取样本；同日复测五频度从约 `31.9s` 降到约 `19.4s`。若仍慢，再做 P1B：聚合扫描复用。 |
-| 2 | `silver_namechange` Python 时间线构建 | P1 | 正式 silver asset 中有复杂 Python 全量规则构建，当前规模小但缺少硬上限；后续 namechange 规则继续叠加会变成维护风险。 | 先加 row count/code count/耗时上限和 fail-fast；中期把过滤、去重、冲突聚合尽量下推 DuckDB。 |
+| 2 | `silver_namechange` 小表 Python 时间线边界 | P2 | 2026-06-05 只读实测显示当前 raw 仅 `20311` 行，时间线构建约 `0.13s`，asset 侧 Python 总耗时约 `0.16s`；不构成实际 P1 性能瓶颈。 | 不做中期 DuckDB 重写；只补小表边界治理：row count/code count/耗时基线和超限 fail-fast。 |
 | 3 | Tushare `stk_mins` 全市场备用入口与 `merge_repair` 规模门禁 | P2 | 默认日常已经走 prod DB，但人工入口一旦误用成全市场 run，会重新进入逐股票请求和 Python rows 写入模型。 | 给 Tushare source 和 `merge_repair` 增加股票数、窗口长度、返回行数上限；超限提示走 prod DB 批量补数。 |
 | 4 | `silver_stock_identity_map` 小表构建边界 | P2 | 当前只有几千行，风险低；但它是正式 asset，仍需明确“小表 Python 规则构建”的合法边界。 | 增加输入/输出 row count 上限和测试，文档说明该模式不得复制到大表。 |
 | 5 | 历史 bootstrap / event helper 模板约束 | P2 | 当前多数是一次性工具；真正风险是未来复制旧的逐 partition helper 到新数据集。 | 增加迁移模板规则：大于 100 partitions 或 partition*checks 大于 1000 时必须使用 plan/sample/batch/final audit。 |
@@ -261,7 +261,7 @@ P1A 落地后同日只读复测：
   - 单独优化它预计收益小于 `5%`，性价比低。
 - 静态门禁增加“qfq check 不得退回 8 个独立深扫 check”的约束。
 
-### P1：`silver_namechange` 使用 Python 构建完整名称时间线
+### P2：`silver_namechange` 使用 Python 构建完整名称时间线，但当前规模很小
 
 代码位置：
 
@@ -285,21 +285,51 @@ P1A 落地后同日只读复测：
 
 判断：
 
-namechange 规模远小于分钟线，不是 P0。但它是正式 silver asset 中的复杂业务计算，当前没有明确的行数上限、耗时估算和门禁。按规则，复杂计算默认应尽量 DuckDB 化；若保留 Python，需要证明这是“小而有界”的快照。
+namechange 规模远小于分钟线，不是 P0。2026-06-05 已按用户建议做只读耗时核验，结论是当前不需要进入中期 DuckDB 重写；它应从 P1 性能改造项降为 P2 小表边界治理项。
+
+2026-06-05 只读实测：
+
+- 测量对象：正式湖 `raw_tushare_namechange`、`silver_stock_basic`、`silver_namechange` 文件。
+- 测量方式：不运行 Dagster，不读取正式 instance，不写 lake；只调用当前读取/时间线 helper 做内存计时。
+
+| 指标 | 数值 |
+|---|---:|
+| raw namechange rows | `20311` |
+| current listed stock count | `5524` |
+| filtered current-listed rows | `17668` |
+| filtered delisted rows | `2643` |
+| silver namechange rows | `12325` |
+| raw file size | `429712` bytes |
+| silver file size | `202163` bytes |
+| 读取 raw rows | `0.025s` |
+| 读取 stock basic names | `0.003s` |
+| 当前上市过滤 | `0.002s` |
+| 构建 namechange timeline | `0.126s` |
+| asset 侧 Python 总耗时，不含正式写文件 | `0.158s` |
+| 读取 silver rows | `0.016s` |
+| 分析 silver rows 一次 | `0.022s` |
+| 当前两个 checks 重复分析估算 | `0.080s` |
+
+实测结论：
+
+- 当前 Python 时间线构建耗时低于 `0.2s`，不是实际生产瓶颈。
+- 两个 `silver_namechange` checks 即使重复读取与分析，估算也低于 `0.1s`。
+- 直接做中期 DuckDB 重写的性价比很低，且会增加规则迁移风险。
+- 真正需要补的是小表边界：证明它长期只允许作为几万行级别基础快照，而不能被复制到分钟线、日线或其它大表链路。
 
 影响：
 
-- 目前可运行，但后续如果源端历史扩大、逻辑继续叠加，容易变成无法维护的 Python 规则堆。
-- check 中 `analyze_namechange_silver_rows(...)` 也复用 Python 时间线扫描，进一步扩大这种模式。
+- 当前可运行且性能足够。
+- 风险不是当前耗时，而是未来源端历史或业务规则扩大后，没有 row count/code count/耗时上限来阻止 Python 小表模式被放大。
 
 建议修正：
 
-- 短期：在文档和测试中登记当前可接受上限，例如 raw rows、filtered rows、distinct code 数、最大耗时；超限时 fail fast。
-- 中期：把能用 SQL 表达的部分移到 DuckDB：
-  - 当前上市过滤。
-  - 同 `ts_code/start_date` 最新公告选择。
-  - overlap/multi-open/gap 聚合检查。
-- Python 只保留少量人工冲突仲裁和样本格式化。
+- 不做中期 DuckDB 重写。
+- 短期只补边界门禁：
+  - 在 asset 或 timeline helper 入口登记 raw rows、filtered rows、current listed code count 的可接受上限。
+  - 超过上限时 fail fast，提示重新设计为 DuckDB SQL 方案。
+  - 文档明确：该 Python 模式只允许用于小表、规则复杂、可解释的基础快照。
+- 如果未来 raw namechange 行数扩大到当前数量级的数倍，或耗时超过明确阈值，再重新评估 DuckDB 化。
 
 ### P2：`silver_stock_identity_map` 是 Python full snapshot 构建，当前小规模但缺少上限门禁
 
@@ -497,11 +527,11 @@ P1B 候选步骤：
 
 ### PA3：给 `silver_namechange` 和 `silver_stock_identity_map` 增加小表边界
 
-优先级：P1/P2
+优先级：P2
 
 目标：
 
-- 登记当前 row count、code count、耗时基线。
+- `silver_namechange` 已登记当前 row count、code count、耗时基线；后续只需补代码级超限 fail-fast。
 - 增加超限 fail fast。
 - 明确这两个资产允许 Python 的原因是“小表、业务规则复杂、有边界”，不是一般模式。
 
