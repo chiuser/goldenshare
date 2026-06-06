@@ -35,9 +35,11 @@
 12. [ ] 平盘家数卡片副文案固定为“平盘率 x%”
 13. [ ] 纵轴刻度固定为 0/1500/3000/4500/6000，且无负值刻度
 14. [ ] API 与前端 DTO 均包含 `totalCount` 与完整 `distributionBuckets`
-15. [ ] 当前 UI 不渲染分桶字段
-16. [ ] 本模块业务统计路径不得再聚合 `equity_daily_bar.pct_chg`
-17. [ ] 签字完成
+15. [ ] `distributionBuckets` 字段已升级为 `7~10` 与 `>10` 双分桶，不保留 `Gt7` 兼容字段
+16. [ ] 前端右上角切换按钮固定为 `涨跌家数/涨跌分布`
+17. [ ] `涨跌分布` 只渲染分桶柱状图本体，不展示底部汇总文字
+18. [ ] 本模块业务统计路径不得再聚合 `equity_daily_bar.pct_chg`
+19. [ ] 签字完成
 
 ---
 
@@ -63,14 +65,16 @@ interface BreadthRequest {
 
 ```ts
 interface BreadthDistributionBuckets {
-  downGt7Count: number;
+  downGt10Count: number;
+  down7To10Count: number;
   down5To7Count: number;
   down3To5Count: number;
   down0To3Count: number;
   up0To3Count: number;
   up3To5Count: number;
   up5To7Count: number;
-  upGt7Count: number;
+  up7To10Count: number;
+  upGt10Count: number;
 }
 
 interface BreadthMetrics {
@@ -130,14 +134,16 @@ interface BreadthResponseData {
       "totalCount": 5128,
       "redRate": 66.71,
       "distributionBuckets": {
-        "downGt7Count": 12,
+        "downGt10Count": 4,
+        "down7To10Count": 8,
         "down5To7Count": 36,
         "down3To5Count": 184,
         "down0To3Count": 1256,
         "up0To3Count": 2860,
         "up3To5Count": 446,
         "up5To7Count": 86,
-        "upGt7Count": 29
+        "up7To10Count": 21,
+        "upGt10Count": 8
       }
     },
     "historyByRange": {
@@ -150,14 +156,16 @@ interface BreadthResponseData {
           "totalCount": 5128,
           "redRate": 56.40,
           "distributionBuckets": {
-            "downGt7Count": 8,
+            "downGt10Count": 3,
+            "down7To10Count": 5,
             "down5To7Count": 41,
             "down3To5Count": 210,
             "down0To3Count": 1724,
             "up0To3Count": 2441,
             "up3To5Count": 360,
             "up5To7Count": 70,
-            "upGt7Count": 21
+            "up7To10Count": 15,
+            "upGt10Count": 6
           }
         },
         {
@@ -168,14 +176,16 @@ interface BreadthResponseData {
           "totalCount": 5128,
           "redRate": 66.71,
           "distributionBuckets": {
-            "downGt7Count": 12,
+            "downGt10Count": 4,
+            "down7To10Count": 8,
             "down5To7Count": 36,
             "down3To5Count": 184,
             "down0To3Count": 1256,
             "up0To3Count": 2860,
             "up3To5Count": 446,
             "up5To7Count": 86,
-            "upGt7Count": 29
+            "up7To10Count": 21,
+            "upGt10Count": 8
           }
         }
       ],
@@ -222,14 +232,16 @@ interface BreadthResponseData {
       "totalCount": 0,
       "redRate": 0,
       "distributionBuckets": {
-        "downGt7Count": 0,
+        "downGt10Count": 0,
+        "down7To10Count": 0,
         "down5To7Count": 0,
         "down3To5Count": 0,
         "down0To3Count": 0,
         "up0To3Count": 0,
         "up3To5Count": 0,
         "up5To7Count": 0,
-        "upGt7Count": 0
+        "up7To10Count": 0,
+        "upGt10Count": 0
       }
     },
     "historyByRange": { "1m": [], "3m": [] }
@@ -257,7 +269,8 @@ interface BreadthResponseData {
 1. 当日指标查询草案：
    - 从 `goldenshare_serving.share_fact_market_breadth_daily` 按 `trade_date = :target_date` 读取一行；
    - 直接读取 `up_count/down_count/flat_count/total_count/red_rate`；
-   - 直接读取全部分桶列；
+   - 直接读取全部分桶列：`down_gt_10_count/down_7_10_count/down_5_7_count/down_3_5_count/down_0_3_count/up_0_3_count/up_3_5_count/up_5_7_count/up_7_10_count/up_gt_10_count`；
+   - 禁止继续读取旧列 `down_gt_7_count/up_gt_7_count`；
    - 不再扫描或聚合 `equity_daily_bar.pct_chg`。
 2. 历史趋势查询草案：
    - 先取最近 62 个交易日（`trade_calendar.is_open=true`）；
@@ -335,16 +348,20 @@ interface BreadthResponseData {
 
 1. 单元测试：
    - DTO 包含 `totalCount` 与完整 `distributionBuckets`；
+   - DTO 和前端类型不包含 `downGt7Count/upGt7Count`；
+   - DTO 和前端类型包含 `down7To10Count/up7To10Count/downGt10Count/upGt10Count`；
    - `1m/3m` 固定点数切片；
-   - 当前 UI 只使用 up/down/flat/total/redRate，不渲染分桶图；
+   - `涨跌家数` 模式只使用 up/down 折线；
+   - `涨跌分布` 模式使用当日 `distributionBuckets + flatCount` 渲染柱状图；
    - 本模块查询层不再通过 `equity_daily_bar.pct_chg` 聚合业务指标。
 2. 集成测试：
    - 正常/延迟/空/错误四态；
    - ClickHouse 查询失败进入模块 error；
    - 不回退旧聚合路径。
 3. 冒烟测试：
-   - 前端 `RangeSwitch` 可切 `1个月/3个月`；
-   - 双趋势线（上涨/下跌）可渲染；
+   - 前端切换按钮文案为 `涨跌家数/涨跌分布`，不得继续显示 `1个月/3个月`；
+   - `涨跌家数` 双趋势线（上涨/下跌）可渲染；
+   - `涨跌分布` 分桶柱状图可渲染，且不展示底部汇总文字；
    - 真实源请求 pending 时显示 loading（不展示 mock breadth）；
    - 真实源请求超过 5 秒显示 error；
    - 平盘家数卡片副文案显示 `平盘率 x%`；
@@ -371,14 +388,16 @@ interface BreadthResponseData {
 
 1. [ ] 响应结构可消费
 2. [ ] 前端 DTO 可接收分桶字段
-3. [ ] 现有面板无需改样式可接入
-4. [ ] 空态/延迟态可表达
+3. [ ] 右上角切换按钮文案为 `涨跌家数/涨跌分布`
+4. [ ] `涨跌家数` 复用当前上涨/下跌双折线
+5. [ ] `涨跌分布` 渲染分桶柱状图且不展示底部汇总文字
+6. [ ] 空态/延迟态可表达
 
 ### 10.3 架构/产品负责人
 
 1. [ ] 范围未扩散
 2. [ ] 语义与当前页面一致
-3. [ ] 分桶字段仅预埋、不渲染的口径确认
+3. [ ] 分桶字段用于当前 `涨跌分布` 柱状图，且不引入额外底部汇总文字
 4. [ ] 可进入编码阶段
 
 ---
@@ -391,3 +410,4 @@ interface BreadthResponseData {
 | v1.1 | 2026-05-09 | 对齐模块交付清单：新增真实源加载态/5 秒超时门禁与单模块 source 渐进替换门禁 | Codex |
 | v1.2 | 2026-05-09 | 对齐实现修复：新增平盘率副文案门禁与固定纵轴刻度门禁 | Codex |
 | v1.3 | 2026-06-05 | 门禁切到 ClickHouse 事实表口径；新增分桶字段 DTO、旧聚合路径禁用与 ClickHouse 连接门禁 | Codex |
+| v1.4 | 2026-06-06 | 对齐生产 fact 表新 schema：`Gt7` 退场，新增 `7To10/Gt10` 字段；补充 `涨跌家数/涨跌分布` UI 门禁 | Codex |

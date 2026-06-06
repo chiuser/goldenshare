@@ -22,15 +22,21 @@
 
 1. 现有页面已固定涨跌分布交互：
    - [MarketBreadthPanel.tsx](/Users/congming/github/goldenshare/wealth/src/features/market-overview/breadth/MarketBreadthPanel.tsx)
-2. 当前前端 DTO 与 adapter 只消费 `upCount/downCount/flatCount/redRate` 与历史 `up/down`：
+2. 当前前端 DTO 与 adapter 已接收 `totalCount/distributionBuckets`，但展示层仍以 3 张指标卡和上涨/下跌折线为主：
    - [marketBreadthApi.ts](/Users/congming/github/goldenshare/wealth/src/features/market-overview/breadth/api/marketBreadthApi.ts)
    - [marketBreadthAdapter.ts](/Users/congming/github/goldenshare/wealth/src/features/market-overview/breadth/api/marketBreadthAdapter.ts)
 3. 历史 Web 后端实现曾通过 `core_serving.equity_daily_bar.pct_chg` 自行聚合；本轮切换后该模块业务统计不得再读取或聚合 `equity_daily_bar.pct_chg`。
 4. 新事实表已存在于 ClickHouse 侧：`goldenshare_serving.share_fact_market_breadth_daily`，字段包含上/下/平/总数、红盘率和完整涨跌幅分桶。
-5. 当前冲突与风险：
+5. 生产 ClickHouse fact 表分桶 schema 已升级：
+   - `down_gt_7_count` 已更名为 `down_7_10_count`
+   - `up_gt_7_count` 已更名为 `up_7_10_count`
+   - 新增 `down_gt_10_count`
+   - 新增 `up_gt_10_count`
+6. 当前冲突与风险：
    - Web 后端主工程尚未形成通用 ClickHouse 只读查询能力；实现前必须先明确连接配置、超时、错误处理和测试替身。
    - 旧实现从 `equity_daily_bar` 聚合，未来实现必须删除该模块内的业务统计依赖，避免新旧口径并存。
-6. 结论：
+   - 旧 DTO / 测试 mock 仍存在 `downGt7Count/upGt7Count` 口径，开发时必须一次性清零，不能兼容旧字段。
+7. 结论：
    - breadth 模块保持独立模块接口落 `src/biz` 分层目录；
    - 本模块不接策略配置中心（无配置化能力）；
    - 本轮目标是把模块事实源收敛到 ClickHouse 市场宽度事实表。
@@ -111,7 +117,9 @@ src/biz/
 4. 结果编排：
    - 从 62 日结果切片得到 `3m`（62）和 `1m`（22）；
    - 当日 `metrics` 与历史点均携带 `totalCount` 和 `distributionBuckets`；
-   - 当前 UI 只渲染 3 卡片和上涨/下跌双线。
+   - 当前 UI 支持 `涨跌家数` 与 `涨跌分布` 两种图表模式；
+   - `涨跌家数` 复用 1 个月上涨/下跌双线；
+   - `涨跌分布` 使用当日分桶事实渲染柱状图，不展示参考图底部汇总文字。
 5. 状态归并：`breadth_status_resolver` 产出模块状态。
 6. 异常组装：`breadth_exception_builder` 仅使用注册表异常码。
 7. 响应输出：`schemas.wealth.market.breadth` DTO。
@@ -124,7 +132,7 @@ src/biz/
    - 3 个指标卡副文案分别为：`红盘率 x%` / `绿盘率 x%` / `平盘率 x%`；
    - 平盘卡副文案禁止展示“当前日统计”；
    - 折线图纵轴固定 `yMin=0`，固定刻度值 `0/1500/3000/4500/6000`；
-   - 分桶字段暂不渲染。
+   - 分桶柱状图沿用财势乾坤暗色设计 token，只复用参考图的柱状图结构，不复用参考图颜色和字体。
 
 ---
 
@@ -133,13 +141,14 @@ src/biz/
 1. 主查询（当日指标）：
    - 从 `goldenshare_serving.share_fact_market_breadth_daily` 按 `trade_date = target_date` 读取一行；
    - 直接映射 `up_count/down_count/flat_count/total_count/red_rate`；
-   - 直接映射 `down_gt_7_count/down_5_7_count/down_3_5_count/down_0_3_count/up_0_3_count/up_3_5_count/up_5_7_count/up_gt_7_count`；
+   - 直接映射 `down_gt_10_count/down_7_10_count/down_5_7_count/down_3_5_count/down_0_3_count/up_0_3_count/up_3_5_count/up_5_7_count/up_7_10_count/up_gt_10_count`；
    - Web 后端不再重算 `redRate`，也不再扫描个股日线明细。
 2. 历史查询（趋势线）：
    - 先取最近 `62` 个开市交易日（trade_calendar）；
    - 再按交易日读取事实表中对应行；
    - 按日期升序输出；
    - 历史点也返回完整 count 与分桶字段，但当前图表只使用 `upCount/downCount`。
+   - `涨跌分布` 图表使用当日 `metrics.distributionBuckets` 与 `metrics.flatCount`；不读取历史点分桶。
 3. 回退查询：
    - 不跨日补值；落后即 delayed。
 4. 去重、排序、截断规则：
@@ -150,6 +159,10 @@ src/biz/
    - 单日无事实行：模块 `EMPTY` 或 `DELAYED`，由 expected/observed 判断；
    - 历史为空：返回空数组并标 `EMPTY`；
    - ClickHouse 查询失败：模块 `ERROR`，不回退到旧 `equity_daily_bar` 聚合。
+6. 分桶 schema 兼容策略：
+   - 本轮不提供 `downGt7Count/upGt7Count` 兼容字段；
+   - 后端 DTO、前端类型、测试 mock、文档样例必须全部切到 `down7To10Count/up7To10Count/downGt10Count/upGt10Count`；
+   - 若代码仍引用旧字段，视为门禁失败。
 
 ---
 
@@ -197,14 +210,18 @@ src/biz/
 1. 单元测试：
    - API DTO 包含 `totalCount` 与完整 `distributionBuckets`；
    - `1m/3m` 点数固定；
-   - 历史趋势 UI 只消费 up/down，不渲染分桶；
+   - `涨跌家数` 模式只消费 up/down；
+   - `涨跌分布` 模式消费当日 `distributionBuckets + flatCount` 渲染分桶柱状图；
    - old `equity_daily_bar.pct_chg` 聚合不再作为本模块业务统计路径。
 2. 集成测试：
    - 正常/延迟/空数据/异常场景；
    - ClickHouse 查询失败时模块 error，不 silent fallback。
 3. 冒烟验证：
    - 返回结构稳定；
-   - 面板切换 `1m/3m` 可正常渲染；
+   - 前端切换按钮文案为 `涨跌家数/涨跌分布`，不得继续显示 `1个月/3个月`；
+   - `涨跌家数` 双趋势线（上涨/下跌）可渲染；
+   - `涨跌分布` 分桶柱状图可渲染，柱状图顺序固定为：`跌 >10%`、`跌 7~10%`、`跌 5~7%`、`跌 3~5%`、`跌 0~3%`、`平盘`、`涨 0~3%`、`涨 3~5%`、`涨 5~7%`、`涨 7~10%`、`涨 >10%`；
+   - `涨跌分布` 不展示参考图底部汇总文字；
    - 真实源请求 pending 时显示 loading（不展示 mock breadth）；
    - 真实源请求超过 5 秒显示 error；
    - 平盘卡副文案显示 `平盘率 x%`；
@@ -244,15 +261,15 @@ src/biz/
 ## 12. 已确认清零项
 
 1. 本模块无配置能力，不接策略配置中心。
-2. 仅支持 `1个月/3个月` 两档范围。
-3. UI 样式与交互保持现状，不做变更。
+2. 仅支持 `涨跌家数/涨跌分布` 两种图表模式；`1m/3m` 只保留为 API 历史数据键，不作为按钮文案。
+3. UI 样式保持现状，但 RangeSwitch 语义从时间范围切换改为图表模式切换。
 4. 统计口径已拍板：读取 `goldenshare_serving.share_fact_market_breadth_daily`，不再由 Web 后端按个股日线明细自行聚合。
 5. 本模块接入真实 API 时，必须遵守 `loading -> ready`、`timeout(5s) -> error`，且 timeout/error 不允许回填 mock 数据。
 6. 本轮仅允许 `breadth` 模块事实源切换，其余模块 source 必须保持原值不变。
 7. 本轮无未决拍板项。
 8. 平盘家数卡片副文案统一为 `平盘率 x%`。
 9. 纵轴刻度固定为 `0/1500/3000/4500/6000`，纵轴下限为 `0`。
-10. 分桶字段必须进入 API/前端 DTO，当前 UI 暂不展示。
+10. 分桶字段必须进入 API/前端 DTO，并用于 `涨跌分布` 柱状图；不得展示参考图底部汇总文字。
 
 ---
 
@@ -264,3 +281,4 @@ src/biz/
 | v1.1 | 2026-05-09 | 对齐模块交付清单：补充真实源 loading/error 行为门禁、5 秒超时语义与单模块 source 切换约束 | Codex |
 | v1.2 | 2026-05-09 | 对齐实现修复：补充平盘率副文案与固定纵轴刻度 0/1500/3000/4500/6000 | Codex |
 | v1.3 | 2026-06-05 | 查询口径切到 ClickHouse 市场宽度事实表；补充分桶字段契约与 ClickHouse client 风险 | Codex |
+| v1.4 | 2026-06-06 | 对齐生产 fact 表新 schema：`>7%` 拆为 `7~10%` 与 `>10%`；新增 `涨跌家数/涨跌分布` 图表模式切换方案 | Codex |
