@@ -703,7 +703,7 @@
           <td><code>cn_a_stock_trade_days</code></td>
           <td>asset、gold checks、declarative automation、<code>stock_return_distribution_daily_job</code> 均已实现。</td>
           <td>跟随 <code>silver_stock_daily</code> 直接质量门禁通过后生产。</td>
-          <td>股票涨跌幅区间分布；不在 gold 层过滤 <code>pct_chg</code> 空值。</td>
+          <td>股票涨跌幅区间分布；收益率分桶固定为十一段，拆出 <code>up_7_10_count</code>、<code>up_gt_10_count</code>、<code>down_7_10_count</code>、<code>down_gt_10_count</code>；不在 gold 层过滤 <code>pct_chg</code> 空值。</td>
         </tr>
         </tbody>
       </table>
@@ -907,7 +907,7 @@
         <tr>
           <td><code>stock_return_distribution_daily_job</code></td>
           <td>已实现；只选择 <code>gold_stock_return_distribution</code> + gold checks。</td>
-          <td>股票涨跌幅区间分布 gold。</td>
+          <td>股票涨跌幅区间分布 gold，按 <code>pct_chg</code> 统计十一段收益率区间数量。</td>
           <td>目标由自定义 <code>stock_return_distribution_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补上游，不能拉 Tushare，不能在 gold 层过滤 <code>pct_chg</code> 空值。</td>
         </tr>
@@ -923,7 +923,7 @@
           <td>已实现；只选择 <code>prod_ch_share_fact_market_breadth_daily</code> + prod serving checks。</td>
           <td>把本机 ClickHouse 市场宽度 serving 分区同步到 prod ClickHouse。</td>
           <td>目标由自定义 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
-          <td>不能补本机 CH 上游，不能拉 Tushare，不能写 gold/silver/raw；SSH tunnel 是运行前置条件。</td>
+          <td>不能补本机 CH 上游，不能拉 Tushare，不能写 gold/silver/raw；同步时按 <code>trade_date</code> 删除 prod 旧行并插入本机 CH 完整新行；SSH tunnel 是运行前置条件。</td>
         </tr>
         </tbody>
       </table>

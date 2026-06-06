@@ -23,7 +23,8 @@ from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_met
 
 
 RETURN_BUCKET_COLUMNS = (
-    "down_gt_7_count",
+    "down_gt_10_count",
+    "down_7_10_count",
     "down_5_7_count",
     "down_3_5_count",
     "down_0_3_count",
@@ -31,7 +32,8 @@ RETURN_BUCKET_COLUMNS = (
     "up_0_3_count",
     "up_3_5_count",
     "up_5_7_count",
-    "up_gt_7_count",
+    "up_7_10_count",
+    "up_gt_10_count",
 )
 
 

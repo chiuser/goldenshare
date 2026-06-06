@@ -339,7 +339,7 @@ goldenshare_serving.index_fact_*
 
 ## 6. 表结构契约
 
-第一版字段来自两个 gold assets。
+当前目标字段来自两个 gold assets。V1/V2 是已执行历史事实；收益率分桶拆分后，当前目标 schema 由新增 V3 migration 演进得到。
 
 ```text
 trade_date Date
@@ -352,14 +352,16 @@ total_count UInt32
 red_rate Float64
 
 -- from gold_stock_return_distribution
-down_gt_7_count UInt32
+down_gt_10_count UInt32
+down_7_10_count UInt32
 down_5_7_count UInt32
 down_3_5_count UInt32
 down_0_3_count UInt32
 up_0_3_count UInt32
 up_3_5_count UInt32
 up_5_7_count UInt32
-up_gt_7_count UInt32
+up_7_10_count UInt32
+up_gt_10_count UInt32
 
 -- serving metadata
 updated_at DateTime
@@ -372,6 +374,31 @@ updated_at DateTime
 3. `gold_stock_return_distribution.total_count` 必须通过 check 与 `gold_market_breadth_daily.total_count` 一致。
 4. `gold_stock_return_distribution.flat_count` 不进入 ClickHouse 表，但必须通过 check 与 `gold_market_breadth_daily.flat_count` 一致；否则说明两个 gold 资产对同一天的“平盘数量”口径或数据源出现偏差。
 5. ClickHouse serving 表不重新计算这些字段，只保存 gold 结果的 serving 副本。
+6. `gold_stock_return_distribution` 的 asset description 必须从“按 pct_chg 统计九段收益率区间数量”改为“按 pct_chg 统计十一段收益率区间数量”。
+7. `gold_market_breadth_daily` 不承载收益率分桶，本轮口径变更不得从该 asset 改起。
+
+收益率分桶固定为十一段：
+
+| 字段 | 口径 |
+| --- | --- |
+| `down_gt_10_count` | `pct_chg < -10` |
+| `down_7_10_count` | `pct_chg >= -10 AND pct_chg < -7` |
+| `down_5_7_count` | `pct_chg >= -7 AND pct_chg < -5` |
+| `down_3_5_count` | `pct_chg >= -5 AND pct_chg < -3` |
+| `down_0_3_count` | `pct_chg >= -3 AND pct_chg < 0` |
+| `flat_count` | `pct_chg = 0`，不进入 ClickHouse distribution 字段，由 `gold_market_breadth_daily.flat_count` 承载 |
+| `up_0_3_count` | `pct_chg > 0 AND pct_chg <= 3` |
+| `up_3_5_count` | `pct_chg > 3 AND pct_chg <= 5` |
+| `up_5_7_count` | `pct_chg > 5 AND pct_chg <= 7` |
+| `up_7_10_count` | `pct_chg > 7 AND pct_chg <= 10` |
+| `up_gt_10_count` | `pct_chg > 10` |
+
+旧字段迁移口径：
+
+1. `up_gt_7_count` 不再表示大于 7%，改名为 `up_7_10_count` 后只表示 `7% < pct_chg <= 10%`。
+2. `down_gt_7_count` 不再表示小于 -7%，改名为 `down_7_10_count` 后只表示 `-10% <= pct_chg < -7%`。
+3. 新增 `up_gt_10_count` 和 `down_gt_10_count`。
+4. migration 后旧行即使字段名已变，语义仍未自动修正；必须用 Dagster 分区重跑重建 gold parquet 和 ClickHouse serving 行。
 
 表引擎草案：
 
@@ -384,14 +411,16 @@ CREATE TABLE IF NOT EXISTS goldenshare_serving.share_fact_market_breadth_daily
     flat_count UInt32,
     total_count UInt32,
     red_rate Float64,
-    down_gt_7_count UInt32,
+    down_gt_10_count UInt32,
+    down_7_10_count UInt32,
     down_5_7_count UInt32,
     down_3_5_count UInt32,
     down_0_3_count UInt32,
     up_0_3_count UInt32,
     up_3_5_count UInt32,
     up_5_7_count UInt32,
-    up_gt_7_count UInt32,
+    up_7_10_count UInt32,
+    up_gt_10_count UInt32,
     updated_at DateTime
 )
 ENGINE = MergeTree
@@ -413,6 +442,7 @@ lake_console/orchestrator/clickhouse_migrations/
   sql/
     V1__create_goldenshare_serving_database.sql
     V2__create_share_fact_market_breadth_daily.sql
+    V3__split_market_breadth_return_distribution_buckets.sql
 ```
 
 原则：
@@ -463,6 +493,24 @@ Dagster runtime
 当前 V1 / V2 已经通过 flyway migrate 成功执行，已经成为历史事实，不能再回头改。
 后续如果要加字段或改结构，必须新增 V3 / V4。
 ```
+
+本轮收益率分桶变更使用新增 `V3__split_market_breadth_return_distribution_buckets.sql`，不得修改已执行的 `V2__create_share_fact_market_breadth_daily.sql`。V3 的目标是让本机 ClickHouse 表 schema 与新十一段口径一致：
+
+```sql
+ALTER TABLE goldenshare_serving.share_fact_market_breadth_daily
+    RENAME COLUMN down_gt_7_count TO down_7_10_count;
+
+ALTER TABLE goldenshare_serving.share_fact_market_breadth_daily
+    RENAME COLUMN up_gt_7_count TO up_7_10_count;
+
+ALTER TABLE goldenshare_serving.share_fact_market_breadth_daily
+    ADD COLUMN down_gt_10_count UInt32 AFTER red_rate;
+
+ALTER TABLE goldenshare_serving.share_fact_market_breadth_daily
+    ADD COLUMN up_gt_10_count UInt32 AFTER up_7_10_count;
+```
+
+V3 只改变 schema，不负责修正旧数据语义。旧数据语义修正必须通过后续 `stock_return_distribution_daily_job` 与 `clickhouse_share_fact_market_breadth_update_job` 分区重跑完成，禁止对历史行执行 ClickHouse `ALTER TABLE UPDATE` 大范围 mutation。
 
 禁止使用 `flyway repair` 作为日常修复手段；只有在明确知道 schema history 需要修正、且经过用户确认后，才允许执行。
 
@@ -534,7 +582,7 @@ ch_share_fact_market_breadth_breadth_fields_match_gold
   up_count / down_count / flat_count / red_rate 必须等于 gold_market_breadth_daily。
 
 ch_share_fact_market_breadth_distribution_fields_match_gold
-  8 个非 flat 的收益率分桶必须等于 gold_stock_return_distribution。
+  10 个非 flat 的收益率分桶必须等于 gold_stock_return_distribution。
 ```
 
 说明：
@@ -542,6 +590,7 @@ ch_share_fact_market_breadth_distribution_fields_match_gold
 1. ClickHouse serving 表是副本，checks 的核心是“副本是否与 gold 一致”。
 2. 不在 ClickHouse checks 中重新定义涨跌幅业务口径。
 3. 如果 CH 与 gold 不一致，CH asset check fail。
+4. 新十一段口径下，distribution check 必须覆盖 `down_gt_10_count`、`down_7_10_count`、`down_5_7_count`、`down_3_5_count`、`down_0_3_count`、`up_0_3_count`、`up_3_5_count`、`up_5_7_count`、`up_7_10_count`、`up_gt_10_count`。
 
 ## 10. Job 与自动化
 

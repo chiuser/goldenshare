@@ -429,6 +429,13 @@ prod sync asset 不重新读取 gold parquet，不重新组合字段。
 prod ClickHouse: goldenshare_serving.share_fact_market_breadth_daily WHERE trade_date = partition_key
 ```
 
+收益率分桶 schema 变更后仍保持该边界：
+
+1. `prod_ch_share_fact_market_breadth_daily` 不计算 `pct_chg` 分桶，不读取 `gold_stock_return_distribution` parquet。
+2. 本机 `ch_share_fact_market_breadth_daily` 必须已经按十一段收益率区间口径重建，并通过本机 serving checks。
+3. prod sync 只读取本机 ClickHouse 同一 `trade_date` 的完整新 schema 行，再逐日 replace 到 prod ClickHouse。
+4. 本机 CH 与 prod CH 必须先执行同一份 Flyway migration，例如新增的 `V3__split_market_breadth_return_distribution_buckets.sql`；两边 schema 不一致时禁止同步。
+
 ### 7.3 写入语义
 
 prod 写入必须使用同步 replace：
@@ -437,13 +444,15 @@ prod 写入必须使用同步 replace：
 SET lightweight_deletes_sync = 1
 DELETE FROM goldenshare_serving.share_fact_market_breadth_daily WHERE trade_date = <partition_date>
 确认 prod 当日 row_count = 0
-INSERT 1 行
+INSERT 该 trade_date 的完整新 schema 行
 确认 prod 当日 row_count = 1
 ```
 
 如果 delete 成功但 insert 失败，prod 当日 serving 行可能暂时缺失。由于 prod ClickHouse 是副本层，重新运行同一分区即可恢复。
 
 并发同一分区写入第一版不单独处理；后续如果自动化长期启用，需要评估 Dagster concurrency / run queue 限制。
+
+刷新历史数据时，prod 同日期旧行必须先删除，再插入本机 CH 已重建后的完整新行；禁止只补新增列、禁止对 prod 旧行做 `ALTER TABLE UPDATE` mutation，也禁止绕过 Dagster 用手写脚本直接灌 prod。
 
 ### 7.4 Metadata
 
@@ -669,11 +678,14 @@ updated_at = 2026-05-28 22:09:21
 全量同步口径：
 
 1. 若需要把本机 ClickHouse 现有全部 `share_fact_market_breadth_daily` 分区同步到 prod，不新增临时脚本，不绕过 Dagster。
-2. 先启动 `lake_console/bin/lake-prod-clickhouse-tunnel`，确认本机 `127.0.0.1:19000` 可访问 prod ClickHouse。
-3. 在 Dagster UI 对 `prod_clickhouse_share_fact_market_breadth_sync_job` 发起分区 backfill，选择需要同步的 `trade_date` 分区集合。
-4. 每个分区由 `prod_ch_share_fact_market_breadth_daily[trade_date]` 读取本机 CH 一行，使用同步 delete-then-insert replace 语义写入 prod CH，再执行 prod checks。
-5. 如果 tunnel 中断或 prod 不可达，对应分区 run 失败并暴露连接错误；修复 tunnel 后对 failed / missing partitions 重新 backfill。
-6. 不直接用 `clickhouse-client INSERT SELECT` 或手写脚本批量灌 prod，因为那会绕过 Dagster asset/check/event 可观测性。
+2. 表结构变化先在本机 CH 和 prod CH 执行同一份 Flyway migration，并通过 `flyway validate`。
+3. 先对目标日期集合重跑 `stock_return_distribution_daily_job`，生成十一段收益率区间的 gold parquet。
+4. 再对同一目标日期集合重跑 `clickhouse_share_fact_market_breadth_update_job`，把本机 CH serving 行逐日 replace 成新 schema / 新口径。
+5. 启动 `lake_console/bin/lake-prod-clickhouse-tunnel`，确认本机 `127.0.0.1:19000` 可访问 prod ClickHouse。
+6. 在 Dagster UI 对 `prod_clickhouse_share_fact_market_breadth_sync_job` 发起分区 backfill，选择同一批 `trade_date` 分区集合。
+7. 每个分区由 `prod_ch_share_fact_market_breadth_daily[trade_date]` 读取本机 CH 一行，使用同步 delete-then-insert replace 语义写入 prod CH，再执行 prod checks。
+8. 如果 tunnel 中断或 prod 不可达，对应分区 run 失败并暴露连接错误；修复 tunnel 后对 failed / missing partitions 重新 backfill。
+9. 不直接用 `clickhouse-client INSERT SELECT` 或手写脚本批量灌 prod，因为那会绕过 Dagster asset/check/event 可观测性。
 
 ### Slice PCH-6：prod sync automation
 

@@ -79,7 +79,8 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
         f"""
         SELECT
           trade_date,
-          down_gt_7_count,
+          down_gt_10_count,
+          down_7_10_count,
           down_5_7_count,
           down_3_5_count,
           down_0_3_count,
@@ -87,7 +88,8 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
           up_0_3_count,
           up_3_5_count,
           up_5_7_count,
-          up_gt_7_count,
+          up_7_10_count,
+          up_gt_10_count,
           total_count
         FROM {read_parquet(path, hive_partitioning=False)}
         """
@@ -126,11 +128,11 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
             "calculation_contract": (
                 "pct_chg completeness is guaranteed by silver_stock_daily blocking checks; "
                 "gold aggregation does not filter pct_chg nulls; "
-                "nine return buckets must add up to total_count."
+                "eleven return buckets must add up to total_count."
             )
         },
     ),
-    description="股票涨跌幅区间分布日表，按 pct_chg 统计九段收益率区间数量。",
+    description="股票涨跌幅区间分布日表，按 pct_chg 统计十一段收益率区间数量。",
     automation_condition=STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION,
 )
 def gold_stock_return_distribution(

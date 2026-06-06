@@ -277,7 +277,12 @@ GOLD_MARKET_BREADTH_DAILY_SCHEMA = (
 
 GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA = (
     ColumnContract("trade_date", "DATE", "交易日"),
-    ColumnContract("down_gt_7_count", "BIGINT", "跌幅大于 7% 的股票数量"),
+    ColumnContract("down_gt_10_count", "BIGINT", "pct_chg 小于 -10% 的股票数量"),
+    ColumnContract(
+        "down_7_10_count",
+        "BIGINT",
+        "pct_chg 大于等于 -10% 且小于 -7% 的股票数量",
+    ),
     ColumnContract("down_5_7_count", "BIGINT", "跌幅大于 5% 且小于等于 7% 的股票数量"),
     ColumnContract("down_3_5_count", "BIGINT", "跌幅大于 3% 且小于等于 5% 的股票数量"),
     ColumnContract("down_0_3_count", "BIGINT", "跌幅大于 0% 且小于等于 3% 的股票数量"),
@@ -285,7 +290,8 @@ GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA = (
     ColumnContract("up_0_3_count", "BIGINT", "涨幅大于 0% 且小于等于 3% 的股票数量"),
     ColumnContract("up_3_5_count", "BIGINT", "涨幅大于 3% 且小于等于 5% 的股票数量"),
     ColumnContract("up_5_7_count", "BIGINT", "涨幅大于 5% 且小于等于 7% 的股票数量"),
-    ColumnContract("up_gt_7_count", "BIGINT", "涨幅大于 7% 的股票数量"),
+    ColumnContract("up_7_10_count", "BIGINT", "涨幅大于 7% 且小于等于 10% 的股票数量"),
+    ColumnContract("up_gt_10_count", "BIGINT", "涨幅大于 10% 的股票数量"),
     ColumnContract("total_count", "BIGINT", "当日参与统计的股票总数"),
 )
 
@@ -296,13 +302,19 @@ CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA = (
     ColumnContract("flat_count", "UInt32", "当日平盘股票数量"),
     ColumnContract("total_count", "UInt32", "当日参与统计的股票总数"),
     ColumnContract("red_rate", "Float64", "上涨股票数量占总数的百分比，保留两位小数"),
-    ColumnContract("down_gt_7_count", "UInt32", "跌幅大于 7% 的股票数量"),
+    ColumnContract("down_gt_10_count", "UInt32", "pct_chg 小于 -10% 的股票数量"),
+    ColumnContract(
+        "down_7_10_count",
+        "UInt32",
+        "pct_chg 大于等于 -10% 且小于 -7% 的股票数量",
+    ),
     ColumnContract("down_5_7_count", "UInt32", "跌幅大于 5% 且小于等于 7% 的股票数量"),
     ColumnContract("down_3_5_count", "UInt32", "跌幅大于 3% 且小于等于 5% 的股票数量"),
     ColumnContract("down_0_3_count", "UInt32", "跌幅大于 0% 且小于等于 3% 的股票数量"),
     ColumnContract("up_0_3_count", "UInt32", "涨幅大于 0% 且小于等于 3% 的股票数量"),
     ColumnContract("up_3_5_count", "UInt32", "涨幅大于 3% 且小于等于 5% 的股票数量"),
     ColumnContract("up_5_7_count", "UInt32", "涨幅大于 5% 且小于等于 7% 的股票数量"),
-    ColumnContract("up_gt_7_count", "UInt32", "涨幅大于 7% 的股票数量"),
+    ColumnContract("up_7_10_count", "UInt32", "涨幅大于 7% 且小于等于 10% 的股票数量"),
+    ColumnContract("up_gt_10_count", "UInt32", "涨幅大于 10% 的股票数量"),
     ColumnContract("updated_at", "DateTime", "ClickHouse serving 行更新时间"),
 )
