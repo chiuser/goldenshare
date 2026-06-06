@@ -48,14 +48,16 @@ def _fact(
         total_count=total_count,
         red_rate=round(up_count / total_count * 100, 2) if total_count else 0.0,
         distribution_buckets=BreadthDistributionBuckets(
-            down_gt_7_count=12,
+            down_gt_10_count=4,
+            down_7_10_count=8,
             down_5_7_count=36,
             down_3_5_count=184,
             down_0_3_count=1256,
             up_0_3_count=2860,
             up_3_5_count=446,
             up_5_7_count=86,
-            up_gt_7_count=29,
+            up_7_10_count=21,
+            up_gt_10_count=8,
         ),
     )
 
@@ -126,7 +128,15 @@ def test_market_breadth_endpoint_returns_clickhouse_metrics_and_history(app_clie
     assert payload["breadth"]["metrics"]["flatCount"] == 219
     assert payload["breadth"]["metrics"]["totalCount"] == 5128
     assert payload["breadth"]["metrics"]["redRate"] == 66.71
-    assert payload["breadth"]["metrics"]["distributionBuckets"]["upGt7Count"] == 29
+    metrics_buckets = payload["breadth"]["metrics"]["distributionBuckets"]
+    assert metrics_buckets["up7To10Count"] == 21
+    assert metrics_buckets["upGt10Count"] == 8
+    assert metrics_buckets["down7To10Count"] == 8
+    assert metrics_buckets["downGt10Count"] == 4
+    old_up_bucket_key = "up" + "Gt7Count"
+    old_down_bucket_key = "down" + "Gt7Count"
+    assert old_up_bucket_key not in metrics_buckets
+    assert old_down_bucket_key not in metrics_buckets
     assert len(payload["breadth"]["historyByRange"]["1m"]) == 22
     assert len(payload["breadth"]["historyByRange"]["3m"]) == 62
     first_one_month_point = payload["breadth"]["historyByRange"]["1m"][0]
@@ -139,7 +149,11 @@ def test_market_breadth_endpoint_returns_clickhouse_metrics_and_history(app_clie
         "redRate",
         "distributionBuckets",
     }
-    assert first_one_month_point["distributionBuckets"]["downGt7Count"] == 12
+    history_buckets = first_one_month_point["distributionBuckets"]
+    assert history_buckets["down7To10Count"] == 8
+    assert history_buckets["downGt10Count"] == 4
+    assert old_up_bucket_key not in history_buckets
+    assert old_down_bucket_key not in history_buckets
     assert payload["pageStatus"]["status"] == "READY"
     assert payload["debugInfo"]["modules"][0]["moduleKey"] == "breadth"
 

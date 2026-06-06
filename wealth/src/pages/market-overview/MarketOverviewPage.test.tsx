@@ -106,14 +106,16 @@ const breadthPayload = {
       totalCount: 5128,
       redRate: 66.71,
       distributionBuckets: {
-        downGt7Count: 12,
+        downGt10Count: 4,
+        down7To10Count: 8,
         down5To7Count: 36,
         down3To5Count: 184,
         down0To3Count: 1256,
         up0To3Count: 2860,
         up3To5Count: 446,
         up5To7Count: 86,
-        upGt7Count: 29,
+        up7To10Count: 21,
+        upGt10Count: 8,
       },
     },
     historyByRange: {
@@ -126,14 +128,16 @@ const breadthPayload = {
           totalCount: 5128,
           redRate: 62.4,
           distributionBuckets: {
-            downGt7Count: 8,
+            downGt10Count: 3,
+            down7To10Count: 5,
             down5To7Count: 30,
             down3To5Count: 160,
             down0To3Count: 1402,
             up0To3Count: 2600,
             up3To5Count: 360,
             up5To7Count: 70,
-            upGt7Count: 21,
+            up7To10Count: 15,
+            upGt10Count: 6,
           },
         },
         {
@@ -144,14 +148,16 @@ const breadthPayload = {
           totalCount: 5128,
           redRate: 66.71,
           distributionBuckets: {
-            downGt7Count: 12,
+            downGt10Count: 4,
+            down7To10Count: 8,
             down5To7Count: 36,
             down3To5Count: 184,
             down0To3Count: 1256,
             up0To3Count: 2860,
             up3To5Count: 446,
             up5To7Count: 86,
-            upGt7Count: 29,
+            up7To10Count: 21,
+            upGt10Count: 8,
           },
         },
       ],
@@ -164,14 +170,16 @@ const breadthPayload = {
           totalCount: 5128,
           redRate: 48.75,
           distributionBuckets: {
-            downGt7Count: 10,
+            downGt10Count: 4,
+            down7To10Count: 6,
             down5To7Count: 52,
             down3To5Count: 260,
             down0To3Count: 1778,
             up0To3Count: 2100,
             up3To5Count: 330,
             up5To7Count: 55,
-            upGt7Count: 15,
+            up7To10Count: 11,
+            upGt10Count: 4,
           },
         },
         {
@@ -182,14 +190,16 @@ const breadthPayload = {
           totalCount: 5128,
           redRate: 66.71,
           distributionBuckets: {
-            downGt7Count: 12,
+            downGt10Count: 4,
+            down7To10Count: 8,
             down5To7Count: 36,
             down3To5Count: 184,
             down0To3Count: 1256,
             up0To3Count: 2860,
             up3To5Count: 446,
             up5To7Count: 86,
-            upGt7Count: 29,
+            up7To10Count: 21,
+            upGt10Count: 8,
           },
         },
       ],
@@ -777,7 +787,7 @@ describe("MarketOverviewPage", () => {
     });
   });
 
-  it("accepts breadth distribution buckets without rendering bucket details in the current UI", async () => {
+  it("switches breadth panel between count trend and distribution bucket chart", async () => {
     render(<MarketOverviewPage />);
 
     const breadthSection = await screen.findByLabelText("涨跌分布");
@@ -788,8 +798,33 @@ describe("MarketOverviewPage", () => {
     expect(within(breadthSection).getByText("上涨家数")).toBeInTheDocument();
     expect(within(breadthSection).getByText("下跌家数")).toBeInTheDocument();
     expect(within(breadthSection).getByText("平盘家数")).toBeInTheDocument();
-    expect(within(breadthSection).queryByText(/downGt7Count|upGt7Count|down5To7Count|up5To7Count/)).not.toBeInTheDocument();
-    expect(within(breadthSection).queryByText(/涨跌幅分桶|分桶|跌幅大于|涨幅大于/)).not.toBeInTheDocument();
+    expect(within(breadthSection).getByRole("button", { name: "涨跌家数" })).toHaveClass("active");
+    expect(within(breadthSection).getByRole("button", { name: "涨跌分布" })).toBeInTheDocument();
+    expect(within(breadthSection).queryByRole("button", { name: "1个月" })).not.toBeInTheDocument();
+    expect(within(breadthSection).queryByRole("button", { name: "3个月" })).not.toBeInTheDocument();
+    expect(within(breadthSection).queryByRole("img", { name: "涨跌分布分桶柱状图" })).not.toBeInTheDocument();
+
+    fireEvent.click(within(breadthSection).getByRole("button", { name: "涨跌分布" }));
+
+    expect(within(breadthSection).getByRole("button", { name: "涨跌分布" })).toHaveClass("active");
+    expect(within(breadthSection).getByRole("img", { name: "涨跌分布分桶柱状图" })).toBeInTheDocument();
+    expect(breadthSection.querySelectorAll('[data-testid="breadth-distribution-bucket"]')).toHaveLength(11);
+    [
+      "跌 >10%",
+      "跌 7~10%",
+      "跌 5~7%",
+      "跌 3~5%",
+      "跌 0~3%",
+      "平盘",
+      "涨 0~3%",
+      "涨 3~5%",
+      "涨 5~7%",
+      "涨 7~10%",
+      "涨 >10%",
+    ].forEach((label) => {
+      expect(within(breadthSection).getByText(label)).toBeInTheDocument();
+    });
+    expect(within(breadthSection).queryByText(/涨停|跌停/)).not.toBeInTheDocument();
   });
 
   it("shows error state when breadth request exceeds 5 seconds", async () => {

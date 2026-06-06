@@ -62,14 +62,16 @@ export interface MarketBreadthResponse {
 }
 
 export interface BreadthDistributionBuckets {
-  downGt7Count: number;
+  downGt10Count: number;
+  down7To10Count: number;
   down5To7Count: number;
   down3To5Count: number;
   down0To3Count: number;
   up0To3Count: number;
   up3To5Count: number;
   up5To7Count: number;
-  upGt7Count: number;
+  up7To10Count: number;
+  upGt10Count: number;
 }
 
 export interface BreadthHistoryPoint {

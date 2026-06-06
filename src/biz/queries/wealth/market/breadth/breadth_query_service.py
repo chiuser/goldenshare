@@ -225,28 +225,32 @@ def _empty_fact(trade_date: date) -> BreadthFactRow:
         total_count=0,
         red_rate=0.0,
         distribution_buckets=BreadthDistributionBuckets(
-            down_gt_7_count=0,
+            down_gt_10_count=0,
+            down_7_10_count=0,
             down_5_7_count=0,
             down_3_5_count=0,
             down_0_3_count=0,
             up_0_3_count=0,
             up_3_5_count=0,
             up_5_7_count=0,
-            up_gt_7_count=0,
+            up_7_10_count=0,
+            up_gt_10_count=0,
         ),
     )
 
 
 def _buckets_to_dto(buckets: BreadthDistributionBuckets) -> BreadthDistributionBucketsDto:
     return BreadthDistributionBucketsDto(
-        downGt7Count=buckets.down_gt_7_count,
+        downGt10Count=buckets.down_gt_10_count,
+        down7To10Count=buckets.down_7_10_count,
         down5To7Count=buckets.down_5_7_count,
         down3To5Count=buckets.down_3_5_count,
         down0To3Count=buckets.down_0_3_count,
         up0To3Count=buckets.up_0_3_count,
         up3To5Count=buckets.up_3_5_count,
         up5To7Count=buckets.up_5_7_count,
-        upGt7Count=buckets.up_gt_7_count,
+        up7To10Count=buckets.up_7_10_count,
+        upGt10Count=buckets.up_gt_10_count,
     )
 
 

@@ -33,14 +33,16 @@ class PageStatusDto(BaseModel):
 class BreadthDistributionBucketsDto(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    downGt7Count: int = Field(ge=0)
+    downGt10Count: int = Field(ge=0)
+    down7To10Count: int = Field(ge=0)
     down5To7Count: int = Field(ge=0)
     down3To5Count: int = Field(ge=0)
     down0To3Count: int = Field(ge=0)
     up0To3Count: int = Field(ge=0)
     up3To5Count: int = Field(ge=0)
     up5To7Count: int = Field(ge=0)
-    upGt7Count: int = Field(ge=0)
+    up7To10Count: int = Field(ge=0)
+    upGt10Count: int = Field(ge=0)
 
 
 class BreadthMetricsDto(BaseModel):

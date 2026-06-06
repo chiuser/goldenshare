@@ -147,7 +147,7 @@ src/biz/
    - 先取最近 `62` 个开市交易日（trade_calendar）；
    - 再按交易日读取事实表中对应行；
    - 按日期升序输出；
-   - 历史点也返回完整 count 与分桶字段，但当前图表只使用 `upCount/downCount`。
+   - 历史点也返回完整 count 与分桶字段；`涨跌家数` 模式只使用 `upCount/downCount`。
    - `涨跌分布` 图表使用当日 `metrics.distributionBuckets` 与 `metrics.flatCount`；不读取历史点分桶。
 3. 回退查询：
    - 不跨日补值；落后即 delayed。

@@ -14,27 +14,31 @@ _BREADTH_COLUMNS = """
     flat_count,
     total_count,
     red_rate,
-    down_gt_7_count,
+    down_gt_10_count,
+    down_7_10_count,
     down_5_7_count,
     down_3_5_count,
     down_0_3_count,
     up_0_3_count,
     up_3_5_count,
     up_5_7_count,
-    up_gt_7_count
+    up_7_10_count,
+    up_gt_10_count
 """
 
 
 @dataclass(frozen=True, slots=True)
 class BreadthDistributionBuckets:
-    down_gt_7_count: int
+    down_gt_10_count: int
+    down_7_10_count: int
     down_5_7_count: int
     down_3_5_count: int
     down_0_3_count: int
     up_0_3_count: int
     up_3_5_count: int
     up_5_7_count: int
-    up_gt_7_count: int
+    up_7_10_count: int
+    up_gt_10_count: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -147,13 +151,15 @@ def _row_to_fact(row: dict) -> BreadthFactRow:
         total_count=_int_value(row, "total_count"),
         red_rate=_float_value(row, "red_rate"),
         distribution_buckets=BreadthDistributionBuckets(
-            down_gt_7_count=_int_value(row, "down_gt_7_count"),
+            down_gt_10_count=_int_value(row, "down_gt_10_count"),
+            down_7_10_count=_int_value(row, "down_7_10_count"),
             down_5_7_count=_int_value(row, "down_5_7_count"),
             down_3_5_count=_int_value(row, "down_3_5_count"),
             down_0_3_count=_int_value(row, "down_0_3_count"),
             up_0_3_count=_int_value(row, "up_0_3_count"),
             up_3_5_count=_int_value(row, "up_3_5_count"),
             up_5_7_count=_int_value(row, "up_5_7_count"),
-            up_gt_7_count=_int_value(row, "up_gt_7_count"),
+            up_7_10_count=_int_value(row, "up_7_10_count"),
+            up_gt_10_count=_int_value(row, "up_gt_10_count"),
         ),
     )

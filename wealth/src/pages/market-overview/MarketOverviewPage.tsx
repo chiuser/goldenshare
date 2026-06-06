@@ -1052,6 +1052,7 @@ export function MarketOverviewPage() {
               viewState={breadthViewState}
               metrics={breadth?.metrics}
               chartsByRange={breadth?.chartsByRange}
+              metricsFact={breadth?.metricsFact}
               errorMessage={breadthErrorMessage ?? undefined}
             />
             <MarketStylePanel
