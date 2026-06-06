@@ -1,7 +1,7 @@
 # M11: Gold stk_mins qfq 90/120 分钟资产设计方案
 
-状态：已实现代码口径；M11F 历史直写补录工具链已实现；M11G 已将年度 event 补录后的复核口径修正为 quick audit，最终收口才执行 full audit
-日期：2026-06-05  
+状态：已实现并完成正式历史收口；M11F 90/120 历史直写补录与 runless events 已全量执行；M11G quick/full audit 口径已落地并完成最终 full audit
+日期：2026-06-06
 范围：`lake_console/orchestrator` 正式 Dagster 新湖  
 
 ## 1. Summary
@@ -16,14 +16,14 @@
 - `90m` 从 `gold_stk_mins_qfq_30m` 聚合生成。
 - `120m` 从 `gold_stk_mins_qfq_60m` 聚合生成。
 
-本轮已完成代码、契约、测试和文档收口；不运行正式 Dagster，不写正式 lake，不读取正式 Dagster instance。
+M11 代码、契约、测试和文档已收口；M11F 历史文件直写与 runless event 补录已按审批执行完成，不属于 Dagster backfill。
 
 ## 1.1 已拍板口径
 
 1. `90/120` 并入同一个 `dataset_id=stk_mins_qfq`，不拆新的 `stk_mins_qfq_derived` dataset id。
 2. `stock_mins_qfq_daily_update_job` 和 `stock_mins_qfq_daily_sensor` 扩展为七频度 qfq：`1/5/15/30/60/90/120`。
 3. `stock_mins_qfq_factor_repair_job` 在 repair 30/60 后必须同步重建受影响的 90/120，避免派生频度滞后。
-4. M11 已完成 90/120 资产、契约和测试；M11F 已新增 derived 专用历史直写补录与 runless event helper/CLI，正式补录执行仍需单独审批。M11G 后，年度 event 补录批次按 `dry-run -> report -> quick audit` 推进，全部年份完成后再执行一次 `full audit`。
+4. M11 已完成 90/120 资产、契约和测试；M11F 已新增并执行 derived 专用历史直写补录与 runless event helper/CLI。M11G 后，年度 event 补录批次按 `dry-run -> report -> quick audit` 推进，全部年份完成后已执行一次 `full audit` 收口。
 5. 90/120 使用 derived 专属 check name，不复用 native qfq 的 silver/adj_factor 对账 check name。
 
 ## 2. 依据与旧湖口径
@@ -399,9 +399,11 @@ M11 第一版必须同步扩展 repair：
 
 ## 11. 历史初始化
 
-历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。M11F 已实现 derived 专用工具链；正式执行必须先 dry-run 审计规模，再 sample 写临时湖，最后按审批进入正式湖直写和 runless event 补录。M11G 后，runless event 补录的年度批次复核必须使用 quick audit，避免每年重复扫描持续变大的 check event history。
+历史 90/120 补齐采用 `Direct Lake Bootstrap + Runless Event Backfill`，不是 Dagster backfill。M11F 已实现并执行 derived 专用工具链：先完成历史文件直写，再按 `freq/year` 补 runless materialization/check events。M11G 后，runless event 补录的年度批次复核使用 quick audit，避免每年重复扫描持续变大的 check event history；全部年份完成后已执行一次 full audit 收口。
 
-注意：补录流程的性能评估阶段只能只读统计正式 lake 数据，不允许任何写入动作。下列 sample/full 写入步骤只属于后续补录执行方案，经单独审批后才允许进入。
+最终 full audit 结果（2026-06-06）：`selected_partition_count=3019`，`selected_target_freqs=[90,120]`，`planned_source_row_count=159422361`，`planned_target_file_count=105701`，`existing_target_file_count=105701`，`missing_input_count=0`，`materialized_partition_counts={90:3019,120:3019}`，16 个 derived checks 的 `check_success_counts` 均为 `3019`，样本 readiness 全部为 `true`。
+
+注意：后续如需重跑或修正补录，性能评估阶段仍只能只读统计正式 lake 数据，不允许任何写入动作；正式湖写入和 runless event 补录必须再次单独审批。
 
 阶段：
 
@@ -420,7 +422,7 @@ M11 第一版必须同步扩展 repair：
    - 只为文件事实和 checks 全绿的 partitions 补 materialization/check events。
    - 每个 `target_freq/year` 批次执行 `report-gold-qfq-derived-events --dry-run`；dry-run 的 `failed_partition_count=0` 后再执行正式 report。
    - 年度批次写完后执行 `audit-gold-qfq-derived-final --mode quick`，只看文件事实、materialized partition counts 和样本 readiness，不扫全量 check event history。
-   - 全部年份完成后，只执行一次 `audit-gold-qfq-derived-final --mode full` 做最终 check success counts 收口。
+   - 全部年份完成后，已执行一次 `audit-gold-qfq-derived-final --mode full` 做最终 check success counts 收口。
 
 禁止上千分区逐个 Dagster backfill，也禁止逐 partition 深扫 event history 作为主验收。
 
@@ -456,7 +458,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 
 ### 12.3 M11F 历史补录性能门禁
 
-历史 90/120 补录工具链已在 M11F 实现；正式补录执行仍必须先通过只读规模评估，并按受控 CLI 的 dry-run / sample / full file generation / event report / quick audit / final full audit 顺序推进。M11G 后不得在每个年度批次后执行 full audit。
+历史 90/120 补录工具链已在 M11F 实现并正式执行完成；后续如需重跑、修正或新增范围，仍必须先通过只读规模评估，并按受控 CLI 的 dry-run / sample / full file generation / event report / quick audit / final full audit 顺序推进。M11G 后不得在每个年度批次后执行 full audit。
 
 | 项 | 口径 |
 | --- | --- |
@@ -516,6 +518,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 3. helper 只允许 `90/120`，按 `target_freq/year` 批次规划，默认拒绝已有目标 stock-year 文件；不注册 asset/job/sensor/check，不新增 summary entity。
 4. M11G 已给 `audit-gold-qfq-derived-final` 增加 `--mode full|quick`：默认 `full` 保持全量 check success count；`quick` 跳过 check event history 扫描，输出 `check_success_counts={}` 与 `check_success_counts_skipped=True`。
 5. `report-gold-qfq-derived-events` 的 dry-run 和正式 report 路径不再计算 `check_success_counts`；年度补录后只能用 quick audit 轻量复核，全部年份结束后再跑一次 full audit。
+6. 正式执行已完成：full audit 读取 source rows `159422361`，历史直写目标文件 `105701/105701`，90/120 各 `3019` 个 materialized partitions，16 个 derived checks 均为 `3019` 绿；full audit 样本 readiness 覆盖 `2014-01-02`、`2020-03-13`、`2026-06-05`，全部为 `true`。
 
 ## 14. Test Plan
 
@@ -562,7 +565,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 1. `dataset_id` 共用 `stk_mins_qfq`，用 metadata 标明 `calculation_model=derived_from_qfq_source`。
 2. daily job/sensor 一次性扩展为七频度，不新增 derived-only daily sensor。
 3. factor repair 必须同步重建受影响的 90/120。
-4. M11F 已实现历史 90/120 直写补录工具链；正式补录执行不随代码提交自动发生，必须后续单独审批并满足性能门禁。
+4. M11F 已实现并执行历史 90/120 直写补录工具链；正式补录不是随代码提交自动发生，而是按单独审批的 `Direct Lake Bootstrap + Runless Event Backfill` 流程完成。
 5. 90/120 新增 derived 专属 check name：`gold_stk_mins_qfq_derived_source_ready`、`gold_stk_mins_qfq_derived_row_count_matches_source_windows`、`gold_stk_mins_qfq_derived_formula_matches_source`。
 
 ## 16. 初步结论
