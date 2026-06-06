@@ -1844,8 +1844,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>cursor 快路径</td>
-        <td>若 cursor 显示同一 <code>target_trade_date</code> 已提交过 qfq daily run，本 tick 直接 skip，不再扫描 readiness；run_key 仍由 Dagster 幂等保护。</td>
-        <td>若 cursor 显示同一 <code>target_trade_date</code> 已提交过 repair run，本 tick 直接 skip，不再扫描 readiness；run_key 不变。</td>
+        <td>若 cursor 显示同一 <code>target_trade_date</code> 已提交过 qfq daily run，本 tick 直接 skip，不再扫描 readiness；run key 仍由 Dagster 幂等保护。M11H-2 兼容新 cursor 的 <code>details.selected_trade_date + already_submitted_for_trade_date</code>，也兼容旧 cursor 的 <code>target_date + decision=request_runs + selected_count/sample_keys</code>。</td>
+        <td>若 cursor 显示同一 <code>target_trade_date</code> 已提交过 repair run，本 tick 直接 skip，不再扫描 readiness；run key 不变。M11H-2 使用与 daily sensor 相同的新旧 cursor submitted 判定。</td>
       </tr>
       <tr>
         <td>上游 readiness</td>
@@ -1870,6 +1870,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>同一 latest materialization 上同一 check 若出现多条结果，以 latest check execution API 返回的最新结果为准。</li>
       <li>blocking check missing、failed、非 terminal 或只存在 non-blocking 历史 passed event，都必须 fail closed。</li>
       <li>fail closed reason 必须区分 missing materialization、failed check、missing latest check result，便于 UI 与日志定位。</li>
+      <li>cursor 快路径必须 fail closed：<code>decision=skip</code>、<code>selected_count=0</code> 且无同日 sample、坏 JSON、schema 不匹配或不同目标日期都不能跳过 readiness。</li>
     </ul>
 
     <h3>性能预算与验证门槛</h3>
@@ -1897,8 +1898,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
 
     <h3>测试与交付门槛</h3>
     <ol>
-      <li>daily sensor：时窗前不查 readiness；silver/adj 不 ready 时 skip；gold missing 时提交 daily run；gold 全 ready 时 skip；gold 已 materialized 但 blocking checks failed/missing 时 skip。</li>
-      <li>repair sensor：时窗前不查 readiness；gold missing/not ready 时 skip；gold 全 ready 时提交 repair run；同一目标日期已提交后 cursor 快路径 skip。</li>
+      <li>daily sensor：时窗前不查 readiness；silver/adj 不 ready 时 skip；gold missing 时提交 daily run；gold 全 ready 时 skip；gold 已 materialized 但 blocking checks failed/missing 时 skip；新旧 cursor submitted 证据命中时快路径 skip。</li>
+      <li>repair sensor：时窗前不查 readiness；gold missing/not ready 时 skip；gold 全 ready 时提交 repair run；新旧 cursor submitted 证据命中时快路径 skip。</li>
       <li>latest-check helper：旧 materialization check 不算通过；missing latest check fail closed；non-blocking 历史 check 不算通过；同一 latest materialization 多条 check 以 latest check execution 为准。</li>
       <li>静态回归：不新增 summary/readiness asset，不扩大 job selection，不改 sensor tags、run key、run config 和 cursor 主结构。</li>
       <li>验证命令必须包含触达文件 <code>py_compile</code>、相关 unittest、<code>ruff check</code>、<code>git diff --check</code> 和 <code>python3 scripts/check_docs_integrity.py</code>。</li>

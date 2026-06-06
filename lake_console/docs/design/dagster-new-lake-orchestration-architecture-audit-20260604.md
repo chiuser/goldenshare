@@ -250,30 +250,32 @@ postgres_query('prod_raw_pg', '<remote query>')
 - 小型配置/映射表可以接受 Python 轻量处理，但必须有规模上界。
 - 日线、分钟线、历史批量、repair、全市场大表必须继续走 DuckDB/SQL/COPY。
 
-### O4：qfq daily / factor repair sensor readiness 在稳定态逐 check 深扫 event history
+### O4：qfq daily / factor repair sensor readiness 稳定态深扫风险
 
-当前 `stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 都调用通用 `asset_readiness_status(...)`。
+状态：M11H / M11H-2 已修复。
 
-该通用 helper 会对每个 blocking check 单独执行 `get_asset_check_execution_history(limit=5000)`，再从 history 中寻找绑定 latest materialization `storage_id` 的结果。qfq daily sensor 稳定态会评估 silver 五频度、adj factor 两资产和 qfq gold 七频度，约 108 次 check history 扫描；factor repair sensor 会评估 qfq gold 七频度，约 56 次 check history 扫描。
+原问题是 `stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 复用通用 readiness 路径。该通用 helper 会对每个 blocking check 单独执行 `get_asset_check_execution_history(limit=5000)`，再从 history 中寻找绑定 latest materialization `storage_id` 的结果。qfq daily sensor 稳定态会评估 silver 五频度、adj factor 两资产和 qfq gold 七频度，约 108 次 check history 扫描；factor repair sensor 会评估 qfq gold 七频度，约 56 次 check history 扫描。
 
 这已经被观测为 60 秒 sensor tick 超时风险。它不直接写业务数据，也不是 qfq 文件生产失败，所以不列为数据一致性 P0；但它会让 sensor tick 报 `DEADLINE_EXCEEDED`，影响自动触发观测和后续触发节奏。
 
-已选修复方向：
+已落地修复口径：
 
 1. 不改通用 `asset_readiness_status(...)` 的单分区语义。
-2. 只为 qfq daily / repair sensor 新增专用 run-event 批量 readiness helper。
-3. 先取目标日期各 asset 的 latest materialization，再按 `run_id` 分组，每个 run 只读一次 run event log。
-4. 用 `asset_key + check_name + target_materialization_data.storage_id` 精确匹配 latest materialization 的 blocking check result。
-5. missing materialization、failed check、missing latest check result、非 terminal check result 都 fail closed。
-6. 两个 sensor 增加同一目标日期已提交 run 后的 cursor 快路径，避免稳定态重复深查。
-7. 不新增独立 repair sensor、summary asset、readiness asset、数据库表或配置项，不改 job selection、run key、tags、asset/check definitions。
+2. 两个 qfq sensor 改用 `partition_dataset_readiness_status_from_latest_checks(...)`。
+3. 先取目标日期各 asset 的 latest materialization，再按 `AssetCheckKey(asset_key, check_name)` 集合一次调用 `event_log_storage.get_latest_asset_check_execution_by_key(..., partition_filter=PartitionKeyFilter(key=trade_date))`。
+4. 不再按 `run_id` 读取 run event log；runless materialization/check event 的 `run_id` 为空字符串，不能作为分组依据。
+5. 用 `asset_key + check_name + target_materialization_data.storage_id` 精确匹配 latest materialization 的 blocking check result。
+6. missing materialization、failed check、missing latest check result、非 terminal check result 都 fail closed。
+7. M11H-2 已补 cursor 快路径兼容：新 cursor 认 `details.selected_trade_date == target_trade_date` 且 `details.already_submitted_for_trade_date == true`；旧 cursor 认 `target_date == target_trade_date`、`decision == request_runs`，并且 `selected_count > 0` 或 `sample_keys` 包含该日期。
+8. `decision=skip`、`selected_count=0` 且无 sample、坏 JSON、schema 不匹配或不同目标日期都不触发快路径。
+9. 不新增独立 repair sensor、summary asset、readiness asset、数据库表或配置项，不改 job selection、run key、tags、asset/check definitions。
 
 性能门槛：
 
 | 路径 | 当前成本 | 目标成本 | 拒绝阈值 |
 | --- | --- | --- | --- |
-| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 约 14 次 materialization 查询 + 不超过 4 次 run event log 读取 + 0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 10 秒拒绝上线 |
-| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | 约 7 次 materialization 查询 + 不超过 1 次 qfq run event log 读取 + 0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 5 秒拒绝上线 |
+| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 上游按顺序短路：silver 最多 1 次 latest-check batch，adj factor 最多 1 次 latest-check batch，qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 10 秒拒绝上线 |
+| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 5 秒拒绝上线 |
 | 同一目标日期已提交 run 后的稳定 tick | 仍可能重复 readiness 深查 | cursor 快路径直接 skip | 本地单测超过 2 秒拒绝上线 |
 
 代码落地前必须先在 `dagster-stk-mins-asset-design.html` 和 `dagster-stk-mins-qfq-90-120-assets-plan.md` 中保持同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。

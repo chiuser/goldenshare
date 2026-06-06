@@ -1,6 +1,6 @@
 # M11: Gold stk_mins qfq 90/120 分钟资产设计方案
 
-状态：已实现并完成正式历史收口；M11F 90/120 历史直写补录与 runless events 已全量执行；M11G quick/full audit 口径已落地并完成最终 full audit；M11H qfq daily/repair sensor readiness 性能修复已落地
+状态：M11 90/120 资产开发已完成；M11F 90/120 历史直写补录与 runless events 已全量执行；M11G quick/full audit 口径已落地并完成最终 full audit；M11H qfq daily/repair sensor readiness 性能修复已落地；M11H-2 cursor 快路径兼容修复已落地
 日期：2026-06-06
 范围：`lake_console/orchestrator` 正式 Dagster 新湖  
 
@@ -16,14 +16,14 @@
 - `90m` 从 `gold_stk_mins_qfq_30m` 聚合生成。
 - `120m` 从 `gold_stk_mins_qfq_60m` 聚合生成。
 
-M11 代码、契约、测试和文档已收口；M11F 历史文件直写与 runless event 补录已按审批执行完成，不属于 Dagster backfill。
+M11 代码、契约、测试和文档已收口；M11F 历史文件直写与 runless event 补录已按审批执行完成，不属于 Dagster backfill；M11H/M11H-2 已补齐 qfq daily/repair sensor readiness 性能路径和 cursor 快路径兼容。
 
 ## 1.1 已拍板口径
 
 1. `90/120` 并入同一个 `dataset_id=stk_mins_qfq`，不拆新的 `stk_mins_qfq_derived` dataset id。
 2. `stock_mins_qfq_daily_update_job` 和 `stock_mins_qfq_daily_sensor` 扩展为七频度 qfq：`1/5/15/30/60/90/120`。
 3. `stock_mins_qfq_factor_repair_job` 在 repair 30/60 后必须同步重建受影响的 90/120，避免派生频度滞后。
-4. M11 已完成 90/120 资产、契约和测试；M11F 已新增并执行 derived 专用历史直写补录与 runless event helper/CLI。M11G 后，年度 event 补录批次按 `dry-run -> report -> quick audit` 推进，全部年份完成后已执行一次 `full audit` 收口。
+4. M11 已完成 90/120 资产、契约和测试；M11F 已新增并执行 derived 专用历史直写补录与 runless event helper/CLI。M11G 后，年度 event 补录批次按 `dry-run -> report -> quick audit` 推进，全部年份完成后已执行一次 `full audit` 收口。M11H/M11H-2 已完成 qfq daily/repair sensor readiness 性能修复和 cursor submitted 判定兼容。
 5. 90/120 使用 derived 专属 check name，不复用 native qfq 的 silver/adj_factor 对账 check name。
 
 ## 2. 依据与旧湖口径
@@ -273,11 +273,11 @@ M11 check 拆分为两类：
 
 第一版提交同一个 `stock_mins_qfq_daily_update_job`，让 selection 通过 asset deps 处理顺序，避免新增 derived-only sensor/job。
 
-### 9.3 daily / repair sensor readiness 超时修复
+### 9.3 daily / repair sensor readiness 超时修复（M11H / M11H-2 已落地）
 
 #### 9.3.1 问题定位
 
-`stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 都在 tick 内调用通用 readiness helper。当前通用 helper 的单资产语义是：
+修复前，`stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 都在 tick 内调用通用 readiness helper。该通用 helper 的单资产语义是：
 
 1. 获取目标 asset partition 的 latest materialization。
 2. 对该 asset 的每个 blocking check 调用一次 `get_asset_check_execution_history(limit=5000)`。
@@ -295,7 +295,7 @@ M11 check 拆分为两类：
 #### 9.3.2 修复边界
 
 - 保留 `asset_readiness_status(...)` 的单分区语义，不把通用 helper 改成历史或批量工具。
-- 新增仅服务 `stock_mins_qfq_daily_sensor` 与 `stock_mins_qfq_factor_repair_sensor` 的专用单分区批量 readiness helper。
+- 已新增仅服务 `stock_mins_qfq_daily_sensor` 与 `stock_mins_qfq_factor_repair_sensor` 的专用单分区批量 readiness helper。
 - 不新增独立 repair sensor、readiness asset、summary asset、数据库表、配置项或状态实体。
 - 不改 `stock_mins_qfq_daily_update_job`、`stock_mins_qfq_factor_repair_job` 的 selection、executor、pool、tags、run key、run config、asset/check definitions 或 partition definitions。
 - 不用 DuckDB 加速 Dagster event log readiness；DuckDB 仍只用于 qfq 文件计算、repair 计算和 asset/check 内聚合校验。
@@ -321,6 +321,8 @@ M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_che
 
 1. 23:00 前直接 skip，不调用 readiness。
 2. 若 cursor 显示同一 `target_trade_date` 已提交过 qfq daily run，直接 skip，不再做 deep readiness；run_key 仍保持 `stock_mins_qfq_daily_update:{trade_date}`。
+   - M11H-2 兼容新旧 cursor：新 cursor 认 `details.selected_trade_date == target_trade_date` 且 `details.already_submitted_for_trade_date == true`；旧 cursor 认 `target_date == target_trade_date`、`decision == request_runs`，并且 `selected_count > 0` 或 `sample_keys` 包含该日期。
+   - `decision=skip`、`selected_count=0` 且无 sample、坏 JSON、schema 不匹配或不同目标日期都不触发快路径。
 3. 先用专用批量 helper 判断 silver 五频度 ready。
 4. 再判断 adj factor ready。
 5. 上游任一不 ready 时 skip，不提交 qfq run。
@@ -333,6 +335,8 @@ M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_che
 
 1. 23:15 前直接 skip，不调用 readiness。
 2. 若 cursor 显示同一 `target_trade_date` 已提交过 repair run，直接 skip，不再做 deep readiness；run_key 仍保持 `stock_mins_qfq_factor_repair:{trade_date}`。
+   - M11H-2 使用与 daily sensor 相同的新旧 cursor 兼容判定。
+   - 快路径只以 sensor cursor 的 submitted 事实为准，不读取正式 Dagster instance 或 run history；若实际 run 失败，仍按人工 retry 或清 cursor 处理。
 3. 只用同一个 qfq gold 批量 helper 判断七频度 gold ready。
 4. 七频度全 ready 时提交 `stock_mins_qfq_factor_repair_job`，run config 仍只包含 typed `trade_date`。
 5. gold missing、failed check 或 missing latest check result 时 skip，不自动触发 daily qfq，也不自动修复 gold。
@@ -357,16 +361,17 @@ M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_che
 4. daily sensor 在 qfq gold missing materialization 且上游 ready 时提交 daily run。
 5. daily sensor 在七频度 qfq gold 全 ready 时 skip。
 6. daily sensor 在 gold 已 materialized 但 blocking checks failed/missing 时 skip，不自动重跑。
-7. daily sensor cursor 同日期已提交后的快路径不调用 readiness。
+7. daily sensor cursor 同日期已提交后的快路径不调用 readiness，必须覆盖新 cursor、旧 `request_runs + selected_count > 0` cursor 和旧 `sample_keys` cursor。
 8. repair sensor 在 23:15 前不调用 readiness。
 9. repair sensor 在 qfq gold missing/not ready 时 skip。
 10. repair sensor 在 qfq gold 全 ready 时提交 repair run config。
-11. repair sensor cursor 同日期已提交后的快路径不调用 readiness。
+11. repair sensor cursor 同日期已提交后的快路径不调用 readiness，必须覆盖新 cursor、旧 `request_runs + selected_count > 0` cursor 和旧 `sample_keys` cursor。
 12. 专用 helper 忽略旧 materialization 的 passed check。
 13. 专用 helper 对 missing latest check result fail closed。
 14. 专用 helper 不把 non-blocking 历史 check event 视为通过。
 15. 同一 latest materialization 多条 check result 时取最新结果。
-16. 静态回归确认未新增 summary/readiness asset，未扩大 job selection，未修改 sensor tags、run key、run config 和 cursor 主结构。
+16. cursor 负例必须覆盖 `decision=skip`、`selected_count=0` 且无 sample、坏 JSON、schema 不匹配和不同目标日期。
+17. 静态回归确认未新增 summary/readiness asset，未扩大 job selection，未修改 sensor tags、run key、run config 和 cursor 主结构。
 
 本地验证命令：
 
