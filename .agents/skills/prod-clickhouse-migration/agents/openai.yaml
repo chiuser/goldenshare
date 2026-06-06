@@ -1,0 +1,4 @@
+interface:
+  display_name: "Prod ClickHouse Migration"
+  short_description: "Upgrade Goldenshare prod ClickHouse schemas safely with Flyway."
+  default_prompt: "Use this skill when upgrading or validating Goldenshare prod ClickHouse schema migrations."
