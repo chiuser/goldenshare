@@ -3,6 +3,7 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+from dagster._core.event_api import PartitionKeyFilter
 from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
@@ -663,6 +664,75 @@ def dataset_readiness_status(
     return DatasetReadinessStatus(
         ready=all(status.ready for status in statuses),
         statuses=statuses,
+    )
+
+
+def partition_dataset_readiness_status_from_latest_checks(
+    instance: dg.DagsterInstance,
+    specs: tuple[AssetReadinessSpec, ...],
+    *,
+    partition_key: str,
+    min_materialization_date: str | None = None,
+) -> DatasetReadinessStatus:
+    if not partition_key:
+        raise ValueError("partition_key is required for partition batch readiness.")
+
+    materializations = {
+        spec.asset_key: _latest_materialization_record(
+            instance,
+            spec.asset_key,
+            partition_key,
+        )
+        for spec in specs
+    }
+    check_keys = tuple(
+        dg.AssetCheckKey(spec.asset_key, check_name)
+        for spec in specs
+        if materializations[spec.asset_key] is not None
+        for check_name in spec.blocking_check_names
+    )
+    check_records_by_key = (
+        instance.event_log_storage.get_latest_asset_check_execution_by_key(
+            check_keys,
+            partition_filter=PartitionKeyFilter(key=partition_key),
+        )
+        if check_keys
+        else {}
+    )
+
+    statuses = []
+    for spec in specs:
+        materialization = materializations[spec.asset_key]
+        check_results: dict[str, bool | None] = {}
+        if materialization is not None:
+            materialization_storage_ids = {materialization.storage_id}
+            for check_name in spec.blocking_check_names:
+                check_key = dg.AssetCheckKey(spec.asset_key, check_name)
+                check_record = check_records_by_key.get(check_key)
+                check_result = (
+                    _check_result_for_materialization_ids(
+                        check_record,
+                        materialization_storage_ids,
+                    )
+                    if check_record is not None
+                    else None
+                )
+                check_results[check_name] = (
+                    check_result[1] if check_result is not None else None
+                )
+        statuses.append(
+            _asset_readiness_status_from_check_results(
+                spec=spec,
+                partition_key=partition_key,
+                materialization=materialization,
+                check_results=check_results,
+                min_materialization_date=min_materialization_date,
+            )
+        )
+
+    return DatasetReadinessStatus(
+        ready=all(status.ready for status in statuses),
+        statuses=tuple(statuses),
     )
 
 

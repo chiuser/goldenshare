@@ -1,8 +1,10 @@
 import json
 import unittest
 from datetime import datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+import orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor as repair_sensor_module
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -22,6 +24,7 @@ from orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor import (
 
 PARTITION_KEY = "2026-05-29"
 EVALUATED_AT = datetime(2026, 5, 29, 23, 20, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 5, 29, 23, 10, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _asset_status(
@@ -69,6 +72,25 @@ def _dataset_status(
         ready=all(asset_status.ready for asset_status in statuses),
         statuses=statuses,
     )
+
+
+class _FakeSensorInstance:
+    def __init__(self, trade_days: tuple[str, ...] = (PARTITION_KEY,)):
+        self.trade_days = trade_days
+
+    def get_dynamic_partitions(self, partition_set_name: str):
+        return list(self.trade_days)
+
+
+class _FakeSensorContext:
+    def __init__(
+        self,
+        *,
+        cursor: str | None = None,
+        trade_days: tuple[str, ...] = (PARTITION_KEY,),
+    ):
+        self.cursor = cursor
+        self.instance = _FakeSensorInstance(trade_days)
 
 
 class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
@@ -204,6 +226,106 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START.isoformat(),
             "23:15:00",
         )
+
+    def test_sensor_skips_before_window_without_readiness_lookup(self) -> None:
+        context = _FakeSensorContext()
+        with (
+            patch.object(repair_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                repair_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                side_effect=AssertionError("readiness must not run before 23:15"),
+            ),
+        ):
+            mock_datetime.now.return_value = BEFORE_WINDOW
+            result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(context)
+
+        self.assertIn("23:15", result.skip_reason.skip_message)
+
+    def test_sensor_cursor_fast_path_skips_without_readiness_lookup(self) -> None:
+        selected_decision = build_stock_mins_qfq_factor_repair_decision(
+            target_trade_date=PARTITION_KEY,
+            run_window_started=True,
+            gold_ready=True,
+        )
+        submitted_cursor = build_stock_mins_qfq_factor_repair_sensor_cursor(
+            decision=selected_decision,
+            evaluated_at=EVALUATED_AT,
+            registered_trade_day_count=3014,
+            already_submitted_for_trade_date=True,
+        )
+        context = _FakeSensorContext(cursor=submitted_cursor)
+
+        with (
+            patch.object(repair_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                repair_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                side_effect=AssertionError("readiness must not run after submission"),
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(context)
+
+        cursor = json.loads(result.cursor)
+        self.assertIn("已经提交过", result.skip_reason.skip_message)
+        self.assertTrue(cursor["details"]["already_submitted_for_trade_date"])
+
+    def test_sensor_submits_typed_repair_config_only_when_gold_ready(self) -> None:
+        with (
+            patch.object(repair_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                repair_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(
+                _FakeSensorContext()
+            )
+
+        self.assertEqual(len(result.run_requests), 1)
+        self.assertEqual(
+            result.run_requests[0].run_key,
+            f"stock_mins_qfq_factor_repair:{PARTITION_KEY}",
+        )
+        self.assertEqual(
+            result.run_requests[0].run_config,
+            {
+                "ops": {
+                    "stock_mins_qfq_factor_repair_op": {
+                        "config": {"trade_date": PARTITION_KEY}
+                    }
+                }
+            },
+        )
+        self.assertTrue(
+            json.loads(result.cursor)["details"]["already_submitted_for_trade_date"]
+        )
+
+    def test_sensor_skips_when_gold_checks_are_not_green(self) -> None:
+        with (
+            patch.object(repair_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                repair_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                return_value=_dataset_status(
+                    ("gold_stk_mins_qfq_1m",),
+                    ready=False,
+                    materialized=True,
+                    checks_passed=False,
+                    reason="gold failed",
+                ),
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(
+                _FakeSensorContext()
+            )
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
 
 
 if __name__ == "__main__":

@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F/M11G 已完成 90/120 历史直写补录、runless events 和最终 full audit 收口。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F/M11G 已完成 90/120 历史直写补录、runless events 和最终 full audit 收口；M11H 已修复 qfq daily/repair sensor readiness 性能路径。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -1795,7 +1795,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
         <td>23:00 后，在 silver ready、当日 adj factor ready 且目标 gold 当日尚未 ready 时，触发单日 qfq job。</td>
-        <td>已实现，默认 <code>STOPPED</code>；门禁只看目标日期 readiness，禁止逐历史分区深扫。当前 generic readiness 会逐 blocking check 扫 event history，需按 10.1 改为专用 run-event 批量 readiness。</td>
+        <td>已实现，默认 <code>STOPPED</code>；M11H 后门禁只看目标日期 readiness，按 check key + partition 批量读取 latest check execution，并有同目标日期已提交后的 cursor 快路径；禁止逐历史分区深扫或逐 check 扫 history。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
@@ -1805,16 +1805,16 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_sensor</code></td>
         <td>监听当日七频度 gold ready 后触发 repair job。</td>
-        <td>已实现，默认 <code>STOPPED</code>；23:15 后评估，不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。它与 daily sensor 共用 gold qfq readiness，需同步采用 10.1 的专用批量方案。</td>
+        <td>已实现，默认 <code>STOPPED</code>；23:15 后评估，不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。它与 daily sensor 共用 M11H 的 gold qfq 批量 latest-check readiness。</td>
       </tr>
     </table>
   </section>
 
   <section>
-    <h2>10.1 qfq daily / repair sensor readiness 性能修复方案</h2>
+    <h2>10.1 qfq daily / repair sensor readiness 性能修复方案（M11H 已落地）</h2>
     <div class="warning">
       <strong>问题：</strong>
-      当前 <code>stock_mins_qfq_daily_sensor</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 都调用通用 <code>asset_readiness_status(...)</code>。
+      修复前 <code>stock_mins_qfq_daily_sensor</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code> 都调用通用 <code>asset_readiness_status(...)</code>。
       该 helper 对每个 blocking check 单独执行 <code>get_asset_check_execution_history(limit=5000)</code>，daily sensor 在稳定态约需扫描 108 次 check history，repair sensor 约需扫描 56 次 check history，已经出现 60 秒 tick 超时。
       这不是 raw/silver/qfq 文件生产失败，而是 sensor readiness 查询路径过重。
     </div>
@@ -1826,7 +1826,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>不新增 readiness asset、summary asset、数据库表、配置项、repair sensor 或独立状态实体。</li>
       <li>不改 job selection、sensor tags、run key、run config、asset/check definitions 或 partition definitions。</li>
       <li>readiness 查询只读 Dagster event log，不使用 DuckDB；DuckDB 仍只用于 parquet 文件计算和 asset/check 内部聚合校验。</li>
-      <li>开发和验证阶段不得运行正式 Dagster job、sensor、backfill、materialization 或 asset check。</li>
+      <li>M11H 开发和验证阶段未运行正式 Dagster job、sensor、backfill、materialization 或 asset check。</li>
     </ul>
 
     <h3>目标算法</h3>
@@ -1859,7 +1859,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>批量 event 查询</td>
-        <td colspan="2">新增仅服务这两个 sensor 的专用 helper：先取目标日期各资产 latest materialization，再按 materialization 的 <code>run_id</code> 分组，每个 run 只读一次 run event log；用 <code>asset_key + check_name + target_materialization_data.storage_id</code> 精确匹配 latest materialization 的 check 结果。</td>
+        <td colspan="2">M11H 新增仅服务这两个 sensor 的专用 helper：先取目标日期各资产 latest materialization，再把所有 blocking checks 组装为 <code>AssetCheckKey(asset_key, check_name)</code> 集合，通过 <code>event_log_storage.get_latest_asset_check_execution_by_key(..., partition_filter=PartitionKeyFilter(key=trade_date))</code> 批量读取 latest check execution；用 <code>target_materialization_data.storage_id</code> 精确匹配 latest materialization。runless event 的 <code>run_id</code> 为空字符串，因此不按 <code>run_id</code> / <code>all_logs(run_id)</code> 分组。</td>
       </tr>
     </table>
 
@@ -1867,7 +1867,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <ul>
       <li>只接受 terminal check evaluation，并且必须绑定 latest materialization 的 <code>storage_id</code>。</li>
       <li>旧 materialization 的 passed check 不能让新 materialization ready。</li>
-      <li>同一 latest materialization 上同一 check 若出现多条结果，必须取最新结果。</li>
+      <li>同一 latest materialization 上同一 check 若出现多条结果，以 latest check execution API 返回的最新结果为准。</li>
       <li>blocking check missing、failed、非 terminal 或只存在 non-blocking 历史 passed event，都必须 fail closed。</li>
       <li>fail closed reason 必须区分 missing materialization、failed check、missing latest check result，便于 UI 与日志定位。</li>
     </ul>
@@ -1878,13 +1878,13 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td>qfq daily 首次决策 tick</td>
         <td>约 14 次 materialization 查询 + 108 次 check history 扫描。</td>
-        <td>约 14 次 materialization 查询 + 不超过 4 次 run event log 读取 + 0 次 check history 扫描。</td>
+        <td>上游按顺序短路：silver 最多 1 次 latest-check batch，adj factor 最多 1 次 latest-check batch，qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描。</td>
         <td>本地 fake instance 单测必须证明 check history 调用数为 0；后续经审批的正式只读 dry-run 应小于 5 秒，超过 10 秒拒绝上线。</td>
       </tr>
       <tr>
         <td>factor repair 首次决策 tick</td>
         <td>约 7 次 materialization 查询 + 56 次 check history 扫描。</td>
-        <td>约 7 次 materialization 查询 + 不超过 1 次 qfq run event log 读取 + 0 次 check history 扫描。</td>
+        <td>qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描。</td>
         <td>本地 fake instance 单测必须证明 check history 调用数为 0；后续经审批的正式只读 dry-run 应小于 3 秒，超过 5 秒拒绝上线。</td>
       </tr>
       <tr>
@@ -1899,7 +1899,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <ol>
       <li>daily sensor：时窗前不查 readiness；silver/adj 不 ready 时 skip；gold missing 时提交 daily run；gold 全 ready 时 skip；gold 已 materialized 但 blocking checks failed/missing 时 skip。</li>
       <li>repair sensor：时窗前不查 readiness；gold missing/not ready 时 skip；gold 全 ready 时提交 repair run；同一目标日期已提交后 cursor 快路径 skip。</li>
-      <li>run-event helper：旧 materialization check 不算通过；missing latest check fail closed；non-blocking 历史 check 不算通过；同一 latest materialization 多条 check 取最新。</li>
+      <li>latest-check helper：旧 materialization check 不算通过；missing latest check fail closed；non-blocking 历史 check 不算通过；同一 latest materialization 多条 check 以 latest check execution 为准。</li>
       <li>静态回归：不新增 summary/readiness asset，不扩大 job selection，不改 sensor tags、run key、run config 和 cursor 主结构。</li>
       <li>验证命令必须包含触达文件 <code>py_compile</code>、相关 unittest、<code>ruff check</code>、<code>git diff --check</code> 和 <code>python3 scripts/check_docs_integrity.py</code>。</li>
     </ol>
@@ -2083,7 +2083,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>gold sensor 门禁过重导致超时</td>
-        <td>日常 sensor 只看目标日期七个 gold assets 的 readiness，不做历史分区深扫；sensor readiness 必须使用 10.1 的 run-event 批量读取与 cursor 快路径，禁止逐 blocking check 扫 <code>get_asset_check_execution_history(limit=5000)</code>。必要的文件事实校验放到 asset/check 内用 DuckDB 聚合完成。</td>
+        <td>M11H 已将日常 qfq sensor 限定为目标日期 readiness，不做历史分区深扫；sensor readiness 使用 10.1 的 check key + partition 批量 latest-check 读取与 cursor 快路径，禁止逐 blocking check 扫 <code>get_asset_check_execution_history(limit=5000)</code>。必要的文件事实校验放到 asset/check 内用 DuckDB 聚合完成。</td>
       </tr>
       <tr>
         <td>历史批量补录 event 过慢</td>
@@ -2114,7 +2114,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>确认不新增 <code>gold_stk_mins_qfq_daily_summary</code> 或 <code>gold_stk_mins_qfq_factor_repair_summary</code>；repair 原因和数量写入 check metadata。</li>
       <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。正式 Dagster 入口必须使用统一 <code>gold_stk_mins_qfq_writer</code> concurrency pool；<code>in_process_executor</code> 只保证单 run 内顺序，不能替代跨 run 互斥。</li>
       <li>确认历史 gold baseline 文件生成采用串行或等价互斥保护，同一 <code>freq/ts_code/year</code> 文件不能被多个命令任务同时写。</li>
-      <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须按 10.1 使用专用 run-event 批量 readiness，不得在稳定态逐 check 扫 history。</li>
+      <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须按 10.1 使用专用 check key + partition 批量 latest-check readiness，不得在稳定态逐 check 扫 history。</li>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>

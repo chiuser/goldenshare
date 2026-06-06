@@ -7,6 +7,8 @@ from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
+    load_sensor_cursor,
+    sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -16,11 +18,12 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.sensors.readiness import (
+    ADJ_FACTOR_READINESS_SPECS,
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    adj_factor_ready_for_trade_date,
-    gold_stk_mins_qfq_ready_for_trade_date,
-    silver_stk_mins_ready_for_trade_date,
+    GOLD_STK_MINS_QFQ_READINESS_SPECS,
+    SILVER_STK_MINS_READINESS_SPECS,
+    partition_dataset_readiness_status_from_latest_checks,
     status_payload,
 )
 
@@ -119,6 +122,7 @@ def _cursor_payload(
     silver_status: DatasetReadinessStatus | None = None,
     adj_factor_status: DatasetReadinessStatus | None = None,
     gold_status: DatasetReadinessStatus | None = None,
+    already_submitted_for_trade_date: bool = False,
 ) -> str:
     cursor_decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -147,6 +151,7 @@ def _cursor_payload(
             "reason": decision.reason,
             "job_name": STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
             "run_window_started": decision.run_window_started,
+            "already_submitted_for_trade_date": already_submitted_for_trade_date,
             "silver_status": status_payload(silver_status) if silver_status else None,
             "adj_factor_status": (
                 status_payload(adj_factor_status) if adj_factor_status else None
@@ -160,6 +165,17 @@ def _run_request_for_trade_date(trade_date: str):
     return build_run_request(
         run_key=f"stock_mins_qfq_daily_update:{trade_date}",
         partition_key=trade_date,
+    )
+
+
+def _already_submitted_for_target_date(
+    cursor: str | None,
+    target_trade_date: str,
+) -> bool:
+    details = sensor_cursor_details(load_sensor_cursor(cursor))
+    return (
+        details.get("selected_trade_date") == target_trade_date
+        and details.get("already_submitted_for_trade_date") is True
     )
 
 
@@ -193,18 +209,41 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
     adj_factor_status = None
     gold_status = None
     if target_trade_date is not None and run_window_started:
-        silver_status = silver_stk_mins_ready_for_trade_date(
+        if _already_submitted_for_target_date(context.cursor, target_trade_date):
+            decision = StockMinsQfqDailyUpdateDecision(
+                target_trade_date=target_trade_date,
+                run_window_started=True,
+                selected_trade_date=None,
+                reason=(
+                    "最新股票分钟线 gold qfq 交易日已经提交过 qfq daily run，"
+                    "失败时请人工 retry。"
+                ),
+            )
+            cursor = _cursor_payload(
+                decision=decision,
+                evaluated_at=evaluated_at,
+                registered_trade_day_count=len(registered_trade_days),
+                already_submitted_for_trade_date=True,
+            )
+            return dg.SensorResult(skip_reason=decision.reason, cursor=cursor)
+
+        silver_status = partition_dataset_readiness_status_from_latest_checks(
             context.instance,
-            target_trade_date,
+            SILVER_STK_MINS_READINESS_SPECS,
+            partition_key=target_trade_date,
         )
-        adj_factor_status = adj_factor_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
-        )
-        gold_status = gold_stk_mins_qfq_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
-        )
+        if silver_status.ready:
+            adj_factor_status = partition_dataset_readiness_status_from_latest_checks(
+                context.instance,
+                ADJ_FACTOR_READINESS_SPECS,
+                partition_key=target_trade_date,
+            )
+        if silver_status.ready and adj_factor_status and adj_factor_status.ready:
+            gold_status = partition_dataset_readiness_status_from_latest_checks(
+                context.instance,
+                GOLD_STK_MINS_QFQ_READINESS_SPECS,
+                partition_key=target_trade_date,
+            )
 
     decision = build_stock_mins_qfq_daily_update_decision(
         target_trade_date=target_trade_date,
@@ -223,6 +262,7 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
         silver_status=silver_status,
         adj_factor_status=adj_factor_status,
         gold_status=gold_status,
+        already_submitted_for_trade_date=bool(decision.selected_trade_date),
     )
 
     if not decision.selected_trade_date:

@@ -116,6 +116,15 @@ def _node_location(path: Path, node: ast.AST) -> str:
     return f"{path}:{getattr(node, 'lineno', '?')}"
 
 
+def _function_source(path: Path, function_name: str) -> str:
+    source = path.read_text()
+    tree = ast.parse(source, filename=str(path))
+    for node in tree.body:
+        if isinstance(node, ast.FunctionDef) and node.name == function_name:
+            return ast.get_source_segment(source, node) or ""
+    raise AssertionError(f"{path} does not define {function_name}")
+
+
 def _enum_attribute(node: ast.AST, enum_name: str) -> str | None:
     if not isinstance(node, ast.Attribute):
         return None
@@ -458,6 +467,41 @@ class RunContractStaticGateTests(unittest.TestCase):
                 for fragment in fragments
                 if fragment not in source
             )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_qfq_sensors_use_batch_readiness_without_history_scans(self) -> None:
+        issues = []
+        forbidden_by_file = {
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py": (
+                "silver_stk_mins_ready_for_trade_date",
+                "adj_factor_ready_for_trade_date",
+                "gold_stk_mins_qfq_ready_for_trade_date",
+                "get_asset_check_execution_history",
+            ),
+            SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
+                "gold_stk_mins_qfq_ready_for_trade_date",
+                "get_asset_check_execution_history",
+            ),
+        }
+        for path, forbidden_fragments in forbidden_by_file.items():
+            source = path.read_text()
+            if "partition_dataset_readiness_status_from_latest_checks" not in source:
+                issues.append(f"{path} does not use qfq batch readiness helper")
+            issues.extend(
+                f"{path} contains forbidden qfq sensor readiness fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        readiness_helper_source = _function_source(
+            SENSORS_DIR / "readiness.py",
+            "partition_dataset_readiness_status_from_latest_checks",
+        )
+        if "get_latest_asset_check_execution_by_key" not in readiness_helper_source:
+            issues.append("qfq batch readiness helper does not use latest check API")
+        if "get_asset_check_execution_history" in readiness_helper_source:
+            issues.append("qfq batch readiness helper scans check history")
 
         self.assertEqual(issues, [])
 

@@ -1,6 +1,6 @@
 # M11: Gold stk_mins qfq 90/120 分钟资产设计方案
 
-状态：已实现并完成正式历史收口；M11F 90/120 历史直写补录与 runless events 已全量执行；M11G quick/full audit 口径已落地并完成最终 full audit
+状态：已实现并完成正式历史收口；M11F 90/120 历史直写补录与 runless events 已全量执行；M11G quick/full audit 口径已落地并完成最终 full audit；M11H qfq daily/repair sensor readiness 性能修复已落地
 日期：2026-06-06
 范围：`lake_console/orchestrator` 正式 Dagster 新湖  
 
@@ -295,7 +295,7 @@ M11 check 拆分为两类：
 #### 9.3.2 修复边界
 
 - 保留 `asset_readiness_status(...)` 的单分区语义，不把通用 helper 改成历史或批量工具。
-- 新增仅服务 `stock_mins_qfq_daily_sensor` 与 `stock_mins_qfq_factor_repair_sensor` 的专用 run-event 批量 readiness helper。
+- 新增仅服务 `stock_mins_qfq_daily_sensor` 与 `stock_mins_qfq_factor_repair_sensor` 的专用单分区批量 readiness helper。
 - 不新增独立 repair sensor、readiness asset、summary asset、数据库表、配置项或状态实体。
 - 不改 `stock_mins_qfq_daily_update_job`、`stock_mins_qfq_factor_repair_job` 的 selection、executor、pool、tags、run key、run config、asset/check definitions 或 partition definitions。
 - 不用 DuckDB 加速 Dagster event log readiness；DuckDB 仍只用于 qfq 文件计算、repair 计算和 asset/check 内聚合校验。
@@ -303,18 +303,17 @@ M11 check 拆分为两类：
 
 #### 9.3.3 专用 helper 算法
 
-新增 helper 必须按下列固定算法实现：
+M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_checks(...)`。原方案曾考虑按 `run_id` 读取 run event log，但 runless materialization/check event 的 `run_id` 为空字符串，不能依赖 `all_logs(run_id)` 做分组读取。因此固定算法修正为：
 
-1. 输入为一个目标 `trade_date` 和一组明确的 readiness specs，调用方只能是 qfq daily / repair sensor。
+1. 输入为一个目标 `trade_date` 和一组明确的 readiness specs，调用方限定为 qfq daily / repair sensor。
 2. 对每个 asset key 获取目标 partition 的 latest materialization。
-3. materialization 缺失时，返回 not ready，并标明 `missing_materialization`。
-4. 将已 materialized 的 records 按 `run_id` 分组。
-5. 每个 distinct `run_id` 最多读取一次 run event log。
-6. 在内存中建立 `asset_key + check_name + target_materialization_data.storage_id -> latest passed/failed result` 映射。
-7. 对每个 blocking check 精确匹配 latest materialization 的 `storage_id`；旧 materialization 的 passed check 不能让新 materialization ready。
-8. 只接受 terminal check evaluation；missing、failed、非 terminal、只存在 non-blocking passed event 都 fail closed。
-9. 同一 latest materialization 上同一 check 若有多条结果，按 run event 顺序取最新结果。
-10. 返回结构继续能转换成现有 `DatasetReadinessStatus` / cursor payload，避免修改 UI 可见语义。
+3. materialization 缺失时返回 not ready，并标明该 asset 缺 materialization。
+4. 对所有已 materialized asset 的 blocking check 组装 `AssetCheckKey(asset_key, check_name)` 集合。
+5. 对这一组 check keys 调用一次 `event_log_storage.get_latest_asset_check_execution_by_key(..., partition_filter=PartitionKeyFilter(key=trade_date))`。
+6. 对每个 blocking check 精确匹配 latest materialization 的 `target_materialization_data.storage_id`；旧 materialization 的 passed check 不能让新 materialization ready。
+7. 只接受 terminal check evaluation；missing、failed、非 terminal、只存在 non-blocking passed event、target mismatch 都 fail closed。
+8. 返回结构仍是现有 `DatasetReadinessStatus` / `AssetReadinessStatus`，cursor payload 结构不变。
+9. `get_asset_check_execution_history(...)` 调用数必须为 `0`。
 
 #### 9.3.4 sensor 行为
 
@@ -342,8 +341,8 @@ M11 check 拆分为两类：
 
 | 场景 | 当前成本 | 目标成本 | 验证门槛 |
 | --- | --- | --- | --- |
-| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 约 14 次 materialization 查询 + 不超过 4 次 run event log 读取 + 0 次 check history 扫描 | fake instance 单测证明 check history 调用数为 0；经审批的正式只读 dry-run 小于 5 秒，超过 10 秒拒绝上线 |
-| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | 约 7 次 materialization 查询 + 不超过 1 次 qfq run event log 读取 + 0 次 check history 扫描 | fake instance 单测证明 check history 调用数为 0；经审批的正式只读 dry-run 小于 3 秒，超过 5 秒拒绝上线 |
+| qfq daily 首次决策 tick | 约 14 次 materialization 查询 + 108 次 check history 扫描 | 上游按顺序短路：silver 最多 1 次 latest-check batch，adj factor 最多 1 次 latest-check batch，qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描 | fake instance 单测证明 check history 调用数为 0；经审批的正式只读 dry-run 小于 5 秒，超过 10 秒拒绝上线 |
+| factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描 | fake instance 单测证明 check history 调用数为 0；经审批的正式只读 dry-run 小于 3 秒，超过 5 秒拒绝上线 |
 | 同一目标日期已提交 run 后的稳定 tick | 仍可能重复 readiness 深查 | cursor 快路径直接 skip | 本地单测目标小于 1 秒，超过 2 秒拒绝上线 |
 
 本性能预算的硬指标是“check history 扫描次数必须为 0”。如果实现只能把 108/56 次降成较少次数但仍依赖每个 check 的 history scan，则不接受。
@@ -371,7 +370,7 @@ M11 check 拆分为两类：
 
 本地验证命令：
 
-1. `lake_console/orchestrator/.venv/bin/python -m unittest tests.test_stock_mins_qfq_daily_sensor tests.test_stock_mins_qfq_factor_repair_sensor`
+1. `lake_console/orchestrator/.venv/bin/python -m unittest tests.test_qfq_sensor_batch_readiness tests.test_stk_mins_qfq_m9a_sensor_contracts tests.test_stk_mins_qfq_m9c_sensor_contracts tests.test_run_contract_static_gates`
 2. `lake_console/orchestrator/.venv/bin/python -m py_compile` 针对触达 Python 文件
 3. `ruff check` 针对触达 Python 文件
 4. `git diff --check`
@@ -503,7 +502,7 @@ M11 设计和开发前若需要用正式湖数据做具体规模评估，只允�
 2. 扩展 daily sensor readiness payload。
 3. 更新 sensor tags/count/static gates。
 4. 确认 run key/cursor 不变或明确版本化。
-5. 后续 readiness 超时修复按 9.3 执行：仅改 qfq daily/repair sensor 专用 readiness 路径，禁止把通用 helper 扩展成历史批量 readiness 工具。
+5. M11H 已按 9.3 落地：qfq daily/repair sensor 使用专用单分区批量 readiness 路径，通用 helper 未扩展成历史批量 readiness 工具。
 
 ### M11E Repair
 

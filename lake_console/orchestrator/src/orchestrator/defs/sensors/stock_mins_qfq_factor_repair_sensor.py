@@ -7,6 +7,8 @@ from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
+    load_sensor_cursor,
+    sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -18,7 +20,8 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    gold_stk_mins_qfq_ready_for_trade_date,
+    GOLD_STK_MINS_QFQ_READINESS_SPECS,
+    partition_dataset_readiness_status_from_latest_checks,
     status_payload,
 )
 
@@ -89,7 +92,7 @@ def build_stock_mins_qfq_factor_repair_decision(
             target_trade_date=target_trade_date,
             run_window_started=True,
             selected_trade_date=None,
-            reason="最新股票分钟线 gold qfq 五频度尚未全部 ready，暂不触发 factor repair。",
+            reason="最新股票分钟线 gold qfq 七频度尚未全部 ready，暂不触发 factor repair。",
         )
     return StockMinsQfqFactorRepairDecision(
         target_trade_date=target_trade_date,
@@ -111,6 +114,7 @@ def _cursor_payload(
     evaluated_at: datetime,
     registered_trade_day_count: int,
     gold_status: DatasetReadinessStatus | None = None,
+    already_submitted_for_trade_date: bool = False,
 ) -> str:
     cursor_decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -137,6 +141,7 @@ def _cursor_payload(
             "reason": decision.reason,
             "job_name": STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
             "run_window_started": decision.run_window_started,
+            "already_submitted_for_trade_date": already_submitted_for_trade_date,
             "gold_status": status_payload(gold_status) if gold_status else None,
         },
     )
@@ -161,6 +166,17 @@ def _run_request_for_trade_date(trade_date: str):
     )
 
 
+def _already_submitted_for_target_date(
+    cursor: str | None,
+    target_trade_date: str,
+) -> bool:
+    details = sensor_cursor_details(load_sensor_cursor(cursor))
+    return (
+        details.get("selected_trade_date") == target_trade_date
+        and details.get("already_submitted_for_trade_date") is True
+    )
+
+
 @dg.sensor(
     job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
     default_status=dg.DefaultSensorStatus.STOPPED,
@@ -170,7 +186,7 @@ def _run_request_for_trade_date(trade_date: str):
         target_layer=SensorTargetLayer.GOLD,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="股票分钟线 gold qfq 当日五频度 ready 后，触发 factor repair 检测与必要回刷。",
+    description="股票分钟线 gold qfq 当日七频度 ready 后，触发 factor repair 检测与必要回刷。",
 )
 def stock_mins_qfq_factor_repair_sensor(
     context: dg.SensorEvaluationContext,
@@ -193,9 +209,28 @@ def stock_mins_qfq_factor_repair_sensor(
 
     gold_status = None
     if target_trade_date is not None and run_window_started:
-        gold_status = gold_stk_mins_qfq_ready_for_trade_date(
+        if _already_submitted_for_target_date(context.cursor, target_trade_date):
+            decision = StockMinsQfqFactorRepairDecision(
+                target_trade_date=target_trade_date,
+                run_window_started=True,
+                selected_trade_date=None,
+                reason=(
+                    "最新股票分钟线 gold qfq 交易日已经提交过 factor repair run，"
+                    "失败时请人工 retry。"
+                ),
+            )
+            cursor = _cursor_payload(
+                decision=decision,
+                evaluated_at=evaluated_at,
+                registered_trade_day_count=len(registered_trade_days),
+                already_submitted_for_trade_date=True,
+            )
+            return dg.SensorResult(skip_reason=decision.reason, cursor=cursor)
+
+        gold_status = partition_dataset_readiness_status_from_latest_checks(
             context.instance,
-            target_trade_date,
+            GOLD_STK_MINS_QFQ_READINESS_SPECS,
+            partition_key=target_trade_date,
         )
 
     decision = build_stock_mins_qfq_factor_repair_decision(
@@ -211,6 +246,7 @@ def stock_mins_qfq_factor_repair_sensor(
         evaluated_at=evaluated_at,
         registered_trade_day_count=len(registered_trade_days),
         gold_status=gold_status,
+        already_submitted_for_trade_date=bool(decision.selected_trade_date),
     )
 
     if not decision.selected_trade_date:
