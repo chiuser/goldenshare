@@ -40,6 +40,18 @@ class _FakeClickHouseClient:
         self.rows = rows
         self.operations: list[str] = []
 
+    @staticmethod
+    def _selected_dates(params) -> set:
+        if not isinstance(params, dict):
+            return set()
+        if "trade_date" in params:
+            return {params["trade_date"]}
+        return {
+            value
+            for key, value in params.items()
+            if key.startswith("trade_date_")
+        }
+
     def execute(self, query: str, params=None, data=None):
         normalised_query = " ".join(query.split()).upper()
         if normalised_query.startswith("SET LIGHTWEIGHT_DELETES_SYNC"):
@@ -47,12 +59,21 @@ class _FakeClickHouseClient:
             return []
         if normalised_query.startswith("DELETE FROM"):
             self.operations.append("delete")
-            trade_date = params["trade_date"]
-            self.rows = [row for row in self.rows if row[0] != trade_date]
+            selected_dates = self._selected_dates(params)
+            self.rows = [row for row in self.rows if row[0] not in selected_dates]
             return []
+        if normalised_query.startswith("SELECT TRADE_DATE, COUNT()"):
+            self.operations.append("count")
+            selected_dates = self._selected_dates(params)
+            return [
+                (trade_date, sum(1 for row in self.rows if row[0] == trade_date))
+                for trade_date in selected_dates
+                if any(row[0] == trade_date for row in self.rows)
+            ]
         if normalised_query.startswith("SELECT COUNT()"):
             self.operations.append("count")
-            trade_date = params["trade_date"]
+            selected_dates = self._selected_dates(params)
+            trade_date = next(iter(selected_dates))
             return [(sum(1 for row in self.rows if row[0] == trade_date),)]
         if normalised_query.startswith("INSERT INTO"):
             self.operations.append("insert")

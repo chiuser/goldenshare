@@ -1,6 +1,6 @@
 # Dagster ClickHouse Prod 同步设计
 
-更新时间：2026-05-30
+更新时间：2026-06-06
 
 ## 1. 背景与目标
 
@@ -52,6 +52,9 @@ prod ClickHouse: goldenshare_serving.share_fact_market_breadth_daily
 5. SSH tunnel 是运行环境前置条件；如果 tunnel 没起来，prod sync asset 应失败并暴露清晰错误。
 6. prod 表结构由 Flyway migration 管理，不能由 asset 代码临时建表或改表。
 7. 同一 `trade_date` 的 prod 写入必须使用同步 replace 语义，避免重复行或旧数据短暂可见。
+8. 日常单日同步和历史全量 / 范围同步使用同一个 prod sync asset，不新增独立 range sync job 或 repair sensor。
+9. 历史全量 / 范围 backfill 必须通过 Dagster `BackfillPolicy.multi_run(max_partitions_per_run=250)` 合批执行，禁止继续按 3000 多个交易日拆成 3000 多个 run。
+10. prod sync checks 名称和 blocking 语义保持不变，但实现必须支持同一 run 内多个 `partition_keys` 的批量校验。
 
 ## 3. 为什么不做 ClickHouse 集群复制
 
@@ -417,28 +420,43 @@ prod sync asset 不重新读取 gold parquet，不重新组合字段。
 2. prod sync asset 的职责是复制本机 serving 副本到 prod serving 副本。
 3. 如果 prod sync asset 又重新读 gold 并组装字段，会重复业务逻辑，容易和本机 CH serving asset 发生口径分叉。
 
-第一版读取：
+第一版日常单日读取：
 
 ```text
 本机 ClickHouse: goldenshare_serving.share_fact_market_breadth_daily WHERE trade_date = partition_key
 ```
 
-写入：
+PCH-7 批量 backfill 读取：
+
+```text
+本机 ClickHouse: goldenshare_serving.share_fact_market_breadth_daily
+WHERE trade_date IN selected_partition_keys
+ORDER BY trade_date
+```
+
+单日写入：
 
 ```text
 prod ClickHouse: goldenshare_serving.share_fact_market_breadth_daily WHERE trade_date = partition_key
+```
+
+PCH-7 批量 backfill 写入：
+
+```text
+prod ClickHouse: goldenshare_serving.share_fact_market_breadth_daily
+WHERE trade_date IN selected_partition_keys
 ```
 
 收益率分桶 schema 变更后仍保持该边界：
 
 1. `prod_ch_share_fact_market_breadth_daily` 不计算 `pct_chg` 分桶，不读取 `gold_stock_return_distribution` parquet。
 2. 本机 `ch_share_fact_market_breadth_daily` 必须已经按十一段收益率区间口径重建，并通过本机 serving checks。
-3. prod sync 只读取本机 ClickHouse 同一 `trade_date` 的完整新 schema 行，再逐日 replace 到 prod ClickHouse。
+3. prod sync 只读取本机 ClickHouse 中目标 `trade_date` 的完整新 schema 行，再 replace 到 prod ClickHouse。
 4. 本机 CH 与 prod CH 必须先执行同一份 Flyway migration，例如新增的 `V3__split_market_breadth_return_distribution_buckets.sql`；两边 schema 不一致时禁止同步。
 
 ### 7.3 写入语义
 
-prod 写入必须使用同步 replace：
+prod 写入必须使用同步 replace。单日运行时：
 
 ```text
 SET lightweight_deletes_sync = 1
@@ -448,11 +466,37 @@ INSERT 该 trade_date 的完整新 schema 行
 确认 prod 当日 row_count = 1
 ```
 
-如果 delete 成功但 insert 失败，prod 当日 serving 行可能暂时缺失。由于 prod ClickHouse 是副本层，重新运行同一分区即可恢复。
+PCH-7 批量 backfill 运行时：
+
+```text
+selected_partition_keys = context.partition_keys
+batch_size <= 250
+
+从本机 CH 一次读取 selected_partition_keys 的完整行
+确认 local row_count = selected partition count
+确认 local uniqExact(trade_date) = selected partition count
+
+SET lightweight_deletes_sync = 1
+DELETE FROM goldenshare_serving.share_fact_market_breadth_daily
+WHERE trade_date IN selected_partition_keys
+确认 prod selected row_count = 0
+
+INSERT selected_partition_keys 的完整新 schema 行
+确认 prod selected row_count = selected partition count
+确认 prod selected uniqExact(trade_date) = selected partition count
+```
+
+批量 replace 仍然是“按目标 trade_date 删除旧行，再插入本机 CH 完整新行”，不是补列、不是 UPDATE、不是从 gold parquet 重新计算。
+
+如果 delete 成功但 insert 失败，prod 对应日期集合的 serving 行可能暂时缺失。由于 prod ClickHouse 是副本层，重新运行同一批或同一分区即可恢复。
 
 并发同一分区写入第一版不单独处理；后续如果自动化长期启用，需要评估 Dagster concurrency / run queue 限制。
 
 刷新历史数据时，prod 同日期旧行必须先删除，再插入本机 CH 已重建后的完整新行；禁止只补新增列、禁止对 prod 旧行做 `ALTER TABLE UPDATE` mutation，也禁止绕过 Dagster 用手写脚本直接灌 prod。
+
+不使用 `ALTER TABLE ... DROP PARTITION` 作为 PCH-7 主路径。原因是 backfill 选择的是交易日集合，不一定完整覆盖 ClickHouse 月分区；按月 drop partition 容易误删不在本次目标集合内的日期。
+
+不使用 `ALTER TABLE ... DELETE`。当前 replace 继续使用 ClickHouse lightweight `DELETE FROM`，并把原来的 3000 多次单日 delete 合并为最多约 13 次批量 delete。
 
 ### 7.4 Metadata
 
@@ -470,6 +514,22 @@ sync_mode = sync_delete_then_insert
 
 不得记录 prod 密码、SSH 命令、私钥路径或敏感连接串。
 
+PCH-7 批量 backfill 落地后，单日运行仍记录单个 `partition_key`；多分区运行必须记录：
+
+```text
+uri = clickhouse://prod/goldenshare_serving.share_fact_market_breadth_daily?trade_date_in=...
+row_count = selected partition count
+goldenshare/observed_columns = <表字段列表>
+partition_keys = <selected partition keys>
+partition_count
+source_table = goldenshare_serving.share_fact_market_breadth_daily
+target_table = goldenshare_serving.share_fact_market_breadth_daily
+sync_mode = sync_delete_then_insert_batch
+batch_size_limit = 250
+```
+
+metadata 只记录批次摘要和少量样本，不记录 250 行完整明细，避免 Dagster event metadata 膨胀。
+
 ## 8. Checks 设计
 
 prod sync checks 绑定：
@@ -480,23 +540,27 @@ prod_ch_share_fact_market_breadth_daily
 
 全部 blocking。
 
-第一版 checks：
+PCH-5 第一版 checks 名称如下。PCH-7 批量 backfill 优化后，名称不变、blocking 不变，但每个 check 必须支持 `context.partition_keys`。
 
 1. `prod_ch_share_fact_market_breadth_row_count_is_one`
-   - prod 目标日期必须只有 1 行。
+   - prod 每个目标日期必须只有 1 行。
    - 防止漏写或重复写。
+   - 批量实现按 `trade_date` group by，一次返回 selected dates 的 row_count，metadata 记录 missing / duplicate partition samples。
 
 2. `prod_ch_share_fact_market_breadth_date_matches_partition`
-   - prod 行内 `trade_date` 必须等于 Dagster partition key。
+   - prod 行内 `trade_date` 必须等于 Dagster selected partition key 集合。
    - 防止写错日期。
+   - 批量实现比较 selected partition set 与 prod 返回的 trade_date set。
 
 3. `prod_ch_share_fact_market_breadth_matches_local`
-   - prod 该日期整行必须与本机 ClickHouse 该日期整行一致。
+   - prod 每个目标日期整行必须与本机 ClickHouse 同日期整行一致。
    - 防止 prod serving 副本和本机 serving 副本分叉。
+   - 批量实现分别读取本机 CH / prod CH selected dates，按 `trade_date` 对齐后逐字段比较，metadata 记录 mismatched partition / field samples。
 
 4. `prod_ch_share_fact_market_breadth_updated_at_not_older_than_local`
-   - prod `updated_at` 不应早于本机该行 `updated_at`。
-   - 如果第一版采用整行复制，本 check 应天然通过。
+   - prod 每个目标日期的 `updated_at` 不应早于本机同日期行的 `updated_at`。
+   - 如果采用整行复制，本 check 应天然通过。
+   - 批量实现按 `trade_date` 对齐比较，metadata 记录 failed partition samples。
 
 说明：
 
@@ -523,6 +587,26 @@ prod_ch_share_fact_market_breadth_daily
 ```
 
 job 只做 asset selection，不写 SQL、不管理 SSH tunnel。
+
+PCH-7 批量 backfill 口径：
+
+```python
+@dg.asset(
+    partitions_def=cn_a_stock_trade_days,
+    backfill_policy=dg.BackfillPolicy.multi_run(max_partitions_per_run=250),
+    ...
+)
+def prod_ch_share_fact_market_breadth_daily(...):
+    partition_keys = tuple(sorted(set(context.partition_keys)))
+```
+
+要求：
+
+1. 日常单日 materialize 时 `partition_keys` 长度为 1，行为与当前单日 prod sync 一致。
+2. 历史全量 / 范围 backfill 时，每个 run 最多处理 250 个交易日。
+3. `prod_clickhouse_share_fact_market_breadth_sync_job` 仍然只选择 `prod_ch_share_fact_market_breadth_daily + checks_for_assets(...)`。
+4. 不新增独立 `range_sync_job`、repair sensor、summary asset、数据库表或配置项。
+5. job 文件仍只定义 asset selection，不承接 SQL 或批量逻辑。
 
 ### 9.2 Automation
 
@@ -683,9 +767,11 @@ updated_at = 2026-05-28 22:09:21
 4. 再对同一目标日期集合重跑 `clickhouse_share_fact_market_breadth_update_job`，把本机 CH serving 行逐日 replace 成新 schema / 新口径。
 5. 启动 `lake_console/bin/lake-prod-clickhouse-tunnel`，确认本机 `127.0.0.1:19000` 可访问 prod ClickHouse。
 6. 在 Dagster UI 对 `prod_clickhouse_share_fact_market_breadth_sync_job` 发起分区 backfill，选择同一批 `trade_date` 分区集合。
-7. 每个分区由 `prod_ch_share_fact_market_breadth_daily[trade_date]` 读取本机 CH 一行，使用同步 delete-then-insert replace 语义写入 prod CH，再执行 prod checks。
-8. 如果 tunnel 中断或 prod 不可达，对应分区 run 失败并暴露连接错误；修复 tunnel 后对 failed / missing partitions 重新 backfill。
-9. 不直接用 `clickhouse-client INSERT SELECT` 或手写脚本批量灌 prod，因为那会绕过 Dagster asset/check/event 可观测性。
+7. PCH-7 落地后，backfill 由 `BackfillPolicy.multi_run(max_partitions_per_run=250)` 合并成多分区 run；每个 run 最多处理 250 个交易日。
+8. 每个 run 由 `prod_ch_share_fact_market_breadth_daily[selected_partition_keys]` 批量读取本机 CH 行，使用同步 delete-then-insert replace 语义写入 prod CH，再执行同名批量 prod checks。
+9. PCH-7 落地前，不建议再用当前逐日 backfill 跑 3000 多个交易日；这种方式可观测但性能不可接受，只适合单日或小范围修复。
+10. 如果 tunnel 中断或 prod 不可达，对应批次 run 失败并暴露连接错误；修复 tunnel 后对 failed / missing partitions 重新 backfill。
+11. 不直接用 `clickhouse-client INSERT SELECT` 或手写脚本批量灌 prod，因为那会绕过 Dagster asset/check/event 可观测性。
 
 ### Slice PCH-6：prod sync automation
 
@@ -704,6 +790,55 @@ updated_at = 2026-05-28 22:09:21
 不触发 gold / silver / raw
 SSH tunnel 未启动时 run 失败清晰可见
 ```
+
+### Slice PCH-7：prod sync 全量 backfill 性能优化
+
+状态：已拍板，待开发。
+
+已确认口径：
+
+1. 批大小固定为 250 个交易日一组。
+2. 保留当前 4 个 prod sync check 名称，只把实现改为批量实现。
+3. 全量同步入口继续使用 `prod_clickhouse_share_fact_market_breadth_sync_job` 的 asset/job backfill policy，不新增独立 range sync job。
+4. 日常 automation sensor 不变，仍围绕 `prod_ch_share_fact_market_breadth_daily`。
+5. 不新增 repair sensor、summary asset、数据库表或配置项。
+
+当前性能问题：
+
+```text
+3019 个交易日逐日 backfill
+≈ 3019 个 Dagster run
+≈ 每日 3 次本机 CH 查询 + 9 次 prod CH 查询
+≈ 3.6 万次 CH round trip
+≈ 1.5 万个 asset/check step 事件
+```
+
+PCH-7 目标：
+
+```text
+3019 个交易日
+batch size = 250
+预计 run 数 <= ceil(3019 / 250) = 13
+本机 CH 查询、prod delete、prod insert、prod checks 全部按 selected_partition_keys 批量执行
+```
+
+性能预算与验证门槛：
+
+1. 250 个交易日样本批次，单个 prod sync run 目标耗时不超过 90 秒；超过则停止扩大范围，先定位是 tunnel、CH delete、insert、check 还是 Dagster event 写入开销。
+2. 约 3000 个交易日全量 backfill，目标耗时不超过 15 分钟；超过则不得继续把逐日链路作为全量维护入口。
+3. 批量 insert 必须一次插入 selected rows，禁止在 batch 内退化为逐日 `INSERT` 循环。
+4. 批量 checks 必须用集合查询、group by、按 `trade_date` 对账；禁止在 check 内对 250 个日期循环打开连接或循环查询。
+5. 性能验证必须先经用户批准，列出命令、`DAGSTER_HOME`、目标日期范围、读写范围、影响和回滚方式；不得未经批准直接运行正式 Dagster backfill。
+6. 验证结果必须记录：partition_count、run_count、local query count、prod query count、insert batch row_count、总耗时、失败样本。
+
+开发验收：
+
+1. 静态测试确认 `prod_ch_share_fact_market_breadth_daily` 配置 `BackfillPolicy.multi_run(max_partitions_per_run=250)`。
+2. 单元测试确认 asset 在单 partition 和多 partition 上都使用 `context.partition_keys`。
+3. 单元测试确认批量 replace 只打开本机 / prod 连接各一次，并使用批量 local select、批量 prod delete、批量 insert。
+4. 单元测试确认 4 个 prod checks 在多 partition 上按集合校验，且名称不变、blocking 不变。
+5. 回归测试确认 `prod_clickhouse_share_fact_market_breadth_sync_job` selection 不变。
+6. 回归测试确认 `prod_clickhouse_share_fact_market_breadth_automation_sensor` 不新增范围触发逻辑。
 
 ## 11. 风险与处理
 
@@ -730,13 +865,13 @@ prod sync asset 连接 prod_clickhouse 失败
 表现：
 
 ```text
-prod 某个 trade_date 暂时缺行
+prod 某个 trade_date 或某个 selected_partition_keys 批次暂时缺行
 ```
 
 处理：
 
 1. 修复失败原因。
-2. 重跑同一 partition。
+2. 单日运行失败时重跑同一 partition；PCH-7 批量 backfill 失败时重跑同一批次或对应 failed / missing partitions。
 
 原因：
 
@@ -780,6 +915,9 @@ prod checks 与本机 CH 不一致
 5. 不从 prod ClickHouse 回写本机。
 6. 不让 prod API 直接读取本机 ClickHouse。
 7. 不把 prod sync 自动化默认打开。
+8. PCH-7 不新增独立 range sync job。
+9. PCH-7 不新增 repair sensor、summary asset、数据库表或配置项。
+10. PCH-7 不用手写脚本、`clickhouse-client INSERT SELECT`、`ALTER TABLE UPDATE` 或 `ALTER TABLE ... DROP PARTITION` 承接正式全量同步。
 
 ## 13. 已拍板口径
 
@@ -788,3 +926,6 @@ prod checks 与本机 CH 不一致
 3. SSH tunnel 第一版使用手动脚本 `lake_console/bin/lake-prod-clickhouse-tunnel`。
 4. `goldenshare_sync_writer` 密码只写入本机 `~/.bash_profile` 的 `PROD_CLICKHOUSE_PASSWORD`，不入仓库、不入文档、不入 metadata。
 5. prod sync automation 已定义但默认 `STOPPED`，长期启用需要单独确认。
+6. PCH-7 prod sync 全量 backfill 批大小固定为 250 个交易日一组。
+7. PCH-7 保留当前 4 个 prod sync check 名称，只把实现改为批量实现。
+8. PCH-7 全量同步入口继续使用 `prod_clickhouse_share_fact_market_breadth_sync_job` 的 asset/job backfill policy，不新增独立 range sync job。

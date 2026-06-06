@@ -38,6 +38,7 @@ CLICKHOUSE_MARKET_BREADTH_TABLE = "goldenshare_serving.share_fact_market_breadth
 CLICKHOUSE_MARKET_BREADTH_COLUMNS = tuple(
     column.name for column in CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA
 )
+PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN = 250
 
 CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
     dg.AutomationCondition.eager()
@@ -156,44 +157,132 @@ def _clickhouse_row_dict(row: tuple[Any, ...]) -> dict[str, Any]:
     }
 
 
-def fetch_clickhouse_market_breadth_rows(
+def _selected_partition_keys(
+    context: dg.AssetExecutionContext | dg.AssetCheckExecutionContext,
+) -> tuple[str, ...]:
+    partition_keys = tuple(sorted(set(context.partition_keys)))
+    if not partition_keys:
+        raise RuntimeError("prod ClickHouse market breadth sync requires partitions.")
+    if len(partition_keys) > PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN:
+        raise RuntimeError(
+            "prod ClickHouse market breadth sync batch is too large: "
+            f"partition_count={len(partition_keys)}, "
+            f"limit={PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN}"
+        )
+    return partition_keys
+
+
+def _trade_date_filter_sql(
+    partition_keys: tuple[str, ...],
+) -> tuple[str, dict[str, date]]:
+    if not partition_keys:
+        raise RuntimeError("trade_date filter requires at least one partition key.")
+
+    params: dict[str, date] = {}
+    placeholders = []
+    for index, partition_key in enumerate(partition_keys):
+        param_name = f"trade_date_{index}"
+        placeholders.append(f"%({param_name})s")
+        params[param_name] = date.fromisoformat(partition_key)
+    return f"trade_date IN ({', '.join(placeholders)})", params
+
+
+def _group_clickhouse_row_tuples_by_partition(
+    rows: list[tuple[Any, ...]],
+    partition_keys: tuple[str, ...],
+) -> dict[str, list[tuple[Any, ...]]]:
+    rows_by_partition = {partition_key: [] for partition_key in partition_keys}
+    for row in rows:
+        partition_key = _date_iso(row[0])
+        if partition_key in rows_by_partition:
+            rows_by_partition[partition_key].append(tuple(row))
+    return rows_by_partition
+
+
+def _fetch_clickhouse_market_breadth_row_tuples_by_partition(
     client,
-    partition_key: str,
-) -> list[dict[str, Any]]:
+    partition_keys: tuple[str, ...],
+) -> dict[str, list[tuple[Any, ...]]]:
     column_list = ", ".join(CLICKHOUSE_MARKET_BREADTH_COLUMNS)
+    where_sql, params = _trade_date_filter_sql(partition_keys)
     rows = client.execute(
         f"""
         SELECT {column_list}
         FROM {CLICKHOUSE_MARKET_BREADTH_TABLE}
-        WHERE trade_date = %(trade_date)s
+        WHERE {where_sql}
         ORDER BY trade_date
         """,
-        {"trade_date": date.fromisoformat(partition_key)},
+        params,
     )
-    return [_clickhouse_row_dict(row) for row in rows]
+    return _group_clickhouse_row_tuples_by_partition(
+        [tuple(row) for row in rows],
+        partition_keys,
+    )
+
+
+def fetch_clickhouse_market_breadth_rows_for_partitions(
+    client,
+    partition_keys: tuple[str, ...],
+) -> dict[str, list[dict[str, Any]]]:
+    rows_by_partition = _fetch_clickhouse_market_breadth_row_tuples_by_partition(
+        client,
+        partition_keys,
+    )
+    return {
+        partition_key: [_clickhouse_row_dict(row) for row in rows]
+        for partition_key, rows in rows_by_partition.items()
+    }
+
+
+def fetch_clickhouse_market_breadth_rows(
+    client,
+    partition_key: str,
+) -> list[dict[str, Any]]:
+    return fetch_clickhouse_market_breadth_rows_for_partitions(
+        client,
+        (partition_key,),
+    )[partition_key]
+
+
+def _require_single_clickhouse_rows(
+    rows_by_partition: dict[str, list[tuple[Any, ...]]],
+    partition_keys: tuple[str, ...],
+    *,
+    dataset_label: str,
+) -> list[tuple[Any, ...]]:
+    missing_partitions = [
+        partition_key
+        for partition_key in partition_keys
+        if not rows_by_partition.get(partition_key)
+    ]
+    duplicate_partitions = [
+        partition_key
+        for partition_key in partition_keys
+        if len(rows_by_partition.get(partition_key, [])) > 1
+    ]
+    if missing_partitions or duplicate_partitions:
+        raise RuntimeError(
+            f"{dataset_label} must contain exactly one row for each selected "
+            "partition before syncing to prod: "
+            f"missing_partitions={missing_partitions[:10]}, "
+            f"duplicate_partitions={duplicate_partitions[:10]}"
+        )
+    return [rows_by_partition[partition_key][0] for partition_key in partition_keys]
 
 
 def _fetch_single_clickhouse_market_breadth_row(
     client,
     partition_key: str,
 ) -> tuple[Any, ...]:
-    column_list = ", ".join(CLICKHOUSE_MARKET_BREADTH_COLUMNS)
-    rows = client.execute(
-        f"""
-        SELECT {column_list}
-        FROM {CLICKHOUSE_MARKET_BREADTH_TABLE}
-        WHERE trade_date = %(trade_date)s
-        ORDER BY trade_date
-        """,
-        {"trade_date": date.fromisoformat(partition_key)},
+    rows = _require_single_clickhouse_rows(
+        _fetch_clickhouse_market_breadth_row_tuples_by_partition(
+            client,
+            (partition_key,),
+        ),
+        (partition_key,),
+        dataset_label="Local ClickHouse serving partition",
     )
-    if len(rows) != 1:
-        raise RuntimeError(
-            "Local ClickHouse serving partition must contain exactly one row before "
-            "syncing to prod: "
-            f"trade_date={partition_key}, row_count={len(rows)}"
-        )
-    return tuple(rows[0])
+    return rows[0]
 
 
 def _count_clickhouse_partition(client, partition_date: date) -> int:
@@ -208,34 +297,93 @@ def _count_clickhouse_partition(client, partition_date: date) -> int:
     return int(rows[0][0])
 
 
-def _replace_clickhouse_partition(client, row: tuple[Any, ...]) -> None:
-    partition_date = row[0]
+def _count_clickhouse_partitions(
+    client,
+    partition_keys: tuple[str, ...],
+) -> dict[str, int]:
+    where_sql, params = _trade_date_filter_sql(partition_keys)
+    rows = client.execute(
+        f"""
+        SELECT trade_date, count()
+        FROM {CLICKHOUSE_MARKET_BREADTH_TABLE}
+        WHERE {where_sql}
+        GROUP BY trade_date
+        ORDER BY trade_date
+        """,
+        params,
+    )
+    row_counts = {partition_key: 0 for partition_key in partition_keys}
+    for trade_date, row_count in rows:
+        partition_key = _date_iso(trade_date)
+        if partition_key in row_counts:
+            row_counts[partition_key] = int(row_count)
+    return row_counts
+
+
+def _assert_clickhouse_partition_row_counts(
+    row_counts: dict[str, int],
+    *,
+    expected_row_count: int,
+    failure_prefix: str,
+) -> None:
+    failed_partitions = {
+        partition_key: row_count
+        for partition_key, row_count in row_counts.items()
+        if row_count != expected_row_count
+    }
+    if failed_partitions:
+        raise RuntimeError(
+            f"{failure_prefix}: "
+            f"failed_partitions={dict(list(failed_partitions.items())[:10])}"
+        )
+
+
+def _replace_clickhouse_partitions(
+    client,
+    rows_by_partition: dict[str, list[tuple[Any, ...]]],
+    partition_keys: tuple[str, ...],
+) -> None:
+    rows = _require_single_clickhouse_rows(
+        rows_by_partition,
+        partition_keys,
+        dataset_label="Local ClickHouse serving partition",
+    )
     client.execute("SET lightweight_deletes_sync = 1")
+    where_sql, params = _trade_date_filter_sql(partition_keys)
     client.execute(
         f"""
         DELETE FROM {CLICKHOUSE_MARKET_BREADTH_TABLE}
-        WHERE trade_date = %(trade_date)s
+        WHERE {where_sql}
         """,
-        {"trade_date": partition_date},
+        params,
     )
-    deleted_row_count = _count_clickhouse_partition(client, partition_date)
-    if deleted_row_count != 0:
-        raise RuntimeError(
-            "Synchronous ClickHouse delete did not make the target partition empty: "
-            f"trade_date={partition_date.isoformat()}, remaining_rows={deleted_row_count}"
-        )
+    deleted_row_counts = _count_clickhouse_partitions(client, partition_keys)
+    _assert_clickhouse_partition_row_counts(
+        deleted_row_counts,
+        expected_row_count=0,
+        failure_prefix="Synchronous ClickHouse delete did not make target partitions empty",
+    )
 
     column_list = ", ".join(CLICKHOUSE_MARKET_BREADTH_COLUMNS)
     client.execute(
         f"INSERT INTO {CLICKHOUSE_MARKET_BREADTH_TABLE} ({column_list}) VALUES",
-        [row],
+        rows,
     )
-    inserted_row_count = _count_clickhouse_partition(client, partition_date)
-    if inserted_row_count != 1:
-        raise RuntimeError(
-            "ClickHouse replace must leave exactly one row: "
-            f"trade_date={partition_date.isoformat()}, row_count={inserted_row_count}"
-        )
+    inserted_row_counts = _count_clickhouse_partitions(client, partition_keys)
+    _assert_clickhouse_partition_row_counts(
+        inserted_row_counts,
+        expected_row_count=1,
+        failure_prefix="ClickHouse batch replace must leave exactly one row per partition",
+    )
+
+
+def _replace_clickhouse_partition(client, row: tuple[Any, ...]) -> None:
+    partition_key = _date_iso(row[0])
+    _replace_clickhouse_partitions(
+        client,
+        {partition_key: [row]},
+        (partition_key,),
+    )
 
 
 @dg.asset(
@@ -341,6 +489,9 @@ def ch_share_fact_market_breadth_daily(
     name="prod_ch_share_fact_market_breadth_daily",
     deps=[ch_share_fact_market_breadth_daily],
     partitions_def=cn_a_stock_trade_days,
+    backfill_policy=dg.BackfillPolicy.multi_run(
+        max_partitions_per_run=PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN,
+    ),
     group_name="serving",
     tags=build_asset_tags(
         layer=AssetLayer.SERVING,
@@ -365,30 +516,48 @@ def prod_ch_share_fact_market_breadth_daily(
     clickhouse: ClickhouseResource,
     prod_clickhouse: ClickhouseResource,
 ) -> dg.MaterializeResult:
-    partition_key = context.partition_key
+    partition_keys = _selected_partition_keys(context)
     with clickhouse.get_connection() as local_client:
-        local_row = _fetch_single_clickhouse_market_breadth_row(
+        local_rows_by_partition = _fetch_clickhouse_market_breadth_row_tuples_by_partition(
             local_client,
-            partition_key,
+            partition_keys,
         )
 
     with prod_clickhouse.get_connection() as prod_client:
-        _replace_clickhouse_partition(prod_client, local_row)
+        _replace_clickhouse_partitions(
+            prod_client,
+            local_rows_by_partition,
+            partition_keys,
+        )
+
+    is_single_partition = len(partition_keys) == 1
+    extra_metadata: dict[str, Any] = {
+        "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
+        "source_clickhouse_asset": "ch_share_fact_market_breadth_daily",
+        "lightweight_deletes_sync": 1,
+        "partition_count": len(partition_keys),
+        "batch_size_limit": PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN,
+    }
+    if is_single_partition:
+        extra_metadata["partition_key"] = partition_keys[0]
+        extra_metadata["replace_mode"] = "sync_delete_then_insert"
+        uri = (
+            f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
+            f"?trade_date={partition_keys[0]}"
+        )
+    else:
+        extra_metadata["partition_keys"] = list(partition_keys)
+        extra_metadata["replace_mode"] = "sync_delete_then_insert_batch"
+        uri = (
+            f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
+            f"?partition_count={len(partition_keys)}"
+        )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
-            uri=(
-                f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
-                f"?trade_date={partition_key}"
-            ),
-            row_count=1,
+            uri=uri,
+            row_count=len(partition_keys),
             observed_columns=CLICKHOUSE_MARKET_BREADTH_COLUMNS,
-            extra_metadata={
-                "partition_key": partition_key,
-                "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
-                "source_clickhouse_asset": "ch_share_fact_market_breadth_daily",
-                "replace_mode": "sync_delete_then_insert",
-                "lightweight_deletes_sync": 1,
-            },
+            extra_metadata=extra_metadata,
         )
     )
