@@ -1,0 +1,1430 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 新湖 Asset Catalog C1 开发 Review 方案</title>
+  <style>
+    :root {
+      --bg: #f6f2e9;
+      --paper: #fffdf7;
+      --paper-2: #fff9ec;
+      --ink: #1d2630;
+      --muted: #687483;
+      --line: #d8c8af;
+      --accent: #7b5a13;
+      --accent-2: #206b72;
+      --green: #e5f3e6;
+      --blue: #e8efff;
+      --warn: #fff0c6;
+      --danger: #ffe1d8;
+      --code-bg: #fff4dd;
+      --code-ink: #1e2b38;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background:
+        radial-gradient(circle at 10% -10%, rgba(244, 207, 121, 0.42), transparent 36rem),
+        radial-gradient(circle at 94% 5%, rgba(68, 145, 154, 0.16), transparent 32rem),
+        linear-gradient(180deg, #fbf8f0 0%, var(--bg) 100%);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1320px;
+      margin: 0 auto;
+      padding: 36px 26px 84px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: rgba(255, 253, 247, 0.96);
+      border-radius: 22px;
+      box-shadow: 0 16px 42px rgba(72, 53, 29, 0.08);
+    }
+
+    header { padding: 34px; }
+
+    section {
+      margin-top: 20px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.22;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(32px, 4.2vw, 54px);
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 26px;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 19px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    code {
+      color: var(--code-ink);
+      background: rgba(49, 61, 77, 0.08);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", "Menlo", "Consolas", monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 14px 0 18px;
+      overflow-x: auto;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      border: 1px solid #e0c89f;
+      border-radius: 14px;
+      padding: 16px;
+      font-size: 13px;
+      line-height: 1.56;
+    }
+
+    pre code {
+      color: inherit;
+      background: transparent;
+      padding: 0;
+      border-radius: 0;
+      font-size: inherit;
+    }
+
+    ul { padding-left: 22px; }
+
+    li { margin: 5px 0; }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 22px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+    }
+
+    th,
+    td {
+      border-bottom: 1px solid var(--line);
+      border-right: 1px solid var(--line);
+      padding: 11px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      color: #4e3713;
+      background: #f4e7ce;
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th:last-child,
+    td:last-child { border-right: 0; }
+
+    .subtitle {
+      max-width: 1080px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+      margin-top: 20px;
+    }
+
+    .card,
+    .callout,
+    .warning,
+    .danger {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      padding: 15px 16px;
+      background: var(--paper);
+    }
+
+    .card strong,
+    .callout strong,
+    .warning strong,
+    .danger strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .callout {
+      background: var(--blue);
+      border-color: #b9c7ea;
+    }
+
+    .warning {
+      background: var(--warn);
+      border-color: #dfbd66;
+    }
+
+    .danger {
+      background: var(--danger);
+      border-color: #e1a091;
+    }
+
+    .ok {
+      background: var(--green);
+      border-color: #a8cea9;
+    }
+
+    .kicker {
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .pill {
+      display: inline-block;
+      margin: 0 6px 6px 0;
+      padding: 3px 9px;
+      border: 1px solid var(--line);
+      border-radius: 999px;
+      background: #fff9ed;
+      color: #59401b;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <div class="kicker">Implemented · C1</div>
+    <h1>Dagster 新湖 Asset Catalog C1 开发方案</h1>
+    <p class="subtitle">
+      本文档记录 C1 开发方案与落地口径。目标是把当前新湖 Dagster assets、checks、paths、metadata、schema、source 和补录事实收敛到一个只读 registry，
+      通过静态治理防止漂移，不改变任何 asset/job/sensor/check 运行语义。
+    </p>
+    <div class="meta-grid">
+      <div class="card">
+        <strong>状态</strong>
+        C1 已按代码口径落地为只读 registry + static gates。
+      </div>
+      <div class="card">
+        <strong>更新时间</strong>
+        2026-06-07
+      </div>
+      <div class="card">
+        <strong>目标目录</strong>
+        <code>lake_console/orchestrator/src/orchestrator/defs/catalog/</code>
+      </div>
+      <div class="card">
+        <strong>核心边界</strong>
+        只读 registry + static gates；不生成资产，不触发 Dagster，不写 lake。
+      </div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 拍板结论</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>事项</th>
+          <th>结论</th>
+          <th>原因</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>C1 覆盖范围</td>
+          <td>覆盖 <code>lake_console/orchestrator</code> 当前所有正式 active assets，包括 <code>lake_root_health</code>。</td>
+          <td>避免产生“哪些正式 asset 不进 catalog”的新漂移点。</td>
+        </tr>
+        <tr>
+          <td>非表类 asset</td>
+          <td>允许 <code>column_schema=None</code>，当前主要用于 <code>lake_root_health</code>。</td>
+          <td>health asset 不写 parquet，不应伪造表字段契约。</td>
+        </tr>
+        <tr>
+          <td>测试事实源</td>
+          <td>替换 <code>test_asset_governance_contracts.py</code> 中的隐形 <code>ASSET_CONTRACTS</code>。</td>
+          <td>Catalog 写完后必须成为治理测试事实源，否则只是多一份文档化列表。</td>
+        </tr>
+        <tr>
+          <td>业务代码消费</td>
+          <td>C1 不让 asset/check/job/sensor/bootstrap 运行逻辑消费 catalog。</td>
+          <td>先把事实源立起来，降低运行风险。C3 再选择性消费。</td>
+        </tr>
+        <tr>
+          <td>命名</td>
+          <td>模型名为 <code>LakeAssetCatalogEntry</code>，不使用 V1/V2 命名。</td>
+          <td>这是新湖 Dagster asset catalog，不是旧湖 backend catalog，也不是数据基座 <code>DatasetDefinition</code>。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. 当前事实依据</h2>
+    <p>
+      C1 落地前，当前代码已经存在一张隐形 catalog，集中在治理测试和 run contracts 中。C1 的目标不是创造新事实，而是把已经散落的事实移入正式 registry。
+      C1 落地后，治理测试只保留 active Dagster definitions 作为 live spec 读取入口，dataset/path/schema/check 事实由 registry 提供。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>事实类型</th>
+          <th>当前位置</th>
+          <th>C1 处理方式</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>资产身份、layer、domain、dataset id/name</td>
+          <td>历史上在 <code>tests/test_asset_governance_contracts.py::ASSET_CONTRACTS</code></td>
+          <td>已迁入 <code>LakeAssetCatalogEntry</code>。</td>
+        </tr>
+        <tr>
+          <td>字段契约</td>
+          <td><code>defs/run_contracts/asset_column_schemas.py</code></td>
+          <td>Catalog entry 直接引用 <code>tuple[ColumnContract, ...] | None</code>。</td>
+        </tr>
+        <tr>
+          <td>metadata keys</td>
+          <td><code>defs/run_contracts/metadata.py</code></td>
+          <td>Catalog static gates 对账 <code>dataset_id</code>、<code>dataset_name</code>、<code>source_system</code>、<code>data_contract</code>、<code>path_template</code>。</td>
+        </tr>
+        <tr>
+          <td>layer/domain tags</td>
+          <td><code>defs/run_contracts/asset_tags.py</code></td>
+          <td>Catalog entry 使用现有 <code>AssetLayer</code>、<code>DataDomain</code> 枚举。</td>
+        </tr>
+        <tr>
+          <td>路径模板</td>
+          <td><code>defs/paths.py</code> 与历史治理测试里的 <code>ASSET_PATH_TEMPLATES</code></td>
+          <td>已迁入 catalog；非文件型/serving asset 可为 <code>None</code>。</td>
+        </tr>
+        <tr>
+          <td>blocking checks</td>
+          <td><code>defs/checks/**</code>，目前由测试和人工维护</td>
+          <td>Catalog 记录 check name 集合，static gate 对账 active checks。</td>
+        </tr>
+        <tr>
+          <td>source 语义</td>
+          <td><code>SourceSystem</code> metadata、Tushare/prod DB/helper/bootstrap 文档</td>
+          <td>拆成字段契约来源、实际摄取来源、默认日常来源、bootstrap 来源。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>当前数量口径</strong>
+      治理测试当前登记 <code>40</code> 个正式 active assets。C1 覆盖这 40 个；其中 <code>lake_root_health</code> 是 platform health asset，可无表字段 schema。
+    </div>
+  </section>
+
+  <section>
+    <h2>3. C1 硬约束</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>约束</th>
+          <th>落点</th>
+          <th>验收</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>必须覆盖所有 active assets。</td>
+          <td><code>list_lake_asset_catalog_entries()</code> 与 active definitions 对账。</td>
+          <td>缺登记、多登记均测试失败。</td>
+        </tr>
+        <tr>
+          <td>必须覆盖所有当前治理事实。</td>
+          <td>dataset id/name、tags、source_system、data_contract、path_template、column_schema、blocking checks。</td>
+          <td>metadata/tag/schema/check drift 均 static gate 失败。</td>
+        </tr>
+        <tr>
+          <td>禁止改变生产语义。</td>
+          <td>不改 asset function、job selection、sensor、check 计算、bootstrap helper。</td>
+          <td>本轮只新增 registry 和测试，不触碰运行代码。</td>
+        </tr>
+        <tr>
+          <td>禁止引入旧湖 backend 或数据基座运行时依赖。</td>
+          <td><code>orchestrator.defs.catalog.lake_assets</code> 只依赖 orchestrator 内部 run contracts。</td>
+          <td>static gate 禁止 import <code>src.foundation</code> 或 <code>lake_console.backend</code>。</td>
+        </tr>
+        <tr>
+          <td>禁止 V1/V2 命名。</td>
+          <td>文件、类、函数、文档命名。</td>
+          <td>代码搜索无 <code>LakeAssetDefinitionV1</code> / <code>V2</code> 这类命名。</td>
+        </tr>
+        <tr>
+          <td>默认不做业务代码消费。</td>
+          <td>asset/check/job/sensor/bootstrap 不从 catalog 读取。</td>
+          <td>C1 后行为与之前一致。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 数据模型定义</h2>
+    <p>
+      C1 的模型必须足够表达当前 active assets 的事实，同时避免变成过度抽象的生成器。模型是只读定义卡，不做 IO，不访问 Dagster instance，不扫描 lake。
+    </p>
+
+    <h3>4.1 文件位置</h3>
+    <pre><code>lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py
+lake_console/orchestrator/src/orchestrator/defs/catalog/__init__.py</code></pre>
+
+    <h3>4.2 类型定义草案</h3>
+    <pre><code>from dataclasses import dataclass
+from enum import Enum
+
+from orchestrator.defs.run_contracts.asset_tags import AssetLayer, DataDomain
+from orchestrator.defs.run_contracts.column_schema import ColumnContract
+from orchestrator.defs.run_contracts.metadata import SourceSystem
+
+
+class DataContractSource(str, Enum):
+    TUSHARE_RAW_CONTRACT = "tushare_raw_contract"
+    PROD_SERVING_CONTRACT = "prod_serving_contract"
+    DERIVED_CONTRACT = "derived_contract"
+    SEED_CONTRACT = "seed_contract"
+    PLATFORM_CONTRACT = "platform_contract"
+
+
+class IngestionSource(str, Enum):
+    TUSHARE_API = "tushare_api"
+    PROD_DB_READONLY = "prod_db_readonly"
+    OLD_LAKE_BOOTSTRAP = "old_lake_bootstrap"
+    DERIVED_FROM_ASSETS = "derived_from_assets"
+    SEED_FILE = "seed_file"
+    INFRASTRUCTURE_CHECK = "infrastructure_check"
+    CLICKHOUSE_SYNC = "clickhouse_sync"
+
+
+class PartitionModelFamily(str, Enum):
+    FULL_FILE = "full_file"
+    TRADE_DATE_PARTITION = "trade_date_partition"
+    SERVING_TABLE = "serving_table"
+    NON_PARTITIONED = "non_partitioned"
+
+
+class PartitionPhysicalLayout(str, Enum):
+    SINGLE_FILE = "single_file"
+    PARTITION_FILE = "partition_file"
+    STOCK_YEAR_FILE = "stock_year_file"
+    SERVING_TABLE = "serving_table"
+    NO_DATA_FILE = "no_data_file"
+
+
+class PartitionModel(str, Enum):
+    FULL_FILE_RAW_TRADE_CALENDAR = "full_file_raw_trade_calendar"
+    FULL_FILE_SILVER_TRADE_CALENDAR = "full_file_silver_trade_calendar"
+    FULL_FILE_RAW_STOCK_BASIC = "full_file_raw_stock_basic"
+    FULL_FILE_SILVER_STOCK_BASIC = "full_file_silver_stock_basic"
+    FULL_FILE_RAW_NAMECHANGE = "full_file_raw_namechange"
+    FULL_FILE_SILVER_NAMECHANGE = "full_file_silver_namechange"
+    FULL_FILE_SILVER_STOCK_IDENTITY_MAP = "full_file_silver_stock_identity_map"
+    FULL_FILE_RAW_INDEX_BASIC = "full_file_raw_index_basic"
+    FULL_FILE_SILVER_INDEX_BASIC = "full_file_silver_index_basic"
+
+    TRADE_DATE_PARTITION_RAW_STOCK_DAILY = "trade_date_partition_raw_stock_daily"
+    TRADE_DATE_PARTITION_SILVER_STOCK_DAILY = "trade_date_partition_silver_stock_daily"
+    TRADE_DATE_PARTITION_RAW_ADJ_FACTOR = "trade_date_partition_raw_adj_factor"
+    TRADE_DATE_PARTITION_SILVER_ADJ_FACTOR = "trade_date_partition_silver_adj_factor"
+    TRADE_DATE_PARTITION_RAW_SUSPEND_D = "trade_date_partition_raw_suspend_d"
+    TRADE_DATE_PARTITION_SILVER_STOCK_SUSPEND_DAILY = (
+        "trade_date_partition_silver_stock_suspend_daily"
+    )
+    TRADE_DATE_PARTITION_RAW_INDEX_DAILY = "trade_date_partition_raw_index_daily"
+    TRADE_DATE_PARTITION_SILVER_INDEX_DAILY = "trade_date_partition_silver_index_daily"
+    TRADE_DATE_PARTITION_RAW_STOCK_MINS = "trade_date_partition_raw_stock_mins"
+    TRADE_DATE_PARTITION_SILVER_STOCK_MINS = "trade_date_partition_silver_stock_mins"
+    TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_STOCK_YEAR_FILE = (
+        "trade_date_partition_gold_stock_mins_qfq_stock_year_file"
+    )
+    TRADE_DATE_PARTITION_GOLD_MARKET_MAJOR_INDICES_DAILY = (
+        "trade_date_partition_gold_market_major_indices_daily"
+    )
+    TRADE_DATE_PARTITION_GOLD_MARKET_BREADTH = (
+        "trade_date_partition_gold_market_breadth"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_RETURN_DISTRIBUTION = (
+        "trade_date_partition_gold_stock_return_distribution"
+    )
+
+    SERVING_TABLE_SERVING_MARKET_BREADTH = "serving_table_serving_market_breadth"
+    NON_PARTITIONED_PLATFORM_LAKE_ROOT_HEALTH = (
+        "non_partitioned_platform_lake_root_health"
+    )
+
+
+@dataclass(frozen=True, slots=True)
+class PartitionModelDefinition:
+    model: PartitionModel
+    family: PartitionModelFamily
+    layer: AssetLayer
+    asset_family: str
+    dagster_partition_dimension: str | None
+    physical_layout: PartitionPhysicalLayout
+    notes: str = ""
+
+
+class WritePolicy(str, Enum):
+    SINGLE_FILE_ATOMIC_REPLACE = "single_file_atomic_replace"
+    PARTITION_FILE_ATOMIC_REPLACE = "partition_file_atomic_replace"
+    STOCK_YEAR_ATOMIC_REPLACE = "stock_year_atomic_replace"
+    NO_DATA_FILE = "no_data_file"
+    CLICKHOUSE_TABLE_SYNC = "clickhouse_table_sync"
+
+
+class EventPolicy(str, Enum):
+    DAGSTER_RUN_ONLY = "dagster_run_only"
+    SUPPORTS_RUNLESS_EVENT_BACKFILL = "supports_runless_event_backfill"
+    HEALTH_MATERIALIZATION_ONLY = "health_materialization_only"
+
+
+class ComputeEngine(str, Enum):
+    DUCKDB_SQL = "duckdb_sql"
+    TUSHARE_RESOURCE = "tushare_resource"
+    FILESYSTEM_CHECK = "filesystem_check"
+    CLICKHOUSE_CLIENT = "clickhouse_client"
+    NOT_APPLICABLE = "not_applicable"
+
+
+@dataclass(frozen=True, slots=True)
+class LakeAssetPerformanceContract:
+    batch_grain: str
+    compute_engine: ComputeEngine
+    python_row_loop_allowed: bool
+    source_request_policy: str
+    notes: str
+
+
+@dataclass(frozen=True, slots=True)
+class LakeAssetCatalogEntry:
+    asset_key: str
+    dataset_id: str
+    dataset_name: str
+    layer: AssetLayer
+    data_domain: DataDomain
+    group_name: str
+    source_system: SourceSystem
+    data_contract: str
+    data_contract_source: DataContractSource
+    column_schema: tuple[ColumnContract, ...] | None
+    path_template: str | None
+    partition_model: PartitionModel
+    source_api: str | None
+    source_doc: str | None
+    ingestion_sources: tuple[IngestionSource, ...]
+    default_daily_ingestion_source: IngestionSource | None
+    bootstrap_sources: tuple[IngestionSource, ...]
+    blocking_check_names: tuple[str, ...]
+    write_policy: WritePolicy
+    event_policy: EventPolicy
+    performance_contract: LakeAssetPerformanceContract
+    notes: str = ""</code></pre>
+
+    <h3>4.3 字段说明</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>类型</th>
+          <th>是否必填</th>
+          <th>来源/对账</th>
+          <th>说明</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>asset_key</code></td>
+          <td><code>str</code></td>
+          <td>是</td>
+          <td><code>asset.key.to_user_string()</code></td>
+          <td>Dagster asset key。C1 使用字符串，避免 registry 直接持有 asset definition 对象。</td>
+        </tr>
+        <tr>
+          <td><code>dataset_id</code></td>
+          <td><code>str</code></td>
+          <td>是</td>
+          <td><code>goldenshare/dataset_id</code></td>
+          <td>稳定数据集 ID。多个频度 asset 可共享同一个 dataset id，例如 <code>stk_mins_qfq</code>。</td>
+        </tr>
+        <tr>
+          <td><code>dataset_name</code></td>
+          <td><code>str</code></td>
+          <td>是</td>
+          <td><code>goldenshare/dataset_name</code>、<code>DATASET_CHINESE_NAMES</code></td>
+          <td>中文显示名。不是 asset key，也不是旧湖节点名。</td>
+        </tr>
+        <tr>
+          <td><code>layer</code></td>
+          <td><code>AssetLayer</code></td>
+          <td>是</td>
+          <td><code>goldenshare/layer</code></td>
+          <td>使用现有枚举：<code>raw</code>、<code>silver</code>、<code>gold</code>、<code>serving</code>、<code>platform</code>。</td>
+        </tr>
+        <tr>
+          <td><code>data_domain</code></td>
+          <td><code>DataDomain</code></td>
+          <td>是</td>
+          <td><code>goldenshare/data_domain</code></td>
+          <td>使用现有枚举：<code>basic_data</code>、<code>quote_data</code>、<code>index_topic</code>、<code>project_config</code>、<code>derived_metric</code>、<code>platform_observability</code>。</td>
+        </tr>
+        <tr>
+          <td><code>group_name</code></td>
+          <td><code>str</code></td>
+          <td>是</td>
+          <td>asset definition <code>group_name</code></td>
+          <td>Dagster UI 分组事实，用于 static gate 对账。</td>
+        </tr>
+        <tr>
+          <td><code>source_system</code></td>
+          <td><code>SourceSystem</code></td>
+          <td>是</td>
+          <td><code>goldenshare/source_system</code></td>
+          <td>保留现有 metadata 口径，用于兼容当前 definition metadata 对账；不再单独承担实际摄取来源语义。</td>
+        </tr>
+        <tr>
+          <td><code>data_contract</code></td>
+          <td><code>str</code></td>
+          <td>是</td>
+          <td><code>goldenshare/data_contract</code></td>
+          <td>资产字段/质量契约名。必须与 definition metadata 一致。</td>
+        </tr>
+        <tr>
+          <td><code>data_contract_source</code></td>
+          <td><code>DataContractSource</code></td>
+          <td>是</td>
+          <td>catalog 新事实</td>
+          <td>字段契约来源。用来解决“字段契约来自 Tushare，但日常数据可来自 prod DB”的歧义。</td>
+        </tr>
+        <tr>
+          <td><code>column_schema</code></td>
+          <td><code>tuple[ColumnContract, ...] | None</code></td>
+          <td>表类 asset 必填；非表类可空</td>
+          <td><code>dagster/column_schema</code></td>
+          <td>直接引用稳定字段契约对象。C1 不再用 <code>column_schema_name</code> 字符串做主事实，减少二次映射漂移。</td>
+        </tr>
+        <tr>
+          <td><code>path_template</code></td>
+          <td><code>str | None</code></td>
+          <td>文件型 asset 必填；serving/health 可空</td>
+          <td><code>goldenshare/path_template</code></td>
+          <td>正式 lake 物理路径模板。ClickHouse serving 和 health asset 没有 parquet path 时为 <code>None</code>。</td>
+        </tr>
+        <tr>
+          <td><code>partition_model</code></td>
+          <td><code>PartitionModel</code></td>
+          <td>是</td>
+          <td>asset <code>partitions_def</code>、路径模板、<code>PartitionModelDefinition</code></td>
+          <td>具体 leaf 分区模型。命名采用“分区维度 + layer + 资产名/资产簇”，例如 <code>trade_date_partition_raw_stock_mins</code>。</td>
+        </tr>
+        <tr>
+          <td><code>source_api</code></td>
+          <td><code>str | None</code></td>
+          <td>有源 API 时必填</td>
+          <td><code>goldenshare/source_api</code></td>
+          <td>Tushare API 名或其它源接口名。derived/seed/platform asset 可为 <code>None</code>。</td>
+        </tr>
+        <tr>
+          <td><code>source_doc</code></td>
+          <td><code>str | None</code></td>
+          <td>Tushare/prod 源契约建议必填</td>
+          <td><code>goldenshare/source_doc</code></td>
+          <td>本地源文档或契约文档 ID。</td>
+        </tr>
+        <tr>
+          <td><code>ingestion_sources</code></td>
+          <td><code>tuple[IngestionSource, ...]</code></td>
+          <td>是</td>
+          <td>catalog 新事实</td>
+          <td>该 asset 允许的实际摄取来源集合。可包含 Tushare API、prod DB 只读、旧湖 bootstrap、派生计算等。</td>
+        </tr>
+        <tr>
+          <td><code>default_daily_ingestion_source</code></td>
+          <td><code>IngestionSource | None</code></td>
+          <td>日常生产 asset 必填；非日常可空</td>
+          <td>job/sensor/asset 设计口径</td>
+          <td>日常更新默认来源。历史 bootstrap 来源不得伪装成默认日常来源。</td>
+        </tr>
+        <tr>
+          <td><code>bootstrap_sources</code></td>
+          <td><code>tuple[IngestionSource, ...]</code></td>
+          <td>可为空 tuple</td>
+          <td>bootstrap / runless event 文档和 helper</td>
+          <td>允许用于历史初始化、旧湖迁移、直写补录的来源。</td>
+        </tr>
+        <tr>
+          <td><code>blocking_check_names</code></td>
+          <td><code>tuple[str, ...]</code></td>
+          <td>可为空 tuple，但必须显式</td>
+          <td><code>defs/checks/**</code></td>
+          <td>正式 blocking checks 名称。C1 static gate 对账 check definition。</td>
+        </tr>
+        <tr>
+          <td><code>write_policy</code></td>
+          <td><code>WritePolicy</code></td>
+          <td>是</td>
+          <td>asset/helper 写入代码</td>
+          <td>表达写入粒度和原子替换口径，例如 stock-year、partition file、single file、ClickHouse sync。</td>
+        </tr>
+        <tr>
+          <td><code>event_policy</code></td>
+          <td><code>EventPolicy</code></td>
+          <td>是</td>
+          <td>Dagster run / runless event 设计口径</td>
+          <td>表达是否支持 runless event backfill。日常增量仍必须走正式 Dagster run。</td>
+        </tr>
+        <tr>
+          <td><code>performance_contract</code></td>
+          <td><code>LakeAssetPerformanceContract</code></td>
+          <td>是</td>
+          <td>catalog 新事实</td>
+          <td>记录批次维度、计算引擎、Python 职责和源请求策略。C1 只登记和静态检查，不生成 planner。</td>
+        </tr>
+        <tr>
+          <td><code>notes</code></td>
+          <td><code>str</code></td>
+          <td>否，默认空字符串</td>
+          <td>人工说明</td>
+          <td>只放必要说明，不承载机器门禁。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 枚举取值口径</h2>
+
+    <h3>5.1 <code>DataContractSource</code></h3>
+    <table>
+      <thead>
+        <tr>
+          <th>枚举值</th>
+          <th>含义</th>
+          <th>例子</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>tushare_raw_contract</code></td>
+          <td>字段契约来自 Tushare 源接口白名单。</td>
+          <td><code>raw_tushare_stock_daily</code>、<code>raw_stk_mins_1m</code></td>
+        </tr>
+        <tr>
+          <td><code>prod_serving_contract</code></td>
+          <td>字段契约来自已审计的 prod serving/core 白名单。</td>
+          <td>后续 prod DB 最佳事实源接入。</td>
+        </tr>
+        <tr>
+          <td><code>derived_contract</code></td>
+          <td>字段契约来自新湖派生计算。</td>
+          <td><code>gold_stk_mins_qfq_90m</code>、<code>gold_market_breadth_daily</code></td>
+        </tr>
+        <tr>
+          <td><code>seed_contract</code></td>
+          <td>字段契约来自项目 seed 或固定配置。</td>
+          <td>主要指数名单相关资产。</td>
+        </tr>
+        <tr>
+          <td><code>platform_contract</code></td>
+          <td>平台健康或观测资产契约。</td>
+          <td><code>lake_root_health</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>5.2 <code>PartitionModel</code> 分层命名</h3>
+    <p>
+      <code>PartitionModel</code> 采用两层结构：上层 <code>PartitionModelFamily</code> 表达人的分类视角，
+      例如 <code>trade_date_partition</code>；下层 <code>PartitionModel</code> 表达具体资产簇 leaf model。
+      leaf 命名规则固定为：
+    </p>
+    <pre><code>分区维度 + layer + 资产名/资产簇
+
+示例：
+trade_date_partition_raw_stock_mins
+trade_date_partition_silver_stock_mins
+trade_date_partition_gold_stock_mins_qfq_stock_year_file</code></pre>
+    <p>
+      qfq 保留特例 <code>trade_date_partition_gold_stock_mins_qfq_stock_year_file</code>：
+      它的 Dagster asset 按 <code>trade_date</code> 分区，但物理文件按 <code>freq/ts_code/year</code> 存储。
+      后缀 <code>stock_year_file</code> 用来保留这个最关键的物理写入事实。
+    </p>
+
+    <h4>5.2.1 上层 family</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>Family</th>
+          <th>含义</th>
+          <th>典型 leaf model</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>full_file</code></td>
+          <td>非分区全量文件。</td>
+          <td><code>full_file_raw_stock_basic</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td>标准交易日分区。</td>
+          <td><code>trade_date_partition_raw_stock_daily</code></td>
+        </tr>
+        <tr>
+          <td><code>serving_table</code></td>
+          <td>Serving 表，不对应 lake parquet path。</td>
+          <td><code>serving_table_serving_market_breadth</code></td>
+        </tr>
+        <tr>
+          <td><code>non_partitioned</code></td>
+          <td>非分区、非表文件资产。</td>
+          <td><code>non_partitioned_platform_lake_root_health</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h4>5.2.2 当前 leaf model 映射</h4>
+    <table>
+      <thead>
+        <tr>
+          <th>旧模型</th>
+          <th>新 leaf model</th>
+          <th>Family</th>
+          <th>Layer</th>
+          <th>资产/资产簇</th>
+          <th>物理布局</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_raw_trade_calendar</code></td>
+          <td><code>full_file</code></td>
+          <td><code>raw</code></td>
+          <td>trade calendar</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_silver_trade_calendar</code></td>
+          <td><code>full_file</code></td>
+          <td><code>silver</code></td>
+          <td>trade calendar</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_raw_stock_basic</code></td>
+          <td><code>full_file</code></td>
+          <td><code>raw</code></td>
+          <td>stock basic</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_silver_stock_basic</code></td>
+          <td><code>full_file</code></td>
+          <td><code>silver</code></td>
+          <td>stock basic</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_raw_namechange</code></td>
+          <td><code>full_file</code></td>
+          <td><code>raw</code></td>
+          <td>namechange</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_silver_namechange</code></td>
+          <td><code>full_file</code></td>
+          <td><code>silver</code></td>
+          <td>namechange</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_silver_stock_identity_map</code></td>
+          <td><code>full_file</code></td>
+          <td><code>silver</code></td>
+          <td>stock identity map</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_raw_index_basic</code></td>
+          <td><code>full_file</code></td>
+          <td><code>raw</code></td>
+          <td>index basic</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>full_file</code></td>
+          <td><code>full_file_silver_index_basic</code></td>
+          <td><code>full_file</code></td>
+          <td><code>silver</code></td>
+          <td>index basic</td>
+          <td><code>single_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_raw_stock_daily</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>raw</code></td>
+          <td>stock daily</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_silver_stock_daily</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>silver</code></td>
+          <td>stock daily</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_raw_adj_factor</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>raw</code></td>
+          <td>adj factor</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_silver_adj_factor</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>silver</code></td>
+          <td>adj factor</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_raw_suspend_d</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>raw</code></td>
+          <td>suspend d</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_silver_stock_suspend_daily</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>silver</code></td>
+          <td>stock suspend daily</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_raw_index_daily</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>raw</code></td>
+          <td>index daily</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_silver_index_daily</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>silver</code></td>
+          <td>index daily</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_raw_trade_date_partition</code></td>
+          <td><code>trade_date_partition_raw_stock_mins</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>raw</code></td>
+          <td>stock mins</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_silver_trade_date_partition</code></td>
+          <td><code>trade_date_partition_silver_stock_mins</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>silver</code></td>
+          <td>stock mins</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>stock_year_physical_trade_date_asset</code></td>
+          <td><code>trade_date_partition_gold_stock_mins_qfq_stock_year_file</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>gold</code></td>
+          <td>stock mins qfq</td>
+          <td><code>stock_year_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_gold_market_major_indices_daily</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>gold</code></td>
+          <td>market major indices daily</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_gold_market_breadth</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>gold</code></td>
+          <td>market breadth</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>trade_date_partition</code></td>
+          <td><code>trade_date_partition_gold_stock_return_distribution</code></td>
+          <td><code>trade_date_partition</code></td>
+          <td><code>gold</code></td>
+          <td>stock return distribution</td>
+          <td><code>partition_file</code></td>
+        </tr>
+        <tr>
+          <td><code>serving_table</code></td>
+          <td><code>serving_table_serving_market_breadth</code></td>
+          <td><code>serving_table</code></td>
+          <td><code>serving</code></td>
+          <td>market breadth</td>
+          <td><code>serving_table</code></td>
+        </tr>
+        <tr>
+          <td><code>non_partitioned_health</code></td>
+          <td><code>non_partitioned_platform_lake_root_health</code></td>
+          <td><code>non_partitioned</code></td>
+          <td><code>platform</code></td>
+          <td>lake root health</td>
+          <td><code>no_data_file</code></td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>5.3 性能契约字段</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>字段</th>
+          <th>类型</th>
+          <th>含义</th>
+          <th>示例</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>batch_grain</code></td>
+          <td><code>str</code></td>
+          <td>允许的核心批次维度。</td>
+          <td><code>freq/year</code>、<code>trade_date</code>、<code>single_file</code>。</td>
+        </tr>
+        <tr>
+          <td><code>compute_engine</code></td>
+          <td><code>ComputeEngine</code></td>
+          <td>正式大体量计算应使用的引擎。</td>
+          <td><code>duckdb_sql</code>、<code>tushare_resource</code>、<code>clickhouse_client</code>。</td>
+        </tr>
+        <tr>
+          <td><code>python_row_loop_allowed</code></td>
+          <td><code>bool</code></td>
+          <td>是否允许 Python 明细行循环承载正式计算。</td>
+          <td>分钟线、qfq、技术指标必须为 <code>false</code>。</td>
+        </tr>
+        <tr>
+          <td><code>source_request_policy</code></td>
+          <td><code>str</code></td>
+          <td>源请求数量和分页策略的文字契约。</td>
+          <td><code>per_partition_single_tushare_request</code>、<code>prod_db_batch_query_per_freq</code>。</td>
+        </tr>
+        <tr>
+          <td><code>notes</code></td>
+          <td><code>str</code></td>
+          <td>必要说明。</td>
+          <td>例如 qfq 90/120 只从 30/60 派生，不访问 Tushare/prod DB。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. Catalog API 设计</h2>
+    <pre><code>PARTITION_MODEL_DEFINITIONS: tuple[PartitionModelDefinition, ...] = (...)
+LAKE_ASSET_CATALOG: tuple[LakeAssetCatalogEntry, ...] = (...)
+
+
+def get_partition_model_definition(model: PartitionModel) -> PartitionModelDefinition:
+    ...
+
+
+def list_lake_asset_catalog_entries() -> tuple[LakeAssetCatalogEntry, ...]:
+    return LAKE_ASSET_CATALOG
+
+
+def get_lake_asset_catalog_entry(asset_key: str) -> LakeAssetCatalogEntry:
+    ...
+
+
+def list_lake_asset_keys() -> tuple[str, ...]:
+    ...
+
+
+def list_lake_asset_entries_by_dataset_id(dataset_id: str) -> tuple[LakeAssetCatalogEntry, ...]:
+    ...</code></pre>
+
+    <table>
+      <thead>
+        <tr>
+          <th>API</th>
+          <th>C1 用途</th>
+          <th>边界</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>get_partition_model_definition(...)</code></td>
+          <td>按 leaf <code>PartitionModel</code> 查询 family、layer、asset_family、Dagster 分区维度和物理布局。</td>
+          <td>不从字符串拆词推断层级关系。</td>
+        </tr>
+        <tr>
+          <td><code>list_lake_asset_catalog_entries()</code></td>
+          <td>治理测试和 inventory 输出。</td>
+          <td>只返回内存 tuple，不做 IO。</td>
+        </tr>
+        <tr>
+          <td><code>get_lake_asset_catalog_entry(...)</code></td>
+          <td>按 asset key 查询单资产事实。</td>
+          <td>未登记 key 抛明确错误。</td>
+        </tr>
+        <tr>
+          <td><code>list_lake_asset_entries_by_dataset_id(...)</code></td>
+          <td>处理同一 dataset id 多 asset，例如 qfq 七频度。</td>
+          <td>C1 仅用于测试和审计。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 示例 Entry</h2>
+    <p>以下示例用于说明模型承载的信息，不是最终代码逐字内容。</p>
+
+    <h3>7.1 qfq 派生资产</h3>
+    <pre><code>LakeAssetCatalogEntry(
+    asset_key="gold_stk_mins_qfq_90m",
+    dataset_id="stk_mins_qfq",
+    dataset_name="股票分钟线前复权",
+    layer=AssetLayer.GOLD,
+    data_domain=DataDomain.QUOTE_DATA,
+    group_name="quote",
+    source_system=SourceSystem.DERIVED,
+    data_contract="qfq_stock_minute_bars_derived_from_qfq_source",
+    data_contract_source=DataContractSource.DERIVED_CONTRACT,
+    column_schema=GOLD_STK_MINS_QFQ_SCHEMA,
+    path_template="{lake_root}/gold/quote/stk_mins_qfq/freq=90/ts_code={ts_code}/year={year}/part-000.parquet",
+    partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_STOCK_YEAR_FILE,
+    source_api=None,
+    source_doc=None,
+    ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+    default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
+    bootstrap_sources=(IngestionSource.OLD_LAKE_BOOTSTRAP, IngestionSource.DERIVED_FROM_ASSETS),
+    blocking_check_names=(
+        "gold_stk_mins_qfq_file_exists_and_row_count_positive",
+        "gold_stk_mins_qfq_schema_matches_contract",
+        "gold_stk_mins_qfq_freq_date_path_match",
+        "gold_stk_mins_qfq_unique_ts_code_trade_time",
+        "gold_stk_mins_qfq_price_sanity",
+        "gold_stk_mins_qfq_derived_source_ready",
+        "gold_stk_mins_qfq_derived_row_count_matches_source_windows",
+        "gold_stk_mins_qfq_derived_formula_matches_source",
+    ),
+    write_policy=WritePolicy.STOCK_YEAR_ATOMIC_REPLACE,
+    event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+    performance_contract=LakeAssetPerformanceContract(
+        batch_grain="freq/year",
+        compute_engine=ComputeEngine.DUCKDB_SQL,
+        python_row_loop_allowed=False,
+        source_request_policy="no_tushare_no_prod_db_read_source_gold_qfq_30m",
+        notes="90m 从 30m 派生，历史补录和 repair 不得退化为 per-stock 主循环。",
+    ),
+)</code></pre>
+
+    <h3>7.2 平台健康资产</h3>
+    <pre><code>LakeAssetCatalogEntry(
+    asset_key="lake_root_health",
+    dataset_id="lake_root_health",
+    dataset_name="Lake 根目录健康",
+    layer=AssetLayer.PLATFORM,
+    data_domain=DataDomain.PLATFORM_OBSERVABILITY,
+    group_name="platform_observability",
+    source_system=SourceSystem.DERIVED,
+    data_contract="lake_root_health_v1",
+    data_contract_source=DataContractSource.PLATFORM_CONTRACT,
+    column_schema=None,
+    path_template=None,
+    partition_model=PartitionModel.NON_PARTITIONED_PLATFORM_LAKE_ROOT_HEALTH,
+    source_api=None,
+    source_doc=None,
+    ingestion_sources=(IngestionSource.INFRASTRUCTURE_CHECK,),
+    default_daily_ingestion_source=None,
+    bootstrap_sources=(),
+    blocking_check_names=(
+        "lake_root_required_paths_ready",
+        "lake_root_read_write_ready",
+        "lake_root_disk_space_ready",
+        "duckdb_temp_directory_ready",
+    ),
+    write_policy=WritePolicy.NO_DATA_FILE,
+    event_policy=EventPolicy.HEALTH_MATERIALIZATION_ONLY,
+    performance_contract=LakeAssetPerformanceContract(
+        batch_grain="single_health_evaluation",
+        compute_engine=ComputeEngine.FILESYSTEM_CHECK,
+        python_row_loop_allowed=True,
+        source_request_policy="no_external_source_request",
+        notes="只做轻量文件系统和磁盘空间检查，不读 parquet。",
+    ),
+)</code></pre>
+  </section>
+
+  <section>
+    <h2>8. Static Gates</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>门禁</th>
+          <th>检查内容</th>
+          <th>失败示例</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Catalog 覆盖 active assets</td>
+          <td>active asset keys 与 catalog asset keys 集合相等。</td>
+          <td>新增 asset 未登记；catalog 遗留已删除 asset。</td>
+        </tr>
+        <tr>
+          <td>Dataset metadata 对账</td>
+          <td><code>dataset_id</code>、<code>dataset_name</code> 与 definition metadata 一致。</td>
+          <td>asset metadata 改了 dataset id，但 catalog 没改。</td>
+        </tr>
+        <tr>
+          <td>Tags 对账</td>
+          <td><code>AssetLayer</code>、<code>DataDomain</code> 与 definition tags 一致。</td>
+          <td>asset tag 写成手写字符串或中文值。</td>
+        </tr>
+        <tr>
+          <td>Source/data contract 对账</td>
+          <td><code>source_system</code>、<code>data_contract</code> 与 definition metadata 一致。</td>
+          <td>source_system 与实际 contract source 混用。</td>
+        </tr>
+        <tr>
+          <td>Path template 对账</td>
+          <td>文件型 asset 的 <code>path_template</code> 与 definition metadata 一致。</td>
+          <td>qfq 路径 helper 改了，catalog 没改。</td>
+        </tr>
+        <tr>
+          <td>Partition model 层级对账</td>
+          <td>每个 entry 的 <code>partition_model</code> 必须存在对应 <code>PartitionModelDefinition</code>；definition 的 <code>family</code>、<code>layer</code>、<code>physical_layout</code> 必须与 entry 的 layer、path、write policy 一致。</td>
+          <td>新增 leaf model 但没有登记 family；qfq 忘记标记 <code>stock_year_file</code>。</td>
+        </tr>
+        <tr>
+          <td>Column schema 对账</td>
+          <td>表类 asset 的 <code>column_schema</code> 与 <code>dagster/column_schema</code> 一致。</td>
+          <td>definition metadata 缺字段说明或字段类型漂移。</td>
+        </tr>
+        <tr>
+          <td>Checks 对账</td>
+          <td>catalog 中的 <code>blocking_check_names</code> 必须能在 active checks 中找到，且对应目标 asset。</td>
+          <td>新增 derived check 后没有写入 catalog。</td>
+        </tr>
+        <tr>
+          <td>Dependency boundary</td>
+          <td><code>defs/catalog/lake_assets.py</code> 禁止 import <code>src.foundation</code>、<code>lake_console.backend</code>。</td>
+          <td>为了复用数据基座直接引入生产主系统运行代码。</td>
+        </tr>
+        <tr>
+          <td>命名门禁</td>
+          <td>禁止 V1/V2、phase、temp、old/new 等阶段性命名进入正式 catalog 代码。</td>
+          <td><code>LakeAssetDefinitionV2</code>、<code>phase_catalog.py</code>。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>9. 开发步骤</h2>
+    <ol>
+      <li>已新增 <code>defs/catalog/lake_assets.py</code>，定义枚举、dataclass、partition model definition、asset registry 和查询 helper。</li>
+      <li>已把当前 <code>ASSET_CONTRACTS</code>、<code>ASSET_PATH_TEMPLATES</code>、<code>ASSET_COLUMN_SCHEMAS</code> 的事实迁入 catalog。</li>
+      <li>已补齐每个 asset 的 <code>data_contract_source</code>、<code>ingestion_sources</code>、<code>partition_model</code>、<code>write_policy</code>、<code>event_policy</code>、<code>performance_contract</code>。</li>
+      <li>已更新 <code>defs/catalog/__init__.py</code>，以 lazy export 方式导出 catalog API，避免 run contract metadata 循环导入。</li>
+      <li>已改造 <code>test_asset_governance_contracts.py</code>，不再维护隐形 <code>ASSET_CONTRACTS</code>。</li>
+      <li>已扩展 static gates，覆盖 active asset 对账、schema 对账、path 对账、check 对账和 import 边界。</li>
+      <li>已同步更新 Markdown 设计文档状态，避免 HTML 与主设计文档分裂。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>10. 性能门禁</h2>
+    <p>
+      C1 本身不跑数据、不扫 lake、不访问正式 Dagster instance，因此运行性能风险来自测试和代码加载，而不是数据处理。
+      但 catalog 必须提前承载后续 C2/C3 的性能事实。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>项</th>
+          <th>C1 口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>对象数</td>
+          <td>当前 40 个 active assets。</td>
+        </tr>
+        <tr>
+          <td>日期/分区数</td>
+          <td>C1 不枚举分区。</td>
+        </tr>
+        <tr>
+          <td>源请求数</td>
+          <td>0。不访问 Tushare、prod DB、旧湖、ClickHouse。</td>
+        </tr>
+        <tr>
+          <td>DuckDB 扫描/写入</td>
+          <td>0。不创建 DuckDB 连接。</td>
+        </tr>
+        <tr>
+          <td>正式 lake 写入</td>
+          <td>0。不写 <code>/Volumes/datasource/data_lake</code>。</td>
+        </tr>
+        <tr>
+          <td>Dagster instance 读写</td>
+          <td>0。不运行 <code>dg</code>，不读取正式 event log。</td>
+        </tr>
+        <tr>
+          <td>测试复杂度</td>
+          <td>集合对账和 definition metadata 读取，规模固定在 active definitions 数量级。</td>
+        </tr>
+        <tr>
+          <td>不可接受阈值</td>
+          <td>任何 C1 测试需要访问 lake、Dagster instance、prod DB、Tushare，均视为设计错误。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>11. 非目标项</h2>
+    <div class="warning">
+      <strong>C1 不做以下事情</strong>
+      <ul>
+        <li>不自动生成 Dagster assets、checks、jobs、sensors。</li>
+        <li>不改变任何 asset 的 <code>@dg.asset(...)</code> 参数。</li>
+        <li>不改变 qfq daily/repair sensor readiness。</li>
+        <li>不改变 bootstrap、repair、runless event CLI 行为。</li>
+        <li>不接旧湖 backend UI，不新增数据库表，不新增配置项。</li>
+        <li>不 import <code>src.foundation</code> 运行时。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>12. 验证计划</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>验证</th>
+          <th>命令/方式</th>
+          <th>目的</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Python 编译</td>
+          <td><code>python3 -m py_compile</code> 触达新增 catalog 和测试文件。</td>
+          <td>确认新增模型和 registry 无语法错误。</td>
+        </tr>
+        <tr>
+          <td>治理测试</td>
+          <td><code>python3 -m unittest tests.test_asset_governance_contracts</code></td>
+          <td>确认 catalog 替代隐形 <code>ASSET_CONTRACTS</code>。</td>
+        </tr>
+        <tr>
+          <td>Static gates</td>
+          <td><code>python3 -m unittest tests.test_run_contract_static_gates</code></td>
+          <td>确认 import 边界、命名、source/path/schema/check 门禁。</td>
+        </tr>
+        <tr>
+          <td>Ruff</td>
+          <td><code>.venv/bin/ruff check</code> 触达文件。</td>
+          <td>确认代码风格。</td>
+        </tr>
+        <tr>
+          <td>Diff check</td>
+          <td><code>git diff --check</code></td>
+          <td>确认无空白错误。</td>
+        </tr>
+        <tr>
+          <td>文档完整性</td>
+          <td><code>python3 scripts/check_docs_integrity.py</code></td>
+          <td>确认文档基础门禁通过。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>13. Review 关注点</h2>
+    <div class="cards">
+      <div class="card ok">
+        <strong>字段类型是否足够明确</strong>
+        当前模型用枚举约束 source、partition、write、event、compute engine，避免后续自由字符串乱飞。
+      </div>
+      <div class="card ok">
+        <strong>是否过度抽象</strong>
+        C1 不生成资产、不消费 catalog，只做 registry 和 static gates。抽象风险可控。
+      </div>
+      <div class="card ok">
+        <strong>是否能支撑后续数据接入</strong>
+        Tushare、prod DB、旧湖 bootstrap、derived assets 已有独立来源字段，不再压进一个 <code>source_system</code>。
+      </div>
+      <div class="card ok">
+        <strong>是否保护性能口径</strong>
+        每个 entry 有 performance contract，后续 C2/C3 可用来禁止 per-stock Python 明细循环。
+      </div>
+    </div>
+  </section>
+</main>
+</body>
+</html>

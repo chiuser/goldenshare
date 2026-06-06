@@ -12,6 +12,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 DEFS_DIR = Path("src/orchestrator/defs")
 ASSETS_DIR = DEFS_DIR / "assets"
 CHECKS_DIR = DEFS_DIR / "checks"
+CATALOG_DIR = DEFS_DIR / "catalog"
 JOBS_DIR = DEFS_DIR / "jobs"
 SENSORS_DIR = DEFS_DIR / "sensors"
 SCHEDULES_DIR = DEFS_DIR / "schedules"
@@ -426,6 +427,81 @@ class RunContractStaticGateTests(unittest.TestCase):
         helper_source = DUCKDB_CONNECTION_HELPER.read_text()
         if helper_source.count("duckdb.connect(") != 1:
             issues.append("duckdb_connection.py must be the only DuckDB connect owner")
+
+        self.assertEqual(issues, [])
+
+    def test_lake_asset_catalog_registry_stays_read_only_and_boundary_safe(
+        self,
+    ) -> None:
+        path = CATALOG_DIR / "lake_assets.py"
+        source = path.read_text()
+        tree = _parse_python_file(path)
+        issues = []
+
+        forbidden_import_prefixes = (
+            "src",
+            "lake_console.backend",
+            "orchestrator.defs.assets",
+            "orchestrator.defs.bootstrap",
+            "orchestrator.defs.duckdb_connection",
+            "orchestrator.defs.duckdb_sql",
+            "orchestrator.defs.jobs",
+            "orchestrator.defs.ops",
+            "orchestrator.defs.resources",
+            "orchestrator.defs.sensors",
+            "dagster",
+            "duckdb",
+            "psycopg",
+            "requests",
+            "clickhouse",
+        )
+        forbidden_fragments = (
+            "DagsterInstance",
+            "DAGSTER_HOME",
+            "duckdb.connect",
+            "event_log_storage",
+            "get_asset_check_execution_history",
+            "get_latest_asset_check_execution_by_key",
+            "glob(",
+            "listdir(",
+            "rglob(",
+            "scandir(",
+        )
+        forbidden_stage_names = (
+            "old_lake_catalog",
+            "new_lake_catalog",
+            "phase",
+            "poc",
+            "temporary_catalog",
+        )
+
+        for node in ast.walk(tree):
+            modules: list[str] = []
+            if isinstance(node, ast.Import):
+                modules.extend(alias.name for alias in node.names)
+            elif isinstance(node, ast.ImportFrom) and node.module is not None:
+                modules.append(node.module)
+
+            for module in modules:
+                if any(
+                    module == prefix or module.startswith(f"{prefix}.")
+                    for prefix in forbidden_import_prefixes
+                ):
+                    issues.append(
+                        f"{_node_location(path, node)} imports forbidden catalog "
+                        f"dependency: {module}"
+                    )
+
+        issues.extend(
+            f"{path} contains forbidden read/write or instance fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        )
+        issues.extend(
+            f"{path} contains forbidden staged catalog name: {fragment}"
+            for fragment in forbidden_stage_names
+            if fragment in source
+        )
 
         self.assertEqual(issues, [])
 

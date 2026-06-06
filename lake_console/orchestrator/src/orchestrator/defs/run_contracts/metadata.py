@@ -5,7 +5,7 @@ from enum import Enum
 from pathlib import Path
 from typing import Any
 
-from orchestrator.defs.catalog import get_dataset_chinese_name
+from orchestrator.defs.catalog.name_mapping import get_dataset_chinese_name
 from orchestrator.defs.run_contracts.column_schema import (
     ColumnContract,
     build_column_schema_metadata,

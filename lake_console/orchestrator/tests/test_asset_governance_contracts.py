@@ -1,3 +1,5 @@
+import importlib
+import pkgutil
 import re
 import unittest
 
@@ -84,7 +86,18 @@ from orchestrator.defs.assets.suspend_d import (
     raw_tushare_suspend_d,
     silver_stock_suspend_daily,
 )
-from orchestrator.defs.catalog import DATASET_CHINESE_NAMES
+import orchestrator.defs.checks as checks_pkg
+from orchestrator.defs.catalog import (
+    DATASET_CHINESE_NAMES,
+    PartitionModel,
+    PartitionPhysicalLayout,
+    WritePolicy,
+    get_lake_asset_catalog_entry,
+    get_partition_model_definition,
+    list_lake_asset_catalog_entries,
+    list_lake_asset_entries_by_dataset_id,
+    list_lake_asset_keys,
+)
 from orchestrator.defs.checks.index_basic_checks import INDEX_BASIC_SILVER_COLUMN_TYPES
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
@@ -105,36 +118,6 @@ from orchestrator.defs.duckdb_sql import (
     SUSPEND_D_SILVER_REQUIRED_COLUMNS,
     TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
     TRADE_CALENDAR_SILVER_REQUIRED_COLUMNS,
-)
-from orchestrator.defs.paths import (
-    PATH_TEMPLATE_LAKE_ROOT,
-    PATH_TEMPLATE_PARTITION_KEY,
-    PATH_TEMPLATE_TS_CODE,
-    PATH_TEMPLATE_YEAR,
-    gold_market_breadth_daily_path,
-    gold_market_major_indices_daily_path,
-    gold_stk_mins_qfq_path,
-    gold_stock_return_distribution_path,
-    lake_path_template,
-    raw_adj_factor_path,
-    raw_index_basic_path,
-    raw_index_daily_by_code_path,
-    raw_namechange_path,
-    raw_stock_basic_path,
-    raw_stock_daily_path,
-    raw_stk_mins_path,
-    raw_suspend_d_path,
-    raw_trade_calendar_path,
-    silver_index_basic_path,
-    silver_index_daily_path,
-    silver_adj_factor_path,
-    silver_namechange_path,
-    silver_stk_mins_path,
-    silver_stock_basic_path,
-    silver_stock_daily_path,
-    silver_stock_identity_map_path,
-    silver_stock_suspend_daily_path,
-    silver_trade_calendar_path,
 )
 from orchestrator.defs.partitions import (
     cn_a_stock_mins_silver_trade_days,
@@ -166,7 +149,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_INDEX_DAILY_SCHEMA,
     SILVER_ADJ_FACTOR_SCHEMA,
     SILVER_NAMECHANGE_SCHEMA,
-    SILVER_STK_MINS_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
@@ -179,6 +161,8 @@ from orchestrator.defs.run_contracts.metadata import (
     DATASET_ID_METADATA_KEY,
     DATASET_NAME_METADATA_KEY,
     PATH_TEMPLATE_METADATA_KEY,
+    SOURCE_API_METADATA_KEY,
+    SOURCE_DOC_METADATA_KEY,
     SOURCE_SYSTEM_METADATA_KEY,
     build_dataset_metadata,
 )
@@ -187,298 +171,75 @@ from orchestrator.defs.run_contracts.metadata import (
 DAGSTER_TAG_VALUE_PATTERN = re.compile(r"^[A-Za-z0-9_.-]{1,63}$")
 
 
-ASSET_CONTRACTS = {
-    raw_tushare_trade_calendar: ("raw", "basic_data", "trade_cal", "交易日历"),
-    silver_trade_calendar: ("silver", "basic_data", "trade_cal", "交易日历"),
-    raw_tushare_stock_basic: ("raw", "basic_data", "stock_basic", "股票基础信息"),
-    silver_stock_basic: ("silver", "basic_data", "stock_basic", "股票基础信息"),
-    raw_tushare_namechange: ("raw", "basic_data", "namechange", "股票曾用名"),
-    silver_namechange: ("silver", "basic_data", "namechange", "股票曾用名"),
-    silver_stock_identity_map: (
-        "silver",
-        "basic_data",
-        "stock_identity_map",
-        "股票身份映射",
-    ),
-    raw_tushare_suspend_d: ("raw", "quote_data", "suspend_d", "每日停复牌信息"),
-    silver_stock_suspend_daily: ("silver", "quote_data", "suspend_d", "每日停复牌信息"),
-    raw_tushare_stock_daily: ("raw", "quote_data", "daily", "A股日线行情"),
-    silver_stock_daily: ("silver", "quote_data", "daily", "A股日线行情"),
-    raw_tushare_adj_factor: ("raw", "quote_data", "adj_factor", "复权因子"),
-    silver_adj_factor: ("silver", "quote_data", "adj_factor", "复权因子"),
-    raw_stk_mins_1m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
-    raw_stk_mins_5m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
-    raw_stk_mins_15m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
-    raw_stk_mins_30m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
-    raw_stk_mins_60m: ("raw", "quote_data", "stk_mins", "股票分钟线"),
-    silver_stk_mins_1m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
-    silver_stk_mins_5m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
-    silver_stk_mins_15m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
-    silver_stk_mins_30m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
-    silver_stk_mins_60m: ("silver", "quote_data", "stk_mins", "股票分钟线"),
-    gold_stk_mins_qfq_1m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    gold_stk_mins_qfq_5m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    gold_stk_mins_qfq_15m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    gold_stk_mins_qfq_30m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    gold_stk_mins_qfq_60m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    gold_stk_mins_qfq_90m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    gold_stk_mins_qfq_120m: ("gold", "quote_data", "stk_mins_qfq", "股票分钟线前复权"),
-    raw_tushare_index_basic: ("raw", "index_topic", "index_basic", "指数基本信息"),
-    silver_index_basic: ("silver", "index_topic", "index_basic", "指数基本信息"),
-    raw_tushare_index_daily_by_code: (
-        "raw",
-        "index_topic",
-        "index_daily",
-        "指数日线行情",
-    ),
-    silver_index_daily: ("silver", "index_topic", "index_daily", "指数日线行情"),
-    gold_market_major_indices_daily: (
-        "gold",
-        "index_topic",
-        "market_major_indices_daily",
-        "主要指数日线",
-    ),
-    gold_market_breadth_daily: (
-        "gold",
-        "derived_metric",
-        "market_breadth",
-        "市场宽度",
-    ),
-    gold_stock_return_distribution: (
-        "gold",
-        "derived_metric",
-        "stock_return_distribution",
-        "股票涨跌幅分布",
-    ),
-    ch_share_fact_market_breadth_daily: (
-        "serving",
-        "derived_metric",
-        "ch_share_fact_market_breadth_daily",
-        "ClickHouse 市场宽度日表",
-    ),
-    prod_ch_share_fact_market_breadth_daily: (
-        "serving",
-        "derived_metric",
-        "prod_ch_share_fact_market_breadth_daily",
-        "Prod ClickHouse 市场宽度日表",
-    ),
-    lake_root_health: (
-        "platform",
-        "platform_observability",
-        "lake_root_health",
-        "Lake 根目录健康",
-    ),
+ACTIVE_ASSET_DEFINITIONS = (
+    raw_tushare_trade_calendar,
+    silver_trade_calendar,
+    raw_tushare_stock_basic,
+    silver_stock_basic,
+    raw_tushare_namechange,
+    silver_namechange,
+    silver_stock_identity_map,
+    raw_tushare_suspend_d,
+    silver_stock_suspend_daily,
+    raw_tushare_stock_daily,
+    silver_stock_daily,
+    raw_tushare_adj_factor,
+    silver_adj_factor,
+    raw_stk_mins_1m,
+    raw_stk_mins_5m,
+    raw_stk_mins_15m,
+    raw_stk_mins_30m,
+    raw_stk_mins_60m,
+    silver_stk_mins_1m,
+    silver_stk_mins_5m,
+    silver_stk_mins_15m,
+    silver_stk_mins_30m,
+    silver_stk_mins_60m,
+    gold_stk_mins_qfq_1m,
+    gold_stk_mins_qfq_5m,
+    gold_stk_mins_qfq_15m,
+    gold_stk_mins_qfq_30m,
+    gold_stk_mins_qfq_60m,
+    gold_stk_mins_qfq_90m,
+    gold_stk_mins_qfq_120m,
+    raw_tushare_index_basic,
+    silver_index_basic,
+    raw_tushare_index_daily_by_code,
+    silver_index_daily,
+    gold_market_major_indices_daily,
+    gold_market_breadth_daily,
+    gold_stock_return_distribution,
+    ch_share_fact_market_breadth_daily,
+    prod_ch_share_fact_market_breadth_daily,
+    lake_root_health,
+)
+ACTIVE_ASSETS_BY_KEY = {
+    asset.key.to_user_string(): asset for asset in ACTIVE_ASSET_DEFINITIONS
 }
+ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
 
-ASSET_PATH_TEMPLATES = {
-    raw_tushare_trade_calendar: lake_path_template(
-        raw_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    silver_trade_calendar: lake_path_template(
-        silver_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    raw_tushare_stock_basic: lake_path_template(
-        raw_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    silver_stock_basic: lake_path_template(
-        silver_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    raw_tushare_namechange: lake_path_template(
-        raw_namechange_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    silver_namechange: lake_path_template(
-        silver_namechange_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    silver_stock_identity_map: lake_path_template(
-        silver_stock_identity_map_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    raw_tushare_suspend_d: lake_path_template(
-        raw_suspend_d_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stock_suspend_daily: lake_path_template(
-        silver_stock_suspend_daily_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            PATH_TEMPLATE_PARTITION_KEY,
-        )
-    ),
-    raw_tushare_stock_daily: lake_path_template(
-        raw_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stock_daily: lake_path_template(
-        silver_stock_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_tushare_adj_factor: lake_path_template(
-        raw_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_stk_mins_1m: lake_path_template(
-        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 1, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_stk_mins_5m: lake_path_template(
-        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 5, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_stk_mins_15m: lake_path_template(
-        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 15, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_stk_mins_30m: lake_path_template(
-        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 30, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_stk_mins_60m: lake_path_template(
-        raw_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 60, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stk_mins_1m: lake_path_template(
-        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 1, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stk_mins_5m: lake_path_template(
-        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 5, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stk_mins_15m: lake_path_template(
-        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 15, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stk_mins_30m: lake_path_template(
-        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 30, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_stk_mins_60m: lake_path_template(
-        silver_stk_mins_path(PATH_TEMPLATE_LAKE_ROOT, 60, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    silver_adj_factor: lake_path_template(
-        silver_adj_factor_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    raw_tushare_index_basic: lake_path_template(
-        raw_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    silver_index_basic: lake_path_template(
-        silver_index_basic_path(PATH_TEMPLATE_LAKE_ROOT)
-    ),
-    raw_tushare_index_daily_by_code: lake_path_template(
-        raw_index_daily_by_code_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            PATH_TEMPLATE_PARTITION_KEY,
-        )
-    ),
-    silver_index_daily: lake_path_template(
-        silver_index_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)
-    ),
-    gold_market_major_indices_daily: lake_path_template(
-        gold_market_major_indices_daily_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            PATH_TEMPLATE_PARTITION_KEY,
-        )
-    ),
-    gold_market_breadth_daily: lake_path_template(
-        gold_market_breadth_daily_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            PATH_TEMPLATE_PARTITION_KEY,
-        )
-    ),
-    gold_stk_mins_qfq_1m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            1,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stk_mins_qfq_5m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            5,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stk_mins_qfq_15m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            15,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stk_mins_qfq_30m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            30,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stk_mins_qfq_60m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            60,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stk_mins_qfq_90m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            90,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stk_mins_qfq_120m: lake_path_template(
-        gold_stk_mins_qfq_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            120,
-            PATH_TEMPLATE_TS_CODE,
-            PATH_TEMPLATE_YEAR,
-        )
-    ),
-    gold_stock_return_distribution: lake_path_template(
-        gold_stock_return_distribution_path(
-            PATH_TEMPLATE_LAKE_ROOT,
-            PATH_TEMPLATE_PARTITION_KEY,
-        )
-    ),
-}
 
-ASSET_COLUMN_SCHEMAS = {
-    raw_tushare_trade_calendar: RAW_TUSHARE_TRADE_CALENDAR_SCHEMA,
-    raw_tushare_stock_basic: RAW_TUSHARE_STOCK_BASIC_SCHEMA,
-    raw_tushare_namechange: RAW_TUSHARE_NAMECHANGE_SCHEMA,
-    raw_tushare_suspend_d: RAW_TUSHARE_STOCK_SUSPEND_DAILY_SCHEMA,
-    raw_tushare_stock_daily: RAW_TUSHARE_STOCK_DAILY_SCHEMA,
-    raw_tushare_adj_factor: RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
-    raw_stk_mins_1m: RAW_STK_MINS_SCHEMA,
-    raw_stk_mins_5m: RAW_STK_MINS_SCHEMA,
-    raw_stk_mins_15m: RAW_STK_MINS_SCHEMA,
-    raw_stk_mins_30m: RAW_STK_MINS_SCHEMA,
-    raw_stk_mins_60m: RAW_STK_MINS_SCHEMA,
-    silver_stk_mins_1m: SILVER_STK_MINS_SCHEMA,
-    silver_stk_mins_5m: SILVER_STK_MINS_SCHEMA,
-    silver_stk_mins_15m: SILVER_STK_MINS_SCHEMA,
-    silver_stk_mins_30m: SILVER_STK_MINS_SCHEMA,
-    silver_stk_mins_60m: SILVER_STK_MINS_SCHEMA,
-    gold_stk_mins_qfq_1m: GOLD_STK_MINS_QFQ_SCHEMA,
-    gold_stk_mins_qfq_5m: GOLD_STK_MINS_QFQ_SCHEMA,
-    gold_stk_mins_qfq_15m: GOLD_STK_MINS_QFQ_SCHEMA,
-    gold_stk_mins_qfq_30m: GOLD_STK_MINS_QFQ_SCHEMA,
-    gold_stk_mins_qfq_60m: GOLD_STK_MINS_QFQ_SCHEMA,
-    gold_stk_mins_qfq_90m: GOLD_STK_MINS_QFQ_SCHEMA,
-    gold_stk_mins_qfq_120m: GOLD_STK_MINS_QFQ_SCHEMA,
-    raw_tushare_index_basic: RAW_TUSHARE_INDEX_BASIC_SCHEMA,
-    raw_tushare_index_daily_by_code: RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
-    silver_trade_calendar: SILVER_TRADE_CALENDAR_SCHEMA,
-    silver_stock_basic: SILVER_STOCK_BASIC_SCHEMA,
-    silver_namechange: SILVER_NAMECHANGE_SCHEMA,
-    silver_stock_identity_map: SILVER_STOCK_IDENTITY_MAP_SCHEMA,
-    silver_stock_suspend_daily: SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
-    silver_stock_daily: SILVER_STOCK_DAILY_SCHEMA,
-    silver_adj_factor: SILVER_ADJ_FACTOR_SCHEMA,
-    silver_index_basic: SILVER_INDEX_BASIC_SCHEMA,
-    silver_index_daily: SILVER_INDEX_DAILY_SCHEMA,
-    gold_market_breadth_daily: GOLD_MARKET_BREADTH_DAILY_SCHEMA,
-    gold_stock_return_distribution: GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
-    gold_market_major_indices_daily: GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
-    ch_share_fact_market_breadth_daily: CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
-    prod_ch_share_fact_market_breadth_daily: (
-        CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA
-    ),
-}
+def _catalog_entries_by_key():
+    return {entry.asset_key: entry for entry in list_lake_asset_catalog_entries()}
 
-ASSETS_WITHOUT_COLUMN_SCHEMA = {lake_root_health}
+
+def _blocking_check_names_by_asset_key() -> dict[str, set[str]]:
+    check_names: dict[str, set[str]] = {}
+    for module_info in pkgutil.iter_modules(checks_pkg.__path__):
+        if module_info.name.startswith("__"):
+            continue
+        module = importlib.import_module(f"orchestrator.defs.checks.{module_info.name}")
+        for value in vars(module).values():
+            specs = getattr(value, "check_specs", None)
+            if specs is None:
+                continue
+            for spec in specs:
+                if not spec.blocking:
+                    continue
+                check_names.setdefault(spec.asset_key.to_user_string(), set()).add(
+                    spec.name
+                )
+    return check_names
 
 
 class AssetGovernanceContractTests(unittest.TestCase):
@@ -523,30 +284,102 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 40)
+        catalog_entries = _catalog_entries_by_key()
+        self.assertEqual(len(catalog_entries), 40)
+        self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
-        for asset, (
-            layer,
-            data_domain,
-            dataset_id,
-            dataset_name,
-        ) in ASSET_CONTRACTS.items():
-            with self.subTest(asset=asset.key.to_user_string()):
+        for asset_key, entry in catalog_entries.items():
+            with self.subTest(asset=asset_key):
+                asset = ACTIVE_ASSETS_BY_KEY[asset_key]
                 spec = asset.get_asset_spec()
 
-                self.assertEqual(spec.tags[ASSET_LAYER_TAG], layer)
-                self.assertEqual(spec.tags[DATA_DOMAIN_TAG], data_domain)
+                self.assertEqual(spec.group_name, entry.group_name)
+                self.assertEqual(spec.tags[ASSET_LAYER_TAG], entry.layer.value)
+                self.assertEqual(spec.tags[DATA_DOMAIN_TAG], entry.data_domain.value)
                 for value in spec.tags.values():
                     self.assertRegex(value, DAGSTER_TAG_VALUE_PATTERN)
 
-                self.assertEqual(spec.metadata[DATASET_ID_METADATA_KEY], dataset_id)
-                self.assertEqual(spec.metadata[DATASET_NAME_METADATA_KEY], dataset_name)
-                self.assertIn(SOURCE_SYSTEM_METADATA_KEY, spec.metadata)
-                self.assertIn(DATA_CONTRACT_METADATA_KEY, spec.metadata)
-                if asset in ASSET_PATH_TEMPLATES:
+                self.assertEqual(
+                    spec.metadata[DATASET_ID_METADATA_KEY],
+                    entry.dataset_id,
+                )
+                self.assertEqual(
+                    spec.metadata[DATASET_NAME_METADATA_KEY],
+                    entry.dataset_name,
+                )
+                self.assertEqual(
+                    spec.metadata[SOURCE_SYSTEM_METADATA_KEY],
+                    entry.source_system.value,
+                )
+                self.assertEqual(
+                    spec.metadata[DATA_CONTRACT_METADATA_KEY],
+                    entry.data_contract,
+                )
+                if entry.path_template is None:
+                    self.assertNotIn(PATH_TEMPLATE_METADATA_KEY, spec.metadata)
+                else:
                     self.assertEqual(
                         spec.metadata[PATH_TEMPLATE_METADATA_KEY],
-                        ASSET_PATH_TEMPLATES[asset],
+                        entry.path_template,
+                    )
+                if entry.source_api is not None:
+                    self.assertEqual(
+                        spec.metadata[SOURCE_API_METADATA_KEY],
+                        entry.source_api,
+                    )
+                if entry.source_doc is not None:
+                    self.assertEqual(
+                        spec.metadata[SOURCE_DOC_METADATA_KEY],
+                        entry.source_doc,
+                    )
+
+    def test_catalog_api_returns_registered_entries(self) -> None:
+        entries = list_lake_asset_catalog_entries()
+
+        self.assertIsInstance(entries, tuple)
+        self.assertEqual(len(entries), 40)
+        self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
+        self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
+        self.assertIs(
+            get_lake_asset_catalog_entry("lake_root_health"),
+            _catalog_entries_by_key()["lake_root_health"],
+        )
+
+        qfq_entries = list_lake_asset_entries_by_dataset_id("stk_mins_qfq")
+        self.assertEqual(len(qfq_entries), 7)
+        self.assertEqual({entry.dataset_id for entry in qfq_entries}, {"stk_mins_qfq"})
+
+        with self.assertRaises(KeyError):
+            get_lake_asset_catalog_entry("missing_asset")
+        with self.assertRaises(KeyError):
+            get_partition_model_definition("missing_partition_model")  # type: ignore[arg-type]
+
+    def test_partition_models_are_registered_and_policy_aligned(self) -> None:
+        expected_write_policy_by_layout = {
+            PartitionPhysicalLayout.SINGLE_FILE: WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+            PartitionPhysicalLayout.PARTITION_FILE: WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+            PartitionPhysicalLayout.STOCK_YEAR_FILE: WritePolicy.STOCK_YEAR_ATOMIC_REPLACE,
+            PartitionPhysicalLayout.SERVING_TABLE: WritePolicy.CLICKHOUSE_TABLE_SYNC,
+            PartitionPhysicalLayout.NO_DATA_FILE: WritePolicy.NO_DATA_FILE,
+        }
+
+        for entry in list_lake_asset_catalog_entries():
+            with self.subTest(asset=entry.asset_key):
+                definition = get_partition_model_definition(entry.partition_model)
+                self.assertEqual(definition.model, entry.partition_model)
+                self.assertEqual(definition.layer, entry.layer)
+                self.assertEqual(
+                    entry.write_policy,
+                    expected_write_policy_by_layout[definition.physical_layout],
+                )
+                if entry.dataset_id == "stk_mins_qfq":
+                    self.assertEqual(
+                        entry.partition_model,
+                        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_STOCK_YEAR_FILE,
+                    )
+                    self.assertEqual(
+                        definition.physical_layout,
+                        PartitionPhysicalLayout.STOCK_YEAR_FILE,
                     )
 
     def test_stk_mins_assets_use_expected_partitions(self) -> None:
@@ -594,13 +427,20 @@ class AssetGovernanceContractTests(unittest.TestCase):
     def test_assets_register_definition_column_schema(
         self,
     ) -> None:
+        catalog_entries = _catalog_entries_by_key()
+        schemas_by_asset_key = {
+            asset_key: entry.column_schema
+            for asset_key, entry in catalog_entries.items()
+            if entry.column_schema is not None
+        }
         self.assertEqual(
-            set(ASSET_COLUMN_SCHEMAS) | ASSETS_WITHOUT_COLUMN_SCHEMA,
-            set(ASSET_CONTRACTS),
+            set(schemas_by_asset_key) | ASSETS_WITHOUT_COLUMN_SCHEMA,
+            set(ACTIVE_ASSETS_BY_KEY),
         )
 
-        for asset, expected_schema in ASSET_COLUMN_SCHEMAS.items():
-            with self.subTest(asset=asset.key.to_user_string()):
+        for asset_key, expected_schema in schemas_by_asset_key.items():
+            with self.subTest(asset=asset_key):
+                asset = ACTIVE_ASSETS_BY_KEY[asset_key]
                 spec = asset.get_asset_spec()
                 schema_metadata = spec.metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY]
                 columns = schema_metadata.schema.columns
@@ -618,10 +458,24 @@ class AssetGovernanceContractTests(unittest.TestCase):
                     [column.description for column in expected_schema],
                 )
 
-        for asset in ASSETS_WITHOUT_COLUMN_SCHEMA:
-            with self.subTest(asset=asset.key.to_user_string()):
+        for asset_key in ASSETS_WITHOUT_COLUMN_SCHEMA:
+            with self.subTest(asset=asset_key):
+                asset = ACTIVE_ASSETS_BY_KEY[asset_key]
                 spec = asset.get_asset_spec()
                 self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, spec.metadata)
+
+    def test_catalog_blocking_checks_match_active_check_specs(self) -> None:
+        expected_check_names = {
+            entry.asset_key: set(entry.blocking_check_names)
+            for entry in list_lake_asset_catalog_entries()
+        }
+        actual_check_names = {
+            asset_key: check_names
+            for asset_key, check_names in _blocking_check_names_by_asset_key().items()
+            if asset_key in ACTIVE_ASSETS_BY_KEY
+        }
+
+        self.assertEqual(actual_check_names, expected_check_names)
 
     def test_column_constants_are_derived_from_schema(
         self,
