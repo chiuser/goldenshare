@@ -282,7 +282,7 @@
     <h2>1. 状态与范围</h2>
     <table>
       <tr><th>项目</th><th>口径</th></tr>
-      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F/M11G 已完成 90/120 历史直写补录、runless events 和最终 full audit 收口；M11H 已修复 qfq daily/repair sensor readiness 性能路径。</td></tr>
+      <tr><td>状态</td><td>设计口径已确认。raw 五频度正式资产、prod DB 批量抽取、Tushare <code>merge_repair</code> 人工备用入口、silver 五频度资产/checks/job/sensor、2014+ silver 历史文件与 runless events、native gold qfq 五频度历史文件与 runless events、qfq daily job/sensor、factor repair job/sensor、repair 非分区建模、repair <code>freq/year</code> 批量写回、DuckDB 统一连接治理和 qfq writer pool 均已落地。M11 已新增 <code>gold_stk_mins_qfq_90m</code> / <code>gold_stk_mins_qfq_120m</code> derived assets，并把 qfq daily 与 repair 入口扩为七频度；M11F/M11G 已完成 90/120 历史直写补录、runless events 和最终 full audit 收口；M11H 已修复 qfq daily/repair sensor readiness 性能路径。M12 MACD/KDJ 指标资产已另起专项设计文档，当前基础 stk_mins/qfq 文档只保留上游事实口径。</td></tr>
       <tr><td>范围</td><td>新 Dagster lake 的股票分钟线资产族：raw、silver、gold qfq。</td></tr>
       <tr><td>不涉及</td><td>M4/M4B 开发范围不进入 <code>silver_stk_mins_*</code> 或 <code>gold_stk_mins_qfq_*</code>；不在代码里自动覆盖 M3 历史 baseline，不新增第二套 raw asset。任何正式 backfill、手动 run 或 sensor 启用都必须单独列范围、影响和回滚方式后审批执行。</td></tr>
       <tr><td>关键拍板</td><td>raw 使用 <code>cn_a_stock_mins_trade_days</code>，覆盖 2009 年以来全量分钟线；silver 新增 <code>cn_a_stock_mins_silver_trade_days</code>，只注册 <code>2014-01-01</code> 之后的可生成日期；<code>freq</code> 拆成不同 asset，不进入 Dagster partition key。</td></tr>
@@ -1206,7 +1206,7 @@ ops:
       本节是进入 M7 后的正式设计方案；M7A 性能验证工具、M7B 主表契约基础、M7C 纯计算 helper、M8A gold assets、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 job/sensor、M9B factor repair detection 契约、M9C/M9D factor repair job/sensor、M9E factor repair 批量写回性能修正，以及 M11 90/120 派生 qfq assets 均已实现代码口径。
       正式历史 gold qfq 物理文件和 Dagster event log 已完成对齐：五频度各 <code>3014</code> 个 materialized partitions，40 个 checks 均为 <code>3014</code> 绿。
       M11F 已实现并执行 90/120 历史直写补录与 runless event 专用 CLI；M11G 已将年度 event 补录后的复核修正为 quick audit，并已完成最终 full audit 收口：90/120 各 <code>3019</code> 个 materialized partitions，16 个 derived checks 均为 <code>3019</code> 绿，目标 stock-year 文件 <code>105701/105701</code> 存在，样本 readiness 全部通过。后续如需重跑或修正，仍必须按 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 的 dry-run、sample、full file generation、event report、quick audit、final full audit 流程单独审批推进，禁止每年重复 full audit 扫描持续变大的 check event history。
-      M9C/M11 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets 上。该 job 与 <code>stock_mins_qfq_factor_repair_sensor</code> 默认停止，正式启用或执行 repair run 仍需单独审批。
+      M9C/M11 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets 上。该 sensor 在代码 definition 中仍为默认 <code>STOPPED</code>，但正式 Dagster instance 已由用户人工启用；后续手动执行 repair run、调整启停或变更触发策略仍需单独审批。
       任何新的正式写湖、Dagster job、sensor、backfill、repair 或 event 补录动作仍需单独审批。
     </p>
     <div class="warning">
@@ -1267,7 +1267,7 @@ ops:
     <p>
       日常链路只做一个交易日的七频度 qfq 生成，不在同一个 job 里顺手做历史 repair。
       正常顺序为 raw → silver → gold qfq。
-      历史 gold qfq 文件和 runless events 已补齐，UI/readiness 已对齐；M9A 已把该链路接成正式 daily job 和默认停止的 daily sensor。
+      历史 gold qfq 文件和 runless events 已补齐，UI/readiness 已对齐；M9A 已把该链路接成正式 daily job 和 qfq daily sensor。该 sensor 的代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。
     </p>
     <table>
       <tr><th>对象</th><th>职责</th><th>边界</th></tr>
@@ -1279,7 +1279,7 @@ ops:
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
         <td>23:00 后，在最新 silver 分区 ready、<code>silver_adj_factor[trade_date]</code> ready 后触发单日 gold job。</td>
-        <td>默认 <code>STOPPED</code>；sensor 只看当前目标日期的轻量 readiness，不逐历史分区深扫；目标是否完成以七个 gold assets 的当日 materialization + blocking checks 为准。</td>
+        <td>代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用；sensor 只看当前目标日期的轻量 readiness，不逐历史分区深扫；目标是否完成以七个 gold assets 的当日 materialization + blocking checks 为准。</td>
       </tr>
     </table>
     <p>
@@ -1665,7 +1665,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><strong>M9A</strong></td>
         <td>Daily job 与 daily sensor</td>
-        <td>已新增 <code>stock_mins_qfq_daily_update_job</code> 和默认停止的 <code>stock_mins_qfq_daily_sensor</code>。</td>
+        <td>已新增 <code>stock_mins_qfq_daily_update_job</code> 和 <code>stock_mins_qfq_daily_sensor</code>；sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。</td>
         <td>job selection 只包含 gold qfq assets/checks；sensor 23:00 后只看当日轻量 readiness，不触发 repair，不新增 summary。</td>
       </tr>
       <tr>
@@ -1678,7 +1678,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M9C</strong></td>
         <td>Repair job 与 sensor</td>
         <td>已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>，当日 gold qfq ready 且 23:15 后触发。</td>
-        <td>sensor 不直接检测变化股票；repair job 内用 DuckDB 生成 plan 并执行必要回刷；M11 后 repair check event 挂到七个 gold qfq assets；不新增 summary；默认停止，正式执行仍需单独审批。</td>
+        <td>sensor 不直接检测变化股票；repair job 内用 DuckDB 生成 plan 并执行必要回刷；M11 后 repair check event 挂到七个 gold qfq assets；不新增 summary；sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用；手动 repair 或策略调整仍需单独审批。</td>
       </tr>
       <tr>
         <td><strong>M9D</strong></td>
@@ -1696,13 +1696,19 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M10</strong></td>
         <td>治理收口</td>
         <td>已进入第一轮治理收口：文档、拓扑、架构和静态门禁以当前 gold qfq 代码与已执行事实为准对齐。</td>
-        <td>收口范围只包含口径纠偏和防回退门禁；不新增资产、job、sensor 或 summary entity，不启用默认停止的 qfq daily / repair sensors。</td>
+        <td>收口范围只包含口径纠偏和防回退门禁；不新增资产、job、sensor 或 summary entity；M10 当轮不负责启停 qfq daily / repair sensors。当前正式 instance 中这两个 qfq sensors 已由用户人工启用。</td>
       </tr>
       <tr>
         <td><strong>M11</strong></td>
         <td>90/120 derived qfq assets</td>
         <td>已实现代码口径：新增 <code>gold_stk_mins_qfq_90m</code> 与 <code>gold_stk_mins_qfq_120m</code>，并入 <code>dataset_id=stk_mins_qfq</code>；daily job/sensor 和 repair check event 扩为七频度。</td>
         <td>90m 只从 30m qfq 聚合，120m 只从 60m qfq 聚合；raw/silver/Tushare/prod DB 仍只有五个源频度。M11F/M11G 已完成历史 90/120 直写补录、runless events 和最终 full audit：90/120 各 <code>3019</code> 个 materialized partitions，16 个 derived checks 均为 <code>3019</code> 绿。</td>
+      </tr>
+      <tr>
+        <td><strong>M12</strong></td>
+        <td>MACD/KDJ qfq 指标资产设计</td>
+        <td>已新增专项设计文档：<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>；本基础文档不承载指标资产实现细节。</td>
+        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 state/checkpoint，历史初始化采用 <code>Direct Lake Bootstrap + Runless Event Backfill</code>，qfq repair 后指标必须从受影响起点向后重算。</td>
       </tr>
     </table>
   </section>
@@ -1714,9 +1720,9 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M6F 已落地只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>。
       M6G 已新增 <code>stock_mins_silver_sensor</code>：它只在 silver 分区已注册、上游 readiness 全部满足且目标 silver 尚未 ready 时，触发 <code>stock_mins_silver_update_job</code>。
       gold 历史 baseline 已完成：命令式生成 gold qfq 股票年份文件，并按 <code>freq/year</code> 年度批量补录 runless materialization/check events。
-      M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与默认停止的 <code>stock_mins_qfq_daily_sensor</code>：它只在 23:00 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。
+      M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_daily_sensor</code>：它只在 23:00 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
       M9B 已实现 factor repair detection 与 check metadata 契约。
-      M9C/M11 已新增默认停止的 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。
+      M9C/M11 已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 23:15 后只在当日七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
       P0-1 并发保护已完成：七个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
       P0-3 DuckDB 连接治理已落地：正式分钟线 / qfq / history event / repair 路径统一走 <code>DuckDBResource</code> 或统一连接 helper，默认参数为 <code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>、<code>max_temp_directory_size=512GB</code>、<code>memory_limit=16GB</code>、<code>threads=4</code>、<code>preserve_insertion_order=false</code>；正式 <code>defs/**</code> 路径禁止直接 <code>duckdb.connect()</code>，并已由静态门禁保护。
     </p>
@@ -1795,7 +1801,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
         <td>23:00 后，在 silver ready、当日 adj factor ready 且目标 gold 当日尚未 ready 时，触发单日 qfq job。</td>
-        <td>已实现，默认 <code>STOPPED</code>；M11H 后门禁只看目标日期 readiness，按 check key + partition 批量读取 latest check execution，并有同目标日期已提交后的 cursor 快路径；禁止逐历史分区深扫或逐 check 扫 history。</td>
+        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。M11H 后门禁只看目标日期 readiness，按 check key + partition 批量读取 latest check execution，并有同目标日期已提交后的 cursor 快路径；禁止逐历史分区深扫或逐 check 扫 history。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
@@ -1805,7 +1811,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_sensor</code></td>
         <td>监听当日七频度 gold ready 后触发 repair job。</td>
-        <td>已实现，默认 <code>STOPPED</code>；23:15 后评估，不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。它与 daily sensor 共用 M11H 的 gold qfq 批量 latest-check readiness。</td>
+        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。23:15 后评估，不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。它与 daily sensor 共用 M11H 的 gold qfq 批量 latest-check readiness。</td>
       </tr>
     </table>
   </section>
@@ -2041,7 +2047,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <strong>M9</strong>
         <div>
           <h3>Gold qfq 日常 job/sensor 与 factor repair</h3>
-          <p>M9A 已接入 <code>stock_mins_qfq_daily_update_job</code> 与默认停止的 <code>stock_mins_qfq_daily_sensor</code>；M9B 已接入 repair detection 契约；M9C 已接入默认停止的 <code>stock_mins_qfq_factor_repair_job</code>/<code>stock_mins_qfq_factor_repair_sensor</code>。正式启用或执行 repair run 仍需单独审批。</p>
+          <p>M9A 已接入 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_daily_sensor</code>；M9B 已接入 repair detection 契约；M9C 已接入 <code>stock_mins_qfq_factor_repair_job</code>/<code>stock_mins_qfq_factor_repair_sensor</code>。两个 qfq sensor 的代码 definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用；手动 repair run、启停调整或触发策略变更仍需单独审批。</p>
         </div>
       </div>
       <div class="step">
@@ -2101,7 +2107,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>不把 backup/legacy 写入正式 asset key。</li>
       <li>不把旧湖 <code>security_identity_map</code> 作为长期运行时依赖；它只作为初始化 bootstrap 来源。</li>
       <li>不把 qfq 结果原地覆盖 raw 或 silver。</li>
-      <li>不在本设计中接入 by-symbol-month 重排或 MACD 等指标资产；90/120 分钟派生已作为 M11 qfq 资产族扩展单独落地。</li>
+      <li>不在本基础设计中接入 by-symbol-month 重排或 MACD/KDJ 指标资产；90/120 分钟派生已作为 M11 qfq 资产族扩展单独落地，MACD/KDJ 已进入 M12 专项设计：<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>。</li>
       <li>不把旧 lake_console 运行账本作为 Dagster 正式运行状态。</li>
       <li>不把 prod DB 分钟线来源扩展为任意表导出能力；M4B 只允许读取 <code>raw_tushare.stk_mins</code> 的字段白名单。</li>
     </ul>
@@ -2120,7 +2126,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <div class="danger">
       <strong>门禁：</strong>
       当前文档已完成 gold qfq 方案细化，并已实现 M8A gold asset definitions、M8B blocking checks、M8C 历史文件生成 helper/CLI、M8D runless event 补录 helper/CLI、M9A 日常 qfq job/sensor、M9B repair detection 契约、M9C/M9D factor repair job/sensor 与 M9E 批量 repair 性能修正；正式 gold 物理文件与 Dagster event log 已完成对齐。
-      M10 的职责是把上述事实固化进文档和静态门禁。<code>gold_stk_mins_qfq_writer</code> pool limit 与 <code>dagster.yaml</code> run granularity 配置已完成；后续若要启用日常 qfq 或 factor repair sensor，仍必须单独审批操作步骤、影响范围和回滚方式。
+      M10 的职责是把上述事实固化进文档和静态门禁。<code>gold_stk_mins_qfq_writer</code> pool limit 与 <code>dagster.yaml</code> run granularity 配置已完成；<code>stock_mins_qfq_daily_sensor</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code> 的代码 definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用；后续若要调整启停、手动执行 repair 或变更触发策略，仍必须单独审批操作步骤、影响范围和回滚方式。
       所有开发必须继续以本文档的 <code>freq + ts_code + year</code> 物理布局为准。
     </div>
   </section>
