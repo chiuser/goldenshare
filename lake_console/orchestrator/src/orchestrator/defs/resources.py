@@ -11,6 +11,7 @@ import duckdb
 from dagster_clickhouse import ClickhouseResource
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.health.lake_root import assert_lake_root_available_for_run
 from orchestrator.defs.notifications.feishu import FeishuWebhookResource
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, GOLD, RAW, SILVER, lake_path
 
@@ -22,12 +23,7 @@ class LakeRootResource(dg.ConfigurableResource):
         return Path(self.root_path)
 
     def ensure_available_for_run(self) -> None:
-        root = self.root()
-        required_paths = [root, root / RAW, root / SILVER, root / GOLD]
-        missing_paths = [path for path in required_paths if not path.exists()]
-        if missing_paths:
-            missing = ", ".join(str(path) for path in missing_paths)
-            raise FileNotFoundError(f"Lake root is not ready for this run. Missing: {missing}")
+        assert_lake_root_available_for_run(self.root())
 
     def raw_path(self, *parts: str) -> Path:
         return lake_path(self.root(), RAW, *parts)

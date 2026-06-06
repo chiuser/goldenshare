@@ -14,6 +14,7 @@ ASSETS_DIR = DEFS_DIR / "assets"
 CHECKS_DIR = DEFS_DIR / "checks"
 JOBS_DIR = DEFS_DIR / "jobs"
 SENSORS_DIR = DEFS_DIR / "sensors"
+SCHEDULES_DIR = DEFS_DIR / "schedules"
 QFQ_SOURCE_FILES = (
     DEFS_DIR / "assets" / "stk_mins.py",
     DEFS_DIR / "stk_mins_qfq.py",
@@ -56,6 +57,8 @@ SENSOR_DEFINITION_CALL_NAMES = {
     "run_failure_sensor",
     "AutomationConditionSensorDefinition",
 }
+
+ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
 
 
 def _python_files(directory: Path) -> tuple[Path, ...]:
@@ -282,6 +285,66 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_job_fragments
             if fragment in job_source
         )
+
+        self.assertEqual(issues, [])
+
+    def test_lake_root_health_entrypoints_stay_infra_only(self) -> None:
+        job_path = JOBS_DIR / "lake_root_health_check.py"
+        schedule_path = SCHEDULES_DIR / "lake_root_health.py"
+        resource_path = DEFS_DIR / "resources.py"
+        job_source = job_path.read_text()
+        schedule_source = schedule_path.read_text()
+        resource_source = resource_path.read_text()
+        issues = []
+
+        required_job_fragments = (
+            "lake_root_health",
+            "dg.AssetSelection.assets(lake_root_health)",
+            "dg.AssetSelection.checks_for_assets(lake_root_health)",
+        )
+        issues.extend(
+            f"{job_path} misses lake root health job fragment: {fragment}"
+            for fragment in required_job_fragments
+            if fragment not in job_source
+        )
+
+        forbidden_job_fragments = (
+            "duckdb",
+            "parquet",
+            "disk_usage",
+            "evaluate_lake_root_health",
+            '"ops"',
+            "'ops'",
+            "run_tags",
+        )
+        issues.extend(
+            f"{job_path} contains forbidden health job fragment: {fragment}"
+            for fragment in forbidden_job_fragments
+            if fragment in job_source
+        )
+
+        required_schedule_fragments = (
+            "dg.ScheduleDefinition",
+            'cron_schedule="0 */2 * * *"',
+            'execution_timezone="Asia/Shanghai"',
+            "default_status=dg.DefaultScheduleStatus.STOPPED",
+            "lake_root_health_check_job",
+        )
+        issues.extend(
+            f"{schedule_path} misses lake root health schedule fragment: {fragment}"
+            for fragment in required_schedule_fragments
+            if fragment not in schedule_source
+        )
+
+        if "assert_lake_root_available_for_run(self.root())" not in resource_source:
+            issues.append(
+                "LakeRootResource.ensure_available_for_run must call health guard"
+            )
+
+        for path in _sensor_definition_files():
+            source = path.read_text()
+            if "lake_root_health" in source:
+                issues.append(f"{path} depends on lake_root_health")
 
         self.assertEqual(issues, [])
 
@@ -577,7 +640,10 @@ class RunContractStaticGateTests(unittest.TestCase):
                             metadata_value,
                             "column_schema",
                         )
-                        if column_schema_value is None:
+                        if (
+                            column_schema_value is None
+                            and node.name not in ASSETS_WITHOUT_COLUMN_SCHEMA
+                        ):
                             issues.append(
                                 f"{_node_location(path, metadata_value)} asset "
                                 f"{node.name} does not register column_schema"

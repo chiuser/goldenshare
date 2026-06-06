@@ -12,6 +12,7 @@ class AssetLayer(str, Enum):
     SILVER = "silver"
     GOLD = "gold"
     SERVING = "serving"
+    PLATFORM = "platform"
 
 
 class DataDomain(str, Enum):
@@ -20,6 +21,7 @@ class DataDomain(str, Enum):
     INDEX_TOPIC = "index_topic"
     PROJECT_CONFIG = "project_config"
     DERIVED_METRIC = "derived_metric"
+    PLATFORM_OBSERVABILITY = "platform_observability"
 
 
 def _coerce_asset_layer(layer: AssetLayer | str) -> AssetLayer:

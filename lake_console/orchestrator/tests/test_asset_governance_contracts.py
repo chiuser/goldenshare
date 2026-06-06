@@ -18,6 +18,7 @@ from orchestrator.defs.assets.clickhouse_serving import (
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
 )
+from orchestrator.defs.assets.lake_root_health import lake_root_health
 from orchestrator.defs.assets.index_basic import (
     INDEX_BASIC_RAW_COLUMN_TYPES,
     raw_tushare_index_basic,
@@ -261,6 +262,12 @@ ASSET_CONTRACTS = {
         "prod_ch_share_fact_market_breadth_daily",
         "Prod ClickHouse 市场宽度日表",
     ),
+    lake_root_health: (
+        "platform",
+        "platform_observability",
+        "lake_root_health",
+        "Lake 根目录健康",
+    ),
 }
 
 ASSET_PATH_TEMPLATES = {
@@ -471,6 +478,8 @@ ASSET_COLUMN_SCHEMAS = {
     ),
 }
 
+ASSETS_WITHOUT_COLUMN_SCHEMA = {lake_root_health}
+
 
 class AssetGovernanceContractTests(unittest.TestCase):
     def test_build_asset_tags_returns_dagster_legal_values(self) -> None:
@@ -482,6 +491,18 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(tags[ASSET_LAYER_TAG], "raw")
         self.assertEqual(tags[DATA_DOMAIN_TAG], "basic_data")
         for value in tags.values():
+            self.assertRegex(value, DAGSTER_TAG_VALUE_PATTERN)
+
+        platform_tags = build_asset_tags(
+            layer=AssetLayer.PLATFORM,
+            data_domain=DataDomain.PLATFORM_OBSERVABILITY,
+        )
+        self.assertEqual(platform_tags[ASSET_LAYER_TAG], "platform")
+        self.assertEqual(
+            platform_tags[DATA_DOMAIN_TAG],
+            "platform_observability",
+        )
+        for value in platform_tags.values():
             self.assertRegex(value, DAGSTER_TAG_VALUE_PATTERN)
 
     def test_build_asset_tags_rejects_old_chinese_values(self) -> None:
@@ -502,7 +523,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(DATASET_CHINESE_NAMES["market_major_indices"], "主要指数名单")
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
-        self.assertEqual(len(ASSET_CONTRACTS), 39)
+        self.assertEqual(len(ASSET_CONTRACTS), 40)
 
         for asset, (
             layer,
@@ -573,7 +594,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
     def test_assets_register_definition_column_schema(
         self,
     ) -> None:
-        self.assertEqual(len(ASSET_COLUMN_SCHEMAS), len(ASSET_CONTRACTS))
+        self.assertEqual(
+            set(ASSET_COLUMN_SCHEMAS) | ASSETS_WITHOUT_COLUMN_SCHEMA,
+            set(ASSET_CONTRACTS),
+        )
 
         for asset, expected_schema in ASSET_COLUMN_SCHEMAS.items():
             with self.subTest(asset=asset.key.to_user_string()):
@@ -593,6 +617,11 @@ class AssetGovernanceContractTests(unittest.TestCase):
                     [column.description for column in columns],
                     [column.description for column in expected_schema],
                 )
+
+        for asset in ASSETS_WITHOUT_COLUMN_SCHEMA:
+            with self.subTest(asset=asset.key.to_user_string()):
+                spec = asset.get_asset_spec()
+                self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, spec.metadata)
 
     def test_column_constants_are_derived_from_schema(
         self,

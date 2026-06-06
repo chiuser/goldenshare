@@ -925,6 +925,13 @@
           <td>目标由自定义 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>、人工 partition run 或 UI backfill 触发。</td>
           <td>不能补本机 CH 上游，不能拉 Tushare，不能写 gold/silver/raw；同步时按 <code>trade_date</code> 删除 prod 旧行并插入本机 CH 完整新行；SSH tunnel 是运行前置条件。</td>
         </tr>
+        <tr>
+          <td><code>lake_root_health_check_job</code></td>
+          <td><code>lake_root_health</code> + platform health checks</td>
+          <td>检查 lake root、<code>raw/silver/gold/_tmp</code>、DuckDB temp、canary 读写和空间阈值。</td>
+          <td>人工触发或 <code>lake_root_health_schedule</code>；schedule 默认 <code>STOPPED</code>，正式启用需要单独审批。</td>
+          <td>基础设施观测入口，不写 Parquet，不读取业务数据，不接入现有业务 sensor。</td>
+        </tr>
         </tbody>
       </table>
     </div>
@@ -1134,7 +1141,11 @@
    - gold qfq runless event backfill is completed; M8D audited by freq/year batch and wrote per-date events
    - historical baseline is now visible in Dagster UI/readiness
    - stock_mins_qfq_daily_update_job, stock_mins_qfq_daily_sensor, stock_mins_qfq_factor_repair_job and stock_mins_qfq_factor_repair_sensor are implemented
-   - M11 derived 90/120 history direct-write bootstrap and runless events are completed; final full audit reports 3019 materialized partitions per derived asset and 3019 green checks for every derived check; qfq sensor definitions default to STOPPED, and the formal instance has been manually enabled by the user</code></pre>
+   - M11 derived 90/120 history direct-write bootstrap and runless events are completed; final full audit reports 3019 materialized partitions per derived asset and 3019 green checks for every derived check; qfq sensor definitions default to STOPPED, and the formal instance has been manually enabled by the user
+
+7. Platform health
+   - lake_root_health asset, blocking checks, lake_root_health_check_job and STOPPED lake_root_health_schedule are implemented
+   - LakeRootResource.ensure_available_for_run now performs lake root required-path and canary fail-fast checks</code></pre>
   </section>
 </main>
 </body>
