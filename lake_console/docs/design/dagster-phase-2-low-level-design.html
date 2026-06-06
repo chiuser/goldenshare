@@ -303,7 +303,7 @@
       Phase 3 Slice 3.2.2 后，股票日频资产族的正式生产分区统一为 <code>cn_a_stock_trade_days</code>；
       <code>cn_a_trade_days</code> 只保留为全量 SSE open day 备份和对照分区集合，不再作为股票生产资产、股票 sensors 或 market breadth 自动化的正式分区来源。
       本 LLD 涉及股票日频生产、停复牌、股票日线和市场宽度的分区口径，均按 <code>cn_a_stock_trade_days</code> 理解。
-      股票资产族分区合法性通过正式 blocking asset checks 表达；业务 asset 写入函数不保留定制化写前 guard，避免把质量门禁混入数据写入逻辑。
+      股票资产族分区合法性通过正式 blocking asset checks 表达；业务 asset 写入函数不保留定制化写前 guard，避免把质量门禁混入数据写入逻辑。生产前置事实门禁单独处理：<code>silver_stock_daily</code> 依赖 <code>silver_stock_basic</code> 当前上市股票池，已在写入前校验 stock basic freshness，防止人工运行绕过 sensor 后静默过滤新股。
     </div>
   </section>
 
@@ -1733,7 +1733,12 @@ stock_daily_sensor:
       suspend_d[trade_date] readiness
       Tushare daily source readiness
     output:
-      stock_daily_update_job[trade_date]</code></pre>
+      stock_daily_update_job[trade_date]
+
+  silver_stock_daily materialization:
+    raw_tushare_stock_daily remains a source mirror and does not depend on stock_basic
+    silver_stock_basic freshness must be rechecked before writing silver
+    stale stock_basic fails the materialization instead of writing a silently incomplete silver file</code></pre>
 
     <div class="warning">
       <strong>Readiness 硬门禁：</strong>
@@ -1889,6 +1894,7 @@ for record in get_asset_check_execution_history(...):
       第一版 ready 判定只以 <code>daily(trade_date=YYYYMMDD)</code> 为准。<code>suspend_d</code> 不参与 ready 判断，
       因为它在真实业务上可能合法返回 0 行，不能单独区分“确实无停复牌”和“源站未更新”。
       <code>stock_daily_update_job</code> 真正运行时只选择 <code>daily</code> 对应 assets；<code>suspend_d</code> 由 <code>suspend_update_job</code> 先行准备，并作为只读前置条件。
+      <code>stock_basic</code> 也是只读前置条件：raw asset contract 不依赖它，sensor/job 生产层提交一体 job 前检查 freshness，<code>silver_stock_daily</code> 写入前已执行不可绕过的 freshness guard。
     </p>
 
     <p>
@@ -2012,7 +2018,15 @@ stock daily assets:
     when partition exists
     and stock daily assets are missing
     and stock_basic / suspend_d prerequisites are ready
-    request stock_daily_update_job[trade_date]</code></pre>
+    request stock_daily_update_job[trade_date]
+
+  raw_tushare_stock_daily:
+    keep Tushare daily(trade_date) source mirror semantics
+    do not depend on stock_basic
+
+  silver_stock_daily:
+    consume raw daily, silver_stock_basic and silver_stock_suspend_daily
+    fail before writing if silver_stock_basic is stale for target trade_date</code></pre>
 
     <div class="warning">
       资产族 sensor 已作为当前实现落地。后续如果要把某些资产族从 sensor 迁移到 declarative automation，

@@ -33,6 +33,12 @@
 5. 测试文件可以直接创建临时 DuckDB 连接；离线 `audits/**` 工具暂不纳入本规则强制范围，但如果未来写正式 lake 或正式 Dagster event，必须改走统一连接 helper。
 6. 新增 DuckDB 配置项前必须先做配置项审计；不得把 DuckDB 参数临时散落到 env、run config、脚本常量或文档口径中。
 
+## Asset 写前 Guard 规范
+
+正式 asset 写入函数默认不得混入定制化写前 guard；普通质量与完整性要求必须通过 blocking asset checks 表达。
+
+已确认例外：`silver_stock_daily` 写入前必须调用 `assert_silver_stock_basic_fresh_for_stock_daily(...)`。这是生产前置事实门禁，用来防止人工 Launchpad、CLI 或补录绕过 `stock_daily_sensor` 后，在 stale `silver_stock_basic` 下静默过滤新股；它不等同于把普通质量 check 混入 asset 写入逻辑。
+
 ### 禁止阶段编号进入正式代码
 
 阶段编号只允许出现在设计文档、开发计划和提交说明中，不允许进入正式代码主概念。

@@ -245,6 +245,46 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_daily_freshness_guard_stays_on_silver_asset(self) -> None:
+        asset_path = ASSETS_DIR / "stock_daily.py"
+        job_path = JOBS_DIR / "stock_daily_update.py"
+        raw_source = _function_source(asset_path, "raw_tushare_stock_daily")
+        silver_source = _function_source(asset_path, "silver_stock_daily")
+        job_source = job_path.read_text()
+        guard_call = "assert_silver_stock_basic_fresh_for_stock_daily"
+        issues = []
+
+        for fragment in (
+            guard_call,
+            "silver_stock_basic_ready_for_trade_date",
+            "stock_basic_ready_for_trade_date",
+        ):
+            if fragment in raw_source:
+                issues.append(f"raw_tushare_stock_daily references {fragment}")
+
+        if guard_call not in silver_source:
+            issues.append("silver_stock_daily must call stock basic freshness guard")
+        elif silver_source.index(guard_call) > silver_source.index(
+            "with connect_configured_duckdb()"
+        ):
+            issues.append(
+                "silver_stock_daily freshness guard must run before DuckDB writes"
+            )
+
+        forbidden_job_fragments = (
+            "raw_tushare_stock_basic",
+            "silver_stock_basic",
+            "stock_basic_update_job",
+            "stock_basic_ready_for_trade_date",
+        )
+        issues.extend(
+            f"{job_path} contains forbidden stock basic selection fragment: {fragment}"
+            for fragment in forbidden_job_fragments
+            if fragment in job_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_gold_qfq_summary_entities_are_not_registered(self) -> None:
         issues = []
 

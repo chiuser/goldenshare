@@ -283,7 +283,7 @@
       <code>cn_a_trade_days</code> 只保留为全量 SSE open day 备份和对照分区集合，不再作为股票生产资产、股票 sensors 或 market breadth 自动化的正式分区来源。
       本文涉及股票日频生产、停复牌、股票日线和市场宽度的分区口径，均按 <code>cn_a_stock_trade_days</code> 理解。
       股票资产族已补充正式 blocking partition checks，用于验证分区属于 <code>cn_a_stock_trade_days</code>、不早于 <code>2014-01-01</code> 且不晚于当前自然日；
-      业务 asset 写入函数不再保留定制化写前 guard。
+      业务 asset 写入函数不再保留定制化写前 guard。例外是 <code>silver_stock_daily</code> 写入前的 <code>silver_stock_basic</code> freshness guard；它是生产前置事实门禁，不是普通质量 check。
     </div>
   </section>
 
@@ -594,7 +594,7 @@
     <p>
       <code>stock_basic</code> 虽然是 full snapshot，不按 <code>trade_date</code> 分区，但它不是“偶尔更新一下就行”的低频资产。
       新股上市当天，Tushare <code>daily</code> 可能已经出现该股票日线；如果 <code>silver_stock_basic</code> 没有先更新，<code>silver_stock_daily</code> 会把这只股票过滤掉，完整性检查也可能因为股票池本身缺失而看不到问题。
-      因此 <code>stock_basic</code> 后续要按“日更全量快照基础资产”设计 freshness，并在股票日线 / gold 生产前完成。
+      当前口径是：<code>raw_tushare_stock_daily</code> 保持源站镜像，不依赖 <code>stock_basic</code>；<code>stock_daily_sensor</code> 在提交 raw+silver 一体 <code>stock_daily_update_job</code> 前检查 <code>stock_basic</code> freshness；<code>silver_stock_daily</code> 才依赖 <code>silver_stock_basic</code> 做当前上市股票池过滤。<code>silver_stock_daily</code> 写入前已补不可绕过的 freshness guard，防止人工运行绕过 sensor 后静默过滤新股。
       <code>suspend_d</code> 同样要从股票日线生产中拆出来：它是 <code>stock_daily</code> 生产前必须准备好的日频上游事实，<code>stock_daily</code> 只能只读校验它是否 ready，不应在自己的 job selection 中顺手更新。
     </p>
     <p>
@@ -904,7 +904,7 @@ gold_stock_return_distribution[trade_date]</code></pre>
       <code>Slice 2.2.1e</code> 已完成 sensor 分拆：<code>stock_trade_day_sensor</code> 当前只注册
       <code>cn_a_stock_trade_days</code> partition，不再触发数据生产 run；<code>suspend_d_sensor</code>、
       <code>stock_basic_sensor</code>、<code>stock_daily_sensor</code> 分别触发对应资产族 job。
-      新增门禁要求：<code>stock_basic</code> 后续按日更全量快照基础资产管理，业务 gold job 只读依赖，不得重复写入 selection。
+      新增门禁要求：<code>stock_basic</code> 当前按日更全量快照基础资产管理，业务 gold job 只读依赖，不得重复写入 selection；<code>stock_daily_sensor</code> 已做 freshness 门禁，<code>silver_stock_daily</code> 写前 freshness guard 已落地。
     </div>
 
     <div class="callout">
@@ -1104,7 +1104,12 @@ stock_daily_sensor
   判断 stock_basic 已 materialized、blocking checks 全部通过且 freshness 满足目标交易日
   判断 suspend_d[trade_date] 已 materialized 且 blocking checks 全部通过
   判断 Tushare daily(trade_date) 源站 ready
-  触发 stock_daily_update_job[trade_date]</code></pre>
+  触发 stock_daily_update_job[trade_date]
+
+silver_stock_daily materialization
+  raw_tushare_stock_daily 是源站镜像，不依赖 stock_basic
+  写入 silver 前再次校验 silver_stock_basic freshness
+  stale 时失败，不写 silver 文件</code></pre>
 
     <div class="warning">
       <strong>核心门禁：</strong>
@@ -1347,6 +1352,7 @@ stock_daily_sensor
       <code>all_deps_blocking_checks_passed()</code> 自动表达的能力。
       因此当前继续保留 <code>stock_daily_sensor</code>：它同时判断 stock basic freshness、suspend 分区 ready
       和 Tushare 日线源站 ready，再触发 <code>stock_daily_update_job</code>。
+      该门禁属于 sensor/job 生产层；raw asset contract 仍是 Tushare 源站镜像，不因为 stock basic stale 变成无效 raw。人工 Launchpad、CLI 或补录绕过 sensor 的风险，已由 <code>silver_stock_daily</code> materialization 内的 stock basic freshness guard 兜底。
     </div>
 
     <div class="table-wrap">

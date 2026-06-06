@@ -339,7 +339,7 @@
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
       当前已新增自定义 <code>market_breadth_automation_sensor</code>、<code>stock_return_distribution_automation_sensor</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor</code> 和 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>，分别只 target 自己的 gold / serving asset，用来替代全局默认 automation sensor 作为日常触发入口。
-      最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。
+      最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。raw 层保持 Tushare <code>daily(trade_date)</code> 源站镜像语义，不依赖 <code>stock_basic</code>；sensor/job 生产层在提交 raw+silver 一体 job 前检查 <code>stock_basic</code> freshness；<code>silver_stock_daily</code> materialization 已在写入前执行不可绕过的 freshness guard，防止人工运行绕过 sensor 后静默过滤新股。
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       股票曾用名最新口径是：<code>raw_tushare_namechange</code> 每次从 Tushare <code>namechange</code> 拉取 full snapshot 并按全字段 exact distinct 写 raw；<code>silver_namechange</code> 使用 <code>latest_announcement_timeline_v1</code> 生成非重叠名称区间；<code>stock_namechange_sensor</code> 在股票当前交易日注册后触发 <code>namechange_update_job</code>。
       股票身份映射最新口径是：<code>silver_stock_identity_map</code> 已成为 active full snapshot asset；它从 <code>silver_stock_basic</code> 生成当前上市股票自映射，并合并仓库 seed 中的非自映射行。<code>stock_identity_map_sensor</code> 读取 <code>cn_a_stock_trade_days</code> 最新已注册交易日，16:30 后等待 <code>silver_stock_basic</code> 与 <code>silver_namechange</code> ready 后触发 <code>stock_identity_map_update_job</code>。
@@ -348,7 +348,7 @@
       指数资产族最新口径是：<code>index_trade_day_sensor</code> 只注册指数交易日分区；<code>index_daily_sensor</code> 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口，只在该缺口日期的 Tushare <code>index_daily</code> 源站 ready 后触发 <code>index_daily_update_job</code>，不触发 silver；raw gap audit 按 <code>silver_index_basic.list_date/exp_date</code> 过滤上市前和退市后代码；<code>silver_index_daily_sensor</code> 先确认最近 60 个可运行交易日内 raw-by-code 无有效空洞，再触发最早未 ready 的 <code>silver_index_daily_update_job</code>；<code>silver_index_daily_registered_code_coverage</code> 是 blocking check；<code>market_major_indices_daily_sensor</code> 在 silver、index basic 和 seed 输入均 ready 后触发主要指数日线 gold。
       当前正式 asset definition 已接入治理 tags：<code>goldenshare/layer</code>、<code>goldenshare/data_domain</code> 使用英文枚举值；中文数据集名通过 <code>goldenshare/dataset_name</code> definition metadata 暴露。ClickHouse serving asset 使用 <code>serving</code> layer，不伪装成 gold。
       当前正式 sensor definition 已接入分类 tags：<code>goldenshare/sensor_domain</code>、<code>goldenshare/sensor_target_layer</code>、<code>goldenshare/sensor_role</code>。Automation 页面仍显示 <code>orchestrator</code> code location 分组，分类能力通过搜索和过滤这些 tags 实现。
-      股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。
+      股票资产族的分区合法性由正式 blocking asset checks 表达，不在业务 asset 写入函数里保留定制化写前 guard。例外是生产前置事实门禁：<code>silver_stock_daily</code> 依赖当前上市股票池，已在写入前校验 <code>silver_stock_basic</code> freshness，防止绕过 sensor 的人工 run 写出静默缺行文件。
     </div>
 
     <div class="table-wrap">
@@ -613,7 +613,7 @@
           <td><code>cn_a_stock_trade_days</code></td>
           <td><code>stock_daily_update_job</code> 调 Tushare <code>daily</code>，只写 stock daily raw/silver。</td>
           <td>交易日日频；当天 16:00 后由 sensor 探测源站 ready。</td>
-          <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready。</td>
+          <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready；raw asset contract 不依赖股票池，silver 才依赖股票池过滤。</td>
         </tr>
         <tr>
           <td><span class="tag">quote</span></td>
@@ -990,7 +990,7 @@
       </div>
       <div class="card">
         <strong>Stock Daily 生产</strong>
-        后续 <code>stock_daily_update_job</code> 只写日线 raw/silver；它只读校验 <code>silver_stock_basic</code> 和 <code>silver_stock_suspend_daily</code>。
+        当前 <code>stock_daily_update_job</code> 只写日线 raw/silver；raw 保持源站镜像，sensor 提交一体 job 前只读校验 <code>silver_stock_basic</code> freshness 和 <code>silver_stock_suspend_daily</code>，silver 写入前已执行不可绕过的 <code>stock_basic</code> freshness guard。
       </div>
       <div class="card">
         <strong>业务 Gold 生产</strong>
@@ -1014,9 +1014,9 @@
         <tbody>
         <tr>
           <td><code>stock_basic</code> 更新频率</td>
-          <td><code>stock_basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径。</td>
+          <td><code>stock_basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径；<code>stock_daily_sensor</code> 已使用 <code>stock_basic_ready_for_trade_date()</code> 在提交一体 job 前做 freshness 门禁。</td>
           <td>新股上市日如果 stock_basic 未先更新，<code>silver_stock_daily</code> 可能静默过滤新股。</td>
-          <td>后续实现 freshness check 和当天生产前置门禁。</td>
+          <td>已确认口径：raw 不依赖 stock basic；sensor/job 层已拦截一体生产；<code>silver_stock_daily</code> 写前 guard 和对应测试已落地，防止人工 Launchpad、CLI 或补录绕过 sensor。</td>
         </tr>
         <tr>
           <td>退市后的历史分区</td>
