@@ -170,11 +170,29 @@ def _already_submitted_for_target_date(
     cursor: str | None,
     target_trade_date: str,
 ) -> bool:
-    details = sensor_cursor_details(load_sensor_cursor(cursor))
-    return (
+    cursor_payload = load_sensor_cursor(cursor)
+    details = sensor_cursor_details(cursor_payload)
+    if (
         details.get("selected_trade_date") == target_trade_date
         and details.get("already_submitted_for_trade_date") is True
-    )
+    ):
+        return True
+
+    if cursor_payload.get("target_date") != target_trade_date:
+        return False
+    if cursor_payload.get("decision") != SensorCursorDecision.REQUEST_RUNS.value:
+        return False
+
+    selected_count = cursor_payload.get("selected_count")
+    if (
+        isinstance(selected_count, int)
+        and not isinstance(selected_count, bool)
+        and selected_count > 0
+    ):
+        return True
+
+    sample_keys = cursor_payload.get("sample_keys")
+    return isinstance(sample_keys, list) and target_trade_date in sample_keys
 
 
 @dg.sensor(

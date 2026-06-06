@@ -20,6 +20,10 @@ from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
     _run_request_for_trade_date,
     build_stock_mins_qfq_daily_update_decision,
 )
+from orchestrator.defs.run_contracts.cursors import (
+    SensorCursorDecision,
+    build_sensor_cursor,
+)
 
 
 PARTITION_KEY = "2026-05-29"
@@ -92,6 +96,22 @@ class _FakeSensorContext:
     ):
         self.cursor = cursor
         self.instance = _FakeSensorInstance(trade_days)
+
+
+def _legacy_submitted_cursor(
+    *,
+    target_date: str | None = PARTITION_KEY,
+    decision: SensorCursorDecision = SensorCursorDecision.REQUEST_RUNS,
+    selected_count: int = 1,
+    sample_keys: tuple[str, ...] = (),
+) -> str:
+    return build_sensor_cursor(
+        evaluated_at=EVALUATED_AT,
+        decision=decision,
+        target_date=target_date,
+        selected_count=selected_count,
+        sample_keys=sample_keys,
+    )
 
 
 class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
@@ -318,6 +338,92 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         self.assertIn("已经提交过", result.skip_reason.skip_message)
         self.assertTrue(cursor["details"]["already_submitted_for_trade_date"])
+
+    def test_sensor_legacy_selected_count_cursor_fast_path_skips_readiness(
+        self,
+    ) -> None:
+        context = _FakeSensorContext(cursor=_legacy_submitted_cursor())
+        with (
+            patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                side_effect=AssertionError("readiness must not run for old cursor"),
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertIn("已经提交过", result.skip_reason.skip_message)
+        self.assertTrue(
+            json.loads(result.cursor)["details"]["already_submitted_for_trade_date"]
+        )
+
+    def test_sensor_legacy_sample_keys_cursor_fast_path_skips_readiness(self) -> None:
+        context = _FakeSensorContext(
+            cursor=_legacy_submitted_cursor(
+                selected_count=0,
+                sample_keys=(PARTITION_KEY,),
+            )
+        )
+        with (
+            patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                side_effect=AssertionError(
+                    "readiness must not run for old sample cursor"
+                ),
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertIn("已经提交过", result.skip_reason.skip_message)
+
+    def test_legacy_cursor_negative_cases_do_not_fast_path(self) -> None:
+        cases = (
+            _legacy_submitted_cursor(decision=SensorCursorDecision.SKIP),
+            _legacy_submitted_cursor(selected_count=0),
+            _legacy_submitted_cursor(target_date="2026-05-28"),
+            "{bad-json",
+        )
+        for cursor in cases:
+            with self.subTest(cursor=cursor):
+                self.assertFalse(
+                    daily_sensor_module._already_submitted_for_target_date(
+                        cursor,
+                        PARTITION_KEY,
+                    )
+                )
+
+    def test_sensor_non_fast_path_cursor_continues_readiness(self) -> None:
+        calls = []
+
+        def fake_readiness(instance, specs, *, partition_key):
+            calls.append(specs)
+            return _dataset_status(
+                ("silver_stk_mins_1m",),
+                ready=False,
+                materialized=True,
+                checks_passed=False,
+                reason="silver blocked",
+            )
+
+        context = _FakeSensorContext(cursor=_legacy_submitted_cursor(selected_count=0))
+        with (
+            patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "partition_dataset_readiness_status_from_latest_checks",
+                side_effect=fake_readiness,
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertIn("silver 五频度", result.skip_reason.skip_message)
+        self.assertEqual(calls, [daily_sensor_module.SILVER_STK_MINS_READINESS_SPECS])
 
     def test_sensor_checks_readiness_in_order_and_stops_when_silver_not_ready(
         self,
