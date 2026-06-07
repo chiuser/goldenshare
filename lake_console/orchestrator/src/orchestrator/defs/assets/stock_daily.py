@@ -50,7 +50,14 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
+from orchestrator.defs.run_contracts.configs import (
+    STOCK_DAILY_RAW_CONFIG_SCHEMA,
+    parse_stock_daily_raw_config,
+)
+from orchestrator.defs.tushare_api_io import (
+    fetch_tushare_partition_to_raw,
+    fetch_tushare_stock_daily_missing_codes_to_raw,
+)
 
 
 STOCK_DAILY_COLUMNS = tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA)
@@ -347,6 +354,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 @dg.asset(
     name="raw_tushare_stock_daily",
     partitions_def=cn_a_stock_trade_days,
+    config_schema=STOCK_DAILY_RAW_CONFIG_SCHEMA,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.QUOTE_DATA),
     metadata=build_asset_definition_metadata(
@@ -379,17 +387,34 @@ def raw_tushare_stock_daily(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
-    metadata = fetch_tushare_partition_to_raw(
-        tushare=tushare,
-        duckdb=duckdb,
-        api_name="daily",
-        api_params={"trade_date": partition_key.replace("-", "")},
-        fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
-        column_types=STOCK_DAILY_RAW_COLUMN_TYPES,
-        target_path=raw_stock_daily_path(lake_root.root(), partition_key),
-        partition_key=partition_key,
-        allow_empty=False,
-    )
+    target_path = raw_stock_daily_path(lake_root.root(), partition_key)
+    config = parse_stock_daily_raw_config(context.op_config)
+    if config.write_mode == "missing_code_repair":
+        if config.missing_code_repair is None:
+            raise AssertionError("missing_code_repair config is required.")
+        metadata = fetch_tushare_stock_daily_missing_codes_to_raw(
+            tushare=tushare,
+            duckdb=duckdb,
+            ts_codes=config.missing_code_repair.ts_codes,
+            fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
+            column_types=STOCK_DAILY_RAW_COLUMN_TYPES,
+            target_path=target_path,
+            partition_key=partition_key,
+            missing_codes_hash=config.missing_code_repair.missing_codes_hash,
+            repair_attempt=config.missing_code_repair.repair_attempt,
+        )
+    else:
+        metadata = fetch_tushare_partition_to_raw(
+            tushare=tushare,
+            duckdb=duckdb,
+            api_name="daily",
+            api_params={"trade_date": partition_key.replace("-", "")},
+            fields=STOCK_DAILY_RAW_REQUIRED_COLUMNS,
+            column_types=STOCK_DAILY_RAW_COLUMN_TYPES,
+            target_path=target_path,
+            partition_key=partition_key,
+            allow_empty=False,
+        )
 
     return dg.MaterializeResult(metadata=metadata)
 

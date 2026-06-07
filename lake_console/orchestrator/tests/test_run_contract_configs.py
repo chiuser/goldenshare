@@ -2,6 +2,8 @@ import unittest
 
 from orchestrator.defs.run_contracts.configs import (
     build_index_daily_update_job_run_config,
+    build_stock_daily_raw_repair_run_config,
+    parse_stock_daily_raw_config,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 
@@ -50,3 +52,66 @@ class RunContractConfigTests(unittest.TestCase):
             ],
             "2026-05-26",
         )
+
+    def test_stock_daily_raw_repair_run_config_uses_single_op_config(self) -> None:
+        config = build_stock_daily_raw_repair_run_config(
+            ts_codes=["000001.SZ", "600000.SH"],
+            missing_codes_hash="a" * 64,
+            repair_attempt=2,
+        )
+
+        self.assertEqual(
+            config,
+            {
+                "ops": {
+                    "raw_tushare_stock_daily": {
+                        "config": {
+                            "write_mode": {
+                                "missing_code_repair": {
+                                    "ts_codes": ["000001.SZ", "600000.SH"],
+                                    "missing_codes_hash": "a" * 64,
+                                    "repair_attempt": 2,
+                                }
+                            }
+                        }
+                    }
+                }
+            },
+        )
+        parsed = parse_stock_daily_raw_config(
+            config["ops"]["raw_tushare_stock_daily"]["config"]
+        )
+        self.assertEqual(parsed.write_mode, "missing_code_repair")
+        self.assertEqual(
+            parsed.missing_code_repair.ts_codes,
+            ("000001.SZ", "600000.SH"),
+        )
+
+    def test_stock_daily_raw_repair_run_config_rejects_invalid_inputs(self) -> None:
+        with self.assertRaisesRegex(ValueError, "must not contain duplicates"):
+            build_stock_daily_raw_repair_run_config(
+                ts_codes=["000001.SZ", "000001.SZ"],
+                missing_codes_hash="a" * 64,
+                repair_attempt=1,
+            )
+
+        with self.assertRaisesRegex(ValueError, "more than 100 codes"):
+            build_stock_daily_raw_repair_run_config(
+                ts_codes=[f"{index:06d}.SZ" for index in range(101)],
+                missing_codes_hash="a" * 64,
+                repair_attempt=1,
+            )
+
+        with self.assertRaisesRegex(ValueError, "SHA-256 hex string"):
+            build_stock_daily_raw_repair_run_config(
+                ts_codes=["000001.SZ"],
+                missing_codes_hash="abc",
+                repair_attempt=1,
+            )
+
+        with self.assertRaisesRegex(ValueError, "repair_attempt must be positive"):
+            build_stock_daily_raw_repair_run_config(
+                ts_codes=["000001.SZ"],
+                missing_codes_hash="a" * 64,
+                repair_attempt=0,
+            )

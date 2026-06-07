@@ -291,8 +291,12 @@ SUSPEND_D_READINESS_SPECS = (
     AssetReadinessSpec(RAW_SUSPEND_D_ASSET_KEY, RAW_SUSPEND_D_CHECKS),
     AssetReadinessSpec(SILVER_STOCK_SUSPEND_DAILY_ASSET_KEY, SILVER_SUSPEND_D_CHECKS),
 )
+RAW_STOCK_DAILY_READINESS_SPEC = AssetReadinessSpec(
+    RAW_STOCK_DAILY_ASSET_KEY,
+    RAW_STOCK_DAILY_CHECKS,
+)
 STOCK_DAILY_READINESS_SPECS = (
-    AssetReadinessSpec(RAW_STOCK_DAILY_ASSET_KEY, RAW_STOCK_DAILY_CHECKS),
+    RAW_STOCK_DAILY_READINESS_SPEC,
     AssetReadinessSpec(SILVER_STOCK_DAILY_ASSET_KEY, SILVER_STOCK_DAILY_BLOCKING_CHECKS),
 )
 ADJ_FACTOR_READINESS_SPECS = (
@@ -793,6 +797,17 @@ def suspend_d_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         SUSPEND_D_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def raw_tushare_stock_daily_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        RAW_STOCK_DAILY_READINESS_SPEC,
         partition_key=trade_date,
     )
 

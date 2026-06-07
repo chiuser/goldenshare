@@ -8,11 +8,11 @@ class FeishuRunStatusSensorTests(unittest.TestCase):
         self.assertEqual(
             _trigger_value(
                 {
-                    "dagster/sensor_name": "stock_daily_sensor",
+                    "dagster/sensor_name": "raw_stock_daily_update_job_sensor",
                     "dagster/schedule_name": "daily_schedule",
                 }
             ),
-            "stock_daily_sensor",
+            "raw_stock_daily_update_job_sensor",
         )
 
     def test_trigger_value_uses_schedule_system_tag(self) -> None:

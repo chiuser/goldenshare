@@ -20,6 +20,8 @@ class IndexDailyRawByCodeConfig(dg.Config):
 
 StockMinsRawSource = Literal["tushare", "prod_db"]
 StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair"]
+StockDailyRawWriteMode = Literal["full_day", "missing_code_repair"]
+MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT = 100
 
 
 @dataclass(frozen=True)
@@ -43,6 +45,61 @@ class ParsedStockMinsRawConfig:
         if start_time > end_time:
             raise ValueError("merge_repair.start_time must not be later than end_time.")
         return self
+
+
+@dataclass(frozen=True)
+class StockDailyMissingCodeRepairConfig:
+    ts_codes: tuple[str, ...]
+    missing_codes_hash: str
+    repair_attempt: int
+
+
+@dataclass(frozen=True)
+class ParsedStockDailyRawConfig:
+    write_mode: StockDailyRawWriteMode
+    missing_code_repair: StockDailyMissingCodeRepairConfig | None = None
+
+
+STOCK_DAILY_RAW_CONFIG_SCHEMA = dg.Shape(
+    {
+        "write_mode": dg.Field(
+            dg.Selector(
+                {
+                    "full_day": dg.Field(
+                        dg.Shape({}),
+                        default_value={},
+                        is_required=False,
+                        description="日常全交易日 raw 更新模式。",
+                    ),
+                    "missing_code_repair": dg.Field(
+                        dg.Shape(
+                            {
+                                "ts_codes": dg.Field(
+                                    [str],
+                                    description=(
+                                        "本次补拉的股票代码列表，不能为空，最多 100 个。"
+                                    ),
+                                ),
+                                "missing_codes_hash": dg.Field(
+                                    str,
+                                    description="sensor 对完整 missing code 集合计算出的稳定 hash。",
+                                ),
+                                "repair_attempt": dg.Field(
+                                    int,
+                                    description="同一 trade_date + missing hash 的 repair 尝试次数。",
+                                ),
+                            }
+                        ),
+                        description="股票日线 raw missing-code 受控修复模式。",
+                    ),
+                }
+            ),
+            default_value={"full_day": {}},
+            is_required=False,
+            description="股票日线 raw 写入模式；full_day 与 missing_code_repair 互斥。",
+        ),
+    }
+)
 
 
 STOCK_MINS_RAW_CONFIG_SCHEMA = dg.Shape(
@@ -147,6 +204,34 @@ def build_index_daily_update_job_run_config(
     )
 
 
+def build_stock_daily_raw_repair_run_config(
+    *,
+    ts_codes: Sequence[str],
+    missing_codes_hash: str,
+    repair_attempt: int,
+) -> dict[str, object]:
+    repair_config = StockDailyMissingCodeRepairConfig(
+        ts_codes=_normalize_stock_daily_repair_ts_codes(ts_codes),
+        missing_codes_hash=_normalize_missing_codes_hash(missing_codes_hash),
+        repair_attempt=_normalize_repair_attempt(repair_attempt),
+    )
+    return {
+        "ops": {
+            "raw_tushare_stock_daily": {
+                "config": {
+                    "write_mode": {
+                        "missing_code_repair": {
+                            "ts_codes": list(repair_config.ts_codes),
+                            "missing_codes_hash": repair_config.missing_codes_hash,
+                            "repair_attempt": repair_config.repair_attempt,
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+
 def build_stock_mins_raw_update_job_run_config(
     *,
     source: StockMinsRawSource,
@@ -165,6 +250,46 @@ def build_stock_mins_raw_update_job_run_config(
             for op_name in STOCK_MINS_RAW_ASSET_OP_NAMES
         }
     }
+
+
+def parse_stock_daily_raw_config(
+    raw_config: Mapping[str, object] | None,
+) -> ParsedStockDailyRawConfig:
+    config = dict(raw_config or {})
+    write_mode_config = config.get("write_mode", {"full_day": {}})
+    if not isinstance(write_mode_config, Mapping):
+        raise ValueError("write_mode must be a selector mapping.")
+
+    selected_modes = [
+        mode
+        for mode in ("full_day", "missing_code_repair")
+        if mode in write_mode_config
+    ]
+    if len(selected_modes) != 1:
+        raise ValueError("write_mode must select exactly one branch.")
+
+    write_mode = selected_modes[0]
+    if write_mode == "full_day":
+        return ParsedStockDailyRawConfig(write_mode="full_day")
+
+    repair_config = write_mode_config["missing_code_repair"]
+    if not isinstance(repair_config, Mapping):
+        raise ValueError("missing_code_repair config must be a mapping.")
+
+    return ParsedStockDailyRawConfig(
+        write_mode="missing_code_repair",
+        missing_code_repair=StockDailyMissingCodeRepairConfig(
+            ts_codes=_normalize_stock_daily_repair_ts_codes(
+                repair_config.get("ts_codes")
+            ),
+            missing_codes_hash=_normalize_missing_codes_hash(
+                repair_config.get("missing_codes_hash")
+            ),
+            repair_attempt=_normalize_repair_attempt(
+                repair_config.get("repair_attempt")
+            ),
+        ),
+    )
 
 
 def parse_stock_mins_raw_config(
@@ -236,6 +361,55 @@ def _normalize_repair_stock_codes(value: object) -> tuple[str, ...]:
             f"{duplicate_codes}."
         )
     return stock_codes
+
+
+def _normalize_stock_daily_repair_ts_codes(value: object) -> tuple[str, ...]:
+    if not isinstance(value, Sequence) or isinstance(value, (str, bytes)):
+        raise ValueError("missing_code_repair.ts_codes must be a non-empty list.")
+    ts_codes = tuple(str(item).strip().upper() for item in value)
+    if not ts_codes or any(not item for item in ts_codes):
+        raise ValueError("missing_code_repair.ts_codes must be a non-empty list.")
+    duplicate_codes = sorted(
+        {ts_code for ts_code in ts_codes if ts_codes.count(ts_code) > 1}
+    )
+    if duplicate_codes:
+        raise ValueError(
+            "missing_code_repair.ts_codes must not contain duplicates: "
+            f"{duplicate_codes}."
+        )
+    if len(ts_codes) > MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT:
+        raise ValueError(
+            "missing_code_repair.ts_codes must not contain more than "
+            f"{MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT} codes."
+        )
+    return ts_codes
+
+
+def _normalize_missing_codes_hash(value: object) -> str:
+    text = str(value or "").strip().lower()
+    if not text:
+        raise ValueError("missing_code_repair.missing_codes_hash is required.")
+    if len(text) != 64:
+        raise ValueError(
+            "missing_code_repair.missing_codes_hash must be a SHA-256 hex string."
+        )
+    if any(character not in "0123456789abcdef" for character in text):
+        raise ValueError(
+            "missing_code_repair.missing_codes_hash must be a lowercase hex string."
+        )
+    return text
+
+
+def _normalize_repair_attempt(value: object) -> int:
+    try:
+        attempt = int(value)
+    except (TypeError, ValueError) as error:
+        raise ValueError(
+            "missing_code_repair.repair_attempt must be an integer."
+        ) from error
+    if attempt <= 0:
+        raise ValueError("missing_code_repair.repair_attempt must be positive.")
+    return attempt
 
 
 def _normalize_hms_time(value: object, *, field_name: str) -> str:

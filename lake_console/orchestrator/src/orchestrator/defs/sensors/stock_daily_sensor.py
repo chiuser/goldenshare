@@ -1,11 +1,19 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import Any
 
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.run_contracts.configs import (
+    build_stock_daily_raw_repair_run_config,
+)
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
+    load_sensor_cursor,
+    sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -18,31 +26,163 @@ from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     RAW_STOCK_DAILY_ASSET_KEY,
     SILVER_STOCK_DAILY_ASSET_KEY,
+    AssetReadinessStatus,
+    DatasetReadinessStatus,
     materialized_partition_keys,
+    raw_tushare_stock_daily_ready_for_trade_date,
     status_payload,
     stock_basic_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
+from orchestrator.defs.sensors.stock_daily_raw_repair import (
+    STOCK_DAILY_REPAIR_STATE_KEY,
+    StockDailyMissingCodeRepairSelection,
+    locate_stock_daily_missing_codes,
+    select_stock_daily_missing_code_repair,
+    stock_daily_repair_state_from_details,
+)
 from orchestrator.source_readiness.tushare.stock_daily import (
+    StockDailySourceReadiness,
     check_stock_daily_source_readiness,
 )
 
 
 MAX_RUN_REQUESTS_PER_TICK = 2
+RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT = 2
 
 
-def _cursor_payload(
+def _eligible_registered_trade_dates(
+    context: dg.SensorEvaluationContext,
+    evaluated_at: datetime,
+) -> tuple[str, ...]:
+    today = evaluated_at.date().isoformat()
+    return tuple(
+        key
+        for key in sorted(
+            context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
+        )
+        if key <= today
+    )
+
+
+def _recent_registered_trade_dates(trade_dates: tuple[str, ...]) -> tuple[str, ...]:
+    return trade_dates[-RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT:]
+
+
+def _readiness_dataset_payload(
+    status: DatasetReadinessStatus,
+) -> list[dict[str, object]]:
+    return status_payload(status)
+
+
+def _readiness_asset_payload(status: AssetReadinessStatus) -> dict[str, object]:
+    return {
+        "asset_key": status.asset_key,
+        "partition_key": status.partition_key,
+        "ready": status.ready,
+        "materialized": status.materialized,
+        "checks_passed": status.checks_passed,
+        "freshness_passed": status.freshness_passed,
+        "materialization_storage_id": status.materialization_storage_id,
+        "materialization_date": status.materialization_date,
+        "missing_check_names": list(status.missing_check_names),
+        "failed_check_names": list(status.failed_check_names),
+        "reason": status.reason,
+    }
+
+
+def _source_readiness_payload(
+    source_readiness: StockDailySourceReadiness,
+) -> dict[str, object]:
+    return {
+        "is_ready": source_readiness.is_ready,
+        "trade_date": source_readiness.trade_date,
+        "row_count": source_readiness.row_count,
+        "checked_at": source_readiness.checked_at,
+        "reason": source_readiness.reason,
+    }
+
+
+def _supporting_facts_ready(
+    *,
+    context: dg.SensorEvaluationContext,
+    trade_date: str,
+    readiness_details: dict[str, dict[str, object]],
+) -> bool:
+    readiness_details.setdefault(trade_date, {})
+    basic_status = stock_basic_ready_for_trade_date(context.instance, trade_date)
+    readiness_details[trade_date]["stock_basic"] = _readiness_dataset_payload(
+        basic_status
+    )
+    if not basic_status.ready:
+        return False
+
+    suspend_status = suspend_d_ready_for_trade_date(context.instance, trade_date)
+    readiness_details[trade_date]["suspend_d"] = _readiness_dataset_payload(
+        suspend_status
+    )
+    return suspend_status.ready
+
+
+def _stock_daily_source_ready(
+    *,
+    context: dg.SensorEvaluationContext,
+    trade_date: str,
+    evaluated_at: datetime,
+    readiness_details: dict[str, dict[str, object]],
+) -> bool:
+    source_readiness = check_stock_daily_source_readiness(
+        tushare=context.resources.tushare,
+        trade_date=trade_date,
+        checked_at=evaluated_at,
+    )
+    readiness_details.setdefault(trade_date, {})
+    readiness_details[trade_date]["source_readiness"] = _source_readiness_payload(
+        source_readiness
+    )
+    return source_readiness.is_ready
+
+
+def _clear_repair_state_for_trade_date(
+    repair_state: dict[str, Any],
+    trade_date: str,
+) -> None:
+    dates = repair_state.setdefault("dates", {})
+    if isinstance(dates, dict):
+        dates.pop(trade_date, None)
+
+
+def _repair_selection_payload(
+    selection: StockDailyMissingCodeRepairSelection,
+) -> dict[str, object]:
+    return {
+        "trade_date": selection.trade_date,
+        "should_submit": selection.should_submit,
+        "reason": selection.reason,
+        "missing_codes_hash": selection.missing_codes_hash,
+        "repair_attempt": selection.repair_attempt,
+        "next_retry_at": (
+            selection.next_retry_at.isoformat() if selection.next_retry_at else None
+        ),
+        "manual_required": selection.manual_required,
+        "waiting": selection.waiting,
+        "exhausted": selection.exhausted,
+    }
+
+
+def _raw_sensor_cursor(
     *,
     evaluated_at: datetime,
     registered_count: int,
-    pending_keys: tuple[str, ...],
-    selected_keys: tuple[str, ...],
-    blocked_basic_keys: tuple[str, ...],
-    blocked_suspend_keys: tuple[str, ...],
-    source_not_ready_keys: tuple[str, ...],
-    readiness_details: dict[str, object],
+    raw_missing_keys: tuple[str, ...],
+    selected_full_day_keys: tuple[str, ...],
+    selected_repair_keys: tuple[str, ...],
+    blocked_keys: tuple[str, ...],
+    readiness_details: dict[str, dict[str, object]],
+    repair_state: dict[str, Any],
+    repair_details: dict[str, object],
 ) -> str:
-    blocked_keys = (*blocked_basic_keys, *blocked_suspend_keys, *source_not_ready_keys)
+    selected_keys = (*selected_full_day_keys, *selected_repair_keys)
     decision = (
         SensorCursorDecision.REQUEST_RUNS
         if selected_keys
@@ -51,25 +191,70 @@ def _cursor_payload(
     target_date = (
         selected_keys[0]
         if selected_keys
-        else pending_keys[0]
-        if pending_keys
+        else blocked_keys[0]
+        if blocked_keys
+        else raw_missing_keys[0]
+        if raw_missing_keys
         else None
     )
-    sample_keys = selected_keys or blocked_keys or pending_keys
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
         target_date=target_date,
         selected_count=len(selected_keys),
         blocked_count=len(blocked_keys),
-        sample_keys=sample_keys,
+        sample_keys=selected_keys or blocked_keys or raw_missing_keys,
+        details={
+            "registered_count": registered_count,
+            "raw_missing_count": len(raw_missing_keys),
+            "raw_missing_sample_keys": list(raw_missing_keys[:20]),
+            "selected_full_day_keys": list(selected_full_day_keys),
+            "selected_repair_keys": list(selected_repair_keys),
+            "blocked_keys": list(blocked_keys),
+            "readiness_details": readiness_details,
+            "repair_details": repair_details,
+            STOCK_DAILY_REPAIR_STATE_KEY: repair_state,
+            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+            "recent_repair_trade_date_limit": RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT,
+        },
+    )
+
+
+def _silver_sensor_cursor(
+    *,
+    evaluated_at: datetime,
+    registered_count: int,
+    pending_keys: tuple[str, ...],
+    selected_keys: tuple[str, ...],
+    blocked_keys: tuple[str, ...],
+    readiness_details: dict[str, dict[str, object]],
+) -> str:
+    decision = (
+        SensorCursorDecision.REQUEST_RUNS
+        if selected_keys
+        else SensorCursorDecision.SKIP
+    )
+    target_date = (
+        selected_keys[0]
+        if selected_keys
+        else blocked_keys[0]
+        if blocked_keys
+        else pending_keys[0]
+        if pending_keys
+        else None
+    )
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=decision,
+        target_date=target_date,
+        selected_count=len(selected_keys),
+        blocked_count=len(blocked_keys),
+        sample_keys=selected_keys or blocked_keys or pending_keys,
         details={
             "registered_count": registered_count,
             "pending_count": len(pending_keys),
             "selected_keys": list(selected_keys),
-            "blocked_basic_keys": list(blocked_basic_keys),
-            "blocked_suspend_keys": list(blocked_suspend_keys),
-            "source_not_ready_keys": list(source_not_ready_keys),
+            "blocked_keys": list(blocked_keys),
             "readiness_details": readiness_details,
             "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
         },
@@ -77,102 +262,266 @@ def _cursor_payload(
 
 
 @dg.sensor(
-    job_name="stock_daily_update_job",
+    job_name="raw_stock_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     tags=build_sensor_tags(
         sensor_domain=SensorDomain.QUOTE_DATA,
-        target_layer=SensorTargetLayer.RAW_SILVER,
+        target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    required_resource_keys={"tushare"},
-    description="股票基础信息、停复牌和源站日线就绪后，触发日线更新任务。",
+    required_resource_keys={"duckdb", "lake_root", "tushare"},
+    description="股票基础信息、停复牌和源站日线就绪后，触发股票日线 raw 更新或受控 missing-code repair。",
 )
-def stock_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+def raw_stock_daily_update_job_sensor(
+    context: dg.SensorEvaluationContext,
+) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
-    today = evaluated_at.date().isoformat()
-    registered_keys = tuple(
-        key
-        for key in sorted(context.instance.get_dynamic_partitions(cn_a_stock_trade_days.name))
-        if key <= today
-    )
-    materialized_keys = materialized_partition_keys(
+    registered_keys = _eligible_registered_trade_dates(context, evaluated_at)
+    raw_materialized_keys = materialized_partition_keys(
         context.instance,
-        (RAW_STOCK_DAILY_ASSET_KEY, SILVER_STOCK_DAILY_ASSET_KEY),
+        (RAW_STOCK_DAILY_ASSET_KEY,),
     )
-    pending_keys = tuple(key for key in registered_keys if key not in materialized_keys)
-    candidate_keys = pending_keys[:MAX_RUN_REQUESTS_PER_TICK]
+    raw_missing_keys = tuple(
+        key for key in registered_keys if key not in raw_materialized_keys
+    )
+    selected_full_day_keys: list[str] = []
+    selected_repair_keys: list[str] = []
+    selected_repair_run_inputs: dict[str, tuple[tuple[str, ...], str, int]] = {}
+    blocked_keys: list[str] = []
+    readiness_details: dict[str, dict[str, object]] = {}
+    repair_details: dict[str, object] = {}
+    cursor_payload = load_sensor_cursor(context.cursor)
+    previous_cursor_details = sensor_cursor_details(cursor_payload)
+    repair_state = stock_daily_repair_state_from_details(previous_cursor_details)
 
-    selected_keys = []
-    blocked_basic_keys = []
-    blocked_suspend_keys = []
-    source_not_ready_keys = []
-    readiness_details: dict[str, object] = {}
-
-    for key in candidate_keys:
-        basic_status = stock_basic_ready_for_trade_date(context.instance, key)
-        readiness_details.setdefault(key, {})
-        readiness_details[key]["stock_basic"] = status_payload(basic_status)
-        if not basic_status.ready:
-            blocked_basic_keys.append(key)
+    for trade_date in raw_missing_keys[:MAX_RUN_REQUESTS_PER_TICK]:
+        if len(selected_full_day_keys) >= MAX_RUN_REQUESTS_PER_TICK:
+            break
+        if not _supporting_facts_ready(
+            context=context,
+            trade_date=trade_date,
+            readiness_details=readiness_details,
+        ):
+            blocked_keys.append(trade_date)
             continue
-
-        suspend_status = suspend_d_ready_for_trade_date(context.instance, key)
-        readiness_details[key]["suspend_d"] = status_payload(suspend_status)
-        if not suspend_status.ready:
-            blocked_suspend_keys.append(key)
+        if not _stock_daily_source_ready(
+            context=context,
+            trade_date=trade_date,
+            evaluated_at=evaluated_at,
+            readiness_details=readiness_details,
+        ):
+            blocked_keys.append(trade_date)
             continue
+        selected_full_day_keys.append(trade_date)
 
-        source_readiness = check_stock_daily_source_readiness(
-            tushare=context.resources.tushare,
-            trade_date=key,
-            checked_at=evaluated_at,
+    remaining_capacity = MAX_RUN_REQUESTS_PER_TICK - len(selected_full_day_keys)
+    recent_trade_dates = _recent_registered_trade_dates(registered_keys)
+    for trade_date in recent_trade_dates:
+        if remaining_capacity <= 0:
+            break
+        if trade_date in selected_full_day_keys or trade_date not in raw_materialized_keys:
+            continue
+        raw_status = raw_tushare_stock_daily_ready_for_trade_date(
+            context.instance,
+            trade_date,
         )
-        readiness_details[key]["source_readiness"] = {
-            "is_ready": source_readiness.is_ready,
-            "trade_date": source_readiness.trade_date,
-            "row_count": source_readiness.row_count,
-            "checked_at": source_readiness.checked_at,
-            "reason": source_readiness.reason,
-        }
-        if not source_readiness.is_ready:
-            source_not_ready_keys.append(key)
+        readiness_details.setdefault(trade_date, {})
+        readiness_details[trade_date]["raw_tushare_stock_daily"] = (
+            _readiness_asset_payload(raw_status)
+        )
+        if raw_status.ready:
+            _clear_repair_state_for_trade_date(repair_state, trade_date)
+            continue
+        if not _supporting_facts_ready(
+            context=context,
+            trade_date=trade_date,
+            readiness_details=readiness_details,
+        ):
+            blocked_keys.append(trade_date)
+            continue
+        if not _stock_daily_source_ready(
+            context=context,
+            trade_date=trade_date,
+            evaluated_at=evaluated_at,
+            readiness_details=readiness_details,
+        ):
+            blocked_keys.append(trade_date)
             continue
 
-        selected_keys.append(key)
+        locator = locate_stock_daily_missing_codes(
+            lake_root_path=context.resources.lake_root.root(),
+            duckdb=context.resources.duckdb,
+            trade_date=trade_date,
+        )
+        selection = select_stock_daily_missing_code_repair(
+            locator=locator,
+            evaluated_at=evaluated_at,
+            repair_state=repair_state,
+        )
+        repair_state = selection.repair_state
+        repair_details[trade_date] = {
+            "locator": {
+                "raw_file_exists": locator.raw_file_exists,
+                "expected_count": locator.expected_count,
+                "raw_code_count": locator.raw_code_count,
+                "missing_count": locator.missing_count,
+                "missing_sample_codes": list(locator.missing_sample_codes),
+                "extra_count": locator.extra_count,
+                "duplicate_key_count": locator.duplicate_key_count,
+                "conflict_key_count": locator.conflict_key_count,
+                "extra_sample_codes": list(locator.extra_sample_codes),
+                "duplicate_sample_codes": list(locator.duplicate_sample_codes),
+                "conflict_sample_codes": list(locator.conflict_sample_codes),
+                "scan_error_code": locator.scan_error_code,
+                "scan_error": locator.scan_error,
+            },
+            "selection": _repair_selection_payload(selection),
+        }
+        if not selection.should_submit:
+            if selection.manual_required or selection.waiting:
+                blocked_keys.append(trade_date)
+            continue
+
+        selected_repair_keys.append(trade_date)
+        selected_repair_run_inputs[trade_date] = (
+            locator.missing_codes,
+            str(selection.missing_codes_hash),
+            selection.repair_attempt,
+        )
+        remaining_capacity -= 1
+
+    selected_full_day_tuple = tuple(selected_full_day_keys)
+    selected_repair_tuple = tuple(selected_repair_keys)
+    cursor = _raw_sensor_cursor(
+        evaluated_at=evaluated_at,
+        registered_count=len(registered_keys),
+        raw_missing_keys=raw_missing_keys,
+        selected_full_day_keys=selected_full_day_tuple,
+        selected_repair_keys=selected_repair_tuple,
+        blocked_keys=tuple(blocked_keys),
+        readiness_details=readiness_details,
+        repair_state=repair_state,
+        repair_details=repair_details,
+    )
+
+    run_requests = [
+        build_run_request(
+            partition_key=trade_date,
+            run_key=f"raw_stock_daily_update:{trade_date}",
+        )
+        for trade_date in selected_full_day_tuple
+    ]
+    for trade_date in selected_repair_tuple:
+        missing_codes, missing_hash, repair_attempt = selected_repair_run_inputs[
+            trade_date
+        ]
+        run_requests.append(
+            build_run_request(
+                partition_key=trade_date,
+                run_key=(
+                    f"raw_stock_daily_update:{trade_date}:missing_code_repair:"
+                    f"{missing_hash}:{repair_attempt}"
+                ),
+                run_config=build_stock_daily_raw_repair_run_config(
+                    ts_codes=missing_codes,
+                    missing_codes_hash=missing_hash,
+                    repair_attempt=repair_attempt,
+                ),
+            )
+        )
+
+    if not run_requests:
+        if not registered_keys:
+            skip_reason = "当前没有已注册股票交易日分区。"
+        elif raw_missing_keys:
+            skip_reason = "股票日线 raw 缺失，但基础事实或 Tushare 源站门禁未满足。"
+        elif repair_details:
+            skip_reason = "股票日线 raw 已生成但 repair 门禁未满足或需要人工处理。"
+        else:
+            skip_reason = "当前股票日线 raw 已就绪，没有需要提交的 raw run。"
+        return dg.SensorResult(skip_reason=skip_reason, cursor=cursor)
+
+    return dg.SensorResult(run_requests=run_requests, cursor=cursor)
+
+
+@dg.sensor(
+    job_name="silver_stock_daily_update_job",
+    default_status=dg.DefaultSensorStatus.STOPPED,
+    minimum_interval_seconds=600,
+    tags=build_sensor_tags(
+        sensor_domain=SensorDomain.QUOTE_DATA,
+        target_layer=SensorTargetLayer.SILVER,
+        role=SensorRole.ASSET_UPDATE,
+    ),
+    description="股票日线 raw 与基础事实 ready 后，触发股票日线 silver-only 更新。",
+)
+def silver_stock_daily_update_job_sensor(
+    context: dg.SensorEvaluationContext,
+) -> dg.SensorResult:
+    evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
+    registered_keys = _eligible_registered_trade_dates(context, evaluated_at)
+    silver_materialized_keys = materialized_partition_keys(
+        context.instance,
+        (SILVER_STOCK_DAILY_ASSET_KEY,),
+    )
+    pending_keys = tuple(
+        key for key in registered_keys if key not in silver_materialized_keys
+    )
+    candidate_keys = pending_keys[:MAX_RUN_REQUESTS_PER_TICK]
+    selected_keys: list[str] = []
+    blocked_keys: list[str] = []
+    readiness_details: dict[str, dict[str, object]] = {}
+
+    for trade_date in candidate_keys:
+        if not _supporting_facts_ready(
+            context=context,
+            trade_date=trade_date,
+            readiness_details=readiness_details,
+        ):
+            blocked_keys.append(trade_date)
+            continue
+
+        raw_status = raw_tushare_stock_daily_ready_for_trade_date(
+            context.instance,
+            trade_date,
+        )
+        readiness_details.setdefault(trade_date, {})
+        readiness_details[trade_date]["raw_tushare_stock_daily"] = (
+            _readiness_asset_payload(raw_status)
+        )
+        if not raw_status.ready:
+            blocked_keys.append(trade_date)
+            continue
+
+        selected_keys.append(trade_date)
 
     selected_tuple = tuple(selected_keys)
-    cursor = _cursor_payload(
+    cursor = _silver_sensor_cursor(
         evaluated_at=evaluated_at,
         registered_count=len(registered_keys),
         pending_keys=pending_keys,
         selected_keys=selected_tuple,
-        blocked_basic_keys=tuple(blocked_basic_keys),
-        blocked_suspend_keys=tuple(blocked_suspend_keys),
-        source_not_ready_keys=tuple(source_not_ready_keys),
+        blocked_keys=tuple(blocked_keys),
         readiness_details=readiness_details,
     )
 
     if not selected_tuple:
         if not pending_keys:
-            skip_reason = "当前所有已注册交易日的股票日线分区都已经生成完成。"
-        elif blocked_basic_keys:
-            skip_reason = "股票基础信息还没有通过 materialization 和 blocking checks 门禁。"
-        elif blocked_suspend_keys:
-            skip_reason = "停复牌分区还没有通过 materialization 和 blocking checks 门禁。"
-        elif source_not_ready_keys:
-            skip_reason = "Tushare 日线源站还没有返回有效数据。"
+            skip_reason = "当前所有已注册交易日的股票日线 silver 分区都已经生成完成。"
+        elif blocked_keys:
+            skip_reason = "股票日线 silver 前置 raw 或基础事实 readiness 门禁未满足。"
         else:
-            skip_reason = "当前没有满足门禁的股票日线待补分区。"
+            skip_reason = "当前没有满足门禁的股票日线 silver 待补分区。"
         return dg.SensorResult(skip_reason=skip_reason, cursor=cursor)
 
     return dg.SensorResult(
         run_requests=[
             build_run_request(
-                partition_key=key,
-                run_key=f"stock_daily_update:{key}",
+                partition_key=trade_date,
+                run_key=f"silver_stock_daily_update:{trade_date}",
             )
-            for key in selected_tuple
+            for trade_date in selected_tuple
         ],
         cursor=cursor,
     )
