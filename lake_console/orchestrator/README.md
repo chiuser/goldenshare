@@ -12,6 +12,13 @@ run-contract helpers, the read-only lake asset catalog registry, Feishu
 run-status notifications, ClickHouse serving sync definitions, and shared
 resources.
 
+Daily quote automation now treats raw and silver readiness as separate
+production boundaries for the chains that have been repaired. `stock_daily`
+uses `raw_stock_daily_update_job` / `silver_stock_daily_update_job`, and
+`suspend_d` uses `raw_suspend_d_update_job` / `silver_suspend_d_update_job`.
+Silver sensors must wait for the corresponding raw latest materialization and
+blocking checks before submitting silver runs.
+
 Current resource keys are:
 
 - `lake_root`
@@ -36,6 +43,7 @@ Before changing Dagster definitions, read:
 - [CODING_STANDARDS.md](/Users/congming/github/goldenshare/lake_console/orchestrator/CODING_STANDARDS.md)
 - [Dagster run contract governance](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-run-contract-governance.html)
 - [Dagster asset/job topology](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-asset-job-topology.html)
+- [Dagster silver raw readiness registry](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-silver-raw-readiness-registry.html)
 
 ## Execution Gate
 
