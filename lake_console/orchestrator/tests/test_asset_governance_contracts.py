@@ -77,6 +77,9 @@ from orchestrator.defs.assets.stk_mins import (
     silver_stk_mins_30m,
     silver_stk_mins_60m,
 )
+from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS,
+)
 from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
@@ -134,6 +137,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
@@ -154,6 +159,10 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
+)
+from orchestrator.defs.stk_mins_qfq_macd_kdj import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
 )
 from orchestrator.defs.run_contracts.metadata import (
     DATA_CONTRACT_METADATA_KEY,
@@ -202,6 +211,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     gold_stk_mins_qfq_60m,
     gold_stk_mins_qfq_90m,
     gold_stk_mins_qfq_120m,
+    *GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS,
     raw_tushare_index_basic,
     silver_index_basic,
     raw_tushare_index_daily_by_code,
@@ -213,9 +223,20 @@ ACTIVE_ASSET_DEFINITIONS = (
     prod_ch_share_fact_market_breadth_daily,
     lake_root_health,
 )
-ACTIVE_ASSETS_BY_KEY = {
-    asset.key.to_user_string(): asset for asset in ACTIVE_ASSET_DEFINITIONS
-}
+
+
+def _asset_specs_and_definitions_by_key():
+    specs = {}
+    definitions = {}
+    for asset_definition in ACTIVE_ASSET_DEFINITIONS:
+        for asset_key in asset_definition.keys:
+            key = asset_key.to_user_string()
+            specs[key] = asset_definition.get_asset_spec(asset_key)
+            definitions[key] = asset_definition
+    return specs, definitions
+
+
+ACTIVE_ASSET_SPECS_BY_KEY, ACTIVE_ASSETS_BY_KEY = _asset_specs_and_definitions_by_key()
 ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
 
 
@@ -285,13 +306,12 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 40)
+        self.assertEqual(len(catalog_entries), 54)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
             with self.subTest(asset=asset_key):
-                asset = ACTIVE_ASSETS_BY_KEY[asset_key]
-                spec = asset.get_asset_spec()
+                spec = ACTIVE_ASSET_SPECS_BY_KEY[asset_key]
 
                 self.assertEqual(spec.group_name, entry.group_name)
                 self.assertEqual(spec.tags[ASSET_LAYER_TAG], entry.layer.value)
@@ -337,7 +357,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 40)
+        self.assertEqual(len(entries), 54)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -423,6 +443,14 @@ class AssetGovernanceContractTests(unittest.TestCase):
                     asset.partitions_def,
                     cn_a_stock_mins_silver_trade_days,
                 )
+        for asset_definition in GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS:
+            for asset_key in asset_definition.keys:
+                with self.subTest(asset=asset_key.to_user_string()):
+                    spec = asset_definition.get_asset_spec(asset_key)
+                    self.assertEqual(
+                        spec.partitions_def,
+                        cn_a_stock_mins_silver_trade_days,
+                    )
 
     def test_assets_register_definition_column_schema(
         self,
@@ -440,8 +468,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
         for asset_key, expected_schema in schemas_by_asset_key.items():
             with self.subTest(asset=asset_key):
-                asset = ACTIVE_ASSETS_BY_KEY[asset_key]
-                spec = asset.get_asset_spec()
+                spec = ACTIVE_ASSET_SPECS_BY_KEY[asset_key]
                 schema_metadata = spec.metadata[DAGSTER_COLUMN_SCHEMA_METADATA_KEY]
                 columns = schema_metadata.schema.columns
 
@@ -460,8 +487,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
         for asset_key in ASSETS_WITHOUT_COLUMN_SCHEMA:
             with self.subTest(asset=asset_key):
-                asset = ACTIVE_ASSETS_BY_KEY[asset_key]
-                spec = asset.get_asset_spec()
+                spec = ACTIVE_ASSET_SPECS_BY_KEY[asset_key]
                 self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, spec.metadata)
 
     def test_catalog_blocking_checks_match_active_check_specs(self) -> None:
@@ -636,6 +662,14 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             GOLD_STK_MINS_QFQ_COLUMNS,
             tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA),
+        )
+        self.assertEqual(
+            GOLD_STK_MINS_QFQ_MACD_KDJ_COLUMNS,
+            tuple(column.name for column in GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA),
+        )
+        self.assertEqual(
+            GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
+            tuple(column.name for column in GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA),
         )
         self.assertEqual(
             CLICKHOUSE_MARKET_BREADTH_COLUMNS,

@@ -11,6 +11,8 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_YEAR,
     gold_market_breadth_daily_path,
     gold_market_major_indices_daily_path,
+    gold_stk_mins_qfq_macd_kdj_path,
+    gold_stk_mins_qfq_macd_kdj_state_path,
     gold_stk_mins_qfq_path,
     gold_stock_return_distribution_path,
     lake_path_template,
@@ -38,6 +40,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_BREADTH_DAILY_SCHEMA,
     GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     RAW_STK_MINS_SCHEMA,
@@ -127,6 +131,12 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_SILVER_STOCK_MINS = "trade_date_partition_silver_stock_mins"
     TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_STOCK_YEAR_FILE = (
         "trade_date_partition_gold_stock_mins_qfq_stock_year_file"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_MACD_KDJ_STOCK_YEAR_FILE = (
+        "trade_date_partition_gold_stock_mins_qfq_macd_kdj_stock_year_file"
+    )
+    TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_MACD_KDJ_STATE = (
+        "trade_date_partition_gold_stock_mins_qfq_macd_kdj_state"
     )
     TRADE_DATE_PARTITION_GOLD_MARKET_MAJOR_INDICES_DAILY = (
         "trade_date_partition_gold_market_major_indices_daily"
@@ -365,6 +375,16 @@ GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
     "gold_stk_mins_qfq_derived_row_count_matches_source_windows",
     "gold_stk_mins_qfq_derived_source_ready",
     *GOLD_STK_MINS_QFQ_BASE_CHECKS,
+)
+GOLD_STK_MINS_QFQ_MACD_KDJ_CHECKS = (
+    "gold_stk_mins_qfq_macd_kdj_file_exists_and_schema_check",
+    "gold_stk_mins_qfq_macd_kdj_source_ready_check",
+    "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check",
+    "gold_stk_mins_qfq_macd_kdj_formula_sample_check",
+)
+GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECKS = (
+    "gold_stk_mins_qfq_macd_kdj_state_file_exists_and_schema_check",
+    "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
 )
 RAW_INDEX_BASIC_CHECKS = (
     "raw_index_basic_date_strings_parseable",
@@ -647,6 +667,24 @@ PARTITION_MODEL_DEFINITIONS = (
         "trade_date",
         PartitionPhysicalLayout.STOCK_YEAR_FILE,
         notes="Dagster partition is trade_date; physical files are freq/ts_code/year.",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_MACD_KDJ_STOCK_YEAR_FILE,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "stock_mins_qfq_macd_kdj",
+        "trade_date",
+        PartitionPhysicalLayout.STOCK_YEAR_FILE,
+        notes="Dagster partition is trade_date; physical files are freq/ts_code/year.",
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_MACD_KDJ_STATE,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "stock_mins_qfq_macd_kdj_state",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+        notes="State files are freq/trade_date partition files.",
     ),
     _model(
         PartitionModel.TRADE_DATE_PARTITION_GOLD_MARKET_MAJOR_INDICES_DAILY,
@@ -1170,6 +1208,61 @@ LAKE_ASSET_CATALOG += tuple(
         notes="Derived qfq freqs read gold qfq source freqs only: 90m from 30m, 120m from 60m.",
     )
     for freq in (90, 120)
+)
+
+LAKE_ASSET_CATALOG += tuple(
+    _derived_entry(
+        asset_key=f"gold_stk_mins_qfq_macd_kdj_{freq}m",
+        dataset_id="stk_mins_qfq_macd_kdj",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="qfq_stock_minute_macd_kdj_indicators",
+        column_schema=GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_macd_kdj_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                freq,
+                PATH_TEMPLATE_TS_CODE,
+                PATH_TEMPLATE_YEAR,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_MACD_KDJ_STOCK_YEAR_FILE,
+        blocking_check_names=GOLD_STK_MINS_QFQ_MACD_KDJ_CHECKS,
+        batch_grain="freq/year",
+        write_policy=WritePolicy.STOCK_YEAR_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="MACD/KDJ indicator rows are derived only from seven-frequency gold qfq minute bars.",
+    )
+    for freq in (1, 5, 15, 30, 60, 90, 120)
+)
+
+LAKE_ASSET_CATALOG += tuple(
+    _derived_entry(
+        asset_key=f"gold_stk_mins_qfq_macd_kdj_state_{freq}m",
+        dataset_id="stk_mins_qfq_macd_kdj_state",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.QUOTE_DATA,
+        group_name="quote",
+        data_contract="qfq_stock_minute_macd_kdj_indicator_state",
+        column_schema=GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
+        path_template=lake_path_template(
+            gold_stk_mins_qfq_macd_kdj_state_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                freq,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_MINS_QFQ_MACD_KDJ_STATE,
+        blocking_check_names=GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECKS,
+        batch_grain="freq/trade_date",
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        bootstrap_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        notes="State rows persist the last recursive MACD/KDJ state per ts_code/freq/trade_date for future incremental computation.",
+    )
+    for freq in (1, 5, 15, 30, 60, 90, 120)
 )
 
 LAKE_ASSET_CATALOG += (

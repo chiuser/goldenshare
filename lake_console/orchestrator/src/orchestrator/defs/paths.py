@@ -135,6 +135,40 @@ def gold_stk_mins_qfq_path(root: Path, freq: int | str, ts_code: str, year: int 
     )
 
 
+def gold_stk_mins_qfq_macd_kdj_path(
+    root: Path,
+    freq: int | str,
+    ts_code: str,
+    year: int | str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stk_mins_qfq_macd_kdj",
+        f"freq={normalize_stk_mins_qfq_freq(freq)}",
+        _gold_stk_mins_qfq_ts_code_part(ts_code),
+        _gold_stk_mins_qfq_year_part(year),
+        "part-000.parquet",
+    )
+
+
+def gold_stk_mins_qfq_macd_kdj_state_path(
+    root: Path,
+    freq: int | str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "indicator",
+        "stk_mins_qfq_macd_kdj_state",
+        f"freq={normalize_stk_mins_qfq_freq(freq)}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def raw_adj_factor_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

@@ -21,6 +21,14 @@ QFQ_SOURCE_FILES = (
     DEFS_DIR / "stk_mins_qfq.py",
     DEFS_DIR / "stk_mins_qfq_factor_repair.py",
 )
+M12_MACD_KDJ_SOURCE_FILES = (
+    DEFS_DIR / "stk_mins_qfq_macd_kdj.py",
+    DEFS_DIR / "assets" / "stk_mins_qfq_macd_kdj.py",
+    DEFS_DIR / "checks" / "stk_mins_qfq_macd_kdj_checks.py",
+    DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py",
+    DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py",
+    DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py",
+)
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
 FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
@@ -180,6 +188,81 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_fragments
             if fragment in source
         ]
+
+        self.assertEqual(issues, [])
+
+    def test_m12_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops(self) -> None:
+        issues = []
+        for path in M12_MACD_KDJ_SOURCE_FILES:
+            source = path.read_text()
+            lowered = source.lower()
+            if "with recursive" in lowered:
+                issues.append(f"{path} contains forbidden recursive CTE")
+            tree = _parse_python_file(path)
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.For):
+                    continue
+                target_name = getattr(node.target, "id", "")
+                if target_name == "row" and path.name.endswith("_checks.py"):
+                    continue
+                if target_name in {"row", "record", "stock_code", "ts_code"}:
+                    issues.append(
+                        f"{_node_location(path, node)} contains forbidden primary "
+                        f"Python loop target: {target_name}"
+                    )
+
+        self.assertEqual(issues, [])
+
+    def test_m12_macd_kdj_entrypoints_keep_contract_boundaries(self) -> None:
+        issues = []
+        job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update.py"
+        repair_job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_repair.py"
+        sensor_path = SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+
+        for path in (job_path, repair_job_path):
+            source = path.read_text()
+            forbidden_fragments = (
+                "DuckDB",
+                "duckdb",
+                "read_parquet",
+                "COPY",
+                "gold_stk_mins_qfq_macd_kdj_path",
+                "gold_stk_mins_qfq_macd_kdj_state_path",
+                "sql",
+                "run_tags",
+            )
+            issues.extend(
+                f"{path} contains forbidden M12 job fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        sensor_source = sensor_path.read_text()
+        required_sensor_fragments = (
+            "partition_dataset_readiness_status_from_latest_checks",
+            "GOLD_STK_MINS_QFQ_READINESS_SPECS",
+            "build_run_request",
+            "build_sensor_tags",
+        )
+        forbidden_sensor_fragments = (
+            "get_asset_check_execution_history",
+            "duckdb",
+            "read_parquet",
+            "gold_stk_mins_qfq_macd_kdj_path",
+            '"ops"',
+            "'ops'",
+            "run_tags",
+        )
+        issues.extend(
+            f"{sensor_path} misses M12 sensor fragment: {fragment}"
+            for fragment in required_sensor_fragments
+            if fragment not in sensor_source
+        )
+        issues.extend(
+            f"{sensor_path} contains forbidden M12 sensor fragment: {fragment}"
+            for fragment in forbidden_sensor_fragments
+            if fragment in sensor_source
+        )
 
         self.assertEqual(issues, [])
 
@@ -621,7 +704,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 26)
+        self.assertEqual(sensor_definition_count, 27)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:

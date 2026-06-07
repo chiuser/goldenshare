@@ -1708,7 +1708,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M12</strong></td>
         <td>MACD/KDJ qfq 指标资产设计</td>
         <td>已新增专项设计文档：<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>；本基础文档不承载指标资产实现细节。</td>
-        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 state/checkpoint，历史初始化采用 <code>Direct Lake Bootstrap + Runless Event Backfill</code>，qfq repair 后指标必须从受影响起点向后重算。</td>
+        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>，历史初始化采用 <code>Direct Lake Bootstrap + Baseline/Future Event Tracking</code>，qfq repair 后指标必须从受影响起点向后重算。</td>
       </tr>
     </table>
   </section>

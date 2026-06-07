@@ -12,6 +12,8 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "adj_factor": "复权因子",
         "stk_mins": "股票分钟线",
         "stk_mins_qfq": "股票分钟线前复权",
+        "stk_mins_qfq_macd_kdj": "股票分钟线前复权 MACD/KDJ",
+        "stk_mins_qfq_macd_kdj_state": "股票分钟线前复权 MACD/KDJ State",
         "stock_identity_map": "股票身份映射",
         "suspend_d": "每日停复牌信息",
         "index_basic": "指数基本信息",

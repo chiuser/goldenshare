@@ -176,6 +176,43 @@ GOLD_STK_MINS_QFQ_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "标准交易所代码，沿用 silver 分钟线事实"),
 )
 
+GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract(
+        "freq",
+        "INTEGER",
+        "gold qfq 技术指标分钟频度，允许值为 1、5、15、30、60、90、120",
+    ),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("trade_time", "TIMESTAMP", "分钟 bar 时间"),
+    ColumnContract("macd_dif_qfq", "DOUBLE", "MACD DIF，基于 qfq close，参数 12/26/9"),
+    ColumnContract("macd_dea_qfq", "DOUBLE", "MACD DEA，基于 qfq close，参数 12/26/9"),
+    ColumnContract("macd_qfq", "DOUBLE", "MACD 柱，固定为 2 * (DIF - DEA)"),
+    ColumnContract("kdj_k_qfq", "DOUBLE", "KDJ K，基于 qfq high/low/close，参数 9/3/3"),
+    ColumnContract("kdj_d_qfq", "DOUBLE", "KDJ D，基于 qfq high/low/close，参数 9/3/3"),
+    ColumnContract("kdj_qfq", "DOUBLE", "KDJ J，固定为 3 * K - 2 * D"),
+    ColumnContract("params_key", "VARCHAR", "固定参数标识，第一版为 macd_12_26_9__kdj_9_3_3"),
+    ColumnContract("indicator_version", "INTEGER", "指标算法版本，第一版为 1"),
+)
+
+GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "标准股票代码"),
+    ColumnContract(
+        "freq",
+        "INTEGER",
+        "gold qfq 技术指标 state 分钟频度，允许值为 1、5、15、30、60、90、120",
+    ),
+    ColumnContract("trade_date", "DATE", "state 所属交易日"),
+    ColumnContract("last_trade_time", "TIMESTAMP", "该股票该频度在该交易日最后一根已处理 bar"),
+    ColumnContract("macd_ema_fast", "DOUBLE", "MACD 内部 fast EMA state，N=12"),
+    ColumnContract("macd_ema_slow", "DOUBLE", "MACD 内部 slow EMA state，N=26"),
+    ColumnContract("macd_dea", "DOUBLE", "MACD 内部 DEA state，N=9"),
+    ColumnContract("kdj_k", "DOUBLE", "KDJ 下一日递推所需 K state"),
+    ColumnContract("kdj_d", "DOUBLE", "KDJ 下一日递推所需 D state"),
+    ColumnContract("params_key", "VARCHAR", "固定参数标识，第一版为 macd_12_26_9__kdj_9_3_3"),
+    ColumnContract("indicator_version", "INTEGER", "指标算法版本，第一版为 1"),
+)
+
 SILVER_NAMECHANGE_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("name", "VARCHAR", "该名称区间内实际使用的证券简称"),
