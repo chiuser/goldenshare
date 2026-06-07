@@ -434,6 +434,22 @@ duckdb_compute/_tmp
 
 ---
 
+## Asset Catalog Registry 门禁
+
+C1 已将新湖 Dagster asset 事实收敛到 `orchestrator.defs.catalog.lake_assets`。后续新增或修改正式 active asset，必须按 registry-first 口径落代码。
+
+规则：
+
+1. 新增正式 active asset 前，必须先在设计记录中填写 `LakeAssetCatalogEntry` 事实卡：asset key、dataset id/name、layer/domain、group、source、data contract、字段契约、path template、partition model、ingestion/bootstrap sources、blocking checks、write/event/performance policy。
+2. 代码落地时，必须同步更新 `LAKE_ASSET_CATALOG`；新增 partition model 时必须同步更新 `PARTITION_MODEL_DEFINITIONS`。
+3. catalog entry 必须与 active asset definition metadata、tags、path template、`dagster/column_schema`、partition model 和 blocking check specs 一致；不得让 asset/check/job/sensor/bootstrap 各自维护一份资产事实。
+4. `lake_assets.py` 是只读 registry 和 static gates 事实源，不是 Dagster resource、asset 生成器或运行时 planner。C3 以前，业务 asset/check/job/sensor 不得为了省事改成依赖 catalog 生成逻辑。
+5. `lake_assets.py` 禁止 import `src.foundation`、`lake_console.backend`、Dagster instance、DuckDB、数据库、网络客户端或 lake 扫描逻辑；只能引用 orchestrator 内稳定的 schema、path、name mapping 和 run contract 常量。
+6. 不得恢复测试侧手写 `ASSET_CONTRACTS`、`ASSET_PATH_TEMPLATES`、`ASSET_COLUMN_SCHEMAS` 这类隐形 catalog；治理测试必须从 `LAKE_ASSET_CATALOG` 反查事实。
+7. 新增 asset/check/job/sensor/bootstrap/event helper 后，必须运行或说明未运行对应 catalog governance/static gates；如果 static gate 失败，优先修 registry 或定义事实，不得放宽门禁绕过。
+
+---
+
 ## Resource 迁移门禁
 
 新增或迁移任何 Dagster resource 前，必须先完成配置和边界审计，至少列清：

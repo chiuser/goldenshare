@@ -20,6 +20,21 @@
 6. check metadata 如需记录字段观察结果，也必须使用 `observed_columns` 或显式 `goldenshare/observed_columns`，禁止裸写 `columns`。
 7. raw、silver、gold、serving 的字段类型必须反映对应层级真实契约，不能为了 UI 好看改写实际数据类型。例如 raw 层 Tushare 日期字符串仍是 `VARCHAR`，silver/gold 标准日期才是 `DATE`。
 
+## Lake Asset Catalog Registry 规范
+
+正式 active asset 的资产事实必须登记在 `orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG`，禁止回到测试、asset 文件、job 文件或 bootstrap helper 各自维护事实表。
+
+规则：
+
+1. 新增或修改正式 active asset 时，必须同步更新 `LakeAssetCatalogEntry`。
+2. entry 至少覆盖：asset key、dataset id/name、layer、domain、group、source system、data contract、data contract source、column schema、path template、partition model、source/ingestion/bootstrap sources、blocking checks、write policy、event policy、performance contract。
+3. 新增 partition model 时，必须同步登记 `PartitionModelDefinition`；命名采用“分区维度 + layer + 资产名”的层级方式，例如 `trade_date_partition_raw_stock_daily`。物理布局特例可以在名称尾部补充，例如 `trade_date_partition_gold_stock_mins_qfq_stock_year_file`。
+4. entry 必须与 `build_asset_definition_metadata(...)`、`build_asset_tags(...)`、path helper、`dagster/column_schema` 和 active blocking check specs 对账一致。
+5. `lake_root_health` 这类 platform health asset 可以无 table column schema；其它 table-like/parquet/serving assets 必须有稳定字段契约。
+6. `LAKE_ASSET_CATALOG` 是 C1 只读 registry，不自动生成 asset/check/job/sensor，不替代底层 path/schema helper。业务运行逻辑消费 catalog 必须另行设计，不得临时耦合。
+7. catalog 模块不得 import `src.foundation`、`lake_console.backend`、Dagster instance、DuckDB、数据库、网络客户端或 lake 扫描逻辑。
+8. 禁止恢复 `ASSET_CONTRACTS`、`ASSET_PATH_TEMPLATES`、`ASSET_COLUMN_SCHEMAS` 这类隐形 catalog；测试和静态门禁必须从 registry 反查事实。
+
 ## DuckDB 连接规范
 
 正式 `src/orchestrator/defs/**` 生产路径禁止直接调用 `duckdb.connect()`。

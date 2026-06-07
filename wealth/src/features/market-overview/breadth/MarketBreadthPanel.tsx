@@ -11,8 +11,8 @@ import type { MarketBreadthMetricsFact } from "./api/marketBreadthAdapter";
 type BreadthChartMode = "counts" | "distribution";
 
 const chartModes = [
-  { value: "counts", label: "涨跌家数" },
   { value: "distribution", label: "涨跌分布" },
+  { value: "counts", label: "涨跌家数" },
 ];
 const BREADTH_AXIS_TICKS = [0, 1500, 3000, 4500, 6000];
 
@@ -34,17 +34,17 @@ function MetricGrid({ metrics }: { metrics: MetricItem[] }) {
 function buildDistributionBuckets(metricsFact?: MarketBreadthMetricsFact) {
   const buckets = metricsFact?.distributionBuckets;
   return [
-    { label: "跌 >10%", tone: "down", value: buckets?.downGt10Count ?? 0 },
-    { label: "跌 7~10%", tone: "down", value: buckets?.down7To10Count ?? 0 },
-    { label: "跌 5~7%", tone: "down", value: buckets?.down5To7Count ?? 0 },
-    { label: "跌 3~5%", tone: "down", value: buckets?.down3To5Count ?? 0 },
-    { label: "跌 0~3%", tone: "down", value: buckets?.down0To3Count ?? 0 },
+    { key: "downGt10", label: ">10%", tone: "down", value: buckets?.downGt10Count ?? 0 },
+    { key: "down7To10", label: "7~10%", tone: "down", value: buckets?.down7To10Count ?? 0 },
+    { key: "down5To7", label: "5~7%", tone: "down", value: buckets?.down5To7Count ?? 0 },
+    { key: "down3To5", label: "3~5%", tone: "down", value: buckets?.down3To5Count ?? 0 },
+    { key: "down0To3", label: "0~3%", tone: "down", value: buckets?.down0To3Count ?? 0 },
     { label: "平盘", tone: "flat", value: metricsFact?.flatCount ?? 0 },
-    { label: "涨 0~3%", tone: "up", value: buckets?.up0To3Count ?? 0 },
-    { label: "涨 3~5%", tone: "up", value: buckets?.up3To5Count ?? 0 },
-    { label: "涨 5~7%", tone: "up", value: buckets?.up5To7Count ?? 0 },
-    { label: "涨 7~10%", tone: "up", value: buckets?.up7To10Count ?? 0 },
-    { label: "涨 >10%", tone: "up", value: buckets?.upGt10Count ?? 0 },
+    { key: "up0To3", label: "0~3%", tone: "up", value: buckets?.up0To3Count ?? 0 },
+    { key: "up3To5", label: "3~5%", tone: "up", value: buckets?.up3To5Count ?? 0 },
+    { key: "up5To7", label: "5~7%", tone: "up", value: buckets?.up5To7Count ?? 0 },
+    { key: "up7To10", label: "7~10%", tone: "up", value: buckets?.up7To10Count ?? 0 },
+    { key: "upGt10", label: ">10%", tone: "up", value: buckets?.upGt10Count ?? 0 },
   ] as const;
 }
 
@@ -55,18 +55,23 @@ function BreadthDistributionChart({ metricsFact }: { metricsFact?: MarketBreadth
   return (
     <div aria-label="涨跌分布分桶柱状图" className="breadth-distribution-chart chart-box" role="img">
       <div className="breadth-distribution-bars">
-        {buckets.map((bucket) => (
-          <div className="breadth-distribution-bucket" data-testid="breadth-distribution-bucket" key={bucket.label}>
-            <div className={`breadth-distribution-value ${bucket.tone}`}>{bucket.value}</div>
-            <div className="breadth-distribution-bar-track">
-              <div
-                className={`breadth-distribution-bar ${bucket.tone}`}
-                style={{ height: `${Math.max(4, (bucket.value / maxValue) * 100)}%` }}
-              />
+        {buckets.map((bucket, index) => {
+          const barHeight = Math.max(4, (bucket.value / maxValue) * 74);
+          return (
+            <div className="breadth-distribution-bucket" data-testid="breadth-distribution-bucket" key={`${bucket.tone}-${bucket.label}-${index}`}>
+              <div className="breadth-distribution-bar-track">
+                <div className="breadth-distribution-bar-stack">
+                  <div className={`breadth-distribution-value ${bucket.tone}`}>{bucket.value}</div>
+                  <div
+                    className={`breadth-distribution-bar ${bucket.tone}`}
+                    style={{ height: `${barHeight}%` }}
+                  />
+                </div>
+              </div>
+              <div className="breadth-distribution-label">{bucket.label}</div>
             </div>
-            <div className="breadth-distribution-label">{bucket.label}</div>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );
@@ -87,7 +92,7 @@ export function MarketBreadthPanel({
   metricsFact,
   errorMessage,
 }: MarketBreadthPanelProps) {
-  const [chartMode, setChartMode] = useState<BreadthChartMode>("counts");
+  const [chartMode, setChartMode] = useState<BreadthChartMode>("distribution");
 
   return (
     <Panel

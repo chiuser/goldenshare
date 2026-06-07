@@ -798,33 +798,31 @@ describe("MarketOverviewPage", () => {
     expect(within(breadthSection).getByText("上涨家数")).toBeInTheDocument();
     expect(within(breadthSection).getByText("下跌家数")).toBeInTheDocument();
     expect(within(breadthSection).getByText("平盘家数")).toBeInTheDocument();
-    expect(within(breadthSection).getByRole("button", { name: "涨跌家数" })).toHaveClass("active");
-    expect(within(breadthSection).getByRole("button", { name: "涨跌分布" })).toBeInTheDocument();
+    expect(within(breadthSection).getByRole("button", { name: "涨跌分布" })).toHaveClass("active");
+    expect(within(breadthSection).getByRole("button", { name: "涨跌家数" })).toBeInTheDocument();
     expect(within(breadthSection).queryByRole("button", { name: "1个月" })).not.toBeInTheDocument();
     expect(within(breadthSection).queryByRole("button", { name: "3个月" })).not.toBeInTheDocument();
-    expect(within(breadthSection).queryByRole("img", { name: "涨跌分布分桶柱状图" })).not.toBeInTheDocument();
-
-    fireEvent.click(within(breadthSection).getByRole("button", { name: "涨跌分布" }));
-
-    expect(within(breadthSection).getByRole("button", { name: "涨跌分布" })).toHaveClass("active");
     expect(within(breadthSection).getByRole("img", { name: "涨跌分布分桶柱状图" })).toBeInTheDocument();
-    expect(breadthSection.querySelectorAll('[data-testid="breadth-distribution-bucket"]')).toHaveLength(11);
-    [
-      "跌 >10%",
-      "跌 7~10%",
-      "跌 5~7%",
-      "跌 3~5%",
-      "跌 0~3%",
-      "平盘",
-      "涨 0~3%",
-      "涨 3~5%",
-      "涨 5~7%",
-      "涨 7~10%",
-      "涨 >10%",
-    ].forEach((label) => {
-      expect(within(breadthSection).getByText(label)).toBeInTheDocument();
+    const distributionBuckets = breadthSection.querySelectorAll('[data-testid="breadth-distribution-bucket"]');
+    expect(distributionBuckets).toHaveLength(11);
+    expect(distributionBuckets[0].querySelector(".breadth-distribution-bar-stack")).toBeInTheDocument();
+    expect(distributionBuckets[0].querySelector(".breadth-distribution-value")?.getAttribute("style")).toBeNull();
+    expect(distributionBuckets[0].querySelector(".breadth-distribution-bar")?.getAttribute("style")).toContain("height:");
+    [">10%", "7~10%", "5~7%", "3~5%", "0~3%"].forEach((label) => {
+      expect(within(breadthSection).getAllByText(label)).toHaveLength(2);
     });
+    expect(within(breadthSection).getByText("平盘")).toBeInTheDocument();
+    ["跌 >10%", "跌 7~10%", "跌 5~7%", "跌 3~5%", "跌 0~3%", "涨 0~3%", "涨 3~5%", "涨 5~7%", "涨 7~10%", "涨 >10%"].forEach(
+      (label) => {
+        expect(within(breadthSection).queryByText(label)).not.toBeInTheDocument();
+      },
+    );
     expect(within(breadthSection).queryByText(/涨停|跌停/)).not.toBeInTheDocument();
+
+    fireEvent.click(within(breadthSection).getByRole("button", { name: "涨跌家数" }));
+
+    expect(within(breadthSection).getByRole("button", { name: "涨跌家数" })).toHaveClass("active");
+    expect(within(breadthSection).queryByRole("img", { name: "涨跌分布分桶柱状图" })).not.toBeInTheDocument();
   });
 
   it("shows error state when breadth request exceeds 5 seconds", async () => {

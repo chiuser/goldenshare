@@ -195,6 +195,11 @@
       </div>
       <div class="card">
         <span class="tag blue">Step 3</span>
+        <h3>先登记 Asset Catalog Registry</h3>
+        <p>正式 asset 进入代码前，必须先把资产事实登记到 <code>LAKE_ASSET_CATALOG</code>：身份、路径、字段契约、分区模型、来源、checks、写入策略和性能门禁。</p>
+      </div>
+      <div class="card">
+        <span class="tag blue">Step 4</span>
         <h3>最后设计 job 和 sensor</h3>
         <p>job 只是“这次要跑哪些资产”的入口；sensor 只是“什么时候请求某个 job”的触发器。具体拉取、转换、写文件都必须在 asset 或 helper/resource 中。</p>
       </div>
@@ -202,7 +207,12 @@
 
     <div class="danger">
       <strong>硬门禁：</strong>
-      新数据集接入前必须先形成设计记录。没有字段契约、分区模型、路径、checks、job selection、sensor 触发和验收计划，不允许写 asset 代码。
+      新数据集接入前必须先形成设计记录。没有字段契约、分区模型、路径、catalog entry、checks、job selection、sensor 触发和验收计划，不允许写 asset 代码。
+    </div>
+
+    <div class="danger">
+      <strong>C1 Catalog 门禁：</strong>
+      新增或修改正式 active asset 时，必须同步更新 <code>orchestrator.defs.catalog.lake_assets</code> 中的 <code>LAKE_ASSET_CATALOG</code> 和必要的 <code>PARTITION_MODEL_DEFINITIONS</code>。Catalog 是只读事实注册表和 static gates 依据，不生成 asset/check/job/sensor，也不替代运行时 path/schema helper。
     </div>
 
     <div class="warning">
@@ -218,6 +228,7 @@
       <pre><code>业务需求 / 下游消费
   -> 数据集说明卡
   -> Tushare 文档 + tushareMCP 实测 + 旧湖审计
+  -> Catalog entry：identity / source / partition / path / schema / checks / performance
   -> raw 字段契约与路径
   -> silver 标准事实口径
   -> checks 清单：blocking / WARN
@@ -279,9 +290,14 @@
           <td>中文名进入 <code>goldenshare/dataset_name</code> definition metadata，不进入 asset tag；未登记中文名不得接入 asset definition。</td>
         </tr>
         <tr>
+          <td>Asset Catalog Registry</td>
+          <td><code>defs/catalog/lake_assets.py</code> 中的 <code>LakeAssetCatalogEntry</code>。</td>
+          <td>必须登记 <code>asset_key</code>、<code>dataset_id</code>、<code>dataset_name</code>、layer/domain、group、source、data contract、字段契约、路径模板、分区模型、摄取来源、blocking checks、写入策略、event 策略和性能契约。未登记的正式 active asset 不得进入 Definitions。</td>
+        </tr>
+        <tr>
           <td>分区模型</td>
           <td>无分区 full file、<code>trade_date</code>、其它事件日期、多维分区。</td>
-          <td>交易日必须按资产族选择 dynamic partitions，例如股票用 <code>cn_a_stock_trade_days</code>，指数用 <code>cn_a_index_trade_days</code>；<code>cn_a_trade_days</code> 只做全量备份和对照。full snapshot 不设置 partitions_def。若要扩展分区范围，必须先完成 assets、checks、jobs、sensors、automation 和 backfill 入口的消费者审计与切换，再注册新范围。</td>
+          <td>交易日必须按资产族选择 dynamic partitions，例如股票用 <code>cn_a_stock_trade_days</code>，指数用 <code>cn_a_index_trade_days</code>；<code>cn_a_trade_days</code> 只做全量备份和对照。full snapshot 不设置 partitions_def。新增或复用 partition model 必须在 catalog 中登记，命名采用“分区维度 + layer + 资产名”的层级方式，例如 <code>trade_date_partition_raw_stock_daily</code>。若要扩展分区范围，必须先完成 assets、checks、jobs、sensors、automation 和 backfill 入口的消费者审计与切换，再注册新范围。</td>
         </tr>
         <tr>
           <td>源站契约</td>
@@ -403,6 +419,11 @@
           <td>中文名</td>
           <td>新增 <code>dataset_id</code> 时同步登记 <code>DATASET_CHINESE_NAMES</code>，asset definition 使用 <code>build_asset_definition_metadata(dataset_id=...)</code> 自动写入中文名。</td>
           <td>禁止在多个 asset 文件里各自手写中文名；禁止未登记时静默回退英文名。</td>
+        </tr>
+        <tr>
+          <td>Asset Catalog</td>
+          <td>新增或修改正式 active asset 时，先登记 <code>LAKE_ASSET_CATALOG</code>；catalog entry 必须与 definition metadata、tags、path template、column schema、partition model 和 blocking check specs 一致。</td>
+          <td>禁止恢复测试里的手写 <code>ASSET_CONTRACTS</code> 大表；禁止让 asset/check/job/sensor 各自维护一份资产事实。</td>
         </tr>
         <tr>
           <td>Definition metadata</td>
@@ -1096,6 +1117,8 @@ git status --short</code></pre>
         <tr><td>层级</td><td>raw/silver/gold 分类清楚，没有 support/reference 新层级。</td><td>□</td></tr>
         <tr><td>Asset tags</td><td>已使用 <code>build_asset_tags(...)</code>，layer/data_domain 均为治理文档登记的英文枚举。</td><td>□</td></tr>
         <tr><td>中文名</td><td><code>dataset_id</code> 已登记到 <code>DATASET_CHINESE_NAMES</code>，中文名只进入 definition metadata。</td><td>□</td></tr>
+        <tr><td>Catalog registry</td><td>正式 active asset 已登记到 <code>LAKE_ASSET_CATALOG</code>；entry 的 identity、source、partition、schema、path、checks、write/event/performance policy 与代码事实一致。</td><td>□</td></tr>
+        <tr><td>Partition model</td><td>entry 的 <code>partition_model</code> 已存在对应 <code>PartitionModelDefinition</code>；新增 model 命名符合“分区维度 + layer + 资产名”。</td><td>□</td></tr>
         <tr><td>命名</td><td>asset/job/sensor/file 名称单一职责，不宽泛。</td><td>□</td></tr>
         <tr><td>UI 文案</td><td>asset/job/sensor/check 的 description 已用中文简明表达能力和用途。</td><td>□</td></tr>
         <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入；definition <code>path_template</code> 由真实路径函数生成。</td><td>□</td></tr>
@@ -1132,6 +1155,8 @@ git status --short</code></pre>
       <li>只看文件存在或 materialized，就认为上游 ready。</li>
       <li>新增 asset 时手写 <code>tags={...}</code> 或中文 tag value。</li>
       <li>新增中文名却不登记 <code>name_mapping.py</code>。</li>
+      <li>新增正式 active asset 却不登记 <code>LAKE_ASSET_CATALOG</code>。</li>
+      <li>恢复测试中的手写 <code>ASSET_CONTRACTS</code>、<code>ASSET_PATH_TEMPLATES</code> 或其它隐形 catalog。</li>
       <li>在 asset decorator 里手写 <code>path_template</code> 字符串。</li>
       <li>在 materialization/check metadata 里裸写 <code>path</code>、<code>row_count</code>、<code>columns</code>、<code>source_api</code>、<code>data_contract</code> 等旧 key。</li>
       <li>sensor 直接写 <code>RunRequest</code>、自定义 run tags、深层 <code>ops</code> config 或本地 JSON cursor。</li>
