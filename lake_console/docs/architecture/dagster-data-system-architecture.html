@@ -853,11 +853,11 @@
             <td>在 asset 执行前检查 lake root 可用性；移动盘没插时 run fail 或 health asset fail，但 Dagster UI 仍可打开。</td>
           </tr>
           <tr>
-            <td><code>LakeCatalogResource</code></td>
-            <td><code>LAKE_DATASETS</code>, <code>LakeDatasetDefinition</code>, <code>LakeNodeDefinition</code></td>
-            <td>asset 生成、路径解析、节点依赖、分区元数据</td>
+            <td><code>LakeAssetCatalogRegistry</code>（C1，非 resource）</td>
+            <td><code>orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG</code>, <code>LakeAssetCatalogEntry</code></td>
+            <td>asset metadata、schema、path、blocking checks 和 source 事实对账</td>
             <td>不阻断</td>
-            <td>把当前 catalog 作为 Dagster asset metadata 的事实源，避免手写两份资产清单。</td>
+            <td>C1 已落地为只读 registry + static gates，不生成 asset/check/job/sensor，不接旧湖 backend，不作为 Dagster resource 注入。<code>LakeCatalogResource</code> 仍是后续可选资源化方向。</td>
           </tr>
           <tr>
             <td><code>TushareResource</code></td>
@@ -889,10 +889,10 @@
           </tr>
           <tr>
             <td><code>ClickHouseResource</code></td>
-            <td>本地 ClickHouse 连接</td>
-            <td>serving assets、本地 API 调试</td>
+            <td>resource keys: <code>clickhouse</code>, <code>prod_clickhouse</code></td>
+            <td>本机 ClickHouse serving assets、prod ClickHouse 同步 assets</td>
             <td>不阻断</td>
-            <td>当前仍是规划项；第一版可晚于 LakeRoot / DuckDB / LakeMetaPostgres。</td>
+            <td>当前已注册官方 <code>dagster-clickhouse</code> resource；本机 <code>ch_share_fact_market_breadth_daily</code> 与 prod <code>prod_ch_share_fact_market_breadth_daily</code> 已接入对应 job/sensor/check。prod resource 只负责连接，不负责创建或维护 SSH tunnel。</td>
           </tr>
           <tr>
             <td><code>KopiaResource</code></td>
@@ -902,11 +902,11 @@
             <td>适合绑定在高风险写入或 publish assets 上。</td>
           </tr>
           <tr>
-            <td><code>ProdRawDbResource</code> / <code>ProdCoreDbResource</code></td>
-            <td><code>prod_raw_db_url</code>, <code>prod_core_db_url</code></td>
-            <td>已批准只读导出 assets</td>
+            <td><code>ProdPostgresResource</code></td>
+            <td>resource key: <code>prod_postgres</code>；环境变量 <code>PROD_POSTGRES_HOST</code>、<code>PROD_POSTGRES_PORT</code>、<code>PROD_POSTGRES_DBNAME</code>、<code>PROD_POSTGRES_USER</code>、<code>PROD_POSTGRES_PASSWORD</code></td>
+            <td>已批准的 prod raw PostgreSQL 只读抽取路径，例如 <code>raw_stk_mins</code> 默认日常来源</td>
             <td>不阻断</td>
-            <td>只能在白名单数据集和白名单表范围内使用，不能泛化成远程数据库管理工具。</td>
+            <td>只能在白名单数据集和白名单表范围内使用，不能泛化成远程数据库管理工具；DuckDB attach 已要求 <code>TYPE POSTGRES, READ_ONLY</code>。</td>
           </tr>
           <tr>
             <td><code>ProdPostgresPublishResource</code></td>
@@ -1074,10 +1074,11 @@
   <section>
     <h2>6. 当前落地状态与后续方向</h2>
     <ol class="list">
-      <li>已落地：<code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>FeishuWebhookResource</code>。</li>
+      <li>已落地：<code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>ProdPostgresResource</code>、<code>ClickHouseResource</code>、<code>FeishuWebhookResource</code>。</li>
       <li>已落地：股票交易日、基础资料、停复牌、股票日线、市场宽度、股票涨跌幅分布、指数基础信息、指数日线和主要指数日线相关 assets / checks / jobs / sensors。</li>
       <li>已落地：asset tags、中文数据集名、definition/materialization/check metadata 分层、sensor cursor 和静态门禁。</li>
-      <li>未落地：<code>LakeCatalogResource</code>、<code>lake_root_health</code> asset、ClickHouse serving assets、发布包流程；这些仍是后续单独设计项，不应从早期建议中直接照抄实现。</li>
+      <li>已落地：C1 新湖 asset catalog registry（非 Dagster resource）、<code>lake_root_health</code> asset/checks/job 与默认 <code>STOPPED</code> 的两小时 schedule、ClickHouse market breadth serving 本机/prod assets、jobs、checks 和 sensors。</li>
+      <li>未落地：<code>LakeCatalogResource</code> 资源化消费、发布包流程和更完整的 serving 发布链路；这些仍是后续单独设计项，不应从早期建议中直接照抄实现。</li>
       <li>当前原则：除非已有明确业务账本需求和配置审计，<code>goldenshare_lake_meta</code> 不作为新 Dagster 资产的默认依赖。</li>
     </ol>
     <p class="warning">

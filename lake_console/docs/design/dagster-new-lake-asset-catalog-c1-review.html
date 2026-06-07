@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Dagster 新湖 Asset Catalog C1 开发 Review 方案</title>
+  <title>Dagster 新湖 Asset Catalog C1 落地方案</title>
   <style>
     :root {
       --bg: #f6f2e9;
@@ -1274,7 +1274,7 @@ def list_lake_asset_entries_by_dataset_id(dataset_id: str) -> tuple[LakeAssetCat
         </tr>
         <tr>
           <td>命名门禁</td>
-          <td>禁止 V1/V2、phase、temp、old/new 等阶段性命名进入正式 catalog 代码。</td>
+          <td>禁止 V1/V2、phase、temp、old/new 等阶段性命名进入正式 catalog 模型、文件名或 asset key；<code>OLD_LAKE_BOOTSTRAP</code>/<code>old_lake_bootstrap</code> 作为历史摄取来源枚举保留。</td>
           <td><code>LakeAssetDefinitionV2</code>、<code>phase_catalog.py</code>。</td>
         </tr>
       </tbody>

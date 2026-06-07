@@ -104,7 +104,7 @@ data_lake/gold/
 | `src/foundation/datasets/definitions/_builder.py` | 把数据集 dict row 构造成强类型 definition，并做源、存储、规划、观测、完整性校验 | 可借鉴 builder 校验和 fail-fast 规则 |
 | `src/foundation/datasets/registry.py` | 只读列举和按 key 获取数据集定义 | 可借鉴 registry 作为唯一事实入口 |
 | `src/foundation/datasets/freshness_policies.py` | 将 freshness/audit 策略从 dataset row 中拆成稳定策略表 | 可借鉴 freshness 口径独立建模 |
-| `src/foundation/ingestion/validator.py` | 校验 action、time input、filter、enum、互斥、依赖和未知参数 | 可借鉴严格校验思想；新湖 C1 先落 static gates |
+| `src/foundation/ingestion/validator.py` | 校验 action、time input、filter、enum、互斥、依赖和未知参数 | 可借鉴严格校验思想；新湖 C1 已落 static gates |
 | `src/foundation/ingestion/resolver.py` | 将用户/调度意图解析成 `DatasetExecutionPlan` | 可借鉴“意图先变计划”的模式 |
 | `src/foundation/ingestion/unit_planner.py`、`plan_helpers.py` | 按日期锚点、对象池、枚举扇出、分页策略生成 planned units | 可借鉴性能门禁字段；不能照搬 per-stock 单元到新湖重型批量写入 |
 | `src/foundation/ingestion/request_builders.py` | 源接口参数只在 request builder 中生成 | 可借鉴 source request 隔离原则 |

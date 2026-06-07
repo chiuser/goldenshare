@@ -6,7 +6,7 @@
 
 ## 1. 背景
 
-当前 `LakeRootResource.ensure_available_for_run()` 只在具体业务 asset 运行时检查：
+落地前，`LakeRootResource.ensure_available_for_run()` 只在具体业务 asset 运行时检查：
 
 ```text
 lake_root
@@ -16,6 +16,8 @@ lake_root/gold
 ```
 
 这能发现一部分路径不存在问题，但发现时机偏晚：通常要等某个业务 asset 已经开始运行，才会暴露移动盘未挂载、权限异常、磁盘空间不足或 DuckDB temp/spill 目录不可用。
+
+当前代码已增强 `LakeRootResource.ensure_available_for_run()`：业务 asset 执行前会检查必要路径，并在 `_tmp/lake_root_health` 做 canary 写读删 fail-fast。磁盘空间和 DuckDB temp/spill 状态由独立 `lake_root_health` asset/checks 暴露，不作为所有业务 asset 的直接运行前置。
 
 本方案新增一个独立的 Dagster 基础设施健康资产 `lake_root_health`，把“湖根目录和 DuckDB 临时目录是否适合继续生产”从业务 asset 失败中剥离出来。
 

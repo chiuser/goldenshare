@@ -459,13 +459,13 @@
         </tr>
         <tr>
           <td><code>resources.py</code></td>
-          <td>已有 <code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、本地 metadata PostgreSQL resource 等；DuckDB 使用默认临时目录。</td>
-          <td>Tushare token 仍只能通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入；不新增散落 env 文件，不新增 DuckDB temp 配置。</td>
+          <td>已有 <code>LakeRootResource</code>、<code>DuckDBResource</code>、<code>TushareResource</code>、<code>ProdPostgresResource</code>、<code>ClickHouseResource</code> 和 <code>FeishuWebhookResource</code>。DuckDB 已统一通过 <code>connect_configured_duckdb(...)</code> 设置并校验 temp/spill/thread/memory 参数。</td>
+          <td>Tushare token 仍只能通过 <code>dg.EnvVar("TUSHARE_TOKEN")</code> 注入；prod Postgres、ClickHouse 和 Feishu 资源只通过环境变量读取敏感配置，不新增散落 env 文件。</td>
         </tr>
         <tr>
           <td><code>partitions.py</code></td>
-          <td>当前包含 <code>cn_a_trade_days</code>、<code>cn_a_stock_trade_days</code>、<code>cn_a_index_trade_days</code> 三套 dynamic partitions。</td>
-          <td><code>cn_a_trade_days</code> 只作为全量 SSE open day 备份；股票生产资产和 market breadth 使用 <code>cn_a_stock_trade_days</code>；指数资产使用 <code>cn_a_index_trade_days</code>。股票分区由 <code>stock_trade_day_sensor</code> 基于合法交易日注册，今天开市日仅 16:00 后可注册。</td>
+          <td>当前包含 <code>cn_a_trade_days</code>、<code>cn_a_stock_trade_days</code>、<code>cn_a_stock_current_trade_days</code>、<code>cn_a_stock_mins_trade_days</code>、<code>cn_a_stock_mins_silver_trade_days</code>、<code>cn_a_index_trade_days</code>、<code>cn_a_index_ts_codes</code> 等 dynamic partitions。</td>
+          <td><code>cn_a_trade_days</code> 只作为全量 SSE open day 备份；股票日频、股票当前日、分钟线 raw/silver、指数日频和指数代码池分别使用资产族专属 partition definition。股票分区由对应 sensor 基于合法交易日和时间窗口注册。</td>
         </tr>
         <tr>
           <td><code>duckdb_sql.py</code></td>

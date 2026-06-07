@@ -7,14 +7,19 @@ scratch Dagster tutorial.
 ## Current Scope
 
 The active code location is loaded from `src/orchestrator/defs` and currently
-contains lake assets, asset checks, asset jobs, sensors, run-contract helpers,
-Feishu run-status notifications, and shared resources.
+contains lake assets, asset checks, asset jobs, sensors, schedules,
+run-contract helpers, the read-only lake asset catalog registry, Feishu
+run-status notifications, ClickHouse serving sync definitions, and shared
+resources.
 
 Current resource keys are:
 
 - `lake_root`
 - `duckdb`
 - `tushare`
+- `prod_postgres`
+- `clickhouse`
+- `prod_clickhouse`
 - `feishu`
 
 Sensitive values are read from environment variables. Do not write tokens,
