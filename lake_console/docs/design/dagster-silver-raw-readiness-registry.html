@@ -1,0 +1,866 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster Silver 上下游关系与触发门禁审计</title>
+  <style>
+    :root {
+      --bg: #f7f8fa;
+      --paper: #ffffff;
+      --ink: #1f2937;
+      --muted: #64748b;
+      --line: #d8dee8;
+      --soft: #eef2f7;
+      --ok: #146c43;
+      --warn: #9a5b00;
+      --danger: #a83232;
+      --blue: #0f5f83;
+      --code: #f3f5f8;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+        "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      width: min(1180px, calc(100vw - 48px));
+      margin: 0 auto;
+      padding: 36px 0 72px;
+    }
+
+    header,
+    .note {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 12px;
+    }
+
+    header {
+      padding: 30px 34px;
+    }
+
+    h1 {
+      margin: 0 0 8px;
+      font-size: 34px;
+      line-height: 1.16;
+      letter-spacing: 0;
+    }
+
+    h2 {
+      margin: 42px 0 14px;
+      padding-bottom: 8px;
+      border-bottom: 1px solid var(--line);
+      font-size: 24px;
+      letter-spacing: 0;
+    }
+
+    h3 {
+      margin: 28px 0 10px;
+      font-size: 19px;
+      letter-spacing: 0;
+    }
+
+    p {
+      margin: 10px 0;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover {
+      text-decoration: underline;
+    }
+
+    code {
+      border-radius: 4px;
+      background: var(--code);
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 28px;
+      background: var(--paper);
+      border: 1px solid var(--line);
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+      font-size: 14px;
+    }
+
+    th {
+      background: var(--soft);
+      color: #334155;
+      font-weight: 650;
+    }
+
+    ul,
+    ol {
+      padding-left: 22px;
+    }
+
+    li {
+      margin: 6px 0;
+    }
+
+    pre.flow {
+      margin: 14px 0 24px;
+      padding: 14px 16px;
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcfe;
+      color: #243244;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.65;
+    }
+
+    .subtitle {
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .note {
+      border-left: 5px solid #5b7c99;
+      padding: 14px 16px;
+      margin: 18px 0;
+    }
+
+    .ok {
+      color: var(--ok);
+      font-weight: 650;
+    }
+
+    .warn {
+      color: var(--warn);
+      font-weight: 650;
+    }
+
+    .danger {
+      color: var(--danger);
+      font-weight: 650;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster Silver 上下游关系与触发门禁审计</h1>
+    <p class="subtitle">更新时间：2026-06-07。适用范围：<code>lake_console/orchestrator</code> 当前 silver 生产链路、触发入口、raw ready 门禁和下游影响面。</p>
+  </header>
+
+  <section>
+    <h2>1. 文档定位</h2>
+    <p>本文不是 silver 资产数量台账，也不是字段 schema registry。本文只回答三个问题：</p>
+    <ol>
+      <li>某条 silver 生产链路依赖哪些 raw、silver 或文件事实。</li>
+      <li>自动触发时，sensor 在提交 run 前到底检查了哪些 ready 门禁。</li>
+      <li>门禁缺口会影响哪些下游链路，应该按什么优先级修复。</li>
+    </ol>
+    <div class="note">
+      <p>本文记录静态代码审计结论与已确认的上线观察事实。不运行 Dagster job、sensor、backfill，不读取正式 Dagster instance，不读写 lake 数据。2026-06-07 用户已在 Dagster UI 打开 <code>stock_daily</code> 相关新 sensor，暂未观察到异常；该观察由用户操作反馈提供，不代表本文执行过正式环境验证。手动 Launchpad、CLI、runless 补录绕过 gate 的问题另设专项，不在本文中宣称已解决。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. Ready 门禁口径</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>门禁口径</th>
+        <th>含义</th>
+        <th>可否作为下游触发依据</th>
+        <th>本文中的使用场景</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>event/check ready</code></td>
+        <td>上游 asset 已 materialized，且同一 materialization 的 blocking checks 全部通过。full snapshot 还要满足 freshness。</td>
+        <td class="ok">可以</td>
+        <td>分钟线 silver、身份映射、部分下游 gold 的触发门禁。</td>
+      </tr>
+      <tr>
+        <td><code>file-fact ready</code></td>
+        <td>通过本地文件事实和 DuckDB set-based SQL 证明输入文件、目标日期数据和连续性满足生产条件。</td>
+        <td class="ok">可以</td>
+        <td><code>silver_index_daily</code>。raw 按指数代码分区，silver 按交易日分区，使用文件事实门禁比逐 code event 扫描更合适。</td>
+      </tr>
+      <tr>
+        <td><code>in-run raw write only</code></td>
+        <td>raw 和 silver 在同一个 job selection 中，Dagster asset 依赖只能保证 raw asset 函数先于 silver asset 函数。</td>
+        <td class="danger">不可以视作严格 ready</td>
+        <td><code>suspend_d</code>、<code>adj_factor</code>、基础 full snapshot 当前仍存在该问题。<code>stock_daily</code> 自动链路已从此类移出。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 触发门禁统计</h2>
+    <p>这里统计的是触发点和门禁形态，不是资产数量。</p>
+    <table>
+      <thead>
+      <tr>
+        <th>门禁状态</th>
+        <th>触发链路数量</th>
+        <th>链路</th>
+        <th>结论</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td class="ok">自动触发前已有严格 gate</td>
+        <td>4</td>
+        <td><code>stock_daily</code>、<code>stock_mins_silver</code>、<code>stock_identity_map</code>、<code>silver_index_daily</code></td>
+        <td><code>stock_daily</code>、<code>stock_mins_silver</code> 与 <code>stock_identity_map</code> 使用 <code>event/check ready</code>；<code>silver_index_daily</code> 使用 <code>file-fact ready</code>。</td>
+      </tr>
+      <tr>
+        <td class="warn">有上游 gate，但本资产 raw/silver 仍同 run</td>
+        <td>1</td>
+        <td><code>adj_factor</code></td>
+        <td>sensor 会检查基础事实或源站状态，但不会等本轮 raw asset blocking checks 通过后再跑 silver。</td>
+      </tr>
+      <tr>
+        <td class="danger">主要依赖 raw+silver 同 job</td>
+        <td>5</td>
+        <td><code>suspend_d</code>、<code>stock_basic</code>、<code>namechange</code>、<code>index_basic</code>、<code>trade_calendar</code></td>
+        <td>需要后续拆分 raw job / silver job，或证明 raw asset 发布前已完成等价校验。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 总修复模式</h2>
+    <p>所有 <code>in-run raw write only</code> 链路按同一种模式修复：先把 raw 生产事实变成可审计的 ready，再让 silver 触发显式依赖这个 ready。不要在每条链路里临时补一个文件存在判断，也不要把 raw 与 silver 继续放在同一个自动生产 job 里。</p>
+    <table>
+      <thead>
+      <tr>
+        <th>步骤</th>
+        <th>统一口径</th>
+        <th>落地要求</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>统一命名</td>
+        <td>asset 使用已确认的正式 asset key；job 名称固定为 <code>layer + asset name + mode</code>；sensor 名称固定为 <code>job name + sensor</code>。check 命名规则只适用于新增 check：<code>asset name + function + check</code>。</td>
+        <td><code>stock_daily</code> 拆分后 job 为 <code>raw_stock_daily_update_job</code> 与 <code>silver_stock_daily_update_job</code>，sensor 为 <code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code>。已存在 check 禁止为了命名规则改名。</td>
+      </tr>
+      <tr>
+        <td>拆生产边界</td>
+        <td>raw-only job 只选择 raw asset 和 raw blocking checks；silver-only job 只选择 silver asset 和 silver blocking checks。</td>
+        <td>job 文件只保留 asset selection，不承载业务逻辑。禁止继续存在同一个日常自动 job 同时选择 raw 与 silver。</td>
+      </tr>
+      <tr>
+        <td>定义 raw ready</td>
+        <td>raw ready 必须是 raw materialization 与同一 materialization 的 raw blocking checks 全绿。若 raw checks 依赖支撑事实，sensor 提交 raw run 前也要检查这些支撑事实。</td>
+        <td>在 <code>readiness.py</code> 中维护 raw-only readiness spec/helper；已有下游最终 ready helper 不得被削弱。</td>
+      </tr>
+      <tr>
+        <td>拆触发入口</td>
+        <td>raw sensor 只处理源站 ready 与 raw 缺口；silver sensor 只处理 raw ready、支撑事实 ready 与 silver 缺口。</td>
+        <td>sensor 只提交满足门禁的分区。已 materialized 但 blocking checks 未全绿的分区默认 skip，不自动用 daily sensor 重跑。</td>
+      </tr>
+      <tr>
+        <td>保留合法文件事实 gate</td>
+        <td>若数据形态不适合逐 asset event 扫描，可使用 DuckDB 文件事实 gate，但必须能证明目标日期 presence、连续性或完整性。</td>
+        <td><code>silver_index_daily</code> 继续保留 file-fact ready。该口径不是漏洞，不能被误改为低性能历史 event 深扫。</td>
+      </tr>
+      <tr>
+        <td>控制性能</td>
+        <td>daily sensor 只看小窗口和少量候选分区；不在 sensor 中做全历史扫描。</td>
+        <td>event/check ready 适合按分区小批量判断；历史深扫必须另走维护审计或 DuckDB set-based SQL。</td>
+      </tr>
+      <tr>
+        <td>测试门禁</td>
+        <td>正向证明 ready 后提交 run；负向证明 raw missing、raw check failed、supporting fact not ready、source not ready 时不提交 silver run。</td>
+        <td>必须有静态测试断言 job selection 不再混 raw+silver，并有 sensor 单测覆盖 skip/run 分支。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <p><code>stock_daily</code> 已按本模式落地：旧混合 job/sensor 被替换为 raw-only 与 silver-only 入口，silver sensor 显式等待 raw event/check ready。手动 Launchpad、CLI 或 runless 补录绕过 gate 是单独专项。本文的总修复模式先覆盖自动触发链路，不能在本文中声明手动入口已经被治理。</p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 核心上下游关系</h2>
+
+    <h3>5.1 股票日线主链路</h3>
+    <pre class="flow">silver_stock_basic ─┐
+                    ├─ gate in raw_stock_daily_update_job_sensor
+silver_suspend_d ───┘
+Tushare daily source readiness
+        │
+        ▼
+raw_stock_daily_update_job
+        │
+        ├─ raw_tushare_stock_daily materialization
+        ├─ raw blocking checks
+        └─ controlled missing-code repair for recent 2 trade dates
+        │
+        ▼
+silver_stock_daily_update_job_sensor
+        ├─ stock_basic ready
+        ├─ suspend_d ready
+        └─ raw_tushare_stock_daily event/check ready
+        │
+        ▼
+silver_stock_daily_update_job
+        │
+        ▼
+gold_market_breadth_daily
+gold_stock_return_distribution
+stock_mins_silver_trade_day_sensor / stock_mins_silver_sensor
+stk_mins checks and qfq-related downstream reads</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>触发入口</th>
+        <th>当前门禁</th>
+        <th>现状</th>
+        <th>下游影响</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>raw_stock_daily_update_job_sensor</code> 提交 <code>raw_stock_daily_update_job</code></td>
+        <td><code>stock_basic_ready_for_trade_date</code>、<code>suspend_d_ready_for_trade_date</code>、<code>check_stock_daily_source_readiness</code>；raw 文件已存在但最近两个交易日有少量 missing code 时进入受控 repair。</td>
+        <td class="ok">已落地。raw job 只选择 <code>raw_tushare_stock_daily</code> 与 raw checks；repair 只处理 <code>1..100</code> missing code，cursor 控制同 hash 最多 20 次。</td>
+        <td>raw 未 ready 时不会触发 silver；少量源站晚到可由同一个 raw sensor 受控补拉。</td>
+      </tr>
+      <tr>
+        <td><code>silver_stock_daily_update_job_sensor</code> 提交 <code>silver_stock_daily_update_job</code></td>
+        <td><code>stock_basic_ready_for_trade_date</code>、<code>suspend_d_ready_for_trade_date</code>、<code>raw_tushare_stock_daily_ready_for_trade_date</code>。</td>
+        <td class="ok">已落地。silver job 只选择 <code>silver_stock_daily</code> 与 silver checks；silver 已 materialized 但 checks 未全绿时 daily sensor 只 skip，不自动重跑。</td>
+        <td>保护市场宽度、收益分布、分钟线 silver 注册与生成、分钟线质量检查，避免 raw checks 未通过时自动推进 silver。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.2 stock_daily 专项审计结论与落地现状</h3>
+    <div class="note">
+      <p>落地状态：<code>aaff4259</code> 已提交 <code>stock_daily</code> raw/silver 拆分与 missing-code repair。2026-06-07 用户已打开相关新 sensor，目前反馈未出现异常。本文未自行读取正式 Dagster instance 验证 sensor tick 或 run 结果。</p>
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>代码点</th>
+        <th>当前实现</th>
+        <th>结论</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>jobs/stock_daily_update.py</code></td>
+        <td><code>raw_stock_daily_update_job</code> 只选择 <code>raw_tushare_stock_daily</code> 与 raw checks；<code>silver_stock_daily_update_job</code> 只选择 <code>silver_stock_daily</code> 与 silver checks。</td>
+        <td class="ok">已修复旧混合入口。active definitions 不再保留 <code>stock_daily_update_job</code>。</td>
+      </tr>
+      <tr>
+        <td><code>assets/stock_daily.py</code></td>
+        <td><code>raw_tushare_stock_daily</code> 支持默认 full-day 更新和 <code>missing_code_repair</code> run config；<code>silver_stock_daily</code> 保留 <code>assert_silver_stock_basic_fresh_for_stock_daily</code> 写前保护。</td>
+        <td class="ok">自动链路中的 raw event/check ready 已由 silver sensor 负责。手动直接跑 silver 的完整上游门禁仍属于后续专项，当前只保留 stock_basic freshness 写保护。</td>
+      </tr>
+      <tr>
+        <td><code>sensors/stock_daily_sensor.py</code></td>
+        <td>定义 <code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code>。raw sensor 处理 full-day raw 缺失与最近两个交易日 missing-code repair；silver sensor 只在 raw、stock_basic、suspend_d 全 ready 且 silver 缺 materialization 时提交。</td>
+        <td class="ok">已修复自动触发时序漏洞。旧 <code>stock_daily_sensor</code> active 定义已移除。</td>
+      </tr>
+      <tr>
+        <td><code>checks/stock_daily_checks.py</code></td>
+        <td>raw 完整性 checks 中 <code>raw_stock_daily_row_count_matches_expected_tradable_count</code> 与 <code>raw_stock_daily_covers_expected_tradable_universe</code> 依赖 <code>silver_stock_basic</code> 和 <code>silver_stock_suspend_daily</code>。</td>
+        <td class="ok">raw sensor 保留 stock_basic 与 suspend_d ready gate，确保 raw checks 有可靠支撑事实。</td>
+      </tr>
+      <tr>
+        <td><code>sensors/readiness.py</code></td>
+        <td>新增 <code>RAW_STOCK_DAILY_READINESS_SPEC</code> 与 <code>raw_tushare_stock_daily_ready_for_trade_date</code>；<code>stock_daily_ready_for_trade_date</code> 继续表示 raw+silver final ready。</td>
+        <td class="ok">raw-only 与 final ready 语义已拆开，分钟线等下游仍使用 final ready。</td>
+      </tr>
+      <tr>
+        <td>直接下游</td>
+        <td><code>gold_market_breadth_daily</code>、<code>gold_stock_return_distribution</code>、分钟线 silver 及相关 checks 消费 <code>silver_stock_daily</code>。</td>
+        <td class="ok">P0 自动链路已修。下游仍应把 <code>stock_daily_ready_for_trade_date</code> 视为 raw+silver final ready，不得改用 raw-only helper。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <p><strong>stock_daily 修复涉及的正式命名：</strong></p>
+    <table>
+      <thead>
+      <tr>
+        <th>对象类型</th>
+        <th>旧名称或状态</th>
+        <th>当前 active 名称</th>
+        <th>说明</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>raw asset</td>
+        <td><code>raw_tushare_stock_daily</code></td>
+        <td><code>raw_tushare_stock_daily</code></td>
+        <td>asset key 保持不变；只调整围绕它的 job、sensor、run config 与触发边界。</td>
+      </tr>
+      <tr>
+        <td>silver asset</td>
+        <td><code>silver_stock_daily</code></td>
+        <td><code>silver_stock_daily</code></td>
+        <td>本方案不改 asset key，避免扩大到资产历史、deps 和下游消费链路重命名。</td>
+      </tr>
+      <tr>
+        <td>raw job</td>
+        <td><code>stock_daily_update_job</code> 混合入口，已退役为非 active 定义</td>
+        <td><code>raw_stock_daily_update_job</code></td>
+        <td>按 <code>layer + asset name + mode</code>。这里只选择 <code>raw_tushare_stock_daily</code> 与 raw checks。</td>
+      </tr>
+      <tr>
+        <td>silver job</td>
+        <td>不存在独立入口</td>
+        <td><code>silver_stock_daily_update_job</code></td>
+        <td>按 <code>layer + asset name + mode</code>，只选择 <code>silver_stock_daily</code> 与其 checks。</td>
+      </tr>
+      <tr>
+        <td>raw sensor</td>
+        <td><code>stock_daily_sensor</code>，已退役为非 active 定义</td>
+        <td><code>raw_stock_daily_update_job_sensor</code></td>
+        <td>sensor 名称 follow job，即 <code>raw_stock_daily_update_job</code> + <code>_sensor</code>；已由用户在 UI 打开观察。</td>
+      </tr>
+      <tr>
+        <td>silver sensor</td>
+        <td>不存在独立入口</td>
+        <td><code>silver_stock_daily_update_job_sensor</code></td>
+        <td>sensor 名称 follow job，即 <code>silver_stock_daily_update_job</code> + <code>_sensor</code>；已由用户在 UI 打开观察。</td>
+      </tr>
+      <tr>
+        <td>readiness helper</td>
+        <td><code>stock_daily_ready_for_trade_date</code> 表示 raw+silver final ready</td>
+        <td><code>raw_tushare_stock_daily_ready_for_trade_date</code> 新增；<code>stock_daily_ready_for_trade_date</code> 保持</td>
+        <td>helper 不是 Dagster definition，但名称要表达准确语义。新增 raw-only helper 不得削弱现有 final ready helper。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <p><strong>check 命名硬规则与 stock_daily 处理口径：</strong></p>
+    <table>
+      <thead>
+      <tr>
+        <th>对象</th>
+        <th>硬规则</th>
+        <th>本轮处理口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>已存在 check</td>
+        <td class="danger">禁止改名。不能为了让旧 check 符合新命名规则而修改 check 名称。</td>
+        <td>保持现有 Dagster check key 与历史 event continuity。<code>readiness.py</code>、catalog 和 tests 继续引用现有 check 名。</td>
+      </tr>
+      <tr>
+        <td>新增 check</td>
+        <td class="ok">必须按 <code>asset name + function + check</code> 命名。</td>
+        <td>只有新增的真实质量功能才使用新命名；不得新增一个同语义新名 check 来替代旧 check。</td>
+      </tr>
+      <tr>
+        <td>本轮 <code>stock_daily</code> 修复</td>
+        <td>只修 raw/silver 拆 job、拆 sensor、raw ready gate。</td>
+        <td>不改旧 check 名，不引入由命名导致的历史 check 补跑，不触发全量 check backfill 需求。</td>
+      </tr>
+      <tr>
+        <td>后续新 check 示例</td>
+        <td>例如新增源契约检查时，可命名为 <code>raw_tushare_stock_daily_source_contract_check</code>。</td>
+        <td>示例只说明新增命名规则，不代表本轮需要新增该 check。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <p><strong>stock_daily 既有 raw checks：全部保留原名。</strong></p>
+    <table>
+      <thead>
+      <tr>
+        <th>现有 check 名</th>
+        <th>处理口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr><td><code>raw_stock_daily_file_exists</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_row_count_positive</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_required_columns</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_partition_date_matches</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_unique_ts_code_trade_date</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_stock_partition_key_allowed</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_row_count_matches_expected_tradable_count</code></td><td>保留原名</td></tr>
+      <tr><td><code>raw_stock_daily_covers_expected_tradable_universe</code></td><td>保留原名</td></tr>
+      </tbody>
+    </table>
+
+    <p><strong>stock_daily 既有 silver checks：全部保留原名。</strong></p>
+    <table>
+      <thead>
+      <tr>
+        <th>现有 check 名</th>
+        <th>处理口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr><td><code>silver_stock_daily_row_count_positive</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_unique_ts_code_trade_date</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_conflicting_duplicate_absent</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_required_columns_non_null</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_partition_date_matches</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_current_listed_only</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_after_list_date_only</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_bj_after_market_open_only</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_price_sanity</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>保留原名</td></tr>
+      <tr><td><code>silver_stock_daily_stock_partition_key_allowed</code></td><td>保留原名</td></tr>
+      </tbody>
+    </table>
+
+    <table>
+      <thead>
+      <tr>
+        <th>修复项</th>
+        <th>落地实现</th>
+        <th>本地验证</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Job selection</td>
+        <td>拆为 <code>raw_stock_daily_update_job</code> 与 <code>silver_stock_daily_update_job</code>。raw job 只包含 <code>raw_tushare_stock_daily</code> 与 raw checks；silver job 只包含 <code>silver_stock_daily</code> 与 silver checks。</td>
+        <td><code>tests.test_stock_daily_sensor</code> 静态断言两个 job 名称符合 <code>layer + asset name + mode</code>，且不存在日常自动 job 同时选择 <code>raw_tushare_stock_daily</code> 和 <code>silver_stock_daily</code>。</td>
+      </tr>
+      <tr>
+        <td>Raw sensor</td>
+        <td><code>raw_stock_daily_update_job_sensor</code> 承接现有 source readiness、stock_basic gate、suspend_d gate，用于提交 raw-only job；raw 已 materialized 但 coverage missing 时，只允许进入下方受控 missing-code repair 分支。</td>
+        <td><code>tests.test_stock_daily_sensor</code> 覆盖 sensor 名称 follow job、source not ready、raw missing ready 后提交 raw full-day run、repair run config、最近两个交易日 locator 范围。</td>
+      </tr>
+      <tr>
+        <td>Raw missing-code repair</td>
+        <td>只处理最近两个已注册交易日口径的 <code>stock_daily</code> raw coverage missing。不新增独立 repair sensor；由 <code>raw_stock_daily_update_job_sensor</code> 提交 repair run。locator 必须对单个 <code>trade_date</code> 使用一次 DuckDB SQL 返回完整 missing codes；raw 文件完全缺失时不走 per-code repair，仍走 raw full-day update job。<code>missing_count</code> 必须在 <code>1..100</code> 之间才允许自动重拉；超过 100 直接 skip 并标记人工处理。只处理 missing code，duplicate、extra、conflicting duplicate 一律不进入 repair。Tushare repair 请求必须一次传入多个 <code>ts_code</code>，每个 <code>trade_date</code> 每次 repair run 最多 1 次 <code>daily(ts_code=comma_list, trade_date=...)</code> 请求，不允许在 sensor 或 asset 中按 code 循环请求。</td>
+        <td><code>tests.test_stock_daily_raw_repair</code> 覆盖 raw 文件缺失不 repair、missing=0 不 repair、missing=1..100 提交 repair、missing&gt;100 skip、extra/duplicate/conflict skip、locator DuckDB SQL 返回完整 missing list、repair run 对 Tushare 只发一次多 code 请求。</td>
+      </tr>
+      <tr>
+        <td>Repair retry control</td>
+        <td>missing-code repair cursor 必须记录 <code>trade_date</code>、<code>missing_codes_hash</code>、<code>attempt_count</code>、<code>next_retry_at</code>。同一个 <code>trade_date + missing_codes_hash</code> 最多提交 20 次 repair；达到 20 次后 skip 并标记 <code>manual_required</code>。每次 tick 必须重新运行 locator；missing set 变化时按新 hash 重新计数，raw checks 全绿时清理该日期 repair cursor。重试间隔固定按 sensor tick 节奏，<code>next_retry_at = evaluated_at + 10 minutes</code>；同一 missing 集合最长自动尝试约 200 分钟。禁止同一批 missing codes 在未到重试时间前重复提交。</td>
+        <td><code>tests.test_stock_daily_raw_repair</code> 与 <code>tests.test_stock_daily_sensor</code> 覆盖同一 missing hash attempt 递增、未到 <code>next_retry_at</code> 不提交、达到 20 次不提交、cursor 记录 repair state。</td>
+      </tr>
+      <tr>
+        <td>Raw ready helper</td>
+        <td>新增 <code>raw_tushare_stock_daily_ready_for_trade_date</code>，仅检查 <code>raw_tushare_stock_daily[trade_date]</code> materialization 与既有 raw checks。</td>
+        <td><code>tests.test_stock_daily_sensor</code> 覆盖 raw not ready 时 silver sensor skip、raw ready 且 silver missing 时提交 run。</td>
+      </tr>
+      <tr>
+        <td>Silver sensor</td>
+        <td>新增 <code>silver_stock_daily_update_job_sensor</code>，只在 raw ready、stock_basic ready、suspend_d ready 且 silver 缺 materialization 时提交 silver-only job。</td>
+        <td><code>tests.test_stock_daily_sensor</code> 覆盖 sensor 名称 follow job、raw not ready 时 skip、raw ready 且 silver missing 时提交 run、silver 已 materialized 时不自动重跑。</td>
+      </tr>
+      <tr>
+        <td>Asset 写保护</td>
+        <td>保留 <code>assert_silver_stock_basic_fresh_for_stock_daily</code>。手动入口的 raw/suspend 写保护另设专项，不在本轮 sensor 拆分里宣称解决。</td>
+        <td><code>tests.test_stock_daily_freshness_guard</code> 保留现有 freshness guard 测试；新增测试只覆盖自动触发门禁。</td>
+      </tr>
+      <tr>
+        <td>下游 final ready</td>
+        <td><code>stock_daily_ready_for_trade_date</code> 继续表示 raw 与 silver 均 materialized 且 blocking checks 全绿，供分钟线等下游使用。</td>
+        <td>回归口径：<code>stock_daily_ready_for_trade_date</code> 未改，仍表示 raw+silver final ready；raw-only helper 只服务 silver sensor。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div class="note">
+      <p>命名已确认并已落地：含糊的 <code>stock_daily_update_job</code> 混合入口已被 <code>raw_stock_daily_update_job</code> 与 <code>silver_stock_daily_update_job</code> 替换；<code>stock_daily_sensor</code> 已被 <code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code> 替换。已存在 check 禁止改名；新增 check 才按 <code>asset name + function + check</code> 命名。不得为了命名整齐新增同语义重复 check。</p>
+    </div>
+
+    <h3>5.3 停复牌链路</h3>
+    <pre class="flow">raw_tushare_suspend_d + silver_stock_suspend_daily same job
+                                                     ▼
+raw_stock_daily_update_job_sensor gate
+silver_stock_daily_update_job_sensor gate
+stock_mins_silver_trade_day_sensor / stock_mins_silver_sensor
+stk_mins structural checks</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>触发入口</th>
+        <th>已检查门禁</th>
+        <th>缺口</th>
+        <th>下游影响</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>suspend_d_sensor</code> 提交 <code>suspend_update_job</code></td>
+        <td>按 raw 和 silver materialized partition 集合找缺口。</td>
+        <td class="danger">不要求 <code>raw_tushare_suspend_d[trade_date]</code> blocking checks 先通过再生成 <code>silver_stock_suspend_daily[trade_date]</code>。</td>
+        <td>影响 <code>silver_stock_daily</code> 的 expected tradable universe 和分钟线停牌结构判断。该链路是 P1。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.4 复权因子链路</h3>
+    <pre class="flow">silver_stock_basic ── gate in stock_adj_factor_sensor
+                                      ▼
+raw_tushare_adj_factor + silver_adj_factor same job
+                                      ▼
+gold_stk_mins_qfq_*
+stock_mins_qfq factor repair
+qfq formula checks</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>触发入口</th>
+        <th>已检查门禁</th>
+        <th>缺口</th>
+        <th>下游影响</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>stock_adj_factor_sensor</code> 提交 <code>stock_adj_factor_update_job</code></td>
+        <td>检查 <code>stock_basic_ready_without_freshness</code>，并避免自动重跑已 materialized 但 checks 未全绿的分区。</td>
+        <td class="warn"><code>raw_tushare_adj_factor</code> 和 <code>silver_adj_factor</code> 同 job；本轮 raw checks 不是 silver 前置 gate。另，当前 stock_basic gate 不带目标交易日 freshness。</td>
+        <td>影响分钟线 qfq、复权因子 repair 和 qfq 公式校验。该链路是 P1。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.5 指数日线链路</h3>
+    <pre class="flow">raw_tushare_index_daily_by_code
+        │
+        ├─ DuckDB file-fact gate:
+        │   recent 60-day raw continuity + target-date presence
+        ▼
+silver_index_daily
+        ▼
+gold_market_major_indices_daily</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>触发入口</th>
+        <th>已检查门禁</th>
+        <th>缺口或注意点</th>
+        <th>下游影响</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>silver_index_daily_sensor</code> 提交 <code>silver_index_daily_update_job</code></td>
+        <td><code>audit_index_daily_raw_gaps</code> 和 <code>check_index_daily_raw_files_for_trade_date</code>，均通过 DuckDB 文件事实判断。</td>
+        <td class="ok"><code>file-fact ready</code> 是正式接受口径，不应改成逐 code event 深扫。注意 <code>silver_index_basic</code> 被作为文件事实输入，后续可考虑补 event/check ready gate。</td>
+        <td>影响 <code>gold_market_major_indices_daily</code>。当前主要指数 sensor 还会检查 <code>silver_index_daily_ready_for_trade_date</code> 和 <code>silver_index_basic_ready</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.6 基础 full snapshot 链路</h3>
+    <pre class="flow">raw_tushare_stock_basic + silver_stock_basic same job
+        ├─ raw/silver stock_daily sensor gates
+        ├─ adj_factor gate
+        ├─ stock_identity_map gate
+        └─ stock_mins silver supporting fact
+
+raw_tushare_namechange + silver_namechange same job
+        └─ stock_identity_map and stock_mins silver gates
+
+raw_tushare_index_basic + silver_index_basic same job
+        ├─ index_daily file-fact filters
+        └─ gold_market_major_indices_daily gate
+
+raw_tushare_trade_calendar + silver_trade_calendar same job
+        └─ trade-day partition registration sensors</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>链路</th>
+        <th>当前触发方式</th>
+        <th>缺口</th>
+        <th>修复定位</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>stock_basic</code></td>
+        <td><code>stock_basic_sensor</code> 在 readiness 不满足时提交 <code>stock_basic_update_job</code></td>
+        <td class="warn">raw+silver 同 job。下游会用它做 freshness gate，但它自身生产仍未拆 raw ready。</td>
+        <td>P2。full snapshot freshness 口径必须保留。</td>
+      </tr>
+      <tr>
+        <td><code>namechange</code></td>
+        <td><code>stock_namechange_sensor</code> 按当前交易日和运行窗口提交 <code>namechange_update_job</code></td>
+        <td class="warn">raw+silver 同 job。它是身份映射和分钟线名称时序的上游事实。</td>
+        <td>P2。</td>
+      </tr>
+      <tr>
+        <td><code>index_basic</code></td>
+        <td><code>index_basic_update_job</code> 手动或显式运行入口</td>
+        <td class="warn">raw+silver 同 job。它被 index daily 文件事实 gate 和主要指数日线链路消费。</td>
+        <td>P2，优先补下游 gate 可见性，再拆生产链路。</td>
+      </tr>
+      <tr>
+        <td><code>trade_calendar</code></td>
+        <td><code>calendar_update_job</code> 手动或显式运行入口</td>
+        <td class="warn">raw+silver 同 job。下游 trade-day sensors 读取日历文件注册分区。</td>
+        <td>P2。需要避免分区注册基于未通过 checks 的日历事实。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.7 分钟线 silver 链路</h3>
+    <pre class="flow">raw_stk_mins_1m/5m/15m/30m/60m event/check ready
+silver_stock_daily event/check ready
+silver_stock_suspend_daily event/check ready
+silver_stock_identity_map event/check ready
+silver_namechange event/check ready
+        │
+        ├─ stock_mins_silver_trade_day_sensor registers silver trade day
+        ▼
+stock_mins_silver_sensor
+        ▼
+silver_stk_mins_1m/5m/15m/30m/60m</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>触发入口</th>
+        <th>已检查门禁</th>
+        <th>结论</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code></td>
+        <td>raw 五频度、stock_daily、suspend_d、identity_map、namechange 全部走 readiness helper。</td>
+        <td class="ok">自动触发前已有 event/check gate。<code>stock_daily</code> 自动链路已拆 raw/silver；剩余风险主要来自 <code>suspend_d</code> 自身生产链路仍待拆分。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 修复优先级</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>优先级</th>
+        <th>链路</th>
+        <th>为什么先修</th>
+        <th>目标门禁形态</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td class="ok">已完成 P0</td>
+        <td><code>stock_daily</code></td>
+        <td>下游最多，直接影响 gold、serving、分钟线和市场宽度。自动链路已优先修复。</td>
+        <td>已拆成 raw-only job 与 silver-only job；silver sensor 等 <code>raw_tushare_stock_daily[trade_date]</code> event/check ready 后再提交。相关 sensor 已由用户打开观察，暂未反馈异常。</td>
+      </tr>
+      <tr>
+        <td class="warn">P1</td>
+        <td><code>suspend_d</code></td>
+        <td>是 stock_daily 和分钟线结构判断的前置事实。</td>
+        <td>拆 raw/silver；确认“无停牌记录”是否可作为合法 raw ready 事实。</td>
+      </tr>
+      <tr>
+        <td class="warn">P1</td>
+        <td><code>adj_factor</code></td>
+        <td>影响 qfq 与复权因子 repair。</td>
+        <td>拆 raw/silver；silver 等 raw adj_factor event/check ready 和 stock_basic freshness 策略确认。</td>
+      </tr>
+      <tr>
+        <td class="ok">保持</td>
+        <td><code>index_daily</code></td>
+        <td>已经是 silver-only job + DuckDB 文件事实 gate，性能路径正确。</td>
+        <td>保留 file-fact gate。后续只补 <code>silver_index_basic</code> event/check 前置可见性。</td>
+      </tr>
+      <tr>
+        <td class="warn">P2</td>
+        <td>基础 full snapshot</td>
+        <td>改动面广，但它们是多个下游 gate 的根事实。</td>
+        <td>逐个拆 raw/silver，保留 full snapshot freshness 判断。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 后续新增链路登记要求</h2>
+    <p>新增 silver 数据集或修改生产链路时，不再只登记资产名，而要登记触发关系：</p>
+    <table>
+      <thead>
+      <tr>
+        <th>登记项</th>
+        <th>必须说明</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>上游事实</td>
+        <td>raw assets、支撑 silver facts、文件事实、source readiness、full snapshot freshness。</td>
+      </tr>
+      <tr>
+        <td>触发入口</td>
+        <td>sensor、automation condition、schedule、manual-only job，以及 run key / cursor 口径。</td>
+      </tr>
+      <tr>
+        <td>提交 run 前门禁</td>
+        <td>明确是 <code>event/check ready</code>、<code>file-fact ready</code>，还是待整改的 <code>in-run raw write only</code>。</td>
+      </tr>
+      <tr>
+        <td>下游影响面</td>
+        <td>列清直接消费方、间接消费方和失败后会被阻断的链路。</td>
+      </tr>
+      <tr>
+        <td>性能预算</td>
+        <td>event log 查询次数、DuckDB 扫描规模、分区数、对象数和不可接受阈值。</td>
+      </tr>
+      <tr>
+        <td>测试门禁</td>
+        <td>ready 时提交 run；not-ready、failed check、scan error 时不提交；禁止扩大 job selection；禁止同 job 重新混入 raw+silver。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. 代码证据</h2>
+    <ul>
+      <li>Job selection：<a href="../../orchestrator/src/orchestrator/defs/jobs/stock_daily_update.py"><code>stock_daily_update.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/jobs/suspend_update.py"><code>suspend_update.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/jobs/stock_adj_factor_update.py"><code>stock_adj_factor_update.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/jobs/silver_index_daily_update.py"><code>silver_index_daily_update.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/jobs/stock_mins_silver_update.py"><code>stock_mins_silver_update.py</code></a>。</li>
+      <li>Readiness helper：<a href="../../orchestrator/src/orchestrator/defs/sensors/readiness.py"><code>readiness.py</code></a>。</li>
+      <li>股票日线触发：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_daily_sensor.py"><code>stock_daily_sensor.py</code></a>。</li>
+      <li>股票日线 missing-code repair：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_daily_raw_repair.py"><code>stock_daily_raw_repair.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/tushare_api_io.py"><code>tushare_api_io.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/run_contracts/configs.py"><code>configs.py</code></a>。</li>
+      <li>停复牌触发：<a href="../../orchestrator/src/orchestrator/defs/sensors/suspend_d_sensor.py"><code>suspend_d_sensor.py</code></a>。</li>
+      <li>复权因子触发：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_adj_factor_sensor.py"><code>stock_adj_factor_sensor.py</code></a>。</li>
+      <li>指数日线文件事实 gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/silver_index_daily_sensor.py"><code>silver_index_daily_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/index_daily_raw_file_readiness.py"><code>index_daily_raw_file_readiness.py</code></a>。</li>
+      <li>分钟线 silver gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_mins_silver_trade_day_sensor.py"><code>stock_mins_silver_trade_day_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/stock_mins_silver_sensor.py"><code>stock_mins_silver_sensor.py</code></a>。</li>
+      <li>直接下游：<a href="../../orchestrator/src/orchestrator/defs/assets/market_breadth.py"><code>market_breadth.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/stock_return_distribution.py"><code>stock_return_distribution.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/stk_mins.py"><code>stk_mins.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/market_major_indices.py"><code>market_major_indices.py</code></a>。</li>
+      <li>本地验证：<a href="../../orchestrator/tests/test_stock_daily_sensor.py"><code>test_stock_daily_sensor.py</code></a>、<a href="../../orchestrator/tests/test_stock_daily_raw_repair.py"><code>test_stock_daily_raw_repair.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_configs.py"><code>test_run_contract_configs.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_static_gates.py"><code>test_run_contract_static_gates.py</code></a>。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

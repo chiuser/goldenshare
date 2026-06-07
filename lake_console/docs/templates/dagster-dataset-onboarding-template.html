@@ -503,15 +503,21 @@
         </tr>
         <tr>
           <td>job</td>
-          <td><code>{dataset_or_domain}_update_job</code> 或 <code>{business}_job</code></td>
-          <td><code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>daily_market_breadth_job</code></td>
-          <td>job 名要表达写入范围，不能叫过宽泛的 <code>foundation_daily_job</code>。</td>
+          <td><code>{layer}_{asset_name}_{mode}_job</code></td>
+          <td><code>raw_stock_daily_update_job</code>、<code>silver_stock_daily_update_job</code>、<code>prod_ch_share_fact_market_breadth_sync_job</code></td>
+          <td>job 名必须表达写入层级、资产族和执行模式。job 只定义 selection，不承接业务逻辑。</td>
         </tr>
         <tr>
           <td>sensor</td>
-          <td><code>{dataset_or_domain}_sensor</code></td>
-          <td><code>stock_daily_sensor</code>、<code>suspend_d_sensor</code></td>
-          <td><code>cn_a_trade_day_sensor</code> 只注册交易日分区，不承接所有数据集生产。</td>
+          <td><code>{job_name}_sensor</code></td>
+          <td><code>raw_stock_daily_update_job_sensor</code>、<code>silver_stock_daily_update_job_sensor</code></td>
+          <td>sensor 名称 follow job；sensor 只判断是否提交 run，不写文件、不放数据生产逻辑。</td>
+        </tr>
+        <tr>
+          <td>check</td>
+          <td><code>{asset_name}_{function}_check</code></td>
+          <td><code>raw_tushare_stock_daily_source_contract_check</code></td>
+          <td>只适用于新增 check。已存在 check 禁止仅为了命名规则改名，也不得新增同语义新名 check 替代旧 check。</td>
         </tr>
         <tr>
           <td>文件名</td>

@@ -108,6 +108,18 @@ Dagster orchestrator 是正式项目，不接受“先跑通再说”的默认�
 5. 开发前发现现有设计文档、当前代码、正式数据事实或用户最新口径不一致时，必须先说明冲突并等待确认；禁止用代码补丁绕过口径冲突。
 6. 提交前必须做计划对账：说明硬口径分别落到哪些代码、哪些测试、哪些验证；未落地项必须显式说明原因，不能默认算完成。
 
+### Dagster Definition 命名门禁
+
+新增或改名正式 asset、check、job、sensor 前，必须按 `lake_console/orchestrator/CODING_STANDARDS.md` 中的 “Dagster Definition 命名规则” 先列清最终名称并完成对账。
+
+规则：
+
+1. job 名称固定为 `layer + asset name + mode + job`，例如 `raw_stock_daily_update_job`。
+2. sensor 名称固定 follow job，即 `job name + sensor`。
+3. 新增 check 名称固定为 `asset name + function + check`。
+4. 已存在 check 禁止仅为了符合新命名规则而改名；确需改名必须先单独评估历史 check event、readiness、sensor、job selection、UI 状态和补跑成本，并等待用户确认。
+5. 不得新增一个同语义新名 check 来替代旧 check。
+
 ### 文档目录归档门禁
 
 `lake_console` 下的 Dagster 相关文档必须按文档职责归档，禁止继续散落在 `lake_console` 根目录或随手新建目录。

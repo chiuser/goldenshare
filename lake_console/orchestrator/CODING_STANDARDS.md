@@ -6,6 +6,19 @@
 
 正式代码命名必须表达长期业务含义和稳定技术职责，禁止表达临时阶段、开发过程、个人理解或一次性任务。
 
+## Dagster Definition 命名规则
+
+新增或改名正式 Dagster definition 时，必须先在设计方案中列清 asset、job、sensor、check 的最终名称，并按以下规则对账。已有正式 check 名称不得为了追求命名整齐而改名；只有新增 check 才执行新规则，避免旧分区 check event 全量失效。
+
+规则：
+
+1. asset 名称必须表达稳定事实身份，通常采用 `layer + asset name`。raw 层如源系统是事实身份的一部分，可以包含 source，例如 `raw_tushare_stock_daily`；silver/gold/serving 层优先使用业务事实名，例如 `silver_stock_daily`、`gold_market_breadth_daily`。
+2. job 名称固定采用 `layer + asset name + mode + job`，例如 `raw_stock_daily_update_job`、`silver_stock_daily_update_job`、`prod_ch_share_fact_market_breadth_sync_job`。job 名称必须表达写入层级、资产族和执行模式。
+3. sensor 名称固定 follow job，采用 `job name + sensor`，例如 `raw_stock_daily_update_job_sensor`、`silver_stock_daily_update_job_sensor`。
+4. 新增 check 名称固定采用 `asset name + function + check`，例如 `raw_tushare_stock_daily_source_contract_check`。`function` 必须表达单一质量属性，不得写成宽泛的 `quality`、`validate`、`daily`。
+5. 已存在的 check 名称禁止仅因不符合新命名规则而改名；确需改名时必须先单独评估历史 check event、readiness helper、sensor、job selection、UI 状态和补跑成本，并等待用户确认。
+6. 不得新增一个同语义新名 check 来替代旧 check；新增 check 必须代表新增质量语义。
+
 ## Asset Schema Contract 与 Metadata 规范
 
 正式 Dagster asset 的稳定字段契约必须在 asset definition metadata 中注册，禁止只靠某次 materialization metadata 承载。
