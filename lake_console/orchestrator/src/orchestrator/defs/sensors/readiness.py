@@ -303,8 +303,12 @@ STOCK_DAILY_READINESS_SPECS = (
     RAW_STOCK_DAILY_READINESS_SPEC,
     AssetReadinessSpec(SILVER_STOCK_DAILY_ASSET_KEY, SILVER_STOCK_DAILY_BLOCKING_CHECKS),
 )
+RAW_ADJ_FACTOR_READINESS_SPEC = AssetReadinessSpec(
+    RAW_ADJ_FACTOR_ASSET_KEY,
+    RAW_ADJ_FACTOR_CHECKS,
+)
 ADJ_FACTOR_READINESS_SPECS = (
-    AssetReadinessSpec(RAW_ADJ_FACTOR_ASSET_KEY, RAW_ADJ_FACTOR_CHECKS),
+    RAW_ADJ_FACTOR_READINESS_SPEC,
     AssetReadinessSpec(SILVER_ADJ_FACTOR_ASSET_KEY, SILVER_ADJ_FACTOR_BLOCKING_CHECKS),
 )
 RAW_STK_MINS_READINESS_SPECS = tuple(
@@ -834,6 +838,17 @@ def stock_daily_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         STOCK_DAILY_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def raw_tushare_adj_factor_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        RAW_ADJ_FACTOR_READINESS_SPEC,
         partition_key=trade_date,
     )
 

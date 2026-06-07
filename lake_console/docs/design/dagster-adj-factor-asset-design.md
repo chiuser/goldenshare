@@ -1,6 +1,6 @@
 # Dagster Adj Factor 资产设计
 
-状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录已完成；A7 已通过人工 job 补齐 `2026-05-15` 之后缺口至 `2026-05-29`，且 `stock_current_trade_day_sensor` 与 `stock_adj_factor_sensor` 已启用。
+状态：设计口径已确认；M1 契约基础已实现；M2 bootstrap spec 已实现；M3 assets/checks 已实现；M4 job/sensors 已实现；M5 历史 raw bootstrap 与分区注册已完成；M6B raw bootstrap 事件补录已完成；M6C 历史 silver 文件生成已完成；M6D silver 事件补录已完成；A7 已通过人工 job 补齐 `2026-05-15` 之后缺口至 `2026-05-29`；A8 已将日常自动链路拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`，silver 触发前等待 raw adj_factor event/check ready 与 `stock_basic_ready_without_freshness`。
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
@@ -156,7 +156,7 @@ M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后
 - raw 8 个 blocking checks 均为 `succeeded=4225, failed=0`。
 - silver 10 个 blocking checks 均为 `succeeded=4225, failed=0`。
 
-上述补齐不是历史 bootstrap 重跑，也不是 sensor 自动触发验收；它是对 M6D 之后缺口分区的一次人工 job 补齐。之后已只读确认 `stock_current_trade_day_sensor` 与 `stock_adj_factor_sensor` 为 `RUNNING`，下一步需要观察下一个股票开市日的自然闭环。
+上述补齐不是历史 bootstrap 重跑，也不是 sensor 自动触发验收；它是对 M6D 之后缺口分区的一次人工旧混合 job 补齐。旧 `stock_adj_factor_sensor` 后续已退役，日常自然闭环改由 raw/silver 两个 adj_factor update job sensor 承接。
 
 ## 3. 资产边界
 
@@ -294,7 +294,7 @@ write_mode = replace partition
 - 不提供按 `ts_code` 局部覆盖作为主入口。按股票历史补洞或修复属于 repair/backfill 专项，不能污染日常更新入口。
 - 如果 Tushare 当日返回 0 行，raw asset 应失败或 skip，不覆盖已有正式分区。
 - 分区注册必须在每天早上 6:00 后执行；如果当天是股票开市日，则把当天日期注册到 `cn_a_stock_current_trade_days`。
-- `stock_adj_factor_sensor` 触发必须晚于 Tushare 文档说明的 9:15~9:20 入库窗口，正式口径为最早 9:30 后处理当天分区。
+- `raw_adj_factor_update_job_sensor` 与 `silver_adj_factor_update_job_sensor` 触发必须晚于 Tushare 文档说明的 9:15~9:20 入库窗口，正式口径为最早 9:30 后处理当天分区。
 
 ## 8. Checks 设计
 
@@ -323,12 +323,16 @@ write_mode = replace partition
 
 ## 9. Job / Sensor / Readiness 口径
 
-日常入口已按下列口径接入 active definitions；历史 raw/silver 文件与 Dagster event log 已对齐到 `2026-05-29`，两个日常 sensor 已启用。
+日常入口已按下列口径接入 active definitions；历史 raw/silver 文件与 Dagster event log 已对齐到 `2026-05-29`。旧混合入口 `stock_adj_factor_update_job` / `stock_adj_factor_sensor` 只保留为 Dagster 历史 run/tick 审计事实，不再作为 active definitions。
 
 更新入口：
 
-- `stock_adj_factor_update_job`
-  - selection：`raw_tushare_adj_factor`、`silver_adj_factor` 及两者 blocking checks。
+- `raw_adj_factor_update_job`
+  - selection：`raw_tushare_adj_factor` 及 raw blocking checks。
+  - 只写 Tushare `adj_factor` 源站镜像，不读取或等待 `stock_basic`。
+  - 不提供 run config，不写自定义 run tags。
+- `silver_adj_factor_update_job`
+  - selection：`silver_adj_factor` 及 silver blocking checks。
   - 不扩大到 `stock_basic` 更新；`silver_stock_basic` 是只读前置依赖。
   - 不提供 run config，不写自定义 run tags。
 
@@ -339,20 +343,29 @@ write_mode = replace partition
   - 只处理当天日期：上海时间 06:00 后，如果当天是 `silver_trade_calendar` 中 SSE 开市日且尚未注册，则注册当天分区。
   - 不做历史补齐；历史分区注册和旧湖 bootstrap 留到后续迁移验收。
 
-更新触发 sensor：
+更新触发 sensors：
 
-- `stock_adj_factor_sensor`
+- `raw_adj_factor_update_job_sensor`
   - 只处理最新一个已注册且不晚于当前上海日期的 `cn_a_stock_current_trade_days` 分区。
-  - 09:30 前不触发；09:30 后才允许提交 `stock_adj_factor_update_job[trade_date]`。
-  - 先确认 `silver_stock_basic` 已 materialized 且 blocking checks 通过；按本轮确认口径，不要求 `stock_basic` materialization date >= 目标交易日。
-  - 若目标 `adj_factor` 分区已 ready，则 skip；若已 materialized 但 blocking checks 未全绿，则保守 skip，避免失败循环。
+  - 09:30 前不触发；09:30 后若 `raw_tushare_adj_factor[trade_date]` 缺 materialization，则提交 `raw_adj_factor_update_job[trade_date]`。
+  - raw 已 materialized 时不自动重跑；raw 空结果不是合法成功，继续由 `allow_empty=False` 和 `raw_adj_factor_row_count_positive` 阻断。
+  - definition tags：`quote_data/raw/asset_update`。
+  - cursor 使用 M7 标准结构。
+- `silver_adj_factor_update_job_sensor`
+  - 只处理最新一个已注册且不晚于当前上海日期的 `cn_a_stock_current_trade_days` 分区。
+  - 09:30 前不触发；09:30 后才评估 silver 门禁。
+  - 先确认 `raw_tushare_adj_factor[trade_date]` latest materialization 及对应 raw blocking checks 全绿。
+  - 再确认 `stock_basic_ready_without_freshness` 通过；按本轮确认口径，不要求 `stock_basic` materialization date >= 目标交易日。
+  - 若 `silver_adj_factor[trade_date]` 缺 materialization 且门禁全满足，则提交 `silver_adj_factor_update_job[trade_date]`。
+  - 若 silver 已 materialized 但 blocking checks 未全绿，则保守 skip，避免失败循环。
+  - definition tags：`quote_data/silver/asset_update`。
   - 不写自定义 run tags。
   - cursor 使用 M7 标准结构。
 
 命名已确认：
 
-- job 使用 `stock_adj_factor_update_job`。
-- sensor 使用 `stock_adj_factor_sensor`。
+- raw job 使用 `raw_adj_factor_update_job`，raw sensor 使用 `raw_adj_factor_update_job_sensor`。
+- silver job 使用 `silver_adj_factor_update_job`，silver sensor 使用 `silver_adj_factor_update_job_sensor`。
 
 分区注册与触发口径已确认：
 
@@ -363,10 +376,10 @@ write_mode = replace partition
 - 每天早上 6:00 后读取交易日历；如果当天是股票开市日，则把当天日期注册到 `cn_a_stock_current_trade_days`。
 - `raw_tushare_adj_factor` 和 `silver_adj_factor` 使用 `cn_a_stock_current_trade_days`，不使用共享的 `cn_a_stock_trade_days`。
 - `cn_a_stock_trade_days` 仍按现有股票日频资产族口径服务 `suspend_d`、`stock_daily` 等盘后数据集，不被 `adj_factor` 早盘注册逻辑污染。
-- `stock_adj_factor_sensor` 不早于 9:30 触发，并选择 `max(partition_key) where partition_key <= 上海当前日期` 的 `cn_a_stock_current_trade_days` 分区。
+- `raw_adj_factor_update_job_sensor` 与 `silver_adj_factor_update_job_sensor` 不早于 9:30 触发，并选择 `max(partition_key) where partition_key <= 上海当前日期` 的 `cn_a_stock_current_trade_days` 分区。
 - 如果今天是 `2026-05-29` 且是股票开市日：
   - `2026-05-29 06:00` 后，专用分区注册 sensor 注册 `2026-05-29` 到 `cn_a_stock_current_trade_days`。
-  - `2026-05-29 09:30` 后，`stock_adj_factor_sensor` 可以处理 `2026-05-29`。
+  - `2026-05-29 09:30` 后，raw/silver 两个 adj_factor sensor 可以按门禁处理 `2026-05-29`。
   - 同一时间，`cn_a_stock_trade_days` 不会因此提前出现 `2026-05-29`，所以不会带动 `suspend_d_sensor`、`stock_daily_sensor` 提前处理当天。
 
 Readiness：
@@ -394,7 +407,7 @@ Readiness：
 2. 旧湖历史分区范围应在开发前只读复核，不把此前审计结果当成当前事实。
 3. `silver_stock_basic` 当前只保留 `list_status='L'`，这与“过滤掉退市股票”的口径一致；本资产不为退市股票设计 silver 完整性和下游加工口径。
 4. 分页必须复用现有 Tushare 通用拉取 helper，不新增 `adj_factor` 专用分页实现。
-5. `cn_a_stock_current_trade_days` 必须在早上 6:00 后注册当天股票开市日；`stock_adj_factor_sensor` 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
+5. `cn_a_stock_current_trade_days` 必须在早上 6:00 后注册当天股票开市日；两个 adj_factor update job sensor 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
 
 ## 12. 后续开发切片建议
 
@@ -426,11 +439,11 @@ Readiness：
 
 - 增加 `stock_current_trade_day_sensor`，只注册 `cn_a_stock_current_trade_days`。
 - `stock_current_trade_day_sensor` 每天 6:00 后把当天股票开市日注册到 `cn_a_stock_current_trade_days`，不补历史分区。
-- 增加 `stock_adj_factor_update_job`。
-- 增加 `stock_adj_factor_sensor`。
+- 增加 `raw_adj_factor_update_job` 与 `silver_adj_factor_update_job`。
+- 增加 `raw_adj_factor_update_job_sensor` 与 `silver_adj_factor_update_job_sensor`。
 - 接入 readiness helper。
 - 不运行正式 Dagster，先做代码与静态门禁验证。
-- 状态：已完成；job/sensors 已接入 active definitions，历史分区已注册到 `2026-05-29`；`stock_current_trade_day_sensor` 与 `stock_adj_factor_sensor` 已启用。
+- 状态：已完成；job/sensors 已接入 active definitions，历史分区已注册到 `2026-05-29`；旧混合入口已退役。
 
 ### A5：历史 raw bootstrap 与分区注册
 
@@ -475,6 +488,5 @@ Readiness：
 
 - 日常 Tushare 更新先用单日分区验收，再启用 sensor。
 - 只处理 M5 范围之后的 current-day/catch-up 分区，不重跑历史 raw bootstrap。
-- 状态：部分完成；`2026-05-18` 至 `2026-05-29` 缺口已通过人工 `stock_adj_factor_update_job` 补齐并通过只读核验。
-- 当前只读 instance 查询显示：`stock_current_trade_day_sensor` 和 `stock_adj_factor_sensor` 均为 `RUNNING`。
-- 待完成：观察下一个股票开市日是否由 06:00 分区注册和 09:30 后更新触发自然闭环。
+- 状态：部分完成；`2026-05-18` 至 `2026-05-29` 缺口曾通过人工旧混合 job 补齐并通过只读核验；后续日常自动入口已拆分为 raw/silver 两个 job sensor。
+- 待完成：观察下一个股票开市日是否由 06:00 分区注册和 09:30 后 raw/silver update sensors 触发自然闭环。

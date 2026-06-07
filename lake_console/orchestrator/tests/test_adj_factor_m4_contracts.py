@@ -1,18 +1,29 @@
 import json
 import unittest
-from datetime import datetime
+from datetime import UTC, datetime
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.checks import adj_factor_checks
-from orchestrator.defs.jobs.stock_adj_factor_update import stock_adj_factor_update_job
+from orchestrator.defs.jobs import stock_adj_factor_update as adj_factor_jobs
+from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
+from orchestrator.defs.run_contracts.sensor_tags import (
+    SENSOR_DOMAIN_TAG,
+    SENSOR_ROLE_TAG,
+    SENSOR_TARGET_LAYER_TAG,
+)
 from orchestrator.defs.sensors import readiness
-from orchestrator.defs.sensors.stock_adj_factor_sensor import (
-    _cursor_payload as build_adj_factor_sensor_cursor,
+from orchestrator.defs.sensors import stock_adj_factor_sensor as adj_factor_sensor_module
+from orchestrator.defs.sensors.readiness import (
+    AssetReadinessStatus,
+    DatasetReadinessStatus,
 )
 from orchestrator.defs.sensors.stock_adj_factor_sensor import (
-    _has_materialized_check_problem,
     _latest_registered_trade_date,
-    _run_request_for_trade_date,
+    _raw_run_request_for_trade_date,
+    _silver_run_request_for_trade_date,
+    raw_adj_factor_update_job_sensor,
+    silver_adj_factor_update_job_sensor,
 )
 from orchestrator.defs.sensors.stock_current_trade_day_sensor import (
     _cursor_payload as build_current_trade_day_cursor,
@@ -25,15 +36,29 @@ from orchestrator.defs.sensors.stock_current_trade_day_sensor import (
 EVALUATED_AT = datetime(2026, 5, 29, 9, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
-class _AssetStatus:
-    def __init__(self, *, materialized: bool, checks_passed: bool) -> None:
-        self.materialized = materialized
-        self.checks_passed = checks_passed
+class _FakeInstance:
+    def __init__(self, partitions: tuple[str, ...]) -> None:
+        self._partitions = partitions
+
+    def get_dynamic_partitions(self, _name: str) -> list[str]:
+        return list(self._partitions)
 
 
-class _DatasetStatus:
-    def __init__(self, statuses) -> None:
-        self.statuses = tuple(statuses)
+class _FakeContext:
+    def __init__(self, *, partitions: tuple[str, ...]) -> None:
+        self.instance = _FakeInstance(partitions)
+
+
+class _FixedDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):  # noqa: ANN001
+        return datetime(2026, 6, 5, 10, 0, tzinfo=tz or UTC)
+
+
+class _EarlyDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):  # noqa: ANN001
+        return datetime(2026, 6, 5, 9, 0, tzinfo=tz or UTC)
 
 
 def _check_names(check_definitions) -> tuple[str, ...]:
@@ -44,14 +69,115 @@ def _check_names(check_definitions) -> tuple[str, ...]:
     return tuple(sorted(names))
 
 
-class AdjFactorM4ContractTests(unittest.TestCase):
-    def test_stock_adj_factor_update_job_selection_is_adj_factor_only(self) -> None:
-        selection_text = repr(stock_adj_factor_update_job.selection)
+def _raw_status(
+    *,
+    ready: bool,
+    materialized: bool = True,
+    partition_key: str = "2026-06-05",
+    missing_check_names: tuple[str, ...] = (),
+    failed_check_names: tuple[str, ...] = (),
+    reason: str = "ready",
+) -> AssetReadinessStatus:
+    checks_passed = ready or (not missing_check_names and not failed_check_names)
+    return AssetReadinessStatus(
+        asset_key="raw_tushare_adj_factor",
+        partition_key=partition_key,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        freshness_passed=ready,
+        materialization_storage_id=1 if materialized else None,
+        materialization_date=partition_key if materialized else None,
+        missing_check_names=missing_check_names,
+        failed_check_names=failed_check_names,
+        reason=reason,
+    )
 
-        self.assertIn("raw_tushare_adj_factor", selection_text)
-        self.assertIn("silver_adj_factor", selection_text)
-        self.assertNotIn("raw_tushare_stock_basic", selection_text)
-        self.assertNotIn("silver_stock_basic", selection_text)
+
+def _stock_basic_status(*, ready: bool) -> DatasetReadinessStatus:
+    statuses = tuple(
+        AssetReadinessStatus(
+            asset_key=asset_key,
+            partition_key=None,
+            ready=ready,
+            materialized=ready,
+            checks_passed=ready,
+            freshness_passed=ready,
+            materialization_storage_id=1 if ready else None,
+            materialization_date="2026-06-04" if ready else None,
+            missing_check_names=() if ready else ("check_missing",),
+            failed_check_names=(),
+            reason="ready" if ready else f"{asset_key} not ready",
+        )
+        for asset_key in ("raw_tushare_stock_basic", "silver_stock_basic")
+    )
+    return DatasetReadinessStatus(ready=ready, statuses=statuses)
+
+
+def _raw_sensor_result(context: _FakeContext):
+    return raw_adj_factor_update_job_sensor._raw_fn(context)
+
+
+def _silver_sensor_result(context: _FakeContext):
+    return silver_adj_factor_update_job_sensor._raw_fn(context)
+
+
+class AdjFactorM4ContractTests(unittest.TestCase):
+    def test_job_and_sensor_names_follow_split_rule(self) -> None:
+        self.assertTrue(hasattr(adj_factor_jobs, "raw_adj_factor_update_job"))
+        self.assertTrue(hasattr(adj_factor_jobs, "silver_adj_factor_update_job"))
+        self.assertFalse(hasattr(adj_factor_jobs, "stock_adj_factor_update_job"))
+        self.assertFalse(hasattr(adj_factor_sensor_module, "stock_adj_factor_sensor"))
+        self.assertEqual(
+            adj_factor_jobs.raw_adj_factor_update_job.name,
+            "raw_adj_factor_update_job",
+        )
+        self.assertEqual(
+            adj_factor_jobs.silver_adj_factor_update_job.name,
+            "silver_adj_factor_update_job",
+        )
+        self.assertEqual(
+            raw_adj_factor_update_job_sensor.name,
+            "raw_adj_factor_update_job_sensor",
+        )
+        self.assertEqual(
+            silver_adj_factor_update_job_sensor.name,
+            "silver_adj_factor_update_job_sensor",
+        )
+        self.assertEqual(
+            raw_adj_factor_update_job_sensor.job_name,
+            "raw_adj_factor_update_job",
+        )
+        self.assertEqual(
+            silver_adj_factor_update_job_sensor.job_name,
+            "silver_adj_factor_update_job",
+        )
+        raw_selection = repr(adj_factor_jobs.raw_adj_factor_update_job.selection)
+        silver_selection = repr(adj_factor_jobs.silver_adj_factor_update_job.selection)
+        self.assertIn("raw_tushare_adj_factor", raw_selection)
+        self.assertNotIn("silver_adj_factor", raw_selection)
+        self.assertNotIn("silver_stock_basic", raw_selection)
+        self.assertIn("silver_adj_factor", silver_selection)
+        self.assertNotIn("raw_tushare_adj_factor", silver_selection)
+        self.assertNotIn("silver_stock_basic", silver_selection)
+
+    def test_sensor_tags_are_layer_specific(self) -> None:
+        self.assertEqual(
+            raw_adj_factor_update_job_sensor.tags,
+            {
+                SENSOR_DOMAIN_TAG: "quote_data",
+                SENSOR_TARGET_LAYER_TAG: "raw",
+                SENSOR_ROLE_TAG: "asset_update",
+            },
+        )
+        self.assertEqual(
+            silver_adj_factor_update_job_sensor.tags,
+            {
+                SENSOR_DOMAIN_TAG: "quote_data",
+                SENSOR_TARGET_LAYER_TAG: "silver",
+                SENSOR_ROLE_TAG: "asset_update",
+            },
+        )
 
     def test_readiness_check_names_match_adj_factor_check_definitions(self) -> None:
         raw_check_definitions = (
@@ -84,6 +210,10 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(
             tuple(sorted(readiness.SILVER_ADJ_FACTOR_BLOCKING_CHECKS)),
             _check_names(silver_check_definitions),
+        )
+        self.assertEqual(
+            readiness.ADJ_FACTOR_READINESS_SPECS[0],
+            readiness.RAW_ADJ_FACTOR_READINESS_SPEC,
         )
 
     def test_current_trade_day_decision_registers_only_open_day_after_six(self) -> None:
@@ -158,46 +288,171 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         )
         self.assertIsNone(_latest_registered_trade_date(("2026-05-30",), EVALUATED_AT))
 
-    def test_adj_factor_sensor_cursor_and_run_request_contract(self) -> None:
-        payload = json.loads(
-            build_adj_factor_sensor_cursor(
-                evaluated_at=EVALUATED_AT,
-                registered_trade_day_count=1,
-                target_trade_date="2026-05-29",
-                selected_trade_date="2026-05-29",
-                reason="ready",
-                source_window_started=True,
-            )
-        )
+    def test_raw_sensor_waits_until_source_window(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _EarlyDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys"
+        ) as materialized_keys:
+            result = _raw_sensor_result(context)
 
-        self.assertEqual(payload["decision"], "request_runs")
-        self.assertEqual(payload["target_date"], "2026-05-29")
-        self.assertEqual(payload["selected_count"], 1)
-        self.assertEqual(payload["sample_keys"], ["2026-05-29"])
-        self.assertFalse(payload["details"]["stock_basic_freshness_required"])
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("09:30", result.skip_reason.skip_message)
+        materialized_keys.assert_not_called()
 
-        request = _run_request_for_trade_date("2026-05-29")
-        self.assertEqual(request.partition_key, "2026-05-29")
-        self.assertEqual(request.run_key, "stock_adj_factor_update:2026-05-29")
-        self.assertEqual(request.tags, {})
+    def test_raw_sensor_submits_run_when_raw_missing(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys",
+            return_value=set(),
+        ):
+            result = _raw_sensor_result(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        request = result.run_requests[0]
+        self.assertEqual(request.partition_key, "2026-06-05")
+        self.assertEqual(request.run_key, "raw_adj_factor_update:2026-06-05")
         self.assertEqual(request.run_config, {})
 
-    def test_adj_factor_sensor_detects_materialized_check_problem(self) -> None:
-        self.assertTrue(
-            _has_materialized_check_problem(
-                _DatasetStatus([_AssetStatus(materialized=True, checks_passed=False)])
-            )
+    def test_raw_sensor_does_not_rerun_materialized_partition(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys",
+            return_value={"2026-06-05"},
+        ):
+            result = _raw_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("raw 分区已经生成完成", result.skip_reason.skip_message)
+
+    def test_raw_and_silver_run_request_contracts(self) -> None:
+        raw_request = _raw_run_request_for_trade_date("2026-06-05")
+        self.assertEqual(raw_request.partition_key, "2026-06-05")
+        self.assertEqual(raw_request.run_key, "raw_adj_factor_update:2026-06-05")
+        self.assertEqual(raw_request.tags, {})
+        self.assertEqual(raw_request.run_config, {})
+
+        silver_request = _silver_run_request_for_trade_date("2026-06-05")
+        self.assertEqual(silver_request.partition_key, "2026-06-05")
+        self.assertEqual(silver_request.run_key, "silver_adj_factor_update:2026-06-05")
+        self.assertEqual(silver_request.tags, {})
+        self.assertEqual(silver_request.run_config, {})
+
+    def test_silver_sensor_skips_when_raw_missing_or_checks_not_ready(self) -> None:
+        cases = (
+            _raw_status(
+                ready=False,
+                materialized=False,
+                missing_check_names=readiness.RAW_ADJ_FACTOR_CHECKS,
+                reason="raw_tushare_adj_factor has no materialization",
+            ),
+            _raw_status(
+                ready=False,
+                missing_check_names=("raw_adj_factor_required_columns",),
+                reason="raw_tushare_adj_factor missing blocking checks",
+            ),
+            _raw_status(
+                ready=False,
+                failed_check_names=("raw_adj_factor_partition_date_matches",),
+                reason="raw_tushare_adj_factor failed blocking checks",
+            ),
         )
+        for raw_status in cases:
+            with self.subTest(reason=raw_status.reason):
+                context = _FakeContext(partitions=("2026-06-05",))
+                with patch(
+                    "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+                    _FixedDateTime,
+                ), patch(
+                    "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys",
+                    return_value=set(),
+                ), patch(
+                    "orchestrator.defs.sensors.stock_adj_factor_sensor.raw_tushare_adj_factor_ready_for_trade_date",
+                    return_value=raw_status,
+                ):
+                    result = _silver_sensor_result(context)
+
+                self.assertEqual(result.run_requests, [])
+                self.assertIn("raw readiness 门禁未满足", result.skip_reason.skip_message)
+                cursor_payload = load_sensor_cursor(result.cursor)
+                details = cursor_payload["details"]["readiness_details"]
+                self.assertFalse(details["raw_tushare_adj_factor"]["ready"])
+
+    def test_silver_sensor_skips_when_stock_basic_not_ready(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys",
+            return_value=set(),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.raw_tushare_adj_factor_ready_for_trade_date",
+            return_value=_raw_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            return_value=_stock_basic_status(ready=False),
+        ):
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("股票基础信息尚未通过", result.skip_reason.skip_message)
+        cursor_payload = load_sensor_cursor(result.cursor)
         self.assertFalse(
-            _has_materialized_check_problem(
-                _DatasetStatus([_AssetStatus(materialized=False, checks_passed=False)])
-            )
+            cursor_payload["details"]["stock_basic_freshness_required"]
         )
+        self.assertIn("stock_basic", cursor_payload["details"]["readiness_details"])
+
+    def test_silver_sensor_submits_only_when_raw_and_stock_basic_ready(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys",
+            return_value=set(),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.raw_tushare_adj_factor_ready_for_trade_date",
+            return_value=_raw_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.stock_basic_ready_without_freshness",
+            return_value=_stock_basic_status(ready=True),
+        ):
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        request = result.run_requests[0]
+        self.assertEqual(request.partition_key, "2026-06-05")
+        self.assertEqual(request.run_key, "silver_adj_factor_update:2026-06-05")
+        cursor_payload = load_sensor_cursor(result.cursor)
         self.assertFalse(
-            _has_materialized_check_problem(
-                _DatasetStatus([_AssetStatus(materialized=True, checks_passed=True)])
-            )
+            cursor_payload["details"]["stock_basic_freshness_required"]
         )
+
+    def test_silver_sensor_does_not_rerun_materialized_partition(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.materialized_partition_keys",
+            return_value={"2026-06-05"},
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.raw_tushare_adj_factor_ready_for_trade_date"
+        ) as raw_readiness:
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("不自动重跑", result.skip_reason.skip_message)
+        raw_readiness.assert_not_called()
 
 
 if __name__ == "__main__":
