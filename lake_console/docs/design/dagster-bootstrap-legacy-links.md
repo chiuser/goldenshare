@@ -78,11 +78,11 @@
 - M5 已把上述 `4215` 个日期注册到正式 `cn_a_stock_current_trade_days`。
 - M5 不等同于 Dagster materialization：它没有补 raw asset materialization event，也没有生成 raw asset check event。
 - M6B 已通过 `DagsterInstance.report_runless_asset_event(...)` 对已迁移 raw 文件补录 `raw_tushare_adj_factor` materialization 与 raw blocking check events；最终 `4215` 个 raw 分区可见，8 个 raw blocking checks 均为 `succeeded=4215, failed=0`。
-- M6 的 silver 历史文件生成属于 bootstrap 收尾，不能使用 `stock_adj_factor_update_job` 跑历史，因为该 job 会重新请求 Tushare raw。
+- M6 的 silver 历史文件生成属于 bootstrap 收尾，当时不能使用旧混合 `stock_adj_factor_update_job` 跑历史，因为该 job 会重新请求 Tushare raw；当前日常入口已拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`。
 - M6C 已生成 `silver_adj_factor` 历史文件：`4215` 个分区，范围 `2009-01-05` 至 `2026-05-15`，总行数 `13,908,872`，全量只读审计失败分区数 `0`。
 - M6D 已补录 `silver_adj_factor` 的 runless materialization 与 silver blocking check events；最终 `4215` 个 silver 分区可见，10 个 silver blocking checks 均为 `succeeded=4215, failed=0`。
 - M6B runless events 不产生 Runs 页面记录，也不会触发飞书 run status 通知。
-- M6D 之后，已补注册并通过人工 `stock_adj_factor_update_job` 补齐 `2026-05-18` 至 `2026-05-29` 这 10 个交易日分区。
+- M6D 之后，已补注册并通过人工旧混合 `stock_adj_factor_update_job` 补齐 `2026-05-18` 至 `2026-05-29` 这 10 个交易日分区；该入口已退役，后续日常自动链路使用 raw/silver 两个 adj_factor job。
 - 最新只读核验：`cn_a_stock_current_trade_days`、raw 文件、silver 文件、raw materialization、silver materialization 均为 `4225` 个分区，范围 `2009-01-05` 至 `2026-05-29`；raw 8 个 blocking checks 和 silver 10 个 blocking checks 均为 `succeeded=4225, failed=0`。
 
 ### `stk_mins`

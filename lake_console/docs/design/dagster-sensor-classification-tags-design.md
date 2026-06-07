@@ -63,7 +63,7 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `partition` | 分区注册 | sensor 只注册 dynamic partitions，不写 asset、不提交数据更新 run。 |
 | `raw` | 原始层 | sensor 只触发 raw asset/job，例如指数日线 raw-by-code。 |
 | `silver` | 标准层 | sensor 只触发 silver asset/job，例如 `silver_index_daily`。 |
-| `raw_silver` | 原始层 + 标准层 | sensor 触发的 job 同时写 raw 和 silver；当前股票基础信息、停复牌、股票日线、复权因子属于此类。 |
+| `raw_silver` | 原始层 + 标准层 | sensor 触发的 job 同时写 raw 和 silver；当前股票基础信息与股票曾用名 full snapshot 属于此类。 |
 | `gold` | 正式层 | sensor 触发或管理 gold 业务结果资产。 |
 | `serving` | 服务层 | sensor 触发 ClickHouse serving asset。 |
 | `platform` | 平台观测 | sensor 不触发 asset 生产，只做 run 状态通知。 |
@@ -94,9 +94,13 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `stock_mins_silver_trade_day_sensor` | `defs/sensors/stock_mins_silver_trade_day_sensor.py` | `quote_data` | `partition` | `partition_registration` | 注册股票分钟线 silver 使用的 2014+ 交易日分区，等待 raw、日线、停复牌、身份映射和曾用名 ready；不触发资产生产。 |
 | `index_trade_day_sensor` | `defs/sensors/index_trade_day_sensor.py` | `index_topic` | `partition` | `partition_registration` | 注册指数资产族交易日分区；不触发资产生产。 |
 | `stock_basic_sensor` | `defs/sensors/stock_basic_sensor.py` | `basic_data` | `raw_silver` | `asset_update` | 触发 `stock_basic_update_job`，该 job 写 `raw_tushare_stock_basic` 和 `silver_stock_basic`。 |
-| `suspend_d_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发停复牌 raw/silver 更新；停复牌位于股票行情数据域。 |
-| `stock_daily_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发股票日线 raw/silver 更新；只读 basic/suspend 门禁。 |
-| `stock_adj_factor_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `raw_silver` | `asset_update` | 触发复权因子 raw/silver 更新；复权因子属于股票行情数据域。 |
+| `stock_namechange_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `raw_silver` | `asset_update` | 触发 `namechange_update_job`，该 job 写 `raw_tushare_namechange` 和 `silver_namechange` full snapshot。 |
+| `raw_suspend_d_update_job_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发停复牌 raw 更新；停复牌位于股票行情数据域。 |
+| `silver_suspend_d_update_job_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `silver` | `asset_update` | raw suspend_d event/check ready 后触发停复牌 silver 更新。 |
+| `raw_stock_daily_update_job_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发股票日线 raw 更新；raw 缺口和 missing-code repair 都属于股票行情数据域。 |
+| `silver_stock_daily_update_job_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `silver` | `asset_update` | raw stock daily、stock basic、suspend_d ready 后触发股票日线 silver 更新。 |
+| `raw_adj_factor_update_job_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发复权因子 raw 更新；复权因子属于股票行情数据域。 |
+| `silver_adj_factor_update_job_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `silver` | `asset_update` | raw adj_factor event/check ready 和 stock_basic ready 后触发复权因子 silver 更新。 |
 | `stock_mins_silver_sensor` | `defs/sensors/stock_mins_silver_sensor.py` | `quote_data` | `silver` | `asset_update` | 触发股票分钟线 silver 五频度更新；只消费已注册 silver 分区和上游 readiness，不注册分区、不触发 raw。 |
 | `stock_mins_qfq_daily_sensor` | `defs/sensors/stock_mins_qfq_daily_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 gold 七频度更新；只消费已注册 silver 分区、当日 silver readiness 和当日复权因子 readiness，不注册分区、不触发 repair。 |
 | `stock_mins_qfq_factor_repair_sensor` | `defs/sensors/stock_mins_qfq_factor_repair_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 factor repair 维护任务；只监听当日七频度 gold ready，不检测变化股票，不注册分区。 |
