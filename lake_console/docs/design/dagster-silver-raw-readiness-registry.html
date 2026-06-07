@@ -211,7 +211,7 @@
         <td><code>in-run raw write only</code></td>
         <td>raw 和 silver 在同一个 job selection 中，Dagster asset 依赖只能保证 raw asset 函数先于 silver asset 函数。</td>
         <td class="danger">不可以视作严格 ready</td>
-        <td><code>suspend_d</code>、<code>adj_factor</code>、基础 full snapshot 当前仍存在该问题。<code>stock_daily</code> 自动链路已从此类移出。</td>
+        <td><code>adj_factor</code>、基础 full snapshot 当前仍存在该问题。<code>stock_daily</code> 与 <code>suspend_d</code> 自动链路已从此类移出。</td>
       </tr>
       </tbody>
     </table>
@@ -232,9 +232,9 @@
       <tbody>
       <tr>
         <td class="ok">自动触发前已有严格 gate</td>
-        <td>4</td>
-        <td><code>stock_daily</code>、<code>stock_mins_silver</code>、<code>stock_identity_map</code>、<code>silver_index_daily</code></td>
-        <td><code>stock_daily</code>、<code>stock_mins_silver</code> 与 <code>stock_identity_map</code> 使用 <code>event/check ready</code>；<code>silver_index_daily</code> 使用 <code>file-fact ready</code>。</td>
+        <td>5</td>
+        <td><code>stock_daily</code>、<code>suspend_d</code>、<code>stock_mins_silver</code>、<code>stock_identity_map</code>、<code>silver_index_daily</code></td>
+        <td><code>stock_daily</code>、<code>suspend_d</code>、<code>stock_mins_silver</code> 与 <code>stock_identity_map</code> 使用 <code>event/check ready</code>；<code>silver_index_daily</code> 使用 <code>file-fact ready</code>。</td>
       </tr>
       <tr>
         <td class="warn">有上游 gate，但本资产 raw/silver 仍同 run</td>
@@ -244,8 +244,8 @@
       </tr>
       <tr>
         <td class="danger">主要依赖 raw+silver 同 job</td>
-        <td>5</td>
-        <td><code>suspend_d</code>、<code>stock_basic</code>、<code>namechange</code>、<code>index_basic</code>、<code>trade_calendar</code></td>
+        <td>4</td>
+        <td><code>stock_basic</code>、<code>namechange</code>、<code>index_basic</code>、<code>trade_calendar</code></td>
         <td>需要后续拆分 raw job / silver job，或证明 raw asset 发布前已完成等价校验。</td>
       </tr>
       </tbody>
@@ -302,7 +302,7 @@
       </tbody>
     </table>
     <div class="note">
-      <p><code>stock_daily</code> 已按本模式落地：旧混合 job/sensor 被替换为 raw-only 与 silver-only 入口，silver sensor 显式等待 raw event/check ready。手动 Launchpad、CLI 或 runless 补录绕过 gate 是单独专项。本文的总修复模式先覆盖自动触发链路，不能在本文中声明手动入口已经被治理。</p>
+      <p><code>stock_daily</code> 与 <code>suspend_d</code> 已按本模式落地：旧混合 job/sensor 被替换为 raw-only 与 silver-only 入口，silver sensor 显式等待 raw event/check ready。手动 Launchpad、CLI 或 runless 补录绕过 gate 是单独专项。本文的总修复模式先覆盖自动触发链路，不能在本文中声明手动入口已经被治理。</p>
     </div>
   </section>
 
@@ -598,12 +598,26 @@ stk_mins checks and qfq-related downstream reads</pre>
     </div>
 
     <h3>5.3 停复牌链路</h3>
-    <pre class="flow">raw_tushare_suspend_d + silver_stock_suspend_daily same job
-                                                     ▼
+    <pre class="flow">raw_suspend_d_update_job_sensor
+        ▼
+raw_tushare_suspend_d + raw blocking checks
+        ▼
+silver_suspend_d_update_job_sensor raw event/check gate
+        ▼
+silver_stock_suspend_daily + silver blocking checks
+        ▼
 raw_stock_daily_update_job_sensor gate
 silver_stock_daily_update_job_sensor gate
 stock_mins_silver_trade_day_sensor / stock_mins_silver_sensor
 stk_mins structural checks</pre>
+    <div class="note">
+      <strong>落地结论：</strong>
+      <code>suspend_d</code> 自动链路已拆为 <code>raw_suspend_d_update_job</code> 与
+      <code>silver_suspend_d_update_job</code>。旧 <code>suspend_update_job</code> 与
+      <code>suspend_d_sensor</code> 不再作为 active 混合入口加载。silver sensor 只在
+      <code>raw_tushare_suspend_d[trade_date]</code> latest materialization 与同一 materialization 的
+      raw blocking checks 全绿后，才提交 <code>silver_stock_suspend_daily[trade_date]</code>。
+    </div>
     <table>
       <thead>
       <tr>
@@ -615,13 +629,357 @@ stk_mins structural checks</pre>
       </thead>
       <tbody>
       <tr>
-        <td><code>suspend_d_sensor</code> 提交 <code>suspend_update_job</code></td>
-        <td>按 raw 和 silver materialized partition 集合找缺口。</td>
-        <td class="danger">不要求 <code>raw_tushare_suspend_d[trade_date]</code> blocking checks 先通过再生成 <code>silver_stock_suspend_daily[trade_date]</code>。</td>
-        <td>影响 <code>silver_stock_daily</code> 的 expected tradable universe 和分钟线停牌结构判断。该链路是 P1。</td>
+        <td><code>raw_suspend_d_update_job_sensor</code> 提交 <code>raw_suspend_d_update_job</code>；<code>silver_suspend_d_update_job_sensor</code> 提交 <code>silver_suspend_d_update_job</code></td>
+        <td>raw sensor 只找 raw 缺 materialization；silver sensor 先调用 <code>raw_tushare_suspend_d_ready_for_trade_date</code>。</td>
+        <td class="ok">已要求 <code>raw_tushare_suspend_d[trade_date]</code> blocking checks 先通过，再生成 <code>silver_stock_suspend_daily[trade_date]</code>。</td>
+        <td>保护 <code>silver_stock_daily</code> 的 expected tradable universe 和分钟线停牌结构判断。该链路已从 P1 待修复项移出。</td>
       </tr>
       </tbody>
     </table>
+
+    <h4>5.3.1 已落地命名</h4>
+    <p>
+      本轮方案使用 <code>suspend_d</code> 作为 job/sensor asset family。asset key 不改，既有 check 名不改。
+      这是为了保留 Dagster asset/check event continuity，同时让新 job/sensor 名称符合
+      <code>layer + asset name + mode + job</code> 与 <code>job name + sensor</code> 规则。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>Definition 类型</th>
+        <th>当前或旧入口</th>
+        <th>当前 active 名称</th>
+        <th>处理口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>raw asset</td>
+        <td><code>raw_tushare_suspend_d</code></td>
+        <td><code>raw_tushare_suspend_d</code></td>
+        <td>不改 asset key，不迁移路径，不影响历史 materialization。</td>
+      </tr>
+      <tr>
+        <td>silver asset</td>
+        <td><code>silver_stock_suspend_daily</code></td>
+        <td><code>silver_stock_suspend_daily</code></td>
+        <td>不改 asset key，不影响 <code>stock_daily</code>、分钟线和 checks 的直接依赖。</td>
+      </tr>
+      <tr>
+        <td>mixed job</td>
+        <td><code>suspend_update_job</code></td>
+        <td>退役，不保留 active 混合入口</td>
+        <td>避免同一 job 继续同时写 raw 与 silver。历史 run 只作为审计历史保留。</td>
+      </tr>
+      <tr>
+        <td>raw job</td>
+        <td>无</td>
+        <td><code>raw_suspend_d_update_job</code></td>
+        <td>只选择 <code>raw_tushare_suspend_d</code> 与 raw checks。</td>
+      </tr>
+      <tr>
+        <td>silver job</td>
+        <td>无</td>
+        <td><code>silver_suspend_d_update_job</code></td>
+        <td>只选择 <code>silver_stock_suspend_daily</code> 与 silver checks。</td>
+      </tr>
+      <tr>
+        <td>mixed sensor</td>
+        <td><code>suspend_d_sensor</code></td>
+        <td>退役，不保留 active 混合 sensor</td>
+        <td>避免继续提交 <code>suspend_update_job</code>。</td>
+      </tr>
+      <tr>
+        <td>raw sensor</td>
+        <td>无</td>
+        <td><code>raw_suspend_d_update_job_sensor</code></td>
+        <td>提交 raw-only job，sensor tags 为 <code>quote_data/raw/asset_update</code>。</td>
+      </tr>
+      <tr>
+        <td>silver sensor</td>
+        <td>无</td>
+        <td><code>silver_suspend_d_update_job_sensor</code></td>
+        <td>只在 raw event/check ready 后提交 silver-only job，sensor tags 为 <code>quote_data/silver/asset_update</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>5.3.2 空结果与 raw ready 语义</h4>
+    <p>
+      <code>suspend_d</code> 和 <code>daily</code> 不同：某个交易日没有任何停复牌记录是合法业务事实。
+      本地 Tushare 文档 <code>docs/sources/tushare/股票数据/行情数据/0214_每日停复牌信息.md</code>
+      记录该接口按日期获取每日停复牌信息，更新时间为“不定期”。本轮设计前已用
+      <code>tushareMcp.suspend_d</code> 做最小行为核验：<code>trade_date=20200312</code> 返回
+      <code>ts_code/trade_date/suspend_timing/suspend_type</code> 字段；<code>trade_date=20200125</code>
+      返回 <code>[]</code> 且不是接口异常。因此，<code>row_count &gt; 0</code> 不能成为 raw ready 条件。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>场景</th>
+        <th>正确判定</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>raw 文件不存在</td>
+        <td class="danger">raw not ready</td>
+        <td>没有 materialization/file fact，silver 不得启动。</td>
+      </tr>
+      <tr>
+        <td>raw 文件存在，schema 正确，row_count = 0</td>
+        <td class="ok">raw 可 ready</td>
+        <td>代表该交易日无停复牌记录，不能误判失败。</td>
+      </tr>
+      <tr>
+        <td>raw 文件存在，row_count = 0，但 required columns 缺失或类型不对</td>
+        <td class="danger">raw not ready</td>
+        <td>空结果也必须写出稳定 Tushare source mirror schema。</td>
+      </tr>
+      <tr>
+        <td>raw 文件存在，但 partition date 不匹配</td>
+        <td class="danger">raw not ready</td>
+        <td>分区事实错误，不能让 silver 标准化继续放大错误。</td>
+      </tr>
+      <tr>
+        <td>silver 输出 row_count = 0</td>
+        <td class="ok">可通过 silver checks</td>
+        <td>没有停复牌记录时标准层也可为空；full-day patch 命中时仍会生成 patch rows。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="note">
+      <p>
+        代码现状支持该语义：<code>raw_tushare_suspend_d</code> 调用
+        <code>fetch_tushare_partition_to_raw(..., allow_empty=True)</code>；写 parquet helper 会创建带字段类型的
+        temp table，即使 0 行也写出带 schema 的 parquet；当前 raw checks 不包含
+        <code>row_count_positive</code>。本轮方案必须继续禁止新增 raw row-count-positive blocking check。
+      </p>
+    </div>
+
+    <h4>5.3.3 新触发机制</h4>
+    <pre class="flow">stock_trade_day_sensor
+        └─ 16:00 后注册 cn_a_stock_trade_days[trade_date]
+
+raw_suspend_d_update_job_sensor
+        ├─ 读取已注册股票交易日
+        ├─ 找 raw_tushare_suspend_d 未 materialized 的分区
+        └─ 提交 raw_suspend_d_update_job[trade_date]
+
+raw_suspend_d_update_job
+        ├─ raw_tushare_suspend_d materialization
+        └─ raw_suspend_d_* blocking checks
+
+silver_suspend_d_update_job_sensor
+        ├─ 找 silver_stock_suspend_daily 未 materialized 的分区
+        ├─ 调 raw_tushare_suspend_d_ready_for_trade_date
+        └─ raw latest materialization + checks 全绿后提交 silver_suspend_d_update_job[trade_date]
+
+silver_suspend_d_update_job
+        ├─ silver_stock_suspend_daily materialization
+        └─ silver_suspend_d_* blocking checks</pre>
+    <table>
+      <thead>
+      <tr>
+        <th>组件</th>
+        <th>输入状态</th>
+        <th>提交条件</th>
+        <th>不提交条件</th>
+        <th>run key / cursor</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>raw_suspend_d_update_job_sensor</code></td>
+        <td><code>cn_a_stock_trade_days</code> 中 <code>&lt;= today</code> 的已注册交易日；raw materialized partition 集合。</td>
+        <td>目标交易日 raw 缺 materialization。</td>
+        <td>没有已注册交易日；raw 全部已 materialized。</td>
+        <td><code>run_key=raw_suspend_d_update:{trade_date}</code>；cursor 记录 evaluated_at、selected keys、pending count、max requests。</td>
+      </tr>
+      <tr>
+        <td><code>silver_suspend_d_update_job_sensor</code></td>
+        <td>已注册交易日；silver materialized partition 集合；raw readiness helper 结果。</td>
+        <td>目标交易日 silver 缺 materialization，且同日 raw latest materialization 与 raw blocking checks 全绿。</td>
+        <td>raw 未 materialized、raw checks missing/failed、silver 已 materialized。</td>
+        <td><code>run_key=silver_suspend_d_update:{trade_date}</code>；cursor 记录 readiness details、blocked keys、selected keys。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      两个 sensor 均保持 <code>minimum_interval_seconds=600</code> 和
+      <code>MAX_RUN_REQUESTS_PER_TICK=2</code> 的日常节奏。raw sensor 不额外探测
+      <code>suspend_d</code> 源站是否“有行”，因为空结果是合法事实；当日分区是否进入自动链路，由
+      <code>stock_trade_day_sensor</code> 的 16:00 后分区注册控制。
+    </p>
+
+    <h4>5.3.4 Readiness helper 口径</h4>
+    <table>
+      <thead>
+      <tr>
+        <th>helper / spec</th>
+        <th>语义</th>
+        <th>使用方</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>RAW_SUSPEND_D_READINESS_SPEC</code></td>
+        <td>只包含 <code>RAW_SUSPEND_D_ASSET_KEY</code> 与既有 <code>RAW_SUSPEND_D_CHECKS</code>。</td>
+        <td><code>raw_tushare_suspend_d_ready_for_trade_date</code>。</td>
+      </tr>
+      <tr>
+        <td><code>raw_tushare_suspend_d_ready_for_trade_date(instance, trade_date)</code></td>
+        <td>判断同日 raw latest materialization 是否存在，且该 latest materialization 对应 raw blocking checks 全部通过。</td>
+        <td><code>silver_suspend_d_update_job_sensor</code> 专用 raw gate。</td>
+      </tr>
+      <tr>
+        <td><code>suspend_d_ready_for_trade_date(instance, trade_date)</code></td>
+        <td>保持 raw + silver final ready 语义不变。</td>
+        <td><code>stock_daily</code>、分钟线 silver、qfq 等下游继续使用；不得误改成 raw-only。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      这里不新增 readiness asset、summary asset、状态表或配置项；日常门禁继续使用 Dagster event log 中的
+      materialization 与 blocking check event。
+    </p>
+
+    <h4>5.3.5 历史 event/check 影响评估</h4>
+    <table>
+      <thead>
+      <tr>
+        <th>项目</th>
+        <th>是否变化</th>
+        <th>影响</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>asset key</td>
+        <td class="ok">不变</td>
+        <td><code>raw_tushare_suspend_d</code> 与 <code>silver_stock_suspend_daily</code> 历史 materialization 仍可被 Dagster 和 readiness helper 读取。</td>
+      </tr>
+      <tr>
+        <td>既有 check 名</td>
+        <td class="ok">不变</td>
+        <td>历史 <code>AssetCheckKey(asset_key, check_name)</code> 不失效；不需要因为本次 job/sensor 拆分重跑历史 checks。</td>
+      </tr>
+      <tr>
+        <td>job 名</td>
+        <td class="warn">变化</td>
+        <td>旧 <code>suspend_update_job</code> run history 会继续留在 UI 中；新 run 会归属新 job。这是历史入口变化，不是数据不一致。</td>
+      </tr>
+      <tr>
+        <td>sensor 名</td>
+        <td class="warn">变化</td>
+        <td>旧 <code>suspend_d_sensor</code> tick history 保留为审计历史；新 sensor 从新 cursor 开始，不读取旧 cursor。</td>
+      </tr>
+      <tr>
+        <td>历史分区 readiness</td>
+        <td class="warn">可能暴露旧问题</td>
+        <td>若某历史 raw latest materialization 缺对应 check event 或 check failed，新 silver sensor 会把该 raw 判为 not ready。这不是改名造成的，而是严格 ready 口径暴露既有事实缺口。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      本轮不清理旧 Dagster run/event，不做数据库级删除，不补录历史 check event，不运行历史 backfill。
+      如果后续需要历史聚合审计，应按“历史批量审计与事件补录门禁”另列只读聚合审计方案，不能用逐分区
+      <code>asset_readiness_status</code> 深扫全历史作为主流程。
+    </p>
+
+    <h4>5.3.6 性能预算</h4>
+    <table>
+      <thead>
+      <tr>
+        <th>维度</th>
+        <th>预算</th>
+        <th>说明</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>单 tick 分区候选</td>
+        <td>最多 2 个 raw 缺口；最多 2 个 silver 缺口</td>
+        <td>沿用当前 <code>MAX_RUN_REQUESTS_PER_TICK=2</code>，避免一次 tick 提交大批历史 run。</td>
+      </tr>
+      <tr>
+        <td>raw Tushare 请求</td>
+        <td>每个 raw run 通常 1 个 <code>suspend_d(trade_date)</code> 请求；分页按现有 helper limit 处理</td>
+        <td>不新增 source readiness probe，避免同一日期为“确认是否 ready”额外打一次 Tushare。</td>
+      </tr>
+      <tr>
+        <td>raw 写文件</td>
+        <td>每分区 1 个 parquet 文件，允许 0 行</td>
+        <td>写入仍走 <code>.tmp + os.replace</code> 原子替换。</td>
+      </tr>
+      <tr>
+        <td>silver 计算</td>
+        <td>每分区读取 1 个 raw parquet，加常量修正/patch SQL</td>
+        <td>使用 DuckDB SQL，行数通常很小；空 raw 分区也必须能生成空或 patch 后 silver 文件。</td>
+      </tr>
+      <tr>
+        <td>silver sensor event 查询</td>
+        <td>最多 <code>2 * len(RAW_SUSPEND_D_CHECKS)</code> 条 check history 查询/评估</td>
+        <td>当前 raw checks 为 5 个，日常 tick 预算约 10 个 check history 查询，远低于 60 秒 sensor 超时风险。</td>
+      </tr>
+      <tr>
+        <td>不可接受阈值</td>
+        <td>不得做全历史逐分区 readiness 深扫；不得在 sensor 内扫描 lake 全量文件</td>
+        <td>历史审计必须另走聚合审计；日常 sensor 只判断小窗口候选分区。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>5.3.7 实施落点与测试计划</h4>
+    <table>
+      <thead>
+      <tr>
+        <th>改动点</th>
+        <th>实施要求</th>
+        <th>测试要求</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>jobs/suspend_update.py</code></td>
+        <td>替换为 <code>raw_suspend_d_update_job</code> 与 <code>silver_suspend_d_update_job</code>；job 文件只定义 selection 和 description。</td>
+        <td>静态断言不存在 active <code>suspend_update_job</code>；raw job 不选择 silver asset/checks；silver job 不选择 raw asset/checks。</td>
+      </tr>
+      <tr>
+        <td><code>sensors/readiness.py</code></td>
+        <td>新增 <code>RAW_SUSPEND_D_READINESS_SPEC</code> 与 <code>raw_tushare_suspend_d_ready_for_trade_date</code>；保持 <code>suspend_d_ready_for_trade_date</code> final ready 不变。</td>
+        <td>raw missing、raw check missing、raw check failed 时返回 not ready；raw materialized 且 empty-row checks 全绿时 ready。</td>
+      </tr>
+      <tr>
+        <td><code>sensors/suspend_d_sensor.py</code></td>
+        <td>定义两个 sensor；raw sensor 提交 raw-only job；silver sensor 等 raw ready 后提交 silver-only job。</td>
+        <td>覆盖 sensor 名称 follow job、tags、run key、cursor、raw not ready 时 silver skip、raw ready 且 silver missing 时提交。</td>
+      </tr>
+      <tr>
+        <td><code>assets/suspend_d.py</code></td>
+        <td>保留 <code>allow_empty=True</code>；不新增 raw row_count_positive 逻辑；silver 继续支持空 raw 分区。</td>
+        <td>空 Tushare rows 写出带 schema parquet；raw 0 行不失败；silver 0 行或 patch rows 口径正确。</td>
+      </tr>
+      <tr>
+        <td><code>checks/suspend_d_checks.py</code></td>
+        <td>不改既有 check 名；不新增同语义新名 check；不新增 raw positive row count check。</td>
+        <td>空 raw parquet 通过 required columns、schema、partition date、stock partition key checks；缺 schema 或错日期仍失败。</td>
+      </tr>
+      <tr>
+        <td>下游回归</td>
+        <td><code>stock_daily</code> 与分钟线继续使用 <code>suspend_d_ready_for_trade_date</code> final ready，不改成 raw-only。</td>
+        <td>回归 <code>stock_daily</code> sensor 和分钟线 silver sensor 的 suspend gate；确认 final ready helper 未变。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      本轮本地验证只允许跑静态与单元测试：新增 <code>tests.test_suspend_d_sensor</code>、
+      <code>tests.test_suspend_d_checks</code>，并回归 <code>tests.test_stock_daily_sensor</code>、
+      <code>tests.test_stk_mins_silver_m6g_sensor_contracts</code>、<code>tests.test_sensor_tags</code>、
+      <code>tests.test_asset_governance_contracts</code>。禁止在未经批准时运行正式 Dagster job、sensor、backfill、
+      asset check、正式 instance evaluator，禁止读写 lake 业务数据。
+    </p>
 
     <h3>5.4 复权因子链路</h3>
     <pre class="flow">silver_stock_basic ── gate in stock_adj_factor_sensor
@@ -755,7 +1113,7 @@ silver_stk_mins_1m/5m/15m/30m/60m</pre>
       <tr>
         <td><code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code></td>
         <td>raw 五频度、stock_daily、suspend_d、identity_map、namechange 全部走 readiness helper。</td>
-        <td class="ok">自动触发前已有 event/check gate。<code>stock_daily</code> 自动链路已拆 raw/silver；剩余风险主要来自 <code>suspend_d</code> 自身生产链路仍待拆分。</td>
+        <td class="ok">自动触发前已有 event/check gate。<code>stock_daily</code> 与 <code>suspend_d</code> 自动链路均已拆 raw/silver；剩余风险转向 <code>adj_factor</code> 与基础 full snapshot 链路。</td>
       </tr>
       </tbody>
     </table>
@@ -780,10 +1138,12 @@ silver_stk_mins_1m/5m/15m/30m/60m</pre>
         <td>已拆成 raw-only job 与 silver-only job；silver sensor 等 <code>raw_tushare_stock_daily[trade_date]</code> event/check ready 后再提交。相关 sensor 已由用户打开观察，暂未反馈异常。</td>
       </tr>
       <tr>
-        <td class="warn">P1</td>
+        <td class="ok">已完成 P1</td>
         <td><code>suspend_d</code></td>
         <td>是 stock_daily 和分钟线结构判断的前置事实。</td>
-        <td>拆 raw/silver；确认“无停牌记录”是否可作为合法 raw ready 事实。</td>
+        <td>已确认命名为 <code>raw_suspend_d_update_job</code> / <code>silver_suspend_d_update_job</code>；
+          拆 raw/silver，silver sensor 等 <code>raw_tushare_suspend_d[trade_date]</code>
+          event/check ready 后再提交。<code>raw row_count=0</code> 是合法无停牌事实，不能作为失败条件。</td>
       </tr>
       <tr>
         <td class="warn">P1</td>
@@ -858,7 +1218,7 @@ silver_stk_mins_1m/5m/15m/30m/60m</pre>
       <li>指数日线文件事实 gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/silver_index_daily_sensor.py"><code>silver_index_daily_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/index_daily_raw_file_readiness.py"><code>index_daily_raw_file_readiness.py</code></a>。</li>
       <li>分钟线 silver gate：<a href="../../orchestrator/src/orchestrator/defs/sensors/stock_mins_silver_trade_day_sensor.py"><code>stock_mins_silver_trade_day_sensor.py</code></a> 与 <a href="../../orchestrator/src/orchestrator/defs/sensors/stock_mins_silver_sensor.py"><code>stock_mins_silver_sensor.py</code></a>。</li>
       <li>直接下游：<a href="../../orchestrator/src/orchestrator/defs/assets/market_breadth.py"><code>market_breadth.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/stock_return_distribution.py"><code>stock_return_distribution.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/stk_mins.py"><code>stk_mins.py</code></a>、<a href="../../orchestrator/src/orchestrator/defs/assets/market_major_indices.py"><code>market_major_indices.py</code></a>。</li>
-      <li>本地验证：<a href="../../orchestrator/tests/test_stock_daily_sensor.py"><code>test_stock_daily_sensor.py</code></a>、<a href="../../orchestrator/tests/test_stock_daily_raw_repair.py"><code>test_stock_daily_raw_repair.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_configs.py"><code>test_run_contract_configs.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_static_gates.py"><code>test_run_contract_static_gates.py</code></a>。</li>
+      <li>本地验证：<a href="../../orchestrator/tests/test_stock_daily_sensor.py"><code>test_stock_daily_sensor.py</code></a>、<a href="../../orchestrator/tests/test_stock_daily_raw_repair.py"><code>test_stock_daily_raw_repair.py</code></a>、<a href="../../orchestrator/tests/test_suspend_d_sensor.py"><code>test_suspend_d_sensor.py</code></a>、<a href="../../orchestrator/tests/test_suspend_d_checks.py"><code>test_suspend_d_checks.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_configs.py"><code>test_run_contract_configs.py</code></a>、<a href="../../orchestrator/tests/test_run_contract_static_gates.py"><code>test_run_contract_static_gates.py</code></a>。</li>
     </ul>
   </section>
 </main>

@@ -333,13 +333,12 @@
     <h2>1. 代码事实快照</h2>
     <div class="callout">
       当前 code location 使用 <code>load_from_defs_folder</code> 自动加载 <code>defs</code> 下的 assets、checks、jobs、sensors 和 resources。
-      当前 active assets 共 <code>37</code> 个，用户定义 active jobs 共 <code>19</code> 个（不含 Dagster 隐式 <code>__ASSET_JOB</code>），active sensors 共 <code>25</code> 个。
-      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>suspend_update_job</code>、<code>stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>stock_mins_silver_update_job</code>、<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_factor_repair_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code> 和 <code>prod_clickhouse_share_fact_market_breadth_sync_job</code>。
+      当前 active jobs 包括 <code>calendar_update_job</code>、<code>stock_basic_update_job</code>、<code>namechange_update_job</code>、<code>stock_identity_map_update_job</code>、<code>raw_suspend_d_update_job</code>、<code>silver_suspend_d_update_job</code>、<code>raw_stock_daily_update_job</code>、<code>silver_stock_daily_update_job</code>、<code>stock_adj_factor_update_job</code>、<code>stock_mins_raw_update_job</code>、<code>stock_mins_raw_update_from_prod_job</code>、<code>stock_mins_silver_update_job</code>、<code>stock_mins_qfq_daily_update_job</code>、<code>stock_mins_qfq_factor_repair_job</code>、<code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code>、<code>gold_stk_mins_qfq_macd_kdj_repair_job</code>、<code>daily_market_breadth_job</code>、<code>stock_return_distribution_daily_job</code>、<code>index_basic_update_job</code>、<code>index_daily_update_job</code>、<code>silver_index_daily_update_job</code>、<code>market_major_indices_daily_update_job</code>、<code>clickhouse_share_fact_market_breadth_update_job</code>、<code>prod_clickhouse_share_fact_market_breadth_sync_job</code> 和 <code>lake_root_health_check_job</code>。
       <code>gold_market_breadth_daily</code> 与 <code>gold_stock_return_distribution</code> 这两个 derived/gold assets、checks、declarative automation 和各自 gold job 均已存在。
       正式 instance 已验证 <code>daily_market_breadth_job[2026-05-21]</code> 成功，run id 为 <code>2b336cba-cf28-4a21-9d5b-93df9c9c21ee</code>，只生成 market breadth gold 和 gold checks。
       短窗口只读评估确认：当前从空 cursor 评估 market breadth automation 会请求 <code>2975</code> 个历史缺失的 market breadth 分区，因此不直接开启默认全局 automation sensor。
       当前已新增自定义 <code>market_breadth_automation_sensor</code>、<code>stock_return_distribution_automation_sensor</code>、<code>clickhouse_share_fact_market_breadth_automation_sensor</code> 和 <code>prod_clickhouse_share_fact_market_breadth_automation_sensor</code>，分别只 target 自己的 gold / serving asset，用来替代全局默认 automation sensor 作为日常触发入口。
-      最新实现口径是：<code>suspend_d</code> 已从股票日线更新入口中拆出，只由 <code>suspend_update_job</code> 写；<code>stock_daily_update_job</code> 只写日线 raw/silver，并只读等待 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily[trade_date]</code> ready。raw 层保持 Tushare <code>daily(trade_date)</code> 源站镜像语义，不依赖 <code>stock_basic</code>；sensor/job 生产层在提交 raw+silver 一体 job 前检查 <code>stock_basic</code> freshness；<code>silver_stock_daily</code> materialization 已在写入前执行不可绕过的 freshness guard，防止人工运行绕过 sensor 后静默过滤新股。
+      最新实现口径是：<code>suspend_d</code> 与 <code>stock_daily</code> 均已拆为 raw-only job/sensor 和 silver-only job/sensor。<code>raw_suspend_d_update_job</code> 只写 <code>raw_tushare_suspend_d</code>，<code>silver_suspend_d_update_job</code> 等 raw latest materialization 及 raw blocking checks 全绿后才写 <code>silver_stock_suspend_daily</code>；<code>raw_stock_daily_update_job</code> 只写日线 raw，<code>silver_stock_daily_update_job</code> 等 raw stock daily、stock basic、suspend_d ready 后才写日线 silver。<code>silver_stock_daily</code> materialization 仍保留不可绕过的 stock basic freshness guard，防止人工运行绕过 sensor 后静默过滤新股。
       复权因子最新口径是：<code>stock_current_trade_day_sensor</code> 每天 06:00 后只注册当天 <code>cn_a_stock_current_trade_days</code>；<code>stock_adj_factor_sensor</code> 在 09:30 后触发 <code>stock_adj_factor_update_job</code>，并只要求 <code>silver_stock_basic</code> 已 materialized 且 blocking checks 通过，不要求当天 freshness。
       股票曾用名最新口径是：<code>raw_tushare_namechange</code> 每次从 Tushare <code>namechange</code> 拉取 full snapshot 并按全字段 exact distinct 写 raw；<code>silver_namechange</code> 使用 <code>latest_announcement_timeline_v1</code> 生成非重叠名称区间；<code>stock_namechange_sensor</code> 在股票当前交易日注册后触发 <code>namechange_update_job</code>。
       股票身份映射最新口径是：<code>silver_stock_identity_map</code> 已成为 active full snapshot asset；它从 <code>silver_stock_basic</code> 生成当前上市股票自映射，并合并仓库 seed 中的非自映射行。<code>stock_identity_map_sensor</code> 读取 <code>cn_a_stock_trade_days</code> 最新已注册交易日，16:30 后等待 <code>silver_stock_basic</code> 与 <code>silver_namechange</code> ready 后触发 <code>stock_identity_map_update_job</code>。
@@ -602,7 +601,7 @@
           <td><code>raw_tushare_suspend_d</code> → <code>silver_stock_suspend_daily</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_trade_days</code></td>
-          <td>只由 <code>suspend_update_job</code> 写；股票日线更新入口只读等待该分区 ready。</td>
+          <td><code>raw_suspend_d_update_job</code> 只写 raw；<code>silver_suspend_d_update_job</code> 等 raw event/check ready 后写 silver；股票日线更新入口只读等待该分区 final ready。</td>
           <td>交易日日频；允许空结果但必须写合法 schema。</td>
           <td>stock_daily 生产前必须准备好的上游事实；后续对 stock_daily 只读。</td>
         </tr>
@@ -611,7 +610,7 @@
           <td><code>raw_tushare_stock_daily</code> → <code>silver_stock_daily</code></td>
           <td><span class="tag raw">raw</span><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_trade_days</code></td>
-          <td><code>stock_daily_update_job</code> 调 Tushare <code>daily</code>，只写 stock daily raw/silver。</td>
+          <td><code>raw_stock_daily_update_job</code> 调 Tushare <code>daily</code> 写 raw；<code>silver_stock_daily_update_job</code> 等 raw、stock basic、suspend_d ready 后写 silver。</td>
           <td>交易日日频；当天 16:00 后由 sensor 探测源站 ready。</td>
           <td>生产前必须只读校验 <code>silver_stock_basic</code> 与 <code>silver_stock_suspend_daily</code> 已 ready；raw asset contract 不依赖股票池，silver 才依赖股票池过滤。</td>
         </tr>
@@ -742,8 +741,8 @@
         <text x="343" y="237" class="svg-note">daily full snapshot target</text>
 
         <rect x="35" y="292" width="230" height="78" class="node node-job" />
-        <text x="53" y="321" class="svg-label">stock_daily_update_job</text>
-        <text x="53" y="344" class="svg-note">daily only; readonly upstreams</text>
+        <text x="53" y="321" class="svg-label">stock_daily split jobs</text>
+        <text x="53" y="344" class="svg-note">raw then silver; readonly upstreams</text>
 
         <rect x="325" y="292" width="250" height="78" class="node node-silver" />
         <text x="343" y="321" class="svg-label">stock daily assets</text>
@@ -768,7 +767,7 @@
 
         <rect x="675" y="310" width="470" height="90" class="node node-warn" />
         <text x="695" y="340" class="svg-label">禁止模式</text>
-        <text x="695" y="365" class="svg-note">后续 stock_daily_update_job 不得 selection suspend_d / stock_basic</text>
+        <text x="695" y="365" class="svg-note">后续 stock_daily jobs 不得 selection suspend_d / stock_basic</text>
         <text x="695" y="386" class="svg-note">gold job 也不得 selection 基础资产；都只能 readiness 只读依赖。</text>
       </svg>
     </div>
@@ -814,18 +813,32 @@
           <td>job 只做 selection；自映射生成、seed 合并和原子写入均在 asset 内实现，不读取旧湖 manifest。</td>
         </tr>
         <tr>
-          <td><code>suspend_update_job</code></td>
-          <td><code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code> + checks</td>
-          <td>单个交易日停复牌 raw/silver。</td>
-          <td>人工单分区或未来自动化。</td>
-          <td>最新口径：它应成为 <code>suspend_d</code> 的唯一正式写入口；<code>stock_daily</code> 只读依赖它的结果。</td>
+          <td><code>raw_suspend_d_update_job</code></td>
+          <td><code>raw_tushare_suspend_d</code> + raw checks</td>
+          <td>单个交易日停复牌 raw。</td>
+          <td><code>raw_suspend_d_update_job_sensor</code> 或人工单分区。</td>
+          <td>raw 文件允许 0 行，但必须写出合法 schema 并通过 raw blocking checks。</td>
         </tr>
         <tr>
-          <td><code>stock_daily_update_job</code></td>
-          <td><code>stock_daily</code> raw/silver + checks</td>
-          <td>单个交易日股票日线链路；只读依赖 basic 和 suspend。</td>
-          <td><code>stock_daily_sensor</code>、人工 partition run、backfill。</td>
-          <td>已完成拆分：不再 selection <code>suspend_d</code> 或 <code>stock_basic</code>。</td>
+          <td><code>silver_suspend_d_update_job</code></td>
+          <td><code>silver_stock_suspend_daily</code> + silver checks</td>
+          <td>单个交易日停复牌 silver。</td>
+          <td><code>silver_suspend_d_update_job_sensor</code> 或人工单分区。</td>
+          <td>自动触发前必须等同日 raw latest materialization 与 raw blocking checks 全绿。</td>
+        </tr>
+        <tr>
+          <td><code>raw_stock_daily_update_job</code></td>
+          <td><code>raw_tushare_stock_daily</code> + raw checks</td>
+          <td>单个交易日股票日线 raw；只读依赖 basic 和 suspend readiness。</td>
+          <td><code>raw_stock_daily_update_job_sensor</code>、人工 partition run、backfill。</td>
+          <td>不 selection <code>suspend_d</code> 或 <code>stock_basic</code>；recent missing-code repair 也走同一 raw job。</td>
+        </tr>
+        <tr>
+          <td><code>silver_stock_daily_update_job</code></td>
+          <td><code>silver_stock_daily</code> + silver checks</td>
+          <td>单个交易日股票日线 silver。</td>
+          <td><code>silver_stock_daily_update_job_sensor</code>、人工 partition run、backfill。</td>
+          <td>自动触发前必须等 raw stock daily、stock basic、suspend_d ready；silver 写前仍保留 stock basic freshness guard。</td>
         </tr>
         <tr>
           <td><code>stock_adj_factor_update_job</code></td>
@@ -968,8 +981,8 @@
         <text x="583" y="156" class="svg-note">资产族 sensor 响应 missing + ready</text>
 
         <rect x="850" y="85" width="250" height="86" class="node node-job" />
-        <text x="868" y="114" class="svg-label">stock_daily_update_job</text>
-        <text x="868" y="137" class="svg-note">only stock daily</text>
+        <text x="868" y="114" class="svg-label">stock_daily split jobs</text>
+        <text x="868" y="137" class="svg-note">raw sensor then silver sensor</text>
         <text x="868" y="156" class="svg-note">只读依赖 basic + suspend</text>
 
         <rect x="565" y="245" width="240" height="76" class="node node-future" />
@@ -997,7 +1010,7 @@
       </div>
       <div class="card">
         <strong>Stock Daily 生产</strong>
-        当前 <code>stock_daily_update_job</code> 只写日线 raw/silver；raw 保持源站镜像，sensor 提交一体 job 前只读校验 <code>silver_stock_basic</code> freshness 和 <code>silver_stock_suspend_daily</code>，silver 写入前已执行不可绕过的 <code>stock_basic</code> freshness guard。
+        当前 <code>raw_stock_daily_update_job</code> 只写日线 raw，<code>silver_stock_daily_update_job</code> 只写日线 silver；raw 保持源站镜像，silver sensor 等 raw、stock basic、suspend_d ready 后才提交，silver 写入前已执行不可绕过的 <code>stock_basic</code> freshness guard。
       </div>
       <div class="card">
         <strong>业务 Gold 生产</strong>
@@ -1021,9 +1034,9 @@
         <tbody>
         <tr>
           <td><code>stock_basic</code> 更新频率</td>
-          <td><code>stock_basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径；<code>stock_daily_sensor</code> 已使用 <code>stock_basic_ready_for_trade_date()</code> 在提交一体 job 前做 freshness 门禁。</td>
+          <td><code>stock_basic_update_job</code> 和 materialization metadata 已改为日更 full snapshot 口径；<code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code> 已使用 <code>stock_basic_ready_for_trade_date()</code> 做 freshness 门禁。</td>
           <td>新股上市日如果 stock_basic 未先更新，<code>silver_stock_daily</code> 可能静默过滤新股。</td>
-          <td>已确认口径：raw 不依赖 stock basic；sensor/job 层已拦截一体生产；<code>silver_stock_daily</code> 写前 guard 和对应测试已落地，防止人工 Launchpad、CLI 或补录绕过 sensor。</td>
+          <td>已确认口径：raw 不依赖 stock basic；sensor 层已拆分 raw/silver 生产；<code>silver_stock_daily</code> 写前 guard 和对应测试已落地，防止人工 Launchpad、CLI 或补录绕过 sensor。</td>
         </tr>
         <tr>
           <td>退市后的历史分区</td>
@@ -1045,13 +1058,13 @@
         </tr>
         <tr>
           <td>Quote 资产多入口</td>
-          <td>已拆分：只有 <code>suspend_update_job</code> 选择 suspend assets。</td>
+          <td>已拆分：<code>raw_suspend_d_update_job</code> 只选择 raw suspend asset/checks，<code>silver_suspend_d_update_job</code> 只选择 silver suspend asset/checks。</td>
           <td>如果未来重新把 suspend 放回 stock daily selection，会破坏原子 job 和只读依赖原则。</td>
-          <td>保持：<code>suspend_update_job</code> 负责写 suspend；<code>stock_daily_update_job</code> 只写 stock daily，并只读校验 suspend ready。</td>
+          <td>保持：suspend raw/silver 由各自 job 分层写；stock daily raw/silver 由各自 job 分层写，并只读校验 suspend final ready。</td>
         </tr>
         <tr>
           <td>Stock daily automation</td>
-          <td>当前由 <code>stock_daily_sensor</code> 汇总交易日、stock basic freshness、suspend ready 和 Tushare source readiness。</td>
+          <td>当前由 <code>raw_stock_daily_update_job_sensor</code> 和 <code>silver_stock_daily_update_job_sensor</code> 分别处理 raw 更新/repair 与 silver 更新；两者显式检查 stock basic freshness、suspend ready、raw ready 或 Tushare source readiness。</td>
           <td><code>missing()</code> + <code>all_deps_blocking_checks_passed()</code> 只能覆盖直接上游 checks，不能表达 raw 日线源站 ready，也不能自动表达 full snapshot freshness。</td>
           <td>保持现状：不把股票日线链路替换为 declarative automation；后续只在 freshness/source readiness 显式资产化后再评估。</td>
         </tr>
@@ -1085,7 +1098,7 @@
       </div>
       <div class="card">
         <strong>Sensor 按资产族拆分</strong>
-        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>stock_mins_trade_day_sensor</code> 只注册分钟线 raw 交易日；<code>stock_mins_silver_trade_day_sensor</code> 只注册分钟线 silver 交易日；<code>index_daily_sensor</code>、<code>silver_index_daily_sensor</code>、<code>market_major_indices_daily_sensor</code>、<code>suspend_d_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_namechange_sensor</code>、<code>stock_identity_map_sensor</code>、<code>stock_daily_sensor</code>、<code>stock_adj_factor_sensor</code>、<code>stock_mins_raw_sensor</code>、<code>stock_mins_silver_sensor</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed、seed/input ready 或源站 ready，并提交对应 run request。Automation 页面分类使用 sensor definition tags，不通过改名、目录或 run tags 实现。
+        <code>cn_a_trade_day_sensor</code> 只注册交易日；<code>index_trade_day_sensor</code> 只注册指数交易日；<code>stock_mins_trade_day_sensor</code> 只注册分钟线 raw 交易日；<code>stock_mins_silver_trade_day_sensor</code> 只注册分钟线 silver 交易日；<code>index_daily_sensor</code>、<code>silver_index_daily_sensor</code>、<code>market_major_indices_daily_sensor</code>、<code>raw_suspend_d_update_job_sensor</code>、<code>silver_suspend_d_update_job_sensor</code>、<code>stock_basic_sensor</code>、<code>stock_namechange_sensor</code>、<code>stock_identity_map_sensor</code>、<code>raw_stock_daily_update_job_sensor</code>、<code>silver_stock_daily_update_job_sensor</code>、<code>stock_adj_factor_sensor</code>、<code>stock_mins_raw_sensor</code>、<code>stock_mins_silver_sensor</code>、<code>stock_mins_qfq_daily_sensor</code>、<code>stock_mins_qfq_factor_repair_sensor</code> 分别判断本资产族是否 missing、fresh、checks passed、seed/input ready 或源站 ready，并提交对应 run request。Automation 页面分类使用 sensor definition tags，不通过改名、目录或 run tags 实现。
       </div>
       <div class="card">
         <strong>Sensor 门禁必须轻量</strong>
