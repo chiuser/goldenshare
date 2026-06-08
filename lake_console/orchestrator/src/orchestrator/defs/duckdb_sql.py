@@ -31,7 +31,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 
 STOCK_DAILY_MIN_TRADE_DATE = "2014-01-01"
 BJ_MARKET_OPEN_DATE = "2021-11-15"
-STOCK_DAILY_ELIGIBLE_CURR_TYPE = "CNY"
+CNY_STOCK_CURR_TYPE = "CNY"
 
 TRADE_CALENDAR_RAW_REQUIRED_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA
@@ -332,6 +332,7 @@ SELECT
   CAST(act_ent_type AS VARCHAR) AS act_ent_type
 FROM {read_parquet(raw_path, hive_partitioning=False)}
 WHERE list_status = 'L'
+  AND curr_type = {duckdb_string(CNY_STOCK_CURR_TYPE)}
 """
 
 
@@ -353,14 +354,14 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
-def stock_daily_current_listed_basic_select(silver_stock_basic_path: Path) -> str:
+def current_cny_stock_basic_select(silver_stock_basic_path: Path) -> str:
     return f"""
 SELECT DISTINCT
   ts_code,
   list_date
 FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
 WHERE list_status = 'L'
-  AND curr_type = {duckdb_string(STOCK_DAILY_ELIGIBLE_CURR_TYPE)}
+  AND curr_type = {duckdb_string(CNY_STOCK_CURR_TYPE)}
 """
 
 
@@ -375,7 +376,7 @@ deduped AS (
 ),
 current_listed AS (
   SELECT DISTINCT ts_code, list_date
-  FROM ({stock_daily_current_listed_basic_select(silver_stock_basic_path)}) stock_basic
+  FROM ({current_cny_stock_basic_select(silver_stock_basic_path)}) stock_basic
 )
 SELECT deduped.*
 FROM deduped
@@ -406,8 +407,7 @@ WITH normalized AS (
 ),
 current_listed AS (
   SELECT DISTINCT ts_code, list_date
-  FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
-  WHERE list_status = 'L'
+  FROM ({current_cny_stock_basic_select(silver_stock_basic_path)}) stock_basic
 )
 SELECT normalized.*
 FROM normalized

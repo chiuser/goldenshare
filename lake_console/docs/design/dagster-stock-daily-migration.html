@@ -299,7 +299,7 @@
         <h3>退市后的历史分区不自动回刷</h3>
         <p>
           <code>silver_stock_basic</code> 是当前上市股票池快照。若后续某只股票退市，
-          日常 <code>stock_basic_update_job</code> 只会更新当前股票池，不会自动重写过去已经生成的
+          日常 <code>silver_stock_basic_update_job</code> 只会更新当前股票池，不会自动重写过去已经生成的
           <code>silver_stock_daily[trade_date]</code> 历史分区。只有显式对历史分区发起重跑时，
           该分区才会按当时最新的 <code>silver_stock_basic</code> 重新过滤。
         </p>
@@ -326,10 +326,10 @@
         <span class="tag check">decision</span>
         <h3>已拍板实现边界</h3>
         <p>
-          <code>silver_stock_basic</code> 正式只过滤 <code>list_status='L'</code>，
+          <code>silver_stock_basic</code> 正式只保留 <code>list_status='L' AND curr_type='CNY'</code>，
           但不得裁剪 <code>raw_tushare_stock_basic</code> 的业务字段；
           <code>stock_daily</code> 的 raw/silver coverage 与 missing-code repair 使用
-          <code>list_status='L' AND curr_type='CNY'</code> 的 A 股日线对象池；
+          同一个 A 股日线对象池；
           <code>silver_stock_daily_price_sanity</code> 作为阻断 check；
           14 条 <code>suspend_timing</code> 修正规则先放代码常量；
           全日停牌缺失补充以已审计 <code>S</code> 清单为依据，通过 Dagster metadata 留痕。
@@ -364,7 +364,7 @@
         </tr>
         <tr>
           <td>允许过滤</td>
-          <td>继续只保留当前上市股票，即 <code>list_status='L'</code>。这个过滤是 stock_basic silver 的行范围定义，不是字段裁剪理由。</td>
+          <td>继续只保留当前上市 A 股股票，即 <code>list_status='L' AND curr_type='CNY'</code>。这个过滤是 stock_basic silver 的行范围定义，不是字段裁剪理由；B 股等非 <code>CNY</code> 股票只保留在 raw 源站镜像中。</td>
         </tr>
         <tr>
           <td>禁止项</td>
@@ -372,7 +372,7 @@
         </tr>
         <tr>
           <td>检查与测试</td>
-          <td>既有 <code>silver_stock_basic_required_columns_non_null</code> 的 schema 检查必须扩展到完整字段契约；新增测试必须证明 <code>curr_type/fullname/enname/cnspell/act_name/act_ent_type</code> 不会被 silver 投影丢弃。</td>
+          <td>既有 <code>silver_stock_basic_required_columns_non_null</code> 的 schema 检查必须扩展到完整字段契约；新增 blocking check <code>silver_stock_basic_cny_stock_universe_check</code> 必须阻断 <code>curr_type</code> 缺失或非 <code>CNY</code> 的旧文件；新增测试必须证明 <code>curr_type/fullname/enname/cnspell/act_name/act_ent_type</code> 不会被 silver 投影丢弃。</td>
         </tr>
         <tr>
           <td>重建要求</td>
@@ -479,7 +479,7 @@
       DG->>DB: 投影 Tushare stock_basic raw 字段
       DB->>RAW: 写 raw_tushare_stock_basic/full/part-000.parquet
       CK->>RAW: raw stock_basic checks
-      DB->>SIL: 生成 silver_stock_basic（只过滤 list_status='L'，保留 raw 业务字段全集，日期转 DATE）
+      DB->>SIL: 生成 silver_stock_basic（过滤 list_status='L' AND curr_type='CNY'，保留 raw 业务字段全集，日期转 DATE）
       CK->>SIL: silver stock_basic checks
     end
 
@@ -534,7 +534,7 @@
         </div>
         <div class="flow-node">
           保留 raw stock_basic 的全部业务字段，标准化 <code>list_date/delist_date</code> 为 <code>DATE</code>。
-          本迁移口径下，silver 股票池只过滤当前 <code>list_status='L'</code> 的股票，不做字段裁剪。
+          本迁移口径下，silver 股票池只保留当前 <code>list_status='L'</code> 且 <code>curr_type='CNY'</code> 的 A 股股票，不做字段裁剪。
         </div>
       </div>
       <div class="arrow">↓</div>
@@ -778,7 +778,7 @@
     <h2>7. 推进顺序</h2>
     <ol>
       <li>先更新 Phase 2 方案文档和 LLD，把本文档确认的 daily 迁移口径同步进去。</li>
-      <li>改造 <code>silver_stock_basic</code>，只过滤当前 <code>list_status='L'</code> 股票，保留 raw stock_basic 全部业务字段，并调整对应 checks。</li>
+      <li>改造 <code>silver_stock_basic</code>，只过滤当前 <code>list_status='L' AND curr_type='CNY'</code> 股票，保留 raw stock_basic 全部业务字段，并调整对应 checks。</li>
       <li>改造 <code>silver_stock_suspend_daily</code>，增加 14 条 timing 修正常量；增加全日停牌缺失补充规则；两类修正都通过 materialization metadata 留痕，不新增修正命中 blocking check。</li>
       <li>改造 <code>silver_stock_daily</code>，从 raw 中执行当前上市、<code>curr_type='CNY'</code> A 股日线对象、上市日、BJ 起始日、2014 起始日过滤。</li>
       <li>保留 <code>raw_tushare_stock_daily</code> 源镜像口径，不做业务筛选。</li>
@@ -801,8 +801,8 @@
       <tbody>
         <tr>
           <td><code>duckdb_sql.py / silver_stock_basic_select</code></td>
-          <td>当前实现已只保留 <code>list_status='L'</code>，但错误裁剪了部分 raw 业务字段。</td>
-          <td>不符合修正后的字段完整性口径；必须补回 <code>fullname/enname/cnspell/curr_type/act_name/act_ent_type</code> 并全量重做 <code>silver_stock_basic</code>。</td>
+          <td>必须保留 raw 业务字段全集，并只保留 <code>list_status='L' AND curr_type='CNY'</code> 的 A 股股票池。</td>
+          <td>代码修复后必须全量重做 <code>silver_stock_basic</code>，生成新 materialization 与新增 <code>silver_stock_basic_cny_stock_universe_check</code> 的 passed event。</td>
         </tr>
         <tr>
           <td><code>duckdb_sql.py / silver_stock_daily_select</code></td>

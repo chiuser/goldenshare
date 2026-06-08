@@ -16,8 +16,8 @@ from orchestrator.defs.duckdb_sql import (
     STOCK_DAILY_MIN_TRADE_DATE,
     copy_query_to_parquet,
     count_parquet_query,
+    current_cny_stock_basic_select,
     describe_parquet_query,
-    read_parquet,
     silver_stock_daily_select,
     stock_daily_normalized_select,
 )
@@ -281,8 +281,7 @@ def _silver_filter_counts(
         ),
         current_listed AS (
           SELECT DISTINCT ts_code, list_date
-          FROM {read_parquet(basic_path, hive_partitioning=False)}
-          WHERE list_status = 'L'
+          FROM ({current_cny_stock_basic_select(basic_path)}) stock_basic
         ),
         after_current_listed AS (
           SELECT deduped.*, current_listed.list_date

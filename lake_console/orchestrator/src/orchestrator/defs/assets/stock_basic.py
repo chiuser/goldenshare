@@ -164,16 +164,19 @@ def raw_tushare_stock_basic(
     metadata=build_asset_definition_metadata(
         dataset_id="stock_basic",
         source_system=SourceSystem.DERIVED,
-        data_contract="current_listed_stock_basic_lifecycle",
+        data_contract="current_listed_cny_stock_basic_lifecycle",
         column_schema=SILVER_STOCK_BASIC_SCHEMA,
         path_template=lake_path_template(
             silver_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
         extra_metadata={
-            "filter_policy": "silver_stock_basic keeps only current list_status='L' stocks."
+            "filter_policy": (
+                "silver_stock_basic keeps only current list_status='L' and "
+                "curr_type='CNY' stocks."
+            )
         },
     ),
-    description="当前上市股票基础信息标准表，记录股票生命周期。",
+    description="当前上市 A 股股票基础信息标准表，记录股票生命周期。",
 )
 def silver_stock_basic(
     lake_root: LakeRootResource,

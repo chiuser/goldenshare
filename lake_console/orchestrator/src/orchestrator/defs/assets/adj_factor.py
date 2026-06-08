@@ -11,8 +11,8 @@ from orchestrator.defs.duckdb_sql import (
     adj_factor_normalized_select,
     copy_query_to_parquet,
     count_parquet_query,
+    current_cny_stock_basic_select,
     describe_parquet_query,
-    read_parquet,
     silver_adj_factor_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
@@ -113,8 +113,7 @@ def _silver_filter_counts(connection, raw_path: Path, basic_path: Path) -> dict[
         ),
         current_listed AS (
           SELECT DISTINCT ts_code, list_date
-          FROM {read_parquet(basic_path, hive_partitioning=False)}
-          WHERE list_status = 'L'
+          FROM ({current_cny_stock_basic_select(basic_path)}) stock_basic
         ),
         selected AS (
           SELECT normalized.*

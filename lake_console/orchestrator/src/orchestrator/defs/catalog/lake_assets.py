@@ -238,6 +238,7 @@ RAW_STOCK_BASIC_CHECKS = (
     "raw_stock_basic_ts_code_present",
 )
 SILVER_STOCK_BASIC_CHECKS = (
+    "silver_stock_basic_cny_stock_universe_check",
     "silver_stock_basic_current_listed_only",
     "silver_stock_basic_has_listed_records",
     "silver_stock_basic_lifecycle_dates_valid",
@@ -926,7 +927,7 @@ LAKE_ASSET_CATALOG = (
         layer=AssetLayer.SILVER,
         data_domain=DataDomain.BASIC_DATA,
         group_name="basic",
-        data_contract="current_listed_stock_basic_lifecycle",
+        data_contract="current_listed_cny_stock_basic_lifecycle",
         column_schema=SILVER_STOCK_BASIC_SCHEMA,
         path_template=lake_path_template(
             silver_stock_basic_path(PATH_TEMPLATE_LAKE_ROOT)

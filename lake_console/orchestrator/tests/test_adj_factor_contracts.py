@@ -50,6 +50,8 @@ def _write_raw_adj_factor_parquet(path: Path) -> None:
               SELECT '000003.SZ' AS ts_code, '20260528' AS trade_date, 3.3 AS adj_factor
               UNION ALL
               SELECT '000004.SZ' AS ts_code, '20200101' AS trade_date, 4.4 AS adj_factor
+              UNION ALL
+              SELECT '200001.SZ' AS ts_code, '20260528' AS trade_date, 5.5 AS adj_factor
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
@@ -62,14 +64,17 @@ def _write_silver_stock_basic_parquet(path: Path) -> None:
             COPY (
               SELECT
                 '000001.SZ' AS ts_code,
+                'CNY' AS curr_type,
                 'L' AS list_status,
                 DATE '2020-01-01' AS list_date
               UNION ALL
-              SELECT '000002.SZ' AS ts_code, 'D' AS list_status, DATE '2020-01-01'
+              SELECT '000002.SZ' AS ts_code, 'CNY' AS curr_type, 'D' AS list_status, DATE '2020-01-01'
               UNION ALL
-              SELECT '000003.SZ' AS ts_code, 'L' AS list_status, DATE '2026-05-29'
+              SELECT '000003.SZ' AS ts_code, 'CNY' AS curr_type, 'L' AS list_status, DATE '2026-05-29'
               UNION ALL
-              SELECT '000004.SZ' AS ts_code, 'L' AS list_status, DATE '2021-01-01'
+              SELECT '000004.SZ' AS ts_code, 'CNY' AS curr_type, 'L' AS list_status, DATE '2021-01-01'
+              UNION ALL
+              SELECT '200001.SZ' AS ts_code, 'HKD' AS curr_type, 'L' AS list_status, DATE '2020-01-01'
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )

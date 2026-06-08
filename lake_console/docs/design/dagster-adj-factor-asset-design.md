@@ -207,7 +207,7 @@ M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后
 
 silver 过滤规则：
 
-1. 只保留 `silver_stock_basic` 中存在的当前上市股票。当前 `silver_stock_basic` 已按 `list_status='L'` 过滤。
+1. 只保留 `silver_stock_basic` 中存在的当前上市 A 股股票。当前 `silver_stock_basic` 已按 `list_status='L' AND curr_type='CNY'` 过滤，B 股等非 CNY 股票不进入复权因子 expected universe。
 2. 只保留 `trade_date >= list_date` 的记录。
 3. `adj_factor` 必须为正数。
 4. 同一 `ts_code + trade_date` 必须唯一。
@@ -217,11 +217,11 @@ silver 完整性规则：
 - 对目标分区 `trade_date=D`，expected universe 是：
 
 ```text
-silver_stock_basic 中 list_status='L' 且 list_date <= D 的股票
+silver_stock_basic 中 list_status='L'、curr_type='CNY' 且 list_date <= D 的股票
 ```
 
 - `silver_adj_factor[D]` 必须覆盖 expected universe 中每只股票一行。
-- 退市股票不进入 expected universe，不再为后续分钟线加工承担完整性要求。
+- 退市股票和非 CNY/B 股股票不进入 expected universe，不再为后续分钟线加工承担完整性要求。
 
 ## 5. 数据流
 
@@ -318,8 +318,8 @@ write_mode = replace partition
 | partition date matches | 是 | `trade_date` 必须等于分区日期 |
 | unique key | 是 | `ts_code + trade_date` 唯一 |
 | positive factor | 是 | `adj_factor > 0` |
-| listed stock only | 是 | `ts_code` 必须来自 `silver_stock_basic` 当前上市股票 |
-| coverage complete | 是 | 覆盖 `silver_stock_basic` 中 `list_date <= partition_date` 的全部当前上市股票 |
+| listed stock only | 是 | `ts_code` 必须来自 `silver_stock_basic` 当前上市 A 股股票池 |
+| coverage complete | 是 | 覆盖 `silver_stock_basic` 中 `list_date <= partition_date` 的全部当前上市 A 股股票 |
 
 ## 9. Job / Sensor / Readiness 口径
 
@@ -405,7 +405,7 @@ Readiness：
 
 1. 旧湖 raw 的 `trade_date` 类型可能是 `DATE` 或字符串，bootstrap 必须在 select 中显式归一到 `YYYYMMDD` 字符串。
 2. 旧湖历史分区范围应在开发前只读复核，不把此前审计结果当成当前事实。
-3. `silver_stock_basic` 当前只保留 `list_status='L'`，这与“过滤掉退市股票”的口径一致；本资产不为退市股票设计 silver 完整性和下游加工口径。
+3. `silver_stock_basic` 当前只保留 `list_status='L' AND curr_type='CNY'`，这与“过滤掉退市股票和 B 股等非 CNY 股票”的 A 股股票池口径一致；本资产不为退市或非 CNY 股票设计 silver 完整性和下游加工口径。
 4. 分页必须复用现有 Tushare 通用拉取 helper，不新增 `adj_factor` 专用分页实现。
 5. `cn_a_stock_current_trade_days` 必须在早上 6:00 后注册当天股票开市日；两个 adj_factor update job sensor 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
 

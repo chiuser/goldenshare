@@ -90,20 +90,25 @@ def _write_silver_adj_factor_file(
 
 def _write_silver_stock_basic_file(
     root: Path,
-    rows: tuple[tuple[str, str, str], ...],
+    rows: tuple[tuple[str, str, str, str], ...],
 ) -> Path:
     path = silver_stock_basic_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     values_sql = ", ".join(
-        f"({_sql_string(ts_code)}, {_sql_string(list_status)}, DATE {duckdb_string(list_date)})"
-        for ts_code, list_status, list_date in rows
+        "("
+        f"{_sql_string(ts_code)}, "
+        f"{_sql_string(curr_type)}, "
+        f"{_sql_string(list_status)}, "
+        f"DATE {duckdb_string(list_date)}"
+        ")"
+        for ts_code, curr_type, list_status, list_date in rows
     )
     with duckdb.connect(database=":memory:") as connection:
         connection.execute(
             f"""
             COPY (
               SELECT *
-              FROM (VALUES {values_sql}) rows(ts_code, list_status, list_date)
+              FROM (VALUES {values_sql}) rows(ts_code, curr_type, list_status, list_date)
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
@@ -185,10 +190,11 @@ class AdjFactorCheckTests(unittest.TestCase):
             _write_silver_stock_basic_file(
                 root,
                 (
-                    ("000001.SZ", "L", "2020-01-01"),
-                    ("000002.SZ", "L", "2021-01-01"),
-                    ("000003.SZ", "L", "2026-05-30"),
-                    ("000004.SZ", "D", "2020-01-01"),
+                    ("000001.SZ", "CNY", "L", "2020-01-01"),
+                    ("000002.SZ", "CNY", "L", "2021-01-01"),
+                    ("000003.SZ", "CNY", "L", "2026-05-30"),
+                    ("000004.SZ", "CNY", "D", "2020-01-01"),
+                    ("200001.SZ", "HKD", "L", "2020-01-01"),
                 ),
             )
             _write_silver_adj_factor_file(
@@ -232,9 +238,10 @@ class AdjFactorCheckTests(unittest.TestCase):
             _write_silver_stock_basic_file(
                 root,
                 (
-                    ("000001.SZ", "L", "2020-01-01"),
-                    ("000002.SZ", "L", "2021-01-01"),
-                    ("000004.SZ", "D", "2020-01-01"),
+                    ("000001.SZ", "CNY", "L", "2020-01-01"),
+                    ("000002.SZ", "CNY", "L", "2021-01-01"),
+                    ("000004.SZ", "CNY", "D", "2020-01-01"),
+                    ("200001.SZ", "HKD", "L", "2020-01-01"),
                 ),
             )
             context = _PartitionContext(TARGET_TRADE_DATE)

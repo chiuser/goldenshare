@@ -35,6 +35,7 @@ RAW_NAMECHANGE_CHECKS = (
     "raw_namechange_exact_duplicate_absent",
 )
 SILVER_STOCK_BASIC_CHECKS = (
+    "silver_stock_basic_cny_stock_universe_check",
     "silver_stock_basic_current_listed_only",
     "silver_stock_basic_has_listed_records",
     "silver_stock_basic_lifecycle_dates_valid",

@@ -6,6 +6,7 @@ import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
+    CNY_STOCK_CURR_TYPE,
     STOCK_BASIC_RAW_REQUIRED_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
     count_parquet_query,
@@ -414,6 +415,67 @@ def silver_stock_basic_current_listed_only(
                 "non_listed_row_count": int(non_listed_count),
                 "non_listed_sample_values": _sample_dicts(
                     ["list_status", "row_count"], rows
+                ),
+            },
+        ),
+    )
+
+
+@dg.asset_check(asset="silver_stock_basic", blocking=True)
+def silver_stock_basic_cny_stock_universe_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    path = silver_stock_basic_path(lake_root.root())
+    if not path.exists():
+        return _missing_file_result(path)
+
+    required_curr_type = duckdb_string(CNY_STOCK_CURR_TYPE)
+    with connect_configured_duckdb() as connection:
+        columns = _column_names(connection, path, hive_partitioning=False)
+        if "curr_type" not in columns:
+            return dg.AssetCheckResult(
+                passed=False,
+                metadata=build_check_metadata(
+                    check_scope=CheckScope.SCHEMA,
+                    extra_metadata={
+                        "file_path": str(path),
+                        "observed_columns": columns,
+                        "required_columns": ["curr_type"],
+                        "missing_columns": ["curr_type"],
+                    },
+                ),
+            )
+
+        non_cny_count = connection.execute(
+            f"""
+            SELECT count(*) AS non_cny_count
+            FROM {read_parquet(path, hive_partitioning=False)}
+            WHERE curr_type IS NULL
+               OR curr_type != {required_curr_type}
+            """
+        ).fetchone()[0]
+        rows = connection.execute(
+            f"""
+            SELECT ts_code, name, curr_type, list_status
+            FROM {read_parquet(path, hive_partitioning=False)}
+            WHERE curr_type IS NULL
+               OR curr_type != {required_curr_type}
+            ORDER BY ts_code
+            LIMIT 10
+            """
+        ).fetchall()
+
+    return dg.AssetCheckResult(
+        passed=non_cny_count == 0,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            extra_metadata={
+                "file_path": str(path),
+                "required_curr_type_values": [CNY_STOCK_CURR_TYPE],
+                "non_cny_row_count": int(non_cny_count),
+                "non_cny_sample_rows": _sample_dicts(
+                    ["ts_code", "name", "curr_type", "list_status"], rows
                 ),
             },
         ),

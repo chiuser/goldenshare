@@ -17,6 +17,7 @@ from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     count_parquet_query,
+    current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
@@ -679,13 +680,13 @@ def silver_adj_factor_listed_stock_only(
     if not basic_path.exists():
         return _missing_input_file_result([basic_path])
 
+    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
     with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
             WITH current_listed AS (
               SELECT DISTINCT ts_code, list_date
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_status = 'L'
+              FROM ({current_cny_stock_basic_sql}) stock_basic
             )
             SELECT count(*) AS invalid_count
             FROM {read_parquet(path, hive_partitioning=False)} adj
@@ -699,8 +700,7 @@ def silver_adj_factor_listed_stock_only(
             f"""
             WITH current_listed AS (
               SELECT DISTINCT ts_code, list_date
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_status = 'L'
+              FROM ({current_cny_stock_basic_sql}) stock_basic
             )
             SELECT adj.ts_code, adj.trade_date, current_listed.list_date, adj.adj_factor
             FROM {read_parquet(path, hive_partitioning=False)} adj
@@ -744,14 +744,14 @@ def silver_adj_factor_coverage_complete(
         return _missing_input_file_result([basic_path])
 
     partition_date = f"DATE {duckdb_string(partition_key)}"
+    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
     with connect_configured_duckdb() as connection:
         summary = connection.execute(
             f"""
             WITH expected AS (
               SELECT DISTINCT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_status = 'L'
-                AND list_date <= {partition_date}
+              FROM ({current_cny_stock_basic_sql}) stock_basic
+              WHERE list_date <= {partition_date}
             ),
             actual AS (
               SELECT DISTINCT ts_code
@@ -781,9 +781,8 @@ def silver_adj_factor_coverage_complete(
             f"""
             WITH expected AS (
               SELECT DISTINCT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_status = 'L'
-                AND list_date <= {partition_date}
+              FROM ({current_cny_stock_basic_sql}) stock_basic
+              WHERE list_date <= {partition_date}
             ),
             actual AS (
               SELECT DISTINCT ts_code
@@ -802,9 +801,8 @@ def silver_adj_factor_coverage_complete(
             f"""
             WITH expected AS (
               SELECT DISTINCT ts_code
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_status = 'L'
-                AND list_date <= {partition_date}
+              FROM ({current_cny_stock_basic_sql}) stock_basic
+              WHERE list_date <= {partition_date}
             ),
             actual AS (
               SELECT DISTINCT ts_code

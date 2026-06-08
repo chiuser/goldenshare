@@ -16,7 +16,7 @@ from orchestrator.defs.jobs.stock_mins_raw_update import (
     stock_mins_raw_update_from_prod_job,
     stock_mins_raw_update_job,
 )
-from orchestrator.defs.paths import raw_stk_mins_path
+from orchestrator.defs.paths import raw_stk_mins_path, silver_stock_basic_path
 from orchestrator.defs.prod_db.stk_mins import (
     PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
@@ -271,6 +271,41 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(derive_stk_mins_exchange_from_ts_code("600000.SH"), "XSHG")
         self.assertEqual(derive_stk_mins_exchange_from_ts_code("000001.SZ"), "XSHE")
         self.assertEqual(derive_stk_mins_exchange_from_ts_code("920001.BJ"), "BSE")
+
+    def test_current_listed_stock_loader_excludes_b_share_currency_rows(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            path = silver_stock_basic_path(root)
+            path.parent.mkdir(parents=True, exist_ok=True)
+            with DuckDBResource().connect() as connection:
+                connection.execute(
+                    copy_query_to_parquet(
+                        """
+                        SELECT * FROM (
+                          SELECT
+                            '000001.SZ'::VARCHAR AS ts_code,
+                            'CNY'::VARCHAR AS curr_type,
+                            'L'::VARCHAR AS list_status,
+                            DATE '1991-04-03' AS list_date
+                          UNION ALL
+                          SELECT '200001.SZ', 'HKD', 'L', DATE '1992-01-01'
+                          UNION ALL
+                          SELECT '900001.SH', 'USD', 'L', DATE '1992-01-01'
+                          UNION ALL
+                          SELECT '000002.SZ', 'CNY', 'D', DATE '1991-01-29'
+                        )
+                        """,
+                        path,
+                    )
+                )
+
+            codes = stk_mins.load_current_listed_stock_codes_for_stk_mins(
+                lake_root=root,
+                duckdb=DuckDBResource(),
+                partition_key=PARTITION_KEY,
+            )
+
+        self.assertEqual(codes, ("000001.SZ",))
         with self.assertRaisesRegex(ValueError, "Unsupported stk_mins ts_code suffix"):
             derive_stk_mins_exchange_from_ts_code("ABC.NY")
 

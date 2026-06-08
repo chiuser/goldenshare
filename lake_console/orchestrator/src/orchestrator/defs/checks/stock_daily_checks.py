@@ -17,9 +17,9 @@ from orchestrator.defs.duckdb_sql import (
     STOCK_DAILY_SILVER_REQUIRED_COLUMNS,
     STOCK_DAILY_MIN_TRADE_DATE,
     count_parquet_query,
+    current_cny_stock_basic_select,
     describe_parquet_query,
     read_parquet,
-    stock_daily_current_listed_basic_select,
     stock_daily_normalized_select,
 )
 from orchestrator.defs.paths import (
@@ -613,25 +613,24 @@ def silver_stock_daily_current_listed_only(
         if not path.exists():
             return _missing_file_result(path)
 
+    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
     with connect_configured_duckdb() as connection:
         non_current_count = connection.execute(
             f"""
             SELECT count(*) AS non_current_count
             FROM {read_parquet(daily_path, hive_partitioning=False)} daily
-            LEFT JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+            LEFT JOIN ({current_cny_stock_basic_sql}) basic
               ON daily.ts_code = basic.ts_code
             WHERE basic.ts_code IS NULL
-               OR basic.list_status != 'L'
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
-            SELECT daily.ts_code, daily.trade_date, basic.list_status
+            SELECT daily.ts_code, daily.trade_date, basic.list_date
             FROM {read_parquet(daily_path, hive_partitioning=False)} daily
-            LEFT JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+            LEFT JOIN ({current_cny_stock_basic_sql}) basic
               ON daily.ts_code = basic.ts_code
             WHERE basic.ts_code IS NULL
-               OR basic.list_status != 'L'
             ORDER BY daily.ts_code
             LIMIT 10
             """
@@ -647,7 +646,7 @@ def silver_stock_daily_current_listed_only(
                 "partition_key": partition_key,
                 "non_current_listed_count": int(non_current_count),
                 "non_current_listed_sample_rows": _sample_dicts(
-                    ["ts_code", "trade_date", "list_status"], rows
+                    ["ts_code", "trade_date", "list_date"], rows
                 ),
             },
         ),
@@ -671,12 +670,13 @@ def silver_stock_daily_after_list_date_only(
         if not path.exists():
             return _missing_file_result(path)
 
+    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
     with connect_configured_duckdb() as connection:
         before_list_date_count = connection.execute(
             f"""
             SELECT count(*) AS before_list_date_count
             FROM {read_parquet(daily_path, hive_partitioning=False)} daily
-            INNER JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+            INNER JOIN ({current_cny_stock_basic_sql}) basic
               ON daily.ts_code = basic.ts_code
             WHERE daily.trade_date < basic.list_date
             """
@@ -685,7 +685,7 @@ def silver_stock_daily_after_list_date_only(
             f"""
             SELECT daily.ts_code, daily.trade_date, basic.list_date
             FROM {read_parquet(daily_path, hive_partitioning=False)} daily
-            INNER JOIN {read_parquet(basic_path, hive_partitioning=False)} basic
+            INNER JOIN ({current_cny_stock_basic_sql}) basic
               ON daily.ts_code = basic.ts_code
             WHERE daily.trade_date < basic.list_date
             ORDER BY daily.ts_code, daily.trade_date
@@ -891,7 +891,7 @@ def _expected_tradable_universe_metadata(
     universe_cte = f"""
     WITH listed AS (
       SELECT DISTINCT ts_code
-      FROM ({stock_daily_current_listed_basic_select(basic_path)}) stock_basic
+      FROM ({current_cny_stock_basic_select(basic_path)}) stock_basic
       WHERE DATE '{partition_key}' >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}'
         AND list_date <= DATE '{partition_key}'
         AND (

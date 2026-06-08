@@ -1133,6 +1133,10 @@ raw_tushare_trade_calendar + silver_trade_calendar same job
         <td>只在 raw stock_basic ready 且 <code>silver_stock_basic</code> 缺失或 freshness 不满足目标交易日时提交 <code>silver_stock_basic</code>。若 <code>silver_stock_basic</code> 已 materialized 但 blocking checks 未全绿，只 skip/manual，不自动循环重跑。</td>
       </tr>
       <tr>
+        <td>stock_basic A 股股票池</td>
+        <td><code>raw_tushare_stock_basic</code> 继续保留 Tushare 源站全量字段和全量行；<code>silver_stock_basic</code> 是下游标准 A 股股票池，只保留 <code>list_status='L' AND curr_type='CNY'</code>，并保留 raw 的 17 个业务字段。新增 blocking check <code>silver_stock_basic_cny_stock_universe_check</code> 登记进 readiness 和 catalog，用于阻断缺 <code>curr_type</code> 或含 B 股的旧 materialization。部署新代码后必须重跑 <code>silver_stock_basic_update_job</code> 生成新文件和新 check event，之后 <code>stock_daily</code>、<code>adj_factor</code>、<code>stk_mins</code>、<code>namechange</code>、<code>stock_identity_map</code> 才能继续沿用该源头股票池。</td>
+      </tr>
+      <tr>
         <td>namechange raw sensor</td>
         <td>保留当前 09:30 后、最新 <code>cn_a_stock_current_trade_days</code> 的日常触发窗口和“一日一次提交”防重复语义；raw 文件缺失或 freshness 不满足当前交易日时提交 <code>raw_namechange_update_job</code>。提交过后若失败，后续由人工 retry，不由 sensor 每 tick 反复提交。</td>
       </tr>
@@ -1142,7 +1146,7 @@ raw_tushare_trade_calendar + silver_trade_calendar same job
       </tr>
       <tr>
         <td>下游影响</td>
-        <td><code>stock_daily</code>、<code>adj_factor</code>、<code>stock_mins_raw</code>、<code>stock_identity_map</code>、<code>stock_mins_silver</code> 继续使用既有 ready helper 或直接读取 <code>silver_stock_basic</code>/<code>silver_namechange</code>。asset key、path、schema、check 名不变，因此不要求因本次拆分重跑历史 checks。</td>
+        <td><code>stock_daily</code>、<code>adj_factor</code>、<code>stock_mins_raw</code>、<code>stock_identity_map</code>、<code>stock_mins_silver</code> 继续使用既有 ready helper 或直接读取 <code>silver_stock_basic</code>/<code>silver_namechange</code>。asset key、path、schema、既有 check 名不变；本轮新增 CNY universe check 会让旧 <code>silver_stock_basic</code> 在未重跑前 fail closed，这是防止旧 B 股股票池继续被下游误用的预期行为。</td>
       </tr>
       <tr>
         <td>禁止项</td>

@@ -257,7 +257,7 @@
         <span class="tag risk">History</span>
         <h3>历史分区重算语义</h3>
         <p>
-          <code>silver_stock_basic</code> 是当前 <code>list_status='L'</code> 快照，不保存任意历史时点股票池；
+          <code>silver_stock_basic</code> 是当前 <code>list_status='L' AND curr_type='CNY'</code> 的 A 股股票池快照，不保存任意历史时点股票池；
           但它必须保留 <code>raw_tushare_stock_basic</code> 的全部业务字段，不得裁剪 <code>curr_type</code> 等源字段。
           当股票退市后，日常更新不会自动追溯清理既有 <code>silver_stock_daily</code> 历史分区。
           如果人工或 backfill 显式重跑某个历史分区，该分区会按最新 <code>silver_stock_basic</code>
@@ -374,10 +374,11 @@
   act_name,
   act_ent_type
 FROM read_parquet(raw_stock_basic_path, hive_partitioning=false)
-WHERE list_status = 'L'</code></pre>
+WHERE list_status = 'L'
+  AND curr_type = 'CNY'</code></pre>
     <p>
-      raw stock basic 仍保留 <code>L/D/P/G</code> 等全部源状态；silver basic 是当前上市股票池，
-      只允许按 <code>list_status='L'</code> 过滤行，并把 <code>list_date/delist_date</code> 标准化为
+      raw stock basic 仍保留 <code>L/D/P/G</code> 等全部源状态和 B 股等非 <code>CNY</code> 行；silver basic 是当前上市 A 股股票池，
+      只允许按 <code>list_status='L' AND curr_type='CNY'</code> 过滤行，并把 <code>list_date/delist_date</code> 标准化为
       <code>DATE</code>。除日期类型标准化外，silver 必须保留 raw stock_basic 的全部业务字段。
     </p>
 
@@ -510,6 +511,7 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr><td><code>silver_stock_basic_unique_ts_code</code></td><td>是</td><td>当前上市股票池中 <code>ts_code</code> 唯一。</td></tr>
         <tr><td><code>silver_stock_basic_required_columns_non_null</code></td><td>是</td><td>schema 必须包含 raw stock_basic 全部业务字段；<code>ts_code/symbol/name/list_date</code> 非空。</td></tr>
         <tr><td><code>silver_stock_basic_current_listed_only</code></td><td>是</td><td>所有行必须 <code>list_status='L'</code>，否则失败并输出样本。</td></tr>
+        <tr><td><code>silver_stock_basic_cny_stock_universe_check</code></td><td>是</td><td>所有行必须 <code>curr_type='CNY'</code>；旧文件缺失 <code>curr_type</code> 或含 B 股时 fail closed。</td></tr>
         <tr><td><code>silver_stock_basic_lifecycle_dates_valid</code></td><td>是</td><td>若存在 <code>delist_date</code>，不得早于 <code>list_date</code>。</td></tr>
       </tbody>
     </table>
@@ -749,7 +751,7 @@ git status --short</code></pre>
     <h2>10. 分步开发计划</h2>
     <ol>
       <li>Slice A：新增 <code>corrections/suspend_timing.py</code>，只包含 14 条修正常量和 SQL helper，历史验收曾跑 <code>dg check defs</code>。状态：已完成。</li>
-      <li>Slice B：改造 <code>silver_stock_basic</code> 只过滤 <code>L</code> 行、保留 raw stock_basic 全部业务字段，更新 stock basic checks，跑 full asset job 验证。状态：需按 2026-06-08 字段完整性修正重新落地。</li>
+      <li>Slice B：改造 <code>silver_stock_basic</code> 只过滤 <code>list_status='L' AND curr_type='CNY'</code> 行、保留 raw stock_basic 全部业务字段，新增 CNY 股票池 blocking check，并在部署后重跑 full snapshot 验证。状态：需按 2026-06-09 A 股股票池口径修正重新落地。</li>
       <li>Slice C：改造 <code>silver_stock_suspend_daily</code> 写入修正 timing 和 materialization metadata，单日验证 <code>2014-01-02</code>。状态：已完成。</li>
       <li>Slice D：改造 <code>silver_stock_daily</code> 五类过滤和 metadata，新增/调整 silver daily checks。2026-06-08 补充 <code>curr_type='CNY'</code> A 股日线对象池过滤，避免 B 股进入 expected universe 或 missing-code repair。</li>
       <li>Slice E：确认并注册 2014-2026 交易日 dynamic partitions，小批量回填。状态：已完成。</li>

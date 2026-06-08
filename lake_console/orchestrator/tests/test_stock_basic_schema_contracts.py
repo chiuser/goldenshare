@@ -4,6 +4,7 @@ import tempfile
 import unittest
 
 from orchestrator.defs.checks import stock_basic_checks as checks
+from orchestrator.defs.catalog.lake_assets import LAKE_ASSET_CATALOG
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     silver_stock_basic_select,
@@ -141,6 +142,44 @@ class StockBasicSchemaContractTests(unittest.TestCase):
                         "act_ent_type": "无",
                     },
                     {
+                        "ts_code": "200001.SZ",
+                        "symbol": "200001",
+                        "name": "B股样本",
+                        "area": "深圳",
+                        "industry": "地产",
+                        "fullname": "B股样本股份有限公司",
+                        "enname": "B Share Sample Co., Ltd.",
+                        "cnspell": "BGYB",
+                        "market": "主板",
+                        "exchange": "SZSE",
+                        "curr_type": "HKD",
+                        "list_status": "L",
+                        "list_date": "19920101",
+                        "delist_date": None,
+                        "is_hs": "",
+                        "act_name": "样本",
+                        "act_ent_type": "样本",
+                    },
+                    {
+                        "ts_code": "900001.SH",
+                        "symbol": "900001",
+                        "name": "美元B股样本",
+                        "area": "上海",
+                        "industry": "制造",
+                        "fullname": "美元B股样本股份有限公司",
+                        "enname": "USD B Share Sample Co., Ltd.",
+                        "cnspell": "MYBGYB",
+                        "market": "主板",
+                        "exchange": "SSE",
+                        "curr_type": "USD",
+                        "list_status": "L",
+                        "list_date": "19920101",
+                        "delist_date": None,
+                        "is_hs": "",
+                        "act_name": "样本",
+                        "act_ent_type": "样本",
+                    },
+                    {
                         "ts_code": "000002.SZ",
                         "symbol": "000002",
                         "name": "退市样本",
@@ -182,6 +221,75 @@ class StockBasicSchemaContractTests(unittest.TestCase):
         self.assertEqual(row["act_ent_type"], "无")
         self.assertEqual(row["list_date"], date(1991, 4, 3))
         self.assertIsNone(row["delist_date"])
+
+    def test_silver_cny_stock_universe_check_fails_for_b_share_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_rows(
+                silver_stock_basic_path(root),
+                column_types=_column_types(SILVER_STOCK_BASIC_SCHEMA),
+                rows=[
+                    {
+                        "ts_code": "000001.SZ",
+                        "symbol": "000001",
+                        "name": "平安银行",
+                        "area": "深圳",
+                        "industry": "银行",
+                        "fullname": "平安银行股份有限公司",
+                        "enname": "Ping An Bank Co., Ltd.",
+                        "cnspell": "PAYH",
+                        "market": "主板",
+                        "exchange": "SZSE",
+                        "curr_type": "CNY",
+                        "list_status": "L",
+                        "list_date": date(1991, 4, 3),
+                        "delist_date": None,
+                        "is_hs": "S",
+                        "act_name": "无",
+                        "act_ent_type": "无",
+                    },
+                    {
+                        "ts_code": "200001.SZ",
+                        "symbol": "200001",
+                        "name": "B股样本",
+                        "area": "深圳",
+                        "industry": "地产",
+                        "fullname": "B股样本股份有限公司",
+                        "enname": "B Share Sample Co., Ltd.",
+                        "cnspell": "BGYB",
+                        "market": "主板",
+                        "exchange": "SZSE",
+                        "curr_type": "HKD",
+                        "list_status": "L",
+                        "list_date": date(1992, 1, 1),
+                        "delist_date": None,
+                        "is_hs": "",
+                        "act_name": "样本",
+                        "act_ent_type": "样本",
+                    },
+                ],
+                order_by="ts_code",
+            )
+            check_fn = _check_function(
+                checks.silver_stock_basic_cny_stock_universe_check
+            )
+
+            result = check_fn(
+                LakeRootResource(root_path=str(root)),
+                DuckDBResource(),
+            )
+
+        self.assertFalse(result.passed)
+        self.assertEqual(
+            _metadata_value(result.metadata, "goldenshare/non_cny_row_count"),
+            1,
+        )
+        sample_rows = _metadata_value(
+            result.metadata,
+            "goldenshare/non_cny_sample_rows",
+        )
+        self.assertEqual(sample_rows[0]["ts_code"], "200001.SZ")
+        self.assertEqual(sample_rows[0]["curr_type"], "HKD")
 
     def test_existing_required_columns_check_fails_when_curr_type_is_missing(
         self,
@@ -241,12 +349,22 @@ class StockBasicSchemaContractTests(unittest.TestCase):
         self.assertEqual(
             readiness.SILVER_STOCK_BASIC_CHECKS,
             (
+                "silver_stock_basic_cny_stock_universe_check",
                 "silver_stock_basic_current_listed_only",
                 "silver_stock_basic_has_listed_records",
                 "silver_stock_basic_lifecycle_dates_valid",
                 "silver_stock_basic_required_columns_non_null",
                 "silver_stock_basic_unique_ts_code",
             ),
+        )
+        catalog_entry = next(
+            entry
+            for entry in LAKE_ASSET_CATALOG
+            if entry.asset_key == "silver_stock_basic"
+        )
+        self.assertIn(
+            "silver_stock_basic_cny_stock_universe_check",
+            catalog_entry.blocking_check_names,
         )
 
 

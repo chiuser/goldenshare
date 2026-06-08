@@ -20,6 +20,7 @@ from orchestrator.defs.checks.adj_factor_checks import ADJ_FACTOR_MIN_TRADE_DATE
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     count_parquet_query,
+    current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
@@ -525,13 +526,13 @@ def _stock_basic_dependent_checks(
     partition_key: str,
 ) -> tuple[AdjFactorSilverBootstrapCheckAudit, ...]:
     partition_date = f"DATE {duckdb_string(partition_key)}"
+    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
     invalid_listed_count = int(
         connection.execute(
             f"""
             WITH current_listed AS (
               SELECT DISTINCT ts_code, list_date
-              FROM {read_parquet(basic_path, hive_partitioning=False)}
-              WHERE list_status = 'L'
+              FROM ({current_cny_stock_basic_sql}) stock_basic
             )
             SELECT count(*) AS invalid_count
             FROM {read_parquet(silver_path, hive_partitioning=False)} adj
@@ -546,8 +547,7 @@ def _stock_basic_dependent_checks(
         f"""
         WITH current_listed AS (
           SELECT DISTINCT ts_code, list_date
-          FROM {read_parquet(basic_path, hive_partitioning=False)}
-          WHERE list_status = 'L'
+          FROM ({current_cny_stock_basic_sql}) stock_basic
         )
         SELECT adj.ts_code, adj.trade_date, current_listed.list_date, adj.adj_factor
         FROM {read_parquet(silver_path, hive_partitioning=False)} adj
@@ -563,9 +563,8 @@ def _stock_basic_dependent_checks(
         f"""
         WITH expected AS (
           SELECT DISTINCT ts_code
-          FROM {read_parquet(basic_path, hive_partitioning=False)}
-          WHERE list_status = 'L'
-            AND list_date <= {partition_date}
+          FROM ({current_cny_stock_basic_sql}) stock_basic
+          WHERE list_date <= {partition_date}
         ),
         actual AS (
           SELECT DISTINCT ts_code
@@ -595,9 +594,8 @@ def _stock_basic_dependent_checks(
         f"""
         WITH expected AS (
           SELECT DISTINCT ts_code
-          FROM {read_parquet(basic_path, hive_partitioning=False)}
-          WHERE list_status = 'L'
-            AND list_date <= {partition_date}
+          FROM ({current_cny_stock_basic_sql}) stock_basic
+          WHERE list_date <= {partition_date}
         ),
         actual AS (
           SELECT DISTINCT ts_code
@@ -616,9 +614,8 @@ def _stock_basic_dependent_checks(
         f"""
         WITH expected AS (
           SELECT DISTINCT ts_code
-          FROM {read_parquet(basic_path, hive_partitioning=False)}
-          WHERE list_status = 'L'
-            AND list_date <= {partition_date}
+          FROM ({current_cny_stock_basic_sql}) stock_basic
+          WHERE list_date <= {partition_date}
         ),
         actual AS (
           SELECT DISTINCT ts_code

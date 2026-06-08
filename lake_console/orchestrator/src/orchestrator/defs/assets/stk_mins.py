@@ -18,6 +18,7 @@ from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
+    current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
@@ -324,9 +325,8 @@ def load_current_listed_stock_codes_for_stk_mins(
         rows = connection.execute(
             f"""
             SELECT ts_code
-            FROM {read_parquet(stock_basic_path, hive_partitioning=False)}
-            WHERE list_status = 'L'
-              AND list_date <= CAST({duckdb_string(partition_key)} AS DATE)
+            FROM ({current_cny_stock_basic_select(stock_basic_path)}) stock_basic
+            WHERE list_date <= CAST({duckdb_string(partition_key)} AS DATE)
             ORDER BY ts_code
             """
         ).fetchall()

@@ -146,12 +146,14 @@ def _write_basic(lake_root: Path, ts_code: str = "000001.SZ") -> None:
         silver_stock_basic_path(lake_root),
         column_types={
             "ts_code": "VARCHAR",
+            "curr_type": "VARCHAR",
             "list_status": "VARCHAR",
             "list_date": "DATE",
         },
         rows=[
             {
                 "ts_code": ts_code,
+                "curr_type": "CNY",
                 "list_status": "L",
                 "list_date": "2020-01-01",
             }
