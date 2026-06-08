@@ -247,15 +247,18 @@
         <span class="tag silver">Silver</span>
         <h3>silver 定义标准事实边界</h3>
         <p>
-          <code>silver_stock_daily</code> 执行四类过滤：<code>2014-01-01</code> 后、当前上市、
-          上市日后、BJ 自 <code>2021-11-15</code> 起。silver 日期字段统一为 <code>DATE</code>。
+          <code>silver_stock_daily</code> 执行五类过滤：<code>2014-01-01</code> 后、当前上市、
+          <code>curr_type='CNY'</code> 的 A 股日线对象、上市日后、BJ 自 <code>2021-11-15</code> 起。
+          silver 日期字段统一为 <code>DATE</code>。Tushare <code>daily</code> 是 A 股日线接口，B 股等非
+          <code>CNY</code> 股票不进入 <code>stock_daily</code> expected universe 或 missing-code repair。
         </p>
       </div>
       <div class="card">
         <span class="tag risk">History</span>
         <h3>历史分区重算语义</h3>
         <p>
-          <code>silver_stock_basic</code> 是当前 <code>list_status='L'</code> 快照，不保存任意历史时点股票池。
+          <code>silver_stock_basic</code> 是当前 <code>list_status='L'</code> 快照，不保存任意历史时点股票池；
+          但它必须保留 <code>raw_tushare_stock_basic</code> 的全部业务字段，不得裁剪 <code>curr_type</code> 等源字段。
           当股票退市后，日常更新不会自动追溯清理既有 <code>silver_stock_daily</code> 历史分区。
           如果人工或 backfill 显式重跑某个历史分区，该分区会按最新 <code>silver_stock_basic</code>
           重新生成，因此结果可能不同于最初生成时的历史文件。
@@ -355,19 +358,27 @@
   name,
   area,
   industry,
+  fullname,
+  enname,
+  cnspell,
   market,
   exchange,
+  curr_type,
   list_status,
   CAST(strptime(list_date, '%Y%m%d') AS DATE) AS list_date,
   CASE
     WHEN delist_date IS NULL OR trim(delist_date) = '' THEN NULL
     ELSE CAST(strptime(delist_date, '%Y%m%d') AS DATE)
   END AS delist_date,
-  is_hs
+  is_hs,
+  act_name,
+  act_ent_type
 FROM read_parquet(raw_stock_basic_path, hive_partitioning=false)
 WHERE list_status = 'L'</code></pre>
     <p>
-      raw stock basic 仍保留 <code>L/D/P/G</code> 等全部源状态；silver basic 是本迁移阶段的当前上市股票池。
+      raw stock basic 仍保留 <code>L/D/P/G</code> 等全部源状态；silver basic 是当前上市股票池，
+      只允许按 <code>list_status='L'</code> 过滤行，并把 <code>list_date/delist_date</code> 标准化为
+      <code>DATE</code>。除日期类型标准化外，silver 必须保留 raw stock_basic 的全部业务字段。
     </p>
 
     <h3>4.2 silver_stock_suspend_daily_select</h3>
@@ -422,6 +433,7 @@ listed AS (
   SELECT ts_code, list_date
   FROM read_parquet(silver_stock_basic_path, hive_partitioning=false)
   WHERE list_status = 'L'
+    AND curr_type = 'CNY'
 )
 SELECT deduped.*
 FROM deduped
@@ -496,7 +508,7 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
       </thead>
       <tbody>
         <tr><td><code>silver_stock_basic_unique_ts_code</code></td><td>是</td><td>当前上市股票池中 <code>ts_code</code> 唯一。</td></tr>
-        <tr><td><code>silver_stock_basic_required_columns_non_null</code></td><td>是</td><td><code>ts_code/symbol/name/list_date</code> 非空。</td></tr>
+        <tr><td><code>silver_stock_basic_required_columns_non_null</code></td><td>是</td><td>schema 必须包含 raw stock_basic 全部业务字段；<code>ts_code/symbol/name/list_date</code> 非空。</td></tr>
         <tr><td><code>silver_stock_basic_current_listed_only</code></td><td>是</td><td>所有行必须 <code>list_status='L'</code>，否则失败并输出样本。</td></tr>
         <tr><td><code>silver_stock_basic_lifecycle_dates_valid</code></td><td>是</td><td>若存在 <code>delist_date</code>，不得早于 <code>list_date</code>。</td></tr>
       </tbody>
@@ -534,8 +546,8 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr><td><code>raw_stock_daily_required_columns</code></td><td>是</td><td>包含 Tushare daily raw 字段。</td></tr>
         <tr><td><code>raw_stock_daily_partition_date_matches</code></td><td>是</td><td>raw <code>trade_date</code> 字符串转日期后等于 partition key。</td></tr>
         <tr><td><code>raw_stock_daily_unique_ts_code_trade_date</code></td><td>是</td><td>raw 中 <code>ts_code + trade_date</code> 唯一，避免重复行掩盖覆盖率问题。</td></tr>
-        <tr><td><code>raw_stock_daily_row_count_matches_expected_tradable_count</code></td><td>是</td><td>使用 <code>silver_stock_basic + silver_stock_suspend_daily</code> 计算当日可交易股票池，raw distinct <code>ts_code</code> 数量必须匹配。</td></tr>
-        <tr><td><code>raw_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>raw 必须覆盖当前上市且非全日停牌股票；全日停牌可解释缺失，盘中停牌不能解释缺失，missing/extra 均阻断。</td></tr>
+        <tr><td><code>raw_stock_daily_row_count_matches_expected_tradable_count</code></td><td>是</td><td>使用 <code>silver_stock_basic + silver_stock_suspend_daily</code> 计算当日 A 股日线可交易股票池，基础池必须满足 <code>list_status='L' AND curr_type='CNY'</code>，raw distinct <code>ts_code</code> 数量必须匹配。</td></tr>
+        <tr><td><code>raw_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>raw 必须覆盖当前上市、<code>curr_type='CNY'</code> 且非全日停牌股票；B 股等非 <code>CNY</code> 股票不计 expected，不进入 missing-code repair；全日停牌可解释缺失，盘中停牌不能解释缺失，missing/extra 均阻断。</td></tr>
         <tr><td><code>silver_stock_daily_unique_ts_code_trade_date</code></td><td>是</td><td>silver 中 <code>ts_code + trade_date</code> 唯一。</td></tr>
         <tr><td><code>silver_stock_daily_conflicting_duplicate_absent</code></td><td>是</td><td>同一 key 多版本内容直接失败，metadata 输出 key 和行样本。</td></tr>
         <tr><td><code>silver_stock_daily_required_columns_non_null</code></td><td>是</td><td><code>ts_code</code>、<code>trade_date</code>、<code>pct_chg</code> 非空。</td></tr>
@@ -546,7 +558,7 @@ WHERE deduped.trade_date &gt;= DATE '2014-01-01'
         <tr><td><code>silver_stock_daily_price_sanity</code></td><td>是</td><td>价格非负，且 <code>high &gt;= open &gt;= low</code>、<code>high &gt;= close &gt;= low</code>。</td></tr>
         <tr><td><code>silver_stock_daily_row_count_not_greater_than_raw</code></td><td>否</td><td>观测型。silver 经筛选后行数应小于等于 raw。</td></tr>
         <tr><td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td><td>否</td><td>观测型。只记录 silver distinct <code>ts_code</code> 数量与预期可交易股票池数量是否相等；不升级为阻断，避免和集合覆盖门禁重复。</td></tr>
-        <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>标准事实表完整性门禁。silver 当日不得缺少预期可交易股票，也不得多出非预期股票；全日停牌可解释缺失，盘中停牌不能解释缺失，missing/extra 均阻断。</td></tr>
+        <tr><td><code>silver_stock_daily_covers_expected_tradable_universe</code></td><td>是</td><td>标准事实表完整性门禁。silver 当日不得缺少预期 A 股日线可交易股票，也不得多出非预期股票；expected 基础池必须满足 <code>list_status='L' AND curr_type='CNY'</code>；全日停牌可解释缺失，盘中停牌不能解释缺失，missing/extra 均阻断。</td></tr>
       </tbody>
     </table>
   </section>
@@ -737,9 +749,9 @@ git status --short</code></pre>
     <h2>10. 分步开发计划</h2>
     <ol>
       <li>Slice A：新增 <code>corrections/suspend_timing.py</code>，只包含 14 条修正常量和 SQL helper，历史验收曾跑 <code>dg check defs</code>。状态：已完成。</li>
-      <li>Slice B：改造 <code>silver_stock_basic</code> 只保留 <code>L</code>，更新 stock basic checks，跑 full asset job 验证。状态：已完成。</li>
+      <li>Slice B：改造 <code>silver_stock_basic</code> 只过滤 <code>L</code> 行、保留 raw stock_basic 全部业务字段，更新 stock basic checks，跑 full asset job 验证。状态：需按 2026-06-08 字段完整性修正重新落地。</li>
       <li>Slice C：改造 <code>silver_stock_suspend_daily</code> 写入修正 timing 和 materialization metadata，单日验证 <code>2014-01-02</code>。状态：已完成。</li>
-      <li>Slice D：改造 <code>silver_stock_daily</code> 四类过滤和 metadata，新增/调整 silver daily checks。状态：已完成。</li>
+      <li>Slice D：改造 <code>silver_stock_daily</code> 五类过滤和 metadata，新增/调整 silver daily checks。2026-06-08 补充 <code>curr_type='CNY'</code> A 股日线对象池过滤，避免 B 股进入 expected universe 或 missing-code repair。</li>
       <li>Slice E：确认并注册 2014-2026 交易日 dynamic partitions，小批量回填。状态：已完成。</li>
       <li>Slice F：全量历史回填和验收，输出最终审计结果。状态：已完成，目标分区 <code>3004/3004</code> 成功覆盖。</li>
     </ol>

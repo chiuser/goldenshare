@@ -12,6 +12,7 @@ from orchestrator.defs.duckdb_sql import (
     STOCK_DAILY_MIN_TRADE_DATE,
     duckdb_string,
     read_parquet,
+    stock_daily_current_listed_basic_select,
     stock_daily_normalized_select,
 )
 from orchestrator.defs.paths import (
@@ -312,9 +313,8 @@ def _locator_query(
     return f"""
     WITH listed AS (
       SELECT DISTINCT ts_code
-      FROM {read_parquet(basic_path, hive_partitioning=False)}
-      WHERE list_status = 'L'
-        AND {partition_date_sql} >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}'
+      FROM ({stock_daily_current_listed_basic_select(basic_path)}) stock_basic
+      WHERE {partition_date_sql} >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}'
         AND list_date <= {partition_date_sql}
         AND (
           NOT ends_with(ts_code, '.BJ')

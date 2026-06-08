@@ -115,16 +115,28 @@ def _write_raw(lake_root: Path, rows: list[dict[str, object]]) -> Path:
     return path
 
 
-def _write_basic(lake_root: Path, codes: list[str]) -> None:
+def _write_basic(
+    lake_root: Path,
+    codes: list[str],
+    *,
+    curr_type_by_code: dict[str, str] | None = None,
+) -> None:
+    curr_type_by_code = curr_type_by_code or {}
     _write_rows(
         silver_stock_basic_path(lake_root),
         column_types={
             "ts_code": "VARCHAR",
+            "curr_type": "VARCHAR",
             "list_status": "VARCHAR",
             "list_date": "DATE",
         },
         rows=[
-            {"ts_code": code, "list_status": "L", "list_date": "2020-01-01"}
+            {
+                "ts_code": code,
+                "curr_type": curr_type_by_code.get(code, "CNY"),
+                "list_status": "L",
+                "list_date": "2020-01-01",
+            }
             for code in codes
         ],
         order_by="ts_code",
@@ -174,6 +186,34 @@ class StockDailyRawRepairTests(unittest.TestCase):
         self.assertEqual(locator.extra_count, 0)
         self.assertEqual(locator.duplicate_key_count, 0)
         self.assertEqual(locator.conflict_key_count, 0)
+
+    def test_locator_excludes_non_cny_stock_basic_codes_from_repair_universe(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_basic(
+                lake_root,
+                ["000001.SZ", "200011.SZ", "900901.SH"],
+                curr_type_by_code={
+                    "200011.SZ": "HKD",
+                    "900901.SH": "USD",
+                },
+            )
+            _write_suspend(lake_root)
+            _write_raw(lake_root, [_raw_row("000001.SZ")])
+
+            locator = locate_stock_daily_missing_codes(
+                lake_root_path=lake_root,
+                duckdb=DuckDBResource(),
+                trade_date=PARTITION_KEY,
+            )
+
+        self.assertTrue(locator.raw_file_exists)
+        self.assertEqual(locator.expected_count, 1)
+        self.assertEqual(locator.raw_code_count, 1)
+        self.assertEqual(locator.missing_codes, ())
+        self.assertEqual(locator.extra_count, 0)
 
     def test_locator_raw_file_missing_does_not_enter_repair(self) -> None:
         with TemporaryDirectory() as directory:

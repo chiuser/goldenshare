@@ -3,7 +3,8 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 
 from orchestrator.defs.checks import stock_daily_checks
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet
+from orchestrator.defs.assets.stock_daily import STOCK_DAILY_RAW_COLUMN_TYPES
+from orchestrator.defs.duckdb_sql import copy_query_to_parquet, silver_stock_daily_select
 from orchestrator.defs.paths import (
     raw_stock_daily_path,
     silver_stock_daily_path,
@@ -57,11 +58,13 @@ def _write_rows(
 def _basic_row(
     ts_code: str,
     *,
+    curr_type: str = "CNY",
     list_status: str = "L",
     list_date: str = "2020-01-01",
 ) -> dict[str, object]:
     return {
         "ts_code": ts_code,
+        "curr_type": curr_type,
         "list_status": list_status,
         "list_date": list_date,
     }
@@ -73,6 +76,22 @@ def _raw_row(
     trade_date: str = "20260529",
 ) -> dict[str, object]:
     return {"ts_code": ts_code, "trade_date": trade_date}
+
+
+def _full_raw_row(ts_code: str) -> dict[str, object]:
+    return {
+        "ts_code": ts_code,
+        "trade_date": "20260529",
+        "open": 10.0,
+        "high": 11.0,
+        "low": 9.0,
+        "close": 10.5,
+        "pre_close": 10.0,
+        "change": 0.5,
+        "pct_chg": 5.0,
+        "vol": 100.0,
+        "amount": 1050.0,
+    }
 
 
 def _silver_row(
@@ -125,6 +144,7 @@ def _write_basic(lake_root: Path, rows: list[dict[str, object]]) -> Path:
         path,
         column_types={
             "ts_code": "VARCHAR",
+            "curr_type": "VARCHAR",
             "list_status": "VARCHAR",
             "list_date": "DATE",
         },
@@ -227,6 +247,25 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertEqual(metadata["unexplained_missing_count"], 0)
         self.assertEqual(metadata["unexplained_extra_count"], 0)
 
+    def test_raw_universe_excludes_non_cny_stock_basic_codes(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _raw_universe_metadata(
+                Path(directory),
+                basic_rows=[
+                    _basic_row("000001.SZ"),
+                    _basic_row("200011.SZ", curr_type="HKD"),
+                    _basic_row("900901.SH", curr_type="USD"),
+                ],
+                suspend_rows=[],
+                raw_rows=[_raw_row("000001.SZ")],
+            )
+
+        self.assertEqual(metadata["listed_count"], 1)
+        self.assertEqual(metadata["expected_count"], 1)
+        self.assertEqual(metadata["daily_count"], 1)
+        self.assertEqual(metadata["unexplained_missing_count"], 0)
+        self.assertEqual(metadata["unexplained_extra_count"], 0)
+
     def test_raw_universe_reports_missing_expected_code(self) -> None:
         with TemporaryDirectory() as directory:
             metadata = _raw_universe_metadata(
@@ -314,6 +353,58 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertEqual(metadata["daily_count"], 2)
         self.assertEqual(metadata["unexplained_missing_count"], 0)
         self.assertEqual(metadata["unexplained_extra_count"], 0)
+
+    def test_silver_universe_excludes_non_cny_stock_basic_codes(self) -> None:
+        with TemporaryDirectory() as directory:
+            metadata = _silver_universe_metadata(
+                Path(directory),
+                basic_rows=[
+                    _basic_row("000001.SZ"),
+                    _basic_row("200011.SZ", curr_type="HKD"),
+                    _basic_row("900901.SH", curr_type="USD"),
+                ],
+                suspend_rows=[],
+                silver_rows=[_silver_row("000001.SZ")],
+            )
+
+        self.assertEqual(metadata["listed_count"], 1)
+        self.assertEqual(metadata["expected_count"], 1)
+        self.assertEqual(metadata["daily_count"], 1)
+        self.assertEqual(metadata["unexplained_missing_count"], 0)
+        self.assertEqual(metadata["unexplained_extra_count"], 0)
+
+    def test_silver_select_excludes_non_cny_stock_basic_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            raw_path = raw_stock_daily_path(lake_root, PARTITION_KEY)
+            basic_path = _write_basic(
+                lake_root,
+                [
+                    _basic_row("000001.SZ"),
+                    _basic_row("200011.SZ", curr_type="HKD"),
+                    _basic_row("900901.SH", curr_type="USD"),
+                ],
+            )
+            _write_rows(
+                raw_path,
+                column_types=dict(STOCK_DAILY_RAW_COLUMN_TYPES),
+                rows=[
+                    _full_raw_row("000001.SZ"),
+                    _full_raw_row("200011.SZ"),
+                    _full_raw_row("900901.SH"),
+                ],
+                order_by="ts_code, trade_date",
+            )
+            with DuckDBResource().connect() as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT ts_code
+                    FROM ({silver_stock_daily_select(raw_path, basic_path)})
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+
+        self.assertEqual([row[0] for row in rows], ["000001.SZ"])
 
     def test_silver_universe_reports_missing_expected_code(self) -> None:
         with TemporaryDirectory() as directory:

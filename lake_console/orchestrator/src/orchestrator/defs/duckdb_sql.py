@@ -31,6 +31,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 
 STOCK_DAILY_MIN_TRADE_DATE = "2014-01-01"
 BJ_MARKET_OPEN_DATE = "2021-11-15"
+STOCK_DAILY_ELIGIBLE_CURR_TYPE = "CNY"
 
 TRADE_CALENDAR_RAW_REQUIRED_COLUMNS = tuple(
     column.name for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA
@@ -306,14 +307,18 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 def silver_stock_basic_select(raw_path: Path) -> str:
     return f"""
 SELECT
-  ts_code,
-  symbol,
-  name,
-  area,
-  industry,
-  market,
-  exchange,
-  list_status,
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(symbol AS VARCHAR) AS symbol,
+  CAST(name AS VARCHAR) AS name,
+  CAST(area AS VARCHAR) AS area,
+  CAST(industry AS VARCHAR) AS industry,
+  CAST(fullname AS VARCHAR) AS fullname,
+  CAST(enname AS VARCHAR) AS enname,
+  CAST(cnspell AS VARCHAR) AS cnspell,
+  CAST(market AS VARCHAR) AS market,
+  CAST(exchange AS VARCHAR) AS exchange,
+  CAST(curr_type AS VARCHAR) AS curr_type,
+  CAST(list_status AS VARCHAR) AS list_status,
   CASE
     WHEN list_date IS NULL OR trim(list_date) = '' THEN NULL
     ELSE CAST(strptime(list_date, '%Y%m%d') AS DATE)
@@ -322,7 +327,9 @@ SELECT
     WHEN delist_date IS NULL OR trim(delist_date) = '' THEN NULL
     ELSE CAST(strptime(delist_date, '%Y%m%d') AS DATE)
   END AS delist_date,
-  is_hs
+  CAST(is_hs AS VARCHAR) AS is_hs,
+  CAST(act_name AS VARCHAR) AS act_name,
+  CAST(act_ent_type AS VARCHAR) AS act_ent_type
 FROM {read_parquet(raw_path, hive_partitioning=False)}
 WHERE list_status = 'L'
 """
@@ -346,6 +353,17 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
+def stock_daily_current_listed_basic_select(silver_stock_basic_path: Path) -> str:
+    return f"""
+SELECT DISTINCT
+  ts_code,
+  list_date
+FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
+WHERE list_status = 'L'
+  AND curr_type = {duckdb_string(STOCK_DAILY_ELIGIBLE_CURR_TYPE)}
+"""
+
+
 def silver_stock_daily_select(raw_path: Path, silver_stock_basic_path: Path) -> str:
     return f"""
 WITH normalized AS (
@@ -357,8 +375,7 @@ deduped AS (
 ),
 current_listed AS (
   SELECT DISTINCT ts_code, list_date
-  FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
-  WHERE list_status = 'L'
+  FROM ({stock_daily_current_listed_basic_select(silver_stock_basic_path)}) stock_basic
 )
 SELECT deduped.*
 FROM deduped

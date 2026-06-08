@@ -123,12 +123,18 @@ SILVER_STOCK_BASIC_SCHEMA = (
     ColumnContract("name", "VARCHAR", "股票名称"),
     ColumnContract("area", "VARCHAR", "地域"),
     ColumnContract("industry", "VARCHAR", "所属行业"),
+    ColumnContract("fullname", "VARCHAR", "股票全称"),
+    ColumnContract("enname", "VARCHAR", "英文全称"),
+    ColumnContract("cnspell", "VARCHAR", "拼音缩写"),
     ColumnContract("market", "VARCHAR", "市场类型"),
     ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("curr_type", "VARCHAR", "交易货币"),
     ColumnContract("list_status", "VARCHAR", "上市状态；silver 层仅保留当前上市股票"),
     ColumnContract("list_date", "DATE", "上市日期"),
     ColumnContract("delist_date", "DATE", "退市日期；当前上市股票通常为空"),
     ColumnContract("is_hs", "VARCHAR", "沪深港通标识"),
+    ColumnContract("act_name", "VARCHAR", "实控人名称"),
+    ColumnContract("act_ent_type", "VARCHAR", "实控人企业性质"),
 )
 
 SILVER_STOCK_IDENTITY_MAP_SCHEMA = (
