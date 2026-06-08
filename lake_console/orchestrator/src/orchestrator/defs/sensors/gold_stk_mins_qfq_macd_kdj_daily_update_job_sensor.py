@@ -34,7 +34,7 @@ from orchestrator.defs.checks.stk_mins_qfq_macd_kdj_checks import (
 GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_UPDATE_JOB_NAME = (
     "gold_stk_mins_qfq_macd_kdj_daily_update_job"
 )
-GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_RUN_START = time(23, 30)
+GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_RUN_START = time(21, 20)
 GOLD_STK_MINS_QFQ_MACD_KDJ_FREQS = (1, 5, 15, 30, 60, 90, 120)
 GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS = tuple(
     AssetReadinessSpec(
@@ -119,7 +119,7 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_update_decision(
             previous_trade_date=previous_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 qfq MACD/KDJ 日常更新窗口尚未到 23:30，暂不触发。",
+            reason="股票分钟线 qfq MACD/KDJ 日常更新窗口尚未到 21:20，暂不触发。",
         )
     if not qfq_ready:
         reason = "股票分钟线 gold qfq 七频度尚未全部 ready，暂不触发 MACD/KDJ 更新。"

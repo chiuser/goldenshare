@@ -21,8 +21,8 @@ from orchestrator.defs.sensors.stock_mins_silver_sensor import (
 
 
 PARTITION_KEY = "2026-05-29"
-EVALUATED_AT = datetime(2026, 5, 29, 22, 50, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(2026, 5, 29, 22, 40, tzinfo=ZoneInfo("Asia/Shanghai"))
+EVALUATED_AT = datetime(2026, 5, 29, 19, 55, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 5, 29, 19, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _asset_status(
@@ -104,7 +104,7 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
         self.assertIsNone(no_partition.selected_trade_date)
         self.assertIn("没有注册", no_partition.reason)
         self.assertIsNone(before_window.selected_trade_date)
-        self.assertIn("22:45", before_window.reason)
+        self.assertIn("19:50", before_window.reason)
 
     def test_decision_skips_when_any_upstream_readiness_gate_is_not_ready(self) -> None:
         gate_cases = (
@@ -251,7 +251,7 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
         self.assertTrue(cursor["details"]["run_window_started"])
         self.assertIsNotNone(cursor["details"]["raw_status"])
         self.assertIsNotNone(cursor["details"]["silver_status"])
-        self.assertEqual(STOCK_MINS_SILVER_RUN_START.isoformat(), "22:45:00")
+        self.assertEqual(STOCK_MINS_SILVER_RUN_START.isoformat(), "19:50:00")
 
     def test_cursor_contract_for_ready_skip_is_not_blocked(self) -> None:
         decision = build_stock_mins_silver_update_decision(

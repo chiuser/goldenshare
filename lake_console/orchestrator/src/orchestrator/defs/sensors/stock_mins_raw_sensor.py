@@ -24,7 +24,7 @@ from orchestrator.defs.sensors.readiness import (
 
 
 STOCK_MINS_RAW_SENSOR_JOB_NAME = "stock_mins_raw_update_from_prod_job"
-STOCK_MINS_RAW_RUN_START = time(22, 0)
+STOCK_MINS_RAW_RUN_START = time(19, 30)
 STOCK_MINS_RAW_SOURCE = "prod_db"
 
 
@@ -140,7 +140,7 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
     if not source_window_started:
-        reason = "股票分钟线 raw 日常更新窗口尚未到 22:00，暂不触发。"
+        reason = "股票分钟线 raw 日常更新窗口尚未到 19:30，暂不触发。"
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),

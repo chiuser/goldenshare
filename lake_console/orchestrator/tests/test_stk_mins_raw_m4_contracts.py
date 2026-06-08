@@ -1024,7 +1024,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
 
         self.assertEqual(selected.selected_keys, ("2026-05-29",))
         self.assertEqual(before_window.selected_keys, ())
-        self.assertIn("22:30", before_window.reason)
+        self.assertIn("19:45", before_window.reason)
         self.assertEqual(raw_blocked.selected_keys, ())
         self.assertIn("raw 五频度", raw_blocked.reason)
 
@@ -1109,11 +1109,11 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             STOCK_MINS_RAW_SENSOR_JOB_NAME,
             "stock_mins_raw_update_from_prod_job",
         )
-        self.assertEqual(STOCK_MINS_RAW_RUN_START.isoformat(), "22:00:00")
+        self.assertEqual(STOCK_MINS_RAW_RUN_START.isoformat(), "19:30:00")
         self.assertEqual(STOCK_MINS_RAW_SOURCE, "prod_db")
         self.assertEqual(
             STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START.isoformat(),
-            "22:30:00",
+            "19:45:00",
         )
 
     def test_latest_registered_trade_date_uses_latest_not_after_today(self) -> None:

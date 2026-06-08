@@ -29,7 +29,7 @@ from orchestrator.defs.sensors.readiness import (
 
 
 STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME = "stock_mins_qfq_daily_update_job"
-STOCK_MINS_QFQ_DAILY_RUN_START = time(23, 0)
+STOCK_MINS_QFQ_DAILY_RUN_START = time(20, 10)
 
 
 @dataclass(frozen=True)
@@ -79,7 +79,7 @@ def build_stock_mins_qfq_daily_update_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 gold qfq 日常更新窗口尚未到 23:00，暂不触发。",
+            reason="股票分钟线 gold qfq 日常更新窗口尚未到 20:10，暂不触发。",
         )
     if not silver_ready:
         reason = "股票分钟线 silver 五频度尚未全部 ready，暂不触发 gold qfq 更新。"

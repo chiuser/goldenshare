@@ -1,8 +1,8 @@
 # M12: Gold stk_mins qfq MACD/KDJ 指标资产设计方案
 
-状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI；正式历史补录、正式 baseline event 写入和 sensor 启用仍需单独审批执行。
+状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。daily sensor 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。
 
-更新时间：2026-06-07
+更新时间：2026-06-08
 
 ## 1. Summary
 
@@ -17,7 +17,7 @@ M12 新增基于七频度 `gold_stk_mins_qfq_*` 的分钟技术指标资产，�
 gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m
 ```
 
-不读取 raw/silver/Tushare/prod DB，不生成 EMA 正式指标集，不接前端 serving。M12 已新增 daily sensor，但默认 `STOPPED`，正式启用需单独审批。
+不读取 raw/silver/Tushare/prod DB，不生成 EMA 正式指标集，不接前端 serving。M12 已新增 daily sensor，代码默认 `STOPPED`；正式启用状态必须读取 Dagster instance 或 UI 后确认。
 
 M12 必须持久化递推 state。日常计算最新一天时，只允许读取上一交易日 state、当日 qfq 行和 KDJ 所需的有限历史 lookback，不允许从历史起点重算。
 
@@ -46,7 +46,7 @@ M12 必须持久化递推 state。日常计算最新一天时，只允许读取�
 5. qfq 主表公式、路径、repair 语义变更。
 6. by-symbol-month research 重排。
 7. ClickHouse/serving/API/frontend 接入。
-8. 正式历史补录执行、正式 Dagster baseline event 写入或 sensor 启用。
+8. 正式 sensor 启用。正式历史文件直写与 `2026-06-05` baseline event 写入已完成；如需追加 event 修正或重写，仍必须单独列命令审批。
 
 ## 4. 当前实现依据
 
@@ -333,7 +333,68 @@ freq -> year
 6. `final-audit`：聚合文件集合差异、baseline event count、少量 readiness sample。
 7. baseline 之后的 partition 由正式 daily job/sensor 正常产生 materialization/check events。
 
-### 8.4 2026-06-07 只读 benchmark 结论
+### 8.4 2026-06-08 正式历史直写与 baseline event 结果
+
+M12 历史初始化已按 `Direct Lake Bootstrap + Baseline/Future Event Tracking` 执行完成。执行口径：
+
+1. 历史文件全量生成，覆盖已注册 `cn_a_stock_mins_silver_trade_days` 分区。
+2. Dagster event 只写 baseline cutoff partition，不做历史逐日 event backfill。
+3. baseline cutoff 选择最新已注册分区 `2026-06-05`。
+
+全量文件审计结果：
+
+| 项 | 结果 |
+|---|---:|
+| `passed` | `True` |
+| selected partition count | `3019` |
+| selected freqs | `1/5/15/30/60/90/120` |
+| selected years | `2014`-`2026` |
+| planned indicator files | `369918` |
+| existing indicator files | `369918` |
+| planned state files | `21133` |
+| existing state files | `21133` |
+| source rows | `3706759744` |
+| indicator rows | `3706759744` |
+| state rows | `81494182` |
+| missing input count | `0` |
+| row count mismatch count | `0` |
+
+baseline event scoped dry-run 结果：
+
+```text
+baseline cutoff: 2026-06-05
+selected_partition_count: 1
+selected_freqs: [1, 5, 15, 30, 60, 90, 120]
+audited_asset_partition_count: 14
+failed_asset_partition_count: 0
+reported_event_count: 0
+```
+
+baseline event 正式写入结果：
+
+```text
+baseline cutoff: 2026-06-05
+reported_asset_partition_count: 14
+reported_event_count: 56
+failed_asset_partition_count: 0
+```
+
+写入后 scoped quick final audit 结果：
+
+```text
+audit_mode: quick
+selected_partition_count: 1
+file_audit_passed: True
+planned_target_file_count: 38598
+existing_target_file_count: 38598
+materialized_partition_counts: 14 个 asset 全部为 1
+sample_readiness: 14 个 asset-partition 全部 True
+check_success_counts_skipped: True
+```
+
+当前已完成：历史文件事实、baseline materialization/check events 和 baseline readiness sample。后续每日分区由正式 daily job/sensor 正常产生 materialization/check events。
+
+### 8.5 2026-06-07 只读 benchmark 结论
 
 本次 benchmark 只读正式 qfq 源，临时输出只写 `/private/tmp/goldenshare_m12_benchmark_20260607/`，未写正式 lake，未读取或写入正式 Dagster instance。
 
@@ -402,7 +463,7 @@ M12 helper 落地后的临时湖 benchmark：
 | 120m | `197,898` | `10,986` | `5,510` | `14.301s` |
 | 合计 | `32,257,594` | - | - | `286.825s` |
 
-测量口径：只读正式 `gold_stk_mins_qfq` parquet，输出到 `/private/tmp` 临时湖并清理；不写正式 lake，不写 Dagster instance。因为正式 M12 state 尚未历史生成，benchmark 使用临时 previous state seed 让 helper 跑完整计算与 stock-year 写出路径；该测量用于性能门禁，不作为正式数值验收。
+测量口径：只读正式 `gold_stk_mins_qfq` parquet，输出到 `/private/tmp` 临时湖并清理；不写正式 lake，不写 Dagster instance。benchmark 执行当时正式 M12 state 尚未历史生成，因此使用临时 previous state seed 让 helper 跑完整计算与 stock-year 写出路径；该测量用于性能门禁，不作为正式数值验收。
 
 结论：
 
@@ -450,7 +511,7 @@ STOPPED
 建议窗口：
 
 ```text
-23:30 或晚于 stock_mins_qfq_daily_sensor / stock_mins_qfq_factor_repair_sensor 的窗口
+21:20 或晚于 stock_mins_qfq_daily_sensor / stock_mins_qfq_factor_repair_sensor 的窗口
 ```
 
 触发条件：
@@ -582,7 +643,7 @@ checks 可以用同一 DuckDB 连接批量聚合，不允许全绿场景无条�
 2. MACD 样本测试必须断言 `macd_qfq = 2 * (macd_dif_qfq - macd_dea_qfq)`。
 3. 历史 bootstrap 工具必须在 `plan` 输出 source rows、target files、state files、baseline event count、如果误做全量历史 event 的上界。
 4. `generate` 前必须先跑只读 benchmark 和 `/private/tmp` 样本写入；样本不得写正式 lake。
-5. event/report 工具只允许 baseline cutoff 与 future tracking，不得补齐全部历史 partition events。
+5. event/report 执行口径只允许 baseline cutoff 与 future tracking，不得补齐全部历史 partition events。当前 CLI 仍需补单分区硬门禁；正式执行前必须显式传入同一天的 `--start-date` / `--end-date`，并确认 `selected_partition_count=1`。
 6. audit 必须用聚合 count 和 sample readiness，禁止把 readiness 逐 partition 作为主流程。
 
 ## 13. 历史 event 追踪口径
@@ -603,6 +664,15 @@ M12 历史初始化不做历史逐日 runless event 全量补录。原因是物�
 
 七频度 baseline event 共 `56` 条。baseline 之后，每个交易日由正式 daily job/sensor 正常写约 `56` 条 materialization/check events。
 
+当前执行事实：
+
+```text
+baseline cutoff = 2026-06-05
+reported_event_count = 56
+reported_asset_partition_count = 14
+quick audit sample_readiness = 14/14 True
+```
+
 如果误做历史逐日全量 events，以当前约 `3019` 个交易日估算：
 
 ```text
@@ -610,6 +680,8 @@ M12 历史初始化不做历史逐日 runless event 全量补录。原因是物�
 ```
 
 该做法禁止作为 M12 默认执行口径。
+
+当前已发现的代码硬化缺口：`report-gold-stk-mins-qfq-macd-kdj-baseline-events` 的 CLI 默认选择仍会覆盖全历史范围。执行层已改为 scoped baseline cutoff 命令完成正式写入；代码层仍需补单分区硬门禁和测试，使不传单日范围的 baseline event 命令直接失败。
 
 ### 13.2 复核方式
 
@@ -665,8 +737,9 @@ baseline/future tracking 复核使用：
 1. 新增 plan/generate/audit/report-baseline/final-audit CLI。
 2. dry-run 先测算七频度全量规模。
 3. 临时 lake 样本验证后再申请正式写入。
-4. 正式补录按 `Direct Lake Bootstrap + Baseline/Future Event Tracking` 单独审批执行。
-5. 禁止历史逐日 event backfill；全历史文件完成后只写 baseline cutoff events。
+4. 正式补录已按 `Direct Lake Bootstrap + Baseline/Future Event Tracking` 执行完成。
+5. 禁止历史逐日 event backfill；全历史文件完成后只写 baseline cutoff events，当前 baseline cutoff 为 `2026-06-05`。
+6. 待补代码硬门禁：baseline event CLI 必须强制单分区执行，避免默认全历史 dry-run/backfill。
 
 ## 15. 测试计划
 
@@ -700,7 +773,7 @@ git diff --check
 python3 scripts/check_docs_integrity.py
 ```
 
-正式 Dagster job/sensor/backfill/materialization/check、正式 lake 写入、正式 `DAGSTER_HOME` event 写入，均需单独列命令审批。
+后续正式 Dagster job/sensor/backfill/materialization/check、正式 lake 追加写入、正式 `DAGSTER_HOME` event 修正或重写，均需单独列命令审批。M12 历史文件直写和 `2026-06-05` baseline event 写入已完成，不再列为待执行项。
 
 ## 16. 参考依据
 

@@ -27,7 +27,7 @@ from orchestrator.defs.sensors.readiness import (
 
 
 STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME = "stock_mins_qfq_factor_repair_job"
-STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START = time(23, 15)
+STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START = time(20, 40)
 
 
 @dataclass(frozen=True)
@@ -75,7 +75,7 @@ def build_stock_mins_qfq_factor_repair_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 gold qfq factor repair 窗口尚未到 23:15，暂不触发。",
+            reason="股票分钟线 gold qfq factor repair 窗口尚未到 20:40，暂不触发。",
         )
     if gold_has_materialized_check_problem:
         return StockMinsQfqFactorRepairDecision(

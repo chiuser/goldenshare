@@ -319,7 +319,7 @@ M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_che
 
 `stock_mins_qfq_daily_sensor`：
 
-1. 23:00 前直接 skip，不调用 readiness。
+1. 20:10 前直接 skip，不调用 readiness。
 2. 若 cursor 显示同一 `target_trade_date` 已提交过 qfq daily run，直接 skip，不再做 deep readiness；run_key 仍保持 `stock_mins_qfq_daily_update:{trade_date}`。
    - M11H-2 兼容新旧 cursor：新 cursor 认 `details.selected_trade_date == target_trade_date` 且 `details.already_submitted_for_trade_date == true`；旧 cursor 认 `target_date == target_trade_date`、`decision == request_runs`，并且 `selected_count > 0` 或 `sample_keys` 包含该日期。
    - `decision=skip`、`selected_count=0` 且无 sample、坏 JSON、schema 不匹配或不同目标日期都不触发快路径。
@@ -333,7 +333,7 @@ M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_che
 
 `stock_mins_qfq_factor_repair_sensor`：
 
-1. 23:15 前直接 skip，不调用 readiness。
+1. 20:40 前直接 skip，不调用 readiness。
 2. 若 cursor 显示同一 `target_trade_date` 已提交过 repair run，直接 skip，不再做 deep readiness；run_key 仍保持 `stock_mins_qfq_factor_repair:{trade_date}`。
    - M11H-2 使用与 daily sensor 相同的新旧 cursor 兼容判定。
    - 快路径只以 sensor cursor 的 submitted 事实为准，不读取正式 Dagster instance 或 run history；若实际 run 失败，仍按人工 retry 或清 cursor 处理。
@@ -355,14 +355,14 @@ M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_che
 
 单元测试必须覆盖：
 
-1. daily sensor 在 23:00 前不调用 readiness。
+1. daily sensor 在 20:10 前不调用 readiness。
 2. daily sensor 在 silver 未 ready 时 skip，不查不提交 qfq gold。
 3. daily sensor 在 adj factor 未 ready 时 skip。
 4. daily sensor 在 qfq gold missing materialization 且上游 ready 时提交 daily run。
 5. daily sensor 在七频度 qfq gold 全 ready 时 skip。
 6. daily sensor 在 gold 已 materialized 但 blocking checks failed/missing 时 skip，不自动重跑。
 7. daily sensor cursor 同日期已提交后的快路径不调用 readiness，必须覆盖新 cursor、旧 `request_runs + selected_count > 0` cursor 和旧 `sample_keys` cursor。
-8. repair sensor 在 23:15 前不调用 readiness。
+8. repair sensor 在 20:40 前不调用 readiness。
 9. repair sensor 在 qfq gold missing/not ready 时 skip。
 10. repair sensor 在 qfq gold 全 ready 时提交 repair run config。
 11. repair sensor cursor 同日期已提交后的快路径不调用 readiness，必须覆盖新 cursor、旧 `request_runs + selected_count > 0` cursor 和旧 `sample_keys` cursor。

@@ -27,8 +27,8 @@ from orchestrator.defs.run_contracts.cursors import (
 
 
 PARTITION_KEY = "2026-05-29"
-EVALUATED_AT = datetime(2026, 5, 29, 23, 20, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(2026, 5, 29, 23, 10, tzinfo=ZoneInfo("Asia/Shanghai"))
+EVALUATED_AT = datetime(2026, 5, 29, 20, 45, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 5, 29, 20, 35, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _asset_status(
@@ -140,7 +140,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIsNone(no_partition.selected_trade_date)
         self.assertIn("没有注册", no_partition.reason)
         self.assertIsNone(before_window.selected_trade_date)
-        self.assertIn("23:15", before_window.reason)
+        self.assertIn("20:40", before_window.reason)
 
     def test_decision_requires_gold_ready_and_skips_failed_gold_checks(self) -> None:
         not_ready = build_stock_mins_qfq_factor_repair_decision(
@@ -244,7 +244,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIsNotNone(cursor["details"]["gold_status"])
         self.assertEqual(
             STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START.isoformat(),
-            "23:15:00",
+            "20:40:00",
         )
 
     def test_sensor_skips_before_window_without_readiness_lookup(self) -> None:
@@ -254,13 +254,13 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             patch.object(
                 repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run before 23:15"),
+                side_effect=AssertionError("readiness must not run before 20:40"),
             ),
         ):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
-        self.assertIn("23:15", result.skip_reason.skip_message)
+        self.assertIn("20:40", result.skip_reason.skip_message)
 
     def test_sensor_cursor_fast_path_skips_without_readiness_lookup(self) -> None:
         selected_decision = build_stock_mins_qfq_factor_repair_decision(

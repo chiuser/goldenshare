@@ -27,8 +27,8 @@ from orchestrator.defs.run_contracts.cursors import (
 
 
 PARTITION_KEY = "2026-05-29"
-EVALUATED_AT = datetime(2026, 5, 29, 23, 5, tzinfo=ZoneInfo("Asia/Shanghai"))
-BEFORE_WINDOW = datetime(2026, 5, 29, 22, 55, tzinfo=ZoneInfo("Asia/Shanghai"))
+EVALUATED_AT = datetime(2026, 5, 29, 20, 15, tzinfo=ZoneInfo("Asia/Shanghai"))
+BEFORE_WINDOW = datetime(2026, 5, 29, 20, 5, tzinfo=ZoneInfo("Asia/Shanghai"))
 
 
 def _asset_status(
@@ -142,7 +142,7 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertIsNone(no_partition.selected_trade_date)
         self.assertIn("没有注册", no_partition.reason)
         self.assertIsNone(before_window.selected_trade_date)
-        self.assertIn("23:00", before_window.reason)
+        self.assertIn("20:10", before_window.reason)
 
     def test_decision_skips_when_silver_or_adj_factor_is_not_ready(self) -> None:
         silver_blocked = build_stock_mins_qfq_daily_update_decision(
@@ -271,8 +271,8 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertIsNotNone(cursor["details"]["silver_status"])
         self.assertIsNotNone(cursor["details"]["adj_factor_status"])
         self.assertIsNotNone(cursor["details"]["gold_status"])
-        self.assertEqual(STOCK_MINS_QFQ_DAILY_RUN_START.isoformat(), "23:00:00")
-        self.assertEqual(BEFORE_WINDOW.time().isoformat(), "22:55:00")
+        self.assertEqual(STOCK_MINS_QFQ_DAILY_RUN_START.isoformat(), "20:10:00")
+        self.assertEqual(BEFORE_WINDOW.time().isoformat(), "20:05:00")
 
     def test_cursor_contract_for_ready_skip_is_not_blocked(self) -> None:
         decision = build_stock_mins_qfq_daily_update_decision(
@@ -302,13 +302,13 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             patch.object(
                 daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run before 23:00"),
+                side_effect=AssertionError("readiness must not run before 20:10"),
             ),
         ):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
 
-        self.assertIn("23:00", result.skip_reason.skip_message)
+        self.assertIn("20:10", result.skip_reason.skip_message)
 
     def test_sensor_cursor_fast_path_skips_without_readiness_lookup(self) -> None:
         selected_decision = build_stock_mins_qfq_daily_update_decision(

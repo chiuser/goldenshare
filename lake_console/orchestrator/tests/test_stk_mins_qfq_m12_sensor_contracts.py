@@ -8,6 +8,7 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_RUN_START,
     GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_UPDATE_JOB_NAME,
     _already_submitted_for_target_date,
     _cursor_payload,
@@ -33,6 +34,10 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         self.assertIn(
             GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_UPDATE_JOB_NAME,
             gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.job_name,
+        )
+        self.assertEqual(
+            GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_RUN_START.isoformat(),
+            "21:20:00",
         )
 
     def test_run_request_key_is_stable(self) -> None:

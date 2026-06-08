@@ -30,7 +30,7 @@ from orchestrator.defs.sensors.readiness import (
 
 
 STOCK_MINS_SILVER_SENSOR_JOB_NAME = "stock_mins_silver_update_job"
-STOCK_MINS_SILVER_RUN_START = time(22, 45)
+STOCK_MINS_SILVER_RUN_START = time(19, 50)
 
 
 @dataclass(frozen=True)
@@ -83,7 +83,7 @@ def build_stock_mins_silver_update_decision(
             target_trade_date=target_trade_date,
             run_window_started=False,
             selected_trade_date=None,
-            reason="股票分钟线 silver 日常更新窗口尚未到 22:45，暂不触发。",
+            reason="股票分钟线 silver 日常更新窗口尚未到 19:50，暂不触发。",
         )
     if not raw_ready:
         reason = "股票分钟线 raw 五频度尚未全部 ready，暂不触发 silver 更新。"
