@@ -265,7 +265,7 @@ silver_stock_identity_map checks
 2. sensor 默认 `STOPPED`，每 10 分钟评估一次。
 3. 每天上海时间 16:30 前直接 skip，不检查上游、不提交 run。
 4. 16:30 后才检查基础事实 readiness。
-5. 该口径与 `stock_basic_sensor` 的目标交易日集合一致，也能早于 22:00 后的 `stk_mins` raw 日常更新窗口完成。
+5. 该口径与 stock_basic raw/silver 日更 sensors 使用的最新 `cn_a_stock_trade_days` 目标交易日集合一致，也能早于 22:00 后的 `stk_mins` raw 日常更新窗口完成。
 
 触发条件：
 
@@ -300,7 +300,7 @@ cursor 只记录观测信息，例如 `evaluated_at`、`target_trade_date`、`st
 
 维护动作的区别：
 
-1. 更新 `namechange_update_job` 后，只能说明名称时间线更新了。
+1. 更新 `silver_namechange_update_job` 后，只能说明名称时间线更新了。
 2. 若新增名称事实影响历史身份映射，需要重新生成 `silver_stock_identity_map`。
 3. 重新生成时，只有符合身份迁移规则的 namechange 结果才进入 identity map。
 

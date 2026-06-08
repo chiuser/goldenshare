@@ -238,9 +238,9 @@
       </tr>
       <tr>
         <td class="danger">主要依赖 raw+silver 同 job</td>
-        <td>4</td>
-        <td><code>stock_basic</code>、<code>namechange</code>、<code>index_basic</code>、<code>trade_calendar</code></td>
-        <td>需要后续拆分 raw job / silver job，或证明 raw asset 发布前已完成等价校验。</td>
+        <td>2</td>
+        <td><code>index_basic</code>、<code>trade_calendar</code></td>
+        <td><code>stock_basic</code> 与 <code>namechange</code> 已完成合并拆分；剩余 <code>index_basic</code>、<code>trade_calendar</code> 后续单独排期。</td>
       </tr>
       </tbody>
     </table>
@@ -1032,13 +1032,27 @@ gold_market_major_indices_daily</pre>
     </table>
 
     <h3>5.6 基础 full snapshot 链路</h3>
-    <pre class="flow">raw_tushare_stock_basic + silver_stock_basic same job
+    <pre class="flow">raw_stock_basic_update_job_sensor
+        ▼
+raw_tushare_stock_basic event/check ready
+        ▼
+silver_stock_basic_update_job_sensor
+        ▼
+silver_stock_basic
         ├─ raw/silver stock_daily sensor gates
         ├─ adj_factor gate
         ├─ stock_identity_map gate
+        ├─ namechange silver input
         └─ stock_mins silver supporting fact
 
-raw_tushare_namechange + silver_namechange same job
+raw_namechange_update_job_sensor
+        ▼
+raw_tushare_namechange event/check ready
+stock_basic raw+silver final ready
+        ▼
+silver_namechange_update_job_sensor
+        ▼
+silver_namechange
         └─ stock_identity_map and stock_mins silver gates
 
 raw_tushare_index_basic + silver_index_basic same job
@@ -1059,15 +1073,15 @@ raw_tushare_trade_calendar + silver_trade_calendar same job
       <tbody>
       <tr>
         <td><code>stock_basic</code></td>
-        <td><code>stock_basic_sensor</code> 在 readiness 不满足时提交 <code>stock_basic_update_job</code></td>
-        <td class="warn">raw+silver 同 job。下游会用它做 freshness gate，但它自身生产仍未拆 raw ready。</td>
-        <td>P2。full snapshot freshness 口径必须保留。</td>
+        <td><code>raw_stock_basic_update_job_sensor</code> / <code>silver_stock_basic_update_job_sensor</code></td>
+        <td class="ok">已拆 raw/silver。raw 缺失或 freshness 不满足才提交；raw/silver 已 materialized 但 checks 未全绿时 skip/manual。</td>
+        <td>已完成 P2A。full snapshot freshness 口径保留。</td>
       </tr>
       <tr>
         <td><code>namechange</code></td>
-        <td><code>stock_namechange_sensor</code> 按当前交易日和运行窗口提交 <code>namechange_update_job</code></td>
-        <td class="warn">raw+silver 同 job。它是身份映射和分钟线名称时序的上游事实。</td>
-        <td>P2。</td>
+        <td><code>raw_namechange_update_job_sensor</code> / <code>silver_namechange_update_job_sensor</code></td>
+        <td class="ok">已拆 raw/silver。silver 触发前等待 <code>raw_tushare_namechange</code> ready 和 <code>stock_basic_ready_for_trade_date</code>。</td>
+        <td>已完成 P2A。旧一日一次 raw 提交语义保留。</td>
       </tr>
       <tr>
         <td><code>index_basic</code></td>
@@ -1080,6 +1094,63 @@ raw_tushare_trade_calendar + silver_trade_calendar same job
         <td><code>calendar_update_job</code> 手动或显式运行入口</td>
         <td class="warn">raw+silver 同 job。下游 trade-day sensors 读取日历文件注册分区。</td>
         <td>P2。需要避免分区注册基于未通过 checks 的日历事实。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h4>5.6.1 <code>stock_basic</code> + <code>namechange</code> 合并修复落地口径</h4>
+    <p><code>stock_basic</code> 与 <code>namechange</code> 已放进同一个开发边界中拆分。原因是 <code>silver_namechange</code> 直接依赖 <code>silver_stock_basic</code> 文件：如果只先拆 <code>stock_basic</code>，但旧 <code>stock_namechange_sensor</code> 仍然存在，它可能在 <code>stock_basic</code> raw 已更新、silver 未 ready 时继续提交旧 <code>namechange_update_job</code>，从而读取上一版 <code>silver_stock_basic</code>。合并修复一次性退役两个旧混合入口，并让 <code>silver_namechange</code> 显式等待 <code>stock_basic</code> raw+silver final ready。</p>
+    <table>
+      <thead>
+      <tr>
+        <th>修复项</th>
+        <th>硬口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>命名</td>
+        <td>新增 job 为 <code>raw_stock_basic_update_job</code>、<code>silver_stock_basic_update_job</code>、<code>raw_namechange_update_job</code>、<code>silver_namechange_update_job</code>；sensor follow job，分别为 <code>raw_stock_basic_update_job_sensor</code>、<code>silver_stock_basic_update_job_sensor</code>、<code>raw_namechange_update_job_sensor</code>、<code>silver_namechange_update_job_sensor</code>。</td>
+      </tr>
+      <tr>
+        <td>退役旧入口</td>
+        <td><code>stock_basic_update_job</code>、<code>stock_basic_sensor</code>、<code>namechange_update_job</code>、<code>stock_namechange_sensor</code> 不再作为 active definition 保留。旧 run/tick history 只作为历史审计事实保留，不清理、不回滚。</td>
+      </tr>
+      <tr>
+        <td>job selection</td>
+        <td>raw job 只选择各自 raw asset 与 raw blocking checks；silver job 只选择各自 silver asset 与 silver blocking checks。不得把 <code>stock_basic</code>、<code>namechange</code> 或其它共享基础资产加入下游业务 job selection。</td>
+      </tr>
+      <tr>
+        <td>stock_basic raw ready</td>
+        <td>新增 raw-only readiness helper：<code>raw_tushare_stock_basic</code> latest materialization 与同一 materialization 的 <code>RAW_STOCK_BASIC_CHECKS</code> 全绿。既有 <code>stock_basic_ready_for_trade_date</code> 与 <code>stock_basic_ready_without_freshness</code> 保持 raw+silver final ready 语义，不削弱下游门禁。</td>
+      </tr>
+      <tr>
+        <td>raw 异常重跑策略</td>
+        <td><code>stock_basic</code> 与 <code>namechange</code> 的 raw sensor 只处理 raw 缺失或 freshness 不满足。raw 已 materialized 但 raw blocking checks 失败或缺失时，一律 skip/manual，不自动循环重跑，避免基础 full snapshot 被反复覆盖。</td>
+      </tr>
+      <tr>
+        <td>stock_basic silver sensor</td>
+        <td>只在 raw stock_basic ready 且 <code>silver_stock_basic</code> 缺失或 freshness 不满足目标交易日时提交 <code>silver_stock_basic</code>。若 <code>silver_stock_basic</code> 已 materialized 但 blocking checks 未全绿，只 skip/manual，不自动循环重跑。</td>
+      </tr>
+      <tr>
+        <td>namechange raw sensor</td>
+        <td>保留当前 09:30 后、最新 <code>cn_a_stock_current_trade_days</code> 的日常触发窗口和“一日一次提交”防重复语义；raw 文件缺失或 freshness 不满足当前交易日时提交 <code>raw_namechange_update_job</code>。提交过后若失败，后续由人工 retry，不由 sensor 每 tick 反复提交。</td>
+      </tr>
+      <tr>
+        <td>namechange silver sensor</td>
+        <td>同时等待 <code>raw_tushare_namechange</code> raw ready 与 <code>stock_basic_ready_for_trade_date(target_trade_date)</code>。这里必须使用 raw+silver final ready 口径，而不是只看 <code>silver_stock_basic_ready_for_trade_date</code>，避免 raw stock_basic 未通过时 <code>silver_namechange</code> 读取旧基础股票池。只有 <code>silver_namechange</code> 缺失或 freshness 不满足时提交；已 materialized 但 checks 未全绿时 skip/manual。</td>
+      </tr>
+      <tr>
+        <td>下游影响</td>
+        <td><code>stock_daily</code>、<code>adj_factor</code>、<code>stock_mins_raw</code>、<code>stock_identity_map</code>、<code>stock_mins_silver</code> 继续使用既有 ready helper 或直接读取 <code>silver_stock_basic</code>/<code>silver_namechange</code>。asset key、path、schema、check 名不变，因此不要求因本次拆分重跑历史 checks。</td>
+      </tr>
+      <tr>
+        <td>禁止项</td>
+        <td>不改 asset key，不改既有 check 名，不新增同语义 check，不新增 readiness asset/summary asset/数据库表/配置项/repair 机制，不执行正式 Dagster job、sensor、backfill、asset check 或 evaluator。</td>
+      </tr>
+      <tr>
+        <td>测试门槛</td>
+        <td>静态测试必须断言旧 job/sensor 不再 active、新四个 job/sensor 命名和 tags 合规、raw job 不选 silver、silver job 不选 raw、既有 check 名不变；sensor 单测必须覆盖 raw not ready、stock_basic not ready、silver already materialized with failed checks、ready 后提交等正反路径。</td>
       </tr>
       </tbody>
     </table>
@@ -1153,10 +1224,16 @@ silver_stk_mins_1m/5m/15m/30m/60m</pre>
         <td>保留 file-fact gate。后续只补 <code>silver_index_basic</code> event/check 前置可见性。</td>
       </tr>
       <tr>
-        <td class="warn">P2</td>
-        <td>基础 full snapshot</td>
-        <td>改动面广，但它们是多个下游 gate 的根事实。</td>
-        <td>逐个拆 raw/silver，保留 full snapshot freshness 判断。</td>
+        <td class="ok">已完成 P2A</td>
+        <td><code>stock_basic</code> + <code>namechange</code></td>
+        <td>两者存在直接依赖：<code>silver_namechange</code> 读取 <code>silver_stock_basic</code>。必须合并修复，避免只拆 <code>stock_basic</code> 后旧 <code>namechange</code> 自动入口继续读取上一版基础股票池。</td>
+        <td>同一轮退役两个旧 raw+silver 混合入口，启用四个 raw/silver job/sensor；<code>silver_namechange</code> 等 raw namechange ready 和 <code>stock_basic_ready_for_trade_date</code> 后再提交。</td>
+      </tr>
+      <tr>
+        <td class="warn">P2B</td>
+        <td><code>index_basic</code>、<code>trade_calendar</code></td>
+        <td>仍是基础 full snapshot 根事实，但当前没有直接同日互相抢跑关系。</td>
+        <td>后续单独拆 raw/silver，并分别补齐 index / calendar 下游 gate 可见性。</td>
       </tr>
       </tbody>
     </table>

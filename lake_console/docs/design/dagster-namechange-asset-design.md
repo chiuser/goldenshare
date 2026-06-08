@@ -1,6 +1,6 @@
 # Dagster namechange 资产接入方案
 
-状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线 v2 口径。
+状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线 v2 口径；P2A 已将日常自动链路拆为 `raw_namechange_update_job` / `silver_namechange_update_job`，silver 触发前等待 raw namechange event/check ready 与 `stock_basic_ready_for_trade_date`。
 
 更新时间：2026-05-30
 
@@ -13,8 +13,8 @@
 - 新增 `raw_tushare_namechange`。
 - 新增 `silver_namechange`。
 - 新增对应 asset checks。
-- 新增 `namechange_update_job`。
-- 新增日更触发 sensor：`stock_namechange_sensor`。
+- 日常更新入口已拆为 `raw_namechange_update_job` 与 `silver_namechange_update_job`。
+- 日更触发 sensor 已拆为 `raw_namechange_update_job_sensor` 与 `silver_namechange_update_job_sensor`。
 
 本次明确不处理：
 
@@ -55,8 +55,10 @@
 | 更新方式 | 直接从 Tushare API 拉取全集分页快照，原子替换 full parquet |
 | 旧湖用途 | 只作为调研证据，不作为本次集成数据来源 |
 | 下游消费 | 本方案不设计下游消费；后续如有下游需求，单独设计依赖关系 |
-| 第一版 job | `namechange_update_job` |
-| 第一版 sensor | `stock_namechange_sensor`，跟随 `stock_current_trade_day_sensor` 注册出的当天交易日信号 |
+| 日常 raw job | `raw_namechange_update_job` |
+| 日常 silver job | `silver_namechange_update_job` |
+| 日常 raw sensor | `raw_namechange_update_job_sensor`，跟随 `stock_current_trade_day_sensor` 注册出的当天交易日信号 |
+| 日常 silver sensor | `silver_namechange_update_job_sensor`，等待 raw namechange 和 stock_basic final ready |
 
 ## 4. Tushare 接口契约
 
@@ -495,85 +497,98 @@ SILVER_NAMECHANGE_SCHEMA
 lake_console/orchestrator/src/orchestrator/defs/jobs/namechange_update.py
 ```
 
-job：
+jobs：
 
 ```text
-namechange_update_job
+raw_namechange_update_job
+silver_namechange_update_job
 ```
 
 selection：
 
 ```text
-raw_tushare_namechange
-silver_namechange
-checks_for_assets(raw_tushare_namechange, silver_namechange)
+raw_namechange_update_job:
+  raw_tushare_namechange
+  checks_for_assets(raw_tushare_namechange)
+
+silver_namechange_update_job:
+  silver_namechange
+  checks_for_assets(silver_namechange)
 ```
 
 职责：
 
-- 只作为流程入口。
+- 只作为对应 layer 的流程入口。
 - 不调用 Tushare。
 - 不写 DuckDB SQL。
 - 不拼路径。
 - 不做质量判断。
+- 不把 raw 和 silver 混在同一个 active job 内。
 
 UI description：
 
 ```text
-更新股票曾用名原始表和标准表。
+raw_namechange_update_job: 更新股票曾用名 raw full snapshot。
+silver_namechange_update_job: raw 曾用名 ready 后，更新股票曾用名 silver full snapshot。
 ```
 
 ## 12. Sensor / Automation 设计
 
-第一版新增 `stock_namechange_sensor`，但它不自己判断交易日历，不注册 partition。
+P2A 后拆为 `raw_namechange_update_job_sensor` 与 `silver_namechange_update_job_sensor`。两者都不自己判断交易日历，不注册 partition。
 
 触发关系：
 
 ```text
 stock_current_trade_day_sensor
   -> 注册 cn_a_stock_current_trade_days[trade_date]
-  -> stock_namechange_sensor 读取最新已注册 current trade day
-  -> 触发 namechange_update_job
+  -> raw_namechange_update_job_sensor 读取最新已注册 current trade day
+  -> 触发 raw_namechange_update_job
+  -> raw_tushare_namechange event/check ready
+  -> silver_namechange_update_job_sensor 等待 stock_basic_ready_for_trade_date
+  -> 触发 silver_namechange_update_job
 ```
 
 这样设计的原因：
 
 1. `namechange` 是基础数据 full snapshot，不适合按 `trade_date` 分区存储。
 2. 但业务上希望日更，所以可以复用 `stock_current_trade_day_sensor` 注册出来的“今天是股票交易日”信号。
-3. `stock_current_trade_day_sensor` 仍然只负责注册 `cn_a_stock_current_trade_days`，不触发数据生产；具体生产由 `stock_namechange_sensor` 负责。
-4. `namechange_update_job` 仍是 unpartitioned job，因为它每次覆盖 full snapshot 文件。
+3. `stock_current_trade_day_sensor` 仍然只负责注册 `cn_a_stock_current_trade_days`，不触发数据生产；具体生产由 namechange 自己的 raw/silver sensors 负责。
+4. `raw_namechange_update_job` 与 `silver_namechange_update_job` 仍是 unpartitioned job，因为它们每次覆盖 full snapshot 文件。
 
-`stock_namechange_sensor` 第一版口径：
+P2A 后的 namechange sensor 口径：
 
 | 项目 | 口径 |
 |---|---|
 | 文件 | `defs/sensors/stock_namechange_sensor.py` |
-| target job | `namechange_update_job` |
+| raw target job | `raw_namechange_update_job` |
+| silver target job | `silver_namechange_update_job` |
 | default status | `STOPPED` |
 | minimum interval | 600 秒 |
 | 触发来源 | `cn_a_stock_current_trade_days` 最新已注册且不晚于上海当天的 key |
-| 触发窗口 | 暂定 09:30 后；如开发前确认 Tushare `namechange` 没有盘中入库约束，可再改为 06:00 后 |
-| run key | `stock_namechange_update:{trade_date}` |
-| partition_key | 无，`namechange_update_job` 不是 partitioned job |
+| 触发窗口 | 09:30 后 |
+| raw run key | `raw_namechange_update:{trade_date}` |
+| silver run key | `silver_namechange_update:{trade_date}` |
+| partition_key | 无，namechange full snapshot jobs 不是 partitioned job |
 | run config | 第一版无 |
-| 重复触发 | 同一 `trade_date` 只提交一次；失败后人工 retry，不做无限自动重试 |
+| raw 重复触发 | 同一 `trade_date` 只提交一次；失败后人工 retry，不做无限自动重试 |
+| silver 门禁 | `raw_tushare_namechange` event/check ready + `stock_basic_ready_for_trade_date(trade_date)` |
 | cursor | 只记录观测信息：target date、是否已注册、是否已提交、skip reason |
 
 禁止：
 
-- `stock_namechange_sensor` 不调用 Tushare。
-- `stock_namechange_sensor` 不读写 parquet。
-- `stock_namechange_sensor` 不做区间审计。
-- `stock_namechange_sensor` 不注册 dynamic partitions。
+- namechange sensors 不调用 Tushare。
+- namechange sensors 不读写 parquet。
+- namechange sensors 不做区间审计。
+- namechange sensors 不注册 dynamic partitions。
 - 不新增 declarative automation；full snapshot 基础资产第一版走普通 sensor。
 
-后续如果要把多个 basic full snapshot 合并成基础资产日更编排，必须另起设计；不能把其它数据集顺手塞进 `stock_namechange_sensor`。
+后续如果要把多个 basic full snapshot 合并成基础资产日更编排，必须另起设计；不能把其它数据集顺手塞进 namechange sensors。
 
 ## 13. Run Config
 
 第一版不暴露运营 run config。
 
-`namechange_update_job` 固定执行 full snapshot：
+`raw_namechange_update_job` 与 `silver_namechange_update_job` 固定执行 full snapshot：
 
 - 不要求运营填写日期。
 - 不要求运营填写 `ts_code`。
@@ -615,9 +630,9 @@ stock_current_trade_day_sensor
 | `defs/assets/namechange.py` | 新增 raw/silver assets |
 | `defs/checks/namechange_checks.py` | 新增 raw/silver checks |
 | `defs/checks/__init__.py` | 如当前自动发现需要，加入导出 |
-| `defs/jobs/namechange_update.py` | 新增 job |
+| `defs/jobs/namechange_update.py` | 定义 `raw_namechange_update_job` 与 `silver_namechange_update_job` |
 | `defs/jobs/__init__.py` | 如当前自动发现需要，加入导出 |
-| `defs/sensors/stock_namechange_sensor.py` | 新增日更触发 sensor |
+| `defs/sensors/stock_namechange_sensor.py` | 定义 `raw_namechange_update_job_sensor` 与 `silver_namechange_update_job_sensor` |
 | `defs/sensors/__init__.py` | 如当前自动发现需要，加入导出 |
 | `tests/test_asset_governance_contracts.py` | 新增 asset schema contract 断言 |
 | `tests/test_run_contract_static_gates.py` | 确认新增 asset/check/job 不破坏静态门禁 |
@@ -737,19 +752,21 @@ stock_current_trade_day_sensor
 
 目标：
 
-- 新增 `namechange_update_job`。
-- selection 只包含 `raw_tushare_namechange`、`silver_namechange` 和对应 checks。
+- 新增 `raw_namechange_update_job` 与 `silver_namechange_update_job`。
+- raw job selection 只包含 `raw_tushare_namechange` 和 raw checks。
+- silver job selection 只包含 `silver_namechange` 和 silver checks。
 
 禁止：
 
 - job 文件不得包含 Tushare、DuckDB、路径拼接或质量逻辑。
-- 不新增 sensor。
+- 不把 raw 和 silver 保留在同一个 active job 中。
 
 验收：
 
 - UI 能看到 job。
 - job 描述为中文。
-- run 只 materialize `namechange` 资产族。
+- raw run 只 materialize `raw_tushare_namechange`。
+- silver run 只 materialize `silver_namechange`。
 
 ### NC-5：日更 sensor
 
@@ -757,9 +774,10 @@ stock_current_trade_day_sensor
 
 目标：
 
-- 新增 `stock_namechange_sensor`。
-- 读取 `cn_a_stock_current_trade_days` 最新已注册交易日。
-- 触发 unpartitioned `namechange_update_job`。
+- 新增 `raw_namechange_update_job_sensor` 与 `silver_namechange_update_job_sensor`。
+- raw sensor 读取 `cn_a_stock_current_trade_days` 最新已注册交易日。
+- raw sensor 触发 unpartitioned `raw_namechange_update_job`。
+- silver sensor 等 `raw_tushare_namechange_ready_for_trade_date(target)` 与 `stock_basic_ready_for_trade_date(target)` 后，触发 unpartitioned `silver_namechange_update_job`。
 
 禁止：
 
@@ -770,7 +788,8 @@ stock_current_trade_day_sensor
 验收：
 
 - sensor 默认 `STOPPED`。
-- preview 只能看到 `namechange_update_job` run request，不能触发其它 job。
+- raw preview 只能看到 `raw_namechange_update_job` run request，不能触发其它 job。
+- silver preview 只能看到 `silver_namechange_update_job` run request，不能触发其它 job。
 - 同一交易日不会重复提交。
 
 ### NC-6：正式验收与文档同步
@@ -779,17 +798,18 @@ stock_current_trade_day_sensor
 
 目标：
 
-- 使用正式 Dagster instance 运行一次 `namechange_update_job`。
+- 使用正式 Dagster instance 运行一次 `raw_namechange_update_job`。
+- 在 raw event/check ready 后运行一次 `silver_namechange_update_job`。
 - 验证 raw/silver materialization metadata。
 - 验证 checks。
-- 短窗口验证 `stock_namechange_sensor`，确认只提交 `namechange_update_job`。
+- 短窗口验证两个 namechange sensors，确认分别只提交对应 raw/silver job。
 - 更新 topology 文档。
 
 需要用户批准后才能执行：
 
 ```text
 uv run dg check defs
-UI 或正式 instance 中运行 namechange_update_job
+UI 或正式 instance 中依次运行 raw_namechange_update_job、silver_namechange_update_job
 ```
 
 禁止：
@@ -824,25 +844,27 @@ uv run dg check defs
 
 必须单独获得用户批准后执行：
 
-1. 在 Dagster UI 运行 `namechange_update_job`。
-2. 确认只执行 `raw_tushare_namechange`、`silver_namechange` 和对应 checks。
-3. 确认 raw materialization metadata 包含：
+1. 在 Dagster UI 运行 `raw_namechange_update_job`。
+2. 确认只执行 `raw_tushare_namechange` 和 raw checks。
+3. 在 raw event/check ready 后运行 `silver_namechange_update_job`。
+4. 确认只执行 `silver_namechange` 和 silver checks。
+5. 确认 raw materialization metadata 包含：
    - `dagster/uri`
    - `dagster/row_count`
    - `goldenshare/observed_columns`
    - `source_row_count`
    - `duplicate_removed_count`
    - `page_count`
-4. 确认 silver materialization metadata 包含：
+6. 确认 silver materialization metadata 包含：
    - `dagster/uri`
    - `dagster/row_count`
    - `goldenshare/observed_columns`
    - `open_interval_count`
    - `canonicalization_rule_version`
    - `unresolved_interval_conflict_count`
-5. 确认 blocking checks 全部通过。
-6. 确认 raw WARN checks 可见且有统计 metadata。
-7. 确认 `stock_namechange_sensor` 默认 STOPPED；如短暂开启验证，必须只触发 `namechange_update_job`。
+7. 确认 blocking checks 全部通过。
+8. 确认 raw WARN checks 可见且有统计 metadata。
+9. 确认 `raw_namechange_update_job_sensor` 与 `silver_namechange_update_job_sensor` 默认 STOPPED；如短暂开启验证，必须只触发对应 layer job。
 
 ## 18. 接入模板 Checklist 对照
 
@@ -852,7 +874,7 @@ uv run dg check defs
 | 层级 | raw/silver/gold 分类清楚，没有 support/reference 新层级 | raw + silver |
 | Asset tags | 使用 `build_asset_tags(...)`，layer/data_domain 为登记枚举 | `raw/silver` + `basic_data` |
 | 中文名 | `dataset_id` 登记中文名 | 需新增 `namechange -> 股票曾用名` |
-| 命名 | asset/job/check 文件名单一职责 | `namechange.py`、`namechange_checks.py`、`namechange_update.py` |
+| 命名 | asset/job/check 文件名单一职责 | `namechange.py`、`namechange_checks.py`、`namechange_update.py`；active jobs 为 `raw_namechange_update_job` / `silver_namechange_update_job` |
 | UI 文案 | description 中文简明 | 已列入开发要求 |
 | 路径 | 新路径位于 data_lake raw/silver；path_template 由真实路径函数生成 | 已明确 |
 | Definition metadata | 使用 `build_asset_definition_metadata(...)` | 已明确 |
@@ -862,9 +884,9 @@ uv run dg check defs
 | 请求范围 | 对象池/分页量/耗时评估 | full snapshot，不需要对象池；需在首次运行记录 page_count |
 | checks | blocking/WARN 分清，metadata 有数量和样本 | 已列清 |
 | deps | asset deps 表达真实输入 | `silver_namechange` 依赖 `raw_tushare_namechange` |
-| job | job 只做 selection | 已明确 |
+| job | job 只做 selection | raw/silver 分层 job 已明确 |
 | run config | typed config / 业务动作字段 | 第一版无 run config |
-| sensor | ready/run_key/cursor/tick 限制 | 第一版新增 `stock_namechange_sensor`，跟随 `cn_a_stock_current_trade_days` 当前交易日信号 |
+| sensor | ready/run_key/cursor/tick 限制 | `raw_namechange_update_job_sensor` 跟随 `cn_a_stock_current_trade_days` 当前交易日信号；`silver_namechange_update_job_sensor` 等 raw namechange 与 stock_basic final ready |
 | run tags | 不新增项目自定义 run tags | 已明确 |
 | bootstrap | 如需旧湖迁移需 spec 和 legacy links | 不适用，不走 bootstrap |
 | 验收 | 单次 UI run、checks、metadata、失败恢复 | 已列清 |
@@ -877,5 +899,5 @@ uv run dg check defs
 2. `start_date/end_date` 请求参数是公告日期范围，不是名称生效日期范围；第一版不要暴露给运营。
 3. 旧湖日期列是 DATE，但 raw 正式契约是 `YYYYMMDD` 字符串，不能按旧湖类型设计 raw schema。
 4. `end_date IS NULL` 多行和区间重叠是源数据现实：raw 层只观测，silver 层必须归并；归并后仍无法解释的矛盾必须阻断。
-5. full snapshot 并发运行可能造成重复请求和后写覆盖前写；`stock_namechange_sensor` 第一版必须用 run key 和 cursor 避免同一交易日重复提交。
+5. full snapshot 并发运行可能造成重复请求和后写覆盖前写；`raw_namechange_update_job_sensor` 必须用 run key 和 cursor 避免同一交易日重复提交。
 6. 本方案不处理旧 manifest 或其它消费者；如果未来有人需要消费 `namechange`，应依赖 `silver_namechange` 另起设计。

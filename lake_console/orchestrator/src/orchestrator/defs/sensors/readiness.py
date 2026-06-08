@@ -26,6 +26,15 @@ RAW_STOCK_BASIC_CHECKS = (
     "raw_stock_basic_row_count_positive",
     "raw_stock_basic_ts_code_present",
 )
+RAW_NAMECHANGE_CHECKS = (
+    "raw_namechange_file_exists",
+    "raw_namechange_row_count_positive",
+    "raw_namechange_required_columns",
+    "raw_namechange_schema_matches_tushare_contract",
+    "raw_namechange_required_fields_non_null",
+    "raw_namechange_date_string_format_valid",
+    "raw_namechange_exact_duplicate_absent",
+)
 SILVER_STOCK_BASIC_CHECKS = (
     "silver_stock_basic_current_listed_only",
     "silver_stock_basic_has_listed_records",
@@ -196,6 +205,7 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")
 SILVER_STOCK_BASIC_ASSET_KEY = dg.AssetKey("silver_stock_basic")
+RAW_NAMECHANGE_ASSET_KEY = dg.AssetKey("raw_tushare_namechange")
 SILVER_NAMECHANGE_ASSET_KEY = dg.AssetKey("silver_namechange")
 SILVER_STOCK_IDENTITY_MAP_ASSET_KEY = dg.AssetKey("silver_stock_identity_map")
 RAW_SUSPEND_D_ASSET_KEY = dg.AssetKey("raw_tushare_suspend_d")
@@ -271,13 +281,21 @@ class DatasetReadinessStatus:
         return "; ".join(reasons) if reasons else "not ready"
 
 
+RAW_STOCK_BASIC_READINESS_SPEC = AssetReadinessSpec(
+    RAW_STOCK_BASIC_ASSET_KEY,
+    RAW_STOCK_BASIC_CHECKS,
+)
 STOCK_BASIC_READINESS_SPECS = (
-    AssetReadinessSpec(RAW_STOCK_BASIC_ASSET_KEY, RAW_STOCK_BASIC_CHECKS),
+    RAW_STOCK_BASIC_READINESS_SPEC,
     AssetReadinessSpec(SILVER_STOCK_BASIC_ASSET_KEY, SILVER_STOCK_BASIC_CHECKS),
 )
 SILVER_STOCK_BASIC_READINESS_SPEC = AssetReadinessSpec(
     SILVER_STOCK_BASIC_ASSET_KEY,
     SILVER_STOCK_BASIC_CHECKS,
+)
+RAW_NAMECHANGE_READINESS_SPEC = AssetReadinessSpec(
+    RAW_NAMECHANGE_ASSET_KEY,
+    RAW_NAMECHANGE_CHECKS,
 )
 SILVER_NAMECHANGE_READINESS_SPEC = AssetReadinessSpec(
     SILVER_NAMECHANGE_ASSET_KEY,
@@ -765,6 +783,17 @@ def stock_basic_ready_without_freshness(
     return dataset_readiness_status(instance, STOCK_BASIC_READINESS_SPECS)
 
 
+def raw_tushare_stock_basic_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        RAW_STOCK_BASIC_READINESS_SPEC,
+        min_materialization_date=trade_date,
+    )
+
+
 def silver_stock_basic_ready_for_trade_date(
     instance: dg.DagsterInstance,
     trade_date: str,
@@ -772,6 +801,17 @@ def silver_stock_basic_ready_for_trade_date(
     return asset_readiness_status(
         instance,
         SILVER_STOCK_BASIC_READINESS_SPEC,
+        min_materialization_date=trade_date,
+    )
+
+
+def raw_tushare_namechange_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        RAW_NAMECHANGE_READINESS_SPEC,
         min_materialization_date=trade_date,
     )
 
