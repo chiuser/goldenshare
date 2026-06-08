@@ -62,6 +62,11 @@ class _FakeEventLogStorage:
             check_key: self.records_by_check_key[check_key]
             for check_key in check_keys
             if check_key in self.records_by_check_key
+            and (
+                partition_filter is None
+                or getattr(self.records_by_check_key[check_key], "partition", None)
+                == self.partition_filter_key
+            )
         }
 
     def get_asset_check_execution_history(self, *args, **kwargs):
@@ -93,6 +98,7 @@ def _check_record(
     passed: bool = True,
     blocking: bool = True,
     run_id: str = "",
+    partition: str | None = None,
 ):
     target = SimpleNamespace(storage_id=storage_id)
     evaluation = SimpleNamespace(
@@ -102,7 +108,7 @@ def _check_record(
     )
     dagster_event = SimpleNamespace(event_specific_data=evaluation)
     event = SimpleNamespace(dagster_event=dagster_event, run_id=run_id)
-    return SimpleNamespace(status=status, event=event)
+    return SimpleNamespace(status=status, event=event, partition=partition)
 
 
 def _instance_with_records(records_by_check_key, *, storage_id: int = 100):
@@ -130,8 +136,26 @@ class QfqSensorBatchReadinessTests(unittest.TestCase):
         self.assertTrue(status.ready)
         self.assertEqual(instance.event_log_storage.latest_call_count, 1)
         self.assertEqual(instance.event_log_storage.history_call_count, 0)
-        self.assertEqual(instance.event_log_storage.partition_filter_key, PARTITION_KEY)
+        self.assertIsNone(instance.event_log_storage.partition_filter_key)
         self.assertEqual(len(instance.event_log_storage.latest_check_keys), 2)
+
+    def test_check_records_without_partition_are_matched_by_target_materialization(self):
+        instance = _instance_with_records(
+            {
+                _check_key(CHECK_NAMES[0]): _check_record(partition=None),
+                _check_key(CHECK_NAMES[1]): _check_record(partition=None),
+            }
+        )
+
+        status = partition_dataset_readiness_status_from_latest_checks(
+            instance,
+            (SPEC,),
+            partition_key=PARTITION_KEY,
+        )
+
+        self.assertTrue(status.ready)
+        self.assertIsNone(instance.event_log_storage.partition_filter_key)
+        self.assertEqual(instance.event_log_storage.history_call_count, 0)
 
     def test_missing_materialization_fails_closed_without_check_lookup(self):
         instance = _FakeInstance({}, {})

@@ -1801,7 +1801,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
         <td>20:10 后，在 silver ready、当日 adj factor ready 且目标 gold 当日尚未 ready 时，触发单日 qfq job。</td>
-        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。M11H 后门禁只看目标日期 readiness，按 check key + partition 批量读取 latest check execution，并有同目标日期已提交后的 cursor 快路径；禁止逐历史分区深扫或逐 check 扫 history。</td>
+        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。M11H 后门禁只看目标日期 readiness，按 check key 批量读取 latest check execution，并用 target materialization storage_id 绑定目标日期；同时有同目标日期已提交后的 cursor 快路径；禁止逐历史分区深扫或逐 check 扫 history。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
@@ -1833,6 +1833,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>不改 job selection、sensor tags、run key、run config、asset/check definitions 或 partition definitions。</li>
       <li>readiness 查询只读 Dagster event log，不使用 DuckDB；DuckDB 仍只用于 parquet 文件计算和 asset/check 内部聚合校验。</li>
       <li>M11H 开发和验证阶段未运行正式 Dagster job、sensor、backfill、materialization 或 asset check。</li>
+      <li>M11H-3 已修正正式 check execution record <code>partition</code> 可为空的情况：latest-check API 不传 <code>PartitionKeyFilter</code>，只用 <code>target_materialization_data.storage_id</code> 绑定目标日期 materialization。</li>
     </ul>
 
     <h3>目标算法</h3>
@@ -1865,7 +1866,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>批量 event 查询</td>
-        <td colspan="2">M11H 新增仅服务这两个 sensor 的专用 helper：先取目标日期各资产 latest materialization，再把所有 blocking checks 组装为 <code>AssetCheckKey(asset_key, check_name)</code> 集合，通过 <code>event_log_storage.get_latest_asset_check_execution_by_key(..., partition_filter=PartitionKeyFilter(key=trade_date))</code> 批量读取 latest check execution；用 <code>target_materialization_data.storage_id</code> 精确匹配 latest materialization。runless event 的 <code>run_id</code> 为空字符串，因此不按 <code>run_id</code> / <code>all_logs(run_id)</code> 分组。</td>
+        <td colspan="2">M11H 新增仅服务这两个 sensor 的专用 helper：先取目标日期各资产 latest materialization，再把所有 blocking checks 组装为 <code>AssetCheckKey(asset_key, check_name)</code> 集合，通过 <code>event_log_storage.get_latest_asset_check_execution_by_key(...)</code> 批量读取 latest check execution，不传 <code>PartitionKeyFilter</code>；正式 check execution record 的 <code>partition</code> 可能为空，目标日期必须通过 latest materialization partition 与 <code>target_materialization_data.storage_id</code> 精确绑定。runless event 的 <code>run_id</code> 为空字符串，因此不按 <code>run_id</code> / <code>all_logs(run_id)</code> 分组。</td>
       </tr>
     </table>
 
@@ -2090,7 +2091,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td>gold sensor 门禁过重导致超时</td>
-        <td>M11H 已将日常 qfq sensor 限定为目标日期 readiness，不做历史分区深扫；sensor readiness 使用 10.1 的 check key + partition 批量 latest-check 读取与 cursor 快路径，禁止逐 blocking check 扫 <code>get_asset_check_execution_history(limit=5000)</code>。必要的文件事实校验放到 asset/check 内用 DuckDB 聚合完成。</td>
+        <td>M11H 已将日常 qfq sensor 限定为目标日期 readiness，不做历史分区深扫；sensor readiness 使用 10.1 的 check key 批量 latest-check 读取、target materialization storage_id 绑定与 cursor 快路径，禁止逐 blocking check 扫 <code>get_asset_check_execution_history(limit=5000)</code>。必要的文件事实校验放到 asset/check 内用 DuckDB 聚合完成。</td>
       </tr>
       <tr>
         <td>历史批量补录 event 过慢</td>
@@ -2121,7 +2122,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>确认不新增 <code>gold_stk_mins_qfq_daily_summary</code> 或 <code>gold_stk_mins_qfq_factor_repair_summary</code>；repair 原因和数量写入 check metadata。</li>
       <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。正式 Dagster 入口必须使用统一 <code>gold_stk_mins_qfq_writer</code> concurrency pool；<code>in_process_executor</code> 只保证单 run 内顺序，不能替代跨 run 互斥。</li>
       <li>确认历史 gold baseline 文件生成采用串行或等价互斥保护，同一 <code>freq/ts_code/year</code> 文件不能被多个命令任务同时写。</li>
-      <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须按 10.1 使用专用 check key + partition 批量 latest-check readiness，不得在稳定态逐 check 扫 history。</li>
+      <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须按 10.1 使用专用 check key 批量 latest-check readiness，并用 target materialization storage_id 绑定目标日期，不得在稳定态逐 check 扫 history。</li>
     </ol>
     <div class="danger">
       <strong>门禁：</strong>

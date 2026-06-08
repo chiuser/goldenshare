@@ -303,13 +303,13 @@ M11 check 拆分为两类：
 
 #### 9.3.3 专用 helper 算法
 
-M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_checks(...)`。原方案曾考虑按 `run_id` 读取 run event log，但 runless materialization/check event 的 `run_id` 为空字符串，不能依赖 `all_logs(run_id)` 做分组读取。因此固定算法修正为：
+M11H 实际落地 helper 为 `partition_dataset_readiness_status_from_latest_checks(...)`。原方案曾考虑按 `run_id` 读取 run event log，但 runless materialization/check event 的 `run_id` 为空字符串，不能依赖 `all_logs(run_id)` 做分组读取。M11H-3 再修正一点：正式 check execution record 的 `partition` 可能为空，因此 latest-check API 不能传 `PartitionKeyFilter`，目标日期只能通过 latest materialization partition 与 check `target_materialization_data.storage_id` 绑定。因此固定算法修正为：
 
 1. 输入为一个目标 `trade_date` 和一组明确的 readiness specs，调用方限定为 qfq daily / repair sensor。
 2. 对每个 asset key 获取目标 partition 的 latest materialization。
 3. materialization 缺失时返回 not ready，并标明该 asset 缺 materialization。
 4. 对所有已 materialized asset 的 blocking check 组装 `AssetCheckKey(asset_key, check_name)` 集合。
-5. 对这一组 check keys 调用一次 `event_log_storage.get_latest_asset_check_execution_by_key(..., partition_filter=PartitionKeyFilter(key=trade_date))`。
+5. 对这一组 check keys 调用一次 `event_log_storage.get_latest_asset_check_execution_by_key(...)`，不传 `PartitionKeyFilter`；正式 check execution record 的 `partition` 可能为空，目标日期绑定依赖 latest materialization 的 partition 与 check `target_materialization_data.storage_id` 精确匹配。
 6. 对每个 blocking check 精确匹配 latest materialization 的 `target_materialization_data.storage_id`；旧 materialization 的 passed check 不能让新 materialization ready。
 7. 只接受 terminal check evaluation；missing、failed、非 terminal、只存在 non-blocking passed event、target mismatch 都 fail closed。
 8. 返回结构仍是现有 `DatasetReadinessStatus` / `AssetReadinessStatus`，cursor payload 结构不变。

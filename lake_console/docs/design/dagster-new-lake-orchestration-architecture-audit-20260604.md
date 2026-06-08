@@ -252,7 +252,7 @@ postgres_query('prod_raw_pg', '<remote query>')
 
 ### O4：qfq daily / factor repair sensor readiness 稳定态深扫风险
 
-状态：M11H / M11H-2 已修复。
+状态：M11H / M11H-2 / M11H-3 已修复。
 
 原问题是 `stock_mins_qfq_daily_sensor` 和 `stock_mins_qfq_factor_repair_sensor` 复用通用 readiness 路径。该通用 helper 会对每个 blocking check 单独执行 `get_asset_check_execution_history(limit=5000)`，再从 history 中寻找绑定 latest materialization `storage_id` 的结果。qfq daily sensor 稳定态会评估 silver 五频度、adj factor 两资产和 qfq gold 七频度，约 108 次 check history 扫描；factor repair sensor 会评估 qfq gold 七频度，约 56 次 check history 扫描。
 
@@ -262,13 +262,15 @@ postgres_query('prod_raw_pg', '<remote query>')
 
 1. 不改通用 `asset_readiness_status(...)` 的单分区语义。
 2. 两个 qfq sensor 改用 `partition_dataset_readiness_status_from_latest_checks(...)`。
-3. 先取目标日期各 asset 的 latest materialization，再按 `AssetCheckKey(asset_key, check_name)` 集合一次调用 `event_log_storage.get_latest_asset_check_execution_by_key(..., partition_filter=PartitionKeyFilter(key=trade_date))`。
+3. 先取目标日期各 asset 的 latest materialization，再按 `AssetCheckKey(asset_key, check_name)` 集合一次调用 `event_log_storage.get_latest_asset_check_execution_by_key(...)`，不传 `PartitionKeyFilter`；正式 check execution record 的 `partition` 可能为空，目标日期必须通过 materialization partition 与 check 的 `target_materialization_data.storage_id` 绑定。
 4. 不再按 `run_id` 读取 run event log；runless materialization/check event 的 `run_id` 为空字符串，不能作为分组依据。
 5. 用 `asset_key + check_name + target_materialization_data.storage_id` 精确匹配 latest materialization 的 blocking check result。
 6. missing materialization、failed check、missing latest check result、非 terminal check result 都 fail closed。
 7. M11H-2 已补 cursor 快路径兼容：新 cursor 认 `details.selected_trade_date == target_trade_date` 且 `details.already_submitted_for_trade_date == true`；旧 cursor 认 `target_date == target_trade_date`、`decision == request_runs`，并且 `selected_count > 0` 或 `sample_keys` 包含该日期。
 8. `decision=skip`、`selected_count=0` 且无 sample、坏 JSON、schema 不匹配或不同目标日期都不触发快路径。
 9. 不新增独立 repair sensor、summary asset、readiness asset、数据库表或配置项，不改 job selection、run key、tags、asset/check definitions。
+
+M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filter` 的 latest-check 查询会过滤掉实际存在且绑定正确 materialization 的 check records，因为部分正式 check execution record 的 `partition` 字段为空。最终口径固定为 latest-check 查询不传 partition 过滤，只用目标分区 latest materialization 的 `storage_id` 与 check 的 `target_materialization_data.storage_id` 精确匹配。
 
 性能门槛：
 

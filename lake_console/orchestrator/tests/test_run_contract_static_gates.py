@@ -764,6 +764,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("qfq batch readiness helper does not use latest check API")
         if "get_asset_check_execution_history" in readiness_helper_source:
             issues.append("qfq batch readiness helper scans check history")
+        if "partition_filter" in readiness_helper_source or "PartitionKeyFilter" in readiness_helper_source:
+            issues.append("qfq batch readiness helper filters latest checks by partition")
 
         self.assertEqual(issues, [])
 

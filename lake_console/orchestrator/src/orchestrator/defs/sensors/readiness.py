@@ -3,7 +3,6 @@ from datetime import datetime
 from zoneinfo import ZoneInfo
 
 import dagster as dg
-from dagster._core.event_api import PartitionKeyFilter
 from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
@@ -724,7 +723,6 @@ def partition_dataset_readiness_status_from_latest_checks(
     check_records_by_key = (
         instance.event_log_storage.get_latest_asset_check_execution_by_key(
             check_keys,
-            partition_filter=PartitionKeyFilter(key=partition_key),
         )
         if check_keys
         else {}
