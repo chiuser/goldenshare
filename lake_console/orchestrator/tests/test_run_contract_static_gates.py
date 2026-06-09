@@ -331,16 +331,54 @@ class RunContractStaticGateTests(unittest.TestCase):
         repair_op_source = repair_op_path.read_text()
         required_repair_op_fragments = (
             "GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME",
+            "M12_REPAIR_EMPTY_STOCK_CODES_ERROR",
             "dg.AssetCheckEvaluation",
             "blocking=True",
             "partition=start_trade_date",
             "repair_required_codes_hash",
             "source_qfq_factor_repair_event_storage_ids",
+            '"stock_code_scope": "explicit"',
         )
         issues.extend(
             f"{repair_op_path} misses M12 repair completion fragment: {fragment}"
             for fragment in required_repair_op_fragments
             if fragment not in repair_op_source
+        )
+        stock_codes_schema_start = repair_op_source.find('"stock_codes": dg.Field(')
+        reason_schema_start = repair_op_source.find(
+            '"reason": dg.Field(',
+            stock_codes_schema_start,
+        )
+        if stock_codes_schema_start == -1 or reason_schema_start == -1:
+            issues.append(f"{repair_op_path} misses stock_codes repair config schema")
+        else:
+            stock_codes_schema = repair_op_source[
+                stock_codes_schema_start:reason_schema_start
+            ]
+            if "is_required=True" not in stock_codes_schema:
+                issues.append("M12 repair stock_codes config must be required")
+            if "default_value" in stock_codes_schema:
+                issues.append("M12 repair stock_codes config must not define a default")
+            if "为空表示全市场" in stock_codes_schema:
+                issues.append("M12 repair stock_codes config must not allow empty all-market repair")
+        stock_codes_guard = "if not stock_codes:"
+        repair_write_call = "write_gold_stk_mins_qfq_macd_kdj_rows("
+        if stock_codes_guard not in repair_op_source:
+            issues.append("M12 repair op must reject empty stock_codes")
+        elif repair_write_call not in repair_op_source:
+            issues.append("M12 repair op misses write helper call")
+        elif repair_op_source.index(stock_codes_guard) > repair_op_source.index(
+            repair_write_call
+        ):
+            issues.append("M12 repair op must reject empty stock_codes before writing")
+        forbidden_repair_op_fragments = (
+            '"stock_code_scope": "explicit" if stock_codes else "all"',
+            '"stock_code_scope": "all"',
+        )
+        issues.extend(
+            f"{repair_op_path} contains forbidden M12 repair op fragment: {fragment}"
+            for fragment in forbidden_repair_op_fragments
+            if fragment in repair_op_source
         )
 
         self.assertEqual(issues, [])

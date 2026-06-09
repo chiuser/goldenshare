@@ -1,6 +1,6 @@
 # M12: Gold stk_mins qfq MACD/KDJ 指标资产设计方案
 
-状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12J 自动 repair 链路已落地为代码口径：当 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 同日都成功后，run-status sensor 先触发 M12 daily；M12 daily 成功后，repair run-status sensor 再按 qfq factor repair affected codes 自动触发 scoped M12 repair，自动 repair 上限固定为 `repair_required_code_count <= 500`。M12 daily asset 写前 guard 允许受控 pending-repair run，但人工直接运行且缺少 qfq repair event identity / code hash 时仍 fail closed。daily/repair sensors 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。
+状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12J 自动 repair 链路已落地为代码口径：当 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 同日都成功后，run-status sensor 先触发 M12 daily；M12 daily 成功后，repair run-status sensor 再按 qfq factor repair affected codes 自动触发 scoped M12 repair，自动 repair 上限固定为 `repair_required_code_count <= 500`。M12K 已补充 repair job 安全门禁：`stock_codes` 必填且 trim/去重后不能为空，repair op 不提供空列表全市场重写入口。M12 daily asset 写前 guard 允许受控 pending-repair run，但人工直接运行且缺少 qfq repair event identity / code hash 时仍 fail closed。daily/repair sensors 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。
 
 更新时间：2026-06-09
 
@@ -37,6 +37,7 @@ M12 必须持久化递推 state。日常计算最新一天时，只允许读取�
 12. 历史文件必须全量生成；Dagster event 不做历史逐日全量补齐，只从 baseline cutoff 日期开始让 Dagster 认为当前状态可追踪，之后按日常链路持续记录。
 13. 递推状态资产统一使用 `state` 命名，不改成 `checkpoint`。
 14. M12J 自动 repair 上限固定为 `repair_required_code_count <= 500`。超过 500 个 affected codes 时，sensor 不自动提交 M12 repair，必须人工评估后手动执行。
+15. M12K 安全口径：`gold_stk_mins_qfq_macd_kdj_repair_job` 的 `stock_codes` 必填且不能为空；空列表会触发全市场 repair 的底层语义，因此 repair op 必须 fail closed，不进入 DuckDB、不写任何文件、不补 completion event。
 
 ## 3. 非目标
 
@@ -623,6 +624,8 @@ qfq repair metadata 必须补充：
 | `1..500` | 自动提交 M12 repair |
 | `>500` | 不自动提交；返回 skip reason，要求人工评估后手动执行 |
 
+M12K 补充安全口径：自动 sensor 只会在 `repair_required_code_count > 0` 且完整 code list/hash 可用时提交 repair；人工 Launchpad/CLI 执行同一个 repair job 时，也必须显式填写非空 `stock_codes`。repair job 不接受空列表代表全市场重写。
+
 M12 repair run config：
 
 ```python
@@ -680,7 +683,7 @@ config：
 | 字段 | 说明 |
 |---|---|
 | `start_trade_date` | 指标重算起始交易日，必须是受 qfq repair 影响的最早交易日 |
-| `stock_codes` | 受影响股票代码集合 |
+| `stock_codes` | 必填且不能为空的受影响股票代码集合；空列表禁止作为全市场 repair 入口 |
 | `freqs` | 默认七频度；允许显式缩小但不得扩大到非 qfq 频度 |
 | `reason` | repair 原因，例如 `qfq_factor_repair` |
 
@@ -694,7 +697,7 @@ repair 规则：
 6. repair completion check event 必须挂到七个指标 assets 和七个 state assets，partition 使用 repair 目标起点或实际触发的 `start_trade_date`。
 7. 新增 repair completion check 名称：`gold_stk_mins_qfq_macd_kdj_repair_completed_check`。它是维护事件门禁，不替代指标/state 的常规 blocking checks。
 8. scoped repair 写 state 文件时必须 merge：读取已有 `freq/trade_date` state，删除本次 `stock_codes` 的旧 state，union 新 state 后原子替换。禁止因为只修少量股票而整文件覆盖导致未受影响股票 state 丢失。
-9. 只有全市场 repair 才允许整 state partition 文件覆盖。
+9. repair job 不提供全市场默认入口；空 `stock_codes` 必须失败，防止 Launchpad/CLI 漏填后整市场重写。未来如确需全市场指标 repair，必须单独设计、审批和执行，不得复用空列表语义。
 
 M12J 自动触发规则：
 
@@ -897,6 +900,8 @@ baseline/future tracking 复核使用：
 16. M12J 新增测试：`repair_required_code_count>500`、缺完整 code list 或 hash 不匹配时，不自动提交 repair。
 17. M12J 新增测试：scoped state repair 只替换 affected codes，保留同一 `freq/trade_date` state 文件中的未受影响股票。
 18. M12J 新增测试：completion event 覆盖 code hash、code count、freqs 和日期范围；缺字段或范围不足 fail closed。
+19. M12K 新增测试：repair op 漏填 `stock_codes` 时 config validation 失败。
+20. M12K 新增测试：repair op 收到空列表或空白代码时 fail closed，且不调用写入 helper。
 
 静态/契约测试：
 
@@ -912,6 +917,7 @@ baseline/future tracking 复核使用：
 10. M12 正式 helper/bootstrap/repair 源码不出现 `WITH RECURSIVE` 或 recursive CTE。
 11. M12J sensor 必须使用 run-status coordination 或等价 event-driven 触发，不得新增第二套并行 daily polling sensor。
 12. M12J 自动 repair 不得默认全市场；必须从 qfq repair metadata 读取 `repair_required_codes`，并执行 500 code 上限门禁。
+13. M12K 静态门禁：repair op 的 `stock_codes` 不允许 `default_value=[]`，不允许“为空表示全市场”文案，空列表 guard 必须在写入 helper 前，completion metadata 不允许 `stock_code_scope=all`。
 
 验证命令：
 

@@ -900,8 +900,8 @@
           <td><code>gold_stk_mins_qfq_macd_kdj_repair_job</code></td>
           <td>维护型非分区 op job</td>
           <td>从 qfq repair 影响起点向后重算 MACD/KDJ indicator/state。</td>
-          <td>人工 run 通过 typed config 指定 <code>start_trade_date</code>、<code>freqs</code>、<code>stock_codes</code> 和 <code>reason</code>；<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 在 M12 daily 成功后按 qfq repair affected codes 自动提交 scoped repair，自动上限为 500 个代码。</td>
-          <td>repair 成功必须向七个 indicator assets 和七个 state assets 写 <code>gold_stk_mins_qfq_macd_kdj_repair_completed_check</code>，供最终 readiness/收口判断。</td>
+          <td>人工 run 通过 typed config 指定 <code>start_trade_date</code>、<code>freqs</code>、非空 <code>stock_codes</code> 和 <code>reason</code>；<code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 在 M12 daily 成功后按 qfq repair affected codes 自动提交 scoped repair，自动上限为 500 个代码。</td>
+          <td>repair job 不提供空列表全市场默认入口；漏填或 trim/去重后为空会 fail closed，不写文件、不补 completion event。repair 成功必须向七个 indicator assets 和七个 state assets 写 <code>gold_stk_mins_qfq_macd_kdj_repair_completed_check</code>，供最终 readiness/收口判断。</td>
         </tr>
         <tr>
           <td><code>index_basic_update_job</code></td>

@@ -20,6 +20,12 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 )
 
 
+M12_REPAIR_EMPTY_STOCK_CODES_ERROR = (
+    "M12 repair requires explicit stock_codes; empty stock_codes would trigger "
+    "full-market repair and is forbidden."
+)
+
+
 GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA = {
     "start_trade_date": dg.Field(
         str,
@@ -33,9 +39,8 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA = {
     ),
     "stock_codes": dg.Field(
         [str],
-        is_required=False,
-        default_value=[],
-        description="可选股票代码白名单；为空表示全市场。",
+        is_required=True,
+        description="必填股票代码白名单，trim/去重后不能为空；repair job 不提供全市场默认入口。",
     ),
     "reason": dg.Field(
         str,
@@ -106,11 +111,13 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         sorted(
             {
                 str(stock_code).strip()
-                for stock_code in context.op_config.get("stock_codes", [])
+                for stock_code in context.op_config["stock_codes"]
                 if str(stock_code).strip()
             }
         )
     )
+    if not stock_codes:
+        raise dg.Failure(M12_REPAIR_EMPTY_STOCK_CODES_ERROR)
     reason = str(context.op_config.get("reason", "manual_repair")).strip()
     repair_required_codes_hash = str(
         context.op_config.get("repair_required_codes_hash", "")
@@ -207,7 +214,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
             "covered_start_trade_date": start_trade_date,
             "covered_end_trade_date": target_dates[-1],
             "freqs": list(freqs),
-            "stock_code_scope": "explicit" if stock_codes else "all",
+            "stock_code_scope": "explicit",
             "stock_code_count": len(stock_codes),
             "repair_required_code_count": len(stock_codes),
             "repair_required_codes_hash": repair_required_codes_hash,

@@ -9,6 +9,7 @@ from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_repair import (
     gold_stk_mins_qfq_macd_kdj_repair_job,
 )
 from orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair import (
+    M12_REPAIR_EMPTY_STOCK_CODES_ERROR,
     gold_stk_mins_qfq_macd_kdj_repair_op,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
@@ -53,6 +54,53 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
             gold_stk_mins_qfq_macd_kdj_repair_op.pool,
             GOLD_STK_MINS_QFQ_WRITER_POOL,
         )
+
+    def test_repair_op_requires_stock_codes_run_config(self) -> None:
+        with self.assertRaises(dg.DagsterInvalidConfigError):
+            dg.validate_run_config(
+                gold_stk_mins_qfq_macd_kdj_repair_job,
+                {
+                    "ops": {
+                        "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                            "config": {
+                                "start_trade_date": START_DATE,
+                            }
+                        }
+                    }
+                },
+            )
+
+    def test_repair_op_rejects_empty_stock_codes_before_writing(self) -> None:
+        for stock_codes in ([], ["", "   "]):
+            with self.subTest(stock_codes=stock_codes):
+                with TemporaryDirectory() as temp_dir:
+                    with patch(
+                        "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                        "write_gold_stk_mins_qfq_macd_kdj_rows",
+                    ) as mocked_write_rows:
+                        result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                            run_config={
+                                "ops": {
+                                    "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                        "config": {
+                                            "start_trade_date": START_DATE,
+                                            "stock_codes": stock_codes,
+                                        }
+                                    }
+                                }
+                            },
+                            raise_on_error=False,
+                            resources={
+                                "lake_root": LakeRootResource(root_path=temp_dir),
+                            },
+                        )
+
+                self.assertFalse(result.success)
+                self.assertIn(
+                    M12_REPAIR_EMPTY_STOCK_CODES_ERROR,
+                    str(result.get_step_failure_events()[0].event_specific_data.error),
+                )
+                mocked_write_rows.assert_not_called()
 
     def test_successful_repair_emits_fourteen_completion_check_events(self) -> None:
         with TemporaryDirectory() as temp_dir:
