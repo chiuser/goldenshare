@@ -4,10 +4,6 @@ import unittest
 import dagster as dg
 
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-    M12_PENDING_QFQ_FACTOR_REPAIR_TAG,
-    M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG,
-    M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG,
-    M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG,
     GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
 )
 from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor import (
@@ -29,20 +25,20 @@ REPAIR_CODES_HASH = "a" * 64
 def _repair_gate_status(
     *,
     ready: bool = True,
-    requires_m12_repair: bool = False,
+    requires_macd_kdj_repair: bool = False,
     qfq_event_ids: tuple[int, ...] = (101, 102, 103, 104, 105, 106, 107),
 ) -> GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
     return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
         ready=ready,
         trade_date=PARTITION_KEY,
         reason="ready" if ready else "not ready",
-        requires_m12_repair=requires_m12_repair,
+        requires_macd_kdj_repair=requires_macd_kdj_repair,
         qfq_factor_repair_event_storage_ids=qfq_event_ids,
         repair_start_trade_date="2014-01-02",
         repair_end_trade_date=PARTITION_KEY,
         selected_partition_count=1800,
-        repair_required_code_count=1 if requires_m12_repair else 0,
-        repair_required_codes=("600000.SH",) if requires_m12_repair else (),
+        repair_required_code_count=1 if requires_macd_kdj_repair else 0,
+        repair_required_codes=("600000.SH",) if requires_macd_kdj_repair else (),
         repair_required_codes_hash=REPAIR_CODES_HASH,
         repair_required_codes_truncated=False,
     )
@@ -172,8 +168,10 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         self.assertIsNone(no_qfq_daily.selected_trade_date)
         self.assertIsNone(no_factor_repair.selected_trade_date)
 
-    def test_daily_decision_submits_pending_repair_run_after_upstreams_ready(self) -> None:
-        status = _repair_gate_status(requires_m12_repair=True)
+    def test_daily_decision_submits_run_after_upstreams_ready_without_custom_tags(
+        self,
+    ) -> None:
+        status = _repair_gate_status(requires_macd_kdj_repair=True)
 
         decision = build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
             target_trade_date=PARTITION_KEY,
@@ -185,31 +183,15 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
             target_ready=False,
             target_has_materialized_check_problem=False,
         )
-        request = _run_request_for_trade_date(
-            PARTITION_KEY,
-            qfq_factor_repair_status=status,
-        )
+        request = _run_request_for_trade_date(PARTITION_KEY)
 
         self.assertEqual(decision.selected_trade_date, PARTITION_KEY)
-        self.assertTrue(decision.pending_m12_repair)
         self.assertEqual(
             request.run_key,
             f"gold_stk_mins_qfq_macd_kdj_daily_update:{PARTITION_KEY}",
         )
         self.assertEqual(request.partition_key, PARTITION_KEY)
-        self.assertEqual(request.tags[M12_PENDING_QFQ_FACTOR_REPAIR_TAG], "true")
-        self.assertEqual(
-            request.tags[M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG],
-            PARTITION_KEY,
-        )
-        self.assertEqual(
-            request.tags[M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG],
-            "101,102,103,104,105,106,107",
-        )
-        self.assertEqual(
-            request.tags[M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG],
-            REPAIR_CODES_HASH,
-        )
+        self.assertEqual(request.tags, {})
 
 
 if __name__ == "__main__":

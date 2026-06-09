@@ -135,7 +135,6 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
         assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
             context.instance,
             partition_key,
-            run_tags=context.run.tags,
         )
         write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
             lake_root=lake_root.root(),

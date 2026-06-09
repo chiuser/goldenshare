@@ -40,7 +40,7 @@ QFQ_FACTOR_REPAIR_REASONS = (
     QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
 )
 QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
-QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT = 500
+QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT = 500
 GOLD_STK_MINS_QFQ_DERIVED_WINDOWS = {
     90: (
         ("10:00:00", 1, "11:00:00"),
@@ -663,7 +663,7 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
         )
     )
     repair_required_codes_truncated = (
-        len(repair_required_codes) > QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT
+        len(repair_required_codes) > QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT
     )
     return build_check_metadata(
         check_scope=CheckScope.RECONCILIATION,

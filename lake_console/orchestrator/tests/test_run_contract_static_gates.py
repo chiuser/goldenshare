@@ -179,7 +179,7 @@ def _is_allowed_direct_run_request(path: Path) -> bool:
 
 
 def _is_allowed_direct_run_request_tags(path: Path) -> bool:
-    return path.name == "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+    return False
 
 
 class RunContractStaticGateTests(unittest.TestCase):
@@ -262,7 +262,6 @@ class RunContractStaticGateTests(unittest.TestCase):
             "partition_dataset_readiness_status_from_latest_checks",
             "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status",
             "GOLD_STK_MINS_QFQ_READINESS_SPECS",
-            "M12_PENDING_QFQ_FACTOR_REPAIR_TAG",
             "build_sensor_tags",
         )
         forbidden_sensor_fragments = (
@@ -270,6 +269,10 @@ class RunContractStaticGateTests(unittest.TestCase):
             "duckdb",
             "read_parquet",
             "gold_stk_mins_qfq_macd_kdj_path",
+            "goldenshare/m12",
+            "M12_PENDING_QFQ_FACTOR_REPAIR_TAG",
+            "M12_QFQ_FACTOR_REPAIR",
+            "pending_m12_repair",
         )
         issues.extend(
             f"{sensor_path} misses M12 sensor fragment: {fragment}"
@@ -286,7 +289,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "run_status_sensor",
             "request_job=gold_stk_mins_qfq_macd_kdj_repair_job",
             "monitored_jobs=[gold_stk_mins_qfq_macd_kdj_daily_update_job]",
-            "automatic_m12_repair_allowed",
+            "automatic_macd_kdj_repair_allowed",
             '"stock_codes": list(decision.stock_codes)',
             "source_qfq_factor_repair_event_storage_ids",
             "build_sensor_tags",
@@ -297,6 +300,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "read_parquet",
             "gold_stk_mins_qfq_macd_kdj_path",
             '"stock_codes": []',
+            "automatic_m12_repair_allowed",
         )
         issues.extend(
             f"{repair_sensor_path} misses M12J repair sensor fragment: {fragment}"
@@ -321,8 +325,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("M12 asset must call qfq/M12 repair gate guard")
         elif guard_call_site not in asset_source:
             issues.append("M12 asset guard call site must use context.instance")
-        elif guard_run_tags not in asset_source:
-            issues.append("M12 asset guard must validate run tags before writing")
+        elif guard_run_tags in asset_source:
+            issues.append("MACD/KDJ asset guard must not depend on run tags")
         elif write_call not in asset_source:
             issues.append("M12 asset write helper call is missing")
         elif asset_source.index(guard_call_site) > asset_source.index(write_call):
@@ -331,7 +335,11 @@ class RunContractStaticGateTests(unittest.TestCase):
         repair_op_source = repair_op_path.read_text()
         required_repair_op_fragments = (
             "GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME",
-            "M12_REPAIR_EMPTY_STOCK_CODES_ERROR",
+            "MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR",
+            "MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR",
+            "qfq_factor_repair_trade_date",
+            "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status",
+            "_repair_scope_from_qfq_factor_repair_status",
             "dg.AssetCheckEvaluation",
             "blocking=True",
             "partition=start_trade_date",
@@ -355,25 +363,37 @@ class RunContractStaticGateTests(unittest.TestCase):
             stock_codes_schema = repair_op_source[
                 stock_codes_schema_start:reason_schema_start
             ]
-            if "is_required=True" not in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must be required")
-            if "default_value" in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must not define a default")
+            if "is_required=False" not in stock_codes_schema:
+                issues.append("M12 repair stock_codes config must be optional for metadata mode")
             if "为空表示全市场" in stock_codes_schema:
                 issues.append("M12 repair stock_codes config must not allow empty all-market repair")
-        stock_codes_guard = "if not stock_codes:"
+            if "qfq_factor_repair_trade_date" not in stock_codes_schema:
+                issues.append("M12 repair stock_codes config must mention metadata mode")
+        stock_codes_guard = "elif not stock_codes:"
         repair_write_call = "write_gold_stk_mins_qfq_macd_kdj_rows("
         if stock_codes_guard not in repair_op_source:
-            issues.append("M12 repair op must reject empty stock_codes")
+            issues.append("M12 repair op must reject empty stock_codes without metadata mode")
         elif repair_write_call not in repair_op_source:
             issues.append("M12 repair op misses write helper call")
         elif repair_op_source.index(stock_codes_guard) > repair_op_source.index(
             repair_write_call
         ):
             issues.append("M12 repair op must reject empty stock_codes before writing")
+        qfq_mode = "if qfq_factor_repair_trade_date is not None:"
+        qfq_status_call = "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status("
+        if qfq_mode not in repair_op_source:
+            issues.append("M12 repair op must support qfq_factor_repair_trade_date mode")
+        elif qfq_status_call not in repair_op_source:
+            issues.append("M12 repair op must read qfq factor repair metadata in metadata mode")
+        elif repair_op_source.index(qfq_mode) > repair_op_source.index(repair_write_call):
+            issues.append("M12 repair metadata mode must resolve scope before writing")
         forbidden_repair_op_fragments = (
             '"stock_code_scope": "explicit" if stock_codes else "all"',
             '"stock_code_scope": "all"',
+            "M12_REPAIR_EMPTY_STOCK_CODES_ERROR",
+            "M12_REPAIR_MISSING_SCOPE_ERROR",
+            "requires_m12_repair",
+            "automatic_m12_repair_allowed",
         )
         issues.extend(
             f"{repair_op_path} contains forbidden M12 repair op fragment: {fragment}"

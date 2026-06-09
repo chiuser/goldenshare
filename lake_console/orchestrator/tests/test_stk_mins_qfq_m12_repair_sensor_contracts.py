@@ -19,7 +19,7 @@ REPAIR_CODES_HASH = "b" * 64
 
 def _qfq_status(
     *,
-    requires_m12_repair: bool,
+    requires_macd_kdj_repair: bool,
     code_count: int,
     truncated: bool = False,
     codes: tuple[str, ...] | None = None,
@@ -30,7 +30,7 @@ def _qfq_status(
         ready=True,
         trade_date=TRADE_DATE,
         reason="ready",
-        requires_m12_repair=requires_m12_repair,
+        requires_macd_kdj_repair=requires_macd_kdj_repair,
         qfq_factor_repair_event_storage_ids=(101, 102, 103, 104, 105, 106, 107),
         repair_start_trade_date=REPAIR_START_DATE,
         repair_end_trade_date=TRADE_DATE,
@@ -57,18 +57,18 @@ class StkMinsQfqM12RepairSensorContractTests(unittest.TestCase):
         decision = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             target_trade_date=TRADE_DATE,
             qfq_factor_repair_status=_qfq_status(
-                requires_m12_repair=False,
+                requires_macd_kdj_repair=False,
                 code_count=0,
                 codes=(),
             ),
-            m12_daily_ready=True,
+            macd_kdj_daily_ready=True,
         )
 
         self.assertIsNone(decision.selected_trade_date)
 
     def test_one_to_five_hundred_codes_submit_scoped_repair(self) -> None:
         status = _qfq_status(
-            requires_m12_repair=True,
+            requires_macd_kdj_repair=True,
             code_count=2,
             codes=("000001.SZ", "600000.SH"),
         )
@@ -76,7 +76,7 @@ class StkMinsQfqM12RepairSensorContractTests(unittest.TestCase):
         decision = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             target_trade_date=TRADE_DATE,
             qfq_factor_repair_status=status,
-            m12_daily_ready=True,
+            macd_kdj_daily_ready=True,
         )
         request = _run_request_for_repair_decision(decision)
         op_config = request.run_config["ops"][
@@ -98,34 +98,34 @@ class StkMinsQfqM12RepairSensorContractTests(unittest.TestCase):
         too_many = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             target_trade_date=TRADE_DATE,
             qfq_factor_repair_status=_qfq_status(
-                requires_m12_repair=True,
+                requires_macd_kdj_repair=True,
                 code_count=501,
                 truncated=True,
                 codes=(),
             ),
-            m12_daily_ready=True,
+            macd_kdj_daily_ready=True,
         )
         missing_list = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             target_trade_date=TRADE_DATE,
             qfq_factor_repair_status=_qfq_status(
-                requires_m12_repair=True,
+                requires_macd_kdj_repair=True,
                 code_count=2,
                 codes=("000001.SZ",),
             ),
-            m12_daily_ready=True,
+            macd_kdj_daily_ready=True,
         )
 
         self.assertIsNone(too_many.selected_trade_date)
         self.assertIsNone(missing_list.selected_trade_date)
 
-    def test_m12_daily_not_ready_skips(self) -> None:
+    def test_macd_kdj_daily_not_ready_skips(self) -> None:
         decision = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             target_trade_date=TRADE_DATE,
             qfq_factor_repair_status=_qfq_status(
-                requires_m12_repair=True,
+                requires_macd_kdj_repair=True,
                 code_count=1,
             ),
-            m12_daily_ready=False,
+            macd_kdj_daily_ready=False,
         )
 
         self.assertIsNone(decision.selected_trade_date)

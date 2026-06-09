@@ -18,7 +18,7 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
-    QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT,
+    QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT,
     QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
     QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
     QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE,
@@ -404,7 +404,7 @@ class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
     def test_factor_repair_metadata_truncates_code_list_above_auto_limit(self) -> None:
         codes = tuple(
             f"{index:06d}.SZ"
-            for index in range(QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT + 1)
+            for index in range(QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT + 1)
         )
         plan = GoldStkMinsQfqFactorRepairPlan(
             trade_date=TRADE_DATE,

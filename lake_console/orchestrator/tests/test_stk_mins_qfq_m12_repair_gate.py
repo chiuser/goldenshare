@@ -49,7 +49,7 @@ class _FakeEventLogStorage:
 
     def get_asset_check_execution_history(self, *args, **kwargs):
         self.history_call_count += 1
-        raise AssertionError("M12 repair gate must not scan check history")
+        raise AssertionError("MACD/KDJ repair gate must not scan check history")
 
 
 class _FakeInstance:
@@ -124,8 +124,8 @@ def _m12_metadata(
     covered_start_trade_date: str = REPAIR_START_DATE,
     covered_end_trade_date: str = TRADE_DATE,
     freqs: tuple[int, ...] = STK_MINS_QFQ_FREQS,
-    stock_code_scope: str = "all",
-    stock_code_count: int = 0,
+    stock_code_scope: str = "explicit",
+    stock_code_count: int = 3,
     repair_required_code_count: int = 3,
     repair_required_codes_hash: str = REPAIR_CODES_HASH,
     source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = QFQ_EVENT_STORAGE_IDS,
@@ -179,7 +179,7 @@ class StkMinsQfqM12RepairGateTests(unittest.TestCase):
         )
 
         self.assertTrue(status.ready)
-        self.assertFalse(status.requires_m12_repair)
+        self.assertFalse(status.requires_macd_kdj_repair)
         self.assertEqual(status.repair_start_trade_date, REPAIR_START_DATE)
         self.assertEqual(instance.event_log_storage.latest_call_count, 1)
         self.assertEqual(instance.event_log_storage.history_call_count, 0)
@@ -233,8 +233,8 @@ class StkMinsQfqM12RepairGateTests(unittest.TestCase):
         )
 
         self.assertFalse(status.ready)
-        self.assertTrue(status.requires_m12_repair)
-        self.assertIsNotNone(status.m12_repair_status)
+        self.assertTrue(status.requires_macd_kdj_repair)
+        self.assertIsNotNone(status.macd_kdj_repair_status)
         self.assertEqual(instance.event_log_storage.latest_call_count, 2)
 
     def test_history_rewrite_with_valid_m12_completion_is_ready(self):
@@ -250,8 +250,8 @@ class StkMinsQfqM12RepairGateTests(unittest.TestCase):
         )
 
         self.assertTrue(status.ready)
-        self.assertTrue(status.requires_m12_repair)
-        self.assertEqual(len(status.m12_repair_event_storage_ids), 14)
+        self.assertTrue(status.requires_macd_kdj_repair)
+        self.assertEqual(len(status.macd_kdj_repair_event_storage_ids), 14)
 
     def test_m12_completion_before_qfq_repair_or_undercovered_fails_closed(self):
         old_completion_instance = _FakeInstance(

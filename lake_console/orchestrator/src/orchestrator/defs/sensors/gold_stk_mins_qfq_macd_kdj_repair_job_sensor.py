@@ -7,7 +7,7 @@ import dagster as dg
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
     GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
     gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status,
-    gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_tag_value,
+    gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_identity,
 )
 from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_daily_update import (
     gold_stk_mins_qfq_macd_kdj_daily_update_job,
@@ -50,19 +50,22 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
     *,
     target_trade_date: str | None,
     qfq_factor_repair_status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus | None,
-    m12_daily_ready: bool,
+    macd_kdj_daily_ready: bool,
 ) -> GoldStkMinsQfqMacdKdjRepairRunStatusDecision:
     if target_trade_date is None:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
             target_trade_date=None,
             selected_trade_date=None,
-            reason="无法从 M12 daily run 中解析目标交易日。",
+            reason="无法从 MACD/KDJ daily run 中解析目标交易日。",
         )
-    if not m12_daily_ready:
+    if not macd_kdj_daily_ready:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
-            reason="目标交易日 M12 daily indicator/state 尚未 ready，暂不触发 repair。",
+            reason=(
+                "目标交易日 MACD/KDJ indicator/state 尚未 ready，"
+                "暂不触发 repair。"
+            ),
         )
     if qfq_factor_repair_status is None or not qfq_factor_repair_status.ready:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
@@ -74,25 +77,25 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
                 else "同日 qfq factor repair 状态不可用。"
             ),
         )
-    if not qfq_factor_repair_status.requires_m12_repair:
+    if not qfq_factor_repair_status.requires_macd_kdj_repair:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
-            reason="qfq factor repair 未改写历史 qfq 文件，无需触发 M12 repair。",
+            reason="qfq factor repair 未改写历史 qfq 文件，无需触发 MACD/KDJ repair。",
         )
-    if not qfq_factor_repair_status.automatic_m12_repair_allowed:
+    if not qfq_factor_repair_status.automatic_macd_kdj_repair_allowed:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=(
                 "qfq factor repair affected codes 超过自动上限，或缺少完整 "
-                "code list/hash，暂不自动触发 M12 repair。"
+                "code list/hash，暂不自动触发 MACD/KDJ repair。"
             ),
         )
     return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
         target_trade_date=target_trade_date,
         selected_trade_date=qfq_factor_repair_status.repair_start_trade_date,
-        reason="M12 daily 成功，提交 scoped M12 repair。",
+        reason="MACD/KDJ daily 成功，提交 scoped MACD/KDJ repair。",
         stock_codes=qfq_factor_repair_status.repair_required_codes,
         repair_required_codes_hash=qfq_factor_repair_status.repair_required_codes_hash,
         qfq_factor_repair_event_storage_ids=(
@@ -125,7 +128,7 @@ def _run_config_for_repair_decision(
 def _run_request_for_repair_decision(
     decision: GoldStkMinsQfqMacdKdjRepairRunStatusDecision,
 ) -> dg.RunRequest:
-    qfq_event_identity = gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_tag_value(
+    qfq_event_identity = gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_identity(
         decision.qfq_factor_repair_event_storage_ids
     )
     return dg.RunRequest(
@@ -150,7 +153,7 @@ def _run_request_for_repair_decision(
         role=SensorRole.ASSET_UPDATE,
     ),
     description=(
-        "M12 daily 成功后，按同日 qfq factor repair affected codes 自动触发 "
+        "MACD/KDJ daily 成功后，按同日 qfq factor repair affected codes 自动触发 "
         "scoped MACD/KDJ repair；超过 500 个代码时只 skip。"
     ),
 )
@@ -159,7 +162,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_job_sensor(
 ) -> dg.RunRequest | dg.SkipReason:
     target_trade_date = _trade_date_from_dagster_run(context.dagster_run)
     qfq_factor_repair_status = None
-    m12_daily_ready = False
+    macd_kdj_daily_ready = False
     if target_trade_date is not None:
         qfq_factor_repair_status = (
             gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status(
@@ -167,17 +170,17 @@ def gold_stk_mins_qfq_macd_kdj_repair_job_sensor(
                 target_trade_date,
             )
         )
-        m12_daily_status = partition_dataset_readiness_status_from_latest_checks(
+        macd_kdj_daily_status = partition_dataset_readiness_status_from_latest_checks(
             context.instance,
             GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS,
             partition_key=target_trade_date,
         )
-        m12_daily_ready = m12_daily_status.ready
+        macd_kdj_daily_ready = macd_kdj_daily_status.ready
 
     decision = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
         target_trade_date=target_trade_date,
         qfq_factor_repair_status=qfq_factor_repair_status,
-        m12_daily_ready=m12_daily_ready,
+        macd_kdj_daily_ready=macd_kdj_daily_ready,
     )
     if decision.selected_trade_date is None:
         return dg.SkipReason(decision.reason)

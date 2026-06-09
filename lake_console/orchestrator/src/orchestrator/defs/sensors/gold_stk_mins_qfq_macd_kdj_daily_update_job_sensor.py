@@ -8,13 +8,8 @@ import dagster as dg
 from dagster._core.storage.dagster_run import RunsFilter
 
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-    M12_PENDING_QFQ_FACTOR_REPAIR_TAG,
-    M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG,
-    M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG,
-    M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG,
     GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
     gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status,
-    gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_tag_value,
 )
 from orchestrator.defs.checks.stk_mins_qfq_macd_kdj_checks import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES,
@@ -79,9 +74,6 @@ class GoldStkMinsQfqMacdKdjDailyRunStatusDecision:
     previous_trade_date: str | None
     selected_trade_date: str | None
     reason: str
-    pending_m12_repair: bool = False
-    qfq_factor_repair_event_storage_ids: tuple[int, ...] = ()
-    qfq_factor_repair_codes_hash: str | None = None
 
 
 def _normalize_trade_date(raw_trade_date: str | None) -> str | None:
@@ -193,7 +185,10 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
             target_trade_date=target_trade_date,
             previous_trade_date=previous_trade_date,
             selected_trade_date=None,
-            reason="同日 stock_mins_qfq_daily_update_job 尚未成功，暂不触发 M12 daily。",
+            reason=(
+                "同日 stock_mins_qfq_daily_update_job 尚未成功，"
+                "暂不触发 MACD/KDJ daily。"
+            ),
         )
     if qfq_factor_repair_status is None or not qfq_factor_repair_status.ready:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -211,7 +206,10 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
             target_trade_date=target_trade_date,
             previous_trade_date=previous_trade_date,
             selected_trade_date=None,
-            reason="股票分钟线 gold qfq 七频度尚未全部 ready，暂不触发 M12 daily。",
+            reason=(
+                "股票分钟线 gold qfq 七频度尚未全部 ready，"
+                "暂不触发 MACD/KDJ daily。"
+            ),
         )
     if not previous_state_ready:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -241,45 +239,14 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
         target_trade_date=target_trade_date,
         previous_trade_date=previous_trade_date,
         selected_trade_date=target_trade_date,
-        reason="qfq daily 与 qfq factor repair 同日成功，提交 M12 daily。",
-        pending_m12_repair=qfq_factor_repair_status.requires_m12_repair,
-        qfq_factor_repair_event_storage_ids=(
-            qfq_factor_repair_status.qfq_factor_repair_event_storage_ids
-        ),
-        qfq_factor_repair_codes_hash=(
-            qfq_factor_repair_status.repair_required_codes_hash
-        ),
+        reason="qfq daily 与 qfq factor repair 同日成功，提交 MACD/KDJ daily。",
     )
 
 
-def _run_tags_for_qfq_factor_repair_status(
-    status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
-) -> dict[str, str]:
-    tags = {
-        M12_PENDING_QFQ_FACTOR_REPAIR_TAG: (
-            "true" if status.requires_m12_repair else "false"
-        ),
-        M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG: status.trade_date,
-        M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG: (
-            gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_tag_value(
-                status.qfq_factor_repair_event_storage_ids
-            )
-        ),
-    }
-    if status.repair_required_codes_hash is not None:
-        tags[M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG] = status.repair_required_codes_hash
-    return tags
-
-
-def _run_request_for_trade_date(
-    trade_date: str,
-    *,
-    qfq_factor_repair_status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
-) -> dg.RunRequest:
+def _run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
     return dg.RunRequest(
         run_key=f"gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}",
         partition_key=trade_date,
-        tags=_run_tags_for_qfq_factor_repair_status(qfq_factor_repair_status),
     )
 
 
@@ -392,7 +359,4 @@ def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
     )
     if decision.selected_trade_date is None or qfq_factor_repair_status is None:
         return dg.SkipReason(decision.reason)
-    return _run_request_for_trade_date(
-        decision.selected_trade_date,
-        qfq_factor_repair_status=qfq_factor_repair_status,
-    )
+    return _run_request_for_trade_date(decision.selected_trade_date)
