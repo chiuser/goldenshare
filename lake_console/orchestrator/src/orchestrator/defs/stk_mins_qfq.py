@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import hashlib
 from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
@@ -39,6 +40,7 @@ QFQ_FACTOR_REPAIR_REASONS = (
     QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
 )
 QFQ_FACTOR_REPAIR_METADATA_SAMPLE_LIMIT = 20
+QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT = 500
 GOLD_STK_MINS_QFQ_DERIVED_WINDOWS = {
     90: (
         ("10:00:00", 1, "11:00:00"),
@@ -57,6 +59,23 @@ GOLD_STK_MINS_QFQ_DERIVED_WINDOWS = {
         ("14:00:00", 2, "14:00:00"),
     ),
 }
+
+
+def gold_stk_mins_qfq_factor_repair_codes_hash(
+    stock_codes: Sequence[str],
+) -> str:
+    """Return a stable SHA-256 identity for a qfq factor repair code scope."""
+
+    normalized_codes = tuple(
+        sorted(
+            {
+                str(stock_code).strip()
+                for stock_code in stock_codes
+                if str(stock_code).strip()
+            }
+        )
+    )
+    return hashlib.sha256("\n".join(normalized_codes).encode("utf-8")).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -634,6 +653,18 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     ):
         if value < 0:
             raise ValueError(f"{name} must be non-negative.")
+    repair_required_codes = tuple(
+        sorted(
+            {
+                str(stock_code).strip()
+                for stock_code in plan.repair_required_codes
+                if str(stock_code).strip()
+            }
+        )
+    )
+    repair_required_codes_truncated = (
+        len(repair_required_codes) > QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT
+    )
     return build_check_metadata(
         check_scope=CheckScope.RECONCILIATION,
         checked_row_count=plan.detected_change_code_count,
@@ -673,6 +704,15 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
             ),
             "detected_change_code_count": plan.detected_change_code_count,
             "repair_required_code_count": plan.repair_required_code_count,
+            "repair_required_codes": (
+                []
+                if repair_required_codes_truncated
+                else list(repair_required_codes)
+            ),
+            "repair_required_codes_hash": (
+                gold_stk_mins_qfq_factor_repair_codes_hash(repair_required_codes)
+            ),
+            "repair_required_codes_truncated": repair_required_codes_truncated,
             "factor_changed_code_count": plan.factor_changed_code_count,
             "new_current_code_count": plan.new_current_code_count,
             "missing_previous_factor_code_count": (

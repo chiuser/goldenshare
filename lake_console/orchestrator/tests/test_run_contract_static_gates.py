@@ -26,9 +26,15 @@ M12_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "assets" / "stk_mins_qfq_macd_kdj.py",
     DEFS_DIR / "checks" / "stk_mins_qfq_macd_kdj_checks.py",
     DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py",
+    DEFS_DIR / "sensors" / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
+    DEFS_DIR / "sensors" / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py",
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py",
 )
+M12_RUN_STATUS_SENSOR_FILES = {
+    "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
+    "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
+}
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
 FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
@@ -162,10 +168,18 @@ def _check_metadata_builder_names(tree: ast.Module) -> set[str]:
 
 
 def _is_allowed_sensor_run_config_dict(path: Path, dict_node: ast.Dict) -> bool:
-    return (
-        path.name == "stock_mins_qfq_factor_repair_sensor.py"
-        and "ops" in _direct_string_keys(dict_node)
-    )
+    return path.name in (
+        "stock_mins_qfq_factor_repair_sensor.py",
+        "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
+    ) and "ops" in _direct_string_keys(dict_node)
+
+
+def _is_allowed_direct_run_request(path: Path) -> bool:
+    return path.name in M12_RUN_STATUS_SENSOR_FILES
+
+
+def _is_allowed_direct_run_request_tags(path: Path) -> bool:
+    return path.name == "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
 
 
 class RunContractStaticGateTests(unittest.TestCase):
@@ -218,6 +232,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update.py"
         repair_job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_repair.py"
         sensor_path = SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+        repair_sensor_path = SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py"
         asset_path = ASSETS_DIR / "stk_mins_qfq_macd_kdj.py"
         repair_op_path = DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py"
 
@@ -241,10 +256,13 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         sensor_source = sensor_path.read_text()
         required_sensor_fragments = (
+            "run_status_sensor",
+            "request_job=gold_stk_mins_qfq_macd_kdj_daily_update_job",
+            "monitored_jobs=[stock_mins_qfq_daily_update_job, stock_mins_qfq_factor_repair_job]",
             "partition_dataset_readiness_status_from_latest_checks",
-            "gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status",
+            "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status",
             "GOLD_STK_MINS_QFQ_READINESS_SPECS",
-            "build_run_request",
+            "M12_PENDING_QFQ_FACTOR_REPAIR_TAG",
             "build_sensor_tags",
         )
         forbidden_sensor_fragments = (
@@ -252,9 +270,6 @@ class RunContractStaticGateTests(unittest.TestCase):
             "duckdb",
             "read_parquet",
             "gold_stk_mins_qfq_macd_kdj_path",
-            '"ops"',
-            "'ops'",
-            "run_tags",
         )
         issues.extend(
             f"{sensor_path} misses M12 sensor fragment: {fragment}"
@@ -266,6 +281,33 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_sensor_fragments
             if fragment in sensor_source
         )
+        repair_sensor_source = repair_sensor_path.read_text()
+        required_repair_sensor_fragments = (
+            "run_status_sensor",
+            "request_job=gold_stk_mins_qfq_macd_kdj_repair_job",
+            "monitored_jobs=[gold_stk_mins_qfq_macd_kdj_daily_update_job]",
+            "automatic_m12_repair_allowed",
+            '"stock_codes": list(decision.stock_codes)',
+            "source_qfq_factor_repair_event_storage_ids",
+            "build_sensor_tags",
+        )
+        forbidden_repair_sensor_fragments = (
+            "get_asset_check_execution_history",
+            "duckdb",
+            "read_parquet",
+            "gold_stk_mins_qfq_macd_kdj_path",
+            '"stock_codes": []',
+        )
+        issues.extend(
+            f"{repair_sensor_path} misses M12J repair sensor fragment: {fragment}"
+            for fragment in required_repair_sensor_fragments
+            if fragment not in repair_sensor_source
+        )
+        issues.extend(
+            f"{repair_sensor_path} contains forbidden M12J repair sensor fragment: {fragment}"
+            for fragment in forbidden_repair_sensor_fragments
+            if fragment in repair_sensor_source
+        )
 
         asset_source = asset_path.read_text()
         guard_call = "assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate"
@@ -273,11 +315,14 @@ class RunContractStaticGateTests(unittest.TestCase):
             "assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(\n"
             "            context.instance"
         )
+        guard_run_tags = "run_tags=context.run.tags"
         write_call = "write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition"
         if guard_call not in asset_source:
             issues.append("M12 asset must call qfq/M12 repair gate guard")
         elif guard_call_site not in asset_source:
             issues.append("M12 asset guard call site must use context.instance")
+        elif guard_run_tags not in asset_source:
+            issues.append("M12 asset guard must validate run tags before writing")
         elif write_call not in asset_source:
             issues.append("M12 asset write helper call is missing")
         elif asset_source.index(guard_call_site) > asset_source.index(write_call):
@@ -289,6 +334,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             "dg.AssetCheckEvaluation",
             "blocking=True",
             "partition=start_trade_date",
+            "repair_required_codes_hash",
+            "source_qfq_factor_repair_event_storage_ids",
         )
         issues.extend(
             f"{repair_op_path} misses M12 repair completion fragment: {fragment}"
@@ -649,7 +696,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         issues.append(f"{_node_location(path, node)} imports from json")
                 elif isinstance(node, ast.Call):
                     call_name = _call_name(node.func)
-                    if call_name == "RunRequest":
+                    if call_name == "RunRequest" and not _is_allowed_direct_run_request(path):
                         issues.append(
                             f"{_node_location(path, node)} constructs RunRequest directly"
                         )
@@ -659,8 +706,19 @@ class RunContractStaticGateTests(unittest.TestCase):
                                 f"{_node_location(path, node)} writes run_tags"
                             )
                         elif keyword.arg == "tags" and not (
-                            _is_sensor_definition_call(node)
-                            and _is_call_named(keyword.value, "build_sensor_tags")
+                            (
+                                _is_sensor_definition_call(node)
+                                and _is_call_named(keyword.value, "build_sensor_tags")
+                            )
+                            or (
+                                call_name == "RunRequest"
+                                and _is_allowed_direct_run_request_tags(path)
+                            )
+                            or (
+                                call_name == "RunsFilter"
+                                and path.name
+                                == "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+                            )
                         ):
                             issues.append(
                                 f"{_node_location(path, node)} writes tags without "
@@ -736,7 +794,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 32)
+        self.assertEqual(sensor_definition_count, 33)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:

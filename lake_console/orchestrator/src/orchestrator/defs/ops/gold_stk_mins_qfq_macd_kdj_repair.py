@@ -9,6 +9,9 @@ from orchestrator.defs.run_contracts.stk_mins import (
     normalize_stk_mins_qfq_freq,
 )
 from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
+from orchestrator.defs.stk_mins_qfq import (
+    gold_stk_mins_qfq_factor_repair_codes_hash,
+)
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
     discover_gold_stk_mins_qfq_source_year_paths,
@@ -39,6 +42,18 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA = {
         is_required=False,
         default_value="manual_repair",
         description="repair 原因，仅写入日志。",
+    ),
+    "repair_required_codes_hash": dg.Field(
+        str,
+        is_required=False,
+        default_value="",
+        description="来自 qfq factor repair affected codes 的稳定 SHA-256 hash。",
+    ),
+    "source_qfq_factor_repair_event_storage_ids": dg.Field(
+        [int],
+        is_required=False,
+        default_value=[],
+        description="触发本次 M12 repair 的 qfq factor repair check event storage id 列表。",
     ),
 }
 
@@ -97,6 +112,18 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         )
     )
     reason = str(context.op_config.get("reason", "manual_repair")).strip()
+    repair_required_codes_hash = str(
+        context.op_config.get("repair_required_codes_hash", "")
+    ).strip() or gold_stk_mins_qfq_factor_repair_codes_hash(stock_codes)
+    source_qfq_factor_repair_event_storage_ids = tuple(
+        sorted(
+            int(event_storage_id)
+            for event_storage_id in context.op_config.get(
+                "source_qfq_factor_repair_event_storage_ids",
+                [],
+            )
+        )
+    )
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -182,6 +209,11 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
             "freqs": list(freqs),
             "stock_code_scope": "explicit" if stock_codes else "all",
             "stock_code_count": len(stock_codes),
+            "repair_required_code_count": len(stock_codes),
+            "repair_required_codes_hash": repair_required_codes_hash,
+            "source_qfq_factor_repair_event_storage_ids": list(
+                source_qfq_factor_repair_event_storage_ids
+            ),
             "reason": reason,
             "indicator_file_count": total_indicator_file_count,
             "indicator_row_count": total_indicator_row_count,

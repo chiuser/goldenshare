@@ -18,13 +18,16 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+    QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT,
     QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
     QFQ_FACTOR_REPAIR_REASON_MISSING_PREVIOUS_FACTOR,
     QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE,
     QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
+    GoldStkMinsQfqFactorRepairPlan,
     build_adj_factor_changed_codes_sql,
     build_gold_stk_mins_qfq_factor_repair_check_metadata,
     build_gold_stk_mins_qfq_factor_repair_plan,
+    gold_stk_mins_qfq_factor_repair_codes_hash,
 )
 
 
@@ -379,12 +382,54 @@ class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
         self.assertEqual(metadata["goldenshare/reason"], "factor_changed")
         self.assertEqual(metadata["goldenshare/repair_required_code_count"], 3)
         self.assertEqual(
+            metadata["goldenshare/repair_required_codes"],
+            ["000001.SZ", "000002.SZ", "000003.SZ"],
+        )
+        self.assertEqual(
+            metadata["goldenshare/repair_required_codes_hash"],
+            gold_stk_mins_qfq_factor_repair_codes_hash(
+                ["000003.SZ", "000001.SZ", "000002.SZ"]
+            ),
+        )
+        self.assertFalse(metadata["goldenshare/repair_required_codes_truncated"])
+        self.assertEqual(
             metadata["goldenshare/factor_changed_code_samples"],
             ["000001.SZ", "000002.SZ"],
         )
         self.assertEqual(
             GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
             "gold_stk_mins_qfq_factor_repair_plan_evaluated",
+        )
+
+    def test_factor_repair_metadata_truncates_code_list_above_auto_limit(self) -> None:
+        codes = tuple(
+            f"{index:06d}.SZ"
+            for index in range(QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT + 1)
+        )
+        plan = GoldStkMinsQfqFactorRepairPlan(
+            trade_date=TRADE_DATE,
+            previous_trade_date=PREVIOUS_TRADE_DATE,
+            reason=QFQ_FACTOR_REPAIR_REASON_FACTOR_CHANGED,
+            can_execute_repair=True,
+            repair_required=True,
+            detected_change_code_count=len(codes),
+            repair_required_code_count=len(codes),
+            factor_changed_code_count=len(codes),
+            new_current_code_count=0,
+            missing_previous_factor_code_count=0,
+            repair_required_codes=codes,
+            factor_changed_code_samples=codes[:2],
+            new_current_code_samples=(),
+            missing_previous_factor_code_samples=(),
+        )
+
+        metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(plan)
+
+        self.assertEqual(metadata["goldenshare/repair_required_codes"], [])
+        self.assertTrue(metadata["goldenshare/repair_required_codes_truncated"])
+        self.assertEqual(
+            metadata["goldenshare/repair_required_codes_hash"],
+            gold_stk_mins_qfq_factor_repair_codes_hash(codes),
         )
 
     def test_m9b_does_not_add_factor_repair_summary_contracts(self) -> None:

@@ -1,59 +1,85 @@
-from datetime import datetime
+from types import SimpleNamespace
 import unittest
 
 import dagster as dg
 
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
+    M12_PENDING_QFQ_FACTOR_REPAIR_TAG,
+    M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG,
+    M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG,
+    M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG,
     GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
 )
-from orchestrator.defs.run_contracts.cursors import (
-    SensorCursorDecision,
-    build_sensor_cursor,
-)
 from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor import (
-    GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_RUN_START,
-    GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_UPDATE_JOB_NAME,
-    _already_submitted_for_target_date,
-    _cursor_payload,
+    DAGSTER_PARTITION_TAG,
+    STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
+    STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
     _run_request_for_trade_date,
-    build_gold_stk_mins_qfq_macd_kdj_daily_update_decision,
+    _successful_run_for_trade_date_exists,
+    _trade_date_from_dagster_run,
+    build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision,
     gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor,
 )
 
 
 PARTITION_KEY = "2026-06-05"
+REPAIR_CODES_HASH = "a" * 64
 
 
 def _repair_gate_status(
     *,
-    qfq_event_ids: tuple[int, ...] = (101, 102, 103, 104, 105, 106, 107),
+    ready: bool = True,
     requires_m12_repair: bool = False,
-    m12_event_ids: tuple[int, ...] = (),
+    qfq_event_ids: tuple[int, ...] = (101, 102, 103, 104, 105, 106, 107),
 ) -> GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
-    from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-        M12RepairCompletionGateStatus,
-    )
-
     return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
-        ready=True,
+        ready=ready,
         trade_date=PARTITION_KEY,
-        reason="ready",
+        reason="ready" if ready else "not ready",
         requires_m12_repair=requires_m12_repair,
         qfq_factor_repair_event_storage_ids=qfq_event_ids,
         repair_start_trade_date="2014-01-02",
         repair_end_trade_date=PARTITION_KEY,
         selected_partition_count=1800,
-        repair_required_code_count=0,
-        m12_repair_status=(
-            M12RepairCompletionGateStatus(
-                ready=True,
-                reason="ready",
-                event_storage_ids=m12_event_ids,
-            )
-            if requires_m12_repair
-            else None
-        ),
+        repair_required_code_count=1 if requires_m12_repair else 0,
+        repair_required_codes=("600000.SH",) if requires_m12_repair else (),
+        repair_required_codes_hash=REPAIR_CODES_HASH,
+        repair_required_codes_truncated=False,
     )
+
+
+def _run(
+    *,
+    job_name: str,
+    status: dg.DagsterRunStatus = dg.DagsterRunStatus.SUCCESS,
+    tags: dict[str, str] | None = None,
+    run_config: dict[str, object] | None = None,
+):
+    return SimpleNamespace(
+        job_name=job_name,
+        status=status,
+        tags=tags or {},
+        run_config=run_config or {},
+    )
+
+
+class _FakeInstance:
+    def __init__(self, runs):
+        self.runs = runs
+        self.filters = []
+
+    def get_run_records(self, *, filters, limit=None):
+        self.filters.append((filters, limit))
+        matches = []
+        for dagster_run in self.runs:
+            if filters.job_name and dagster_run.job_name != filters.job_name:
+                continue
+            if filters.statuses and dagster_run.status not in filters.statuses:
+                continue
+            if any(dagster_run.tags.get(key) != value for key, value in filters.tags.items()):
+                continue
+            matches.append(SimpleNamespace(dagster_run=dagster_run))
+        return matches[:limit]
 
 
 class StkMinsQfqM12SensorContractTests(unittest.TestCase):
@@ -66,111 +92,123 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
             gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.default_status,
             dg.DefaultSensorStatus.STOPPED,
         )
-        self.assertIn(
-            GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_UPDATE_JOB_NAME,
-            gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.job_name,
+
+    def test_trade_date_from_partition_tag_or_factor_repair_run_config(self) -> None:
+        partitioned_run = _run(
+            job_name=STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
+            tags={DAGSTER_PARTITION_TAG: PARTITION_KEY},
         )
-        self.assertEqual(
-            GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_RUN_START.isoformat(),
-            "21:20:00",
+        repair_run = _run(
+            job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
+            run_config={
+                "ops": {
+                    "stock_mins_qfq_factor_repair_op": {
+                        "config": {"trade_date": PARTITION_KEY}
+                    }
+                }
+            },
         )
 
-    def test_run_request_key_is_stable(self) -> None:
-        request = _run_request_for_trade_date(PARTITION_KEY)
+        self.assertEqual(_trade_date_from_dagster_run(partitioned_run), PARTITION_KEY)
+        self.assertEqual(_trade_date_from_dagster_run(repair_run), PARTITION_KEY)
 
+    def test_successful_run_lookup_handles_partitioned_and_typed_config_runs(self) -> None:
+        instance = _FakeInstance(
+            [
+                _run(
+                    job_name=STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
+                    tags={DAGSTER_PARTITION_TAG: PARTITION_KEY},
+                ),
+                _run(
+                    job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
+                    run_config={
+                        "ops": {
+                            "stock_mins_qfq_factor_repair_op": {
+                                "config": {"trade_date": PARTITION_KEY}
+                            }
+                        }
+                    },
+                ),
+            ]
+        )
+
+        self.assertTrue(
+            _successful_run_for_trade_date_exists(
+                instance,
+                job_name=STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
+                trade_date=PARTITION_KEY,
+            )
+        )
+        self.assertTrue(
+            _successful_run_for_trade_date_exists(
+                instance,
+                job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
+                trade_date=PARTITION_KEY,
+            )
+        )
+
+    def test_daily_decision_waits_for_qfq_daily_and_factor_repair_success(self) -> None:
+        no_qfq_daily = build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
+            target_trade_date=PARTITION_KEY,
+            previous_trade_date="2026-06-04",
+            qfq_daily_succeeded=False,
+            qfq_factor_repair_status=_repair_gate_status(),
+            qfq_ready=True,
+            previous_state_ready=True,
+            target_ready=False,
+            target_has_materialized_check_problem=False,
+        )
+        no_factor_repair = build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
+            target_trade_date=PARTITION_KEY,
+            previous_trade_date="2026-06-04",
+            qfq_daily_succeeded=True,
+            qfq_factor_repair_status=None,
+            qfq_ready=True,
+            previous_state_ready=True,
+            target_ready=False,
+            target_has_materialized_check_problem=False,
+        )
+
+        self.assertIsNone(no_qfq_daily.selected_trade_date)
+        self.assertIsNone(no_factor_repair.selected_trade_date)
+
+    def test_daily_decision_submits_pending_repair_run_after_upstreams_ready(self) -> None:
+        status = _repair_gate_status(requires_m12_repair=True)
+
+        decision = build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
+            target_trade_date=PARTITION_KEY,
+            previous_trade_date="2026-06-04",
+            qfq_daily_succeeded=True,
+            qfq_factor_repair_status=status,
+            qfq_ready=True,
+            previous_state_ready=True,
+            target_ready=False,
+            target_has_materialized_check_problem=False,
+        )
+        request = _run_request_for_trade_date(
+            PARTITION_KEY,
+            qfq_factor_repair_status=status,
+        )
+
+        self.assertEqual(decision.selected_trade_date, PARTITION_KEY)
+        self.assertTrue(decision.pending_m12_repair)
         self.assertEqual(
             request.run_key,
             f"gold_stk_mins_qfq_macd_kdj_daily_update:{PARTITION_KEY}",
         )
         self.assertEqual(request.partition_key, PARTITION_KEY)
-        self.assertEqual(request.run_config, {})
-
-    def test_cursor_fast_path_accepts_new_cursor_shape(self) -> None:
-        decision = build_gold_stk_mins_qfq_macd_kdj_daily_update_decision(
-            target_trade_date=PARTITION_KEY,
-            previous_trade_date="2026-06-04",
-            run_window_started=True,
-            qfq_ready=True,
-            previous_state_ready=True,
-            target_ready=False,
+        self.assertEqual(request.tags[M12_PENDING_QFQ_FACTOR_REPAIR_TAG], "true")
+        self.assertEqual(
+            request.tags[M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG],
+            PARTITION_KEY,
         )
-        cursor = _cursor_payload(
-            decision=decision,
-            evaluated_at=datetime(2026, 6, 5, 23, 31),
-            registered_trade_day_count=1,
-            repair_gate_status=_repair_gate_status(),
-            already_submitted_for_trade_date=True,
+        self.assertEqual(
+            request.tags[M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG],
+            "101,102,103,104,105,106,107",
         )
-
-        self.assertTrue(
-            _already_submitted_for_target_date(
-                cursor,
-                PARTITION_KEY,
-                _repair_gate_status(),
-            )
-        )
-
-    def test_cursor_fast_path_rejects_legacy_cursor_shape(self) -> None:
-        legacy_cursor = build_sensor_cursor(
-            evaluated_at=datetime(2026, 6, 5, 23, 31),
-            decision=SensorCursorDecision.REQUEST_RUNS,
-            target_date=PARTITION_KEY,
-            selected_count=1,
-            blocked_count=0,
-            sample_keys=(PARTITION_KEY,),
-            details={"reason": "legacy submitted cursor"},
-        )
-
-        self.assertFalse(
-            _already_submitted_for_target_date(
-                legacy_cursor,
-                PARTITION_KEY,
-                _repair_gate_status(),
-            )
-        )
-
-    def test_cursor_fast_path_rejects_stale_repair_event_identity(self) -> None:
-        decision = build_gold_stk_mins_qfq_macd_kdj_daily_update_decision(
-            target_trade_date=PARTITION_KEY,
-            previous_trade_date="2026-06-04",
-            run_window_started=True,
-            qfq_ready=True,
-            previous_state_ready=True,
-            target_ready=False,
-        )
-        cursor = _cursor_payload(
-            decision=decision,
-            evaluated_at=datetime(2026, 6, 5, 23, 31),
-            registered_trade_day_count=1,
-            repair_gate_status=_repair_gate_status(qfq_event_ids=(1, 2, 3, 4, 5, 6, 7)),
-            already_submitted_for_trade_date=True,
-        )
-
-        self.assertFalse(
-            _already_submitted_for_target_date(
-                cursor,
-                PARTITION_KEY,
-                _repair_gate_status(),
-            )
-        )
-
-    def test_cursor_fast_path_rejects_skip_cursor(self) -> None:
-        skip_cursor = build_sensor_cursor(
-            evaluated_at=datetime(2026, 6, 5, 23, 31),
-            decision=SensorCursorDecision.SKIP,
-            target_date=PARTITION_KEY,
-            selected_count=0,
-            blocked_count=1,
-            sample_keys=(),
-            details={"reason": "not ready"},
-        )
-
-        self.assertFalse(
-            _already_submitted_for_target_date(
-                skip_cursor,
-                PARTITION_KEY,
-                _repair_gate_status(),
-            )
+        self.assertEqual(
+            request.tags[M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG],
+            REPAIR_CODES_HASH,
         )
 
 

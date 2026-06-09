@@ -689,6 +689,17 @@ def _existing_indicator_rows_select(target_path: Path) -> str:
     return f"SELECT {columns} FROM {read_parquet(target_path, hive_partitioning=False)}"
 
 
+def _existing_state_rows_select(target_path: Path) -> str:
+    if not target_path.exists():
+        null_columns = ", ".join(
+            f"CAST(NULL AS {column_type}) AS {column}"
+            for column, column_type in GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMN_TYPES.items()
+        )
+        return f"SELECT {null_columns} WHERE false"
+    columns = ", ".join(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS)
+    return f"SELECT {columns} FROM {read_parquet(target_path, hive_partitioning=False)}"
+
+
 def _validate_indicator_year_file(
     connection: duckdb.DuckDBPyConnection,
     *,
@@ -791,24 +802,59 @@ def _write_state_partition_file(
     target_path: Path,
     freq: int,
     trade_date: str,
+    scoped_stock_codes: Sequence[str] = (),
 ) -> int:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     temp_path = _temp_path_for(target_path)
     if temp_path.exists():
         temp_path.unlink()
     columns = ", ".join(GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS)
-    connection.execute(
-        copy_query_to_parquet(
-            f"""
-            SELECT {columns}
-            FROM macd_kdj_state_replacement_rows
-            WHERE freq = {freq}
-              AND trade_date = DATE {duckdb_string(trade_date)}
-            ORDER BY ts_code
-            """,
-            temp_path,
+    scoped_state_filter = _stock_code_filter_sql(scoped_stock_codes)
+    if scoped_stock_codes and not target_path.exists():
+        raise FileNotFoundError(
+            "Scoped MACD/KDJ state repair requires an existing full state file: "
+            f"path={target_path}."
         )
-    )
+    if scoped_stock_codes:
+        write_query = f"""
+        WITH replacement_rows AS (
+          SELECT {columns}
+          FROM macd_kdj_state_replacement_rows
+          WHERE freq = {freq}
+            AND trade_date = DATE {duckdb_string(trade_date)}
+            {scoped_state_filter}
+        ),
+        replacement_codes AS (
+          SELECT DISTINCT ts_code FROM replacement_rows
+        ),
+        existing_rows AS (
+          {_existing_state_rows_select(target_path)}
+        ),
+        merged_rows AS (
+          SELECT {columns}
+          FROM existing_rows
+          WHERE NOT EXISTS (
+            SELECT 1
+            FROM replacement_codes
+            WHERE replacement_codes.ts_code = existing_rows.ts_code
+          )
+          UNION ALL
+          SELECT {columns}
+          FROM replacement_rows
+        )
+        SELECT {columns}
+        FROM merged_rows
+        ORDER BY ts_code
+        """
+    else:
+        write_query = f"""
+        SELECT {columns}
+        FROM macd_kdj_state_replacement_rows
+        WHERE freq = {freq}
+          AND trade_date = DATE {duckdb_string(trade_date)}
+        ORDER BY ts_code
+        """
+    connection.execute(copy_query_to_parquet(write_query, temp_path))
     mismatch_count = int(
         connection.execute(
             f"""
@@ -924,6 +970,7 @@ def write_gold_stk_mins_qfq_macd_kdj_rows(
                 target_path=state_path,
                 freq=normalized_freq,
                 trade_date=trade_date_value,
+                scoped_stock_codes=stock_codes,
             )
             state_results.append(
                 GoldStkMinsQfqMacdKdjStateWriteResult(

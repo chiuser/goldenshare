@@ -1708,7 +1708,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M12</strong></td>
         <td>MACD/KDJ qfq 指标资产设计</td>
         <td>已新增专项设计文档：<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>；代码口径已落地到 definitions、Catalog、checks、daily job/sensor、repair job/op、历史直写与 baseline event CLI。本基础文档不承载指标资产实现细节。</td>
-        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>。历史文件已完成全量直写并通过 full file audit；<code>2026-06-05</code> baseline cutoff 已写入 <code>56</code> 条 runless events，quick final audit 确认 14 个 indicator/state asset-partition 全部 ready。M12I 已落地：MACD/KDJ daily 必须等待同日 <code>stock_mins_qfq_factor_repair_job</code> 成功；若 qfq repair 改写历史，还必须等待 M12 repair completion event。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。</td>
+        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>。历史文件已完成全量直写并通过 full file audit；<code>2026-06-05</code> baseline cutoff 已写入 <code>56</code> 条 runless events，quick final audit 确认 14 个 indicator/state asset-partition 全部 ready。M12J 已落地：MACD/KDJ daily 由 run-status sensor 等同日 qfq daily 与 qfq factor repair 都成功后触发；若 qfq repair 改写历史，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 按 affected codes 自动触发 scoped repair，最终收口仍看 M12 repair completion event。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。</td>
       </tr>
     </table>
   </section>
@@ -1723,7 +1723,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_daily_sensor</code>：它只在 20:10 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
       M9B 已实现 factor repair detection 与 check metadata 契约。
       M9C/M11 已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 20:40 后只在当日七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
-      M12I 已落地修复：<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 不能只等待 qfq 七频度 ready 和上一交易日 state ready；它还必须等待同一目标日期的 <code>gold_stk_mins_qfq_factor_repair_plan_evaluated</code> repair check event 全部成功。若 qfq repair metadata 显示历史 qfq 被重写，MACD/KDJ 是递推指标，必须先执行 <code>gold_stk_mins_qfq_macd_kdj_repair_job</code> 并写入 M12 repair completion event，之后才允许 daily job 继续。
+      M12J 已落地修复：<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 不能只等待 qfq 七频度 ready 和上一交易日 state ready；它必须等同日 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_factor_repair_job</code> 都成功。若 qfq repair metadata 显示历史 qfq 被重写，MACD/KDJ daily 先作为受控 pending-repair run 执行，随后由 <code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 按 affected codes 自动触发 scoped repair；最终 ready/收口仍以 M12 repair completion event 为准。
       P0-1 并发保护已完成：七个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
       P0-3 DuckDB 连接治理已落地：正式分钟线 / qfq / history event / repair 路径统一走 <code>DuckDBResource</code> 或统一连接 helper，默认参数为 <code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>、<code>max_temp_directory_size=512GB</code>、<code>memory_limit=16GB</code>、<code>threads=4</code>、<code>preserve_insertion_order=false</code>；正式 <code>defs/**</code> 路径禁止直接 <code>duckdb.connect()</code>，并已由静态门禁保护。
     </p>
@@ -1816,8 +1816,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code></td>
-        <td>21:20 后触发七频度 MACD/KDJ indicator/state 日常更新。</td>
-        <td>M12I 已修复：该 sensor 必须等待同日 qfq factor repair 成功。无历史重写时可继续使用上一交易日 state；有历史重写时必须等待 <code>gold_stk_mins_qfq_macd_kdj_repair_completed_check</code> 覆盖修复范围。asset 写入函数也使用同一写前 guard，防止人工 run 绕过 sensor。</td>
+        <td>run-status coordination 触发七频度 MACD/KDJ indicator/state 日常更新。</td>
+        <td>M12J 已修复：该 sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。无历史重写时可继续使用上一交易日 state；有历史重写时 daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。asset 写入函数也使用同一写前 guard，防止人工 run 绕过 sensor。</td>
       </tr>
     </table>
   </section>

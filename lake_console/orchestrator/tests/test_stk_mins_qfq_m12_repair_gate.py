@@ -12,6 +12,7 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+    gold_stk_mins_qfq_factor_repair_codes_hash,
 )
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
@@ -20,6 +21,9 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 
 TRADE_DATE = "2026-06-05"
 REPAIR_START_DATE = "2014-01-02"
+REPAIR_CODES = ("000001.SZ", "600000.SH", "600001.SH")
+REPAIR_CODES_HASH = gold_stk_mins_qfq_factor_repair_codes_hash(REPAIR_CODES)
+QFQ_EVENT_STORAGE_IDS = tuple(100 + index for index in range(len(STK_MINS_QFQ_FREQS)))
 
 
 class _FakeEventLogStorage:
@@ -97,6 +101,13 @@ def _qfq_metadata(*, rewrote_history: bool) -> dict[str, object]:
     return {
         "repair_required": rewrote_history,
         "repair_required_code_count": 3 if rewrote_history else 0,
+        "repair_required_codes": list(REPAIR_CODES) if rewrote_history else [],
+        "repair_required_codes_hash": (
+            REPAIR_CODES_HASH
+            if rewrote_history
+            else gold_stk_mins_qfq_factor_repair_codes_hash(())
+        ),
+        "repair_required_codes_truncated": False,
         "repair_start_trade_date": REPAIR_START_DATE,
         "repair_end_trade_date": TRADE_DATE,
         "selected_partition_count": 1800,
@@ -115,6 +126,9 @@ def _m12_metadata(
     freqs: tuple[int, ...] = STK_MINS_QFQ_FREQS,
     stock_code_scope: str = "all",
     stock_code_count: int = 0,
+    repair_required_code_count: int = 3,
+    repair_required_codes_hash: str = REPAIR_CODES_HASH,
+    source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = QFQ_EVENT_STORAGE_IDS,
 ) -> dict[str, object]:
     return {
         "covered_start_trade_date": covered_start_trade_date,
@@ -122,6 +136,11 @@ def _m12_metadata(
         "freqs": list(freqs),
         "stock_code_scope": stock_code_scope,
         "stock_code_count": stock_code_count,
+        "repair_required_code_count": repair_required_code_count,
+        "repair_required_codes_hash": repair_required_codes_hash,
+        "source_qfq_factor_repair_event_storage_ids": list(
+            source_qfq_factor_repair_event_storage_ids
+        ),
     }
 
 

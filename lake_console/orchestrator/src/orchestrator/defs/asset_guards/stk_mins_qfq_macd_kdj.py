@@ -12,6 +12,7 @@ from dagster._core.storage.asset_check_execution_record import (
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+    QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT,
 )
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
@@ -29,6 +30,9 @@ _QFQ_FACTOR_REPAIR_REWRITE_KEYS = (
 _QFQ_FACTOR_REPAIR_REQUIRED_METADATA_KEYS = (
     "repair_required",
     "repair_required_code_count",
+    "repair_required_codes",
+    "repair_required_codes_hash",
+    "repair_required_codes_truncated",
     "repair_start_trade_date",
     "repair_end_trade_date",
     "selected_partition_count",
@@ -39,7 +43,16 @@ _M12_REPAIR_COMPLETION_REQUIRED_METADATA_KEYS = (
     "freqs",
     "stock_code_scope",
     "stock_code_count",
+    "repair_required_code_count",
+    "repair_required_codes_hash",
+    "source_qfq_factor_repair_event_storage_ids",
 )
+M12_PENDING_QFQ_FACTOR_REPAIR_TAG = "goldenshare/m12_pending_qfq_factor_repair"
+M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG = "goldenshare/m12_qfq_factor_repair_trade_date"
+M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG = (
+    "goldenshare/m12_qfq_factor_repair_event_storage_ids"
+)
+M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG = "goldenshare/m12_qfq_factor_repair_codes_hash"
 
 
 @dataclass(frozen=True)
@@ -53,6 +66,9 @@ class M12RepairCompletionGateStatus:
     covered_end_trade_date: str | None = None
     stock_code_scope: str | None = None
     stock_code_count: int = 0
+    repair_required_code_count: int = 0
+    repair_required_codes_hash: str | None = None
+    source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = ()
     freqs: tuple[int, ...] = ()
 
     def to_payload(self) -> dict[str, object]:
@@ -66,6 +82,11 @@ class M12RepairCompletionGateStatus:
             "covered_end_trade_date": self.covered_end_trade_date,
             "stock_code_scope": self.stock_code_scope,
             "stock_code_count": self.stock_code_count,
+            "repair_required_code_count": self.repair_required_code_count,
+            "repair_required_codes_hash": self.repair_required_codes_hash,
+            "source_qfq_factor_repair_event_storage_ids": list(
+                self.source_qfq_factor_repair_event_storage_ids
+            ),
             "freqs": list(self.freqs),
         }
 
@@ -83,6 +104,9 @@ class GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
     repair_end_trade_date: str | None = None
     selected_partition_count: int = 0
     repair_required_code_count: int = 0
+    repair_required_codes: tuple[str, ...] = ()
+    repair_required_codes_hash: str | None = None
+    repair_required_codes_truncated: bool = False
     m12_repair_status: M12RepairCompletionGateStatus | None = None
 
     def to_payload(self) -> dict[str, object]:
@@ -100,6 +124,10 @@ class GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
             "repair_end_trade_date": self.repair_end_trade_date,
             "selected_partition_count": self.selected_partition_count,
             "repair_required_code_count": self.repair_required_code_count,
+            "repair_required_codes": list(self.repair_required_codes),
+            "repair_required_codes_hash": self.repair_required_codes_hash,
+            "repair_required_codes_truncated": self.repair_required_codes_truncated,
+            "automatic_m12_repair_allowed": self.automatic_m12_repair_allowed,
             "m12_repair_status": (
                 self.m12_repair_status.to_payload()
                 if self.m12_repair_status is not None
@@ -113,8 +141,72 @@ class GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
             return ()
         return self.m12_repair_status.event_storage_ids
 
+    @property
+    def automatic_m12_repair_allowed(self) -> bool:
+        return (
+            self.requires_m12_repair
+            and 0 < self.repair_required_code_count <= QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT
+            and not self.repair_required_codes_truncated
+            and len(self.repair_required_codes) == self.repair_required_code_count
+            and self.repair_required_codes_hash is not None
+        )
+
 
 def gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
+    qfq_result = gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status(
+        instance,
+        trade_date,
+    )
+    if not qfq_result.ready:
+        return qfq_result
+    if not qfq_result.requires_m12_repair:
+        return qfq_result
+
+    m12_repair_status = gold_stk_mins_qfq_macd_kdj_m12_repair_completion_status(
+        instance,
+        qfq_factor_repair_status=qfq_result,
+    )
+    if not m12_repair_status.ready:
+        return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
+            ready=False,
+            trade_date=qfq_result.trade_date,
+            reason=m12_repair_status.reason,
+            requires_m12_repair=True,
+            qfq_factor_repair_event_storage_ids=(
+                qfq_result.qfq_factor_repair_event_storage_ids
+            ),
+            repair_start_trade_date=qfq_result.repair_start_trade_date,
+            repair_end_trade_date=qfq_result.repair_end_trade_date,
+            selected_partition_count=qfq_result.selected_partition_count,
+            repair_required_code_count=qfq_result.repair_required_code_count,
+            repair_required_codes=qfq_result.repair_required_codes,
+            repair_required_codes_hash=qfq_result.repair_required_codes_hash,
+            repair_required_codes_truncated=qfq_result.repair_required_codes_truncated,
+            m12_repair_status=m12_repair_status,
+        )
+    return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
+        ready=True,
+        trade_date=qfq_result.trade_date,
+        reason="qfq factor repair and required M12 repair completion are ready.",
+        requires_m12_repair=True,
+        qfq_factor_repair_event_storage_ids=(
+            qfq_result.qfq_factor_repair_event_storage_ids
+        ),
+        repair_start_trade_date=qfq_result.repair_start_trade_date,
+        repair_end_trade_date=qfq_result.repair_end_trade_date,
+        selected_partition_count=qfq_result.selected_partition_count,
+        repair_required_code_count=qfq_result.repair_required_code_count,
+        repair_required_codes=qfq_result.repair_required_codes,
+        repair_required_codes_hash=qfq_result.repair_required_codes_hash,
+        repair_required_codes_truncated=qfq_result.repair_required_codes_truncated,
+        m12_repair_status=m12_repair_status,
+    )
+
+
+def gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status(
     instance: dg.DagsterInstance,
     trade_date: str,
 ) -> GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
@@ -131,60 +223,39 @@ def gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
         qfq_check_records,
         trade_date=normalized_trade_date,
     )
-    if not qfq_result.ready:
-        return qfq_result
-    if not qfq_result.requires_m12_repair:
-        return qfq_result
+    return qfq_result
 
-    m12_repair_status = _m12_repair_completion_status(
+
+def gold_stk_mins_qfq_macd_kdj_m12_repair_completion_status(
+    instance: dg.DagsterInstance,
+    *,
+    qfq_factor_repair_status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
+) -> M12RepairCompletionGateStatus:
+    return _m12_repair_completion_status(
         instance,
-        repair_start_trade_date=qfq_result.repair_start_trade_date,
-        repair_end_trade_date=qfq_result.repair_end_trade_date,
+        repair_start_trade_date=qfq_factor_repair_status.repair_start_trade_date,
+        repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
         qfq_factor_repair_event_storage_ids=(
-            qfq_result.qfq_factor_repair_event_storage_ids
+            qfq_factor_repair_status.qfq_factor_repair_event_storage_ids
         ),
-        repair_required_code_count=qfq_result.repair_required_code_count,
-    )
-    if not m12_repair_status.ready:
-        return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
-            ready=False,
-            trade_date=normalized_trade_date,
-            reason=m12_repair_status.reason,
-            requires_m12_repair=True,
-            qfq_factor_repair_event_storage_ids=(
-                qfq_result.qfq_factor_repair_event_storage_ids
-            ),
-            repair_start_trade_date=qfq_result.repair_start_trade_date,
-            repair_end_trade_date=qfq_result.repair_end_trade_date,
-            selected_partition_count=qfq_result.selected_partition_count,
-            repair_required_code_count=qfq_result.repair_required_code_count,
-            m12_repair_status=m12_repair_status,
-        )
-    return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
-        ready=True,
-        trade_date=normalized_trade_date,
-        reason="qfq factor repair and required M12 repair completion are ready.",
-        requires_m12_repair=True,
-        qfq_factor_repair_event_storage_ids=(
-            qfq_result.qfq_factor_repair_event_storage_ids
-        ),
-        repair_start_trade_date=qfq_result.repair_start_trade_date,
-        repair_end_trade_date=qfq_result.repair_end_trade_date,
-        selected_partition_count=qfq_result.selected_partition_count,
-        repair_required_code_count=qfq_result.repair_required_code_count,
-        m12_repair_status=m12_repair_status,
+        repair_required_code_count=qfq_factor_repair_status.repair_required_code_count,
+        repair_required_codes_hash=qfq_factor_repair_status.repair_required_codes_hash,
     )
 
 
 def assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
     instance: dg.DagsterInstance,
     trade_date: str,
+    *,
+    run_tags: Mapping[str, str] | None = None,
 ) -> None:
     status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
         instance,
         trade_date,
     )
     if status.ready:
+        return
+    if _pending_qfq_factor_repair_tags_match(status, run_tags or {}):
         return
     raise dg.Failure(
         description=(
@@ -197,6 +268,37 @@ def assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
             "repair_gate_status": dg.MetadataValue.json(status.to_payload()),
         },
     )
+
+
+def _pending_qfq_factor_repair_tags_match(
+    status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
+    run_tags: Mapping[str, str],
+) -> bool:
+    if (
+        status.ready
+        or not status.requires_m12_repair
+        or not status.qfq_factor_repair_event_storage_ids
+        or status.repair_required_codes_hash is None
+    ):
+        return False
+    return (
+        run_tags.get(M12_PENDING_QFQ_FACTOR_REPAIR_TAG) == "true"
+        and run_tags.get(M12_QFQ_FACTOR_REPAIR_TRADE_DATE_TAG) == status.trade_date
+        and run_tags.get(M12_QFQ_FACTOR_REPAIR_EVENT_STORAGE_IDS_TAG)
+        == _event_storage_ids_tag_value(status.qfq_factor_repair_event_storage_ids)
+        and run_tags.get(M12_QFQ_FACTOR_REPAIR_CODES_HASH_TAG)
+        == status.repair_required_codes_hash
+    )
+
+
+def _event_storage_ids_tag_value(event_storage_ids: Sequence[int]) -> str:
+    return ",".join(str(event_id) for event_id in sorted(event_storage_ids))
+
+
+def gold_stk_mins_qfq_macd_kdj_repair_event_storage_ids_tag_value(
+    event_storage_ids: Sequence[int],
+) -> str:
+    return _event_storage_ids_tag_value(event_storage_ids)
 
 
 def _qfq_asset_keys() -> tuple[dg.AssetKey, ...]:
@@ -286,16 +388,44 @@ def _evaluate_qfq_factor_repair_records(
         first_metadata,
         "repair_required_code_count",
     )
+    repair_required_codes = _metadata_str_tuple(
+        first_metadata,
+        "repair_required_codes",
+    )
+    repair_required_codes_hash = _metadata_str(
+        first_metadata,
+        "repair_required_codes_hash",
+    )
+    repair_required_codes_truncated = _metadata_bool(
+        first_metadata,
+        "repair_required_codes_truncated",
+    )
     if (
         repair_start_trade_date is None
         or repair_end_trade_date is None
         or selected_partition_count is None
         or repair_required_code_count is None
+        or repair_required_codes_hash is None
+        or repair_required_codes_truncated is None
     ):
         return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
             ready=False,
             trade_date=trade_date,
             reason="qfq factor repair metadata is incomplete.",
+            failed_qfq_asset_keys=tuple(asset_key.to_user_string() for asset_key in asset_keys),
+            qfq_factor_repair_event_storage_ids=tuple(sorted(event_storage_ids)),
+        )
+    if not _qfq_repair_scope_metadata_is_consistent(
+        metadata_rows,
+        repair_required_code_count=repair_required_code_count,
+        repair_required_codes=repair_required_codes,
+        repair_required_codes_hash=repair_required_codes_hash,
+        repair_required_codes_truncated=repair_required_codes_truncated,
+    ):
+        return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
+            ready=False,
+            trade_date=trade_date,
+            reason="qfq factor repair code scope metadata is inconsistent.",
             failed_qfq_asset_keys=tuple(asset_key.to_user_string() for asset_key in asset_keys),
             qfq_factor_repair_event_storage_ids=tuple(sorted(event_storage_ids)),
         )
@@ -314,7 +444,43 @@ def _evaluate_qfq_factor_repair_records(
         repair_end_trade_date=repair_end_trade_date,
         selected_partition_count=selected_partition_count,
         repair_required_code_count=repair_required_code_count,
+        repair_required_codes=repair_required_codes,
+        repair_required_codes_hash=repair_required_codes_hash,
+        repair_required_codes_truncated=repair_required_codes_truncated,
     )
+
+
+def _qfq_repair_scope_metadata_is_consistent(
+    metadata_rows: Sequence[Mapping[str, object]],
+    *,
+    repair_required_code_count: int,
+    repair_required_codes: tuple[str, ...],
+    repair_required_codes_hash: str,
+    repair_required_codes_truncated: bool,
+) -> bool:
+    if repair_required_code_count < 0:
+        return False
+    if repair_required_code_count <= QFQ_FACTOR_REPAIR_AUTO_M12_CODE_LIMIT:
+        if repair_required_codes_truncated:
+            return False
+        if len(repair_required_codes) != repair_required_code_count:
+            return False
+    elif not repair_required_codes_truncated:
+        return False
+
+    for metadata in metadata_rows:
+        if _metadata_int(metadata, "repair_required_code_count") != repair_required_code_count:
+            return False
+        if _metadata_str(metadata, "repair_required_codes_hash") != repair_required_codes_hash:
+            return False
+        if (
+            _metadata_bool(metadata, "repair_required_codes_truncated")
+            != repair_required_codes_truncated
+        ):
+            return False
+        if _metadata_str_tuple(metadata, "repair_required_codes") != repair_required_codes:
+            return False
+    return True
 
 
 def _m12_repair_completion_status(
@@ -324,12 +490,16 @@ def _m12_repair_completion_status(
     repair_end_trade_date: str | None,
     qfq_factor_repair_event_storage_ids: Sequence[int],
     repair_required_code_count: int,
+    repair_required_codes_hash: str | None,
 ) -> M12RepairCompletionGateStatus:
     if repair_start_trade_date is None or repair_end_trade_date is None:
         return M12RepairCompletionGateStatus(
             ready=False,
             reason="qfq factor repair scope metadata is incomplete.",
         )
+    expected_source_event_storage_ids = tuple(
+        sorted(int(event_id) for event_id in qfq_factor_repair_event_storage_ids)
+    )
     records_by_key = _latest_check_records(
         instance,
         _m12_asset_keys(),
@@ -389,6 +559,18 @@ def _m12_repair_completion_status(
     covered_end_trade_date = _metadata_str(first_metadata, "covered_end_trade_date")
     stock_code_scope = _metadata_str(first_metadata, "stock_code_scope")
     stock_code_count = _metadata_int(first_metadata, "stock_code_count")
+    completed_repair_required_code_count = _metadata_int(
+        first_metadata,
+        "repair_required_code_count",
+    )
+    completed_repair_required_codes_hash = _metadata_str(
+        first_metadata,
+        "repair_required_codes_hash",
+    )
+    source_qfq_factor_repair_event_storage_ids = _metadata_int_tuple(
+        first_metadata,
+        "source_qfq_factor_repair_event_storage_ids",
+    )
     freqs = _metadata_int_tuple(first_metadata, "freqs")
     all_freqs = tuple(STK_MINS_QFQ_FREQS)
     if (
@@ -396,9 +578,15 @@ def _m12_repair_completion_status(
         or covered_end_trade_date is None
         or stock_code_scope is None
         or stock_code_count is None
+        or completed_repair_required_code_count is None
+        or completed_repair_required_codes_hash is None
         or covered_start_trade_date > repair_start_trade_date
         or covered_end_trade_date < repair_end_trade_date
         or tuple(sorted(freqs)) != all_freqs
+        or completed_repair_required_code_count != repair_required_code_count
+        or completed_repair_required_codes_hash != repair_required_codes_hash
+        or source_qfq_factor_repair_event_storage_ids
+        != expected_source_event_storage_ids
         or (
             stock_code_scope != "all"
             and stock_code_count < repair_required_code_count
@@ -412,6 +600,11 @@ def _m12_repair_completion_status(
             covered_end_trade_date=covered_end_trade_date,
             stock_code_scope=stock_code_scope,
             stock_code_count=stock_code_count or 0,
+            repair_required_code_count=completed_repair_required_code_count or 0,
+            repair_required_codes_hash=completed_repair_required_codes_hash,
+            source_qfq_factor_repair_event_storage_ids=(
+                source_qfq_factor_repair_event_storage_ids
+            ),
             freqs=freqs,
         )
 
@@ -423,6 +616,11 @@ def _m12_repair_completion_status(
         covered_end_trade_date=covered_end_trade_date,
         stock_code_scope=stock_code_scope,
         stock_code_count=stock_code_count,
+        repair_required_code_count=completed_repair_required_code_count,
+        repair_required_codes_hash=completed_repair_required_codes_hash,
+        source_qfq_factor_repair_event_storage_ids=(
+            source_qfq_factor_repair_event_storage_ids
+        ),
         freqs=freqs,
     )
 
@@ -516,6 +714,18 @@ def _metadata_int_tuple(metadata: Mapping[str, object], key: str) -> tuple[int, 
             return ()
         int_values.append(item)
     return tuple(sorted(int_values))
+
+
+def _metadata_str_tuple(metadata: Mapping[str, object], key: str) -> tuple[str, ...]:
+    value = _metadata_value(metadata, key)
+    if not isinstance(value, Sequence) or isinstance(value, str | bytes):
+        return ()
+    str_values = []
+    for item in value:
+        if not isinstance(item, str) or not item:
+            return ()
+        str_values.append(item)
+    return tuple(sorted(str_values))
 
 
 def _qfq_metadata_requires_m12_repair(metadata: Mapping[str, object]) -> bool:

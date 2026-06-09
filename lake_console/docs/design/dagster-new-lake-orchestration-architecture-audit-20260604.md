@@ -282,17 +282,18 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 
 代码落地前必须先在 `dagster-stk-mins-asset-design.html` 和 `dagster-stk-mins-qfq-90-120-assets-plan.md` 中保持同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。
 
-### O5：M12 MACD/KDJ daily sensor 等待 qfq factor repair 完成
+### O5：M12 MACD/KDJ daily / repair sensor 等待 qfq factor repair 完成
 
-状态：M12I 已落地代码口径。
+状态：M12J 已落地代码口径。
 
 当前代码事实：
 
-1. `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` 目标窗口为 21:20。
-2. 该 sensor 先检查同一 `target_trade_date` 的 qfq factor repair gate；缺失、失败、partition 不匹配或 metadata 不完整时只 skip。
-3. `stock_mins_qfq_factor_repair_op` 已在七个 `gold_stk_mins_qfq_*` assets 上 emit `gold_stk_mins_qfq_factor_repair_plan_evaluated` check event，partition 为目标 `trade_date`，metadata 包含 `repair_required`、`rewritten_file_count`、`derived_rewrite_required`、`derived_rewritten_file_count`、`repair_start_trade_date`、`repair_end_trade_date`、`selected_partition_count` 等字段。
-4. `gold_stk_mins_qfq_macd_kdj_repair_op` 成功后 emit 14 条 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，覆盖七个 indicator assets 与七个 state assets。
-5. M12 asset 写入函数在 DuckDB/Parquet 写入前调用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
+1. `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` 是 run-status sensor，监听 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 成功；同一 `trade_date` 两个上游都成功后才提交 M12 daily。
+2. `stock_mins_qfq_factor_repair_op` 已在七个 `gold_stk_mins_qfq_*` assets 上 emit `gold_stk_mins_qfq_factor_repair_plan_evaluated` check event，partition 为目标 `trade_date`，metadata 包含 `repair_required`、rewrite counts、`repair_start_trade_date`、`repair_end_trade_date`、`selected_partition_count`、`repair_required_codes`、`repair_required_codes_hash` 和 `repair_required_codes_truncated`。
+3. qfq repair 历史重写不再阻塞 M12 daily；daily run 由 sensor 携带 qfq repair event identity / code hash，asset 写前 guard 校验这些 run tags。人工直接运行且缺少这些 tags 时 fail closed。
+4. `gold_stk_mins_qfq_macd_kdj_repair_job_sensor` 监听 M12 daily 成功；qfq repair affected codes 为 `1..500` 且 list/hash 完整时自动提交 scoped M12 repair，超过 500 或 metadata 不完整时 skip。
+5. `gold_stk_mins_qfq_macd_kdj_repair_op` 成功后 emit 14 条 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，覆盖七个 indicator assets 与七个 state assets，并记录 affected code hash/count 与 source qfq repair event ids。
+6. M12 asset 写入函数在 DuckDB/Parquet 写入前调用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
 
 风险：
 
@@ -300,12 +301,12 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 
 已实现口径：
 
-1. M12 daily sensor 必须先确认同一目标日期七个 qfq asset 上的 `gold_stk_mins_qfq_factor_repair_plan_evaluated` 全部 `passed=true`，必要时再确认 M12 repair completion，然后再检查 qfq readiness、previous state 和 target readiness。
+1. M12 daily sensor 必须确认同日 qfq daily 与 qfq factor repair 都成功，再检查 qfq readiness、previous state 和 target readiness。
 2. qfq factor repair 缺失、失败、partition 不匹配或 metadata 不可解析时，M12 daily 只 skip，不提交 run。
 3. qfq factor repair 成功且 metadata 显示没有历史重写时，M12 daily 可继续检查 previous state 和 target readiness。
-4. qfq factor repair 成功但 metadata 显示历史 qfq 被改写时，M12 daily 必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖修复范围。
+4. qfq factor repair 成功但 metadata 显示历史 qfq 被改写时，M12 daily 先作为受控 pending-repair run 执行，之后由 M12 repair sensor 触发 scoped repair；最终 ready 仍必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖修复范围。
 5. M12 asset 写入函数也必须使用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
-6. 不新增 summary asset、readiness asset、数据库表、run tag 或新 sensor；使用现有 qfq repair check event、M12 repair completion check event、cursor details 和 asset failure metadata 表达门禁事实。
+6. 不新增 summary asset、readiness asset、数据库表或配置项；使用现有 qfq repair check event、M12 repair completion check event、run tags 和 asset failure metadata 表达门禁事实。
 
 性能口径：
 

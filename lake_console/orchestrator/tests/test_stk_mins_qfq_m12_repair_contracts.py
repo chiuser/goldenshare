@@ -14,6 +14,9 @@ from orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair import (
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
+from orchestrator.defs.stk_mins_qfq import (
+    gold_stk_mins_qfq_factor_repair_codes_hash,
+)
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
     GoldStkMinsQfqMacdKdjStateWriteResult,
@@ -98,7 +101,17 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
                             "gold_stk_mins_qfq_macd_kdj_repair_op": {
                                 "config": {
                                     "start_trade_date": START_DATE,
+                                    "stock_codes": ["600000.SH"],
                                     "reason": "qfq_factor_repair",
+                                    "repair_required_codes_hash": (
+                                        gold_stk_mins_qfq_factor_repair_codes_hash(
+                                            ["600000.SH"]
+                                        )
+                                    ),
+                                    "source_qfq_factor_repair_event_storage_ids": [
+                                        101,
+                                        102,
+                                    ],
                                 }
                             }
                         }
@@ -140,7 +153,25 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
             )
             self.assertEqual(
                 evaluation.metadata["goldenshare/stock_code_scope"].text,
-                "all",
+                "explicit",
+            )
+            self.assertEqual(
+                evaluation.metadata["goldenshare/stock_code_count"].value,
+                1,
+            )
+            self.assertEqual(
+                evaluation.metadata["goldenshare/repair_required_code_count"].value,
+                1,
+            )
+            self.assertEqual(
+                evaluation.metadata["goldenshare/repair_required_codes_hash"].text,
+                gold_stk_mins_qfq_factor_repair_codes_hash(["600000.SH"]),
+            )
+            self.assertEqual(
+                evaluation.metadata[
+                    "goldenshare/source_qfq_factor_repair_event_storage_ids"
+                ].value,
+                [101, 102],
             )
             self.assertEqual(
                 evaluation.metadata["goldenshare/indicator_file_count"].value,

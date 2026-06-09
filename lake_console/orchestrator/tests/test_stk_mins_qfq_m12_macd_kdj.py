@@ -22,6 +22,7 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 
 
 STOCK_A = "600000.SH"
+STOCK_B = "000001.SZ"
 
 
 def _column_types(schema) -> dict[str, str]:
@@ -66,9 +67,15 @@ def _write_rows(
         )
 
 
-def _qfq_row(trade_date: str, trade_time: str, close: float) -> dict[str, object]:
+def _qfq_row(
+    trade_date: str,
+    trade_time: str,
+    close: float,
+    *,
+    stock_code: str = STOCK_A,
+) -> dict[str, object]:
     return {
-        "ts_code": STOCK_A,
+        "ts_code": stock_code,
         "freq": 1,
         "trade_date": trade_date,
         "trade_time": f"{trade_date} {trade_time}",
@@ -82,9 +89,19 @@ def _qfq_row(trade_date: str, trade_time: str, close: float) -> dict[str, object
     }
 
 
-def _source_rows_for_day(trade_date: str, *, start_close: float) -> list[dict[str, object]]:
+def _source_rows_for_day(
+    trade_date: str,
+    *,
+    start_close: float,
+    stock_code: str = STOCK_A,
+) -> list[dict[str, object]]:
     return [
-        _qfq_row(trade_date, f"09:{31 + index:02d}:00", start_close + index)
+        _qfq_row(
+            trade_date,
+            f"09:{31 + index:02d}:00",
+            start_close + index,
+            stock_code=stock_code,
+        )
         for index in range(10)
     ]
 
@@ -239,6 +256,77 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
             ["2026-06-01"] * 10 + ["2026-06-02"] * 10,
         )
         self.assertEqual(SEGMENT_BAR_COUNT, 1024)
+
+    def test_scoped_repair_state_merge_preserves_unaffected_stock_state(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            source_a_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
+            source_b_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_B, 2026)
+            _write_rows(
+                source_a_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=(
+                    _source_rows_for_day("2026-06-01", start_close=10.0)
+                    + _source_rows_for_day("2026-06-02", start_close=20.0)
+                ),
+            )
+            _write_rows(
+                source_b_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=(
+                    _source_rows_for_day(
+                        "2026-06-01",
+                        start_close=100.0,
+                        stock_code=STOCK_B,
+                    )
+                    + _source_rows_for_day(
+                        "2026-06-02",
+                        start_close=110.0,
+                        stock_code=STOCK_B,
+                    )
+                ),
+            )
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_a_path, source_b_path),
+                target_trade_dates=("2026-06-01",),
+            )
+            previous_state = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                1,
+                "2026-06-01",
+            )
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_a_path, source_b_path),
+                target_trade_dates=("2026-06-02",),
+                previous_state_paths=(previous_state,),
+            )
+            state_path = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                1,
+                "2026-06-02",
+            )
+            before_rows = _read_rows(state_path)
+            unaffected_before = next(
+                row for row in before_rows if row["ts_code"] == STOCK_B
+            )
+
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_a_path, source_b_path),
+                target_trade_dates=("2026-06-02",),
+                previous_state_paths=(previous_state,),
+                stock_codes=(STOCK_A,),
+            )
+            after_rows = _read_rows(state_path)
+            unaffected_after = next(row for row in after_rows if row["ts_code"] == STOCK_B)
+
+        self.assertEqual({row["ts_code"] for row in after_rows}, {STOCK_A, STOCK_B})
+        self.assertEqual(unaffected_after, unaffected_before)
 
 
 if __name__ == "__main__":
