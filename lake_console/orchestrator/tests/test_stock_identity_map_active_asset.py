@@ -150,10 +150,14 @@ class StockIdentityMapActiveAssetTests(unittest.TestCase):
 
 
 class StockIdentityMapSensorDecisionTests(unittest.TestCase):
-    def test_window_starts_at_1630(self) -> None:
+    def test_window_starts_at_1730(self) -> None:
         timezone = ZoneInfo("Asia/Shanghai")
-        self.assertFalse(_source_window_started(datetime(2026, 5, 31, 16, 29, tzinfo=timezone)))
-        self.assertTrue(_source_window_started(datetime(2026, 5, 31, 16, 30, tzinfo=timezone)))
+        self.assertFalse(
+            _source_window_started(datetime(2026, 5, 31, 17, 29, tzinfo=timezone))
+        )
+        self.assertTrue(
+            _source_window_started(datetime(2026, 5, 31, 17, 30, tzinfo=timezone))
+        )
 
     def test_latest_registered_trade_date_uses_stock_trade_days(self) -> None:
         evaluated_at = datetime(2026, 5, 31, 17, 0, tzinfo=ZoneInfo("Asia/Shanghai"))
@@ -246,4 +250,3 @@ _TEMP_DIRS: list[tempfile.TemporaryDirectory] = []
 
 if __name__ == "__main__":
     unittest.main()
-

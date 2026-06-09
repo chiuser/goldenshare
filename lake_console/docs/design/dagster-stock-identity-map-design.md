@@ -29,12 +29,12 @@
 | 初始化事件 | M3 已补录 runless materialization 与 9 个 blocking check events |
 | active asset | `silver_stock_identity_map` |
 | active job | `stock_identity_map_update_job` |
-| active sensor | `stock_identity_map_sensor`，默认 `STOPPED`，16:30 后评估 |
+| active sensor | `stock_identity_map_sensor`，默认 `STOPPED`，17:30 后评估 |
 | seed | `orchestrator/seeds/basic/stock_identity_mappings.cn_a.csv` |
 
 这意味着：
 
-1. 更新 `silver_stock_basic` 和 `silver_namechange` 后，`stock_identity_map_sensor` 会在 16:30 后检查 freshness 与 checks，满足条件才触发 `stock_identity_map_update_job`。
+1. 更新 `silver_stock_basic` 和 `silver_namechange` 后，`stock_identity_map_sensor` 会在 17:30 后检查 freshness 与 checks，满足条件才触发 `stock_identity_map_update_job`。
 2. 旧湖 manifest 只是历史初始化来源，不是长期运行时依赖。
 3. identity map 的日常维护入口已经收敛到 active asset / checks / job / sensor。
 
@@ -263,8 +263,8 @@ silver_stock_identity_map checks
 
 1. 目标交易日读取 `cn_a_stock_trade_days` 的最新已注册交易日，不读取 `cn_a_stock_current_trade_days`。
 2. sensor 默认 `STOPPED`，每 10 分钟评估一次。
-3. 每天上海时间 16:30 前直接 skip，不检查上游、不提交 run。
-4. 16:30 后才检查基础事实 readiness。
+3. 每天上海时间 17:30 前直接 skip，不检查上游、不提交 run。
+4. 17:30 后才检查基础事实 readiness。
 5. 该口径与 stock_basic raw/silver 日更 sensors 使用的最新 `cn_a_stock_trade_days` 目标交易日集合一致，也能早于 19:30 后的 `stk_mins` raw 日常更新窗口完成。
 
 触发条件：
@@ -390,14 +390,14 @@ namechange 更新
 
 目标：新增 `stock_identity_map_sensor`。
 
-当前状态：已实现。sensor 使用 `cn_a_stock_trade_days` 最新已注册交易日，16:30 前直接 skip；16:30 后等待 `silver_stock_basic` 与 `silver_namechange` ready，且 identity map stale 时提交 `stock_identity_map_update_job`。
+当前状态：已实现。sensor 使用 `cn_a_stock_trade_days` 最新已注册交易日，17:30 前直接 skip；17:30 后等待 `silver_stock_basic` 与 `silver_namechange` ready，且 identity map stale 时提交 `stock_identity_map_update_job`。
 
 要求：
 
 1. sensor 默认 `STOPPED`。
 2. 只在交易日基础事实 ready 后触发 `stock_identity_map_update_job`。
 3. 只提交 identity map job，不触发 `stock_basic`、`namechange` 或 `stk_mins`。
-4. 目标交易日读取 `cn_a_stock_trade_days`，并且 16:30 后才开始检查 `stock_basic` / `namechange` freshness；不能只看历史上 materialized 过。
+4. 目标交易日读取 `cn_a_stock_trade_days`，并且 17:30 后才开始检查 `stock_basic` / `namechange` freshness；不能只看历史上 materialized 过。
 5. BSE 映射第一版作为静态 seed，seed 文件存在且校验通过即可视为 ready。
 
 ### IM-5：旧 bootstrap 收口
@@ -414,7 +414,7 @@ namechange 更新
 4. confirmed 映射不被 inferred 覆盖。
 5. 分钟线源代码集合可以被 identity map 解释。
 6. `stock_identity_map_update_job` 不更新其它基础资产。
-7. `stock_identity_map_sensor` 能在 `cn_a_stock_trade_days` 最新已注册交易日、16:30 后且 `stock_basic` / `namechange` ready 时触发整表重建。
+7. `stock_identity_map_sensor` 能在 `cn_a_stock_trade_days` 最新已注册交易日、17:30 后且 `stock_basic` / `namechange` ready 时触发整表重建。
 8. 下游只读消费该 asset，不再自行实现映射规则。
 
 ## 15. 当前后续事项

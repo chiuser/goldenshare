@@ -95,8 +95,8 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `index_trade_day_sensor` | `defs/sensors/index_trade_day_sensor.py` | `index_topic` | `partition` | `partition_registration` | 注册指数资产族交易日分区；不触发资产生产。 |
 | `raw_stock_basic_update_job_sensor` | `defs/sensors/stock_basic_sensor.py` | `basic_data` | `raw` | `asset_update` | 触发股票基础信息 raw full snapshot 更新；raw 缺失或 freshness 不满足时提交。 |
 | `silver_stock_basic_update_job_sensor` | `defs/sensors/stock_basic_sensor.py` | `basic_data` | `silver` | `asset_update` | raw stock_basic event/check ready 后触发股票基础信息 silver full snapshot 更新。 |
-| `raw_namechange_update_job_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `raw` | `asset_update` | 触发股票曾用名 raw full snapshot 更新；保留 09:30 后和同一交易日一次提交语义。 |
-| `silver_namechange_update_job_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `silver` | `asset_update` | raw namechange 和 stock_basic raw+silver final ready 后触发股票曾用名 silver full snapshot 更新。 |
+| `raw_namechange_update_job_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `raw` | `asset_update` | 触发股票曾用名 raw full snapshot 更新；保留 09:30 早盘与 17:00 晚盘两阶段、同一交易日同一阶段一次提交语义。 |
+| `silver_namechange_update_job_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `silver` | `asset_update` | raw namechange 和 stock_basic raw+silver final ready 后触发股票曾用名 silver full snapshot 更新；silver 必须跟上最新 upstream materialization。 |
 | `raw_suspend_d_update_job_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发停复牌 raw 更新；停复牌位于股票行情数据域。 |
 | `silver_suspend_d_update_job_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `silver` | `asset_update` | raw suspend_d event/check ready 后触发停复牌 silver 更新。 |
 | `raw_stock_daily_update_job_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发股票日线 raw 更新；raw 缺口和 missing-code repair 都属于股票行情数据域。 |

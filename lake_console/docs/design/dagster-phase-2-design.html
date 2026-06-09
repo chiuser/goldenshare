@@ -751,7 +751,7 @@ gold_stock_return_distribution[trade_date]</code></pre>
         <tr>
           <td>8</td>
           <td>实现 <code>Slice 2.2.1b</code>：quote 源站 readiness 和当天交易日生产。</td>
-          <td>Tushare 当日日线发布时间不精确，不能只靠交易日历判断今天能跑。今天是交易日时，16:00 前不探测；16:00 后约每 10 分钟探测一次 <code>daily(trade_date=YYYYMMDD)</code>。<code>Slice 2.2.1e</code> 后，今天 partition 由 <code>stock_trade_day_sensor</code> 注册；<code>stock_daily_sensor</code> 只有在 <code>daily</code> 已 ready，且 stock basic 与 suspend 上游已 ready 后，才触发 <code>stock_daily_update_job[today]</code>。</td>
+          <td>Tushare 当日日线发布时间不精确，不能只靠交易日历判断今天能跑。今天是交易日时，source readiness 可在 16:00 后探测；<code>Slice 2.2.1e</code> 后，今天 partition 由 <code>stock_trade_day_sensor</code> 在 17:00 后注册；<code>stock_daily_sensor</code> 只有在 <code>daily</code> 已 ready，且 stock basic 与 suspend 上游已 ready 后，才触发 <code>stock_daily_update_job[today]</code>。</td>
           <td>已完成：源站未 ready 时只返回中文跳过原因，不发 <code>RunRequest</code>，不写 raw，不占用 <code>run_key</code>。早期验证触发 <code>quote_daily_job</code>，<code>Slice 2.2.1d</code> 后正式触发目标改为 <code>stock_daily_update_job</code>，<code>Slice 2.2.1e</code> 后该判断迁入 <code>stock_daily_sensor</code>。第一版 source readiness 只以 <code>daily</code> 为准，<code>suspend_d</code> 不参与源站 ready 判断。</td>
         </tr>
         <tr>
@@ -996,7 +996,7 @@ defs/sensors/stock_trade_day_sensor.py
   stock_trade_day_sensor
     1. 计算 latest_completed_trade_date
     2. 读取 silver_trade_calendar 中 open=true、trade_date >= 2014-01-01 且 trade_date <= latest_completed_trade_date 的日期
-    3. 16:00 后允许注册今天这个 SSE 开市日 partition
+    3. 17:00 后允许注册今天这个 SSE 开市日 partition
     4. 只注册 cn_a_stock_trade_days dynamic partition keys
     5. 不直接写任何数据资产，不触发任何数据生产 job
 
@@ -1133,7 +1133,7 @@ silver_stock_daily materialization
 
 2. 可注册交易日 eligible day
    open=true
-   且小于当前自然日，或今天开市且本地时间已到 16:00
+   且小于当前自然日，或今天开市且本地时间已到 17:00
    且不是未来 open day。
 
 只允许 eligible day 进入交易日注册：
@@ -1150,7 +1150,7 @@ silver_stock_daily materialization
 
     <p>
       当前实现不再让 <code>stock_trade_day_sensor</code> 触发数据生产。小于当前自然日的 open day 可以注册；
-      如果今天是 SSE 开市日，则 16:00 后可以注册今天 partition。
+      如果今天是 SSE 开市日，则 17:00 后可以注册今天 partition。
       当天股票日线是否生产，由 <code>stock_daily_sensor</code> 再用 Tushare <code>daily(trade_date)</code> 源站 readiness 判断。
     </p>
 
@@ -2449,7 +2449,7 @@ bootstrap_quote_daily_job successful partitions: 3004 / 3004</code></pre>
         </tr>
         <tr>
           <td>当天是交易日时，最新股票日线日期是否可以是今天？</td>
-          <td>可以，但不能只靠交易日历。今天 partition 可以在 16:00 后由 <code>stock_trade_day_sensor</code> 注册；股票日线生产必须等 Tushare 源站当天 <code>daily</code> 已 ready，且 stock basic / suspend 上游已 ready。</td>
+          <td>可以，但不能只靠交易日历。今天 partition 可以在 17:00 后由 <code>stock_trade_day_sensor</code> 注册；股票日线生产必须等 Tushare 源站当天 <code>daily</code> 已 ready，且 stock basic / suspend 上游已 ready。</td>
           <td><code>Slice 2.2.1e</code> 后，源站 readiness 探测由 <code>stock_daily_sensor</code> 执行。</td>
         </tr>
         <tr>

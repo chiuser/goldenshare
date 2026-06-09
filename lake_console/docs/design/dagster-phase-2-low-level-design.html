@@ -1587,7 +1587,7 @@ Phase 2 completed through Slice 2.2.1e:
   3. active bootstrap_quote_daily_job retired; historical runs remain visible in Dagster instance [completed]
   4. Slice 2.2.1: implement stock_trade_day_sensor [completed]
   5. all sensors default status is STOPPED [completed]
-  6. stock_trade_day_sensor computes eligible trade dates from silver_trade_calendar, including same-day registration only after 16:00 [completed]
+  6. stock_trade_day_sensor computes eligible trade dates from silver_trade_calendar, including same-day registration only after 17:00 [completed]
   7. stock_trade_day_sensor only registers eligible open days into cn_a_stock_trade_days and never registers future open days [completed]
   8. early sensor version triggered quote_daily_job[trade_date] run requests for validation only [historical, retired]
   9. sensor must not trigger market breadth, downstream gold automation, schedule, backfill, or calendar/basic API update [completed]
@@ -1657,7 +1657,7 @@ stock_trade_day_sensor algorithm:
       and trade_date >= DATE '2014-01-01'
       and trade_date <= latest_completed_trade_date
 
-  if today is SSE open day and local time >= 16:00:
+  if today is SSE open day and local time >= 17:00:
     include today as eligible partition
 
   existing_keys = instance.get_dynamic_partitions(cn_a_stock_trade_days.name)
@@ -1848,13 +1848,13 @@ for record in get_asset_check_execution_history(...):
     </div>
 
     <div class="warning">
-      <code>silver_trade_calendar</code> 可能包含全年未来交易日。<code>stock_trade_day_sensor</code> 必须截断未来日期：小于当前自然日的 open day 可注册，今天是开市日时仅 16:00 后可注册今天 partition。
+      <code>silver_trade_calendar</code> 可能包含全年未来交易日。<code>stock_trade_day_sensor</code> 必须截断未来日期：小于当前自然日的 open day 可注册，今天是开市日时仅 17:00 后可注册今天 partition。
       该 sensor 只返回 <code>build_add_request</code>，不返回数据生产 <code>RunRequest</code>。
     </div>
 
     <div class="callout">
       第二期早期版本曾采用保守口径：只取小于当前自然日的最近 open day。
-      当前已经补上“当天 16:00 后可注册 + <code>stock_daily_sensor</code> 探测 Tushare daily 源站 ready”的口径；不能直接用自然日 today 当成可生产依据。
+      当前已经补上“当天 17:00 后可注册 + <code>stock_daily_sensor</code> 探测 Tushare daily 源站 ready”的口径；不能直接用自然日 today 当成可生产依据。
     </div>
 
     <h3>11.1.1 Slice 2.2.1b：stock daily source readiness 与当天交易日</h3>
@@ -1952,7 +1952,7 @@ for record in get_asset_check_execution_history(...):
     </p>
     <p>
       <code>latest_completed_trade_date</code> 是 sensor 的安全边界，意思是“目前最晚哪个交易日已经真实结束，理论上可以拉数据”。
-      当前实现采用两段规则：小于当前自然日的 open day 可以注册；如果今天本身是 SSE 开市日，则只有本地时间 16:00 后才允许注册今天 partition。
+      当前实现采用两段规则：小于当前自然日的 open day 可以注册；如果今天本身是 SSE 开市日，则只有本地时间 17:00 后才允许注册今天 partition。
       但注册 partition 不等于运行数据生产；股票日线生产仍由 <code>stock_daily_sensor</code> 在 Tushare 源站 ready 且上游 checks 通过后触发。
     </p>
 
@@ -1965,12 +1965,12 @@ for record in get_asset_check_execution_history(...):
     2026-05-21 open=true
     2026-12-31 open=true
 
-  before 16:00:
+  before 17:00:
     allowed to register:
       2026-05-18
       2026-05-19
 
-  after 16:00:
+  after 17:00:
     allowed to register:
       2026-05-18
       2026-05-19
@@ -2003,7 +2003,7 @@ for record in get_asset_check_execution_history(...):
     <pre><code>current stock_trade_day_sensor:
   latest_completed_trade_date = resolve_latest_completed_trade_date(now)
   eligible_open_days = open days <= latest_completed_trade_date
-  if today is SSE open day and local time >= 16:00:
+  if today is SSE open day and local time >= 17:00:
     eligible_open_days += today
   new_keys = eligible_open_days - existing cn_a_stock_trade_days
 
@@ -2487,7 +2487,7 @@ DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home \
           <td>未来 open day 被误注册并运行。</td>
           <td>2.2.1</td>
           <td>实现、安全验证与端到端生产验收已完成。</td>
-          <td><code>silver_trade_calendar</code> 是全年交易日计划表，不代表未来数据已经发生。<code>stock_trade_day_sensor</code> 必须先计算 <code>latest_completed_trade_date</code>，只允许 <code>trade_date >= 2014-01-01</code> 的合法 open days 注册；今天是开市日时，只有本地时间 16:00 后才允许注册今天 partition。该 sensor 不再运行任何数据生产 job。已确认不会注册未来 open day，也不会误把 bootstrap 已完成历史分区当成待补。</td>
+          <td><code>silver_trade_calendar</code> 是全年交易日计划表，不代表未来数据已经发生。<code>stock_trade_day_sensor</code> 必须先计算 <code>latest_completed_trade_date</code>，只允许 <code>trade_date >= 2014-01-01</code> 的合法 open days 注册；今天是开市日时，只有本地时间 17:00 后才允许注册今天 partition。该 sensor 不再运行任何数据生产 job。已确认不会注册未来 open day，也不会误把 bootstrap 已完成历史分区当成待补。</td>
         </tr>
         <tr>
           <td>Tushare 当天日线发布时间不确定，sensor 不能只靠交易日历判断当天能跑。</td>

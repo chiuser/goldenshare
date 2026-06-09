@@ -754,7 +754,7 @@ stk_mins structural checks</pre>
 
     <h4>5.3.3 新触发机制</h4>
     <pre class="flow">stock_trade_day_sensor
-        └─ 16:00 后注册 cn_a_stock_trade_days[trade_date]
+        └─ 17:00 后注册 cn_a_stock_trade_days[trade_date]
 
 raw_suspend_d_update_job_sensor
         ├─ 读取已注册股票交易日
@@ -804,7 +804,7 @@ silver_suspend_d_update_job
       两个 sensor 均保持 <code>minimum_interval_seconds=600</code> 和
       <code>MAX_RUN_REQUESTS_PER_TICK=2</code> 的日常节奏。raw sensor 不额外探测
       <code>suspend_d</code> 源站是否“有行”，因为空结果是合法事实；当日分区是否进入自动链路，由
-      <code>stock_trade_day_sensor</code> 的 16:00 后分区注册控制。
+      <code>stock_trade_day_sensor</code> 的 17:00 后分区注册控制。
     </p>
 
     <h4>5.3.4 Readiness helper 口径</h4>

@@ -46,6 +46,12 @@ class _BeforeWindowDateTime(datetime):
         return cls(2026, 6, 5, 9, 0, tzinfo=tz)
 
 
+class _EveningDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 6, 5, 17, 5, tzinfo=tz)
+
+
 class _FakeInstance:
     def __init__(self, partitions: tuple[str, ...]):
         self._partitions = partitions
@@ -74,8 +80,16 @@ def _asset_status(
     freshness_passed: bool = True,
     missing_check_names: tuple[str, ...] = (),
     failed_check_names: tuple[str, ...] = (),
+    materialization_storage_id: int | None = None,
     reason: str = "ready",
 ) -> AssetReadinessStatus:
+    storage_id = (
+        materialization_storage_id
+        if materialization_storage_id is not None
+        else 1
+        if materialized
+        else None
+    )
     return AssetReadinessStatus(
         asset_key=asset_key,
         partition_key=None,
@@ -83,7 +97,7 @@ def _asset_status(
         materialized=materialized,
         checks_passed=checks_passed,
         freshness_passed=freshness_passed,
-        materialization_storage_id=1 if materialized else None,
+        materialization_storage_id=storage_id,
         materialization_date="2026-06-05" if freshness_passed else "2026-06-04",
         missing_check_names=missing_check_names,
         failed_check_names=failed_check_names,
@@ -376,7 +390,7 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         self.assertEqual(len(submitted.run_requests), 1)
         self.assertEqual(
             submitted.run_requests[0].run_key,
-            "raw_namechange_update:2026-06-05",
+            "raw_namechange_update:2026-06-05:morning",
         )
         self.assertIsNone(submitted.run_requests[0].partition_key)
 
@@ -401,6 +415,28 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
             load_sensor_cursor(submitted.cursor)["details"][
                 "already_submitted_for_trade_date"
             ]
+        )
+        self.assertEqual(
+            load_sensor_cursor(submitted.cursor)["details"]["namechange_run_stage"],
+            "morning",
+        )
+
+        with patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.datetime",
+            _EveningDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.raw_tushare_namechange_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="raw_tushare_namechange",
+                ready=True,
+                materialization_storage_id=10,
+            ),
+        ):
+            evening = _raw_namechange_result(_FakeContext(cursor=submitted.cursor))
+        self.assertEqual(len(evening.run_requests), 1)
+        self.assertEqual(
+            evening.run_requests[0].run_key,
+            "raw_namechange_update:2026-06-05:evening",
         )
 
     def test_raw_namechange_sensor_skips_failed_checks(self) -> None:
@@ -511,8 +547,97 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         stock_basic_readiness.assert_called_once()
         self.assertEqual(len(result.run_requests), 1)
         request = result.run_requests[0]
-        self.assertEqual(request.run_key, "silver_namechange_update:2026-06-05")
+        self.assertEqual(request.run_key, "silver_namechange_update:2026-06-05:morning")
         self.assertIsNone(request.partition_key)
+
+    def test_silver_namechange_evening_submits_when_raw_is_newer(self) -> None:
+        context = _FakeContext()
+        stock_basic_status = DatasetReadinessStatus(
+            ready=True,
+            statuses=(
+                _asset_status(
+                    asset_key="raw_tushare_stock_basic",
+                    materialization_storage_id=9,
+                ),
+                _asset_status(
+                    asset_key="silver_stock_basic",
+                    materialization_storage_id=10,
+                ),
+            ),
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.datetime",
+            _EveningDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.silver_namechange_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="silver_namechange",
+                ready=True,
+                materialization_storage_id=11,
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.raw_tushare_namechange_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="raw_tushare_namechange",
+                ready=True,
+                materialization_storage_id=12,
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.stock_basic_ready_for_trade_date",
+            return_value=stock_basic_status,
+        ):
+            result = _silver_namechange_result(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        self.assertEqual(
+            result.run_requests[0].run_key,
+            "silver_namechange_update:2026-06-05:evening",
+        )
+        self.assertEqual(
+            load_sensor_cursor(result.cursor)["details"]["namechange_run_stage"],
+            "evening",
+        )
+
+    def test_silver_namechange_skips_when_current_for_upstreams(self) -> None:
+        context = _FakeContext()
+        stock_basic_status = DatasetReadinessStatus(
+            ready=True,
+            statuses=(
+                _asset_status(
+                    asset_key="raw_tushare_stock_basic",
+                    materialization_storage_id=9,
+                ),
+                _asset_status(
+                    asset_key="silver_stock_basic",
+                    materialization_storage_id=10,
+                ),
+            ),
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.datetime",
+            _EveningDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.silver_namechange_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="silver_namechange",
+                ready=True,
+                materialization_storage_id=12,
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.raw_tushare_namechange_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="raw_tushare_namechange",
+                ready=True,
+                materialization_storage_id=11,
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_namechange_sensor.stock_basic_ready_for_trade_date",
+            return_value=stock_basic_status,
+        ):
+            result = _silver_namechange_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("已跟上 raw 与 stock_basic", _skip_message(result))
 
     def test_silver_namechange_sensor_skips_failed_silver_checks(self) -> None:
         context = _FakeContext()

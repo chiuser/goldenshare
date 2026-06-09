@@ -30,6 +30,9 @@ from orchestrator.defs.sensors.readiness import (
 
 
 STOCK_NAMECHANGE_RUN_START = time(9, 30)
+STOCK_NAMECHANGE_EVENING_RUN_START = time(17, 0)
+STOCK_NAMECHANGE_MORNING_STAGE = "morning"
+STOCK_NAMECHANGE_EVENING_STAGE = "evening"
 
 
 def _latest_registered_current_trade_date(
@@ -41,6 +44,23 @@ def _latest_registered_current_trade_date(
         trade_date for trade_date in registered_trade_days if trade_date <= today
     )
     return eligible_trade_days[-1] if eligible_trade_days else None
+
+
+def _namechange_run_stage(evaluated_at: datetime) -> str | None:
+    current_time = evaluated_at.time()
+    if current_time >= STOCK_NAMECHANGE_EVENING_RUN_START:
+        return STOCK_NAMECHANGE_EVENING_STAGE
+    if current_time >= STOCK_NAMECHANGE_RUN_START:
+        return STOCK_NAMECHANGE_MORNING_STAGE
+    return None
+
+
+def _stage_label(namechange_run_stage: str | None) -> str:
+    if namechange_run_stage == STOCK_NAMECHANGE_EVENING_STAGE:
+        return "晚盘"
+    if namechange_run_stage == STOCK_NAMECHANGE_MORNING_STAGE:
+        return "早盘"
+    return "未开始"
 
 
 def _asset_status_payload(status: AssetReadinessStatus) -> dict[str, object]:
@@ -68,6 +88,7 @@ def _raw_cursor_payload(
     selected_trade_date: str | None,
     reason: str,
     source_window_started: bool,
+    namechange_run_stage: str | None,
     already_submitted_for_trade_date: bool,
     raw_status: AssetReadinessStatus | None = None,
 ) -> str:
@@ -76,6 +97,7 @@ def _raw_cursor_payload(
         "selected_trade_date": selected_trade_date,
         "reason": reason,
         "source_window_started": source_window_started,
+        "namechange_run_stage": namechange_run_stage,
         "already_submitted_for_trade_date": already_submitted_for_trade_date,
     }
     if raw_status is not None:
@@ -104,6 +126,8 @@ def _silver_cursor_payload(
     selected_trade_date: str | None,
     reason: str,
     source_window_started: bool,
+    namechange_run_stage: str | None,
+    already_submitted_for_trade_date: bool = False,
     raw_status: AssetReadinessStatus | None = None,
     stock_basic_status: DatasetReadinessStatus | None = None,
     silver_status: AssetReadinessStatus | None = None,
@@ -130,6 +154,8 @@ def _silver_cursor_payload(
             "selected_trade_date": selected_trade_date,
             "reason": reason,
             "source_window_started": source_window_started,
+            "namechange_run_stage": namechange_run_stage,
+            "already_submitted_for_trade_date": already_submitted_for_trade_date,
             "readiness_details": readiness_details,
         },
     )
@@ -143,12 +169,69 @@ def _submit_when_missing_or_stale(status: AssetReadinessStatus) -> bool:
     return not status.freshness_passed
 
 
-def _raw_run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
-    return build_run_request(run_key=f"raw_namechange_update:{trade_date}")
+def _already_submitted_for_stage(
+    cursor: str | None,
+    *,
+    target_trade_date: str,
+    namechange_run_stage: str,
+) -> bool:
+    cursor_details = sensor_cursor_details(load_sensor_cursor(cursor))
+    return (
+        cursor_details.get("selected_trade_date") == target_trade_date
+        and cursor_details.get("namechange_run_stage") == namechange_run_stage
+        and cursor_details.get("already_submitted_for_trade_date") is True
+    )
 
 
-def _silver_run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
-    return build_run_request(run_key=f"silver_namechange_update:{trade_date}")
+def _latest_stock_basic_storage_id(
+    stock_basic_status: DatasetReadinessStatus,
+) -> int | None:
+    storage_ids = tuple(
+        status.materialization_storage_id
+        for status in stock_basic_status.statuses
+        if status.materialization_storage_id is not None
+    )
+    return max(storage_ids) if storage_ids else None
+
+
+def _silver_namechange_current_for_upstreams(
+    *,
+    silver_status: AssetReadinessStatus,
+    raw_status: AssetReadinessStatus,
+    stock_basic_status: DatasetReadinessStatus,
+) -> bool:
+    if not silver_status.ready or silver_status.materialization_storage_id is None:
+        return False
+
+    upstream_storage_ids = tuple(
+        storage_id
+        for storage_id in (
+            raw_status.materialization_storage_id,
+            _latest_stock_basic_storage_id(stock_basic_status),
+        )
+        if storage_id is not None
+    )
+    if not upstream_storage_ids:
+        return True
+    return silver_status.materialization_storage_id >= max(upstream_storage_ids)
+
+
+def _raw_run_request_for_trade_date(
+    trade_date: str,
+    namechange_run_stage: str,
+) -> dg.RunRequest:
+    return build_run_request(
+        run_key=f"raw_namechange_update:{trade_date}:{namechange_run_stage}"
+    )
+
+
+def _silver_run_request_for_trade_date(
+    trade_date: str,
+    namechange_run_stage: str,
+) -> dg.RunRequest:
+    return build_run_request(
+        run_key=f"silver_namechange_update:{trade_date}:{namechange_run_stage}"
+    )
 
 
 @dg.sensor(
@@ -166,7 +249,8 @@ def raw_namechange_update_job_sensor(
     context: dg.SensorEvaluationContext,
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
-    source_window_started = evaluated_at.time() >= STOCK_NAMECHANGE_RUN_START
+    namechange_run_stage = _namechange_run_stage(evaluated_at)
+    source_window_started = namechange_run_stage is not None
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -189,6 +273,7 @@ def raw_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             already_submitted_for_trade_date=False,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
@@ -203,29 +288,16 @@ def raw_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             already_submitted_for_trade_date=False,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
+    assert namechange_run_stage is not None
     raw_status = raw_tushare_namechange_ready_for_trade_date(
         context.instance,
         target_trade_date,
     )
-    if raw_status.ready:
-        reason = "股票曾用名 raw 已满足最新当前交易日 freshness 与 checks。"
-        cursor = _raw_cursor_payload(
-            evaluated_at=evaluated_at,
-            decision=SensorCursorDecision.SKIP,
-            registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
-            selected_trade_date=None,
-            reason=reason,
-            source_window_started=source_window_started,
-            already_submitted_for_trade_date=False,
-            raw_status=raw_status,
-        )
-        return dg.SensorResult(skip_reason=reason, cursor=cursor)
-
     if raw_status.materialized and not raw_status.checks_passed:
         reason = (
             "股票曾用名 raw 已生成过，但 blocking checks 未全绿，"
@@ -239,18 +311,22 @@ def raw_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             already_submitted_for_trade_date=False,
             raw_status=raw_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    cursor_details = sensor_cursor_details(load_sensor_cursor(context.cursor))
-    already_submitted = (
-        cursor_details.get("selected_trade_date") == target_trade_date
-        and cursor_details.get("already_submitted_for_trade_date") is True
+    already_submitted = _already_submitted_for_stage(
+        context.cursor,
+        target_trade_date=target_trade_date,
+        namechange_run_stage=namechange_run_stage,
     )
     if already_submitted:
-        reason = "最新股票当前交易日已经提交过股票曾用名 raw 更新 run，失败时请人工 retry。"
+        reason = (
+            f"最新股票当前交易日已经提交过股票曾用名 raw "
+            f"{_stage_label(namechange_run_stage)}更新 run，失败时请人工 retry。"
+        )
         cursor = _raw_cursor_payload(
             evaluated_at=evaluated_at,
             decision=SensorCursorDecision.SKIP,
@@ -259,12 +335,35 @@ def raw_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             already_submitted_for_trade_date=True,
             raw_status=raw_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if not _submit_when_missing_or_stale(raw_status):
+    if (
+        raw_status.ready
+        and namechange_run_stage == STOCK_NAMECHANGE_MORNING_STAGE
+    ):
+        reason = "股票曾用名 raw 已满足最新当前交易日 freshness 与 checks。"
+        cursor = _raw_cursor_payload(
+            evaluated_at=evaluated_at,
+            decision=SensorCursorDecision.SKIP,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
+            already_submitted_for_trade_date=False,
+            raw_status=raw_status,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    if (
+        namechange_run_stage != STOCK_NAMECHANGE_EVENING_STAGE
+        and not _submit_when_missing_or_stale(raw_status)
+    ):
         reason = f"股票曾用名 raw 暂不自动触发：{raw_status.reason}"
         cursor = _raw_cursor_payload(
             evaluated_at=evaluated_at,
@@ -274,12 +373,16 @@ def raw_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             already_submitted_for_trade_date=False,
             raw_status=raw_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    reason = "股票曾用名 raw 缺失或 freshness 不满足，提交 raw full snapshot 更新。"
+    reason = (
+        f"股票曾用名 raw {_stage_label(namechange_run_stage)}阶段需要更新，"
+        "提交 raw full snapshot 更新。"
+    )
     cursor = _raw_cursor_payload(
         evaluated_at=evaluated_at,
         decision=SensorCursorDecision.REQUEST_RUNS,
@@ -288,11 +391,17 @@ def raw_namechange_update_job_sensor(
         selected_trade_date=target_trade_date,
         reason=reason,
         source_window_started=source_window_started,
+        namechange_run_stage=namechange_run_stage,
         already_submitted_for_trade_date=True,
         raw_status=raw_status,
     )
     return dg.SensorResult(
-        run_requests=[_raw_run_request_for_trade_date(target_trade_date)],
+        run_requests=[
+            _raw_run_request_for_trade_date(
+                target_trade_date,
+                namechange_run_stage,
+            )
+        ],
         cursor=cursor,
     )
 
@@ -312,7 +421,8 @@ def silver_namechange_update_job_sensor(
     context: dg.SensorEvaluationContext,
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
-    source_window_started = evaluated_at.time() >= STOCK_NAMECHANGE_RUN_START
+    namechange_run_stage = _namechange_run_stage(evaluated_at)
+    source_window_started = namechange_run_stage is not None
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -335,6 +445,7 @@ def silver_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -348,27 +459,15 @@ def silver_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
+    assert namechange_run_stage is not None
     silver_status = silver_namechange_ready_for_trade_date(
         context.instance,
         target_trade_date,
     )
-    if silver_status.ready:
-        reason = "股票曾用名 silver 已满足最新当前交易日 freshness 与 checks。"
-        cursor = _silver_cursor_payload(
-            evaluated_at=evaluated_at,
-            decision=SensorCursorDecision.SKIP,
-            registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
-            selected_trade_date=None,
-            reason=reason,
-            source_window_started=source_window_started,
-            silver_status=silver_status,
-        )
-        return dg.SensorResult(skip_reason=reason, cursor=cursor)
-
     if silver_status.materialized and not silver_status.checks_passed:
         reason = (
             "股票曾用名 silver 已生成过，但 blocking checks 未全绿，"
@@ -382,6 +481,7 @@ def silver_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             silver_status=silver_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
@@ -400,6 +500,7 @@ def silver_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             raw_status=raw_status,
             silver_status=silver_status,
         )
@@ -419,13 +520,64 @@ def silver_namechange_update_job_sensor(
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
             raw_status=raw_status,
             stock_basic_status=stock_basic_status,
             silver_status=silver_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    reason = "股票曾用名 raw 与 stock_basic 均 ready，提交 silver full snapshot 更新。"
+    if _silver_namechange_current_for_upstreams(
+        silver_status=silver_status,
+        raw_status=raw_status,
+        stock_basic_status=stock_basic_status,
+    ):
+        reason = "股票曾用名 silver 已跟上 raw 与 stock_basic 最新 materialization。"
+        cursor = _silver_cursor_payload(
+            evaluated_at=evaluated_at,
+            decision=SensorCursorDecision.SKIP,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
+            raw_status=raw_status,
+            stock_basic_status=stock_basic_status,
+            silver_status=silver_status,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    already_submitted = _already_submitted_for_stage(
+        context.cursor,
+        target_trade_date=target_trade_date,
+        namechange_run_stage=namechange_run_stage,
+    )
+    if already_submitted:
+        reason = (
+            f"最新股票当前交易日已经提交过股票曾用名 silver "
+            f"{_stage_label(namechange_run_stage)}更新 run，失败时请人工 retry。"
+        )
+        cursor = _silver_cursor_payload(
+            evaluated_at=evaluated_at,
+            decision=SensorCursorDecision.SKIP,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=source_window_started,
+            namechange_run_stage=namechange_run_stage,
+            already_submitted_for_trade_date=True,
+            raw_status=raw_status,
+            stock_basic_status=stock_basic_status,
+            silver_status=silver_status,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    reason = (
+        f"股票曾用名 raw 与 stock_basic 均 ready，提交 silver "
+        f"{_stage_label(namechange_run_stage)}full snapshot 更新。"
+    )
     cursor = _silver_cursor_payload(
         evaluated_at=evaluated_at,
         decision=SensorCursorDecision.REQUEST_RUNS,
@@ -434,11 +586,18 @@ def silver_namechange_update_job_sensor(
         selected_trade_date=target_trade_date,
         reason=reason,
         source_window_started=source_window_started,
+        namechange_run_stage=namechange_run_stage,
+        already_submitted_for_trade_date=True,
         raw_status=raw_status,
         stock_basic_status=stock_basic_status,
         silver_status=silver_status,
     )
     return dg.SensorResult(
-        run_requests=[_silver_run_request_for_trade_date(target_trade_date)],
+        run_requests=[
+            _silver_run_request_for_trade_date(
+                target_trade_date,
+                namechange_run_stage,
+            )
+        ],
         cursor=cursor,
     )

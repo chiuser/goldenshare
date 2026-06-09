@@ -1,3 +1,5 @@
+from datetime import time
+
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_trade_days
@@ -13,6 +15,9 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
 )
 
 
+STOCK_TRADE_DAY_REGISTER_START = time(17, 0)
+
+
 @dg.sensor(
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
@@ -22,7 +27,7 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
         role=SensorRole.PARTITION_REGISTRATION,
     ),
     required_resource_keys={"lake_root", "duckdb"},
-    description="注册股票资产族交易日分区，不触发数据更新任务。",
+    description="17:00 后注册当天股票资产族交易日分区，不触发数据更新任务。",
 )
 def stock_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     return build_trade_day_partition_registration_result(
@@ -30,4 +35,5 @@ def stock_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResu
         dynamic_partitions=cn_a_stock_trade_days,
         min_trade_date=STOCK_TRADE_DAY_MIN_DATE,
         partition_set_label="股票资产族",
+        same_day_register_start=STOCK_TRADE_DAY_REGISTER_START,
     )

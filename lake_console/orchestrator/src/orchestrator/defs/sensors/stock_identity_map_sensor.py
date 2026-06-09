@@ -24,7 +24,7 @@ from orchestrator.defs.sensors.readiness import (
 )
 
 
-STOCK_IDENTITY_MAP_RUN_START = time(16, 30)
+STOCK_IDENTITY_MAP_RUN_START = time(17, 30)
 
 
 @dataclass(frozen=True)
@@ -182,7 +182,7 @@ def _cursor_payload(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="股票身份映射在交易日 16:30 后等待基础事实 ready 后重建。",
+    description="股票身份映射在交易日 17:30 后等待基础事实 ready 后重建。",
 )
 def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
@@ -209,7 +209,7 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         )
 
     if not source_window_started:
-        reason = "股票身份映射日常更新窗口尚未到 16:30，暂不检查上游、不触发。"
+        reason = "股票身份映射日常更新窗口尚未到 17:30，暂不检查上游、不触发。"
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_cursor_payload(

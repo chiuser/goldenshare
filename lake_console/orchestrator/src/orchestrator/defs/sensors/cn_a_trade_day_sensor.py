@@ -151,6 +151,10 @@ def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime)
     )
 
 
+def _format_register_start(register_start: time) -> str:
+    return register_start.strftime("%H:%M")
+
+
 def _log_trade_day_partition_decision(
     context: dg.SensorEvaluationContext,
     *,
@@ -158,12 +162,14 @@ def _log_trade_day_partition_decision(
     dynamic_partitions: dg.DynamicPartitionsDefinition,
     min_trade_date: str,
     partition_set_label: str,
+    same_day_register_start: time,
 ) -> None:
     context.log.info(
         "event=trade_day_partition_registration "
         f"partition_set_label={partition_set_label} "
         f"dynamic_partitions={dynamic_partitions.name} "
         f"min_trade_date={min_trade_date} "
+        f"same_day_register_start={_format_register_start(same_day_register_start)} "
         f"today={decision.today} "
         f"today_is_open={decision.today_is_open} "
         f"same_day_register_window_started={decision.same_day_register_window_started} "
@@ -180,6 +186,7 @@ def build_trade_day_partition_registration_result(
     dynamic_partitions: dg.DynamicPartitionsDefinition,
     min_trade_date: str,
     partition_set_label: str,
+    same_day_register_start: time = SAME_DAY_PARTITION_REGISTER_START,
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     lake_root = context.resources.lake_root
@@ -192,7 +199,7 @@ def build_trade_day_partition_registration_result(
 
     today = evaluated_at.date().isoformat()
     same_day_register_window_started = (
-        evaluated_at.time() >= SAME_DAY_PARTITION_REGISTER_START
+        evaluated_at.time() >= same_day_register_start
     )
     with duckdb_resource.connect() as connection:
         latest_completed_trade_date = resolve_latest_completed_trade_date(
@@ -236,13 +243,18 @@ def build_trade_day_partition_registration_result(
         dynamic_partitions=dynamic_partitions,
         min_trade_date=min_trade_date,
         partition_set_label=partition_set_label,
+        same_day_register_start=same_day_register_start,
     )
 
     if not decision.selected_keys:
         if decision.eligible_open_day_count == 0:
             skip_reason = "没有从交易日历中找到符合条件的上交所开市日。"
         elif decision.today_is_open and not decision.same_day_register_window_started:
-            skip_reason = "今天是交易日，但还没到 16:00，暂不注册今天的交易日分区。"
+            skip_reason = (
+                "今天是交易日，但还没到 "
+                f"{_format_register_start(same_day_register_start)}，"
+                "暂不注册今天的交易日分区。"
+            )
         else:
             skip_reason = f"当前所有符合条件的{partition_set_label}交易日分区都已经注册。"
         return dg.SensorResult(

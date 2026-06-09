@@ -1,6 +1,6 @@
 # Dagster namechange 资产接入方案
 
-状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线 v2 口径；P2A 已将日常自动链路拆为 `raw_namechange_update_job` / `silver_namechange_update_job`，silver 触发前等待 raw namechange event/check ready 与 `stock_basic_ready_for_trade_date`。
+状态：NC-1 至 NC-5 已落地；数据来源、去重、日更触发口径已确认；NC-0 已完成，silver 采用公告生效事件时间线 v2 口径；P2A 已将日常自动链路拆为 `raw_namechange_update_job` / `silver_namechange_update_job`；P2B 已将日常 sensor 改为 09:30 早盘与 17:00 晚盘两阶段触发，silver 触发前等待 raw namechange event/check ready 与 `stock_basic_ready_for_trade_date`，并要求 silver materialization 跟上 raw/stock_basic 最新 storage id。
 
 更新时间：2026-05-30
 
@@ -58,7 +58,7 @@
 | 日常 raw job | `raw_namechange_update_job` |
 | 日常 silver job | `silver_namechange_update_job` |
 | 日常 raw sensor | `raw_namechange_update_job_sensor`，跟随 `stock_current_trade_day_sensor` 注册出的当天交易日信号 |
-| 日常 silver sensor | `silver_namechange_update_job_sensor`，等待 raw namechange 和 stock_basic final ready |
+| 日常 silver sensor | `silver_namechange_update_job_sensor`，按早盘/晚盘等待 raw namechange 和 stock_basic final ready，并确认 silver 跟上最新 upstream storage id |
 
 ## 4. Tushare 接口契约
 
@@ -565,14 +565,14 @@ P2A 后的 namechange sensor 口径：
 | default status | `STOPPED` |
 | minimum interval | 600 秒 |
 | 触发来源 | `cn_a_stock_current_trade_days` 最新已注册且不晚于上海当天的 key |
-| 触发窗口 | 09:30 后 |
-| raw run key | `raw_namechange_update:{trade_date}` |
-| silver run key | `silver_namechange_update:{trade_date}` |
+| 触发窗口 | 09:30 后早盘阶段；17:00 后晚盘阶段 |
+| raw run key | `raw_namechange_update:{trade_date}:{morning|evening}` |
+| silver run key | `silver_namechange_update:{trade_date}:{morning|evening}` |
 | partition_key | 无，namechange full snapshot jobs 不是 partitioned job |
 | run config | 第一版无 |
-| raw 重复触发 | 同一 `trade_date` 只提交一次；失败后人工 retry，不做无限自动重试 |
-| silver 门禁 | `raw_tushare_namechange` event/check ready + `stock_basic_ready_for_trade_date(trade_date)` |
-| cursor | 只记录观测信息：target date、是否已注册、是否已提交、skip reason |
+| raw 重复触发 | 同一 `trade_date + stage` 只提交一次；失败后人工 retry，不做无限自动重试 |
+| silver 门禁 | `raw_tushare_namechange` event/check ready + `stock_basic_ready_for_trade_date(trade_date)`；若 silver 已 ready，还必须确认 silver storage id 不早于 raw 与 stock_basic 最新 storage id |
+| cursor | 只记录观测信息：target date、stage、是否已注册、是否已提交、skip reason |
 
 禁止：
 
@@ -886,7 +886,7 @@ uv run dg check defs
 | deps | asset deps 表达真实输入 | `silver_namechange` 依赖 `raw_tushare_namechange` |
 | job | job 只做 selection | raw/silver 分层 job 已明确 |
 | run config | typed config / 业务动作字段 | 第一版无 run config |
-| sensor | ready/run_key/cursor/tick 限制 | `raw_namechange_update_job_sensor` 跟随 `cn_a_stock_current_trade_days` 当前交易日信号；`silver_namechange_update_job_sensor` 等 raw namechange 与 stock_basic final ready |
+| sensor | ready/run_key/cursor/tick 限制 | `raw_namechange_update_job_sensor` 跟随 `cn_a_stock_current_trade_days` 当前交易日信号，并按 `morning/evening` 两阶段提交；`silver_namechange_update_job_sensor` 等 raw namechange 与 stock_basic final ready，且 silver 必须跟上最新 upstream storage id |
 | run tags | 不新增项目自定义 run tags | 已明确 |
 | bootstrap | 如需旧湖迁移需 spec 和 legacy links | 不适用，不走 bootstrap |
 | 验收 | 单次 UI run、checks、metadata、失败恢复 | 已列清 |
