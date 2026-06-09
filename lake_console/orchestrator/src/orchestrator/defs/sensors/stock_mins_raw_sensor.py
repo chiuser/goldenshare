@@ -19,7 +19,7 @@ from orchestrator.defs.sensors.readiness import (
     DatasetReadinessStatus,
     raw_stk_mins_ready_for_trade_date,
     status_payload,
-    stock_basic_ready_without_freshness,
+    stock_basic_ready_for_trade_date,
 )
 
 
@@ -88,7 +88,7 @@ def _cursor_payload(
             "source": STOCK_MINS_RAW_SOURCE,
             "job_name": STOCK_MINS_RAW_SENSOR_JOB_NAME,
             "source_window_started": source_window_started,
-            "stock_basic_freshness_required": False,
+            "stock_basic_freshness_required": True,
             "raw_status": status_payload(raw_status) if raw_status else None,
             "stock_basic_status": (
                 status_payload(stock_basic_status) if stock_basic_status else None
@@ -113,7 +113,7 @@ def _run_request_for_trade_date(trade_date: str):
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="股票分钟线交易日分区和基础信息 checks 就绪后，触发五频度 prod DB raw 更新任务。",
+    description="股票分钟线交易日分区和基础信息 freshness/checks 就绪后，触发五频度 prod DB raw 更新任务。",
 )
 def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
@@ -185,9 +185,12 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    stock_basic_status = stock_basic_ready_without_freshness(context.instance)
+    stock_basic_status = stock_basic_ready_for_trade_date(
+        context.instance,
+        target_trade_date,
+    )
     if not stock_basic_status.ready:
-        reason = "股票基础信息尚未通过 materialization 和 blocking checks 门禁。"
+        reason = "股票基础信息尚未满足目标交易日 freshness 和 blocking checks 门禁。"
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),

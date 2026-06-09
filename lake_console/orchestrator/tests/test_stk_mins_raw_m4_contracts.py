@@ -36,7 +36,10 @@ from orchestrator.defs.run_contracts.configs import (
 from orchestrator.defs.run_contracts.stk_mins import (
     derive_stk_mins_exchange_from_ts_code,
 )
-from orchestrator.defs.sensors import readiness
+from orchestrator.defs.sensors import (
+    readiness,
+    stock_mins_raw_sensor as stock_mins_raw_sensor_module,
+)
 from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     _cursor_payload as build_stock_mins_raw_sensor_cursor,
 )
@@ -47,6 +50,7 @@ from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     _has_materialized_check_problem,
     _latest_registered_trade_date,
     _run_request_for_trade_date,
+    stock_mins_raw_sensor,
 )
 from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
     _cursor_payload as build_stock_mins_trade_day_cursor,
@@ -66,6 +70,12 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
 
 PARTITION_KEY = "2026-05-29"
 EVALUATED_AT = datetime(2026, 5, 29, 18, 30, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+
+class _AfterRawWindowDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 5, 29, 19, 35, tzinfo=tz)
 
 
 class _FakeTushare:
@@ -115,6 +125,102 @@ class _AssetStatus:
 class _DatasetStatus:
     def __init__(self, statuses) -> None:
         self.statuses = tuple(statuses)
+
+
+class _StockMinsRawSensorInstance:
+    def __init__(self, partitions: tuple[str, ...] = (PARTITION_KEY,)) -> None:
+        self._partitions = partitions
+
+    def get_dynamic_partitions(self, _name: str) -> list[str]:
+        return list(self._partitions)
+
+
+class _StockMinsRawSensorContext:
+    def __init__(self, partitions: tuple[str, ...] = (PARTITION_KEY,)) -> None:
+        self.instance = _StockMinsRawSensorInstance(partitions)
+
+
+def _sensor_asset_status(
+    *,
+    asset_key: str,
+    ready: bool,
+    materialized: bool,
+    checks_passed: bool,
+    freshness_passed: bool,
+    reason: str,
+) -> readiness.AssetReadinessStatus:
+    return readiness.AssetReadinessStatus(
+        asset_key=asset_key,
+        partition_key=None,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        freshness_passed=freshness_passed,
+        materialization_storage_id=1 if materialized else None,
+        materialization_date=PARTITION_KEY if freshness_passed else "2026-05-28",
+        missing_check_names=() if checks_passed else (f"{asset_key}_file_exists",),
+        failed_check_names=(),
+        reason=reason,
+    )
+
+
+def _raw_stk_mins_sensor_status(
+    *,
+    ready: bool,
+    materialized: bool = False,
+    checks_passed: bool = False,
+    reason: str = "raw_stk_mins_1m has no materialization",
+) -> readiness.DatasetReadinessStatus:
+    return readiness.DatasetReadinessStatus(
+        ready=ready,
+        statuses=(
+            _sensor_asset_status(
+                asset_key="raw_stk_mins_1m",
+                ready=ready,
+                materialized=materialized,
+                checks_passed=checks_passed,
+                freshness_passed=ready,
+                reason=reason,
+            ),
+        ),
+    )
+
+
+def _stock_basic_sensor_status(
+    *,
+    ready: bool,
+    freshness_passed: bool = True,
+    reason: str = "ready",
+) -> readiness.DatasetReadinessStatus:
+    return readiness.DatasetReadinessStatus(
+        ready=ready,
+        statuses=(
+            _sensor_asset_status(
+                asset_key="raw_tushare_stock_basic",
+                ready=ready,
+                materialized=True,
+                checks_passed=True,
+                freshness_passed=freshness_passed,
+                reason=reason,
+            ),
+            _sensor_asset_status(
+                asset_key="silver_stock_basic",
+                ready=ready,
+                materialized=True,
+                checks_passed=True,
+                freshness_passed=freshness_passed,
+                reason=reason,
+            ),
+        ),
+    )
+
+
+def _stock_mins_raw_sensor_result(context: _StockMinsRawSensorContext):
+    return stock_mins_raw_sensor._raw_fn(context)
+
+
+def _skip_message(result) -> str:
+    return getattr(result.skip_reason, "skip_message", str(result.skip_reason))
 
 
 def _check_names(check_definitions) -> tuple[str, ...]:
@@ -1063,6 +1169,80 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(raw_blocked.selected_keys, ())
         self.assertIn("raw 五频度", raw_blocked.reason)
 
+    def test_stock_mins_raw_sensor_submits_when_raw_missing_and_stock_basic_fresh(
+        self,
+    ) -> None:
+        context = _StockMinsRawSensorContext()
+        raw_status = _raw_stk_mins_sensor_status(ready=False)
+        stock_basic_status = _stock_basic_sensor_status(ready=True)
+        with patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
+            _AfterRawWindowDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.raw_stk_mins_ready_for_trade_date",
+            return_value=raw_status,
+        ) as raw_ready_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_for_trade_date",
+            return_value=stock_basic_status,
+        ) as stock_basic_ready_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_without_freshness",
+            create=True,
+        ) as stock_basic_without_freshness_mock:
+            result = _stock_mins_raw_sensor_result(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        request = result.run_requests[0]
+        self.assertEqual(request.partition_key, PARTITION_KEY)
+        self.assertEqual(
+            request.run_key,
+            f"stock_mins_raw_update_from_prod:{PARTITION_KEY}",
+        )
+        raw_ready_mock.assert_called_once_with(context.instance, PARTITION_KEY)
+        stock_basic_ready_mock.assert_called_once_with(context.instance, PARTITION_KEY)
+        stock_basic_without_freshness_mock.assert_not_called()
+        self.assertFalse(
+            hasattr(
+                stock_mins_raw_sensor_module,
+                "stock_basic_ready_without_freshness",
+            )
+        )
+
+    def test_stock_mins_raw_sensor_skips_when_stock_basic_not_fresh(self) -> None:
+        context = _StockMinsRawSensorContext()
+        raw_status = _raw_stk_mins_sensor_status(ready=False)
+        stock_basic_status = _stock_basic_sensor_status(
+            ready=False,
+            freshness_passed=False,
+            reason=(
+                "silver_stock_basic materialized at 2026-05-28, "
+                "before required date 2026-05-29"
+            ),
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
+            _AfterRawWindowDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.raw_stk_mins_ready_for_trade_date",
+            return_value=raw_status,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_for_trade_date",
+            return_value=stock_basic_status,
+        ) as stock_basic_ready_mock:
+            result = _stock_mins_raw_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("freshness", _skip_message(result))
+        self.assertIn("blocking checks", _skip_message(result))
+        stock_basic_ready_mock.assert_called_once_with(context.instance, PARTITION_KEY)
+
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["decision"], "skip")
+        self.assertEqual(cursor["target_date"], PARTITION_KEY)
+        self.assertTrue(cursor["details"]["stock_basic_freshness_required"])
+        self.assertFalse(
+            cursor["details"]["stock_basic_status"][0]["freshness_passed"]
+        )
+
     def test_stock_mins_sensor_cursors_and_run_request_contract(self) -> None:
         trade_day_decision = build_stock_mins_trade_day_registration_decision(
             today="2026-05-29",
@@ -1130,7 +1310,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             raw_cursor["details"]["job_name"],
             "stock_mins_raw_update_from_prod_job",
         )
-        self.assertFalse(raw_cursor["details"]["stock_basic_freshness_required"])
+        self.assertTrue(raw_cursor["details"]["stock_basic_freshness_required"])
 
         request = _run_request_for_trade_date("2026-05-29")
         self.assertEqual(request.partition_key, "2026-05-29")

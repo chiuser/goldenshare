@@ -696,8 +696,9 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <li>正式 raw assets：<code>raw_stk_mins_1m</code>、<code>raw_stk_mins_5m</code>、<code>raw_stk_mins_15m</code>、<code>raw_stk_mins_30m</code>、<code>raw_stk_mins_60m</code>，asset key 与 M3 runless events 完全一致。</li>
       <li>正式 jobs：<code>stock_mins_raw_update_from_prod_job</code> 是默认日常入口；<code>stock_mins_raw_update_job</code> 是 Tushare 人工备用入口。两者 selection 都只包含五个 raw assets 及其 blocking checks；不包含 <code>silver_stock_basic</code>、silver 分钟线或 gold qfq 分钟线。</li>
       <li>分区注册 sensor：<code>stock_mins_trade_day_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，不做历史补齐。</li>
-      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 19:30 后只检查最新已注册日期，满足门禁后提交一个 <code>stock_mins_raw_update_from_prod_job</code> run。</li>
-      <li>日常股票池来自 <code>silver_stock_basic</code> 当前上市股票；这是只读前置事实，不进入 <code>stock_mins_raw_update_job</code> selection。</li>
+      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 19:30 后只检查最新已注册日期；当五频度 raw 尚未 ready、没有已物化但 blocking checks 失败的 raw 分区，并且 <code>stock_basic_ready_for_trade_date(context.instance, target_trade_date)</code> ready 时，提交一个 <code>stock_mins_raw_update_from_prod_job</code> run。</li>
+      <li>日常股票池来自 <code>silver_stock_basic</code> 当前上市股票；这是只读前置事实，不进入 <code>stock_mins_raw_update_job</code> selection。因为股票池会影响全市场分钟线对象范围，raw sensor 必须要求 <code>raw_tushare_stock_basic</code> 与 <code>silver_stock_basic</code> 均满足目标交易日 freshness 和 blocking checks，不能只看历史上是否 materialized 过。</li>
+      <li>本轮不引入 <code>stock_basic</code> 日内第二次更新或批次 stage 契约。当前 <code>stock_mins_raw_sensor</code> 的 19:30 触发窗口晚于既有 <code>stock_basic</code> 第二次更新窗口，因此门禁只按目标交易日 freshness 判断。</li>
       <li>日常拉取窗口固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>；分页固定使用 <code>limit=8000</code> 与递增 <code>offset</code>，不把分页、股票池 offset 或分钟窗口暴露为 run config。</li>
       <li>若目标 raw 文件已存在且通过 raw 检查，asset 复用文件并返回 materialization metadata；若目标存在但不合格，直接失败，不覆盖历史 baseline。</li>
       <li>sensor 不自动追历史缺口；如果后续再次发现 raw 文件事实落后，必须通过单独审批的 prod DB backfill/补数流程列清命令、范围、请求量和回滚方式后执行。</li>
@@ -716,10 +717,10 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <tr><td>source selector</td><td>实现时必须有明确来源选择口径：Tushare job 走 Tushare；prod job 走 prod DB。禁止在同一次 run 中混用两个来源。</td></tr>
       <tr><td>读取表</td><td>只读 <code>raw_tushare.stk_mins</code>，字段白名单为 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount</code>；不得导出 <code>api_name/fetched_at/raw_payload</code> 等系统字段。</td></tr>
       <tr><td>抽取方式</td><td>M4E 已把 prod DB 主路径修正为按 <code>freq + trade_date window + 股票池</code> 批量查询。原 M4B 逐股票查询模型只适合受接口限制的 Tushare，不能作为 prod DB 长期日常抽取模型。</td></tr>
-      <tr><td>股票池</td><td>沿用 raw 日常口径，从 <code>silver_stock_basic</code> 当前上市股票池读取；这是只读前置事实，不进入 job selection。</td></tr>
+      <tr><td>股票池</td><td>沿用 raw 日常口径，从 <code>silver_stock_basic</code> 当前上市股票池读取；这是只读前置事实，不进入 job selection。触发 prod DB raw 日常 run 前，<code>stock_mins_raw_sensor</code> 必须确认 <code>stock_basic_ready_for_trade_date(context.instance, target_trade_date)</code> ready，确保 raw/silver stock basic 均满足目标交易日 freshness 与 blocking checks。</td></tr>
       <tr><td>时间窗口</td><td>固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>，与 Tushare 入口保持一致。</td></tr>
       <tr><td>覆盖策略</td><td>目标 raw 文件已存在且通过 checks 时复用；已存在但不合格时 fail 并要求人工 repair。默认不覆盖 M3 历史 baseline。</td></tr>
-      <tr><td>sensor</td><td><code>stock_mins_raw_sensor</code> 已改为 19:30 后触发 <code>stock_mins_raw_update_from_prod_job</code>。Tushare 入口不再作为默认自动同步路径。</td></tr>
+      <tr><td>sensor</td><td><code>stock_mins_raw_sensor</code> 已改为 19:30 后触发 <code>stock_mins_raw_update_from_prod_job</code>。触发前必须确认 raw 未 ready 且不存在已物化失败 checks，并确认 <code>stock_basic_ready_for_trade_date(...)</code> ready；Tushare 入口不再作为默认自动同步路径。</td></tr>
       <tr><td>配置来源</td><td><code>ProdPostgresResource</code> 运行时惰性读取 <code>PROD_POSTGRES_HOST/PORT/USER/PASSWORD/DATABASE/SSLMODE</code>；缺失配置只影响 prod DB 来源 run，不影响 Tushare 来源 raw job 加载。</td></tr>
     </table>
 
@@ -742,7 +743,7 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
       <tr><td>目标</td><td>保留 <code>stock_mins_raw_update_from_prod_job</code>、五个 <code>raw_stk_mins_*</code> assets、raw path、raw checks 和 sensor 边界不变；只替换 prod DB 抽取与写 parquet 的数据通路。</td></tr>
       <tr><td>查询模型</td><td>已改为按 <code>freq + trade_date window + 股票池</code> 批量查询。正常单日五频度是每个频度一次批量查询；禁止按单只股票循环查询。</td></tr>
       <tr><td>数据通路</td><td>已改为 DuckDB <code>postgres</code> extension 直连 prod DB：执行侧先以 <code>ATTACH ... AS prod_raw_pg (TYPE POSTGRES, READ_ONLY)</code> 把 prod Postgres 挂为固定只读别名，source SQL 再通过 <code>postgres_query('prod_raw_pg', ...)</code> 读取字段白名单；完整 conninfo 不进入 <code>postgres_query</code>，<code>ATTACH</code> 失败时也只抛脱敏错误。DuckDB SQL 完成 cast、<code>exchange</code>、<code>vwap</code>、排序，并直接 <code>COPY</code> 到 parquet。Python 不再 <code>fetchall()</code> 全量分钟明细，也不再用 <code>executemany</code> 写默认 prod DB raw 文件。</td></tr>
-      <tr><td>股票池过滤</td><td>股票池仍来自 <code>silver_stock_basic</code> 当前上市股票事实。过滤在 prod SQL 中通过 <code>ts_code = ANY(...)</code> 完成，而不是 Python 逐股票调用查询函数。</td></tr>
+      <tr><td>股票池过滤</td><td>股票池仍来自 <code>silver_stock_basic</code> 当前上市股票事实。过滤在 prod SQL 中通过 <code>ts_code = ANY(...)</code> 完成，而不是 Python 逐股票调用查询函数。日常触发必须先通过 <code>stock_basic_ready_for_trade_date(...)</code> 门禁，避免使用 stale stock basic 静默漏掉新股或状态变化。</td></tr>
       <tr><td>字段白名单</td><td>继续显式投影 <code>ts_code,freq,trade_time,open,close,high,low,vol,amount</code>，禁止 <code>SELECT *</code>，禁止导出 <code>api_name/fetched_at/raw_payload</code> 等系统字段。</td></tr>
       <tr><td>字段归一</td><td><code>exchange</code> 后缀映射、<code>vwap=amount/vol</code>、类型 cast、排序和写 parquet 已下推到 SQL/DuckDB；Python 只做连接串、批次规划、参数校验和结果汇总，不承载分钟线明细循环计算。</td></tr>
       <tr><td>查询次数门禁</td><td>单日默认查询次数必须随频度数量增长，而不是随股票数量增长。测试已锁定：给定多只股票时，prod DB helper 的查询调用次数不得等于股票数；五频度 job 的设计目标是约 <code>5</code> 次批量查询。</td></tr>
@@ -1768,7 +1769,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>stock_mins_raw_sensor</code></td>
         <td>19:30 后检查最新已注册日期并提交 prod DB raw 更新 run。</td>
-        <td>只做轻量门禁：raw 是否 ready、是否已有失败 checks、<code>silver_stock_basic</code> 是否可用；不自动追历史缺口，不触发 Tushare job。</td>
+        <td>只做轻量门禁：raw 是否 ready、是否已有失败 checks、<code>stock_basic_ready_for_trade_date(...)</code> 是否 ready；该 stock basic 门禁覆盖 raw/silver stock basic 的目标交易日 freshness 与 blocking checks。不自动追历史缺口，不触发 Tushare job。</td>
       </tr>
       <tr>
         <td><code>stock_mins_silver_trade_day_sensor</code></td>
@@ -2145,8 +2146,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <ul>
       <li>契约阶段：编译路径、schema、partition、metadata helper；静态门禁确认没有新增 active asset/job/sensor。</li>
       <li>bootstrap 阶段：临时目录小样本迁移，验证字段、路径、分区 key 和 event 补录 helper。</li>
-      <li>raw 日常阶段：临时目录与 fake Tushare resource 覆盖分页、<code>freq</code> 字符串归一、已存在目标复用、坏目标拒绝覆盖、七个 raw checks、job selection 与两个 sensors 的时间门禁。</li>
-      <li>prod DB raw 补数阶段：使用 fake prod DB resource 或临时数据库覆盖按 <code>ts_code + freq + window</code> 查询、字段白名单、<code>exchange</code> 后缀映射、<code>vwap</code> 推导、未知后缀失败、目标复用和 <code>stock_mins_raw_update_from_prod_job</code> selection。</li>
+      <li>raw 日常阶段：临时目录与 fake Tushare resource 覆盖分页、<code>freq</code> 字符串归一、已存在目标复用、坏目标拒绝覆盖、七个 raw checks、job selection、两个 sensors 的时间门禁，以及 <code>stock_mins_raw_sensor</code> 在 stock basic 当日 freshness 未满足时必须 skip 的负向门禁。</li>
+      <li>prod DB raw 补数阶段：使用 fake prod DB resource 或临时数据库覆盖按 <code>ts_code + freq + window</code> 查询、字段白名单、<code>exchange</code> 后缀映射、<code>vwap</code> 推导、未知后缀失败、目标复用、<code>stock_mins_raw_update_from_prod_job</code> selection，以及 raw sensor 只在 <code>stock_basic_ready_for_trade_date(...)</code> ready 后提交 prod DB run。</li>
       <li>silver 阶段：临时 DuckDB 文件覆盖 1m 标准化、代码映射、停牌结构行删除、价格修正 seed、粗频度按 1m 重算、成交量/成交额归一、exchange 归一、重复键冲突和 10 个 silver checks 的 pass/fail。</li>
       <li>gold 契约阶段：临时 DuckDB 文件覆盖 qfq 公式、因子缺失、行数一致、字段类型、股票年份路径，并确认不登记 <code>gold_stk_mins_qfq_daily_summary</code> / <code>gold_stk_mins_qfq_factor_repair_summary</code>。</li>
       <li>gold 性能阶段：临时目录模拟正式 <code>freq + ts_code + year</code> 文件，验证单日全市场 qfq、单只股票历史子集计算、股票年份文件重写三类耗时。</li>
