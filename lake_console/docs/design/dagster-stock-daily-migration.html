@@ -267,7 +267,7 @@
     <h1>Stock Daily 历史迁移设计</h1>
     <p class="lead">
       本文档单独记录 <code>daily</code> 从旧湖迁移到新湖的历史口径。它不是当前日常生产入口说明，也不是新 asset/check metadata 的通用模板。
-      当前活跃入口以 <code>stock_daily_update_job</code>、<code>suspend_update_job</code> 和 topology 文档为准。它不是一个孤立数据集迁移，
+      当前活跃入口以 <code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>、<code>raw_suspend_d_update_job / silver_suspend_d_update_job</code> 和 topology 文档为准。它不是一个孤立数据集迁移，
       必须同时依赖 <code>stock_basic</code> 提供股票池边界，依赖 <code>suspend_d</code> 修正停牌语义，
       最终让 <code>silver_stock_daily</code> 成为后续 <code>gold_market_breadth_daily</code> 可稳定消费的标准事实资产。
     </p>
@@ -445,7 +445,7 @@
 
     <div class="callout">
       <strong>当前执行状态：</strong>
-      <code>bootstrap_quote_daily_job</code> 已完成 <code>2014-01-02</code> 至 <code>2026-05-15</code>
+      <code>历史 quote bootstrap 入口</code> 已完成 <code>2014-01-02</code> 至 <code>2026-05-15</code>
       全量历史 bootstrap。Dagster 正式 instance 中，<code>3004</code> 个目标分区均已有成功 run；
       当前没有 <code>STARTED</code>、<code>QUEUED</code> 或 <code>CANCELING</code> 残留。
       历史上存在 <code>2091</code> 条取消 run 和 <code>1</code> 条失败 run（<code>2026-04-01</code>），
@@ -822,7 +822,7 @@
         <tr>
           <td><code>raw_tushare_stock_daily / raw_tushare_suspend_d</code></td>
           <td>历史 bootstrap 已完成；Phase 2 Slice 2.1 已将日常 quote raw 写入切换为 <code>TushareResource</code> API。</td>
-          <td>早期 <code>quote_daily_job[2026-05-20]</code> 单日验证通过；当前活跃入口已拆分为 <code>suspend_update_job</code> 与 <code>stock_daily_update_job</code>，历史迁移链路不再作为日常 quote 更新入口。</td>
+          <td>早期 <code>历史 quote 日频单日验证（2026-05-20）</code> 单日验证通过；当前活跃入口已拆分为 <code>raw_suspend_d_update_job / silver_suspend_d_update_job</code> 与 <code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>，历史迁移链路不再作为日常 quote 更新入口。</td>
         </tr>
       </tbody>
     </table>
@@ -832,7 +832,7 @@
     <h2>9. 不做的事</h2>
     <ul>
       <li>本轮不把 raw 也改成当前上市股票子集，raw 必须继续保留源镜像口径。</li>
-      <li>本历史迁移文档不承载 Tushare API 续更新实现；API 日常更新已在 Phase 2 Slice 2.1 接入，当前活跃入口为 <code>suspend_update_job</code> 与 <code>stock_daily_update_job</code>，不再由已退役的 <code>quote_daily_job</code> 承载。</li>
+      <li>本历史迁移文档不承载 Tushare API 续更新实现；API 日常更新已在 Phase 2 Slice 2.1 接入，当前活跃入口为 <code>raw_suspend_d_update_job / silver_suspend_d_update_job</code> 与 <code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>，不再由已退役的 <code>历史 quote 日频验证入口</code> 承载。</li>
       <li>本轮不引入 ClickHouse serving 和 prod release。</li>
       <li>本轮不让下游 gold 资产主动补上游；上游准备和下游生产仍应分开。</li>
     </ul>

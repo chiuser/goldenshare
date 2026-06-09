@@ -674,7 +674,7 @@ git status --short</code></pre>
     </table>
     <div class="callout">
       <strong>执行验收结论：</strong>
-      <code>bootstrap_quote_daily_job</code> 已完成 <code>3004</code> 个目标交易日的
+      <code>历史 quote bootstrap 入口</code> 已完成 <code>3004</code> 个目标交易日的
       stock daily 与 suspend_d 历史 bootstrap。新湖
       <code>raw_tushare_stock_daily</code>、<code>silver_stock_daily</code>、
       <code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code>
@@ -760,8 +760,8 @@ git status --short</code></pre>
     <p>
       历史迁移 LLD 已收口。Phase 2 <code>Slice 2.1</code> 已将 quote 日频 raw assets
       从旧湖 bootstrap 切换为 <code>TushareResource</code> API 拉取，并完成
-      <code>2026-05-20</code> 单日早期 <code>quote_daily_job</code> 验证。当前活跃入口已拆分为
-      <code>suspend_update_job</code> 与 <code>stock_daily_update_job</code>；后续自动触发与下游 readiness
+      <code>2026-05-20</code> 单日早期 <code>历史 quote 日频验证入口</code> 验证。当前活跃入口已拆分为
+      <code>raw_suspend_d_update_job / silver_suspend_d_update_job</code> 与 <code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>；后续自动触发与下游 readiness
       gate 不属于本历史迁移 LLD。
     </p>
   </section>

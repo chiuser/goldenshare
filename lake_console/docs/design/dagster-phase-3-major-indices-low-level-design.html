@@ -195,7 +195,7 @@
         <tr>
           <td><code>defs/assets/index_daily.py</code></td>
           <td>定义 <code>raw_tushare_index_daily_by_code</code> 和 <code>silver_index_daily</code>。</td>
-          <td>不得恢复旧 <code>raw_tushare_index_daily[trade_date]</code> asset 或 active pool 读取。</td>
+          <td>不得恢复旧 <code>旧指数日线 raw-by-date asset</code> asset 或 active pool 读取。</td>
         </tr>
         <tr>
           <td><code>defs/checks/index_daily_checks.py</code></td>
@@ -336,23 +336,23 @@ silver_index_daily_update_job[trade_date]
       </thead>
       <tbody>
         <tr>
-          <td><code>silver_index_daily_active_pool</code></td>
+          <td><code>旧指数 active pool asset</code></td>
           <td>已从 active Definitions 删除。</td>
         </tr>
         <tr>
-          <td><code>raw_tushare_index_daily[trade_date]</code></td>
+          <td><code>旧指数日线 raw-by-date asset</code></td>
           <td>已从 active Definitions 删除；旧物理 raw 文件已按用户确认清理。</td>
         </tr>
         <tr>
-          <td><code>index_daily_active_pool_update_job</code></td>
+          <td><code>旧指数 active pool job</code></td>
           <td>已删除，不再作为维护入口。</td>
         </tr>
         <tr>
-          <td><code>index_daily_history_backfill_job</code></td>
+          <td><code>旧指数历史 backfill job</code></td>
           <td>已删除，不再作为历史重建入口。</td>
         </tr>
         <tr>
-          <td><code>index_daily_repair_by_codes_job</code></td>
+          <td><code>旧指数按代码 repair job</code></td>
           <td>已删除，单代码修复走当前 <code>index_daily_update_job[ts_code]</code>。</td>
         </tr>
         <tr>
@@ -433,7 +433,7 @@ silver_index_daily_update_job[trade_date]
         <tr>
           <td>3</td>
           <td>评估是否需要清理旧 Dagster historical materializations。</td>
-          <td>判断 UI 中旧 <code>raw_tushare_index_daily</code>、已删除代码分区等历史记录是否会继续造成误导。</td>
+          <td>判断 UI 中旧 <code>旧指数日线 raw-by-date asset</code>、已删除代码分区等历史记录是否会继续造成误导。</td>
           <td>先列出候选 asset keys、历史 materialization 数量、是否仍有 software-defined asset、清理后 UI 表现、是否影响审计追溯。</td>
           <td>这是评估项，不是默认执行项。清理 historical materializations 只影响 Dagster event/UI 历史展示，不删除当前软件定义资产，也不删除数据湖 parquet。执行前必须单独确认。</td>
         </tr>

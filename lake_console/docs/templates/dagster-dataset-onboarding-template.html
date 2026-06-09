@@ -877,12 +877,12 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
         <tr>
           <td>单资产族 raw/silver 更新</td>
           <td>选择本资产族 raw + silver + checks。</td>
-          <td><code>suspend_update_job</code>、<code>stock_daily_update_job</code>。</td>
+          <td><code>raw_suspend_d_update_job / silver_suspend_d_update_job</code>、<code>raw_stock_daily_update_job / silver_stock_daily_update_job</code>。</td>
         </tr>
         <tr>
           <td>full snapshot 更新</td>
           <td>选择 full raw + full silver + checks，并分析并发保护。</td>
-          <td><code>stock_basic_update_job</code>。</td>
+          <td><code>raw_stock_basic_update_job / silver_stock_basic_update_job</code>。</td>
         </tr>
         <tr>
           <td>业务 gold 更新</td>

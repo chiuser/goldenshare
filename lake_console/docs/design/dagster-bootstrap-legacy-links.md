@@ -30,7 +30,7 @@
 | `suspend_d` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/suspend_d/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/suspend_d/trade_date={partition_key}/part-000.parquet` | `suspend_d_bootstrap_spec` / `SUSPEND_D_BOOTSTRAP_SELECT_TEMPLATE` | 暂未新增独立 job，当前通过 asset selection 验证 | 已完成 Slice 2.0.3 单日验证 |
 | `trade_calendar` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/trade_cal/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/trade_calendar/full/part-000.parquet` | `trade_calendar_bootstrap_spec` / `TRADE_CALENDAR_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_calendar_job` | 已完成 Slice 2.0.4 验证 |
 | `stock_basic` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/stock_basic/current/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_basic/full/part-000.parquet` | `stock_basic_bootstrap_spec` / `STOCK_BASIC_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_basic_update_job` | 已完成 Slice 2.0.4 验证 |
-| `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `bootstrap_quote_daily_job` | 已完成 Slice 2.0.5 验证 |
+| `stock_daily` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/daily/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stock_daily/trade_date={partition_key}/part-000.parquet` | `stock_daily_bootstrap_spec` / `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` | `历史 quote bootstrap 入口` | 已完成 Slice 2.0.5 验证 |
 | `adj_factor` | `/Volumes/datasource/goldenshare-tushare-lake/raw_tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `/Volumes/datasource/data_lake/raw/tushare/adj_factor/trade_date={partition_key}/part-000.parquet` | `adj_factor_bootstrap_spec` / `ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE` | 未新增独立 job；M5 使用受控 Python 命令直接调用现有 bootstrap executor；M6B 使用 runless events 补录 Dagster 事件事实 | M5 raw 迁移已完成；M6B raw event 补录已完成；M6C silver 文件生成已完成；M6D silver event 补录已完成；A7 已补齐至 `2026-05-29` |
 | `stk_mins` | `/Volumes/datasource/backup/research/stk_mins_by_date_clean_next/freq={freq}/trade_date={partition_key}/*.parquet` | `/Volumes/datasource/data_lake/raw/tushare/stk_mins/freq={freq}/trade_date={partition_key}/part-000.parquet` | `stk_mins_bootstrap_spec` / `STK_MINS_BOOTSTRAP_SELECT_TEMPLATE` | 未新增 active job；M3 使用受控 CLI/helper 执行 dry-run、样本、全量迁移、分区注册和 runless event 补录 | M3 raw 迁移、分区注册和 event 补录已完成 |
 | `stock_identity_map` | `/Volumes/datasource/goldenshare-tushare-lake/manifest/security_identity/security_identity_map.parquet` | `/Volumes/datasource/data_lake/silver/basic/stock_identity_map/part-000.parquet` | `stock_identity_map_bootstrap_spec` / `STOCK_IDENTITY_MAP_BOOTSTRAP_SELECT_TEMPLATE` | 只保留为历史初始化审计；active 日常维护已切到 `silver_stock_identity_map` asset、版本化 seed、`stock_identity_map_update_job` 与 `stock_identity_map_sensor` | M3 初始化写入和 event 补录已完成；active asset 已接管日常维护 |
@@ -66,7 +66,7 @@
 - `empty_policy=require_positive`，因为已完成交易日的股票日线 raw 不应为空。
 - `STOCK_DAILY_BOOTSTRAP_SELECT_TEMPLATE` 会经过 Python `str.format(...)` 渲染；SQL 正则中的 `{8}` 必须写成 `{{8}}`，否则会被误识别成 format 占位符。
 - Slice 2.0.5 已用正式 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home` 跑通 2026-04 全月 21 个交易日。
-- 2026-04 验证结果：`bootstrap_quote_daily_job` 全部分区成功，raw/silver blocking checks 全部通过，`silver_stock_daily_covers_expected_tradable_universe` 全部通过，`unexplained_missing_count=0` 且 `unexplained_extra_count=0`。
+- 2026-04 验证结果：`历史 quote bootstrap 入口` 全部分区成功，raw/silver blocking checks 全部通过，`silver_stock_daily_covers_expected_tradable_universe` 全部通过，`unexplained_missing_count=0` 且 `unexplained_extra_count=0`。
 
 ### `adj_factor`
 
@@ -78,11 +78,11 @@
 - M5 已把上述 `4215` 个日期注册到正式 `cn_a_stock_current_trade_days`。
 - M5 不等同于 Dagster materialization：它没有补 raw asset materialization event，也没有生成 raw asset check event。
 - M6B 已通过 `DagsterInstance.report_runless_asset_event(...)` 对已迁移 raw 文件补录 `raw_tushare_adj_factor` materialization 与 raw blocking check events；最终 `4215` 个 raw 分区可见，8 个 raw blocking checks 均为 `succeeded=4215, failed=0`。
-- M6 的 silver 历史文件生成属于 bootstrap 收尾，当时不能使用旧混合 `stock_adj_factor_update_job` 跑历史，因为该 job 会重新请求 Tushare raw；当前日常入口已拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`。
+- M6 的 silver 历史文件生成属于 bootstrap 收尾，当时不能使用旧混合入口跑历史，因为该入口会重新请求 Tushare raw；当前日常入口已拆为 `raw_adj_factor_update_job` / `silver_adj_factor_update_job`。
 - M6C 已生成 `silver_adj_factor` 历史文件：`4215` 个分区，范围 `2009-01-05` 至 `2026-05-15`，总行数 `13,908,872`，全量只读审计失败分区数 `0`。
 - M6D 已补录 `silver_adj_factor` 的 runless materialization 与 silver blocking check events；最终 `4215` 个 silver 分区可见，10 个 silver blocking checks 均为 `succeeded=4215, failed=0`。
 - M6B runless events 不产生 Runs 页面记录，也不会触发飞书 run status 通知。
-- M6D 之后，已补注册并通过人工旧混合 `stock_adj_factor_update_job` 补齐 `2026-05-18` 至 `2026-05-29` 这 10 个交易日分区；该入口已退役，后续日常自动链路使用 raw/silver 两个 adj_factor job。
+- M6D 之后，已补注册并通过人工旧混合入口补齐 `2026-05-18` 至 `2026-05-29` 这 10 个交易日分区；后续日常自动链路使用 raw/silver 两个 adj_factor job。
 - 最新只读核验：`cn_a_stock_current_trade_days`、raw 文件、silver 文件、raw materialization、silver materialization 均为 `4225` 个分区，范围 `2009-01-05` 至 `2026-05-29`；raw 8 个 blocking checks 和 silver 10 个 blocking checks 均为 `succeeded=4225, failed=0`。
 
 ### `stk_mins`

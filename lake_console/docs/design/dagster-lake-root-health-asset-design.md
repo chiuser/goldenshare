@@ -318,7 +318,7 @@ default_status: STOPPED
 
 后续可单独立项：
 
-1. `stock_daily_sensor`
+1. `raw_stock_daily_update_job_sensor` / `silver_stock_daily_update_job_sensor`
 2. `stock_mins_raw_sensor`
 3. `stock_mins_silver_sensor`
 4. `stock_mins_qfq_daily_sensor`

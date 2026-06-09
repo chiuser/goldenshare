@@ -330,7 +330,7 @@
       <tr>
         <td><code>defs/assets/index_daily.py</code></td>
         <td>当前只保留 <code>raw_tushare_index_daily_by_code</code> 和 <code>silver_index_daily</code>。raw 按 <code>cn_a_index_ts_codes</code> 分区，silver 按 <code>cn_a_index_trade_days</code> 分区。</td>
-        <td>旧 <code>raw_tushare_index_daily</code> 和 active pool 依赖已从代码主链移除。</td>
+        <td>旧 <code>旧指数日线 raw-by-date asset</code> 和 active pool 依赖已从代码主链移除。</td>
       </tr>
       <tr>
         <td><code>defs/assets/index_daily_active_pool.py</code></td>
@@ -601,7 +601,7 @@ fields = INDEX_DAILY_RAW_COLUMNS</pre>
 
     <h3>7.1 读取代码集合</h3>
     <p>
-      Silver 不能再读取 <code>silver_index_daily_active_pool</code>。
+      Silver 不能再读取 <code>旧指数 active pool asset</code>。
       它应从正式 Dagster instance 中读取 <code>cn_a_index_ts_codes</code>，作为当前指数代码集合。
       <code>display_name</code>、<code>list_date</code> 这类元信息不放在 partition key 里，后续如果 check 需要，应读取 <code>silver_index_basic</code>。
     </p>
@@ -715,7 +715,7 @@ WHERE trade_date = '&lt;YYYYMMDD&gt;'
     </table>
     <div class="warn callout">
       <p>
-        Coverage check 不能继续叫 active pool coverage，也不能依赖 <code>silver_index_daily_active_pool</code>。
+        Coverage check 不能继续叫 active pool coverage，也不能依赖 <code>旧指数 active pool asset</code>。
         新口径是“目标交易日 raw-present 注册代码集合”的覆盖观测；它不再用
         <code>silver_index_basic.list_date</code> 推断源端历史起点。
       </p>
@@ -1325,9 +1325,9 @@ LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
     <h3>11.1 代码引用清理顺序</h3>
     <ol>
       <li>已完成：新增新链路，并保留资产 key <code>silver_index_daily</code> 的下游语义。</li>
-      <li>已完成：从 active Definitions 删除 <code>index_daily_active_pool_update_job</code>、<code>index_daily_history_backfill_job</code>、<code>index_daily_repair_by_codes_job</code>。</li>
+      <li>已完成：从 active Definitions 删除 <code>旧指数 active pool job</code>、<code>旧指数历史 backfill job</code>、<code>旧指数按代码 repair job</code>。</li>
       <li>已完成：<code>index_daily_checks.py</code> 已去掉旧 raw-by-date checks 和 active pool coverage 依赖。</li>
-      <li>已完成：<code>market_major_indices_checks.py</code> 已去掉 <code>silver_index_daily_active_pool</code> 依赖，改为检查 <code>cn_a_index_ts_codes</code>。</li>
+      <li>已完成：<code>market_major_indices_checks.py</code> 已去掉 <code>旧指数 active pool asset</code> 依赖，改为检查 <code>cn_a_index_ts_codes</code>。</li>
       <li>已完成：旧 path/helper/backfill/repair 文件从代码主链删除。</li>
       <li>仍保留：PG 表、Dagster 历史 run/event；旧 raw-by-date parquet 已按用户确认物理删除。</li>
     </ol>

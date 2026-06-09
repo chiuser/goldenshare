@@ -442,8 +442,8 @@
       <tr>
         <td>Active pool</td>
         <td>
-          <code>silver_index_daily_active_pool</code> asset、active pool checks 和
-          <code>index_daily_active_pool_update_job</code> 已从 active Definitions 删除。
+          <code>旧指数 active pool asset</code> asset、active pool checks 和
+          <code>旧指数 active pool job</code> 已从 active Definitions 删除。
           PostgreSQL 中已有 <code>index_daily_active_pool</code> / history 表未 drop、未 truncate。
         </td>
         <td>指数池来源已经切到 <code>cn_a_index_ts_codes</code> dynamic partitions，由外部 CSV 初始化；旧 PG 表只保留为后续单独清理对象。</td>
@@ -451,7 +451,7 @@
       <tr>
         <td>Raw 按交易日</td>
         <td>
-          旧 <code>raw_tushare_index_daily[trade_date]</code> asset 和旧 raw-by-date checks 已删除。
+          旧 <code>旧指数日线 raw-by-date asset</code> asset 和旧 raw-by-date checks 已删除。
           旧物理文件 <code>raw/tushare/index_daily/trade_date=YYYY-MM-DD/part-000.parquet</code> 已按用户确认删除，避免 UI 和物理湖路径继续误导新链路。
         </td>
         <td>单指数补数时必须按交易日改很多文件；按代码维护 raw 更自然，也更适合 Tushare <code>index_daily(ts_code,start_date,end_date)</code> 的请求方式。</td>
@@ -467,14 +467,14 @@
       <tr>
         <td>历史回填</td>
         <td>
-          <code>index_daily_history_backfill_job</code> 已从 active Definitions 删除。
+          <code>旧指数历史 backfill job</code> 已从 active Definitions 删除。
         </td>
         <td>新方案应优先使用 partitioned asset job，让 UI 能按 <code>ts_code</code> 选择分区；历史大批量可以接受 run 数较多，但分区状态更清晰。</td>
       </tr>
       <tr>
         <td>按代码修复</td>
         <td>
-          <code>index_daily_repair_by_codes_job</code> 已从 active Definitions 删除。
+          <code>旧指数按代码 repair job</code> 已从 active Definitions 删除。
         </td>
         <td>新 raw-by-code 布局天然支持单代码重跑，修复入口应退化为普通的分区重跑，不再需要专门 repair job。</td>
       </tr>
@@ -721,7 +721,7 @@ silver_index_daily_update_job[trade_date]
       </tbody>
     </table>
     <p>
-      Raw asset 不再读取 <code>silver_index_daily_active_pool</code>，也不再读本地 PostgreSQL active pool。
+      Raw asset 不再读取 <code>旧指数 active pool asset</code>，也不再读本地 PostgreSQL active pool。
       它只相信自己的 dynamic partition key，即 <code>cn_a_index_ts_codes</code>。
     </p>
 
@@ -1082,12 +1082,12 @@ silver_index_daily_update_job[trade_date]
       </thead>
       <tbody>
       <tr>
-        <td><code>silver_index_daily_active_pool</code></td>
+        <td><code>旧指数 active pool asset</code></td>
         <td>旧指数日线 active pool 文件资产，Slice E 已删除 active definition。</td>
         <td>新链路不再依赖；当前代码不再消费该 asset。</td>
       </tr>
       <tr>
-        <td><code>index_daily_active_pool_update_job</code></td>
+        <td><code>旧指数 active pool job</code></td>
         <td>旧维护 active pool 的 job，Slice E 已删除 active definition。</td>
         <td>不再作为 UI 可执行生产入口出现，避免误点执行。</td>
       </tr>
@@ -1102,17 +1102,17 @@ silver_index_daily_update_job[trade_date]
         <td>同上。不要误删同 schema 下其它 metadata 表。</td>
       </tr>
       <tr>
-        <td><code>raw_tushare_index_daily</code></td>
+        <td><code>旧指数日线 raw-by-date asset</code></td>
         <td>旧 trade_date raw asset。</td>
         <td>旧 definition 已删除。旧 raw-by-date parquet 已按用户确认物理删除；Dagster 历史 run/event 继续保留为审计记录。</td>
       </tr>
       <tr>
-        <td><code>index_daily_history_backfill_job</code></td>
+        <td><code>旧指数历史 backfill job</code></td>
         <td>旧大区间 op backfill job。</td>
         <td>新 partitioned raw job 已替代旧入口，避免 UI 出现两个都能跑的历史入口。</td>
       </tr>
       <tr>
-        <td><code>index_daily_repair_by_codes_job</code></td>
+        <td><code>旧指数按代码 repair job</code></td>
         <td>旧 trade_date raw 布局上的按代码修复 job。</td>
         <td>已被 <code>index_daily_update_job[ts_code]</code> 替代并移除 active job。</td>
       </tr>

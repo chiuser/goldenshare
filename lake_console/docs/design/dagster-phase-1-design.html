@@ -477,8 +477,8 @@
     <pre><code>lake_console/orchestrator/src/orchestrator/defs/
   resources.py
   partitions.py
-  jobs/
-    sync_trade_day_partitions.py
+  sensors/
+    cn_a_trade_day_sensor.py
   assets/
     raw/
       tushare/
@@ -579,7 +579,7 @@
       </div>
       <div class="card">
         <strong>注册范围</strong>
-        只注册 <code>2026-04-01</code> 到 <code>2026-04-30</code> 范围内的开市日。
+        当前正式链路由 <code>cn_a_trade_day_sensor</code> 从 silver 交易日历注册符合条件的交易日，不再保留 2026-04 POC 手动注册入口。
       </div>
       <div class="card">
         <strong>保存位置</strong>
@@ -595,16 +595,14 @@
       </div>
     </div>
 
-    <h3>手动同步步骤</h3>
+    <h3>分区注册步骤</h3>
     <p>
-      第一期定义一个手动触发的 Dagster job/op，例如 <code>sync_cn_a_trade_day_partitions</code>。
-      它读取 <code>silver_trade_calendar</code>，筛出 2026 年 4 月开市日，然后调用 Dagster dynamic partitions add request，把日期注册到 <code>cn_a_trade_days</code>。
+      正式口径是由 <code>cn_a_trade_day_sensor</code> 读取 <code>silver_trade_calendar</code>，按已完成交易日注册 <code>cn_a_trade_days</code>。
     </p>
 
     <pre><code>silver_trade_calendar
   -> filter exchange = "SSE"
   -> filter is_open = true
-  -> filter 2026-04-01 <= trade_date <= 2026-04-30
   -> add partition keys to cn_a_trade_days</code></pre>
 
     <p>
@@ -874,12 +872,6 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
           <td>阻断</td>
         </tr>
         <tr>
-          <td><code>silver_trade_calendar</code></td>
-          <td><code>silver_trade_calendar_has_open_days_in_poc_range</code></td>
-          <td>2026 年 4 月范围内存在 <code>SSE is_open=true</code> 的交易日。</td>
-          <td>阻断</td>
-        </tr>
-        <tr>
           <td><code>raw_tushare_stock_basic</code></td>
           <td><code>raw_stock_basic_file_exists</code></td>
           <td>新 raw 路径下文件存在。</td>
@@ -929,8 +921,8 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
         </tr>
         <tr>
           <td><code>silver_stock_basic</code></td>
-          <td><code>silver_stock_basic_known_list_status_values</code></td>
-          <td><code>list_status</code> 只允许已知集合：<code>L</code>、<code>D</code>、<code>P</code>、<code>G</code>。</td>
+          <td><code>silver_stock_basic_current_listed_only</code></td>
+          <td>silver 股票基础信息只保留当前上市股票。</td>
           <td>阻断</td>
         </tr>
         <tr>
@@ -1001,15 +993,15 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
         </tr>
         <tr>
           <td><code>silver_stock_daily</code></td>
-          <td><code>silver_stock_daily_row_count_matches_listed_stock_count</code></td>
-          <td>当日日线数量等于当日理论上市股票数量。观察型 check 必须输出 <code>daily_count</code>、<code>listed_stock_count</code>、<code>diff_count</code>。</td>
+          <td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td>
+          <td>当日日线数量等于剔除全日停牌后的预期可交易股票数量。观察型 check 必须输出 <code>daily_count</code>、<code>expected_count</code>、<code>diff_count</code>。</td>
           <td>观察</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily</code></td>
-          <td><code>silver_stock_daily_covers_listed_stock_universe</code></td>
-          <td>每个当日理论上市股票都存在一条日线，多出来的日线也要上报。观察型 check 必须输出 <code>missing_count</code>、<code>extra_count</code>、<code>missing_sample_ts_codes</code>、<code>extra_sample_ts_codes</code>。</td>
-          <td>观察</td>
+          <td><code>silver_stock_daily_covers_expected_tradable_universe</code></td>
+          <td>每个预期可交易股票都存在一条日线，多出来的日线也要上报。阻断型 check 必须输出 <code>unexplained_missing_count</code>、<code>unexplained_extra_count</code>、<code>missing_sample_ts_codes</code>、<code>extra_sample_ts_codes</code>。</td>
+          <td>阻断</td>
         </tr>
         <tr>
           <td><code>gold_market_breadth_daily</code></td>
@@ -1081,24 +1073,26 @@ and (delist_date is null or delist_date > trade_date)</code></pre>
 
     <h3>stock_basic 完整性观察 check</h3>
     <p>
-      <code>silver_stock_daily_row_count_matches_listed_stock_count</code> 和
-      <code>silver_stock_daily_covers_listed_stock_universe</code> 第一期不阻断下游运行，但必须把差异暴露到 Dagster UI。
-      观察不是忽略问题，而是在第一期先收集差异样本，再决定后续是否升级为阻断门禁。
+      当前只保留 <code>silver_stock_daily_row_count_matches_expected_tradable_count</code> 为观察型 check；
+      <code>silver_stock_daily_covers_expected_tradable_universe</code> 已升级为阻断型完整性门禁。
+      观察不是忽略问题，row count 差异仍必须暴露到 Dagster UI。
     </p>
-    <pre><code>listed_universe(trade_date):
+    <pre><code>expected_tradable_universe(trade_date):
   list_date <= trade_date
-  and (delist_date is null or delist_date > trade_date)
+  and stock is current CNY-listed in silver_stock_basic
+  and not full-day suspended in silver_stock_suspend_daily
+  and BJ stocks only after BJ market open date
 
 row_count check metadata:
   trade_date
   daily_count
-  listed_stock_count
+  expected_count
   diff_count
 
 coverage check metadata:
   trade_date
-  missing_count
-  extra_count
+  unexplained_missing_count
+  unexplained_extra_count
   missing_sample_ts_codes
   extra_sample_ts_codes</code></pre>
   </section>
@@ -1129,8 +1123,8 @@ coverage check metadata:
         </tr>
         <tr>
           <td>3</td>
-          <td>实现手动 <code>sync_cn_a_trade_day_partitions</code>。</td>
-          <td>Dagster 中注册 2026 年 4 月 <code>SSE is_open=true</code> 的 partition keys。</td>
+          <td>接入 <code>cn_a_trade_day_sensor</code> 分区注册口径。</td>
+          <td>由 sensor 基于 silver 交易日历注册符合条件的 <code>cn_a_trade_days</code>。</td>
         </tr>
         <tr>
           <td>4</td>
@@ -1150,7 +1144,7 @@ coverage check metadata:
     <pre><code>1. 确认第一期所需文件已经位于 &lt;LAKE_ROOT&gt;/raw 路径
 2. materialize raw_tushare_trade_calendar
 3. materialize silver_trade_calendar
-4. 手动运行 sync_cn_a_trade_day_partitions
+4. 等待或审批执行 cn_a_trade_day_sensor 注册交易日分区
 5. materialize raw_tushare_stock_basic
 6. materialize silver_stock_basic
 7. 对 2026 年 4 月已注册交易日 materialize raw_tushare_stock_daily

@@ -284,16 +284,17 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 
 ### O5：M12 MACD/KDJ daily / repair sensor 等待 qfq factor repair 完成
 
-状态：M12J 已落地代码口径。
+状态：M12J 已落地代码口径；M12L 已确认方案、待代码落地。M12L 的关键修正是：普通 qfq materialization/check event reconciliation 不阻塞当天 M12 daily。
 
 当前代码事实：
 
 1. `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` 是 run-status sensor，监听 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 成功；同一 `trade_date` 两个上游都成功后才提交 M12 daily。
 2. `stock_mins_qfq_factor_repair_op` 已在七个 `gold_stk_mins_qfq_*` assets 上 emit `gold_stk_mins_qfq_factor_repair_plan_evaluated` check event，partition 为目标 `trade_date`，metadata 包含 `repair_required`、rewrite counts、`repair_start_trade_date`、`repair_end_trade_date`、`selected_partition_count`、`repair_required_codes`、`repair_required_codes_hash` 和 `repair_required_codes_truncated`。
-3. qfq repair 历史重写不再阻塞 M12 daily；daily run 由 sensor 携带 qfq repair event identity / code hash，asset 写前 guard 校验这些 run tags。人工直接运行且缺少这些 tags 时 fail closed。
+3. qfq repair 历史重写不再阻塞 M12 daily；daily run 不写项目自定义 run tags。asset 写前 guard 只校验同日 qfq factor repair check event 是否全绿，repair scope/hash 继续保存在 qfq factor repair check metadata 与 MACD/KDJ repair completion check metadata 中。
 4. `gold_stk_mins_qfq_macd_kdj_repair_job_sensor` 监听 M12 daily 成功；qfq repair affected codes 为 `1..500` 且 list/hash 完整时自动提交 scoped M12 repair，超过 500 或 metadata 不完整时 skip。
 5. `gold_stk_mins_qfq_macd_kdj_repair_op` 成功后 emit 14 条 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，覆盖七个 indicator assets 与七个 state assets，并记录 affected code hash/count 与 source qfq repair event ids。
 6. M12 asset 写入函数在 DuckDB/Parquet 写入前调用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
+7. M12L 已确认：`stock_mins_qfq_factor_repair_job` 不内联补普通 qfq materialization/check events；普通 qfq event/check reconciliation 将另起专门入口，作为 repair 后收口任务。
 
 风险：
 
@@ -301,12 +302,13 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 
 已实现口径：
 
-1. M12 daily sensor 必须确认同日 qfq daily 与 qfq factor repair 都成功，再检查 qfq readiness、previous state 和 target readiness。
+1. M12 daily sensor 必须确认同日 qfq daily 与 qfq factor repair 都成功，再检查 previous state 和 target readiness。
 2. qfq factor repair 缺失、失败、partition 不匹配或 metadata 不可解析时，M12 daily 只 skip，不提交 run。
 3. qfq factor repair 成功且 metadata 显示没有历史重写时，M12 daily 可继续检查 previous state 和 target readiness。
-4. qfq factor repair 成功但 metadata 显示历史 qfq 被改写时，M12 daily 先作为受控 pending-repair run 执行，之后由 M12 repair sensor 触发 scoped repair；最终 ready 仍必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖修复范围。
-5. M12 asset 写入函数也必须使用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
-6. 不新增 summary asset、readiness asset、数据库表或配置项；使用现有 qfq repair check event、M12 repair completion check event、run tags 和 asset failure metadata 表达门禁事实。
+4. qfq factor repair 成功但 metadata 显示历史 qfq 被改写时，M12 daily 先作为受控 pending-repair run 执行，之后由 M12 repair sensor 触发 scoped repair；最终指标收口仍必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖修复范围。
+5. M12L 口径下，受 qfq repair 影响的全历史普通 qfq materialization/check event 补齐不进入 M12 daily 前置条件；该补齐由独立 qfq repair event/check reconciliation 入口负责。
+6. M12 asset 写入函数也必须使用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
+7. 不新增 summary asset、readiness asset、数据库表、配置项或项目自定义 run tags；使用现有 qfq repair check event、M12 repair completion check event 和 asset failure metadata 表达门禁事实。
 
 性能口径：
 
@@ -315,6 +317,7 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 | qfq factor repair gate | 按七个 qfq asset check key 批量 latest-check 读取；常数级查询 | `get_asset_check_execution_history(limit=...)`、逐历史 partition readiness |
 | M12 repair completion gate | 按 14 个 M12 asset check key 批量 latest-check 读取；仅在 qfq repair 历史重写时执行 | 扫全量 run event log、扫描正式 lake 文件判断 repair 状态 |
 | cursor 快路径 | 只能绑定当前 repair check event identity；旧 cursor 不得直接 skip | 用旧 `target_date/selected_count` 兼容逻辑跳过新 repair gate |
+| qfq repair event/check reconciliation | 独立收口入口，按 affected date range 分批补普通 qfq events | 内联到 factor repair、阻塞当天 M12 daily、重跑 qfq daily 代替 reconciliation |
 
 ## 当前阶段结论
 

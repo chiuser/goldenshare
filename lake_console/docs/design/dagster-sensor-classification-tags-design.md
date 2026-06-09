@@ -97,21 +97,26 @@ Dagster 官方 `@sensor` API 支持 `tags`、`metadata`、`owners`。其中 `tag
 | `silver_stock_basic_update_job_sensor` | `defs/sensors/stock_basic_sensor.py` | `basic_data` | `silver` | `asset_update` | raw stock_basic event/check ready 后触发股票基础信息 silver full snapshot 更新。 |
 | `raw_namechange_update_job_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `raw` | `asset_update` | 触发股票曾用名 raw full snapshot 更新；保留 09:30 早盘与 17:00 晚盘两阶段、同一交易日同一阶段一次提交语义。 |
 | `silver_namechange_update_job_sensor` | `defs/sensors/stock_namechange_sensor.py` | `basic_data` | `silver` | `asset_update` | raw namechange 和 stock_basic raw+silver final ready 后触发股票曾用名 silver full snapshot 更新；silver 必须跟上最新 upstream materialization。 |
+| `stock_identity_map_sensor` | `defs/sensors/stock_identity_map_sensor.py` | `basic_data` | `silver` | `asset_update` | 交易日 17:30 后等待股票基础信息和曾用名事实 ready，再触发股票身份映射 silver 重建。 |
 | `raw_suspend_d_update_job_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发停复牌 raw 更新；停复牌位于股票行情数据域。 |
 | `silver_suspend_d_update_job_sensor` | `defs/sensors/suspend_d_sensor.py` | `quote_data` | `silver` | `asset_update` | raw suspend_d event/check ready 后触发停复牌 silver 更新。 |
 | `raw_stock_daily_update_job_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发股票日线 raw 更新；raw 缺口和 missing-code repair 都属于股票行情数据域。 |
 | `silver_stock_daily_update_job_sensor` | `defs/sensors/stock_daily_sensor.py` | `quote_data` | `silver` | `asset_update` | raw stock daily、stock basic、suspend_d ready 后触发股票日线 silver 更新。 |
 | `raw_adj_factor_update_job_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `raw` | `asset_update` | 触发复权因子 raw 更新；复权因子属于股票行情数据域。 |
 | `silver_adj_factor_update_job_sensor` | `defs/sensors/stock_adj_factor_sensor.py` | `quote_data` | `silver` | `asset_update` | raw adj_factor event/check ready 和 stock_basic ready 后触发复权因子 silver 更新。 |
+| `stock_mins_raw_sensor` | `defs/sensors/stock_mins_raw_sensor.py` | `quote_data` | `raw` | `asset_update` | 股票分钟线交易日分区和基础信息 checks 就绪后，触发五频度 prod DB raw 更新任务。 |
 | `stock_mins_silver_sensor` | `defs/sensors/stock_mins_silver_sensor.py` | `quote_data` | `silver` | `asset_update` | 触发股票分钟线 silver 五频度更新；只消费已注册 silver 分区和上游 readiness，不注册分区、不触发 raw。 |
 | `stock_mins_qfq_daily_sensor` | `defs/sensors/stock_mins_qfq_daily_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 gold 七频度更新；只消费已注册 silver 分区、当日 silver readiness 和当日复权因子 readiness，不注册分区、不触发 repair。 |
 | `stock_mins_qfq_factor_repair_sensor` | `defs/sensors/stock_mins_qfq_factor_repair_sensor.py` | `quote_data` | `gold` | `asset_update` | 触发股票分钟线前复权 factor repair 维护任务；只监听当日七频度 gold ready，不检测变化股票，不注册分区。 |
+| `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` | `defs/sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py` | `quote_data` | `gold` | `asset_update` | run-status coordination：同一交易日 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 都成功后触发七频度 MACD/KDJ daily 更新。 |
+| `gold_stk_mins_qfq_macd_kdj_repair_job_sensor` | `defs/sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py` | `quote_data` | `gold` | `asset_update` | run-status coordination：MACD/KDJ daily 成功后，按同日 qfq factor repair affected codes 自动提交 scoped MACD/KDJ repair；超过自动上限时 skip。 |
 | `index_daily_sensor` | `defs/sensors/index_daily_sensor.py` | `index_topic` | `raw` | `asset_update` | 用 DuckDB gap audit 找最近 60 个可运行交易日内最早 raw 有效缺口后触发 `index_daily_update_job`，只写指数日线 raw-by-code 和 raw checks，不写 silver。 |
 | `silver_index_daily_sensor` | `defs/sensors/silver_index_daily_sensor.py` | `index_topic` | `silver` | `asset_update` | 确认最近 60 个可运行交易日内 raw-by-code 无有效空洞后触发最早未 ready 的 `silver_index_daily_update_job`，从 raw-by-code 文件集合生成指数日线 silver。 |
 | `market_major_indices_daily_sensor` | `defs/sensors/market_major_indices_daily_sensor.py` | `index_topic` | `gold` | `asset_update` | 触发主要指数日线 gold；虽然是 gold 层，但业务域仍是指数专题。 |
 | `market_breadth_automation_sensor` | `defs/sensors/market_breadth_automation_sensor.py` | `derived_metric` | `gold` | `automation_condition` | 管理市场宽度 gold 自动触发；资产本身是衍生指标。 |
 | `stock_return_distribution_automation_sensor` | `defs/sensors/stock_return_distribution_automation_sensor.py` | `derived_metric` | `gold` | `automation_condition` | 管理股票涨跌幅分布 gold 自动触发；资产本身是衍生指标。 |
 | `clickhouse_share_fact_market_breadth_automation_sensor` | `defs/sensors/clickhouse_share_fact_market_breadth_automation_sensor.py` | `derived_metric` | `serving` | `automation_condition` | 管理 ClickHouse 市场宽度 serving 同步；业务域仍来自市场宽度衍生指标，目标层是 serving。 |
+| `prod_clickhouse_share_fact_market_breadth_automation_sensor` | `defs/sensors/prod_clickhouse_share_fact_market_breadth_automation_sensor.py` | `derived_metric` | `serving` | `automation_condition` | 管理 Prod ClickHouse 市场宽度 serving 同步；业务域仍来自市场宽度衍生指标，目标层是 serving。 |
 | `feishu_run_started_sensor` | `defs/sensors/feishu_run_status_sensor.py` | `platform_observability` | `platform` | `run_status_notification` | 运行启动通知，不对应任何数据资产生产。 |
 | `feishu_run_succeeded_sensor` | `defs/sensors/feishu_run_status_sensor.py` | `platform_observability` | `platform` | `run_status_notification` | 运行成功通知，不对应任何数据资产生产。 |
 | `feishu_run_failed_sensor` | `defs/sensors/feishu_run_status_sensor.py` | `platform_observability` | `platform` | `run_status_notification` | 运行失败通知，不对应任何数据资产生产。 |

@@ -1572,19 +1572,19 @@ lake_console/orchestrator/src/orchestrator/defs/run_contracts/
       </tr>
       <tr>
         <td><code>defs/sensors/stock_daily_sensor.py</code></td>
-        <td>提交 <code>stock_daily_update_job</code> 时不再写 <code>triggered_by=stock_daily_sensor</code>。</td>
+        <td>提交 <code>raw_stock_daily_update_job</code> / <code>silver_stock_daily_update_job</code> 时不再写自定义 <code>triggered_by</code> run tag。</td>
         <td>数据生产低风险；当前代码没有其它生产门禁读取它。来源展示交给 Dagster 系统 tags。</td>
         <td>保留原有 readiness、source readiness、run key、partition key、cursor 和单 tick 请求上限。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/suspend_d_sensor.py</code></td>
-        <td>提交 <code>suspend_update_job</code> 时不再写 <code>triggered_by=suspend_d_sensor</code>。</td>
+        <td>提交 <code>raw_suspend_d_update_job</code> / <code>silver_suspend_d_update_job</code> 时不再写自定义 <code>triggered_by</code> run tag。</td>
         <td>数据生产低风险；当前代码没有其它生产门禁读取它。来源展示交给 Dagster 系统 tags。</td>
         <td>保留原有缺失分区判断、run key、partition key、cursor 和单 tick 请求上限。</td>
       </tr>
       <tr>
         <td><code>defs/sensors/stock_basic_sensor.py</code></td>
-        <td>提交 <code>stock_basic_update_job</code> 时不再写 <code>triggered_by</code> 和 <code>target_trade_date</code> run tags；cursor 顶层使用 <code>target_date</code>，ready 状态和 reason 放入 <code>details</code>。</td>
+        <td>提交 <code>raw_stock_basic_update_job / silver_stock_basic_update_job</code> 时不再写 <code>triggered_by</code> 和 <code>target_trade_date</code> run tags；cursor 顶层使用 <code>target_date</code>，ready 状态和 reason 放入 <code>details</code>。</td>
         <td>数据生产低风险；<code>target_trade_date</code> 作为 run tag 是重复诊断信息。</td>
         <td>目标日期诊断只保留在 cursor / SkipReason / readiness 结果中。</td>
       </tr>

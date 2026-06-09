@@ -387,10 +387,14 @@
         breadth_checks.py
       jobs/
         __init__.py
-        calendar_trade_day_partitions.py
+        calendar_update.py
+      sensors/
+        __init__.py
+        cn_a_trade_day_sensor.py
   tests/
-    test_phase1_paths.py
-    test_phase1_sql_contracts.py</code></pre>
+    test_asset_governance_contracts.py
+    test_metadata_contracts.py
+    test_run_contract_static_gates.py</code></pre>
 
     <div class="table-wrap">
       <table>
@@ -472,8 +476,8 @@
         将 <code>cal_date</code> 标准化为 date 类型 <code>trade_date</code>。
       </div>
       <div class="flow-item">
-        <span class="flow-title"><span class="tag meta">job</span> sync_cn_a_trade_day_partitions</span>
-        读取 silver 交易日历，注册 2026-04 开市交易日。
+        <span class="flow-title"><span class="tag meta">sensor</span> cn_a_trade_day_sensor</span>
+        读取 silver 交易日历，注册符合条件的 A 股交易日分区。
       </div>
       <div class="flow-item">
         <span class="flow-title"><span class="tag raw">raw</span> raw_tushare_stock_basic</span>
@@ -500,7 +504,7 @@
     <h3>手动执行顺序</h3>
     <pre><code>1. materialize raw_tushare_trade_calendar
 2. materialize silver_trade_calendar
-3. run sync_cn_a_trade_day_partitions
+3. wait for or explicitly approve cn_a_trade_day_sensor partition registration
 4. materialize raw_tushare_stock_basic
 5. materialize silver_stock_basic
 6. materialize raw_tushare_stock_daily for 2026-04 trade days
@@ -755,24 +759,14 @@ GROUP BY trade_date</code></pre>
     </p>
     <pre><code>cn_a_trade_days = dg.DynamicPartitionsDefinition(name="cn_a_trade_days")</code></pre>
 
-    <h3>手动同步 job</h3>
-    <pre><code>@dg.op
-def sync_cn_a_trade_day_partitions(context, lake_root, duckdb):
-    silver_path = lake_root.silver_path("calendar", "trade_calendar", "full", "part-000.parquet")
-    keys = duckdb_query("""
-      SELECT strftime(trade_date, '%Y-%m-%d') AS partition_key
-      FROM read_parquet(?)
-      WHERE exchange = 'SSE'
-        AND is_open = true
-        AND trade_date BETWEEN DATE '2026-04-01' AND DATE '2026-04-30'
-      ORDER BY trade_date
-    """, [silver_path])
-
-    context.instance.add_dynamic_partitions("cn_a_trade_days", keys)
-    context.log.info(f"registered {len(keys)} cn_a_trade_days partition keys")</code></pre>
+    <h3>正式注册 sensor</h3>
+    <pre><code>cn_a_trade_day_sensor
+  -> read silver_trade_calendar
+  -> resolve completed SSE open days
+  -> add missing keys to cn_a_trade_days</code></pre>
 
     <div class="callout">
-      这个 job 只是注册 Dagster partition keys，不产出 raw/silver/gold 数据文件，所以不定义成数据资产。
+      分区注册由 <code>cn_a_trade_day_sensor</code> 负责，不产出 raw/silver/gold 数据文件。
     </div>
 
     <h3>持久 instance 门禁</h3>
@@ -818,15 +812,9 @@ def sync_cn_a_trade_day_partitions(context, lake_root, duckdb):
           <td><span class="tag block">阻断</span></td>
         </tr>
         <tr>
-          <td><code>silver_trade_calendar</code></td>
-          <td><code>silver_trade_calendar_has_open_days_in_poc_range</code></td>
-          <td>2026-04 范围内存在 <code>SSE is_open=true</code> 的交易日。</td>
-          <td><span class="tag block">阻断</span></td>
-        </tr>
-        <tr>
           <td><code>silver_stock_basic</code></td>
-          <td><code>silver_stock_basic_known_list_status_values</code></td>
-          <td><code>list_status</code> 只允许 <code>L/D/P/G</code>。</td>
+          <td><code>silver_stock_basic_current_listed_only</code></td>
+          <td>silver 股票基础信息只保留当前上市股票。</td>
           <td><span class="tag block">阻断</span></td>
         </tr>
         <tr>
@@ -843,15 +831,15 @@ def sync_cn_a_trade_day_partitions(context, lake_root, duckdb):
         </tr>
         <tr>
           <td><code>silver_stock_daily</code></td>
-          <td><code>silver_stock_daily_row_count_matches_listed_stock_count</code></td>
-          <td>输出 <code>daily_count/listed_stock_count/diff_count</code>。</td>
+          <td><code>silver_stock_daily_row_count_matches_expected_tradable_count</code></td>
+          <td>输出 <code>daily_count/expected_count/diff_count</code>。</td>
           <td><span class="tag warn">观察</span></td>
         </tr>
         <tr>
           <td><code>silver_stock_daily</code></td>
-          <td><code>silver_stock_daily_covers_listed_stock_universe</code></td>
-          <td>输出 <code>missing_count/extra_count/missing_sample_ts_codes/extra_sample_ts_codes</code>。</td>
-          <td><span class="tag warn">观察</span></td>
+          <td><code>silver_stock_daily_covers_expected_tradable_universe</code></td>
+          <td>输出 <code>unexplained_missing_count/unexplained_extra_count/missing_sample_ts_codes/extra_sample_ts_codes</code>。</td>
+          <td><span class="tag block">阻断</span></td>
         </tr>
         <tr>
           <td><code>gold_market_breadth_daily</code></td>
@@ -918,8 +906,8 @@ os.replace(tmp, target)</code></pre>
         </tr>
         <tr>
           <td>交易日 partitions</td>
-          <td>运行 <code>sync_cn_a_trade_day_partitions</code></td>
-          <td>使用正式 <code>DAGSTER_HOME</code> 对应 instance 注册，只注册 2026-04 的 <code>SSE is_open=true</code> 日期。</td>
+          <td><code>cn_a_trade_day_sensor</code></td>
+          <td>使用正式 <code>DAGSTER_HOME</code> 对应 instance 注册符合条件的 <code>SSE is_open=true</code> 日期；执行前必须遵守正式 Dagster 环境审批。</td>
         </tr>
         <tr>
           <td>silver/gold 产出</td>
@@ -992,16 +980,16 @@ os.replace(tmp, target)</code></pre>
   partitions: 21
   blocking failures: 0
   每个交易日 check events: 13
-  每个交易日 WARN: 2
-  WARN checks:
-    silver_stock_daily_row_count_matches_listed_stock_count
-    silver_stock_daily_covers_listed_stock_universe</code></pre>
+  历史验证中有两个完整性观察项
+
+当前代码口径：
+  silver_stock_daily_row_count_matches_expected_tradable_count 仍为观察型 check
+  silver_stock_daily_covers_expected_tradable_universe 已升级为阻断型 check</code></pre>
 
     <h3>Slice 4 WARN 解释</h3>
     <p>
-      两个 WARN 都来自 stock basic 完整性观察 check，不代表 stock daily materialization 失败。
-      它们的含义是：用 <code>silver_stock_basic</code> 的生命周期字段推导“理论上市股票集合”，再和当天
-      <code>silver_stock_daily</code> 实际有日线的股票集合对比。
+      历史记录里的两个 WARN 来自早期 stock basic 完整性观察 check，不代表当时 stock daily materialization 失败。
+      当前代码已改为“预期可交易股票集合”口径：只保留 row count 为观察型 check，coverage 缺口已升级为阻断门禁。
     </p>
     <pre><code>理论上市股票集合：
   list_date <= trade_date
@@ -1076,8 +1064,8 @@ dynamic partitions:
   calendar checks
 
 Slice 2:
-  sync_cn_a_trade_day_partitions job
-  verify 2026-04 dynamic partitions
+  cn_a_trade_day_sensor
+  verify dynamic partition registration
 
 Slice 3:
   raw_tushare_stock_basic

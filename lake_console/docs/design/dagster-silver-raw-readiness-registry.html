@@ -371,7 +371,7 @@ stk_mins checks and qfq-related downstream reads</pre>
       <tr>
         <td><code>jobs/stock_daily_update.py</code></td>
         <td><code>raw_stock_daily_update_job</code> 只选择 <code>raw_tushare_stock_daily</code> 与 raw checks；<code>silver_stock_daily_update_job</code> 只选择 <code>silver_stock_daily</code> 与 silver checks。</td>
-        <td class="ok">已修复旧混合入口。active definitions 不再保留 <code>stock_daily_update_job</code>。</td>
+        <td class="ok">已修复旧混合入口。active definitions 只保留 raw-only 与 silver-only 两个 job。</td>
       </tr>
       <tr>
         <td><code>assets/stock_daily.py</code></td>
@@ -381,7 +381,7 @@ stk_mins checks and qfq-related downstream reads</pre>
       <tr>
         <td><code>sensors/stock_daily_sensor.py</code></td>
         <td>定义 <code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code>。raw sensor 处理 full-day raw 缺失与最近两个交易日 missing-code repair；silver sensor 只在 raw、stock_basic、suspend_d 全 ready 且 silver 缺 materialization 时提交。</td>
-        <td class="ok">已修复自动触发时序漏洞。旧 <code>stock_daily_sensor</code> active 定义已移除。</td>
+        <td class="ok">已修复自动触发时序漏洞。当前 active 定义只保留 raw-only 与 silver-only 两个 sensor。</td>
       </tr>
       <tr>
         <td><code>checks/stock_daily_checks.py</code></td>
@@ -426,7 +426,7 @@ stk_mins checks and qfq-related downstream reads</pre>
       </tr>
       <tr>
         <td>raw job</td>
-        <td><code>stock_daily_update_job</code> 混合入口，已退役为非 active 定义</td>
+        <td>旧 stock daily 混合入口，已退役为非 active 定义</td>
         <td><code>raw_stock_daily_update_job</code></td>
         <td>按 <code>layer + asset name + mode</code>。这里只选择 <code>raw_tushare_stock_daily</code> 与 raw checks。</td>
       </tr>
@@ -438,7 +438,7 @@ stk_mins checks and qfq-related downstream reads</pre>
       </tr>
       <tr>
         <td>raw sensor</td>
-        <td><code>stock_daily_sensor</code>，已退役为非 active 定义</td>
+        <td><code>raw_stock_daily_update_job_sensor</code> / <code>silver_stock_daily_update_job_sensor</code>，已退役为非 active 定义</td>
         <td><code>raw_stock_daily_update_job_sensor</code></td>
         <td>sensor 名称 follow job，即 <code>raw_stock_daily_update_job</code> + <code>_sensor</code>；已由用户在 UI 打开观察。</td>
       </tr>
@@ -588,7 +588,7 @@ stk_mins checks and qfq-related downstream reads</pre>
     </table>
 
     <div class="note">
-      <p>命名已确认并已落地：含糊的 <code>stock_daily_update_job</code> 混合入口已被 <code>raw_stock_daily_update_job</code> 与 <code>silver_stock_daily_update_job</code> 替换；<code>stock_daily_sensor</code> 已被 <code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code> 替换。已存在 check 禁止改名；新增 check 才按 <code>asset name + function + check</code> 命名。不得为了命名整齐新增同语义重复 check。</p>
+      <p>命名已确认并已落地：含糊的旧 stock daily 混合入口已被 <code>raw_stock_daily_update_job</code> 与 <code>silver_stock_daily_update_job</code> 替换；旧混合 sensor 已被 <code>raw_stock_daily_update_job_sensor</code> 与 <code>silver_stock_daily_update_job_sensor</code> 替换。已存在 check 禁止改名；新增 check 才按 <code>asset name + function + check</code> 命名。不得为了命名整齐新增同语义重复 check。</p>
     </div>
 
     <h3>5.3 停复牌链路</h3>
@@ -607,8 +607,7 @@ stk_mins structural checks</pre>
     <div class="note">
       <strong>落地结论：</strong>
       <code>suspend_d</code> 自动链路已拆为 <code>raw_suspend_d_update_job</code> 与
-      <code>silver_suspend_d_update_job</code>。旧 <code>suspend_update_job</code> 与
-      <code>suspend_d_sensor</code> 不再作为 active 混合入口加载。silver sensor 只在
+      <code>silver_suspend_d_update_job</code>。旧 suspend_d 混合入口不再作为 active 定义加载。silver sensor 只在
       <code>raw_tushare_suspend_d[trade_date]</code> latest materialization 与同一 materialization 的
       raw blocking checks 全绿后，才提交 <code>silver_stock_suspend_daily[trade_date]</code>。
     </div>
@@ -661,7 +660,7 @@ stk_mins structural checks</pre>
       </tr>
       <tr>
         <td>mixed job</td>
-        <td><code>suspend_update_job</code></td>
+        <td><code>raw_suspend_d_update_job / silver_suspend_d_update_job</code></td>
         <td>退役，不保留 active 混合入口</td>
         <td>避免同一 job 继续同时写 raw 与 silver。历史 run 只作为审计历史保留。</td>
       </tr>
@@ -679,9 +678,9 @@ stk_mins structural checks</pre>
       </tr>
       <tr>
         <td>mixed sensor</td>
-        <td><code>suspend_d_sensor</code></td>
+        <td><code>raw_suspend_d_update_job_sensor</code> / <code>silver_suspend_d_update_job_sensor</code></td>
         <td>退役，不保留 active 混合 sensor</td>
-        <td>避免继续提交 <code>suspend_update_job</code>。</td>
+        <td>避免继续提交 <code>raw_suspend_d_update_job / silver_suspend_d_update_job</code>。</td>
       </tr>
       <tr>
         <td>raw sensor</td>
@@ -862,12 +861,12 @@ silver_suspend_d_update_job
       <tr>
         <td>job 名</td>
         <td class="warn">变化</td>
-        <td>旧 <code>suspend_update_job</code> run history 会继续留在 UI 中；新 run 会归属新 job。这是历史入口变化，不是数据不一致。</td>
+        <td>旧 suspend_d 混合入口 run history 会继续留在 UI 中；新 run 会归属新 job。这是历史入口变化，不是数据不一致。</td>
       </tr>
       <tr>
         <td>sensor 名</td>
         <td class="warn">变化</td>
-        <td>旧 <code>suspend_d_sensor</code> tick history 保留为审计历史；新 sensor 从新 cursor 开始，不读取旧 cursor。</td>
+        <td>旧 suspend_d 混合 sensor tick history 保留为审计历史；新 sensor 从新 cursor 开始，不读取旧 cursor。</td>
       </tr>
       <tr>
         <td>历史分区 readiness</td>
@@ -938,7 +937,7 @@ silver_suspend_d_update_job
       <tr>
         <td><code>jobs/suspend_update.py</code></td>
         <td>替换为 <code>raw_suspend_d_update_job</code> 与 <code>silver_suspend_d_update_job</code>；job 文件只定义 selection 和 description。</td>
-        <td>静态断言不存在 active <code>suspend_update_job</code>；raw job 不选择 silver asset/checks；silver job 不选择 raw asset/checks。</td>
+        <td>静态断言不存在 active 旧 suspend_d 混合入口；raw job 不选择 silver asset/checks；silver job 不选择 raw asset/checks。</td>
       </tr>
       <tr>
         <td><code>sensors/readiness.py</code></td>
@@ -1099,7 +1098,7 @@ raw_tushare_trade_calendar + silver_trade_calendar same job
     </table>
 
     <h4>5.6.1 <code>stock_basic</code> + <code>namechange</code> 合并修复落地口径</h4>
-    <p><code>stock_basic</code> 与 <code>namechange</code> 已放进同一个开发边界中拆分。原因是 <code>silver_namechange</code> 直接依赖 <code>silver_stock_basic</code> 文件：如果只先拆 <code>stock_basic</code>，但旧 <code>stock_namechange_sensor</code> 仍然存在，它可能在 <code>stock_basic</code> raw 已更新、silver 未 ready 时继续提交旧 <code>namechange_update_job</code>，从而读取上一版 <code>silver_stock_basic</code>。合并修复一次性退役两个旧混合入口，并让 <code>silver_namechange</code> 显式等待 <code>stock_basic</code> raw+silver final ready。</p>
+    <p><code>stock_basic</code> 与 <code>namechange</code> 已放进同一个开发边界中拆分。原因是 <code>silver_namechange</code> 直接依赖 <code>silver_stock_basic</code> 文件：如果只先拆 <code>stock_basic</code>，但旧 旧 stock_namechange 混合 sensor 仍然存在，它可能在 <code>stock_basic</code> raw 已更新、silver 未 ready 时继续提交旧 <code>旧 namechange 混合 job</code>，从而读取上一版 <code>silver_stock_basic</code>。合并修复一次性退役两个旧混合入口，并让 <code>silver_namechange</code> 显式等待 <code>stock_basic</code> raw+silver final ready。</p>
     <table>
       <thead>
       <tr>
@@ -1114,7 +1113,7 @@ raw_tushare_trade_calendar + silver_trade_calendar same job
       </tr>
       <tr>
         <td>退役旧入口</td>
-        <td><code>stock_basic_update_job</code>、<code>stock_basic_sensor</code>、<code>namechange_update_job</code>、<code>stock_namechange_sensor</code> 不再作为 active definition 保留。旧 run/tick history 只作为历史审计事实保留，不清理、不回滚。</td>
+        <td>旧 stock basic 与 namechange 混合入口不再作为 active definition 保留。旧 run/tick history 只作为历史审计事实保留，不清理、不回滚。</td>
       </tr>
       <tr>
         <td>job selection</td>

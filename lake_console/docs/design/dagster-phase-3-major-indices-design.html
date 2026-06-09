@@ -335,27 +335,27 @@ major_indices.cn_a.csv seed
       </thead>
       <tbody>
         <tr>
-          <td><code>silver_index_daily_active_pool</code></td>
+          <td><code>旧指数 active pool asset</code></td>
           <td>已从 active Definitions 删除。</td>
           <td>不得作为 <code>silver_index_daily</code> 的上游，不得作为指数日线请求池。</td>
         </tr>
         <tr>
-          <td><code>index_daily_active_pool_update_job</code></td>
+          <td><code>旧指数 active pool job</code></td>
           <td>已退场。</td>
           <td>不得恢复为指数池维护入口。</td>
         </tr>
         <tr>
-          <td><code>raw_tushare_index_daily[trade_date]</code></td>
+          <td><code>旧指数日线 raw-by-date asset</code></td>
           <td>旧 raw-by-trade-date asset 已删除。</td>
           <td>不得重新按交易日聚合拉取 raw。</td>
         </tr>
         <tr>
-          <td><code>index_daily_history_backfill_job</code></td>
+          <td><code>旧指数历史 backfill job</code></td>
           <td>已退场。</td>
           <td>历史重建使用当前 partitioned asset job / backfill 能力，不恢复旧普通 job。</td>
         </tr>
         <tr>
-          <td><code>index_daily_repair_by_codes_job</code></td>
+          <td><code>旧指数按代码 repair job</code></td>
           <td>已退场。</td>
           <td>按代码修复应走 <code>index_daily_update_job[ts_code]</code>，不恢复旧 repair job。</td>
         </tr>

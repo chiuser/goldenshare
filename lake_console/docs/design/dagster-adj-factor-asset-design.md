@@ -104,7 +104,7 @@ M6B 使用 Dagster 官方 `DagsterInstance.report_runless_asset_event(...)` 补�
 - 对 M5 raw 分区逐个只读审计。
 - 只对审计通过的分区补录 `raw_tushare_adj_factor[date]` materialization。
 - 随后补录 raw blocking check evaluation，并绑定到刚补录的 materialization storage id。
-- 不运行 `stock_adj_factor_update_job`，避免重新请求 Tushare 或覆盖 M5 raw。
+- 不运行 `raw_adj_factor_update_job / silver_adj_factor_update_job`，避免重新请求 Tushare 或覆盖 M5 raw。
 - 不产生 Runs 页面记录，也不会触发飞书 run status 通知。
 
 M6B 已按 dry-run、小样本、全量三步完成：
@@ -143,7 +143,7 @@ M6D 使用批量审计口径执行：只在样本和最终抽样阶段调用 rea
 
 ### 2.9 A7 `2026-05-15` 后缺口补齐记录
 
-M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后先补注册 `2026-05-15` 之后、截至 `2026-05-29` 的股票开市日分区，再由人工启动 `stock_adj_factor_update_job` 补齐这些分区的 raw/silver 与 checks。
+M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后先补注册 `2026-05-15` 之后、截至 `2026-05-29` 的股票开市日分区，再由人工启动 `raw_adj_factor_update_job / silver_adj_factor_update_job` 补齐这些分区的 raw/silver 与 checks。
 
 本次只读核验结果：
 
@@ -156,7 +156,7 @@ M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后
 - raw 8 个 blocking checks 均为 `succeeded=4225, failed=0`。
 - silver 10 个 blocking checks 均为 `succeeded=4225, failed=0`。
 
-上述补齐不是历史 bootstrap 重跑，也不是 sensor 自动触发验收；它是对 M6D 之后缺口分区的一次人工旧混合 job 补齐。旧 `stock_adj_factor_sensor` 后续已退役，日常自然闭环改由 raw/silver 两个 adj_factor update job sensor 承接。
+上述补齐不是历史 bootstrap 重跑，也不是 sensor 自动触发验收；它是对 M6D 之后缺口分区的一次人工旧混合 job 补齐。后续日常自然闭环改由 `raw_adj_factor_update_job_sensor` / `silver_adj_factor_update_job_sensor` 承接。
 
 ## 3. 资产边界
 
@@ -274,7 +274,7 @@ FROM read_parquet({old_path}, hive_partitioning=false, union_by_name=true)
 - bootstrap 只写新湖 raw，不直接写 silver。
 - 历史 bootstrap 范围必须对齐旧湖 `adj_factor` 最早日期到旧湖当前全量范围内的股票开市日；这些历史交易日需要先注册到 `cn_a_stock_current_trade_days`，不写非交易日分区。
 
-M5 已完成上述 raw bootstrap 和历史分区注册。M6 的历史 silver 生成是 bootstrap 收尾：它从 M5 迁移出的 raw 文件和现有 `silver_stock_basic` 生成 `silver_adj_factor` 文件。M6 不使用 `stock_adj_factor_update_job` 跑历史，因为该 job 会执行 `raw_tushare_adj_factor`，从而重新请求 Tushare 并可能覆盖 M5 raw。M6B 额外补录 raw 的 Dagster 事件事实，使 UI 和 readiness 能识别 M5 已迁移 raw。
+M5 已完成上述 raw bootstrap 和历史分区注册。M6 的历史 silver 生成是 bootstrap 收尾：它从 M5 迁移出的 raw 文件和现有 `silver_stock_basic` 生成 `silver_adj_factor` 文件。M6 不使用 `raw_adj_factor_update_job / silver_adj_factor_update_job` 跑历史，因为该 job 会执行 `raw_tushare_adj_factor`，从而重新请求 Tushare 并可能覆盖 M5 raw。M6B 额外补录 raw 的 Dagster 事件事实，使 UI 和 readiness 能识别 M5 已迁移 raw。
 
 ## 7. 日常更新设计
 
@@ -323,7 +323,7 @@ write_mode = replace partition
 
 ## 9. Job / Sensor / Readiness 口径
 
-日常入口已按下列口径接入 active definitions；历史 raw/silver 文件与 Dagster event log 已对齐到 `2026-05-29`。旧混合入口 `stock_adj_factor_update_job` / `stock_adj_factor_sensor` 只保留为 Dagster 历史 run/tick 审计事实，不再作为 active definitions。
+日常入口已按下列口径接入 active definitions；历史 raw/silver 文件与 Dagster event log 已对齐到 `2026-05-29`。历史旧混合入口只保留为 Dagster 历史 run/tick 审计事实，不再作为 active definitions。
 
 更新入口：
 
@@ -380,7 +380,7 @@ write_mode = replace partition
 - 如果今天是 `2026-05-29` 且是股票开市日：
   - `2026-05-29 06:00` 后，专用分区注册 sensor 注册 `2026-05-29` 到 `cn_a_stock_current_trade_days`。
   - `2026-05-29 09:30` 后，raw/silver 两个 adj_factor sensor 可以按门禁处理 `2026-05-29`。
-  - 同一时间，`cn_a_stock_trade_days` 不会因此提前出现 `2026-05-29`，所以不会带动 `suspend_d_sensor`、`stock_daily_sensor` 提前处理当天。
+  - 同一时间，`cn_a_stock_trade_days` 不会因此提前出现 `2026-05-29`，所以不会带动 `raw_suspend_d_update_job_sensor` / `silver_suspend_d_update_job_sensor`、`raw_stock_daily_update_job_sensor` / `silver_stock_daily_update_job_sensor` 提前处理当天。
 
 Readiness：
 
