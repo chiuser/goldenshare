@@ -242,6 +242,48 @@ class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
         self.assertEqual(plan.new_current_code_count, 1)
         self.assertEqual(plan.repair_required_codes, ())
 
+    def test_current_only_previous_trade_date_listing_is_not_repair_required(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            current_path, previous_path, stock_basic_path = self._write_inputs(
+                Path(temp_dir),
+                current_rows=[
+                    _adj_row("600000.SH", TRADE_DATE, 2.0),
+                    _adj_row("920211.BJ", TRADE_DATE, 1.0),
+                ],
+                previous_rows=[_adj_row("600000.SH", PREVIOUS_TRADE_DATE, 2.0)],
+                stock_basic_rows=[
+                    _stock_basic_row("600000.SH", "1999-11-10"),
+                    _stock_basic_row("920211.BJ", PREVIOUS_TRADE_DATE),
+                ],
+            )
+
+            rows = _fetch_dicts(
+                build_adj_factor_changed_codes_sql(
+                    current_adj_factor_path=current_path,
+                    previous_adj_factor_path=previous_path,
+                    silver_stock_basic_path=stock_basic_path,
+                    trade_date=TRADE_DATE,
+                    previous_trade_date=PREVIOUS_TRADE_DATE,
+                )
+            )
+            plan = build_gold_stk_mins_qfq_factor_repair_plan(
+                current_adj_factor_path=current_path,
+                previous_adj_factor_path=previous_path,
+                silver_stock_basic_path=stock_basic_path,
+                trade_date=TRADE_DATE,
+                previous_trade_date=PREVIOUS_TRADE_DATE,
+            )
+
+        self.assertEqual(rows[0]["change_reason"], QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE)
+        self.assertEqual(plan.reason, QFQ_FACTOR_REPAIR_REASON_NEW_CURRENT_CODE)
+        self.assertTrue(plan.can_execute_repair)
+        self.assertFalse(plan.repair_required)
+        self.assertEqual(plan.new_current_code_count, 1)
+        self.assertEqual(plan.missing_previous_factor_code_count, 0)
+        self.assertEqual(plan.repair_required_codes, ())
+
     def test_current_only_old_listing_blocks_repair_as_missing_previous_factor(
         self,
     ) -> None:

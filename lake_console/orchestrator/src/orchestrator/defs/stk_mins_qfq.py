@@ -488,7 +488,7 @@ LEFT JOIN stock_basic
         change_reason_sql = f"""
     CASE
       WHEN previous_factor.ts_code IS NULL
-       AND stock_basic.list_date > DATE {duckdb_string(previous_trade_date)}
+       AND stock_basic.list_date >= DATE {duckdb_string(previous_trade_date)}
        AND stock_basic.list_date <= DATE {duckdb_string(trade_date)}
         THEN 'new_current_code'
       WHEN previous_factor.ts_code IS NULL THEN 'missing_previous_factor'
