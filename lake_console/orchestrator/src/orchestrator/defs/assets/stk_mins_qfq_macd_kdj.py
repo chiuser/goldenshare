@@ -2,6 +2,9 @@ from collections.abc import Iterator
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
+    assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate,
+)
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
@@ -129,6 +132,10 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
     ) -> Iterator[dg.MaterializeResult]:
         lake_root.ensure_available_for_run()
         partition_key = context.partition_key
+        assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
+            context.instance,
+            partition_key,
+        )
         write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
             lake_root=lake_root.root(),
             freq=freq,

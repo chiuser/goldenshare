@@ -282,6 +282,39 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 
 代码落地前必须先在 `dagster-stk-mins-asset-design.html` 和 `dagster-stk-mins-qfq-90-120-assets-plan.md` 中保持同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。
 
+### O5：M12 MACD/KDJ daily sensor 等待 qfq factor repair 完成
+
+状态：M12I 已落地代码口径。
+
+当前代码事实：
+
+1. `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` 目标窗口为 21:20。
+2. 该 sensor 先检查同一 `target_trade_date` 的 qfq factor repair gate；缺失、失败、partition 不匹配或 metadata 不完整时只 skip。
+3. `stock_mins_qfq_factor_repair_op` 已在七个 `gold_stk_mins_qfq_*` assets 上 emit `gold_stk_mins_qfq_factor_repair_plan_evaluated` check event，partition 为目标 `trade_date`，metadata 包含 `repair_required`、`rewritten_file_count`、`derived_rewrite_required`、`derived_rewritten_file_count`、`repair_start_trade_date`、`repair_end_trade_date`、`selected_partition_count` 等字段。
+4. `gold_stk_mins_qfq_macd_kdj_repair_op` 成功后 emit 14 条 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，覆盖七个 indicator assets 与七个 state assets。
+5. M12 asset 写入函数在 DuckDB/Parquet 写入前调用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
+
+风险：
+
+如果 M12 daily 在 qfq factor repair 之前运行，指标会基于尚未完成修复的 qfq 文件计算。更严重的是，当 qfq factor repair 改写历史 stock-year 文件时，MACD/KDJ 的递推 state 从受影响历史起点之后都可能变化；此时即使上一交易日 state 文件存在，也可能已经 stale。
+
+已实现口径：
+
+1. M12 daily sensor 必须先确认同一目标日期七个 qfq asset 上的 `gold_stk_mins_qfq_factor_repair_plan_evaluated` 全部 `passed=true`，必要时再确认 M12 repair completion，然后再检查 qfq readiness、previous state 和 target readiness。
+2. qfq factor repair 缺失、失败、partition 不匹配或 metadata 不可解析时，M12 daily 只 skip，不提交 run。
+3. qfq factor repair 成功且 metadata 显示没有历史重写时，M12 daily 可继续检查 previous state 和 target readiness。
+4. qfq factor repair 成功但 metadata 显示历史 qfq 被改写时，M12 daily 必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖修复范围。
+5. M12 asset 写入函数也必须使用同一 guard，防止人工 Launchpad / CLI 绕过 sensor。
+6. 不新增 summary asset、readiness asset、数据库表、run tag 或新 sensor；使用现有 qfq repair check event、M12 repair completion check event、cursor details 和 asset failure metadata 表达门禁事实。
+
+性能口径：
+
+| 路径 | 目标成本 | 禁止 |
+| --- | --- | --- |
+| qfq factor repair gate | 按七个 qfq asset check key 批量 latest-check 读取；常数级查询 | `get_asset_check_execution_history(limit=...)`、逐历史 partition readiness |
+| M12 repair completion gate | 按 14 个 M12 asset check key 批量 latest-check 读取；仅在 qfq repair 历史重写时执行 | 扫全量 run event log、扫描正式 lake 文件判断 repair 状态 |
+| cursor 快路径 | 只能绑定当前 repair check event identity；旧 cursor 不得直接 skip | 用旧 `target_date/selected_count` 兼容逻辑跳过新 repair gate |
+
 ## 当前阶段结论
 
 截至当前阶段，已确认 4 个 P0，均已完成代码和测试收口：

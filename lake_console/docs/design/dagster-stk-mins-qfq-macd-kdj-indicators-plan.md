@@ -1,8 +1,8 @@
 # M12: Gold stk_mins qfq MACD/KDJ 指标资产设计方案
 
-状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。daily sensor 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。
+状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12I qfq factor repair 时序门禁已落地：M12 daily 必须等待同交易日 qfq factor repair 成功；若 qfq repair 改写历史，则还必须等待 M12 repair completion event。daily sensor 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。
 
-更新时间：2026-06-08
+更新时间：2026-06-09
 
 ## 1. Summary
 
@@ -30,10 +30,12 @@ M12 必须持久化递推 state。日常计算最新一天时，只允许读取�
 5. 历史初始化使用 `Direct Lake Bootstrap + Baseline/Future Event Tracking`，不是 Dagster backfill。
 6. 日常增量走正式 Dagster asset job / sensor，不用直写补录模式替代日常链路。
 7. qfq factor repair 后，MACD/KDJ 必须从受影响起点向后重算；不能只重算 repair 当天。
-8. MACD 柱固定为 `macd_qfq = 2 * (macd_dif_qfq - macd_dea_qfq)`；禁止实现成 `DIF - DEA`。
-9. 正式 M12 主计算禁止使用 recursive CTE。`WITH RECURSIVE` 只能出现在明确隔离的 benchmark/test 中，不得进入正式 helper、asset、repair 或 bootstrap 路径。
-10. 历史文件必须全量生成；Dagster event 不做历史逐日全量补齐，只从 baseline cutoff 日期开始让 Dagster 认为当前状态可追踪，之后按日常链路持续记录。
-11. 递推状态资产统一使用 `state` 命名，不改成 `checkpoint`。
+8. M12 daily 触发必须等待同一 `trade_date` 的 qfq factor repair check event 成功。当前 qfq repair op 的事实事件为七个 `gold_stk_mins_qfq_*` asset 上的 `gold_stk_mins_qfq_factor_repair_plan_evaluated`，partition 为目标 `trade_date`。
+9. 如果 qfq factor repair metadata 显示历史 qfq 被改写，例如 `repair_required=true`、`rewritten_file_count>0`、`derived_rewrite_required=true` 或 `derived_rewritten_file_count>0`，则 M12 daily 不能仅凭上一交易日 state 继续运行，必须先完成 M12 repair，并看到 M12 repair completion event。
+10. MACD 柱固定为 `macd_qfq = 2 * (macd_dif_qfq - macd_dea_qfq)`；禁止实现成 `DIF - DEA`。
+11. 正式 M12 主计算禁止使用 recursive CTE。`WITH RECURSIVE` 只能出现在明确隔离的 benchmark/test 中，不得进入正式 helper、asset、repair 或 bootstrap 路径。
+12. 历史文件必须全量生成；Dagster event 不做历史逐日全量补齐，只从 baseline cutoff 日期开始让 Dagster 认为当前状态可追踪，之后按日常链路持续记录。
+13. 递推状态资产统一使用 `state` 命名，不改成 `checkpoint`。
 
 ## 3. 非目标
 
@@ -518,9 +520,11 @@ STOPPED
 
 1. 最新已注册 `cn_a_stock_mins_silver_trade_days` 分区存在。
 2. 同分区七个 qfq assets materialized 且 blocking checks 全绿。
-3. 目标指标和 state 未 ready。
-4. 如果目标已 materialized 但 blocking checks 未全绿，不自动重跑，返回人工修复提示。
-5. 非历史首日时，上一交易日七个 state assets 必须 ready。
+3. 同分区 qfq factor repair check event 必须成功：七个 qfq asset 上的 `gold_stk_mins_qfq_factor_repair_plan_evaluated` 都必须是 `passed=true`，且 event partition 等于目标 `trade_date`。
+4. 如果 qfq factor repair metadata 显示历史 qfq 文件发生改写，M12 daily 必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖本次 qfq repair 影响范围；未完成时只 skip，不提交 daily run。
+5. 目标指标和 state 未 ready。
+6. 如果目标已 materialized 但 blocking checks 未全绿，不自动重跑，返回人工修复提示。
+7. 非历史首日时，上一交易日七个 state assets 必须 ready；但该条件不能替代第 3/4 条 qfq repair gate。
 
 run key：
 
@@ -534,12 +538,45 @@ cursor details 至少记录：
 target_trade_date
 selected_trade_date
 qfq_status
+qfq_factor_repair_status
+qfq_factor_repair_rewrites_history
+m12_repair_status
 indicator_status
 state_status
 reason
 ```
 
 不得在稳定态逐 partition / 逐 check 深扫 event history。日常只看目标日期和上一交易日 state readiness。
+
+### 9.3 M12I：qfq factor repair 时序门禁（已落地代码口径）
+
+已实现口径：
+
+1. `gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor` 在 21:20 后按顺序检查：同日 qfq factor repair 成功 -> 必要时 M12 repair completion 成功 -> qfq 七频度 ready -> previous state ready -> target M12 缺失。
+2. 同日 qfq factor repair 缺失、失败、partition 不匹配、metadata 不可解析，一律 fail closed，sensor 只 skip，不提交 daily run。
+3. qfq factor repair 成功且没有历史重写时，M12 daily 可以继续使用上一交易日 state 做日常增量。
+4. qfq factor repair 成功但 metadata 显示历史 qfq 被重写时，M12 daily 必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`；该 check 必须覆盖从 qfq repair 影响起点到目标最新日期的 indicator/state 修复。
+5. M12 daily cursor 快路径不能兼容旧 cursor 直接 skip。快路径必须绑定当前 qfq factor repair check event identity；若需要 M12 repair，还必须绑定 M12 repair completion event identity。旧 cursor 只能进入正常 readiness 评估。
+6. M12 asset 写入前必须复用同一 guard。即使人工直接运行 daily job，也必须在 qfq factor repair 未完成或 M12 repair 未完成时失败，且失败发生在写 Parquet 前。
+7. 不新增 summary asset、readiness asset、数据库表、run tag 或新 sensor；状态事实通过现有 qfq repair check event、M12 repair completion check event、cursor details 和 asset failure metadata 表达。
+
+实现接口：
+
+1. `orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj` 提供 `gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(...)` 和 `assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(...)`。
+2. helper 按 check key 读取七个 qfq asset 上最新 `gold_stk_mins_qfq_factor_repair_plan_evaluated`，不调用 `get_asset_check_execution_history`；同时校验 event partition、`passed=true`、`blocking=true` 和 metadata。
+3. `stock_mins_qfq_factor_repair_op` 的 repair check metadata 已补充 `repair_start_trade_date`、`repair_end_trade_date`、`selected_partition_count`，供 M12 判断修复范围。
+4. `gold_stk_mins_qfq_macd_kdj_repair_op` repair 成功后 emit 14 个 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` events，metadata 包含覆盖范围、freqs、stock scope、文件数和行数。
+5. sensor 和 asset 写前 guard 使用同一判断函数，避免 sensor 和人工 run 口径漂移。
+
+性能门禁：
+
+| 项 | 口径 |
+|---|---|
+| qfq repair gate | 按 7 个 qfq asset check key 批量读取 latest check execution；不按 partition/check history 深扫 |
+| M12 repair gate | 按 14 个 M12 asset check key 批量读取 latest check execution；不扫历史全量 event |
+| 日常 tick 额外查询量 | 常数级，最多 qfq repair gate 1 批 + 必要时 M12 repair gate 1 批 |
+| 禁止 | `get_asset_check_execution_history(limit=...)`、逐历史 partition readiness、扫描全量 run event log、查询正式 lake 文件来判断 repair 是否完成 |
+| fail closed | 缺 event、失败 event、metadata 缺字段、event 日期不匹配、cursor 旧结构均不触发 daily run |
 
 ## 10. Repair 联动
 
@@ -572,8 +609,9 @@ repair 规则：
 2. 如果前一交易日 state 缺失，必须回退到更早 state 或要求先做 scoped bootstrap；不得从 `start_trade_date` 中途初始化老股票。
 3. 只重算 `stock_codes` 的受影响 stock-year 指标文件和 state 文件。
 4. 重算范围必须覆盖 `start_trade_date` 到最新 registered partition。
-5. qfq repair 完成但指标 repair 未完成时，M12 指标不能被视为下游 ready。
-6. repair check event 必须挂到七个指标 assets 和七个 state assets，partition 使用 repair 目标起点或实际触发的 `start_trade_date`。
+5. qfq repair 完成但指标 repair 未完成时，M12 指标不能被视为下游 ready；M12 daily sensor 和 M12 asset 写前 guard 都必须执行该门禁。
+6. repair completion check event 必须挂到七个指标 assets 和七个 state assets，partition 使用 repair 目标起点或实际触发的 `start_trade_date`。
+7. 新增 repair completion check 名称：`gold_stk_mins_qfq_macd_kdj_repair_completed_check`。它是维护事件门禁，不替代指标/state 的常规 blocking checks。
 
 并发保护：
 
@@ -721,16 +759,18 @@ baseline/future tracking 复核使用：
 ### M12D Daily job/sensor
 
 1. 新增 daily update job，只选 M12 assets + checks。
-2. 新增默认 STOPPED sensor，门禁看 qfq 七频度 ready、上一交易日 state ready、目标指标状态。
-3. cursor details 记录 qfq/state/indicator 状态。
+2. 新增默认 STOPPED sensor，门禁看 qfq 七频度 ready、qfq factor repair 成功、必要时 M12 repair completion、上一交易日 state ready、目标指标状态。
+3. cursor details 记录 qfq/qfq factor repair/M12 repair/state/indicator 状态。
 4. sensor 不做历史深扫。
+5. M12I 已落地：sensor 先等待同日 qfq factor repair 成功；旧 cursor 不得直接触发快路径，新 cursor 必须绑定当前 repair event ids。
 
 ### M12E Repair
 
 1. 新增指标 repair job/op。
 2. qfq repair 后必须能提交或提示 M12 repair 范围。
 3. repair 从起点前 state 递推到最新 registered partition。
-4. repair check event 覆盖指标 assets 和 state assets。
+4. repair completion check event 覆盖指标 assets 和 state assets。
+5. M12I 已落地：repair op 成功后 emit 14 条 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，供 daily sensor 和 asset guard 判断。
 
 ### M12F History bootstrap
 
@@ -752,6 +792,10 @@ baseline/future tracking 复核使用：
 5. state 与指标尾行一致。
 6. qfq repair 触发后，M12 repair 范围从受影响起点向后覆盖。
 7. MACD 柱固定为 `2 * (DIF - DEA)`。
+8. qfq factor repair 未成功时，M12 daily sensor 不提交 run；人工 daily asset run 写入前失败。
+9. qfq factor repair 成功但 metadata 显示历史重写、且 M12 repair completion 缺失时，M12 daily sensor 不提交 run；人工 daily asset run 写入前失败。
+10. qfq factor repair 成功且没有历史重写时，M12 daily 可以继续日常增量。
+11. qfq factor repair 历史重写且 M12 repair completion 覆盖目标日期后，M12 daily 可以继续。
 
 静态/契约测试：
 
@@ -759,9 +803,12 @@ baseline/future tracking 复核使用：
 2. M12 assets/op 使用 `GOLD_STK_MINS_QFQ_WRITER_POOL`。
 3. daily job selection 只含 M12 assets + checks。
 4. sensor 默认 STOPPED，run key 固定。
-5. 历史 bootstrap 工具不逐 partition 深扫 readiness，不做历史逐日 event backfill。
-6. `defs/jobs/**` 不出现 DuckDB SQL、Parquet 写入、路径拼接。
-7. M12 正式 helper/bootstrap/repair 源码不出现 `WITH RECURSIVE` 或 recursive CTE。
+5. M12 sensor 必须引用 qfq factor repair readiness helper，且禁止调用 `get_asset_check_execution_history`。
+6. M12 asset 写入前必须调用同一 qfq/M12 repair guard，且调用点在 DuckDB 写 Parquet 前。
+7. M12 repair op 必须 emit `gold_stk_mins_qfq_macd_kdj_repair_completed_check`。
+8. 历史 bootstrap 工具不逐 partition 深扫 readiness，不做历史逐日 event backfill。
+9. `defs/jobs/**` 不出现 DuckDB SQL、Parquet 写入、路径拼接。
+10. M12 正式 helper/bootstrap/repair 源码不出现 `WITH RECURSIVE` 或 recursive CTE。
 
 验证命令：
 

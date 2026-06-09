@@ -544,6 +544,18 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 evaluation.metadata["goldenshare/reason"].text,
                 "no_factor_changed",
             )
+            self.assertEqual(
+                evaluation.metadata["goldenshare/repair_start_trade_date"].text,
+                PREVIOUS_DATE,
+            )
+            self.assertEqual(
+                evaluation.metadata["goldenshare/repair_end_trade_date"].text,
+                TRADE_DATE,
+            )
+            self.assertEqual(
+                evaluation.metadata["goldenshare/selected_partition_count"].value,
+                2,
+            )
 
     def test_factor_repair_job_contract_is_non_partitioned_and_in_process(self) -> None:
         self.assertEqual(

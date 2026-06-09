@@ -46,6 +46,9 @@ class GoldStkMinsQfqFactorRepairCodeResult:
 @dataclass(frozen=True)
 class GoldStkMinsQfqFactorRepairResult:
     plan: GoldStkMinsQfqFactorRepairPlan
+    repair_start_trade_date: str
+    repair_end_trade_date: str
+    selected_partition_count: int
     repaired_code_count: int
     skipped_code_count: int
     rewritten_file_count: int
@@ -100,6 +103,9 @@ def execute_gold_stk_mins_qfq_factor_repair(
     if not plan.can_execute_repair or not plan.repair_required:
         return GoldStkMinsQfqFactorRepairResult(
             plan=plan,
+            repair_start_trade_date=selected_partition_keys[0],
+            repair_end_trade_date=normalized_trade_date,
+            selected_partition_count=len(selected_partition_keys),
             repaired_code_count=0,
             skipped_code_count=0,
             rewritten_file_count=0,
@@ -178,6 +184,9 @@ def execute_gold_stk_mins_qfq_factor_repair(
 
     return GoldStkMinsQfqFactorRepairResult(
         plan=plan,
+        repair_start_trade_date=selected_partition_keys[0],
+        repair_end_trade_date=normalized_trade_date,
+        selected_partition_count=len(selected_partition_keys),
         repaired_code_count=len(
             _build_repair_code_results(
                 repair_required_codes=plan.repair_required_codes,

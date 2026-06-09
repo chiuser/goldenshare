@@ -3,6 +3,10 @@ from datetime import datetime, time
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
+    GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
+    gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status,
+)
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
@@ -100,6 +104,8 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_update_decision(
     target_trade_date: str | None,
     previous_trade_date: str | None,
     run_window_started: bool,
+    repair_gate_ready: bool = True,
+    repair_gate_reason: str | None = None,
     qfq_ready: bool = False,
     previous_state_ready: bool = False,
     target_ready: bool = False,
@@ -121,7 +127,9 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_update_decision(
             selected_trade_date=None,
             reason="股票分钟线 qfq MACD/KDJ 日常更新窗口尚未到 21:20，暂不触发。",
         )
-    if not qfq_ready:
+    if not repair_gate_ready:
+        reason = repair_gate_reason or "qfq factor repair 时序门禁未 ready，暂不触发 MACD/KDJ 更新。"
+    elif not qfq_ready:
         reason = "股票分钟线 gold qfq 七频度尚未全部 ready，暂不触发 MACD/KDJ 更新。"
     elif not previous_state_ready:
         reason = "上一交易日 MACD/KDJ state 尚未 ready，暂不触发日常增量。"
@@ -164,6 +172,7 @@ def _cursor_payload(
     qfq_status: DatasetReadinessStatus | None = None,
     previous_state_status: DatasetReadinessStatus | None = None,
     target_status: DatasetReadinessStatus | None = None,
+    repair_gate_status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus | None = None,
     already_submitted_for_trade_date: bool = False,
 ) -> str:
     cursor_decision = (
@@ -176,6 +185,8 @@ def _cursor_payload(
         blocked_count += _not_ready_count(qfq_status)
         blocked_count += _not_ready_count(previous_state_status)
         blocked_count += _not_ready_count(target_status)
+        if repair_gate_status is not None and not repair_gate_status.ready:
+            blocked_count += 1
         if blocked_count == 0 and decision.target_trade_date is None:
             blocked_count = 1
 
@@ -195,6 +206,24 @@ def _cursor_payload(
             "job_name": GOLD_STK_MINS_QFQ_MACD_KDJ_DAILY_UPDATE_JOB_NAME,
             "run_window_started": decision.run_window_started,
             "already_submitted_for_trade_date": already_submitted_for_trade_date,
+            "repair_gate_status": (
+                repair_gate_status.to_payload() if repair_gate_status else None
+            ),
+            "qfq_factor_repair_event_storage_ids": (
+                list(repair_gate_status.qfq_factor_repair_event_storage_ids)
+                if repair_gate_status
+                else []
+            ),
+            "requires_m12_repair": (
+                repair_gate_status.requires_m12_repair
+                if repair_gate_status
+                else False
+            ),
+            "m12_repair_event_storage_ids": (
+                list(repair_gate_status.m12_repair_event_storage_ids)
+                if repair_gate_status
+                else []
+            ),
             "qfq_status": status_payload(qfq_status) if qfq_status else None,
             "previous_state_status": (
                 status_payload(previous_state_status) if previous_state_status else None
@@ -207,27 +236,33 @@ def _cursor_payload(
 def _already_submitted_for_target_date(
     cursor: str | None,
     target_trade_date: str,
+    repair_gate_status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
 ) -> bool:
+    if not repair_gate_status.ready:
+        return False
     cursor_payload = load_sensor_cursor(cursor)
     details = sensor_cursor_details(cursor_payload)
-    if (
-        details.get("selected_trade_date") == target_trade_date
-        and details.get("already_submitted_for_trade_date") is True
-    ):
-        return True
+    if details.get("selected_trade_date") != target_trade_date:
+        return False
+    if details.get("already_submitted_for_trade_date") is not True:
+        return False
     if cursor_payload.get("target_date") != target_trade_date:
         return False
     if cursor_payload.get("decision") != SensorCursorDecision.REQUEST_RUNS.value:
         return False
-    selected_count = cursor_payload.get("selected_count")
-    if (
-        isinstance(selected_count, int)
-        and not isinstance(selected_count, bool)
-        and selected_count > 0
+    if cursor_payload.get("selected_count") != 1:
+        return False
+    if details.get("qfq_factor_repair_event_storage_ids") != list(
+        repair_gate_status.qfq_factor_repair_event_storage_ids
     ):
-        return True
-    sample_keys = cursor_payload.get("sample_keys")
-    return isinstance(sample_keys, list) and target_trade_date in sample_keys
+        return False
+    if details.get("requires_m12_repair") != repair_gate_status.requires_m12_repair:
+        return False
+    if details.get("m12_repair_event_storage_ids") != list(
+        repair_gate_status.m12_repair_event_storage_ids
+    ):
+        return False
+    return True
 
 
 def _run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
@@ -246,7 +281,10 @@ def _run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
         target_layer=SensorTargetLayer.GOLD,
         role=SensorRole.ASSET_UPDATE,
     ),
-    description="股票分钟线 qfq 七频度 ready 且上一交易日 state ready 后，触发 MACD/KDJ 更新任务。",
+    description=(
+        "同日 qfq factor repair 成功、必要 M12 repair completion 完成，且 qfq "
+        "七频度和上一交易日 state ready 后，触发 MACD/KDJ 更新任务。"
+    ),
 )
 def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
     context: dg.SensorEvaluationContext,
@@ -272,9 +310,18 @@ def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
     qfq_status = None
     previous_state_status = None
     target_status = None
+    repair_gate_status = None
     previous_state_ready = previous_trade_date is None
     if target_trade_date is not None and run_window_started:
-        if _already_submitted_for_target_date(context.cursor, target_trade_date):
+        repair_gate_status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
+            context.instance,
+            target_trade_date,
+        )
+        if _already_submitted_for_target_date(
+            context.cursor,
+            target_trade_date,
+            repair_gate_status,
+        ):
             decision = GoldStkMinsQfqMacdKdjDailyUpdateDecision(
                 target_trade_date=target_trade_date,
                 previous_trade_date=previous_trade_date,
@@ -289,33 +336,37 @@ def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
                 decision=decision,
                 evaluated_at=evaluated_at,
                 registered_trade_day_count=len(registered_trade_days),
+                repair_gate_status=repair_gate_status,
                 already_submitted_for_trade_date=True,
             )
             return dg.SensorResult(skip_reason=decision.reason, cursor=cursor)
 
-        qfq_status = partition_dataset_readiness_status_from_latest_checks(
-            context.instance,
-            GOLD_STK_MINS_QFQ_READINESS_SPECS,
-            partition_key=target_trade_date,
-        )
-        if qfq_status.ready and previous_trade_date is not None:
-            previous_state_status = partition_dataset_readiness_status_from_latest_checks(
+        if repair_gate_status.ready:
+            qfq_status = partition_dataset_readiness_status_from_latest_checks(
                 context.instance,
-                GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
-                partition_key=previous_trade_date,
-            )
-            previous_state_ready = previous_state_status.ready
-        if qfq_status.ready and previous_state_ready:
-            target_status = partition_dataset_readiness_status_from_latest_checks(
-                context.instance,
-                GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS,
+                GOLD_STK_MINS_QFQ_READINESS_SPECS,
                 partition_key=target_trade_date,
             )
+            if qfq_status.ready and previous_trade_date is not None:
+                previous_state_status = partition_dataset_readiness_status_from_latest_checks(
+                    context.instance,
+                    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
+                    partition_key=previous_trade_date,
+                )
+                previous_state_ready = previous_state_status.ready
+            if qfq_status.ready and previous_state_ready:
+                target_status = partition_dataset_readiness_status_from_latest_checks(
+                    context.instance,
+                    GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS,
+                    partition_key=target_trade_date,
+                )
 
     decision = build_gold_stk_mins_qfq_macd_kdj_daily_update_decision(
         target_trade_date=target_trade_date,
         previous_trade_date=previous_trade_date,
         run_window_started=run_window_started,
+        repair_gate_ready=repair_gate_status.ready if repair_gate_status else False,
+        repair_gate_reason=repair_gate_status.reason if repair_gate_status else None,
         qfq_ready=qfq_status.ready if qfq_status else False,
         previous_state_ready=previous_state_ready,
         target_ready=target_status.ready if target_status else False,
@@ -330,6 +381,7 @@ def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
         qfq_status=qfq_status,
         previous_state_status=previous_state_status,
         target_status=target_status,
+        repair_gate_status=repair_gate_status,
         already_submitted_for_trade_date=bool(decision.selected_trade_date),
     )
 

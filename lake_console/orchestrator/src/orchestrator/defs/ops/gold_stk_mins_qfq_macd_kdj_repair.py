@@ -3,12 +3,14 @@ from datetime import date
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_FREQS,
     normalize_stk_mins_qfq_freq,
 )
 from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
+    GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
     discover_gold_stk_mins_qfq_source_year_paths,
     discover_latest_macd_kdj_state_path_before_trade_date,
     write_gold_stk_mins_qfq_macd_kdj_rows,
@@ -61,6 +63,18 @@ def _target_trade_dates(
             f"start_trade_date={start_trade_date}."
         )
     return target_dates
+
+
+def _repair_completion_asset_keys() -> tuple[dg.AssetKey, ...]:
+    indicator_keys = tuple(
+        dg.AssetKey(f"gold_stk_mins_qfq_macd_kdj_{freq}m")
+        for freq in STK_MINS_QFQ_FREQS
+    )
+    state_keys = tuple(
+        dg.AssetKey(f"gold_stk_mins_qfq_macd_kdj_state_{freq}m")
+        for freq in STK_MINS_QFQ_FREQS
+    )
+    return indicator_keys + state_keys
 
 
 @dg.op(
@@ -158,3 +172,31 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         total_state_file_count,
         total_state_row_count,
     )
+    completion_metadata = build_check_metadata(
+        check_scope=CheckScope.RECONCILIATION,
+        checked_row_count=total_indicator_row_count + total_state_row_count,
+        failed_row_count=0,
+        extra_metadata={
+            "covered_start_trade_date": start_trade_date,
+            "covered_end_trade_date": target_dates[-1],
+            "freqs": list(freqs),
+            "stock_code_scope": "explicit" if stock_codes else "all",
+            "stock_code_count": len(stock_codes),
+            "reason": reason,
+            "indicator_file_count": total_indicator_file_count,
+            "indicator_row_count": total_indicator_row_count,
+            "state_file_count": total_state_file_count,
+            "state_row_count": total_state_row_count,
+        },
+    )
+    for asset_key in _repair_completion_asset_keys():
+        context.log_event(
+            dg.AssetCheckEvaluation(
+                asset_key=asset_key,
+                check_name=GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
+                passed=True,
+                metadata=completion_metadata,
+                blocking=True,
+                partition=start_trade_date,
+            )
+        )

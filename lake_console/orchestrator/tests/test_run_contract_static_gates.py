@@ -218,6 +218,8 @@ class RunContractStaticGateTests(unittest.TestCase):
         job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update.py"
         repair_job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_repair.py"
         sensor_path = SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+        asset_path = ASSETS_DIR / "stk_mins_qfq_macd_kdj.py"
+        repair_op_path = DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py"
 
         for path in (job_path, repair_job_path):
             source = path.read_text()
@@ -240,6 +242,7 @@ class RunContractStaticGateTests(unittest.TestCase):
         sensor_source = sensor_path.read_text()
         required_sensor_fragments = (
             "partition_dataset_readiness_status_from_latest_checks",
+            "gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status",
             "GOLD_STK_MINS_QFQ_READINESS_SPECS",
             "build_run_request",
             "build_sensor_tags",
@@ -262,6 +265,35 @@ class RunContractStaticGateTests(unittest.TestCase):
             f"{sensor_path} contains forbidden M12 sensor fragment: {fragment}"
             for fragment in forbidden_sensor_fragments
             if fragment in sensor_source
+        )
+
+        asset_source = asset_path.read_text()
+        guard_call = "assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate"
+        guard_call_site = (
+            "assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(\n"
+            "            context.instance"
+        )
+        write_call = "write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition"
+        if guard_call not in asset_source:
+            issues.append("M12 asset must call qfq/M12 repair gate guard")
+        elif guard_call_site not in asset_source:
+            issues.append("M12 asset guard call site must use context.instance")
+        elif write_call not in asset_source:
+            issues.append("M12 asset write helper call is missing")
+        elif asset_source.index(guard_call_site) > asset_source.index(write_call):
+            issues.append("M12 repair gate guard must run before Parquet write helper")
+
+        repair_op_source = repair_op_path.read_text()
+        required_repair_op_fragments = (
+            "GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME",
+            "dg.AssetCheckEvaluation",
+            "blocking=True",
+            "partition=start_trade_date",
+        )
+        issues.extend(
+            f"{repair_op_path} misses M12 repair completion fragment: {fragment}"
+            for fragment in required_repair_op_fragments
+            if fragment not in repair_op_source
         )
 
         self.assertEqual(issues, [])
