@@ -190,15 +190,15 @@
     <h1>Dagster Bootstrap 历史迁移开发模板</h1>
     <p class="subtitle">
       本模板用于把旧数据湖中的历史数据安全迁移到新数据湖。
-      它抽象自 Phase 2 bootstrap 设计、Phase 2 LLD、stock daily 历史迁移专项和 bootstrap 旧链路台账。
+      它抽象自当前 run contract、asset/job topology、silver/raw readiness registry 和 bootstrap 旧链路台账。
       后续新增类似迁移任务时，应先复制本模板的表格和 checklist，填清楚数据集事实、迁移边界和验收结果，再进入开发。
     </p>
     <p class="small">
       参考：
-      <a href="../design/dagster-phase-2-design.html">Phase 2 设计总览</a>、
-      <a href="../design/dagster-phase-2-low-level-design.html">Phase 2 LLD</a>、
-      <a href="../design/dagster-stock-daily-migration.html">Stock Daily 历史迁移设计</a>、
-      <a href="../design/dagster-stock-daily-migration-low-level-design.html">Stock Daily 历史迁移 LLD</a>、
+      <a href="../../orchestrator/README.md">Orchestrator README</a>、
+      <a href="../design/dagster-run-contract-governance.html">Run Contract Governance</a>、
+      <a href="../architecture/dagster-asset-job-topology.html">Asset / Job Topology</a>、
+      <a href="../design/dagster-silver-raw-readiness-registry.html">Silver / Raw Readiness Registry</a>、
       <a href="../design/dagster-bootstrap-legacy-links.md">Bootstrap 旧链路台账</a>。
     </p>
   </header>
@@ -491,7 +491,7 @@ from read_parquet({old_path}, hive_partitioning=false)</code></pre>
       </thead>
       <tbody>
         <tr><td>□</td><td>已确认任务确实是历史迁移，不是日常生产。</td><td>日常生产应走正式资源，不走旧湖。</td></tr>
-        <tr><td>□</td><td>已阅读 Phase 2 bootstrap 设计和 LLD。</td><td>尤其是 bootstrap 不进入自动化的边界。</td></tr>
+        <tr><td>□</td><td>已阅读当前 run contract、asset/job topology 和 bootstrap 旧链路台账。</td><td>尤其是 bootstrap 不进入自动化的边界。</td></tr>
         <tr><td>□</td><td>已审计旧湖真实路径和字段。</td><td>路径必须来自实际文件，不靠目录名猜。</td></tr>
         <tr><td>□</td><td>已确认 Tushare raw 字段契约。</td><td>字段名、顺序、日期格式、空值语义都要清楚。</td></tr>
         <tr><td>□</td><td>已确认 full / trade_date 分区类型。</td><td>不同类型使用不同 executor。</td></tr>

@@ -35,15 +35,18 @@ local env files committed to the repo.
 
 ## Required Reading
 
-Before changing Dagster definitions, read:
+Before changing Dagster definitions or formal Dagster design documents, read:
 
 - [AGENTS.md](/Users/congming/github/goldenshare/AGENTS.md)
 - [lake_console/AGENTS.md](/Users/congming/github/goldenshare/lake_console/AGENTS.md)
 - [orchestrator/AGENTS.md](/Users/congming/github/goldenshare/lake_console/orchestrator/AGENTS.md)
 - [CODING_STANDARDS.md](/Users/congming/github/goldenshare/lake_console/orchestrator/CODING_STANDARDS.md)
+- [Dagster data system architecture](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-data-system-architecture.html)
 - [Dagster run contract governance](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-run-contract-governance.html)
 - [Dagster asset/job topology](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-asset-job-topology.html)
+- [Dagster asset schema contract](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-asset-schema-contract-design.md)
 - [Dagster silver raw readiness registry](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-silver-raw-readiness-registry.html)
+- [Dagster bootstrap legacy links](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-bootstrap-legacy-links.md)
 
 ## Execution Gate
 

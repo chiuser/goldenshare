@@ -165,17 +165,19 @@
     <h1>Dagster 数据集资产接入综合模板</h1>
     <p class="subtitle">
       本模板用于后续把一个新的 Tushare / 本地数据湖数据集接入 Dagster。
-      它把 Phase 1、Phase 2、stock daily 迁移和 asset/job topology 中踩过的坑抽象成固定检查项：
+      它把当前编码规范、run contract、asset schema contract、asset catalog 和 asset/job topology 抽象成固定检查项：
       先分析、再设计、再切片实现，禁止凭经验直接写 asset。
     </p>
     <p class="small">
       参考文档：
-      <a href="../design/dagster-phase-2-design.html">Phase 2 设计</a>、
-      <a href="../design/dagster-phase-2-low-level-design.html">Phase 2 LLD</a>、
-      <a href="../design/dagster-stock-daily-migration.html">Stock Daily 迁移设计</a>、
-      <a href="../design/dagster-stock-daily-migration-low-level-design.html">Stock Daily 迁移 LLD</a>、
+      <a href="../../orchestrator/README.md">Orchestrator README</a>、
+      <a href="../../orchestrator/CODING_STANDARDS.md">Coding Standards</a>、
+      <a href="../architecture/dagster-data-system-architecture.html">Data System Architecture</a>、
       <a href="../design/dagster-run-contract-governance.html">Run Contract Governance</a>、
+      <a href="../design/dagster-asset-schema-contract-design.md">Asset Schema Contract</a>、
+      <a href="../design/dagster-new-lake-asset-catalog-design.md">Lake Asset Catalog</a>、
       <a href="../architecture/dagster-asset-job-topology.html">Asset / Job Topology</a>、
+      <a href="../design/dagster-silver-raw-readiness-registry.html">Silver / Raw Readiness Registry</a>、
       <a href="../design/dagster-bootstrap-legacy-links.md">Bootstrap Legacy Links</a>。
     </p>
   </header>
@@ -342,7 +344,7 @@
         <tr>
           <td>验收计划</td>
           <td>单日、小批量、全量、UI 可观测、失败恢复。</td>
-          <td>必须使用正式 Dagster instance 做最终验收。</td>
+          <td>如需使用正式 Dagster instance 做最终验收，必须先按 orchestrator AGENTS 的执行门禁获得明确批准。</td>
         </tr>
         </tbody>
       </table>

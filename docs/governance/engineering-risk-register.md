@@ -1,7 +1,7 @@
 # 工程风险登记簿
 
 状态：当前生效  
-更新时间：2026-05-24
+更新时间：2026-06-10
 适用范围：代码改动前评估、提交前检查、P0/P1 风险收口。
 
 ---
@@ -39,7 +39,7 @@
 | RISK-2026-05-12-008 | P0 | Lake `stk_mins` clean 层 schema 错误：缺失源业务字段 `exchange/vwap`，并额外物理保存冗余 `trade_date`，导致 clean/derived/research/indicator 后续链路可能基于错误事实层继续生成 | 本地 Lake `research/stk_mins_by_date_clean`，以及依赖 clean 的 `derived/stk_mins_by_date`、`research/stk_mins_by_symbol_month`、分钟技术指标 | Closed | [stk_mins clean 2024-10-30 多频率混入 1min 专项修复方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-20241030-multifreq-repair-plan-v1.md)、[股票历史分钟行情 Parquet Lake 方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-parquet-lake-plan-v1.md) |
 | RISK-2026-05-17-009 | P1 | `dc_member` 的板块代码展开依赖 `dc_index`；历史实现曾在 planner 阶段远程 fallback，且依赖来源藏在 `dc_index_board_codes` selector 中 | `dc_member.maintain`、`dc_index` 前置维护、DatasetActionResolver、板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
 | RISK-2026-05-17-010 | P1 | `ths_member` 的板块代码展开依赖本地 `ths_index`；历史实现中依赖来源、字段和空池失败语义藏在 `ths_index_board_codes` selector 中 | `ths_member.maintain`、`ths_index` 前置维护、DatasetActionResolver、同花顺板块成分数据完整性 | Closed | [Dataset Universe 模型收口方案 v1](/Users/congming/github/goldenshare/docs/architecture/dataset-universe-model-refactor-plan-v1.md)、[board_hotspot 定义](/Users/congming/github/goldenshare/src/foundation/datasets/definitions/board_hotspot.py) |
-| RISK-2026-05-24-011 | P0 | Dagster dynamic partition 范围扩展先于生产消费者切换，导致股票链路误跑指数历史范围交易日 | Dagster orchestrator、本地新湖股票 raw/silver/gold 分区、Dagster run/event/check 观测记录 | Closed | [Dagster Phase 3 主要指数方案](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-phase-3-major-indices-design.html)、[Dagster Phase 3 LLD](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-phase-3-major-indices-low-level-design.html)、[数据资产接入模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html) |
+| RISK-2026-05-24-011 | P0 | Dagster dynamic partition 范围扩展先于生产消费者切换，导致股票链路误跑指数历史范围交易日 | Dagster orchestrator、本地新湖股票 raw/silver/gold 分区、Dagster run/event/check 观测记录 | Closed | [Dagster asset/job topology](/Users/congming/github/goldenshare/lake_console/docs/architecture/dagster-asset-job-topology.html)、[Dagster run contract governance](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-run-contract-governance.html)、[数据资产接入模板](/Users/congming/github/goldenshare/lake_console/docs/templates/dagster-dataset-onboarding-template.html) |
 
 ---
 
@@ -601,4 +601,4 @@
 2. 所有 Dagster sensors 已停用后再恢复到默认受控状态，避免继续提交异常 run request。
 3. 股票相关物理文件范围复查通过：`raw_tushare_stock_daily`、`raw_tushare_suspend_d`、`silver_stock_daily`、`silver_stock_suspend_daily`、`gold_market_breadth_daily` 均保持 `2014-01-02` 至 `2026-05-22` 范围，无 2014 年以前或未来分区。
 4. 代码层已补充 `cn_a_stock_trade_days`、`cn_a_index_trade_days`，并把股票与指数生产链路从全局分区中拆出。
-5. 文档层已同步 Phase 2、Phase 3、stock daily 迁移文档、asset/job topology 和数据资产接入模板。
+5. 文档层已同步 orchestrator AGENTS、run contract governance、asset/job topology 和数据资产接入模板。
