@@ -198,7 +198,7 @@ Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，
 1. 新增或修改正式 sensor 前，方案文档必须列清该 sensor 的 `goldenshare/sensor_domain`、`goldenshare/sensor_target_layer`、`goldenshare/sensor_role`。
 2. sensor 分类必须优先对齐 asset data domain；非资产生产类通知 sensor 使用正式 `platform_observability` domain，不得强行归入业务资产域。
 3. 落地 sensor definition tags 后，所有 active sensor definition 都必须通过统一 helper 构造分类 tags；禁止 sensor 文件手写散落 tag dict。
-4. 新增 sensor 时必须同步更新 sensor 分类设计文档和静态门禁测试，禁止只新增 Python sensor definition 导致 Automation 页面分类退化。
+4. 新增 sensor 时必须同步更新 `dagster-run-contract-governance.html`、`dagster-asset-job-topology.html` 中的 sensor 分类口径和静态门禁测试，禁止只新增 Python sensor definition 导致 Automation 页面分类退化。
 5. sensor definition tags 不得包含日期、分区、代码、行数、成功/失败状态、cursor offset、缺失数量等动态信息。
 6. 禁止用 `run_tags` 做 sensor 分类；`AutomationConditionSensorDefinition` 同时有 `tags` 和 `run_tags` 参数，分类只能写 definition `tags`。
 

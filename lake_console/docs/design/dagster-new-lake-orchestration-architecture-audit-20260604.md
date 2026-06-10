@@ -280,7 +280,7 @@ M11H-3 补充修正：2026-06-08 正式只读核验发现，带 `partition_filte
 | factor repair 首次决策 tick | 约 7 次 materialization 查询 + 56 次 check history 扫描 | qfq gold 最多 1 次 latest-check batch；0 次 check history 扫描 | 经审批的正式只读 dry-run 超过 5 秒拒绝上线 |
 | 同一目标日期已提交 run 后的稳定 tick | 仍可能重复 readiness 深查 | cursor 快路径直接 skip | 本地单测超过 2 秒拒绝上线 |
 
-代码落地前必须先在 `dagster-stk-mins-asset-design.html` 和 `dagster-stk-mins-qfq-90-120-assets-plan.md` 中保持同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。
+代码落地前必须先在 `dagster-stk-mins-asset-design.html` 中保持 M11 90/120 同一口径；开发阶段不得运行正式 Dagster job/sensor/backfill/materialization/check。
 
 ### O5：M12 MACD/KDJ daily / repair sensor 等待 qfq factor repair 完成
 

@@ -1003,7 +1003,7 @@ python3 scripts/check_docs_integrity.py
 
 1. 当前 qfq Dagster 代码：`gold_stk_mins_qfq_*` assets、`stock_mins_qfq_daily_update_job`、`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_job`。
 2. 当前 qfq 设计文档：`lake_console/docs/design/dagster-stk-mins-asset-design.html`。
-3. M11 90/120 设计文档：`lake_console/docs/design/dagster-stk-mins-qfq-90-120-assets-plan.md`。
+3. M11 90/120 主口径已并入当前 qfq 设计文档：`lake_console/docs/design/dagster-stk-mins-asset-design.html`。
 4. 旧湖指标经验文档：`docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md`、`docs/datasets/stk-mins-indicator-development-guide-v1.md`。
 5. Tushare `stk_factor_pro` 本地文档：`docs/sources/tushare/股票数据/特色数据/0328_股票技术面因子(专业版).md`。
 6. DuckDB 文档：window function、`COPY ... TO` Parquet；M12 把 recursive CTE 仅作为 benchmark 中已证明不可接受的反例，不作为正式实现能力。

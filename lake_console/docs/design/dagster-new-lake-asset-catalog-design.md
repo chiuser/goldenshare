@@ -1,8 +1,6 @@
 # Dagster 新湖 Asset Catalog 设计方案
 
-更新时间：2026-06-07
-
-C1 review / 落地口径文档：`dagster-new-lake-asset-catalog-c1-review.html`。
+更新时间：2026-06-10
 
 ## 1. 结论
 
@@ -10,7 +8,7 @@ C1 review / 落地口径文档：`dagster-new-lake-asset-catalog-c1-review.html`
 
 本方案建议在 `lake_console/orchestrator` 内新增只读的新湖资产注册表，用来收敛 Dagster assets、checks、sensors、bootstrap、repair、event backfill 共同依赖的资产事实。
 
-C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代码内 registry 和 static gates，不新增数据库、不新增 UI、不新增配置项、不改变现有 asset/job/sensor/check 语义。
+C1 已按该口径落地为 `orchestrator.defs.catalog.lake_assets`：只做代码内 registry 和 static gates，不新增数据库、不新增 UI、不新增配置项、不改变现有 asset/job/sensor/check 语义。原 C1 review 文档已并回本文，不再单独维护。
 
 ## 2. 背景
 
@@ -280,6 +278,17 @@ trade_date_partition_gold_stock_mins_qfq_stock_year_file
 ### C1：只读 registry + static gates
 
 状态：已落地。C1 只提供 registry、查询 API 和 static gates，不生成 asset/check/job/sensor，不让业务运行逻辑消费 catalog。
+
+落地口径摘要：
+
+1. C1 覆盖当前所有正式 active assets，`lake_root_health` 作为 platform health asset 可无 table column schema；其它 table-like/parquet/serving assets 必须有稳定字段契约。
+2. Registry 模型是只读定义卡，不做 IO，不访问 Dagster instance，不扫描 lake，不访问 prod DB 或 Tushare。
+3. `LakeAssetCatalogEntry` 直接引用稳定字段契约对象，并登记 asset key、dataset id/name、layer/domain、group、source system、data contract、path template、partition model、ingestion/bootstrap sources、blocking checks、write/event/performance policy。
+4. `PartitionModelDefinition` 使用“分区维度 + layer + 资产名”的命名方式，物理布局特例只作为命名尾部补充；不得用一个泛化单层名字承载所有分区语义。
+5. Catalog API 只返回内存 registry 事实，第一阶段仅服务治理测试、inventory 输出和人工审计。
+6. Static gates 必须对账 active asset 覆盖、definition metadata、layer/domain tags、column schema、path template、blocking checks、import 边界和 registry 重复项。
+7. C1 不生成 Dagster definitions，不消费 catalog 驱动运行逻辑，不替代 path/schema helper，不新增数据库、UI、配置项或运行时状态。
+8. 任何 C1 测试若需要访问 lake、Dagster instance、prod DB、Tushare 或网络，均视为设计错误。
 
 目标：
 

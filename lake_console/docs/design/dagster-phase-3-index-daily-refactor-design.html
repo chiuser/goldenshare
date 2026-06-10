@@ -950,6 +950,22 @@ silver_index_daily_update_job[trade_date]
       </p>
     </div>
 
+    <div class="callout">
+      <p>
+        晚到补缺已并入同一个 <code>index_daily_sensor</code>，不新增独立 repair sensor。
+        首次缺失 code 继续使用稳定 run key <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;</code>；
+        已尝试且仍 pending 的 code 到达 backoff 后使用
+        <code>index_daily:&lt;trade_date&gt;:&lt;ts_code&gt;:repair:&lt;evaluation_date&gt;:&lt;attempt&gt;</code>。
+        Cursor 的 <code>details.repair_state</code> 只记录仍 pending 的 code，目标交易日变化或 raw ready 后清理。
+        补缺分支每 tick 最多提交 <code>50</code> 个 repair run，每个 code 每自然日最多 <code>8</code> 次，backoff 为 <code>15/30/30/60</code> 分钟。
+      </p>
+      <p>
+        该 helper 只计算 cursor、run key、backoff 和 tick 预算，不调用 Tushare，不读写 DuckDB/parquet，不改变
+        <code>raw_tushare_index_daily_by_code</code> asset、<code>index_daily_update_job</code> selection 或
+        <code>silver_index_daily_sensor</code> 的 raw readiness 口径。
+      </p>
+    </div>
+
     <h3>8.2 Silver 更新触发</h3>
     <p>
       由于 raw 和 silver 分区维度不同，Silver 更新建议作为单独阶段处理：
