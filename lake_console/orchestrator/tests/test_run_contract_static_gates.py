@@ -10,6 +10,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 
 
 DEFS_DIR = Path("src/orchestrator/defs")
+AUDITS_DIR = Path("src/orchestrator/audits")
 ASSETS_DIR = DEFS_DIR / "assets"
 CHECKS_DIR = DEFS_DIR / "checks"
 CATALOG_DIR = DEFS_DIR / "catalog"
@@ -20,6 +21,13 @@ QFQ_SOURCE_FILES = (
     DEFS_DIR / "assets" / "stk_mins.py",
     DEFS_DIR / "stk_mins_qfq.py",
     DEFS_DIR / "stk_mins_qfq_factor_repair.py",
+)
+QFQ_AS_OF_SOURCE_FILES = (
+    *QFQ_SOURCE_FILES,
+    DEFS_DIR / "checks" / "stk_mins_checks.py",
+    DEFS_DIR / "bootstrap" / "stk_mins_qfq_history.py",
+    DEFS_DIR / "bootstrap" / "stk_mins_qfq_bootstrap_events.py",
+    AUDITS_DIR / "stk_mins_qfq_performance.py",
 )
 M12_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "stk_mins_qfq_macd_kdj.py",
@@ -632,6 +640,25 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "stock_mins_qfq_factor_repair_op must use "
                 "GOLD_STK_MINS_QFQ_WRITER_POOL"
             )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_qfq_uses_explicit_as_of_adj_factor(self) -> None:
+        forbidden_tokens = (
+            "build_latest_adj_factor_by_code_sql",
+            "latest_adj_factor_paths",
+            "latest_adj_factor_path",
+            "latest_adj_paths",
+            "_write_latest_adj_factor_snapshot",
+            "_discover_silver_adj_factor_paths",
+            "missing_latest_adj_factor_row_count",
+        )
+        issues = []
+        for path in QFQ_AS_OF_SOURCE_FILES:
+            source = path.read_text()
+            for token in forbidden_tokens:
+                if token in source:
+                    issues.append(f"{path} retains old qfq latest-factor token: {token}")
 
         self.assertEqual(issues, [])
 

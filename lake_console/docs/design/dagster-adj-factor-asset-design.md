@@ -53,7 +53,8 @@
 
 确认口径：
 
-- 前复权公式是 `当日价格 * 当日复权因子 / 最新复权因子`。
+- 前复权公式在下游 qfq 中表达为 `original_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_date)`。
+- 日常 qfq 的 `as_of_trade_date` 等于目标分区交易日；factor repair 的 `as_of_trade_date` 等于 run config 中的 `trade_date`。这里的 as-of 是本次计算显式选择的基准交易日，不是运行当天的自然日期。
 - Tushare 说明行情软件通常以最近交易日作为前复权基准。
 - 该公式是下游分钟线 qfq 设计依据，不改变本文对 `adj_factor` 自身的资产定义。
 
@@ -175,7 +176,7 @@ M6D 完成后，历史 bootstrap 与 event 补录覆盖到 `2026-05-15`。随后
 命名说明：
 
 - 不使用 `raw_legacy_adj_factor`。原因是旧湖只是 bootstrap 来源；资产长期来源和字段契约仍是 Tushare `adj_factor`。
-- 不使用 `silver_adj_factor_basis_snapshot`。同一天同一股票的因子值不应拆成两个业务资产；前复权使用哪个最新交易日作为基准，是下游 qfq run 的选择，不是 `adj_factor` 本身的第二套事实。
+- 不使用 `silver_adj_factor_latest` 或 `silver_adj_factor_basis_snapshot`。同一天同一股票的因子值不应拆成两个业务资产；前复权使用哪个 `as_of_trade_date` 作为基准，是下游 qfq run 的显式输入选择，不是 `adj_factor` 本身的第二套事实。
 - `cn_a_stock_current_trade_days` 承载历史分区和日常分区：历史初始化从旧湖 `adj_factor` 最早日期开始，对齐旧湖 `adj_factor` 全量范围内的股票开市日；日常运行每天 6:00 后追加注册当天股票开市日。
 
 ## 4. 字段契约
@@ -385,6 +386,7 @@ write_mode = replace partition
 Readiness：
 
 - 下游 qfq 或分钟线资产只应依赖 `silver_adj_factor[trade_date]` 的 materialization + blocking checks passed。
+- qfq daily 使用 `silver_adj_factor[target_trade_date]` 作为显式 as-of 分母；qfq repair 使用 `silver_adj_factor[trade_date]` 作为显式 as-of 分母。不得为了 qfq 分母新增 `silver_adj_factor_latest` / `silver_adj_factor_basis_snapshot`，也不得在 qfq 执行时扫描所有 `silver_adj_factor` 分区现场推导隐式最新因子。
 - 如果需要判断“今天哪些股票因子变化”，应从相邻两个 `silver_adj_factor` 分区计算，不写入 `adj_factor` asset 的定义中。
 
 ## 10. 不做事项
@@ -392,6 +394,7 @@ Readiness：
 本轮不做：
 
 - 不新增 `silver_adj_factor_basis_snapshot`。
+- 不新增 `silver_adj_factor_latest`。
 - 不设计 qfq 分钟线资产。
 - 不设计因子历史版本体系。
 - 不保留退市股票 silver 完整性。

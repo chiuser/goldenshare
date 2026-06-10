@@ -84,7 +84,6 @@ def build_qfq_performance_plan(
     silver_daily_exists = {
         str(freq): Path(path).exists() for freq, path in silver_daily_files.items()
     }
-    latest_adj_factor_path = _latest_adj_factor_path(lake_root)
     trade_date_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
     selected_sample_dates = {
         str(days): _select_recent_partition_keys(
@@ -105,7 +104,8 @@ def build_qfq_performance_plan(
         "silver_daily_exists": silver_daily_exists,
         "trade_date_adj_factor_path": str(trade_date_adj_factor_path),
         "trade_date_adj_factor_exists": trade_date_adj_factor_path.exists(),
-        "latest_adj_factor_path": str(latest_adj_factor_path) if latest_adj_factor_path else None,
+        "as_of_adj_factor_path": str(trade_date_adj_factor_path),
+        "as_of_trade_date": trade_date,
         "repair_sample_days": list(normalized_days),
         "selected_sample_dates": selected_sample_dates,
         "will_write_files": False,
@@ -123,7 +123,7 @@ def run_qfq_benchmark(
     assert_output_dir_is_safe(lake_root=lake_root, output_dir=output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     normalized_days = _normalize_sample_days(repair_sample_days)
-    latest_adj_path = _require_latest_adj_factor_path(lake_root)
+    as_of_adj_path = _require_file(silver_adj_factor_path(lake_root, trade_date))
     metrics: list[PerformanceMetric] = []
 
     for freq in STK_MINS_FREQS:
@@ -139,10 +139,10 @@ def run_qfq_benchmark(
                 select_sql=build_daily_qfq_select_sql(
                     silver_paths=[silver_path],
                     trade_adj_factor_paths=[adj_path],
-                    latest_adj_factor_paths=[latest_adj_path],
+                    as_of_adj_factor_paths=[as_of_adj_path],
                 ),
                 target_path=target_path,
-                input_paths=[silver_path, adj_path, latest_adj_path],
+                input_paths=[silver_path, adj_path],
             )
         )
 
@@ -171,13 +171,13 @@ def run_qfq_benchmark(
                   {build_daily_qfq_select_sql(
                       silver_paths=silver_paths,
                       trade_adj_factor_paths=adj_paths,
-                      latest_adj_factor_paths=[latest_adj_path],
+                      as_of_adj_factor_paths=[as_of_adj_path],
                   )}
                 )
                 WHERE ts_code = {duckdb_string(stock_code)}
                 """,
                 target_path=target_path,
-                input_paths=[*silver_paths, *adj_paths, latest_adj_path],
+                input_paths=[*silver_paths, *adj_paths, as_of_adj_path],
             )
         )
 
@@ -192,7 +192,7 @@ def run_qfq_benchmark(
                     stock_code=stock_code,
                     sample_days=sample_days,
                     partition_keys=sample_dates,
-                    latest_adj_factor_path=latest_adj_path,
+                    as_of_adj_factor_path=as_of_adj_path,
                 )
             )
 
@@ -314,10 +314,10 @@ def _benchmark_partition_rewrite(
     stock_code: str,
     sample_days: int,
     partition_keys: Sequence[str],
-    latest_adj_factor_path: Path,
+    as_of_adj_factor_path: Path,
 ) -> PerformanceMetric:
     scenario_dir = output_dir / "repair_partition_rewrite" / f"sample_days={sample_days}" / f"freq={freq}"
-    input_paths: list[Path] = [latest_adj_factor_path]
+    input_paths: list[Path] = [as_of_adj_factor_path]
     total_rows = 0
     start = time.perf_counter()
     for partition_key in partition_keys:
@@ -329,7 +329,7 @@ def _benchmark_partition_rewrite(
         select_sql = build_daily_qfq_select_sql(
             silver_paths=[silver_path],
             trade_adj_factor_paths=[adj_path],
-            latest_adj_factor_paths=[latest_adj_factor_path],
+            as_of_adj_factor_paths=[as_of_adj_factor_path],
         )
         _copy_select_to_parquet(select_sql, baseline_path)
         _copy_select_to_parquet(
@@ -424,19 +424,6 @@ def _select_recent_partition_keys(
 ) -> tuple[str, ...]:
     candidates = [key for key in sorted(partition_keys) if key <= end_partition_key]
     return tuple(candidates[-limit:])
-
-
-def _latest_adj_factor_path(lake_root: Path) -> Path | None:
-    root = lake_root / "silver" / "quote" / "adj_factor"
-    candidates = sorted(root.glob("trade_date=*/part-000.parquet"))
-    return candidates[-1] if candidates else None
-
-
-def _require_latest_adj_factor_path(lake_root: Path) -> Path:
-    path = _latest_adj_factor_path(lake_root)
-    if path is None:
-        raise FileNotFoundError("No silver_adj_factor partitions found.")
-    return path
 
 
 def _require_file(path: Path) -> Path:

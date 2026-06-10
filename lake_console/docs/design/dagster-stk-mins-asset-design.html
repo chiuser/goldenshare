@@ -1220,14 +1220,19 @@ ops:
     </div>
 
     <h3>9.1 计算口径</h3>
-    <pre><code>qfq_price = original_price * adj_factor(trade_date) / latest_adj_factor(ts_code)</code></pre>
+    <p>
+      qfq 计算必须使用显式 as-of 交易日因子，不允许在执行时扫描所有 <code>silver_adj_factor</code> 分区现场推导隐式最新分母。
+      公式固定为：
+    </p>
+    <pre><code>qfq_price = original_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_date)</code></pre>
 
     <ul>
-      <li><code>adj_factor(trade_date)</code> 来自同一股票同一交易日的 <code>silver_adj_factor</code>。</li>
-      <li><code>latest_adj_factor(ts_code)</code> 是按股票取当前最新可用 <code>silver_adj_factor</code> 后得到的计算基准，不是一个必须长期落盘的新资产；M7 首选在 DuckDB SQL 中用 CTE/临时表生成。</li>
-      <li>当 <code>trade_date</code> 正好等于最新因子日期时，<code>adj_factor(trade_date)</code> 与 <code>latest_adj_factor(ts_code)</code> 的数值通常相同；历史日期则通常不同。两者不能在设计上合并成一个概念。</li>
-      <li>若某只股票最新复权因子发生变化，需要从该股票最早可用分钟线日期向后重算 gold qfq。</li>
-      <li>gold qfq 不记录历史版本；它表达当前最新复权口径下的分钟线结果。</li>
+      <li><code>row_trade_date</code> 是被计算分钟线所在交易日；日常 qfq 中它等于本次 Dagster partition key，repair 中它可以是需要回刷的历史交易日。</li>
+      <li><code>as_of_trade_date</code> 是本次 qfq/repair 明确选择的复权基准交易日，不是运行当天的自然日期。周末或节假日手工运行时，它仍取 run config 或 partition 指定的目标交易日。</li>
+      <li>日常 qfq 的 <code>as_of_trade_date = target_trade_date</code>，分子和分母都来自 <code>silver_adj_factor[target_trade_date]</code>；因此目标交易日 qfq OHLC 在理论上应与 silver OHLC 一致。</li>
+      <li>factor repair 的 <code>as_of_trade_date = trade_date</code>，用 <code>silver_adj_factor[trade_date]</code> 作为历史回刷分母，并用历史行自己的 <code>silver_adj_factor[row_trade_date]</code> 作为分子。</li>
+      <li>不新增 <code>silver_adj_factor_latest</code>、<code>silver_adj_factor_basis_snapshot</code> 或其它长期基准资产；基准选择属于 qfq run 的显式输入语义，不是 <code>adj_factor</code> 的第二套事实源。</li>
+      <li>gold qfq 不记录历史版本；它表达指定 <code>as_of_trade_date</code> 复权口径下的分钟线结果。</li>
     </ul>
 
     <h3>9.2 Gold 字段与路径口径</h3>
@@ -1286,7 +1291,7 @@ ops:
     </table>
     <p>
       日常 qfq 必须强依赖 <code>silver_adj_factor[trade_date]</code>。
-      如果当天分钟线已完成但当天复权因子未 ready，gold qfq 必须 skip 或失败，不能退回上一交易日因子继续计算。
+      该分区同时承担“当日因子分子”和“本次 as-of 分母”两个角色；如果当天分钟线已完成但当天复权因子未 ready，gold qfq 必须 skip 或失败，不能退回上一交易日因子继续计算，也不能扫描所有 <code>silver_adj_factor</code> 文件现场取最新分母。
       禁止为了状态观测新增 <code>gold_stk_mins_qfq_daily_summary</code>；状态由正式 gold asset materialization、blocking checks 和 check metadata 表达。
     </p>
 
@@ -1358,7 +1363,7 @@ ops:
       </tr>
       <tr>
         <td>变化检测</td>
-        <td>repair job 内用 DuckDB 比较 <code>silver_adj_factor[trade_date]</code> 与上一股票交易日的 <code>silver_adj_factor[previous_trade_date]</code>，并结合 <code>silver_stock_basic.list_date</code> 生成 repair plan。</td>
+        <td>repair job 内把 run config 中的 <code>trade_date</code> 视为 <code>as_of_trade_date</code>，用 DuckDB 比较 <code>silver_adj_factor[trade_date]</code> 与上一股票交易日的 <code>silver_adj_factor[previous_trade_date]</code>，并结合 <code>silver_stock_basic.list_date</code> 生成 repair plan。</td>
         <td>几千只股票的因子差异比较很轻；M9B 已实现纯 helper，不读取正式 Dagster instance，不写 lake，不新增 active check。</td>
       </tr>
       <tr>
@@ -1373,8 +1378,8 @@ ops:
       </tr>
       <tr>
         <td>M9E 批量修正</td>
-        <td>repair 执行模型已改为：先用 DuckDB 一次性生成 changed-code plan；再按 <code>freq/year</code> 批量读取对应年份 silver、当日/历史 adj factor 和 changed code 集合；同一批次内用 DuckDB 计算所有受影响股票的 qfq replacement rows；最后按目标 <code>ts_code/year</code> 文件分组写回。</td>
-        <td>这样每个 <code>freq/year</code> 批次只准备一次输入、只复用一次 latest factor 视图、只做一轮 DuckDB 计算，避免 <code>changed_code_count * freq_count * year_count</code> 级别的重复查询。Python 只允许做路径规划、批次调度和汇总，不得承载明细计算。</td>
+        <td>repair 执行模型已改为：先用 DuckDB 一次性生成 changed-code plan；再按 <code>freq/year</code> 批量读取对应年份 silver、历史行对应的 adj factor、显式 <code>silver_adj_factor[trade_date]</code> as-of 因子和 changed code 集合；同一批次内用 DuckDB 计算所有受影响股票的 qfq replacement rows；最后按目标 <code>ts_code/year</code> 文件分组写回。</td>
+        <td>这样每个 <code>freq/year</code> 批次只准备一次输入、只复用一次 as-of factor 输入、只做一轮 DuckDB 计算，避免 <code>changed_code_count * freq_count * year_count</code> 级别的重复查询。Python 只允许做路径规划、批次调度和汇总，不得承载明细计算；repair 不得通过扫描所有 <code>silver_adj_factor</code> 分区现场推导隐式最新分母。</td>
       </tr>
       <tr>
         <td>M11 derived 同步重建</td>
@@ -1424,7 +1429,7 @@ ops:
       <li><code>ts_code + trade_time</code> 唯一。</li>
       <li>qfq 后 OHLC 为正且价格关系合法；由于 silver 不保留全日停牌结构行，gold 也不重新生成这类行。</li>
       <li>每个 <code>ts_code + trade_date</code> 都能找到 <code>silver_adj_factor</code>。</li>
-      <li>每个 <code>ts_code</code> 都能找到 latest adj factor 基准。</li>
+      <li>每个 <code>ts_code</code> 都能在本次显式 <code>silver_adj_factor[as_of_trade_date]</code> 中找到 qfq 分母基准。</li>
       <li>抽样或聚合复算 qfq 公式，确认 open/high/low/close 在容差内一致。</li>
       <li>目标日期涉及的股票年份文件必须存在，且文件内 <code>freq</code>、<code>ts_code</code>、<code>year</code> 与路径一致。</li>
       <li>repair check 必须确认变化检测已完成；若有变化股票，<code>repaired_code_count</code> 必须等于 <code>changed_code_count</code>。无变化时 check 通过并写 <code>reason=no_factor_changed</code>。</li>
@@ -1483,14 +1488,14 @@ ops:
     <table>
       <tr><th>Helper</th><th>职责</th><th>测试重点</th></tr>
       <tr>
-        <td><code>build_latest_adj_factor_by_code_sql(adj_factor_glob)</code></td>
-        <td>从 <code>silver_adj_factor</code> 中按 <code>ts_code</code> 取最新因子，作为 qfq 分母。</td>
-        <td>同一股票多日期取最新；缺因子时不静默补 1。</td>
+        <td><code>build_as_of_adj_factor_by_code_sql(as_of_adj_factor_path)</code></td>
+        <td>从显式 <code>silver_adj_factor[as_of_trade_date]</code> 分区按 <code>ts_code</code> 取本次 qfq 分母。</td>
+        <td>日常 <code>as_of_trade_date=target_trade_date</code>；repair <code>as_of_trade_date=trade_date</code>；缺因子时不静默补 1；禁止扫描所有因子分区取 max。</td>
       </tr>
       <tr>
         <td><code>build_daily_qfq_select_sql(...)</code></td>
-        <td>把某日某频度 silver 分区与当日因子、latest 因子 join，输出 gold schema。</td>
-        <td>行数不丢、字段顺序稳定、OHLC 公式一致、<code>vol/amount/exchange</code> 不被复权。</td>
+        <td>把某日某频度 silver 分区与同日 <code>silver_adj_factor[target_trade_date]</code> join，输出 gold schema；该同日因子同时作为分子和 as-of 分母。</td>
+        <td>行数不丢、字段顺序稳定、OHLC 公式一致、日常目标日 qfq OHLC 等于 silver OHLC、<code>vol/amount/exchange</code> 不被复权。</td>
       </tr>
       <tr>
         <td><code>write_gold_stk_mins_qfq_partition(...)</code></td>
@@ -1537,7 +1542,8 @@ ops:
       <li>禁止读取正式 Dagster instance 或补录 event。</li>
       <li>禁止写 <code>/Volumes/datasource/data_lake/gold/quote/stk_mins_qfq</code>；性能 CLI 只能写临时目录或用户显式批准的非正式目录。</li>
       <li>禁止把 repair 状态写入 sensor cursor；M7 还没有 sensor。</li>
-      <li>禁止把 <code>latest_adj_factor_by_code</code> 做成必须长期落盘的新资产；M7 只允许 SQL/临时表形态。</li>
+      <li>禁止新增 <code>silver_adj_factor_latest</code>、<code>silver_adj_factor_basis_snapshot</code> 或其它长期基准资产；qfq 分母必须来自本次显式 <code>as_of_trade_date</code> 的 <code>silver_adj_factor</code> 分区。</li>
+      <li>禁止 daily qfq 或 repair 通过扫描所有 <code>silver_adj_factor</code> 分区现场推导隐式最新分母。</li>
       <li>禁止新增 <code>gold_stk_mins_qfq_daily_summary</code> 或 <code>gold_stk_mins_qfq_factor_repair_summary</code> 资产、路径、schema、中文名、checks、job selection 或 sensor 门禁。</li>
       <li>禁止把 Dagster 日期分区误写成 gold 物理日期目录；物理目录必须是 <code>freq + ts_code + year</code>。</li>
     </ul>
@@ -1692,7 +1698,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M9E</strong></td>
         <td>Repair 批量写回性能修正</td>
         <td>已实现：repair 执行模型从 <code>stock_code -> freq -> year</code> 碎循环改为 <code>freq/year</code> 批量计算与批量写回。</td>
-        <td>DuckDB 一次处理该年份所有 changed stocks，latest factor snapshot 在 repair run 内只准备一次，写回仍按 <code>freq/ts_code/year</code> 目标文件原子替换。新增静态门禁禁止 repair 主路径回退到逐股票主循环。</td>
+        <td>DuckDB 一次处理该年份所有 changed stocks，as-of factor 输入由 <code>silver_adj_factor[trade_date]</code> 在 repair run 内只准备一次，写回仍按 <code>freq/ts_code/year</code> 目标文件原子替换。新增静态门禁禁止 repair 主路径回退到逐股票主循环，也禁止回退到全分区扫描推导隐式最新分母。</td>
       </tr>
       <tr>
         <td><strong>M10</strong></td>
@@ -2090,8 +2096,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td>expected universe 使用 <code>stock_daily + suspend_d</code>，不使用 stock daily strict equality。</td>
       </tr>
       <tr>
-        <td>qfq 最新因子变化导致历史需重算</td>
-        <td>gold qfq 明确是当前复权口径结果；因子变化后先由 repair job 用 DuckDB 检测受影响股票，无变化直接成功。若存在变化股票，正式口径必须按 <code>freq/year</code> 批量回刷，不得按 <code>stock_code -> freq -> year</code> 碎循环重复扫描和写回。</td>
+        <td>qfq as-of 因子变化导致历史需重算</td>
+        <td>gold qfq 明确是指定 <code>as_of_trade_date</code> 复权口径下的结果；当 <code>silver_adj_factor[T]</code> 相比上一交易日发生变化时，repair job 用 DuckDB 检测受影响股票，无变化直接成功。若存在变化股票，正式口径必须以 <code>silver_adj_factor[T]</code> 为显式分母，按 <code>freq/year</code> 批量回刷，不得按 <code>stock_code -> freq -> year</code> 碎循环重复扫描和写回，也不得扫描所有因子分区推导 denominator。</td>
       </tr>
       <tr>
         <td>按日期物理分区的 qfq 文件不适合原地修单只股票</td>
@@ -2128,6 +2134,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>先完成 M7B 契约修正：gold 主路径必须是 <code>freq + ts_code + year</code>，不得继续使用 <code>freq + trade_date</code> 作为物理布局。</li>
       <li>确认 gold schema：默认 OHLC 字段直接表示 qfq 后价格，<code>vol/amount/exchange</code> 沿用 silver；不保留原始未复权价格列。</li>
       <li>确认不新增 <code>gold_stk_mins_qfq_daily_summary</code> 或 <code>gold_stk_mins_qfq_factor_repair_summary</code>；repair 原因和数量写入 check metadata。</li>
+      <li>确认 qfq 分母基准来自显式 as-of 因子：daily 使用 <code>silver_adj_factor[target_trade_date]</code>，repair 使用 run config <code>trade_date</code> 对应的 <code>silver_adj_factor[trade_date]</code>；禁止执行时扫描所有因子分区取最新。</li>
+      <li>确认不新增 <code>silver_adj_factor_latest</code>、<code>silver_adj_factor_basis_snapshot</code> 或其它复权基准快照资产。</li>
       <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。正式 Dagster 入口必须使用统一 <code>gold_stk_mins_qfq_writer</code> concurrency pool；<code>in_process_executor</code> 只保证单 run 内顺序，不能替代跨 run 互斥。</li>
       <li>确认历史 gold baseline 文件生成采用串行或等价互斥保护，同一 <code>freq/ts_code/year</code> 文件不能被多个命令任务同时写。</li>
       <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须按 10.1 使用专用 check key 批量 latest-check readiness，并用 target materialization storage_id 绑定目标日期，不得在稳定态逐 check 扫 history。</li>

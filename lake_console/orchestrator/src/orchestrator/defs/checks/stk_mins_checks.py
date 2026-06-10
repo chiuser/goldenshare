@@ -199,7 +199,7 @@ class GoldStkMinsQfqCheckCounts:
     missing_file_count: int
     gold_target_row_count: int
     missing_trade_adj_factor_row_count: int
-    missing_latest_adj_factor_row_count: int
+    missing_as_of_adj_factor_row_count: int
     qfq_output_row_count: int
     schema_mismatch_file_count: int
     path_mismatch_row_count: int
@@ -380,11 +380,6 @@ def _gold_qfq_derived_expected_paths(
         gold_stk_mins_qfq_path(lake_root, target_freq, str(ts_code), str(year))
         for ts_code, year in rows
     )
-
-
-def _discover_silver_adj_factor_paths(lake_root: Path) -> tuple[Path, ...]:
-    adj_factor_root = silver_adj_factor_path(lake_root, "2000-01-01").parents[1]
-    return tuple(sorted(adj_factor_root.glob("trade_date=*/part-000.parquet")))
 
 
 def _read_parquet_paths(
@@ -769,7 +764,7 @@ def _gold_qfq_check_results(
 
     factor_coverage_failed_count = (
         counts.missing_trade_adj_factor_row_count
-        + counts.missing_latest_adj_factor_row_count
+        + counts.missing_as_of_adj_factor_row_count
         + abs(counts.silver_row_count - counts.qfq_output_row_count)
     )
     formula_failed_count = (
@@ -893,8 +888,8 @@ def _gold_qfq_check_results(
                 "missing_trade_adj_factor_row_count": (
                     counts.missing_trade_adj_factor_row_count
                 ),
-                "missing_latest_adj_factor_row_count": (
-                    counts.missing_latest_adj_factor_row_count
+                "missing_as_of_adj_factor_row_count": (
+                    counts.missing_as_of_adj_factor_row_count
                 ),
             },
         ),
@@ -1143,10 +1138,7 @@ def _gold_stk_mins_qfq_check_results(
             freq=normalized_freq,
         )
 
-    latest_adj_factor_paths = _discover_silver_adj_factor_paths(root)
     input_file_paths = [silver_path, trade_adj_factor_path]
-    if latest_adj_factor_paths:
-        input_file_paths.append(latest_adj_factor_paths[-1])
 
     with connect_configured_duckdb() as connection:
         expected_paths = _gold_qfq_expected_paths(
@@ -1212,11 +1204,11 @@ def _gold_stk_mins_qfq_check_results(
                 columns = [column[0] for column in connection.description]
                 samples[sample_name] = _sample_dicts(columns, rows)
 
-            if trade_adj_factor_path.exists() and latest_adj_factor_paths:
+            if trade_adj_factor_path.exists():
                 qfq_select_sql = build_daily_qfq_select_sql(
                     silver_paths=[silver_path],
                     trade_adj_factor_paths=[trade_adj_factor_path],
-                    latest_adj_factor_paths=latest_adj_factor_paths,
+                    as_of_adj_factor_paths=[trade_adj_factor_path],
                 )
                 formula_counts = connection.execute(
                     _gold_qfq_formula_counts_sql(
@@ -1246,24 +1238,24 @@ def _gold_stk_mins_qfq_check_results(
                     columns = [column[0] for column in connection.description]
                     samples["formula_samples"] = _sample_dicts(columns, rows)
 
-        if trade_adj_factor_path.exists() and latest_adj_factor_paths:
+        if trade_adj_factor_path.exists():
             coverage_counts = connection.execute(
                 build_daily_qfq_coverage_sql(
                     silver_paths=[silver_path],
                     trade_adj_factor_paths=[trade_adj_factor_path],
-                    latest_adj_factor_paths=latest_adj_factor_paths,
+                    as_of_adj_factor_paths=[trade_adj_factor_path],
                 )
             ).fetchone()
             (
                 _coverage_silver_row_count,
                 qfq_output_row_count,
                 missing_trade_adj_factor_row_count,
-                missing_latest_adj_factor_row_count,
+                missing_as_of_adj_factor_row_count,
             ) = (int(value or 0) for value in coverage_counts)
         else:
             qfq_output_row_count = 0
             missing_trade_adj_factor_row_count = silver_row_count
-            missing_latest_adj_factor_row_count = silver_row_count
+            missing_as_of_adj_factor_row_count = silver_row_count
 
     counts = GoldStkMinsQfqCheckCounts(
         silver_row_count=silver_row_count,
@@ -1272,7 +1264,7 @@ def _gold_stk_mins_qfq_check_results(
         missing_file_count=len(missing_gold_paths),
         gold_target_row_count=gold_target_row_count,
         missing_trade_adj_factor_row_count=missing_trade_adj_factor_row_count,
-        missing_latest_adj_factor_row_count=missing_latest_adj_factor_row_count,
+        missing_as_of_adj_factor_row_count=missing_as_of_adj_factor_row_count,
         qfq_output_row_count=qfq_output_row_count,
         schema_mismatch_file_count=schema_mismatch_count,
         path_mismatch_row_count=path_mismatch_row_count,

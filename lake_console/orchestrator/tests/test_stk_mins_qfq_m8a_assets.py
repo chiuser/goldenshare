@@ -178,11 +178,22 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
             self.assertEqual(result.replacement_row_count, 2)
             self.assertEqual(result.output_root_path.name, "freq=5")
             self.assertEqual(result.observed_columns, tuple(column.name for column in GOLD_STK_MINS_QFQ_SCHEMA))
+            metadata = result.materialization_extra_metadata(
+                partition_key=TRADE_DATE,
+                freq=5,
+            )
+            self.assertEqual(metadata["as_of_trade_date"], TRADE_DATE)
+            self.assertEqual(
+                metadata["as_of_adj_factor_file_path"],
+                str(silver_adj_factor_path(lake_root, TRADE_DATE)),
+            )
+            self.assertNotIn("latest_adj_factor_file_count", metadata)
+            self.assertNotIn("latest_adj_factor_date", metadata)
 
             sh_rows = _read_rows(sh_path)
             sz_rows = _read_rows(sz_path)
-            self.assertAlmostEqual(sh_rows[0]["open"], 5.0)
-            self.assertAlmostEqual(sz_rows[0]["open"], 15.0)
+            self.assertAlmostEqual(sh_rows[0]["open"], 10.0)
+            self.assertAlmostEqual(sz_rows[0]["open"], 30.0)
             self.assertEqual(sh_rows[0]["vol"], 100.0)
             self.assertEqual(sz_rows[0]["exchange"], "SZSE")
 
@@ -227,7 +238,7 @@ class StkMinsQfqM8AAssetTests(unittest.TestCase):
             self.assertEqual(rows[0]["trade_date"].isoformat(), "2014-06-02")
             self.assertAlmostEqual(rows[0]["open"], 8.0)
             self.assertEqual(rows[1]["trade_date"].isoformat(), TRADE_DATE)
-            self.assertAlmostEqual(rows[1]["open"], 5.0)
+            self.assertAlmostEqual(rows[1]["open"], 10.0)
 
     def test_write_fails_when_trade_adj_factor_partition_is_missing(self) -> None:
         with TemporaryDirectory() as temp_dir:

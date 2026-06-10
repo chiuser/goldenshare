@@ -30,6 +30,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 
 DATE_1 = "2014-06-03"
 DATE_2 = "2014-06-04"
+DATE_3 = "2014-06-05"
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
 
@@ -179,6 +180,15 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_valid_inputs(lake_root)
+            _write_rows(
+                silver_adj_factor_path(lake_root, DATE_3),
+                column_types=_column_types(SILVER_ADJ_FACTOR_SCHEMA),
+                rows=[
+                    _adj_row(STOCK_A, DATE_3, 8.0),
+                    _adj_row(STOCK_B, DATE_3, 12.0),
+                ],
+                order_by="ts_code",
+            )
 
             report = generate_stk_mins_qfq_history(
                 lake_root=lake_root,

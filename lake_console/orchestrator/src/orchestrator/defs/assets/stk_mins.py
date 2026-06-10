@@ -223,8 +223,8 @@ class SilverStkMinsWriteResult:
 class GoldStkMinsQfqPartitionWriteResult:
     silver_file_path: Path
     trade_adj_factor_file_path: Path
-    latest_adj_factor_file_count: int
-    latest_adj_factor_date: str
+    as_of_adj_factor_file_path: Path
+    as_of_trade_date: str
     output_root_path: Path
     output_file_count: int
     output_sample_file_paths: tuple[str, ...]
@@ -243,8 +243,8 @@ class GoldStkMinsQfqPartitionWriteResult:
             "freq": freq,
             "silver_file_path": str(self.silver_file_path),
             "trade_adj_factor_file_path": str(self.trade_adj_factor_file_path),
-            "latest_adj_factor_file_count": self.latest_adj_factor_file_count,
-            "latest_adj_factor_date": self.latest_adj_factor_date,
+            "as_of_adj_factor_file_path": str(self.as_of_adj_factor_file_path),
+            "as_of_trade_date": self.as_of_trade_date,
             "output_file_count": self.output_file_count,
             "output_sample_file_paths": list(self.output_sample_file_paths),
             "replacement_row_count": self.replacement_row_count,
@@ -1750,32 +1750,17 @@ def write_silver_stk_mins_partition(
     )
 
 
-def _silver_adj_factor_partition_key_from_path(path: Path) -> str:
-    prefix = "trade_date="
-    partition_dir = path.parent.name
-    if not partition_dir.startswith(prefix):
-        raise ValueError(f"Invalid silver adj_factor partition path: {path}")
-    partition_key = partition_dir.removeprefix(prefix)
-    date.fromisoformat(partition_key)
-    return partition_key
-
-
-def _discover_silver_adj_factor_paths(lake_root: Path) -> tuple[Path, ...]:
-    adj_factor_root = lake_root / "silver" / "quote" / "adj_factor"
-    return tuple(sorted(adj_factor_root.glob("trade_date=*/part-000.parquet")))
-
-
 def _qfq_coverage_counts(
     *,
     duckdb: DuckDBResource,
     silver_file_path: Path,
     trade_adj_factor_file_path: Path,
-    latest_adj_factor_file_paths: Sequence[Path],
+    as_of_adj_factor_file_path: Path,
 ) -> dict[str, int]:
     coverage_sql = build_daily_qfq_coverage_sql(
         silver_paths=[silver_file_path],
         trade_adj_factor_paths=[trade_adj_factor_file_path],
-        latest_adj_factor_paths=latest_adj_factor_file_paths,
+        as_of_adj_factor_paths=[as_of_adj_factor_file_path],
     )
     with connect_configured_duckdb() as connection:
         row = connection.execute(coverage_sql).fetchone()
@@ -1785,7 +1770,7 @@ def _qfq_coverage_counts(
         "silver_row_count": int(row[0]),
         "qfq_output_row_count": int(row[1]),
         "missing_trade_adj_factor_row_count": int(row[2]),
-        "missing_latest_adj_factor_row_count": int(row[3]),
+        "missing_as_of_adj_factor_row_count": int(row[3]),
     }
 
 
@@ -1802,7 +1787,7 @@ def _validate_gold_qfq_coverage(
         )
     if (
         coverage_counts["missing_trade_adj_factor_row_count"]
-        or coverage_counts["missing_latest_adj_factor_row_count"]
+        or coverage_counts["missing_as_of_adj_factor_row_count"]
         or coverage_counts["qfq_output_row_count"] != coverage_counts["silver_row_count"]
     ):
         raise RuntimeError(
@@ -1821,32 +1806,19 @@ def write_gold_stk_mins_qfq_asset_partition(
     normalized_freq = normalize_stk_mins_freq(freq)
     silver_file_path = silver_stk_mins_path(lake_root, normalized_freq, partition_key)
     trade_adj_factor_file_path = silver_adj_factor_path(lake_root, partition_key)
+    as_of_adj_factor_file_path = trade_adj_factor_file_path
     input_paths = {
         "silver_stk_mins": silver_file_path,
         "trade_adj_factor": trade_adj_factor_file_path,
+        "as_of_adj_factor": as_of_adj_factor_file_path,
     }
     _require_stk_mins_input_files(input_paths)
-
-    latest_adj_factor_file_paths = _discover_silver_adj_factor_paths(lake_root)
-    if not latest_adj_factor_file_paths:
-        raise FileNotFoundError(
-            "Missing silver adj_factor files; cannot compute gold stk_mins qfq."
-        )
-    latest_adj_factor_date = max(
-        _silver_adj_factor_partition_key_from_path(path)
-        for path in latest_adj_factor_file_paths
-    )
-    if date.fromisoformat(latest_adj_factor_date) < date.fromisoformat(partition_key):
-        raise RuntimeError(
-            "Latest silver adj_factor is older than target qfq partition: "
-            f"latest={latest_adj_factor_date}, partition={partition_key}."
-        )
 
     coverage_counts = _qfq_coverage_counts(
         duckdb=duckdb,
         silver_file_path=silver_file_path,
         trade_adj_factor_file_path=trade_adj_factor_file_path,
-        latest_adj_factor_file_paths=latest_adj_factor_file_paths,
+        as_of_adj_factor_file_path=as_of_adj_factor_file_path,
     )
     _validate_gold_qfq_coverage(
         coverage_counts=coverage_counts,
@@ -1856,7 +1828,7 @@ def write_gold_stk_mins_qfq_asset_partition(
     qfq_select_sql = build_daily_qfq_select_sql(
         silver_paths=[silver_file_path],
         trade_adj_factor_paths=[trade_adj_factor_file_path],
-        latest_adj_factor_paths=latest_adj_factor_file_paths,
+        as_of_adj_factor_paths=[as_of_adj_factor_file_path],
     )
     write_results = write_gold_stk_mins_qfq_rows_to_year_files(
         lake_root=lake_root,
@@ -1874,8 +1846,8 @@ def write_gold_stk_mins_qfq_asset_partition(
     return GoldStkMinsQfqPartitionWriteResult(
         silver_file_path=silver_file_path,
         trade_adj_factor_file_path=trade_adj_factor_file_path,
-        latest_adj_factor_file_count=len(latest_adj_factor_file_paths),
-        latest_adj_factor_date=latest_adj_factor_date,
+        as_of_adj_factor_file_path=as_of_adj_factor_file_path,
+        as_of_trade_date=partition_key,
         output_root_path=write_results[0].path.parents[2],
         output_file_count=len(write_results),
         output_sample_file_paths=output_file_paths[:20],
@@ -2589,15 +2561,15 @@ def _gold_stk_mins_qfq_extra_metadata(freq: int) -> dict[str, object]:
     return {
         "freq": freq,
         "formula": (
-            "qfq_price = silver_price * adj_factor(trade_date) / "
-            "latest_adj_factor(ts_code)"
+            "qfq_price = silver_price * adj_factor(row_trade_date) / "
+            "adj_factor(as_of_trade_date)"
         ),
         "physical_layout": "freq + ts_code + year",
         "price_columns": "open/high/low/close are qfq prices",
         "non_price_columns": "vol/amount/exchange are inherited from silver stk_mins",
-        "latest_adj_factor_policy": (
-            "latest_adj_factor is generated inside DuckDB SQL from available "
-            "silver_adj_factor files; it is not a persisted asset."
+        "as_of_adj_factor_policy": (
+            "daily qfq uses silver_adj_factor[target_trade_date] as the explicit "
+            "as_of denominator; no persisted latest factor asset is used."
         ),
     }
 

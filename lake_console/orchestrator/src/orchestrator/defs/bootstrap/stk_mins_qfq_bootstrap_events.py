@@ -17,7 +17,6 @@ from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     StkMinsQfqHistoryBatch,
     _silver_paths_for_batch,
     _trade_adj_factor_paths_for_keys,
-    discover_silver_adj_factor_paths,
     plan_stk_mins_qfq_history,
 )
 from orchestrator.defs.checks import stk_mins_checks
@@ -347,7 +346,8 @@ def audit_stk_mins_qfq_bootstrap_batch(
     ).parents[2]
     silver_paths = _silver_paths_for_batch(lake_root, batch)
     trade_adj_paths = _trade_adj_factor_paths_for_keys(lake_root, batch.partition_keys)
-    latest_adj_paths = discover_silver_adj_factor_paths(lake_root)
+    as_of_trade_date = batch.partition_keys[-1]
+    as_of_adj_path = silver_adj_factor_path(lake_root, as_of_trade_date)
 
     with connect_configured_duckdb() as connection:
         expected_paths_by_date = _expected_gold_paths_by_date(
@@ -387,7 +387,7 @@ def audit_stk_mins_qfq_bootstrap_batch(
             partition_keys=batch.partition_keys,
             silver_paths=silver_paths,
             trade_adj_paths=trade_adj_paths,
-            latest_adj_paths=latest_adj_paths,
+            as_of_adj_path=as_of_adj_path,
         )
         formula_counts = _batch_formula_counts(
             connection,
@@ -395,10 +395,9 @@ def audit_stk_mins_qfq_bootstrap_batch(
             gold_paths=existing_paths,
             silver_paths=silver_paths,
             trade_adj_paths=trade_adj_paths,
-            latest_adj_paths=latest_adj_paths,
+            as_of_adj_path=as_of_adj_path,
         )
 
-    latest_adj_factor_path = latest_adj_paths[-1] if latest_adj_paths else None
     audits: list[StkMinsQfqBootstrapPartitionAudit] = []
     for partition_key in batch.partition_keys:
         expected_paths = expected_paths_by_date.get(partition_key, ())
@@ -417,8 +416,8 @@ def audit_stk_mins_qfq_bootstrap_batch(
             missing_trade_adj_factor_row_count=int(
                 factor.get("missing_trade_adj_factor_row_count", 0)
             ),
-            missing_latest_adj_factor_row_count=int(
-                factor.get("missing_latest_adj_factor_row_count", 0)
+            missing_as_of_adj_factor_row_count=int(
+                factor.get("missing_as_of_adj_factor_row_count", 0)
             ),
             qfq_output_row_count=int(factor.get("qfq_output_row_count", 0)),
             schema_mismatch_file_count=int(schema_mismatch_count),
@@ -439,8 +438,8 @@ def audit_stk_mins_qfq_bootstrap_batch(
             silver_stk_mins_path(lake_root, batch.freq, partition_key),
             silver_adj_factor_path(lake_root, partition_key),
         ]
-        if latest_adj_factor_path is not None:
-            input_paths.append(latest_adj_factor_path)
+        if as_of_adj_path != input_paths[-1]:
+            input_paths.append(as_of_adj_path)
         results = stk_mins_checks._gold_qfq_check_results(
             asset_key=asset_key,
             partition_key=partition_key,
@@ -666,11 +665,11 @@ def _batch_factor_coverage_counts(
     partition_keys: Sequence[str],
     silver_paths: Sequence[Path],
     trade_adj_paths: Sequence[Path],
-    latest_adj_paths: Sequence[Path],
+    as_of_adj_path: Path,
 ) -> dict[str, dict[str, int]]:
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_paths)
-    latest_adj_source = _read_parquet_paths(latest_adj_paths)
+    as_of_adj_source = _read_parquet_paths((as_of_adj_path,))
     rows = connection.execute(
         f"""
         WITH selected(partition_key) AS ({_values_sql(partition_keys)}),
@@ -688,47 +687,37 @@ def _batch_factor_coverage_counts(
             CAST(adj_factor AS DOUBLE) AS trade_adj_factor
           FROM {trade_adj_source}
         ),
-        latest_adj_factor_rows AS (
+        as_of_adj_factor AS (
           SELECT
             CAST(ts_code AS VARCHAR) AS ts_code,
-            CAST(trade_date AS DATE) AS trade_date,
-            CAST(adj_factor AS DOUBLE) AS latest_adj_factor,
-            row_number() OVER (
-              PARTITION BY CAST(ts_code AS VARCHAR)
-              ORDER BY CAST(trade_date AS DATE) DESC
-            ) AS row_number
-          FROM {latest_adj_source}
-        ),
-        latest_adj_factor AS (
-          SELECT ts_code, latest_adj_factor
-          FROM latest_adj_factor_rows
-          WHERE row_number = 1
+            CAST(adj_factor AS DOUBLE) AS as_of_adj_factor
+          FROM {as_of_adj_source}
         ),
         joined_rows AS (
           SELECT
             silver_rows.partition_key,
             silver_rows.ts_code,
             trade_adj_factor.trade_adj_factor,
-            latest_adj_factor.latest_adj_factor
+            as_of_adj_factor.as_of_adj_factor
           FROM silver_rows
           LEFT JOIN trade_adj_factor
             ON silver_rows.ts_code = trade_adj_factor.ts_code
            AND silver_rows.trade_date = trade_adj_factor.trade_date
-          LEFT JOIN latest_adj_factor
-            ON silver_rows.ts_code = latest_adj_factor.ts_code
+          LEFT JOIN as_of_adj_factor
+            ON silver_rows.ts_code = as_of_adj_factor.ts_code
         )
         SELECT
           selected.partition_key,
           count(joined_rows.ts_code) FILTER (
             WHERE joined_rows.trade_adj_factor IS NOT NULL
-              AND joined_rows.latest_adj_factor IS NOT NULL
+              AND joined_rows.as_of_adj_factor IS NOT NULL
           ) AS qfq_output_row_count,
           count(joined_rows.ts_code) FILTER (
             WHERE joined_rows.trade_adj_factor IS NULL
           ) AS missing_trade_adj_factor_row_count,
           count(joined_rows.ts_code) FILTER (
-            WHERE joined_rows.latest_adj_factor IS NULL
-          ) AS missing_latest_adj_factor_row_count
+            WHERE joined_rows.as_of_adj_factor IS NULL
+          ) AS missing_as_of_adj_factor_row_count
         FROM selected
         LEFT JOIN joined_rows
           ON selected.partition_key = joined_rows.partition_key
@@ -742,15 +731,15 @@ def _batch_factor_coverage_counts(
             "missing_trade_adj_factor_row_count": int(
                 missing_trade_adj_factor_row_count
             ),
-            "missing_latest_adj_factor_row_count": int(
-                missing_latest_adj_factor_row_count
+            "missing_as_of_adj_factor_row_count": int(
+                missing_as_of_adj_factor_row_count
             ),
         }
         for (
             partition_key,
             qfq_output_row_count,
             missing_trade_adj_factor_row_count,
-            missing_latest_adj_factor_row_count,
+            missing_as_of_adj_factor_row_count,
         ) in rows
     }
 
@@ -762,7 +751,7 @@ def _batch_formula_counts(
     gold_paths: Sequence[Path],
     silver_paths: Sequence[Path],
     trade_adj_paths: Sequence[Path],
-    latest_adj_paths: Sequence[Path],
+    as_of_adj_path: Path,
 ) -> dict[str, dict[str, int]]:
     if not gold_paths:
         return {
@@ -777,7 +766,7 @@ def _batch_formula_counts(
     qfq_select_sql = build_daily_qfq_select_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_paths,
-        latest_adj_factor_paths=latest_adj_paths,
+        as_of_adj_factor_paths=[as_of_adj_path],
     )
     tolerance = stk_mins_checks.GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE
     rows = connection.execute(

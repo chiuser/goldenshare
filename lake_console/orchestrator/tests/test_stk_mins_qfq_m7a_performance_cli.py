@@ -191,6 +191,9 @@ class StkMinsQfqM7APerformanceCliTests(unittest.TestCase):
             self.assertEqual(exit_code, 0)
             self.assertFalse(output_dir.exists())
             self.assertIn('"will_write_files": false', stdout.getvalue())
+            self.assertIn('"as_of_trade_date": "2014-06-03"', stdout.getvalue())
+            self.assertIn('"as_of_adj_factor_path"', stdout.getvalue())
+            self.assertNotIn('"latest_adj_factor_path"', stdout.getvalue())
 
     def test_output_dir_inside_formal_lake_is_rejected(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -231,10 +234,10 @@ class StkMinsQfqM7APerformanceCliTests(unittest.TestCase):
             )
             rows = _read_rows(qfq_path)
             row = next(item for item in rows if item["ts_code"] == STOCK_CODE)
-            self.assertAlmostEqual(row["open"], 5.0)
-            self.assertAlmostEqual(row["high"], 5.5)
-            self.assertAlmostEqual(row["low"], 4.5)
-            self.assertAlmostEqual(row["close"], 5.25)
+            self.assertAlmostEqual(row["open"], 10.0)
+            self.assertAlmostEqual(row["high"], 11.0)
+            self.assertAlmostEqual(row["low"], 9.0)
+            self.assertAlmostEqual(row["close"], 10.5)
 
     def test_partition_rewrite_replaces_only_target_stock_code(self) -> None:
         with TemporaryDirectory() as temp_dir:

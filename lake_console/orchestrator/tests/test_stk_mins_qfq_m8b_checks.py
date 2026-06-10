@@ -114,7 +114,7 @@ def _gold_row(
     ts_code: str = "600000.SH",
     *,
     trade_time: str = f"{TRADE_DATE} 09:35:00",
-    open_: float = 5.0,
+    open_: float = 10.0,
     freq: int = 5,
 ) -> dict[str, object]:
     return {
@@ -123,9 +123,9 @@ def _gold_row(
         "trade_date": TRADE_DATE,
         "trade_time": trade_time,
         "open": open_,
-        "high": open_ + 0.5,
-        "low": open_ - 0.5,
-        "close": open_ + 0.25,
+        "high": open_ + 1.0,
+        "low": open_ - 1.0,
+        "close": open_ + 0.5,
         "vol": 100.0,
         "amount": 1000.0,
         "exchange": "SSE" if ts_code.endswith(".SH") else "SZSE",
@@ -222,8 +222,8 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             _write_gold(
                 lake_root,
                 [
-                    _gold_row("600000.SH", open_=5.0),
-                    _gold_row("000001.SZ", open_=15.0),
+                    _gold_row("600000.SH", open_=10.0),
+                    _gold_row("000001.SZ", open_=30.0),
                 ],
             )
 
@@ -252,8 +252,8 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             _write_gold(
                 lake_root,
                 [
-                    _gold_row("600000.SH", open_=5.0),
-                    _gold_row("000001.SZ", open_=15.0),
+                    _gold_row("600000.SH", open_=10.0),
+                    _gold_row("000001.SZ", open_=30.0),
                 ],
             )
 
@@ -281,7 +281,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             _write_rows(
                 gold_stk_mins_qfq_path(lake_root, 5, "600000.SH", 2014),
                 schema=GOLD_STK_MINS_QFQ_SCHEMA,
-                rows=[_gold_row("600000.SH", open_=5.0, freq=15)],
+                rows=[_gold_row("600000.SH", open_=10.0, freq=15)],
                 order_by="trade_date, trade_time",
             )
 
@@ -367,7 +367,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 rows=[
                     {
                         key: value
-                        for key, value in _gold_row("600000.SH", open_=5.0).items()
+                        for key, value in _gold_row("600000.SH", open_=10.0).items()
                         if key != "exchange"
                     }
                 ],
@@ -390,7 +390,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             _write_rows(
                 gold_stk_mins_qfq_path(lake_root, 5, "600000.SH", 2014),
                 schema=GOLD_STK_MINS_QFQ_SCHEMA,
-                rows=[_gold_row("600000.SH", open_=5.0, freq=15)],
+                rows=[_gold_row("600000.SH", open_=10.0, freq=15)],
                 order_by="trade_date, trade_time",
             )
 
@@ -411,8 +411,8 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 gold_stk_mins_qfq_path(lake_root, 5, "600000.SH", 2014),
                 schema=GOLD_STK_MINS_QFQ_SCHEMA,
                 rows=[
-                    _gold_row("600000.SH", open_=5.0),
-                    _gold_row("600000.SH", open_=5.0),
+                    _gold_row("600000.SH", open_=10.0),
+                    _gold_row("600000.SH", open_=10.0),
                 ],
                 order_by="trade_date, trade_time",
             )
@@ -438,8 +438,8 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             lake_root = Path(temp_dir) / "lake"
             _write_silver(lake_root, [_silver_row("600000.SH", open_=10.0)])
             _write_adj_factor(lake_root)
-            bad_row = _gold_row("600000.SH", open_=5.0)
-            bad_row["low"] = 6.0
+            bad_row = _gold_row("600000.SH", open_=10.0)
+            bad_row["low"] = 11.0
             _write_gold(lake_root, [bad_row])
 
             results = _check_results(lake_root)
@@ -467,7 +467,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 ],
             )
             _write_adj_factor(lake_root)
-            _write_gold(lake_root, [_gold_row("600000.SH", open_=5.0)])
+            _write_gold(lake_root, [_gold_row("600000.SH", open_=10.0)])
 
             results = _check_results(lake_root)
 
@@ -492,7 +492,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                 trade_rows=[_adj_row("600000.SH", TRADE_DATE, 2.0)],
                 latest_rows=[_adj_row("600000.SH", LATEST_DATE, 4.0)],
             )
-            _write_gold(lake_root, [_gold_row("600000.SH", open_=5.0)])
+            _write_gold(lake_root, [_gold_row("600000.SH", open_=10.0)])
 
             results = _check_results(lake_root)
 
@@ -501,6 +501,11 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
                     stk_mins_checks.GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK
                 ].passed
             )
+            metadata = results[
+                stk_mins_checks.GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK
+            ].metadata
+            self.assertIn("goldenshare/missing_as_of_adj_factor_row_count", metadata)
+            self.assertNotIn("goldenshare/missing_latest_adj_factor_row_count", metadata)
 
     def test_formula_mismatch_fails_formula_check(self) -> None:
         with TemporaryDirectory() as temp_dir:

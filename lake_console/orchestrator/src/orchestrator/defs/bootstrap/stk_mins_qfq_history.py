@@ -106,11 +106,12 @@ def plan_stk_mins_qfq_history(
         freqs=normalized_freqs,
         years=selected_years,
     )
-    adj_factor_paths = discover_silver_adj_factor_paths(lake_root)
+    as_of_trade_date = selected_keys[-1]
+    as_of_adj_factor_path = silver_adj_factor_path(lake_root, as_of_trade_date)
     missing_inputs = _missing_qfq_history_inputs(
         lake_root=lake_root,
         batches=batches,
-        adj_factor_paths=adj_factor_paths,
+        as_of_adj_factor_path=as_of_adj_factor_path,
         selected_partition_keys=selected_keys,
     )
     target_counts: dict[tuple[int, str], int] = {}
@@ -178,14 +179,15 @@ def generate_stk_mins_qfq_history(
             f"{plan.existing_target_file_count}."
         )
 
-    latest_adj_factor_paths = discover_silver_adj_factor_paths(lake_root)
+    as_of_trade_date = plan.selected_partition_keys[-1]
+    as_of_adj_factor_path = silver_adj_factor_path(lake_root, as_of_trade_date)
     batch_results: list[StkMinsQfqHistoryBatchResult] = []
     for batch in plan.batches:
         result = _generate_qfq_history_batch(
             lake_root=lake_root,
             duckdb_resource=duckdb_resource,
             batch=batch,
-            latest_adj_factor_paths=latest_adj_factor_paths,
+            as_of_adj_factor_path=as_of_adj_factor_path,
         )
         batch_results.append(result)
 
@@ -195,17 +197,12 @@ def generate_stk_mins_qfq_history(
     )
 
 
-def discover_silver_adj_factor_paths(lake_root: Path) -> tuple[Path, ...]:
-    adj_factor_root = Path(lake_root) / "silver" / "quote" / "adj_factor"
-    return tuple(sorted(adj_factor_root.glob("trade_date=*/part-000.parquet")))
-
-
 def _generate_qfq_history_batch(
     *,
     lake_root: Path,
     duckdb_resource: DuckDBResource,
     batch: StkMinsQfqHistoryBatch,
-    latest_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_path: Path,
 ) -> StkMinsQfqHistoryBatchResult:
     silver_paths = _silver_paths_for_batch(lake_root, batch)
     trade_adj_paths = _trade_adj_factor_paths_for_keys(lake_root, batch.partition_keys)
@@ -213,13 +210,13 @@ def _generate_qfq_history_batch(
         duckdb_resource=duckdb_resource,
         silver_paths=silver_paths,
         trade_adj_paths=trade_adj_paths,
-        latest_adj_factor_paths=latest_adj_factor_paths,
+        as_of_adj_factor_path=as_of_adj_factor_path,
     )
     _validate_coverage_counts(batch=batch, coverage_counts=coverage_counts)
     qfq_select_sql = build_daily_qfq_select_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_paths,
-        latest_adj_factor_paths=latest_adj_factor_paths,
+        as_of_adj_factor_paths=[as_of_adj_factor_path],
     )
     write_results = write_gold_stk_mins_qfq_rows_to_year_files(
         lake_root=lake_root,
@@ -244,12 +241,12 @@ def _coverage_counts(
     duckdb_resource: DuckDBResource,
     silver_paths: Sequence[Path],
     trade_adj_paths: Sequence[Path],
-    latest_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_path: Path,
 ) -> dict[str, int]:
     coverage_sql = build_daily_qfq_coverage_sql(
         silver_paths=silver_paths,
         trade_adj_factor_paths=trade_adj_paths,
-        latest_adj_factor_paths=latest_adj_factor_paths,
+        as_of_adj_factor_paths=[as_of_adj_factor_path],
     )
     with duckdb_resource.connect() as connection:
         row = connection.execute(coverage_sql).fetchone()
@@ -259,7 +256,7 @@ def _coverage_counts(
         "silver_row_count": int(row[0]),
         "qfq_output_row_count": int(row[1]),
         "missing_trade_adj_factor_row_count": int(row[2]),
-        "missing_latest_adj_factor_row_count": int(row[3]),
+        "missing_as_of_adj_factor_row_count": int(row[3]),
     }
 
 
@@ -276,7 +273,7 @@ def _validate_coverage_counts(
     if (
         coverage_counts["qfq_output_row_count"] != coverage_counts["silver_row_count"]
         or coverage_counts["missing_trade_adj_factor_row_count"]
-        or coverage_counts["missing_latest_adj_factor_row_count"]
+        or coverage_counts["missing_as_of_adj_factor_row_count"]
     ):
         raise RuntimeError(
             "Gold qfq history factor coverage failed before write: "
@@ -312,22 +309,12 @@ def _missing_qfq_history_inputs(
     *,
     lake_root: Path,
     batches: Sequence[StkMinsQfqHistoryBatch],
-    adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_path: Path,
     selected_partition_keys: Sequence[str],
 ) -> list[str]:
     missing: list[str] = []
-    if not adj_factor_paths:
-        missing.append("latest_adj_factor:no silver adj_factor files")
-    else:
-        latest_adj_factor_date = max(
-            _partition_key_from_trade_date_path(path) for path in adj_factor_paths
-        )
-        latest_required = max(selected_partition_keys) if selected_partition_keys else None
-        if latest_required and latest_adj_factor_date < latest_required:
-            missing.append(
-                "latest_adj_factor:latest partition "
-                f"{latest_adj_factor_date} is older than selected max {latest_required}"
-            )
+    if not as_of_adj_factor_path.exists():
+        missing.append(f"as_of_adj_factor:{as_of_adj_factor_path}")
 
     for partition_key in selected_partition_keys:
         adj_path = silver_adj_factor_path(lake_root, partition_key)
@@ -448,14 +435,6 @@ def _trade_adj_factor_paths_for_keys(
     partition_keys: Sequence[str],
 ) -> tuple[Path, ...]:
     return tuple(silver_adj_factor_path(lake_root, key) for key in partition_keys)
-
-
-def _partition_key_from_trade_date_path(path: Path) -> str:
-    partition_dir = path.parent.name
-    prefix = "trade_date="
-    if not partition_dir.startswith(prefix):
-        raise ValueError(f"Invalid trade_date partition path: {path}")
-    return _normalize_partition_key(partition_dir.removeprefix(prefix))
 
 
 def _read_parquet_paths(paths: Sequence[Path]) -> str:

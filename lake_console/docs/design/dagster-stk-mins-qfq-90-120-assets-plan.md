@@ -80,13 +80,14 @@ M11 代码、契约、测试和文档已收口；M11F 历史文件直写与 runl
 同一 `ts_code + trade_date` 的 qfq 因子是日级常量：
 
 ```text
-qfq_price = silver_price * adj_factor(trade_date) / latest_adj_factor(ts_code)
+qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_date)
 ```
 
 对同一天内的窗口：
 
 - `open/high/low/close` 先 qfq 再聚合，与先聚合再 qfq 等价。
 - `vol/amount/exchange` 与 qfq 无关，可从 source qfq bars 继承聚合。
+- 90/120 本身不重新选择复权基准；它继承 30/60 source qfq 已经采用的显式 as-of 因子口径。日常 source qfq 的 `as_of_trade_date=target_trade_date`，repair source qfq 的 `as_of_trade_date=trade_date`。
 
 因此 90/120 直接从 `gold_stk_mins_qfq_30m/60m` 聚合，避免重复读取 silver 和 adj_factor，也自然继承 factor repair 后的 qfq 结果。
 

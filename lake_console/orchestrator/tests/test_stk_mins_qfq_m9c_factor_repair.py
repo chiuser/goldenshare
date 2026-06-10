@@ -5,6 +5,7 @@ from tempfile import TemporaryDirectory
 import dagster as dg
 import duckdb
 
+from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
     STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
@@ -40,6 +41,7 @@ from orchestrator.defs.stk_mins_qfq_factor_repair import (
 
 PREVIOUS_DATE = "2026-05-28"
 TRADE_DATE = "2026-05-29"
+FUTURE_DATE = "2026-06-02"
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
 STOCK_C = "300001.SZ"
@@ -310,6 +312,10 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_repair_inputs(lake_root, changed=True)
+            _write_adj_factor(
+                silver_adj_factor_path(lake_root, FUTURE_DATE),
+                [_adj_row(STOCK_A, FUTURE_DATE, 8.0)],
+            )
             target_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
             _write_gold_qfq(
                 target_path,
@@ -339,6 +345,8 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         self.assertEqual(report.planned_batch_count, 1)
         self.assertEqual(report.executed_batch_count, 1)
         self.assertEqual(report.non_empty_batch_count, 1)
+        self.assertFalse(hasattr(repair_module, "_discover_silver_adj_factor_paths"))
+        self.assertFalse(hasattr(repair_module, "_write_latest_adj_factor_snapshot"))
 
     def test_factor_repair_rebuilds_derived_90m_and_120m_after_30m_60m(
         self,

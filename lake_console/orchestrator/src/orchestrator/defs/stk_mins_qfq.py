@@ -117,30 +117,21 @@ class GoldStkMinsQfqFactorRepairPlan:
     missing_previous_factor_code_samples: tuple[str, ...]
 
 
-def build_latest_adj_factor_by_code_sql(adj_factor_paths: Sequence[Path]) -> str:
-    adj_factor_source = _read_parquet_paths(adj_factor_paths)
+def build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths: Sequence[Path]) -> str:
+    adj_factor_source = _read_parquet_paths(as_of_adj_factor_paths)
     return f"""
-WITH adj_factor_rows AS (
+WITH as_of_adj_factor AS (
   SELECT
     CAST(ts_code AS VARCHAR) AS ts_code,
-    CAST(trade_date AS DATE) AS trade_date,
-    CAST(adj_factor AS DOUBLE) AS adj_factor
+    CAST(trade_date AS DATE) AS as_of_trade_date,
+    CAST(adj_factor AS DOUBLE) AS as_of_adj_factor
   FROM {adj_factor_source}
-),
-ranked_adj_factor AS (
-  SELECT
-    ts_code,
-    trade_date,
-    adj_factor,
-    row_number() OVER (PARTITION BY ts_code ORDER BY trade_date DESC) AS row_number
-  FROM adj_factor_rows
 )
 SELECT
   ts_code,
-  trade_date AS latest_trade_date,
-  adj_factor AS latest_adj_factor
-FROM ranked_adj_factor
-WHERE row_number = 1
+  as_of_trade_date,
+  as_of_adj_factor
+FROM as_of_adj_factor
 """
 
 
@@ -148,11 +139,11 @@ def build_daily_qfq_select_sql(
     *,
     silver_paths: Sequence[Path],
     trade_adj_factor_paths: Sequence[Path],
-    latest_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_paths: Sequence[Path],
 ) -> str:
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
-    latest_adj_sql = build_latest_adj_factor_by_code_sql(latest_adj_factor_paths)
+    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
     return f"""
 WITH silver_rows AS (
   SELECT
@@ -176,18 +167,18 @@ trade_adj_factor AS (
     CAST(adj_factor AS DOUBLE) AS trade_adj_factor
   FROM {trade_adj_source}
 ),
-latest_adj_factor AS (
-  {latest_adj_sql}
+as_of_adj_factor AS (
+  {as_of_adj_sql}
 )
 SELECT
   silver_rows.ts_code,
   silver_rows.freq,
   silver_rows.trade_date,
   silver_rows.trade_time,
-  CAST(silver_rows.open * trade_adj_factor.trade_adj_factor / latest_adj_factor.latest_adj_factor AS DOUBLE) AS open,
-  CAST(silver_rows.high * trade_adj_factor.trade_adj_factor / latest_adj_factor.latest_adj_factor AS DOUBLE) AS high,
-  CAST(silver_rows.low * trade_adj_factor.trade_adj_factor / latest_adj_factor.latest_adj_factor AS DOUBLE) AS low,
-  CAST(silver_rows.close * trade_adj_factor.trade_adj_factor / latest_adj_factor.latest_adj_factor AS DOUBLE) AS close,
+  CAST(silver_rows.open * trade_adj_factor.trade_adj_factor / as_of_adj_factor.as_of_adj_factor AS DOUBLE) AS open,
+  CAST(silver_rows.high * trade_adj_factor.trade_adj_factor / as_of_adj_factor.as_of_adj_factor AS DOUBLE) AS high,
+  CAST(silver_rows.low * trade_adj_factor.trade_adj_factor / as_of_adj_factor.as_of_adj_factor AS DOUBLE) AS low,
+  CAST(silver_rows.close * trade_adj_factor.trade_adj_factor / as_of_adj_factor.as_of_adj_factor AS DOUBLE) AS close,
   silver_rows.vol,
   silver_rows.amount,
   silver_rows.exchange
@@ -195,10 +186,10 @@ FROM silver_rows
 INNER JOIN trade_adj_factor
   ON silver_rows.ts_code = trade_adj_factor.ts_code
  AND silver_rows.trade_date = trade_adj_factor.trade_date
-INNER JOIN latest_adj_factor
-  ON silver_rows.ts_code = latest_adj_factor.ts_code
+INNER JOIN as_of_adj_factor
+  ON silver_rows.ts_code = as_of_adj_factor.ts_code
 WHERE trade_adj_factor.trade_adj_factor IS NOT NULL
-  AND latest_adj_factor.latest_adj_factor IS NOT NULL
+  AND as_of_adj_factor.as_of_adj_factor IS NOT NULL
 ORDER BY silver_rows.ts_code, silver_rows.trade_time
 """
 
@@ -207,11 +198,11 @@ def build_daily_qfq_coverage_sql(
     *,
     silver_paths: Sequence[Path],
     trade_adj_factor_paths: Sequence[Path],
-    latest_adj_factor_paths: Sequence[Path],
+    as_of_adj_factor_paths: Sequence[Path],
 ) -> str:
     silver_source = _read_parquet_paths(silver_paths)
     trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
-    latest_adj_sql = build_latest_adj_factor_by_code_sql(latest_adj_factor_paths)
+    as_of_adj_sql = build_as_of_adj_factor_by_code_sql(as_of_adj_factor_paths)
     return f"""
 WITH silver_rows AS (
   SELECT
@@ -226,29 +217,29 @@ trade_adj_factor AS (
     CAST(adj_factor AS DOUBLE) AS trade_adj_factor
   FROM {trade_adj_source}
 ),
-latest_adj_factor AS (
-  {latest_adj_sql}
+as_of_adj_factor AS (
+  {as_of_adj_sql}
 ),
 joined_rows AS (
   SELECT
     silver_rows.ts_code,
     silver_rows.trade_date,
     trade_adj_factor.trade_adj_factor,
-    latest_adj_factor.latest_adj_factor
+    as_of_adj_factor.as_of_adj_factor
   FROM silver_rows
   LEFT JOIN trade_adj_factor
     ON silver_rows.ts_code = trade_adj_factor.ts_code
    AND silver_rows.trade_date = trade_adj_factor.trade_date
-  LEFT JOIN latest_adj_factor
-    ON silver_rows.ts_code = latest_adj_factor.ts_code
+  LEFT JOIN as_of_adj_factor
+    ON silver_rows.ts_code = as_of_adj_factor.ts_code
 )
 SELECT
   count(*) AS silver_row_count,
   count(*) FILTER (
-    WHERE trade_adj_factor IS NOT NULL AND latest_adj_factor IS NOT NULL
+    WHERE trade_adj_factor IS NOT NULL AND as_of_adj_factor IS NOT NULL
   ) AS qfq_output_row_count,
   count(*) FILTER (WHERE trade_adj_factor IS NULL) AS missing_trade_adj_factor_row_count,
-  count(*) FILTER (WHERE latest_adj_factor IS NULL) AS missing_latest_adj_factor_row_count
+  count(*) FILTER (WHERE as_of_adj_factor IS NULL) AS missing_as_of_adj_factor_row_count
 FROM joined_rows
 """
 
