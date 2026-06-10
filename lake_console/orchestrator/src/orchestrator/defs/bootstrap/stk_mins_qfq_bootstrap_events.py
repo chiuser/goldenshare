@@ -241,6 +241,10 @@ def report_stk_mins_qfq_bootstrap_events(
                 year=batch.year,
                 partition_keys=tuple(pending_keys),
             ),
+            as_of_trade_date=_bootstrap_batch_as_of_trade_date(
+                batch,
+                registered_partition_keys,
+            ),
         )
         failed_audits = tuple(audit for audit in batch_audits if not audit.passed)
         if failed_audits:
@@ -334,6 +338,7 @@ def audit_stk_mins_qfq_bootstrap_batch(
     lake_root: Path,
     duckdb: DuckDBResource,
     batch: StkMinsQfqHistoryBatch,
+    as_of_trade_date: str | None = None,
 ) -> tuple[StkMinsQfqBootstrapPartitionAudit, ...]:
     """Audit one freq/year batch once, then fan out per-date check results."""
 
@@ -346,8 +351,8 @@ def audit_stk_mins_qfq_bootstrap_batch(
     ).parents[2]
     silver_paths = _silver_paths_for_batch(lake_root, batch)
     trade_adj_paths = _trade_adj_factor_paths_for_keys(lake_root, batch.partition_keys)
-    as_of_trade_date = batch.partition_keys[-1]
-    as_of_adj_path = silver_adj_factor_path(lake_root, as_of_trade_date)
+    normalized_as_of_trade_date = as_of_trade_date or batch.partition_keys[-1]
+    as_of_adj_path = silver_adj_factor_path(lake_root, normalized_as_of_trade_date)
 
     with connect_configured_duckdb() as connection:
         expected_paths_by_date = _expected_gold_paths_by_date(
@@ -475,6 +480,20 @@ def audit_stk_mins_qfq_bootstrap_batch(
             )
         )
     return tuple(audits)
+
+
+def _bootstrap_batch_as_of_trade_date(
+    batch: StkMinsQfqHistoryBatch,
+    registered_partition_keys: Sequence[str],
+) -> str:
+    same_year_registered_keys = tuple(
+        partition_key
+        for partition_key in sorted({str(key).strip() for key in registered_partition_keys})
+        if partition_key.startswith(batch.year)
+    )
+    if same_year_registered_keys:
+        return same_year_registered_keys[-1]
+    return batch.partition_keys[-1]
 
 
 def _expected_gold_paths_by_date(
@@ -968,10 +987,38 @@ def _gold_qfq_partition_ready(
     return status.ready
 
 
+def report_stk_mins_qfq_partition_events(
+    *,
+    instance: dg.DagsterInstance,
+    audit: StkMinsQfqBootstrapPartitionAudit,
+    source_method: str = "stk_mins_qfq_history_generation",
+    extra_metadata: Mapping[str, object] | None = None,
+) -> int:
+    return _report_stk_mins_qfq_partition_events(
+        instance,
+        audit,
+        source_method=source_method,
+        extra_metadata=extra_metadata,
+    )
+
+
 def _report_stk_mins_qfq_partition_events(
     instance: dg.DagsterInstance,
     audit: StkMinsQfqBootstrapPartitionAudit,
+    *,
+    source_method: str = "stk_mins_qfq_history_generation",
+    extra_metadata: Mapping[str, object] | None = None,
 ) -> int:
+    materialization_extra_metadata = {
+        "source_method": source_method,
+        "bootstrap_event_backfill": True,
+        "freq": audit.freq,
+        "partition_key": audit.partition_key,
+        "expected_file_count": audit.expected_file_count,
+        "existing_file_count": audit.existing_file_count,
+    }
+    if extra_metadata:
+        materialization_extra_metadata.update(extra_metadata)
     instance.report_runless_asset_event(
         dg.AssetMaterialization(
             asset_key=audit.asset_key,
@@ -980,14 +1027,7 @@ def _report_stk_mins_qfq_partition_events(
                 uri=audit.output_root_path,
                 row_count=audit.row_count,
                 observed_columns=audit.observed_columns,
-                extra_metadata={
-                    "source_method": "stk_mins_qfq_history_generation",
-                    "bootstrap_event_backfill": True,
-                    "freq": audit.freq,
-                    "partition_key": audit.partition_key,
-                    "expected_file_count": audit.expected_file_count,
-                    "existing_file_count": audit.existing_file_count,
-                },
+                extra_metadata=materialization_extra_metadata,
             ),
         )
     )

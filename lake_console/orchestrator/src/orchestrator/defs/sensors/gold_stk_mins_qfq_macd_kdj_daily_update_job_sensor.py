@@ -7,9 +7,9 @@ from typing import Any
 import dagster as dg
 from dagster._core.storage.dagster_run import RunsFilter
 
-from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-    GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
-    gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status,
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
+    gold_stk_mins_qfq_factor_repair_status,
 )
 from orchestrator.defs.checks.stk_mins_qfq_macd_kdj_checks import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES,
@@ -167,7 +167,7 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
     target_trade_date: str | None,
     previous_trade_date: str | None,
     qfq_daily_succeeded: bool,
-    qfq_factor_repair_status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus | None,
+    qfq_factor_repair_status: GoldStkMinsQfqFactorRepairStatus | None,
     qfq_ready: bool,
     previous_state_ready: bool,
     target_ready: bool,
@@ -256,7 +256,7 @@ def _evaluate_daily_run_status_decision(
     target_trade_date: str,
 ) -> tuple[
     GoldStkMinsQfqMacdKdjDailyRunStatusDecision,
-    GoldStkMinsQfqMacdKdjDailyRepairGateStatus | None,
+    GoldStkMinsQfqFactorRepairStatus | None,
 ]:
     registered_trade_days = tuple(
         sorted(
@@ -287,7 +287,7 @@ def _evaluate_daily_run_status_decision(
     target_ready = False
     target_has_materialized_check_problem = False
     if qfq_daily_succeeded and qfq_factor_repair_succeeded:
-        qfq_factor_repair_status = gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status(
+        qfq_factor_repair_status = gold_stk_mins_qfq_factor_repair_status(
             context.instance,
             target_trade_date,
         )

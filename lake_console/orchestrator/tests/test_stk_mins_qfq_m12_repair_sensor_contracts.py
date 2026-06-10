@@ -2,8 +2,8 @@ import unittest
 
 import dagster as dg
 
-from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-    GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
 )
 from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor import (
     _run_request_for_repair_decision,
@@ -23,14 +23,14 @@ def _qfq_status(
     code_count: int,
     truncated: bool = False,
     codes: tuple[str, ...] | None = None,
-) -> GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
+) -> GoldStkMinsQfqFactorRepairStatus:
     if codes is None:
         codes = tuple(f"{index:06d}.SZ" for index in range(code_count))
-    return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
+    return GoldStkMinsQfqFactorRepairStatus(
         ready=True,
         trade_date=TRADE_DATE,
         reason="ready",
-        requires_macd_kdj_repair=requires_macd_kdj_repair,
+        repair_required=requires_macd_kdj_repair,
         qfq_factor_repair_event_storage_ids=(101, 102, 103, 104, 105, 106, 107),
         repair_start_trade_date=REPAIR_START_DATE,
         repair_end_trade_date=TRADE_DATE,
@@ -39,6 +39,8 @@ def _qfq_status(
         repair_required_codes=codes,
         repair_required_codes_hash=REPAIR_CODES_HASH,
         repair_required_codes_truncated=truncated,
+        rewritten_file_count=1 if requires_macd_kdj_repair else 0,
+        rewritten_row_count=10 if requires_macd_kdj_repair else 0,
     )
 
 

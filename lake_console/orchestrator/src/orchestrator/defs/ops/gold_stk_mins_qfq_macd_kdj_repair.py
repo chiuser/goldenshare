@@ -2,9 +2,9 @@ from datetime import date
 
 import dagster as dg
 
-from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-    GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
-    gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status,
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
+    gold_stk_mins_qfq_factor_repair_status,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
@@ -12,8 +12,9 @@ from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_FREQS,
     normalize_stk_mins_qfq_freq,
 )
-from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
 from orchestrator.defs.stk_mins_qfq import (
+    GOLD_STK_MINS_QFQ_WRITER_POOL,
+    QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT,
     gold_stk_mins_qfq_factor_repair_codes_hash,
 )
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
@@ -146,19 +147,19 @@ def _repair_completion_asset_keys() -> tuple[dg.AssetKey, ...]:
 
 
 def _repair_scope_from_qfq_factor_repair_status(
-    status: GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
+    status: GoldStkMinsQfqFactorRepairStatus,
 ) -> tuple[str, tuple[str, ...], str, tuple[int, ...]]:
     if not status.ready:
         raise dg.Failure(
             "MACD/KDJ repair could not read ready qfq factor repair metadata: "
             f"trade_date={status.trade_date}, reason={status.reason}."
         )
-    if not status.requires_macd_kdj_repair:
+    if not status.rewrote_history:
         raise dg.Failure(
             "MACD/KDJ repair is not required for qfq factor repair trade_date: "
             f"trade_date={status.trade_date}, reason={status.reason}."
         )
-    if not status.automatic_macd_kdj_repair_allowed:
+    if not _automatic_macd_kdj_repair_allowed(status):
         raise dg.Failure(
             "MACD/KDJ repair cannot derive scoped stock_codes from qfq factor repair "
             "metadata: affected codes exceed the automatic limit or metadata is "
@@ -181,6 +182,20 @@ def _repair_scope_from_qfq_factor_repair_status(
         status.repair_required_codes,
         status.repair_required_codes_hash,
         status.qfq_factor_repair_event_storage_ids,
+    )
+
+
+def _automatic_macd_kdj_repair_allowed(
+    status: GoldStkMinsQfqFactorRepairStatus,
+) -> bool:
+    return (
+        status.rewrote_history
+        and 0
+        < status.repair_required_code_count
+        <= QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT
+        and not status.repair_required_codes_truncated
+        and len(status.repair_required_codes) == status.repair_required_code_count
+        and status.repair_required_codes_hash is not None
     )
 
 
@@ -264,7 +279,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         )
     )
     if qfq_factor_repair_trade_date is not None:
-        qfq_factor_repair_status = gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status(
+        qfq_factor_repair_status = gold_stk_mins_qfq_factor_repair_status(
             context.instance,
             qfq_factor_repair_trade_date,
         )

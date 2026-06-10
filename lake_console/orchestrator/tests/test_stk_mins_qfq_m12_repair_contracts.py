@@ -8,8 +8,8 @@ import dagster as dg
 from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_repair import (
     gold_stk_mins_qfq_macd_kdj_repair_job,
 )
-from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
-    GoldStkMinsQfqMacdKdjDailyRepairGateStatus,
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
 )
 from orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair import (
     MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR,
@@ -56,15 +56,15 @@ def _state_result(freq: int) -> GoldStkMinsQfqMacdKdjStateWriteResult:
 def _ready_qfq_factor_repair_status(
     *,
     stock_codes: tuple[str, ...] = ("600000.SH",),
-) -> GoldStkMinsQfqMacdKdjDailyRepairGateStatus:
-    return GoldStkMinsQfqMacdKdjDailyRepairGateStatus(
+) -> GoldStkMinsQfqFactorRepairStatus:
+    return GoldStkMinsQfqFactorRepairStatus(
         ready=True,
         trade_date=QFQ_FACTOR_REPAIR_DATE,
         reason=(
             "qfq factor repair rewrote history; "
             "MACD/KDJ repair completion is required."
         ),
-        requires_macd_kdj_repair=True,
+        repair_required=True,
         qfq_factor_repair_event_storage_ids=(101, 102),
         repair_start_trade_date=START_DATE,
         repair_end_trade_date=QFQ_FACTOR_REPAIR_DATE,
@@ -75,6 +75,8 @@ def _ready_qfq_factor_repair_status(
             stock_codes
         ),
         repair_required_codes_truncated=False,
+        rewritten_file_count=1,
+        rewritten_row_count=10,
     )
 
 
@@ -148,7 +150,7 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
             with (
                 patch(
                     "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
-                    "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status",
+                    "gold_stk_mins_qfq_factor_repair_status",
                     return_value=_ready_qfq_factor_repair_status(),
                 ),
                 patch(
@@ -231,7 +233,7 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
             with (
                 patch(
                     "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
-                    "gold_stk_mins_qfq_macd_kdj_qfq_factor_repair_status",
+                    "gold_stk_mins_qfq_factor_repair_status",
                     return_value=_ready_qfq_factor_repair_status(),
                 ),
                 patch(

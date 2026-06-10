@@ -1209,7 +1209,7 @@ ops:
       M11F 已实现并执行 90/120 历史直写补录与 runless event 专用 CLI；M11G 已将年度 event 补录后的复核修正为 quick audit，并已完成最终 full audit 收口：90/120 各 <code>3019</code> 个 materialized partitions，16 个 derived checks 均为 <code>3019</code> 绿，目标 stock-year 文件 <code>105701/105701</code> 存在，样本 readiness 全部通过。后续如需重跑或修正，仍必须按 <code>Direct Lake Bootstrap + Runless Event Backfill</code> 的 dry-run、sample、full file generation、event report、quick audit、final full audit 流程单独审批推进，禁止每年重复 full audit 扫描持续变大的 check event history。
       M11 90/120 独立方案已并入本节作为长期主口径，不再单独维护平行设计文档。
       M9C/M11 的 <code>stock_mins_qfq_factor_repair_job</code> 是经确认的维护型 op job：不新增 summary asset，不把 repair 伪装成普通 asset selection；repair check event 挂到七个 <code>gold_stk_mins_qfq_*</code> assets 上。该 sensor 在代码 definition 中仍为默认 <code>STOPPED</code>，但正式 Dagster instance 已由用户人工启用；后续手动执行 repair run、调整启停或变更触发策略仍需单独审批。
-      M12L 已确认但代码待落地：<code>stock_mins_qfq_factor_repair_job</code> 仍只负责重写 qfq 文件和写 repair check；受影响历史范围的普通 qfq materialization/check events 不内联到 factor repair，而是通过独立 qfq repair event/check reconciliation 入口分批补齐。M12 daily 当前日门禁只认同日 qfq daily 成功与同日 factor repair 成功，普通 qfq event 全历史补齐是 repair 后收口任务，不阻塞当天 MACD/KDJ daily。禁止通过重跑 <code>stock_mins_qfq_daily_update_job</code> 代替 reconciliation。
+      M12L 已落地：<code>stock_mins_qfq_factor_repair_job</code> 仍只负责重写 qfq 文件和写 repair check；受影响历史范围的普通 qfq materialization/check events 不内联到 factor repair，而是通过独立 qfq repair event/check reconciliation 入口分批补齐。M12 daily 当前日门禁只认同日 qfq daily 成功与同日 factor repair 成功，普通 qfq event 全历史补齐是 repair 后收口任务，不阻塞当天 MACD/KDJ daily。禁止通过重跑 <code>stock_mins_qfq_daily_update_job</code> 代替 reconciliation。
       任何新的正式写湖、Dagster job、sensor、backfill、repair 或 event 补录动作仍需单独审批。
     </p>
     <div class="warning">
@@ -1391,6 +1391,11 @@ ops:
         <td>完成记录</td>
         <td>不新增 <code>gold_stk_mins_qfq_factor_repair_summary</code>。repair job 成功、跳过或失败原因写入正式 repair check metadata。</td>
         <td>避免把“运行状态说明”升级成长期业务资产；状态事实由 run、check result 和 metadata 承载即可。</td>
+      </tr>
+      <tr>
+        <td>普通 qfq event reconciliation</td>
+        <td>factor repair 若重写历史 qfq 文件，不在同一个 repair run 内补普通 qfq materialization/check events；后续由 <code>gold_stk_mins_qfq_repair_event_reconciliation_job</code> 独立按 <code>freq/year</code> 或 <code>year/freq</code> 分批补齐。</td>
+        <td>reconciliation 只补 Dagster event log 观测事实，不重算、不重写 qfq parquet 文件。每个 affected 普通 qfq asset-partition 必须先补 <code>AssetMaterialization</code>，再把 8 个普通 blocking checks 通过 <code>target_materialization_data</code> 绑定到该 materialization；幂等依据必须包含本次 qfq repair check event storage ids 与 <code>repair_required_codes_hash</code>，不能只看旧 ready 状态。</td>
       </tr>
     </table>
     <div class="warning">
@@ -1717,7 +1722,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M12</strong></td>
         <td>MACD/KDJ qfq 指标资产设计</td>
         <td>已新增专项设计文档：<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>；代码口径已落地到 definitions、Catalog、checks、daily job/sensor、repair job/op、历史直写与 baseline event CLI。本基础文档不承载指标资产实现细节。</td>
-        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>。历史文件已完成全量直写并通过 full file audit；<code>2026-06-05</code> baseline cutoff 已写入 <code>56</code> 条 runless events，quick final audit 确认 14 个 indicator/state asset-partition 全部 ready。M12J 已落地：MACD/KDJ daily 由 run-status sensor 等同日 qfq daily 与 qfq factor repair 都成功后触发；若 qfq repair 改写历史，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 按 affected codes 自动触发 scoped repair，最终指标收口仍看 M12 repair completion event。M12L 已确认但代码待落地：普通 qfq materialization/check event reconciliation 是 repair 后收口任务，不阻塞当天 MACD/KDJ daily。当前待收口项是 baseline event CLI 单分区硬门禁、M12L reconciliation 入口和正式 sensor 启用确认。</td>
+        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>。历史文件已完成全量直写并通过 full file audit；<code>2026-06-05</code> baseline cutoff 已写入 <code>56</code> 条 runless events，quick final audit 确认 14 个 indicator/state asset-partition 全部 ready。M12J 已落地：MACD/KDJ daily 由 run-status sensor 等同日 qfq daily 与 qfq factor repair 都成功后触发；若 qfq repair 改写历史，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 按 affected codes 自动触发 scoped repair，最终指标收口仍看 M12 repair completion event。M12L 已落地：普通 qfq materialization/check event reconciliation 是 repair 后收口任务，不阻塞当天 MACD/KDJ daily。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。</td>
       </tr>
     </table>
   </section>
@@ -1732,7 +1737,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_daily_sensor</code>：它只在 20:10 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
       M9B 已实现 factor repair detection 与 check metadata 契约。
       M9C/M11 已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 20:40 后只在当日七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
-      M12J 已落地修复：<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 不能只等待 qfq 七频度 ready 和上一交易日 state ready；它必须等同日 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_factor_repair_job</code> 都成功。若 qfq repair metadata 显示历史 qfq 被重写，MACD/KDJ daily 先作为受控 pending-repair run 执行，随后由 <code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 按 affected codes 自动触发 scoped repair；最终指标收口仍以 M12 repair completion event 为准。M12L 已确认但代码待落地：普通 qfq materialization/check event reconciliation 另起入口，不阻塞当天 M12 daily，也不得通过重跑 qfq daily 替代。
+      M12J 已落地修复：<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 不能只等待 qfq 七频度 ready 和上一交易日 state ready；它必须等同日 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_factor_repair_job</code> 都成功。若 qfq repair metadata 显示历史 qfq 被重写，MACD/KDJ daily 先作为受控 pending-repair run 执行，随后由 <code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 按 affected codes 自动触发 scoped repair；最终指标收口仍以 M12 repair completion event 为准。M12L 已落地：普通 qfq materialization/check event reconciliation 另起入口，不阻塞当天 M12 daily，也不得通过重跑 qfq daily 替代。
       P0-1 并发保护已完成：七个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
       P0-3 DuckDB 连接治理已落地：正式分钟线 / qfq / history event / repair 路径统一走 <code>DuckDBResource</code> 或统一连接 helper，默认参数为 <code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>、<code>max_temp_directory_size=512GB</code>、<code>memory_limit=16GB</code>、<code>threads=4</code>、<code>preserve_insertion_order=false</code>；正式 <code>defs/**</code> 路径禁止直接 <code>duckdb.connect()</code>，并已由静态门禁保护。
     </p>
@@ -1826,7 +1831,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr>
         <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code></td>
         <td>run-status coordination 触发七频度 MACD/KDJ indicator/state 日常更新。</td>
-        <td>M12J 已修复：该 sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。无历史重写时可继续使用上一交易日 state；有历史重写时 daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。M12L 已确认但代码待落地：该 sensor 不等待 repair 涉及范围的普通 qfq materialization/check event reconciliation。asset 写入函数也使用同一写前 guard，防止人工 run 绕过 sensor。</td>
+        <td>M12J 已修复：该 sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。无历史重写时可继续使用上一交易日 state；有历史重写时 daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。M12L 已落地：该 sensor 不等待 repair 涉及范围的普通 qfq materialization/check event reconciliation。asset 写入函数也使用同一写前 guard，防止人工 run 绕过 sensor。</td>
       </tr>
     </table>
   </section>
@@ -2112,6 +2117,10 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td>历史批量补录 event 过慢</td>
         <td>必须用聚合审计和样本 readiness，不允许上千分区逐个深扫 event history。</td>
       </tr>
+      <tr>
+        <td>repair 后 qfq 文件事实与普通 Dagster asset event 事实不一致</td>
+        <td>factor repair 只负责文件重写和 <code>gold_stk_mins_qfq_factor_repair_plan_evaluated</code> repair check；普通 qfq materialization/check event 补齐必须由独立 reconciliation 入口完成。该入口使用本次 repair check metadata 中的 scope 和 event storage ids 做幂等与追溯，不得重跑 qfq daily、不得扫描 gold 文件时间戳猜测 affected partitions、不得把 reconciliation 未完成作为当天 M12 daily 的阻塞条件。</td>
+      </tr>
     </table>
   </section>
 
@@ -2137,6 +2146,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <li>确认不新增 <code>gold_stk_mins_qfq_daily_summary</code> 或 <code>gold_stk_mins_qfq_factor_repair_summary</code>；repair 原因和数量写入 check metadata。</li>
       <li>确认 qfq 分母基准来自显式 as-of 因子：daily 使用 <code>silver_adj_factor[target_trade_date]</code>，repair 使用 run config <code>trade_date</code> 对应的 <code>silver_adj_factor[trade_date]</code>；禁止执行时扫描所有因子分区取最新。</li>
       <li>确认不新增 <code>silver_adj_factor_latest</code>、<code>silver_adj_factor_basis_snapshot</code> 或其它复权基准快照资产。</li>
+      <li>确认 repair 后普通 qfq event reconciliation 是独立收口入口：factor repair run 不内联补普通 qfq materialization/check；不通过重跑 <code>stock_mins_qfq_daily_update_job</code> 补 event；reconciliation 幂等必须绑定本次 repair check event storage ids 与 code hash。</li>
       <li>确认日常写入和 repair 写入的并发保护：同一 <code>freq/ts_code/year</code> 文件不能被多个 run 并发写。正式 Dagster 入口必须使用统一 <code>gold_stk_mins_qfq_writer</code> concurrency pool；<code>in_process_executor</code> 只保证单 run 内顺序，不能替代跨 run 互斥。</li>
       <li>确认历史 gold baseline 文件生成采用串行或等价互斥保护，同一 <code>freq/ts_code/year</code> 文件不能被多个命令任务同时写。</li>
       <li>确认日常 sensor 门禁只使用目标日期 readiness，不允许复制历史批量逐分区深扫模式；qfq daily/repair sensor 必须按 10.1 使用专用 check key 批量 latest-check readiness，并用 target materialization storage_id 绑定目标日期，不得在稳定态逐 check 扫 history。</li>

@@ -845,11 +845,40 @@ def _gold_qfq_derived_partition_ready(
     return status.ready
 
 
+def report_stk_mins_qfq_derived_partition_events(
+    *,
+    instance: dg.DagsterInstance,
+    audit: StkMinsQfqBootstrapPartitionAudit,
+    source_method: str = "stk_mins_qfq_derived_history_generation",
+    extra_metadata: Mapping[str, object] | None = None,
+) -> int:
+    return _report_stk_mins_qfq_derived_partition_events(
+        instance,
+        audit,
+        source_method=source_method,
+        extra_metadata=extra_metadata,
+    )
+
+
 def _report_stk_mins_qfq_derived_partition_events(
     instance: dg.DagsterInstance,
     audit: StkMinsQfqBootstrapPartitionAudit,
+    *,
+    source_method: str = "stk_mins_qfq_derived_history_generation",
+    extra_metadata: Mapping[str, object] | None = None,
 ) -> int:
     source_freq = qfq_source_freq_for_derived_freq(audit.freq)
+    materialization_extra_metadata = {
+        "source_method": source_method,
+        "bootstrap_event_backfill": True,
+        "freq": audit.freq,
+        "source_freq": source_freq,
+        "partition_key": audit.partition_key,
+        "expected_file_count": audit.expected_file_count,
+        "existing_file_count": audit.existing_file_count,
+    }
+    if extra_metadata:
+        materialization_extra_metadata.update(extra_metadata)
     instance.report_runless_asset_event(
         dg.AssetMaterialization(
             asset_key=audit.asset_key,
@@ -858,15 +887,7 @@ def _report_stk_mins_qfq_derived_partition_events(
                 uri=audit.output_root_path,
                 row_count=audit.row_count,
                 observed_columns=audit.observed_columns,
-                extra_metadata={
-                    "source_method": "stk_mins_qfq_derived_history_generation",
-                    "bootstrap_event_backfill": True,
-                    "freq": audit.freq,
-                    "source_freq": source_freq,
-                    "partition_key": audit.partition_key,
-                    "expected_file_count": audit.expected_file_count,
-                    "existing_file_count": audit.existing_file_count,
-                },
+                extra_metadata=materialization_extra_metadata,
             ),
         )
     )
