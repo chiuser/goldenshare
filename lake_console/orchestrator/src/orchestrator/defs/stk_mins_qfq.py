@@ -14,6 +14,7 @@ from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, r
 from orchestrator.defs.paths import gold_stk_mins_qfq_path
 from orchestrator.defs.run_contracts.asset_column_schemas import GOLD_STK_MINS_QFQ_SCHEMA
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
+from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_QFQ_DERIVED_FREQS,
     normalize_stk_mins_qfq_freq,
@@ -602,6 +603,7 @@ def build_gold_stk_mins_qfq_factor_repair_plan(
 def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     plan: GoldStkMinsQfqFactorRepairPlan,
     *,
+    producer_run_id: str,
     repair_start_trade_date: str | None = None,
     repair_end_trade_date: str | None = None,
     selected_partition_count: int = 0,
@@ -624,6 +626,9 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     derived_repaired_code_count: int = 0,
     derived_failed_code_count: int = 0,
 ) -> dict[str, Any]:
+    if not isinstance(producer_run_id, str) or producer_run_id.strip() == "":
+        raise ValueError("producer_run_id must be a non-empty string.")
+    producer_run_id = producer_run_id.strip()
     for name, value in (
         ("repaired_code_count", repaired_code_count),
         ("skipped_code_count", skipped_code_count),
@@ -656,6 +661,17 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
     repair_required_codes_truncated = (
         len(repair_required_codes) > QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT
     )
+    repair_required_codes_hash = gold_stk_mins_qfq_factor_repair_codes_hash(
+        repair_required_codes
+    )
+    upstream_batch_id = build_batch_id(
+        producer="qfq_factor_repair",
+        scope=plan.trade_date,
+        payload={
+            "producer_run_id": producer_run_id,
+            "repair_required_codes_hash": repair_required_codes_hash,
+        },
+    )
     return build_check_metadata(
         check_scope=CheckScope.RECONCILIATION,
         checked_row_count=plan.detected_change_code_count,
@@ -665,6 +681,8 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
             + derived_failed_code_count
         ),
         extra_metadata={
+            "producer_run_id": producer_run_id,
+            "upstream_batch_id": upstream_batch_id,
             "reason": plan.reason,
             "trade_date": plan.trade_date,
             "previous_trade_date": plan.previous_trade_date,
@@ -700,9 +718,7 @@ def build_gold_stk_mins_qfq_factor_repair_check_metadata(
                 if repair_required_codes_truncated
                 else list(repair_required_codes)
             ),
-            "repair_required_codes_hash": (
-                gold_stk_mins_qfq_factor_repair_codes_hash(repair_required_codes)
-            ),
+            "repair_required_codes_hash": repair_required_codes_hash,
             "repair_required_codes_truncated": repair_required_codes_truncated,
             "factor_changed_code_count": plan.factor_changed_code_count,
             "new_current_code_count": plan.new_current_code_count,

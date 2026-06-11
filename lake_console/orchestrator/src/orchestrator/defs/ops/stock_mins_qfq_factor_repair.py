@@ -66,6 +66,7 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
     )
     metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(
         report.plan,
+        producer_run_id=context.run_id,
         repair_start_trade_date=report.repair_start_trade_date,
         repair_end_trade_date=report.repair_end_trade_date,
         selected_partition_count=report.selected_partition_count,

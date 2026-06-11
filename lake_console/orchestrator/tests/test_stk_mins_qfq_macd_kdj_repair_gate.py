@@ -6,9 +6,13 @@ from dagster._core.storage.asset_check_execution_record import (
     AssetCheckExecutionRecordStatus,
 )
 
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    gold_stk_mins_qfq_factor_repair_status,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
     gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status,
 )
+from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
@@ -24,6 +28,7 @@ REPAIR_START_DATE = "2014-01-02"
 REPAIR_CODES = ("000001.SZ", "600000.SH", "600001.SH")
 REPAIR_CODES_HASH = gold_stk_mins_qfq_factor_repair_codes_hash(REPAIR_CODES)
 QFQ_EVENT_STORAGE_IDS = tuple(100 + index for index in range(len(STK_MINS_QFQ_FREQS)))
+PRODUCER_RUN_ID = "qfq-factor-repair-run-1"
 
 
 class _FakeEventLogStorage:
@@ -61,7 +66,7 @@ def _qfq_asset_keys() -> tuple[dg.AssetKey, ...]:
     return tuple(dg.AssetKey(f"gold_stk_mins_qfq_{freq}m") for freq in STK_MINS_QFQ_FREQS)
 
 
-def _m12_asset_keys() -> tuple[dg.AssetKey, ...]:
+def _macd_kdj_asset_keys() -> tuple[dg.AssetKey, ...]:
     return tuple(
         dg.AssetKey(f"gold_stk_mins_qfq_macd_kdj_{freq}m")
         for freq in STK_MINS_QFQ_FREQS
@@ -98,15 +103,25 @@ def _record(
 
 
 def _qfq_metadata(*, rewrote_history: bool) -> dict[str, object]:
+    repair_required_codes_hash = (
+        REPAIR_CODES_HASH
+        if rewrote_history
+        else gold_stk_mins_qfq_factor_repair_codes_hash(())
+    )
     return {
+        "producer_run_id": PRODUCER_RUN_ID,
+        "upstream_batch_id": build_batch_id(
+            producer="qfq_factor_repair",
+            scope=TRADE_DATE,
+            payload={
+                "producer_run_id": PRODUCER_RUN_ID,
+                "repair_required_codes_hash": repair_required_codes_hash,
+            },
+        ),
         "repair_required": rewrote_history,
         "repair_required_code_count": 3 if rewrote_history else 0,
         "repair_required_codes": list(REPAIR_CODES) if rewrote_history else [],
-        "repair_required_codes_hash": (
-            REPAIR_CODES_HASH
-            if rewrote_history
-            else gold_stk_mins_qfq_factor_repair_codes_hash(())
-        ),
+        "repair_required_codes_hash": repair_required_codes_hash,
         "repair_required_codes_truncated": False,
         "repair_start_trade_date": REPAIR_START_DATE,
         "repair_end_trade_date": TRADE_DATE,
@@ -119,7 +134,7 @@ def _qfq_metadata(*, rewrote_history: bool) -> dict[str, object]:
     }
 
 
-def _m12_metadata(
+def _macd_kdj_metadata(
     *,
     covered_start_trade_date: str = REPAIR_START_DATE,
     covered_end_trade_date: str = TRADE_DATE,
@@ -155,7 +170,11 @@ def _qfq_records(*, rewrote_history: bool, partition: str = TRADE_DATE):
     }
 
 
-def _m12_records(*, storage_start: int = 200, metadata: dict[str, object] | None = None):
+def _macd_kdj_records(
+    *,
+    storage_start: int = 200,
+    metadata: dict[str, object] | None = None,
+):
     return {
         _check_key(
             asset_key,
@@ -163,14 +182,88 @@ def _m12_records(*, storage_start: int = 200, metadata: dict[str, object] | None
         ): _record(
             storage_id=storage_start + index,
             partition=REPAIR_START_DATE,
-            metadata=metadata or _m12_metadata(),
+            metadata=metadata or _macd_kdj_metadata(),
         )
-        for index, asset_key in enumerate(_m12_asset_keys())
+        for index, asset_key in enumerate(_macd_kdj_asset_keys())
     }
 
 
-class StkMinsQfqM12RepairGateTests(unittest.TestCase):
-    def test_qfq_repair_without_history_rewrite_is_ready_without_m12_completion(self):
+class StkMinsQfqMacdKdjRepairGateTests(unittest.TestCase):
+    def test_qfq_factor_repair_status_exposes_upstream_batch_identity(self):
+        instance = _FakeInstance(_qfq_records(rewrote_history=True))
+
+        status = gold_stk_mins_qfq_factor_repair_status(instance, TRADE_DATE)
+
+        self.assertTrue(status.ready)
+        self.assertEqual(status.producer_run_id, PRODUCER_RUN_ID)
+        self.assertEqual(
+            status.upstream_batch_id,
+            build_batch_id(
+                producer="qfq_factor_repair",
+                scope=TRADE_DATE,
+                payload={
+                    "producer_run_id": PRODUCER_RUN_ID,
+                    "repair_required_codes_hash": REPAIR_CODES_HASH,
+                },
+            ),
+        )
+        self.assertEqual(
+            status.to_payload()["upstream_batch_id"],
+            status.upstream_batch_id,
+        )
+
+    def test_qfq_factor_repair_status_rejects_inconsistent_batch_identity(self):
+        for field, value in (
+            ("producer_run_id", "qfq-factor-repair-run-2"),
+            ("upstream_batch_id", "qfq_factor_repair:2026-06-05:badbadbadbad"),
+        ):
+            with self.subTest(field=field):
+                records = dict(_qfq_records(rewrote_history=True))
+                first_asset_key = _qfq_asset_keys()[0]
+                inconsistent_metadata = _qfq_metadata(rewrote_history=True)
+                inconsistent_metadata[field] = value
+                records[
+                    _check_key(
+                        first_asset_key,
+                        GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+                    )
+                ] = _record(
+                    storage_id=99,
+                    partition=TRADE_DATE,
+                    metadata=inconsistent_metadata,
+                )
+                instance = _FakeInstance(records)
+
+                status = gold_stk_mins_qfq_factor_repair_status(instance, TRADE_DATE)
+
+                self.assertFalse(status.ready)
+                self.assertIn("batch or code scope", status.reason)
+
+    def test_qfq_factor_repair_status_rejects_missing_batch_identity(self):
+        records = dict(_qfq_records(rewrote_history=True))
+        first_asset_key = _qfq_asset_keys()[0]
+        incomplete_metadata = _qfq_metadata(rewrote_history=True)
+        incomplete_metadata.pop("upstream_batch_id")
+        records[
+            _check_key(
+                first_asset_key,
+                GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
+            )
+        ] = _record(
+            storage_id=99,
+            partition=TRADE_DATE,
+            metadata=incomplete_metadata,
+        )
+        instance = _FakeInstance(records)
+
+        status = gold_stk_mins_qfq_factor_repair_status(instance, TRADE_DATE)
+
+        self.assertFalse(status.ready)
+        self.assertIn(first_asset_key.to_user_string(), status.failed_qfq_asset_keys)
+
+    def test_qfq_repair_without_history_rewrite_is_ready_without_macd_kdj_completion(
+        self,
+    ):
         instance = _FakeInstance(_qfq_records(rewrote_history=False))
 
         status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
@@ -224,7 +317,7 @@ class StkMinsQfqM12RepairGateTests(unittest.TestCase):
         self.assertFalse(status.ready)
         self.assertIn(asset_key.to_user_string(), status.failed_qfq_asset_keys)
 
-    def test_history_rewrite_requires_m12_completion(self):
+    def test_history_rewrite_requires_macd_kdj_completion(self):
         instance = _FakeInstance(_qfq_records(rewrote_history=True))
 
         status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
@@ -237,10 +330,10 @@ class StkMinsQfqM12RepairGateTests(unittest.TestCase):
         self.assertIsNotNone(status.macd_kdj_repair_status)
         self.assertEqual(instance.event_log_storage.latest_call_count, 2)
 
-    def test_history_rewrite_with_valid_m12_completion_is_ready(self):
+    def test_history_rewrite_with_valid_macd_kdj_completion_is_ready(self):
         records = {
             **_qfq_records(rewrote_history=True),
-            **_m12_records(),
+            **_macd_kdj_records(),
         }
         instance = _FakeInstance(records)
 
@@ -253,18 +346,20 @@ class StkMinsQfqM12RepairGateTests(unittest.TestCase):
         self.assertTrue(status.requires_macd_kdj_repair)
         self.assertEqual(len(status.macd_kdj_repair_event_storage_ids), 14)
 
-    def test_m12_completion_before_qfq_repair_or_undercovered_fails_closed(self):
+    def test_macd_kdj_completion_before_qfq_repair_or_undercovered_fails_closed(self):
         old_completion_instance = _FakeInstance(
             {
                 **_qfq_records(rewrote_history=True),
-                **_m12_records(storage_start=50),
+                **_macd_kdj_records(storage_start=50),
             }
         )
         undercovered_instance = _FakeInstance(
             {
                 **_qfq_records(rewrote_history=True),
-                **_m12_records(
-                    metadata=_m12_metadata(covered_start_trade_date="2015-01-05")
+                **_macd_kdj_records(
+                    metadata=_macd_kdj_metadata(
+                        covered_start_trade_date="2015-01-05"
+                    )
                 ),
             }
         )

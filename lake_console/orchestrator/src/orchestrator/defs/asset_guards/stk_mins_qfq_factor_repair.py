@@ -25,6 +25,8 @@ _QFQ_FACTOR_REPAIR_REWRITE_KEYS = (
     "derived_rewritten_row_count",
 )
 _QFQ_FACTOR_REPAIR_REQUIRED_METADATA_KEYS = (
+    "producer_run_id",
+    "upstream_batch_id",
     "repair_required",
     "repair_required_code_count",
     "repair_required_codes",
@@ -43,6 +45,8 @@ class GoldStkMinsQfqFactorRepairStatus:
     reason: str
     repair_required: bool = False
     qfq_factor_repair_event_storage_ids: tuple[int, ...] = ()
+    producer_run_id: str | None = None
+    upstream_batch_id: str | None = None
     missing_qfq_asset_keys: tuple[str, ...] = ()
     failed_qfq_asset_keys: tuple[str, ...] = ()
     repair_start_trade_date: str | None = None
@@ -86,6 +90,8 @@ class GoldStkMinsQfqFactorRepairStatus:
             "qfq_factor_repair_event_storage_ids": list(
                 self.qfq_factor_repair_event_storage_ids
             ),
+            "producer_run_id": self.producer_run_id,
+            "upstream_batch_id": self.upstream_batch_id,
             "missing_qfq_asset_keys": list(self.missing_qfq_asset_keys),
             "failed_qfq_asset_keys": list(self.failed_qfq_asset_keys),
             "repair_start_trade_date": self.repair_start_trade_date,
@@ -349,6 +355,8 @@ def _evaluate_qfq_factor_repair_records(
         )
 
     first_metadata = metadata_rows[0]
+    producer_run_id = metadata_str(first_metadata, "producer_run_id")
+    upstream_batch_id = metadata_str(first_metadata, "upstream_batch_id")
     repair_start_trade_date = metadata_str(first_metadata, "repair_start_trade_date")
     repair_end_trade_date = metadata_str(first_metadata, "repair_end_trade_date")
     selected_partition_count = metadata_int(first_metadata, "selected_partition_count")
@@ -369,7 +377,9 @@ def _evaluate_qfq_factor_repair_records(
         "repair_required_codes_truncated",
     )
     if (
-        repair_start_trade_date is None
+        producer_run_id is None
+        or upstream_batch_id is None
+        or repair_start_trade_date is None
         or repair_end_trade_date is None
         or selected_partition_count is None
         or repair_required_code_count is None
@@ -385,6 +395,8 @@ def _evaluate_qfq_factor_repair_records(
         )
     if not _qfq_repair_scope_metadata_is_consistent(
         metadata_rows,
+        producer_run_id=producer_run_id,
+        upstream_batch_id=upstream_batch_id,
         repair_required_code_count=repair_required_code_count,
         repair_required_codes=repair_required_codes,
         repair_required_codes_hash=repair_required_codes_hash,
@@ -393,7 +405,7 @@ def _evaluate_qfq_factor_repair_records(
         return GoldStkMinsQfqFactorRepairStatus(
             ready=False,
             trade_date=trade_date,
-            reason="qfq factor repair code scope metadata is inconsistent.",
+            reason="qfq factor repair batch or code scope metadata is inconsistent.",
             failed_qfq_asset_keys=tuple(asset_key.to_user_string() for asset_key in asset_keys),
             qfq_factor_repair_event_storage_ids=tuple(sorted(event_storage_ids)),
         )
@@ -409,6 +421,8 @@ def _evaluate_qfq_factor_repair_records(
         ),
         repair_required=bool(rewrite_metadata["repair_required"]),
         qfq_factor_repair_event_storage_ids=tuple(sorted(event_storage_ids)),
+        producer_run_id=producer_run_id,
+        upstream_batch_id=upstream_batch_id,
         repair_start_trade_date=repair_start_trade_date,
         repair_end_trade_date=repair_end_trade_date,
         selected_partition_count=selected_partition_count,
@@ -462,6 +476,8 @@ def _build_qfq_factor_repair_rewrite_metadata(
 def _qfq_repair_scope_metadata_is_consistent(
     metadata_rows: Sequence[Mapping[str, object]],
     *,
+    producer_run_id: str,
+    upstream_batch_id: str,
     repair_required_code_count: int,
     repair_required_codes: tuple[str, ...],
     repair_required_codes_hash: str,
@@ -479,6 +495,10 @@ def _qfq_repair_scope_metadata_is_consistent(
 
     for metadata in metadata_rows:
         if metadata_int(metadata, "repair_required_code_count") != repair_required_code_count:
+            return False
+        if metadata_str(metadata, "producer_run_id") != producer_run_id:
+            return False
+        if metadata_str(metadata, "upstream_batch_id") != upstream_batch_id:
             return False
         if metadata_str(metadata, "repair_required_codes_hash") != repair_required_codes_hash:
             return False

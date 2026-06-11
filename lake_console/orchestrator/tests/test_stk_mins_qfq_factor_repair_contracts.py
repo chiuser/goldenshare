@@ -16,6 +16,7 @@ from orchestrator.defs.run_contracts.metadata import (
     CHECKED_ROW_COUNT_METADATA_KEY,
     FAILED_ROW_COUNT_METADATA_KEY,
 )
+from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
     QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT,
@@ -33,6 +34,7 @@ from orchestrator.defs.stk_mins_qfq import (
 
 TRADE_DATE = "2026-05-29"
 PREVIOUS_TRADE_DATE = "2026-05-28"
+PRODUCER_RUN_ID = "qfq-factor-repair-run-1"
 
 
 def _column_types(schema) -> dict[str, str]:
@@ -108,7 +110,7 @@ def _fetch_dicts(sql: str) -> list[dict[str, object]]:
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
-class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
+class StkMinsQfqFactorRepairContractTests(unittest.TestCase):
     def _write_inputs(
         self,
         root: Path,
@@ -374,21 +376,37 @@ class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
                 sample_limit=2,
             )
 
-            metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(plan)
+            metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(
+                plan,
+                producer_run_id=PRODUCER_RUN_ID,
+            )
 
         self.assertEqual(metadata[CHECK_SCOPE_METADATA_KEY], "reconciliation")
         self.assertEqual(metadata[CHECKED_ROW_COUNT_METADATA_KEY], 3)
         self.assertEqual(metadata[FAILED_ROW_COUNT_METADATA_KEY], 0)
+        self.assertEqual(metadata["goldenshare/producer_run_id"], PRODUCER_RUN_ID)
         self.assertEqual(metadata["goldenshare/reason"], "factor_changed")
         self.assertEqual(metadata["goldenshare/repair_required_code_count"], 3)
         self.assertEqual(
             metadata["goldenshare/repair_required_codes"],
             ["000001.SZ", "000002.SZ", "000003.SZ"],
         )
+        repair_required_codes_hash = gold_stk_mins_qfq_factor_repair_codes_hash(
+            ["000003.SZ", "000001.SZ", "000002.SZ"]
+        )
         self.assertEqual(
             metadata["goldenshare/repair_required_codes_hash"],
-            gold_stk_mins_qfq_factor_repair_codes_hash(
-                ["000003.SZ", "000001.SZ", "000002.SZ"]
+            repair_required_codes_hash,
+        )
+        self.assertEqual(
+            metadata["goldenshare/upstream_batch_id"],
+            build_batch_id(
+                producer="qfq_factor_repair",
+                scope=TRADE_DATE,
+                payload={
+                    "producer_run_id": PRODUCER_RUN_ID,
+                    "repair_required_codes_hash": repair_required_codes_hash,
+                },
             ),
         )
         self.assertFalse(metadata["goldenshare/repair_required_codes_truncated"])
@@ -423,7 +441,10 @@ class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
             missing_previous_factor_code_samples=(),
         )
 
-        metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(plan)
+        metadata = build_gold_stk_mins_qfq_factor_repair_check_metadata(
+            plan,
+            producer_run_id=PRODUCER_RUN_ID,
+        )
 
         self.assertEqual(metadata["goldenshare/repair_required_codes"], [])
         self.assertTrue(metadata["goldenshare/repair_required_codes_truncated"])
@@ -432,7 +453,31 @@ class StkMinsQfqM9BRepairContractTests(unittest.TestCase):
             gold_stk_mins_qfq_factor_repair_codes_hash(codes),
         )
 
-    def test_m9b_does_not_add_factor_repair_summary_contracts(self) -> None:
+    def test_factor_repair_metadata_rejects_blank_producer_run_id(self) -> None:
+        plan = GoldStkMinsQfqFactorRepairPlan(
+            trade_date=TRADE_DATE,
+            previous_trade_date=PREVIOUS_TRADE_DATE,
+            reason=QFQ_FACTOR_REPAIR_REASON_NO_FACTOR_CHANGED,
+            can_execute_repair=True,
+            repair_required=False,
+            detected_change_code_count=0,
+            repair_required_code_count=0,
+            factor_changed_code_count=0,
+            new_current_code_count=0,
+            missing_previous_factor_code_count=0,
+            repair_required_codes=(),
+            factor_changed_code_samples=(),
+            new_current_code_samples=(),
+            missing_previous_factor_code_samples=(),
+        )
+
+        with self.assertRaisesRegex(ValueError, "producer_run_id"):
+            build_gold_stk_mins_qfq_factor_repair_check_metadata(
+                plan,
+                producer_run_id=" ",
+            )
+
+    def test_does_not_add_factor_repair_summary_contracts(self) -> None:
         self.assertNotIn("gold_stk_mins_qfq_factor_repair_summary", DATASET_CHINESE_NAMES)
         self.assertFalse(
             hasattr(
