@@ -10,6 +10,7 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -135,14 +136,20 @@ def _silver_sensor_cursor(
 
 def _raw_run_request_for_trade_date(trade_date: str):
     return build_run_request(
-        run_key=f"raw_adj_factor_update:{trade_date}",
+        run_key=build_asset_update_run_key(
+            subject="raw_adj_factor_update",
+            unit_id=trade_date,
+        ),
         partition_key=trade_date,
     )
 
 
 def _silver_run_request_for_trade_date(trade_date: str):
     return build_run_request(
-        run_key=f"silver_adj_factor_update:{trade_date}",
+        run_key=build_asset_update_run_key(
+            subject="silver_adj_factor_update",
+            unit_id=trade_date,
+        ),
         partition_key=trade_date,
     )
 

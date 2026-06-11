@@ -7,6 +7,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any
 
+from orchestrator.defs.run_contracts.run_keys import (
+    build_asset_update_run_key,
+    build_repair_attempt_run_key,
+)
+
 
 REPAIR_CURSOR_KEY = "repair_state"
 MAX_REPAIR_RUN_REQUESTS_PER_TICK = 50
@@ -107,9 +112,9 @@ def select_index_daily_pending_code_runs(
 
     runs: list[IndexDailyPendingCodeRun] = []
     for index_code in selected_initial_codes:
-        run_key = base_index_daily_run_key(
-            trade_date=target_trade_date,
-            index_code=index_code,
+        run_key = build_asset_update_run_key(
+            subject="index_daily",
+            unit_id=f"{target_trade_date}:{index_code}",
         )
         state_by_code[index_code] = _state_entry(
             attempt=0,
@@ -157,11 +162,11 @@ def select_index_daily_pending_code_runs(
         for index_code in selected_repair_codes:
             state = state_by_code[index_code]
             next_attempt = _state_attempt(state) + 1
-            run_key = repair_index_daily_run_key(
-                trade_date=target_trade_date,
-                index_code=index_code,
-                evaluation_date=evaluation_date,
-                repair_attempt=next_attempt,
+            run_key = build_repair_attempt_run_key(
+                subject="index_daily",
+                repair_scope_id=f"{target_trade_date}:{index_code}:repair",
+                attempt_scope=evaluation_date,
+                attempt=next_attempt,
             )
             next_retry_at = (
                 None
@@ -203,20 +208,6 @@ def select_index_daily_pending_code_runs(
         repair_state_code_count=len(state_by_code),
         repair_cursor_code_limit_exceeded=repair_cursor_code_limit_exceeded,
     )
-
-
-def base_index_daily_run_key(*, trade_date: str, index_code: str) -> str:
-    return f"index_daily:{trade_date}:{index_code}"
-
-
-def repair_index_daily_run_key(
-    *,
-    trade_date: str,
-    index_code: str,
-    evaluation_date: str,
-    repair_attempt: int,
-) -> str:
-    return f"index_daily:{trade_date}:{index_code}:repair:{evaluation_date}:{repair_attempt}"
 
 
 def _cursor_details(cursor_payload: Mapping[str, Any]) -> dict[str, Any]:
@@ -324,9 +315,9 @@ def _states_from_previous_selected_codes(
         index_code = raw_index_code
         if index_code not in pending_code_set or index_code in known_code_set:
             continue
-        run_key = base_index_daily_run_key(
-            trade_date=target_trade_date,
-            index_code=index_code,
+        run_key = build_asset_update_run_key(
+            subject="index_daily",
+            unit_id=f"{target_trade_date}:{index_code}",
         )
         state_by_code[index_code] = _state_entry(
             attempt=0,

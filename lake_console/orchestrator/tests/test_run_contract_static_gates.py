@@ -40,7 +40,6 @@ M12_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py",
 )
 M12_RUN_STATUS_SENSOR_FILES = {
-    "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
     "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
 }
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
@@ -79,6 +78,11 @@ SENSOR_DEFINITION_CALL_NAMES = {
     "run_status_sensor",
     "run_failure_sensor",
     "AutomationConditionSensorDefinition",
+}
+RUN_KEY_BUILDER_CALL_NAMES = {
+    "build_asset_update_run_key",
+    "build_repair_attempt_run_key",
+    "build_upstream_triggered_run_key",
 }
 
 ASSETS_WITHOUT_COLUMN_SCHEMA = {"lake_root_health"}
@@ -188,6 +192,23 @@ def _is_allowed_direct_run_request(path: Path) -> bool:
 
 def _is_allowed_direct_run_request_tags(path: Path) -> bool:
     return False
+
+
+def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
+    if path.name == "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py":
+        return True
+    if (
+        path.name == "index_daily_sensor.py"
+        and isinstance(node, ast.Attribute)
+        and node.attr == "run_key"
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "run"
+    ):
+        return True
+    return (
+        isinstance(node, ast.Call)
+        and _call_name(node.func) in RUN_KEY_BUILDER_CALL_NAMES
+    )
 
 
 class RunContractStaticGateTests(unittest.TestCase):
@@ -851,7 +872,15 @@ class RunContractStaticGateTests(unittest.TestCase):
                             f"{_node_location(path, node)} constructs RunRequest directly"
                         )
                     for keyword in node.keywords:
-                        if keyword.arg == "run_tags":
+                        if keyword.arg == "run_key" and not _is_allowed_sensor_run_key_value(
+                            path,
+                            keyword.value,
+                        ):
+                            issues.append(
+                                f"{_node_location(path, node)} writes run_key "
+                                "without run key builder"
+                            )
+                        elif keyword.arg == "run_tags":
                             issues.append(
                                 f"{_node_location(path, node)} writes run_tags"
                             )

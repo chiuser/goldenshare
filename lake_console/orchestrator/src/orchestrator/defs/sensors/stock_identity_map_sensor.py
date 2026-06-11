@@ -9,6 +9,7 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -261,7 +262,12 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
 
     return dg.SensorResult(
         run_requests=[
-            build_run_request(run_key=f"stock_identity_map:{target_trade_date}")
+            build_run_request(
+                run_key=build_asset_update_run_key(
+                    subject="stock_identity_map",
+                    unit_id=target_trade_date,
+                )
+            )
         ],
         cursor=cursor,
     )

@@ -16,6 +16,10 @@ from orchestrator.defs.run_contracts.cursors import (
     sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import (
+    build_asset_update_run_key,
+    build_repair_attempt_run_key,
+)
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -408,7 +412,10 @@ def raw_stock_daily_update_job_sensor(
     run_requests = [
         build_run_request(
             partition_key=trade_date,
-            run_key=f"raw_stock_daily_update:{trade_date}",
+            run_key=build_asset_update_run_key(
+                subject="raw_stock_daily_update",
+                unit_id=trade_date,
+            ),
         )
         for trade_date in selected_full_day_tuple
     ]
@@ -419,9 +426,12 @@ def raw_stock_daily_update_job_sensor(
         run_requests.append(
             build_run_request(
                 partition_key=trade_date,
-                run_key=(
-                    f"raw_stock_daily_update:{trade_date}:missing_code_repair:"
-                    f"{missing_hash}:{repair_attempt}"
+                run_key=build_repair_attempt_run_key(
+                    subject="raw_stock_daily_update",
+                    repair_scope_id=(
+                        f"{trade_date}:missing_code_repair:{missing_hash}"
+                    ),
+                    attempt=repair_attempt,
                 ),
                 run_config=build_stock_daily_raw_repair_run_config(
                     ts_codes=missing_codes,
@@ -519,7 +529,10 @@ def silver_stock_daily_update_job_sensor(
         run_requests=[
             build_run_request(
                 partition_key=trade_date,
-                run_key=f"silver_stock_daily_update:{trade_date}",
+                run_key=build_asset_update_run_key(
+                    subject="silver_stock_daily_update",
+                    unit_id=trade_date,
+                ),
             )
             for trade_date in selected_tuple
         ],

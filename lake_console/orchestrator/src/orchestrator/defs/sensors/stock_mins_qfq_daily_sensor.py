@@ -11,6 +11,7 @@ from orchestrator.defs.run_contracts.cursors import (
     sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -163,7 +164,10 @@ def _cursor_payload(
 
 def _run_request_for_trade_date(trade_date: str):
     return build_run_request(
-        run_key=f"stock_mins_qfq_daily_update:{trade_date}",
+        run_key=build_asset_update_run_key(
+            subject="stock_mins_qfq_daily_update",
+            unit_id=trade_date,
+        ),
         partition_key=trade_date,
     )
 

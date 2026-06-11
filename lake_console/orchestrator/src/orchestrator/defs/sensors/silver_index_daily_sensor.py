@@ -9,6 +9,7 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -396,7 +397,10 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         run_requests=[
             build_run_request(
                 partition_key=target_trade_date,
-                run_key=f"silver_index_daily:{target_trade_date}",
+                run_key=build_asset_update_run_key(
+                    subject="silver_index_daily",
+                    unit_id=target_trade_date,
+                ),
             )
         ],
         cursor=cursor,

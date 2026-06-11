@@ -12,6 +12,7 @@ from orchestrator.defs.run_contracts.cursors import (
     sensor_cursor_details,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -221,7 +222,10 @@ def _raw_run_request_for_trade_date(
     namechange_run_stage: str,
 ) -> dg.RunRequest:
     return build_run_request(
-        run_key=f"raw_namechange_update:{trade_date}:{namechange_run_stage}"
+        run_key=build_asset_update_run_key(
+            subject="raw_namechange_update",
+            unit_id=f"{trade_date}:{namechange_run_stage}",
+        )
     )
 
 
@@ -230,7 +234,10 @@ def _silver_run_request_for_trade_date(
     namechange_run_stage: str,
 ) -> dg.RunRequest:
     return build_run_request(
-        run_key=f"silver_namechange_update:{trade_date}:{namechange_run_stage}"
+        run_key=build_asset_update_run_key(
+            subject="silver_namechange_update",
+            unit_id=f"{trade_date}:{namechange_run_stage}",
+        )
     )
 
 

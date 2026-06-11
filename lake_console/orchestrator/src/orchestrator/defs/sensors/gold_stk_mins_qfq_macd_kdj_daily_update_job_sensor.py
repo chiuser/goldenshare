@@ -25,6 +25,8 @@ from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
     stock_mins_qfq_factor_repair_job,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -244,8 +246,11 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
 
 
 def _run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
-    return dg.RunRequest(
-        run_key=f"gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}",
+    return build_run_request(
+        run_key=build_asset_update_run_key(
+            subject="gold_stk_mins_qfq_macd_kdj_daily_update",
+            unit_id=trade_date,
+        ),
         partition_key=trade_date,
     )
 

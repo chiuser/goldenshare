@@ -10,6 +10,7 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -177,7 +178,10 @@ def raw_suspend_d_update_job_sensor(
         run_requests=[
             build_run_request(
                 partition_key=trade_date,
-                run_key=f"raw_suspend_d_update:{trade_date}",
+                run_key=build_asset_update_run_key(
+                    subject="raw_suspend_d_update",
+                    unit_id=trade_date,
+                ),
             )
             for trade_date in selected_keys
         ],
@@ -251,7 +255,10 @@ def silver_suspend_d_update_job_sensor(
         run_requests=[
             build_run_request(
                 partition_key=trade_date,
-                run_key=f"silver_suspend_d_update:{trade_date}",
+                run_key=build_asset_update_run_key(
+                    subject="silver_suspend_d_update",
+                    unit_id=trade_date,
+                ),
             )
             for trade_date in selected_tuple
         ],

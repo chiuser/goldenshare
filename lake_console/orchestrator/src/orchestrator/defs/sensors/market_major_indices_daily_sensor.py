@@ -8,6 +8,7 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -337,7 +338,10 @@ def market_major_indices_daily_sensor(
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
     run_request = build_run_request(
-        run_key=f"market_major_indices_daily:{target_trade_date}",
+        run_key=build_asset_update_run_key(
+            subject="market_major_indices_daily",
+            unit_id=target_trade_date,
+        ),
         partition_key=target_trade_date,
     )
     reason = "主要指数日线输入已 ready，提交 gold 分区生成。"
