@@ -1,10 +1,15 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 
 import dagster as dg
 import duckdb
 
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    asset_check_record_event_storage_id,
+    asset_check_record_storage_id,
+)
 from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
@@ -290,6 +295,49 @@ def _write_multi_code_repair_inputs(
 
 
 class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
+    def test_qfq_factor_repair_status_uses_event_log_storage_id(self) -> None:
+        record = SimpleNamespace(
+            id=1316996,
+            storage_id=1316996,
+            event=SimpleNamespace(storage_id=5749865),
+        )
+
+        self.assertEqual(asset_check_record_storage_id(record), 5749865)
+
+    def test_qfq_factor_repair_status_resolves_event_log_storage_id(self) -> None:
+        check_key = dg.AssetCheckKey(dg.AssetKey("gold_stk_mins_qfq_1m"), "check")
+        record = SimpleNamespace(
+            id=1316996,
+            event=SimpleNamespace(run_id="run-1", timestamp=100.0),
+        )
+        event_record = SimpleNamespace(
+            storage_id=5749865,
+            event_log_entry=SimpleNamespace(
+                run_id="run-1",
+                dagster_event=SimpleNamespace(
+                    event_specific_data=SimpleNamespace(
+                        asset_key=check_key.asset_key,
+                        check_name="check",
+                        partition=TRADE_DATE,
+                    )
+                ),
+            ),
+        )
+        instance = SimpleNamespace(
+            get_event_records=lambda *args, **kwargs: [event_record]
+        )
+
+        self.assertIsNone(asset_check_record_storage_id(record))
+        self.assertEqual(
+            asset_check_record_event_storage_id(
+                instance,
+                check_key,
+                record,
+                partition_key=TRADE_DATE,
+            ),
+            5749865,
+        )
+
     def test_no_factor_change_returns_successful_noop_report(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)

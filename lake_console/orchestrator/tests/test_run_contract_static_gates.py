@@ -42,7 +42,6 @@ M12_MACD_KDJ_SOURCE_FILES = (
 M12_RUN_STATUS_SENSOR_FILES = {
     "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
     "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
-    "gold_stk_mins_qfq_repair_event_reconciliation_job_sensor.py",
 }
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
@@ -180,7 +179,6 @@ def _is_allowed_sensor_run_config_dict(path: Path, dict_node: ast.Dict) -> bool:
     return path.name in (
         "stock_mins_qfq_factor_repair_sensor.py",
         "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
-        "gold_stk_mins_qfq_repair_event_reconciliation_job_sensor.py",
     ) and "ops" in _direct_string_keys(dict_node)
 
 
@@ -413,20 +411,14 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_gold_qfq_repair_event_reconciliation_contract(self) -> None:
+    def test_gold_qfq_repair_event_reconciliation_chain_is_removed(self) -> None:
         issues = []
         factor_repair_op_path = DEFS_DIR / "ops" / "stock_mins_qfq_factor_repair.py"
-        reconciliation_op_path = (
-            DEFS_DIR / "ops" / "gold_stk_mins_qfq_repair_event_reconciliation.py"
-        )
-        reconciliation_job_path = (
-            JOBS_DIR / "gold_stk_mins_qfq_repair_event_reconciliation.py"
-        )
-        reconciliation_sensor_path = (
-            SENSORS_DIR / "gold_stk_mins_qfq_repair_event_reconciliation_job_sensor.py"
-        )
-        reconciliation_helper_path = (
-            DEFS_DIR / "bootstrap" / "stk_mins_qfq_repair_reconciliation_events.py"
+        removed_reconciliation_paths = (
+            DEFS_DIR / "ops" / "gold_stk_mins_qfq_repair_event_reconciliation.py",
+            JOBS_DIR / "gold_stk_mins_qfq_repair_event_reconciliation.py",
+            SENSORS_DIR / "gold_stk_mins_qfq_repair_event_reconciliation_job_sensor.py",
+            DEFS_DIR / "bootstrap" / "stk_mins_qfq_repair_reconciliation_events.py",
         )
         qfq_repair_guard_path = (
             DEFS_DIR / "asset_guards" / "stk_mins_qfq_factor_repair.py"
@@ -447,82 +439,30 @@ class RunContractStaticGateTests(unittest.TestCase):
             if fragment in factor_repair_op_source
         )
 
-        reconciliation_op_source = reconciliation_op_path.read_text()
-        required_op_fragments = (
-            "GOLD_STK_MINS_QFQ_REPAIR_EVENT_RECONCILIATION_CONFIG_SCHEMA",
-            '"trade_date"',
-            '"source_qfq_factor_repair_event_storage_ids"',
-            '"repair_required_codes_hash"',
-            "gold_stk_mins_qfq_factor_repair_status",
-            "_assert_reconciliation_source_matches_latest_repair",
+        issues.extend(
+            f"old qfq repair event reconciliation file must be removed: {path}"
+            for path in removed_reconciliation_paths
+            if path.exists()
+        )
+
+        forbidden_source_fragments = (
+            "gold_stk_mins_qfq_repair_event_reconciliation",
+            "stk_mins_qfq_repair_reconciliation_events",
             "report_stk_mins_qfq_repair_reconciliation_events",
-        )
-        forbidden_op_fragments = (
-            "stock_mins_qfq_daily_update_job",
-            "stock_mins_qfq_daily_update",
-            "write_gold_stk_mins_qfq_asset_partition",
-            "execute_gold_stk_mins_qfq_factor_repair",
-        )
-        issues.extend(
-            f"{reconciliation_op_path} misses reconciliation op fragment: {fragment}"
-            for fragment in required_op_fragments
-            if fragment not in reconciliation_op_source
-        )
-        issues.extend(
-            f"{reconciliation_op_path} contains forbidden reconciliation op fragment: {fragment}"
-            for fragment in forbidden_op_fragments
-            if fragment in reconciliation_op_source
-        )
-
-        reconciliation_job_source = reconciliation_job_path.read_text()
-        if "gold_stk_mins_qfq_repair_event_reconciliation_op()" not in reconciliation_job_source:
-            issues.append("qfq reconciliation job must only invoke reconciliation op")
-        if "define_asset_job" in reconciliation_job_source:
-            issues.append("qfq reconciliation job must not define an asset selection job")
-
-        reconciliation_sensor_source = reconciliation_sensor_path.read_text()
-        required_sensor_fragments = (
-            "run_status_sensor",
-            "request_job=gold_stk_mins_qfq_repair_event_reconciliation_job",
-            "monitored_jobs=[stock_mins_qfq_factor_repair_job]",
-            "default_status=dg.DefaultSensorStatus.STOPPED",
-            "gold_stk_mins_qfq_factor_repair_status",
-            "build_sensor_tags",
-            "gold_stk_mins_qfq_repair_event_reconciliation:",
-            "source_qfq_factor_repair_event_storage_ids",
-            "repair_required_codes_hash",
-        )
-        forbidden_sensor_fragments = (
-            "duckdb",
-            "read_parquet",
-            "partition_dataset_readiness_status_from_latest_checks",
-            "stock_mins_qfq_daily_update_job",
-        )
-        issues.extend(
-            f"{reconciliation_sensor_path} misses reconciliation sensor fragment: {fragment}"
-            for fragment in required_sensor_fragments
-            if fragment not in reconciliation_sensor_source
-        )
-        issues.extend(
-            f"{reconciliation_sensor_path} contains forbidden reconciliation sensor fragment: {fragment}"
-            for fragment in forbidden_sensor_fragments
-            if fragment in reconciliation_sensor_source
-        )
-
-        helper_source = reconciliation_helper_path.read_text()
-        required_helper_fragments = (
+            "build_stk_mins_qfq_repair_reconciliation_plan",
             "STK_MINS_QFQ_REPAIR_RECONCILIATION_SOURCE_METHOD",
-            "audit_stk_mins_qfq_bootstrap_batch",
-            "as_of_trade_date=plan.trade_date",
-            "report_stk_mins_qfq_partition_events",
-            "report_stk_mins_qfq_derived_partition_events",
-            "requires_derived_reconciliation",
+            "stk_mins_qfq_factor_repair_reconciliation",
+            "qfq_factor_repair_event_reconciliation",
         )
-        issues.extend(
-            f"{reconciliation_helper_path} misses reconciliation helper fragment: {fragment}"
-            for fragment in required_helper_fragments
-            if fragment not in helper_source
-        )
+        for path in DEFS_DIR.rglob("*.py"):
+            if "__pycache__" in path.parts:
+                continue
+            source = path.read_text()
+            issues.extend(
+                f"{path} contains removed qfq repair reconciliation fragment: {fragment}"
+                for fragment in forbidden_source_fragments
+                if fragment in source
+            )
 
         qfq_repair_guard_source = qfq_repair_guard_path.read_text()
         if "class GoldStkMinsQfqFactorRepairStatus" not in qfq_repair_guard_source:
@@ -1004,7 +944,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 34)
+        self.assertEqual(sensor_definition_count, 33)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:

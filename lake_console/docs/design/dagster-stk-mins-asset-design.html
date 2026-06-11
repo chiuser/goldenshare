@@ -1394,8 +1394,8 @@ ops:
       </tr>
       <tr>
         <td>普通 qfq event reconciliation</td>
-        <td>factor repair 若重写历史 qfq 文件，不在同一个 repair run 内补普通 qfq materialization/check events；后续由 <code>gold_stk_mins_qfq_repair_event_reconciliation_job</code> 独立按 <code>freq/year</code> 或 <code>year/freq</code> 分批补齐。</td>
-        <td>reconciliation 只补 Dagster event log 观测事实，不重算、不重写 qfq parquet 文件。每个 affected 普通 qfq asset-partition 必须先补 <code>AssetMaterialization</code>，再把 8 个普通 blocking checks 通过 <code>target_materialization_data</code> 绑定到该 materialization；幂等依据必须包含本次 qfq repair check event storage ids 与 <code>repair_required_codes_hash</code>，不能只看旧 ready 状态。</td>
+        <td>旧的普通 qfq materialization/check event reconciliation 入口已撤销；factor repair 若重写历史 qfq 文件，只写 <code>gold_stk_mins_qfq_factor_repair_plan_evaluated</code> repair check 作为改写账本。</td>
+        <td>不再按历史 qfq asset partitions 补普通 <code>AssetMaterialization</code> 和普通 blocking checks，避免事件库爆量和历史检查口径错配。普通 qfq asset partition 的 materialization 时间表示 daily/bootstrap 生成时间；历史 repair 影响范围看 repair check metadata。</td>
       </tr>
     </table>
     <div class="warning">

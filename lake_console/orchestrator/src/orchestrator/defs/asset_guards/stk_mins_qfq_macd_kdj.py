@@ -8,9 +8,9 @@ import dagster as dg
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
     asset_check_record_evaluation,
+    asset_check_record_event_storage_id,
     asset_check_record_metadata,
     asset_check_record_partition,
-    asset_check_record_storage_id,
     asset_check_record_succeeded,
     gold_stk_mins_qfq_factor_repair_event_storage_ids_identity,
     gold_stk_mins_qfq_factor_repair_status,
@@ -324,7 +324,12 @@ def _macd_kdj_repair_completion_status(
             missing.append(asset_label)
             continue
         evaluation = asset_check_record_evaluation(record)
-        storage_id = asset_check_record_storage_id(record)
+        storage_id = asset_check_record_event_storage_id(
+            instance,
+            check_key,
+            record,
+            partition_key=repair_start_trade_date,
+        )
         metadata = asset_check_record_metadata(evaluation)
         if (
             storage_id is None

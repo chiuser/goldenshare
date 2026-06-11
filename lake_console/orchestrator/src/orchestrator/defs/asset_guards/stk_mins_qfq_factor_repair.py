@@ -117,6 +117,7 @@ def gold_stk_mins_qfq_factor_repair_status(
         partition_key=normalized_trade_date,
     )
     return _evaluate_qfq_factor_repair_records(
+        instance,
         qfq_asset_keys,
         qfq_check_records,
         trade_date=normalized_trade_date,
@@ -171,14 +172,56 @@ def asset_check_record_partition(record: object, evaluation: object) -> str | No
 
 
 def asset_check_record_storage_id(record: object) -> int | None:
+    event = asset_check_record_event(record)
     candidates = (
-        getattr(record, "storage_id", None),
-        getattr(record, "id", None),
-        getattr(asset_check_record_event(record), "storage_id", None),
+        getattr(event, "storage_id", None),
+        getattr(record, "evaluation_event_storage_id", None),
+        getattr(record, "event_storage_id", None),
     )
     for candidate in candidates:
         if isinstance(candidate, int) and not isinstance(candidate, bool):
             return candidate
+    return None
+
+
+def asset_check_record_event_storage_id(
+    instance: dg.DagsterInstance,
+    check_key: dg.AssetCheckKey,
+    record: object,
+    *,
+    partition_key: str,
+) -> int | None:
+    storage_id = asset_check_record_storage_id(record)
+    if storage_id is not None:
+        return storage_id
+
+    event = asset_check_record_event(record)
+    event_timestamp = getattr(event, "timestamp", None)
+    run_id = getattr(event, "run_id", None)
+    if not isinstance(event_timestamp, int | float):
+        return None
+
+    records = instance.get_event_records(
+        dg.EventRecordsFilter(
+            event_type=dg.DagsterEventType.ASSET_CHECK_EVALUATION,
+            after_timestamp=float(event_timestamp) - 1.0,
+            before_timestamp=float(event_timestamp) + 1.0,
+        ),
+        limit=500,
+    )
+    for event_record in records:
+        event_log_entry = event_record.event_log_entry
+        if run_id is not None and event_log_entry.run_id != run_id:
+            continue
+        dagster_event = event_log_entry.dagster_event
+        evaluation = getattr(dagster_event, "event_specific_data", None)
+        if (
+            getattr(evaluation, "asset_key", None) != check_key.asset_key
+            or getattr(evaluation, "check_name", None) != check_key.name
+            or getattr(evaluation, "partition", None) != partition_key
+        ):
+            continue
+        return event_record.storage_id
     return None
 
 
@@ -253,6 +296,7 @@ def metadata_str_tuple(metadata: Mapping[str, object], key: str) -> tuple[str, .
 
 
 def _evaluate_qfq_factor_repair_records(
+    instance: dg.DagsterInstance,
     asset_keys: Sequence[dg.AssetKey],
     records_by_key: Mapping[dg.AssetCheckKey, object],
     *,
@@ -274,7 +318,12 @@ def _evaluate_qfq_factor_repair_records(
             missing.append(asset_label)
             continue
         evaluation = asset_check_record_evaluation(record)
-        storage_id = asset_check_record_storage_id(record)
+        storage_id = asset_check_record_event_storage_id(
+            instance,
+            check_key,
+            record,
+            partition_key=trade_date,
+        )
         metadata = asset_check_record_metadata(evaluation)
         if (
             storage_id is None
