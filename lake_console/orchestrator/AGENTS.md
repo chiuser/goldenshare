@@ -185,9 +185,10 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 3. partitioned 上游资产必须按同一个 `partition_key` 判断 materialization 和 checks，例如 `silver_stock_suspend_daily[trade_date]`。
 4. WARN checks 只作为观测信号，不阻断生产；但 WARN metadata 必须可见，不能被静默吞掉。
 5. sensor 只能提交满足门禁的 `RunRequest`；门禁不满足时返回清晰 `SkipReason` 或不请求下游，不得在下游 job 内部补上游。
-6. `cn_a_trade_day_sensor` 的长期职责应收敛为注册已完成交易日 partition；各资产族可以有自己的 sensor，例如 `suspend_d_sensor`、`stock_basic_sensor`、`stock_daily_sensor`，分别围绕本资产族判断缺失、freshness、checks 和上游 ready。
-7. 新增资产族 sensor 前，方案文档必须列清：输入状态、ready 条件、run key、cursor 内容、最大单 tick 请求数、失败重跑策略、是否允许注册 partition，以及与其它 sensor 的边界。
-8. 分区范围、日期边界、资产族归属这类质量门禁，优先实现为正式 blocking asset check；禁止在业务 asset 写入函数里混入定制化的写前 guard，除非方案文档明确批准这种异常设计。
+6. 禁止解析 `run_key` 生成 `run_config`；`run_key` 只用于幂等去重。执行参数只能来自显式 `run_config`、`partition_key`、上游 metadata/status，或正式定义的 `upstream_batch_id`。
+7. `cn_a_trade_day_sensor` 的长期职责应收敛为注册已完成交易日 partition；各资产族可以有自己的 sensor，例如 `suspend_d_sensor`、`stock_basic_sensor`、`stock_daily_sensor`，分别围绕本资产族判断缺失、freshness、checks 和上游 ready。
+8. 新增资产族 sensor 前，方案文档必须列清：输入状态、ready 条件、run key、cursor 内容、最大单 tick 请求数、失败重跑策略、是否允许注册 partition，以及与其它 sensor 的边界。
+9. 分区范围、日期边界、资产族归属这类质量门禁，优先实现为正式 blocking asset check；禁止在业务 asset 写入函数里混入定制化的写前 guard，除非方案文档明确批准这种异常设计。
 
 ### Sensor Definition Tags 分类门禁
 
