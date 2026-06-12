@@ -13,7 +13,7 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
 )
 from orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair import (
     MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR,
-    MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR,
+    MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR,
     gold_stk_mins_qfq_macd_kdj_repair_op,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
@@ -32,6 +32,10 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 START_DATE = "2026-06-04"
 END_DATE = "2026-06-05"
 QFQ_FACTOR_REPAIR_DATE = "2026-06-08"
+REPAIR_CODES = ("600000.SH",)
+REPAIR_CODES_HASH = gold_stk_mins_qfq_factor_repair_codes_hash(REPAIR_CODES)
+PRODUCER_RUN_ID = "qfq-factor-repair-run-1"
+UPSTREAM_BATCH_ID = f"qfq_factor_repair:{QFQ_FACTOR_REPAIR_DATE}:7f3a9c2d8b41"
 
 
 def _indicator_result(freq: int) -> GoldStkMinsQfqMacdKdjWriteResult:
@@ -55,7 +59,8 @@ def _state_result(freq: int) -> GoldStkMinsQfqMacdKdjStateWriteResult:
 
 def _ready_qfq_factor_repair_status(
     *,
-    stock_codes: tuple[str, ...] = ("600000.SH",),
+    stock_codes: tuple[str, ...] = REPAIR_CODES,
+    upstream_batch_id: str | None = UPSTREAM_BATCH_ID,
 ) -> GoldStkMinsQfqFactorRepairStatus:
     return GoldStkMinsQfqFactorRepairStatus(
         ready=True,
@@ -65,6 +70,8 @@ def _ready_qfq_factor_repair_status(
             "MACD/KDJ repair completion is required."
         ),
         repair_required=True,
+        producer_run_id=PRODUCER_RUN_ID,
+        upstream_batch_id=upstream_batch_id,
         qfq_factor_repair_event_storage_ids=(101, 102),
         repair_start_trade_date=START_DATE,
         repair_end_trade_date=QFQ_FACTOR_REPAIR_DATE,
@@ -80,14 +87,27 @@ def _ready_qfq_factor_repair_status(
     )
 
 
-class StkMinsQfqM12RepairContractTests(unittest.TestCase):
+def _full_replay_config(**overrides: object) -> dict[str, object]:
+    config: dict[str, object] = {
+        "qfq_factor_repair_trade_date": QFQ_FACTOR_REPAIR_DATE,
+        "start_trade_date": START_DATE,
+        "stock_codes": list(REPAIR_CODES),
+        "reason": f"qfq_factor_repair:{QFQ_FACTOR_REPAIR_DATE}",
+        "repair_required_codes_hash": REPAIR_CODES_HASH,
+        "upstream_batch_id": UPSTREAM_BATCH_ID,
+    }
+    config.update(overrides)
+    return config
+
+
+class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
     def test_repair_op_uses_qfq_writer_pool(self) -> None:
         self.assertEqual(
             gold_stk_mins_qfq_macd_kdj_repair_op.pool,
             GOLD_STK_MINS_QFQ_WRITER_POOL,
         )
 
-    def test_repair_op_requires_explicit_or_qfq_factor_repair_scope(self) -> None:
+    def test_repair_op_rejects_missing_qfq_factor_repair_trade_date(self) -> None:
         with TemporaryDirectory() as temp_dir:
             with patch(
                 "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
@@ -109,12 +129,14 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
 
         self.assertFalse(result.success)
         self.assertIn(
-            MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR,
+            MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR,
             str(result.get_step_failure_events()[0].event_specific_data.error),
         )
         mocked_write_rows.assert_not_called()
 
-    def test_repair_op_can_derive_scope_from_qfq_factor_repair_trade_date(self) -> None:
+    def test_repair_op_replays_qfq_factor_repair_batch_when_config_matches_metadata(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
@@ -173,12 +195,7 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
                     run_config={
                         "ops": {
                             "gold_stk_mins_qfq_macd_kdj_repair_op": {
-                                "config": {
-                                    "qfq_factor_repair_trade_date": (
-                                        QFQ_FACTOR_REPAIR_DATE
-                                    ),
-                                    "stock_codes": [],
-                                }
+                                "config": _full_replay_config(),
                             }
                         }
                     },
@@ -219,13 +236,15 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
         )
         self.assertEqual(
             first_evaluation.metadata["goldenshare/repair_required_codes_hash"].text,
-            gold_stk_mins_qfq_factor_repair_codes_hash(["600000.SH"]),
+            REPAIR_CODES_HASH,
         )
         self.assertEqual(
-            first_evaluation.metadata[
-                "goldenshare/source_qfq_factor_repair_event_storage_ids"
-            ].value,
-            [101, 102],
+            first_evaluation.metadata["goldenshare/source_upstream_batch_id"].text,
+            UPSTREAM_BATCH_ID,
+        )
+        self.assertNotIn(
+            "goldenshare/source_qfq_factor_repair_event_storage_ids",
+            first_evaluation.metadata,
         )
 
     def test_repair_op_rejects_stock_codes_that_conflict_with_qfq_metadata(self) -> None:
@@ -246,10 +265,9 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
                         "ops": {
                             "gold_stk_mins_qfq_macd_kdj_repair_op": {
                                 "config": {
-                                    "qfq_factor_repair_trade_date": (
-                                        QFQ_FACTOR_REPAIR_DATE
+                                    **_full_replay_config(
+                                        stock_codes=["000001.SZ"],
                                     ),
-                                    "stock_codes": ["000001.SZ"],
                                 }
                             }
                         }
@@ -267,22 +285,85 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
         )
         mocked_write_rows.assert_not_called()
 
+    def test_repair_op_rejects_missing_upstream_batch_id(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with patch(
+                "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                "write_gold_stk_mins_qfq_macd_kdj_rows",
+            ) as mocked_write_rows:
+                result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                    run_config={
+                        "ops": {
+                            "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                "config": _full_replay_config(upstream_batch_id="")
+                            }
+                        }
+                    },
+                    raise_on_error=False,
+                    resources={
+                        "lake_root": LakeRootResource(root_path=temp_dir),
+                    },
+                )
+
+        self.assertFalse(result.success)
+        self.assertIn(
+            MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR,
+            str(result.get_step_failure_events()[0].event_specific_data.error),
+        )
+        mocked_write_rows.assert_not_called()
+
+    def test_repair_op_rejects_scattered_manual_scope_before_writing(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with patch(
+                "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                "write_gold_stk_mins_qfq_macd_kdj_rows",
+            ) as mocked_write_rows:
+                result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                    run_config={
+                        "ops": {
+                            "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                "config": {
+                                    "start_trade_date": START_DATE,
+                                    "stock_codes": list(REPAIR_CODES),
+                                }
+                            }
+                        }
+                    },
+                    raise_on_error=False,
+                    resources={
+                        "lake_root": LakeRootResource(root_path=temp_dir),
+                    },
+                )
+
+        self.assertFalse(result.success)
+        self.assertIn(
+            MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR,
+            str(result.get_step_failure_events()[0].event_specific_data.error),
+        )
+        mocked_write_rows.assert_not_called()
+
     def test_repair_op_rejects_empty_stock_codes_before_writing(self) -> None:
         for stock_codes in ([], ["", "   "]):
             with self.subTest(stock_codes=stock_codes):
                 with TemporaryDirectory() as temp_dir:
-                    with patch(
-                        "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
-                        "write_gold_stk_mins_qfq_macd_kdj_rows",
-                    ) as mocked_write_rows:
+                    with (
+                        patch(
+                            "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                            "gold_stk_mins_qfq_factor_repair_status",
+                            return_value=_ready_qfq_factor_repair_status(),
+                        ),
+                        patch(
+                            "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                            "write_gold_stk_mins_qfq_macd_kdj_rows",
+                        ) as mocked_write_rows,
+                    ):
                         result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
                             run_config={
                                 "ops": {
                                     "gold_stk_mins_qfq_macd_kdj_repair_op": {
-                                        "config": {
-                                            "start_trade_date": START_DATE,
-                                            "stock_codes": stock_codes,
-                                        }
+                                        "config": _full_replay_config(
+                                            stock_codes=stock_codes,
+                                        )
                                     }
                                 }
                             },
@@ -299,7 +380,95 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
                 )
                 mocked_write_rows.assert_not_called()
 
-    def test_successful_repair_emits_fourteen_completion_check_events(self) -> None:
+    def test_repair_op_rejects_upstream_batch_id_mismatch(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            with (
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "gold_stk_mins_qfq_factor_repair_status",
+                    return_value=_ready_qfq_factor_repair_status(),
+                ),
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "write_gold_stk_mins_qfq_macd_kdj_rows",
+                ) as mocked_write_rows,
+            ):
+                result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                    run_config={
+                        "ops": {
+                            "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                "config": _full_replay_config(
+                                    upstream_batch_id=(
+                                        f"qfq_factor_repair:{QFQ_FACTOR_REPAIR_DATE}:bad"
+                                    )
+                                )
+                            }
+                        }
+                    },
+                    raise_on_error=False,
+                    resources={
+                        "lake_root": LakeRootResource(root_path=temp_dir),
+                    },
+                )
+
+        self.assertFalse(result.success)
+        self.assertIn(
+            "MACD/KDJ repair upstream_batch_id does not match qfq factor repair metadata",
+            str(result.get_step_failure_events()[0].event_specific_data.error),
+        )
+        mocked_write_rows.assert_not_called()
+
+    def test_repair_op_rejects_explicit_scope_mismatch(self) -> None:
+        mismatch_cases = (
+            (
+                {"start_trade_date": "2026-06-03"},
+                "start_trade_date does not match qfq factor repair metadata",
+            ),
+            (
+                {"repair_required_codes_hash": "c" * 64},
+                "repair_required_codes_hash does not match qfq factor repair metadata",
+            ),
+        )
+        for config_overrides, expected_message in mismatch_cases:
+            with self.subTest(config_overrides=config_overrides):
+                with TemporaryDirectory() as temp_dir:
+                    with (
+                        patch(
+                            "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                            "gold_stk_mins_qfq_factor_repair_status",
+                            return_value=_ready_qfq_factor_repair_status(),
+                        ),
+                        patch(
+                            "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                            "write_gold_stk_mins_qfq_macd_kdj_rows",
+                        ) as mocked_write_rows,
+                    ):
+                        result = (
+                            gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                                run_config={
+                                    "ops": {
+                                        "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                            "config": _full_replay_config(
+                                                **config_overrides,
+                                            )
+                                        }
+                                    }
+                                },
+                                raise_on_error=False,
+                                resources={
+                                    "lake_root": LakeRootResource(root_path=temp_dir),
+                                },
+                            )
+                        )
+
+                self.assertFalse(result.success)
+                self.assertIn(
+                    expected_message,
+                    str(result.get_step_failure_events()[0].event_specific_data.error),
+                )
+                mocked_write_rows.assert_not_called()
+
+    def test_successful_replay_emits_fourteen_completion_check_events(self) -> None:
         with TemporaryDirectory() as temp_dir:
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
@@ -326,6 +495,11 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
             with (
                 patch(
                     "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "gold_stk_mins_qfq_factor_repair_status",
+                    return_value=_ready_qfq_factor_repair_status(),
+                ),
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
                     "discover_gold_stk_mins_qfq_source_year_paths",
                     side_effect=fake_source_paths,
                 ),
@@ -345,18 +519,7 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
                         "ops": {
                             "gold_stk_mins_qfq_macd_kdj_repair_op": {
                                 "config": {
-                                    "start_trade_date": START_DATE,
-                                    "stock_codes": ["600000.SH"],
-                                    "reason": "qfq_factor_repair",
-                                    "repair_required_codes_hash": (
-                                        gold_stk_mins_qfq_factor_repair_codes_hash(
-                                            ["600000.SH"]
-                                        )
-                                    ),
-                                    "source_qfq_factor_repair_event_storage_ids": [
-                                        101,
-                                        102,
-                                    ],
+                                    **_full_replay_config(),
                                 }
                             }
                         }
@@ -410,13 +573,15 @@ class StkMinsQfqM12RepairContractTests(unittest.TestCase):
             )
             self.assertEqual(
                 evaluation.metadata["goldenshare/repair_required_codes_hash"].text,
-                gold_stk_mins_qfq_factor_repair_codes_hash(["600000.SH"]),
+                REPAIR_CODES_HASH,
             )
             self.assertEqual(
-                evaluation.metadata[
-                    "goldenshare/source_qfq_factor_repair_event_storage_ids"
-                ].value,
-                [101, 102],
+                evaluation.metadata["goldenshare/source_upstream_batch_id"].text,
+                UPSTREAM_BATCH_ID,
+            )
+            self.assertNotIn(
+                "goldenshare/source_qfq_factor_repair_event_storage_ids",
+                evaluation.metadata,
             )
             self.assertEqual(
                 evaluation.metadata["goldenshare/indicator_file_count"].value,

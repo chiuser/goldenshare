@@ -15,7 +15,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_WRITER_POOL,
     QFQ_FACTOR_REPAIR_AUTO_MACD_KDJ_CODE_LIMIT,
-    gold_stk_mins_qfq_factor_repair_codes_hash,
 )
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
@@ -29,9 +28,8 @@ MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR = (
     "MACD/KDJ repair requires explicit stock_codes; empty stock_codes would "
     "trigger full-market repair and is forbidden."
 )
-MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR = (
-    "MACD/KDJ repair requires either qfq_factor_repair_trade_date or explicit "
-    "start_trade_date with non-empty stock_codes."
+MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR = (
+    "MACD/KDJ manual repair is unsupported without a qfq factor repair upstream batch."
 )
 
 
@@ -58,7 +56,7 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA = {
         [str],
         is_required=False,
         default_value=[],
-        description="股票代码白名单；未填写时必须提供 qfq_factor_repair_trade_date 自动派生，禁止空列表触发全市场 repair。",
+        description="股票代码白名单；必须与 qfq factor repair metadata 完全一致，禁止空列表触发全市场 repair。",
     ),
     "reason": dg.Field(
         str,
@@ -72,11 +70,11 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA = {
         default_value="",
         description="来自 qfq factor repair affected codes 的稳定 SHA-256 hash。",
     ),
-    "source_qfq_factor_repair_event_storage_ids": dg.Field(
-        [int],
+    "upstream_batch_id": dg.Field(
+        str,
         is_required=False,
-        default_value=[],
-        description="触发本次 MACD/KDJ repair 的 qfq factor repair check event storage id 列表。",
+        default_value="",
+        description="来自 qfq factor repair metadata 的正式上游批次身份。",
     ),
 }
 
@@ -148,7 +146,7 @@ def _repair_completion_asset_keys() -> tuple[dg.AssetKey, ...]:
 
 def _repair_scope_from_qfq_factor_repair_status(
     status: GoldStkMinsQfqFactorRepairStatus,
-) -> tuple[str, tuple[str, ...], str, tuple[int, ...]]:
+) -> tuple[str, tuple[str, ...], str, str]:
     if not status.ready:
         raise dg.Failure(
             "MACD/KDJ repair could not read ready qfq factor repair metadata: "
@@ -177,11 +175,16 @@ def _repair_scope_from_qfq_factor_repair_status(
             "MACD/KDJ repair qfq factor repair metadata is missing repair_required_codes_hash: "
             f"trade_date={status.trade_date}."
         )
+    if status.upstream_batch_id is None:
+        raise dg.Failure(
+            "MACD/KDJ repair qfq factor repair metadata is missing upstream_batch_id: "
+            f"trade_date={status.trade_date}."
+        )
     return (
         status.repair_start_trade_date,
         status.repair_required_codes,
         status.repair_required_codes_hash,
-        status.qfq_factor_repair_event_storage_ids,
+        status.upstream_batch_id,
     )
 
 
@@ -204,44 +207,35 @@ def _assert_explicit_scope_matches_qfq_metadata(
     explicit_start_trade_date: str | None,
     explicit_stock_codes: tuple[str, ...],
     explicit_repair_required_codes_hash: str,
-    explicit_source_event_storage_ids: tuple[int, ...],
+    explicit_upstream_batch_id: str,
     derived_start_trade_date: str,
     derived_stock_codes: tuple[str, ...],
     derived_repair_required_codes_hash: str,
-    derived_source_event_storage_ids: tuple[int, ...],
+    derived_upstream_batch_id: str,
     qfq_factor_repair_trade_date: str,
 ) -> None:
-    if (
-        explicit_start_trade_date is not None
-        and explicit_start_trade_date != derived_start_trade_date
-    ):
+    if explicit_start_trade_date != derived_start_trade_date:
         raise dg.Failure(
             "MACD/KDJ repair start_trade_date does not match qfq factor repair metadata: "
             f"qfq_factor_repair_trade_date={qfq_factor_repair_trade_date}, "
             f"start_trade_date={explicit_start_trade_date}, "
             f"expected_start_trade_date={derived_start_trade_date}."
         )
-    if explicit_stock_codes and explicit_stock_codes != derived_stock_codes:
+    if explicit_stock_codes != derived_stock_codes:
         raise dg.Failure(
             "MACD/KDJ repair stock_codes do not match qfq factor repair metadata: "
             f"qfq_factor_repair_trade_date={qfq_factor_repair_trade_date}, "
             f"stock_code_count={len(explicit_stock_codes)}, "
             f"expected_stock_code_count={len(derived_stock_codes)}."
         )
-    if (
-        explicit_repair_required_codes_hash
-        and explicit_repair_required_codes_hash != derived_repair_required_codes_hash
-    ):
+    if explicit_repair_required_codes_hash != derived_repair_required_codes_hash:
         raise dg.Failure(
             "MACD/KDJ repair repair_required_codes_hash does not match qfq factor repair "
             f"metadata: qfq_factor_repair_trade_date={qfq_factor_repair_trade_date}."
         )
-    if (
-        explicit_source_event_storage_ids
-        and explicit_source_event_storage_ids != derived_source_event_storage_ids
-    ):
+    if explicit_upstream_batch_id != derived_upstream_batch_id:
         raise dg.Failure(
-            "MACD/KDJ repair source_qfq_factor_repair_event_storage_ids do not match "
+            "MACD/KDJ repair upstream_batch_id does not match "
             "qfq factor repair metadata: "
             f"qfq_factor_repair_trade_date={qfq_factor_repair_trade_date}."
         )
@@ -269,56 +263,41 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
     repair_required_codes_hash = str(
         context.op_config.get("repair_required_codes_hash", "")
     ).strip()
-    source_qfq_factor_repair_event_storage_ids = tuple(
-        sorted(
-            int(event_storage_id)
-            for event_storage_id in context.op_config.get(
-                "source_qfq_factor_repair_event_storage_ids",
-                [],
-            )
-        )
-    )
-    if qfq_factor_repair_trade_date is not None:
-        qfq_factor_repair_status = gold_stk_mins_qfq_factor_repair_status(
-            context.instance,
-            qfq_factor_repair_trade_date,
-        )
-        (
-            derived_start_trade_date,
-            derived_stock_codes,
-            derived_repair_required_codes_hash,
-            derived_source_qfq_factor_repair_event_storage_ids,
-        ) = _repair_scope_from_qfq_factor_repair_status(qfq_factor_repair_status)
-        _assert_explicit_scope_matches_qfq_metadata(
-            explicit_start_trade_date=start_trade_date,
-            explicit_stock_codes=stock_codes,
-            explicit_repair_required_codes_hash=repair_required_codes_hash,
-            explicit_source_event_storage_ids=source_qfq_factor_repair_event_storage_ids,
-            derived_start_trade_date=derived_start_trade_date,
-            derived_stock_codes=derived_stock_codes,
-            derived_repair_required_codes_hash=derived_repair_required_codes_hash,
-            derived_source_event_storage_ids=(
-                derived_source_qfq_factor_repair_event_storage_ids
-            ),
-            qfq_factor_repair_trade_date=qfq_factor_repair_trade_date,
-        )
-        start_trade_date = derived_start_trade_date
-        stock_codes = derived_stock_codes
-        repair_required_codes_hash = derived_repair_required_codes_hash
-        source_qfq_factor_repair_event_storage_ids = (
-            derived_source_qfq_factor_repair_event_storage_ids
-        )
-        if not reason or reason == "manual_repair":
-            reason = f"qfq_factor_repair:{qfq_factor_repair_trade_date}"
-    elif start_trade_date is None:
-        raise dg.Failure(MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR)
-    elif not stock_codes:
+    upstream_batch_id = str(context.op_config.get("upstream_batch_id", "")).strip()
+    if qfq_factor_repair_trade_date is None or not upstream_batch_id:
+        raise dg.Failure(MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR)
+    if start_trade_date is None:
+        raise dg.Failure("MACD/KDJ repair requires explicit start_trade_date.")
+    if not stock_codes:
         raise dg.Failure(MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR)
-    else:
-        repair_required_codes_hash = (
-            repair_required_codes_hash
-            or gold_stk_mins_qfq_factor_repair_codes_hash(stock_codes)
+    if not repair_required_codes_hash:
+        raise dg.Failure(
+            "MACD/KDJ repair requires explicit repair_required_codes_hash."
         )
+
+    qfq_factor_repair_status = gold_stk_mins_qfq_factor_repair_status(
+        context.instance,
+        qfq_factor_repair_trade_date,
+    )
+    (
+        derived_start_trade_date,
+        derived_stock_codes,
+        derived_repair_required_codes_hash,
+        derived_upstream_batch_id,
+    ) = _repair_scope_from_qfq_factor_repair_status(qfq_factor_repair_status)
+    _assert_explicit_scope_matches_qfq_metadata(
+        explicit_start_trade_date=start_trade_date,
+        explicit_stock_codes=stock_codes,
+        explicit_repair_required_codes_hash=repair_required_codes_hash,
+        explicit_upstream_batch_id=upstream_batch_id,
+        derived_start_trade_date=derived_start_trade_date,
+        derived_stock_codes=derived_stock_codes,
+        derived_repair_required_codes_hash=derived_repair_required_codes_hash,
+        derived_upstream_batch_id=derived_upstream_batch_id,
+        qfq_factor_repair_trade_date=qfq_factor_repair_trade_date,
+    )
+    if not reason or reason == "manual_repair":
+        reason = f"qfq_factor_repair:{qfq_factor_repair_trade_date}"
 
     registered_trade_days = tuple(
         sorted(
@@ -408,9 +387,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
             "stock_code_count": len(stock_codes),
             "repair_required_code_count": len(stock_codes),
             "repair_required_codes_hash": repair_required_codes_hash,
-            "source_qfq_factor_repair_event_storage_ids": list(
-                source_qfq_factor_repair_event_storage_ids
-            ),
+            "source_upstream_batch_id": upstream_batch_id,
             "reason": reason,
             "indicator_file_count": total_indicator_file_count,
             "indicator_row_count": total_indicator_row_count,

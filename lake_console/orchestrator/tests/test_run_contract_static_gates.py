@@ -39,9 +39,7 @@ M12_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py",
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py",
 )
-M12_RUN_STATUS_SENSOR_FILES = {
-    "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
-}
+M12_RUN_STATUS_SENSOR_FILES: set[str] = set()
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
 FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
@@ -195,8 +193,6 @@ def _is_allowed_direct_run_request_tags(path: Path) -> bool:
 
 
 def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
-    if path.name == "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py":
-        return True
     if (
         path.name == "index_daily_sensor.py"
         and isinstance(node, ast.Attribute)
@@ -320,7 +316,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "monitored_jobs=[gold_stk_mins_qfq_macd_kdj_daily_update_job]",
             "_automatic_macd_kdj_repair_allowed",
             '"stock_codes": list(decision.stock_codes)',
-            "source_qfq_factor_repair_event_storage_ids",
+            '"upstream_batch_id": decision.upstream_batch_id',
+            "build_upstream_triggered_run_key",
+            "build_run_request",
             "build_sensor_tags",
         )
         forbidden_repair_sensor_fragments = (
@@ -328,6 +326,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "duckdb",
             "read_parquet",
             "gold_stk_mins_qfq_macd_kdj_path",
+            "source_qfq_factor_repair_event_storage_ids",
             '"stock_codes": []',
             "automatic_m12_repair_allowed",
         )
@@ -365,15 +364,16 @@ class RunContractStaticGateTests(unittest.TestCase):
         required_repair_op_fragments = (
             "GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME",
             "MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR",
-            "MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR",
+            "MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR",
             "qfq_factor_repair_trade_date",
+            "upstream_batch_id",
             "gold_stk_mins_qfq_factor_repair_status",
             "_repair_scope_from_qfq_factor_repair_status",
             "dg.AssetCheckEvaluation",
             "blocking=True",
             "partition=start_trade_date",
             "repair_required_codes_hash",
-            "source_qfq_factor_repair_event_storage_ids",
+            "source_upstream_batch_id",
             '"stock_code_scope": "explicit"',
         )
         issues.extend(
@@ -393,34 +393,40 @@ class RunContractStaticGateTests(unittest.TestCase):
                 stock_codes_schema_start:reason_schema_start
             ]
             if "is_required=False" not in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must be optional for metadata mode")
+                issues.append("M12 repair stock_codes config must be optional for replay mode")
             if "为空表示全市场" in stock_codes_schema:
                 issues.append("M12 repair stock_codes config must not allow empty all-market repair")
-            if "qfq_factor_repair_trade_date" not in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must mention metadata mode")
-        stock_codes_guard = "elif not stock_codes:"
+            if "qfq factor repair metadata" not in stock_codes_schema:
+                issues.append("M12 repair stock_codes config must mention metadata match")
+        stock_codes_guard = "if not stock_codes:"
         repair_write_call = "write_gold_stk_mins_qfq_macd_kdj_rows("
         if stock_codes_guard not in repair_op_source:
-            issues.append("M12 repair op must reject empty stock_codes without metadata mode")
+            issues.append("M12 repair op must reject empty stock_codes before writing")
         elif repair_write_call not in repair_op_source:
             issues.append("M12 repair op misses write helper call")
         elif repair_op_source.index(stock_codes_guard) > repair_op_source.index(
             repair_write_call
         ):
             issues.append("M12 repair op must reject empty stock_codes before writing")
-        qfq_mode = "if qfq_factor_repair_trade_date is not None:"
+        manual_guard = "if qfq_factor_repair_trade_date is None or not upstream_batch_id:"
         qfq_status_call = "gold_stk_mins_qfq_factor_repair_status("
-        if qfq_mode not in repair_op_source:
-            issues.append("M12 repair op must support qfq_factor_repair_trade_date mode")
-        elif qfq_status_call not in repair_op_source:
-            issues.append("M12 repair op must read qfq factor repair metadata in metadata mode")
-        elif repair_op_source.index(qfq_mode) > repair_op_source.index(repair_write_call):
-            issues.append("M12 repair metadata mode must resolve scope before writing")
+        if manual_guard not in repair_op_source:
+            issues.append("M12 repair op must reject missing upstream batch before writing")
+        elif repair_op_source.index(manual_guard) > repair_op_source.index(repair_write_call):
+            issues.append("M12 repair manual guard must run before writing")
+        if qfq_status_call not in repair_op_source:
+            issues.append("M12 repair op must read qfq factor repair metadata in replay mode")
+        elif repair_op_source.index(qfq_status_call) > repair_op_source.index(
+            repair_write_call
+        ):
+            issues.append("M12 repair replay mode must resolve scope before writing")
         forbidden_repair_op_fragments = (
             '"stock_code_scope": "explicit" if stock_codes else "all"',
             '"stock_code_scope": "all"',
             "M12_REPAIR_EMPTY_STOCK_CODES_ERROR",
             "M12_REPAIR_MISSING_SCOPE_ERROR",
+            "MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR",
+            "source_qfq_factor_repair_event_storage_ids",
             "requires_m12_repair",
             "automatic_m12_repair_allowed",
         )
@@ -429,6 +435,62 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_repair_op_fragments
             if fragment in repair_op_source
         )
+
+        self.assertEqual(issues, [])
+
+    def test_macd_kdj_repair_legacy_storage_id_field_is_bridge_only(self) -> None:
+        issues = []
+        field_name = "source_qfq_factor_repair_event_storage_ids"
+        formal_paths = (
+            SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
+            DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py",
+        )
+        for path in formal_paths:
+            if field_name in path.read_text():
+                issues.append(f"{path} writes legacy qfq factor repair storage id field")
+
+        guard_path = DEFS_DIR / "asset_guards" / "stk_mins_qfq_macd_kdj.py"
+        tree = _parse_python_file(guard_path)
+        parents = {
+            child: parent
+            for parent in ast.walk(tree)
+            for child in ast.iter_child_nodes(parent)
+        }
+        for node in ast.walk(tree):
+            if not (
+                isinstance(node, ast.Constant)
+                and isinstance(node.value, str)
+                and node.value == field_name
+            ):
+                continue
+
+            cursor: ast.AST | None = node
+            allowed = False
+            while cursor is not None:
+                if (
+                    isinstance(cursor, ast.FunctionDef)
+                    and cursor.name == "_legacy_macd_kdj_repair_completion_status"
+                ):
+                    allowed = True
+                    break
+                if isinstance(cursor, ast.Assign):
+                    target_names = {
+                        target.id
+                        for target in cursor.targets
+                        if isinstance(target, ast.Name)
+                    }
+                    if (
+                        "_MACD_KDJ_REPAIR_LEGACY_COMPLETION_REQUIRED_METADATA_KEYS"
+                        in target_names
+                    ):
+                        allowed = True
+                        break
+                cursor = parents.get(cursor)
+            if not allowed:
+                issues.append(
+                    f"{_node_location(guard_path, node)} uses legacy qfq factor "
+                    "repair storage id field outside legacy bridge"
+                )
 
         self.assertEqual(issues, [])
 

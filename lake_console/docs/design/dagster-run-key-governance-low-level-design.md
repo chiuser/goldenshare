@@ -33,6 +33,7 @@
 8. 普通资产更新和有界修复尝试必须保持现有 run key 字符串输出不变。
 9. 前复权分钟线 MACD/KDJ 修复切换新 run key 前，必须有 completion gate 和 legacy bridge 防止重复提交。
 10. 正式 Dagster run history 审计属于正式环境操作，必须单独审批后才能执行。
+11. 前复权分钟线 MACD/KDJ 修复的正式业务来源只能是真实 qfq factor repair upstream batch；Dagster UI 人工提交只允许重放这个真实上游批次，不允许只给 `start_trade_date + stock_codes` 的无批次手工修复。
 
 ## 3. 代码审计范围
 
@@ -310,6 +311,32 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stk_mins_qfq_macd_k
 lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_macd_kdj.py
 ```
 
+### 8.0 业务来源与提交方边界
+
+M4 的正式业务来源固定为 qfq factor repair 产生的真实 `upstream_batch_id`。日常自动触发由 repair sensor 提交 `RunRequest`。
+
+允许 Dagster UI 人工重放自动路径，但这不是新的手工业务来源。人工重放必须提供与 qfq factor repair metadata/status 完全一致的完整 config：
+
+```text
+qfq_factor_repair_trade_date
+start_trade_date
+stock_codes
+repair_required_codes_hash
+upstream_batch_id
+```
+
+op 启动后必须重新读取 `qfq_factor_repair_trade_date` 对应的上游 metadata/status，并校验显式 config 与上游事实完全一致。
+
+禁止无上游批次的散装手工修复：
+
+```text
+start_trade_date + stock_codes
+```
+
+不得为这种散装参数生成临时 `upstream_batch_id`，也不得写 completion identity。
+
+如果未来确实需要运营主动发起非 qfq factor repair 来源的修复，必须另行设计正式 manual repair batch producer，由它先产出可审计的 upstream batch metadata；不得把 repair op 改回直接消费散装参数。
+
 ### 8.1 Decision 数据结构
 
 `GoldStkMinsQfqMacdKdjRepairRunStatusDecision` 删除新正式路径对 `qfq_factor_repair_event_storage_ids` 的依赖，增加：
@@ -441,12 +468,14 @@ source_qfq_factor_repair_event_storage_ids
 
 `upstream_batch_id` 的生效规则：
 
-1. sensor 自动触发路径必须显式传入 `upstream_batch_id`。
-2. 如果传入 `qfq_factor_repair_trade_date`，op 必须从上游 metadata/status 派生 `upstream_batch_id`，并与显式值校验一致。
-3. 如果既没有显式 `upstream_batch_id`，也没有可派生的上游 metadata/status，禁止写入 `source_upstream_batch_id` completion metadata。
-4. 自动修复路径不得静默生成临时 batch id。
+1. sensor 自动触发路径必须显式传入 `qfq_factor_repair_trade_date` 和 `upstream_batch_id`。
+2. Dagster UI 人工提交只允许重放自动路径，也必须显式传入 `qfq_factor_repair_trade_date` 和 `upstream_batch_id`。
+3. op 必须从 `qfq_factor_repair_trade_date` 对应的上游 metadata/status 派生 `upstream_batch_id`，并与显式值校验一致。
+4. 如果缺少 `qfq_factor_repair_trade_date` 或显式 `upstream_batch_id`，直接失败，错误原因必须写清 `manual repair is unsupported`。
+5. 禁止仅凭 `start_trade_date + stock_codes` 执行 repair；这类散装手工路径不得写入 `source_upstream_batch_id` completion metadata。
+6. 自动修复路径和人工重放路径都不得静默生成临时 batch id。
 
-如果实现时发现现有手工修复必须继续支持“无上游批次”的运行方式，必须停下确认该路径的 completion metadata 语义，不得自己发明默认 upstream batch。
+如果实现时发现确实需要运营主动发起非 qfq factor repair 来源的修复，必须停下并单独设计 manual repair batch producer；不得在本轮恢复“无上游批次”的 repair op 手工路径。
 
 ### 9.2 scope 派生
 
@@ -692,11 +721,15 @@ lake_console/orchestrator/tests/test_run_contract_run_keys.py
 1. 显式 `upstream_batch_id` 与上游 metadata 一致时通过。
 2. 显式 `upstream_batch_id` 与上游 metadata 不一致时报错。
 3. `qfq_factor_repair_trade_date` 派生路径能得到 `upstream_batch_id`。
-4. 新 completion metadata 写 `source_upstream_batch_id`。
-5. 新 completion metadata 不写 `source_qfq_factor_repair_event_storage_ids`。
-6. 新 gate 仅凭 `source_upstream_batch_id` 判断已完成。
-7. 新 gate 不依赖 completion event storage id 大小。
-8. legacy bridge 只读旧 completion metadata，且不参与新 metadata 写入。
+4. Dagster UI 人工重放自动路径时，完整 config 与上游 metadata 一致则通过。
+5. 缺少 `qfq_factor_repair_trade_date` 时报错，错误信息包含 `manual repair is unsupported`。
+6. 缺少 `upstream_batch_id` 时报错，错误信息包含 `manual repair is unsupported`。
+7. 仅传 `start_trade_date + stock_codes` 的散装手工路径报错，且不会写文件或 completion metadata。
+8. 新 completion metadata 写 `source_upstream_batch_id`。
+9. 新 completion metadata 不写 `source_qfq_factor_repair_event_storage_ids`。
+10. 新 gate 仅凭 `source_upstream_batch_id` 判断已完成。
+11. 新 gate 不依赖 completion event storage id 大小。
+12. legacy bridge 只读旧 completion metadata，且不参与新 metadata 写入。
 
 ## 13. 实现顺序
 
@@ -737,7 +770,7 @@ uv run pytest tests -k "qfq and macd"
 2. 发现生产代码存在解析 run key 得到执行参数的真实逻辑。
 3. 发现 qfq factor repair op 无法可靠拿到 `context.run_id`。
 4. 发现上游 check metadata 不能稳定写入或读取 `upstream_batch_id`。
-5. 发现手工前复权分钟线 MACD/KDJ 修复必须支持无上游 batch 的 completion metadata。
+5. 发现必须支持无上游 batch 的手工前复权分钟线 MACD/KDJ 修复；此时必须停下并单独设计 manual repair batch producer，不得在本轮恢复散装手工路径。
 6. 发现 legacy bridge 需要写入旧字段才能防重复。
 7. 正式 run history 审计未获审批或审计发现旧格式 run 正在排队/运行。
 

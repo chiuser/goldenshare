@@ -10,7 +10,9 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     gold_stk_mins_qfq_factor_repair_status,
 )
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
+    gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch,
     gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status,
+    legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids,
 )
 from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
@@ -29,6 +31,14 @@ REPAIR_CODES = ("000001.SZ", "600000.SH", "600001.SH")
 REPAIR_CODES_HASH = gold_stk_mins_qfq_factor_repair_codes_hash(REPAIR_CODES)
 QFQ_EVENT_STORAGE_IDS = tuple(100 + index for index in range(len(STK_MINS_QFQ_FREQS)))
 PRODUCER_RUN_ID = "qfq-factor-repair-run-1"
+UPSTREAM_BATCH_ID = build_batch_id(
+    producer="qfq_factor_repair",
+    scope=TRADE_DATE,
+    payload={
+        "producer_run_id": PRODUCER_RUN_ID,
+        "repair_required_codes_hash": REPAIR_CODES_HASH,
+    },
+)
 
 
 class _FakeEventLogStorage:
@@ -110,13 +120,17 @@ def _qfq_metadata(*, rewrote_history: bool) -> dict[str, object]:
     )
     return {
         "producer_run_id": PRODUCER_RUN_ID,
-        "upstream_batch_id": build_batch_id(
-            producer="qfq_factor_repair",
-            scope=TRADE_DATE,
-            payload={
-                "producer_run_id": PRODUCER_RUN_ID,
-                "repair_required_codes_hash": repair_required_codes_hash,
-            },
+        "upstream_batch_id": (
+            UPSTREAM_BATCH_ID
+            if rewrote_history
+            else build_batch_id(
+                producer="qfq_factor_repair",
+                scope=TRADE_DATE,
+                payload={
+                    "producer_run_id": PRODUCER_RUN_ID,
+                    "repair_required_codes_hash": repair_required_codes_hash,
+                },
+            )
         ),
         "repair_required": rewrote_history,
         "repair_required_code_count": 3 if rewrote_history else 0,
@@ -143,7 +157,7 @@ def _macd_kdj_metadata(
     stock_code_count: int = 3,
     repair_required_code_count: int = 3,
     repair_required_codes_hash: str = REPAIR_CODES_HASH,
-    source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = QFQ_EVENT_STORAGE_IDS,
+    source_upstream_batch_id: str = UPSTREAM_BATCH_ID,
 ) -> dict[str, object]:
     return {
         "covered_start_trade_date": covered_start_trade_date,
@@ -153,10 +167,39 @@ def _macd_kdj_metadata(
         "stock_code_count": stock_code_count,
         "repair_required_code_count": repair_required_code_count,
         "repair_required_codes_hash": repair_required_codes_hash,
-        "source_qfq_factor_repair_event_storage_ids": list(
-            source_qfq_factor_repair_event_storage_ids
-        ),
+        "source_upstream_batch_id": source_upstream_batch_id,
     }
+
+
+def _legacy_macd_kdj_metadata(
+    *,
+    covered_start_trade_date: str = REPAIR_START_DATE,
+    covered_end_trade_date: str = TRADE_DATE,
+    freqs: tuple[int, ...] = STK_MINS_QFQ_FREQS,
+    stock_code_scope: str = "explicit",
+    stock_code_count: int = 3,
+    repair_required_code_count: int = 3,
+    repair_required_codes_hash: str = REPAIR_CODES_HASH,
+    source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = QFQ_EVENT_STORAGE_IDS,
+) -> dict[str, object]:
+    metadata = _macd_kdj_metadata(
+        covered_start_trade_date=covered_start_trade_date,
+        covered_end_trade_date=covered_end_trade_date,
+        freqs=freqs,
+        stock_code_scope=stock_code_scope,
+        stock_code_count=stock_code_count,
+        repair_required_code_count=repair_required_code_count,
+        repair_required_codes_hash=repair_required_codes_hash,
+    )
+    metadata.pop("source_upstream_batch_id")
+    metadata.update(
+        {
+            "source_qfq_factor_repair_event_storage_ids": list(
+                source_qfq_factor_repair_event_storage_ids
+            )
+        }
+    )
+    return metadata
 
 
 def _qfq_records(*, rewrote_history: bool, partition: str = TRADE_DATE):
@@ -198,14 +241,7 @@ class StkMinsQfqMacdKdjRepairGateTests(unittest.TestCase):
         self.assertEqual(status.producer_run_id, PRODUCER_RUN_ID)
         self.assertEqual(
             status.upstream_batch_id,
-            build_batch_id(
-                producer="qfq_factor_repair",
-                scope=TRADE_DATE,
-                payload={
-                    "producer_run_id": PRODUCER_RUN_ID,
-                    "repair_required_codes_hash": REPAIR_CODES_HASH,
-                },
-            ),
+            UPSTREAM_BATCH_ID,
         )
         self.assertEqual(
             status.to_payload()["upstream_batch_id"],
@@ -345,14 +381,28 @@ class StkMinsQfqMacdKdjRepairGateTests(unittest.TestCase):
         self.assertTrue(status.ready)
         self.assertTrue(status.requires_macd_kdj_repair)
         self.assertEqual(len(status.macd_kdj_repair_event_storage_ids), 14)
+        self.assertEqual(
+            status.macd_kdj_repair_status.source_upstream_batch_id,
+            UPSTREAM_BATCH_ID,
+        )
 
-    def test_macd_kdj_completion_before_qfq_repair_or_undercovered_fails_closed(self):
-        old_completion_instance = _FakeInstance(
+    def test_new_completion_gate_does_not_depend_on_event_storage_id_ordering(self):
+        instance = _FakeInstance(
             {
                 **_qfq_records(rewrote_history=True),
                 **_macd_kdj_records(storage_start=50),
             }
         )
+
+        status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
+            instance,
+            TRADE_DATE,
+        )
+
+        self.assertTrue(status.ready)
+        self.assertTrue(status.macd_kdj_repair_status.ready)
+
+    def test_macd_kdj_completion_undercovered_fails_closed(self):
         undercovered_instance = _FakeInstance(
             {
                 **_qfq_records(rewrote_history=True),
@@ -364,17 +414,69 @@ class StkMinsQfqMacdKdjRepairGateTests(unittest.TestCase):
             }
         )
 
-        old_completion_status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
-            old_completion_instance,
-            TRADE_DATE,
-        )
         undercovered_status = gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status(
             undercovered_instance,
             TRADE_DATE,
         )
 
-        self.assertFalse(old_completion_status.ready)
         self.assertFalse(undercovered_status.ready)
+
+    def test_completion_gate_can_be_called_directly_by_upstream_batch_id(self):
+        instance = _FakeInstance(_macd_kdj_records(storage_start=50))
+
+        status = gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
+            instance,
+            repair_start_trade_date=REPAIR_START_DATE,
+            repair_end_trade_date=TRADE_DATE,
+            upstream_batch_id=UPSTREAM_BATCH_ID,
+            repair_required_code_count=len(REPAIR_CODES),
+            repair_required_codes_hash=REPAIR_CODES_HASH,
+        )
+
+        self.assertTrue(status.ready)
+        self.assertEqual(status.source_upstream_batch_id, UPSTREAM_BATCH_ID)
+
+    def test_legacy_bridge_keeps_old_event_storage_id_comparison(self):
+        ready_instance = _FakeInstance(
+            _macd_kdj_records(
+                storage_start=200,
+                metadata=_legacy_macd_kdj_metadata(),
+            )
+        )
+        stale_instance = _FakeInstance(
+            _macd_kdj_records(
+                storage_start=50,
+                metadata=_legacy_macd_kdj_metadata(),
+            )
+        )
+
+        ready_status = (
+            legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
+                ready_instance,
+                repair_start_trade_date=REPAIR_START_DATE,
+                repair_end_trade_date=TRADE_DATE,
+                qfq_factor_repair_event_storage_ids=QFQ_EVENT_STORAGE_IDS,
+                repair_required_code_count=len(REPAIR_CODES),
+                repair_required_codes_hash=REPAIR_CODES_HASH,
+            )
+        )
+        stale_status = (
+            legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
+                stale_instance,
+                repair_start_trade_date=REPAIR_START_DATE,
+                repair_end_trade_date=TRADE_DATE,
+                qfq_factor_repair_event_storage_ids=QFQ_EVENT_STORAGE_IDS,
+                repair_required_code_count=len(REPAIR_CODES),
+                repair_required_codes_hash=REPAIR_CODES_HASH,
+            )
+        )
+
+        self.assertTrue(ready_status.ready)
+        self.assertEqual(
+            ready_status.legacy_source_qfq_factor_repair_event_storage_ids,
+            QFQ_EVENT_STORAGE_IDS,
+        )
+        self.assertFalse(stale_status.ready)
 
 
 if __name__ == "__main__":

@@ -6,8 +6,11 @@ import dagster as dg
 
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
-    gold_stk_mins_qfq_factor_repair_event_storage_ids_identity,
     gold_stk_mins_qfq_factor_repair_status,
+)
+from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
+    gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch,
+    legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids,
 )
 from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_daily_update import (
     gold_stk_mins_qfq_macd_kdj_daily_update_job,
@@ -16,6 +19,8 @@ from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_repair import (
     gold_stk_mins_qfq_macd_kdj_repair_job,
 )
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
+from orchestrator.defs.run_contracts.requests import build_run_request
+from orchestrator.defs.run_contracts.run_keys import build_upstream_triggered_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -44,7 +49,7 @@ class GoldStkMinsQfqMacdKdjRepairRunStatusDecision:
     reason: str
     stock_codes: tuple[str, ...] = ()
     repair_required_codes_hash: str | None = None
-    qfq_factor_repair_event_storage_ids: tuple[int, ...] = ()
+    upstream_batch_id: str | None = None
 
 
 def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
@@ -93,15 +98,22 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
                 "code list/hash，暂不自动触发 MACD/KDJ repair。"
             ),
         )
+    if qfq_factor_repair_status.upstream_batch_id is None:
+        return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=(
+                "qfq factor repair metadata 缺少 upstream_batch_id，"
+                "暂不触发 MACD/KDJ repair。"
+            ),
+        )
     return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
         target_trade_date=target_trade_date,
         selected_trade_date=qfq_factor_repair_status.repair_start_trade_date,
         reason="MACD/KDJ daily 成功，提交 scoped MACD/KDJ repair。",
         stock_codes=qfq_factor_repair_status.repair_required_codes,
         repair_required_codes_hash=qfq_factor_repair_status.repair_required_codes_hash,
-        qfq_factor_repair_event_storage_ids=(
-            qfq_factor_repair_status.qfq_factor_repair_event_storage_ids
-        ),
+        upstream_batch_id=qfq_factor_repair_status.upstream_batch_id,
     )
 
 
@@ -112,14 +124,13 @@ def _run_config_for_repair_decision(
         "ops": {
             "gold_stk_mins_qfq_macd_kdj_repair_op": {
                 "config": {
+                    "qfq_factor_repair_trade_date": decision.target_trade_date,
                     "start_trade_date": decision.selected_trade_date,
                     "freqs": list(STK_MINS_QFQ_FREQS),
                     "stock_codes": list(decision.stock_codes),
                     "reason": f"qfq_factor_repair:{decision.target_trade_date}",
                     "repair_required_codes_hash": decision.repair_required_codes_hash,
-                    "source_qfq_factor_repair_event_storage_ids": list(
-                        decision.qfq_factor_repair_event_storage_ids
-                    ),
+                    "upstream_batch_id": decision.upstream_batch_id,
                 }
             }
         }
@@ -129,18 +140,62 @@ def _run_config_for_repair_decision(
 def _run_request_for_repair_decision(
     decision: GoldStkMinsQfqMacdKdjRepairRunStatusDecision,
 ) -> dg.RunRequest:
-    qfq_event_identity = gold_stk_mins_qfq_factor_repair_event_storage_ids_identity(
-        decision.qfq_factor_repair_event_storage_ids
-    )
-    return dg.RunRequest(
-        run_key=(
-            "gold_stk_mins_qfq_macd_kdj_repair:"
-            f"{decision.target_trade_date}:"
-            f"{decision.repair_required_codes_hash}:"
-            f"{qfq_event_identity}"
+    if decision.upstream_batch_id is None:
+        raise ValueError("MACD/KDJ repair decision is missing upstream_batch_id.")
+    return build_run_request(
+        run_key=build_upstream_triggered_run_key(
+            consumer="gold_stk_mins_qfq_macd_kdj_repair",
+            upstream_batch_id=decision.upstream_batch_id,
         ),
         run_config=_run_config_for_repair_decision(decision),
     )
+
+
+def _run_request_or_skip_for_repair_decision(
+    instance: dg.DagsterInstance,
+    decision: GoldStkMinsQfqMacdKdjRepairRunStatusDecision,
+    qfq_factor_repair_status: GoldStkMinsQfqFactorRepairStatus,
+) -> dg.RunRequest | dg.SkipReason:
+    if decision.selected_trade_date is None:
+        return dg.SkipReason(decision.reason)
+    if decision.upstream_batch_id is None:
+        return dg.SkipReason(
+            "qfq factor repair metadata 缺少 upstream_batch_id，"
+            "暂不触发 MACD/KDJ repair。"
+        )
+
+    completion_status = (
+        gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
+            instance,
+            repair_start_trade_date=decision.selected_trade_date,
+            repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
+            upstream_batch_id=decision.upstream_batch_id,
+            repair_required_code_count=(
+                qfq_factor_repair_status.repair_required_code_count
+            ),
+            repair_required_codes_hash=decision.repair_required_codes_hash,
+        )
+    )
+    if completion_status.ready:
+        return dg.SkipReason(completion_status.reason)
+
+    legacy_completion_status = (
+        legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
+            instance,
+            repair_start_trade_date=decision.selected_trade_date,
+            repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
+            qfq_factor_repair_event_storage_ids=(
+                qfq_factor_repair_status.qfq_factor_repair_event_storage_ids
+            ),
+            repair_required_code_count=(
+                qfq_factor_repair_status.repair_required_code_count
+            ),
+            repair_required_codes_hash=decision.repair_required_codes_hash,
+        )
+    )
+    if legacy_completion_status.ready:
+        return dg.SkipReason(legacy_completion_status.reason)
+    return _run_request_for_repair_decision(decision)
 
 
 @dg.run_status_sensor(
@@ -185,7 +240,13 @@ def gold_stk_mins_qfq_macd_kdj_repair_job_sensor(
     )
     if decision.selected_trade_date is None:
         return dg.SkipReason(decision.reason)
-    return _run_request_for_repair_decision(decision)
+    if qfq_factor_repair_status is None:
+        return dg.SkipReason("同日 qfq factor repair 状态不可用。")
+    return _run_request_or_skip_for_repair_decision(
+        context.instance,
+        decision,
+        qfq_factor_repair_status,
+    )
 
 
 def _automatic_macd_kdj_repair_allowed(

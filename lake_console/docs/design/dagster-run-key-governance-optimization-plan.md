@@ -247,6 +247,7 @@ payload:
 4. 前复权分钟线 MACD/KDJ 修复的 `run_config` 仍显式传入执行参数，包括 `start_trade_date`、`freqs`、`stock_codes`、`reason`、`repair_required_codes_hash`、`upstream_batch_id`。
 5. 前复权分钟线 MACD/KDJ 修复 completion metadata 必须记录 `source_upstream_batch_id` 和实际执行结果，便于排查和后续 completion gate 判断。
 6. 新链路不得继续写入 `source_qfq_factor_repair_event_storage_ids` 作为正式 completion identity；旧字段只允许被 legacy bridge 读取旧记录时使用。
+7. Dagster UI 人工提交只允许重放真实 qfq factor repair upstream batch，必须提供完整 config 并通过上游 metadata/status 一致性校验；禁止只传 `start_trade_date + stock_codes` 的无批次手工修复，也不得为散装参数生成临时 `upstream_batch_id`。
 
 目标流程：
 
@@ -255,6 +256,7 @@ payload:
 3. sensor 在提交 `RunRequest` 前，先用 `upstream_batch_id` 检查下游 completion gate；如果已有 completion check 证明这轮上游批次已完成，直接返回 `SkipReason`。
 4. 需要触发时，sensor 使用 `gold_stk_mins_qfq_macd_kdj_repair:{upstream_batch_id}` 作为 run key，并通过 run config 显式传入执行参数。
 5. 前复权分钟线 MACD/KDJ 修复完成后，在自己的 completion metadata 中写入 `source_upstream_batch_id`，表示这次下游修复消费的是哪一轮上游批次。
+6. 如果自动提交受阻，允许人工在 Dagster UI 重放同一真实上游批次；这只是提交方式不同，不改变业务来源，也不允许绕过上游 batch 契约。
 
 ## 6. 现有场景最终迁移口径
 
@@ -396,10 +398,11 @@ legacy bridge 只用于迁移期防止旧 completion metadata 因 run key 切换
 
 1. `upstream_batch_id` 的 payload 已确认使用上游 `run_id`，不引入额外 batch sequence。
 2. 前复权分钟线 MACD/KDJ 修复新 completion metadata 已确认写入 `source_upstream_batch_id`；不再把 event storage ids 作为正式 completion identity。
-3. 旧 run key 与新 run key 切换后，同一业务动作可能被 Dagster 视为新请求；迁移必须通过 sensor 提交前 completion gate 和 legacy completion bridge 避免重新执行。
-4. 静态门禁需要避免误伤测试文件和 Dagster 官方示例文档；该点已确认。
-5. 如果已有待执行或运行中的 run 使用旧 run key，正式切换前必须只读审计 Dagster run history；审计需按正式 Dagster 环境执行门禁单独审批。
-6. legacy bridge 必须有退出机制，退出条件见 7.4；不得把旧 event storage ids 读取逻辑长期保留为正式路径。
+3. 前复权分钟线 MACD/KDJ 修复的人工提交只允许重放真实 qfq factor repair upstream batch；如果未来需要运营主动发起非 qfq factor repair 来源的修复，必须另行设计正式 manual repair batch producer。
+4. 旧 run key 与新 run key 切换后，同一业务动作可能被 Dagster 视为新请求；迁移必须通过 sensor 提交前 completion gate 和 legacy completion bridge 避免重新执行。
+5. 静态门禁需要避免误伤测试文件和 Dagster 官方示例文档；该点已确认。
+6. 如果已有待执行或运行中的 run 使用旧 run key，正式切换前必须只读审计 Dagster run history；审计需按正式 Dagster 环境执行门禁单独审批。
+7. legacy bridge 必须有退出机制，退出条件见 7.4；不得把旧 event storage ids 读取逻辑长期保留为正式路径。
 
 ## 12. 初始硬口径清单
 
