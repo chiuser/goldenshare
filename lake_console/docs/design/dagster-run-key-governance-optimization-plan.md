@@ -1,8 +1,20 @@
 # Dagster Run Key 治理技术专项优化方案
 
-状态：方案口径已确认，待实现。本文是技术治理方案文档，尚未落地到 Dagster definitions 或 sensor 代码。
+状态：M1-M4 已按本文核心口径落地，M5 进行文档与静态门禁收口。本文保留为 run key 治理长期方案与后续 legacy bridge 退出依据。
 
-更新时间：2026-06-11
+更新时间：2026-06-16
+
+## 0. 实施状态
+
+截至 2026-06-16，本文的核心治理口径已完成以下落地：
+
+1. 已新增统一 run key / upstream batch id builder：`run_contracts/run_keys.py`。
+2. 普通 asset update 与 repair attempt run key 已迁移到统一 builder，输出字符串保持不变。
+3. qfq factor repair metadata/status 已写入并暴露 `producer_run_id` 与 `upstream_batch_id`。
+4. 前复权分钟线 MACD/KDJ 修复正式链路已切换为 `consumer + upstream_batch_id`，run config 与 completion metadata 不再写入旧 `source_qfq_factor_repair_event_storage_ids` 字段。
+5. 前复权分钟线 MACD/KDJ 修复 completion gate 已按 `source_upstream_batch_id` 判断完成，legacy bridge 仅用于迁移期只读旧 completion metadata 防重复提交。
+
+M5 只做文档与静态门禁命名收口，不改变 Dagster definitions、sensor/op 业务行为或正式 Dagster instance 状态。
 
 ## 1. 背景
 
@@ -28,11 +40,11 @@
 8. 上下游触发场景中，下游不应理解上游如何判断“新一轮结果”。上游必须提供 opaque 的 `upstream_batch_id`，下游只用它判断是否需要触发。
 9. `event_storage_id` 是 Dagster event log storage 的内部记录号，不应作为下游 run key 的长期业务契约。
 
-## 3. 当前 run key 分类
+## 3. 治理前 run key 分类
 
-当前代码中的 run key 可归纳为三类，另需新增一类 batch id 生成能力。
+治理前代码中的 run key 可归纳为三类，另需新增一类 batch id 生成能力。
 
-| 分类 | 当前例子 | 现状问题 | 目标抽象 |
+| 分类 | 治理前例子 | 治理前问题 | 目标抽象 |
 | --- | --- | --- | --- |
 | 资产更新 | `raw_stock_daily_update:{trade_date}`、`silver_index_daily:{trade_date}`、`index_daily:{trade_date}:{index_code}` | 各 sensor 手写模板 | `build_asset_update_run_key(...)` |
 | 有界修复尝试 | `raw_stock_daily_update:{trade_date}:missing_code_repair:{hash}:{attempt}`、`index_daily:{trade_date}:{index_code}:repair:{evaluation_date}:{attempt}` | repair 维度各自命名，attempt 口径散落 | `build_repair_attempt_run_key(...)` |
@@ -287,9 +299,13 @@ payload:
 | `silver_index_daily:{trade_date}` | 指数日线 silver 日更 | `build_asset_update_run_key` | `subject=silver_index_daily`，`unit_id=trade_date` | 保持字符串不变 |
 | `market_major_indices_daily:{trade_date}` | 主要指数日线更新 | `build_asset_update_run_key` | `subject=market_major_indices_daily`，`unit_id=trade_date` | 保持字符串不变 |
 
-## 7. 迁移步骤
+## 7. 迁移步骤与当前状态
+
+截至 M5，7.1 至 7.3 已完成代码落地；7.4 是后续清理旧迁移保护的退出机制，M5 不删除 legacy bridge。
 
 ### 7.1 步骤一：集中 builder 与静态门禁
+
+状态：已完成。
 
 1. 新增 `run_contracts/run_keys.py`。
 2. 定义并测试四个通用能力：
@@ -302,12 +318,16 @@ payload:
 
 ### 7.2 步骤二：迁移普通 asset update 与 repair attempt
 
+状态：已完成。
+
 1. 将简单日常更新 run key 迁移到 `build_asset_update_run_key(...)`。
 2. 将指数 late-arrival repair、股票日线 missing code repair 迁移到 `build_repair_attempt_run_key(...)`。
 3. 保持输出字符串可兼容现有幂等语义，除非方案明确要求换 key。
 4. 对所有迁移补充单元测试，确保同输入同 key、不同幂等身份不同 key。
 
 ### 7.3 步骤三：引入 upstream batch
+
+状态：已完成。正式 Dagster run history 只读审计已在前复权分钟线 MACD/KDJ 修复正式切换前按审批执行，审计结论为无待执行或运行中的旧格式修复 run。
 
 1. 为 qfq factor repair 生成正式 `upstream_batch_id`。
 2. qfq factor repair 必须在 `GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME` 对应的现有 check metadata 写入 `upstream_batch_id` 和生成该 id 所依据的业务摘要字段，至少包括 `producer_run_id`、`repair_required_codes_hash`、`repair_start_trade_date`、`repair_end_trade_date`、`repair_required_code_count`、`repair_required_codes`、`repair_required_codes_truncated`。
@@ -386,7 +406,7 @@ legacy bridge 只用于迁移期防止旧 completion metadata 因 run key 切换
 
 ## 10. 文档同步影响
 
-实现本专项时，至少需要同步以下文档口径：
+实现本专项时，至少需要同步以下文档口径。M5 的收口目标是把已落地口径写回治理文档和长期编码规范；其它业务专项文档如仍存在旧 run key 示例，后续按对应业务文档维护节奏单独对账：
 
 1. `lake_console/orchestrator/AGENTS.md`：保留并扩展 run key 禁止解析规则。
 2. `lake_console/orchestrator/CODING_STANDARDS.md`：追加 run key 命名与集中 builder 规范。

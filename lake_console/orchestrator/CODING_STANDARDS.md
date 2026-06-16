@@ -19,6 +19,21 @@
 5. 已存在的 check 名称禁止仅因不符合新命名规则而改名；确需改名时必须先单独评估历史 check event、readiness helper、sensor、job selection、UI 状态和补跑成本，并等待用户确认。
 6. 不得新增一个同语义新名 check 来替代旧 check；新增 check 必须代表新增质量语义。
 
+## Run Key 与 Upstream Batch ID 规范
+
+Dagster `run_key` 只用于 sensor / schedule 提交 `RunRequest` 时的幂等去重身份，不承载执行参数。
+
+规则：
+
+1. 正式 sensor 的 run key 必须通过 `orchestrator.defs.run_contracts.run_keys` 中的统一 builder 生成。
+2. 禁止在 sensor 文件中手写 `run_key=f"..."`、字符串拼接模板或局部 run key helper。
+3. 禁止为单个数据集新增专属 run key 函数；只能复用通用类型，例如 asset update、repair attempt、upstream-triggered run key。
+4. 禁止解析 `run_key` 生成 `run_config`；执行参数只能来自显式 `run_config`、`partition_key`、上游 metadata/status，或正式定义的 `upstream_batch_id`。
+5. 上下游触发场景必须由上游提供 opaque `upstream_batch_id`，下游 run key 只使用 `consumer + upstream_batch_id`。
+6. Dagster `event_storage_id`、`storage_id` 或其集合不得进入正式 run key、正式 run config、upstream batch id payload 或 completion identity。
+7. 旧 event storage id 字段只允许迁移期 legacy bridge 只读旧 completion metadata 防重复提交；不得被新正式路径写入。
+8. 修改 run key 口径时，必须同步更新 `lake_console/docs/design/dagster-run-key-governance-optimization-plan.md` 和 `lake_console/docs/design/dagster-run-key-governance-low-level-design.md`。
+
 ## Asset Schema Contract 与 Metadata 规范
 
 正式 Dagster asset 的稳定字段契约必须在 asset definition metadata 中注册，禁止只靠某次 materialization metadata 承载。

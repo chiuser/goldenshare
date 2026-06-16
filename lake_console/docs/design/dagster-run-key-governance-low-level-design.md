@@ -1,16 +1,28 @@
 # Dagster Run Key 治理 Low Level 编码设计
 
-状态：开发前编码参考，待实现。本文只细化编码落点，不代表代码已经落地。
+状态：M1-M4 已完成实现，M5 进行文档与静态门禁收口。本文保留为实现对账、回归测试和后续 legacy bridge 退出参考。
 
-更新时间：2026-06-11
+更新时间：2026-06-16
 
 上层方案：`lake_console/docs/design/dagster-run-key-governance-optimization-plan.md`
 
 ## 1. 本文目标
 
-本文用于指导后续实现 Dagster run key 治理专项，编码前必须按本文逐项对账。本文基于现有代码审计结果，把已确认的方案口径细化到模块、函数、字段、测试和门禁。
+本文用于记录 Dagster run key 治理专项的编码落点、已实现口径和后续收口门禁。M1-M4 已按本文完成核心实现，后续维护 run key、upstream batch、completion gate 或 legacy bridge 时仍必须按本文逐项对账。
 
-本轮不进入实现，不执行 Dagster job、sensor、backfill、materialization、asset check，也不读取或修改正式 Dagster instance 状态。
+M5 只进行文档和静态门禁命名收口，不执行 Dagster job、sensor、backfill、materialization、asset check，也不读取或修改正式 Dagster instance 状态。
+
+## 1.1 M1-M4 实施对账
+
+| Milestone | 实际业务内容 | 当前状态 |
+| --- | --- | --- |
+| M1 | 新增集中 run key / upstream batch id builder 与 builder 测试。 | 已完成。 |
+| M2 | 普通 asset update / repair attempt run key 迁移到统一 builder，输出字符串保持不变；静态门禁第一阶段落地。 | 已完成。 |
+| M3 | qfq factor repair metadata/status 写入并读取 `producer_run_id` 与 `upstream_batch_id`。 | 已完成。 |
+| M4 | 前复权分钟线 MACD/KDJ 修复 sensor、op、completion gate 从 event storage id 身份切到 `upstream_batch_id`；legacy bridge 只读旧 completion metadata 防重复提交。 | 已完成。 |
+| M5 | 文档状态、长期编码规范和静态门禁命名收口。 | 本轮处理。 |
+
+M4 之后的正式口径是：前复权分钟线 MACD/KDJ 修复的业务来源只能是真实 qfq factor repair upstream batch；Dagster UI 只允许人工重放真实 upstream batch 的完整 config；散装 `start_trade_date + stock_codes` 手工修复不支持。
 
 ## 2. 已读取规则与约束
 
@@ -61,9 +73,11 @@ CodeGraph 重点覆盖：
 5. `repair_required_codes_hash`
 6. `upstream_batch_id`
 
-## 4. 当前实现事实
+## 4. 治理前审计事实与编码影响
 
-| 位置 | 当前事实 | 编码影响 |
+本节保留 M1 实现前的代码审计事实，用于解释为什么需要后续改造；M1-M4 已按“编码影响”列完成核心实现。
+
+| 位置 | 治理前事实 | 编码影响 |
 | --- | --- | --- |
 | `src/orchestrator/defs/run_contracts/requests.py` | `build_run_request(...)` 只是 `dg.RunRequest` 薄封装，不生成 run key。 | 保留该职责；新增 run key builder 不塞进 `requests.py`。 |
 | `src/orchestrator/defs/sensors/**` | 多数 sensor 直接用 `run_key=f"...` 或 `dg.RunRequest(run_key=(...))` 手写模板。 | 全量迁移到统一 builder；除前复权分钟线 MACD/KDJ 修复外，输出字符串必须不变。 |
@@ -733,7 +747,7 @@ lake_console/orchestrator/tests/test_run_contract_run_keys.py
 
 ## 13. 实现顺序
 
-后续编码按以下顺序推进：
+M1-M4 已按以下顺序完成核心实现；M5 只处理第 10 项中的文档/规范收口和第 9 项中静态门禁命名收口，不改变运行链路：
 
 1. 新增 `run_contracts/run_keys.py` 与 `test_run_contract_run_keys.py`。
 2. 迁移普通 asset update 和 repair attempt run key，保持字符串不变。
@@ -746,6 +760,8 @@ lake_console/orchestrator/tests/test_run_contract_run_keys.py
 9. 更新相关测试与静态门禁。
 10. 更新相关设计文档和编码规范。
 11. 在正式切换前，单独申请正式 Dagster run history 只读审计。
+
+第 1 至第 9 项已完成；第 11 项已在前复权分钟线 MACD/KDJ 修复正式切换前按审批完成一次只读审计，结论为无待执行或运行中的旧格式修复 run。后续删除 legacy bridge 前仍需按正式 Dagster 环境执行门禁重新做只读确认。
 
 ## 14. 验证命令
 
@@ -774,9 +790,9 @@ uv run pytest tests -k "qfq and macd"
 6. 发现 legacy bridge 需要写入旧字段才能防重复。
 7. 正式 run history 审计未获审批或审计发现旧格式 run 正在排队/运行。
 
-## 16. 开发完成对账清单
+## 16. M1-M4 完成对账清单
 
-交付实现时必须逐项说明：
+M1-M4 已完成实现时必须逐项说明；M5 文档收口按本清单确认现实代码和文档一致：
 
 1. `run_contracts/run_keys.py` 是否集中承接所有正式 run key 生成。
 2. 正式 sensor 是否已清零手写 run key 模板。

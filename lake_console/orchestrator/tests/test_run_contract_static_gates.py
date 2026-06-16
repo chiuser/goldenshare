@@ -29,7 +29,7 @@ QFQ_AS_OF_SOURCE_FILES = (
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_bootstrap_events.py",
     AUDITS_DIR / "stk_mins_qfq_performance.py",
 )
-M12_MACD_KDJ_SOURCE_FILES = (
+GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "stk_mins_qfq_macd_kdj.py",
     DEFS_DIR / "assets" / "stk_mins_qfq_macd_kdj.py",
     DEFS_DIR / "checks" / "stk_mins_qfq_macd_kdj_checks.py",
@@ -39,7 +39,7 @@ M12_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py",
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py",
 )
-M12_RUN_STATUS_SENSOR_FILES: set[str] = set()
+MACD_KDJ_DIRECT_RUN_REQUEST_SENSOR_FILES: set[str] = set()
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
 FORBIDDEN_QFQ_SUMMARY_IDENTIFIERS = {
@@ -185,7 +185,7 @@ def _is_allowed_sensor_run_config_dict(path: Path, dict_node: ast.Dict) -> bool:
 
 
 def _is_allowed_direct_run_request(path: Path) -> bool:
-    return path.name in M12_RUN_STATUS_SENSOR_FILES
+    return path.name in MACD_KDJ_DIRECT_RUN_REQUEST_SENSOR_FILES
 
 
 def _is_allowed_direct_run_request_tags(path: Path) -> bool:
@@ -230,9 +230,11 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_m12_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops(self) -> None:
+    def test_gold_stk_mins_qfq_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops(
+        self,
+    ) -> None:
         issues = []
-        for path in M12_MACD_KDJ_SOURCE_FILES:
+        for path in GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_FILES:
             source = path.read_text()
             lowered = source.lower()
             if "with recursive" in lowered:
@@ -252,7 +254,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_m12_macd_kdj_entrypoints_keep_contract_boundaries(self) -> None:
+    def test_gold_stk_mins_qfq_macd_kdj_entrypoints_keep_contract_boundaries(
+        self,
+    ) -> None:
         issues = []
         job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update.py"
         repair_job_path = JOBS_DIR / "gold_stk_mins_qfq_macd_kdj_repair.py"
@@ -274,7 +278,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "run_tags",
             )
             issues.extend(
-                f"{path} contains forbidden M12 job fragment: {fragment}"
+                f"{path} contains forbidden MACD/KDJ job fragment: {fragment}"
                 for fragment in forbidden_fragments
                 if fragment in source
             )
@@ -294,18 +298,15 @@ class RunContractStaticGateTests(unittest.TestCase):
             "duckdb",
             "read_parquet",
             "gold_stk_mins_qfq_macd_kdj_path",
-            "goldenshare/m12",
-            "M12_PENDING_QFQ_FACTOR_REPAIR_TAG",
-            "M12_QFQ_FACTOR_REPAIR",
-            "pending_m12_repair",
+            "PENDING_QFQ_FACTOR_REPAIR_TAG",
         )
         issues.extend(
-            f"{sensor_path} misses M12 sensor fragment: {fragment}"
+            f"{sensor_path} misses MACD/KDJ daily sensor fragment: {fragment}"
             for fragment in required_sensor_fragments
             if fragment not in sensor_source
         )
         issues.extend(
-            f"{sensor_path} contains forbidden M12 sensor fragment: {fragment}"
+            f"{sensor_path} contains forbidden MACD/KDJ daily sensor fragment: {fragment}"
             for fragment in forbidden_sensor_fragments
             if fragment in sensor_source
         )
@@ -328,15 +329,14 @@ class RunContractStaticGateTests(unittest.TestCase):
             "gold_stk_mins_qfq_macd_kdj_path",
             "source_qfq_factor_repair_event_storage_ids",
             '"stock_codes": []',
-            "automatic_m12_repair_allowed",
         )
         issues.extend(
-            f"{repair_sensor_path} misses M12J repair sensor fragment: {fragment}"
+            f"{repair_sensor_path} misses MACD/KDJ repair sensor fragment: {fragment}"
             for fragment in required_repair_sensor_fragments
             if fragment not in repair_sensor_source
         )
         issues.extend(
-            f"{repair_sensor_path} contains forbidden M12J repair sensor fragment: {fragment}"
+            f"{repair_sensor_path} contains forbidden MACD/KDJ repair sensor fragment: {fragment}"
             for fragment in forbidden_repair_sensor_fragments
             if fragment in repair_sensor_source
         )
@@ -350,15 +350,17 @@ class RunContractStaticGateTests(unittest.TestCase):
         guard_run_tags = "run_tags=context.run.tags"
         write_call = "write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition"
         if guard_call not in asset_source:
-            issues.append("M12 asset must call qfq/M12 repair gate guard")
+            issues.append("MACD/KDJ asset must call qfq repair gate guard")
         elif guard_call_site not in asset_source:
-            issues.append("M12 asset guard call site must use context.instance")
+            issues.append("MACD/KDJ asset guard call site must use context.instance")
         elif guard_run_tags in asset_source:
             issues.append("MACD/KDJ asset guard must not depend on run tags")
         elif write_call not in asset_source:
-            issues.append("M12 asset write helper call is missing")
+            issues.append("MACD/KDJ asset write helper call is missing")
         elif asset_source.index(guard_call_site) > asset_source.index(write_call):
-            issues.append("M12 repair gate guard must run before Parquet write helper")
+            issues.append(
+                "MACD/KDJ repair gate guard must run before Parquet write helper"
+            )
 
         repair_op_source = repair_op_path.read_text()
         required_repair_op_fragments = (
@@ -377,7 +379,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             '"stock_code_scope": "explicit"',
         )
         issues.extend(
-            f"{repair_op_path} misses M12 repair completion fragment: {fragment}"
+            f"{repair_op_path} misses MACD/KDJ repair completion fragment: {fragment}"
             for fragment in required_repair_op_fragments
             if fragment not in repair_op_source
         )
@@ -393,45 +395,58 @@ class RunContractStaticGateTests(unittest.TestCase):
                 stock_codes_schema_start:reason_schema_start
             ]
             if "is_required=False" not in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must be optional for replay mode")
+                issues.append(
+                    "MACD/KDJ repair stock_codes config must be optional for replay mode"
+                )
             if "为空表示全市场" in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must not allow empty all-market repair")
+                issues.append(
+                    "MACD/KDJ repair stock_codes config must not allow empty "
+                    "all-market repair"
+                )
             if "qfq factor repair metadata" not in stock_codes_schema:
-                issues.append("M12 repair stock_codes config must mention metadata match")
+                issues.append(
+                    "MACD/KDJ repair stock_codes config must mention metadata match"
+                )
         stock_codes_guard = "if not stock_codes:"
         repair_write_call = "write_gold_stk_mins_qfq_macd_kdj_rows("
         if stock_codes_guard not in repair_op_source:
-            issues.append("M12 repair op must reject empty stock_codes before writing")
+            issues.append(
+                "MACD/KDJ repair op must reject empty stock_codes before writing"
+            )
         elif repair_write_call not in repair_op_source:
-            issues.append("M12 repair op misses write helper call")
+            issues.append("MACD/KDJ repair op misses write helper call")
         elif repair_op_source.index(stock_codes_guard) > repair_op_source.index(
             repair_write_call
         ):
-            issues.append("M12 repair op must reject empty stock_codes before writing")
+            issues.append(
+                "MACD/KDJ repair op must reject empty stock_codes before writing"
+            )
         manual_guard = "if qfq_factor_repair_trade_date is None or not upstream_batch_id:"
         qfq_status_call = "gold_stk_mins_qfq_factor_repair_status("
         if manual_guard not in repair_op_source:
-            issues.append("M12 repair op must reject missing upstream batch before writing")
-        elif repair_op_source.index(manual_guard) > repair_op_source.index(repair_write_call):
-            issues.append("M12 repair manual guard must run before writing")
+            issues.append(
+                "MACD/KDJ repair op must reject missing upstream batch before writing"
+            )
+        elif repair_op_source.index(manual_guard) > repair_op_source.index(
+            repair_write_call
+        ):
+            issues.append("MACD/KDJ repair manual guard must run before writing")
         if qfq_status_call not in repair_op_source:
-            issues.append("M12 repair op must read qfq factor repair metadata in replay mode")
+            issues.append(
+                "MACD/KDJ repair op must read qfq factor repair metadata in replay mode"
+            )
         elif repair_op_source.index(qfq_status_call) > repair_op_source.index(
             repair_write_call
         ):
-            issues.append("M12 repair replay mode must resolve scope before writing")
+            issues.append("MACD/KDJ repair replay mode must resolve scope before writing")
         forbidden_repair_op_fragments = (
             '"stock_code_scope": "explicit" if stock_codes else "all"',
             '"stock_code_scope": "all"',
-            "M12_REPAIR_EMPTY_STOCK_CODES_ERROR",
-            "M12_REPAIR_MISSING_SCOPE_ERROR",
             "MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR",
             "source_qfq_factor_repair_event_storage_ids",
-            "requires_m12_repair",
-            "automatic_m12_repair_allowed",
         )
         issues.extend(
-            f"{repair_op_path} contains forbidden M12 repair op fragment: {fragment}"
+            f"{repair_op_path} contains forbidden MACD/KDJ repair op fragment: {fragment}"
             for fragment in forbidden_repair_op_fragments
             if fragment in repair_op_source
         )
