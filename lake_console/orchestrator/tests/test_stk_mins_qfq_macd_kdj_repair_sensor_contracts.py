@@ -169,16 +169,10 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
             macd_kdj_daily_ready=True,
         )
 
-        with (
-            patch(
-                "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor."
-                "gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch",
-                return_value=SimpleNamespace(ready=True, reason="ready"),
-            ),
-            patch(
-                "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor."
-                "legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids",
-            ) as legacy_gate,
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor."
+            "gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch",
+            return_value=SimpleNamespace(ready=True, reason="ready"),
         ):
             result = _run_request_or_skip_for_repair_decision(
                 object(),
@@ -187,9 +181,8 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
             )
 
         self.assertIsInstance(result, dg.SkipReason)
-        legacy_gate.assert_not_called()
 
-    def test_legacy_bridge_ready_skips_run_request(self) -> None:
+    def test_completion_gate_not_ready_submits_run_request(self) -> None:
         status = _qfq_status(
             requires_macd_kdj_repair=True,
             code_count=2,
@@ -201,17 +194,10 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
             macd_kdj_daily_ready=True,
         )
 
-        with (
-            patch(
-                "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor."
-                "gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch",
-                return_value=SimpleNamespace(ready=False, reason="not ready"),
-            ),
-            patch(
-                "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor."
-                "legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids",
-                return_value=SimpleNamespace(ready=True, reason="legacy ready"),
-            ),
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_repair_job_sensor."
+            "gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch",
+            return_value=SimpleNamespace(ready=False, reason="not ready"),
         ):
             result = _run_request_or_skip_for_repair_decision(
                 object(),
@@ -219,7 +205,11 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
                 status,
             )
 
-        self.assertIsInstance(result, dg.SkipReason)
+        self.assertIsInstance(result, dg.RunRequest)
+        self.assertEqual(
+            result.run_key,
+            f"gold_stk_mins_qfq_macd_kdj_repair:{UPSTREAM_BATCH_ID}",
+        )
 
     def test_above_five_hundred_or_missing_code_list_skips(self) -> None:
         too_many = build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(

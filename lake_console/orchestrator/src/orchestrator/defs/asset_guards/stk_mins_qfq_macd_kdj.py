@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
 from dataclasses import dataclass
 
 import dagster as dg
@@ -39,10 +38,6 @@ _MACD_KDJ_REPAIR_COMPLETION_REQUIRED_METADATA_KEYS = (
     *_MACD_KDJ_REPAIR_COMMON_COMPLETION_REQUIRED_METADATA_KEYS,
     "source_upstream_batch_id",
 )
-_MACD_KDJ_REPAIR_LEGACY_COMPLETION_REQUIRED_METADATA_KEYS = (
-    *_MACD_KDJ_REPAIR_COMMON_COMPLETION_REQUIRED_METADATA_KEYS,
-    "source_qfq_factor_repair_event_storage_ids",
-)
 
 
 @dataclass(frozen=True)
@@ -59,7 +54,6 @@ class MacdKdjRepairCompletionGateStatus:
     repair_required_code_count: int = 0
     repair_required_codes_hash: str | None = None
     source_upstream_batch_id: str | None = None
-    legacy_source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = ()
     freqs: tuple[int, ...] = ()
 
     def to_payload(self) -> dict[str, object]:
@@ -76,9 +70,6 @@ class MacdKdjRepairCompletionGateStatus:
             "repair_required_code_count": self.repair_required_code_count,
             "repair_required_codes_hash": self.repair_required_codes_hash,
             "source_upstream_batch_id": self.source_upstream_batch_id,
-            "legacy_source_qfq_factor_repair_event_storage_ids": list(
-                self.legacy_source_qfq_factor_repair_event_storage_ids
-            ),
             "freqs": list(self.freqs),
         }
 
@@ -240,25 +231,6 @@ def gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(
         repair_start_trade_date=repair_start_trade_date,
         repair_end_trade_date=repair_end_trade_date,
         upstream_batch_id=upstream_batch_id,
-        repair_required_code_count=repair_required_code_count,
-        repair_required_codes_hash=repair_required_codes_hash,
-    )
-
-
-def legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
-    instance: dg.DagsterInstance,
-    *,
-    repair_start_trade_date: str | None,
-    repair_end_trade_date: str | None,
-    qfq_factor_repair_event_storage_ids: Sequence[int],
-    repair_required_code_count: int,
-    repair_required_codes_hash: str | None,
-) -> MacdKdjRepairCompletionGateStatus:
-    return _legacy_macd_kdj_repair_completion_status(
-        instance,
-        repair_start_trade_date=repair_start_trade_date,
-        repair_end_trade_date=repair_end_trade_date,
-        qfq_factor_repair_event_storage_ids=qfq_factor_repair_event_storage_ids,
         repair_required_code_count=repair_required_code_count,
         repair_required_codes_hash=repair_required_codes_hash,
     )
@@ -460,159 +432,5 @@ def _macd_kdj_repair_completion_status(
         repair_required_code_count=completed_repair_required_code_count,
         repair_required_codes_hash=completed_repair_required_codes_hash,
         source_upstream_batch_id=source_upstream_batch_id,
-        freqs=freqs,
-    )
-
-
-def _legacy_macd_kdj_repair_completion_status(
-    instance: dg.DagsterInstance,
-    *,
-    repair_start_trade_date: str | None,
-    repair_end_trade_date: str | None,
-    qfq_factor_repair_event_storage_ids: Sequence[int],
-    repair_required_code_count: int,
-    repair_required_codes_hash: str | None,
-) -> MacdKdjRepairCompletionGateStatus:
-    if repair_start_trade_date is None or repair_end_trade_date is None:
-        return MacdKdjRepairCompletionGateStatus(
-            ready=False,
-            reason="qfq factor repair scope metadata is incomplete.",
-        )
-    expected_source_event_storage_ids = tuple(
-        sorted(int(event_id) for event_id in qfq_factor_repair_event_storage_ids)
-    )
-    if not expected_source_event_storage_ids:
-        return MacdKdjRepairCompletionGateStatus(
-            ready=False,
-            reason="legacy qfq factor repair event storage ids are incomplete.",
-        )
-    records_by_key = latest_partition_check_records(
-        instance,
-        _macd_kdj_asset_keys(),
-        GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
-        partition_key=repair_start_trade_date,
-    )
-    missing: list[str] = []
-    failed: list[str] = []
-    event_storage_ids: list[int] = []
-    metadata_rows: list[dict[str, object]] = []
-    max_qfq_storage_id = max(expected_source_event_storage_ids)
-
-    for asset_key in _macd_kdj_asset_keys():
-        check_key = dg.AssetCheckKey(
-            asset_key,
-            GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
-        )
-        record = records_by_key.get(check_key)
-        asset_label = asset_key.to_user_string()
-        if record is None:
-            missing.append(asset_label)
-            continue
-        evaluation = asset_check_record_evaluation(record)
-        storage_id = asset_check_record_event_storage_id(
-            instance,
-            check_key,
-            record,
-            partition_key=repair_start_trade_date,
-        )
-        metadata = asset_check_record_metadata(evaluation)
-        if (
-            storage_id is None
-            or storage_id <= max_qfq_storage_id
-            or not asset_check_record_succeeded(record)
-            or getattr(evaluation, "passed", None) is not True
-            or getattr(evaluation, "blocking", None) is not True
-            or asset_check_record_partition(record, evaluation)
-            != repair_start_trade_date
-            or not metadata_has_keys(
-                metadata,
-                _MACD_KDJ_REPAIR_LEGACY_COMPLETION_REQUIRED_METADATA_KEYS,
-            )
-        ):
-            failed.append(asset_label)
-            continue
-        event_storage_ids.append(storage_id)
-        metadata_rows.append(metadata)
-
-    if missing or failed:
-        return MacdKdjRepairCompletionGateStatus(
-            ready=False,
-            reason="legacy MACD/KDJ repair completion check is missing or not green.",
-            event_storage_ids=tuple(sorted(event_storage_ids)),
-            missing_asset_keys=tuple(missing),
-            failed_asset_keys=tuple(failed),
-        )
-
-    first_metadata = metadata_rows[0]
-    covered_start_trade_date = metadata_str(
-        first_metadata,
-        "covered_start_trade_date",
-    )
-    covered_end_trade_date = metadata_str(first_metadata, "covered_end_trade_date")
-    stock_code_scope = metadata_str(first_metadata, "stock_code_scope")
-    stock_code_count = metadata_int(first_metadata, "stock_code_count")
-    completed_repair_required_code_count = metadata_int(
-        first_metadata,
-        "repair_required_code_count",
-    )
-    completed_repair_required_codes_hash = metadata_str(
-        first_metadata,
-        "repair_required_codes_hash",
-    )
-    source_qfq_factor_repair_event_storage_ids = metadata_int_tuple(
-        first_metadata,
-        "source_qfq_factor_repair_event_storage_ids",
-    )
-    freqs = metadata_int_tuple(first_metadata, "freqs")
-    all_freqs = tuple(STK_MINS_QFQ_FREQS)
-    if (
-        covered_start_trade_date is None
-        or covered_end_trade_date is None
-        or stock_code_scope is None
-        or stock_code_count is None
-        or completed_repair_required_code_count is None
-        or completed_repair_required_codes_hash is None
-        or covered_start_trade_date > repair_start_trade_date
-        or covered_end_trade_date < repair_end_trade_date
-        or tuple(sorted(freqs)) != all_freqs
-        or completed_repair_required_code_count != repair_required_code_count
-        or completed_repair_required_codes_hash != repair_required_codes_hash
-        or source_qfq_factor_repair_event_storage_ids
-        != expected_source_event_storage_ids
-        or stock_code_scope != "explicit"
-        or stock_code_count < repair_required_code_count
-    ):
-        return MacdKdjRepairCompletionGateStatus(
-            ready=False,
-            reason=(
-                "legacy MACD/KDJ repair completion metadata does not cover qfq "
-                "repair scope."
-            ),
-            event_storage_ids=tuple(sorted(event_storage_ids)),
-            covered_start_trade_date=covered_start_trade_date,
-            covered_end_trade_date=covered_end_trade_date,
-            stock_code_scope=stock_code_scope,
-            stock_code_count=stock_code_count or 0,
-            repair_required_code_count=completed_repair_required_code_count or 0,
-            repair_required_codes_hash=completed_repair_required_codes_hash,
-            legacy_source_qfq_factor_repair_event_storage_ids=(
-                source_qfq_factor_repair_event_storage_ids
-            ),
-            freqs=freqs,
-        )
-
-    return MacdKdjRepairCompletionGateStatus(
-        ready=True,
-        reason="legacy MACD/KDJ repair completion check covers qfq repair scope.",
-        event_storage_ids=tuple(sorted(event_storage_ids)),
-        covered_start_trade_date=covered_start_trade_date,
-        covered_end_trade_date=covered_end_trade_date,
-        stock_code_scope=stock_code_scope,
-        stock_code_count=stock_code_count,
-        repair_required_code_count=completed_repair_required_code_count,
-        repair_required_codes_hash=completed_repair_required_codes_hash,
-        legacy_source_qfq_factor_repair_event_storage_ids=(
-            source_qfq_factor_repair_event_storage_ids
-        ),
         freqs=freqs,
     )

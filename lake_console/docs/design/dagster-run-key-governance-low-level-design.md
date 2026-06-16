@@ -1,18 +1,18 @@
 # Dagster Run Key 治理 Low Level 编码设计
 
-状态：M1-M4 已完成实现，M5 进行文档与静态门禁收口。本文保留为实现对账、回归测试和后续 legacy bridge 退出参考。
+状态：M1-M7 已完成实现。legacy bridge 已退出，本文保留为实现对账和回归测试参考。
 
-更新时间：2026-06-16
+更新时间：2026-06-17
 
 上层方案：`lake_console/docs/design/dagster-run-key-governance-optimization-plan.md`
 
 ## 1. 本文目标
 
-本文用于记录 Dagster run key 治理专项的编码落点、已实现口径和后续收口门禁。M1-M4 已按本文完成核心实现，后续维护 run key、upstream batch、completion gate 或 legacy bridge 时仍必须按本文逐项对账。
+本文用于记录 Dagster run key 治理专项的编码落点、已实现口径和后续收口门禁。M1-M7 已按本文完成核心实现，后续维护 run key、upstream batch 或 completion gate 时仍必须按本文逐项对账。
 
-M5 只进行文档和静态门禁命名收口，不执行 Dagster job、sensor、backfill、materialization、asset check，也不读取或修改正式 Dagster instance 状态。
+M6 已按审批完成正式 Dagster run history 只读审计；M7 已删除 legacy bridge。M7 实现不执行 Dagster job、sensor、backfill、materialization、asset check，也不读取或修改正式 Dagster instance 状态。
 
-## 1.1 M1-M4 实施对账
+## 1.1 M1-M7 实施对账
 
 | Milestone | 实际业务内容 | 当前状态 |
 | --- | --- | --- |
@@ -20,9 +20,11 @@ M5 只进行文档和静态门禁命名收口，不执行 Dagster job、sensor�
 | M2 | 普通 asset update / repair attempt run key 迁移到统一 builder，输出字符串保持不变；静态门禁第一阶段落地。 | 已完成。 |
 | M3 | qfq factor repair metadata/status 写入并读取 `producer_run_id` 与 `upstream_batch_id`。 | 已完成。 |
 | M4 | 前复权分钟线 MACD/KDJ 修复 sensor、op、completion gate 从 event storage id 身份切到 `upstream_batch_id`；legacy bridge 只读旧 completion metadata 防重复提交。 | 已完成。 |
-| M5 | 文档状态、长期编码规范和静态门禁命名收口。 | 本轮处理。 |
+| M5 | 文档状态、长期编码规范和静态门禁命名收口。 | 已完成。 |
+| M6 | 正式 Dagster run history 只读审计，确认无活跃旧格式前复权分钟线 MACD/KDJ 修复 run，且新批次 completion 已写 `source_upstream_batch_id`。 | 已完成。 |
+| M7 | 删除前复权分钟线 MACD/KDJ 修复 legacy bridge，生产代码彻底清零旧 completion identity 字段依赖。 | 已完成。 |
 
-M4 之后的正式口径是：前复权分钟线 MACD/KDJ 修复的业务来源只能是真实 qfq factor repair upstream batch；Dagster UI 只允许人工重放真实 upstream batch 的完整 config；散装 `start_trade_date + stock_codes` 手工修复不支持。
+M7 之后的正式口径是：前复权分钟线 MACD/KDJ 修复的业务来源只能是真实 qfq factor repair upstream batch；Dagster UI 只允许人工重放真实 upstream batch 的完整 config；散装 `start_trade_date + stock_codes` 手工修复不支持；completion gate 只使用 `source_upstream_batch_id` 判断已完成批次。
 
 ## 2. 已读取规则与约束
 
@@ -43,7 +45,7 @@ M4 之后的正式口径是：前复权分钟线 MACD/KDJ 修复的业务来源�
 6. 上下游触发场景必须用 `upstream_batch_id` 屏蔽上游内部语义。
 7. 新正式链路不得把 Dagster `event_storage_id` 写入 run key、run config 或 completion identity。
 8. 普通资产更新和有界修复尝试必须保持现有 run key 字符串输出不变。
-9. 前复权分钟线 MACD/KDJ 修复切换新 run key 前，必须有 completion gate 和 legacy bridge 防止重复提交。
+9. 前复权分钟线 MACD/KDJ 修复切换新 run key 前，曾通过 completion gate 和 legacy bridge 防止重复提交；M7 后正式链路只保留 `source_upstream_batch_id` completion gate。
 10. 正式 Dagster run history 审计属于正式环境操作，必须单独审批后才能执行。
 11. 前复权分钟线 MACD/KDJ 修复的正式业务来源只能是真实 qfq factor repair upstream batch；Dagster UI 人工提交只允许重放这个真实上游批次，不允许只给 `start_trade_date + stock_codes` 的无批次手工修复。
 
@@ -88,8 +90,8 @@ CodeGraph 重点覆盖：
 | `src/orchestrator/defs/stk_mins_qfq.py` | `build_gold_stk_mins_qfq_factor_repair_check_metadata(...)` 已写入修复起止日期、代码列表、`repair_required_codes_hash` 等业务 metadata。 | 在这里新增 `producer_run_id`、`upstream_batch_id`，继续写入现有 check metadata，不新增状态资产。 |
 | `src/orchestrator/defs/asset_guards/stk_mins_qfq_factor_repair.py` | `GoldStkMinsQfqFactorRepairStatus` 当前暴露 `qfq_factor_repair_event_storage_ids`，并用 event storage id 参与状态结果。 | 新增 `upstream_batch_id`、`producer_run_id`；新链路不再把 event storage ids 当下游批次身份。 |
 | `src/orchestrator/defs/ops/gold_stk_mins_qfq_macd_kdj_repair.py` | repair op config schema 包含 `source_qfq_factor_repair_event_storage_ids`；当传 `qfq_factor_repair_trade_date` 时，会从上游 metadata 派生 event storage ids 并校验。 | 替换为 `upstream_batch_id` 一致性校验；completion metadata 改写 `source_upstream_batch_id`。 |
-| `src/orchestrator/defs/asset_guards/stk_mins_qfq_macd_kdj.py` | completion gate 当前要求 `source_qfq_factor_repair_event_storage_ids`，并用 completion event storage id 大于上游 max storage id 来判断“新”。 | 新正式 gate 改为匹配 `source_upstream_batch_id`；旧 storage id 逻辑只允许进入 legacy bridge。 |
-| `tests/test_run_contract_static_gates.py` | 已有 run contract 静态门禁基础。 | 扩展门禁：禁止正式 sensor 手写 run key，禁止 run key 解析，禁止新正式路径写旧 storage id 字段。 |
+| `src/orchestrator/defs/asset_guards/stk_mins_qfq_macd_kdj.py` | completion gate 当前要求 `source_qfq_factor_repair_event_storage_ids`，并用 completion event storage id 大于上游 max storage id 来判断“新”。 | 新正式 gate 改为匹配 `source_upstream_batch_id`；M7 后删除旧 storage id 读取逻辑。 |
+| `tests/test_run_contract_static_gates.py` | 已有 run contract 静态门禁基础。 | 扩展门禁：禁止正式 sensor 手写 run key，禁止 run key 解析，禁止生产代码出现旧 storage id 字段和 legacy bridge symbol。 |
 
 ## 5. 新增 run key builder 模块
 
@@ -314,7 +316,7 @@ producer_run_id
 2. 所有 asset check 的 `producer_run_id` 一致。
 3. `repair_required_codes_hash`、代码列表、截断标记仍按现有逻辑一致。
 
-现有 `qfq_factor_repair_event_storage_ids` 字段只能保留为 Dagster event log 观测字段和 legacy bridge 辅助字段，不得被新 sensor run key 或新 completion identity 使用。
+现有 `qfq_factor_repair_event_storage_ids` 字段只能保留为 Dagster event log 观测字段，不得被 sensor run key、run config 或 completion identity 使用；M7 后也不得作为 legacy bridge 辅助字段继续读取。
 
 ## 8. 前复权分钟线 MACD/KDJ 修复 sensor 改造
 
@@ -416,10 +418,11 @@ return build_run_request(
 
 ### 8.4 提交前 completion gate
 
-`gold_stk_mins_qfq_macd_kdj_repair_job_sensor(...)` 在返回 `RunRequest` 前必须先检查：
+`gold_stk_mins_qfq_macd_kdj_repair_job_sensor(...)` 在返回 `RunRequest` 前必须先检查新 completion gate：
 
-1. 新 completion gate：是否已有 `source_upstream_batch_id == decision.upstream_batch_id` 的完成 check。
-2. legacy bridge：如果新 completion gate 未命中，再检查旧 completion metadata 是否能证明同一修复 scope 已完成。
+1. 是否已有 `source_upstream_batch_id == decision.upstream_batch_id` 的完成 check。
+2. 已完成时返回 `SkipReason`，不得提交新 run key。
+3. 未完成时直接提交 `RunRequest`。
 
 伪代码：
 
@@ -435,23 +438,16 @@ completion_status = gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upst
 if completion_status.ready:
     return dg.SkipReason(completion_status.reason)
 
-legacy_status = legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status(
-    ...
-)
-if legacy_status.ready:
-    return dg.SkipReason(legacy_status.reason)
-
 return _run_request_for_repair_decision(decision)
 ```
 
-固定新增函数名：
+固定函数名：
 
 ```python
 gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch(...)
-legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(...)
 ```
 
-第一个函数是新正式 completion gate；第二个函数只读旧 completion metadata，且只供迁移期 legacy bridge 调用。
+该函数是正式 completion gate；M7 已删除 legacy bridge，不再读取旧 completion metadata 防重复提交。
 
 ## 9. 前复权分钟线 MACD/KDJ 修复 op 改造
 
@@ -566,7 +562,7 @@ state_row_count
 source_qfq_factor_repair_event_storage_ids
 ```
 
-## 10. completion gate 与 legacy bridge
+## 10. completion gate
 
 涉及文件：
 
@@ -574,20 +570,18 @@ source_qfq_factor_repair_event_storage_ids
 lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_qfq_macd_kdj.py
 ```
 
-### 10.1 新 completion status
+### 10.1 completion status
 
-`MacdKdjRepairCompletionGateStatus` 增加：
+`MacdKdjRepairCompletionGateStatus` 保留正式 upstream identity 字段：
 
 ```python
 source_upstream_batch_id: str | None = None
-legacy_source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = ()
 ```
 
-`to_payload()` 增加：
+`to_payload()` 暴露：
 
 ```text
 source_upstream_batch_id
-legacy_source_qfq_factor_repair_event_storage_ids
 ```
 
 新正式 completion required metadata：
@@ -621,28 +615,17 @@ freqs
 
 新 gate 不再要求 completion event storage id 大于上游 event storage id。
 
-### 10.3 legacy bridge
+### 10.3 legacy bridge 退出结果
 
-legacy bridge 只用于迁移期防止新 run key 切换导致重复执行。
+legacy bridge 已在 M7 删除。删除前 M6 正式 Dagster 只读审计确认：
 
-legacy bridge 只允许读取旧 completion metadata：
+1. 不存在待执行或运行中的旧 run key 格式前复权分钟线 MACD/KDJ 修复 run。
+2. 带 `upstream_batch_id` 的 qfq factor repair 批次均已有对应 `source_upstream_batch_id` completion checks。
+3. 生产代码不再读取旧 completion metadata 字段：
 
 ```text
 source_qfq_factor_repair_event_storage_ids
-repair_required_codes_hash
-covered_start_trade_date
-covered_end_trade_date
-freqs
-stock_code_scope
-stock_code_count
-repair_required_code_count
 ```
-
-legacy bridge 固定沿用现有 event storage id 比较逻辑，但必须隔离在 legacy 函数中，且不得被新 run key、新 run config 或新 completion metadata 写入路径调用。
-
-legacy bridge 返回 ready 时，sensor 必须 `SkipReason`，不得提交新 run key。
-
-legacy bridge 必须有测试覆盖和退出条件。退出时删除 legacy 函数、旧字段允许清单和对应测试。
 
 ## 11. 静态门禁
 
@@ -658,18 +641,9 @@ lake_console/orchestrator/tests/test_run_contract_static_gates.py
 2. 正式 sensor 必须通过 `build_run_request(...)` 提交 `RunRequest`，且传入 run key 必须来自 `run_contracts/run_keys.py` builder。
 3. 禁止生产代码解析 `run_key` 来生成 `run_config`。
 4. 禁止 upstream-triggered run key 中出现 `event_storage_id`、`event_storage_ids`、`storage_id`、`storage_ids`。
-5. 禁止新正式 sensor/op/completion metadata 写入 `source_qfq_factor_repair_event_storage_ids`。
-6. 允许 legacy bridge 只读旧字段，但必须通过明确 allowlist 限定到 legacy 函数。
+5. 生产代码禁止出现 `source_qfq_factor_repair_event_storage_ids`。
+6. 生产代码禁止出现 legacy bridge 函数、legacy completion required metadata 常量或 legacy completion status 字段。
 7. 静态门禁必须排除 tests、历史设计文档、Dagster 官方示例文档。
-
-固定 allowlist 起点：
-
-```text
-run_contracts/run_keys.py
-asset_guards/stk_mins_qfq_macd_kdj.py 的 legacy bridge 函数
-```
-
-不允许把整个 `asset_guards/stk_mins_qfq_macd_kdj.py` 加入旧字段写入 allowlist。
 
 ## 12. 测试计划
 
@@ -722,7 +696,7 @@ lake_console/orchestrator/tests/test_run_contract_run_keys.py
 3. run config 显式包含 `start_trade_date`、`freqs`、`stock_codes`、`repair_required_codes_hash`、`upstream_batch_id`。
 4. run config 不包含 `source_qfq_factor_repair_event_storage_ids`。
 5. 新 completion gate 已完成时 skip，不提交 `RunRequest`。
-6. legacy bridge 证明旧 completion 已完成时 skip，不提交 `RunRequest`。
+6. 新 completion gate 未完成时提交 `RunRequest`，不再回退检查旧 completion metadata。
 7. 同一 `upstream_batch_id` 重复 tick 生成同一 run key。
 8. 不同 `upstream_batch_id` 即使 `repair_required_codes_hash` 相同，也生成不同 run key。
 
@@ -743,11 +717,10 @@ lake_console/orchestrator/tests/test_run_contract_run_keys.py
 9. 新 completion metadata 不写 `source_qfq_factor_repair_event_storage_ids`。
 10. 新 gate 仅凭 `source_upstream_batch_id` 判断已完成。
 11. 新 gate 不依赖 completion event storage id 大小。
-12. legacy bridge 只读旧 completion metadata，且不参与新 metadata 写入。
 
 ## 13. 实现顺序
 
-M1-M4 已按以下顺序完成核心实现；M5 只处理第 10 项中的文档/规范收口和第 9 项中静态门禁命名收口，不改变运行链路：
+M1-M7 已按以下顺序完成：
 
 1. 新增 `run_contracts/run_keys.py` 与 `test_run_contract_run_keys.py`。
 2. 迁移普通 asset update 和 repair attempt run key，保持字符串不变。
@@ -756,12 +729,13 @@ M1-M4 已按以下顺序完成核心实现；M5 只处理第 10 项中的文档/
 5. 扩展 qfq factor repair status，读取并校验 `upstream_batch_id`。
 6. 改造前复权分钟线 MACD/KDJ 修复 sensor，使用 `build_upstream_triggered_run_key` 和 completion gate。
 7. 改造前复权分钟线 MACD/KDJ 修复 op config、scope 派生、一致性校验和 completion metadata。
-8. 改造 completion gate，新增 `source_upstream_batch_id` 正式判断，隔离 legacy bridge。
+8. 改造 completion gate，新增 `source_upstream_batch_id` 正式判断；M7 删除 legacy bridge 读取路径。
 9. 更新相关测试与静态门禁。
 10. 更新相关设计文档和编码规范。
 11. 在正式切换前，单独申请正式 Dagster run history 只读审计。
+12. 删除 legacy bridge 读取逻辑、旧字段 allowlist 和对应测试；静态门禁升级为生产代码彻底禁止旧字段。
 
-第 1 至第 9 项已完成；第 11 项已在前复权分钟线 MACD/KDJ 修复正式切换前按审批完成一次只读审计，结论为无待执行或运行中的旧格式修复 run。后续删除 legacy bridge 前仍需按正式 Dagster 环境执行门禁重新做只读确认。
+第 11 项已在前复权分钟线 MACD/KDJ 修复正式切换前按审批完成一次只读审计。M6 删除 legacy bridge 前再次按审批完成正式 Dagster 只读审计，结论为无活跃旧格式修复 run，且新 upstream batch 均已有 `source_upstream_batch_id` completion checks。M7 已完成第 12 项。
 
 ## 14. 验证命令
 
@@ -787,12 +761,12 @@ uv run pytest tests -k "qfq and macd"
 3. 发现 qfq factor repair op 无法可靠拿到 `context.run_id`。
 4. 发现上游 check metadata 不能稳定写入或读取 `upstream_batch_id`。
 5. 发现必须支持无上游 batch 的手工前复权分钟线 MACD/KDJ 修复；此时必须停下并单独设计 manual repair batch producer，不得在本轮恢复散装手工路径。
-6. 发现 legacy bridge 需要写入旧字段才能防重复。
-7. 正式 run history 审计未获审批或审计发现旧格式 run 正在排队/运行。
+6. 发现生产链路仍需要读取旧 `source_qfq_factor_repair_event_storage_ids` 才能防重复。
+7. 删除 legacy bridge 前的正式 run history 审计未获审批，或审计发现旧格式 run 正在排队/运行。
 
-## 16. M1-M4 完成对账清单
+## 16. M1-M7 完成对账清单
 
-M1-M4 已完成实现时必须逐项说明；M5 文档收口按本清单确认现实代码和文档一致：
+M1-M7 已完成实现时必须逐项说明；后续维护按本清单确认现实代码和文档一致：
 
 1. `run_contracts/run_keys.py` 是否集中承接所有正式 run key 生成。
 2. 正式 sensor 是否已清零手写 run key 模板。
@@ -802,7 +776,7 @@ M1-M4 已完成实现时必须逐项说明；M5 文档收口按本清单确认�
 6. 前复权分钟线 MACD/KDJ 修复 run config 是否停止写入旧 storage id 字段。
 7. completion metadata 是否写入 `source_upstream_batch_id`。
 8. completion gate 是否能在提交 `RunRequest` 前按 `upstream_batch_id` skip。
-9. legacy bridge 是否只读旧 metadata，且有退出条件。
-10. 静态门禁是否阻止新代码重新引入旧口径。
+9. legacy bridge 是否已删除，生产代码是否不再出现旧 completion identity 字段。
+10. 静态门禁是否阻止生产代码重新引入旧口径。
 11. 是否执行了本地测试。
 12. 是否未触碰正式 Dagster instance。

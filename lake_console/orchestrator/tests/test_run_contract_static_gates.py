@@ -453,59 +453,25 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_macd_kdj_repair_legacy_storage_id_field_is_bridge_only(self) -> None:
+    def test_macd_kdj_repair_legacy_storage_id_field_is_absent_from_production_code(
+        self,
+    ) -> None:
         issues = []
         field_name = "source_qfq_factor_repair_event_storage_ids"
-        formal_paths = (
-            SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py",
-            DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py",
+        forbidden_symbols = (
+            field_name,
+            "legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status",
+            "_legacy_macd_kdj_repair_completion_status",
+            "legacy_source_qfq_factor_repair_event_storage_ids",
+            "_MACD_KDJ_REPAIR_LEGACY_COMPLETION_REQUIRED_METADATA_KEYS",
         )
-        for path in formal_paths:
-            if field_name in path.read_text():
-                issues.append(f"{path} writes legacy qfq factor repair storage id field")
-
-        guard_path = DEFS_DIR / "asset_guards" / "stk_mins_qfq_macd_kdj.py"
-        tree = _parse_python_file(guard_path)
-        parents = {
-            child: parent
-            for parent in ast.walk(tree)
-            for child in ast.iter_child_nodes(parent)
-        }
-        for node in ast.walk(tree):
-            if not (
-                isinstance(node, ast.Constant)
-                and isinstance(node.value, str)
-                and node.value == field_name
-            ):
-                continue
-
-            cursor: ast.AST | None = node
-            allowed = False
-            while cursor is not None:
-                if (
-                    isinstance(cursor, ast.FunctionDef)
-                    and cursor.name == "_legacy_macd_kdj_repair_completion_status"
-                ):
-                    allowed = True
-                    break
-                if isinstance(cursor, ast.Assign):
-                    target_names = {
-                        target.id
-                        for target in cursor.targets
-                        if isinstance(target, ast.Name)
-                    }
-                    if (
-                        "_MACD_KDJ_REPAIR_LEGACY_COMPLETION_REQUIRED_METADATA_KEYS"
-                        in target_names
-                    ):
-                        allowed = True
-                        break
-                cursor = parents.get(cursor)
-            if not allowed:
-                issues.append(
-                    f"{_node_location(guard_path, node)} uses legacy qfq factor "
-                    "repair storage id field outside legacy bridge"
-                )
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            source = path.read_text()
+            for symbol in forbidden_symbols:
+                if symbol in source:
+                    issues.append(
+                        f"{path} contains removed legacy bridge symbol: {symbol}"
+                    )
 
         self.assertEqual(issues, [])
 

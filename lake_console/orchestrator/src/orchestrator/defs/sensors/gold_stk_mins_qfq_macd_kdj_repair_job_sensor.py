@@ -10,7 +10,6 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
 )
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
     gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch,
-    legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids,
 )
 from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_daily_update import (
     gold_stk_mins_qfq_macd_kdj_daily_update_job,
@@ -179,22 +178,6 @@ def _run_request_or_skip_for_repair_decision(
     if completion_status.ready:
         return dg.SkipReason(completion_status.reason)
 
-    legacy_completion_status = (
-        legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
-            instance,
-            repair_start_trade_date=decision.selected_trade_date,
-            repair_end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
-            qfq_factor_repair_event_storage_ids=(
-                qfq_factor_repair_status.qfq_factor_repair_event_storage_ids
-            ),
-            repair_required_code_count=(
-                qfq_factor_repair_status.repair_required_code_count
-            ),
-            repair_required_codes_hash=decision.repair_required_codes_hash,
-        )
-    )
-    if legacy_completion_status.ready:
-        return dg.SkipReason(legacy_completion_status.reason)
     return _run_request_for_repair_decision(decision)
 
 

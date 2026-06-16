@@ -12,7 +12,6 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
     gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_upstream_batch,
     gold_stk_mins_qfq_macd_kdj_daily_repair_gate_status,
-    legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids,
 )
 from orchestrator.defs.run_contracts.run_keys import build_batch_id
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_FREQS
@@ -29,7 +28,6 @@ TRADE_DATE = "2026-06-05"
 REPAIR_START_DATE = "2014-01-02"
 REPAIR_CODES = ("000001.SZ", "600000.SH", "600001.SH")
 REPAIR_CODES_HASH = gold_stk_mins_qfq_factor_repair_codes_hash(REPAIR_CODES)
-QFQ_EVENT_STORAGE_IDS = tuple(100 + index for index in range(len(STK_MINS_QFQ_FREQS)))
 PRODUCER_RUN_ID = "qfq-factor-repair-run-1"
 UPSTREAM_BATCH_ID = build_batch_id(
     producer="qfq_factor_repair",
@@ -169,37 +167,6 @@ def _macd_kdj_metadata(
         "repair_required_codes_hash": repair_required_codes_hash,
         "source_upstream_batch_id": source_upstream_batch_id,
     }
-
-
-def _legacy_macd_kdj_metadata(
-    *,
-    covered_start_trade_date: str = REPAIR_START_DATE,
-    covered_end_trade_date: str = TRADE_DATE,
-    freqs: tuple[int, ...] = STK_MINS_QFQ_FREQS,
-    stock_code_scope: str = "explicit",
-    stock_code_count: int = 3,
-    repair_required_code_count: int = 3,
-    repair_required_codes_hash: str = REPAIR_CODES_HASH,
-    source_qfq_factor_repair_event_storage_ids: tuple[int, ...] = QFQ_EVENT_STORAGE_IDS,
-) -> dict[str, object]:
-    metadata = _macd_kdj_metadata(
-        covered_start_trade_date=covered_start_trade_date,
-        covered_end_trade_date=covered_end_trade_date,
-        freqs=freqs,
-        stock_code_scope=stock_code_scope,
-        stock_code_count=stock_code_count,
-        repair_required_code_count=repair_required_code_count,
-        repair_required_codes_hash=repair_required_codes_hash,
-    )
-    metadata.pop("source_upstream_batch_id")
-    metadata.update(
-        {
-            "source_qfq_factor_repair_event_storage_ids": list(
-                source_qfq_factor_repair_event_storage_ids
-            )
-        }
-    )
-    return metadata
 
 
 def _qfq_records(*, rewrote_history: bool, partition: str = TRADE_DATE):
@@ -435,49 +402,6 @@ class StkMinsQfqMacdKdjRepairGateTests(unittest.TestCase):
 
         self.assertTrue(status.ready)
         self.assertEqual(status.source_upstream_batch_id, UPSTREAM_BATCH_ID)
-
-    def test_legacy_bridge_keeps_old_event_storage_id_comparison(self):
-        ready_instance = _FakeInstance(
-            _macd_kdj_records(
-                storage_start=200,
-                metadata=_legacy_macd_kdj_metadata(),
-            )
-        )
-        stale_instance = _FakeInstance(
-            _macd_kdj_records(
-                storage_start=50,
-                metadata=_legacy_macd_kdj_metadata(),
-            )
-        )
-
-        ready_status = (
-            legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
-                ready_instance,
-                repair_start_trade_date=REPAIR_START_DATE,
-                repair_end_trade_date=TRADE_DATE,
-                qfq_factor_repair_event_storage_ids=QFQ_EVENT_STORAGE_IDS,
-                repair_required_code_count=len(REPAIR_CODES),
-                repair_required_codes_hash=REPAIR_CODES_HASH,
-            )
-        )
-        stale_status = (
-            legacy_gold_stk_mins_qfq_macd_kdj_repair_completion_status_for_qfq_event_storage_ids(
-                stale_instance,
-                repair_start_trade_date=REPAIR_START_DATE,
-                repair_end_trade_date=TRADE_DATE,
-                qfq_factor_repair_event_storage_ids=QFQ_EVENT_STORAGE_IDS,
-                repair_required_code_count=len(REPAIR_CODES),
-                repair_required_codes_hash=REPAIR_CODES_HASH,
-            )
-        )
-
-        self.assertTrue(ready_status.ready)
-        self.assertEqual(
-            ready_status.legacy_source_qfq_factor_repair_event_storage_ids,
-            QFQ_EVENT_STORAGE_IDS,
-        )
-        self.assertFalse(stale_status.ready)
-
 
 if __name__ == "__main__":
     unittest.main()
