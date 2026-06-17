@@ -4,19 +4,26 @@ from contextlib import contextmanager
 from datetime import datetime
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import dagster as dg
+import duckdb
 
 from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
+from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.jobs.stock_mins_raw_update import (
     stock_mins_raw_update_from_prod_job,
     stock_mins_raw_update_job,
 )
-from orchestrator.defs.paths import raw_stk_mins_path, silver_stock_basic_path
+from orchestrator.defs.paths import (
+    raw_stk_mins_path,
+    silver_stock_basic_path,
+    silver_trade_calendar_path,
+)
 from orchestrator.defs.prod_db.stk_mins import (
     PROD_STK_MINS_DUCKDB_ATTACHED_DATABASE,
     PROD_STK_MINS_DUCKDB_ATTACH_OPTIONS,
@@ -48,15 +55,8 @@ from orchestrator.defs.sensors.stock_mins_raw_sensor import (
     STOCK_MINS_RAW_SENSOR_JOB_NAME,
     STOCK_MINS_RAW_SOURCE,
     _has_materialized_check_problem,
-    _latest_registered_trade_date,
     _run_request_for_trade_date,
     stock_mins_raw_sensor,
-)
-from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
-    _cursor_payload as build_stock_mins_trade_day_cursor,
-)
-from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
-    build_stock_mins_trade_day_registration_decision,
 )
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
@@ -111,6 +111,16 @@ class _LakeRoot:
     def root(self) -> Path:
         return self._root
 
+    def ensure_available_for_run(self) -> None:
+        return None
+
+
+class _SensorDuckDBResource:
+    @contextmanager
+    def connect(self):
+        with duckdb.connect(database=":memory:") as connection:
+            yield connection
+
 
 class _CheckContext:
     partition_key = PARTITION_KEY
@@ -137,7 +147,17 @@ class _StockMinsRawSensorInstance:
 
 class _StockMinsRawSensorContext:
     def __init__(self, partitions: tuple[str, ...] = (PARTITION_KEY,)) -> None:
+        self._temp_dir = TemporaryDirectory()
+        lake_root = Path(self._temp_dir.name)
+        _write_stock_mins_sensor_calendar_file(lake_root)
         self.instance = _StockMinsRawSensorInstance(partitions)
+        self.resources = SimpleNamespace(
+            lake_root=_LakeRoot(lake_root),
+            duckdb=_SensorDuckDBResource(),
+        )
+
+    def cleanup(self) -> None:
+        self._temp_dir.cleanup()
 
 
 def _sensor_asset_status(
@@ -217,6 +237,22 @@ def _stock_basic_sensor_status(
 
 def _stock_mins_raw_sensor_result(context: _StockMinsRawSensorContext):
     return stock_mins_raw_sensor._raw_fn(context)
+
+
+def _write_stock_mins_sensor_calendar_file(lake_root: Path) -> None:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    calendar_path.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT * FROM (
+                VALUES
+                  ('SSE', true, DATE '2026-05-29')
+              ) AS calendar(exchange, is_open, trade_date)
+            ) TO {duckdb_string(calendar_path)} (FORMAT PARQUET)
+            """
+        )
 
 
 def _skip_message(result) -> str:
@@ -1111,26 +1147,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             with self.assertRaises(ValueError):
                 parse_stock_mins_raw_config(invalid_config)
 
-    def test_stock_mins_trade_day_decision_registers_after_six_pm(self) -> None:
-        self.assertEqual(
-            build_stock_mins_trade_day_registration_decision(
-                today="2026-05-29",
-                today_is_open=True,
-                register_window_started=True,
-                already_registered=False,
-            ).selected_keys,
-            ("2026-05-29",),
-        )
-        self.assertEqual(
-            build_stock_mins_trade_day_registration_decision(
-                today="2026-05-29",
-                today_is_open=True,
-                register_window_started=False,
-                already_registered=False,
-            ).selected_keys,
-            (),
-        )
-
     def test_stock_mins_silver_trade_day_decision_requires_all_gates(self) -> None:
         selected = build_stock_mins_silver_trade_day_registration_decision(
             target_trade_date="2026-05-29",
@@ -1244,25 +1260,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         )
 
     def test_stock_mins_sensor_cursors_and_run_request_contract(self) -> None:
-        trade_day_decision = build_stock_mins_trade_day_registration_decision(
-            today="2026-05-29",
-            today_is_open=True,
-            register_window_started=True,
-            already_registered=False,
-        )
-        trade_day_cursor = json.loads(
-            build_stock_mins_trade_day_cursor(
-                decision=trade_day_decision,
-                evaluated_at=EVALUATED_AT,
-            )
-        )
-        self.assertEqual(trade_day_cursor["decision"], "register_partitions")
-        self.assertEqual(trade_day_cursor["target_date"], "2026-05-29")
-        self.assertEqual(
-            trade_day_cursor["details"]["partition_set"],
-            "cn_a_stock_mins_trade_days",
-        )
-
         silver_decision = build_stock_mins_silver_trade_day_registration_decision(
             target_trade_date="2026-05-29",
             register_window_started=True,
@@ -1331,15 +1328,9 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "19:45:00",
         )
 
-    def test_latest_registered_trade_date_uses_latest_not_after_today(self) -> None:
-        self.assertEqual(
-            _latest_registered_trade_date(
-                ("2026-05-28", "2026-05-29", "2026-05-30"),
-                EVALUATED_AT,
-            ),
-            "2026-05-29",
-        )
-        self.assertIsNone(_latest_registered_trade_date(("2026-05-30",), EVALUATED_AT))
+    def test_latest_registered_raw_trade_date_uses_latest_not_after_today(
+        self,
+    ) -> None:
         self.assertEqual(
             _latest_registered_raw_trade_date(
                 ("2013-12-31", "2014-01-02", "2026-05-29", "2026-05-30"),

@@ -1,13 +1,10 @@
-from dataclasses import dataclass
-from datetime import datetime, time
+from datetime import time
 
 import dagster as dg
 
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
-from orchestrator.defs.paths import silver_trade_calendar_path
-from orchestrator.defs.run_contracts.cursors import (
-    SensorCursorDecision,
-    build_sensor_cursor,
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_RAW_HISTORY_START_DATE,
 )
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
@@ -15,86 +12,12 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
-from orchestrator.defs.sensors.cn_a_trade_day_sensor import is_sse_open_day
-from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
+from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
+    build_trade_day_partition_registration_result,
+)
 
 
 STOCK_MINS_TRADE_DAY_REGISTER_START = time(18, 0)
-
-
-@dataclass(frozen=True)
-class StockMinsTradeDayRegistrationDecision:
-    today: str
-    today_is_open: bool
-    register_window_started: bool
-    already_registered: bool
-    selected_keys: tuple[str, ...]
-
-
-def build_stock_mins_trade_day_registration_decision(
-    *,
-    today: str,
-    today_is_open: bool,
-    register_window_started: bool,
-    already_registered: bool,
-) -> StockMinsTradeDayRegistrationDecision:
-    selected_keys = (
-        (today,)
-        if today_is_open and register_window_started and not already_registered
-        else ()
-    )
-    return StockMinsTradeDayRegistrationDecision(
-        today=today,
-        today_is_open=today_is_open,
-        register_window_started=register_window_started,
-        already_registered=already_registered,
-        selected_keys=selected_keys,
-    )
-
-
-def _cursor_payload(
-    *,
-    decision: StockMinsTradeDayRegistrationDecision,
-    evaluated_at: datetime,
-) -> str:
-    cursor_decision = (
-        SensorCursorDecision.REGISTER_PARTITIONS
-        if decision.selected_keys
-        else SensorCursorDecision.SKIP
-    )
-    blocked_count = (
-        1
-        if not decision.selected_keys
-        and decision.today_is_open
-        and not decision.already_registered
-        else 0
-    )
-    return build_sensor_cursor(
-        evaluated_at=evaluated_at,
-        decision=cursor_decision,
-        target_date=decision.today,
-        selected_count=len(decision.selected_keys),
-        blocked_count=blocked_count,
-        sample_keys=decision.selected_keys,
-        details={
-            "today": decision.today,
-            "today_is_open": decision.today_is_open,
-            "register_window_started": decision.register_window_started,
-            "already_registered": decision.already_registered,
-            "selected_keys": list(decision.selected_keys),
-            "partition_set": cn_a_stock_mins_trade_days.name,
-        },
-    )
-
-
-def _skip_reason(decision: StockMinsTradeDayRegistrationDecision) -> str:
-    if not decision.today_is_open:
-        return "今天不是上交所开市日，不注册股票分钟线交易日分区。"
-    if not decision.register_window_started:
-        return "今天是交易日，但还没到 18:00，暂不注册股票分钟线交易日分区。"
-    if decision.already_registered:
-        return "今天的股票分钟线交易日分区已经注册。"
-    return "当前没有需要注册的股票分钟线交易日分区。"
 
 
 @dg.sensor(
@@ -106,44 +29,15 @@ def _skip_reason(decision: StockMinsTradeDayRegistrationDecision) -> str:
         role=SensorRole.PARTITION_REGISTRATION,
     ),
     required_resource_keys={"lake_root", "duckdb"},
-    description="每天 18:00 后注册当天股票分钟线交易日分区，不触发数据更新任务。",
+    description="每天 18:00 后补注册股票分钟线 raw 交易日分区，不触发数据更新任务。",
 )
 def stock_mins_trade_day_sensor(
     context: dg.SensorEvaluationContext,
 ) -> dg.SensorResult:
-    evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
-    today = evaluated_at.date().isoformat()
-    register_window_started = (
-        evaluated_at.time() >= STOCK_MINS_TRADE_DAY_REGISTER_START
-    )
-
-    lake_root = context.resources.lake_root
-    duckdb_resource = context.resources.duckdb
-    lake_root.ensure_available_for_run()
-    calendar_path = silver_trade_calendar_path(lake_root.root())
-    if not calendar_path.exists():
-        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
-
-    with duckdb_resource.connect() as connection:
-        today_is_open = is_sse_open_day(connection, calendar_path, today)
-
-    registered_keys = set(
-        context.instance.get_dynamic_partitions(cn_a_stock_mins_trade_days.name)
-    )
-    decision = build_stock_mins_trade_day_registration_decision(
-        today=today,
-        today_is_open=today_is_open,
-        register_window_started=register_window_started,
-        already_registered=today in registered_keys,
-    )
-    cursor = _cursor_payload(decision=decision, evaluated_at=evaluated_at)
-
-    if not decision.selected_keys:
-        return dg.SensorResult(skip_reason=_skip_reason(decision), cursor=cursor)
-
-    return dg.SensorResult(
-        dynamic_partitions_requests=[
-            cn_a_stock_mins_trade_days.build_add_request(list(decision.selected_keys))
-        ],
-        cursor=cursor,
+    return build_trade_day_partition_registration_result(
+        context,
+        dynamic_partitions=cn_a_stock_mins_trade_days,
+        min_trade_date=STK_MINS_RAW_HISTORY_START_DATE,
+        partition_set_label="股票分钟线 raw",
+        same_day_register_start=STOCK_MINS_TRADE_DAY_REGISTER_START,
     )
