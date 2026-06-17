@@ -1,8 +1,8 @@
 # Dagster 基础事实两阶段刷新方案
 
-状态：待评审。本文是独立需求方案文档，尚未落地到 Dagster definitions。
+状态：方案已拍板，待开发。本文是独立需求方案文档，尚未落地到 Dagster definitions。
 
-更新时间：2026-06-11
+更新时间：2026-06-17
 
 ## 1. 背景
 
@@ -58,6 +58,11 @@ silver_stock_basic materialized at previous trade date
 7. sensor 代码默认继续 `STOPPED`。
 8. 同一 stage 最多提交 3 次 run。
 9. active run guard 是硬门禁，必须防止同一 job/trade_date/stage 重复提交正在运行的 run。
+10. 按 8 个 milestone 分批落地，不一次性修改整条链路。
+11. 两阶段基础事实 run key 正式采用 `build_repair_attempt_run_key(...)`。
+12. 执行链采用强一致、强顺序方案：`stock_basic -> suspend_d -> namechange -> silver_stock_identity_map -> adj_factor`。
+13. 本轮选择 A：只做日常两阶段链路；历史缺口补分区不混入本轮日常 sensor，后续单独设计 maintenance/backlog repair 方案。
+14. cursor 只做观测展示，不作为提交次数或 active run 的事实源；提交次数和 active run 必须以 Dagster run history 为准，按统一 builder 生成的候选 run key 精确匹配。
 
 ## 3. 不做范围
 
@@ -69,6 +74,8 @@ silver_stock_basic materialized at previous trade date
 4. 不让下游业务 job 顺手 selection 基础资产。
 5. 不修改正式 Dagster instance 状态，不启停 sensor，不补跑 job。
 6. 不把源站验证作为本轮前置条件。
+7. 不把历史缺口补分区混入日常两阶段 sensor；旧的按历史 `cn_a_stock_trade_days` backlog 扫描、每 tick 补历史 pending 分区，不属于本轮日常链路。
+8. 不在本轮新增历史补缺 sensor、maintenance job、backlog repair job、手动补数 CLI 或任何新补录入口；历史缺口维护后续单独立项设计。
 
 ## 4. 核心设计
 
@@ -127,27 +134,52 @@ asset ready for stage =
 
 ### 4.4 Run key
 
-所有参与两阶段刷新的 sensor run key 必须包含 `trade_date`、`stage` 与 `attempt`：
+所有参与两阶段刷新的 sensor run key 必须通过 `orchestrator.defs.run_contracts.run_keys` 的统一 builder 生成，不允许在 sensor 文件或基础事实 helper 中手写 run key 字符串模板，也不新增基础事实专属 run key 函数。
+
+两阶段基础事实的同一 `job/trade_date/stage` 允许最多 3 次自动提交，这不是普通“一次性 asset update”语义，而是有界 attempt 语义。因此本链路统一使用：
+
+```python
+build_repair_attempt_run_key(
+    subject="<stable_update_subject>",
+    repair_scope_id=f"{trade_date}:{stage}",
+    attempt=attempt,
+)
+```
+
+输出格式固定为：
 
 ```text
-raw_stock_basic_update:{trade_date}:{stage}:attempt-{attempt}
-silver_stock_basic_update:{trade_date}:{stage}:attempt-{attempt}
-raw_suspend_d_update:{trade_date}:{stage}:attempt-{attempt}
-silver_suspend_d_update:{trade_date}:{stage}:attempt-{attempt}
-raw_namechange_update:{trade_date}:{stage}:attempt-{attempt}
-silver_namechange_update:{trade_date}:{stage}:attempt-{attempt}
-stock_identity_map:{trade_date}:{stage}:attempt-{attempt}
-raw_adj_factor_update:{trade_date}:{stage}:attempt-{attempt}
-silver_adj_factor_update:{trade_date}:{stage}:attempt-{attempt}
+{subject}:{trade_date}:{stage}:{attempt}
 ```
+
+各 job 的 subject 仍沿用既有稳定身份：
+
+| job | subject | run key 示例 |
+| --- | --- | --- |
+| `raw_stock_basic_update_job` | `raw_stock_basic_update` | `raw_stock_basic_update:2026-06-17:morning:1` |
+| `silver_stock_basic_update_job` | `silver_stock_basic_update` | `silver_stock_basic_update:2026-06-17:morning:1` |
+| `raw_suspend_d_update_job` | `raw_suspend_d_update` | `raw_suspend_d_update:2026-06-17:morning:1` |
+| `silver_suspend_d_update_job` | `silver_suspend_d_update` | `silver_suspend_d_update:2026-06-17:morning:1` |
+| `raw_namechange_update_job` | `raw_namechange_update` | `raw_namechange_update:2026-06-17:morning:1` |
+| `silver_namechange_update_job` | `silver_namechange_update` | `silver_namechange_update:2026-06-17:morning:1` |
+| `stock_identity_map_update_job` | `stock_identity_map` | `stock_identity_map:2026-06-17:morning:1` |
+| `raw_adj_factor_update_job` | `raw_adj_factor_update` | `raw_adj_factor_update:2026-06-17:morning:1` |
+| `silver_adj_factor_update_job` | `silver_adj_factor_update` | `silver_adj_factor_update:2026-06-17:morning:1` |
 
 `attempt` 只能是 `1..3`。原因：
 
 1. 同一天早盘和下午都要允许提交 run；只用 `trade_date` 的旧 run key 会把下午 run 当成重复请求挡掉。
 2. 同一 stage 允许最多 3 次提交；如果 run key 只到 `{trade_date}:{stage}`，Dagster 会把第 2、3 次提交视为同一个 run key，无法表达“最多 3 次”。
 3. active run guard 负责防并发重复提交，attempt run key 负责让失败后的第 2、3 次提交有可审计身份。
+4. `run_key` 仍只用于 Dagster 幂等去重，不承载执行参数；执行参数只能来自 `partition_key`、显式 `run_config`、stage target 或上游 readiness/status。
 
-提交前必须先计算本 job/trade_date/stage 已有提交次数，下一次 run key 使用 `attempt = submitted_count + 1`；如果 `submitted_count >= 3`，直接 skip。
+提交前必须先用统一 builder 构造当前 `job/trade_date/stage` 的 3 个候选 run key，基于 Dagster run history 精确匹配候选 key 统计已有提交次数。下一次 run key 使用 `attempt = submitted_count + 1`；如果 `submitted_count >= 3`，直接 skip。
+
+禁止：
+
+1. 禁止 `attempt-1` 这类自定义字符串段。
+2. 禁止 `basic_fact_run_key(...)`、`basic_fact_run_key_prefix(...)` 这类基础事实专属 run key helper。
+3. 禁止用 `startswith(...)` 或解析 run key 来推导 `trade_date`、`stage`、`attempt` 或 `run_config`。
 
 ### 4.5 Cursor
 
@@ -205,6 +237,19 @@ raw_stock_basic
 ```
 
 该链路可以通过 polling sensor 的 readiness gate 实现，也可以通过 run-status sensor 做 job-to-job coordination；无论采用哪种实现，都不得让下游只因为“时间到了”就提交 run。
+
+### 4.8 日常链路与历史补缺边界
+
+本轮日常两阶段 sensor 只评估最新一个 `cn_a_stock_current_trade_days` 的当前 stage，不承担历史缺口补分区职责。
+
+原因：
+
+1. 日常链路目标是让当天当前 stage 的基础事实按强顺序完成。如果旧历史缺口进入同一个 sensor，历史 pending 分区可能抢占当天 stage 的执行机会，导致当天 `suspend_d` 未跑，进而阻断 `namechange`、`silver_stock_identity_map`、`adj_factor`。
+2. 两阶段 run key 的 scope 是 `trade_date + stage + attempt`。历史补缺没有 morning/afternoon freshness 语义，硬塞进同一链路会制造假的 stage 身份。
+3. 日常强顺序链路的失败应该只影响当天当前 stage；历史补缺失败不应污染当天 cursor、active run guard、attempt 计数或下游阻断原因。
+4. cursor 应清楚回答“今天当前 stage 为什么跑/不跑”。混入历史 pending keys 会让日常观测口径变乱。
+
+因此，旧 `suspend_d_sensor.py` 中按历史 `cn_a_stock_trade_days` 扫描 backlog、每 tick 提交历史 pending 分区的逻辑，在本轮两阶段日常链路中退场。历史缺口维护需要后续单独设计 maintenance/backlog repair 方案，并单独评估触发入口、run key、执行范围、性能门禁和人工运维口径。
 
 ## 5. 建议触发链
 
@@ -317,13 +362,13 @@ CANCELING
 | 文件 | 变更 |
 | --- | --- |
 | `defs/sensors/stock_basic_sensor.py` | 改用 `cn_a_stock_current_trade_days`；增加 stage；run key 带 stage/attempt；支持本日两次刷新 |
-| `defs/sensors/suspend_d_sensor.py` | 改用 `cn_a_stock_current_trade_days`；允许同日同分区按 stage 重刷；增加 stock_basic stage gate |
+| `defs/sensors/suspend_d_sensor.py` | 改用 `cn_a_stock_current_trade_days`；允许同日同分区按 stage 重刷；增加 stock_basic stage gate；日常链路不再承担历史 backlog 补缺 |
 | `defs/sensors/stock_namechange_sensor.py` | 调整 stage 时间到 09:10/16:10；raw 等待 suspend_d 本 stage ready；run key 使用 stage/attempt |
 | `defs/sensors/stock_identity_map_sensor.py` | 改用 `cn_a_stock_current_trade_days`；时间改为 09:15/16:15；run key 带 stage/attempt |
 | `defs/sensors/stock_adj_factor_sensor.py` | 时间改为 09:20/16:20；raw 等待 identity_map；silver 的 stock_basic gate 改为 stage-aware freshness |
 | `defs/sensors/readiness.py` | 增加 materialization timestamp / stage-aware readiness helper |
 | `defs/sensors/basic_fact_stage.py` | 新增两阶段时间、目标日期、stage target 解析 |
-| `defs/sensors/basic_fact_run_guards.py` | 新增 active run guard、3 次提交上限和 attempt run key 生成 |
+| `defs/sensors/basic_fact_run_guards.py` | 新增 active run guard、3 次提交上限和候选 attempt run key 精确匹配；run key 只能由统一 builder 生成 |
 | tests | 覆盖两阶段触发、重复提交、失败阻断、stage readiness、run key 和 cursor |
 | docs | 同步既有 Dagster 拓扑、namechange、adj factor、stock identity map 设计文档 |
 
@@ -347,11 +392,12 @@ CANCELING
 | 依赖门禁替代固定等待 | 五个 sensor 都先解析 stage target，再检查直接上游本 stage readiness | 下游时间已到但上游本 stage 未 ready 时不提交 run |
 | full snapshot 用 materialization timestamp 判断本 stage freshness | `defs/sensors/readiness.py` 支持 `min_materialization_datetime`；新增 stage readiness wrapper | 早盘 materialization 在下午 stage 不算 ready；下午 materialization 才算 ready |
 | partitioned asset 同日两次重写 | `suspend_d_sensor.py`、`stock_adj_factor_sensor.py` 不再用 `materialized_partition_keys` 做“存在即跳过”，改用 stage readiness | 同一 `trade_date` 上午已 materialized，下午仍可提交同分区 run |
-| 同一 job/trade_date/stage 最多提交 3 次 | 新增 `defs/sensors/basic_fact_run_guards.py`，从 Dagster run history 统计同 run key prefix 的已提交 run 数 | 第 1、2、3 次可提交；第 4 次 skip，cursor 写明达到上限 |
-| active run guard 是硬门禁 | `basic_fact_run_guards.py` 用 `RunsFilter(job_name=..., statuses=ACTIVE_STATUSES, created_after=stage_start)` 查同前缀 active run | 存在 active run 时不提交；即使当前 asset stale 也 skip |
+| 同一 job/trade_date/stage 最多提交 3 次 | 新增 `defs/sensors/basic_fact_run_guards.py`，用 `build_repair_attempt_run_key(...)` 构造 1..3 候选 key，并从 Dagster run history 精确匹配候选 key 统计提交数 | 第 1、2、3 次可提交；第 4 次 skip，cursor 写明达到上限 |
+| active run guard 是硬门禁 | `basic_fact_run_guards.py` 用 `RunsFilter(job_name=..., statuses=ACTIVE_STATUSES, created_after=stage_start)` 查询窄范围 run，再按候选 run key 集合精确匹配 active run | 存在 active run 时不提交；即使当前 asset stale 也 skip |
 | sensor tick 间隔 300 秒 | 五个基础事实 sensor decorator 改为 `minimum_interval_seconds=300` | 静态测试断言这些 sensor 的 `minimum_interval_seconds == 300` |
 | sensor 默认 `STOPPED` | 五个基础事实 sensor 保持 `default_status=dg.DefaultSensorStatus.STOPPED` | 静态测试断言 default status 不变 |
 | 不做大 job、不扩大 selection | `defs/jobs/**` 不改 selection；sensor 仍触发现有 raw/silver job | 既有 job selection contract 测试继续覆盖 raw/silver 分层 |
+| 历史补缺不混入日常两阶段 sensor | `suspend_d_sensor.py` 只评估最新 current trade day 当前 stage；旧 backlog 扫描逻辑退出日常链路 | 历史缺失分区存在时，日常 sensor 仍优先评估当天 current trade day；不因历史 pending keys 抢占当天 stage |
 
 ### 8.2 新增 stage 策略模块
 
@@ -421,9 +467,9 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/basic_fact_run_guards.py
 
 职责：
 
-1. 生成带 attempt 的 run key。
-2. 从 Dagster run history 统计同一 job/trade_date/stage 已提交次数。
-3. 检查同一 job/trade_date/stage 是否存在 active run。
+1. 使用 `build_repair_attempt_run_key(...)` 构造同一 `job/trade_date/stage` 的 1..3 候选 run key。
+2. 从 Dagster run history 精确匹配候选 run key，统计同一 `job/trade_date/stage` 已提交次数。
+3. 检查同一 `job/trade_date/stage` 是否存在 active run。
 4. 给 sensor 返回是否允许提交、下一次 attempt、skip reason。
 
 不新增自定义 run tag。仍使用当前 `build_run_request(...)`，依赖 Dagster 自动写入的 `dagster/run_key` 系统 tag。
@@ -452,31 +498,28 @@ BASIC_FACT_ACTIVE_RUN_STATUSES = (
 @dataclass(frozen=True)
 class BasicFactRunSubmissionState:
     allowed: bool
-    run_key_prefix: str
+    repair_scope_id: str
+    candidate_run_keys: tuple[str, ...]
     submitted_count: int
     next_attempt: int | None
     active_run_id: str | None
     reason: str
 ```
 
-run key 生成：
+候选 run key 只能通过统一 builder 生成：
 
 ```python
-basic_fact_run_key_prefix(
-    base_key: str,
-    trade_date: str,
-    stage: BasicFactStageName,
-) -> str
-
-basic_fact_run_key(
-    base_key: str,
-    trade_date: str,
-    stage: BasicFactStageName,
-    attempt: int,
-) -> str
+candidate_run_keys = tuple(
+    build_repair_attempt_run_key(
+        subject=subject,
+        repair_scope_id=f"{trade_date}:{stage}",
+        attempt=attempt,
+    )
+    for attempt in range(1, max_attempts + 1)
+)
 ```
 
-`base_key` 使用现有稳定前缀：
+`subject` 使用现有稳定身份：
 
 ```text
 raw_stock_basic_update
@@ -497,7 +540,9 @@ evaluate_basic_fact_run_submission(
     instance: dg.DagsterInstance,
     *,
     job_name: str,
-    run_key_prefix: str,
+    subject: str,
+    trade_date: str,
+    stage: BasicFactStageName,
     stage_start_datetime: datetime,
     max_attempts: int = BASIC_FACT_MAX_STAGE_SUBMISSIONS,
 ) -> BasicFactRunSubmissionState
@@ -505,12 +550,14 @@ evaluate_basic_fact_run_submission(
 
 查询策略：
 
-1. 用 `RunsFilter(job_name=job_name, created_after=stage_start_datetime)` 做窄范围查询。
-2. 只统计 `run.tags.get(RUN_KEY_TAG, "").startswith(f"{run_key_prefix}:attempt-")` 的 run。
-3. active run 另用 `statuses=BASIC_FACT_ACTIVE_RUN_STATUSES` 过滤。
-4. 如果存在 active run，`allowed=False`，不计算新的 RunRequest。
-5. 如果 `submitted_count >= 3`，`allowed=False`，skip reason 写明达到上限。
-6. 否则 `next_attempt=submitted_count + 1`。
+1. 先用 `build_repair_attempt_run_key(...)` 构造 1..3 的 `candidate_run_keys`。
+2. 用 `RunsFilter(job_name=job_name, created_after=stage_start_datetime)` 做窄范围查询。
+3. 只统计 `run.tags.get(RUN_KEY_TAG) in set(candidate_run_keys)` 的 run。
+4. active run 另用 `statuses=BASIC_FACT_ACTIVE_RUN_STATUSES` 过滤，并继续只按候选 run key 精确匹配。
+5. 如果 Dagster 当前版本的 `RunsFilter.tags` 支持同一 tag 多值过滤，可以把 `tags={RUN_KEY_TAG: candidate_run_keys}` 作为窄化条件；否则先按 job/time/status 查询，再在 Python 中做精确集合匹配。两种方式都禁止 prefix/startswith。
+6. 如果存在 active run，`allowed=False`，不计算新的 RunRequest。
+7. 如果 `submitted_count >= 3`，`allowed=False`，skip reason 写明达到上限。
+8. 否则 `next_attempt=submitted_count + 1`。
 
 ### 8.4 readiness.py stage freshness 改造
 
@@ -598,7 +645,7 @@ defs/sensors/stock_basic_sensor.py
 5. raw readiness 使用 `raw_tushare_stock_basic_ready_for_stage(instance, stage_start_datetime)`。
 6. silver readiness 使用 `silver_stock_basic_ready_for_stage(...)`，raw 前置使用 `raw_tushare_stock_basic_ready_for_stage(...)`。
 7. 提交前调用 `evaluate_basic_fact_run_submission(...)`。
-8. run key 使用 `raw_stock_basic_update:{trade_date}:{stage}:attempt-{n}` / `silver_stock_basic_update:{trade_date}:{stage}:attempt-{n}`。
+8. run key 使用 `build_repair_attempt_run_key(subject="raw_stock_basic_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)` / `build_repair_attempt_run_key(subject="silver_stock_basic_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)`。
 9. checks 失败不再直接永久人工阻断；在 3 次提交上限内允许再次提交，达到上限后 skip。
 10. cursor details 写入 `stage`、`stage_start_datetime`、`asset_earliest_datetime`、`submitted_count_for_stage`、`next_attempt`、`active_run_id`、readiness details。
 
@@ -614,12 +661,12 @@ defs/sensors/suspend_d_sensor.py
 
 1. import `cn_a_stock_current_trade_days`，不再使用 `cn_a_stock_trade_days`。
 2. 不再按旧股票交易日集合做 backlog 批量补缺；本需求只评估最新一个 current trade day 的当前 stage。
-3. `MAX_RUN_REQUESTS_PER_TICK` 对本链路不再需要；若保留，也必须固定为 1 且只用于当前 target。
+3. `MAX_RUN_REQUESTS_PER_TICK` 对本链路不再需要；日常两阶段 sensor 每次最多提交当前 target 的一个 run request。
 4. raw sensor 在 `stock_basic_ready_for_stage(...)` ready 后才可提交。
 5. raw readiness 使用 `raw_tushare_suspend_d_ready_for_stage(instance, trade_date, stage_start_datetime)`，不能再用 `materialized_partition_keys` 判断“已存在就跳过”。
 6. silver sensor 依赖 `stock_basic_ready_for_stage(...)` 与 `raw_tushare_suspend_d_ready_for_stage(...)`。
 7. silver readiness 使用 `silver_suspend_d_ready_for_stage(...)`。
-8. run key 使用 `raw_suspend_d_update:{trade_date}:{stage}:attempt-{n}` / `silver_suspend_d_update:{trade_date}:{stage}:attempt-{n}`。
+8. run key 使用 `build_repair_attempt_run_key(subject="raw_suspend_d_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)` / `build_repair_attempt_run_key(subject="silver_suspend_d_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)`。
 9. cursor 写明 stock_basic gate、raw gate、stage freshness 和提交次数。
 
 #### 8.5.3 namechange
@@ -640,7 +687,7 @@ defs/sensors/stock_namechange_sensor.py
 6. silver sensor 依赖 `raw_tushare_namechange_ready_for_stage(...)`，并继续确认 `stock_basic_ready_for_stage(...)`。
 7. silver readiness 使用 `silver_namechange_ready_for_stage(...)`，并继续用 upstream storage id 判断是否跟上 raw 与 stock_basic。
 8. `_already_submitted_for_stage(...)` 退场，改用 `evaluate_basic_fact_run_submission(...)`；cursor 不再把“已经提交过一次”当硬事实。
-9. run key 使用 `raw_namechange_update:{trade_date}:{stage}:attempt-{n}` / `silver_namechange_update:{trade_date}:{stage}:attempt-{n}`。
+9. run key 使用 `build_repair_attempt_run_key(subject="raw_namechange_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)` / `build_repair_attempt_run_key(subject="silver_namechange_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)`。
 
 #### 8.5.4 silver_stock_identity_map
 
@@ -659,7 +706,7 @@ defs/sensors/stock_identity_map_sensor.py
 5. identity map 自身 readiness 使用 `silver_stock_identity_map_ready_for_stage(...)`。
 6. `_identity_map_decision(...)` 增加 stage-aware 输入，保持 “identity materialization storage id >= upstream latest storage id” 的 current 判断。
 7. 提交前调用 active run / 3 次上限门禁。
-8. run key 使用 `stock_identity_map:{trade_date}:{stage}:attempt-{n}`。
+8. run key 使用 `build_repair_attempt_run_key(subject="stock_identity_map", repair_scope_id=f"{trade_date}:{stage}", attempt=n)`。
 
 #### 8.5.5 adj_factor
 
@@ -678,7 +725,7 @@ defs/sensors/stock_adj_factor_sensor.py
 5. 删除本 sensor 对 `stock_basic_ready_without_freshness` 的 import 和调用。
 6. `_silver_sensor_cursor(...)` 中 `stock_basic_freshness_required` 固定为 `True`，并记录 `stage_start_datetime`。
 7. silver readiness 使用 `silver_adj_factor_ready_for_stage(...)`，同日早盘已 materialized 但下午未重刷时必须判为 stale。
-8. run key 使用 `raw_adj_factor_update:{trade_date}:{stage}:attempt-{n}` / `silver_adj_factor_update:{trade_date}:{stage}:attempt-{n}`。
+8. run key 使用 `build_repair_attempt_run_key(subject="raw_adj_factor_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)` / `build_repair_attempt_run_key(subject="silver_adj_factor_update", repair_scope_id=f"{trade_date}:{stage}", attempt=n)`。
 
 ### 8.6 Cursor 统一字段
 
@@ -692,7 +739,8 @@ asset_earliest_datetime
 submitted_count_for_stage
 next_attempt
 active_run_id
-run_key_prefix
+repair_scope_id
+candidate_run_keys
 reason
 readiness_details
 ```
@@ -708,6 +756,7 @@ tests/test_stock_basic_namechange_split_contracts.py
 tests/test_suspend_d_sensor.py
 tests/test_adj_factor_m4_contracts.py
 tests/test_stock_identity_map_active_asset.py
+tests/test_run_contract_run_keys.py
 tests/test_run_contract_static_gates.py
 ```
 
@@ -721,10 +770,11 @@ tests/test_basic_fact_two_stage_sensor_gates.py
 
 1. stage helper 的时间解析和 current trade day 选择。
 2. stage readiness 的 timestamp 判断。
-3. active run guard 的 `RunsFilter` 查询和 run key prefix 过滤。
+3. active run guard 的 `RunsFilter` 查询和候选 run key 精确匹配。
 4. 同一 stage 第 1/2/3 次提交与第 4 次 skip。
 5. 同一 job/trade_date/stage 有 active run 时 skip。
 6. `namechange` 不再产出 `evening` stage。
+7. `build_repair_attempt_run_key(...)` 生成的基础事实两阶段 run key 输出为 `{subject}:{trade_date}:{stage}:{attempt}`，且不会出现 `attempt-`。
 
 ### 8.8 静态门禁
 
@@ -735,8 +785,9 @@ tests/test_basic_fact_two_stage_sensor_gates.py
 3. 基础事实两阶段 sensor 的 `default_status` 必须是 `STOPPED`。
 4. `stock_adj_factor_sensor.py` 不得调用 `stock_basic_ready_without_freshness`。
 5. `suspend_d_sensor.py` 与 `stock_adj_factor_sensor.py` 不得用 `materialized_partition_keys` 作为日常 skip 主门禁。
-6. run key 字符串必须包含 `:{stage}:attempt-` 口径。
-7. 不新增 job，不扩大 job selection。
+6. 两阶段基础事实 sensor 的 `run_key=` 必须直接使用 `build_repair_attempt_run_key(...)`，不得手写字符串、不得调用基础事实专属 run key helper、不得使用 `attempt-` 字符串段。
+7. `basic_fact_run_guards.py` 不得定义 `basic_fact_run_key(...)`、`basic_fact_run_key_prefix(...)`，不得用 `startswith(...)` 匹配 run key。
+8. 不新增 job，不扩大 job selection。
 
 ### 8.9 验证命令
 
@@ -750,6 +801,7 @@ uv run pytest \
   tests/test_suspend_d_sensor.py \
   tests/test_adj_factor_m4_contracts.py \
   tests/test_stock_identity_map_active_asset.py \
+  tests/test_run_contract_run_keys.py \
   tests/test_run_contract_static_gates.py
 ```
 
@@ -788,6 +840,7 @@ uv run pytest \
 3. stock_basic stage 未 ready 时不提交。
 4. 同一 stage 最多提交 3 次。
 5. 存在同 job/trade_date/stage active run 时不重复提交。
+6. 历史缺失分区不进入本轮日常两阶段 sensor 的 selected keys；不能抢占当天 current trade day 的 stage 执行。
 
 ### 9.4 namechange
 
@@ -820,7 +873,7 @@ uv run pytest \
 ### 9.7 静态门禁
 
 1. 这些基础事实 sensor 不得继续读取 `cn_a_stock_trade_days` 作为目标日期。
-2. 两阶段基础事实 sensor 的 run key 必须包含 `stage` 和 `attempt`。
+2. 两阶段基础事实 sensor 的 run key 必须通过 `build_repair_attempt_run_key(...)` 表达 `trade_date`、`stage` 和 `attempt`。
 3. 不新增组合大 job。
 4. 不新增 summary asset、readiness asset、数据库表。
 5. 不修改 asset key/job 名称/check 名称。
@@ -875,7 +928,7 @@ minimum_interval_seconds = 300
 
 已确认：同一 job/trade_date/stage 最多提交 3 次 run。达到 3 次后仍失败或未 ready，sensor 不再自动提交，需要人工处理。
 
-这不是无限自动重试；提交次数必须从 Dagster run history 中按同一 run key prefix 稳定推导，cursor 只记录本次判断结果，后续 tick 不得突破 3 次上限。
+这不是无限自动重试；提交次数必须从 Dagster run history 中按统一 builder 生成的 1..3 候选 run key 精确匹配推导，cursor 只记录本次判断结果，后续 tick 不得突破 3 次上限。
 
 ### 10.8 Active run guard
 
@@ -893,17 +946,29 @@ STARTED
 CANCELING
 ```
 
+### 10.9 历史补缺边界
+
+已确认本轮选择 A：先做日常两阶段链路，历史缺口维护不混入本轮 sensor。
+
+正式口径：
+
+1. 日常两阶段 sensor 只评估最新一个 `cn_a_stock_current_trade_days` 的当前 stage。
+2. 旧 `suspend_d_sensor.py` 的历史 backlog 扫描和每 tick 补历史 pending 分区逻辑，不进入本轮日常两阶段链路。
+3. 历史缺口维护后续单独做 maintenance/backlog repair 方案，不在本轮新增入口、不自动化、不影响当天基础事实强顺序链路。
+4. 如果正式环境存在历史缺口，本轮日常链路不能让历史 pending keys 抢占当天 current trade day 的 run request。
+
 ## 11. 建议落地顺序
 
-1. 先实现 `basic_fact_stage.py` 和 `readiness.py` stage freshness。
-2. 实现 `basic_fact_run_guards.py`，包含 active run guard、3 次提交上限和 attempt run key。
-3. 迁移 `stock_basic` 到 `cn_a_stock_current_trade_days` 与两阶段 run key。
-4. 迁移 `suspend_d` 到 current trade day、stock_basic stage gate 和同分区两阶段重刷。
-5. 迁移 `namechange` 到 09:10/16:10、`afternoon` stage 和 suspend_d 上游门禁。
-6. 迁移 `identity_map` 到 09:15/16:15 与 stage-aware upstream。
-7. 迁移 `adj_factor` 到 09:20/16:20、identity_map 上游门禁与 stock_basic stage freshness。
-8. 补静态门禁，防止这些基础事实 sensor 回到 `cn_a_stock_trade_days` 或只按 `trade_date`/`stage` run key。
-9. 同步既有拓扑和资产设计文档。
+按 8 个 milestone 分批落地：
+
+1. **M1：基础 stage/freshness 能力**。实现 `basic_fact_stage.py` 和 `readiness.py` stage freshness。
+2. **M2：run guard / run key / attempt 预算**。实现 `basic_fact_run_guards.py`，包含 active run guard、3 次提交上限和候选 attempt run key 精确匹配；不得新增基础事实专属 run key helper。
+3. **M3：迁移 stock_basic**。迁移 `stock_basic` 到 `cn_a_stock_current_trade_days` 与两阶段 run key。
+4. **M4：迁移 suspend_d**。迁移 `suspend_d` 到 current trade day、stock_basic stage gate 和同分区两阶段重刷；历史 backlog 补缺逻辑退出日常链路。
+5. **M5：迁移 namechange**。迁移 `namechange` 到 09:10/16:10、`afternoon` stage 和 suspend_d 上游门禁。
+6. **M6：迁移 silver_stock_identity_map**。迁移 `identity_map` 到 09:15/16:15 与 stage-aware upstream。
+7. **M7：迁移 adj_factor**。迁移 `adj_factor` 到 09:20/16:20、identity_map 上游门禁与 stock_basic stage freshness。
+8. **M8：静态门禁、回归、文档收口**。补静态门禁，防止这些基础事实 sensor 回到 `cn_a_stock_trade_days`、只按 `trade_date`/`stage` run key、手写 run key、prefix 匹配 run key、使用 `attempt-` 字符串段，或让历史 backlog 抢占日常 current trade day；同步既有拓扑和资产设计文档。
 
 ## 12. 验收标准
 
@@ -919,3 +984,4 @@ CANCELING
 8. 失败时 cursor 能明确说明是时间未到、上游未 ready、checks 失败、active run 存在，还是同 stage 已达到 3 次提交上限。
 9. 同一 job/trade_date/stage 存在 active run 时，sensor 不会重复提交 run。
 10. 同一 job/trade_date/stage 的提交次数由 Dagster run history 推导，不依赖 cursor 作为事实源。
+11. 历史缺失分区不会进入日常两阶段 sensor 的 run request 选择；当天 current trade day 的 stage 执行不会被历史 pending keys 抢占。

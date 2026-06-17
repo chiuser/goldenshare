@@ -244,6 +244,49 @@ build_batch_id:
 | `silver_index_daily:{trade_date}` | `build_asset_update_run_key(subject="silver_index_daily", unit_id=trade_date)` |
 | `market_major_indices_daily:{trade_date}` | `build_asset_update_run_key(subject="market_major_indices_daily", unit_id=trade_date)` |
 
+### 6.1 基础事实两阶段刷新增量口径
+
+`lake_console/docs/design/dagster-basic-facts-two-stage-refresh-plan.md` 将基础事实日常自动化从“一天一个 asset update run key”调整为“同一 `trade_date/stage` 最多 3 次自动提交”。这类 run 不再适合 `build_asset_update_run_key(...)`，因为 asset update builder 表达的是同一输出单元只允许自动提交一次。
+
+两阶段基础事实刷新必须使用 `build_repair_attempt_run_key(...)` 表达有界 attempt 语义。这里的 `repair` 是 run key builder 的通用类型名，表示“同一 scope 允许受控 attempt”，不表示业务 job 改名为 repair job。
+
+固定调用口径：
+
+```python
+build_repair_attempt_run_key(
+    subject=subject,
+    repair_scope_id=f"{trade_date}:{stage}",
+    attempt=attempt,
+)
+```
+
+固定输出：
+
+```text
+{subject}:{trade_date}:{stage}:{attempt}
+```
+
+两阶段基础事实 subject 表：
+
+| job | subject | 输出示例 |
+| --- | --- | --- |
+| `raw_stock_basic_update_job` | `raw_stock_basic_update` | `raw_stock_basic_update:2026-06-17:morning:1` |
+| `silver_stock_basic_update_job` | `silver_stock_basic_update` | `silver_stock_basic_update:2026-06-17:morning:1` |
+| `raw_suspend_d_update_job` | `raw_suspend_d_update` | `raw_suspend_d_update:2026-06-17:morning:1` |
+| `silver_suspend_d_update_job` | `silver_suspend_d_update` | `silver_suspend_d_update:2026-06-17:morning:1` |
+| `raw_namechange_update_job` | `raw_namechange_update` | `raw_namechange_update:2026-06-17:morning:1` |
+| `silver_namechange_update_job` | `silver_namechange_update` | `silver_namechange_update:2026-06-17:morning:1` |
+| `stock_identity_map_update_job` | `stock_identity_map` | `stock_identity_map:2026-06-17:morning:1` |
+| `raw_adj_factor_update_job` | `raw_adj_factor_update` | `raw_adj_factor_update:2026-06-17:morning:1` |
+| `silver_adj_factor_update_job` | `silver_adj_factor_update` | `silver_adj_factor_update:2026-06-17:morning:1` |
+
+硬门禁：
+
+1. 不新增 `basic_fact_run_key(...)`、`basic_fact_run_key_prefix(...)` 或任何数据集专属 run key helper。
+2. 不使用 `attempt-1` 这类自定义字符串段；attempt 只能是 `build_repair_attempt_run_key(...)` 的数字末段。
+3. active run guard 和提交次数统计必须先用统一 builder 构造 1..3 候选 run key，再按 `dagster/run_key` 精确匹配，不得用 prefix 或 `startswith(...)`。
+4. `run_key` 不承载执行参数；`trade_date`、`stage`、`attempt` 只能从 stage target、guard 结果、`partition_key` 或显式 config 进入执行逻辑，不得从 run key 反解析。
+
 前复权分钟线 MACD/KDJ 修复：
 
 ```python
@@ -666,6 +709,7 @@ lake_console/orchestrator/tests/test_run_contract_static_gates.py
 5. 生产代码禁止出现 `source_qfq_factor_repair_event_storage_ids`。
 6. 生产代码禁止出现 legacy bridge 函数、legacy completion required metadata 常量或 legacy completion status 字段。
 7. 静态门禁必须排除 tests、历史设计文档、Dagster 官方示例文档。
+8. 基础事实两阶段 sensor 必须使用 `build_repair_attempt_run_key(...)`；禁止 `attempt-` 字符串段、基础事实专属 run key helper、run key prefix 匹配和 `startswith(...)` 匹配。
 
 ## 12. 测试计划
 

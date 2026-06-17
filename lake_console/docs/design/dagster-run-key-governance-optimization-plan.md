@@ -303,6 +303,48 @@ payload:
 | `silver_index_daily:{trade_date}` | 指数日线 silver 日更 | `build_asset_update_run_key` | `subject=silver_index_daily`，`unit_id=trade_date` | 保持字符串不变 |
 | `market_major_indices_daily:{trade_date}` | 主要指数日线更新 | `build_asset_update_run_key` | `subject=market_major_indices_daily`，`unit_id=trade_date` | 保持字符串不变 |
 
+### 6.1 后续基础事实两阶段刷新的增量口径
+
+`lake_console/docs/design/dagster-basic-facts-two-stage-refresh-plan.md` 是 M9 后新增的基础事实自动化调整。它会把 `stock_basic`、`suspend_d`、`namechange`、`silver_stock_identity_map`、`adj_factor` 纳入同一 `cn_a_stock_current_trade_days` 两阶段链路，并允许同一 `job/trade_date/stage` 最多 3 次自动提交。
+
+因此，两阶段基础事实刷新不再使用本节兼容表中的“一天一个 asset update run key”口径，而应统一使用有界 attempt builder：
+
+```python
+build_repair_attempt_run_key(
+    subject=subject,
+    repair_scope_id=f"{trade_date}:{stage}",
+    attempt=attempt,
+)
+```
+
+固定输出：
+
+```text
+{subject}:{trade_date}:{stage}:{attempt}
+```
+
+适用 subject：
+
+```text
+raw_stock_basic_update
+silver_stock_basic_update
+raw_suspend_d_update
+silver_suspend_d_update
+raw_namechange_update
+silver_namechange_update
+stock_identity_map
+raw_adj_factor_update
+silver_adj_factor_update
+```
+
+硬规则：
+
+1. 不新增 `basic_fact_run_key(...)`、`basic_fact_run_key_prefix(...)` 或任何数据集专属 run key helper。
+2. 不使用 `attempt-1` 这类自定义字符串段。
+3. active run guard 和提交次数统计只能基于统一 builder 生成的 1..3 候选 run key 做精确匹配，不得 prefix 匹配或 `startswith(...)`。
+4. `run_key` 只做幂等身份，不反解析生成 `run_config`。
+5. 实施该方案时，必须同步更新 `tests/test_run_contract_run_keys.py` 和 `tests/test_run_contract_static_gates.py`，把基础事实两阶段 run key 加入正式回归门禁。
+
 ## 7. 迁移步骤与当前状态
 
 截至 M9，7.1 至 7.4 均已完成代码落地；legacy bridge 已删除；业务设计文档中的旧字段、旧 run key 与散装手工 repair 口径已完成对账；最终专项验收已完成。
