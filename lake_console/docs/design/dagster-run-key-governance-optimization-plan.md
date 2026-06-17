@@ -1,6 +1,6 @@
 # Dagster Run Key 治理技术专项优化方案
 
-状态：M1-M7 已按本文核心口径落地，legacy bridge 已退出。本文保留为 run key 治理长期方案与后续回归依据。
+状态：M1-M8 已按本文核心口径落地并完成本地完整回归，legacy bridge 已退出。本文保留为 run key 治理长期方案与后续回归依据。
 
 更新时间：2026-06-17
 
@@ -15,8 +15,9 @@
 5. 前复权分钟线 MACD/KDJ 修复 completion gate 已按 `source_upstream_batch_id` 判断完成。
 6. M6 已按审批完成正式 Dagster run history 只读审计，确认无活跃旧格式修复 run，且新 upstream batch 均已有 `source_upstream_batch_id` completion checks。
 7. M7 已删除 legacy bridge 读取逻辑和相关测试；生产代码不再依赖旧 `source_qfq_factor_repair_event_storage_ids` 字段。
+8. M8 已完成本地完整 pytest 回归，并把 M7 后手工重放、`upstream_batch_id`、legacy bridge 退出和 qfq 普通 event reconciliation 撤销口径同步到长期规范与业务设计文档。
 
-M7 只做 legacy bridge 退出和文档/静态门禁收口，不改变资产写入语义、job selection、sensor 启用状态或正式 Dagster instance 状态。
+M7 只做 legacy bridge 退出和文档/静态门禁收口；M8 只做本地完整回归和文档对账。两轮均不改变资产写入语义、job selection、sensor 启用状态或正式 Dagster instance 状态。
 
 ## 1. 背景
 
@@ -303,7 +304,7 @@ payload:
 
 ## 7. 迁移步骤与当前状态
 
-截至 M7，7.1 至 7.4 均已完成代码落地；legacy bridge 已删除。
+截至 M8，7.1 至 7.4 均已完成代码落地；legacy bridge 已删除；业务设计文档中的旧字段、旧 run key 与散装手工 repair 口径已完成对账。
 
 ### 7.1 步骤一：集中 builder 与静态门禁
 
@@ -341,7 +342,7 @@ payload:
 8. 更新前复权分钟线 MACD/KDJ 修复 op 的一致性校验，不再以 event storage ids 作为下游 run key、正式 run config 字段或 completion identity。
 9. 在前复权分钟线 MACD/KDJ 修复 sensor 提交新 run key 前，先检查 completion gate 是否已经覆盖同一 `upstream_batch_id`；已覆盖时必须 skip，不得依赖新 run key 去重。
 10. M7 之前迁移期曾保留 legacy completion gate，防止新 run key 切换造成同一业务动作重新执行；M6 审计确认退出条件满足后，M7 已删除该旧读取路径。
-11. `dagster-stk-mins-qfq-macd-kdj-indicators-plan.md` 仍存在 `repair_required_codes_hash`、event storage ids 与 run key 的历史文本；按 M7 范围不在本轮修改，作为后续业务文档债单独处理。
+11. `dagster-stk-mins-qfq-macd-kdj-indicators-plan.md` 中的旧 repair run key、event storage ids completion identity、散装手工 repair 与普通 qfq event reconciliation 历史口径已在 M8 对账修正。
 
 ### 7.4 legacy bridge 退出机制
 
@@ -393,6 +394,10 @@ payload:
 7. legacy bridge 退出测试：
    - legacy bridge 删除后，正式 completion gate 仍能仅凭 `source_upstream_batch_id` 识别已完成批次。
    - 静态门禁能阻止正式路径重新写入或依赖 `source_qfq_factor_repair_event_storage_ids`。
+8. M8 本地完整回归：
+   - 执行 `PYTHONPATH=src uv run --project . --with pytest python -m pytest tests`。
+   - 结果为 `617 passed`。
+   - 未执行 `dg`，未读取或写入正式 Dagster instance。
 
 ## 9. 不做范围
 
@@ -408,13 +413,14 @@ payload:
 
 ## 10. 文档同步影响
 
-实现本专项时，至少需要同步以下文档口径。M5 的收口目标是把已落地口径写回治理文档和长期编码规范；其它业务专项文档如仍存在旧 run key 示例，后续按对应业务文档维护节奏单独对账：
+实现本专项时，至少需要同步以下文档口径。M5 已完成治理文档和长期编码规范收口；M8 已完成前复权分钟线 MACD/KDJ 业务设计文档与 qfq asset HTML 文档对账：
 
 1. `lake_console/orchestrator/AGENTS.md`：保留并扩展 run key 禁止解析规则。
 2. `lake_console/orchestrator/CODING_STANDARDS.md`：追加 run key 命名与集中 builder 规范。
-3. `lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md`：已识别仍有前复权分钟线 MACD/KDJ 修复 run key、event storage ids 和 upstream batch 历史文本；M7 不扩大范围，后续按业务设计文档维护节奏单独修正。
+3. `lake_console/docs/design/dagster-stk-mins-qfq-macd-kdj-indicators-plan.md`：M8 已同步为真实 qfq factor repair upstream batch、完整 config 人工重放、`source_upstream_batch_id` completion identity 和散装手工 repair 禁止口径。
 4. `lake_console/docs/design/dagster-basic-facts-two-stage-refresh-plan.md`：同步 stage/attempt run key 的通用 builder 口径。
 5. `lake_console/docs/design/dagster-namechange-asset-design.md`、`dagster-stock-identity-map-design.md`：完成 run key 引用审计；存在 run key 示例时必须同步改为统一 builder 表述。
+6. `lake_console/docs/design/dagster-stk-mins-asset-design.html`：M8 已同步 qfq factor repair 只写 repair check 作为历史改写账本，普通 qfq event/check reconciliation 独立入口已撤销、不保留。
 
 ## 11. 风险与执行门禁
 

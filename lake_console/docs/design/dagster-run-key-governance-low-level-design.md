@@ -1,6 +1,6 @@
 # Dagster Run Key 治理 Low Level 编码设计
 
-状态：M1-M7 已完成实现。legacy bridge 已退出，本文保留为实现对账和回归测试参考。
+状态：M1-M8 已完成实现与本地完整回归。legacy bridge 已退出，本文保留为实现对账和回归测试参考。
 
 更新时间：2026-06-17
 
@@ -8,11 +8,11 @@
 
 ## 1. 本文目标
 
-本文用于记录 Dagster run key 治理专项的编码落点、已实现口径和后续收口门禁。M1-M7 已按本文完成核心实现，后续维护 run key、upstream batch 或 completion gate 时仍必须按本文逐项对账。
+本文用于记录 Dagster run key 治理专项的编码落点、已实现口径和后续收口门禁。M1-M8 已按本文完成核心实现、文档对账和本地完整回归，后续维护 run key、upstream batch 或 completion gate 时仍必须按本文逐项对账。
 
-M6 已按审批完成正式 Dagster run history 只读审计；M7 已删除 legacy bridge。M7 实现不执行 Dagster job、sensor、backfill、materialization、asset check，也不读取或修改正式 Dagster instance 状态。
+M6 已按审批完成正式 Dagster run history 只读审计；M7 已删除 legacy bridge；M8 已完成业务文档对账和本地完整 pytest 回归。M7/M8 均未执行 Dagster job、sensor、backfill、materialization、asset check，也未读取或修改正式 Dagster instance 状态。
 
-## 1.1 M1-M7 实施对账
+## 1.1 M1-M8 实施对账
 
 | Milestone | 实际业务内容 | 当前状态 |
 | --- | --- | --- |
@@ -23,6 +23,7 @@ M6 已按审批完成正式 Dagster run history 只读审计；M7 已删除 lega
 | M5 | 文档状态、长期编码规范和静态门禁命名收口。 | 已完成。 |
 | M6 | 正式 Dagster run history 只读审计，确认无活跃旧格式前复权分钟线 MACD/KDJ 修复 run，且新批次 completion 已写 `source_upstream_batch_id`。 | 已完成。 |
 | M7 | 删除前复权分钟线 MACD/KDJ 修复 legacy bridge，生产代码彻底清零旧 completion identity 字段依赖。 | 已完成。 |
+| M8 | 本地完整 pytest 回归；把 M7 后 `upstream_batch_id`、legacy bridge 退出和手工重放口径同步到业务设计文档与长期编码规范。 | 已完成。 |
 
 M7 之后的正式口径是：前复权分钟线 MACD/KDJ 修复的业务来源只能是真实 qfq factor repair upstream batch；Dagster UI 只允许人工重放真实 upstream batch 的完整 config；散装 `start_trade_date + stock_codes` 手工修复不支持；completion gate 只使用 `source_upstream_batch_id` 判断已完成批次。
 
@@ -720,7 +721,7 @@ lake_console/orchestrator/tests/test_run_contract_run_keys.py
 
 ## 13. 实现顺序
 
-M1-M7 已按以下顺序完成：
+M1-M8 已按以下顺序完成：
 
 1. 新增 `run_contracts/run_keys.py` 与 `test_run_contract_run_keys.py`。
 2. 迁移普通 asset update 和 repair attempt run key，保持字符串不变。
@@ -734,8 +735,9 @@ M1-M7 已按以下顺序完成：
 10. 更新相关设计文档和编码规范。
 11. 在正式切换前，单独申请正式 Dagster run history 只读审计。
 12. 删除 legacy bridge 读取逻辑、旧字段 allowlist 和对应测试；静态门禁升级为生产代码彻底禁止旧字段。
+13. 完成 M8 文档对账和本地完整 pytest 回归，确认生产代码旧字段/legacy symbol 仍为零命中。
 
-第 11 项已在前复权分钟线 MACD/KDJ 修复正式切换前按审批完成一次只读审计。M6 删除 legacy bridge 前再次按审批完成正式 Dagster 只读审计，结论为无活跃旧格式修复 run，且新 upstream batch 均已有 `source_upstream_batch_id` completion checks。M7 已完成第 12 项。
+第 11 项已在前复权分钟线 MACD/KDJ 修复正式切换前按审批完成一次只读审计。M6 删除 legacy bridge 前再次按审批完成正式 Dagster 只读审计，结论为无活跃旧格式修复 run，且新 upstream batch 均已有 `source_upstream_batch_id` completion checks。M7 已完成第 12 项。M8 已完成第 13 项，本地完整回归结果为 `617 passed`。
 
 ## 14. 验证命令
 
@@ -749,6 +751,15 @@ uv run pytest tests/test_stock_daily_sensor.py
 uv run pytest tests/test_index_daily_late_arrival_repair.py
 uv run pytest tests -k "qfq and macd"
 ```
+
+M8 收口时已执行完整本地回归：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest tests
+```
+
+结果：`617 passed`。本次回归未执行 `dg`，未触碰正式 Dagster instance。
 
 正式 Dagster 环境相关命令不在普通验证中执行。凡涉及 `dg`、Dagster daemon/webserver、正式 `DAGSTER_HOME`、正式 run history、sensor tick 或 automation evaluation，必须按 `lake_console/orchestrator/AGENTS.md` 单独申请用户审批。
 
@@ -764,9 +775,9 @@ uv run pytest tests -k "qfq and macd"
 6. 发现生产链路仍需要读取旧 `source_qfq_factor_repair_event_storage_ids` 才能防重复。
 7. 删除 legacy bridge 前的正式 run history 审计未获审批，或审计发现旧格式 run 正在排队/运行。
 
-## 16. M1-M7 完成对账清单
+## 16. M1-M8 完成对账清单
 
-M1-M7 已完成实现时必须逐项说明；后续维护按本清单确认现实代码和文档一致：
+M1-M8 已完成实现时必须逐项说明；后续维护按本清单确认现实代码和文档一致：
 
 1. `run_contracts/run_keys.py` 是否集中承接所有正式 run key 生成。
 2. 正式 sensor 是否已清零手写 run key 模板。
@@ -780,3 +791,4 @@ M1-M7 已完成实现时必须逐项说明；后续维护按本清单确认现�
 10. 静态门禁是否阻止生产代码重新引入旧口径。
 11. 是否执行了本地测试。
 12. 是否未触碰正式 Dagster instance。
+13. 业务设计文档是否不再保留旧 storage id completion identity、旧 repair run key 或散装手工 repair 口径。

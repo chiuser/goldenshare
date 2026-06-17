@@ -31,7 +31,7 @@ Dagster `run_key` 只用于 sensor / schedule 提交 `RunRequest` 时的幂等�
 4. 禁止解析 `run_key` 生成 `run_config`；执行参数只能来自显式 `run_config`、`partition_key`、上游 metadata/status，或正式定义的 `upstream_batch_id`。
 5. 上下游触发场景必须由上游提供 opaque `upstream_batch_id`，下游 run key 只使用 `consumer + upstream_batch_id`。
 6. Dagster `event_storage_id`、`storage_id` 或其集合不得进入正式 run key、正式 run config、upstream batch id payload 或 completion identity。
-7. 旧 event storage id 字段只允许迁移期 legacy bridge 只读旧 completion metadata 防重复提交；不得被新正式路径写入。
+7. M7 后 legacy bridge 已退出；旧 event storage id 字段不得进入生产代码的 run key、run config、upstream batch id payload 或 completion identity，也不得恢复只读旧 completion metadata 防重复逻辑。测试只允许保留负向断言或静态门禁样本。
 8. 修改 run key 口径时，必须同步更新 `lake_console/docs/design/dagster-run-key-governance-optimization-plan.md` 和 `lake_console/docs/design/dagster-run-key-governance-low-level-design.md`。
 
 ## Asset Schema Contract 与 Metadata 规范

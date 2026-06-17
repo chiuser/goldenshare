@@ -1,8 +1,8 @@
 # M12: Gold stk_mins qfq MACD/KDJ 指标资产设计方案
 
-状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12J 自动 repair 链路已落地为代码口径：当 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 同日都成功后，run-status sensor 先触发 M12 daily；M12 daily 成功后，repair run-status sensor 再按 qfq factor repair affected codes 自动触发 scoped M12 repair，自动 repair 上限固定为 `repair_required_code_count <= 500`。M12K 已补充 repair job 安全门禁：手工 repair 支持填写 `qfq_factor_repair_trade_date` 自动从 qfq repair metadata 派生 scope；未使用该模式时，`stock_codes` 必须显式非空。repair op 不提供空列表全市场重写入口。M12L 的旧普通 qfq materialization/check event reconciliation 方案已撤销：qfq factor repair 继续只负责重写 qfq 文件并写 repair check；repair check metadata 是历史 qfq 文件改写账本；不再按历史 qfq asset partitions 补普通 materialization/check events。M12 daily 不等待全历史普通 qfq event 补齐，而是认同日 qfq daily 成功 + qfq factor repair 成功作为当前日可继续门禁。daily/repair sensors 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。
+状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12J 自动 repair 链路已落地为代码口径：当 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 同日都成功后，run-status sensor 先触发 M12 daily；M12 daily 成功后，repair run-status sensor 再按 qfq factor repair affected codes 自动触发 scoped M12 repair，自动 repair 上限固定为 `repair_required_code_count <= 500`。M12K/M8 安全口径已收敛：repair 只支持真实 qfq factor repair upstream batch；自动提交和 Dagster UI 人工重放都必须显式提供 `qfq_factor_repair_trade_date`、`start_trade_date`、`stock_codes`、`repair_required_codes_hash`、`upstream_batch_id`，并与上游 metadata/status 完全一致。repair op 不支持无上游 batch 的散装手工修复，也不提供空列表全市场重写入口。M12L 的旧普通 qfq materialization/check event reconciliation 方案已撤销：qfq factor repair 继续只负责重写 qfq 文件并写 repair check；repair check metadata 是历史 qfq 文件改写账本；不再按历史 qfq asset partitions 补普通 materialization/check events。M12 daily 不等待全历史普通 qfq event 补齐，而是认同日 qfq daily 成功 + qfq factor repair 成功作为当前日可继续门禁。daily/repair sensors 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。
 
-更新时间：2026-06-09
+更新时间：2026-06-17
 
 ## 1. Summary
 
@@ -37,8 +37,8 @@ M12 必须持久化递推 state。日常计算最新一天时，只允许读取�
 12. 历史文件必须全量生成；Dagster event 不做历史逐日全量补齐，只从 baseline cutoff 日期开始让 Dagster 认为当前状态可追踪，之后按日常链路持续记录。
 13. 递推状态资产统一使用 `state` 命名，不改成 `checkpoint`。
 14. M12J 自动 repair 上限固定为 `repair_required_code_count <= 500`。超过 500 个 affected codes 时，sensor 不自动提交 M12 repair，必须人工评估后手动执行。
-15. M12K 安全口径：`gold_stk_mins_qfq_macd_kdj_repair_job` 支持两种 scope 输入：填写 `qfq_factor_repair_trade_date` 自动读取 qfq repair metadata；或显式填写 `start_trade_date + stock_codes`。未提供 `qfq_factor_repair_trade_date` 时，空 `stock_codes` 必须 fail closed，不进入 DuckDB、不写任何文件、不补 completion event。
-16. M12L 已落地：qfq factor repair 后不再通过重跑 qfq daily 或内联补全普通 qfq materialization/check 来解除 M12 daily 阻塞。普通 qfq event/check reconciliation 是 repair 后收口任务，不阻塞同日 MACD/KDJ daily。
+15. M12K/M8 安全口径：`gold_stk_mins_qfq_macd_kdj_repair_job` 只支持真实 qfq factor repair upstream batch。自动提交和 Dagster UI 人工重放都必须提供完整 config，并通过上游 metadata/status 一致性校验；仅传 `start_trade_date + stock_codes` 的散装手工 repair 必须 fail closed，不进入 DuckDB、不写任何文件、不补 completion event。
+16. M12L 已落地：qfq factor repair 后不再通过重跑 qfq daily、内联补全或普通 qfq event/check reconciliation 来解除 M12 daily 阻塞。旧 reconciliation 入口已撤销、不保留。
 
 ## 3. 非目标
 
@@ -525,7 +525,7 @@ run-status coordination
 2. 任一上游成功后，按同一 `trade_date` 检查另一个上游是否也成功。
 3. 同日 `stock_mins_qfq_daily_update_job` 已成功，表达目标交易日 qfq 日常生产已完成。
 4. 同分区 qfq factor repair check event 必须成功：七个 qfq asset 上的 `gold_stk_mins_qfq_factor_repair_plan_evaluated` 都必须是 `passed=true`，且 event partition 等于目标 `trade_date`。
-5. M12L 口径下，若 qfq factor repair 改写了历史 qfq 文件，M12 daily 不等待全历史普通 qfq materialization/check event 补齐；该补齐由独立 reconciliation 入口做收口。
+5. M12L 口径下，若 qfq factor repair 改写了历史 qfq 文件，M12 daily 不等待、也不补齐全历史普通 qfq materialization/check event；旧 reconciliation 入口已撤销、不保留。
 6. 非历史首日时，上一交易日七个 state assets 必须 ready。
 7. 目标指标和 state 未 ready。
 8. 如果目标已 materialized 但 blocking checks 未全绿，不自动重跑，返回人工修复提示。
@@ -539,7 +539,7 @@ gold_stk_mins_qfq_macd_kdj_daily_update:{trade_date}
 
 run tags：
 
-不新增项目自定义 run tags。RunRequest 只使用稳定 `run_key` 与 Dagster 分区语义；qfq repair event storage ids、affected code hash、repair scope 等运行事实只保存在 qfq factor repair check metadata 和 MACD/KDJ repair completion check metadata 中。
+不新增项目自定义 run tags。RunRequest 只使用稳定 `run_key` 与 Dagster 分区语义；qfq factor repair 的 `upstream_batch_id`、affected code hash、repair scope 等运行事实只保存在 qfq factor repair check metadata 和 MACD/KDJ repair completion check metadata 中。Dagster event storage id 只作为 event log 观测字段，不作为 run key、run config 或 completion identity。
 
 不得在稳定态逐 partition / 逐 check 深扫 event history。日常只看目标日期 qfq readiness、上一交易日 state readiness、目标日期 M12 readiness 和 bounded run-status coordination。
 
@@ -564,7 +564,7 @@ M12I 先落地了 qfq factor repair 前置门禁；M12J 将“历史重写时 da
 1. `orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj` 提供 qfq-only status、M12 completion status、daily final gate 和 asset 写前 guard。
 2. helper 按 check key 读取七个 qfq asset 上最新 `gold_stk_mins_qfq_factor_repair_plan_evaluated`，不调用 `get_asset_check_execution_history`；同时校验 event partition、`passed=true`、`blocking=true` 和 metadata。
 3. `stock_mins_qfq_factor_repair_op` 的 repair check metadata 已补充 `repair_start_trade_date`、`repair_end_trade_date`、`selected_partition_count`、`repair_required_codes`、`repair_required_codes_hash`、`repair_required_codes_truncated`，供 M12 判断修复范围和自动上限。
-4. `gold_stk_mins_qfq_macd_kdj_repair_op` repair 成功后 emit 14 个 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` events，metadata 包含覆盖范围、freqs、stock scope、文件数、行数、affected code hash/count 和 source qfq repair event ids。
+4. `gold_stk_mins_qfq_macd_kdj_repair_op` repair 成功后 emit 14 个 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` events，metadata 包含覆盖范围、freqs、stock scope、文件数、行数、affected code hash/count 和 `source_upstream_batch_id`。
 5. sensor 和 asset 写前 guard 复用同一 qfq repair status 与 completion status，避免 sensor 和人工 run 口径漂移。
 
 性能门禁：
@@ -574,7 +574,7 @@ M12I 先落地了 qfq factor repair 前置门禁；M12J 将“历史重写时 da
 | qfq repair gate | 按 7 个 qfq asset check key 批量读取 latest check execution；不按 partition/check history 深扫 |
 | M12 repair gate | 按 14 个 M12 asset check key 批量读取 latest check execution；不扫历史全量 event |
 | 日常 tick 额外查询量 | 常数级 latest-check readiness + bounded run-status 查询；不按历史 partition 扩张 |
-| 普通 qfq event reconciliation | 独立收口入口，不进入 M12 daily tick 路径 |
+| 普通 qfq event reconciliation | 已撤销、不保留；不进入 M12 daily tick 路径 |
 | 禁止 | `get_asset_check_execution_history(limit=...)`、逐历史 partition readiness、扫描全量 run event log、查询正式 lake 文件来判断 repair 是否完成 |
 | fail closed | 缺 event、失败 event、metadata 缺字段、event 日期不匹配均不触发或不写入 |
 
@@ -623,7 +623,7 @@ qfq repair metadata 必须补充：
 | `1..500` | 自动提交 M12 repair |
 | `>500` | 不自动提交；返回 skip reason，要求人工评估后手动执行 |
 
-M12K 补充安全口径：自动 sensor 只会在 `repair_required_code_count > 0` 且完整 code list/hash 可用时提交 repair；人工 Launchpad/CLI 执行同一个 repair job 时，推荐只填写 `qfq_factor_repair_trade_date`，由 op 自动读取 qfq repair metadata 派生 `start_trade_date`、`stock_codes`、`repair_required_codes_hash` 和 `source_qfq_factor_repair_event_storage_ids`。未使用该 metadata 模式时，必须显式填写非空 `stock_codes`。repair job 不接受空列表代表全市场重写。
+M12K/M8 补充安全口径：自动 sensor 只会在 `repair_required_code_count > 0` 且完整 code list/hash/upstream batch 可用时提交 repair；Dagster UI 人工执行同一个 repair job 时，只允许重放真实 qfq factor repair upstream batch，必须提供完整 config，并由 op 重新读取 qfq repair metadata/status 校验完全一致。repair job 不接受无上游 batch 的散装 `start_trade_date + stock_codes` 修复，也不接受空列表代表全市场重写。
 
 M12 repair run config：
 
@@ -632,25 +632,27 @@ M12 repair run config：
   "ops": {
     "gold_stk_mins_qfq_macd_kdj_repair_op": {
       "config": {
+        "qfq_factor_repair_trade_date": trade_date,
         "start_trade_date": repair_start_trade_date,
         "freqs": [1, 5, 15, 30, 60, 90, 120],
         "stock_codes": repair_required_codes,
         "reason": "qfq_factor_repair:{trade_date}",
         "repair_required_codes_hash": repair_required_codes_hash,
-        "source_qfq_factor_repair_event_storage_ids": source_qfq_factor_repair_event_storage_ids
+        "upstream_batch_id": upstream_batch_id
       }
     }
   }
 }
 ```
 
-手工 Launchpad 推荐最小配置：
+Dagster UI 人工重放配置示例：
 
 ```yaml
 ops:
   gold_stk_mins_qfq_macd_kdj_repair_op:
     config:
       qfq_factor_repair_trade_date: '2026-06-08'
+      start_trade_date: '2014-01-02'
       freqs:
         - 1
         - 5
@@ -659,19 +661,24 @@ ops:
         - 60
         - 90
         - 120
+      stock_codes:
+        - '000001.SZ'
+        - '600000.SH'
+      repair_required_codes_hash: '<qfq factor repair metadata 中的 hash>'
+      upstream_batch_id: '<qfq factor repair metadata 中的 upstream_batch_id>'
 resources:
   lake_root:
     config:
       root_path: '/Volumes/datasource/data_lake'
 ```
 
-该模式下 `start_trade_date` 和 `stock_codes` 可以留空；op 会按 `qfq_factor_repair_trade_date` 读取七个 qfq repair check metadata。若 metadata 缺失、失败、不完整、affected codes 超过 500 或手填字段与 metadata 不一致，op 必须 fail closed。
+该模式不是新的手工业务来源，只是重放真实上游批次。op 会按 `qfq_factor_repair_trade_date` 重新读取 qfq repair check metadata/status，并校验 `start_trade_date`、`stock_codes`、`repair_required_codes_hash`、`upstream_batch_id` 与上游事实完全一致。若 metadata 缺失、失败、不完整、affected codes 超过 500 或任一显式字段与 metadata 不一致，op 必须 fail closed。
 
 M12 daily 写前 guard 调整：
 
 1. daily asset 写前必须确认同日 qfq factor repair 成功。
-2. 如果 qfq repair 改写历史，daily 允许作为受控 pending-repair run 先执行，但必须由 sensor 提交并携带当前 qfq repair event identity / code hash。
-3. 人工直接运行 daily job 且缺少受控 repair identity 时，仍 fail closed。
+2. 如果 qfq repair 改写历史，daily 允许作为受控 pending-repair run 先执行，但后续 scoped repair 必须消费当前 qfq repair 的 `upstream_batch_id` 和 code hash。
+3. 人工直接运行 daily job 时仍必须通过同日 qfq factor repair guard；不得通过项目自定义 run tags 或 event storage id 绕过门禁。
 4. 最终 readiness/收口必须等待 `gold_stk_mins_qfq_macd_kdj_repair_completed_check` 覆盖本次 qfq repair scope。
 
 性能门禁：
@@ -680,7 +687,7 @@ M12 daily 写前 guard 调整：
 |---|---|
 | M12 repair 计算范围 | 只重算 qfq repair affected codes，不做全市场重算 |
 | 批次 | 七频度 × affected code stock-year；核心 SQL 仍走 DuckDB 向量化 |
-| Python 职责 | 只做 event metadata 解析、run config、去重、批次日志 |
+| Python 职责 | 只做 metadata/status 解析、run config、去重、批次日志 |
 | 自动触发拒绝条件 | `repair_required_code_count > 500`、缺完整 code list、code hash 不匹配、qfq daily 未成功、M12 daily 未成功 |
 | 禁止 | recursive CTE、Python 行循环、全市场默认 repair、逐历史 partition event 深扫 |
 
@@ -710,7 +717,7 @@ M12 daily 写前 guard 调整：
 | factor repair run | 不内联普通 qfq event 补齐 |
 | M12 daily tick | 不扫描 affected history，不等待普通 qfq reconciliation |
 | event 写入 | 不按历史 qfq asset partitions 补普通 materialization/check events |
-| 幂等判断 | 下游以 qfq factor repair check event storage ids / code hash 判断本次 repair scope |
+| 幂等判断 | 下游以 qfq factor repair `upstream_batch_id` 判断本次 repair scope；code hash 只参与 config/metadata 对账 |
 | 禁止 | 恢复旧 reconciliation job/sensor/op/helper、重跑 qfq daily 代替历史修复、逐 partition 深扫 event history |
 
 代码状态：
@@ -740,10 +747,12 @@ config：
 | 字段 | 说明 |
 |---|---|
 | `start_trade_date` | 指标重算起始交易日，必须是受 qfq repair 影响的最早交易日 |
-| `qfq_factor_repair_trade_date` | 推荐手工入口；填写 qfq repair 目标交易日后自动从 metadata 派生 repair scope |
-| `stock_codes` | 受影响股票代码集合；未填写 `qfq_factor_repair_trade_date` 时必填且不能为空，空列表禁止作为全市场 repair 入口 |
+| `qfq_factor_repair_trade_date` | 真实 qfq factor repair upstream batch 的目标交易日；自动路径和 Dagster UI 人工重放都必填 |
+| `stock_codes` | 受影响股票代码集合；必须与 qfq factor repair metadata/status 完全一致，空列表禁止作为全市场 repair 入口 |
 | `freqs` | 默认七频度；允许显式缩小但不得扩大到非 qfq 频度 |
 | `reason` | repair 原因，例如 `qfq_factor_repair` |
+| `repair_required_codes_hash` | 受影响股票集合 hash；必须与 qfq factor repair metadata/status 完全一致 |
+| `upstream_batch_id` | 真实 qfq factor repair upstream batch id；必须与 qfq factor repair metadata/status 完全一致 |
 
 repair 规则：
 
@@ -755,17 +764,17 @@ repair 规则：
 6. repair completion check event 必须挂到七个指标 assets 和七个 state assets，partition 使用 repair 目标起点或实际触发的 `start_trade_date`。
 7. 新增 repair completion check 名称：`gold_stk_mins_qfq_macd_kdj_repair_completed_check`。它是维护事件门禁，不替代指标/state 的常规 blocking checks。
 8. scoped repair 写 state 文件时必须 merge：读取已有 `freq/trade_date` state，删除本次 `stock_codes` 的旧 state，union 新 state 后原子替换。禁止因为只修少量股票而整文件覆盖导致未受影响股票 state 丢失。
-9. repair job 不提供全市场默认入口；未提供 `qfq_factor_repair_trade_date` 时，空 `stock_codes` 必须失败，防止 Launchpad/CLI 漏填后整市场重写。未来如确需全市场指标 repair，必须单独设计、审批和执行，不得复用空列表语义。
+9. repair job 不提供无上游 batch 的散装手工入口，也不提供全市场默认入口；缺少 `qfq_factor_repair_trade_date` 或 `upstream_batch_id` 必须失败，防止 Launchpad/CLI 漏填后整市场重写。未来如确需全市场指标 repair，必须单独设计、审批和执行，不得复用空列表语义。
 10. `qfq_factor_repair_trade_date` 模式必须读取同日七个 qfq repair check metadata；metadata 缺失、失败、日期不匹配、字段不完整、code list 被截断或超过自动上限时都必须 fail closed。
-11. 如果 `qfq_factor_repair_trade_date` 模式下同时手填 `start_trade_date`、`stock_codes`、`repair_required_codes_hash` 或 `source_qfq_factor_repair_event_storage_ids`，这些值必须与 metadata 完全一致，否则 fail closed。
+11. `start_trade_date`、`stock_codes`、`repair_required_codes_hash`、`upstream_batch_id` 都必须与 qfq factor repair metadata/status 完全一致，否则 fail closed。
 
 M12J 自动触发规则：
 
 1. qfq repair metadata 中 `repair_required_code_count=0` 时，`gold_stk_mins_qfq_macd_kdj_repair_job_sensor` skip。
 2. `1 <= repair_required_code_count <= 500` 且 `repair_required_codes` 完整时，自动触发 M12 repair。
 3. `repair_required_code_count > 500` 时，不自动触发；sensor 必须 skip 并写明超过自动 repair 上限。
-4. `repair_required_codes_hash` 必须进入 M12 repair run key，避免同一 qfq repair event 被重复提交。
-5. M12 repair completion metadata 必须回写 `repair_required_codes_hash`、`repair_required_code_count`、`covered_start_trade_date`、`covered_end_trade_date`、`freqs`、`stock_code_scope`、`stock_code_count`。
+4. M12 repair run key 必须使用 `gold_stk_mins_qfq_macd_kdj_repair:{upstream_batch_id}`；`repair_required_codes_hash` 只进入 run config 和 completion metadata，用于业务 scope 对账。
+5. M12 repair completion metadata 必须回写 `source_upstream_batch_id`、`repair_required_codes_hash`、`repair_required_code_count`、`covered_start_trade_date`、`covered_end_trade_date`、`freqs`、`stock_code_scope`、`stock_code_count`。
 
 并发保护：
 
