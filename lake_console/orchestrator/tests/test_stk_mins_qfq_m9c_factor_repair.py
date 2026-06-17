@@ -11,7 +11,11 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     asset_check_record_storage_id,
 )
 from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
-from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
+from orchestrator.defs.duckdb_sql import (
+    copy_query_to_parquet,
+    duckdb_string,
+    read_parquet,
+)
 from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
     STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
     stock_mins_qfq_factor_repair_job,
@@ -25,6 +29,7 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
+    silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -47,6 +52,7 @@ from orchestrator.defs.stk_mins_qfq_factor_repair import (
 PREVIOUS_DATE = "2026-05-28"
 TRADE_DATE = "2026-05-29"
 FUTURE_DATE = "2026-06-02"
+EXPECTED_TRADE_DATES = (PREVIOUS_DATE, TRADE_DATE)
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
 STOCK_C = "300001.SZ"
@@ -186,6 +192,26 @@ def _write_gold_qfq(path: Path, rows: list[dict[str, object]]) -> None:
         rows=rows,
         order_by="trade_date, trade_time",
     )
+
+
+def _write_trade_calendar(
+    lake_root: Path,
+    trade_dates: tuple[str, ...] = EXPECTED_TRADE_DATES,
+) -> None:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    calendar_path.parent.mkdir(parents=True, exist_ok=True)
+    values_sql = ", ".join(
+        f"('SSE', true, DATE '{trade_date}')" for trade_date in trade_dates
+    )
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT *
+              FROM (VALUES {values_sql}) AS calendar(exchange, is_open, trade_date)
+            ) TO {duckdb_string(calendar_path)} (FORMAT PARQUET)
+            """
+        )
 
 
 def _read_gold_rows(path: Path) -> list[dict[str, object]]:
@@ -347,6 +373,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 lake_root=lake_root,
                 duckdb_resource=DuckDBResource(),
                 trade_date=TRADE_DATE,
+                expected_trade_dates=EXPECTED_TRADE_DATES,
                 registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
                 freqs=[1],
             )
@@ -355,6 +382,53 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         self.assertFalse(report.plan.repair_required)
         self.assertEqual(report.repaired_code_count, 0)
         self.assertEqual(report.rewritten_file_count, 0)
+
+    def test_factor_repair_fails_when_expected_trade_date_is_not_registered(
+        self,
+    ) -> None:
+        expected_trade_dates = ("2026-06-13", "2026-06-15", "2026-06-16")
+        registered_trade_days = ("2026-06-13", "2026-06-16")
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            with self.assertRaises(dg.Failure) as failure:
+                execute_gold_stk_mins_qfq_factor_repair(
+                    lake_root=lake_root,
+                    duckdb_resource=DuckDBResource(),
+                    trade_date="2026-06-16",
+                    expected_trade_dates=expected_trade_dates,
+                    registered_partition_keys=registered_trade_days,
+                    freqs=[1],
+                )
+
+            self.assertFalse((lake_root / "gold").exists())
+
+        self.assertIn(
+            "first_missing_registered_date=2026-06-15",
+            failure.exception.description,
+        )
+        self.assertIn("first_missing_registered_date", failure.exception.metadata)
+
+    def test_factor_repair_fails_when_target_is_not_expected_trade_date(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            with self.assertRaises(dg.Failure) as failure:
+                execute_gold_stk_mins_qfq_factor_repair(
+                    lake_root=lake_root,
+                    duckdb_resource=DuckDBResource(),
+                    trade_date="2026-06-16",
+                    expected_trade_dates=("2026-06-13", "2026-06-15"),
+                    registered_partition_keys=(
+                        "2026-06-13",
+                        "2026-06-15",
+                        "2026-06-16",
+                    ),
+                    freqs=[1],
+                )
+
+        self.assertIn(
+            "QFQ repair trade date is not in stock mins expected calendar",
+            failure.exception.description,
+        )
 
     def test_factor_change_rewrites_existing_stock_year_file_with_qfq_rows(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -377,6 +451,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 lake_root=lake_root,
                 duckdb_resource=DuckDBResource(),
                 trade_date=TRADE_DATE,
+                expected_trade_dates=EXPECTED_TRADE_DATES,
                 registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
                 freqs=[1],
             )
@@ -455,6 +530,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 lake_root=lake_root,
                 duckdb_resource=DuckDBResource(),
                 trade_date=TRADE_DATE,
+                expected_trade_dates=EXPECTED_TRADE_DATES,
                 registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
                 freqs=[30, 60],
             )
@@ -493,6 +569,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 lake_root=lake_root,
                 duckdb_resource=DuckDBResource(),
                 trade_date=TRADE_DATE,
+                expected_trade_dates=partition_keys,
                 registered_partition_keys=partition_keys,
                 freqs=freqs,
             )
@@ -520,6 +597,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                     lake_root=lake_root,
                     duckdb_resource=DuckDBResource(),
                     trade_date=TRADE_DATE,
+                    expected_trade_dates=EXPECTED_TRADE_DATES,
                     registered_partition_keys=[PREVIOUS_DATE, TRADE_DATE],
                     freqs=[1],
                 )
@@ -543,6 +621,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
                 lake_root=lake_root,
                 duckdb_resource=DuckDBResource(),
                 trade_date=TRADE_DATE,
+                expected_trade_dates=partition_keys,
                 registered_partition_keys=partition_keys,
                 freqs=[1],
             )
@@ -558,6 +637,7 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             _write_repair_inputs(lake_root, changed=False, write_silver_rows=False)
+            _write_trade_calendar(lake_root)
             instance = dg.DagsterInstance.ephemeral()
             instance.add_dynamic_partitions(
                 cn_a_stock_mins_silver_trade_days.name,

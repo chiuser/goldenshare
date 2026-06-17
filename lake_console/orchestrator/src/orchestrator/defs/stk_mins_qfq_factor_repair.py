@@ -5,7 +5,14 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+import dagster as dg
+
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    assert_expected_dates_registered,
+    previous_expected_trade_date,
+)
 from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
     silver_adj_factor_path,
@@ -75,17 +82,38 @@ def execute_gold_stk_mins_qfq_factor_repair(
     lake_root: Path,
     duckdb_resource: DuckDBResource,
     trade_date: str,
+    expected_trade_dates: Sequence[str],
     registered_partition_keys: Sequence[str],
     freqs: Sequence[int | str] = STK_MINS_QFQ_NATIVE_FREQS,
 ) -> GoldStkMinsQfqFactorRepairResult:
     normalized_trade_date = date.fromisoformat(trade_date).isoformat()
-    selected_partition_keys = _select_repair_partition_keys(
-        registered_partition_keys,
-        trade_date=normalized_trade_date,
+    expected_trade_dates = _normalize_expected_trade_dates(expected_trade_dates)
+    if normalized_trade_date not in expected_trade_dates:
+        raise dg.Failure(
+            description=(
+                "QFQ repair trade date is not in stock mins expected calendar: "
+                f"trade_date={normalized_trade_date}."
+            ),
+            metadata={"trade_date": normalized_trade_date},
+        )
+    previous_trade_date = previous_expected_trade_date(
+        expected_trade_dates,
+        normalized_trade_date,
     )
-    previous_trade_date = _previous_trade_date(
-        selected_partition_keys,
-        trade_date=normalized_trade_date,
+    if previous_trade_date is None:
+        raise dg.Failure(
+            description=(
+                "QFQ repair trade date has no previous expected trade date: "
+                f"trade_date={normalized_trade_date}."
+            ),
+            metadata={"trade_date": normalized_trade_date},
+        )
+    selected_partition_keys = assert_expected_dates_registered(
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_days=registered_partition_keys,
+        partition_set_name=cn_a_stock_mins_silver_trade_days.name,
+        start_trade_date=expected_trade_dates[0],
+        end_trade_date=normalized_trade_date,
     )
     plan = build_gold_stk_mins_qfq_factor_repair_plan(
         current_adj_factor_path=silver_adj_factor_path(lake_root, normalized_trade_date),
@@ -368,40 +396,23 @@ def _non_empty_batch_keys(
     )
 
 
-def _select_repair_partition_keys(
-    registered_partition_keys: Sequence[str],
-    *,
-    trade_date: str,
+def _normalize_expected_trade_dates(
+    expected_trade_dates: Sequence[str],
 ) -> tuple[str, ...]:
-    selected = tuple(
-        key
-        for key in sorted(
+    normalized_trade_dates = tuple(
+        sorted(
             {
-                date.fromisoformat(str(partition_key).strip()).isoformat()
-                for partition_key in registered_partition_keys
+                date.fromisoformat(str(trade_date).strip()).isoformat()
+                for trade_date in expected_trade_dates
             }
         )
-        if key <= trade_date
     )
-    if not selected:
-        raise ValueError("No registered stk_mins silver partitions available for qfq repair.")
-    if trade_date not in selected:
-        raise ValueError(
-            "QFQ repair trade date must be registered in cn_a_stock_mins_silver_trade_days: "
-            f"{trade_date}."
+    if not normalized_trade_dates:
+        raise dg.Failure(
+            description="QFQ repair expected trade date calendar is empty.",
+            metadata={},
         )
-    return selected
-
-
-def _previous_trade_date(
-    selected_partition_keys: Sequence[str],
-    *,
-    trade_date: str,
-) -> str:
-    previous_keys = tuple(key for key in selected_partition_keys if key < trade_date)
-    if not previous_keys:
-        raise ValueError(f"No previous stk_mins silver trade date before {trade_date}.")
-    return previous_keys[-1]
+    return normalized_trade_dates
 
 
 def _partition_keys_by_year(partition_keys: Sequence[str]) -> dict[str, tuple[str, ...]]:

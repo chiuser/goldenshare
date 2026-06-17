@@ -797,6 +797,47 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_qfq_factor_repair_uses_expected_calendar_for_range(self) -> None:
+        issues = []
+        helper_path = DEFS_DIR / "stk_mins_qfq_factor_repair.py"
+        op_path = DEFS_DIR / "ops" / "stock_mins_qfq_factor_repair.py"
+        helper_source = helper_path.read_text()
+        op_source = op_path.read_text()
+
+        required_helper_fragments = (
+            "expected_trade_dates",
+            "previous_expected_trade_date",
+            "assert_expected_dates_registered",
+            "cn_a_stock_mins_silver_trade_days.name",
+        )
+        forbidden_helper_fragments = (
+            "def _previous_trade_date",
+            "def _select_repair_partition_keys",
+        )
+        required_op_fragments = (
+            "load_stock_mins_expected_trade_dates",
+            "silver_trade_calendar_path",
+            "STK_MINS_QFQ_HISTORY_START_DATE",
+            "expected_trade_dates=expected_trade_dates",
+        )
+        for fragment in required_helper_fragments:
+            if fragment not in helper_source:
+                issues.append(
+                    f"{helper_path} misses expected-calendar repair fragment: {fragment}"
+                )
+        for fragment in forbidden_helper_fragments:
+            if fragment in helper_source:
+                issues.append(
+                    f"{helper_path} retains registered-only repair fragment: {fragment}"
+                )
+        for fragment in required_op_fragments:
+            if fragment not in op_source:
+                issues.append(
+                    f"{op_path} misses expected-calendar op fragment: {fragment}"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_formal_defs_use_centralized_duckdb_connection(self) -> None:
         issues = []
         for path in sorted(DEFS_DIR.rglob("*.py")):

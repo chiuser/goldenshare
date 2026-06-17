@@ -1,9 +1,16 @@
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    load_stock_mins_expected_trade_dates,
+)
 from orchestrator.defs.assets.stk_mins import GOLD_STK_MINS_QFQ_ASSETS
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_HISTORY_START_DATE
 from orchestrator.defs.stk_mins_qfq import (
     GOLD_STK_MINS_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME,
     GOLD_STK_MINS_QFQ_WRITER_POOL,
@@ -34,6 +41,26 @@ def _trade_date_from_op_config(context: dg.OpExecutionContext) -> str:
         raise ValueError("trade_date must use YYYY-MM-DD format.") from error
 
 
+def _load_stock_mins_qfq_expected_trade_dates(
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+) -> tuple[str, ...]:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    if not calendar_path.exists():
+        raise FileNotFoundError(
+            f"silver_trade_calendar file is missing: {calendar_path}"
+        )
+    with duckdb_resource.connect() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_QFQ_HISTORY_START_DATE,
+            evaluated_at=datetime.now(),
+            same_day_register_start=None,
+        )
+
+
 @dg.op(
     required_resource_keys={"lake_root", "duckdb"},
     config_schema=STOCK_MINS_QFQ_FACTOR_REPAIR_CONFIG_SCHEMA,
@@ -41,6 +68,12 @@ def _trade_date_from_op_config(context: dg.OpExecutionContext) -> str:
 )
 def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
     trade_date = _trade_date_from_op_config(context)
+    lake_root = context.resources.lake_root.root()
+    duckdb_resource = context.resources.duckdb
+    expected_trade_dates = _load_stock_mins_qfq_expected_trade_dates(
+        lake_root=lake_root,
+        duckdb_resource=duckdb_resource,
+    )
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -49,9 +82,10 @@ def stock_mins_qfq_factor_repair_op(context: dg.OpExecutionContext) -> None:
         )
     )
     report = execute_gold_stk_mins_qfq_factor_repair(
-        lake_root=context.resources.lake_root.root(),
-        duckdb_resource=context.resources.duckdb,
+        lake_root=lake_root,
+        duckdb_resource=duckdb_resource,
         trade_date=trade_date,
+        expected_trade_dates=expected_trade_dates,
         registered_partition_keys=registered_trade_days,
     )
     missing_repair_count = max(
