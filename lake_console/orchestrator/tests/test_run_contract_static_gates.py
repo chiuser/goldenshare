@@ -288,6 +288,10 @@ class RunContractStaticGateTests(unittest.TestCase):
             "run_status_sensor",
             "request_job=gold_stk_mins_qfq_macd_kdj_daily_update_job",
             "monitored_jobs=[stock_mins_qfq_daily_update_job, stock_mins_qfq_factor_repair_job]",
+            "DEFAULT_LAKE_ROOT",
+            "connect_configured_duckdb",
+            "load_stock_mins_expected_trade_dates",
+            "previous_expected_trade_date",
             "partition_dataset_readiness_status_from_latest_checks",
             "gold_stk_mins_qfq_factor_repair_status",
             "GOLD_STK_MINS_QFQ_READINESS_SPECS",
@@ -295,8 +299,10 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         forbidden_sensor_fragments = (
             "get_asset_check_execution_history",
-            "duckdb",
+            "duckdb.connect",
             "read_parquet",
+            "cn_a_stock_mins_silver_trade_days",
+            "_previous_registered_trade_date",
             "gold_stk_mins_qfq_macd_kdj_path",
             "PENDING_QFQ_FACTOR_REPAIR_TAG",
         )

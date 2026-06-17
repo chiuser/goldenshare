@@ -1,5 +1,6 @@
-from types import SimpleNamespace
 import unittest
+from types import SimpleNamespace
+from unittest.mock import patch
 
 import dagster as dg
 
@@ -8,17 +9,27 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
 )
 from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor import (
     DAGSTER_PARTITION_TAG,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
+    GOLD_STK_MINS_QFQ_READINESS_SPECS,
     STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
     STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
     _run_request_for_trade_date,
+    _evaluate_daily_run_status_decision,
     _successful_run_for_trade_date_exists,
     _trade_date_from_dagster_run,
     build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision,
     gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor,
 )
+from orchestrator.defs.sensors.readiness import (
+    AssetReadinessStatus,
+    DatasetReadinessStatus,
+)
 
 
 PARTITION_KEY = "2026-06-05"
+TARGET_TRADE_DATE = "2026-06-16"
+PREVIOUS_EXPECTED_TRADE_DATE = "2026-06-15"
 REPAIR_CODES_HASH = "a" * 64
 
 
@@ -78,6 +89,86 @@ class _FakeInstance:
                 continue
             matches.append(SimpleNamespace(dagster_run=dagster_run))
         return matches[:limit]
+
+
+def _asset_status(
+    *,
+    asset_key: str = "gold_stk_mins_qfq_1m",
+    ready: bool = True,
+    materialized: bool = True,
+    checks_passed: bool = True,
+    reason: str = "ready",
+) -> AssetReadinessStatus:
+    return AssetReadinessStatus(
+        asset_key=asset_key,
+        partition_key=None,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        freshness_passed=ready,
+        materialization_storage_id=1 if materialized else None,
+        materialization_date="2026-06-16" if materialized else None,
+        missing_check_names=() if checks_passed else (f"{asset_key}_file_exists",),
+        failed_check_names=(),
+        reason=reason,
+    )
+
+
+def _dataset_status(
+    *,
+    ready: bool = True,
+    materialized: bool = True,
+    checks_passed: bool = True,
+    reason: str = "ready",
+    asset_key: str = "gold_stk_mins_qfq_1m",
+) -> DatasetReadinessStatus:
+    return DatasetReadinessStatus(
+        ready=ready,
+        statuses=(
+            _asset_status(
+                asset_key=asset_key,
+                ready=ready,
+                materialized=materialized,
+                checks_passed=checks_passed,
+                reason=reason,
+            ),
+        ),
+    )
+
+
+def _successful_runs_for_target(trade_date: str) -> tuple[object, ...]:
+    return (
+        _run(
+            job_name=STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
+            tags={DAGSTER_PARTITION_TAG: trade_date},
+        ),
+        _run(
+            job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
+            run_config={
+                "ops": {
+                    "stock_mins_qfq_factor_repair_op": {
+                        "config": {"trade_date": trade_date}
+                    }
+                }
+            },
+        ),
+    )
+
+
+def _context_for_triggered_run(*, trade_date: str):
+    return SimpleNamespace(
+        instance=_FakeInstance(_successful_runs_for_target(trade_date)),
+        dagster_run=_run(
+            job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
+            run_config={
+                "ops": {
+                    "stock_mins_qfq_factor_repair_op": {
+                        "config": {"trade_date": trade_date}
+                    }
+                }
+            },
+        ),
+    )
 
 
 class StkMinsQfqM12SensorContractTests(unittest.TestCase):
@@ -194,6 +285,182 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         )
         self.assertEqual(request.partition_key, PARTITION_KEY)
         self.assertEqual(request.tags, {})
+
+    def test_daily_sensor_uses_previous_expected_not_previous_registered(
+        self,
+    ) -> None:
+        context = _context_for_triggered_run(trade_date=TARGET_TRADE_DATE)
+        calls: list[tuple[object, str]] = []
+
+        def fake_readiness(_instance, specs, *, partition_key):
+            calls.append((specs, partition_key))
+            if specs is GOLD_STK_MINS_QFQ_READINESS_SPECS:
+                return _dataset_status(
+                    ready=True,
+                    asset_key="gold_stk_mins_qfq_1m",
+                )
+            if specs is GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS:
+                return _dataset_status(
+                    ready=False,
+                    materialized=False,
+                    checks_passed=False,
+                    reason="previous expected state missing",
+                    asset_key="gold_stk_mins_qfq_macd_kdj_state_1m",
+                )
+            return _dataset_status(
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="target missing",
+                asset_key="gold_stk_mins_qfq_macd_kdj_1m",
+            )
+
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "gold_stk_mins_qfq_factor_repair_status",
+            return_value=_repair_gate_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "partition_dataset_readiness_status_from_latest_checks",
+            side_effect=fake_readiness,
+        ):
+            decision, _ = _evaluate_daily_run_status_decision(
+                context=context,
+                target_trade_date=TARGET_TRADE_DATE,
+                expected_trade_dates=(
+                    "2026-06-13",
+                    PREVIOUS_EXPECTED_TRADE_DATE,
+                    TARGET_TRADE_DATE,
+                ),
+            )
+
+        self.assertIsNone(decision.selected_trade_date)
+        self.assertIn("上一交易日", decision.reason)
+        self.assertIn(
+            (
+                GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
+                PREVIOUS_EXPECTED_TRADE_DATE,
+            ),
+            calls,
+        )
+        self.assertNotIn(
+            (GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS, "2026-06-13"),
+            calls,
+        )
+
+    def test_daily_sensor_submits_when_previous_expected_state_is_ready(self) -> None:
+        context = _context_for_triggered_run(trade_date=TARGET_TRADE_DATE)
+
+        def fake_readiness(_instance, specs, *, partition_key):
+            if specs is GOLD_STK_MINS_QFQ_READINESS_SPECS:
+                return _dataset_status(
+                    ready=True,
+                    asset_key="gold_stk_mins_qfq_1m",
+                )
+            if specs is GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS:
+                self.assertEqual(partition_key, PREVIOUS_EXPECTED_TRADE_DATE)
+                return _dataset_status(
+                    ready=True,
+                    asset_key="gold_stk_mins_qfq_macd_kdj_state_1m",
+                )
+            self.assertIs(specs, GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS)
+            self.assertEqual(partition_key, TARGET_TRADE_DATE)
+            return _dataset_status(
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="target missing",
+                asset_key="gold_stk_mins_qfq_macd_kdj_1m",
+            )
+
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "gold_stk_mins_qfq_factor_repair_status",
+            return_value=_repair_gate_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "partition_dataset_readiness_status_from_latest_checks",
+            side_effect=fake_readiness,
+        ):
+            decision, _ = _evaluate_daily_run_status_decision(
+                context=context,
+                target_trade_date=TARGET_TRADE_DATE,
+                expected_trade_dates=(
+                    "2026-06-13",
+                    PREVIOUS_EXPECTED_TRADE_DATE,
+                    TARGET_TRADE_DATE,
+                ),
+            )
+
+        self.assertEqual(decision.selected_trade_date, TARGET_TRADE_DATE)
+        result = _run_request_for_trade_date(decision.selected_trade_date)
+        self.assertIsInstance(result, dg.RunRequest)
+        self.assertEqual(
+            result.run_key,
+            f"gold_stk_mins_qfq_macd_kdj_daily_update:{TARGET_TRADE_DATE}",
+        )
+        self.assertEqual(result.partition_key, TARGET_TRADE_DATE)
+        self.assertEqual(result.tags, {})
+
+    def test_daily_sensor_skips_when_target_is_not_expected(self) -> None:
+        context = _context_for_triggered_run(trade_date=TARGET_TRADE_DATE)
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "gold_stk_mins_qfq_factor_repair_status",
+        ) as repair_status_mock, patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "partition_dataset_readiness_status_from_latest_checks",
+        ) as readiness_mock:
+            decision, _ = _evaluate_daily_run_status_decision(
+                context=context,
+                target_trade_date=TARGET_TRADE_DATE,
+                expected_trade_dates=("2026-06-13", PREVIOUS_EXPECTED_TRADE_DATE),
+            )
+
+        self.assertIsNone(decision.selected_trade_date)
+        self.assertIn("不在股票分钟线 expected calendar", decision.reason)
+        repair_status_mock.assert_not_called()
+        readiness_mock.assert_not_called()
+
+    def test_daily_sensor_allows_baseline_without_previous_state_lookup(self) -> None:
+        baseline_trade_date = "2014-01-01"
+        context = _context_for_triggered_run(trade_date=baseline_trade_date)
+
+        def fake_readiness(_instance, specs, *, partition_key):
+            self.assertNotEqual(specs, GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS)
+            self.assertEqual(partition_key, baseline_trade_date)
+            if specs is GOLD_STK_MINS_QFQ_READINESS_SPECS:
+                return _dataset_status(
+                    ready=True,
+                    asset_key="gold_stk_mins_qfq_1m",
+                )
+            return _dataset_status(
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="target missing",
+                asset_key="gold_stk_mins_qfq_macd_kdj_1m",
+            )
+
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "gold_stk_mins_qfq_factor_repair_status",
+            return_value=_repair_gate_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "partition_dataset_readiness_status_from_latest_checks",
+            side_effect=fake_readiness,
+        ):
+            decision, _ = _evaluate_daily_run_status_decision(
+                context=context,
+                target_trade_date=baseline_trade_date,
+                expected_trade_dates=(baseline_trade_date,),
+            )
+
+        self.assertEqual(decision.selected_trade_date, baseline_trade_date)
+        result = _run_request_for_trade_date(decision.selected_trade_date)
+        self.assertIsInstance(result, dg.RunRequest)
+        self.assertEqual(result.partition_key, baseline_trade_date)
 
 
 if __name__ == "__main__":

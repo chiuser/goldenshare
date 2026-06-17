@@ -1,12 +1,17 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
 from typing import Any
 
 import dagster as dg
 from dagster._core.storage.dagster_run import RunsFilter
 
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    load_stock_mins_expected_trade_dates,
+    previous_expected_trade_date,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
     gold_stk_mins_qfq_factor_repair_status,
@@ -24,7 +29,9 @@ from orchestrator.defs.jobs.stock_mins_qfq_daily_update import (
 from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
     stock_mins_qfq_factor_repair_job,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.health.lake_root import assert_lake_root_available_for_run
+from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -33,8 +40,12 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
+    CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
     GOLD_STK_MINS_QFQ_READINESS_SPECS,
     partition_dataset_readiness_status_from_latest_checks,
@@ -107,14 +118,34 @@ def _trade_date_from_dagster_run(dagster_run: object) -> str | None:
     return _trade_date_from_run_config(getattr(dagster_run, "run_config", None))
 
 
-def _previous_registered_trade_date(
-    registered_trade_days: tuple[str, ...],
+def _load_macd_kdj_expected_trade_dates() -> tuple[str, ...]:
+    lake_root = Path(DEFAULT_LAKE_ROOT)
+    assert_lake_root_available_for_run(lake_root)
+    calendar_path = silver_trade_calendar_path(lake_root)
+    if not calendar_path.exists():
+        raise FileNotFoundError(
+            f"silver_trade_calendar file is missing: {calendar_path}"
+        )
+    with connect_configured_duckdb() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+            evaluated_at=datetime.now(CN_A_SENSOR_TIMEZONE),
+            same_day_register_start=None,
+        )
+
+
+def _previous_expected_trade_date_for_target(
+    expected_trade_dates: tuple[str, ...],
     target_trade_date: str,
 ) -> str | None:
-    previous_days = tuple(
-        trade_date for trade_date in registered_trade_days if trade_date < target_trade_date
+    if target_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE:
+        return None
+    return previous_expected_trade_date(
+        expected_trade_dates,
+        target_trade_date,
     )
-    return previous_days[-1] if previous_days else None
 
 
 def _has_materialized_check_problem(status: DatasetReadinessStatus) -> bool:
@@ -259,21 +290,44 @@ def _evaluate_daily_run_status_decision(
     *,
     context: dg.RunStatusSensorContext,
     target_trade_date: str,
+    expected_trade_dates: tuple[str, ...],
 ) -> tuple[
     GoldStkMinsQfqMacdKdjDailyRunStatusDecision,
     GoldStkMinsQfqFactorRepairStatus | None,
 ]:
-    registered_trade_days = tuple(
-        sorted(
-            context.instance.get_dynamic_partitions(
-                cn_a_stock_mins_silver_trade_days.name
-            )
+    if target_trade_date not in expected_trade_dates:
+        return (
+            GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
+                target_trade_date=target_trade_date,
+                previous_trade_date=None,
+                selected_trade_date=None,
+                reason=(
+                    "目标交易日不在股票分钟线 expected calendar，"
+                    f"暂不触发 MACD/KDJ daily: target_trade_date={target_trade_date}。"
+                ),
+            ),
+            None,
         )
-    )
-    previous_trade_date = _previous_registered_trade_date(
-        registered_trade_days,
+    previous_trade_date = _previous_expected_trade_date_for_target(
+        expected_trade_dates,
         target_trade_date,
     )
+    if (
+        previous_trade_date is None
+        and target_trade_date != STK_MINS_MACD_KDJ_BASELINE_START_DATE
+    ):
+        return (
+            GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
+                target_trade_date=target_trade_date,
+                previous_trade_date=None,
+                selected_trade_date=None,
+                reason=(
+                    "无法找到目标交易日的上一 expected trade date，"
+                    f"暂不触发 MACD/KDJ daily: target_trade_date={target_trade_date}。"
+                ),
+            ),
+            None,
+        )
     qfq_daily_succeeded = _successful_run_for_trade_date_exists(
         context.instance,
         job_name=STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
@@ -288,7 +342,7 @@ def _evaluate_daily_run_status_decision(
     )
     qfq_factor_repair_status = None
     qfq_ready = False
-    previous_state_ready = previous_trade_date is None
+    previous_state_ready = target_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
     target_ready = False
     target_has_materialized_check_problem = False
     if qfq_daily_succeeded and qfq_factor_repair_succeeded:
@@ -361,6 +415,7 @@ def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
     decision, qfq_factor_repair_status = _evaluate_daily_run_status_decision(
         context=context,
         target_trade_date=target_trade_date,
+        expected_trade_dates=_load_macd_kdj_expected_trade_dates(),
     )
     if decision.selected_trade_date is None or qfq_factor_repair_status is None:
         return dg.SkipReason(decision.reason)

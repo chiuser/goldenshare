@@ -16,7 +16,6 @@ from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
 )
 from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
     _has_materialized_check_problem,
-    _latest_registered_silver_trade_date,
     _run_request_for_trade_date,
     build_stock_mins_qfq_daily_update_decision,
 )
@@ -115,18 +114,6 @@ def _legacy_submitted_cursor(
 
 
 class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
-    def test_latest_registered_silver_trade_date_uses_latest_not_after_today(self) -> None:
-        self.assertEqual(
-            _latest_registered_silver_trade_date(
-                ("2026-05-28", "2026-05-29", "2026-05-30"),
-                EVALUATED_AT,
-            ),
-            "2026-05-29",
-        )
-        self.assertIsNone(
-            _latest_registered_silver_trade_date(("2026-05-30",), EVALUATED_AT)
-        )
-
     def test_decision_skips_before_window_and_without_partition(self) -> None:
         no_partition = build_stock_mins_qfq_daily_update_decision(
             target_trade_date=None,
@@ -295,22 +282,41 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertEqual(cursor["blocked_count"], 0)
         self.assertIsNone(cursor["details"]["selected_trade_date"])
 
-    def test_sensor_skips_before_window_without_readiness_lookup(self) -> None:
+    def test_sensor_skips_before_window_with_continuity_cursor(self) -> None:
         context = _FakeSensorContext()
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run before 20:10"),
+                return_value=_dataset_status(
+                    ("silver_stk_mins_1m",),
+                    ready=False,
+                    materialized=False,
+                    checks_passed=False,
+                    reason="silver blocked",
+                ),
             ),
         ):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
 
         self.assertIn("20:10", result.skip_reason.skip_message)
+        self.assertEqual(
+            json.loads(result.cursor)["details"]["continuity_status"][
+                "first_not_ready_trade_date"
+            ],
+            PARTITION_KEY,
+        )
 
-    def test_sensor_cursor_fast_path_skips_without_readiness_lookup(self) -> None:
+    def test_sensor_cursor_fast_path_skips_after_frontier_selects_same_target(
+        self,
+    ) -> None:
         selected_decision = build_stock_mins_qfq_daily_update_decision(
             target_trade_date=PARTITION_KEY,
             run_window_started=True,
@@ -324,12 +330,28 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             already_submitted_for_trade_date=True,
         )
         context = _FakeSensorContext(cursor=submitted_cursor)
+        statuses = [
+            _dataset_status(("silver_stk_mins_1m",), ready=True),
+            _dataset_status(("silver_adj_factor",), ready=True),
+            _dataset_status(
+                ("gold_stk_mins_qfq_1m",),
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="gold missing",
+            ),
+        ]
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run after submission"),
+                side_effect=lambda instance, specs, *, partition_key: statuses.pop(0),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -339,16 +361,32 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertIn("已经提交过", result.skip_reason.skip_message)
         self.assertTrue(cursor["details"]["already_submitted_for_trade_date"])
 
-    def test_sensor_legacy_selected_count_cursor_fast_path_skips_readiness(
+    def test_sensor_legacy_selected_count_cursor_fast_path_skips_same_target(
         self,
     ) -> None:
         context = _FakeSensorContext(cursor=_legacy_submitted_cursor())
+        statuses = [
+            _dataset_status(("silver_stk_mins_1m",), ready=True),
+            _dataset_status(("silver_adj_factor",), ready=True),
+            _dataset_status(
+                ("gold_stk_mins_qfq_1m",),
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="gold missing",
+            ),
+        ]
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run for old cursor"),
+                side_effect=lambda instance, specs, *, partition_key: statuses.pop(0),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -359,21 +397,35 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             json.loads(result.cursor)["details"]["already_submitted_for_trade_date"]
         )
 
-    def test_sensor_legacy_sample_keys_cursor_fast_path_skips_readiness(self) -> None:
+    def test_sensor_legacy_sample_keys_cursor_fast_path_skips_same_target(self) -> None:
         context = _FakeSensorContext(
             cursor=_legacy_submitted_cursor(
                 selected_count=0,
                 sample_keys=(PARTITION_KEY,),
             )
         )
+        statuses = [
+            _dataset_status(("silver_stk_mins_1m",), ready=True),
+            _dataset_status(("silver_adj_factor",), ready=True),
+            _dataset_status(
+                ("gold_stk_mins_qfq_1m",),
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="gold missing",
+            ),
+        ]
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError(
-                    "readiness must not run for old sample cursor"
-                ),
+                side_effect=lambda instance, specs, *, partition_key: statuses.pop(0),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -405,7 +457,7 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             return _dataset_status(
                 ("silver_stk_mins_1m",),
                 ready=False,
-                materialized=True,
+                materialized=False,
                 checks_passed=False,
                 reason="silver blocked",
             )
@@ -413,6 +465,11 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         context = _FakeSensorContext(cursor=_legacy_submitted_cursor(selected_count=0))
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
             patch.object(
                 daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
@@ -435,13 +492,18 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             return _dataset_status(
                 ("silver_stk_mins_1m",),
                 ready=False,
-                materialized=True,
+                materialized=False,
                 checks_passed=False,
                 reason="silver blocked",
             )
 
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
             patch.object(
                 daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
@@ -475,6 +537,11 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
                 side_effect=lambda instance, specs, *, partition_key: statuses.pop(0),
             ),
@@ -503,6 +570,11 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
 
         with (
             patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
             patch.object(
                 daily_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",

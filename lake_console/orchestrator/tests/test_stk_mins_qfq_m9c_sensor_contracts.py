@@ -5,6 +5,9 @@ from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 import orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor as repair_sensor_module
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -16,7 +19,6 @@ from orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor import (
 )
 from orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor import (
     _has_materialized_check_problem,
-    _latest_registered_silver_trade_date,
     _run_request_for_trade_date,
     build_stock_mins_qfq_factor_repair_decision,
 )
@@ -113,19 +115,16 @@ def _legacy_submitted_cursor(
     )
 
 
-class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
-    def test_latest_registered_trade_date_uses_latest_not_after_today(self) -> None:
-        self.assertEqual(
-            _latest_registered_silver_trade_date(
-                ("2026-05-28", "2026-05-29", "2026-05-30"),
-                EVALUATED_AT,
-            ),
-            "2026-05-29",
-        )
-        self.assertIsNone(
-            _latest_registered_silver_trade_date(("2026-05-30",), EVALUATED_AT)
-        )
+def _repair_status(*, ready: bool, reason: str = "ready") -> GoldStkMinsQfqFactorRepairStatus:
+    return GoldStkMinsQfqFactorRepairStatus(
+        ready=ready,
+        trade_date=PARTITION_KEY,
+        reason=reason,
+        upstream_batch_id=f"qfq_factor_repair:{PARTITION_KEY}:digest",
+    )
 
+
+class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
     def test_decision_skips_before_window_and_without_partition(self) -> None:
         no_partition = build_stock_mins_qfq_factor_repair_decision(
             target_trade_date=None,
@@ -247,22 +246,40 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             "20:40:00",
         )
 
-    def test_sensor_skips_before_window_without_readiness_lookup(self) -> None:
+    def test_sensor_skips_before_window_with_continuity_cursor(self) -> None:
         context = _FakeSensorContext()
         with (
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run before 20:40"),
+                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
+            ),
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                return_value=_repair_status(ready=False, reason="repair missing"),
             ),
         ):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
         self.assertIn("20:40", result.skip_reason.skip_message)
+        self.assertEqual(
+            json.loads(result.cursor)["details"]["continuity_status"][
+                "first_not_ready_trade_date"
+            ],
+            PARTITION_KEY,
+        )
 
-    def test_sensor_cursor_fast_path_skips_without_readiness_lookup(self) -> None:
+    def test_sensor_cursor_fast_path_skips_after_frontier_selects_same_target(
+        self,
+    ) -> None:
         selected_decision = build_stock_mins_qfq_factor_repair_decision(
             target_trade_date=PARTITION_KEY,
             run_window_started=True,
@@ -280,8 +297,18 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run after submission"),
+                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
+            ),
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                return_value=_repair_status(ready=False, reason="repair missing"),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -291,7 +318,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIn("已经提交过", result.skip_reason.skip_message)
         self.assertTrue(cursor["details"]["already_submitted_for_trade_date"])
 
-    def test_sensor_legacy_selected_count_cursor_fast_path_skips_readiness(
+    def test_sensor_legacy_selected_count_cursor_fast_path_skips_same_target(
         self,
     ) -> None:
         context = _FakeSensorContext(cursor=_legacy_submitted_cursor())
@@ -300,8 +327,18 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError("readiness must not run for old cursor"),
+                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
+            ),
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                return_value=_repair_status(ready=False, reason="repair missing"),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -314,7 +351,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             json.loads(result.cursor)["details"]["already_submitted_for_trade_date"]
         )
 
-    def test_sensor_legacy_sample_keys_cursor_fast_path_skips_readiness(self) -> None:
+    def test_sensor_legacy_sample_keys_cursor_fast_path_skips_same_target(self) -> None:
         context = _FakeSensorContext(
             cursor=_legacy_submitted_cursor(
                 selected_count=0,
@@ -326,10 +363,18 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=AssertionError(
-                    "readiness must not run for old sample cursor"
-                ),
+                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
+            ),
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                return_value=_repair_status(ready=False, reason="repair missing"),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -370,8 +415,18 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
                 side_effect=fake_readiness,
+            ),
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                return_value=_repair_status(ready=False, reason="repair missing"),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -387,8 +442,18 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
                 return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
+            ),
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                return_value=_repair_status(ready=False, reason="repair missing"),
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT
@@ -418,6 +483,11 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
     def test_sensor_skips_when_gold_checks_are_not_green(self) -> None:
         with (
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
             patch.object(
                 repair_sensor_module,
                 "partition_dataset_readiness_status_from_latest_checks",
