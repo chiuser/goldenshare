@@ -1,6 +1,6 @@
 # Dagster Run Key 治理技术专项优化方案
 
-状态：M1-M8 已按本文核心口径落地并完成本地完整回归，legacy bridge 已退出。本文保留为 run key 治理长期方案与后续回归依据。
+状态：M1-M9 已按本文核心口径落地并完成最终专项验收，legacy bridge 已退出。本文保留为 run key 治理长期方案与后续回归依据。
 
 更新时间：2026-06-17
 
@@ -16,8 +16,9 @@
 6. M6 已按审批完成正式 Dagster run history 只读审计，确认无活跃旧格式修复 run，且新 upstream batch 均已有 `source_upstream_batch_id` completion checks。
 7. M7 已删除 legacy bridge 读取逻辑和相关测试；生产代码不再依赖旧 `source_qfq_factor_repair_event_storage_ids` 字段。
 8. M8 已完成本地完整 pytest 回归，并把 M7 后手工重放、`upstream_batch_id`、legacy bridge 退出和 qfq 普通 event reconciliation 撤销口径同步到长期规范与业务设计文档。
+9. M9 已完成最终专项验收：确认没有散落手写正式 run key、没有新增直接 `RunRequest`、没有解析 run key 反推 config、没有正式路径写旧 storage id 字段，且所有正式 run key 都经统一 builder。
 
-M7 只做 legacy bridge 退出和文档/静态门禁收口；M8 只做本地完整回归和文档对账。两轮均不改变资产写入语义、job selection、sensor 启用状态或正式 Dagster instance 状态。
+M7 只做 legacy bridge 退出和文档/静态门禁收口；M8 只做本地完整回归和文档对账；M9 只做最终专项验收和治理文档状态收口。三轮均不改变资产写入语义、job selection、sensor 启用状态或正式 Dagster instance 状态。
 
 ## 1. 背景
 
@@ -304,7 +305,7 @@ payload:
 
 ## 7. 迁移步骤与当前状态
 
-截至 M8，7.1 至 7.4 均已完成代码落地；legacy bridge 已删除；业务设计文档中的旧字段、旧 run key 与散装手工 repair 口径已完成对账。
+截至 M9，7.1 至 7.4 均已完成代码落地；legacy bridge 已删除；业务设计文档中的旧字段、旧 run key 与散装手工 repair 口径已完成对账；最终专项验收已完成。
 
 ### 7.1 步骤一：集中 builder 与静态门禁
 
@@ -398,6 +399,14 @@ payload:
    - 执行 `PYTHONPATH=src uv run --project . --with pytest python -m pytest tests`。
    - 结果为 `617 passed`。
    - 未执行 `dg`，未读取或写入正式 Dagster instance。
+9. M9 最终专项验收：
+   - 确认没有散落手写正式 run key。
+   - 确认没有新增直接 `dg.RunRequest(...)` / `RunRequest(...)`。
+   - 确认没有解析 `run_key` 反推 `run_config`。
+   - 确认没有正式路径写旧 storage id 字段。
+   - 确认所有正式 run key 都经统一 builder。
+   - 目标测试结果为 `83 passed`，完整本地回归结果为 `617 passed`。
+   - 未执行 `dg`，未读取或写入正式 Dagster instance。
 
 ## 9. 不做范围
 
@@ -431,6 +440,7 @@ payload:
 5. 静态门禁需要避免误伤测试文件和 Dagster 官方示例文档；该点已确认。
 6. 如果已有待执行或运行中的 run 使用旧 run key，正式切换前必须只读审计 Dagster run history；审计需按正式 Dagster 环境执行门禁单独审批。
 7. legacy bridge 已按 7.4 退出并删除；不得恢复旧 event storage ids 读取逻辑作为正式路径。
+8. M9 不包含正式 Dagster runtime 只读审计；后续如需再次检查正式 run history、sensor tick 或 automation 状态，必须重新按正式 Dagster 环境执行门禁单独审批。
 
 ## 12. 初始硬口径清单
 
