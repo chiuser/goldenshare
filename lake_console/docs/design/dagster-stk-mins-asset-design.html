@@ -695,8 +695,8 @@ cn_a_stock_mins_silver_trade_days = dg.DynamicPartitionsDefinition(
     <ul>
       <li>正式 raw assets：<code>raw_stk_mins_1m</code>、<code>raw_stk_mins_5m</code>、<code>raw_stk_mins_15m</code>、<code>raw_stk_mins_30m</code>、<code>raw_stk_mins_60m</code>，asset key 与 M3 runless events 完全一致。</li>
       <li>正式 jobs：<code>stock_mins_raw_update_from_prod_job</code> 是默认日常入口；<code>stock_mins_raw_update_job</code> 是 Tushare 人工备用入口。两者 selection 都只包含五个 raw assets 及其 blocking checks；不包含 <code>silver_stock_basic</code>、silver 分钟线或 gold qfq 分钟线。</li>
-      <li>分区注册 sensor：<code>stock_mins_trade_day_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:00 后只注册当天 <code>cn_a_stock_mins_trade_days</code>，不做历史补齐。</li>
-      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 19:30 后只检查最新已注册日期；当五频度 raw 尚未 ready、没有已物化但 blocking checks 失败的 raw 分区，并且 <code>stock_basic_ready_for_trade_date(context.instance, target_trade_date)</code> ready 时，提交一个 <code>stock_mins_raw_update_from_prod_job</code> run。</li>
+      <li>分区注册 sensor：<code>stock_mins_trade_day_sensor</code> 默认 <code>STOPPED</code>，上海时间 18:00 后按 <code>silver_trade_calendar</code> 补注册最早缺失 <code>cn_a_stock_mins_trade_days</code>；同日交易日仍不能早于 18:00 注册。</li>
+      <li>raw 更新 sensor：<code>stock_mins_raw_sensor</code> 默认 <code>STOPPED</code>，上海时间 19:30 后按 expected calendar + registered partitions 选择 first raw not ready；当五频度 raw 尚未 ready、没有已物化但 blocking checks 失败的 raw 分区，并且 <code>stock_basic_ready_for_trade_date(context.instance, target_trade_date)</code> ready 时，提交一个 <code>stock_mins_raw_update_from_prod_job</code> run。</li>
       <li>日常股票池来自 <code>silver_stock_basic</code> 当前上市股票；这是只读前置事实，不进入 <code>stock_mins_raw_update_job</code> selection。因为股票池会影响全市场分钟线对象范围，raw sensor 必须要求 <code>raw_tushare_stock_basic</code> 与 <code>silver_stock_basic</code> 均满足目标交易日 freshness 和 blocking checks，不能只看历史上是否 materialized 过。</li>
       <li>本轮不引入 <code>stock_basic</code> 日内第二次更新或批次 stage 契约。当前 <code>stock_mins_raw_sensor</code> 的 19:30 触发窗口晚于既有 <code>stock_basic</code> 第二次更新窗口，因此门禁只按目标交易日 freshness 判断。</li>
       <li>日常拉取窗口固定为 <code>{trade_date} 09:00:00</code> 至 <code>{trade_date} 19:00:00</code>；分页固定使用 <code>limit=8000</code> 与递增 <code>offset</code>，不把分页、股票池 offset 或分钟窗口暴露为 run config。</li>
@@ -1722,7 +1722,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <td><strong>M12</strong></td>
         <td>MACD/KDJ qfq 指标资产设计</td>
         <td>已新增专项设计文档：<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>；代码口径已落地到 definitions、Catalog、checks、daily job/sensor、repair job/op、历史直写与 baseline event CLI。本基础文档不承载指标资产实现细节。</td>
-        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>。历史文件已完成全量直写并通过 full file audit；<code>2026-06-05</code> baseline cutoff 已写入 <code>56</code> 条 runless events，quick final audit 确认 14 个 indicator/state asset-partition 全部 ready。M12J 已落地：MACD/KDJ daily 由 run-status sensor 等同日 qfq daily 与 qfq factor repair 都成功后触发；若 qfq repair 改写历史，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 按 affected codes 自动触发 scoped repair，最终指标收口仍看 M12 repair completion event。M12L 已落地：普通 qfq materialization/check event reconciliation 已撤销、不保留，不阻塞当天 MACD/KDJ daily。当前待收口项是 baseline event CLI 单分区硬门禁和正式 sensor 启用确认。</td>
+        <td>M12 第一版只覆盖七频度 qfq 的 <code>MACD(12,26,9)</code> 与 <code>KDJ(9,3,3)</code>，要求持久化 <code>state</code>。历史文件已完成全量直写并通过 full file audit；<code>2026-06-05</code> baseline cutoff 已写入 <code>56</code> 条 runless events，quick final audit 确认 14 个 indicator/state asset-partition 全部 ready。M12J 已落地：MACD/KDJ daily 由 run-status sensor 等同日 qfq daily 与 qfq factor repair 都成功后触发；连续性治理 M7 后，run-status sensor 的上一日来自 <code>silver_trade_calendar</code> 的 previous expected trade date。若 qfq repair 改写历史，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 按 affected codes 自动触发 scoped repair，最终指标收口仍看 M12 repair completion event。M12L 已落地：普通 qfq materialization/check event reconciliation 已撤销、不保留，不阻塞当天 MACD/KDJ daily。当前待收口项是 MACD/KDJ daily asset write exact previous expected state gate、MACD/KDJ repair op expected range / exact previous state gate，以及后续正式 sensor 启用确认。</td>
       </tr>
     </table>
   </section>
@@ -1732,12 +1732,12 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <p>
       M4 已落地 raw-only 日常入口；M5E 已落地 <code>stock_mins_silver_update_job</code>；
       M6F 已落地只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>。
-      M6G 已新增 <code>stock_mins_silver_sensor</code>：它只在 silver 分区已注册、上游 readiness 全部满足且目标 silver 尚未 ready 时，触发 <code>stock_mins_silver_update_job</code>。
+      M6G 已新增 <code>stock_mins_silver_sensor</code>：连续性治理后，它按 expected calendar + silver registered partitions 选择 first silver not ready，且只在上游 readiness 全部满足时触发 <code>stock_mins_silver_update_job</code>。
       gold 历史 baseline 已完成：命令式生成 gold qfq 股票年份文件，并按 <code>freq/year</code> 年度批量补录 runless materialization/check events。
-      M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_daily_sensor</code>：它只在 20:10 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
+      M9A 已新增 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_daily_sensor</code>：连续性治理后，它按 expected calendar 选择 first qfq not ready，只在 20:10 后确认目标日期 silver 和当日复权因子 ready，且目标 gold qfq 未 ready 时提交单日 qfq run。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
       M9B 已实现 factor repair detection 与 check metadata 契约。
-      M9C/M11 已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：sensor 20:40 后只在当日七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
-      M12J 已落地修复：<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 不能只等待 qfq 七频度 ready 和上一交易日 state ready；它必须等同日 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_factor_repair_job</code> 都成功。若 qfq repair metadata 显示历史 qfq 被重写，MACD/KDJ daily 先作为受控 pending-repair run 执行，随后由 <code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 按 affected codes 自动触发 scoped repair；最终指标收口仍以 M12 repair completion event 为准。M12L 已落地：普通 qfq materialization/check event reconciliation 已撤销、不保留，不阻塞当天 M12 daily，也不得通过重跑 qfq daily 替代。
+      M9C/M11 已新增 <code>stock_mins_qfq_factor_repair_job</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>：连续性治理后，sensor 按 expected calendar 选择 first qfq factor repair not completed，20:40 后只在目标日期七频度 gold qfq ready 时提交 repair run；job 内执行 DuckDB 因子变化检测、native 历史回刷和 90/120 derived 重建。该 sensor definition 默认 <code>STOPPED</code>，正式 instance 已由用户人工启用。
+      M12J 已落地修复：<code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 不能只等待 qfq 七频度 ready 和上一交易日 state ready；它必须等同日 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_factor_repair_job</code> 都成功。连续性治理 M7 后，它的上一日来自 expected calendar，而不是 previous registered partition。若 qfq repair metadata 显示历史 qfq 被重写，MACD/KDJ daily 先作为受控 pending-repair run 执行，随后由 <code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor</code> 按 affected codes 自动触发 scoped repair；最终指标收口仍以 M12 repair completion event 为准。M12L 已落地：普通 qfq materialization/check event reconciliation 已撤销、不保留，不阻塞当天 M12 daily，也不得通过重跑 qfq daily 替代。MACD/KDJ daily asset write 和 repair op 的 exact previous expected state / expected range 仍是连续性专项剩余任务。
       P0-1 并发保护已完成：七个 <code>gold_stk_mins_qfq_*</code> assets 与 <code>stock_mins_qfq_factor_repair_op</code> 均使用统一 Dagster concurrency pool <code>gold_stk_mins_qfq_writer</code>；正式 Dagster instance 已设置该 pool limit 为 <code>1</code>，并启用 run 级别 pool granularity。
       P0-3 DuckDB 连接治理已落地：正式分钟线 / qfq / history event / repair 路径统一走 <code>DuckDBResource</code> 或统一连接 helper，默认参数为 <code>temp_directory=/Volumes/datasource/.goldenshare_duckdb_tmp</code>、<code>max_temp_directory_size=512GB</code>、<code>memory_limit=16GB</code>、<code>threads=4</code>、<code>preserve_insertion_order=false</code>；正式 <code>defs/**</code> 路径禁止直接 <code>duckdb.connect()</code>，并已由静态门禁保护。
     </p>
@@ -1775,23 +1775,23 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td><code>stock_mins_trade_day_sensor</code></td>
-        <td>18:00 后注册当天分钟线交易日分区。</td>
-        <td>只注册当天；不补历史，不污染股票日频分区。</td>
+        <td>18:00 后按交易日历补注册股票分钟线 raw 交易日分区。</td>
+        <td>已接入连续性治理：从 <code>silver_trade_calendar</code> 找最早未注册 raw trade day，单 tick 小批量补缺；同日分区仍保留 18:00 窗口，不污染股票日频分区。</td>
       </tr>
       <tr>
         <td><code>stock_mins_raw_sensor</code></td>
-        <td>19:30 后检查最新已注册日期并提交 prod DB raw 更新 run。</td>
-        <td>只做轻量门禁：raw 是否 ready、是否已有失败 checks、<code>stock_basic_ready_for_trade_date(...)</code> 是否 ready；该 stock basic 门禁覆盖 raw/silver stock basic 的目标交易日 freshness 与 blocking checks。不自动追历史缺口，不触发 Tushare job。</td>
+        <td>19:30 后按 expected calendar + raw registered partitions 选择 first raw not ready trade day，并提交 prod DB raw 更新 run。</td>
+        <td>已接入连续性治理：如果 expected date 未注册，先 skip 并报告最早缺口；如果目标 raw 已 materialized 但 blocking checks 未绿，不自动重跑也不推进后续日期；<code>stock_basic_ready_for_trade_date(...)</code> 仍作为目标日期上游门禁。不触发 Tushare job。</td>
       </tr>
       <tr>
         <td><code>stock_mins_silver_trade_day_sensor</code></td>
-        <td>19:45 后检查最新 raw 分区，满足 silver 前置门禁后注册 silver 交易日分区。</td>
-        <td>只注册 <code>cn_a_stock_mins_silver_trade_days</code>，不提交 run；等待人工 run 或后续专门的 silver 生产 sensor 使用该分区。</td>
+        <td>19:45 后按 expected calendar 检查 raw 连续性，只注册最早可推进的 silver 交易日分区。</td>
+        <td>只注册 <code>cn_a_stock_mins_silver_trade_days</code>，不提交 run；raw partition 或上游 readiness 存在更早缺口时，不越过缺口注册后续 silver 分区。</td>
       </tr>
       <tr>
         <td><code>stock_mins_silver_sensor</code></td>
-        <td>19:50 后检查最新已注册 silver 日期，满足上游 readiness 且目标 silver 未 ready 时，提交 <code>stock_mins_silver_update_job</code> run。</td>
-        <td>已实现，默认 <code>STOPPED</code>；不注册分区、不触发 raw、不追历史、不生成 gold，不写 run tags 或 run config。</td>
+        <td>19:50 后按 expected calendar + silver registered partitions 选择 first silver not ready trade day，满足上游 readiness 时提交 <code>stock_mins_silver_update_job</code> run。</td>
+        <td>已实现，默认 <code>STOPPED</code>；不注册分区、不触发 raw、不生成 gold，不写 run tags 或 run config。已 materialized 但 checks 未绿时要求人工处理，不自动重跑或推进后续日期。</td>
       </tr>
       <tr>
         <td><code>stock_mins_silver_update_job</code></td>
@@ -1815,8 +1815,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_daily_sensor</code></td>
-        <td>20:10 后，在 silver ready、当日 adj factor ready 且目标 gold 当日尚未 ready 时，触发单日 qfq job。</td>
-        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。M11H 后门禁只看目标日期 readiness，按 check key 批量读取 latest check execution，并用 target materialization storage_id 绑定目标日期；同时有同目标日期已提交后的 cursor 快路径；禁止逐历史分区深扫或逐 check 扫 history。</td>
+        <td>20:10 后，按 expected calendar + silver registered partitions 选择 first qfq not ready trade day；在 silver ready、当日 adj factor ready 且目标 gold 当日尚未 ready 时，触发单日 qfq job。</td>
+        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。连续性治理后不再以 latest silver registered 作为目标；M11H 的批量 latest-check readiness 仍用于目标日期门禁，并用 target materialization storage_id 绑定目标日期；同目标日期已提交后的 cursor 快路径仍保留。</td>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_job</code></td>
@@ -1825,13 +1825,13 @@ python3 scripts/check_docs_integrity.py</code></pre>
       </tr>
       <tr>
         <td><code>stock_mins_qfq_factor_repair_sensor</code></td>
-        <td>监听当日七频度 gold ready 后触发 repair job。</td>
-        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。20:40 后评估，不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。它与 daily sensor 共用 M11H 的 gold qfq 批量 latest-check readiness。</td>
+        <td>20:40 后，按 expected calendar + silver registered partitions 选择 first qfq factor repair not completed trade day；目标日期七频度 gold qfq ready 后触发 repair job。</td>
+        <td>已实现；代码 definition 默认 <code>STOPPED</code>，正式 Dagster instance 已由用户人工启用。不检测变化股票，不把 repair 状态写进 cursor 当事实源；变化检测在 repair job 内执行。它与 daily sensor 共用 M11H 的 gold qfq 批量 latest-check readiness。</td>
       </tr>
       <tr>
         <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code></td>
         <td>run-status coordination 触发七频度 MACD/KDJ indicator/state 日常更新。</td>
-        <td>M12J 已修复：该 sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。无历史重写时可继续使用上一交易日 state；有历史重写时 daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。M12L 已落地：该 sensor 不等待 repair 涉及范围的普通 qfq materialization/check event reconciliation。asset 写入函数也使用同一写前 guard，防止人工 run 绕过 sensor。</td>
+        <td>M12J 已修复：该 sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。连续性治理 M7 后，上一交易日来自 <code>silver_trade_calendar</code> 的 previous expected date，不再来自 previous registered partition。无历史重写时可继续使用上一 expected state；有历史重写时 daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。M12L 已落地：该 sensor 不等待 repair 涉及范围的普通 qfq materialization/check event reconciliation。注意：asset write 层 exact previous expected state gate 仍是连续性专项剩余任务，不能把 run-status sensor 门禁误读成手工 materialize 已完全防绕过。</td>
       </tr>
     </table>
   </section>
@@ -1861,8 +1861,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
       <tr><th>步骤</th><th>daily sensor</th><th>repair sensor</th></tr>
       <tr>
         <td>交易日选择</td>
-        <td>沿用最新已注册 <code>cn_a_stock_mins_silver_trade_days</code> 且不晚于评估日的目标日期。</td>
-        <td>同 daily sensor。</td>
+        <td>连续性治理后，目标日期来自 expected calendar + <code>cn_a_stock_mins_silver_trade_days</code> 的 first qfq not ready；M11H 的批量 latest-check readiness 只负责目标日期上的 readiness 查询性能。</td>
+        <td>连续性治理后，目标日期来自 expected calendar 的 first qfq factor repair not completed；M11H 的批量 latest-check readiness 只负责目标日期上的 gold qfq readiness 查询性能。</td>
       </tr>
       <tr>
         <td>时窗</td>
@@ -2047,7 +2047,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
         <strong>M6G</strong>
         <div>
           <h3>Silver 日常生产 sensor</h3>
-          <p>已完成文档与代码审计，并落地自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>：19:50 后只针对最新已注册 silver 日期做 readiness 门禁，满足条件时提交单个分区 run；不注册 partition、不触发 raw、不追历史、不生成 gold，默认 <code>STOPPED</code>。</p>
+          <p>已完成文档与代码审计，并落地自动触发 <code>stock_mins_silver_update_job</code> 的 <code>stock_mins_silver_sensor</code>：19:50 后按 expected calendar + silver registered partitions 选择 first silver not ready，满足上游 readiness 时提交单个分区 run；不注册 partition、不触发 raw、不生成 gold，默认 <code>STOPPED</code>。已 materialized 但 checks 未绿时要求人工处理，不自动重跑或推进后续日期。</p>
         </div>
       </div>
       <div class="step">

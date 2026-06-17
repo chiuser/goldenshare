@@ -166,6 +166,8 @@ docs/
 - [stk_mins clean_next 与新湖股票日线代码集合审计 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-next-vs-silver-stock-daily-code-audit-v1.md)
 - [股票分钟线指标系统设计方案 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-system-plan-v1.md)
 - [股票分钟线 MACD v2 重算与增量可靠性方案](/Users/congming/github/goldenshare/docs/datasets/stk-mins-macd-v2-recompute-and-incremental-plan.md)
+- [Dagster 股票分钟线连续性治理专项方案（HTML，M1-M8 已落地 / 后续 M9-M10 待收口）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-continuity-governance.html)
+- [Dagster 股票分钟线连续性治理 LLD（HTML，M1-M8 已落地 / 后续 M9-M10 待收口）](/Users/congming/github/goldenshare/lake_console/docs/design/dagster-stk-mins-continuity-governance-low-level-design.html)
 - [股票分钟线技术指标开发指南与门禁清单 v1](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-development-guide-v1.md)
 - [stk_mins MACD 大规模计算稳定性评审 v1（HTML）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-indicator-compute-stability-review-v1.html)
 - [stk_mins clean / audit 门禁流程图 v1（HTML）](/Users/congming/github/goldenshare/docs/datasets/stk-mins-clean-audit-gates-v1.html)

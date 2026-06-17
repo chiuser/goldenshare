@@ -1,0 +1,951 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 股票分钟线连续性治理专项方案</title>
+  <style>
+    :root {
+      --bg: #f7f4ee;
+      --paper: #ffffff;
+      --paper-soft: #fbfaf6;
+      --ink: #17212b;
+      --muted: #66727f;
+      --line: #d9d2c7;
+      --blue: #e7f0ff;
+      --blue-strong: #245b94;
+      --green: #e4f3e7;
+      --green-strong: #2d6f43;
+      --amber: #fff1cf;
+      --amber-strong: #8b5b12;
+      --red: #ffe4df;
+      --red-strong: #a13d2d;
+      --code-bg: #f3efe7;
+      --code-ink: #1e2a36;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      width: min(1280px, calc(100vw - 44px));
+      margin: 0 auto;
+      padding: 38px 0 76px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      background: var(--paper);
+      box-shadow: 0 14px 32px rgba(37, 31, 22, 0.06);
+    }
+
+    header { padding: 34px 36px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px 30px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.22;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: clamp(32px, 4.5vw, 54px);
+    }
+
+    h2 {
+      margin: 0 0 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--line);
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 20px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    a {
+      color: var(--blue-strong);
+      text-decoration-thickness: 0.08em;
+      text-underline-offset: 0.18em;
+    }
+
+    code {
+      color: var(--code-ink);
+      background: var(--code-bg);
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 14px 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--code-bg);
+      color: var(--code-ink);
+      font-size: 13px;
+      line-height: 1.56;
+    }
+
+    table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+      overflow: hidden;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper);
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      color: #273443;
+      background: #efebe2;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th:last-child,
+    td:last-child { border-right: 0; }
+
+    ul,
+    ol {
+      margin: 8px 0 14px;
+      padding-left: 23px;
+    }
+
+    li { margin: 6px 0; }
+
+    .subtitle {
+      max-width: 1040px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 13px;
+      margin-top: 18px;
+    }
+
+    .chip,
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper-soft);
+      padding: 14px 15px;
+    }
+
+    .chip strong,
+    .card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+
+    .chip {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .callout,
+    .warning,
+    .danger,
+    .ok {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left-width: 5px;
+      border-radius: 12px;
+    }
+
+    .callout {
+      border-left-color: var(--blue-strong);
+      background: var(--blue);
+    }
+
+    .warning {
+      border-left-color: var(--amber-strong);
+      background: var(--amber);
+    }
+
+    .danger {
+      border-left-color: var(--red-strong);
+      background: var(--red);
+    }
+
+    .ok {
+      border-left-color: var(--green-strong);
+      background: var(--green);
+    }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+      gap: 10px;
+      margin: 16px 0;
+    }
+
+    .flow-node {
+      min-height: 96px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--paper-soft);
+      padding: 12px;
+    }
+
+    .flow-node strong {
+      display: block;
+      margin-bottom: 6px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      margin: 2px 4px 2px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      border: 1px solid rgba(23, 33, 43, 0.15);
+      background: #f5f1e8;
+      color: #3c4855;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .tag.blue { background: var(--blue); color: var(--blue-strong); }
+    .tag.green { background: var(--green); color: var(--green-strong); }
+    .tag.amber { background: var(--amber); color: var(--amber-strong); }
+    .tag.red { background: var(--red); color: var(--red-strong); }
+
+    .small {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .nowrap { white-space: nowrap; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 股票分钟线连续性治理专项方案</h1>
+    <p class="subtitle">
+      本文用于治理股票分钟线动态分区缺口导致的下游跳空问题。目标是让
+      raw、silver、qfq、qfq factor repair、前复权分钟线 MACD/KDJ daily 和 repair
+      都遵守同一个连续性契约：只要权威交易日历中存在未处理缺口，后续日期不得继续推进。
+    </p>
+    <div class="meta-grid">
+      <div class="chip"><strong>状态</strong>M1-M8 已阶段性落地；MACD/KDJ asset write、MACD/KDJ repair op 与最终回归仍待收口。</div>
+      <div class="chip"><strong>更新时间</strong>2026-06-17</div>
+      <div class="chip"><strong>本轮动作</strong>按当前代码事实收敛文档；不执行 Dagster runtime，不读取正式 Dagster instance。</div>
+      <div class="chip"><strong>文档归档</strong><code>lake_console/docs/design/</code></div>
+    </div>
+  </header>
+
+  <section>
+    <h2>1. 审计依据与边界</h2>
+    <p>本方案依据以下规则、文档和代码审计形成：</p>
+    <ul>
+      <li>仓库根 <code>AGENTS.md</code>。</li>
+      <li><code>lake_console/orchestrator/AGENTS.md</code>。</li>
+      <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>。</li>
+      <li><code>lake_console/docs/design/dagster-run-key-governance-low-level-design.md</code>。</li>
+      <li>Dagster sensor / run-status sensor / asset reference。</li>
+      <li>CodeGraph 对股票分钟线注册、raw、silver、qfq、factor repair、MACD/KDJ daily、MACD/KDJ repair 的入口和调用链审计。</li>
+    </ul>
+
+    <div class="warning">
+      <strong>正式环境边界：</strong>
+      本次文档收敛未执行 <code>dg</code>、job、sensor、asset check、backfill、materialization，也未读取正式 Dagster instance。
+      当前状态判断来自源码、已提交代码和已有测试契约，不把正式 runtime 当作验证沙盒。
+    </div>
+
+    <h3>当前实施状态</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>阶段</th>
+          <th>代码事实</th>
+          <th>状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>M1</td>
+          <td>已新增 <code>asset_guards/stk_mins_continuity.py</code>，提供 expected calendar、first missing registered、first-not-ready、previous expected、ready frontier、expected range 与 exact previous state helper。</td>
+          <td>已落地</td>
+        </tr>
+        <tr>
+          <td>M2+M3</td>
+          <td><code>stock_mins_trade_day_sensor</code> 已改为 calendar-backed catch-up；<code>stock_mins_raw_sensor</code> 已改为按 expected calendar 的 first-not-ready 选择 raw 目标。</td>
+          <td>已落地</td>
+        </tr>
+        <tr>
+          <td>M4+M5</td>
+          <td><code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code> 已接入连续性门禁，不再以 latest registered 作为正式目标。</td>
+          <td>已落地</td>
+        </tr>
+        <tr>
+          <td>M6</td>
+          <td><code>stock_mins_qfq_daily_sensor</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code> 已按 expected calendar + first-not-ready / first repair not completed 推进。</td>
+          <td>已落地</td>
+        </tr>
+        <tr>
+          <td>M7</td>
+          <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 的上一日口径已从 previous registered 改为 previous expected；run-status sensor 因 Dagster 资源注入限制，使用 <code>DEFAULT_LAKE_ROOT</code> 与统一 DuckDB 连接读取交易日历。</td>
+          <td>已落地</td>
+        </tr>
+        <tr>
+          <td>M8</td>
+          <td><code>stock_mins_qfq_factor_repair_op</code> 与 <code>execute_gold_stk_mins_qfq_factor_repair(...)</code> 已要求 expected calendar，上一日和 repair range 不再来自 registered-only 口径。</td>
+          <td>已落地</td>
+        </tr>
+        <tr>
+          <td>后续 M9</td>
+          <td><code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code> 仍调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 查任意更早 state；需要改为 exact previous expected state gate。</td>
+          <td>未完成</td>
+        </tr>
+        <tr>
+          <td>后续 M10</td>
+          <td><code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 仍使用 registered silver target dates 与任意更早 state；需要改为 expected range + exact previous expected state。</td>
+          <td>未完成</td>
+        </tr>
+        <tr>
+          <td>最终收口</td>
+          <td>连续性专项的静态门禁、文档对账和 orchestrator 全量本地 pytest 仍需在 M9/M10 完成后统一执行。</td>
+          <td>未完成</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>本专项范围</h3>
+    <ul>
+      <li>股票分钟线交易日动态分区：<code>cn_a_stock_mins_trade_days</code>、<code>cn_a_stock_mins_silver_trade_days</code>。</li>
+      <li>股票分钟线日常链路：raw、silver、gold qfq、qfq factor repair。</li>
+      <li>前复权分钟线 MACD/KDJ daily run-status sensor 与 repair op。</li>
+      <li>连续性 helper、cursor payload、测试契约和文档门禁。</li>
+    </ul>
+
+    <h3>本专项不直接处理</h3>
+    <ul>
+      <li>不改变 run key 治理口径；run key 仍只用于幂等，不承载执行参数。</li>
+      <li>不新增 Dagster asset/job/sensor/check/resource/table，除非拍板后在 LLD 中单独确认。</li>
+      <li>不自动修复历史文件，不重建 lake parquet，不补正式 Dagster event。</li>
+      <li>不把指数日线、普通股票日线、复权因子 current trade day 一并改掉；这些资产族可作为后续专项审计。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2. 事故复盘：6 月 15 日空洞如何放大</h2>
+    <div class="flow">
+      <div class="flow-node">
+        <strong>1. 交易日未注册</strong>
+        <code>2026-06-15</code> 是交易日，但 dg 未启动，股票分钟线交易日分区未注册。
+      </div>
+      <div class="flow-node">
+        <strong>2. 次日注册成功</strong>
+        <code>2026-06-16</code> 注册后，下游 sensor 选择“最新 registered date”。
+      </div>
+      <div class="flow-node">
+        <strong>3. raw/silver/qfq 跳过缺口</strong>
+        6 月 16 日继续推进，6 月 15 日空洞没有被当成 blocker。
+      </div>
+      <div class="flow-node">
+        <strong>4. MACD/KDJ 状态跳日</strong>
+        6 月 16 日把 6 月 13 日当上一状态日，技术指标递推被污染。
+      </div>
+      <div class="flow-node">
+        <strong>5. 后续 repair 才恢复</strong>
+        后续通过手工补注册、补数据、重算 qfq 和 MACD/KDJ 才恢复一致。
+      </div>
+    </div>
+
+    <div class="danger">
+      <strong>关键结论：</strong>
+      这不是单日运维缺口，而是系统契约问题。当前链路允许“权威交易日历存在应处理日期，但 dynamic partition 缺失”时继续处理后续日期。
+    </div>
+  </section>
+
+  <section>
+    <h2>3. 治理前代码审计事实与当前状态</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>代码位置</th>
+          <th>治理前事实 / 当前代码事实</th>
+          <th>风险</th>
+          <th>当前收口状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>stock_mins_trade_day_sensor.py</code></td>
+          <td>治理前只在当天是开市日、18:00 后且当天未注册时返回 <code>(today,)</code>；当前已改为复用 calendar-backed catch-up，仍保留 18:00 同日窗口。</td>
+          <td>dg 停机当天不会被后续 tick 自动补注册。</td>
+          <td>M2 已落地；单 tick 小批量补最早缺失 raw trade day。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_trade_day_sensor.py</code></td>
+          <td><code>build_trade_day_partition_registration_result(...)</code> 已能从 <code>silver_trade_calendar</code> 加载历史已完成开市日，并按 <code>MAX_PARTITION_KEYS_PER_TICK = 2</code> 补未注册日期。</td>
+          <td>这是正确能力，但股票分钟线专用注册器没有使用。</td>
+          <td>将股票分钟线 raw 交易日注册收敛到同类 calendar-backed catch-up 口径。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_raw_sensor.py</code></td>
+          <td>治理前用 <code>_latest_registered_trade_date(...)</code> 选最大 registered date；当前已通过 <code>select_first_not_ready_trade_date(...)</code> 选择 raw first-not-ready。</td>
+          <td>如果 6 月 15 日缺失但 6 月 16 日已注册，会直接触发 6 月 16 日 raw。</td>
+          <td>M3 已落地；缺注册先 skip，不提交后续日期。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_silver_trade_day_sensor.py</code></td>
+          <td>治理前选最新 raw registered date；当前按 expected calendar 先检查 raw 注册缺口，再只注册最早可推进 silver partition。</td>
+          <td>raw 分区有中间缺口时，silver 注册可越过缺口。</td>
+          <td>M4 已落地。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_silver_sensor.py</code></td>
+          <td>治理前选最新 silver registered date；当前按 expected calendar + silver registered set 选择 first silver not ready。</td>
+          <td>silver 生成可跳过早期未生成日期。</td>
+          <td>M5 已落地；已 materialized 但 checks 未绿时仍要求人工处理。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_qfq_daily_sensor.py</code></td>
+          <td>治理前选最新 silver registered date；当前按 expected calendar 选择 first qfq not ready，cursor submitted guard 绑定该目标日期。</td>
+          <td>缺口存在时仍可能提交后续 qfq；cursor 不能修复被跳过的前一日。</td>
+          <td>M6 已落地。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_qfq_factor_repair_sensor.py</code></td>
+          <td>治理前选最新 silver registered date；当前按 expected calendar 选择 first qfq factor repair not completed date。</td>
+          <td>factor repair 的目标日和影响范围会建立在不完整日期集合上。</td>
+          <td>M6 已落地。</td>
+        </tr>
+        <tr>
+          <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code></td>
+          <td>治理前从 <code>cn_a_stock_mins_silver_trade_days</code> 找 previous registered；当前 run-status sensor 已改为从 <code>silver_trade_calendar</code> 找 previous expected。</td>
+          <td>如果 6 月 15 日缺失，6 月 16 日上一日会被识别成 6 月 13 日，MACD/KDJ 从错误 state 递推。</td>
+          <td>M7 已落地到 run-status sensor；asset write 层 exact previous state gate 仍待后续 M9。</td>
+        </tr>
+        <tr>
+          <td><code>stk_mins_qfq_factor_repair.py</code></td>
+          <td>治理前 <code>_select_repair_partition_keys(...)</code> 和 <code>_previous_trade_date(...)</code> 都只看 registered partition keys；当前 helper 已改为接收 expected dates，并使用 <code>previous_expected_trade_date(...)</code> 与 <code>assert_expected_dates_registered(...)</code>。</td>
+          <td>qfq repair 比较当前复权因子与“上一 registered 日期”的因子，可能跨过真实交易日缺口。</td>
+          <td>M8 已落地。</td>
+        </tr>
+        <tr>
+          <td><code>gold_stk_mins_qfq_macd_kdj_repair.py</code></td>
+          <td><code>_target_trade_dates(...)</code> 从 registered silver dates 取 <code>&gt;= start_trade_date</code>；上一 state 用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 找任意更早 state。</td>
+          <td>repair 区间也会跳过未注册日期；上一 state 可能不是上一 expected trade date。</td>
+          <td>repair target dates 必须是 expected date range；previous state 必须精确匹配上一 expected trade date。</td>
+        </tr>
+        <tr>
+          <td><code>readiness.py</code> / <code>silver_index_daily_sensor.py</code></td>
+          <td>指数日线已有 <code>select_first_not_ready_silver_index_daily_partition(...)</code> 和 raw gap audit 模式。</td>
+          <td>股票分钟线缺少同等级连续性抽象。</td>
+          <td>复用“连续前缀 + first-not-ready”的思想，但按分钟线五/七频度和 stateful 指标重新设计。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>CodeGraph 影响面：</strong>
+      本次审计覆盖了股票分钟线分区注册、raw/silver/qfq 日更 sensor、qfq factor repair sensor/op、MACD/KDJ daily run-status sensor、MACD/KDJ repair op，以及 index daily 现有 gap audit 参考实现。CodeGraph 显示 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 被 MACD/KDJ 正式资产和 repair op 使用，是必须纳入连续性治理的关键点。
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 根因定义</h2>
+    <div class="cards">
+      <div class="card">
+        <strong>根因一：DynamicPartitions 被误当成权威日历</strong>
+        <p>dynamic partition 只是 Dagster 操作状态，表示“这个分区已注册”。它不能证明市场没有其它应处理交易日。</p>
+      </div>
+      <div class="card">
+        <strong>根因二：目标选择是 latest-driven</strong>
+        <p>多个 sensor 都选择最新 registered date。这种策略适合只关心最新快照的资产，不适合有连续性约束的分钟线链路。</p>
+      </div>
+      <div class="card">
+        <strong>根因三：状态递推没有校验上一 expected day</strong>
+        <p>MACD/KDJ 是状态递推资产，必须从上一真实交易日 state 递推。当前代码允许使用任意更早 state。</p>
+      </div>
+      <div class="card">
+        <strong>根因四：repair 范围从 registered set 推导</strong>
+        <p>qfq factor repair 和 MACD/KDJ repair 都应覆盖 expected date range，不能只覆盖 registered date range。</p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 目标契约</h2>
+    <div class="ok">
+      <strong>最终口径：</strong>
+      股票分钟线链路以权威交易日历为 expected date source，以 dynamic partition 和 readiness 作为运行状态。
+      任何环节发现 expected open day 缺口时，必须停在最早问题日期，不能继续推进后续日期。
+    </div>
+
+    <h3>硬规则</h3>
+    <ol>
+      <li>expected stock mins trade dates 只能来自 <code>silver_trade_calendar</code> 的 <code>SSE</code> 开市日，并受同日运行窗口和历史起点约束。</li>
+      <li><code>cn_a_stock_mins_trade_days</code> 和 <code>cn_a_stock_mins_silver_trade_days</code> 只表示 Dagster 已注册，不表示权威日历。</li>
+      <li>日常 sensor 目标选择必须改为 earliest actionable date / first not ready，不得再用 latest registered date 作为正式目标。</li>
+      <li>如果 expected date 未注册、未 ready 或 blocking checks 不通过，后续日期必须 skip。</li>
+      <li>MACD/KDJ daily 必须要求上一 expected trade date 的 state ready；不得从更早 state 自动跳日递推。</li>
+      <li>qfq factor repair 的 previous trade date 和 selected partition range 必须来自 expected calendar，并校验对应 silver/qfq 事实完整。</li>
+      <li>MACD/KDJ repair 的 target dates 必须来自 expected calendar range；range 内任一日期缺失或不 ready 时 fail closed。</li>
+      <li>run key 治理口径不变：不得解析 run key 反推 config，不引入 storage id，不新增散装手工 repair。</li>
+    </ol>
+    <div class="warning">
+      <strong>当前落地边界：</strong>
+      截至 2026-06-17，raw/silver/qfq 日常 sensor、MACD/KDJ daily run-status sensor、qfq factor repair op/helper 已按上述连续性契约改造。
+      MACD/KDJ daily asset write 与 MACD/KDJ repair op 仍未完成 exact previous expected state / expected range 改造，不能在文档中视为专项已全部收口。
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 设计方案</h2>
+
+    <h3>6.1 新增连续性 gate/helper</h3>
+    <p>已拍板新增一个股票分钟线连续性 gate/helper 模块。它不是 sensor、asset、op、check 或 run contract，而是被 sensor、run-status sensor 和 repair op 共同调用的生产门禁判断组件。</p>
+    <pre><code>lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_continuity.py</code></pre>
+
+    <p>职责：</p>
+    <ul>
+      <li>从 <code>silver_trade_calendar</code> 加载 expected open trade dates。</li>
+      <li>比较 expected dates 与 raw/silver dynamic partitions。</li>
+      <li>返回 earliest missing registered date、first not ready date、previous expected date、contiguous ready frontier 等连续性判断结果。</li>
+      <li>生成小而结构化的 cursor details，避免 cursor 存大数组。</li>
+    </ul>
+
+    <p>放在 <code>defs/asset_guards</code> 的原因：它会被多个 sensor 使用，也会被 qfq factor repair op 和 MACD/KDJ repair op 使用。放在 <code>defs/sensors</code> 会让 op 反向依赖 sensor 包；放在 <code>run_contracts</code> 又不合适，因为它不是纯 run/cursor/metadata 契约，会读取交易日历、dynamic partitions 和 readiness 状态。<code>asset_guards</code> 当前已经承载 stock daily freshness guard、qfq factor repair status、MACD/KDJ repair gate 等同类“能不能继续生产”的判断能力。</p>
+
+    <h3>6.1.1 连续性术语说明</h3>
+    <p>这些术语不是新的业务 ID，也不是要写进 run key 的字段。它们是 continuity helper 给 sensor、run-status sensor 和 repair op 使用的判断结果，用来回答四个白话问题：日历上有没有该处理但没注册的日期、哪个日期最早没处理好、目标日期真正的上一交易日是谁，以及当前连续安全推进到了哪一天。</p>
+
+    <table>
+      <thead>
+        <tr>
+          <th>术语</th>
+          <th>白话含义</th>
+          <th>怎么计算</th>
+          <th>主要用途</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>earliest missing registered date</code><br /><code>first_missing_registered_date</code></td>
+          <td>交易日历里应该有这一天，但对应的 Dagster dynamic partition 还没注册。它是最早的注册缺口。</td>
+          <td>从 expected open trade dates 里，找第一个不在目标 partition set 里的日期。例如 expected 是 <code>06-13, 06-15, 06-16</code>，registered 是 <code>06-13, 06-16</code>，结果就是 <code>06-15</code>。</td>
+          <td>阻止后续 sensor 直接跑 <code>06-16</code>；分区注册 sensor 应优先补这个日期；cursor 和 skip reason 要把它写清楚，方便运营知道缺在哪里。</td>
+        </tr>
+        <tr>
+          <td><code>first not ready date</code><br /><code>first_not_ready_trade_date</code></td>
+          <td>这一天已经进入应处理范围，但对应资产还没 ready，或者已 materialized 但 blocking checks 没全绿。它是最早的数据处理问题点。</td>
+          <td>按 expected dates 从早到晚检查 readiness。第一个 materialization 缺失、check 缺失、check failed 或上游门禁不满足的日期，就是 first not ready date。</td>
+          <td>决定 sensor 的目标日期。raw/silver/qfq 不再找“最新日期”，而是找这个最早未完成日期；如果这一天是失败状态，后续日期全部停止，避免跳洞。</td>
+        </tr>
+        <tr>
+          <td><code>previous expected date</code><br /><code>previous_expected_trade_date</code></td>
+          <td>目标日期在权威交易日历里的上一交易日，不是 dynamic partition 里碰巧存在的上一天。</td>
+          <td>在 expected open trade dates 中找到小于 target 的最后一个日期。例如 target 是 <code>06-16</code>，交易日历里上一交易日是 <code>06-15</code>，即使 <code>06-15</code> 没注册，也不能退回 <code>06-13</code>。</td>
+          <td>给状态递推和 repair 使用。MACD/KDJ daily 必须要求上一 expected date 的 state ready；qfq factor repair 比较上一日复权因子时也必须用它，不能用上一 registered date 代替。</td>
+        </tr>
+        <tr>
+          <td><code>contiguous ready frontier</code><br /><code>ready_through_trade_date</code></td>
+          <td>从治理起点开始，所有应处理交易日都已经注册且 ready，连续安全推进到的最后一天。</td>
+          <td>从 expected dates 起点开始向后扫描，只要每一天都 registered 且 readiness 通过，就推进 frontier；遇到第一个缺注册、缺数据或 checks 不绿的日期就停止。</td>
+          <td>告诉下游“最多只能基于哪一天继续”。例如 frontier 是 <code>06-13</code>，说明 <code>06-16</code> 之前还有缺口，下游不能把 <code>06-16</code> 当成安全目标。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="callout">
+      <strong>例子：</strong>
+      假设交易日历里最近三天是 <code>2026-06-13</code>、<code>2026-06-15</code>、<code>2026-06-16</code>，
+      但 <code>cn_a_stock_mins_silver_trade_days</code> 只有 <code>2026-06-13</code> 和 <code>2026-06-16</code>。
+      那么 <code>first_missing_registered_date</code> 是 <code>2026-06-15</code>，
+      <code>previous_expected_trade_date(2026-06-16)</code> 仍然是 <code>2026-06-15</code>，
+      <code>ready_through_trade_date</code> 最多只能是 <code>2026-06-13</code>。
+      这时任何 qfq、MACD/KDJ 或 repair 都不能继续把 <code>2026-06-16</code> 当作安全目标。
+    </div>
+
+    <p>建议数据结构：</p>
+    <pre><code>StockMinsContinuityStatus
+  expected_start_date: str
+  expected_end_date: str
+  expected_count: int
+  registered_count: int
+  missing_registered_dates: tuple[str, ...]
+  first_missing_registered_date: str | None
+  first_not_ready_trade_date: str | None
+  next_actionable_trade_date: str | None
+  previous_expected_trade_date: str | None
+  ready_through_trade_date: str | None
+  blocked_reason: str | None</code></pre>
+
+    <h3>6.2 交易日注册：从当天注册改为补偿式注册</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>对象</th>
+          <th>现状</th>
+          <th>目标</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>cn_a_stock_mins_trade_days</code></td>
+          <td>18:00 后只注册今天。</td>
+          <td>按 <code>silver_trade_calendar</code> 补齐从起点到 latest completed open day 的缺失分区；同日交易日仍需 18:00 后才注册。</td>
+        </tr>
+        <tr>
+          <td><code>cn_a_stock_mins_silver_trade_days</code></td>
+          <td>19:45 后只看最新 raw registered date。</td>
+          <td>只注册最早 raw ready 且所有前置门禁 ready 的 missing silver partition；前面有缺口时不注册后续日期。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <p>raw trade day 注册优先复用 <code>build_trade_day_partition_registration_result(...)</code> 的思想：交易日历驱动、单 tick 小批量补齐、cursor 可观测。已拍板分区 catch-up 可以小批量补，单 tick 上限按现有口径取 2；股票分钟线需要保留 18:00 窗口，不允许提前注册当日分钟线分区。</p>
+
+    <h3>6.3 日常 sensor：全部改为 frontier-driven</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>Sensor</th>
+          <th>目标选择新口径</th>
+          <th>遇到缺口时</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>stock_mins_raw_sensor</code></td>
+          <td>从 expected raw trade dates 中找最早 registered 但 raw 未 ready 的日期。</td>
+          <td>如果 expected date 未注册，skip 并报告 <code>first_missing_registered_date</code>。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_silver_trade_day_sensor</code></td>
+          <td>从 raw registered dates 中找最早 raw ready 但 silver 未注册的日期。</td>
+          <td>如果更早 raw date 未 ready，不注册后续 silver partition。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_silver_sensor</code></td>
+          <td>从 silver registered dates 中找最早 silver 未 ready 的日期。</td>
+          <td>如果更早 silver materialized 但 checks 未绿，停止自动重跑，要求人工处理。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_qfq_daily_sensor</code></td>
+          <td>从 silver contiguous ready frontier 中找最早 qfq 未 ready 日期。</td>
+          <td>如果 silver 或 adj factor 前置门禁缺失，停止在该日期。</td>
+        </tr>
+        <tr>
+          <td><code>stock_mins_qfq_factor_repair_sensor</code></td>
+          <td>从 qfq contiguous ready frontier 中找最早 factor repair status 未完成日期。</td>
+          <td>如果 qfq 未 ready 或已有 materialized check problem，停止。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>6.4 MACD/KDJ daily：上一日必须是上一 expected trade date</h3>
+    <p>run-status sensor 继续监听同日 <code>stock_mins_qfq_daily_update_job</code> 与 <code>stock_mins_qfq_factor_repair_job</code> 成功，但在提交 MACD/KDJ daily 前必须新增连续性门禁：</p>
+    <ul>
+      <li>从交易日历获取 <code>previous_expected_trade_date(target_trade_date)</code>。</li>
+      <li>如果 target 是 baseline 之后第一个日常分区，可按既有 baseline 口径处理。</li>
+      <li>否则必须检查上一 expected date 的 MACD/KDJ state readiness。</li>
+      <li>如果上一 expected state 不存在，返回 <code>SkipReason</code>，不得回退到更早 state。</li>
+    </ul>
+
+    <div class="danger">
+      <strong>禁止行为：</strong>
+      不允许把 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 的“任意更早 state”当作日常递推的上一状态。
+      该函数可以保留为低层文件发现能力，但正式 daily/repair 门禁必须先证明上一 expected state 存在。
+    </div>
+
+    <h3>6.5 qfq factor repair：上一日与范围必须来自 expected calendar</h3>
+    <p><code>execute_gold_stk_mins_qfq_factor_repair(...)</code> 已在 M8 改为接收 expected dates，previous date 和 selected range 不再从 registered partitions 推导。正式口径：</p>
+    <ul>
+      <li><code>previous_trade_date</code> 改为上一 expected open trade date。</li>
+      <li><code>selected_partition_keys</code> 必须等于 expected range 内已注册且 ready 的完整集合。</li>
+      <li>如果 expected range 中有日期未注册，直接失败且不生成 repair metadata；source qfq/silver 不满足既有事实检查时继续 fail closed。</li>
+      <li>repair metadata 中仍使用已完成的 <code>upstream_batch_id</code> 口径，不引入 event storage id。</li>
+    </ul>
+
+    <h3>6.6 MACD/KDJ repair：修复区间不能跳过 expected date</h3>
+    <p>repair op 当前从 registered silver dates 得到 target dates。目标口径：</p>
+    <ul>
+      <li>target dates 来自 <code>expected_trade_dates[start_trade_date, repair_end_trade_date]</code>。</li>
+      <li>range 内每个 expected date 都必须有对应 qfq source ready。</li>
+      <li>上一 state 必须是 <code>previous_expected_trade_date(start_trade_date)</code> 的 state；没有则 fail closed，除非是正式 baseline 起点。</li>
+      <li>completion metadata 继续只写 <code>source_upstream_batch_id</code>。</li>
+    </ul>
+
+    <h3>6.7 Cursor 与可观测性</h3>
+    <p>Dagster sensor cursor 应保持小而结构化。连续性状态建议只写摘要和样本：</p>
+    <pre><code>{
+  "target_date": "2026-06-15",
+  "decision": "skip",
+  "selected_count": 0,
+  "blocked_count": 1,
+  "details": {
+    "expected_start_date": "2026-06-13",
+    "expected_end_date": "2026-06-16",
+    "first_missing_registered_date": "2026-06-15",
+    "missing_registered_date_samples": ["2026-06-15"],
+    "ready_through_trade_date": "2026-06-13",
+    "next_actionable_trade_date": null
+  }
+}</code></pre>
+
+    <p>这能让 UI 和 tick history 直接说明为什么没有提交后续 run，而不是只显示“最新日期已 ready”。</p>
+  </section>
+
+  <section>
+    <h2>7. 实施里程碑与剩余任务</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>阶段</th>
+          <th>目标</th>
+          <th>主要改动</th>
+          <th>当前状态</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>M1</td>
+          <td>连续性 helper 与测试</td>
+          <td>新增 expected calendar / continuity status / first-not-ready selector 的纯函数与单元测试。</td>
+          <td>已落地，覆盖 “6 月 13、6 月 16 已注册但 6 月 15 缺失” 的 first gap。</td>
+        </tr>
+        <tr>
+          <td>M2+M3</td>
+          <td>raw 分区注册补偿 + raw run first-not-ready</td>
+          <td>改造 <code>stock_mins_trade_day_sensor</code> 与 <code>stock_mins_raw_sensor</code>。</td>
+          <td>已落地；dg 停机后恢复时先补最早缺失 raw trade day，raw run 不越过缺口。</td>
+        </tr>
+        <tr>
+          <td>M4+M5</td>
+          <td>silver continuity</td>
+          <td>改造 <code>stock_mins_silver_trade_day_sensor</code> 和 <code>stock_mins_silver_sensor</code>。</td>
+          <td>已落地；silver 注册和运行都不越过 raw/silver 缺口。</td>
+        </tr>
+        <tr>
+          <td>M6</td>
+          <td>qfq daily / qfq factor repair sensors</td>
+          <td>改造 <code>stock_mins_qfq_daily_sensor</code> 与 <code>stock_mins_qfq_factor_repair_sensor</code>。</td>
+          <td>已落地；目标从 latest silver registered 改为 first qfq not ready / first repair not completed。</td>
+        </tr>
+        <tr>
+          <td>M7</td>
+          <td>MACD/KDJ daily run-status previous expected</td>
+          <td>改造 <code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code>。</td>
+          <td>已落地；run-status sensor 不再用 previous registered。</td>
+        </tr>
+        <tr>
+          <td>M8</td>
+          <td>qfq factor repair expected calendar</td>
+          <td>改造 <code>stock_mins_qfq_factor_repair_op</code> 与 <code>execute_gold_stk_mins_qfq_factor_repair(...)</code>。</td>
+          <td>已落地；previous date 和 selected range 来自 expected calendar。</td>
+        </tr>
+        <tr>
+          <td>后续 M9</td>
+          <td>MACD/KDJ asset write exact previous state</td>
+          <td>改造 <code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code>，避免 UI 手工 materialize 绕过 sensor。</td>
+          <td>未完成；当前代码仍调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</td>
+        </tr>
+        <tr>
+          <td>后续 M10</td>
+          <td>MACD/KDJ repair expected range</td>
+          <td>改造 <code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 的 target range 与 previous state gate。</td>
+          <td>未完成；当前 repair op 仍按 registered silver dates 与任意更早 state 推进。</td>
+        </tr>
+        <tr>
+          <td>最终收口</td>
+          <td>最终收口</td>
+          <td>补齐静态门禁、文档对账、专项测试和 orchestrator 全量本地 pytest。</td>
+          <td>未完成；必须在后续 M9/M10 代码完成后执行。</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <div class="warning">
+      <strong>阶段命名说明：</strong>
+      这些阶段只是本文的推进阶段，不允许进入正式代码的函数名、文件名、asset/job/sensor 名称。
+    </div>
+  </section>
+
+  <section>
+    <h2>8. 测试与验收计划</h2>
+    <h3>必须新增或调整的测试</h3>
+    <p>以下测试清单中，raw/silver/qfq/qfq factor repair/MACD run-status/qfq factor repair op 相关项已随 M1-M8 落地；MACD/KDJ asset write、MACD/KDJ repair op 和最终全量回归仍待后续阶段完成。</p>
+    <ul>
+      <li>交易日注册测试：停机错过 <code>2026-06-15</code> 后，下一 tick 先补 <code>2026-06-15</code>，而不是只注册 <code>2026-06-16</code>。</li>
+      <li>raw sensor 测试：registered set 缺 <code>2026-06-15</code> 时，不提交 <code>2026-06-16</code> run。</li>
+      <li>顺序保护测试：<code>2026-06-15</code> run 未完成时，即使 <code>2026-06-16</code> 已经通过 catch-up 注册，也不得提交 <code>2026-06-16</code> 的下游 run。</li>
+      <li>silver trade day sensor 测试：raw <code>2026-06-15</code> 未 ready 时，不注册 <code>2026-06-16</code> silver partition。</li>
+      <li>silver/qfq/factor repair sensor 测试：选择第一个未 ready / 未完成日期，不选择最新日期。</li>
+      <li>MACD/KDJ daily 测试：target <code>2026-06-16</code> 必须要求 <code>2026-06-15</code> state ready；只有 <code>2026-06-13</code> state 时 skip。</li>
+      <li>qfq factor repair 测试：上一 expected trade date 缺失时，不允许用上一 registered date 代替。</li>
+      <li>MACD/KDJ repair op 测试：expected range 内缺日期或 qfq source 缺失时失败，不写 completion metadata。</li>
+    </ul>
+
+    <h3>本地验证边界</h3>
+    <ul>
+      <li>默认只跑纯本地 pytest，不运行 <code>dg</code>。</li>
+      <li>不读取正式 <code>DAGSTER_HOME</code>，不触碰正式 lake。</li>
+      <li>如需正式 Dagster run history 只读审计，必须另行列命令和审批。</li>
+    </ul>
+
+    <h3>建议测试命令</h3>
+    <pre><code>cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stk_mins_raw_m4_contracts.py \
+  tests/test_stk_mins_silver_m6g_sensor_contracts.py \
+  tests/test_stk_mins_qfq_m9a_sensor_contracts.py \
+  tests/test_stk_mins_qfq_m9c_sensor_contracts.py \
+  tests/test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py \
+  tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code></pre>
+
+    <p>最终收口阶段再执行 orchestrator 全量本地 pytest。</p>
+  </section>
+
+  <section>
+    <h2>9. 停手机制</h2>
+    <p>实现阶段遇到以下情况必须停下汇报，不得靠补丁绕过：</p>
+    <ol>
+      <li>发现某个股票分钟线下游必须允许越过 expected trade date 缺口才能生产。</li>
+      <li>发现 <code>silver_trade_calendar</code> 对股票分钟线 expected date 的定义不可靠。</li>
+      <li>发现需要新增数据库表、summary asset、readiness asset 或正式配置项才能推进。</li>
+      <li>发现必须读取正式 Dagster instance 才能判断代码契约。</li>
+      <li>发现 qfq factor repair 或 MACD/KDJ repair 必须恢复无上游 batch 的散装修复路径。</li>
+      <li>发现实现会改变 run key 治理已完成的五条最终验收口径。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>10. 与既有治理成果的关系</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>既有专项</th>
+          <th>关系</th>
+          <th>不得破坏的口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Run key 治理</td>
+          <td>本专项只改目标日期选择、连续性 gate 和 repair date range，不改 run key identity。</td>
+          <td>所有正式 run key 仍经统一 builder；禁止解析 run key 生成 config。</td>
+        </tr>
+        <tr>
+          <td>upstream batch id</td>
+          <td>MACD/KDJ repair 仍只能消费真实 qfq factor repair upstream batch。</td>
+          <td>不恢复 event storage id completion identity，不恢复散装手工 repair。</td>
+        </tr>
+        <tr>
+          <td>Asset schema contract</td>
+          <td>本专项不改资产字段契约。</td>
+          <td>不得把连续性状态塞进正式 parquet 字段；应通过 sensor cursor、metadata 或 checks 表达。</td>
+        </tr>
+        <tr>
+          <td>Index daily gap audit</td>
+          <td>可借鉴 first-not-ready 与 gap audit 思路。</td>
+          <td>不能直接套用指数 code-by-code 语义到股票分钟线五/七频度和 stateful 指标。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>11. 已拍板事项</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>编号</th>
+          <th>事项</th>
+          <th>已拍板口径</th>
+          <th>影响</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td class="nowrap">D1</td>
+          <td>本专项是否只覆盖股票分钟线链路，还是同时治理 <code>cn_a_stock_current_trade_days</code> 等 current trade day 专用分区。</td>
+          <td>先只覆盖股票分钟线链路；current trade day 单独审计。</td>
+          <td>避免扩大到复权因子、股票基础等资产族，保持一轮一个清晰目标。</td>
+        </tr>
+        <tr>
+          <td class="nowrap">D2</td>
+          <td><code>cn_a_stock_mins_trade_days</code> 的补偿式注册是否直接复用 <code>build_trade_day_partition_registration_result(...)</code>。</td>
+          <td>复用其 calendar-backed catch-up 口径，但保留股票分钟线 18:00 同日窗口和独立 partition set。</td>
+          <td>减少重复实现；需要补足股票分钟线专属测试。</td>
+        </tr>
+        <tr>
+          <td class="nowrap">D3</td>
+          <td>股票分钟线连续性 helper 放置位置与命名。</td>
+          <td>新增 <code>orchestrator.defs.asset_guards.stk_mins_continuity</code>。它是股票分钟线连续性 gate/helper，不是 sensor；先服务 sensor、run-status sensor 与 repair op gate。</td>
+          <td>避免 op 反向依赖 <code>defs/sensors</code>；同类生产门禁能力收敛到 <code>asset_guards</code>，名称稳定表达业务对象，避免 <code>utils/common</code>。</td>
+        </tr>
+        <tr>
+          <td class="nowrap">D4</td>
+          <td>每个 sensor tick 最多补/提交多少个日期。</td>
+          <td>partition catch-up 可以小批量补，单 tick 上限取 2；run 提交永远只按 first not ready / ready frontier 推进；writer pool 和 run key 继续兜住同一资产族并发。</td>
+          <td>注册可以提前知道日期存在，但执行必须等连续 ready；测试必须覆盖 <code>2026-06-15</code> run 未完成时，即使 <code>2026-06-16</code> 已注册，也不会提交 <code>2026-06-16</code> 的下游 run。</td>
+        </tr>
+        <tr>
+          <td class="nowrap">D5</td>
+          <td>MACD/KDJ baseline 起点如何定义。</td>
+          <td>沿用现有正式 baseline cutoff；只有 baseline 之后的日常日期必须要求上一 expected state。</td>
+          <td>避免误判历史初始化之前没有上一 state 的正常情况。</td>
+        </tr>
+        <tr>
+          <td class="nowrap">D6</td>
+          <td>缺口 audit 是否做成正式 asset check。</td>
+          <td>第一阶段不做正式 asset check，先做 continuity gate + cursor 可观测；是否新增 blocking asset check 作为后续增强单独设计。</td>
+          <td>避免未经确认新增 Dagster definitions；先把“不能跳洞执行”根问题解决。若未来需要 Dagster UI 长期红绿灯，再单独设计正式 continuity asset check。</td>
+        </tr>
+        <tr>
+          <td class="nowrap">D7</td>
+          <td>遇到中间日期已 materialized 但 blocking checks 未绿时是否自动重跑。</td>
+          <td>不自动重跑；继续沿用现有“已生成但 checks 未绿时人工处理”的安全口径。</td>
+          <td>降低覆盖写风险，保持已有运维语义。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>

@@ -640,7 +640,7 @@
           <td><span class="tag silver">silver</span></td>
           <td><code>cn_a_stock_mins_silver_trade_days</code></td>
           <td>提交 <code>01d25486</code> 已接入 silver 标准化 helper、正式 silver assets 与 10 个 blocking checks；依赖对应 raw、<code>silver_stock_identity_map</code>、日线、停牌、stock basic 和 namechange，粗频度额外依赖 1m raw。</td>
-          <td>已新增 <code>stock_mins_silver_update_job</code>，selection 只包含五个 silver assets + silver checks；M6 已完成历史 silver 文件生成与 runless event 补录，M6F 已修正 silver 分区定义并新增只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>；M6G 已新增 <code>stock_mins_silver_sensor</code>，只在 19:50 后对最新已注册 silver 日期触发 silver job，不由 raw job 顺手生成。</td>
+          <td>已新增 <code>stock_mins_silver_update_job</code>，selection 只包含五个 silver assets + silver checks；M6 已完成历史 silver 文件生成与 runless event 补录，M6F 已修正 silver 分区定义并新增只注册分区的 <code>stock_mins_silver_trade_day_sensor</code>；连续性治理后，<code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code> 都按 expected calendar + first-not-ready 推进，不越过 raw/silver 缺口，不由 raw job 顺手生成。</td>
           <td>股票分钟线标准事实；做代码映射、停牌全 0 删除、1m 修正、粗频度重算、成交量/成交额和 exchange 归一，不做 qfq。</td>
         </tr>
         <tr>
@@ -1169,7 +1169,7 @@
    - Tushare merge_repair is implemented as a manual raw asset run config, not as a sensor path
    - silver_stk_mins_1m/5m/15m/30m/60m assets and checks are implemented
    - stock_mins_silver_update_job is implemented as the silver-only daily entry
-   - stock_mins_silver_sensor triggers the silver job for the latest registered silver partition after 19:50
+   - stock_mins_silver_sensor triggers the silver job for the first silver not ready partition after 19:50; it no longer uses latest registered silver as the formal target
    - silver historical generation, runless events and 2014+ silver partition registration are completed
    - gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m assets are implemented
    - gold qfq blocking checks are implemented with one multi_asset_check per freq; native and derived check contracts are split

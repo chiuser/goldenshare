@@ -34,6 +34,24 @@ Dagster `run_key` 只用于 sensor / schedule 提交 `RunRequest` 时的幂等�
 7. M7 后 legacy bridge 已退出；旧 event storage id 字段不得进入生产代码的 run key、run config、upstream batch id payload 或 completion identity，也不得恢复只读旧 completion metadata 防重复逻辑。测试只允许保留负向断言或静态门禁样本。
 8. 修改 run key 口径时，必须同步更新 `lake_console/docs/design/dagster-run-key-governance-optimization-plan.md` 和 `lake_console/docs/design/dagster-run-key-governance-low-level-design.md`。
 
+## 股票分钟线连续性规范
+
+股票分钟线 raw / silver / qfq 日常链路必须以交易日历 expected dates 作为权威日期来源，dynamic partitions 只表示 Dagster 已注册状态，不能替代权威交易日历。
+
+已落地规则：
+
+1. 股票分钟线日常 sensor 不得用 latest registered partition 作为正式目标；目标必须来自 expected calendar + first missing registered / first not ready / first repair not completed 口径。
+2. `stock_mins_trade_day_sensor` 保留 18:00 同日注册窗口，但停机恢复后必须能按 expected calendar 补最早缺失 raw trade day。
+3. `stock_mins_silver_trade_day_sensor`、`stock_mins_silver_sensor`、`stock_mins_qfq_daily_sensor`、`stock_mins_qfq_factor_repair_sensor` 不得越过更早 expected date 的注册缺口、未 ready 状态或 blocking check failure。
+4. qfq factor repair op/helper 的 previous date 与 selected repair range 必须来自 expected calendar；不得恢复 registered-only 的 `_previous_trade_date(...)` 或 `_select_repair_partition_keys(...)` 口径。
+5. 已 materialized 但 blocking checks 未绿的股票分钟线目标日期，不得自动重跑并推进后续日期；必须按现有人工处理口径 fail/skip closed。
+
+专项剩余项：
+
+1. MACD/KDJ daily asset write 仍需从“任意更早 state”改为 exact previous expected state gate。
+2. MACD/KDJ repair op 仍需从 registered target dates 改为 expected range + exact previous expected state gate。
+3. 上述两项完成前，不得把连续性专项写成最终完成；设计文档必须保留剩余任务说明。
+
 ## Asset Schema Contract 与 Metadata 规范
 
 正式 Dagster asset 的稳定字段契约必须在 asset definition metadata 中注册，禁止只靠某次 materialization metadata 承载。
