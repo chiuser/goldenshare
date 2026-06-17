@@ -1783,13 +1783,13 @@ raw_stock_daily_update_job_sensor / silver_stock_daily_update_job_sensor:
     <div class="warning">
       <strong>run_key 失败重跑坑：</strong>
       历史 <code>历史 quote 日频验证入口</code> 入口曾使用 <code>run_key=f"quote_daily:{key}"</code> 作为防重复门禁。
-      <code>Slice 2.2.1d</code> 后正式入口使用 <code>run_key=f"stock_daily_update:{key}"</code>。
+      <code>Slice 2.2.1d</code> 后正式入口的稳定字符串为 <code>stock_daily_update:{key}</code>；当前代码必须通过统一 run key builder 生成该字符串，不能在 sensor 中手写 f-string。
       Dagster 会认为同一个 sensor
       run key 已经提交过，即使对应 run 最终失败，后续 sensor tick 也会跳过同一 run key。
       本次重启 sensor 后，tick 被标记为 <code>SKIPPED</code>，日志为
       “already completed with run keys: quote_daily:2026-05-18, quote_daily:2026-05-19”。
       因此不要为了补跑而修改 run key 规则；需要补跑时应使用 Dagster UI、手动 partition run 或后续明确设计的重试流程。
-      新 job 使用 <code>stock_daily_update:{trade_date}</code> 作为稳定 run key 前缀；
+      新 job 使用 <code>stock_daily_update:{trade_date}</code> 作为稳定 run key 前缀，当前代码通过统一 run key builder 生成；
       历史 <code>quote_daily:{trade_date}</code> 只作为旧入口的事实记录保留。
     </div>
 
@@ -2074,7 +2074,7 @@ stock daily assets:
         </tr>
         <tr>
           <td>重复运行防护</td>
-          <td>短期靠 sensor <code>run_key=f"stock_daily_update:{key}"</code> 防重复；长期要依赖 automation 的 missing 状态和 Dagster run 状态。</td>
+          <td>短期靠 sensor 提交稳定字符串 <code>stock_daily_update:{key}</code> 防重复；当前代码必须通过统一 run key builder 生成该字符串。长期要依赖 automation 的 missing 状态和 Dagster run 状态。</td>
           <td>中</td>
           <td>迁移时要先小范围验证同一天不会被 sensor 和 automation 同时提交 run。</td>
         </tr>

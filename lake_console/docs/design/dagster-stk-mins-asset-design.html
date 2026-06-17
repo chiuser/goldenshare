@@ -1169,7 +1169,7 @@ ops:
       </tr>
       <tr>
         <td>RunRequest</td>
-        <td>使用统一 helper：<code>build_run_request(run_key=f"stock_mins_silver_update:{trade_date}", partition_key=trade_date)</code>；不写 run config，不写 run tags。</td>
+        <td>使用统一 helper：<code>build_run_request(run_key=build_asset_update_run_key(subject="stock_mins_silver_update", unit_id=trade_date), partition_key=trade_date)</code>；run key 由 <code>run_contracts/run_keys.py</code> builder 生成，不手写 f-string；不写 run config，不写 run tags。</td>
         <td><code>stock_mins_silver_update_job</code> 不需要外部 config；<code>run_key</code> 负责跨 tick 去重；分类信息只写 sensor definition tags，不写到 run tags。</td>
       </tr>
       <tr>

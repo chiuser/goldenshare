@@ -53,7 +53,7 @@ M7 只做 legacy bridge 退出和文档/静态门禁收口；M8 只做本地完�
 | 资产更新 | `raw_stock_daily_update:{trade_date}`、`silver_index_daily:{trade_date}`、`index_daily:{trade_date}:{index_code}` | 各 sensor 手写模板 | `build_asset_update_run_key(...)` |
 | 有界修复尝试 | `raw_stock_daily_update:{trade_date}:missing_code_repair:{hash}:{attempt}`、`index_daily:{trade_date}:{index_code}:repair:{evaluation_date}:{attempt}` | repair 维度各自命名，attempt 口径散落 | `build_repair_attempt_run_key(...)` |
 | 上游触发下游 | `gold_stk_mins_qfq_macd_kdj_repair:{target_trade_date}:{repair_required_codes_hash}:{qfq_event_identity}` | 暴露上游内部 hash 和 event storage ids，下游 key 过长 | `build_upstream_triggered_run_key(...)` |
-| 上游批次 ID | 当前无统一能力，前复权分钟线 MACD/KDJ 修复用 event storage ids 拼 identity | 没有正式 opaque batch id | `build_batch_id(...)` |
+| 上游批次 ID | 治理前无统一能力，前复权分钟线 MACD/KDJ 修复用 event storage ids 拼 identity | 没有正式 opaque batch id | `build_batch_id(...)` |
 
 ## 4. 目标 API 形态
 
@@ -227,7 +227,7 @@ digest 生成要求：
 
 ## 5. 前复权分钟线 MACD/KDJ 修复目标口径
 
-当前 run key：
+治理前 run key：
 
 ```text
 gold_stk_mins_qfq_macd_kdj_repair:{target_trade_date}:{repair_required_codes_hash}:{qfq_event_identity}
@@ -278,7 +278,7 @@ payload:
 
 本节是当前正式 sensor run key 的全量迁移清单。除前复权分钟线 MACD/KDJ 修复切换为 `upstream_batch_id` 外，其它普通 asset update 与 repair attempt 必须保持现有输出字符串不变，只把字符串生成迁移到统一 builder。
 
-| 当前 run key 模板 | 所属场景 | 目标 builder | 固定身份口径 | 切换口径 |
+| 治理前/兼容 run key 模板 | 所属场景 | 目标 builder | 固定身份口径 | 切换口径 |
 | --- | --- | --- | --- | --- |
 | `raw_stock_basic_update:{trade_date}` | 股票基础 raw 日更 | `build_asset_update_run_key` | `subject=raw_stock_basic_update`，`unit_id=trade_date` | 保持字符串不变 |
 | `silver_stock_basic_update:{trade_date}` | 股票基础 silver 日更 | `build_asset_update_run_key` | `subject=silver_stock_basic_update`，`unit_id=trade_date` | 保持字符串不变 |

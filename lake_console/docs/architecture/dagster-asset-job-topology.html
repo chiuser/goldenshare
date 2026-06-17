@@ -895,7 +895,7 @@
           <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code></td>
           <td><code>gold_stk_mins_qfq_macd_kdj_1m/5m/15m/30m/60m/90m/120m</code> 与对应 state assets + checks</td>
           <td>单个交易日七频度 qfq MACD/KDJ indicator/state 日常更新。</td>
-          <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 通过 run-status coordination 触发；sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。若 qfq repair 无历史重写，可继续用上一交易日 state；若有历史重写，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。M12L 口径下，普通 qfq event/check reconciliation 不阻塞当天 M12 daily。</td>
+          <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor</code> 通过 run-status coordination 触发；sensor 必须等待同日 qfq daily 与 qfq factor repair 都成功。若 qfq repair 无历史重写，可继续用上一交易日 state；若有历史重写，daily 先作为受控 pending-repair run 执行，随后由 M12 repair sensor 自动触发 scoped repair。旧普通 qfq event/check reconciliation 入口已撤销、不保留，不阻塞当天 M12 daily。</td>
           <td>只 selection M12 indicator/state assets 与 checks；不触发 qfq daily 或 qfq factor repair。asset 写入函数必须有同一 repair gate guard，防止人工 run 绕过 sensor。</td>
         </tr>
         <tr>

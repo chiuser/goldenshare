@@ -449,8 +449,8 @@
         </tr>
         <tr>
           <td>RunRequest</td>
-          <td>sensor 必须通过 <code>build_run_request(...)</code> 创建 run request。</td>
-          <td>禁止在 sensor 文件里直接写 <code>dg.RunRequest(...)</code>、<code>tags={...}</code> 或 <code>run_tags={...}</code>；第一版不定义项目自定义 run tags。</td>
+          <td>sensor 必须通过 <code>build_run_request(...)</code> 创建 run request；正式 run key 必须由 <code>run_contracts/run_keys.py</code> 的 builder 生成。</td>
+          <td>禁止在 sensor 文件里直接写 <code>dg.RunRequest(...)</code>、手写 run key 模板、<code>tags={...}</code> 或 <code>run_tags={...}</code>；第一版不定义项目自定义 run tags。</td>
         </tr>
         <tr>
           <td>Run config</td>
@@ -981,7 +981,7 @@ dataset_update_job = dg.define_asset_job(
 
     <div class="danger">
       <strong>sensor 代码门禁：</strong>
-      sensor 文件不得直接构造 <code>RunRequest</code>，不得写 <code>tags</code> / <code>run_tags</code>，不得自行 <code>json.dumps</code> / <code>json.loads</code> cursor，且不得裸写深层 <code>ops</code> run config。需要提交 run 时使用 <code>build_run_request(...)</code>；需要记录诊断时使用 <code>build_sensor_cursor(...)</code>。
+      sensor 文件不得直接构造 <code>RunRequest</code>，不得手写 run key 模板，不得写 <code>tags</code> / <code>run_tags</code>，不得自行 <code>json.dumps</code> / <code>json.loads</code> cursor，且不得裸写深层 <code>ops</code> run config。需要提交 run 时使用 <code>build_run_request(...)</code>，且 run key 必须来自 <code>run_contracts/run_keys.py</code> builder；需要记录诊断时使用 <code>build_sensor_cursor(...)</code>。
     </div>
   </section>
 
@@ -1139,7 +1139,7 @@ git status --short</code></pre>
         <tr><td>deps</td><td>asset deps 表达真实输入；check additional_deps 表达质量依赖。</td><td>□</td></tr>
         <tr><td>job</td><td>job 只做 selection；共享基础资产有唯一写入口。</td><td>□</td></tr>
         <tr><td>run config</td><td>手动入口使用 typed config 和业务动作字段；sensor 与 UI 共用 builder，不裸写深层 dict。</td><td>□</td></tr>
-        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义；RunRequest 和 cursor 都通过治理 helper 构造。</td><td>□</td></tr>
+        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义；RunRequest 通过 <code>build_run_request(...)</code> 构造，run key 通过统一 builder 构造，cursor 通过治理 helper 构造。</td><td>□</td></tr>
         <tr><td>run tags</td><td>没有新增项目自定义 run tags；如确需新增，已先登记治理文档并补静态门禁。</td><td>□</td></tr>
         <tr><td>bootstrap</td><td>如需旧湖迁移，spec、legacy links、清理边界已记录。</td><td>□</td></tr>
         <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
@@ -1167,7 +1167,7 @@ git status --short</code></pre>
       <li>恢复测试中的手写 <code>ASSET_CONTRACTS</code>、<code>ASSET_PATH_TEMPLATES</code> 或其它隐形 catalog。</li>
       <li>在 asset decorator 里手写 <code>path_template</code> 字符串。</li>
       <li>在 materialization/check metadata 里裸写 <code>path</code>、<code>row_count</code>、<code>columns</code>、<code>source_api</code>、<code>data_contract</code> 等旧 key。</li>
-      <li>sensor 直接写 <code>RunRequest</code>、自定义 run tags、深层 <code>ops</code> config 或本地 JSON cursor。</li>
+      <li>sensor 直接写 <code>RunRequest</code>、手写 run key、自定义 run tags、深层 <code>ops</code> config 或本地 JSON cursor。</li>
       <li>把 WARN check 失败静默吞掉。</li>
       <li>用 sensor 一次性触发大量历史分区。</li>
       <li>把旧湖路径写入新湖 parquet 字段。</li>

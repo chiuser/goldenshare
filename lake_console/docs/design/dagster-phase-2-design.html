@@ -1614,7 +1614,13 @@ raw file:
 ]
 
 for partition_key in missing_partition_keys:
-  build_run_request(partition_key=partition_key, run_key=f"stock_daily_update:{partition_key}")
+  build_run_request(
+    partition_key=partition_key,
+    run_key=build_asset_update_run_key(
+      subject="stock_daily_update",
+      unit_id=partition_key,
+    ),
+  )
 
 每个 run 内部只生成一个 Tushare daily 请求：
 2026-05-13 -> {"trade_date": "20260513"}

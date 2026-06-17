@@ -258,7 +258,7 @@
       本文档定义 Goldenshare Lake Dagster 项目中 tags、run config、metadata 与 sensor cursor 的语义边界、命名空间、字段准入规则和第一版最小字段集合。它是后续代码审计和逐项整改的依据；任何真实代码变更都必须按对应 milestone 单独实施和验证。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>文档状态</strong>治理专项第一轮已收口；M1-M8 与 sensor definition tags 已实施</div>
+      <div class="chip"><strong>文档状态</strong>Run Contract 治理第一轮已收口；Run Key 治理 M1-M9 与 sensor definition tags 已实施</div>
       <div class="chip"><strong>适用范围</strong><code>lake_console/orchestrator</code> Dagster definitions</div>
       <div class="chip"><strong>非目标</strong>不新增通知聚合策略，不新增 Dagster 执行动作，不运行正式 Dagster instance</div>
       <div class="chip"><strong>更新日期</strong>2026-05-30</div>
@@ -268,7 +268,7 @@
   <section>
     <h2>1. 背景与问题</h2>
     <p>
-      治理启动前，项目已经出现 tags、run config、metadata 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code>，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。M1-M8 已先处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层、cursor 标准化和静态门禁；后续已补充 sensor definition tags，用于 Automation 页面搜索和过滤。
+      治理启动前，项目已经出现 tags、run config、metadata、run key 与 cursor 语义混杂的问题。典型表现是：sensor 手写 <code>RunRequest</code> 和 run key，不同文件各自发明 tag key；下游 readiness 反向解析历史 run config；automation sensor 与普通 sensor 使用不同触发标签；materialization metadata 中也混入部分本应属于定义层或运行层的信息。Run Contract 治理第一轮已处理 run tags、指数日线主入口 config、asset tags、中文名、metadata 分层、cursor 标准化和静态门禁；Run Key 治理 M1-M9 已补齐统一 run key builder、禁止直接 <code>RunRequest</code>、禁止解析 run key 反推 config、禁止旧 storage id completion identity 回流；后续已补充 sensor definition tags，用于 Automation 页面搜索和过滤。
     </p>
     <p>
       这不是代码风格问题，而是运行契约问题。如果不先定义边界，后续 asset、job、sensor 数量增加后，每个新增入口都会继续扩散一组临时 tags/config，通知、readiness、并发、审计都会被这些局部口径拖住。
