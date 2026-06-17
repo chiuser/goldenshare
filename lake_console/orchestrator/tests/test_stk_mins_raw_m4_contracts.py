@@ -63,7 +63,6 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     _cursor_payload as build_stock_mins_silver_trade_day_cursor,
 )
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
-    _latest_registered_raw_trade_date,
     build_stock_mins_silver_trade_day_registration_decision,
 )
 
@@ -1327,18 +1326,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START.isoformat(),
             "19:45:00",
         )
-
-    def test_latest_registered_raw_trade_date_uses_latest_not_after_today(
-        self,
-    ) -> None:
-        self.assertEqual(
-            _latest_registered_raw_trade_date(
-                ("2013-12-31", "2014-01-02", "2026-05-29", "2026-05-30"),
-                EVALUATED_AT,
-            ),
-            "2026-05-29",
-        )
-        self.assertIsNone(_latest_registered_raw_trade_date(("2013-12-31",), EVALUATED_AT))
 
     def test_stock_mins_sensor_detects_materialized_check_problem(self) -> None:
         self.assertTrue(

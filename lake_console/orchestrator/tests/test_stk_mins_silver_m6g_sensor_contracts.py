@@ -14,7 +14,6 @@ from orchestrator.defs.sensors.stock_mins_silver_sensor import (
 )
 from orchestrator.defs.sensors.stock_mins_silver_sensor import (
     _has_materialized_check_problem,
-    _latest_registered_silver_trade_date,
     _run_request_for_trade_date,
     build_stock_mins_silver_update_decision,
 )
@@ -74,18 +73,6 @@ def _dataset_status(
 
 
 class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
-    def test_latest_registered_silver_trade_date_uses_latest_not_after_today(self) -> None:
-        self.assertEqual(
-            _latest_registered_silver_trade_date(
-                ("2026-05-28", "2026-05-29", "2026-05-30"),
-                EVALUATED_AT,
-            ),
-            "2026-05-29",
-        )
-        self.assertIsNone(
-            _latest_registered_silver_trade_date(("2026-05-30",), EVALUATED_AT)
-        )
-
     def test_decision_skips_before_window_and_without_partition(self) -> None:
         no_partition = build_stock_mins_silver_update_decision(
             target_trade_date=None,

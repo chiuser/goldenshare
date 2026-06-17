@@ -3,13 +3,23 @@ from datetime import datetime, time
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    StockMinsContinuityStatus,
+    build_registered_gap_status,
+    load_stock_mins_expected_trade_dates,
+)
 from orchestrator.defs.partitions import (
     cn_a_stock_mins_silver_trade_days,
     cn_a_stock_mins_trade_days,
 )
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
+)
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_CONTINUITY_WINDOW_LIMIT,
+    STK_MINS_SILVER_HISTORY_START_DATE,
 )
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
@@ -31,7 +41,6 @@ from orchestrator.defs.sensors.readiness import (
 
 
 STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START = time(19, 45)
-STOCK_MINS_SILVER_HISTORY_START_DATE = "2014-01-01"
 
 
 @dataclass(frozen=True)
@@ -43,17 +52,41 @@ class StockMinsSilverTradeDayRegistrationDecision:
     reason: str
 
 
-def _latest_registered_raw_trade_date(
-    raw_registered_trade_days: tuple[str, ...],
+def _load_stock_mins_silver_expected_trade_dates(
+    context: dg.SensorEvaluationContext,
     evaluated_at: datetime,
+) -> tuple[str, ...]:
+    lake_root = context.resources.lake_root
+    duckdb_resource = context.resources.duckdb
+
+    lake_root.ensure_available_for_run()
+    calendar_path = silver_trade_calendar_path(lake_root.root())
+    if not calendar_path.exists():
+        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
+
+    with duckdb_resource.connect() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_SILVER_HISTORY_START_DATE,
+            evaluated_at=evaluated_at,
+            same_day_register_start=STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
+        )
+
+
+def _continuity_window(expected_trade_dates: tuple[str, ...]) -> tuple[str, ...]:
+    return expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+
+
+def _target_trade_date_from_continuity_status(
+    status: StockMinsContinuityStatus,
 ) -> str | None:
-    today = evaluated_at.date().isoformat()
-    eligible_trade_days = tuple(
-        trade_date
-        for trade_date in raw_registered_trade_days
-        if STOCK_MINS_SILVER_HISTORY_START_DATE <= trade_date <= today
+    return (
+        status.next_actionable_trade_date
+        or status.first_missing_registered_date
+        or status.ready_through_trade_date
+        or status.expected_end_date
     )
-    return eligible_trade_days[-1] if eligible_trade_days else None
 
 
 def build_stock_mins_silver_trade_day_registration_decision(
@@ -73,7 +106,10 @@ def build_stock_mins_silver_trade_day_registration_decision(
             register_window_started=register_window_started,
             already_registered=False,
             selected_keys=(),
-            reason="没有 2014-01-01 之后的股票分钟线 raw 交易日分区。",
+            reason=(
+                "没有 "
+                f"{STK_MINS_SILVER_HISTORY_START_DATE} 之后的股票分钟线 expected 交易日。"
+            ),
         )
     if not register_window_started:
         return StockMinsSilverTradeDayRegistrationDecision(
@@ -148,6 +184,8 @@ def _cursor_payload(
     suspend_status: DatasetReadinessStatus | None = None,
     identity_map_status: AssetReadinessStatus | None = None,
     namechange_status: AssetReadinessStatus | None = None,
+    raw_continuity_status: StockMinsContinuityStatus | None = None,
+    silver_continuity_status: StockMinsContinuityStatus | None = None,
 ) -> str:
     cursor_decision = (
         SensorCursorDecision.REGISTER_PARTITIONS
@@ -168,6 +206,16 @@ def _cursor_payload(
         for status in (identity_map_status, namechange_status):
             if status is not None and not status.ready:
                 blocked_count += 1
+        if raw_continuity_status is not None and raw_continuity_status.blocked:
+            blocked_count += 1
+        if (
+            silver_continuity_status is not None
+            and silver_continuity_status.blocked
+            and not decision.selected_keys
+            and raw_continuity_status is not None
+            and not raw_continuity_status.blocked
+        ):
+            blocked_count += 1
         if blocked_count == 0 and decision.target_trade_date is not None:
             blocked_count = 1
 
@@ -194,6 +242,16 @@ def _cursor_payload(
             "suspend_status": status_payload(suspend_status) if suspend_status else None,
             "identity_map_status": _asset_status_payload(identity_map_status),
             "namechange_status": _asset_status_payload(namechange_status),
+            "raw_continuity_status": (
+                raw_continuity_status.to_cursor_details()
+                if raw_continuity_status is not None
+                else None
+            ),
+            "silver_continuity_status": (
+                silver_continuity_status.to_cursor_details()
+                if silver_continuity_status is not None
+                else None
+            ),
         },
     )
 
@@ -206,6 +264,7 @@ def _cursor_payload(
         target_layer=SensorTargetLayer.PARTITION,
         role=SensorRole.PARTITION_REGISTRATION,
     ),
+    required_resource_keys={"lake_root", "duckdb"},
     description=(
         "每天 19:45 后，在分钟线 raw、日线、停复牌、身份映射和曾用名门禁满足后，"
         "注册股票分钟线 silver 交易日分区；不触发 silver job。"
@@ -218,6 +277,9 @@ def stock_mins_silver_trade_day_sensor(
     register_window_started = (
         evaluated_at.time() >= STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START
     )
+    expected_trade_dates = _continuity_window(
+        _load_stock_mins_silver_expected_trade_dates(context, evaluated_at)
+    )
     raw_registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -228,12 +290,19 @@ def stock_mins_silver_trade_day_sensor(
     silver_registered_trade_days = set(
         context.instance.get_dynamic_partitions(cn_a_stock_mins_silver_trade_days.name)
     )
-    target_trade_date = _latest_registered_raw_trade_date(
-        raw_registered_trade_days,
-        evaluated_at,
+    raw_continuity_status = build_registered_gap_status(
+        partition_set_name=cn_a_stock_mins_trade_days.name,
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_days=raw_registered_trade_days,
     )
-    already_registered = (
-        target_trade_date is not None and target_trade_date in silver_registered_trade_days
+    silver_continuity_status = (
+        build_registered_gap_status(
+            partition_set_name=cn_a_stock_mins_silver_trade_days.name,
+            expected_trade_dates=expected_trade_dates,
+            registered_trade_days=tuple(sorted(silver_registered_trade_days)),
+        )
+        if raw_continuity_status.first_missing_registered_date is None
+        else None
     )
 
     raw_status = None
@@ -241,38 +310,75 @@ def stock_mins_silver_trade_day_sensor(
     suspend_status = None
     identity_map_status = None
     namechange_status = None
-    if target_trade_date is not None and register_window_started and not already_registered:
-        raw_status = raw_stk_mins_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
+    if not expected_trade_dates:
+        decision = StockMinsSilverTradeDayRegistrationDecision(
+            target_trade_date=None,
+            register_window_started=register_window_started,
+            already_registered=False,
+            selected_keys=(),
+            reason=(
+                "没有 "
+                f"{STK_MINS_SILVER_HISTORY_START_DATE} 之后的股票分钟线 expected 交易日。"
+            ),
         )
-        stock_daily_status = stock_daily_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
+    elif raw_continuity_status.first_missing_registered_date is not None:
+        decision = StockMinsSilverTradeDayRegistrationDecision(
+            target_trade_date=raw_continuity_status.first_missing_registered_date,
+            register_window_started=register_window_started,
+            already_registered=False,
+            selected_keys=(),
+            reason=(
+                "股票分钟线 raw 交易日分区存在缺口，"
+                f"最早缺失日期为 {raw_continuity_status.first_missing_registered_date}，"
+                "暂不注册 silver 交易日分区。"
+            ),
         )
-        suspend_status = suspend_d_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
+    elif silver_continuity_status is None:
+        raise RuntimeError("silver_continuity_status must be set when raw partitions are continuous.")
+    elif silver_continuity_status.first_missing_registered_date is None:
+        decision = StockMinsSilverTradeDayRegistrationDecision(
+            target_trade_date=_target_trade_date_from_continuity_status(
+                silver_continuity_status
+            ),
+            register_window_started=register_window_started,
+            already_registered=True,
+            selected_keys=(),
+            reason="股票分钟线 silver continuity 窗口内交易日分区已经注册。",
         )
-        identity_map_status = silver_stock_identity_map_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
-        )
-        namechange_status = silver_namechange_ready_for_trade_date(
-            context.instance,
-            target_trade_date,
-        )
+    else:
+        target_trade_date = silver_continuity_status.first_missing_registered_date
+        if register_window_started:
+            raw_status = raw_stk_mins_ready_for_trade_date(
+                context.instance,
+                target_trade_date,
+            )
+            stock_daily_status = stock_daily_ready_for_trade_date(
+                context.instance,
+                target_trade_date,
+            )
+            suspend_status = suspend_d_ready_for_trade_date(
+                context.instance,
+                target_trade_date,
+            )
+            identity_map_status = silver_stock_identity_map_ready_for_trade_date(
+                context.instance,
+                target_trade_date,
+            )
+            namechange_status = silver_namechange_ready_for_trade_date(
+                context.instance,
+                target_trade_date,
+            )
 
-    decision = build_stock_mins_silver_trade_day_registration_decision(
-        target_trade_date=target_trade_date,
-        register_window_started=register_window_started,
-        already_registered=already_registered,
-        raw_ready=raw_status.ready if raw_status else False,
-        stock_daily_ready=stock_daily_status.ready if stock_daily_status else False,
-        suspend_ready=suspend_status.ready if suspend_status else False,
-        identity_map_ready=identity_map_status.ready if identity_map_status else False,
-        namechange_ready=namechange_status.ready if namechange_status else False,
-    )
+        decision = build_stock_mins_silver_trade_day_registration_decision(
+            target_trade_date=target_trade_date,
+            register_window_started=register_window_started,
+            already_registered=False,
+            raw_ready=raw_status.ready if raw_status else False,
+            stock_daily_ready=stock_daily_status.ready if stock_daily_status else False,
+            suspend_ready=suspend_status.ready if suspend_status else False,
+            identity_map_ready=identity_map_status.ready if identity_map_status else False,
+            namechange_ready=namechange_status.ready if namechange_status else False,
+        )
     cursor = _cursor_payload(
         decision=decision,
         evaluated_at=evaluated_at,
@@ -283,6 +389,8 @@ def stock_mins_silver_trade_day_sensor(
         suspend_status=suspend_status,
         identity_map_status=identity_map_status,
         namechange_status=namechange_status,
+        raw_continuity_status=raw_continuity_status,
+        silver_continuity_status=silver_continuity_status,
     )
 
     if not decision.selected_keys:
