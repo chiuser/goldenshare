@@ -449,7 +449,8 @@ def run(
 5. `ts_code` 只允许 `.SH` / `.SZ`。
 6. 不允许 `.OF`。
 7. 如果有 `selection_group`，只能是 `complete_1364` 或 `accepted_low_gap_liquid_31`。
-8. 如果有 `latest_trade_date`，可作为 `first_seen_date/last_seen_date` 的默认来源；否则使用开发时显式传入的 `as_of_date`，不允许偷偷用系统日期。
+8. 必须使用 `latest_matched_trade_date` 作为 `first_seen_date/last_seen_date` 的来源；该字段当前 1395 行都有值。
+9. 不使用 `latest_trade_date` 作为 seed 日期来源；该字段当前只有低缺口高成交的 31 行有值，不能支撑完整初始化。
 
 建议字段映射：
 
@@ -457,8 +458,8 @@ def run(
 |---|---|
 | `resource` | CLI 参数 |
 | `ts_code` | CSV `ts_code` |
-| `first_seen_date` | CSV `latest_trade_date`，无值则拒绝 |
-| `last_seen_date` | CSV `latest_trade_date`，无值则拒绝 |
+| `first_seen_date` | CSV `latest_matched_trade_date`，无值则拒绝 |
+| `last_seen_date` | CSV `latest_matched_trade_date`，无值则拒绝 |
 | `last_checked_at` | 当前 UTC 时间 |
 
 ### 8.3 Seed report

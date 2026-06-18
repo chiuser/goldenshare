@@ -8,6 +8,7 @@ from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCom
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
+from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -29,6 +30,7 @@ __all__ = [
     "DatasetStatusSnapshot",
     "DatasetSubjectCompletenessGap",
     "DatasetSubjectCompletenessGapDetail",
+    "EtfSeriesActive",
     "IndexSeriesActive",
     "OpsSchedule",
     "ProbeRule",

@@ -40,6 +40,7 @@ from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCom
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
+from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.schedule import OpsSchedule
 from src.ops.models.ops.probe_rule import ProbeRule
@@ -112,6 +113,7 @@ def web_engine(configured_web_env) -> Generator:
         TaskRun.__table__.create(connection)
         TaskRunNode.__table__.create(connection)
         TaskRunIssue.__table__.create(connection)
+        EtfSeriesActive.__table__.create(connection)
         IndexSeriesActive.__table__.create(connection)
         DatasetStatusSnapshot.__table__.create(connection)
         ProbeRule.__table__.create(connection)
