@@ -42,6 +42,7 @@ const opsV21SourceLinks = [
 
 const opsV21ReviewLinks = [
   { to: "/ops/v21/review/index", label: "指数", icon: IconApps },
+  { to: "/ops/v21/review/etf", label: "ETF", icon: IconTopologyRing3 },
   { to: "/ops/v21/review/board", label: "板块", icon: IconBuildingCommunity },
   { to: "/ops/v21/review/dataset-audit", label: "数据集审计", icon: IconCalendarStats },
 ];

@@ -34,6 +34,34 @@ class ReviewActiveIndexSummaryResponse(BaseModel):
     pending_count: int
 
 
+class ReviewActiveEtfItem(BaseModel):
+    resource: str
+    ts_code: str
+    csname: str | None = None
+    extname: str | None = None
+    cname: str | None = None
+    exchange: str | None = None
+    etf_type: str | None = None
+    list_date: date | None = None
+    list_status: str | None = None
+    latest_fund_daily_date: date | None = None
+    data_status: str
+    first_seen_date: date
+    last_seen_date: date
+    last_checked_at: datetime
+
+
+class ReviewActiveEtfListResponse(BaseModel):
+    total: int
+    items: list[ReviewActiveEtfItem]
+
+
+class ReviewActiveEtfSummaryResponse(BaseModel):
+    active_count: int
+    fund_daily_available_count: int
+    pending_count: int
+
+
 class ReviewActiveIndexCandidateItem(BaseModel):
     ts_code: str
     index_name: str | None = None

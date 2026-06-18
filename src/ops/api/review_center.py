@@ -8,6 +8,8 @@ from sqlalchemy.orm import Session
 from src.ops.queries.review_center_query_service import ReviewCenterQueryService
 from src.ops.schemas.review_center import (
     CreateReviewActiveIndexRequest,
+    ReviewActiveEtfListResponse,
+    ReviewActiveEtfSummaryResponse,
     ReviewActiveIndexListResponse,
     ReviewActiveIndexCandidateResponse,
     ReviewActiveIndexMutationResponse,
@@ -53,6 +55,35 @@ def get_active_index_summary(
     resource: str = Query("index_daily"),
 ) -> ReviewActiveIndexSummaryResponse:
     return ReviewCenterQueryService().get_active_index_summary(session, resource=resource)
+
+
+@router.get("/ops/review/etf/active", response_model=ReviewActiveEtfListResponse)
+def list_active_etfs(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    resource: str = Query("fund_daily"),
+    keyword: str | None = Query(default=None),
+    data_status: str | None = Query(default=None),
+    page: int = Query(1, ge=1),
+    page_size: int = Query(50, ge=1, le=500),
+) -> ReviewActiveEtfListResponse:
+    return ReviewCenterQueryService().list_active_etfs(
+        session,
+        resource=resource,
+        keyword=keyword,
+        data_status=data_status,
+        page=page,
+        page_size=page_size,
+    )
+
+
+@router.get("/ops/review/etf/active/summary", response_model=ReviewActiveEtfSummaryResponse)
+def get_active_etf_summary(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    resource: str = Query("fund_daily"),
+) -> ReviewActiveEtfSummaryResponse:
+    return ReviewCenterQueryService().get_active_etf_summary(session, resource=resource)
 
 
 @router.get("/ops/review/index/active/candidates", response_model=ReviewActiveIndexCandidateResponse)

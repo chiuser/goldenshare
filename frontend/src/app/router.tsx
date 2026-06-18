@@ -25,6 +25,7 @@ import { OpsV21DatasetDetailPage } from "../pages/ops-v21-dataset-detail-page";
 import { OpsV21DatasetAuditPage } from "../pages/ops-v21-dataset-audit-page";
 import { OpsV21OverviewPage } from "../pages/ops-v21-overview-page";
 import { OpsV21ReviewBoardPage } from "../pages/ops-v21-review-board-page";
+import { OpsV21ReviewEtfPage } from "../pages/ops-v21-review-etf-page";
 import { OpsV21ReviewIndexPage } from "../pages/ops-v21-review-index-page";
 import { OpsV21TaskCenterPage } from "../pages/ops-v21-task-center-page";
 import { OpsV21TusharePage } from "../pages/ops-v21-tushare-page";
@@ -373,6 +374,12 @@ const opsV21ReviewIndexRoute = createRoute({
   component: OpsV21ReviewIndexPage,
 });
 
+const opsV21ReviewEtfRoute = createRoute({
+  getParentRoute: () => opsLayoutRoute,
+  path: "/v21/review/etf",
+  component: OpsV21ReviewEtfPage,
+});
+
 const opsV21ReviewBoardRoute = createRoute({
   getParentRoute: () => opsLayoutRoute,
   path: "/v21/review/board",
@@ -437,6 +444,7 @@ const routeTree = rootRoute.addChildren([
     opsV21RealtimeRoute,
     opsV21RealtimeConfigRoute,
     opsV21ReviewIndexRoute,
+    opsV21ReviewEtfRoute,
     opsV21ReviewBoardRoute,
     opsV21ReviewDatasetAuditRoute,
     opsV21DatasetsTushareRoute,

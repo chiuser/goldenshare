@@ -5,6 +5,9 @@ from datetime import date
 from sqlalchemy import and_, case, desc, false, func, literal, or_, select, union_all
 from sqlalchemy.orm import Session
 
+from src.app.exceptions import WebAppError
+from src.foundation.models.core.etf_basic import EtfBasic
+from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
@@ -14,8 +17,12 @@ from src.foundation.models.core_serving.index_daily_serving import IndexDailySer
 from src.foundation.models.core_serving.index_monthly_serving import IndexMonthlyServing
 from src.foundation.models.core_serving.index_weekly_serving import IndexWeeklyServing
 from src.foundation.models.core_serving.security_serving import Security
+from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.schemas.review_center import (
+    ReviewActiveEtfItem,
+    ReviewActiveEtfListResponse,
+    ReviewActiveEtfSummaryResponse,
     ReviewActiveIndexCandidateItem,
     ReviewActiveIndexCandidateResponse,
     ReviewActiveIndexItem,
@@ -32,6 +39,9 @@ from src.ops.schemas.review_center import (
     ReviewThsBoardItem,
     ReviewThsBoardListResponse,
 )
+
+
+ETF_ACTIVE_RESOURCES = frozenset({"fund_daily", "etf_rt_daily"})
 
 
 class ReviewCenterQueryService:
@@ -152,6 +162,114 @@ class ReviewCenterQueryService:
             weekly_available_count=int(row.weekly_available_count or 0),
             monthly_available_count=int(row.monthly_available_count or 0),
             pending_count=int(row.pending_count or 0),
+        )
+
+    def list_active_etfs(
+        self,
+        session: Session,
+        *,
+        resource: str = "fund_daily",
+        keyword: str | None = None,
+        data_status: str | None = None,
+        page: int = 1,
+        page_size: int = 50,
+    ) -> ReviewActiveEtfListResponse:
+        resource = self._normalize_etf_resource(resource)
+        page_size = max(1, min(page_size, 500))
+        page = max(1, page)
+        offset = (page - 1) * page_size
+        daily_subq = self._etf_latest_fund_daily_subquery()
+        status_expr = self._etf_data_status_expr(daily_subq)
+
+        stmt = (
+            select(
+                EtfSeriesActive.resource.label("resource"),
+                EtfSeriesActive.ts_code.label("ts_code"),
+                EtfSeriesActive.first_seen_date.label("first_seen_date"),
+                EtfSeriesActive.last_seen_date.label("last_seen_date"),
+                EtfSeriesActive.last_checked_at.label("last_checked_at"),
+                EtfBasic.csname.label("csname"),
+                EtfBasic.extname.label("extname"),
+                EtfBasic.cname.label("cname"),
+                EtfBasic.exchange.label("exchange"),
+                EtfBasic.etf_type.label("etf_type"),
+                EtfBasic.list_date.label("list_date"),
+                EtfBasic.list_status.label("list_status"),
+                daily_subq.c.latest_fund_daily_date.label("latest_fund_daily_date"),
+                status_expr.label("data_status"),
+            )
+            .select_from(EtfSeriesActive)
+            .outerjoin(EtfBasic, EtfBasic.ts_code == EtfSeriesActive.ts_code)
+            .outerjoin(daily_subq, daily_subq.c.ts_code == EtfSeriesActive.ts_code)
+            .where(EtfSeriesActive.resource == resource)
+        )
+        if keyword:
+            pattern = f"%{keyword.strip()}%"
+            stmt = stmt.where(
+                or_(
+                    EtfSeriesActive.ts_code.ilike(pattern),
+                    EtfBasic.csname.ilike(pattern),
+                    EtfBasic.extname.ilike(pattern),
+                    EtfBasic.cname.ilike(pattern),
+                )
+            )
+        if data_status:
+            normalized_status = data_status.strip().lower()
+            if normalized_status in {"pending", "unsynced"}:
+                stmt = stmt.where(daily_subq.c.latest_fund_daily_date.is_(None))
+            elif normalized_status == "complete":
+                stmt = stmt.where(daily_subq.c.latest_fund_daily_date.is_not(None))
+
+        total = session.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+        rows = session.execute(
+            stmt.order_by(EtfSeriesActive.ts_code.asc()).limit(page_size).offset(offset)
+        ).all()
+        return ReviewActiveEtfListResponse(
+            total=int(total),
+            items=[
+                ReviewActiveEtfItem(
+                    resource=row.resource,
+                    ts_code=row.ts_code,
+                    csname=row.csname,
+                    extname=row.extname,
+                    cname=row.cname,
+                    exchange=row.exchange,
+                    etf_type=row.etf_type,
+                    list_date=row.list_date,
+                    list_status=row.list_status,
+                    latest_fund_daily_date=row.latest_fund_daily_date,
+                    data_status=row.data_status,
+                    first_seen_date=row.first_seen_date,
+                    last_seen_date=row.last_seen_date,
+                    last_checked_at=row.last_checked_at,
+                )
+                for row in rows
+            ],
+        )
+
+    def get_active_etf_summary(
+        self,
+        session: Session,
+        *,
+        resource: str = "fund_daily",
+    ) -> ReviewActiveEtfSummaryResponse:
+        resource = self._normalize_etf_resource(resource)
+        daily_subq = self._etf_latest_fund_daily_subquery()
+        row = session.execute(
+            select(
+                func.count(EtfSeriesActive.ts_code).label("active_count"),
+                func.count(daily_subq.c.latest_fund_daily_date).label("fund_daily_available_count"),
+            )
+            .select_from(EtfSeriesActive)
+            .outerjoin(daily_subq, daily_subq.c.ts_code == EtfSeriesActive.ts_code)
+            .where(EtfSeriesActive.resource == resource)
+        ).one()
+        active_count = int(row.active_count or 0)
+        available_count = int(row.fund_daily_available_count or 0)
+        return ReviewActiveEtfSummaryResponse(
+            active_count=active_count,
+            fund_daily_available_count=available_count,
+            pending_count=max(0, active_count - available_count),
         )
 
     def suggest_active_index_candidates(
@@ -613,6 +731,35 @@ class ReviewCenterQueryService:
             (monthly_subq.c.latest_monthly_date.is_(None), "missing_monthly"),
             else_="complete",
         )
+
+    @staticmethod
+    def _etf_latest_fund_daily_subquery():  # type: ignore[no-untyped-def]
+        return (
+            select(
+                FundDailyBar.ts_code.label("ts_code"),
+                func.max(FundDailyBar.trade_date).label("latest_fund_daily_date"),
+            )
+            .group_by(FundDailyBar.ts_code)
+            .subquery("etf_fund_daily_latest_subq")
+        )
+
+    @staticmethod
+    def _etf_data_status_expr(daily_subq):  # type: ignore[no-untyped-def]
+        return case(
+            (daily_subq.c.latest_fund_daily_date.is_not(None), "complete"),
+            else_="unsynced",
+        )
+
+    @staticmethod
+    def _normalize_etf_resource(resource: str) -> str:
+        normalized = (resource or "fund_daily").strip() or "fund_daily"
+        if normalized not in ETF_ACTIVE_RESOURCES:
+            raise WebAppError(
+                status_code=422,
+                code="validation_error",
+                message="ETF 活跃池 resource 只支持 fund_daily 或 etf_rt_daily",
+            )
+        return normalized
 
     @staticmethod
     def _missing_index_layers(

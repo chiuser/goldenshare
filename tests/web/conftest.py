@@ -21,6 +21,8 @@ from src.app.models.auth_role import AuthRole
 from src.app.models.auth_role_permission import AuthRolePermission
 from src.app.models.auth_user_role import AuthUserRole
 from src.foundation.models.core.equity_block_trade import EquityBlockTrade
+from src.foundation.models.core.etf_basic import EtfBasic
+from src.foundation.models.core.fund_daily_bar import FundDailyBar
 from src.foundation.models.core.index_basic import IndexBasic
 from src.foundation.models.core.dc_index import DcIndex
 from src.foundation.models.core.dc_member import DcMember
@@ -93,6 +95,8 @@ def web_engine(configured_web_env) -> Generator:
         AuthAuditLog.__table__.create(connection)
         AuthInviteCode.__table__.create(connection)
         EquityBlockTrade.__table__.create(connection)
+        EtfBasic.__table__.create(connection)
+        FundDailyBar.__table__.create(connection)
         IndexBasic.__table__.create(connection)
         IndexDailyServing.__table__.create(connection)
         IndexWeeklyServing.__table__.create(connection)
