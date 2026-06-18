@@ -1,8 +1,8 @@
 # M12: Gold stk_mins qfq MACD/KDJ 指标资产设计方案
 
-状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12J 自动 repair 链路已落地为代码口径：当 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 同日都成功后，run-status sensor 先触发 M12 daily；M12 daily 成功后，repair run-status sensor 再按 qfq factor repair affected codes 自动触发 scoped M12 repair，自动 repair 上限固定为 `repair_required_code_count <= 500`。M12K/M8 安全口径已收敛：repair 只支持真实 qfq factor repair upstream batch；自动提交和 Dagster UI 人工重放都必须显式提供 `qfq_factor_repair_trade_date`、`start_trade_date`、`stock_codes`、`repair_required_codes_hash`、`upstream_batch_id`，并与上游 metadata/status 完全一致。repair op 不支持无上游 batch 的散装手工修复，也不提供空列表全市场重写入口。M12L 的旧普通 qfq materialization/check event reconciliation 方案已撤销：qfq factor repair 继续只负责重写 qfq 文件并写 repair check；repair check metadata 是历史 qfq 文件改写账本；不再按历史 qfq asset partitions 补普通 materialization/check events。M12 daily 不等待全历史普通 qfq event 补齐，而是认同日 qfq daily 成功 + qfq factor repair 成功作为当前日可继续门禁。股票分钟线连续性专项 M7 已把 M12 daily run-status sensor 的上一日口径改为 `silver_trade_calendar` 的 previous expected trade date；但 M12 daily asset write 与 M12 repair op 的 exact previous expected state / expected range 改造仍是连续性专项剩余任务。daily/repair sensors 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。
+状态：M12 代码口径已落地到 Dagster definitions、Catalog、checks、job/sensor、repair op/job、历史直写与 baseline event CLI。正式历史文件已完成全量直写并通过 full file audit；`2026-06-05` baseline cutoff 已写入 `56` 条 runless materialization/check events，scoped quick final audit 已确认 14 个 indicator/state asset-partition 全部 ready。M12J 自动 repair 链路已落地为代码口径：当 `stock_mins_qfq_daily_update_job` 与 `stock_mins_qfq_factor_repair_job` 同日都成功后，run-status sensor 先触发 M12 daily；M12 daily 成功后，repair run-status sensor 再按 qfq factor repair affected codes 自动触发 scoped M12 repair，自动 repair 上限固定为 `repair_required_code_count <= 500`。M12K/M8 安全口径已收敛：repair 只支持真实 qfq factor repair upstream batch；自动提交和 Dagster UI 人工重放都必须显式提供 `qfq_factor_repair_trade_date`、`start_trade_date`、`stock_codes`、`repair_required_codes_hash`、`upstream_batch_id`，并与上游 metadata/status 完全一致。repair op 不支持无上游 batch 的散装手工修复，也不提供空列表全市场重写入口。M12L 的旧普通 qfq materialization/check event reconciliation 方案已撤销：qfq factor repair 继续只负责重写 qfq 文件并写 repair check；repair check metadata 是历史 qfq 文件改写账本；不再按历史 qfq asset partitions 补普通 materialization/check events。M12 daily 不等待全历史普通 qfq event 补齐，而是认同日 qfq daily 成功 + qfq factor repair 成功作为当前日可继续门禁。股票分钟线连续性专项 M7/M9/M10 已把 M12 daily run-status sensor、daily asset write 和 repair op 全部收敛到 `silver_trade_calendar` 的 previous expected / expected range 口径：daily writer 与 repair op 都要求 exact previous expected state，不再自动回退到任意更早 state。daily/repair sensors 代码默认 `STOPPED`；实际是否启用必须读取正式 Dagster instance 或 UI，不以本文档推断。
 
-更新时间：2026-06-17
+更新时间：2026-06-18
 
 ## 1. Summary
 
@@ -757,9 +757,9 @@ config：
 repair 规则：
 
 1. 目标口径要求读取 `start_trade_date` 的 previous expected trade date state 作为递推起点。
-2. 如果 previous expected state 缺失，后续连续性专项应 fail closed 或要求先做 scoped bootstrap；不得自动回退到任意更早 state，也不得从 `start_trade_date` 中途初始化老股票。当前代码仍未完成该 exact previous expected state 改造，必须在后续专项阶段收口。
+2. 如果 previous expected state 缺失，当前代码必须 fail closed；不得自动回退到任意更早 state，也不得从 `start_trade_date` 中途初始化老股票。
 3. 只重算 `stock_codes` 的受影响 stock-year 指标文件和 state 文件。
-4. 目标口径要求重算范围覆盖 `start_trade_date` 到 qfq factor repair metadata/status 的 repair end date 之间的 expected trade date range。当前代码仍未完成该 expected range 改造，不能把“latest registered partition”作为长期正式口径继续扩散。
+4. 目标口径要求重算范围覆盖 `start_trade_date` 到 qfq factor repair metadata/status 的 repair end date 之间的 expected trade date range。当前代码已按 expected range 执行，不能把“latest registered partition”作为正式口径恢复。
 5. qfq repair 完成但指标 repair 未完成时，M12 指标的最终收口不能被视为完成；但 M12 daily 当前日生产不等待、也不恢复已撤销的全历史普通 qfq event reconciliation，只要求同日 qfq daily 成功和同日 qfq factor repair 成功。
 6. repair completion check event 必须挂到七个指标 assets 和七个 state assets，partition 使用 repair 目标起点或实际触发的 `start_trade_date`。
 7. 新增 repair completion check 名称：`gold_stk_mins_qfq_macd_kdj_repair_completed_check`。它是维护事件门禁，不替代指标/state 的常规 blocking checks。
@@ -819,7 +819,7 @@ checks 可以用同一 DuckDB 连接批量聚合，不允许全绿场景无条�
 | state 文件数 | `freq_count * partition_count`，当前 7 频度、约 3019 个交易日时约 21133 个文件 |
 | 历史核心批次 | `freq -> year`，不按股票主循环，不按日期切断递推，不使用 recursive CTE |
 | 日常核心扫描 | 目标日期 qfq rows + 每股票最多 8 根 KDJ lookback + 上一交易日 state |
-| Repair 核心扫描 | 当前代码仍为受影响股票从 `start_trade_date` 到 registered target dates 的 qfq rows + 起点前 state；连续性专项后续目标是 expected trade date range + previous expected state |
+| Repair 核心扫描 | 当前代码扫描受影响股票从 `start_trade_date` 到 qfq factor repair `repair_end_trade_date` 的 expected trade date range，并使用 previous expected state 作为递推起点 |
 | DuckDB 配置 | 统一 `connect_configured_duckdb`：temp `/Volumes/datasource/.goldenshare_duckdb_tmp`，max temp `512GB`，memory `16GB`，threads `4`，`preserve_insertion_order=false` |
 | 排序 | 所有正式输出必须 SQL `ORDER BY ts_code, trade_time` 或等价稳定排序 |
 | 写入 | `.tmp -> validate -> os.replace`，指标 stock-year 和 state partition 都必须原子替换 |
@@ -931,7 +931,7 @@ baseline/future tracking 复核使用：
 
 1. 新增指标 repair job/op。
 2. qfq repair 后必须能提交或提示 M12 repair 范围。
-3. 当前代码仍从起点前 state 递推到 registered target dates；连续性专项后续目标是从 previous expected state 递推到 expected repair range，禁止自动跳到任意更早 state。
+3. 当前代码从 previous expected state 递推到 expected repair range，禁止自动跳到任意更早 state。
 4. repair completion check event 覆盖指标 assets 和 state assets。
 5. repair op 成功后 emit 14 条 `gold_stk_mins_qfq_macd_kdj_repair_completed_check`，供最终 readiness/收口判断。
 6. `gold_stk_mins_qfq_macd_kdj_repair_job_sensor` 在 M12 daily 成功后按 qfq repair metadata 自动触发 scoped repair。

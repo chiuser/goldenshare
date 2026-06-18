@@ -46,11 +46,12 @@ Dagster `run_key` 只用于 sensor / schedule 提交 `RunRequest` 时的幂等�
 4. qfq factor repair op/helper 的 previous date 与 selected repair range 必须来自 expected calendar；不得恢复 registered-only 的 `_previous_trade_date(...)` 或 `_select_repair_partition_keys(...)` 口径。
 5. 已 materialized 但 blocking checks 未绿的股票分钟线目标日期，不得自动重跑并推进后续日期；必须按现有人工处理口径 fail/skip closed。
 
-专项剩余项：
+MACD/KDJ 连续性已落地规则：
 
-1. MACD/KDJ daily asset write 仍需从“任意更早 state”改为 exact previous expected state gate。
-2. MACD/KDJ repair op 仍需从 registered target dates 改为 expected range + exact previous expected state gate。
-3. 上述两项完成前，不得把连续性专项写成最终完成；设计文档必须保留剩余任务说明。
+1. MACD/KDJ daily run-status sensor、daily asset write 和 repair op 都必须使用 expected calendar 口径；不得恢复 previous registered、registered-only range 或任意更早 state fallback。
+2. MACD/KDJ daily asset write 非 baseline 日期必须要求上一 expected trade date 的 state 文件精确存在；只有 `STK_MINS_MACD_KDJ_BASELINE_START_DATE` 且无上一 expected date 时，才允许无 previous state 初始化。
+3. MACD/KDJ repair op 的 target dates 必须来自 qfq factor repair metadata/status 的 start/end 闭区间 expected range；range 内 expected date 未注册、qfq source 缺失或上一 expected state 缺失时必须 fail closed，且失败路径不得写 completion checks。
+4. 连续性专项 M1-M11 已完成；后续修改必须保持静态门禁和测试覆盖，不能恢复 latest registered / previous registered / registered-only range / latest-before-state 口径。
 
 ## Asset Schema Contract 与 Metadata 规范
 

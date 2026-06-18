@@ -233,7 +233,7 @@
       dynamic partitions 和 readiness 只是运行状态；任何 expected date 缺注册、缺数据或 blocking checks 未绿时，下游不得推进后续日期。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>状态</strong>M1-M8 已按本 LLD 阶段性落地；MACD/KDJ asset write、MACD/KDJ repair op 与最终验收仍待实现。</div>
+      <div class="chip"><strong>状态</strong>M1-M11 已完成；MACD/KDJ asset write、MACD/KDJ repair op 与最终验收已按本 LLD 收口。</div>
       <div class="chip"><strong>范围</strong>只覆盖股票分钟线 raw / silver / qfq / qfq factor repair / MACD-KDJ daily 与 repair。</div>
       <div class="chip"><strong>本轮动作</strong>按当前代码事实收敛 LLD；不运行 Dagster runtime，不读取正式 Dagster instance。</div>
       <div class="chip"><strong>文档位置</strong><code>lake_console/docs/design/</code></div>
@@ -299,19 +299,19 @@
           <td><span class="tag green">已落地</span> qfq factor repair op/helper 的 previous date 与 selected range 已切到 expected calendar。</td>
         </tr>
         <tr>
-          <td>后续 M9</td>
-          <td><code>stk_mins_qfq_macd_kdj.py</code>。</td>
-          <td><span class="tag red">未完成</span> daily asset write 仍调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 查任意更早 state。</td>
+          <td>M9</td>
+          <td><code>stk_mins_qfq_macd_kdj.py</code>、<code>assets/stk_mins_qfq_macd_kdj.py</code>。</td>
+          <td><span class="tag green">已落地</span> daily asset write 已切到 exact previous expected state gate，正式 writer body 不再调用 latest-before-state discover。</td>
         </tr>
         <tr>
-          <td>后续 M10</td>
+          <td>M10</td>
           <td><code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>。</td>
-          <td><span class="tag red">未完成</span> repair op 仍使用 registered silver target dates 和任意更早 state。</td>
+          <td><span class="tag green">已落地</span> repair op 已切到 expected range + exact previous expected state，写前统一 preflight。</td>
         </tr>
         <tr>
-          <td>最终验收</td>
+          <td>M11</td>
           <td>静态门禁、文档对账、专项测试、全量本地 pytest。</td>
-          <td><span class="tag amber">待执行</span> 必须在后续 M9/M10 代码完成后统一收口。</td>
+          <td><span class="tag green">已收口</span> M1-M10 代码事实已同步到长期规范和相关设计文档。</td>
         </tr>
       </tbody>
     </table>
@@ -366,70 +366,70 @@
   </section>
 
   <section>
-    <h2>2. 当前代码事实</h2>
+    <h2>2. 治理前问题与当前落地口径</h2>
     <table>
       <thead>
         <tr>
           <th>文件</th>
-          <th>当前行为</th>
-          <th>LLD 结论</th>
+          <th>治理前行为或参考能力</th>
+          <th>当前落地口径</th>
         </tr>
       </thead>
       <tbody>
         <tr>
           <td><code>sensors/stock_mins_trade_day_sensor.py</code></td>
           <td>只判断今天是否开市、18:00 后、今天是否已注册。</td>
-          <td>必须改为交易日历补偿式注册，否则 dg 停机日永远不会自动补。</td>
+          <td>已改为交易日历补偿式注册，否则 dg 停机日永远不会自动补。</td>
         </tr>
         <tr>
           <td><code>sensors/cn_a_trade_day_sensor.py</code></td>
           <td><code>build_trade_day_partition_registration_result(...)</code> 已支持 calendar-backed catch-up，单 tick 最多 2 个。</td>
-          <td>分钟 raw 交易日注册要复用同一口径；可以直接调用该 helper 或复用其纯函数。</td>
+          <td>分钟 raw 交易日注册已复用同一 calendar-backed catch-up 口径。</td>
         </tr>
         <tr>
           <td><code>sensors/stock_mins_raw_sensor.py</code></td>
           <td>用 <code>_latest_registered_trade_date(...)</code> 选择最新 raw partition。</td>
-          <td>改为选择 expected dates 中最早 raw not ready 日期；遇到最早缺注册日期时 skip。</td>
+          <td>已改为选择 expected dates 中最早 raw not ready 日期；遇到最早缺注册日期时 skip。</td>
         </tr>
         <tr>
           <td><code>sensors/stock_mins_silver_trade_day_sensor.py</code></td>
           <td>用最新 raw registered date 决定是否注册 silver partition。</td>
-          <td>改为找最早 raw ready 且 silver 未注册日期；前面 raw 未 ready 时不注册后续 silver。</td>
+          <td>已改为找最早 raw ready 且 silver 未注册日期；前面 raw 未 ready 时不注册后续 silver。</td>
         </tr>
         <tr>
           <td><code>sensors/stock_mins_silver_sensor.py</code></td>
           <td>用最新 silver registered date 提交 silver job。</td>
-          <td>改为找最早 silver not ready 日期；materialized 但 check 不绿则停止自动重跑。</td>
+          <td>已改为找最早 silver not ready 日期；materialized 但 check 不绿则停止自动重跑。</td>
         </tr>
         <tr>
           <td><code>sensors/stock_mins_qfq_daily_sensor.py</code></td>
           <td>用最新 silver registered date，且 cursor 只防同一 target 重复提交。</td>
-          <td>target 由 continuity selector 给出；cursor 仍只防同一 first-not-ready target 重复提交。</td>
+          <td>target 已由 continuity selector 给出；cursor 仍只防同一 first-not-ready target 重复提交。</td>
         </tr>
         <tr>
           <td><code>sensors/stock_mins_qfq_factor_repair_sensor.py</code></td>
           <td>用最新 silver registered date，在 qfq ready 后提交 repair job。</td>
-          <td>target 由 qfq ready frontier 给出；不允许越过更早 qfq 缺口提交 repair。</td>
+          <td>target 已由 qfq ready frontier 给出；不允许越过更早 qfq 缺口提交 repair。</td>
         </tr>
         <tr>
           <td><code>sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code></td>
           <td>用 <code>_previous_registered_trade_date(...)</code> 找上一 state 日期。</td>
-          <td>上一日必须来自权威 expected calendar；不能用上一 registered date 代替。</td>
+          <td>上一日已来自权威 expected calendar；不能用上一 registered date 代替。</td>
         </tr>
         <tr>
           <td><code>stk_mins_qfq_factor_repair.py</code></td>
           <td><code>_select_repair_partition_keys(...)</code> 和 <code>_previous_trade_date(...)</code> 都只看 registered partitions。</td>
-          <td>qfq repair 的 previous date 和 repair range 必须来自 expected calendar，并校验 range 内 ready。</td>
+          <td>qfq repair 的 previous date 和 repair range 已来自 expected calendar，并校验 range 内 ready。</td>
         </tr>
         <tr>
           <td><code>stk_mins_qfq_macd_kdj.py</code></td>
           <td><code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 找任意更早 state；daily asset 和 repair op 都调用它。</td>
-          <td>正式 daily/repair 不能继续用“任意更早 state”作为上一状态；要新增 exact previous expected state gate。</td>
+          <td>正式 daily/repair 已使用 exact previous expected state gate，不能继续用“任意更早 state”作为上一状态。</td>
         </tr>
         <tr>
           <td><code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code></td>
           <td>repair target dates 来自 registered silver dates，上一 state 来自 latest-before-start。</td>
-          <td>target dates 改为 expected range；previous state 必须精确匹配上一 expected date。</td>
+          <td>target dates 已改为 expected range；previous state 必须精确匹配上一 expected date。</td>
         </tr>
       </tbody>
     </table>
@@ -814,8 +814,86 @@ previous_state_ready = (
       <li>metadata 的 <code>upstream_batch_id</code> 口径不变，不引入 event storage id。</li>
     </ul>
 
-    <h3>4.9 <code>stk_mins_qfq_macd_kdj.py</code> daily write（未完成）</h3>
-    <p>目标：asset 写入函数也不能绕过 sensor，避免 Dagster UI 手工 materialize 时跳日递推。</p>
+    <h3>4.9 <code>stk_mins_qfq_macd_kdj.py</code> daily write（M9 已完成）</h3>
+    <p>目标：把 MACD/KDJ daily asset 的写入层也改成 exact previous expected state gate，防止 Dagster UI 手工 materialize 或其它非 sensor 入口绕过 M7 run-status sensor。</p>
+
+    <h4>4.9.1 当前代码事实</h4>
+    <ul>
+      <li><code>assets/stk_mins_qfq_macd_kdj.py</code> 的 <code>_assets(...)</code> 已注入 <code>lake_root</code> 与现有 <code>duckdb</code> resource，先读取 <code>silver_trade_calendar</code> expected dates，再调用 <code>assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(context.instance, partition_key)</code> 和 writer。</li>
+      <li><code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code> 已接收 <code>previous_expected_trade_date</code> 与 <code>allow_without_previous_state</code>，正式 writer body 使用 <code>assert_exact_previous_state_path(...)</code>，不再调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 查任意更早 state。</li>
+      <li><code>asset_guards/stk_mins_continuity.py</code> 已提供 <code>assert_exact_previous_state_path(...)</code>，它只接受上一 expected date 的精确 state 文件；baseline 例外必须由调用方显式传 <code>allow_without_previous_state=True</code>。</li>
+      <li><code>previous_expected_trade_date(...)</code> 只负责计算上一 expected date，不负责证明 target 在 expected calendar 中；当前 asset wrapper 已显式校验 <code>partition_key in expected_trade_dates</code>，不在 expected calendar 中时 fail closed。</li>
+    </ul>
+
+    <h4>4.9.2 M9 硬约束</h4>
+    <ul>
+      <li>不改 asset name、partition set、pool、asset specs、run key、run config、daily repair gate、writer pool 或 materialization metadata 的既有业务字段。</li>
+      <li>允许 <code>assets/stk_mins_qfq_macd_kdj.py</code> 增加现有 <code>duckdb</code> resource 依赖，用于读取 <code>silver_trade_calendar</code>；不得新增 resource definition、asset、job、sensor、check、table 或配置项。</li>
+      <li>expected dates 必须来自 <code>silver_trade_calendar_path(lake_root.root())</code>，起点为 <code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code>，不设置同日窗口。</li>
+      <li><code>partition_key</code> 不在 expected calendar 中时 fail closed，抛 <code>dg.Failure</code>，不得继续写文件。</li>
+      <li>只有 <code>partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE</code> 且没有上一 expected date 时，才允许无 previous state 初始化。</li>
+      <li>baseline 之后必须要求上一 expected date 的 state 文件精确存在；不得回退到更早 state，不得继续调用 latest-before-start discover 作为正式 daily path。</li>
+      <li>现有 <code>assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(...)</code> 必须保留；它解决 qfq factor repair sequencing，不替代连续性 state gate。</li>
+    </ul>
+
+    <h4>4.9.3 M9 代码级实现</h4>
+    <p><code>assets/stk_mins_qfq_macd_kdj.py</code> 增加一个本地 expected-date loader，复用 M8 qfq factor repair op 的读取模式：</p>
+    <pre><code>def _load_macd_kdj_expected_trade_dates(
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+    evaluated_at: datetime,
+) -&gt; tuple[str, ...]:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    with duckdb_resource.connect() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+            evaluated_at=evaluated_at,
+            same_day_register_start=None,
+        )</code></pre>
+
+    <p><code>_assets(...)</code> 签名与调用顺序改成：</p>
+    <pre><code>def _assets(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -&gt; Iterator[dg.MaterializeResult]:
+    lake_root.ensure_available_for_run()
+    lake_root_path = lake_root.root()
+    partition_key = context.partition_key
+    expected_trade_dates = _load_macd_kdj_expected_trade_dates(
+        lake_root=lake_root_path,
+        duckdb_resource=duckdb,
+        evaluated_at=datetime.now(),
+    )
+    if partition_key not in expected_trade_dates:
+        raise dg.Failure(
+            "MACD/KDJ daily target is not an expected stock minutes trade date: "
+            f"partition_key={partition_key}."
+        )
+    previous_trade_date = previous_expected_trade_date(
+        expected_trade_dates,
+        partition_key,
+    )
+    allow_without_previous_state = (
+        partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+        and previous_trade_date is None
+    )
+    assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
+        context.instance,
+        partition_key,
+    )
+    write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
+        lake_root=lake_root_path,
+        freq=freq,
+        partition_key=partition_key,
+        previous_expected_trade_date=previous_trade_date,
+        allow_without_previous_state=allow_without_previous_state,
+    )</code></pre>
+
+    <p><code>stk_mins_qfq_macd_kdj.py</code> 中 writer 的正式签名扩展为：</p>
     <pre><code>def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
     *,
     lake_root: Path,
@@ -824,52 +902,166 @@ previous_state_ready = (
     previous_expected_trade_date: str | None,
     allow_without_previous_state: bool,
 ) -&gt; GoldStkMinsQfqMacdKdjPartitionWriteResult:
+    normalized_freq = normalize_stk_mins_qfq_freq(freq)
     previous_state_path = assert_exact_previous_state_path(
         lake_root=lake_root,
         freq=normalized_freq,
         target_trade_date=partition_key,
         previous_expected_trade_date=previous_expected_trade_date,
         allow_without_previous_state=allow_without_previous_state,
+    )
+    previous_state_paths = (
+        (previous_state_path,) if previous_state_path is not None else ()
     )</code></pre>
 
-    <p>asset wrapper <code>assets/stk_mins_qfq_macd_kdj.py</code> 要负责传入 <code>previous_expected_trade_date</code>。现有 <code>assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(...)</code> 继续保留，它解决 qfq factor repair sequencing，不替代连续性 state gate。</p>
+    <p>writer 只负责使用调用方给出的上一 expected state；它不得自己再决定上一交易日，也不得自己读取 Dagster partitions。这样 daily run-status sensor、asset write、repair op 三处会共享同一条“上一 expected state”规则。</p>
+
+    <h4>4.9.4 M9 测试与门禁</h4>
+    <ul>
+      <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code>：新增 writer 级用例，证明 06-16 只能使用 06-15 state；只有 06-13 state 时必须失败且不写输出。</li>
+      <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code>：新增 baseline 用例，证明 <code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code> 允许无 previous state 初始化。</li>
+      <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code> 或专门 continuity 测试：target 不在 expected calendar 时 asset wrapper fail closed。</li>
+      <li><code>tests/test_run_contract_static_gates.py</code>：增加防回流断言，正式 daily writer body 不得调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</li>
+      <li>静态门禁必须允许 bootstrap/history helper 继续定义或调用历史 state discover；禁止范围只锁定正式 daily writer body。</li>
+    </ul>
+
     <div class="warning">
       <strong>当前代码事实：</strong>
-      截至 2026-06-17，<code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code> 仍调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>，因此该小节仍是后续 M9 编码任务，不是已完成状态。
+      M9 已完成。正式 daily writer body 已禁止 latest-before-state fallback；bootstrap/history helper 仍可保留历史 state 发现能力，但不得被 daily asset write 正式路径调用。
     </div>
 
-    <h3>4.10 <code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>（未完成）</h3>
-    <p>目标：repair op 的 target range 和 previous state 都来自 expected calendar。</p>
-    <pre><code>expected_target_dates = expected_trade_dates_between(
+    <h3>4.10 <code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>（M10 已完成）</h3>
+    <p>目标：MACD/KDJ repair op 的 target range 和 previous state 都来自 expected calendar，且在任何写文件前完成全量 fail-closed preflight。</p>
+
+    <h4>4.10.1 当前代码事实</h4>
+    <ul>
+      <li>repair op 当前已禁止散装手工 repair：缺 <code>qfq_factor_repair_trade_date</code> 或 <code>upstream_batch_id</code> 会失败，config 必须与 qfq factor repair metadata/status 一致。</li>
+      <li>repair op 已声明 <code>required_resource_keys={"lake_root", "duckdb"}</code>，通过现有 DuckDB resource 读取 <code>silver_trade_calendar</code> expected dates。</li>
+      <li>治理前 <code>_target_trade_dates(...)</code> 只从 registered silver partitions 里取 <code>&gt;= start_trade_date</code> 的日期；当前该 registered-only helper 已删除，target range 来自 <code>expected_trade_dates_between(...)</code>。</li>
+      <li>每个 freq 写入前都会先完成 qfq source path 与 <code>assert_exact_previous_state_path(...)</code> preflight；正式 repair op 不再调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 查任意更早 state。</li>
+      <li>completion metadata 继续只写 <code>source_upstream_batch_id</code> 和既有业务字段，不写旧 storage id 字段。</li>
+    </ul>
+
+    <h4>4.10.2 M10 硬约束</h4>
+    <ul>
+      <li>不改 job/op 名称、run key、run config schema、upstream_batch_id 口径、completion metadata 业务字段或 manual repair 禁令。</li>
+      <li>允许 repair op 增加现有 <code>duckdb</code> resource 依赖；不得新增 asset、job、sensor、check、resource definition、table 或配置项。</li>
+      <li>expected dates 必须来自 <code>silver_trade_calendar_path(lake_root)</code>，起点为 <code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code>，不设置同日窗口。</li>
+      <li><code>start_trade_date</code> 与 <code>qfq_factor_repair_status.repair_end_trade_date</code> 都必须在 expected calendar 中；任一不在则 fail closed。</li>
+      <li>repair target dates 必须是 <code>expected_trade_dates_between(expected, start, repair_end)</code> 的闭区间；不得用 registered partitions 决定 range。</li>
+      <li>target range 内任一 expected date 未注册到 <code>cn_a_stock_mins_silver_trade_days</code> 时，必须在写任何文件前抛 <code>dg.Failure</code>。</li>
+      <li>previous state 必须是 <code>start_trade_date</code> 的上一 expected date 对应 state；不得回退到更早 state。</li>
+      <li>所有 freq 的 qfq source path 与 previous state gate 必须先预检完成，再开始实际写入，降低部分 freq 已写、后续 freq 才失败的风险。</li>
+      <li>失败路径不得写 completion checks；成功路径 <code>covered_end_trade_date</code> 必须等于 expected range 的最后一天。</li>
+    </ul>
+
+    <h4>4.10.3 M10 代码级实现</h4>
+    <p>op declaration 增加 <code>duckdb</code> resource：</p>
+    <pre><code>@dg.op(
+    required_resource_keys={"lake_root", "duckdb"},
+    config_schema=GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA,
+    pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
+)
+def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -&gt; None:
+    ...</code></pre>
+
+    <p>新增本地 calendar loader，避免 op 直接手写 SQL：</p>
+    <pre><code>def _load_macd_kdj_repair_expected_trade_dates(
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+    evaluated_at: datetime,
+) -&gt; tuple[str, ...]:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    with duckdb_resource.connect() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+            evaluated_at=evaluated_at,
+            same_day_register_start=None,
+        )</code></pre>
+
+    <p><code>_repair_scope_from_qfq_factor_repair_status(...)</code> 需要把 <code>repair_end_trade_date</code> 一并返回或由 op 在 status ready 后显式读取并校验非空。新的 scope 至少包含：</p>
+    <pre><code>(
+    repair_start_trade_date,
+    repair_end_trade_date,
+    repair_required_codes,
+    repair_required_codes_hash,
+    upstream_batch_id,
+)</code></pre>
+
+    <p>target range 与 previous state preflight 顺序固定如下：</p>
+    <pre><code>expected_trade_dates = _load_macd_kdj_repair_expected_trade_dates(
+    lake_root=lake_root,
+    duckdb_resource=context.resources.duckdb,
+    evaluated_at=datetime.now(),
+)
+if start_trade_date not in expected_trade_dates:
+    raise dg.Failure(...)
+if repair_end_trade_date not in expected_trade_dates:
+    raise dg.Failure(...)
+
+target_dates = expected_trade_dates_between(
     expected_trade_dates,
     start_trade_date=start_trade_date,
-    end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
+    end_trade_date=repair_end_trade_date,
 )
-assert_expected_dates_registered(
+registered_target_dates = assert_expected_dates_registered(
     expected_trade_dates=expected_trade_dates,
     registered_trade_days=registered_trade_days,
     partition_set_name=cn_a_stock_mins_silver_trade_days.name,
     start_trade_date=start_trade_date,
-    end_trade_date=qfq_factor_repair_status.repair_end_trade_date,
+    end_trade_date=repair_end_trade_date,
 )
-previous_state_path = assert_exact_previous_state_path(
-    lake_root=lake_root,
-    freq=freq,
-    target_trade_date=start_trade_date,
-    previous_expected_trade_date=previous_expected_trade_date,
-    allow_without_previous_state=start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+if registered_target_dates != target_dates:
+    raise dg.Failure(...)
+
+previous_trade_date = previous_expected_trade_date(
+    expected_trade_dates,
+    start_trade_date,
+)
+allow_without_previous_state = (
+    start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+    and previous_trade_date is None
 )</code></pre>
 
-    <p>completion metadata 仍保持 M4/M7/M9 口径：</p>
+    <p>写入前先为所有 freq 生成 preflight plan：</p>
+    <pre><code>source_paths_by_freq: dict[int, tuple[Path, ...]] = {}
+previous_state_path_by_freq: dict[int, Path | None] = {}
+for freq in freqs:
+    source_paths = discover_gold_stk_mins_qfq_source_year_paths(
+        lake_root,
+        freq=freq,
+        trade_dates=target_dates,
+    )
+    if not source_paths:
+        raise FileNotFoundError(...)
+    previous_state_path_by_freq[freq] = assert_exact_previous_state_path(
+        lake_root=lake_root,
+        freq=freq,
+        target_trade_date=start_trade_date,
+        previous_expected_trade_date=previous_trade_date,
+        allow_without_previous_state=allow_without_previous_state,
+    )
+    source_paths_by_freq[freq] = source_paths</code></pre>
+
+    <p>完成 preflight 后再进入现有写入循环，<code>write_gold_stk_mins_qfq_macd_kdj_rows(...)</code> 的 <code>target_trade_dates</code> 固定使用 expected range，<code>previous_state_paths</code> 固定使用 preflight 结果。</p>
+
+    <h4>4.10.4 M10 测试与门禁</h4>
     <ul>
-      <li>继续写 <code>source_upstream_batch_id</code>。</li>
-      <li>不得写 <code>source_qfq_factor_repair_event_storage_ids</code>。</li>
-      <li>不得恢复散装手工 repair。</li>
-      <li>range 内任一 expected date 缺 qfq source 或 state gate 不满足时，失败且不写 completion checks。</li>
+      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：新增 06-13/06-15/06-16 expected，registered 缺 06-15 的负例；op 必须失败，metadata 或 message 包含 <code>first_missing_registered_date=2026-06-15</code>，且不写 completion checks。</li>
+      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：target start 或 repair end 不在 expected calendar 时失败。</li>
+      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：只有 06-13 state、缺 06-15 state 时，repair start=06-16 必须失败，不得用 06-13 递推。</li>
+      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：完整 expected range + exact previous state 成功，completion metadata 只写 <code>source_upstream_batch_id</code>，<code>covered_end_trade_date</code> 等于 repair end。</li>
+      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：<code>execute_in_process</code> fixture 必须写入临时 <code>silver_trade_calendar</code> parquet，并提供 <code>duckdb</code> resource，证明 op 通过资源读取 expected calendar。</li>
+      <li><code>tests/test_run_contract_static_gates.py</code>：删除/禁止 <code>_target_trade_dates(...)</code> registered-only helper；正式 repair op body 不得调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</li>
+      <li>静态门禁同样必须允许 bootstrap/history helper 保留历史 state discover；禁止范围只锁定正式 repair op body。</li>
     </ul>
+
     <div class="warning">
       <strong>当前代码事实：</strong>
-      截至 2026-06-17，<code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 仍从 registered silver dates 推导 target dates，并通过 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 查找任意更早 state。该小节仍是后续 M10 编码任务。
+      M10 已完成。<code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 已从 registered-only range 切到 expected range，并在任何写文件或 completion checks 前完成 expected registration、qfq source path 与 exact previous expected state preflight。
     </div>
   </section>
 
@@ -909,7 +1101,7 @@ previous_state_path = assert_exact_previous_state_path(
 
   <section>
     <h2>6. 测试设计</h2>
-    <h3>6.1 新增测试文件</h3>
+    <h3>6.1 测试文件分工</h3>
     <table>
       <thead>
         <tr>
@@ -931,8 +1123,20 @@ previous_state_path = assert_exact_previous_state_path(
           <td>raw、silver、qfq daily、qfq factor repair sensor 的 first-not-ready 选择与 skip 行为。</td>
         </tr>
         <tr>
-          <td><code>tests/test_stk_mins_qfq_macd_kdj_continuity.py</code></td>
-          <td>MACD/KDJ daily previous expected state gate、repair expected range gate、exact previous state path。</td>
+          <td><code>tests/test_stk_mins_qfq_m12_sensor_contracts.py</code></td>
+          <td>MACD/KDJ daily run-status sensor 的 previous expected date、target 不在 expected calendar、baseline 例外与 run key 契约。</td>
+        </tr>
+        <tr>
+          <td><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code></td>
+          <td>M9 daily asset writer 的 exact previous expected state gate、baseline 无 previous state、target 不在 expected calendar。</td>
+        </tr>
+        <tr>
+          <td><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code></td>
+          <td>M10 MACD/KDJ repair op 的 expected range、缺注册 fail-closed、exact previous state、completion metadata。</td>
+        </tr>
+        <tr>
+          <td><code>tests/test_run_contract_static_gates.py</code></td>
+          <td>latest registered helper、previous registered、registered-only target range、formal path latest-before-state、run key 治理五条口径防回流。</td>
         </tr>
       </tbody>
     </table>
@@ -945,7 +1149,8 @@ previous_state_path = assert_exact_previous_state_path(
       <li><code>tests/test_stk_mins_qfq_m9c_sensor_contracts.py</code>：qfq factor repair 目标选择改为 first repair not completed。</li>
       <li><code>tests/test_stk_mins_qfq_m12_sensor_contracts.py</code>：previous registered 改为 previous expected；新增 06-15 state 缺失阻断 06-16 的用例。</li>
       <li><code>tests/test_stk_mins_qfq_m9c_factor_repair.py</code>：qfq factor repair 不允许用上一 registered date 替代上一 expected date。</li>
-      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：repair target dates 使用 expected range，缺任一 expected date 或 qfq source 时失败。</li>
+      <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code>：daily asset writer 不允许用任意更早 state；缺 exact previous expected state 时失败。</li>
+      <li><code>tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code>：repair target dates 使用 expected range，缺任一 expected date、silver 注册或 qfq source 时失败。</li>
     </ul>
 
     <h3>6.3 关键负向样本</h3>
@@ -971,28 +1176,50 @@ previous_state_path = assert_exact_previous_state_path(
         </tr>
         <tr>
           <td>MACD/KDJ 06-16 daily 只有 06-13 state，没有 06-15 state。</td>
-          <td>skip 或 asset failure；不得从 06-13 state 递推。</td>
+          <td>M7 run-status sensor skip；M9 asset write fail closed；不得从 06-13 state 递推。</td>
         </tr>
         <tr>
           <td>qfq factor repair start=06-15/end=06-17，但 06-16 qfq source 缺失。</td>
-          <td>repair op 失败，不写 completion metadata。</td>
+          <td>M10 repair op 在写 completion checks 前失败，不写 completion metadata。</td>
+        </tr>
+        <tr>
+          <td>MACD/KDJ repair start=06-16，expected previous 是 06-15，但只有 06-13 state。</td>
+          <td>M10 repair op 失败；不得用 06-13 state 修复 06-16 及后续 range。</td>
         </tr>
       </tbody>
     </table>
 
     <h3>6.4 本地测试命令</h3>
+    <p>M9 daily asset write 开发阶段先跑：</p>
+    <pre><code>cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stk_mins_continuity.py \
+  tests/test_stk_mins_qfq_m12_sensor_contracts.py \
+  tests/test_stk_mins_qfq_m12_macd_kdj.py \
+  tests/test_run_contract_static_gates.py</code></pre>
+
+    <p>M10 MACD/KDJ repair op 开发阶段先跑：</p>
+    <pre><code>cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stk_mins_continuity.py \
+  tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py \
+  tests/test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py \
+  tests/test_run_contract_static_gates.py</code></pre>
+
+    <p>专项完成后再跑整组连续性回归：</p>
     <pre><code>cd lake_console/orchestrator
 PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   tests/test_stk_mins_continuity.py \
   tests/test_stock_mins_trade_day_continuity_sensor.py \
   tests/test_stock_mins_daily_continuity_sensors.py \
-  tests/test_stk_mins_qfq_macd_kdj_continuity.py \
   tests/test_stk_mins_raw_m4_contracts.py \
   tests/test_stk_mins_silver_m6g_sensor_contracts.py \
   tests/test_stk_mins_qfq_m9a_sensor_contracts.py \
   tests/test_stk_mins_qfq_m9c_sensor_contracts.py \
   tests/test_stk_mins_qfq_m12_sensor_contracts.py \
+  tests/test_stk_mins_qfq_m12_macd_kdj.py \
   tests/test_stk_mins_qfq_m9c_factor_repair.py \
+  tests/test_stk_mins_qfq_macd_kdj_repair_sensor_contracts.py \
   tests/test_stk_mins_qfq_macd_kdj_repair_op_contracts.py</code></pre>
 
     <p>专项完成后再跑 orchestrator 全量本地 pytest。不运行 <code>dg</code>，不读取正式 <code>DAGSTER_HOME</code>。</p>
@@ -1000,29 +1227,68 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
   <section>
     <h2>7. 静态门禁与文档对账</h2>
-    <p>截至 M8，静态门禁已覆盖 qfq factor repair registered-only helper 防回流、MACD/KDJ run-status sensor previous registered 防回流，以及 run key 治理五条口径。最终连续性收口还需要在后续 M9/M10 完成后补齐 MACD/KDJ daily/repair 对 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 的正式路径禁用门禁。</p>
+    <p>截至 M11，静态门禁已覆盖 qfq factor repair registered-only helper 防回流、MACD/KDJ run-status sensor previous registered 防回流、MACD/KDJ daily/repair 正式路径 latest-before-state 防回流，以及 run key 治理五条口径。</p>
     <pre><code>rg -n "_latest_registered_trade_date|_latest_registered_silver_trade_date|_latest_registered_raw_trade_date|_previous_registered_trade_date" \
   lake_console/orchestrator/src/orchestrator/defs/sensors/stock_mins* \
   lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py
 
-rg -n "discover_latest_macd_kdj_state_path_before_trade_date" \
-  lake_console/orchestrator/src/orchestrator/defs/stk_mins_qfq_macd_kdj.py \
+rg -n "_target_trade_dates" \
   lake_console/orchestrator/src/orchestrator/defs/ops/gold_stk_mins_qfq_macd_kdj_repair.py</code></pre>
+
+    <p>M9/M10 新增的静态门禁不使用粗暴全文禁止，因为 bootstrap/history helper 仍可保留历史 state 发现能力。门禁锁定正式调用点：</p>
+    <ul>
+      <li><code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code> body 不得调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</li>
+      <li><code>gold_stk_mins_qfq_macd_kdj_repair_op(...)</code> body 不得调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</li>
+      <li><code>gold_stk_mins_qfq_macd_kdj_repair_op.py</code> 不得保留 <code>_target_trade_dates(...)</code> 这种 registered-only range helper。</li>
+      <li>正式 daily/repair path 必须出现 <code>assert_exact_previous_state_path(...)</code>，repair path 必须出现 <code>assert_expected_dates_registered(...)</code>。</li>
+    </ul>
 
     <p>验收口径：</p>
     <ul>
-      <li>分钟线正式 sensor 中不得再用 latest registered helper 选择执行目标；该项已随 M2-M7 基本落地。</li>
-      <li>MACD/KDJ 正式 daily/repair 不得再用 latest-before-start state 作为上一 expected state；该项在 daily run-status sensor 已落地，在 asset write 与 repair op 中仍待后续 M9/M10。</li>
+      <li>分钟线正式 sensor 中不得再用 latest registered helper 选择执行目标；该项已随 M2-M7 落地。</li>
+      <li>MACD/KDJ 正式 daily/repair 不得再用 latest-before-start state 作为上一 expected state；daily run-status sensor、asset write 与 repair op 均已落地。</li>
       <li>允许 bootstrap/history helper 继续使用历史文件发现能力，但必须不在日常正式路径中。</li>
       <li>run key 静态门禁保持 M9 结果：没有散落手写正式 run key、没有新增直接 <code>RunRequest</code>、没有 run key 反解析、没有旧 storage id 字段、正式 run key 都经统一 builder。</li>
     </ul>
 
+    <h3>7.1 M11 最终验收记录</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>类别</th>
+          <th>验收结果</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>目标测试</td>
+          <td><code>198 passed</code>：覆盖 run key、静态门禁、continuity helper、raw/silver/qfq/qfq factor repair、MACD/KDJ daily writer 与 repair op。</td>
+        </tr>
+        <tr>
+          <td>全量本地 pytest</td>
+          <td><code>666 passed</code>：只执行本地 pytest；未运行 <code>dg</code>，未读取正式 Dagster instance，未触碰正式 lake。</td>
+        </tr>
+        <tr>
+          <td>源码静态审计</td>
+          <td><code>stock_mins_*</code> 正式 sensor 与 MACD/KDJ run-status sensor 无 latest/previous registered 目标选择回流；MACD/KDJ repair op 无 <code>_target_trade_dates</code> 与 latest-before-state fallback；生产代码无旧 storage id 字段。</td>
+        </tr>
+        <tr>
+          <td>Run key 治理五条</td>
+          <td>静态门禁与补充审计继续支撑：没有散落手写正式 run key、没有新增直接 <code>RunRequest</code>、没有解析 run key 反推 config、没有正式路径写旧 storage id 字段、正式 run key 均经统一 builder。</td>
+        </tr>
+        <tr>
+          <td>文档对账</td>
+          <td>连续性专项、MACD/KDJ 指标方案、股票分钟线资产设计、Dagster 数据系统架构与长期编码规范均已同步 M1-M11 当前代码事实。</td>
+        </tr>
+      </tbody>
+    </table>
+
     <p>需要同步的文档：</p>
     <ul>
-      <li><code>dagster-stk-mins-continuity-governance.html</code>：必须标明 M1-M8 已落地，MACD/KDJ asset write 与 repair op 未完成。</li>
+      <li><code>dagster-stk-mins-continuity-governance.html</code>：必须标明 M1-M11 已完成，MACD/KDJ asset write 与 repair op 已按 expected calendar / exact previous state 口径收口。</li>
       <li><code>dagster-stk-mins-asset-design.html</code>：把 raw/silver/qfq sensor 中“最新已注册日期”当前口径改成 continuity frontier / first-not-ready。</li>
-      <li><code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>：必须明确 MACD/KDJ run-status sensor 已使用 previous expected，但 repair op exact previous expected state 仍待后续专项阶段。</li>
-      <li><code>dagster-asset-job-topology.html</code>、<code>dagster-data-system-architecture.html</code>：只在代码实现完成后同步当前正式口径。</li>
+      <li><code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>：必须明确 MACD/KDJ run-status sensor、daily asset write 与 repair op 都已使用 previous expected / expected range 口径。</li>
+      <li><code>dagster-asset-job-topology.html</code>、<code>dagster-data-system-architecture.html</code>：同步当前正式口径，历史背景必须明确标注为治理前事实。</li>
       <li><code>CODING_STANDARDS.md</code>：如新增静态规则，应写入“股票分钟线连续性门禁”。</li>
     </ul>
   </section>
@@ -1037,9 +1303,9 @@ rg -n "discover_latest_macd_kdj_state_path_before_trade_date" \
       <li><span class="tag green">已完成</span> 改 <code>stock_mins_qfq_daily_sensor.py</code> 与 <code>stock_mins_qfq_factor_repair_sensor.py</code>，统一使用 expected calendar + first-not-ready / first repair not completed。</li>
       <li><span class="tag green">已完成</span> 改 MACD/KDJ daily run-status sensor，使用 previous expected date 和 previous state readiness。</li>
       <li><span class="tag green">已完成</span> 改 qfq factor repair op/helper，previous date 和 repair range 由 expected calendar 决定。</li>
-      <li><span class="tag red">未完成</span> 改 MACD/KDJ daily asset write，exact previous expected state fail closed。</li>
-      <li><span class="tag red">未完成</span> 改 MACD/KDJ repair op，expected range 与 exact previous expected state fail closed。</li>
-      <li><span class="tag amber">待执行</span> 补最终静态门禁、文档对账、本地专项测试和全量本地 pytest；不运行 <code>dg</code>。</li>
+      <li><span class="tag green">已完成</span> 改 MACD/KDJ daily asset write，exact previous expected state fail closed。</li>
+      <li><span class="tag green">已完成</span> 改 MACD/KDJ repair op，expected range 与 exact previous expected state fail closed。</li>
+      <li><span class="tag green">已完成</span> 补最终静态门禁、文档对账、本地专项测试和全量本地 pytest；不运行 <code>dg</code>。</li>
     </ol>
 
     <div class="warning">

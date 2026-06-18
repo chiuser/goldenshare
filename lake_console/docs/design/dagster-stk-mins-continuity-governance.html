@@ -268,8 +268,8 @@
       都遵守同一个连续性契约：只要权威交易日历中存在未处理缺口，后续日期不得继续推进。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>状态</strong>M1-M8 已阶段性落地；MACD/KDJ asset write、MACD/KDJ repair op 与最终回归仍待收口。</div>
-      <div class="chip"><strong>更新时间</strong>2026-06-17</div>
+      <div class="chip"><strong>状态</strong>M1-M11 已完成；raw/silver/qfq、qfq factor repair、MACD/KDJ daily 与 repair 均已接入 expected calendar 连续性口径。</div>
+      <div class="chip"><strong>更新时间</strong>2026-06-18</div>
       <div class="chip"><strong>本轮动作</strong>按当前代码事实收敛文档；不执行 Dagster runtime，不读取正式 Dagster instance。</div>
       <div class="chip"><strong>文档归档</strong><code>lake_console/docs/design/</code></div>
     </div>
@@ -334,19 +334,19 @@
           <td>已落地</td>
         </tr>
         <tr>
-          <td>后续 M9</td>
-          <td><code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code> 仍调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 查任意更早 state；需要改为 exact previous expected state gate。</td>
-          <td>未完成</td>
+          <td>M9</td>
+          <td><code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code> 已改为由 asset wrapper 读取 expected calendar，传入上一 expected trade date，并通过 exact previous state gate 阻断手工 materialize 跳日。</td>
+          <td>已落地</td>
         </tr>
         <tr>
-          <td>后续 M10</td>
-          <td><code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 仍使用 registered silver target dates 与任意更早 state；需要改为 expected range + exact previous expected state。</td>
-          <td>未完成</td>
+          <td>M10</td>
+          <td><code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 已改为 expected range + exact previous expected state；range 缺注册、source 缺失或 previous state 缺失时写前失败。</td>
+          <td>已落地</td>
         </tr>
         <tr>
-          <td>最终收口</td>
-          <td>连续性专项的静态门禁、文档对账和 orchestrator 全量本地 pytest 仍需在 M9/M10 完成后统一执行。</td>
-          <td>未完成</td>
+          <td>M11</td>
+          <td>连续性专项静态门禁、文档对账、目标测试和 orchestrator 全量本地 pytest 统一收口；不运行 <code>dg</code>，不读取正式 Dagster instance。</td>
+          <td>已收口</td>
         </tr>
       </tbody>
     </table>
@@ -457,7 +457,7 @@
           <td><code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code></td>
           <td>治理前从 <code>cn_a_stock_mins_silver_trade_days</code> 找 previous registered；当前 run-status sensor 已改为从 <code>silver_trade_calendar</code> 找 previous expected。</td>
           <td>如果 6 月 15 日缺失，6 月 16 日上一日会被识别成 6 月 13 日，MACD/KDJ 从错误 state 递推。</td>
-          <td>M7 已落地到 run-status sensor；asset write 层 exact previous state gate 仍待后续 M9。</td>
+          <td>M7 已落地到 run-status sensor；M9 已在 asset write 层补齐 exact previous expected state gate，防止手工 materialize 绕过 sensor。</td>
         </tr>
         <tr>
           <td><code>stk_mins_qfq_factor_repair.py</code></td>
@@ -467,9 +467,9 @@
         </tr>
         <tr>
           <td><code>gold_stk_mins_qfq_macd_kdj_repair.py</code></td>
-          <td><code>_target_trade_dates(...)</code> 从 registered silver dates 取 <code>&gt;= start_trade_date</code>；上一 state 用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 找任意更早 state。</td>
+          <td>治理前 <code>_target_trade_dates(...)</code> 从 registered silver dates 取 <code>&gt;= start_trade_date</code>，上一 state 用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 找任意更早 state；当前 repair op 已改为 expected range + exact previous expected state。</td>
           <td>repair 区间也会跳过未注册日期；上一 state 可能不是上一 expected trade date。</td>
-          <td>repair target dates 必须是 expected date range；previous state 必须精确匹配上一 expected trade date。</td>
+          <td>M10 已落地；repair target dates 来自 expected date range，previous state 精确匹配上一 expected trade date。</td>
         </tr>
         <tr>
           <td><code>readiness.py</code> / <code>silver_index_daily_sensor.py</code></td>
@@ -482,7 +482,7 @@
 
     <div class="callout">
       <strong>CodeGraph 影响面：</strong>
-      本次审计覆盖了股票分钟线分区注册、raw/silver/qfq 日更 sensor、qfq factor repair sensor/op、MACD/KDJ daily run-status sensor、MACD/KDJ repair op，以及 index daily 现有 gap audit 参考实现。CodeGraph 显示 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 被 MACD/KDJ 正式资产和 repair op 使用，是必须纳入连续性治理的关键点。
+      本次审计覆盖了股票分钟线分区注册、raw/silver/qfq 日更 sensor、qfq factor repair sensor/op、MACD/KDJ daily run-status sensor、MACD/KDJ repair op，以及 index daily 现有 gap audit 参考实现。治理前 CodeGraph 曾显示 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code> 被 MACD/KDJ 正式资产和 repair op 使用；M9/M10 已把正式路径切到 exact previous expected state gate。
     </div>
   </section>
 
@@ -499,7 +499,7 @@
       </div>
       <div class="card">
         <strong>根因三：状态递推没有校验上一 expected day</strong>
-        <p>MACD/KDJ 是状态递推资产，必须从上一真实交易日 state 递推。当前代码允许使用任意更早 state。</p>
+        <p>MACD/KDJ 是状态递推资产，必须从上一真实交易日 state 递推。治理前代码允许使用任意更早 state，当前正式 daily write 与 repair op 已禁止该 fallback。</p>
       </div>
       <div class="card">
         <strong>根因四：repair 范围从 registered set 推导</strong>
@@ -529,8 +529,8 @@
     </ol>
     <div class="warning">
       <strong>当前落地边界：</strong>
-      截至 2026-06-17，raw/silver/qfq 日常 sensor、MACD/KDJ daily run-status sensor、qfq factor repair op/helper 已按上述连续性契约改造。
-      MACD/KDJ daily asset write 与 MACD/KDJ repair op 仍未完成 exact previous expected state / expected range 改造，不能在文档中视为专项已全部收口。
+      截至 2026-06-18，raw/silver/qfq 日常 sensor、qfq factor repair op/helper、MACD/KDJ daily run-status sensor、daily asset write 与 repair op 均已按上述连续性契约改造。
+      M11 只做源码、文档、静态门禁和本地 pytest 收口；仍不把正式 Dagster runtime 当作验证沙盒。
     </div>
   </section>
 
@@ -732,7 +732,7 @@
   </section>
 
   <section>
-    <h2>7. 实施里程碑与剩余任务</h2>
+    <h2>7. 实施里程碑与最终状态</h2>
     <table>
       <thead>
         <tr>
@@ -780,22 +780,22 @@
           <td>已落地；previous date 和 selected range 来自 expected calendar。</td>
         </tr>
         <tr>
-          <td>后续 M9</td>
+          <td>M9</td>
           <td>MACD/KDJ asset write exact previous state</td>
           <td>改造 <code>write_gold_stk_mins_qfq_macd_kdj_asset_partition(...)</code>，避免 UI 手工 materialize 绕过 sensor。</td>
-          <td>未完成；当前代码仍调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</td>
+          <td>已落地；正式 writer body 不再调用 latest-before-state discover，非 baseline 日期必须精确读取上一 expected state。</td>
         </tr>
         <tr>
-          <td>后续 M10</td>
+          <td>M10</td>
           <td>MACD/KDJ repair expected range</td>
           <td>改造 <code>gold_stk_mins_qfq_macd_kdj_repair_op</code> 的 target range 与 previous state gate。</td>
-          <td>未完成；当前 repair op 仍按 registered silver dates 与任意更早 state 推进。</td>
+          <td>已落地；repair op 按 qfq factor repair start/end 生成 expected range，写前统一校验注册、qfq source 与上一 expected state。</td>
         </tr>
         <tr>
-          <td>最终收口</td>
+          <td>M11</td>
           <td>最终收口</td>
           <td>补齐静态门禁、文档对账、专项测试和 orchestrator 全量本地 pytest。</td>
-          <td>未完成；必须在后续 M9/M10 代码完成后执行。</td>
+          <td>已收口；不运行 <code>dg</code>，不读取正式 Dagster instance，不触碰正式 lake。</td>
         </tr>
       </tbody>
     </table>
@@ -809,7 +809,7 @@
   <section>
     <h2>8. 测试与验收计划</h2>
     <h3>必须新增或调整的测试</h3>
-    <p>以下测试清单中，raw/silver/qfq/qfq factor repair/MACD run-status/qfq factor repair op 相关项已随 M1-M8 落地；MACD/KDJ asset write、MACD/KDJ repair op 和最终全量回归仍待后续阶段完成。</p>
+    <p>以下测试清单已随 M1-M11 分阶段落地，并在最终收口阶段用目标测试、静态审计和全量本地 pytest 统一对账。</p>
     <ul>
       <li>交易日注册测试：停机错过 <code>2026-06-15</code> 后，下一 tick 先补 <code>2026-06-15</code>，而不是只注册 <code>2026-06-16</code>。</li>
       <li>raw sensor 测试：registered set 缺 <code>2026-06-15</code> 时，不提交 <code>2026-06-16</code> run。</li>
@@ -827,6 +827,38 @@
       <li>不读取正式 <code>DAGSTER_HOME</code>，不触碰正式 lake。</li>
       <li>如需正式 Dagster run history 只读审计，必须另行列命令和审批。</li>
     </ul>
+
+    <h3>M11 最终验收结果</h3>
+    <table>
+      <thead>
+        <tr>
+          <th>验收项</th>
+          <th>结果</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>目标测试</td>
+          <td><code>198 passed</code>；覆盖 run key、静态门禁、continuity helper、raw/silver/qfq/qfq factor repair、MACD/KDJ daily 与 repair op。</td>
+        </tr>
+        <tr>
+          <td>完整本地回归</td>
+          <td><code>666 passed</code>；只运行本地 pytest，不运行 <code>dg</code>，不读取正式 Dagster instance。</td>
+        </tr>
+        <tr>
+          <td>连续性静态审计</td>
+          <td>股票分钟线正式 sensor 无 latest/previous registered 目标选择回流；MACD/KDJ repair op 无 <code>_target_trade_dates</code> 与 latest-before-state fallback。</td>
+        </tr>
+        <tr>
+          <td>Run key 治理静态审计</td>
+          <td>旧 storage id 字段零命中；正式 sensor 无新增直接 <code>RunRequest</code>、手写正式 run key 或 run key 反解析回流。</td>
+        </tr>
+        <tr>
+          <td>文档对账</td>
+          <td>M9/M10 “未完成/剩余任务”旧口径已清理；历史背景、禁止项和测试样本保留时均明确为非当前正式口径。</td>
+        </tr>
+      </tbody>
+    </table>
 
     <h3>建议测试命令</h3>
     <pre><code>cd lake_console/orchestrator
