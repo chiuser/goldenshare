@@ -105,6 +105,13 @@ class DatasetWriter:
                     raw_dao=raw_dao,
                     core_dao=core_dao,
                 )
+            if definition.storage.write_path == "raw_fund_daily_etf_active_serving_upsert":
+                return self._write_fund_daily_etf_active_serving(
+                    definition=definition,
+                    batch=batch,
+                    raw_dao=raw_dao,
+                    core_dao=core_dao,
+                )
             if not batch.rows_normalized:
                 return WriteResult(
                     unit_id=batch.unit_id,
@@ -241,6 +248,62 @@ class DatasetWriter:
             rows_skipped=batch.rows_rejected,
             target_table=definition.storage.target_table,
             conflict_strategy="index_daily_active_gate",
+            rows_rejected=sum(rejected_reason_counts.values()),
+            rejected_reason_counts=rejected_reason_counts,
+            rejected_reason_samples=rejected_reason_samples,
+        )
+
+    def _write_fund_daily_etf_active_serving(
+        self,
+        *,
+        definition: DatasetDefinition,
+        batch: NormalizedBatch,
+        raw_dao,
+        core_dao,
+    ) -> WriteResult:
+        if not batch.rows_normalized:
+            return WriteResult(
+                unit_id=batch.unit_id,
+                rows_written=0,
+                rows_upserted=0,
+                rows_skipped=batch.rows_rejected,
+                target_table=definition.storage.target_table,
+                conflict_strategy="fund_daily_etf_active_gate",
+            )
+
+        raw_rows = self._coerce_rows_for_dao(batch.rows_normalized, raw_dao)
+        if definition.storage.conflict_columns:
+            raw_dao.bulk_upsert(raw_rows, conflict_columns=list(definition.storage.conflict_columns))
+        else:
+            raw_dao.bulk_upsert(raw_rows)
+
+        active_rows = self._filter_fund_daily_rows_by_etf_active_pool(
+            rows=batch.rows_normalized,
+            active_codes=self._resolve_active_etf_codes("fund_daily"),
+        )
+        rows_written = 0
+        rejected_reason_counts, rejected_reason_samples = self._duplicate_reason_diagnostics(
+            rows=active_rows,
+            conflict_columns=self._resolve_conflict_columns(
+                core_dao,
+                definition.storage.conflict_columns,
+            ),
+            unit_id=batch.unit_id,
+        )
+        if active_rows:
+            core_rows = self._coerce_rows_for_dao(active_rows, core_dao)
+            if definition.storage.conflict_columns:
+                rows_written = core_dao.bulk_upsert(core_rows, conflict_columns=list(definition.storage.conflict_columns))
+            else:
+                rows_written = core_dao.bulk_upsert(core_rows)
+
+        return WriteResult(
+            unit_id=batch.unit_id,
+            rows_written=rows_written,
+            rows_upserted=rows_written,
+            rows_skipped=batch.rows_rejected,
+            target_table=definition.storage.target_table,
+            conflict_strategy="fund_daily_etf_active_gate",
             rows_rejected=sum(rejected_reason_counts.values()),
             rejected_reason_counts=rejected_reason_counts,
             rejected_reason_samples=rejected_reason_samples,
@@ -581,6 +644,29 @@ class DatasetWriter:
 
     def _resolve_active_index_codes(self) -> set[str]:
         active_codes = self.dao.index_series_active.list_active_codes("index_daily")
+        return {
+            str(code).strip().upper()
+            for code in active_codes
+            if str(code).strip()
+        }
+
+    @staticmethod
+    def _filter_fund_daily_rows_by_etf_active_pool(
+        *,
+        rows: list[dict[str, Any]],
+        active_codes: set[str],
+    ) -> list[dict[str, Any]]:
+        if not active_codes:
+            return []
+        filtered_rows: list[dict[str, Any]] = []
+        for row in rows:
+            ts_code = str(row.get("ts_code") or "").strip().upper()
+            if ts_code and ts_code in active_codes:
+                filtered_rows.append(row)
+        return filtered_rows
+
+    def _resolve_active_etf_codes(self, resource: str) -> set[str]:
+        active_codes = self.dao.etf_series_active.list_active_codes(resource)
         return {
             str(code).strip().upper()
             for code in active_codes

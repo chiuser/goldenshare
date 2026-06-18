@@ -154,7 +154,7 @@ DATASET_ROWS = ({'identity': {'dataset_key': 'fund_adj', 'display_name': '基金
               'serving_table': 'core_serving.fund_daily_bar',
               'raw_table': 'raw_tushare.fund_daily',
               'conflict_columns': None,
-              'write_path': 'raw_core_upsert'},
+              'write_path': 'raw_fund_daily_etf_active_serving_upsert'},
   'planning': {'universe_policy': 'no_pool',
                'enum_fanout_fields': (),
                'enum_fanout_defaults': {},

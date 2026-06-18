@@ -300,6 +300,38 @@ def run_ops_seed_etf_series_active(
     echo_fn(f"invalid={report.invalid_count}")
 
 
+def run_ops_cleanup_etf_fund_daily_serving(
+    *,
+    session_local,
+    service_cls,
+    apply: bool,
+    output: Path | None,
+    confirm_report: Path | None,
+    echo_fn: Callable[[str], None],
+) -> None:
+    with session_local() as session:
+        report = service_cls().run(
+            session,
+            dry_run=not apply,
+            output_path=output,
+            confirm_report_path=confirm_report,
+        )
+
+    mode = "apply" if apply else "dry-run"
+    echo_fn(f"ops-cleanup-etf-fund-daily-serving [{mode}]")
+    if report.output_path:
+        echo_fn(f"output={report.output_path}")
+    if report.confirm_report_path:
+        echo_fn(f"confirm_report={report.confirm_report_path}")
+    echo_fn(f"outside_codes={report.outside_code_count}")
+    echo_fn(f"outside_rows={report.outside_row_count}")
+    echo_fn(f"deleted={report.deleted_count}")
+    echo_fn(f"post_outside_rows={report.post_outside_row_count}")
+    echo_fn(f"raw_rows_before={report.raw_row_count_before}")
+    echo_fn(f"raw_rows_after={report.raw_row_count_after}")
+    echo_fn(f"active_task_runs={report.active_task_run_count}")
+
+
 def run_ops_scheduler_tick(
     *,
     session_local,

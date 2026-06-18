@@ -77,6 +77,31 @@ def test_dataset_definition_projects_ths_daily_valuation_fields() -> None:
     assert definition.storage.target_table == "core_serving.ths_daily"
 
 
+def test_dataset_definition_projects_fund_daily_active_pool_serving_write_path() -> None:
+    definition = get_dataset_definition("fund_daily")
+
+    assert definition.source.api_name == "fund_daily"
+    assert definition.source.request_builder_key == "_fund_daily_params"
+    assert definition.source.source_fields == (
+        "ts_code",
+        "trade_date",
+        "open",
+        "high",
+        "low",
+        "close",
+        "pre_close",
+        "change",
+        "pct_chg",
+        "vol",
+        "amount",
+    )
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.storage.raw_table == "raw_tushare.fund_daily"
+    assert definition.storage.serving_table == "core_serving.fund_daily_bar"
+    assert definition.storage.write_path == "raw_fund_daily_etf_active_serving_upsert"
+    assert definition.normalization.row_transform_name == "_fund_daily_row_transform"
+
+
 def test_dataset_definition_projects_adj_factor_subject_completeness_facts() -> None:
     definition = get_dataset_definition("adj_factor")
 
