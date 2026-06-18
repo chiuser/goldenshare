@@ -1,7 +1,13 @@
 from collections.abc import Iterator
+from datetime import datetime
+from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    load_stock_mins_expected_trade_dates,
+    previous_expected_trade_date,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_macd_kdj import (
     assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate,
 )
@@ -14,8 +20,9 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
     lake_path_template,
+    silver_trade_calendar_path,
 )
-from orchestrator.defs.resources import LakeRootResource
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
@@ -26,12 +33,35 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+)
 from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_INDICATOR_VERSION,
     GOLD_STK_MINS_QFQ_MACD_KDJ_PARAMS_KEY,
     write_gold_stk_mins_qfq_macd_kdj_asset_partition,
 )
+
+
+def _load_macd_kdj_expected_trade_dates(
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
+) -> tuple[str, ...]:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    if not calendar_path.exists():
+        raise FileNotFoundError(
+            f"silver_trade_calendar file is missing: {calendar_path}"
+        )
+    with duckdb_resource.connect() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+            evaluated_at=datetime.now(),
+            same_day_register_start=None,
+        )
 
 
 def _indicator_asset_name(freq: int) -> str:
@@ -129,17 +159,49 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
     def _assets(
         context: dg.AssetExecutionContext,
         lake_root: LakeRootResource,
+        duckdb: DuckDBResource,
     ) -> Iterator[dg.MaterializeResult]:
         lake_root.ensure_available_for_run()
+        lake_root_path = lake_root.root()
         partition_key = context.partition_key
+        expected_trade_dates = _load_macd_kdj_expected_trade_dates(
+            lake_root=lake_root_path,
+            duckdb_resource=duckdb,
+        )
+        if partition_key not in expected_trade_dates:
+            raise dg.Failure(
+                description=(
+                    "MACD/KDJ daily target is not an expected stock minutes "
+                    f"trade date: partition_key={partition_key}."
+                ),
+                metadata={
+                    "partition_key": partition_key,
+                    "expected_start_date": (
+                        expected_trade_dates[0] if expected_trade_dates else ""
+                    ),
+                    "expected_end_date": (
+                        expected_trade_dates[-1] if expected_trade_dates else ""
+                    ),
+                },
+            )
+        previous_trade_date = previous_expected_trade_date(
+            expected_trade_dates,
+            partition_key,
+        )
+        allow_without_previous_state = (
+            partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+            and previous_trade_date is None
+        )
         assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
             context.instance,
             partition_key,
         )
         write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
-            lake_root=lake_root.root(),
+            lake_root=lake_root_path,
             freq=freq,
             partition_key=partition_key,
+            previous_expected_trade_date=previous_trade_date,
+            allow_without_previous_state=allow_without_previous_state,
         )
         yield dg.MaterializeResult(
             asset_key=indicator_asset_name,

@@ -8,6 +8,9 @@ from typing import Sequence
 
 import duckdb
 
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    assert_exact_previous_state_path,
+)
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
 from orchestrator.defs.paths import (
@@ -993,6 +996,8 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
     lake_root: Path,
     freq: int | str,
     partition_key: str,
+    previous_expected_trade_date: str | None,
+    allow_without_previous_state: bool,
 ) -> GoldStkMinsQfqMacdKdjPartitionWriteResult:
     normalized_freq = normalize_stk_mins_qfq_freq(freq)
     source_paths = discover_gold_stk_mins_qfq_source_year_paths(
@@ -1005,10 +1010,12 @@ def write_gold_stk_mins_qfq_macd_kdj_asset_partition(
             "Missing source gold qfq stock-year files for MACD/KDJ: "
             f"freq={normalized_freq}, partition={partition_key}."
         )
-    previous_state_path = discover_latest_macd_kdj_state_path_before_trade_date(
-        lake_root,
+    previous_state_path = assert_exact_previous_state_path(
+        lake_root=lake_root,
         freq=normalized_freq,
-        trade_date=partition_key,
+        target_trade_date=partition_key,
+        previous_expected_trade_date=previous_expected_trade_date,
+        allow_without_previous_state=allow_without_previous_state,
     )
     indicator_results, state_results, initialized_without_previous_state = (
         write_gold_stk_mins_qfq_macd_kdj_rows(

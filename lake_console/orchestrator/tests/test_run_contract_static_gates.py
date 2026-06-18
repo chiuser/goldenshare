@@ -367,6 +367,30 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append(
                 "MACD/KDJ repair gate guard must run before Parquet write helper"
             )
+        required_asset_fragments = (
+            "DuckDBResource",
+            "load_stock_mins_expected_trade_dates",
+            "previous_expected_trade_date",
+            "STK_MINS_MACD_KDJ_BASELINE_START_DATE",
+            "silver_trade_calendar_path",
+        )
+        issues.extend(
+            f"{asset_path} misses MACD/KDJ daily continuity fragment: {fragment}"
+            for fragment in required_asset_fragments
+            if fragment not in asset_source
+        )
+
+        writer_path = DEFS_DIR / "stk_mins_qfq_macd_kdj.py"
+        writer_source = _function_source(
+            writer_path,
+            "write_gold_stk_mins_qfq_macd_kdj_asset_partition",
+        )
+        if "assert_exact_previous_state_path" not in writer_source:
+            issues.append("MACD/KDJ daily writer must use exact previous state gate")
+        if "discover_latest_macd_kdj_state_path_before_trade_date" in writer_source:
+            issues.append(
+                "MACD/KDJ daily writer must not use latest-before-state discovery"
+            )
 
         repair_op_source = repair_op_path.read_text()
         required_repair_op_fragments = (

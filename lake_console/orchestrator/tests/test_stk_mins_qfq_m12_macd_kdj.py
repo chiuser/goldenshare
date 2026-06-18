@@ -2,13 +2,22 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import dagster as dg
 import duckdb
 
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
+from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
+    gold_stk_mins_qfq_macd_kdj_1m,
+)
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
     gold_stk_mins_qfq_path,
+    silver_trade_calendar_path,
+)
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
@@ -17,6 +26,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 )
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     SEGMENT_BAR_COUNT,
+    write_gold_stk_mins_qfq_macd_kdj_asset_partition,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
 
@@ -123,6 +133,35 @@ def _read_rows(path: Path) -> list[dict[str, object]]:
             """
         ).fetchall()
     return [dict(zip(columns, row, strict=True)) for row in rows]
+
+
+def _ensure_test_lake_root_ready(lake_root: Path) -> None:
+    for part in ("raw", "silver", "gold", "_tmp"):
+        (lake_root / part).mkdir(parents=True, exist_ok=True)
+
+
+def _write_calendar_rows(lake_root: Path, trade_dates: tuple[str, ...]) -> None:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    calendar_path.parent.mkdir(parents=True, exist_ok=True)
+    if trade_dates:
+        values = ", ".join(
+            f"(DATE '{trade_date}', 'SSE', true)" for trade_date in trade_dates
+        )
+        query = f"""
+            SELECT trade_date, exchange, is_open
+            FROM (VALUES {values}) AS rows(trade_date, exchange, is_open)
+            ORDER BY trade_date
+        """
+    else:
+        query = """
+            SELECT
+              CAST(NULL AS DATE) AS trade_date,
+              CAST(NULL AS VARCHAR) AS exchange,
+              CAST(NULL AS BOOLEAN) AS is_open
+            WHERE false
+        """
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(copy_query_to_parquet(query, calendar_path))
 
 
 class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
@@ -327,6 +366,143 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
 
         self.assertEqual({row["ts_code"] for row in after_rows}, {STOCK_A, STOCK_B})
         self.assertEqual(unaffected_after, unaffected_before)
+
+    def test_daily_asset_partition_uses_exact_previous_expected_state(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=(
+                    _source_rows_for_day("2026-06-15", start_close=10.0)
+                    + _source_rows_for_day("2026-06-16", start_close=20.0)
+                ),
+            )
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_path,),
+                target_trade_dates=("2026-06-15",),
+            )
+            previous_state = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                1,
+                "2026-06-15",
+            )
+
+            write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
+                lake_root=lake_root,
+                freq=1,
+                partition_key="2026-06-16",
+                previous_expected_trade_date="2026-06-15",
+                allow_without_previous_state=False,
+            )
+
+        self.assertFalse(write_result.initialized_without_previous_state)
+        self.assertEqual(write_result.previous_state_file_path, previous_state)
+        self.assertEqual(write_result.trade_date, "2026-06-16")
+
+    def test_daily_asset_partition_fails_without_exact_previous_expected_state(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2026)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=(
+                    _source_rows_for_day("2026-06-13", start_close=10.0)
+                    + _source_rows_for_day("2026-06-16", start_close=20.0)
+                ),
+            )
+            write_gold_stk_mins_qfq_macd_kdj_rows(
+                lake_root=lake_root,
+                freq=1,
+                source_qfq_paths=(source_path,),
+                target_trade_dates=("2026-06-13",),
+            )
+            older_state = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                1,
+                "2026-06-13",
+            )
+            target_state = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                1,
+                "2026-06-16",
+            )
+
+            with self.assertRaises(dg.Failure) as failure:
+                write_gold_stk_mins_qfq_macd_kdj_asset_partition(
+                    lake_root=lake_root,
+                    freq=1,
+                    partition_key="2026-06-16",
+                    previous_expected_trade_date="2026-06-15",
+                    allow_without_previous_state=False,
+                )
+
+            self.assertTrue(older_state.exists())
+            self.assertFalse(target_state.exists())
+        self.assertIn(
+            "previous expected state is missing",
+            failure.exception.description,
+        )
+
+    def test_daily_asset_partition_allows_baseline_without_previous_state(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2014)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=_source_rows_for_day(
+                    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+                    start_close=10.0,
+                ),
+            )
+
+            write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
+                lake_root=lake_root,
+                freq=1,
+                partition_key=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+                previous_expected_trade_date=None,
+                allow_without_previous_state=True,
+            )
+
+        self.assertTrue(write_result.initialized_without_previous_state)
+        self.assertIsNone(write_result.previous_state_file_path)
+        self.assertEqual(
+            write_result.trade_date,
+            STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+        )
+
+    def test_daily_asset_wrapper_rejects_target_outside_expected_calendar(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _ensure_test_lake_root_ready(lake_root)
+            _write_calendar_rows(lake_root, ("2026-06-15",))
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(
+                "cn_a_stock_mins_silver_trade_days",
+                ["2026-06-16"],
+            )
+
+            with self.assertRaisesRegex(
+                (dg.Failure, dg.DagsterExecutionStepExecutionError),
+                "not an expected stock minutes trade date",
+            ):
+                dg.materialize(
+                    [gold_stk_mins_qfq_macd_kdj_1m],
+                    partition_key="2026-06-16",
+                    resources={
+                        "lake_root": LakeRootResource(root_path=str(lake_root)),
+                        "duckdb": DuckDBResource(),
+                    },
+                    instance=instance,
+                    raise_on_error=True,
+                )
 
 
 if __name__ == "__main__":
