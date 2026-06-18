@@ -397,6 +397,17 @@ class RunContractStaticGateTests(unittest.TestCase):
             "GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME",
             "MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR",
             "MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR",
+            'required_resource_keys={"lake_root", "duckdb"}',
+            "DuckDBResource",
+            "silver_trade_calendar_path",
+            "load_stock_mins_expected_trade_dates",
+            "STK_MINS_MACD_KDJ_BASELINE_START_DATE",
+            "expected_trade_dates_between",
+            "assert_expected_dates_registered",
+            "previous_expected_trade_date",
+            "assert_exact_previous_state_path",
+            "source_paths_by_freq",
+            "previous_state_path_by_freq",
             "qfq_factor_repair_trade_date",
             "upstream_batch_id",
             "gold_stk_mins_qfq_factor_repair_status",
@@ -474,6 +485,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             '"stock_code_scope": "all"',
             "MACD_KDJ_REPAIR_MISSING_SCOPE_ERROR",
             "source_qfq_factor_repair_event_storage_ids",
+            "def _target_trade_dates",
+            "discover_latest_macd_kdj_state_path_before_trade_date",
         )
         issues.extend(
             f"{repair_op_path} contains forbidden MACD/KDJ repair op fragment: {fragment}"

@@ -1,14 +1,25 @@
-from datetime import date
+from datetime import date, datetime
+from pathlib import Path
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    assert_exact_previous_state_path,
+    assert_expected_dates_registered,
+    expected_trade_dates_between,
+    load_stock_mins_expected_trade_dates,
+    previous_expected_trade_date,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
     gold_stk_mins_qfq_factor_repair_status,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
     STK_MINS_QFQ_FREQS,
     normalize_stk_mins_qfq_freq,
 )
@@ -19,7 +30,6 @@ from orchestrator.defs.stk_mins_qfq import (
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_COMPLETED_CHECK_NAME,
     discover_gold_stk_mins_qfq_source_year_paths,
-    discover_latest_macd_kdj_state_path_before_trade_date,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
 
@@ -117,19 +127,24 @@ def _normalize_stock_codes(raw_stock_codes: object) -> tuple[str, ...]:
     )
 
 
-def _target_trade_dates(
-    registered_trade_days: tuple[str, ...],
-    start_trade_date: str,
+def _load_macd_kdj_repair_expected_trade_dates(
+    *,
+    lake_root: Path,
+    duckdb_resource: DuckDBResource,
 ) -> tuple[str, ...]:
-    target_dates = tuple(
-        trade_date for trade_date in registered_trade_days if trade_date >= start_trade_date
-    )
-    if not target_dates:
-        raise RuntimeError(
-            "No registered trade days at or after MACD/KDJ repair start date: "
-            f"start_trade_date={start_trade_date}."
+    calendar_path = silver_trade_calendar_path(lake_root)
+    if not calendar_path.exists():
+        raise FileNotFoundError(
+            f"silver_trade_calendar file is missing: {calendar_path}"
         )
-    return target_dates
+    with duckdb_resource.connect() as connection:
+        return load_stock_mins_expected_trade_dates(
+            connection,
+            calendar_path,
+            min_trade_date=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+            evaluated_at=datetime.now(),
+            same_day_register_start=None,
+        )
 
 
 def _repair_completion_asset_keys() -> tuple[dg.AssetKey, ...]:
@@ -146,7 +161,7 @@ def _repair_completion_asset_keys() -> tuple[dg.AssetKey, ...]:
 
 def _repair_scope_from_qfq_factor_repair_status(
     status: GoldStkMinsQfqFactorRepairStatus,
-) -> tuple[str, tuple[str, ...], str, str]:
+) -> tuple[str, str, tuple[str, ...], str, str]:
     if not status.ready:
         raise dg.Failure(
             "MACD/KDJ repair could not read ready qfq factor repair metadata: "
@@ -170,6 +185,11 @@ def _repair_scope_from_qfq_factor_repair_status(
             "MACD/KDJ repair qfq factor repair metadata is missing repair_start_trade_date: "
             f"trade_date={status.trade_date}."
         )
+    if status.repair_end_trade_date is None:
+        raise dg.Failure(
+            "MACD/KDJ repair qfq factor repair metadata is missing repair_end_trade_date: "
+            f"trade_date={status.trade_date}."
+        )
     if status.repair_required_codes_hash is None:
         raise dg.Failure(
             "MACD/KDJ repair qfq factor repair metadata is missing repair_required_codes_hash: "
@@ -182,6 +202,7 @@ def _repair_scope_from_qfq_factor_repair_status(
         )
     return (
         status.repair_start_trade_date,
+        status.repair_end_trade_date,
         status.repair_required_codes,
         status.repair_required_codes_hash,
         status.upstream_batch_id,
@@ -242,7 +263,7 @@ def _assert_explicit_scope_matches_qfq_metadata(
 
 
 @dg.op(
-    required_resource_keys={"lake_root"},
+    required_resource_keys={"lake_root", "duckdb"},
     config_schema=GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA,
     pool=GOLD_STK_MINS_QFQ_WRITER_POOL,
 )
@@ -281,6 +302,7 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
     )
     (
         derived_start_trade_date,
+        derived_end_trade_date,
         derived_stock_codes,
         derived_repair_required_codes_hash,
         derived_upstream_batch_id,
@@ -299,6 +321,34 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
     if not reason or reason == "manual_repair":
         reason = f"qfq_factor_repair:{qfq_factor_repair_trade_date}"
 
+    lake_root = context.resources.lake_root.root()
+    expected_trade_dates = _load_macd_kdj_repair_expected_trade_dates(
+        lake_root=lake_root,
+        duckdb_resource=context.resources.duckdb,
+    )
+    expected_trade_date_set = set(expected_trade_dates)
+    if start_trade_date not in expected_trade_date_set:
+        raise dg.Failure(
+            description=(
+                "MACD/KDJ repair start_trade_date is not an expected stock minutes "
+                f"trade date: start_trade_date={start_trade_date}."
+            ),
+            metadata={"start_trade_date": start_trade_date},
+        )
+    if derived_end_trade_date not in expected_trade_date_set:
+        raise dg.Failure(
+            description=(
+                "MACD/KDJ repair end_trade_date is not an expected stock minutes "
+                f"trade date: end_trade_date={derived_end_trade_date}."
+            ),
+            metadata={"end_trade_date": derived_end_trade_date},
+        )
+    target_dates = expected_trade_dates_between(
+        expected_trade_dates,
+        start_trade_date=start_trade_date,
+        end_trade_date=derived_end_trade_date,
+    )
+
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -306,13 +356,38 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
             )
         )
     )
-    target_dates = _target_trade_dates(registered_trade_days, start_trade_date)
-    lake_root = context.resources.lake_root.root()
+    registered_target_dates = assert_expected_dates_registered(
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_days=registered_trade_days,
+        partition_set_name=cn_a_stock_mins_silver_trade_days.name,
+        start_trade_date=start_trade_date,
+        end_trade_date=derived_end_trade_date,
+    )
+    if registered_target_dates != target_dates:
+        raise dg.Failure(
+            description=(
+                "MACD/KDJ repair expected range and registered range mismatch: "
+                f"start_trade_date={start_trade_date}, "
+                f"end_trade_date={derived_end_trade_date}."
+            ),
+            metadata={
+                "start_trade_date": start_trade_date,
+                "end_trade_date": derived_end_trade_date,
+                "target_dates": list(target_dates),
+                "registered_target_dates": list(registered_target_dates),
+            },
+        )
+    previous_trade_date = previous_expected_trade_date(
+        expected_trade_dates,
+        start_trade_date,
+    )
+    allow_without_previous_state = (
+        start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+        and previous_trade_date is None
+    )
 
-    total_indicator_file_count = 0
-    total_indicator_row_count = 0
-    total_state_file_count = 0
-    total_state_row_count = 0
+    source_paths_by_freq: dict[int, tuple[Path, ...]] = {}
+    previous_state_path_by_freq: dict[int, Path | None] = {}
     for freq in freqs:
         source_paths = discover_gold_stk_mins_qfq_source_year_paths(
             lake_root,
@@ -322,13 +397,26 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         if not source_paths:
             raise FileNotFoundError(
                 "Missing source gold qfq files for MACD/KDJ repair: "
-                f"freq={freq}, start_trade_date={start_trade_date}."
+                f"freq={freq}, start_trade_date={start_trade_date}, "
+                f"end_trade_date={derived_end_trade_date}."
             )
-        previous_state_path = discover_latest_macd_kdj_state_path_before_trade_date(
-            lake_root,
+        previous_state_path = assert_exact_previous_state_path(
+            lake_root=lake_root,
             freq=freq,
-            trade_date=start_trade_date,
+            target_trade_date=start_trade_date,
+            previous_expected_trade_date=previous_trade_date,
+            allow_without_previous_state=allow_without_previous_state,
         )
+        source_paths_by_freq[freq] = source_paths
+        previous_state_path_by_freq[freq] = previous_state_path
+
+    total_indicator_file_count = 0
+    total_indicator_row_count = 0
+    total_state_file_count = 0
+    total_state_row_count = 0
+    for freq in freqs:
+        source_paths = source_paths_by_freq[freq]
+        previous_state_path = previous_state_path_by_freq[freq]
         indicator_results, state_results, initialized_without_previous_state = (
             write_gold_stk_mins_qfq_macd_kdj_rows(
                 lake_root=lake_root,
