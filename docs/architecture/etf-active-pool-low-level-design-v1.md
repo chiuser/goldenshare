@@ -1,24 +1,25 @@
 # ETF 活跃池低层设计 LLD v1
 
-状态：待评审（依据设计方案细化，代码未落地）
+状态：核心能力已落地 / 后续增强待单独立项
 创建日期：2026-06-18
 上位方案：[ETF 活跃池设计方案 v1](/Users/congming/github/goldenshare/docs/architecture/etf-active-pool-design-plan-v1.md)
-适用范围：`ops.etf_series_active`、`fund_daily` serving 过滤、ETF 实时日线业务过滤、Ops 审查中心 ETF 活跃池只读展示
+适用范围：`ops.etf_series_active`、`fund_daily` serving 过滤、ETF 实时日线 Ops health 命中统计、Ops 审查中心 ETF 活跃池只读展示
 
 ---
 
 ## 1. 本文目标
 
-本文把 ETF 活跃池方案细化到代码级别，作为后续开发执行依据。
+本文把 ETF 活跃池方案细化到代码级别，并记录当前已落地实现边界。
 
-本轮 LLD 只回答：
+本文回答：
 
 1. 哪些文件要新增或修改。
 2. 每个文件承载什么职责。
 3. `fund_daily` raw 与 serving 的写入链路如何改变。
 4. 初始化、清理、Ops 只读展示、测试门禁如何落地。
+5. 实时 ETF V1 如何使用活跃池统计命中。
 
-本文不直接改变代码实现。
+本文不直接改变代码实现；如代码继续演进，必须同步更新本文，避免旧计划口径误导后续开发。
 
 ---
 
@@ -35,7 +36,7 @@
 | `.OF` 代码 | 不进入 ETF 活跃池 |
 | raw 行为 | `raw_tushare.fund_daily` 完整保存源端事实 |
 | serving 行为 | `core_serving.fund_daily_bar` 只保留 `resource='fund_daily'` 活跃池内 ETF |
-| 实时 ETF 行为 | Redis 保存源端完整批次，业务读取按 `resource='etf_rt_daily'` 过滤 |
+| 实时 ETF 行为 | Redis 保存源端完整批次；当前 V1 Ops health 按 `resource='etf_rt_daily'` 统计命中，业务 snapshot API 尚未开放 |
 | Ops 审查中心 | V1 只读，不做手工新增/删除 |
 
 ---
@@ -138,16 +139,16 @@ flowchart TD
 flowchart TD
   A["rt_etf_k 源端返回"] --> B["Redis batch 保存完整源端快照"]
   C["ops.etf_series_active resource=etf_rt_daily"] --> D["业务认可 ETF 池"]
-  B --> E["业务读取层过滤"]
+  B --> E["Ops health 统计活跃池命中"]
   D --> E
-  E --> F["ETF 实时日线 API / 页面"]
+  E --> F["实时流监控页展示 source/active 数量"]
 ```
 
 硬规则：
 
 1. Redis 不裁剪源端快照。
-2. 业务 API 和页面只展示 `etf_rt_daily` 池内代码。
-3. 活跃池为空时返回明确空结果或结构化错误，不能展示源端全量。
+2. 当前 V1 不提供业务 ETF snapshot API；实时流监控页只展示源端批次数量和 `etf_rt_daily` 活跃池命中数量。
+3. 如果后续新增业务 API 或业务页面，才按 `etf_rt_daily` 池过滤返回 items；活跃池为空时返回明确空结果或结构化错误，不能 fallback 展示源端全量。
 
 ---
 
@@ -832,22 +833,22 @@ tests/test_etf_active_pool_seed_reports.py
 
 ## 12. ETF 实时日线接入点
 
-本 LLD 不实现 `rt_etf_k` provider，但为实时 ETF 明确接入点。
+`rt_etf_k` provider 已在实时主线接入。当前 V1 的活跃池用途是供 Ops health 统计源端批次与业务池命中，不提供业务 snapshot API。
 
-后续实时 ETF 读取层必须：
+当前实时 ETF 主线必须：
 
 1. Redis batch 保存源端完整代码集合。
-2. 业务读取时调用：
+2. Ops health 读取活跃池：
 
 ```python
 active_codes = etf_series_active_store.list_active_codes("etf_rt_daily")
 ```
 
-3. 返回 items 时只保留 `active_codes` 内代码。
-4. health 可以展示：
+3. health 展示：
    - `source_snapshot_count`
    - `active_pool_count`
    - `active_snapshot_count`
+4. 后续若新增业务 snapshot API，返回 items 时只保留 `active_codes` 内代码。
 
 不得：
 
@@ -1265,17 +1266,19 @@ rg -n "EtfSeriesActive|etf_series_active" src/platform src/operations
 4. apply 只删除 serving 活跃池外行。
 5. raw 行数不变。
 
-### M5：实时 ETF 读取过滤
+### M5：实时 ETF 主线接入
 
 改动：
 
 1. 实时 ETF 读取层接入 `etf_rt_daily`。
 2. health 展示源端数量和业务池命中数量。
+3. V1 不新增业务 snapshot API。
 
 验收：
 
 1. Redis 源端 batch 不被裁剪。
-2. Biz/API 返回按活跃池过滤。
+2. Ops health 正确展示 `source_snapshot_count`、`active_pool_count`、`active_snapshot_count`。
+3. 如果后续新增 Biz/API，再按活跃池过滤返回 items。
 
 ### M6：Ops 审查中心只读展示
 

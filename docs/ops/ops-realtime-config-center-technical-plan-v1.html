@@ -1083,17 +1083,12 @@ th code {
         <tr>
           <td>ETF 实时日线</td>
           <td><code>etf_rt_daily</code></td>
-          <td>已接入 collector feed，默认停用</td>
+          <td>已接入 collector feed，生产已启用</td>
           <td>可编辑启停、间隔、限速、stale、TTL、保留批次、source timeout；锁定 <code>rt_etf_k</code>、沪深请求段、交易时段和 feed key。</td>
-        </tr>
-        <tr>
-          <td>单股当日分时序列</td>
-          <td><code>stock_intraday_minutes_on_demand</code></td>
-          <td>待开发按需查询能力</td>
-          <td>V1 配置中心只读展示或隐藏，暂不开放编辑发布。</td>
         </tr>
       </tbody>
     </table>
+    <p class="small-muted">单股当日分时序列属于 <code>rt_min_daily</code> 按需查询需求，不是当前配置中心对象；后续是否纳入配置中心，必须在该需求内单独设计。</p>
 
     <h3 style="margin-top:18px;">4.1 可编辑配置白名单</h3>
     <table>
@@ -1790,7 +1785,7 @@ th code {
       </div>
       <div class="note-card decision">
         <strong>D5 单股当日分时序列是否展示</strong>
-        <p>推荐：在配置中心可显示为只读/待接入对象；不开放编辑和发布。</p>
+        <p>已确认：当前配置中心不展示单股当日分时序列。该能力归入 <code>rt_min_daily</code> 按需查询需求，后续如需配置化，必须在该需求内单独设计。</p>
       </div>
       <div class="note-card decision">
         <strong>D6 是否需要持久化 draft</strong>
@@ -1836,7 +1831,7 @@ th code {
   </section>
 
   <div class="footer">
-    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 部署与 env 收口已完成。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、实时分钟/日线方案文档与配置中心 showcase。
+    文档版本：v1。状态：M7 前端配置页已接入 / M7.1 发布生效闭环已落地 / M8 部署与 env 收口已完成 / ETF 实时日线配置对象已接入。依据：当前 <span class="code">runtime_config.py</span>、Ops realtime health API、股票实时日线/分钟方案、ETF 实时日线方案文档与配置中心 showcase。
   </div>
 </main>
 </body>

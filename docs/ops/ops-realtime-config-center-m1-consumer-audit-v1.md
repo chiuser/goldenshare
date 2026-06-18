@@ -266,12 +266,12 @@ M8 已完成以下内容：
 2. 远程 `/etc/goldenshare/web.env` 已通过 `bash scripts/remote-web-env.sh unset KEY` 清除残留旧 key，复核结果为 `NO_REALTIME_STOCK_RT_KEYS`。
 3. 远程 `REDIS_URL` 已确认仍存在；Redis 连接配置继续作为部署级 env，不进入配置中心。
 4. 远程 `goldenshare-web.service` 与 `goldenshare-realtime-collector.service` 已在清理后重启并保持 `active`。
-5. 远程 `foundation.realtime_runtime_config` 当时存在 `stock_rt_daily`、`stock_rt_min` 两行；实时 ETF 主线部署后必须补 seed `etf_rt_daily` 行。当前启停值以配置中心/DB 为准。
-6. collector 当时已重新上报 `realtime_config_apply_state`，其中 `stock_rt_daily.version=2`、`stock_rt_min.version=1`；实时 ETF 主线要求 apply state 同步包含 `etf_rt_daily.version`。
+5. 远程 `foundation.realtime_runtime_config` 当前存在 `stock_rt_daily`、`stock_rt_min`、`etf_rt_daily` 三行；当前启停值以配置中心/DB 为准。
+6. collector 已重新上报 `realtime_config_apply_state`，当前必须包含 `stock_rt_daily`、`stock_rt_min`、`etf_rt_daily` 的已应用版本；2026-06-18 生产验证显示 `etf_rt_daily.published_version=2` 且 `applied_version=2`。
 7. 实时日线、实时分钟、远程部署、配置中心 showcase、单股当日分时序列方案已同步当前配置中心口径；旧 env 只作为历史/退场说明存在。
 
 M8 不做的事情：
 
 1. 不擅自修改 `stock_rt_daily.enabled`、`stock_rt_min.enabled` 或 `etf_rt_daily.enabled`。
-2. 不新增配置对象、不改 Redis key、不改 collector 调度、不改 Biz/Ops API。
+2. 除已接入的 `etf_rt_daily` 外，不再新增其它配置对象；不改 Redis key、不改 collector 调度、不改 Biz/Ops API。
 3. 不处理 WebSocket；仍作为后续独立事项。

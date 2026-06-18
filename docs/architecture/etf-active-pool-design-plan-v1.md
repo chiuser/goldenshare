@@ -1,6 +1,6 @@
 # ETF 活跃池设计方案 v1
 
-状态：待评审（核心口径已确认，待开发落地）
+状态：核心能力已落地 / 后续增强待单独立项
 创建日期：2026-06-17
 适用范围：`fund_daily`、ETF 实时日线流、后续 ETF 业务查询与 Ops 审查中心
 
@@ -138,7 +138,7 @@ etf_rt_daily  513130.SH
 | resource | 用途 | 初始来源 |
 |---|---|---|
 | `fund_daily` | ETF 日线、研究、后续 ETF serving 使用范围 | `etf_series_active_seed_1395_20260617.csv` |
-| `etf_rt_daily` | ETF 实时日线业务展示/API 过滤范围 | 初始同 `fund_daily` |
+| `etf_rt_daily` | ETF 实时日线 Ops health 命中统计范围；后续业务 API 如需开放也使用该池过滤 | 初始同 `fund_daily` |
 
 不在本轮定义更多 resource。
 
@@ -403,18 +403,20 @@ not exists (
 2. 避免因为业务池过滤导致源端异常不可见。
 3. 符合实时流已有原则：状态层保存最新快照事实，不做业务数据落库。
 
-### 7.2 业务读取按 etf_rt_daily 过滤
+### 7.2 V1 Ops health 按 etf_rt_daily 统计命中
 
-业务页面/API 不直接展示 Redis 中所有代码，而是：
+当前实时 ETF V1 不新增业务 snapshot API。实时流监控页只展示 Redis 源端批次事实，以及这些源端快照中命中 `etf_rt_daily` 活跃池的数量：
 
 ```mermaid
 flowchart TD
   A["Redis: etf_rt_daily feed 最新批次"] --> B["读取源端快照"]
   C["ops.etf_series_active resource=etf_rt_daily"] --> D["业务认可 ETF 池"]
-  B --> E["按 ts_code 过滤"]
+  B --> E["统计 active_snapshot_count"]
   D --> E
-  E --> F["ETF 实时行情页面/API"]
+  E --> F["实时流监控页"]
 ```
+
+如果后续出现明确的业务页面或 API，再新增业务 snapshot API，并按 `etf_rt_daily` 池过滤返回 items；不得直接把源端全量作为业务展示范围。
 
 举例：
 
@@ -508,8 +510,8 @@ goldenshare ops-seed-etf-series-active --resource etf_rt_daily --from-seed-csv r
 2. 定义 `fund_daily` 与 `etf_rt_daily` 两个 resource。
 3. 用 `reports/etf_series_active_seed_1395_20260617.csv` 初始化两个 resource。
 4. 用 `reports/etf_series_active_fund_daily_accepted_gaps_31_20260617.csv` 记录低缺口 ETF 的已接受缺口。
-5. 后续 `core_serving.fund_daily_bar` 写入和重建时按 `resource='fund_daily'` 过滤。
-6. 后续实时 ETF 业务读取时按 `resource='etf_rt_daily'` 过滤。
+5. `core_serving.fund_daily_bar` 写入和清理按 `resource='fund_daily'` 过滤。
+6. 实时 ETF V1 的 Ops health 按 `resource='etf_rt_daily'` 统计活跃池命中；业务 snapshot API 尚未开放。
 
 ---
 
@@ -526,12 +528,16 @@ goldenshare ops-seed-etf-series-active --resource etf_rt_daily --from-seed-csv r
 
 ### M2 建表与 DAO
 
+已完成：
+
 1. 新增 Alembic migration。
 2. 新增 ORM：`EtfSeriesActive`。
 3. 新增 DAO/store contract 与 Ops 适配。
 4. 加入 model registry。
 
 ### M3 初始化 CLI
+
+已完成：
 
 1. 新增 dry-run 初始化服务。
 2. 输出候选数量、写入数量、跳过数量。
@@ -540,18 +546,27 @@ goldenshare ops-seed-etf-series-active --resource etf_rt_daily --from-seed-csv r
 
 ### M4 fund_daily serving 过滤接入
 
+已完成：
+
 1. `raw_tushare.fund_daily` 继续完整保存源端事实。
 2. `core_serving.fund_daily_bar` 写入前按 `ops.etf_series_active(resource='fund_daily')` 过滤。
-3. 已存在 serving 数据按 6.4 的受控清理方案收口到活跃池范围。
-4. DG/check 完整性计算要读取 accepted gaps mapping，避免把已接受源站缺口判为同步失败。
+3. 已存在 serving 数据已提供 dry-run/apply 受控清理能力；生产 cleanup 已按用户确认执行。
+
+待后续单独立项：
+
+1. DG/check 完整性计算读取 accepted gaps mapping，避免把已接受源站缺口判为同步失败。
 
 ### M5 实时 ETF 读取接入
 
+已完成：
+
 1. Redis batch 继续保存源端完整快照。
-2. Biz/API 查询按 `etf_rt_daily` 池过滤。
-3. Ops health 可以同时展示源端快照数量和业务池命中数量。
+2. Ops health 同时展示源端快照数量和业务池命中数量。
+3. V1 不新增业务 snapshot API；后续如有业务消费，再按 `etf_rt_daily` 池过滤返回。
 
 ### M6 Ops 审查中心展示
+
+已完成：
 
 1. 增加 ETF 活跃池只读页。
 2. 展示 resource、ts_code、ETF 名称、上市日期、最近匹配状态。
@@ -589,8 +604,8 @@ goldenshare ops-seed-etf-series-active --resource etf_rt_daily --from-seed-csv r
 ### 11.4 实时读取
 
 1. Redis 源端 batch 数量不因活跃池过滤而减少。
-2. Biz/API 返回数量按 `etf_rt_daily` 池过滤。
-3. 活跃池为空时必须返回明确错误或空结果，不得 fallback 到全量源端快照。
+2. 当前 V1 的 Ops health 展示 `source_snapshot_count`、`active_pool_count`、`active_snapshot_count`。
+3. 后续若新增 Biz/API，返回数量按 `etf_rt_daily` 池过滤；活跃池为空时必须返回明确错误或空结果，不得 fallback 到全量源端快照。
 
 ### 11.5 架构护栏
 

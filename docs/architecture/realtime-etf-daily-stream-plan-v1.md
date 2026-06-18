@@ -1,6 +1,6 @@
 # ETF 实时日线流接入方案 v1
 
-状态：源接口开市实测完成 / 代码主线已接入 / 生产启用与开市验收待执行
+状态：源接口开市实测完成 / 代码主线已接入 / 生产配置已启用 / 开市批次验收待执行
 源接口事实：[Tushare 0400 ETF实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0400_ETF实时日线.md)  
 关联上位方案：[实时行情流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 关联配置中心：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)  
@@ -162,7 +162,7 @@ rt:feed:tushare_etf_rt_k:lease
 | `enabled` | `false` | 初始不自动启用，由配置中心发布 |
 | `poll_interval_seconds` | `60` | 已拍板 |
 | `max_calls_per_minute` | `10` | 每轮 2 次请求，60 秒一次，10/min 足够覆盖并留余量 |
-| `lease_ttl_seconds` | `90` | 覆盖一次采集周期和偶发慢请求 |
+| `lease_ttl_seconds` | `120` | 覆盖一次采集周期和偶发慢请求；当前代码默认值见 `DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG` |
 | `stale_after_seconds` | `180` | 大于 60 秒采集间隔，避免轻微抖动误报 |
 | `snapshot_ttl_seconds` | `259200` | 72 小时，已拍板 |
 | `keep_recent_batches` | `3` | 已拍板 |
@@ -259,7 +259,7 @@ GET /api/v1/realtime/etf-rt-daily?ts_codes=510300.SH,159919.SZ
 | M3 | Collector 调度 | 已完成：接入统一 collector；保证独立 due time、独立 lease、独立 health |
 | M4 | Ops health / 配置中心接入 | 已完成：新增 health API，配置中心对象列表/detail/validate/publish 支持 ETF |
 | M5 | 前端实时流监控与配置中心展示 | 已完成：新增 ETF 分组和配置对象；不改股票日线/分钟现有展示 |
-| M6 | 生产部署与开市验收 | 待执行：seed 配置行、发布启用、重启 collector、开市验证 current batch |
+| M6 | 生产部署与开市验收 | 部分完成：生产已 seed `etf_rt_daily`、发布启用并重启 collector；待开市验证 current batch |
 | M7 | 可选业务 API | 只有出现明确业务消费页面时再做 |
 
 ## 10. 测试与验收
@@ -303,12 +303,20 @@ python3 scripts/check_docs_integrity.py
 | 新 feed 绕过配置中心 | 运行配置再次分散 | 必须接 `foundation.realtime_runtime_config` 和配置中心 |
 | Redis 批次过多 | 内存上涨 | V1 只保留最近 3 批，TTL 72 小时 |
 
-## 12. 待确认项
+## 12. 生产配置收口记录
 
-本轮用户已确认核心运行口径。开发前仅剩命名建议需要最终落定：
+2026-06-18 已完成生产配置收口：
 
-| 编号 | 建议 | 说明 |
-| --- | --- | --- |
-| D1 | `object_key=etf_rt_daily`，`feed_key=tushare_etf_rt_k` | 与现有 `stock_rt_daily` 语义对齐，同时保留源接口名 `rt_etf_k` 的识别度 |
+1. 远程代码版本：`2f7a79e8`。
+2. `ops-seed-realtime-runtime-config --apply` 已创建缺失的 `etf_rt_daily` 配置行。
+3. 通过配置服务发布 `etf_rt_daily.enabled=true`，配置版本从 `1` 升到 `2`，`ops.config_revision` 记录 revision `73`。
+4. 已重启 `goldenshare-realtime-collector.service`。
+5. collector 已上报 `etf_rt_daily.applied_version=2`，配置中心应显示“已应用”。
+6. 收盘后 health 符合预期：`enabled=true`、`collection_status=idle`、`current_batch_id=null`、`active_pool_count=1395`，未请求源站。
 
-如果没有额外意见，后续开发按 D1 建议执行。
+仍待开市验收：
+
+1. `tushare_etf_rt_k` 产生 current batch。
+2. `segment_counts` 同时包含 `SH` 与 `SZ`。
+3. `source_snapshot_count`、`source_row_count`、`active_snapshot_count` 与实时源和活跃池口径一致。
+4. 任一分段失败时不切 current pointer，只写 degraded health。

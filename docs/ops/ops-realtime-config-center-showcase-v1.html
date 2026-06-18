@@ -635,17 +635,17 @@ tbody tr:nth-child(even) td { background: #fbfcfd; }
       <div class="stat-card">
         <div class="stat-label">实时流对象</div>
         <div class="stat-value">3</div>
-        <div class="stat-hint">日线、分钟、单股当日分时</div>
+        <div class="stat-hint">股票日线、股票分钟、ETF 日线</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">已启用对象</div>
-        <div class="stat-value">2</div>
-        <div class="stat-hint">日线与分钟由 collector 采集</div>
+        <div class="stat-value">3</div>
+        <div class="stat-hint">三个对象都由统一 collector 采集</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">配置来源</div>
         <div class="stat-value">统一</div>
-        <div class="stat-hint">Settings -> feed_config</div>
+        <div class="stat-hint">runtime_config + config_catalog</div>
       </div>
       <div class="stat-card">
         <div class="stat-label">当前视图</div>
@@ -753,42 +753,46 @@ const realtimeObjects = {
     ],
     impact: "当前没有待发布改动；保存草稿后才需要进入发布确认。"
   },
-  "stock-intraday-series": {
-    name: "单股当日分时序列",
-    status: "待接入",
-    statusTone: "neutral",
-    meta: "rt_min_daily · 按需查询",
-    tags: ["不进 collector", "短缓存"],
-    description: "当前颗粒度是“单股当日分时序列”这个按需查询对象；它不进入 collector，只在单股详情页需要时查询并短缓存。",
+  "etf-rt-daily": {
+    name: "ETF 实时日线",
+    status: "已启用",
+    statusTone: "success",
+    meta: "rt_etf_k · 1 个 feed",
+    tags: ["collector 采集", "60 秒间隔"],
+    description: "当前颗粒度是“ETF 实时日线”这个实时流对象；Redis 保存源端全量批次事实，监控页同时展示 ETF 活跃池命中数量。",
     cards: [
-      ["查询策略", [["启用状态", "待接入"], ["查询方式", "按需请求"], ["触发来源", "单股详情页"]]],
-      ["缓存策略", [["缓存位置", "Redis"], ["刷新冷却", "60 秒"], ["空结果", "不覆盖已有缓存"]]],
+      ["采集策略", [["启用状态", "启用"], ["采集方式", "统一 collector 定时采集"], ["采集间隔", "60 秒"]]],
+      ["源接口", [["接口", "rt_etf_k"], ["沪市段", ["5*.SH + HQ_FND_TICK"]], ["深市段", ["1*.SZ + 空 topic"]]]],
       ["采集窗口", [["交易日", "仅交易时段请求源站"], ["上午", "09:30 - 11:30"], ["下午", "13:00 - 15:00"]]],
-      ["输入参数", [["股票代码", "必填"], ["频率", "必填"], ["默认值", "无默认频率"]]],
-      ["边界", [["不落库", "是"], ["不进 TaskRun", "是"], ["不做历史分钟替代", "是"]]],
-      ["状态判断", [["缓存 TTL", "86400 秒"], ["页面刷新", "最多 60 秒一次"], ["监控入口", "后续接入"]]]
+      ["限速保护", [["上限", "10 次/分钟"], ["理论请求", "2 次/分钟"], ["租约 TTL", "120 秒"]]],
+      ["Redis 策略", [["批次 TTL", "259200 秒"], ["保留批次", ["最近 3 批"]], ["切换方式", ["batch_id + current pointer"]]]],
+      ["状态判断", [["stale 阈值", "180 秒"], ["活跃池命中", ["etf_rt_daily"]], ["监控入口", ["实时流监控页"]]]]
     ],
     rows: [
-      ["enabled", "false", "是否启用按需查询能力", "Biz API", "编辑模式"],
-      ["cache_ttl_seconds", "86400", "Redis 序列缓存 TTL", "query service", "编辑模式"],
-      ["refresh_cooldown_seconds", "60", "同一股票同一频率刷新冷却", "query service", "编辑模式"],
-      ["require_freq", "true", "请求必须显式传 freq", "Biz API", "锁定"]
+      ["enabled", "true", "是否启用 ETF 实时日线采集", "collector / Ops health", "编辑模式"],
+      ["poll_interval_seconds", "60", "ETF 实时日线采集间隔", "collector scheduler", "编辑模式"],
+      ["max_calls_per_minute", "10", "ETF 接口请求保护上限", "provider rate limiter", "编辑模式"],
+      ["stale_after_seconds", "180", "判断刷新滞后的阈值", "Ops health / 前端状态", "编辑模式"],
+      ["source_timeout_seconds", "20", "源站请求超时时间", "provider", "编辑模式"],
+      ["request_segments", "SH:5*.SH / SZ:1*.SZ", "源站请求分段", "provider request builder", "锁定"]
     ],
     editFields: [
-      ["启用状态", "select", "停用", "开发完成并开市验证后再启用。", ["启用", "停用"]],
-      ["缓存 TTL", "number", "86400", "单位：秒。"],
-      ["刷新冷却", "number", "60", "单位：秒。"],
-      ["必须传频率", "text", "true", "接口契约锁定，不允许页面修改。", "disabled"]
+      ["启用状态", "select", "启用", "关闭后 collector 不再调度 ETF 实时日线。", ["启用", "停用"]],
+      ["采集间隔", "number", "60", "单位：秒。"],
+      ["限速上限", "number", "10", "单位：次/分钟。"],
+      ["stale 阈值", "number", "180", "单位：秒。"],
+      ["源站超时", "number", "20", "单位：秒。"],
+      ["源站请求分段", "text", "SH:5*.SH + HQ_FND_TICK / SZ:1*.SZ", "高风险项，V1 不开放编辑。", "disabled"]
     ],
     diffRows: [
-      ["无", "—", "—", "能力待开发，当前不生成发布草稿"]
+      ["无", "—", "—", "当前示例没有 ETF 草稿改动"]
     ],
     validationRows: [
-      ["开发状态", "未通过", "该对象还没有进入实现阶段，不允许发布启用"],
-      ["接口契约", "通过", "freq 必填，不接受默认值"],
-      ["采集边界", "通过", "不进入 collector，不落库"]
+      ["请求频率", "通过", "沪深两段 / 60 秒 = 2 次/分钟，小于 10 次/分钟上限"],
+      ["stale 阈值", "通过", "180 秒大于采集间隔 60 秒"],
+      ["高风险配置", "通过", "源站分段和 Redis key 未被修改"]
     ],
-    impact: "该对象处于待接入状态。编辑态只用于感受未来配置形态，不允许提交发布。"
+    impact: "发布后需要重启统一实时流 collector 才会生效；不影响 Redis 已发布批次。"
   }
 };
 
@@ -920,7 +924,7 @@ function renderField(field) {
 }
 
 function renderEdit(item) {
-  const canPublish = selectedObjectKey !== "stock-intraday-series";
+  const canPublish = true;
   return `
     <div class="mode-block">
       <div class="alert">

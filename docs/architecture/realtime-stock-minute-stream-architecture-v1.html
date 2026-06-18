@@ -684,7 +684,7 @@ fields = [
           <b>配置审计硬门禁：</b>实时分钟运行配置必须集中进入 <code>foundation.realtime_runtime_config</code>，由 <code>runtime_config.py</code> 读取并统一校验。旧 <code>REALTIME_STOCK_RT_*</code> env 已退场，不得再作为 collector、API、Ops health、测试或部署示例的当前入口。锁定事实必须留在 <code>config_catalog.py</code>，不得散落到页面常量或 provider 私有常量。
         </div>
         <div class="callout">
-          <b>M8 收口结果：</b>实时分钟 collector 已切到 <code>src/foundation/realtime/runtime_config.py</code>。该模块从 <code>foundation.realtime_runtime_config</code> 读取 <code>stock_rt_daily</code> 与 <code>stock_rt_min</code>，结合 <code>config_catalog.py</code> 锁定事实生成配置对象。Biz API 已下沉到 <code>RealtimeSnapshotReader</code>，不再读取配置或拼 feed key。
+          <b>M8 收口结果：</b>实时分钟 collector 已切到 <code>src/foundation/realtime/runtime_config.py</code>。该模块从 <code>foundation.realtime_runtime_config</code> 读取当前已注册实时对象，包括 <code>stock_rt_daily</code>、<code>stock_rt_min</code>、<code>etf_rt_daily</code>，并结合 <code>config_catalog.py</code> 锁定事实生成配置对象。Biz API 已下沉到 <code>RealtimeSnapshotReader</code>，不再读取配置或拼 feed key。
         </div>
 
         <table style="margin-top: 12px;">
@@ -779,7 +779,7 @@ fields = [
         </table>
 
         <div class="callout">
-          <b>后续配置中心边界：</b>数据运营后台“实时流配置中心”独立于“实时流监控”。配置中心管理“实时流对象”的配置事实，例如股票实时日线、股票实时分钟、单股当日分时序列；监控页只展示当前运行健康。配置中心的最新交互参考见 <a href="/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html">Ops 实时流配置中心 Showcase v1</a>。
+          <b>后续配置中心边界：</b>数据运营后台“实时流配置中心”独立于“实时流监控”。当前配置中心管理已接入 collector 的实时流对象，包括股票实时日线、股票实时分钟、ETF 实时日线；单股当日分时序列属于按需查询能力，不是当前配置中心对象。监控页只展示当前运行健康。配置中心的最新交互参考见 <a href="/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-showcase-v1.html">Ops 实时流配置中心 Showcase v1</a>。
         </div>
         <div class="callout">
           <b>配置中心交互口径：</b>默认是查看态：左侧为实时流对象列表，点击对象后右侧展示该对象配置详情和配置项明细。编辑态必须通过“进入编辑模式”切换，同一页面状态内展示可编辑字段、草稿差异、校验结果和发布影响；查看态不得混入发布确认或草稿校验。分钟频率属于集合型配置，查看态用标签展示 <code>1MIN/5MIN/15MIN/30MIN/60MIN</code>，编辑态用多选控件，不允许让运营手填逗号字符串。
