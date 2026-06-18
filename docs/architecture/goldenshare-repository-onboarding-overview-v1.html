@@ -1,0 +1,1113 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Goldenshare 仓库整体上手总览 v1</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --surface: #ffffff;
+      --surface-soft: #f9fbfd;
+      --line: #d9e0e8;
+      --line-strong: #b9c5d2;
+      --text: #334155;
+      --muted: #667085;
+      --title: #101828;
+      --blue: #1f5499;
+      --blue-soft: #e8f1ff;
+      --green: #0f7a55;
+      --green-soft: #e7f5ee;
+      --amber: #9a6700;
+      --amber-soft: #fff3cc;
+      --red: #b42318;
+      --red-soft: #fde8e5;
+      --purple: #6840a0;
+      --purple-soft: #f0eafd;
+      --mono: "SFMono-Regular", "Menlo", "Consolas", "Liberation Mono", monospace;
+      --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei UI", "Microsoft YaHei", Arial, sans-serif;
+    }
+
+    * { box-sizing: border-box; }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--text);
+      font-family: var(--sans);
+      font-size: 14px;
+      line-height: 1.62;
+      -webkit-font-smoothing: antialiased;
+    }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    code, pre { font-family: var(--mono); }
+
+    code {
+      padding: 0.08em 0.35em;
+      border-radius: 5px;
+      background: #eef2f7;
+      color: #233044;
+      font-size: 0.92em;
+    }
+
+    pre {
+      margin: 12px 0 0;
+      padding: 13px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fbfcff;
+      color: #233044;
+      overflow-x: auto;
+      font-size: 12px;
+      line-height: 1.55;
+    }
+
+    .shell {
+      display: grid;
+      grid-template-columns: 268px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    .side {
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow: auto;
+      padding: 18px 14px;
+      border-right: 1px solid var(--line);
+      background: #fbfcff;
+    }
+
+    .brand {
+      padding: 4px 8px 14px;
+      margin-bottom: 12px;
+      border-bottom: 1px solid var(--line);
+    }
+
+    .brand-title {
+      color: var(--title);
+      font-size: 15px;
+      font-weight: 800;
+    }
+
+    .brand-sub {
+      margin-top: 4px;
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .nav a {
+      display: block;
+      padding: 7px 8px;
+      border-radius: 7px;
+      color: #475467;
+      font-size: 13px;
+    }
+
+    .nav a:hover {
+      background: #eef2f7;
+      color: var(--title);
+      text-decoration: none;
+    }
+
+    .main {
+      min-width: 0;
+      padding: 28px 32px 64px;
+    }
+
+    .hero {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 340px;
+      gap: 16px;
+      align-items: start;
+    }
+
+    h1 {
+      margin: 0 0 9px;
+      color: var(--title);
+      font-size: 30px;
+      line-height: 1.2;
+      letter-spacing: 0;
+    }
+
+    h2, h3 {
+      margin: 0;
+      color: var(--title);
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h2 { font-size: 18px; }
+    h3 { font-size: 15px; }
+
+    p { margin: 7px 0 0; }
+
+    ul, ol {
+      margin: 8px 0 0;
+      padding-left: 20px;
+    }
+
+    li + li { margin-top: 5px; }
+
+    .lead {
+      max-width: 1030px;
+      margin: 0;
+      color: var(--muted);
+      font-size: 15px;
+    }
+
+    .meta {
+      display: grid;
+      gap: 7px;
+      padding: 13px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+    }
+
+    .meta-row {
+      display: flex;
+      justify-content: space-between;
+      gap: 14px;
+      font-size: 12px;
+    }
+
+    .meta-row span:first-child { color: var(--muted); }
+    .meta-row span:last-child {
+      color: var(--title);
+      font-family: var(--mono);
+      text-align: right;
+    }
+
+    .section {
+      margin-top: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: var(--surface);
+      overflow: hidden;
+    }
+
+    .section-header {
+      padding: 13px 15px;
+      border-bottom: 1px solid var(--line);
+      background: var(--surface-soft);
+    }
+
+    .section-header p {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .section-body { padding: 15px; }
+
+    .grid-2,
+    .grid-3,
+    .grid-4 {
+      display: grid;
+      gap: 10px;
+    }
+
+    .grid-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .grid-3 { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+    .grid-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+    .card {
+      min-width: 0;
+      padding: 12px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .card h3 { margin-bottom: 5px; }
+
+    .muted { color: var(--muted); }
+
+    .tag-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 6px;
+      margin-top: 9px;
+    }
+
+    .tag {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #eef2f7;
+      color: #344054;
+      font-size: 12px;
+      white-space: nowrap;
+    }
+
+    .tag.blue { background: var(--blue-soft); color: var(--blue); }
+    .tag.green { background: var(--green-soft); color: var(--green); }
+    .tag.amber { background: var(--amber-soft); color: var(--amber); }
+    .tag.red { background: var(--red-soft); color: var(--red); }
+    .tag.purple { background: var(--purple-soft); color: var(--purple); }
+
+    .flow {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(0, 1fr));
+      gap: 8px;
+    }
+
+    .flow-node {
+      min-height: 100px;
+      padding: 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    .flow-node strong {
+      display: block;
+      color: var(--title);
+      font-size: 13px;
+      margin-bottom: 5px;
+    }
+
+    .flow-node span {
+      color: var(--muted);
+      font-size: 12px;
+    }
+
+    .callout {
+      padding: 12px 13px;
+      border: 1px solid var(--line-strong);
+      border-left: 4px solid var(--blue);
+      border-radius: 8px;
+      background: #fbfcff;
+    }
+
+    .callout.warning { border-left-color: var(--amber); background: #fffaf0; }
+    .callout.danger { border-left-color: var(--red); background: #fff8f7; }
+
+    .table-wrap {
+      overflow-x: auto;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 920px;
+      font-size: 13px;
+    }
+
+    th, td {
+      padding: 10px 11px;
+      border-bottom: 1px solid var(--line);
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #f1f5f9;
+      color: var(--title);
+      font-weight: 700;
+    }
+
+    tr:last-child td { border-bottom: none; }
+
+    .path {
+      color: #233044;
+      font-family: var(--mono);
+      font-size: 12px;
+      word-break: break-word;
+    }
+
+    .checklist {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 10px;
+    }
+
+    .checklist .card {
+      border-left: 4px solid var(--blue);
+    }
+
+    @media (max-width: 1060px) {
+      .shell { grid-template-columns: 1fr; }
+      .side {
+        position: static;
+        height: auto;
+        border-right: none;
+        border-bottom: 1px solid var(--line);
+      }
+      .nav {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+      .main { padding: 22px 18px 48px; }
+      .hero,
+      .grid-2,
+      .grid-3,
+      .grid-4,
+      .checklist {
+        grid-template-columns: 1fr;
+      }
+      .flow { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    }
+
+    @media (max-width: 620px) {
+      .nav { grid-template-columns: 1fr; }
+      .flow { grid-template-columns: 1fr; }
+      h1 { font-size: 25px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside class="side">
+      <div class="brand">
+        <div class="brand-title">Goldenshare 总览</div>
+        <div class="brand-sub">模块边界、源站、运营后台、数据湖</div>
+      </div>
+      <nav class="nav" aria-label="页面导航">
+        <a href="#purpose">文档用途</a>
+        <a href="#map">仓库地图</a>
+        <a href="#backend">生产后端</a>
+        <a href="#source">源站情况</a>
+        <a href="#ops">数据运营后台</a>
+        <a href="#lake">数据湖</a>
+        <a href="#wealth">用户侧行情前端</a>
+        <a href="#docs">核心文档入口</a>
+        <a href="#workflows">开发入口</a>
+        <a href="#guardrails">硬边界</a>
+        <a href="#validation">验证与工具</a>
+      </nav>
+    </aside>
+
+    <main class="main">
+      <section id="purpose" class="hero" aria-labelledby="title">
+        <div>
+          <h1 id="title">Goldenshare 仓库整体上手总览 v1</h1>
+          <p class="lead">
+            这是一份给后续开发者看的入口文档：先讲清仓库有哪些大模块，再讲清源站事实、生产数据运营后台、本地数据湖和用户侧行情前端各自的职责与边界。它不是替代方案文档的第二事实源；遇到具体实现，必须跳转到对应代码和专题文档继续核验。
+          </p>
+          <div class="tag-row">
+            <span class="tag blue">当前主链：DatasetDefinition -> DatasetExecutionPlan -> IngestionExecutor -> TaskRun</span>
+            <span class="tag green">生产模块：src/foundation, src/ops, src/biz, src/app</span>
+            <span class="tag amber">legacy：src/platform, src/operations 冻结</span>
+            <span class="tag purple">湖侧：lake_console 独立工程</span>
+          </div>
+        </div>
+        <div class="meta" aria-label="文档元信息">
+          <div class="meta-row"><span>版本</span><span>v1</span></div>
+          <div class="meta-row"><span>日期</span><span>2026-06-17</span></div>
+          <div class="meta-row"><span>归属</span><span>docs/architecture</span></div>
+          <div class="meta-row"><span>代码索引</span><span>CodeGraph 1650 files</span></div>
+          <div class="meta-row"><span>改动性质</span><span>说明文档</span></div>
+        </div>
+      </section>
+
+      <section id="map" class="section">
+        <div class="section-header">
+          <h2>一眼看仓库地图</h2>
+          <p>先把根目录分清。最重要的误区是：生产运营后台、用户侧行情前端、本地 Lake Console 和 Dagster 新湖编排不是同一套系统。</p>
+        </div>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>目录</th>
+                  <th>定位</th>
+                  <th>当前重点</th>
+                  <th>入口或常看文件</th>
+                  <th>开发前必看</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td class="path">src/</td>
+                  <td>生产后端主系统</td>
+                  <td>数据基座、运维治理、业务 API、应用装配</td>
+                  <td class="path">src/cli.py, src/app/api/v1/router.py, src/app/web/run.py</td>
+                  <td><a href="subsystem-boundary-plan.md">子系统边界</a>、<a href="dependency-matrix.md">依赖矩阵</a>、<a href="../../src/AGENTS.md">src/AGENTS.md</a></td>
+                </tr>
+                <tr>
+                  <td class="path">frontend/</td>
+                  <td>生产数据运营后台前端</td>
+                  <td>Ops 任务中心、数据状态、审查中心、实时流页面</td>
+                  <td class="path">frontend/src/app/router.tsx, frontend/src/pages/*</td>
+                  <td><a href="../frontend/frontend-current-standards.md">前端当前强约束</a>、<a href="../../frontend/AGENTS.md">frontend/AGENTS.md</a></td>
+                </tr>
+                <tr>
+                  <td class="path">wealth/</td>
+                  <td>用户侧行情系统前端</td>
+                  <td>市场总览、股票详情、用户侧真实 API 消费</td>
+                  <td class="path">wealth/src/app, wealth/src/features, wealth/src/pages</td>
+                  <td><a href="../../wealth/AGENTS.md">wealth/AGENTS.md</a>、<a href="../../wealth/docs/system/wealth-system-baseline.md">wealth system baseline</a></td>
+                </tr>
+                <tr>
+                  <td class="path">lake_console/</td>
+                  <td>本地数据湖管理台与 Dagster 新湖编排</td>
+                  <td>本地 Parquet Lake、DuckDB、Sync Center、Kopia、Dagster assets/jobs/sensors/checks</td>
+                  <td class="path">lake_console/backend/app, lake_console/frontend/src, lake_console/orchestrator/src</td>
+                  <td><a href="local-lake-console-architecture-plan-v1.md">Local Lake 架构</a>、<a href="../../lake_console/AGENTS.md">lake_console/AGENTS.md</a></td>
+                </tr>
+                <tr>
+                  <td class="path">docs/</td>
+                  <td>架构、Ops、数据集、前端、源站和治理文档</td>
+                  <td>维护当前口径，避免历史方案冒充现状</td>
+                  <td class="path">docs/README.md</td>
+                  <td><a href="../README.md">文档目录索引</a>、<a href="../../docs/AGENTS.md">docs/AGENTS.md</a></td>
+                </tr>
+                <tr>
+                  <td class="path">alembic/</td>
+                  <td>生产 PostgreSQL schema migration</td>
+                  <td>当前 migrations 到 20260602_000116</td>
+                  <td class="path">alembic/versions/*.py, alembic/env.py</td>
+                  <td>新增迁移前必须先确认真实 head，不按文件名猜</td>
+                </tr>
+                <tr>
+                  <td class="path">tests/</td>
+                  <td>生产后端测试与架构护栏</td>
+                  <td>architecture、web、lake_console、ingestion、wealth API 等</td>
+                  <td class="path">tests/architecture, tests/web, tests/lake_console</td>
+                  <td>改边界跑 architecture；改 Ops/API 跑 web 定向测试</td>
+                </tr>
+                <tr>
+                  <td class="path">scripts/</td>
+                  <td>部署、本地启动、文档检查等工程脚本</td>
+                  <td>生产部署、本地运行、文档完整性检查</td>
+                  <td class="path">scripts/check_docs_integrity.py, scripts/local-lake-console.sh</td>
+                  <td><a href="../release/local-prod-operation-boundary-v1.md">本地/生产边界</a></td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="backend" class="section">
+        <div class="section-header">
+          <h2>生产后端：四层主系统</h2>
+          <p>当前后端已经收敛为 <code>foundation / ops / biz / app</code>。后续开发不能回流到 <code>platform</code> 或 <code>operations</code>。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-4">
+            <div class="card">
+              <h3>foundation</h3>
+              <p>数据基座：源站连接、DAO/model、DatasetDefinition、ingestion 执行计划、数据写入、serving 发布、基础 contracts。</p>
+              <div class="tag-row"><span class="tag blue">不得依赖 ops/biz/app</span></div>
+            </div>
+            <div class="card">
+              <h3>ops</h3>
+              <p>运维治理：TaskRun、scheduler/worker、manual actions、freshness、dataset cards、schedule/probe、审查中心、实时流配置。</p>
+              <div class="tag-row"><span class="tag green">面向运营后台</span></div>
+            </div>
+            <div class="card">
+              <h3>biz</h3>
+              <p>业务查询与用户侧 API：行情、quote、realtime、wealth market 各模块 API/query/schema/service。</p>
+              <div class="tag-row"><span class="tag purple">面向业务消费</span></div>
+            </div>
+            <div class="card">
+              <h3>app</h3>
+              <p>组合根：FastAPI 路由聚合、auth/admin、依赖注入、异常处理、web/static 运行壳。</p>
+              <div class="tag-row"><span class="tag amber">装配层，不写业务规则</span></div>
+            </div>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="flow" aria-label="数据维护执行主链">
+            <div class="flow-node">
+              <strong>DatasetDefinition</strong>
+              <span>定义数据集身份、来源、日期模型、输入、存储、规划、事务、观测。</span>
+            </div>
+            <div class="flow-node">
+              <strong>DatasetActionRequest</strong>
+              <span>表达用户或调度意图：维护哪个数据集、时间输入和业务筛选。</span>
+            </div>
+            <div class="flow-node">
+              <strong>DatasetActionResolver</strong>
+              <span>按 Definition 归一化意图，不在 Ops 或前端拼源站参数。</span>
+            </div>
+            <div class="flow-node">
+              <strong>DatasetExecutionPlan</strong>
+              <span>执行器消费的标准计划：source、planning、writing、transaction、units。</span>
+            </div>
+            <div class="flow-node">
+              <strong>IngestionExecutor</strong>
+              <span>执行 source fetch、normalize、write、progress，并按 unit/事务策略提交。</span>
+            </div>
+            <div class="flow-node">
+              <strong>TaskRun</strong>
+              <span>记录运行意图、节点、问题诊断和页面可观测状态。</span>
+            </div>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="callout">
+            <strong>当前最关键的架构事实：</strong>
+            数据集静态事实源只在 <code>src/foundation/datasets/**</code> 的 <code>DatasetDefinition</code>；数据维护运行投影只在 <code>src/foundation/ingestion/**</code> 的 <code>DatasetExecutionPlan</code>；任务运行与详情观测只走 <code>src/ops/**</code> 的 TaskRun 主链。
+          </div>
+        </div>
+      </section>
+
+      <section id="source" class="section">
+        <div class="section-header">
+          <h2>源站情况</h2>
+          <p>源站事实和工程实现分层维护。源站文档只记录接口侧事实，数据集实现口径落在 DatasetDefinition 与数据集开发文档。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card">
+              <h3>Tushare</h3>
+              <p>当前主数据源。<code>docs/sources/tushare/</code> 已按专题沉淀本地接口文档，包含股票、指数、ETF、基金、期货、港美股、债券、新闻语料等分类，并有 <code>docs_index.csv</code> 做索引。</p>
+              <div class="tag-row">
+                <span class="tag blue">source_key=tushare</span>
+                <span class="tag green">DatasetDefinition.source_doc_id</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>BIYING</h3>
+              <p>当前作为另一个源站接入点，代码中有 connector、raw 表和部分数据集测试；<code>docs/sources/biying/</code> 目前只有 README 摘要，后续新增接口时需要补齐源站文档。</p>
+              <div class="tag-row">
+                <span class="tag blue">source_key=biying</span>
+                <span class="tag amber">源文档仍需按接口补充</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>Biz 自建表</h3>
+              <p>运营后台数据源页存在 <code>biz_tableset</code> 只读展示分支，用于展示业务表来源，不是外部源站，也不进入 DatasetDefinition 手动维护入口。</p>
+              <div class="tag-row">
+                <span class="tag purple">只读展示</span>
+                <span class="tag red">不是 connector</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>层级</th>
+                  <th>真实位置</th>
+                  <th>职责</th>
+                  <th>常见改动</th>
+                  <th>注意</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>源站文档</td>
+                  <td class="path">docs/sources/**</td>
+                  <td>记录源接口字段、参数、分页、限速、更新时间和源链接。</td>
+                  <td>新增或修正接口说明。</td>
+                  <td>禁止写本仓落库设计；Tushare 新增/改名需同步 <code>docs_index.csv</code>。</td>
+                </tr>
+                <tr>
+                  <td>源站注册</td>
+                  <td class="path">src/foundation/datasets/source_registry.py</td>
+                  <td>当前 source selection 暴露 <code>tushare</code>、<code>biying</code>，另有 <code>all</code>、<code>combined</code> 特殊选择。</td>
+                  <td>新增源站 key 或展示名。</td>
+                  <td>改 source key 会影响 Ops/API/前端消费者，必须做全量审计。</td>
+                </tr>
+                <tr>
+                  <td>连接器</td>
+                  <td class="path">src/foundation/connectors/*</td>
+                  <td>提供 <code>TushareSourceConnector</code>、<code>BiyingSourceConnector</code> 与 factory。</td>
+                  <td>实现源端请求、鉴权、限速、错误处理。</td>
+                  <td>只负责连接源端，不应承载数据集日期语义。</td>
+                </tr>
+                <tr>
+                  <td>数据集事实</td>
+                  <td class="path">src/foundation/datasets/definitions/**</td>
+                  <td>声明 source_key、adapter、api_name、source_fields、request_builder、base_params 等。</td>
+                  <td>新增数据集、修改字段、时间模型、分页、写入目标。</td>
+                  <td>任何 Definition 改动都要审计 manual actions、catalog、workflow、resolver、request builder、freshness、前端和测试。</td>
+                </tr>
+                <tr>
+                  <td>请求构造</td>
+                  <td class="path">src/foundation/ingestion/**</td>
+                  <td>把执行计划格式化成源接口请求参数。</td>
+                  <td>调整源端字段映射、分页、unit fanout。</td>
+                  <td>源接口参数只能在 request builder 层生成；Ops/TaskRun 不保存源站加工参数作为主事实。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="callout warning">
+            <strong>Tushare 相关开发门禁：</strong>
+            涉及输入参数、输出字段、分页、日期过滤、权限积分、全量/增量可行性时，必须先看当前代码，再看 <code>docs/sources/tushare/**</code>，再用 <code>tushareMcp</code> 做真实请求核验。文档、线上说明和实测不一致时，以“当前代码 + 实测行为”校准实现与本地文档。
+          </div>
+        </div>
+      </section>
+
+      <section id="ops" class="section">
+        <div class="section-header">
+          <h2>数据运营后台情况</h2>
+          <p>这里指生产运维系统：后端在 <code>src/ops</code>，前端在 <code>frontend</code>，API 最终挂在 <code>/api/v1/ops/**</code>。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card">
+              <h3>后端 API</h3>
+              <p><code>src/ops/api/router.py</code> 聚合 overview、freshness、schedules、probes、realtime、catalog、manual_actions、dataset_cards、review_center、date_completeness、codebook、task_runs 等路由。</p>
+            </div>
+            <div class="card">
+              <h3>运行时</h3>
+              <p>任务中心采用队列模型：Web/API 创建 queued TaskRun，独立 scheduler/worker claim 后推进，Web 请求内不直接跑长任务。</p>
+            </div>
+            <div class="card">
+              <h3>前端页面</h3>
+              <p><code>frontend/</code> 是 React 19 + TypeScript + Vite + Mantine + TanStack Query/Router；basepath 是 <code>/app</code>。</p>
+            </div>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>能力</th>
+                  <th>当前事实源</th>
+                  <th>主要 API / 页面</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>数据状态总览</td>
+                  <td class="path">ops.dataset_status_snapshot + 轻量重算</td>
+                  <td class="path">GET /api/v1/ops/freshness, GET /api/v1/ops/dataset-cards</td>
+                  <td>页面只能消费统一读模型，不扫描业务表自行推断。</td>
+                </tr>
+                <tr>
+                  <td>数据源管理</td>
+                  <td class="path">DatasetDefinition projection + freshness</td>
+                  <td class="path">/app/ops/v21/datasets/tushare, /app/ops/v21/datasets/biying</td>
+                  <td>展示源下数据集健康度，不承载策略编辑。</td>
+                </tr>
+                <tr>
+                  <td>手动维护</td>
+                  <td class="path">DatasetDefinition.capabilities + action catalog</td>
+                  <td class="path">GET /api/v1/ops/manual-actions, POST /api/v1/ops/manual-actions/{action_key}/task-runs</td>
+                  <td>提交的是任务请求，不是“立即执行长任务”。</td>
+                </tr>
+                <tr>
+                  <td>任务记录与详情</td>
+                  <td class="path">ops.task_run / task_run_node / task_run_issue</td>
+                  <td class="path">GET /api/v1/ops/task-runs*, GET /api/v1/ops/task-runs/{id}/view</td>
+                  <td>完整技术诊断只在 issue 读取；前端不拼旧 steps/events/logs。</td>
+                </tr>
+                <tr>
+                  <td>自动任务</td>
+                  <td class="path">ops.schedule + probe_rule</td>
+                  <td class="path">/api/v1/ops/schedules*, /api/v1/ops/probes*</td>
+                  <td>目标统一用 <code>target_type/target_key</code> 表达。</td>
+                </tr>
+                <tr>
+                  <td>审查中心</td>
+                  <td class="path">src/ops/api/review_center.py</td>
+                  <td class="path">frontend/src/pages/ops-v21-review-*.tsx</td>
+                  <td>一期只读，按领域组织，不按技术对象暴露。</td>
+                </tr>
+                <tr>
+                  <td>实时流监控与配置</td>
+                  <td class="path">src/ops/api/realtime.py, src/foundation/realtime/**</td>
+                  <td class="path">frontend/src/pages/ops-realtime-*.tsx</td>
+                  <td>日线与分钟流已有页面与配置中心基础。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="callout danger">
+            <strong>不要恢复旧任务链路：</strong>
+            任务记录、任务详情、重试、停止和手动提交统一消费 <code>/api/v1/ops/task-runs*</code> 与 <code>/api/v1/ops/manual-actions/{action_key}/task-runs</code>。不得恢复旧 <code>/api/v1/ops/executions*</code>、旧 steps/events/logs 或 <code>sync_run_log</code> 作为页面事实源。
+          </div>
+        </div>
+      </section>
+
+      <section id="lake" class="section">
+        <div class="section-header">
+          <h2>数据湖情况</h2>
+          <p><code>lake_console</code> 是本地独立工程，不是生产 Ops 子模块。它管理本地移动盘 Parquet Lake，并逐步承接 Dagster 新湖资产编排。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card">
+              <h3>lake_console/backend</h3>
+              <p>本地 FastAPI + CLI。负责 Lake Root 检查、文件事实扫描、DuckDB sample/query、Sync Center、Tushare 同步、prod-raw/core 只读导出、Kopia Recovery、Parquet 写入与计算。</p>
+              <div class="tag-row">
+                <span class="tag blue">python3 -m lake_console.backend.app.main</span>
+                <span class="tag green">lake-console CLI</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>lake_console/frontend</h3>
+              <p>独立 Vite/React 前端，默认端口 <code>5178</code>。页面数据必须来自 lake backend，不 import 生产 <code>frontend/src/**</code>。</p>
+              <div class="tag-row">
+                <span class="tag blue">npm run dev</span>
+                <span class="tag amber">本地管理台，不挂生产 Web</span>
+              </div>
+            </div>
+            <div class="card">
+              <h3>lake_console/orchestrator</h3>
+              <p>正式 Dagster 项目，目标是用 assets、jobs、sensors、asset checks、partitions 管理新数据湖 <code>data_lake/raw|silver|gold</code>。</p>
+              <div class="tag-row">
+                <span class="tag purple">Dagster 1.13.8</span>
+                <span class="tag red">执行命令需用户批准</span>
+              </div>
+            </div>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>湖侧对象</th>
+                  <th>当前口径</th>
+                  <th>典型路径或命令</th>
+                  <th>边界</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>Lake Root</td>
+                  <td>唯一数据根由 <code>GOLDENSHARE_LAKE_ROOT</code> 或 <code>lake_console/config.local.toml</code> 指定。</td>
+                  <td class="path">lake_root = "/Volumes/TushareData/goldenshare-tushare-lake"</td>
+                  <td>没有明确 Lake Root 时禁止写入；不得默认写仓库、home 或 /tmp。</td>
+                </tr>
+                <tr>
+                  <td>旧 Lake 物理层</td>
+                  <td>backend 当前仍管理 <code>raw_tushare</code>、<code>derived</code>、<code>research</code>、<code>manifest</code> 等本地 Parquet 文件事实。</td>
+                  <td class="path">raw_tushare/stk_mins_by_date/freq=*/trade_date=*/*.parquet</td>
+                  <td>文件写入必须 <code>_tmp -> validate -> atomic replace</code>。</td>
+                </tr>
+                <tr>
+                  <td>新 Dagster Lake</td>
+                  <td>新 Dagster asset 只使用三层路径：<code>data_lake/raw</code>、<code>data_lake/silver</code>、<code>data_lake/gold</code>。</td>
+                  <td class="path">lake_console/orchestrator/src/orchestrator/defs/assets/*</td>
+                  <td>旧路径是迁移来源，不是新 asset 正式 path。</td>
+                </tr>
+                <tr>
+                  <td>资产目录</td>
+                  <td>Dagster active asset 事实收敛到 <code>LAKE_ASSET_CATALOG</code>。</td>
+                  <td class="path">orchestrator/defs/catalog/lake_assets.py</td>
+                  <td>新增 active asset 必须同步 catalog、metadata、tags、path、schema 和 checks。</td>
+                </tr>
+                <tr>
+                  <td>生产 DB 导出</td>
+                  <td>Lake backend 仅允许明确白名单的 <code>prod-raw-db</code> 和已批准 <code>prod-core-db</code> 只读导出。</td>
+                  <td class="path">lake-console plan-sync daily --from prod-raw-db --trade-date 2026-04-24</td>
+                  <td>禁止 select *，禁止写远程库，禁止泛化访问生产 ops 表。</td>
+                </tr>
+                <tr>
+                  <td>历史 bootstrap</td>
+                  <td>大批量历史初始化可使用 Direct Lake Bootstrap + Runless Event Backfill。</td>
+                  <td class="path">bootstrap helper dry-run -> sample -> full/batch -> event backfill -> aggregate audit</td>
+                  <td>不是 Dagster backfill，不能用于日常增量。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="callout warning">
+            <strong>湖侧性能门禁：</strong>
+            涉及 Sync Center、DuckDB 计算、Parquet 写入、prod-db export、Tushare 拉取、历史批量或全市场同步时，编码前必须列性能测算表：对象数、日期数、分区数、请求数、行数、文件数、DuckDB scan/write 量、spill 风险、提交粒度、预计耗时、磁盘与配额影响、拒绝策略和 dry-run/样本验证。无法测算就停下改方案。
+          </div>
+        </div>
+      </section>
+
+      <section id="wealth" class="section">
+        <div class="section-header">
+          <h2>用户侧行情前端</h2>
+          <p><code>wealth/</code> 是财势乾坤行情系统的独立用户侧前端。它和运营后台 <code>frontend/</code> 同仓但不是同项目。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card">
+              <h3>工程定位</h3>
+              <p>面向普通用户的行情体验，当前主线是市场总览、股票详情等页面逐步接入真实后端 API。</p>
+            </div>
+            <div class="card">
+              <h3>技术栈</h3>
+              <p>React + TypeScript + Vite + Vitest，另使用 <code>lightweight-charts</code> 承载行情图表。</p>
+            </div>
+            <div class="card">
+              <h3>API 命名空间</h3>
+              <p>用户侧真实 API 统一走 <code>/api/v1/wealth/market/{module}</code>；后端由 <code>src/biz/api/wealth/market/**</code> 接入。</p>
+            </div>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="callout">
+            <strong>开发边界：</strong>
+            <code>wealth</code> 不共享运营后台 Shell、路由、页面结构或视觉体系。做用户侧页面前看 <code>wealth/AGENTS.md</code> 与 <code>wealth/docs/system/**</code>，不要拿 <code>frontend/</code> 的后台页面模式套过去。
+          </div>
+        </div>
+      </section>
+
+      <section id="docs" class="section">
+        <div class="section-header">
+          <h2>核心文档入口</h2>
+          <p>下面这些是最常跳转的“当前口径”文档。专题开发时继续读对应目录下更近的 AGENTS 与方案。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-3">
+            <div class="card">
+              <h3>架构边界</h3>
+              <ul>
+                <li><a href="subsystem-boundary-plan.md">子系统边界基线</a></li>
+                <li><a href="dependency-matrix.md">子系统依赖矩阵</a></li>
+                <li><a href="platform-split-plan.md">Platform 拆分与 cleanup 基线</a></li>
+                <li><a href="ops-consolidation-plan.md">Ops 收敛基线</a></li>
+                <li><a href="foundation-current-standards.md">Foundation 当前强约束</a></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>数据集与执行</h3>
+              <ul>
+                <li><a href="dataset-definition-single-source-refactor-plan-v1.md">DatasetDefinition 单一事实源</a></li>
+                <li><a href="dataset-execution-plan-refactor-plan-v1.md">DatasetExecutionPlan 执行计划模型</a></li>
+                <li><a href="dataset-date-model-consumer-guide-v1.md">数据集日期模型消费指南</a></li>
+                <li><a href="../templates/dataset-development-template.md">数据集开发说明模板</a></li>
+                <li><a href="../ops/tushare-request-execution-policy-v1.md">Tushare 请求执行口径</a></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Ops 与前端</h3>
+              <ul>
+                <li><a href="../ops/ops-contract-current.md">Ops 当前契约</a></li>
+                <li><a href="../ops/ops-api-reference-v1.md">Ops API 全量说明</a></li>
+                <li><a href="../ops/ops-task-run-observability-redesign-plan-v1.md">TaskRun 观测模型</a></li>
+                <li><a href="../frontend/frontend-current-standards.md">前端当前强约束</a></li>
+                <li><a href="../frontend/frontend-delivery-workflow-v1.md">前端交付流程</a></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>源站与数据湖</h3>
+              <ul>
+                <li><a href="../sources/README.md">数据源接口说明目录规范</a></li>
+                <li><a href="../sources/tushare/README.md">Tushare 接口说明目录</a></li>
+                <li><a href="local-lake-console-architecture-plan-v1.md">Local Lake Console 架构方案</a></li>
+                <li><a href="local-lake-console-dataset-model-v1.md">Local Lake 数据集模型</a></li>
+                <li><a href="local-lake-dataset-inventory-overview-v1.html">Local Lake 数据集总览</a></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>Dagster 新湖</h3>
+              <ul>
+                <li><a href="../../lake_console/orchestrator/AGENTS.md">Dagster Orchestrator 目录规则</a></li>
+                <li><a href="../../lake_console/orchestrator/CODING_STANDARDS.md">Dagster 编码规范</a></li>
+                <li><a href="../../lake_console/docs/design/dagster-asset-schema-contract-design.md">Asset Schema Contract 设计</a></li>
+                <li><a href="../../lake_console/docs/architecture/dagster-asset-job-topology.html">Dagster 资产与 Job 拓扑</a></li>
+              </ul>
+            </div>
+            <div class="card">
+              <h3>用户侧行情</h3>
+              <ul>
+                <li><a href="../../wealth/README.md">wealth README</a></li>
+                <li><a href="../../wealth/AGENTS.md">wealth 工程规则</a></li>
+                <li><a href="../../wealth/docs/system/wealth-system-baseline.md">wealth system baseline</a></li>
+                <li><a href="../../wealth/docs/system/engineering-architecture.md">wealth engineering architecture</a></li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="workflows" class="section">
+        <div class="section-header">
+          <h2>按任务找入口</h2>
+          <p>后续开发者最常见的切入点。先按任务类型找到文档和代码，再用 CodeGraph 看调用链与影响面。</p>
+        </div>
+        <div class="section-body">
+          <div class="checklist">
+            <div class="card">
+              <h3>新增或修改生产数据集</h3>
+              <ol>
+                <li>先看 <code>docs/sources/**</code> 源接口事实；Tushare 必须实测。</li>
+                <li>写或更新 <code>docs/datasets/*-dataset-development.md</code>。</li>
+                <li>落 <code>src/foundation/datasets/definitions/**</code> 的 <code>DatasetDefinition</code>。</li>
+                <li>审计 <code>ingestion</code> resolver/unit planner/request builder/writer。</li>
+                <li>接 Ops manual actions、dataset cards、freshness、date completeness、前端时间控件。</li>
+                <li>补正向和负向测试，特别是“只允许/不得/默认只取”的反例。</li>
+              </ol>
+            </div>
+            <div class="card">
+              <h3>改 Ops API 或任务中心</h3>
+              <ol>
+                <li>先读 <a href="../ops/ops-contract-current.md">Ops 当前契约</a> 与 API reference。</li>
+                <li>后端看 <code>src/ops/api|schemas|queries|services|runtime</code>。</li>
+                <li>任务详情只走 TaskRun view API；问题详情只读 issue。</li>
+                <li>前端看 <code>frontend/src/pages/ops-v21-*.tsx</code> 与 <code>frontend/src/shared/api</code>。</li>
+                <li>验证至少覆盖 <code>tests/web/test_ops_*.py</code> 和前端 typecheck/test。</li>
+              </ol>
+            </div>
+            <div class="card">
+              <h3>改本地 Lake Console</h3>
+              <ol>
+                <li>先读 <code>lake_console/AGENTS.md</code> 与 Local Lake 架构方案。</li>
+                <li>涉及数据接口、同步、导出、Parquet 写入时，先列性能测算表。</li>
+                <li>backend 看 <code>lake_console/backend/app/api|services|sync|catalog</code>。</li>
+                <li>frontend 看 <code>lake_console/frontend/src</code>，不得 import 生产前端。</li>
+                <li>验证用 <code>lake_console/backend/tests</code> 或 <code>tests/lake_console</code> 的定向测试。</li>
+              </ol>
+            </div>
+            <div class="card">
+              <h3>改 Dagster 新湖编排</h3>
+              <ol>
+                <li>先读 <code>lake_console/orchestrator/AGENTS.md</code>、编码规范和相关设计。</li>
+                <li>先做设计确认，再改 assets/resources/checks/jobs/sensors。</li>
+                <li>active asset 事实必须登记 <code>LAKE_ASSET_CATALOG</code>。</li>
+                <li>正式 DuckDB 连接走 <code>DuckDBResource</code> 或统一 helper。</li>
+                <li>未获用户批准，不运行任何会触碰正式 Dagster instance 或正式湖的命令。</li>
+              </ol>
+            </div>
+            <div class="card">
+              <h3>改生产运营后台前端</h3>
+              <ol>
+                <li>先读 <code>frontend/AGENTS.md</code> 与前端当前强约束。</li>
+                <li>遵守 Mantine 主 UI 基座，不引入第二套组件体系。</li>
+                <li>页面消费后端事实字段，不在页面自行推断状态。</li>
+                <li>复用 <code>frontend/src/shared/ui</code> 和 <code>shared/api</code>。</li>
+                <li>验证顺序：typecheck、check:rules、test、build，必要时 smoke/visual。</li>
+              </ol>
+            </div>
+            <div class="card">
+              <h3>改用户侧行情前端</h3>
+              <ol>
+                <li>先读 <code>wealth/AGENTS.md</code> 与 <code>wealth/docs/system/**</code>。</li>
+                <li>按模块三件套推进真实 API，不回退旧聚合或 mock 口径。</li>
+                <li>后端 API 放 <code>src/biz/api/wealth/market/**</code> 对应模块。</li>
+                <li>前端分层遵守 <code>app/pages/features/shared/styles</code>。</li>
+                <li>验证用 <code>wealth npm run typecheck/test/build</code> 和相关真实 API smoke。</li>
+              </ol>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="guardrails" class="section">
+        <div class="section-header">
+          <h2>硬边界</h2>
+          <p>这些边界比“方便实现”优先级更高。遇到冲突先停下来说明，不要靠临时兼容或补丁绕过。</p>
+        </div>
+        <div class="section-body">
+          <div class="grid-2">
+            <div class="callout danger">
+              <strong>生产子系统依赖方向</strong>
+              <p><code>foundation</code> 不得依赖 <code>ops/biz/app/platform/operations</code>；<code>ops</code> 不得依赖 <code>biz</code>；<code>biz</code> 不得依赖 <code>ops/operations</code>；<code>app</code> 只做装配。</p>
+            </div>
+            <div class="callout danger">
+              <strong>legacy 冻结</strong>
+              <p><code>src/platform</code> 与 <code>src/operations</code> 只作为 legacy 占位和清理对象，不承接新主实现，不新增兼容主链。</p>
+            </div>
+            <div class="callout warning">
+              <strong>状态写入不影响业务数据</strong>
+              <p>Ops/TaskRun/freshness/snapshot/schedule 状态写入失败，只能影响观测状态；不得阻塞、回滚或污染 raw/core/core_serving 等业务数据。</p>
+            </div>
+            <div class="callout warning">
+              <strong>配置与迁移不能猜</strong>
+              <p>新增配置项先做审计。新增 Alembic migration 前先查真实 head。涉及生产库、远程服务、Tushare、ClickHouse、Postgres 等命令按本机/审批规则执行。</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="validation" class="section">
+        <div class="section-header">
+          <h2>验证与工具</h2>
+          <p>不同改动有不同的最小验证。不要用“跑了一个通用命令”替代真实影响面验证。</p>
+        </div>
+        <div class="section-body">
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>改动类型</th>
+                  <th>推荐验证</th>
+                  <th>说明</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr>
+                  <td>文档新增/删除/索引</td>
+                  <td class="path">python3 scripts/check_docs_integrity.py</td>
+                  <td>新增主文档必须同步 <code>docs/README.md</code>。</td>
+                </tr>
+                <tr>
+                  <td>架构边界</td>
+                  <td class="path">pytest -q tests/architecture/test_subsystem_dependency_matrix.py tests/architecture/test_platform_legacy_guardrails.py tests/architecture/test_operations_legacy_guardrails.py</td>
+                  <td>涉及数据维护主链再补 dataset runtime/codebook guardrails。</td>
+                </tr>
+                <tr>
+                  <td>生产后端 API / Ops</td>
+                  <td class="path">pytest -q tests/web/test_ops_*.py</td>
+                  <td>按实际接口补定向测试，不要只跑 health。</td>
+                </tr>
+                <tr>
+                  <td>DatasetDefinition / ingestion</td>
+                  <td class="path">pytest -q tests/test_dataset_definition_registry.py tests/test_dataset_action_resolver.py tests/test_dataset_unit_planner.py tests/test_dataset_request_validator.py</td>
+                  <td>新增数据集还要补 writer/source client/真实样本或最小真实验证。</td>
+                </tr>
+                <tr>
+                  <td>生产前端</td>
+                  <td class="path">cd frontend && npm run typecheck && npm run check:rules && npm run test && npm run build</td>
+                  <td>页面交互或视觉改动按需要补 smoke/visual。</td>
+                </tr>
+                <tr>
+                  <td>wealth 前端</td>
+                  <td class="path">cd wealth && npm run typecheck && npm run test && npm run build</td>
+                  <td>真实 API 模块改动补对应 smoke 或后端 API 测试。</td>
+                </tr>
+                <tr>
+                  <td>Lake Console backend</td>
+                  <td class="path">pytest -q lake_console/backend/tests 或 pytest -q tests/lake_console</td>
+                  <td>大数据路径先 dry-run/sample，禁止无测算全量执行。</td>
+                </tr>
+                <tr>
+                  <td>Dagster orchestrator</td>
+                  <td class="path">静态审计 + 定向 tests；正式 dg/dagster 命令需用户批准</td>
+                  <td>本地 Dagster 环境按正式环境对待，不能自行运行 materialize/backfill/sensor/job。</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <div style="height: 10px"></div>
+
+          <div class="callout">
+            <strong>CodeGraph 使用建议：</strong>
+            做架构分析、重构、共享 contract、dispatcher/worker/service 或边界调整前，先用 CodeGraph 看入口、调用链、消费者和影响面。常用顺序是 <code>codegraph_explore</code> 理解区域，必要时再用 <code>codegraph_callers</code>、<code>codegraph_callees</code>、<code>codegraph_impact</code> 做影响分析。
+          </div>
+        </div>
+      </section>
+    </main>
+  </div>
+</body>
+</html>
