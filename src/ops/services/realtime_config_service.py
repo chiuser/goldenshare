@@ -22,6 +22,8 @@ from src.foundation.realtime import (
 )
 from src.foundation.realtime.config_apply_state import REALTIME_CONFIG_APPLY_STATE_HEALTH_KEY
 from src.foundation.realtime.config_catalog import (
+    ETF_RT_DAILY_CATALOG,
+    ETF_RT_DAILY_OBJECT_KEY,
     STOCK_RT_DAILY_CATALOG,
     STOCK_RT_DAILY_OBJECT_KEY,
     STOCK_RT_MIN_CATALOG,
@@ -110,6 +112,19 @@ _MIN_EDITABLE_FIELDS = (
     _EditableFieldSpec("source_timeout_seconds", "源请求超时秒数", "number_input", _INTEGER_FIELD),
 )
 
+_ETF_EDITABLE_FIELDS = (
+    _EditableFieldSpec("enabled", "是否启用", "switch", _BOOLEAN_FIELD),
+    _EditableFieldSpec("poll_interval_seconds", "采集间隔秒数", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("max_calls_per_minute", "每分钟最大请求数", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("lease_ttl_seconds", "采集租约 TTL 秒数", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("stale_after_seconds", "滞后阈值秒数", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("snapshot_ttl_seconds", "快照 TTL 秒数", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("keep_recent_batches", "保留批次数", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("batch_stream_maxlen", "批次事件流长度", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("delta_stream_maxlen", "变化事件流长度", "number_input", _INTEGER_FIELD),
+    _EditableFieldSpec("source_timeout_seconds", "源请求超时秒数", "number_input", _INTEGER_FIELD),
+)
+
 
 _OBJECT_SPECS: dict[str, _RealtimeConfigObjectSpec] = {
     STOCK_RT_DAILY_OBJECT_KEY: _RealtimeConfigObjectSpec(
@@ -121,6 +136,11 @@ _OBJECT_SPECS: dict[str, _RealtimeConfigObjectSpec] = {
         catalog=STOCK_RT_MIN_CATALOG,
         editable_fields=_MIN_EDITABLE_FIELDS,
         locked_fields=("source_api_name", "exchange", "collection_sessions", "ts_code_pattern", "feed_key_pattern"),
+    ),
+    ETF_RT_DAILY_OBJECT_KEY: _RealtimeConfigObjectSpec(
+        catalog=ETF_RT_DAILY_CATALOG,
+        editable_fields=_ETF_EDITABLE_FIELDS,
+        locked_fields=("source_api_name", "exchange", "collection_sessions", "ts_code_pattern", "feed_key", "request_segments"),
     ),
 }
 
@@ -336,8 +356,10 @@ def _build_valid_runtime_config(records: dict[str, RealtimeRuntimeConfigRecord])
         return build_realtime_runtime_config_from_json(
             daily_config=records[STOCK_RT_DAILY_OBJECT_KEY].runtime_config_json,
             minute_config=records[STOCK_RT_MIN_OBJECT_KEY].runtime_config_json,
+            etf_config=records[ETF_RT_DAILY_OBJECT_KEY].runtime_config_json,
             daily_version=records[STOCK_RT_DAILY_OBJECT_KEY].version,
             minute_version=records[STOCK_RT_MIN_OBJECT_KEY].version,
+            etf_version=records[ETF_RT_DAILY_OBJECT_KEY].version,
         )
     except RealtimeRuntimeConfigError as exc:
         raise WebAppError(status_code=422, code="validation_error", message=str(exc)) from exc
@@ -363,15 +385,19 @@ def _validate_candidate(
     candidate = {field.key: runtime_config[field.key] for field in spec.editable_fields if field.key in runtime_config}
     daily_config = dict(records[STOCK_RT_DAILY_OBJECT_KEY].runtime_config_json)
     minute_config = dict(records[STOCK_RT_MIN_OBJECT_KEY].runtime_config_json)
+    etf_config = dict(records[ETF_RT_DAILY_OBJECT_KEY].runtime_config_json)
     if object_key == STOCK_RT_DAILY_OBJECT_KEY:
         daily_config = candidate
-    else:
+    elif object_key == STOCK_RT_MIN_OBJECT_KEY:
         minute_config = candidate
+    else:
+        etf_config = candidate
 
     try:
         runtime = build_realtime_runtime_config_from_json(
             daily_config=daily_config,
             minute_config=minute_config,
+            etf_config=etf_config,
         )
     except RealtimeRuntimeConfigError as exc:
         return _CandidateValidationResult(
@@ -571,10 +597,25 @@ def _effective_config_for_object(
             "delta_stream_maxlen": config.storage.delta_stream_maxlen,
         }
 
-    config = runtime.stock_rt_min
+    if spec.catalog.object_key == STOCK_RT_MIN_OBJECT_KEY:
+        config = runtime.stock_rt_min
+        return {
+            "enabled": config.enabled,
+            "enabled_freqs": list(config.enabled_freqs),
+            "poll_interval_seconds": config.poll_interval_seconds,
+            "max_calls_per_minute": config.max_calls_per_minute,
+            "lease_ttl_seconds": config.lease_ttl_seconds,
+            "stale_after_seconds": config.stale_after_seconds,
+            "snapshot_ttl_seconds": config.storage.snapshot_ttl_seconds,
+            "keep_recent_batches": config.storage.keep_recent_batches,
+            "batch_stream_maxlen": config.storage.batch_stream_maxlen,
+            "delta_stream_maxlen": config.storage.delta_stream_maxlen,
+            "source_timeout_seconds": config.source_timeout_seconds,
+        }
+
+    config = runtime.etf_rt_daily
     return {
         "enabled": config.enabled,
-        "enabled_freqs": list(config.enabled_freqs),
         "poll_interval_seconds": config.poll_interval_seconds,
         "max_calls_per_minute": config.max_calls_per_minute,
         "lease_ttl_seconds": config.lease_ttl_seconds,
@@ -599,6 +640,11 @@ def _locked_config_for_spec(spec: _RealtimeConfigObjectSpec) -> dict[str, Any]:
         payload["feed_key"] = catalog.feed_key
     if catalog.feed_key_prefix:
         payload["feed_key_pattern"] = f"{catalog.feed_key_prefix}" + "_{freq}"
+    if catalog.request_segments:
+        payload["request_segments"] = [
+            f"{segment['market']}: topic={segment['topic']} ts_code={segment['ts_code']}"
+            for segment in catalog.request_segments
+        ]
     return payload
 
 
@@ -610,14 +656,17 @@ def _locked_field_label(key: str) -> str:
         "ts_code_pattern": "源站请求范围",
         "feed_key": "Redis Feed Key",
         "feed_key_pattern": "Redis Feed Key 规则",
+        "request_segments": "源站请求段",
     }.get(key, key)
 
 
 def _impact_for_spec(spec: _RealtimeConfigObjectSpec) -> RealtimeConfigImpact:
     if spec.catalog.object_key == STOCK_RT_DAILY_OBJECT_KEY:
         affected_feeds = [STOCK_RT_DAILY_CATALOG.feed_key or ""]
-    else:
+    elif spec.catalog.object_key == STOCK_RT_MIN_OBJECT_KEY:
         affected_feeds = [f"{STOCK_RT_MIN_FEED_KEY_PREFIX}_{freq.lower()}" for freq in STOCK_RT_MIN_ALLOWED_FREQS]
+    else:
+        affected_feeds = [ETF_RT_DAILY_CATALOG.feed_key or ""]
     return RealtimeConfigImpact(
         requires_collector_restart=True,
         affected_feeds=[feed_key for feed_key in affected_feeds if feed_key],

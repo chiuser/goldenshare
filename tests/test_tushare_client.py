@@ -119,6 +119,7 @@ def test_tushare_realtime_rate_limits_use_runtime_config(monkeypatch) -> None:
         session,
         daily={"max_calls_per_minute": 11},
         minute={"max_calls_per_minute": 13},
+        etf={"max_calls_per_minute": 17},
     )
     monkeypatch.setattr("src.db.SessionLocal", lambda: session)
     clear_realtime_runtime_config_cache()
@@ -126,6 +127,7 @@ def test_tushare_realtime_rate_limits_use_runtime_config(monkeypatch) -> None:
 
     assert _get_rate_limiter("rt_k").max_calls == 11
     assert _get_rate_limiter("rt_min").max_calls == 13
+    assert _get_rate_limiter("rt_etf_k").max_calls == 17
     clear_realtime_runtime_config_cache()
 
 

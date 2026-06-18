@@ -7,6 +7,7 @@ from sqlalchemy.orm import Session
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.foundation.realtime import build_realtime_runtime_config_from_json, load_realtime_runtime_config
 from src.foundation.realtime.runtime_config_seed_service import (
+    DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG,
     DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG,
     DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG,
 )
@@ -14,6 +15,7 @@ from src.foundation.realtime.runtime_config_seed_service import (
 
 DEFAULT_DAILY_RUNTIME_CONFIG = DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG
 DEFAULT_MIN_RUNTIME_CONFIG = DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG
+DEFAULT_ETF_RUNTIME_CONFIG = DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG
 
 
 def seed_realtime_runtime_config(
@@ -21,9 +23,11 @@ def seed_realtime_runtime_config(
     *,
     daily: dict | None = None,
     minute: dict | None = None,
+    etf: dict | None = None,
 ) -> None:
     daily_config = _merged_config(DEFAULT_DAILY_RUNTIME_CONFIG, daily)
     minute_config = _merged_config(DEFAULT_MIN_RUNTIME_CONFIG, minute)
+    etf_config = _merged_config(DEFAULT_ETF_RUNTIME_CONFIG, etf)
     session.merge(
         RealtimeRuntimeConfigRecord(
             object_key="stock_rt_daily",
@@ -42,6 +46,15 @@ def seed_realtime_runtime_config(
             requires_collector_restart=True,
         )
     )
+    session.merge(
+        RealtimeRuntimeConfigRecord(
+            object_key="etf_rt_daily",
+            object_kind="collector_feed",
+            runtime_config_json=etf_config,
+            version=1,
+            requires_collector_restart=True,
+        )
+    )
     session.commit()
 
 
@@ -50,8 +63,9 @@ def load_test_realtime_runtime_config(
     *,
     daily: dict | None = None,
     minute: dict | None = None,
+    etf: dict | None = None,
 ):
-    seed_realtime_runtime_config(session, daily=daily, minute=minute)
+    seed_realtime_runtime_config(session, daily=daily, minute=minute, etf=etf)
     return load_realtime_runtime_config(session)
 
 
@@ -59,14 +73,18 @@ def make_realtime_runtime_config(
     *,
     daily: dict | None = None,
     minute: dict | None = None,
+    etf: dict | None = None,
     daily_version: int = 0,
     minute_version: int = 0,
+    etf_version: int = 0,
 ):
     return build_realtime_runtime_config_from_json(
         daily_config=_merged_config(DEFAULT_DAILY_RUNTIME_CONFIG, daily),
         minute_config=_merged_config(DEFAULT_MIN_RUNTIME_CONFIG, minute),
+        etf_config=_merged_config(DEFAULT_ETF_RUNTIME_CONFIG, etf),
         daily_version=daily_version,
         minute_version=minute_version,
+        etf_version=etf_version,
     )
 
 

@@ -84,6 +84,15 @@ const objectsResponse: RealtimeConfigObjectListResponse = {
       requires_collector_restart: true,
       apply_state: appliedDailyState,
     },
+    {
+      object_key: "etf_rt_daily",
+      object_kind: "collector_feed",
+      display_name: "ETF 实时日线",
+      enabled: false,
+      version: 1,
+      requires_collector_restart: true,
+      apply_state: appliedDailyState,
+    },
   ],
 };
 
@@ -168,6 +177,45 @@ const stockRtDailyDetail: RealtimeConfigObjectDetailResponse = {
   ],
 };
 
+const etfRtDailyDetail: RealtimeConfigObjectDetailResponse = {
+  object_key: "etf_rt_daily",
+  display_name: "ETF 实时日线",
+  object_kind: "collector_feed",
+  mode: "published",
+  version: 1,
+  requires_collector_restart: true,
+  apply_state: appliedDailyState,
+  effective_config: {
+    enabled: false,
+    poll_interval_seconds: 60,
+    max_calls_per_minute: 10,
+    lease_ttl_seconds: 120,
+    stale_after_seconds: 180,
+    snapshot_ttl_seconds: 259200,
+    keep_recent_batches: 3,
+    batch_stream_maxlen: 5000,
+    delta_stream_maxlen: 200000,
+    source_timeout_seconds: 20,
+  },
+  locked_config: {
+    source_api_name: "rt_etf_k",
+    exchange: "SSE",
+    collection_sessions: ["09:30-11:30", "13:00-15:00"],
+    ts_code_pattern: "5*.SH,1*.SZ",
+    feed_key: "tushare_etf_rt_k",
+    request_segments: ["SH: topic=HQ_FND_TICK ts_code=5*.SH", "SZ: topic= ts_code=1*.SZ"],
+  },
+  fields: [
+    { key: "enabled", label: "是否启用", editable: true, control: "switch", value_type: "bool", options: [] },
+    { key: "poll_interval_seconds", label: "采集间隔", editable: true, control: "number_input", value_type: "int", options: [] },
+    { key: "max_calls_per_minute", label: "分钟请求上限", editable: true, control: "number_input", value_type: "int", options: [] },
+    { key: "source_timeout_seconds", label: "源站超时", editable: true, control: "number_input", value_type: "int", options: [] },
+    { key: "source_api_name", label: "源接口", editable: false, control: "locked_text", value_type: "string", options: [] },
+    { key: "request_segments", label: "源站请求段", editable: false, control: "locked_text", value_type: "string", options: [] },
+    { key: "feed_key", label: "Feed key", editable: false, control: "locked_text", value_type: "string", options: [] },
+  ],
+};
+
 const revisionsResponse: RealtimeConfigRevisionListResponse = {
   total: 1,
   items: [
@@ -231,11 +279,13 @@ function installDefaultApiMock() {
     if (path === "/api/v1/ops/realtime/config/objects") return objectsResponse;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min/revisions") return revisionsResponse;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_daily/revisions") return { total: 0, items: [] };
+    if (path === "/api/v1/ops/realtime/config/objects/etf_rt_daily/revisions") return { total: 0, items: [] };
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min/validate") return validValidationResponse;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min" && options?.method === "PUT") return stockRtMinDetail;
     if (path === "/api/v1/ops/realtime/config/collector/restart") return restartResponse;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_min") return stockRtMinDetail;
     if (path === "/api/v1/ops/realtime/config/objects/stock_rt_daily") return stockRtDailyDetail;
+    if (path === "/api/v1/ops/realtime/config/objects/etf_rt_daily") return etfRtDailyDetail;
     throw new Error(`unexpected api path: ${path}`);
   });
 }
@@ -252,6 +302,7 @@ describe("实时流配置中心页面", () => {
 
     expect(await screen.findByRole("heading", { name: "实时流配置中心" })).toBeInTheDocument();
     expect(await screen.findByText("股票实时分钟")).toBeInTheDocument();
+    expect(await screen.findByText("ETF 实时日线")).toBeInTheDocument();
     expect(await screen.findByText("配置项明细")).toBeInTheDocument();
     expect(await screen.findByText("修订历史")).toBeInTheDocument();
     expect(await screen.findByText("admin")).toBeInTheDocument();

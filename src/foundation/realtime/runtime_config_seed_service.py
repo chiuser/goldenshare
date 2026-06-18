@@ -6,7 +6,7 @@ from dataclasses import dataclass
 from sqlalchemy.orm import Session
 
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
-from src.foundation.realtime.config_catalog import STOCK_RT_DAILY_OBJECT_KEY, STOCK_RT_MIN_OBJECT_KEY
+from src.foundation.realtime.config_catalog import ETF_RT_DAILY_OBJECT_KEY, STOCK_RT_DAILY_OBJECT_KEY, STOCK_RT_MIN_OBJECT_KEY
 from src.foundation.realtime.runtime_config import RealtimeRuntimeConfig, build_realtime_runtime_config_from_json
 
 DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG: dict = {
@@ -28,6 +28,19 @@ DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG: dict = {
     "max_calls_per_minute": 20,
     "lease_ttl_seconds": 90,
     "stale_after_seconds": 90,
+    "snapshot_ttl_seconds": 259200,
+    "keep_recent_batches": 3,
+    "batch_stream_maxlen": 5000,
+    "delta_stream_maxlen": 200000,
+    "source_timeout_seconds": 20,
+}
+
+DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG: dict = {
+    "enabled": False,
+    "poll_interval_seconds": 60,
+    "max_calls_per_minute": 10,
+    "lease_ttl_seconds": 120,
+    "stale_after_seconds": 180,
     "snapshot_ttl_seconds": 259200,
     "keep_recent_batches": 3,
     "batch_stream_maxlen": 5000,
@@ -111,12 +124,14 @@ def build_default_realtime_runtime_config() -> RealtimeRuntimeConfig:
     return build_realtime_runtime_config_from_json(
         daily_config=deepcopy(DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG),
         minute_config=deepcopy(DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG),
+        etf_config=deepcopy(DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG),
     )
 
 
 def _build_seed_items(config: RealtimeRuntimeConfig) -> tuple[RealtimeRuntimeConfigSeedItem, ...]:
     daily = config.stock_rt_daily
     minute = config.stock_rt_min
+    etf = config.etf_rt_daily
     _validate_seed_runtime_config(config)
     return (
         RealtimeRuntimeConfigSeedItem(
@@ -153,6 +168,23 @@ def _build_seed_items(config: RealtimeRuntimeConfig) -> tuple[RealtimeRuntimeCon
                 "source_timeout_seconds": minute.source_timeout_seconds,
             },
         ),
+        RealtimeRuntimeConfigSeedItem(
+            object_key=ETF_RT_DAILY_OBJECT_KEY,
+            object_kind="collector_feed",
+            status="create",
+            runtime_config_json={
+                "enabled": etf.enabled,
+                "poll_interval_seconds": etf.poll_interval_seconds,
+                "max_calls_per_minute": etf.max_calls_per_minute,
+                "lease_ttl_seconds": etf.lease_ttl_seconds,
+                "stale_after_seconds": etf.stale_after_seconds,
+                "snapshot_ttl_seconds": etf.storage.snapshot_ttl_seconds,
+                "keep_recent_batches": etf.storage.keep_recent_batches,
+                "batch_stream_maxlen": etf.storage.batch_stream_maxlen,
+                "delta_stream_maxlen": etf.storage.delta_stream_maxlen,
+                "source_timeout_seconds": etf.source_timeout_seconds,
+            },
+        ),
     )
 
 
@@ -181,5 +213,17 @@ def _validate_seed_runtime_config(config: RealtimeRuntimeConfig) -> None:
             "batch_stream_maxlen": config.stock_rt_min.storage.batch_stream_maxlen,
             "delta_stream_maxlen": config.stock_rt_min.storage.delta_stream_maxlen,
             "source_timeout_seconds": config.stock_rt_min.source_timeout_seconds,
+        },
+        etf_config={
+            "enabled": config.etf_rt_daily.enabled,
+            "poll_interval_seconds": config.etf_rt_daily.poll_interval_seconds,
+            "max_calls_per_minute": config.etf_rt_daily.max_calls_per_minute,
+            "lease_ttl_seconds": config.etf_rt_daily.lease_ttl_seconds,
+            "stale_after_seconds": config.etf_rt_daily.stale_after_seconds,
+            "snapshot_ttl_seconds": config.etf_rt_daily.storage.snapshot_ttl_seconds,
+            "keep_recent_batches": config.etf_rt_daily.storage.keep_recent_batches,
+            "batch_stream_maxlen": config.etf_rt_daily.storage.batch_stream_maxlen,
+            "delta_stream_maxlen": config.etf_rt_daily.storage.delta_stream_maxlen,
+            "source_timeout_seconds": config.etf_rt_daily.source_timeout_seconds,
         },
     )

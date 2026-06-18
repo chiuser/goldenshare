@@ -11,6 +11,8 @@ from sqlalchemy.orm import Session
 from src.foundation.config.settings import Settings, get_settings
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.foundation.realtime.config_catalog import (
+    ETF_RT_DAILY_CATALOG,
+    ETF_RT_DAILY_OBJECT_KEY,
     STOCK_RT_DAILY_CATALOG,
     STOCK_RT_DAILY_OBJECT_KEY,
     STOCK_RT_MIN_CATALOG,
@@ -18,6 +20,7 @@ from src.foundation.realtime.config_catalog import (
     STOCK_RT_MIN_OBJECT_KEY,
 )
 from src.foundation.realtime.constants import (
+    ETF_RT_DAILY_SOURCE_API_NAME,
     STOCK_RT_DAILY_SOURCE_API_NAME,
     STOCK_RT_MIN_SOURCE_API_NAME,
 )
@@ -78,10 +81,37 @@ class RealtimeStockRtMinConfig:
 
 
 @dataclass(frozen=True, slots=True)
+class RealtimeEtfRtDailyRequestSegment:
+    market: str
+    topic: str
+    ts_code: str
+
+
+@dataclass(frozen=True, slots=True)
+class RealtimeEtfRtDailyConfig:
+    version: int
+    feed_key: str
+    display_name: str
+    source_api_name: str
+    exchange: str
+    enabled: bool
+    poll_interval_seconds: int
+    collection_sessions: str
+    max_calls_per_minute: int
+    lease_ttl_seconds: int
+    stale_after_seconds: int
+    storage: RealtimeFeedStorageConfig
+    ts_code_pattern: str
+    request_segments: tuple[RealtimeEtfRtDailyRequestSegment, ...]
+    source_timeout_seconds: int
+
+
+@dataclass(frozen=True, slots=True)
 class RealtimeRuntimeConfig:
     redis_url: str
     stock_rt_daily: RealtimeStockRtDailyConfig
     stock_rt_min: RealtimeStockRtMinConfig
+    etf_rt_daily: RealtimeEtfRtDailyConfig
 
 
 def get_realtime_runtime_config(
@@ -102,11 +132,14 @@ def load_realtime_runtime_config(
 ) -> RealtimeRuntimeConfig:
     daily_record = _get_required_record(session, STOCK_RT_DAILY_OBJECT_KEY, expected_kind=STOCK_RT_DAILY_CATALOG.object_kind)
     minute_record = _get_required_record(session, STOCK_RT_MIN_OBJECT_KEY, expected_kind=STOCK_RT_MIN_CATALOG.object_kind)
+    etf_record = _get_required_record(session, ETF_RT_DAILY_OBJECT_KEY, expected_kind=ETF_RT_DAILY_CATALOG.object_kind)
     return build_realtime_runtime_config_from_json(
         daily_config=daily_record.runtime_config_json,
         minute_config=minute_record.runtime_config_json,
+        etf_config=etf_record.runtime_config_json,
         daily_version=daily_record.version,
         minute_version=minute_record.version,
+        etf_version=etf_record.version,
         settings=settings,
     )
 
@@ -128,11 +161,17 @@ def get_realtime_stock_rt_min_config(session: Session | None = None) -> Realtime
     return get_realtime_runtime_config(session).stock_rt_min
 
 
+def get_realtime_etf_rt_daily_config(session: Session | None = None) -> RealtimeEtfRtDailyConfig:
+    return get_realtime_runtime_config(session).etf_rt_daily
+
+
 def get_realtime_tushare_max_calls_per_minute(api_name: str, session: Session | None = None) -> int | None:
     if api_name == STOCK_RT_DAILY_SOURCE_API_NAME:
         return get_realtime_stock_rt_daily_config(session).max_calls_per_minute
     if api_name == STOCK_RT_MIN_SOURCE_API_NAME:
         return get_realtime_stock_rt_min_config(session).max_calls_per_minute
+    if api_name == ETF_RT_DAILY_SOURCE_API_NAME:
+        return get_realtime_etf_rt_daily_config(session).max_calls_per_minute
     return None
 
 
@@ -140,17 +179,21 @@ def build_realtime_runtime_config_from_json(
     *,
     daily_config: Mapping[str, Any],
     minute_config: Mapping[str, Any],
+    etf_config: Mapping[str, Any],
     daily_version: int = 0,
     minute_version: int = 0,
+    etf_version: int = 0,
     settings: Settings | None = None,
 ) -> RealtimeRuntimeConfig:
     source_settings = settings or get_settings()
     stock_rt_daily = _build_stock_rt_daily_config(daily_config, version=daily_version)
     stock_rt_min = _build_stock_rt_min_config(minute_config, version=minute_version)
+    etf_rt_daily = _build_etf_rt_daily_config(etf_config, version=etf_version)
     return RealtimeRuntimeConfig(
         redis_url=_non_empty_text("REDIS_URL", source_settings.redis_url),
         stock_rt_daily=stock_rt_daily,
         stock_rt_min=stock_rt_min,
+        etf_rt_daily=etf_rt_daily,
     )
 
 
@@ -274,6 +317,72 @@ def _build_stock_rt_min_config(raw_config: Mapping[str, Any], *, version: int) -
             _required_value(raw_config, "source_timeout_seconds", object_key=STOCK_RT_MIN_OBJECT_KEY),
         ),
     )
+
+
+def _build_etf_rt_daily_config(raw_config: Mapping[str, Any], *, version: int) -> RealtimeEtfRtDailyConfig:
+    poll_interval_seconds = _positive_int(
+        "etf_rt_daily.poll_interval_seconds",
+        _required_value(raw_config, "poll_interval_seconds", object_key=ETF_RT_DAILY_OBJECT_KEY),
+    )
+    max_calls_per_minute = _positive_int(
+        "etf_rt_daily.max_calls_per_minute",
+        _required_value(raw_config, "max_calls_per_minute", object_key=ETF_RT_DAILY_OBJECT_KEY),
+    )
+    request_segments = _build_etf_request_segments()
+    _validate_collection_sessions("etf_rt_daily.collection_sessions", ETF_RT_DAILY_CATALOG.collection_sessions)
+    _validate_request_budget(
+        label="etf_rt_daily",
+        feed_count=len(request_segments),
+        poll_interval_seconds=poll_interval_seconds,
+        max_calls_per_minute=max_calls_per_minute,
+    )
+    stale_after_seconds = _positive_int(
+        "etf_rt_daily.stale_after_seconds",
+        _required_value(raw_config, "stale_after_seconds", object_key=ETF_RT_DAILY_OBJECT_KEY),
+    )
+    _validate_stale_window(
+        label="etf_rt_daily",
+        poll_interval_seconds=poll_interval_seconds,
+        stale_after_seconds=stale_after_seconds,
+    )
+    return RealtimeEtfRtDailyConfig(
+        version=int(version),
+        feed_key=_non_empty_text("etf_rt_daily.feed_key", ETF_RT_DAILY_CATALOG.feed_key),
+        display_name=ETF_RT_DAILY_CATALOG.display_name,
+        source_api_name=ETF_RT_DAILY_CATALOG.source_api_name,
+        exchange=ETF_RT_DAILY_CATALOG.exchange,
+        enabled=_bool_value("etf_rt_daily.enabled", _required_value(raw_config, "enabled", object_key=ETF_RT_DAILY_OBJECT_KEY)),
+        poll_interval_seconds=poll_interval_seconds,
+        collection_sessions=ETF_RT_DAILY_CATALOG.collection_sessions,
+        max_calls_per_minute=max_calls_per_minute,
+        lease_ttl_seconds=_positive_int(
+            "etf_rt_daily.lease_ttl_seconds",
+            _required_value(raw_config, "lease_ttl_seconds", object_key=ETF_RT_DAILY_OBJECT_KEY),
+        ),
+        stale_after_seconds=stale_after_seconds,
+        storage=_build_storage_config(ETF_RT_DAILY_OBJECT_KEY, raw_config),
+        ts_code_pattern=ETF_RT_DAILY_CATALOG.ts_code_pattern,
+        request_segments=request_segments,
+        source_timeout_seconds=_positive_int(
+            "etf_rt_daily.source_timeout_seconds",
+            _required_value(raw_config, "source_timeout_seconds", object_key=ETF_RT_DAILY_OBJECT_KEY),
+        ),
+    )
+
+
+def _build_etf_request_segments() -> tuple[RealtimeEtfRtDailyRequestSegment, ...]:
+    segments: list[RealtimeEtfRtDailyRequestSegment] = []
+    for raw_segment in ETF_RT_DAILY_CATALOG.request_segments:
+        segments.append(
+            RealtimeEtfRtDailyRequestSegment(
+                market=_non_empty_text("etf_rt_daily.request_segments.market", raw_segment.get("market")),
+                topic=str(raw_segment.get("topic") or "").strip(),
+                ts_code=_non_empty_text("etf_rt_daily.request_segments.ts_code", raw_segment.get("ts_code")),
+            )
+        )
+    if not segments:
+        raise RealtimeRuntimeConfigError("etf_rt_daily request_segments cannot be empty")
+    return tuple(segments)
 
 
 def _build_storage_config(object_key: str, raw_config: Mapping[str, Any]) -> RealtimeFeedStorageConfig:

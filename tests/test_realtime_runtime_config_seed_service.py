@@ -10,11 +10,14 @@ from sqlalchemy.pool import StaticPool
 from src.foundation.models.meta.realtime_runtime_config import RealtimeRuntimeConfigRecord
 from src.foundation.realtime.runtime_config import (
     RealtimeFeedStorageConfig,
+    RealtimeEtfRtDailyConfig,
+    RealtimeEtfRtDailyRequestSegment,
     RealtimeRuntimeConfig,
     RealtimeStockRtDailyConfig,
     RealtimeStockRtMinConfig,
 )
 from src.foundation.realtime.runtime_config_seed_service import (
+    DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG,
     DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG,
     DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG,
     RealtimeRuntimeConfigSeedService,
@@ -44,6 +47,7 @@ def _runtime_config() -> RealtimeRuntimeConfig:
     return RealtimeRuntimeConfig(
         redis_url="redis://example/0",
         stock_rt_daily=RealtimeStockRtDailyConfig(
+            version=0,
             feed_key="tushare_stock_rt_k",
             display_name="股票实时日线",
             source_api_name="rt_k",
@@ -58,6 +62,7 @@ def _runtime_config() -> RealtimeRuntimeConfig:
             ts_code_pattern="3*.SZ,6*.SH,0*.SZ,9*.BJ",
         ),
         stock_rt_min=RealtimeStockRtMinConfig(
+            version=0,
             display_name="股票实时分钟",
             source_api_name="rt_min",
             exchange="SSE",
@@ -70,6 +75,26 @@ def _runtime_config() -> RealtimeRuntimeConfig:
             stale_after_seconds=90,
             storage=storage,
             ts_code_pattern="3*.SZ,6*.SH,0*.SZ,9*.BJ",
+            source_timeout_seconds=20,
+        ),
+        etf_rt_daily=RealtimeEtfRtDailyConfig(
+            version=0,
+            feed_key="tushare_etf_rt_k",
+            display_name="ETF 实时日线",
+            source_api_name="rt_etf_k",
+            exchange="SSE",
+            enabled=True,
+            poll_interval_seconds=60,
+            collection_sessions="09:30-11:30,13:00-15:00",
+            max_calls_per_minute=10,
+            lease_ttl_seconds=120,
+            stale_after_seconds=180,
+            storage=storage,
+            ts_code_pattern="5*.SH,1*.SZ",
+            request_segments=(
+                RealtimeEtfRtDailyRequestSegment(market="SH", topic="HQ_FND_TICK", ts_code="5*.SH"),
+                RealtimeEtfRtDailyRequestSegment(market="SZ", topic="", ts_code="1*.SZ"),
+            ),
             source_timeout_seconds=20,
         ),
     )
@@ -85,9 +110,9 @@ def test_realtime_runtime_config_seed_dry_run_does_not_write() -> None:
     report = RealtimeRuntimeConfigSeedService().run(session, dry_run=True, runtime_config=_runtime_config())
 
     assert report.dry_run is True
-    assert report.created_count == 2
+    assert report.created_count == 3
     assert report.skipped_count == 0
-    assert [item.object_key for item in report.items] == ["stock_rt_daily", "stock_rt_min"]
+    assert [item.object_key for item in report.items] == ["stock_rt_daily", "stock_rt_min", "etf_rt_daily"]
     assert _row_count(session) == 0
 
 
@@ -96,17 +121,21 @@ def test_realtime_runtime_config_seed_apply_creates_required_rows() -> None:
 
     report = RealtimeRuntimeConfigSeedService().run(session, dry_run=False, runtime_config=_runtime_config())
 
-    assert report.created_count == 2
+    assert report.created_count == 3
     assert report.skipped_count == 0
     daily = session.get(RealtimeRuntimeConfigRecord, "stock_rt_daily")
     minute = session.get(RealtimeRuntimeConfigRecord, "stock_rt_min")
+    etf = session.get(RealtimeRuntimeConfigRecord, "etf_rt_daily")
     assert daily is not None
     assert minute is not None
+    assert etf is not None
     assert daily.object_kind == "collector_feed"
     assert minute.object_kind == "feed_group"
+    assert etf.object_kind == "collector_feed"
     assert daily.version == 1
     assert minute.requires_collector_restart is True
-    assert _row_count(session) == 2
+    assert etf.requires_collector_restart is True
+    assert _row_count(session) == 3
 
 
 def test_realtime_runtime_config_seed_default_template_creates_required_rows() -> None:
@@ -114,14 +143,17 @@ def test_realtime_runtime_config_seed_default_template_creates_required_rows() -
 
     report = RealtimeRuntimeConfigSeedService().run(session, dry_run=False)
 
-    assert report.created_count == 2
+    assert report.created_count == 3
     assert report.skipped_count == 0
     daily = session.get(RealtimeRuntimeConfigRecord, "stock_rt_daily")
     minute = session.get(RealtimeRuntimeConfigRecord, "stock_rt_min")
+    etf = session.get(RealtimeRuntimeConfigRecord, "etf_rt_daily")
     assert daily is not None
     assert minute is not None
+    assert etf is not None
     assert daily.runtime_config_json == DEFAULT_STOCK_RT_DAILY_RUNTIME_CONFIG
     assert minute.runtime_config_json == DEFAULT_STOCK_RT_MIN_RUNTIME_CONFIG
+    assert etf.runtime_config_json == DEFAULT_ETF_RT_DAILY_RUNTIME_CONFIG
 
 
 def test_realtime_runtime_config_seed_does_not_persist_locked_fields() -> None:
@@ -136,13 +168,17 @@ def test_realtime_runtime_config_seed_does_not_persist_locked_fields() -> None:
         "feed_key",
         "feed_key_pattern",
         "exchange",
+        "request_segments",
     }
     daily = session.get(RealtimeRuntimeConfigRecord, "stock_rt_daily")
     minute = session.get(RealtimeRuntimeConfigRecord, "stock_rt_min")
+    etf = session.get(RealtimeRuntimeConfigRecord, "etf_rt_daily")
     assert daily is not None
     assert minute is not None
+    assert etf is not None
     assert locked_fields.isdisjoint(daily.runtime_config_json)
     assert locked_fields.isdisjoint(minute.runtime_config_json)
+    assert locked_fields.isdisjoint(etf.runtime_config_json)
     assert daily.runtime_config_json == {
         "enabled": True,
         "poll_interval_seconds": 6,
@@ -156,6 +192,8 @@ def test_realtime_runtime_config_seed_does_not_persist_locked_fields() -> None:
     }
     assert minute.runtime_config_json["enabled_freqs"] == ["1MIN", "5MIN"]
     assert minute.runtime_config_json["source_timeout_seconds"] == 20
+    assert etf.runtime_config_json["enabled"] is True
+    assert etf.runtime_config_json["source_timeout_seconds"] == 20
 
 
 def test_realtime_runtime_config_seed_skips_existing_rows_without_overwrite() -> None:
@@ -173,15 +211,18 @@ def test_realtime_runtime_config_seed_skips_existing_rows_without_overwrite() ->
 
     report = RealtimeRuntimeConfigSeedService().run(session, dry_run=False, runtime_config=_runtime_config())
 
-    assert report.created_count == 1
+    assert report.created_count == 2
     assert report.skipped_count == 1
     daily = session.get(RealtimeRuntimeConfigRecord, "stock_rt_daily")
     minute = session.get(RealtimeRuntimeConfigRecord, "stock_rt_min")
+    etf = session.get(RealtimeRuntimeConfigRecord, "etf_rt_daily")
     assert daily is not None
     assert minute is not None
+    assert etf is not None
     assert daily.runtime_config_json == {"enabled": False, "custom": "kept"}
     assert daily.version == 9
     assert minute.object_kind == "feed_group"
+    assert etf.object_kind == "collector_feed"
 
 
 def test_realtime_runtime_config_seed_rejects_invalid_explicit_runtime_config_without_partial_write() -> None:

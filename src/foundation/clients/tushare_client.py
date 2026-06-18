@@ -107,7 +107,7 @@ class TushareHttpClient:
     def _summarize_params(self, params: dict[str, Any] | None) -> dict[str, Any]:
         if not params:
             return {}
-        keys = ("ts_code", "trade_date", "start_date", "end_date", "exchange", "freq")
+        keys = ("ts_code", "trade_date", "start_date", "end_date", "exchange", "freq", "topic")
         return {key: params[key] for key in keys if key in params}
 
     def _retry_count(self, response: requests.Response) -> int:

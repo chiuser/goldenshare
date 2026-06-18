@@ -12,7 +12,11 @@ from src.ops.queries.realtime_feed_health_query_service import (
     RealtimeFeedHealthQueryService,
     RealtimeFeedHealthValidationError,
 )
-from src.ops.schemas.realtime import OpsRealtimeStockRtDailyHealthResponse, OpsRealtimeStockRtMinHealthResponse
+from src.ops.schemas.realtime import (
+    OpsRealtimeEtfRtDailyHealthResponse,
+    OpsRealtimeStockRtDailyHealthResponse,
+    OpsRealtimeStockRtMinHealthResponse,
+)
 from src.ops.schemas.realtime_config import (
     RealtimeConfigDraftRequest,
     RealtimeConfigObjectDetailResponse,
@@ -116,3 +120,12 @@ def get_stock_rt_min_health(
         return RealtimeFeedHealthQueryService(store=store).build_stock_rt_min_health(session, freq=freq)
     except RealtimeFeedHealthValidationError as exc:
         raise WebAppError(status_code=400, code=exc.code, message=exc.message) from exc
+
+
+@router.get("/etf-rt-daily/health", response_model=OpsRealtimeEtfRtDailyHealthResponse)
+def get_etf_rt_daily_health(
+    _user: AuthenticatedUser = Depends(require_admin),
+    session: Session = Depends(get_db_session),
+    store: RealtimeStateStore = Depends(get_realtime_state_store),
+) -> OpsRealtimeEtfRtDailyHealthResponse:
+    return RealtimeFeedHealthQueryService(store=store).build_etf_rt_daily_health(session)

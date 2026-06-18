@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 
 import { apiRequest } from "../shared/api/client";
 import type {
+  OpsRealtimeEtfRtDailyHealthResponse,
   OpsRealtimeStockRtDailyHealthResponse,
   OpsRealtimeStockRtMinHealthItem,
   OpsRealtimeStockRtMinHealthResponse,
@@ -16,6 +17,7 @@ import { StatusBadge } from "../shared/ui/status-badge";
 
 const DAILY_HEALTH_API_PATH = "/api/v1/ops/realtime/stock-rt-daily/health";
 const MINUTE_HEALTH_API_PATH = "/api/v1/ops/realtime/stock-rt-min/health";
+const ETF_HEALTH_API_PATH = "/api/v1/ops/realtime/etf-rt-daily/health";
 
 interface PollingPayload {
   page_polling_enabled: boolean;
@@ -63,8 +65,14 @@ export function OpsRealtimeMonitorPage() {
     queryFn: () => apiRequest<OpsRealtimeStockRtMinHealthResponse>(MINUTE_HEALTH_API_PATH),
     refetchInterval: (query) => pollInterval(query.state.data),
   });
+  const etfHealthQuery = useQuery({
+    queryKey: ["ops", "realtime", "etf-rt-daily", "health"],
+    queryFn: () => apiRequest<OpsRealtimeEtfRtDailyHealthResponse>(ETF_HEALTH_API_PATH),
+    refetchInterval: (query) => pollInterval(query.state.data),
+  });
   const dailyHealth = dailyHealthQuery.data;
   const minuteHealth = minuteHealthQuery.data;
+  const etfHealth = etfHealthQuery.data;
 
   return (
     <Stack gap="lg">
@@ -72,7 +80,7 @@ export function OpsRealtimeMonitorPage() {
         这里监控实时行情流本身：collector 是否应当采集、Redis 当前批次是否可读、以及最近一次上游请求和写入是否正常。
       </Text>
 
-      {dailyHealthQuery.isLoading || minuteHealthQuery.isLoading ? <Loader size="sm" /> : null}
+      {dailyHealthQuery.isLoading || minuteHealthQuery.isLoading || etfHealthQuery.isLoading ? <Loader size="sm" /> : null}
       {dailyHealthQuery.error ? (
         <Alert color="error" title="读取股票实时日线监控失败">
           {dailyHealthQuery.error instanceof Error ? dailyHealthQuery.error.message : "未知错误"}
@@ -83,9 +91,15 @@ export function OpsRealtimeMonitorPage() {
           {minuteHealthQuery.error instanceof Error ? minuteHealthQuery.error.message : "未知错误"}
         </Alert>
       ) : null}
+      {etfHealthQuery.error ? (
+        <Alert color="error" title="读取 ETF 实时日线监控失败">
+          {etfHealthQuery.error instanceof Error ? etfHealthQuery.error.message : "未知错误"}
+        </Alert>
+      ) : null}
 
       {dailyHealth ? <DailyFeedSection health={dailyHealth} /> : null}
       {minuteHealth ? <MinuteFeedSection health={minuteHealth} /> : null}
+      {etfHealth ? <EtfFeedSection health={etfHealth} /> : null}
     </Stack>
   );
 }
@@ -265,6 +279,122 @@ function MinuteFeedSection({ health }: { health: OpsRealtimeStockRtMinHealthResp
   );
 }
 
+function EtfFeedSection({ health }: { health: OpsRealtimeEtfRtDailyHealthResponse }) {
+  return (
+    <>
+      <SectionCard
+        title="ETF 实时日线"
+        description="Redis 保存源端 ETF 批次事实；活跃池命中只用于运营观察，不在采集阶段裁剪。"
+        action={
+          <Group gap="xs">
+            <StatusBadge value={health.status} />
+            <Badge variant="light" color={health.enabled ? "info" : "neutral"}>
+              {health.enabled ? "ETF 采集已启用" : "ETF 采集未启用"}
+            </Badge>
+            <PollingBadge enabled={health.page_polling_enabled} />
+          </Group>
+        }
+      >
+        <Grid>
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <StatCard
+              label="采集状态"
+              value={formatCollectionStatusLabel(health.collection_status)}
+              hint={`采集窗口：${health.collection_sessions.join(" / ")}`}
+              hintDisplay="inline"
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <StatCard
+              label="源端快照"
+              value={formatNumber(health.source_snapshot_count)}
+              hint={`源端返回：${formatNumber(health.source_row_count)} 行`}
+              hintDisplay="inline"
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <StatCard
+              label="活跃池命中"
+              value={`${formatNumber(health.active_snapshot_count)} / ${formatNumber(health.active_pool_count)}`}
+              hint="当前批次命中 ETF 活跃池数量 / 活跃池总数"
+              hintDisplay="inline"
+            />
+          </Grid.Col>
+          <Grid.Col span={{ base: 12, md: 6, xl: 3 }}>
+            <StatCard
+              label="限速"
+              value={`${health.request_count_last_minute}/${health.max_calls_per_minute}`}
+              hint="最近一分钟请求数 / feed 级上限"
+              hintDisplay="inline"
+            />
+          </Grid.Col>
+        </Grid>
+      </SectionCard>
+
+      {health.status === "unavailable" ? (
+        <AlertBar tone="error" title="ETF 实时日线暂不可用">
+          {health.last_error_message || "当前没有可读 Redis 批次，或 Redis 状态层不可连接。"}
+        </AlertBar>
+      ) : null}
+
+      {health.status === "stale" ? (
+        <AlertBar tone="warning" title="ETF 实时日线刷新滞后">
+          当前批次年龄为 {formatSeconds(health.current_batch_age_seconds)}，已超过 {health.stale_after_seconds} 秒阈值。
+        </AlertBar>
+      ) : null}
+
+      {health.invalid_count > 0 ? (
+        <AlertBar tone="warning" title="ETF 实时日线存在无效行">
+          {formatNumber(health.invalid_count)} 行；{formatInvalidReasonCounts(health.invalid_reason_counts)}
+        </AlertBar>
+      ) : null}
+
+      <Grid>
+        <Grid.Col span={{ base: 12, lg: 6 }}>
+          <SectionCard title="ETF 采集与源端" description="沪深两段请求全部成功后，才会发布一个 Redis 批次。">
+            <OpsTable>
+              <Table.Tbody>
+                <InfoRow label="Feed" value={`${health.display_name}（${health.feed_key}）`} />
+                <InfoRow label="Collector" value={health.collector_running ? "运行中" : "未观测到运行"} />
+                <InfoRow label="Collector ID" value={health.collector_id || "—"} />
+                <InfoRow label="最近请求" value={formatDateTimeLabel(health.last_request_at)} />
+                <InfoRow label="最近成功" value={formatDateTimeLabel(health.last_success_at)} />
+                <InfoRow label="源端耗时" value={formatDurationMs(health.source_elapsed_ms)} />
+                <InfoRow label="分段行数" value={formatSegmentCounts(health.segment_counts)} />
+                <InfoRow label="最近错误" value={health.last_error_message || "—"} />
+              </Table.Tbody>
+            </OpsTable>
+          </SectionCard>
+        </Grid.Col>
+
+        <Grid.Col span={{ base: 12, lg: 6 }}>
+          <SectionCard title="ETF Redis 当前批次" description="源端全量批次保留，活跃池命中单独统计。">
+            <OpsTable>
+              <Table.Tbody>
+                <InfoRow label="Redis 连接" value={health.redis_connected ? "可连接" : "不可连接"} />
+                <InfoRow label="当前批次" value={health.current_batch_id || "—"} />
+                <InfoRow label="批次年龄" value={formatSeconds(health.current_batch_age_seconds)} />
+                <InfoRow label="批次接收时间" value={formatDateTimeLabel(health.current_batch_received_at)} />
+                <InfoRow label="批次发布时间" value={formatDateTimeLabel(health.current_batch_published_at)} />
+                <InfoRow label="Redis 写入耗时" value={formatDurationMs(health.write_elapsed_ms)} />
+                <InfoRow label="保留策略" value={`${formatNumber(health.snapshot_ttl_seconds)} 秒 / ${health.keep_recent_batches} 批`} />
+              </Table.Tbody>
+            </OpsTable>
+          </SectionCard>
+        </Grid.Col>
+      </Grid>
+
+      <StreamSection
+        title="ETF Stream 事件"
+        description="ETF feed 独立写入批次事件和变化事件，为后续 WebSocket 保留基础。"
+        lastBatchEventId={health.last_batch_event_id}
+        lastDeltaEventId={health.last_delta_event_id}
+        deltaCountLastBatch={health.delta_count_last_batch}
+      />
+    </>
+  );
+}
+
 function MinuteFeedCard({ item }: { item: OpsRealtimeStockRtMinHealthItem }) {
   return (
     <SectionCard
@@ -428,6 +558,12 @@ function formatInvalidReasonCounts(counts: Record<string, number>): string {
   const entries = Object.entries(counts);
   if (entries.length === 0) return "暂无原因分布";
   return entries.map(([reason, count]) => `${reason} ${formatNumber(count)} 条`).join(" / ");
+}
+
+function formatSegmentCounts(counts: Record<string, number>): string {
+  const entries = Object.entries(counts);
+  if (entries.length === 0) return "—";
+  return entries.map(([segment, count]) => `${segment} ${formatNumber(count)} 行`).join(" / ");
 }
 
 function InfoRow({ label, value }: { label: string; value: string }) {

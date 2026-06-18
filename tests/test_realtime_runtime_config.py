@@ -34,6 +34,7 @@ def test_realtime_runtime_config_loads_from_database_rows() -> None:
         session,
         daily={"lease_ttl_seconds": 44},
         minute={"enabled": True, "enabled_freqs": ["1MIN", "30MIN"], "poll_interval_seconds": 30},
+        etf={"enabled": True, "poll_interval_seconds": 60, "max_calls_per_minute": 10},
     )
 
     config = load_realtime_runtime_config(session)
@@ -46,6 +47,13 @@ def test_realtime_runtime_config_loads_from_database_rows() -> None:
     assert config.stock_rt_min.enabled_freqs == ("1MIN", "30MIN")
     assert config.stock_rt_min.poll_interval_seconds == 30
     assert config.stock_rt_min.feed_key_for_freq("1min") == "tushare_stock_rt_min_1min"
+    assert config.etf_rt_daily.version == 1
+    assert config.etf_rt_daily.enabled is True
+    assert config.etf_rt_daily.feed_key == "tushare_etf_rt_k"
+    assert [(segment.market, segment.topic, segment.ts_code) for segment in config.etf_rt_daily.request_segments] == [
+        ("SH", "HQ_FND_TICK", "5*.SH"),
+        ("SZ", "", "1*.SZ"),
+    ]
 
 
 def test_realtime_runtime_config_missing_rows_fail_fast_without_env_fallback() -> None:
@@ -117,6 +125,14 @@ def test_realtime_runtime_config_locked_fields_ignore_db_json_and_env(monkeypatc
             "feed_key_pattern": "bad_min",
             "source_api_name": "bad_rt_min",
         },
+        etf={
+            "exchange": "SZSE",
+            "collection_sessions": "00:00-23:59",
+            "ts_code_pattern": "510300.SH",
+            "feed_key": "bad_etf_key",
+            "source_api_name": "bad_rt_etf",
+            "request_segments": [{"market": "BAD", "topic": "BAD", "ts_code": "BAD"}],
+        },
     )
 
     config = load_realtime_runtime_config(session)
@@ -131,6 +147,15 @@ def test_realtime_runtime_config_locked_fields_ignore_db_json_and_env(monkeypatc
     assert config.stock_rt_min.ts_code_pattern == "3*.SZ,6*.SH,0*.SZ,9*.BJ"
     assert config.stock_rt_min.feed_key_for_freq("1MIN") == "tushare_stock_rt_min_1min"
     assert config.stock_rt_min.source_api_name == "rt_min"
+    assert config.etf_rt_daily.exchange == "SSE"
+    assert config.etf_rt_daily.collection_sessions == "09:30-11:30,13:00-15:00"
+    assert config.etf_rt_daily.ts_code_pattern == "5*.SH,1*.SZ"
+    assert config.etf_rt_daily.feed_key == "tushare_etf_rt_k"
+    assert config.etf_rt_daily.source_api_name == "rt_etf_k"
+    assert [(segment.market, segment.topic, segment.ts_code) for segment in config.etf_rt_daily.request_segments] == [
+        ("SH", "HQ_FND_TICK", "5*.SH"),
+        ("SZ", "", "1*.SZ"),
+    ]
     get_settings.cache_clear()
 
 

@@ -130,7 +130,7 @@ M2 已完成以下内容：
 1. 新增 `foundation.realtime_runtime_config` ORM：`src/foundation/models/meta/realtime_runtime_config.py`。
 2. 新增 Alembic 迁移：`alembic/versions/20260602_000116_add_realtime_runtime_config.py`，`down_revision=20260531_000115`。
 3. 新增受控初始化入口：`goldenshare ops-seed-realtime-runtime-config`，默认 dry-run，`--apply` 才写库。
-4. 初始化只创建缺失的 `stock_rt_daily`、`stock_rt_min` 两行；已有行跳过，不覆盖。
+4. 初始化当前创建缺失的 `stock_rt_daily`、`stock_rt_min`、`etf_rt_daily` 三行；已有行跳过，不覆盖。
 5. 初始化只写可编辑字段到 `runtime_config_json`；`collection_sessions`、`ts_code_pattern`、`source_api_name`、`feed_key/feed_key_pattern` 等锁定事实不入库。
 
 以下是 M2 完成当时明确未完成、不得误判为完成的内容；其中运行时读取切换已在 M3 收口：
@@ -146,7 +146,7 @@ M3 已完成以下内容：
 
 1. 删除 `src/foundation/realtime/feed_config.py`。
 2. 新增 `src/foundation/realtime/config_catalog.py`，锁定 source api、display name、feed key/pattern、`ts_code_pattern`、`collection_sessions=09:30-11:30,13:00-15:00`、`exchange=SSE`。
-3. 新增 `src/foundation/realtime/runtime_config.py`，从 `foundation.realtime_runtime_config` 读取 `stock_rt_daily`、`stock_rt_min` 两行；缺行、非法配置、请求量不足、stale 小于 poll interval 都 fail fast，不 fallback env。
+3. 新增 `src/foundation/realtime/runtime_config.py`，从 `foundation.realtime_runtime_config` 读取已注册实时对象配置；当前必须存在 `stock_rt_daily`、`stock_rt_min`、`etf_rt_daily` 三行。缺行、非法配置、请求量不足、stale 小于 poll interval 都 fail fast，不 fallback env。
 4. `REDIS_URL` 继续来自部署级 env，但通过 runtime resolver 暴露给 app/CLI 构建 Redis store。
 5. CLI、collector、provider、Ops health、Biz realtime query、Tushare 实时限速均切到 runtime resolver。
 6. 测试入口已改为配置表记录或显式 `RealtimeRuntimeConfig` 对象；旧 env 构造在 M4 已从 seed 初始化测试中删除。
@@ -193,7 +193,7 @@ M5 完成当时的剩余事项已收口：
 M6 已完成以下内容：
 
 1. 新增 `/api/v1/ops/realtime/config/objects`、`detail`、`validate`、`publish`、`revisions` API。
-2. 配置对象限定为 `stock_rt_daily` 和 `stock_rt_min`；单股当日分时序列不进入 M6。
+2. 配置对象当时限定为 `stock_rt_daily` 和 `stock_rt_min`；本轮实时 ETF 主线已新增 `etf_rt_daily` 配置对象。单股当日分时序列不进入配置中心当前主线。
 3. 配置中心只允许白名单字段发布；`source_api_name`、`exchange`、`collection_sessions`、`ts_code_pattern`、`feed_key/feed_key_pattern` 为锁定字段。
 4. `validate` 只校验和返回 diff/影响，不落库；`publish` 带 version，成功后更新 `foundation.realtime_runtime_config`、写 `ops.config_revision`、清 runtime config cache。
 5. 发布后仍需要重启 collector 生效；M6 不做热加载、不请求 Tushare、不读写 Redis。
@@ -266,12 +266,12 @@ M8 已完成以下内容：
 2. 远程 `/etc/goldenshare/web.env` 已通过 `bash scripts/remote-web-env.sh unset KEY` 清除残留旧 key，复核结果为 `NO_REALTIME_STOCK_RT_KEYS`。
 3. 远程 `REDIS_URL` 已确认仍存在；Redis 连接配置继续作为部署级 env，不进入配置中心。
 4. 远程 `goldenshare-web.service` 与 `goldenshare-realtime-collector.service` 已在清理后重启并保持 `active`。
-5. 远程 `foundation.realtime_runtime_config` 存在 `stock_rt_daily`、`stock_rt_min` 两行；当前启停值以配置中心/DB 为准。
-6. collector 已重新上报 `realtime_config_apply_state`，其中 `stock_rt_daily.version=2`、`stock_rt_min.version=1`。
+5. 远程 `foundation.realtime_runtime_config` 当时存在 `stock_rt_daily`、`stock_rt_min` 两行；实时 ETF 主线部署后必须补 seed `etf_rt_daily` 行。当前启停值以配置中心/DB 为准。
+6. collector 当时已重新上报 `realtime_config_apply_state`，其中 `stock_rt_daily.version=2`、`stock_rt_min.version=1`；实时 ETF 主线要求 apply state 同步包含 `etf_rt_daily.version`。
 7. 实时日线、实时分钟、远程部署、配置中心 showcase、单股当日分时序列方案已同步当前配置中心口径；旧 env 只作为历史/退场说明存在。
 
 M8 不做的事情：
 
-1. 不擅自修改 `stock_rt_daily.enabled` 或 `stock_rt_min.enabled`。
+1. 不擅自修改 `stock_rt_daily.enabled`、`stock_rt_min.enabled` 或 `etf_rt_daily.enabled`。
 2. 不新增配置对象、不改 Redis key、不改 collector 调度、不改 Biz/Ops API。
 3. 不处理 WebSocket；仍作为后续独立事项。

@@ -15,6 +15,7 @@ from src.foundation.realtime.config_apply_state import (
     build_realtime_config_apply_state,
 )
 from src.foundation.realtime.runtime_config import RealtimeRuntimeConfig, get_realtime_runtime_config
+from src.foundation.realtime.etf_rt_daily import EtfRtDailyCollector, EtfRtDailyCycleResult
 from src.foundation.realtime.state_store import RealtimeStateStore, RealtimeStateStoreUnavailable
 from src.foundation.realtime.stock_rt_daily import StockRtDailyCollector, StockRtDailyCycleResult
 from src.foundation.realtime.stock_rt_min import StockRtMinCollector, StockRtMinCycleResult
@@ -51,6 +52,7 @@ class RealtimeCollectorService:
         config: RealtimeRuntimeConfig | None = None,
         daily_collector: StockRtDailyCollector | None = None,
         stock_rt_min_collector: StockRtMinCollector | None = None,
+        etf_rt_daily_collector: EtfRtDailyCollector | None = None,
         monotonic_provider: Callable[[], float] | None = None,
         collector_id: str | None = None,
     ) -> None:
@@ -66,6 +68,11 @@ class RealtimeCollectorService:
         self._stock_rt_min_collector = stock_rt_min_collector or StockRtMinCollector(
             store=store,
             config=self._config.stock_rt_min,
+            collector_id=self._collector_id,
+        )
+        self._etf_rt_daily_collector = etf_rt_daily_collector or EtfRtDailyCollector(
+            store=store,
+            config=self._config.etf_rt_daily,
             collector_id=self._collector_id,
         )
         self._monotonic_provider = monotonic_provider or time.monotonic
@@ -93,6 +100,14 @@ class RealtimeCollectorService:
                 except Exception as exc:
                     feed_runs.append(_failed_feed_run(feed_key=feed_key, freq=freq, message=str(exc)))
                 self._mark_scheduled(feed_key, interval_seconds=self._config.stock_rt_min.poll_interval_seconds, now=now)
+
+        etf_feed_key = self._config.etf_rt_daily.feed_key
+        if self._config.etf_rt_daily.enabled and self._is_due(etf_feed_key, now=now):
+            try:
+                feed_runs.append(_from_etf_result(etf_feed_key, self._etf_rt_daily_collector.run_cycle(session)))
+            except Exception as exc:
+                feed_runs.append(_failed_feed_run(feed_key=etf_feed_key, message=str(exc)))
+            self._mark_scheduled(etf_feed_key, interval_seconds=self._config.etf_rt_daily.poll_interval_seconds, now=now)
 
         return RealtimeCollectorCycleResult(
             feed_runs=tuple(feed_runs),
@@ -145,6 +160,20 @@ def _from_min_result(result: StockRtMinCycleResult) -> RealtimeCollectorFeedRun:
     return RealtimeCollectorFeedRun(
         feed_key=result.feed_key,
         freq=result.freq,
+        status=result.status,
+        collection_status=result.collection_status,
+        batch_id=result.batch_id,
+        fetched_rows=result.fetched_rows,
+        snapshot_count=result.snapshot_count,
+        delta_count=result.delta_count,
+        invalid_count=result.invalid_count,
+        message=result.message,
+    )
+
+
+def _from_etf_result(feed_key: str, result: EtfRtDailyCycleResult) -> RealtimeCollectorFeedRun:
+    return RealtimeCollectorFeedRun(
+        feed_key=feed_key,
         status=result.status,
         collection_status=result.collection_status,
         batch_id=result.batch_id,

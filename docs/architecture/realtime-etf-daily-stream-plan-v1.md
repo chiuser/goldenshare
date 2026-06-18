@@ -1,6 +1,6 @@
 # ETF 实时日线流接入方案 v1
 
-状态：源接口开市实测完成 / 方案待评审 / 待开发  
+状态：源接口开市实测完成 / 代码主线已接入 / 生产启用与开市验收待执行
 源接口事实：[Tushare 0400 ETF实时日线](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0400_ETF实时日线.md)  
 关联上位方案：[实时行情流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-market-data-stream-architecture-v1.html)  
 关联配置中心：[Ops 实时流配置中心技术方案 v1](/Users/congming/github/goldenshare/docs/ops/ops-realtime-config-center-technical-plan-v1.html)  
@@ -168,7 +168,7 @@ rt:feed:tushare_etf_rt_k:lease
 | `keep_recent_batches` | `3` | 已拍板 |
 | `batch_stream_maxlen` | `5000` | 沿用现有实时 feed 默认 |
 | `delta_stream_maxlen` | `200000` | 沿用现有实时 feed 默认 |
-| `source_timeout_seconds` | `30` | 实测多数请求很快，保留源站抖动余量 |
+| `source_timeout_seconds` | `20` | 与现有实时分钟源请求超时口径一致 |
 
 锁定配置：
 
@@ -208,6 +208,9 @@ health 建议字段：
   "current_batch_published_at": "...",
   "source_row_count": 2206,
   "snapshot_count": 2206,
+  "source_snapshot_count": 2206,
+  "active_pool_count": 1395,
+  "active_snapshot_count": 1320,
   "segment_counts": {"SH": 1055, "SZ": 1151},
   "invalid_count": 0,
   "invalid_reason_counts": {},
@@ -251,12 +254,12 @@ GET /api/v1/realtime/etf-rt-daily?ts_codes=510300.SH,159919.SZ
 | Milestone | 目标 | 边界 |
 | --- | --- | --- |
 | M0 | 本方案评审与口径冻结 | 不改代码 |
-| M1 | 配置模型接入 | 扩展 `runtime_config.py`、`config_catalog.py`、seed、apply state；不请求源站 |
-| M2 | Provider / normalizer / publisher | 实现 `rt_etf_k` 两段请求、字段归一化、全量批次发布；补单元测试 |
-| M3 | Collector 调度 | 接入统一 collector；保证独立 due time、独立 lease、独立 health |
-| M4 | Ops health / 配置中心接入 | 新增 health API，配置中心对象列表/detail/validate/publish 支持 ETF |
-| M5 | 前端实时流监控与配置中心展示 | 新增 ETF 分组和配置对象；不改股票日线/分钟现有展示 |
-| M6 | 生产部署与开市验收 | seed 配置行、发布启用、重启 collector、开市验证 current batch |
+| M1 | 配置模型接入 | 已完成：扩展 `runtime_config.py`、`config_catalog.py`、seed、apply state；不请求源站 |
+| M2 | Provider / normalizer / publisher | 已完成：实现 `rt_etf_k` 两段请求、字段归一化、全量批次发布；补单元测试 |
+| M3 | Collector 调度 | 已完成：接入统一 collector；保证独立 due time、独立 lease、独立 health |
+| M4 | Ops health / 配置中心接入 | 已完成：新增 health API，配置中心对象列表/detail/validate/publish 支持 ETF |
+| M5 | 前端实时流监控与配置中心展示 | 已完成：新增 ETF 分组和配置对象；不改股票日线/分钟现有展示 |
+| M6 | 生产部署与开市验收 | 待执行：seed 配置行、发布启用、重启 collector、开市验证 current batch |
 | M7 | 可选业务 API | 只有出现明确业务消费页面时再做 |
 
 ## 10. 测试与验收

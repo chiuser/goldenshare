@@ -9,9 +9,11 @@ from src.foundation.realtime import (
     InMemoryRealtimeStateStore,
     STOCK_RT_DAILY_FEED_KEY,
     STOCK_RT_MIN_ALLOWED_FREQS,
+    get_realtime_etf_rt_daily_config,
     get_realtime_stock_rt_min_config,
 )
 from src.foundation.realtime.state_store import UnavailableRealtimeStateStore
+from src.ops.models.ops.etf_series_active import EtfSeriesActive
 from src.ops.queries.realtime_feed_health_query_service import RealtimeFeedHealthQueryService
 from tests.realtime_runtime_config_helpers import seed_realtime_runtime_config
 
@@ -279,6 +281,89 @@ def test_ops_stock_rt_min_health_api_returns_all_supported_freqs(
     assert by_freq["1MIN"]["invalid_reason_counts"] == {"missing_freq": 2}
     assert by_freq["15MIN"]["enabled"] is False
     assert by_freq["15MIN"]["status"] == "idle"
+
+
+def test_ops_etf_rt_daily_health_api_reports_source_and_active_pool_counts(
+    app_client,
+    auth_token,
+    db_session,
+    trade_calendar_factory,
+) -> None:
+    seed_realtime_runtime_config(db_session, etf={"enabled": True})
+    today = datetime.now(CN_TIMEZONE).date()
+    checked_at = datetime.now(CN_TIMEZONE)
+    trade_calendar_factory(exchange="SSE", trade_date=today, is_open=True)
+    db_session.add_all(
+        [
+            EtfSeriesActive(
+                resource="etf_rt_daily",
+                ts_code="510300.SH",
+                first_seen_date=today,
+                last_seen_date=today,
+                last_checked_at=checked_at,
+            ),
+            EtfSeriesActive(
+                resource="etf_rt_daily",
+                ts_code="159915.SZ",
+                first_seen_date=today,
+                last_seen_date=today,
+                last_checked_at=checked_at,
+            ),
+        ]
+    )
+    db_session.commit()
+    config = get_realtime_etf_rt_daily_config(db_session)
+    store = InMemoryRealtimeStateStore()
+    store.publish_batch(
+        feed_key=config.feed_key,
+        batch_id="batch-etf-health",
+        snapshots=[
+            {"ts_code": "510300.SH", "trade_time": "2026-06-18 10:15:00", "close": "1.23"},
+            {"ts_code": "999999.SH", "trade_time": "2026-06-18 10:15:00", "close": "2.34"},
+        ],
+        meta={
+            "received_at": "2026-06-18T10:15:01+08:00",
+            "published_at": "2026-06-18T10:15:02+08:00",
+            "source_row_count": 2,
+            "source_elapsed_ms": 120,
+            "write_elapsed_ms": 8,
+            "segment_counts": {"SH": 1, "SZ": 1},
+            "invalid_count": 1,
+            "invalid_reason_counts": {"missing_ts_code": 1},
+        },
+        ttl_seconds=259200,
+        keep_recent_batches=3,
+        batch_stream_maxlen=5000,
+        delta_stream_maxlen=200000,
+    )
+    store.set_health(
+        config.feed_key,
+        {
+            "collector_running": True,
+            "collector_id": "etf:1",
+            "request_count_last_minute": 2,
+            "segment_counts": {"SH": 1, "SZ": 1},
+            "last_batch_event_id": "1-0",
+            "delta_count_last_batch": 0,
+        },
+    )
+    app.dependency_overrides[get_realtime_state_store] = lambda: store
+
+    response = app_client.get(
+        "/api/v1/ops/realtime/etf-rt-daily/health",
+        headers={"Authorization": f"Bearer {auth_token}"},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["feed_key"] == "tushare_etf_rt_k"
+    assert payload["current_batch_id"] == "batch-etf-health"
+    assert payload["source_snapshot_count"] == 2
+    assert payload["active_pool_count"] == 2
+    assert payload["active_snapshot_count"] == 1
+    assert payload["segment_counts"] == {"SH": 1, "SZ": 1}
+    assert payload["invalid_count"] == 1
+    assert payload["invalid_reason_counts"] == {"missing_ts_code": 1}
 
 
 def test_ops_stock_rt_min_health_api_can_filter_single_freq(

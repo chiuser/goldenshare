@@ -5,6 +5,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 import { appTheme } from "../app/theme";
 import type {
+  OpsRealtimeEtfRtDailyHealthResponse,
   OpsRealtimeStockRtDailyHealthResponse,
   OpsRealtimeStockRtMinHealthItem,
   OpsRealtimeStockRtMinHealthResponse,
@@ -124,6 +125,50 @@ const minuteHealth: OpsRealtimeStockRtMinHealthResponse = {
   ],
 };
 
+const etfHealth: OpsRealtimeEtfRtDailyHealthResponse = {
+  feed_key: "tushare_etf_rt_k",
+  display_name: "ETF 实时日线",
+  status: "ok",
+  enabled: true,
+  redis_connected: true,
+  collector_running: true,
+  collector_id: "collector-etf",
+  last_request_at: "2026-06-18T10:15:00+08:00",
+  last_success_at: "2026-06-18T10:15:01+08:00",
+  last_error_at: null,
+  last_error_message: null,
+  current_batch_id: "etf-batch-1",
+  current_batch_age_seconds: 4,
+  current_batch_received_at: "2026-06-18T10:15:01+08:00",
+  current_batch_published_at: "2026-06-18T10:15:02+08:00",
+  source_snapshot_count: 3309,
+  active_pool_count: 1395,
+  active_snapshot_count: 1320,
+  snapshot_count: 3309,
+  source_row_count: 3309,
+  source_elapsed_ms: 240,
+  write_elapsed_ms: 35,
+  request_count_last_minute: 2,
+  max_calls_per_minute: 10,
+  poll_interval_seconds: 60,
+  is_trading_day: true,
+  collection_sessions: ["09:30-11:30", "13:00-15:00"],
+  collection_status: "open",
+  stale_after_seconds: 180,
+  snapshot_ttl_seconds: 259200,
+  keep_recent_batches: 3,
+  batch_stream_maxlen: 5000,
+  delta_stream_maxlen: 200000,
+  last_batch_event_id: "etf-batch-event",
+  last_delta_event_id: "etf-delta-event",
+  delta_count_last_batch: 88,
+  invalid_count: 2,
+  invalid_reason_counts: { missing_ts_code: 2 },
+  segment_counts: { SH: 1727, SZ: 1582 },
+  page_polling_enabled: true,
+  recommended_poll_interval_seconds: 60,
+};
+
 function renderPage() {
   const queryClient = new QueryClient({
     defaultOptions: {
@@ -145,15 +190,17 @@ describe("实时流监控页", () => {
     apiRequest.mockImplementation(async (path: string) => {
       if (path === "/api/v1/ops/realtime/stock-rt-daily/health") return dailyHealth;
       if (path === "/api/v1/ops/realtime/stock-rt-min/health") return minuteHealth;
+      if (path === "/api/v1/ops/realtime/etf-rt-daily/health") return etfHealth;
       throw new Error(`unexpected api path: ${path}`);
     });
   });
 
-  it("展示股票实时日线和五个股票实时分钟频率", async () => {
+  it("展示股票实时日线、股票实时分钟和 ETF 实时日线", async () => {
     renderPage();
 
     expect(await screen.findByText("股票实时日线")).toBeInTheDocument();
     expect(await screen.findByText("股票实时分钟")).toBeInTheDocument();
+    expect(await screen.findByText("ETF 实时日线")).toBeInTheDocument();
     for (const freq of ["1MIN", "5MIN", "15MIN", "30MIN", "60MIN"]) {
       expect(await screen.findByText(`${freq} 分钟`)).toBeInTheDocument();
     }
@@ -162,6 +209,8 @@ describe("实时流监控页", () => {
     expect(await screen.findByText("5MIN 刷新滞后")).toBeInTheDocument();
     expect(await screen.findByText("15MIN 暂不可用")).toBeInTheDocument();
     expect(await screen.findByText("provider degraded")).toBeInTheDocument();
+    expect(await screen.findByText("ETF 实时日线存在无效行")).toBeInTheDocument();
+    expect(await screen.findByText(/SH 1,727 行/)).toBeInTheDocument();
     expect((await screen.findAllByText("已停用")).length).toBeGreaterThan(0);
   });
 
@@ -169,6 +218,7 @@ describe("实时流监控页", () => {
     apiRequest.mockImplementation(async (path: string) => {
       if (path === "/api/v1/ops/realtime/stock-rt-daily/health") return dailyHealth;
       if (path === "/api/v1/ops/realtime/stock-rt-min/health") throw new Error("minute health failed");
+      if (path === "/api/v1/ops/realtime/etf-rt-daily/health") return etfHealth;
       throw new Error(`unexpected api path: ${path}`);
     });
 
@@ -179,6 +229,22 @@ describe("实时流监控页", () => {
     expect(await screen.findByText("minute health failed")).toBeInTheDocument();
   });
 
+  it("ETF 监控读取失败时不影响股票日线和分钟区块展示", async () => {
+    apiRequest.mockImplementation(async (path: string) => {
+      if (path === "/api/v1/ops/realtime/stock-rt-daily/health") return dailyHealth;
+      if (path === "/api/v1/ops/realtime/stock-rt-min/health") return minuteHealth;
+      if (path === "/api/v1/ops/realtime/etf-rt-daily/health") throw new Error("etf health failed");
+      throw new Error(`unexpected api path: ${path}`);
+    });
+
+    renderPage();
+
+    expect(await screen.findByText("股票实时日线")).toBeInTheDocument();
+    expect(await screen.findByText("股票实时分钟")).toBeInTheDocument();
+    expect(await screen.findByText("读取 ETF 实时日线监控失败")).toBeInTheDocument();
+    expect(await screen.findByText("etf health failed")).toBeInTheDocument();
+  });
+
   it("只调用 Ops health API，不调用业务快照 API，也不给分钟 health 拼 freq", async () => {
     renderPage();
 
@@ -187,6 +253,7 @@ describe("实时流监控页", () => {
       const paths = apiRequest.mock.calls.map(([path]) => String(path));
       expect(paths).toContain("/api/v1/ops/realtime/stock-rt-daily/health");
       expect(paths).toContain("/api/v1/ops/realtime/stock-rt-min/health");
+      expect(paths).toContain("/api/v1/ops/realtime/etf-rt-daily/health");
       expect(paths.some((path) => path.startsWith("/api/v1/realtime/stock-rt-min"))).toBe(false);
       expect(paths.some((path) => path.includes("/stock-rt-min/health?freq="))).toBe(false);
     });

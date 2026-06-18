@@ -27,5 +27,8 @@ def build_realtime_config_apply_state(
             "stock_rt_min": {
                 "version": config.stock_rt_min.version,
             },
+            "etf_rt_daily": {
+                "version": config.etf_rt_daily.version,
+            },
         },
     }

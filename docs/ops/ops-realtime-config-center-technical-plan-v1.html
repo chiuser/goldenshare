@@ -695,7 +695,7 @@ th code {
         <tr>
           <td><code>object_key</code></td>
           <td><code>varchar(64) pk</code></td>
-          <td>实时流对象标识，例如 <code>stock_rt_daily</code>、<code>stock_rt_min</code></td>
+          <td>实时流对象标识，例如 <code>stock_rt_daily</code>、<code>stock_rt_min</code>、<code>etf_rt_daily</code></td>
           <td>由代码目录定义，禁止用户自定义。</td>
         </tr>
         <tr>
@@ -741,7 +741,7 @@ th code {
     <div class="grid-2">
       <div class="note-card">
         <strong>初始化</strong>
-        <p>建表迁移只负责表结构；初始化步骤为 <code>stock_rt_daily</code>、<code>stock_rt_min</code> 写入初始行。M4 后初始值来自代码内受控默认模板，不再读取旧 <code>REALTIME_STOCK_RT_*</code> env。</p>
+        <p>建表迁移只负责表结构；初始化步骤为当前已注册实时对象写入初始行，包括 <code>stock_rt_daily</code>、<code>stock_rt_min</code>、<code>etf_rt_daily</code>。M4 后初始值来自代码内受控默认模板，不再读取旧 <code>REALTIME_STOCK_RT_*</code> env。</p>
       </div>
       <div class="note-card">
         <strong>缺失处理</strong>
@@ -781,8 +781,8 @@ th code {
         </tr>
         <tr>
           <td>5. 初始化配置行</td>
-          <td>新增受控初始化逻辑或迁移后初始化命令，从代码内默认模板创建缺失的 <code>stock_rt_daily</code>、<code>stock_rt_min</code> 两行。</td>
-          <td>初始化只执行运行时配置表写入；写入后配置中心详情 API 能读到两行；不得读取旧实时 env 或静默 fallback。</td>
+          <td>新增受控初始化逻辑或迁移后初始化命令，从代码内默认模板创建缺失的 <code>stock_rt_daily</code>、<code>stock_rt_min</code>、<code>etf_rt_daily</code> 三行。</td>
+          <td>初始化只执行运行时配置表写入；写入后配置中心详情 API 能读到三行；不得读取旧实时 env 或静默 fallback。</td>
         </tr>
         <tr>
           <td>6. 写入修订记录</td>
@@ -988,7 +988,7 @@ th code {
         <tr>
           <td>2. 建表并初始化</td>
           <td>按 3.3 建表；初始化时从代码内受控默认模板写入 <code>foundation.realtime_runtime_config</code> 当前事实。</td>
-          <td>数据库中存在 <code>stock_rt_daily</code>、<code>stock_rt_min</code> 两行；页面和 resolver 能读到配置表当前值。</td>
+          <td>数据库中存在 <code>stock_rt_daily</code>、<code>stock_rt_min</code>、<code>etf_rt_daily</code> 三行；页面和 resolver 能读到配置表当前值。</td>
         </tr>
         <tr>
           <td>3. 切换运行时读取（M3 已完成）</td>
@@ -1079,6 +1079,12 @@ th code {
           <td><code>stock_rt_min</code></td>
           <td>已上线 feed group</td>
           <td>可编辑启停、启用频率多选、间隔、限速、stale、TTL、保留批次、source timeout；锁定通配符和 feed key 规则。</td>
+        </tr>
+        <tr>
+          <td>ETF 实时日线</td>
+          <td><code>etf_rt_daily</code></td>
+          <td>已接入 collector feed，默认停用</td>
+          <td>可编辑启停、间隔、限速、stale、TTL、保留批次、source timeout；锁定 <code>rt_etf_k</code>、沪深请求段、交易时段和 feed key。</td>
         </tr>
         <tr>
           <td>单股当日分时序列</td>

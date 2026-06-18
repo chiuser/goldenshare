@@ -50,7 +50,7 @@ def test_realtime_config_list_and_detail_return_field_metadata(app_client, user_
     list_response = app_client.get("/api/v1/ops/realtime/config/objects", headers=headers)
     assert list_response.status_code == 200
     list_payload = list_response.json()
-    assert [item["object_key"] for item in list_payload["items"]] == ["stock_rt_daily", "stock_rt_min"]
+    assert [item["object_key"] for item in list_payload["items"]] == ["stock_rt_daily", "stock_rt_min", "etf_rt_daily"]
     assert list_payload["items"][0]["apply_state"]["status"] == "unknown"
     assert list_payload["items"][0]["apply_state"]["restart_pending"] is None
 
@@ -68,6 +68,17 @@ def test_realtime_config_list_and_detail_return_field_metadata(app_client, user_
     assert min_detail["locked_config"]["feed_key_pattern"] == "tushare_stock_rt_min_{freq}"
     assert min_fields["feed_key_pattern"]["editable"] is False
 
+    etf_detail = _get_detail(app_client, headers, "etf_rt_daily")
+    etf_fields = {field["key"]: field for field in etf_detail["fields"]}
+    assert etf_detail["display_name"] == "ETF 实时日线"
+    assert etf_detail["locked_config"]["feed_key"] == "tushare_etf_rt_k"
+    assert etf_detail["locked_config"]["request_segments"] == [
+        "SH: topic=HQ_FND_TICK ts_code=5*.SH",
+        "SZ: topic= ts_code=1*.SZ",
+    ]
+    assert etf_fields["request_segments"]["editable"] is False
+    assert etf_fields["source_timeout_seconds"]["editable"] is True
+
 
 def test_realtime_config_apply_state_reports_applied_and_pending(app_client, user_factory) -> None:
     store = InMemoryRealtimeStateStore()
@@ -82,12 +93,14 @@ def test_realtime_config_apply_state_reports_applied_and_pending(app_client, use
             "objects": {
                 "stock_rt_daily": {"version": 1},
                 "stock_rt_min": {"version": 0},
+                "etf_rt_daily": {"version": 1},
             },
         },
     )
 
     daily_detail = _get_detail(app_client, headers, "stock_rt_daily")
     min_detail = _get_detail(app_client, headers, "stock_rt_min")
+    etf_detail = _get_detail(app_client, headers, "etf_rt_daily")
 
     assert daily_detail["apply_state"] == {
         "status": "applied",
@@ -103,6 +116,7 @@ def test_realtime_config_apply_state_reports_applied_and_pending(app_client, use
     assert min_detail["apply_state"]["restart_pending"] is True
     assert min_detail["apply_state"]["published_version"] == 1
     assert min_detail["apply_state"]["applied_version"] == 0
+    assert etf_detail["apply_state"]["status"] == "applied"
 
 
 def test_realtime_config_validate_reports_diff_without_persisting(app_client, user_factory, db_session) -> None:
@@ -185,6 +199,16 @@ def test_realtime_config_rejects_locked_unknown_and_wrong_shape_fields(app_clien
     )
     assert publish_response.status_code == 422
     assert publish_response.json()["code"] == "unknown_field"
+
+    etf_detail = _get_detail(app_client, headers, "etf_rt_daily")
+    etf_response = app_client.post(
+        "/api/v1/ops/realtime/config/objects/etf_rt_daily/validate",
+        headers=headers,
+        json={"runtime_config": {**etf_detail["effective_config"], "request_segments": ["BAD"]}},
+    )
+    assert etf_response.status_code == 200
+    assert etf_response.json()["valid"] is False
+    assert etf_response.json()["errors"][0]["code"] == "locked_field"
 
 
 def test_realtime_config_publish_updates_record_and_records_revision(app_client, user_factory, db_session) -> None:

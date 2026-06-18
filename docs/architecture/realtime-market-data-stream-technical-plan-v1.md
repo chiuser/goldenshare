@@ -118,7 +118,7 @@ GET /api/v1/ops/realtime/stock-rt-min/health
 
 ## 1. 目标
 
-本方案最初把股票实时日线 V1 从架构图落成可执行技术计划。当前实时子系统已扩展股票实时分钟，分钟实现口径见 [A股实时分钟流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)。本文件保留为日线 feed 的主技术记录：
+本方案最初把股票实时日线 V1 从架构图落成可执行技术计划。当前实时子系统已扩展股票实时分钟和 ETF 实时日线；分钟实现口径见 [A股实时分钟流架构方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-stock-minute-stream-architecture-v1.html)，ETF 实时日线口径见 [ETF 实时日线流接入方案 v1](/Users/congming/github/goldenshare/docs/architecture/realtime-etf-daily-stream-plan-v1.md)。本文件保留为股票实时日线 feed 的主技术记录：
 
 > 服务端在交易日的 A 股连续竞价时段内每 6 秒请求一次 Tushare 0372 `rt_k` 全市场股票实时日线，把最新快照写入 Redis；业务 API 和 Ops 页面只读取 Redis 当前批次。
 
@@ -129,7 +129,7 @@ V1 不进入离线数据集主链，不创建 `DatasetDefinition`，不写 raw/c
 ## 2. 非目标
 
 1. 不落库历史实时行情。
-2. 本文件不定义股票实时分钟、tick、盘口、指数实时、ETF 实时；股票实时分钟已由独立方案承接。
+2. 本文件不定义股票实时分钟、tick、盘口、指数实时、ETF 实时；股票实时分钟与 ETF 实时日线已由独立方案承接。
 3. 不做用户自定义订阅、复杂权限、复杂行情聚合。
 4. 不把实时轮询伪装成 TaskRun 任务。
 5. 不把 Redis 健康状态写入离线 freshness 或数据集卡片。
@@ -550,7 +550,7 @@ goldenshare realtime-collector-serve --max-cycles 1
 | 层级 | 存放位置 | 说明 |
 | --- | --- | --- |
 | 部署级连接配置 | `REDIS_URL` env | Redis 连接串，继续放在本地 `.env.web.local` 和远程 `/etc/goldenshare/web.env`。 |
-| 实时流可编辑运行配置 | `foundation.realtime_runtime_config.runtime_config_json` | `stock_rt_daily` 与 `stock_rt_min` 两个对象的启停、间隔、限速、TTL、保留批次、stream 裁剪、stale、lease 等配置。 |
+| 实时流可编辑运行配置 | `foundation.realtime_runtime_config.runtime_config_json` | `stock_rt_daily`、`stock_rt_min`、`etf_rt_daily` 等已注册对象的启停、间隔、限速、TTL、保留批次、stream 裁剪、stale、lease 等配置。 |
 | 实时流锁定事实 | `src/foundation/realtime/config_catalog.py` | source api、feed key/pattern、通配符、交易时段、exchange 等高风险事实，不进配置表，不开放编辑。 |
 
 旧 `REALTIME_STOCK_RT_DAILY_*` 与 `REALTIME_STOCK_RT_MIN_*` env 已退场，不再作为运行时、seed 或测试输入。生产启停和参数调整必须通过实时流配置中心发布到 `foundation.realtime_runtime_config`，发布后按页面提示重启统一 collector 生效。
