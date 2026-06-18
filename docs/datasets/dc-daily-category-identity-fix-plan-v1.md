@@ -32,9 +32,7 @@
 idx_type=行业板块 / 概念板块 / 地域板块
 ```
 
-探测报告：
-
-[summary.json](/Users/congming/github/goldenshare/reports/dc_daily_identity_probe_20250101_20250131_explicit_types/summary.json)
+探测报告文件已按 `reports/` 临时产物清理策略移除；本文保留当时的验证范围与结论，后续如需复核，应重新运行探测测试生成新的本地报告。
 
 结论：
 

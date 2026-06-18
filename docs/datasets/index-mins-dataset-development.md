@@ -61,7 +61,7 @@
 | API 错误 | 0 |
 | 字段缺失 | 0 |
 | 总返回行数 | 4770 |
-| 有数据指数基本信息报告 | [/Users/congming/github/goldenshare/reports/idx_mins_20260430_30min_available_index_basic.csv](/Users/congming/github/goldenshare/reports/idx_mins_20260430_30min_available_index_basic.csv) |
+| 有数据指数基本信息报告 | 历史探测报告文件已按 `reports/` 临时产物清理策略移除；本文保留验证结论，后续如需复核，应重新运行探测测试生成新的本地报告 |
 | 激活池写入 | 已按 `resource=index_mins` 写入 530 个指数 |
 
 硬结论：
