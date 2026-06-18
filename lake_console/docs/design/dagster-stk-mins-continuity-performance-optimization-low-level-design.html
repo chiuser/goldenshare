@@ -1,0 +1,1391 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 股票分钟线连续性性能优化 LLD</title>
+  <style>
+    :root {
+      --bg: #f5f1ea;
+      --paper: #ffffff;
+      --soft: #fbfaf6;
+      --ink: #1d2935;
+      --muted: #667484;
+      --line: #d8d0c4;
+      --blue: #e7f0ff;
+      --blue-strong: #245b99;
+      --green: #e5f4e9;
+      --green-strong: #2e7045;
+      --amber: #fff0cc;
+      --amber-strong: #8b5c13;
+      --red: #ffe4df;
+      --red-strong: #a33d2f;
+      --code-bg: #f1ece3;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      width: min(1360px, calc(100vw - 44px));
+      margin: 0 auto;
+      padding: 38px 0 78px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 12px 30px rgba(36, 29, 20, 0.06);
+    }
+
+    header { padding: 34px 36px; }
+
+    section {
+      margin-top: 22px;
+      padding: 26px 30px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin-top: 0;
+      line-height: 1.24;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin-bottom: 12px;
+      font-size: clamp(31px, 4.2vw, 52px);
+    }
+
+    h2 {
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--line);
+      font-size: 27px;
+    }
+
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 20px;
+    }
+
+    p { margin: 8px 0 13px; }
+
+    code {
+      border-radius: 6px;
+      background: var(--code-bg);
+      padding: 0.08em 0.34em;
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow-x: auto;
+      margin: 14px 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--code-bg);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+
+    th,
+    td {
+      padding: 11px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+
+    th {
+      background: #efe9df;
+      color: #273442;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    tr:last-child td { border-bottom: 0; }
+    th:last-child,
+    td:last-child { border-right: 0; }
+
+    ul,
+    ol {
+      margin: 8px 0 14px;
+      padding-left: 23px;
+    }
+
+    li { margin: 6px 0; }
+
+    .subtitle {
+      max-width: 1120px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 13px;
+      margin-top: 18px;
+    }
+
+    .chip,
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--soft);
+      padding: 14px 15px;
+    }
+
+    .chip strong,
+    .card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+
+    .chip {
+      color: var(--muted);
+      font-size: 14px;
+    }
+
+    .callout,
+    .warning,
+    .danger,
+    .ok {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left-width: 5px;
+      border-radius: 12px;
+    }
+
+    .callout {
+      border-left-color: var(--blue-strong);
+      background: var(--blue);
+    }
+
+    .warning {
+      border-left-color: var(--amber-strong);
+      background: var(--amber);
+    }
+
+    .danger {
+      border-left-color: var(--red-strong);
+      background: var(--red);
+    }
+
+    .ok {
+      border-left-color: var(--green-strong);
+      background: var(--green);
+    }
+
+    .tag {
+      display: inline-flex;
+      margin: 2px 4px 2px 0;
+      padding: 3px 8px;
+      border: 1px solid rgba(24, 35, 48, 0.16);
+      border-radius: 999px;
+      background: #f5f1e8;
+      color: #3a4653;
+      font-size: 12px;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+
+    .tag.blue { background: var(--blue); color: var(--blue-strong); }
+    .tag.green { background: var(--green); color: var(--green-strong); }
+    .tag.amber { background: var(--amber); color: var(--amber-strong); }
+    .tag.red { background: var(--red); color: var(--red-strong); }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Dagster 股票分钟线连续性性能优化 LLD</h1>
+      <p class="subtitle">
+        本 LLD 按最新只读 profiling 结论重写：性能瓶颈不是 60 天窗口本身，而是 sensor 热路径逐日扫 Dagster event/check 状态库。
+        本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
+      </p>
+      <div class="meta-grid">
+        <div class="chip"><strong>状态</strong>LLD 文档；尚未实现。</div>
+        <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
+        <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
+        <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. 依据与已读规则</h2>
+      <p>本 LLD 编写前已读取并对齐以下规则和方案：</p>
+      <ul>
+        <li><code>AGENTS.md</code>：按计划开发、性能门禁、禁止无依据编码、正式环境操作审批。</li>
+        <li><code>lake_console/orchestrator/AGENTS.md</code>：Dagster sensor hot path 性能分析门禁、run key 与 upstream batch 规则。</li>
+        <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：股票分钟线连续性、run key、DuckDB resource、静态门禁规则。</li>
+        <li><code>dagster-run-key-governance-low-level-design.md</code>：禁止解析 run key 生成 config，正式 run key 走统一 builder。</li>
+        <li><code>dagster-stk-mins-continuity-performance-optimization-plan.html</code>：本专项上层方案。</li>
+      </ul>
+      <div class="danger">
+        本文档不再保留旧方案的状态文件、汇总资产、完成状态实体等路线。凡需要额外持久化状态才能成立的优化，都不属于本专项。
+        第一阶段也不启用 cursor frontier cache；不能让 cursor 隐藏完整 check 语义。
+      </div>
+    </section>
+
+    <section>
+      <h2>2. Profiling 结论</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>测量项</th>
+            <th>raw 20 天</th>
+            <th>raw 60 天</th>
+            <th>silver 20 天</th>
+            <th>silver 60 天</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>现有逐日 Dagster 深扫</td>
+            <td>65.55s，只读到 8 个日期</td>
+            <td>分钟级，无法接受</td>
+            <td>64.87s，只读到 7 个日期</td>
+            <td>分钟级，无法接受</td>
+            <td>核心问题是逐日读 DG 状态库，不是窗口大小。</td>
+          </tr>
+          <tr>
+            <td>Dagster metadata batch</td>
+            <td>11.21s</td>
+            <td>11.01s</td>
+            <td>12.27s</td>
+            <td>12.04s</td>
+            <td>比逐日深扫好，但仍要反序列化大量 event JSON，不适合作为热路径主方案。</td>
+          </tr>
+          <tr>
+            <td>DuckDB 粗筛：文件存在 + freq + row count</td>
+            <td>0.038s</td>
+            <td>0.087s</td>
+            <td>0.043s</td>
+            <td>0.092s</td>
+            <td>适合快速发现明显缺口；不能等同完整 ready。</td>
+          </tr>
+          <tr>
+            <td>DuckDB 完整 blocking 语义</td>
+            <td>2.30s</td>
+            <td>8.96s</td>
+            <td>3.32s</td>
+            <td>9.59s</td>
+            <td>能保留正式 check 语义；60 天级别可接受，但不能所有 sensor 重复无脑全扫。</td>
+          </tr>
+          <tr>
+            <td>单日完整 blocking 语义</td>
+            <td>0.19s</td>
+            <td>不适用</td>
+            <td>0.20s</td>
+            <td>不适用</td>
+            <td>适合在粗筛定位目标日后做精确验证。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        silver 60 天完整验证发现 <code>000638.SZ</code> 在 <code>silver_stk_mins</code> 2026-03-19 至 2026-04-13 的 1/5/15/30/60 五频度文件中存在，
+        但现有 <code>silver_stk_mins_name_timeline_covered</code> 无法用 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 覆盖它。
+        已确认 <code>000638.SZ</code> 是退市历史股票，最后交易日为 2026-04-13；因此该日期及之前的分钟线合法。
+        这证明 row count 粗筛会漏掉隐藏语义问题，也证明现有 check 语义需要拆分：生命周期身份合法性不能依赖 <code>silver_namechange</code>。
+      </div>
+      <h3>2.4 <code>000638.SZ</code> 补充审计结论</h3>
+      <p>
+        为避免只用 60 天窗口误判，本次又按年份只读扫描了正式 lake 中 <code>silver_stk_mins</code> 已发现的全历史分区，
+        范围为 2014-2026 年、全部 1/5/15/30/60 五频度，共 15130 个 parquet 文件。该审计是一次性离线只读审计，
+        耗时 175.561s，不得作为 sensor 热路径实现方式。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>审计项</th>
+            <th>结果</th>
+            <th>解释</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>旧 <code>name_timeline</code> 口径失败</td>
+            <td>13460 个 date-freq 行，1 个股票代码</td>
+            <td>唯一代码为 <code>000638.SZ</code>，覆盖 2014-01-02 至 2026-04-13，共 2692 个交易日、5 个频度。</td>
+          </tr>
+          <tr>
+            <td>旧失败行按历史生命周期校验</td>
+            <td>13460 个 date-freq 行全部合法</td>
+            <td><code>raw_stock_basic</code> 中该代码 <code>list_date=1996-11-26</code>、<code>delist_date=2026-06-03</code>、<code>list_status='D'</code>。</td>
+          </tr>
+          <tr>
+            <td>新生命周期口径失败</td>
+            <td>0 个 date-freq 行，0 个股票代码</td>
+            <td>用包含退市股票的历史股票事实校验后，没有发现 <code>000638.SZ</code> 之外的同类生命周期缺口。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        <code>raw_stock_basic.delist_date</code> 是股票生命周期身份的上界，不等于最后交易日。
+        <code>000638.SZ</code> 的最后交易日是 2026-04-13，而 <code>raw_stock_basic.delist_date</code> 为 2026-06-03。
+        因此生命周期 check 只回答“这个 <code>ts_code</code> 在这个日期是否是一个合法历史股票身份”；
+        “这一天是否真的应该有分钟线交易数据”继续由 <code>silver_stk_mins_codes_exist_in_stock_daily</code> 等交易事实 check 约束，
+        禁止把 <code>delist_date</code> 误用为实际可交易日期边界。
+      </div>
+      <div class="warning">
+        已拍板：在新 check 语义落地后，允许单独执行最小范围 runless check event 补录，
+        只补 <code>000638.SZ</code> 相关的 <code>silver_stk_mins_name_timeline_covered</code> 旧误报分区。
+        候选规模为 <code>2692</code> 个交易日 x <code>5</code> 个频度 = <code>13460</code> 条
+        <code>asset + check + partition</code> check event。该数量不是分钟 bar 行数。
+        正式执行前仍必须只读审计 Dagster event history，确认真实需要补录的旧 failed event 集合和目标 materialization 存在性；
+        若真实待补集合与候选集合不一致，以 dry-run 审计结果为准，不得盲写 13460 条。
+      </div>
+    </section>
+
+    <section>
+      <h2>3. 总体设计</h2>
+      <h3>3.1 两阶段 readiness</h3>
+      <pre><code>expected_window = expected_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+registered_gap = build_registered_gap_status(expected_window, registered_partitions)
+if registered_gap.first_missing_registered_date:
+    return skip_without_readiness_scan()
+
+coarse = batch_lake_coarse_scan(expected_window)
+if coarse.first_missing_or_empty_date:
+    return select_that_date_as_not_ready()
+
+full = batch_lake_full_blocking_check_scan(expected_window)
+return select_first_not_ready_from_full_semantics(full)</code></pre>
+      <p>第一阶段只负责快，不负责最终 ready 判定；第二阶段必须覆盖正式 blocking checks 的业务语义。</p>
+
+      <h3>3.2 不新增实体的含义</h3>
+      <p>本专项允许新增或调整无状态代码 helper、测试和静态门禁；不允许新增任何持久化状态事实源。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>类型</th>
+            <th>是否允许</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>无状态 Python helper</td>
+            <td>允许</td>
+            <td>只封装 batch SQL、路径枚举和状态对象，不落盘，不成为新事实源。</td>
+          </tr>
+          <tr>
+            <td>sensor cursor 观测字段</td>
+            <td>允许但受限</td>
+            <td>只能保存小型诊断与可选 frontier cache；不得替代 lake 文件事实或 blocking check 语义。</td>
+          </tr>
+          <tr>
+            <td>新状态文件、状态表、汇总资产、readiness asset</td>
+            <td>禁止</td>
+            <td>会引入一致性、原子性、回补、清理和迁移成本，不符合本次拍板。</td>
+          </tr>
+          <tr>
+            <td>调大 sensor timeout</td>
+            <td>禁止作为解法</td>
+            <td>只会掩盖读取模型错误，不能解决热路径性能。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. 代码落点</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>文件</th>
+            <th>当前角色</th>
+            <th>改造方向</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>asset_guards/stk_mins_continuity.py</code></td>
+            <td>expected calendar、registered gap、first-not-ready 选择器。</td>
+            <td>保留；selector 接收的 readiness callback 改为读取预先 batch 计算好的状态映射。</td>
+          </tr>
+          <tr>
+            <td><code>asset_guards/stk_mins_lake_readiness.py</code></td>
+            <td>拟新增无状态 helper 文件。</td>
+            <td>封装 raw/silver batch lake readiness。它不是新实体，不写 lake，不写 Dagster，只返回内存状态。</td>
+          </tr>
+          <tr>
+            <td><code>checks/stk_mins_checks.py</code></td>
+            <td>正式 blocking check 语义来源。</td>
+            <td>抽取或复用 raw/silver check SQL 语义，避免 helper 另写一套缩水规则。</td>
+          </tr>
+          <tr>
+            <td><code>duckdb_sql.py</code> / <code>assets/stock_daily.py</code></td>
+            <td>
+              <code>silver_stock_daily_select(...)</code> 当前使用 current-listed-only 的
+              <code>silver_stock_basic</code> 过滤股票全集，<code>silver_stock_daily</code>
+              asset 也把该口径写入 metadata。
+            </td>
+            <td>
+              后续单独阶段改为 <code>raw_stock_basic</code> 历史生命周期口径；
+              保留 CNY、上市日期、北交所开市日期等现有交易规则。
+            </td>
+          </tr>
+          <tr>
+            <td><code>checks/stock_daily_checks.py</code></td>
+            <td>
+              当前正式 blocking/readiness 包含
+              <code>silver_stock_daily_current_listed_only</code>。
+            </td>
+            <td>
+              新增正式 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              旧 <code>silver_stock_daily_current_listed_only</code> 退出正式阻断和 readiness 口径。
+            </td>
+          </tr>
+          <tr>
+            <td><code>sensors/readiness.py</code></td>
+            <td>当前通过 Dagster instance 读取 materialization/check 状态。</td>
+            <td>
+              保留给非 hot-loop 和 selected-date 门禁；raw/silver 60 天循环不得继续逐日调用。
+              stock daily readiness 后续必须从 blocking check specs 中移除旧
+              <code>silver_stock_daily_current_listed_only</code>，加入新生命周期 check。
+            </td>
+          </tr>
+          <tr>
+            <td><code>sensors/stock_mins_raw_sensor.py</code></td>
+            <td>当前按 first-not-ready 逐日调用 raw readiness。</td>
+            <td>改为先 batch 计算 raw readiness map，再选择最早未就绪日期。</td>
+          </tr>
+          <tr>
+            <td><code>sensors/stock_mins_silver_sensor.py</code></td>
+            <td>当前按 first-not-ready 逐日调用 silver readiness。</td>
+            <td>
+              改为先 batch 计算 silver readiness map；selected date 只保留 raw、stock daily、
+              suspend、identity map 门禁；移除 <code>silver_namechange</code> 硬 gate。
+            </td>
+          </tr>
+          <tr>
+            <td><code>sensors/stock_mins_silver_trade_day_sensor.py</code></td>
+            <td>
+              当前注册 silver 分区前会检查 raw、stock daily、suspend、identity map、namechange。
+            </td>
+            <td>
+              后续移除 namechange 硬 gate；raw、stock daily、suspend、identity map 仍只查 selected date。
+            </td>
+          </tr>
+          <tr>
+            <td><code>sensors/stock_mins_qfq_daily_sensor.py</code> / <code>stock_mins_qfq_factor_repair_sensor.py</code></td>
+            <td>已完成连续性改造，但仍需按同一方法做性能审计。</td>
+            <td>先 profiling；若慢，再做 qfq lake batch readiness。不得新增 qfq 状态实体。</td>
+          </tr>
+        </tbody>
+      </table>
+      <h3>4.1 P0 审计记录</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>审计方式</th>
+            <th>覆盖对象</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>CodeGraph impact</td>
+            <td>
+              <code>silver_namechange_ready_for_trade_date</code>、
+              <code>_silver_name_timeline_covered</code>、
+              <code>write_silver_stk_mins_partition</code>、
+              <code>silver_stock_daily_select</code>、
+              <code>silver_stock_daily_current_listed_only</code>。
+            </td>
+            <td>
+              <code>silver_namechange_ready_for_trade_date</code> 的影响面包括 namechange 自身、
+              identity map、两个 silver 分钟线 sensor；后续只从 silver 分钟线 sensor 中退出，
+              不全局删除。<code>write_silver_stk_mins_partition</code> 只由五个 silver 分钟线 asset 调用。
+            </td>
+          </tr>
+          <tr>
+            <td>源码文本审计</td>
+            <td>
+              silver 分钟线 sensor gate、五个 <code>silver_stk_mins_*</code> asset deps、
+              writer <code>input_paths</code>、stock daily checks/readiness specs。
+            </td>
+            <td>
+              当前 silver 分钟线直接依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code>，
+              但生成 SQL 不消费它们；当前 stock daily select/check 仍是 current-listed-only 口径。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>5. 内存状态对象</h2>
+      <p>以下对象只是代码内返回值，不持久化，不进入 Dagster metadata，不作为新的事实源。</p>
+      <pre><code>from dataclasses import dataclass
+
+@dataclass(frozen=True)
+class StkMinsDateReadiness:
+    trade_date: str
+    ready: bool
+    materialized: bool
+    checks_passed: bool
+    reason: str
+    failed_check_names: tuple[str, ...]
+    missing_file_paths: tuple[str, ...]
+    sample_rows: tuple[dict[str, object], ...] = ()
+
+@dataclass(frozen=True)
+class StkMinsBatchReadiness:
+    dataset: str
+    expected_start_date: str | None
+    expected_end_date: str | None
+    expected_count: int
+    freq_count: int
+    elapsed_ms: float
+    statuses_by_trade_date: dict[str, StkMinsDateReadiness]
+
+    def status_for_trade_date(self, trade_date: str) -> StkMinsDateReadiness:
+        return self.statuses_by_trade_date[trade_date]</code></pre>
+      <p>
+        <code>StkMinsDateReadiness</code> 需要满足 <code>ReadinessStatusLike</code> 的 <code>ready</code> 和 <code>reason</code> 语义。
+        为了复用现有 <code>has_materialized_check_problem</code> 口径，状态对象必须能表达“文件已经存在但 checks 未绿”。
+      </p>
+    </section>
+
+    <section>
+      <h2>6. Raw Readiness 细节</h2>
+      <h3>6.1 正式 blocking checks</h3>
+      <p>raw 的完整语义必须覆盖当前 <code>RAW_STK_MINS_CHECK_NAMES</code>：</p>
+      <ul>
+        <li><code>raw_stk_mins_file_exists_and_row_count_positive</code></li>
+        <li><code>raw_stk_mins_schema_matches_contract</code></li>
+        <li><code>raw_stk_mins_freq_matches_asset</code></li>
+        <li><code>raw_stk_mins_partition_date_matches</code></li>
+        <li><code>raw_stk_mins_unique_ts_code_trade_time</code></li>
+        <li><code>raw_stk_mins_price_volume_sanity</code></li>
+        <li><code>raw_stk_mins_stock_mins_partition_key_registered</code></li>
+      </ul>
+
+      <h3>6.2 Helper 签名</h3>
+      <pre><code>def batch_raw_stk_mins_lake_readiness(
+    *,
+    connection,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    freqs: Sequence[int] = STK_MINS_FREQS,
+    full_semantics: bool = True,
+) -> StkMinsBatchReadiness:
+    ...</code></pre>
+
+      <h3>6.3 查询策略</h3>
+      <ul>
+        <li>先用 <code>raw_stk_mins_path(lake_root, freq, trade_date)</code> 枚举 expected date x freq 的目标路径。</li>
+        <li>路径不存在直接记为对应日期 not ready，不进入 DuckDB 读取。</li>
+        <li>粗筛阶段用一批 <code>read_parquet([...])</code> 聚合文件行数、freq、partition date。</li>
+        <li>完整阶段从 <code>checks/stk_mins_checks.py</code> 抽取 raw check SQL 语义，统一批量计算 failed check counts。</li>
+        <li>registered partition check 不读 Dagster event history，只使用 sensor 已经读取到的 dynamic partition set。</li>
+      </ul>
+
+      <div class="warning">
+        raw 粗筛可以把 2026-06-17 / 2026-06-18 缺文件这种问题压到 0.1 秒级，但粗筛通过后仍必须执行完整语义，不能直接推进 ready frontier。
+      </div>
+    </section>
+
+    <section>
+      <h2>7. Stock Daily 生命周期口径</h2>
+      <p>
+        P0 已拍板：<code>silver_stock_daily</code> 纳入本专项。它不是 sensor 热路径的小优化，
+        而是股票分钟线完整性判断的上游事实口径修正；如果 stock daily 仍用 current-listed-only 的股票全集，
+        silver 分钟线再快也会在退市历史股票上得到错误结论。
+      </p>
+
+      <h3>7.1 当前代码事实</h3>
+      <ul>
+        <li><code>silver_stock_daily_select(...)</code> 当前使用 <code>silver_stock_basic</code> 作为股票全集过滤。</li>
+        <li><code>silver_stock_basic</code> 当前是 current-listed-only 快照，天然不覆盖已退市历史股票。</li>
+        <li><code>silver_stock_daily_current_listed_only</code> 当前是正式 blocking check，并进入 <code>SILVER_STOCK_DAILY_BLOCKING_CHECKS</code> readiness 口径。</li>
+        <li>这会让 <code>000638.SZ</code> 这类退市历史股票在最后交易日前的合法行情无法被上游 stock daily 生命周期事实覆盖。</li>
+      </ul>
+
+      <h3>7.2 后续正式口径</h3>
+      <ul>
+        <li><code>silver_stock_daily_select(...)</code> 不再用 current-listed-only 的 <code>silver_stock_basic</code> 作为股票全集过滤。</li>
+        <li>股票生命周期事实源改为 <code>raw_stock_basic_path(lake_root)</code>，它包含 <code>list_status='D'</code> 的退市股票。</li>
+        <li><code>ts_code + trade_date</code> 必须满足 <code>trade_date &gt;= list_date</code> 且 <code>trade_date &lt;= delist_date OR delist_date IS NULL</code>。</li>
+        <li>保留现有 CNY、上市日期、北交所开市日期等交易规则；生命周期口径只替换股票全集来源，不放宽交易数据质量规则。</li>
+        <li>新增正式 blocking check 名称固定为 <code>silver_stock_daily_stock_lifecycle_covered</code>。</li>
+        <li>旧 <code>silver_stock_daily_current_listed_only</code> 从正式 blocking/readiness 口径退出；可以作为历史背景或迁移前事实出现，不能继续阻断正式链路。</li>
+      </ul>
+
+      <h3>7.3 SQL 语义骨架</h3>
+      <pre><code>WITH stock_daily AS (
+    SELECT DISTINCT
+        ts_code,
+        CAST(trade_date AS DATE) AS trade_dt,
+        CAST(trade_date AS VARCHAR) AS trade_date
+    FROM silver_stock_daily_candidate
+),
+raw_stock_lifecycle AS (
+    SELECT
+        ts_code,
+        CASE
+            WHEN list_date IS NULL OR list_date = '' THEN NULL
+            ELSE strptime(list_date, '%Y%m%d')::DATE
+        END AS list_dt,
+        CASE
+            WHEN delist_date IS NULL OR delist_date = '' THEN NULL
+            ELSE strptime(delist_date, '%Y%m%d')::DATE
+        END AS delist_dt
+    FROM read_parquet(raw_stock_basic_path, hive_partitioning=False)
+),
+lifecycle_failures AS (
+    SELECT d.ts_code, d.trade_date
+    FROM stock_daily AS d
+    LEFT JOIN raw_stock_lifecycle AS b
+      ON d.ts_code = b.ts_code
+     AND d.trade_dt &gt;= b.list_dt
+     AND (b.delist_dt IS NULL OR d.trade_dt &lt;= b.delist_dt)
+    WHERE b.ts_code IS NULL
+)
+SELECT count(*) AS failed_code_count
+FROM lifecycle_failures;</code></pre>
+      <p>
+        这个 SQL 骨架只表达生命周期覆盖，不替代 stock daily 已有价格、成交量、交易日、币种、上市日期和市场规则。
+        P2 实现时必须把 select 与 check 使用的生命周期规则收敛为同一份语义，避免 select 放行、check 阻断或反过来漂移。
+      </p>
+    </section>
+
+    <section>
+      <h2>8. Silver Readiness 细节</h2>
+      <h3>8.1 正式 blocking checks</h3>
+      <p>silver 的完整语义必须覆盖当前 <code>SILVER_STK_MINS_CHECK_NAMES</code>：</p>
+      <ul>
+        <li><code>silver_stk_mins_file_exists_and_row_count_positive</code></li>
+        <li><code>silver_stk_mins_schema_matches_contract</code></li>
+        <li><code>silver_stk_mins_freq_and_partition_match</code></li>
+        <li><code>silver_stk_mins_unique_ts_code_trade_time</code></li>
+        <li><code>silver_stk_mins_price_sanity</code></li>
+        <li><code>silver_stk_mins_volume_amount_sanity</code></li>
+        <li><code>silver_stk_mins_exchange_matches_suffix</code></li>
+        <li><code>silver_stk_mins_codes_exist_in_stock_daily</code></li>
+        <li><code>silver_stk_mins_no_full_day_suspend_structural_rows</code></li>
+        <li><code>silver_stk_mins_name_timeline_covered</code></li>
+      </ul>
+      <div class="warning">
+        <code>silver_stk_mins_name_timeline_covered</code> 当前语义需要重构。它现在混用了“股票是否是合法历史身份”和“名称变更时间线是否覆盖”：
+        对退市但在生命周期内仍有合法历史行情的股票，例如 <code>000638.SZ</code>，current-listed-only 的 <code>silver_stock_basic</code> 必然无法兜底，
+        而 <code>silver_namechange</code> 又不是股票历史身份全集。实现时不得把退市股票伪造成 namechange 记录。
+      </div>
+
+      <h3>8.2 Silver 分钟线直接依赖收口</h3>
+      <p>
+        P0 已拍板：silver 分钟线本身不再直接硬依赖 <code>silver_namechange</code>，
+        也不再直接要求未被计算使用的 <code>silver_stock_basic</code> 文件存在。
+        这不是删除 namechange 或 stock basic 数据集，而是把它们从 silver 分钟线直接执行链路中移出去。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>位置</th>
+            <th>后续实现口径</th>
+            <th>保留边界</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>两个 silver 分钟线 sensor</td>
+            <td>移除 <code>silver_namechange_ready_for_trade_date(...)</code> 硬 gate。</td>
+            <td>保留 raw、<code>silver_stock_daily</code>、<code>silver_stock_suspend_daily</code>、<code>silver_stock_identity_map</code> 门禁。</td>
+          </tr>
+          <tr>
+            <td>五个 <code>silver_stk_mins_*</code> asset deps</td>
+            <td>移除直接 <code>silver_namechange</code> / <code>silver_stock_basic</code> deps。</td>
+            <td><code>silver_stock_identity_map</code> 自身仍可依赖 namechange；分钟线只依赖 identity map 产物。</td>
+          </tr>
+          <tr>
+            <td><code>write_silver_stk_mins_partition(...)</code></td>
+            <td>移除 <code>silver_namechange_path</code> / <code>silver_stock_basic_path</code> 输入文件存在性要求。</td>
+            <td>保留 raw 分钟线、identity map、stock daily、suspend 和价格修正相关输入。</td>
+          </tr>
+          <tr>
+            <td><code>silver_namechange_ready_for_trade_date(...)</code></td>
+            <td>不全局删除。</td>
+            <td>继续服务 namechange 自身与 identity map 链路。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>8.3 <code>silver_stk_mins_name_timeline_covered</code> 语义收敛</h3>
+      <p>
+        不新增、不改名 check。为了不破坏历史 check event、readiness helper 和现有 job/check selection，
+        继续保留 <code>silver_stk_mins_name_timeline_covered</code> 这个 check key，但重构其内部 SQL 语义。
+        新语义必须拆成三层，不能再让 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 承担股票历史身份全集职责。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>语义层</th>
+            <th>正式事实源</th>
+            <th>判定内容</th>
+            <th>不允许</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>股票生命周期身份合法性</td>
+            <td><code>raw_stock_basic_path(lake_root)</code></td>
+            <td>分钟线里的 <code>ts_code + trade_date</code> 必须落在包含退市股票的历史股票生命周期内。</td>
+            <td>不得用 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 代替。</td>
+          </tr>
+          <tr>
+            <td>实际交易事实合法性</td>
+            <td>现有 <code>silver_stk_mins_codes_exist_in_stock_daily</code> 口径</td>
+            <td>生命周期内不代表当天一定应有交易；实际当天是否应出现分钟线继续由 stock daily 等交易事实 check 约束。</td>
+            <td>不得把 <code>raw_stock_basic.delist_date</code> 当作最后交易日。</td>
+          </tr>
+          <tr>
+            <td>名称变更时间线解释</td>
+            <td><code>silver_namechange_path(lake_root)</code></td>
+            <td>只解释真实名称变更记录；没有 namechange 不等于股票非法。</td>
+            <td>不得为了退市股票补伪造 namechange 兜底记录。</td>
+          </tr>
+          <tr>
+            <td>当前上市股票快照</td>
+            <td><code>silver_stock_basic_path(lake_root)</code></td>
+            <td>保持 current-listed-only 语义，可作为观测或其它当前池判断来源。</td>
+            <td>不得为了通过分钟线 check 把退市历史股票塞进当前上市快照。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>8.4 Helper 签名</h3>
+      <pre><code>def batch_silver_stk_mins_lake_readiness(
+    *,
+    connection,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+    registered_trade_days: Sequence[str],
+    freqs: Sequence[int] = STK_MINS_FREQS,
+    full_semantics: bool = True,
+) -> StkMinsBatchReadiness:
+    ...</code></pre>
+
+      <h3>8.5 查询策略</h3>
+      <ul>
+        <li>先枚举 <code>silver_stk_mins_path(lake_root, freq, trade_date)</code>。</li>
+        <li>文件存在和 row count 只作为粗筛。</li>
+        <li>完整语义必须复用或重构现有 check 背后的 SQL 规则；其中 <code>_silver_name_timeline_covered</code> 必须拆清股票生命周期身份合法性与名称时间线解释。</li>
+        <li>股票生命周期身份合法性：对 <code>silver_stk_mins</code> 中的 <code>ts_code + trade_date</code>，使用 <code>raw_stock_basic_path(lake_root)</code> 读取包含退市股票的历史股票生命周期事实，要求 <code>trade_date &gt;= list_date</code> 且 <code>trade_date &lt;= delist_date OR delist_date IS NULL</code>。</li>
+        <li>名称时间线解释：<code>silver_namechange</code> 只解释真实名称变更，不承担股票是否合法存在的判断；没有 namechange 不等于非法。</li>
+        <li>current-listed-only 的 <code>silver_stock_basic</code> 口径不变，不能为了退市股票补进去；退市历史身份应来自包含 <code>list_status='D'</code> 的历史股票事实。</li>
+        <li><code>raw_stock_basic.list_date</code> 与 <code>raw_stock_basic.delist_date</code> 是 <code>YYYYMMDD</code> 字符串，SQL 中必须显式解析为 DATE；空 <code>delist_date</code> 表示仍在生命周期内。</li>
+        <li><code>delist_date</code> 不是最后交易日，不能用它判断某天是否应有分钟线；实际交易事实继续由 <code>silver_stk_mins_codes_exist_in_stock_daily</code> 负责。</li>
+        <li>如果 60 天完整语义发现更早日期 check 失败，selector 必须停在这个日期，不得因为最近 20 天全绿就推进后续日期。</li>
+      </ul>
+
+      <h3>8.6 生命周期 SQL 骨架</h3>
+      <p>实现时应把下列语义抽取成可被正式 check 与 batch lake readiness 共同复用的 SQL 片段，避免两套规则漂移。</p>
+      <pre><code>WITH silver_mins AS (
+    SELECT DISTINCT
+        ts_code,
+        CAST(trade_date AS DATE) AS trade_dt,
+        CAST(trade_date AS VARCHAR) AS trade_date
+    FROM read_parquet(silver_stk_mins_paths, union_by_name=True)
+),
+raw_stock_lifecycle AS (
+    SELECT
+        ts_code,
+        name,
+        list_status,
+        CASE
+            WHEN list_date IS NULL OR list_date = '' THEN NULL
+            ELSE strptime(list_date, '%Y%m%d')::DATE
+        END AS list_dt,
+        CASE
+            WHEN delist_date IS NULL OR delist_date = '' THEN NULL
+            ELSE strptime(delist_date, '%Y%m%d')::DATE
+        END AS delist_dt
+    FROM read_parquet(raw_stock_basic_path, hive_partitioning=False)
+),
+lifecycle_failures AS (
+    SELECT s.ts_code, s.trade_date
+    FROM silver_mins AS s
+    LEFT JOIN raw_stock_lifecycle AS b
+      ON s.ts_code = b.ts_code
+     AND s.trade_dt &gt;= b.list_dt
+     AND (b.delist_dt IS NULL OR s.trade_dt &lt;= b.delist_dt)
+    WHERE b.ts_code IS NULL
+)
+SELECT count(*) AS failed_row_count, count(DISTINCT ts_code) AS failed_code_count
+FROM lifecycle_failures;</code></pre>
+      <p>
+        上述 SQL 只负责生命周期身份合法性，检查粒度是每个频度文件内的
+        <code>DISTINCT ts_code + trade_date</code>，不是分钟 bar 行。
+        batch 跨频度汇总时可以统计 <code>ts_code + trade_date + freq</code> 命中数，但字段名必须写成
+        <code>failed_code_date_freq_count</code> 或同等明确名称，禁止把它笼统叫成 bar <code>row_count</code>。
+        完整 <code>silver</code> ready 还必须继续合并 schema、freq/date、唯一键、价格成交量、
+        suffix/exchange、stock daily 存在性、停牌结构行等当前 <code>SILVER_STK_MINS_CHECK_NAMES</code> 中的其它 blocking checks。
+      </p>
+
+      <div class="danger">
+        本次 profiling 已证明 <code>000638.SZ</code> 这类合法退市历史股票会被当前 name timeline check 误报：五频度文件都有行数，且最后交易日之前的历史行情合法。
+        实现时必须有负向测试证明 row count 全部大于 0 仍可能 not ready。
+        也必须有正向测试证明 <code>list_status='D'</code> 且交易日在生命周期内的股票不会因为缺少 <code>silver_namechange</code> 记录而失败。
+      </div>
+    </section>
+
+    <section>
+      <h2>9. Sensor 接入</h2>
+      <h3>9.1 Raw sensor</h3>
+      <pre><code>expected_trade_dates = _load_stock_mins_raw_expected_trade_dates(...)
+window_dates = expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+registered_trade_days = context.instance.get_dynamic_partitions(...)
+
+gap_status = build_registered_gap_status(...)
+if gap_status.first_missing_registered_date:
+    return skip()
+
+batch_status = batch_raw_stk_mins_lake_readiness(
+    connection=duckdb_connection,
+    lake_root=lake_root.root(),
+    expected_trade_dates=window_dates,
+    registered_trade_days=registered_trade_days,
+    full_semantics=True,
+)
+
+selection = select_first_not_ready_trade_date(
+    partition_set_name=cn_a_stock_mins_trade_days.name,
+    expected_trade_dates=window_dates,
+    registered_trade_days=registered_trade_days,
+    readiness_for_trade_date=batch_status.status_for_trade_date,
+    has_materialized_check_problem=lake_status_has_materialized_check_problem,
+)</code></pre>
+      <ul>
+        <li>raw sensor 不再在 60 天循环中调用 <code>raw_stk_mins_ready_for_trade_date(context.instance, date)</code>。</li>
+        <li>stock basic readiness 仍只在 selected date 上调用现有 Dagster readiness helper。</li>
+        <li>run key、run config、窗口时间、tags 不变。</li>
+      </ul>
+
+      <h3>9.2 Silver sensor</h3>
+      <ul>
+        <li>silver sensor 同样先做 registered gap，再做 <code>batch_silver_stk_mins_lake_readiness(...)</code>。</li>
+        <li>raw、stock daily、suspend、identity map readiness 只在 selected date 上查，不得进入 60 天循环；<code>silver_namechange</code> 不再作为 silver 分钟线 selected-date 硬 gate。</li>
+        <li>如果 selected date 的 silver 文件存在但完整语义失败，继续沿用人工处理口径，不自动重跑，不推进后续日期。</li>
+      </ul>
+
+      <h3>9.3 QFQ 与 repair sensor</h3>
+      <ul>
+        <li>本轮不新增 qfq factor repair 或 MACD/KDJ completion 的持久化状态。</li>
+        <li>qfq daily 已完成只读 profiling：20 天不短路 21.24s，60 天不短路 38.27s，必须纳入本专项。</li>
+        <li>qfq daily 的 60 天循环不得继续逐日读取 silver / adj factor / gold qfq 的 Dagster metadata；必须改用 batch readiness map。</li>
+        <li>gold qfq readiness 必须复用 <code>checks/stk_mins_checks.py</code> 中 native 1/5/15/30/60 与 derived 90/120 的正式 check SQL 语义。</li>
+        <li>adj factor 如果仍处于 60 天循环中，也必须改成 batch readiness；实测 60 天逐日 DG 读取为 5.63s，不能继续作为隐藏成本。</li>
+        <li>qfq factor repair status 已完成只读 profiling：无 records 日期约 0.01s，有 metadata 日期 2026-06-16 为 29.21s，2026-06-15 超过 30s。</li>
+        <li>repair status 慢点是热路径回填 <code>event_storage_id</code> 时调用 <code>instance.get_event_records(... limit=500)</code> 扫 event log；M7 后正式防重复已不再依赖 event storage id。</li>
+        <li>qfq factor repair sensor 的 hot path 只允许读取自动触发所需 metadata：ready、repair_required、upstream_batch_id、repair range、codes hash、rewrite counts；不得计算或回填 event storage id。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>10. Cursor 规则</h2>
+      <p>cursor 不是新实体，但它也不能变成新的事实源。默认实现应先做到不依赖 cursor 也能满足性能预算。</p>
+      <table>
+        <thead>
+          <tr>
+            <th>字段</th>
+            <th>用途</th>
+            <th>约束</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>continuity_status</code></td>
+            <td>继续输出 first missing、first not ready、ready frontier 等观测信息。</td>
+            <td>保持小型 JSON；不得塞入逐文件明细。</td>
+          </tr>
+          <tr>
+            <td><code>readiness_perf</code></td>
+            <td>记录 coarse/full 阶段耗时、扫描日期数、文件数。</td>
+            <td>用于观测和报警，不参与 ready 判定。</td>
+          </tr>
+          <tr>
+            <td><code>validated_frontier_cache</code></td>
+            <td>第一阶段不启用。</td>
+            <td>已拍板：不允许隐藏完整 check 语义；先让 batch 读取模型本身满足性能预算。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        后续如果重新讨论 cursor cache，必须另行拍板版本、失效规则和输入文件变化检测；本专项第一阶段不实现。
+      </div>
+    </section>
+
+    <section>
+      <h2>11. 静态门禁</h2>
+      <ul>
+        <li>raw/silver sensor 生产路径禁止在 expected window 循环里调用 <code>raw_stk_mins_ready_for_trade_date</code> / <code>silver_stk_mins_ready_for_trade_date</code>。</li>
+        <li>batch helper 禁止只返回 row count ready；必须包含完整 blocking check failed names。</li>
+        <li>禁止新增持久化状态文件、summary asset、readiness asset、数据库表或 Dagster definition。</li>
+        <li>run key 治理门禁继续有效：不得新增直接 <code>RunRequest</code>、不得手写正式 run key、不得解析 run key 反推 config。</li>
+        <li>性能测试必须记录 20 天与 60 天粗筛、完整语义、单日完整语义耗时。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>12. 最小 runless check event 补录</h2>
+      <p>
+        本阶段用于清理旧 <code>silver_stk_mins_name_timeline_covered</code> 语义在 Dagster UI / event history 中留下的误报红点。
+        它不参与 sensor 热路径，不替代 lake batch readiness，也不写任何 parquet 文件。
+        该动作属于正式 Dagster runtime 写入，必须单独审批后执行。
+      </p>
+      <h3>12.1 补录范围</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>维度</th>
+            <th>口径</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>asset</td>
+            <td><code>silver_stk_mins_1m</code>、<code>silver_stk_mins_5m</code>、<code>silver_stk_mins_15m</code>、<code>silver_stk_mins_30m</code>、<code>silver_stk_mins_60m</code></td>
+          </tr>
+          <tr>
+            <td>check</td>
+            <td>只允许 <code>silver_stk_mins_name_timeline_covered</code>。</td>
+          </tr>
+          <tr>
+            <td>股票代码</td>
+            <td>只允许 <code>000638.SZ</code>。</td>
+          </tr>
+          <tr>
+            <td>日期范围</td>
+            <td>候选为 2014-01-02 至 2026-04-13 中实际存在该代码分钟线且按新生命周期语义合法的交易日，共 2692 个交易日。</td>
+          </tr>
+          <tr>
+            <td>候选事件数</td>
+            <td>2692 个交易日 x 5 个频度 = 13460 条 <code>asset + check + partition</code> event。</td>
+          </tr>
+          <tr>
+            <td>禁止扩大</td>
+            <td>不得补其它股票、其它 check、其它 asset，不得把所有 silver blocking checks 全量重写。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>12.2 执行前置</h3>
+      <ul>
+        <li>必须先完成 <code>silver_stk_mins_name_timeline_covered</code> 新生命周期语义代码落地和本地测试。</li>
+        <li>必须先用 DuckDB 只读审计确认候选分区的 lake 文件存在，且新生命周期 SQL 全部通过。</li>
+        <li>必须只读审计 Dagster event history，统计这些候选分区中真实已有旧 failed check event 的数量；真实待补数量可能小于候选 13460。</li>
+        <li>必须确认每个待补 <code>asset + partition</code> 已有可绑定的 materialization event；check event 不得成为没有目标 materialization 的孤立事件。</li>
+        <li>正式执行前必须列出完整命令、<code>DAGSTER_HOME</code>、读写范围、预计事件数、sample 范围和回滚/修正姿态，等待用户审批。</li>
+      </ul>
+
+      <h3>12.3 补录实现口径</h3>
+      <ul>
+        <li>使用专用 helper / CLI 走 <code>DagsterInstance.report_runless_asset_event(...)</code> 补 <code>AssetCheckEvaluation</code>。</li>
+        <li>每条 check event 必须使用同一个 check 名称 <code>silver_stk_mins_name_timeline_covered</code>，<code>passed=True</code>，<code>blocking=True</code>。</li>
+        <li>每条 check event 必须带 <code>target_materialization_data</code>，绑定同 asset / 同 partition 的目标 materialization。</li>
+        <li>metadata 必须写清：<code>source_correction_reason=000638_lifecycle_check_semantics_fix</code>、<code>ts_code=000638.SZ</code>、<code>lifecycle_fact_source=raw_stock_basic</code>、<code>checked_code_date_freq_count=1</code>、<code>failed_code_date_freq_count=0</code>。</li>
+        <li>不得补 materialization event；本阶段只修正旧 check 语义误报的 check event 可见性。</li>
+        <li>不得删除旧 failed event；Dagster event log 是追加日志。新的 passed check event 作为同 check / 同 partition 的最新事实覆盖 readiness 与 UI 最新状态。</li>
+      </ul>
+
+      <h3>12.4 dry-run / sample / full / audit</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>动作</th>
+            <th>停止条件</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>dry-run</td>
+            <td>只读输出候选 date-freq、现有 failed event 数、已有 passed event 数、缺 materialization 数、预计新增事件数。</td>
+            <td>候选不止 <code>000638.SZ</code>、存在 lifecycle failure、缺目标 materialization、预计事件数超过 13460。</td>
+          </tr>
+          <tr>
+            <td>sample</td>
+            <td>经审批后只补少量样本，例如 1 个交易日 x 5 个频度，并立即只读审计最新 check 状态。</td>
+            <td>样本 latest check 不是 passed、metadata 不完整、UI/readiness 不按预期读取最新事件。</td>
+          </tr>
+          <tr>
+            <td>full</td>
+            <td>按年或按月份分批补录剩余待补 check events，批次之间输出计数和失败样本。</td>
+            <td>任一批出现非候选分区、非目标 check、写入失败或审计不一致。</td>
+          </tr>
+          <tr>
+            <td>final audit</td>
+            <td>聚合确认目标集合 latest check 全部 passed，且未新增其它 check/event 范围。</td>
+            <td>存在目标集合未变绿、出现范围外 event、或 event 数与 dry-run 计划不一致。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>13. 测试计划</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>测试文件</th>
+            <th>新增或调整内容</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>tests/test_stk_mins_lake_readiness.py</code></td>
+            <td>
+              新增。覆盖 raw/silver/gold qfq/adj factor batch helper、缺文件、row count 粗筛、完整语义失败、合法退市历史股票生命周期覆盖、hidden name timeline failure。
+              silver 需要包含：<code>list_status='D'</code> 且交易日在 <code>list_date/delist_date</code> 生命周期内时通过；
+              交易日在生命周期外时失败；只有 row count 大于 0 但其它 blocking check 失败时仍 not ready。
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/test_stk_mins_checks.py</code> 或现有 silver check 契约测试</td>
+            <td>
+              更新 <code>silver_stk_mins_name_timeline_covered</code> 契约：保留 check 名称，不新增同语义 check；
+              证明 <code>silver_namechange</code> 不再作为股票历史身份全集；
+              证明 <code>silver_stock_basic</code> 保持 current-listed-only，退市历史股票由 <code>raw_stock_basic</code> 生命周期覆盖。
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/test_stock_daily_checks.py</code> 或现有 stock daily 契约测试</td>
+            <td>
+              更新 <code>silver_stock_daily_select(...)</code> 与 blocking check 契约：
+              <code>list_status='D'</code> 且交易日在 <code>raw_stock_basic</code> 生命周期内的历史股票必须保留；
+              生命周期外样本必须失败；新增 <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              <code>silver_stock_daily_current_listed_only</code> 不再进入正式 blocking/readiness specs。
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/test_stk_mins_silver_m6g_sensor_contracts.py</code> 与 silver asset contract tests</td>
+            <td>
+              证明 silver 分钟线 sensor 不再把 <code>silver_namechange_ready_for_trade_date(...)</code> 当硬 gate；
+              五个 <code>silver_stk_mins_*</code> asset deps 与 writer input requirements 不再直接要求
+              <code>silver_namechange</code> / 未使用的 <code>silver_stock_basic</code>。
+            </td>
+          </tr>
+          <tr>
+            <td><code>tests/test_stock_mins_daily_continuity_sensors.py</code></td>
+            <td>更新 raw/silver/qfq sensor：证明 06-15 未 ready 时不会提交 06-16；证明不再逐日调用 Dagster readiness。</td>
+          </tr>
+          <tr>
+            <td><code>tests/test_stk_mins_qfq_factor_repair_sensor_contracts.py</code></td>
+            <td>更新 qfq factor repair sensor：证明 hot path 不计算 event storage id；有 metadata 日期只读取自动触发所需字段。</td>
+          </tr>
+          <tr>
+            <td><code>tests/test_run_contract_static_gates.py</code></td>
+            <td>增加 hot-loop 禁止项和不新增持久化状态实体的静态扫描。</td>
+          </tr>
+          <tr>
+            <td><code>tests/test_stk_mins_continuity_performance.py</code></td>
+            <td>新增本地临时 Parquet benchmark。断言 60 天粗筛和完整语义在预算内，记录总耗时。</td>
+          </tr>
+        </tbody>
+      </table>
+      <pre><code>cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stk_mins_continuity.py \
+  tests/test_stk_mins_lake_readiness.py \
+  tests/test_stock_mins_daily_continuity_sensors.py \
+  tests/test_run_contract_static_gates.py \
+  tests/test_stk_mins_continuity_performance.py</code></pre>
+    </section>
+
+    <section>
+      <h2>14. 分阶段落地</h2>
+      <p>
+        本 LLD 的实现按开发阶段推进，不把代码热路径优化、check 语义修正和正式 Dagster event 补录混成一轮。
+        每一阶段都必须先列硬约束和测试，再进入实现；P8 涉及正式 Dagster event 写入，必须拆成独立审批步骤。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>目标</th>
+            <th>主要落点</th>
+            <th>验收</th>
+            <th>停止条件</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>P0</td>
+            <td>开发前口径收口</td>
+            <td>
+              只读复核 <code>stock_mins_*_sensor.py</code>、<code>checks/stk_mins_checks.py</code>、
+              silver/qfq readiness helper、stock daily select/check 和当前测试。
+              把 silver 直接依赖退出、stock daily 生命周期口径、阶段顺序写入两份性能专项文档；不修改 Python 代码。
+            </td>
+            <td>
+              文档明确 <code>silver_namechange</code> / 未使用 <code>silver_stock_basic</code> 退出 silver 分钟线直接硬依赖；
+              <code>silver_stock_daily</code> 纳入本专项并切到 <code>raw_stock_basic</code> 历史生命周期口径。
+            </td>
+            <td>发现还有其它 <code>silver_stock_daily</code> 下游依赖 current-listed-only 语义，且无法在 P2 单独处理。</td>
+          </tr>
+          <tr>
+            <td>P1</td>
+            <td>新增 batch lake readiness core</td>
+            <td>
+              新建 <code>asset_guards/stk_mins_lake_readiness.py</code>；
+              抽取 raw/silver/gold qfq/adj factor batch helper；
+              从 <code>checks/stk_mins_checks.py</code> 抽取或复用正式 blocking check SQL 语义。
+            </td>
+            <td>
+              <code>tests/test_stk_mins_lake_readiness.py</code> 覆盖粗筛、完整语义、hidden failure、60 天性能预算。
+              不接 sensor，不读 Dagster runtime，不新增持久化实体。
+            </td>
+            <td>发现只能靠 row count 判断 ready，或完整 SQL 语义无法批量复用。</td>
+          </tr>
+          <tr>
+            <td>P2</td>
+            <td>修正 <code>silver_stock_daily</code> 生命周期口径</td>
+            <td>
+              更新 <code>silver_stock_daily_select(...)</code>；
+              新增 <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              从正式 blocking/readiness specs 中移除 <code>silver_stock_daily_current_listed_only</code>；
+              审计 stock daily 下游消费者。
+            </td>
+            <td>
+              <code>list_status='D'</code> 且交易日在 <code>raw_stock_basic</code> 生命周期内的历史股票被保留；
+              生命周期外样本失败；CNY、上市日期、北交所开市日期等现有规则保持。
+            </td>
+            <td>发现 <code>raw_stock_basic</code> 不能稳定提供历史生命周期事实，或需要改动已拍板 check 名称。</td>
+          </tr>
+          <tr>
+            <td>P3</td>
+            <td>silver 完整性 check 语义与直接依赖清理</td>
+            <td>
+              更新 <code>silver_stk_mins_name_timeline_covered</code> 内部语义；
+              从两个 silver 分钟线 sensor、五个 <code>silver_stk_mins_*</code> asset deps、
+              <code>write_silver_stk_mins_partition(...)</code> input requirements 中移除直接
+              <code>silver_namechange</code> / 未使用 <code>silver_stock_basic</code> 硬依赖。
+            </td>
+            <td>
+              <code>000638.SZ</code> 生命周期内通过；生命周期外样本失败；
+              不通过补 <code>silver_namechange</code> 伪造退市身份；
+              silver 分钟线仍保留 identity map、stock daily、suspend 正式前置。
+            </td>
+            <td>发现必须把 <code>silver_namechange</code> 恢复为 silver 分钟线直接计算输入，或必须恢复 current-listed-only 生命周期判断。</td>
+          </tr>
+          <tr>
+            <td>P4</td>
+            <td>raw sensor 热路径优化</td>
+            <td>
+              <code>stock_mins_raw_sensor.py</code> 接入 P1 batch readiness；
+              保持 run key、run config、cursor 主字段不变。
+            </td>
+            <td>
+              06-15 raw 未 ready 时不提交 06-16；
+              已 materialized 但 checks 未绿时仍不自动重跑；
+              sensor tick 耗时有真实统计。
+            </td>
+            <td>发现必须改 raw run key/config，或必须读取正式 Dagster runtime 才能判断。</td>
+          </tr>
+          <tr>
+            <td>P5</td>
+            <td>silver partition 与 silver run sensor 优化</td>
+            <td>
+              <code>stock_mins_silver_trade_day_sensor.py</code> 与 <code>stock_mins_silver_sensor.py</code> 接入 batch readiness；
+              raw 未连续时不注册 / 不提交后续 silver；
+              selected date 的上游门禁继续 fail closed。
+            </td>
+            <td>
+              raw 缺 06-15 时不注册 06-16 silver；
+              06-15 silver 未 ready 时不提交 06-16；
+              sensor 不再因 <code>silver_namechange</code> 独立 gate 阻断 selected date。
+            </td>
+            <td>发现必须恢复 latest registered 目标选择，或 selected-date 上游门禁需要全窗口 Dagster 深扫。</td>
+          </tr>
+          <tr>
+            <td>P6</td>
+            <td>qfq daily 与 qfq factor repair sensor 优化</td>
+            <td>
+              <code>stock_mins_qfq_daily_sensor.py</code> 使用 batch readiness；
+              <code>stock_mins_qfq_factor_repair_sensor.py</code> 使用 batch readiness 和 bounded metadata read；
+              hot path 不再回填 event storage id。
+            </td>
+            <td>
+              qfq daily 60 天不再逐日 Dagster 深扫；
+              qfq factor repair status 有 metadata 日期不再出现 30 秒级单日读取；
+              run key/config/upstream_batch_id 口径不变。
+            </td>
+            <td>发现必须修改 qfq factor repair metadata/status 生产逻辑，或必须新增状态实体。</td>
+          </tr>
+          <tr>
+            <td>P7</td>
+            <td>静态门禁与性能回归</td>
+            <td>
+              扩展 <code>tests/test_run_contract_static_gates.py</code>；
+              增加 <code>tests/test_stk_mins_continuity_performance.py</code> 或等价性能预算测试；
+              更新中期文档数据。
+            </td>
+            <td>
+              禁止 hot path 回流逐日 event history 深扫；
+              禁止 row count 冒充完整 ready；
+              禁止把 <code>silver_namechange</code> 当股票生命周期 universe；
+              20/60 天 profiling 结果落档。
+            </td>
+            <td>性能测试无法稳定进入预算，或静态门禁必须放宽才能通过。</td>
+          </tr>
+          <tr>
+            <td>P8A</td>
+            <td>最小 runless check event 补录 dry-run</td>
+            <td>
+              只读审计正式 Dagster event history；
+              统计 <code>000638.SZ</code> 相关旧 failed check event、已有 passed event、目标 materialization 和真实待补数量。
+            </td>
+            <td>
+              不写 event；
+              候选只限 <code>000638.SZ</code>、五个 <code>silver_stk_mins_*</code> asset、
+              <code>silver_stk_mins_name_timeline_covered</code> check；
+              待补数量不得超过 13460。
+            </td>
+            <td>候选范围外溢、缺目标 materialization、新生命周期 SQL 仍失败，或真实数量超过上限。</td>
+          </tr>
+          <tr>
+            <td>P8B/P8C</td>
+            <td>最小 runless check event sample / full / final audit</td>
+            <td>
+              经单独审批后 sample 写入极小集合；样本审计通过后，再经再次审批按年或月份分批 full；
+              最后做聚合 final audit。
+            </td>
+            <td>
+              只补 check event，不补 materialization event，不删除旧 failed event；
+              latest check event 变绿，metadata 完整，且没有范围外 event。
+            </td>
+            <td>样本 latest check 不按预期变绿，metadata 缺失，或出现范围外写入风险。</td>
+          </tr>
+          <tr>
+            <td>P9</td>
+            <td>最终文档与专项验收</td>
+            <td>
+              对账方案、LLD、连续性治理文档、编码规范相关门禁；
+              汇总性能数据、测试结果、event 补录审计记录。
+            </td>
+            <td>
+              文档不再保留旧性能方案；
+              不再写“修 <code>silver_namechange</code> / <code>silver_stock_basic</code> 来补退市股票”；
+              代码事实、测试事实和文档口径一致。
+            </td>
+            <td>发现文档仍与代码事实冲突，且冲突不属于本专项范围。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>15. 已拍板口径与剩余事项</h2>
+      <div class="danger">
+        已拍板且本文不再讨论：不新增持久化状态实体；不降低 blocking check 语义；不靠调大 Dagster timeout 解决。
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>事项</th>
+            <th>推荐口径</th>
+            <th>为什么还需要确认</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>窗口是否继续保留 60 天</td>
+            <td>已拍板：保留 60 天。</td>
+            <td>实测表明 batch 后 20/60 粗筛差异只有毫秒级；60 天能覆盖更长停机缺口和 03-19 这类隐藏失败。</td>
+          </tr>
+          <tr>
+            <td>是否允许 sensor cursor 缓存完整验证 frontier</td>
+            <td>已拍板：第一阶段不启用。</td>
+            <td>不能隐藏完整 check 语义；先用 batch 读取模型解决性能问题。</td>
+          </tr>
+          <tr>
+            <td>无状态 helper 文件落点</td>
+            <td>已拍板：新建 <code>asset_guards/stk_mins_lake_readiness.py</code>。</td>
+            <td>它不是新状态实体，只是无状态代码组织。</td>
+          </tr>
+          <tr>
+            <td>silver 60 天发现的 <code>000638.SZ</code> name timeline 失败</td>
+            <td>已拍板：这是 check 语义问题，不修 <code>silver_namechange</code>，不删合法历史分钟线。</td>
+            <td>
+              <code>000638.SZ</code> 是退市历史股票，最后交易日 2026-04-13；应由 <code>raw_stock_basic</code> 这类包含退市股票的历史生命周期事实校验身份合法性，
+              <code>silver_namechange</code> 只解释真实名称变更。补充全历史只读审计确认：2014-2026 年已发现 <code>silver_stk_mins</code> 分区中，
+              旧口径失败的唯一代码是 <code>000638.SZ</code>，新生命周期口径失败代码数为 0。
+            </td>
+          </tr>
+          <tr>
+            <td><code>000638.SZ</code> 旧误报 check event 是否补录</td>
+            <td>已拍板：可做最小范围 runless check event 补录。</td>
+            <td>
+              只补 <code>000638.SZ</code> 对应的 <code>silver_stk_mins_name_timeline_covered</code>，
+              候选上限为 13460 条 <code>asset + check + partition</code> event。
+              执行前必须 dry-run 审计真实旧 failed event、目标 materialization 和新生命周期 SQL，通过后再按 sample / full / final audit 执行。
+            </td>
+          </tr>
+          <tr>
+            <td>silver 分钟线是否继续硬依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code></td>
+            <td>已拍板：退出直接硬依赖。</td>
+            <td>
+              两个 silver 分钟线 sensor 后续移除 <code>silver_namechange_ready_for_trade_date(...)</code> 硬 gate；
+              五个 <code>silver_stk_mins_*</code> asset deps 与 writer input requirements 移除直接
+              <code>silver_namechange</code> / 未被计算使用的 <code>silver_stock_basic</code>。
+              <code>silver_namechange_ready_for_trade_date(...)</code> 继续服务 namechange 自身和 identity map 链路。
+            </td>
+          </tr>
+          <tr>
+            <td><code>silver_stock_daily</code> 是否继续 current-listed-only</td>
+            <td>已拍板：纳入本专项，改为历史生命周期口径。</td>
+            <td>
+              <code>silver_stock_daily_select(...)</code> 后续使用 <code>raw_stock_basic</code> 生命周期事实；
+              新增 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              旧 <code>silver_stock_daily_current_listed_only</code> 退出正式 blocking/readiness 口径。
+            </td>
+          </tr>
+          <tr>
+            <td>qfq / repair sensor 是否进入本专项实现范围</td>
+            <td>已拍板：纳入。</td>
+            <td>只读 profiling 已确认 qfq daily 60 天不短路为 38.27s，qfq factor repair status 有 metadata 日期为 29 到 30 秒级。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <code>000638.SZ</code> 处理口径已明确：保留 2026-04-13 及之前合法分钟线；不向 <code>silver_namechange</code> 塞退市兜底记录；
+        <code>silver_stock_basic</code> 保持 current-listed-only 快照语义，但不再作为 stock daily 或 silver 分钟线历史生命周期事实源；
+        stock daily 与 silver 分钟线完整 check 都使用 <code>raw_stock_basic</code> 历史生命周期事实，
+        名称时间线只负责解释真实名称变更。
+      </p>
+    </section>
+  </main>
+</body>
+</html>

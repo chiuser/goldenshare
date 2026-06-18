@@ -1,0 +1,806 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster 股票分钟线连续性性能优化专项方案</title>
+  <style>
+    :root {
+      --bg: #f6f2eb;
+      --paper: #ffffff;
+      --soft: #fbfaf6;
+      --ink: #1f2a35;
+      --muted: #687584;
+      --line: #d7cec2;
+      --blue: #e7f0ff;
+      --blue-strong: #245b99;
+      --green: #e5f4e9;
+      --green-strong: #2e7045;
+      --amber: #fff0cc;
+      --amber-strong: #8b5c13;
+      --red: #ffe4df;
+      --red-strong: #a33d2f;
+      --code-bg: #f1ece3;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+    main {
+      width: min(1320px, calc(100vw - 44px));
+      margin: 0 auto;
+      padding: 38px 0 78px;
+    }
+    header,
+    section {
+      border: 1px solid var(--line);
+      border-radius: 16px;
+      background: var(--paper);
+      box-shadow: 0 12px 30px rgba(36, 29, 20, 0.06);
+    }
+    header { padding: 34px 36px; }
+    section {
+      margin-top: 22px;
+      padding: 26px 30px;
+    }
+    h1,
+    h2,
+    h3 {
+      margin-top: 0;
+      line-height: 1.24;
+      letter-spacing: 0;
+    }
+    h1 {
+      margin-bottom: 12px;
+      font-size: clamp(31px, 4.2vw, 52px);
+    }
+    h2 {
+      margin-bottom: 16px;
+      padding-bottom: 10px;
+      border-bottom: 2px solid var(--line);
+      font-size: 27px;
+    }
+    h3 {
+      margin: 24px 0 10px;
+      font-size: 20px;
+    }
+    p { margin: 8px 0 13px; }
+    code {
+      border-radius: 6px;
+      background: var(--code-bg);
+      padding: 0.08em 0.34em;
+      font-family: "SFMono-Regular", Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow-x: auto;
+      margin: 14px 0;
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--code-bg);
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    table {
+      width: 100%;
+      margin: 14px 0 20px;
+      border-collapse: collapse;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      overflow: hidden;
+      background: var(--paper);
+    }
+    th,
+    td {
+      padding: 11px 12px;
+      border-right: 1px solid var(--line);
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: #efe9df;
+      color: #273442;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    tr:last-child td { border-bottom: 0; }
+    th:last-child,
+    td:last-child { border-right: 0; }
+    ul,
+    ol {
+      margin: 8px 0 14px;
+      padding-left: 23px;
+    }
+    li { margin: 6px 0; }
+    .subtitle {
+      max-width: 1080px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+    .meta-grid,
+    .cards {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 13px;
+      margin-top: 18px;
+    }
+    .chip,
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--soft);
+      padding: 14px 15px;
+    }
+    .chip strong,
+    .card strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--ink);
+    }
+    .chip {
+      color: var(--muted);
+      font-size: 14px;
+    }
+    .callout,
+    .warning,
+    .danger,
+    .ok {
+      margin: 16px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left-width: 5px;
+      border-radius: 12px;
+    }
+    .callout { border-left-color: var(--blue-strong); background: var(--blue); }
+    .warning { border-left-color: var(--amber-strong); background: var(--amber); }
+    .danger { border-left-color: var(--red-strong); background: var(--red); }
+    .ok { border-left-color: var(--green-strong); background: var(--green); }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+  <main>
+    <header>
+      <h1>Dagster 股票分钟线连续性性能优化专项方案</h1>
+      <p class="subtitle">
+        本文档基于已完成的只读 profiling 重新定义优化方向：不新增 status manifest、summary asset、readiness asset、数据库表或其它新状态实体。
+        优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
+      </p>
+      <div class="meta-grid">
+        <div class="chip"><strong>状态</strong>方案文档；尚未进入代码实现。</div>
+        <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
+        <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
+        <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
+      </div>
+    </header>
+
+    <section>
+      <h2>1. 结论</h2>
+      <div class="danger">
+        <strong>旧方案废弃：</strong>
+        不再把“新增 lake status manifest”作为本专项主方案，也不保留新增持久化状态实体的备选路线。
+        qfq / repair sensor 的性能问题纳入本专项，但只能通过 batch 读取、lake 文件事实、现有 metadata bounded read 和移除热路径无用字段解决。
+      </div>
+      <div class="ok">
+        <strong>新方案：</strong>
+        股票分钟线 sensor hot path 使用“两阶段 batch readiness”：
+        第一阶段用 DuckDB 粗筛 60 天窗口的文件存在、freq 覆盖和 row count，快速发现明显缺口；
+        第二阶段对粗筛通过的窗口执行 batch 完整 blocking check 语义。
+        不允许只看 row count 就认定 ready。
+      </div>
+      <p>
+        这次优化的目标不是缩短窗口，而是减少读取次数。只要读取模型正确，20 天和 60 天的粗筛成本都在 0.1 秒级；
+        如果读取模型错误，20 天也会慢到不可接受。
+        本专项窗口固定保留 60 天；第一阶段不启用 cursor frontier cache，避免隐藏完整 check 语义变化。
+      </p>
+    </section>
+
+    <section>
+      <h2>2. Profiling 事实</h2>
+      <p>
+        以下数据来自本机正式 Dagster metadata 与正式 lake 的只读 profiling。没有改代码，没有提交 run，没有写 lake。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>测量项</th>
+            <th>raw 20 天</th>
+            <th>raw 60 天</th>
+            <th>silver 20 天</th>
+            <th>silver 60 天</th>
+            <th>结论</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>现有逐日 Dagster 深扫</td>
+            <td>65.55s 只读完 8 天</td>
+            <td>分钟级</td>
+            <td>64.87s 只读完 7 天</td>
+            <td>分钟级</td>
+            <td>不可接受；根因是逐日、逐 asset、逐 check 扫 event history。</td>
+          </tr>
+          <tr>
+            <td>Dagster metadata batch</td>
+            <td>11.21s</td>
+            <td>11.01s</td>
+            <td>12.27s</td>
+            <td>12.04s</td>
+            <td>比逐日好很多，但仍要反序列化十几万条 check event。</td>
+          </tr>
+          <tr>
+            <td>DuckDB 粗筛</td>
+            <td>0.038s</td>
+            <td>0.087s</td>
+            <td>0.043s</td>
+            <td>0.092s</td>
+            <td>适合做 hot path 第一阶段，但不能代表完整 ready。</td>
+          </tr>
+          <tr>
+            <td>DuckDB 完整 blocking check 语义</td>
+            <td>2.30s</td>
+            <td>8.96s</td>
+            <td>3.32s</td>
+            <td>9.59s</td>
+            <td>能保留正式语义；60 天完整验证接近 10 秒，可用于粗筛通过后的兜底验证。</td>
+          </tr>
+          <tr>
+            <td>单日完整 blocking check</td>
+            <td>0.19s</td>
+            <td>不适用</td>
+            <td>0.20s</td>
+            <td>不适用</td>
+            <td>适合对 actionable target 做最终确认。</td>
+          </tr>
+          <tr>
+            <td>qfq daily 当前逐日 DG 组件扫描</td>
+            <td>21.24s</td>
+            <td>38.27s</td>
+            <td colspan="2">组件为 silver + adj factor + gold qfq；不短路完整测量。</td>
+            <td>必须纳入本专项；不能让 qfq daily 在修完早期缺口后重新出现 60 天逐日 DG 深扫。</td>
+          </tr>
+          <tr>
+            <td>qfq factor repair status 单日 DG metadata</td>
+            <td colspan="2">2026-06-15 超过 30s；2026-06-16 为 29.21s。</td>
+            <td colspan="2">无 records 日期约 0.01s。</td>
+            <td>慢点集中在有 qfq factor repair check metadata 的日期，原因是热路径回填 event storage id 时扫描 event log。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>2.1 关键样本</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>对象</th>
+            <th>窗口</th>
+            <th>事实</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>raw 60 天完整 check</td>
+            <td>2026-03-23 至 2026-06-18</td>
+            <td>300 个预期文件，290 个存在，缺 10 个；缺口是 2026-06-17 / 2026-06-18 的五频度文件。</td>
+          </tr>
+          <tr>
+            <td>silver 60 天完整 check</td>
+            <td>2026-03-19 至 2026-06-16</td>
+            <td>
+              300 个文件均存在，但现有完整语义发现 <code>silver_stk_mins_name_timeline_covered</code> 失败：
+              <code>000638.SZ</code> 出现在 <code>silver_stk_mins</code> 2026-03-19 至 2026-04-13 的 1/5/15/30/60 五频度文件中，
+              但 <code>silver_namechange</code> 与 current-listed-only 的 <code>silver_stock_basic</code> 都无法覆盖该 <code>ts_code</code>。
+              已确认 <code>000638.SZ</code> 是退市历史股票，最后交易日为 2026-04-13；因此 2026-04-13 及之前的分钟线是合法历史行情。
+              该样本不是需要删除分钟线或伪造 namechange 的数据问题，而是当前 check 把“股票生命周期身份是否合法”和“名称变更时间线是否覆盖”混在一起导致的误报。
+            </td>
+          </tr>
+          <tr>
+            <td><code>000638.SZ</code> 全历史补充审计</td>
+            <td>2014-2026 已发现 silver 分钟线分区</td>
+            <td>
+              旧 <code>silver_stk_mins_name_timeline_covered</code> 口径下，唯一误报代码是 <code>000638.SZ</code>：
+              覆盖 2692 个交易日、5 个频度，候选 <code>asset + check + partition</code> 事件数为 13460。
+              按 <code>raw_stock_basic</code> 生命周期新口径校验后，生命周期失败代码数为 0。
+              该数量是 date-freq/check event 口径，不是分钟 bar 行数。
+            </td>
+          </tr>
+          <tr>
+            <td>silver 20 天完整 check</td>
+            <td>2026-05-20 至 2026-06-16</td>
+            <td>完整 blocking check 全绿，耗时 3.32s。</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="warning">
+        <strong>不能误读：</strong>
+        DuckDB 粗筛 0.1 秒级只说明文件事实读取很快，不代表完整 ready。
+        正式方案必须覆盖完整 blocking check 语义，否则会漏掉类似 name timeline 这类隐藏失败。
+      </div>
+    </section>
+
+    <section>
+      <h2>3. 问题根因</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>问题</th>
+            <th>错误理解</th>
+            <th>正确理解</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>窗口大小</td>
+            <td>60 天太大，改成 20 天就能解决。</td>
+            <td>窗口不是根因。读取方式正确时，20 和 60 的粗筛成本都很低；读取方式错误时，20 天也会超时。</td>
+          </tr>
+          <tr>
+            <td>Dagster metadata</td>
+            <td>只要 batch 读取 Dagster metadata 就够了。</td>
+            <td>batch metadata 仍要反序列化大量 event JSON，60 天 raw/silver 仍在 11 到 12 秒。</td>
+          </tr>
+          <tr>
+            <td>DuckDB 粗筛</td>
+            <td>文件存在且 row count 大于 0 就是 ready。</td>
+            <td>粗筛只能快速定位明显缺口；ready 必须由完整 blocking check 语义确认。</td>
+          </tr>
+          <tr>
+            <td>新增状态实体</td>
+            <td>性能慢就新增 status manifest。</td>
+            <td>新增实体会带来一致性、原子性、回补和退出成本；本轮禁止新增实体。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>4. 目标方案</h2>
+      <h3>4.0 P0 口径收口结论</h3>
+      <div class="ok">
+        <strong>P0 已拍板：</strong>
+        本专项不只优化 sensor 读取性能，也纳入两个会影响连续性正确性的契约收口：
+        silver 分钟线退出 <code>silver_namechange</code> / 未被计算使用的 <code>silver_stock_basic</code> 直接硬依赖；
+        <code>silver_stock_daily</code> 从 current-listed-only 过滤口径改为历史股票生命周期口径。
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>审计点</th>
+            <th>当前事实</th>
+            <th>后续固定口径</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>silver 分钟线 sensor gate</td>
+            <td>
+              <code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code>
+              当前都把 <code>silver_namechange_ready_for_trade_date(...)</code> 作为硬门禁。
+            </td>
+            <td>
+              后续从这两个分钟线 sensor 中移除 namechange 硬 gate；
+              <code>silver_namechange_ready_for_trade_date(...)</code> 继续服务 namechange 自身和 identity map 链路。
+            </td>
+          </tr>
+          <tr>
+            <td>silver 分钟线 asset deps / writer inputs</td>
+            <td>
+              五个 <code>silver_stk_mins_*</code> asset 直接依赖
+              <code>silver_namechange</code> / <code>silver_stock_basic</code>；
+              <code>write_silver_stk_mins_partition(...)</code> 也要求
+              <code>silver_namechange_path</code> / <code>silver_stock_basic_path</code> 存在。
+              但当前 silver 分钟线生成 SQL 实际消费的是 raw、identity map、stock daily、suspend 和 1m raw。
+            </td>
+            <td>
+              后续移除这两个未被计算使用的直接硬依赖；
+              保留 <code>silver_stock_identity_map</code>、<code>silver_stock_daily</code>、
+              <code>silver_stock_suspend_daily</code> 作为正式前置。
+            </td>
+          </tr>
+          <tr>
+            <td><code>silver_stock_daily</code> 股票池口径</td>
+            <td>
+              <code>silver_stock_daily_select(...)</code> 当前用
+              current-listed-only 的 <code>silver_stock_basic</code> 过滤股票全集；
+              <code>silver_stock_daily_current_listed_only</code> 也是正式 blocking/readiness 口径。
+            </td>
+            <td>
+              后续改为 <code>raw_stock_basic</code> 历史生命周期事实：
+              <code>ts_code + trade_date</code> 必须落在 <code>list_date</code> 到
+              <code>delist_date/null</code> 生命周期内，并保留 CNY、上市日期、北交所开市日期等现有交易规则。
+              新增 blocking check 名称固定为 <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              旧 <code>silver_stock_daily_current_listed_only</code> 退出正式阻断口径。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        P0 只记录这些口径，不落代码。涉及 stock daily 的变更范围大于最初的分钟线 sensor 性能优化，
+        所以后续必须把 stock daily 生命周期改造拆成独立阶段，不能藏在 silver 分钟线 check 或 sensor 改造里顺手处理。
+      </p>
+
+      <h3>4.1 两阶段 Batch Readiness</h3>
+      <pre><code>sensor tick
+  expected_dates = load from silver_trade_calendar
+  registered_dates = dynamic partitions
+
+  coarse_frontier = DuckDB batch coarse scan(expected_dates[-60:])
+  if coarse_frontier.first_missing_or_obvious_not_ready:
+      return SkipReason or RunRequest for that earliest actionable date
+
+  full_frontier = DuckDB batch full blocking check scan(required window)
+  if full_frontier.first_failed:
+      return SkipReason; do not advance later dates
+
+  target = first date whose target asset is not produced
+  validate target with single-day full check when needed
+  submit RunRequest only when all upstream gates are ready</code></pre>
+      <p>
+        第一阶段负责快，第二阶段负责正确。不能删除第二阶段，也不能把第一阶段结果写成 ready。
+      </p>
+
+      <h3>4.2 Raw Readiness</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>层级</th>
+            <th>粗筛</th>
+            <th>完整语义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>raw</td>
+            <td>五频度文件存在，row count 大于 0，按 date/freq 聚合。</td>
+            <td>schema、freq matches asset、partition date、唯一键、price/volume sanity、partition registered。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4.3 Silver Readiness</h3>
+      <table>
+        <thead>
+          <tr>
+            <th>层级</th>
+            <th>粗筛</th>
+            <th>完整语义</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>silver</td>
+            <td>五频度文件存在，row count 大于 0，按 date/freq 聚合。</td>
+            <td>schema、freq/date/trade_time、唯一键、价格、量额、exchange、stock_daily codes、full-day suspend、股票生命周期身份覆盖、名称时间线解释。</td>
+          </tr>
+        </tbody>
+      </table>
+
+      <h3>4.4 QFQ 与 Repair Status</h3>
+      <p>
+        qfq daily 与 qfq factor repair 已完成只读 profiling，必须纳入本专项一并处理。
+        当前 selector 因 2026-03-23 / 2026-05-22 的上游 not-ready 会很快短路，但这只是当前数据状态，不代表设计安全。
+        一旦早期缺口修复，qfq daily 会重新进入 60 天逐日 DG metadata 扫描，实测不短路 60 天为 38.27s。
+      </p>
+      <p>
+        qfq daily 方案：复用 raw/silver 的 batch lake readiness 思路，并扩展到 gold qfq 和 adj factor readiness；
+        qfq factor repair 方案：gold qfq readiness 改为 batch 读取；repair status 热路径不得再计算或回填 <code>event_storage_id</code>，
+        只读取判断自动触发所需的 metadata，例如 ready、repair_required、upstream_batch_id、repair range、codes hash。
+        本轮不新增 qfq factor repair status manifest，不新增 MACD/KDJ completion manifest。
+      </p>
+    </section>
+
+    <section>
+      <h2>5. 性能预算</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>场景</th>
+            <th>预算</th>
+            <th>依据</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>粗筛发现 raw 明显缺口</td>
+            <td>小于 0.2s</td>
+            <td>raw60 粗筛实测 0.087s。</td>
+          </tr>
+          <tr>
+            <td>粗筛发现 silver 明显缺口</td>
+            <td>小于 0.2s</td>
+            <td>silver60 粗筛实测 0.092s。</td>
+          </tr>
+          <tr>
+            <td>单日完整验证</td>
+            <td>小于 1s</td>
+            <td>raw 单日 0.19s，silver 单日 0.20s。</td>
+          </tr>
+          <tr>
+            <td>60 天完整 raw 验证</td>
+            <td>小于 10s</td>
+            <td>实测 8.96s。</td>
+          </tr>
+          <tr>
+            <td>60 天完整 silver 验证</td>
+            <td>小于 12s</td>
+            <td>实测 9.59s，保留余量。</td>
+          </tr>
+          <tr>
+            <td>单个 sensor tick</td>
+            <td>稳定态小于 10s；异常完整扫描小于 15s。</td>
+            <td>不能接近 Dagster 60 秒 timeout，更不能靠调 timeout 解决。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>6. 分阶段计划</h2>
+      <p>
+        本专项按可 review、可提交、可回滚的阶段推进。P0 只做开发前口径收口，不写代码；
+        P8 是正式 Dagster event 补录阶段，必须拆成 dry-run、sample、full 三次独立审批，不能混入普通代码开发。
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>阶段</th>
+            <th>目标</th>
+            <th>范围</th>
+            <th>验收</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>P0</td>
+            <td>开发前口径收口</td>
+            <td>
+              只读复核 sensor 热路径、<code>checks/stk_mins_checks.py</code>、silver/qfq readiness helper、
+              <code>silver_stock_daily_select(...)</code> 和 stock daily blocking checks。
+              锁定 silver 分钟线直接硬依赖清理，以及 <code>silver_stock_daily</code> 历史生命周期口径。
+            </td>
+            <td>输出最终硬约束清单并落本文档；无 Python 代码、无 Dagster runtime 读取、无 lake 写入。</td>
+          </tr>
+          <tr>
+            <td>P1</td>
+            <td>抽取股票分钟线 lake batch readiness core</td>
+            <td>
+              新建 <code>asset_guards/stk_mins_lake_readiness.py</code>，覆盖 raw/silver/gold qfq/adj factor。
+              复用/抽取 <code>checks/stk_mins_checks.py</code> 的 blocking check SQL 语义；
+              一次 DuckDB batch 查询覆盖多日期、多频度、多检查项。
+            </td>
+            <td>临时 Parquet 单测覆盖粗筛、完整语义、隐藏失败；生产代码不扫 Dagster event history；无新增持久化实体。</td>
+          </tr>
+          <tr>
+            <td>P2</td>
+            <td>stock daily 生命周期口径修正</td>
+            <td>
+              <code>silver_stock_daily_select(...)</code> 改为使用
+              <code>raw_stock_basic</code> 历史生命周期事实；
+              新增 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              旧 <code>silver_stock_daily_current_listed_only</code> 从正式 blocking/readiness 口径退出。
+            </td>
+            <td>
+              退市历史股票在生命周期内不被过滤；生命周期外样本失败；
+              下游 <code>gold_market_breadth_daily</code>、<code>gold_stock_return_distribution</code> 等消费者口径已对账。
+            </td>
+          </tr>
+          <tr>
+            <td>P3</td>
+            <td>修正 silver 完整性 check 语义</td>
+            <td>
+              保留 <code>silver_stk_mins_name_timeline_covered</code> check 名称；
+              内部身份合法性改用 <code>raw_stock_basic</code> 生命周期事实；
+              <code>silver_namechange</code> 只解释真实名称变化；
+              同步从 silver 分钟线 sensor gate、asset deps、writer 输入文件要求中移除
+              <code>silver_namechange</code> 和未被计算使用的 <code>silver_stock_basic</code>。
+            </td>
+            <td>
+              <code>000638.SZ</code> 生命周期内通过；生命周期外样本失败；
+              不能靠补 <code>silver_namechange</code> 伪造退市股票身份；
+              namechange 自身与 identity map 链路不受影响。
+            </td>
+          </tr>
+          <tr>
+            <td>P4</td>
+            <td>raw sensor 接入</td>
+            <td><code>stock_mins_raw_sensor</code> 使用 coarse frontier + full frontier，不再逐日调 <code>raw_stk_mins_ready_for_trade_date</code>。</td>
+            <td>当前 2026-06-17 缺口可在 1 秒内定位；run key / config 不变。</td>
+          </tr>
+          <tr>
+            <td>P5</td>
+            <td>silver sensor 接入</td>
+            <td>
+              <code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code> 使用 batch readiness。
+              raw 未连续时不注册 / 不提交 silver 后续日期；selected date 的 raw、stock daily、suspend、identity map 门禁仍保持 fail closed。
+            </td>
+            <td>
+              06-15 未 ready 时不提交 06-16；60 天窗口能发现隐藏 blocking check 失败；
+              <code>000638.SZ</code> 旧误伤不再阻断 silver readiness。
+            </td>
+          </tr>
+          <tr>
+            <td>P6</td>
+            <td>qfq daily / qfq factor repair 接入</td>
+            <td>qfq daily 使用 batch readiness；qfq factor repair 去掉 hot path event storage id 回填，只做 bounded metadata read。</td>
+            <td>qfq daily 60 天不再逐日 DG 深扫；repair status 有 metadata 日期不得再出现 30s 级单日读取。</td>
+          </tr>
+          <tr>
+            <td>P7</td>
+            <td>静态门禁、性能回归、文档中期对账</td>
+            <td>
+              禁止 hot path 回流 <code>get_asset_check_execution_history</code>、旧逐日 readiness callback；
+              禁止用 row count 冒充完整 blocking check；
+              禁止把 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 当股票生命周期 universe。
+            </td>
+            <td>本地测试、静态扫描、20/60 天性能基准表通过；文档记录真实耗时总计。</td>
+          </tr>
+          <tr>
+            <td>P8A</td>
+            <td>最小 runless check event 补录 dry-run</td>
+            <td>
+              在新 check 语义落地后，只读审计 Dagster event history。
+              只统计 <code>000638.SZ</code> 相关
+              <code>silver_stk_mins_name_timeline_covered</code> 旧误报 check event。
+              候选上限为 13460 条 <code>asset + check + partition</code> event；真实待补数以 dry-run 为准。
+            </td>
+            <td>
+              确认真实旧 failed event、目标 materialization、新生命周期 SQL 全部通过；
+              dry-run 不写 event。
+            </td>
+          </tr>
+          <tr>
+            <td>P8B/P8C</td>
+            <td>最小 runless check event sample / full / final audit</td>
+            <td>
+              经单独审批后先写极小 sample，再经再次审批按年或月份分批 full。
+              不补 materialization event，不删除旧 failed event，不扩大到其它股票、其它 check 或全量 silver checks。
+            </td>
+            <td>latest check event 变绿；metadata 完整；final audit 证明无范围外 event。</td>
+          </tr>
+          <tr>
+            <td>P9</td>
+            <td>最终文档与专项验收</td>
+            <td>更新方案、LLD、连续性治理文档；对账代码事实、性能数据、event 补录审计记录和测试结果。</td>
+            <td>
+              文档不再保留旧性能方案、“修 silver_namechange / silver_stock_basic 补退市股票”、
+              或 <code>silver_stock_daily</code> 继续 current-listed-only 阻断历史退市股票的错误口径。
+            </td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>7. 不做事项</h2>
+      <ul>
+        <li>不新增 status manifest、summary asset、readiness asset、数据库表或新的 Dagster definition。</li>
+        <li>不修改 run key、run config、upstream_batch_id、completion metadata 口径。</li>
+        <li>不把 row count 粗筛当作完整 ready。</li>
+        <li>不做全量 silver check event 重写；<code>000638.SZ</code> 历史 UI 红点只允许走最小范围 runless check event 补录。</li>
+        <li>不通过调大 Dagster sensor timeout 掩盖读取模型问题。</li>
+        <li>不在本专项里处理 qfq factor repair status 的新持久化模型。</li>
+        <li>不把 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 当股票历史生命周期事实源。</li>
+      </ul>
+    </section>
+
+    <section>
+      <h2>8. 测试与门禁</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>测试</th>
+            <th>必须覆盖</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>readiness core 单测</td>
+            <td>缺文件、空文件、schema mismatch、freq/date mismatch、重复键、价格量额异常、silver 跨输入缺口、合法退市历史股票生命周期覆盖、名称时间线隐藏失败。</td>
+          </tr>
+          <tr>
+            <td>sensor contract 测试</td>
+            <td>早期日期完整 check 失败时不得提交后续日期；粗筛发现缺文件时不跑重 SQL；run key/config 不变。</td>
+          </tr>
+          <tr>
+            <td>性能基准测试</td>
+            <td>记录粗筛 60 天、完整 60 天、单日完整校验耗时。测试环境使用临时 Parquet，正式 profiling 需单独审批。</td>
+          </tr>
+          <tr>
+            <td>静态门禁</td>
+            <td>正式 sensor hot path 禁止逐日调用旧慢 readiness；禁止在 first-not-ready 循环里调用 <code>get_asset_check_execution_history</code>。</td>
+          </tr>
+        </tbody>
+      </table>
+    </section>
+
+    <section>
+      <h2>9. 已拍板口径与剩余事项</h2>
+      <div class="danger">
+        已锁定硬约束：本专项不新增 status manifest、summary asset、readiness asset、数据库表、Dagster definition 或其它新状态实体。
+        这不再作为开放拍板项。后续实现只能在现有 lake 文件、现有 dynamic partitions、现有 sensor cursor 和现有 blocking check 语义内优化读取方式。
+      </div>
+      <table>
+        <thead>
+          <tr>
+            <th>事项</th>
+            <th>推荐口径</th>
+            <th>原因</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td>是否保留 60 天窗口</td>
+            <td>保留。</td>
+            <td>batch 粗筛后 20/60 成本差异很小；60 天对停机缺口和连续性更稳。</td>
+          </tr>
+          <tr>
+            <td>粗筛通过后是否必须做完整语义验证</td>
+            <td>必须。</td>
+            <td>row count 粗筛会漏掉生命周期身份、名称时间线这类隐藏 blocking check 失败。</td>
+          </tr>
+          <tr>
+            <td>是否允许用 cursor 缓存完整验证 frontier</td>
+            <td>第一阶段不启用。</td>
+            <td>避免旧 cursor 掩盖 check 语义变更或输入文件变化；先让 batch 读取模型本身满足性能预算。</td>
+          </tr>
+          <tr>
+            <td>无状态 helper 落点</td>
+            <td>新建 <code>asset_guards/stk_mins_lake_readiness.py</code>。</td>
+            <td>这是代码组织，不是新增状态实体；避免把 <code>stk_mins_continuity.py</code> 继续变大。</td>
+          </tr>
+          <tr>
+            <td>silver 60 天发现的 <code>000638.SZ</code> name timeline 失败</td>
+            <td>已拍板：这是 check 语义问题，不修 <code>silver_namechange</code>，不删合法历史分钟线。</td>
+            <td><code>000638.SZ</code> 是退市历史股票，最后交易日 2026-04-13；应由包含退市股票的历史生命周期事实校验合法性，<code>silver_namechange</code> 只解释真实名称变更。</td>
+          </tr>
+          <tr>
+            <td>silver 分钟线是否继续硬依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code></td>
+            <td>已拍板：退出直接硬依赖。</td>
+            <td>
+              两个 silver 分钟线 sensor 当前把 <code>silver_namechange_ready_for_trade_date(...)</code> 当硬 gate；
+              五个 <code>silver_stk_mins_*</code> asset 也直接依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code>。
+              但生成 SQL 不消费这两个文件，后续应只保留 raw、identity map、stock daily、suspend 和 1m raw 等真实输入。
+            </td>
+          </tr>
+          <tr>
+            <td><code>silver_stock_daily</code> 是否继续 current-listed-only</td>
+            <td>已拍板：纳入本专项，改为历史生命周期口径。</td>
+            <td>
+              新增 blocking check 名称固定为 <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              旧 <code>silver_stock_daily_current_listed_only</code> 退出正式 blocking/readiness 口径。
+              生命周期事实源使用 <code>raw_stock_basic</code>，而不是 current-listed-only 的 <code>silver_stock_basic</code>。
+            </td>
+          </tr>
+          <tr>
+            <td><code>000638.SZ</code> 旧误报 check event 是否补录</td>
+            <td>已拍板：可做最小范围 runless check event 补录。</td>
+            <td>
+              只补 <code>000638.SZ</code> 对应的 <code>silver_stk_mins_name_timeline_covered</code>，
+              候选上限为 13460 条 <code>asset + check + partition</code> event。
+              正式写入前必须 dry-run 审计真实旧 failed event、目标 materialization 和新生命周期 SQL；
+              不允许扩大到其它股票、其它 check 或全量 silver checks。
+            </td>
+          </tr>
+          <tr>
+            <td>qfq / repair sensor 是否纳入本专项</td>
+            <td>纳入。</td>
+            <td>只读 profiling 已确认 qfq daily 60 天不短路为 38.27s，qfq factor repair status 有 metadata 日期为 29 到 30 秒级。</td>
+          </tr>
+        </tbody>
+      </table>
+      <p>
+        <code>000638.SZ</code> 处理口径已明确：保留 2026-04-13 及之前合法分钟线；不向 <code>silver_namechange</code> 塞退市兜底记录；
+        <code>silver_stock_basic</code> 继续保持 current-listed-only 快照语义，但它不再作为 stock daily 或 silver 分钟线历史生命周期判断的事实源；
+        stock daily 与 silver 分钟线完整 check 都使用包含退市股票的 <code>raw_stock_basic</code> 历史生命周期事实，
+        名称时间线只负责解释真实名称变更。
+      </p>
+    </section>
+  </main>
+</body>
+</html>
