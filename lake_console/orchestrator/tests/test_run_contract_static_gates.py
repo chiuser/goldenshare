@@ -689,6 +689,97 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_silver_direct_dependencies_exclude_namechange_and_basic(
+        self,
+    ) -> None:
+        asset_path = ASSETS_DIR / "stk_mins.py"
+        source = asset_path.read_text()
+        writer_source = _function_source(asset_path, "write_silver_stk_mins_partition")
+        issues = []
+
+        for fragment in ("silver_namechange_path", "silver_stock_basic_path"):
+            if fragment in writer_source:
+                issues.append(
+                    "write_silver_stk_mins_partition contains forbidden input "
+                    f"requirement: {fragment}"
+                )
+
+        for freq in ("1", "5", "15", "30", "60"):
+            marker = f'name="silver_stk_mins_{freq}m"'
+            def_marker = f"def silver_stk_mins_{freq}m"
+            decorator_source = source[
+                source.index(marker) : source.index(def_marker, source.index(marker))
+            ]
+            for fragment in ("silver_namechange", "silver_stock_basic"):
+                if fragment in decorator_source:
+                    issues.append(
+                        f"silver_stk_mins_{freq}m deps contain forbidden direct "
+                        f"dependency: {fragment}"
+                    )
+            for fragment in (
+                "silver_stock_identity_map",
+                "silver_stock_daily",
+                "silver_stock_suspend_daily",
+            ):
+                if fragment not in decorator_source:
+                    issues.append(
+                        f"silver_stk_mins_{freq}m deps miss required dependency: "
+                        f"{fragment}"
+                    )
+
+        self.assertEqual(issues, [])
+
+    def test_stock_mins_silver_sensors_do_not_gate_on_namechange(self) -> None:
+        issues = []
+        for path in (
+            SENSORS_DIR / "stock_mins_silver_trade_day_sensor.py",
+            SENSORS_DIR / "stock_mins_silver_sensor.py",
+        ):
+            source = path.read_text()
+            for fragment in (
+                "silver_namechange_ready_for_trade_date",
+                "namechange_ready",
+                "namechange_status",
+            ):
+                if fragment in source:
+                    issues.append(
+                        f"{path} contains forbidden silver namechange gate fragment: "
+                        f"{fragment}"
+                    )
+
+        self.assertEqual(issues, [])
+
+    def test_stock_mins_silver_name_timeline_check_uses_raw_lifecycle(self) -> None:
+        check_source = _function_source(
+            CHECKS_DIR / "stk_mins_checks.py",
+            "_silver_name_timeline_covered",
+        )
+        issues = []
+
+        required_fragments = (
+            "raw_stock_basic_path",
+            "historical_cny_stock_lifecycle_select",
+            "lifecycle_fact_source",
+            "checked_code_date_count",
+            "failed_code_date_count",
+        )
+        forbidden_fragments = (
+            "silver_stock_basic_path",
+            "silver_namechange_path",
+        )
+        issues.extend(
+            f"_silver_name_timeline_covered misses required fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in check_source
+        )
+        issues.extend(
+            f"_silver_name_timeline_covered contains forbidden fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in check_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_lake_root_health_entrypoints_stay_infra_only(self) -> None:
         job_path = JOBS_DIR / "lake_root_health_check.py"
         schedule_path = SCHEDULES_DIR / "lake_root_health.py"

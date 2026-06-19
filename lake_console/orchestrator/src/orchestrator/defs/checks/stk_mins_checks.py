@@ -6,6 +6,7 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
+from orchestrator.defs.assets.stock_basic import raw_tushare_stock_basic
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_ASSETS,
     GOLD_STK_MINS_QFQ_DERIVED_ASSETS,
@@ -36,16 +37,16 @@ from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
+    historical_cny_stock_lifecycle_select,
     read_parquet,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
+    raw_stock_basic_path,
     raw_stk_mins_path,
     silver_adj_factor_path,
-    silver_namechange_path,
     silver_stk_mins_path,
-    silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_suspend_daily_path,
 )
@@ -2271,70 +2272,64 @@ def _silver_name_timeline_covered(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     path = _silver_path(lake_root, freq, partition_key)
-    namechange_path = silver_namechange_path(lake_root.root())
-    stock_basic_path = silver_stock_basic_path(lake_root.root())
+    stock_basic_path = raw_stock_basic_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    if not namechange_path.exists():
-        return _missing_input_file_result(path, namechange_path)
     if not stock_basic_path.exists():
         return _missing_input_file_result(path, stock_basic_path)
 
     with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
-        namechange_relation = read_parquet(namechange_path, hive_partitioning=False)
-        stock_basic_relation = read_parquet(stock_basic_path, hive_partitioning=False)
+        lifecycle_relation = historical_cny_stock_lifecycle_select(stock_basic_path)
         row = connection.execute(
             f"""
             WITH silver_codes AS (
-              SELECT DISTINCT ts_code, trade_date FROM {relation}
+              SELECT DISTINCT
+                CAST(ts_code AS VARCHAR) AS ts_code,
+                CAST(trade_date AS DATE) AS trade_date
+              FROM {relation}
             ),
-            missing_names AS (
+            stock_lifecycle AS (
+              {lifecycle_relation}
+            ),
+            lifecycle_failures AS (
               SELECT silver_codes.ts_code, silver_codes.trade_date
               FROM silver_codes
-              WHERE NOT EXISTS (
-                SELECT 1
-                FROM {namechange_relation} AS names
-                WHERE names.ts_code = silver_codes.ts_code
-                  AND silver_codes.trade_date >= names.start_date
-                  AND (
-                    names.end_date IS NULL
-                    OR silver_codes.trade_date <= names.end_date
-                  )
-              )
-                AND NOT EXISTS (
-                  SELECT 1
-                  FROM {stock_basic_relation} AS basic
-                  WHERE basic.ts_code = silver_codes.ts_code
-                )
+              LEFT JOIN stock_lifecycle
+                ON stock_lifecycle.ts_code = silver_codes.ts_code
+               AND silver_codes.trade_date >= stock_lifecycle.list_date
+               AND (
+                 stock_lifecycle.delist_date IS NULL
+                 OR silver_codes.trade_date <= stock_lifecycle.delist_date
+               )
+              WHERE stock_lifecycle.ts_code IS NULL
             )
             SELECT
               (SELECT count(*) FROM silver_codes) AS checked_count,
-              (SELECT count(*) FROM missing_names) AS failed_count
+              (SELECT count(*) FROM lifecycle_failures) AS failed_count
             """
         ).fetchone()
         sample_rows = connection.execute(
             f"""
             WITH silver_codes AS (
-              SELECT DISTINCT ts_code, trade_date FROM {relation}
+              SELECT DISTINCT
+                CAST(ts_code AS VARCHAR) AS ts_code,
+                CAST(trade_date AS DATE) AS trade_date
+              FROM {relation}
+            ),
+            stock_lifecycle AS (
+              {lifecycle_relation}
             )
             SELECT silver_codes.ts_code, silver_codes.trade_date
             FROM silver_codes
-            WHERE NOT EXISTS (
-              SELECT 1
-              FROM {namechange_relation} AS names
-              WHERE names.ts_code = silver_codes.ts_code
-                AND silver_codes.trade_date >= names.start_date
-                AND (
-                  names.end_date IS NULL
-                  OR silver_codes.trade_date <= names.end_date
-                )
-            )
-              AND NOT EXISTS (
-                SELECT 1
-                FROM {stock_basic_relation} AS basic
-                WHERE basic.ts_code = silver_codes.ts_code
-              )
+            LEFT JOIN stock_lifecycle
+              ON stock_lifecycle.ts_code = silver_codes.ts_code
+             AND silver_codes.trade_date >= stock_lifecycle.list_date
+             AND (
+               stock_lifecycle.delist_date IS NULL
+               OR silver_codes.trade_date <= stock_lifecycle.delist_date
+             )
+            WHERE stock_lifecycle.ts_code IS NULL
             ORDER BY silver_codes.ts_code
             LIMIT 10
             """
@@ -2346,12 +2341,16 @@ def _silver_name_timeline_covered(
         passed=failed_count == 0,
         check_scope=CheckScope.REFERENTIAL_INTEGRITY,
         file_path=path,
-        input_file_paths=[namechange_path, stock_basic_path],
+        input_file_paths=[stock_basic_path],
         checked_row_count=checked_count,
         failed_row_count=failed_count,
         extra_metadata={
             "partition_key": partition_key,
             "freq": freq,
+            "lifecycle_fact_source": "raw_stock_basic",
+            "raw_stock_basic_file_path": str(stock_basic_path),
+            "checked_code_date_count": checked_count,
+            "failed_code_date_count": failed_count,
             "failure_samples": _sample_dicts(("ts_code", "trade_date"), sample_rows),
         },
     )
@@ -2601,11 +2600,19 @@ assert len(RAW_STK_MINS_CHECK_DEFINITIONS) == len(RAW_STK_MINS_ASSETS) * len(
 )
 
 
-def _build_silver_check(asset, freq: int, name: str, evaluator):
+def _build_silver_check(
+    asset,
+    freq: int,
+    name: str,
+    evaluator,
+    *,
+    additional_deps: Sequence[object] = (),
+):
     @dg.asset_check(
         asset=asset,
         name=name,
         blocking=True,
+        additional_deps=additional_deps,
     )
     def _check(
         context: dg.AssetCheckExecutionContext,
@@ -2684,6 +2691,7 @@ def _build_silver_stk_mins_checks(asset, freq: int):
             normalized_freq,
             SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
             _silver_name_timeline_covered,
+            additional_deps=(raw_tushare_stock_basic,),
         ),
     )
 

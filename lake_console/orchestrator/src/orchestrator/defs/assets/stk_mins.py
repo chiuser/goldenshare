@@ -10,7 +10,6 @@ import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.adj_factor import silver_adj_factor
-from orchestrator.defs.assets.namechange import silver_namechange
 from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import silver_stock_daily
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
@@ -36,7 +35,6 @@ from orchestrator.defs.paths import (
     lake_path_template,
     raw_stk_mins_path,
     silver_adj_factor_path,
-    silver_namechange_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
@@ -175,8 +173,6 @@ class SilverStkMinsWriteResult:
     identity_map_file_path: Path
     stock_daily_file_path: Path
     suspend_file_path: Path
-    stock_basic_file_path: Path
-    namechange_file_path: Path
     silver_file_path: Path
     source_row_count: int
     mapped_row_count: int
@@ -201,8 +197,6 @@ class SilverStkMinsWriteResult:
             "identity_map_file_path": str(self.identity_map_file_path),
             "stock_daily_file_path": str(self.stock_daily_file_path),
             "suspend_file_path": str(self.suspend_file_path),
-            "stock_basic_file_path": str(self.stock_basic_file_path),
-            "namechange_file_path": str(self.namechange_file_path),
             "source_row_count": self.source_row_count,
             "mapped_row_count": self.mapped_row_count,
             "duplicate_removed_count": self.duplicate_removed_count,
@@ -1666,16 +1660,12 @@ def write_silver_stk_mins_partition(
     identity_map_path = silver_stock_identity_map_path(lake_root)
     stock_daily_path = silver_stock_daily_path(lake_root, partition_key)
     suspend_path = silver_stock_suspend_daily_path(lake_root, partition_key)
-    stock_basic_path = silver_stock_basic_path(lake_root)
-    namechange_path = silver_namechange_path(lake_root)
     target_path = silver_stk_mins_path(lake_root, normalized_freq, partition_key)
     input_paths: dict[str, Path] = {
         "raw": raw_path,
         "identity_map": identity_map_path,
         "stock_daily": stock_daily_path,
         "suspend": suspend_path,
-        "stock_basic": stock_basic_path,
-        "namechange": namechange_path,
     }
     if one_minute_raw_path is not None:
         input_paths["one_minute_raw"] = one_minute_raw_path
@@ -1730,8 +1720,6 @@ def write_silver_stk_mins_partition(
         identity_map_file_path=identity_map_path,
         stock_daily_file_path=stock_daily_path,
         suspend_file_path=suspend_path,
-        stock_basic_file_path=stock_basic_path,
-        namechange_file_path=namechange_path,
         silver_file_path=target_path,
         source_row_count=target_counts["source_row_count"],
         mapped_row_count=target_counts["mapped_row_count"],
@@ -2302,8 +2290,6 @@ def _silver_stk_mins_extra_metadata(freq: int) -> dict[str, object]:
         silver_stock_identity_map,
         silver_stock_daily,
         silver_stock_suspend_daily,
-        silver_stock_basic,
-        silver_namechange,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
@@ -2341,8 +2327,6 @@ def silver_stk_mins_1m(
         silver_stock_identity_map,
         silver_stock_daily,
         silver_stock_suspend_daily,
-        silver_stock_basic,
-        silver_namechange,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
@@ -2380,8 +2364,6 @@ def silver_stk_mins_5m(
         silver_stock_identity_map,
         silver_stock_daily,
         silver_stock_suspend_daily,
-        silver_stock_basic,
-        silver_namechange,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
@@ -2423,8 +2405,6 @@ def silver_stk_mins_15m(
         silver_stock_identity_map,
         silver_stock_daily,
         silver_stock_suspend_daily,
-        silver_stock_basic,
-        silver_namechange,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",
@@ -2466,8 +2446,6 @@ def silver_stk_mins_30m(
         silver_stock_identity_map,
         silver_stock_daily,
         silver_stock_suspend_daily,
-        silver_stock_basic,
-        silver_namechange,
     ],
     partitions_def=cn_a_stock_mins_silver_trade_days,
     group_name="quote",

@@ -32,7 +32,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
     raw_stk_mins_ready_for_trade_date,
-    silver_namechange_ready_for_trade_date,
     silver_stock_identity_map_ready_for_trade_date,
     status_payload,
     stock_daily_ready_for_trade_date,
@@ -98,7 +97,6 @@ def build_stock_mins_silver_trade_day_registration_decision(
     stock_daily_ready: bool = False,
     suspend_ready: bool = False,
     identity_map_ready: bool = False,
-    namechange_ready: bool = False,
 ) -> StockMinsSilverTradeDayRegistrationDecision:
     if target_trade_date is None:
         return StockMinsSilverTradeDayRegistrationDecision(
@@ -135,8 +133,6 @@ def build_stock_mins_silver_trade_day_registration_decision(
         reason = "停复牌数据尚未 ready，暂不注册股票分钟线 silver 交易日分区。"
     elif not identity_map_ready:
         reason = "股票身份映射尚未满足当日 freshness，暂不注册股票分钟线 silver 交易日分区。"
-    elif not namechange_ready:
-        reason = "股票曾用名尚未满足当日 freshness，暂不注册股票分钟线 silver 交易日分区。"
     else:
         return StockMinsSilverTradeDayRegistrationDecision(
             target_trade_date=target_trade_date,
@@ -183,7 +179,6 @@ def _cursor_payload(
     stock_daily_status: DatasetReadinessStatus | None = None,
     suspend_status: DatasetReadinessStatus | None = None,
     identity_map_status: AssetReadinessStatus | None = None,
-    namechange_status: AssetReadinessStatus | None = None,
     raw_continuity_status: StockMinsContinuityStatus | None = None,
     silver_continuity_status: StockMinsContinuityStatus | None = None,
 ) -> str:
@@ -203,9 +198,8 @@ def _cursor_payload(
                         if not asset_status.ready
                     ]
                 )
-        for status in (identity_map_status, namechange_status):
-            if status is not None and not status.ready:
-                blocked_count += 1
+        if identity_map_status is not None and not identity_map_status.ready:
+            blocked_count += 1
         if raw_continuity_status is not None and raw_continuity_status.blocked:
             blocked_count += 1
         if (
@@ -241,7 +235,6 @@ def _cursor_payload(
             ),
             "suspend_status": status_payload(suspend_status) if suspend_status else None,
             "identity_map_status": _asset_status_payload(identity_map_status),
-            "namechange_status": _asset_status_payload(namechange_status),
             "raw_continuity_status": (
                 raw_continuity_status.to_cursor_details()
                 if raw_continuity_status is not None
@@ -266,7 +259,7 @@ def _cursor_payload(
     ),
     required_resource_keys={"lake_root", "duckdb"},
     description=(
-        "每天 19:45 后，在分钟线 raw、日线、停复牌、身份映射和曾用名门禁满足后，"
+        "每天 19:45 后，在分钟线 raw、日线、停复牌和身份映射门禁满足后，"
         "注册股票分钟线 silver 交易日分区；不触发 silver job。"
     ),
 )
@@ -309,7 +302,6 @@ def stock_mins_silver_trade_day_sensor(
     stock_daily_status = None
     suspend_status = None
     identity_map_status = None
-    namechange_status = None
     if not expected_trade_dates:
         decision = StockMinsSilverTradeDayRegistrationDecision(
             target_trade_date=None,
@@ -364,10 +356,6 @@ def stock_mins_silver_trade_day_sensor(
                 context.instance,
                 target_trade_date,
             )
-            namechange_status = silver_namechange_ready_for_trade_date(
-                context.instance,
-                target_trade_date,
-            )
 
         decision = build_stock_mins_silver_trade_day_registration_decision(
             target_trade_date=target_trade_date,
@@ -377,7 +365,6 @@ def stock_mins_silver_trade_day_sensor(
             stock_daily_ready=stock_daily_status.ready if stock_daily_status else False,
             suspend_ready=suspend_status.ready if suspend_status else False,
             identity_map_ready=identity_map_status.ready if identity_map_status else False,
-            namechange_ready=namechange_status.ready if namechange_status else False,
         )
     cursor = _cursor_payload(
         decision=decision,
@@ -388,7 +375,6 @@ def stock_mins_silver_trade_day_sensor(
         stock_daily_status=stock_daily_status,
         suspend_status=suspend_status,
         identity_map_status=identity_map_status,
-        namechange_status=namechange_status,
         raw_continuity_status=raw_continuity_status,
         silver_continuity_status=silver_continuity_status,
     )

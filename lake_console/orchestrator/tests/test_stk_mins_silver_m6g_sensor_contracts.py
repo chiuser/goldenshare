@@ -85,7 +85,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
         )
 
         self.assertIsNone(no_partition.selected_trade_date)
@@ -99,7 +98,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             ("stock_daily_ready", "股票日线"),
             ("suspend_ready", "停复牌"),
             ("identity_map_ready", "身份映射"),
-            ("namechange_ready", "曾用名"),
         )
         for missing_gate, reason_fragment in gate_cases:
             gates = {
@@ -107,7 +105,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
                 "stock_daily_ready": True,
                 "suspend_ready": True,
                 "identity_map_ready": True,
-                "namechange_ready": True,
             }
             gates[missing_gate] = False
             with self.subTest(missing_gate=missing_gate):
@@ -127,7 +124,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
             silver_ready=True,
         )
         failed_decision = build_stock_mins_silver_update_decision(
@@ -137,7 +133,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
             silver_has_materialized_check_problem=True,
         )
 
@@ -154,7 +149,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
             silver_ready=False,
             silver_has_materialized_check_problem=False,
         )
@@ -200,7 +194,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
         )
         cursor = json.loads(
             build_stock_mins_silver_sensor_cursor(
@@ -211,7 +204,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
                 stock_daily_status=_dataset_status(("silver_stock_daily",)),
                 suspend_status=_dataset_status(("silver_stock_suspend_daily",)),
                 identity_map_status=_asset_status("silver_stock_identity_map"),
-                namechange_status=_asset_status("silver_namechange"),
                 silver_status=_dataset_status(
                     ("silver_stk_mins_1m",),
                     ready=False,
@@ -248,7 +240,6 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
             silver_ready=True,
         )
         cursor = json.loads(

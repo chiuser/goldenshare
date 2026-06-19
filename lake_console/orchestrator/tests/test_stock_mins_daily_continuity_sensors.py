@@ -531,15 +531,14 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
             "silver_namechange_ready_for_trade_date",
-            return_value=_asset_readiness_status(
-                ready=True,
-                asset_key="silver_namechange",
-            ),
-        ):
+            side_effect=AssertionError("namechange readiness must not be queried"),
+            create=True,
+        ) as namechange_ready_mock:
             result = stock_mins_silver_trade_day_sensor._raw_fn(context)
 
         self.assertEqual(len(result.dynamic_partitions_requests), 1)
         self.assertEqual(raw_ready_mock.call_args.args[1], "2026-06-15")
+        namechange_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
         silver_continuity = cursor["details"]["silver_continuity_status"]
@@ -652,14 +651,13 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
             "silver_namechange_ready_for_trade_date",
-            return_value=_asset_readiness_status(
-                ready=True,
-                asset_key="silver_namechange",
-            ),
-        ):
+            side_effect=AssertionError("namechange readiness must not be queried"),
+            create=True,
+        ) as namechange_ready_mock:
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(len(result.run_requests), 1)
+        namechange_ready_mock.assert_not_called()
         request = result.run_requests[0]
         self.assertEqual(request.partition_key, "2026-06-15")
         self.assertEqual(request.run_key, "stock_mins_silver_update:2026-06-15")
@@ -802,14 +800,13 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
             "silver_namechange_ready_for_trade_date",
-            return_value=_asset_readiness_status(
-                ready=True,
-                asset_key="silver_namechange",
-            ),
-        ):
+            side_effect=AssertionError("namechange readiness must not be queried"),
+            create=True,
+        ) as namechange_ready_mock:
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
+        namechange_ready_mock.assert_not_called()
         self.assertIn("raw 五频度", _skip_message(result))
 
     def test_silver_sensor_records_continuity_before_window(self) -> None:

@@ -1155,7 +1155,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
         )
         before_window = build_stock_mins_silver_trade_day_registration_decision(
             target_trade_date="2026-05-29",
@@ -1165,7 +1164,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
         )
         raw_blocked = build_stock_mins_silver_trade_day_registration_decision(
             target_trade_date="2026-05-29",
@@ -1175,7 +1173,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
         )
 
         self.assertEqual(selected.selected_keys, ("2026-05-29",))
@@ -1267,7 +1264,6 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             stock_daily_ready=True,
             suspend_ready=True,
             identity_map_ready=True,
-            namechange_ready=True,
         )
         silver_cursor = json.loads(
             build_stock_mins_silver_trade_day_cursor(

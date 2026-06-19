@@ -398,7 +398,7 @@
               但当前 silver 分钟线生成 SQL 实际消费的是 raw、identity map、stock daily、suspend 和 1m raw。
             </td>
             <td>
-              后续移除这两个未被计算使用的直接硬依赖；
+              P3 已移除这两个未被计算使用的直接硬依赖；
               保留 <code>silver_stock_identity_map</code>、<code>silver_stock_daily</code>、
               <code>silver_stock_suspend_daily</code> 作为正式前置。
             </td>
@@ -593,18 +593,19 @@
           </tr>
           <tr>
             <td>P3</td>
-            <td>修正 silver 完整性 check 语义</td>
+            <td>修正 silver 完整性 check 语义（已完成）</td>
             <td>
-              保留 <code>silver_stk_mins_name_timeline_covered</code> check 名称；
-              内部身份合法性改用 <code>raw_stock_basic</code> 生命周期事实；
-              <code>silver_namechange</code> 只解释真实名称变化；
-              同步从 silver 分钟线 sensor gate、asset deps、writer 输入文件要求中移除
+              已保留 <code>silver_stk_mins_name_timeline_covered</code> check 名称；
+              内部身份合法性已改用 <code>raw_stock_basic</code> 生命周期事实；
+              <code>silver_namechange</code> 只解释真实名称变化，不再作为股票历史身份全集；
+              已从 silver 分钟线 sensor gate、asset deps、writer 输入文件要求中移除
               <code>silver_namechange</code> 和未被计算使用的 <code>silver_stock_basic</code>。
             </td>
             <td>
               <code>000638.SZ</code> 生命周期内通过；生命周期外样本失败；
               不能靠补 <code>silver_namechange</code> 伪造退市股票身份；
               namechange 自身与 identity map 链路不受影响。
+              P3 不包含 runless check event 补录；旧误报 event 仍按 P8A/P8B/P8C 单独审批。
             </td>
           </tr>
           <tr>
@@ -762,11 +763,12 @@
           </tr>
           <tr>
             <td>silver 分钟线是否继续硬依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code></td>
-            <td>已拍板：退出直接硬依赖。</td>
+            <td>已完成：退出直接硬依赖。</td>
             <td>
-              两个 silver 分钟线 sensor 当前把 <code>silver_namechange_ready_for_trade_date(...)</code> 当硬 gate；
-              五个 <code>silver_stk_mins_*</code> asset 也直接依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code>。
-              但生成 SQL 不消费这两个文件，后续应只保留 raw、identity map、stock daily、suspend 和 1m raw 等真实输入。
+              两个 silver 分钟线 sensor 已移除 <code>silver_namechange_ready_for_trade_date(...)</code> 硬 gate；
+              五个 <code>silver_stk_mins_*</code> asset 已移除
+              <code>silver_namechange</code> / <code>silver_stock_basic</code> 直接依赖；
+              writer 输入文件要求只保留 raw、identity map、stock daily、suspend 和粗频度所需 1m raw 等真实输入。
             </td>
           </tr>
           <tr>

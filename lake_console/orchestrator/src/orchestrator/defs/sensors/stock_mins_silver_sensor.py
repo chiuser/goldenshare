@@ -28,7 +28,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
     raw_stk_mins_ready_for_trade_date,
-    silver_namechange_ready_for_trade_date,
     silver_stk_mins_ready_for_trade_date,
     silver_stock_identity_map_ready_for_trade_date,
     status_payload,
@@ -101,7 +100,6 @@ def build_stock_mins_silver_update_decision(
     stock_daily_ready: bool = False,
     suspend_ready: bool = False,
     identity_map_ready: bool = False,
-    namechange_ready: bool = False,
     silver_ready: bool = False,
     silver_has_materialized_check_problem: bool = False,
 ) -> StockMinsSilverUpdateDecision:
@@ -127,8 +125,6 @@ def build_stock_mins_silver_update_decision(
         reason = "停复牌数据尚未 ready，暂不触发股票分钟线 silver 更新。"
     elif not identity_map_ready:
         reason = "股票身份映射尚未满足当日 freshness，暂不触发股票分钟线 silver 更新。"
-    elif not namechange_ready:
-        reason = "股票曾用名尚未满足当日 freshness，暂不触发股票分钟线 silver 更新。"
     elif silver_ready:
         reason = "最新股票分钟线 silver 交易日的五频度分区已经 ready。"
     elif silver_has_materialized_check_problem:
@@ -185,7 +181,6 @@ def _cursor_payload(
     stock_daily_status: DatasetReadinessStatus | None = None,
     suspend_status: DatasetReadinessStatus | None = None,
     identity_map_status: AssetReadinessStatus | None = None,
-    namechange_status: AssetReadinessStatus | None = None,
     silver_status: DatasetReadinessStatus | None = None,
     continuity_status: StockMinsContinuityStatus | None = None,
 ) -> str:
@@ -200,7 +195,6 @@ def _cursor_payload(
         blocked_count += _not_ready_count(stock_daily_status)
         blocked_count += _not_ready_count(suspend_status)
         blocked_count += 0 if identity_map_status is None or identity_map_status.ready else 1
-        blocked_count += 0 if namechange_status is None or namechange_status.ready else 1
         blocked_count += _not_ready_count(silver_status)
         if continuity_status is not None and continuity_status.first_missing_registered_date:
             blocked_count += 1
@@ -235,7 +229,6 @@ def _cursor_payload(
             ),
             "suspend_status": status_payload(suspend_status) if suspend_status else None,
             "identity_map_status": _asset_status_payload(identity_map_status),
-            "namechange_status": _asset_status_payload(namechange_status),
             "silver_status": status_payload(silver_status) if silver_status else None,
             "continuity_status": (
                 continuity_status.to_cursor_details()
@@ -306,7 +299,6 @@ def stock_mins_silver_sensor(context: dg.SensorEvaluationContext) -> dg.SensorRe
     stock_daily_status = None
     suspend_status = None
     identity_map_status = None
-    namechange_status = None
     if continuity_status.first_missing_registered_date is not None:
         decision = StockMinsSilverUpdateDecision(
             target_trade_date=target_trade_date,
@@ -357,10 +349,6 @@ def stock_mins_silver_sensor(context: dg.SensorEvaluationContext) -> dg.SensorRe
             context.instance,
             selected_trade_date,
         )
-        namechange_status = silver_namechange_ready_for_trade_date(
-            context.instance,
-            selected_trade_date,
-        )
 
         decision = build_stock_mins_silver_update_decision(
             target_trade_date=selected_trade_date,
@@ -369,7 +357,6 @@ def stock_mins_silver_sensor(context: dg.SensorEvaluationContext) -> dg.SensorRe
             stock_daily_ready=stock_daily_status.ready if stock_daily_status else False,
             suspend_ready=suspend_status.ready if suspend_status else False,
             identity_map_ready=identity_map_status.ready if identity_map_status else False,
-            namechange_ready=namechange_status.ready if namechange_status else False,
             silver_ready=silver_status.ready if silver_status else False,
             silver_has_materialized_check_problem=(
                 _has_materialized_check_problem(silver_status) if silver_status else False
@@ -383,7 +370,6 @@ def stock_mins_silver_sensor(context: dg.SensorEvaluationContext) -> dg.SensorRe
         stock_daily_status=stock_daily_status,
         suspend_status=suspend_status,
         identity_map_status=identity_map_status,
-        namechange_status=namechange_status,
         silver_status=silver_status,
         continuity_status=continuity_status,
     )

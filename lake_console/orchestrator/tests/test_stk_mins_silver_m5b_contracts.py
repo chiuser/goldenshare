@@ -7,10 +7,9 @@ from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
+    raw_stock_basic_path,
     raw_stk_mins_path,
-    silver_namechange_path,
     silver_stk_mins_path,
-    silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_identity_map_path,
     silver_stock_suspend_daily_path,
@@ -222,33 +221,39 @@ def _write_suspend(
     return path
 
 
-def _write_stock_basic(lake_root: Path, codes: tuple[str, ...]) -> Path:
-    path = silver_stock_basic_path(lake_root)
-    rows = [{"ts_code": code, "name": f"name-{code}"} for code in codes]
-    _write_rows(
-        path,
-        column_types={"ts_code": "VARCHAR", "name": "VARCHAR"},
-        rows=rows,
-        order_by="ts_code",
-    )
-    return path
+def _raw_basic_row(
+    ts_code: str,
+    *,
+    list_status: str = "L",
+    list_date: str = "20000101",
+    delist_date: str | None = None,
+    curr_type: str = "CNY",
+) -> dict[str, object]:
+    return {
+        "ts_code": ts_code,
+        "curr_type": curr_type,
+        "list_status": list_status,
+        "list_date": list_date,
+        "delist_date": delist_date,
+    }
 
 
-def _write_namechange(
+def _write_raw_stock_basic(
     lake_root: Path,
-    rows: list[dict[str, object]] | None = None,
+    rows: list[dict[str, object]],
 ) -> Path:
-    path = silver_namechange_path(lake_root)
+    path = raw_stock_basic_path(lake_root)
     _write_rows(
         path,
         column_types={
             "ts_code": "VARCHAR",
-            "name": "VARCHAR",
-            "start_date": "DATE",
-            "end_date": "DATE",
+            "curr_type": "VARCHAR",
+            "list_status": "VARCHAR",
+            "list_date": "VARCHAR",
+            "delist_date": "VARCHAR",
         },
-        rows=rows or [],
-        order_by="ts_code, start_date",
+        rows=rows,
+        order_by="ts_code",
     )
     return path
 
@@ -259,15 +264,19 @@ def _write_common_inputs(
     *,
     identity_rows: list[dict[str, object]],
     daily_codes: tuple[str, ...],
-    basic_codes: tuple[str, ...] | None = None,
     suspend_rows: list[dict[str, object]] | None = None,
-    namechange_rows: list[dict[str, object]] | None = None,
+    lifecycle_codes: tuple[str, ...] | None = None,
+    lifecycle_rows: list[dict[str, object]] | None = None,
 ) -> None:
     _write_identity_map(lake_root, identity_rows)
     _write_stock_daily(lake_root, partition_key, daily_codes)
     _write_suspend(lake_root, partition_key, rows=suspend_rows)
-    _write_stock_basic(lake_root, basic_codes or daily_codes)
-    _write_namechange(lake_root, namechange_rows)
+    _write_raw_stock_basic(
+        lake_root,
+        lifecycle_rows
+        if lifecycle_rows is not None
+        else [_raw_basic_row(code) for code in (lifecycle_codes or daily_codes)],
+    )
 
 
 def _write_silver_for_check(
@@ -414,6 +423,33 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             self.assertEqual(normalized["amount"], 0.0)
             self.assertNotIn("source_ts_code", rows[0])
             self.assertNotIn("vwap", rows[0])
+
+    def test_silver_writer_does_not_require_namechange_or_silver_stock_basic(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_raw(
+                lake_root,
+                1,
+                PARTITION_KEY,
+                [_raw_row("600000.SH", "2014-06-03 09:30:00")],
+            )
+            _write_common_inputs(
+                lake_root,
+                PARTITION_KEY,
+                identity_rows=[_identity_row("600000.SH")],
+                daily_codes=("600000.SH",),
+            )
+
+            result = stk_mins.write_silver_stk_mins_partition(
+                lake_root=lake_root,
+                duckdb=DuckDBResource(),
+                freq=1,
+                partition_key=PARTITION_KEY,
+            )
+
+            self.assertEqual(result.row_count, 1)
 
     def test_non_correction_date_does_not_load_price_correction_catalog(self) -> None:
         partition_key = "2026-05-29"
@@ -733,6 +769,115 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                 with self.subTest(check_helper=check_helper.__name__):
                     self.assertTrue(check_helper(**resources).passed)
 
+    def test_name_timeline_check_uses_raw_lifecycle_for_delisted_stock(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            partition_key = "2026-04-13"
+            _write_silver_for_check(
+                lake_root,
+                partition_key,
+                [
+                    _silver_row(
+                        "000638.SZ",
+                        partition_key=partition_key,
+                        trade_time="2026-04-13 09:30:00",
+                        exchange="SZSE",
+                    )
+                ],
+            )
+            _write_raw_stock_basic(
+                lake_root,
+                [
+                    _raw_basic_row(
+                        "000638.SZ",
+                        list_status="D",
+                        list_date="19961126",
+                        delist_date="20260413",
+                    )
+                ],
+            )
+
+            result = stk_mins_checks._silver_name_timeline_covered(
+                context=_CheckContext(partition_key),
+                lake_root=_LakeRoot(lake_root),
+                duckdb=DuckDBResource(),
+                freq=1,
+            )
+
+            self.assertTrue(result.passed)
+            self.assertEqual(
+                result.metadata["goldenshare/lifecycle_fact_source"].text,
+                "raw_stock_basic",
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/checked_code_date_count"].value,
+                1,
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/failed_code_date_count"].value,
+                0,
+            )
+
+    def test_name_timeline_check_fails_outside_raw_lifecycle(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            partition_key = "2026-04-14"
+            _write_silver_for_check(
+                lake_root,
+                partition_key,
+                [
+                    _silver_row(
+                        "000638.SZ",
+                        partition_key=partition_key,
+                        trade_time="2026-04-14 09:30:00",
+                        exchange="SZSE",
+                    )
+                ],
+            )
+            _write_raw_stock_basic(
+                lake_root,
+                [
+                    _raw_basic_row(
+                        "000638.SZ",
+                        list_status="D",
+                        list_date="19961126",
+                        delist_date="20260413",
+                    )
+                ],
+            )
+
+            result = stk_mins_checks._silver_name_timeline_covered(
+                context=_CheckContext(partition_key),
+                lake_root=_LakeRoot(lake_root),
+                duckdb=DuckDBResource(),
+                freq=1,
+            )
+
+            self.assertFalse(result.passed)
+            self.assertEqual(
+                result.metadata["goldenshare/checked_code_date_count"].value,
+                1,
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/failed_code_date_count"].value,
+                1,
+            )
+
+    def test_name_timeline_check_fails_when_raw_stock_basic_missing(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_silver_for_check(lake_root, PARTITION_KEY, [_silver_row()])
+
+            result = stk_mins_checks._silver_name_timeline_covered(
+                context=_CheckContext(),
+                lake_root=_LakeRoot(lake_root),
+                duckdb=DuckDBResource(),
+                freq=1,
+            )
+
+            self.assertFalse(result.passed)
+            self.assertTrue(result.metadata["goldenshare/missing_input_file"])
+
     def test_silver_check_helpers_fail_for_core_bad_cases(self) -> None:
         bad_cases = (
             (
@@ -773,7 +918,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     _write_silver_for_check(lake_root, PARTITION_KEY, rows)
                     suspend_rows = []
                     daily_codes = ("600000.SH",)
-                    basic_codes = ("600000.SH",)
+                    lifecycle_codes = ("600000.SH",)
                     if case_name == "suspend":
                         suspend_rows = [
                             {
@@ -788,7 +933,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                         PARTITION_KEY,
                         identity_rows=[_identity_row("600000.SH")],
                         daily_codes=daily_codes,
-                        basic_codes=basic_codes,
+                        lifecycle_codes=lifecycle_codes,
                         suspend_rows=suspend_rows,
                     )
                     result = check_helper(

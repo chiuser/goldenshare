@@ -491,10 +491,10 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
           <tr>
             <td><code>sensors/stock_mins_silver_trade_day_sensor.py</code></td>
             <td>
-              当前注册 silver 分区前会检查 raw、stock daily、suspend、identity map、namechange。
+              P3 前注册 silver 分区前会检查 raw、stock daily、suspend、identity map、namechange。
             </td>
             <td>
-              后续移除 namechange 硬 gate；raw、stock daily、suspend、identity map 仍只查 selected date。
+              P3 已移除 namechange 硬 gate；raw、stock daily、suspend、identity map 仍只查 selected date。
             </td>
           </tr>
           <tr>
@@ -700,14 +700,15 @@ FROM lifecycle_failures;</code></pre>
         <li><code>silver_stk_mins_name_timeline_covered</code></li>
       </ul>
       <div class="warning">
-        <code>silver_stk_mins_name_timeline_covered</code> 当前语义需要重构。它现在混用了“股票是否是合法历史身份”和“名称变更时间线是否覆盖”：
-        对退市但在生命周期内仍有合法历史行情的股票，例如 <code>000638.SZ</code>，current-listed-only 的 <code>silver_stock_basic</code> 必然无法兜底，
-        而 <code>silver_namechange</code> 又不是股票历史身份全集。实现时不得把退市股票伪造成 namechange 记录。
+        P3 已完成语义收口：<code>silver_stk_mins_name_timeline_covered</code> 继续保留原 check 名称，
+        但内部生命周期判断已改为使用 <code>raw_stock_basic</code> 历史生命周期事实。
+        <code>silver_namechange</code> 只解释真实名称变更，current-listed-only 的 <code>silver_stock_basic</code> 只保留当前上市快照语义；
+        二者都不再承担 silver 分钟线股票历史身份全集职责，也不得为了退市历史股票伪造记录或扩大当前池。
       </div>
 
       <h3>8.2 Silver 分钟线直接依赖收口</h3>
       <p>
-        P0 已拍板：silver 分钟线本身不再直接硬依赖 <code>silver_namechange</code>，
+        P0 已拍板、P3 已落地：silver 分钟线本身不再直接硬依赖 <code>silver_namechange</code>，
         也不再直接要求未被计算使用的 <code>silver_stock_basic</code> 文件存在。
         这不是删除 namechange 或 stock basic 数据集，而是把它们从 silver 分钟线直接执行链路中移出去。
       </p>
@@ -715,7 +716,7 @@ FROM lifecycle_failures;</code></pre>
         <thead>
           <tr>
             <th>位置</th>
-            <th>后续实现口径</th>
+            <th>当前落地口径</th>
             <th>保留边界</th>
           </tr>
         </thead>
@@ -746,8 +747,8 @@ FROM lifecycle_failures;</code></pre>
       <h3>8.3 <code>silver_stk_mins_name_timeline_covered</code> 语义收敛</h3>
       <p>
         不新增、不改名 check。为了不破坏历史 check event、readiness helper 和现有 job/check selection，
-        继续保留 <code>silver_stk_mins_name_timeline_covered</code> 这个 check key，但重构其内部 SQL 语义。
-        新语义必须拆成三层，不能再让 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 承担股票历史身份全集职责。
+        继续保留 <code>silver_stk_mins_name_timeline_covered</code> 这个 check key，但 P3 已重构其内部 SQL 语义。
+        当前正式语义拆成三层，不能再让 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 承担股票历史身份全集职责。
       </p>
       <table>
         <thead>
@@ -802,7 +803,7 @@ FROM lifecycle_failures;</code></pre>
       <ul>
         <li>先枚举 <code>silver_stk_mins_path(lake_root, freq, trade_date)</code>。</li>
         <li>文件存在和 row count 只作为粗筛。</li>
-        <li>完整语义必须复用或重构现有 check 背后的 SQL 规则；其中 <code>_silver_name_timeline_covered</code> 必须拆清股票生命周期身份合法性与名称时间线解释。</li>
+        <li>完整语义必须复用或重构现有 check 背后的 SQL 规则；P3 已将 <code>_silver_name_timeline_covered</code> 的正式判断收敛为股票生命周期身份合法性，名称时间线解释不再作为该 check 的 blocking 条件。</li>
         <li>股票生命周期身份合法性：对 <code>silver_stk_mins</code> 中的 <code>ts_code + trade_date</code>，使用 <code>raw_stock_basic_path(lake_root)</code> 读取包含退市股票的历史股票生命周期事实，要求 <code>trade_date &gt;= list_date</code> 且 <code>trade_date &lt;= delist_date OR delist_date IS NULL</code>。</li>
         <li>名称时间线解释：<code>silver_namechange</code> 只解释真实名称变更，不承担股票是否合法存在的判断；没有 namechange 不等于非法。</li>
         <li>current-listed-only 的 <code>silver_stock_basic</code> 口径不变，不能为了退市股票补进去；退市历史身份应来自包含 <code>list_status='D'</code> 的历史股票事实。</li>
@@ -812,7 +813,7 @@ FROM lifecycle_failures;</code></pre>
       </ul>
 
       <h3>8.6 生命周期 SQL 骨架</h3>
-      <p>实现时应把下列语义抽取成可被正式 check 与 batch lake readiness 共同复用的 SQL 片段，避免两套规则漂移。</p>
+      <p>P3 已将下列生命周期语义落入正式 check；后续 P1 batch lake readiness 接入时应复用同一语义，避免两套规则漂移。</p>
       <pre><code>WITH silver_mins AS (
     SELECT DISTINCT
         ts_code,
@@ -856,9 +857,9 @@ FROM lifecycle_failures;</code></pre>
       </p>
 
       <div class="danger">
-        本次 profiling 已证明 <code>000638.SZ</code> 这类合法退市历史股票会被当前 name timeline check 误报：五频度文件都有行数，且最后交易日之前的历史行情合法。
-        实现时必须有负向测试证明 row count 全部大于 0 仍可能 not ready。
-        也必须有正向测试证明 <code>list_status='D'</code> 且交易日在生命周期内的股票不会因为缺少 <code>silver_namechange</code> 记录而失败。
+        profiling 已证明 <code>000638.SZ</code> 这类合法退市历史股票会被旧 name timeline 语义误报：五频度文件都有行数，且最后交易日之前的历史行情合法。
+        P3 已补测试证明 row count 全部大于 0 仍可能因为生命周期失败而 not ready，
+        也证明 <code>list_status='D'</code> 且交易日在生命周期内的股票不会因为缺少 <code>silver_namechange</code> 记录而失败。
       </div>
     </section>
 
@@ -1188,10 +1189,10 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P3</td>
-            <td>silver 完整性 check 语义与直接依赖清理</td>
+            <td>silver 完整性 check 语义与直接依赖清理（已完成）</td>
             <td>
-              更新 <code>silver_stk_mins_name_timeline_covered</code> 内部语义；
-              从两个 silver 分钟线 sensor、五个 <code>silver_stk_mins_*</code> asset deps、
+              已更新 <code>silver_stk_mins_name_timeline_covered</code> 内部语义；
+              已从两个 silver 分钟线 sensor、五个 <code>silver_stk_mins_*</code> asset deps、
               <code>write_silver_stk_mins_partition(...)</code> input requirements 中移除直接
               <code>silver_namechange</code> / 未使用 <code>silver_stock_basic</code> 硬依赖。
             </td>
@@ -1357,10 +1358,10 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>silver 分钟线是否继续硬依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code></td>
-            <td>已拍板：退出直接硬依赖。</td>
+            <td>已拍板且 P3 已落地：退出直接硬依赖。</td>
             <td>
-              两个 silver 分钟线 sensor 后续移除 <code>silver_namechange_ready_for_trade_date(...)</code> 硬 gate；
-              五个 <code>silver_stk_mins_*</code> asset deps 与 writer input requirements 移除直接
+              两个 silver 分钟线 sensor 已移除 <code>silver_namechange_ready_for_trade_date(...)</code> 硬 gate；
+              五个 <code>silver_stk_mins_*</code> asset deps 与 writer input requirements 已移除直接
               <code>silver_namechange</code> / 未被计算使用的 <code>silver_stock_basic</code>。
               <code>silver_namechange_ready_for_trade_date(...)</code> 继续服务 namechange 自身和 identity map 链路。
             </td>
@@ -1369,7 +1370,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
             <td><code>silver_stock_daily</code> 是否继续 current-listed-only</td>
             <td>已拍板：纳入本专项，改为历史生命周期口径。</td>
             <td>
-              <code>silver_stock_daily_select(...)</code> 后续使用 <code>raw_stock_basic</code> 生命周期事实；
+              <code>silver_stock_daily_select(...)</code> 已使用 <code>raw_stock_basic</code> 生命周期事实；
               新增 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
               旧 <code>silver_stock_daily_current_listed_only</code> 退出正式 blocking/readiness 口径。
             </td>
