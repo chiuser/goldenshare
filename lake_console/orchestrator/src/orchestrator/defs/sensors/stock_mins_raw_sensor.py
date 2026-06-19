@@ -7,6 +7,11 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
     load_stock_mins_expected_trade_dates,
     select_first_not_ready_trade_date,
 )
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+    StkMinsBatchReadiness,
+    StkMinsDateReadiness,
+    batch_raw_stk_mins_lake_readiness,
+)
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
@@ -21,11 +26,13 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
-from orchestrator.defs.run_contracts.stk_mins import STK_MINS_RAW_HISTORY_START_DATE
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_CONTINUITY_WINDOW_LIMIT,
+    STK_MINS_RAW_HISTORY_START_DATE,
+)
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    raw_stk_mins_ready_for_trade_date,
     status_payload,
     stock_basic_ready_for_trade_date,
 )
@@ -49,7 +56,9 @@ def _load_stock_mins_raw_expected_trade_dates(
     lake_root.ensure_available_for_run()
     calendar_path = silver_trade_calendar_path(lake_root.root())
     if not calendar_path.exists():
-        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
+        raise FileNotFoundError(
+            f"silver_trade_calendar file is missing: {calendar_path}"
+        )
 
     with duckdb_resource.connect() as connection:
         return load_stock_mins_expected_trade_dates(
@@ -73,11 +82,25 @@ def _target_trade_date_from_continuity_status(
     )
 
 
-def _has_materialized_check_problem(status: DatasetReadinessStatus) -> bool:
+def _has_materialized_check_problem(
+    status: DatasetReadinessStatus | StkMinsDateReadiness,
+) -> bool:
+    if isinstance(status, StkMinsDateReadiness):
+        return status.materialized and not status.checks_passed
     return any(
         asset_status.materialized and not asset_status.checks_passed
         for asset_status in status.statuses
     )
+
+
+def _raw_status_payload(
+    status: DatasetReadinessStatus | StkMinsDateReadiness | None,
+) -> list[dict[str, object]] | dict[str, object] | None:
+    if status is None:
+        return None
+    if isinstance(status, StkMinsDateReadiness):
+        return status.to_cursor_details()
+    return status_payload(status)
 
 
 def _cursor_payload(
@@ -88,9 +111,10 @@ def _cursor_payload(
     selected_trade_date: str | None,
     reason: str,
     source_window_started: bool,
-    raw_status: DatasetReadinessStatus | None = None,
+    raw_status: DatasetReadinessStatus | StkMinsDateReadiness | None = None,
     stock_basic_status: DatasetReadinessStatus | None = None,
     continuity_status: StockMinsContinuityStatus | None = None,
+    raw_batch_status: StkMinsBatchReadiness | None = None,
     blocked_fallback: int = 0,
 ) -> str:
     decision = (
@@ -101,12 +125,22 @@ def _cursor_payload(
     blocked_count = 0
     if not selected_trade_date:
         if raw_status is not None and not raw_status.ready:
-            blocked_count = len(
-                [asset_status for asset_status in raw_status.statuses if not asset_status.ready]
-            )
+            if isinstance(raw_status, StkMinsDateReadiness):
+                blocked_count = max(1, len(raw_status.failed_check_names))
+            else:
+                blocked_count = len(
+                    [
+                        asset_status
+                        for asset_status in raw_status.statuses
+                        if not asset_status.ready
+                    ]
+                )
         elif stock_basic_status is not None and not stock_basic_status.ready:
             blocked_count = 1
-        elif continuity_status is not None and continuity_status.first_missing_registered_date:
+        elif (
+            continuity_status is not None
+            and continuity_status.first_missing_registered_date
+        ):
             blocked_count = max(
                 1,
                 continuity_status.expected_count - continuity_status.registered_count,
@@ -131,7 +165,19 @@ def _cursor_payload(
             "job_name": STOCK_MINS_RAW_SENSOR_JOB_NAME,
             "source_window_started": source_window_started,
             "stock_basic_freshness_required": True,
-            "raw_status": status_payload(raw_status) if raw_status else None,
+            "raw_status": _raw_status_payload(raw_status),
+            "raw_batch_status": (
+                {
+                    "dataset": raw_batch_status.dataset,
+                    "expected_start_date": raw_batch_status.expected_start_date,
+                    "expected_end_date": raw_batch_status.expected_end_date,
+                    "expected_count": raw_batch_status.expected_count,
+                    "freq_count": raw_batch_status.freq_count,
+                    "elapsed_ms": raw_batch_status.elapsed_ms,
+                }
+                if raw_batch_status is not None
+                else None
+            ),
             "stock_basic_status": (
                 status_payload(stock_basic_status) if stock_basic_status else None
             ),
@@ -180,21 +226,39 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
             )
         )
     )
+    window_trade_dates = expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+    raw_batch_status: StkMinsBatchReadiness | None = None
+
+    def _batch_raw_status_for_trade_date(trade_date: str) -> StkMinsDateReadiness:
+        nonlocal raw_batch_status
+        if raw_batch_status is None:
+            lake_root = context.resources.lake_root
+            duckdb_resource = context.resources.duckdb
+            with duckdb_resource.connect() as connection:
+                raw_batch_status = batch_raw_stk_mins_lake_readiness(
+                    connection=connection,
+                    lake_root=lake_root.root(),
+                    expected_trade_dates=window_trade_dates,
+                    registered_trade_days=registered_trade_days,
+                    full_semantics=True,
+                )
+        return raw_batch_status.status_for_trade_date(trade_date)
+
     selection = select_first_not_ready_trade_date(
         partition_set_name=cn_a_stock_mins_trade_days.name,
-        expected_trade_dates=expected_trade_dates,
+        expected_trade_dates=window_trade_dates,
         registered_trade_days=registered_trade_days,
-        readiness_for_trade_date=lambda trade_date: raw_stk_mins_ready_for_trade_date(
-            context.instance,
-            trade_date,
-        ),
+        readiness_for_trade_date=_batch_raw_status_for_trade_date,
         has_materialized_check_problem=_has_materialized_check_problem,
     )
     continuity_status = selection.status
     target_trade_date = _target_trade_date_from_continuity_status(continuity_status)
     raw_status = (
         selection.selected_status
-        if isinstance(selection.selected_status, DatasetReadinessStatus)
+        if isinstance(
+            selection.selected_status,
+            DatasetReadinessStatus | StkMinsDateReadiness,
+        )
         else None
     )
 
@@ -212,6 +276,7 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
             reason=reason,
             source_window_started=source_window_started,
             continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -226,6 +291,7 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
             source_window_started=source_window_started,
             raw_status=raw_status,
             continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
             blocked_fallback=1,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
@@ -247,6 +313,7 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
             source_window_started=source_window_started,
             raw_status=raw_status,
             continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -267,6 +334,7 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
             raw_status=raw_status,
             stock_basic_status=stock_basic_status,
             continuity_status=continuity_status,
+            raw_batch_status=raw_batch_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -281,6 +349,7 @@ def stock_mins_raw_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResul
         raw_status=raw_status,
         stock_basic_status=stock_basic_status,
         continuity_status=continuity_status,
+        raw_batch_status=raw_batch_status,
     )
     return dg.SensorResult(
         run_requests=[_run_request_for_trade_date(selected_trade_date)],

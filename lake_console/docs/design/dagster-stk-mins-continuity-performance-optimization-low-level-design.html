@@ -435,8 +435,11 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
           </tr>
           <tr>
             <td><code>asset_guards/stk_mins_lake_readiness.py</code></td>
-            <td>拟新增无状态 helper 文件。</td>
-            <td>封装 raw/silver batch lake readiness。它不是新实体，不写 lake，不写 Dagster，只返回内存状态。</td>
+            <td>P4 已新增无状态 helper 文件。</td>
+            <td>
+              当前已封装 raw batch lake readiness；silver/qfq 后续阶段继续扩展。
+              它不是新实体，不写 lake，不写 Dagster，只返回内存状态。
+            </td>
           </tr>
           <tr>
             <td><code>checks/stk_mins_checks.py</code></td>
@@ -1205,15 +1208,18 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P4</td>
-            <td>raw sensor 热路径优化</td>
+            <td>raw sensor 热路径优化（已完成）</td>
             <td>
-              <code>stock_mins_raw_sensor.py</code> 接入 P1 batch readiness；
+              <code>stock_mins_raw_sensor.py</code> 已接入 raw-only batch lake readiness；
+              P1 core 最小切片落在
+              <code>asset_guards/stk_mins_lake_readiness.py</code>；
               保持 run key、run config、cursor 主字段不变。
             </td>
             <td>
               06-15 raw 未 ready 时不提交 06-16；
               已 materialized 但 checks 未绿时仍不自动重跑；
-              sensor tick 耗时有真实统计。
+              sensor tick 耗时有真实统计；本地目标测试
+              <code>94 passed in 1.79s</code>。
             </td>
             <td>发现必须改 raw run key/config，或必须读取正式 Dagster runtime 才能判断。</td>
           </tr>

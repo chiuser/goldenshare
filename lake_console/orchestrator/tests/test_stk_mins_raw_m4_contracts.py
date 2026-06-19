@@ -12,6 +12,10 @@ import dagster as dg
 import duckdb
 
 from orchestrator.defs.assets import stk_mins
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+    StkMinsBatchReadiness,
+    StkMinsDateReadiness,
+)
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.duckdb_sql import duckdb_string
@@ -202,6 +206,40 @@ def _raw_stk_mins_sensor_status(
                 reason=reason,
             ),
         ),
+    )
+
+
+def _raw_stk_mins_lake_status(
+    *,
+    ready: bool,
+    materialized: bool = False,
+    checks_passed: bool = False,
+    reason: str = "raw_stk_mins_1m has no materialization",
+) -> StkMinsDateReadiness:
+    return StkMinsDateReadiness(
+        trade_date=PARTITION_KEY,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        failed_check_names=(
+            () if ready else ("raw_stk_mins_file_exists_and_row_count_positive",)
+        ),
+        missing_file_paths=(),
+        expected_file_count=5,
+        existing_file_count=5 if materialized else 0,
+    )
+
+
+def _raw_stk_mins_batch_status(status: StkMinsDateReadiness) -> StkMinsBatchReadiness:
+    return StkMinsBatchReadiness(
+        dataset="raw_stk_mins",
+        expected_start_date=PARTITION_KEY,
+        expected_end_date=PARTITION_KEY,
+        expected_count=1,
+        freq_count=5,
+        elapsed_ms=1.0,
+        statuses_by_trade_date={PARTITION_KEY: status},
     )
 
 
@@ -1185,15 +1223,15 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self,
     ) -> None:
         context = _StockMinsRawSensorContext()
-        raw_status = _raw_stk_mins_sensor_status(ready=False)
+        raw_status = _raw_stk_mins_lake_status(ready=False)
         stock_basic_status = _stock_basic_sensor_status(ready=True)
         with patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
             _AfterRawWindowDateTime,
         ), patch(
-            "orchestrator.defs.sensors.stock_mins_raw_sensor.raw_stk_mins_ready_for_trade_date",
-            return_value=raw_status,
-        ) as raw_ready_mock, patch(
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_stk_mins_batch_status(raw_status),
+        ) as raw_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_for_trade_date",
             return_value=stock_basic_status,
         ) as stock_basic_ready_mock, patch(
@@ -1209,7 +1247,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             request.run_key,
             f"stock_mins_raw_update_from_prod:{PARTITION_KEY}",
         )
-        raw_ready_mock.assert_called_once_with(context.instance, PARTITION_KEY)
+        raw_batch_mock.assert_called_once()
         stock_basic_ready_mock.assert_called_once_with(context.instance, PARTITION_KEY)
         stock_basic_without_freshness_mock.assert_not_called()
         self.assertFalse(
@@ -1221,7 +1259,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
 
     def test_stock_mins_raw_sensor_skips_when_stock_basic_not_fresh(self) -> None:
         context = _StockMinsRawSensorContext()
-        raw_status = _raw_stk_mins_sensor_status(ready=False)
+        raw_status = _raw_stk_mins_lake_status(ready=False)
         stock_basic_status = _stock_basic_sensor_status(
             ready=False,
             freshness_passed=False,
@@ -1234,8 +1272,8 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.stock_mins_raw_sensor.datetime",
             _AfterRawWindowDateTime,
         ), patch(
-            "orchestrator.defs.sensors.stock_mins_raw_sensor.raw_stk_mins_ready_for_trade_date",
-            return_value=raw_status,
+            "orchestrator.defs.sensors.stock_mins_raw_sensor.batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_stk_mins_batch_status(raw_status),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_raw_sensor.stock_basic_ready_for_trade_date",
             return_value=stock_basic_status,

@@ -610,9 +610,16 @@
           </tr>
           <tr>
             <td>P4</td>
-            <td>raw sensor 接入</td>
-            <td><code>stock_mins_raw_sensor</code> 使用 coarse frontier + full frontier，不再逐日调 <code>raw_stk_mins_ready_for_trade_date</code>。</td>
-            <td>当前 2026-06-17 缺口可在 1 秒内定位；run key / config 不变。</td>
+            <td>raw sensor 接入（已完成）</td>
+            <td>
+              <code>stock_mins_raw_sensor</code> 已接入 raw-only batch lake readiness；
+              60 天 continuity readiness 不再逐日调 <code>raw_stk_mins_ready_for_trade_date</code>。
+            </td>
+            <td>
+              run key / config 不变；本地目标回归
+              <code>tests/test_stk_mins_lake_readiness.py</code> 等 5 组测试
+              <code>94 passed in 1.79s</code>。
+            </td>
           </tr>
           <tr>
             <td>P5</td>

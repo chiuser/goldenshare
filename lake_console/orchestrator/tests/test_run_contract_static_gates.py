@@ -729,6 +729,38 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_raw_sensor_uses_batch_lake_readiness(self) -> None:
+        path = SENSORS_DIR / "stock_mins_raw_sensor.py"
+        source = path.read_text()
+        issues = []
+
+        required_fragments = (
+            "batch_raw_stk_mins_lake_readiness",
+            "StkMinsBatchReadiness",
+            "build_run_request",
+            "build_asset_update_run_key",
+        )
+        forbidden_fragments = (
+            "raw_stk_mins_ready_for_trade_date",
+            "dg.RunRequest(",
+            "RunRequest(",
+            "run_key=f",
+            "run_key=(",
+            ".split(",
+        )
+        issues.extend(
+            f"{path} misses required raw sensor batch readiness fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source
+        )
+        issues.extend(
+            f"{path} contains forbidden raw sensor hot-path fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_stock_mins_silver_sensors_do_not_gate_on_namechange(self) -> None:
         issues = []
         for path in (
