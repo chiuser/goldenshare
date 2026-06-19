@@ -307,11 +307,11 @@ SILVER_STOCK_DAILY_CHECKS = (
     "silver_stock_daily_bj_after_market_open_only",
     "silver_stock_daily_conflicting_duplicate_absent",
     "silver_stock_daily_covers_expected_tradable_universe",
-    "silver_stock_daily_current_listed_only",
     "silver_stock_daily_partition_date_matches",
     "silver_stock_daily_price_sanity",
     "silver_stock_daily_required_columns_non_null",
     "silver_stock_daily_row_count_positive",
+    "silver_stock_daily_stock_lifecycle_covered",
     "silver_stock_daily_stock_partition_key_allowed",
     "silver_stock_daily_unique_ts_code_trade_date",
 )

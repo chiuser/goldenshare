@@ -642,6 +642,7 @@ class StkMinsBatchReadiness:
         <li>保留现有 CNY、上市日期、北交所开市日期等交易规则；生命周期口径只替换股票全集来源，不放宽交易数据质量规则。</li>
         <li>新增正式 blocking check 名称固定为 <code>silver_stock_daily_stock_lifecycle_covered</code>。</li>
         <li>旧 <code>silver_stock_daily_current_listed_only</code> 从正式 blocking/readiness 口径退出；可以作为历史背景或迁移前事实出现，不能继续阻断正式链路。</li>
+        <li><code>silver_stock_basic</code> freshness guard 保留为基础资产新鲜度保险，但它不再作为 <code>silver_stock_daily</code> 股票全集过滤事实源。</li>
       </ul>
 
       <h3>7.3 SQL 语义骨架</h3>
@@ -1176,6 +1177,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
               更新 <code>silver_stock_daily_select(...)</code>；
               新增 <code>silver_stock_daily_stock_lifecycle_covered</code>；
               从正式 blocking/readiness specs 中移除 <code>silver_stock_daily_current_listed_only</code>；
+              保留 <code>silver_stock_basic</code> freshness guard 的基础资产新鲜度保险角色；
               审计 stock daily 下游消费者。
             </td>
             <td>

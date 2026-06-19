@@ -8,7 +8,7 @@ from orchestrator.defs.asset_guards.stock_daily import (
     assert_silver_stock_basic_fresh_for_stock_daily,
 )
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.assets.stock_basic import raw_tushare_stock_basic, silver_stock_basic
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
@@ -16,8 +16,8 @@ from orchestrator.defs.duckdb_sql import (
     STOCK_DAILY_MIN_TRADE_DATE,
     copy_query_to_parquet,
     count_parquet_query,
-    current_cny_stock_basic_select,
     describe_parquet_query,
+    historical_cny_stock_lifecycle_select,
     silver_stock_daily_select,
     stock_daily_normalized_select,
 )
@@ -26,6 +26,7 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
+    raw_stock_basic_path,
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
@@ -267,7 +268,7 @@ def _duplicate_sample_rows(connection, raw_path: Path) -> list[dict[str, Any]]:
 def _silver_filter_counts(
     connection,
     raw_path: Path,
-    basic_path: Path,
+    raw_basic_path: Path,
 ) -> dict[str, int]:
     normalized_sql = stock_daily_normalized_select(raw_path)
     row = connection.execute(
@@ -279,18 +280,17 @@ def _silver_filter_counts(
           SELECT DISTINCT *
           FROM normalized
         ),
-        current_listed AS (
-          SELECT DISTINCT ts_code, list_date
-          FROM ({current_cny_stock_basic_select(basic_path)}) stock_basic
+        stock_lifecycle AS (
+          {historical_cny_stock_lifecycle_select(raw_basic_path)}
         ),
-        after_current_listed AS (
-          SELECT deduped.*, current_listed.list_date
+        after_lifecycle_code_match AS (
+          SELECT deduped.*, stock_lifecycle.list_date, stock_lifecycle.delist_date
           FROM deduped
-          INNER JOIN current_listed USING (ts_code)
+          INNER JOIN stock_lifecycle USING (ts_code)
         ),
         after_min_trade_date AS (
           SELECT *
-          FROM after_current_listed
+          FROM after_lifecycle_code_match
           WHERE trade_date >= DATE '{STOCK_DAILY_MIN_TRADE_DATE}'
         ),
         after_list_date AS (
@@ -298,43 +298,54 @@ def _silver_filter_counts(
           FROM after_min_trade_date
           WHERE trade_date >= list_date
         ),
-        after_bj_market_open_date AS (
+        after_delist_date AS (
           SELECT *
           FROM after_list_date
+          WHERE delist_date IS NULL
+             OR trade_date <= delist_date
+        ),
+        after_bj_market_open_date AS (
+          SELECT *
+          FROM after_delist_date
           WHERE NOT ends_with(ts_code, '.BJ')
              OR trade_date >= DATE '{BJ_MARKET_OPEN_DATE}'
         )
         SELECT
           (SELECT count(*) FROM normalized) AS raw_normalized_row_count,
           (SELECT count(*) FROM deduped) AS deduped_row_count,
-          (SELECT count(*) FROM after_current_listed) AS after_current_listed_count,
+          (SELECT count(*) FROM after_lifecycle_code_match) AS after_lifecycle_code_match_count,
           (SELECT count(*) FROM after_min_trade_date) AS after_min_trade_date_count,
           (SELECT count(*) FROM after_list_date) AS after_list_date_count,
+          (SELECT count(*) FROM after_delist_date) AS after_delist_date_count,
           (SELECT count(*) FROM after_bj_market_open_date) AS final_silver_row_count
         """
     ).fetchone()
     (
         raw_normalized_row_count,
         deduped_row_count,
-        after_current_listed_count,
+        after_lifecycle_code_match_count,
         after_min_trade_date_count,
         after_list_date_count,
+        after_delist_date_count,
         final_silver_row_count,
     ) = row
     return {
         "raw_normalized_row_count": int(raw_normalized_row_count),
         "deduped_row_count": int(deduped_row_count),
-        "filtered_out_not_current_listed_count": int(
-            deduped_row_count - after_current_listed_count
+        "filtered_out_without_lifecycle_count": int(
+            deduped_row_count - after_lifecycle_code_match_count
         ),
         "filtered_out_before_2014_count": int(
-            after_current_listed_count - after_min_trade_date_count
+            after_lifecycle_code_match_count - after_min_trade_date_count
         ),
         "filtered_out_before_list_date_count": int(
             after_min_trade_date_count - after_list_date_count
         ),
+        "filtered_out_after_delist_date_count": int(
+            after_list_date_count - after_delist_date_count
+        ),
         "filtered_out_bj_before_market_open_count": int(
-            after_list_date_count - final_silver_row_count
+            after_delist_date_count - final_silver_row_count
         ),
         "final_silver_row_count": int(final_silver_row_count),
     }
@@ -420,7 +431,12 @@ def raw_tushare_stock_daily(
 
 @dg.asset(
     name="silver_stock_daily",
-    deps=[raw_tushare_stock_daily, silver_stock_basic, silver_stock_suspend_daily],
+    deps=[
+        raw_tushare_stock_daily,
+        raw_tushare_stock_basic,
+        silver_stock_basic,
+        silver_stock_suspend_daily,
+    ],
     partitions_def=cn_a_stock_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
@@ -434,12 +450,14 @@ def raw_tushare_stock_daily(
         ),
         extra_metadata={
             "filter_policy": (
-                "Keep current listed stocks only; keep rows on/after list_date; "
+                "Keep CNY stocks whose trade_date falls within raw_stock_basic "
+                "list_date/delist_date lifecycle; keep rows on/after 2014-01-01; "
                 "keep BJ stocks only on/after 2021-11-15; raw remains source mirror."
             ),
             "upstream_ready_policy": (
-                "silver_stock_basic and silver_stock_suspend_daily partition must exist before "
-                "silver_stock_daily is produced; suspend facts are read-only prerequisites."
+                "raw_tushare_stock_basic, silver_stock_basic freshness guard, and "
+                "silver_stock_suspend_daily partition must be ready before silver_stock_daily "
+                "is produced; suspend facts are read-only prerequisites."
             ),
         },
     ),
@@ -453,11 +471,14 @@ def silver_stock_daily(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     raw_path = raw_stock_daily_path(lake_root.root(), partition_key)
+    raw_basic_path = raw_stock_basic_path(lake_root.root())
     basic_path = silver_stock_basic_path(lake_root.root())
     suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
     target_path = silver_stock_daily_path(lake_root.root(), partition_key)
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock daily file: {raw_path}")
+    if not raw_basic_path.exists():
+        raise FileNotFoundError(f"Missing raw stock basic file: {raw_basic_path}")
     if not basic_path.exists():
         raise FileNotFoundError(f"Missing silver stock basic file: {basic_path}")
     if not suspend_path.exists():
@@ -490,11 +511,11 @@ def silver_stock_daily(
         duplicate_removed_count = _duplicate_removed_count(connection, raw_path)
         duplicate_key_count = _duplicate_key_count(connection, raw_path)
         duplicate_sample_rows = _duplicate_sample_rows(connection, raw_path)
-        filter_counts = _silver_filter_counts(connection, raw_path, basic_path)
+        filter_counts = _silver_filter_counts(connection, raw_path, raw_basic_path)
 
         _replace_parquet_from_query(
             connection,
-            silver_stock_daily_select(raw_path, basic_path),
+            silver_stock_daily_select(raw_path, raw_basic_path),
             target_path,
         )
         columns = _column_names(connection, target_path, hive_partitioning=False)
@@ -507,6 +528,7 @@ def silver_stock_daily(
             observed_columns=columns,
             extra_metadata={
                 "raw_file_path": str(raw_path),
+                "raw_stock_basic_file_path": str(raw_basic_path),
                 "stock_basic_file_path": str(basic_path),
                 "stock_suspend_daily_file_path": str(suspend_path),
                 "partition_key": partition_key,

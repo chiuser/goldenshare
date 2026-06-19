@@ -4,18 +4,29 @@ from tempfile import TemporaryDirectory
 
 from orchestrator.defs.checks import stock_daily_checks
 from orchestrator.defs.assets.stock_daily import STOCK_DAILY_RAW_COLUMN_TYPES
+from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, silver_stock_daily_select
 from orchestrator.defs.paths import (
+    raw_stock_basic_path,
     raw_stock_daily_path,
     silver_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.sensors import readiness
 
 
 PARTITION_KEY = "2026-05-29"
+
+
+class _PartitionContext:
+    def __init__(self, partition_key: str) -> None:
+        self.partition_key = partition_key
+
+
+def _check_function(check_definition):
+    return check_definition.node_def.compute_fn.decorated_fn
 
 
 def _write_rows(
@@ -67,6 +78,23 @@ def _basic_row(
         "curr_type": curr_type,
         "list_status": list_status,
         "list_date": list_date,
+    }
+
+
+def _raw_basic_row(
+    ts_code: str,
+    *,
+    curr_type: str = "CNY",
+    list_status: str = "L",
+    list_date: str = "20200101",
+    delist_date: str | None = None,
+) -> dict[str, object]:
+    return {
+        "ts_code": ts_code,
+        "curr_type": curr_type,
+        "list_status": list_status,
+        "list_date": list_date,
+        "delist_date": delist_date,
     }
 
 
@@ -154,6 +182,23 @@ def _write_basic(lake_root: Path, rows: list[dict[str, object]]) -> Path:
     return path
 
 
+def _write_raw_basic(lake_root: Path, rows: list[dict[str, object]]) -> Path:
+    path = raw_stock_basic_path(lake_root)
+    _write_rows(
+        path,
+        column_types={
+            "ts_code": "VARCHAR",
+            "curr_type": "VARCHAR",
+            "list_status": "VARCHAR",
+            "list_date": "VARCHAR",
+            "delist_date": "VARCHAR",
+        },
+        rows=rows,
+        order_by="ts_code",
+    )
+    return path
+
+
 def _write_suspend(lake_root: Path, rows: list[dict[str, object]]) -> Path:
     path = silver_stock_suspend_daily_path(lake_root, PARTITION_KEY)
     _write_rows(
@@ -185,7 +230,10 @@ def _raw_universe_metadata(
             connection,
             partition_key=PARTITION_KEY,
             daily_path=raw_path,
-            basic_path=basic_path,
+            stock_lifecycle_path=basic_path,
+            stock_lifecycle_sql=(
+                stock_daily_checks._current_cny_stock_lifecycle_select(basic_path)
+            ),
             suspend_path=suspend_path,
             daily_code_set_sql=stock_daily_checks._raw_daily_code_set_sql(
                 raw_path, PARTITION_KEY
@@ -201,14 +249,17 @@ def _silver_universe_metadata(
     silver_rows: list[dict[str, object]],
 ) -> dict[str, object]:
     silver_path = _write_silver(lake_root, silver_rows)
-    basic_path = _write_basic(lake_root, basic_rows)
+    basic_path = _write_raw_basic(lake_root, basic_rows)
     suspend_path = _write_suspend(lake_root, suspend_rows)
     with DuckDBResource().connect() as connection:
         return stock_daily_checks._expected_tradable_universe_metadata(
             connection,
             partition_key=PARTITION_KEY,
             daily_path=silver_path,
-            basic_path=basic_path,
+            stock_lifecycle_path=basic_path,
+            stock_lifecycle_sql=(
+                stock_daily_checks.historical_cny_stock_lifecycle_select(basic_path)
+            ),
             suspend_path=suspend_path,
             daily_code_set_sql=stock_daily_checks._silver_daily_code_set_sql(
                 silver_path, PARTITION_KEY
@@ -225,6 +276,26 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertNotIn(
             "silver_stock_daily_row_count_matches_expected_tradable_count",
             readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
+
+    def test_silver_stock_daily_lifecycle_check_replaces_current_listed_gate(
+        self,
+    ) -> None:
+        self.assertIn(
+            "silver_stock_daily_stock_lifecycle_covered",
+            readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
+        self.assertNotIn(
+            "silver_stock_daily_current_listed_only",
+            readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
+        self.assertIn(
+            "silver_stock_daily_stock_lifecycle_covered",
+            SILVER_STOCK_DAILY_CHECKS,
+        )
+        self.assertNotIn(
+            "silver_stock_daily_current_listed_only",
+            SILVER_STOCK_DAILY_CHECKS,
         )
 
     def test_raw_universe_complete_excludes_full_day_suspend(self) -> None:
@@ -339,9 +410,9 @@ class StockDailyRawCheckTests(unittest.TestCase):
             metadata = _silver_universe_metadata(
                 Path(directory),
                 basic_rows=[
-                    _basic_row("000001.SZ"),
-                    _basic_row("000002.SZ"),
-                    _basic_row("000003.SZ"),
+                    _raw_basic_row("000001.SZ"),
+                    _raw_basic_row("000002.SZ"),
+                    _raw_basic_row("000003.SZ"),
                 ],
                 suspend_rows=[_suspend_row("000003.SZ")],
                 silver_rows=[_silver_row("000001.SZ"), _silver_row("000002.SZ")],
@@ -359,9 +430,9 @@ class StockDailyRawCheckTests(unittest.TestCase):
             metadata = _silver_universe_metadata(
                 Path(directory),
                 basic_rows=[
-                    _basic_row("000001.SZ"),
-                    _basic_row("200011.SZ", curr_type="HKD"),
-                    _basic_row("900901.SH", curr_type="USD"),
+                    _raw_basic_row("000001.SZ"),
+                    _raw_basic_row("200011.SZ", curr_type="HKD"),
+                    _raw_basic_row("900901.SH", curr_type="USD"),
                 ],
                 suspend_rows=[],
                 silver_rows=[_silver_row("000001.SZ")],
@@ -377,12 +448,12 @@ class StockDailyRawCheckTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             raw_path = raw_stock_daily_path(lake_root, PARTITION_KEY)
-            basic_path = _write_basic(
+            basic_path = _write_raw_basic(
                 lake_root,
                 [
-                    _basic_row("000001.SZ"),
-                    _basic_row("200011.SZ", curr_type="HKD"),
-                    _basic_row("900901.SH", curr_type="USD"),
+                    _raw_basic_row("000001.SZ"),
+                    _raw_basic_row("200011.SZ", curr_type="HKD"),
+                    _raw_basic_row("900901.SH", curr_type="USD"),
                 ],
             )
             _write_rows(
@@ -406,11 +477,100 @@ class StockDailyRawCheckTests(unittest.TestCase):
 
         self.assertEqual([row[0] for row in rows], ["000001.SZ"])
 
+    def test_silver_select_keeps_delisted_stock_within_raw_lifecycle(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            raw_path = raw_stock_daily_path(lake_root, PARTITION_KEY)
+            basic_path = _write_raw_basic(
+                lake_root,
+                [
+                    _raw_basic_row(
+                        "000638.SZ",
+                        list_status="D",
+                        list_date="19961126",
+                        delist_date="20260603",
+                    )
+                ],
+            )
+            _write_rows(
+                raw_path,
+                column_types=dict(STOCK_DAILY_RAW_COLUMN_TYPES),
+                rows=[_full_raw_row("000638.SZ")],
+                order_by="ts_code, trade_date",
+            )
+            with DuckDBResource().connect() as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT ts_code
+                    FROM ({silver_stock_daily_select(raw_path, basic_path)})
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+
+        self.assertEqual([row[0] for row in rows], ["000638.SZ"])
+
+    def test_silver_select_excludes_stock_after_raw_lifecycle(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            raw_path = raw_stock_daily_path(lake_root, PARTITION_KEY)
+            basic_path = _write_raw_basic(
+                lake_root,
+                [
+                    _raw_basic_row(
+                        "000638.SZ",
+                        list_status="D",
+                        list_date="19961126",
+                        delist_date="20260501",
+                    )
+                ],
+            )
+            _write_rows(
+                raw_path,
+                column_types=dict(STOCK_DAILY_RAW_COLUMN_TYPES),
+                rows=[_full_raw_row("000638.SZ")],
+                order_by="ts_code, trade_date",
+            )
+            with DuckDBResource().connect() as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT ts_code
+                    FROM ({silver_stock_daily_select(raw_path, basic_path)})
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+
+        self.assertEqual(rows, [])
+
+    def test_silver_lifecycle_check_reports_out_of_lifecycle_rows(self) -> None:
+        with TemporaryDirectory() as directory:
+            lake_root = Path(directory)
+            _write_raw_basic(
+                lake_root,
+                [
+                    _raw_basic_row(
+                        "000638.SZ",
+                        list_status="D",
+                        list_date="19961126",
+                        delist_date="20260501",
+                    )
+                ],
+            )
+            _write_silver(lake_root, [_silver_row("000638.SZ")])
+            result = _check_function(
+                stock_daily_checks.silver_stock_daily_stock_lifecycle_covered
+            )(
+                _PartitionContext(PARTITION_KEY),
+                LakeRootResource(root_path=str(lake_root)),
+                DuckDBResource(),
+            )
+
+        self.assertFalse(result.passed)
+
     def test_silver_universe_reports_missing_expected_code(self) -> None:
         with TemporaryDirectory() as directory:
             metadata = _silver_universe_metadata(
                 Path(directory),
-                basic_rows=[_basic_row("000001.SZ"), _basic_row("000002.SZ")],
+                basic_rows=[_raw_basic_row("000001.SZ"), _raw_basic_row("000002.SZ")],
                 suspend_rows=[],
                 silver_rows=[_silver_row("000001.SZ")],
             )
@@ -424,7 +584,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             metadata = _silver_universe_metadata(
                 Path(directory),
-                basic_rows=[_basic_row("000001.SZ")],
+                basic_rows=[_raw_basic_row("000001.SZ")],
                 suspend_rows=[],
                 silver_rows=[_silver_row("000001.SZ"), _silver_row("000999.SZ")],
             )
@@ -438,7 +598,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             metadata = _silver_universe_metadata(
                 Path(directory),
-                basic_rows=[_basic_row("000001.SZ"), _basic_row("000002.SZ")],
+                basic_rows=[_raw_basic_row("000001.SZ"), _raw_basic_row("000002.SZ")],
                 suspend_rows=[_suspend_row("000002.SZ")],
                 silver_rows=[_silver_row("000001.SZ")],
             )
@@ -451,7 +611,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             metadata = _silver_universe_metadata(
                 Path(directory),
-                basic_rows=[_basic_row("000001.SZ"), _basic_row("000002.SZ")],
+                basic_rows=[_raw_basic_row("000001.SZ"), _raw_basic_row("000002.SZ")],
                 suspend_rows=[_suspend_row("000002.SZ", suspend_timing="10:00-15:00")],
                 silver_rows=[_silver_row("000001.SZ")],
             )

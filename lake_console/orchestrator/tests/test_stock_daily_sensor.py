@@ -169,6 +169,14 @@ class StockDailySensorTests(unittest.TestCase):
             "silver_stock_daily_unique_ts_code_trade_date",
             SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
+        self.assertIn(
+            "silver_stock_daily_stock_lifecycle_covered",
+            SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
+        self.assertNotIn(
+            "silver_stock_daily_current_listed_only",
+            SILVER_STOCK_DAILY_BLOCKING_CHECKS,
+        )
 
     def test_raw_sensor_submits_full_day_run_when_raw_missing_and_gates_ready(
         self,

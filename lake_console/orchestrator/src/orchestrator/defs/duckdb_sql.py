@@ -365,7 +365,28 @@ WHERE list_status = 'L'
 """
 
 
-def silver_stock_daily_select(raw_path: Path, silver_stock_basic_path: Path) -> str:
+def historical_cny_stock_lifecycle_select(raw_stock_basic_path: Path) -> str:
+    return f"""
+SELECT DISTINCT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CASE
+    WHEN list_date IS NULL OR trim(CAST(list_date AS VARCHAR)) = '' THEN NULL
+    ELSE CAST(strptime(CAST(list_date AS VARCHAR), '%Y%m%d') AS DATE)
+  END AS list_date,
+  CASE
+    WHEN delist_date IS NULL OR trim(CAST(delist_date AS VARCHAR)) = '' THEN NULL
+    ELSE CAST(strptime(CAST(delist_date AS VARCHAR), '%Y%m%d') AS DATE)
+  END AS delist_date
+FROM {read_parquet(raw_stock_basic_path, hive_partitioning=False)}
+WHERE curr_type = {duckdb_string(CNY_STOCK_CURR_TYPE)}
+  AND ts_code IS NOT NULL
+  AND trim(CAST(ts_code AS VARCHAR)) != ''
+  AND list_date IS NOT NULL
+  AND trim(CAST(list_date AS VARCHAR)) != ''
+"""
+
+
+def silver_stock_daily_select(raw_path: Path, raw_stock_basic_path: Path) -> str:
     return f"""
 WITH normalized AS (
   {stock_daily_normalized_select(raw_path)}
@@ -374,15 +395,18 @@ deduped AS (
   SELECT DISTINCT *
   FROM normalized
 ),
-current_listed AS (
-  SELECT DISTINCT ts_code, list_date
-  FROM ({current_cny_stock_basic_select(silver_stock_basic_path)}) stock_basic
+stock_lifecycle AS (
+  {historical_cny_stock_lifecycle_select(raw_stock_basic_path)}
 )
 SELECT deduped.*
 FROM deduped
-INNER JOIN current_listed USING (ts_code)
+INNER JOIN stock_lifecycle USING (ts_code)
 WHERE deduped.trade_date >= DATE {duckdb_string(STOCK_DAILY_MIN_TRADE_DATE)}
-  AND deduped.trade_date >= current_listed.list_date
+  AND deduped.trade_date >= stock_lifecycle.list_date
+  AND (
+    stock_lifecycle.delist_date IS NULL
+    OR deduped.trade_date <= stock_lifecycle.delist_date
+  )
   AND (
     NOT ends_with(deduped.ts_code, '.BJ')
     OR deduped.trade_date >= DATE {duckdb_string(BJ_MARKET_OPEN_DATE)}

@@ -14,6 +14,7 @@ from orchestrator.defs.assets.stock_daily import (
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
+    raw_stock_basic_path,
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
@@ -162,6 +163,29 @@ def _write_basic(lake_root: Path, ts_code: str = "000001.SZ") -> None:
     )
 
 
+def _write_raw_basic(lake_root: Path, ts_code: str = "000001.SZ") -> None:
+    _write_rows(
+        raw_stock_basic_path(lake_root),
+        column_types={
+            "ts_code": "VARCHAR",
+            "curr_type": "VARCHAR",
+            "list_status": "VARCHAR",
+            "list_date": "VARCHAR",
+            "delist_date": "VARCHAR",
+        },
+        rows=[
+            {
+                "ts_code": ts_code,
+                "curr_type": "CNY",
+                "list_status": "L",
+                "list_date": "20200101",
+                "delist_date": None,
+            }
+        ],
+        order_by="ts_code",
+    )
+
+
 def _write_suspend(lake_root: Path) -> None:
     _write_rows(
         silver_stock_suspend_daily_path(lake_root, PARTITION_KEY),
@@ -291,6 +315,7 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_raw(lake_root)
+            _write_raw_basic(lake_root)
             _write_basic(lake_root)
             _write_suspend(lake_root)
             target_path = silver_stock_daily_path(lake_root, PARTITION_KEY)
@@ -316,6 +341,7 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_raw(lake_root)
+            _write_raw_basic(lake_root)
             _write_basic(lake_root)
             _write_suspend(lake_root)
             _write_existing_silver_target(lake_root)
@@ -340,6 +366,7 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_raw(lake_root)
+            _write_raw_basic(lake_root)
             _write_basic(lake_root)
             _write_suspend(lake_root)
             target_path = silver_stock_daily_path(lake_root, PARTITION_KEY)
