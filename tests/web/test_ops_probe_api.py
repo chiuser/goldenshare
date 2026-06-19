@@ -304,10 +304,10 @@ def test_stk_mins_remote_probe_builds_sample_request_from_resolver(db_session, p
         def __init__(self, session):
             del session
 
-        def get_latest_open_date(self, exchange, business_date):
+        def fetch_by_pk(self, exchange, business_date):
             del exchange
             del business_date
-            return date(2026, 5, 29)
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
 
     class FakeDAOFactory:
         def __init__(self, session):
@@ -369,15 +369,110 @@ def test_stk_mins_remote_probe_builds_sample_request_from_resolver(db_session, p
     ]
 
 
+def test_stk_mins_remote_probe_skips_closed_business_date(
+    db_session,
+    probe_rule_factory,
+    trade_calendar_factory,
+    monkeypatch,
+) -> None:
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 18), is_open=True)
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 19), is_open=False, pretrade_date=date(2026, 6, 18))
+    connector_calls: list[dict] = []
+
+    def create_connector(_source_key):
+        connector_calls.append({"source_key": _source_key})
+        raise AssertionError("closed business date must not call Tushare")
+
+    monkeypatch.setattr("src.ops.services.stk_mins_remote_probe_service.create_source_connector", create_connector)
+    rule = probe_rule_factory(
+        dataset_key="stk_mins",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION, "exchange": "SSE"},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "stk_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": "600000.SH", "freq": ["1min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = StkMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 6, 19, 9, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.message == "2026-06-19 非交易日，已跳过源站分钟行情探测"
+    assert result.payload["business_date"] == "2026-06-19"
+    assert result.payload["is_open"] is False
+    assert result.payload["pretrade_date"] == "2026-06-18"
+    assert result.payload["latest_open_date"] is None
+    assert result.payload["sample_request_count"] == 0
+    assert result.payload["checked_freqs"] == []
+    assert result.payload["matched_freqs"] == []
+    assert result.payload["sample_codes"] == []
+    assert connector_calls == []
+
+
+def test_stk_mins_remote_probe_skips_missing_business_calendar(
+    db_session,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    connector_calls: list[dict] = []
+
+    def create_connector(_source_key):
+        connector_calls.append({"source_key": _source_key})
+        raise AssertionError("missing business calendar must not call Tushare")
+
+    monkeypatch.setattr("src.ops.services.stk_mins_remote_probe_service.create_source_connector", create_connector)
+    rule = probe_rule_factory(
+        dataset_key="stk_mins",
+        source_key=None,
+        probe_condition_json={"type": STK_MINS_REMOTE_READY_CONDITION, "exchange": "SSE"},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "stk_mins.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": "600000.SH", "freq": ["1min"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = StkMinsRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 6, 19, 9, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.message == "交易日历缺少 2026-06-19 记录，已跳过源站分钟行情探测"
+    assert result.payload["business_date"] == "2026-06-19"
+    assert result.payload["is_open"] is None
+    assert result.payload["pretrade_date"] is None
+    assert result.payload["latest_open_date"] is None
+    assert result.payload["sample_request_count"] == 0
+    assert result.payload["checked_freqs"] == []
+    assert result.payload["matched_freqs"] == []
+    assert result.payload["sample_codes"] == []
+    assert connector_calls == []
+
+
 def test_stk_mins_remote_probe_requires_all_selected_freqs(db_session, probe_rule_factory, monkeypatch) -> None:
     class FakeTradeCalendarDAO:
         def __init__(self, session):
             del session
 
-        def get_latest_open_date(self, exchange, business_date):
+        def fetch_by_pk(self, exchange, business_date):
             del exchange
             del business_date
-            return date(2026, 5, 29)
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
 
     class FakeDAOFactory:
         def __init__(self, session):

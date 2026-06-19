@@ -42,21 +42,25 @@ class StkMinsRemoteReadinessProbeService:
         self._validate_rule(rule)
         business_date = current.astimezone(ZoneInfo("Asia/Shanghai")).date()
         exchange = str((rule.probe_condition_json or {}).get("exchange") or get_settings().default_exchange)
-        latest_open_date = TradeCalendarDAO(session).get_latest_open_date(exchange, business_date)
-        if latest_open_date is None:
-            return StkMinsRemoteReadinessProbeResult(
-                matched=False,
-                message="交易日历没有可用的最近开市日",
-                payload={
-                    "dataset_key": STK_MINS_DATASET_KEY,
-                    "condition_type": STK_MINS_REMOTE_READY_CONDITION,
-                    "latest_open_date": None,
-                    "checked_freqs": [],
-                    "matched_freqs": [],
-                    "sample_request_count": 0,
-                    "sample_codes": [],
-                },
+        trade_calendar_dao = TradeCalendarDAO(session)
+        business_day = trade_calendar_dao.fetch_by_pk(exchange, business_date)
+        if business_day is None:
+            message = f"交易日历缺少 {business_date.isoformat()} 记录，已跳过源站分钟行情探测"
+            return self._non_trading_day_result(
+                message=message,
+                business_date=business_date,
+                is_open=None,
+                pretrade_date=None,
             )
+        if business_day.is_open is not True:
+            message = f"{business_date.isoformat()} 非交易日，已跳过源站分钟行情探测"
+            return self._non_trading_day_result(
+                message=message,
+                business_date=business_date,
+                is_open=False,
+                pretrade_date=business_day.pretrade_date,
+            )
+        latest_open_date = business_date
 
         action = dict(rule.on_success_action_json or {})
         request = dict(action.get("request") or {})
@@ -123,6 +127,33 @@ class StkMinsRemoteReadinessProbeService:
             sample_request_count=sample_request_count,
             sample_codes=sample_codes,
             sample_hits=sample_hits,
+        )
+
+    @staticmethod
+    def _non_trading_day_result(
+        *,
+        message: str,
+        business_date: date,
+        is_open: bool | None,
+        pretrade_date: date | None,
+    ) -> StkMinsRemoteReadinessProbeResult:
+        return StkMinsRemoteReadinessProbeResult(
+            matched=False,
+            message=message,
+            payload={
+                "dataset_key": STK_MINS_DATASET_KEY,
+                "condition_type": STK_MINS_REMOTE_READY_CONDITION,
+                "business_date": business_date.isoformat(),
+                "is_open": is_open,
+                "pretrade_date": pretrade_date.isoformat() if pretrade_date else None,
+                "latest_open_date": None,
+                "checked_freqs": [],
+                "matched_freqs": [],
+                "sample_request_count": 0,
+                "sample_codes": [],
+                "sample_hits": [],
+                "message": message,
+            },
         )
 
     def _build_sample_unit(
