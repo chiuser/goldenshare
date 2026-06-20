@@ -560,13 +560,15 @@ ETF_SERIES_ACTIVE_RESOURCES = frozenset({"fund_daily", "etf_rt_daily", "etf_sh_c
 新增 resource-specific 校验：
 
 - `resource == "etf_sh_cons"` 时，只允许 `.SH`。
+- `resource == "etf_sh_cons"` 时，不做固定行数校验，只要求 seed CSV 非空、`ts_code` 唯一、日期字段合法。
 - `fund_daily / etf_rt_daily` 维持现有口径，不在本轮改动。
 
 注意：
 
 - `ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS = 1395` 是现有 seed CSV 的固定行数。
-- `etf_sh_cons` 的 seed CSV 来自已验证可用代码报告，行数约 803。
-- 因此 seed service 必须把 expected row count 改成按 resource 判断，不能继续对所有 resource 强制 1395。
+- 该固定行数只适用于 `fund_daily / etf_rt_daily` 当前 seed 文件。
+- `etf_sh_cons` 的 seed CSV 来自可用代码验证报告，但 ETF 激活池是运营可调整对象池，行数不能写死在代码里。
+- 因此 seed service 必须把行数校验改成按 resource 判断：旧资源继续固定 `1395`，`etf_sh_cons` 不固定行数。
 
 建议实现：
 
@@ -574,17 +576,19 @@ ETF_SERIES_ACTIVE_RESOURCES = frozenset({"fund_daily", "etf_rt_daily", "etf_sh_c
 ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS_BY_RESOURCE = {
     "fund_daily": 1395,
     "etf_rt_daily": 1395,
-    "etf_sh_cons": 803,
 }
 ```
 
-如果后续 seed CSV 行数变化，必须先重新生成验证报告再改这个值，不能静默放宽。
+`etf_sh_cons` 不进入 `ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS_BY_RESOURCE`。  
+如果后续 `etf_sh_cons` seed CSV 行数变化，不需要改代码；但必须保留对应的验证报告，证明这些 `.SH` ETF code 在源站可返回数据。
 
 测试：
 
 - `tests/test_cli_ops_seed_etf_series_active.py`：允许 `--resource etf_sh_cons`。
 - `tests/test_etf_series_active_dao.py`：resource 隔离仍成立。
-- 新增 seed service 单测：`.SZ/.OF` 在 `etf_sh_cons` 下失败，`.SH` 通过。
+- 新增 seed service 单测：`etf_sh_cons` 下 `.SH` 通过，`.SZ/.OF` 失败。
+- 新增 seed service 单测：`etf_sh_cons` 下非空、小批量 `.SH` seed 也能通过，证明不绑定固定 `803` 行。
+- 保留旧资源单测：`fund_daily / etf_rt_daily` 行数不等于 `1395` 时仍失败，证明旧口径没有被放宽。
 
 ## 13. Ops 可见性
 
@@ -632,6 +636,9 @@ DatasetCatalogItem("etf_sh_cons", "etf_fund", 40)
 新增测试：
 
 - `test_dataset_definition_projects_etf_sh_cons_raw_view_facts`
+- 同步更新现有 registry 总量断言：新增后数据集总数从 `73` 调整为 `74`。
+- 同步更新 universe policy 计数断言：新增后 `pool` 从 `8` 调整为 `9`，`no_pool` 维持 `65`。
+- 同步更新架构 guardrail 的 domain key 清单：`market_fund` 从 `fund_daily / fund_adj` 增加 `etf_sh_cons`。
 
 断言：
 
