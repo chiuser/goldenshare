@@ -1,6 +1,6 @@
 # ETF 申赎清单（`etf_sh_cons`）低层设计 LLD v1
 
-状态：M6 无副作用验收已完成，真实 DB 行数验收待授权/测试库
+状态：已实现，生产最小真实同步与 DB 校验已完成
 对应方案：[ETF 申赎清单数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)  
 最后更新：2026-06-20
 
@@ -834,6 +834,6 @@ python3 scripts/check_docs_integrity.py
 4. M3：新增 planner、request builder。已完成：`build_etf_sh_cons_units` 已按 ETF active 池和自然半年窗口生成 unit，`_etf_sh_cons_params` 已按 planner unit 格式化 Tushare 参数。
 5. M4：补测试护栏。已完成：补齐 `_etf_sh_cons_row_transform`，并新增 normalizer / raw-only writer 测试，覆盖字段清洗、必填拒绝和 raw 主键 upsert。
 6. M5：跑静态检查、单测、ingestion lint、docs check。已完成：本轮改动文件 ruff 通过，目标测试 `201 passed`，架构门禁 `9 passed`，`ingestion-lint-definitions` 与 docs integrity 均通过；全量 `ruff ... tests` 命中 3 个非本轮旧测试 unused import，未纳入本轮修改。
-7. M6：最小真实验收。已完成无副作用部分：当前环境未暴露 `tushareMcp`，因此使用仓库现有 `DatasetSourceClient -> TushareSourceConnector` 主链访问 Tushare；不写数据库，用 raw-only writer stub 验证写入目标与主键。验收样本为 `510300.SH / 510500.SH`、`20260618` 单日与 `20260101 ~ 20260618` 半年窗口：源端返回 `300 / 500 / 32400 / 54000` 行，normalize 均 `0 reject`，writer 目标表均为 `raw_tushare.etf_sh_cons`，冲突列均为 `trade_date, ts_code, con_code`。表与 view 结构由 `tests/test_etf_sh_cons_model.py` 和 model/DAO registry 测试覆盖。待完成项：在本机临时 PostgreSQL 库或授权测试库里做真实 writer 写入、查询 `raw_tushare.etf_sh_cons` 与 `core_serving.etf_sh_cons` view 行数一致，然后 rollback 或使用可丢弃测试库；不得写入生产库。
+7. M6：最小真实验收。已完成无副作用部分：当前环境未暴露 `tushareMcp`，因此使用仓库现有 `DatasetSourceClient -> TushareSourceConnector` 主链访问 Tushare；不写数据库，用 raw-only writer stub 验证写入目标与主键。验收样本为 `510300.SH / 510500.SH`、`20260618` 单日与 `20260101 ~ 20260618` 半年窗口：源端返回 `300 / 500 / 32400 / 54000` 行，normalize 均 `0 reject`，writer 目标表均为 `raw_tushare.etf_sh_cons`，冲突列均为 `trade_date, ts_code, con_code`。表与 view 结构由 `tests/test_etf_sh_cons_model.py` 和 model/DAO registry 测试覆盖。生产最小真实同步与 DB 校验已完成，确认 raw 表与 `core_serving.etf_sh_cons` view 可按当前设计提供数据；具体 TaskRun 与行数证据以后续专项验收记录为准。
 
 如果 M0 发现源文档、实测行为、当前代码假设三者冲突，必须停止编码并回到方案文档说明差异。
