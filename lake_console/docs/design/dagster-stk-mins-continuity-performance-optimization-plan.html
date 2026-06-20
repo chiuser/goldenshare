@@ -173,7 +173,7 @@
         优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P8A 已落地；P8B/P8C 当前无需执行，P9 待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P9 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
         <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
         <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
         <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
@@ -610,7 +610,7 @@
               <code>000638.SZ</code> 生命周期内通过；生命周期外样本失败；
               不能靠补 <code>silver_namechange</code> 伪造退市股票身份；
               namechange 自身与 identity map 链路不受影响。
-              P3 不包含 runless check event 补录；旧误报 event 仍按 P8A/P8B/P8C 单独审批。
+              P3 不包含 runless check event 补录；P8A 已完成正式只读 dry-run，真实待补数为 0，因此当前不进入 P8B/P8C 写 event 阶段。
             </td>
           </tr>
           <tr>
@@ -698,11 +698,13 @@
           </tr>
           <tr>
             <td>P9</td>
-            <td>最终文档与专项验收</td>
-            <td>更新方案、LLD、连续性治理文档；对账代码事实、性能数据、event 补录审计记录和测试结果。</td>
+            <td>最终文档与专项验收（已完成）</td>
+            <td>已更新方案、LLD、连续性治理文档；已对账代码事实、性能数据、event 补录审计记录和测试结果。</td>
             <td>
               文档不再保留旧性能方案、“修 silver_namechange / silver_stock_basic 补退市股票”、
               或 <code>silver_stock_daily</code> 继续 current-listed-only 阻断历史退市股票的错误口径。
+              本地 P9 目标测试 <code>140 passed in 10.72s</code>。
+              P9 未改生产 Python 代码，未运行 <code>dg</code>，未读取正式 Dagster instance。
             </td>
           </tr>
         </tbody>
@@ -715,7 +717,7 @@
         <li>不新增 status manifest、summary asset、readiness asset、数据库表或新的 Dagster definition。</li>
         <li>不修改 run key、run config、upstream_batch_id、completion metadata 口径。</li>
         <li>不把 row count 粗筛当作完整 ready。</li>
-        <li>不做全量 silver check event 重写；<code>000638.SZ</code> 历史 UI 红点只允许走最小范围 runless check event 补录。</li>
+        <li>不做全量 silver check event 重写；<code>000638.SZ</code> 历史 UI 红点只允许先走最小范围 runless check event dry-run。P8A 已证明当前真实待补数为 0，因此不写 event。</li>
         <li>不通过调大 Dagster sensor timeout 掩盖读取模型问题。</li>
         <li>不在本专项里处理 qfq factor repair status 的新持久化模型。</li>
         <li>不把 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 当股票历史生命周期事实源。</li>
@@ -813,12 +815,12 @@
           </tr>
           <tr>
             <td><code>000638.SZ</code> 旧误报 check event 是否补录</td>
-            <td>已拍板：可做最小范围 runless check event 补录。</td>
+            <td>当前结论：P8A dry-run 后无需补录。</td>
             <td>
-              只补 <code>000638.SZ</code> 对应的 <code>silver_stk_mins_name_timeline_covered</code>，
-              候选上限为 13460 条 <code>asset + check + partition</code> event。
-              正式写入前必须 dry-run 审计真实旧 failed event、目标 materialization 和新生命周期 SQL；
-              不允许扩大到其它股票、其它 check 或全量 silver checks。
+              P8A 只读审计范围为 <code>000638.SZ</code> 对应的 <code>silver_stk_mins_name_timeline_covered</code>，
+              候选上限 13460 条 <code>asset + check + partition</code> event。
+              真实结果为 latest passed 13460、旧 failed event 0、缺 materialization 0、planned new event 0。
+              后续只有重新 dry-run 发现 <code>planned_new_event_count &gt; 0</code> 时，才允许重新审批 sample / full 写 event。
             </td>
           </tr>
           <tr>

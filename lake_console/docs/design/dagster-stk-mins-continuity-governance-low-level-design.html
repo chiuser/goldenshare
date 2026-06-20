@@ -233,7 +233,7 @@
       dynamic partitions 和 readiness 只是运行状态；任何 expected date 缺注册、缺数据或 blocking checks 未绿时，下游不得推进后续日期。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>状态</strong>M1-M11 已完成；MACD/KDJ asset write、MACD/KDJ repair op 与最终验收已按本 LLD 收口。</div>
+      <div class="chip"><strong>状态</strong>M1-M11 已完成；性能优化专项 P0-P9 已完成；MACD/KDJ asset write、MACD/KDJ repair op 与最终验收已按本 LLD 收口。</div>
       <div class="chip"><strong>范围</strong>只覆盖股票分钟线 raw / silver / qfq / qfq factor repair / MACD-KDJ daily 与 repair。</div>
       <div class="chip"><strong>本轮动作</strong>按当前代码事实收敛 LLD；不运行 Dagster runtime，不读取正式 Dagster instance。</div>
       <div class="chip"><strong>文档位置</strong><code>lake_console/docs/design/</code></div>
@@ -1279,6 +1279,10 @@ rg -n "_target_trade_dates" \
         <tr>
           <td>文档对账</td>
           <td>连续性专项、MACD/KDJ 指标方案、股票分钟线资产设计、Dagster 数据系统架构与长期编码规范均已同步 M1-M11 当前代码事实。</td>
+        </tr>
+        <tr>
+          <td>性能专项补充验收</td>
+          <td>股票分钟线连续性性能优化 P0-P9 已完成；raw/silver/qfq sensor hot path 已通过 batch lake readiness 与 bounded metadata read 收口，P8A 只读 dry-run 证明 <code>000638.SZ</code> 相关 runless check event 真实待补数为 0，P8B/P8C 当前无需执行；P9 本地目标测试 <code>140 passed in 10.72s</code>。</td>
         </tr>
       </tbody>
     </table>

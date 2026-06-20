@@ -232,7 +232,7 @@
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P8A 已落地；P8B/P8C 当前无需执行，P9 待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P9 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
         <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
@@ -357,12 +357,12 @@
         禁止把 <code>delist_date</code> 误用为实际可交易日期边界。
       </div>
       <div class="warning">
-        已拍板：在新 check 语义落地后，允许单独执行最小范围 runless check event 补录，
-        只补 <code>000638.SZ</code> 相关的 <code>silver_stk_mins_name_timeline_covered</code> 旧误报分区。
+        已拍板的执行顺序是先做最小范围 runless check event dry-run，
+        范围只限 <code>000638.SZ</code> 相关的 <code>silver_stk_mins_name_timeline_covered</code> 旧误报分区。
         候选规模为 <code>2692</code> 个交易日 x <code>5</code> 个频度 = <code>13460</code> 条
         <code>asset + check + partition</code> check event。该数量不是分钟 bar 行数。
-        正式执行前仍必须只读审计 Dagster event history，确认真实需要补录的旧 failed event 集合和目标 materialization 存在性；
-        若真实待补集合与候选集合不一致，以 dry-run 审计结果为准，不得盲写 13460 条。
+        P8A 已完成正式只读审计，真实待补 <code>planned_new_event_count = 0</code>；
+        因此当前不执行 sample / full 写 event。后续只有重新 dry-run 发现真实待补大于 0 时，才允许重新审批写入阶段。
       </div>
     </section>
 
@@ -1047,9 +1047,13 @@ selection = select_first_not_ready_trade_date(
         <li>正式执行前必须列出完整命令、<code>DAGSTER_HOME</code>、读写范围、预计事件数、sample 范围和回滚/修正姿态，等待用户审批。</li>
       </ul>
 
-      <h3>12.3 补录实现口径</h3>
+      <h3>12.3 条件性补录实现口径</h3>
+      <p>
+        以下口径只在未来重新 dry-run 发现 <code>planned_new_event_count &gt; 0</code> 并单独审批后适用。
+        P8A 当前结论是待补数为 0，因此 P8B/P8C 不执行。
+      </p>
       <ul>
-        <li>使用专用 helper / CLI 走 <code>DagsterInstance.report_runless_asset_event(...)</code> 补 <code>AssetCheckEvaluation</code>。</li>
+        <li>若未来进入写入阶段，使用专用 helper / CLI 走 <code>DagsterInstance.report_runless_asset_event(...)</code> 补 <code>AssetCheckEvaluation</code>。</li>
         <li>每条 check event 必须使用同一个 check 名称 <code>silver_stk_mins_name_timeline_covered</code>，<code>passed=True</code>，<code>blocking=True</code>。</li>
         <li>每条 check event 必须带 <code>target_materialization_data</code>，绑定同 asset / 同 partition 的目标 materialization。</li>
         <li>metadata 必须写清：<code>source_correction_reason=000638_lifecycle_check_semantics_fix</code>、<code>ts_code=000638.SZ</code>、<code>lifecycle_fact_source=raw_stock_basic</code>、<code>checked_code_date_freq_count=1</code>、<code>failed_code_date_freq_count=0</code>。</li>
@@ -1340,17 +1344,19 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P9</td>
-            <td>最终文档与专项验收</td>
+            <td>最终文档与专项验收（已完成）</td>
             <td>
-              对账方案、LLD、连续性治理文档、编码规范相关门禁；
-              汇总性能数据、测试结果、event 补录审计记录。
+              已对账方案、LLD、连续性治理文档、编码规范相关门禁；
+              已汇总性能数据、测试结果、event 补录审计记录。
             </td>
             <td>
               文档不再保留旧性能方案；
               不再写“修 <code>silver_namechange</code> / <code>silver_stock_basic</code> 来补退市股票”；
               代码事实、测试事实和文档口径一致。
+              本地 P9 目标测试 <code>140 passed in 10.72s</code>。
+              P9 未改生产 Python 代码，未运行 <code>dg</code>，未读取正式 Dagster instance。
             </td>
-            <td>发现文档仍与代码事实冲突，且冲突不属于本专项范围。</td>
+            <td>已完成；如后续发现代码事实变化，必须同步回本 LLD。</td>
           </tr>
         </tbody>
       </table>
@@ -1396,11 +1402,12 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td><code>000638.SZ</code> 旧误报 check event 是否补录</td>
-            <td>已拍板：可做最小范围 runless check event 补录。</td>
+            <td>当前结论：P8A dry-run 后无需补录。</td>
             <td>
-              只补 <code>000638.SZ</code> 对应的 <code>silver_stk_mins_name_timeline_covered</code>，
-              候选上限为 13460 条 <code>asset + check + partition</code> event。
-              执行前必须 dry-run 审计真实旧 failed event、目标 materialization 和新生命周期 SQL，通过后再按 sample / full / final audit 执行。
+              P8A 只读审计只覆盖 <code>000638.SZ</code> 对应的 <code>silver_stk_mins_name_timeline_covered</code>，
+              候选上限 13460 条 <code>asset + check + partition</code> event。
+              真实结果为 latest passed 13460、旧 failed event 0、缺 materialization 0、planned new event 0。
+              因此当前不执行 sample / full；未来只有重新 dry-run 发现真实待补大于 0 时，才重新审批写入阶段。
             </td>
           </tr>
           <tr>

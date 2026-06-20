@@ -268,8 +268,8 @@
       都遵守同一个连续性契约：只要权威交易日历中存在未处理缺口，后续日期不得继续推进。
     </p>
     <div class="meta-grid">
-      <div class="chip"><strong>状态</strong>M1-M11 已完成；raw/silver/qfq、qfq factor repair、MACD/KDJ daily 与 repair 均已接入 expected calendar 连续性口径。</div>
-      <div class="chip"><strong>更新时间</strong>2026-06-18</div>
+      <div class="chip"><strong>状态</strong>M1-M11 已完成；性能优化专项 P0-P9 已完成；raw/silver/qfq、qfq factor repair、MACD/KDJ daily 与 repair 均已接入 expected calendar 连续性口径。</div>
+      <div class="chip"><strong>更新时间</strong>2026-06-20</div>
       <div class="chip"><strong>本轮动作</strong>按当前代码事实收敛文档；不执行 Dagster runtime，不读取正式 Dagster instance。</div>
       <div class="chip"><strong>文档归档</strong><code>lake_console/docs/design/</code></div>
     </div>
@@ -856,6 +856,10 @@
         <tr>
           <td>文档对账</td>
           <td>M9/M10 “未完成/剩余任务”旧口径已清理；历史背景、禁止项和测试样本保留时均明确为非当前正式口径。</td>
+        </tr>
+        <tr>
+          <td>性能专项补充验收</td>
+          <td>股票分钟线连续性性能优化 P0-P9 已完成；raw/silver/qfq sensor hot path 已收敛到 DuckDB batch lake readiness 与 bounded metadata read，P8A dry-run 证明 <code>000638.SZ</code> 旧误报 check event 当前真实待补数为 0，因此 P8B/P8C 未执行；P9 本地目标测试 <code>140 passed in 10.72s</code>。</td>
         </tr>
       </tbody>
     </table>
