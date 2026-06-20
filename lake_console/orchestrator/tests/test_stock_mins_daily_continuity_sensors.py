@@ -262,6 +262,107 @@ def _silver_batch_status(
     )
 
 
+def _lake_date_status(
+    *,
+    dataset: str,
+    trade_date: str,
+    ready: bool,
+    materialized: bool = False,
+    checks_passed: bool = False,
+    reason: str = "not ready",
+    expected_file_count: int = 1,
+) -> StkMinsDateReadiness:
+    return StkMinsDateReadiness(
+        trade_date=trade_date,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        failed_check_names=() if ready else (f"{dataset}_file_exists",),
+        missing_file_paths=(),
+        expected_file_count=expected_file_count,
+        existing_file_count=expected_file_count if materialized else 0,
+        checked_row_count=expected_file_count if materialized else 0,
+        failed_row_count=0 if ready else 1,
+    )
+
+
+def _adj_factor_date_status(
+    *,
+    trade_date: str,
+    ready: bool,
+    materialized: bool = False,
+    checks_passed: bool = False,
+    reason: str = "not ready",
+) -> StkMinsDateReadiness:
+    return _lake_date_status(
+        dataset="adj_factor",
+        trade_date=trade_date,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        expected_file_count=2,
+    )
+
+
+def _gold_qfq_date_status(
+    *,
+    trade_date: str,
+    ready: bool,
+    materialized: bool = False,
+    checks_passed: bool = False,
+    reason: str = "not ready",
+) -> StkMinsDateReadiness:
+    return _lake_date_status(
+        dataset="gold_stk_mins_qfq",
+        trade_date=trade_date,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        expected_file_count=7,
+    )
+
+
+def _batch_status(
+    *,
+    dataset: str,
+    freq_count: int,
+    statuses_by_trade_date: dict[str, StkMinsDateReadiness],
+) -> StkMinsBatchReadiness:
+    trade_dates = tuple(sorted(statuses_by_trade_date))
+    return StkMinsBatchReadiness(
+        dataset=dataset,
+        expected_start_date=trade_dates[0] if trade_dates else None,
+        expected_end_date=trade_dates[-1] if trade_dates else None,
+        expected_count=len(trade_dates),
+        freq_count=freq_count,
+        elapsed_ms=1.0,
+        statuses_by_trade_date=statuses_by_trade_date,
+    )
+
+
+def _adj_factor_batch_status(
+    statuses_by_trade_date: dict[str, StkMinsDateReadiness],
+) -> StkMinsBatchReadiness:
+    return _batch_status(
+        dataset="adj_factor",
+        freq_count=1,
+        statuses_by_trade_date=statuses_by_trade_date,
+    )
+
+
+def _gold_qfq_batch_status(
+    statuses_by_trade_date: dict[str, StkMinsDateReadiness],
+) -> StkMinsBatchReadiness:
+    return _batch_status(
+        dataset="gold_stk_mins_qfq",
+        freq_count=7,
+        statuses_by_trade_date=statuses_by_trade_date,
+    )
+
+
 def _asset_readiness_status(
     *,
     ready: bool,
@@ -1282,13 +1383,13 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch.object(
             qfq_daily_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-        ) as readiness_mock:
+            "batch_silver_stk_mins_lake_readiness",
+        ) as silver_batch_mock:
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("silver 交易日分区存在缺口", _skip_message(result))
-        readiness_mock.assert_not_called()
+        silver_batch_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
@@ -1299,31 +1400,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self,
     ) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
-
-        def fake_readiness(_instance, specs, *, partition_key):
-            if specs is qfq_daily_module.SILVER_STK_MINS_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    materialized=True,
-                    checks_passed=True,
-                    reason="ready",
-                    asset_key="silver_stk_mins_1m",
-                )
-            if specs is qfq_daily_module.ADJ_FACTOR_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    materialized=True,
-                    checks_passed=True,
-                    reason="ready",
-                    asset_key="silver_adj_factor",
-                )
-            return _dataset_status(
-                ready=partition_key == "2026-06-13",
-                materialized=partition_key == "2026-06-13",
-                checks_passed=partition_key == "2026-06-13",
-                reason="ready" if partition_key == "2026-06-13" else "gold missing",
-                asset_key="gold_stk_mins_qfq_1m",
-            )
+        trade_dates = ("2026-06-13", "2026-06-15", "2026-06-16")
 
         with patch.object(
             qfq_daily_module,
@@ -1332,29 +1409,73 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch.object(
             qfq_daily_module,
             "_load_stock_mins_qfq_expected_trade_dates",
-            return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
+            return_value=trade_dates,
         ), patch.object(
             qfq_daily_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            side_effect=fake_readiness,
-        ) as readiness_mock:
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    trade_date: _silver_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_adj_factor_lake_readiness",
+            return_value=_adj_factor_batch_status(
+                {
+                    trade_date: _adj_factor_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    "2026-06-13": _gold_qfq_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _gold_qfq_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="gold missing",
+                    ),
+                    "2026-06-16": _gold_qfq_date_status(
+                        trade_date="2026-06-16",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="should not advance",
+                    ),
+                }
+            ),
+        ) as gold_batch_mock:
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
         self.assertEqual(len(result.run_requests), 1)
         request = result.run_requests[0]
         self.assertEqual(request.partition_key, "2026-06-15")
         self.assertEqual(request.run_key, "stock_mins_qfq_daily_update:2026-06-15")
-        self.assertEqual(
-            [call.kwargs["partition_key"] for call in readiness_mock.call_args_list],
-            [
-                "2026-06-13",
-                "2026-06-13",
-                "2026-06-13",
-                "2026-06-15",
-                "2026-06-15",
-                "2026-06-15",
-            ],
-        )
+        gold_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
@@ -1365,31 +1486,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self,
     ) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
-
-        def fake_readiness(_instance, specs, *, partition_key):
-            if specs is qfq_daily_module.SILVER_STK_MINS_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    materialized=True,
-                    checks_passed=True,
-                    reason="ready",
-                    asset_key="silver_stk_mins_1m",
-                )
-            if specs is qfq_daily_module.ADJ_FACTOR_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    materialized=True,
-                    checks_passed=True,
-                    reason="ready",
-                    asset_key="silver_adj_factor",
-                )
-            return _dataset_status(
-                ready=partition_key == "2026-06-13",
-                materialized=True,
-                checks_passed=partition_key == "2026-06-13",
-                reason="ready" if partition_key == "2026-06-13" else "gold failed",
-                asset_key="gold_stk_mins_qfq_1m",
-            )
+        trade_dates = ("2026-06-13", "2026-06-15", "2026-06-16")
 
         with patch.object(
             qfq_daily_module,
@@ -1398,27 +1495,71 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch.object(
             qfq_daily_module,
             "_load_stock_mins_qfq_expected_trade_dates",
-            return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
+            return_value=trade_dates,
         ), patch.object(
             qfq_daily_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            side_effect=fake_readiness,
-        ) as readiness_mock:
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    trade_date: _silver_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_adj_factor_lake_readiness",
+            return_value=_adj_factor_batch_status(
+                {
+                    trade_date: _adj_factor_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    "2026-06-13": _gold_qfq_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _gold_qfq_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=True,
+                        checks_passed=False,
+                        reason="gold failed",
+                    ),
+                    "2026-06-16": _gold_qfq_date_status(
+                        trade_date="2026-06-16",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="should not advance",
+                    ),
+                }
+            ),
+        ) as gold_batch_mock:
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("暂不自动重跑", _skip_message(result))
-        self.assertEqual(
-            [call.kwargs["partition_key"] for call in readiness_mock.call_args_list],
-            [
-                "2026-06-13",
-                "2026-06-13",
-                "2026-06-13",
-                "2026-06-15",
-                "2026-06-15",
-                "2026-06-15",
-            ],
-        )
+        gold_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
@@ -1428,15 +1569,6 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self,
     ) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
-
-        def fake_gold_status(_instance, _specs, *, partition_key):
-            return _dataset_status(
-                ready=partition_key == "2026-06-13",
-                materialized=partition_key == "2026-06-13",
-                checks_passed=partition_key == "2026-06-13",
-                reason="ready" if partition_key == "2026-06-13" else "gold missing",
-                asset_key="gold_stk_mins_qfq_1m",
-            )
 
         with patch.object(
             qfq_factor_repair_module,
@@ -1448,9 +1580,33 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch.object(
             qfq_factor_repair_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            side_effect=fake_gold_status,
-        ) as gold_status_mock, patch.object(
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    "2026-06-13": _gold_qfq_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _gold_qfq_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="gold missing",
+                    ),
+                    "2026-06-16": _gold_qfq_date_status(
+                        trade_date="2026-06-16",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="should not advance",
+                    ),
+                }
+            ),
+        ) as gold_batch_mock, patch.object(
             qfq_factor_repair_module,
             "gold_stk_mins_qfq_factor_repair_status",
             return_value=_qfq_factor_repair_status(
@@ -1462,11 +1618,12 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("尚未全部 ready", _skip_message(result))
-        self.assertEqual(
-            [call.kwargs["partition_key"] for call in gold_status_mock.call_args_list],
-            ["2026-06-13", "2026-06-15"],
+        gold_batch_mock.assert_called_once()
+        repair_status_mock.assert_called_once_with(
+            context.instance,
+            "2026-06-13",
+            include_event_storage_ids=False,
         )
-        repair_status_mock.assert_called_once_with(context.instance, "2026-06-13")
 
     def test_qfq_factor_repair_sensor_submits_first_not_completed_date(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
@@ -1481,18 +1638,23 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch.object(
             qfq_factor_repair_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            return_value=_dataset_status(
-                ready=True,
-                materialized=True,
-                checks_passed=True,
-                reason="ready",
-                asset_key="gold_stk_mins_qfq_1m",
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    trade_date: _gold_qfq_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in ("2026-06-13", "2026-06-15", "2026-06-16")
+                }
             ),
         ), patch.object(
             qfq_factor_repair_module,
             "gold_stk_mins_qfq_factor_repair_status",
-            side_effect=lambda _instance, trade_date: _qfq_factor_repair_status(
+            side_effect=lambda _instance, trade_date, **_kwargs: _qfq_factor_repair_status(
                 trade_date=trade_date,
                 ready=trade_date == "2026-06-13",
                 reason="ready" if trade_date == "2026-06-13" else "repair missing",
@@ -1510,6 +1672,12 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertEqual(
             [call.args[1] for call in repair_status_mock.call_args_list],
             ["2026-06-13", "2026-06-15"],
+        )
+        self.assertTrue(
+            all(
+                call.kwargs == {"include_event_storage_ids": False}
+                for call in repair_status_mock.call_args_list
+            )
         )
 
         cursor = json.loads(result.cursor)
@@ -1530,18 +1698,23 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch.object(
             qfq_factor_repair_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            return_value=_dataset_status(
-                ready=True,
-                materialized=True,
-                checks_passed=True,
-                reason="ready",
-                asset_key="gold_stk_mins_qfq_1m",
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    trade_date: _gold_qfq_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in ("2026-06-13", "2026-06-15", "2026-06-16")
+                }
             ),
         ), patch.object(
             qfq_factor_repair_module,
             "gold_stk_mins_qfq_factor_repair_status",
-            side_effect=lambda _instance, trade_date: _qfq_factor_repair_status(
+            side_effect=lambda _instance, trade_date, **_kwargs: _qfq_factor_repair_status(
                 trade_date=trade_date,
                 ready=trade_date != "2026-06-16",
                 reason="ready" if trade_date != "2026-06-16" else "repair missing",
@@ -1557,31 +1730,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
     def test_qfq_daily_sensor_records_continuity_before_window(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15"))
-
-        def fake_readiness(_instance, specs, *, partition_key):
-            if specs is qfq_daily_module.SILVER_STK_MINS_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    materialized=True,
-                    checks_passed=True,
-                    reason="ready",
-                    asset_key="silver_stk_mins_1m",
-                )
-            if specs is qfq_daily_module.ADJ_FACTOR_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    materialized=True,
-                    checks_passed=True,
-                    reason="ready",
-                    asset_key="silver_adj_factor",
-                )
-            return _dataset_status(
-                ready=partition_key == "2026-06-13",
-                materialized=partition_key == "2026-06-13",
-                checks_passed=partition_key == "2026-06-13",
-                reason="ready" if partition_key == "2026-06-13" else "gold missing",
-                asset_key="gold_stk_mins_qfq_1m",
-            )
+        trade_dates = ("2026-06-13", "2026-06-15")
 
         with patch.object(
             qfq_daily_module,
@@ -1590,11 +1739,58 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch.object(
             qfq_daily_module,
             "_load_stock_mins_qfq_expected_trade_dates",
-            return_value=("2026-06-13", "2026-06-15"),
+            return_value=trade_dates,
         ), patch.object(
             qfq_daily_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            side_effect=fake_readiness,
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    trade_date: _silver_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_adj_factor_lake_readiness",
+            return_value=_adj_factor_batch_status(
+                {
+                    trade_date: _adj_factor_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    "2026-06-13": _gold_qfq_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _gold_qfq_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="gold missing",
+                    ),
+                }
+            ),
         ):
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
@@ -1619,18 +1815,23 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15"),
         ), patch.object(
             qfq_factor_repair_module,
-            "partition_dataset_readiness_status_from_latest_checks",
-            return_value=_dataset_status(
-                ready=True,
-                materialized=True,
-                checks_passed=True,
-                reason="ready",
-                asset_key="gold_stk_mins_qfq_1m",
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    trade_date: _gold_qfq_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in ("2026-06-13", "2026-06-15")
+                }
             ),
         ), patch.object(
             qfq_factor_repair_module,
             "gold_stk_mins_qfq_factor_repair_status",
-            side_effect=lambda _instance, trade_date: _qfq_factor_repair_status(
+            side_effect=lambda _instance, trade_date, **_kwargs: _qfq_factor_repair_status(
                 trade_date=trade_date,
                 ready=trade_date == "2026-06-13",
                 reason="ready" if trade_date == "2026-06-13" else "repair missing",

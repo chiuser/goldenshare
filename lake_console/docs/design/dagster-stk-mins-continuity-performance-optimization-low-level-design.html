@@ -232,7 +232,7 @@
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P5 已落地；P6 及后续阶段待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P6 已落地；P7 及后续阶段待推进。</div>
         <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
@@ -910,14 +910,13 @@ selection = select_first_not_ready_trade_date(
 
       <h3>9.3 QFQ 与 repair sensor</h3>
       <ul>
-        <li>本轮不新增 qfq factor repair 或 MACD/KDJ completion 的持久化状态。</li>
-        <li>qfq daily 已完成只读 profiling：20 天不短路 21.24s，60 天不短路 38.27s，必须纳入本专项。</li>
-        <li>qfq daily 的 60 天循环不得继续逐日读取 silver / adj factor / gold qfq 的 Dagster metadata；必须改用 batch readiness map。</li>
-        <li>gold qfq readiness 必须复用 <code>checks/stk_mins_checks.py</code> 中 native 1/5/15/30/60 与 derived 90/120 的正式 check SQL 语义。</li>
-        <li>adj factor 如果仍处于 60 天循环中，也必须改成 batch readiness；实测 60 天逐日 DG 读取为 5.63s，不能继续作为隐藏成本。</li>
+        <li>P6 已落地：不新增 qfq factor repair 或 MACD/KDJ completion 的持久化状态。</li>
+        <li>qfq daily 只读 profiling 基线为：20 天不短路 21.24s，60 天不短路 38.27s；P6 已将 60 天循环改为 silver / adj factor / gold qfq batch readiness map。</li>
+        <li>gold qfq readiness 已复用 <code>checks/stk_mins_checks.py</code> 中 native 1/5/15/30/60 与 derived 90/120 的正式 check SQL 语义。</li>
+        <li>adj factor 已改成 batch readiness；旧 60 天逐日 DG 读取基线为 5.63s，不再作为 qfq daily hidden cost 留在 hot path。</li>
         <li>qfq factor repair status 已完成只读 profiling：无 records 日期约 0.01s，有 metadata 日期 2026-06-16 为 29.21s，2026-06-15 超过 30s。</li>
         <li>repair status 慢点是热路径回填 <code>event_storage_id</code> 时调用 <code>instance.get_event_records(... limit=500)</code> 扫 event log；M7 后正式防重复已不再依赖 event storage id。</li>
-        <li>qfq factor repair sensor 的 hot path 只允许读取自动触发所需 metadata：ready、repair_required、upstream_batch_id、repair range、codes hash、rewrite counts；不得计算或回填 event storage id。</li>
+        <li>qfq factor repair sensor 的 hot path 只读取自动触发所需 metadata：ready、repair_required、upstream_batch_id、repair range、codes hash、rewrite counts；已通过 <code>include_event_storage_ids=False</code> 禁止回填 event storage id。</li>
       </ul>
     </section>
 
@@ -1244,16 +1243,17 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P6</td>
-            <td>qfq daily 与 qfq factor repair sensor 优化</td>
+            <td>qfq daily 与 qfq factor repair sensor 优化（已完成）</td>
             <td>
-              <code>stock_mins_qfq_daily_sensor.py</code> 使用 batch readiness；
-              <code>stock_mins_qfq_factor_repair_sensor.py</code> 使用 batch readiness 和 bounded metadata read；
-              hot path 不再回填 event storage id。
+              <code>stock_mins_qfq_daily_sensor.py</code> 已使用 silver、adj factor、gold qfq batch readiness；
+              <code>stock_mins_qfq_factor_repair_sensor.py</code> 已使用 gold qfq batch readiness 和 bounded metadata read；
+              hot path 显式传 <code>include_event_storage_ids=False</code>，不再回填 event storage id。
             </td>
             <td>
               qfq daily 60 天不再逐日 Dagster 深扫；
               qfq factor repair status 有 metadata 日期不再出现 30 秒级单日读取；
-              run key/config/upstream_batch_id 口径不变。
+              run key/config/upstream_batch_id 口径不变；
+              本地目标回归 <code>112 passed in 3.55s</code>。
             </td>
             <td>发现必须修改 qfq factor repair metadata/status 生产逻辑，或必须新增状态实体。</td>
           </tr>

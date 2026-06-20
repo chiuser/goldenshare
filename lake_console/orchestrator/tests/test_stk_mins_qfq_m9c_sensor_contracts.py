@@ -1,10 +1,18 @@
 import json
 import unittest
+from contextlib import contextmanager
 from datetime import datetime
+from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+import duckdb
 import orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor as repair_sensor_module
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+    StkMinsBatchReadiness,
+    StkMinsDateReadiness,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
 )
@@ -97,6 +105,68 @@ class _FakeSensorContext:
     ):
         self.cursor = cursor
         self.instance = _FakeSensorInstance(trade_days)
+        self.resources = SimpleNamespace(
+            lake_root=_FakeLakeRoot(),
+            duckdb=_FakeDuckDBResource(),
+        )
+
+
+class _FakeLakeRoot:
+    def root(self) -> Path:
+        return Path("/tmp/goldenshare-test-lake-root")
+
+
+class _FakeDuckDBResource:
+    @contextmanager
+    def connect(self):
+        with duckdb.connect(":memory:") as connection:
+            yield connection
+
+
+def _gold_date_status(
+    *,
+    ready: bool,
+    materialized: bool = True,
+    checks_passed: bool = True,
+    reason: str = "ready",
+) -> StkMinsDateReadiness:
+    return StkMinsDateReadiness(
+        trade_date=PARTITION_KEY,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        failed_check_names=() if ready else ("gold_stk_mins_qfq_file_exists",),
+        missing_file_paths=(),
+        expected_file_count=7,
+        existing_file_count=7 if materialized else 0,
+        checked_row_count=7 if materialized else 0,
+        failed_row_count=0 if ready else 1,
+    )
+
+
+def _gold_batch_status(status: StkMinsDateReadiness) -> StkMinsBatchReadiness:
+    return StkMinsBatchReadiness(
+        dataset="gold_stk_mins_qfq",
+        expected_start_date=PARTITION_KEY,
+        expected_end_date=PARTITION_KEY,
+        expected_count=1,
+        freq_count=7,
+        elapsed_ms=1.0,
+        statuses_by_trade_date={PARTITION_KEY: status},
+    )
+
+
+@contextmanager
+def _patched_gold_batch_readiness(
+    status: StkMinsDateReadiness | None = None,
+):
+    with patch.object(
+        repair_sensor_module,
+        "batch_gold_stk_mins_qfq_lake_readiness",
+        return_value=_gold_batch_status(status or _gold_date_status(ready=True)),
+    ):
+        yield
 
 
 def _legacy_submitted_cursor(
@@ -255,11 +325,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
-            ),
+            _patched_gold_batch_readiness(),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
@@ -300,11 +366,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
-            ),
+            _patched_gold_batch_readiness(),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
@@ -330,11 +392,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
-            ),
+            _patched_gold_batch_readiness(),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
@@ -366,11 +424,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
-            ),
+            _patched_gold_batch_readiness(),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
@@ -401,15 +455,6 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 )
 
     def test_sensor_non_fast_path_cursor_continues_readiness(self) -> None:
-        calls = []
-
-        def fake_readiness(instance, specs, *, partition_key):
-            calls.append(specs)
-            return _dataset_status(
-                ("gold_stk_mins_qfq_1m",),
-                ready=True,
-            )
-
         context = _FakeSensorContext(cursor=_legacy_submitted_cursor(selected_count=0))
         with (
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
@@ -418,11 +463,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                side_effect=fake_readiness,
-            ),
+            _patched_gold_batch_readiness(),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
@@ -434,7 +475,6 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 context
             )
 
-        self.assertEqual(calls, [repair_sensor_module.GOLD_STK_MINS_QFQ_READINESS_SPECS])
         self.assertEqual(len(result.run_requests), 1)
 
     def test_sensor_submits_typed_repair_config_only_when_gold_ready(self) -> None:
@@ -445,11 +485,7 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                return_value=_dataset_status(("gold_stk_mins_qfq_1m",), ready=True),
-            ),
+            _patched_gold_batch_readiness(),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
@@ -488,16 +524,13 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
                 "_load_stock_mins_qfq_expected_trade_dates",
                 return_value=(PARTITION_KEY,),
             ),
-            patch.object(
-                repair_sensor_module,
-                "partition_dataset_readiness_status_from_latest_checks",
-                return_value=_dataset_status(
-                    ("gold_stk_mins_qfq_1m",),
+            _patched_gold_batch_readiness(
+                _gold_date_status(
                     ready=False,
                     materialized=True,
                     checks_passed=False,
                     reason="gold failed",
-                ),
+                )
             ),
         ):
             mock_datetime.now.return_value = EVALUATED_AT

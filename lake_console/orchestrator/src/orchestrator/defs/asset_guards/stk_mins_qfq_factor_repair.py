@@ -113,6 +113,8 @@ class GoldStkMinsQfqFactorRepairStatus:
 def gold_stk_mins_qfq_factor_repair_status(
     instance: dg.DagsterInstance,
     trade_date: str,
+    *,
+    include_event_storage_ids: bool = True,
 ) -> GoldStkMinsQfqFactorRepairStatus:
     normalized_trade_date = str(trade_date).strip()
     qfq_asset_keys = gold_stk_mins_qfq_factor_repair_asset_keys()
@@ -127,6 +129,7 @@ def gold_stk_mins_qfq_factor_repair_status(
         qfq_asset_keys,
         qfq_check_records,
         trade_date=normalized_trade_date,
+        include_event_storage_ids=include_event_storage_ids,
     )
 
 
@@ -307,6 +310,7 @@ def _evaluate_qfq_factor_repair_records(
     records_by_key: Mapping[dg.AssetCheckKey, object],
     *,
     trade_date: str,
+    include_event_storage_ids: bool = True,
 ) -> GoldStkMinsQfqFactorRepairStatus:
     missing: list[str] = []
     failed: list[str] = []
@@ -324,15 +328,17 @@ def _evaluate_qfq_factor_repair_records(
             missing.append(asset_label)
             continue
         evaluation = asset_check_record_evaluation(record)
-        storage_id = asset_check_record_event_storage_id(
-            instance,
-            check_key,
-            record,
-            partition_key=trade_date,
-        )
+        storage_id = None
+        if include_event_storage_ids:
+            storage_id = asset_check_record_event_storage_id(
+                instance,
+                check_key,
+                record,
+                partition_key=trade_date,
+            )
         metadata = asset_check_record_metadata(evaluation)
         if (
-            storage_id is None
+            (include_event_storage_ids and storage_id is None)
             or not asset_check_record_succeeded(record)
             or getattr(evaluation, "passed", None) is not True
             or getattr(evaluation, "blocking", None) is not True
@@ -341,7 +347,8 @@ def _evaluate_qfq_factor_repair_records(
         ):
             failed.append(asset_label)
             continue
-        event_storage_ids.append(storage_id)
+        if storage_id is not None:
+            event_storage_ids.append(storage_id)
         metadata_rows.append(metadata)
 
     if missing or failed:

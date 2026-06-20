@@ -8,7 +8,17 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
     load_stock_mins_expected_trade_dates,
     select_first_not_ready_trade_date,
 )
-from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+    StkMinsBatchReadiness,
+    StkMinsDateReadiness,
+    batch_adj_factor_lake_readiness,
+    batch_gold_stk_mins_qfq_lake_readiness,
+    batch_silver_stk_mins_lake_readiness,
+)
+from orchestrator.defs.partitions import (
+    cn_a_stock_current_trade_days,
+    cn_a_stock_mins_silver_trade_days,
+)
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
@@ -24,14 +34,13 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
-from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_HISTORY_START_DATE
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_CONTINUITY_WINDOW_LIMIT,
+    STK_MINS_QFQ_HISTORY_START_DATE,
+)
 from orchestrator.defs.sensors.readiness import (
-    ADJ_FACTOR_READINESS_SPECS,
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    GOLD_STK_MINS_QFQ_READINESS_SPECS,
-    SILVER_STK_MINS_READINESS_SPECS,
-    partition_dataset_readiness_status_from_latest_checks,
     status_payload,
 )
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
@@ -55,9 +64,9 @@ class StockMinsQfqDailyUpdateDecision:
 class StockMinsQfqDailyReadinessSnapshot:
     ready: bool
     reason: str
-    silver_status: DatasetReadinessStatus | None = None
-    adj_factor_status: DatasetReadinessStatus | None = None
-    gold_status: DatasetReadinessStatus | None = None
+    silver_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None
+    adj_factor_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None
+    gold_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None
 
 
 def _load_stock_mins_qfq_expected_trade_dates(
@@ -94,7 +103,11 @@ def _target_trade_date_from_continuity_status(
     )
 
 
-def _has_materialized_check_problem(status: DatasetReadinessStatus) -> bool:
+def _has_materialized_check_problem(
+    status: StkMinsDateReadiness | DatasetReadinessStatus,
+) -> bool:
+    if isinstance(status, StkMinsDateReadiness):
+        return status.materialized and not status.checks_passed
     return any(
         asset_status.materialized and not asset_status.checks_passed
         for asset_status in status.statuses
@@ -114,15 +127,39 @@ def _qfq_daily_snapshot_has_materialized_check_problem(
     )
 
 
-def _qfq_daily_readiness_for_trade_date(
-    instance: dg.DagsterInstance,
+def _readiness_status_payload(
+    status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+) -> dict[str, object] | None:
+    if status is None:
+        return None
+    if isinstance(status, StkMinsDateReadiness):
+        return status.to_cursor_details()
+    return status_payload(status)
+
+
+def _batch_status_payload(
+    batch_status: StkMinsBatchReadiness | None,
+) -> dict[str, object] | None:
+    if batch_status is None:
+        return None
+    return {
+        "dataset": batch_status.dataset,
+        "expected_start_date": batch_status.expected_start_date,
+        "expected_end_date": batch_status.expected_end_date,
+        "expected_count": batch_status.expected_count,
+        "freq_count": batch_status.freq_count,
+        "elapsed_ms": batch_status.elapsed_ms,
+    }
+
+
+def _qfq_daily_readiness_snapshot_for_trade_date(
+    *,
     trade_date: str,
+    silver_batch_status: StkMinsBatchReadiness,
+    adj_factor_batch_status: StkMinsBatchReadiness,
+    gold_batch_status: StkMinsBatchReadiness,
 ) -> StockMinsQfqDailyReadinessSnapshot:
-    silver_status = partition_dataset_readiness_status_from_latest_checks(
-        instance,
-        SILVER_STK_MINS_READINESS_SPECS,
-        partition_key=trade_date,
-    )
+    silver_status = silver_batch_status.status_for_trade_date(trade_date)
     if not silver_status.ready:
         return StockMinsQfqDailyReadinessSnapshot(
             ready=False,
@@ -130,11 +167,7 @@ def _qfq_daily_readiness_for_trade_date(
             silver_status=silver_status,
         )
 
-    adj_factor_status = partition_dataset_readiness_status_from_latest_checks(
-        instance,
-        ADJ_FACTOR_READINESS_SPECS,
-        partition_key=trade_date,
-    )
+    adj_factor_status = adj_factor_batch_status.status_for_trade_date(trade_date)
     if not adj_factor_status.ready:
         return StockMinsQfqDailyReadinessSnapshot(
             ready=False,
@@ -143,11 +176,7 @@ def _qfq_daily_readiness_for_trade_date(
             adj_factor_status=adj_factor_status,
         )
 
-    gold_status = partition_dataset_readiness_status_from_latest_checks(
-        instance,
-        GOLD_STK_MINS_QFQ_READINESS_SPECS,
-        partition_key=trade_date,
-    )
+    gold_status = gold_batch_status.status_for_trade_date(trade_date)
     return StockMinsQfqDailyReadinessSnapshot(
         ready=gold_status.ready,
         reason=gold_status.reason,
@@ -207,9 +236,13 @@ def build_stock_mins_qfq_daily_update_decision(
     )
 
 
-def _not_ready_count(status: DatasetReadinessStatus | None) -> int:
+def _not_ready_count(
+    status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+) -> int:
     if status is None or status.ready:
         return 0
+    if isinstance(status, StkMinsDateReadiness):
+        return 1
     return len([asset_status for asset_status in status.statuses if not asset_status.ready])
 
 
@@ -218,9 +251,12 @@ def _cursor_payload(
     decision: StockMinsQfqDailyUpdateDecision,
     evaluated_at: datetime,
     registered_trade_day_count: int,
-    silver_status: DatasetReadinessStatus | None = None,
-    adj_factor_status: DatasetReadinessStatus | None = None,
-    gold_status: DatasetReadinessStatus | None = None,
+    silver_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None,
+    adj_factor_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None,
+    gold_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None,
+    silver_batch_status: StkMinsBatchReadiness | None = None,
+    adj_factor_batch_status: StkMinsBatchReadiness | None = None,
+    gold_batch_status: StkMinsBatchReadiness | None = None,
     already_submitted_for_trade_date: bool = False,
     continuity_status: StockMinsContinuityStatus | None = None,
 ) -> str:
@@ -256,11 +292,12 @@ def _cursor_payload(
             "job_name": STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
             "run_window_started": decision.run_window_started,
             "already_submitted_for_trade_date": already_submitted_for_trade_date,
-            "silver_status": status_payload(silver_status) if silver_status else None,
-            "adj_factor_status": (
-                status_payload(adj_factor_status) if adj_factor_status else None
-            ),
-            "gold_status": status_payload(gold_status) if gold_status else None,
+            "silver_status": _readiness_status_payload(silver_status),
+            "adj_factor_status": _readiness_status_payload(adj_factor_status),
+            "gold_status": _readiness_status_payload(gold_status),
+            "silver_batch_status": _batch_status_payload(silver_batch_status),
+            "adj_factor_batch_status": _batch_status_payload(adj_factor_batch_status),
+            "gold_batch_status": _batch_status_payload(gold_batch_status),
             "continuity_status": (
                 continuity_status.to_cursor_details()
                 if continuity_status is not None
@@ -328,6 +365,7 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
         context,
         evaluated_at,
     )
+    window_trade_dates = expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -335,14 +373,58 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
             )
         )
     )
+    registered_stock_current_trade_days = tuple(
+        sorted(
+            context.instance.get_dynamic_partitions(cn_a_stock_current_trade_days.name)
+        )
+    )
+    silver_batch_status: StkMinsBatchReadiness | None = None
+    adj_factor_batch_status: StkMinsBatchReadiness | None = None
+    gold_batch_status: StkMinsBatchReadiness | None = None
+
+    def _batch_readiness_for_trade_date(
+        trade_date: str,
+    ) -> StockMinsQfqDailyReadinessSnapshot:
+        nonlocal silver_batch_status, adj_factor_batch_status, gold_batch_status
+        lake_root = context.resources.lake_root
+        duckdb_resource = context.resources.duckdb
+        with duckdb_resource.connect() as connection:
+            if silver_batch_status is None:
+                silver_batch_status = batch_silver_stk_mins_lake_readiness(
+                    connection=connection,
+                    lake_root=lake_root.root(),
+                    expected_trade_dates=window_trade_dates,
+                    registered_trade_days=registered_trade_days,
+                    full_semantics=True,
+                )
+            if adj_factor_batch_status is None:
+                adj_factor_batch_status = batch_adj_factor_lake_readiness(
+                    connection=connection,
+                    lake_root=lake_root.root(),
+                    expected_trade_dates=window_trade_dates,
+                    registered_trade_days=registered_stock_current_trade_days,
+                    full_semantics=True,
+                )
+            if gold_batch_status is None:
+                gold_batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                    connection=connection,
+                    lake_root=lake_root.root(),
+                    expected_trade_dates=window_trade_dates,
+                    registered_trade_days=registered_trade_days,
+                    full_semantics=True,
+                )
+        return _qfq_daily_readiness_snapshot_for_trade_date(
+            trade_date=trade_date,
+            silver_batch_status=silver_batch_status,
+            adj_factor_batch_status=adj_factor_batch_status,
+            gold_batch_status=gold_batch_status,
+        )
+
     selection = select_first_not_ready_trade_date(
         partition_set_name=cn_a_stock_mins_silver_trade_days.name,
-        expected_trade_dates=expected_trade_dates,
+        expected_trade_dates=window_trade_dates,
         registered_trade_days=registered_trade_days,
-        readiness_for_trade_date=lambda trade_date: _qfq_daily_readiness_for_trade_date(
-            context.instance,
-            trade_date,
-        ),
+        readiness_for_trade_date=_batch_readiness_for_trade_date,
         has_materialized_check_problem=(
             _qfq_daily_snapshot_has_materialized_check_problem
         ),
@@ -427,6 +509,9 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
         silver_status=silver_status,
         adj_factor_status=adj_factor_status,
         gold_status=gold_status,
+        silver_batch_status=silver_batch_status,
+        adj_factor_batch_status=adj_factor_batch_status,
+        gold_batch_status=gold_batch_status,
         already_submitted_for_trade_date=(
             already_submitted_for_trade_date or bool(decision.selected_trade_date)
         ),

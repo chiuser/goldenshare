@@ -1303,38 +1303,66 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_gold_qfq_sensors_use_batch_readiness_without_history_scans(self) -> None:
         issues = []
+        required_by_file = {
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py": (
+                "batch_silver_stk_mins_lake_readiness",
+                "batch_adj_factor_lake_readiness",
+                "batch_gold_stk_mins_qfq_lake_readiness",
+            ),
+            SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
+                "batch_gold_stk_mins_qfq_lake_readiness",
+                "include_event_storage_ids=False",
+            ),
+        }
         forbidden_by_file = {
             SENSORS_DIR / "stock_mins_qfq_daily_sensor.py": (
                 "silver_stk_mins_ready_for_trade_date",
                 "adj_factor_ready_for_trade_date",
                 "gold_stk_mins_qfq_ready_for_trade_date",
                 "get_asset_check_execution_history",
+                "partition_dataset_readiness_status_from_latest_checks",
+                "SILVER_STK_MINS_READINESS_SPECS",
+                "ADJ_FACTOR_READINESS_SPECS",
+                "GOLD_STK_MINS_QFQ_READINESS_SPECS",
             ),
             SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
                 "gold_stk_mins_qfq_ready_for_trade_date",
                 "get_asset_check_execution_history",
+                "partition_dataset_readiness_status_from_latest_checks",
+                "GOLD_STK_MINS_QFQ_READINESS_SPECS",
+                "get_event_records",
             ),
         }
+        for path, required_fragments in required_by_file.items():
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses qfq batch readiness fragment: {fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
         for path, forbidden_fragments in forbidden_by_file.items():
             source = path.read_text()
-            if "partition_dataset_readiness_status_from_latest_checks" not in source:
-                issues.append(f"{path} does not use qfq batch readiness helper")
             issues.extend(
                 f"{path} contains forbidden qfq sensor readiness fragment: {fragment}"
                 for fragment in forbidden_fragments
                 if fragment in source
             )
 
-        readiness_helper_source = _function_source(
-            SENSORS_DIR / "readiness.py",
-            "partition_dataset_readiness_status_from_latest_checks",
+        repair_status_source = _function_source(
+            DEFS_DIR / "asset_guards" / "stk_mins_qfq_factor_repair.py",
+            "gold_stk_mins_qfq_factor_repair_status",
         )
-        if "get_latest_asset_check_execution_by_key" not in readiness_helper_source:
-            issues.append("qfq batch readiness helper does not use latest check API")
-        if "get_asset_check_execution_history" in readiness_helper_source:
-            issues.append("qfq batch readiness helper scans check history")
-        if "partition_filter" in readiness_helper_source or "PartitionKeyFilter" in readiness_helper_source:
-            issues.append("qfq batch readiness helper filters latest checks by partition")
+        if "include_event_storage_ids: bool = True" not in repair_status_source:
+            issues.append("qfq factor repair status must expose bounded metadata mode")
+
+        evaluate_status_source = _function_source(
+            DEFS_DIR / "asset_guards" / "stk_mins_qfq_factor_repair.py",
+            "_evaluate_qfq_factor_repair_records",
+        )
+        if "include_event_storage_ids: bool = True" not in evaluate_status_source:
+            issues.append("qfq factor repair evaluator must keep default storage id mode")
+        if "if include_event_storage_ids:" not in evaluate_status_source:
+            issues.append("qfq factor repair evaluator must guard storage id backfill")
 
         self.assertEqual(issues, [])
 

@@ -9,6 +9,7 @@ import duckdb
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     asset_check_record_event_storage_id,
     asset_check_record_storage_id,
+    gold_stk_mins_qfq_factor_repair_status,
 )
 from orchestrator.defs import stk_mins_qfq_factor_repair as repair_module
 from orchestrator.defs.duckdb_sql import (
@@ -363,6 +364,67 @@ class StkMinsQfqM9CFactorRepairTests(unittest.TestCase):
             ),
             5749865,
         )
+
+    def test_qfq_factor_repair_status_can_skip_event_storage_id_backfill(self) -> None:
+        metadata = {
+            "producer_run_id": "run-1",
+            "upstream_batch_id": f"qfq_factor_repair:{TRADE_DATE}:digest",
+            "repair_required": False,
+            "repair_required_code_count": 0,
+            "repair_required_codes": [],
+            "repair_required_codes_hash": "empty",
+            "repair_required_codes_truncated": False,
+            "repair_start_trade_date": TRADE_DATE,
+            "repair_end_trade_date": TRADE_DATE,
+            "selected_partition_count": 1,
+            "rewritten_file_count": 0,
+            "rewritten_row_count": 0,
+            "derived_rewrite_required": False,
+            "derived_rewritten_file_count": 0,
+            "derived_rewritten_row_count": 0,
+        }
+        evaluation = SimpleNamespace(
+            passed=True,
+            blocking=True,
+            partition=TRADE_DATE,
+            metadata=metadata,
+        )
+        record = SimpleNamespace(
+            status="SUCCEEDED",
+            partition=TRADE_DATE,
+            event=SimpleNamespace(
+                run_id="run-1",
+                timestamp=100.0,
+                dagster_event=SimpleNamespace(event_specific_data=evaluation),
+            ),
+        )
+
+        class _FakeEventLogStorage:
+            def get_latest_asset_check_execution_by_key(
+                self,
+                check_keys,
+                *,
+                partition_filter,
+            ):
+                return {check_key: record for check_key in check_keys}
+
+        def fail_event_history(*_args, **_kwargs):
+            raise AssertionError("event storage id backfill must not run")
+
+        instance = SimpleNamespace(
+            event_log_storage=_FakeEventLogStorage(),
+            get_event_records=fail_event_history,
+        )
+
+        status = gold_stk_mins_qfq_factor_repair_status(
+            instance,
+            TRADE_DATE,
+            include_event_storage_ids=False,
+        )
+
+        self.assertTrue(status.ready)
+        self.assertEqual(status.qfq_factor_repair_event_storage_ids, ())
+        self.assertEqual(status.upstream_batch_id, metadata["upstream_batch_id"])
 
     def test_no_factor_change_returns_successful_noop_report(self) -> None:
         with TemporaryDirectory() as temp_dir:

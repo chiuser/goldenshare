@@ -173,7 +173,7 @@
         优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P5 已落地；P6 及后续阶段待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P6 已落地；P7 及后续阶段待推进。</div>
         <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
         <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
         <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
@@ -637,9 +637,19 @@
           </tr>
           <tr>
             <td>P6</td>
-            <td>qfq daily / qfq factor repair 接入</td>
-            <td>qfq daily 使用 batch readiness；qfq factor repair 去掉 hot path event storage id 回填，只做 bounded metadata read。</td>
-            <td>qfq daily 60 天不再逐日 DG 深扫；repair status 有 metadata 日期不得再出现 30s 级单日读取。</td>
+            <td>qfq daily / qfq factor repair 接入（已完成）</td>
+            <td>
+              <code>stock_mins_qfq_daily_sensor</code> 已使用 silver、adj factor、gold qfq batch lake readiness；
+              <code>stock_mins_qfq_factor_repair_sensor</code> 已使用 gold qfq batch lake readiness。
+              qfq factor repair status 在 sensor hot path 显式传入
+              <code>include_event_storage_ids=False</code>，不再回填 event storage id。
+            </td>
+            <td>
+              qfq daily 60 天窗口不再逐日扫 Dagster check metadata；
+              qfq factor repair sensor 只在 gold qfq ready 后读取 first-not-completed target 的 bounded status metadata；
+              run key、run config、upstream_batch_id 和 qfq factor repair metadata 生产逻辑均保持不变。
+              本地目标回归：<code>112 passed in 3.55s</code>。
+            </td>
           </tr>
           <tr>
             <td>P7</td>

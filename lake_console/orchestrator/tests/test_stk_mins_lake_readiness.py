@@ -6,10 +6,14 @@ from tempfile import TemporaryDirectory
 import duckdb
 
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+    batch_adj_factor_lake_readiness,
+    batch_gold_stk_mins_qfq_lake_readiness,
     batch_raw_stk_mins_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
 )
 from orchestrator.defs.checks.stk_mins_checks import (
+    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
     RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
     RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK,
     RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK,
@@ -29,13 +33,26 @@ from orchestrator.defs.checks.stk_mins_checks import (
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
+    gold_stk_mins_qfq_path,
+    raw_adj_factor_path,
     raw_stk_mins_path,
     raw_stock_basic_path,
+    silver_adj_factor_path,
     silver_stk_mins_path,
+    silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_suspend_daily_path,
 )
-from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
+from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_FREQS,
+    STK_MINS_QFQ_DERIVED_FREQS,
+    STK_MINS_QFQ_FREQS,
+    qfq_source_freq_for_derived_freq,
+)
+from orchestrator.defs.stk_mins_qfq import (
+    GOLD_STK_MINS_QFQ_DERIVED_WINDOWS,
+    build_gold_stk_mins_qfq_derived_select_sql,
+)
 
 
 def _trade_dates(count: int, *, start: date = date(2026, 4, 1)) -> tuple[str, ...]:
@@ -243,6 +260,228 @@ def _write_raw_stock_basic_file(
     )
 
 
+def _write_silver_stock_basic_file(
+    connection,
+    lake_root: Path,
+    *,
+    ts_code: str = "000001.SZ",
+    list_date: str = "2010-01-01",
+) -> None:
+    path = silver_stock_basic_path(lake_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection.execute(
+        f"""
+        COPY (
+          SELECT
+            {duckdb_string(ts_code)} AS ts_code,
+            '000001'::VARCHAR AS symbol,
+            'sample'::VARCHAR AS name,
+            'area'::VARCHAR AS area,
+            'industry'::VARCHAR AS industry,
+            'fullname'::VARCHAR AS fullname,
+            'enname'::VARCHAR AS enname,
+            'cnspell'::VARCHAR AS cnspell,
+            '主板'::VARCHAR AS market,
+            'SZSE'::VARCHAR AS exchange,
+            'CNY'::VARCHAR AS curr_type,
+            'L'::VARCHAR AS list_status,
+            CAST({duckdb_string(list_date)} AS DATE) AS list_date,
+            NULL::DATE AS delist_date,
+            NULL::VARCHAR AS is_hs,
+            NULL::VARCHAR AS act_name,
+            NULL::VARCHAR AS act_ent_type
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_adj_factor_files(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    ts_code: str = "000001.SZ",
+    raw_trade_date: str | None = None,
+    silver_trade_date: str | None = None,
+    adj_factor: float = 1.0,
+) -> None:
+    raw_path = raw_adj_factor_path(lake_root, trade_date)
+    silver_path = silver_adj_factor_path(lake_root, trade_date)
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    silver_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_trade_date = raw_trade_date or trade_date.replace("-", "")
+    silver_trade_date = silver_trade_date or trade_date
+    connection.execute(
+        f"""
+        COPY (
+          SELECT
+            {duckdb_string(ts_code)} AS ts_code,
+            {duckdb_string(raw_trade_date)} AS trade_date,
+            {adj_factor}::DOUBLE AS adj_factor
+        ) TO {duckdb_string(raw_path)} (FORMAT PARQUET)
+        """
+    )
+    connection.execute(
+        f"""
+        COPY (
+          SELECT
+            {duckdb_string(ts_code)} AS ts_code,
+            CAST({duckdb_string(silver_trade_date)} AS DATE) AS trade_date,
+            {adj_factor}::DOUBLE AS adj_factor
+        ) TO {duckdb_string(silver_path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_silver_file_for_times(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    freq: int,
+    trade_times: tuple[str, ...],
+    ts_code: str = "000001.SZ",
+) -> None:
+    path = silver_stk_mins_path(lake_root, freq, trade_date)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows_sql = []
+    for index, trade_time in enumerate(trade_times):
+        open_value = 10.0 + index
+        rows_sql.append(
+            "SELECT "
+            f"{duckdb_string(ts_code)} AS ts_code, "
+            f"{freq}::INTEGER AS freq, "
+            f"CAST({duckdb_string(trade_date)} AS DATE) AS trade_date, "
+            f"CAST({duckdb_string(f'{trade_date} {trade_time}')} AS TIMESTAMP) "
+            "AS trade_time, "
+            f"{open_value}::DOUBLE AS open, "
+            f"{open_value + 1.0}::DOUBLE AS high, "
+            f"{open_value - 1.0}::DOUBLE AS low, "
+            f"{open_value + 0.5}::DOUBLE AS close, "
+            "1000.0::DOUBLE AS vol, "
+            "10000.0::DOUBLE AS amount, "
+            "'SZSE'::VARCHAR AS exchange"
+        )
+    connection.execute(
+        f"""
+        COPY (
+          {" UNION ALL ".join(rows_sql)}
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_gold_qfq_file_for_times(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    freq: int,
+    trade_times: tuple[str, ...],
+    ts_code: str = "000001.SZ",
+    open_shift: float = 0.0,
+) -> None:
+    path = gold_stk_mins_qfq_path(lake_root, freq, ts_code, trade_date[:4])
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows_sql = []
+    for index, trade_time in enumerate(trade_times):
+        open_value = 10.0 + index + open_shift
+        rows_sql.append(
+            "SELECT "
+            f"{duckdb_string(ts_code)} AS ts_code, "
+            f"{freq}::INTEGER AS freq, "
+            f"CAST({duckdb_string(trade_date)} AS DATE) AS trade_date, "
+            f"CAST({duckdb_string(f'{trade_date} {trade_time}')} AS TIMESTAMP) "
+            "AS trade_time, "
+            f"{open_value}::DOUBLE AS open, "
+            f"{open_value + 1.0}::DOUBLE AS high, "
+            f"{open_value - 1.0}::DOUBLE AS low, "
+            f"{open_value + 0.5}::DOUBLE AS close, "
+            "1000.0::DOUBLE AS vol, "
+            "10000.0::DOUBLE AS amount, "
+            "'SZSE'::VARCHAR AS exchange"
+        )
+    connection.execute(
+        f"""
+        COPY (
+          {" UNION ALL ".join(rows_sql)}
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_derived_qfq_file(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    target_freq: int,
+    ts_code: str = "000001.SZ",
+) -> None:
+    source_freq = qfq_source_freq_for_derived_freq(target_freq)
+    source_path = gold_stk_mins_qfq_path(lake_root, source_freq, ts_code, trade_date[:4])
+    target_path = gold_stk_mins_qfq_path(lake_root, target_freq, ts_code, trade_date[:4])
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    derived_sql = build_gold_stk_mins_qfq_derived_select_sql(
+        source_qfq_paths=[source_path],
+        target_freq=target_freq,
+        partition_keys=[trade_date],
+    )
+    connection.execute(
+        f"""
+        COPY (
+          {derived_sql}
+        ) TO {duckdb_string(target_path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_gold_qfq_ready_inputs(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+) -> None:
+    _write_adj_factor_files(connection, lake_root, trade_date=trade_date)
+    native_times = {
+        1: ("09:31:00",),
+        5: ("09:35:00",),
+        15: ("09:45:00",),
+        30: tuple(
+            source_time
+            for source_time, _window_id, _target_time
+            in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[90]
+        ),
+        60: tuple(
+            source_time
+            for source_time, _window_id, _target_time
+            in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[120]
+        ),
+    }
+    for freq, trade_times in native_times.items():
+        _write_silver_file_for_times(
+            connection,
+            lake_root,
+            trade_date=trade_date,
+            freq=freq,
+            trade_times=trade_times,
+        )
+        _write_gold_qfq_file_for_times(
+            connection,
+            lake_root,
+            trade_date=trade_date,
+            freq=freq,
+            trade_times=trade_times,
+        )
+    for target_freq in STK_MINS_QFQ_DERIVED_FREQS:
+        _write_derived_qfq_file(
+            connection,
+            lake_root,
+            trade_date=trade_date,
+            target_freq=target_freq,
+        )
+
+
 def _write_silver_ready_inputs(
     connection,
     lake_root: Path,
@@ -390,6 +629,64 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         unknown_status = batch_status.status_for_trade_date("2026-06-16")
         self.assertFalse(unknown_status.ready)
         self.assertIn("status_missing", unknown_status.failed_check_names[0])
+
+    def test_adj_factor_batch_readiness_returns_ready_for_complete_window(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            trade_dates = _trade_dates(3)
+            _write_silver_stock_basic_file(connection, lake_root)
+            for trade_date in trade_dates:
+                _write_adj_factor_files(connection, lake_root, trade_date=trade_date)
+
+            batch_status = batch_adj_factor_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=trade_dates,
+                registered_trade_days=trade_dates,
+            )
+
+        self.assertEqual(batch_status.dataset, "adj_factor")
+        self.assertEqual(batch_status.freq_count, 1)
+        self.assertTrue(
+            all(status.ready for status in batch_status.statuses_by_trade_date.values())
+        )
+
+    def test_adj_factor_batch_readiness_detects_blocking_failures(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_silver_stock_basic_file(connection, lake_root)
+            _write_adj_factor_files(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+                raw_trade_date="20260616",
+            )
+            silver_adj_factor_path(lake_root, "2026-06-16").parent.mkdir(
+                parents=True,
+                exist_ok=True,
+            )
+            _write_adj_factor_files(
+                connection,
+                lake_root,
+                trade_date="2026-06-16",
+                adj_factor=-1.0,
+            )
+
+            batch_status = batch_adj_factor_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-15", "2026-06-16"),
+                registered_trade_days=("2026-06-15", "2026-06-16"),
+            )
+
+        first_status = batch_status.status_for_trade_date("2026-06-15")
+        second_status = batch_status.status_for_trade_date("2026-06-16")
+        self.assertFalse(first_status.ready)
+        self.assertTrue(first_status.materialized)
+        self.assertIn("raw_adj_factor_partition_date_matches", first_status.failed_check_names)
+        self.assertFalse(second_status.ready)
+        self.assertTrue(second_status.materialized)
+        self.assertIn("raw_adj_factor_positive_factor", second_status.failed_check_names)
 
     def test_silver_batch_readiness_returns_ready_for_complete_window(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
@@ -615,6 +912,92 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         status = batch_status.status_for_trade_date("2026-06-15")
         self.assertFalse(status.ready)
         self.assertIn("status_missing", status.failed_check_names[0])
+
+    def test_gold_qfq_batch_readiness_returns_ready_for_native_and_derived(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+            )
+
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-15",),
+                registered_trade_days=("2026-06-15",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-15")
+        self.assertEqual(batch_status.dataset, "gold_stk_mins_qfq")
+        self.assertEqual(batch_status.freq_count, len(STK_MINS_QFQ_FREQS))
+        self.assertTrue(status.ready)
+        self.assertEqual(status.expected_file_count, len(STK_MINS_QFQ_FREQS))
+
+    def test_gold_qfq_batch_readiness_marks_missing_file_as_not_materialized(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+            )
+            gold_stk_mins_qfq_path(
+                lake_root,
+                120,
+                "000001.SZ",
+                "2026",
+            ).unlink()
+
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-15",),
+                registered_trade_days=("2026-06-15",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-15")
+        self.assertFalse(status.ready)
+        self.assertFalse(status.materialized)
+        self.assertIn(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+            status.failed_check_names,
+        )
+
+    def test_gold_qfq_batch_readiness_detects_formula_failure(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+            )
+            _write_gold_qfq_file_for_times(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+                freq=1,
+                trade_times=("09:31:00",),
+                open_shift=5.0,
+            )
+
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-15",),
+                registered_trade_days=("2026-06-15",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-15")
+        self.assertFalse(status.ready)
+        self.assertTrue(status.materialized)
+        self.assertIn(
+            GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+            status.failed_check_names,
+        )
 
 
 if __name__ == "__main__":
