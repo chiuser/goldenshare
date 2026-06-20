@@ -1553,6 +1553,52 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stk_mins_name_timeline_event_correction_dry_run_is_read_only(
+        self,
+    ) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events.py"
+        )
+        cli_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        issues = []
+
+        forbidden_helper_fragments = (
+            "report_runless_asset_event",
+            "AssetMaterialization(",
+            "AssetCheckEvaluation(",
+            "get_event_records",
+            "asset_readiness_status",
+            "partition_filter=",
+        )
+        required_helper_fragments = (
+            "TARGET_TS_CODE = \"000638.SZ\"",
+            "SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK",
+            "historical_cny_stock_lifecycle_select",
+            "get_asset_check_execution_history",
+            "get_materialized_partitions",
+            "planned_new_event_count=len(latest_failed)",
+        )
+        issues.extend(
+            f"{helper_path} contains forbidden dry-run fragment: {fragment}"
+            for fragment in forbidden_helper_fragments
+            if fragment in helper_source
+        )
+        issues.extend(
+            f"{helper_path} misses required dry-run fragment: {fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in helper_source
+        )
+        if "\"dry-run\"" not in cli_source:
+            issues.append(f"{cli_path} must expose only the dry-run command")
+        if "\"apply\"" in cli_source or "report_runless_asset_event" in cli_source:
+            issues.append(f"{cli_path} must not expose apply/write event behavior")
+
+        self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()

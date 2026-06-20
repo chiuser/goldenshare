@@ -173,7 +173,7 @@
         优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P7 已落地；P8 及后续阶段待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P8A 已落地；P8B/P8C 当前无需执行，P9 待推进。</div>
         <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
         <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
         <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
@@ -673,26 +673,28 @@
           </tr>
           <tr>
             <td>P8A</td>
-            <td>最小 runless check event 补录 dry-run</td>
+            <td>最小 runless check event 补录 dry-run（已完成）</td>
             <td>
-              在新 check 语义落地后，只读审计 Dagster event history。
-              只统计 <code>000638.SZ</code> 相关
-              <code>silver_stk_mins_name_timeline_covered</code> 旧误报 check event。
-              候选上限为 13460 条 <code>asset + check + partition</code> event；真实待补数以 dry-run 为准。
+              已新增只读 dry-run helper / CLI；
+              候选固定为 <code>000638.SZ</code>、五个 <code>silver_stk_mins_*</code> asset、
+              <code>silver_stk_mins_name_timeline_covered</code> check。
+              候选数量为 13460 条 <code>asset + check + partition</code> event。
             </td>
             <td>
-              确认真实旧 failed event、目标 materialization、新生命周期 SQL 全部通过；
-              dry-run 不写 event。
+              正式只读 dry-run 结果：
+              旧 failed event = 0，已有 latest passed = 13460，缺 materialization = 0，真实待补 = 0。
+              报告文件：<code>/private/tmp/stk_mins_name_timeline_dry_run_20260620.json</code>。
+              本阶段未写 Dagster event。
             </td>
           </tr>
           <tr>
             <td>P8B/P8C</td>
-            <td>最小 runless check event sample / full / final audit</td>
+            <td>最小 runless check event sample / full / final audit（当前无需执行）</td>
             <td>
-              经单独审批后先写极小 sample，再经再次审批按年或月份分批 full。
-              不补 materialization event，不删除旧 failed event，不扩大到其它股票、其它 check 或全量 silver checks。
+              P8A 真实待补数为 0，因此不进入 sample / full 写 event 阶段。
+              后续只有重新 dry-run 发现 <code>planned_new_event_count &gt; 0</code> 时，才需要重新走单独审批。
             </td>
-            <td>latest check event 变绿；metadata 完整；final audit 证明无范围外 event。</td>
+            <td>当前无待写 event；禁止为“补齐候选上限”盲写 13460 条。</td>
           </tr>
           <tr>
             <td>P9</td>

@@ -232,7 +232,7 @@
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P7 已落地；P8 及后续阶段待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P8A 已落地；P8B/P8C 当前无需执行，P9 待推进。</div>
         <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
@@ -1058,6 +1058,13 @@ selection = select_first_not_ready_trade_date(
       </ul>
 
       <h3>12.4 dry-run / sample / full / audit</h3>
+      <p>
+        P8A 已完成正式只读 dry-run：候选 <code>13460</code> 条，
+        旧 failed event = <code>0</code>，已有 latest passed = <code>13460</code>，
+        缺目标 materialization = <code>0</code>，真实待补 <code>planned_new_event_count = 0</code>。
+        报告文件为 <code>/private/tmp/stk_mins_name_timeline_dry_run_20260620.json</code>。
+        因真实待补为 0，当前不进入 sample / full 写 event 阶段。
+      </p>
       <table>
         <thead>
           <tr>
@@ -1069,23 +1076,23 @@ selection = select_first_not_ready_trade_date(
         <tbody>
           <tr>
             <td>dry-run</td>
-            <td>只读输出候选 date-freq、现有 failed event 数、已有 passed event 数、缺 materialization 数、预计新增事件数。</td>
-            <td>候选不止 <code>000638.SZ</code>、存在 lifecycle failure、缺目标 materialization、预计事件数超过 13460。</td>
+            <td>已只读输出候选 date-freq、现有 failed event 数、已有 passed event 数、缺 materialization 数、预计新增事件数。</td>
+            <td>已通过：候选未外溢、无 lifecycle failure、无缺目标 materialization、预计新增事件数为 0。</td>
           </tr>
           <tr>
             <td>sample</td>
-            <td>经审批后只补少量样本，例如 1 个交易日 x 5 个频度，并立即只读审计最新 check 状态。</td>
-            <td>样本 latest check 不是 passed、metadata 不完整、UI/readiness 不按预期读取最新事件。</td>
+            <td>当前不执行；只有重新 dry-run 发现真实待补数大于 0 时，才重新审批 sample。</td>
+            <td>禁止在待补数为 0 时为了凑候选上限写 event。</td>
           </tr>
           <tr>
             <td>full</td>
-            <td>按年或按月份分批补录剩余待补 check events，批次之间输出计数和失败样本。</td>
-            <td>任一批出现非候选分区、非目标 check、写入失败或审计不一致。</td>
+            <td>当前不执行；P8A 已证明没有剩余待补 check events。</td>
+            <td>只有后续重新审计出现待补时，才按单独审批恢复分批 full。</td>
           </tr>
           <tr>
             <td>final audit</td>
-            <td>聚合确认目标集合 latest check 全部 passed，且未新增其它 check/event 范围。</td>
-            <td>存在目标集合未变绿、出现范围外 event、或 event 数与 dry-run 计划不一致。</td>
+            <td>P8A 已完成只读聚合确认：目标集合 latest check 全部 passed。</td>
+            <td>无需新增 event，因此不存在 event 数与 dry-run 计划不一致的写入风险。</td>
           </tr>
         </tbody>
       </table>
@@ -1306,29 +1313,28 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P8A</td>
-            <td>最小 runless check event 补录 dry-run</td>
+            <td>最小 runless check event 补录 dry-run（已完成）</td>
             <td>
-              只读审计正式 Dagster event history；
-              统计 <code>000638.SZ</code> 相关旧 failed check event、已有 passed event、目标 materialization 和真实待补数量。
+              已只读审计正式 Dagster event history；
+              统计了 <code>000638.SZ</code> 相关旧 failed check event、已有 passed event、目标 materialization 和真实待补数量。
             </td>
             <td>
-              不写 event；
+              未写 event；
               候选只限 <code>000638.SZ</code>、五个 <code>silver_stk_mins_*</code> asset、
               <code>silver_stk_mins_name_timeline_covered</code> check；
-              待补数量不得超过 13460。
+              真实待补数量为 <code>0</code>。
             </td>
-            <td>候选范围外溢、缺目标 materialization、新生命周期 SQL 仍失败，或真实数量超过上限。</td>
+            <td>已通过：候选 13460，latest passed 13460，缺目标 materialization 0，planned new event 0。</td>
           </tr>
           <tr>
             <td>P8B/P8C</td>
-            <td>最小 runless check event sample / full / final audit</td>
+            <td>最小 runless check event sample / full / final audit（当前无需执行）</td>
             <td>
-              经单独审批后 sample 写入极小集合；样本审计通过后，再经再次审批按年或月份分批 full；
-              最后做聚合 final audit。
+              P8A 真实待补数为 0；当前不进入 sample / full 写 event 阶段。
+              若后续重新 dry-run 发现待补数大于 0，再重新走单独审批。
             </td>
             <td>
-              只补 check event，不补 materialization event，不删除旧 failed event；
-              latest check event 变绿，metadata 完整，且没有范围外 event。
+              不补 materialization event，不删除旧 event，不为候选上限盲写 event。
             </td>
             <td>样本 latest check 不按预期变绿，metadata 缺失，或出现范围外写入风险。</td>
           </tr>
