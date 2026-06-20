@@ -1,10 +1,10 @@
-# 上交所 ETF 申赎清单（`etf_sh_cons`）数据集开发说明（评审稿）
+# 上交所 ETF 申赎清单（`etf_sh_cons`）数据集开发说明
 
 ## 1. 目标与边界
 
 本数据集用于接入 Tushare `etf_sh_cons`，保存上交所 ETF 申赎清单源站事实。首期目标是打通从源站到 `raw_tushare.etf_sh_cons` 的维护链路，并通过 `core_serving.etf_sh_cons` 普通 view 对外服务。
 
-本轮只固定开发方案，不进入编码。后续编码必须继续遵守数据集开发模板、根 `AGENTS.md` 和当前 DatasetDefinition 主线。
+本轮方案已进入 LLD 推进阶段。后续编码必须继续遵守数据集开发模板、根 `AGENTS.md` 和当前 DatasetDefinition 主线。
 
 代码层 LLD：[ETF 申赎清单低层设计 LLD v1](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-low-level-design-v1.md)。
 
@@ -32,7 +32,7 @@
 
 ## 3. 源接口实测结论
 
-本地 `docs/sources/tushare/**` 当前尚未找到 `etf_sh_cons` 源文档；正式开发前必须补齐源站文档并同步索引。当前接口行为来自 Tushare Pro 真实请求验证。
+本地源站事实文档已补齐：[ETF申赎清单](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0407_ETF申赎清单.md)，并已同步 `docs/sources/tushare/docs_index.csv`。当前接口行为来自 Tushare Pro 真实请求验证。
 
 | 请求形态 | 实测结论 | 对方案的影响 |
 | --- | --- | --- |
@@ -189,8 +189,8 @@ Ops 展示口径：
 
 | 阶段 | 目标 | 关键动作 |
 | --- | --- | --- |
-| M0 | 源文档补齐与消费者审计 | 新增 `docs/sources/tushare/**/etf_sh_cons` 本地源文档；确认 definitions、planner、request builder、freshness、Ops catalog 消费点。 |
-| M1 | Schema 与 view | 新增 `raw_tushare.etf_sh_cons` 与 `core_serving.etf_sh_cons` view；不建 serving 物理表。 |
+| M0 | 源文档补齐与消费者审计 | 已补齐 `docs/sources/tushare/ETF专题/0407_ETF申赎清单.md` 并同步索引；definitions、planner、request builder、freshness、Ops catalog 消费点已在 LLD 中列出。 |
+| M1 | Schema 与 view | 已新增 `raw_tushare.etf_sh_cons` 与 `core_serving.etf_sh_cons` view；不建 serving 物理表。 |
 | M2 | DatasetDefinition | 新增 `etf_sh_cons` 定义，登记 fields、date_model、storage、freshness、Ops 分组。 |
 | M3 | Planner 与 request builder | 新增按 code 与自然半年窗口展开的 unit builder；新增 `_etf_sh_cons_params`。 |
 | M4 | Normalizer / writer | 字段按 raw 事实保留；`cpr/rdr/sca` 不因 `-` 被 reject；按主键 upsert。 |

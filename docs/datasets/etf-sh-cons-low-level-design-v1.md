@@ -1,8 +1,8 @@
 # ETF 申赎清单（`etf_sh_cons`）低层设计 LLD v1
 
-状态：已按业务口径拍板，待开发  
+状态：M1 Schema 与存储链路已完成，待 M2 开发
 对应方案：[ETF 申赎清单数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)  
-最后更新：2026-06-19
+最后更新：2026-06-20
 
 ## 1. 结论
 
@@ -64,9 +64,9 @@ CodeGraph 使用范围：
 
 源站事实文档门禁：
 
-- 当前本地 `docs/sources/tushare/**` 尚无 `etf_sh_cons` 文档。
-- 开发 M0 必须补齐源文档，并同步 `docs/sources/tushare/docs_index.csv`。
-- 若源文档与实测行为冲突，以“当前代码 + 实测行为”为实现依据，并把差异写入数据集开发文档。
+- M0 已补齐源文档：[ETF申赎清单](/Users/congming/github/goldenshare/docs/sources/tushare/ETF专题/0407_ETF申赎清单.md)。
+- M0 已同步 `docs/sources/tushare/docs_index.csv`，索引 `api_name=etf_sh_cons`。
+- 若后续源文档、实测行为、当前代码假设三者冲突，以“当前代码 + 实测行为”为实现依据，并把差异写入数据集开发文档。
 
 ## 4. 总体链路
 
@@ -828,8 +828,8 @@ python3 scripts/check_docs_integrity.py
 
 ## 18. 实施顺序
 
-1. M0：补源文档和 docs index，确认 Alembic head。
-2. M1：新增 migration、raw model、DAOFactory 注册。
+1. M0：补源文档和 docs index，确认 Alembic head。已完成：源文档已补齐，M1 开发前 Alembic head 为 `20260618_000117`。
+2. M1：新增 migration、raw model、DAOFactory 注册。已完成：新增 `20260620_000118_add_etf_sh_cons_dataset.py`，当前 Alembic head 为 `20260620_000118`。
 3. M2：新增 DatasetDefinition、freshness policy、Ops catalog、seed service resource。
 4. M3：新增 planner、request builder、row transform。
 5. M4：补测试护栏。

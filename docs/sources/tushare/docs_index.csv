@@ -190,6 +190,7 @@
 402,美股复权因子,us_adjfactor,美股数据,https://tushare.pro/document/2?doc_id=402,美股数据/0402_美股复权因子.md
 403,交易所指数实时日线,rt_idx_k,指数专题,https://tushare.pro/document/2?doc_id=403,指数专题/0403_交易所指数实时日线.md
 406,国家政策法规库,npr,大模型语料专题数据,https://tushare.pro/document/2?doc_id=406,大模型语料专题数据/0406_国家政策法规库.md
+407,ETF申赎清单,etf_sh_cons,ETF专题,https://tushare.pro/document/2?doc_id=407,ETF专题/0407_ETF申赎清单.md
 408,ETF份额规模,etf_share_size,ETF专题,https://tushare.pro/document/2?doc_id=408,ETF专题/0408_ETF份额规模.md
 415,券商研究报告,research_report,大模型语料专题数据,https://tushare.pro/document/2?doc_id=415,大模型语料专题数据/0415_券商研究报告.md
 416,ETF实时分钟,rt_min,ETF专题,https://tushare.pro/document/2?doc_id=416,ETF专题/0416_ETF实时分钟.md
