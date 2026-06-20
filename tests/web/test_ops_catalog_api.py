@@ -33,6 +33,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert "daily.maintain" in actions
     assert "dc_hot.maintain" in actions
     assert "cyq_chips.maintain" in actions
+    assert "etf_sh_cons.maintain" in actions
     assert "index_weight.maintain" in actions
     assert "index_mins.maintain" in actions
     assert "maintenance.rebuild_dm" in actions
@@ -100,6 +101,13 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
     assert cyq_chips["freshness_policy"] == "continuous_open_day"
     assert [param["key"] for param in cyq_chips["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
 
+    etf_sh_cons = actions["etf_sh_cons.maintain"]
+    assert etf_sh_cons["target_display_name"] == "ETF 申赎清单"
+    assert etf_sh_cons["group_key"] == "etf_fund"
+    assert etf_sh_cons["group_label"] == "ETF基金"
+    assert etf_sh_cons["freshness_policy"] == "continuous_open_day"
+    assert [param["key"] for param in etf_sh_cons["parameters"]] == ["trade_date", "start_date", "end_date", "ts_code"]
+
     bse_mapping = actions["bse_mapping.maintain"]
     assert bse_mapping["group_key"] == "reference_data"
     assert bse_mapping["group_label"] == "A股基础数据"
@@ -136,6 +144,7 @@ def test_ops_catalog_returns_dataset_actions_for_admin(app_client, user_factory)
         "adj_factor.maintain",
         "cyq_perf.maintain",
         "cyq_chips.maintain",
+        "etf_sh_cons.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",

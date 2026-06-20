@@ -193,10 +193,10 @@ Ops 展示口径：
 | M1 | Schema 与 view | 已新增 `raw_tushare.etf_sh_cons` 与 `core_serving.etf_sh_cons` view；不建 serving 物理表。 |
 | M2 | DatasetDefinition | 已新增 `etf_sh_cons` 定义，登记 fields、date_model、storage、freshness、Ops 分组和 ETF active seed resource。 |
 | M3 | Planner 与 request builder | 已新增按 code 与自然半年窗口展开的 unit builder；已新增 `_etf_sh_cons_params`。 |
-| M4 | Normalizer / writer | 字段按 raw 事实保留；`cpr/rdr/sca` 不因 `-` 被 reject；按主键 upsert。 |
-| M5 | Ops 可见性 | 手动任务、自动任务、数据源卡片可见；不加入每日工作流。 |
-| M6 | 测试护栏 | 覆盖 `.SH` 池门禁、空池失败、非 `.SH` 失败、区间不逐日拆、单日不深分页、字段链路、raw-only view。 |
-| M7 | 最小真实验收 | 用单 ETF 单日、单 ETF 半年、小池单日、小池半年验证 fetched/normalized/written/rejected/表行数一致。 |
+| M4 | Normalizer / writer | 已补齐字段清洗与 raw-only writer 护栏；`cpr/rdr/sca` 不因 `-` 被 reject；按主键 upsert。 |
+| M5 | Ops 可见性 | 已进入手动任务、自动任务和数据源卡片目录；不加入每日工作流。 |
+| M6 | 测试护栏 | 已覆盖 `.SH` 池门禁、空池失败、非 `.SH` 失败、区间不逐日拆、单日不深分页、字段链路、raw-only view。 |
+| M7 | 最小真实验收 | 已完成真实源站与无副作用 writer 验收；真实 DB raw/view 行数一致验收待本机临时库或授权测试库执行。 |
 
 ## 11. 验收标准
 

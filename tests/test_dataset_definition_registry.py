@@ -28,7 +28,7 @@ def test_dataset_definition_registry_covers_runtime_registry() -> None:
     runtime_keys = set(DATASET_RUNTIME_REGISTRY)
 
     assert definition_keys == runtime_keys
-    assert len(definition_keys) == 73
+    assert len(definition_keys) == 74
 
 
 def test_dataset_definition_registry_covers_freshness_policy_mapping() -> None:
@@ -45,7 +45,7 @@ def test_dataset_definition_universe_policy_current_state_is_explicit() -> None:
     assert Counter(policies.values()) == Counter(
         {
             "no_pool": 65,
-            "pool": 8,
+            "pool": 9,
         }
     )
     assert {dataset_key for dataset_key, policy in policies.items() if policy == "none"} == set()
@@ -100,6 +100,56 @@ def test_dataset_definition_projects_fund_daily_active_pool_serving_write_path()
     assert definition.storage.serving_table == "core_serving.fund_daily_bar"
     assert definition.storage.write_path == "raw_fund_daily_etf_active_serving_upsert"
     assert definition.normalization.row_transform_name == "_fund_daily_row_transform"
+
+
+def test_dataset_definition_projects_etf_sh_cons_raw_view_facts() -> None:
+    definition = get_dataset_definition("etf_sh_cons")
+
+    assert definition.identity.display_name == "ETF 申赎清单"
+    assert definition.domain.domain_key == "index_fund"
+    assert definition.domain.domain_display_name == "指数 / ETF"
+    assert definition.source.api_name == "etf_sh_cons"
+    assert definition.source.source_fields == (
+        "trade_date",
+        "ts_code",
+        "con_code",
+        "con_name",
+        "qty",
+        "sub_flag",
+        "cpr",
+        "rdr",
+        "sca",
+        "exchange",
+    )
+    assert definition.source.request_builder_key == "_etf_sh_cons_params"
+    assert definition.date_model.date_axis == "trade_open_day"
+    assert definition.date_model.bucket_rule == "every_open_day"
+    assert definition.date_model.input_shape == "trade_date_or_start_end"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.date_model.audit_applicable is False
+    assert definition.completeness.scope == "not_applicable"
+    assert definition.storage.raw_table == "raw_tushare.etf_sh_cons"
+    assert definition.storage.target_table == "raw_tushare.etf_sh_cons"
+    assert definition.storage.serving_table == "core_serving.etf_sh_cons"
+    assert definition.storage.write_path == "raw_only_upsert"
+    assert definition.storage.conflict_columns == ("trade_date", "ts_code", "con_code")
+    assert definition.planning.universe_policy == "pool"
+    assert definition.planning.unit_builder_key == "build_etf_sh_cons_units"
+    assert definition.planning.universe is not None
+    assert definition.planning.universe.request_field == "ts_code"
+    assert definition.planning.universe.override_fields == ("ts_code",)
+    assert [(source.type, source.resource) for source in definition.planning.universe.sources] == [
+        ("ops_etf_series_active", "etf_sh_cons"),
+    ]
+    assert definition.planning.pagination_policy == "offset_limit"
+    assert definition.planning.page_limit == 3000
+    assert definition.observability.freshness_policy == "continuous_open_day"
+    assert definition.normalization.date_fields == ("trade_date",)
+    assert definition.normalization.decimal_fields == ("qty",)
+    assert definition.normalization.required_fields == ("trade_date", "ts_code", "con_code")
+    assert definition.normalization.row_transform_name == "_etf_sh_cons_row_transform"
+    assert definition.quality.required_fields == ("trade_date", "ts_code", "con_code")
+    assert definition.capabilities.get_action("maintain").supported_time_modes == ("point", "range")
 
 
 def test_dataset_definition_projects_adj_factor_subject_completeness_facts() -> None:

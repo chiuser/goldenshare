@@ -55,16 +55,23 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
     assert equity_group["group_label"] == "A股行情"
     leader_board_group = next(group for group in payload["groups"] if group["group_key"] == "leader_board")
     assert leader_board_group["group_label"] == "榜单"
+    etf_fund_group = next(group for group in payload["groups"] if group["group_key"] == "etf_fund")
+    assert etf_fund_group["group_label"] == "ETF基金"
     workflow_group = next(group for group in payload["groups"] if group["group_key"] == "workflow")
     assert workflow_group["group_label"] == "工作流"
 
     actions = _actions_by_key(payload)
     assert any(action["action_key"] == "dc_hot.maintain" for action in leader_board_group["actions"])
+    assert any(action["action_key"] == "etf_sh_cons.maintain" for action in etf_fund_group["actions"])
     assert actions["daily.maintain"]["display_name"] == "维护股票日线"
     assert actions["cyq_chips.maintain"]["display_name"] == "维护每日筹码分布"
     assert actions["cyq_chips.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["cyq_chips.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["cyq_chips.maintain"]["time_form"]["modes"]] == ["point", "range"]
+    assert actions["etf_sh_cons.maintain"]["display_name"] == "维护ETF 申赎清单"
+    assert actions["etf_sh_cons.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
+    assert actions["etf_sh_cons.maintain"]["time_form"]["default_mode"] == "point"
+    assert [item["mode"] for item in actions["etf_sh_cons.maintain"]["time_form"]["modes"]] == ["point", "range"]
     assert actions["daily.maintain"]["date_model"]["input_shape"] == "trade_date_or_start_end"
     assert actions["daily.maintain"]["time_form"]["default_mode"] == "point"
     assert [item["mode"] for item in actions["daily.maintain"]["time_form"]["modes"]] == ["point", "range"]
@@ -133,6 +140,7 @@ def test_ops_manual_actions_returns_date_model_driven_catalog(app_client, user_f
         "adj_factor.maintain",
         "cyq_perf.maintain",
         "cyq_chips.maintain",
+        "etf_sh_cons.maintain",
         "fund_daily.maintain",
         "index_daily.maintain",
         "index_daily_basic.maintain",

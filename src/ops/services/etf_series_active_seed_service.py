@@ -11,8 +11,12 @@ from sqlalchemy.orm import Session
 from src.ops.models.ops.etf_series_active import EtfSeriesActive
 
 
-ETF_SERIES_ACTIVE_RESOURCES: frozenset[str] = frozenset({"fund_daily", "etf_rt_daily"})
+ETF_SERIES_ACTIVE_RESOURCES: frozenset[str] = frozenset({"fund_daily", "etf_rt_daily", "etf_sh_cons"})
 ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS = 1395
+ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS_BY_RESOURCE: dict[str, int] = {
+    "fund_daily": ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
+    "etf_rt_daily": ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
+}
 ETF_SERIES_ACTIVE_ALLOWED_SELECTION_GROUPS: frozenset[str] = frozenset(
     {"complete_1364", "accepted_low_gap_liquid_31"}
 )
@@ -39,7 +43,7 @@ class EtfSeriesActiveSeedService:
         dry_run: bool = True,
     ) -> EtfSeriesActiveSeedReport:
         normalized_resource = _normalize_resource(resource)
-        seed_rows = _load_seed_rows(seed_csv_path)
+        seed_rows = _load_seed_rows(seed_csv_path, resource=normalized_resource)
         existing_codes = set(
             session.scalars(
                 select(EtfSeriesActive.ts_code).where(EtfSeriesActive.resource == normalized_resource)
@@ -86,7 +90,7 @@ def _normalize_resource(resource: str) -> str:
     return normalized
 
 
-def _load_seed_rows(seed_csv_path: Path) -> tuple[_SeedRow, ...]:
+def _load_seed_rows(seed_csv_path: Path, *, resource: str) -> tuple[_SeedRow, ...]:
     if not seed_csv_path.exists():
         raise FileNotFoundError(f"ETF active seed csv not found: {seed_csv_path}")
     with seed_csv_path.open("r", encoding="utf-8-sig", newline="") as handle:
@@ -98,10 +102,14 @@ def _load_seed_rows(seed_csv_path: Path) -> tuple[_SeedRow, ...]:
     missing_fields = sorted(required_fields - fieldnames)
     if missing_fields:
         raise ValueError(f"ETF active seed csv missing required fields: {', '.join(missing_fields)}")
-    if len(rows) != ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS:
+    if not rows:
+        raise ValueError("ETF active seed csv contains no rows")
+
+    expected_rows = ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS_BY_RESOURCE.get(resource)
+    if expected_rows is not None and len(rows) != expected_rows:
         raise ValueError(
             "ETF active seed csv row count mismatch: "
-            f"expected={ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS}, actual={len(rows)}"
+            f"expected={expected_rows}, actual={len(rows)}"
         )
 
     parsed_rows: list[_SeedRow] = []
@@ -116,6 +124,8 @@ def _load_seed_rows(seed_csv_path: Path) -> tuple[_SeedRow, ...]:
             raise ValueError(f"ETF active seed csv row {index}: .OF code is not allowed: {ts_code}")
         if not (ts_code.endswith(".SH") or ts_code.endswith(".SZ")):
             raise ValueError(f"ETF active seed csv row {index}: unsupported ts_code suffix: {ts_code}")
+        if resource == "etf_sh_cons" and not ts_code.endswith(".SH"):
+            raise ValueError(f"ETF active seed csv row {index}: etf_sh_cons only allows .SH code: {ts_code}")
 
         selection_group = str(raw_row.get("selection_group") or "").strip()
         if selection_group and selection_group not in ETF_SERIES_ACTIVE_ALLOWED_SELECTION_GROUPS:

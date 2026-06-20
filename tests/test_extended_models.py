@@ -32,6 +32,7 @@ from src.foundation.models.core.ths_member import ThsMember
 from src.foundation.models.core.us_security import UsSecurity
 from src.foundation.models.raw.raw_dc_daily import RawDcDaily
 from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
+from src.foundation.models.raw.raw_etf_sh_cons import RawEtfShCons
 from src.foundation.models.raw.raw_stk_mins import RawStkMins
 from src.foundation.models.raw.raw_stk_auction_c import RawStkAuctionC
 from src.foundation.models.raw.raw_stk_auction_o import RawStkAuctionO
@@ -194,6 +195,23 @@ def test_cyq_chips_raw_model_matches_expected_keys() -> None:
     }
     assert isinstance(RawCyqChips.__table__.columns["price"].type, Numeric)
     assert isinstance(RawCyqChips.__table__.columns["percent"].type, Numeric)
+
+
+def test_etf_sh_cons_raw_model_matches_expected_keys() -> None:
+    assert [column.name for column in RawEtfShCons.__table__.primary_key.columns] == [
+        "trade_date",
+        "ts_code",
+        "con_code",
+    ]
+    assert {index.name for index in RawEtfShCons.__table__.indexes} == {
+        "idx_raw_tushare_etf_sh_cons_trade_date",
+        "idx_raw_tushare_etf_sh_cons_ts_code_trade_date",
+        "idx_raw_tushare_etf_sh_cons_con_code",
+    }
+    assert isinstance(RawEtfShCons.__table__.columns["qty"].type, Numeric)
+    assert isinstance(RawEtfShCons.__table__.columns["cpr"].type, String)
+    assert isinstance(RawEtfShCons.__table__.columns["rdr"].type, String)
+    assert isinstance(RawEtfShCons.__table__.columns["sca"].type, String)
 
 
 def test_stk_factor_pro_serving_model_matches_expected_keys() -> None:

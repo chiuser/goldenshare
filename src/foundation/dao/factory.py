@@ -74,6 +74,7 @@ from src.foundation.models.raw.raw_cyq_chips import RawCyqChips
 from src.foundation.models.raw.raw_cyq_perf import RawCyqPerf
 from src.foundation.models.raw.raw_etf_basic import RawEtfBasic
 from src.foundation.models.raw.raw_etf_index import RawEtfIndex
+from src.foundation.models.raw.raw_etf_sh_cons import RawEtfShCons
 from src.foundation.models.raw.raw_fund_daily import RawFundDaily
 from src.foundation.models.raw.raw_fund_adj import RawFundAdj
 from src.foundation.models.raw.raw_hk_basic import RawHkBasic
@@ -220,6 +221,7 @@ class DAOFactory:
         self.raw_dividend = RawDividendDAO(session)
         self.raw_etf_basic = GenericDAO(session, RawEtfBasic)
         self.raw_etf_index = GenericDAO(session, RawEtfIndex)
+        self.raw_etf_sh_cons = GenericDAO(session, RawEtfShCons)
         self.raw_hk_basic = GenericDAO(session, RawHkBasic)
         self.raw_us_basic = GenericDAO(session, RawUsBasic)
         self.raw_fund_daily = GenericDAO(session, RawFundDaily)

@@ -245,6 +245,28 @@ def _fund_adj_params(request, anchor_date: date | None, enum_values: dict[str, A
     return params
 
 
+def _etf_sh_cons_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
+    ts_code = str(enum_values.get("ts_code") or "").strip().upper()
+    if not ts_code:
+        raise ValueError("ETF 申赎清单缺少 ETF 代码")
+    if request.run_profile == "point_incremental":
+        target_date = anchor_date or request.trade_date
+        if target_date is None:
+            raise ValueError("ETF 申赎清单单日维护缺少交易日期")
+        return {"ts_code": ts_code, "trade_date": target_date.strftime("%Y%m%d")}
+    if request.run_profile == "range_rebuild":
+        start_date = enum_values.get("start_date", request.start_date)
+        end_date = enum_values.get("end_date", request.end_date)
+        if start_date is None or end_date is None:
+            raise ValueError("ETF 申赎清单区间维护必须同时填写开始日期和结束日期")
+        return {
+            "ts_code": ts_code,
+            "start_date": _format_yyyymmdd(start_date),
+            "end_date": _format_yyyymmdd(end_date),
+        }
+    raise ValueError(f"ETF 申赎清单不支持该运行模式：{request.run_profile}")
+
+
 def _index_basic_params(request, anchor_date: date | None, enum_values: dict[str, Any]) -> dict[str, Any]:  # type: ignore[no-untyped-def]
     params: dict[str, Any] = {}
     ts_code = request.params.get("ts_code")

@@ -465,7 +465,7 @@ def ops_seed_realtime_runtime_config(
 
 @app.command("ops-seed-etf-series-active")
 def ops_seed_etf_series_active(
-    resource: str = typer.Option(..., "--resource", help="ETF 活跃池 resource：fund_daily 或 etf_rt_daily。"),
+    resource: str = typer.Option(..., "--resource", help="ETF 活跃池 resource：fund_daily、etf_rt_daily 或 etf_sh_cons。"),
     from_seed_csv: Path = typer.Option(
         ...,
         "--from-seed-csv",

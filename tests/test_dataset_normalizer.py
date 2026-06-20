@@ -88,6 +88,69 @@ def test_cyq_chips_normalizer_rejects_missing_price() -> None:
     assert batch.rows_normalized == []
 
 
+def test_etf_sh_cons_normalizer_keeps_source_text_facts() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("etf_sh_cons"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-etf-sh-cons",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260618",
+                    "ts_code": " 510300.sh ",
+                    "con_code": " 000001.sz ",
+                    "con_name": " 平安银行 ",
+                    "qty": "1500.000000",
+                    "sub_flag": "  ",
+                    "cpr": " - ",
+                    "rdr": " 1 ",
+                    "sca": "\x00",
+                    "exchange": " sse ",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 0
+    normalized = batch.rows_normalized[0]
+    assert normalized["trade_date"] == date(2026, 6, 18)
+    assert normalized["ts_code"] == "510300.SH"
+    assert normalized["con_code"] == "000001.SZ"
+    assert normalized["con_name"] == "平安银行"
+    assert normalized["qty"] == Decimal("1500.000000")
+    assert normalized["sub_flag"] is None
+    assert normalized["cpr"] == "-"
+    assert normalized["rdr"] == "1"
+    assert normalized["sca"] is None
+    assert normalized["exchange"] == "SSE"
+
+
+def test_etf_sh_cons_normalizer_rejects_blank_required_con_code() -> None:
+    batch = DatasetNormalizer().normalize(
+        definition=get_dataset_definition("etf_sh_cons"),
+        fetch_result=SourceFetchResult(
+            unit_id="u-etf-sh-cons-blank-con-code",
+            request_count=1,
+            retry_count=0,
+            latency_ms=1,
+            rows_raw=[
+                {
+                    "trade_date": "20260618",
+                    "ts_code": "510300.SH",
+                    "con_code": "  ",
+                    "qty": "1500.000000",
+                }
+            ],
+        ),
+    )
+
+    assert batch.rows_rejected == 1
+    assert batch.rejected_reasons == {"normalize.empty_not_allowed:con_code": 1}
+    assert batch.rows_normalized == []
+
+
 def test_top_list_normalizer_hashes_punctuation_variants_to_same_reason_hash() -> None:
     batch = DatasetNormalizer().normalize(
         definition=get_dataset_definition("top_list"),

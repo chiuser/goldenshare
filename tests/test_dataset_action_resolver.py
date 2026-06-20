@@ -8,7 +8,12 @@ import pytest
 from src.foundation.ingestion.errors import IngestionPlanningError
 from src.foundation.ingestion.errors import IngestionValidationError
 from src.foundation.ingestion import DatasetActionRequest, DatasetActionResolver, DatasetTimeInput
-from src.foundation.ingestion.request_builders import _cyq_chips_params, _index_daily_params, _stk_factor_pro_params
+from src.foundation.ingestion.request_builders import (
+    _cyq_chips_params,
+    _etf_sh_cons_params,
+    _index_daily_params,
+    _stk_factor_pro_params,
+)
 
 
 def test_dataset_action_resolver_builds_point_plan_with_real_enum_defaults(mocker) -> None:
@@ -316,6 +321,180 @@ def test_cyq_chips_request_builder_requires_ts_code() -> None:
 
     with pytest.raises(ValueError, match="每日筹码分布缺少股票代码"):
         _cyq_chips_params(request, date(2026, 4, 24), {})
+
+
+def test_etf_sh_cons_default_point_uses_etf_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510500.SH", "510300.SH"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.run_profile == "point_incremental"
+    assert plan.planning.unit_count == 2
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "510300.SH", "trade_date": "20260618"},
+        {"ts_code": "510500.SH", "trade_date": "20260618"},
+    ]
+    assert [unit.trade_date for unit in plan.units] == [date(2026, 6, 18), date(2026, 6, 18)]
+    assert {unit.pagination_policy for unit in plan.units} == {"offset_limit"}
+    assert {unit.page_limit for unit in plan.units} == {3000}
+    assert [unit.progress_context for unit in plan.units] == [
+        {"unit": "etf", "ts_code": "510300.SH", "trade_date": "2026-06-18"},
+        {"unit": "etf", "ts_code": "510500.SH", "trade_date": "2026-06-18"},
+    ]
+    fake_dao.etf_series_active.list_active_codes.assert_called_once_with("etf_sh_cons")
+
+
+def test_etf_sh_cons_explicit_code_must_be_single_sh_and_in_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH", "510500.SH"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+        filters={"ts_code": "510300.sh"},
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 1
+    assert plan.units[0].request_params == {"ts_code": "510300.SH", "trade_date": "20260618"}
+    fake_dao.etf_series_active.list_active_codes.assert_called_once_with("etf_sh_cons")
+
+
+def test_etf_sh_cons_rejects_explicit_code_outside_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+        filters={"ts_code": "510500.SH"},
+    )
+
+    with pytest.raises(IngestionPlanningError, match="未配置到 active 池") as exc_info:
+        resolver.build_plan(request)
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
+
+
+def test_etf_sh_cons_rejects_empty_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=[])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+    )
+
+    with pytest.raises(IngestionPlanningError, match="先配置 etf_sh_cons ETF 激活池") as exc_info:
+        resolver.build_plan(request)
+
+    assert exc_info.value.structured_error.error_code == "universe_empty"
+
+
+def test_etf_sh_cons_rejects_non_sh_code_in_active_pool(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH", "159915.SZ"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+    )
+
+    with pytest.raises(IngestionPlanningError, match="只允许 .SH ETF 代码") as exc_info:
+        resolver.build_plan(request)
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
+
+
+def test_etf_sh_cons_range_chunks_by_natural_half_year_without_trade_day_expansion(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH"])),
+        trade_calendar=SimpleNamespace(
+            get_open_dates=mocker.Mock(side_effect=AssertionError("etf_sh_cons range must not expand by trade day"))
+        ),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="range", start_date=date(2025, 3, 10), end_date=date(2026, 5, 29)),
+    )
+
+    plan = resolver.build_plan(request)
+
+    assert plan.planning.unit_count == 3
+    assert [unit.request_params for unit in plan.units] == [
+        {"ts_code": "510300.SH", "start_date": "20250310", "end_date": "20250630"},
+        {"ts_code": "510300.SH", "start_date": "20250701", "end_date": "20251231"},
+        {"ts_code": "510300.SH", "start_date": "20260101", "end_date": "20260529"},
+    ]
+    assert [unit.trade_date for unit in plan.units] == [None, None, None]
+    assert [unit.progress_context["start_date"] for unit in plan.units] == [
+        "2025-03-10",
+        "2025-07-01",
+        "2026-01-01",
+    ]
+    assert [unit.progress_context["end_date"] for unit in plan.units] == [
+        "2025-06-30",
+        "2025-12-31",
+        "2026-05-29",
+    ]
+    fake_dao.trade_calendar.get_open_dates.assert_not_called()
+
+
+def test_etf_sh_cons_rejects_multi_code_input(mocker) -> None:
+    fake_dao = SimpleNamespace(
+        etf_series_active=SimpleNamespace(list_active_codes=mocker.Mock(return_value=["510300.SH", "510500.SH"])),
+    )
+    mocker.patch("src.foundation.ingestion.unit_planner.DAOFactory", return_value=fake_dao)
+    resolver = DatasetActionResolver(mocker.Mock())
+    request = DatasetActionRequest(
+        dataset_key="etf_sh_cons",
+        action="maintain",
+        time_input=DatasetTimeInput(mode="point", trade_date=date(2026, 6, 18)),
+        filters={"ts_code": "510300.SH,510500.SH"},
+    )
+
+    with pytest.raises(IngestionPlanningError, match="一次只支持维护一个显式 ETF 代码") as exc_info:
+        resolver.build_plan(request)
+
+    assert exc_info.value.structured_error.error_code == "invalid_enum"
+
+
+def test_etf_sh_cons_request_builder_requires_ts_code() -> None:
+    request = SimpleNamespace(
+        run_profile="point_incremental",
+        trade_date=date(2026, 6, 18),
+        start_date=None,
+        end_date=None,
+        params={},
+    )
+
+    with pytest.raises(ValueError, match="ETF 申赎清单缺少 ETF 代码"):
+        _etf_sh_cons_params(request, date(2026, 6, 18), {})
 
 
 def test_stk_factor_pro_request_builder_keeps_trade_date_request() -> None:

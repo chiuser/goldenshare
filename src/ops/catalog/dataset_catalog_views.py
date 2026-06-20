@@ -98,6 +98,7 @@ OPS_DATASET_DEFAULT_VIEW = DatasetCatalogView(
         DatasetCatalogItem("etf_index", "etf_fund", 10),
         DatasetCatalogItem("fund_adj", "etf_fund", 20),
         DatasetCatalogItem("fund_daily", "etf_fund", 30),
+        DatasetCatalogItem("etf_sh_cons", "etf_fund", 40),
         DatasetCatalogItem("biying_moneyflow", "moneyflow", 10),
         DatasetCatalogItem("moneyflow", "moneyflow", 20),
         DatasetCatalogItem("moneyflow_dc", "moneyflow", 30),

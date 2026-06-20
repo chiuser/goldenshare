@@ -35,14 +35,19 @@ def _row_count(session: Session) -> int:
     return session.scalar(select(func.count()).select_from(EtfSeriesActive)) or 0
 
 
-def _write_seed_csv(tmp_path: Path, *, override: dict[int, dict[str, str]] | None = None) -> Path:
+def _write_seed_csv(
+    tmp_path: Path,
+    *,
+    row_count: int = ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS,
+    override: dict[int, dict[str, str]] | None = None,
+) -> Path:
     output = tmp_path / "etf_seed.csv"
     overrides = override or {}
     fieldnames = ["ts_code", "selection_group", "latest_matched_trade_date"]
     with output.open("w", encoding="utf-8", newline="") as handle:
         writer = csv.DictWriter(handle, fieldnames=fieldnames)
         writer.writeheader()
-        for index in range(ETF_SERIES_ACTIVE_SEED_EXPECTED_ROWS):
+        for index in range(row_count):
             row = {
                 "ts_code": f"51{index:04d}.SH",
                 "selection_group": "complete_1364",
@@ -100,6 +105,24 @@ def test_etf_series_active_seed_can_create_two_resources_independently() -> None
     assert _row_count(session) == 2790
 
 
+def test_etf_series_active_seed_etf_sh_cons_allows_small_sh_seed(tmp_path: Path) -> None:
+    session = _session()
+    seed_path = _write_seed_csv(tmp_path, row_count=2)
+
+    report = EtfSeriesActiveSeedService().run(
+        session,
+        resource="etf_sh_cons",
+        seed_csv_path=seed_path,
+        dry_run=False,
+    )
+
+    assert report.resource == "etf_sh_cons"
+    assert report.candidate_count == 2
+    assert report.created_count == 2
+    assert _row_count(session) == 2
+    assert session.get(EtfSeriesActive, ("etf_sh_cons", "510000.SH")) is not None
+
+
 def test_etf_series_active_seed_repeated_apply_skips_existing_rows() -> None:
     session = _session()
     service = EtfSeriesActiveSeedService()
@@ -124,12 +147,28 @@ def test_etf_series_active_seed_rejects_unsupported_resource() -> None:
         )
 
 
+def test_etf_series_active_seed_old_resources_keep_fixed_row_count(tmp_path: Path) -> None:
+    session = _session()
+    seed_path = _write_seed_csv(tmp_path, row_count=2)
+
+    with pytest.raises(ValueError, match="row count mismatch"):
+        EtfSeriesActiveSeedService().run(session, resource="fund_daily", seed_csv_path=seed_path)
+
+
 def test_etf_series_active_seed_rejects_of_code(tmp_path: Path) -> None:
     session = _session()
     seed_path = _write_seed_csv(tmp_path, override={0: {"ts_code": "510300.OF"}})
 
     with pytest.raises(ValueError, match=".OF code is not allowed"):
         EtfSeriesActiveSeedService().run(session, resource="fund_daily", seed_csv_path=seed_path)
+
+
+def test_etf_series_active_seed_etf_sh_cons_rejects_sz_code(tmp_path: Path) -> None:
+    session = _session()
+    seed_path = _write_seed_csv(tmp_path, row_count=1, override={0: {"ts_code": "159915.SZ"}})
+
+    with pytest.raises(ValueError, match="etf_sh_cons only allows .SH code"):
+        EtfSeriesActiveSeedService().run(session, resource="etf_sh_cons", seed_csv_path=seed_path)
 
 
 def test_etf_series_active_seed_rejects_non_exchange_suffix(tmp_path: Path) -> None:
