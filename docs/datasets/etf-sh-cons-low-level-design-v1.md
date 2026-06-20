@@ -1,6 +1,6 @@
 # ETF 申赎清单（`etf_sh_cons`）低层设计 LLD v1
 
-状态：M1 Schema 与存储链路已完成，待 M2 开发
+状态：M3 Planner 与 Request Builder 已完成，待 M4 开发
 对应方案：[ETF 申赎清单数据集开发说明](/Users/congming/github/goldenshare/docs/datasets/etf-sh-cons-dataset-development.md)  
 最后更新：2026-06-20
 
@@ -830,8 +830,8 @@ python3 scripts/check_docs_integrity.py
 
 1. M0：补源文档和 docs index，确认 Alembic head。已完成：源文档已补齐，M1 开发前 Alembic head 为 `20260618_000117`。
 2. M1：新增 migration、raw model、DAOFactory 注册。已完成：新增 `20260620_000118_add_etf_sh_cons_dataset.py`，当前 Alembic head 为 `20260620_000118`。
-3. M2：新增 DatasetDefinition、freshness policy、Ops catalog、seed service resource。
-4. M3：新增 planner、request builder、row transform。
+3. M2：新增 DatasetDefinition、freshness policy、Ops catalog、seed service resource。已完成：`etf_sh_cons` 已进入 DatasetDefinition、freshness、Ops 展示目录和 ETF active seed resource。
+4. M3：新增 planner、request builder。已完成：`build_etf_sh_cons_units` 已按 ETF active 池和自然半年窗口生成 unit，`_etf_sh_cons_params` 已按 planner unit 格式化 Tushare 参数。
 5. M4：补测试护栏。
 6. M5：跑静态检查、单测、ingestion lint、docs check。
 7. M6：最小真实验收。
