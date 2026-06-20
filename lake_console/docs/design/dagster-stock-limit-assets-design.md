@@ -2,7 +2,7 @@
 
 状态：调研结论已形成；SL-0 关键口径已拍板；尚未进入代码开发。
 
-更新时间：2026-06-02
+更新时间：2026-06-17
 
 ## 1. 目标
 
@@ -40,6 +40,7 @@
 | `lake_console/orchestrator/AGENTS.md` | Dagster 设计必须先确认方案；正式资产必须走长期命名、schema contract、checks、job/sensor 边界。 |
 | `lake_console/orchestrator/CODING_STANDARDS.md` | 正式 asset 必须注册 definition column schema；materialization metadata 只记录 observed columns。 |
 | `lake_console/docs/design/dagster-asset-schema-contract-design.md` | 新增 raw/silver asset 必须在 `asset_column_schemas.py` 注册字段契约。 |
+| `lake_console/docs/design/dagster-run-key-governance-low-level-design.md` | 后续如新增 sensor，run key 只做幂等身份，必须使用统一 builder；禁止从 run key 反推执行参数。 |
 | `lake_console/docs/templates/dagster-dataset-onboarding-template.html` | 新数据集接入需要先完成旧湖审计、Tushare 文档与 MCP 实测、分区/路径/checks/job/sensor 设计。 |
 
 当前代码审计结论：
@@ -52,6 +53,7 @@
    - schema contract：`defs/run_contracts/asset_column_schemas.py`
    - asset/check/job/sensor 分层组织。
 3. 分钟线 `stk_mins` 已实现“双来源写同一套 raw asset”的长期模式：默认日常从 prod DB 只读抽取，Tushare 作为人工备用；涨跌停资产族可以复用这个模式，但不能新建 `*_from_prod` 平行资产。
+4. 历史大批量可参考 `adj_factor` / `stk_mins` 的 runless event 补录经验；正式实现时必须新增涨跌停资产族自己的专用 helper / CLI，不能把已有数据集专属函数当通用入口硬套。
 
 ### 2.2 Prod DB 生产代码审计依据
 
@@ -83,7 +85,17 @@
 3. Python 只做编排、参数校验、路径拼接、SQL 结果汇总和 Dagster metadata 组装。
 4. 禁止在正式链路里用 Python 对大体量明细行做循环计算、逐行校验、逐行合并或逐行写 parquet。
 
-### 2.4 本地 Tushare 文档依据
+### 2.4 Dagster 与 DuckDB 实现依据
+
+本方案涉及 asset、checks、jobs、直写补录和 DuckDB 批量写 parquet，开发前必须继续按以下事实对账：
+
+1. Dagster asset job 只做 asset selection 和 check selection；具体 prod DB 抽取、Tushare fanout、DuckDB 写 parquet、字段 cast、去重和质量判断都必须落在 asset / helper / checks 中，不能写进 job 文件。
+2. 稳定字段契约只写入 asset definition metadata 的 `dagster/column_schema`；materialization metadata 只能记录 `dagster/uri`、`dagster/row_count`、`goldenshare/observed_columns`、source method、审计报告路径和运行统计。
+3. runless event 补录必须使用 `DagsterInstance.report_runless_asset_event(...)` 写 `AssetMaterialization` 和 `AssetCheckEvaluation`；check event 必须绑定刚补录的 materialization 的 `target_materialization_data`。
+4. DuckDB 可以用 `read_parquet(...)` 批量扫描旧湖 / 新湖 parquet，也可以用 `COPY (...) TO ... (FORMAT parquet)` 写 parquet；但 DuckDB 分区写可能为同一分区产生多文件，正式 lake 目标仍要求每个分区稳定为 `part-000.parquet`，因此必须通过 staging 目录、审计和原子替换控制输出形态。
+5. 大批量历史写入不使用 Dagster backfill。它是“Direct Lake Bootstrap + Runless Event Backfill”：先生成/审计 parquet 文件，再补 Dagster event 事实；日常增量才走正式 asset job。
+
+### 2.5 本地 Tushare 文档依据
 
 | 接口 | 本地文档 |
 ---|---|
@@ -94,7 +106,7 @@
 | `limit_cpt_list` | `docs/sources/tushare/股票数据/打板专题数据/0357_最强板块统计.md` |
 | `kpl_list` | `docs/sources/tushare/股票数据/打板专题数据/0347_开盘啦榜单数据.md` |
 
-### 2.5 Tushare MCP 实测依据
+### 2.6 Tushare MCP 实测依据
 
 已用 `tushareMcp` 做样本核验：
 
@@ -168,6 +180,51 @@ prod DB 与新湖 raw 的边界：
 3. Tushare `limit_list_ths` 输出字段中有 `limit_type` 和 `market_type`，这两个才是源接口业务字段。
 4. prod DB 投影到新湖目标字段后，本轮审计未发现 exact duplicate。
 5. prod DB 的 `trade_date` 是 `DATE`；新湖 raw 如果保持 Tushare 源镜像，写入 parquet 前必须 cast 成 `YYYYMMDD` 字符串。
+
+## 4.1 历史初始化性能门禁
+
+本资产族进入开发前必须先把以下性能表作为 SL-1 的输入固化到 migration specs。任何一项在 dry-run 中超出表内口径，必须停下来重新评估，不能直接进入全量写入。
+
+### 4.1.1 已知规模基线
+
+| 数据集 | 旧湖分区数 | 旧湖行数 | prod 最新行数 | prod gap 行数估算 | Tushare fanout 数 | 日常 Tushare 备用单日最少请求数 | 历史 raw 目标文件数下限 |
+|---|---:|---:|---:|---:|---:|---:|---:|
+| `stk_limit` | 570 | 4,039,398 | 4,123,166 | 83,768 | 1 | 1 | 570 + prod gap 分区数 |
+| `limit_step` | 605 | 12,426 | 12,622 | 196 | 1 | 1 | 605 + prod gap 分区数 |
+| `limit_list_d` | 1540 | 153,214 | 154,603 | 1,389 | 9 | 9 | 1540 + prod gap 分区数 |
+| `limit_list_ths` | 613 | 95,835 | 97,937 | 2,102 | 15 | 15 | 613 + prod gap 分区数 |
+| `limit_cpt_list` | 605 | 12,133 | 12,353 | 220 | 1 | 1 | 605 + prod gap 分区数 |
+| `kpl_list` | 328 | 117,203 | 122,489 | 5,286 | 5 | 5 | 328 + prod gap 分区数 |
+| 合计 | 4261 | 4,430,209 | 4,523,170 | 92,961 | - | - | 4261 + prod gap 分区数 |
+
+说明：
+
+1. `prod gap 行数估算` = 当前 prod DB 总行数 - 旧湖截至 `2026-05-15` 行数，用于测算 `2026-05-16` 至 prod 最新日的补数规模。
+2. `prod gap 分区数` 不在本文硬编码为自然日或工作日；正式执行时必须从 `cn_a_stock_trade_days` 与 prod DB 实际 `trade_date` 集合取交集生成，dry-run 输出每个数据集的精确值。
+3. `日常 Tushare 备用单日最少请求数` 只计算 fanout 第一页，不含分页。实际请求数 = `fanout 组合数 * 分页页数`，分页页数按旧 prod page limit 和接口返回行数决定。
+4. 历史初始化默认从旧湖和 prod DB 读取，不用 Tushare 重拉历史，因此 Tushare 请求规模只约束后续人工备用 / 受控修复入口。
+
+### 4.1.2 DuckDB / PostgreSQL 批量执行门禁
+
+| 门禁项 | 正式口径 |
+|---|---|
+| 对象数 | 6 个 raw asset + 6 个 silver asset；历史初始化先只做 raw。 |
+| 日期数 | 每个数据集按自身源数据起始日到迁移终止日的 `cn_a_stock_trade_days` 交集计算，不要求补该数据集源站起始日前的空分区。 |
+| 分区数 | 以 dry-run 输出的 `target_partition_count` 为准；必须能解释为旧湖分区 + prod gap 分区。 |
+| 枚举展开 | `limit_list_d=9`，`limit_list_ths=15`，`kpl_list=5`，其余为 1。 |
+| 请求数 | 历史旧湖阶段 0 个 Tushare 请求；prod gap 阶段每个数据集优先一条日期范围 SQL 或受控批次 SQL，不按日期碎查；Tushare 只用于后续备用入口。 |
+| 页数 | 历史阶段无 Tushare 分页；备用 Tushare 入口必须记录每个 fanout 组合的 `page_count`。 |
+| 源端行数 | 旧湖阶段以第 3 节行数为基线；prod gap 阶段以第 4 节 prod DB 与旧湖差值为第一基线，正式 dry-run 重新输出精确值。 |
+| 写入行数 | 写入行数必须等于源端投影后按旧 prod key 去重的最终行数；差异只能来自同 key 后到覆盖先到，必须输出 dedup 计数。 |
+| 预计文件数 | 每个 raw 分区一个 `part-000.parquet`；如果 DuckDB `COPY` 产生多文件，必须在 staging 中合并或改写为单文件后才能替换目标。 |
+| DuckDB scan | 旧湖 parquet 和新湖目标审计均用 DuckDB 聚合 SQL；禁止 Python 明细循环。 |
+| PostgreSQL scan | prod DB 只读 SQL 必须显式字段白名单，不得 `SELECT *`；推荐通过 DuckDB `postgres_query` / 只读 attached DB 模式落地。 |
+| join / dedup | 主键去重、exact duplicate、分区日期、schema、row count 全部用 SQL 聚合完成。 |
+| 临时目录 / spill | 使用统一 DuckDB 连接配置；临时目录遵守 orchestrator DuckDB 规范，不在仓库目录、用户 home 或系统散落临时目录写大文件。 |
+| commit / replace 粒度 | 以单 dataset / 单 partition 文件为原子替换粒度；先写 staging，审计通过后替换目标 `part-000.parquet`。 |
+| 重试成本 | 文件生成失败可按 dataset/date 分区重跑；event 补录失败只能补 event，不重写已经审计通过的 parquet。 |
+| 不可接受阈值 | `schema_mismatch_count > 0`、`partition_date_mismatch_count > 0`、`duplicate_key_count > 0`、`exact_duplicate_count > 0`、`zero_row_partition_count > 0`、写入行数无法解释，任一出现即停止。 |
+| dry-run / sample | 每个数据集必须先 dry-run，再取至少 1 个旧湖样本分区和 1 个 prod gap 样本分区写入 staging 验证，通过后才能全量。 |
 
 ## 5. 固定命名口径
 
@@ -460,6 +517,13 @@ cast 规则：
 | `limit_list_ths` | staging 中按 `(trade_date, ts_code, query_limit_type, query_market)` 复刻旧 prod 语义；最终 parquet 丢弃 query 字段后检查 exact duplicate absent。 |
 | `limit_cpt_list` | `(ts_code, trade_date)` |
 | `kpl_list` | `(ts_code, trade_date, tag)` |
+
+`limit_list_ths` 必须采用两阶段 staging，不允许直接把 prod DB 行投影成最终 parquet 后再想办法解释差异：
+
+1. 第一阶段 staging 保留 `query_limit_type/query_market`，按旧 prod 主键 `(trade_date, ts_code, query_limit_type, query_market)` 复刻旧 prod upsert 语义，同 key 后到覆盖先到。
+2. 第一阶段审计通过后，第二阶段才投影到新湖 raw contract，删除 `query_limit_type/query_market`。
+3. 第二阶段必须检查投影后的 exact duplicate。若删除 query 字段后出现完全重复行，说明不同查询维度返回了同一条最终业务记录，必须停止并输出样本，不能静默 distinct。
+4. `query_limit_type/query_market` 可进入 staging 审计报告和 materialization metadata 的统计字段，但不得进入 raw/silver parquet 字段，也不得成为 asset schema contract。
 
 ## 8. Checks 定义口径
 
@@ -810,6 +874,66 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 3. 如果 parquet 已写入但 event 未补齐，允许只补 event。
 4. 如果 event 已补但 parquet 审计发现问题，必须先修 parquet，再重写对应 materialization/check event。
 
+### 12.6 Runless event helper 设计门禁
+
+本资产族不能只在文档里写“补 event”，正式 SL-3D 必须新增涨跌停资产族专用 helper / CLI，并按现有 `adj_factor`、`stk_mins` 的 runless event 模式实现。建议命名按长期职责表达，例如：
+
+```text
+defs/bootstrap/stock_limit_migration_events.py
+defs/bootstrap/stock_limit_migration_cli.py
+```
+
+最终文件名可在 SL-1 设计中确认，但必须满足：
+
+1. 文件名表达 `stock_limit` 资产族和 `migration/events` 职责，不得使用 `temp`、`phase`、`slice`、`helper` 这类临时或宽泛命名。
+2. helper 分为 `plan`、`report`、`audit` 三类入口：`plan` 只做集合和计数规划；`report` 在 dry-run 时不写 event；`audit` 用 DuckDB 聚合结果判断能否补绿。
+3. 补 materialization 时使用 `DagsterInstance.report_runless_asset_event(AssetMaterialization(...))`。
+4. 补 check 时使用 `DagsterInstance.report_runless_asset_event(AssetCheckEvaluation(...))`。
+5. 每个 check event 必须带 `target_materialization_data`，并指向刚补录的同 asset / partition materialization；禁止补没有目标 materialization 的孤立 check event。
+6. check event 的 `passed=True` 必须来自同一批 DuckDB 审计结果，不能由文件存在或人工判断代替。
+7. `blocking=True` 必须与正式 raw blocking checks 口径一致；不允许为了补录方便把 blocking check 降级。
+8. event 补录不产生 Runs 页面记录，不触发 run status sensor；文档和操作说明不得把它描述成 Dagster backfill。
+9. event 补录失败不得回滚或污染 parquet 文件；修复后可以只重放 event 阶段。
+
+### 12.7 Runless event 规模估算
+
+第一版 raw blocking checks 按 6 类估算：
+
+```text
+file exists
+row count positive
+required columns and types
+partition date matches
+prod key uniqueness / upsert result
+exact duplicate absent
+```
+
+因此每个 raw partition 预计补录：
+
+```text
+1 个 materialization event + 6 个 asset check events = 7 个 runless events
+```
+
+历史 raw event 量估算：
+
+```text
+raw_event_count = sum(target_partition_count_by_dataset) * 7
+```
+
+其中 `target_partition_count_by_dataset` 必须由 SL-3 dry-run 读取 `cn_a_stock_trade_days` 与源数据日期范围交集得到。按照旧湖已知分区数下限估算，仅旧湖阶段至少：
+
+```text
+4261 * 7 = 29827 条 runless events
+```
+
+prod gap 补数还会增加：
+
+```text
+sum(prod_gap_partition_count_by_dataset) * 7
+```
+
+SL-3D 必须在 dry-run 输出 `planned_materialization_count`、`planned_check_event_count`、`planned_event_count`、`already_materialized_count`、`already_green_check_count`。如果计划 event 数与分区数、check 数无法对账，禁止进入 report。
+
 ## 13. 开发切片建议
 
 ### SL-0：设计确认与命名拍板
@@ -831,7 +955,11 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 1. 新增 raw/silver schema contract。
 2. 新增 paths。
 3. 新增旧湖 / prod DB 批量迁移 specs。
-4. 不新增 asset/job/sensor。
+4. 新增历史初始化性能门禁表的代码侧 specs：每个数据集必须能输出源范围、分区数、行数、fanout 数、预计文件数、预计 runless event 数。
+5. 新增 prod DB 字段白名单 specs：每个数据集必须固定 `SOURCE_COLUMNS`、源表映射、cast 规则和 forbidden columns；禁止 `SELECT *`。
+6. 新增 staging/dedup specs：特别是 `limit_list_ths` 必须明确 staging query key 与最终 parquet 字段投影。
+7. 新增 runless event 补录 specs：明确 raw materialization/check event 名单、event 数公式、dry-run/sample/full 入口。
+8. 不新增 asset/job/sensor。
 
 ### SL-2：raw assets 与 raw checks
 
@@ -843,6 +971,14 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 4. 实现 fanout helper 和 prod DB 字段白名单校验。
 5. 实现按旧 prod 主键语义的 dedup/upsert 结果写入。
 6. 单日验证每个接口。
+7. 单元测试必须覆盖：
+   - prod DB SQL 不含 `SELECT *` 和 forbidden columns。
+   - `limit_list_d` 9 路 fanout 参数完整。
+   - `limit_list_ths` 15 路 fanout 参数完整，且 query 字段只在 staging 中出现。
+   - `kpl_list` 5 路 fanout 参数完整，且输出字段 `tag` 保留进 parquet。
+   - 同 key 后到覆盖先到。
+   - 投影后 exact duplicate 会失败。
+   - `limit_cpt_list.cons_nums/rank` 非整数时失败，不能静默写 null。
 
 ### SL-3：historical migration
 
@@ -854,6 +990,9 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 4. `SL-3D`：统一补 Dagster materialization/check events。
 5. 不通过 Dagster backfill 搬运历史数据。
 6. 不生成 silver。
+7. SL-3 必须分成 dry-run、sample、full file generation、full audit、event dry-run、event sample、event full report、final audit，不能一步直接全量。
+8. SL-3D 必须用专用 helper / CLI 补 runless events；禁止在迁移脚本里临时拼 `DagsterInstance` 调用。
+9. SL-3D 只能给审计通过的分区补绿 event；任何 check 失败都必须先修文件事实，再补 event。
 
 ### SL-4：silver assets 与 silver checks
 
@@ -880,6 +1019,9 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 2. 后续根据接口文档中的接口数据更新时间设计 sensor 更新时机。
 3. 所有 sensor 默认 `STOPPED`。
 4. 不在 sensor 里做重 IO 或大量历史扫描。
+5. 后续 sensor 必须按 `dagster-run-key-governance-low-level-design.md` 使用统一 run key builder；run key 只做幂等，不承载 `trade_date` 之外的隐藏执行参数。
+6. prod DB 日常 sensor 只能检查 prod DB 目标日期是否 ready；不能把 Tushare readiness 和 prod DB readiness 混成一个门禁。
+7. `kpl_list` 更新时间不同，未来 sensor 必须独立处理，不得因为其它 5 个数据集 ready 就强行触发它。
 
 ## 14. 开发前技术门禁
 
@@ -890,6 +1032,10 @@ lake_console/reports/stock_limit_<dataset>_migration_summary_<date>.md
 | Tushare 备用入口实测 | 虽然请求方式参考旧 prod 代码，但真正实现前仍需用 `tushareMcp` 对显式字段、分页、fanout 样本再次做最小实测。 |
 | prod DB helper SQL | 每个 helper 必须只读字段白名单，不得 `SELECT *`，不得把系统字段和查询字段写入 parquet。 |
 | `limit_list_ths` staging key | `query_limit_type/query_market` 只用于内部 staging/dedup，不进入 parquet；开发时需用单测锁住。 |
+| 性能门禁 dry-run | SL-1/SL-3 必须输出第 4.1 节所有规模指标；如果源行数、目标文件数、runless event 数无法对账，停止开发或执行。 |
+| runless event helper | SL-3D 必须先实现专用 plan/report/audit helper 和测试；不得用临时脚本直接补正式 events。 |
+| DuckDB 写入形态 | 历史写入必须验证每个分区最终只有 `part-000.parquet`；DuckDB 分区写导致多文件时必须在 staging 修正后才能替换目标。 |
+| run key / sensor 边界 | 第一版无 sensor；未来 sensor slice 必须先列最终 sensor 名称、definition tags、run key builder 调用和 run_config 来源。 |
 
 后续 sensor 更新时间不属于本轮待拍板项。第一版明确不做 sensor；如果未来进入 sensor slice，再根据接口文档更新时间单独设计和拍板。
 

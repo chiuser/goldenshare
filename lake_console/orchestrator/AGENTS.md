@@ -190,6 +190,23 @@ Dagster job 只做流程入口和 asset selection，不承接具体数据生产�
 8. 新增资产族 sensor 前，方案文档必须列清：输入状态、ready 条件、run key、cursor 内容、最大单 tick 请求数、失败重跑策略、是否允许注册 partition，以及与其它 sensor 的边界。
 9. 分区范围、日期边界、资产族归属这类质量门禁，优先实现为正式 blocking asset check；禁止在业务 asset 写入函数里混入定制化的写前 guard，除非方案文档明确批准这种异常设计。
 
+### Sensor Hot Path 性能分析门禁
+
+日常 sensor、run-status sensor、continuity selector、readiness gate 这类热路径的性能分析，必须先优化读取模型，再讨论新增状态实体。禁止只复现当前慢实现的逐日期、逐 asset、逐 check 深扫结果，就直接下结论新增 summary asset、status manifest、数据库表或配置项。
+
+规则：
+
+1. 性能审计必须先列清读取次数模型，至少包括：窗口日期数、asset 数、blocking check 数、Dagster event/check history 查询次数、每次查询 limit、反序列化记录数、DuckDB 扫描文件数和预计行数。
+2. 测量必须区分三类结果：当前实现耗时、batch 后的 Dagster metadata 读取耗时、DuckDB/lake 文件事实读取耗时。不能只测当前实现，也不能只测单日样本后推断整段窗口。
+3. 遇到 `日期 * asset * check` 级别循环时，必须先设计 batch 方案：按 asset 一次读取 materialization 集合，按 check key 一次读取 check records，再在内存里映射窗口日期；禁止默认继续逐日期调用 `asset_readiness_status(...)` 或 `dataset_readiness_status(...)`。
+4. 判断 20 天、60 天或其它窗口大小前，必须先用 batch 读取模型测量；如果 batch 后 20 和 60 成本接近，窗口大小不能被误判为根因。
+5. 对可以从 lake 文件事实判断的 readiness，例如文件存在、row count、schema、freq/date、唯一键和基础质量统计，必须优先评估 DuckDB 批量读取 Parquet 的方案；Dagster event log 只承载调度事件和 check 记录，不应默认作为大窗口数据事实扫描源。
+6. DuckDB/lake readiness 不得偷换完整 blocking check 语义。正式实现必须复用或抽取现有 check SQL/契约语义；只能把“文件存在 + row count”作为性能基准或粗筛，不能冒充完整 ready。
+7. 新增 status manifest、readiness asset、summary asset、数据库表或其它状态实体前，必须证明：现有 Dagster metadata batch 查询和 DuckDB/lake 文件事实查询都不能满足正确性或性能要求；同时列清新增实体的一致性风险、写失败语义、回补方式、路径/schema 契约和退出成本。
+8. profiling 输出必须包含真实数字，不得只写“很慢”或“应该更快”。至少记录：窗口范围、读取次数、记录数、文件数、耗时、最慢查询样本，以及是否触发超时或预算上限。
+9. 若 profiling 过程中发现测量脚本本身采用了低效逐日期深扫，必须停下重写测量方法；禁止把错误测量结果当成方案依据继续推进。
+10. 任何 sensor hot path 优化完成后，必须增加静态门禁或单元测试防回流，确保正式路径不会重新出现未批准的逐日期 event history 深扫。
+
 ### Sensor Definition Tags 分类门禁
 
 Sensor definition tags 是 Automation 页面筛选和运维分类的一部分，不是 run tags，也不是 cursor 或 run config。

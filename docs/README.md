@@ -9,6 +9,7 @@
 
 - [子系统边界基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/subsystem-boundary-plan.md)
 - [子系统依赖矩阵](/Users/congming/github/goldenshare/docs/architecture/dependency-matrix.md)
+- [Goldenshare 仓库整体上手总览 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/goldenshare-repository-onboarding-overview-v1.html)
 - [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
 - [Platform 拆分与 cleanup 基线](/Users/congming/github/goldenshare/docs/architecture/platform-split-plan.md)
 - [Ops 收敛基线（收敛后版本）](/Users/congming/github/goldenshare/docs/architecture/ops-consolidation-plan.md)
@@ -38,6 +39,7 @@ docs/
 ## 3. 架构与治理（S1）
 
 - [设计原则](/Users/congming/github/goldenshare/docs/architecture/design-principles.md)
+- [Goldenshare 仓库整体上手总览 v1（HTML）](/Users/congming/github/goldenshare/docs/architecture/goldenshare-repository-onboarding-overview-v1.html)
 - [Foundation 当前强约束（统一基线）](/Users/congming/github/goldenshare/docs/architecture/foundation-current-standards.md)
 - [Foundation 开发上手指南与历史遗留清单 v1](/Users/congming/github/goldenshare/docs/architecture/foundation-onboarding-and-legacy-checklist-v1.md)
 - [数据集发布治理规范 v1（Raw -> Std -> Serving）](/Users/congming/github/goldenshare/docs/architecture/dataset-publish-governance-spec-v1.md)
