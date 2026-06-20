@@ -173,7 +173,7 @@
         优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P6 已落地；P7 及后续阶段待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P7 已落地；P8 及后续阶段待推进。</div>
         <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
         <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
         <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
@@ -522,14 +522,19 @@
             <td>raw 单日 0.19s，silver 单日 0.20s。</td>
           </tr>
           <tr>
-            <td>60 天完整 raw 验证</td>
-            <td>小于 10s</td>
-            <td>实测 8.96s。</td>
+            <td>20/60 天完整 raw 验证</td>
+            <td>60 天小于 5s</td>
+            <td>P7 本地临时 Parquet 样本：20 天 47.28ms，60 天 124.80ms。</td>
           </tr>
           <tr>
-            <td>60 天完整 silver 验证</td>
-            <td>小于 12s</td>
-            <td>实测 9.59s，保留余量。</td>
+            <td>20/60 天完整 silver 验证</td>
+            <td>60 天小于 7s</td>
+            <td>P7 本地临时 Parquet 样本：20 天 80.74ms，60 天 211.48ms。</td>
+          </tr>
+          <tr>
+            <td>20/60 天完整 gold qfq 验证</td>
+            <td>60 天小于 15s</td>
+            <td>P7 本地临时 Parquet 样本：20 天 1395.27ms，60 天 4065.75ms。</td>
           </tr>
           <tr>
             <td>单个 sensor tick</td>
@@ -653,13 +658,18 @@
           </tr>
           <tr>
             <td>P7</td>
-            <td>静态门禁、性能回归、文档中期对账</td>
+            <td>静态门禁、性能回归、文档中期对账（已完成）</td>
             <td>
-              禁止 hot path 回流 <code>get_asset_check_execution_history</code>、旧逐日 readiness callback；
-              禁止用 row count 冒充完整 blocking check；
-              禁止把 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 当股票生命周期 universe。
+              已扩展 <code>tests/test_run_contract_static_gates.py</code>，
+              统一锁住 raw/silver/qfq sensor hot path 不得回流旧逐日 readiness、
+              event history 深扫、<code>full_semantics=False</code>、直接 <code>RunRequest</code> 或手写 run key；
+              已新增 <code>tests/test_stk_mins_continuity_performance.py</code>。
             </td>
-            <td>本地测试、静态扫描、20/60 天性能基准表通过；文档记录真实耗时总计。</td>
+            <td>
+              本地性能基准与静态门禁通过：
+              <code>32 passed in 7.77s</code>。
+              20/60 天完整语义耗时已落档；测试不运行 <code>dg</code>，不读取正式 Dagster instance，不触碰正式 lake。
+            </td>
           </tr>
           <tr>
             <td>P8A</td>

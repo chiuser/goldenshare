@@ -1366,6 +1366,79 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_continuity_hot_paths_do_not_reintroduce_slow_readiness(
+        self,
+    ) -> None:
+        issues = []
+        sensor_paths = (
+            SENSORS_DIR / "stock_mins_raw_sensor.py",
+            SENSORS_DIR / "stock_mins_silver_trade_day_sensor.py",
+            SENSORS_DIR / "stock_mins_silver_sensor.py",
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py",
+            SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py",
+        )
+        forbidden_sensor_fragments = (
+            "get_asset_check_execution_history",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "raw_stk_mins_ready_for_trade_date",
+            "silver_stk_mins_ready_for_trade_date",
+            "gold_stk_mins_qfq_ready_for_trade_date",
+            "full_semantics=False",
+            "dg.RunRequest(",
+            "RunRequest(",
+            "run_key=f",
+            "run_key=(",
+        )
+        for path in sensor_paths:
+            source = path.read_text()
+            issues.extend(
+                f"{path} contains forbidden stock mins hot-path fragment: {fragment}"
+                for fragment in forbidden_sensor_fragments
+                if fragment in source
+            )
+
+        lake_readiness_source = (
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py"
+        ).read_text()
+        forbidden_helper_fragments = (
+            "import dagster",
+            "from dagster",
+            "DagsterInstance",
+            "get_asset_check_execution_history",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "get_event_records",
+            "@dg.asset",
+            "@dg.asset_check",
+            "Definitions(",
+            "status_manifest",
+            "summary_asset",
+            "readiness_asset",
+        )
+        required_helper_fragments = (
+            "def batch_raw_stk_mins_lake_readiness",
+            "def batch_silver_stk_mins_lake_readiness",
+            "def batch_adj_factor_lake_readiness",
+            "def batch_gold_stk_mins_qfq_lake_readiness",
+            "full_semantics: bool = True",
+            "failed_check_names",
+            "materialized=False",
+            "checks_passed=False",
+        )
+        issues.extend(
+            "stk_mins_lake_readiness.py contains forbidden runtime/state fragment: "
+            f"{fragment}"
+            for fragment in forbidden_helper_fragments
+            if fragment in lake_readiness_source
+        )
+        issues.extend(
+            "stk_mins_lake_readiness.py misses required batch readiness fragment: "
+            f"{fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in lake_readiness_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 

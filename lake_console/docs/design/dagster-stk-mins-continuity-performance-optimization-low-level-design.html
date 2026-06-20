@@ -232,7 +232,7 @@
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P6 已落地；P7 及后续阶段待推进。</div>
+        <div class="chip"><strong>状态</strong>P0-P7 已落地；P8 及后续阶段待推进。</div>
         <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
@@ -957,12 +957,42 @@ selection = select_first_not_ready_trade_date(
     <section>
       <h2>11. 静态门禁</h2>
       <ul>
-        <li>raw/silver sensor 生产路径禁止在 expected window 循环里调用 <code>raw_stk_mins_ready_for_trade_date</code> / <code>silver_stk_mins_ready_for_trade_date</code>。</li>
-        <li>batch helper 禁止只返回 row count ready；必须包含完整 blocking check failed names。</li>
+        <li>raw/silver/qfq sensor 生产路径禁止在 expected window 循环里调用旧逐日 Dagster readiness 或 event history 深扫。</li>
+        <li>batch helper 禁止只返回 row count ready；必须包含完整 blocking check failed names，并默认 <code>full_semantics=True</code>。</li>
         <li>禁止新增持久化状态文件、summary asset、readiness asset、数据库表或 Dagster definition。</li>
         <li>run key 治理门禁继续有效：不得新增直接 <code>RunRequest</code>、不得手写正式 run key、不得解析 run key 反推 config。</li>
-        <li>性能测试必须记录 20 天与 60 天粗筛、完整语义、单日完整语义耗时。</li>
+        <li>P7 已新增 <code>tests/test_stk_mins_continuity_performance.py</code>，记录本地临时 Parquet 20/60 天完整语义耗时。</li>
       </ul>
+      <table>
+        <thead>
+          <tr>
+            <th>helper</th>
+            <th>20 天</th>
+            <th>60 天</th>
+            <th>预算</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>batch_raw_stk_mins_lake_readiness</code></td>
+            <td>47.28ms</td>
+            <td>124.80ms</td>
+            <td>60 天小于 5s</td>
+          </tr>
+          <tr>
+            <td><code>batch_silver_stk_mins_lake_readiness</code></td>
+            <td>80.74ms</td>
+            <td>211.48ms</td>
+            <td>60 天小于 7s</td>
+          </tr>
+          <tr>
+            <td><code>batch_gold_stk_mins_qfq_lake_readiness</code></td>
+            <td>1395.27ms</td>
+            <td>4065.75ms</td>
+            <td>60 天小于 15s</td>
+          </tr>
+        </tbody>
+      </table>
     </section>
 
     <section>
@@ -1259,17 +1289,18 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P7</td>
-            <td>静态门禁与性能回归</td>
+            <td>静态门禁与性能回归（已完成）</td>
             <td>
-              扩展 <code>tests/test_run_contract_static_gates.py</code>；
-              增加 <code>tests/test_stk_mins_continuity_performance.py</code> 或等价性能预算测试；
-              更新中期文档数据。
+              已扩展 <code>tests/test_run_contract_static_gates.py</code>；
+              已新增 <code>tests/test_stk_mins_continuity_performance.py</code>；
+              已更新中期文档数据。
             </td>
             <td>
               禁止 hot path 回流逐日 event history 深扫；
               禁止 row count 冒充完整 ready；
               禁止把 <code>silver_namechange</code> 当股票生命周期 universe；
-              20/60 天 profiling 结果落档。
+              20/60 天 profiling 结果已落档；
+              本地目标测试 <code>32 passed in 7.77s</code>。
             </td>
             <td>性能测试无法稳定进入预算，或静态门禁必须放宽才能通过。</td>
           </tr>
