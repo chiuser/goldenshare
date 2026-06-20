@@ -232,7 +232,7 @@
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>LLD 文档；尚未实现。</div>
+        <div class="chip"><strong>状态</strong>P0-P5 已落地；P6 及后续阶段待推进。</div>
         <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
@@ -487,8 +487,9 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
             <td><code>sensors/stock_mins_silver_sensor.py</code></td>
             <td>当前按 first-not-ready 逐日调用 silver readiness。</td>
             <td>
-              改为先 batch 计算 silver readiness map；selected date 只保留 raw、stock daily、
-              suspend、identity map 门禁；移除 <code>silver_namechange</code> 硬 gate。
+              P5 已改为先 batch 计算 silver readiness map；raw 由 batch frontier 判定；
+              selected date 只保留 stock daily、suspend、identity map 门禁；
+              移除 <code>silver_namechange</code> 硬 gate。
             </td>
           </tr>
           <tr>
@@ -497,7 +498,8 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
               P3 前注册 silver 分区前会检查 raw、stock daily、suspend、identity map、namechange。
             </td>
             <td>
-              P3 已移除 namechange 硬 gate；raw、stock daily、suspend、identity map 仍只查 selected date。
+              P5 已改为用 raw batch readiness 判断 60 天 frontier；
+              stock daily、suspend、identity map 仍只查 selected date。
             </td>
           </tr>
           <tr>
@@ -900,8 +902,9 @@ selection = select_first_not_ready_trade_date(
 
       <h3>9.2 Silver sensor</h3>
       <ul>
-        <li>silver sensor 同样先做 registered gap，再做 <code>batch_silver_stk_mins_lake_readiness(...)</code>。</li>
-        <li>raw、stock daily、suspend、identity map readiness 只在 selected date 上查，不得进入 60 天循环；<code>silver_namechange</code> 不再作为 silver 分钟线 selected-date 硬 gate。</li>
+        <li>P5 已落地：silver run sensor 先做 registered gap，再做 <code>batch_silver_stk_mins_lake_readiness(...)</code>。</li>
+        <li>P5 已落地：silver partition sensor 和 silver run sensor 都用 <code>batch_raw_stk_mins_lake_readiness(...)</code> 判断 raw 60 天 frontier；raw 未连续时不注册 / 不提交后续 silver。</li>
+        <li>stock daily、suspend、identity map readiness 仍只在 selected date 上查，不得进入 60 天循环；<code>silver_namechange</code> 不再作为 silver 分钟线 selected-date 硬 gate。</li>
         <li>如果 selected date 的 silver 文件存在但完整语义失败，继续沿用人工处理口径，不自动重跑，不推进后续日期。</li>
       </ul>
 
@@ -1225,16 +1228,17 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
           </tr>
           <tr>
             <td>P5</td>
-            <td>silver partition 与 silver run sensor 优化</td>
+            <td>silver partition 与 silver run sensor 优化（已完成）</td>
             <td>
-              <code>stock_mins_silver_trade_day_sensor.py</code> 与 <code>stock_mins_silver_sensor.py</code> 接入 batch readiness；
-              raw 未连续时不注册 / 不提交后续 silver；
-              selected date 的上游门禁继续 fail closed。
+              <code>stock_mins_silver_trade_day_sensor.py</code> 与 <code>stock_mins_silver_sensor.py</code> 已接入 batch readiness；
+              raw 由 batch frontier 判定，未连续时不注册 / 不提交后续 silver；
+              selected date 的 stock daily、suspend、identity map 门禁继续 fail closed。
             </td>
             <td>
               raw 缺 06-15 时不注册 06-16 silver；
               06-15 silver 未 ready 时不提交 06-16；
-              sensor 不再因 <code>silver_namechange</code> 独立 gate 阻断 selected date。
+              sensor 不再因 <code>silver_namechange</code> 独立 gate 阻断 selected date；
+              本地目标测试覆盖 helper、两个 silver sensor、contract 与静态门禁。
             </td>
             <td>发现必须恢复 latest registered 目标选择，或 selected-date 上游门禁需要全窗口 Dagster 深扫。</td>
           </tr>

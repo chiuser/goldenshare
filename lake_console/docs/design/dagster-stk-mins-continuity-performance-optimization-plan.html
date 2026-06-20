@@ -173,7 +173,7 @@
         优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>方案文档；尚未进入代码实现。</div>
+        <div class="chip"><strong>状态</strong>P0-P5 已落地；P6 及后续阶段待推进。</div>
         <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
         <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
         <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
@@ -623,14 +623,16 @@
           </tr>
           <tr>
             <td>P5</td>
-            <td>silver sensor 接入</td>
+            <td>silver sensor 接入（已完成）</td>
             <td>
-              <code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code> 使用 batch readiness。
-              raw 未连续时不注册 / 不提交 silver 后续日期；selected date 的 raw、stock daily、suspend、identity map 门禁仍保持 fail closed。
+              <code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code> 已使用 batch readiness。
+              raw readiness 由 60 天 batch frontier 判定，raw 未连续时不注册 / 不提交 silver 后续日期；
+              selected date 的 stock daily、suspend、identity map 门禁仍保持 fail closed。
             </td>
             <td>
               06-15 未 ready 时不提交 06-16；60 天窗口能发现隐藏 blocking check 失败；
               <code>000638.SZ</code> 旧误伤不再阻断 silver readiness。
+              本地目标回归已覆盖 helper、两个 silver sensor、contract 与静态门禁。
             </td>
           </tr>
           <tr>

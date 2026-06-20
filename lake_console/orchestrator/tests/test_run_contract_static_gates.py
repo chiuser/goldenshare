@@ -781,6 +781,56 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_silver_sensors_use_batch_lake_readiness(self) -> None:
+        issues = []
+        expected_by_file = {
+            SENSORS_DIR / "stock_mins_silver_trade_day_sensor.py": (
+                "batch_raw_stk_mins_lake_readiness",
+                "StkMinsBatchReadiness",
+            ),
+            SENSORS_DIR / "stock_mins_silver_sensor.py": (
+                "batch_raw_stk_mins_lake_readiness",
+                "batch_silver_stk_mins_lake_readiness",
+                "StkMinsBatchReadiness",
+                "build_run_request",
+                "build_asset_update_run_key",
+            ),
+        }
+        forbidden_by_file = {
+            SENSORS_DIR / "stock_mins_silver_trade_day_sensor.py": (
+                "raw_stk_mins_ready_for_trade_date",
+                "dg.RunRequest(",
+                "RunRequest(",
+                "run_key=f",
+                "run_key=(",
+                ".split(",
+            ),
+            SENSORS_DIR / "stock_mins_silver_sensor.py": (
+                "raw_stk_mins_ready_for_trade_date",
+                "silver_stk_mins_ready_for_trade_date",
+                "dg.RunRequest(",
+                "RunRequest(",
+                "run_key=f",
+                "run_key=(",
+                ".split(",
+            ),
+        }
+
+        for path, fragments in expected_by_file.items():
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses required silver sensor batch fragment: {fragment}"
+                for fragment in fragments
+                if fragment not in source
+            )
+            issues.extend(
+                f"{path} contains forbidden silver sensor hot-path fragment: {fragment}"
+                for fragment in forbidden_by_file[path]
+                if fragment in source
+            )
+
+        self.assertEqual(issues, [])
+
     def test_stock_mins_silver_name_timeline_check_uses_raw_lifecycle(self) -> None:
         check_source = _function_source(
             CHECKS_DIR / "stk_mins_checks.py",

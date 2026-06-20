@@ -223,6 +223,45 @@ def _raw_batch_status(
     )
 
 
+def _silver_date_status(
+    *,
+    trade_date: str,
+    ready: bool,
+    materialized: bool = False,
+    checks_passed: bool = False,
+    reason: str = "not ready",
+) -> StkMinsDateReadiness:
+    failed_check_names = () if ready else ("silver_stk_mins_file_exists_and_row_count_positive",)
+    return StkMinsDateReadiness(
+        trade_date=trade_date,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        failed_check_names=failed_check_names,
+        missing_file_paths=(),
+        expected_file_count=5,
+        existing_file_count=5 if materialized else 0,
+        checked_row_count=5 if materialized else 0,
+        failed_row_count=0 if ready else 1,
+    )
+
+
+def _silver_batch_status(
+    statuses_by_trade_date: dict[str, StkMinsDateReadiness],
+) -> StkMinsBatchReadiness:
+    trade_dates = tuple(sorted(statuses_by_trade_date))
+    return StkMinsBatchReadiness(
+        dataset="silver_stk_mins",
+        expected_start_date=trade_dates[0] if trade_dates else None,
+        expected_end_date=trade_dates[-1] if trade_dates else None,
+        expected_count=len(trade_dates),
+        freq_count=5,
+        elapsed_ms=1.0,
+        statuses_by_trade_date=statuses_by_trade_date,
+    )
+
+
 def _asset_readiness_status(
     *,
     ready: bool,
@@ -547,8 +586,8 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-        ) as raw_ready_mock, patch(
+            "batch_raw_stk_mins_lake_readiness",
+        ) as raw_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
             "stock_daily_ready_for_trade_date",
         ) as stock_daily_ready_mock:
@@ -556,7 +595,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         self.assertEqual(result.dynamic_partitions_requests, [])
         self.assertIn("raw 交易日分区存在缺口", _skip_message(result))
-        raw_ready_mock.assert_not_called()
+        raw_batch_mock.assert_not_called()
         stock_daily_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
@@ -589,14 +628,33 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-            return_value=_dataset_status(
-                ready=True,
-                materialized=True,
-                checks_passed=True,
-                reason="ready",
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(
+                {
+                    "2026-06-13": _raw_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _raw_date_status(
+                        trade_date="2026-06-15",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-16": _raw_date_status(
+                        trade_date="2026-06-16",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                }
             ),
-        ) as raw_ready_mock, patch(
+        ) as raw_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
             "stock_daily_ready_for_trade_date",
             return_value=_dataset_status(
@@ -629,16 +687,82 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             result = stock_mins_silver_trade_day_sensor._raw_fn(context)
 
         self.assertEqual(len(result.dynamic_partitions_requests), 1)
-        self.assertEqual(raw_ready_mock.call_args.args[1], "2026-06-15")
+        raw_batch_mock.assert_called_once()
         namechange_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
         silver_continuity = cursor["details"]["silver_continuity_status"]
         self.assertEqual(cursor["details"]["selected_keys"], ["2026-06-15"])
+        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
         self.assertEqual(
             silver_continuity["first_missing_registered_date"],
             "2026-06-15",
         )
+
+    def test_silver_trade_day_sensor_blocks_when_raw_batch_not_ready_before_silver_gap(
+        self,
+    ) -> None:
+        context = _Context(
+            partitions_by_name={
+                cn_a_stock_mins_trade_days.name: (
+                    "2026-06-13",
+                    "2026-06-15",
+                    "2026-06-16",
+                ),
+                cn_a_stock_mins_silver_trade_days.name: (
+                    "2026-06-13",
+                    "2026-06-15",
+                ),
+            }
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor.datetime",
+            _AfterSilverPartitionWindowDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
+            "_load_stock_mins_silver_expected_trade_dates",
+            return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(
+                {
+                    "2026-06-13": _raw_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _raw_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="raw missing",
+                    ),
+                    "2026-06-16": _raw_date_status(
+                        trade_date="2026-06-16",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="should not advance",
+                    ),
+                }
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
+            "stock_daily_ready_for_trade_date",
+        ) as stock_daily_ready_mock:
+            result = stock_mins_silver_trade_day_sensor._raw_fn(context)
+
+        self.assertEqual(result.dynamic_partitions_requests, [])
+        self.assertIn("raw continuity", _skip_message(result))
+        stock_daily_ready_mock.assert_not_called()
+
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["target_date"], "2026-06-15")
+        self.assertEqual(cursor["details"]["raw_status"]["trade_date"], "2026-06-15")
 
     def test_silver_trade_day_sensor_records_continuity_before_window(self) -> None:
         context = _Context(
@@ -656,17 +780,36 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-        ) as raw_ready_mock:
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(
+                {
+                    "2026-06-13": _raw_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _raw_date_status(
+                        trade_date="2026-06-15",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                }
+            ),
+        ) as raw_batch_mock:
             result = stock_mins_silver_trade_day_sensor._raw_fn(context)
 
         self.assertEqual(result.dynamic_partitions_requests, [])
         self.assertIn("19:45", _skip_message(result))
-        raw_ready_mock.assert_not_called()
+        raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         silver_continuity = cursor["details"]["silver_continuity_status"]
         self.assertFalse(cursor["details"]["register_window_started"])
+        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
         self.assertEqual(
             silver_continuity["first_missing_registered_date"],
             "2026-06-15",
@@ -677,23 +820,33 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
     ) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
         silver_statuses = {
-            "2026-06-13": _dataset_status(
+            "2026-06-13": _silver_date_status(
+                trade_date="2026-06-13",
                 ready=True,
                 materialized=True,
                 checks_passed=True,
                 reason="ready",
-                asset_key="silver_stk_mins_1m",
             ),
-            "2026-06-15": _dataset_status(
+            "2026-06-15": _silver_date_status(
+                trade_date="2026-06-15",
                 ready=False,
                 reason="missing silver",
-                asset_key="silver_stk_mins_1m",
             ),
-            "2026-06-16": _dataset_status(
+            "2026-06-16": _silver_date_status(
+                trade_date="2026-06-16",
                 ready=False,
                 reason="should not scan",
-                asset_key="silver_stk_mins_1m",
             ),
+        }
+        raw_statuses = {
+            trade_date: _raw_date_status(
+                trade_date=trade_date,
+                ready=True,
+                materialized=True,
+                checks_passed=True,
+                reason="ready",
+            )
+            for trade_date in ("2026-06-13", "2026-06-15", "2026-06-16")
         }
 
         with patch(
@@ -705,18 +858,13 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "silver_stk_mins_ready_for_trade_date",
-            side_effect=lambda _instance, trade_date: silver_statuses[trade_date],
-        ) as silver_ready_mock, patch(
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(silver_statuses),
+        ) as silver_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-            return_value=_dataset_status(
-                ready=True,
-                materialized=True,
-                checks_passed=True,
-                reason="ready",
-            ),
-        ) as raw_ready_mock, patch(
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(raw_statuses),
+        ) as raw_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
             "stock_daily_ready_for_trade_date",
             return_value=_dataset_status(
@@ -753,16 +901,15 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         request = result.run_requests[0]
         self.assertEqual(request.partition_key, "2026-06-15")
         self.assertEqual(request.run_key, "stock_mins_silver_update:2026-06-15")
-        self.assertEqual(
-            [call.args[1] for call in silver_ready_mock.call_args_list],
-            ["2026-06-13", "2026-06-15"],
-        )
-        raw_ready_mock.assert_called_once_with(context.instance, "2026-06-15")
+        silver_batch_mock.assert_called_once()
+        raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
         self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-15")
+        self.assertEqual(cursor["details"]["silver_batch_status"]["dataset"], "silver_stk_mins")
+        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
 
     def test_silver_sensor_skips_missing_silver_partition_without_readiness_scan(
         self,
@@ -777,13 +924,13 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "silver_stk_mins_ready_for_trade_date",
-        ) as silver_ready_mock:
+            "batch_silver_stk_mins_lake_readiness",
+        ) as silver_batch_mock:
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("silver 交易日分区存在缺口", _skip_message(result))
-        silver_ready_mock.assert_not_called()
+        silver_batch_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
@@ -794,25 +941,35 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
     ) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
         silver_statuses = {
-            "2026-06-13": _dataset_status(
+            "2026-06-13": _silver_date_status(
+                trade_date="2026-06-13",
                 ready=True,
                 materialized=True,
                 checks_passed=True,
                 reason="ready",
-                asset_key="silver_stk_mins_1m",
             ),
-            "2026-06-15": _dataset_status(
+            "2026-06-15": _silver_date_status(
+                trade_date="2026-06-15",
                 ready=False,
                 materialized=True,
                 checks_passed=False,
                 reason="blocking checks failed",
-                asset_key="silver_stk_mins_1m",
             ),
-            "2026-06-16": _dataset_status(
+            "2026-06-16": _silver_date_status(
+                trade_date="2026-06-16",
                 ready=False,
                 reason="should not scan",
-                asset_key="silver_stk_mins_1m",
             ),
+        }
+        raw_statuses = {
+            trade_date: _raw_date_status(
+                trade_date=trade_date,
+                ready=True,
+                materialized=True,
+                checks_passed=True,
+                reason="ready",
+            )
+            for trade_date in ("2026-06-13", "2026-06-15", "2026-06-16")
         }
 
         with patch(
@@ -824,21 +981,19 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "silver_stk_mins_ready_for_trade_date",
-            side_effect=lambda _instance, trade_date: silver_statuses[trade_date],
-        ) as silver_ready_mock, patch(
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(silver_statuses),
+        ) as silver_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-        ) as raw_ready_mock:
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(raw_statuses),
+        ) as raw_batch_mock:
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("暂不自动重跑", _skip_message(result))
-        self.assertEqual(
-            [call.args[1] for call in silver_ready_mock.call_args_list],
-            ["2026-06-13", "2026-06-15"],
-        )
-        raw_ready_mock.assert_not_called()
+        silver_batch_mock.assert_called_once()
+        raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
@@ -855,16 +1010,30 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-15",),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "silver_stk_mins_ready_for_trade_date",
-            return_value=_dataset_status(
-                ready=False,
-                reason="missing silver",
-                asset_key="silver_stk_mins_1m",
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    "2026-06-15": _silver_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        reason="missing silver",
+                    )
+                }
             ),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-            return_value=_dataset_status(ready=False, reason="raw missing"),
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(
+                {
+                    "2026-06-15": _raw_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="raw missing",
+                    )
+                }
+            ),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
             "stock_daily_ready_for_trade_date",
@@ -899,23 +1068,123 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         namechange_ready_mock.assert_not_called()
-        self.assertIn("raw 五频度", _skip_message(result))
+        self.assertIn("raw continuity", _skip_message(result))
+
+    def test_silver_sensor_blocks_later_run_when_raw_batch_not_ready_first(self) -> None:
+        context = _Context(
+            partitions_by_name={
+                cn_a_stock_mins_silver_trade_days.name: (
+                    "2026-06-13",
+                    "2026-06-15",
+                    "2026-06-16",
+                ),
+                cn_a_stock_mins_trade_days.name: (
+                    "2026-06-13",
+                    "2026-06-15",
+                    "2026-06-16",
+                ),
+            }
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_mins_silver_sensor.datetime",
+            _AfterSilverRunWindowDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_sensor."
+            "_load_stock_mins_silver_expected_trade_dates",
+            return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_sensor."
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    "2026-06-13": _silver_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _silver_date_status(
+                        trade_date="2026-06-15",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-16": _silver_date_status(
+                        trade_date="2026-06-16",
+                        ready=False,
+                        reason="missing silver",
+                    ),
+                }
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_sensor."
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(
+                {
+                    "2026-06-13": _raw_date_status(
+                        trade_date="2026-06-13",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-15": _raw_date_status(
+                        trade_date="2026-06-15",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="raw missing",
+                    ),
+                    "2026-06-16": _raw_date_status(
+                        trade_date="2026-06-16",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="should not advance",
+                    ),
+                }
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_mins_silver_sensor."
+            "stock_daily_ready_for_trade_date",
+        ) as stock_daily_ready_mock:
+            result = stock_mins_silver_sensor._raw_fn(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("raw continuity", _skip_message(result))
+        stock_daily_ready_mock.assert_not_called()
+
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["target_date"], "2026-06-15")
+        self.assertEqual(cursor["details"]["raw_status"]["trade_date"], "2026-06-15")
 
     def test_silver_sensor_records_continuity_before_window(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15"))
         silver_statuses = {
-            "2026-06-13": _dataset_status(
+            "2026-06-13": _silver_date_status(
+                trade_date="2026-06-13",
                 ready=True,
                 materialized=True,
                 checks_passed=True,
                 reason="ready",
-                asset_key="silver_stk_mins_1m",
             ),
-            "2026-06-15": _dataset_status(
+            "2026-06-15": _silver_date_status(
+                trade_date="2026-06-15",
                 ready=False,
                 reason="missing silver",
-                asset_key="silver_stk_mins_1m",
             ),
+        }
+        raw_statuses = {
+            trade_date: _raw_date_status(
+                trade_date=trade_date,
+                ready=True,
+                materialized=True,
+                checks_passed=True,
+                reason="ready",
+            )
+            for trade_date in ("2026-06-13", "2026-06-15")
         }
 
         with patch(
@@ -927,22 +1196,26 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "silver_stk_mins_ready_for_trade_date",
-            side_effect=lambda _instance, trade_date: silver_statuses[trade_date],
-        ), patch(
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(silver_statuses),
+        ) as silver_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-        ) as raw_ready_mock:
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(raw_statuses),
+        ) as raw_batch_mock:
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("19:50", _skip_message(result))
-        raw_ready_mock.assert_not_called()
+        silver_batch_mock.assert_called_once()
+        raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
         self.assertFalse(cursor["details"]["run_window_started"])
         self.assertEqual(continuity["first_not_ready_trade_date"], "2026-06-15")
+        self.assertEqual(cursor["details"]["silver_batch_status"]["dataset"], "silver_stk_mins")
+        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
 
     def test_silver_sensor_skips_when_continuity_window_is_all_ready(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
@@ -955,23 +1228,41 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             return_value=("2026-06-13", "2026-06-15", "2026-06-16"),
         ), patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "silver_stk_mins_ready_for_trade_date",
-            return_value=_dataset_status(
-                ready=True,
-                materialized=True,
-                checks_passed=True,
-                reason="ready",
-                asset_key="silver_stk_mins_1m",
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    trade_date: _silver_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in ("2026-06-13", "2026-06-15", "2026-06-16")
+                }
             ),
-        ), patch(
+        ) as silver_batch_mock, patch(
             "orchestrator.defs.sensors.stock_mins_silver_sensor."
-            "raw_stk_mins_ready_for_trade_date",
-        ) as raw_ready_mock:
+            "batch_raw_stk_mins_lake_readiness",
+            return_value=_raw_batch_status(
+                {
+                    trade_date: _raw_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in ("2026-06-13", "2026-06-15", "2026-06-16")
+                }
+            ),
+        ) as raw_batch_mock:
             result = stock_mins_silver_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("continuity 窗口内分区已经 ready", _skip_message(result))
-        raw_ready_mock.assert_not_called()
+        silver_batch_mock.assert_called_once()
+        raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]

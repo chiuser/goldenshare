@@ -7,6 +7,7 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
 )
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import StkMinsDateReadiness
 from orchestrator.defs.sensors.stock_mins_silver_sensor import (
     STOCK_MINS_SILVER_RUN_START,
     STOCK_MINS_SILVER_SENSOR_JOB_NAME,
@@ -69,6 +70,28 @@ def _dataset_status(
     return DatasetReadinessStatus(
         ready=all(asset_status.ready for asset_status in statuses),
         statuses=statuses,
+    )
+
+
+def _lake_status(
+    *,
+    ready: bool = True,
+    materialized: bool = True,
+    checks_passed: bool = True,
+    reason: str = "ready",
+) -> StkMinsDateReadiness:
+    return StkMinsDateReadiness(
+        trade_date=PARTITION_KEY,
+        ready=ready,
+        materialized=materialized,
+        checks_passed=checks_passed,
+        reason=reason,
+        failed_check_names=() if checks_passed else ("example_check",),
+        missing_file_paths=(),
+        expected_file_count=5,
+        existing_file_count=5 if materialized else 0,
+        checked_row_count=5 if materialized else 0,
+        failed_row_count=0 if checks_passed else 1,
     )
 
 
@@ -199,13 +222,13 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             build_stock_mins_silver_sensor_cursor(
                 decision=decision,
                 evaluated_at=EVALUATED_AT,
+                raw_registered_trade_day_count=3014,
                 registered_trade_day_count=3014,
-                raw_status=_dataset_status(("raw_stk_mins_1m",)),
+                raw_status=_lake_status(),
                 stock_daily_status=_dataset_status(("silver_stock_daily",)),
                 suspend_status=_dataset_status(("silver_stock_suspend_daily",)),
                 identity_map_status=_asset_status("silver_stock_identity_map"),
-                silver_status=_dataset_status(
-                    ("silver_stk_mins_1m",),
+                silver_status=_lake_status(
                     ready=False,
                     materialized=False,
                     checks_passed=False,
@@ -246,8 +269,9 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             build_stock_mins_silver_sensor_cursor(
                 decision=decision,
                 evaluated_at=EVALUATED_AT,
+                raw_registered_trade_day_count=3014,
                 registered_trade_day_count=3014,
-                silver_status=_dataset_status(("silver_stk_mins_1m",), ready=True),
+                silver_status=_lake_status(ready=True),
             )
         )
 

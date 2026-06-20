@@ -7,6 +7,7 @@ import duckdb
 
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_raw_stk_mins_lake_readiness,
+    batch_silver_stk_mins_lake_readiness,
 )
 from orchestrator.defs.checks.stk_mins_checks import (
     RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
@@ -15,9 +16,25 @@ from orchestrator.defs.checks.stk_mins_checks import (
     RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK,
     RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
     RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+    SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
+    SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
+    SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+    SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
+    SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
+    SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
+    SILVER_STK_MINS_PRICE_SANITY_CHECK,
+    SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+    SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+    SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
-from orchestrator.defs.paths import raw_stk_mins_path
+from orchestrator.defs.paths import (
+    raw_stk_mins_path,
+    raw_stock_basic_path,
+    silver_stk_mins_path,
+    silver_stock_daily_path,
+    silver_stock_suspend_daily_path,
+)
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
 
 
@@ -69,6 +86,183 @@ def _write_raw_file(
           {" UNION ALL ".join(rows_sql)}
         ) TO {duckdb_string(path)} (FORMAT PARQUET)
         """
+    )
+
+
+def _write_silver_file(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    freq: int,
+    ts_code: str = "000001.SZ",
+    trade_time: str | None = None,
+    row_count: int = 1,
+    actual_freq: int | None = None,
+    actual_trade_date: str | None = None,
+    open_value: float = 10.0,
+    vol_value: float = 100.0,
+    amount_value: float = 1000.0,
+    exchange: str = "SZSE",
+    include_exchange: bool = True,
+    duplicate_key: bool = False,
+) -> None:
+    path = silver_stk_mins_path(lake_root, freq, trade_date)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    trade_time = trade_time or f"{trade_date} 09:31:00"
+    actual_freq = actual_freq if actual_freq is not None else freq
+    actual_trade_date = actual_trade_date or trade_date
+    rows_sql = []
+    for index in range(row_count):
+        row_trade_time = trade_time
+        if not duplicate_key and row_count > 1:
+            row_trade_time = f"{trade_date} 09:{31 + index:02d}:00"
+        columns = [
+            f"{duckdb_string(ts_code)} AS ts_code",
+            f"{actual_freq}::INTEGER AS freq",
+            f"CAST({duckdb_string(actual_trade_date)} AS DATE) AS trade_date",
+            f"CAST({duckdb_string(row_trade_time)} AS TIMESTAMP) AS trade_time",
+            f"{open_value}::DOUBLE AS open",
+            "10.5::DOUBLE AS high",
+            "9.8::DOUBLE AS low",
+            "10.2::DOUBLE AS close",
+            f"{vol_value}::DOUBLE AS vol",
+            f"{amount_value}::DOUBLE AS amount",
+        ]
+        if include_exchange:
+            columns.append(f"{duckdb_string(exchange)} AS exchange")
+        rows_sql.append("SELECT " + ", ".join(columns))
+    connection.execute(
+        f"""
+        COPY (
+          {" UNION ALL ".join(rows_sql)}
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_stock_daily_file(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    ts_code: str = "000001.SZ",
+) -> None:
+    path = silver_stock_daily_path(lake_root, trade_date)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection.execute(
+        f"""
+        COPY (
+          SELECT
+            {duckdb_string(ts_code)} AS ts_code,
+            CAST({duckdb_string(trade_date)} AS DATE) AS trade_date,
+            10.0::DOUBLE AS open,
+            10.5::DOUBLE AS high,
+            9.8::DOUBLE AS low,
+            10.2::DOUBLE AS close,
+            9.9::DOUBLE AS pre_close,
+            0.3::DOUBLE AS change_amount,
+            3.0::DOUBLE AS pct_chg,
+            1000.0::DOUBLE AS vol,
+            10000.0::DOUBLE AS amount
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_suspend_file(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    ts_code: str = "000001.SZ",
+    full_day_suspend: bool = False,
+) -> None:
+    path = silver_stock_suspend_daily_path(lake_root, trade_date)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    if full_day_suspend:
+        select_sql = f"""
+          SELECT
+            {duckdb_string(ts_code)} AS ts_code,
+            CAST({duckdb_string(trade_date)} AS DATE) AS trade_date,
+            NULL::VARCHAR AS suspend_timing,
+            'S'::VARCHAR AS suspend_type
+        """
+    else:
+        select_sql = """
+          SELECT
+            NULL::VARCHAR AS ts_code,
+            NULL::DATE AS trade_date,
+            NULL::VARCHAR AS suspend_timing,
+            NULL::VARCHAR AS suspend_type
+          WHERE false
+        """
+    connection.execute(
+        f"""
+        COPY (
+          {select_sql}
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_raw_stock_basic_file(
+    connection,
+    lake_root: Path,
+    *,
+    ts_code: str = "000001.SZ",
+    list_status: str = "L",
+    list_date: str = "20100101",
+    delist_date: str | None = None,
+) -> None:
+    path = raw_stock_basic_path(lake_root)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    connection.execute(
+        f"""
+        COPY (
+          SELECT
+            {duckdb_string(ts_code)} AS ts_code,
+            '000001'::VARCHAR AS symbol,
+            'sample'::VARCHAR AS name,
+            'area'::VARCHAR AS area,
+            'industry'::VARCHAR AS industry,
+            'fullname'::VARCHAR AS fullname,
+            'enname'::VARCHAR AS enname,
+            'cnspell'::VARCHAR AS cnspell,
+            '主板'::VARCHAR AS market,
+            'SZSE'::VARCHAR AS exchange,
+            'CNY'::VARCHAR AS curr_type,
+            {duckdb_string(list_status)} AS list_status,
+            {duckdb_string(list_date)} AS list_date,
+            {duckdb_string(delist_date) if delist_date is not None else "NULL::VARCHAR"} AS delist_date,
+            NULL::VARCHAR AS is_hs,
+            NULL::VARCHAR AS act_name,
+            NULL::VARCHAR AS act_ent_type
+        ) TO {duckdb_string(path)} (FORMAT PARQUET)
+        """
+    )
+
+
+def _write_silver_ready_inputs(
+    connection,
+    lake_root: Path,
+    *,
+    trade_date: str,
+    ts_code: str = "000001.SZ",
+    full_day_suspend: bool = False,
+) -> None:
+    _write_stock_daily_file(
+        connection,
+        lake_root,
+        trade_date=trade_date,
+        ts_code=ts_code,
+    )
+    _write_suspend_file(
+        connection,
+        lake_root,
+        trade_date=trade_date,
+        ts_code=ts_code,
+        full_day_suspend=full_day_suspend,
     )
 
 
@@ -196,6 +390,231 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         unknown_status = batch_status.status_for_trade_date("2026-06-16")
         self.assertFalse(unknown_status.ready)
         self.assertIn("status_missing", unknown_status.failed_check_names[0])
+
+    def test_silver_batch_readiness_returns_ready_for_complete_window(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            trade_dates = _trade_dates(60)
+            _write_raw_stock_basic_file(connection, lake_root)
+            for trade_date in trade_dates:
+                _write_silver_ready_inputs(connection, lake_root, trade_date=trade_date)
+                for freq in STK_MINS_FREQS:
+                    _write_silver_file(
+                        connection,
+                        lake_root,
+                        trade_date=trade_date,
+                        freq=freq,
+                    )
+
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=trade_dates,
+                registered_trade_days=trade_dates,
+            )
+
+        self.assertEqual(batch_status.dataset, "silver_stk_mins")
+        self.assertEqual(batch_status.expected_count, 60)
+        self.assertGreaterEqual(batch_status.elapsed_ms, 0)
+        self.assertTrue(all(status.ready for status in batch_status.statuses_by_trade_date.values()))
+        self.assertEqual(
+            batch_status.status_for_trade_date(trade_dates[-1]).checked_row_count,
+            len(STK_MINS_FREQS),
+        )
+
+    def test_silver_batch_readiness_marks_missing_file_as_not_materialized(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_raw_stock_basic_file(connection, lake_root)
+            _write_silver_ready_inputs(connection, lake_root, trade_date="2026-06-15")
+            for freq in STK_MINS_FREQS[:-1]:
+                _write_silver_file(connection, lake_root, trade_date="2026-06-15", freq=freq)
+
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-15",),
+                registered_trade_days=("2026-06-15",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-15")
+        self.assertFalse(status.ready)
+        self.assertFalse(status.materialized)
+        self.assertIn(SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK, status.failed_check_names)
+
+    def test_silver_batch_readiness_detects_blocking_check_failures(self) -> None:
+        cases = (
+            {
+                "trade_date": "2026-06-15",
+                "kwargs": {"include_exchange": False},
+                "check": SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+            },
+            {
+                "trade_date": "2026-06-16",
+                "kwargs": {"actual_freq": 5},
+                "check": SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
+            },
+            {
+                "trade_date": "2026-06-17",
+                "kwargs": {"row_count": 2, "duplicate_key": True},
+                "check": SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+            },
+            {
+                "trade_date": "2026-06-18",
+                "kwargs": {"open_value": -1.0},
+                "check": SILVER_STK_MINS_PRICE_SANITY_CHECK,
+            },
+            {
+                "trade_date": "2026-06-19",
+                "kwargs": {"vol_value": 50.0},
+                "check": SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
+            },
+            {
+                "trade_date": "2026-06-20",
+                "kwargs": {"exchange": "SSE"},
+                "check": SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
+            },
+        )
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_raw_stock_basic_file(connection, lake_root)
+            for case in cases:
+                _write_silver_ready_inputs(
+                    connection,
+                    lake_root,
+                    trade_date=case["trade_date"],
+                )
+                for freq in STK_MINS_FREQS:
+                    kwargs = case["kwargs"] if freq == 1 else {}
+                    _write_silver_file(
+                        connection,
+                        lake_root,
+                        trade_date=case["trade_date"],
+                        freq=freq,
+                        **kwargs,
+                    )
+
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=tuple(case["trade_date"] for case in cases),
+                registered_trade_days=tuple(case["trade_date"] for case in cases),
+            )
+
+        for case in cases:
+            status = batch_status.status_for_trade_date(case["trade_date"])
+            self.assertFalse(status.ready)
+            self.assertTrue(status.materialized)
+            self.assertFalse(status.checks_passed)
+            self.assertIn(case["check"], status.failed_check_names)
+
+    def test_silver_batch_readiness_checks_stock_daily_suspend_and_lifecycle(self) -> None:
+        cases = (
+            {
+                "trade_date": "2026-06-15",
+                "daily_code": "000002.SZ",
+                "full_day_suspend": False,
+                "ts_code": "000001.SZ",
+                "check": SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
+            },
+            {
+                "trade_date": "2026-06-16",
+                "daily_code": "000001.SZ",
+                "full_day_suspend": True,
+                "ts_code": "000001.SZ",
+                "check": SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
+            },
+            {
+                "trade_date": "2026-06-17",
+                "daily_code": "000003.SZ",
+                "full_day_suspend": False,
+                "ts_code": "000003.SZ",
+                "check": SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
+            },
+        )
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_raw_stock_basic_file(connection, lake_root, ts_code="000001.SZ")
+            for case in cases:
+                _write_silver_ready_inputs(
+                    connection,
+                    lake_root,
+                    trade_date=case["trade_date"],
+                    ts_code=case["daily_code"],
+                    full_day_suspend=case["full_day_suspend"],
+                )
+                for freq in STK_MINS_FREQS:
+                    _write_silver_file(
+                        connection,
+                        lake_root,
+                        trade_date=case["trade_date"],
+                        freq=freq,
+                        ts_code=case["ts_code"],
+                    )
+
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=tuple(case["trade_date"] for case in cases),
+                registered_trade_days=tuple(case["trade_date"] for case in cases),
+            )
+
+        for case in cases:
+            status = batch_status.status_for_trade_date(case["trade_date"])
+            self.assertFalse(status.ready)
+            self.assertTrue(status.materialized)
+            self.assertIn(case["check"], status.failed_check_names)
+
+    def test_silver_batch_readiness_accepts_delisted_stock_inside_lifecycle(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_raw_stock_basic_file(
+                connection,
+                lake_root,
+                ts_code="000638.SZ",
+                list_status="D",
+                list_date="20100101",
+                delist_date="20260413",
+            )
+            _write_silver_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-04-13",
+                ts_code="000638.SZ",
+            )
+            for freq in STK_MINS_FREQS:
+                _write_silver_file(
+                    connection,
+                    lake_root,
+                    trade_date="2026-04-13",
+                    freq=freq,
+                    ts_code="000638.SZ",
+                    exchange="SZSE",
+                )
+
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-04-13",),
+                registered_trade_days=("2026-04-13",),
+            )
+
+        status = batch_status.status_for_trade_date("2026-04-13")
+        self.assertTrue(status.ready)
+        self.assertNotIn(SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK, status.failed_check_names)
+
+    def test_silver_batch_readiness_fails_closed_for_unknown_date(self) -> None:
+        with duckdb.connect(":memory:") as connection:
+            batch_status = batch_silver_stk_mins_lake_readiness(
+                connection=connection,
+                lake_root=Path("/tmp/does-not-matter"),
+                expected_trade_dates=(),
+                registered_trade_days=(),
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-15")
+        self.assertFalse(status.ready)
+        self.assertIn("status_missing", status.failed_check_names[0])
 
 
 if __name__ == "__main__":
