@@ -173,7 +173,7 @@
         优化重点改为减少读取次数，使用 DuckDB 批量读取 lake 文件事实，并在需要放行或阻断时执行完整 blocking check 语义。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P9 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
+        <div class="chip"><strong>状态</strong>P0-P9 已完成；后续 batch readiness hot path P0 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
         <div class="chip"><strong>适用范围</strong>股票分钟线 raw / silver / qfq 日常 continuity sensor hot path。</div>
         <div class="chip"><strong>不做事项</strong>不新增实体；不改 run key；不运行 Dagster；不写正式 lake。</div>
         <div class="chip"><strong>核心原则</strong>先 batch，后判断；粗筛不冒充 ready；完整语义不能降级。</div>
@@ -200,6 +200,15 @@
         必须先走显式审计 / 补洞流程，不能让日常 sensor 在 UI 热路径里无差别扫描三个月数据。
         第一阶段不启用 cursor frontier cache，避免隐藏完整 check 语义变化。
       </p>
+      <div class="ok">
+        <strong>后续 hot path 收口：</strong>
+        本专项 P9 后追加的
+        <a href="dagster-batch-readiness-hotpath-governance-plan.md">Dagster Batch Readiness Hot Path 性能治理专项</a>
+        已完成 P0A-P0G。qfq gold readiness 已从日期乘频度重扫改为窗口级 true batch；
+        qfq daily 已保持 silver -> adj factor -> gold qfq 分层短路；
+        所有当前 sensor hot path batch helper 已完成本地性能样本或 fake-client 调用次数测试。
+        这补齐了本专项 P6 之后暴露出的 qfq gold helper 名不副实问题。
+      </div>
     </section>
 
     <section>
@@ -747,7 +756,11 @@
           </tr>
           <tr>
             <td>性能基准测试</td>
-            <td>记录粗筛 60 天、完整 60 天、单日完整校验耗时。测试环境使用临时 Parquet，正式 profiling 需单独审批。</td>
+            <td>
+              日常 hot path 默认记录 10 天窗口耗时；
+              20/60 天只作为离线容量参考或长停机恢复方案验证，不作为日常 sensor 默认验收口径。
+              测试环境使用临时 Parquet，正式 profiling 需单独审批。
+            </td>
           </tr>
           <tr>
             <td>静态门禁</td>

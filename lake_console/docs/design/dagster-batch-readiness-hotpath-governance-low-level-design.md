@@ -4,7 +4,7 @@
 
 依据文档：[Dagster Batch Readiness Hot Path 性能治理专项方案](dagster-batch-readiness-hotpath-governance-plan.md)
 
-状态：P0 分阶段推进中。P0A、P0B、P0C、P0D、P0E、P0F 已完成；P0G 继续按本文档推进。本文档是编码级设计和阶段验收依据；未完成阶段不得写成已实现事实。
+状态：P0 已完成。P0A、P0B、P0C、P0D、P0E、P0F、P0G 均已完成。本文档是编码级设计和阶段验收依据。
 
 ## 0. 当前进度与阶段边界
 
@@ -16,7 +16,7 @@
 | P0D sensor 分层短路 | 已完成 | qfq daily sensor 已按 silver -> adj factor -> gold lazy load；silver 阻断时不加载 adj/gold，adj 阻断时不加载 gold。提交：`7c7eb0e6`。 |
 | P0E 全部 helper 门禁与性能回归 | 已完成 | 统一测试所有 sensor hot path batch helper；其它 helper 性能测试固定放在本阶段并已执行。提交：`b70c51c0`。 |
 | P0F 本地回归与性能结果落档 | 已完成 | 已跑本地目标测试和必要静态门禁；不运行 `dg`。本轮文档提交记录最终结果。 |
-| P0G 文档与长期规范收口 | 待完成 | 同步长期规范和关联方案文档状态。 |
+| P0G 文档与长期规范收口 | 已完成 | 长期规范和关联方案文档状态已同步；P0 收口完成。 |
 
 ### 0.1 其它 helper 性能测试位置
 
@@ -884,6 +884,8 @@ dagster-stk-mins-qfq-sensor-hotpath-performance-fix-plan.md
 dagster-stk-mins-continuity-performance-optimization-plan.html
 dagster-stk-mins-continuity-performance-optimization-low-level-design.html
 ```
+
+当前状态：已完成。`CODING_STANDARDS.md` 已新增 Sensor Hot Path Batch Readiness 长期规则；qfq hotpath fix 文档和股票分钟线连续性性能优化两份文档已同步 P0 完成事实；本 LLD 与主方案状态均已更新为 P0 完成。
 
 ## 12. 停止条件
 

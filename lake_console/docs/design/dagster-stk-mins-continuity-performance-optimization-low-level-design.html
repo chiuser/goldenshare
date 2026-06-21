@@ -231,9 +231,11 @@
         本 LLD 按最新只读 profiling 与 2026-06-21 追加决策修订：性能瓶颈来自 sensor 热路径逐日扫 Dagster event/check 状态库，
         以及在运行窗口前执行重型 DuckDB readiness；日常 sensor 回看窗口统一收敛为最近 10 个 expected trade dates。
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
+        后续 <a href="dagster-batch-readiness-hotpath-governance-low-level-design.md">Dagster Batch Readiness Hot Path 性能治理 LLD</a>
+        已完成 P0A-P0G，补齐 qfq gold batch readiness 名不副实的专项修复和全 helper 性能回归。
       </p>
       <div class="meta-grid">
-        <div class="chip"><strong>状态</strong>P0-P9 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
+        <div class="chip"><strong>状态</strong>P0-P9 已完成；后续 batch readiness hot path P0 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
         <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：日常 10 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready；60 天只作离线审计和长停机恢复参考。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
@@ -1363,6 +1365,22 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
               P9 未改生产 Python 代码，未运行 <code>dg</code>，未读取正式 Dagster instance。
             </td>
             <td>已完成；如后续发现代码事实变化，必须同步回本 LLD。</td>
+          </tr>
+          <tr>
+            <td>后续 Hot Path P0</td>
+            <td>batch readiness hot path 治理（已完成）</td>
+            <td>
+              已按独立专项完成 qfq daily / qfq factor repair 窗口前轻量 skip、
+              qfq gold true batch、qfq daily 分层短路、全 helper 性能回归和长期门禁收口。
+              该阶段修复了 <code>batch_gold_stk_mins_qfq_lake_readiness(...)</code>
+              名称为 batch 但旧实现仍日期乘频度重扫的问题。
+            </td>
+            <td>
+              P0E 本地性能样本覆盖 raw/silver 分钟线、qfq gold、adj factor、major indices、market breadth、ClickHouse readiness helper；
+              P0F 本地目标回归 <code>119 passed in 5.12s</code>；
+              P0G 已把长期规则写入编码规范。
+            </td>
+            <td>已完成；后续新增 hot path helper 必须遵守 Sensor Hot Path Batch Readiness 规范。</td>
           </tr>
         </tbody>
       </table>

@@ -53,6 +53,23 @@ MACD/KDJ 连续性已落地规则：
 3. MACD/KDJ repair op 的 target dates 必须来自 qfq factor repair metadata/status 的 start/end 闭区间 expected range；range 内 expected date 未注册、qfq source 缺失或上一 expected state 缺失时必须 fail closed，且失败路径不得写 completion checks。
 4. 连续性专项 M1-M11 已完成；后续修改必须保持静态门禁和测试覆盖，不能恢复 latest registered / previous registered / registered-only range / latest-before-state 口径。
 
+## Sensor Hot Path Batch Readiness 规范
+
+日常 sensor、run-status sensor、continuity selector 和 readiness gate 属于 Dagster user-code gRPC 热路径。热路径优化必须优先减少读取次数和读取模型复杂度，禁止靠调大 Dagster timeout 掩盖问题。
+
+已落地规则：
+
+1. 日常 sensor hot path 的连续性回看窗口固定为最近 10 个 expected trade dates；60 天只允许作为离线审计、容量评估或长停机恢复方案参考，不得作为日常 sensor 默认窗口。
+2. 窗口型 sensor 必须先判断运行窗口；窗口未到时只能返回轻量 `SkipReason` / cursor，禁止提前执行 DuckDB batch readiness、Dagster event history 查询或其它重扫描。
+3. `batch_*_readiness` 命名只允许用于真正窗口级读取模型：一次接收完整窗口日期集合，集中规划路径或查询分区集合，再按 `trade_date` / `freq` fan-out 状态。
+4. 禁止把 `for trade_date in expected_dates` 里的逐日重 SQL、逐日 Dagster check history 查询、逐日 ClickHouse 查询包装成 `batch_*_readiness`。
+5. sensor hot path batch helper 禁止依赖 Dagster instance；需要判断文件事实时优先使用 DuckDB / lake Parquet 的批量读取，ClickHouse readiness 必须按 partition set 批量读取。
+6. 完整 blocking check 语义不得降级；文件存在、row count 只能作为粗筛或失败快速路径，不能冒充 ready。
+7. `batch_gold_stk_mins_qfq_lake_readiness(...)` 已完成窗口级 true batch 改造，正式 batch body 不得回调 `_gold_qfq_status_for_trade_date(...)`、`_gold_qfq_native_counts_for_trade_date(...)` 或 `_gold_qfq_derived_counts_for_trade_date(...)` 这类单日 helper。
+8. qfq daily sensor 必须保持 silver -> adj factor -> gold qfq 的分层短路；silver 或 adj factor 已阻断时，不得继续加载 gold qfq batch。
+9. qfq factor repair sensor 只能在 gold qfq selected target ready 后读取 factor repair status，且 hot path 必须传入 `include_event_storage_ids=False`。
+10. 所有 sensor hot path batch helper 必须有性能回归或 fake-client 调用次数测试，并由静态门禁防止回流逐日深扫；当前统一覆盖落点为 `tests/test_stk_mins_continuity_performance.py`、`tests/test_batch_readiness_hotpath_performance.py` 和 `tests/test_run_contract_static_gates.py`。
+
 ## Asset Schema Contract 与 Metadata 规范
 
 正式 Dagster asset 的稳定字段契约必须在 asset definition metadata 中注册，禁止只靠某次 materialization metadata 承载。

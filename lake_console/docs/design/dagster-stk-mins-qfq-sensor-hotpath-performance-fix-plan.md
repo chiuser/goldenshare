@@ -2,6 +2,8 @@
 
 更新时间：2026-06-21
 
+状态：已由 [Dagster Batch Readiness Hot Path 性能治理专项方案](dagster-batch-readiness-hotpath-governance-plan.md) 收口完成。S1、S2、S3 对应的窗口前轻量 skip、qfq gold true batch、同类窗口前重活收口、全 helper 性能回归和长期门禁均已落地；本文保留为问题背景与修复依据。
+
 ## 1. 背景
 
 打开 Dagster Runs 页面时出现报错。初步怀疑是任务过重导致 UI 请求超时。
@@ -29,9 +31,9 @@ Runs 页面为什么会被拖垮：
 
 ## 2. 当前根因
 
-### 2.1 重活发生在窗口判断之前
+### 2.1 重活发生在窗口判断之前（治理前事实）
 
-当前两个 qfq sensor 都先计算 60 天 continuity readiness，再判断是否到运行窗口：
+治理前两个 qfq sensor 都先计算长窗口 continuity readiness，再判断是否到运行窗口：
 
 - `stock_mins_qfq_daily_sensor.py`
   - 目标运行窗口：20:10
@@ -45,7 +47,7 @@ Runs 页面为什么会被拖垮：
     - `batch_gold_stk_mins_qfq_lake_readiness(...)`
     - 之后才根据窗口决定是否提交 run
 
-这导致一个非常不合理的行为：
+这在治理前导致一个非常不合理的行为：
 
 ```text
 现在时间还没到 20:10 / 20:40
@@ -86,9 +88,9 @@ Runs 页面为什么会被拖垮：
 STK_MINS_DAILY_SENSOR_CONTINUITY_WINDOW_LIMIT = 10
 ```
 
-### 2.3 `batch_gold_stk_mins_qfq_lake_readiness` 不是真正意义上的 batch
+### 2.3 `batch_gold_stk_mins_qfq_lake_readiness` 不是真正意义上的 batch（治理前事实）
 
-函数名叫 batch，但当前模型仍然是：
+治理前函数名叫 batch，但旧模型仍然是：
 
 ```text
 for trade_date in N 个 expected dates:
@@ -343,7 +345,7 @@ DuckDB 擅长：
 2. 用 SQL 批量 group by。
 3. 在列式文件上做向量化计算。
 
-当前实现没有完全利用这些优点：
+治理前实现没有完全利用这些优点：
 
 1. `batch_gold_stk_mins_qfq_lake_readiness` 外层仍按日期循环。
 2. derived 90/120 的 source 是 stock-year 文件，不是 day partition 文件。
@@ -355,27 +357,27 @@ DuckDB 擅长：
 
 ```text
 正确方式：一次把 10 天日常窗口作为集合交给 DuckDB 聚合。
-当前方式：用 Python 按天驱动 DuckDB 重复做大查询。
+治理前方式：用 Python 按天驱动 DuckDB 重复做大查询。
 ```
 
 ## 6. 同类问题审计
 
-本次审计发现，同类问题分两类。
+本次审计发现，同类问题分两类；下表记录治理前风险和后续收口结果。
 
-### 6.1 已确认需要立即修复
+### 6.1 治理前已确认需要立即修复，当前已完成
 
-| 位置 | 问题 | 处理 |
+| 位置 | 治理前问题 | 当前处理结果 |
 |---|---|---|
-| `stock_mins_qfq_daily_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | Step 1 + Step 2 |
-| `stock_mins_qfq_factor_repair_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | Step 1 + Step 2 |
+| `stock_mins_qfq_daily_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | 已完成窗口前轻量 skip、silver -> adj factor -> gold qfq 分层短路、qfq gold true batch。 |
+| `stock_mins_qfq_factor_repair_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | 已完成窗口前轻量 skip；gold qfq 未 ready 时不读 repair status；qfq gold true batch 已落地。 |
 
-### 6.2 有同类窗口前重活风险，但不是本次 Runs 页面爆点
+### 6.2 治理前有同类窗口前重活风险，当前已收口
 
-| 位置 | 当前模型 | 风险 | 建议 |
+| 位置 | 治理前模型 | 风险 | 当前处理结果 |
 |---|---|---|---|
-| `stock_mins_raw_sensor` | 窗口前可能执行 batch readiness | raw 文件量大，但 SQL 简单 | 同步改成窗口前轻量 Skip，并把日常回看收敛为 10 天 |
-| `stock_mins_silver_sensor` | 窗口前可能执行 raw + silver batch readiness | silver 实测可到 20s 级 | 同步改成窗口前轻量 Skip，并把日常回看收敛为 10 天 |
-| `stock_mins_silver_trade_day_sensor` | 注册窗口前可能执行 raw batch readiness | 不应在 19:45 前做重活 | 同步改成窗口前轻量 Skip，并把日常回看收敛为 10 天 |
+| `stock_mins_raw_sensor` | 窗口前可能执行 batch readiness | raw 文件量大，但 SQL 简单 | 已收敛为最近 10 个 expected trade dates；窗口前重活已由连续性性能优化专项收口。 |
+| `stock_mins_silver_sensor` | 窗口前可能执行 raw + silver batch readiness | silver 实测可到 20s 级 | 已收敛为最近 10 个 expected trade dates；窗口前重活已由连续性性能优化专项收口。 |
+| `stock_mins_silver_trade_day_sensor` | 注册窗口前可能执行 raw batch readiness | 不应在 19:45 前做重活 | 已收敛为最近 10 个 expected trade dates；注册窗口前重活已收口。 |
 
 ### 6.3 当前结构较合理，但仍需保留门禁
 
@@ -386,6 +388,8 @@ DuckDB 擅长：
 | `market_breadth_continuity_sensor` / `stock_return_distribution_continuity_sensor` | batch helper 存在，但数据规模远小于分钟线 qfq | 后续只读 profiling，确认是否需要窗口前轻量 skip |
 
 ## 7. 开发阶段建议
+
+本节保留原开发拆分作为历史执行记录。对应阶段已由 batch readiness hot path 专项和股票分钟线连续性性能优化专项完成，不再表示待开发任务。
 
 ### S1：快速止血
 
@@ -520,10 +524,12 @@ sample <user-code-pid> 8 -file /private/tmp/dagster_user_code_server_qfq_hotpath
 
 ## 10. 当前建议
 
-建议按以下顺序推进：
+当前已经按独立 batch readiness hot path 专项完成：
 
-1. 先做 S1：两个 qfq sensor 窗口前轻量 Skip。这个改动小、风险低、能立刻解决 Runs 页面被窗口前 tick 拖垮的问题。
-2. 再做 S2：重写 gold qfq readiness 查询模型。这个改动大，必须带性能测试和完整 check 语义对账。
-3. 最后做 S3：把 raw/silver/silver partition 的窗口前重活也清掉，作为同类问题收口。
+1. S1 已完成：qfq daily / qfq factor repair sensor 在运行窗口前轻量 skip，窗口前不执行重 DuckDB readiness。
+2. S2 已完成：`batch_gold_stk_mins_qfq_lake_readiness(...)` 已从日期乘频度重扫改成窗口级 true batch，并保留 native + derived 完整 blocking check 语义。
+3. S3 已完成：raw / silver / silver partition 同类窗口前重活已在股票分钟线连续性性能优化专项中收口，日常窗口统一为最近 10 个 expected trade dates。
+4. 全 helper 性能回归已完成：`batch_raw_stk_mins_lake_readiness`、`batch_silver_stk_mins_lake_readiness`、qfq gold、adj factor、major indices、market breadth、ClickHouse readiness helper 均已跑过本地性能样本或 fake-client 调用次数测试。
+5. 长期门禁已写入 `lake_console/orchestrator/CODING_STANDARDS.md`，后续不得恢复窗口前重扫、逐日 Dagster event history 深扫、row count 冒充 ready 或名不副实 batch。
 
-当前不建议直接重启或 kill 进程来“解决”问题。重启只能清掉当前已经打满的 user-code 进程，不能阻止下一次窗口前 sensor tick 再次触发重查询。
+因此，本文不再作为待开发计划使用；后续如出现新的 sensor hot path 性能问题，必须先对照 batch readiness hot path 专项和编码规范做读取模型审计。

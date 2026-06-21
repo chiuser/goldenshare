@@ -2,7 +2,7 @@
 
 更新时间：2026-06-21
 
-状态：P0 分阶段推进中。P0A、P0B、P0C、P0D、P0E、P0F 已完成并提交；P0G 继续按 LLD 推进。本文档记录问题定义、代码审计、治理方案和阶段验收口径；本专项所有正式验证均禁止运行 `dg`，禁止写 Dagster runtime，禁止写正式 lake。
+状态：P0 已完成。P0A、P0B、P0C、P0D、P0E、P0F、P0G 均已完成并提交。本文档记录问题定义、代码审计、治理方案和阶段验收口径；本专项所有正式验证均禁止运行 `dg`，禁止写 Dagster runtime，禁止写正式 lake。
 
 对应 LLD：[Dagster Batch Readiness Hot Path 性能治理 LLD](dagster-batch-readiness-hotpath-governance-low-level-design.md)
 
@@ -16,7 +16,7 @@
 | P0D | 已完成 | qfq daily sensor 已分层短路：silver 阻断时不加载 adj/gold，adj 阻断时不加载 gold。提交：`7c7eb0e6`。 |
 | P0E | 已完成 | 全部 sensor hot path batch helper 的门禁测试与性能回归已落地；其它 helper 的性能测试固定在本阶段并已执行。提交：`b70c51c0`。 |
 | P0F | 已完成 | 本地目标回归、静态检查和性能结果落档已完成。本轮文档提交记录最终结果。 |
-| P0G | 待完成 | 更新长期规范和关联性能文档状态。 |
+| P0G | 已完成 | 长期编码规范和关联性能文档状态已同步；P0 收口完成。 |
 
 其它 helper 的性能测试不放在 P0B。P0B 只服务 qfq gold 根因定位；P0E 才是全 helper 性能回归和防回流门禁阶段。
 
@@ -60,6 +60,13 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 1. `git diff --check` 通过。
 2. `_gold_qfq_status_for_trade_date`、`_gold_qfq_native_counts_for_trade_date`、`_gold_qfq_derived_counts_for_trade_date` 只保留为旧单日 helper 定义和旧单日 helper 内部调用；`batch_gold_stk_mins_qfq_lake_readiness(...)` body 不调用这些单日 helper，该口径由静态门禁测试守住。
+
+P0G 文档收口结果：
+
+1. `lake_console/orchestrator/CODING_STANDARDS.md` 已新增 Sensor Hot Path Batch Readiness 长期规范。
+2. `dagster-stk-mins-qfq-sensor-hotpath-performance-fix-plan.md` 已标记 S1/S2/S3 已由本专项及连续性性能优化完成。
+3. `dagster-stk-mins-continuity-performance-optimization-plan.html` 与 LLD 已补充本专项 P0 完成事实和性能门禁结果。
+4. 本专项主方案与 LLD 状态均更新为 P0 已完成。
 
 ## 1. 背景
 
