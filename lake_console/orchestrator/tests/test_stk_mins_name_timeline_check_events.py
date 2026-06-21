@@ -22,8 +22,8 @@ from orchestrator.defs.checks.stk_mins_checks import (
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
-    raw_stock_basic_path,
     silver_stk_mins_path,
+    silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
 
@@ -70,16 +70,16 @@ class _FakeInstance:
 
 
 class StkMinsNameTimelineCheckEventDryRunTests(unittest.TestCase):
-    def test_candidates_use_raw_stock_basic_lifecycle(self) -> None:
+    def test_candidates_use_silver_stock_lifecycle(self) -> None:
         with TemporaryDirectory() as temp_dir:
             lake_root = Path(temp_dir)
             with duckdb.connect(database=":memory:") as connection:
                 _write_calendar(connection, lake_root, ["2026-04-10"])
-                _write_raw_stock_basic(
+                _write_stock_lifecycle(
                     connection,
                     lake_root,
-                    list_date="20140102",
-                    delist_date="20260603",
+                    list_date="2014-01-02",
+                    delist_date="2026-06-03",
                 )
                 _write_silver_file(connection, lake_root, "2026-04-10", freq=1)
 
@@ -100,11 +100,11 @@ class StkMinsNameTimelineCheckEventDryRunTests(unittest.TestCase):
             lake_root = Path(temp_dir)
             with duckdb.connect(database=":memory:") as connection:
                 _write_calendar(connection, lake_root, ["2026-04-10"])
-                _write_raw_stock_basic(
+                _write_stock_lifecycle(
                     connection,
                     lake_root,
-                    list_date="20140102",
-                    delist_date="20260409",
+                    list_date="2014-01-02",
+                    delist_date="2026-04-09",
                 )
                 _write_silver_file(connection, lake_root, "2026-04-10", freq=1)
 
@@ -121,11 +121,11 @@ class StkMinsNameTimelineCheckEventDryRunTests(unittest.TestCase):
             lake_root = Path(temp_dir)
             with duckdb.connect(database=":memory:") as connection:
                 _write_calendar(connection, lake_root, dates)
-                _write_raw_stock_basic(
+                _write_stock_lifecycle(
                     connection,
                     lake_root,
-                    list_date="20140102",
-                    delist_date="20260603",
+                    list_date="2014-01-02",
+                    delist_date="2026-06-03",
                 )
                 for trade_date in dates:
                     _write_silver_file(connection, lake_root, trade_date, freq=1)
@@ -191,7 +191,7 @@ class StkMinsNameTimelineCheckEventDryRunTests(unittest.TestCase):
             lake_root = Path(temp_dir)
             with duckdb.connect(database=":memory:") as connection:
                 _write_calendar(connection, lake_root, ["2026-04-10"])
-                _write_raw_stock_basic(connection, lake_root)
+                _write_stock_lifecycle(connection, lake_root)
 
                 with self.assertRaisesRegex(ValueError, "Unsupported ts_code"):
                     build_silver_name_timeline_correction_candidates(
@@ -206,7 +206,7 @@ class StkMinsNameTimelineCheckEventDryRunTests(unittest.TestCase):
             {
                 "source_correction_reason": "000638_lifecycle_check_semantics_fix",
                 "ts_code": TARGET_TS_CODE,
-                "lifecycle_fact_source": "raw_stock_basic",
+                "lifecycle_fact_source": "silver_stock_lifecycle",
                 "checked_code_date_freq_count": 1,
                 "failed_code_date_freq_count": 0,
             },
@@ -229,24 +229,30 @@ def _write_calendar(connection, lake_root: Path, trade_dates: tuple[str, ...] | 
     connection.execute(f"COPY ({rows}) TO {duckdb_string(path)} (FORMAT PARQUET)")
 
 
-def _write_raw_stock_basic(
+def _write_stock_lifecycle(
     connection,
     lake_root: Path,
     *,
     ts_code: str = TARGET_TS_CODE,
-    list_date: str = "20140102",
-    delist_date: str = "20260603",
+    list_date: str = "2014-01-02",
+    delist_date: str = "2026-06-03",
 ) -> None:
-    path = raw_stock_basic_path(lake_root)
+    path = silver_stock_lifecycle_path(lake_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     connection.execute(
         f"""
         COPY (
           SELECT
             {duckdb_string(ts_code)} AS ts_code,
+            '000638'::VARCHAR AS symbol,
+            'sample'::VARCHAR AS name,
+            'SZSE'::VARCHAR AS exchange,
+            '主板'::VARCHAR AS market,
             'CNY'::VARCHAR AS curr_type,
-            {duckdb_string(list_date)} AS list_date,
-            {duckdb_string(delist_date)} AS delist_date
+            true AS is_cny_stock,
+            'D'::VARCHAR AS list_status,
+            DATE {duckdb_string(list_date)} AS list_date,
+            DATE {duckdb_string(delist_date)} AS delist_date
         ) TO {duckdb_string(path)} (FORMAT PARQUET)
         """
     )

@@ -5,11 +5,12 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_basic import raw_tushare_stock_basic, silver_stock_basic
+from orchestrator.defs.assets.stock_basic import silver_stock_basic
 from orchestrator.defs.assets.stock_daily import (
     raw_tushare_stock_daily,
     silver_stock_daily,
 )
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
@@ -19,15 +20,15 @@ from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     current_cny_stock_basic_select,
     describe_parquet_query,
-    historical_cny_stock_lifecycle_select,
     read_parquet,
+    silver_cny_stock_lifecycle_select,
     stock_daily_normalized_select,
 )
 from orchestrator.defs.paths import (
-    raw_stock_basic_path,
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -610,7 +611,7 @@ def silver_stock_daily_partition_date_matches(
 
 @dg.asset_check(
     asset=silver_stock_daily,
-    additional_deps=[raw_tushare_stock_basic],
+    additional_deps=[silver_stock_lifecycle],
     blocking=True,
 )
 def silver_stock_daily_stock_lifecycle_covered(
@@ -620,12 +621,12 @@ def silver_stock_daily_stock_lifecycle_covered(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
-    basic_path = raw_stock_basic_path(lake_root.root())
-    for path in (daily_path, basic_path):
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
+    for path in (daily_path, lifecycle_path):
         if not path.exists():
             return _missing_file_result(path)
 
-    stock_lifecycle_sql = historical_cny_stock_lifecycle_select(basic_path)
+    stock_lifecycle_sql = silver_cny_stock_lifecycle_select(lifecycle_path)
     with connect_configured_duckdb() as connection:
         lifecycle_uncovered_count = connection.execute(
             f"""
@@ -658,7 +659,7 @@ def silver_stock_daily_stock_lifecycle_covered(
             check_scope=CheckScope.PARTITION_ALIGNMENT,
             extra_metadata={
                 "file_path": str(daily_path),
-                "raw_stock_basic_file_path": str(basic_path),
+                "silver_stock_lifecycle_file_path": str(lifecycle_path),
                 "partition_key": partition_key,
                 "lifecycle_uncovered_count": int(lifecycle_uncovered_count),
                 "lifecycle_uncovered_sample_rows": _sample_dicts(
@@ -671,7 +672,7 @@ def silver_stock_daily_stock_lifecycle_covered(
 
 @dg.asset_check(
     asset=silver_stock_daily,
-    additional_deps=[raw_tushare_stock_basic],
+    additional_deps=[silver_stock_lifecycle],
     blocking=True,
 )
 def silver_stock_daily_after_list_date_only(
@@ -681,12 +682,12 @@ def silver_stock_daily_after_list_date_only(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
-    basic_path = raw_stock_basic_path(lake_root.root())
-    for path in (daily_path, basic_path):
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
+    for path in (daily_path, lifecycle_path):
         if not path.exists():
             return _missing_file_result(path)
 
-    stock_lifecycle_sql = historical_cny_stock_lifecycle_select(basic_path)
+    stock_lifecycle_sql = silver_cny_stock_lifecycle_select(lifecycle_path)
     with connect_configured_duckdb() as connection:
         before_list_date_count = connection.execute(
             f"""
@@ -715,7 +716,7 @@ def silver_stock_daily_after_list_date_only(
             check_scope=CheckScope.PARTITION_ALIGNMENT,
             extra_metadata={
                 "file_path": str(daily_path),
-                "raw_stock_basic_file_path": str(basic_path),
+                "silver_stock_lifecycle_file_path": str(lifecycle_path),
                 "partition_key": partition_key,
                 "before_list_date_count": int(before_list_date_count),
                 "before_list_date_sample_rows": _sample_dicts(
@@ -1141,7 +1142,7 @@ def raw_stock_daily_covers_expected_tradable_universe(
 
 @dg.asset_check(
     asset=silver_stock_daily,
-    additional_deps=[raw_tushare_stock_basic, silver_stock_suspend_daily],
+    additional_deps=[silver_stock_lifecycle, silver_stock_suspend_daily],
     blocking=False,
 )
 def silver_stock_daily_row_count_matches_expected_tradable_count(
@@ -1151,9 +1152,9 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
-    basic_path = raw_stock_basic_path(lake_root.root())
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
-    for path in (daily_path, basic_path, suspend_path):
+    for path in (daily_path, lifecycle_path, suspend_path):
         if not path.exists():
             return _missing_file_result(path)
 
@@ -1162,8 +1163,8 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
             connection,
             partition_key=partition_key,
             daily_path=daily_path,
-            stock_lifecycle_path=basic_path,
-            stock_lifecycle_sql=historical_cny_stock_lifecycle_select(basic_path),
+            stock_lifecycle_path=lifecycle_path,
+            stock_lifecycle_sql=silver_cny_stock_lifecycle_select(lifecycle_path),
             suspend_path=suspend_path,
             daily_code_set_sql=_silver_daily_code_set_sql(daily_path, partition_key),
         )
@@ -1176,7 +1177,7 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
 
 @dg.asset_check(
     asset=silver_stock_daily,
-    additional_deps=[raw_tushare_stock_basic, silver_stock_suspend_daily],
+    additional_deps=[silver_stock_lifecycle, silver_stock_suspend_daily],
     blocking=True,
 )
 def silver_stock_daily_covers_expected_tradable_universe(
@@ -1186,9 +1187,9 @@ def silver_stock_daily_covers_expected_tradable_universe(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     daily_path = silver_stock_daily_path(lake_root.root(), partition_key)
-    basic_path = raw_stock_basic_path(lake_root.root())
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
-    for path in (daily_path, basic_path, suspend_path):
+    for path in (daily_path, lifecycle_path, suspend_path):
         if not path.exists():
             return _missing_file_result(path)
 
@@ -1197,8 +1198,8 @@ def silver_stock_daily_covers_expected_tradable_universe(
             connection,
             partition_key=partition_key,
             daily_path=daily_path,
-            stock_lifecycle_path=basic_path,
-            stock_lifecycle_sql=historical_cny_stock_lifecycle_select(basic_path),
+            stock_lifecycle_path=lifecycle_path,
+            stock_lifecycle_sql=silver_cny_stock_lifecycle_select(lifecycle_path),
             suspend_path=suspend_path,
             daily_code_set_sql=_silver_daily_code_set_sql(daily_path, partition_key),
         )

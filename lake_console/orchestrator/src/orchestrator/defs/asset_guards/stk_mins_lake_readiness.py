@@ -61,18 +61,18 @@ from orchestrator.defs.duckdb_sql import (
     current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
-    historical_cny_stock_lifecycle_select,
     read_parquet,
+    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
     raw_adj_factor_path,
     raw_stk_mins_path,
-    raw_stock_basic_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
@@ -850,14 +850,14 @@ def _silver_full_day_suspend_counts(
 def _silver_lifecycle_failure_counts(
     connection,
     *,
-    raw_basic_path: Path,
+    stock_lifecycle_path: Path,
     path_plans: Sequence[_SilverPathPlan],
 ) -> dict[Path, int]:
-    if not path_plans or not raw_basic_path.exists():
+    if not path_plans or not stock_lifecycle_path.exists():
         return {}
 
     silver_path_sql = _path_list_sql(tuple(path_plan.path for path_plan in path_plans))
-    lifecycle_relation = historical_cny_stock_lifecycle_select(raw_basic_path)
+    lifecycle_relation = silver_cny_stock_lifecycle_select(stock_lifecycle_path)
     rows = connection.execute(
         f"""
         WITH silver_codes AS (
@@ -1239,7 +1239,7 @@ def _silver_status_for_trade_date(
     trade_date: str,
     path_plans: Sequence[_SilverPathPlan],
     registered_trade_day_set: set[str],
-    raw_basic_path: Path,
+    stock_lifecycle_path: Path,
     schema_valid_paths: set[Path],
     metrics_by_path: Mapping[Path, _SilverPathMetrics],
     full_semantics: bool,
@@ -1310,7 +1310,7 @@ def _silver_status_for_trade_date(
                 SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK
             )
         if full_semantics and (
-            not raw_basic_path.exists() or metrics.lifecycle_failed_count
+            not stock_lifecycle_path.exists() or metrics.lifecycle_failed_count
         ):
             failed_check_names.append(SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK)
 
@@ -1527,7 +1527,7 @@ def batch_silver_stk_mins_lake_readiness(
     registered_trade_day_set = set(_normalize_trade_dates(registered_trade_days))
     freqs = _normalize_freqs(freqs)
     expected_start_date, expected_end_date = _expected_bounds(expected_trade_dates)
-    raw_basic_path = raw_stock_basic_path(lake_root)
+    stock_lifecycle_path = silver_stock_lifecycle_path(lake_root)
     path_plans = _silver_path_plans(
         lake_root=lake_root,
         expected_trade_dates=expected_trade_dates,
@@ -1576,7 +1576,7 @@ def batch_silver_stk_mins_lake_readiness(
             )
         for path, failed_count in _silver_lifecycle_failure_counts(
             connection,
-            raw_basic_path=raw_basic_path,
+            stock_lifecycle_path=stock_lifecycle_path,
             path_plans=data_check_path_plans,
         ).items():
             metrics_by_path[path] = _merge_silver_metrics(
@@ -1596,7 +1596,7 @@ def batch_silver_stk_mins_lake_readiness(
             trade_date=trade_date,
             path_plans=path_plans_by_trade_date[trade_date],
             registered_trade_day_set=registered_trade_day_set,
-            raw_basic_path=raw_basic_path,
+            stock_lifecycle_path=stock_lifecycle_path,
             schema_valid_paths=schema_valid_paths,
             metrics_by_path=metrics_by_path,
             full_semantics=full_semantics,

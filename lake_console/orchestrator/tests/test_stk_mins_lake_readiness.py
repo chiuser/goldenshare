@@ -36,11 +36,11 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
     raw_adj_factor_path,
     raw_stk_mins_path,
-    raw_stock_basic_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
@@ -223,16 +223,16 @@ def _write_suspend_file(
     )
 
 
-def _write_raw_stock_basic_file(
+def _write_stock_lifecycle_file(
     connection,
     lake_root: Path,
     *,
     ts_code: str = "000001.SZ",
     list_status: str = "L",
-    list_date: str = "20100101",
+    list_date: str = "2010-01-01",
     delist_date: str | None = None,
 ) -> None:
-    path = raw_stock_basic_path(lake_root)
+    path = silver_stock_lifecycle_path(lake_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     connection.execute(
         f"""
@@ -241,20 +241,13 @@ def _write_raw_stock_basic_file(
             {duckdb_string(ts_code)} AS ts_code,
             '000001'::VARCHAR AS symbol,
             'sample'::VARCHAR AS name,
-            'area'::VARCHAR AS area,
-            'industry'::VARCHAR AS industry,
-            'fullname'::VARCHAR AS fullname,
-            'enname'::VARCHAR AS enname,
-            'cnspell'::VARCHAR AS cnspell,
-            '主板'::VARCHAR AS market,
             'SZSE'::VARCHAR AS exchange,
+            '主板'::VARCHAR AS market,
             'CNY'::VARCHAR AS curr_type,
+            true AS is_cny_stock,
             {duckdb_string(list_status)} AS list_status,
-            {duckdb_string(list_date)} AS list_date,
-            {duckdb_string(delist_date) if delist_date is not None else "NULL::VARCHAR"} AS delist_date,
-            NULL::VARCHAR AS is_hs,
-            NULL::VARCHAR AS act_name,
-            NULL::VARCHAR AS act_ent_type
+            DATE {duckdb_string(list_date)} AS list_date,
+            {f"DATE {duckdb_string(delist_date)}" if delist_date is not None else "NULL::DATE"} AS delist_date
         ) TO {duckdb_string(path)} (FORMAT PARQUET)
         """
     )
@@ -692,7 +685,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
             trade_dates = _trade_dates(60)
-            _write_raw_stock_basic_file(connection, lake_root)
+            _write_stock_lifecycle_file(connection, lake_root)
             for trade_date in trade_dates:
                 _write_silver_ready_inputs(connection, lake_root, trade_date=trade_date)
                 for freq in STK_MINS_FREQS:
@@ -722,7 +715,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_silver_batch_readiness_marks_missing_file_as_not_materialized(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
-            _write_raw_stock_basic_file(connection, lake_root)
+            _write_stock_lifecycle_file(connection, lake_root)
             _write_silver_ready_inputs(connection, lake_root, trade_date="2026-06-15")
             for freq in STK_MINS_FREQS[:-1]:
                 _write_silver_file(connection, lake_root, trade_date="2026-06-15", freq=freq)
@@ -774,7 +767,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
-            _write_raw_stock_basic_file(connection, lake_root)
+            _write_stock_lifecycle_file(connection, lake_root)
             for case in cases:
                 _write_silver_ready_inputs(
                     connection,
@@ -831,7 +824,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         )
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
-            _write_raw_stock_basic_file(connection, lake_root, ts_code="000001.SZ")
+            _write_stock_lifecycle_file(connection, lake_root, ts_code="000001.SZ")
             for case in cases:
                 _write_silver_ready_inputs(
                     connection,
@@ -865,13 +858,13 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_silver_batch_readiness_accepts_delisted_stock_inside_lifecycle(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
-            _write_raw_stock_basic_file(
+            _write_stock_lifecycle_file(
                 connection,
                 lake_root,
                 ts_code="000638.SZ",
                 list_status="D",
-                list_date="20100101",
-                delist_date="20260413",
+                list_date="2010-01-01",
+                delist_date="2026-04-13",
             )
             _write_silver_ready_inputs(
                 connection,

@@ -718,6 +718,41 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_lifecycle_consumers_use_silver_lifecycle_asset(self) -> None:
+        target_paths = (
+            ASSETS_DIR / "stock_daily.py",
+            CHECKS_DIR / "stock_daily_checks.py",
+            CHECKS_DIR / "stk_mins_checks.py",
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py",
+            DEFS_DIR / "bootstrap" / "stk_mins_name_timeline_check_events.py",
+        )
+        required_fragments = (
+            "silver_stock_lifecycle_path",
+            "silver_cny_stock_lifecycle_select",
+        )
+        forbidden_fragments = (
+            "raw_tushare_stock_basic",
+            "raw_stock_basic_path",
+            "raw_stock_basic_file_path",
+            "historical_cny_stock_lifecycle_select",
+        )
+        issues = []
+
+        for path in target_paths:
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses required lifecycle consumer fragment: {fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
+            issues.extend(
+                f"{path} contains forbidden raw lifecycle consumer fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        self.assertEqual(issues, [])
+
     def test_stock_mins_silver_direct_dependencies_exclude_namechange_and_basic(
         self,
     ) -> None:
@@ -860,7 +895,9 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
-    def test_stock_mins_silver_name_timeline_check_uses_raw_lifecycle(self) -> None:
+    def test_stock_mins_silver_name_timeline_check_uses_silver_lifecycle(
+        self,
+    ) -> None:
         check_source = _function_source(
             CHECKS_DIR / "stk_mins_checks.py",
             "_silver_name_timeline_covered",
@@ -868,13 +905,16 @@ class RunContractStaticGateTests(unittest.TestCase):
         issues = []
 
         required_fragments = (
-            "raw_stock_basic_path",
-            "historical_cny_stock_lifecycle_select",
+            "silver_stock_lifecycle_path",
+            "silver_cny_stock_lifecycle_select",
             "lifecycle_fact_source",
+            "silver_stock_lifecycle_file_path",
             "checked_code_date_count",
             "failed_code_date_count",
         )
         forbidden_fragments = (
+            "raw_stock_basic_path",
+            "historical_cny_stock_lifecycle_select",
             "silver_stock_basic_path",
             "silver_namechange_path",
         )
@@ -1703,7 +1743,8 @@ class RunContractStaticGateTests(unittest.TestCase):
         required_helper_fragments = (
             "TARGET_TS_CODE = \"000638.SZ\"",
             "SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK",
-            "historical_cny_stock_lifecycle_select",
+            "silver_stock_lifecycle_path",
+            "silver_cny_stock_lifecycle_select",
             "get_asset_check_execution_history",
             "get_materialized_partitions",
             "planned_new_event_count=len(latest_failed)",

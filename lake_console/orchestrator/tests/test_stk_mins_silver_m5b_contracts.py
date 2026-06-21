@@ -7,11 +7,11 @@ from orchestrator.defs.assets import stk_mins
 from orchestrator.defs.checks import stk_mins_checks
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
-    raw_stock_basic_path,
     raw_stk_mins_path,
     silver_stk_mins_path,
     silver_stock_daily_path,
     silver_stock_identity_map_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -221,36 +221,46 @@ def _write_suspend(
     return path
 
 
-def _raw_basic_row(
+def _stock_lifecycle_row(
     ts_code: str,
     *,
     list_status: str = "L",
-    list_date: str = "20000101",
+    list_date: str = "2000-01-01",
     delist_date: str | None = None,
     curr_type: str = "CNY",
 ) -> dict[str, object]:
     return {
         "ts_code": ts_code,
+        "symbol": ts_code.split(".")[0],
+        "name": ts_code,
+        "exchange": ts_code.split(".")[1] if "." in ts_code else "",
+        "market": "主板",
         "curr_type": curr_type,
+        "is_cny_stock": curr_type == "CNY",
         "list_status": list_status,
         "list_date": list_date,
         "delist_date": delist_date,
     }
 
 
-def _write_raw_stock_basic(
+def _write_stock_lifecycle(
     lake_root: Path,
     rows: list[dict[str, object]],
 ) -> Path:
-    path = raw_stock_basic_path(lake_root)
+    path = silver_stock_lifecycle_path(lake_root)
     _write_rows(
         path,
         column_types={
             "ts_code": "VARCHAR",
+            "symbol": "VARCHAR",
+            "name": "VARCHAR",
+            "exchange": "VARCHAR",
+            "market": "VARCHAR",
             "curr_type": "VARCHAR",
+            "is_cny_stock": "BOOLEAN",
             "list_status": "VARCHAR",
-            "list_date": "VARCHAR",
-            "delist_date": "VARCHAR",
+            "list_date": "DATE",
+            "delist_date": "DATE",
         },
         rows=rows,
         order_by="ts_code",
@@ -271,11 +281,11 @@ def _write_common_inputs(
     _write_identity_map(lake_root, identity_rows)
     _write_stock_daily(lake_root, partition_key, daily_codes)
     _write_suspend(lake_root, partition_key, rows=suspend_rows)
-    _write_raw_stock_basic(
+    _write_stock_lifecycle(
         lake_root,
         lifecycle_rows
         if lifecycle_rows is not None
-        else [_raw_basic_row(code) for code in (lifecycle_codes or daily_codes)],
+        else [_stock_lifecycle_row(code) for code in (lifecycle_codes or daily_codes)],
     )
 
 
@@ -769,7 +779,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                 with self.subTest(check_helper=check_helper.__name__):
                     self.assertTrue(check_helper(**resources).passed)
 
-    def test_name_timeline_check_uses_raw_lifecycle_for_delisted_stock(self) -> None:
+    def test_name_timeline_check_uses_lifecycle_for_delisted_stock(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             partition_key = "2026-04-13"
@@ -785,14 +795,14 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     )
                 ],
             )
-            _write_raw_stock_basic(
+            _write_stock_lifecycle(
                 lake_root,
                 [
-                    _raw_basic_row(
+                    _stock_lifecycle_row(
                         "000638.SZ",
                         list_status="D",
-                        list_date="19961126",
-                        delist_date="20260413",
+                        list_date="1996-11-26",
+                        delist_date="2026-04-13",
                     )
                 ],
             )
@@ -807,7 +817,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
             self.assertTrue(result.passed)
             self.assertEqual(
                 result.metadata["goldenshare/lifecycle_fact_source"].text,
-                "raw_stock_basic",
+                "silver_stock_lifecycle",
             )
             self.assertEqual(
                 result.metadata["goldenshare/checked_code_date_count"].value,
@@ -818,7 +828,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                 0,
             )
 
-    def test_name_timeline_check_fails_outside_raw_lifecycle(self) -> None:
+    def test_name_timeline_check_fails_outside_lifecycle(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             partition_key = "2026-04-14"
@@ -834,14 +844,14 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                     )
                 ],
             )
-            _write_raw_stock_basic(
+            _write_stock_lifecycle(
                 lake_root,
                 [
-                    _raw_basic_row(
+                    _stock_lifecycle_row(
                         "000638.SZ",
                         list_status="D",
-                        list_date="19961126",
-                        delist_date="20260413",
+                        list_date="1996-11-26",
+                        delist_date="2026-04-13",
                     )
                 ],
             )
@@ -863,7 +873,7 @@ class StkMinsSilverM5BContractTests(unittest.TestCase):
                 1,
             )
 
-    def test_name_timeline_check_fails_when_raw_stock_basic_missing(self) -> None:
+    def test_name_timeline_check_fails_when_stock_lifecycle_missing(self) -> None:
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_silver_for_check(lake_root, PARTITION_KEY, [_silver_row()])

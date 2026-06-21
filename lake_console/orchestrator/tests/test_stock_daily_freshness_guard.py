@@ -14,10 +14,10 @@ from orchestrator.defs.assets.stock_daily import (
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import (
-    raw_stock_basic_path,
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -163,22 +163,32 @@ def _write_basic(lake_root: Path, ts_code: str = "000001.SZ") -> None:
     )
 
 
-def _write_raw_basic(lake_root: Path, ts_code: str = "000001.SZ") -> None:
+def _write_stock_lifecycle(lake_root: Path, ts_code: str = "000001.SZ") -> None:
     _write_rows(
-        raw_stock_basic_path(lake_root),
+        silver_stock_lifecycle_path(lake_root),
         column_types={
             "ts_code": "VARCHAR",
+            "symbol": "VARCHAR",
+            "name": "VARCHAR",
+            "exchange": "VARCHAR",
+            "market": "VARCHAR",
             "curr_type": "VARCHAR",
+            "is_cny_stock": "BOOLEAN",
             "list_status": "VARCHAR",
-            "list_date": "VARCHAR",
-            "delist_date": "VARCHAR",
+            "list_date": "DATE",
+            "delist_date": "DATE",
         },
         rows=[
             {
                 "ts_code": ts_code,
+                "symbol": ts_code.split(".")[0],
+                "name": ts_code,
+                "exchange": ts_code.split(".")[1] if "." in ts_code else "",
+                "market": "主板",
                 "curr_type": "CNY",
+                "is_cny_stock": True,
                 "list_status": "L",
-                "list_date": "20200101",
+                "list_date": "2020-01-01",
                 "delist_date": None,
             }
         ],
@@ -315,7 +325,7 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_raw(lake_root)
-            _write_raw_basic(lake_root)
+            _write_stock_lifecycle(lake_root)
             _write_basic(lake_root)
             _write_suspend(lake_root)
             target_path = silver_stock_daily_path(lake_root, PARTITION_KEY)
@@ -341,7 +351,7 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_raw(lake_root)
-            _write_raw_basic(lake_root)
+            _write_stock_lifecycle(lake_root)
             _write_basic(lake_root)
             _write_suspend(lake_root)
             _write_existing_silver_target(lake_root)
@@ -366,7 +376,7 @@ class StockDailyFreshnessGuardTests(unittest.TestCase):
         with TemporaryDirectory() as directory:
             lake_root = Path(directory)
             _write_raw(lake_root)
-            _write_raw_basic(lake_root)
+            _write_stock_lifecycle(lake_root)
             _write_basic(lake_root)
             _write_suspend(lake_root)
             target_path = silver_stock_daily_path(lake_root, PARTITION_KEY)

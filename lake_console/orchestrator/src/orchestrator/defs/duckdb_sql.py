@@ -415,7 +415,21 @@ WHERE curr_type = {duckdb_string(CNY_STOCK_CURR_TYPE)}
 """
 
 
-def silver_stock_daily_select(raw_path: Path, raw_stock_basic_path: Path) -> str:
+def silver_cny_stock_lifecycle_select(silver_stock_lifecycle_path: Path) -> str:
+    return f"""
+SELECT DISTINCT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(list_date AS DATE) AS list_date,
+  CAST(delist_date AS DATE) AS delist_date
+FROM {read_parquet(silver_stock_lifecycle_path, hive_partitioning=False)}
+WHERE is_cny_stock
+  AND ts_code IS NOT NULL
+  AND trim(CAST(ts_code AS VARCHAR)) != ''
+  AND list_date IS NOT NULL
+"""
+
+
+def silver_stock_daily_select(raw_path: Path, stock_lifecycle_path: Path) -> str:
     return f"""
 WITH normalized AS (
   {stock_daily_normalized_select(raw_path)}
@@ -425,7 +439,7 @@ deduped AS (
   FROM normalized
 ),
 stock_lifecycle AS (
-  {historical_cny_stock_lifecycle_select(raw_stock_basic_path)}
+  {silver_cny_stock_lifecycle_select(stock_lifecycle_path)}
 )
 SELECT deduped.*
 FROM deduped

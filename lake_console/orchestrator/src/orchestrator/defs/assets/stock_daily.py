@@ -8,7 +8,8 @@ from orchestrator.defs.asset_guards.stock_daily import (
     assert_silver_stock_basic_fresh_for_stock_daily,
 )
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_basic import raw_tushare_stock_basic, silver_stock_basic
+from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.suspend_d import silver_stock_suspend_daily
 from orchestrator.defs.duckdb_sql import (
     BJ_MARKET_OPEN_DATE,
@@ -17,7 +18,7 @@ from orchestrator.defs.duckdb_sql import (
     copy_query_to_parquet,
     count_parquet_query,
     describe_parquet_query,
-    historical_cny_stock_lifecycle_select,
+    silver_cny_stock_lifecycle_select,
     silver_stock_daily_select,
     stock_daily_normalized_select,
 )
@@ -26,10 +27,10 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
-    raw_stock_basic_path,
     raw_stock_daily_path,
     silver_stock_basic_path,
     silver_stock_daily_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import (
@@ -268,7 +269,7 @@ def _duplicate_sample_rows(connection, raw_path: Path) -> list[dict[str, Any]]:
 def _silver_filter_counts(
     connection,
     raw_path: Path,
-    raw_basic_path: Path,
+    stock_lifecycle_path: Path,
 ) -> dict[str, int]:
     normalized_sql = stock_daily_normalized_select(raw_path)
     row = connection.execute(
@@ -281,7 +282,7 @@ def _silver_filter_counts(
           FROM normalized
         ),
         stock_lifecycle AS (
-          {historical_cny_stock_lifecycle_select(raw_basic_path)}
+          {silver_cny_stock_lifecycle_select(stock_lifecycle_path)}
         ),
         after_lifecycle_code_match AS (
           SELECT deduped.*, stock_lifecycle.list_date, stock_lifecycle.delist_date
@@ -433,7 +434,7 @@ def raw_tushare_stock_daily(
     name="silver_stock_daily",
     deps=[
         raw_tushare_stock_daily,
-        raw_tushare_stock_basic,
+        silver_stock_lifecycle,
         silver_stock_basic,
         silver_stock_suspend_daily,
     ],
@@ -450,12 +451,12 @@ def raw_tushare_stock_daily(
         ),
         extra_metadata={
             "filter_policy": (
-                "Keep CNY stocks whose trade_date falls within raw_stock_basic "
+                "Keep CNY stocks whose trade_date falls within silver_stock_lifecycle "
                 "list_date/delist_date lifecycle; keep rows on/after 2014-01-01; "
                 "keep BJ stocks only on/after 2021-11-15; raw remains source mirror."
             ),
             "upstream_ready_policy": (
-                "raw_tushare_stock_basic, silver_stock_basic freshness guard, and "
+                "silver_stock_lifecycle, silver_stock_basic freshness guard, and "
                 "silver_stock_suspend_daily partition must be ready before silver_stock_daily "
                 "is produced; suspend facts are read-only prerequisites."
             ),
@@ -471,14 +472,16 @@ def silver_stock_daily(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     raw_path = raw_stock_daily_path(lake_root.root(), partition_key)
-    raw_basic_path = raw_stock_basic_path(lake_root.root())
+    stock_lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     basic_path = silver_stock_basic_path(lake_root.root())
     suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
     target_path = silver_stock_daily_path(lake_root.root(), partition_key)
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock daily file: {raw_path}")
-    if not raw_basic_path.exists():
-        raise FileNotFoundError(f"Missing raw stock basic file: {raw_basic_path}")
+    if not stock_lifecycle_path.exists():
+        raise FileNotFoundError(
+            f"Missing silver stock lifecycle file: {stock_lifecycle_path}"
+        )
     if not basic_path.exists():
         raise FileNotFoundError(f"Missing silver stock basic file: {basic_path}")
     if not suspend_path.exists():
@@ -511,11 +514,11 @@ def silver_stock_daily(
         duplicate_removed_count = _duplicate_removed_count(connection, raw_path)
         duplicate_key_count = _duplicate_key_count(connection, raw_path)
         duplicate_sample_rows = _duplicate_sample_rows(connection, raw_path)
-        filter_counts = _silver_filter_counts(connection, raw_path, raw_basic_path)
+        filter_counts = _silver_filter_counts(connection, raw_path, stock_lifecycle_path)
 
         _replace_parquet_from_query(
             connection,
-            silver_stock_daily_select(raw_path, raw_basic_path),
+            silver_stock_daily_select(raw_path, stock_lifecycle_path),
             target_path,
         )
         columns = _column_names(connection, target_path, hive_partitioning=False)
@@ -528,7 +531,7 @@ def silver_stock_daily(
             observed_columns=columns,
             extra_metadata={
                 "raw_file_path": str(raw_path),
-                "raw_stock_basic_file_path": str(raw_basic_path),
+                "silver_stock_lifecycle_file_path": str(stock_lifecycle_path),
                 "stock_basic_file_path": str(basic_path),
                 "stock_suspend_daily_file_path": str(suspend_path),
                 "partition_key": partition_key,

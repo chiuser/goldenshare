@@ -19,12 +19,12 @@ from orchestrator.defs.checks.stk_mins_checks import (
 )
 from orchestrator.defs.duckdb_sql import (
     duckdb_string,
-    historical_cny_stock_lifecycle_select,
+    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
-    raw_stock_basic_path,
     silver_stk_mins_path,
+    silver_stock_lifecycle_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
@@ -174,11 +174,13 @@ def build_silver_name_timeline_correction_candidates(
     _assert_allowed_target(ts_code=ts_code, max_expected_events=max_expected_events)
     end_date = _normalize_date(end_date, field_name="end_date")
     calendar_path = silver_trade_calendar_path(lake_root)
-    stock_basic_path = raw_stock_basic_path(lake_root)
+    stock_lifecycle_path = silver_stock_lifecycle_path(lake_root)
     if not calendar_path.exists():
         raise FileNotFoundError(f"silver trade calendar file is missing: {calendar_path}")
-    if not stock_basic_path.exists():
-        raise FileNotFoundError(f"raw stock basic file is missing: {stock_basic_path}")
+    if not stock_lifecycle_path.exists():
+        raise FileNotFoundError(
+            f"silver stock lifecycle file is missing: {stock_lifecycle_path}"
+        )
 
     expected_dates = tuple(
         trade_date
@@ -195,7 +197,7 @@ def build_silver_name_timeline_correction_candidates(
         return ()
 
     relation = _read_parquet_paths(tuple(path for _freq, _date, path in paths), filename=True)
-    lifecycle_relation = historical_cny_stock_lifecycle_select(stock_basic_path)
+    lifecycle_relation = silver_cny_stock_lifecycle_select(stock_lifecycle_path)
     rows = connection.execute(
         f"""
         WITH target_rows AS (
@@ -524,7 +526,7 @@ def correction_event_metadata() -> dict[str, Any]:
     return {
         "source_correction_reason": SOURCE_CORRECTION_REASON,
         "ts_code": TARGET_TS_CODE,
-        "lifecycle_fact_source": "raw_stock_basic",
+        "lifecycle_fact_source": "silver_stock_lifecycle",
         "checked_code_date_freq_count": 1,
         "failed_code_date_freq_count": 0,
     }

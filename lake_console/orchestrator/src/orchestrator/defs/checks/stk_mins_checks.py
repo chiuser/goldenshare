@@ -6,7 +6,7 @@ from typing import Any
 import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_basic import raw_tushare_stock_basic
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stk_mins import (
     GOLD_STK_MINS_QFQ_ASSETS,
     GOLD_STK_MINS_QFQ_DERIVED_ASSETS,
@@ -37,16 +37,16 @@ from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
-    historical_cny_stock_lifecycle_select,
     read_parquet,
+    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_trade_days
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
-    raw_stock_basic_path,
     raw_stk_mins_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
+    silver_stock_lifecycle_path,
     silver_stock_daily_path,
     silver_stock_suspend_daily_path,
 )
@@ -2272,15 +2272,15 @@ def _silver_name_timeline_covered(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     path = _silver_path(lake_root, freq, partition_key)
-    stock_basic_path = raw_stock_basic_path(lake_root.root())
+    stock_lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    if not stock_basic_path.exists():
-        return _missing_input_file_result(path, stock_basic_path)
+    if not stock_lifecycle_path.exists():
+        return _missing_input_file_result(path, stock_lifecycle_path)
 
     with connect_configured_duckdb() as connection:
         relation = read_parquet(path, hive_partitioning=False)
-        lifecycle_relation = historical_cny_stock_lifecycle_select(stock_basic_path)
+        lifecycle_relation = silver_cny_stock_lifecycle_select(stock_lifecycle_path)
         row = connection.execute(
             f"""
             WITH silver_codes AS (
@@ -2341,14 +2341,14 @@ def _silver_name_timeline_covered(
         passed=failed_count == 0,
         check_scope=CheckScope.REFERENTIAL_INTEGRITY,
         file_path=path,
-        input_file_paths=[stock_basic_path],
+        input_file_paths=[stock_lifecycle_path],
         checked_row_count=checked_count,
         failed_row_count=failed_count,
         extra_metadata={
             "partition_key": partition_key,
             "freq": freq,
-            "lifecycle_fact_source": "raw_stock_basic",
-            "raw_stock_basic_file_path": str(stock_basic_path),
+            "lifecycle_fact_source": "silver_stock_lifecycle",
+            "silver_stock_lifecycle_file_path": str(stock_lifecycle_path),
             "checked_code_date_count": checked_count,
             "failed_code_date_count": failed_count,
             "failure_samples": _sample_dicts(("ts_code", "trade_date"), sample_rows),
@@ -2691,7 +2691,7 @@ def _build_silver_stk_mins_checks(asset, freq: int):
             normalized_freq,
             SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
             _silver_name_timeline_covered,
-            additional_deps=(raw_tushare_stock_basic,),
+            additional_deps=(silver_stock_lifecycle,),
         ),
     )
 
