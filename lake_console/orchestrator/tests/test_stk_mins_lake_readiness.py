@@ -956,6 +956,73 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             status.failed_check_names,
         )
 
+    def test_gold_qfq_batch_readiness_marks_missing_target_date_rows_as_not_materialized(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+            )
+            _write_adj_factor_files(
+                connection,
+                lake_root,
+                trade_date="2026-06-17",
+            )
+            native_times = {
+                1: ("09:31:00",),
+                5: ("09:35:00",),
+                15: ("09:45:00",),
+                30: tuple(
+                    source_time
+                    for source_time, _window_id, _target_time
+                    in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[90]
+                ),
+                60: tuple(
+                    source_time
+                    for source_time, _window_id, _target_time
+                    in GOLD_STK_MINS_QFQ_DERIVED_WINDOWS[120]
+                ),
+            }
+            for freq, trade_times in native_times.items():
+                _write_silver_file_for_times(
+                    connection,
+                    lake_root,
+                    trade_date="2026-06-17",
+                    freq=freq,
+                    trade_times=trade_times,
+                )
+
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-17",),
+                registered_trade_days=("2026-06-17",),
+            )
+            single_date_status = lake_readiness_module._gold_qfq_status_for_trade_date(
+                connection=connection,
+                lake_root=lake_root,
+                trade_date="2026-06-17",
+                registered_trade_day_set={"2026-06-17"},
+                full_semantics=True,
+            )
+
+        status = batch_status.status_for_trade_date("2026-06-17")
+        for readiness_status in (status, single_date_status):
+            self.assertFalse(readiness_status.ready)
+            self.assertFalse(readiness_status.materialized)
+            self.assertEqual(readiness_status.checked_row_count, 0)
+            self.assertEqual(
+                readiness_status.reason,
+                "gold qfq rows are missing for 2026-06-17",
+            )
+            self.assertIn(
+                GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                readiness_status.failed_check_names,
+            )
+
     def test_gold_qfq_batch_readiness_detects_formula_failure(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)

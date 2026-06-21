@@ -1482,6 +1482,93 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertEqual(cursor["target_date"], "2026-06-15")
         self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-15")
 
+    def test_qfq_daily_sensor_submits_target_date_when_gold_rows_are_missing(
+        self,
+    ) -> None:
+        context = _Context(("2026-06-15", "2026-06-16", "2026-06-17"))
+        trade_dates = ("2026-06-15", "2026-06-16", "2026-06-17")
+
+        with patch.object(
+            qfq_daily_module,
+            "datetime",
+            _AfterQfqDailyWindowDateTime,
+        ), patch.object(
+            qfq_daily_module,
+            "_load_stock_mins_qfq_expected_trade_dates",
+            return_value=trade_dates,
+        ), patch.object(
+            qfq_daily_module,
+            "batch_silver_stk_mins_lake_readiness",
+            return_value=_silver_batch_status(
+                {
+                    trade_date: _silver_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_adj_factor_lake_readiness",
+            return_value=_adj_factor_batch_status(
+                {
+                    trade_date: _adj_factor_date_status(
+                        trade_date=trade_date,
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    )
+                    for trade_date in trade_dates
+                }
+            ),
+        ), patch.object(
+            qfq_daily_module,
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            return_value=_gold_qfq_batch_status(
+                {
+                    "2026-06-15": _gold_qfq_date_status(
+                        trade_date="2026-06-15",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-16": _gold_qfq_date_status(
+                        trade_date="2026-06-16",
+                        ready=True,
+                        materialized=True,
+                        checks_passed=True,
+                        reason="ready",
+                    ),
+                    "2026-06-17": _gold_qfq_date_status(
+                        trade_date="2026-06-17",
+                        ready=False,
+                        materialized=False,
+                        checks_passed=False,
+                        reason="gold qfq rows are missing for 2026-06-17",
+                    ),
+                }
+            ),
+        ) as gold_batch_mock:
+            result = stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        request = result.run_requests[0]
+        self.assertEqual(request.partition_key, "2026-06-17")
+        self.assertEqual(request.run_key, "stock_mins_qfq_daily_update:2026-06-17")
+        gold_batch_mock.assert_called_once()
+
+        cursor = json.loads(result.cursor)
+        continuity = cursor["details"]["continuity_status"]
+        self.assertEqual(cursor["target_date"], "2026-06-17")
+        self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-17")
+        self.assertIsNone(continuity["blocked_reason"])
+
     def test_qfq_daily_sensor_blocks_materialized_check_problem_without_later_date(
         self,
     ) -> None:

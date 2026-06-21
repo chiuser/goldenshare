@@ -2935,6 +2935,27 @@ def _gold_qfq_status_for_trade_date(
             failed_row_count=failed_row_count,
         )
 
+    if (
+        expected_file_count > 0
+        and existing_file_count == expected_file_count
+        and checked_row_count == 0
+    ):
+        return StkMinsDateReadiness(
+            trade_date=trade_date,
+            ready=False,
+            materialized=False,
+            checks_passed=False,
+            reason=f"gold qfq rows are missing for {trade_date}",
+            failed_check_names=(
+                GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+            ),
+            missing_file_paths=(),
+            expected_file_count=expected_file_count,
+            existing_file_count=existing_file_count,
+            checked_row_count=checked_row_count,
+            failed_row_count=failed_row_count,
+        )
+
     failed_check_names = sorted(set(failed_check_names))
     checks_passed = not failed_check_names
     return StkMinsDateReadiness(
@@ -3055,6 +3076,28 @@ def _gold_qfq_statuses_from_batch_counts(
                     GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
                 ),
                 missing_file_paths=missing_path_strings,
+                expected_file_count=expected_file_count,
+                existing_file_count=existing_file_count,
+                checked_row_count=checked_row_count,
+                failed_row_count=failed_row_count,
+            )
+            continue
+
+        if (
+            expected_file_count > 0
+            and existing_file_count == expected_file_count
+            and checked_row_count == 0
+        ):
+            statuses_by_trade_date[trade_date] = StkMinsDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason=f"gold qfq rows are missing for {trade_date}",
+                failed_check_names=(
+                    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                ),
+                missing_file_paths=(),
                 expected_file_count=expected_file_count,
                 existing_file_count=existing_file_count,
                 checked_row_count=checked_row_count,
