@@ -4,7 +4,7 @@
 
 依据文档：[Dagster Batch Readiness Hot Path 性能治理专项方案](dagster-batch-readiness-hotpath-governance-plan.md)
 
-状态：P0 分阶段推进中。P0A、P0B、P0C、P0D 已完成；P0E、P0F、P0G 继续按本文档推进。本文档是编码级设计和阶段验收依据；未完成阶段不得写成已实现事实。
+状态：P0 分阶段推进中。P0A、P0B、P0C、P0D、P0E、P0F 已完成；P0G 继续按本文档推进。本文档是编码级设计和阶段验收依据；未完成阶段不得写成已实现事实。
 
 ## 0. 当前进度与阶段边界
 
@@ -14,8 +14,8 @@
 | P0B qfq gold profiling | 已完成 | 只读 profiling，不改生产代码；输出写 `/private/tmp`。 |
 | P0C qfq gold true batch | 已完成 | 只重写 `batch_gold_stk_mins_qfq_lake_readiness(...)` 的读取模型；不降低 check 语义。 |
 | P0D sensor 分层短路 | 已完成 | qfq daily sensor 已按 silver -> adj factor -> gold lazy load；silver 阻断时不加载 adj/gold，adj 阻断时不加载 gold。提交：`7c7eb0e6`。 |
-| P0E 全部 helper 门禁与性能回归 | 待完成 | 统一测试所有 sensor hot path batch helper；其它 helper 性能测试固定放在本阶段。 |
-| P0F 本地回归与性能结果落档 | 待完成 | 跑本地目标测试和必要静态门禁；不运行 `dg`。 |
+| P0E 全部 helper 门禁与性能回归 | 已完成 | 统一测试所有 sensor hot path batch helper；其它 helper 性能测试固定放在本阶段并已执行。提交：`b70c51c0`。 |
+| P0F 本地回归与性能结果落档 | 已完成 | 已跑本地目标测试和必要静态门禁；不运行 `dg`。本轮文档提交记录最终结果。 |
 | P0G 文档与长期规范收口 | 待完成 | 同步长期规范和关联方案文档状态。 |
 
 ### 0.1 其它 helper 性能测试位置
@@ -28,6 +28,59 @@
 2. P0C 会重写 qfq gold batch，P0D 会改变 sensor 调用顺序；在这两步之前测全 helper，不能代表最终 hot path。
 3. P0E 是统一验收阶段，必须把 qfq gold、raw/silver 分钟线、adj factor、major indices、market breadth、ClickHouse readiness helper 一起跑完。
 4. P0E 如果发现其它 helper 也有同等级超时风险，必须新增修复阶段，不能只写成“已知风险”。
+
+### 0.2 P0E / P0F 当前验收事实
+
+P0E 已完成，落点如下：
+
+```text
+tests/test_stk_mins_continuity_performance.py
+tests/test_batch_readiness_hotpath_performance.py
+tests/test_run_contract_static_gates.py
+```
+
+P0E 没有修改生产运行逻辑；它只补充门禁和本地性能样本，用于证明其它 helper 没有同等级 hot path timeout 风险。其它 helper 的性能测试已经在 P0E 完成，不再后移。
+
+P0E 本地临时性能样本结果：
+
+| Helper | 范围 | elapsed_ms / 调用次数 | 验收 |
+| --- | --- | ---: | --- |
+| `batch_raw_stk_mins_lake_readiness` | 10 天 × 5 频度 | `27.43 ms` | 通过 |
+| `batch_silver_stk_mins_lake_readiness` | 10 天 × 5 频度 | `47.74 ms` | 通过 |
+| `batch_gold_stk_mins_qfq_lake_readiness` | 10 天 × 7 频度 | `119.37 ms` | 通过 |
+| `batch_raw_adj_factor_lake_readiness` | 10 天 | `19 ms` | 通过 |
+| `batch_silver_adj_factor_lake_readiness` | 10 天 | `16 ms` | 通过 |
+| `batch_adj_factor_lake_readiness` | 10 天 | `17 ms` | 通过 |
+| `batch_market_major_indices_lake_readiness` | 10 天 | `9 ms` | 通过 |
+| `batch_gold_market_breadth_lake_readiness` | 10 天 | `15 ms` | 通过 |
+| `batch_gold_stock_return_distribution_lake_readiness` | 10 天 | `20 ms` | 通过 |
+| `batch_clickhouse_market_breadth_readiness` | 10 天 fake client | `6 ms`，`execute_count=1` | 通过 |
+| `batch_prod_clickhouse_market_breadth_readiness` | 10 天 fake client | `0 ms`，local/prod 各 `1` 次 | 通过 |
+
+P0F 本地目标回归已完成：
+
+```text
+119 passed, 5 warnings in 5.12s
+```
+
+执行命令：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stk_mins_lake_readiness.py \
+  tests/test_stk_mins_continuity_performance.py \
+  tests/test_batch_readiness_hotpath_performance.py \
+  tests/test_stock_mins_daily_continuity_sensors.py \
+  tests/test_stk_mins_qfq_m9a_sensor_contracts.py \
+  tests/test_stk_mins_qfq_m9c_sensor_contracts.py \
+  tests/test_run_contract_static_gates.py
+```
+
+补充静态检查：
+
+1. `git diff --check` 通过。
+2. 单日 qfq helper symbol 允许继续存在于旧单日 helper 定义中；禁止的是 `batch_gold_stk_mins_qfq_lake_readiness(...)` body 回调这些 helper，该约束已经落入 `test_run_contract_static_gates.py`。
 
 ## 1. 目标
 
@@ -812,9 +865,13 @@ tests/test_run_contract_static_gates.py
 2. 记录 helper 名称、窗口、文件数/调用次数、elapsed_ms、完整语义覆盖。
 3. 如果非 qfq helper 接近 30 秒风险，停止并把该 helper 升级为同级别修复项。
 
+当前状态：已完成并提交 `b70c51c0`。P0E 新增 `tests/test_batch_readiness_hotpath_performance.py`，并扩展分钟线性能测试和静态门禁；所有当前 sensor hot path batch helper 均已跑过本地性能样本或 fake-client 调用次数测试，未发现需要追加同级修复阶段的 helper。
+
 ### P0F：本地回归
 
 执行 P0F 测试命令。不得运行 `dg`。
+
+当前状态：已完成。本地目标回归结果为 `119 passed, 5 warnings in 5.12s`；补充静态检查 `git diff --check` 通过。单日 qfq helper symbol 仍保留在旧单日 helper 定义中，但 batch helper body 不调用这些单日 helper，该口径由静态门禁覆盖。
 
 ### P0G：文档收口
 
