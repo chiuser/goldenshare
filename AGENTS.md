@@ -33,6 +33,9 @@ src/
 3. `docs/architecture/platform-split-plan.md`
 4. `docs/architecture/ops-consolidation-plan.md`
 5. `src/AGENTS.md` 与目标目录下更近的 `AGENTS.md`
+
+涉及 `lake_console/orchestrator` 的 Dagster 数据管道、数据集、sensor、readiness、asset check、bootstrap、runless event、DuckDB/Parquet 性能方案时，还必须阅读 `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`。
+
 ---
 
 ## 角色定义（术语澄清）

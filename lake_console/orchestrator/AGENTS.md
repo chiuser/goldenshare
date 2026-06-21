@@ -12,6 +12,8 @@
 
 任何 Dagster 相关设计方案或正式代码开发开始前，必须先阅读并遵守 `lake_console/orchestrator/CODING_STANDARDS.md` 和 `lake_console/docs/design/dagster-asset-schema-contract-design.md`；禁止在未核对编码规范与 asset schema contract 口径的情况下输出方案或进入编码。
 
+涉及数据集、sensor、run-status sensor、readiness、asset check、bootstrap、runless event、DuckDB/Parquet 计算或任何性能敏感的数据管道改动时，还必须先阅读并遵守 `lake_console/docs/design/dagster-data-pipeline-performance-governance.md`。
+
 ---
 
 ## 项目定位

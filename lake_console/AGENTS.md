@@ -72,6 +72,7 @@ manifest/security_universe/tushare_stock_basic.parquet
 4. `stk_mins` Parquet Lake 方案：`docs/datasets/stk-mins-parquet-lake-plan-v1.md`
 5. Tushare `stock_basic` 源文档（实现 `sync-stock-basic` 前）
 6. Tushare `stk_mins` 源文档：`docs/sources/tushare/股票数据/行情数据/0370_股票历史分钟行情.md`
+7. 涉及 Dagster 数据管道、sensor、readiness、asset check、bootstrap、DuckDB/Parquet 性能设计时，必须阅读：`docs/design/dagster-data-pipeline-performance-governance.md`
 
 如涉及前端视觉：
 
