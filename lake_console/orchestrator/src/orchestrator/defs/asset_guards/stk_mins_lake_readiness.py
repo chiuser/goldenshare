@@ -15,6 +15,7 @@ from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
     GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK,
     GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK,
+    GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE,
     RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
     RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK,
     RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK,
@@ -80,6 +81,8 @@ from orchestrator.defs.stk_mins_qfq import (
     build_daily_qfq_select_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
     build_gold_stk_mins_qfq_derived_select_sql,
+    _derived_window_completion_predicate,
+    _derived_window_rows_sql,
 )
 
 
@@ -204,6 +207,17 @@ class _SilverPathMetrics:
         )
 
 
+@dataclass(frozen=True)
+class _GoldQfqNativePathPlan:
+    trade_date: str
+    freq: int
+    silver_path: Path
+    trade_adj_factor_path: Path
+    expected_gold_paths: tuple[Path, ...]
+    existing_gold_paths: tuple[Path, ...]
+    missing_paths: tuple[Path, ...]
+
+
 def _normalize_trade_dates(values: Sequence[str]) -> tuple[str, ...]:
     return tuple(sorted({str(value).strip() for value in values if str(value).strip()}))
 
@@ -299,6 +313,10 @@ def _schema_matches_silver_contract(connection, path: Path) -> bool:
 
 def _path_list_sql(paths: Sequence[Path]) -> str:
     return "[" + ", ".join(duckdb_string(path) for path in paths) + "]"
+
+
+def _values_sql(values: Sequence[str]) -> str:
+    return ",\n".join(f"({duckdb_string(value)})" for value in values)
 
 
 def _path_plan_values_sql(path_plans: Sequence[_RawPathPlan]) -> str:
@@ -1156,6 +1174,702 @@ def batch_silver_stk_mins_lake_readiness(
     )
 
 
+def _gold_qfq_native_expected_paths_by_date(
+    connection,
+    *,
+    lake_root: Path,
+    freq: int,
+    expected_trade_dates: Sequence[str],
+    silver_paths: Sequence[Path],
+) -> dict[str, tuple[Path, ...]]:
+    if not silver_paths:
+        return {trade_date: () for trade_date in expected_trade_dates}
+    source = _read_parquet_paths(silver_paths)
+    rows = connection.execute(
+        f"""
+        SELECT
+          strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+          CAST(ts_code AS VARCHAR) AS ts_code,
+          strftime(CAST(trade_date AS DATE), '%Y') AS year
+        FROM {source}
+        GROUP BY partition_key, ts_code, year
+        ORDER BY partition_key, ts_code
+        """
+    ).fetchall()
+    paths_by_date: dict[str, list[Path]] = {
+        trade_date: [] for trade_date in expected_trade_dates
+    }
+    for partition_key, ts_code, year in rows:
+        paths_by_date.setdefault(str(partition_key), []).append(
+            gold_stk_mins_qfq_path(lake_root, freq, str(ts_code), str(year))
+        )
+    return {key: tuple(paths) for key, paths in paths_by_date.items()}
+
+
+def _gold_qfq_native_path_plans(
+    connection,
+    *,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+) -> tuple[_GoldQfqNativePathPlan, ...]:
+    plans: list[_GoldQfqNativePathPlan] = []
+    for freq in STK_MINS_QFQ_NATIVE_FREQS:
+        silver_paths_by_date = {
+            trade_date: silver_stk_mins_path(lake_root, freq, trade_date)
+            for trade_date in expected_trade_dates
+        }
+        existing_silver_paths = tuple(
+            path for path in silver_paths_by_date.values() if path.exists()
+        )
+        expected_paths_by_date = _gold_qfq_native_expected_paths_by_date(
+            connection,
+            lake_root=lake_root,
+            freq=freq,
+            expected_trade_dates=expected_trade_dates,
+            silver_paths=existing_silver_paths,
+        )
+        for trade_date in expected_trade_dates:
+            silver_path = silver_paths_by_date[trade_date]
+            trade_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
+            if not silver_path.exists():
+                expected_gold_paths: tuple[Path, ...] = ()
+                existing_gold_paths: tuple[Path, ...] = ()
+                missing_paths = (silver_path,)
+            else:
+                expected_gold_paths = expected_paths_by_date.get(trade_date, ())
+                existing_gold_paths = tuple(
+                    path for path in expected_gold_paths if path.exists()
+                )
+                missing_paths = tuple(
+                    path for path in expected_gold_paths if not path.exists()
+                )
+            plans.append(
+                _GoldQfqNativePathPlan(
+                    trade_date=trade_date,
+                    freq=freq,
+                    silver_path=silver_path,
+                    trade_adj_factor_path=trade_adj_factor_path,
+                    expected_gold_paths=expected_gold_paths,
+                    existing_gold_paths=existing_gold_paths,
+                    missing_paths=missing_paths,
+                )
+            )
+    return tuple(plans)
+
+
+def _gold_qfq_batch_gold_counts(
+    connection,
+    *,
+    partition_keys: Sequence[str],
+    gold_paths: Sequence[Path],
+    freq: int,
+) -> dict[str, dict[str, int]]:
+    if not gold_paths:
+        return {
+            partition_key: {
+                "gold_target_row_count": 0,
+                "path_mismatch_row_count": 0,
+                "duplicate_key_count": 0,
+                "invalid_price_row_count": 0,
+            }
+            for partition_key in partition_keys
+        }
+    source = _read_parquet_paths(gold_paths, filename=True)
+    rows = connection.execute(
+        f"""
+        WITH selected(partition_key) AS (VALUES {_values_sql(partition_keys)}),
+        gold_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(freq AS INTEGER) AS freq,
+            CAST(trade_date AS DATE) AS trade_date,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+            CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close,
+            CAST(filename AS VARCHAR) AS filename,
+            regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1)
+              AS path_ts_code,
+            regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1)
+              AS path_year
+          FROM {source}
+        ),
+        target_rows AS (
+          SELECT gold_rows.*
+          FROM gold_rows
+          INNER JOIN selected
+            ON gold_rows.partition_key = selected.partition_key
+        ),
+        duplicate_groups AS (
+          SELECT partition_key, ts_code, trade_time, count(*) AS duplicate_count
+          FROM target_rows
+          GROUP BY partition_key, ts_code, trade_time
+          HAVING count(*) > 1
+        ),
+        gold_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) AS gold_target_row_count,
+            sum(
+              CASE
+                WHEN freq != {freq}
+                  OR ts_code != path_ts_code
+                  OR strftime(trade_date, '%Y') != path_year
+                  OR CAST(trade_time AS DATE) != trade_date
+                THEN 1 ELSE 0
+              END
+            ) AS path_mismatch_row_count,
+            sum(
+              CASE
+                WHEN open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+                  OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
+                  OR high < low
+                  OR open < low OR open > high
+                  OR close < low OR close > high
+                THEN 1 ELSE 0
+              END
+            ) AS invalid_price_row_count
+          FROM target_rows
+          GROUP BY partition_key
+        ),
+        duplicate_aggregates AS (
+          SELECT partition_key, count(*) AS duplicate_key_count
+          FROM duplicate_groups
+          GROUP BY partition_key
+        )
+        SELECT
+          selected.partition_key,
+          coalesce(gold_aggregates.gold_target_row_count, 0)
+            AS gold_target_row_count,
+          coalesce(gold_aggregates.path_mismatch_row_count, 0)
+            AS path_mismatch_row_count,
+          coalesce(duplicate_aggregates.duplicate_key_count, 0)
+            AS duplicate_key_count,
+          coalesce(gold_aggregates.invalid_price_row_count, 0)
+            AS invalid_price_row_count
+        FROM selected
+        LEFT JOIN gold_aggregates
+          ON selected.partition_key = gold_aggregates.partition_key
+        LEFT JOIN duplicate_aggregates
+          ON selected.partition_key = duplicate_aggregates.partition_key
+        ORDER BY selected.partition_key
+        """
+    ).fetchall()
+    return {
+        str(partition_key): {
+            "gold_target_row_count": int(gold_target_row_count),
+            "path_mismatch_row_count": int(path_mismatch_row_count),
+            "duplicate_key_count": int(duplicate_key_count),
+            "invalid_price_row_count": int(invalid_price_row_count),
+        }
+        for (
+            partition_key,
+            gold_target_row_count,
+            path_mismatch_row_count,
+            duplicate_key_count,
+            invalid_price_row_count,
+        ) in rows
+    }
+
+
+def _gold_qfq_native_batch_coverage_counts(
+    connection,
+    *,
+    partition_keys: Sequence[str],
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+) -> dict[str, dict[str, int]]:
+    if not silver_paths:
+        return {
+            partition_key: {
+                "qfq_output_row_count": 0,
+                "missing_trade_adj_factor_row_count": 0,
+                "missing_as_of_adj_factor_row_count": 0,
+            }
+            for partition_key in partition_keys
+        }
+    silver_source = _read_parquet_paths(silver_paths)
+    trade_adj_source = (
+        _read_parquet_paths(trade_adj_factor_paths)
+        if trade_adj_factor_paths
+        else None
+    )
+    trade_adj_cte = (
+        f"""
+        trade_adj_factor AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS DATE) AS trade_date,
+            CAST(adj_factor AS DOUBLE) AS adj_factor
+          FROM {trade_adj_source}
+        )
+        """
+        if trade_adj_source is not None
+        else """
+        trade_adj_factor AS (
+          SELECT
+            CAST(NULL AS VARCHAR) AS ts_code,
+            CAST(NULL AS DATE) AS trade_date,
+            CAST(NULL AS DOUBLE) AS adj_factor
+          WHERE false
+        )
+        """
+    )
+    rows = connection.execute(
+        f"""
+        WITH selected(partition_key) AS (VALUES {_values_sql(partition_keys)}),
+        silver_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS DATE) AS trade_date,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key
+          FROM {silver_source}
+        ),
+        {trade_adj_cte},
+        joined_rows AS (
+          SELECT
+            silver_rows.partition_key,
+            silver_rows.ts_code,
+            trade_adj_factor.adj_factor AS trade_adj_factor,
+            as_of_adj_factor.adj_factor AS as_of_adj_factor
+          FROM silver_rows
+          LEFT JOIN trade_adj_factor
+            ON silver_rows.ts_code = trade_adj_factor.ts_code
+           AND silver_rows.trade_date = trade_adj_factor.trade_date
+          LEFT JOIN trade_adj_factor AS as_of_adj_factor
+            ON silver_rows.ts_code = as_of_adj_factor.ts_code
+           AND silver_rows.trade_date = as_of_adj_factor.trade_date
+        )
+        SELECT
+          selected.partition_key,
+          count(joined_rows.ts_code) FILTER (
+            WHERE joined_rows.trade_adj_factor IS NOT NULL
+              AND joined_rows.as_of_adj_factor IS NOT NULL
+          ) AS qfq_output_row_count,
+          count(joined_rows.ts_code) FILTER (
+            WHERE joined_rows.trade_adj_factor IS NULL
+          ) AS missing_trade_adj_factor_row_count,
+          count(joined_rows.ts_code) FILTER (
+            WHERE joined_rows.as_of_adj_factor IS NULL
+          ) AS missing_as_of_adj_factor_row_count
+        FROM selected
+        LEFT JOIN joined_rows
+          ON selected.partition_key = joined_rows.partition_key
+        GROUP BY selected.partition_key
+        ORDER BY selected.partition_key
+        """
+    ).fetchall()
+    return {
+        str(partition_key): {
+            "qfq_output_row_count": int(qfq_output_row_count),
+            "missing_trade_adj_factor_row_count": int(
+                missing_trade_adj_factor_row_count
+            ),
+            "missing_as_of_adj_factor_row_count": int(
+                missing_as_of_adj_factor_row_count
+            ),
+        }
+        for (
+            partition_key,
+            qfq_output_row_count,
+            missing_trade_adj_factor_row_count,
+            missing_as_of_adj_factor_row_count,
+        ) in rows
+    }
+
+
+def _gold_qfq_native_batch_formula_counts(
+    connection,
+    *,
+    partition_keys: Sequence[str],
+    gold_paths: Sequence[Path],
+    silver_paths: Sequence[Path],
+    trade_adj_factor_paths: Sequence[Path],
+    freq: int,
+) -> dict[str, dict[str, int]]:
+    if not gold_paths or not silver_paths or not trade_adj_factor_paths:
+        return {
+            partition_key: {
+                "formula_missing_gold_row_count": 0,
+                "formula_unexpected_gold_row_count": 0,
+                "formula_mismatch_row_count": 0,
+                "gold_target_row_count": 0,
+                "path_mismatch_row_count": 0,
+                "duplicate_key_count": 0,
+                "invalid_price_row_count": 0,
+            }
+            for partition_key in partition_keys
+        }
+    gold_source = _read_parquet_paths(gold_paths)
+    silver_source = _read_parquet_paths(silver_paths)
+    trade_adj_source = _read_parquet_paths(trade_adj_factor_paths)
+    rows = connection.execute(
+        f"""
+        WITH selected(partition_key) AS (VALUES {_values_sql(partition_keys)}),
+        gold_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(freq AS INTEGER) AS freq,
+            CAST(trade_date AS DATE) AS trade_date,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+            CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close,
+            CAST(filename AS VARCHAR) AS filename,
+            regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1)
+              AS path_ts_code,
+            regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1)
+              AS path_year
+          FROM {gold_source}
+        ),
+        target_gold_rows AS (
+          SELECT gold_rows.*
+          FROM gold_rows
+          INNER JOIN selected
+            ON gold_rows.partition_key = selected.partition_key
+        ),
+        silver_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS DATE) AS trade_date,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+            CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close
+          FROM {silver_source}
+        ),
+        adj_factor AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS DATE) AS trade_date,
+            CAST(adj_factor AS DOUBLE) AS adj_factor
+          FROM {trade_adj_source}
+        ),
+        expected_rows AS (
+          SELECT
+            silver_rows.ts_code,
+            silver_rows.partition_key,
+            silver_rows.trade_time,
+            CAST(silver_rows.open * trade_adj_factor.adj_factor / as_of_adj_factor.adj_factor AS DOUBLE) AS open,
+            CAST(silver_rows.high * trade_adj_factor.adj_factor / as_of_adj_factor.adj_factor AS DOUBLE) AS high,
+            CAST(silver_rows.low * trade_adj_factor.adj_factor / as_of_adj_factor.adj_factor AS DOUBLE) AS low,
+            CAST(silver_rows.close * trade_adj_factor.adj_factor / as_of_adj_factor.adj_factor AS DOUBLE) AS close
+          FROM silver_rows
+          INNER JOIN selected
+            ON silver_rows.partition_key = selected.partition_key
+          INNER JOIN adj_factor AS trade_adj_factor
+            ON silver_rows.ts_code = trade_adj_factor.ts_code
+           AND silver_rows.trade_date = trade_adj_factor.trade_date
+          INNER JOIN adj_factor AS as_of_adj_factor
+            ON silver_rows.ts_code = as_of_adj_factor.ts_code
+           AND silver_rows.trade_date = as_of_adj_factor.trade_date
+          WHERE trade_adj_factor.adj_factor IS NOT NULL
+            AND as_of_adj_factor.adj_factor IS NOT NULL
+        ),
+        duplicate_groups AS (
+          SELECT partition_key, ts_code, trade_time, count(*) AS duplicate_count
+          FROM target_gold_rows
+          GROUP BY partition_key, ts_code, trade_time
+          HAVING count(*) > 1
+        ),
+        compared_rows AS (
+          SELECT
+            coalesce(target_gold_rows.partition_key, expected_rows.partition_key)
+              AS partition_key,
+            target_gold_rows.open AS gold_open,
+            expected_rows.open AS expected_open,
+            target_gold_rows.high AS gold_high,
+            expected_rows.high AS expected_high,
+            target_gold_rows.low AS gold_low,
+            expected_rows.low AS expected_low,
+            target_gold_rows.close AS gold_close,
+            expected_rows.close AS expected_close,
+            target_gold_rows.ts_code IS NULL AS missing_gold_row,
+            expected_rows.ts_code IS NULL AS unexpected_gold_row
+          FROM target_gold_rows
+          FULL OUTER JOIN expected_rows
+            ON target_gold_rows.partition_key = expected_rows.partition_key
+           AND target_gold_rows.ts_code = expected_rows.ts_code
+           AND target_gold_rows.trade_time = expected_rows.trade_time
+        ),
+        formula_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) FILTER (WHERE missing_gold_row)
+              AS formula_missing_gold_row_count,
+            count(*) FILTER (WHERE unexpected_gold_row)
+              AS formula_unexpected_gold_row_count,
+            count(*) FILTER (
+              WHERE NOT missing_gold_row
+                AND NOT unexpected_gold_row
+                AND (
+                  abs(gold_open - expected_open) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                  OR abs(gold_high - expected_high) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                  OR abs(gold_low - expected_low) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                  OR abs(gold_close - expected_close) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                )
+            ) AS formula_mismatch_row_count
+          FROM compared_rows
+          GROUP BY partition_key
+        ),
+        target_gold_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) AS gold_target_row_count,
+            sum(
+              CASE
+                WHEN freq != {freq}
+                  OR ts_code != path_ts_code
+                  OR strftime(trade_date, '%Y') != path_year
+                  OR CAST(trade_time AS DATE) != trade_date
+                THEN 1 ELSE 0
+              END
+            ) AS path_mismatch_row_count,
+            sum(
+              CASE
+                WHEN open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+                  OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
+                  OR high < low
+                  OR open < low OR open > high
+                  OR close < low OR close > high
+                THEN 1 ELSE 0
+              END
+            ) AS invalid_price_row_count
+          FROM target_gold_rows
+          GROUP BY partition_key
+        ),
+        duplicate_aggregates AS (
+          SELECT partition_key, count(*) AS duplicate_key_count
+          FROM duplicate_groups
+          GROUP BY partition_key
+        )
+        SELECT
+          selected.partition_key,
+          coalesce(target_gold_aggregates.gold_target_row_count, 0)
+            AS gold_target_row_count,
+          coalesce(target_gold_aggregates.path_mismatch_row_count, 0)
+            AS path_mismatch_row_count,
+          coalesce(duplicate_aggregates.duplicate_key_count, 0)
+            AS duplicate_key_count,
+          coalesce(target_gold_aggregates.invalid_price_row_count, 0)
+            AS invalid_price_row_count,
+          coalesce(formula_aggregates.formula_missing_gold_row_count, 0)
+            AS formula_missing_gold_row_count,
+          coalesce(formula_aggregates.formula_unexpected_gold_row_count, 0)
+            AS formula_unexpected_gold_row_count,
+          coalesce(formula_aggregates.formula_mismatch_row_count, 0)
+            AS formula_mismatch_row_count
+        FROM selected
+        LEFT JOIN target_gold_aggregates
+          ON selected.partition_key = target_gold_aggregates.partition_key
+        LEFT JOIN duplicate_aggregates
+          ON selected.partition_key = duplicate_aggregates.partition_key
+        LEFT JOIN formula_aggregates
+          ON selected.partition_key = formula_aggregates.partition_key
+        ORDER BY selected.partition_key
+        """
+    ).fetchall()
+    return {
+        str(partition_key): {
+            "gold_target_row_count": int(gold_target_row_count),
+            "path_mismatch_row_count": int(path_mismatch_row_count),
+            "duplicate_key_count": int(duplicate_key_count),
+            "invalid_price_row_count": int(invalid_price_row_count),
+            "formula_missing_gold_row_count": int(formula_missing_gold_row_count),
+            "formula_unexpected_gold_row_count": int(
+                formula_unexpected_gold_row_count
+            ),
+            "formula_mismatch_row_count": int(formula_mismatch_row_count),
+        }
+        for (
+            partition_key,
+            gold_target_row_count,
+            path_mismatch_row_count,
+            duplicate_key_count,
+            invalid_price_row_count,
+            formula_missing_gold_row_count,
+            formula_unexpected_gold_row_count,
+            formula_mismatch_row_count,
+        ) in rows
+    }
+
+
+def _gold_qfq_native_batch_counts(
+    connection,
+    *,
+    native_plans: Sequence[_GoldQfqNativePathPlan],
+) -> Mapping[tuple[str, int], GoldStkMinsQfqCheckCounts]:
+    counts_by_key: dict[tuple[str, int], GoldStkMinsQfqCheckCounts] = {}
+    for freq in STK_MINS_QFQ_NATIVE_FREQS:
+        freq_plans = tuple(plan for plan in native_plans if plan.freq == freq)
+        data_plans = tuple(plan for plan in freq_plans if plan.silver_path.exists())
+        complete_data_plans = tuple(plan for plan in data_plans if not plan.missing_paths)
+        partition_keys = tuple(plan.trade_date for plan in complete_data_plans)
+        silver_paths = tuple(
+            dict.fromkeys(plan.silver_path for plan in complete_data_plans)
+        )
+        trade_adj_paths = tuple(
+            dict.fromkeys(
+                plan.trade_adj_factor_path
+                for plan in complete_data_plans
+                if plan.trade_adj_factor_path.exists()
+            )
+        )
+        existing_gold_paths = tuple(
+            dict.fromkeys(
+                path for plan in complete_data_plans for path in plan.existing_gold_paths
+            )
+        )
+        silver_row_counts = _raw_path_row_counts(
+            connection,
+            tuple(
+                _RawPathPlan(plan.trade_date, plan.freq, plan.silver_path)
+                for plan in complete_data_plans
+            ),
+        )
+        coverage_counts = _gold_qfq_native_batch_coverage_counts(
+            connection,
+            partition_keys=partition_keys,
+            silver_paths=silver_paths,
+            trade_adj_factor_paths=trade_adj_paths,
+        )
+        formula_partition_keys = tuple(
+            plan.trade_date
+            for plan in complete_data_plans
+            if plan.trade_adj_factor_path.exists()
+        )
+        formula_counts = _gold_qfq_native_batch_formula_counts(
+            connection,
+            partition_keys=formula_partition_keys,
+            gold_paths=existing_gold_paths,
+            silver_paths=tuple(
+                dict.fromkeys(
+                    plan.silver_path
+                    for plan in complete_data_plans
+                    if plan.trade_adj_factor_path.exists()
+                )
+            ),
+            trade_adj_factor_paths=trade_adj_paths,
+            freq=freq,
+        )
+        no_formula_partition_keys = tuple(
+            plan.trade_date
+            for plan in complete_data_plans
+            if not plan.trade_adj_factor_path.exists()
+        )
+        fallback_gold_counts = (
+            _gold_qfq_batch_gold_counts(
+                connection,
+                partition_keys=no_formula_partition_keys,
+                gold_paths=existing_gold_paths,
+                freq=freq,
+            )
+            if no_formula_partition_keys
+            else {}
+        )
+        schema_mismatch_by_key: dict[tuple[str, int], int] = {}
+        freq_schema_mismatch_count, _observed_schema, _schema_error = (
+            _gold_qfq_schema_mismatch_count(connection, existing_gold_paths)
+        )
+        if freq_schema_mismatch_count == 0:
+            schema_mismatch_by_key = {
+                (plan.trade_date, plan.freq): 0 for plan in complete_data_plans
+            }
+        else:
+            for plan in complete_data_plans:
+                schema_mismatch_count, _observed_schema, _schema_error = (
+                    _gold_qfq_schema_mismatch_count(
+                        connection,
+                        plan.existing_gold_paths,
+                    )
+                )
+                schema_mismatch_by_key[(plan.trade_date, plan.freq)] = (
+                    schema_mismatch_count
+                )
+
+        for plan in freq_plans:
+            if not plan.silver_path.exists():
+                counts_by_key[(plan.trade_date, plan.freq)] = GoldStkMinsQfqCheckCounts(
+                    silver_row_count=0,
+                    expected_file_count=0,
+                    existing_file_count=0,
+                    missing_file_count=1,
+                    gold_target_row_count=0,
+                    missing_trade_adj_factor_row_count=0,
+                    missing_as_of_adj_factor_row_count=0,
+                    qfq_output_row_count=0,
+                    schema_mismatch_file_count=0,
+                    path_mismatch_row_count=0,
+                    duplicate_key_count=0,
+                    invalid_price_row_count=0,
+                    formula_missing_gold_row_count=0,
+                    formula_unexpected_gold_row_count=0,
+                    formula_mismatch_row_count=0,
+                )
+                continue
+            if plan.missing_paths:
+                counts_by_key[(plan.trade_date, plan.freq)] = GoldStkMinsQfqCheckCounts(
+                    silver_row_count=0,
+                    expected_file_count=len(plan.expected_gold_paths),
+                    existing_file_count=len(plan.existing_gold_paths),
+                    missing_file_count=len(plan.missing_paths),
+                    gold_target_row_count=0,
+                    missing_trade_adj_factor_row_count=0,
+                    missing_as_of_adj_factor_row_count=0,
+                    qfq_output_row_count=0,
+                    schema_mismatch_file_count=0,
+                    path_mismatch_row_count=0,
+                    duplicate_key_count=0,
+                    invalid_price_row_count=0,
+                    formula_missing_gold_row_count=0,
+                    formula_unexpected_gold_row_count=0,
+                    formula_mismatch_row_count=0,
+                )
+                continue
+            gold = formula_counts.get(plan.trade_date, {})
+            if not gold:
+                gold = fallback_gold_counts.get(plan.trade_date, {})
+            coverage = coverage_counts.get(plan.trade_date, {})
+            formula = formula_counts.get(plan.trade_date, {})
+            counts_by_key[(plan.trade_date, plan.freq)] = GoldStkMinsQfqCheckCounts(
+                silver_row_count=silver_row_counts.get(plan.silver_path, 0),
+                expected_file_count=len(plan.expected_gold_paths),
+                existing_file_count=len(plan.existing_gold_paths),
+                missing_file_count=len(plan.missing_paths),
+                gold_target_row_count=int(gold.get("gold_target_row_count", 0)),
+                missing_trade_adj_factor_row_count=int(
+                    coverage.get("missing_trade_adj_factor_row_count", 0)
+                ),
+                missing_as_of_adj_factor_row_count=int(
+                    coverage.get("missing_as_of_adj_factor_row_count", 0)
+                ),
+                qfq_output_row_count=int(coverage.get("qfq_output_row_count", 0)),
+                schema_mismatch_file_count=schema_mismatch_by_key.get(
+                    (plan.trade_date, plan.freq),
+                    0,
+                ),
+                path_mismatch_row_count=int(gold.get("path_mismatch_row_count", 0)),
+                duplicate_key_count=int(gold.get("duplicate_key_count", 0)),
+                invalid_price_row_count=int(gold.get("invalid_price_row_count", 0)),
+                formula_missing_gold_row_count=int(
+                    formula.get("formula_missing_gold_row_count", 0)
+                ),
+                formula_unexpected_gold_row_count=int(
+                    formula.get("formula_unexpected_gold_row_count", 0)
+                ),
+                formula_mismatch_row_count=int(
+                    formula.get("formula_mismatch_row_count", 0)
+                ),
+            )
+    return counts_by_key
+
+
 def _gold_qfq_native_counts_for_trade_date(
     connection,
     *,
@@ -1346,6 +2060,570 @@ def _gold_qfq_native_failed_check_names(
     ):
         failed_check_names.append(GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK)
     return tuple(failed_check_names)
+
+
+def _gold_qfq_derived_expected_paths_by_date(
+    connection,
+    *,
+    lake_root: Path,
+    target_freq: int,
+    expected_select_sql: str,
+    expected_trade_dates: Sequence[str],
+) -> dict[str, tuple[Path, ...]]:
+    rows = connection.execute(
+        f"""
+        SELECT DISTINCT
+          strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+          CAST(ts_code AS VARCHAR) AS ts_code,
+          strftime(CAST(trade_date AS DATE), '%Y') AS year
+        FROM ({expected_select_sql})
+        ORDER BY partition_key, ts_code
+        """
+    ).fetchall()
+    paths_by_date: dict[str, list[Path]] = {
+        trade_date: [] for trade_date in expected_trade_dates
+    }
+    for partition_key, ts_code, year in rows:
+        paths_by_date.setdefault(str(partition_key), []).append(
+            gold_stk_mins_qfq_path(lake_root, target_freq, str(ts_code), str(year))
+        )
+    return {key: tuple(paths) for key, paths in paths_by_date.items()}
+
+
+def _gold_qfq_derived_batch_diagnostics_counts(
+    connection,
+    *,
+    partition_keys: Sequence[str],
+    source_paths: Sequence[Path],
+    source_freq: int,
+    target_freq: int,
+) -> dict[str, dict[str, int]]:
+    if not source_paths:
+        return {
+            partition_key: {
+                "source_row_count": 0,
+                "source_stock_day_count": 0,
+                "expected_window_count": 0,
+                "generated_window_count": 0,
+                "incomplete_window_count": 0,
+                "exchange_mismatch_window_count": 0,
+            }
+            for partition_key in partition_keys
+        }
+    source = _read_parquet_paths(source_paths)
+    window_rows_sql = _derived_window_rows_sql(target_freq)
+    completion_predicate = _derived_window_completion_predicate(
+        target_freq,
+        source_row_count_column="coalesce(actual_windows.source_row_count, 0)",
+        window_id_column="expected_windows.window_id",
+    )
+    rows = connection.execute(
+        f"""
+        WITH selected(partition_key) AS (VALUES {_values_sql(partition_keys)}),
+        source_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS DATE) AS trade_date,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+            CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(exchange AS VARCHAR) AS exchange
+          FROM {source}
+          WHERE CAST(freq AS INTEGER) = {source_freq}
+        ),
+        selected_source_rows AS (
+          SELECT source_rows.*
+          FROM source_rows
+          INNER JOIN selected
+            ON source_rows.partition_key = selected.partition_key
+        ),
+        source_stock_days AS (
+          SELECT DISTINCT partition_key, ts_code, trade_date
+          FROM selected_source_rows
+        ),
+        window_map AS (
+          {window_rows_sql}
+        ),
+        expected_windows AS (
+          SELECT
+            source_stock_days.partition_key,
+            source_stock_days.ts_code,
+            source_stock_days.trade_date,
+            window_map.window_id,
+            max(window_map.target_time) AS target_time,
+            count(*) AS expected_source_row_count
+          FROM source_stock_days
+          CROSS JOIN window_map
+          GROUP BY
+            source_stock_days.partition_key,
+            source_stock_days.ts_code,
+            source_stock_days.trade_date,
+            window_map.window_id
+        ),
+        windowed_rows AS (
+          SELECT
+            selected_source_rows.partition_key,
+            selected_source_rows.ts_code,
+            selected_source_rows.trade_date,
+            selected_source_rows.trade_time,
+            selected_source_rows.exchange,
+            window_map.window_id,
+            window_map.target_time
+          FROM selected_source_rows
+          INNER JOIN window_map
+            ON strftime(selected_source_rows.trade_time, '%H:%M:%S')
+             = window_map.source_time
+        ),
+        actual_windows AS (
+          SELECT
+            partition_key,
+            ts_code,
+            trade_date,
+            window_id,
+            max(trade_time) AS trade_time,
+            max(target_time) AS target_time,
+            count(*) AS source_row_count,
+            count(DISTINCT exchange) AS exchange_count
+          FROM windowed_rows
+          GROUP BY partition_key, ts_code, trade_date, window_id
+        ),
+        window_status AS (
+          SELECT
+            expected_windows.partition_key,
+            expected_windows.window_id,
+            coalesce(actual_windows.source_row_count, 0) AS source_row_count,
+            coalesce(actual_windows.exchange_count, 0) AS exchange_count,
+            actual_windows.trade_time,
+            expected_windows.target_time,
+            actual_windows.source_row_count IS NOT NULL
+              AND strftime(actual_windows.trade_time, '%H:%M:%S')
+                = expected_windows.target_time
+              AND ({completion_predicate}) AS generated
+          FROM expected_windows
+          LEFT JOIN actual_windows
+            ON expected_windows.partition_key = actual_windows.partition_key
+           AND expected_windows.ts_code = actual_windows.ts_code
+           AND expected_windows.trade_date = actual_windows.trade_date
+           AND expected_windows.window_id = actual_windows.window_id
+        ),
+        source_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) AS source_row_count,
+            count(DISTINCT ts_code || '|' || CAST(trade_date AS VARCHAR))
+              AS source_stock_day_count
+          FROM selected_source_rows
+          GROUP BY partition_key
+        ),
+        window_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) AS expected_window_count,
+            count(*) FILTER (WHERE generated AND exchange_count = 1)
+              AS generated_window_count,
+            count(*) FILTER (WHERE source_row_count > 0 AND NOT generated)
+              AS incomplete_window_count,
+            count(*) FILTER (WHERE exchange_count > 1)
+              AS exchange_mismatch_window_count
+          FROM window_status
+          GROUP BY partition_key
+        )
+        SELECT
+          selected.partition_key,
+          coalesce(source_aggregates.source_row_count, 0)
+            AS source_row_count,
+          coalesce(source_aggregates.source_stock_day_count, 0)
+            AS source_stock_day_count,
+          coalesce(window_aggregates.expected_window_count, 0)
+            AS expected_window_count,
+          coalesce(window_aggregates.generated_window_count, 0)
+            AS generated_window_count,
+          coalesce(window_aggregates.incomplete_window_count, 0)
+            AS incomplete_window_count,
+          coalesce(window_aggregates.exchange_mismatch_window_count, 0)
+            AS exchange_mismatch_window_count
+        FROM selected
+        LEFT JOIN source_aggregates
+          ON selected.partition_key = source_aggregates.partition_key
+        LEFT JOIN window_aggregates
+          ON selected.partition_key = window_aggregates.partition_key
+        ORDER BY selected.partition_key
+        """
+    ).fetchall()
+    return {
+        str(partition_key): {
+            "source_row_count": int(source_row_count),
+            "source_stock_day_count": int(source_stock_day_count),
+            "expected_window_count": int(expected_window_count),
+            "generated_window_count": int(generated_window_count),
+            "incomplete_window_count": int(incomplete_window_count),
+            "exchange_mismatch_window_count": int(exchange_mismatch_window_count),
+        }
+        for (
+            partition_key,
+            source_row_count,
+            source_stock_day_count,
+            expected_window_count,
+            generated_window_count,
+            incomplete_window_count,
+            exchange_mismatch_window_count,
+        ) in rows
+    }
+
+
+def _gold_qfq_derived_batch_formula_counts(
+    connection,
+    *,
+    partition_keys: Sequence[str],
+    gold_paths: Sequence[Path],
+    expected_select_sql: str,
+    target_freq: int,
+) -> dict[str, dict[str, int]]:
+    if not gold_paths:
+        return {
+            partition_key: {
+                "gold_target_row_count": 0,
+                "path_mismatch_row_count": 0,
+                "duplicate_key_count": 0,
+                "invalid_price_row_count": 0,
+                "formula_missing_gold_row_count": 0,
+                "formula_unexpected_gold_row_count": 0,
+                "formula_mismatch_row_count": 0,
+            }
+            for partition_key in partition_keys
+        }
+    gold_source = _read_parquet_paths(gold_paths)
+    rows = connection.execute(
+        f"""
+        WITH selected(partition_key) AS (VALUES {_values_sql(partition_keys)}),
+        gold_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(freq AS INTEGER) AS freq,
+            CAST(trade_date AS DATE) AS trade_date,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+            CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close,
+            CAST(filename AS VARCHAR) AS filename,
+            regexp_extract(CAST(filename AS VARCHAR), 'ts_code=([^/]+)/year=', 1)
+              AS path_ts_code,
+            regexp_extract(CAST(filename AS VARCHAR), 'year=([0-9]{{4}})/', 1)
+              AS path_year
+          FROM {gold_source}
+        ),
+        target_gold_rows AS (
+          SELECT gold_rows.*
+          FROM gold_rows
+          INNER JOIN selected
+            ON gold_rows.partition_key = selected.partition_key
+        ),
+        expected_rows AS (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            strftime(CAST(trade_date AS DATE), '%Y-%m-%d') AS partition_key,
+            CAST(trade_time AS TIMESTAMP) AS trade_time,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close
+          FROM ({expected_select_sql})
+        ),
+        compared_rows AS (
+          SELECT
+            coalesce(target_gold_rows.partition_key, expected_rows.partition_key)
+              AS partition_key,
+            target_gold_rows.open AS gold_open,
+            expected_rows.open AS expected_open,
+            target_gold_rows.high AS gold_high,
+            expected_rows.high AS expected_high,
+            target_gold_rows.low AS gold_low,
+            expected_rows.low AS expected_low,
+            target_gold_rows.close AS gold_close,
+            expected_rows.close AS expected_close,
+            target_gold_rows.ts_code IS NULL AS missing_gold_row,
+            expected_rows.ts_code IS NULL AS unexpected_gold_row
+          FROM target_gold_rows
+          FULL OUTER JOIN expected_rows
+            ON target_gold_rows.partition_key = expected_rows.partition_key
+           AND target_gold_rows.ts_code = expected_rows.ts_code
+           AND target_gold_rows.trade_time = expected_rows.trade_time
+        ),
+        duplicate_groups AS (
+          SELECT partition_key, ts_code, trade_time, count(*) AS duplicate_count
+          FROM target_gold_rows
+          GROUP BY partition_key, ts_code, trade_time
+          HAVING count(*) > 1
+        ),
+        target_gold_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) AS gold_target_row_count,
+            sum(
+              CASE
+                WHEN freq != {target_freq}
+                  OR ts_code != path_ts_code
+                  OR strftime(trade_date, '%Y') != path_year
+                  OR CAST(trade_time AS DATE) != trade_date
+                THEN 1 ELSE 0
+              END
+            ) AS path_mismatch_row_count,
+            sum(
+              CASE
+                WHEN open IS NULL OR high IS NULL OR low IS NULL OR close IS NULL
+                  OR open <= 0 OR high <= 0 OR low <= 0 OR close <= 0
+                  OR high < low
+                  OR open < low OR open > high
+                  OR close < low OR close > high
+                THEN 1 ELSE 0
+              END
+            ) AS invalid_price_row_count
+          FROM target_gold_rows
+          GROUP BY partition_key
+        ),
+        duplicate_aggregates AS (
+          SELECT partition_key, count(*) AS duplicate_key_count
+          FROM duplicate_groups
+          GROUP BY partition_key
+        ),
+        formula_aggregates AS (
+          SELECT
+            partition_key,
+            count(*) FILTER (WHERE missing_gold_row)
+              AS formula_missing_gold_row_count,
+            count(*) FILTER (WHERE unexpected_gold_row)
+              AS formula_unexpected_gold_row_count,
+            count(*) FILTER (
+              WHERE NOT missing_gold_row
+                AND NOT unexpected_gold_row
+                AND (
+                  abs(gold_open - expected_open) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                  OR abs(gold_high - expected_high) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                  OR abs(gold_low - expected_low) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                  OR abs(gold_close - expected_close) > {GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE}
+                )
+            ) AS formula_mismatch_row_count
+          FROM compared_rows
+          GROUP BY partition_key
+        )
+        SELECT
+          selected.partition_key,
+          coalesce(target_gold_aggregates.gold_target_row_count, 0)
+            AS gold_target_row_count,
+          coalesce(target_gold_aggregates.path_mismatch_row_count, 0)
+            AS path_mismatch_row_count,
+          coalesce(duplicate_aggregates.duplicate_key_count, 0)
+            AS duplicate_key_count,
+          coalesce(target_gold_aggregates.invalid_price_row_count, 0)
+            AS invalid_price_row_count,
+          coalesce(formula_aggregates.formula_missing_gold_row_count, 0)
+            AS formula_missing_gold_row_count,
+          coalesce(formula_aggregates.formula_unexpected_gold_row_count, 0)
+            AS formula_unexpected_gold_row_count,
+          coalesce(formula_aggregates.formula_mismatch_row_count, 0)
+            AS formula_mismatch_row_count
+        FROM selected
+        LEFT JOIN target_gold_aggregates
+          ON selected.partition_key = target_gold_aggregates.partition_key
+        LEFT JOIN duplicate_aggregates
+          ON selected.partition_key = duplicate_aggregates.partition_key
+        LEFT JOIN formula_aggregates
+          ON selected.partition_key = formula_aggregates.partition_key
+        ORDER BY selected.partition_key
+        """
+    ).fetchall()
+    return {
+        str(partition_key): {
+            "gold_target_row_count": int(gold_target_row_count),
+            "path_mismatch_row_count": int(path_mismatch_row_count),
+            "duplicate_key_count": int(duplicate_key_count),
+            "invalid_price_row_count": int(invalid_price_row_count),
+            "formula_missing_gold_row_count": int(formula_missing_gold_row_count),
+            "formula_unexpected_gold_row_count": int(
+                formula_unexpected_gold_row_count
+            ),
+            "formula_mismatch_row_count": int(formula_mismatch_row_count),
+        }
+        for (
+            partition_key,
+            gold_target_row_count,
+            path_mismatch_row_count,
+            duplicate_key_count,
+            invalid_price_row_count,
+            formula_missing_gold_row_count,
+            formula_unexpected_gold_row_count,
+            formula_mismatch_row_count,
+        ) in rows
+    }
+
+
+def _gold_qfq_derived_batch_counts(
+    connection,
+    *,
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+) -> tuple[
+    Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts],
+    Mapping[tuple[str, int], tuple[Path, ...]],
+]:
+    counts_by_key: dict[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts] = {}
+    missing_paths_by_key: dict[tuple[str, int], tuple[Path, ...]] = {}
+    dates_by_year: dict[str, tuple[str, ...]] = {
+        year: tuple(date for date in expected_trade_dates if date.startswith(year))
+        for year in sorted({date[:4] for date in expected_trade_dates})
+    }
+    for target_freq in STK_MINS_QFQ_DERIVED_FREQS:
+        source_freq = qfq_source_freq_for_derived_freq(target_freq)
+        for year, partition_keys in dates_by_year.items():
+            source_paths = _gold_qfq_year_paths(
+                lake_root=lake_root,
+                freq=source_freq,
+                year=year,
+            )
+            if not source_paths:
+                source_root_path = gold_stk_mins_qfq_path(
+                    lake_root,
+                    source_freq,
+                    "{ts_code}",
+                    year,
+                ).parents[2]
+                for trade_date in partition_keys:
+                    counts_by_key[(trade_date, target_freq)] = (
+                        GoldStkMinsQfqDerivedCheckCounts(
+                            source_freq=source_freq,
+                            source_file_count=0,
+                            source_row_count=0,
+                            source_stock_day_count=0,
+                            expected_window_count=0,
+                            generated_window_count=0,
+                            incomplete_window_count=0,
+                            exchange_mismatch_window_count=0,
+                            expected_file_count=0,
+                            existing_file_count=0,
+                            missing_file_count=1,
+                            gold_target_row_count=0,
+                            schema_mismatch_file_count=0,
+                            path_mismatch_row_count=0,
+                            duplicate_key_count=0,
+                            invalid_price_row_count=0,
+                            formula_missing_gold_row_count=0,
+                            formula_unexpected_gold_row_count=0,
+                            formula_mismatch_row_count=0,
+                        )
+                    )
+                    missing_paths_by_key[(trade_date, target_freq)] = (
+                        source_root_path,
+                    )
+                continue
+
+            expected_select_sql = build_gold_stk_mins_qfq_derived_select_sql(
+                source_qfq_paths=source_paths,
+                target_freq=target_freq,
+                partition_keys=partition_keys,
+            )
+            diagnostics_by_date = _gold_qfq_derived_batch_diagnostics_counts(
+                connection,
+                partition_keys=partition_keys,
+                source_paths=source_paths,
+                source_freq=source_freq,
+                target_freq=target_freq,
+            )
+            expected_paths_by_date = _gold_qfq_derived_expected_paths_by_date(
+                connection,
+                lake_root=lake_root,
+                target_freq=target_freq,
+                expected_select_sql=expected_select_sql,
+                expected_trade_dates=partition_keys,
+            )
+            missing_paths_by_date = {
+                trade_date: tuple(
+                    path
+                    for path in expected_paths_by_date.get(trade_date, ())
+                    if not path.exists()
+                )
+                for trade_date in partition_keys
+            }
+            complete_partition_keys = tuple(
+                trade_date
+                for trade_date in partition_keys
+                if not missing_paths_by_date.get(trade_date, ())
+            )
+            complete_expected_paths = tuple(
+                dict.fromkeys(
+                    path
+                    for trade_date in complete_partition_keys
+                    for path in expected_paths_by_date.get(trade_date, ())
+                )
+            )
+            existing_paths = tuple(path for path in complete_expected_paths if path.exists())
+            schema_mismatch_count = 0
+            if existing_paths:
+                schema_mismatch_count, _observed_schema, _schema_error = (
+                    _gold_qfq_schema_mismatch_count(connection, existing_paths)
+                )
+            formula_counts = _gold_qfq_derived_batch_formula_counts(
+                connection,
+                partition_keys=complete_partition_keys,
+                gold_paths=existing_paths,
+                expected_select_sql=expected_select_sql,
+                target_freq=target_freq,
+            )
+            for trade_date in partition_keys:
+                expected_paths = expected_paths_by_date.get(trade_date, ())
+                missing_paths = missing_paths_by_date.get(trade_date, ())
+                diagnostics = diagnostics_by_date.get(trade_date, {})
+                formula = formula_counts.get(trade_date, {})
+                target_schema_mismatch_count = 0 if missing_paths else schema_mismatch_count
+                counts_by_key[(trade_date, target_freq)] = (
+                    GoldStkMinsQfqDerivedCheckCounts(
+                        source_freq=source_freq,
+                        source_file_count=len(source_paths),
+                        source_row_count=int(diagnostics.get("source_row_count", 0)),
+                        source_stock_day_count=int(
+                            diagnostics.get("source_stock_day_count", 0)
+                        ),
+                        expected_window_count=int(
+                            diagnostics.get("expected_window_count", 0)
+                        ),
+                        generated_window_count=int(
+                            diagnostics.get("generated_window_count", 0)
+                        ),
+                        incomplete_window_count=int(
+                            diagnostics.get("incomplete_window_count", 0)
+                        ),
+                        exchange_mismatch_window_count=int(
+                            diagnostics.get("exchange_mismatch_window_count", 0)
+                        ),
+                        expected_file_count=len(expected_paths),
+                        existing_file_count=len(expected_paths) - len(missing_paths),
+                        missing_file_count=len(missing_paths),
+                        gold_target_row_count=int(
+                            formula.get("gold_target_row_count", 0)
+                        ),
+                        schema_mismatch_file_count=int(target_schema_mismatch_count),
+                        path_mismatch_row_count=int(
+                            formula.get("path_mismatch_row_count", 0)
+                        ),
+                        duplicate_key_count=int(
+                            formula.get("duplicate_key_count", 0)
+                        ),
+                        invalid_price_row_count=int(
+                            formula.get("invalid_price_row_count", 0)
+                        ),
+                        formula_missing_gold_row_count=int(
+                            formula.get("formula_missing_gold_row_count", 0)
+                        ),
+                        formula_unexpected_gold_row_count=int(
+                            formula.get("formula_unexpected_gold_row_count", 0)
+                        ),
+                        formula_mismatch_row_count=int(
+                            formula.get("formula_mismatch_row_count", 0)
+                        ),
+                    )
+                )
+                missing_paths_by_key[(trade_date, target_freq)] = missing_paths
+    return counts_by_key, missing_paths_by_key
 
 
 def _gold_qfq_derived_counts_for_trade_date(
@@ -1679,6 +2957,134 @@ def _gold_qfq_status_for_trade_date(
     )
 
 
+def _gold_qfq_statuses_from_batch_counts(
+    *,
+    expected_trade_dates: Sequence[str],
+    registered_trade_day_set: set[str],
+    native_plans: Sequence[_GoldQfqNativePathPlan],
+    native_counts_by_key: Mapping[tuple[str, int], GoldStkMinsQfqCheckCounts],
+    derived_counts_by_key: Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts],
+    derived_missing_paths_by_key: Mapping[tuple[str, int], tuple[Path, ...]],
+    full_semantics: bool,
+) -> dict[str, StkMinsDateReadiness]:
+    native_plans_by_key = {
+        (plan.trade_date, plan.freq): plan for plan in native_plans
+    }
+    statuses_by_trade_date: dict[str, StkMinsDateReadiness] = {}
+    for trade_date in expected_trade_dates:
+        if trade_date not in registered_trade_day_set:
+            statuses_by_trade_date[trade_date] = StkMinsDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason=(
+                    "gold qfq upstream silver partition is not registered "
+                    f"for {trade_date}"
+                ),
+                failed_check_names=(
+                    "gold_stk_mins_qfq_upstream_partition_not_registered",
+                ),
+                missing_file_paths=(),
+                expected_file_count=len(STK_MINS_QFQ_FREQS),
+                existing_file_count=0,
+            )
+            continue
+
+        failed_check_names: list[str] = []
+        missing_paths: list[Path] = []
+        expected_file_count = 0
+        existing_file_count = 0
+        checked_row_count = 0
+        failed_row_count = 0
+
+        for freq in STK_MINS_QFQ_NATIVE_FREQS:
+            key = (trade_date, freq)
+            counts = native_counts_by_key[key]
+            plan = native_plans_by_key[key]
+            expected_file_count += counts.expected_file_count
+            existing_file_count += counts.existing_file_count
+            checked_row_count += counts.gold_target_row_count
+            failed_row_count += (
+                counts.missing_file_count
+                + counts.schema_mismatch_file_count
+                + counts.path_mismatch_row_count
+                + counts.duplicate_key_count
+                + counts.invalid_price_row_count
+                + counts.missing_trade_adj_factor_row_count
+                + counts.missing_as_of_adj_factor_row_count
+                + counts.formula_missing_gold_row_count
+                + counts.formula_unexpected_gold_row_count
+                + counts.formula_mismatch_row_count
+            )
+            missing_paths.extend(plan.missing_paths)
+            if full_semantics:
+                failed_check_names.extend(_gold_qfq_native_failed_check_names(counts))
+
+        for freq in STK_MINS_QFQ_DERIVED_FREQS:
+            key = (trade_date, freq)
+            counts = derived_counts_by_key[key]
+            expected_file_count += counts.expected_file_count
+            existing_file_count += counts.existing_file_count
+            checked_row_count += counts.gold_target_row_count
+            failed_row_count += (
+                counts.missing_file_count
+                + counts.schema_mismatch_file_count
+                + counts.path_mismatch_row_count
+                + counts.duplicate_key_count
+                + counts.invalid_price_row_count
+                + counts.incomplete_window_count
+                + counts.exchange_mismatch_window_count
+                + counts.formula_missing_gold_row_count
+                + counts.formula_unexpected_gold_row_count
+                + counts.formula_mismatch_row_count
+            )
+            missing_paths.extend(derived_missing_paths_by_key.get(key, ()))
+            if full_semantics:
+                failed_check_names.extend(_gold_qfq_derived_failed_check_names(counts))
+
+        missing_path_strings = tuple(str(path) for path in missing_paths)
+        if missing_path_strings:
+            statuses_by_trade_date[trade_date] = StkMinsDateReadiness(
+                trade_date=trade_date,
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason=f"gold qfq files are missing for {trade_date}",
+                failed_check_names=(
+                    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                ),
+                missing_file_paths=missing_path_strings,
+                expected_file_count=expected_file_count,
+                existing_file_count=existing_file_count,
+                checked_row_count=checked_row_count,
+                failed_row_count=failed_row_count,
+            )
+            continue
+
+        failed_check_names = sorted(set(failed_check_names))
+        checks_passed = not failed_check_names
+        statuses_by_trade_date[trade_date] = StkMinsDateReadiness(
+            trade_date=trade_date,
+            ready=checks_passed,
+            materialized=True,
+            checks_passed=checks_passed,
+            reason=(
+                "ready"
+                if checks_passed
+                else "gold qfq blocking checks failed for "
+                f"{trade_date}: {', '.join(failed_check_names)}"
+            ),
+            failed_check_names=tuple(failed_check_names),
+            missing_file_paths=(),
+            expected_file_count=expected_file_count,
+            existing_file_count=existing_file_count,
+            checked_row_count=checked_row_count,
+            failed_row_count=failed_row_count,
+        )
+    return statuses_by_trade_date
+
+
 def batch_gold_stk_mins_qfq_lake_readiness(
     *,
     connection,
@@ -1691,16 +3097,31 @@ def batch_gold_stk_mins_qfq_lake_readiness(
     expected_trade_dates = _normalize_trade_dates(expected_trade_dates)
     registered_trade_day_set = set(_normalize_trade_dates(registered_trade_days))
     expected_start_date, expected_end_date = _expected_bounds(expected_trade_dates)
-    statuses_by_trade_date = {
-        trade_date: _gold_qfq_status_for_trade_date(
-            trade_date=trade_date,
+    native_plans = _gold_qfq_native_path_plans(
+        connection,
+        lake_root=lake_root,
+        expected_trade_dates=expected_trade_dates,
+    )
+    native_counts_by_key = _gold_qfq_native_batch_counts(
+        connection,
+        native_plans=native_plans,
+    )
+    derived_counts_by_key, derived_missing_paths_by_key = (
+        _gold_qfq_derived_batch_counts(
+            connection,
             lake_root=lake_root,
-            registered_trade_day_set=registered_trade_day_set,
-            full_semantics=full_semantics,
-            connection=connection,
+            expected_trade_dates=expected_trade_dates,
         )
-        for trade_date in expected_trade_dates
-    }
+    )
+    statuses_by_trade_date = _gold_qfq_statuses_from_batch_counts(
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_day_set=registered_trade_day_set,
+        native_plans=native_plans,
+        native_counts_by_key=native_counts_by_key,
+        derived_counts_by_key=derived_counts_by_key,
+        derived_missing_paths_by_key=derived_missing_paths_by_key,
+        full_semantics=full_semantics,
+    )
     elapsed_ms = (perf_counter() - started_at) * 1000
     return StkMinsBatchReadiness(
         dataset="gold_stk_mins_qfq",

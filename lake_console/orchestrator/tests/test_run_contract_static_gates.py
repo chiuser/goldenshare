@@ -1649,6 +1649,21 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in required_helper_fragments
             if fragment not in lake_readiness_source
         )
+        gold_qfq_batch_source = _function_source(
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py",
+            "batch_gold_stk_mins_qfq_lake_readiness",
+        )
+        forbidden_gold_qfq_batch_fragments = (
+            "_gold_qfq_status_for_trade_date(",
+            "_gold_qfq_native_counts_for_trade_date(",
+            "_gold_qfq_derived_counts_for_trade_date(",
+        )
+        issues.extend(
+            "batch_gold_stk_mins_qfq_lake_readiness must not call "
+            f"single-date helper: {fragment}"
+            for fragment in forbidden_gold_qfq_batch_fragments
+            if fragment in gold_qfq_batch_source
+        )
 
         adj_factor_readiness_source = (
             DEFS_DIR / "asset_guards" / "adj_factor_lake_readiness.py"

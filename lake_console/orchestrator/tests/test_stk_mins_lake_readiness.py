@@ -2,9 +2,11 @@ import unittest
 from datetime import date, timedelta
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import duckdb
 
+import orchestrator.defs.asset_guards.stk_mins_lake_readiness as lake_readiness_module
 from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     batch_adj_factor_lake_readiness,
 )
@@ -985,6 +987,41 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
             status.failed_check_names,
         )
+
+    def test_gold_qfq_batch_readiness_does_not_call_single_date_helpers(self) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-15",
+            )
+
+            with (
+                patch.object(
+                    lake_readiness_module,
+                    "_gold_qfq_status_for_trade_date",
+                    side_effect=AssertionError("batch must not call per-date status"),
+                ),
+                patch.object(
+                    lake_readiness_module,
+                    "_gold_qfq_native_counts_for_trade_date",
+                    side_effect=AssertionError("batch must not call per-date native counts"),
+                ),
+                patch.object(
+                    lake_readiness_module,
+                    "_gold_qfq_derived_counts_for_trade_date",
+                    side_effect=AssertionError("batch must not call per-date derived counts"),
+                ),
+            ):
+                batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                    connection=connection,
+                    lake_root=lake_root,
+                    expected_trade_dates=("2026-06-15",),
+                    registered_trade_days=("2026-06-15",),
+                )
+
+        self.assertTrue(batch_status.status_for_trade_date("2026-06-15").ready)
 
 
 if __name__ == "__main__":
