@@ -7,10 +7,6 @@ from dataclasses import dataclass
 from pathlib import Path
 from time import perf_counter
 
-from orchestrator.defs.assets.adj_factor import (
-    ADJ_FACTOR_RAW_COLUMN_TYPES,
-    ADJ_FACTOR_SILVER_COLUMN_TYPES,
-)
 from orchestrator.defs.assets.stk_mins import (
     STK_MINS_RAW_COLUMN_TYPES,
     STK_MINS_SILVER_COLUMN_TYPES,
@@ -56,9 +52,6 @@ from orchestrator.defs.checks.stk_mins_checks import (
     _row_count,
 )
 from orchestrator.defs.duckdb_sql import (
-    ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
-    ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
-    current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
@@ -66,11 +59,9 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import (
     gold_stk_mins_qfq_path,
-    raw_adj_factor_path,
     raw_stk_mins_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
-    silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
@@ -89,40 +80,6 @@ from orchestrator.defs.stk_mins_qfq import (
     build_daily_qfq_select_sql,
     build_gold_stk_mins_qfq_derived_diagnostics_sql,
     build_gold_stk_mins_qfq_derived_select_sql,
-)
-
-
-RAW_ADJ_FACTOR_FILE_EXISTS_CHECK = "raw_adj_factor_file_exists"
-RAW_ADJ_FACTOR_PARTITION_DATE_MATCHES_CHECK = "raw_adj_factor_partition_date_matches"
-RAW_ADJ_FACTOR_POSITIVE_FACTOR_CHECK = "raw_adj_factor_positive_factor"
-RAW_ADJ_FACTOR_REQUIRED_COLUMNS_CHECK = "raw_adj_factor_required_columns"
-RAW_ADJ_FACTOR_ROW_COUNT_POSITIVE_CHECK = "raw_adj_factor_row_count_positive"
-RAW_ADJ_FACTOR_SCHEMA_MATCHES_TUSHARE_CONTRACT_CHECK = (
-    "raw_adj_factor_schema_matches_tushare_contract"
-)
-RAW_ADJ_FACTOR_STOCK_CURRENT_PARTITION_KEY_ALLOWED_CHECK = (
-    "raw_adj_factor_stock_current_partition_key_allowed"
-)
-RAW_ADJ_FACTOR_UNIQUE_TS_CODE_TRADE_DATE_CHECK = (
-    "raw_adj_factor_unique_ts_code_trade_date"
-)
-SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK = "silver_adj_factor_coverage_complete"
-SILVER_ADJ_FACTOR_FILE_EXISTS_CHECK = "silver_adj_factor_file_exists"
-SILVER_ADJ_FACTOR_LISTED_STOCK_ONLY_CHECK = "silver_adj_factor_listed_stock_only"
-SILVER_ADJ_FACTOR_PARTITION_DATE_MATCHES_CHECK = (
-    "silver_adj_factor_partition_date_matches"
-)
-SILVER_ADJ_FACTOR_POSITIVE_FACTOR_CHECK = "silver_adj_factor_positive_factor"
-SILVER_ADJ_FACTOR_REQUIRED_COLUMNS_CHECK = "silver_adj_factor_required_columns"
-SILVER_ADJ_FACTOR_ROW_COUNT_POSITIVE_CHECK = "silver_adj_factor_row_count_positive"
-SILVER_ADJ_FACTOR_SCHEMA_MATCHES_CONTRACT_CHECK = (
-    "silver_adj_factor_schema_matches_contract"
-)
-SILVER_ADJ_FACTOR_STOCK_CURRENT_PARTITION_KEY_ALLOWED_CHECK = (
-    "silver_adj_factor_stock_current_partition_key_allowed"
-)
-SILVER_ADJ_FACTOR_UNIQUE_TS_CODE_TRADE_DATE_CHECK = (
-    "silver_adj_factor_unique_ts_code_trade_date"
 )
 
 
@@ -247,43 +204,6 @@ class _SilverPathMetrics:
         )
 
 
-@dataclass(frozen=True)
-class _AdjFactorPathPlan:
-    trade_date: str
-    raw_path: Path
-    silver_path: Path
-    stock_basic_path: Path
-
-
-@dataclass(frozen=True)
-class _AdjFactorPathMetrics:
-    raw_row_count: int = 0
-    silver_row_count: int = 0
-    raw_date_failed_count: int = 0
-    raw_duplicate_failed_count: int = 0
-    raw_positive_failed_count: int = 0
-    silver_date_failed_count: int = 0
-    silver_duplicate_failed_count: int = 0
-    silver_positive_failed_count: int = 0
-    silver_listed_failed_count: int = 0
-    silver_missing_code_count: int = 0
-    silver_unexpected_code_count: int = 0
-
-    @property
-    def failed_row_count(self) -> int:
-        return (
-            self.raw_date_failed_count
-            + self.raw_duplicate_failed_count
-            + self.raw_positive_failed_count
-            + self.silver_date_failed_count
-            + self.silver_duplicate_failed_count
-            + self.silver_positive_failed_count
-            + self.silver_listed_failed_count
-            + self.silver_missing_code_count
-            + self.silver_unexpected_code_count
-        )
-
-
 def _normalize_trade_dates(values: Sequence[str]) -> tuple[str, ...]:
     return tuple(sorted({str(value).strip() for value in values if str(value).strip()}))
 
@@ -333,23 +253,6 @@ def _silver_path_plans(
         )
         for trade_date in expected_trade_dates
         for freq in freqs
-    )
-
-
-def _adj_factor_path_plans(
-    *,
-    lake_root: Path,
-    expected_trade_dates: Sequence[str],
-) -> tuple[_AdjFactorPathPlan, ...]:
-    stock_basic_path = silver_stock_basic_path(lake_root)
-    return tuple(
-        _AdjFactorPathPlan(
-            trade_date=trade_date,
-            raw_path=raw_adj_factor_path(lake_root, trade_date),
-            silver_path=silver_adj_factor_path(lake_root, trade_date),
-            stock_basic_path=stock_basic_path,
-        )
-        for trade_date in expected_trade_dates
     )
 
 
@@ -895,192 +798,6 @@ def _silver_lifecycle_failure_counts(
     return {Path(str(row[0])): int(row[1] or 0) for row in rows}
 
 
-def _adj_factor_path_metrics(
-    connection,
-    path_plans: Sequence[_AdjFactorPathPlan],
-) -> dict[str, _AdjFactorPathMetrics]:
-    metrics: dict[str, _AdjFactorPathMetrics] = {}
-    for path_plan in path_plans:
-        raw_metrics = _adj_factor_raw_metrics(
-            connection,
-            path_plan.raw_path,
-            path_plan.trade_date,
-        )
-        silver_metrics = _adj_factor_silver_metrics(
-            connection,
-            path_plan.silver_path,
-            path_plan.stock_basic_path,
-            path_plan.trade_date,
-        )
-        metrics[path_plan.trade_date] = _AdjFactorPathMetrics(
-            raw_row_count=raw_metrics.raw_row_count,
-            silver_row_count=silver_metrics.silver_row_count,
-            raw_date_failed_count=raw_metrics.raw_date_failed_count,
-            raw_duplicate_failed_count=raw_metrics.raw_duplicate_failed_count,
-            raw_positive_failed_count=raw_metrics.raw_positive_failed_count,
-            silver_date_failed_count=silver_metrics.silver_date_failed_count,
-            silver_duplicate_failed_count=silver_metrics.silver_duplicate_failed_count,
-            silver_positive_failed_count=silver_metrics.silver_positive_failed_count,
-            silver_listed_failed_count=silver_metrics.silver_listed_failed_count,
-            silver_missing_code_count=silver_metrics.silver_missing_code_count,
-            silver_unexpected_code_count=silver_metrics.silver_unexpected_code_count,
-        )
-    return metrics
-
-
-def _adj_factor_raw_metrics(
-    connection,
-    path: Path,
-    trade_date: str,
-) -> _AdjFactorPathMetrics:
-    if not path.exists():
-        return _AdjFactorPathMetrics()
-    row = connection.execute(
-        f"""
-        WITH raw_rows AS (
-          SELECT
-            CAST(ts_code AS VARCHAR) AS ts_code,
-            CAST(trade_date AS VARCHAR) AS trade_date,
-            CAST(adj_factor AS DOUBLE) AS adj_factor,
-            CAST(try_strptime(trim(CAST(trade_date AS VARCHAR)), '%Y%m%d') AS DATE)
-              AS parsed_trade_date
-          FROM {read_parquet(path, hive_partitioning=False)}
-        ),
-        duplicate_keys AS (
-          SELECT count(*) AS duplicate_failed_count
-          FROM (
-            SELECT ts_code, trade_date, count(*) AS duplicate_count
-            FROM raw_rows
-            GROUP BY ts_code, trade_date
-            HAVING count(*) > 1
-          )
-        )
-        SELECT
-          (SELECT count(*) FROM raw_rows) AS row_count,
-          (SELECT count(*) FROM raw_rows
-           WHERE parsed_trade_date IS NULL
-              OR parsed_trade_date != CAST({duckdb_string(trade_date)} AS DATE))
-            AS date_failed_count,
-          (SELECT duplicate_failed_count FROM duplicate_keys)
-            AS duplicate_failed_count,
-          (SELECT count(*) FROM raw_rows
-           WHERE adj_factor IS NULL OR adj_factor <= 0)
-            AS positive_failed_count
-        """
-    ).fetchone()
-    return _AdjFactorPathMetrics(
-        raw_row_count=int(row[0] or 0),
-        raw_date_failed_count=int(row[1] or 0),
-        raw_duplicate_failed_count=int(row[2] or 0),
-        raw_positive_failed_count=int(row[3] or 0),
-    )
-
-
-def _adj_factor_silver_metrics(
-    connection,
-    path: Path,
-    stock_basic_path: Path,
-    trade_date: str,
-) -> _AdjFactorPathMetrics:
-    if not path.exists():
-        return _AdjFactorPathMetrics()
-
-    row = connection.execute(
-        f"""
-        WITH silver_rows AS (
-          SELECT
-            CAST(ts_code AS VARCHAR) AS ts_code,
-            CAST(trade_date AS DATE) AS trade_date,
-            CAST(adj_factor AS DOUBLE) AS adj_factor
-          FROM {read_parquet(path, hive_partitioning=False)}
-        ),
-        duplicate_keys AS (
-          SELECT count(*) AS duplicate_failed_count
-          FROM (
-            SELECT ts_code, trade_date, count(*) AS duplicate_count
-            FROM silver_rows
-            GROUP BY ts_code, trade_date
-            HAVING count(*) > 1
-          )
-        )
-        SELECT
-          (SELECT count(*) FROM silver_rows) AS row_count,
-          (SELECT count(*) FROM silver_rows
-           WHERE trade_date IS NULL
-              OR trade_date != CAST({duckdb_string(trade_date)} AS DATE))
-            AS date_failed_count,
-          (SELECT duplicate_failed_count FROM duplicate_keys)
-            AS duplicate_failed_count,
-          (SELECT count(*) FROM silver_rows
-           WHERE adj_factor IS NULL OR adj_factor <= 0)
-            AS positive_failed_count
-        """
-    ).fetchone()
-
-    listed_failed_count = 0
-    missing_code_count = 0
-    unexpected_code_count = 0
-    if stock_basic_path.exists():
-        listed_failed_count = int(
-            connection.execute(
-                f"""
-                WITH current_listed AS (
-                  SELECT DISTINCT ts_code, list_date
-                  FROM ({current_cny_stock_basic_select(stock_basic_path)}) stock_basic
-                )
-                SELECT count(*) AS invalid_count
-                FROM {read_parquet(path, hive_partitioning=False)} adj
-                LEFT JOIN current_listed
-                  ON adj.ts_code = current_listed.ts_code
-                WHERE current_listed.ts_code IS NULL
-                   OR adj.trade_date < current_listed.list_date
-                """
-            ).fetchone()[0]
-            or 0
-        )
-        coverage_row = connection.execute(
-            f"""
-            WITH expected AS (
-              SELECT DISTINCT ts_code
-              FROM ({current_cny_stock_basic_select(stock_basic_path)}) stock_basic
-              WHERE list_date <= CAST({duckdb_string(trade_date)} AS DATE)
-            ),
-            actual AS (
-              SELECT DISTINCT ts_code
-              FROM {read_parquet(path, hive_partitioning=False)}
-              WHERE trade_date = CAST({duckdb_string(trade_date)} AS DATE)
-            ),
-            missing AS (
-              SELECT expected.ts_code
-              FROM expected
-              LEFT JOIN actual USING (ts_code)
-              WHERE actual.ts_code IS NULL
-            ),
-            unexpected AS (
-              SELECT actual.ts_code
-              FROM actual
-              LEFT JOIN expected USING (ts_code)
-              WHERE expected.ts_code IS NULL
-            )
-            SELECT
-              (SELECT count(*) FROM missing) AS missing_code_count,
-              (SELECT count(*) FROM unexpected) AS unexpected_code_count
-            """
-        ).fetchone()
-        missing_code_count = int(coverage_row[0] or 0)
-        unexpected_code_count = int(coverage_row[1] or 0)
-
-    return _AdjFactorPathMetrics(
-        silver_row_count=int(row[0] or 0),
-        silver_date_failed_count=int(row[1] or 0),
-        silver_duplicate_failed_count=int(row[2] or 0),
-        silver_positive_failed_count=int(row[3] or 0),
-        silver_listed_failed_count=listed_failed_count,
-        silver_missing_code_count=missing_code_count,
-        silver_unexpected_code_count=unexpected_code_count,
-    )
-
-
 def _raw_status_for_trade_date(
     *,
     trade_date: str,
@@ -1333,183 +1050,6 @@ def _silver_status_for_trade_date(
         existing_file_count=len(path_plans),
         checked_row_count=checked_row_count,
         failed_row_count=failed_row_count,
-    )
-
-
-def _adj_factor_status_for_trade_date(
-    *,
-    trade_date: str,
-    path_plan: _AdjFactorPathPlan,
-    registered_trade_day_set: set[str],
-    raw_schema_valid_paths: set[Path],
-    raw_required_column_valid_paths: set[Path],
-    silver_schema_valid_paths: set[Path],
-    silver_required_column_valid_paths: set[Path],
-    metrics_by_trade_date: Mapping[str, _AdjFactorPathMetrics],
-    full_semantics: bool,
-) -> StkMinsDateReadiness:
-    expected_paths = (path_plan.raw_path, path_plan.silver_path)
-    missing_paths = tuple(str(path) for path in expected_paths if not path.exists())
-    if trade_date not in registered_trade_day_set:
-        return StkMinsDateReadiness(
-            trade_date=trade_date,
-            ready=False,
-            materialized=False,
-            checks_passed=False,
-            reason=f"adj factor partition is not registered for {trade_date}",
-            failed_check_names=(
-                RAW_ADJ_FACTOR_STOCK_CURRENT_PARTITION_KEY_ALLOWED_CHECK,
-                SILVER_ADJ_FACTOR_STOCK_CURRENT_PARTITION_KEY_ALLOWED_CHECK,
-            ),
-            missing_file_paths=missing_paths,
-            expected_file_count=len(expected_paths),
-            existing_file_count=len(expected_paths) - len(missing_paths),
-        )
-    if missing_paths:
-        failed_file_checks = []
-        if not path_plan.raw_path.exists():
-            failed_file_checks.append(RAW_ADJ_FACTOR_FILE_EXISTS_CHECK)
-        if not path_plan.silver_path.exists():
-            failed_file_checks.append(SILVER_ADJ_FACTOR_FILE_EXISTS_CHECK)
-        return StkMinsDateReadiness(
-            trade_date=trade_date,
-            ready=False,
-            materialized=False,
-            checks_passed=False,
-            reason=f"adj factor files are missing for {trade_date}",
-            failed_check_names=tuple(failed_file_checks),
-            missing_file_paths=missing_paths,
-            expected_file_count=len(expected_paths),
-            existing_file_count=len(expected_paths) - len(missing_paths),
-        )
-
-    metrics = metrics_by_trade_date.get(trade_date, _AdjFactorPathMetrics())
-    failed_check_names: list[str] = []
-    if metrics.raw_row_count <= 0:
-        failed_check_names.append(RAW_ADJ_FACTOR_ROW_COUNT_POSITIVE_CHECK)
-    if metrics.silver_row_count <= 0:
-        failed_check_names.append(SILVER_ADJ_FACTOR_ROW_COUNT_POSITIVE_CHECK)
-
-    if full_semantics:
-        if path_plan.raw_path not in raw_schema_valid_paths:
-            failed_check_names.append(RAW_ADJ_FACTOR_SCHEMA_MATCHES_TUSHARE_CONTRACT_CHECK)
-        if path_plan.raw_path not in raw_required_column_valid_paths:
-            failed_check_names.append(RAW_ADJ_FACTOR_REQUIRED_COLUMNS_CHECK)
-        if metrics.raw_date_failed_count:
-            failed_check_names.append(RAW_ADJ_FACTOR_PARTITION_DATE_MATCHES_CHECK)
-        if metrics.raw_duplicate_failed_count:
-            failed_check_names.append(RAW_ADJ_FACTOR_UNIQUE_TS_CODE_TRADE_DATE_CHECK)
-        if metrics.raw_positive_failed_count:
-            failed_check_names.append(RAW_ADJ_FACTOR_POSITIVE_FACTOR_CHECK)
-        if path_plan.silver_path not in silver_schema_valid_paths:
-            failed_check_names.append(SILVER_ADJ_FACTOR_SCHEMA_MATCHES_CONTRACT_CHECK)
-        if path_plan.silver_path not in silver_required_column_valid_paths:
-            failed_check_names.append(SILVER_ADJ_FACTOR_REQUIRED_COLUMNS_CHECK)
-        if metrics.silver_date_failed_count:
-            failed_check_names.append(SILVER_ADJ_FACTOR_PARTITION_DATE_MATCHES_CHECK)
-        if metrics.silver_duplicate_failed_count:
-            failed_check_names.append(SILVER_ADJ_FACTOR_UNIQUE_TS_CODE_TRADE_DATE_CHECK)
-        if metrics.silver_positive_failed_count:
-            failed_check_names.append(SILVER_ADJ_FACTOR_POSITIVE_FACTOR_CHECK)
-        if not path_plan.stock_basic_path.exists() or metrics.silver_listed_failed_count:
-            failed_check_names.append(SILVER_ADJ_FACTOR_LISTED_STOCK_ONLY_CHECK)
-        if (
-            not path_plan.stock_basic_path.exists()
-            or metrics.silver_missing_code_count
-            or metrics.silver_unexpected_code_count
-        ):
-            failed_check_names.append(SILVER_ADJ_FACTOR_COVERAGE_COMPLETE_CHECK)
-
-    failed_check_names = sorted(set(failed_check_names))
-    checks_passed = not failed_check_names
-    return StkMinsDateReadiness(
-        trade_date=trade_date,
-        ready=checks_passed,
-        materialized=True,
-        checks_passed=checks_passed,
-        reason=(
-            "ready"
-            if checks_passed
-            else "adj factor blocking checks failed for "
-            f"{trade_date}: {', '.join(failed_check_names)}"
-        ),
-        failed_check_names=tuple(failed_check_names),
-        missing_file_paths=(),
-        expected_file_count=len(expected_paths),
-        existing_file_count=len(expected_paths),
-        checked_row_count=metrics.raw_row_count + metrics.silver_row_count,
-        failed_row_count=metrics.failed_row_count,
-    )
-
-
-def batch_adj_factor_lake_readiness(
-    *,
-    connection,
-    lake_root: Path,
-    expected_trade_dates: Sequence[str],
-    registered_trade_days: Sequence[str],
-    full_semantics: bool = True,
-) -> StkMinsBatchReadiness:
-    started_at = perf_counter()
-    expected_trade_dates = _normalize_trade_dates(expected_trade_dates)
-    registered_trade_day_set = set(_normalize_trade_dates(registered_trade_days))
-    expected_start_date, expected_end_date = _expected_bounds(expected_trade_dates)
-    path_plans = _adj_factor_path_plans(
-        lake_root=lake_root,
-        expected_trade_dates=expected_trade_dates,
-    )
-
-    raw_existing_paths = tuple(path_plan.raw_path for path_plan in path_plans if path_plan.raw_path.exists())
-    silver_existing_paths = tuple(
-        path_plan.silver_path for path_plan in path_plans if path_plan.silver_path.exists()
-    )
-    raw_schema_valid_paths: set[Path] = set()
-    raw_required_column_valid_paths: set[Path] = set()
-    silver_schema_valid_paths: set[Path] = set()
-    silver_required_column_valid_paths: set[Path] = set()
-    if full_semantics:
-        for path in raw_existing_paths:
-            if _schema_matches_contract(connection, path, ADJ_FACTOR_RAW_COLUMN_TYPES):
-                raw_schema_valid_paths.add(path)
-            if _has_required_columns(connection, path, ADJ_FACTOR_RAW_REQUIRED_COLUMNS):
-                raw_required_column_valid_paths.add(path)
-        for path in silver_existing_paths:
-            if _schema_matches_contract(connection, path, ADJ_FACTOR_SILVER_COLUMN_TYPES):
-                silver_schema_valid_paths.add(path)
-            if _has_required_columns(connection, path, ADJ_FACTOR_SILVER_REQUIRED_COLUMNS):
-                silver_required_column_valid_paths.add(path)
-    else:
-        raw_schema_valid_paths = set(raw_existing_paths)
-        raw_required_column_valid_paths = set(raw_existing_paths)
-        silver_schema_valid_paths = set(silver_existing_paths)
-        silver_required_column_valid_paths = set(silver_existing_paths)
-
-    metrics_by_trade_date = _adj_factor_path_metrics(connection, path_plans)
-    path_plans_by_trade_date = {path_plan.trade_date: path_plan for path_plan in path_plans}
-    statuses_by_trade_date = {
-        trade_date: _adj_factor_status_for_trade_date(
-            trade_date=trade_date,
-            path_plan=path_plans_by_trade_date[trade_date],
-            registered_trade_day_set=registered_trade_day_set,
-            raw_schema_valid_paths=raw_schema_valid_paths,
-            raw_required_column_valid_paths=raw_required_column_valid_paths,
-            silver_schema_valid_paths=silver_schema_valid_paths,
-            silver_required_column_valid_paths=silver_required_column_valid_paths,
-            metrics_by_trade_date=metrics_by_trade_date,
-            full_semantics=full_semantics,
-        )
-        for trade_date in expected_trade_dates
-    }
-
-    elapsed_ms = (perf_counter() - started_at) * 1000
-    return StkMinsBatchReadiness(
-        dataset="adj_factor",
-        expected_start_date=expected_start_date,
-        expected_end_date=expected_end_date,
-        expected_count=len(expected_trade_dates),
-        freq_count=1,
-        elapsed_ms=elapsed_ms,
-        statuses_by_trade_date=statuses_by_trade_date,
     )
 
 

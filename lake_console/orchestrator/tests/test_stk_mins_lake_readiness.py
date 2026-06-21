@@ -5,8 +5,10 @@ from tempfile import TemporaryDirectory
 
 import duckdb
 
-from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
     batch_adj_factor_lake_readiness,
+)
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_gold_stk_mins_qfq_lake_readiness,
     batch_raw_stk_mins_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
@@ -38,7 +40,6 @@ from orchestrator.defs.paths import (
     raw_stk_mins_path,
     silver_adj_factor_path,
     silver_stk_mins_path,
-    silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
@@ -253,14 +254,14 @@ def _write_stock_lifecycle_file(
     )
 
 
-def _write_silver_stock_basic_file(
+def _write_adj_factor_stock_lifecycle_file(
     connection,
     lake_root: Path,
     *,
     ts_code: str = "000001.SZ",
     list_date: str = "2010-01-01",
 ) -> None:
-    path = silver_stock_basic_path(lake_root)
+    path = silver_stock_lifecycle_path(lake_root)
     path.parent.mkdir(parents=True, exist_ok=True)
     connection.execute(
         f"""
@@ -269,20 +270,13 @@ def _write_silver_stock_basic_file(
             {duckdb_string(ts_code)} AS ts_code,
             '000001'::VARCHAR AS symbol,
             'sample'::VARCHAR AS name,
-            'area'::VARCHAR AS area,
-            'industry'::VARCHAR AS industry,
-            'fullname'::VARCHAR AS fullname,
-            'enname'::VARCHAR AS enname,
-            'cnspell'::VARCHAR AS cnspell,
-            '主板'::VARCHAR AS market,
             'SZSE'::VARCHAR AS exchange,
+            '主板'::VARCHAR AS market,
             'CNY'::VARCHAR AS curr_type,
+            true AS is_cny_stock,
             'L'::VARCHAR AS list_status,
             CAST({duckdb_string(list_date)} AS DATE) AS list_date,
-            NULL::DATE AS delist_date,
-            NULL::VARCHAR AS is_hs,
-            NULL::VARCHAR AS act_name,
-            NULL::VARCHAR AS act_ent_type
+            NULL::DATE AS delist_date
         ) TO {duckdb_string(path)} (FORMAT PARQUET)
         """
     )
@@ -627,7 +621,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
             trade_dates = _trade_dates(3)
-            _write_silver_stock_basic_file(connection, lake_root)
+            _write_adj_factor_stock_lifecycle_file(connection, lake_root)
             for trade_date in trade_dates:
                 _write_adj_factor_files(connection, lake_root, trade_date=trade_date)
 
@@ -638,8 +632,8 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 registered_trade_days=trade_dates,
             )
 
-        self.assertEqual(batch_status.dataset, "adj_factor")
-        self.assertEqual(batch_status.freq_count, 1)
+        self.assertEqual(batch_status.expected_trade_dates, trade_dates)
+        self.assertEqual(batch_status.scanned_file_count, len(trade_dates) * 2)
         self.assertTrue(
             all(status.ready for status in batch_status.statuses_by_trade_date.values())
         )
@@ -647,7 +641,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
     def test_adj_factor_batch_readiness_detects_blocking_failures(self) -> None:
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
             lake_root = Path(directory)
-            _write_silver_stock_basic_file(connection, lake_root)
+            _write_adj_factor_stock_lifecycle_file(connection, lake_root)
             _write_adj_factor_files(
                 connection,
                 lake_root,

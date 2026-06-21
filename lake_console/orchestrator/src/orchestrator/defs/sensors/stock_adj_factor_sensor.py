@@ -4,7 +4,24 @@ from datetime import datetime, time
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
+    batch_raw_adj_factor_lake_readiness,
+    batch_silver_adj_factor_lake_readiness,
+)
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    DEFAULT_CONTINUITY_WINDOW_LIMIT,
+    ContinuityBatchReadiness,
+    ContinuityDateReadiness,
+    ContinuityExpectedDateWindow,
+    ContinuityRegisteredGapStatus,
+    ContinuitySelection,
+    build_continuity_cursor_details,
+    build_registered_gap_status,
+    load_expected_trade_date_window,
+    select_first_not_ready_trade_date,
+)
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
@@ -19,12 +36,8 @@ from orchestrator.defs.run_contracts.sensor_tags import (
 )
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
-    RAW_ADJ_FACTOR_ASSET_KEY,
-    SILVER_ADJ_FACTOR_ASSET_KEY,
-    AssetReadinessStatus,
     DatasetReadinessStatus,
-    materialized_partition_keys,
-    raw_tushare_adj_factor_ready_for_trade_date,
+    silver_stock_lifecycle_ready_without_freshness,
     status_payload,
     stock_basic_ready_without_freshness,
 )
@@ -33,31 +46,65 @@ from orchestrator.defs.sensors.readiness import (
 STOCK_ADJ_FACTOR_RUN_START = time(9, 30)
 
 
-def _latest_registered_trade_date(
-    registered_trade_days: tuple[str, ...],
+def _load_expected_current_trade_day_window(
+    context: dg.SensorEvaluationContext,
     evaluated_at: datetime,
+) -> ContinuityExpectedDateWindow:
+    lake_root = context.resources.lake_root
+    duckdb_resource = context.resources.duckdb
+    lake_root.ensure_available_for_run()
+    calendar_path = silver_trade_calendar_path(lake_root.root())
+    if not calendar_path.exists():
+        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
+
+    with duckdb_resource.connect() as connection:
+        return load_expected_trade_date_window(
+            connection,
+            calendar_path,
+            evaluated_at=evaluated_at,
+            same_day_register_start=STOCK_ADJ_FACTOR_RUN_START,
+            window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT,
+        )
+
+
+def _target_date_from_selection(
+    *,
+    expected_window: ContinuityExpectedDateWindow,
+    gap_status: ContinuityRegisteredGapStatus,
+    selection: ContinuitySelection | None,
 ) -> str | None:
-    today = evaluated_at.date().isoformat()
-    eligible_trade_days = tuple(
-        trade_date for trade_date in registered_trade_days if trade_date <= today
+    if gap_status.first_missing_registered_date is not None:
+        return gap_status.first_missing_registered_date
+    if selection is not None:
+        return (
+            selection.first_not_ready_trade_date
+            or selection.ready_through_trade_date
+            or expected_window.max_trade_date
+        )
+    return expected_window.max_trade_date
+
+
+def _continuity_details(
+    *,
+    expected_window: ContinuityExpectedDateWindow,
+    gap_status: ContinuityRegisteredGapStatus,
+    batch_readiness: ContinuityBatchReadiness | None,
+    selection: ContinuitySelection | None,
+) -> dict[str, object]:
+    return build_continuity_cursor_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=batch_readiness,
+        selection=selection,
     )
-    return eligible_trade_days[-1] if eligible_trade_days else None
 
 
-def _readiness_asset_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
+def _status_payload(status: ContinuityDateReadiness | DatasetReadinessStatus | None):
+    if status is None:
+        return None
+    if isinstance(status, ContinuityDateReadiness):
+        return status.to_cursor_details()
+    return status_payload(status)
 
 
 def _raw_sensor_cursor(
@@ -68,6 +115,7 @@ def _raw_sensor_cursor(
     selected_trade_date: str | None,
     reason: str,
     source_window_started: bool,
+    continuity_details: dict[str, object] | None,
 ) -> str:
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -83,10 +131,12 @@ def _raw_sensor_cursor(
         if selected_trade_date or target_trade_date
         else (),
         details={
+            "partition_set": cn_a_stock_current_trade_days.name,
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
             "reason": reason,
             "source_window_started": source_window_started,
+            "continuity_status": continuity_details,
         },
     )
 
@@ -99,17 +149,13 @@ def _silver_sensor_cursor(
     selected_trade_date: str | None,
     reason: str,
     source_window_started: bool,
-    raw_status: AssetReadinessStatus | None = None,
+    raw_status: ContinuityDateReadiness | None = None,
+    silver_status: ContinuityDateReadiness | None = None,
     stock_basic_status: DatasetReadinessStatus | None = None,
+    stock_lifecycle_status: DatasetReadinessStatus | None = None,
+    continuity_details: dict[str, object] | None = None,
+    raw_continuity_details: dict[str, object] | None = None,
 ) -> str:
-    readiness_details: dict[str, object] = {}
-    if raw_status is not None:
-        readiness_details["raw_tushare_adj_factor"] = _readiness_asset_payload(
-            raw_status
-        )
-    if stock_basic_status is not None:
-        readiness_details["stock_basic"] = status_payload(stock_basic_status)
-
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -124,12 +170,20 @@ def _silver_sensor_cursor(
         if selected_trade_date or target_trade_date
         else (),
         details={
+            "partition_set": cn_a_stock_current_trade_days.name,
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
             "reason": reason,
             "source_window_started": source_window_started,
             "stock_basic_freshness_required": False,
-            "readiness_details": readiness_details,
+            "readiness_details": {
+                "raw_tushare_adj_factor": _status_payload(raw_status),
+                "silver_adj_factor": _status_payload(silver_status),
+                "stock_basic": _status_payload(stock_basic_status),
+                "stock_lifecycle": _status_payload(stock_lifecycle_status),
+            },
+            "continuity_status": continuity_details,
+            "raw_continuity_status": raw_continuity_details,
         },
     )
 
@@ -154,6 +208,18 @@ def _silver_run_request_for_trade_date(trade_date: str):
     )
 
 
+def _registered_gap_skip_reason(
+    *,
+    layer_label: str,
+    gap_status: ContinuityRegisteredGapStatus,
+) -> str:
+    return (
+        f"股票当前交易日分区存在缺口，最早缺失日期为 "
+        f"{gap_status.first_missing_registered_date}，暂不触发复权因子 "
+        f"{layer_label} 更新。"
+    )
+
+
 @dg.sensor(
     job_name="raw_adj_factor_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
@@ -163,6 +229,7 @@ def _silver_run_request_for_trade_date(trade_date: str):
         target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
+    required_resource_keys={"lake_root", "duckdb"},
     description="复权因子 raw 分区缺失时，触发复权因子 raw 更新任务。",
 )
 def raw_adj_factor_update_job_sensor(
@@ -170,6 +237,7 @@ def raw_adj_factor_update_job_sensor(
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     source_window_started = evaluated_at.time() >= STOCK_ADJ_FACTOR_RUN_START
+    expected_window = _load_expected_current_trade_day_window(context, evaluated_at)
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -177,17 +245,26 @@ def raw_adj_factor_update_job_sensor(
             )
         )
     )
-    target_trade_date = _latest_registered_trade_date(registered_trade_days, evaluated_at)
+    gap_status = build_registered_gap_status(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        registered_trade_dates=registered_trade_days,
+    )
 
-    if target_trade_date is None:
-        reason = "没有注册股票当前交易日分区，无法触发复权因子 raw 更新。"
+    if gap_status.first_missing_registered_date is not None:
+        reason = _registered_gap_skip_reason(layer_label="raw", gap_status=gap_status)
         cursor = _raw_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=None,
+            target_trade_date=gap_status.first_missing_registered_date,
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            continuity_details=_continuity_details(
+                expected_window=expected_window,
+                gap_status=gap_status,
+                batch_readiness=None,
+                selection=None,
+            ),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -196,40 +273,76 @@ def raw_adj_factor_update_job_sensor(
         cursor = _raw_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
+            target_trade_date=expected_window.max_trade_date,
             selected_trade_date=None,
             reason=reason,
-            source_window_started=source_window_started,
+            source_window_started=False,
+            continuity_details=_continuity_details(
+                expected_window=expected_window,
+                gap_status=gap_status,
+                batch_readiness=None,
+                selection=None,
+            ),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    raw_materialized_keys = materialized_partition_keys(
-        context.instance,
-        (RAW_ADJ_FACTOR_ASSET_KEY,),
+    lake_root = context.resources.lake_root
+    duckdb_resource = context.resources.duckdb
+    with duckdb_resource.connect() as connection:
+        raw_batch_status = batch_raw_adj_factor_lake_readiness(
+            connection=connection,
+            lake_root=lake_root.root(),
+            expected_trade_dates=expected_window.expected_trade_dates,
+            registered_trade_days=registered_trade_days,
+            full_semantics=True,
+        )
+    selection = select_first_not_ready_trade_date(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        readiness=raw_batch_status,
     )
-    if target_trade_date in raw_materialized_keys:
-        reason = "最新股票当前交易日的复权因子 raw 分区已经生成完成。"
+    target_trade_date = _target_date_from_selection(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        selection=selection,
+    )
+    continuity_details = _continuity_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=raw_batch_status,
+        selection=selection,
+    )
+
+    if selection.selected_trade_date is None:
+        if selection.blocked_reason == "materialized_check_failed":
+            reason = (
+                "最早未就绪复权因子 raw 分区已生成过，但 blocking checks 未全绿，"
+                "暂不自动重跑，请人工检查后修复。"
+            )
+        else:
+            reason = "最近 60 个股票当前交易日的复权因子 raw 分区已经 ready。"
         cursor = _raw_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
-            source_window_started=source_window_started,
+            source_window_started=True,
+            continuity_details=continuity_details,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    reason = "复权因子 raw 分区缺失，提交股票当前交易日 raw 更新。"
+    reason = "复权因子 raw 分区缺失，提交最早未就绪股票当前交易日 raw 更新。"
     cursor = _raw_sensor_cursor(
         evaluated_at=evaluated_at,
         registered_trade_day_count=len(registered_trade_days),
-        target_trade_date=target_trade_date,
-        selected_trade_date=target_trade_date,
+        target_trade_date=selection.selected_trade_date,
+        selected_trade_date=selection.selected_trade_date,
         reason=reason,
-        source_window_started=source_window_started,
+        source_window_started=True,
+        continuity_details=continuity_details,
     )
     return dg.SensorResult(
-        run_requests=[_raw_run_request_for_trade_date(target_trade_date)],
+        run_requests=[_raw_run_request_for_trade_date(selection.selected_trade_date)],
         cursor=cursor,
     )
 
@@ -243,6 +356,7 @@ def raw_adj_factor_update_job_sensor(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
+    required_resource_keys={"lake_root", "duckdb"},
     description="复权因子 raw 和股票基础信息 ready 后，触发复权因子 silver-only 更新。",
 )
 def silver_adj_factor_update_job_sensor(
@@ -250,6 +364,7 @@ def silver_adj_factor_update_job_sensor(
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     source_window_started = evaluated_at.time() >= STOCK_ADJ_FACTOR_RUN_START
+    expected_window = _load_expected_current_trade_day_window(context, evaluated_at)
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(
@@ -257,17 +372,26 @@ def silver_adj_factor_update_job_sensor(
             )
         )
     )
-    target_trade_date = _latest_registered_trade_date(registered_trade_days, evaluated_at)
+    gap_status = build_registered_gap_status(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        registered_trade_dates=registered_trade_days,
+    )
 
-    if target_trade_date is None:
-        reason = "没有注册股票当前交易日分区，无法触发复权因子 silver 更新。"
+    if gap_status.first_missing_registered_date is not None:
+        reason = _registered_gap_skip_reason(layer_label="silver", gap_status=gap_status)
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=None,
+            target_trade_date=gap_status.first_missing_registered_date,
             selected_trade_date=None,
             reason=reason,
             source_window_started=source_window_started,
+            continuity_details=_continuity_details(
+                expected_window=expected_window,
+                gap_status=gap_status,
+                batch_readiness=None,
+                selection=None,
+            ),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -276,48 +400,121 @@ def silver_adj_factor_update_job_sensor(
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
+            target_trade_date=expected_window.max_trade_date,
             selected_trade_date=None,
             reason=reason,
-            source_window_started=source_window_started,
+            source_window_started=False,
+            continuity_details=_continuity_details(
+                expected_window=expected_window,
+                gap_status=gap_status,
+                batch_readiness=None,
+                selection=None,
+            ),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    silver_materialized_keys = materialized_partition_keys(
-        context.instance,
-        (SILVER_ADJ_FACTOR_ASSET_KEY,),
-    )
-    if target_trade_date in silver_materialized_keys:
-        reason = (
-            "最新股票当前交易日的复权因子 silver 分区已经生成完成，"
-            "不自动重跑已 materialized 分区。"
+    lake_root = context.resources.lake_root
+    duckdb_resource = context.resources.duckdb
+    with duckdb_resource.connect() as connection:
+        raw_batch_status = batch_raw_adj_factor_lake_readiness(
+            connection=connection,
+            lake_root=lake_root.root(),
+            expected_trade_dates=expected_window.expected_trade_dates,
+            registered_trade_days=registered_trade_days,
+            full_semantics=True,
         )
-        cursor = _silver_sensor_cursor(
-            evaluated_at=evaluated_at,
-            registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
-            selected_trade_date=None,
-            reason=reason,
-            source_window_started=source_window_started,
+        silver_batch_status = batch_silver_adj_factor_lake_readiness(
+            connection=connection,
+            lake_root=lake_root.root(),
+            expected_trade_dates=expected_window.expected_trade_dates,
+            registered_trade_days=registered_trade_days,
+            full_semantics=True,
         )
-        return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    raw_status = raw_tushare_adj_factor_ready_for_trade_date(
-        context.instance,
-        target_trade_date,
+    raw_selection = select_first_not_ready_trade_date(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        readiness=raw_batch_status,
     )
-    if not raw_status.ready:
-        reason = "复权因子 silver 前置 raw readiness 门禁未满足。"
+    silver_selection = select_first_not_ready_trade_date(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        readiness=silver_batch_status,
+    )
+    raw_target_date = _target_date_from_selection(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        selection=raw_selection,
+    )
+    target_trade_date = _target_date_from_selection(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        selection=silver_selection,
+    )
+    raw_continuity_details = _continuity_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=raw_batch_status,
+        selection=raw_selection,
+    )
+    continuity_details = _continuity_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=silver_batch_status,
+        selection=silver_selection,
+    )
+
+    raw_first_not_ready = raw_selection.first_not_ready_trade_date
+    silver_first_not_ready = silver_selection.first_not_ready_trade_date
+    if raw_first_not_ready is not None and (
+        silver_first_not_ready is None or raw_first_not_ready <= silver_first_not_ready
+    ):
+        raw_status = raw_selection.selected_status or raw_batch_status.status_for_trade_date(
+            raw_first_not_ready
+        )
+        if raw_selection.blocked_reason == "materialized_check_failed":
+            reason = (
+                "最早未就绪复权因子 raw 分区已生成过，但 blocking checks 未全绿，"
+                "暂不自动推进 silver，请人工检查后修复。"
+            )
+        else:
+            reason = "复权因子 silver 前置 raw readiness 门禁未满足。"
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
+            target_trade_date=raw_target_date,
             selected_trade_date=None,
             reason=reason,
-            source_window_started=source_window_started,
+            source_window_started=True,
             raw_status=raw_status,
+            continuity_details=continuity_details,
+            raw_continuity_details=raw_continuity_details,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    if silver_selection.selected_trade_date is None:
+        silver_status = silver_selection.selected_status
+        if silver_selection.blocked_reason == "materialized_check_failed":
+            reason = (
+                "最早未就绪复权因子 silver 分区已生成过，但 blocking checks 未全绿，"
+                "暂不自动重跑，请人工检查后修复。"
+            )
+        else:
+            reason = "最近 60 个股票当前交易日的复权因子 silver 分区已经 ready。"
+        cursor = _silver_sensor_cursor(
+            evaluated_at=evaluated_at,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=True,
+            silver_status=silver_status,
+            continuity_details=continuity_details,
+            raw_continuity_details=raw_continuity_details,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    selected_trade_date = silver_selection.selected_trade_date
+    raw_status = raw_batch_status.status_for_trade_date(selected_trade_date)
+    silver_status = silver_batch_status.status_for_trade_date(selected_trade_date)
 
     stock_basic_status = stock_basic_ready_without_freshness(context.instance)
     if not stock_basic_status.ready:
@@ -325,27 +522,55 @@ def silver_adj_factor_update_job_sensor(
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
-            target_trade_date=target_trade_date,
+            target_trade_date=selected_trade_date,
             selected_trade_date=None,
             reason=reason,
-            source_window_started=source_window_started,
+            source_window_started=True,
             raw_status=raw_status,
+            silver_status=silver_status,
             stock_basic_status=stock_basic_status,
+            continuity_details=continuity_details,
+            raw_continuity_details=raw_continuity_details,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    reason = "复权因子 silver 门禁已满足，提交股票当前交易日 silver 更新。"
+    stock_lifecycle_status = silver_stock_lifecycle_ready_without_freshness(
+        context.instance
+    )
+    if not stock_lifecycle_status.ready:
+        reason = "股票生命周期事实尚未通过 materialization 和 blocking checks 门禁。"
+        cursor = _silver_sensor_cursor(
+            evaluated_at=evaluated_at,
+            registered_trade_day_count=len(registered_trade_days),
+            target_trade_date=selected_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            source_window_started=True,
+            raw_status=raw_status,
+            silver_status=silver_status,
+            stock_basic_status=stock_basic_status,
+            stock_lifecycle_status=stock_lifecycle_status,
+            continuity_details=continuity_details,
+            raw_continuity_details=raw_continuity_details,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    reason = "复权因子 silver 门禁已满足，提交最早未就绪股票当前交易日 silver 更新。"
     cursor = _silver_sensor_cursor(
         evaluated_at=evaluated_at,
         registered_trade_day_count=len(registered_trade_days),
-        target_trade_date=target_trade_date,
-        selected_trade_date=target_trade_date,
+        target_trade_date=selected_trade_date,
+        selected_trade_date=selected_trade_date,
         reason=reason,
-        source_window_started=source_window_started,
+        source_window_started=True,
         raw_status=raw_status,
+        silver_status=silver_status,
         stock_basic_status=stock_basic_status,
+        stock_lifecycle_status=stock_lifecycle_status,
+        continuity_details=continuity_details,
+        raw_continuity_details=raw_continuity_details,
     )
     return dg.SensorResult(
-        run_requests=[_silver_run_request_for_trade_date(target_trade_date)],
+        run_requests=[_silver_run_request_for_trade_date(selected_trade_date)],
         cursor=cursor,
     )

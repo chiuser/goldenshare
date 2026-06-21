@@ -17,6 +17,7 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     raw_adj_factor_path,
     silver_adj_factor_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
@@ -57,24 +58,34 @@ def _write_raw_adj_factor_parquet(path: Path) -> None:
         )
 
 
-def _write_silver_stock_basic_parquet(path: Path) -> None:
+def _write_silver_stock_lifecycle_parquet(path: Path) -> None:
     with duckdb.connect(database=":memory:") as connection:
         connection.execute(
             f"""
             COPY (
               SELECT
                 '000001.SZ' AS ts_code,
+                '000001' AS symbol,
+                '平安银行' AS name,
+                'SZSE' AS exchange,
+                '主板' AS market,
                 'CNY' AS curr_type,
+                true AS is_cny_stock,
                 'L' AS list_status,
-                DATE '2020-01-01' AS list_date
+                DATE '2020-01-01' AS list_date,
+                NULL::DATE AS delist_date
               UNION ALL
-              SELECT '000002.SZ' AS ts_code, 'CNY' AS curr_type, 'D' AS list_status, DATE '2020-01-01'
+              SELECT '000002.SZ', '000002', '退市样本', 'SZSE', '主板',
+                'CNY', true, 'D', DATE '2020-01-01', DATE '2026-06-30'
               UNION ALL
-              SELECT '000003.SZ' AS ts_code, 'CNY' AS curr_type, 'L' AS list_status, DATE '2026-05-29'
+              SELECT '000003.SZ', '000003', '未上市样本', 'SZSE', '主板',
+                'CNY', true, 'L', DATE '2026-05-29', NULL::DATE
               UNION ALL
-              SELECT '000004.SZ' AS ts_code, 'CNY' AS curr_type, 'L' AS list_status, DATE '2021-01-01'
+              SELECT '000004.SZ', '000004', '早期日期样本', 'SZSE', '主板',
+                'CNY', true, 'L', DATE '2021-01-01', NULL::DATE
               UNION ALL
-              SELECT '200001.SZ' AS ts_code, 'HKD' AS curr_type, 'L' AS list_status, DATE '2020-01-01'
+              SELECT '200001.SZ', '200001', '外币样本', 'SZSE', 'B股',
+                'HKD', false, 'L', DATE '2020-01-01', NULL::DATE
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
@@ -144,25 +155,33 @@ class AdjFactorContractTests(unittest.TestCase):
 
         self.assertEqual(rows, [("000001.SZ", "20090105", 1.234)])
 
-    def test_silver_select_keeps_only_current_listed_rows_after_list_date(
+    def test_silver_select_keeps_lifecycle_valid_cny_rows(
         self,
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
-            raw_path = Path(temp_dir) / "raw.parquet"
-            stock_basic_path = Path(temp_dir) / "silver_stock_basic.parquet"
+            root = Path(temp_dir)
+            raw_path = root / "raw.parquet"
+            stock_lifecycle_path = silver_stock_lifecycle_path(root)
             _write_raw_adj_factor_parquet(raw_path)
-            _write_silver_stock_basic_parquet(stock_basic_path)
+            stock_lifecycle_path.parent.mkdir(parents=True, exist_ok=True)
+            _write_silver_stock_lifecycle_parquet(stock_lifecycle_path)
 
             with duckdb.connect(database=":memory:") as connection:
                 rows = connection.execute(
                     f"""
                     SELECT ts_code, strftime(trade_date, '%Y-%m-%d'), adj_factor
-                    FROM ({silver_adj_factor_select(raw_path, stock_basic_path)})
+                    FROM ({silver_adj_factor_select(raw_path, stock_lifecycle_path)})
                     ORDER BY ts_code
                     """
                 ).fetchall()
 
-        self.assertEqual(rows, [("000001.SZ", "2026-05-28", 1.1)])
+        self.assertEqual(
+            rows,
+            [
+                ("000001.SZ", "2026-05-28", 1.1),
+                ("000002.SZ", "2026-05-28", 2.2),
+            ],
+        )
 
     def _query_bootstrap_select(self, old_path: Path) -> list[tuple[str, str, float]]:
         select_sql = ADJ_FACTOR_BOOTSTRAP_SELECT_TEMPLATE.format(

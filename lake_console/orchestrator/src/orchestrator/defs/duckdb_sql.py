@@ -467,19 +467,22 @@ FROM {read_parquet(raw_path, hive_partitioning=False)}
 """
 
 
-def silver_adj_factor_select(raw_path: Path, silver_stock_basic_path: Path) -> str:
+def silver_adj_factor_select(raw_path: Path, stock_lifecycle_path: Path) -> str:
     return f"""
 WITH normalized AS (
   {adj_factor_normalized_select(raw_path)}
 ),
-current_listed AS (
-  SELECT DISTINCT ts_code, list_date
-  FROM ({current_cny_stock_basic_select(silver_stock_basic_path)}) stock_basic
+stock_lifecycle AS (
+  {silver_cny_stock_lifecycle_select(stock_lifecycle_path)}
 )
 SELECT normalized.*
 FROM normalized
-INNER JOIN current_listed USING (ts_code)
-WHERE normalized.trade_date >= current_listed.list_date
+INNER JOIN stock_lifecycle USING (ts_code)
+WHERE normalized.trade_date >= stock_lifecycle.list_date
+  AND (
+    stock_lifecycle.delist_date IS NULL
+    OR normalized.trade_date <= stock_lifecycle.delist_date
+  )
 """
 
 

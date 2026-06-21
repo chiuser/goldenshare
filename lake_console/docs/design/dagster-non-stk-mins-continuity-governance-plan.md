@@ -33,7 +33,7 @@
 | 股票当前交易日注册 | `stock_current_trade_day_sensor.py` | today-only，只注册当天；停机错过当天后不会自动补该 current partition。 |
 | 股票日线 raw / silver | `stock_daily_sensor.py` | 在已注册 `cn_a_stock_trade_days` 内按最早 missing 补，每 tick 最多 2 个；但不主动校验 expected calendar 与 registered partitions 是否有缺口。 |
 | 停复牌 raw / silver | `suspend_d_sensor.py` | 在已注册 `cn_a_stock_trade_days` 内按最早 missing 补；但同样不主动校验 expected calendar 与 registered partitions 是否有缺口。 |
-| 复权因子 raw / silver | `stock_adj_factor_sensor.py` | 绑定 `cn_a_stock_current_trade_days`，且只看 latest registered current trade day；停机漏一天后容易跳过更早缺口。 |
+| 复权因子 raw / silver | `stock_adj_factor_sensor.py` | 已接入 bounded expected current trade day window、registered gap guard 和 batch lake readiness；不再以 latest registered current trade day 作为正式目标。 |
 | 指数日线 raw | `index_daily_sensor.py` | 已对最近 60 个可运行指数交易日做 raw gap audit，能找最早 raw 缺口。本专项固定补 expected registered gap guard。 |
 | 指数日线 silver | `silver_index_daily_sensor.py` | 已先查 raw gap，再选择 first not-ready silver。本专项固定补 expected registered gap guard。 |
 | 主要指数日线 gold | `market_major_indices_daily_sensor.py` | 只看 latest registered index trade day；更早 gold 缺口可能被跳过。 |
@@ -47,10 +47,10 @@
 | 代码事实 | 结论 | LLD 约束 |
 | --- | --- | --- |
 | `stock_current_trade_day_sensor.py` 中 `build_stock_current_trade_day_registration_decision(...)` 仍只围绕 today 判断。 | P1 仍需把 today-only 改成 bounded catch-up。 | P1 必须删除 today-only 正式口径，改用最近 60 个 expected current trade days。 |
-| `stock_adj_factor_sensor.py` 仍有 `_latest_registered_trade_date(...)`，raw/silver 都围绕 latest current trade day。 | P2C 仍需迁移为 first missing / first not-ready。 | P2C 前必须先完成 P2A/P2B，否则会把生命周期语义问题带进 sensor 热路径。 |
-| 代码中尚无 `silver_stock_lifecycle` 正式 asset / path / catalog / checks。 | P2A 是真实新增资产阶段，不是文档口径调整。 | LLD 必须列清字段契约、path、asset metadata、checks、catalog、readiness、job selection 和测试。 |
-| `silver_stock_daily`、股票分钟线 lifecycle/name timeline、lake readiness、runless dry-run helper 仍直接使用 `raw_stock_basic` 生命周期事实。 | P2B 必须一次性迁移既有消费者。 | P2B 验收前，长期生命周期消费者不得继续直接调用 `historical_cny_stock_lifecycle_select(raw_stock_basic_path)`。 |
-| `silver_adj_factor_listed_stock_only` / `silver_adj_factor_coverage_complete` 仍依赖 current-listed-only 相关口径。 | P2C 的 check 语义修正不能跳过。 | 复权因子历史分区必须改用 `silver_stock_lifecycle`，不能用 `silver_stock_basic` 判断历史股票全集。 |
+| `stock_adj_factor_sensor.py` 已移除 `_latest_registered_trade_date(...)` 和单日 adj factor readiness wrapper。 | P2C 已迁移为 first missing / first not-ready。 | 后续静态门禁必须防止 latest registered 和逐日 Dagster readiness 回流。 |
+| 已存在 `silver_stock_lifecycle` 正式 asset / path / catalog / checks / readiness。 | P2A 已完成。 | 后续历史生命周期判断以该 silver 事实为准。 |
+| `silver_stock_daily`、股票分钟线 lifecycle/name timeline、lake readiness、runless dry-run helper 已迁移到 `silver_stock_lifecycle`。 | P2B 已完成。 | 长期生命周期消费者不得再直接调用 `historical_cny_stock_lifecycle_select(raw_stock_basic_path)`。 |
+| `silver_adj_factor_listed_stock_only` / `silver_adj_factor_coverage_complete` 已改用 `silver_stock_lifecycle`。 | P2C 已完成。 | 复权因子历史分区不得回到 current-listed-only `silver_stock_basic` 股票全集。 |
 | `stock_daily_sensor.py`、`suspend_d_sensor.py` 已在 registered partitions 内补缺，但没有 expected registered gap guard。 | P3 只加 guard，不重写 sensor。 | P3 不得扩大 selected-date readiness 调用范围，不得做 60 日逐日 Dagster readiness 扫描。 |
 | `index_daily_sensor.py`、`silver_index_daily_sensor.py` 已有 raw gap audit / silver bounded selector，但没有 expected registered gap guard。 | P5 只加 guard 和防回流门禁。 | P5 保留现有 raw gap audit 与 silver selector，不把单日 readiness wrapper 放入窗口循环。 |
 | `market_major_indices_daily_sensor.py` 仍使用 `_latest_registered_trade_date(...)`，并调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`、`silver_index_daily_ready_for_trade_date(...)`、`silver_index_basic_ready(...)`。 | P4 仍是独立性能专项。 | P4 必须按专门 LLD 新增 lake/DuckDB readiness，不复用旧 Dagster event history wrapper。 |
@@ -229,7 +229,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 | 阶段 | 性能风险 | 禁止实现 | 开发前只读验证 |
 | --- | --- | --- | --- |
 | P1 current trade day 注册 | 误用全历史交易日注册 helper，导致从历史起点补几千个 current partitions。 | 禁止从 `STK` 历史起点或 `FULL_TRADE_DAY_MIN_DATE` 加载全量 expected dates。 | 已完成只读验证：正式 calendar 读取约 21ms，current dynamic partitions 读取约 182ms，60 日 gap diff 约 0.01ms。P1 可按 60 日 bounded catch-up 推进。 |
-| P2 复权因子 raw/silver | 60 天窗口逐日读 Dagster readiness，重复扫 materialization/check history；同时当前生命周期判断分散在多个消费者里，容易继续误用 current-listed-only 股票池。 | 禁止在 selector 循环里调用 `raw_tushare_adj_factor_ready_for_trade_date(...)`、`adj_factor_ready_for_trade_date(...)`、`asset_readiness_status(...)`；禁止让复权因子、股票日线、股票分钟线继续各自直接从 `raw_stock_basic` 现算生命周期事实。 | 已完成只读验证：正式 Dagster 单日 readiness 约 27s/超时，正式 lake 60 日 `batch_adj_factor_lake_readiness(...)` 约 1.1s。但 batch 暴露 `silver_adj_factor_coverage_complete` / `silver_adj_factor_listed_stock_only` 历史生命周期语义问题。P2 前必须先新增 `silver_stock_lifecycle`，迁移既有 raw_stock_basic 生命周期消费者，再推进复权因子。 |
+| P2 复权因子 raw/silver | 治理前 60 天窗口逐日读 Dagster readiness，重复扫 materialization/check history；同时生命周期判断分散在多个消费者里，容易误用 current-listed-only 股票池。 | 禁止在 selector 循环里调用 `raw_tushare_adj_factor_ready_for_trade_date(...)`、`adj_factor_ready_for_trade_date(...)`、`asset_readiness_status(...)`；禁止让复权因子、股票日线、股票分钟线继续各自直接从 `raw_stock_basic` 现算生命周期事实。 | 已完成 P2A/P2B/P2C：新增 `silver_stock_lifecycle`，迁移既有生命周期消费者，复权因子 sensor 改为 DuckDB batch lake readiness。P2C 开发前只读 prototype 显示 20 日约 10.119ms、60 日约 13.323ms；`000638.SZ` 在退市日 `2026-04-13` 用 lifecycle 通过，用 current-listed 会失败，退市后日期会失败。 |
 | P3 股票日线 / 停复牌 | 误把 expected registered gap guard 做成逐日 readiness 深扫，或扩大现有 selected-date 门禁。 | 禁止新增 60 日逐日 `asset_readiness_status(...)` / `dataset_readiness_status(...)`；禁止扩大 raw repair 全历史扫描。 | 已完成只读验证：stock dynamic partitions 约 31ms，60 日 registered gap diff 约 0.003ms；raw/silver stock daily、raw/silver suspend materialized partition set 读取约 11-29ms。P3 只加 gap guard，可推进。 |
 | P4 主要指数日线 gold | 60 天窗口逐日调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`。 | 禁止 first-not-ready selector 逐日调用单日 gold readiness wrapper；也不得把该 wrapper 包在 20/60 日循环里。 | 已完成正式只读 profiling：单日 `gold_market_major_indices_daily_ready_for_trade_date(...)` 约 47s/超时。P4 必须另做 DuckDB/lake batch 或真正 bounded metadata selector，不能复用当前单日 wrapper。 |
 | P5 指数日线 raw/silver | 已有 raw gap audit 和 silver bounded selector，如果改造时回退到逐日单日 readiness wrapper，会造成 event history 深扫。 | 禁止把 `silver_index_daily_ready_for_trade_date(...)` 或其它单日 readiness wrapper 放进 20/60 日循环；禁止替换掉现有 raw gap audit 的 DuckDB batch 口径。 | 已完成只读验证：index dynamic partitions 约 37ms，index code partitions 约 10ms；raw gap audit 20/60 日约 299ms/207ms；silver first-not-ready selector 20/60 日约 4.2s/3.5s。P5 可按现有 bounded selector + gap guard 推进，但必须加静态门禁防回流。 |
@@ -274,7 +274,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 已确认的阶段准入结论：
 
 1. P1 可以进入实现；60 日窗口保留。
-2. P2 不能直接进入 sensor 改造；必须先新增 `silver_stock_lifecycle`，把既有直接依赖 `raw_stock_basic` 生命周期事实的消费者迁移过去，再处理复权因子历史生命周期 checks，否则 `batch_adj_factor_lake_readiness(...)` 会把大量历史分区判为 check failed。
+2. P2 已按 P2A/P2B/P2C 顺序落地；该顺序证明是必要的：先新增 `silver_stock_lifecycle`，再迁移既有直接依赖 `raw_stock_basic` 生命周期事实的消费者，最后处理复权因子历史生命周期 checks 和 sensor batch readiness。
 3. P3 可以进入实现；只新增 expected registered gap guard，不扩大现有 selected-date readiness 和 repair 扫描范围。
 4. P4 不能复用现有 `gold_market_major_indices_daily_ready_for_trade_date(...)`；必须先设计并验证新的 batch selector。
 5. P5 可以进入实现；保留现有 raw gap audit 与 silver bounded selector，只补 expected registered gap guard 和静态门禁。
@@ -304,13 +304,13 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 ### 5.2 股票生命周期 silver 事实资产
 
-当前问题：
+治理前问题：
 
-股票生命周期事实已经被多个数据资产复用，但当前代码里仍有消费者直接从 `raw_stock_basic` 派生 `list_date` / `delist_date` 区间。已审计到的同类消费者包括：
+股票生命周期事实已经被多个数据资产复用，但治理前代码里有消费者直接从 `raw_stock_basic` 派生 `list_date` / `delist_date` 区间。P2A/P2B/P2C 已把这些长期生命周期消费者收敛到 `silver_stock_lifecycle`。已处理的同类消费者包括：
 
-1. `silver_stock_daily`：写入过滤和 `silver_stock_daily_stock_lifecycle_covered` check 已使用 `raw_stock_basic` 历史生命周期口径。
-2. 股票分钟线 silver：`silver_stk_mins_name_timeline_covered` check、lake readiness、旧 runless check event dry-run helper 已使用 `raw_stock_basic` 生命周期口径，主要用于解决 `000638.SZ` 这类退市历史股票。
-3. 复权因子 silver：`silver_adj_factor_listed_stock_only` / `silver_adj_factor_coverage_complete` 当前仍可能基于 current-listed-only `silver_stock_basic`，这是 P2 的语义阻断点。
+1. `silver_stock_daily`：写入过滤和 `silver_stock_daily_stock_lifecycle_covered` check 已迁到 `silver_stock_lifecycle`。
+2. 股票分钟线 silver：`silver_stk_mins_name_timeline_covered` check、lake readiness、旧 runless check event dry-run helper 已迁到 `silver_stock_lifecycle`，主要用于解决 `000638.SZ` 这类退市历史股票。
+3. 复权因子 silver：`silver_adj_factor_listed_stock_only` / `silver_adj_factor_coverage_complete` 已基于 `silver_stock_lifecycle`，不再使用 current-listed-only `silver_stock_basic` 作为历史股票全集。
 
 这些事实表达的是同一个稳定业务概念：某只股票在哪个日期区间内是 A 股 CNY 股票，历史数据在这个区间内是否合法。因此不应让每个下游各自从 raw 层现算，也不应继续把 current-listed `silver_stock_basic` 当作历史股票全集。
 
@@ -370,8 +370,8 @@ Current snapshot 资产不使用 first missing historical partition 口径。
    - `silver_adj_factor_update:{trade_date}`
 7. 已 materialized 但 checks 未绿时，不自动重跑，不推进后续日期。
 8. 正式实现不得逐日读取 Dagster check history；必须走 DuckDB/lake batch readiness。
-9. P2 sensor 改造前必须先完成 `silver_stock_lifecycle` 开发与既有生命周期消费者迁移。2026-06-20 正式 lake 60 日 batch profiling 显示，现有 `batch_adj_factor_lake_readiness(...)` 在最近 60 日只判定 7 日 ready，最早失败为 `2026-03-23`，失败 check 为 `silver_adj_factor_coverage_complete` 与 `silver_adj_factor_listed_stock_only`。该问题不是 sensor 性能问题，而是复权因子 silver check 语义仍可能绑定 current-listed-only 股票池，不能直接把它接入 sensor 热路径。
-10. 生命周期语义修正要求：复权因子历史分区的股票全集 / listed 判断必须使用 `silver_stock_lifecycle`，不能用 current-listed-only `silver_stock_basic` 把历史退市股票误判为失败。
+9. P2 sensor 改造已在 `silver_stock_lifecycle` 开发与既有生命周期消费者迁移完成后推进。2026-06-21 P2C 只读 prototype 显示，迁移到 lifecycle 后 60 日 DuckDB batch 约 13.323ms，未回到逐日 Dagster event/check history 深扫模型。
+10. 生命周期语义修正要求已经落地：复权因子历史分区的股票全集 / listed 判断使用 `silver_stock_lifecycle`，不能用 current-listed-only `silver_stock_basic` 把历史退市股票误判为失败。
 
 ### 5.4 股票日线 raw / silver
 
@@ -629,7 +629,7 @@ AutomationCondition.eager()
 | 新状态实体 | 默认不新增 status manifest、summary asset、readiness asset、数据库表或配置项。 |
 | run key | 不改 run key builder，不新增数据集专属 run key helper。 |
 | failed checks | 已 materialized 但 blocking checks failed 时不自动重跑，不推进后续日期。 |
-| 风险阶段准入 | P0F 是后续历史连续 sensor 改造前置；P1、P3、P5 已通过性能准入；P2 需先完成 `silver_stock_lifecycle` 开发和既有生命周期消费者迁移，再推进复权因子；P4 需先完成 batch selector 方案验证；P6 不再验证默认 automation，改为基于 P0F 设计显式 bounded sensor。 |
+| 风险阶段准入 | P0F 是后续历史连续 sensor 改造前置；P1、P2、P3、P5 已通过性能准入；P2 已完成 `silver_stock_lifecycle` 开发、既有生命周期消费者迁移和复权因子 first-not-ready；P4 需先完成 batch selector 方案验证；P6 不再验证默认 automation，改为基于 P0F 设计显式 bounded sensor。 |
 | Dagster 验证 | 只允许只读验证；禁止写入 run、event、asset、check、backfill 或正式 lake。 |
 
 ## 8. 已拍板口径

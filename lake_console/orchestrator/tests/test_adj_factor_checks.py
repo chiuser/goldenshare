@@ -9,7 +9,7 @@ from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
     raw_adj_factor_path,
     silver_adj_factor_path,
-    silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
@@ -88,27 +88,39 @@ def _write_silver_adj_factor_file(
     return path
 
 
-def _write_silver_stock_basic_file(
+def _write_silver_stock_lifecycle_file(
     root: Path,
-    rows: tuple[tuple[str, str, str, str], ...],
+    rows: tuple[tuple[str, str, str, str, str | None], ...],
 ) -> Path:
-    path = silver_stock_basic_path(root)
+    path = silver_stock_lifecycle_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     values_sql = ", ".join(
         "("
         f"{_sql_string(ts_code)}, "
         f"{_sql_string(curr_type)}, "
         f"{_sql_string(list_status)}, "
-        f"DATE {duckdb_string(list_date)}"
+        f"DATE {duckdb_string(list_date)}, "
+        f"{f'DATE {duckdb_string(delist_date)}' if delist_date else 'NULL::DATE'}"
         ")"
-        for ts_code, curr_type, list_status, list_date in rows
+        for ts_code, curr_type, list_status, list_date, delist_date in rows
     )
     with duckdb.connect(database=":memory:") as connection:
         connection.execute(
             f"""
             COPY (
-              SELECT *
-              FROM (VALUES {values_sql}) rows(ts_code, curr_type, list_status, list_date)
+              SELECT
+                ts_code,
+                split_part(ts_code, '.', 1)::VARCHAR AS symbol,
+                'sample'::VARCHAR AS name,
+                CASE WHEN ends_with(ts_code, '.SZ') THEN 'SZSE' ELSE 'SSE' END::VARCHAR AS exchange,
+                '主板'::VARCHAR AS market,
+                curr_type,
+                curr_type = 'CNY' AS is_cny_stock,
+                list_status,
+                list_date,
+                delist_date
+              FROM (VALUES {values_sql})
+                rows(ts_code, curr_type, list_status, list_date, delist_date)
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
@@ -187,14 +199,14 @@ class AdjFactorCheckTests(unittest.TestCase):
     def test_silver_adj_factor_checks_pass_for_valid_partition_file(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (
-                    ("000001.SZ", "CNY", "L", "2020-01-01"),
-                    ("000002.SZ", "CNY", "L", "2021-01-01"),
-                    ("000003.SZ", "CNY", "L", "2026-05-30"),
-                    ("000004.SZ", "CNY", "D", "2020-01-01"),
-                    ("200001.SZ", "HKD", "L", "2020-01-01"),
+                    ("000001.SZ", "CNY", "L", "2020-01-01", None),
+                    ("000002.SZ", "CNY", "D", "2021-01-01", "2026-06-30"),
+                    ("000003.SZ", "CNY", "L", "2026-05-30", None),
+                    ("000004.SZ", "CNY", "D", "2020-01-01", "2026-04-13"),
+                    ("200001.SZ", "HKD", "L", "2020-01-01", None),
                 ),
             )
             _write_silver_adj_factor_file(
@@ -235,13 +247,13 @@ class AdjFactorCheckTests(unittest.TestCase):
     ) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (
-                    ("000001.SZ", "CNY", "L", "2020-01-01"),
-                    ("000002.SZ", "CNY", "L", "2021-01-01"),
-                    ("000004.SZ", "CNY", "D", "2020-01-01"),
-                    ("200001.SZ", "HKD", "L", "2020-01-01"),
+                    ("000001.SZ", "CNY", "L", "2020-01-01", None),
+                    ("000002.SZ", "CNY", "L", "2021-01-01", None),
+                    ("000004.SZ", "CNY", "D", "2020-01-01", "2026-04-13"),
+                    ("200001.SZ", "HKD", "L", "2020-01-01", None),
                 ),
             )
             context = _PartitionContext(TARGET_TRADE_DATE)

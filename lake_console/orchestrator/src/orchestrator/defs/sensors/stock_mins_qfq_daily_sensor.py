@@ -3,6 +3,13 @@ from datetime import datetime, time
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.adj_factor_lake_readiness import (
+    batch_adj_factor_lake_readiness,
+)
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityBatchReadiness,
+    ContinuityDateReadiness,
+)
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
     StockMinsContinuityStatus,
     load_stock_mins_expected_trade_dates,
@@ -11,7 +18,6 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
-    batch_adj_factor_lake_readiness,
     batch_gold_stk_mins_qfq_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
 )
@@ -65,7 +71,12 @@ class StockMinsQfqDailyReadinessSnapshot:
     ready: bool
     reason: str
     silver_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None
-    adj_factor_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None
+    adj_factor_status: (
+        StkMinsDateReadiness
+        | ContinuityDateReadiness
+        | DatasetReadinessStatus
+        | None
+    ) = None
     gold_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None
 
 
@@ -104,9 +115,9 @@ def _target_trade_date_from_continuity_status(
 
 
 def _has_materialized_check_problem(
-    status: StkMinsDateReadiness | DatasetReadinessStatus,
+    status: StkMinsDateReadiness | ContinuityDateReadiness | DatasetReadinessStatus,
 ) -> bool:
-    if isinstance(status, StkMinsDateReadiness):
+    if isinstance(status, (StkMinsDateReadiness, ContinuityDateReadiness)):
         return status.materialized and not status.checks_passed
     return any(
         asset_status.materialized and not asset_status.checks_passed
@@ -128,20 +139,24 @@ def _qfq_daily_snapshot_has_materialized_check_problem(
 
 
 def _readiness_status_payload(
-    status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+    status: (
+        StkMinsDateReadiness | ContinuityDateReadiness | DatasetReadinessStatus | None
+    ),
 ) -> dict[str, object] | None:
     if status is None:
         return None
-    if isinstance(status, StkMinsDateReadiness):
+    if isinstance(status, (StkMinsDateReadiness, ContinuityDateReadiness)):
         return status.to_cursor_details()
     return status_payload(status)
 
 
 def _batch_status_payload(
-    batch_status: StkMinsBatchReadiness | None,
+    batch_status: StkMinsBatchReadiness | ContinuityBatchReadiness | None,
 ) -> dict[str, object] | None:
     if batch_status is None:
         return None
+    if isinstance(batch_status, ContinuityBatchReadiness):
+        return batch_status.to_cursor_details()
     return {
         "dataset": batch_status.dataset,
         "expected_start_date": batch_status.expected_start_date,
@@ -156,7 +171,7 @@ def _qfq_daily_readiness_snapshot_for_trade_date(
     *,
     trade_date: str,
     silver_batch_status: StkMinsBatchReadiness,
-    adj_factor_batch_status: StkMinsBatchReadiness,
+    adj_factor_batch_status: ContinuityBatchReadiness,
     gold_batch_status: StkMinsBatchReadiness,
 ) -> StockMinsQfqDailyReadinessSnapshot:
     silver_status = silver_batch_status.status_for_trade_date(trade_date)
@@ -237,11 +252,13 @@ def build_stock_mins_qfq_daily_update_decision(
 
 
 def _not_ready_count(
-    status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+    status: (
+        StkMinsDateReadiness | ContinuityDateReadiness | DatasetReadinessStatus | None
+    ),
 ) -> int:
     if status is None or status.ready:
         return 0
-    if isinstance(status, StkMinsDateReadiness):
+    if isinstance(status, (StkMinsDateReadiness, ContinuityDateReadiness)):
         return 1
     return len([asset_status for asset_status in status.statuses if not asset_status.ready])
 
@@ -252,10 +269,15 @@ def _cursor_payload(
     evaluated_at: datetime,
     registered_trade_day_count: int,
     silver_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None,
-    adj_factor_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None,
+    adj_factor_status: (
+        StkMinsDateReadiness
+        | ContinuityDateReadiness
+        | DatasetReadinessStatus
+        | None
+    ) = None,
     gold_status: StkMinsDateReadiness | DatasetReadinessStatus | None = None,
     silver_batch_status: StkMinsBatchReadiness | None = None,
-    adj_factor_batch_status: StkMinsBatchReadiness | None = None,
+    adj_factor_batch_status: ContinuityBatchReadiness | None = None,
     gold_batch_status: StkMinsBatchReadiness | None = None,
     already_submitted_for_trade_date: bool = False,
     continuity_status: StockMinsContinuityStatus | None = None,

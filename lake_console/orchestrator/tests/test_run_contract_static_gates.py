@@ -1486,7 +1486,6 @@ class RunContractStaticGateTests(unittest.TestCase):
         required_helper_fragments = (
             "def batch_raw_stk_mins_lake_readiness",
             "def batch_silver_stk_mins_lake_readiness",
-            "def batch_adj_factor_lake_readiness",
             "def batch_gold_stk_mins_qfq_lake_readiness",
             "full_semantics: bool = True",
             "failed_check_names",
@@ -1504,6 +1503,43 @@ class RunContractStaticGateTests(unittest.TestCase):
             f"{fragment}"
             for fragment in required_helper_fragments
             if fragment not in lake_readiness_source
+        )
+
+        adj_factor_readiness_source = (
+            DEFS_DIR / "asset_guards" / "adj_factor_lake_readiness.py"
+        ).read_text()
+        adj_factor_required_fragments = (
+            "def batch_raw_adj_factor_lake_readiness",
+            "def batch_silver_adj_factor_lake_readiness",
+            "def batch_adj_factor_lake_readiness",
+            "silver_stock_lifecycle_path",
+            "silver_cny_stock_lifecycle_select",
+            "full_semantics: bool = True",
+            "failed_check_names",
+            "materialized = not missing_file_paths",
+            "checks_passed = not failed_check_names",
+        )
+        adj_factor_forbidden_fragments = (
+            "import dagster",
+            "from dagster",
+            "DagsterInstance",
+            "get_asset_check_execution_history",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "get_event_records",
+            "silver_stock_basic_path",
+            "current_cny_stock_basic_select",
+        )
+        issues.extend(
+            "adj_factor_lake_readiness.py misses required batch readiness fragment: "
+            f"{fragment}"
+            for fragment in adj_factor_required_fragments
+            if fragment not in adj_factor_readiness_source
+        )
+        issues.extend(
+            "adj_factor_lake_readiness.py contains forbidden runtime/state fragment: "
+            f"{fragment}"
+            for fragment in adj_factor_forbidden_fragments
+            if fragment in adj_factor_readiness_source
         )
 
         self.assertEqual(issues, [])

@@ -5,14 +5,14 @@ from pathlib import Path
 import dagster as dg
 
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
-from orchestrator.defs.assets.stock_basic import silver_stock_basic
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     adj_factor_normalized_select,
     copy_query_to_parquet,
     count_parquet_query,
-    current_cny_stock_basic_select,
     describe_parquet_query,
+    silver_cny_stock_lifecycle_select,
     silver_adj_factor_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
@@ -22,7 +22,7 @@ from orchestrator.defs.paths import (
     lake_path_template,
     raw_adj_factor_path,
     silver_adj_factor_path,
-    silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource, TushareResource
 from orchestrator.defs.run_contracts.asset_column_schemas import (
@@ -56,10 +56,10 @@ ADJ_FACTOR_SILVER_COLUMN_TYPES = {
 @dataclass(frozen=True)
 class SilverAdjFactorPartitionWriteResult:
     raw_file_path: Path
-    stock_basic_file_path: Path
+    stock_lifecycle_file_path: Path
     silver_file_path: Path
     source_row_count: int
-    current_listed_stock_count: int
+    lifecycle_stock_count: int
     selected_row_count: int
     rejected_row_count: int
     row_count: int
@@ -68,10 +68,10 @@ class SilverAdjFactorPartitionWriteResult:
     def materialization_extra_metadata(self, partition_key: str) -> dict[str, object]:
         return {
             "raw_file_path": str(self.raw_file_path),
-            "stock_basic_file_path": str(self.stock_basic_file_path),
+            "stock_lifecycle_file_path": str(self.stock_lifecycle_file_path),
             "partition_key": partition_key,
             "source_row_count": self.source_row_count,
-            "current_listed_stock_count": self.current_listed_stock_count,
+            "lifecycle_stock_count": self.lifecycle_stock_count,
             "selected_row_count": self.selected_row_count,
             "rejected_row_count": self.rejected_row_count,
         }
@@ -104,26 +104,33 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
     os.replace(temporary_path, target_path)
 
 
-def _silver_filter_counts(connection, raw_path: Path, basic_path: Path) -> dict[str, int]:
+def _silver_filter_counts(
+    connection,
+    raw_path: Path,
+    stock_lifecycle_path: Path,
+) -> dict[str, int]:
     normalized_sql = adj_factor_normalized_select(raw_path)
     row = connection.execute(
         f"""
         WITH normalized AS (
           {normalized_sql}
         ),
-        current_listed AS (
-          SELECT DISTINCT ts_code, list_date
-          FROM ({current_cny_stock_basic_select(basic_path)}) stock_basic
+        stock_lifecycle AS (
+          {silver_cny_stock_lifecycle_select(stock_lifecycle_path)}
         ),
         selected AS (
           SELECT normalized.*
           FROM normalized
-          INNER JOIN current_listed USING (ts_code)
-          WHERE normalized.trade_date >= current_listed.list_date
+          INNER JOIN stock_lifecycle USING (ts_code)
+          WHERE normalized.trade_date >= stock_lifecycle.list_date
+            AND (
+              stock_lifecycle.delist_date IS NULL
+              OR normalized.trade_date <= stock_lifecycle.delist_date
+            )
         )
         SELECT
           (SELECT count(*) FROM normalized) AS source_row_count,
-          (SELECT count(*) FROM current_listed) AS current_listed_stock_count,
+          (SELECT count(*) FROM stock_lifecycle) AS lifecycle_stock_count,
           (SELECT count(*) FROM selected) AS selected_row_count,
           (SELECT count(*) FROM normalized) - (SELECT count(*) FROM selected)
             AS rejected_row_count
@@ -131,7 +138,7 @@ def _silver_filter_counts(connection, raw_path: Path, basic_path: Path) -> dict[
     ).fetchone()
     return {
         "source_row_count": int(row[0]),
-        "current_listed_stock_count": int(row[1]),
+        "lifecycle_stock_count": int(row[1]),
         "selected_row_count": int(row[2]),
         "rejected_row_count": int(row[3]),
     }
@@ -145,20 +152,22 @@ def write_silver_adj_factor_partition(
     overwrite: bool = False,
 ) -> SilverAdjFactorPartitionWriteResult:
     raw_path = raw_adj_factor_path(lake_root, partition_key)
-    basic_path = silver_stock_basic_path(lake_root)
+    stock_lifecycle_path = silver_stock_lifecycle_path(lake_root)
     target_path = silver_adj_factor_path(lake_root, partition_key)
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw adj factor file: {raw_path}")
-    if not basic_path.exists():
-        raise FileNotFoundError(f"Missing silver stock basic file: {basic_path}")
+    if not stock_lifecycle_path.exists():
+        raise FileNotFoundError(
+            f"Missing silver stock lifecycle file: {stock_lifecycle_path}"
+        )
     if target_path.exists() and not overwrite:
         raise FileExistsError(f"Silver adj factor file already exists: {target_path}")
 
     with connect_configured_duckdb() as connection:
-        filter_counts = _silver_filter_counts(connection, raw_path, basic_path)
+        filter_counts = _silver_filter_counts(connection, raw_path, stock_lifecycle_path)
         _replace_parquet_from_query(
             connection,
-            silver_adj_factor_select(raw_path, basic_path),
+            silver_adj_factor_select(raw_path, stock_lifecycle_path),
             target_path,
         )
         columns = tuple(
@@ -168,10 +177,10 @@ def write_silver_adj_factor_partition(
 
     return SilverAdjFactorPartitionWriteResult(
         raw_file_path=raw_path,
-        stock_basic_file_path=basic_path,
+        stock_lifecycle_file_path=stock_lifecycle_path,
         silver_file_path=target_path,
         source_row_count=filter_counts["source_row_count"],
-        current_listed_stock_count=filter_counts["current_listed_stock_count"],
+        lifecycle_stock_count=filter_counts["lifecycle_stock_count"],
         selected_row_count=filter_counts["selected_row_count"],
         rejected_row_count=filter_counts["rejected_row_count"],
         row_count=row_count,
@@ -232,7 +241,7 @@ def raw_tushare_adj_factor(
 
 @dg.asset(
     name="silver_adj_factor",
-    deps=[raw_tushare_adj_factor, silver_stock_basic],
+    deps=[raw_tushare_adj_factor, silver_stock_lifecycle],
     partitions_def=cn_a_stock_current_trade_days,
     group_name="quote",
     tags=build_asset_tags(layer=AssetLayer.SILVER, data_domain=DataDomain.QUOTE_DATA),
@@ -249,16 +258,17 @@ def raw_tushare_adj_factor(
         ),
         extra_metadata={
             "filter_policy": (
-                "Keep current listed stocks only and keep rows on/after list_date; "
+                "Keep lifecycle-valid CNY stocks on/after list_date and on/before "
+                "delist_date when present; "
                 "raw remains the Tushare source mirror."
             ),
             "upstream_ready_policy": (
-                "silver_stock_basic must exist before silver_adj_factor is produced; "
-                "stock basic is a read-only prerequisite."
+                "silver_stock_lifecycle must exist before silver_adj_factor is "
+                "produced; lifecycle is a read-only prerequisite."
             ),
         },
     ),
-    description="复权因子标准表，按当前上市股票和上市日期过滤。",
+    description="复权因子标准表，按历史股票生命周期过滤。",
 )
 def silver_adj_factor(
     context: dg.AssetExecutionContext,

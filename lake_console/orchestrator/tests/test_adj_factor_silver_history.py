@@ -26,7 +26,7 @@ from orchestrator.defs.duckdb_sql import (
 from orchestrator.defs.paths import (
     raw_adj_factor_path,
     silver_adj_factor_path,
-    silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 
@@ -65,18 +65,19 @@ def _write_raw_adj_factor_file(
     return path
 
 
-def _write_silver_stock_basic_file(
+def _write_silver_stock_lifecycle_file(
     root: Path,
     rows: tuple[tuple[str, str, str, str], ...],
 ) -> Path:
-    path = silver_stock_basic_path(root)
+    path = silver_stock_lifecycle_path(root)
     path.parent.mkdir(parents=True, exist_ok=True)
     values_sql = ", ".join(
         "("
         f"{_sql_string(ts_code)}, "
         f"{_sql_string(curr_type)}, "
         f"{_sql_string(list_status)}, "
-        f"DATE {duckdb_string(list_date)}"
+        f"DATE {duckdb_string(list_date)}, "
+        f"{'DATE ' + duckdb_string('2026-04-13') if list_status == 'D' else 'NULL::DATE'}"
         ")"
         for ts_code, curr_type, list_status, list_date in rows
     )
@@ -84,8 +85,19 @@ def _write_silver_stock_basic_file(
         connection.execute(
             f"""
             COPY (
-              SELECT *
-              FROM (VALUES {values_sql}) rows(ts_code, curr_type, list_status, list_date)
+              SELECT
+                ts_code,
+                split_part(ts_code, '.', 1)::VARCHAR AS symbol,
+                'sample'::VARCHAR AS name,
+                CASE WHEN ends_with(ts_code, '.SZ') THEN 'SZSE' ELSE 'SSE' END::VARCHAR AS exchange,
+                '主板'::VARCHAR AS market,
+                curr_type,
+                curr_type = 'CNY' AS is_cny_stock,
+                list_status,
+                list_date,
+                delist_date
+              FROM (VALUES {values_sql})
+                rows(ts_code, curr_type, list_status, list_date, delist_date)
             ) TO {duckdb_string(path)} (FORMAT PARQUET)
             """
         )
@@ -141,7 +153,7 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                     ("000003.SZ", "20260529", 3.3),
                 ),
             )
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (
                     ("000001.SZ", "CNY", "L", "2020-01-01"),
@@ -192,7 +204,7 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                 TARGET_TRADE_DATE,
                 (("000001.SZ", "20260529", 1.1),),
             )
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (("000001.SZ", "CNY", "L", "2020-01-01"),),
             )
@@ -222,7 +234,7 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                 TARGET_TRADE_DATE,
                 (("000001.SZ", "20260529", 1.1),),
             )
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (("000001.SZ", "CNY", "L", "2020-01-01"),),
             )
@@ -249,7 +261,7 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                 TARGET_TRADE_DATE,
                 (("000001.SZ", "20260529", 1.1),),
             )
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (("000001.SZ", "CNY", "L", "2020-01-01"),),
             )
@@ -285,7 +297,7 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                     partition_key,
                     (("000001.SZ", partition_key.replace("-", ""), 1.0),),
                 )
-            _write_silver_stock_basic_file(
+            _write_silver_stock_lifecycle_file(
                 root,
                 (("000001.SZ", "CNY", "L", "2020-01-01"),),
             )
@@ -315,7 +327,7 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                 TARGET_TRADE_DATE,
                 (("000001.SZ", "20260529", 1.1),),
             )
-            with self.assertRaisesRegex(FileNotFoundError, "Missing silver stock basic file"):
+            with self.assertRaisesRegex(FileNotFoundError, "Missing silver stock lifecycle file"):
                 write_adj_factor_silver_history_partition(
                     lake_root=root,
                     duckdb=DuckDBResource(),
@@ -329,10 +341,10 @@ class AdjFactorSilverHistoryTests(unittest.TestCase):
                 (root / layer_name).mkdir()
             write_result = SilverAdjFactorPartitionWriteResult(
                 raw_file_path=raw_adj_factor_path(root, TARGET_TRADE_DATE),
-                stock_basic_file_path=silver_stock_basic_path(root),
+                stock_lifecycle_file_path=silver_stock_lifecycle_path(root),
                 silver_file_path=silver_adj_factor_path(root, TARGET_TRADE_DATE),
                 source_row_count=2,
-                current_listed_stock_count=1,
+                lifecycle_stock_count=1,
                 selected_row_count=1,
                 rejected_row_count=1,
                 row_count=1,

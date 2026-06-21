@@ -13,7 +13,7 @@ from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import (
     raw_adj_factor_path,
     silver_adj_factor_path,
-    silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.sensors.readiness import (
@@ -51,8 +51,8 @@ class AdjFactorSilverHistoryPlan:
     raw_not_ready_partition_keys: tuple[str, ...]
     existing_silver_partition_keys: tuple[str, ...]
     planned_write_partition_keys: tuple[str, ...]
-    stock_basic_file_path: Path
-    stock_basic_exists: bool
+    stock_lifecycle_file_path: Path
+    stock_lifecycle_exists: bool
 
     @property
     def planned_write_count(self) -> int:
@@ -207,8 +207,8 @@ def plan_adj_factor_silver_history(
         raw_not_ready_partition_keys=raw_not_ready_partition_keys,
         existing_silver_partition_keys=existing_silver_partition_keys,
         planned_write_partition_keys=planned_write_partition_keys,
-        stock_basic_file_path=silver_stock_basic_path(lake_root),
-        stock_basic_exists=silver_stock_basic_path(lake_root).exists(),
+        stock_lifecycle_file_path=silver_stock_lifecycle_path(lake_root),
+        stock_lifecycle_exists=silver_stock_lifecycle_path(lake_root).exists(),
     )
 
 
@@ -233,8 +233,11 @@ def report_adj_factor_silver_history(
         require_raw_ready=require_raw_ready,
         skip_existing=skip_existing,
     )
-    if not plan.stock_basic_exists:
-        raise FileNotFoundError(f"Missing silver stock basic file: {plan.stock_basic_file_path}")
+    if not plan.stock_lifecycle_exists:
+        raise FileNotFoundError(
+            "Missing silver stock lifecycle file: "
+            f"{plan.stock_lifecycle_file_path}"
+        )
     if plan.raw_not_ready_partition_keys:
         raise ValueError(
             "raw_tushare_adj_factor is not ready for silver history generation: "

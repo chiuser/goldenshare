@@ -8,7 +8,7 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster Market Major Indices Sensor 热路径性能治理 LLD](dagster-market-major-indices-sensor-performance-governance-low-level-design.md)
 
-状态：开发前 LLD，待按阶段执行。
+状态：P0F-P2C 已完成，P3 及后续阶段待按顺序执行。
 
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
@@ -770,11 +770,12 @@ assets/adj_factor.py
 checks/adj_factor_checks.py
 ```
 
-当前问题：
+实现事实：
 
-1. sensor 使用 `_latest_registered_trade_date(...)`。
-2. silver asset/check 仍依赖 `silver_stock_basic` current-listed 口径。
-3. 单日 Dagster readiness wrapper 已通过 profiling 证明不可进入窗口循环。
+1. `stock_adj_factor_sensor.py` 已移除 `_latest_registered_trade_date(...)` 正式口径，raw/silver 均使用 P0F bounded expected window、registered gap guard 和 first not-ready。
+2. `silver_adj_factor` asset/check 已依赖 `silver_stock_lifecycle`，不再用 current-listed-only `silver_stock_basic` 判断历史股票全集。
+3. 单日 Dagster readiness wrapper 已通过 profiling 证明不可进入窗口循环，P2C 正式 sensor 已改为 DuckDB batch lake readiness。
+4. P2C 开发前只读 prototype 已验证迁移后完整语义：20 日约 10.119ms，60 日约 13.323ms；`000638.SZ` 在退市日 `2026-04-13` lifecycle 通过、current-listed 失败，退市后日期失败。
 
 #### 5.3.2 Asset / check 语义修正
 
@@ -809,7 +810,7 @@ checks/adj_factor_checks.py
 
 #### 5.3.4 Readiness provider
 
-新增或扩展：
+已新增：
 
 ```text
 asset_guards/adj_factor_lake_readiness.py
@@ -821,6 +822,28 @@ asset_guards/adj_factor_lake_readiness.py
 2. 不调用 `raw_tushare_adj_factor_ready_for_trade_date(...)` 或 `adj_factor_ready_for_trade_date(...)`。
 3. 完整覆盖正式 blocking check 语义。
 4. 复用 `silver_stock_lifecycle` 做历史股票全集 / listed 判断。
+
+#### 5.3.5 P2C 验收结果
+
+已落地文件：
+
+```text
+asset_guards/adj_factor_lake_readiness.py
+sensors/stock_adj_factor_sensor.py
+sensors/stock_mins_qfq_daily_sensor.py
+assets/adj_factor.py
+checks/adj_factor_checks.py
+bootstrap/adj_factor_silver_history.py
+duckdb_sql.py
+```
+
+验收口径：
+
+1. `raw_adj_factor_update_job_sensor` / `silver_adj_factor_update_job_sensor` 不再使用 latest registered target。
+2. 60 日窗口内不调用 `raw_tushare_adj_factor_ready_for_trade_date(...)`、`adj_factor_ready_for_trade_date(...)` 或 `asset_readiness_status(...)`。
+3. `silver_adj_factor_select(...)`、`silver_adj_factor_listed_stock_only`、`silver_adj_factor_coverage_complete`、`adj_factor_lake_readiness.py` 与 `adj_factor_silver_history.py` 均使用 `silver_stock_lifecycle`。
+4. `silver_adj_factor` deps 已从 `silver_stock_basic` 迁到 `silver_stock_lifecycle`；metadata 字段使用 `lifecycle_stock_count` / `stock_lifecycle_file_path`。
+5. `stk_mins_lake_readiness.py` 不再承载复权因子 batch helper，避免股票分钟线 helper 混入非分钟线复权因子语义。
 
 ## 6. P3 股票日线与停复牌 registered gap guard
 
@@ -1007,9 +1030,9 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 1. P2A `silver_stock_lifecycle` 是否纳入现有 `silver_stock_basic_update_job` selection；本 LLD 推荐纳入，不新增独立 sensor。
 2. P6 四个派生资产显式 sensor 是拆成三个文件还是四个文件；无论如何旧 automation active 入口必须退出。
 3. P4 gold lake readiness SQL 是否复用现有 check helper 内部 SQL，还是抽成 shared SQL builder；不能复制出语义漂移的第二套逻辑。
-4. P2C adj factor batch readiness helper 文件名与测试命名；必须表达资产族职责，不得使用阶段编号。
+4. P2C adj factor batch readiness helper 已落在 `asset_guards/adj_factor_lake_readiness.py`，测试沿用业务语义命名；后续不得回流到阶段编号命名或 stock-mins helper。
 5. P2B 开工前必须逐项审计 `stock_daily_checks.py` 中 current-listed 语义和 historical lifecycle 语义的边界：仍服务 `silver_stock_basic` freshness / current pool 的检查可以保留 current-listed 口径；`silver_stock_daily` 历史生命周期过滤、覆盖和下游完整性判断必须迁到 `silver_stock_lifecycle`。禁止用全局替换方式把所有 `silver_stock_basic_path` / `raw_stock_basic_path` 调用一刀切改掉。
-6. P2C 开工前必须在 P2A/P2B 已完成后重新做只读 DuckDB batch profiling。已有约 1.1 秒的 60 日复权因子 batch 数据来自旧生命周期口径，只证明读取模型可行，不证明迁移到 `silver_stock_lifecycle` 后的完整 blocking check 语义和耗时仍然成立。
+6. P2C 已在 P2A/P2B 完成后重新做只读 DuckDB batch profiling；迁移到 `silver_stock_lifecycle` 后 20 日约 10.119ms、60 日约 13.323ms，完整 blocking check 语义可行。
 7. P4 开工前必须先做只读 DuckDB SQL / 性能原型验证：覆盖 60 日 `gold_market_major_indices_daily` lake readiness、selected-date `silver_index_daily` lake readiness、`silver_index_basic` lake readiness 和 seed/input gate。已有 47 秒 / 超时数据只证明旧 wrapper 不可用，不能替代新 lake-derived readiness 的性能验收。
 8. P6 开工前必须先做只读 readiness provider 审计：gold 派生资产优先 lake 文件事实，local / prod ClickHouse serving 优先 bounded ClickHouse 只读查询或明确 bounded metadata 查询；不得运行正式 automation evaluator，不得全历史逐分区调用 `asset_readiness_status(...)`。
 

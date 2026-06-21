@@ -13,20 +13,21 @@ from orchestrator.defs.assets.adj_factor import (
     raw_tushare_adj_factor,
     silver_adj_factor,
 )
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.duckdb_sql import (
     ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
     ADJ_FACTOR_SILVER_REQUIRED_COLUMNS,
     count_parquet_query,
-    current_cny_stock_basic_select,
     describe_parquet_query,
     duckdb_string,
     read_parquet,
+    silver_cny_stock_lifecycle_select,
 )
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import (
     raw_adj_factor_path,
     silver_adj_factor_path,
-    silver_stock_basic_path,
+    silver_stock_lifecycle_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
@@ -666,7 +667,11 @@ def silver_adj_factor_positive_factor(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
+@dg.asset_check(
+    asset=silver_adj_factor,
+    additional_deps=[silver_stock_lifecycle],
+    blocking=True,
+)
 def silver_adj_factor_listed_stock_only(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -674,40 +679,51 @@ def silver_adj_factor_listed_stock_only(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     path = silver_adj_factor_path(lake_root.root(), partition_key)
-    basic_path = silver_stock_basic_path(lake_root.root())
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    if not basic_path.exists():
-        return _missing_input_file_result([basic_path])
+    if not lifecycle_path.exists():
+        return _missing_input_file_result([lifecycle_path])
 
-    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
+    stock_lifecycle_sql = silver_cny_stock_lifecycle_select(lifecycle_path)
     with connect_configured_duckdb() as connection:
         invalid_count = connection.execute(
             f"""
-            WITH current_listed AS (
-              SELECT DISTINCT ts_code, list_date
-              FROM ({current_cny_stock_basic_sql}) stock_basic
+            WITH stock_lifecycle AS (
+              {stock_lifecycle_sql}
             )
             SELECT count(*) AS invalid_count
             FROM {read_parquet(path, hive_partitioning=False)} adj
-            LEFT JOIN current_listed
-              ON adj.ts_code = current_listed.ts_code
-            WHERE current_listed.ts_code IS NULL
-               OR adj.trade_date < current_listed.list_date
+            LEFT JOIN stock_lifecycle
+              ON adj.ts_code = stock_lifecycle.ts_code
+            WHERE stock_lifecycle.ts_code IS NULL
+               OR adj.trade_date < stock_lifecycle.list_date
+               OR (
+                 stock_lifecycle.delist_date IS NOT NULL
+                 AND adj.trade_date > stock_lifecycle.delist_date
+               )
             """
         ).fetchone()[0]
         rows = connection.execute(
             f"""
-            WITH current_listed AS (
-              SELECT DISTINCT ts_code, list_date
-              FROM ({current_cny_stock_basic_sql}) stock_basic
+            WITH stock_lifecycle AS (
+              {stock_lifecycle_sql}
             )
-            SELECT adj.ts_code, adj.trade_date, current_listed.list_date, adj.adj_factor
+            SELECT
+              adj.ts_code,
+              adj.trade_date,
+              stock_lifecycle.list_date,
+              stock_lifecycle.delist_date,
+              adj.adj_factor
             FROM {read_parquet(path, hive_partitioning=False)} adj
-            LEFT JOIN current_listed
-              ON adj.ts_code = current_listed.ts_code
-            WHERE current_listed.ts_code IS NULL
-               OR adj.trade_date < current_listed.list_date
+            LEFT JOIN stock_lifecycle
+              ON adj.ts_code = stock_lifecycle.ts_code
+            WHERE stock_lifecycle.ts_code IS NULL
+               OR adj.trade_date < stock_lifecycle.list_date
+               OR (
+                 stock_lifecycle.delist_date IS NOT NULL
+                 AND adj.trade_date > stock_lifecycle.delist_date
+               )
             ORDER BY adj.ts_code, adj.trade_date
             LIMIT 10
             """
@@ -718,18 +734,31 @@ def silver_adj_factor_listed_stock_only(
         metadata=build_check_metadata(
             check_scope=CheckScope.REFERENTIAL_INTEGRITY,
             failed_row_count=int(invalid_count),
-            input_file_paths=[path, basic_path],
+            input_file_paths=[path, lifecycle_path],
             extra_metadata={
                 "partition_key": partition_key,
+                "lifecycle_fact_source": "silver_stock_lifecycle",
+                "silver_stock_lifecycle_file_path": str(lifecycle_path),
                 "invalid_sample_rows": _sample_dicts(
-                    ["ts_code", "trade_date", "list_date", "adj_factor"], rows
+                    [
+                        "ts_code",
+                        "trade_date",
+                        "list_date",
+                        "delist_date",
+                        "adj_factor",
+                    ],
+                    rows,
                 ),
             },
         ),
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
+@dg.asset_check(
+    asset=silver_adj_factor,
+    additional_deps=[silver_stock_lifecycle],
+    blocking=True,
+)
 def silver_adj_factor_coverage_complete(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -737,21 +766,25 @@ def silver_adj_factor_coverage_complete(
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     path = silver_adj_factor_path(lake_root.root(), partition_key)
-    basic_path = silver_stock_basic_path(lake_root.root())
+    lifecycle_path = silver_stock_lifecycle_path(lake_root.root())
     if not path.exists():
         return _missing_file_result(path)
-    if not basic_path.exists():
-        return _missing_input_file_result([basic_path])
+    if not lifecycle_path.exists():
+        return _missing_input_file_result([lifecycle_path])
 
     partition_date = f"DATE {duckdb_string(partition_key)}"
-    current_cny_stock_basic_sql = current_cny_stock_basic_select(basic_path)
+    stock_lifecycle_sql = silver_cny_stock_lifecycle_select(lifecycle_path)
     with connect_configured_duckdb() as connection:
         summary = connection.execute(
             f"""
             WITH expected AS (
               SELECT DISTINCT ts_code
-              FROM ({current_cny_stock_basic_sql}) stock_basic
+              FROM ({stock_lifecycle_sql}) stock_lifecycle
               WHERE list_date <= {partition_date}
+                AND (
+                  delist_date IS NULL
+                  OR delist_date >= {partition_date}
+                )
             ),
             actual AS (
               SELECT DISTINCT ts_code
@@ -781,8 +814,12 @@ def silver_adj_factor_coverage_complete(
             f"""
             WITH expected AS (
               SELECT DISTINCT ts_code
-              FROM ({current_cny_stock_basic_sql}) stock_basic
+              FROM ({stock_lifecycle_sql}) stock_lifecycle
               WHERE list_date <= {partition_date}
+                AND (
+                  delist_date IS NULL
+                  OR delist_date >= {partition_date}
+                )
             ),
             actual AS (
               SELECT DISTINCT ts_code
@@ -801,8 +838,12 @@ def silver_adj_factor_coverage_complete(
             f"""
             WITH expected AS (
               SELECT DISTINCT ts_code
-              FROM ({current_cny_stock_basic_sql}) stock_basic
+              FROM ({stock_lifecycle_sql}) stock_lifecycle
               WHERE list_date <= {partition_date}
+                AND (
+                  delist_date IS NULL
+                  OR delist_date >= {partition_date}
+                )
             ),
             actual AS (
               SELECT DISTINCT ts_code
@@ -825,9 +866,11 @@ def silver_adj_factor_coverage_complete(
         metadata=build_check_metadata(
             check_scope=CheckScope.RECONCILIATION,
             failed_row_count=missing_count + unexpected_count,
-            input_file_paths=[path, basic_path],
+            input_file_paths=[path, lifecycle_path],
             extra_metadata={
                 "partition_key": partition_key,
+                "lifecycle_fact_source": "silver_stock_lifecycle",
+                "silver_stock_lifecycle_file_path": str(lifecycle_path),
                 "expected_code_count": int(summary[0]),
                 "actual_code_count": int(summary[1]),
                 "missing_code_count": missing_count,
