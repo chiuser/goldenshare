@@ -125,12 +125,12 @@ class SilverIndexDailyReadinessSelectorTests(unittest.TestCase):
         )
 
     def test_all_ready_window_scans_each_check_once(self) -> None:
-        trade_dates = tuple(f"2026-06-{day:02d}" for day in range(1, 61))
+        trade_dates = tuple(f"2026-06-{day:02d}" for day in range(1, 11))
         materializations = {
             trade_date: _materialization(index)
             for index, trade_date in enumerate(trade_dates, start=1)
         }
-        storage_ids_newest_first = tuple(reversed(range(1, 61)))
+        storage_ids_newest_first = tuple(reversed(range(1, 11)))
         event_log_storage = _FakeEventLogStorage(
             {
                 check_name: _ready_records_for(storage_ids_newest_first)

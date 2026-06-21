@@ -66,7 +66,7 @@ Dagster 官方文档对 declarative automation 的语义说明决定了本专项
 ## 4. 设计目标
 
 1. 提供统一的 bounded continuity selector。
-2. 默认窗口为最近 60 个 expected trade dates。
+2. 默认窗口为最近 10 个 expected trade dates。
 3. 统一处理 registered gap、first missing、first not-ready、check failed stop、ready frontier。
 4. 支持不同资产族接入不同 readiness provider。
 5. sensor 热路径禁止无界 Dagster event/check history 深扫。
@@ -83,7 +83,7 @@ Dagster 官方文档对 declarative automation 的语义说明决定了本专项
 1. 从 `silver_trade_calendar` 读取 `exchange='SSE' AND is_open=true` 的 expected trade dates。
 2. 支持 `min_trade_date`。
 3. 支持同日窗口；若资产族不允许当天提前跑，必须与对应 partition registration sensor 的日期口径一致。
-4. 输出最近 60 个 expected trade dates。
+4. 输出最近 10 个 expected trade dates。
 
 约束：
 
@@ -164,9 +164,9 @@ class ContinuityBatchReadiness:
 
 禁止：
 
-1. 在 60 日窗口中逐日调用 `asset_readiness_status(...)`。
-2. 在 60 日窗口中逐日调用 `dataset_readiness_status(...)`。
-3. 在 60 日窗口中逐日调用单日 readiness wrapper。
+1. 在日常 10 日窗口中逐日调用 `asset_readiness_status(...)`。
+2. 在日常 10 日窗口中逐日调用 `dataset_readiness_status(...)`。
+3. 在日常 10 日窗口中逐日调用单日 readiness wrapper。
 4. 用 row count 或 file exists 冒充完整 blocking check 语义。
 
 ### 5.5 Selector Algorithm
@@ -220,7 +220,7 @@ cursor 必须包含：
 
 | 项 | 口径 |
 | --- | --- |
-| expected window | 最近 60 个 expected trade dates。 |
+| expected window | 最近 10 个 expected trade dates。 |
 | Dagster event history | sensor 热路径默认 0 次；确需使用必须 bounded 并单独说明。 |
 | DuckDB | 优先批量读取，不做 Python 明细行循环。 |
 | cursor | summary only。 |
@@ -253,7 +253,7 @@ P6 初始资产：
 
 | 资产 | 显式补洞目标 |
 | --- | --- |
-| `gold_market_breadth_daily` | 最近 60 个 `cn_a_stock_trade_days`，上游 `silver_stock_daily` ready 后补 first missing / first not-ready。 |
+| `gold_market_breadth_daily` | 最近 10 个 `cn_a_stock_trade_days`，上游 `silver_stock_daily` ready 后补 first missing / first not-ready。 |
 | `gold_stock_return_distribution` | 同上。 |
 | `ch_share_fact_market_breadth_daily` | 上游两个 gold 派生资产 ready 后补 first missing / first not-ready。 |
 | `prod_ch_share_fact_market_breadth_daily` | 上游本机 ClickHouse serving asset ready 后补 first missing / first not-ready。 |
@@ -290,7 +290,7 @@ P6 初始资产：
 
 1. 基础 selector 单测覆盖 registered gap、all ready、first missing、materialized failed、upstream blocked。
 2. 静态门禁禁止新接入 sensor 回流 latest-only 目标选择。
-3. 静态门禁禁止在 60 日 selector 中调用单日 Dagster readiness wrapper。
+3. 静态门禁禁止在日常 10 日 selector 中调用单日 Dagster readiness wrapper。
 4. cursor 输出稳定、小型、可观测。
 5. 不新增持久化状态实体。
 6. 文档明确区分历史连续资产、current snapshot 资产、latest propagation 资产。

@@ -317,7 +317,7 @@ def market_major_indices_daily_sensor(
             return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
         reason = (
-            "最近 60 个 expected index dates 的 gold_market_major_indices_daily "
+            "最近 10 个 expected index dates 的 gold_market_major_indices_daily "
             "都已通过 lake-derived blocking checks。"
         )
         cursor = _cursor_payload(

@@ -419,7 +419,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         if latest_raw_status.ready:
             return dg.SensorResult(
                 skip_reason=(
-                    "最近 60 个可运行指数交易日的 raw-by-code 本地连续性正常，"
+                    "最近 10 个可运行指数交易日的 raw-by-code 本地连续性正常，"
                     "且最新目标交易日 raw 数据已经生成完成。"
                 ),
                 cursor=_cursor_payload(

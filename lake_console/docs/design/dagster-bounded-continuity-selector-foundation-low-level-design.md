@@ -14,13 +14,13 @@
 
 基础能力必须覆盖：
 
-1. 从 `silver_trade_calendar` 读取最近 60 个 expected trade dates。
+1. 从 `silver_trade_calendar` 读取最近 10 个 expected trade dates。
 2. 对比 expected dates 与 dynamic partitions，找最早未注册日期。
 3. 表达单日 readiness 与批量 readiness。
 4. 从窗口最早日期开始选择 first missing / first not-ready。
 5. 已 materialized 但 checks failed 时停止推进，不自动重跑后续日期。
 6. 输出小型 cursor details。
-7. 提供静态门禁，禁止 60 日窗口里逐日调用单日 Dagster readiness wrapper。
+7. 提供静态门禁，禁止日常窗口里逐日调用单日 Dagster readiness wrapper。
 
 ## 2. 不做事项
 
@@ -54,15 +54,16 @@ lake_console/orchestrator/tests/test_run_contract_static_gates.py
 在 `bounded_continuity.py` 中定义：
 
 ```python
-DEFAULT_CONTINUITY_WINDOW_LIMIT = 60
+DEFAULT_CONTINUITY_WINDOW_LIMIT = 10
 DEFAULT_CONTINUITY_SAMPLE_LIMIT = 20
 ```
 
 约束：
 
-1. 默认窗口固定 60 个 expected trade dates。
-2. 任何调用方要改窗口，必须在本资产族 LLD 里明确说明理由和性能验证结果。
+1. 默认日常窗口固定 10 个 expected trade dates。
+2. 任何调用方要扩大窗口，必须在本资产族 LLD 里明确说明理由、只读审计步骤和性能验证结果。
 3. sample limit 只用于 cursor / metadata 摘要，不得影响正式选择逻辑。
+4. 20/60 天窗口只用于离线 profiling、长停机恢复或显式审计流程，不得作为日常 sensor hot path 默认值。
 
 ## 5. 数据结构
 
@@ -322,13 +323,13 @@ status_samples
 1. provider 必须一次性处理窗口日期，不得在内部逐日调用单日 Dagster readiness wrapper。
 2. provider 若使用 Dagster metadata，必须在该资产族 LLD 中写清 bounded limit、查询次数、记录上限和只读 profiling 结果。
 3. provider 若使用 DuckDB/lake，必须复用或抽取正式 blocking check SQL 语义。
-4. selected-date upstream gate 允许调用现有单日 helper，但不得放入 60 日循环；若该 helper 本身已证实慢，必须改为 lake readiness。
+4. selected-date upstream gate 允许调用现有单日 helper，但不得放入日常窗口循环；若该 helper 本身已证实慢，必须改为 lake readiness。
 
 ## 8. 静态门禁
 
 在 `tests/test_run_contract_static_gates.py` 中新增或扩展门禁：
 
-1. 禁止新接入的非分钟线 continuity sensor 在 60 日 selector 中调用：
+1. 禁止新接入的非分钟线 continuity sensor 在日常 selector 中调用：
    - `asset_readiness_status(...)`
    - `dataset_readiness_status(...)`
    - `partition_dataset_readiness_status_from_latest_checks(...)`
@@ -352,7 +353,7 @@ status_samples
    - 历史开市日进入窗口。
    - 当天在 same-day window 前不进入。
    - 当天在 same-day window 后进入。
-   - `window_limit=60` 只返回最后 60 个。
+   - `window_limit=10` 只返回最后 10 个。
 2. registered gap：
    - expected 有 `2026-06-15/2026-06-16`，registered 缺 `2026-06-15`，最早缺口必须是 `2026-06-15`。
    - sample limit 生效。
@@ -375,8 +376,8 @@ status_samples
 | 项 | 预算 |
 | --- | --- |
 | expected calendar query | 单次 DuckDB 查询，正式湖目标 < 100ms。 |
-| registered gap diff | 60 日窗口内 < 1ms。 |
-| selector scan | 60 个日期内 < 1ms。 |
+| registered gap diff | 10 日日常窗口内 < 1ms；20/60 日只作离线容量参考。 |
+| selector scan | 10 日日常窗口内 < 1ms；60 日只作离线容量参考。 |
 | cursor serialization | 小型 JSON，禁止大数组。 |
 
 若实现中发现基础模块需要读取 Dagster event history，必须停止；这说明职责已经越界到资产族 readiness provider。

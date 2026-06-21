@@ -82,7 +82,7 @@ def _expected_window(
         min_trade_date="2014-01-01",
         max_trade_date=expected_trade_dates[-1] if expected_trade_dates else None,
         evaluated_at=datetime(2026, 6, 17, 16, 30, tzinfo=CN_TZ),
-        window_limit=60,
+        window_limit=10,
     )
 
 

@@ -32,13 +32,13 @@
 | --- | --- | --- |
 | 股票普通交易日注册 | `stock_trade_day_sensor.py` -> `build_trade_day_partition_registration_result(...)` | 已具备 calendar-backed catch-up，每 tick 最多注册 2 个缺失交易日。 |
 | 指数交易日注册 | `index_trade_day_sensor.py` -> `build_trade_day_partition_registration_result(...)` | 已具备 calendar-backed catch-up。 |
-| 股票当前交易日注册 | `stock_current_trade_day_sensor.py` | 已改为 calendar-backed bounded catch-up；停机漏注册后按最近 60 个 expected current trade days 补最早缺口，每 tick 最多 2 个。 |
-| 股票日线 raw / silver | `stock_daily_sensor.py` | 已接入最近 60 个 expected stock trade dates 的 registered gap guard；在注册缺口存在时先 skip，不读取 materialized partition set，不提交后续日期；注册连续后保留原有每 tick 最多 2 个 run、selected-date readiness 和 missing-code repair 逻辑。 |
-| 停复牌 raw / silver | `suspend_d_sensor.py` | 已接入最近 60 个 expected stock trade dates 的 registered gap guard；在注册缺口存在时先 skip，不读取 materialized partition set / raw readiness，不提交后续日期；注册连续后保留原有 raw/silver registered 内补洞逻辑。 |
+| 股票当前交易日注册 | `stock_current_trade_day_sensor.py` | 已改为 calendar-backed bounded catch-up；停机漏注册后按最近 10 个 expected current trade days 补最早缺口，每 tick 最多 2 个。 |
+| 股票日线 raw / silver | `stock_daily_sensor.py` | 已接入最近 10 个 expected stock trade dates 的 registered gap guard；在注册缺口存在时先 skip，不读取 materialized partition set，不提交后续日期；注册连续后保留原有每 tick 最多 2 个 run、selected-date readiness 和 missing-code repair 逻辑。 |
+| 停复牌 raw / silver | `suspend_d_sensor.py` | 已接入最近 10 个 expected stock trade dates 的 registered gap guard；在注册缺口存在时先 skip，不读取 materialized partition set / raw readiness，不提交后续日期；注册连续后保留原有 raw/silver registered 内补洞逻辑。 |
 | 复权因子 raw / silver | `stock_adj_factor_sensor.py` | 已接入 bounded expected current trade day window、registered gap guard 和 batch lake readiness；不再以 latest registered current trade day 作为正式目标。 |
-| 指数日线 raw | `index_daily_sensor.py` | 已对最近 60 个 expected index trade dates 增加 registered gap guard；注册缺口存在时不进入 raw gap audit / source readiness；注册连续后保留 raw gap audit、latest presence 与 late-arrival repair。 |
-| 指数日线 silver | `silver_index_daily_sensor.py` | 已对最近 60 个 expected index trade dates 增加 registered gap guard；注册缺口存在时不进入 raw gap audit / silver selector；注册连续后保留 raw gap audit 与 first not-ready silver selector。 |
-| 主要指数日线 gold | `market_major_indices_daily_sensor.py` | 已改为最近 60 个 expected index trade dates 的 registered gap guard + first not-ready gold；gold / selected-date silver / selected-date index basic readiness 已从旧 Dagster event-history wrapper 切到 DuckDB/lake readiness。 |
+| 指数日线 raw | `index_daily_sensor.py` | 已对最近 10 个 expected index trade dates 增加 registered gap guard；注册缺口存在时不进入 raw gap audit / source readiness；注册连续后保留 raw gap audit、latest presence 与 late-arrival repair。 |
+| 指数日线 silver | `silver_index_daily_sensor.py` | 已对最近 10 个 expected index trade dates 增加 registered gap guard；注册缺口存在时不进入 raw gap audit / silver selector；注册连续后保留 raw gap audit 与 first not-ready silver selector。 |
+| 主要指数日线 gold | `market_major_indices_daily_sensor.py` | 已改为最近 10 个 expected index trade dates 的 registered gap guard + first not-ready gold；gold / selected-date silver / selected-date index basic readiness 已从旧 Dagster event-history wrapper 切到 DuckDB/lake readiness。 |
 | 股票基础、曾用名、身份映射 | `stock_basic_sensor.py`、`stock_namechange_sensor.py`、`stock_identity_map_sensor.py` | 属于 full snapshot / current fact 类资产，不应按历史日期逐日补。 |
 | 市场宽度、涨跌分布、ClickHouse serving | `market_breadth_continuity_sensor.py`、`stock_return_distribution_continuity_sensor.py`、`clickhouse_market_breadth_continuity_sensor.py` | P6 已退出默认 eager active 入口，改为显式 bounded continuity sensor；旧 `AutomationConditionSensorDefinition` 文件已删除，四个 asset 上的 `automation_condition` 已移除。 |
 
@@ -48,7 +48,7 @@
 
 | 代码事实 | 结论 | LLD 约束 |
 | --- | --- | --- |
-| `stock_current_trade_day_sensor.py` 已删除 today-only 决策 helper，改用最近 60 个 expected current trade days 的 bounded catch-up；同日窗口保留 06:00，每 tick 最多注册 2 个缺口。 | P1 已完成。 | 静态门禁必须防止 today-only helper、全历史 loader、Dagster readiness 深扫回流。 |
+| `stock_current_trade_day_sensor.py` 已删除 today-only 决策 helper，改用最近 10 个 expected current trade days 的 bounded catch-up；同日窗口保留 06:00，每 tick 最多注册 2 个缺口。 | P1 已完成。 | 静态门禁必须防止 today-only helper、全历史 loader、Dagster readiness 深扫回流。 |
 | `stock_adj_factor_sensor.py` 已移除 `_latest_registered_trade_date(...)` 和单日 adj factor readiness wrapper。 | P2C 已迁移为 first missing / first not-ready。 | 后续静态门禁必须防止 latest registered 和逐日 Dagster readiness 回流。 |
 | 已存在 `silver_stock_lifecycle` 正式 asset / path / catalog / checks / readiness。 | P2A 已完成。 | 后续历史生命周期判断以该 silver 事实为准。 |
 | `silver_stock_daily`、股票分钟线 lifecycle/name timeline、lake readiness、runless dry-run helper 已迁移到 `silver_stock_lifecycle`。 | P2B 已完成。 | 长期生命周期消费者不得再直接调用 `historical_cny_stock_lifecycle_select(raw_stock_basic_path)`。 |
@@ -147,7 +147,7 @@ Current snapshot 资产指：资产事实表达当前最新全量快照，历史
 
 | 资产 | 触发方式 | 本专项口径 |
 | --- | --- | --- |
-| `gold_market_breadth_daily` | `AutomationCondition.eager() & all_deps_blocking_checks_passed()` | 使用显式 bounded continuity sensor 补最近 60 个 expected trade dates 的 first missing / first not-ready。 |
+| `gold_market_breadth_daily` | `AutomationCondition.eager() & all_deps_blocking_checks_passed()` | 使用显式 bounded continuity sensor 补最近 10 个 expected trade dates 的 first missing / first not-ready。 |
 | `gold_stock_return_distribution` | `AutomationCondition.eager() & all_deps_blocking_checks_passed()` | 同上。 |
 | `ch_share_fact_market_breadth_daily` | direct deps automation | 使用显式 bounded continuity sensor，在两个 gold 派生资产 ready 后补 serving first missing / first not-ready。 |
 | `prod_ch_share_fact_market_breadth_daily` | direct deps automation | 使用显式 bounded continuity sensor，在本机 ClickHouse serving asset ready 后补 prod serving first missing / first not-ready。 |
@@ -205,7 +205,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 | 项 | 已拍板口径 |
 | --- | --- |
-| expected window | 最近 60 个 expected trade dates。 |
+| expected window | 最近 10 个 expected trade dates。 |
 | partition registration 每 tick | 最多 2 个，沿用通用注册 helper。 |
 | stock daily / suspend 每 tick | 保持每 tick 最多 2 个 run。 |
 | index daily raw | 保留现有 60 日 raw gap audit。 |
@@ -218,7 +218,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 硬规则：
 
-1. 禁止在 60 天窗口内逐日调用 `asset_readiness_status(...)`、`dataset_readiness_status(...)` 或面向单日的 readiness wrapper 来扫描 Dagster event/check history。
+1. 禁止在日常 10 天窗口内逐日调用 `asset_readiness_status(...)`、`dataset_readiness_status(...)` 或面向单日的 readiness wrapper 来扫描 Dagster event/check history。
 2. 遇到 `日期 * asset * check` 级别判断时，必须先设计 batch 读取模型：按 asset 一次读取 materialized partition 集合，按 check key 一次读取 bounded check records，或优先用 DuckDB 读取 lake 文件事实。
 3. 能用交易日历和 dynamic partition set 差集判断的 registered gap，不得读取 asset materialization 或 check history。
 4. 能用 lake 文件事实判断的完整 blocking check 语义，优先抽取或复用 DuckDB SQL；不得用“文件存在 + row count”冒充 ready。
@@ -230,7 +230,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 | 阶段 | 性能风险 | 禁止实现 | 开发前只读验证 |
 | --- | --- | --- | --- |
-| P1 current trade day 注册 | 误用全历史交易日注册 helper，导致从历史起点补几千个 current partitions。 | 禁止从 `STK` 历史起点或 `FULL_TRADE_DAY_MIN_DATE` 加载全量 expected dates。 | 已完成只读验证：正式 calendar 读取约 21ms，current dynamic partitions 读取约 182ms，60 日 gap diff 约 0.01ms。P1 可按 60 日 bounded catch-up 推进。 |
+| P1 current trade day 注册 | 误用全历史交易日注册 helper，导致从历史起点补几千个 current partitions。 | 禁止从 `STK` 历史起点或 `FULL_TRADE_DAY_MIN_DATE` 加载全量 expected dates。 | 已完成只读验证：正式 calendar 读取约 21ms，current dynamic partitions 读取约 182ms，60 日 gap diff 约 0.01ms。P1 日常按 10 日 bounded catch-up 推进，60 日只作容量参考。 |
 | P2 复权因子 raw/silver | 治理前 60 天窗口逐日读 Dagster readiness，重复扫 materialization/check history；同时生命周期判断分散在多个消费者里，容易误用 current-listed-only 股票池。 | 禁止在 selector 循环里调用 `raw_tushare_adj_factor_ready_for_trade_date(...)`、`adj_factor_ready_for_trade_date(...)`、`asset_readiness_status(...)`；禁止让复权因子、股票日线、股票分钟线继续各自直接从 `raw_stock_basic` 现算生命周期事实。 | 已完成 P2A/P2B/P2C：新增 `silver_stock_lifecycle`，迁移既有生命周期消费者，复权因子 sensor 改为 DuckDB batch lake readiness。P2C 开发前只读 prototype 显示 20 日约 10.119ms、60 日约 13.323ms；`000638.SZ` 在退市日 `2026-04-13` 用 lifecycle 通过，用 current-listed 会失败，退市后日期会失败。 |
 | P3 股票日线 / 停复牌 | 误把 expected registered gap guard 做成逐日 readiness 深扫，或扩大现有 selected-date 门禁。 | 禁止新增 60 日逐日 `asset_readiness_status(...)` / `dataset_readiness_status(...)`；禁止扩大 raw repair 全历史扫描。 | 已完成只读验证：stock dynamic partitions 约 31ms，60 日 registered gap diff 约 0.003ms；raw/silver stock daily、raw/silver suspend materialized partition set 读取约 11-29ms。P3 只加 gap guard，可推进。 |
 | P4 主要指数日线 gold | 60 天窗口逐日调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`。 | 禁止 first-not-ready selector 逐日调用单日 gold readiness wrapper；也不得把该 wrapper 包在 20/60 日循环里。 | 已完成：正式只读 profiling 证明旧单日 wrapper 约 47s/超时；P4 已改为 DuckDB/lake batch readiness。只读 `/private/tmp` 原型显示 60 日 gold + selected silver/basic 约 24ms，selected silver coverage 2000 个 raw 文件约 77ms。 |
@@ -258,8 +258,8 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 | 项 | 结果 | 结论 |
 | --- | --- | --- |
 | P1 正式 calendar 读取 | 约 21ms，8664 个 SSE open dates。 | 交易日历读取不是瓶颈。 |
-| P1 `cn_a_stock_current_trade_days` 读取 | 约 182ms，4239 个 partitions。 | current trade day 60 日补洞可推进。 |
-| P1 60 日 gap diff | 约 0.01ms。 | 60 日窗口不需要缩小到 20 日。 |
+| P1 `cn_a_stock_current_trade_days` 读取 | 约 182ms，4239 个 partitions。 | current trade day 日常 10 日补洞可推进；60 日结果只作容量参考。 |
+| P1 60 日 gap diff | 约 0.01ms。 | 证明 batch diff 成本很低，但不再作为日常默认窗口理由。 |
 | P2 本地 60 日大样本 batch | 约 0.8s，5000 只股票、60.5 万行、121 个 parquet。 | DuckDB batch 模型可行。 |
 | P2 正式 lake 60 日 batch | 约 1.1s。 | 可作为 P2 正式 sensor 热路径候选。 |
 | P2 正式 Dagster 单日 raw readiness | 约 28.5s 后 timeout。 | 禁止进入 20/60 日循环。 |
@@ -275,7 +275,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 已确认的阶段准入结论：
 
-1. P1 可以进入实现；60 日窗口保留。
+1. P1 可以进入实现；日常窗口按 10 个 expected trade dates 推进，60 日只作离线容量参考。
 2. P2 已按 P2A/P2B/P2C 顺序落地；该顺序证明是必要的：先新增 `silver_stock_lifecycle`，再迁移既有直接依赖 `raw_stock_basic` 生命周期事实的消费者，最后处理复权因子历史生命周期 checks 和 sensor batch readiness。
 3. P3 可以进入实现；只新增 expected registered gap guard，不扩大现有 selected-date readiness 和 repair 扫描范围。
 4. P4 已完成：不复用现有 `gold_market_major_indices_daily_ready_for_trade_date(...)`，已设计、验证并落地新的 lake-derived batch selector。
@@ -298,7 +298,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 4. 同日窗口保留 06:00；历史已完成交易日不受同日窗口阻挡。
 5. 每 tick 最多补 2 个缺失 current trade day。
 6. cursor 写入 `first_missing_registered_date`、`selected_keys`、`eligible_open_day_count`。
-7. 2026-06-20 已完成只读性能验证：正式 calendar 读取约 21ms，current dynamic partitions 读取约 182ms，60 日 gap diff 约 0.01ms；实现阶段必须保持只扫描最近 60 个 expected dates，不得加载全历史交易日。
+7. 2026-06-20 已完成只读性能验证：正式 calendar 读取约 21ms，current dynamic partitions 读取约 182ms，60 日 gap diff 约 0.01ms；2026-06-21 后实现阶段必须保持只扫描最近 10 个 expected dates，不得加载全历史交易日。60 日结果只作为离线容量参考。
 
 注意：
 
@@ -362,7 +362,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 修复方案：
 
-1. 两个 sensor 改为基于最近 60 个 expected current trade days 选择 first not-ready。
+1. 两个 sensor 改为基于最近 10 个 expected current trade days 选择 first not-ready。
 2. 如果 `cn_a_stock_current_trade_days` 存在注册缺口，先 skip，等待 current trade day sensor 补注册。
 3. raw 侧选择 first missing raw adj factor partition。
 4. silver 侧选择 first missing silver adj factor partition。
@@ -385,7 +385,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 1. 保留现有 registered 内补洞逻辑和每 tick 最多 2 个 run。
 2. 在计算 pending raw / silver 前增加 expected registered gap guard。
-3. 如果最近 60 个 expected stock trade dates 中存在未注册日期，skip，不提交更晚日期；此时不读取 materialized partition set，也不查 selected-date readiness。
+3. 如果最近 10 个 expected stock trade dates 中存在未注册日期，skip，不提交更晚日期；此时不读取 materialized partition set，也不查 selected-date readiness。
 4. raw 侧保留现有门禁：stock basic、suspend、Tushare source readiness。
 5. raw missing-code repair 保持现有 recent repair 口径，不扩大到全历史。
 6. silver 侧保留现有门禁：stock basic、suspend、raw daily ready。
@@ -411,7 +411,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 
 当前问题：
 
-指数日线 raw 已有最近 60 日 raw gap audit，silver 已先检查 raw gap 再选择 first not-ready silver。当前主要缺口是 expected calendar 与 `cn_a_index_trade_days` 的注册一致性没有在两个数据 sensor 内独立兜住。
+指数日线 raw 已有最近 10 日 raw gap audit，silver 已先检查 raw gap 再选择 first not-ready silver。当前主要缺口是 expected calendar 与 `cn_a_index_trade_days` 的注册一致性没有在两个数据 sensor 内独立兜住。
 
 已落地口径：
 
@@ -437,10 +437,10 @@ P4 专项方案：
 
 修复方案：
 
-1. 改为最近 60 个 expected index trade dates 的 first not-ready gold。
+1. 改为最近 10 个 expected index trade dates 的 first not-ready gold。
 2. 增加 expected registered gap guard。
 3. first-not-ready gold 的判断不得调用 `gold_market_major_indices_daily_ready_for_trade_date(...)` 单日 wrapper。2026-06-20 正式 profiling 证明该 wrapper 单日约 47s/超时，若放入 20/60 日 selector 会直接违反 sensor 热路径性能红线。
-4. P4 已实现新的 DuckDB/lake batch selector：批量等价判断 gold blocking checks，在内存里映射最近 60 个 expected index dates，得到 first missing / first failed / ready frontier。
+4. P4 已实现新的 DuckDB/lake batch selector：批量等价判断 gold blocking checks，在内存里映射最近 10 个 expected index dates，得到 first missing / first failed / ready frontier。
 5. selected date 上保留现有上游门禁语义，但实现不得回到 Dagster event history wrapper：
    - `silver_index_daily` 必须使用 selected-date lake readiness，不调用 `silver_index_daily_ready_for_trade_date(...)`。
    - `silver_index_basic` 必须使用 lake readiness，不调用 `silver_index_basic_ready(...)`。
@@ -448,7 +448,7 @@ P4 专项方案：
 6. 如果 selected date 已 materialized 但 checks 未绿，skip，不自动重跑，不推进后续日期。
 7. run key 不变：`market_major_indices_daily:{trade_date}`。
 8. P4 开发前已完成专项文档中的只读 profiling 和 calendar 对账：expected dates 与 `index_trade_day_sensor` 的注册 helper 口径保持一致。
-9. 正式实现不得在 60 天窗口逐日调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`，也不得调用 `silver_index_daily_ready_for_trade_date(...)` / `silver_index_basic_ready(...)` 作为 selected-date hot path。
+9. 正式实现不得在日常 10 天窗口逐日调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`，也不得调用 `silver_index_daily_ready_for_trade_date(...)` / `silver_index_basic_ready(...)` 作为 selected-date hot path。
 10. P4 sensor 热路径中的 `checks_passed` 必须表示 lake-derived blocking check 等价语义，不表示 Dagster 历史 check event 已 passed；缺历史 check event 的问题属于冷路径审计，不进入 P4 sensor 热路径。
 
 ### 5.8 派生 automation 资产
@@ -474,9 +474,9 @@ AutomationCondition.eager()
 
 1. P6 采用显式 bounded continuity sensor，不再依赖默认 `eager()` 做历史补洞。
 2. 显式 sensor 必须复用前置基础能力：expected calendar、registered gap guard、batch / bounded readiness、first-not-ready、cursor 和性能门禁。
-3. `gold_market_breadth_daily` 和 `gold_stock_return_distribution` 以 `silver_stock_daily` 为上游 ready 事实，按最近 60 个 `cn_a_stock_trade_days` 补 first missing / first not-ready。
-4. `ch_share_fact_market_breadth_daily` 以上游两个 gold 派生资产 ready 为门禁，按最近 60 个 expected trade dates 补 first missing / first not-ready。
-5. `prod_ch_share_fact_market_breadth_daily` 以上游本机 ClickHouse serving asset ready 为门禁，按最近 60 个 expected trade dates 补 first missing / first not-ready。
+3. `gold_market_breadth_daily` 和 `gold_stock_return_distribution` 以 `silver_stock_daily` 为上游 ready 事实，按最近 10 个 `cn_a_stock_trade_days` 补 first missing / first not-ready。
+4. `ch_share_fact_market_breadth_daily` 以上游两个 gold 派生资产 ready 为门禁，按最近 10 个 expected trade dates 补 first missing / first not-ready。
+5. `prod_ch_share_fact_market_breadth_daily` 以上游本机 ClickHouse serving asset ready 为门禁，按最近 10 个 expected trade dates 补 first missing / first not-ready。
 6. P6 显式 sensor 成为正式补洞入口后，必须移除这四个派生资产上的 `automation_condition`，避免它们继续被默认 automation condition sensor 识别。
 7. P6 必须删除或退出对应 `AutomationConditionSensorDefinition`，不保留 active automation sensor 作为辅助触发路径。
 8. 如果未来确实需要 latest propagation 辅助能力，必须单独立项设计；不得和 P6 显式 bounded sensor 同时作为 active 入口。
@@ -504,14 +504,14 @@ AutomationCondition.eager()
 验收：
 
 1. 单元测试覆盖 registered gap、all ready、first missing、materialized failed、upstream blocked。
-2. 静态门禁禁止 60 日 selector 中逐日调用单日 Dagster readiness wrapper。
+2. 静态门禁禁止日常 selector 中逐日调用单日 Dagster readiness wrapper。
 3. 基础能力不新增持久化状态实体。
 
 ### P1 Current trade day 注册补洞
 
 目标：
 
-1. 只读性能/方案测试已完成，证明最近 60 个 expected dates 的注册缺口选择逻辑不会扫描全历史，且正式数据下成本可接受。
+1. 只读性能/方案测试已完成，证明最近 10 个 expected dates 的注册缺口选择逻辑不会扫描全历史，且正式数据下成本可接受。
 2. `stock_current_trade_day_sensor` 从 today-only 改为 bounded calendar-backed catch-up。
 3. 保留 06:00 同日窗口。
 4. 保留 partition set 名称。
@@ -541,7 +541,7 @@ AutomationCondition.eager()
 3. P2C 后，正式或临时样本中退市历史股票不应被 `silver_adj_factor_listed_stock_only` / coverage 误判为失败；完整 blocking check 语义不能被 row count 代替。
 4. P2C 后，`2026-06-15` raw/silver 缺失、`2026-06-16` 已注册时，只提交 `2026-06-15`。
 5. 已 materialized 但 checks 未绿时 skip，不推进后续日期。
-6. 静态门禁证明 P2 sensor 不在 60 天 selector 中逐日调用单日 adj factor Dagster readiness，并证明长期生命周期消费者不再直接依赖 `raw_stock_basic`。
+6. 静态门禁证明 P2 sensor 不在日常 selector 中逐日调用单日 adj factor Dagster readiness，并证明长期生命周期消费者不再直接依赖 `raw_stock_basic`。
 7. 只读性能回归必须继续记录 20 日 / 60 日 batch 耗时；若 60 日 batch 回到秒级以上异常增长，停止并重新评估读取模型。
 
 ### P3 股票日线与停复牌 registered gap guard
@@ -568,7 +568,7 @@ AutomationCondition.eager()
 目标与落地结果：
 
 1. 已完成正式只读 profiling，确认现有单日 `gold_market_major_indices_daily_ready_for_trade_date(...)` 约 47s/超时，不能作为 P4 selector 基础。
-2. 已按 `dagster-market-major-indices-sensor-performance-governance-plan.md` 设计并验证新的 batch selector，60 天窗口可以 bounded 找到 first missing / failed / ready frontier。
+2. 已按 `dagster-market-major-indices-sensor-performance-governance-plan.md` 设计并验证新的 batch selector；60 天原型证明 batch 方案可 bounded 找到 first missing / failed / ready frontier，但日常窗口统一使用最近 10 个 expected trade dates。
 3. `market_major_indices_daily_sensor` 已从 latest-only 改为 first not-ready gold。
 4. 已增加 expected registered gap guard。
 5. selected-date upstream / input readiness 门禁语义保留，但已从旧 Dagster event history wrapper 改为 lake readiness。
@@ -578,7 +578,7 @@ AutomationCondition.eager()
 
 1. `2026-06-15` gold 缺失、`2026-06-16` 已注册时，只提交 `2026-06-15`。
 2. `2026-06-15` 已 materialized 但 checks failed 时 skip，不推进 `2026-06-16`。
-3. 静态门禁证明 P4 sensor 不在 60 天 selector 中逐日调用单日 gold readiness，也不在 selected-date 上游门禁中调用 `silver_index_daily_ready_for_trade_date(...)` / `silver_index_basic_ready(...)`。
+3. 静态门禁证明 P4 sensor 不在日常 selector 中逐日调用单日 gold readiness，也不在 selected-date 上游门禁中调用 `silver_index_daily_ready_for_trade_date(...)` / `silver_index_basic_ready(...)`。
 4. 性能回归证明 P4 batch selector 不复用 `gold_market_major_indices_daily_ready_for_trade_date(...)`，且不做 `日期 * check` 级别 event history 深扫；本地只读原型 60 日 gold + selected silver/basic 约 24ms。
 5. 单元测试覆盖 lake fact readiness 与 Dagster event readiness 的边界：`checks_passed=True` 表示 lake-derived checks passed，不依赖历史 check event。
 
@@ -588,7 +588,7 @@ AutomationCondition.eager()
 
 已落地：
 
-1. 2026-06-21 补充只读 profiling 已完成，确认 P5 现有 raw gap audit 与 silver bounded selector 在 60 日窗口内可接受。
+1. 2026-06-21 补充只读 profiling 已完成，确认 P5 raw gap audit 与 silver bounded selector 在 60 日容量验证下可接受；日常窗口已统一收敛为 10 日。
 2. `index_daily_sensor` 和 `silver_index_daily_sensor` 增加 expected registered gap guard。
 3. 保留现有 raw gap audit、late-arrival repair 和 first not-ready silver。
 4. 不把 `silver_index_daily_ready_for_trade_date(...)` 或其它单日 readiness wrapper 放入 20/60 日循环。
@@ -596,7 +596,7 @@ AutomationCondition.eager()
 验收：
 
 1. `cn_a_index_trade_days` 存在注册缺口时，raw/silver index daily 不提交更晚日期。
-2. 注册连续后，现有 60 日 raw gap audit 行为不变。
+2. 注册连续后，raw gap audit 读取模型不变；日常窗口统一使用最近 10 个 expected trade dates，60 日只作为离线容量参考。
 3. `silver_index_daily` first-not-ready 继续使用 bounded selector；静态门禁防止回流逐日单日 readiness wrapper。
 4. 本地验证：`PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_index_daily_sensor.py tests/test_silver_index_daily_sensor.py tests/test_index_daily_late_arrival_repair.py tests/test_run_contract_static_gates.py`，结果 `55 passed`。
 
@@ -608,7 +608,7 @@ AutomationCondition.eager()
 
 1. 基于 P0F 基础能力，为 `gold_market_breadth_daily`、`gold_stock_return_distribution`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 落地显式 bounded continuity sensor。
 2. 不再验证默认 `eager()` 是否能补历史洞；官方语义已确认默认 latest time window 限制。
-3. 最近 60 个 expected trade dates 内按 first missing / first not-ready 补洞。
+3. 最近 10 个 expected trade dates 内按 first missing / first not-ready 补洞。
 4. 上游 checks failed 时 skip，不推进后续日期。
 5. P6 已移除这四个派生资产上的 `automation_condition`，并删除对应 `AutomationConditionSensorDefinition`，避免双触发。
 6. 2026-06-21 已完成只读本地性能原型：60 日 `gold_market_breadth_daily` 完整 lake-derived 语义约 88ms，`gold_stock_return_distribution` 完整 lake-derived 语义约 114ms，ClickHouse bounded 查询模型 1 次查询、0ms 级；报告写入 `/private/tmp/non_stk_continuity_p6_perf_prototype.json`。
@@ -626,8 +626,8 @@ AutomationCondition.eager()
 
 1. `2026-06-15` 上游 ready、下游缺失、`2026-06-16` 已存在时，只提交 `2026-06-15`。
 2. 下游已 materialized 但 checks failed 时 skip，不推进后续日期。
-3. 静态门禁证明 P6 sensor 不使用 latest-only 目标选择，不在 60 日窗口逐日深扫 Dagster event history。
-4. 性能报告记录读取次数模型、样本日期、60 日窗口耗时和未写入证明。
+3. 静态门禁证明 P6 sensor 不使用 latest-only 目标选择，不在日常 10 日窗口逐日深扫 Dagster event history。
+4. 性能报告记录读取次数模型、样本日期、10 日窗口耗时和未写入证明；20/60 日只作为离线容量参考。
 5. 静态门禁证明四个派生资产不再带 `automation_condition`，对应 `AutomationConditionSensorDefinition` 不再作为 active definition 存在。
 6. 本地验证：`PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_market_breadth_lake_readiness.py tests/test_market_breadth_continuity_sensors.py tests/test_prod_clickhouse_market_breadth_batch_sync.py tests/test_run_contract_static_gates.py`，结果 `66 passed`。
 
@@ -679,7 +679,7 @@ P7 收口结果：
 | --- | --- |
 | 正式 Dagster runtime | 未经单独批准不读取、不执行；已批准的 2026-06-20 / 2026-06-21 profiling 仅只读 event/partition 状态，不执行 runtime 动作。 |
 | `dg` / job / sensor / backfill | 本专项方案阶段不运行。 |
-| expected window | 默认最近 60 个 expected trade dates。 |
+| expected window | 日常 sensor hot path 默认最近 10 个 expected trade dates；20/60 天只作离线 profiling、长停机恢复或显式审计窗口。 |
 | 单 tick run request | 沿用各资产现有上限；不扩大写入量。 |
 | Dagster event history | 禁止无界深扫；需要 metadata 时必须 bounded。 |
 | lake 文件事实 | 优先 DuckDB 批量读取，不用 Python 行循环。 |
@@ -703,21 +703,21 @@ P7 收口结果：
 2. 不迁移 `raw_tushare_adj_factor` / `silver_adj_factor` 的 partition definition。
 3. 只把 `stock_current_trade_day_sensor` 的注册选择从 today-only 改成 bounded calendar-backed catch-up。
 
-### 8.2 current trade day catch-up 窗口固定为 60 个 expected trade dates
+### 8.2 日常 continuity 回看窗口固定为 10 个 expected trade dates
 
-决策：使用最近 60 个 expected trade dates。
+决策：日常 sensor hot path 统一使用最近 10 个 expected trade dates。
 
-原因：与股票分钟线 continuity 口径一致，足够覆盖常见停机和假期后的缺口；非分钟线每日对象规模远小于分钟线，性能压力可控。若后续 profiling 发现 60 天有明显成本，再用真实数据调整。
+原因：日常 sensor 只负责近期连续推进。只要任务每天或每周运行，10 个 expected trade dates 已足够覆盖普通周末、节假日和短暂停机；如果停机超过 10 个 expected trade dates，应该先走显式只读审计 / 补洞流程，而不是让日常 sensor 在 UI 热路径里扫描三个月窗口。
 
-2026-06-20 只读 profiling 已确认：P1 60 日 gap diff 成本约 0.01ms；P2 正式 lake 60 日 batch 约 1.1s，显著快于 Dagster 单日 readiness 约 27s/超时。因此窗口大小不是当前主要瓶颈，读取模型才是关键。60 日窗口继续作为第一版默认口径。
+2026-06-20 只读 profiling 已确认：P1 60 日 gap diff 成本约 0.01ms；P2 正式 lake 60 日 batch 约 1.1s，显著快于 Dagster 单日 readiness 约 27s/超时。因此窗口大小不是唯一瓶颈，读取模型仍是关键；但 2026-06-21 后不再把 60 日作为日常默认窗口。
 
-2026-06-21 补充 profiling 又覆盖了所有方案内会改 sensor 的资产族：P3 的 stock daily / suspend guard 只涉及毫秒级集合读取；P5 的 index raw gap audit 和 silver bounded selector 在 60 日窗口内分别约 0.2s 和 3.5s。结论不变：保留 60 日窗口，重点防止错误读取模型回流。
+2026-06-21 补充 profiling 又覆盖了所有方案内会改 sensor 的资产族：P3 的 stock daily / suspend guard 只涉及毫秒级集合读取；P5 的 index raw gap audit 和 silver bounded selector 在 60 日窗口内分别约 0.2s 和 3.5s。这些数据保留为容量参考，不再作为日常窗口默认值。当前新口径是：读取模型仍必须 batch 化，日常窗口统一 10 天，60 天只用于离线审计、长停机恢复或单独审批的性能验证。
 
 执行口径：
 
-1. 本专项所有非分钟线连续性 guard 默认使用最近 60 个 expected trade dates。
-2. 不以 20 天窗口作为第一版默认值。
-3. 若后续真实性能数据证明 60 天不可接受，必须单独提交 profiling 证据和变更方案，不得在实现中临时缩小窗口。
+1. 本专项所有非分钟线日常连续性 guard 默认使用最近 10 个 expected trade dates。
+2. 20/60 天 profiling 数据只作为离线容量参考，不作为 sensor hot path 默认口径。
+3. 若发生超过 10 个 expected trade dates 的停机缺口，必须先执行显式只读审计并制定补洞步骤；不得在日常 sensor 中临时放大窗口。
 
 ### 8.3 股票生命周期事实源收敛到 `silver_stock_lifecycle`
 

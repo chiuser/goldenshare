@@ -8,7 +8,7 @@ from datetime import date, datetime, time
 from pathlib import Path
 
 
-DEFAULT_CONTINUITY_WINDOW_LIMIT = 60
+DEFAULT_CONTINUITY_WINDOW_LIMIT = 10
 DEFAULT_CONTINUITY_SAMPLE_LIMIT = 20
 _MISSING_READINESS_REASON = "readiness_status_missing"
 _UNKNOWN_TRADE_DATE_REASON = "unknown_trade_date"

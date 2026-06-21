@@ -101,7 +101,7 @@ def _skip_reason(
         return "没有从交易日历中找到符合条件的上交所开市日。"
     if today_is_open and not register_window_started:
         return "今天是交易日，但还没到 06:00，暂不注册股票当前交易日分区。"
-    return "当前最近 60 个股票当前交易日分区都已经注册。"
+    return "当前最近 10 个股票当前交易日分区都已经注册。"
 
 
 @dg.sensor(

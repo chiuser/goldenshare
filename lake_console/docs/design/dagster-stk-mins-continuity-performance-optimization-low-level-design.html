@@ -228,12 +228,13 @@
     <header>
       <h1>Dagster 股票分钟线连续性性能优化 LLD</h1>
       <p class="subtitle">
-        本 LLD 按最新只读 profiling 结论重写：性能瓶颈不是 60 天窗口本身，而是 sensor 热路径逐日扫 Dagster event/check 状态库。
+        本 LLD 按最新只读 profiling 与 2026-06-21 追加决策修订：性能瓶颈来自 sensor 热路径逐日扫 Dagster event/check 状态库，
+        以及在运行窗口前执行重型 DuckDB readiness；日常 sensor 回看窗口统一收敛为最近 10 个 expected trade dates。
         本轮代码设计不新增任何持久化状态实体，只改变读取方式：用 DuckDB batch 查询 lake 文件事实，并复用现有 blocking check 的真实 SQL 语义。
       </p>
       <div class="meta-grid">
         <div class="chip"><strong>状态</strong>P0-P9 已完成；P8B/P8C 因 P8A 真实待补数为 0 未执行。</div>
-        <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：60 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready。</div>
+        <div class="chip"><strong>核心方向</strong>两阶段 batch readiness：日常 10 天窗口、粗筛定位明显缺口、完整语义验证防止误判 ready；60 天只作离线审计和长停机恢复参考。</div>
         <div class="chip"><strong>禁止项</strong>不新增 status manifest、summary asset、readiness asset、数据库表或 Dagster definition。</div>
         <div class="chip"><strong>性能目标</strong>常态 sensor tick 小于 10 秒；明显缺口定位小于 1 秒。</div>
       </div>
@@ -369,7 +370,8 @@
     <section>
       <h2>3. 总体设计</h2>
       <h3>3.1 两阶段 readiness</h3>
-      <pre><code>expected_window = expected_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+      <pre><code>daily_window = expected_dates[-STK_MINS_DAILY_SENSOR_CONTINUITY_WINDOW_LIMIT:]  # 10
+expected_window = daily_window
 registered_gap = build_registered_gap_status(expected_window, registered_partitions)
 if registered_gap.first_missing_registered_date:
     return skip_without_readiness_scan()
@@ -381,6 +383,10 @@ if coarse.first_missing_or_empty_date:
 full = batch_lake_full_blocking_check_scan(expected_window)
 return select_first_not_ready_from_full_semantics(full)</code></pre>
       <p>第一阶段只负责快，不负责最终 ready 判定；第二阶段必须覆盖正式 blocking checks 的业务语义。</p>
+      <p>
+        日常 sensor 不再默认扫描三个月窗口。超过 10 个 expected trade dates 的停机缺口、历史缺口盘点和长期恢复，
+        必须走显式 audit / recovery 流程，不能把三个月窗口塞回 Dagster UI 热路径。
+      </p>
 
       <h3>3.2 不新增实体的含义</h3>
       <p>本专项允许新增或调整无状态代码 helper、测试和静态门禁；不允许新增任何持久化状态事实源。</p>
@@ -814,7 +820,7 @@ FROM lifecycle_failures;</code></pre>
         <li>current-listed-only 的 <code>silver_stock_basic</code> 口径不变，不能为了退市股票补进去；退市历史身份应来自包含 <code>list_status='D'</code> 的历史股票事实。</li>
         <li><code>raw_stock_basic.list_date</code> 与 <code>raw_stock_basic.delist_date</code> 是 <code>YYYYMMDD</code> 字符串，SQL 中必须显式解析为 DATE；空 <code>delist_date</code> 表示仍在生命周期内。</li>
         <li><code>delist_date</code> 不是最后交易日，不能用它判断某天是否应有分钟线；实际交易事实继续由 <code>silver_stk_mins_codes_exist_in_stock_daily</code> 负责。</li>
-        <li>如果 60 天完整语义发现更早日期 check 失败，selector 必须停在这个日期，不得因为最近 20 天全绿就推进后续日期。</li>
+        <li>如果日常 10 天窗口内完整语义发现更早日期 check 失败，selector 必须停在这个日期，不得推进后续日期；20/60 天完整语义只作为离线审计和容量参考。</li>
       </ul>
 
       <h3>8.6 生命周期 SQL 骨架</h3>
@@ -872,7 +878,7 @@ FROM lifecycle_failures;</code></pre>
       <h2>9. Sensor 接入</h2>
       <h3>9.1 Raw sensor</h3>
       <pre><code>expected_trade_dates = _load_stock_mins_raw_expected_trade_dates(...)
-window_dates = expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+window_dates = expected_trade_dates[-STK_MINS_DAILY_SENSOR_CONTINUITY_WINDOW_LIMIT:]  # 10
 registered_trade_days = context.instance.get_dynamic_partitions(...)
 
 gap_status = build_registered_gap_status(...)
@@ -895,7 +901,7 @@ selection = select_first_not_ready_trade_date(
     has_materialized_check_problem=lake_status_has_materialized_check_problem,
 )</code></pre>
       <ul>
-        <li>raw sensor 不再在 60 天循环中调用 <code>raw_stk_mins_ready_for_trade_date(context.instance, date)</code>。</li>
+        <li>raw sensor 不再在日常窗口循环中调用 <code>raw_stk_mins_ready_for_trade_date(context.instance, date)</code>。</li>
         <li>stock basic readiness 仍只在 selected date 上调用现有 Dagster readiness helper。</li>
         <li>run key、run config、窗口时间、tags 不变。</li>
       </ul>
@@ -903,15 +909,15 @@ selection = select_first_not_ready_trade_date(
       <h3>9.2 Silver sensor</h3>
       <ul>
         <li>P5 已落地：silver run sensor 先做 registered gap，再做 <code>batch_silver_stk_mins_lake_readiness(...)</code>。</li>
-        <li>P5 已落地：silver partition sensor 和 silver run sensor 都用 <code>batch_raw_stk_mins_lake_readiness(...)</code> 判断 raw 60 天 frontier；raw 未连续时不注册 / 不提交后续 silver。</li>
-        <li>stock daily、suspend、identity map readiness 仍只在 selected date 上查，不得进入 60 天循环；<code>silver_namechange</code> 不再作为 silver 分钟线 selected-date 硬 gate。</li>
+        <li>P5 已落地：silver partition sensor 和 silver run sensor 都用 <code>batch_raw_stk_mins_lake_readiness(...)</code> 判断 raw 日常窗口 frontier；raw 未连续时不注册 / 不提交后续 silver。</li>
+        <li>stock daily、suspend、identity map readiness 仍只在 selected date 上查，不得进入日常窗口循环；<code>silver_namechange</code> 不再作为 silver 分钟线 selected-date 硬 gate。</li>
         <li>如果 selected date 的 silver 文件存在但完整语义失败，继续沿用人工处理口径，不自动重跑，不推进后续日期。</li>
       </ul>
 
       <h3>9.3 QFQ 与 repair sensor</h3>
       <ul>
         <li>P6 已落地：不新增 qfq factor repair 或 MACD/KDJ completion 的持久化状态。</li>
-        <li>qfq daily 只读 profiling 基线为：20 天不短路 21.24s，60 天不短路 38.27s；P6 已将 60 天循环改为 silver / adj factor / gold qfq batch readiness map。</li>
+        <li>qfq daily 只读 profiling 基线为：20 天不短路 21.24s，60 天不短路 38.27s；P6 已将逐日 Dagster 深扫改为 silver / adj factor / gold qfq batch readiness map。2026-06-21 后续日常窗口统一收敛为 10 天，20/60 天只保留为离线容量参考。</li>
         <li>gold qfq readiness 已复用 <code>checks/stk_mins_checks.py</code> 中 native 1/5/15/30/60 与 derived 90/120 的正式 check SQL 语义。</li>
         <li>adj factor 已改成 batch readiness；旧 60 天逐日 DG 读取基线为 5.63s，不再作为 qfq daily hidden cost 留在 hot path。</li>
         <li>qfq factor repair status 已完成只读 profiling：无 records 日期约 0.01s，有 metadata 日期 2026-06-16 为 29.21s，2026-06-15 超过 30s。</li>
@@ -1377,9 +1383,9 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
         </thead>
         <tbody>
           <tr>
-            <td>窗口是否继续保留 60 天</td>
-            <td>已拍板：保留 60 天。</td>
-            <td>实测表明 batch 后 20/60 粗筛差异只有毫秒级；60 天能覆盖更长停机缺口和 03-19 这类隐藏失败。</td>
+            <td>日常 sensor hot path 窗口是否继续保留 60 天</td>
+            <td>已重新拍板：不保留；统一改为最近 10 个 expected trade dates。</td>
+            <td>60 天 profiling 结果保留为离线审计和长停机恢复容量参考；日常 sensor 只做近期连续推进。</td>
           </tr>
           <tr>
             <td>是否允许 sensor cursor 缓存完整验证 frontier</td>

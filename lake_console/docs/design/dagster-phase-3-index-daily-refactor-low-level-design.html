@@ -408,7 +408,7 @@
         index_daily_sensor
 
       silver_index_daily_sensor.py
-        silver_index_daily_sensor               # 已实现，最近 60 个可运行交易日无有效 raw 空洞后触发最早未 ready 的 silver
+        silver_index_daily_sensor               # 已实现，最近 10 个可运行交易日无有效 raw 空洞后触发最早未 ready 的 silver
 
   source_readiness/
     tushare/
@@ -840,7 +840,7 @@ def index_daily_sensor(context):
 )
 def silver_index_daily_sensor(context):
     # 1. 读取 cn_a_index_trade_days 与 cn_a_index_ts_codes
-    # 2. 用 DuckDB gap audit 确认最近 60 个可运行交易日内 raw-by-code 无有效空洞
+    # 2. 用 DuckDB gap audit 确认最近 10 个可运行交易日内 raw-by-code 无有效空洞
     # 3. 如果 silver 已生成但 checks 未全绿，跳过并等待人工处理
     # 4. 选择最早未 ready 的 silver trade_date
     # 5. 触发 silver_index_daily_update_job[trade_date]</pre>
@@ -858,13 +858,13 @@ def silver_index_daily_sensor(context):
       </tr>
       <tr>
         <td>候选日期</td>
-        <td>只选已经注册且不晚于当前自然日的最近 60 个指数交易日。日常自动化按该窗口内 raw 最早有效空洞、silver 最早未 ready 的顺序推进；更早历史缺口继续使用审计报告和 UI/backfill。</td>
+        <td>只选已经注册且不晚于当前自然日的最近 10 个指数交易日。日常自动化按该窗口内 raw 最早有效空洞、silver 最早未 ready 的顺序推进；更早历史缺口继续使用审计报告和 UI/backfill。</td>
       </tr>
       <tr>
         <td>raw 文件事实门禁</td>
         <td>
           DuckDB raw 文件事实门禁分两层：最新目标日门禁检查未退市注册指数是否已有目标
-          <code>trade_date</code>；最近 60 个可运行交易日 local continuity 门禁只检查每个
+          <code>trade_date</code>；最近 10 个可运行交易日 local continuity 门禁只检查每个
           raw 文件从本地首个已有 <code>trade_date</code> 之后是否存在中间空洞。
           <code>silver_index_basic.list_date</code> 不再作为历史 expected start。
           该门禁不读取 Dagster run tags/config，不扫描 raw asset materialization 或 check history。
@@ -992,7 +992,7 @@ def silver_index_daily_sensor(context):
           超过 <code>5s</code> 禁止接入 sensor。
         </td>
         <td>
-          只能保留最近 60 个可运行交易日窗口；若现算 <code>raw_bounds</code>
+          只能保留最近 10 个可运行交易日窗口；若现算 <code>raw_bounds</code>
           过慢，必须改成预聚合或分批方案。
         </td>
       </tr>
@@ -1180,7 +1180,7 @@ LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
 
     <h4>10.3.2 <code>silver_index_daily</code> readiness 批量查询修复方案（已实现）</h4>
     <p>
-      背景：2026-06-02 发现 <code>silver_index_daily_sensor</code> 在最近 60 个可运行交易日都已经
+      背景：2026-06-02 发现 <code>silver_index_daily_sensor</code> 在最近 10 个可运行交易日都已经
       materialized 且 blocking checks 全绿时，逐日调用 readiness 会重复扫描 Dagster check history，
       可能超过 Dagster sensor evaluation 60 秒时限。该问题发生在 Dagster event log readiness 查询，
       不是 raw parquet gap audit；DuckDB 继续只用于 raw-by-code 文件事实审计。
@@ -1204,7 +1204,7 @@ LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
       <tr>
         <td>窗口</td>
         <td>
-          输入仍是已经注册、不晚于当前自然日的最近 60 个指数交易日，顺序按交易日升序。
+          输入仍是已经注册、不晚于当前自然日的最近 10 个指数交易日，顺序按交易日升序。
           该窗口只服务日常自动触发，不替代历史 backfill 或长窗口 gap audit。
         </td>
       </tr>
@@ -1228,7 +1228,7 @@ LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
         <td>待复核前缀</td>
         <td>
           若存在 <code>first_missing_materialization_date</code>，只复核它之前的 materialized prefix；
-          若不存在 missing materialization，则复核完整 60 日窗口。不得复核 missing 日期之后的分区，
+          若不存在 missing materialization，则复核完整 10 日窗口。不得复核 missing 日期之后的分区，
           因为它们不会影响“最早未 ready 日期”的选择。
         </td>
       </tr>
@@ -1285,7 +1285,7 @@ LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
       <tr>
         <td>性能预算</td>
         <td>
-          日常 60 日窗口内，check history 查询数不得超过 blocking check 数量；若后续窗口扩大，
+          日常 10 日窗口内，check history 查询数不得超过 blocking check 数量；若后续窗口扩大，
           需要重新评估 <code>partition_count * blocking_check_count</code> 与 Dagster sensor evaluation
           时限，不能把该 helper 直接扩展成历史批量审计工具。
         </td>
@@ -1406,7 +1406,7 @@ LEFT JOIN observed_raw_window USING (ts_code, compact_trade_date);</pre>
         <td>G</td>
         <td>已实现：新增 <code>silver_index_daily_sensor</code>，并改造为基于 raw-by-code 文件事实的轻量门禁。</td>
         <td>
-          不调用 Tushare，不写 raw，不读 raw run tags/config，不扫 raw check history；日常自动化按最近 60 个可运行交易日内最早有效缺口推进，silver 已生成但 checks 未全绿时不自动重跑。
+          不调用 Tushare，不写 raw，不读 raw run tags/config，不扫 raw check history；日常自动化按最近 10 个可运行交易日内最早有效缺口推进，silver 已生成但 checks 未全绿时不自动重跑。
           已补充后续方案：250 日或全历史 DuckDB gap audit 改为 local raw continuity
           口径，只检查本地 raw 首个已有交易日之后的连续性；不维护
           <code>index_daily_available_from</code>，不从 <code>silver_index_basic.list_date</code>

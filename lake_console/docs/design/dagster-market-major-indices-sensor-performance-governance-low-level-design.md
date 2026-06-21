@@ -142,7 +142,7 @@ def batch_market_major_indices_lake_readiness(
 
 职责：
 
-1. 对最近 60 个 expected index trade dates 一次性判断 `gold_market_major_indices_daily` readiness。
+1. 对最近 10 个 expected index trade dates 一次性判断 `gold_market_major_indices_daily` readiness。
 2. 不读取 Dagster instance。
 3. 不调用 `asset_readiness_status(...)`。
 4. 不调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`。
@@ -298,7 +298,7 @@ evaluated_at
 | 无 registered trade days | 没有注册指数交易日分区。 |
 | 无 registered index codes | 没有注册指数代码分区。 |
 | expected registered gap | 指数交易日分区存在注册缺口，等待注册 sensor 补齐。 |
-| gold all ready | 最近 60 个 expected index dates 的主要指数 gold 都已 ready。 |
+| gold all ready | 最近 10 个 expected index dates 的主要指数 gold 都已 ready。 |
 | gold materialized checks failed | 目标 gold 已生成但 blocking checks 未全绿，需人工处理。 |
 | selected silver not ready | 等待 selected date 的 `silver_index_daily` lake readiness。 |
 | index basic not ready | 等待 `silver_index_basic` lake readiness。 |
@@ -355,7 +355,7 @@ tests/test_market_major_indices_lake_readiness.py
 
 覆盖：
 
-1. 60 日窗口全 ready。
+1. 10 日窗口全 ready。
 2. 某日 gold 文件缺失，返回 `materialized=False`。
 3. schema 缺列，返回 `materialized=True, checks_passed=False`。
 4. `trade_date` 不匹配 partition，失败。
@@ -424,7 +424,7 @@ gold_market_major_indices_daily_ready_for_trade_date
 
 | 项 | P4 目标 |
 | --- | --- |
-| expected window | 最近 60 个 expected index trade dates。 |
+| expected window | 最近 10 个 expected index trade dates。 |
 | Dagster event/check history | 0 次。 |
 | gold files | 最多 60 个 partition parquet。 |
 | silver files | selected date 1 个 partition parquet。 |

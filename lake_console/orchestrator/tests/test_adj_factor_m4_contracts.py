@@ -408,7 +408,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             ["2026-06-15", "2026-06-16"],
         )
         self.assertEqual(payload["details"]["max_partition_keys_per_tick"], 2)
-        self.assertEqual(payload["details"]["window_limit"], 60)
+        self.assertEqual(payload["details"]["window_limit"], 10)
         self.assertEqual(STOCK_CURRENT_TRADE_DAY_REGISTER_START.hour, 6)
 
     def test_current_trade_day_sensor_before_window_still_catches_up_history(

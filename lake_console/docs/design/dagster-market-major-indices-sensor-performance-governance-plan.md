@@ -419,7 +419,7 @@ WHERE exchange = 'SSE'
 窗口：
 
 ```text
-最近 60 个 expected index trade dates
+最近 10 个 expected index trade dates
 ```
 
 约束：
@@ -493,7 +493,7 @@ selected date 上游必须满足：
 
 | 项 | 目标模型 |
 | --- | --- |
-| target dates | 最近 60 个 expected index trade dates |
+| target dates | 最近 10 个 expected index trade dates |
 | Dagster check history 查询 | 0 |
 | Dagster materialization 查询 | 0 或仅非热路径观测，正式 readiness 不依赖 |
 | DuckDB/lake 文件扫描 | gold 最多 60 个文件，silver 第一阶段只扫 selected date，index_basic 1 个 snapshot |
@@ -578,7 +578,7 @@ tests/test_market_major_indices_lake_readiness.py
 
 覆盖：
 
-1. 60 日窗口全 ready。
+1. 10 日窗口全 ready。
 2. 某日 gold 文件缺失，返回 first not-ready。
 3. gold 文件存在但 schema 缺列，返回 materialized check problem。
 4. gold trade_date 不匹配 partition，失败。
@@ -654,14 +654,14 @@ tests/test_run_contract_static_gates.py
 1. 单 tick > 15 秒。
 2. 出现 Dagster check history 读取。
 3. 为了性能减少 check 语义。
-4. 读取全历史而不是 60 日窗口。
+4. 读取全历史而不是 10 日窗口。
 
 ### 12.5 P0 calendar 对账测试
 
 P0 只读 profiling 必须额外记录：
 
 1. `index_trade_day_sensor` 注册 helper 在同一 `evaluated_at` 下的 eligible dates。
-2. P4 expected-date loader 的最近 60 个 expected dates。
+2. P4 expected-date loader 的最近 10 个 expected dates。
 3. 二者在窗口边界、今天是否开市、同日注册窗口前后是否一致。
 
 若发现 P4 expected-date loader 会包含尚未允许注册的当天，或漏掉注册 helper 已允许的历史交易日，则 P4 实现不得推进。
@@ -675,7 +675,7 @@ P0 只读 profiling 必须额外记录：
 1. 记录当前实现耗时。
 2. 记录 event history 查询次数模型。
 3. 记录 DuckDB/lake batch 原型耗时。
-4. 确认 60 日窗口下文件数和耗时。
+4. 确认 10 日窗口下文件数和耗时；20/60 日只作为离线容量参考。
 5. 对账 expected calendar 与 `index_trade_day_sensor` 注册 helper 日期口径。
 6. 证明 selected-date silver/index_basic lake readiness 能覆盖现有上游门禁语义，且不调用 Dagster event history。
 
@@ -732,7 +732,7 @@ P0 只读 profiling 必须额外记录：
 4. gold 文件存在但 checks failed 时，不自动重跑，不推进后续日期。
 5. upstream 不 ready 时，不提交 gold run。
 6. run key/run config/job/sensor 名称保持不变。
-7. 60 日窗口性能满足：
+7. 10 日窗口性能满足：
    - 稳态 < 5 秒
    - 异常完整扫描 < 10 秒
    - > 15 秒必须停止并重新设计
@@ -747,7 +747,7 @@ P0 只读 profiling 必须额外记录：
 已固定口径：
 
 1. 本专项只聚焦 `market_major_indices_daily_sensor`，不扩大到全部非分钟线资产族。
-2. expected window 沿用非分钟线连续性专项默认口径：最近 60 个 expected trade dates。
+2. expected window 沿用非分钟线连续性专项默认口径：最近 10 个 expected trade dates。
 3. `silver_index_daily` 第一阶段只做 selected-date lake readiness，不做 60 日 silver batch。
 4. `silver_index_basic` 第一阶段只做一次 lake readiness。
 5. `check_market_major_indices_inputs_for_trade_date(...)` 第一阶段保留独立函数，避免把 seed/input gate 与 batch helper 一次性混杂。

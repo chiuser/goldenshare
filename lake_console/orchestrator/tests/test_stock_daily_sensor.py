@@ -75,7 +75,7 @@ def _registered_gap(
         min_trade_date="2014-01-01",
         max_trade_date=expected_trade_dates[-1] if expected_trade_dates else None,
         evaluated_at=evaluated_at or _FixedDateTime.now(UTC),
-        window_limit=60,
+        window_limit=10,
     )
     return expected_window, build_registered_gap_status(
         expected_trade_dates=expected_trade_dates,

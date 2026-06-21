@@ -9,7 +9,7 @@ from orchestrator.defs.paths import raw_index_daily_by_code_path
 from orchestrator.defs.resources import DuckDBResource
 
 MAX_RAW_GAP_SAMPLE_COUNT = 500
-RAW_GAP_AUDIT_TRADE_DAY_LIMIT = 60
+RAW_GAP_AUDIT_TRADE_DAY_LIMIT = 10
 
 
 @dataclass(frozen=True)

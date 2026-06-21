@@ -186,7 +186,7 @@ def market_breadth_continuity_sensor(
         if selection.blocked_reason == "materialized_check_failed":
             reason = "市场宽度 gold 已生成但 lake-derived blocking checks 未全绿，暂不自动重跑。"
         else:
-            reason = "最近 60 个 expected stock dates 的市场宽度 gold 都已 ready。"
+            reason = "最近 10 个 expected stock dates 的市场宽度 gold 都已 ready。"
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             target_trade_date=target_trade_date,

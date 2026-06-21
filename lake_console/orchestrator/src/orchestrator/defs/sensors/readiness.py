@@ -10,7 +10,7 @@ from dagster._core.storage.asset_check_execution_record import (
 
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
 CHECK_HISTORY_LIMIT = 5000
-SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT = 60
+SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT = 10
 _TERMINAL_ASSET_CHECK_STATUSES = {
     AssetCheckExecutionRecordStatus.SUCCEEDED,
     AssetCheckExecutionRecordStatus.FAILED,

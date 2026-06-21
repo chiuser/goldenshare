@@ -450,7 +450,7 @@ STK_MINS_RAW_HISTORY_START_DATE = "2009-01-05"
 STK_MINS_SILVER_HISTORY_START_DATE = "2014-01-01"
 STK_MINS_QFQ_HISTORY_START_DATE = STK_MINS_SILVER_HISTORY_START_DATE
 STK_MINS_MACD_KDJ_BASELINE_START_DATE = STK_MINS_QFQ_HISTORY_START_DATE
-STK_MINS_CONTINUITY_WINDOW_LIMIT = 60
+STK_MINS_CONTINUITY_WINDOW_LIMIT = 10
 STK_MINS_CONTINUITY_SAMPLE_LIMIT = 10</code></pre>
 
     <div class="warning">
@@ -608,8 +608,8 @@ def select_first_not_ready_trade_date(
 
     <div class="callout">
       <strong>窗口说明：</strong>
-      <code>STK_MINS_CONTINUITY_WINDOW_LIMIT = 60</code> 是 sensor 稳定态性能保护，不是历史审计边界。
-      分区注册 catch-up 仍按交易日历补缺；如果未来要做全历史缺口红绿灯，应另行设计正式 asset check，本专项第一阶段不做。
+      <code>STK_MINS_CONTINUITY_WINDOW_LIMIT = 10</code> 是日常 sensor 稳定态性能保护，不是历史审计边界。
+      分区注册 catch-up 仍按交易日历补缺；超过 10 个 expected trade dates 的长停机恢复、全历史缺口红绿灯或 60 天容量审计，应另行走显式 audit / recovery 流程，本专项第一阶段不做。
     </div>
 
     <h3>3.5 fail-closed 断言 API</h3>

@@ -319,7 +319,7 @@ def raw_adj_factor_update_job_sensor(
                 "暂不自动重跑，请人工检查后修复。"
             )
         else:
-            reason = "最近 60 个股票当前交易日的复权因子 raw 分区已经 ready。"
+            reason = "最近 10 个股票当前交易日的复权因子 raw 分区已经 ready。"
         cursor = _raw_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),
@@ -498,7 +498,7 @@ def silver_adj_factor_update_job_sensor(
                 "暂不自动重跑，请人工检查后修复。"
             )
         else:
-            reason = "最近 60 个股票当前交易日的复权因子 silver 分区已经 ready。"
+            reason = "最近 10 个股票当前交易日的复权因子 silver 分区已经 ready。"
         cursor = _silver_sensor_cursor(
             evaluated_at=evaluated_at,
             registered_trade_day_count=len(registered_trade_days),

@@ -384,7 +384,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         )
         return dg.SensorResult(
             skip_reason=(
-                "最近 60 个可运行指数交易日内 raw-by-code 仍存在有效空洞，"
+                "最近 10 个可运行指数交易日内 raw-by-code 仍存在有效空洞，"
                 "暂不生成 silver。"
             ),
             cursor=cursor,
@@ -414,7 +414,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             continuity_details=continuity_details,
         )
         return dg.SensorResult(
-            skip_reason="最近 60 个可运行指数交易日的 silver_index_daily 分区都已经 ready。",
+            skip_reason="最近 10 个可运行指数交易日的 silver_index_daily 分区都已经 ready。",
             cursor=cursor,
         )
 

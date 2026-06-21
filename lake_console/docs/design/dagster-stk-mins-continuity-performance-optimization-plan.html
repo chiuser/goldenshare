@@ -189,15 +189,16 @@
       </div>
       <div class="ok">
         <strong>新方案：</strong>
-        股票分钟线 sensor hot path 使用“两阶段 batch readiness”：
-        第一阶段用 DuckDB 粗筛 60 天窗口的文件存在、freq 覆盖和 row count，快速发现明显缺口；
+        股票分钟线 sensor hot path 使用“两阶段 batch readiness”，但日常回看窗口统一收敛为最近 10 个 expected trade dates：
+        第一阶段用 DuckDB 粗筛 10 天窗口的文件存在、freq 覆盖和 row count，快速发现明显缺口；
         第二阶段对粗筛通过的窗口执行 batch 完整 blocking check 语义。
         不允许只看 row count 就认定 ready。
       </div>
       <p>
-        这次优化的目标不是缩短窗口，而是减少读取次数。只要读取模型正确，20 天和 60 天的粗筛成本都在 0.1 秒级；
-        如果读取模型错误，20 天也会慢到不可接受。
-        本专项窗口固定保留 60 天；第一阶段不启用 cursor frontier cache，避免隐藏完整 check 语义变化。
+        2026-06-21 追加决策：日常 sensor 只负责近期连续推进，不再默认回看 60 天。
+        60 天只作为离线审计、容量评估或长停机恢复方案的参考窗口；如果停机超过 10 个 expected trade dates，
+        必须先走显式审计 / 补洞流程，不能让日常 sensor 在 UI 热路径里无差别扫描三个月数据。
+        第一阶段不启用 cursor frontier cache，避免隐藏完整 check 语义变化。
       </p>
     </section>
 
@@ -618,7 +619,8 @@
             <td>raw sensor 接入（已完成）</td>
             <td>
               <code>stock_mins_raw_sensor</code> 已接入 raw-only batch lake readiness；
-              60 天 continuity readiness 不再逐日调 <code>raw_stk_mins_ready_for_trade_date</code>。
+              日常 continuity readiness 不再逐日调 <code>raw_stk_mins_ready_for_trade_date</code>；
+              2026-06-21 后续窗口口径统一收敛为最近 10 个 expected trade dates。
             </td>
             <td>
               run key / config 不变；本地目标回归
@@ -631,11 +633,12 @@
             <td>silver sensor 接入（已完成）</td>
             <td>
               <code>stock_mins_silver_trade_day_sensor</code> 与 <code>stock_mins_silver_sensor</code> 已使用 batch readiness。
-              raw readiness 由 60 天 batch frontier 判定，raw 未连续时不注册 / 不提交 silver 后续日期；
+              raw readiness 由日常 10 天 batch frontier 判定，raw 未连续时不注册 / 不提交 silver 后续日期；
               selected date 的 stock daily、suspend、identity map 门禁仍保持 fail closed。
             </td>
             <td>
-              06-15 未 ready 时不提交 06-16；60 天窗口能发现隐藏 blocking check 失败；
+              06-15 未 ready 时不提交 06-16；10 天日常窗口内发现 hidden blocking check 失败时必须停住；
+              20/60 天完整语义测试只作为离线容量参考；
               <code>000638.SZ</code> 旧误伤不再阻断 silver readiness。
               本地目标回归已覆盖 helper、两个 silver sensor、contract 与静态门禁。
             </td>
@@ -650,7 +653,7 @@
               <code>include_event_storage_ids=False</code>，不再回填 event storage id。
             </td>
             <td>
-              qfq daily 60 天窗口不再逐日扫 Dagster check metadata；
+              qfq daily 日常窗口不再逐日扫 Dagster check metadata，后续窗口口径统一为最近 10 个 expected trade dates；
               qfq factor repair sensor 只在 gold qfq ready 后读取 first-not-completed target 的 bounded status metadata；
               run key、run config、upstream_batch_id 和 qfq factor repair metadata 生产逻辑均保持不变。
               本地目标回归：<code>112 passed in 3.55s</code>。
@@ -770,9 +773,9 @@
         </thead>
         <tbody>
           <tr>
-            <td>是否保留 60 天窗口</td>
-            <td>保留。</td>
-            <td>batch 粗筛后 20/60 成本差异很小；60 天对停机缺口和连续性更稳。</td>
+            <td>日常 sensor 是否保留 60 天窗口</td>
+            <td>不保留；统一改为最近 10 个 expected trade dates。</td>
+            <td>日常 sensor 只处理近期连续推进。60 天 profiling 结果保留为离线审计和长停机恢复的容量参考，不再作为 hot path 默认口径。</td>
           </tr>
           <tr>
             <td>粗筛通过后是否必须做完整语义验证</td>
