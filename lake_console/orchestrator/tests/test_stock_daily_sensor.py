@@ -3,6 +3,10 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityExpectedDateWindow,
+    build_registered_gap_status,
+)
 from orchestrator.defs.jobs import stock_daily_update as stock_daily_jobs
 from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
 from orchestrator.defs.sensors import stock_daily_sensor as stock_daily_sensor_module
@@ -52,6 +56,31 @@ class _FixedDateTime(datetime):
     @classmethod
     def now(cls, tz=None):  # noqa: ANN001
         return datetime(2026, 6, 7, 10, 0, tzinfo=tz or UTC)
+
+
+class _FixedDateTimeAfterGap(datetime):
+    @classmethod
+    def now(cls, tz=None):  # noqa: ANN001
+        return datetime(2026, 6, 17, 10, 0, tzinfo=tz or UTC)
+
+
+def _registered_gap(
+    *,
+    expected_trade_dates: tuple[str, ...],
+    registered_trade_dates: tuple[str, ...],
+    evaluated_at: datetime | None = None,
+):
+    expected_window = ContinuityExpectedDateWindow(
+        expected_trade_dates=expected_trade_dates,
+        min_trade_date="2014-01-01",
+        max_trade_date=expected_trade_dates[-1] if expected_trade_dates else None,
+        evaluated_at=evaluated_at or _FixedDateTime.now(UTC),
+        window_limit=60,
+    )
+    return expected_window, build_registered_gap_status(
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_dates=registered_trade_dates,
+    )
 
 
 def _asset_status(
@@ -116,6 +145,20 @@ def _silver_sensor_result(context: _FakeContext):
 
 
 class StockDailySensorTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._registered_gap_patcher = patch(
+            "orchestrator.defs.sensors.stock_daily_sensor._stock_trade_day_registered_gap",
+            side_effect=lambda _context, evaluated_at, registered_keys: _registered_gap(
+                expected_trade_dates=tuple(registered_keys),
+                registered_trade_dates=tuple(registered_keys),
+                evaluated_at=evaluated_at,
+            ),
+        )
+        self.registered_gap_mock = self._registered_gap_patcher.start()
+
+    def tearDown(self) -> None:
+        self._registered_gap_patcher.stop()
+
     def test_job_and_sensor_names_follow_split_rule(self) -> None:
         self.assertTrue(hasattr(stock_daily_jobs, "raw_stock_daily_update_job"))
         self.assertTrue(hasattr(stock_daily_jobs, "silver_stock_daily_update_job"))
@@ -205,6 +248,36 @@ class StockDailySensorTests(unittest.TestCase):
         self.assertEqual(request.partition_key, "2026-06-05")
         self.assertEqual(request.run_key, "raw_stock_daily_update:2026-06-05")
         self.assertEqual(request.run_config, {})
+
+    def test_raw_sensor_skips_registered_gap_before_materialization_scan(self) -> None:
+        context = _FakeContext(partitions=("2026-06-13", "2026-06-16"))
+        self.registered_gap_mock.side_effect = (
+            lambda _context, evaluated_at, registered_keys: _registered_gap(
+                expected_trade_dates=("2026-06-13", "2026-06-15", "2026-06-16"),
+                registered_trade_dates=tuple(registered_keys),
+                evaluated_at=evaluated_at,
+            )
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.datetime",
+            _FixedDateTimeAfterGap,
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.materialized_partition_keys",
+        ) as materialized_mock, patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.stock_basic_ready_for_trade_date",
+        ) as stock_basic_mock, patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.check_stock_daily_source_readiness",
+        ) as source_mock:
+            result = _raw_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        materialized_mock.assert_not_called()
+        stock_basic_mock.assert_not_called()
+        source_mock.assert_not_called()
+        cursor_payload = load_sensor_cursor(result.cursor)
+        continuity = cursor_payload["details"]["continuity_status"]
+        self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_raw_sensor_skips_when_source_not_ready(self) -> None:
         context = _FakeContext(partitions=("2026-06-05",))
@@ -356,6 +429,36 @@ class StockDailySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("readiness 门禁未满足", result.skip_reason.skip_message)
+
+    def test_silver_sensor_skips_registered_gap_before_materialization_scan(self) -> None:
+        context = _FakeContext(partitions=("2026-06-13", "2026-06-16"))
+        self.registered_gap_mock.side_effect = (
+            lambda _context, evaluated_at, registered_keys: _registered_gap(
+                expected_trade_dates=("2026-06-13", "2026-06-15", "2026-06-16"),
+                registered_trade_dates=tuple(registered_keys),
+                evaluated_at=evaluated_at,
+            )
+        )
+        with patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.datetime",
+            _FixedDateTimeAfterGap,
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.materialized_partition_keys",
+        ) as materialized_mock, patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.stock_basic_ready_for_trade_date",
+        ) as stock_basic_mock, patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.raw_tushare_stock_daily_ready_for_trade_date",
+        ) as raw_readiness_mock:
+            result = _silver_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        materialized_mock.assert_not_called()
+        stock_basic_mock.assert_not_called()
+        raw_readiness_mock.assert_not_called()
+        cursor_payload = load_sensor_cursor(result.cursor)
+        continuity = cursor_payload["details"]["continuity_status"]
+        self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_silver_sensor_submits_only_when_raw_ready_and_silver_missing(
         self,

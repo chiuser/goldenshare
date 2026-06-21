@@ -1641,6 +1641,40 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_daily_and_suspend_sensors_use_registered_gap_guard(self) -> None:
+        sensor_paths = (
+            SENSORS_DIR / "stock_daily_sensor.py",
+            SENSORS_DIR / "suspend_d_sensor.py",
+        )
+        issues = []
+
+        required_fragments = (
+            "load_expected_trade_date_window",
+            "build_registered_gap_status",
+            "build_continuity_cursor_details",
+            "STOCK_TRADE_DAY_MIN_DATE",
+            "STOCK_TRADE_DAY_REGISTER_START",
+            "DEFAULT_CONTINUITY_WINDOW_LIMIT",
+            "same_day_register_start=STOCK_TRADE_DAY_REGISTER_START",
+            "window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT",
+            "_registered_gap_skip_reason",
+        )
+        for path in sensor_paths:
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses stock trade day registered gap guard fragment: "
+                f"{fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
+            if "source_window_started" in source:
+                issues.append(
+                    f"{path} must not introduce source-window cursor semantics "
+                    "for non-minute daily continuity gap guards"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 

@@ -8,7 +8,7 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster Market Major Indices Sensor 热路径性能治理 LLD](dagster-market-major-indices-sensor-performance-governance-low-level-design.md)
 
-状态：P0F-P2C 已完成，P3 及后续阶段待按顺序执行。
+状态：P0F-P3 已完成，P5 及后续阶段待按顺序执行。
 
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
@@ -847,6 +847,8 @@ duckdb_sql.py
 
 ## 6. P3 股票日线与停复牌 registered gap guard
 
+状态：已完成。
+
 ### 6.1 目标文件
 
 ```text
@@ -866,6 +868,14 @@ tests/test_run_contract_static_gates.py
 5. 保留每 tick 最多 2 个 run。
 6. 保留 stock daily raw missing-code repair 逻辑，不扩大到全历史。
 
+### 6.2.1 已落地代码事实
+
+1. `stock_daily_sensor.py` 与 `suspend_d_sensor.py` 均通过 `load_expected_trade_date_window(...)` 读取最近 60 个 expected stock trade dates。
+2. 两个 sensor 均使用 `STOCK_TRADE_DAY_MIN_DATE` 和 `STOCK_TRADE_DAY_REGISTER_START`，保持与 `cn_a_stock_trade_days` 注册窗口一致，避免 17:00 前把当天误判为注册缺口。
+3. 两个 sensor 均在读取 materialized partition set、selected-date readiness、Tushare source readiness 或 repair locator 之前检查 `build_registered_gap_status(...)`。
+4. 注册缺口存在时，sensor 只返回 `SkipReason` 和小型 `continuity_status` cursor，不提交后续日期 run。
+5. 注册连续时，原有 raw/silver pending selection、每 tick 最多 2 个 run、stock daily missing-code repair 和 run key/run config 均保持不变。
+
 ### 6.3 测试
 
 覆盖：
@@ -874,6 +884,19 @@ tests/test_run_contract_static_gates.py
 2. suspend raw/silver 同样不提交后续日期。
 3. registered 连续后，现有 pending selection 行为不变。
 4. selected-date `stock_basic`、`suspend`、raw readiness 仍只对目标日期调用。
+5. 静态门禁要求两个 sensor 保留 `load_expected_trade_date_window`、`build_registered_gap_status`、`build_continuity_cursor_details`、`STOCK_TRADE_DAY_REGISTER_START` 和 `DEFAULT_CONTINUITY_WINDOW_LIMIT`。
+
+本地验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_sensor.py \
+  tests/test_suspend_d_sensor.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`57 passed`。
 
 ## 7. P5 指数日线 guard 加固
 

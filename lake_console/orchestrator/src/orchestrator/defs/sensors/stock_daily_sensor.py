@@ -5,7 +5,16 @@ from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    DEFAULT_CONTINUITY_WINDOW_LIMIT,
+    ContinuityExpectedDateWindow,
+    ContinuityRegisteredGapStatus,
+    build_continuity_cursor_details,
+    build_registered_gap_status,
+    load_expected_trade_date_window,
+)
 from orchestrator.defs.partitions import cn_a_stock_trade_days
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.configs import (
     build_stock_daily_raw_repair_run_config,
 )
@@ -38,12 +47,16 @@ from orchestrator.defs.sensors.readiness import (
     stock_basic_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
+from orchestrator.defs.sensors.cn_a_trade_day_sensor import STOCK_TRADE_DAY_MIN_DATE
 from orchestrator.defs.sensors.stock_daily_raw_repair import (
     STOCK_DAILY_REPAIR_STATE_KEY,
     StockDailyMissingCodeRepairSelection,
     locate_stock_daily_missing_codes,
     select_stock_daily_missing_code_repair,
     stock_daily_repair_state_from_details,
+)
+from orchestrator.defs.sensors.stock_trade_day_sensor import (
+    STOCK_TRADE_DAY_REGISTER_START,
 )
 from orchestrator.source_readiness.tushare.stock_daily import (
     StockDailySourceReadiness,
@@ -71,6 +84,67 @@ def _eligible_registered_trade_dates(
 
 def _recent_registered_trade_dates(trade_dates: tuple[str, ...]) -> tuple[str, ...]:
     return trade_dates[-RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT:]
+
+
+def _load_expected_stock_trade_day_window(
+    context: dg.SensorEvaluationContext,
+    evaluated_at: datetime,
+) -> ContinuityExpectedDateWindow:
+    lake_root = context.resources.lake_root
+    duckdb_resource = context.resources.duckdb
+    lake_root.ensure_available_for_run()
+    calendar_path = silver_trade_calendar_path(lake_root.root())
+    if not calendar_path.exists():
+        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
+
+    with duckdb_resource.connect() as connection:
+        return load_expected_trade_date_window(
+            connection,
+            calendar_path,
+            evaluated_at=evaluated_at,
+            min_trade_date=STOCK_TRADE_DAY_MIN_DATE,
+            same_day_register_start=STOCK_TRADE_DAY_REGISTER_START,
+            window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT,
+        )
+
+
+def _stock_trade_day_registered_gap(
+    context: dg.SensorEvaluationContext,
+    *,
+    evaluated_at: datetime,
+    registered_keys: tuple[str, ...],
+) -> tuple[ContinuityExpectedDateWindow, ContinuityRegisteredGapStatus]:
+    expected_window = _load_expected_stock_trade_day_window(context, evaluated_at)
+    gap_status = build_registered_gap_status(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        registered_trade_dates=registered_keys,
+    )
+    return expected_window, gap_status
+
+
+def _continuity_details(
+    *,
+    expected_window: ContinuityExpectedDateWindow,
+    gap_status: ContinuityRegisteredGapStatus,
+) -> dict[str, object]:
+    return build_continuity_cursor_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=None,
+        selection=None,
+    )
+
+
+def _registered_gap_skip_reason(
+    *,
+    layer_label: str,
+    gap_status: ContinuityRegisteredGapStatus,
+) -> str:
+    return (
+        "股票交易日分区存在缺口，最早缺失日期为 "
+        f"{gap_status.first_missing_registered_date}，暂不触发股票日线 "
+        f"{layer_label} 更新。"
+    )
 
 
 def _readiness_dataset_payload(
@@ -185,6 +259,7 @@ def _raw_sensor_cursor(
     readiness_details: dict[str, dict[str, object]],
     repair_state: dict[str, Any],
     repair_details: dict[str, object],
+    continuity_details: dict[str, object] | None,
 ) -> str:
     selected_keys = (*selected_full_day_keys, *selected_repair_keys)
     decision = (
@@ -220,6 +295,7 @@ def _raw_sensor_cursor(
             STOCK_DAILY_REPAIR_STATE_KEY: repair_state,
             "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
             "recent_repair_trade_date_limit": RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT,
+            "continuity_status": continuity_details,
         },
     )
 
@@ -232,6 +308,7 @@ def _silver_sensor_cursor(
     selected_keys: tuple[str, ...],
     blocked_keys: tuple[str, ...],
     readiness_details: dict[str, dict[str, object]],
+    continuity_details: dict[str, object] | None,
 ) -> str:
     decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -261,6 +338,7 @@ def _silver_sensor_cursor(
             "blocked_keys": list(blocked_keys),
             "readiness_details": readiness_details,
             "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+            "continuity_status": continuity_details,
         },
     )
 
@@ -282,6 +360,39 @@ def raw_stock_daily_update_job_sensor(
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     registered_keys = _eligible_registered_trade_dates(context, evaluated_at)
+    expected_window, gap_status = _stock_trade_day_registered_gap(
+        context,
+        evaluated_at=evaluated_at,
+        registered_keys=registered_keys,
+    )
+    continuity_details = _continuity_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+    )
+    if gap_status.first_missing_registered_date is not None:
+        repair_state = stock_daily_repair_state_from_details(
+            sensor_cursor_details(load_sensor_cursor(context.cursor))
+        )
+        cursor = _raw_sensor_cursor(
+            evaluated_at=evaluated_at,
+            registered_count=len(registered_keys),
+            raw_missing_keys=(),
+            selected_full_day_keys=(),
+            selected_repair_keys=(),
+            blocked_keys=(gap_status.first_missing_registered_date,),
+            readiness_details={},
+            repair_state=repair_state,
+            repair_details={},
+            continuity_details=continuity_details,
+        )
+        return dg.SensorResult(
+            skip_reason=_registered_gap_skip_reason(
+                layer_label="raw",
+                gap_status=gap_status,
+            ),
+            cursor=cursor,
+        )
+
     raw_materialized_keys = materialized_partition_keys(
         context.instance,
         (RAW_STOCK_DAILY_ASSET_KEY,),
@@ -407,6 +518,7 @@ def raw_stock_daily_update_job_sensor(
         readiness_details=readiness_details,
         repair_state=repair_state,
         repair_details=repair_details,
+        continuity_details=continuity_details,
     )
 
     run_requests = [
@@ -464,6 +576,7 @@ def raw_stock_daily_update_job_sensor(
         target_layer=SensorTargetLayer.SILVER,
         role=SensorRole.ASSET_UPDATE,
     ),
+    required_resource_keys={"duckdb", "lake_root"},
     description="股票日线 raw 与基础事实 ready 后，触发股票日线 silver-only 更新。",
 )
 def silver_stock_daily_update_job_sensor(
@@ -471,6 +584,33 @@ def silver_stock_daily_update_job_sensor(
 ) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     registered_keys = _eligible_registered_trade_dates(context, evaluated_at)
+    expected_window, gap_status = _stock_trade_day_registered_gap(
+        context,
+        evaluated_at=evaluated_at,
+        registered_keys=registered_keys,
+    )
+    continuity_details = _continuity_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+    )
+    if gap_status.first_missing_registered_date is not None:
+        cursor = _silver_sensor_cursor(
+            evaluated_at=evaluated_at,
+            registered_count=len(registered_keys),
+            pending_keys=(),
+            selected_keys=(),
+            blocked_keys=(gap_status.first_missing_registered_date,),
+            readiness_details={},
+            continuity_details=continuity_details,
+        )
+        return dg.SensorResult(
+            skip_reason=_registered_gap_skip_reason(
+                layer_label="silver",
+                gap_status=gap_status,
+            ),
+            cursor=cursor,
+        )
+
     silver_materialized_keys = materialized_partition_keys(
         context.instance,
         (SILVER_STOCK_DAILY_ASSET_KEY,),
@@ -514,6 +654,7 @@ def silver_stock_daily_update_job_sensor(
         selected_keys=selected_tuple,
         blocked_keys=tuple(blocked_keys),
         readiness_details=readiness_details,
+        continuity_details=continuity_details,
     )
 
     if not selected_tuple:
