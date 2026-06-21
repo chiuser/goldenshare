@@ -8,7 +8,7 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster Market Major Indices Sensor 热路径性能治理 LLD](dagster-market-major-indices-sensor-performance-governance-low-level-design.md)
 
-状态：P0F-P3、P5 已完成，P4 及后续阶段待按顺序执行。
+状态：P0F-P5 已完成，后续剩余 P6/P7 待按顺序执行。
 
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
@@ -38,7 +38,7 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 1. P0F 是所有 first-not-ready sensor 的基础。
 2. P1 先修 `cn_a_stock_current_trade_days` 注册，复权因子后续依赖它。
 3. P2A/P2B 先收敛生命周期事实源，否则 P2C 复权因子 readiness 会继续误判历史退市股票。
-4. P5 先加固指数日线上游 guard，再做 P4 主要指数 gold，更符合依赖顺序。
+4. P5 已先加固指数日线上游 guard，P4 已在其后完成主要指数 gold 热路径治理。
 5. P6 涉及退出 declarative automation active 入口，必须在基础能力稳定后单独推进。
 
 ## 2.1 开发推进详细步骤
@@ -326,23 +326,23 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 - `lake_console/docs/design/dagster-market-major-indices-sensor-performance-governance-plan.md`
 - `lake_console/docs/design/dagster-market-major-indices-sensor-performance-governance-low-level-design.md`
 
-开发前必须先做只读 SQL/prototype：
+开发前只读 SQL/prototype 已完成：
 
 - 用 DuckDB 只读样本验证主要指数 gold daily readiness SQL。
 - 覆盖文件存在、schema、index code 集合、trade_date、唯一键、价格成交量、行数覆盖等正式 blocking check 语义。
-- 记录 20/60 天耗时和读取文件数。
+- 记录 60 天耗时和 selected-date upstream 读取文件数：60 日 gold + selected silver/basic 约 24ms；selected silver coverage 在 500/1000/2000 个 raw by-code 文件下约 22/38/77ms。
 
-建议改动范围：
+已落地改动范围：
 
-- 新增或更新主要指数 lake readiness helper。
+- 新增主要指数 lake readiness helper：`market_major_indices_lake_readiness.py`。
 - `lake_console/orchestrator/src/orchestrator/defs/sensors/market_major_indices_daily_sensor.py`
 - 对应 sensor/readiness/static tests。
 
-执行步骤：
+已执行步骤：
 
 1. 实现 batch readiness helper，不持久化任何新实体。
 2. sensor 使用 expected calendar + registered gap + batch readiness。
-3. selected date upstream gate 保持现有语义。
+3. selected date upstream gate 保持现有语义，并切到 lake readiness。
 4. 移除逐日 Dagster readiness wrapper 在热路径中的使用。
 
 测试覆盖：
@@ -354,7 +354,7 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 - selected upstream not ready。
 - 静态门禁禁止旧逐日 wrapper 回流。
 
-验收：P4 完成后，主要指数日线 sensor 的性能问题有独立 batch selector 支撑，不再是非分钟线专项卡点。
+验收：P4 已完成，主要指数日线 sensor 的性能问题已有独立 batch selector 支撑，不再是非分钟线专项卡点。
 
 ### 2.1.10 P6：AutomationCondition 资产退出默认 Eager，改显式 Bounded Sensor
 
@@ -957,11 +957,22 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 本总 LLD 只固定接入边界：
 
-1. P4 在 P5 后推进更稳。
+1. P4 已在 P5 后推进并完成。
 2. P4 必须复用 P0F 的通用 selector 数据结构。
 3. P4 不得调用旧 Dagster readiness wrapper。
 4. P4 不得新增持久化状态实体。
 5. P4 的 `checks_passed` 表示 lake-derived blocking check 等价语义，不表示历史 check event 已 passed。
+
+本地验证：
+
+```bash
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_market_major_indices_lake_readiness.py \
+  tests/test_market_major_indices_daily_sensor.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`47 passed`。
 
 ## 9. P6 派生 / Serving 显式 Bounded Sensor
 
@@ -1076,11 +1087,11 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 1. P2A `silver_stock_lifecycle` 是否纳入现有 `silver_stock_basic_update_job` selection；本 LLD 推荐纳入，不新增独立 sensor。
 2. P6 四个派生资产显式 sensor 是拆成三个文件还是四个文件；无论如何旧 automation active 入口必须退出。
-3. P4 gold lake readiness SQL 是否复用现有 check helper 内部 SQL，还是抽成 shared SQL builder；不能复制出语义漂移的第二套逻辑。
+3. P4 已落地为 `asset_guards/market_major_indices_lake_readiness.py`，按现有 blocking check 语义实现 lake-derived readiness；后续如要继续抽 shared SQL builder，必须保持当前测试与静态门禁。
 4. P2C adj factor batch readiness helper 已落在 `asset_guards/adj_factor_lake_readiness.py`，测试沿用业务语义命名；后续不得回流到阶段编号命名或 stock-mins helper。
 5. P2B 开工前必须逐项审计 `stock_daily_checks.py` 中 current-listed 语义和 historical lifecycle 语义的边界：仍服务 `silver_stock_basic` freshness / current pool 的检查可以保留 current-listed 口径；`silver_stock_daily` 历史生命周期过滤、覆盖和下游完整性判断必须迁到 `silver_stock_lifecycle`。禁止用全局替换方式把所有 `silver_stock_basic_path` / `raw_stock_basic_path` 调用一刀切改掉。
 6. P2C 已在 P2A/P2B 完成后重新做只读 DuckDB batch profiling；迁移到 `silver_stock_lifecycle` 后 20 日约 10.119ms、60 日约 13.323ms，完整 blocking check 语义可行。
-7. P4 开工前必须先做只读 DuckDB SQL / 性能原型验证：覆盖 60 日 `gold_market_major_indices_daily` lake readiness、selected-date `silver_index_daily` lake readiness、`silver_index_basic` lake readiness 和 seed/input gate。已有 47 秒 / 超时数据只证明旧 wrapper 不可用，不能替代新 lake-derived readiness 的性能验收。
+7. P4 开工前只读 DuckDB SQL / 性能原型验证已完成：覆盖 60 日 `gold_market_major_indices_daily` lake readiness、selected-date `silver_index_daily` lake readiness、`silver_index_basic` lake readiness 和 seed/input gate；旧 wrapper 47 秒 / 超时数据只作为反例，不作为新方案性能证据。
 8. P6 开工前必须先做只读 readiness provider 审计：gold 派生资产优先 lake 文件事实，local / prod ClickHouse serving 优先 bounded ClickHouse 只读查询或明确 bounded metadata 查询；不得运行正式 automation evaluator，不得全历史逐分区调用 `asset_readiness_status(...)`。
 
 ## 14. 已确认无需额外性能测试的阶段

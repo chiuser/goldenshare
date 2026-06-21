@@ -8,9 +8,11 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster 非股票分钟线连续性治理专项方案](dagster-non-stk-mins-continuity-governance-plan.md)
 
-状态：开发前 LLD，待按 P4 阶段执行。
+状态：P4 已完成；实现、测试、静态门禁和只读性能样本已对账。
 
 范围：只处理 `market_major_indices_daily_sensor` 及其热路径 readiness。P4 不处理其它非分钟线资产族，不修改 run key、run config、job/sensor/asset/check 名称，不新增持久化状态实体，不运行 `dg`，不读取正式 Dagster runtime。
+
+P4 收口结果：新增 `market_major_indices_lake_readiness.py`，sensor 已不再调用旧 Dagster event-history readiness wrapper，也不再使用 latest-only 目标选择。只读 `/private/tmp` DuckDB 原型验证：60 日 gold batch + selected silver + selected index basic 合计约 24ms；selected-date silver coverage 在 500/1000/2000 个 raw by-code 文件下约 22/38/77ms。目标测试 `tests/test_market_major_indices_lake_readiness.py`、`tests/test_market_major_indices_daily_sensor.py`、`tests/test_run_contract_static_gates.py` 已通过。
 
 ## 1. 当前代码事实
 
@@ -219,6 +221,7 @@ def silver_index_basic_lake_readiness(
     *,
     connection,
     lake_root_path: Path,
+    ready_for_trade_date: str,
     sample_limit: int = DEFAULT_CONTINUITY_SAMPLE_LIMIT,
 ) -> ContinuityDateReadiness:
     ...
@@ -228,6 +231,7 @@ def silver_index_basic_lake_readiness(
 
 1. 每个 sensor tick 最多检查一次 unpartitioned `silver_index_basic`。
 2. 不调用 `silver_index_basic_ready(...)`。
+3. `silver_index_basic_no_terminated_indexes` 的旧 Dagster check 依赖 materialization metadata 中的 `ready_for_trade_date`；P4 热路径不读取 Dagster event history，因此 lake readiness 必须显式传入 selected gold target date 作为 `ready_for_trade_date` 等价口径，检查 `exp_date IS NULL OR exp_date > selected_trade_date`。
 
 必须覆盖：
 
@@ -282,7 +286,7 @@ evaluated_at
   -> if all ready: skip
   -> if materialized checks failed: skip, manual required
   -> selected date silver index daily lake readiness
-  -> silver index basic lake readiness
+  -> silver index basic lake readiness(ready_for_trade_date = selected date)
   -> seed/input gate
   -> build_run_request(...)
 ```

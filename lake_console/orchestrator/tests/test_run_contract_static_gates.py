@@ -1714,6 +1714,68 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_market_major_indices_sensor_uses_bounded_lake_readiness(self) -> None:
+        sensor_path = SENSORS_DIR / "market_major_indices_daily_sensor.py"
+        helper_path = DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py"
+        sensor_source = sensor_path.read_text()
+        helper_source = helper_path.read_text()
+        issues = []
+
+        required_sensor_fragments = (
+            "load_expected_trade_date_window",
+            "build_registered_gap_status",
+            "select_first_not_ready_trade_date",
+            "build_continuity_cursor_details",
+            "batch_market_major_indices_lake_readiness",
+            "silver_index_daily_lake_readiness_for_trade_date",
+            "silver_index_basic_lake_readiness",
+            "build_run_request",
+            "build_asset_update_run_key",
+        )
+        forbidden_sensor_fragments = (
+            "gold_market_major_indices_daily_ready_for_trade_date",
+            "silver_index_daily_ready_for_trade_date",
+            "silver_index_basic_ready",
+            "asset_readiness_status",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "_latest_registered_trade_date",
+            "get_asset_check_execution_history",
+            "dg.RunRequest(",
+            "RunRequest(",
+            "run_key=f",
+            "run_key=(",
+        )
+        forbidden_helper_fragments = (
+            "get_asset_check_execution_history",
+            "asset_readiness_status",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "gold_market_major_indices_daily_ready_for_trade_date",
+            "silver_index_daily_ready_for_trade_date",
+            "silver_index_basic_ready",
+            "DagsterInstance",
+            "RunRequest",
+        )
+        issues.extend(
+            f"{sensor_path} misses market major indices lake readiness fragment: "
+            f"{fragment}"
+            for fragment in required_sensor_fragments
+            if fragment not in sensor_source
+        )
+        issues.extend(
+            f"{sensor_path} contains forbidden market major indices hot-path "
+            f"fragment: {fragment}"
+            for fragment in forbidden_sensor_fragments
+            if fragment in sensor_source
+        )
+        issues.extend(
+            f"{helper_path} contains forbidden market major indices helper "
+            f"fragment: {fragment}"
+            for fragment in forbidden_helper_fragments
+            if fragment in helper_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 

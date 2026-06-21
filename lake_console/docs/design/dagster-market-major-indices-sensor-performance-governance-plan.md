@@ -1,8 +1,8 @@
 # Dagster Market Major Indices Sensor 热路径性能治理技术设计方案
 
-更新时间：2026-06-20
+更新时间：2026-06-21
 
-状态：已拍板方案，P4 待开发；开发前仍需完成只读 DuckDB SQL / 性能原型验证
+状态：P4 已完成；只读 DuckDB SQL / 性能原型验证、本地单元测试与静态门禁已通过
 
 范围：`market_major_indices_daily_sensor` 及其 readiness 热路径
 
@@ -12,7 +12,9 @@
 
 与总专项关系：本文档是 [Dagster 非股票分钟线连续性治理专项方案](dagster-non-stk-mins-continuity-governance-plan.md) 的 P4 专项方案。P4 实现必须先复用 [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md) 中的通用 readiness model、registered gap guard、selector 与 cursor 口径，不再新增平行的长期 selector 数据模型。
 
-2026-06-21 代码审计补充：当前 `market_major_indices_daily_sensor` 的 latest-only 目标选择和旧 Dagster event-history readiness wrapper 已由代码审计确认；旧单日 wrapper 的正式只读 profiling 约 47 秒 / 超时，不能进入 20/60 日循环。P4 进入代码实现前，必须先用只读 DuckDB SQL 原型验证 60 日 gold lake readiness、selected-date `silver_index_daily` readiness、`silver_index_basic` readiness 和 seed/input gate 的组合耗时；验证不达标时不得通过降低 blocking check 语义继续开发。
+2026-06-21 代码审计补充：当前 `market_major_indices_daily_sensor` 的 latest-only 目标选择和旧 Dagster event-history readiness wrapper 已由代码审计确认；旧单日 wrapper 的正式只读 profiling 约 47 秒 / 超时，不能进入 20/60 日循环。
+
+2026-06-21 P4 收口：P4 已实现 `asset_guards/market_major_indices_lake_readiness.py`，`market_major_indices_daily_sensor` 已切到 expected calendar + registered gap guard + first not-ready gold + lake-derived selected-date upstream gate。只读 `/private/tmp` DuckDB 原型显示：60 日 gold batch + selected silver + selected index basic 合计约 24ms；selected-date silver coverage 在 500/1000/2000 个 raw by-code 文件下约 22/38/77ms。P4 本地目标测试和静态门禁通过；未运行 `dg`，未读取正式 Dagster runtime，未写正式 lake。
 
 ## 1. 背景
 
@@ -386,7 +388,7 @@ lake_console/orchestrator/src/orchestrator/defs/checks/market_major_indices_chec
 | `silver_index_basic_row_count_positive` | 行数大于 0。 |
 | `silver_index_basic_unique_ts_code` | `ts_code` 唯一。 |
 | `silver_index_basic_required_fields_non_null` | 必填字段非空。 |
-| `silver_index_basic_no_terminated_indexes` | 不包含 terminated indexes。 |
+| `silver_index_basic_no_terminated_indexes` | 不包含 `exp_date <= selected gold target date` 的 terminated indexes；旧 check 从 materialization metadata 读取 `ready_for_trade_date`，P4 热路径不读 Dagster event history，因此显式使用 selected target date 作为等价判断日期。 |
 
 这是 unpartitioned snapshot，每个 sensor tick 最多检查一次。
 

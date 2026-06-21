@@ -2,7 +2,21 @@ from datetime import datetime
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityBatchReadiness,
+    ContinuityDateReadiness,
+    build_continuity_cursor_details,
+    build_registered_gap_status,
+    load_expected_trade_date_window,
+    select_first_not_ready_trade_date,
+)
+from orchestrator.defs.asset_guards.market_major_indices_lake_readiness import (
+    batch_market_major_indices_lake_readiness,
+    silver_index_basic_lake_readiness,
+    silver_index_daily_lake_readiness_for_trade_date,
+)
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
@@ -20,33 +34,23 @@ from orchestrator.defs.sensors.market_major_indices_input_readiness import (
     check_market_major_indices_inputs_for_trade_date,
 )
 from orchestrator.defs.sensors.readiness import (
-    AssetReadinessStatus,
     CN_A_SENSOR_TIMEZONE,
-    gold_market_major_indices_daily_ready_for_trade_date,
-    silver_index_basic_ready,
-    silver_index_daily_ready_for_trade_date,
+)
+from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
+    INDEX_TRADE_DAY_MIN_DATE,
+    SAME_DAY_PARTITION_REGISTER_START,
 )
 
 
 MAX_STATUS_SAMPLE_COUNT = 20
 
 
-def _asset_status_payload(status: AssetReadinessStatus | None) -> dict[str, object] | None:
+def _lake_status_payload(
+    status: ContinuityDateReadiness | None,
+) -> dict[str, object] | None:
     if status is None:
         return None
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
+    return status.to_cursor_details()
 
 
 def _input_status_payload(
@@ -85,17 +89,6 @@ def _input_status_payload(
     }
 
 
-def _latest_registered_trade_date(
-    registered_trade_days: tuple[str, ...],
-    evaluated_at: datetime,
-) -> str | None:
-    today = evaluated_at.date().isoformat()
-    eligible_trade_days = tuple(
-        trade_date for trade_date in registered_trade_days if trade_date <= today
-    )
-    return eligible_trade_days[-1] if eligible_trade_days else None
-
-
 def _input_sample_keys(
     input_status: MarketMajorIndicesInputReadiness | None,
 ) -> tuple[str, ...]:
@@ -112,9 +105,9 @@ def _blocked_count(
     *,
     selected_trade_date: str | None,
     blocked_fallback: int = 0,
-    gold_status: AssetReadinessStatus | None = None,
-    silver_status: AssetReadinessStatus | None = None,
-    index_basic_status: AssetReadinessStatus | None = None,
+    gold_status: ContinuityDateReadiness | None = None,
+    silver_status: ContinuityDateReadiness | None = None,
+    index_basic_status: ContinuityDateReadiness | None = None,
     input_status: MarketMajorIndicesInputReadiness | None = None,
 ) -> int:
     if selected_trade_date:
@@ -137,9 +130,11 @@ def _cursor_payload(
     registered_code_count: int,
     selected_trade_date: str | None,
     reason: str,
-    gold_status: AssetReadinessStatus | None = None,
-    silver_status: AssetReadinessStatus | None = None,
-    index_basic_status: AssetReadinessStatus | None = None,
+    continuity_status: dict[str, object] | None = None,
+    gold_batch_status: ContinuityBatchReadiness | None = None,
+    gold_status: ContinuityDateReadiness | None = None,
+    silver_status: ContinuityDateReadiness | None = None,
+    index_basic_status: ContinuityDateReadiness | None = None,
     input_status: MarketMajorIndicesInputReadiness | None = None,
     blocked_fallback: int = 0,
 ) -> str:
@@ -170,9 +165,13 @@ def _cursor_payload(
             "registered_code_count": registered_code_count,
             "selected_trade_date": selected_trade_date,
             "reason": reason,
-            "gold_status": _asset_status_payload(gold_status),
-            "silver_status": _asset_status_payload(silver_status),
-            "index_basic_status": _asset_status_payload(index_basic_status),
+            "continuity_status": continuity_status,
+            "gold_batch_status": (
+                gold_batch_status.to_cursor_details() if gold_batch_status else None
+            ),
+            "gold_status": _lake_status_payload(gold_status),
+            "silver_status": _lake_status_payload(silver_status),
+            "index_basic_status": _lake_status_payload(index_basic_status),
             "input_status": _input_status_payload(input_status),
         },
     )
@@ -227,9 +226,19 @@ def market_major_indices_daily_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    target_trade_date = _latest_registered_trade_date(registered_trade_days, evaluated_at)
-    if target_trade_date is None:
-        reason = "没有符合当前日期窗口的指数交易日分区。"
+    lake_root_path = context.resources.lake_root.root()
+    duckdb_resource = context.resources.duckdb
+    with duckdb_resource.connect() as connection:
+        expected_window = load_expected_trade_date_window(
+            connection,
+            silver_trade_calendar_path(lake_root_path),
+            evaluated_at=evaluated_at,
+            min_trade_date=INDEX_TRADE_DAY_MIN_DATE,
+            same_day_register_start=SAME_DAY_PARTITION_REGISTER_START,
+        )
+
+    if not expected_window.expected_trade_dates:
+        reason = "没有符合当前日期窗口的指数 expected trade date。"
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             target_trade_date=None,
@@ -241,14 +250,75 @@ def market_major_indices_daily_sensor(
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    gold_status = gold_market_major_indices_daily_ready_for_trade_date(
-        context.instance,
-        target_trade_date,
+    gap_status = build_registered_gap_status(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        registered_trade_dates=registered_trade_days,
     )
-    if gold_status.ready:
+    if not gap_status.ready:
+        continuity_status = build_continuity_cursor_details(
+            expected_window=expected_window,
+            gap_status=gap_status,
+            batch_readiness=None,
+            selection=None,
+        )
         reason = (
-            "最新指数交易日的 gold_market_major_indices_daily 分区已经生成完成并通过 "
-            "blocking checks。"
+            "主要指数日线检测到指数交易日分区存在注册缺口，等待注册 sensor "
+            f"补齐最早缺口 {gap_status.first_missing_registered_date}。"
+        )
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            target_trade_date=gap_status.first_missing_registered_date,
+            registered_trade_day_count=len(registered_trade_days),
+            registered_code_count=len(registered_index_codes),
+            selected_trade_date=None,
+            reason=reason,
+            continuity_status=continuity_status,
+            blocked_fallback=1,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    with duckdb_resource.connect() as connection:
+        gold_batch_status = batch_market_major_indices_lake_readiness(
+            connection=connection,
+            lake_root_path=lake_root_path,
+            expected_trade_dates=expected_window.expected_trade_dates,
+            registered_index_codes=registered_index_codes,
+        )
+    selection = select_first_not_ready_trade_date(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        readiness=gold_batch_status,
+    )
+    continuity_status = build_continuity_cursor_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=gold_batch_status,
+        selection=selection,
+    )
+    target_trade_date = selection.first_not_ready_trade_date
+    gold_status = selection.selected_status
+
+    if selection.selected_trade_date is None:
+        if selection.blocked_reason == "materialized_check_failed":
+            reason = (
+                "主要指数日线的 gold_market_major_indices_daily 已生成过，但 lake-derived "
+                "blocking checks 未全绿，暂不自动重跑，请人工检查后修复。"
+            )
+            cursor = _cursor_payload(
+                evaluated_at=evaluated_at,
+                target_trade_date=target_trade_date,
+                registered_trade_day_count=len(registered_trade_days),
+                registered_code_count=len(registered_index_codes),
+                selected_trade_date=None,
+                reason=reason,
+                continuity_status=continuity_status,
+                gold_batch_status=gold_batch_status,
+                gold_status=gold_status,
+            )
+            return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+        reason = (
+            "最近 60 个 expected index dates 的 gold_market_major_indices_daily "
+            "都已通过 lake-derived blocking checks。"
         )
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
@@ -257,32 +327,25 @@ def market_major_indices_daily_sensor(
             registered_code_count=len(registered_index_codes),
             selected_trade_date=None,
             reason=reason,
+            continuity_status=continuity_status,
+            gold_batch_status=gold_batch_status,
             gold_status=gold_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if gold_status.materialized:
-        reason = (
-            "最新指数交易日的 gold_market_major_indices_daily 已生成过，但 blocking "
-            "checks 未全绿，暂不自动重跑，请人工检查后修复。"
+    target_trade_date = selection.selected_trade_date
+    assert target_trade_date is not None
+    with duckdb_resource.connect() as connection:
+        silver_status = silver_index_daily_lake_readiness_for_trade_date(
+            connection=connection,
+            lake_root_path=lake_root_path,
+            trade_date=target_trade_date,
+            registered_index_codes=registered_index_codes,
         )
-        cursor = _cursor_payload(
-            evaluated_at=evaluated_at,
-            target_trade_date=target_trade_date,
-            registered_trade_day_count=len(registered_trade_days),
-            registered_code_count=len(registered_index_codes),
-            selected_trade_date=None,
-            reason=reason,
-            gold_status=gold_status,
-        )
-        return dg.SensorResult(skip_reason=reason, cursor=cursor)
-
-    silver_status = silver_index_daily_ready_for_trade_date(
-        context.instance,
-        target_trade_date,
-    )
     if not silver_status.ready:
-        reason = "主要指数日线等待 silver_index_daily 目标分区 ready。"
+        reason = (
+            "主要指数日线等待 selected date 的 silver_index_daily lake readiness。"
+        )
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             target_trade_date=target_trade_date,
@@ -290,14 +353,21 @@ def market_major_indices_daily_sensor(
             registered_code_count=len(registered_index_codes),
             selected_trade_date=None,
             reason=reason,
+            continuity_status=continuity_status,
+            gold_batch_status=gold_batch_status,
             gold_status=gold_status,
             silver_status=silver_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    index_basic_status = silver_index_basic_ready(context.instance)
+    with duckdb_resource.connect() as connection:
+        index_basic_status = silver_index_basic_lake_readiness(
+            connection=connection,
+            lake_root_path=lake_root_path,
+            ready_for_trade_date=target_trade_date,
+        )
     if not index_basic_status.ready:
-        reason = "主要指数日线等待 silver_index_basic ready。"
+        reason = "主要指数日线等待 silver_index_basic lake readiness。"
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             target_trade_date=target_trade_date,
@@ -305,6 +375,8 @@ def market_major_indices_daily_sensor(
             registered_code_count=len(registered_index_codes),
             selected_trade_date=None,
             reason=reason,
+            continuity_status=continuity_status,
+            gold_batch_status=gold_batch_status,
             gold_status=gold_status,
             silver_status=silver_status,
             index_basic_status=index_basic_status,
@@ -330,6 +402,8 @@ def market_major_indices_daily_sensor(
             registered_code_count=len(registered_index_codes),
             selected_trade_date=None,
             reason=reason,
+            continuity_status=continuity_status,
+            gold_batch_status=gold_batch_status,
             gold_status=gold_status,
             silver_status=silver_status,
             index_basic_status=index_basic_status,
@@ -352,6 +426,8 @@ def market_major_indices_daily_sensor(
         registered_code_count=len(registered_index_codes),
         selected_trade_date=target_trade_date,
         reason=reason,
+        continuity_status=continuity_status,
+        gold_batch_status=gold_batch_status,
         gold_status=gold_status,
         silver_status=silver_status,
         index_basic_status=index_basic_status,
