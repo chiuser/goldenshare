@@ -1664,6 +1664,29 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in forbidden_gold_qfq_batch_fragments
             if fragment in gold_qfq_batch_source
         )
+        qfq_daily_sensor_source = _function_source(
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py",
+            "stock_mins_qfq_daily_sensor",
+        )
+        adj_factor_ready_guard_index = qfq_daily_sensor_source.find(
+            "if not adj_factor_status.ready:"
+        )
+        gold_batch_call_index = qfq_daily_sensor_source.find(
+            "batch_gold_stk_mins_qfq_lake_readiness("
+        )
+        if adj_factor_ready_guard_index < 0:
+            issues.append("qfq daily sensor must guard on adj factor ready status")
+        if gold_batch_call_index < 0:
+            issues.append("qfq daily sensor must call gold qfq batch readiness")
+        if (
+            adj_factor_ready_guard_index >= 0
+            and gold_batch_call_index >= 0
+            and gold_batch_call_index < adj_factor_ready_guard_index
+        ):
+            issues.append(
+                "qfq daily sensor must not load gold qfq batch before "
+                "adj factor readiness passes"
+            )
 
         adj_factor_readiness_source = (
             DEFS_DIR / "asset_guards" / "adj_factor_lake_readiness.py"

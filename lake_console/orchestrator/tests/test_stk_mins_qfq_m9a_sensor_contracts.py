@@ -442,6 +442,114 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertNotIn("adj_factor_batch_status", cursor["details"])
         self.assertNotIn("gold_batch_status", cursor["details"])
 
+    def test_sensor_does_not_load_adj_or_gold_batch_when_silver_blocks(self) -> None:
+        context = _FakeSensorContext()
+        silver_status = _date_status(
+            dataset="silver_stk_mins",
+            ready=False,
+            materialized=False,
+            checks_passed=False,
+            reason="silver missing",
+            expected_file_count=5,
+        )
+        with (
+            patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
+                "batch_silver_stk_mins_lake_readiness",
+                return_value=_batch_status(
+                    dataset="silver_stk_mins",
+                    status=silver_status,
+                    freq_count=5,
+                ),
+            ) as silver_batch_mock,
+            patch.object(
+                daily_sensor_module,
+                "batch_adj_factor_lake_readiness",
+                side_effect=AssertionError("adj batch must not run when silver blocks"),
+            ) as adj_batch_mock,
+            patch.object(
+                daily_sensor_module,
+                "batch_gold_stk_mins_qfq_lake_readiness",
+                side_effect=AssertionError("gold batch must not run when silver blocks"),
+            ) as gold_batch_mock,
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("silver 五频度", result.skip_reason.skip_message)
+        silver_batch_mock.assert_called_once()
+        adj_batch_mock.assert_not_called()
+        gold_batch_mock.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertIsNotNone(cursor["details"]["silver_status"])
+        self.assertIsNone(cursor["details"]["adj_factor_batch_status"])
+        self.assertIsNone(cursor["details"]["gold_batch_status"])
+
+    def test_sensor_does_not_load_gold_batch_when_adj_factor_blocks(self) -> None:
+        context = _FakeSensorContext()
+        adj_status = _date_status(
+            dataset="adj_factor",
+            ready=False,
+            materialized=False,
+            checks_passed=False,
+            reason="adj factor missing",
+            expected_file_count=2,
+        )
+        with (
+            patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            patch.object(
+                daily_sensor_module,
+                "batch_silver_stk_mins_lake_readiness",
+                return_value=_batch_status(
+                    dataset="silver_stk_mins",
+                    status=_date_status(
+                        dataset="silver_stk_mins",
+                        ready=True,
+                        expected_file_count=5,
+                    ),
+                    freq_count=5,
+                ),
+            ) as silver_batch_mock,
+            patch.object(
+                daily_sensor_module,
+                "batch_adj_factor_lake_readiness",
+                return_value=_batch_status(
+                    dataset="adj_factor",
+                    status=adj_status,
+                    freq_count=1,
+                ),
+            ) as adj_batch_mock,
+            patch.object(
+                daily_sensor_module,
+                "batch_gold_stk_mins_qfq_lake_readiness",
+                side_effect=AssertionError("gold batch must not run when adj blocks"),
+            ) as gold_batch_mock,
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("复权因子", result.skip_reason.skip_message)
+        silver_batch_mock.assert_called_once()
+        adj_batch_mock.assert_called_once()
+        gold_batch_mock.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertIsNotNone(cursor["details"]["silver_status"])
+        self.assertIsNotNone(cursor["details"]["adj_factor_status"])
+        self.assertIsNone(cursor["details"]["gold_batch_status"])
+
     def test_sensor_cursor_fast_path_skips_after_frontier_selects_same_target(
         self,
     ) -> None:

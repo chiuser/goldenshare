@@ -167,40 +167,6 @@ def _batch_status_payload(
     }
 
 
-def _qfq_daily_readiness_snapshot_for_trade_date(
-    *,
-    trade_date: str,
-    silver_batch_status: StkMinsBatchReadiness,
-    adj_factor_batch_status: ContinuityBatchReadiness,
-    gold_batch_status: StkMinsBatchReadiness,
-) -> StockMinsQfqDailyReadinessSnapshot:
-    silver_status = silver_batch_status.status_for_trade_date(trade_date)
-    if not silver_status.ready:
-        return StockMinsQfqDailyReadinessSnapshot(
-            ready=False,
-            reason=silver_status.reason,
-            silver_status=silver_status,
-        )
-
-    adj_factor_status = adj_factor_batch_status.status_for_trade_date(trade_date)
-    if not adj_factor_status.ready:
-        return StockMinsQfqDailyReadinessSnapshot(
-            ready=False,
-            reason=adj_factor_status.reason,
-            silver_status=silver_status,
-            adj_factor_status=adj_factor_status,
-        )
-
-    gold_status = gold_batch_status.status_for_trade_date(trade_date)
-    return StockMinsQfqDailyReadinessSnapshot(
-        ready=gold_status.ready,
-        reason=gold_status.reason,
-        silver_status=silver_status,
-        adj_factor_status=adj_factor_status,
-        gold_status=gold_status,
-    )
-
-
 def build_stock_mins_qfq_daily_update_decision(
     *,
     target_trade_date: str | None,
@@ -431,7 +397,7 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
         )
     )
     silver_batch_status: StkMinsBatchReadiness | None = None
-    adj_factor_batch_status: StkMinsBatchReadiness | None = None
+    adj_factor_batch_status: ContinuityBatchReadiness | None = None
     gold_batch_status: StkMinsBatchReadiness | None = None
 
     def _batch_readiness_for_trade_date(
@@ -449,6 +415,14 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
                     registered_trade_days=registered_trade_days,
                     full_semantics=True,
                 )
+            silver_status = silver_batch_status.status_for_trade_date(trade_date)
+            if not silver_status.ready:
+                return StockMinsQfqDailyReadinessSnapshot(
+                    ready=False,
+                    reason=silver_status.reason,
+                    silver_status=silver_status,
+                )
+
             if adj_factor_batch_status is None:
                 adj_factor_batch_status = batch_adj_factor_lake_readiness(
                     connection=connection,
@@ -457,6 +431,17 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
                     registered_trade_days=registered_stock_current_trade_days,
                     full_semantics=True,
                 )
+            adj_factor_status = adj_factor_batch_status.status_for_trade_date(
+                trade_date
+            )
+            if not adj_factor_status.ready:
+                return StockMinsQfqDailyReadinessSnapshot(
+                    ready=False,
+                    reason=adj_factor_status.reason,
+                    silver_status=silver_status,
+                    adj_factor_status=adj_factor_status,
+                )
+
             if gold_batch_status is None:
                 gold_batch_status = batch_gold_stk_mins_qfq_lake_readiness(
                     connection=connection,
@@ -465,11 +450,13 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
                     registered_trade_days=registered_trade_days,
                     full_semantics=True,
                 )
-        return _qfq_daily_readiness_snapshot_for_trade_date(
-            trade_date=trade_date,
-            silver_batch_status=silver_batch_status,
-            adj_factor_batch_status=adj_factor_batch_status,
-            gold_batch_status=gold_batch_status,
+            gold_status = gold_batch_status.status_for_trade_date(trade_date)
+        return StockMinsQfqDailyReadinessSnapshot(
+            ready=gold_status.ready,
+            reason=gold_status.reason,
+            silver_status=silver_status,
+            adj_factor_status=adj_factor_status,
+            gold_status=gold_status,
         )
 
     selection = select_first_not_ready_trade_date(
