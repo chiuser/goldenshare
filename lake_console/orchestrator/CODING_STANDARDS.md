@@ -99,7 +99,7 @@ MACD/KDJ 连续性已落地规则：
 
 正式 asset 写入函数默认不得混入定制化写前 guard；普通质量与完整性要求必须通过 blocking asset checks 表达。
 
-已确认例外：`silver_stock_daily` 写入前必须调用 `assert_silver_stock_basic_fresh_for_stock_daily(...)`。这是生产前置 freshness 门禁，用来防止人工 Launchpad、CLI 或补录绕过 `stock_daily_sensor` 后，在基础股票池未完成当日更新时静默生产；它不等同于把普通质量 check 混入 asset 写入逻辑。P2 后 `silver_stock_daily` 的股票生命周期过滤事实源是包含退市股票的 `raw_stock_basic`，`silver_stock_basic` 只保留 current-listed 快照和 freshness guard 角色，不再作为 stock daily 股票全集过滤事实源。
+已确认例外：`silver_stock_daily` 写入前必须调用 `assert_silver_stock_basic_fresh_for_stock_daily(...)`。这是生产前置 freshness 门禁，用来防止人工 Launchpad、CLI 或补录绕过 `stock_daily_sensor` 后，在基础股票池未完成当日更新时静默生产；它不等同于把普通质量 check 混入 asset 写入逻辑。当前 `silver_stock_daily` 已退出 current-listed-only 股票全集过滤，过渡期使用包含退市股票的 `raw_stock_basic` 生命周期事实；非股票分钟线连续性治理 P2B 落地后，长期生命周期过滤事实源必须收敛到 `silver_stock_lifecycle`，`raw_stock_basic` 只作为 `silver_stock_lifecycle` 的上游输入，`silver_stock_basic` 只保留 current-listed 快照和 freshness guard 角色。
 
 ### 禁止阶段编号进入正式代码
 
