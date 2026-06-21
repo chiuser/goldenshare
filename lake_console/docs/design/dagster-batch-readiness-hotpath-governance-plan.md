@@ -2,7 +2,7 @@
 
 更新时间：2026-06-21
 
-状态：P0 分阶段推进中。P0A、P0B、P0C 已完成并提交；P0D 及后续阶段继续按 LLD 推进。本文档记录问题定义、代码审计、治理方案和阶段验收口径；本专项所有正式验证均禁止运行 `dg`，禁止写 Dagster runtime，禁止写正式 lake。
+状态：P0 分阶段推进中。P0A、P0B、P0C、P0D 已完成并提交；P0E 及后续阶段继续按 LLD 推进。本文档记录问题定义、代码审计、治理方案和阶段验收口径；本专项所有正式验证均禁止运行 `dg`，禁止写 Dagster runtime，禁止写正式 lake。
 
 对应 LLD：[Dagster Batch Readiness Hot Path 性能治理 LLD](dagster-batch-readiness-hotpath-governance-low-level-design.md)
 
@@ -13,7 +13,7 @@
 | P0A | 已完成 | qfq daily / qfq factor repair sensor 已在运行窗口前轻量 skip，窗口前不再进入重 DuckDB readiness。提交：`b1dcc7b3`。 |
 | P0B | 已完成 | 已做 qfq gold readiness 只读 profiling，旧实现 10 天窗口耗时约 `176.8s`，确认根因是 qfq gold readiness 日期乘频度重复重扫。 |
 | P0C | 已完成 | `batch_gold_stk_mins_qfq_lake_readiness(...)` 已改为窗口级 true batch；正式 lake 只读 profiling 降至约 `13.6s`。提交：`78d66458`。 |
-| P0D | 待完成 | qfq daily sensor 分层短路：silver 阻断时不加载 adj/gold，adj 阻断时不加载 gold。 |
+| P0D | 已完成 | qfq daily sensor 已分层短路：silver 阻断时不加载 adj/gold，adj 阻断时不加载 gold。提交：`7c7eb0e6`。 |
 | P0E | 待完成 | 全部 sensor hot path batch helper 的门禁测试与性能回归；其它 helper 的性能测试固定放在本阶段。 |
 | P0F | 待完成 | 本地目标回归、性能结果落档、专项验收。 |
 | P0G | 待完成 | 更新长期规范和关联性能文档状态。 |
@@ -241,6 +241,8 @@ registered gap
 
 如果 gold qfq 在最早日期 not ready，不得读取后续日期 repair status。
 
+当前落地对账：P0D 新增代码修改集中在 qfq daily sensor 的 silver -> adj factor -> gold lazy load；qfq factor repair sensor 当前代码已经满足 gold qfq 未 ready 时不读取 repair status，且 status 读取使用 `include_event_storage_ids=False`。P0E 必须继续用静态门禁和性能回归守住该口径。
+
 ### P0E：静态门禁和性能回归
 
 必须新增或更新测试：
@@ -251,12 +253,16 @@ registered gap
 4. qfq factor repair 只在 gold qfq selected target ready 后读取 factor repair status。
 5. `batch_gold_stk_mins_qfq_lake_readiness` 的单测必须证明窗口级调用不是日期×频度重复调用。
 6. 性能测试必须记录 10 天窗口 qfq gold readiness elapsed ms。
+7. raw/silver stk mins、adj factor、major indices、market breadth、ClickHouse readiness helper 必须实际跑一遍本地性能样本或 fake-client 调用次数测试。
+8. 所有性能测试只能使用临时目录、临时 Parquet、in-memory DuckDB、fake ClickHouse client；不得读取正式 lake、正式 Dagster runtime 或运行 `dg`。
 
 静态门禁：
 
 1. qfq sensors 禁止在窗口未到分支前调用重 batch helper。
 2. qfq gold batch helper 禁止出现外层 `for trade_date in expected_trade_dates` 再调用 native/derived per-date count helper 的结构。
 3. 日常 sensor hot path 禁止使用 `instance.get_event_records(... limit=500)` 这类无界或大 limit event history 回填。
+4. sensor hot path batch helper 禁止依赖 Dagster instance；只能消费 DuckDB/lake 文件事实、fake client 或显式传入的 bounded 状态。
+5. ClickHouse readiness helper 必须证明是 partition-set 级别调用，不得退回逐日查询。
 
 ## 7. 性能预算
 

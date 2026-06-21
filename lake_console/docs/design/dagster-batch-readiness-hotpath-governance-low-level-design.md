@@ -4,7 +4,7 @@
 
 依据文档：[Dagster Batch Readiness Hot Path 性能治理专项方案](dagster-batch-readiness-hotpath-governance-plan.md)
 
-状态：P0 分阶段推进中。P0A、P0B、P0C 已完成；P0D、P0E、P0F、P0G 继续按本文档推进。本文档是编码级设计和阶段验收依据；未完成阶段不得写成已实现事实。
+状态：P0 分阶段推进中。P0A、P0B、P0C、P0D 已完成；P0E、P0F、P0G 继续按本文档推进。本文档是编码级设计和阶段验收依据；未完成阶段不得写成已实现事实。
 
 ## 0. 当前进度与阶段边界
 
@@ -13,7 +13,7 @@
 | P0A 窗口前轻量 skip | 已完成 | 只调整 qfq daily / qfq factor repair sensor 窗口前执行顺序；不改变 run key / run config。 |
 | P0B qfq gold profiling | 已完成 | 只读 profiling，不改生产代码；输出写 `/private/tmp`。 |
 | P0C qfq gold true batch | 已完成 | 只重写 `batch_gold_stk_mins_qfq_lake_readiness(...)` 的读取模型；不降低 check 语义。 |
-| P0D sensor 分层短路 | 待完成 | 只让 qfq daily / repair sensor 在上游阻断时少跑后续重 batch；不改业务触发语义。 |
+| P0D sensor 分层短路 | 已完成 | qfq daily sensor 已按 silver -> adj factor -> gold lazy load；silver 阻断时不加载 adj/gold，adj 阻断时不加载 gold。提交：`7c7eb0e6`。 |
 | P0E 全部 helper 门禁与性能回归 | 待完成 | 统一测试所有 sensor hot path batch helper；其它 helper 性能测试固定放在本阶段。 |
 | P0F 本地回归与性能结果落档 | 待完成 | 跑本地目标测试和必要静态门禁；不运行 `dg`。 |
 | P0G 文档与长期规范收口 | 待完成 | 同步长期规范和关联方案文档状态。 |
@@ -588,6 +588,8 @@ lake_console/orchestrator/tests/test_batch_readiness_hotpath_performance.py
 
 新增测试必须只使用临时目录、临时 Parquet、fake ClickHouse client 或 in-memory DuckDB，不读写正式 lake / Dagster runtime。
 
+P0E 不修改生产运行逻辑。若现有 helper 暴露出同等级 timeout 风险，P0E 只记录失败和风险，停止进入后续修复设计；不得在性能测试阶段顺手重写生产 helper。
+
 ### 9.2 必测 helper
 
 | Helper | 测试位置 | 必测内容 |
@@ -604,17 +606,60 @@ lake_console/orchestrator/tests/test_batch_readiness_hotpath_performance.py
 | `batch_clickhouse_market_breadth_readiness` | fake client test | 断言 ClickHouse fetch 是 partition set 级别一次调用。 |
 | `batch_prod_clickhouse_market_breadth_readiness` | fake client test | 断言 local/prod 各一次 partition set fetch。 |
 
+### 9.2.1 测试夹具口径
+
+P0E 测试夹具按 helper 类型分三类，不共享正式 lake：
+
+| 类型 | 夹具来源 | 必须覆盖 |
+| --- | --- | --- |
+| DuckDB / Parquet helper | `TemporaryDirectory` + 临时 Parquet + in-memory DuckDB | ready、缺文件、文件存在但 blocking check 失败；至少一个样本必须证明不是只测 row count。 |
+| ClickHouse readiness helper | fake client / fake readiness source | 断言查询粒度是 partition set 级别；10 天窗口不得产生 10 次逐日查询。 |
+| sensor hot path 静态门禁 | 读取生产源文件文本 / AST | 禁止 Dagster event history 深扫、禁止 qfq gold 回流 per-date 重扫、禁止窗口前重 batch。 |
+
+临时性能样本不要求模拟正式湖全量数据规模，但必须覆盖完整 blocking check 语义路径。不能为了跑得快只构造“文件存在 + row count”的绿色样本。
+
+### 9.2.2 P0E 测试落点
+
+P0E 推荐落点如下：
+
+```text
+tests/test_stk_mins_continuity_performance.py
+  - raw / silver stk mins 10-day readiness elapsed_ms
+  - qfq gold 10-day native + derived readiness elapsed_ms
+
+tests/test_batch_readiness_hotpath_performance.py  # 新增时使用
+  - adj factor raw / silver / combined 10-day readiness elapsed_ms
+  - major indices 10-day readiness elapsed_ms
+  - market breadth / stock return distribution 10-day readiness elapsed_ms
+  - ClickHouse local/prod fake-client partition-set call count
+
+tests/test_run_contract_static_gates.py
+  - qfq sensors window-before-batch ordering
+  - qfq gold batch helper no per-date heavy helper call
+  - sensor hot path no Dagster event/check history deep scan
+  - batch readiness helpers no Dagster instance dependency
+```
+
+如果不新增 `test_batch_readiness_hotpath_performance.py`，必须把同等覆盖补到既有 helper contract tests 中，并在 P0E 对账里逐项说明每个 helper 对应的测试文件。
+
 ### 9.3 性能预算
 
 本地临时样本预算：
 
 | Helper 类型 | 预算 |
 | --- | --- |
-| raw/silver stk mins 临时 10 天样本 | 不得退化到秒级逐日 Dagster 深扫；具体预算沿现有测试常量或 LLD 新增常量。 |
+| raw/silver stk mins 临时 10 天样本 | 不得退化到秒级逐日 Dagster 深扫；目标 < 5s，硬上限 < 10s。 |
 | qfq gold 临时 10 天样本 | 必须显著低于旧 20/60 天模型；目标 < 8s，硬上限 < 15s。 |
-| adj factor 临时 10 天样本 | 目标 < 5s。 |
-| major indices / market breadth 小对象 | 目标 < 1s。 |
-| ClickHouse fake client | 调用次数门禁优先于耗时，必须是 partition set 级别。 |
+| adj factor 临时 10 天样本 | 目标 < 5s，硬上限 < 10s。 |
+| major indices / market breadth 小对象 | 目标 < 1s，硬上限 < 3s。 |
+| ClickHouse fake client | 调用次数门禁优先于耗时，必须是 partition set 级别；local/prod 对账最多各一次 fetch。 |
+
+预算失败处理：
+
+1. qfq gold 超硬上限：P0E 停止，回到 qfq gold helper 继续修复。
+2. 非 qfq helper 接近或超过 30s sensor hot path 风险：P0E 停止，新增同级修复阶段，不进入 P0F。
+3. 临时样本失败但原因是测试夹具不完整：先修测试夹具，不降低正式 blocking check 语义。
+4. fake ClickHouse client 调用次数失败：说明读取模型退回逐日查询，必须阻断。
 
 真实 lake profiling 预算：
 
@@ -633,6 +678,22 @@ lake_console/orchestrator/tests/test_batch_readiness_hotpath_performance.py
 5. sensor hot path 禁止 `get_event_records`、`get_asset_check_execution_history`、`partition_dataset_readiness_status_from_latest_checks`。
 6. 所有 batch readiness helper 禁止依赖 Dagster instance。
 
+### 9.5 P0E 输出对账格式
+
+P0E 完成后必须在交付说明中列出：
+
+| 项 | 必填内容 |
+| --- | --- |
+| helper | helper 函数名。 |
+| test_file | 覆盖它的测试文件。 |
+| window | 起止日期和 expected date 数。 |
+| scope | 文件数、频度数或外部查询次数。 |
+| elapsed_ms | 本地样本耗时。 |
+| semantics | 覆盖了哪些 blocking check 语义，是否包含失败样本。 |
+| verdict | 通过、阻断、或需要新增修复阶段。 |
+
+这张表不要求写入 repo；P0F/P0G 文档收口时再把最终验收结果落档。
+
 ## 10. P0F 本地验证命令
 
 纯本地测试，不运行 `dg`：
@@ -642,13 +703,14 @@ cd /Users/congming/github/goldenshare/lake_console/orchestrator
 PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   tests/test_stk_mins_lake_readiness.py \
   tests/test_stk_mins_continuity_performance.py \
+  tests/test_batch_readiness_hotpath_performance.py \
   tests/test_stock_mins_daily_continuity_sensors.py \
   tests/test_stk_mins_qfq_m9a_sensor_contracts.py \
   tests/test_stk_mins_qfq_m9c_sensor_contracts.py \
   tests/test_run_contract_static_gates.py
 ```
 
-如果新增 `tests/test_batch_readiness_hotpath_performance.py`，必须加入上述命令。
+如果 P0E 最终选择不新增 `tests/test_batch_readiness_hotpath_performance.py`，P0F 命令中应删除该文件，并在对账中说明非股票分钟线 helper 的实际覆盖落点。
 
 静态检查：
 
@@ -731,6 +793,8 @@ tests/test_stk_mins_qfq_m9c_sensor_contracts.py
 2. qfq daily adj factor not ready 时不调用 gold。
 3. qfq factor repair gold not ready 时不调用 repair status。
 4. gold ready 后只读取 selected target repair status。
+
+当前状态：已完成并提交 `7c7eb0e6`。本次落地范围实际覆盖 qfq daily 分层短路；qfq factor repair 的“gold not ready 不读取 repair status”仍由 P0A/P6 既有测试和 P0E 静态/性能回归继续守住，不在 P0D 追加业务语义变更。
 
 ### P0E：全部 helper 门禁与性能回归
 
