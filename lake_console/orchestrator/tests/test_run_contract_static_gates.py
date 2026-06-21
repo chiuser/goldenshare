@@ -1439,6 +1439,61 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_bounded_continuity_foundation_stays_pure_and_bounded(self) -> None:
+        path = DEFS_DIR / "asset_guards" / "bounded_continuity.py"
+        source = path.read_text()
+        cursor_source = _function_source(path, "build_continuity_cursor_details")
+        issues = []
+
+        required_fragments = (
+            "DEFAULT_CONTINUITY_WINDOW_LIMIT = 60",
+            "DEFAULT_CONTINUITY_SAMPLE_LIMIT = 20",
+            "class ContinuityExpectedDateWindow",
+            "class ContinuityRegisteredGapStatus",
+            "class ContinuityDateReadiness",
+            "class ContinuityBatchReadiness",
+            "class ContinuitySelection",
+            "def load_expected_trade_date_window",
+            "def build_registered_gap_status",
+            "def select_first_not_ready_trade_date",
+            "def build_continuity_cursor_details",
+        )
+        forbidden_fragments = (
+            "import dagster",
+            "from dagster",
+            "DagsterInstance",
+            "asset_readiness_status(",
+            "dataset_readiness_status(",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "get_asset_check_execution_history",
+            "get_event_records",
+            "duckdb.connect",
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.sensor",
+            "RunRequest",
+            "Definitions(",
+            "status_manifest",
+            "summary_asset",
+            "readiness_asset",
+        )
+        issues.extend(
+            f"{path} misses bounded continuity fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source
+        )
+        issues.extend(
+            f"{path} contains forbidden runtime/state fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        )
+        if "statuses_by_trade_date" in cursor_source:
+            issues.append(
+                "build_continuity_cursor_details must not write full statuses map"
+            )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 
