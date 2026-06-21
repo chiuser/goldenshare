@@ -4,7 +4,30 @@
 
 依据文档：[Dagster Batch Readiness Hot Path 性能治理专项方案](dagster-batch-readiness-hotpath-governance-plan.md)
 
-状态：P0 待开发。本文档只落编码级设计，不代表代码已实现。正式开发前仍需按阶段计划逐项批准。
+状态：P0 分阶段推进中。P0A、P0B、P0C 已完成；P0D、P0E、P0F、P0G 继续按本文档推进。本文档是编码级设计和阶段验收依据；未完成阶段不得写成已实现事实。
+
+## 0. 当前进度与阶段边界
+
+| 阶段 | 状态 | 开发边界 |
+| --- | --- | --- |
+| P0A 窗口前轻量 skip | 已完成 | 只调整 qfq daily / qfq factor repair sensor 窗口前执行顺序；不改变 run key / run config。 |
+| P0B qfq gold profiling | 已完成 | 只读 profiling，不改生产代码；输出写 `/private/tmp`。 |
+| P0C qfq gold true batch | 已完成 | 只重写 `batch_gold_stk_mins_qfq_lake_readiness(...)` 的读取模型；不降低 check 语义。 |
+| P0D sensor 分层短路 | 待完成 | 只让 qfq daily / repair sensor 在上游阻断时少跑后续重 batch；不改业务触发语义。 |
+| P0E 全部 helper 门禁与性能回归 | 待完成 | 统一测试所有 sensor hot path batch helper；其它 helper 性能测试固定放在本阶段。 |
+| P0F 本地回归与性能结果落档 | 待完成 | 跑本地目标测试和必要静态门禁；不运行 `dg`。 |
+| P0G 文档与长期规范收口 | 待完成 | 同步长期规范和关联方案文档状态。 |
+
+### 0.1 其它 helper 性能测试位置
+
+其它 helper 的性能测试固定在 P0E，不在 P0B。
+
+原因：
+
+1. P0B 是 qfq gold 单点根因定位，目的是证明旧 qfq gold 实现的耗时构成。
+2. P0C 会重写 qfq gold batch，P0D 会改变 sensor 调用顺序；在这两步之前测全 helper，不能代表最终 hot path。
+3. P0E 是统一验收阶段，必须把 qfq gold、raw/silver 分钟线、adj factor、major indices、market breadth、ClickHouse readiness helper 一起跑完。
+4. P0E 如果发现其它 helper 也有同等级超时风险，必须新增修复阶段，不能只写成“已知风险”。
 
 ## 1. 目标
 
@@ -262,7 +285,19 @@ def batch_gold_stk_mins_qfq_lake_readiness(
 
 ### 7.2 新增内部数据结构
 
-建议在 `stk_mins_lake_readiness.py` 内新增私有 dataclass。
+P0C 实现后，当前代码已保留 `_GoldQfqNativePathPlan`，并把 derived 侧收敛为按窗口日期直接返回 `derived_counts_by_key` 与 `derived_missing_paths_by_key`，没有长期保留单独的 `_GoldQfqDerivedPathPlan` dataclass。后续维护以当前代码事实为准：derived 侧不要求为了贴合旧草案而补一个无实际用途的 dataclass。
+
+P0C 当前核心调用链：
+
+```text
+batch_gold_stk_mins_qfq_lake_readiness
+  -> _gold_qfq_native_path_plans
+  -> _gold_qfq_native_batch_counts
+  -> _gold_qfq_derived_batch_counts
+  -> _gold_qfq_statuses_from_batch_counts
+```
+
+以下原始设计片段保留为实现背景：native 侧需要明确 path plan；derived 侧只要保持窗口级 batch 统计和 `(trade_date, freq)` fan-out 即可。
 
 ```python
 @dataclass(frozen=True)
@@ -276,25 +311,15 @@ class _GoldQfqNativePathPlan:
     missing_gold_paths: tuple[Path, ...]
 ```
 
-```python
-@dataclass(frozen=True)
-class _GoldQfqDerivedPathPlan:
-    trade_date: str
-    target_freq: int
-    source_freq: int
-    source_paths: tuple[Path, ...]
-    expected_gold_paths: tuple[Path, ...]
-    existing_gold_paths: tuple[Path, ...]
-    missing_gold_paths: tuple[Path, ...]
+概念上的 batch metrics 必须至少包含：
+
+```text
+native_counts_by_key: Mapping[(trade_date, freq), GoldStkMinsQfqCheckCounts]
+derived_counts_by_key: Mapping[(trade_date, freq), GoldStkMinsQfqDerivedCheckCounts]
+derived_missing_paths_by_key: Mapping[(trade_date, freq), tuple[Path, ...]]
 ```
 
-```python
-@dataclass(frozen=True)
-class _GoldQfqBatchMetrics:
-    native_counts_by_key: Mapping[tuple[str, int], GoldStkMinsQfqCheckCounts]
-    derived_counts_by_key: Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts]
-    missing_paths_by_trade_date: Mapping[str, tuple[Path, ...]]
-```
+当前代码直接用多个 mapping 传递，不要求为了形式统一新增 `_GoldQfqBatchMetrics` 类型。
 
 Key 统一使用：
 
@@ -322,21 +347,7 @@ def _gold_qfq_native_path_plans(
 2. 不执行重公式 SQL。
 3. 允许调用 `_gold_qfq_expected_paths(...)`，但必须在窗口 path planning 阶段集中完成。
 
-```python
-def _gold_qfq_derived_path_plans(
-    connection,
-    *,
-    lake_root: Path,
-    expected_trade_dates: Sequence[str],
-) -> tuple[_GoldQfqDerivedPathPlan, ...]:
-    ...
-```
-
-职责：
-
-1. 按 `target_freq + source_freq + year` 发现 source paths。
-2. 对同一年内的窗口日期合并调用 derived select / diagnostics。
-3. 输出每个 `(trade_date, target_freq)` 的 expected/existing/missing paths。
+Derived 侧当前不单独暴露 path plan helper，而是由 `_gold_qfq_derived_batch_counts(...)` 内部按 `target_freq + source_freq + year` 集中发现 source paths、计算 expected target paths、执行 diagnostics / target counts / formula comparison。
 
 ```python
 def _gold_qfq_native_batch_counts(
@@ -358,18 +369,22 @@ def _gold_qfq_native_batch_counts(
 def _gold_qfq_derived_batch_counts(
     connection,
     *,
-    derived_plans: Sequence[_GoldQfqDerivedPathPlan],
-    full_semantics: bool,
-) -> Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts]:
+    lake_root: Path,
+    expected_trade_dates: Sequence[str],
+) -> tuple[
+    Mapping[tuple[str, int], GoldStkMinsQfqDerivedCheckCounts],
+    Mapping[tuple[str, int], tuple[Path, ...]],
+]:
     ...
 ```
 
 职责：
 
-1. 按 `target_freq + year` 合并 derived diagnostics。
+1. 按 `target_freq + source_freq + year` 合并 derived diagnostics。
 2. 按 `target_freq + year` 合并 target gold counts。
-3. 按 `target_freq + year` 合并 derived formula comparison。
+3. 按 `target_freq + source_freq + year` 合并 derived formula comparison。
 4. 每条 SQL 必须输出 `trade_date`，以便 fan-out。
+5. 返回 `derived_counts_by_key` 和 `derived_missing_paths_by_key`，key 均为 `(trade_date, target_freq)`。
 
 ```python
 def _gold_qfq_statuses_from_batch_counts(
@@ -771,4 +786,3 @@ dagster-stk-mins-continuity-performance-optimization-low-level-design.html
 2. P0E 是验收阶段，必须在 qfq gold 重写和 sensor 分层短路后执行。
 3. 其它 helper 当前不是高危修复对象，但必须通过 P0E 证明没有同类风险。
 4. 若 P0E 发现其它 helper 有同等级风险，必须追加修复阶段，不能把结果只写成“已知风险”。
-
