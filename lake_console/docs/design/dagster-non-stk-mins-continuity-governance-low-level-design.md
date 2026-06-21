@@ -41,6 +41,411 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 4. P5 先加固指数日线上游 guard，再做 P4 主要指数 gold，更符合依赖顺序。
 5. P6 涉及退出 declarative automation active 入口，必须在基础能力稳定后单独推进。
 
+## 2.1 开发推进详细步骤
+
+本节是后续进入开发时的执行清单。每个阶段开工前都必须重新读取根 `AGENTS.md`、`lake_console/orchestrator/AGENTS.md`、`lake_console/orchestrator/CODING_STANDARDS.md`、本 LLD 和对应专项 LLD；涉及代码改动时必须先用 CodeGraph 审计真实调用链与影响面，不允许只按文档、文件名或历史印象猜测。
+
+### 2.1.1 通用开工与收口流程
+
+每个阶段都按同一条链路推进：
+
+1. Preflight：
+   - 确认 `git status --short`，只识别当前阶段相关脏文件；无关 `reports/`、历史报告或其它用户改动不整理、不提交。
+   - 抽取本阶段硬口径：必须、禁止、不做、保留、默认、验收、停机条件。
+   - 用 CodeGraph 或定向代码审计确认真实入口、调用方、被调用方、测试覆盖点。
+   - 若发现当前代码事实与本 LLD 冲突，立即停下汇报，不靠临时兼容绕过去。
+
+2. 测试先行：
+   - 先写或调整本阶段目标测试。
+   - 正向测试覆盖应支持路径，负向测试覆盖禁止项，例如 latest registered 回流、逐日 Dagster readiness 深扫、row count 冒充完整 check、current-listed-only 生命周期误用。
+   - 性能敏感阶段必须先做只读 profiling 或 DuckDB prototype，确认方案可行后再改生产代码。
+
+3. 实现：
+   - 只改本阶段列出的文件与契约。
+   - 不改 run key、run config、job/sensor/asset/check 名称，除非本阶段明确写入。
+   - 不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake；若阶段明确需要正式只读审计，必须单独审批。
+
+4. 验证：
+   - 运行本阶段目标 pytest。
+   - 跑对应静态门禁和 `git diff --check`。
+   - 对性能阶段记录只读 profiling 数据：窗口大小、读取文件数、Dagster API 调用次数、DuckDB elapsed ms、是否触发停机条件。
+
+5. 计划对账：
+   - 逐条说明本阶段硬口径落在哪些代码、测试、静态门禁和文档里。
+   - 未完成项必须明确原因、风险和后续阶段，不得默认算完成。
+   - 阶段提交必须只 stage 本阶段相关文件。
+
+### 2.1.2 P0F：通用 Bounded Continuity Selector 基础
+
+目标：先落非分钟线 sensor 共用的 bounded selector 能力，不接入任何正式 sensor，不改变运行行为。
+
+建议改动范围：
+
+- 新增 `lake_console/orchestrator/src/orchestrator/defs/asset_guards/bounded_continuity.py`。
+- 新增或扩展 `lake_console/orchestrator/tests/test_bounded_continuity.py`。
+- 扩展 `lake_console/orchestrator/tests/test_run_contract_static_gates.py`，锁住 selector 使用边界。
+
+执行步骤：
+
+1. 定义只读内存模型：
+   - `ContinuityExpectedDateWindow`
+   - `ContinuityRegisteredGapStatus`
+   - `ContinuityDateReadiness`
+   - `ContinuityBatchReadiness`
+   - `ContinuitySelection`
+2. 定义通用 helper：
+   - expected calendar window 裁剪。
+   - registered gap 检测。
+   - first missing / first not-ready / ready frontier 选择。
+   - materialized-check-problem 阻断语义。
+3. 测试覆盖：
+   - registered 缺口优先于 readiness。
+   - 早期 not-ready 阻断后续日期。
+   - materialized 但 blocking checks failed 不自动重跑。
+   - all ready 返回 ready frontier。
+   - 20/60 窗口输入均只看窗口内数据，不扫全历史。
+4. 静态门禁：
+   - 后续正式 sensor 必须使用 bounded selector，不允许恢复 latest registered 目标选择。
+
+验收：P0F 完成后只新增基础 helper 和测试，不出现任何 sensor 行为变化。
+
+### 2.1.3 P1：Current Trade Day Partition Catch-Up
+
+目标：修正 current trade day partition 注册能力，停机后能按 expected calendar 补最早缺口；current snapshot 资产不做历史重算。
+
+建议改动范围：
+
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/stock_current_trade_day_sensor.py`
+- current trade day sensor 相关测试，优先补齐在现有 sensor contract 测试中。
+- `lake_console/orchestrator/tests/test_run_contract_static_gates.py`
+
+执行步骤：
+
+1. 读取 SSE calendar，按 bounded window 生成 expected dates。
+2. 对 current trade day partition set 做 registered gap 检测。
+3. 每 tick 只注册最早缺口或小批量缺口，具体批量必须保持文档拍板口径。
+4. 删除 today-only 决策在正式路径中的主导地位。
+5. 保留 current snapshot 资产语义：它们只消费 current trade day，不做历史连续资产补洞。
+
+测试覆盖：
+
+- 停机漏 `06-15/06-16` 时先注册 `06-15`。
+- 今日窗口前不注册当天。
+- 注册 cursor 暴露 first missing 和 ready frontier。
+- 不读取逐日 Dagster event/check history。
+
+验收：P1 完成后 current trade day 注册不再因为停机直接跳到最新日期。
+
+### 2.1.4 P2A：新增 `silver_stock_lifecycle`
+
+目标：从 `raw_stock_basic` 派生正式银层股票生命周期事实，供复权因子、股票日线、股票分钟线生命周期 check 和 runless dry-run 统一使用。
+
+建议改动范围：
+
+- 新增生命周期 path/schema/select helper，建议落在现有 stock basic / stock lifecycle 相邻模块。
+- 新增 `silver_stock_lifecycle` asset/check/readiness/catalog contract。
+- `lake_console/orchestrator/src/orchestrator/defs/jobs/stock_basic_update.py`
+- 对应 catalog、asset governance、schema contract、job selection 测试。
+
+字段契约必须固定：
+
+- `ts_code`
+- `list_date`
+- `delist_date`
+- `list_status`
+- `exchange`
+- `market`
+- `is_cny_stock`
+- 必要的审计字段，例如 source path、row count、snapshot date，具体字段以当前 schema 规范落地。
+
+执行步骤：
+
+1. 审计当前 `raw_stock_basic` schema 与 P2 已有生命周期 SQL。
+2. 抽出 `silver_stock_lifecycle_select(...)`，保持历史退市股票不被 current-listed-only 过滤掉。
+3. 新增 asset，加入 stock basic update job；不要改变 `silver_stock_basic` current-listed-only 语义。
+4. 新增 blocking check：
+   - 生命周期区间合法。
+   - `ts_code/list_date` 唯一或符合当前数据事实。
+   - CNY、exchange、market 派生字段可解释。
+5. 新增 readiness spec，供后续 P2B/P2C 使用。
+
+测试覆盖：
+
+- `000638.SZ` 这种退市股票必须出现在 lifecycle 中。
+- 当前上市股票 `delist_date is null`。
+- 非 CNY 或不支持市场按现有规则过滤或标记。
+- stock basic update job selection 包含 lifecycle。
+
+验收：P2A 完成后，所有下游不得再以 `raw_stock_basic` 作为长期生命周期事实源的新增正式依赖。
+
+### 2.1.5 P2B：迁移既有生命周期消费者
+
+目标：把当前已经直接使用 `raw_stock_basic` 生命周期的正式消费者统一迁移到 `silver_stock_lifecycle`，一次性清零旧依赖。
+
+建议改动范围：
+
+- `lake_console/orchestrator/src/orchestrator/defs/assets/stock_daily.py`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/stock_daily_checks.py`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py`
+- `lake_console/orchestrator/src/orchestrator/defs/asset_guards/stk_mins_lake_readiness.py`
+- `lake_console/orchestrator/src/orchestrator/defs/bootstrap/stk_mins_name_timeline_check_events.py`
+- 相关 tests 与静态门禁。
+
+执行步骤：
+
+1. 审计所有 `raw_stock_basic` 生命周期直接读取点，区分：
+   - 合法源头：生成 `silver_stock_lifecycle`。
+   - 非法下游：应迁移到 `silver_stock_lifecycle`。
+2. 迁移 `silver_stock_daily`：
+   - `silver_stock_daily_select(...)` 使用 lifecycle。
+   - `silver_stock_daily_stock_lifecycle_covered` 使用 lifecycle。
+   - 旧 current-listed-only blocking 口径不得回流。
+3. 迁移股票分钟线 lifecycle/name timeline check：
+   - `silver_stk_mins_name_timeline_covered` 保持 check 名称不变。
+   - 内部事实源改为 `silver_stock_lifecycle`。
+4. 迁移 lake readiness batch helper：
+   - silver 分钟线 batch readiness 不再读 raw stock basic snapshot。
+   - ready 语义仍必须覆盖生命周期，不得降级为 row count。
+5. 迁移 runless check dry-run helper：
+   - 候选生命周期判断使用 `silver_stock_lifecycle`。
+6. 增加静态门禁：
+   - 除 lifecycle asset 生产模块外，正式代码禁止直接用 `raw_stock_basic` 做股票生命周期覆盖判断。
+
+测试覆盖：
+
+- 退市生命周期内通过。
+- 生命周期外失败。
+- 缺 lifecycle 文件 fail closed。
+- `silver_stock_basic` 保持 current-listed-only，不被塞入退市历史股票。
+- runless dry-run 候选数量口径不变。
+
+验收：P2B 完成后，生命周期事实源口径从 raw snapshot 迁移为 `silver_stock_lifecycle`，且旧直接依赖清零。
+
+### 2.1.6 P2C：复权因子 Sensor 与 Check 语义修正
+
+目标：在 P2A/P2B 后修复复权因子完整 blocking check 语义，并把 sensor 热路径改为 DuckDB batch readiness。
+
+建议改动范围：
+
+- `lake_console/orchestrator/src/orchestrator/defs/assets/adj_factor.py`
+- `lake_console/orchestrator/src/orchestrator/defs/checks/adj_factor_checks.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/stock_adj_factor_sensor.py`
+- 复权因子 batch readiness helper，建议独立于股票分钟线 helper，避免概念混用。
+- 相关 contract tests 与静态门禁。
+
+开发前必须先做只读 profiling：
+
+- 使用临时 Parquet 或正式 lake 只读样本验证 20/60 天 batch SQL。
+- 记录 raw/silver 文件数、DuckDB elapsed ms、失败样本耗时。
+- 确认完整 check 语义可用 SQL 等价表达，不允许只用 row count。
+
+执行步骤：
+
+1. 用 `silver_stock_lifecycle` 替换复权因子 listed/CNY/lifecycle 判断。
+2. 抽取或新增 adj factor batch readiness：
+   - raw 文件存在与 schema。
+   - silver 文件存在与 schema。
+   - 日期、唯一键、正值、覆盖率、生命周期覆盖。
+3. 改造 sensor：
+   - expected calendar + registered gap + batch readiness + first not-ready。
+   - materialized 但 check failed 阻断，不自动重跑后续日期。
+4. 保持 run key、run config、job/sensor 名称不变。
+
+测试覆盖：
+
+- 早期 missing registered 阻断。
+- 早期 raw/silver adj factor not-ready 阻断后续日期。
+- 文件存在但 check failed 不自动重跑。
+- 生命周期内退市股票通过，生命周期外失败。
+- sensor 不出现逐日 Dagster readiness 深扫。
+
+验收：P2C 完成后，复权因子 sensor 性能风险解除，生命周期语义不再卡在 current-listed-only 或 raw snapshot 直读。
+
+### 2.1.7 P3：股票日线与停复牌历史连续资产 Gap Guard
+
+目标：为股票日线、停复牌这类历史连续日线资产增加 expected registered gap guard，防止停机后跳过空洞日期。
+
+建议改动范围：
+
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_sensor.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/suspend_d_sensor.py`
+- 对应 sensor contract tests 与静态门禁。
+
+执行步骤：
+
+1. 审计当前 sensor 目标日期选择是否仍依赖 latest registered。
+2. 引入 P0F bounded selector：
+   - expected calendar window。
+   - registered gap 优先。
+   - selected date 上保留现有上游 gate。
+3. 不在 P3 中引入 batch lake readiness，除非现有代码确实存在逐日 Dagster 深扫；若发现深扫，停下并重新评估。
+
+测试覆盖：
+
+- `06-15` partition 缺失时不提交 `06-16`。
+- `06-15` registered 但 not-ready 时只处理 `06-15`。
+- 已 materialized 但 check failed 阻断。
+- run key/run config 不变。
+
+验收：P3 完成后，股票日线与停复牌不会因停机漏注册而从后续日期继续推进。
+
+### 2.1.8 P5：指数日线 Raw/Silver Gap Guard
+
+目标：为指数日线 raw/silver 链路补 expected registered gap guard，保持既有 late-arrival repair 与 silver selector 语义。
+
+建议改动范围：
+
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/index_daily_sensor.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/silver_index_daily_sensor.py`
+- `lake_console/orchestrator/tests/test_index_daily_sensor.py`
+- `lake_console/orchestrator/tests/test_silver_index_daily_sensor.py`
+- `lake_console/orchestrator/tests/test_index_daily_late_arrival_repair.py`
+
+执行步骤：
+
+1. 审计 raw index daily 当前 late-arrival selector，确认 repair attempt/backoff/cursor 语义不能被破坏。
+2. 在 raw 入口前增加 expected registered gap guard。
+3. 在 silver selector 前增加 raw/silver expected gap guard。
+4. 保留 existing late-arrival repair run key、attempt、cursor 语义。
+
+测试覆盖：
+
+- raw 缺 `06-15` 时不推进 `06-16`。
+- silver 缺 raw/silver 早期日期时不推进后续日期。
+- late-arrival repair attempt 语义不变。
+- 不新增逐日 Dagster check 深扫。
+
+验收：P5 完成后，指数日线链路具备停机补洞能力，且不破坏已有 late-arrival repair。
+
+### 2.1.9 P4：主要指数 Gold Daily Batch Selector
+
+目标：解决主要指数日线 sensor 的 batch selector 问题，避免逐日调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`。
+
+依据文档：
+
+- `lake_console/docs/design/dagster-market-major-indices-sensor-performance-governance-plan.md`
+- `lake_console/docs/design/dagster-market-major-indices-sensor-performance-governance-low-level-design.md`
+
+开发前必须先做只读 SQL/prototype：
+
+- 用 DuckDB 只读样本验证主要指数 gold daily readiness SQL。
+- 覆盖文件存在、schema、index code 集合、trade_date、唯一键、价格成交量、行数覆盖等正式 blocking check 语义。
+- 记录 20/60 天耗时和读取文件数。
+
+建议改动范围：
+
+- 新增或更新主要指数 lake readiness helper。
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/market_major_indices_daily_sensor.py`
+- 对应 sensor/readiness/static tests。
+
+执行步骤：
+
+1. 实现 batch readiness helper，不持久化任何新实体。
+2. sensor 使用 expected calendar + registered gap + batch readiness。
+3. selected date upstream gate 保持现有语义。
+4. 移除逐日 Dagster readiness wrapper 在热路径中的使用。
+
+测试覆盖：
+
+- first missing。
+- first not-ready。
+- materialized but checks failed。
+- all ready。
+- selected upstream not ready。
+- 静态门禁禁止旧逐日 wrapper 回流。
+
+验收：P4 完成后，主要指数日线 sensor 的性能问题有独立 batch selector 支撑，不再是非分钟线专项卡点。
+
+### 2.1.10 P6：AutomationCondition 资产退出默认 Eager，改显式 Bounded Sensor
+
+目标：对派生日线 / serving / ClickHouse 同步类资产退出默认 `AutomationCondition.eager()` 补洞假设，改为显式 bounded sensor。
+
+涉及资产族：
+
+- `gold_market_breadth_daily`
+- `gold_stock_return_distribution`
+- `ch_share_fact_market_breadth_daily`
+- `prod_ch_share_fact_market_breadth_daily`
+
+开发前必须先做只读 readiness provider 审计：
+
+- 审计每个资产当前依赖、blocking checks、partition set、上游资产。
+- 确认哪些 ready 状态可以用 lake DuckDB batch 判断，哪些只能用 bounded Dagster latest check 查询。
+- 不运行自动化 evaluator，不写 cursor，不提交 run。
+
+建议改动范围：
+
+- 新增显式 bounded sensor，或按资产族拆多个 sensor，最终以 P6 开发计划拍板为准。
+- 移除上述资产的 `automation_condition=dg.AutomationCondition.eager()`。
+- 删除或退出对应 `AutomationConditionSensorDefinition` 正式入口。
+- 增加 sensor contract tests 与静态门禁。
+
+执行步骤：
+
+1. 为每个资产族定义 expected calendar、registered set、upstream readiness、own readiness。
+2. 用 P0F selector 选择 first missing / first not-ready。
+3. selected date 上提交正式 job/run request，保持 run key 统一 builder 口径。
+4. 确保 old eager automation 不再作为正式补洞入口。
+
+测试覆盖：
+
+- 早期 gap 阻断后续日期。
+- 上游不 ready 阻断。
+- 自身 materialized but checks failed 阻断。
+- all ready skip。
+- 静态门禁禁止这些资产继续挂 `AutomationCondition.eager()`。
+
+验收：P6 完成后，非分钟线派生资产的补洞能力由显式 bounded sensor 控制，而不是依赖 Dagster 默认 eager 行为。
+
+### 2.1.11 P7：最终回归、文档对账与专项收口
+
+目标：确认 P0F-P6 代码、测试、静态门禁、性能结论和文档口径一致。
+
+执行步骤：
+
+1. 静态审计：
+   - 正式 sensor 不再按 latest registered 推进历史连续资产。
+   - 性能敏感 sensor 热路径不再逐日扫 Dagster event/check history。
+   - 生命周期消费者不再直接读 `raw_stock_basic` 作为下游长期事实源。
+   - current snapshot 资产没有被错误扩展成历史补洞资产。
+2. 目标测试：
+   - bounded selector。
+   - current trade day。
+   - stock daily / suspend。
+   - adj factor。
+   - index daily。
+   - major indices。
+   - AutomationCondition 替代 sensor。
+3. 完整本地回归：
+   - 只跑本地 pytest，不运行 `dg`。
+4. 文档对账：
+   - 更新本 LLD、总方案、foundation selector LLD、major indices LLD。
+   - 删除“待确认/待落地”中已经完成的表述。
+   - 保留历史背景时必须明确“治理前事实”。
+
+验收：P7 完成后，非分钟线 continuity 专项可以进入最终提交和后续正式只读审计讨论。
+
+### 2.1.12 阶段合并与提交建议
+
+推荐推进节奏：
+
+- P0F 单独推进：它是所有后续 sensor 的基础能力。
+- P1 单独推进：范围小，但会影响 current trade day 注册入口。
+- P2A、P2B、P2C 分开推进：生命周期 asset、消费者迁移、复权因子性能/语义修正风险不同，必须分阶段 review。
+- P3 与 P5 可以连续排期，但建议分开提交：股票日线/停复牌与指数日线是两个资产族。
+- P4 单独推进：已有独立专项 LLD，且必须先做只读 SQL 性能验证。
+- P6 单独推进：退出 AutomationCondition 是运行入口级调整，必须独立 review。
+- P7 单独推进：只做回归、静态审计和文档收口。
+
+任何阶段如果出现以下情况，必须停止：
+
+- 需要运行 `dg`、正式 job/sensor/backfill/materialization/asset check 才能判断。
+- 需要读取或写入正式 Dagster runtime，但没有单独审批。
+- 需要改变 run key、run config、job/sensor/asset/check 名称，而本阶段未明确允许。
+- DuckDB batch 方案无法覆盖完整 blocking check 语义，只能用 row count 近似。
+- 发现 current snapshot 资产被误当成历史连续资产。
+- 发现 `silver_stock_lifecycle` 字段契约不足以支撑下游解释性和 check 语义。
+
 ## 3. P0F Bounded Continuity Selector 基础能力
 
 详细设计见：[Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)。
