@@ -1,8 +1,14 @@
-from dataclasses import dataclass
 from datetime import datetime, time
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    DEFAULT_CONTINUITY_WINDOW_LIMIT,
+    ContinuityExpectedDateWindow,
+    ContinuityRegisteredGapStatus,
+    build_registered_gap_status,
+    load_expected_trade_date_window,
+)
 from orchestrator.defs.partitions import cn_a_stock_current_trade_days
 from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
@@ -20,81 +26,82 @@ from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 
 STOCK_CURRENT_TRADE_DAY_REGISTER_START = time(6, 0)
+STOCK_CURRENT_TRADE_DAY_MAX_PARTITIONS_PER_TICK = 2
 
 
-@dataclass(frozen=True)
-class StockCurrentTradeDayRegistrationDecision:
-    today: str
-    today_is_open: bool
-    register_window_started: bool
-    already_registered: bool
-    selected_keys: tuple[str, ...]
+def _format_register_start(register_start: time) -> str:
+    return register_start.strftime("%H:%M")
 
 
-def build_stock_current_trade_day_registration_decision(
-    *,
-    today: str,
-    today_is_open: bool,
-    register_window_started: bool,
-    already_registered: bool,
-) -> StockCurrentTradeDayRegistrationDecision:
-    selected_keys = (
-        (today,)
-        if today_is_open and register_window_started and not already_registered
-        else ()
-    )
-    return StockCurrentTradeDayRegistrationDecision(
-        today=today,
-        today_is_open=today_is_open,
-        register_window_started=register_window_started,
-        already_registered=already_registered,
-        selected_keys=selected_keys,
-    )
+def _selected_partition_keys(
+    gap_status: ContinuityRegisteredGapStatus,
+) -> tuple[str, ...]:
+    return gap_status.missing_registered_dates[
+        :STOCK_CURRENT_TRADE_DAY_MAX_PARTITIONS_PER_TICK
+    ]
 
 
 def _cursor_payload(
     *,
-    decision: StockCurrentTradeDayRegistrationDecision,
+    expected_window: ContinuityExpectedDateWindow,
+    gap_status: ContinuityRegisteredGapStatus,
+    selected_keys: tuple[str, ...],
     evaluated_at: datetime,
 ) -> str:
     cursor_decision = (
         SensorCursorDecision.REGISTER_PARTITIONS
-        if decision.selected_keys
+        if selected_keys
         else SensorCursorDecision.SKIP
     )
-    blocked_count = (
-        1
-        if not decision.selected_keys
-        and decision.today_is_open
-        and not decision.already_registered
-        else 0
+    missing_registered_count = max(
+        0,
+        len(expected_window.expected_trade_dates) - len(gap_status.registered_trade_dates),
     )
+    blocked_count = max(
+        0,
+        missing_registered_count - len(selected_keys),
+    )
+    gap_details = gap_status.to_cursor_details()
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
-        target_date=decision.today,
-        selected_count=len(decision.selected_keys),
+        target_date=gap_status.first_missing_registered_date
+        or expected_window.max_trade_date,
+        selected_count=len(selected_keys),
         blocked_count=blocked_count,
-        sample_keys=decision.selected_keys,
+        sample_keys=selected_keys,
         details={
-            "today": decision.today,
-            "today_is_open": decision.today_is_open,
-            "register_window_started": decision.register_window_started,
-            "already_registered": decision.already_registered,
-            "selected_keys": list(decision.selected_keys),
             "partition_set": cn_a_stock_current_trade_days.name,
+            "expected_start_date": gap_details["expected_start_date"],
+            "expected_end_date": gap_details["expected_end_date"],
+            "expected_count": gap_details["expected_count"],
+            "registered_count": gap_details["registered_count"],
+            "missing_registered_count": missing_registered_count,
+            "first_missing_registered_date": gap_status.first_missing_registered_date,
+            "missing_registered_dates": list(gap_status.missing_registered_dates),
+            "selected_keys": list(selected_keys),
+            "same_day_register_start": _format_register_start(
+                STOCK_CURRENT_TRADE_DAY_REGISTER_START
+            ),
+            "window_limit": expected_window.window_limit,
+            "max_partition_keys_per_tick": (
+                STOCK_CURRENT_TRADE_DAY_MAX_PARTITIONS_PER_TICK
+            ),
         },
     )
 
 
-def _skip_reason(decision: StockCurrentTradeDayRegistrationDecision) -> str:
-    if not decision.today_is_open:
-        return "今天不是上交所开市日，不注册股票当前交易日分区。"
-    if not decision.register_window_started:
+def _skip_reason(
+    *,
+    expected_window: ContinuityExpectedDateWindow,
+    today_is_open: bool,
+    register_window_started: bool,
+) -> str:
+    if not expected_window.expected_trade_dates:
+        return "没有从交易日历中找到符合条件的上交所开市日。"
+    if today_is_open and not register_window_started:
         return "今天是交易日，但还没到 06:00，暂不注册股票当前交易日分区。"
-    if decision.already_registered:
-        return "今天的股票当前交易日分区已经注册。"
-    return "当前没有需要注册的股票当前交易日分区。"
+    return "当前最近 60 个股票当前交易日分区都已经注册。"
 
 
 @dg.sensor(
@@ -125,25 +132,43 @@ def stock_current_trade_day_sensor(
         raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
 
     with duckdb_resource.connect() as connection:
+        expected_window = load_expected_trade_date_window(
+            connection,
+            calendar_path,
+            evaluated_at=evaluated_at,
+            same_day_register_start=STOCK_CURRENT_TRADE_DAY_REGISTER_START,
+            window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT,
+        )
         today_is_open = is_sse_open_day(connection, calendar_path, today)
 
     registered_keys = set(
         context.instance.get_dynamic_partitions(cn_a_stock_current_trade_days.name)
     )
-    decision = build_stock_current_trade_day_registration_decision(
-        today=today,
-        today_is_open=today_is_open,
-        register_window_started=register_window_started,
-        already_registered=today in registered_keys,
+    gap_status = build_registered_gap_status(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        registered_trade_dates=registered_keys,
     )
-    cursor = _cursor_payload(decision=decision, evaluated_at=evaluated_at)
+    selected_keys = _selected_partition_keys(gap_status)
+    cursor = _cursor_payload(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        selected_keys=selected_keys,
+        evaluated_at=evaluated_at,
+    )
 
-    if not decision.selected_keys:
-        return dg.SensorResult(skip_reason=_skip_reason(decision), cursor=cursor)
+    if not selected_keys:
+        return dg.SensorResult(
+            skip_reason=_skip_reason(
+                expected_window=expected_window,
+                today_is_open=today_is_open,
+                register_window_started=register_window_started,
+            ),
+            cursor=cursor,
+        )
 
     return dg.SensorResult(
         dynamic_partitions_requests=[
-            cn_a_stock_current_trade_days.build_add_request(list(decision.selected_keys))
+            cn_a_stock_current_trade_days.build_add_request(list(selected_keys))
         ],
         cursor=cursor,
     )

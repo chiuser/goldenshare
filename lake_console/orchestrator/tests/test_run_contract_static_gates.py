@@ -1494,6 +1494,48 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_current_trade_day_sensor_uses_bounded_catch_up(self) -> None:
+        path = SENSORS_DIR / "stock_current_trade_day_sensor.py"
+        source = path.read_text()
+        issues = []
+
+        required_fragments = (
+            "load_expected_trade_date_window",
+            "build_registered_gap_status",
+            "DEFAULT_CONTINUITY_WINDOW_LIMIT",
+            "STOCK_CURRENT_TRADE_DAY_REGISTER_START = time(6, 0)",
+            "STOCK_CURRENT_TRADE_DAY_MAX_PARTITIONS_PER_TICK = 2",
+            "same_day_register_start=STOCK_CURRENT_TRADE_DAY_REGISTER_START",
+            "window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT",
+            "cn_a_stock_current_trade_days.build_add_request",
+        )
+        forbidden_fragments = (
+            "StockCurrentTradeDayRegistrationDecision",
+            "build_stock_current_trade_day_registration_decision",
+            "build_trade_day_partition_registration_result",
+            "resolve_latest_completed_trade_date",
+            "load_completed_open_day_keys",
+            "asset_readiness_status(",
+            "dataset_readiness_status(",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "get_asset_check_execution_history",
+            "get_event_records",
+            "RunRequest(",
+            "dg.RunRequest(",
+        )
+        issues.extend(
+            f"{path} misses current trade day bounded catch-up fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source
+        )
+        issues.extend(
+            f"{path} contains forbidden current trade day fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 

@@ -1,11 +1,19 @@
 import json
 import unittest
+from contextlib import contextmanager
 from datetime import UTC, datetime
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from types import SimpleNamespace
 from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
+import duckdb
+
 from orchestrator.defs.checks import adj_factor_checks
+from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.jobs import stock_adj_factor_update as adj_factor_jobs
+from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
 from orchestrator.defs.run_contracts.sensor_tags import (
     SENSOR_DOMAIN_TAG,
@@ -26,10 +34,8 @@ from orchestrator.defs.sensors.stock_adj_factor_sensor import (
     silver_adj_factor_update_job_sensor,
 )
 from orchestrator.defs.sensors.stock_current_trade_day_sensor import (
-    _cursor_payload as build_current_trade_day_cursor,
-)
-from orchestrator.defs.sensors.stock_current_trade_day_sensor import (
-    build_stock_current_trade_day_registration_decision,
+    STOCK_CURRENT_TRADE_DAY_REGISTER_START,
+    stock_current_trade_day_sensor,
 )
 
 
@@ -49,6 +55,38 @@ class _FakeContext:
         self.instance = _FakeInstance(partitions)
 
 
+class _CurrentTradeDayLakeRoot:
+    def __init__(self, root: Path) -> None:
+        self._root = root
+
+    def root(self) -> Path:
+        return self._root
+
+    def ensure_available_for_run(self) -> None:
+        return None
+
+
+class _CurrentTradeDayDuckDBResource:
+    @contextmanager
+    def connect(self):
+        with duckdb.connect(database=":memory:") as connection:
+            yield connection
+
+
+class _CurrentTradeDayContext:
+    def __init__(
+        self,
+        *,
+        lake_root: Path,
+        partitions: tuple[str, ...],
+    ) -> None:
+        self.instance = _FakeInstance(partitions)
+        self.resources = SimpleNamespace(
+            lake_root=_CurrentTradeDayLakeRoot(lake_root),
+            duckdb=_CurrentTradeDayDuckDBResource(),
+        )
+
+
 class _FixedDateTime(datetime):
     @classmethod
     def now(cls, tz=None):  # noqa: ANN001
@@ -59,6 +97,18 @@ class _EarlyDateTime(datetime):
     @classmethod
     def now(cls, tz=None):  # noqa: ANN001
         return datetime(2026, 6, 5, 9, 0, tzinfo=tz or UTC)
+
+
+class _AfterCurrentTradeDayRegisterWindowDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):  # noqa: ANN001
+        return datetime(2026, 6, 17, 6, 30, tzinfo=tz or UTC)
+
+
+class _BeforeCurrentTradeDayRegisterWindowDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):  # noqa: ANN001
+        return datetime(2026, 6, 17, 5, 59, tzinfo=tz or UTC)
 
 
 def _check_names(check_definitions) -> tuple[str, ...]:
@@ -120,6 +170,25 @@ def _raw_sensor_result(context: _FakeContext):
 
 def _silver_sensor_result(context: _FakeContext):
     return silver_adj_factor_update_job_sensor._raw_fn(context)
+
+
+def _write_current_trade_day_calendar(lake_root: Path) -> None:
+    calendar_path = silver_trade_calendar_path(lake_root)
+    calendar_path.parent.mkdir(parents=True, exist_ok=True)
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT * FROM (
+                VALUES
+                  ('SSE', true, DATE '2026-06-12'),
+                  ('SSE', true, DATE '2026-06-15'),
+                  ('SSE', true, DATE '2026-06-16'),
+                  ('SSE', true, DATE '2026-06-17')
+              ) AS calendar(exchange, is_open, trade_date)
+            ) TO {duckdb_string(calendar_path)} (FORMAT PARQUET)
+            """
+        )
 
 
 class AdjFactorM4ContractTests(unittest.TestCase):
@@ -216,67 +285,95 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             readiness.RAW_ADJ_FACTOR_READINESS_SPEC,
         )
 
-    def test_current_trade_day_decision_registers_only_open_day_after_six(self) -> None:
-        self.assertEqual(
-            build_stock_current_trade_day_registration_decision(
-                today="2026-05-29",
-                today_is_open=True,
-                register_window_started=True,
-                already_registered=False,
-            ).selected_keys,
-            ("2026-05-29",),
-        )
-        self.assertEqual(
-            build_stock_current_trade_day_registration_decision(
-                today="2026-05-29",
-                today_is_open=True,
-                register_window_started=False,
-                already_registered=False,
-            ).selected_keys,
-            (),
-        )
-        self.assertEqual(
-            build_stock_current_trade_day_registration_decision(
-                today="2026-05-29",
-                today_is_open=False,
-                register_window_started=True,
-                already_registered=False,
-            ).selected_keys,
-            (),
-        )
-        self.assertEqual(
-            build_stock_current_trade_day_registration_decision(
-                today="2026-05-29",
-                today_is_open=True,
-                register_window_started=True,
-                already_registered=True,
-            ).selected_keys,
-            (),
-        )
-
-    def test_current_trade_day_cursor_uses_standard_contract(self) -> None:
-        decision = build_stock_current_trade_day_registration_decision(
-            today="2026-05-29",
-            today_is_open=True,
-            register_window_started=True,
-            already_registered=False,
-        )
-        payload = json.loads(
-            build_current_trade_day_cursor(
-                decision=decision,
-                evaluated_at=EVALUATED_AT,
+    def test_current_trade_day_sensor_catches_up_two_oldest_missing_partitions(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_current_trade_day_calendar(lake_root)
+            context = _CurrentTradeDayContext(
+                lake_root=lake_root,
+                partitions=("2026-06-12",),
             )
-        )
+
+            with patch(
+                "orchestrator.defs.sensors.stock_current_trade_day_sensor.datetime",
+                _AfterCurrentTradeDayRegisterWindowDateTime,
+            ):
+                result = stock_current_trade_day_sensor._raw_fn(context)
+
+        payload = json.loads(result.cursor)
 
         self.assertEqual(payload["schema_version"], 1)
         self.assertEqual(payload["decision"], "register_partitions")
-        self.assertEqual(payload["target_date"], "2026-05-29")
-        self.assertEqual(payload["selected_count"], 1)
-        self.assertEqual(payload["sample_keys"], ["2026-05-29"])
+        self.assertEqual(payload["target_date"], "2026-06-15")
+        self.assertEqual(payload["selected_count"], 2)
+        self.assertEqual(payload["blocked_count"], 1)
+        self.assertEqual(payload["sample_keys"], ["2026-06-15", "2026-06-16"])
+        self.assertEqual(len(result.dynamic_partitions_requests), 1)
         self.assertEqual(
             payload["details"]["partition_set"],
             "cn_a_stock_current_trade_days",
         )
+        self.assertEqual(payload["details"]["expected_count"], 4)
+        self.assertEqual(payload["details"]["registered_count"], 1)
+        self.assertEqual(
+            payload["details"]["first_missing_registered_date"],
+            "2026-06-15",
+        )
+        self.assertEqual(
+            payload["details"]["selected_keys"],
+            ["2026-06-15", "2026-06-16"],
+        )
+        self.assertEqual(payload["details"]["max_partition_keys_per_tick"], 2)
+        self.assertEqual(payload["details"]["window_limit"], 60)
+        self.assertEqual(STOCK_CURRENT_TRADE_DAY_REGISTER_START.hour, 6)
+
+    def test_current_trade_day_sensor_before_window_still_catches_up_history(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_current_trade_day_calendar(lake_root)
+            context = _CurrentTradeDayContext(
+                lake_root=lake_root,
+                partitions=("2026-06-12",),
+            )
+
+            with patch(
+                "orchestrator.defs.sensors.stock_current_trade_day_sensor.datetime",
+                _BeforeCurrentTradeDayRegisterWindowDateTime,
+            ):
+                result = stock_current_trade_day_sensor._raw_fn(context)
+
+        payload = json.loads(result.cursor)
+
+        self.assertEqual(payload["decision"], "register_partitions")
+        self.assertEqual(payload["sample_keys"], ["2026-06-15", "2026-06-16"])
+        self.assertEqual(payload["details"]["expected_count"], 3)
+        self.assertNotIn("2026-06-17", payload["details"]["selected_keys"])
+
+    def test_current_trade_day_sensor_keeps_0600_same_day_window(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_current_trade_day_calendar(lake_root)
+            context = _CurrentTradeDayContext(
+                lake_root=lake_root,
+                partitions=("2026-06-12", "2026-06-15", "2026-06-16"),
+            )
+
+            with patch(
+                "orchestrator.defs.sensors.stock_current_trade_day_sensor.datetime",
+                _BeforeCurrentTradeDayRegisterWindowDateTime,
+            ):
+                result = stock_current_trade_day_sensor._raw_fn(context)
+
+        payload = json.loads(result.cursor)
+
+        self.assertEqual(result.dynamic_partitions_requests, [])
+        self.assertEqual(payload["decision"], "skip")
+        self.assertEqual(payload["details"]["selected_keys"], [])
+        self.assertIn("06:00", result.skip_reason.skip_message)
 
     def test_latest_registered_trade_date_uses_latest_not_after_today(self) -> None:
         self.assertEqual(
