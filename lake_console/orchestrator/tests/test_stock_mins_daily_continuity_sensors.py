@@ -1728,9 +1728,8 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
             "stock_mins_qfq_factor_repair:2026-06-16",
         )
 
-    def test_qfq_daily_sensor_records_continuity_before_window(self) -> None:
+    def test_qfq_daily_sensor_skips_before_window_without_readiness_scan(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15"))
-        trade_dates = ("2026-06-13", "2026-06-15")
 
         with patch.object(
             qfq_daily_module,
@@ -1739,58 +1738,19 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch.object(
             qfq_daily_module,
             "_load_stock_mins_qfq_expected_trade_dates",
-            return_value=trade_dates,
+            side_effect=AssertionError("calendar must not be loaded before window"),
         ), patch.object(
             qfq_daily_module,
             "batch_silver_stk_mins_lake_readiness",
-            return_value=_silver_batch_status(
-                {
-                    trade_date: _silver_date_status(
-                        trade_date=trade_date,
-                        ready=True,
-                        materialized=True,
-                        checks_passed=True,
-                        reason="ready",
-                    )
-                    for trade_date in trade_dates
-                }
-            ),
+            side_effect=AssertionError("silver batch must not run before window"),
         ), patch.object(
             qfq_daily_module,
             "batch_adj_factor_lake_readiness",
-            return_value=_adj_factor_batch_status(
-                {
-                    trade_date: _adj_factor_date_status(
-                        trade_date=trade_date,
-                        ready=True,
-                        materialized=True,
-                        checks_passed=True,
-                        reason="ready",
-                    )
-                    for trade_date in trade_dates
-                }
-            ),
+            side_effect=AssertionError("adj factor batch must not run before window"),
         ), patch.object(
             qfq_daily_module,
             "batch_gold_stk_mins_qfq_lake_readiness",
-            return_value=_gold_qfq_batch_status(
-                {
-                    "2026-06-13": _gold_qfq_date_status(
-                        trade_date="2026-06-13",
-                        ready=True,
-                        materialized=True,
-                        checks_passed=True,
-                        reason="ready",
-                    ),
-                    "2026-06-15": _gold_qfq_date_status(
-                        trade_date="2026-06-15",
-                        ready=False,
-                        materialized=False,
-                        checks_passed=False,
-                        reason="gold missing",
-                    ),
-                }
-            ),
+            side_effect=AssertionError("gold qfq batch must not run before window"),
         ):
             result = stock_mins_qfq_daily_sensor._raw_fn(context)
 
@@ -1798,11 +1758,14 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertIn("20:10", _skip_message(result))
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        self.assertIsNone(cursor["target_date"])
         self.assertFalse(cursor["details"]["run_window_started"])
-        self.assertEqual(continuity["first_not_ready_trade_date"], "2026-06-15")
+        self.assertNotIn("continuity_status", cursor["details"])
+        self.assertNotIn("silver_batch_status", cursor["details"])
+        self.assertNotIn("adj_factor_batch_status", cursor["details"])
+        self.assertNotIn("gold_batch_status", cursor["details"])
 
-    def test_qfq_factor_repair_sensor_records_continuity_before_window(self) -> None:
+    def test_qfq_factor_repair_sensor_skips_before_window_without_readiness_scan(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15"))
 
         with patch.object(
@@ -1812,30 +1775,15 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         ), patch.object(
             qfq_factor_repair_module,
             "_load_stock_mins_qfq_expected_trade_dates",
-            return_value=("2026-06-13", "2026-06-15"),
+            side_effect=AssertionError("calendar must not be loaded before window"),
         ), patch.object(
             qfq_factor_repair_module,
             "batch_gold_stk_mins_qfq_lake_readiness",
-            return_value=_gold_qfq_batch_status(
-                {
-                    trade_date: _gold_qfq_date_status(
-                        trade_date=trade_date,
-                        ready=True,
-                        materialized=True,
-                        checks_passed=True,
-                        reason="ready",
-                    )
-                    for trade_date in ("2026-06-13", "2026-06-15")
-                }
-            ),
+            side_effect=AssertionError("gold qfq batch must not run before window"),
         ), patch.object(
             qfq_factor_repair_module,
             "gold_stk_mins_qfq_factor_repair_status",
-            side_effect=lambda _instance, trade_date, **_kwargs: _qfq_factor_repair_status(
-                trade_date=trade_date,
-                ready=trade_date == "2026-06-13",
-                reason="ready" if trade_date == "2026-06-13" else "repair missing",
-            ),
+            side_effect=AssertionError("repair status must not be read before window"),
         ):
             result = stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
@@ -1843,9 +1791,11 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertIn("20:40", _skip_message(result))
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        self.assertIsNone(cursor["target_date"])
         self.assertFalse(cursor["details"]["run_window_started"])
-        self.assertEqual(continuity["first_not_ready_trade_date"], "2026-06-15")
+        self.assertNotIn("continuity_status", cursor["details"])
+        self.assertNotIn("gold_batch_status", cursor["details"])
+        self.assertNotIn("qfq_factor_repair_status", cursor["details"])
 
 
 if __name__ == "__main__":

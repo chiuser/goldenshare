@@ -1526,6 +1526,42 @@ class RunContractStaticGateTests(unittest.TestCase):
                 if fragment in source
             )
 
+        window_order_fragments = {
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py": (
+                "stock_mins_qfq_daily_sensor",
+                "if not run_window_started:",
+                "_load_stock_mins_qfq_expected_trade_dates(",
+                "batch_silver_stk_mins_lake_readiness(",
+                "batch_adj_factor_lake_readiness(",
+                "batch_gold_stk_mins_qfq_lake_readiness(",
+            ),
+            SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
+                "stock_mins_qfq_factor_repair_sensor",
+                "if not run_window_started:",
+                "_load_stock_mins_qfq_expected_trade_dates(",
+                "batch_gold_stk_mins_qfq_lake_readiness(",
+                "_qfq_factor_repair_readiness_snapshot_for_trade_date(",
+            ),
+        }
+        for path, (
+            function_name,
+            window_guard,
+            *heavy_fragments,
+        ) in window_order_fragments.items():
+            function_source = _function_source(path, function_name)
+            guard_index = function_source.find(window_guard)
+            if guard_index < 0:
+                issues.append(f"{path} must check run window before heavy readiness")
+                continue
+            for fragment in heavy_fragments:
+                fragment_index = function_source.find(fragment)
+                if fragment_index < 0:
+                    issues.append(f"{path} misses expected qfq sensor fragment: {fragment}")
+                elif guard_index > fragment_index:
+                    issues.append(
+                        f"{path} calls {fragment} before the run-window guard"
+                    )
+
         repair_status_source = _function_source(
             DEFS_DIR / "asset_guards" / "stk_mins_qfq_factor_repair.py",
             "gold_stk_mins_qfq_factor_repair_status",

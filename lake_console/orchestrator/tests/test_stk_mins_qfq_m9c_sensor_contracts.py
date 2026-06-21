@@ -316,32 +316,37 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             "20:40:00",
         )
 
-    def test_sensor_skips_before_window_with_continuity_cursor(self) -> None:
+    def test_sensor_skips_before_window_without_readiness_scan(self) -> None:
         context = _FakeSensorContext()
         with (
             patch.object(repair_sensor_module, "datetime") as mock_datetime,
             patch.object(
                 repair_sensor_module,
                 "_load_stock_mins_qfq_expected_trade_dates",
-                return_value=(PARTITION_KEY,),
+                side_effect=AssertionError("calendar must not be loaded before window"),
             ),
-            _patched_gold_batch_readiness(),
+            patch.object(
+                repair_sensor_module,
+                "batch_gold_stk_mins_qfq_lake_readiness",
+                side_effect=AssertionError("gold qfq batch must not run before window"),
+            ),
             patch.object(
                 repair_sensor_module,
                 "gold_stk_mins_qfq_factor_repair_status",
-                return_value=_repair_status(ready=False, reason="repair missing"),
+                side_effect=AssertionError("repair status must not be read before window"),
             ),
         ):
             mock_datetime.now.return_value = BEFORE_WINDOW
             result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(context)
 
         self.assertIn("20:40", result.skip_reason.skip_message)
-        self.assertEqual(
-            json.loads(result.cursor)["details"]["continuity_status"][
-                "first_not_ready_trade_date"
-            ],
-            PARTITION_KEY,
-        )
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["target_date"], None)
+        self.assertEqual(cursor["selected_count"], 0)
+        self.assertFalse(cursor["details"]["run_window_started"])
+        self.assertNotIn("continuity_status", cursor["details"])
+        self.assertNotIn("gold_batch_status", cursor["details"])
+        self.assertNotIn("qfq_factor_repair_status", cursor["details"])
 
     def test_sensor_cursor_fast_path_skips_after_frontier_selects_same_target(
         self,

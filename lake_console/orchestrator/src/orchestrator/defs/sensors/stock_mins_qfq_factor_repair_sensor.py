@@ -287,6 +287,26 @@ def _cursor_payload(
     )
 
 
+def _window_not_started_cursor_payload(
+    *,
+    evaluated_at: datetime,
+    reason: str,
+) -> str:
+    return build_sensor_cursor(
+        evaluated_at=evaluated_at,
+        decision=SensorCursorDecision.SKIP,
+        target_date=None,
+        selected_count=0,
+        blocked_count=0,
+        sample_keys=(),
+        details={
+            "job_name": STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
+            "run_window_started": False,
+            "reason": reason,
+        },
+    )
+
+
 def _run_config_for_trade_date(trade_date: str) -> dict[str, object]:
     return {
         "ops": {
@@ -357,6 +377,16 @@ def stock_mins_qfq_factor_repair_sensor(
     run_window_started = (
         evaluated_at.time() >= STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START
     )
+    if not run_window_started:
+        reason = "股票分钟线 gold qfq factor repair 窗口尚未到 20:40，暂不触发。"
+        return dg.SensorResult(
+            skip_reason=reason,
+            cursor=_window_not_started_cursor_payload(
+                evaluated_at=evaluated_at,
+                reason=reason,
+            ),
+        )
+
     expected_trade_dates = _load_stock_mins_qfq_expected_trade_dates(
         context,
         evaluated_at,
@@ -431,13 +461,6 @@ def stock_mins_qfq_factor_repair_sensor(
                 f"最早缺失日期为 {continuity_status.first_missing_registered_date}，"
                 "请先补注册 silver 分区。"
             ),
-        )
-    elif not run_window_started:
-        decision = StockMinsQfqFactorRepairDecision(
-            target_trade_date=target_trade_date,
-            run_window_started=False,
-            selected_trade_date=None,
-            reason="股票分钟线 gold qfq factor repair 窗口尚未到 20:40，暂不触发。",
         )
     elif selection.selected_trade_date is None:
         if continuity_status.blocked_reason == "materialized_check_problem":
