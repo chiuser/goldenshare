@@ -4,9 +4,9 @@
 
 依据文档：[Dagster Bounded Continuity Selector 基础能力专项方案](dagster-bounded-continuity-selector-foundation-plan.md)
 
-状态：开发前 LLD，待按阶段执行。
+状态：P0F 已完成；基础能力已落地并被非股票分钟线连续性治理 P1/P2C/P3/P4/P5/P6 复用。
 
-范围：只定义非分钟线历史连续资产共用的显式补洞选择基础能力。不直接接入任何正式 sensor，不新增 Dagster asset/job/check/resource，不读取正式 Dagster runtime，不写正式 lake。
+范围：记录非分钟线历史连续资产共用的显式补洞选择基础能力。本文档描述的基础模块自身不直接接入任何正式 sensor，不新增 Dagster asset/job/check/resource，不读取正式 Dagster runtime，不写正式 lake；正式 sensor 接入由非股票分钟线连续性治理各阶段完成。
 
 ## 1. 开发目标
 
@@ -32,14 +32,14 @@
 
 ## 3. 目标文件
 
-新增：
+已落地：
 
 ```text
 lake_console/orchestrator/src/orchestrator/defs/asset_guards/bounded_continuity.py
 lake_console/orchestrator/tests/test_bounded_continuity.py
 ```
 
-更新：
+静态门禁：
 
 ```text
 lake_console/orchestrator/tests/test_run_contract_static_gates.py
@@ -383,12 +383,13 @@ status_samples
 
 ## 11. 后续接入顺序
 
-基础能力完成后，按总专项 LLD 接入：
+基础能力完成后，已按总专项 LLD 接入：
 
 1. P1 `stock_current_trade_day_sensor`
-2. P3 `stock_daily_sensor.py` / `suspend_d_sensor.py`
-3. P5 `index_daily_sensor.py` / `silver_index_daily_sensor.py`
-4. P4 `market_major_indices_daily_sensor.py`
-5. P6 派生 / serving 显式 bounded sensor
+2. P2C `stock_adj_factor_sensor.py`
+3. P3 `stock_daily_sensor.py` / `suspend_d_sensor.py`
+4. P5 `index_daily_sensor.py` / `silver_index_daily_sensor.py`
+5. P4 `market_major_indices_daily_sensor.py`
+6. P6 派生 / serving 显式 bounded sensor
 
-P2A/P2B 的 `silver_stock_lifecycle` 是事实源建设阶段，不直接依赖 selector；P2C 的复权因子 sensor 接入依赖本基础能力。
+P2A/P2B 的 `silver_stock_lifecycle` 是事实源建设阶段，不直接依赖 selector；P2C 的复权因子 sensor 已依赖本基础能力。P7 已完成最终文档、静态门禁和本地回归收口。

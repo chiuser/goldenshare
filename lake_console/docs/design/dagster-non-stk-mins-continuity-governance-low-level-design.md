@@ -8,7 +8,7 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster Market Major Indices Sensor 热路径性能治理 LLD](dagster-market-major-indices-sensor-performance-governance-low-level-design.md)
 
-状态：P0F-P6 已完成，后续剩余 P7 待按顺序执行。
+状态：P0F-P7 已完成；非股票分钟线连续性治理专项已完成代码、静态门禁、性能结论和文档口径收口。
 
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
@@ -399,7 +399,9 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 
 ### 2.1.11 P7：最终回归、文档对账与专项收口
 
-目标：确认 P0F-P6 代码、测试、静态门禁、性能结论和文档口径一致。
+目标：确认 P0F-P7 代码、测试、静态门禁、性能结论和文档口径一致。
+
+状态：已完成。
 
 执行步骤：
 
@@ -423,7 +425,7 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
    - 删除“待确认/待落地”中已经完成的表述。
    - 保留历史背景时必须明确“治理前事实”。
 
-验收：P7 完成后，非分钟线 continuity 专项可以进入最终提交和后续正式只读审计讨论。
+验收：P7 已确认非分钟线 continuity 专项的正式代码、静态门禁、性能结论和文档口径一致；后续如要做正式 Dagster 只读审计或运行期状态核验，必须另行列命令并单独审批。
 
 ### 2.1.12 阶段合并与提交建议
 
@@ -1065,6 +1067,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ## 10. P7 最终收口
 
+状态：已完成。
+
 P7 只做：
 
 1. 更新文档状态。
@@ -1074,6 +1078,40 @@ P7 只做：
 5. 代码事实与文档口径对账。
 
 P7 不做新功能开发。
+
+P7 收口事实：
+
+1. `tests/test_run_contract_static_gates.py` 已覆盖：
+   - P0F bounded selector 纯函数、小型 cursor、无 Dagster runtime / event history 依赖。
+   - P1 current trade day bounded catch-up，禁止 today-only helper 回流。
+   - P3 stock daily / suspend registered gap guard。
+   - P5 index daily / silver index daily registered gap guard。
+   - P4 major indices lake-derived batch readiness，禁止旧单日 Dagster wrapper 回流。
+   - P6 market breadth / stock return distribution / ClickHouse serving 显式 bounded sensor，禁止 `AutomationCondition.eager()` / `AutomationConditionSensorDefinition` 作为 active 补洞入口回流。
+   - P2C adj factor batch readiness 使用 `silver_stock_lifecycle`，禁止回到 current-listed-only 或直接下游 raw lifecycle 判断。
+2. 本地 P7 回归命令：
+
+   ```bash
+   cd lake_console/orchestrator
+   PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+     tests/test_bounded_continuity.py \
+     tests/test_adj_factor_m4_contracts.py \
+     tests/test_stock_lifecycle_contracts.py \
+     tests/test_stock_daily_sensor.py \
+     tests/test_suspend_d_sensor.py \
+     tests/test_index_daily_sensor.py \
+     tests/test_silver_index_daily_sensor.py \
+     tests/test_market_major_indices_lake_readiness.py \
+     tests/test_market_major_indices_daily_sensor.py \
+     tests/test_market_breadth_lake_readiness.py \
+     tests/test_market_breadth_continuity_sensors.py \
+     tests/test_prod_clickhouse_market_breadth_batch_sync.py \
+     tests/test_asset_governance_contracts.py \
+     tests/test_run_contract_static_gates.py
+   ```
+
+   结果：`151 passed`。
+3. P7 未运行 `dg`，未读取正式 Dagster runtime，未写正式 Dagster event / run / cursor，也未触碰正式 lake。
 
 ## 11. 静态门禁总表
 
@@ -1089,7 +1127,7 @@ P7 不做新功能开发。
 
 ## 12. 最小本地测试矩阵
 
-每阶段执行各自小回归；最终 P7 汇总：
+每阶段执行各自小回归；最终 P7 汇总已完成：
 
 ```bash
 cd lake_console/orchestrator
@@ -1103,6 +1141,10 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   tests/test_silver_index_daily_sensor.py \
   tests/test_market_major_indices_lake_readiness.py \
   tests/test_market_major_indices_daily_sensor.py \
+  tests/test_market_breadth_lake_readiness.py \
+  tests/test_market_breadth_continuity_sensors.py \
+  tests/test_prod_clickhouse_market_breadth_batch_sync.py \
+  tests/test_asset_governance_contracts.py \
   tests/test_run_contract_static_gates.py
 ```
 
@@ -1112,6 +1154,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 2. 不运行 `dg`。
 3. 不读取正式 Dagster runtime。
 4. 不触碰正式 lake。
+5. P7 本地结果：`151 passed`。
 
 ## 13. 需要在实现计划中再次确认的点
 
@@ -1124,7 +1167,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 5. P2B 开工前必须逐项审计 `stock_daily_checks.py` 中 current-listed 语义和 historical lifecycle 语义的边界：仍服务 `silver_stock_basic` freshness / current pool 的检查可以保留 current-listed 口径；`silver_stock_daily` 历史生命周期过滤、覆盖和下游完整性判断必须迁到 `silver_stock_lifecycle`。禁止用全局替换方式把所有 `silver_stock_basic_path` / `raw_stock_basic_path` 调用一刀切改掉。
 6. P2C 已在 P2A/P2B 完成后重新做只读 DuckDB batch profiling；迁移到 `silver_stock_lifecycle` 后 20 日约 10.119ms、60 日约 13.323ms，完整 blocking check 语义可行。
 7. P4 开工前只读 DuckDB SQL / 性能原型验证已完成：覆盖 60 日 `gold_market_major_indices_daily` lake readiness、selected-date `silver_index_daily` lake readiness、`silver_index_basic` lake readiness 和 seed/input gate；旧 wrapper 47 秒 / 超时数据只作为反例，不作为新方案性能证据。
-8. P6 开工前必须先做只读 readiness provider 审计：gold 派生资产优先 lake 文件事实，local / prod ClickHouse serving 优先 bounded ClickHouse 只读查询或明确 bounded metadata 查询；不得运行正式 automation evaluator，不得全历史逐分区调用 `asset_readiness_status(...)`。
+8. P6 开工前已完成只读 readiness provider 审计：gold 派生资产使用 lake 文件事实，local / prod ClickHouse serving 使用 bounded ClickHouse 只读查询模型；实现与测试均未运行正式 automation evaluator，也未全历史逐分区调用 `asset_readiness_status(...)`。
 
 ## 14. 已确认无需额外性能测试的阶段
 

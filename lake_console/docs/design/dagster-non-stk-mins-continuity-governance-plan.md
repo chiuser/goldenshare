@@ -2,6 +2,8 @@
 
 更新时间：2026-06-21
 
+状态：P0F-P7 已完成；代码、静态门禁、性能结论和文档口径已完成专项收口。
+
 ## 1. 背景
 
 股票分钟线连续性专项已经解决了 `stk_mins` raw / silver / qfq / MACD-KDJ 链路中的停机补洞问题：目标日期不再来自 latest registered partition，而是来自交易日历 expected dates、注册缺口、first not-ready frontier 和精确 previous expected state。
@@ -30,7 +32,7 @@
 | --- | --- | --- |
 | 股票普通交易日注册 | `stock_trade_day_sensor.py` -> `build_trade_day_partition_registration_result(...)` | 已具备 calendar-backed catch-up，每 tick 最多注册 2 个缺失交易日。 |
 | 指数交易日注册 | `index_trade_day_sensor.py` -> `build_trade_day_partition_registration_result(...)` | 已具备 calendar-backed catch-up。 |
-| 股票当前交易日注册 | `stock_current_trade_day_sensor.py` | today-only，只注册当天；停机错过当天后不会自动补该 current partition。 |
+| 股票当前交易日注册 | `stock_current_trade_day_sensor.py` | 已改为 calendar-backed bounded catch-up；停机漏注册后按最近 60 个 expected current trade days 补最早缺口，每 tick 最多 2 个。 |
 | 股票日线 raw / silver | `stock_daily_sensor.py` | 已接入最近 60 个 expected stock trade dates 的 registered gap guard；在注册缺口存在时先 skip，不读取 materialized partition set，不提交后续日期；注册连续后保留原有每 tick 最多 2 个 run、selected-date readiness 和 missing-code repair 逻辑。 |
 | 停复牌 raw / silver | `suspend_d_sensor.py` | 已接入最近 60 个 expected stock trade dates 的 registered gap guard；在注册缺口存在时先 skip，不读取 materialized partition set / raw readiness，不提交后续日期；注册连续后保留原有 raw/silver registered 内补洞逻辑。 |
 | 复权因子 raw / silver | `stock_adj_factor_sensor.py` | 已接入 bounded expected current trade day window、registered gap guard 和 batch lake readiness；不再以 latest registered current trade day 作为正式目标。 |
@@ -42,11 +44,11 @@
 
 ### 2.1 2026-06-21 代码现状对账
 
-本节是进入 LLD 前的代码事实收口，不代表已实现。
+本节是 P7 最终收口后的代码事实对账。历史背景只保留用于说明治理前问题，不再代表待实现状态。
 
 | 代码事实 | 结论 | LLD 约束 |
 | --- | --- | --- |
-| `stock_current_trade_day_sensor.py` 中 `build_stock_current_trade_day_registration_decision(...)` 仍只围绕 today 判断。 | P1 仍需把 today-only 改成 bounded catch-up。 | P1 必须删除 today-only 正式口径，改用最近 60 个 expected current trade days。 |
+| `stock_current_trade_day_sensor.py` 已删除 today-only 决策 helper，改用最近 60 个 expected current trade days 的 bounded catch-up；同日窗口保留 06:00，每 tick 最多注册 2 个缺口。 | P1 已完成。 | 静态门禁必须防止 today-only helper、全历史 loader、Dagster readiness 深扫回流。 |
 | `stock_adj_factor_sensor.py` 已移除 `_latest_registered_trade_date(...)` 和单日 adj factor readiness wrapper。 | P2C 已迁移为 first missing / first not-ready。 | 后续静态门禁必须防止 latest registered 和逐日 Dagster readiness 回流。 |
 | 已存在 `silver_stock_lifecycle` 正式 asset / path / catalog / checks / readiness。 | P2A 已完成。 | 后续历史生命周期判断以该 silver 事实为准。 |
 | `silver_stock_daily`、股票分钟线 lifecycle/name timeline、lake readiness、runless dry-run helper 已迁移到 `silver_stock_lifecycle`。 | P2B 已完成。 | 长期生命周期消费者不得再直接调用 `historical_cny_stock_lifecycle_select(raw_stock_basic_path)`。 |
@@ -71,7 +73,7 @@
 | 7 | P5 | 指数日线 raw/silver 加 expected registered gap guard。 | 先加固主要指数 gold 的直接上游，避免 P4 上游注册缺口被掩盖。 |
 | 8 | P4 | 主要指数日线 gold 改为 batch lake readiness + first-not-ready。 | 已完成；当前单日 readiness wrapper 47s/超时的问题已通过 lake-derived readiness 热路径规避。 |
 | 9 | P6 | 派生 / serving 资产改为显式 bounded sensor，并退出旧 automation active 入口。 | 默认 eager 不能承担历史补洞，且不能和新 sensor 双触发。 |
-| 10 | P7 | 静态门禁、文档对账、本地回归、性能报告收口。 | 防止 latest-only、单日 wrapper、旧 lifecycle 事实源回流。 |
+| 10 | P7 | 静态门禁、文档对账、本地回归、性能报告收口。 | 已完成；防止 latest-only、单日 wrapper、旧 lifecycle 事实源、默认 automation active 入口回流。 |
 
 ## 3. 资产分类口径
 
@@ -631,11 +633,45 @@ AutomationCondition.eager()
 
 ### P7 文档、静态门禁与回归收口
 
+状态：已完成。
+
 目标：
 
-1. 更新编码规范和相关设计文档。
+1. 更新相关设计文档；`CODING_STANDARDS.md` 现有 sensor hot-path 和连续性门禁已覆盖本轮口径，本轮不改编码规范。
 2. 增加静态门禁，防止历史连续资产 sensor 回流 latest-only。
 3. 跑本地单元回归，不运行正式 `dg`。
+
+P7 收口结果：
+
+1. 静态门禁已覆盖 P0F/P1/P2C/P3/P4/P5/P6 的回流风险：
+   - bounded selector 基础能力保持纯函数和小型 cursor。
+   - current trade day sensor 使用 bounded catch-up，不回到 today-only。
+   - stock daily / suspend / index daily / silver index daily 保留 expected registered gap guard。
+   - adj factor、major indices、market breadth / return distribution / ClickHouse serving sensors 禁止回流 latest-only、单日 Dagster readiness wrapper 或无界 event/check history 深扫。
+   - P6 四个派生 / serving 资产不再带 `automation_condition`，旧 `AutomationConditionSensorDefinition` 文件不再存在。
+2. 本地 P7 回归命令：
+
+   ```bash
+   cd lake_console/orchestrator
+   PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+     tests/test_bounded_continuity.py \
+     tests/test_adj_factor_m4_contracts.py \
+     tests/test_stock_lifecycle_contracts.py \
+     tests/test_stock_daily_sensor.py \
+     tests/test_suspend_d_sensor.py \
+     tests/test_index_daily_sensor.py \
+     tests/test_silver_index_daily_sensor.py \
+     tests/test_market_major_indices_lake_readiness.py \
+     tests/test_market_major_indices_daily_sensor.py \
+     tests/test_market_breadth_lake_readiness.py \
+     tests/test_market_breadth_continuity_sensors.py \
+     tests/test_prod_clickhouse_market_breadth_batch_sync.py \
+     tests/test_asset_governance_contracts.py \
+     tests/test_run_contract_static_gates.py
+   ```
+
+   结果：`151 passed`。
+3. P7 未运行 `dg`，未读取正式 Dagster runtime，未写正式 Dagster event / run / cursor，也未触碰正式 lake。
 
 ## 7. 性能与安全边界
 
