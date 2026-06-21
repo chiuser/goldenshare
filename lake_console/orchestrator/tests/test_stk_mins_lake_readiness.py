@@ -15,6 +15,13 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_raw_stk_mins_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
 )
+from orchestrator.defs.asset_guards.stk_mins_qfq_effective_readiness import (
+    QFQ_EFFECTIVE_READINESS_REASON,
+    effective_gold_qfq_readiness_for_trade_date,
+)
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    GoldStkMinsQfqFactorRepairStatus,
+)
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
@@ -469,6 +476,32 @@ def _write_gold_qfq_ready_inputs(
             trade_date=trade_date,
             target_freq=target_freq,
         )
+
+
+def _qfq_factor_repair_status_for_codes(
+    *,
+    trade_date: str,
+    repair_start_trade_date: str,
+    repair_end_trade_date: str,
+    repair_required_codes: tuple[str, ...],
+    ready: bool = True,
+) -> GoldStkMinsQfqFactorRepairStatus:
+    return GoldStkMinsQfqFactorRepairStatus(
+        ready=ready,
+        trade_date=trade_date,
+        reason="ready" if ready else "not ready",
+        repair_required=bool(repair_required_codes),
+        upstream_batch_id=f"qfq_factor_repair:{trade_date}:digest",
+        repair_start_trade_date=repair_start_trade_date,
+        repair_end_trade_date=repair_end_trade_date,
+        selected_partition_count=10,
+        repair_required_code_count=len(repair_required_codes),
+        repair_required_codes=repair_required_codes,
+        repair_required_codes_hash="a" * 64,
+        repair_required_codes_truncated=False,
+        rewritten_file_count=1 if repair_required_codes else 0,
+        rewritten_row_count=1 if repair_required_codes else 0,
+    )
 
 
 def _write_silver_ready_inputs(
@@ -1053,6 +1086,101 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertIn(
             GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
             status.failed_check_names,
+        )
+
+    def test_gold_qfq_effective_readiness_allows_repair_adjusted_formula_failure(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-17",
+            )
+            _write_gold_qfq_file_for_times(
+                connection,
+                lake_root,
+                trade_date="2026-06-17",
+                freq=1,
+                trade_times=("09:31:00",),
+                open_shift=5.0,
+            )
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-17",),
+                registered_trade_days=("2026-06-17",),
+            )
+            result = effective_gold_qfq_readiness_for_trade_date(
+                connection=connection,
+                lake_root=lake_root,
+                trade_date="2026-06-17",
+                lake_status=batch_status.status_for_trade_date("2026-06-17"),
+                candidate_repair_trade_dates=("2026-06-18",),
+                repair_status_for_trade_date=lambda _trade_date: (
+                    _qfq_factor_repair_status_for_codes(
+                        trade_date="2026-06-18",
+                        repair_start_trade_date="2026-06-05",
+                        repair_end_trade_date="2026-06-18",
+                        repair_required_codes=("000001.SZ",),
+                    )
+                ),
+            )
+
+        self.assertTrue(result.ready)
+        self.assertTrue(result.repair_adjusted)
+        self.assertEqual(result.status.reason, QFQ_EFFECTIVE_READINESS_REASON)
+        self.assertEqual(result.covering_repair_trade_dates, ("2026-06-18",))
+        self.assertEqual(result.formula_mismatch_code_count, 1)
+        self.assertEqual(result.formula_mismatch_code_samples, ("000001.SZ",))
+
+    def test_gold_qfq_effective_readiness_fails_when_repair_codes_do_not_cover(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
+            lake_root = Path(directory)
+            _write_gold_qfq_ready_inputs(
+                connection,
+                lake_root,
+                trade_date="2026-06-17",
+            )
+            _write_gold_qfq_file_for_times(
+                connection,
+                lake_root,
+                trade_date="2026-06-17",
+                freq=1,
+                trade_times=("09:31:00",),
+                open_shift=5.0,
+            )
+            batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+                connection=connection,
+                lake_root=lake_root,
+                expected_trade_dates=("2026-06-17",),
+                registered_trade_days=("2026-06-17",),
+            )
+            result = effective_gold_qfq_readiness_for_trade_date(
+                connection=connection,
+                lake_root=lake_root,
+                trade_date="2026-06-17",
+                lake_status=batch_status.status_for_trade_date("2026-06-17"),
+                candidate_repair_trade_dates=("2026-06-18",),
+                repair_status_for_trade_date=lambda _trade_date: (
+                    _qfq_factor_repair_status_for_codes(
+                        trade_date="2026-06-18",
+                        repair_start_trade_date="2026-06-05",
+                        repair_end_trade_date="2026-06-18",
+                        repair_required_codes=("000002.SZ",),
+                    )
+                ),
+            )
+
+        self.assertFalse(result.ready)
+        self.assertFalse(result.repair_adjusted)
+        self.assertIn("not covered", result.status.reason)
+        self.assertIn(
+            GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+            result.status.failed_check_names,
         )
 
     def test_gold_qfq_batch_readiness_does_not_call_single_date_helpers(self) -> None:

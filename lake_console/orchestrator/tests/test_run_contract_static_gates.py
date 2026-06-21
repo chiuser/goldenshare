@@ -294,14 +294,15 @@ class RunContractStaticGateTests(unittest.TestCase):
             "previous_expected_trade_date",
             "partition_dataset_readiness_status_from_latest_checks",
             "gold_stk_mins_qfq_factor_repair_status",
-            "GOLD_STK_MINS_QFQ_READINESS_SPECS",
+            "batch_gold_stk_mins_qfq_lake_readiness",
+            "effective_gold_qfq_readiness_for_trade_date",
             "build_sensor_tags",
         )
         forbidden_sensor_fragments = (
             "get_asset_check_execution_history",
             "duckdb.connect",
             "read_parquet",
-            "cn_a_stock_mins_silver_trade_days",
+            "GOLD_STK_MINS_QFQ_READINESS_SPECS",
             "_previous_registered_trade_date",
             "gold_stk_mins_qfq_macd_kdj_path",
             "PENDING_QFQ_FACTOR_REPAIR_TAG",
@@ -1486,9 +1487,11 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "batch_silver_stk_mins_lake_readiness",
                 "batch_adj_factor_lake_readiness",
                 "batch_gold_stk_mins_qfq_lake_readiness",
+                "effective_gold_qfq_readiness_for_trade_date",
             ),
             SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py": (
                 "batch_gold_stk_mins_qfq_lake_readiness",
+                "effective_gold_qfq_readiness_for_trade_date",
                 "include_event_storage_ids=False",
             ),
         }
@@ -1577,6 +1580,36 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("qfq factor repair evaluator must keep default storage id mode")
         if "if include_event_storage_ids:" not in evaluate_status_source:
             issues.append("qfq factor repair evaluator must guard storage id backfill")
+
+        effective_readiness_source = (
+            DEFS_DIR / "asset_guards" / "stk_mins_qfq_effective_readiness.py"
+        ).read_text()
+        required_effective_fragments = (
+            "QFQ_EFFECTIVE_READINESS_REASON",
+            "ready_after_qfq_factor_repair",
+            "gold_qfq_formula_mismatch_codes",
+            "GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK",
+            "repair_required_codes",
+            "repair_required_codes_hash",
+        )
+        forbidden_effective_fragments = (
+            "get_event_records",
+            "event_storage_id",
+            "source_qfq_factor_repair_event_storage_ids",
+            "run_key",
+        )
+        issues.extend(
+            "stk_mins_qfq_effective_readiness.py misses repair-aware fragment: "
+            f"{fragment}"
+            for fragment in required_effective_fragments
+            if fragment not in effective_readiness_source
+        )
+        issues.extend(
+            "stk_mins_qfq_effective_readiness.py contains forbidden fragment: "
+            f"{fragment}"
+            for fragment in forbidden_effective_fragments
+            if fragment in effective_readiness_source
+        )
 
         self.assertEqual(issues, [])
 

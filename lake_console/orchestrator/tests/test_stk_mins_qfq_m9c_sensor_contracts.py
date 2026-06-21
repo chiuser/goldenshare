@@ -16,6 +16,9 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
 )
+from orchestrator.defs.checks.stk_mins_checks import (
+    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -545,6 +548,76 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
+
+    def test_sensor_treats_later_repair_adjusted_formula_mismatch_as_complete(
+        self,
+    ) -> None:
+        repair_adjusted_status = StkMinsDateReadiness(
+            trade_date=PARTITION_KEY,
+            ready=True,
+            materialized=True,
+            checks_passed=True,
+            reason="ready_after_qfq_factor_repair",
+            failed_check_names=(),
+            missing_file_paths=(),
+            expected_file_count=7,
+            existing_file_count=7,
+            checked_row_count=7,
+            failed_row_count=0,
+        )
+        same_day_formula_failed_status = StkMinsDateReadiness(
+            trade_date=PARTITION_KEY,
+            ready=False,
+            materialized=True,
+            checks_passed=False,
+            reason="same-day formula failed",
+            failed_check_names=(
+                GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+            ),
+            missing_file_paths=(),
+            expected_file_count=7,
+            existing_file_count=7,
+            checked_row_count=7,
+            failed_row_count=1,
+        )
+        with (
+            patch.object(repair_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                repair_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=(PARTITION_KEY,),
+            ),
+            _patched_gold_batch_readiness(same_day_formula_failed_status),
+            patch.object(
+                repair_sensor_module,
+                "effective_gold_qfq_readiness_for_trade_date",
+                return_value=SimpleNamespace(
+                    status=repair_adjusted_status,
+                    repair_adjusted=True,
+                ),
+            ) as effective_readiness_mock,
+            patch.object(
+                repair_sensor_module,
+                "gold_stk_mins_qfq_factor_repair_status",
+                side_effect=AssertionError(
+                    "same-date repair status must not be read when later repair covers it"
+                ),
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = repair_sensor_module.stock_mins_qfq_factor_repair_sensor._raw_fn(
+                _FakeSensorContext()
+            )
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("continuity 窗口内分区已经完成", result.skip_reason.skip_message)
+        effective_readiness_mock.assert_called_once()
+        cursor = json.loads(result.cursor)
+        self.assertIsNone(cursor["details"]["gold_status"])
+        self.assertEqual(
+            cursor["details"]["continuity_status"]["ready_through_trade_date"],
+            PARTITION_KEY,
+        )
 
 
 if __name__ == "__main__":

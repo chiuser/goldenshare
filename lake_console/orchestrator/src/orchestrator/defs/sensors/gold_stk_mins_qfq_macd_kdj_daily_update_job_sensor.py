@@ -12,6 +12,12 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
     load_stock_mins_expected_trade_dates,
     previous_expected_trade_date,
 )
+from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
+    batch_gold_stk_mins_qfq_lake_readiness,
+)
+from orchestrator.defs.asset_guards.stk_mins_qfq_effective_readiness import (
+    effective_gold_qfq_readiness_for_trade_date,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
     gold_stk_mins_qfq_factor_repair_status,
@@ -31,6 +37,7 @@ from orchestrator.defs.jobs.stock_mins_qfq_factor_repair import (
 )
 from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.health.lake_root import assert_lake_root_available_for_run
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.paths import DEFAULT_LAKE_ROOT, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -41,13 +48,13 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.run_contracts.stk_mins import (
+    STK_MINS_CONTINUITY_WINDOW_LIMIT,
     STK_MINS_MACD_KDJ_BASELINE_START_DATE,
 )
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessSpec,
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    GOLD_STK_MINS_QFQ_READINESS_SPECS,
     partition_dataset_readiness_status_from_latest_checks,
 )
 
@@ -148,6 +155,20 @@ def _previous_expected_trade_date_for_target(
     )
 
 
+def _candidate_repair_trade_dates_for_effective_qfq(
+    expected_trade_dates: tuple[str, ...],
+    target_trade_date: str,
+) -> tuple[str, ...]:
+    if target_trade_date not in expected_trade_dates:
+        return ()
+    target_index = expected_trade_dates.index(target_trade_date)
+    upper_index = min(
+        len(expected_trade_dates),
+        target_index + STK_MINS_CONTINUITY_WINDOW_LIMIT,
+    )
+    return expected_trade_dates[target_index:upper_index]
+
+
 def _has_materialized_check_problem(status: DatasetReadinessStatus) -> bool:
     return any(
         asset_status.materialized and not asset_status.checks_passed
@@ -193,6 +214,50 @@ def _successful_run_for_trade_date_exists(
         _trade_date_from_dagster_run(record.dagster_run) == trade_date
         for record in records
     )
+
+
+def _effective_qfq_ready_for_target_trade_date(
+    context: dg.RunStatusSensorContext,
+    *,
+    target_trade_date: str,
+    expected_trade_dates: tuple[str, ...],
+) -> bool:
+    lake_root = Path(DEFAULT_LAKE_ROOT)
+    assert_lake_root_available_for_run(lake_root)
+    registered_trade_days = tuple(
+        sorted(
+            context.instance.get_dynamic_partitions(
+                cn_a_stock_mins_silver_trade_days.name
+            )
+        )
+    )
+    candidate_repair_trade_dates = _candidate_repair_trade_dates_for_effective_qfq(
+        expected_trade_dates,
+        target_trade_date,
+    )
+    with connect_configured_duckdb() as connection:
+        batch_status = batch_gold_stk_mins_qfq_lake_readiness(
+            connection=connection,
+            lake_root=lake_root,
+            expected_trade_dates=(target_trade_date,),
+            registered_trade_days=registered_trade_days,
+            full_semantics=True,
+        )
+        effective_status = effective_gold_qfq_readiness_for_trade_date(
+            connection=connection,
+            lake_root=lake_root,
+            trade_date=target_trade_date,
+            lake_status=batch_status.status_for_trade_date(target_trade_date),
+            candidate_repair_trade_dates=candidate_repair_trade_dates,
+            repair_status_for_trade_date=lambda repair_trade_date: (
+                gold_stk_mins_qfq_factor_repair_status(
+                    context.instance,
+                    repair_trade_date,
+                    include_event_storage_ids=False,
+                )
+            ),
+        ).status
+    return effective_status.ready
 
 
 def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
@@ -349,14 +414,14 @@ def _evaluate_daily_run_status_decision(
         qfq_factor_repair_status = gold_stk_mins_qfq_factor_repair_status(
             context.instance,
             target_trade_date,
+            include_event_storage_ids=False,
         )
         if qfq_factor_repair_status.ready:
-            qfq_status = partition_dataset_readiness_status_from_latest_checks(
-                context.instance,
-                GOLD_STK_MINS_QFQ_READINESS_SPECS,
-                partition_key=target_trade_date,
+            qfq_ready = _effective_qfq_ready_for_target_trade_date(
+                context,
+                target_trade_date=target_trade_date,
+                expected_trade_dates=expected_trade_dates,
             )
-            qfq_ready = qfq_status.ready
             if qfq_ready and previous_trade_date is not None:
                 previous_state_status = (
                     partition_dataset_readiness_status_from_latest_checks(

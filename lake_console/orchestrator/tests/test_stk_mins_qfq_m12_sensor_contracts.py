@@ -11,7 +11,6 @@ from orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_senso
     DAGSTER_PARTITION_TAG,
     GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
-    GOLD_STK_MINS_QFQ_READINESS_SPECS,
     STOCK_MINS_QFQ_DAILY_UPDATE_JOB_NAME,
     STOCK_MINS_QFQ_FACTOR_REPAIR_JOB_NAME,
     _run_request_for_trade_date,
@@ -294,11 +293,6 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
 
         def fake_readiness(_instance, specs, *, partition_key):
             calls.append((specs, partition_key))
-            if specs is GOLD_STK_MINS_QFQ_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    asset_key="gold_stk_mins_qfq_1m",
-                )
             if specs is GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS:
                 return _dataset_status(
                     ready=False,
@@ -323,6 +317,10 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
             "partition_dataset_readiness_status_from_latest_checks",
             side_effect=fake_readiness,
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "_effective_qfq_ready_for_target_trade_date",
+            return_value=True,
         ):
             decision, _ = _evaluate_daily_run_status_decision(
                 context=context,
@@ -352,11 +350,6 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         context = _context_for_triggered_run(trade_date=TARGET_TRADE_DATE)
 
         def fake_readiness(_instance, specs, *, partition_key):
-            if specs is GOLD_STK_MINS_QFQ_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    asset_key="gold_stk_mins_qfq_1m",
-                )
             if specs is GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS:
                 self.assertEqual(partition_key, PREVIOUS_EXPECTED_TRADE_DATE)
                 return _dataset_status(
@@ -381,6 +374,10 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
             "partition_dataset_readiness_status_from_latest_checks",
             side_effect=fake_readiness,
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "_effective_qfq_ready_for_target_trade_date",
+            return_value=True,
         ):
             decision, _ = _evaluate_daily_run_status_decision(
                 context=context,
@@ -401,6 +398,51 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         )
         self.assertEqual(result.partition_key, TARGET_TRADE_DATE)
         self.assertEqual(result.tags, {})
+
+    def test_daily_sensor_uses_effective_qfq_readiness_gate(self) -> None:
+        context = _context_for_triggered_run(trade_date=TARGET_TRADE_DATE)
+
+        def fake_readiness(_instance, specs, *, partition_key):
+            if specs is GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS:
+                self.assertEqual(partition_key, PREVIOUS_EXPECTED_TRADE_DATE)
+                return _dataset_status(
+                    ready=True,
+                    asset_key="gold_stk_mins_qfq_macd_kdj_state_1m",
+                )
+            self.assertIs(specs, GOLD_STK_MINS_QFQ_MACD_KDJ_READINESS_SPECS)
+            return _dataset_status(
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="target missing",
+                asset_key="gold_stk_mins_qfq_macd_kdj_1m",
+            )
+
+        with patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "gold_stk_mins_qfq_factor_repair_status",
+            return_value=_repair_gate_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "partition_dataset_readiness_status_from_latest_checks",
+            side_effect=fake_readiness,
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "_effective_qfq_ready_for_target_trade_date",
+            return_value=True,
+        ) as effective_qfq_mock:
+            decision, _ = _evaluate_daily_run_status_decision(
+                context=context,
+                target_trade_date=TARGET_TRADE_DATE,
+                expected_trade_dates=(
+                    "2026-06-13",
+                    PREVIOUS_EXPECTED_TRADE_DATE,
+                    TARGET_TRADE_DATE,
+                ),
+            )
+
+        self.assertEqual(decision.selected_trade_date, TARGET_TRADE_DATE)
+        effective_qfq_mock.assert_called_once()
 
     def test_daily_sensor_skips_when_target_is_not_expected(self) -> None:
         context = _context_for_triggered_run(trade_date=TARGET_TRADE_DATE)
@@ -429,11 +471,6 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         def fake_readiness(_instance, specs, *, partition_key):
             self.assertNotEqual(specs, GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS)
             self.assertEqual(partition_key, baseline_trade_date)
-            if specs is GOLD_STK_MINS_QFQ_READINESS_SPECS:
-                return _dataset_status(
-                    ready=True,
-                    asset_key="gold_stk_mins_qfq_1m",
-                )
             return _dataset_status(
                 ready=False,
                 materialized=False,
@@ -450,6 +487,10 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
             "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
             "partition_dataset_readiness_status_from_latest_checks",
             side_effect=fake_readiness,
+        ), patch(
+            "orchestrator.defs.sensors.gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor."
+            "_effective_qfq_ready_for_target_trade_date",
+            return_value=True,
         ):
             decision, _ = _evaluate_daily_run_status_decision(
                 context=context,

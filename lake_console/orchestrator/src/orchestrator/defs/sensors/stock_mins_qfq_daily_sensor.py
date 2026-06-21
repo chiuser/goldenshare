@@ -21,6 +21,12 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     batch_gold_stk_mins_qfq_lake_readiness,
     batch_silver_stk_mins_lake_readiness,
 )
+from orchestrator.defs.asset_guards.stk_mins_qfq_effective_readiness import (
+    effective_gold_qfq_readiness_for_trade_date,
+)
+from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
+    gold_stk_mins_qfq_factor_repair_status,
+)
 from orchestrator.defs.partitions import (
     cn_a_stock_current_trade_days,
     cn_a_stock_mins_silver_trade_days,
@@ -523,6 +529,20 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
                     full_semantics=True,
                 )
             gold_status = gold_batch_status.status_for_trade_date(trade_date)
+            gold_status = effective_gold_qfq_readiness_for_trade_date(
+                connection=connection,
+                lake_root=lake_root.root(),
+                trade_date=trade_date,
+                lake_status=gold_status,
+                candidate_repair_trade_dates=window_trade_dates,
+                repair_status_for_trade_date=lambda repair_trade_date: (
+                    gold_stk_mins_qfq_factor_repair_status(
+                        context.instance,
+                        repair_trade_date,
+                        include_event_storage_ids=False,
+                    )
+                ),
+            ).status
         return StockMinsQfqDailyReadinessSnapshot(
             ready=gold_status.ready,
             reason=gold_status.reason,

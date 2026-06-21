@@ -13,6 +13,11 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsDateReadiness,
     batch_gold_stk_mins_qfq_lake_readiness,
 )
+from orchestrator.defs.asset_guards.stk_mins_qfq_effective_readiness import (
+    GoldQfqEffectiveReadinessResult,
+    effective_gold_qfq_readiness_for_trade_date,
+    gold_qfq_status_requires_repair_aware_check,
+)
 from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
     gold_stk_mins_qfq_factor_repair_status,
@@ -149,12 +154,18 @@ def _batch_status_payload(
 def _qfq_factor_repair_readiness_snapshot_for_trade_date(
     instance: dg.DagsterInstance,
     trade_date: str,
-    gold_batch_status: StkMinsBatchReadiness,
+    effective_gold_result: GoldQfqEffectiveReadinessResult,
 ) -> StockMinsQfqFactorRepairReadinessSnapshot:
-    gold_status = gold_batch_status.status_for_trade_date(trade_date)
+    gold_status = effective_gold_result.status
     if not gold_status.ready:
         return StockMinsQfqFactorRepairReadinessSnapshot(
             ready=False,
+            reason=gold_status.reason,
+            gold_status=gold_status,
+        )
+    if effective_gold_result.repair_adjusted:
+        return StockMinsQfqFactorRepairReadinessSnapshot(
+            ready=True,
             reason=gold_status.reason,
             gold_status=gold_status,
         )
@@ -459,9 +470,9 @@ def stock_mins_qfq_factor_repair_sensor(
         trade_date: str,
     ) -> StockMinsQfqFactorRepairReadinessSnapshot:
         nonlocal gold_batch_status
+        lake_root = context.resources.lake_root
+        duckdb_resource = context.resources.duckdb
         if gold_batch_status is None:
-            lake_root = context.resources.lake_root
-            duckdb_resource = context.resources.duckdb
             with duckdb_resource.connect() as connection:
                 gold_batch_status = batch_gold_stk_mins_qfq_lake_readiness(
                     connection=connection,
@@ -470,10 +481,31 @@ def stock_mins_qfq_factor_repair_sensor(
                     registered_trade_days=registered_trade_days,
                     full_semantics=True,
                 )
+        gold_lake_status = gold_batch_status.status_for_trade_date(trade_date)
+        if gold_qfq_status_requires_repair_aware_check(gold_lake_status):
+            with duckdb_resource.connect() as connection:
+                effective_gold_result = effective_gold_qfq_readiness_for_trade_date(
+                    connection=connection,
+                    lake_root=lake_root.root(),
+                    trade_date=trade_date,
+                    lake_status=gold_lake_status,
+                    candidate_repair_trade_dates=window_trade_dates,
+                    repair_status_for_trade_date=lambda repair_trade_date: (
+                        gold_stk_mins_qfq_factor_repair_status(
+                            context.instance,
+                            repair_trade_date,
+                            include_event_storage_ids=False,
+                        )
+                    ),
+                )
+        else:
+            effective_gold_result = GoldQfqEffectiveReadinessResult(
+                status=gold_lake_status,
+            )
         return _qfq_factor_repair_readiness_snapshot_for_trade_date(
             context.instance,
             trade_date,
-            gold_batch_status,
+            effective_gold_result,
         )
 
     selection = select_first_not_ready_trade_date(
