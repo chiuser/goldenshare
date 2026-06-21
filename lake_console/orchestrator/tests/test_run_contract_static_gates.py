@@ -1675,6 +1675,45 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_index_daily_sensors_use_registered_gap_guard(self) -> None:
+        sensor_paths = (
+            SENSORS_DIR / "index_daily_sensor.py",
+            SENSORS_DIR / "silver_index_daily_sensor.py",
+        )
+        issues = []
+
+        required_fragments = (
+            "load_expected_trade_date_window",
+            "build_registered_gap_status",
+            "build_continuity_cursor_details",
+            "INDEX_TRADE_DAY_MIN_DATE",
+            "SAME_DAY_PARTITION_REGISTER_START",
+            "DEFAULT_CONTINUITY_WINDOW_LIMIT",
+            "same_day_register_start=SAME_DAY_PARTITION_REGISTER_START",
+            "window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT",
+            "_registered_gap_skip_reason",
+        )
+        forbidden_fragments = (
+            "_latest_registered_trade_date",
+            "_eligible_registered_trade_dates",
+        )
+        for path in sensor_paths:
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses index trade day registered gap guard fragment: "
+                f"{fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
+            issues.extend(
+                f"{path} contains forbidden index daily gap guard fragment: "
+                f"{fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 

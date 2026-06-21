@@ -8,7 +8,7 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster Market Major Indices Sensor 热路径性能治理 LLD](dagster-market-major-indices-sensor-performance-governance-low-level-design.md)
 
-状态：P0F-P3 已完成，P5 及后续阶段待按顺序执行。
+状态：P0F-P3、P5 已完成，P4 及后续阶段待按顺序执行。
 
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
@@ -900,6 +900,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ## 7. P5 指数日线 guard 加固
 
+状态：已完成。
+
 ### 7.1 目标文件
 
 ```text
@@ -918,6 +920,14 @@ tests/test_run_contract_static_gates.py
 4. 不把 `silver_index_daily_ready_for_trade_date(...)` 放入窗口循环。
 5. 不改 raw-by-code repair、cursor offset、run key。
 
+### 7.2.1 已落地代码事实
+
+1. `index_daily_sensor.py` 与 `silver_index_daily_sensor.py` 均通过 `load_expected_trade_date_window(...)` 读取最近 60 个 expected index trade dates。
+2. 两个 sensor 均使用 `INDEX_TRADE_DAY_MIN_DATE` 和 `SAME_DAY_PARTITION_REGISTER_START`，保持与 `index_trade_day_sensor` 注册口径一致。
+3. 注册缺口存在时，raw sensor 在 `audit_index_daily_raw_gaps(...)`、target presence scan、Tushare source readiness 和 late-arrival repair 之前 skip。
+4. 注册缺口存在时，silver sensor 在 `audit_index_daily_raw_gaps(...)`、`select_first_not_ready_silver_index_daily_partition(...)` 和 target raw presence scan 之前 skip。
+5. 注册连续时，raw gap audit、latest raw target presence、late-arrival repair attempt/backoff/cursor offset、silver first-not-ready selector 和 run key/run config 均保持原语义。
+
 ### 7.3 测试
 
 覆盖：
@@ -926,6 +936,20 @@ tests/test_run_contract_static_gates.py
 2. 注册连续后，raw gap audit 行为不变。
 3. silver first-not-ready 仍使用 bounded selector。
 4. 静态门禁防止单日 wrapper 回流。
+5. 静态门禁要求两个 sensor 保留 `load_expected_trade_date_window`、`build_registered_gap_status`、`build_continuity_cursor_details`、`SAME_DAY_PARTITION_REGISTER_START` 和 `DEFAULT_CONTINUITY_WINDOW_LIMIT`，并禁止 `_latest_registered_trade_date` / `_eligible_registered_trade_dates` 回流。
+
+本地验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_index_daily_sensor.py \
+  tests/test_silver_index_daily_sensor.py \
+  tests/test_index_daily_late_arrival_repair.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`55 passed`。
 
 ## 8. P4 主要指数日线 gold
 

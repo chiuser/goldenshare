@@ -1,8 +1,13 @@
 import unittest
+from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityExpectedDateWindow,
+    build_registered_gap_status,
+)
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     IndexDailyRawFileReadiness,
@@ -119,10 +124,15 @@ class _FakeLakeRoot:
 
 
 class _FakeInstance:
-    def __init__(self):
+    def __init__(
+        self,
+        *,
+        trade_days: tuple[str, ...] = ("2026-06-01", "2026-06-02"),
+        index_codes: tuple[str, ...] = ("000001.SH",),
+    ):
         self.dynamic_partitions = {
-            cn_a_index_trade_days.name: {"2026-06-01", "2026-06-02"},
-            cn_a_index_ts_codes.name: {"000001.SH"},
+            cn_a_index_trade_days.name: set(trade_days),
+            cn_a_index_ts_codes.name: set(index_codes),
         }
 
     def get_dynamic_partitions(self, name):
@@ -130,13 +140,49 @@ class _FakeInstance:
 
 
 class _FakeContext:
-    def __init__(self):
-        self.instance = _FakeInstance()
+    def __init__(
+        self,
+        *,
+        trade_days: tuple[str, ...] = ("2026-06-01", "2026-06-02"),
+        index_codes: tuple[str, ...] = ("000001.SH",),
+    ):
+        self.instance = _FakeInstance(trade_days=trade_days, index_codes=index_codes)
         self.resources = SimpleNamespace(lake_root=_FakeLakeRoot(), duckdb=object())
         self.log = SimpleNamespace(warning=lambda *_args, **_kwargs: None)
 
 
+def _registered_gap(
+    *,
+    expected_trade_dates: tuple[str, ...],
+    registered_trade_dates: tuple[str, ...],
+):
+    expected_window = ContinuityExpectedDateWindow(
+        expected_trade_dates=expected_trade_dates,
+        min_trade_date="2000-01-01",
+        max_trade_date=expected_trade_dates[-1] if expected_trade_dates else None,
+        evaluated_at=datetime.now(),
+        window_limit=60,
+    )
+    return expected_window, build_registered_gap_status(
+        expected_trade_dates=expected_trade_dates,
+        registered_trade_dates=registered_trade_dates,
+    )
+
+
 class SilverIndexDailySensorTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._registered_gap_patcher = patch(
+            "orchestrator.defs.sensors.silver_index_daily_sensor._index_trade_day_registered_gap",
+            side_effect=lambda _context, evaluated_at, registered_trade_days: _registered_gap(
+                expected_trade_dates=tuple(registered_trade_days),
+                registered_trade_dates=tuple(registered_trade_days),
+            ),
+        )
+        self.registered_gap_mock = self._registered_gap_patcher.start()
+
+    def tearDown(self) -> None:
+        self._registered_gap_patcher.stop()
+
     def test_first_not_ready_uses_silver_selector(self) -> None:
         instance = object()
         trade_dates = ("2026-06-01", "2026-06-02", "2026-06-03")
@@ -155,6 +201,38 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         selector.assert_called_once_with(instance, trade_dates)
         self.assertEqual(trade_date, "2026-06-02")
         self.assertIs(status, selected_status)
+
+    def test_registered_gap_skips_before_raw_gap_audit_and_silver_selector(
+        self,
+    ) -> None:
+        context = _FakeContext(trade_days=("2026-06-13", "2026-06-16"))
+        self.registered_gap_mock.side_effect = (
+            lambda _context, evaluated_at, registered_trade_days: _registered_gap(
+                expected_trade_dates=("2026-06-13", "2026-06-15", "2026-06-16"),
+                registered_trade_dates=tuple(registered_trade_days),
+            )
+        )
+        with (
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "audit_index_daily_raw_gaps",
+            ) as raw_gap_audit,
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "_first_not_ready_silver_trade_date",
+            ) as silver_selector,
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "check_index_daily_raw_files_for_trade_date",
+            ) as raw_status_check,
+        ):
+            result = silver_index_daily_sensor._raw_fn(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
+        raw_gap_audit.assert_not_called()
+        silver_selector.assert_not_called()
+        raw_status_check.assert_not_called()
 
     def test_failed_check_status_does_not_submit_run(self) -> None:
         failed_status = _status("2026-06-01", ready=False, materialized=True)

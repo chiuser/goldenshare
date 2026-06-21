@@ -1,10 +1,18 @@
-from datetime import datetime, time
+from datetime import datetime
 from typing import Any
 
 import dagster as dg
 
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    DEFAULT_CONTINUITY_WINDOW_LIMIT,
+    ContinuityExpectedDateWindow,
+    ContinuityRegisteredGapStatus,
+    build_continuity_cursor_details,
+    build_registered_gap_status,
+    load_expected_trade_date_window,
+)
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
-from orchestrator.defs.paths import silver_index_basic_path
+from orchestrator.defs.paths import silver_index_basic_path, silver_trade_calendar_path
 from orchestrator.defs.run_contracts.configs import build_index_daily_update_job_run_config
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
@@ -31,27 +39,17 @@ from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     audit_index_daily_raw_gaps,
     check_index_daily_raw_files_for_trade_date,
 )
+from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
+    INDEX_TRADE_DAY_MIN_DATE,
+    SAME_DAY_PARTITION_REGISTER_START,
+)
 from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 from orchestrator.source_readiness.tushare.index_daily import (
     check_index_daily_source_readiness,
 )
 
 
-INDEX_DAILY_SOURCE_PROBE_START = time(16, 0)
 MAX_RUN_REQUESTS_PER_TICK = 500
-
-
-def _runnable_trade_dates(
-    registered_trade_days: tuple[str, ...],
-    evaluated_at: datetime,
-) -> tuple[str, ...]:
-    today = evaluated_at.date().isoformat()
-    probe_window_started = evaluated_at.time() >= INDEX_DAILY_SOURCE_PROBE_START
-    return tuple(
-        trade_date
-        for trade_date in registered_trade_days
-        if trade_date < today or (trade_date == today and probe_window_started)
-    )
 
 
 def _recent_trade_dates(
@@ -62,6 +60,64 @@ def _recent_trade_dates(
     if limit <= 0:
         raise ValueError("limit must be positive.")
     return trade_dates[-limit:]
+
+
+def _load_expected_index_trade_day_window(
+    context: dg.SensorEvaluationContext,
+    evaluated_at: datetime,
+) -> ContinuityExpectedDateWindow:
+    lake_root = context.resources.lake_root
+    duckdb_resource = context.resources.duckdb
+    lake_root.ensure_available_for_run()
+    calendar_path = silver_trade_calendar_path(lake_root.root())
+    if not calendar_path.exists():
+        raise FileNotFoundError(f"silver_trade_calendar file is missing: {calendar_path}")
+
+    with duckdb_resource.connect() as connection:
+        return load_expected_trade_date_window(
+            connection,
+            calendar_path,
+            evaluated_at=evaluated_at,
+            min_trade_date=INDEX_TRADE_DAY_MIN_DATE,
+            same_day_register_start=SAME_DAY_PARTITION_REGISTER_START,
+            window_limit=DEFAULT_CONTINUITY_WINDOW_LIMIT,
+        )
+
+
+def _index_trade_day_registered_gap(
+    context: dg.SensorEvaluationContext,
+    *,
+    evaluated_at: datetime,
+    registered_trade_days: tuple[str, ...],
+) -> tuple[ContinuityExpectedDateWindow, ContinuityRegisteredGapStatus]:
+    expected_window = _load_expected_index_trade_day_window(context, evaluated_at)
+    gap_status = build_registered_gap_status(
+        expected_trade_dates=expected_window.expected_trade_dates,
+        registered_trade_dates=registered_trade_days,
+    )
+    return expected_window, gap_status
+
+
+def _continuity_details(
+    *,
+    expected_window: ContinuityExpectedDateWindow,
+    gap_status: ContinuityRegisteredGapStatus,
+) -> dict[str, object]:
+    return build_continuity_cursor_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+        batch_readiness=None,
+        selection=None,
+    )
+
+
+def _registered_gap_skip_reason(
+    gap_status: ContinuityRegisteredGapStatus,
+) -> str:
+    return (
+        "指数交易日分区存在缺口，最早缺失日期为 "
+        f"{gap_status.first_missing_registered_date}，暂不触发指数日线 raw 更新。"
+    )
 
 
 def _select_pending_codes(
@@ -117,6 +173,7 @@ def _cursor_payload(
     repair_budget_limited_count: int | None = None,
     repair_state_code_count: int | None = None,
     repair_cursor_code_limit_exceeded: bool | None = None,
+    continuity_details: dict[str, object] | None = None,
 ) -> str:
     decision = (
         SensorCursorDecision.REQUEST_RUNS
@@ -156,6 +213,7 @@ def _cursor_payload(
         "repair_budget_limited_count": repair_budget_limited_count,
         "repair_state_code_count": repair_state_code_count,
         "repair_cursor_code_limit_exceeded": repair_cursor_code_limit_exceeded,
+        "continuity_status": continuity_details,
     }
     if repair_state:
         details["repair_state"] = repair_state
@@ -193,6 +251,33 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     registered_index_codes = tuple(
         sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
     )
+    expected_window, gap_status = _index_trade_day_registered_gap(
+        context,
+        evaluated_at=evaluated_at,
+        registered_trade_days=registered_trade_days,
+    )
+    continuity_details = _continuity_details(
+        expected_window=expected_window,
+        gap_status=gap_status,
+    )
+    if gap_status.first_missing_registered_date is not None:
+        return dg.SensorResult(
+            skip_reason=_registered_gap_skip_reason(gap_status),
+            cursor=_cursor_payload(
+                evaluated_at=evaluated_at,
+                today=today,
+                registered_trade_day_count=len(registered_trade_days),
+                registered_code_count=len(registered_index_codes),
+                target_trade_date=gap_status.first_missing_registered_date,
+                source_ready=None,
+                source_row_count=None,
+                pending_count=0,
+                selected_codes=(),
+                next_pending_offset=0,
+                continuity_details=continuity_details,
+            ),
+        )
+
     if not registered_trade_days:
         return dg.SensorResult(
             skip_reason="没有注册指数交易日分区，无法触发指数日线更新。",
@@ -207,6 +292,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 pending_count=0,
                 selected_codes=(),
                 next_pending_offset=0,
+                continuity_details=continuity_details,
             ),
         )
     if not registered_index_codes:
@@ -223,12 +309,11 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 pending_count=0,
                 selected_codes=(),
                 next_pending_offset=0,
+                continuity_details=continuity_details,
             ),
         )
 
-    runnable_trade_dates = _recent_trade_dates(
-        _runnable_trade_dates(registered_trade_days, evaluated_at)
-    )
+    runnable_trade_dates = _recent_trade_dates(expected_window.expected_trade_dates)
     if not runnable_trade_dates:
         return dg.SensorResult(
             skip_reason="没有符合当前时间窗口的指数交易日分区。",
@@ -243,6 +328,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 pending_count=0,
                 selected_codes=(),
                 next_pending_offset=0,
+                continuity_details=continuity_details,
             ),
         )
 
@@ -287,6 +373,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 ],
                 raw_scan_error_code=raw_gap_audit.scan_error_code,
                 raw_scan_error=raw_gap_audit.scan_error,
+                continuity_details=continuity_details,
             ),
         )
     if raw_gap_audit.ready or target_trade_date is None:
@@ -326,6 +413,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                     ],
                     raw_scan_error_code=latest_raw_status.scan_error_code,
                     raw_scan_error=latest_raw_status.scan_error,
+                    continuity_details=continuity_details,
                 ),
             )
         if latest_raw_status.ready:
@@ -357,6 +445,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                     audit_no_raw_history_samples=raw_gap_audit.no_raw_history_codes[
                         :MAX_RAW_GAP_SAMPLE_COUNT
                     ],
+                    continuity_details=continuity_details,
                 ),
             )
         target_trade_date = latest_runnable_trade_date
@@ -423,6 +512,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
                 repair_cursor_code_limit_exceeded=(
                     repair_selection.repair_cursor_code_limit_exceeded
                 ),
+                continuity_details=continuity_details,
             ),
         )
 
@@ -466,6 +556,7 @@ def index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
         repair_cursor_code_limit_exceeded=(
             repair_selection.repair_cursor_code_limit_exceeded
         ),
+        continuity_details=continuity_details,
     )
     if not selected_codes:
         skip_reason = "最早缺口指数交易日没有可选择的缺失指数代码。"
