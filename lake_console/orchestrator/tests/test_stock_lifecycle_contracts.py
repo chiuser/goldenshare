@@ -107,6 +107,7 @@ def _lifecycle_row(
     ts_code: str = "000001.SZ",
     symbol: str = "000001",
     name: str = "平安银行",
+    market: str | None = "主板",
     curr_type: str = "CNY",
     is_cny_stock: bool = True,
     list_status: str = "L",
@@ -118,7 +119,7 @@ def _lifecycle_row(
         "symbol": symbol,
         "name": name,
         "exchange": "SZSE" if ts_code.endswith(".SZ") else "SSE",
-        "market": "主板",
+        "market": market,
         "curr_type": curr_type,
         "is_cny_stock": is_cny_stock,
         "list_status": list_status,
@@ -343,6 +344,40 @@ class StockLifecycleContractTests(unittest.TestCase):
         self.assertEqual(
             _metadata_value(result.metadata, "goldenshare/null_row_count"),
             1,
+        )
+
+    def test_required_fields_check_allows_null_market_for_historical_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_rows(
+                silver_stock_lifecycle_path(root),
+                column_types=_column_types(SILVER_STOCK_LIFECYCLE_SCHEMA),
+                rows=[
+                    _lifecycle_row(
+                        ts_code="T600018.SH",
+                        symbol="600018",
+                        name="上港集箱(退)",
+                        market=None,
+                        list_status="D",
+                        list_date=date(2000, 7, 19),
+                        delist_date=date(2006, 10, 20),
+                    )
+                ],
+                order_by="ts_code",
+            )
+
+            check_fn = _check_function(
+                checks.silver_stock_lifecycle_required_fields_non_null_check
+            )
+            result = check_fn(LakeRootResource(root_path=str(root)), DuckDBResource())
+
+        self.assertTrue(result.passed)
+        self.assertNotIn(
+            "market",
+            _metadata_value(
+                result.metadata,
+                "goldenshare/required_non_null_columns",
+            ),
         )
 
 

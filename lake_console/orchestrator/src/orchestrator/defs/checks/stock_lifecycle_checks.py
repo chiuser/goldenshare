@@ -165,7 +165,6 @@ def silver_stock_lifecycle_required_fields_non_null_check(
         "symbol",
         "name",
         "exchange",
-        "market",
         "curr_type",
         "is_cny_stock",
         "list_status",

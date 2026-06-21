@@ -154,7 +154,7 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 - `delist_date`
 - `list_status`
 - `exchange`
-- `market`
+- `market`（源站历史退市股票可能为空，保留为解释字段，不作为非空硬阻断）
 - `is_cny_stock`
 - 必要的审计字段，例如 source path、row count、snapshot date，具体字段以当前 schema 规范落地。
 
@@ -166,7 +166,7 @@ P0F -> P1 -> P2A -> P2B -> P2C -> P3 -> P5 -> P4 -> P6 -> P7
 4. 新增 blocking check：
    - 生命周期区间合法。
    - `ts_code/list_date` 唯一或符合当前数据事实。
-   - CNY、exchange、market 派生字段可解释。
+   - CNY、exchange 派生字段可解释；`market` 保留为解释字段但允许为空。
 5. 新增 readiness spec，供后续 P2B/P2C 使用。
 
 测试覆盖：
@@ -636,7 +636,7 @@ is_cny_stock
 2. `delist_date` 可空。
 3. `is_cny_stock` 来自 `curr_type='CNY'` 的派生布尔值。
 4. `list_status` 保留源状态，例如 `L/D/P/G`，不得只保留当前上市。
-5. 保留 `exchange/market`，方便下游 check metadata 可解释。
+5. 保留 `exchange/market`，方便下游 check metadata 可解释；其中 `market` 允许源站为空，不进入 `silver_stock_lifecycle_required_fields_non_null_check` 的硬必填列。
 
 #### 5.1.5 SQL
 

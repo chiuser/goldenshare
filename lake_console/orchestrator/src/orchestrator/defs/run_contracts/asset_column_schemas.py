@@ -142,7 +142,7 @@ SILVER_STOCK_LIFECYCLE_SCHEMA = (
     ColumnContract("symbol", "VARCHAR", "股票简称代码"),
     ColumnContract("name", "VARCHAR", "股票名称"),
     ColumnContract("exchange", "VARCHAR", "交易所代码"),
-    ColumnContract("market", "VARCHAR", "市场类型"),
+    ColumnContract("market", "VARCHAR", "市场类型；历史退市股票源站可能为空，仅作解释字段"),
     ColumnContract("curr_type", "VARCHAR", "交易货币"),
     ColumnContract("is_cny_stock", "BOOLEAN", "是否人民币计价股票"),
     ColumnContract("list_status", "VARCHAR", "上市状态，沿用 Tushare 原始值"),

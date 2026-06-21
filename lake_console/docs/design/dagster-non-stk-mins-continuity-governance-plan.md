@@ -325,7 +325,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
    - `delist_date`
    - `list_status`
    - `exchange`
-   - `market`
+   - `market`（源站历史退市股票可能为空，保留为解释字段，不作为非空硬阻断）
    - `is_cny_stock`
 3. 生命周期判断统一为：
    - `trade_date >= list_date`
@@ -335,7 +335,7 @@ Current snapshot 资产不使用 first missing historical partition 口径。
 5. `silver_stock_lifecycle` 是下游历史生命周期判断的正式事实源；`raw_stock_basic` 继续是源层输入，`silver_stock_basic` 继续保留 current-listed snapshot / freshness guard 职责。
 6. 禁止把退市股票塞回 `silver_stock_basic` 来解决历史资产问题。
 7. 禁止让下游新增长期逻辑继续直接调用 `historical_cny_stock_lifecycle_select(raw_stock_basic_path)`；迁移后该 helper 只能作为 `silver_stock_lifecycle` 生产逻辑或测试辅助存在。
-8. 字段契约在 P2A LLD 中必须进一步细化列类型、空值规则、过滤来源和 check metadata；实现阶段不得少于上述字段。
+8. 字段契约在 P2A LLD 中必须进一步细化列类型、空值规则、过滤来源和 check metadata；实现阶段不得少于上述字段。其中 `market` 是可解释字段，允许源站为空，不能作为 required-fields non-null blocking 规则。
 
 迁移范围：
 
@@ -536,7 +536,7 @@ AutomationCondition.eager()
 
 验收：
 
-1. P2A 后，`silver_stock_lifecycle` 能从 `raw_stock_basic` 派生包含 `ts_code`、`list_date`、`delist_date`、`list_status`、`exchange`、`market`、`is_cny_stock` 的历史生命周期事实，且有正式 catalog、checks、readiness 和测试。
+1. P2A 后，`silver_stock_lifecycle` 能从 `raw_stock_basic` 派生包含 `ts_code`、`list_date`、`delist_date`、`list_status`、`exchange`、`market`、`is_cny_stock` 的历史生命周期事实，且有正式 catalog、checks、readiness 和测试；`market` 保留为可解释字段，允许源站为空，不作为非空硬阻断。
 2. P2B 后，`silver_stock_daily`、股票分钟线相关 lifecycle/name timeline 路径、lake readiness、runless check event dry-run helper 不再直接读取 `raw_stock_basic` 做长期生命周期判断；依赖迁移必须一次清零。
 3. P2C 后，正式或临时样本中退市历史股票不应被 `silver_adj_factor_listed_stock_only` / coverage 误判为失败；完整 blocking check 语义不能被 row count 代替。
 4. P2C 后，`2026-06-15` raw/silver 缺失、`2026-06-16` 已注册时，只提交 `2026-06-15`。
