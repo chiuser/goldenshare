@@ -58,6 +58,17 @@ def silver_stock_basic_path(root: Path) -> Path:
     return lake_path(root, SILVER, "basic", "stock_basic", "full", "part-000.parquet")
 
 
+def silver_stock_lifecycle_path(root: Path) -> Path:
+    return lake_path(
+        root,
+        SILVER,
+        "basic",
+        "stock_lifecycle",
+        "full",
+        "part-000.parquet",
+    )
+
+
 def raw_namechange_path(root: Path) -> Path:
     return lake_path(root, RAW, "tushare", "namechange", "full", "part-000.parquet")
 

@@ -22,6 +22,7 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     raw_tushare_stock_basic_ready_for_trade_date,
     silver_stock_basic_ready_for_trade_date,
+    silver_stock_lifecycle_ready_for_trade_date,
 )
 
 
@@ -62,6 +63,7 @@ def _cursor_payload(
     registered_trade_day_count: int,
     raw_status: AssetReadinessStatus | None = None,
     silver_status: AssetReadinessStatus | None = None,
+    lifecycle_status: AssetReadinessStatus | None = None,
 ) -> str:
     details: dict[str, object] = {
         "registered_trade_day_count": registered_trade_day_count,
@@ -73,6 +75,10 @@ def _cursor_payload(
         readiness_details["raw_tushare_stock_basic"] = _status_payload(raw_status)
     if silver_status is not None:
         readiness_details["silver_stock_basic"] = _status_payload(silver_status)
+    if lifecycle_status is not None:
+        readiness_details["silver_stock_lifecycle"] = _status_payload(
+            lifecycle_status
+        )
     if readiness_details:
         details["readiness_details"] = readiness_details
 
@@ -251,8 +257,13 @@ def silver_stock_basic_update_job_sensor(
         context.instance,
         target_trade_date,
     )
-    if silver_status.ready:
-        reason = "股票基础信息 silver 已满足最新已注册交易日 freshness 与 checks。"
+    lifecycle_status = silver_stock_lifecycle_ready_for_trade_date(
+        context.instance,
+        target_trade_date,
+    )
+    silver_targets = (silver_status, lifecycle_status)
+    if all(status.ready for status in silver_targets):
+        reason = "股票基础信息 silver 与生命周期已满足最新已注册交易日 freshness 与 checks。"
         cursor = _cursor_payload(
             evaluated_at=evaluated_at,
             decision=SensorCursorDecision.SKIP,
@@ -261,12 +272,18 @@ def silver_stock_basic_update_job_sensor(
             reason=reason,
             registered_trade_day_count=len(registered_trade_days),
             silver_status=silver_status,
+            lifecycle_status=lifecycle_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    if silver_status.materialized and not silver_status.checks_passed:
+    failed_check_statuses = tuple(
+        status
+        for status in silver_targets
+        if status.materialized and not status.checks_passed
+    )
+    if failed_check_statuses:
         reason = (
-            "股票基础信息 silver 已生成过，但 blocking checks 未全绿，"
+            "股票基础信息 silver 或生命周期已生成过，但 blocking checks 未全绿，"
             "暂不自动重跑，请人工检查后修复。"
         )
         cursor = _cursor_payload(
@@ -277,6 +294,27 @@ def silver_stock_basic_update_job_sensor(
             reason=reason,
             registered_trade_day_count=len(registered_trade_days),
             silver_status=silver_status,
+            lifecycle_status=lifecycle_status,
+        )
+        return dg.SensorResult(skip_reason=reason, cursor=cursor)
+
+    should_submit_silver_job = any(
+        _submit_when_missing_or_stale(status) for status in silver_targets
+    )
+    if not should_submit_silver_job:
+        reason = (
+            "股票基础信息 silver 或生命周期暂不自动触发："
+            + "; ".join(status.reason for status in silver_targets if not status.ready)
+        )
+        cursor = _cursor_payload(
+            evaluated_at=evaluated_at,
+            decision=SensorCursorDecision.SKIP,
+            target_trade_date=target_trade_date,
+            selected_trade_date=None,
+            reason=reason,
+            registered_trade_day_count=len(registered_trade_days),
+            silver_status=silver_status,
+            lifecycle_status=lifecycle_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -295,10 +333,14 @@ def silver_stock_basic_update_job_sensor(
             registered_trade_day_count=len(registered_trade_days),
             raw_status=raw_status,
             silver_status=silver_status,
+            lifecycle_status=lifecycle_status,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
-    reason = "股票基础信息 raw ready 且 silver 缺失或过期，提交 silver full snapshot 更新。"
+    reason = (
+        "股票基础信息 raw ready 且 silver 或生命周期缺失/过期，"
+        "提交 silver full snapshot 更新。"
+    )
     cursor = _cursor_payload(
         evaluated_at=evaluated_at,
         decision=SensorCursorDecision.REQUEST_RUNS,
@@ -308,6 +350,7 @@ def silver_stock_basic_update_job_sensor(
         registered_trade_day_count=len(registered_trade_days),
         raw_status=raw_status,
         silver_status=silver_status,
+        lifecycle_status=lifecycle_status,
     )
     return dg.SensorResult(
         run_requests=[_silver_run_request_for_trade_date(target_trade_date)],

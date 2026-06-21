@@ -42,6 +42,14 @@ SILVER_STOCK_BASIC_CHECKS = (
     "silver_stock_basic_required_columns_non_null",
     "silver_stock_basic_unique_ts_code",
 )
+SILVER_STOCK_LIFECYCLE_CHECKS = (
+    "silver_stock_lifecycle_cny_stock_universe_check",
+    "silver_stock_lifecycle_dates_valid_check",
+    "silver_stock_lifecycle_file_exists_check",
+    "silver_stock_lifecycle_required_columns_and_types_check",
+    "silver_stock_lifecycle_required_fields_non_null_check",
+    "silver_stock_lifecycle_unique_ts_code_check",
+)
 SILVER_NAMECHANGE_CHECKS = (
     "silver_namechange_file_exists",
     "silver_namechange_row_count_positive",
@@ -205,6 +213,7 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")
 SILVER_STOCK_BASIC_ASSET_KEY = dg.AssetKey("silver_stock_basic")
+SILVER_STOCK_LIFECYCLE_ASSET_KEY = dg.AssetKey("silver_stock_lifecycle")
 RAW_NAMECHANGE_ASSET_KEY = dg.AssetKey("raw_tushare_namechange")
 SILVER_NAMECHANGE_ASSET_KEY = dg.AssetKey("silver_namechange")
 SILVER_STOCK_IDENTITY_MAP_ASSET_KEY = dg.AssetKey("silver_stock_identity_map")
@@ -292,6 +301,10 @@ STOCK_BASIC_READINESS_SPECS = (
 SILVER_STOCK_BASIC_READINESS_SPEC = AssetReadinessSpec(
     SILVER_STOCK_BASIC_ASSET_KEY,
     SILVER_STOCK_BASIC_CHECKS,
+)
+SILVER_STOCK_LIFECYCLE_READINESS_SPEC = AssetReadinessSpec(
+    SILVER_STOCK_LIFECYCLE_ASSET_KEY,
+    SILVER_STOCK_LIFECYCLE_CHECKS,
 )
 RAW_NAMECHANGE_READINESS_SPEC = AssetReadinessSpec(
     RAW_NAMECHANGE_ASSET_KEY,
@@ -801,6 +814,26 @@ def silver_stock_basic_ready_for_trade_date(
         instance,
         SILVER_STOCK_BASIC_READINESS_SPEC,
         min_materialization_date=trade_date,
+    )
+
+
+def silver_stock_lifecycle_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
+        min_materialization_date=trade_date,
+    )
+
+
+def silver_stock_lifecycle_ready_without_freshness(
+    instance: dg.DagsterInstance,
+) -> AssetReadinessStatus:
+    return asset_readiness_status(
+        instance,
+        SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
     )
 
 

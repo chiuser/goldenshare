@@ -25,6 +25,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
+    SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
@@ -78,6 +79,10 @@ STOCK_BASIC_RAW_REQUIRED_COLUMNS = (
 
 STOCK_BASIC_SILVER_REQUIRED_COLUMNS = tuple(
     column.name for column in SILVER_STOCK_BASIC_SCHEMA
+)
+
+STOCK_LIFECYCLE_SILVER_REQUIRED_COLUMNS = tuple(
+    column.name for column in SILVER_STOCK_LIFECYCLE_SCHEMA
 )
 
 NAMECHANGE_RAW_COLUMNS = tuple(
@@ -362,6 +367,30 @@ SELECT DISTINCT
 FROM {read_parquet(silver_stock_basic_path, hive_partitioning=False)}
 WHERE list_status = 'L'
   AND curr_type = {duckdb_string(CNY_STOCK_CURR_TYPE)}
+"""
+
+
+def silver_stock_lifecycle_select(raw_stock_basic_path: Path) -> str:
+    return f"""
+SELECT DISTINCT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(symbol AS VARCHAR) AS symbol,
+  CAST(name AS VARCHAR) AS name,
+  CAST(exchange AS VARCHAR) AS exchange,
+  CAST(market AS VARCHAR) AS market,
+  CAST(curr_type AS VARCHAR) AS curr_type,
+  CAST(curr_type AS VARCHAR) = {duckdb_string(CNY_STOCK_CURR_TYPE)} AS is_cny_stock,
+  CAST(list_status AS VARCHAR) AS list_status,
+  CASE
+    WHEN list_date IS NULL OR trim(CAST(list_date AS VARCHAR)) = '' THEN NULL
+    ELSE CAST(try_strptime(CAST(list_date AS VARCHAR), '%Y%m%d') AS DATE)
+  END AS list_date,
+  CASE
+    WHEN delist_date IS NULL OR trim(CAST(delist_date AS VARCHAR)) = '' THEN NULL
+    ELSE CAST(try_strptime(CAST(delist_date AS VARCHAR), '%Y%m%d') AS DATE)
+  END AS delist_date
+FROM {read_parquet(raw_stock_basic_path, hive_partitioning=False)}
+WHERE curr_type = {duckdb_string(CNY_STOCK_CURR_TYPE)}
 """
 
 

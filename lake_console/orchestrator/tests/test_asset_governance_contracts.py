@@ -50,6 +50,7 @@ from orchestrator.defs.assets.stock_basic import (
     raw_tushare_stock_basic,
     silver_stock_basic,
 )
+from orchestrator.defs.assets.stock_lifecycle import silver_stock_lifecycle
 from orchestrator.defs.assets.stock_identity_map import silver_stock_identity_map
 from orchestrator.defs.assets.stock_daily import (
     STOCK_DAILY_RAW_COLUMN_TYPES,
@@ -112,6 +113,7 @@ from orchestrator.defs.duckdb_sql import (
     NAMECHANGE_RAW_COLUMNS,
     NAMECHANGE_SILVER_REQUIRED_COLUMNS,
     SILVER_STOCK_IDENTITY_MAP_REQUIRED_COLUMNS,
+    STOCK_LIFECYCLE_SILVER_REQUIRED_COLUMNS,
     STOCK_BASIC_RAW_COLUMNS,
     STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
     STOCK_DAILY_RAW_REQUIRED_COLUMNS,
@@ -157,6 +159,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
+    SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
@@ -185,6 +188,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     silver_trade_calendar,
     raw_tushare_stock_basic,
     silver_stock_basic,
+    silver_stock_lifecycle,
     raw_tushare_namechange,
     silver_namechange,
     silver_stock_identity_map,
@@ -306,7 +310,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 54)
+        self.assertEqual(len(catalog_entries), 55)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -357,7 +361,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 54)
+        self.assertEqual(len(entries), 55)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -591,6 +595,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             STOCK_BASIC_SILVER_REQUIRED_COLUMNS,
             tuple(column.name for column in SILVER_STOCK_BASIC_SCHEMA),
+        )
+        self.assertEqual(
+            STOCK_LIFECYCLE_SILVER_REQUIRED_COLUMNS,
+            tuple(column.name for column in SILVER_STOCK_LIFECYCLE_SCHEMA),
         )
         self.assertEqual(
             NAMECHANGE_SILVER_REQUIRED_COLUMNS,

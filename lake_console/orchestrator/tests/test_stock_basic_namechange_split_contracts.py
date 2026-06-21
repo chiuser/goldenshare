@@ -20,6 +20,8 @@ from orchestrator.defs.sensors.readiness import (
     RAW_NAMECHANGE_READINESS_SPEC,
     RAW_STOCK_BASIC_CHECKS,
     RAW_STOCK_BASIC_READINESS_SPEC,
+    SILVER_STOCK_LIFECYCLE_CHECKS,
+    SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
     STOCK_BASIC_READINESS_SPECS,
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -208,6 +210,7 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         self.assertIn("raw_tushare_stock_basic", raw_stock_selection)
         self.assertNotIn("silver_stock_basic", raw_stock_selection)
         self.assertIn("silver_stock_basic", silver_stock_selection)
+        self.assertIn("silver_stock_lifecycle", silver_stock_selection)
         self.assertNotIn("raw_tushare_stock_basic", silver_stock_selection)
         self.assertIn("raw_tushare_namechange", raw_namechange_selection)
         self.assertNotIn("silver_namechange", raw_namechange_selection)
@@ -252,6 +255,14 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         self.assertEqual(
             RAW_NAMECHANGE_READINESS_SPEC.blocking_check_names,
             expected_names,
+        )
+        self.assertEqual(
+            SILVER_STOCK_LIFECYCLE_READINESS_SPEC.blocking_check_names,
+            SILVER_STOCK_LIFECYCLE_CHECKS,
+        )
+        self.assertNotIn(
+            SILVER_STOCK_LIFECYCLE_READINESS_SPEC,
+            STOCK_BASIC_READINESS_SPECS,
         )
         self.assertNotIn(
             "raw_namechange_multi_open_interval_observed",
@@ -322,6 +333,9 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
                 reason="silver_stock_basic has no materialization",
             ),
         ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_asset_status(asset_key="silver_stock_lifecycle"),
+        ), patch(
             "orchestrator.defs.sensors.stock_basic_sensor.raw_tushare_stock_basic_ready_for_trade_date",
             return_value=_asset_status(
                 asset_key="raw_tushare_stock_basic",
@@ -353,6 +367,9 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
                 reason="silver_stock_basic has no materialization",
             ),
         ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_asset_status(asset_key="silver_stock_lifecycle"),
+        ), patch(
             "orchestrator.defs.sensors.stock_basic_sensor.raw_tushare_stock_basic_ready_for_trade_date",
             return_value=_asset_status(asset_key="raw_tushare_stock_basic"),
         ):
@@ -362,6 +379,67 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         request = result.run_requests[0]
         self.assertEqual(request.run_key, "silver_stock_basic_update:2026-06-05")
         self.assertIsNone(request.partition_key)
+
+    def test_silver_stock_basic_sensor_submits_when_lifecycle_missing(self) -> None:
+        context = _FakeContext()
+        with patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.silver_stock_basic_ready_for_trade_date",
+            return_value=_asset_status(asset_key="silver_stock_basic"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="silver_stock_lifecycle",
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                freshness_passed=False,
+                reason="silver_stock_lifecycle has no materialization",
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.raw_tushare_stock_basic_ready_for_trade_date",
+            return_value=_asset_status(asset_key="raw_tushare_stock_basic"),
+        ):
+            result = _silver_stock_basic_result(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        self.assertEqual(
+            result.run_requests[0].run_key,
+            "silver_stock_basic_update:2026-06-05",
+        )
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertIn(
+            "silver_stock_lifecycle",
+            cursor["details"]["readiness_details"],
+        )
+
+    def test_silver_stock_basic_sensor_skips_failed_lifecycle_checks(self) -> None:
+        context = _FakeContext()
+        with patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.silver_stock_basic_ready_for_trade_date",
+            return_value=_asset_status(asset_key="silver_stock_basic"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.silver_stock_lifecycle_ready_for_trade_date",
+            return_value=_asset_status(
+                asset_key="silver_stock_lifecycle",
+                ready=False,
+                checks_passed=False,
+                failed_check_names=("silver_stock_lifecycle_dates_valid_check",),
+                reason="silver_stock_lifecycle failed blocking checks",
+            ),
+        ), patch(
+            "orchestrator.defs.sensors.stock_basic_sensor.raw_tushare_stock_basic_ready_for_trade_date"
+        ) as raw_readiness:
+            result = _silver_stock_basic_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        self.assertIn("blocking checks 未全绿", _skip_message(result))
+        raw_readiness.assert_not_called()
 
     def test_raw_namechange_sensor_respects_window_and_once_per_day(self) -> None:
         with patch(

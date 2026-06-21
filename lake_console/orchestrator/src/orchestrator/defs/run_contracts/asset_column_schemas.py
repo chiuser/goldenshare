@@ -137,6 +137,19 @@ SILVER_STOCK_BASIC_SCHEMA = (
     ColumnContract("act_ent_type", "VARCHAR", "实控人企业性质"),
 )
 
+SILVER_STOCK_LIFECYCLE_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("symbol", "VARCHAR", "股票简称代码"),
+    ColumnContract("name", "VARCHAR", "股票名称"),
+    ColumnContract("exchange", "VARCHAR", "交易所代码"),
+    ColumnContract("market", "VARCHAR", "市场类型"),
+    ColumnContract("curr_type", "VARCHAR", "交易货币"),
+    ColumnContract("is_cny_stock", "BOOLEAN", "是否人民币计价股票"),
+    ColumnContract("list_status", "VARCHAR", "上市状态，沿用 Tushare 原始值"),
+    ColumnContract("list_date", "DATE", "上市日期"),
+    ColumnContract("delist_date", "DATE", "退市日期，可为空"),
+)
+
 SILVER_STOCK_IDENTITY_MAP_SCHEMA = (
     ColumnContract("latest_ts_code", "VARCHAR", "标准股票代码"),
     ColumnContract("source_ts_code", "VARCHAR", "源代码或历史代码"),

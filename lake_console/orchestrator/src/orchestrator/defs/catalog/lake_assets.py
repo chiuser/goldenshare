@@ -33,6 +33,7 @@ from orchestrator.defs.paths import (
     silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_identity_map_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
     silver_trade_calendar_path,
 )
@@ -61,6 +62,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_BASIC_SCHEMA,
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_STOCK_IDENTITY_MAP_SCHEMA,
+    SILVER_STOCK_LIFECYCLE_SCHEMA,
     SILVER_STOCK_SUSPEND_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
@@ -107,6 +109,7 @@ class PartitionModel(str, Enum):
     FULL_FILE_SILVER_TRADE_CALENDAR = "full_file_silver_trade_calendar"
     FULL_FILE_RAW_STOCK_BASIC = "full_file_raw_stock_basic"
     FULL_FILE_SILVER_STOCK_BASIC = "full_file_silver_stock_basic"
+    FULL_FILE_SILVER_STOCK_LIFECYCLE = "full_file_silver_stock_lifecycle"
     FULL_FILE_RAW_NAMECHANGE = "full_file_raw_namechange"
     FULL_FILE_SILVER_NAMECHANGE = "full_file_silver_namechange"
     FULL_FILE_SILVER_STOCK_IDENTITY_MAP = "full_file_silver_stock_identity_map"
@@ -244,6 +247,14 @@ SILVER_STOCK_BASIC_CHECKS = (
     "silver_stock_basic_lifecycle_dates_valid",
     "silver_stock_basic_required_columns_non_null",
     "silver_stock_basic_unique_ts_code",
+)
+SILVER_STOCK_LIFECYCLE_CHECKS = (
+    "silver_stock_lifecycle_cny_stock_universe_check",
+    "silver_stock_lifecycle_dates_valid_check",
+    "silver_stock_lifecycle_file_exists_check",
+    "silver_stock_lifecycle_required_columns_and_types_check",
+    "silver_stock_lifecycle_required_fields_non_null_check",
+    "silver_stock_lifecycle_unique_ts_code_check",
 )
 RAW_NAMECHANGE_CHECKS = (
     "raw_namechange_date_string_format_valid",
@@ -537,6 +548,14 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.FULL_FILE,
         AssetLayer.SILVER,
         "stock_basic",
+        None,
+        PartitionPhysicalLayout.SINGLE_FILE,
+    ),
+    _model(
+        PartitionModel.FULL_FILE_SILVER_STOCK_LIFECYCLE,
+        PartitionModelFamily.FULL_FILE,
+        AssetLayer.SILVER,
+        "stock_lifecycle",
         None,
         PartitionPhysicalLayout.SINGLE_FILE,
     ),
@@ -936,6 +955,23 @@ LAKE_ASSET_CATALOG = (
         blocking_check_names=SILVER_STOCK_BASIC_CHECKS,
         batch_grain="single_file",
         write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+    ),
+    _derived_entry(
+        asset_key="silver_stock_lifecycle",
+        dataset_id="stock_lifecycle",
+        layer=AssetLayer.SILVER,
+        data_domain=DataDomain.BASIC_DATA,
+        group_name="basic",
+        data_contract="historical_cny_stock_lifecycle",
+        column_schema=SILVER_STOCK_LIFECYCLE_SCHEMA,
+        path_template=lake_path_template(
+            silver_stock_lifecycle_path(PATH_TEMPLATE_LAKE_ROOT)
+        ),
+        partition_model=PartitionModel.FULL_FILE_SILVER_STOCK_LIFECYCLE,
+        blocking_check_names=SILVER_STOCK_LIFECYCLE_CHECKS,
+        batch_grain="single_file",
+        write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+        notes="Historical CNY stock lifecycle facts, including delisted stocks.",
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_namechange",

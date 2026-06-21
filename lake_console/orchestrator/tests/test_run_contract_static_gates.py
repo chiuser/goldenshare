@@ -689,6 +689,35 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_lifecycle_is_owned_by_stock_basic_silver_job(self) -> None:
+        asset_path = ASSETS_DIR / "stock_lifecycle.py"
+        check_path = CHECKS_DIR / "stock_lifecycle_checks.py"
+        job_path = JOBS_DIR / "stock_basic_update.py"
+        sensor_path = SENSORS_DIR / "stock_basic_sensor.py"
+        asset_source = asset_path.read_text()
+        check_source = check_path.read_text()
+        job_source = job_path.read_text()
+        sensor_source = sensor_path.read_text()
+        issues = []
+
+        for fragment in (
+            "silver_stock_lifecycle",
+            "silver_stock_lifecycle_ready_for_trade_date",
+        ):
+            if fragment not in sensor_source and fragment.endswith("_ready_for_trade_date"):
+                issues.append(f"{sensor_path} does not read lifecycle readiness")
+            if fragment == "silver_stock_lifecycle" and fragment not in job_source:
+                issues.append(f"{job_path} does not select silver_stock_lifecycle")
+
+        if "silver_stock_basic_path" in asset_source:
+            issues.append("stock_lifecycle asset must not depend on silver_stock_basic")
+        if "silver_stock_basic_path" in check_source:
+            issues.append("stock_lifecycle checks must not depend on silver_stock_basic")
+        if "raw_stock_basic_path" not in asset_source:
+            issues.append("stock_lifecycle asset must derive from raw_stock_basic")
+
+        self.assertEqual(issues, [])
+
     def test_stock_mins_silver_direct_dependencies_exclude_namechange_and_basic(
         self,
     ) -> None:
