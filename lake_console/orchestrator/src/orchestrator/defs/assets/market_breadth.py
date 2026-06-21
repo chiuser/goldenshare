@@ -95,12 +95,6 @@ def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
     }
 
 
-MARKET_BREADTH_AUTOMATION_CONDITION = (
-    dg.AutomationCondition.eager()
-    & dg.AutomationCondition.all_deps_blocking_checks_passed()
-)
-
-
 @dg.asset(
     name="gold_market_breadth_daily",
     deps=["silver_stock_daily"],
@@ -127,7 +121,6 @@ MARKET_BREADTH_AUTOMATION_CONDITION = (
         },
     ),
     description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
-    automation_condition=MARKET_BREADTH_AUTOMATION_CONDITION,
 )
 def gold_market_breadth_daily(
     context: dg.AssetExecutionContext,

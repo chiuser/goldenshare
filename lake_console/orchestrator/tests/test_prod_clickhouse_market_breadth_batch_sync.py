@@ -16,8 +16,8 @@ from orchestrator.defs.checks import prod_clickhouse_serving_checks as checks
 from orchestrator.defs.jobs.prod_clickhouse_share_fact_market_breadth_sync import (
     prod_clickhouse_share_fact_market_breadth_sync_job,
 )
-from orchestrator.defs.sensors.prod_clickhouse_share_fact_market_breadth_automation_sensor import (
-    prod_clickhouse_share_fact_market_breadth_automation_sensor,
+from orchestrator.defs.sensors.clickhouse_market_breadth_continuity_sensor import (
+    prod_clickhouse_market_breadth_continuity_sensor,
 )
 
 
@@ -344,20 +344,16 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
             str(prod_clickhouse_share_fact_market_breadth_sync_job.selection),
         )
         self.assertEqual(
-            prod_clickhouse_share_fact_market_breadth_automation_sensor.name,
-            "prod_clickhouse_share_fact_market_breadth_automation_sensor",
+            prod_clickhouse_market_breadth_continuity_sensor.name,
+            "prod_clickhouse_market_breadth_continuity_sensor",
         )
         self.assertEqual(
-            prod_clickhouse_share_fact_market_breadth_automation_sensor.default_status,
+            prod_clickhouse_market_breadth_continuity_sensor.default_status,
             dg.DefaultSensorStatus.STOPPED,
         )
         self.assertEqual(
-            prod_clickhouse_share_fact_market_breadth_automation_sensor.minimum_interval_seconds,
+            prod_clickhouse_market_breadth_continuity_sensor.minimum_interval_seconds,
             600,
-        )
-        self.assertIn(
-            "prod_ch_share_fact_market_breadth_daily",
-            str(prod_clickhouse_share_fact_market_breadth_automation_sensor.asset_selection),
         )
 
 

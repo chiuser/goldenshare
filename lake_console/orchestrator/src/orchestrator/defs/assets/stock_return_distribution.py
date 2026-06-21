@@ -41,12 +41,6 @@ STOCK_RETURN_DISTRIBUTION_COLUMNS = tuple(
 )
 
 
-STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION = (
-    dg.AutomationCondition.eager()
-    & dg.AutomationCondition.all_deps_blocking_checks_passed()
-)
-
-
 def _column_names(
     connection, path: Path, *, hive_partitioning: bool = False
 ) -> list[str]:
@@ -133,7 +127,6 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
         },
     ),
     description="股票涨跌幅区间分布日表，按 pct_chg 统计十一段收益率区间数量。",
-    automation_condition=STOCK_RETURN_DISTRIBUTION_AUTOMATION_CONDITION,
 )
 def gold_stock_return_distribution(
     context: dg.AssetExecutionContext,

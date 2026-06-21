@@ -40,16 +40,6 @@ CLICKHOUSE_MARKET_BREADTH_COLUMNS = tuple(
 )
 PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN = 250
 
-CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
-    dg.AutomationCondition.eager()
-    & dg.AutomationCondition.all_deps_blocking_checks_passed()
-)
-PROD_CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION = (
-    dg.AutomationCondition.eager()
-    & dg.AutomationCondition.all_deps_blocking_checks_passed()
-)
-
-
 def _read_single_row(
     connection,
     path: Path,
@@ -406,7 +396,6 @@ def _replace_clickhouse_partition(client, row: tuple[Any, ...]) -> None:
         },
     ),
     description="ClickHouse 行情事实市场宽度日表，由两个 gold 资产合并生成 serving 副本。",
-    automation_condition=CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION,
 )
 def ch_share_fact_market_breadth_daily(
     context: dg.AssetExecutionContext,
@@ -509,7 +498,6 @@ def ch_share_fact_market_breadth_daily(
         },
     ),
     description="Prod ClickHouse 行情事实市场宽度日表，由本机 ClickHouse serving 表同步生成。",
-    automation_condition=PROD_CLICKHOUSE_MARKET_BREADTH_AUTOMATION_CONDITION,
 )
 def prod_ch_share_fact_market_breadth_daily(
     context: dg.AssetExecutionContext,

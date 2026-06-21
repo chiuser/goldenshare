@@ -38,7 +38,7 @@
 | 指数日线 silver | `silver_index_daily_sensor.py` | 已对最近 60 个 expected index trade dates 增加 registered gap guard；注册缺口存在时不进入 raw gap audit / silver selector；注册连续后保留 raw gap audit 与 first not-ready silver selector。 |
 | 主要指数日线 gold | `market_major_indices_daily_sensor.py` | 已改为最近 60 个 expected index trade dates 的 registered gap guard + first not-ready gold；gold / selected-date silver / selected-date index basic readiness 已从旧 Dagster event-history wrapper 切到 DuckDB/lake readiness。 |
 | 股票基础、曾用名、身份映射 | `stock_basic_sensor.py`、`stock_namechange_sensor.py`、`stock_identity_map_sensor.py` | 属于 full snapshot / current fact 类资产，不应按历史日期逐日补。 |
-| 市场宽度、涨跌分布、ClickHouse serving | `AutomationConditionSensorDefinition` + `AutomationCondition.eager() & all_deps_blocking_checks_passed()` | 默认 eager 只按 latest / event-driven 传播理解，不作为历史补洞机制；P6 固定改为显式 bounded continuity sensor 方案。 |
+| 市场宽度、涨跌分布、ClickHouse serving | `market_breadth_continuity_sensor.py`、`stock_return_distribution_continuity_sensor.py`、`clickhouse_market_breadth_continuity_sensor.py` | P6 已退出默认 eager active 入口，改为显式 bounded continuity sensor；旧 `AutomationConditionSensorDefinition` 文件已删除，四个 asset 上的 `automation_condition` 已移除。 |
 
 ### 2.1 2026-06-21 代码现状对账
 
@@ -54,7 +54,7 @@
 | `stock_daily_sensor.py`、`suspend_d_sensor.py` 已在 registered partitions 内补缺，并已接入 expected registered gap guard。 | P3 已完成。 | 现有 selected-date readiness 和 raw missing-code repair 调用范围不扩大；静态门禁防止 guard 口径回流。 |
 | `index_daily_sensor.py`、`silver_index_daily_sensor.py` 已有 raw gap audit / silver bounded selector，并已接入 expected registered gap guard。 | P5 已完成。 | 现有 raw gap audit、silver selector、late-arrival repair、cursor offset 和 run key 语义保持不变；静态门禁防止 latest registered helper 和单日 readiness wrapper 回流。 |
 | `market_major_indices_daily_sensor.py` 已移除 `_latest_registered_trade_date(...)`，不再调用 `gold_market_major_indices_daily_ready_for_trade_date(...)`、`silver_index_daily_ready_for_trade_date(...)`、`silver_index_basic_ready(...)`。 | P4 已完成。 | 静态门禁必须防止 latest-only 目标选择和旧 Dagster event-history readiness wrapper 回流。 |
-| `gold_market_breadth_daily`、`gold_stock_return_distribution`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 仍带 `automation_condition`，对应四个 `AutomationConditionSensorDefinition` 仍存在。 | P6 不是简单加新 sensor。 | P6 显式 bounded sensor 成为正式入口时，必须移除 asset 上的 automation condition，并删除或退出旧 automation sensors。 |
+| `gold_market_breadth_daily`、`gold_stock_return_distribution`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 已不再带 `automation_condition`；旧四个 `AutomationConditionSensorDefinition` 文件已删除。 | P6 已完成。 | 静态门禁必须防止 automation condition、旧 automation sensor、latest-only 目标和无界 Dagster event/check 深扫回流。 |
 
 ### 2.2 LLD 推荐执行顺序
 
@@ -600,22 +600,34 @@ AutomationCondition.eager()
 
 ### P6 派生资产显式 bounded sensor
 
+状态：已完成。
+
 目标：
 
-1. 基于 P0F 基础能力，为 `gold_market_breadth_daily`、`gold_stock_return_distribution`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 设计显式 bounded continuity sensor。
+1. 基于 P0F 基础能力，为 `gold_market_breadth_daily`、`gold_stock_return_distribution`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 落地显式 bounded continuity sensor。
 2. 不再验证默认 `eager()` 是否能补历史洞；官方语义已确认默认 latest time window 限制。
 3. 最近 60 个 expected trade dates 内按 first missing / first not-ready 补洞。
 4. 上游 checks failed 时 skip，不推进后续日期。
-5. P6 必须移除这四个派生资产上的 `automation_condition`，并删除或退出对应 `AutomationConditionSensorDefinition`，避免双触发。
-6. 2026-06-20 已完成的只读 profiling 只证明相关资产 materialized partition set 读取成本可接受，约 1.3s-1.9s；P6 仍需针对显式 sensor 读取模型做只读性能方案。
+5. P6 已移除这四个派生资产上的 `automation_condition`，并删除对应 `AutomationConditionSensorDefinition`，避免双触发。
+6. 2026-06-21 已完成只读本地性能原型：60 日 `gold_market_breadth_daily` 完整 lake-derived 语义约 88ms，`gold_stock_return_distribution` 完整 lake-derived 语义约 114ms，ClickHouse bounded 查询模型 1 次查询、0ms 级；报告写入 `/private/tmp/non_stk_continuity_p6_perf_prototype.json`。
+
+已落地代码：
+
+| 文件 | 职责 |
+| --- | --- |
+| `asset_guards/market_breadth_lake_readiness.py` | 以内存态 `ContinuityBatchReadiness` 表达 gold breadth、gold distribution、本机 ClickHouse、prod ClickHouse readiness；不读 Dagster event history，不新增持久化状态实体。 |
+| `sensors/market_breadth_continuity_sensor.py` | 对 `gold_market_breadth_daily` 执行 expected calendar + registered gap + first-not-ready；selected date 只查 `stock_daily_ready_for_trade_date(...)`。 |
+| `sensors/stock_return_distribution_continuity_sensor.py` | 对 `gold_stock_return_distribution` 执行同样 bounded 补洞逻辑。 |
+| `sensors/clickhouse_market_breadth_continuity_sensor.py` | 同时承载本机 ClickHouse serving 与 prod ClickHouse serving 两个显式 sensor；使用 bounded ClickHouse 查询和上游 frontier 检查。 |
 
 验收：
 
 1. `2026-06-15` 上游 ready、下游缺失、`2026-06-16` 已存在时，只提交 `2026-06-15`。
 2. 下游已 materialized 但 checks failed 时 skip，不推进后续日期。
 3. 静态门禁证明 P6 sensor 不使用 latest-only 目标选择，不在 60 日窗口逐日深扫 Dagster event history。
-4. 性能报告记录读取次数模型、样本日期、20/60 日窗口耗时和未写入证明。
+4. 性能报告记录读取次数模型、样本日期、60 日窗口耗时和未写入证明。
 5. 静态门禁证明四个派生资产不再带 `automation_condition`，对应 `AutomationConditionSensorDefinition` 不再作为 active definition 存在。
+6. 本地验证：`PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_market_breadth_lake_readiness.py tests/test_market_breadth_continuity_sensors.py tests/test_prod_clickhouse_market_breadth_batch_sync.py tests/test_run_contract_static_gates.py`，结果 `66 passed`。
 
 ### P7 文档、静态门禁与回归收口
 

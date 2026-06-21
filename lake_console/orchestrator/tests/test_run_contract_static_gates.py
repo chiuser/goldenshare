@@ -518,6 +518,115 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_market_breadth_continuity_replaces_automation_condition(self) -> None:
+        issues = []
+        old_sensor_files = (
+            SENSORS_DIR / "market_breadth_automation_sensor.py",
+            SENSORS_DIR / "stock_return_distribution_automation_sensor.py",
+            SENSORS_DIR / "clickhouse_share_fact_market_breadth_automation_sensor.py",
+            SENSORS_DIR / "prod_clickhouse_share_fact_market_breadth_automation_sensor.py",
+        )
+        for path in old_sensor_files:
+            if path.exists():
+                issues.append(f"{path} must not remain as active automation sensor")
+
+        asset_files = (
+            ASSETS_DIR / "market_breadth.py",
+            ASSETS_DIR / "stock_return_distribution.py",
+            ASSETS_DIR / "clickhouse_serving.py",
+        )
+        forbidden_asset_fragments = (
+            "AutomationCondition.eager",
+            "automation_condition=",
+            "AUTOMATION_CONDITION",
+        )
+        for path in asset_files:
+            source = path.read_text()
+            issues.extend(
+                f"{path} contains removed P6 automation fragment: {fragment}"
+                for fragment in forbidden_asset_fragments
+                if fragment in source
+            )
+
+        sensor_requirements = {
+            "market_breadth_continuity_sensor.py": (
+                "load_expected_trade_date_window",
+                "build_registered_gap_status",
+                "batch_gold_market_breadth_lake_readiness",
+                "select_first_not_ready_trade_date",
+                "stock_daily_ready_for_trade_date",
+                "build_asset_update_run_key",
+                "build_run_request",
+            ),
+            "stock_return_distribution_continuity_sensor.py": (
+                "load_expected_trade_date_window",
+                "build_registered_gap_status",
+                "batch_gold_stock_return_distribution_lake_readiness",
+                "select_first_not_ready_trade_date",
+                "stock_daily_ready_for_trade_date",
+                "build_asset_update_run_key",
+                "build_run_request",
+            ),
+            "clickhouse_market_breadth_continuity_sensor.py": (
+                "batch_clickhouse_market_breadth_readiness",
+                "batch_prod_clickhouse_market_breadth_readiness",
+                "batch_gold_market_breadth_lake_readiness",
+                "batch_gold_stock_return_distribution_lake_readiness",
+                "select_first_not_ready_trade_date",
+                "build_asset_update_run_key",
+                "build_run_request",
+            ),
+        }
+        forbidden_sensor_fragments = (
+            "AutomationConditionSensorDefinition",
+            "AutomationCondition.eager",
+            "asset_readiness_status(",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "run_key=f",
+            "dg.RunRequest(",
+        )
+        for filename, required_fragments in sensor_requirements.items():
+            path = SENSORS_DIR / filename
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses P6 bounded sensor fragment: {fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
+            issues.extend(
+                f"{path} contains forbidden P6 sensor fragment: {fragment}"
+                for fragment in forbidden_sensor_fragments
+                if fragment in source
+            )
+
+        helper_path = DEFS_DIR / "asset_guards" / "market_breadth_lake_readiness.py"
+        helper_source = helper_path.read_text()
+        required_helper_fragments = (
+            "market_breadth_daily_select",
+            "stock_return_distribution_select",
+            "fetch_clickhouse_market_breadth_rows_for_partitions",
+            "ContinuityBatchReadiness",
+            "ContinuityDateReadiness",
+        )
+        issues.extend(
+            f"{helper_path} misses P6 readiness fragment: {fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in helper_source
+        )
+        forbidden_helper_fragments = (
+            "DagsterInstance",
+            "get_event_records",
+            "asset_readiness_status(",
+            "partition_dataset_readiness_status_from_latest_checks",
+        )
+        issues.extend(
+            f"{helper_path} contains forbidden P6 readiness fragment: {fragment}"
+            for fragment in forbidden_helper_fragments
+            if fragment in helper_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_gold_qfq_repair_event_reconciliation_chain_is_removed(self) -> None:
         issues = []
         factor_repair_op_path = DEFS_DIR / "ops" / "stock_mins_qfq_factor_repair.py"

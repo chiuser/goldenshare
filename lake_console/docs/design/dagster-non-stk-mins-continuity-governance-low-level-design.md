@@ -8,7 +8,7 @@
 2. [Dagster Bounded Continuity Selector 基础能力 LLD](dagster-bounded-continuity-selector-foundation-low-level-design.md)
 3. [Dagster Market Major Indices Sensor 热路径性能治理 LLD](dagster-market-major-indices-sensor-performance-governance-low-level-design.md)
 
-状态：P0F-P5 已完成，后续剩余 P6/P7 待按顺序执行。
+状态：P0F-P6 已完成，后续剩余 P7 待按顺序执行。
 
 范围：非股票分钟线日频历史连续资产的停机补洞能力、生命周期事实源收敛、主要指数 sensor 性能治理、派生 automation 资产显式补洞入口。本文档只设计，不执行代码开发，不运行 `dg`，不读取正式 Dagster runtime，不触碰正式 lake。
 
@@ -976,9 +976,11 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ## 9. P6 派生 / Serving 显式 Bounded Sensor
 
-### 9.1 当前代码
+状态：已完成。
 
-当前仍存在：
+### 9.1 P6 前旧入口
+
+P6 前存在以下默认 automation 入口：
 
 ```text
 assets/market_breadth.py::MARKET_BREADTH_AUTOMATION_CONDITION
@@ -991,9 +993,16 @@ sensors/clickhouse_share_fact_market_breadth_automation_sensor.py
 sensors/prod_clickhouse_share_fact_market_breadth_automation_sensor.py
 ```
 
+P6 后代码事实：
+
+1. 上述四个 `*_AUTOMATION_CONDITION` 常量已删除。
+2. 四个 asset decorator 上的 `automation_condition=...` 已移除。
+3. 四个旧 `AutomationConditionSensorDefinition` 文件已删除。
+4. `AutomationCondition.eager()` 不再作为这四个资产的 active 补洞入口。
+
 ### 9.2 新增显式 sensor
 
-建议新增：
+已按三文件方案新增：
 
 ```text
 sensors/market_breadth_continuity_sensor.py
@@ -1001,7 +1010,14 @@ sensors/stock_return_distribution_continuity_sensor.py
 sensors/clickhouse_market_breadth_continuity_sensor.py
 ```
 
-也可以在 P6 设计评审时决定是否合并为一个文件；但 active sensor definition 必须职责清晰、tags 完整、cursor 小型。
+其中 `clickhouse_market_breadth_continuity_sensor.py` 承载两个 sensor definition：
+
+```text
+clickhouse_market_breadth_continuity_sensor
+prod_clickhouse_market_breadth_continuity_sensor
+```
+
+三文件方案是已拍板和已落地口径；后续不得再恢复四个 automation sensor 文件。
 
 ### 9.3 资产目标
 
@@ -1014,10 +1030,10 @@ sensors/clickhouse_market_breadth_continuity_sensor.py
 
 ### 9.4 Automation 退出
 
-P6 显式 sensor 成为正式入口时，必须同步：
+P6 显式 sensor 已成为正式入口，并已同步：
 
 1. 移除四个 asset 上的 `automation_condition=...`。
-2. 删除或退出四个 `AutomationConditionSensorDefinition`。
+2. 删除四个 `AutomationConditionSensorDefinition`。
 3. 静态门禁禁止这些 asset 重新出现 `AutomationCondition.eager()`。
 4. 静态门禁禁止旧 automation sensor definition 继续 active。
 
@@ -1025,11 +1041,27 @@ P6 显式 sensor 成为正式入口时，必须同步：
 
 ### 9.5 Readiness
 
-P6 必须先做只读性能方案，再进入代码：
+P6 已先做只读性能原型，再进入代码：
 
-1. gold 派生资产可用 lake fact readiness 判断输出文件、schema、row count、partition date、计算语义。
-2. ClickHouse serving readiness 如无法从 lake 文件判断，必须用 bounded metadata 或 ClickHouse 只读查询，并写清读取次数和上限。
-3. 不允许全历史逐分区调用 `asset_readiness_status(...)`。
+1. gold 派生资产使用 `asset_guards/market_breadth_lake_readiness.py` 的 lake fact readiness 判断输出文件、schema、row count、partition date、计算语义和从 `silver_stock_daily` 重新计算的一致性。
+2. ClickHouse serving readiness 使用 bounded ClickHouse 只读查询：一次读取最近 60 个 expected dates 的本机 / prod 行，再按内存态对账。
+3. 不允许全历史逐分区调用 `asset_readiness_status(...)`，P6 sensor 和 readiness helper 均不读取 Dagster event/check history。
+4. 2026-06-21 只读性能原型写入 `/private/tmp/non_stk_continuity_p6_perf_prototype.json`：60 日 breadth 完整语义约 88ms，distribution 完整语义约 114ms，ClickHouse bounded 查询 1 次、0ms 级。
+
+### 9.6 本地验收
+
+本地纯单元测试，不运行 `dg`，不读取正式 Dagster runtime：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_market_breadth_lake_readiness.py \
+  tests/test_market_breadth_continuity_sensors.py \
+  tests/test_prod_clickhouse_market_breadth_batch_sync.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`66 passed`。
 
 ## 10. P7 最终收口
 
