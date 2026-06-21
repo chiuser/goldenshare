@@ -30,6 +30,26 @@ def _require_non_negative(value: int, field_name: str) -> int:
     return value
 
 
+def _assert_reason_values_are_ascii(value: Any, *, path: str) -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            child_path = f"{path}.{key}"
+            if (
+                key in {"reason", "reason_code"}
+                and isinstance(item, str)
+                and not item.isascii()
+            ):
+                raise ValueError(
+                    f"{child_path} must be ASCII. Use reason_code for cursor "
+                    "decision diagnostics and keep human text in SkipReason."
+                )
+            _assert_reason_values_are_ascii(item, path=child_path)
+        return
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        for index, item in enumerate(value):
+            _assert_reason_values_are_ascii(item, path=f"{path}[{index}]")
+
+
 def build_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -42,6 +62,8 @@ def build_sensor_cursor(
 ) -> str:
     """Build a versioned cursor payload for one sensor's diagnostics and progress."""
 
+    details_payload = dict(details) if details else {}
+    _assert_reason_values_are_ascii(details_payload, path="details")
     payload = {
         "schema_version": SENSOR_CURSOR_SCHEMA_VERSION,
         "evaluated_at": evaluated_at.isoformat(),
@@ -50,7 +72,7 @@ def build_sensor_cursor(
         "selected_count": _require_non_negative(selected_count, "selected_count"),
         "blocked_count": _require_non_negative(blocked_count, "blocked_count"),
         "sample_keys": list(sample_keys[:MAX_CURSOR_SAMPLE_KEYS]),
-        "details": dict(details) if details else {},
+        "details": details_payload,
     }
     return json.dumps(payload, ensure_ascii=True, sort_keys=True)
 

@@ -1727,6 +1727,33 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_sensor_cursor_decision_reason_uses_machine_codes(self) -> None:
+        issues = []
+        forbidden_fragments = (
+            '"reason": reason',
+            '"reason": decision.reason',
+        )
+        for path in SENSORS_DIR.glob("*.py"):
+            source = path.read_text()
+            issues.extend(
+                f"{path} writes human decision reason into cursor: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        cursor_source = (DEFS_DIR / "run_contracts" / "cursors.py").read_text()
+        for required_fragment in (
+            "must be ASCII. Use reason_code",
+            "decision diagnostics and keep human text in SkipReason",
+        ):
+            if required_fragment not in cursor_source:
+                issues.append(
+                    "cursor builder must reject non-ASCII reason values and "
+                    f"explain reason_code usage: {required_fragment}"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free(self) -> None:
         helper_requirements = {
             DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py": (

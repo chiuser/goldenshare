@@ -68,7 +68,6 @@ def _cursor_payload(
     details: dict[str, object] = {
         "registered_trade_day_count": registered_trade_day_count,
         "selected_trade_date": selected_trade_date,
-        "reason": reason,
     }
     readiness_details: dict[str, object] = {}
     if raw_status is not None:
@@ -81,6 +80,21 @@ def _cursor_payload(
         )
     if readiness_details:
         details["readiness_details"] = readiness_details
+    if selected_trade_date:
+        details["reason_code"] = "request_run"
+    elif target_trade_date is None:
+        details["reason_code"] = "no_registered_trade_day"
+    elif raw_status is not None and not raw_status.ready:
+        details["reason_code"] = raw_status.reason
+        details["blocked_component"] = "raw_tushare_stock_basic"
+    elif silver_status is not None and not silver_status.ready:
+        details["reason_code"] = silver_status.reason
+        details["blocked_component"] = "silver_stock_basic"
+    elif lifecycle_status is not None and not lifecycle_status.ready:
+        details["reason_code"] = lifecycle_status.reason
+        details["blocked_component"] = "silver_stock_lifecycle"
+    else:
+        details["reason_code"] = "all_ready"
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,

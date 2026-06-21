@@ -71,6 +71,31 @@ def _cursor_payload(
             blocked_count = 1
         else:
             blocked_count = blocked_fallback
+    reason_code = "request_run" if selected_trade_date else None
+    blocked_component = None
+    if reason_code is None and stock_daily_status is not None and not stock_daily_status.ready:
+        reason_code = stock_daily_status.reason
+        blocked_component = "silver_stock_daily"
+    if reason_code is None and gold_status is not None and not gold_status.ready:
+        reason_code = gold_status.reason
+        blocked_component = "gold_stock_return_distribution"
+    if reason_code is None and continuity_status is not None:
+        blocked_reason = continuity_status.get("blocked_reason")
+        first_not_ready_reason = continuity_status.get("first_not_ready_reason")
+        first_missing_registered_date = continuity_status.get(
+            "first_missing_registered_date"
+        )
+        if first_missing_registered_date is not None:
+            reason_code = "missing_registered_partition"
+            blocked_component = "cn_a_stock_trade_days"
+        elif first_not_ready_reason:
+            reason_code = str(first_not_ready_reason)
+            blocked_component = "gold_stock_return_distribution"
+        elif blocked_reason:
+            reason_code = str(blocked_reason)
+            blocked_component = "gold_stock_return_distribution"
+    if reason_code is None:
+        reason_code = "no_expected_trade_date" if target_trade_date is None else "all_ready"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -85,7 +110,8 @@ def _cursor_payload(
         details={
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
-            "reason": reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "continuity_status": continuity_status,
             "batch_status": batch_status.to_cursor_details() if batch_status else None,
             "gold_status": _status_payload(gold_status),

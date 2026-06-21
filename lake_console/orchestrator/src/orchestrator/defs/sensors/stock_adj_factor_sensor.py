@@ -117,6 +117,25 @@ def _raw_sensor_cursor(
     source_window_started: bool,
     continuity_details: dict[str, object] | None,
 ) -> str:
+    reason_code = "request_run" if selected_trade_date else None
+    blocked_component = None
+    if reason_code is None and continuity_details is not None:
+        blocked_reason = continuity_details.get("blocked_reason")
+        first_not_ready_reason = continuity_details.get("first_not_ready_reason")
+        first_missing_registered_date = continuity_details.get(
+            "first_missing_registered_date"
+        )
+        if first_missing_registered_date is not None:
+            reason_code = "missing_registered_partition"
+            blocked_component = "cn_a_stock_current_trade_days"
+        elif first_not_ready_reason:
+            reason_code = str(first_not_ready_reason)
+            blocked_component = "raw_adj_factor"
+        elif blocked_reason:
+            reason_code = str(blocked_reason)
+            blocked_component = "raw_adj_factor"
+    if reason_code is None:
+        reason_code = "run_window_not_started" if not source_window_started else "all_ready"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -134,7 +153,8 @@ def _raw_sensor_cursor(
             "partition_set": cn_a_stock_current_trade_days.name,
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
-            "reason": reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "source_window_started": source_window_started,
             "continuity_status": continuity_details,
         },
@@ -156,6 +176,44 @@ def _silver_sensor_cursor(
     continuity_details: dict[str, object] | None = None,
     raw_continuity_details: dict[str, object] | None = None,
 ) -> str:
+    reason_code = "request_run" if selected_trade_date else None
+    blocked_component = None
+    for component, status in (
+        ("raw_adj_factor", raw_status),
+        ("silver_adj_factor", silver_status),
+        ("stock_basic", stock_basic_status),
+        ("stock_lifecycle", stock_lifecycle_status),
+    ):
+        if status is not None and not status.ready:
+            reason_code = getattr(status, "reason", f"{component}_not_ready")
+            blocked_component = component
+            break
+    if reason_code is None and continuity_details is not None:
+        blocked_reason = continuity_details.get("blocked_reason")
+        first_not_ready_reason = continuity_details.get("first_not_ready_reason")
+        first_missing_registered_date = continuity_details.get(
+            "first_missing_registered_date"
+        )
+        if first_missing_registered_date is not None:
+            reason_code = "missing_registered_partition"
+            blocked_component = "cn_a_stock_current_trade_days"
+        elif first_not_ready_reason:
+            reason_code = str(first_not_ready_reason)
+            blocked_component = "silver_adj_factor"
+        elif blocked_reason:
+            reason_code = str(blocked_reason)
+            blocked_component = "silver_adj_factor"
+    if reason_code is None and raw_continuity_details is not None:
+        blocked_reason = raw_continuity_details.get("blocked_reason")
+        first_not_ready_reason = raw_continuity_details.get("first_not_ready_reason")
+        if first_not_ready_reason:
+            reason_code = str(first_not_ready_reason)
+            blocked_component = "raw_adj_factor"
+        elif blocked_reason:
+            reason_code = f"raw_{blocked_reason}"
+            blocked_component = "raw_adj_factor"
+    if reason_code is None:
+        reason_code = "run_window_not_started" if not source_window_started else "all_ready"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -173,7 +231,8 @@ def _silver_sensor_cursor(
             "partition_set": cn_a_stock_current_trade_days.name,
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
-            "reason": reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "source_window_started": source_window_started,
             "stock_basic_freshness_required": False,
             "readiness_details": {

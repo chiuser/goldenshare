@@ -147,8 +147,36 @@ def _cursor_payload(
             )
         elif continuity_status is not None and continuity_status.blocked:
             blocked_count = 1
+    else:
+        blocked_count = blocked_fallback
+
+    reason_code = None
+    blocked_component = None
+    if continuity_status is not None:
+        if continuity_status.first_missing_registered_date is not None:
+            reason_code = "missing_registered_partition"
+            blocked_component = "cn_a_stock_mins_trade_days"
+        elif continuity_status.first_not_ready_reason is not None:
+            reason_code = continuity_status.first_not_ready_reason
+            blocked_component = "raw_stk_mins"
+        elif continuity_status.blocked_reason is not None:
+            reason_code = continuity_status.blocked_reason
+            blocked_component = "raw_stk_mins"
+    if reason_code is None and stock_basic_status is not None and not stock_basic_status.ready:
+        reason_code = "stock_basic_not_ready"
+        blocked_component = "stock_basic"
+    if reason_code is None and raw_status is not None and not raw_status.ready:
+        reason_code = getattr(raw_status, "reason", "raw_stk_mins_not_ready")
+        blocked_component = "raw_stk_mins"
+    if reason_code is None:
+        if selected_trade_date:
+            reason_code = "request_run"
+        elif not source_window_started:
+            reason_code = "run_window_not_started"
+        elif target_trade_date is None:
+            reason_code = "no_registered_partition"
         else:
-            blocked_count = blocked_fallback
+            reason_code = "all_ready"
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -160,7 +188,8 @@ def _cursor_payload(
         details={
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
-            "reason": reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "source": STOCK_MINS_RAW_SOURCE,
             "job_name": STOCK_MINS_RAW_SENSOR_JOB_NAME,
             "source_window_started": source_window_started,

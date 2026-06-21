@@ -148,9 +148,32 @@ def _cursor_payload(
     identity_map_status: AssetReadinessStatus | None = None,
     identity_map_current: bool | None = None,
 ) -> str:
+    reason_code = None
+    blocked_component = None
+    for component, status in (
+        ("silver_stock_basic", stock_basic_status),
+        ("silver_namechange", namechange_status),
+        ("silver_stock_identity_map", identity_map_status),
+    ):
+        if status is not None and not status.ready:
+            reason_code = status.reason
+            blocked_component = component
+            break
+    if reason_code is None:
+        if decision == SensorCursorDecision.REQUEST_RUNS:
+            reason_code = "request_run"
+        elif target_trade_date is None:
+            reason_code = "no_registered_trade_day"
+        elif not source_window_started:
+            reason_code = "run_window_not_started"
+        elif identity_map_current:
+            reason_code = "identity_map_current"
+        else:
+            reason_code = "skip"
     details: dict[str, object] = {
         "source_window_started": source_window_started,
-        "reason": reason,
+        "reason_code": reason_code,
+        "blocked_component": blocked_component,
         "identity_map_current": identity_map_current,
     }
     if stock_basic_status is not None:

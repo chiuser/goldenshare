@@ -93,10 +93,27 @@ def _raw_cursor_payload(
     already_submitted_for_trade_date: bool,
     raw_status: AssetReadinessStatus | None = None,
 ) -> str:
+    reason_code = None
+    blocked_component = None
+    if raw_status is not None and not raw_status.ready:
+        reason_code = raw_status.reason
+        blocked_component = "raw_tushare_namechange"
+    if reason_code is None:
+        if decision == SensorCursorDecision.REQUEST_RUNS:
+            reason_code = "request_run"
+        elif target_trade_date is None:
+            reason_code = "no_registered_current_trade_day"
+        elif not source_window_started:
+            reason_code = "run_window_not_started"
+        elif already_submitted_for_trade_date:
+            reason_code = "already_submitted_for_stage"
+        else:
+            reason_code = "all_ready"
     details: dict[str, object] = {
         "registered_trade_day_count": registered_trade_day_count,
         "selected_trade_date": selected_trade_date,
-        "reason": reason,
+        "reason_code": reason_code,
+        "blocked_component": blocked_component,
         "source_window_started": source_window_started,
         "namechange_run_stage": namechange_run_stage,
         "already_submitted_for_trade_date": already_submitted_for_trade_date,
@@ -141,6 +158,29 @@ def _silver_cursor_payload(
     if silver_status is not None:
         readiness_details["silver_namechange"] = _asset_status_payload(silver_status)
 
+    reason_code = None
+    blocked_component = None
+    for component, status in (
+        ("raw_tushare_namechange", raw_status),
+        ("stock_basic", stock_basic_status),
+        ("silver_namechange", silver_status),
+    ):
+        if status is not None and not status.ready:
+            reason_code = getattr(status, "reason", f"{component}_not_ready")
+            blocked_component = component
+            break
+    if reason_code is None:
+        if decision == SensorCursorDecision.REQUEST_RUNS:
+            reason_code = "request_run"
+        elif target_trade_date is None:
+            reason_code = "no_registered_current_trade_day"
+        elif not source_window_started:
+            reason_code = "run_window_not_started"
+        elif already_submitted_for_trade_date:
+            reason_code = "already_submitted_for_stage"
+        else:
+            reason_code = "all_ready"
+
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -153,7 +193,8 @@ def _silver_cursor_payload(
         details={
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
-            "reason": reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "source_window_started": source_window_started,
             "namechange_run_stage": namechange_run_stage,
             "already_submitted_for_trade_date": already_submitted_for_trade_date,

@@ -85,6 +85,33 @@ class SensorCursorContractTests(unittest.TestCase):
         )
         self.assertEqual(load_sensor_cursor(valid_cursor)["details"]["reason"], "ready")
 
+    def test_build_sensor_cursor_rejects_non_ascii_reason_values(self) -> None:
+        evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+        with self.assertRaisesRegex(ValueError, "details.reason must be ASCII"):
+            build_sensor_cursor(
+                evaluated_at=evaluated_at,
+                decision=SensorCursorDecision.SKIP,
+                details={"reason": "中文原因"},
+            )
+
+        with self.assertRaisesRegex(ValueError, "details.reason_code must be ASCII"):
+            build_sensor_cursor(
+                evaluated_at=evaluated_at,
+                decision=SensorCursorDecision.SKIP,
+                details={"reason_code": "中文原因"},
+            )
+
+        cursor = build_sensor_cursor(
+            evaluated_at=evaluated_at,
+            decision=SensorCursorDecision.SKIP,
+            details={"reason_code": "run_window_not_started"},
+        )
+        self.assertEqual(
+            load_sensor_cursor(cursor)["details"]["reason_code"],
+            "run_window_not_started",
+        )
+
     def test_index_daily_cursor_offset_reads_only_v1_details(self) -> None:
         evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
         pending_codes = ("000001.SH", "000016.SH", "000300.SH")

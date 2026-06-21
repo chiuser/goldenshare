@@ -1564,6 +1564,8 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         continuity = cursor["details"]["continuity_status"]
         self.assertEqual(continuity["blocked_reason"], "materialized_check_problem")
+        self.assertEqual(cursor["details"]["reason_code"], "gold failed")
+        self.assertEqual(cursor["details"]["blocked_component"], "gold_stk_mins_qfq")
 
     def test_qfq_factor_repair_sensor_skips_when_gold_not_ready_without_later_date(
         self,

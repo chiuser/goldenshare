@@ -252,6 +252,50 @@ def _cursor_payload(
         elif blocked_count == 0 and decision.target_trade_date is None:
             blocked_count = 1
 
+    blocked_component = None
+    reason_code = None
+    if continuity_status is not None:
+        if continuity_status.first_missing_registered_date is not None:
+            reason_code = "missing_registered_partition"
+            blocked_component = "cn_a_stock_mins_silver_trade_days"
+        elif continuity_status.first_not_ready_reason is not None:
+            reason_code = continuity_status.first_not_ready_reason
+            blocked_component = "silver_stk_mins"
+        elif continuity_status.blocked_reason is not None:
+            reason_code = continuity_status.blocked_reason
+            blocked_component = "silver_stk_mins"
+    if reason_code is None and raw_continuity_status is not None:
+        if raw_continuity_status.first_missing_registered_date is not None:
+            reason_code = "raw_missing_registered_partition"
+            blocked_component = "raw_stk_mins"
+        elif raw_continuity_status.first_not_ready_reason is not None:
+            reason_code = raw_continuity_status.first_not_ready_reason
+            blocked_component = "raw_stk_mins"
+        elif raw_continuity_status.blocked_reason is not None:
+            reason_code = f"raw_{raw_continuity_status.blocked_reason}"
+            blocked_component = "raw_stk_mins"
+    if reason_code is None:
+        for component, status in (
+            ("raw_stk_mins", raw_status),
+            ("stock_daily", stock_daily_status),
+            ("suspend_d", suspend_status),
+            ("stock_identity_map", identity_map_status),
+            ("silver_stk_mins", silver_status),
+        ):
+            if status is not None and not status.ready:
+                reason_code = getattr(status, "reason", f"{component}_not_ready")
+                blocked_component = component
+                break
+    if reason_code is None:
+        if decision.selected_trade_date:
+            reason_code = "request_run"
+        elif not decision.run_window_started:
+            reason_code = "run_window_not_started"
+        elif decision.target_trade_date is None:
+            reason_code = "no_registered_partition"
+        else:
+            reason_code = "all_ready"
+
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -265,7 +309,8 @@ def _cursor_payload(
             "raw_registered_trade_day_count": raw_registered_trade_day_count,
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": decision.selected_trade_date,
-            "reason": decision.reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "job_name": STOCK_MINS_SILVER_SENSOR_JOB_NAME,
             "run_window_started": decision.run_window_started,
             "raw_status": _date_status_payload(raw_status),

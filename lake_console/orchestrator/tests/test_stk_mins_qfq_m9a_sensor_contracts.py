@@ -13,6 +13,9 @@ from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
 )
+from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    StockMinsContinuityStatus,
+)
 from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
@@ -403,6 +406,58 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertEqual(cursor["decision"], "skip")
         self.assertEqual(cursor["blocked_count"], 0)
         self.assertIsNone(cursor["details"]["selected_trade_date"])
+
+    def test_cursor_reason_prefers_specific_not_ready_reason(self) -> None:
+        decision = build_stock_mins_qfq_daily_update_decision(
+            target_trade_date=PARTITION_KEY,
+            run_window_started=True,
+            silver_ready=True,
+            adj_factor_ready=False,
+        )
+        cursor = json.loads(
+            build_stock_mins_qfq_daily_sensor_cursor(
+                decision=decision,
+                evaluated_at=EVALUATED_AT,
+                registered_trade_day_count=3014,
+                silver_status=_date_status(
+                    dataset="silver_stk_mins",
+                    ready=True,
+                    expected_file_count=5,
+                ),
+                adj_factor_status=_date_status(
+                    dataset="adj_factor",
+                    ready=False,
+                    materialized=True,
+                    checks_passed=False,
+                    reason="adj_factor_not_ready",
+                    expected_file_count=2,
+                ),
+                continuity_status=StockMinsContinuityStatus(
+                    partition_set_name="cn_a_stock_mins_silver_trade_days",
+                    expected_start_date=PARTITION_KEY,
+                    expected_end_date=PARTITION_KEY,
+                    expected_count=1,
+                    registered_count=1,
+                    ready_count=0,
+                    first_missing_registered_date=None,
+                    missing_registered_date_samples=(),
+                    first_not_ready_trade_date=PARTITION_KEY,
+                    first_not_ready_reason="adj_factor_not_ready",
+                    previous_expected_trade_date=None,
+                    ready_through_trade_date=None,
+                    next_actionable_trade_date=None,
+                    blocked_reason="materialized_check_problem",
+                ),
+            )
+        )
+
+        self.assertEqual(cursor["decision"], "skip")
+        self.assertEqual(cursor["details"]["reason_code"], "adj_factor_not_ready")
+        self.assertEqual(cursor["details"]["blocked_component"], "adj_factor")
+        self.assertEqual(
+            cursor["details"]["continuity_status"]["blocked_reason"],
+            "materialized_check_problem",
+        )
 
     def test_sensor_skips_before_window_without_readiness_scan(self) -> None:
         context = _FakeSensorContext()

@@ -229,6 +229,66 @@ def _not_ready_count(
     return len([asset_status for asset_status in status.statuses if not asset_status.ready])
 
 
+def _blocked_component_for_cursor(
+    *,
+    silver_status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+    adj_factor_status: (
+        StkMinsDateReadiness
+        | ContinuityDateReadiness
+        | DatasetReadinessStatus
+        | None
+    ),
+    gold_status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+) -> str | None:
+    for component, status in (
+        ("silver_stk_mins", silver_status),
+        ("adj_factor", adj_factor_status),
+        ("gold_stk_mins_qfq", gold_status),
+    ):
+        if status is not None and not status.ready:
+            return component
+    return None
+
+
+def _cursor_reason_code(
+    *,
+    decision: StockMinsQfqDailyUpdateDecision,
+    continuity_status: StockMinsContinuityStatus | None,
+    silver_status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+    adj_factor_status: (
+        StkMinsDateReadiness
+        | ContinuityDateReadiness
+        | DatasetReadinessStatus
+        | None
+    ),
+    gold_status: StkMinsDateReadiness | DatasetReadinessStatus | None,
+    already_submitted_for_trade_date: bool,
+) -> str:
+    if decision.selected_trade_date:
+        return "request_run"
+    if already_submitted_for_trade_date:
+        return "already_submitted_for_trade_date"
+    if not decision.run_window_started:
+        return "run_window_not_started"
+    if continuity_status is not None:
+        if continuity_status.first_missing_registered_date is not None:
+            return "missing_registered_partition"
+        if continuity_status.first_not_ready_reason is not None:
+            return continuity_status.first_not_ready_reason
+        if continuity_status.blocked_reason is not None:
+            return continuity_status.blocked_reason
+    blocked_component = _blocked_component_for_cursor(
+        silver_status=silver_status,
+        adj_factor_status=adj_factor_status,
+        gold_status=gold_status,
+    )
+    if blocked_component is not None:
+        return f"{blocked_component}_not_ready"
+    if decision.target_trade_date is None:
+        return "no_registered_partition"
+    return "all_ready"
+
+
 def _cursor_payload(
     *,
     decision: StockMinsQfqDailyUpdateDecision,
@@ -276,7 +336,19 @@ def _cursor_payload(
             "partition_set": cn_a_stock_mins_silver_trade_days.name,
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": decision.selected_trade_date,
-            "reason": decision.reason,
+            "reason_code": _cursor_reason_code(
+                decision=decision,
+                continuity_status=continuity_status,
+                silver_status=silver_status,
+                adj_factor_status=adj_factor_status,
+                gold_status=gold_status,
+                already_submitted_for_trade_date=already_submitted_for_trade_date,
+            ),
+            "blocked_component": _blocked_component_for_cursor(
+                silver_status=silver_status,
+                adj_factor_status=adj_factor_status,
+                gold_status=gold_status,
+            ),
             "job_name": STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
             "run_window_started": decision.run_window_started,
             "already_submitted_for_trade_date": already_submitted_for_trade_date,
@@ -310,7 +382,7 @@ def _window_not_started_cursor_payload(
         details={
             "job_name": STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
             "run_window_started": False,
-            "reason": reason,
+            "reason_code": "run_window_not_started",
         },
     )
 

@@ -146,6 +146,38 @@ def _cursor_payload(
     sample_keys = _input_sample_keys(input_status)
     if not sample_keys and selected_trade_date:
         sample_keys = (selected_trade_date,)
+    reason_code = "request_run" if selected_trade_date else None
+    blocked_component = None
+    if reason_code is None and input_status is not None and not input_status.ready:
+        reason_code = input_status.scan_error_code or "major_indices_input_not_ready"
+        blocked_component = "market_major_indices_inputs"
+    if reason_code is None:
+        for component, status in (
+            ("gold_market_major_indices_daily", gold_status),
+            ("silver_index_daily", silver_status),
+            ("silver_index_basic", index_basic_status),
+        ):
+            if status is not None and not status.ready:
+                reason_code = status.reason
+                blocked_component = component
+                break
+    if reason_code is None and continuity_status is not None:
+        blocked_reason = continuity_status.get("blocked_reason")
+        first_not_ready_reason = continuity_status.get("first_not_ready_reason")
+        first_missing_registered_date = continuity_status.get(
+            "first_missing_registered_date"
+        )
+        if first_missing_registered_date is not None:
+            reason_code = "missing_registered_partition"
+            blocked_component = "cn_a_index_trade_days"
+        elif first_not_ready_reason:
+            reason_code = str(first_not_ready_reason)
+            blocked_component = "gold_market_major_indices_daily"
+        elif blocked_reason:
+            reason_code = str(blocked_reason)
+            blocked_component = "gold_market_major_indices_daily"
+    if reason_code is None:
+        reason_code = "no_target_trade_date" if target_trade_date is None else "all_ready"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -164,7 +196,8 @@ def _cursor_payload(
             "registered_trade_day_count": registered_trade_day_count,
             "registered_code_count": registered_code_count,
             "selected_trade_date": selected_trade_date,
-            "reason": reason,
+            "reason_code": reason_code,
+            "blocked_component": blocked_component,
             "continuity_status": continuity_status,
             "gold_batch_status": (
                 gold_batch_status.to_cursor_details() if gold_batch_status else None
