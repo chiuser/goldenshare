@@ -1727,6 +1727,80 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free(self) -> None:
+        helper_requirements = {
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py": (
+                "def batch_raw_stk_mins_lake_readiness",
+                "def batch_silver_stk_mins_lake_readiness",
+                "def batch_gold_stk_mins_qfq_lake_readiness",
+            ),
+            DEFS_DIR / "asset_guards" / "adj_factor_lake_readiness.py": (
+                "def batch_raw_adj_factor_lake_readiness",
+                "def batch_silver_adj_factor_lake_readiness",
+                "def batch_adj_factor_lake_readiness",
+            ),
+            DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py": (
+                "def batch_market_major_indices_lake_readiness",
+            ),
+            DEFS_DIR / "asset_guards" / "market_breadth_lake_readiness.py": (
+                "def batch_gold_market_breadth_lake_readiness",
+                "def batch_gold_stock_return_distribution_lake_readiness",
+                "def batch_clickhouse_market_breadth_readiness",
+                "def batch_prod_clickhouse_market_breadth_readiness",
+            ),
+        }
+        forbidden_fragments = (
+            "import dagster",
+            "from dagster",
+            "DagsterInstance",
+            "get_event_records",
+            "get_asset_check_execution_history",
+            "partition_dataset_readiness_status_from_latest_checks",
+            "asset_readiness_status(",
+            "dataset_readiness_status(",
+            "RunRequest(",
+            "dg.RunRequest(",
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.sensor",
+            "Definitions(",
+            "status_manifest",
+            "summary_asset",
+            "readiness_asset",
+        )
+        issues = []
+
+        for path, required_fragments in helper_requirements.items():
+            source = path.read_text()
+            issues.extend(
+                f"{path} misses sensor hot-path batch helper: {fragment}"
+                for fragment in required_fragments
+                if fragment not in source
+            )
+            issues.extend(
+                f"{path} contains forbidden Dagster runtime fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        gold_qfq_batch_source = _function_source(
+            DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py",
+            "batch_gold_stk_mins_qfq_lake_readiness",
+        )
+        single_date_fragments = (
+            "_gold_qfq_status_for_trade_date(",
+            "_gold_qfq_native_counts_for_trade_date(",
+            "_gold_qfq_derived_counts_for_trade_date(",
+        )
+        issues.extend(
+            "batch_gold_stk_mins_qfq_lake_readiness must not call "
+            f"single-date helper: {fragment}"
+            for fragment in single_date_fragments
+            if fragment in gold_qfq_batch_source
+        )
+
+        self.assertEqual(issues, [])
+
     def test_bounded_continuity_foundation_stays_pure_and_bounded(self) -> None:
         path = DEFS_DIR / "asset_guards" / "bounded_continuity.py"
         source = path.read_text()
