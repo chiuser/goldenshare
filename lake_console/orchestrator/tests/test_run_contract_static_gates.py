@@ -283,6 +283,51 @@ class RunContractStaticGateTests(unittest.TestCase):
                 if fragment in source
             )
 
+        macd_kdj_job_source = job_path.read_text()
+        check_refresh_start = macd_kdj_job_source.find(
+            "gold_stk_mins_qfq_macd_kdj_check_refresh_job = dg.define_asset_job("
+        )
+        if check_refresh_start == -1:
+            issues.append("MACD/KDJ checks-only refresh job is missing")
+        else:
+            check_refresh_source = macd_kdj_job_source[check_refresh_start:]
+            expected_check_refresh_selection = (
+                "selection=dg.AssetSelection.checks_for_assets(\n"
+                "        *GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS\n"
+                "    )"
+            )
+            if expected_check_refresh_selection not in check_refresh_source:
+                issues.append(
+                    "MACD/KDJ checks-only refresh job must select checks_for_assets"
+                )
+            if (
+                "partitions_def=cn_a_stock_mins_silver_trade_days"
+                not in check_refresh_source
+            ):
+                issues.append(
+                    "MACD/KDJ checks-only refresh job must declare the stock mins "
+                    "silver trade-day partitions_def"
+                )
+            if "AssetSelection.assets" in check_refresh_source:
+                issues.append(
+                    "MACD/KDJ checks-only refresh job must not select materializable "
+                    "assets"
+                )
+
+        macd_kdj_checks_source = (
+            CHECKS_DIR / "stk_mins_qfq_macd_kdj_checks.py"
+        ).read_text()
+        if (
+            macd_kdj_checks_source.count(
+                "partitions_def=cn_a_stock_mins_silver_trade_days"
+            )
+            != 2
+        ):
+            issues.append(
+                "MACD/KDJ indicator and state check builders must declare the "
+                "stock mins silver trade-day partitions_def"
+            )
+
         sensor_source = sensor_path.read_text()
         required_sensor_fragments = (
             "run_status_sensor",
@@ -292,6 +337,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "connect_configured_duckdb",
             "load_stock_mins_expected_trade_dates",
             "previous_expected_trade_date",
+            "is_first_expected_trade_date",
             "partition_dataset_readiness_status_from_latest_checks",
             "gold_stk_mins_qfq_factor_repair_status",
             "batch_gold_stk_mins_qfq_lake_readiness",
@@ -306,6 +352,8 @@ class RunContractStaticGateTests(unittest.TestCase):
             "_previous_registered_trade_date",
             "gold_stk_mins_qfq_macd_kdj_path",
             "PENDING_QFQ_FACTOR_REPAIR_TAG",
+            "target_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE",
+            "target_trade_date != STK_MINS_MACD_KDJ_BASELINE_START_DATE",
         )
         issues.extend(
             f"{sensor_path} misses MACD/KDJ daily sensor fragment: {fragment}"
@@ -372,6 +420,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "DuckDBResource",
             "load_stock_mins_expected_trade_dates",
             "previous_expected_trade_date",
+            "is_first_expected_trade_date",
             "STK_MINS_MACD_KDJ_BASELINE_START_DATE",
             "silver_trade_calendar_path",
         )
@@ -380,6 +429,11 @@ class RunContractStaticGateTests(unittest.TestCase):
             for fragment in required_asset_fragments
             if fragment not in asset_source
         )
+        if "partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE" in asset_source:
+            issues.append(
+                "MACD/KDJ daily asset must use expected-calendar first date for "
+                "baseline state initialization"
+            )
 
         writer_path = DEFS_DIR / "stk_mins_qfq_macd_kdj.py"
         writer_source = _function_source(
@@ -406,6 +460,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "expected_trade_dates_between",
             "assert_expected_dates_registered",
             "previous_expected_trade_date",
+            "is_first_expected_trade_date",
             "assert_exact_previous_state_path",
             "source_paths_by_freq",
             "previous_state_path_by_freq",
@@ -488,6 +543,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             "source_qfq_factor_repair_event_storage_ids",
             "def _target_trade_dates",
             "discover_latest_macd_kdj_state_path_before_trade_date",
+            "start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE",
         )
         issues.extend(
             f"{repair_op_path} contains forbidden MACD/KDJ repair op fragment: {fragment}"

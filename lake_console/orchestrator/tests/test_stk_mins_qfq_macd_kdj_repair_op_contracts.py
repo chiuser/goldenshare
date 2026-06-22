@@ -49,6 +49,7 @@ DEFAULT_EXPECTED_TRADE_DATES = (
     END_DATE,
 )
 DEFAULT_TARGET_TRADE_DATES = (START_DATE, "2026-06-05", END_DATE)
+FIRST_EXPECTED_TRADE_DATE = "2014-01-02"
 
 
 def _indicator_result(freq: int) -> GoldStkMinsQfqMacdKdjWriteResult:
@@ -304,6 +305,92 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             "goldenshare/source_qfq_factor_repair_event_storage_ids",
             first_evaluation.metadata,
         )
+
+    def test_repair_op_allows_first_expected_trade_date_without_previous_state(
+        self,
+    ) -> None:
+        repair_end_trade_date = "2014-01-03"
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _write_calendar_rows(
+                lake_root,
+                (FIRST_EXPECTED_TRADE_DATE, repair_end_trade_date),
+            )
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(
+                cn_a_stock_mins_silver_trade_days.name,
+                [FIRST_EXPECTED_TRADE_DATE, repair_end_trade_date],
+            )
+            captured_write_calls: list[dict[str, object]] = []
+
+            def fake_source_paths(lake_root, *, freq, trade_dates):
+                return (Path(temp_dir) / f"source-{freq}.parquet",)
+
+            def fake_write_rows(
+                *,
+                lake_root,
+                freq,
+                source_qfq_paths,
+                target_trade_dates,
+                previous_state_paths=(),
+                stock_codes=(),
+                fail_if_target_exists=False,
+                allow_empty_replacement=False,
+            ):
+                captured_write_calls.append(
+                    {
+                        "freq": freq,
+                        "target_trade_dates": target_trade_dates,
+                        "previous_state_paths": previous_state_paths,
+                    }
+                )
+                return ((_indicator_result(freq),), (_state_result(freq),), True)
+
+            with (
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "gold_stk_mins_qfq_factor_repair_status",
+                    return_value=_ready_qfq_factor_repair_status(
+                        trade_date=repair_end_trade_date,
+                        repair_start_trade_date=FIRST_EXPECTED_TRADE_DATE,
+                        repair_end_trade_date=repair_end_trade_date,
+                    ),
+                ),
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "discover_gold_stk_mins_qfq_source_year_paths",
+                    side_effect=fake_source_paths,
+                ),
+                patch(
+                    "orchestrator.defs.ops.gold_stk_mins_qfq_macd_kdj_repair."
+                    "write_gold_stk_mins_qfq_macd_kdj_rows",
+                    side_effect=fake_write_rows,
+                ),
+            ):
+                result = gold_stk_mins_qfq_macd_kdj_repair_job.execute_in_process(
+                    run_config={
+                        "ops": {
+                            "gold_stk_mins_qfq_macd_kdj_repair_op": {
+                                "config": _full_replay_config(
+                                    qfq_factor_repair_trade_date=repair_end_trade_date,
+                                    start_trade_date=FIRST_EXPECTED_TRADE_DATE,
+                                    reason=f"qfq_factor_repair:{repair_end_trade_date}",
+                                )
+                            }
+                        }
+                    },
+                    instance=instance,
+                    resources=_resources(temp_dir),
+                )
+
+        self.assertTrue(result.success)
+        self.assertEqual(len(captured_write_calls), len(STK_MINS_QFQ_FREQS))
+        for write_call in captured_write_calls:
+            self.assertEqual(
+                write_call["target_trade_dates"],
+                (FIRST_EXPECTED_TRADE_DATE, repair_end_trade_date),
+            )
+            self.assertEqual(write_call["previous_state_paths"], ())
 
     def test_repair_op_fails_before_writing_when_expected_range_has_gap(
         self,

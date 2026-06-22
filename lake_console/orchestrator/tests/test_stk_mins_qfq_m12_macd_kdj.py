@@ -1,6 +1,7 @@
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
+from unittest.mock import patch
 
 import dagster as dg
 import duckdb
@@ -16,9 +17,6 @@ from orchestrator.defs.paths import (
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
-from orchestrator.defs.run_contracts.stk_mins import (
-    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
-)
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_SCHEMA,
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
@@ -33,6 +31,7 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 
 STOCK_A = "600000.SH"
 STOCK_B = "000001.SZ"
+FIRST_EXPECTED_TRADE_DATE = "2014-01-02"
 
 
 def _column_types(schema) -> dict[str, str]:
@@ -458,7 +457,7 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
                 source_path,
                 schema=GOLD_STK_MINS_QFQ_SCHEMA,
                 rows=_source_rows_for_day(
-                    STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+                    FIRST_EXPECTED_TRADE_DATE,
                     start_close=10.0,
                 ),
             )
@@ -466,7 +465,7 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
             write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
                 lake_root=lake_root,
                 freq=1,
-                partition_key=STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+                partition_key=FIRST_EXPECTED_TRADE_DATE,
                 previous_expected_trade_date=None,
                 allow_without_previous_state=True,
             )
@@ -475,8 +474,54 @@ class StkMinsQfqM12MacdKdjTests(unittest.TestCase):
         self.assertIsNone(write_result.previous_state_file_path)
         self.assertEqual(
             write_result.trade_date,
-            STK_MINS_MACD_KDJ_BASELINE_START_DATE,
+            FIRST_EXPECTED_TRADE_DATE,
         )
+
+    def test_daily_asset_wrapper_allows_first_expected_without_previous_state(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            lake_root = Path(temp_dir)
+            _ensure_test_lake_root_ready(lake_root)
+            _write_calendar_rows(lake_root, (FIRST_EXPECTED_TRADE_DATE,))
+            source_path = gold_stk_mins_qfq_path(lake_root, 1, STOCK_A, 2014)
+            _write_rows(
+                source_path,
+                schema=GOLD_STK_MINS_QFQ_SCHEMA,
+                rows=_source_rows_for_day(
+                    FIRST_EXPECTED_TRADE_DATE,
+                    start_close=10.0,
+                ),
+            )
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(
+                "cn_a_stock_mins_silver_trade_days",
+                [FIRST_EXPECTED_TRADE_DATE],
+            )
+
+            with patch(
+                "orchestrator.defs.assets.stk_mins_qfq_macd_kdj."
+                "assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate",
+            ) as repair_gate:
+                result = dg.materialize(
+                    [gold_stk_mins_qfq_macd_kdj_1m],
+                    partition_key=FIRST_EXPECTED_TRADE_DATE,
+                    resources={
+                        "lake_root": LakeRootResource(root_path=str(lake_root)),
+                        "duckdb": DuckDBResource(),
+                    },
+                    instance=instance,
+                    raise_on_error=True,
+                )
+
+            self.assertTrue(result.success)
+            repair_gate.assert_called_once_with(instance, FIRST_EXPECTED_TRADE_DATE)
+            state_path = gold_stk_mins_qfq_macd_kdj_state_path(
+                lake_root,
+                1,
+                FIRST_EXPECTED_TRADE_DATE,
+            )
+            self.assertTrue(state_path.exists())
 
     def test_daily_asset_wrapper_rejects_target_outside_expected_calendar(self) -> None:
         with TemporaryDirectory() as temp_dir:

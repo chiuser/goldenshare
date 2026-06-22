@@ -9,6 +9,7 @@ import dagster as dg
 from dagster._core.storage.dagster_run import RunsFilter
 
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    is_first_expected_trade_date,
     load_stock_mins_expected_trade_dates,
     previous_expected_trade_date,
 )
@@ -147,8 +148,6 @@ def _previous_expected_trade_date_for_target(
     expected_trade_dates: tuple[str, ...],
     target_trade_date: str,
 ) -> str | None:
-    if target_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE:
-        return None
     return previous_expected_trade_date(
         expected_trade_dates,
         target_trade_date,
@@ -377,10 +376,11 @@ def _evaluate_daily_run_status_decision(
         expected_trade_dates,
         target_trade_date,
     )
-    if (
-        previous_trade_date is None
-        and target_trade_date != STK_MINS_MACD_KDJ_BASELINE_START_DATE
-    ):
+    is_first_expected_target = is_first_expected_trade_date(
+        expected_trade_dates,
+        target_trade_date,
+    )
+    if previous_trade_date is None and not is_first_expected_target:
         return (
             GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
                 target_trade_date=target_trade_date,
@@ -407,7 +407,7 @@ def _evaluate_daily_run_status_decision(
     )
     qfq_factor_repair_status = None
     qfq_ready = False
-    previous_state_ready = target_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+    previous_state_ready = is_first_expected_target
     target_ready = False
     target_has_materialized_check_problem = False
     if qfq_daily_succeeded and qfq_factor_repair_succeeded:

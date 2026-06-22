@@ -465,7 +465,7 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         readiness_mock.assert_not_called()
 
     def test_daily_sensor_allows_baseline_without_previous_state_lookup(self) -> None:
-        baseline_trade_date = "2014-01-01"
+        baseline_trade_date = "2014-01-02"
         context = _context_for_triggered_run(trade_date=baseline_trade_date)
 
         def fake_readiness(_instance, specs, *, partition_key):

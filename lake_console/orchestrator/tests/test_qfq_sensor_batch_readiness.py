@@ -58,16 +58,24 @@ class _FakeEventLogStorage:
         self.latest_call_count += 1
         self.latest_check_keys = tuple(check_keys)
         self.partition_filter_key = getattr(partition_filter, "key", None)
-        return {
-            check_key: self.records_by_check_key[check_key]
-            for check_key in check_keys
-            if check_key in self.records_by_check_key
-            and (
-                partition_filter is None
-                or getattr(self.records_by_check_key[check_key], "partition", None)
-                == self.partition_filter_key
+        records_by_key = {}
+        for check_key in check_keys:
+            record_or_records = self.records_by_check_key.get(check_key)
+            if record_or_records is None:
+                continue
+            records = (
+                tuple(record_or_records)
+                if isinstance(record_or_records, (list, tuple))
+                else (record_or_records,)
             )
-        }
+            for record in records:
+                if (
+                    partition_filter is None
+                    or getattr(record, "partition", None) == self.partition_filter_key
+                ):
+                    records_by_key[check_key] = record
+                    break
+        return records_by_key
 
     def get_asset_check_execution_history(self, *args, **kwargs):
         self.history_call_count += 1
@@ -98,7 +106,7 @@ def _check_record(
     passed: bool = True,
     blocking: bool = True,
     run_id: str = "",
-    partition: str | None = None,
+    partition: str | None = PARTITION_KEY,
 ):
     target = SimpleNamespace(storage_id=storage_id)
     evaluation = SimpleNamespace(
@@ -136,10 +144,10 @@ class QfqSensorBatchReadinessTests(unittest.TestCase):
         self.assertTrue(status.ready)
         self.assertEqual(instance.event_log_storage.latest_call_count, 1)
         self.assertEqual(instance.event_log_storage.history_call_count, 0)
-        self.assertIsNone(instance.event_log_storage.partition_filter_key)
+        self.assertEqual(instance.event_log_storage.partition_filter_key, PARTITION_KEY)
         self.assertEqual(len(instance.event_log_storage.latest_check_keys), 2)
 
-    def test_check_records_without_partition_are_matched_by_target_materialization(self):
+    def test_check_records_without_partition_fail_closed_for_partition_readiness(self):
         instance = _instance_with_records(
             {
                 _check_key(CHECK_NAMES[0]): _check_record(partition=None),
@@ -153,8 +161,34 @@ class QfqSensorBatchReadinessTests(unittest.TestCase):
             partition_key=PARTITION_KEY,
         )
 
+        self.assertFalse(status.ready)
+        self.assertEqual(instance.event_log_storage.partition_filter_key, PARTITION_KEY)
+        self.assertEqual(instance.event_log_storage.history_call_count, 0)
+        self.assertEqual(status.statuses[0].missing_check_names, CHECK_NAMES)
+
+    def test_partition_filter_prevents_later_partition_from_shadowing_target(self):
+        later_partition = "2026-05-30"
+        instance = _instance_with_records(
+            {
+                _check_key(CHECK_NAMES[0]): (
+                    _check_record(storage_id=999, partition=later_partition),
+                    _check_record(storage_id=100, partition=PARTITION_KEY),
+                ),
+                _check_key(CHECK_NAMES[1]): (
+                    _check_record(storage_id=999, partition=later_partition),
+                    _check_record(storage_id=100, partition=PARTITION_KEY),
+                ),
+            }
+        )
+
+        status = partition_dataset_readiness_status_from_latest_checks(
+            instance,
+            (SPEC,),
+            partition_key=PARTITION_KEY,
+        )
+
         self.assertTrue(status.ready)
-        self.assertIsNone(instance.event_log_storage.partition_filter_key)
+        self.assertEqual(instance.event_log_storage.partition_filter_key, PARTITION_KEY)
         self.assertEqual(instance.event_log_storage.history_call_count, 0)
 
     def test_missing_materialization_fails_closed_without_check_lookup(self):
@@ -241,8 +275,14 @@ class QfqSensorBatchReadinessTests(unittest.TestCase):
     def test_runless_check_record_is_accepted_when_target_matches(self):
         instance = _instance_with_records(
             {
-                _check_key(CHECK_NAMES[0]): _check_record(run_id=""),
-                _check_key(CHECK_NAMES[1]): _check_record(run_id=""),
+                _check_key(CHECK_NAMES[0]): _check_record(
+                    run_id="",
+                    partition=PARTITION_KEY,
+                ),
+                _check_key(CHECK_NAMES[1]): _check_record(
+                    run_id="",
+                    partition=PARTITION_KEY,
+                ),
             }
         )
 

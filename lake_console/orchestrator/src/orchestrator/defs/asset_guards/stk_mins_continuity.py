@@ -168,6 +168,21 @@ def previous_expected_trade_date(
     return None
 
 
+def is_first_expected_trade_date(
+    expected_trade_dates: Sequence[str],
+    target_trade_date: str,
+) -> bool:
+    expected_trade_dates = _normalize_trade_dates(
+        expected_trade_dates,
+        field_name="expected_trade_date",
+    )
+    target_trade_date = _normalize_trade_date(
+        target_trade_date,
+        field_name="target_trade_date",
+    )
+    return bool(expected_trade_dates) and expected_trade_dates[0] == target_trade_date
+
+
 def expected_trade_dates_between(
     expected_trade_dates: Sequence[str],
     *,

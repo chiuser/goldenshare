@@ -10,6 +10,7 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_path,
     gold_stk_mins_qfq_macd_kdj_state_path,
 )
+from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
 from orchestrator.defs.resources import LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
@@ -526,7 +527,12 @@ def _state_latest_coverage_result(
 
 
 def _build_indicator_check(asset_name: str, check_name: str, freq: int):
-    @dg.asset_check(asset=asset_name, name=check_name, blocking=True)
+    @dg.asset_check(
+        asset=asset_name,
+        name=check_name,
+        blocking=True,
+        partitions_def=cn_a_stock_mins_silver_trade_days,
+    )
     def _check(
         context: dg.AssetCheckExecutionContext,
         lake_root: LakeRootResource,
@@ -562,7 +568,12 @@ def _build_indicator_check(asset_name: str, check_name: str, freq: int):
 
 
 def _build_state_check(asset_name: str, check_name: str, freq: int):
-    @dg.asset_check(asset=asset_name, name=check_name, blocking=True)
+    @dg.asset_check(
+        asset=asset_name,
+        name=check_name,
+        blocking=True,
+        partitions_def=cn_a_stock_mins_silver_trade_days,
+    )
     def _check(
         context: dg.AssetCheckExecutionContext,
         lake_root: LakeRootResource,

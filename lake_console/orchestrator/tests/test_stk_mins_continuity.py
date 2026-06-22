@@ -12,6 +12,7 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
     assert_expected_dates_registered,
     build_registered_gap_status,
     expected_trade_dates_between,
+    is_first_expected_trade_date,
     load_stock_mins_expected_trade_dates,
     previous_expected_trade_date,
     select_first_not_ready_trade_date,
@@ -114,6 +115,19 @@ class StockMinsContinuityTests(unittest.TestCase):
         )
 
         self.assertEqual(previous_trade_date, "2026-06-15")
+
+    def test_is_first_expected_trade_date_uses_calendar_first_date(self) -> None:
+        expected_dates = ("2014-01-02", "2014-01-03")
+
+        self.assertTrue(
+            is_first_expected_trade_date(expected_dates, "2014-01-02")
+        )
+        self.assertFalse(
+            is_first_expected_trade_date(expected_dates, "2014-01-03")
+        )
+        self.assertFalse(
+            is_first_expected_trade_date(expected_dates, "2014-01-01")
+        )
 
     def test_expected_trade_dates_between_returns_calendar_closed_range(self) -> None:
         trade_dates = expected_trade_dates_between(

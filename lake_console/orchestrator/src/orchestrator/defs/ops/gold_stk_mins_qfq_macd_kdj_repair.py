@@ -7,6 +7,7 @@ from orchestrator.defs.asset_guards.stk_mins_continuity import (
     assert_exact_previous_state_path,
     assert_expected_dates_registered,
     expected_trade_dates_between,
+    is_first_expected_trade_date,
     load_stock_mins_expected_trade_dates,
     previous_expected_trade_date,
 )
@@ -382,8 +383,8 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         start_trade_date,
     )
     allow_without_previous_state = (
-        start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
-        and previous_trade_date is None
+        previous_trade_date is None
+        and is_first_expected_trade_date(expected_trade_dates, start_trade_date)
     )
 
     source_paths_by_freq: dict[int, tuple[Path, ...]] = {}

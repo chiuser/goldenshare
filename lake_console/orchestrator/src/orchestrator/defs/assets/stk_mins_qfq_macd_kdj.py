@@ -5,6 +5,7 @@ from pathlib import Path
 import dagster as dg
 
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
+    is_first_expected_trade_date,
     load_stock_mins_expected_trade_dates,
     previous_expected_trade_date,
 )
@@ -189,8 +190,8 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
             partition_key,
         )
         allow_without_previous_state = (
-            partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE
-            and previous_trade_date is None
+            previous_trade_date is None
+            and is_first_expected_trade_date(expected_trade_dates, partition_key)
         )
         assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
             context.instance,
