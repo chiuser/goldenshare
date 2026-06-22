@@ -763,14 +763,20 @@ target_trade_date = first expected date where:
     expected_trade_dates,
     target_trade_date,
 )
+is_baseline = is_first_expected_trade_date(
+    expected_trade_dates,
+    target_trade_date,
+)
 previous_state_ready = (
-    previous_trade_date is None
-    or target_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
-    or partition_dataset_readiness_status_from_latest_checks(
-        context.instance,
-        GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
-        partition_key=previous_trade_date,
-    ).ready
+    is_baseline
+    or (
+        previous_trade_date is not None
+        and partition_dataset_readiness_status_from_latest_checks(
+            context.instance,
+            GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
+            partition_key=previous_trade_date,
+        ).ready
+    )
 )</code></pre>
 
     <p>实现注意：</p>
@@ -831,7 +837,7 @@ previous_state_ready = (
       <li>允许 <code>assets/stk_mins_qfq_macd_kdj.py</code> 增加现有 <code>duckdb</code> resource 依赖，用于读取 <code>silver_trade_calendar</code>；不得新增 resource definition、asset、job、sensor、check、table 或配置项。</li>
       <li>expected dates 必须来自 <code>silver_trade_calendar_path(lake_root.root())</code>，起点为 <code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code>，不设置同日窗口。</li>
       <li><code>partition_key</code> 不在 expected calendar 中时 fail closed，抛 <code>dg.Failure</code>，不得继续写文件。</li>
-      <li>只有 <code>partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE</code> 且没有上一 expected date 时，才允许无 previous state 初始化。</li>
+      <li>只有 <code>is_first_expected_trade_date(expected_trade_dates, partition_key)</code> 为真且没有上一 expected date 时，才允许无 previous state 初始化；<code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code> 只是日历读取下限，不代表实际可写 baseline partition。</li>
       <li>baseline 之后必须要求上一 expected date 的 state 文件精确存在；不得回退到更早 state，不得继续调用 latest-before-start discover 作为正式 daily path。</li>
       <li>现有 <code>assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(...)</code> 必须保留；它解决 qfq factor repair sequencing，不替代连续性 state gate。</li>
     </ul>
@@ -878,7 +884,7 @@ previous_state_ready = (
         partition_key,
     )
     allow_without_previous_state = (
-        partition_key == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+        is_first_expected_trade_date(expected_trade_dates, partition_key)
         and previous_trade_date is None
     )
     assert_gold_stk_mins_qfq_macd_kdj_daily_repair_gate(
@@ -919,7 +925,7 @@ previous_state_ready = (
     <h4>4.9.4 M9 测试与门禁</h4>
     <ul>
       <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code>：新增 writer 级用例，证明 06-16 只能使用 06-15 state；只有 06-13 state 时必须失败且不写输出。</li>
-      <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code>：新增 baseline 用例，证明 <code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code> 允许无 previous state 初始化。</li>
+      <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code>：新增 baseline 用例，证明 expected calendar 的第一个实际交易日允许无 previous state 初始化；<code>STK_MINS_MACD_KDJ_BASELINE_START_DATE</code> 只作为日历读取下限。</li>
       <li><code>tests/test_stk_mins_qfq_m12_macd_kdj.py</code> 或专门 continuity 测试：target 不在 expected calendar 时 asset wrapper fail closed。</li>
       <li><code>tests/test_run_contract_static_gates.py</code>：增加防回流断言，正式 daily writer body 不得调用 <code>discover_latest_macd_kdj_state_path_before_trade_date(...)</code>。</li>
       <li>静态门禁必须允许 bootstrap/history helper 继续定义或调用历史 state discover；禁止范围只锁定正式 daily writer body。</li>
@@ -1022,7 +1028,7 @@ previous_trade_date = previous_expected_trade_date(
     start_trade_date,
 )
 allow_without_previous_state = (
-    start_trade_date == STK_MINS_MACD_KDJ_BASELINE_START_DATE
+    is_first_expected_trade_date(expected_trade_dates, start_trade_date)
     and previous_trade_date is None
 )</code></pre>
 

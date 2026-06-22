@@ -113,7 +113,10 @@ def _skip_reason(
         role=SensorRole.PARTITION_REGISTRATION,
     ),
     required_resource_keys={"lake_root", "duckdb"},
-    description="每天 06:00 后注册当天股票当前交易日分区，不触发数据更新任务。",
+    description=(
+        "每天 06:00 后按交易日历补注册股票当前交易日分区，"
+        "每 tick 最多 2 个，不触发数据更新任务。"
+    ),
 )
 def stock_current_trade_day_sensor(
     context: dg.SensorEvaluationContext,

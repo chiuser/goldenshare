@@ -443,9 +443,9 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
           </tr>
           <tr>
             <td><code>asset_guards/stk_mins_lake_readiness.py</code></td>
-            <td>P4 已新增无状态 helper 文件。</td>
+            <td>P4 已新增无状态 helper 文件，P5/P6 已扩展到 silver、adj factor、gold qfq。</td>
             <td>
-              当前已封装 raw batch lake readiness；silver/qfq 后续阶段继续扩展。
+              当前已封装 raw/silver/adj factor/gold qfq batch lake readiness，并保留 effective qfq readiness 作为 repair-adjusted 历史 qfq 的消费口径。
               它不是新实体，不写 lake，不写 Dagster，只返回内存状态。
             </td>
           </tr>
@@ -457,23 +457,23 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
           <tr>
             <td><code>duckdb_sql.py</code> / <code>assets/stock_daily.py</code></td>
             <td>
-              <code>silver_stock_daily_select(...)</code> 当前使用 current-listed-only 的
+              P0 审计时 <code>silver_stock_daily_select(...)</code> 使用 current-listed-only 的
               <code>silver_stock_basic</code> 过滤股票全集，<code>silver_stock_daily</code>
               asset 也把该口径写入 metadata。
             </td>
             <td>
-              后续单独阶段改为 <code>raw_stock_basic</code> 历史生命周期口径；
+              P2B 已改为消费由 <code>raw_stock_basic</code> 派生的 <code>silver_stock_lifecycle</code> 历史生命周期事实；
               保留 CNY、上市日期、北交所开市日期等现有交易规则。
             </td>
           </tr>
           <tr>
             <td><code>checks/stock_daily_checks.py</code></td>
             <td>
-              当前正式 blocking/readiness 包含
+              P0 审计时正式 blocking/readiness 包含
               <code>silver_stock_daily_current_listed_only</code>。
             </td>
             <td>
-              新增正式 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
+              P2B 已新增正式 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
               旧 <code>silver_stock_daily_current_listed_only</code> 退出正式阻断和 readiness 口径。
             </td>
           </tr>
@@ -481,9 +481,9 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
             <td><code>sensors/readiness.py</code></td>
             <td>当前通过 Dagster instance 读取 materialization/check 状态。</td>
             <td>
-              保留给非 hot-loop 和 selected-date 门禁；raw/silver 60 天循环不得继续逐日调用。
-              stock daily readiness 后续必须从 blocking check specs 中移除旧
-              <code>silver_stock_daily_current_listed_only</code>，加入新生命周期 check。
+              保留给非 hot-loop 和 selected-date 门禁；raw/silver/qfq 日常 10 天窗口不得继续逐日调用。
+              stock daily readiness 已从 blocking check specs 中移除旧
+              <code>silver_stock_daily_current_listed_only</code>，加入 <code>silver_stock_daily_stock_lifecycle_covered</code>。
             </td>
           </tr>
           <tr>
@@ -506,14 +506,14 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
               P3 前注册 silver 分区前会检查 raw、stock daily、suspend、identity map、namechange。
             </td>
             <td>
-              P5 已改为用 raw batch readiness 判断 60 天 frontier；
+              P5 已改为用 raw batch readiness 判断最近 10 个 expected trade dates 的 frontier；
               stock daily、suspend、identity map 仍只查 selected date。
             </td>
           </tr>
           <tr>
             <td><code>sensors/stock_mins_qfq_daily_sensor.py</code> / <code>stock_mins_qfq_factor_repair_sensor.py</code></td>
-            <td>已完成连续性改造，但仍需按同一方法做性能审计。</td>
-            <td>先 profiling；若慢，再做 qfq lake batch readiness。不得新增 qfq 状态实体。</td>
+            <td>已完成连续性改造，并在 P6 改为 lake batch readiness + effective qfq readiness。</td>
+            <td>不得回流逐日 Dagster check 深扫；不得新增 qfq 状态实体。</td>
           </tr>
         </tbody>
       </table>
@@ -549,8 +549,8 @@ return select_first_not_ready_from_full_semantics(full)</code></pre>
               writer <code>input_paths</code>、stock daily checks/readiness specs。
             </td>
             <td>
-              当前 silver 分钟线直接依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code>，
-              但生成 SQL 不消费它们；当前 stock daily select/check 仍是 current-listed-only 口径。
+              P0 审计时 silver 分钟线直接依赖 <code>silver_namechange</code> / <code>silver_stock_basic</code>，
+              但生成 SQL 不消费它们；当时 stock daily select/check 仍是 current-listed-only 口径。
             </td>
           </tr>
         </tbody>
@@ -641,19 +641,19 @@ class StkMinsBatchReadiness:
 
       <h3>7.1 当前代码事实</h3>
       <ul>
-        <li><code>silver_stock_daily_select(...)</code> 当前使用 <code>silver_stock_basic</code> 作为股票全集过滤。</li>
-        <li><code>silver_stock_basic</code> 当前是 current-listed-only 快照，天然不覆盖已退市历史股票。</li>
-        <li><code>silver_stock_daily_current_listed_only</code> 当前是正式 blocking check，并进入 <code>SILVER_STOCK_DAILY_BLOCKING_CHECKS</code> readiness 口径。</li>
-        <li>这会让 <code>000638.SZ</code> 这类退市历史股票在最后交易日前的合法行情无法被上游 stock daily 生命周期事实覆盖。</li>
+        <li>P0 审计时 <code>silver_stock_daily_select(...)</code> 使用 <code>silver_stock_basic</code> 作为股票全集过滤。</li>
+        <li><code>silver_stock_basic</code> 是 current-listed-only 快照，天然不覆盖已退市历史股票；它当前只保留 current-listed 快照与 freshness guard 角色。</li>
+        <li>P2B 已新增 <code>silver_stock_lifecycle</code> 作为历史生命周期事实源，并让 <code>silver_stock_daily_stock_lifecycle_covered</code> 进入正式 blocking/readiness 口径。</li>
+        <li>旧口径会让 <code>000638.SZ</code> 这类退市历史股票在最后交易日前的合法行情无法被上游 stock daily 生命周期事实覆盖；当前代码已通过 <code>silver_stock_lifecycle</code> 修正。</li>
       </ul>
 
-      <h3>7.2 后续正式口径</h3>
+      <h3>7.2 当前正式口径</h3>
       <ul>
         <li><code>silver_stock_daily_select(...)</code> 不再用 current-listed-only 的 <code>silver_stock_basic</code> 作为股票全集过滤。</li>
-        <li>股票生命周期事实源改为 <code>raw_stock_basic_path(lake_root)</code>，它包含 <code>list_status='D'</code> 的退市股票。</li>
+        <li>股票生命周期事实源为 <code>silver_stock_lifecycle_path(lake_root)</code>；它由 <code>raw_stock_basic</code> 派生，包含 <code>list_status='D'</code> 的退市股票。</li>
         <li><code>ts_code + trade_date</code> 必须满足 <code>trade_date &gt;= list_date</code> 且 <code>trade_date &lt;= delist_date OR delist_date IS NULL</code>。</li>
         <li>保留现有 CNY、上市日期、北交所开市日期等交易规则；生命周期口径只替换股票全集来源，不放宽交易数据质量规则。</li>
-        <li>新增正式 blocking check 名称固定为 <code>silver_stock_daily_stock_lifecycle_covered</code>。</li>
+        <li>正式 blocking check 名称固定为 <code>silver_stock_daily_stock_lifecycle_covered</code>。</li>
         <li>旧 <code>silver_stock_daily_current_listed_only</code> 从正式 blocking/readiness 口径退出；可以作为历史背景或迁移前事实出现，不能继续阻断正式链路。</li>
         <li><code>silver_stock_basic</code> freshness guard 保留为基础资产新鲜度保险，但它不再作为 <code>silver_stock_daily</code> 股票全集过滤事实源。</li>
       </ul>
@@ -666,23 +666,17 @@ class StkMinsBatchReadiness:
         CAST(trade_date AS VARCHAR) AS trade_date
     FROM silver_stock_daily_candidate
 ),
-raw_stock_lifecycle AS (
+silver_stock_lifecycle AS (
     SELECT
         ts_code,
-        CASE
-            WHEN list_date IS NULL OR list_date = '' THEN NULL
-            ELSE strptime(list_date, '%Y%m%d')::DATE
-        END AS list_dt,
-        CASE
-            WHEN delist_date IS NULL OR delist_date = '' THEN NULL
-            ELSE strptime(delist_date, '%Y%m%d')::DATE
-        END AS delist_dt
-    FROM read_parquet(raw_stock_basic_path, hive_partitioning=False)
+        CAST(list_date AS DATE) AS list_dt,
+        CAST(delist_date AS DATE) AS delist_dt
+    FROM read_parquet(silver_stock_lifecycle_path, hive_partitioning=False)
 ),
 lifecycle_failures AS (
     SELECT d.ts_code, d.trade_date
     FROM stock_daily AS d
-    LEFT JOIN raw_stock_lifecycle AS b
+    LEFT JOIN silver_stock_lifecycle AS b
       ON d.ts_code = b.ts_code
      AND d.trade_dt &gt;= b.list_dt
      AND (b.delist_dt IS NULL OR d.trade_dt &lt;= b.delist_dt)
@@ -714,7 +708,7 @@ FROM lifecycle_failures;</code></pre>
       </ul>
       <div class="warning">
         P3 已完成语义收口：<code>silver_stk_mins_name_timeline_covered</code> 继续保留原 check 名称，
-        但内部生命周期判断已改为使用 <code>raw_stock_basic</code> 历史生命周期事实。
+        但内部生命周期判断已改为使用 <code>silver_stock_lifecycle</code> 历史生命周期事实。
         <code>silver_namechange</code> 只解释真实名称变更，current-listed-only 的 <code>silver_stock_basic</code> 只保留当前上市快照语义；
         二者都不再承担 silver 分钟线股票历史身份全集职责，也不得为了退市历史股票伪造记录或扩大当前池。
       </div>
@@ -775,7 +769,7 @@ FROM lifecycle_failures;</code></pre>
         <tbody>
           <tr>
             <td>股票生命周期身份合法性</td>
-            <td><code>raw_stock_basic_path(lake_root)</code></td>
+            <td><code>silver_stock_lifecycle_path(lake_root)</code></td>
             <td>分钟线里的 <code>ts_code + trade_date</code> 必须落在包含退市股票的历史股票生命周期内。</td>
             <td>不得用 <code>silver_namechange</code> 或 current-listed-only 的 <code>silver_stock_basic</code> 代替。</td>
           </tr>
@@ -817,10 +811,10 @@ FROM lifecycle_failures;</code></pre>
         <li>先枚举 <code>silver_stk_mins_path(lake_root, freq, trade_date)</code>。</li>
         <li>文件存在和 row count 只作为粗筛。</li>
         <li>完整语义必须复用或重构现有 check 背后的 SQL 规则；P3 已将 <code>_silver_name_timeline_covered</code> 的正式判断收敛为股票生命周期身份合法性，名称时间线解释不再作为该 check 的 blocking 条件。</li>
-        <li>股票生命周期身份合法性：对 <code>silver_stk_mins</code> 中的 <code>ts_code + trade_date</code>，使用 <code>raw_stock_basic_path(lake_root)</code> 读取包含退市股票的历史股票生命周期事实，要求 <code>trade_date &gt;= list_date</code> 且 <code>trade_date &lt;= delist_date OR delist_date IS NULL</code>。</li>
+        <li>股票生命周期身份合法性：对 <code>silver_stk_mins</code> 中的 <code>ts_code + trade_date</code>，使用 <code>silver_stock_lifecycle_path(lake_root)</code> 读取包含退市股票的历史股票生命周期事实，要求 <code>trade_date &gt;= list_date</code> 且 <code>trade_date &lt;= delist_date OR delist_date IS NULL</code>。</li>
         <li>名称时间线解释：<code>silver_namechange</code> 只解释真实名称变更，不承担股票是否合法存在的判断；没有 namechange 不等于非法。</li>
         <li>current-listed-only 的 <code>silver_stock_basic</code> 口径不变，不能为了退市股票补进去；退市历史身份应来自包含 <code>list_status='D'</code> 的历史股票事实。</li>
-        <li><code>raw_stock_basic.list_date</code> 与 <code>raw_stock_basic.delist_date</code> 是 <code>YYYYMMDD</code> 字符串，SQL 中必须显式解析为 DATE；空 <code>delist_date</code> 表示仍在生命周期内。</li>
+        <li><code>silver_stock_lifecycle.list_date</code> 与 <code>silver_stock_lifecycle.delist_date</code> 已是标准生命周期日期；空 <code>delist_date</code> 表示仍在生命周期内。</li>
         <li><code>delist_date</code> 不是最后交易日，不能用它判断某天是否应有分钟线；实际交易事实继续由 <code>silver_stk_mins_codes_exist_in_stock_daily</code> 负责。</li>
         <li>如果日常 10 天窗口内完整语义发现更早日期 check 失败，selector 必须停在这个日期，不得推进后续日期；20/60 天完整语义只作为离线审计和容量参考。</li>
       </ul>
@@ -834,25 +828,18 @@ FROM lifecycle_failures;</code></pre>
         CAST(trade_date AS VARCHAR) AS trade_date
     FROM read_parquet(silver_stk_mins_paths, union_by_name=True)
 ),
-raw_stock_lifecycle AS (
+stock_lifecycle AS (
     SELECT
         ts_code,
-        name,
         list_status,
-        CASE
-            WHEN list_date IS NULL OR list_date = '' THEN NULL
-            ELSE strptime(list_date, '%Y%m%d')::DATE
-        END AS list_dt,
-        CASE
-            WHEN delist_date IS NULL OR delist_date = '' THEN NULL
-            ELSE strptime(delist_date, '%Y%m%d')::DATE
-        END AS delist_dt
-    FROM read_parquet(raw_stock_basic_path, hive_partitioning=False)
+        CAST(list_date AS DATE) AS list_dt,
+        CAST(delist_date AS DATE) AS delist_dt
+    FROM read_parquet(silver_stock_lifecycle_path, hive_partitioning=False)
 ),
 lifecycle_failures AS (
     SELECT s.ts_code, s.trade_date
     FROM silver_mins AS s
-    LEFT JOIN raw_stock_lifecycle AS b
+    LEFT JOIN stock_lifecycle AS b
       ON s.ts_code = b.ts_code
      AND s.trade_dt &gt;= b.list_dt
      AND (b.delist_dt IS NULL OR s.trade_dt &lt;= b.delist_dt)
@@ -1064,7 +1051,7 @@ selection = select_first_not_ready_trade_date(
         <li>若未来进入写入阶段，使用专用 helper / CLI 走 <code>DagsterInstance.report_runless_asset_event(...)</code> 补 <code>AssetCheckEvaluation</code>。</li>
         <li>每条 check event 必须使用同一个 check 名称 <code>silver_stk_mins_name_timeline_covered</code>，<code>passed=True</code>，<code>blocking=True</code>。</li>
         <li>每条 check event 必须带 <code>target_materialization_data</code>，绑定同 asset / 同 partition 的目标 materialization。</li>
-        <li>metadata 必须写清：<code>source_correction_reason=000638_lifecycle_check_semantics_fix</code>、<code>ts_code=000638.SZ</code>、<code>lifecycle_fact_source=raw_stock_basic</code>、<code>checked_code_date_freq_count=1</code>、<code>failed_code_date_freq_count=0</code>。</li>
+        <li>metadata 必须写清：<code>source_correction_reason=000638_lifecycle_check_semantics_fix</code>、<code>ts_code=000638.SZ</code>、<code>lifecycle_fact_source=silver_stock_lifecycle</code>、<code>checked_code_date_freq_count=1</code>、<code>failed_code_date_freq_count=0</code>。</li>
         <li>不得补 materialization event；本阶段只修正旧 check 语义误报的 check event 可见性。</li>
         <li>不得删除旧 failed event；Dagster event log 是追加日志。新的 passed check event 作为同 check / 同 partition 的最新事实覆盖 readiness 与 UI 最新状态。</li>
       </ul>
@@ -1133,14 +1120,14 @@ selection = select_first_not_ready_trade_date(
             <td>
               更新 <code>silver_stk_mins_name_timeline_covered</code> 契约：保留 check 名称，不新增同语义 check；
               证明 <code>silver_namechange</code> 不再作为股票历史身份全集；
-              证明 <code>silver_stock_basic</code> 保持 current-listed-only，退市历史股票由 <code>raw_stock_basic</code> 生命周期覆盖。
+              证明 <code>silver_stock_basic</code> 保持 current-listed-only，退市历史股票由 <code>silver_stock_lifecycle</code> 生命周期覆盖。
             </td>
           </tr>
           <tr>
             <td><code>tests/test_stock_daily_checks.py</code> 或现有 stock daily 契约测试</td>
             <td>
               更新 <code>silver_stock_daily_select(...)</code> 与 blocking check 契约：
-              <code>list_status='D'</code> 且交易日在 <code>raw_stock_basic</code> 生命周期内的历史股票必须保留；
+              <code>list_status='D'</code> 且交易日在 <code>silver_stock_lifecycle</code> 生命周期内的历史股票必须保留；
               生命周期外样本必须失败；新增 <code>silver_stock_daily_stock_lifecycle_covered</code>；
               <code>silver_stock_daily_current_listed_only</code> 不再进入正式 blocking/readiness specs。
             </td>
@@ -1167,7 +1154,7 @@ selection = select_first_not_ready_trade_date(
           </tr>
           <tr>
             <td><code>tests/test_stk_mins_continuity_performance.py</code></td>
-            <td>新增本地临时 Parquet benchmark。断言 60 天粗筛和完整语义在预算内，记录总耗时。</td>
+            <td>新增本地临时 Parquet benchmark。断言 10 天日常窗口在预算内；20/60 天只作为离线容量样本记录总耗时。</td>
           </tr>
         </tbody>
       </table>
@@ -1207,7 +1194,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
             </td>
             <td>
               文档明确 <code>silver_namechange</code> / 未使用 <code>silver_stock_basic</code> 退出 silver 分钟线直接硬依赖；
-              <code>silver_stock_daily</code> 纳入本专项并切到 <code>raw_stock_basic</code> 历史生命周期口径。
+              <code>silver_stock_daily</code> 纳入本专项并切到 <code>silver_stock_lifecycle</code> 历史生命周期口径。
             </td>
             <td>发现还有其它 <code>silver_stock_daily</code> 下游依赖 current-listed-only 语义，且无法在 P2 单独处理。</td>
           </tr>
@@ -1220,7 +1207,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
               从 <code>checks/stk_mins_checks.py</code> 抽取或复用正式 blocking check SQL 语义。
             </td>
             <td>
-              <code>tests/test_stk_mins_lake_readiness.py</code> 覆盖粗筛、完整语义、hidden failure、60 天性能预算。
+              <code>tests/test_stk_mins_lake_readiness.py</code> 覆盖粗筛、完整语义、hidden failure、10 天日常窗口性能预算和 20/60 天离线容量样本。
               不接 sensor，不读 Dagster runtime，不新增持久化实体。
             </td>
             <td>发现只能靠 row count 判断 ready，或完整 SQL 语义无法批量复用。</td>
@@ -1236,10 +1223,10 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
               审计 stock daily 下游消费者。
             </td>
             <td>
-              <code>list_status='D'</code> 且交易日在 <code>raw_stock_basic</code> 生命周期内的历史股票被保留；
+              <code>list_status='D'</code> 且交易日在 <code>silver_stock_lifecycle</code> 生命周期内的历史股票被保留；
               生命周期外样本失败；CNY、上市日期、北交所开市日期等现有规则保持。
             </td>
-            <td>发现 <code>raw_stock_basic</code> 不能稳定提供历史生命周期事实，或需要改动已拍板 check 名称。</td>
+            <td>发现 <code>silver_stock_lifecycle</code> 不能稳定提供历史生命周期事实，或需要改动已拍板 check 名称。</td>
           </tr>
           <tr>
             <td>P3</td>
@@ -1419,7 +1406,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
             <td>silver 60 天发现的 <code>000638.SZ</code> name timeline 失败</td>
             <td>已拍板：这是 check 语义问题，不修 <code>silver_namechange</code>，不删合法历史分钟线。</td>
             <td>
-              <code>000638.SZ</code> 是退市历史股票，最后交易日 2026-04-13；应由 <code>raw_stock_basic</code> 这类包含退市股票的历史生命周期事实校验身份合法性，
+              <code>000638.SZ</code> 是退市历史股票，最后交易日 2026-04-13；应由 <code>silver_stock_lifecycle</code> 这类包含退市股票的历史生命周期事实校验身份合法性，
               <code>silver_namechange</code> 只解释真实名称变更。补充全历史只读审计确认：2014-2026 年已发现 <code>silver_stk_mins</code> 分区中，
               旧口径失败的唯一代码是 <code>000638.SZ</code>，新生命周期口径失败代码数为 0。
             </td>
@@ -1448,7 +1435,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
             <td><code>silver_stock_daily</code> 是否继续 current-listed-only</td>
             <td>已拍板：纳入本专项，改为历史生命周期口径。</td>
             <td>
-              <code>silver_stock_daily_select(...)</code> 已使用 <code>raw_stock_basic</code> 生命周期事实；
+        <code>silver_stock_daily_select(...)</code> 已使用 <code>silver_stock_lifecycle</code> 生命周期事实；
               新增 blocking check <code>silver_stock_daily_stock_lifecycle_covered</code>；
               旧 <code>silver_stock_daily_current_listed_only</code> 退出正式 blocking/readiness 口径。
             </td>
@@ -1463,7 +1450,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
       <p>
         <code>000638.SZ</code> 处理口径已明确：保留 2026-04-13 及之前合法分钟线；不向 <code>silver_namechange</code> 塞退市兜底记录；
         <code>silver_stock_basic</code> 保持 current-listed-only 快照语义，但不再作为 stock daily 或 silver 分钟线历史生命周期事实源；
-        stock daily 与 silver 分钟线完整 check 都使用 <code>raw_stock_basic</code> 历史生命周期事实，
+        stock daily 与 silver 分钟线完整 check 都使用 <code>silver_stock_lifecycle</code> 历史生命周期事实，
         名称时间线只负责解释真实名称变更。
       </p>
     </section>

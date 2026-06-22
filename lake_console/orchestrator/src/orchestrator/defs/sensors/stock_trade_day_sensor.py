@@ -27,7 +27,10 @@ STOCK_TRADE_DAY_REGISTER_START = time(17, 0)
         role=SensorRole.PARTITION_REGISTRATION,
     ),
     required_resource_keys={"lake_root", "duckdb"},
-    description="17:00 后注册当天股票资产族交易日分区，不触发数据更新任务。",
+    description=(
+        "17:00 后按交易日历补注册股票资产族交易日分区，"
+        "每 tick 最多 2 个，不触发数据更新任务。"
+    ),
 )
 def stock_trade_day_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
     return build_trade_day_partition_registration_result(

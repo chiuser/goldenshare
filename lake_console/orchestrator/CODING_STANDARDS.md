@@ -49,7 +49,7 @@ Dagster `run_key` 只用于 sensor / schedule 提交 `RunRequest` 时的幂等�
 MACD/KDJ 连续性已落地规则：
 
 1. MACD/KDJ daily run-status sensor、daily asset write 和 repair op 都必须使用 expected calendar 口径；不得恢复 previous registered、registered-only range 或任意更早 state fallback。
-2. MACD/KDJ daily asset write 非 baseline 日期必须要求上一 expected trade date 的 state 文件精确存在；只有 `STK_MINS_MACD_KDJ_BASELINE_START_DATE` 且无上一 expected date 时，才允许无 previous state 初始化。
+2. MACD/KDJ daily asset write 非首个 expected trade date 必须要求上一 expected trade date 的 state 文件精确存在；只有目标日期是 expected calendar 中第一个交易日且无上一 expected date 时，才允许无 previous state 初始化。`STK_MINS_MACD_KDJ_BASELINE_START_DATE` 只作为 expected calendar 读取下限，不代表实际可写 baseline partition。
 3. MACD/KDJ repair op 的 target dates 必须来自 qfq factor repair metadata/status 的 start/end 闭区间 expected range；range 内 expected date 未注册、qfq source 缺失或上一 expected state 缺失时必须 fail closed，且失败路径不得写 completion checks。
 4. 连续性专项 M1-M11 已完成；后续修改必须保持静态门禁和测试覆盖，不能恢复 latest registered / previous registered / registered-only range / latest-before-state 口径。
 
@@ -116,7 +116,7 @@ MACD/KDJ 连续性已落地规则：
 
 正式 asset 写入函数默认不得混入定制化写前 guard；普通质量与完整性要求必须通过 blocking asset checks 表达。
 
-已确认例外：`silver_stock_daily` 写入前必须调用 `assert_silver_stock_basic_fresh_for_stock_daily(...)`。这是生产前置 freshness 门禁，用来防止人工 Launchpad、CLI 或补录绕过 `stock_daily_sensor` 后，在基础股票池未完成当日更新时静默生产；它不等同于把普通质量 check 混入 asset 写入逻辑。当前 `silver_stock_daily` 已退出 current-listed-only 股票全集过滤，过渡期使用包含退市股票的 `raw_stock_basic` 生命周期事实；非股票分钟线连续性治理 P2B 落地后，长期生命周期过滤事实源必须收敛到 `silver_stock_lifecycle`，`raw_stock_basic` 只作为 `silver_stock_lifecycle` 的上游输入，`silver_stock_basic` 只保留 current-listed 快照和 freshness guard 角色。
+已确认例外：`silver_stock_daily` 写入前必须调用 `assert_silver_stock_basic_fresh_for_stock_daily(...)`。这是生产前置 freshness 门禁，用来防止人工 Launchpad、CLI 或补录绕过 `stock_daily_sensor` 后，在基础股票池未完成当日更新时静默生产；它不等同于把普通质量 check 混入 asset 写入逻辑。当前 `silver_stock_daily` 已退出 current-listed-only 股票全集过滤，长期生命周期过滤事实源已收敛到 `silver_stock_lifecycle`；`raw_stock_basic` 只作为 `silver_stock_lifecycle` 的上游输入，`silver_stock_basic` 只保留 current-listed 快照和 freshness guard 角色。
 
 ### 禁止阶段编号进入正式代码
 

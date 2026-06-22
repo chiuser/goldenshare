@@ -372,9 +372,9 @@ write_mode = replace partition
 
 - 新增独立 dynamic partitions：`cn_a_stock_current_trade_days`。
 - 新增专用分区注册 sensor：`stock_current_trade_day_sensor`。
-- `stock_current_trade_day_sensor` 的职责只注册当天的 `cn_a_stock_current_trade_days`，不触发数据更新任务，不补历史分区。
+- `stock_current_trade_day_sensor` 的职责是按交易日历注册 `cn_a_stock_current_trade_days`，不触发数据更新任务；当前代码使用最近 10 个 expected trade dates 做 bounded catch-up，06:00 后每 tick 最多补 2 个最早缺失分区。
 - 历史初始化时，`cn_a_stock_current_trade_days` 从旧湖 `adj_factor` 最早日期开始，承载旧湖 `adj_factor` 全量范围内的股票开市日。
-- 每天早上 6:00 后读取交易日历；如果当天是股票开市日，则把当天日期注册到 `cn_a_stock_current_trade_days`。
+- 每天早上 6:00 后读取交易日历；如果最近窗口内存在缺失的股票开市日分区，则优先注册最早缺失日期，同日分区仍受 06:00 窗口约束。
 - `raw_tushare_adj_factor` 和 `silver_adj_factor` 使用 `cn_a_stock_current_trade_days`，不使用共享的 `cn_a_stock_trade_days`。
 - `cn_a_stock_trade_days` 仍按现有股票日频资产族口径服务 `suspend_d`、`stock_daily` 等盘后数据集，不被 `adj_factor` 早盘注册逻辑污染。
 - `raw_adj_factor_update_job_sensor` 与 `silver_adj_factor_update_job_sensor` 不早于 9:30 触发，并选择 `max(partition_key) where partition_key <= 上海当前日期` 的 `cn_a_stock_current_trade_days` 分区。
@@ -410,7 +410,7 @@ Readiness：
 2. 旧湖历史分区范围应在开发前只读复核，不把此前审计结果当成当前事实。
 3. `silver_stock_basic` 当前只保留 `list_status='L' AND curr_type='CNY'`，这与“过滤掉退市股票和 B 股等非 CNY 股票”的 A 股股票池口径一致；本资产不为退市或非 CNY 股票设计 silver 完整性和下游加工口径。
 4. 分页必须复用现有 Tushare 通用拉取 helper，不新增 `adj_factor` 专用分页实现。
-5. `cn_a_stock_current_trade_days` 必须在早上 6:00 后注册当天股票开市日；两个 adj_factor update job sensor 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
+5. `cn_a_stock_current_trade_days` 同日分区必须在早上 6:00 后才允许注册，同时支持最近 10 个 expected trade dates 内的停机补洞；两个 adj_factor update job sensor 必须晚于 Tushare 当日因子入库窗口，正式不早于 9:30。
 
 ## 12. 后续开发切片建议
 
@@ -440,8 +440,8 @@ Readiness：
 
 ### A4：Job 与 sensor
 
-- 增加 `stock_current_trade_day_sensor`，只注册 `cn_a_stock_current_trade_days`。
-- `stock_current_trade_day_sensor` 每天 6:00 后把当天股票开市日注册到 `cn_a_stock_current_trade_days`，不补历史分区。
+- 增加 `stock_current_trade_day_sensor`，只注册 `cn_a_stock_current_trade_days`，不触发数据更新任务。
+- `stock_current_trade_day_sensor` 每天 6:00 后按最近 10 个 expected trade dates 补最早缺失的股票开市日分区，每 tick 最多 2 个；同日分区仍受 06:00 窗口约束。
 - 增加 `raw_adj_factor_update_job` 与 `silver_adj_factor_update_job`。
 - 增加 `raw_adj_factor_update_job_sensor` 与 `silver_adj_factor_update_job_sensor`。
 - 接入 readiness helper。

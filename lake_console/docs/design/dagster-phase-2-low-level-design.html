@@ -1194,10 +1194,10 @@ intraday_suspended:
           <td>blocking；标准事实表完整性门禁。silver 当日不得缺少预期可交易股票，也不得多出非预期股票；必须输出完整差异 metadata。</td>
         </tr>
         <tr>
-          <td><code>silver_stock_daily_current_listed_only</code></td>
+          <td><code>silver_stock_daily_stock_lifecycle_covered</code></td>
           <td><code>silver_stock_daily</code></td>
-          <td><code>silver_stock_basic</code></td>
-          <td>blocking；不允许出现非当前 <code>list_status='L'</code> 股票。</td>
+          <td><code>silver_stock_lifecycle</code></td>
+          <td>blocking；当前正式口径使用 <code>silver_stock_lifecycle</code> 判断 <code>ts_code + trade_date</code> 是否落在股票生命周期内。旧 <code>silver_stock_daily_current_listed_only</code> 已退出正式阻断口径。</td>
         </tr>
         <tr>
           <td><code>silver_stock_daily_after_list_date_only</code></td>
