@@ -10,12 +10,20 @@ from src.foundation.ingestion.plan_helpers import split_multi_values
 from src.ops.models.ops.config_revision import ConfigRevision
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.app.exceptions import WebAppError
+from src.ops.services.index_daily_remote_probe_service import (
+    INDEX_DAILY_ACTION_KEY,
+    INDEX_DAILY_DATASET_KEY,
+    INDEX_DAILY_REMOTE_READY_CONDITION,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_ALLOWED_FREQS,
     STK_MINS_DATASET_KEY,
     STK_MINS_REMOTE_READY_CONDITION,
 )
+
+
+TIME_INPUT_KEYS = {"trade_date", "ann_date", "month", "start_date", "end_date", "start_month", "end_month"}
 
 
 class OpsProbeCommandService:
@@ -246,16 +254,28 @@ class OpsProbeCommandService:
         on_success_action_json: dict,
     ) -> None:
         condition_kind = str((probe_condition_json or {}).get("type") or "freshness_latest_open")
-        if condition_kind != STK_MINS_REMOTE_READY_CONDITION:
+        if condition_kind == STK_MINS_REMOTE_READY_CONDITION:
+            OpsProbeCommandService._validate_remote_stk_mins_binding(
+                dataset_key=dataset_key,
+                on_success_action_json=on_success_action_json,
+            )
             return
+        if condition_kind == INDEX_DAILY_REMOTE_READY_CONDITION:
+            OpsProbeCommandService._validate_remote_index_daily_binding(
+                dataset_key=dataset_key,
+                on_success_action_json=on_success_action_json,
+            )
+            return
+
+    @staticmethod
+    def _validate_remote_stk_mins_binding(*, dataset_key: str, on_success_action_json: dict) -> None:
         if str(dataset_key or "").strip() != STK_MINS_DATASET_KEY:
             raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持股票历史分钟行情维护")
         action = dict(on_success_action_json or {})
         if str(action.get("action_type") or "dataset_action") != "dataset_action" or str(action.get("action_key") or "").strip() != STK_MINS_ACTION_KEY:
             raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测只支持股票历史分钟行情维护")
         request = dict(action.get("request") or {})
-        time_input = request.get("time_input")
-        if isinstance(time_input, dict) and time_input.get("trade_date") not in (None, ""):
+        if OpsProbeCommandService._has_fixed_time_input(request):
             raise WebAppError(status_code=422, code="validation_error", message="源站分钟行情探测不能与固定维护日期混用")
         filters = request.get("filters")
         freqs = split_multi_values((filters or {}).get("freq") if isinstance(filters, dict) else None)
@@ -264,6 +284,28 @@ class OpsProbeCommandService:
         invalid = [item for item in freqs if item not in STK_MINS_ALLOWED_FREQS]
         if invalid:
             raise WebAppError(status_code=422, code="validation_error", message=f"不支持的分钟周期：{', '.join(invalid)}")
+
+    @staticmethod
+    def _validate_remote_index_daily_binding(*, dataset_key: str, on_success_action_json: dict) -> None:
+        if str(dataset_key or "").strip() != INDEX_DAILY_DATASET_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数日线探测只支持指数日线行情维护")
+        action = dict(on_success_action_json or {})
+        if str(action.get("action_type") or "dataset_action") != "dataset_action" or str(action.get("action_key") or "").strip() != INDEX_DAILY_ACTION_KEY:
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数日线探测只支持指数日线行情维护")
+        request = dict(action.get("request") or {})
+        if OpsProbeCommandService._has_fixed_time_input(request):
+            raise WebAppError(status_code=422, code="validation_error", message="源站指数日线探测不能与固定维护日期混用")
+
+    @staticmethod
+    def _has_fixed_time_input(request: dict) -> bool:
+        if any(request.get(key) not in (None, "") for key in TIME_INPUT_KEYS):
+            return True
+        time_input = request.get("time_input")
+        if not isinstance(time_input, dict):
+            return False
+        if str(time_input.get("mode") or "point") != "point":
+            return True
+        return any(time_input.get(key) not in (None, "") for key in TIME_INPUT_KEYS)
 
     @staticmethod
     def _field_label(field_name: str) -> str:

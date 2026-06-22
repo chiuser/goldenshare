@@ -2,6 +2,8 @@ import { describe, expect, it } from "vitest";
 
 import {
   actionSupportsTriggerDayPointPolicy,
+  actionSupportsRemoteIndexDailyProbe,
+  actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
   buildCronExpression,
@@ -189,6 +191,16 @@ describe("自动任务日期策略", () => {
     expect(formatProbeConditionLabel("freshness_latest_open")).toBe("最新业务日命中最新交易日");
     expect(formatProbeRunCount(4)).toBe("已探测：4 次");
     expect(formatProbeRunCount(undefined)).toBe("已探测：—");
+  });
+
+  it("only enables remote index_daily source probing for index_daily maintain", () => {
+    expect(actionSupportsRemoteIndexDailyProbe("dataset_action", "index_daily.maintain")).toBe(true);
+    expect(actionSupportsRemoteIndexDailyProbe("dataset_action", "daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteIndexDailyProbe("workflow", "index_daily.maintain")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "index_daily.maintain", "remote_index_daily_ready")).toBe(true);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "daily.maintain", "remote_index_daily_ready")).toBe(false);
+    expect(actionSupportsRemoteProbeCondition("dataset_action", "stk_mins.maintain", "remote_index_daily_ready")).toBe(false);
+    expect(formatProbeConditionLabel("remote_index_daily_ready")).toBe("源站已有指数日线");
   });
 
   it("hides schedule timing fields for pure probe and relabels fallback timing", () => {

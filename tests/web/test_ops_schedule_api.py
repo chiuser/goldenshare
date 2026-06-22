@@ -2,9 +2,13 @@ from __future__ import annotations
 
 from calendar import monthrange
 from datetime import datetime
+from types import SimpleNamespace
 from zoneinfo import ZoneInfo
 
 import pytest
+
+from src.app.exceptions import WebAppError
+from src.ops.services.schedule_probe_binding_service import ScheduleProbeBindingService
 
 
 def test_ops_schedule_list_rejects_non_admin(app_client, user_factory) -> None:
@@ -1036,6 +1040,56 @@ def test_ops_schedule_remote_stk_mins_probe_mode_creates_probe_rule(app_client, 
     assert rule["on_success_action_json"]["request"]["filters"] == {"freq": ["1min", "5min"]}
 
 
+def test_ops_schedule_remote_index_daily_probe_mode_creates_probe_rule(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    create_response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "target_type": "dataset_action",
+            "target_key": "index_daily.maintain",
+            "display_name": "指数日线源站就绪后同步",
+            "schedule_type": "cron",
+            "trigger_mode": "probe",
+            "cron_expr": "*/5 15-18 * * 1-5",
+            "timezone": "Asia/Shanghai",
+            "probe_config": {
+                "source_key": "tushare",
+                "window_start": "15:20",
+                "window_end": "18:30",
+                "probe_interval_seconds": 300,
+                "max_triggers_per_day": 1,
+                "condition_kind": "remote_index_daily_ready",
+            },
+            "params_json": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": ["000001.SH", "399001.SZ"]},
+            },
+        },
+    )
+
+    assert create_response.status_code == 200
+    created = create_response.json()
+    assert created["probe_config"]["condition_kind"] == "remote_index_daily_ready"
+
+    probe_response = app_client.get(
+        f"/api/v1/ops/probes?schedule_id={created['id']}",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert probe_response.status_code == 200
+    probe_payload = probe_response.json()
+    assert probe_payload["total"] == 1
+    rule = probe_payload["items"][0]
+    assert rule["dataset_key"] == "index_daily"
+    assert rule["probe_condition_json"] == {"type": "remote_index_daily_ready"}
+    assert rule["on_success_action_json"]["action_key"] == "index_daily.maintain"
+    assert rule["source_key"] == "tushare"
+    assert rule["on_success_action_json"]["request"]["filters"] == {"ts_code": ["000001.SH", "399001.SZ"]}
+
+
 @pytest.mark.parametrize(
     ("payload_patch", "expected_message"),
     [
@@ -1111,3 +1165,102 @@ def test_ops_schedule_remote_stk_mins_probe_mode_rejects_invalid_binding(
 
     assert response.status_code == 422
     assert response.json()["message"] == expected_message
+
+
+@pytest.mark.parametrize(
+    ("payload_patch", "expected_message"),
+    [
+        (
+            {
+                "target_type": "workflow",
+                "target_key": "daily_market_close_maintenance",
+            },
+            "源站指数日线探测只支持指数日线行情维护",
+        ),
+        (
+            {
+                "target_type": "dataset_action",
+                "target_key": "daily.maintain",
+            },
+            "源站指数日线探测只支持指数日线行情维护",
+        ),
+        (
+            {
+                "calendar_policy": "trigger_day_point",
+            },
+            "触发日单日策略只支持新闻快讯和新闻通讯",
+        ),
+        (
+            {
+                "params_json": {
+                    "time_input": {"mode": "point", "trade_date": "2026-05-29"},
+                    "filters": {},
+                },
+            },
+            "源站指数日线探测不能与固定维护日期混用",
+        ),
+        (
+            {
+                "params_json": {
+                    "time_input": {"mode": "range", "start_date": "2026-05-01", "end_date": "2026-05-29"},
+                    "filters": {},
+                },
+            },
+            "源站指数日线探测不能与固定维护日期混用",
+        ),
+    ],
+)
+def test_ops_schedule_remote_index_daily_probe_mode_rejects_invalid_binding(
+    app_client,
+    user_factory,
+    payload_patch,
+    expected_message,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    payload = {
+        "target_type": "dataset_action",
+        "target_key": "index_daily.maintain",
+        "display_name": "错误指数日线源站探测",
+        "schedule_type": "cron",
+        "trigger_mode": "probe",
+        "cron_expr": "*/5 15-18 * * 1-5",
+        "timezone": "Asia/Shanghai",
+        "probe_config": {
+            "source_key": "tushare",
+            "window_start": "15:20",
+            "window_end": "18:30",
+            "probe_interval_seconds": 300,
+            "max_triggers_per_day": 1,
+            "condition_kind": "remote_index_daily_ready",
+        },
+        "params_json": {
+            "time_input": {"mode": "point"},
+            "filters": {},
+        },
+    }
+    payload.update(payload_patch)
+
+    response = app_client.post(
+        "/api/v1/ops/schedules",
+        headers={"Authorization": f"Bearer {token}"},
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == expected_message
+
+
+def test_schedule_probe_binding_rejects_remote_index_daily_probe_with_calendar_policy() -> None:
+    schedule = SimpleNamespace(
+        trigger_mode="probe",
+        target_type="dataset_action",
+        target_key="index_daily.maintain",
+        calendar_policy="monthly_last_day",
+        params_json={"time_input": {"mode": "point"}, "filters": {}},
+    )
+
+    with pytest.raises(WebAppError, match="源站指数日线探测不能与日期策略混用"):
+        ScheduleProbeBindingService._validate_remote_index_daily_schedule(schedule=schedule)

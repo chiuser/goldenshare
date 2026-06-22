@@ -1363,6 +1363,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 1. `freshness_latest_open`：读取本地 freshness，判断本地最新业务日是否命中最新开市日。
 2. `remote_stk_mins_ready`：仅用于 `stk_mins.maintain`，在探测窗口内请求 Tushare 分钟行情样本；源站返回最新开市日分钟行情后，再创建正式 `stk_mins.maintain` TaskRun。
+3. `remote_index_daily_ready`：仅用于 `index_daily.maintain`，在探测窗口内请求 Tushare 指数日线样本；源站返回最新开市日指数日线后，再创建正式 `index_daily.maintain` TaskRun。
 
 `remote_stk_mins_ready` 示例：
 
@@ -1390,6 +1391,35 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
     "filters": {
       "freq": ["1min", "5min", "15min", "30min", "60min"]
     }
+  }
+}
+```
+
+`remote_index_daily_ready` 示例：
+
+```json
+{
+  "target_type": "dataset_action",
+  "target_key": "index_daily.maintain",
+  "display_name": "指数日线源站就绪后同步",
+  "schedule_type": "cron",
+  "trigger_mode": "probe",
+  "cron_expr": "*/5 16-20 * * 1-5",
+  "timezone": "Asia/Shanghai",
+  "calendar_policy": null,
+  "probe_config": {
+    "source_key": "tushare",
+    "window_start": "16:00",
+    "window_end": "20:00",
+    "probe_interval_seconds": 300,
+    "max_triggers_per_day": 1,
+    "condition_kind": "remote_index_daily_ready"
+  },
+  "params_json": {
+    "time_input": {
+      "mode": "point"
+    },
+    "filters": {}
   }
 }
 ```

@@ -9,6 +9,11 @@ from sqlalchemy import select
 from src.ops.models.ops.probe_run_log import ProbeRunLog
 from src.ops.models.ops.task_run import TaskRun
 from src.ops.services.operations_probe_runtime_service import ProbeRuntimeService
+from src.ops.services.index_daily_remote_probe_service import (
+    INDEX_DAILY_REMOTE_READY_CONDITION,
+    IndexDailyRemoteReadinessProbeResult,
+    IndexDailyRemoteReadinessProbeService,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_REMOTE_READY_CONDITION,
     StkMinsRemoteReadinessProbeResult,
@@ -161,6 +166,36 @@ def test_ops_probe_create_rejects_invalid_remote_stk_mins_condition(app_client, 
     assert response.json()["message"] == "源站分钟行情探测只支持股票历史分钟行情维护"
 
 
+def test_ops_probe_create_rejects_invalid_remote_index_daily_condition(app_client, user_factory) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
+    token = login.json()["token"]
+
+    response = app_client.post(
+        "/api/v1/ops/probes",
+        headers={"Authorization": f"Bearer {token}"},
+        json={
+            "name": "错误指数日线源站探测",
+            "dataset_key": "daily",
+            "source_key": "tushare",
+            "window_start": "15:30",
+            "window_end": "17:30",
+            "probe_interval_seconds": 180,
+            "probe_condition_json": {"type": INDEX_DAILY_REMOTE_READY_CONDITION},
+            "on_success_action_json": {
+                "action_type": "dataset_action",
+                "action_key": "daily.maintain",
+                "request": {"time_input": {"mode": "point"}, "filters": {}},
+            },
+            "max_triggers_per_day": 2,
+            "timezone_name": "Asia/Shanghai",
+        },
+    )
+
+    assert response.status_code == 422
+    assert response.json()["message"] == "源站指数日线探测只支持指数日线行情维护"
+
+
 def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     app_client,
     user_factory,
@@ -275,6 +310,23 @@ def test_stk_mins_remote_probe_uses_default_listed_tushare_sample_codes(db_sessi
     assert samples == ["600000.SH"]
 
 
+def test_index_daily_remote_probe_requires_default_samples_in_raw_request_pool(db_session, monkeypatch) -> None:
+    class FakeIndexSeriesActiveDAO:
+        def list_active_codes(self, resource):
+            assert resource == "index_daily_raw"
+            return ["000001.SH", "399001.SZ", "399300.SZ", "000016.SH"]
+
+    class FakeDAOFactory:
+        def __init__(self, session):
+            del session
+            self.index_series_active = FakeIndexSeriesActiveDAO()
+
+    monkeypatch.setattr("src.ops.services.index_daily_remote_probe_service.DAOFactory", FakeDAOFactory)
+
+    with pytest.raises(ValueError, match="指数日线默认探测样本未配置完整：000905.SH"):
+        IndexDailyRemoteReadinessProbeService._resolve_sample_codes(db_session, {})
+
+
 def test_stk_mins_remote_probe_rejects_direct_non_stk_rule(db_session, probe_rule_factory) -> None:
     rule = probe_rule_factory(
         dataset_key="daily",
@@ -293,6 +345,30 @@ def test_stk_mins_remote_probe_rejects_direct_non_stk_rule(db_session, probe_rul
 
     with pytest.raises(ValueError, match="源站分钟行情探测只支持股票历史分钟行情维护"):
         StkMinsRemoteReadinessProbeService().evaluate(
+            db_session,
+            rule,
+            current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+        )
+
+
+def test_index_daily_remote_probe_rejects_direct_non_index_rule(db_session, probe_rule_factory) -> None:
+    rule = probe_rule_factory(
+        dataset_key="daily",
+        source_key=None,
+        probe_condition_json={"type": INDEX_DAILY_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "daily.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    with pytest.raises(ValueError, match="源站指数日线探测只支持指数日线行情维护"):
+        IndexDailyRemoteReadinessProbeService().evaluate(
             db_session,
             rule,
             current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
@@ -369,6 +445,69 @@ def test_stk_mins_remote_probe_builds_sample_request_from_resolver(db_session, p
     ]
 
 
+def test_index_daily_remote_probe_builds_sample_request_from_resolver(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
+
+    calls: list[dict] = []
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            calls.append({"api_name": api_name, "params": dict(params or {}), "fields": tuple(fields or ())})
+            return [{"ts_code": "000001.SH", "trade_date": "20260529"}]
+
+    monkeypatch.setattr("src.ops.services.index_daily_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr(
+        "src.ops.services.index_daily_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="index_daily",
+        source_key=None,
+        probe_condition_json={"type": INDEX_DAILY_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_daily.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": "000001.SH", "source_key": "tushare"},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IndexDailyRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is True
+    assert result.payload["business_date"] == "2026-05-29"
+    assert result.payload["latest_open_date"] == "2026-05-29"
+    assert result.payload["sample_codes"] == ["000001.SH"]
+    assert result.payload["matched_codes"] == ["000001.SH"]
+    assert result.payload["missing_codes"] == []
+    assert calls == [
+        {
+            "api_name": "index_daily",
+            "params": {
+                "ts_code": "000001.SH",
+                "trade_date": "20260529",
+                "limit": 1,
+                "offset": 0,
+            },
+            "fields": ("ts_code", "trade_date"),
+        }
+    ]
+
+
 def test_stk_mins_remote_probe_skips_closed_business_date(
     db_session,
     probe_rule_factory,
@@ -416,6 +555,58 @@ def test_stk_mins_remote_probe_skips_closed_business_date(
     assert result.payload["matched_freqs"] == []
     assert result.payload["sample_codes"] == []
     assert connector_calls == []
+
+
+def test_index_daily_remote_probe_requires_all_selected_codes(db_session, probe_rule_factory, monkeypatch) -> None:
+    class FakeTradeCalendarDAO:
+        def __init__(self, session):
+            del session
+
+        def fetch_by_pk(self, exchange, business_date):
+            del exchange
+            del business_date
+            return SimpleNamespace(is_open=True, pretrade_date=date(2026, 5, 28))
+
+    class FakeConnector:
+        def call(self, api_name, params=None, fields=None):
+            del api_name
+            del fields
+            if (params or {}).get("ts_code") == "000001.SH":
+                return [{"ts_code": "000001.SH", "trade_date": "20260529"}]
+            return []
+
+    monkeypatch.setattr("src.ops.services.index_daily_remote_probe_service.TradeCalendarDAO", FakeTradeCalendarDAO)
+    monkeypatch.setattr(
+        "src.ops.services.index_daily_remote_probe_service.create_source_connector",
+        lambda _source_key: FakeConnector(),
+    )
+    rule = probe_rule_factory(
+        dataset_key="index_daily",
+        source_key=None,
+        probe_condition_json={"type": INDEX_DAILY_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_daily.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"ts_code": ["000001.SH", "399001.SZ"]},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    result = IndexDailyRemoteReadinessProbeService().evaluate(
+        db_session,
+        rule,
+        current=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc),
+    )
+
+    assert result.matched is False
+    assert result.message == "源站尚未返回全部指数日线：缺少 399001.SZ"
+    assert result.payload["sample_codes"] == ["000001.SH", "399001.SZ"]
+    assert result.payload["matched_codes"] == ["000001.SH"]
+    assert result.payload["missing_codes"] == ["399001.SZ"]
+    assert result.payload["sample_request_count"] == 2
 
 
 def test_stk_mins_remote_probe_skips_missing_business_calendar(
@@ -593,3 +784,82 @@ def test_probe_runtime_remote_stk_mins_miss_does_not_create_task_run(db_session,
     assert result.triggered_rules == 0
     assert task_runs == []
     assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "stk_mins")) is None
+
+
+def test_probe_runtime_remote_index_daily_hit_creates_task_run_with_latest_open_date(
+    db_session,
+    probe_rule_factory,
+    monkeypatch,
+) -> None:
+    rule = probe_rule_factory(
+        dataset_key="index_daily",
+        source_key="tushare",
+        probe_condition_json={"type": INDEX_DAILY_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_daily.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {"source_key": "tushare"},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.index_daily_remote_probe,
+        "evaluate",
+        lambda session, rule, current: IndexDailyRemoteReadinessProbeResult(
+            matched=True,
+            message="源站已返回目标交易日指数日线",
+            payload={"latest_open_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 1
+    assert len(task_runs) == 1
+    task_run = task_runs[0]
+    assert task_run.resource_key == "index_daily"
+    assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-05-29"}
+    assert task_run.filters_json == {}
+    run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
+    assert run_log is not None
+    assert run_log.condition_matched is True
+    assert db_session.scalar(select(TaskRun).where(TaskRun.id == task_run.id)) is not None
+
+
+def test_probe_runtime_remote_index_daily_miss_does_not_create_task_run(db_session, probe_rule_factory, monkeypatch) -> None:
+    probe_rule_factory(
+        dataset_key="index_daily",
+        source_key=None,
+        probe_condition_json={"type": INDEX_DAILY_REMOTE_READY_CONDITION},
+        on_success_action_json={
+            "action_type": "dataset_action",
+            "action_key": "index_daily.maintain",
+            "request": {
+                "time_input": {"mode": "point"},
+                "filters": {},
+                "run_scope": "probe_triggered",
+            },
+        },
+    )
+
+    service = ProbeRuntimeService()
+    monkeypatch.setattr(
+        service.index_daily_remote_probe,
+        "evaluate",
+        lambda session, rule, current: IndexDailyRemoteReadinessProbeResult(
+            matched=False,
+            message="源站尚未返回全部指数日线：缺少 000001.SH",
+            payload={"latest_open_date": "2026-05-29"},
+        ),
+    )
+
+    task_runs, result = service.run_once(db_session, now=datetime(2026, 5, 29, 8, 0, tzinfo=timezone.utc), limit=10)
+
+    assert result.triggered_rules == 0
+    assert task_runs == []
+    assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_daily")) is None

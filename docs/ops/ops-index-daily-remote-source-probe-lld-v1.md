@@ -1,9 +1,17 @@
 # `index_daily` 远程源站探测触发 LLD v1
 
-状态：待评审  
-创建时间：2026-06-22  
-依据方案：`docs/ops/ops-index-daily-remote-source-probe-plan-v1.md`  
+状态：已实现，待生产验收
+创建时间：2026-06-22
+实现时间：2026-06-22
+依据方案：`docs/ops/ops-index-daily-remote-source-probe-plan-v1.md`
 适用范围：`index_daily.maintain` 自动任务探测触发、Probe Runtime、自动任务页面、Probe API 测试。
+
+实现摘要：
+
+1. 已新增 `remote_index_daily_ready` 探测条件，只允许绑定 `index_daily.maintain`。
+2. 已新增 `IndexDailyRemoteReadinessProbeService`，探测参数经 `DatasetActionResolver -> _index_daily_params()` 生成，再追加 `limit=1/offset=0` 和最小字段。
+3. 已接入 Schedule API、Direct Probe API、Probe Runtime 和自动任务页面。
+4. 已补后端与前端定向测试；生产环境仍需创建自动任务后观察真实探测记录与 TaskRun 触发。
 
 ## 1. 本轮目标
 
@@ -678,14 +686,27 @@ uv run python scripts/check_docs_integrity.py
 
 ## 11. 验收标准
 
-1. 自动任务页选择 `index_daily.maintain` 时，可选择“源站已有指数日线”。
-2. 后端拒绝 workflow、非 index_daily、calendar_policy、固定日期、range time_input。
-3. 默认 5 个代表指数必须全部存在于 `index_daily_raw` 请求池。
-4. 默认 5 个代表指数全部返回最新开市日 `trade_date` 后，只创建一个 `index_daily.maintain` TaskRun。
-5. TaskRun 的 `trade_date` 与 probe 命中的 `latest_open_date` 一致。
-6. 显式 `filters.ts_code` 时，只探测显式样本，且显式样本全部命中才触发。
-7. Probe 过程不写业务表、不刷新 freshness、不修改 `raw_tushare.index_daily`。
-8. 相关后端测试、前端测试、文档检查通过，或明确记录非本轮既有失败。
+1. 已实现：自动任务页选择 `index_daily.maintain` 时，可选择“源站已有指数日线”。
+2. 已实现：后端拒绝 workflow、非 index_daily、calendar_policy、固定日期、range time_input。
+3. 已实现：默认 5 个代表指数必须全部存在于 `index_daily_raw` 请求池。
+4. 已实现：默认 5 个代表指数全部返回最新开市日 `trade_date` 后，只创建一个 `index_daily.maintain` TaskRun。
+5. 已实现：TaskRun 的 `trade_date` 与 probe 命中的 `latest_open_date` 一致。
+6. 已实现：显式 `filters.ts_code` 时，只探测显式样本，且显式样本全部命中才触发。
+7. 已实现：Probe 过程不写业务表、不刷新 freshness、不修改 `raw_tushare.index_daily`。
+8. 待生产验收：创建 `index_daily.maintain` 自动任务后，确认探测窗口内产生 ProbeRunLog，全部样本命中时只创建一个正式 TaskRun。
+
+本地验证结果：
+
+```text
+uv run ruff check src/ops/services/index_daily_remote_probe_service.py src/ops/services/operations_probe_runtime_service.py src/ops/services/probe_service.py src/ops/services/schedule_probe_binding_service.py tests/web/test_ops_probe_api.py tests/web/test_ops_schedule_api.py
+All checks passed.
+
+uv run pytest -q tests/web/test_ops_probe_api.py tests/web/test_ops_schedule_api.py
+70 passed.
+
+npm --prefix frontend test -- --run src/pages/ops-v21-task-auto-tab.test.tsx
+12 passed.
+```
 
 ## 12. 风险与控制
 

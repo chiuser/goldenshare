@@ -19,6 +19,11 @@ from src.ops.models.ops.task_run import TaskRun
 from src.ops.queries.freshness_query_service import OpsFreshnessQueryService
 from src.foundation.config.settings import get_settings
 from src.ops.services.operations_dataset_status_snapshot_service import DatasetStatusSnapshotService
+from src.ops.services.index_daily_remote_probe_service import (
+    INDEX_DAILY_ACTION_KEY,
+    INDEX_DAILY_REMOTE_READY_CONDITION,
+    IndexDailyRemoteReadinessProbeService,
+)
 from src.ops.services.stk_mins_remote_probe_service import (
     STK_MINS_ACTION_KEY,
     STK_MINS_REMOTE_READY_CONDITION,
@@ -40,6 +45,7 @@ class ProbeRuntimeService:
         self.snapshot_service = DatasetStatusSnapshotService()
         self.freshness_query = OpsFreshnessQueryService()
         self.stk_mins_remote_probe = StkMinsRemoteReadinessProbeService()
+        self.index_daily_remote_probe = IndexDailyRemoteReadinessProbeService()
 
     def run_once(self, session: Session, *, now: datetime | None = None, limit: int = 100) -> tuple[list[TaskRun], ProbeTickResult]:
         current = now or datetime.now(timezone.utc)
@@ -128,6 +134,9 @@ class ProbeRuntimeService:
         if condition_type == STK_MINS_REMOTE_READY_CONDITION:
             result = self.stk_mins_remote_probe.evaluate(session, rule, current=current)
             return result.matched, result.message, result.payload
+        if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
+            result = self.index_daily_remote_probe.evaluate(session, rule, current=current)
+            return result.matched, result.message, result.payload
         if condition_type != "freshness_latest_open":
             raise ValueError(f"不支持的探测条件：{condition_type}")
         definition = get_dataset_definition(rule.dataset_key)
@@ -170,10 +179,12 @@ class ProbeRuntimeService:
         request = dict(action.get("request") or {})
         time_input = dict(request.get("time_input") or {"mode": "point"})
         condition = dict(rule.probe_condition_json or {})
-        if str(condition.get("type") or "freshness_latest_open") == STK_MINS_REMOTE_READY_CONDITION:
-            if action_key != STK_MINS_ACTION_KEY:
-                raise ValueError("源站分钟行情探测只支持股票历史分钟行情维护")
-            latest_open_date = self._parse_probe_latest_open_date(probe_payload)
+        condition_type = str(condition.get("type") or "freshness_latest_open")
+        expected_action_key = self._remote_source_probe_action_key(condition_type)
+        if expected_action_key is not None:
+            if action_key != expected_action_key:
+                raise ValueError(self._remote_source_probe_binding_error(condition_type))
+            latest_open_date = self._parse_probe_latest_open_date(probe_payload, condition_label=self._remote_source_probe_label(condition_type))
             time_input = {**time_input, "mode": "point", "trade_date": latest_open_date.isoformat()}
         filters = dict(request.get("filters") or {})
         filters.pop("source_key", None)
@@ -269,11 +280,37 @@ class ProbeRuntimeService:
         return get_dataset_definition(dataset_key).source.source_key_default
 
     @staticmethod
-    def _parse_probe_latest_open_date(probe_payload: dict | None) -> date:
+    def _parse_probe_latest_open_date(probe_payload: dict | None, *, condition_label: str = "源站探测") -> date:
         value = (probe_payload or {}).get("latest_open_date")
+        if isinstance(value, datetime):
+            return value.date()
         if isinstance(value, date):
             return value
         text = str(value or "").strip()
         if not text:
-            raise ValueError("源站分钟行情探测命中缺少 latest_open_date")
+            raise ValueError(f"{condition_label}命中缺少 latest_open_date")
         return date.fromisoformat(text)
+
+    @staticmethod
+    def _remote_source_probe_action_key(condition_type: str) -> str | None:
+        if condition_type == STK_MINS_REMOTE_READY_CONDITION:
+            return STK_MINS_ACTION_KEY
+        if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
+            return INDEX_DAILY_ACTION_KEY
+        return None
+
+    @staticmethod
+    def _remote_source_probe_label(condition_type: str) -> str:
+        if condition_type == STK_MINS_REMOTE_READY_CONDITION:
+            return "源站分钟行情探测"
+        if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
+            return "源站指数日线探测"
+        return "源站探测"
+
+    @staticmethod
+    def _remote_source_probe_binding_error(condition_type: str) -> str:
+        if condition_type == STK_MINS_REMOTE_READY_CONDITION:
+            return "源站分钟行情探测只支持股票历史分钟行情维护"
+        if condition_type == INDEX_DAILY_REMOTE_READY_CONDITION:
+            return "源站指数日线探测只支持指数日线行情维护"
+        return f"不支持的探测条件：{condition_type}"
