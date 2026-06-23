@@ -33,14 +33,14 @@
    - 避免出现 `partition_key != config.trade_date` 的双日期口径 bug。
 
 3. 新 asset check 名称按长期编码规范使用 `_check` 后缀：
-   - 例如 `raw_index_daily_file_exists_check`。
+   - 例如 `raw_index_daily_file_contract_check`。
    - 旧 check 名称只作为历史 event 保留，不进入新 readiness。
 
 ## 3. 非目标
 
 本专项不做以下事情：
 
-- 不清理 Dagster DB 里的旧 by-code run/materialization/check event。
+- 不在新链路开发、历史文件转换、runless event 补录和 sensor 启用阶段清理 Dagster DB 里的旧 by-code run/materialization/check event；旧 index daily 状态/事件清理只能在 P9 作为独立治理动作执行。
 - 不把 raw 层改成 silver 语义层。
 - 不把 Tushare 作为默认正式路径。
 - 不在本专项实现 Tushare fallback。
@@ -714,25 +714,41 @@ index_daily_update_job
 
 ## 10. raw checks
 
-新增 check 名称：
+新增 raw by-date blocking check 只能是两个聚合 check：
 
-- `raw_index_daily_file_exists_check`
-- `raw_index_daily_row_count_positive_check`
-- `raw_index_daily_required_columns_and_types_check`
-- `raw_index_daily_partition_date_matches_check`
-- `raw_index_daily_unique_ts_code_trade_date_check`
-- `raw_index_daily_registered_code_coverage_check`
+- `raw_index_daily_file_contract_check`
+- `raw_index_daily_code_coverage_check`
 
-`registered` 在该 check 名里只表示“本次运行读取到的 DG dynamic partitions 注册集合”，不表示使用 `silver_index_basic list_date/exp_date` 推导有效代码。若实现前决定进一步降低歧义，可整体改名为 `raw_index_daily_expected_code_coverage_check`；一旦开工，名称必须在 asset check、catalog、readiness、runless event、tests 中一次性统一。
+禁止把文件存在、行数、schema、分区日期、唯一键拆成多条 blocking check。拆得太碎会给 Dagster DB 产生大量细碎 check event，不增加新语义，只增加事件写入、UI 展示和 readiness 查询负担。
 
-coverage check 是一个统一 check，但必须按 partition 所属阶段选择覆盖依据：
+`raw_index_daily_file_contract_check` 聚合以下 raw 文件契约：
+
+1. 目标 by-date 文件存在。
+2. 文件行数大于 0。
+3. 字段和类型符合 `RAW_INDEX_DAILY_SCHEMA`。
+4. 文件内 `trade_date` 全部等于 partition trade date 的 `YYYYMMDD`。
+5. `(ts_code, trade_date)` 唯一。
+
+metadata 必须包含：
+
+- `trade_date`
+- `file_path`
+- `row_count`
+- `schema_ok`
+- `partition_date_ok`
+- `unique_key_ok`
+- `failure_reason_counts`
+- `failed_contract_items`
+- `sample_rows`
+
+`raw_index_daily_code_coverage_check` 是统一覆盖检查，但必须按 partition 所属阶段选择覆盖依据：
 
 1. 历史转换段，覆盖依据是当前 DG raw-by-code 输入文件中真实存在的 `(ts_code, trade_date)` pair；目标 by-date 文件必须与输入 pair 集合一致。
 2. 日更段，覆盖依据是第 6 节运行时 Lake 期望 code set 与 source completeness gate 的同一套 code set。
 
 该 check 不读取 `silver_index_basic list_date/exp_date`，也不得把历史日期机械要求为当前 946 个 code。
 
-metadata 必须包含：
+code coverage metadata 必须包含：
 
 - `trade_date`
 - `coverage_basis`
@@ -1085,8 +1101,8 @@ defs/bootstrap/index_daily_raw_by_date_runless_events_cli.py
 | 类型 | 数量估算 |
 | --- | ---: |
 | materialization | 约 6,800 |
-| checks | 约 6,800 × 6 = 40,800 |
-| 总计 | 约 47,600 |
+| checks | 约 6,800 × 2 = 13,600 |
+| 总计 | 约 20,400 |
 
 要求：
 
@@ -1095,15 +1111,16 @@ defs/bootstrap/index_daily_raw_by_date_runless_events_cli.py
 - full 阶段按批提交，每批不超过 250 个 partitions。
 - 每个 check event 必须绑定本轮 materialization target。
 - 不允许写 green check event，除非本地 raw by-date check 等价逻辑已经通过。
-- 历史转换段的 coverage check event metadata 必须写 `coverage_basis=by_code_source_pairs`。
+- 历史转换段的 `raw_index_daily_code_coverage_check` event metadata 必须写 `coverage_basis=by_code_source_pairs`。
 - 禁止补录旧 `raw_tushare_index_daily_by_code` 的新 event。
 
-不清理旧 Dagster event 的理由：
+P4 不清理旧 Dagster event 的理由：
 
 - Dagster event log 是历史审计账，不是当前 asset 事实源。
-- 删除旧 event 风险高，会破坏历史 run 调试链路。
+- 删除旧 event 风险高，必须有独立 dry-run、边界、备份和审批。
 - 新 sensor/readiness/catalog 只读取 `raw_index_daily`，旧 by-code event 不参与新链路。
 - 旧 asset definition 删除后，UI 中旧 event 只作为历史记录存在。
+- 旧 index daily 状态/事件清理如确有需要，只能进入 P9，不能和 runless event 补录混在一起。
 
 ## 18. 旧 by-code 文件删除
 
@@ -1125,9 +1142,39 @@ raw/tushare/index_daily_by_code/**
 
 不得删除：
 
-- Dagster DB 旧 event。
+- Dagster DB 旧 event，P8 只处理 lake 物理文件。
 - run history。
 - 旧报告文件，除非用户明确要求。
+
+### 18.1 旧 index daily Dagster 状态/事件清理
+
+P9 是可选的独立治理阶段，不是新 by-date raw/silver 日更链路的启用条件。只有在 P7 active source 清零、P8 物理旧文件处理完成或明确延期、并且新 readiness/sensor/catalog 只读取 `raw_index_daily` 和 `silver_index_daily` 后，才允许评估 P9。
+
+P9 候选清理对象只能通过精确名称和边界选出：
+
+- 旧 `raw_tushare_index_daily_by_code` materialization event。
+- 旧 raw-by-code check event。
+- 旧 `index_daily_update_job` run 记录。
+- 已删除旧 sensor 的 cursor/state。
+- P8 已删除的 `raw/tushare/index_daily_by_code/**` 路径对应的旧观测记录。
+
+P9 禁止删除：
+
+- `cn_a_index_ts_codes` dynamic partitions。
+- `cn_a_index_trade_days` dynamic partitions。
+- 新 `raw_index_daily` materialization/check event。
+- `silver_index_daily` 历史。
+- prod DB 中任何 raw、core、serving、active pool 数据。
+- 新 by-date lake 文件或历史转换报告。
+
+P9 执行规则：
+
+1. 必须先生成 dry-run 报告，列出候选对象类型、精确名称、storage id 或时间范围、预计数量、样本和保留对象。
+2. 必须证明候选对象与新 readiness helper、sensor cursor、asset selection、catalog、run contract 无交集。
+3. 必须有备份或回滚方案；没有安全回滚时，只允许归档/忽略旧记录。
+4. 禁止宽泛清空 Dagster event history，禁止按 asset group、时间段或表级条件误删非 index daily 数据。
+5. 如果 Dagster 当前能力不支持安全精确删除，则 P9 停止，不得用直接 SQL 强行清理。
+6. 如果新链路必须依赖 P9 清理才能运行，说明 P1-P7 仍有旧依赖，必须回退到设计修正。
 
 ## 19. 性能门禁
 
@@ -1197,6 +1244,7 @@ raw/tushare/index_daily_by_code/**
 - prod DB SQL builder 单测禁止 `select *` 和 forbidden columns。
 - runless event CLI dry-run 路径不得调用 `report_runless_asset_event(...)`。
 - `raw_index_daily_update_job_sensor` 在 by-date baseline 缺失时必须 skip/block，不得猜测 first target。
+- raw index daily blocking check 名称只能是 `raw_index_daily_file_contract_check` 和 `raw_index_daily_code_coverage_check`；禁止重新引入 `file_exists/row_count/schema/partition_date/unique_key/registered_code_coverage/expected_code_coverage` 等细碎 raw check 名称。
 
 ## 21. 测试计划
 
@@ -1233,6 +1281,8 @@ tests/test_index_daily_raw_by_date_asset.py
 - partition date。
 - unique key。
 - 运行时 Lake 期望 code coverage。
+- raw file 契约收敛在 `raw_index_daily_file_contract_check`，coverage 收敛在 `raw_index_daily_code_coverage_check`。
+- file contract metadata 能说明文件缺失、空文件、schema 错、日期错、重复键的具体子项和样本。
 - prod DB source field mapping。
 - `change` raw 字段保持不被提前改名。
 
@@ -1298,6 +1348,7 @@ tests/test_index_daily_raw_by_date_runless_events.py
 - dry-run 不写 event。
 - sample/full audit。
 - runless check event 绑定 materialization。
+- 每个 partition 只补 `raw_index_daily_file_contract_check` 和 `raw_index_daily_code_coverage_check` 两个 raw check event。
 - 超过 batch 上限 fail closed。
 - 当前 DG by-code path 只允许在历史转换 bootstrap 的只读输入路径中出现；旧 Lake Console 路径禁止出现。
 
@@ -1426,6 +1477,14 @@ tests/test_index_daily_raw_by_date_runless_events.py
 - 单独审批后删除旧 by-code raw files。
 - 不删除 Dagster DB event。
 
+### P9：旧 index daily Dagster 状态/事件清理
+
+目标：
+
+- 单独审批后执行旧 index daily 状态/事件清理 dry-run。
+- 只在 dry-run 证明不影响新 readiness、sensor、catalog、run contract 后 apply。
+- 若无法安全精确删除，则保留旧记录作为历史审计账，不强行清理。
+
 ## 23. 失败停止条件
 
 任一条件触发，必须停止开发：
@@ -1438,6 +1497,7 @@ tests/test_index_daily_raw_by_date_runless_events.py
 - runless event 补录需要无界 Dagster event history 扫描。
 - 需要清理 Dagster DB 旧 event 才能让新链路工作。
 - 需要保留旧 by-code 兼容路径才能让新链路工作。
+- P9 旧状态/事件清理 dry-run 无法证明候选对象与新 raw/silver/readiness/sensor 无交集。
 
 ## 24. 验收标准
 
@@ -1446,6 +1506,8 @@ tests/test_index_daily_raw_by_date_runless_events.py
 - `raw_index_daily[trade_date]` 正式运行成功。
 - `silver_index_daily[trade_date]` 只依赖 by-date raw。
 - `raw_index_daily_update_job_sensor` 每 tick 最多提交一个 date-level run。
+- raw by-date blocking check 只有 `raw_index_daily_file_contract_check` 和 `raw_index_daily_code_coverage_check` 两个聚合 check。
+- 若执行 P9，清理报告证明未删除 dynamic partitions、新 raw by-date event、新 silver 历史、prod 数据和 by-date lake 文件；若不执行 P9，旧事件不参与新 readiness 和日更状态。
 - 生产代码不再引用旧 by-code raw asset/path/helper。
 - catalog 与代码一致。
 - P0 profiling 确认范围内的 by-code 到 by-date 历史转换与 runless event 补录 audit 通过。
@@ -1498,8 +1560,9 @@ CodeGraph 与源码审计确认，本专项真实改动面至少包括：
 2. backend 复用风险：backend prod-core-db 已有字段口径但没有 DG code set filter，且跨区直接引用不允许。orchestrator 需要自己的 prod adapter。
 3. baseline 缺失风险：当前 by-date 目标路径不存在，sensor 不能在 M3/M4 前通过“最新 ready raw_index_daily”计算日更起点。
 4. bootstrap 遗留风险：P3/P4 必须临时读 by-code 文件，但 P7 后如果不删除或移出 active source，会和旧符号清零门禁冲突。
-5. check 名称歧义：`registered_code_coverage` 容易被误解成 lifecycle effective code。实现时必须用 metadata `coverage_basis` 固定语义，必要时开工前统一改名。
+5. check 过碎风险：如果把文件存在、row count、schema、partition date、unique key、coverage 都拆成独立 blocking check，会给 Dagster DB 增加大量细碎 event。实现必须保持两个聚合 check：`raw_index_daily_file_contract_check` 和 `raw_index_daily_code_coverage_check`。
 6. 固定日期风险：当前审计样本中的 `2026-06-22/2026-06-23` 不能进入 production runtime 逻辑。
+7. 旧数据清理风险：P8 只删旧 by-code lake 文件，P9 才处理旧 Dagster 状态/事件。P9 不能成为新链路启用门槛；如果新链路需要清旧 event 才能跑，说明还有旧依赖没清零。
 
 ### 25.4 建议推进步骤
 
@@ -1509,12 +1572,159 @@ CodeGraph 与源码审计确认，本专项真实改动面至少包括：
 4. P3 单独申请 lake 写入，按 P0 范围生成 by-date raw 文件，sample/full 分开。
 5. P4 单独申请 Dagster event 写入，runless materialization/check event 先 dry-run、再 sample、再 full。
 6. P5/P6 切 silver、major indices、raw/silver sensors；新 raw sensor 先 STOPPED，完成 by-date baseline 验收后再启用。
-7. P7 清零旧 by-code active source；P8 单独审批后删除旧物理文件。
+7. P7 清零旧 by-code active source；P8 单独审批后删除旧物理文件；P9 如确有必要，再单独审批旧 index daily Dagster 状态/事件清理。
 
 ### 25.5 遗留拍板项
 
 1. P-1 补数目标交易日：应以正式 P0 profiling 时当前 DG by-code 最大 trade date 为下限；若开发期间旧 by-code 继续增长，需要以执行前最新 profiling 为准。
 2. 86 个 code 若出现 Tushare 源端确无数据，是否允许建立人工批准的 source gap 白名单继续推进。
-3. `raw_index_daily_registered_code_coverage_check` 是否在开工前改名为 `raw_index_daily_expected_code_coverage_check`。
-4. P7 后 bootstrap 代码处理方式：删除，还是移出 `src/orchestrator/defs/**` active source。无论选择哪种，production static gate 旧 symbol 必须为 0。
-5. catalog 实现方式：新增 `_prod_core_raw_entry(...)` helper，还是直接 `_entry(...)`。若直接 `_entry(...)`，测试必须覆盖全部字段，防止以后回退到 Tushare helper。
+3. P7 后 bootstrap 代码处理方式：删除，还是移出 `src/orchestrator/defs/**` active source。无论选择哪种，production static gate 旧 symbol 必须为 0。
+4. catalog 实现方式：新增 `_prod_core_raw_entry(...)` helper，还是直接 `_entry(...)`。若直接 `_entry(...)`，测试必须覆盖全部字段，防止以后回退到 Tushare helper。
+5. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起 dry-run、审批和回滚方案；若不执行，旧记录保留为历史审计账。
+
+## 26. 2026-06-23 check 收敛与 P9 清理代码级审计
+
+本节只记录代码级审计和只读 dry-run 结果，不代表已经修改 Python 代码，也不代表允许执行清理 apply。
+
+### 26.1 当前 active 代码事实
+
+CodeGraph 和源码逐项审计确认，当前 active 代码仍是旧 by-code raw 链路：
+
+| 文件 | 当前事实 | 对本方案的含义 |
+| --- | --- | --- |
+| `defs/assets/index_daily.py` | `raw_tushare_index_daily_by_code` 仍是 `cn_a_index_ts_codes` 分区 raw asset；`silver_index_daily` 通过 `AllPartitionMapping()` 依赖旧 raw-by-code，并扫描所有 by-code parquet。 | P1/P2 必须新增 `raw_index_daily[trade_date]`；P5 必须把 silver 输入切到同日 by-date raw。 |
+| `defs/checks/index_daily_checks.py` | raw checks 是 5 个旧 by-code checks：file exists、row count、schema、partition code、unique key。 | P2 必须替换为 `raw_index_daily_file_contract_check` 与 `raw_index_daily_code_coverage_check` 两个聚合 check；不得把 5 个旧 check 平移到新 asset。 |
+| `defs/jobs/index_daily_update.py` | job selection 是旧 `raw_tushare_index_daily_by_code` + checks。 | 新 job 必须选择 `raw_index_daily` + 两个聚合 checks。旧 `index_daily_update_job` 最终删除，不保留别名。 |
+| `defs/sensors/index_daily_sensor.py` | sensor 仍查 Tushare readiness，按缺失 code 生成 per-code RunRequest，cursor 记录 selected codes / offset / repair state。 | 新 raw sensor 必须改为 prod source completeness gate + date-level single RunRequest，cursor 不再保存 per-code repair 状态。 |
+| `defs/sensors/silver_index_daily_sensor.py` | sensor 先跑 by-code raw gap audit，再检查 by-code 文件是否包含目标交易日。 | 新 silver sensor 只读取 `raw_index_daily[trade_date]` readiness，不扫描 by-code 文件集合。 |
+| `defs/sensors/index_daily_raw_file_readiness.py` | readiness helper 基于 `raw_index_daily_by_code_path(...)` 扫 946 个 by-code 文件。 | 新 helper 应基于单个 by-date raw 文件和 code coverage 元数据；旧 helper P7 删除。 |
+| `defs/sensors/readiness.py` | `RAW_INDEX_DAILY_BY_CODE_CHECKS` 仍列 5 个旧 check，`raw_index_daily_by_code_ready_for_code(...)` 仍存在。 | 必须新增 date-level `RAW_INDEX_DAILY_*` readiness spec，并在 P7 清零旧 by-code readiness。 |
+| `defs/catalog/lake_assets.py` | raw entry 仍是 `_tushare_raw_entry(asset_key='raw_tushare_index_daily_by_code')`，blocking checks 是旧 5 个 by-code checks；当前 partition model 命名还写成 `TRADE_DATE_PARTITION_RAW_INDEX_DAILY`。 | 新 entry 必须写 `SourceSystem.PROD_CORE_DB`、by-date path、两个聚合 checks 和正确 trade-date partition model；旧 entry P7 删除。 |
+| `defs/run_contracts/configs.py` | op key 是 `raw_tushare_index_daily_by_code`，run config 里重复传 `trade_date`。 | 新 raw asset 以 partition key 作为唯一日期参数，run config 只保留非分区参数。 |
+| `defs/asset_guards/market_major_indices_lake_readiness.py` | major indices readiness 仍读取 by-code raw paths，用 silver coverage 语义补判断。 | P6 必须切到 by-date raw/silver facts，不再 import 旧 path。 |
+
+### 26.2 check 收敛的实现改动点
+
+`raw_index_daily_file_contract_check` 必须把旧 raw-by-code 的 4 类文件契约和新 by-date date/key 语义聚合到一条 blocking check：
+
+1. 文件存在。
+2. row count 大于 0。
+3. schema 与 `RAW_INDEX_DAILY_SCHEMA` 一致。
+4. 文件内 `trade_date` 等于 partition key 的 `YYYYMMDD`。
+5. `(ts_code, trade_date)` 唯一。
+
+该 check 的 metadata 至少包含 `file_path`、`row_count`、`schema_ok`、`partition_date_ok`、`unique_key_ok`、`failed_contract_items`、`failure_reason_counts` 和样本；这样排障信息不丢，但 Dagster DB 只写一条 check event。
+
+`raw_index_daily_code_coverage_check` 必须只承载 code coverage：
+
+1. 历史转换段使用 `coverage_basis=by_code_source_pairs`，证明 by-code 输入 `(ts_code, trade_date)` pair 到 by-date 目标无损。
+2. 日更段使用 `coverage_basis=prod_serving_expected_lake_codes`，证明 prod serving 覆盖运行时 Lake 期望 code set。
+3. metadata 记录 `expected_code_count`、`expected_code_set_hash`、`actual_code_count`、missing/extra count 和样本。
+
+测试和静态门禁必须覆盖：
+
+1. active source 中 raw by-date blocking check 名称只能是这两个。
+2. 禁止新增 `raw_index_daily_file_exists_check`、`raw_index_daily_row_count_positive_check`、`raw_index_daily_required_columns_and_types_check`、`raw_index_daily_partition_date_matches_check`、`raw_index_daily_unique_ts_code_trade_date_check`、`raw_index_daily_registered_code_coverage_check`、`raw_index_daily_expected_code_coverage_check`。
+3. readiness 不能同时支持新旧 raw check。
+4. runless event dry-run 对每个 partition 只计划 materialization + 2 个 raw check event。
+
+### 26.3 P9 dry-run 执行口径
+
+本轮 dry-run 只读本机正式 Dagster Postgres：
+
+```text
+DAGSTER_HOME: /Users/congming/.goldenshare/dagster_home
+postgres_url: postgresql://congming@localhost:5432/goldenshare_dagster
+执行方式: psql SELECT only
+写入动作: 0
+Dagster API/job/sensor/backfill 调用: 0
+```
+
+当前 Dagster storage 总量：
+
+| 表 | 行数 |
+| --- | ---: |
+| `event_logs` | 6,381,606 |
+| `runs` | 71,150 |
+| `run_tags` | 522,615 |
+| `asset_check_executions` | 1,217,342 |
+| `asset_event_tags` | 73,264 |
+| `dynamic_partitions` | 30,560 |
+| `instigators` | 44 |
+
+### 26.4 P9 dry-run 结果
+
+新目标 `raw_index_daily` 当前没有正式 Dagster DB 记录：
+
+| 对象 | 行数 |
+| --- | ---: |
+| `event_logs.asset_key='["raw_index_daily"]'` | 0 |
+| `asset_check_executions.asset_key='["raw_index_daily"]'` | 0 |
+| `asset_event_tags.asset_key='["raw_index_daily"]'` | 0 |
+| `asset_keys.asset_key='["raw_index_daily"]'` | 0 |
+
+旧 by-code raw 候选：
+
+| 候选对象 | 行数 / 数量 | 范围 |
+| --- | ---: | --- |
+| `raw_tushare_index_daily_by_code` asset events | 48,515 | event id `1439487` 到 `6622347`，`2026-05-25 10:19:38` 到 `2026-06-22 17:14:35` |
+| 其中 materialization | 23,780 | 同上 |
+| 其中 planned materialization | 24,734 | 同上 |
+| 其中 freshness state change | 1 | `2026-05-25 10:19:38` |
+| 旧 raw-by-code check executions | 123,684 | evaluation event id `1439537` 到 `6622391` |
+| 旧 raw-by-code check succeeded | 118,909 | 5 个旧 check 各约 23,782 条 |
+| 旧 raw-by-code check planned | 4,775 | 5 个旧 check 各约 954 到 956 条 |
+| `asset_event_tags` old by-code | 23,782 | key 为 `dagster/data_version` |
+
+旧 job / run 候选：
+
+| job | runs | event_logs | run_tags | 当前判断 |
+| --- | ---: | ---: | ---: | --- |
+| `index_daily_update_job` | 24,741 | 1,634,475 | 206,649 | 旧 per-code raw 更新 job，P9 候选，但不建议默认和 asset/check 事件一起删除。 |
+| `index_daily_history_backfill_job` | 9 | 200,409 | 28 | 早期历史 backfill，P9 二级候选。 |
+| `index_daily_repair_by_codes_job` | 1 | 31,553 | 5 | 早期 repair job，P9 二级候选。 |
+| `index_daily_active_pool_initialize_job` | 1 | 56 | 0 | 早期 active pool 资产历史，P9 二级候选。 |
+| `index_daily_active_pool_update_job` | 5 | 332 | 4 | 早期 active pool 资产历史，P9 二级候选。 |
+| `silver_index_daily_update_job` | 6,531 | 570,168 | 45,559 | 默认不作为 P9 删除候选；`silver_index_daily` 历史仍是正式资产历史。 |
+
+其它旧 index daily asset 历史：
+
+| asset | event rows | 当前判断 |
+| --- | ---: | --- |
+| `raw_tushare_index_daily` | 19,792 | 更早的旧 raw 资产历史，当前 active code 未引用；可列为二级候选，但必须单独确认是否还需要保留调试链路。 |
+| `silver_index_daily_active_pool` | 14 | 早期 active pool 资产历史，当前 active code 未引用；可列为二级候选。 |
+| `silver_index_daily` | 保留 | 正式 silver 资产历史，P9 不删。 |
+
+instigator / cursor dry-run：
+
+| id | 当前状态 | 识别结果 | 当前判断 |
+| ---: | --- | --- | --- |
+| `1827` | `RUNNING SENSOR` | `job_name: index_daily_sensor` | 旧 raw sensor state。P7 删除旧 sensor 后才可进入 P9 候选。 |
+| `2173` | `RUNNING SENSOR` | `job_name: silver_index_daily_sensor` | silver sensor 仍会保留但语义会变；不能直接删除，需决定是 cursor schema 迁移还是重置 cursor。 |
+
+必须排除：
+
+| 对象 | 当前数量 | 原因 |
+| --- | ---: | --- |
+| `dynamic_partitions.cn_a_index_ts_codes` | 946 | 运行时 Lake 期望 code set，不能清理。 |
+| `dynamic_partitions.cn_a_index_trade_days` | 6,411 | index daily trade-date partitions，不能清理。 |
+| `raw_index_daily` | 0 | 新目标，未来 P9 永远排除。 |
+| `silver_index_daily` | 已有正式历史 | 下游继续消费，不能作为旧数据清理。 |
+
+### 26.5 P9 dry-run 判定
+
+当前判定：**禁止 apply**。
+
+原因：
+
+1. 当前 active source 仍引用旧 `raw_tushare_index_daily_by_code`、旧 raw-by-code checks、旧 by-code path、旧 by-code readiness 和旧 per-code sensor。
+2. `index_daily_update_job` run history 关联 `event_logs` 超过 160 万行、`run_tags` 超过 20 万行，清理粒度必须单独拍板；不能把 run history 清理混入 asset/check 事件清理。
+3. `silver_index_daily_sensor` 的 instigator state 仍是 RUNNING，且新链路仍会保留 silver sensor；该 cursor 只能迁移或重置，不能按“旧 sensor”直接删。
+
+P9 最小可执行前置条件：
+
+1. P7 后 active source 旧 by-code symbol 静态扫描为 0。
+2. 新 `raw_index_daily` 和 `silver_index_daily` readiness 只读取新 asset/check/file facts。
+3. 新 raw/silver sensors 已确认不读取旧 instigator cursor。
+4. P9 dry-run 重跑，新 `raw_index_daily` 候选仍为 0。
+5. 用户明确拍板清理粒度：只清旧 raw asset/check 历史，还是同时治理旧 run history。
