@@ -33,12 +33,13 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 | `run_contracts/configs.py` | run config op key 是 `raw_tushare_index_daily_by_code`，只暴露 `trade_date/write_mode`。 | op key 要改为新 asset；配置字段可保持业务层简洁。 |
 | `run_contracts/asset_column_schemas.py` | raw schema 字段为 Tushare 源镜像：`trade_date` 是 `VARCHAR YYYYMMDD`，字段名是 `change`。silver schema 才使用 `DATE` 和 `change_amount`。 | 新 by-date raw 必须沿用 raw 字段契约，不得输出 silver 字段。 |
 | `resources.py` | 已有 `ProdPostgresResource`，通过 env 拼只读 Postgres 连接，并可供 DuckDB `postgres_query`/attach 模式复用。 | 新 prod-core-db source adapter 应复用该资源和只读连接模式。 |
-| `lake_console/backend/app/services/prod_core_db.py` | 已有 `prod-core-db` 白名单导出能力：`index_daily/index_weekly/index_monthly` 映射到 `core_serving.index_*_serving`，禁止 `select *`，禁止 `source/created_at/updated_at`，并已有 `change_amount AS change` 字段映射。 | LLD 不能重新发明一套同义 resource/source contract；Dagster 实现必须对齐已落地字段白名单和安全门禁。 |
+| `lake_console/backend/app/services/prod_core_db.py` | 已有 `prod-core-db` 白名单导出能力：`index_daily/index_weekly/index_monthly` 映射到 `core_serving.index_*_serving`，禁止 `select *`，禁止 `source/created_at/updated_at`，并已有 `change_amount AS change` 字段映射；但当前 backend query 只按 trade date/range 取数，没有按 DG code set 过滤。 | LLD 不能重新发明近义字段口径；Dagster 实现必须对齐字段白名单和安全门禁，但不能跨区直接引用 backend 文件，必须在 orchestrator 内实现带 code set 过滤的只读 adapter。 |
+| `run_contracts/metadata.py` / `catalog/lake_assets.py` | `SourceSystem` 目前没有 `PROD_CORE_DB`；`_tushare_raw_entry(...)` 会强制写 `SourceSystem.TUSHARE`、`DataContractSource.TUSHARE_RAW_CONTRACT` 和 `IngestionSource.TUSHARE_API`。 | `raw_index_daily` 不能继续套 `_tushare_raw_entry(...)`；需要新增 `SourceSystem.PROD_CORE_DB`，并用 `_entry(...)` 或新的 prod-core helper 写字段级 catalog 口径。 |
 | `catalog/lake_assets.py` | catalog 记录当前 raw-by-code path 和 checks。 | 迁移时必须同步 catalog，旧资产删除后 active catalog 不得残留旧口径。 |
 
 旧设计文档 `dagster-phase-3-index-daily-refactor-design.html` 曾将 raw 改为 by-code，是为了适配 Tushare 单 code 请求和单 code 修复；本方案是新的替代方案。by-code 在迁移期只作为审计参考，最终不再是 active 资产。
 
-当前只读样本事实：
+2026-06-23 本轮重新只读审计确认的事实：
 
 | 项 | 观测值 |
 | --- | --- |
@@ -47,8 +48,10 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 | 当前 DG raw distinct trade dates | 6,792 个 |
 | 当前 DG raw distinct ts_code | 946 个 |
 | 当前 DG raw 日期范围 | `2000-01-04` 到 `2026-06-22` |
-| 当前 silver by-date parquet 文件数 | 约 6,410 个 |
+| 当前目标 by-date raw 路径 | `/Volumes/datasource/data_lake/raw/index_daily` 不存在，`trade_date=*/part-000.parquet` 为 0 |
+| 当前 silver by-date parquet 文件数 | 6,411 个 |
 | 本机 Dagster `cn_a_index_ts_codes` dynamic partitions | 946 个 code |
+| 本机 Dagster code set hash | `6f8f560f11cdce10e4cd5a096c64a4c9`，按 code 排序后 `md5(string_agg(code, ','))` |
 | 远程 prod `ops.index_series_active(resource='index_daily')` | 1130 个 code |
 | 远程 prod `ops.index_series_active(resource='index_daily_raw')` | 3052 个 code，仅是历史请求池，不是本迁移 raw 更新门禁 |
 | 远程 prod `core_serving.index_daily_serving` 日期范围 | `2020-01-02` 到 `2026-06-22` |
@@ -258,12 +261,12 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 
 | Check | 语义 |
 | --- | --- |
-| `raw_index_daily_file_exists` | 目标 by-date 文件存在。 |
-| `raw_index_daily_row_count_positive` | 文件行数大于 0。 |
-| `raw_index_daily_required_columns_and_types` | 字段和类型符合 `RAW_INDEX_DAILY_SCHEMA`。 |
-| `raw_index_daily_partition_date_matches` | 文件内 `trade_date` 全部等于 partition trade date 的 `YYYYMMDD`。 |
-| `raw_index_daily_unique_ts_code_trade_date` | `ts_code + trade_date` 唯一。 |
-| `raw_index_daily_registered_code_coverage` | 统一覆盖检查。历史转换段校验 by-code 输入 facts 到 by-date 目标 facts 无损；日更段校验 prod source 覆盖本次运行的 Lake 期望 code set。 |
+| `raw_index_daily_file_exists_check` | 目标 by-date 文件存在。 |
+| `raw_index_daily_row_count_positive_check` | 文件行数大于 0。 |
+| `raw_index_daily_required_columns_and_types_check` | 字段和类型符合 `RAW_INDEX_DAILY_SCHEMA`。 |
+| `raw_index_daily_partition_date_matches_check` | 文件内 `trade_date` 全部等于 partition trade date 的 `YYYYMMDD`。 |
+| `raw_index_daily_unique_ts_code_trade_date_check` | `ts_code + trade_date` 唯一。 |
+| `raw_index_daily_registered_code_coverage_check` | 统一覆盖检查。历史转换段校验 by-code 输入 facts 到 by-date 目标 facts 无损；日更段校验 prod source 覆盖本次运行的 Lake 期望 code set。 |
 
 不把 silver 的标准化检查提前到 raw，例如不检查 `trade_date DATE`、不要求 `change_amount` 字段。
 
@@ -340,6 +343,16 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 3. 不再扫描 raw-by-code 文件集合。
 
 `index_daily_update_job` selection 改为 `raw_index_daily` + new raw checks。
+
+### M5.1：日更激活门禁
+
+raw 日更 sensor 不能在 by-date 历史基线建立前启用。必须同时满足：
+
+1. M3 历史 by-code 到 by-date 文件转换 full audit 通过；
+2. M4 `raw_index_daily[trade_date]` materialization/check runless event full audit 通过；
+3. readiness helper 能从 `raw_index_daily` 文件事实和 runless event 事实确认最新已就绪交易日；
+4. first daily target 只能取该最新已就绪交易日之后的第一个 expected trade date；
+5. 若 `raw/index_daily` 仍不存在或 by-date baseline 缺失，sensor 必须 skip/block，不能从固定日期或当前日期猜起点。
 
 ### M6：下游消费者迁移
 
@@ -454,6 +467,34 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 3. runless event sample/full 写入。
 4. 正式 Dagster definitions 重载。
 5. 旧 `raw/tushare/index_daily_by_code` 物理文件删除。
+
+## 本轮重新审计后的新增问题与修正
+
+1. catalog helper 风险：当前 `_tushare_raw_entry(...)` 会自动写 Tushare source system。新 `raw_index_daily` 必须使用新增 prod-core-db catalog helper 或直接 `_entry(...)`，字段级写成 `SourceSystem.PROD_CORE_DB`、`DataContractSource.PROD_SERVING_CONTRACT`、`IngestionSource.PROD_DB_READONLY`、`EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL`。
+2. check 命名偏差：高层方案原来没有 `_check` 后缀，已统一到 LLD 的长期命名。实现和 tests 必须用新名称，不得让 readiness 同时支持新旧 raw check。
+3. backend prod-core-db 只能参考不能复用：已有 backend 导出能力证明字段白名单和 `change_amount AS change` 口径，但它不带 DG code set filter，且属于 backend/sync 区域。orchestrator 必须建立自己的只读 adapter。
+4. sensor 激活顺序风险：当前 `raw/index_daily` by-date 路径不存在。未完成 M3/M4 前启用新日更 sensor，会没有“最新已就绪 raw_index_daily”基线，必须显式阻断。
+5. bootstrap 与静态门禁冲突：P3/P4 bootstrap 可以临时读取当前 DG 新湖 by-code 文件；P7 后 bootstrap 代码必须删除或移出 active source，否则会和“生产代码旧 by-code 符号清零”门禁冲突。
+6. 硬编码日期风险：`2026-06-22`、`2026-06-23` 只能出现在审计事实、测试 fixture 或文档中；生产代码不得把它们作为日更起点、历史终点或 cutover 常量。
+7. coverage 语义风险：`raw_index_daily_registered_code_coverage_check` 是统一 check 名，但必须用 `coverage_basis` 区分历史转换和日更。历史转换看 by-code input pair 是否无损，日更看 prod serving 是否覆盖运行时 Lake 期望 code set。
+
+## 建议推进步骤
+
+1. 先完成 P-1 prod source 基线修复：重新导出 DG 946 code、prod active pool、prod serving distinct code；把 86 个 DG 缺口加入 `ops.index_series_active(resource='index_daily')`；按各自 `list_date` 到批准目标交易日补齐 prod raw 与 serving；只读验收缺口为 0。
+2. 再做 P0 只读 profiling：冻结 prod 字段、单日读取性能、DG code hash、by-code 历史输入规模、by-date event 数量估算；若数字变化，先更新本文档。
+3. P1/P2 只开发新契约和新 raw by-date asset/check/job，不启用 sensor，不删除旧 by-code。
+4. P3 单独申请 lake 写入审批，执行历史 by-code 到 by-date 文件转换，先 sample 后 full。
+5. P4 单独申请 Dagster event 写入审批，执行 runless materialization/check event 补录，先 sample 后 full。
+6. P5/P6 再切 silver、major indices 和 raw/silver sensor；新 sensor 默认仍保持 STOPPED，完成只读验证后再正式启用。
+7. P7 清零 active by-code 代码和 catalog；P8 在用户单独批准后再删旧物理文件。
+
+## 遗留拍板项
+
+1. P-1 prod 补数的批准目标交易日：必须不早于 P0 扫描到的当前 DG by-code 历史最大交易日；若开发期间 by-code 继续增长，以正式执行前最新 profiling 为准。
+2. 86 个 code 补数遇到 Tushare 源端确无数据时，是否允许带人工批准的 source gap 白名单继续推进。
+3. `raw_index_daily_registered_code_coverage_check` 的长期名称是否保持 `registered` 字样；语义已限定为运行时 Lake 期望 code set，不再表示“按生命周期推导有效 code”。若要进一步降歧义，可在实现前改名为 `raw_index_daily_expected_code_coverage_check`。
+4. P3/P4 bootstrap 代码在 P7 的处理方式：删除，还是移到 active static gate 不扫描的离线工具目录。无论选哪种，生产 `src/orchestrator/defs/**` 旧 by-code 符号必须清零。
+5. 新 `raw_index_daily` catalog 是否新增专用 `_prod_core_raw_entry(...)` helper；若不新增 helper，也必须直接用 `_entry(...)` 写全字段，禁止套 `_tushare_raw_entry(...)` 或 `_derived_entry(...)`。
 
 ## 最终验收标准
 

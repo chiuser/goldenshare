@@ -114,7 +114,7 @@ raw/tushare/index_daily_by_code/ts_code=<TS_CODE>/part-000.parquet
 
 - check 语义是 by-code，不适用于 by-date。
 - `partition_code_matches` 需要替换为 `partition_date_matches`。
-- raw by-date 还需要覆盖 `registered/effective index code coverage`。
+- raw by-date 还需要覆盖运行时 Lake 期望 code set。历史转换段看 by-code input pair，日更段看 prod serving 对本次 DG code set 的覆盖；不得再引入 `effective_index_codes_for_trade_date` 这类生命周期推断口径。
 
 ### 4.4 raw readiness 与 sensor
 
@@ -201,6 +201,8 @@ raw/tushare/index_daily_by_code/ts_code=<TS_CODE>/part-000.parquet
 - SQL 必须有明确日期过滤。
 - 不把生产连接串写入日志、cursor、metadata。
 - 已有 backend prod-core-db 字段口径为 `change_amount AS change`，并已覆盖 `index_daily/index_weekly/index_monthly` 三张 `core_serving` 白名单表；Dagster LLD 必须对齐该口径，不得另起一套近义字段契约。
+- 但 backend 当前 `build_prod_core_trade_date_query(...)` 只按 trade date/range 查询，不带 DG code set 过滤；它能作为字段白名单和安全口径参考，不能作为 orchestrator 日更运行时直接复用的实现文件。
+- 按仓库边界，orchestrator 不得跨区引用 backend sync 文件；需要在 `lake_console/orchestrator/src/orchestrator/defs/prod_db/index_daily.py` 内实现自己的只读 query builder/source gate。
 
 ### 4.9 prod DB 只读审计事实
 
@@ -208,10 +210,12 @@ raw/tushare/index_daily_by_code/ts_code=<TS_CODE>/part-000.parquet
 
 | 项 | 观测值 |
 | --- | ---: |
+| 本机 Dagster `cn_a_index_ts_codes` dynamic partitions | 946 个 code |
+| 本机 DG code set hash | `6f8f560f11cdce10e4cd5a096c64a4c9` |
+| 当前 by-date raw 目标路径 | `/Volumes/datasource/data_lake/raw/index_daily` 不存在，`trade_date=*/part-000.parquet` 为 0 |
 | `ops.index_series_active(resource='index_daily')` | 1130 个 code |
 | `ops.index_series_active(resource='index_daily_raw')` | 3052 个 code |
 | `ops.index_series_active(resource='index_mins')` | 530 个 code |
-| 本机 Dagster `cn_a_index_ts_codes` dynamic partitions | 946 个 code |
 | `core_serving.index_daily_serving` distinct code | 1130 个 |
 | `core_serving.index_daily_serving` 日期范围 | `2020-01-02` 到 `2026-06-22` |
 | 最近 10 个交易日 serving 当日 code | 每日 1126 个 |
@@ -382,6 +386,12 @@ raw/index_daily/_staging/run_id=<RUN_ID>/trade_date=<YYYY-MM-DD>/part-000.parque
 RAW_INDEX_DAILY_SCHEMA
 ```
 
+同步要求：
+
+- `duckdb_sql.py` 中 `INDEX_DAILY_RAW_COLUMNS` 必须改为来自 `RAW_INDEX_DAILY_SCHEMA`；
+- `assets/index_daily.py` 中 `INDEX_DAILY_RAW_COLUMN_TYPES` 必须改为来自 `RAW_INDEX_DAILY_SCHEMA`；
+- `RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA` 只能在迁移期旧 by-code 资产和 P3/P4 bootstrap 输入审计中出现；P7 后 active source 不得继续引用。
+
 字段保持 raw 源镜像口径：
 
 | 字段 | 类型 | 说明 |
@@ -417,6 +427,12 @@ catalog ingestion source 不新增近义枚举，优先复用现有：
 ```python
 IngestionSource.PROD_DB_READONLY
 ```
+
+catalog 不能继续使用 `_tushare_raw_entry(...)` 或 `_derived_entry(...)` 生成 `raw_index_daily` entry：
+
+- `_tushare_raw_entry(...)` 会自动写 `SourceSystem.TUSHARE`、`DataContractSource.TUSHARE_RAW_CONTRACT`、`IngestionSource.TUSHARE_API`；
+- `_derived_entry(...)` 会自动写 `SourceSystem.DERIVED`、`DataContractSource.DERIVED_CONTRACT`；
+- 新实现必须新增专用 `_prod_core_raw_entry(...)`，或直接调用 `_entry(...)` 并逐项写完整字段。
 
 本专项不引入 Tushare fallback source mode。
 
@@ -651,6 +667,15 @@ def raw_index_daily(
     ...
 ```
 
+definition metadata 必须写：
+
+- `source_system=SourceSystem.PROD_CORE_DB`；
+- `data_contract="source_mirror_by_date"`；
+- `column_schema=RAW_INDEX_DAILY_SCHEMA`；
+- `path_template=raw_index_daily_path(PATH_TEMPLATE_LAKE_ROOT, PATH_TEMPLATE_PARTITION_KEY)`；
+- `source_api=None`，因为日更来源是 prod serving table，不是 Tushare API；
+- `extra_metadata` 可以记录 `source_table="core_serving.index_daily_serving"`，但不得记录连接串、host、password。
+
 config：
 
 ```python
@@ -697,6 +722,8 @@ index_daily_update_job
 - `raw_index_daily_partition_date_matches_check`
 - `raw_index_daily_unique_ts_code_trade_date_check`
 - `raw_index_daily_registered_code_coverage_check`
+
+`registered` 在该 check 名里只表示“本次运行读取到的 DG dynamic partitions 注册集合”，不表示使用 `silver_index_basic list_date/exp_date` 推导有效代码。若实现前决定进一步降低歧义，可整体改名为 `raw_index_daily_expected_code_coverage_check`；一旦开工，名称必须在 asset check、catalog、readiness、runless event、tests 中一次性统一。
 
 coverage check 是一个统一 check，但必须按 partition 所属阶段选择覆盖依据：
 
@@ -873,6 +900,14 @@ build_asset_update_run_key(
 raw_index_daily:2026-06-18
 ```
 
+激活门禁：
+
+- `raw_index_daily_update_job_sensor` 在 P3/P4 完成前必须保持 STOPPED，不得接管正式日更；
+- sensor 启动时必须能从 `raw_index_daily` 文件事实和 runless event 事实得到最新已就绪 trade date；
+- 如果 `raw/index_daily` 目标路径不存在、没有任何 ready partition，或 runless event 尚未补齐，sensor 必须 fail closed 并返回明确 skip/block reason；
+- first daily target 只能是最新已就绪 trade date 之后的第一个 expected trade date；
+- 生产代码不得使用 `2026-06-23`、`2026-06-22` 或任何固定日期作为日更起点。
+
 cursor 必须删除旧字段：
 
 - `selected_codes`
@@ -940,16 +975,25 @@ raw index daily entry：
 | partition set | `cn_a_index_trade_days` |
 | path | `raw/index_daily/trade_date=<date>/part-000.parquet` |
 | source system | `SourceSystem.PROD_CORE_DB`，覆盖全量 `raw_index_daily`，包括历史转换段和日更段 |
+| data contract source | `DataContractSource.PROD_SERVING_CONTRACT` |
 | data contract | `source_mirror_by_date` |
+| ingestion sources | `(IngestionSource.PROD_DB_READONLY,)` |
+| default daily ingestion source | `IngestionSource.PROD_DB_READONLY` |
+| bootstrap sources | `()`，历史 by-code 只作为物理转换输入，不写入该机器字段 |
+| event policy | `EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL` |
+| write policy | `WritePolicy.PARTITION_FILE_ATOMIC_REPLACE` |
 | freshness | daily trade-date asset |
 | checks | 第 10 节新 check names |
 
 实现约束：
 
 - `LakeAssetCatalogEntry.source_system` 是单值机器字段；本资产全量统一写 `PROD_CORE_DB`。
+- `LakeAssetCatalogEntry.data_contract_source` 也必须是单值机器字段；本资产统一写 `PROD_SERVING_CONTRACT`，不得写 `TUSHARE_RAW_CONTRACT`。
+- `ingestion_sources = (IngestionSource.PROD_DB_READONLY,)`。
 - `default_daily_ingestion_source = IngestionSource.PROD_DB_READONLY`。
 - `bootstrap_sources` 不用于表达历史 by-code 来源；如无其它正式业务 bootstrap source，可保持空 tuple。
 - notes 和 materialization metadata 只能记录 `bootstrap_method=by_code_layout_conversion`、输入摘要、审计报告路径等迁移证据；不得把当前 DG `raw_tushare_index_daily_by_code`、Tushare 或 `DERIVED_FROM_ASSETS` 写成 `raw_index_daily` 的 source system。
+- 不能通过 `_tushare_raw_entry(...)` 或 `_derived_entry(...)` 偷懒生成 entry；这两个 helper 会把机器字段写错。
 - 旧 `raw_tushare_index_daily_by_code` entry 删除。
 
 ## 16. 历史 by-code 到 by-date 文件转换
@@ -983,6 +1027,13 @@ defs/bootstrap/index_daily_raw_by_date_history_cli.py
 - 不允许从 prod DB 重拉历史来生成 by-date 文件。
 - 不允许在新 bootstrap 中复用旧 by-code writer/check 作为正式写入逻辑；可以复用字段契约、path helper 和只读 SQL 片段。
 - 不允许把 by-code input file list 全量写入 Dagster materialization metadata；只记录 input summary、`bootstrap_method=by_code_layout_conversion` 和报告路径。metadata 中的 source system 仍为 `PROD_CORE_DB`。
+
+生命周期：
+
+- P3/P4 期间，bootstrap 模块是唯一允许在 active source 中出现旧 by-code path/symbol 的范围；
+- 该允许范围只服务历史转换和 runless event 补录，不得被 sensor、asset、check、catalog 或 readiness 引用；
+- P7 必须删除 bootstrap 模块，或移动到不参与 active production static gate 的离线工具目录；
+- P7 后 `src/orchestrator/defs/**` 旧 by-code symbol 扫描必须为 0。
 
 生成 SQL：
 
@@ -1130,12 +1181,14 @@ raw/tushare/index_daily_by_code/**
 - `run_key` 中拼接 `index_code`
 - `MAX_RUN_REQUESTS_PER_TICK = 500` 这类 code fan-out 模型
 - sensor 里调用 `get_event_records` 判断 raw/silver readiness
+- 生产代码中硬编码 `2026-06-22`、`2026-06-23` 作为迁移终点、日更起点或 cutover 日期
 
 允许范围：
 
 - 历史 bootstrap 模块在 P3/P4 可以且只能把当前 DG 新湖 by-code 文件作为正式只读输入，转换写入新 raw by-date；禁止旧 Lake Console 路径。P7 后 bootstrap 代码必须删除或移出 active source，避免旧 by-code path 继续留在生产代码扫描范围内。
 - 测试 fixture 可以包含旧字符串作为负向样本。
 - 设计文档可以描述旧口径，但必须明确是历史/待删除。
+- 审计报告、测试 fixture 和设计文档可以包含 `2026-06-22`、`2026-06-23` 作为样本事实；production runtime 逻辑不得依赖这些日期。
 
 新增门禁：
 
@@ -1143,6 +1196,7 @@ raw/tushare/index_daily_by_code/**
 - raw index daily run key 必须经统一 builder。
 - prod DB SQL builder 单测禁止 `select *` 和 forbidden columns。
 - runless event CLI dry-run 路径不得调用 `report_runless_asset_event(...)`。
+- `raw_index_daily_update_job_sensor` 在 by-date baseline 缺失时必须 skip/block，不得猜测 first target。
 
 ## 21. 测试计划
 
@@ -1354,6 +1408,8 @@ tests/test_index_daily_raw_by_date_runless_events.py
 - 新 raw date-level sensor。
 - silver sensor 去 by-code readiness。
 - 删除 by-code late-arrival selector。
+- 新 raw sensor 保持 STOPPED，直到 P3/P4 audit 和只读 readiness 验收通过。
+- 验证 by-date baseline 存在后，first target 由最新 ready trade date 后的 expected trade date 计算，不使用固定日期。
 
 ### P7：旧 by-code active code 清零
 
@@ -1396,3 +1452,69 @@ tests/test_index_daily_raw_by_date_runless_events.py
 - 旧 by-code 文件删除后，新 sensor、silver、major indices 不受影响。
 - 全量本地测试通过。
 - 未运行任何未经批准的正式 Dagster/lake 写入。
+
+## 25. 本轮重新审计结论与推进建议
+
+### 25.1 已核实的代码影响面
+
+CodeGraph 与源码审计确认，本专项真实改动面至少包括：
+
+| 改动面 | 当前事实 | 实现要求 |
+| --- | --- | --- |
+| `paths.py` | 只有 `raw_index_daily_by_code_path(...)` 和 by-code staging helper。 | 新增 `raw_index_daily_path(...)` 与 by-date staging helper；P7 删除旧 helper。 |
+| `asset_column_schemas.py` / `duckdb_sql.py` | raw index daily schema 名称绑定 Tushare/by-code，`INDEX_DAILY_RAW_COLUMNS` 由旧 schema 生成。 | 新增 `RAW_INDEX_DAILY_SCHEMA`，并让 raw columns/types 全部切到新 schema。 |
+| `assets/index_daily.py` | raw asset 是 `raw_tushare_index_daily_by_code[ts_code]`；silver 通过 `AllPartitionMapping()` 扫所有 by-code 文件。 | 新增 `raw_index_daily[trade_date]`；silver 改为同日 by-date raw 输入。 |
+| `checks/index_daily_checks.py` | raw checks 全部挂旧 asset，silver coverage 仍读 by-code raw。 | 新增 by-date raw checks；silver coverage 改读同日 by-date raw。 |
+| `sensors/index_daily_sensor.py` | Tushare source probe + per-code run；cursor 带 selected_codes/next_pending_offset/repair_state。 | prod source completeness gate + date-level run；删除 per-code repair cursor。 |
+| `sensors/silver_index_daily_sensor.py` | 依赖 `audit_index_daily_raw_gaps(...)` 和 by-code 文件 presence。 | 依赖 `raw_index_daily[trade_date]` readiness。 |
+| `asset_guards/market_major_indices_lake_readiness.py` | `silver_index_daily_lake_readiness_for_trade_date(...)` 仍读取 by-code raw。 | 改为 by-date raw/silver facts，不再导入旧 path。 |
+| `catalog/lake_assets.py` | raw entry 通过 `_tushare_raw_entry(...)` 写 Tushare source。 | 新 raw entry 必须字段级写 prod-core-db，不得套旧 helper。 |
+| `run_contracts/configs.py` | op key 是 `raw_tushare_index_daily_by_code`，config 里重复传 `trade_date`。 | op key 改 `raw_index_daily`；partition key 是唯一日期参数。 |
+| `sensors/readiness.py` | 存在 `RAW_INDEX_DAILY_BY_CODE_*` spec 和 `raw_index_daily_by_code_ready_for_code(...)`。 | 新增 `RAW_INDEX_DAILY_*` trade-date readiness；P7 删除旧 spec。 |
+| `tests/test_run_contract_static_gates.py` | 当前已有 sensor 侧旧 symbol 禁止项。 | 扩展为 by-code 旧符号清零、prod SQL 安全、硬编码日期禁止、runless dry-run 禁止写 event。 |
+
+### 25.2 已核实的 prod 与 lake 数据事实
+
+2026-06-23 本轮只读复核：
+
+- 本机 DG `cn_a_index_ts_codes` 为 946 个，code set hash 为 `6f8f560f11cdce10e4cd5a096c64a4c9`。
+- 本机 by-code raw 文件为 946 个、3,419,656 行、946 个 code、6,792 个 trade date，范围 `2000-01-04` 到 `2026-06-22`。
+- 目标 by-date raw 路径 `/Volumes/datasource/data_lake/raw/index_daily` 当前不存在。
+- prod `ops.index_series_active(resource='index_daily')` 为 1130 个 code。
+- prod `ops.index_series_active(resource='index_daily_raw')` 为 3052 个 code。
+- prod `core_serving.index_daily_serving` distinct code 为 1130 个，当前最大 trade date 为 `2026-06-22`。
+- `dg_codes - prod_index_daily_active_pool = 86`。
+- `dg_codes - prod_index_daily_serving_distinct_codes = 86`。
+- `dg_codes - prod_index_daily_raw_pool = 0`，说明 86 个缺口都在旧 raw 请求池中，但未进入 prod `index_daily` active pool 和 serving。
+- `prod_serving_codes - dg_codes = 270`，prod 额外 code 不阻断 DG 日更。
+- 最近 10 个 prod serving 交易日均为 1126 个 code；active pool 最新日缺 4 个：`480055.CNI`、`480056.CNI`、`480057.CNI`、`931598.CSI`，且这 4 个与 DG 946 交集为空。
+- 86 个缺口按各自 `core_serving.index_basic.list_date` 到 prod 当前最大 serving date `2026-06-22` 估算 expected pair 为 47,656；当前 prod raw 2,837 行，raw 缺 44,819；prod serving 0 行，serving 缺 47,656。
+
+这些事实仍然只是开工前审计样本。P-1/P0 正式执行前必须重新生成报告；若任一数字变化，先改本文档，再继续开发。
+
+### 25.3 新发现风险
+
+1. catalog helper 写错字段风险：如果实现时继续用 `_tushare_raw_entry(...)`，即使 asset 名改成 `raw_index_daily`，catalog 仍会显示 Tushare source，违反用户已确认口径。
+2. backend 复用风险：backend prod-core-db 已有字段口径但没有 DG code set filter，且跨区直接引用不允许。orchestrator 需要自己的 prod adapter。
+3. baseline 缺失风险：当前 by-date 目标路径不存在，sensor 不能在 M3/M4 前通过“最新 ready raw_index_daily”计算日更起点。
+4. bootstrap 遗留风险：P3/P4 必须临时读 by-code 文件，但 P7 后如果不删除或移出 active source，会和旧符号清零门禁冲突。
+5. check 名称歧义：`registered_code_coverage` 容易被误解成 lifecycle effective code。实现时必须用 metadata `coverage_basis` 固定语义，必要时开工前统一改名。
+6. 固定日期风险：当前审计样本中的 `2026-06-22/2026-06-23` 不能进入 production runtime 逻辑。
+
+### 25.4 建议推进步骤
+
+1. P-1 先做 prod source 基线修复，目标是 DG 946 code 全部进入 prod `index_daily` active pool，且 prod raw/serving 对 86 个待补 code 的 expected pair 缺口为 0。
+2. P0 重新做只读 profiling，冻结字段、code set hash、历史转换范围、event 数量和性能预算；P0 输出是后续开发的验收基线。
+3. P1/P2 只做新 schema/path/prod query/source gate/raw asset/check/job，不启用 sensor，不删除旧资产。
+4. P3 单独申请 lake 写入，按 P0 范围生成 by-date raw 文件，sample/full 分开。
+5. P4 单独申请 Dagster event 写入，runless materialization/check event 先 dry-run、再 sample、再 full。
+6. P5/P6 切 silver、major indices、raw/silver sensors；新 raw sensor 先 STOPPED，完成 by-date baseline 验收后再启用。
+7. P7 清零旧 by-code active source；P8 单独审批后删除旧物理文件。
+
+### 25.5 遗留拍板项
+
+1. P-1 补数目标交易日：应以正式 P0 profiling 时当前 DG by-code 最大 trade date 为下限；若开发期间旧 by-code 继续增长，需要以执行前最新 profiling 为准。
+2. 86 个 code 若出现 Tushare 源端确无数据，是否允许建立人工批准的 source gap 白名单继续推进。
+3. `raw_index_daily_registered_code_coverage_check` 是否在开工前改名为 `raw_index_daily_expected_code_coverage_check`。
+4. P7 后 bootstrap 代码处理方式：删除，还是移出 `src/orchestrator/defs/**` active source。无论选择哪种，production static gate 旧 symbol 必须为 0。
+5. catalog 实现方式：新增 `_prod_core_raw_entry(...)` helper，还是直接 `_entry(...)`。若直接 `_entry(...)`，测试必须覆盖全部字段，防止以后回退到 Tushare helper。
