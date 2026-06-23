@@ -1839,6 +1839,12 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "prod ClickHouse serving checks must fail closed for "
                 "multi-partition check contexts"
             )
+        if "partitions_def=cn_a_stock_trade_days" not in checks_source:
+            issues.append(
+                "prod ClickHouse serving checks must explicitly declare "
+                "cn_a_stock_trade_days partitions_def so check event partitions "
+                "are not empty"
+            )
         forbidden_check_fragments = (
             "check batch is too large",
             "mismatched_partition_count",
@@ -1863,6 +1869,8 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "selection=dg.AssetSelection.checks_for_assets(\n"
                 "        prod_ch_share_fact_market_breadth_daily\n"
                 "    )",
+                "config=dg.PartitionedConfig(",
+                "run_config_for_partition_key_fn=_empty_check_refresh_run_config",
                 "partitions_def=cn_a_stock_trade_days",
             )
             issues.extend(

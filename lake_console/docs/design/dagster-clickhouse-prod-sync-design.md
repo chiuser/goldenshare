@@ -561,6 +561,11 @@ check 必须是 single-partition attributable：`context.partition_keys` 中
 必须且只能有一个 partition。多个 partition 直接失败，禁止返回一条
 聚合 `AssetCheckResult`。
 
+四个 prod checks 的 definition 必须显式声明
+`partitions_def=cn_a_stock_trade_days`。只让 checks-only job 带 partition
+config 不够；如果 check definition 本身不是 partitioned check，Dagster 写出的
+`ASSET_CHECK_EVALUATION` event 仍可能没有 partition 归属。
+
 1. `prod_ch_share_fact_market_breadth_row_count_is_one`
    - prod 每个目标日期必须只有 1 行。
    - 防止漏写或重复写。
@@ -625,9 +630,10 @@ def prod_ch_share_fact_market_breadth_daily(...):
 1. 日常单日 materialize 时 `partition_keys` 长度为 1，行为与当前单日 prod sync 一致。
 2. 历史范围 backfill 也必须拆成单分区 run，避免 asset check event 归属错乱。
 3. `prod_clickhouse_share_fact_market_breadth_sync_job` 仍然只选择 `prod_ch_share_fact_market_breadth_daily + checks_for_assets(...)`。
-4. 新增人工维护 job `prod_clickhouse_share_fact_market_breadth_check_refresh_job`，只选择 `checks_for_assets(prod_ch_share_fact_market_breadth_daily)`，用于补历史 latest check 归属。
+4. 新增人工维护 job `prod_clickhouse_share_fact_market_breadth_check_refresh_job`，只选择 `checks_for_assets(prod_ch_share_fact_market_breadth_daily)`；该 job 只允许用于小范围、经审批的 checks-only 维护，不用于 3,007 个历史分区的全量补录。
 5. job 文件仍只定义 asset selection，不承接 SQL 或批量逻辑。
-6. 不新增 sensor、summary asset、数据库表或配置项。
+6. checks-only job 必须显式声明 `partitions_def=cn_a_stock_trade_days`，并配置同一 partition set 的空 `PartitionedConfig`，确保 `dg launch --partition` 能识别它是 partitioned job。
+7. 不新增 sensor、summary asset、数据库表或配置项。
 
 ### 9.2 Automation
 
@@ -844,9 +850,16 @@ max_partitions_per_run = 1
 后续如确需提升历史全量同步性能，必须新开方案，先回答：
 
 1. 如何保证每个 materialized partition 都有独立 latest check event。
-2. 是否需要 checks-only 维护 job 分离历史 check 刷新。
+2. 是否需要 checks-only 维护 job 分离历史 check 刷新；如果需要，必须证明不是逐 partition `dg launch` 造成新的高基数 event 增量。
 3. 是否接受业务数据写入批量化、Dagster check event 单分区化的两阶段流程。
 4. 如何验证不会再次产生 latest materialization without latest checks。
+
+2026-06-23 口径修正：
+
+1. P2R 的 single-partition asset/check 修复继续保留，用于保证未来新 run 的 check event 归属正确。
+2. `prod_clickhouse_share_fact_market_breadth_check_refresh_job` 不再用于 3,007 个历史缺口分区的全量 checks-only 补录。
+3. 历史缺口不影响后续 prod sync 日常更新；它只影响该资产是否能进入 Dagster event history 删除白名单。
+4. 因此 `prod_ch_share_fact_market_breadth_daily` 暂不进入事件历史清理 P3/P4 候选；未来若要纳入，必须另行设计高性能 latest-check 缺口修复方案。
 
 ## 11. 风险与处理
 

@@ -459,20 +459,28 @@ JOIN latest_materializations lm
 | --- | ---: | ---: | ---: | ---: | ---: | ---: | --- |
 | `ch_share_fact_market_breadth_daily` | 18,208 | 3,037 | 3,037 | 3,028 | 0 | 18,168 | 可进入 P3 小样本删除 |
 | `gold_stock_return_distribution` | 18,186 | 3,031 | 3,031 | 3,029 | 0 | 18,174 | 可进入 P3 小样本删除 |
-| `prod_ch_share_fact_market_breadth_daily` | 13,072 | 5,149 | 5,145 | 3,028 | 3,007 | 84 | 禁止进入 P3，必须先走 P2R |
+| `prod_ch_share_fact_market_breadth_daily` | 13,072 | 5,149 | 5,145 | 3,028 | 3,007 | 84 | 禁止进入 P3；P2R 只保留未来归属修复，不再做历史全量补录 |
 
 P2 实测结论：
 
 1. `ch_share_fact_market_breadth_daily` 和 `gold_stock_return_distribution` 满足“小样本删除”前置条件：latest materialization 都有 latest check state 覆盖。
 2. `prod_ch_share_fact_market_breadth_daily` 不满足前置条件：3,007 个 latest materialization 没有 latest check state。
 3. P2 的全量三资产验收没有整体通过，但允许将 P3 缩小到前两个资产继续推进。
-4. `prod_ch_share_fact_market_breadth_daily` 在 P2R 完成前不得进入任何删除白名单。
+4. `prod_ch_share_fact_market_breadth_daily` 不进入 P3/P4 删除白名单；P2R 的历史全量 checks-only 补录已停止，不再作为 P3 前置。
 
-### P2R：`prod_ch_share_fact_market_breadth_daily` check 归属修复
+### P2R：`prod_ch_share_fact_market_breadth_daily` check 归属修复（停止历史全量补录）
 
-目标：先修复 `prod_ch_share_fact_market_breadth_daily` 的 latest check 归属问题，再决定它能否进入事件清理范围。
+目标：保留 `prod_ch_share_fact_market_breadth_daily` 的代码层 check 归属修复，确保后续新 run 不再产生“multi-partition materialization + 单条 check result”的归属错误；停止对 3,007 个历史缺口分区做全量 checks-only 补录。
 
 本阶段不是删除阶段，不清理 Dagster event，不清理 lake 文件，不重写 ClickHouse 数据。
+
+2026-06-23 复盘结论：
+
+1. P2R 代码修复仍然有效：prod asset/check 正式路径收敛为 single-partition，四个 prod checks 显式声明 `partitions_def=cn_a_stock_trade_days`，checks-only job 也被修正为可按 partition 运行。
+2. P2R 历史全量补录停止：不再对剩余约 3,005 个历史分区逐个运行 `prod_clickhouse_share_fact_market_breadth_check_refresh_job`。
+3. 已经做过的少量 pilot check event 作为历史 event 保留，不做删除或回滚；后续也不继续扩大补录。
+4. 停止原因是性能与收益不匹配：3,007 个分区逐个 `dg launch` 会写入约 `3,007 * 4 = 12,028` 条 latest check event，并额外产生大量 run / step / planned / log event，执行耗时和 event 增量都与本专项“降存量”目标冲突。
+5. 不补录不影响后续数据湖更新、prod sync 日常执行或 serving 数据正确性；影响仅限于 `prod_ch_share_fact_market_breadth_daily` 不能进入当前事件历史删除白名单。
 
 只读审计事实：
 
@@ -504,26 +512,25 @@ P2 实测结论：
 3. 代码修复
    - `PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN` 改为 `1`。
    - `prod_ch_share_fact_market_breadth_daily` 正式执行前必须确认 `context.partition_keys` 只有一个值。
+   - 四个 prod checks 必须在 decorator 上显式声明 `partitions_def=cn_a_stock_trade_days`，否则 checks-only job 即使按 partition 执行，写出的 `ASSET_CHECK_EVALUATION` event partition 仍可能为空。
    - 四个 prod checks 的 `_selected_partition_keys(...)` 统一改为 single-partition guard；多个 partitions 直接 fail closed。
    - metadata 以单分区为主语义，保留 `partition_key`，不再把正式路径描述为 batch check。
    - 增加单元测试：多 partition check context 必须失败，不允许返回一条无法覆盖全部 partitions 的聚合 check result。
    - 增加静态/契约门禁：`prod_ch_share_fact_market_breadth_daily` 不得回流到 batch partitions 只返回一个 check result 的写法。
 
-4. checks-only 补录设计
+4. checks-only 维护入口口径
    - 新增人工维护入口 `prod_clickhouse_share_fact_market_breadth_check_refresh_job`。
    - selection 只能是 `AssetSelection.checks_for_assets(prod_ch_share_fact_market_breadth_daily)`。
-   - job 必须显式使用 `partitions_def=cn_a_stock_trade_days`。
+   - job 必须显式使用 `partitions_def=cn_a_stock_trade_days` 和基于同一 partition set 的空 `PartitionedConfig`；当前 Dagster 1.13.8 下，checks-only selection 没有 selected asset key，单独传 `partitions_def` 不足以让 `dg launch --partition` 识别 job 为 partitioned。
    - 禁止包含 `AssetSelection.assets(...)`，只跑 checks-only，不重写 ClickHouse 数据。
-   - 补录目标是 latest materialization 已存在但 latest check 缺失的 3,007 个 partitions。
-   - 补录必须串行或小批量执行，写入量可控，执行前单独审批。
+   - 该 job 只允许作为小范围、经单独审批的维护入口；禁止用于 3,007 个历史缺口分区的全量补录。
+   - 如未来确实要修复存量 latest check 缺口，必须先另行设计高性能、低 event 增量的方案，不能恢复逐 partition `dg launch` 补录。
 
-5. P2R 正式执行验收
-   - 代码合入并重载 definitions 后，先只读确认 `prod_clickhouse_share_fact_market_breadth_check_refresh_job` 可见。
-   - 从 P2 dry-run 报告读取缺 latest check 的 3,007 个 partitions，生成补录分区清单。
-   - 逐 partition 或小批串行运行 checks-only job；任一 partition check 失败立即停止。
-   - 只读确认 `prod_ch_share_fact_market_breadth_daily` 的 `latest_materializations_without_latest_checks = 0`。
-   - 重新执行 P2 sample dry-run。
-   - P2 报告必须证明该资产 latest materialization 和 latest blocking checks 都完整，才能进入后续删除候选。
+5. P2R 当前验收口径
+   - 代码层验收只证明后续新 run/check 不再回流 multi-partition 归属错误。
+   - 历史 latest check 缺口不作为本阶段修复目标。
+   - `prod_ch_share_fact_market_breadth_daily` 继续保持 `latest_materializations_without_latest_checks > 0` 的风险标记。
+   - 该资产不得进入 P3/P4 删除候选，直到另一个经审批的独立方案证明 latest state 保护完整。
 
 P2R 禁止项：
 
@@ -531,17 +538,16 @@ P2R 禁止项：
 2. 禁止删除 latest materialization。
 3. 禁止删除无 check 覆盖的 materialization 来“制造通过”。
 4. 禁止用重跑数据同步 job 代替 checks-only 修复，除非另行审批并证明不会重写业务数据。
-5. 禁止在未修复 check 归属前把该资产纳入 P3/P4 删除白名单。
+5. 禁止把该资产纳入 P3/P4 删除白名单，除非未来独立方案证明 latest materialization 与 latest checks 已完整覆盖。
 
 2026-06-23 后当前推荐推进顺序：
 
 1. 先推进缩小版 P3：只处理 `ch_share_fact_market_breadth_daily` 与 `gold_stock_return_distribution`。
-2. 并行或随后单独推进 P2R：修复 `prod_ch_share_fact_market_breadth_daily` 的 partitioned check event 归属。
-3. P2R 通过后，重新跑 P2 sample dry-run，确认 `prod_ch_share_fact_market_breadth_daily` 不再有 latest check 缺口。
-4. 再决定是否把 `prod_ch_share_fact_market_breadth_daily` 放入后续小样本删除或 P4 分批删除。
-5. P3 小样本删除验证稳定后，再进入 P4 全局 old-state 清理。
-6. P5 retired check / retired asset 清理必须等待 active definitions、readiness、catalog、sensor/status helper 引用清零。
-7. P6 物理空间回收只在逻辑删除验证后单独评估，不与 P3/P4/P5 混跑。
+2. 停止 P2R 历史全量补录；prod 资产继续排除，不阻塞缩小版 P3。
+3. P3 小样本删除验证稳定后，再进入 P4 全局 old-state 清理，但 P4 仍不得包含 `prod_ch_share_fact_market_breadth_daily`。
+4. 如未来要让 `prod_ch_share_fact_market_breadth_daily` 进入删除候选，必须另开高性能 latest-check 缺口修复方案，并重新执行 P2 dry-run。
+5. P5 retired check / retired asset 清理必须等待 active definitions、readiness、catalog、sensor/status helper 引用清零。
+6. P6 物理空间回收只在逻辑删除验证后单独评估，不与 P3/P4/P5 混跑。
 
 ### P3：正式小样本清理
 
@@ -563,13 +569,28 @@ P3 第一批禁止包含：
 3. repair/status 类 check asset
 4. 任意 P2 dry-run 未证明 latest materialization 与 latest checks 完整的 asset
 
+2026-06-23 P3 前置只读复核：
+
+| asset | latest materializations | latest materializations with latest checks | latest materializations without latest checks | latest check rows | 结论 |
+| --- | ---: | ---: | ---: | ---: | --- |
+| `ch_share_fact_market_breadth_daily` | 3,028 | 3,028 | 0 | 18,168 | 可进入 P3 |
+| `gold_stock_return_distribution` | 3,029 | 3,029 | 0 | 18,174 | 可进入 P3 |
+| `prod_ch_share_fact_market_breadth_daily` | 3,028 | 23 | 3,005 | 96 | 继续禁止进入 P3/P4 |
+
+复核口径：
+
+1. latest check 覆盖必须按 `asset_check_executions.materialization_event_storage_id = latest ASSET_MATERIALIZATION event id` 判断。
+2. 不得用 `asset_check_executions.partition` 字段单独判断这两个白名单资产是否有 latest check；当前历史 check event 的 `partition` 可能为空，但 materialization id 绑定是正确的。
+3. P3 删除 SQL 必须保护所有 latest materialization id 及其绑定 latest check event，不能把 partition 为空的 latest check 误删。
+4. `prod_ch_share_fact_market_breadth_daily` 虽然已有少量 pilot partition check event，但仍有 3,005 个 latest materialization 缺 latest check；P2R 历史全量补录已停止，因此该资产继续排除。
+
 执行前置：
 
 1. 停止 `dg dev` / daemon / webserver。
 2. 确认无 queued / running runs。
 3. 完整备份 Dagster Postgres。
 4. 重新执行缩小范围 P2 dry-run，保存报告。
-5. dry-run 报告必须显示本次白名单资产 `latest_materializations_without_latest_checks = 0`。
+5. dry-run 报告必须按 materialization id 绑定口径显示本次白名单资产 `latest_materializations_without_latest_checks = 0`。
 6. 明确本次删除 asset 白名单，白名单只能是本小节允许的两个 asset。
 
 执行顺序：
@@ -744,8 +765,8 @@ P3 第一批禁止包含：
 
 1. P2 dry-run 发现 3,007 个 latest materialization 没有 latest check state。
 2. 根因是 multi-partition batch check 归属不正确。
-3. 它必须先完成 P2R check 归属修复和 checks-only 补录。
-4. 只有重新 P2 dry-run 证明 `latest_materializations_without_latest_checks = 0` 后，才允许作为后续小样本或 P4 候选。
+3. P2R 代码修复只解决后续新 run/check 的归属正确性，不再做 3,007 个历史分区全量补录。
+4. 当前它必须继续排除在 P3/P4 删除候选外；只有未来独立方案证明 `latest_materializations_without_latest_checks = 0` 后，才允许重新讨论是否进入候选。
 
 `raw_tushare_index_daily_by_code` 的清理顺序：
 
@@ -800,7 +821,7 @@ P3 第一批禁止包含：
 1. 是否同意第一阶段只处理“旧 materialization 及其绑定旧 check”，不处理 `runs` / `run_tags` / `dynamic_partitions` / `instigators`。
    - 建议：同意。
 2. 是否同意第一批小样本缩小为 `ch_share_fact_market_breadth_daily`、`gold_stock_return_distribution`，暂缓 `prod_ch_share_fact_market_breadth_daily`。
-   - 建议：同意。P2 实测已证明前两个资产满足 latest state 保护条件，`prod_ch_share_fact_market_breadth_daily` 必须先完成 P2R。
+   - 建议：同意。P2 实测已证明前两个资产满足 latest state 保护条件；`prod_ch_share_fact_market_breadth_daily` 停止 P2R 历史全量补录，并继续排除在 P3/P4 候选外。
 3. 是否接受普通 `DELETE` 后磁盘文件不立即缩小，第一阶段先验证 UI/status/readiness 正确性；物理回收空间另开维护窗口。
    - 建议：同意。
 4. 是否将 `silver_stock_daily_current_listed_only` 列为 retired check name 候选，但要求先做 active definitions 审计后再删除。

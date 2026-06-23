@@ -6,6 +6,10 @@ from orchestrator.defs.assets.clickhouse_serving import (
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 
 
+def _empty_check_refresh_run_config(_partition_key: str) -> dict[str, object]:
+    return {}
+
+
 prod_clickhouse_share_fact_market_breadth_sync_job = dg.define_asset_job(
     name="prod_clickhouse_share_fact_market_breadth_sync_job",
     selection=(
@@ -20,6 +24,10 @@ prod_clickhouse_share_fact_market_breadth_check_refresh_job = dg.define_asset_jo
     name="prod_clickhouse_share_fact_market_breadth_check_refresh_job",
     selection=dg.AssetSelection.checks_for_assets(
         prod_ch_share_fact_market_breadth_daily
+    ),
+    config=dg.PartitionedConfig(
+        partitions_def=cn_a_stock_trade_days,
+        run_config_for_partition_key_fn=_empty_check_refresh_run_config,
     ),
     partitions_def=cn_a_stock_trade_days,
     description=(

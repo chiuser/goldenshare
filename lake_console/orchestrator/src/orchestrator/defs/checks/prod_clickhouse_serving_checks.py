@@ -10,6 +10,7 @@ from orchestrator.defs.assets.clickhouse_serving import (
     fetch_clickhouse_market_breadth_rows_for_partitions,
     prod_ch_share_fact_market_breadth_daily,
 )
+from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 
 
@@ -150,7 +151,11 @@ def _single_row_failure(
     )
 
 
-@dg.asset_check(asset=prod_ch_share_fact_market_breadth_daily, blocking=True)
+@dg.asset_check(
+    asset=prod_ch_share_fact_market_breadth_daily,
+    blocking=True,
+    partitions_def=cn_a_stock_trade_days,
+)
 def prod_ch_share_fact_market_breadth_row_count_is_one(
     context: dg.AssetCheckExecutionContext,
     prod_clickhouse: ClickhouseResource,
@@ -183,7 +188,11 @@ def prod_ch_share_fact_market_breadth_row_count_is_one(
     )
 
 
-@dg.asset_check(asset=prod_ch_share_fact_market_breadth_daily, blocking=True)
+@dg.asset_check(
+    asset=prod_ch_share_fact_market_breadth_daily,
+    blocking=True,
+    partitions_def=cn_a_stock_trade_days,
+)
 def prod_ch_share_fact_market_breadth_date_matches_partition(
     context: dg.AssetCheckExecutionContext,
     prod_clickhouse: ClickhouseResource,
@@ -228,7 +237,11 @@ def prod_ch_share_fact_market_breadth_date_matches_partition(
     )
 
 
-@dg.asset_check(asset=prod_ch_share_fact_market_breadth_daily, blocking=True)
+@dg.asset_check(
+    asset=prod_ch_share_fact_market_breadth_daily,
+    blocking=True,
+    partitions_def=cn_a_stock_trade_days,
+)
 def prod_ch_share_fact_market_breadth_row_matches_local(
     context: dg.AssetCheckExecutionContext,
     clickhouse: ClickhouseResource,
@@ -296,7 +309,11 @@ def prod_ch_share_fact_market_breadth_row_matches_local(
     )
 
 
-@dg.asset_check(asset=prod_ch_share_fact_market_breadth_daily, blocking=True)
+@dg.asset_check(
+    asset=prod_ch_share_fact_market_breadth_daily,
+    blocking=True,
+    partitions_def=cn_a_stock_trade_days,
+)
 def prod_ch_share_fact_market_breadth_updated_at_not_older_than_local(
     context: dg.AssetCheckExecutionContext,
     clickhouse: ClickhouseResource,
