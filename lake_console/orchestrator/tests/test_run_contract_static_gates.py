@@ -2474,6 +2474,115 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stk_mins_event_history_retention_dry_run_is_scoped_and_read_only(
+        self,
+    ) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention.py"
+        )
+        cli_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        combined = f"{helper_source}\n{cli_source}".lower()
+        issues = []
+
+        forbidden_fragments = (
+            "delete from",
+            "insert into",
+            "update event_logs",
+            "update asset_check_executions",
+            "vacuum (",
+            "analyze event_logs",
+            "report_runless_asset_event",
+            "dagsterinstance.get",
+            "--apply",
+            "\"apply\"",
+            "asset_key::text like",
+        )
+        required_helper_fragments = (
+            "STK_MINS_RETENTION_KEEP_PARTITION_SET_NAME = "
+            '"cn_a_stock_mins_trade_days"',
+            "STK_MINS_RETENTION_KEEP_TRADE_DAY_COUNT = 20",
+            "STK_MINS_RETENTION_ASSET_KEYS",
+            "gold_stk_mins_qfq_factor_repair_plan_evaluated",
+            "gold_stk_mins_qfq_macd_kdj_repair_completed_check",
+            "candidate_checks_exclude_keep_window_partitions",
+            "candidate_materializations_exclude_latest_materializations",
+        )
+        issues.extend(
+            f"{helper_path} contains forbidden retention fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
+        issues.extend(
+            f"{helper_path} misses required retention fragment: {fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in helper_source
+        )
+        if "\"dry-run\"" not in cli_source:
+            issues.append(f"{cli_path} must expose the dry-run command")
+
+        self.assertEqual(issues, [])
+
+    def test_stk_mins_event_history_retention_sample_delete_is_tightly_scoped(
+        self,
+    ) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "stk_mins_event_history_retention_sample_delete.py"
+        )
+        cli_path = (
+            DEFS_DIR
+            / "bootstrap"
+            / "stk_mins_event_history_retention_sample_delete_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        combined = f"{helper_source}\n{cli_source}".lower()
+        issues = []
+
+        required_fragments = (
+            "STK_MINS_RETENTION_DEFAULT_SAMPLE_DELETE_ASSET =",
+            "gold_stk_mins_qfq_macd_kdj_state_120m",
+            "--confirm-sample-delete",
+            "sample-delete requires --confirm-sample-delete",
+            "delete_check_event_tags",
+            "delete_check_events",
+            "delete_check_executions",
+            "delete_materialization_event_tags",
+            "delete_materialization_events",
+            "connection.commit()",
+            "rollback()",
+        )
+        forbidden_fragments = (
+            "asset_key::text like",
+            "truncate ",
+            "drop table",
+            "vacuum",
+            "reindex",
+            "pg_repack",
+            "delete from runs",
+            "delete from run_tags",
+            "delete from dynamic_partitions",
+            "report_runless_asset_event",
+            "dagsterinstance.get",
+        )
+        issues.extend(
+            f"{helper_path} misses sample-delete fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in f"{helper_source}\n{cli_source}"
+        )
+        issues.extend(
+            f"{helper_path} contains forbidden sample-delete fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
+        if "\"dry-run\"" in cli_source:
+            issues.append(f"{cli_path} must not masquerade as a dry-run CLI")
+
+        self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()
