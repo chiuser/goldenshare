@@ -2251,6 +2251,81 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_raw_index_daily_runless_recent_window_contracts(self) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "index_daily_raw_by_date_runless_events.py"
+        )
+        cli_path = (
+            DEFS_DIR / "bootstrap" / "index_daily_raw_by_date_runless_events_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        combined_source = f"{helper_source}\n{cli_source}"
+        issues = []
+
+        required_helper_fragments = (
+            'RAW_INDEX_DAILY_ASSET_KEY = dg.AssetKey("raw_index_daily")',
+            "RAW_INDEX_DAILY_RECENT_WINDOW_LIMIT = 20",
+            "RAW_INDEX_DAILY_MAX_EVENT_COUNT",
+            '"raw_index_daily_file_contract_check"',
+            '"raw_index_daily_code_coverage_check"',
+            'RAW_INDEX_DAILY_COVERAGE_BASIS = "by_code_source_pairs"',
+            'RAW_INDEX_DAILY_EVENT_BACKFILL_SCOPE = "recent_window"',
+            "index_code_set_hash",
+            "AssetCheckEvaluationTargetMaterializationData",
+            "report_runless_asset_event",
+            "target_materialization_data=target",
+            "dry_run",
+        )
+        issues.extend(
+            f"{helper_path} misses P4 runless fragment: {fragment}"
+            for fragment in required_helper_fragments
+            if fragment not in helper_source
+        )
+
+        required_cli_fragments = (
+            '"plan-events"',
+            '"report-sample-events"',
+            '"audit-sample-events"',
+            '"report-recent-window-events"',
+            '"audit-recent-window-events"',
+            '"--apply"',
+            "dry_run=not args.apply",
+            "--p3-final-audit-report",
+        )
+        issues.extend(
+            f"{cli_path} misses P4 CLI fragment: {fragment}"
+            for fragment in required_cli_fragments
+            if fragment not in cli_source
+        )
+
+        forbidden_fragments = (
+            'dg.AssetKey("raw_tushare_index_daily_by_code")',
+            "RAW_INDEX_DAILY_BY_CODE_ASSET_KEY",
+            "raw_index_daily_file_exists_check",
+            "raw_index_daily_row_count_positive_check",
+            "raw_index_daily_required_columns_and_types_check",
+            "raw_index_daily_partition_date_matches_check",
+            "raw_index_daily_unique_ts_code_trade_date_check",
+            "raw_index_daily_registered_code_coverage_check",
+            "raw_index_daily_expected_code_coverage_check",
+            "2026-06-23",
+            "20260623",
+        )
+        issues.extend(
+            "raw_index_daily runless helper/CLI contains forbidden fragment: "
+            f"{fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined_source
+        )
+
+        if "window_limit > RAW_INDEX_DAILY_RECENT_WINDOW_LIMIT" not in helper_source:
+            issues.append("raw_index_daily runless helper must fail closed above 20")
+        if "RAW_INDEX_DAILY_MAX_EVENT_COUNT" not in helper_source:
+            issues.append("raw_index_daily runless helper must cap event count")
+
+        self.assertEqual(issues, [])
+
     def test_market_major_indices_sensor_uses_bounded_lake_readiness(self) -> None:
         sensor_path = SENSORS_DIR / "market_major_indices_daily_sensor.py"
         helper_path = DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py"
