@@ -195,7 +195,7 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
     "daily_market_close_maintenance": WorkflowDefinition(
         key="daily_market_close_maintenance",
         display_name="每日收盘后维护",
-        description="覆盖日线、集合竞价、历史基础列表、日指标、资金流、榜单、基金/指数日线与新闻资讯的每日维护工作流。",
+        description="覆盖日线、集合竞价、历史基础列表、日指标、资金流、榜单、基金日线与新闻资讯的每日维护工作流。",
         parameters=(TRADE_DATE_PARAM, START_DATE_PARAM, END_DATE_PARAM),
         steps=(
             _dataset_workflow_step("daily", "daily"),
@@ -215,7 +215,6 @@ WORKFLOW_DEFINITION_REGISTRY: dict[str, WorkflowDefinition] = {
             _dataset_workflow_step("block_trade", "block_trade"),
             _dataset_workflow_step("fund_daily", "fund_daily"),
             _dataset_workflow_step("fund_adj", "fund_adj"),
-            _dataset_workflow_step("index_daily", "index_daily"),
             _dataset_workflow_step("ths_daily", "ths_daily"),
             _dataset_workflow_step("dc_index", "dc_index"),
             _dataset_workflow_step("dc_member", "dc_member"),

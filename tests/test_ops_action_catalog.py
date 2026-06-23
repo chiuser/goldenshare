@@ -137,7 +137,6 @@ def test_workflow_time_contracts_match_step_requirements() -> None:
         "block_trade",
         "fund_daily",
         "fund_adj",
-        "index_daily",
         "ths_daily",
         "dc_index",
         "dc_member",
