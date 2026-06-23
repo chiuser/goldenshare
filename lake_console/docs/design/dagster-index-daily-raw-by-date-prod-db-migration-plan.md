@@ -52,18 +52,18 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 | 当前 silver by-date parquet 文件数 | 6,411 个 |
 | 本机 Dagster `cn_a_index_ts_codes` dynamic partitions | 946 个 code |
 | 本机 Dagster code set hash | `6f8f560f11cdce10e4cd5a096c64a4c9`，按 code 排序后 `md5(string_agg(code, ','))` |
-| 远程 prod `ops.index_series_active(resource='index_daily')` | 1130 个 code |
+| 远程 prod `ops.index_series_active(resource='index_daily')` | P-1 执行前 1130 个 code；P-1 active pool 修复后 1216 个 code |
 | 远程 prod `ops.index_series_active(resource='index_daily_raw')` | 3052 个 code，仅是历史请求池，不是本迁移 raw 更新门禁 |
 | 远程 prod `core_serving.index_daily_serving` 日期范围 | `2020-01-02` 到 `2026-06-22` |
-| 远程 prod `core_serving.index_daily_serving` distinct code | 1130 个 |
-| 远程 prod 最近 10 个交易日 serving 当日 code | 每日 1126 个，较 `index_daily` active pool 缺 4 个 |
-| DG code 与当前 prod serving 4 个缺口交集 | 0 个 |
-| DG code 不在 prod serving 全历史中的数量 | 86 个 |
+| 远程 prod `core_serving.index_daily_serving` distinct code | P-1 执行前 1130 个；P-1 serving 补齐后 1216 个 |
+| 远程 prod 最近 10 个交易日 serving 当日 code | P-1 执行前每日 1126 个，较当时 `index_daily` active pool 缺 4 个 |
+| DG code 与 P-1 执行前 prod serving 4 个缺口交集 | 0 个 |
+| DG code 不在 prod serving 全历史中的数量 | P-1 执行前 86 个；P-1 serving 补齐后 0 个 |
 | prod serving 全历史 code 不在 DG 中的数量 | 270 个 |
 
 这些数量只作为方案规模估算。正式开发前必须重新执行只读 dry-run，不能直接相信历史样本。
 
-2026-06-23 只读审计发现的当前 prod serving 缺口：
+2026-06-23 P-1 执行前只读审计发现的 prod serving 缺口：
 
 | ts_code | serving 最后有数日期 | 缺口开始 | 缺口截止 | 缺失交易日数 |
 | --- | --- | --- | --- | ---: |
@@ -87,7 +87,7 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 
 1. 确保 prod `ops.index_series_active(resource='index_daily')` 覆盖当前 DG 管理的全部指数日线代码。
 2. 保持 Lake/DG 的日更同步集合仍为运行时 Lake 期望 code set；当前迁移审计基线为 `cn_a_index_ts_codes` 的 946 个代码。prod active pool 只是 prod source 门禁和生产 serving 写入门禁，不得反向定义 Lake 期望集合。
-3. 对新增进入 prod `index_daily` active pool 的 DG 缺口代码，先把 prod 端历史 `raw_tushare.index_daily` 与 `core_serving.index_daily_serving` 补齐，再允许本迁移从 prod serving 读取。
+3. 对新增进入 prod `index_daily` active pool 的 DG 缺口代码，按新湖 `silver/index_daily` 的实际历史 pair 补齐 prod `core_serving.index_daily_serving`，再允许本迁移从 prod serving 读取。
 
 2026-06-23 只读审计得到的当前缺口：
 
@@ -98,13 +98,14 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 | 这 86 个在 `ops.index_series_active(resource='index_daily')` 中 | 0 个 |
 | 这 86 个在 `ops.index_series_active(resource='index_daily_raw')` 中 | 86 个 |
 | 这 86 个当前 prod raw 行数 | 2,837 行 |
-| 这 86 个当前 prod serving 行数 | 0 行 |
-| 这 86 个 `index_basic.list_date` 范围 | `2023-03-13` 到 `2025-07-21` |
-| 按各自 `list_date` 到 `2026-06-22` 开市日估算的历史 serving 行数 | 47,656 行 |
-| 当前估算 raw 缺口 | 44,819 行 |
-| 当前估算 serving 缺口 | 47,656 行 |
+| 这 86 个 P-1 写入前 prod serving 行数 | 0 行 |
+| 这 86 个 `index_basic.list_date` 范围 | `2023-03-13` 到 `2025-07-21`，仅作审计字段 |
+| 已废弃的旧 `list_date` 口径估算 serving 行数 | 47,656 行 |
+| 新湖 `silver/index_daily` 中这 86 个 code 的全量可补 serving 行数 | 154,160 行 |
+| 其中早于旧 `list_date` 口径的行数 | 106,720 行 |
+| P-1 写入前 prod serving 缺口 | 154,160 行 |
 
-注意：`2026-05-06` 到 `2026-06-22` 的 33 个交易日只是 prod raw 当前已有的局部缓存窗口，不是历史补齐范围。正式补齐范围必须按每个 code 的 `core_serving.index_basic.list_date` 到批准的目标交易日计算；若未来出现 `exp_date`，截止日期取 `min(exp_date, 目标交易日)`。
+注意：`2026-05-06` 到 `2026-06-22` 的 33 个交易日只是 prod raw 当前已有的局部缓存窗口，不是历史补齐范围。`core_serving.index_basic.list_date` 也不再作为补 prod serving 的起始日期，因为已核实源站存在“指数日线早于 list_date”的真实情况。正式补齐范围改为：当前 DG 缺口 86 个 code 在新湖 `silver/index_daily` 中实际存在的全部 `(ts_code, trade_date)`，并按批准目标交易日做上界裁剪；新湖不存在的日期不补、不造数。
 
 执行步骤：
 
@@ -117,34 +118,46 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
    - `dg_codes - prod_index_daily_serving_distinct_codes` 必须列出明细。
    - 当前预期两者交集是 86 个；若重新审计数量变化，必须以最新只读报告为准，并先更新本方案。
 3. 生成历史补齐计划：
-   - 对每个待补 code 读取 `core_serving.index_basic.list_date/exp_date`。
-   - 用 `core_serving.trade_calendar where is_open = true` 计算 `[list_date, target_trade_date]` 的 expected trade dates。
-   - 对比 `raw_tushare.index_daily` 和 `core_serving.index_daily_serving` 已有行，输出 raw gap、serving gap、缺失样本。
-   - 当前已知样本：`970051.CNI` 在 `2026-05-20` 的 Tushare `index_daily` 源端有数据，但 prod raw 缺失，该类缺口必须按源端事实补齐。
+   - 读取新湖 `silver/index_daily` 中待补 code 的全部实际 `(ts_code, trade_date)`，按批准目标交易日做上界裁剪。
+   - `core_serving.index_basic.list_date/exp_date` 只进入审计报告，用于说明哪些行早于当前 prod 基础信息中的 list_date；不得用它过滤待补行。
+   - 对比新湖 silver pair 与 prod `core_serving.index_daily_serving` 已有 pair，输出 serving gap、重复 key、字段空值和样本。
+   - prod `raw_tushare.index_daily` 当前只有局部缓存窗口，本步骤不再要求补齐 prod raw；若未来要补 prod raw，必须另起专项方案和审批。
 4. 补 prod active pool：
    - 仅在用户批准后执行生产写入。
    - 写入 `ops.index_series_active(resource='index_daily')` 的待补 code。
    - `first_seen_date/last_seen_date/last_checked_at` 是审计字段，不参与 Lake 期望集合定义；写入值必须来自本次补齐计划中的实际 source 覆盖范围和执行时间。
    - 不得把 `index_daily_raw` resource 行当作 `index_daily` resource 复用或改名。
-5. 补 prod raw 与 serving 历史：
-   - 使用现有生产 `index_daily` 维护链路，按 explicit `ts_code` 和 `[list_date, target_trade_date]` 执行 `range_rebuild`；不得依赖默认 `index_daily_raw` 请求池隐式展开。
-   - 当前代码依据必须逐项对齐：`src/foundation/ingestion/request_builders.py::_index_daily_params(...)` 已支持 explicit `ts_code` + `start_date/end_date`；`src/foundation/ingestion/unit_planner.py::_resolve_index_codes(...)` 在传入 explicit `ts_code` 时优先使用该 code；`src/foundation/ingestion/writer.py::_write_index_daily_serving(...)` 先 upsert `raw_tushare.index_daily`，再按 `ops.index_series_active(resource='index_daily')` active gate 写 `core_serving.index_daily_serving`。
-   - serving 写入必须走当前 `index_daily` active gate 语义，保持 `change -> change_amount` 映射和 `(ts_code, trade_date)` 幂等 upsert；不得直接绕过现有字段转换口径。
-   - 目标不是只补 33 个交易日，而是补到每个 code 的完整历史范围。
+5. 补 prod serving 历史：
+   - 本 P-1 补数来源改为新湖 `silver/index_daily`，目标只补 prod `core_serving.index_daily_serving`；不要求同步补 prod `raw_tushare.index_daily`。
+   - 写入前必须确认待补 code 已进入 prod `ops.index_series_active(resource='index_daily')`，保持 prod serving active gate 的业务含义。
+   - 字段映射以当前 serving 表字段为准：新湖 silver 已是 `change_amount`，不得再套 raw `change -> change_amount` 转换；不得把 Lake 或 prod 的系统字段 `source/created_at/updated_at` 当成业务数据搬运。
+   - 写入必须按 `(ts_code, trade_date)` 幂等 upsert，先 dry-run、再 sample、再 full；任何生产写入都必须单独审批。
+   - 目标不是只补 33 个交易日，也不是按 list_date 截断，而是补齐新湖 silver 中 86 个 code 的完整实际历史 pair。
 6. 最终只读验收：
    - `dg_codes - prod_index_daily_active_pool = empty`。
    - `dg_codes - prod_index_daily_serving_distinct_codes = empty`。
-   - 对 86 个待补 code，按 `index_basic.list_date` 到目标交易日的 expected trade dates 与 prod raw/serving 对账，missing pair 为 0；若 Tushare 源端确无数据，必须有逐 code/date 的源端实测证据和人工批准。
+   - 对 86 个待补 code，新湖 `silver/index_daily` 中批准范围内的 `(ts_code, trade_date)` 与 prod `core_serving.index_daily_serving` 对账，missing pair 为 0。
+   - 旧 `list_date` 口径只作为异常审计报告，不作为验收门槛。
    - 目标交易日 `core_serving.index_daily_serving` 必须完整覆盖运行时 Lake 期望 code set。
 
 停止条件：
 
 1. prod active pool 仍缺任何 DG code。
-2. 86 个历史补齐后 prod serving 仍缺任何应有 code/date。
-3. 无法解释 source 无数据、重复 key、字段映射或 row count 差异。
+2. 86 个历史补齐后 prod serving 仍缺任何新湖 silver 已存在的 code/date。
+3. 无法解释重复 key、字段映射或 row count 差异。
 4. 补齐计划试图改用 prod active pool 反向定义 DG/Lake 同步集合。
 
 只有该前置步骤最终验收通过，才允许进入本迁移的 M0。
+
+2026-06-23 P-1 执行结果：
+
+1. prod `ops.index_series_active(resource='index_daily')` 已覆盖 DG 当前 946 个 code；`dg_codes - prod_index_daily_active_pool = 0`。
+2. 从新湖 `silver/index_daily` 导出的 86 个 repair code payload 为 154,160 行、86 个 code、154,160 个唯一 `(ts_code, trade_date)`，日期范围 `2004-12-31` 到 `2026-06-22`。
+3. 其中 106,720 行早于旧 `index_basic.list_date` 口径；按最新确认口径，这些行已纳入 prod serving 补齐范围。
+4. payload 无重复 key；`open/high/low/close/pre_close` 任一为空的行 85,600 行，`change_amount/pct_chg` 任一为空的行 42 行。prod `core_serving.index_daily_serving` 的业务行情字段均允许 NULL，因此不构成写入阻断。
+5. 已将上述 154,160 行幂等 upsert 到 prod `core_serving.index_daily_serving`；不写 prod `raw_tushare.index_daily`，不写 Lake，不写 Dagster event。
+6. 写后只读验收通过：prod serving distinct code 从 1130 变为 1216，`dg_codes - prod_index_daily_serving_distinct_codes = 0`；86 个 repair code 的 prod serving pair 为 154,160，和 payload pair 完全一致；字段级 diff 为 0。
+7. 目标交易日 `2026-06-22` 验收通过：prod serving 当日有 1212 个 code，覆盖 DG 946 个 code 的缺口为 0；额外 266 个 prod code 不阻断 DG 日更。
 
 ## 目标口径
 
@@ -221,13 +234,14 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 
 1. 重新审计 DG code set、prod `index_daily` active pool、prod serving distinct code。
 2. 将缺失的 DG code 加入 prod `ops.index_series_active(resource='index_daily')`。
-3. 按每个 code 的 `core_serving.index_basic.list_date` 到批准的目标交易日补齐 prod `raw_tushare.index_daily` 与 `core_serving.index_daily_serving`。
+3. 按新湖 `silver/index_daily` 中 86 个 code 的实际历史 pair 补齐 prod `core_serving.index_daily_serving`；`core_serving.index_basic.list_date` 不作为起始日期，prod `raw_tushare.index_daily` 不作为本阶段必补目标。
 4. 验证 prod source 已能完整覆盖运行时 Lake 期望 code set。
 
 禁止：
 
 - 禁止在该阶段修改 Dagster/Lake 代码。
 - 禁止把 33 个当前 raw 缓存交易日当作历史补齐范围。
+- 禁止按 `index_basic.list_date` 截断新湖 silver 中已经存在的日线。
 - 禁止把 prod active pool 直接变成 Lake 期望 code set。
 - 禁止绕过现有 `index_daily` serving 字段映射和 active gate 语义。
 
@@ -490,7 +504,7 @@ raw 日更 sensor 不能在 by-date 历史基线建立前启用。必须同时�
 
 ## 建议推进步骤
 
-1. 先完成 P-1 prod source 基线修复：重新导出 DG 946 code、prod active pool、prod serving distinct code；把 86 个 DG 缺口加入 `ops.index_series_active(resource='index_daily')`；按各自 `list_date` 到批准目标交易日补齐 prod raw 与 serving；只读验收缺口为 0。
+1. 先完成 P-1 prod source 基线修复：重新导出 DG 946 code、prod active pool、prod serving distinct code；把 86 个 DG 缺口加入 `ops.index_series_active(resource='index_daily')`；按新湖 `silver/index_daily` 中 86 个 code 的实际历史 pair 补齐 prod serving；只读验收缺口为 0。
 2. 再做 P0 只读 profiling：冻结 prod 字段、单日读取性能、DG code hash、by-code 历史输入规模、by-date event 数量估算；若数字变化，先更新本文档。
 3. P1/P2 只开发新契约和新 raw by-date asset/check/job，不启用 sensor，不删除旧 by-code。
 4. P3 单独申请 lake 写入审批，执行历史 by-code 到 by-date 文件转换，先 sample 后 full。
@@ -500,8 +514,8 @@ raw 日更 sensor 不能在 by-date 历史基线建立前启用。必须同时�
 
 ## 遗留拍板项
 
-1. P-1 prod 补数的批准目标交易日：必须不早于 P0 扫描到的当前 DG by-code 历史最大交易日；若开发期间 by-code 继续增长，以正式执行前最新 profiling 为准。
-2. 86 个 code 补数遇到 Tushare 源端确无数据时，是否允许带人工批准的 source gap 白名单继续推进。
+1. P-1 prod 补数的批准目标交易日：必须不早于 P0 扫描到的当前新湖 silver 最大 trade date；若开发期间新湖继续增长，以正式执行前最新 profiling 为准。
+2. 86 个 code 补数不再建立 Tushare source gap 白名单；正式可补集合就是新湖 `silver/index_daily` 中实际存在的 pair。若新湖数据本身被证明有污染，必须先停下单独审计数据来源。
 3. P3/P4 bootstrap 代码在 P7 的处理方式：删除，还是移到 active static gate 不扫描的离线工具目录。无论选哪种，生产 `src/orchestrator/defs/**` 旧 by-code 符号必须清零。
 4. 新 `raw_index_daily` catalog 是否新增专用 `_prod_core_raw_entry(...)` helper；若不新增 helper，也必须直接用 `_entry(...)` 写全字段，禁止套 `_tushare_raw_entry(...)` 或 `_derived_entry(...)`。
 5. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起专项 dry-run 和审批；若不执行，旧记录只能作为历史审计账留存，不能影响新链路状态。
