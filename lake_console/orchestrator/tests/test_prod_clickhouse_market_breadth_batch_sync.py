@@ -14,6 +14,7 @@ from orchestrator.defs.assets.clickhouse_serving import (
 )
 from orchestrator.defs.checks import prod_clickhouse_serving_checks as checks
 from orchestrator.defs.jobs.prod_clickhouse_share_fact_market_breadth_sync import (
+    prod_clickhouse_share_fact_market_breadth_check_refresh_job,
     prod_clickhouse_share_fact_market_breadth_sync_job,
 )
 from orchestrator.defs.sensors.clickhouse_market_breadth_continuity_sensor import (
@@ -154,11 +155,13 @@ def _row(
 
 
 class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
-    def test_prod_asset_backfill_policy_batches_250_partitions(self) -> None:
-        self.assertEqual(PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN, 250)
+    def test_prod_asset_backfill_policy_is_single_partition_for_check_attribution(
+        self,
+    ) -> None:
+        self.assertEqual(PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN, 1)
         self.assertEqual(
             prod_ch_share_fact_market_breadth_daily.backfill_policy.max_partitions_per_run,
-            250,
+            1,
         )
 
     def test_batch_fetch_reads_selected_dates_once(self) -> None:
@@ -256,16 +259,27 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
         self.assertEqual(client.rows, [new_row])
         self.assertEqual(client.operations, ["set", "delete", "count", "insert", "count"])
 
-    def test_prod_row_count_check_batches_selected_partitions(self) -> None:
-        client = _FakeClickHouseClient([_row(DATE_1), _row(DATE_2)])
+    def test_prod_row_count_check_accepts_single_partition(self) -> None:
+        client = _FakeClickHouseClient([_row(DATE_1)])
         prod_resource = _FakeClickHouseResource(client)
         check_fn = _check_function(checks.prod_ch_share_fact_market_breadth_row_count_is_one)
 
-        result = check_fn(_PartitionContext(DATE_1, DATE_2), prod_resource)
+        result = check_fn(_PartitionContext(DATE_1), prod_resource)
 
         self.assertTrue(result.passed)
         self.assertEqual(prod_resource.connection_count, 1)
         self.assertEqual(client.operations, ["select"])
+
+    def test_prod_checks_reject_multi_partition_context(self) -> None:
+        client = _FakeClickHouseClient([_row(DATE_1), _row(DATE_2)])
+        prod_resource = _FakeClickHouseResource(client)
+        check_fn = _check_function(checks.prod_ch_share_fact_market_breadth_row_count_is_one)
+
+        with self.assertRaisesRegex(RuntimeError, "requires exactly one partition"):
+            check_fn(_PartitionContext(DATE_1, DATE_2), prod_resource)
+
+        self.assertEqual(prod_resource.connection_count, 0)
+        self.assertEqual(client.operations, [])
 
     def test_prod_row_count_check_detects_missing_and_duplicate_partitions(self) -> None:
         duplicate_row = _row(DATE_1)
@@ -273,7 +287,7 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
         prod_resource = _FakeClickHouseResource(client)
         check_fn = _check_function(checks.prod_ch_share_fact_market_breadth_row_count_is_one)
 
-        result = check_fn(_PartitionContext(DATE_1, DATE_2), prod_resource)
+        result = check_fn(_PartitionContext(DATE_1), prod_resource)
 
         self.assertFalse(result.passed)
         self.assertEqual(client.operations, ["select"])
@@ -285,20 +299,20 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
             checks.prod_ch_share_fact_market_breadth_date_matches_partition
         )
 
-        result = check_fn(_PartitionContext(DATE_1, DATE_2), prod_resource)
+        result = check_fn(_PartitionContext(DATE_2), prod_resource)
 
         self.assertFalse(result.passed)
         self.assertEqual(client.operations, ["select"])
 
     def test_prod_row_matches_local_batches_and_detects_field_mismatch(self) -> None:
-        local_client = _FakeClickHouseClient([_row(DATE_1), _row(DATE_2, up_count=20)])
-        prod_client = _FakeClickHouseClient([_row(DATE_1), _row(DATE_2, up_count=21)])
+        local_client = _FakeClickHouseClient([_row(DATE_1, up_count=20)])
+        prod_client = _FakeClickHouseClient([_row(DATE_1, up_count=21)])
         local_resource = _FakeClickHouseResource(local_client)
         prod_resource = _FakeClickHouseResource(prod_client)
         check_fn = _check_function(checks.prod_ch_share_fact_market_breadth_row_matches_local)
 
         result = check_fn(
-            _PartitionContext(DATE_1, DATE_2),
+            _PartitionContext(DATE_1),
             local_resource,
             prod_resource,
         )
@@ -311,10 +325,10 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
 
     def test_prod_updated_at_check_detects_older_prod_row(self) -> None:
         local_client = _FakeClickHouseClient(
-            [_row(DATE_1), _row(DATE_2, updated_at="2026-06-05 15:00:00")]
+            [_row(DATE_1, updated_at="2026-06-05 15:00:00")]
         )
         prod_client = _FakeClickHouseClient(
-            [_row(DATE_1), _row(DATE_2, updated_at="2026-06-05 14:59:59")]
+            [_row(DATE_1, updated_at="2026-06-05 14:59:59")]
         )
         local_resource = _FakeClickHouseResource(local_client)
         prod_resource = _FakeClickHouseResource(prod_client)
@@ -323,7 +337,7 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
         )
 
         result = check_fn(
-            _PartitionContext(DATE_1, DATE_2),
+            _PartitionContext(DATE_1),
             local_resource,
             prod_resource,
         )
@@ -342,6 +356,26 @@ class ProdClickHouseMarketBreadthBatchSyncTests(unittest.TestCase):
         self.assertIn(
             "prod_ch_share_fact_market_breadth_daily",
             str(prod_clickhouse_share_fact_market_breadth_sync_job.selection),
+        )
+        selected_assets = prod_clickhouse_share_fact_market_breadth_check_refresh_job.selection.resolve(
+            [prod_ch_share_fact_market_breadth_daily],
+        )
+        self.assertEqual(selected_assets, set())
+        self.assertEqual(
+            prod_clickhouse_share_fact_market_breadth_check_refresh_job.name,
+            "prod_clickhouse_share_fact_market_breadth_check_refresh_job",
+        )
+        self.assertEqual(
+            prod_clickhouse_share_fact_market_breadth_check_refresh_job.partitions_def,
+            prod_ch_share_fact_market_breadth_daily.partitions_def,
+        )
+        self.assertIn(
+            "AssetChecksForAssetKeysSelection",
+            repr(prod_clickhouse_share_fact_market_breadth_check_refresh_job.selection),
+        )
+        self.assertNotIn(
+            "KeysAssetSelection",
+            repr(prod_clickhouse_share_fact_market_breadth_check_refresh_job.selection),
         )
         self.assertEqual(
             prod_clickhouse_market_breadth_continuity_sensor.name,

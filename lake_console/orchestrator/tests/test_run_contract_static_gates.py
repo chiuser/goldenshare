@@ -1816,6 +1816,81 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_prod_clickhouse_market_breadth_checks_are_partition_attributable(
+        self,
+    ) -> None:
+        issues = []
+        asset_source = (ASSETS_DIR / "clickhouse_serving.py").read_text()
+        checks_source = (CHECKS_DIR / "prod_clickhouse_serving_checks.py").read_text()
+        job_source = (
+            JOBS_DIR / "prod_clickhouse_share_fact_market_breadth_sync.py"
+        ).read_text()
+        event_retention_doc = Path(
+            "../docs/design/dagster-event-history-retention-governance-plan.md"
+        ).read_text()
+
+        if "PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN = 1" not in asset_source:
+            issues.append(
+                "prod_ch_share_fact_market_breadth_daily must run as a "
+                "single-partition Dagster asset so check events are attributable"
+            )
+        if "requires exactly one partition" not in checks_source:
+            issues.append(
+                "prod ClickHouse serving checks must fail closed for "
+                "multi-partition check contexts"
+            )
+        forbidden_check_fragments = (
+            "check batch is too large",
+            "mismatched_partition_count",
+            "older_prod_partition_count",
+        )
+        issues.extend(
+            "prod ClickHouse serving checks contain forbidden batch-check fragment: "
+            f"{fragment}"
+            for fragment in forbidden_check_fragments
+            if fragment in checks_source
+        )
+
+        check_refresh_start = job_source.find(
+            "prod_clickhouse_share_fact_market_breadth_check_refresh_job = "
+            "dg.define_asset_job("
+        )
+        if check_refresh_start == -1:
+            issues.append("prod ClickHouse checks-only refresh job is missing")
+        else:
+            check_refresh_source = job_source[check_refresh_start:]
+            required_fragments = (
+                "selection=dg.AssetSelection.checks_for_assets(\n"
+                "        prod_ch_share_fact_market_breadth_daily\n"
+                "    )",
+                "partitions_def=cn_a_stock_trade_days",
+            )
+            issues.extend(
+                "prod ClickHouse checks-only refresh job misses required "
+                f"fragment: {fragment}"
+                for fragment in required_fragments
+                if fragment not in check_refresh_source
+            )
+            if "AssetSelection.assets" in check_refresh_source:
+                issues.append(
+                    "prod ClickHouse checks-only refresh job must not select "
+                    "materializable assets"
+                )
+
+        if "P3 第一批只允许包含：" not in event_retention_doc:
+            issues.append("event retention plan must keep explicit P3 allowlist")
+        p3_allowed_section = event_retention_doc.split(
+            "P3 第一批只允许包含：",
+            maxsplit=1,
+        )[-1].split("P3 第一批禁止包含：", maxsplit=1)[0]
+        if "prod_ch_share_fact_market_breadth_daily" in p3_allowed_section:
+            issues.append(
+                "event retention P3 allowlist must not include "
+                "prod_ch_share_fact_market_breadth_daily before P2R completes"
+            )
+
+        self.assertEqual(issues, [])
+
     def test_sensor_cursor_decision_reason_uses_machine_codes(self) -> None:
         issues = []
         forbidden_fragments = (

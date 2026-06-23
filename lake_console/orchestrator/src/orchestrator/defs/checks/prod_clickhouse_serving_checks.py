@@ -20,11 +20,11 @@ def _selected_partition_keys(context: dg.AssetCheckExecutionContext) -> tuple[st
     partition_keys = tuple(sorted(set(context.partition_keys)))
     if not partition_keys:
         raise RuntimeError("prod ClickHouse market breadth check requires partitions.")
-    if len(partition_keys) > PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN:
+    if len(partition_keys) != PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN:
         raise RuntimeError(
-            "prod ClickHouse market breadth check batch is too large: "
+            "prod ClickHouse market breadth check requires exactly one partition: "
             f"partition_count={len(partition_keys)}, "
-            f"limit={PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN}"
+            f"required={PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN}"
         )
     return partition_keys
 
@@ -61,14 +61,12 @@ def _base_metadata(
     local_rows_by_partition: dict[str, list[dict[str, Any]]] | None = None,
     extra_metadata: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
+    partition_key = partition_keys[0]
     metadata: dict[str, Any] = {
-        "partition_keys": list(partition_keys),
-        "partition_count": len(partition_keys),
+        "partition_key": partition_key,
+        "partition_count": 1,
         "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
-        "batch_size_limit": PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN,
     }
-    if len(partition_keys) == 1:
-        metadata["partition_key"] = partition_keys[0]
     if prod_rows_by_partition is not None:
         metadata["prod_clickhouse_row_count"] = sum(
             len(rows) for rows in prod_rows_by_partition.values()
@@ -283,10 +281,16 @@ def prod_ch_share_fact_market_breadth_row_matches_local(
             local_rows_by_partition=local_rows_by_partition,
             prod_rows_by_partition=prod_rows_by_partition,
             extra_metadata={
-                "mismatched_partition_count": len(mismatched_partitions),
-                "mismatched_partition_samples": mismatched_partitions[
-                    :FAILURE_SAMPLE_LIMIT
-                ],
+                "mismatched_field_count": len(
+                    mismatched_partitions[0]["mismatched_fields"]
+                )
+                if mismatched_partitions
+                else 0,
+                "mismatched_field_samples": (
+                    mismatched_partitions[0]["mismatched_fields"][:FAILURE_SAMPLE_LIMIT]
+                    if mismatched_partitions
+                    else []
+                ),
             },
         ),
     )
@@ -349,10 +353,10 @@ def prod_ch_share_fact_market_breadth_updated_at_not_older_than_local(
             local_rows_by_partition=local_rows_by_partition,
             prod_rows_by_partition=prod_rows_by_partition,
             extra_metadata={
-                "older_prod_partition_count": len(older_prod_partitions),
-                "older_prod_partition_samples": older_prod_partitions[
-                    :FAILURE_SAMPLE_LIMIT
-                ],
+                "older_prod_partition": bool(older_prod_partitions),
+                "older_prod_partition_sample": (
+                    older_prod_partitions[0] if older_prod_partitions else {}
+                ),
             },
         ),
     )

@@ -38,7 +38,7 @@ CLICKHOUSE_MARKET_BREADTH_TABLE = "goldenshare_serving.share_fact_market_breadth
 CLICKHOUSE_MARKET_BREADTH_COLUMNS = tuple(
     column.name for column in CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA
 )
-PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN = 250
+PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN = 1
 
 def _read_single_row(
     connection,
@@ -153,11 +153,11 @@ def _selected_partition_keys(
     partition_keys = tuple(sorted(set(context.partition_keys)))
     if not partition_keys:
         raise RuntimeError("prod ClickHouse market breadth sync requires partitions.")
-    if len(partition_keys) > PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN:
+    if len(partition_keys) != PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN:
         raise RuntimeError(
-            "prod ClickHouse market breadth sync batch is too large: "
+            "prod ClickHouse market breadth sync requires exactly one partition: "
             f"partition_count={len(partition_keys)}, "
-            f"limit={PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN}"
+            f"required={PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN}"
         )
     return partition_keys
 
@@ -505,6 +505,7 @@ def prod_ch_share_fact_market_breadth_daily(
     prod_clickhouse: ClickhouseResource,
 ) -> dg.MaterializeResult:
     partition_keys = _selected_partition_keys(context)
+    partition_key = partition_keys[0]
     with clickhouse.get_connection() as local_client:
         local_rows_by_partition = _fetch_clickhouse_market_breadth_row_tuples_by_partition(
             local_client,
@@ -518,33 +519,23 @@ def prod_ch_share_fact_market_breadth_daily(
             partition_keys,
         )
 
-    is_single_partition = len(partition_keys) == 1
     extra_metadata: dict[str, Any] = {
         "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
         "source_clickhouse_asset": "ch_share_fact_market_breadth_daily",
         "lightweight_deletes_sync": 1,
-        "partition_count": len(partition_keys),
-        "batch_size_limit": PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN,
+        "partition_key": partition_key,
+        "partition_count": 1,
+        "replace_mode": "sync_delete_then_insert",
     }
-    if is_single_partition:
-        extra_metadata["partition_key"] = partition_keys[0]
-        extra_metadata["replace_mode"] = "sync_delete_then_insert"
-        uri = (
-            f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
-            f"?trade_date={partition_keys[0]}"
-        )
-    else:
-        extra_metadata["partition_keys"] = list(partition_keys)
-        extra_metadata["replace_mode"] = "sync_delete_then_insert_batch"
-        uri = (
-            f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
-            f"?partition_count={len(partition_keys)}"
-        )
+    uri = (
+        f"clickhouse://prod/{CLICKHOUSE_MARKET_BREADTH_TABLE}"
+        f"?trade_date={partition_key}"
+    )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=uri,
-            row_count=len(partition_keys),
+            row_count=1,
             observed_columns=CLICKHOUSE_MARKET_BREADTH_COLUMNS,
             extra_metadata=extra_metadata,
         )
