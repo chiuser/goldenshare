@@ -18,6 +18,7 @@ from orchestrator.defs.paths import (
     lake_path_template,
     raw_adj_factor_path,
     raw_index_basic_path,
+    raw_index_daily_path,
     raw_index_daily_by_code_path,
     raw_namechange_path,
     raw_stock_basic_path,
@@ -46,6 +47,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
     RAW_STK_MINS_SCHEMA,
+    RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
@@ -419,6 +421,10 @@ RAW_INDEX_DAILY_CHECKS = (
     "raw_index_daily_by_code_required_columns_and_types",
     "raw_index_daily_by_code_row_count_positive",
     "raw_index_daily_by_code_unique_ts_code_trade_date",
+)
+RAW_INDEX_DAILY_BY_DATE_CHECKS = (
+    "raw_index_daily_code_coverage_check",
+    "raw_index_daily_file_contract_check",
 )
 SILVER_INDEX_DAILY_CHECKS = (
     "silver_index_daily_conflicting_duplicate_absent",
@@ -1332,6 +1338,41 @@ LAKE_ASSET_CATALOG += (
         blocking_check_names=SILVER_INDEX_BASIC_CHECKS,
         batch_grain="single_file",
         write_policy=WritePolicy.SINGLE_FILE_ATOMIC_REPLACE,
+    ),
+    _entry(
+        asset_key="raw_index_daily",
+        dataset_id="index_daily",
+        layer=AssetLayer.RAW,
+        data_domain=DataDomain.INDEX_TOPIC,
+        group_name="index",
+        source_system=SourceSystem.PROD_CORE_DB,
+        data_contract="prod_core_index_daily_by_date",
+        data_contract_source=DataContractSource.PROD_SERVING_CONTRACT,
+        column_schema=RAW_INDEX_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            raw_index_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_DAILY,
+        source_api=None,
+        source_doc=None,
+        ingestion_sources=(IngestionSource.PROD_DB_READONLY,),
+        default_daily_ingestion_source=IngestionSource.PROD_DB_READONLY,
+        bootstrap_sources=(),
+        blocking_check_names=RAW_INDEX_DAILY_BY_DATE_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL,
+        performance_contract=_perf(
+            batch_grain="trade_date",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="prod_core_db_one_readonly_query_per_trade_date",
+            notes=(
+                "Daily raw partition reads the runtime DG cn_a_index_ts_codes set, "
+                "requires full prod serving coverage, and writes one by-date parquet file."
+            ),
+        ),
     ),
     _tushare_raw_entry(
         asset_key="raw_tushare_index_daily_by_code",

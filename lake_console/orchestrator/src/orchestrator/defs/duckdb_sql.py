@@ -9,9 +9,9 @@ from orchestrator.defs.corrections.suspend_timing import (
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_STK_MINS_SCHEMA,
+    RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
-    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
@@ -261,7 +261,7 @@ INDEX_BASIC_RAW_COLUMNS = tuple(
 INDEX_BASIC_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_BASIC_SCHEMA)
 
 INDEX_DAILY_RAW_COLUMNS = tuple(
-    column.name for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA
+    column.name for column in RAW_INDEX_DAILY_SCHEMA
 )
 
 INDEX_DAILY_SILVER_COLUMNS = tuple(column.name for column in SILVER_INDEX_DAILY_SCHEMA)

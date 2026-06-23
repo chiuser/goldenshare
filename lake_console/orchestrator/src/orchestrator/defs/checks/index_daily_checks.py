@@ -8,6 +8,7 @@ from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMN_TYPES,
     INDEX_DAILY_SILVER_COLUMN_TYPES,
+    raw_index_daily,
     raw_tushare_index_daily_by_code,
     silver_index_daily,
 )
@@ -22,6 +23,7 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.partitions import cn_a_index_ts_codes
 from orchestrator.defs.paths import (
+    raw_index_daily_path,
     raw_index_daily_by_code_path,
     silver_index_daily_path,
 )
@@ -349,6 +351,224 @@ def evaluate_raw_index_daily_by_code_unique_ts_code_trade_date(
                 "failed_partitions": failed_partitions,
             },
         ),
+    )
+
+
+def evaluate_raw_index_daily_file_contract(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    del duckdb
+    results: dict[str, Any] = {}
+    missing_paths = []
+    with connect_configured_duckdb() as connection:
+        for partition_key in partition_keys:
+            path = raw_index_daily_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            schema_result = _required_columns_result(
+                connection=connection,
+                path=path,
+                required_columns=INDEX_DAILY_RAW_COLUMNS,
+                expected_types=INDEX_DAILY_RAW_COLUMN_TYPES,
+            )
+            row_count = _row_count(connection, path)
+            expected_trade_date = partition_key.replace("-", "")
+            null_key_count = int(
+                connection.execute(
+                    f"""
+                    SELECT count(*)
+                    FROM {read_parquet(path, hive_partitioning=False)}
+                    WHERE ts_code IS NULL
+                       OR trim(CAST(ts_code AS VARCHAR)) = ''
+                       OR trade_date IS NULL
+                       OR trim(CAST(trade_date AS VARCHAR)) = ''
+                    """
+                ).fetchone()[0]
+            )
+            date_mismatch_count = int(
+                connection.execute(
+                    f"""
+                    SELECT count(*)
+                    FROM {read_parquet(path, hive_partitioning=False)}
+                    WHERE CAST(trade_date AS VARCHAR) != {duckdb_string(expected_trade_date)}
+                    """
+                ).fetchone()[0]
+            )
+            duplicate_key_count = int(
+                connection.execute(
+                    f"""
+                    SELECT count(*)
+                    FROM (
+                      SELECT ts_code, trade_date
+                      FROM {read_parquet(path, hive_partitioning=False)}
+                      GROUP BY ts_code, trade_date
+                      HAVING count(*) > 1
+                    ) duplicate_keys
+                    """
+                ).fetchone()[0]
+            )
+            duplicate_rows = connection.execute(
+                f"""
+                SELECT ts_code, trade_date, count(*) AS row_count
+                FROM {read_parquet(path, hive_partitioning=False)}
+                GROUP BY ts_code, trade_date
+                HAVING count(*) > 1
+                ORDER BY ts_code, trade_date
+                LIMIT 10
+                """
+            ).fetchall()
+            results[partition_key] = {
+                **schema_result,
+                "row_count": row_count,
+                "null_key_count": null_key_count,
+                "date_mismatch_count": date_mismatch_count,
+                "duplicate_key_count": duplicate_key_count,
+                "duplicate_samples": _sample_dicts(
+                    ["ts_code", "trade_date", "row_count"],
+                    duplicate_rows,
+                ),
+            }
+
+    failed_partitions = [
+        partition_key
+        for partition_key, result in results.items()
+        if result["row_count"] <= 0
+        or result["missing_columns"]
+        or result["unexpected_columns"]
+        or result["type_mismatches"]
+        or result["null_key_count"]
+        or result["date_mismatch_count"]
+        or result["duplicate_key_count"]
+    ]
+    return dg.AssetCheckResult(
+        passed=not missing_paths and not failed_partitions,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.SCHEMA,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "results": results,
+                "missing_file_paths": missing_paths,
+                "failed_partitions": failed_partitions,
+            },
+        ),
+    )
+
+
+def evaluate_raw_index_daily_code_coverage(
+    partition_keys: tuple[str, ...],
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+    registered_index_codes: Sequence[str],
+) -> dg.AssetCheckResult:
+    del duckdb
+    expected_codes = tuple(sorted(set(str(code).strip() for code in registered_index_codes)))
+    if not expected_codes or any(not code for code in expected_codes):
+        raise RuntimeError(f"{cn_a_index_ts_codes.name} has no registered partition keys.")
+    expected_codes_sql = _values_table_sql(expected_codes, "ts_code")
+    coverage_results: dict[str, Any] = {}
+    missing_paths = []
+    with connect_configured_duckdb() as connection:
+        for partition_key in partition_keys:
+            path = raw_index_daily_path(lake_root_path, partition_key)
+            if not path.exists():
+                missing_paths.append(str(path))
+                continue
+            observed_codes_sql = f"""
+            SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+            FROM {read_parquet(path, hive_partitioning=False)}
+            """
+            coverage_row = connection.execute(
+                f"""
+                WITH expected AS (
+                  SELECT ts_code FROM {expected_codes_sql}
+                ),
+                observed AS (
+                  {observed_codes_sql}
+                )
+                SELECT
+                  (SELECT count(*) FROM expected) AS expected_code_count,
+                  (SELECT count(*) FROM observed) AS observed_code_count,
+                  (
+                    SELECT count(*)
+                    FROM expected
+                    LEFT JOIN observed USING (ts_code)
+                    WHERE observed.ts_code IS NULL
+                  ) AS missing_code_count,
+                  (
+                    SELECT count(*)
+                    FROM observed
+                    LEFT JOIN expected USING (ts_code)
+                    WHERE expected.ts_code IS NULL
+                  ) AS extra_code_count
+                """
+            ).fetchone()
+            missing_rows = connection.execute(
+                f"""
+                WITH expected AS (
+                  SELECT ts_code FROM {expected_codes_sql}
+                ),
+                observed AS (
+                  {observed_codes_sql}
+                )
+                SELECT expected.ts_code
+                FROM expected
+                LEFT JOIN observed USING (ts_code)
+                WHERE observed.ts_code IS NULL
+                ORDER BY expected.ts_code
+                LIMIT 10
+                """
+            ).fetchall()
+            extra_rows = connection.execute(
+                f"""
+                WITH expected AS (
+                  SELECT ts_code FROM {expected_codes_sql}
+                ),
+                observed AS (
+                  {observed_codes_sql}
+                )
+                SELECT observed.ts_code
+                FROM observed
+                LEFT JOIN expected USING (ts_code)
+                WHERE expected.ts_code IS NULL
+                ORDER BY observed.ts_code
+                LIMIT 10
+                """
+            ).fetchall()
+            expected_count = int(coverage_row[0])
+            observed_count = int(coverage_row[1])
+            missing_count = int(coverage_row[2])
+            extra_count = int(coverage_row[3])
+            coverage_results[partition_key] = {
+                "expected_code_count": expected_count,
+                "observed_code_count": observed_count,
+                "missing_code_count": missing_count,
+                "extra_code_count": extra_count,
+                "coverage_rate": (
+                    round((expected_count - missing_count) * 100.0 / expected_count, 4)
+                    if expected_count
+                    else 0.0
+                ),
+                "missing_code_samples": [row[0] for row in missing_rows],
+                "extra_code_samples": [row[0] for row in extra_rows],
+            }
+
+    failed_partitions = [
+        partition_key
+        for partition_key, result in coverage_results.items()
+        if result["missing_code_count"] or result["extra_code_count"]
+    ]
+    return _blocking_value_result(
+        not missing_paths and not failed_partitions,
+        {
+            "partition_keys": list(partition_keys),
+            "expected_code_count": len(expected_codes),
+            "coverage_results": coverage_results,
+            "missing_file_paths": missing_paths,
+            "failed_partitions": failed_partitions,
+        },
     )
 
 
@@ -853,6 +1073,36 @@ def raw_index_daily_by_code_unique_ts_code_trade_date(
         _selected_partition_keys(context),
         lake_root.root(),
         duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_index_daily, blocking=True)
+def raw_index_daily_file_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return evaluate_raw_index_daily_file_contract(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+    )
+
+
+@dg.asset_check(asset=raw_index_daily, blocking=True)
+def raw_index_daily_code_coverage_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    registered_index_codes = tuple(
+        sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
+    )
+    return evaluate_raw_index_daily_code_coverage(
+        _selected_partition_keys(context),
+        lake_root.root(),
+        duckdb,
+        registered_index_codes,
     )
 
 

@@ -18,6 +18,13 @@ class IndexDailyRawByCodeConfig(dg.Config):
     )
 
 
+class IndexDailyRawConfig(dg.Config):
+    write_mode: Literal["replace"] = Field(
+        default="replace",
+        description="指数日线 raw-by-date 写入模式；当前只允许替换写入。",
+    )
+
+
 StockMinsRawSource = Literal["tushare", "prod_db"]
 StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair"]
 StockDailyRawWriteMode = Literal["full_day", "missing_code_repair"]
@@ -202,6 +209,23 @@ def build_index_daily_update_job_run_config(
             write_mode=write_mode,
         )
     )
+
+
+def build_raw_index_daily_update_job_run_config(
+    *,
+    partition_key: str,
+    write_mode: Literal["replace"] = "replace",
+) -> dict[str, object]:
+    normalize_iso_trade_date(partition_key, field_name="partition_key")
+    return {
+        "ops": {
+            "raw_index_daily": {
+                "config": {
+                    "write_mode": write_mode,
+                }
+            }
+        }
+    }
 
 
 def build_stock_daily_raw_repair_run_config(

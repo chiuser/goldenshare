@@ -61,6 +61,7 @@ _LEGACY_METADATA_ALIASES = {
 
 class SourceSystem(str, Enum):
     TUSHARE = "tushare"
+    PROD_CORE_DB = "prod_core_db"
     DERIVED = "derived"
     SEED = "seed"
     OLD_LAKE_BOOTSTRAP = "old_lake_bootstrap"

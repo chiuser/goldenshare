@@ -29,6 +29,7 @@ from orchestrator.defs.assets.index_basic import (
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMN_TYPES,
     INDEX_DAILY_SILVER_COLUMN_TYPES,
+    raw_index_daily,
     raw_tushare_index_daily_by_code,
     silver_index_daily,
 )
@@ -218,6 +219,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     *GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS,
     raw_tushare_index_basic,
     silver_index_basic,
+    raw_index_daily,
     raw_tushare_index_daily_by_code,
     silver_index_daily,
     gold_market_major_indices_daily,
@@ -310,7 +312,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 55)
+        self.assertEqual(len(catalog_entries), 56)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -361,7 +363,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 55)
+        self.assertEqual(len(entries), 56)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(

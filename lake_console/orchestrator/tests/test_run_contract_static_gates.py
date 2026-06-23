@@ -2170,6 +2170,87 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_raw_index_daily_by_date_p1_p2_contracts(self) -> None:
+        asset_source = (ASSETS_DIR / "index_daily.py").read_text()
+        check_source = (CHECKS_DIR / "index_daily_checks.py").read_text()
+        job_source = (JOBS_DIR / "index_daily_update.py").read_text()
+        sensor_source = (SENSORS_DIR / "index_daily_sensor.py").read_text()
+        prod_source = (DEFS_DIR / "prod_db" / "index_daily.py").read_text()
+        prod_select_source = prod_source[
+            prod_source.index("PROD_INDEX_DAILY_SELECT_TEMPLATE") : prod_source.index(
+                "def normalize_index_codes"
+            )
+        ]
+        issues = []
+
+        required_fragments = {
+            ASSETS_DIR / "index_daily.py": (
+                "def raw_index_daily(",
+                "partitions_def=cn_a_index_trade_days",
+                "SourceSystem.PROD_CORE_DB",
+                "column_schema=RAW_INDEX_DAILY_SCHEMA",
+                "write_raw_index_daily_partition_from_prod_db",
+                "context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name)",
+                "expected_code_set_hash",
+            ),
+            CHECKS_DIR / "index_daily_checks.py": (
+                "def raw_index_daily_file_contract_check(",
+                "def raw_index_daily_code_coverage_check(",
+                "asset=raw_index_daily",
+            ),
+            JOBS_DIR / "index_daily_update.py": (
+                "raw_index_daily_update_job = dg.define_asset_job(",
+                "dg.AssetSelection.assets(raw_index_daily)",
+                "dg.AssetSelection.checks_for_assets(raw_index_daily)",
+            ),
+            DEFS_DIR / "prod_db" / "index_daily.py": (
+                "change_amount AS change",
+                "to_char(trade_date, 'YYYYMMDD') AS trade_date",
+                "core_serving.index_daily_serving",
+                "PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS = \"TYPE POSTGRES, READ_ONLY\"",
+            ),
+        }
+        sources_by_path = {
+            ASSETS_DIR / "index_daily.py": asset_source,
+            CHECKS_DIR / "index_daily_checks.py": check_source,
+            JOBS_DIR / "index_daily_update.py": job_source,
+            DEFS_DIR / "prod_db" / "index_daily.py": prod_source,
+        }
+        for path, fragments in required_fragments.items():
+            source = sources_by_path[path]
+            issues.extend(
+                f"{path} misses raw_index_daily P1/P2 fragment: {fragment}"
+                for fragment in fragments
+                if fragment not in source
+            )
+
+        if "select *" in prod_select_source.lower():
+            issues.append("prod index_daily select template must not use SELECT *")
+        for forbidden_column in ("source", "created_at", "updated_at"):
+            if forbidden_column in prod_select_source.lower():
+                issues.append(
+                    "prod index_daily select template must not export "
+                    f"{forbidden_column}"
+                )
+        for forbidden_check_fragment in (
+            "def raw_index_daily_file_exists(",
+            "def raw_index_daily_row_count_positive(",
+            "def raw_index_daily_required_columns_and_types(",
+            "def raw_index_daily_partition_date_matches(",
+            "def raw_index_daily_unique_ts_code_trade_date(",
+        ):
+            if forbidden_check_fragment in check_source:
+                issues.append(
+                    "raw_index_daily by-date checks must stay aggregated, found "
+                    f"{forbidden_check_fragment}"
+                )
+        if "raw_index_daily_update_job" in sensor_source:
+            issues.append("P1/P2 must not switch index_daily_sensor to new raw job")
+        if "2026-06-23" in asset_source + check_source + prod_source:
+            issues.append("raw_index_daily production code must not hardcode migration date")
+
+        self.assertEqual(issues, [])
+
     def test_market_major_indices_sensor_uses_bounded_lake_readiness(self) -> None:
         sensor_path = SENSORS_DIR / "market_major_indices_daily_sensor.py"
         helper_path = DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py"

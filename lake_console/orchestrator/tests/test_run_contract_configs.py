@@ -2,6 +2,7 @@ import unittest
 
 from orchestrator.defs.run_contracts.configs import (
     build_index_daily_update_job_run_config,
+    build_raw_index_daily_update_job_run_config,
     build_stock_daily_raw_repair_run_config,
     parse_stock_daily_raw_config,
 )
@@ -31,6 +32,33 @@ class RunContractConfigTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "trade_date must use YYYY-MM-DD format"):
             build_index_daily_update_job_run_config(
                 trade_date="20260526",
+                write_mode="replace",
+            )
+
+    def test_raw_index_daily_update_job_run_config_uses_partition_schema(self) -> None:
+        self.assertEqual(
+            build_raw_index_daily_update_job_run_config(
+                partition_key="2026-05-26",
+                write_mode="replace",
+            ),
+            {
+                "ops": {
+                    "raw_index_daily": {
+                        "config": {
+                            "write_mode": "replace",
+                        }
+                    }
+                }
+            },
+        )
+
+    def test_raw_index_daily_update_job_run_config_rejects_invalid_partition(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "partition_key must use YYYY-MM-DD format",
+        ):
+            build_raw_index_daily_update_job_run_config(
+                partition_key="20260526",
                 write_mode="replace",
             )
 

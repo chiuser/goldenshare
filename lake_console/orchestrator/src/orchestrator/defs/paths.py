@@ -288,6 +288,32 @@ def raw_index_daily_by_code_staging_dir(root: Path, run_id: str, ts_code: str) -
     )
 
 
+def raw_index_daily_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "index_daily",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
+def raw_index_daily_staging_path(
+    root: Path,
+    run_id: str,
+    partition_key: str,
+) -> Path:
+    return lake_path(
+        root,
+        RAW,
+        "index_daily",
+        "_staging",
+        f"run_id={run_id}",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def silver_index_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

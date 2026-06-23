@@ -1,5 +1,6 @@
 import os
 from collections.abc import Sequence
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,19 +14,33 @@ from orchestrator.defs.duckdb_sql import (
     count_parquet_query,
     describe_parquet_query,
     duckdb_string,
+    read_parquet,
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import (
     PATH_TEMPLATE_LAKE_ROOT,
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
+    raw_index_daily_path,
     raw_index_daily_by_code_path,
     raw_index_daily_by_code_staging_dir,
+    raw_index_daily_staging_path,
     silver_index_daily_path,
+)
+from orchestrator.defs.prod_db.index_daily import (
+    PROD_INDEX_DAILY_DUCKDB_ATTACHED_DATABASE,
+    PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS,
+    build_prod_index_daily_duckdb_source_sql,
+    index_code_set_hash,
+    normalize_index_codes,
+    validate_prod_index_daily_duckdb_attach_options_contract,
+    validate_prod_index_daily_duckdb_source_contract,
+    validate_prod_index_daily_select_contract,
 )
 from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
+    ProdPostgresResource,
     TushareResource,
 )
 from orchestrator.defs.run_contracts.asset_tags import (
@@ -34,10 +49,12 @@ from orchestrator.defs.run_contracts.asset_tags import (
     build_asset_tags,
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
+    RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.configs import (
+    IndexDailyRawConfig,
     IndexDailyRawByCodeConfig,
     normalize_iso_trade_date,
 )
@@ -50,9 +67,7 @@ from orchestrator.defs.tushare_api_io import fetch_tushare_index_daily_by_code_t
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
-INDEX_DAILY_RAW_COLUMN_TYPES = {
-    column.name: column.type for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA
-}
+INDEX_DAILY_RAW_COLUMN_TYPES = {column.name: column.type for column in RAW_INDEX_DAILY_SCHEMA}
 
 INDEX_DAILY_SILVER_COLUMN_TYPES = {
     column.name: column.type for column in SILVER_INDEX_DAILY_SCHEMA
@@ -118,6 +133,404 @@ def _registered_index_ts_codes(context: dg.AssetExecutionContext) -> tuple[str, 
             f"{cn_a_index_ts_codes.name} has no registered partition keys."
         )
     return codes
+
+
+@dataclass(frozen=True)
+class IndexDailyRawWriteResult:
+    raw_file_path: Path
+    row_count: int
+    observed_columns: tuple[str, ...]
+    expected_code_count: int
+    expected_code_set_hash: str
+    returned_code_count: int
+    source_row_count: int
+    duplicate_key_count: int
+    missing_code_count: int
+    extra_code_count: int
+    query_count: int = 1
+    source_method: str = "prod_core_db"
+    write_mode: str = "replace"
+
+    def materialization_extra_metadata(self, *, partition_key: str) -> dict[str, object]:
+        return {
+            "partition_key": partition_key,
+            "source_method": self.source_method,
+            "source_system": SourceSystem.PROD_CORE_DB.value,
+            "source_table": "core_serving.index_daily_serving",
+            "write_mode": self.write_mode,
+            "expected_code_count": self.expected_code_count,
+            "expected_code_set_hash": self.expected_code_set_hash,
+            "returned_code_count": self.returned_code_count,
+            "source_row_count": self.source_row_count,
+            "duplicate_key_count": self.duplicate_key_count,
+            "missing_code_count": self.missing_code_count,
+            "extra_code_count": self.extra_code_count,
+            "query_count": self.query_count,
+        }
+
+
+def write_raw_index_daily_partition_from_prod_db(
+    *,
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+    prod_postgres: ProdPostgresResource,
+    partition_key: str,
+    index_codes: Sequence[str],
+    run_id: str,
+) -> IndexDailyRawWriteResult:
+    normalized_partition_key = normalize_iso_trade_date(partition_key)
+    normalized_codes = normalize_index_codes(index_codes)
+    validate_prod_index_daily_select_contract()
+    validate_prod_index_daily_duckdb_source_contract()
+    validate_prod_index_daily_duckdb_attach_options_contract()
+    source_sql = build_prod_index_daily_duckdb_source_sql(
+        trade_date=normalized_partition_key,
+        index_codes=normalized_codes,
+    )
+    return _write_raw_index_daily_rows_from_prod_db_source(
+        duckdb=duckdb,
+        postgres_connection_string=prod_postgres.duckdb_connection_string(),
+        source_sql=source_sql,
+        target_path=raw_index_daily_path(lake_root_path, normalized_partition_key),
+        staging_path=raw_index_daily_staging_path(
+            lake_root_path,
+            run_id,
+            normalized_partition_key,
+        ),
+        index_codes=normalized_codes,
+        partition_key=normalized_partition_key,
+        load_postgres_extension=True,
+    )
+
+
+def _write_raw_index_daily_rows_from_prod_db_source(
+    *,
+    duckdb: DuckDBResource,
+    source_sql: str,
+    target_path: Path,
+    staging_path: Path,
+    index_codes: Sequence[str],
+    partition_key: str,
+    load_postgres_extension: bool,
+    postgres_connection_string: str | None = None,
+) -> IndexDailyRawWriteResult:
+    normalized_partition_key = normalize_iso_trade_date(partition_key)
+    expected_codes = normalize_index_codes(index_codes)
+    expected_codes_sql = ", ".join(duckdb_string(index_code) for index_code in expected_codes)
+    expected_code_set_sql = _index_daily_expected_codes_sql(expected_codes)
+    source_trade_date = normalized_partition_key.replace("-", "")
+
+    target_path.parent.mkdir(parents=True, exist_ok=True)
+    staging_path.parent.mkdir(parents=True, exist_ok=True)
+    if staging_path.exists():
+        staging_path.unlink()
+
+    duckdb_resource = duckdb
+    with duckdb_resource.connect() as connection:
+        if load_postgres_extension:
+            _load_duckdb_postgres_extension(connection)
+            if postgres_connection_string is None:
+                raise RuntimeError(
+                    "Prod DB index_daily extraction requires a Postgres connection string."
+                )
+            _attach_prod_index_daily_postgres_database(
+                connection,
+                postgres_connection_string=postgres_connection_string,
+            )
+        connection.execute(
+            "CREATE TEMP TABLE prod_index_daily_source AS "
+            f"SELECT {', '.join(INDEX_DAILY_RAW_COLUMNS)} "
+            f"FROM ({source_sql}) AS source_rows"
+        )
+        source_row_count = int(
+            connection.execute("SELECT count(*) FROM prod_index_daily_source").fetchone()[0]
+        )
+        if source_row_count == 0:
+            raise RuntimeError(
+                f"Prod DB index_daily returned 0 rows for {normalized_partition_key}."
+            )
+
+        null_key_count = int(
+            connection.execute(
+                """
+                SELECT count(*)
+                FROM prod_index_daily_source
+                WHERE ts_code IS NULL
+                   OR trim(CAST(ts_code AS VARCHAR)) = ''
+                   OR trade_date IS NULL
+                   OR trim(CAST(trade_date AS VARCHAR)) = ''
+                """
+            ).fetchone()[0]
+        )
+        if null_key_count:
+            raise RuntimeError(
+                "Prod DB index_daily returned rows with blank keys: "
+                f"null_key_count={null_key_count}."
+            )
+
+        invalid_scope_count = int(
+            connection.execute(
+                f"""
+                SELECT count(*)
+                FROM prod_index_daily_source
+                WHERE CAST(trade_date AS VARCHAR) != {duckdb_string(source_trade_date)}
+                   OR CAST(ts_code AS VARCHAR) NOT IN ({expected_codes_sql})
+                """
+            ).fetchone()[0]
+        )
+        if invalid_scope_count:
+            raise RuntimeError(
+                "Prod DB index_daily returned rows outside the requested code/date "
+                f"scope: invalid_row_count={invalid_scope_count}."
+            )
+
+        duplicate_key_count = int(
+            connection.execute(
+                """
+                SELECT count(*)
+                FROM (
+                  SELECT ts_code, trade_date
+                  FROM prod_index_daily_source
+                  GROUP BY ts_code, trade_date
+                  HAVING count(*) > 1
+                ) duplicate_keys
+                """
+            ).fetchone()[0]
+        )
+        if duplicate_key_count:
+            raise RuntimeError(
+                "Prod DB index_daily returned duplicate ts_code/trade_date keys: "
+                f"duplicate_key_count={duplicate_key_count}."
+            )
+
+        coverage_row = connection.execute(
+            f"""
+            WITH expected AS (
+              SELECT ts_code FROM {expected_code_set_sql}
+            ),
+            observed AS (
+              SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+              FROM prod_index_daily_source
+            )
+            SELECT
+              (SELECT count(*) FROM observed) AS returned_code_count,
+              (
+                SELECT count(*)
+                FROM expected
+                LEFT JOIN observed USING (ts_code)
+                WHERE observed.ts_code IS NULL
+              ) AS missing_code_count,
+              (
+                SELECT count(*)
+                FROM observed
+                LEFT JOIN expected USING (ts_code)
+                WHERE expected.ts_code IS NULL
+              ) AS extra_code_count
+            """
+        ).fetchone()
+        returned_code_count = int(coverage_row[0])
+        missing_code_count = int(coverage_row[1])
+        extra_code_count = int(coverage_row[2])
+        if missing_code_count or extra_code_count:
+            missing_samples = _index_daily_code_diff_samples(
+                connection,
+                expected_code_set_sql=expected_code_set_sql,
+                observed_codes_sql="""
+                    SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+                    FROM prod_index_daily_source
+                """,
+                direction="missing",
+            )
+            extra_samples = _index_daily_code_diff_samples(
+                connection,
+                expected_code_set_sql=expected_code_set_sql,
+                observed_codes_sql="""
+                    SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+                    FROM prod_index_daily_source
+                """,
+                direction="extra",
+            )
+            raise RuntimeError(
+                "Prod DB index_daily code coverage does not match DG dynamic "
+                f"partitions for {normalized_partition_key}: "
+                f"missing_code_count={missing_code_count}, "
+                f"extra_code_count={extra_code_count}, "
+                f"missing_samples={missing_samples}, extra_samples={extra_samples}."
+            )
+
+        connection.execute(
+            copy_query_to_parquet(
+                _prod_db_raw_index_daily_output_sql(),
+                staging_path,
+            )
+        )
+        observed_columns = tuple(_column_names(connection, staging_path))
+        output_row_count = _row_count(connection, staging_path)
+        if output_row_count != source_row_count:
+            raise RuntimeError(
+                "raw_index_daily staging row count differs from prod source: "
+                f"source_row_count={source_row_count}, output_row_count={output_row_count}."
+            )
+        _assert_raw_index_daily_staging_contract(
+            connection,
+            staging_path=staging_path,
+            partition_key=normalized_partition_key,
+            expected_codes=expected_codes,
+        )
+
+    os.replace(staging_path, target_path)
+    return IndexDailyRawWriteResult(
+        raw_file_path=target_path,
+        row_count=output_row_count,
+        observed_columns=observed_columns,
+        expected_code_count=len(expected_codes),
+        expected_code_set_hash=index_code_set_hash(expected_codes),
+        returned_code_count=returned_code_count,
+        source_row_count=source_row_count,
+        duplicate_key_count=duplicate_key_count,
+        missing_code_count=missing_code_count,
+        extra_code_count=extra_code_count,
+    )
+
+
+def _index_daily_expected_codes_sql(index_codes: Sequence[str]) -> str:
+    rows = ", ".join(f"({duckdb_string(index_code)})" for index_code in index_codes)
+    return f"(VALUES {rows}) AS expected(ts_code)"
+
+
+def _index_daily_code_diff_samples(
+    connection,
+    *,
+    expected_code_set_sql: str,
+    observed_codes_sql: str,
+    direction: str,
+) -> list[str]:
+    if direction == "missing":
+        sql = f"""
+        SELECT expected.ts_code
+        FROM {expected_code_set_sql}
+        LEFT JOIN ({observed_codes_sql}) observed USING (ts_code)
+        WHERE observed.ts_code IS NULL
+        ORDER BY expected.ts_code
+        LIMIT 10
+        """
+    elif direction == "extra":
+        sql = f"""
+        SELECT observed.ts_code
+        FROM ({observed_codes_sql}) observed
+        LEFT JOIN (SELECT ts_code FROM {expected_code_set_sql}) expected USING (ts_code)
+        WHERE expected.ts_code IS NULL
+        ORDER BY observed.ts_code
+        LIMIT 10
+        """
+    else:
+        raise ValueError("direction must be missing or extra.")
+    return [str(row[0]) for row in connection.execute(sql).fetchall()]
+
+
+def _prod_db_raw_index_daily_output_sql() -> str:
+    select_columns = ",\n      ".join(
+        f"CAST({column} AS {INDEX_DAILY_RAW_COLUMN_TYPES[column]}) AS {column}"
+        for column in INDEX_DAILY_RAW_COLUMNS
+    )
+    return f"""
+    SELECT
+      {select_columns}
+    FROM prod_index_daily_source
+    ORDER BY ts_code
+    """
+
+
+def _assert_raw_index_daily_staging_contract(
+    connection,
+    *,
+    staging_path: Path,
+    partition_key: str,
+    expected_codes: Sequence[str],
+) -> None:
+    expected_trade_date = partition_key.replace("-", "")
+    expected_codes_sql = ", ".join(duckdb_string(index_code) for index_code in expected_codes)
+    columns = tuple(_column_names(connection, staging_path))
+    if columns != INDEX_DAILY_RAW_COLUMNS:
+        raise RuntimeError(
+            "raw_index_daily staging columns do not match contract: "
+            f"expected={list(INDEX_DAILY_RAW_COLUMNS)}, observed={list(columns)}."
+        )
+    invalid_count = int(
+        connection.execute(
+            f"""
+            SELECT count(*)
+            FROM {read_parquet(staging_path, hive_partitioning=False)}
+            WHERE ts_code IS NULL
+               OR trade_date IS NULL
+               OR CAST(trade_date AS VARCHAR) != {duckdb_string(expected_trade_date)}
+               OR CAST(ts_code AS VARCHAR) NOT IN ({expected_codes_sql})
+            """
+        ).fetchone()[0]
+    )
+    if invalid_count:
+        raise RuntimeError(
+            "raw_index_daily staging failed key/date scope validation: "
+            f"invalid_row_count={invalid_count}."
+        )
+    duplicate_key_count = int(
+        connection.execute(
+            f"""
+            SELECT count(*)
+            FROM (
+              SELECT ts_code, trade_date
+              FROM {read_parquet(staging_path, hive_partitioning=False)}
+              GROUP BY ts_code, trade_date
+              HAVING count(*) > 1
+            ) duplicate_keys
+            """
+        ).fetchone()[0]
+    )
+    if duplicate_key_count:
+        raise RuntimeError(
+            "raw_index_daily staging has duplicate ts_code/trade_date keys: "
+            f"duplicate_key_count={duplicate_key_count}."
+        )
+
+
+def _load_duckdb_postgres_extension(connection) -> None:
+    try:
+        connection.execute("LOAD postgres")
+        return
+    except Exception:  # noqa: BLE001 - retry with INSTALL for local envs.
+        try:
+            connection.execute("INSTALL postgres")
+            connection.execute("LOAD postgres")
+            return
+        except Exception as install_error:  # noqa: BLE001
+            raise RuntimeError(
+                "DuckDB postgres extension is required for prod DB index_daily "
+                "extraction. Install/load the DuckDB postgres extension before "
+                "running raw_index_daily_update_job."
+            ) from install_error
+
+
+def _attach_prod_index_daily_postgres_database(
+    connection,
+    *,
+    postgres_connection_string: str,
+) -> None:
+    attach_sql = (
+        "ATTACH "
+        + duckdb_string(postgres_connection_string)
+        + (
+            f" AS {PROD_INDEX_DAILY_DUCKDB_ATTACHED_DATABASE} "
+            f"({PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS})"
+        )
+    )
+    try:
+        connection.execute(attach_sql)
+    except Exception:  # noqa: BLE001 - avoid leaking conninfo through DuckDB errors.
+        raise RuntimeError(
+            "DuckDB failed to attach prod Postgres for index_daily extraction. "
+            "Check PROD_POSTGRES_* environment variables, network access, and "
+            "DuckDB postgres extension availability. Connection details are omitted."
+        ) from None
 
 
 def _read_parquet_paths(paths: Sequence[Path], *, union_by_name: bool = False) -> str:
@@ -358,6 +771,67 @@ def materialize_silver_index_daily_partitions_from_raw_by_code(
         )
 
     return partition_metadata
+
+
+@dg.asset(
+    name="raw_index_daily",
+    partitions_def=cn_a_index_trade_days,
+    group_name="index",
+    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
+    metadata=build_asset_definition_metadata(
+        dataset_id="index_daily",
+        source_system=SourceSystem.PROD_CORE_DB,
+        data_contract="prod_core_index_daily_by_date",
+        column_schema=RAW_INDEX_DAILY_SCHEMA,
+        path_template=lake_path_template(
+            raw_index_daily_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        extra_metadata={
+            "source_table": "core_serving.index_daily_serving",
+            "source_partition_set": cn_a_index_ts_codes.name,
+            "source_policy": (
+                "raw_index_daily reads the current Dagster cn_a_index_ts_codes "
+                "dynamic partitions at runtime and exports only those codes from "
+                "prod core_serving.index_daily_serving."
+            ),
+        },
+    ),
+    description="指数日线 raw 数据，按交易日从 prod core serving 只读同步 DG 管理的指数集合。",
+)
+def raw_index_daily(
+    context: dg.AssetExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    prod_postgres: ProdPostgresResource,
+    config: IndexDailyRawConfig,
+) -> dg.MaterializeResult:
+    lake_root.ensure_available_for_run()
+    if config.write_mode != "replace":
+        raise ValueError("raw_index_daily only supports replace write_mode.")
+    partition_key = normalize_iso_trade_date(context.partition_key)
+    registered_index_codes = _registered_index_ts_codes(context)
+    write_result = write_raw_index_daily_partition_from_prod_db(
+        lake_root_path=lake_root.root(),
+        duckdb=duckdb,
+        prod_postgres=prod_postgres,
+        partition_key=partition_key,
+        index_codes=registered_index_codes,
+        run_id=context.run_id,
+    )
+
+    return dg.MaterializeResult(
+        metadata=build_materialization_metadata(
+            uri=write_result.raw_file_path,
+            row_count=write_result.row_count,
+            observed_columns=write_result.observed_columns,
+            extra_metadata=write_result.materialization_extra_metadata(
+                partition_key=partition_key,
+            ),
+        )
+    )
 
 
 @dg.asset(
