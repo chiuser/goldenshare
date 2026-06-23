@@ -6,7 +6,7 @@
 
 核心口径：
 
-- 历史数据先在当前 Dagster 新湖内做物理布局转换：P0 profiling 扫描到的现有 by-code raw 全部历史文件转换为 by-date raw 文件；当前审计样本范围是 `2000-01-04` 到 `2026-06-22`，实现不得写死该范围。
+- 历史数据先在当前 Dagster 新湖内做物理布局转换：P0 profiling 扫描到的现有 by-code raw 文件转换为 by-date raw 文件；当前全量输入样本范围是 `2000-01-04` 到 `2026-06-23`，但 `2026-06-23` 只有 10 个 code，不能作为绿色 ready baseline；当前 ready baseline cutoff 候选是 `2026-06-22`。实现不得写死这些日期。
 - raw 日更默认数据源切到 prod core DB 后，从当前 Lake `raw_index_daily` 最新已就绪交易日之后的第一个 expected trade date 开始，只读同步 `core_serving.index_daily_serving`；起点由文件事实和交易日历计算，不硬编码具体日期。
 - raw 层按交易日分区，路径按 `trade_date` 组织。
 - raw 层代码池与 silver 层一致，必须使用运行时 Lake 期望 code set；当前实现的 DG 管理集合是 `cn_a_index_ts_codes` dynamic partitions。
@@ -71,15 +71,20 @@
 raw/tushare/index_daily_by_code/ts_code=<TS_CODE>/part-000.parquet
 ```
 
-2026-06-23 只读扫描当前 Dagster 新湖得到的 raw-by-code 文件事实：
+2026-06-23 P0 只读扫描当前 Dagster 新湖得到的 raw-by-code 文件事实：
 
 | 项 | 观测值 |
 | --- | ---: |
 | 文件数 | 946 个 `part-000.parquet` |
-| 行数 | 3,419,656 行 |
+| 行数 | 3,419,666 行 |
+| distinct `(ts_code, trade_date)` | 3,419,666 个 |
 | distinct `ts_code` | 946 个 |
-| distinct `trade_date` | 6,792 个 |
-| 日期范围 | `2000-01-04` 到 `2026-06-22` |
+| distinct `trade_date` | 6,793 个 |
+| 日期范围 | `2000-01-04` 到 `2026-06-23` |
+| 重复 key / 空 key | 0 / 0 |
+| OHLC/pre_close 任一为空 | 369,425 行 |
+| 最新输入日 | `2026-06-23`，只有 10 行、10 个 code |
+| 最新 full DG coverage 日 | `2026-06-22`，946 个 code、无重复 key、无空 key |
 
 问题：
 
@@ -1095,9 +1100,10 @@ defs/bootstrap/index_daily_raw_by_date_history_cli.py
 
 1. 正式输入只能是当前 Dagster 新湖内的 active `raw_tushare_index_daily_by_code[ts_code]` 文件。
 2. 输入路径是 `raw/tushare/index_daily_by_code/ts_code=<TS_CODE>/part-000.parquet`，位于同一个 `DEFAULT_LAKE_ROOT=/Volumes/datasource/data_lake` 下。
-3. 转换范围由 P0 profiling 扫描当前 DG raw-by-code 文件得到；当前审计样本是 `2000-01-04` 到 `2026-06-22`，实现不得写死该范围。
+3. 转换范围由 P0 profiling 扫描当前 DG raw-by-code 文件得到；当前全量输入样本是 `2000-01-04` 到 `2026-06-23`，ready baseline cutoff 候选是 `2026-06-22`，实现不得写死该范围。
 4. code universe 是当前 DG `cn_a_index_ts_codes` 的 946 个 code；历史每个 trade date 的实际 code set 以 by-code 输入文件中存在的 `(ts_code, trade_date)` pair 为准。
 5. prod DB 不参与历史转换；prod `ops.index_series_active(resource='index_daily')` 和 `core_serving.index_daily_serving` 只约束日更 source。
+6. P0 样本中的 `2026-06-23` 是尾部半截日期，只有 10 个 code；除非另行审批，不得写绿色 ready baseline event。
 
 禁止：
 
@@ -1461,8 +1467,14 @@ tests/test_index_daily_raw_by_date_runless_events.py
 
 输出：
 
-- `/private/tmp/index_daily_prod_db_profile_*.json`
-- `/private/tmp/index_daily_by_code_to_by_date_profile_*.json`
+- `/private/tmp/index_daily_p0_20260623_dg_code_summary.tsv`
+- `/private/tmp/index_daily_p0_20260623_code_set_summary.tsv`
+- `/private/tmp/index_daily_p0_20260623_prod_serving_schema.tsv`
+- `/private/tmp/index_daily_p0_20260623_prod_serving_summary.tsv`
+- `/private/tmp/index_daily_p0_20260623_prod_serving_latest_summary.tsv`
+- `/private/tmp/index_daily_p0_20260623_by_code_summary.tsv`
+- `/private/tmp/index_daily_p0_20260623_by_code_cutoff_candidate.tsv`
+- `/private/tmp/index_daily_p0_20260623_by_code_ready_baseline_estimate.tsv`
 - 若字段或性能与本 LLD 冲突，先改 LLD。
 
 ### P1：基础契约与 path/schema/prod SQL
@@ -1493,9 +1505,10 @@ tests/test_index_daily_raw_by_date_runless_events.py
 目标：
 
 - 从当前 Dagster 新湖 `raw_tushare_index_daily_by_code` dry-run/sample/full 写 by-date raw 历史文件。
-- 转换范围来自 P0 profiling 的当前 DG raw-by-code min/max；当前审计样本为 `2000-01-04` 到 `2026-06-22`。
+- 转换范围来自 P0 profiling 的当前 DG raw-by-code 文件事实；当前全量输入样本为 `2000-01-04` 到 `2026-06-23`，ready baseline cutoff 候选为 `2026-06-22`。
 - source/target `(ts_code, trade_date)` pair 必须一致。
 - audit 文件完整性。
+- 尾部半截日期不得写成绿色 ready baseline；P0 样本中 `2026-06-23` 只有 10 个 code，应由 prod-core-db 日更链路补齐，除非另有明确审批。
 
 需要正式 lake 写入审批。
 
@@ -1627,7 +1640,32 @@ CodeGraph 与源码审计确认，本专项真实改动面至少包括：
 - 本次 86 个 repair code 在 prod serving 中有 154,160 个 pair；与新湖 silver payload 对账 missing pair 为 0、extra pair 为 0、字段级 diff 为 0。
 - prod `core_serving.index_daily_serving` 总行数为 1,827,704。
 
-这些事实仍然只是 P-1/P0 时点审计样本。P0 正式 profiling 前必须重新生成报告；若任一数字变化，先改本文档，再继续开发。
+2026-06-23 P0 正式只读 profiling 结果：
+
+| 项 | P0 结果 |
+| --- | --- |
+| DG `cn_a_index_ts_codes` | 946 个，sorted hash `6f8f560f11cdce10e4cd5a096c64a4c9` |
+| `dg_codes - prod_index_daily_active_pool` | 0 |
+| `dg_codes - prod_index_daily_serving_distinct_codes` | 0 |
+| prod latest trade date | `2026-06-22` |
+| `dg_codes - prod_latest_trade_date_codes` | 0 |
+| prod serving total rows / distinct pairs | 1,827,704 / 1,827,704 |
+| prod serving duplicate key / null key | 0 / 0 |
+| prod serving columns | 14 列；业务字段 `ts_code/trade_date/open/high/low/close/pre_close/change_amount/pct_chg/vol/amount`，系统字段 `source/created_at/updated_at` 不进入 lake raw 业务投影 |
+| prod serving primary key | `(ts_code, trade_date)` |
+| by-code raw files | 946 个 |
+| by-code raw rows / distinct pairs | 3,419,666 / 3,419,666 |
+| by-code raw duplicate key / null key | 0 / 0 |
+| by-code raw trade dates | 6,793 个，`2000-01-04` 到 `2026-06-23` |
+| by-code raw schema | `ts_code/trade_date` 为 `VARCHAR`，行情字段为 `DOUBLE` |
+| by-code raw OHLC/pre_close 任一为空 | 369,425 行，不能作为 raw 阻断条件 |
+| target by-date raw files | 0 |
+| 全量当前输入 event 估算 | 6,793 materialization + 13,586 raw check = 20,379 event |
+| ready baseline event 估算 | 6,792 materialization + 13,584 raw check = 20,376 event |
+
+P0 发现当前 by-code raw 尾部 `2026-06-23` 只有 10 行、10 个 code；最新 full DG coverage 日期是 `2026-06-22`。后续 P3/P4 不能直接按 raw-by-code `max(trade_date)` 生成绿色 ready baseline，否则 raw sensor 会跳过 `2026-06-23` 的 prod-core-db 日更。
+
+这些事实是 P0 时点的冻结输入基线。P1/P2 可以按该基线做代码开发；P3/P4 在正式写 lake/event 前必须重新跑同类只读 profiling，并以当时结果决定 ready baseline cutoff。
 
 ### 25.3 新发现风险
 
@@ -1638,14 +1676,15 @@ CodeGraph 与源码审计确认，本专项真实改动面至少包括：
 5. check 过碎风险：如果把文件存在、row count、schema、partition date、unique key、coverage 都拆成独立 blocking check，会给 Dagster DB 增加大量细碎 event。实现必须保持两个聚合 check：`raw_index_daily_file_contract_check` 和 `raw_index_daily_code_coverage_check`。
 6. 固定日期风险：当前审计样本中的 `2026-06-22/2026-06-23` 不能进入 production runtime 逻辑。
 7. 旧数据清理风险：P8 只删旧 by-code lake 文件，P9 才处理旧 Dagster 状态/事件。P9 不能成为新链路启用门槛；如果新链路需要清旧 event 才能跑，说明还有旧依赖没清零。
+8. 尾部半截日期风险：P0 样本里 raw-by-code `2026-06-23` 只有 10 个 code。历史转换可以审计这个事实，但不能把它写成 ready baseline；日更起点必须从 ready baseline cutoff 推导，而不是从 raw-by-code max date 推导。
 
 ### 25.4 建议推进步骤
 
 1. P-1 先做 prod source 基线修复，目标是 DG 946 code 全部进入 prod `index_daily` active pool，且 prod serving 对新湖 `silver/index_daily` 中 86 个待补 code 的实际 pair 缺口为 0。
 2. P0 重新做只读 profiling，冻结字段、code set hash、历史转换范围、event 数量和性能预算；P0 输出是后续开发的验收基线。
 3. P1/P2 只做新 schema/path/prod query/source gate/raw asset/check/job，不启用 sensor，不删除旧资产。
-4. P3 单独申请 lake 写入，按 P0 范围生成 by-date raw 文件，sample/full 分开。
-5. P4 单独申请 Dagster event 写入，runless materialization/check event 先 dry-run、再 sample、再 full。
+4. P3 单独申请 lake 写入，按 P0 范围生成 by-date raw 文件，sample/full 分开；尾部半截日期默认排除在 ready baseline 外。
+5. P4 单独申请 Dagster event 写入，runless materialization/check event 先 dry-run、再 sample、再 full；绿色 event 只写 ready baseline 范围。
 6. P5/P6 切 silver、major indices、raw/silver sensors；新 raw sensor 先 STOPPED，完成 by-date baseline 验收后再启用。
 7. P7 清零旧 by-code active source；P8 单独审批后删除旧物理文件；P9 如确有必要，再单独审批旧 index daily Dagster 状态/事件清理。
 
@@ -1656,6 +1695,7 @@ CodeGraph 与源码审计确认，本专项真实改动面至少包括：
 3. P7 后 bootstrap 代码处理方式：删除，还是移出 `src/orchestrator/defs/**` active source。无论选择哪种，production static gate 旧 symbol 必须为 0。
 4. catalog 实现方式：新增 `_prod_core_raw_entry(...)` helper，还是直接 `_entry(...)`。若直接 `_entry(...)`，测试必须覆盖全部字段，防止以后回退到 Tushare helper。
 5. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起 dry-run、审批和回滚方案；若不执行，旧记录保留为历史审计账。
+6. 尾部半截日期处理：默认不写绿色 ready baseline event，交给 prod-core-db 日更补齐；如果要保留半截日期的 by-date 文件，也必须明确 metadata 标记为 not-ready，不能让 sensor 跳过该日期。
 
 ## 26. 2026-06-23 check 收敛与 P9 清理代码级审计
 
