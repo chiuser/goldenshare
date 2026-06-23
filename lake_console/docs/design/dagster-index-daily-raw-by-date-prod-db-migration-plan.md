@@ -1,8 +1,11 @@
 # Dagster Index Daily Raw By-Date Prod DB Migration Plan
 
-状态：P-1、P0、P1/P2、P3 已完成；P4 及以后未执行。
+状态：P-1、P0、P1/P2、P3、P4 已完成；P5 及以后未执行。
 
-最新代码落点：`c38e0eea feat: add index daily raw by-date asset`。
+最新代码落点：
+
+- P1/P2：`c38e0eea feat: add index daily raw by-date asset`
+- P4：`63ce2a75 feat: add index daily p4 runless events`
 
 LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](./dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md)。
 
@@ -303,8 +306,8 @@ uv run python -c "from orchestrator.defs.jobs.index_daily_update import raw_inde
 
 当前仍需注意：
 
-- P1/P2 已把 `raw_index_daily` 注册为 active asset/job/check；P3 已生成 by-date 历史文件并完成 full audit，但没有启用 sensor，也没有写最近窗口 Dagster 状态。正式日更仍不得接管，直到 P4 最近 20 个交易日 event baseline 和 P5/P6 readiness/sensor 切换验收完成。
-- `raw_index_daily_code_coverage_check` 当前 Dagster check 执行路径覆盖日更语义，即按运行时 DG code set 校验目标 by-date 文件；历史转换段的 `coverage_basis=by_code_source_pairs` 将由 P4 runless event 补录模块写入，不在 P1/P2 runtime check 中执行。
+- P1/P2 已把 `raw_index_daily` 注册为 active asset/job/check；P3 已生成 by-date 历史文件并完成 full audit；P4 已补最近 20 个交易日的 `raw_index_daily` Dagster 状态基线。正式日更仍不得接管，直到 P5/P6 readiness/sensor 切换验收完成。
+- `raw_index_daily_code_coverage_check` 当前 Dagster check 执行路径覆盖日更语义，即按运行时 DG code set 校验目标 by-date 文件；历史转换段的 `coverage_basis=by_code_source_pairs` 已由 P4 runless event 补录模块写入，不在 P1/P2 runtime check 中执行。
 - 旧 by-code asset/check/job/sensor/readiness 仍是当前运行链路的一部分，P7 前不能删除。
 
 2026-06-23 P3 执行结果：
@@ -314,6 +317,14 @@ uv run python -c "from orchestrator.defs.jobs.index_daily_update import raw_inde
 3. P3 final audit 通过：目标文件 6,792 个，总行数 3,419,656，distinct pair 3,419,656，source-target pair diff 为 0，source-target row diff 为 0，空 key 和重复 key 都为 0。
 4. P3 没有写 Dagster materialization/check event；`raw_index_daily[2026-06-23]` 和 `silver_index_daily[2026-06-23]` event/check 仍为 0。
 5. 报告文件：`/private/tmp/index_daily_p3_state_governance_20260623_report.json`、`/private/tmp/index_daily_p3_sample_20260623_report.json`、`/private/tmp/index_daily_p3_full_20260623_report.json`、`/private/tmp/index_daily_p3_final_audit_20260623_report.json`。
+
+2026-06-23 P4 执行结果：
+
+1. P4 runless event 工具已在提交 `63ce2a75 feat: add index daily p4 runless events` 中落地，补录目标只允许 `raw_index_daily` 与两个聚合 check：`raw_index_daily_file_contract_check`、`raw_index_daily_code_coverage_check`。
+2. P4 plan dry-run 通过：最近窗口为 `2026-05-25` 到 `2026-06-22` 共 20 个交易日，计划 event 上限 60，当前 DG code count/hash 为 `946 / 67b866dac8b5dc2a6450769a852f098e`，failed partition 为 0。
+3. sample apply 已写 `2026-05-25`、`2026-06-08`、`2026-06-22` 三个分区，共 9 条 event；sample audit 全部 ready，且 `raw_index_daily[2026-06-23]` materialization/check 仍为 0。
+4. recent-window apply 已补剩余 17 个分区，共 51 条 event；final audit 显示最近 20 个分区全部 ready，`raw_index_daily[2026-06-23]` materialization/check 仍为 0。
+5. P4 报告文件：`/private/tmp/index_daily_p4_plan_events_20260623.json`、`/private/tmp/index_daily_p4_sample_apply_20260623.json`、`/private/tmp/index_daily_p4_sample_audit_20260623.json`、`/private/tmp/index_daily_p4_recent_window_apply_20260623.json`、`/private/tmp/index_daily_p4_final_audit_20260623.json`。
 
 ## 实现阶段
 
@@ -377,7 +388,7 @@ uv run python -c "from orchestrator.defs.jobs.index_daily_update import raw_inde
 
 ### M3：历史 DG By-Code 到 By-Date 文件转换
 
-状态：未执行。该阶段需要单独申请正式 lake 写入审批。
+状态：已执行。P3 final audit 已通过，报告见 `/private/tmp/index_daily_p3_final_audit_20260623_report.json`。
 
 历史 by-date raw 文件的正式生成输入是当前 Dagster 新湖内已经存在的 `raw_tushare_index_daily_by_code[ts_code]`。这一步是同一新湖内的物理布局重排，不是跨区复用旧湖文件，也不是从 prod DB 重拉历史；但 catalog 和 asset definition 的 source system 统一按 `PROD_CORE_DB` 记录。
 
@@ -408,7 +419,7 @@ ready baseline candidate: 2000-01-04 <= trade_date <= 2026-06-22, 3,419,656 rows
 
 ### M4：Runless Event Dry-Run 与补录
 
-状态：未执行。该阶段需要单独申请正式 Dagster event 写入审批。
+状态：已执行。P4 final audit 已通过，报告见 `/private/tmp/index_daily_p4_final_audit_20260623.json`。
 
 历史转换文件写入并通过 P3 final audit 后，才允许写最近窗口 runless event。P4 不做全历史 event 补录，不把 Dagster event log 当作 6792 个历史分区的事实库。
 
@@ -605,7 +616,7 @@ raw 日更 sensor 不能在 by-date 历史基线建立前启用。必须同时�
 1. catalog helper 风险：`_tushare_raw_entry(...)` 会自动写 Tushare source system。P1/P2 已通过直接 `_entry(...)` 为 `raw_index_daily` 写入 `SourceSystem.PROD_CORE_DB`、`DataContractSource.PROD_SERVING_CONTRACT`、`IngestionSource.PROD_DB_READONLY`、`EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL`；P7 删除旧 by-code entry 时必须继续防止旧 helper 回流到新链路。
 2. check 过碎风险：高层方案原来把 file exists、row count、schema、partition date、unique key、coverage 拆成 6 个 raw blocking check，会给 Dagster DB 写入过多细碎 check event。P1/P2 已收敛为 `raw_index_daily_file_contract_check` 与 `raw_index_daily_code_coverage_check` 两个聚合 check；后续 P4/P6/P7 必须继续只使用这两个名称，不得让 readiness 同时支持新旧 raw check。
 3. backend prod-core-db 只能参考不能复用：已有 backend 导出能力证明字段白名单和 `change_amount AS change` 口径，但它不带 DG code set filter，且属于 backend/sync 区域。orchestrator 必须建立自己的只读 adapter。
-4. sensor 激活顺序风险：P3 已生成 `raw/index_daily` by-date 文件，但 P4 最近窗口 event baseline 与 P5/P6 readiness/sensor 切换尚未完成。未完成这些步骤前启用新日更 sensor，会没有“最新已就绪 raw_index_daily”的正式运行状态基线，必须显式阻断。
+4. sensor 激活顺序风险：P3 已生成 `raw/index_daily` by-date 文件，P4 已补最近窗口 event baseline，但 P5/P6 readiness/sensor 切换尚未完成。未完成 P5/P6 前启用新日更 sensor，仍会绕过正式 readiness 切换验收，必须显式阻断。
 5. bootstrap 与静态门禁冲突：P3/P4 bootstrap 可以临时读取当前 DG 新湖 by-code 文件；P7 后 bootstrap 代码必须删除或移出 active source，否则会和“生产代码旧 by-code 符号清零”门禁冲突。
 6. 硬编码日期风险：`2026-06-22`、`2026-06-23` 只能出现在审计事实、测试 fixture 或文档中；生产代码不得把它们作为日更起点、历史终点或 cutover 常量。
 7. coverage 语义风险：`raw_index_daily_code_coverage_check` 是统一 check 名，但必须用 `coverage_basis` 区分历史转换和日更。历史转换看 by-code input pair 是否无损，日更看 prod serving 是否覆盖运行时 Lake 期望 code set。
@@ -615,20 +626,16 @@ raw 日更 sensor 不能在 by-date 历史基线建立前启用。必须同时�
 
 ## 建议推进步骤
 
-1. P4 前先做只读 dry-run：从 P3 final audit 通过的 by-date 目标集合中选最近 20 个交易日，统计 materialization/check 已有、缺失、failed、缺文件和待写数量；同时记录“全历史约 20,376 event 不执行”的容量依据。
-2. P4 单独申请正式 Dagster event 写入审批。先 sample apply 3 到 5 个最近窗口分区，再 recent-window apply 到最多 20 个分区。绿色 event 只能写已通过文件审计的 partition。
-3. P4 final audit 只验收最近 20 个分区的 event readiness；全历史文件正确性继续引用 P3 final audit，不做全历史 Dagster readiness 深扫。
-4. P5/P6 再切 `silver_index_daily`、major indices readiness、raw/silver sensors。新 raw sensor 首次启用前必须能从 P3 文件事实和 P4 最近窗口 event 事实确认最新 ready trade date；first target 只能取该日期之后的第一个 expected trade date。
-5. P7 清零 active by-code 代码和 catalog；P8 单独审批后删除旧物理文件；P9 如确有必要，再独立审批旧 index daily Dagster DB 状态/事件清理。
+1. P5/P6 切 `silver_index_daily`、major indices readiness、raw/silver sensors。新 raw sensor 首次启用前必须能从 P3 文件事实和 P4 最近窗口 event 事实确认最新 ready trade date；first target 只能取该日期之后的第一个 expected trade date。
+2. P5/P6 切换前先跑只读 readiness 样本和 `dg check defs`；新 raw sensor 建议保持 STOPPED，完成验收后再由用户审批启用。
+3. P7 清零 active by-code 代码和 catalog；P8 单独审批后删除旧物理文件；P9 如确有必要，再独立审批旧 index daily Dagster DB 状态/事件清理。
 
 ## 遗留拍板项
 
-1. P4 最近 20 个交易日窗口选择：默认从 P3 final audit 通过的目标文件集合取最新 20 个 trade dates；若 P4 前已新增 prod-core-db 日更文件，必须在 dry-run 中重新列出窗口并确认。
-2. P4 runless event metadata 的历史 coverage 口径：最近窗口中来自 P3 历史转换的分区必须写 `coverage_basis=by_code_source_pairs`，并与 P1/P2 runtime check 的日更 coverage 口径区分；具体 metadata 字段名需在 P4 实现前一次性固定。
-3. P3/P4 bootstrap 代码在 P7 的处理方式：删除，还是移到 active static gate 不扫描的离线工具目录。无论选哪种，生产 `src/orchestrator/defs/**` 旧 by-code 符号必须清零。
-4. P6 新 raw sensor 启用方式：建议先保持 STOPPED，完成 P3 final audit、P4 最近窗口 event audit、只读 readiness 样本和 `dg check defs` 后再由用户审批启用。
-5. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起专项 dry-run 和审批；若不执行，旧记录只能作为历史审计账留存，不能影响新链路状态。
-7. P9 清理粒度：默认建议第一阶段只考虑旧 raw asset/check/index sensor cursor；`index_daily_update_job` run history 规模很大，是否清理 run、run_tags、run_id 关联 event_logs 必须单独拍板。
+1. P3/P4 bootstrap 代码在 P7 的处理方式：删除，还是移到 active static gate 不扫描的离线工具目录。无论选哪种，生产 `src/orchestrator/defs/**` 旧 by-code 符号必须清零。
+2. P6 新 raw sensor 启用方式：建议先保持 STOPPED，完成 P3 final audit、P4 最近窗口 event audit、只读 readiness 样本和 `dg check defs` 后再由用户审批启用。
+3. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起专项 dry-run 和审批；若不执行，旧记录只能作为历史审计账留存，不能影响新链路状态。
+4. P9 清理粒度：默认建议第一阶段只考虑旧 raw asset/check/index sensor cursor；`index_daily_update_job` run history 规模很大，是否清理 run、run_tags、run_id 关联 event_logs 必须单独拍板。
 
 ## 最终验收标准
 

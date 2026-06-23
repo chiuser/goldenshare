@@ -1,8 +1,11 @@
 # Index Daily Raw By-Date Prod DB Migration Low-Level Design
 
-状态：P-1、P0、P1/P2、P3 已完成；P4 及以后未执行。
+状态：P-1、P0、P1/P2、P3、P4 已完成；P5 及以后未执行。
 
-最新代码落点：`c38e0eea feat: add index daily raw by-date asset`。
+最新代码落点：
+
+- P1/P2：`c38e0eea feat: add index daily raw by-date asset`
+- P4：`63ce2a75 feat: add index daily p4 runless events`
 
 ## 1. 目标
 
@@ -21,15 +24,23 @@
 - P4 只补最近 20 个交易日的 `raw_index_daily` materialization/check 状态，作为日更启动和最近窗口 UI 观测基线；不做全历史 runless event 补录。
 - 性能是硬门禁：sensor 热路径不得逐 code 提交 run，不得逐日深扫 Dagster event/check history。
 
-本 LLD 同时记录设计口径和阶段落地事实。P1/P2 已完成基础契约、prod-core-db adapter、`raw_index_daily` asset、两个聚合 checks、新 job、catalog 和测试；P3 已完成 by-code 到 by-date 的 lake 文件生成；P4 及以后仍未执行。
+本 LLD 同时记录设计口径和阶段落地事实。P1/P2 已完成基础契约、prod-core-db adapter、`raw_index_daily` asset、两个聚合 checks、新 job、catalog 和测试；P3 已完成 by-code 到 by-date 的 lake 文件生成；P4 已完成最近 20 个交易日 runless event 补录；P5 及以后仍未执行。
 
 2026-06-23 P3 执行结果：
 
 1. Dagster 状态治理已完成：`index_daily_sensor`、`silver_index_daily_sensor` 为 `STOPPED`，旧 run `626d4822-0070-4434-9121-cca455e4d21b` 为 `CANCELED`，`market_major_indices_daily_sensor` 保持 `RUNNING`。
 2. P3 by-date 文件生成已完成：`raw/index_daily/trade_date=<YYYY-MM-DD>/part-000.parquet` 共 6,792 个文件，范围 `2000-01-04` 到 `2026-06-22`，总行数 3,419,656，distinct pair 3,419,656。
 3. P3 final audit 结果：source-target pair diff 为 0，source-target row diff 为 0，空 key 为 0，重复 key 为 0，未生成 `trade_date=2026-06-23` 目标目录。
-4. P3 没有写 Dagster materialization/check event；P4 只负责最近 20 个交易日的小窗口状态补录。
+4. P3 没有写 Dagster materialization/check event；P4 已负责最近 20 个交易日的小窗口状态补录。
 5. P3 报告路径：`/private/tmp/index_daily_p3_state_governance_20260623_report.json`、`/private/tmp/index_daily_p3_sample_20260623_report.json`、`/private/tmp/index_daily_p3_full_20260623_report.json`、`/private/tmp/index_daily_p3_final_audit_20260623_report.json`。
+
+2026-06-23 P4 执行结果：
+
+1. P4 runless event 工具已在提交 `63ce2a75 feat: add index daily p4 runless events` 中落地，补录目标只允许 `raw_index_daily` 与两个聚合 check：`raw_index_daily_file_contract_check`、`raw_index_daily_code_coverage_check`。
+2. P4 plan dry-run 通过：最近窗口为 `2026-05-25` 到 `2026-06-22` 共 20 个交易日，计划 event 上限 60，当前 DG code count/hash 为 `946 / 67b866dac8b5dc2a6450769a852f098e`，failed partition 为 0。
+3. sample apply 已写 `2026-05-25`、`2026-06-08`、`2026-06-22` 三个分区，共 9 条 event；sample audit 全部 ready，且 `raw_index_daily[2026-06-23]` materialization/check 仍为 0。
+4. recent-window apply 已补剩余 17 个分区，共 51 条 event；final audit 显示最近 20 个分区全部 ready，`raw_index_daily[2026-06-23]` materialization/check 仍为 0。
+5. P4 报告路径：`/private/tmp/index_daily_p4_plan_events_20260623.json`、`/private/tmp/index_daily_p4_sample_apply_20260623.json`、`/private/tmp/index_daily_p4_sample_audit_20260623.json`、`/private/tmp/index_daily_p4_recent_window_apply_20260623.json`、`/private/tmp/index_daily_p4_final_audit_20260623.json`。
 
 ## 2. 设计修正
 
@@ -1587,7 +1598,7 @@ P2 后仍未做：
 
 ### P3：历史 by-code 到 by-date 文件转换
 
-状态：未执行，需要单独申请正式 lake 写入审批。
+状态：已执行，P3 final audit 已通过，报告见 `/private/tmp/index_daily_p3_final_audit_20260623_report.json`。
 
 目标：
 
@@ -1601,7 +1612,7 @@ P2 后仍未做：
 
 ### P4：runless event 补录
 
-状态：未执行，需要单独申请正式 Dagster event 写入审批。
+状态：已执行，P4 final audit 已通过，报告见 `/private/tmp/index_daily_p4_final_audit_20260623.json`。
 
 目标：
 
@@ -1626,7 +1637,7 @@ P2 后仍未做：
 - 新 raw date-level sensor。
 - silver sensor 去 by-code readiness。
 - 删除 by-code late-arrival selector。
-- 新 raw sensor 保持 STOPPED，直到 P3 final audit、P4 最近窗口 event audit 和只读 readiness 验收通过。
+- 新 raw sensor 保持 STOPPED，直到 P3 final audit、P4 最近窗口 event audit、P5/P6 只读 readiness 样本和 `dg check defs` 验收通过。
 - 验证 by-date baseline 存在后，first target 由最新 ready trade date 后的 expected trade date 计算，不使用固定日期。
 
 ### P7：旧 by-code active code 清零
