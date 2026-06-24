@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。尚未执行正式历史 lake 写入、正式 runless event apply、`dg check defs` 或 sensor 启用。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。尚未执行正式历史 lake 写入、正式 runless event apply 或 sensor 启用。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -1140,4 +1140,4 @@ git diff --check
 6. 历史 direct lake bootstrap dry-run 和 sample audit 可执行。
 7. 最近 20 日 runless event dry-run 可输出 40 条以内计划。
 8. 单元测试和静态门禁通过。
-9. 未运行正式 Dagster instance 命令，除非有单独审批记录。
+9. `dg check defs` 已经单独审批执行并通过；除此之外未运行 job、sensor、materialize、backfill 或正式写入动作。

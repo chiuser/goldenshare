@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。尚未执行正式历史 lake 写入、正式 runless event apply、`dg check defs` 或 sensor 启用。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。尚未执行正式历史 lake 写入、正式 runless event apply 或 sensor 启用。
 
 ## 1. 目标
 
@@ -612,7 +612,7 @@ git diff --check
 6. 新增 sensor，默认 `STOPPED`。
 7. 补齐 asset/check/job/sensor/catalog/static tests。
 8. 运行单元测试和 `git diff --check`。
-9. 单独审批后运行 `dg check defs`。
+9. 单独审批后运行 `dg check defs`。已执行并通过：`All definitions loaded successfully.`
 10. 单独审批并执行 direct lake bootstrap 历史 backfill，范围对齐 `silver_stk_mins` 历史范围。
 11. 单独审批并执行最近 20 个交易日 runless event apply。
 12. backfill 与 runless event 验收通过后，再决定是否启用 sensor。
