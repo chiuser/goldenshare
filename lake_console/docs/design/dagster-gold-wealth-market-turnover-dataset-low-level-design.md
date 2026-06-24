@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：开发中。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4/WMT-5 未实现。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：开发中。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 未实现。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -639,6 +639,7 @@ gold_wealth_market_turnover_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(gold_wealth_market_turnover)
         | dg.AssetSelection.checks_for_assets(gold_wealth_market_turnover)
     ),
+    executor_def=dg.in_process_executor,
     description="按单日分区生成财富市场成交额 gold 快照。",
 )
 ```
@@ -697,7 +698,7 @@ def gold_wealth_market_turnover_update_job_sensor(
 6. 读取 `cn_a_stock_mins_silver_trade_days` dynamic partitions。
 7. 若 expected window 与 registered partitions 有缺口，skip。
 8. 调用 `batch_silver_stk_mins_lake_readiness(..., freqs=STK_MINS_FREQS, full_semantics=True)`。
-9. 若目标日任一 silver freq 未 ready，skip。
+9. 若目标日任一 silver freq 未 ready，skip，且不继续扫描 gold readiness。
 10. 调用 `batch_gold_wealth_market_turnover_lake_readiness(...)`。
 11. 选择最早一个 gold not ready 且 silver ready 的 trade date。
 12. 若目标 gold 有 failed check 或状态不一致，skip，等待人工处理。
@@ -1077,7 +1078,7 @@ git diff --check
 
 ### WMT-4 Job / Sensor
 
-状态：未实现。
+状态：已完成。
 
 改动：
 
@@ -1090,7 +1091,7 @@ git diff --check
 1. job selection 正确。
 2. sensor 默认 STOPPED。
 3. 20:00 前轻量 skip。
-4. silver 五频度未全 ready 时 skip。
+4. silver 五频度未全 ready 时 skip，且不扫描 gold readiness。
 5. 每 tick 最多一个 run。
 
 ### WMT-5 History Bootstrap / Runless Events
