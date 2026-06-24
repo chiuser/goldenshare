@@ -79,15 +79,14 @@ RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK = "raw_stk_mins_price_volume_sanity"
 RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK = (
     "raw_stk_mins_stock_mins_partition_key_registered"
 )
+RAW_STK_MINS_CONTRACT_CHECK = "raw_stk_mins_contract_check"
+RAW_STK_MINS_KEY_INTEGRITY_CHECK = "raw_stk_mins_key_integrity_check"
+RAW_STK_MINS_VALUE_DOMAIN_CHECK = "raw_stk_mins_value_domain_check"
 
 RAW_STK_MINS_CHECK_NAMES = (
-    RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
-    RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK,
-    RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK,
-    RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-    RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK,
-    RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK,
+    RAW_STK_MINS_CONTRACT_CHECK,
+    RAW_STK_MINS_KEY_INTEGRITY_CHECK,
+    RAW_STK_MINS_VALUE_DOMAIN_CHECK,
 )
 
 SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
@@ -1786,6 +1785,202 @@ def _partition_key_registered(
     )
 
 
+def _raw_contract_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    path = _raw_path(lake_root, freq, partition_key)
+    if not path.exists():
+        return _missing_file_result(path)
+
+    failed_rule_names: list[str] = []
+    with connect_configured_duckdb() as connection:
+        observed_schema = _describe_columns(connection, path)
+        row_count = _row_count(connection, path)
+
+        missing_columns = [
+            column for column in STK_MINS_RAW_COLUMN_TYPES if column not in observed_schema
+        ]
+        type_mismatches = {
+            column: {
+                "expected": expected_type,
+                "actual": observed_schema.get(column),
+            }
+            for column, expected_type in STK_MINS_RAW_COLUMN_TYPES.items()
+            if observed_schema.get(column) != expected_type
+        }
+        if missing_columns or type_mismatches:
+            failed_rule_names.append(RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK)
+
+        freq_failed_count = 0
+        if "freq" in observed_schema:
+            relation = read_parquet(path, hive_partitioning=False)
+            freq_failed_count = int(
+                connection.execute(
+                    f"""
+                    SELECT sum(CASE WHEN CAST(freq AS INTEGER) != {freq} THEN 1 ELSE 0 END)
+                    FROM {relation}
+                    """
+                ).fetchone()[0]
+                or 0
+            )
+            if freq_failed_count:
+                failed_rule_names.append(RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK)
+
+        date_failed_count = 0
+        if "trade_time" in observed_schema:
+            relation = read_parquet(path, hive_partitioning=False)
+            date_failed_count = int(
+                connection.execute(
+                    f"""
+                    SELECT sum(
+                      CASE
+                        WHEN CAST(trade_time AS DATE)
+                          != CAST({duckdb_string(partition_key)} AS DATE)
+                        THEN 1 ELSE 0
+                      END
+                    )
+                    FROM {relation}
+                    """
+                ).fetchone()[0]
+                or 0
+            )
+            if date_failed_count:
+                failed_rule_names.append(RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK)
+
+    if row_count <= 0:
+        failed_rule_names.append(RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK)
+
+    failed_rule_names = sorted(set(failed_rule_names))
+    return _check_result(
+        passed=not failed_rule_names,
+        check_scope=CheckScope.SCHEMA,
+        file_path=path,
+        checked_row_count=row_count,
+        failed_row_count=len(failed_rule_names),
+        extra_metadata={
+            "partition_key": partition_key,
+            "freq": freq,
+            "observed_schema": observed_schema,
+            "expected_schema": STK_MINS_RAW_COLUMN_TYPES,
+            "missing_columns": missing_columns,
+            "type_mismatches": type_mismatches,
+            "freq_failed_row_count": freq_failed_count,
+            "partition_date_failed_row_count": date_failed_count,
+            "failed_rule_names": failed_rule_names,
+        },
+    )
+
+
+def _raw_key_integrity_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    path = _raw_path(lake_root, freq, partition_key)
+    registered_keys = set(
+        context.instance.get_dynamic_partitions(cn_a_stock_mins_trade_days.name)
+    )
+    is_registered = partition_key in registered_keys
+    if not path.exists():
+        return _check_result(
+            passed=False,
+            check_scope=CheckScope.KEY_UNIQUENESS,
+            file_path=path,
+            missing_file_paths=[path],
+            checked_row_count=0,
+            failed_row_count=1,
+            extra_metadata={
+                "partition_key": partition_key,
+                "freq": freq,
+                "partition_set": cn_a_stock_mins_trade_days.name,
+                "is_registered": is_registered,
+                "failed_rule_names": [
+                    RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                ],
+            },
+        )
+
+    with connect_configured_duckdb() as connection:
+        relation = read_parquet(path, hive_partitioning=False)
+        row = connection.execute(
+            f"""
+            WITH duplicate_groups AS (
+              SELECT ts_code, trade_time, count(*) AS duplicate_count
+              FROM {relation}
+              GROUP BY ts_code, trade_time
+              HAVING count(*) > 1
+            )
+            SELECT
+              (SELECT count(*) FROM {relation}) AS checked_count,
+              (SELECT count(*) FROM duplicate_groups) AS duplicate_group_count
+            """
+        ).fetchone()
+        sample_rows = connection.execute(
+            f"""
+            SELECT ts_code, trade_time, duplicate_count
+            FROM (
+              SELECT ts_code, trade_time, count(*) AS duplicate_count
+              FROM {relation}
+              GROUP BY ts_code, trade_time
+              HAVING count(*) > 1
+            )
+            ORDER BY ts_code, trade_time
+            LIMIT 5
+            """
+        ).fetchall()
+
+    checked_count = int(row[0])
+    duplicate_group_count = int(row[1])
+    failed_rule_names = []
+    if duplicate_group_count:
+        failed_rule_names.append(RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK)
+    if not is_registered:
+        failed_rule_names.append(RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK)
+
+    return _check_result(
+        passed=not failed_rule_names,
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        file_path=path,
+        checked_row_count=checked_count,
+        failed_row_count=duplicate_group_count + (0 if is_registered else 1),
+        extra_metadata={
+            "partition_key": partition_key,
+            "freq": freq,
+            "partition_set": cn_a_stock_mins_trade_days.name,
+            "is_registered": is_registered,
+            "duplicate_group_count": duplicate_group_count,
+            "failed_rule_names": failed_rule_names,
+            "failure_samples": _sample_dicts(
+                ("ts_code", "trade_time", "duplicate_count"),
+                sample_rows,
+            ),
+        },
+    )
+
+
+def _raw_value_domain_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    return _price_volume_sanity(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=freq,
+    )
+
+
 def _silver_file_exists_and_row_count_positive(
     *,
     context: dg.AssetCheckExecutionContext,
@@ -2494,105 +2689,124 @@ def _build_partition_registered_check(asset, freq: int):
     return _check
 
 
+def _build_raw_contract_check(asset, freq: int):
+    @dg.asset_check(
+        asset=asset,
+        name=RAW_STK_MINS_CONTRACT_CHECK,
+        blocking=True,
+    )
+    def _check(
+        context: dg.AssetCheckExecutionContext,
+        lake_root: LakeRootResource,
+        duckdb: DuckDBResource,
+    ) -> dg.AssetCheckResult:
+        return _raw_contract_check(
+            context=context,
+            lake_root=lake_root,
+            duckdb=duckdb,
+            freq=freq,
+        )
+
+    return _check
+
+
+def _build_raw_key_integrity_check(asset, freq: int):
+    @dg.asset_check(
+        asset=asset,
+        name=RAW_STK_MINS_KEY_INTEGRITY_CHECK,
+        blocking=True,
+    )
+    def _check(
+        context: dg.AssetCheckExecutionContext,
+        lake_root: LakeRootResource,
+        duckdb: DuckDBResource,
+    ) -> dg.AssetCheckResult:
+        return _raw_key_integrity_check(
+            context=context,
+            lake_root=lake_root,
+            duckdb=duckdb,
+            freq=freq,
+        )
+
+    return _check
+
+
+def _build_raw_value_domain_check(asset, freq: int):
+    @dg.asset_check(
+        asset=asset,
+        name=RAW_STK_MINS_VALUE_DOMAIN_CHECK,
+        blocking=True,
+    )
+    def _check(
+        context: dg.AssetCheckExecutionContext,
+        lake_root: LakeRootResource,
+        duckdb: DuckDBResource,
+    ) -> dg.AssetCheckResult:
+        return _raw_value_domain_check(
+            context=context,
+            lake_root=lake_root,
+            duckdb=duckdb,
+            freq=freq,
+        )
+
+    return _check
+
+
 def _build_raw_stk_mins_checks(asset, freq: int):
     normalized_freq = normalize_stk_mins_freq(freq)
     return (
-        _build_file_exists_check(asset, normalized_freq),
-        _build_schema_check(asset, normalized_freq),
-        _build_freq_check(asset, normalized_freq),
-        _build_partition_date_check(asset, normalized_freq),
-        _build_unique_check(asset, normalized_freq),
-        _build_price_volume_check(asset, normalized_freq),
-        _build_partition_registered_check(asset, normalized_freq),
+        _build_raw_contract_check(asset, normalized_freq),
+        _build_raw_key_integrity_check(asset, normalized_freq),
+        _build_raw_value_domain_check(asset, normalized_freq),
     )
 
 
 (
-    raw_stk_mins_1m_file_exists_and_row_count_positive,
-    raw_stk_mins_1m_schema_matches_contract,
-    raw_stk_mins_1m_freq_matches_asset,
-    raw_stk_mins_1m_partition_date_matches,
-    raw_stk_mins_1m_unique_ts_code_trade_time,
-    raw_stk_mins_1m_price_volume_sanity,
-    raw_stk_mins_1m_stock_mins_partition_key_registered,
+    raw_stk_mins_1m_contract_check,
+    raw_stk_mins_1m_key_integrity_check,
+    raw_stk_mins_1m_value_domain_check,
 ) = _build_raw_stk_mins_checks(raw_stk_mins_1m, 1)
 
 (
-    raw_stk_mins_5m_file_exists_and_row_count_positive,
-    raw_stk_mins_5m_schema_matches_contract,
-    raw_stk_mins_5m_freq_matches_asset,
-    raw_stk_mins_5m_partition_date_matches,
-    raw_stk_mins_5m_unique_ts_code_trade_time,
-    raw_stk_mins_5m_price_volume_sanity,
-    raw_stk_mins_5m_stock_mins_partition_key_registered,
+    raw_stk_mins_5m_contract_check,
+    raw_stk_mins_5m_key_integrity_check,
+    raw_stk_mins_5m_value_domain_check,
 ) = _build_raw_stk_mins_checks(raw_stk_mins_5m, 5)
 
 (
-    raw_stk_mins_15m_file_exists_and_row_count_positive,
-    raw_stk_mins_15m_schema_matches_contract,
-    raw_stk_mins_15m_freq_matches_asset,
-    raw_stk_mins_15m_partition_date_matches,
-    raw_stk_mins_15m_unique_ts_code_trade_time,
-    raw_stk_mins_15m_price_volume_sanity,
-    raw_stk_mins_15m_stock_mins_partition_key_registered,
+    raw_stk_mins_15m_contract_check,
+    raw_stk_mins_15m_key_integrity_check,
+    raw_stk_mins_15m_value_domain_check,
 ) = _build_raw_stk_mins_checks(raw_stk_mins_15m, 15)
 
 (
-    raw_stk_mins_30m_file_exists_and_row_count_positive,
-    raw_stk_mins_30m_schema_matches_contract,
-    raw_stk_mins_30m_freq_matches_asset,
-    raw_stk_mins_30m_partition_date_matches,
-    raw_stk_mins_30m_unique_ts_code_trade_time,
-    raw_stk_mins_30m_price_volume_sanity,
-    raw_stk_mins_30m_stock_mins_partition_key_registered,
+    raw_stk_mins_30m_contract_check,
+    raw_stk_mins_30m_key_integrity_check,
+    raw_stk_mins_30m_value_domain_check,
 ) = _build_raw_stk_mins_checks(raw_stk_mins_30m, 30)
 
 (
-    raw_stk_mins_60m_file_exists_and_row_count_positive,
-    raw_stk_mins_60m_schema_matches_contract,
-    raw_stk_mins_60m_freq_matches_asset,
-    raw_stk_mins_60m_partition_date_matches,
-    raw_stk_mins_60m_unique_ts_code_trade_time,
-    raw_stk_mins_60m_price_volume_sanity,
-    raw_stk_mins_60m_stock_mins_partition_key_registered,
+    raw_stk_mins_60m_contract_check,
+    raw_stk_mins_60m_key_integrity_check,
+    raw_stk_mins_60m_value_domain_check,
 ) = _build_raw_stk_mins_checks(raw_stk_mins_60m, 60)
 
 RAW_STK_MINS_CHECK_DEFINITIONS = (
-    raw_stk_mins_1m_file_exists_and_row_count_positive,
-    raw_stk_mins_1m_schema_matches_contract,
-    raw_stk_mins_1m_freq_matches_asset,
-    raw_stk_mins_1m_partition_date_matches,
-    raw_stk_mins_1m_unique_ts_code_trade_time,
-    raw_stk_mins_1m_price_volume_sanity,
-    raw_stk_mins_1m_stock_mins_partition_key_registered,
-    raw_stk_mins_5m_file_exists_and_row_count_positive,
-    raw_stk_mins_5m_schema_matches_contract,
-    raw_stk_mins_5m_freq_matches_asset,
-    raw_stk_mins_5m_partition_date_matches,
-    raw_stk_mins_5m_unique_ts_code_trade_time,
-    raw_stk_mins_5m_price_volume_sanity,
-    raw_stk_mins_5m_stock_mins_partition_key_registered,
-    raw_stk_mins_15m_file_exists_and_row_count_positive,
-    raw_stk_mins_15m_schema_matches_contract,
-    raw_stk_mins_15m_freq_matches_asset,
-    raw_stk_mins_15m_partition_date_matches,
-    raw_stk_mins_15m_unique_ts_code_trade_time,
-    raw_stk_mins_15m_price_volume_sanity,
-    raw_stk_mins_15m_stock_mins_partition_key_registered,
-    raw_stk_mins_30m_file_exists_and_row_count_positive,
-    raw_stk_mins_30m_schema_matches_contract,
-    raw_stk_mins_30m_freq_matches_asset,
-    raw_stk_mins_30m_partition_date_matches,
-    raw_stk_mins_30m_unique_ts_code_trade_time,
-    raw_stk_mins_30m_price_volume_sanity,
-    raw_stk_mins_30m_stock_mins_partition_key_registered,
-    raw_stk_mins_60m_file_exists_and_row_count_positive,
-    raw_stk_mins_60m_schema_matches_contract,
-    raw_stk_mins_60m_freq_matches_asset,
-    raw_stk_mins_60m_partition_date_matches,
-    raw_stk_mins_60m_unique_ts_code_trade_time,
-    raw_stk_mins_60m_price_volume_sanity,
-    raw_stk_mins_60m_stock_mins_partition_key_registered,
+    raw_stk_mins_1m_contract_check,
+    raw_stk_mins_1m_key_integrity_check,
+    raw_stk_mins_1m_value_domain_check,
+    raw_stk_mins_5m_contract_check,
+    raw_stk_mins_5m_key_integrity_check,
+    raw_stk_mins_5m_value_domain_check,
+    raw_stk_mins_15m_contract_check,
+    raw_stk_mins_15m_key_integrity_check,
+    raw_stk_mins_15m_value_domain_check,
+    raw_stk_mins_30m_contract_check,
+    raw_stk_mins_30m_key_integrity_check,
+    raw_stk_mins_30m_value_domain_check,
+    raw_stk_mins_60m_contract_check,
+    raw_stk_mins_60m_key_integrity_check,
+    raw_stk_mins_60m_value_domain_check,
 )
 
 assert len(RAW_STK_MINS_CHECK_DEFINITIONS) == len(RAW_STK_MINS_ASSETS) * len(

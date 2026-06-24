@@ -25,12 +25,9 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
-    RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK,
-    RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK,
-    RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK,
-    RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
-    RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+    RAW_STK_MINS_CONTRACT_CHECK,
+    RAW_STK_MINS_KEY_INTEGRITY_CHECK,
+    RAW_STK_MINS_VALUE_DOMAIN_CHECK,
     SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
     SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
     SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
@@ -573,7 +570,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         status = batch_status.status_for_trade_date("2026-06-15")
         self.assertFalse(status.ready)
         self.assertFalse(status.materialized)
-        self.assertIn(RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK, status.failed_check_names)
+        self.assertIn(RAW_STK_MINS_CONTRACT_CHECK, status.failed_check_names)
         self.assertEqual(len(status.missing_file_paths), 1)
 
     def test_raw_batch_readiness_detects_blocking_check_failures(self) -> None:
@@ -581,27 +578,27 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
             {
                 "trade_date": "2026-06-15",
                 "kwargs": {"include_vwap": False},
-                "check": RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+                "check": RAW_STK_MINS_CONTRACT_CHECK,
             },
             {
                 "trade_date": "2026-06-16",
                 "kwargs": {"actual_freq": 5},
-                "check": RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK,
+                "check": RAW_STK_MINS_CONTRACT_CHECK,
             },
             {
                 "trade_date": "2026-06-17",
                 "kwargs": {"trade_time": "2026-06-18 09:31:00"},
-                "check": RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK,
+                "check": RAW_STK_MINS_CONTRACT_CHECK,
             },
             {
                 "trade_date": "2026-06-18",
                 "kwargs": {"row_count": 2, "duplicate_key": True},
-                "check": RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                "check": RAW_STK_MINS_KEY_INTEGRITY_CHECK,
             },
             {
                 "trade_date": "2026-06-19",
                 "kwargs": {"open_value": -1.0},
-                "check": RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK,
+                "check": RAW_STK_MINS_VALUE_DOMAIN_CHECK,
             },
         )
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:

@@ -223,7 +223,7 @@ def _raw_stk_mins_lake_status(
         checks_passed=checks_passed,
         reason=reason,
         failed_check_names=(
-            () if ready else ("raw_stk_mins_file_exists_and_row_count_positive",)
+            () if ready else ("raw_stk_mins_contract_check",)
         ),
         missing_file_paths=(),
         expected_file_count=5,

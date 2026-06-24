@@ -743,6 +743,19 @@ P5C 已落地：
 
 - 不动 protected repair/status/completion checks。
 - 普通分钟线 checks 继续 keep20。
+- P6A 先收敛 `raw_stk_mins`：
+  - `RAW_STK_MINS_CHECK_NAMES` 从旧 7 个普通 check 改为
+    `raw_stk_mins_contract_check`、`raw_stk_mins_key_integrity_check`、
+    `raw_stk_mins_value_domain_check`。
+  - `raw_stk_mins_contract_check` 聚合文件存在/行数、schema、freq、partition date。
+  - `raw_stk_mins_key_integrity_check` 聚合 `(ts_code, trade_time)` 唯一性和
+    `cn_a_stock_mins_trade_days` partition registered。
+  - `raw_stk_mins_value_domain_check` 保留原 price/volume/null/negative value sanity。
+  - 旧细粒度 evaluator 继续作为内部 helper 或历史反例使用，不再注册为正式
+    Dagster asset check。
+  - `batch_raw_stk_mins_lake_readiness(...)` 不新增查询，只把原 metrics 映射到
+    3 个新 failed check names。
+  - `stk_mins_migration` 的 raw runless/bootstrap audit 也只输出 3 个新 check 名称。
 - 若进一步合并 MACD/KDJ indicator/state checks，必须同步：
   - checks-only refresh job
   - daily job selection

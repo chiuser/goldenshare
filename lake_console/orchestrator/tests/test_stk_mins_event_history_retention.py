@@ -174,7 +174,7 @@ class StkMinsEventHistoryRetentionTests(unittest.TestCase):
                 "candidate_check_counts_by_check": [
                     {
                         "asset_key": '["raw_stk_mins_1m"]',
-                        "check_name": "raw_stk_mins_file_exists_and_row_count_positive",
+                        "check_name": "raw_stk_mins_contract_check",
                         "check_candidate_count": 3,
                     }
                 ],
@@ -210,7 +210,7 @@ class StkMinsEventHistoryRetentionTests(unittest.TestCase):
                 "candidate_check_samples": [
                     {
                         "asset_key": '["raw_stk_mins_1m"]',
-                        "check_name": "raw_stk_mins_file_exists_and_row_count_positive",
+                        "check_name": "raw_stk_mins_contract_check",
                         "partition": "2026-06-18",
                         "run_id": "run-1",
                         "execution_status": "SUCCEEDED",

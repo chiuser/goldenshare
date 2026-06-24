@@ -78,13 +78,9 @@ RAW_ADJ_FACTOR_CHECKS = (
     "raw_adj_factor_partition_allowed_check",
 )
 RAW_STK_MINS_CHECKS = (
-    "raw_stk_mins_file_exists_and_row_count_positive",
-    "raw_stk_mins_schema_matches_contract",
-    "raw_stk_mins_freq_matches_asset",
-    "raw_stk_mins_partition_date_matches",
-    "raw_stk_mins_unique_ts_code_trade_time",
-    "raw_stk_mins_price_volume_sanity",
-    "raw_stk_mins_stock_mins_partition_key_registered",
+    "raw_stk_mins_contract_check",
+    "raw_stk_mins_key_integrity_check",
+    "raw_stk_mins_value_domain_check",
 )
 SILVER_STK_MINS_CHECKS = (
     "silver_stk_mins_file_exists_and_row_count_positive",

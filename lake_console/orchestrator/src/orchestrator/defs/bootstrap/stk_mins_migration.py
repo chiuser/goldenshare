@@ -63,13 +63,9 @@ RAW_STK_MINS_ASSET_KEYS = {
 SILVER_STOCK_IDENTITY_MAP_ASSET_KEY = dg.AssetKey("silver_stock_identity_map")
 
 RAW_STK_MINS_CHECKS = (
-    "raw_stk_mins_file_exists_and_row_count_positive",
-    "raw_stk_mins_schema_matches_contract",
-    "raw_stk_mins_freq_matches_asset",
-    "raw_stk_mins_partition_date_matches",
-    "raw_stk_mins_unique_ts_code_trade_time",
-    "raw_stk_mins_price_volume_sanity",
-    "raw_stk_mins_stock_mins_partition_key_registered",
+    "raw_stk_mins_contract_check",
+    "raw_stk_mins_key_integrity_check",
+    "raw_stk_mins_value_domain_check",
 )
 
 SILVER_STOCK_IDENTITY_MAP_CHECKS = (
@@ -471,7 +467,7 @@ def audit_stk_mins_raw_partition(
     if not exists:
         checks.append(
             _raw_check(
-                "raw_stk_mins_file_exists_and_row_count_positive",
+                "raw_stk_mins_contract_check",
                 False,
                 build_check_metadata(
                     check_scope=CheckScope.FILE_EXISTS,
@@ -553,6 +549,15 @@ def audit_stk_mins_raw_partition(
                     "is_registered": partition_key in registered_partition_keys,
                 },
             ),
+        )
+    )
+    checks = list(
+        _collapse_raw_check_audits(
+            checks,
+            raw_path=raw_path,
+            freq=normalized_freq,
+            partition_key=partition_key,
+            row_count=row_count,
         )
     )
     return StkMinsRawPartitionAudit(
@@ -908,6 +913,73 @@ def _skipped_raw_content_checks(
         _raw_check("raw_stk_mins_partition_date_matches", False, metadata),
         _raw_check("raw_stk_mins_unique_ts_code_trade_time", False, metadata),
         _raw_check("raw_stk_mins_price_volume_sanity", False, metadata),
+    )
+
+
+def _collapse_raw_check_audits(
+    checks: Sequence[StkMinsRawCheckAudit],
+    *,
+    raw_path: Path,
+    freq: int,
+    partition_key: str,
+    row_count: int | None,
+) -> tuple[StkMinsRawCheckAudit, ...]:
+    checks_by_name = {check.check_name: check for check in checks}
+
+    def collapsed_check(
+        *,
+        check_name: str,
+        rule_names: Sequence[str],
+        check_scope: CheckScope,
+    ) -> StkMinsRawCheckAudit:
+        failed_rule_names = [
+            rule_name
+            for rule_name in rule_names
+            if not checks_by_name.get(
+                rule_name,
+                StkMinsRawCheckAudit(rule_name, False, {}),
+            ).passed
+        ]
+        return _raw_check(
+            check_name,
+            not failed_rule_names,
+            build_check_metadata(
+                check_scope=check_scope,
+                checked_row_count=row_count,
+                failed_row_count=len(failed_rule_names),
+                file_path=raw_path,
+                extra_metadata={
+                    "freq": freq,
+                    "partition_key": partition_key,
+                    "failed_rule_names": failed_rule_names,
+                },
+            ),
+        )
+
+    return (
+        collapsed_check(
+            check_name="raw_stk_mins_contract_check",
+            rule_names=(
+                "raw_stk_mins_file_exists_and_row_count_positive",
+                "raw_stk_mins_schema_matches_contract",
+                "raw_stk_mins_freq_matches_asset",
+                "raw_stk_mins_partition_date_matches",
+            ),
+            check_scope=CheckScope.SCHEMA,
+        ),
+        collapsed_check(
+            check_name="raw_stk_mins_key_integrity_check",
+            rule_names=(
+                "raw_stk_mins_unique_ts_code_trade_time",
+                "raw_stk_mins_stock_mins_partition_key_registered",
+            ),
+            check_scope=CheckScope.KEY_UNIQUENESS,
+        ),
+        collapsed_check(
+            check_name="raw_stk_mins_value_domain_check",
+            rule_names=("raw_stk_mins_price_volume_sanity",),
+            check_scope=CheckScope.VALUE_SANITY,
+        ),
     )
 
 

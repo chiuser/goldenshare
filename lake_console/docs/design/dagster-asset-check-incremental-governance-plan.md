@@ -520,6 +520,21 @@ P5C 已落地事实：
 2. repair/status/completion checks 永久保护。
 3. 完成全局静态门禁：新增 check 必须声明治理归属。
 
+P6A 已落地事实：
+
+- `raw_stk_mins_1m/5m/15m/30m/60m` 正式 Dagster checks 从每个资产 7 个收敛为
+  `raw_stk_mins_contract_check`、`raw_stk_mins_key_integrity_check`、
+  `raw_stk_mins_value_domain_check` 3 个。
+- 原文件存在/行数、schema、freq、partition date、unique、price-volume、partition
+  registered 规则没有删除，分别迁入上述 3 个粗粒度 check 的 `failed_rule_names`
+  和 DuckDB batch lake readiness 映射。
+- `batch_raw_stk_mins_lake_readiness(...)` 继续只读 lake 文件和 registered
+  partition set，不读取 Dagster event history；failed check names 改为 3 个新正式
+  check 名称。
+- `stk_mins_migration` runless/bootstrap raw audit 输出同步改为 3 个新 check 名称，
+  防止未来补历史事件时重新写入旧 7 个普通 check。
+- P6A 不触碰 silver/qfq/MACD-KDJ，不触碰 repair/status/completion protected checks。
+
 ## 8. 开发门禁
 
 后续每一阶段必须满足：
