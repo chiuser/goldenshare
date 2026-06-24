@@ -80,6 +80,31 @@ def _blocking_value_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCh
     )
 
 
+def _combined_check_result(
+    *,
+    partition_keys: tuple[str, ...],
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _values_table_sql(values: Sequence[str], column_name: str) -> str:
     if not values:
         return f"(SELECT CAST(NULL AS VARCHAR) AS {column_name} WHERE FALSE)"
@@ -783,72 +808,79 @@ def raw_index_daily_code_coverage_check(
 
 
 @dg.asset_check(asset=silver_index_daily, blocking=True)
-def silver_index_daily_row_count_positive(
+def silver_index_daily_contract_check(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    return evaluate_silver_index_daily_row_count_positive(
-        _selected_partition_keys(context),
-        lake_root.root(),
-        duckdb,
+    partition_keys = _selected_partition_keys(context)
+    lake_root_path = lake_root.root()
+    return _combined_check_result(
+        partition_keys=partition_keys,
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            (
+                "silver_index_daily_row_count_positive",
+                evaluate_silver_index_daily_row_count_positive(
+                    partition_keys,
+                    lake_root_path,
+                    duckdb,
+                ),
+            ),
+            (
+                "silver_index_daily_required_columns_and_types",
+                evaluate_silver_index_daily_required_columns_and_types(
+                    partition_keys,
+                    lake_root_path,
+                    duckdb,
+                ),
+            ),
+            (
+                "silver_index_daily_partition_date_matches",
+                evaluate_silver_index_daily_partition_date_matches(
+                    partition_keys,
+                    lake_root_path,
+                    duckdb,
+                ),
+            ),
+        ),
     )
 
 
 @dg.asset_check(asset=silver_index_daily, blocking=True)
-def silver_index_daily_required_columns_and_types(
+def silver_index_daily_key_integrity_check(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    return evaluate_silver_index_daily_required_columns_and_types(
-        _selected_partition_keys(context),
-        lake_root.root(),
-        duckdb,
+    partition_keys = _selected_partition_keys(context)
+    lake_root_path = lake_root.root()
+    return _combined_check_result(
+        partition_keys=partition_keys,
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        rule_results=(
+            (
+                "silver_index_daily_unique_ts_code_trade_date",
+                evaluate_silver_index_daily_unique_ts_code_trade_date(
+                    partition_keys,
+                    lake_root_path,
+                    duckdb,
+                ),
+            ),
+            (
+                "silver_index_daily_conflicting_duplicate_absent",
+                evaluate_silver_index_daily_conflicting_duplicate_absent(
+                    partition_keys,
+                    lake_root_path,
+                    duckdb,
+                ),
+            ),
+        ),
     )
 
 
 @dg.asset_check(asset=silver_index_daily, blocking=True)
-def silver_index_daily_partition_date_matches(
-    context: dg.AssetCheckExecutionContext,
-    lake_root: LakeRootResource,
-    duckdb: DuckDBResource,
-) -> dg.AssetCheckResult:
-    return evaluate_silver_index_daily_partition_date_matches(
-        _selected_partition_keys(context),
-        lake_root.root(),
-        duckdb,
-    )
-
-
-@dg.asset_check(asset=silver_index_daily, blocking=True)
-def silver_index_daily_unique_ts_code_trade_date(
-    context: dg.AssetCheckExecutionContext,
-    lake_root: LakeRootResource,
-    duckdb: DuckDBResource,
-) -> dg.AssetCheckResult:
-    return evaluate_silver_index_daily_unique_ts_code_trade_date(
-        _selected_partition_keys(context),
-        lake_root.root(),
-        duckdb,
-    )
-
-
-@dg.asset_check(asset=silver_index_daily, blocking=True)
-def silver_index_daily_conflicting_duplicate_absent(
-    context: dg.AssetCheckExecutionContext,
-    lake_root: LakeRootResource,
-    duckdb: DuckDBResource,
-) -> dg.AssetCheckResult:
-    return evaluate_silver_index_daily_conflicting_duplicate_absent(
-        _selected_partition_keys(context),
-        lake_root.root(),
-        duckdb,
-    )
-
-
-@dg.asset_check(asset=silver_index_daily, blocking=True)
-def silver_index_daily_price_sanity(
+def silver_index_daily_value_domain_check(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -865,7 +897,7 @@ def silver_index_daily_price_sanity(
     additional_deps=[raw_index_daily],
     blocking=True,
 )
-def silver_index_daily_registered_code_coverage(
+def silver_index_daily_registered_code_coverage_check(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,

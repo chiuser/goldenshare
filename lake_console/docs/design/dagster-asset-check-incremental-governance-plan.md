@@ -348,6 +348,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P2：High-cardinality Index / Major Indices 治理
 
+状态：已完成。
+
 目标资产：
 
 1. `gold_market_major_indices_daily`
@@ -357,8 +359,18 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 1. 建立或补强 DuckDB lake readiness / batch selector。
 2. 合并普通 check。
-3. rank/seed 长历史验证改为离线审计。
+3. rank/seed 语义并入 `gold_market_major_indices_daily_seed_coverage_check`
+   与 `gold_market_major_indices_daily_ranking_consistency_check`。
 4. 只保留 latest/current compact check 和最近 20 日普通 check event。
+
+落地事实：
+
+- `silver_index_daily` 正式 Dagster checks 收敛为
+  `contract/key_integrity/value_domain/registered_code_coverage` 4 个。
+- `gold_market_major_indices_daily` 正式 Dagster checks 收敛为
+  `contract/value_domain/seed_coverage/ranking_consistency` 4 个。
+- `silver_index_daily_sensor` 与 `market_major_indices_daily_sensor` 热路径均走
+  DuckDB lake readiness，不再用 Dagster latest-check 深扫选择目标日期。
 
 ### P3：Stock Daily / Suspend / Adj Factor 治理
 

@@ -418,6 +418,11 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P2 Index Daily 与 Major Indices
 
+状态：已落地。P2 将 `silver_index_daily` 与
+`gold_market_major_indices_daily` 的正式 Dagster blocking check 收敛为
+4 个粗粒度 check，同时保持内部规则 SQL 语义；sensor 热路径继续走
+DuckDB lake readiness，不回到 Dagster check history 深扫。
+
 #### 改动文件
 
 - `lake_console/orchestrator/src/orchestrator/defs/checks/index_daily_checks.py`
@@ -438,10 +443,14 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   - `silver_index_daily_value_domain_check`
   - `silver_index_daily_registered_code_coverage_check`
 - 失败明细写 metadata：
+  - `rule_passed`
   - `failed_rule_names`
-  - `failed_row_count_by_rule`
-  - `sample_rows_by_rule`
-- `silver_index_daily_sensor` 继续使用 lake readiness，不回到 Dagster check 深扫。
+- 旧细粒度规则保留为内部 helper，不再注册为 Dagster check。
+- `silver_index_daily_sensor` 使用
+  `batch_silver_index_daily_lake_readiness(...)` +
+  `select_first_not_ready_trade_date(...)`，不再调用
+  `select_first_not_ready_silver_index_daily_partition(...)` 或 Dagster
+  latest-check selector。
 
 `gold_market_major_indices_daily`：
 
@@ -452,18 +461,30 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
   - `gold_market_major_indices_daily_ranking_consistency_check`
 - 如果 ranking consistency 不影响每日调度，优先迁到 offline audit。
 - `market_major_indices_daily_sensor` 继续使用 `batch_market_major_indices_lake_readiness(...)`。
+- `market_major_indices_lake_readiness.py` 的 failed/missing check name
+  同步映射到 4 个粗粒度 check，cursor 不再暴露旧 check name 作为正式
+  blocking check。
 
 `readiness.py`：
 
-- 如果旧 check name 仍在 `AssetReadinessSpec.blocking_check_names`，同步替换为新 check name。
-- 如果 sensor 已完全 lake readiness 化，从热路径 spec 移除旧 check。
+- `SILVER_INDEX_DAILY_BLOCKING_CHECKS` 与
+  `GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS` 只保留新 check name。
+- sensor 热路径禁止调用 `partition_dataset_readiness_status_from_latest_checks(...)`。
 
 #### 测试
 
 - 新 check 正负样本。
 - 旧 check name 清零。
 - sensor 不调用 `partition_dataset_readiness_status_from_latest_checks(...)`。
-- 20 日 lake readiness 性能样本。
+- P2 本地验证：
+  `tests/test_index_daily_checks.py`、
+  `tests/test_market_major_indices_checks.py`、
+  `tests/test_market_major_indices_lake_readiness.py`、
+  `tests/test_market_major_indices_daily_sensor.py`、
+  `tests/test_silver_index_daily_sensor.py`、
+  `tests/test_asset_check_incremental_governance.py`、
+  `tests/test_asset_governance_contracts.py`、
+  `tests/test_run_contract_static_gates.py`。
 
 ### P3 Stock Daily / Suspend / Adj Factor
 

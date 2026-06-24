@@ -180,13 +180,10 @@ RAW_INDEX_DAILY_CHECKS = (
     "raw_index_daily_code_coverage_check",
 )
 SILVER_INDEX_DAILY_BLOCKING_CHECKS = (
-    "silver_index_daily_conflicting_duplicate_absent",
-    "silver_index_daily_partition_date_matches",
-    "silver_index_daily_price_sanity",
-    "silver_index_daily_registered_code_coverage",
-    "silver_index_daily_required_columns_and_types",
-    "silver_index_daily_row_count_positive",
-    "silver_index_daily_unique_ts_code_trade_date",
+    "silver_index_daily_contract_check",
+    "silver_index_daily_key_integrity_check",
+    "silver_index_daily_value_domain_check",
+    "silver_index_daily_registered_code_coverage_check",
 )
 SILVER_INDEX_BASIC_BLOCKING_CHECKS = (
     "silver_index_basic_file_exists",
@@ -197,16 +194,10 @@ SILVER_INDEX_BASIC_BLOCKING_CHECKS = (
     "silver_index_basic_no_terminated_indexes",
 )
 GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
-    "gold_market_major_indices_daily_file_exists",
-    "gold_market_major_indices_daily_required_columns_and_types",
-    "gold_market_major_indices_daily_partition_date_matches",
-    "gold_market_major_indices_daily_row_count_matches_seed",
-    "gold_market_major_indices_daily_seed_codes_present",
-    "gold_market_major_indices_daily_unique_ts_code",
-    "gold_market_major_indices_daily_rank_matches_active_seed_order",
-    "gold_market_major_indices_daily_price_sanity",
-    "gold_market_major_indices_seed_codes_exist_in_index_basic",
-    "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes",
+    "gold_market_major_indices_daily_contract_check",
+    "gold_market_major_indices_daily_value_domain_check",
+    "gold_market_major_indices_daily_seed_coverage_check",
+    "gold_market_major_indices_daily_ranking_consistency_check",
 )
 
 RAW_STOCK_BASIC_ASSET_KEY = dg.AssetKey("raw_tushare_stock_basic")

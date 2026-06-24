@@ -7,6 +7,7 @@ from tempfile import TemporaryDirectory
 
 from orchestrator.defs.asset_guards.market_major_indices_lake_readiness import (
     batch_market_major_indices_lake_readiness,
+    batch_silver_index_daily_lake_readiness,
     silver_index_basic_lake_readiness,
     silver_index_daily_lake_readiness_for_trade_date,
 )
@@ -231,7 +232,7 @@ class MarketMajorIndicesLakeReadinessTests(unittest.TestCase):
             self.assertFalse(missing_status.ready)
             self.assertFalse(missing_status.materialized)
             self.assertIn(
-                "gold_market_major_indices_daily_file_exists",
+                "gold_market_major_indices_daily_contract_check",
                 missing_status.missing_check_names,
             )
 
@@ -255,7 +256,7 @@ class MarketMajorIndicesLakeReadinessTests(unittest.TestCase):
             self.assertTrue(status.materialized)
             self.assertFalse(status.checks_passed)
             self.assertIn(
-                "gold_market_major_indices_daily_price_sanity",
+                "gold_market_major_indices_daily_value_domain_check",
                 status.failed_check_names,
             )
 
@@ -277,6 +278,34 @@ class MarketMajorIndicesLakeReadinessTests(unittest.TestCase):
             self.assertTrue(status.ready)
             self.assertTrue(status.checks_passed)
 
+    def test_silver_index_daily_batch_statuses_use_lake_readiness(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            trade_dates = ("2026-06-15", "2026-06-16")
+            with connect_configured_duckdb() as connection:
+                for trade_date in trade_dates:
+                    _copy_silver_daily_and_raw(connection, root, trade_date)
+                raw_index_daily_path(root, trade_dates[0]).unlink()
+                batch_status = batch_silver_index_daily_lake_readiness(
+                    connection=connection,
+                    lake_root_path=root,
+                    expected_trade_dates=trade_dates,
+                    registered_index_codes=tuple(
+                        row.ts_code
+                        for row in active_major_indices_seed_rows(trade_dates[1])
+                    ),
+                )
+
+            first_status = batch_status.status_for_trade_date(trade_dates[0])
+            second_status = batch_status.status_for_trade_date(trade_dates[1])
+            self.assertFalse(first_status.ready)
+            self.assertFalse(first_status.materialized)
+            self.assertIn(
+                "silver_index_daily_registered_code_coverage_check",
+                first_status.missing_check_names,
+            )
+            self.assertTrue(second_status.ready)
+
     def test_silver_index_daily_missing_raw_by_date_is_not_ready(self) -> None:
         with TemporaryDirectory() as directory:
             root = Path(directory)
@@ -296,7 +325,7 @@ class MarketMajorIndicesLakeReadinessTests(unittest.TestCase):
             self.assertFalse(status.ready)
             self.assertFalse(status.materialized)
             self.assertIn(
-                "silver_index_daily_registered_code_coverage",
+                "silver_index_daily_registered_code_coverage_check",
                 status.missing_check_names,
             )
 

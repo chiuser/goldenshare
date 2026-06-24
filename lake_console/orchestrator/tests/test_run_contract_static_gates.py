@@ -1997,6 +1997,7 @@ class RunContractStaticGateTests(unittest.TestCase):
             ),
             DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py": (
                 "def batch_market_major_indices_lake_readiness",
+                "def batch_silver_index_daily_lake_readiness",
             ),
             DEFS_DIR / "asset_guards" / "market_breadth_lake_readiness.py": (
                 "def batch_gold_market_breadth_lake_readiness",
@@ -2373,7 +2374,8 @@ class RunContractStaticGateTests(unittest.TestCase):
                 'job_name="silver_index_daily_update_job"',
                 "default_status=dg.DefaultSensorStatus.STOPPED",
                 "raw_index_daily_lake_readiness_for_trade_dates",
-                "select_first_not_ready_silver_index_daily_partition",
+                "batch_silver_index_daily_lake_readiness",
+                "select_first_not_ready_trade_date",
                 'subject="silver_index_daily"',
                 '"reason_code"',
             ),
@@ -2439,6 +2441,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "raw_tushare_index_daily_by_code",
             "2026-06-22",
             "2026-06-23",
+            "select_first_not_ready_silver_index_daily_partition",
+            "silver_index_daily_ready_for_trade_date",
+            "partition_dataset_readiness_status_from_latest_checks",
         )
         for path, source in (
             (silver_sensor_path, silver_sensor_source),

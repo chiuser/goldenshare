@@ -11,39 +11,19 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     build_registered_gap_status,
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
-from orchestrator.defs.sensors.readiness import AssetReadinessStatus
 from orchestrator.defs.sensors.silver_index_daily_sensor import (
-    _first_not_ready_silver_trade_date,
     silver_index_daily_sensor,
 )
 
 
-def _silver_status(
-    trade_date: str,
-    *,
-    ready: bool,
-    materialized: bool = True,
-) -> AssetReadinessStatus:
-    return AssetReadinessStatus(
-        asset_key="silver_index_daily",
-        partition_key=trade_date,
-        ready=ready,
-        materialized=materialized,
-        checks_passed=ready,
-        freshness_passed=ready,
-        materialization_storage_id=1 if materialized else None,
-        materialization_date="2026-06-02" if materialized else None,
-        missing_check_names=() if ready else ("coverage",),
-        failed_check_names=(),
-        reason="ready" if ready else "not ready",
-    )
-
-
-def _raw_batch_status(
+def _batch_status(
     trade_dates: tuple[str, ...],
     *,
     ready_dates: tuple[str, ...],
     failed_dates: tuple[str, ...] = (),
+    dataset_check_name: str,
+    missing_reason: str,
+    failed_reason: str,
 ) -> ContinuityBatchReadiness:
     ready_set = set(ready_dates)
     failed_set = set(failed_dates)
@@ -63,8 +43,8 @@ def _raw_batch_status(
                 ready=False,
                 materialized=True,
                 checks_passed=False,
-                reason="code_coverage_failed",
-                failed_check_names=("raw_index_daily_code_coverage_check",),
+                reason=failed_reason,
+                failed_check_names=(dataset_check_name,),
             )
         else:
             statuses[trade_date] = ContinuityDateReadiness(
@@ -72,14 +52,46 @@ def _raw_batch_status(
                 ready=False,
                 materialized=False,
                 checks_passed=False,
-                reason="missing_raw_index_daily_file",
-                missing_check_names=("raw_index_daily_file_contract_check",),
+                reason=missing_reason,
+                missing_check_names=(dataset_check_name,),
             )
     return ContinuityBatchReadiness(
         expected_trade_dates=trade_dates,
         statuses_by_trade_date=statuses,
         elapsed_ms=1,
         scanned_file_count=len(ready_dates) + len(failed_dates),
+    )
+
+
+def _raw_batch_status(
+    trade_dates: tuple[str, ...],
+    *,
+    ready_dates: tuple[str, ...],
+    failed_dates: tuple[str, ...] = (),
+) -> ContinuityBatchReadiness:
+    return _batch_status(
+        trade_dates,
+        ready_dates=ready_dates,
+        failed_dates=failed_dates,
+        dataset_check_name="raw_index_daily_code_coverage_check",
+        missing_reason="missing_raw_index_daily_file",
+        failed_reason="code_coverage_failed",
+    )
+
+
+def _silver_batch_status(
+    trade_dates: tuple[str, ...],
+    *,
+    ready_dates: tuple[str, ...],
+    failed_dates: tuple[str, ...] = (),
+) -> ContinuityBatchReadiness:
+    return _batch_status(
+        trade_dates,
+        ready_dates=ready_dates,
+        failed_dates=failed_dates,
+        dataset_check_name="silver_index_daily_registered_code_coverage_check",
+        missing_reason="missing_silver_index_daily_file",
+        failed_reason="silver_index_daily_checks_failed",
     )
 
 
@@ -164,26 +176,7 @@ class SilverIndexDailySensorTests(unittest.TestCase):
     def tearDown(self) -> None:
         self._registered_gap_patcher.stop()
 
-    def test_first_not_ready_uses_silver_selector(self) -> None:
-        instance = object()
-        trade_dates = ("2026-06-01", "2026-06-02", "2026-06-03")
-        selected_status = _silver_status("2026-06-02", ready=False)
-
-        with patch(
-            "orchestrator.defs.sensors.silver_index_daily_sensor."
-            "select_first_not_ready_silver_index_daily_partition",
-            return_value=("2026-06-02", selected_status),
-        ) as selector:
-            trade_date, status = _first_not_ready_silver_trade_date(
-                instance,
-                trade_dates,
-            )
-
-        selector.assert_called_once_with(instance, trade_dates)
-        self.assertEqual(trade_date, "2026-06-02")
-        self.assertIs(status, selected_status)
-
-    def test_registered_gap_skips_before_raw_readiness_and_silver_selector(self) -> None:
+    def test_registered_gap_skips_before_raw_readiness_and_silver_batch(self) -> None:
         context = _FakeContext(trade_days=("2026-06-13", "2026-06-16"))
         self.registered_gap_mock.side_effect = (
             lambda _context, evaluated_at, registered_trade_days: _registered_gap(
@@ -198,17 +191,17 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             ) as raw_readiness,
             patch(
                 "orchestrator.defs.sensors.silver_index_daily_sensor."
-                "_first_not_ready_silver_trade_date",
-            ) as silver_selector,
+                "batch_silver_index_daily_lake_readiness",
+            ) as silver_batch,
         ):
             result = silver_index_daily_sensor._raw_fn(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
         raw_readiness.assert_not_called()
-        silver_selector.assert_not_called()
+        silver_batch.assert_not_called()
 
-    def test_raw_not_ready_skips_before_silver_selector(self) -> None:
+    def test_raw_not_ready_skips_before_silver_batch(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
         with (
             patch(
@@ -221,14 +214,14 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             ),
             patch(
                 "orchestrator.defs.sensors.silver_index_daily_sensor."
-                "_first_not_ready_silver_trade_date",
-            ) as silver_selector,
+                "batch_silver_index_daily_lake_readiness",
+            ) as silver_batch,
         ):
             result = silver_index_daily_sensor._raw_fn(_FakeContext())
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("等待 raw_index_daily", result.skip_reason.skip_message)
-        silver_selector.assert_not_called()
+        silver_batch.assert_not_called()
 
     def test_raw_check_failed_does_not_submit_silver_run(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -244,22 +237,17 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             ),
             patch(
                 "orchestrator.defs.sensors.silver_index_daily_sensor."
-                "_first_not_ready_silver_trade_date",
-            ) as silver_selector,
+                "batch_silver_index_daily_lake_readiness",
+            ) as silver_batch,
         ):
             result = silver_index_daily_sensor._raw_fn(_FakeContext())
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
-        silver_selector.assert_not_called()
+        silver_batch.assert_not_called()
 
     def test_raw_ready_and_missing_silver_submits_run(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
-        missing_silver = _silver_status(
-            "2026-06-02",
-            ready=False,
-            materialized=False,
-        )
         with (
             patch(
                 "orchestrator.defs.sensors.silver_index_daily_sensor."
@@ -271,8 +259,11 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             ),
             patch(
                 "orchestrator.defs.sensors.silver_index_daily_sensor."
-                "_first_not_ready_silver_trade_date",
-                return_value=("2026-06-02", missing_silver),
+                "batch_silver_index_daily_lake_readiness",
+                return_value=_silver_batch_status(
+                    trade_dates,
+                    ready_dates=("2026-06-01",),
+                ),
             ),
         ):
             result = silver_index_daily_sensor._raw_fn(_FakeContext())
@@ -282,7 +273,6 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests[0].run_key, "silver_index_daily:2026-06-02")
 
     def test_failed_silver_check_status_does_not_submit_run(self) -> None:
-        failed_silver = _silver_status("2026-06-01", ready=False, materialized=True)
         trade_dates = ("2026-06-01", "2026-06-02")
 
         with (
@@ -296,8 +286,12 @@ class SilverIndexDailySensorTests(unittest.TestCase):
             ),
             patch(
                 "orchestrator.defs.sensors.silver_index_daily_sensor."
-                "_first_not_ready_silver_trade_date",
-                return_value=("2026-06-01", failed_silver),
+                "batch_silver_index_daily_lake_readiness",
+                return_value=_silver_batch_status(
+                    trade_dates,
+                    ready_dates=(),
+                    failed_dates=("2026-06-01",),
+                ),
             ),
         ):
             result = silver_index_daily_sensor._raw_fn(_FakeContext())

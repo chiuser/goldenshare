@@ -89,6 +89,31 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    partition_keys: tuple[str, ...],
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "partition_keys": list(partition_keys),
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _nullable_duckdb_string(value: str | None) -> str:
     return "NULL::VARCHAR" if value is None else duckdb_string(value)
 
@@ -132,7 +157,6 @@ def _seed_values_sql(seed_rows: Sequence[MajorIndexSeedRow]) -> str:
     return f"(VALUES {values_sql}) AS seed(rank, ts_code, display_name)"
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_file_exists(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -153,7 +177,6 @@ def gold_market_major_indices_daily_file_exists(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_required_columns_and_types(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -217,7 +240,6 @@ def gold_market_major_indices_daily_required_columns_and_types(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -276,7 +298,6 @@ def gold_market_major_indices_daily_partition_date_matches(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_row_count_matches_seed(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -318,7 +339,6 @@ def gold_market_major_indices_daily_row_count_matches_seed(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_seed_codes_present(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -388,7 +408,6 @@ def gold_market_major_indices_daily_seed_codes_present(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_unique_ts_code(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -446,7 +465,6 @@ def gold_market_major_indices_daily_unique_ts_code(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_rank_matches_active_seed_order(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -544,7 +562,6 @@ def gold_market_major_indices_daily_rank_matches_active_seed_order(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_daily_price_sanity(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -620,11 +637,6 @@ def gold_market_major_indices_daily_price_sanity(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_major_indices_daily,
-    additional_deps=[silver_index_basic],
-    blocking=True,
-)
 def gold_market_major_indices_seed_codes_exist_in_index_basic(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -676,7 +688,6 @@ def gold_market_major_indices_seed_codes_exist_in_index_basic(
     )
 
 
-@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
 def gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
@@ -703,5 +714,128 @@ def gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes(
                 ),
                 **_seed_rows_metadata(),
             },
+        ),
+    )
+
+
+@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
+def gold_market_major_indices_daily_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_keys = _selected_partition_keys(context)
+    return _combined_check_result(
+        partition_keys=partition_keys,
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            (
+                "gold_market_major_indices_daily_file_exists",
+                gold_market_major_indices_daily_file_exists(context, lake_root),
+            ),
+            (
+                "gold_market_major_indices_daily_required_columns_and_types",
+                gold_market_major_indices_daily_required_columns_and_types(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "gold_market_major_indices_daily_partition_date_matches",
+                gold_market_major_indices_daily_partition_date_matches(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "gold_market_major_indices_daily_row_count_matches_seed",
+                gold_market_major_indices_daily_row_count_matches_seed(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
+def gold_market_major_indices_daily_value_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return gold_market_major_indices_daily_price_sanity(context, lake_root, duckdb)
+
+
+@dg.asset_check(
+    asset=gold_market_major_indices_daily,
+    additional_deps=[silver_index_basic],
+    blocking=True,
+)
+def gold_market_major_indices_daily_seed_coverage_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_keys = _selected_partition_keys(context)
+    return _combined_check_result(
+        partition_keys=partition_keys,
+        check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+        rule_results=(
+            (
+                "gold_market_major_indices_daily_seed_codes_present",
+                gold_market_major_indices_daily_seed_codes_present(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "gold_market_major_indices_seed_codes_exist_in_index_basic",
+                gold_market_major_indices_seed_codes_exist_in_index_basic(
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes",
+                gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes(
+                    context,
+                ),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=gold_market_major_indices_daily, blocking=True)
+def gold_market_major_indices_daily_ranking_consistency_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    partition_keys = _selected_partition_keys(context)
+    return _combined_check_result(
+        partition_keys=partition_keys,
+        check_scope=CheckScope.PARTITION_ALIGNMENT,
+        rule_results=(
+            (
+                "gold_market_major_indices_daily_unique_ts_code",
+                gold_market_major_indices_daily_unique_ts_code(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "gold_market_major_indices_daily_rank_matches_active_seed_order",
+                gold_market_major_indices_daily_rank_matches_active_seed_order(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
         ),
     )

@@ -226,7 +226,7 @@ class MarketMajorIndicesDailySensorTests(unittest.TestCase):
                     materialized=True,
                     reason="blocking_checks_failed",
                     failed_check_names=(
-                        "gold_market_major_indices_daily_price_sanity",
+                        "gold_market_major_indices_daily_value_domain_check",
                     ),
                 ),
                 _date_status(

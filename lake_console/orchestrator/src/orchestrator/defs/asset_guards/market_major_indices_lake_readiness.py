@@ -37,25 +37,16 @@ from orchestrator.seeds.market.major_indices import (
 
 
 GOLD_MARKET_MAJOR_INDICES_LAKE_CHECK_NAMES = (
-    "gold_market_major_indices_daily_file_exists",
-    "gold_market_major_indices_daily_required_columns_and_types",
-    "gold_market_major_indices_daily_partition_date_matches",
-    "gold_market_major_indices_daily_row_count_matches_seed",
-    "gold_market_major_indices_daily_seed_codes_present",
-    "gold_market_major_indices_daily_unique_ts_code",
-    "gold_market_major_indices_daily_rank_matches_active_seed_order",
-    "gold_market_major_indices_daily_price_sanity",
-    "gold_market_major_indices_seed_codes_exist_in_index_basic",
-    "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes",
+    "gold_market_major_indices_daily_contract_check",
+    "gold_market_major_indices_daily_value_domain_check",
+    "gold_market_major_indices_daily_seed_coverage_check",
+    "gold_market_major_indices_daily_ranking_consistency_check",
 )
 SILVER_INDEX_DAILY_LAKE_CHECK_NAMES = (
-    "silver_index_daily_conflicting_duplicate_absent",
-    "silver_index_daily_partition_date_matches",
-    "silver_index_daily_price_sanity",
-    "silver_index_daily_registered_code_coverage",
-    "silver_index_daily_required_columns_and_types",
-    "silver_index_daily_row_count_positive",
-    "silver_index_daily_unique_ts_code_trade_date",
+    "silver_index_daily_contract_check",
+    "silver_index_daily_key_integrity_check",
+    "silver_index_daily_value_domain_check",
+    "silver_index_daily_registered_code_coverage_check",
 )
 SILVER_INDEX_BASIC_LAKE_CHECK_NAMES = (
     "silver_index_basic_file_exists",
@@ -430,7 +421,7 @@ def batch_market_major_indices_lake_readiness(
             if not path.exists():
                 statuses[trade_date] = _missing_file_status(
                     trade_date=trade_date,
-                    check_name="gold_market_major_indices_daily_file_exists",
+                    check_name="gold_market_major_indices_daily_contract_check",
                     file_path=path,
                     reason="missing_gold_file",
                 )
@@ -467,7 +458,7 @@ def batch_market_major_indices_lake_readiness(
             }
             if trade_date in schema_failures_by_date:
                 failed_check_names.append(
-                    "gold_market_major_indices_daily_required_columns_and_types"
+                    "gold_market_major_indices_daily_contract_check"
                 )
                 summary["schema"] = schema_failures_by_date[trade_date]
 
@@ -479,38 +470,38 @@ def batch_market_major_indices_lake_readiness(
                 summary.update(metrics)
                 if metrics["row_count"] != metrics["seed_row_count"]:
                     failed_check_names.append(
-                        "gold_market_major_indices_daily_row_count_matches_seed"
+                        "gold_market_major_indices_daily_contract_check"
                     )
                 if metrics["date_mismatch_count"]:
                     failed_check_names.append(
-                        "gold_market_major_indices_daily_partition_date_matches"
+                        "gold_market_major_indices_daily_contract_check"
                     )
                 if metrics["duplicate_code_count"]:
                     failed_check_names.append(
-                        "gold_market_major_indices_daily_unique_ts_code"
+                        "gold_market_major_indices_daily_ranking_consistency_check"
                     )
                 if metrics["missing_seed_count"]:
                     failed_check_names.append(
-                        "gold_market_major_indices_daily_seed_codes_present"
+                        "gold_market_major_indices_daily_seed_coverage_check"
                     )
                 if metrics["rank_mismatch_count"]:
                     failed_check_names.append(
-                        "gold_market_major_indices_daily_rank_matches_active_seed_order"
+                        "gold_market_major_indices_daily_ranking_consistency_check"
                     )
                 if metrics["price_failed_count"]:
                     failed_check_names.append(
-                        "gold_market_major_indices_daily_price_sanity"
+                        "gold_market_major_indices_daily_value_domain_check"
                     )
 
             if index_basic_missing:
                 failed_check_names.append(
-                    "gold_market_major_indices_seed_codes_exist_in_index_basic"
+                    "gold_market_major_indices_daily_seed_coverage_check"
                 )
                 missing_paths.append(str(index_basic_path))
                 summary["missing_index_basic_file"] = True
             elif missing_index_basic_seed_count:
                 failed_check_names.append(
-                    "gold_market_major_indices_seed_codes_exist_in_index_basic"
+                    "gold_market_major_indices_daily_seed_coverage_check"
                 )
                 summary["missing_index_basic_seed_count"] = (
                     missing_index_basic_seed_count
@@ -520,7 +511,7 @@ def batch_market_major_indices_lake_readiness(
                 )
             if missing_registered_seed_codes:
                 failed_check_names.append(
-                    "gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes"
+                    "gold_market_major_indices_daily_seed_coverage_check"
                 )
                 summary["missing_registered_seed_code_count"] = len(
                     missing_registered_seed_codes
@@ -639,7 +630,7 @@ def silver_index_daily_lake_readiness_for_trade_date(
     if not silver_path.exists():
         return _missing_file_status(
             trade_date=trade_date,
-            check_name="silver_index_daily_row_count_positive",
+            check_name="silver_index_daily_contract_check",
             file_path=silver_path,
             reason="missing_silver_index_daily_file",
         )
@@ -657,14 +648,14 @@ def silver_index_daily_lake_readiness_for_trade_date(
             or schema_result["unexpected_columns"]
             or schema_result["type_mismatches"]
         ):
-            failed_check_names.append("silver_index_daily_required_columns_and_types")
+            failed_check_names.append("silver_index_daily_contract_check")
 
         registered_codes = tuple(sorted(set(registered_index_codes)))
         raw_path = raw_index_daily_path(lake_root_path, trade_date)
         if not raw_path.exists():
             return _missing_file_status(
                 trade_date=trade_date,
-                check_name="silver_index_daily_registered_code_coverage",
+                check_name="silver_index_daily_registered_code_coverage_check",
                 file_path=raw_path,
                 reason="missing_raw_index_daily_file",
             )
@@ -675,24 +666,19 @@ def silver_index_daily_lake_readiness_for_trade_date(
             trade_date=trade_date,
         )
         if metrics["row_count"] <= 0:
-            failed_check_names.append("silver_index_daily_row_count_positive")
+            failed_check_names.append("silver_index_daily_contract_check")
         if metrics["date_mismatch_count"]:
-            failed_check_names.append("silver_index_daily_partition_date_matches")
+            failed_check_names.append("silver_index_daily_contract_check")
         if metrics["duplicate_key_count"]:
-            failed_check_names.extend(
-                [
-                    "silver_index_daily_unique_ts_code_trade_date",
-                    "silver_index_daily_conflicting_duplicate_absent",
-                ]
-            )
+            failed_check_names.append("silver_index_daily_key_integrity_check")
         if metrics["price_failed_count"]:
-            failed_check_names.append("silver_index_daily_price_sanity")
+            failed_check_names.append("silver_index_daily_value_domain_check")
         if (
             not registered_codes
             or metrics["missing_raw_present_count"]
             or metrics["extra_count"]
         ):
-            failed_check_names.append("silver_index_daily_registered_code_coverage")
+            failed_check_names.append("silver_index_daily_registered_code_coverage_check")
 
         summary: dict[str, object] = {
             "file_path": str(silver_path),
@@ -722,6 +708,38 @@ def silver_index_daily_lake_readiness_for_trade_date(
             error=error,
             file_path=silver_path,
         )
+
+
+def batch_silver_index_daily_lake_readiness(
+    *,
+    connection,
+    lake_root_path: Path,
+    expected_trade_dates: Sequence[str],
+    registered_index_codes: Sequence[str],
+    sample_limit: int = DEFAULT_CONTINUITY_SAMPLE_LIMIT,
+) -> ContinuityBatchReadiness:
+    started_at = perf_counter()
+    expected_trade_dates = tuple(str(value) for value in expected_trade_dates)
+    statuses = {
+        trade_date: silver_index_daily_lake_readiness_for_trade_date(
+            connection=connection,
+            lake_root_path=lake_root_path,
+            trade_date=trade_date,
+            registered_index_codes=registered_index_codes,
+            sample_limit=sample_limit,
+        )
+        for trade_date in expected_trade_dates
+    }
+    return ContinuityBatchReadiness(
+        expected_trade_dates=expected_trade_dates,
+        statuses_by_trade_date=statuses,
+        elapsed_ms=_elapsed_ms(started_at),
+        scanned_file_count=sum(
+            1
+            for trade_date in expected_trade_dates
+            if silver_index_daily_path(lake_root_path, trade_date).exists()
+        ),
+    )
 
 
 def silver_index_basic_lake_readiness(

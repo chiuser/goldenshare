@@ -98,7 +98,7 @@ def _sql_literal(value: object) -> str:
 
 def test_silver_index_daily_coverage_check_is_blocking_readiness_gate() -> None:
     assert (
-        "silver_index_daily_registered_code_coverage"
+        "silver_index_daily_registered_code_coverage_check"
         in readiness.SILVER_INDEX_DAILY_BLOCKING_CHECKS
     )
 
