@@ -202,25 +202,25 @@ class LakeRootHealthDagsterDefinitionTests(unittest.TestCase):
             temp = base / "duckdb_tmp"
 
             with patch.object(checks, "DEFAULT_DUCKDB_TEMP_DIRECTORY", temp):
-                results = {
-                    definition.node_def.name: _check_fn(definition)(
-                        LakeRootResource(root_path=str(root))
-                    )
-                    for definition in (
-                        checks.lake_root_required_paths_ready,
-                        checks.lake_root_read_write_ready,
-                        checks.lake_root_disk_space_ready,
-                        checks.duckdb_temp_directory_ready,
-                    )
-                }
+                result = _check_fn(checks.lake_root_health_ready)(
+                    LakeRootResource(root_path=str(root))
+                )
 
-            self.assertTrue(all(result.passed for result in results.values()))
+            self.assertTrue(result.passed)
             self.assertEqual(
-                set(results),
+                checks.lake_root_health_ready.node_def.name,
+                "lake_root_health_lake_root_health_ready",
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/failed_rule_names"].value,
+                [],
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/rule_passed"].value,
                 {
-                    "lake_root_health_lake_root_required_paths_ready",
-                    "lake_root_health_lake_root_read_write_ready",
-                    "lake_root_health_lake_root_disk_space_ready",
-                    "lake_root_health_duckdb_temp_directory_ready",
+                    "lake_root_required_paths_ready": True,
+                    "lake_root_read_write_ready": True,
+                    "lake_root_disk_space_ready": True,
+                    "duckdb_temp_directory_ready": True,
                 },
             )

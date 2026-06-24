@@ -457,9 +457,9 @@ P4 已落地事实：
 
 ### P5：Full Snapshot / Basic Assets 合并收口
 
-状态：分阶段推进。P5A `calendar/index_basic` 已落地；P5B
+状态：P5 已落地。P5A `calendar/index_basic` 已落地；P5B
 `stock basic/lifecycle/namechange/identity map` 已落地；P5C
-`lake_root_health` 后续单独推进。
+`lake_root_health` 已落地。
 
 目标资产：
 
@@ -502,6 +502,15 @@ P5B 已落地事实：
   `contract/key_integrity/reference_domain` 3 个。
 - 旧细粒度函数继续作为 wrapper 内部 rule 使用，`failed_rule_names`
   仍能定位具体失败语义；sensor readiness 只消费新粗粒度 check names。
+
+P5C 已落地事实：
+
+- `lake_root_health` 正式 Dagster checks 从 4 个收敛为
+  `lake_root_health_ready` 1 个。
+- `lake_root_health_ready` 一次性执行 `evaluate_lake_root_health(...)`，
+  并在 metadata 中保留 required paths、read/write、disk space、DuckDB temp
+  directory 四个子规则的 `rule_passed` 和 `failed_rule_names`。
+- `lake_root_health` 仍是平台健康观测资产，不进入普通历史 retention 候选。
 
 ### P6：分钟线普通 check 合并与最终门禁
 

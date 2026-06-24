@@ -254,10 +254,7 @@ PROD_CH_MARKET_BREADTH_CHECKS = (
     "prod_ch_share_fact_market_breadth_updated_at_not_older_than_local",
 )
 LAKE_ROOT_HEALTH_CHECKS = (
-    "duckdb_temp_directory_ready",
-    "lake_root_disk_space_ready",
-    "lake_root_read_write_ready",
-    "lake_root_required_paths_ready",
+    "lake_root_health_ready",
 )
 
 

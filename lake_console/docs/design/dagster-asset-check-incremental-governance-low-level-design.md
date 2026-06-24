@@ -632,9 +632,9 @@ serving 保持 P2R 后的 single-partition attributable check 口径，不做
 
 ### P5 Snapshot / Basic Facts
 
-状态：分阶段推进。P5A `calendar/index_basic` 已落地；P5B
-`stock basic/lifecycle/namechange/identity map` 已落地；P5C 继续处理
-`lake_root_health`。
+状态：P5 已落地。P5A `calendar/index_basic` 已落地；P5B
+`stock basic/lifecycle/namechange/identity map` 已落地；P5C
+`lake_root_health` 已落地。
 
 #### 改动文件
 
@@ -716,6 +716,18 @@ P5B 已落地：
   - `silver_stock_identity_map_reference_domain_check`
 - `readiness.py` 和 `lake_assets.py` 已同步为 P5B 粗粒度 check names；
   sensor 语义不变，只减少 Dagster check event 粒度。
+
+P5C 已落地：
+
+- `lake_root_health` 正式 Dagster checks 从 4 个收敛为 1 个：
+  - `lake_root_health_ready`
+- 旧 `lake_root_required_paths_ready`、`lake_root_read_write_ready`、
+  `lake_root_disk_space_ready`、`duckdb_temp_directory_ready` 函数保留为
+  helper，不再注册为 Dagster checks。
+- 新 check 只调用一次 `evaluate_lake_root_health(...)`，metadata 中保留
+  `rule_passed` 和 `failed_rule_names`，继续能定位 required paths、read/write、
+  disk space、DuckDB temp directory 哪个子规则失败。
+- `lake_root_health` 仍不进入普通 retention 候选。
 
 ### P6 股票分钟线剩余治理
 

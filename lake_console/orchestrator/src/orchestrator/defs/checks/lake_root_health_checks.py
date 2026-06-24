@@ -31,11 +31,39 @@ def _check_result(
     )
 
 
+def _combined_health_check_result(status: LakeRootHealthStatus) -> dg.AssetCheckResult:
+    rule_passed = {
+        "lake_root_required_paths_ready": status.required_paths_ready,
+        "lake_root_read_write_ready": status.lake_root_read_write_ready,
+        "lake_root_disk_space_ready": status.lake_root_disk_space_ready,
+        "duckdb_temp_directory_ready": status.duckdb_temp_directory_ready,
+    }
+    failed_rule_names = [
+        rule_name for rule_name, passed in rule_passed.items() if not passed
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=CheckScope.VALUE_SANITY,
+            failed_row_count=len(failed_rule_names),
+            extra_metadata={
+                **status.metadata(),
+                "rule_passed": rule_passed,
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 @dg.asset_check(
     asset=lake_root_health,
     blocking=True,
-    name="lake_root_required_paths_ready",
+    name="lake_root_health_ready",
 )
+def lake_root_health_ready(lake_root: LakeRootResource) -> dg.AssetCheckResult:
+    return _combined_health_check_result(_evaluate(lake_root))
+
+
 def lake_root_required_paths_ready(
     lake_root: LakeRootResource,
 ) -> dg.AssetCheckResult:
@@ -47,11 +75,6 @@ def lake_root_required_paths_ready(
     )
 
 
-@dg.asset_check(
-    asset=lake_root_health,
-    blocking=True,
-    name="lake_root_read_write_ready",
-)
 def lake_root_read_write_ready(
     lake_root: LakeRootResource,
 ) -> dg.AssetCheckResult:
@@ -63,11 +86,6 @@ def lake_root_read_write_ready(
     )
 
 
-@dg.asset_check(
-    asset=lake_root_health,
-    blocking=True,
-    name="lake_root_disk_space_ready",
-)
 def lake_root_disk_space_ready(
     lake_root: LakeRootResource,
 ) -> dg.AssetCheckResult:
@@ -79,11 +97,6 @@ def lake_root_disk_space_ready(
     )
 
 
-@dg.asset_check(
-    asset=lake_root_health,
-    blocking=True,
-    name="duckdb_temp_directory_ready",
-)
 def duckdb_temp_directory_ready(
     lake_root: LakeRootResource,
 ) -> dg.AssetCheckResult:
