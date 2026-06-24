@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper；尚未新增 active prod sync asset/job/sensor/catalog，尚未执行 prod schema 只读复核，尚未写 prod DB。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper，并已完成 prod schema 只读复核；尚未新增 active prod sync asset/job/sensor/catalog，尚未写 prod DB。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -1433,7 +1433,7 @@ full 写入已执行并通过：
 
 ### WMT-6 Prod Core Serving Sync
 
-状态：第一步代码基础已完成；active prod sync 链路未接入；未写 prod DB。
+状态：第一步代码基础和 prod schema 只读复核已完成；active prod sync 链路未接入；未写 prod DB。
 
 改动：
 
@@ -1443,15 +1443,23 @@ full 写入已执行并通过：
 2. `prod_db/wealth_market_turnover.py`：新增 `replace_prod_core_wealth_market_turnover_partition(...)`，只接受五行 gold 结果，校验 `type='stock'`、`market='CN_A'`、partition 日期、`freq={1,5,15,30,60}`、`build_status='READY'`、`points_json` 非空 JSON；执行 exact partition delete、显式字段 insert、同事务 read-back audit，并记录 `points_json_hash`。
 3. `tests/test_gold_wealth_market_turnover_prod_core_sync.py`：覆盖 write resource commit/rollback、成功 replace、坏输入不写、insert 失败 rollback、read-back mismatch rollback、JSON adapter 和 SQL contract。
 4. `tests/test_run_contract_static_gates.py`：新增静态门禁，保护只读 resource 语义、禁止 gold asset 直接 import prod write helper/resource、禁止新增独立 prod sync job。
+5. prod 只读 schema/profile 审计：输出 `/private/tmp/wealth_market_turnover_prod_schema_audit.csv`，确认字段集合、主键、索引、最新分区行数、freq 集合和重复 key 统计。
 
 待完成：
 
-1. prod `core_serving.wealth_market_turnover_snapshot` schema / 主键 / 最近日期行数只读复核。
-2. `assets/wealth_market_turnover_prod_core.py`
-3. `jobs/gold_wealth_market_turnover_update.py`
-4. `sensors/gold_wealth_market_turnover_sensor.py`
-5. `catalog/lake_assets.py`
-6. prod sync asset / job / sensor / governance 测试。
+1. `assets/wealth_market_turnover_prod_core.py`
+2. `jobs/gold_wealth_market_turnover_update.py`
+3. `sensors/gold_wealth_market_turnover_sensor.py`
+4. `catalog/lake_assets.py`
+5. prod sync asset / job / sensor / governance 测试。
+
+prod 只读复核结果：
+
+1. 字段集合覆盖 WMT schema；表物理列顺序不同于 gold schema，因此实现必须继续显式列投影，不得依赖物理顺序。
+2. `points_json` 为 `jsonb`，满足 `points_json` 用 JSON 写入的拍板口径。
+3. 主键为 `PRIMARY KEY (type, market, trade_date, freq)`。
+4. 最近 `stock/CN_A` 分区为 `2026-06-04`，行数 `5`，freq 集合 `1,5,15,30,60`，状态全为 `READY`。
+5. 最近分区重复业务 key 数为 `0`。
 
 验收：
 

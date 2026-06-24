@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper，尚未新增 active prod sync asset/job/sensor/catalog，尚未执行 prod schema 只读复核，尚未写 prod DB。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper，并已完成 prod schema 只读复核；尚未新增 active prod sync asset/job/sensor/catalog，尚未写 prod DB。
 
 ## 1. 目标
 
@@ -670,7 +670,16 @@ INSERT INTO core_serving.wealth_market_turnover_snapshot (
 1. 已新增 `ProdPostgresWriteResource` / `prod_postgres_write`。配置项为 `PROD_POSTGRES_WRITE_HOST`、`PROD_POSTGRES_WRITE_PORT`、`PROD_POSTGRES_WRITE_USER`、`PROD_POSTGRES_WRITE_PASSWORD`、`PROD_POSTGRES_WRITE_DATABASE`、`PROD_POSTGRES_WRITE_SSLMODE`，其中 `SSL_MODE` 默认 `prefer`；消费者是后续 `prod_core_wealth_market_turnover` asset。
 2. 已新增 `prod_db/wealth_market_turnover.py` 的事务 replace helper，固定写表 `core_serving.wealth_market_turnover_snapshot`，固定五行，写入前和读回后都按 gold schema 进行约束校验。
 3. 现有 `ProdPostgresResource` / `prod_postgres` 仍是只读资源，`gold_wealth_market_turnover` asset 仍不 import prod write helper 或 resource。
-4. 尚未新增 active `prod_core_wealth_market_turnover` asset，尚未把 job/sensor/catalog 切到 prod sync，尚未执行 prod schema 只读复核，尚未写 prod DB。
+4. 已执行 prod `core_serving.wealth_market_turnover_snapshot` 只读复核，报告为 `/private/tmp/wealth_market_turnover_prod_schema_audit.csv`；字段集合、主键和最新分区行数满足 WMT-6 接入门禁。
+5. 尚未新增 active `prod_core_wealth_market_turnover` asset，尚未把 job/sensor/catalog 切到 prod sync，尚未写 prod DB。
+
+prod schema 只读复核结果：
+
+1. 字段集合覆盖 WMT schema：`type, market, trade_date, freq, latest_trade_time, security_count, source_row_count, total_amount, total_vol, points_json, build_status, build_version, built_at, build_note`。表物理列顺序与 gold schema 不完全一致，后续写入必须继续使用显式列名，禁止依赖 `SELECT *` 或物理顺序。
+2. 类型兼容：`trade_date=date`、`freq=smallint`、`total_amount=numeric`、`total_vol=bigint`、`points_json=jsonb`、`built_at=timestamptz`。
+3. 主键为 `PRIMARY KEY (type, market, trade_date, freq)`，符合本方案的幂等 replace 粒度。
+4. 最近 `stock/CN_A` 分区为 `2026-06-04`，行数 `5`，freq 集合为 `1,5,15,30,60`，`build_status` 全为 `READY`。
+5. 最近分区重复业务 key 数为 `0`。
 
 ## 11. Catalog 和 Governance 改动点
 
