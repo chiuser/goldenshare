@@ -672,7 +672,7 @@ prod 写库用户执行结果：
 3. `lake_raw_writer` 只获得 `goldenshare` 数据库 `CONNECT`、`core_serving` schema `USAGE`，且没有 `core_serving` schema `CREATE` 权限。
 4. `lake_raw_writer` 对 `core_serving.wealth_market_turnover_snapshot` 只具备 `SELECT, INSERT, UPDATE, DELETE`。
 5. 权限审计显示 `lake_raw_writer` 对目标表以外没有显式表权限。
-6. 密码不写入文档、代码、提交信息或审计报告；本地 Dagster `PROD_POSTGRES_WRITE_*` env 仍需单独配置后才能执行 rollback dry-run。
+6. 密码不写入文档、代码、提交信息或审计报告；本地 Dagster `PROD_POSTGRES_WRITE_*` env 仍需在正式运行环境中单独配置。
 
 当前 WMT-6 第一阶段实现状态：
 
@@ -683,8 +683,9 @@ prod 写库用户执行结果：
 5. 已新增 active `prod_core_wealth_market_turnover` asset。该 asset 只读同分区 gold parquet，gold 文件契约失败时不连接 prod；prod 写入通过 `prod_postgres_write` 单事务执行 exact partition delete、五行 insert、read-back audit。
 6. 已扩展 `gold_wealth_market_turnover_update_job` selection：同一 job 包含 `gold_wealth_market_turnover`、`gold_wealth_market_turnover_integrity_check` 和 `prod_core_wealth_market_turnover`，不新增独立 prod sync job。
 7. 已新增 catalog entry，新增 `WritePolicy.POSTGRES_TABLE_SYNC`、`ComputeEngine.POSTGRES_SQL` 和 `PartitionPhysicalLayout.POSTGRES_TABLE`，避免把 Postgres serving sync 伪装成 ClickHouse sync。
-8. 已更新 `gold_wealth_market_turnover_update_job_sensor` readiness：最近窗口内 gold 与 prod sync 均 ready 才算链路 ready；gold ready 但 `prod_core_wealth_market_turnover` 未 materialized 时提交同一个 job；prod sync 已有失败 run 且无成功 materialization 时 skip，`reason_code="prod_sync_failed_requires_manual_retry"`。本阶段尚未写 prod DB，尚未启用 sensor。
-9. 已创建并审计 prod 写库角色 `lake_raw_writer`，权限限定为 `core_serving.wealth_market_turnover_snapshot` 单表 DML；本地 `PROD_POSTGRES_WRITE_*` env 配置和 prod rollback dry-run 仍待单独审批执行。
+8. 已更新 `gold_wealth_market_turnover_update_job_sensor` readiness：最近窗口内 gold 与 prod sync 均 ready 才算链路 ready；gold ready 但 `prod_core_wealth_market_turnover` 未 materialized 时提交同一个 job；prod sync 已有失败 run 且无成功 materialization 时 skip，`reason_code="prod_sync_failed_requires_manual_retry"`。本阶段尚未启用 sensor。
+9. 已创建并审计 prod 写库角色 `lake_raw_writer`，权限限定为 `core_serving.wealth_market_turnover_snapshot` 单表 DML。
+10. 已单独审批执行 prod write rollback dry-run，报告为 `/private/tmp/wealth_market_turnover_prod_sync_rollback_dry_run_20260625_014345.json`：分区 `2026-06-24`，gold 输入 5 行，事务内写入 5 行，freq 集合 `1,5,15,30,60`，正式 `points_json` hash 为 `b278082d23e1c4e6697779511999b75c`，写后读回审计通过，`prod_transaction_committed=false`，回滚前后 prod 目标分区均为 0 行，`rollback_preserved_state=true`。
 
 prod schema 只读复核结果：
 

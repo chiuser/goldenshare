@@ -1433,7 +1433,7 @@ full 写入已执行并通过：
 
 ### WMT-6 Prod Core Serving Sync
 
-状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance、正式 definitions 校验和 prod 写库角色创建已完成；未执行 prod rollback dry-run，未启用 sensor。
+状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance、正式 definitions 校验、prod 写库角色创建和 prod rollback dry-run 已完成；未正式 apply，未启用 sensor。
 
 改动：
 
@@ -1453,11 +1453,12 @@ full 写入已执行并通过：
 11. `tests/test_gold_wealth_market_turnover_sensor.py`：覆盖 gold ready/prod missing 提交同一 job、prod failed 不自动重发、gold+prod 均 ready 才 skip。
 12. 已单独审批执行 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。
 13. 已在远程 prod PostgreSQL `goldenshare` 数据库创建 `lake_raw_writer`，并完成权限审计：可登录、密码已设置、不是 `SUPERUSER` / `CREATEDB` / `CREATEROLE` / `REPLICATION` / `BYPASSRLS`；可连接 `goldenshare`，可 `USAGE` `core_serving`，不可 `CREATE` `core_serving`；对 `core_serving.wealth_market_turnover_snapshot` 仅有 `SELECT, INSERT, UPDATE, DELETE`；目标表外没有显式表权限。
+14. 已单独审批执行 prod write rollback dry-run，报告为 `/private/tmp/wealth_market_turnover_prod_sync_rollback_dry_run_20260625_014345.json`：分区 `2026-06-24`，gold 输入 5 行，事务内写入 5 行，freq 集合 `1,5,15,30,60`，正式 `points_json` hash 为 `b278082d23e1c4e6697779511999b75c`，写后读回审计通过，`prod_transaction_committed=false`，回滚前后 prod 目标分区均为 0 行，`rollback_preserved_state=true`。
 
 待完成：
 
 1. 配置本地 Dagster `PROD_POSTGRES_WRITE_*` env。
-2. 后续 prod write dry-run / transaction rollback 验证和正式 apply 审批。
+2. 正式 apply 审批。
 
 prod 只读复核结果：
 
