@@ -263,6 +263,9 @@ class RunContractStaticGateTests(unittest.TestCase):
         gold_asset_source = (
             DEFS_DIR / "assets" / "wealth_market_turnover.py"
         ).read_text()
+        sensor_source = (
+            DEFS_DIR / "sensors" / "gold_wealth_market_turnover_sensor.py"
+        ).read_text()
 
         self.assertIn("class ProdPostgresResource", resource_source)
         self.assertIn(
@@ -300,6 +303,16 @@ class RunContractStaticGateTests(unittest.TestCase):
             for path in JOBS_DIR.glob("prod_core_wealth_market_turnover*job*.py")
         ]
         self.assertEqual(independent_prod_jobs, [])
+        self.assertIn("PROD_CORE_WEALTH_MARKET_TURNOVER_ASSET_KEY", sensor_source)
+        self.assertIn("prod_sync_failed_requires_manual_retry", sensor_source)
+        self.assertIn('DAGSTER_RUN_KEY_TAG = "dagster/run_key"', sensor_source)
+        for forbidden_fragment in (
+            "ProdPostgresWriteResource",
+            "prod_postgres_write",
+            "replace_prod_core_wealth_market_turnover_partition",
+            "core_serving.wealth_market_turnover_snapshot",
+        ):
+            self.assertNotIn(forbidden_fragment, sensor_source)
 
     def test_gold_wealth_market_turnover_prod_sync_reads_gold_only(self) -> None:
         prod_asset_source = (
@@ -1560,7 +1573,10 @@ class RunContractStaticGateTests(unittest.TestCase):
                             or (
                                 call_name == "RunsFilter"
                                 and path.name
-                                == "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+                                in {
+                                    "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py",
+                                    "gold_wealth_market_turnover_sensor.py",
+                                }
                             )
                         ):
                             issues.append(

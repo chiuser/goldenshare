@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展和 catalog/governance 对账；尚未更新 sensor readiness，尚未写 prod DB。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展和 catalog/governance 对账；尚未写 prod DB，尚未启用 sensor。
 
 ## 1. 目标
 
@@ -674,7 +674,7 @@ INSERT INTO core_serving.wealth_market_turnover_snapshot (
 5. 已新增 active `prod_core_wealth_market_turnover` asset。该 asset 只读同分区 gold parquet，gold 文件契约失败时不连接 prod；prod 写入通过 `prod_postgres_write` 单事务执行 exact partition delete、五行 insert、read-back audit。
 6. 已扩展 `gold_wealth_market_turnover_update_job` selection：同一 job 包含 `gold_wealth_market_turnover`、`gold_wealth_market_turnover_integrity_check` 和 `prod_core_wealth_market_turnover`，不新增独立 prod sync job。
 7. 已新增 catalog entry，新增 `WritePolicy.POSTGRES_TABLE_SYNC`、`ComputeEngine.POSTGRES_SQL` 和 `PartitionPhysicalLayout.POSTGRES_TABLE`，避免把 Postgres serving sync 伪装成 ClickHouse sync。
-8. 尚未更新 sensor readiness，尚未写 prod DB。
+8. 已更新 `gold_wealth_market_turnover_update_job_sensor` readiness：最近窗口内 gold 与 prod sync 均 ready 才算链路 ready；gold ready 但 `prod_core_wealth_market_turnover` 未 materialized 时提交同一个 job；prod sync 已有失败 run 且无成功 materialization 时 skip，`reason_code="prod_sync_failed_requires_manual_retry"`。本阶段尚未写 prod DB，尚未启用 sensor。
 
 prod schema 只读复核结果：
 

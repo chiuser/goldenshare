@@ -2,6 +2,7 @@ from dataclasses import dataclass
 from datetime import date, datetime, timedelta
 
 import dagster as dg
+from dagster._core.storage.dagster_run import RunsFilter
 
 from orchestrator.defs.asset_guards.stk_mins_continuity import (
     StockMinsContinuityStatus,
@@ -49,6 +50,10 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
 GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME = (
     "gold_wealth_market_turnover_update_job"
 )
+PROD_CORE_WEALTH_MARKET_TURNOVER_ASSET_KEY = dg.AssetKey(
+    "prod_core_wealth_market_turnover"
+)
+DAGSTER_RUN_KEY_TAG = "dagster/run_key"
 GOLD_WEALTH_MARKET_TURNOVER_RUN_START = (
     datetime.combine(date.today(), STOCK_MINS_SILVER_RUN_START)
     + timedelta(minutes=10)
@@ -65,12 +70,38 @@ class GoldWealthMarketTurnoverUpdateDecision:
     blocked_component: str | None = None
 
 
+@dataclass(frozen=True)
+class WealthMarketTurnoverProdCoreReadiness:
+    trade_date: str
+    ready: bool
+    materialized: bool
+    checks_passed: bool
+    failed: bool
+    reason: str
+    reason_code: str
+    failed_component: str | None = None
+
+    def to_cursor_details(self) -> dict[str, object]:
+        return {
+            "trade_date": self.trade_date,
+            "ready": self.ready,
+            "materialized": self.materialized,
+            "checks_passed": self.checks_passed,
+            "failed": self.failed,
+            "reason": self.reason,
+            "reason_code": self.reason_code,
+            "failed_component": self.failed_component,
+        }
+
+
 def build_gold_wealth_market_turnover_update_decision(
     *,
     target_trade_date: str | None,
     run_window_started: bool,
     silver_ready: bool = False,
     gold_ready: bool = False,
+    prod_sync_ready: bool = False,
+    prod_sync_failed: bool = False,
     gold_has_materialized_check_problem: bool = False,
     blocked_component: str | None = None,
     reason_code: str | None = None,
@@ -102,34 +133,55 @@ def build_gold_wealth_market_turnover_update_decision(
             reason_code=reason_code or "silver_stk_mins_not_ready",
             blocked_component=blocked_component or "silver_stk_mins",
         )
-    if gold_ready:
+    if not gold_ready:
+        if gold_has_materialized_check_problem:
+            return GoldWealthMarketTurnoverUpdateDecision(
+                target_trade_date=target_trade_date,
+                run_window_started=True,
+                selected_trade_date=None,
+                reason=(
+                    "财富成交额 gold 目标分区已生成过，但 blocking check 未通过，"
+                    "暂不自动覆盖，请人工检查后修复。"
+                ),
+                reason_code="gold_materialized_check_problem",
+                blocked_component="gold_wealth_market_turnover",
+            )
         return GoldWealthMarketTurnoverUpdateDecision(
             target_trade_date=target_trade_date,
             run_window_started=True,
-            selected_trade_date=None,
-            reason="财富成交额 gold 目标分区已经 ready。",
-            reason_code="gold_wealth_market_turnover_ready",
+            selected_trade_date=target_trade_date,
+            reason="财富成交额 gold 门禁已满足，提交单日更新。",
+            reason_code=reason_code or "request_run",
             blocked_component=blocked_component,
         )
-    if gold_has_materialized_check_problem:
+    if prod_sync_failed:
         return GoldWealthMarketTurnoverUpdateDecision(
             target_trade_date=target_trade_date,
             run_window_started=True,
             selected_trade_date=None,
             reason=(
-                "财富成交额 gold 目标分区已生成过，但 blocking check 未通过，"
-                "暂不自动覆盖，请人工检查后修复。"
+                "财富成交额 prod core serving 同步曾失败且尚无成功 materialization，"
+                "暂不由 sensor 反复重发，请人工按分区重跑。"
             ),
-            reason_code="gold_materialized_check_problem",
-            blocked_component="gold_wealth_market_turnover",
+            reason_code="prod_sync_failed_requires_manual_retry",
+            blocked_component="prod_core_db",
+        )
+    if prod_sync_ready:
+        return GoldWealthMarketTurnoverUpdateDecision(
+            target_trade_date=target_trade_date,
+            run_window_started=True,
+            selected_trade_date=None,
+            reason="财富成交额 gold 与 prod core serving 目标分区均已 ready。",
+            reason_code="wealth_market_turnover_chain_ready",
+            blocked_component="none",
         )
     return GoldWealthMarketTurnoverUpdateDecision(
         target_trade_date=target_trade_date,
         run_window_started=True,
         selected_trade_date=target_trade_date,
-        reason="财富成交额 gold 门禁已满足，提交单日更新。",
-        reason_code="request_run",
-        blocked_component=blocked_component,
+        reason="财富成交额 gold 已 ready，prod core serving 尚未同步，提交同一个 job 补同步。",
+        reason_code=reason_code or "prod_sync_missing",
+        blocked_component=blocked_component or "prod_core_db",
     )
 
 
@@ -156,9 +208,19 @@ def _load_stock_mins_silver_expected_trade_dates(
 
 
 def _has_materialized_check_problem(
-    status: StkMinsDateReadiness | WealthMarketTurnoverDateReadiness,
+    status: (
+        StkMinsDateReadiness
+        | WealthMarketTurnoverDateReadiness
+        | WealthMarketTurnoverProdCoreReadiness
+    ),
 ) -> bool:
     return status.materialized and not status.checks_passed
+
+
+def _has_prod_core_sync_problem(
+    status: WealthMarketTurnoverProdCoreReadiness,
+) -> bool:
+    return status.failed or _has_materialized_check_problem(status)
 
 
 def _target_trade_date_from_continuity_status(
@@ -188,7 +250,12 @@ def _batch_status_payload(
 
 
 def _date_status_payload(
-    status: StkMinsDateReadiness | WealthMarketTurnoverDateReadiness | None,
+    status: (
+        StkMinsDateReadiness
+        | WealthMarketTurnoverDateReadiness
+        | WealthMarketTurnoverProdCoreReadiness
+        | None
+    ),
 ) -> dict[str, object] | None:
     if status is None:
         return None
@@ -202,8 +269,10 @@ def _cursor_payload(
     registered_trade_day_count: int,
     silver_status: StkMinsDateReadiness | None = None,
     gold_status: WealthMarketTurnoverDateReadiness | None = None,
+    prod_core_status: WealthMarketTurnoverProdCoreReadiness | None = None,
     silver_continuity_status: StockMinsContinuityStatus | None = None,
     gold_continuity_status: StockMinsContinuityStatus | None = None,
+    prod_core_continuity_status: StockMinsContinuityStatus | None = None,
     silver_batch_status: StkMinsBatchReadiness | None = None,
     gold_batch_status: WealthMarketTurnoverBatchReadiness | None = None,
 ) -> str:
@@ -216,6 +285,7 @@ def _cursor_payload(
     if not decision.selected_trade_date:
         blocked_count += 0 if silver_status is None or silver_status.ready else 1
         blocked_count += 0 if gold_status is None or gold_status.ready else 1
+        blocked_count += 0 if prod_core_status is None or prod_core_status.ready else 1
         if (
             silver_continuity_status is not None
             and silver_continuity_status.first_missing_registered_date
@@ -234,8 +304,18 @@ def _cursor_payload(
         elif gold_continuity_status is not None and gold_continuity_status.blocked:
             blocked_count += 1
         if (
+            prod_core_continuity_status is not None
+            and prod_core_continuity_status.first_missing_registered_date
+        ):
+            blocked_count += 1
+        elif (
+            prod_core_continuity_status is not None
+            and prod_core_continuity_status.blocked
+        ):
+            blocked_count += 1
+        if (
             blocked_count == 0
-            and decision.reason_code != "gold_wealth_market_turnover_ready"
+            and decision.reason_code != "wealth_market_turnover_chain_ready"
         ):
             blocked_count = 1
     return build_sensor_cursor(
@@ -257,6 +337,7 @@ def _cursor_payload(
             "freqs": list(STK_MINS_FREQS),
             "silver_status": _date_status_payload(silver_status),
             "gold_status": _date_status_payload(gold_status),
+            "prod_core_status": _date_status_payload(prod_core_status),
             "silver_batch_status": _batch_status_payload(silver_batch_status),
             "gold_batch_status": _batch_status_payload(gold_batch_status),
             "silver_continuity_status": (
@@ -269,7 +350,19 @@ def _cursor_payload(
                 if gold_continuity_status is not None
                 else None
             ),
+            "prod_core_continuity_status": (
+                prod_core_continuity_status.to_cursor_details()
+                if prod_core_continuity_status is not None
+                else None
+            ),
         },
+    )
+
+
+def _run_key_for_trade_date(trade_date: str) -> str:
+    return build_asset_update_run_key(
+        subject="gold_wealth_market_turnover",
+        unit_id=trade_date,
     )
 
 
@@ -280,6 +373,60 @@ def _run_request_for_trade_date(trade_date: str) -> dg.RunRequest:
             unit_id=trade_date,
         ),
         partition_key=trade_date,
+    )
+
+
+def _prod_core_status_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> WealthMarketTurnoverProdCoreReadiness:
+    materializations = instance.fetch_materializations(
+        dg.AssetRecordsFilter(
+            asset_key=PROD_CORE_WEALTH_MARKET_TURNOVER_ASSET_KEY,
+            asset_partitions=[trade_date],
+        ),
+        limit=1,
+    )
+    run_key = _run_key_for_trade_date(trade_date)
+    if materializations.records:
+        return WealthMarketTurnoverProdCoreReadiness(
+            trade_date=trade_date,
+            ready=True,
+            materialized=True,
+            checks_passed=True,
+            failed=False,
+            reason="ready",
+            reason_code="ready",
+        )
+
+    failed_runs = instance.get_run_records(
+        filters=RunsFilter(
+            job_name=GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME,
+            statuses=[dg.DagsterRunStatus.FAILURE],
+            tags={DAGSTER_RUN_KEY_TAG: run_key},
+        ),
+        limit=1,
+    )
+    if failed_runs:
+        return WealthMarketTurnoverProdCoreReadiness(
+            trade_date=trade_date,
+            ready=False,
+            materialized=False,
+            checks_passed=False,
+            failed=True,
+            reason="prod core wealth_market_turnover sync failed",
+            reason_code="prod_sync_failed_requires_manual_retry",
+            failed_component="prod_core_db",
+        )
+
+    return WealthMarketTurnoverProdCoreReadiness(
+        trade_date=trade_date,
+        ready=False,
+        materialized=False,
+        checks_passed=True,
+        failed=False,
+        reason="missing prod core wealth_market_turnover materialization",
+        reason_code="prod_sync_missing",
     )
 
 
@@ -327,6 +474,8 @@ def gold_wealth_market_turnover_update_job_sensor(
     )
     silver_batch_status: StkMinsBatchReadiness | None = None
     gold_batch_status: WealthMarketTurnoverBatchReadiness | None = None
+    prod_core_status: WealthMarketTurnoverProdCoreReadiness | None = None
+    prod_core_continuity_status: StockMinsContinuityStatus | None = None
 
     def _silver_status_for_trade_date(trade_date: str) -> StkMinsDateReadiness:
         nonlocal silver_batch_status
@@ -430,12 +579,74 @@ def gold_wealth_market_turnover_update_job_sensor(
                 reason_code="missing_registered_partition",
             )
         elif gold_selection.selected_trade_date is None:
-            decision = build_gold_wealth_market_turnover_update_decision(
-                target_trade_date=target_trade_date,
-                run_window_started=True,
-                silver_ready=True,
-                gold_ready=True,
+            prod_core_selection = select_first_not_ready_trade_date(
+                partition_set_name=cn_a_stock_mins_silver_trade_days.name,
+                expected_trade_dates=window_trade_dates,
+                registered_trade_days=registered_trade_days,
+                readiness_for_trade_date=lambda trade_date: (
+                    _prod_core_status_for_trade_date(context.instance, trade_date)
+                ),
+                has_materialized_check_problem=_has_prod_core_sync_problem,
             )
+            prod_core_continuity_status = prod_core_selection.status
+            target_trade_date = _target_trade_date_from_continuity_status(
+                prod_core_selection.status
+            )
+            prod_core_status = (
+                prod_core_selection.selected_status
+                if isinstance(
+                    prod_core_selection.selected_status,
+                    WealthMarketTurnoverProdCoreReadiness,
+                )
+                else None
+            )
+            if prod_core_selection.status.first_missing_registered_date is not None:
+                decision = build_gold_wealth_market_turnover_update_decision(
+                    target_trade_date=(
+                        prod_core_selection.status.first_missing_registered_date
+                    ),
+                    run_window_started=True,
+                    silver_ready=False,
+                    blocked_component="cn_a_stock_mins_silver_trade_days",
+                    reason_code="missing_registered_partition",
+                )
+            elif prod_core_status is not None and prod_core_status.failed:
+                decision = build_gold_wealth_market_turnover_update_decision(
+                    target_trade_date=prod_core_status.trade_date,
+                    run_window_started=True,
+                    silver_ready=True,
+                    gold_ready=True,
+                    prod_sync_failed=True,
+                    reason_code=prod_core_status.reason_code,
+                )
+            elif prod_core_selection.selected_trade_date is not None:
+                if prod_core_status is None:
+                    raise RuntimeError("prod core readiness selected status is missing.")
+                selected_gold_status = _gold_status_for_trade_date(
+                    prod_core_selection.selected_trade_date
+                )
+                selected_silver_status = _silver_status_for_trade_date(
+                    prod_core_selection.selected_trade_date
+                )
+                decision = build_gold_wealth_market_turnover_update_decision(
+                    target_trade_date=prod_core_selection.selected_trade_date,
+                    run_window_started=True,
+                    silver_ready=selected_silver_status.ready,
+                    gold_ready=selected_gold_status.ready,
+                    prod_sync_ready=prod_core_status.ready,
+                    reason_code=prod_core_status.reason_code,
+                    blocked_component="prod_core_db",
+                )
+                silver_status = selected_silver_status
+                gold_status = selected_gold_status
+            else:
+                decision = build_gold_wealth_market_turnover_update_decision(
+                    target_trade_date=target_trade_date,
+                    run_window_started=True,
+                    silver_ready=True,
+                    gold_ready=True,
+                    prod_sync_ready=True,
+                )
         else:
             selected_trade_date = gold_selection.selected_trade_date
             selected_gold_status = _gold_status_for_trade_date(selected_trade_date)
@@ -466,10 +677,12 @@ def gold_wealth_market_turnover_update_job_sensor(
         registered_trade_day_count=len(registered_trade_days),
         silver_status=silver_status,
         gold_status=gold_status,
+        prod_core_status=prod_core_status,
         silver_continuity_status=silver_selection.status,
         gold_continuity_status=(
             gold_selection.status if gold_selection is not None else None
         ),
+        prod_core_continuity_status=prod_core_continuity_status,
         silver_batch_status=silver_batch_status,
         gold_batch_status=gold_batch_status,
     )
