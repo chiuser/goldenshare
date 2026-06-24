@@ -1521,3 +1521,5 @@ WMT-6 完成后，必须新增满足：
 4. prod write resource 与只读 prod resource 分离。
 5. prod sync 单元测试覆盖成功、gold 契约失败、prod insert 失败、read-back mismatch、rollback。
 6. 静态门禁覆盖不新增独立 job、不改只读 resource、不把 prod 写入塞进 gold asset。
+7. `dg check defs` 必须单独审批执行并通过，证明新增 asset/job/sensor/resource/catalog 可被正式 Definitions 加载。
+8. prod write dry-run / transaction rollback 验证和正式 apply 必须单独审批；未审批前不得写 prod DB，也不得启用 sensor。
