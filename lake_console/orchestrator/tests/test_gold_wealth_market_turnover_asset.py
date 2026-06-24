@@ -8,9 +8,11 @@ from orchestrator.defs.paths import (
     gold_wealth_market_turnover_path,
     silver_stk_mins_path,
 )
+from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
 from orchestrator.defs.wealth_market_turnover_contract import (
     GOLD_WEALTH_MARKET_TURNOVER_COLUMNS,
+    _normalise_decimal,
     audit_gold_wealth_market_turnover_file_contract,
     wealth_market_turnover_input_paths,
     write_gold_wealth_market_turnover_partition,
@@ -24,6 +26,11 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
             Path("/lake/gold/wealth/market_turnover/trade_date=2026-06-22/part-000.parquet"),
         )
 
+    def test_decimal_compare_normalization_ignores_insignificant_scale(self) -> None:
+        self.assertEqual(_normalise_decimal("5803875.0"), "5803875")
+        self.assertEqual(_normalise_decimal("5803875.00"), "5803875")
+        self.assertEqual(_normalise_decimal("0.0100"), "0.01")
+
     def test_write_partition_outputs_five_ready_json_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir)
@@ -32,7 +39,7 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
 
             with duckdb.connect(database=":memory:") as connection:
                 audit = write_gold_wealth_market_turnover_partition(
-                    connection=connection,
+                    duckdb_resource=DuckDBResource(),
                     input_paths=wealth_market_turnover_input_paths(root, "2026-06-22"),
                     partition_key="2026-06-22",
                     target_path=target_path,
@@ -87,7 +94,7 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
             with duckdb.connect(database=":memory:") as connection:
                 with self.assertRaisesRegex(FileNotFoundError, "Missing silver stk_mins"):
                     write_gold_wealth_market_turnover_partition(
-                        connection=connection,
+                        duckdb_resource=DuckDBResource(),
                         input_paths=wealth_market_turnover_input_paths(root, "2026-06-22"),
                         partition_key="2026-06-22",
                         target_path=gold_wealth_market_turnover_path(root, "2026-06-22"),
@@ -109,7 +116,7 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
             with duckdb.connect(database=":memory:") as connection:
                 with self.assertRaisesRegex(RuntimeError, "duplicate_key_count=1"):
                     write_gold_wealth_market_turnover_partition(
-                        connection=connection,
+                        duckdb_resource=DuckDBResource(),
                         input_paths=wealth_market_turnover_input_paths(root, "2026-06-22"),
                         partition_key="2026-06-22",
                         target_path=gold_wealth_market_turnover_path(root, "2026-06-22"),
@@ -125,7 +132,7 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
 
             with duckdb.connect(database=":memory:") as connection:
                 write_gold_wealth_market_turnover_partition(
-                    connection=connection,
+                    duckdb_resource=DuckDBResource(),
                     input_paths=wealth_market_turnover_input_paths(root, "2026-06-22"),
                     partition_key="2026-06-22",
                     target_path=target_path,
@@ -139,7 +146,7 @@ class GoldWealthMarketTurnoverAssetTests(unittest.TestCase):
             with duckdb.connect(database=":memory:") as connection:
                 with self.assertRaisesRegex(RuntimeError, "invalid key/date/freq"):
                     write_gold_wealth_market_turnover_partition(
-                        connection=connection,
+                        duckdb_resource=DuckDBResource(),
                         input_paths=wealth_market_turnover_input_paths(root, "2026-06-22"),
                         partition_key="2026-06-22",
                         target_path=target_path,

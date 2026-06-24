@@ -72,15 +72,13 @@ def gold_wealth_market_turnover(
     partition_key = context.partition_key
     input_paths = wealth_market_turnover_input_paths(lake_root.root(), partition_key)
     target_path = gold_wealth_market_turnover_path(lake_root.root(), partition_key)
-    duckdb_resource = duckdb
 
-    with duckdb_resource.connect() as connection:
-        audit = write_gold_wealth_market_turnover_partition(
-            connection=connection,
-            input_paths=input_paths,
-            partition_key=partition_key,
-            target_path=target_path,
-        )
+    audit = write_gold_wealth_market_turnover_partition(
+        duckdb_resource=duckdb,
+        input_paths=input_paths,
+        partition_key=partition_key,
+        target_path=target_path,
+    )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(

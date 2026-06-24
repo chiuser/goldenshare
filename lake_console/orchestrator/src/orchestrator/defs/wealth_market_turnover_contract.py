@@ -181,59 +181,70 @@ ORDER BY summary.freq
 
 def write_gold_wealth_market_turnover_partition(
     *,
-    connection,
+    duckdb_resource: Any,
     input_paths: Sequence[WealthMarketTurnoverInputPath],
     partition_key: str,
     target_path: Path,
     built_at_sql: str = "current_timestamp",
 ) -> WealthMarketTurnoverWriteAudit:
-    _validate_silver_input_files(
-        connection=connection,
-        input_paths=input_paths,
-        partition_key=partition_key,
-    )
     target_path.parent.mkdir(parents=True, exist_ok=True)
-    temporary_path = target_path.with_name(f"{target_path.name}.tmp")
+    temporary_path = target_path.with_name(
+        f"{target_path.stem}.tmp{target_path.suffix}"
+    )
+    legacy_temporary_path = target_path.with_name(f"{target_path.name}.tmp")
+    if legacy_temporary_path.exists():
+        legacy_temporary_path.unlink()
     if temporary_path.exists():
         temporary_path.unlink()
 
     try:
-        connection.execute(
-            copy_query_to_parquet(
-                wealth_market_turnover_select_sql(
-                    input_paths=input_paths,
-                    partition_key=partition_key,
-                    built_at_sql=built_at_sql,
+        with duckdb_resource.connect() as write_connection:
+            _disable_external_file_cache(write_connection)
+            _validate_silver_input_files(
+                connection=write_connection,
+                input_paths=input_paths,
+                partition_key=partition_key,
+            )
+            write_connection.execute(
+                copy_query_to_parquet(
+                    wealth_market_turnover_select_sql(
+                        input_paths=input_paths,
+                        partition_key=partition_key,
+                        built_at_sql=built_at_sql,
+                    ),
+                    temporary_path,
                 ),
-                temporary_path,
-            )
         )
-        file_audit = audit_gold_wealth_market_turnover_file_contract(
-            connection=connection,
-            target_path=temporary_path,
-            partition_key=partition_key,
-        )
-        if not file_audit.passed:
-            raise RuntimeError(
-                "wealth market turnover file contract failed before replace: "
-                f"reason_code={file_audit.reason_code}."
+        with duckdb_resource.connect() as audit_connection:
+            _disable_external_file_cache(audit_connection)
+            file_audit = audit_gold_wealth_market_turnover_file_contract(
+                connection=audit_connection,
+                target_path=temporary_path,
+                partition_key=partition_key,
             )
-        recompute_audit = audit_gold_wealth_market_turnover_recomputed_from_silver(
-            connection=connection,
-            target_path=temporary_path,
-            input_paths=input_paths,
-            partition_key=partition_key,
-        )
-        if not recompute_audit.passed:
-            raise RuntimeError(
-                "wealth market turnover silver recompute audit failed before replace: "
-                f"reason_code={recompute_audit.reason_code}."
+            if not file_audit.passed:
+                raise RuntimeError(
+                    "wealth market turnover file contract failed before replace: "
+                    f"reason_code={file_audit.reason_code}."
+                )
+            recompute_audit = audit_gold_wealth_market_turnover_recomputed_from_silver(
+                connection=audit_connection,
+                target_path=temporary_path,
+                input_paths=input_paths,
+                partition_key=partition_key,
             )
+            if not recompute_audit.passed:
+                raise RuntimeError(
+                    "wealth market turnover silver recompute audit failed before replace: "
+                    f"reason_code={recompute_audit.reason_code}."
+                )
         os.replace(temporary_path, target_path)
-        return summarize_gold_wealth_market_turnover_file(
-            connection=connection,
-            target_path=target_path,
-        )
+        with duckdb_resource.connect() as audit_connection:
+            _disable_external_file_cache(audit_connection)
+            return summarize_gold_wealth_market_turnover_file(
+                connection=audit_connection,
+                target_path=target_path,
+            )
     except Exception:
         if temporary_path.exists():
             temporary_path.unlink()
@@ -480,10 +491,14 @@ def _silver_stk_mins_source_select(input_path: WealthMarketTurnoverInputPath) ->
     CAST(freq AS SMALLINT) AS freq,
     CAST(trade_date AS DATE) AS trade_date,
     CAST(trade_time AS TIMESTAMP) AS trade_time,
-    CAST(vol AS DOUBLE) AS vol,
-    CAST(amount AS DOUBLE) AS amount
+    CAST(vol AS BIGINT) AS vol,
+    CAST(amount AS DECIMAL(38,4)) AS amount
   FROM {read_parquet(input_path.path, hive_partitioning=False)}
 """
+
+
+def _disable_external_file_cache(connection) -> None:
+    connection.execute("SET enable_external_file_cache=false")
 
 
 def _validate_silver_input_files(
@@ -818,9 +833,8 @@ def _normalise_value(value: Any) -> str:
 
 
 def _normalise_decimal(value: Any) -> str:
-    if isinstance(value, Decimal):
-        return format(value, "f")
-    return format(Decimal(str(value)), "f")
+    decimal_value = value if isinstance(value, Decimal) else Decimal(str(value))
+    return format(decimal_value.normalize(), "f")
 
 
 def _failed_audit(

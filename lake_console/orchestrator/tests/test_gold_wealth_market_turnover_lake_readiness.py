@@ -11,6 +11,7 @@ from orchestrator.defs.paths import (
     gold_wealth_market_turnover_path,
     silver_stk_mins_path,
 )
+from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_CONTINUITY_WINDOW_LIMIT,
     STK_MINS_FREQS,
@@ -28,7 +29,7 @@ class GoldWealthMarketTurnoverLakeReadinessTests(unittest.TestCase):
             self._write_all_silver_files(root, "2026-06-22")
             with duckdb.connect(database=":memory:") as connection:
                 write_gold_wealth_market_turnover_partition(
-                    connection=connection,
+                    duckdb_resource=DuckDBResource(),
                     input_paths=wealth_market_turnover_input_paths(root, "2026-06-22"),
                     partition_key="2026-06-22",
                     target_path=gold_wealth_market_turnover_path(root, "2026-06-22"),

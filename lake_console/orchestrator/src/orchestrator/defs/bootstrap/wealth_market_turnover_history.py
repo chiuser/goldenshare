@@ -263,20 +263,25 @@ def generate_wealth_market_turnover_history(
     written: list[str] = []
     skipped: list[str] = []
     write_results: list[WealthMarketTurnoverWriteAudit] = []
-    with duckdb_resource.connect() as connection:
-        for partition_key in selected_keys:
-            target_path = gold_wealth_market_turnover_path(lake_root, partition_key)
-            if target_path.exists() and skip_existing and not overwrite:
-                skipped.append(partition_key)
-                continue
+    for partition_key in selected_keys:
+        target_path = gold_wealth_market_turnover_path(lake_root, partition_key)
+        if target_path.exists() and skip_existing and not overwrite:
+            skipped.append(partition_key)
+            continue
+        try:
             result = write_gold_wealth_market_turnover_partition(
-                connection=connection,
+                duckdb_resource=duckdb_resource,
                 input_paths=wealth_market_turnover_input_paths(lake_root, partition_key),
                 partition_key=partition_key,
                 target_path=target_path,
             )
-            written.append(partition_key)
-            write_results.append(result)
+        except Exception as exc:
+            raise RuntimeError(
+                "Failed to generate wealth market turnover history partition "
+                f"{partition_key}: {exc}"
+            ) from exc
+        written.append(partition_key)
+        write_results.append(result)
     return WealthMarketTurnoverHistoryWriteReport(
         selected_partition_keys=selected_keys,
         written_partition_keys=tuple(written),

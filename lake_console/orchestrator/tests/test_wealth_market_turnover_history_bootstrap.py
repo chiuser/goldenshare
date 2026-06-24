@@ -111,6 +111,22 @@ class WealthMarketTurnoverHistoryBootstrapTests(unittest.TestCase):
         self.assertEqual(audit_report.target_date_min, DATE_1)
         self.assertEqual(audit_report.target_date_max, DATE_1)
 
+    def test_generate_uses_fresh_duckdb_connections_per_partition(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            lake_root = Path(temporary_dir)
+            _write_all_silver_files(lake_root, DATE_1)
+            _write_all_silver_files(lake_root, DATE_2)
+            duckdb_resource = _CountingDuckDBResource()
+
+            write_report = generate_wealth_market_turnover_history(
+                lake_root=lake_root,
+                duckdb_resource=duckdb_resource,
+                partition_keys=(DATE_1, DATE_2),
+            )
+
+        self.assertEqual(duckdb_resource.connect_count, 6)
+        self.assertEqual(write_report.written_partition_keys, (DATE_1, DATE_2))
+
 
 def _write_all_silver_files(root: Path, partition_key: str) -> None:
     for freq in STK_MINS_FREQS:
@@ -154,6 +170,15 @@ def _sql_literal(value: object) -> str:
     if isinstance(value, str):
         return "'" + value.replace("'", "''") + "'"
     return str(value)
+
+
+class _CountingDuckDBResource:
+    def __init__(self) -> None:
+        self.connect_count = 0
+
+    def connect(self):
+        self.connect_count += 1
+        return duckdb.connect(database=":memory:")
 
 
 if __name__ == "__main__":
