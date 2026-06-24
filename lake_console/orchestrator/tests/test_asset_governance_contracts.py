@@ -85,6 +85,10 @@ from orchestrator.defs.assets.stock_return_distribution import (
     STOCK_RETURN_DISTRIBUTION_COLUMNS,
     gold_stock_return_distribution,
 )
+from orchestrator.defs.assets.wealth_market_turnover import (
+    WEALTH_MARKET_TURNOVER_COLUMNS,
+    gold_wealth_market_turnover,
+)
 from orchestrator.defs.assets.suspend_d import (
     SUSPEND_D_RAW_COLUMN_TYPES,
     raw_tushare_suspend_d,
@@ -143,6 +147,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+    GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
@@ -223,6 +228,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     gold_market_major_indices_daily,
     gold_market_breadth_daily,
     gold_stock_return_distribution,
+    gold_wealth_market_turnover,
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
     lake_root_health,
@@ -310,7 +316,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 55)
+        self.assertEqual(len(catalog_entries), 56)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -361,7 +367,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 55)
+        self.assertEqual(len(entries), 56)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -678,6 +684,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
         self.assertEqual(
             GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_COLUMNS,
             tuple(column.name for column in GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA),
+        )
+        self.assertEqual(
+            WEALTH_MARKET_TURNOVER_COLUMNS,
+            tuple(column.name for column in GOLD_WEALTH_MARKET_TURNOVER_SCHEMA),
         )
         self.assertEqual(
             CLICKHOUSE_MARKET_BREADTH_COLUMNS,

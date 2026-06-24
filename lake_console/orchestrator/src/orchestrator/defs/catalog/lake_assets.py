@@ -15,6 +15,7 @@ from orchestrator.defs.paths import (
     gold_stk_mins_qfq_macd_kdj_state_path,
     gold_stk_mins_qfq_path,
     gold_stock_return_distribution_path,
+    gold_wealth_market_turnover_path,
     lake_path_template,
     raw_adj_factor_path,
     raw_index_basic_path,
@@ -45,6 +46,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+    GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
     RAW_STK_MINS_SCHEMA,
     RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
@@ -149,6 +151,9 @@ class PartitionModel(str, Enum):
     )
     TRADE_DATE_PARTITION_GOLD_STOCK_RETURN_DISTRIBUTION = (
         "trade_date_partition_gold_stock_return_distribution"
+    )
+    TRADE_DATE_PARTITION_GOLD_WEALTH_MARKET_TURNOVER = (
+        "trade_date_partition_gold_wealth_market_turnover"
     )
 
     SERVING_TABLE_SERVING_MARKET_BREADTH = "serving_table_serving_market_breadth"
@@ -456,6 +461,9 @@ GOLD_STOCK_RETURN_DISTRIBUTION_CHECKS = (
     "gold_stock_return_distribution_stock_partition_key_allowed",
     "gold_stock_return_distribution_total_count_matches_silver",
 )
+GOLD_WEALTH_MARKET_TURNOVER_CHECKS = (
+    "gold_wealth_market_turnover_integrity_check",
+)
 CH_SHARE_FACT_MARKET_BREADTH_DAILY_CHECKS = (
     "ch_share_fact_market_breadth_breadth_fields_match_gold",
     "ch_share_fact_market_breadth_date_matches_partition",
@@ -724,6 +732,14 @@ PARTITION_MODEL_DEFINITIONS = (
         PartitionModelFamily.TRADE_DATE_PARTITION,
         AssetLayer.GOLD,
         "stock_return_distribution",
+        "trade_date",
+        PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.TRADE_DATE_PARTITION_GOLD_WEALTH_MARKET_TURNOVER,
+        PartitionModelFamily.TRADE_DATE_PARTITION,
+        AssetLayer.GOLD,
+        "wealth_market_turnover",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
     ),
@@ -1438,6 +1454,37 @@ LAKE_ASSET_CATALOG += (
         blocking_check_names=GOLD_STOCK_RETURN_DISTRIBUTION_CHECKS,
         batch_grain="trade_date",
         write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+    ),
+    _entry(
+        asset_key="gold_wealth_market_turnover",
+        dataset_id="wealth_market_turnover",
+        layer=AssetLayer.GOLD,
+        data_domain=DataDomain.DERIVED_METRIC,
+        group_name="wealth",
+        source_system=SourceSystem.DERIVED,
+        data_contract="wealth_market_turnover_snapshot",
+        data_contract_source=DataContractSource.DERIVED_CONTRACT,
+        column_schema=GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
+        path_template=lake_path_template(
+            gold_wealth_market_turnover_path(
+                PATH_TEMPLATE_LAKE_ROOT,
+                PATH_TEMPLATE_PARTITION_KEY,
+            )
+        ),
+        partition_model=PartitionModel.TRADE_DATE_PARTITION_GOLD_WEALTH_MARKET_TURNOVER,
+        source_api=None,
+        source_doc="wealth/docs/pages/market-overview/turnover-minute-snapshot-plan-v1.html",
+        ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
+        bootstrap_sources=(),
+        blocking_check_names=GOLD_WEALTH_MARKET_TURNOVER_CHECKS,
+        write_policy=WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="one trade_date partition, five stk_mins frequencies",
+            compute_engine=ComputeEngine.DUCKDB_SQL,
+            source_request_policy="read local silver stk_mins parquet files only",
+        ),
     ),
     _derived_entry(
         asset_key="ch_share_fact_market_breadth_daily",

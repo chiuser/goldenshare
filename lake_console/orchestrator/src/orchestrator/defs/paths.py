@@ -257,6 +257,17 @@ def gold_stock_return_distribution_path(root: Path, partition_key: str) -> Path:
     )
 
 
+def gold_wealth_market_turnover_path(root: Path, partition_key: str) -> Path:
+    return lake_path(
+        root,
+        GOLD,
+        "wealth",
+        "market_turnover",
+        f"trade_date={partition_key}",
+        "part-000.parquet",
+    )
+
+
 def raw_index_basic_path(root: Path) -> Path:
     return lake_path(root, RAW, "tushare", "index_basic", "full", "part-000.parquet")
 

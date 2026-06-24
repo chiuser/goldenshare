@@ -39,6 +39,12 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_FILES = (
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_history.py",
     DEFS_DIR / "bootstrap" / "stk_mins_qfq_macd_kdj_baseline_events.py",
 )
+GOLD_WEALTH_MARKET_TURNOVER_SOURCE_FILES = (
+    DEFS_DIR / "wealth_market_turnover_contract.py",
+    DEFS_DIR / "assets" / "wealth_market_turnover.py",
+    DEFS_DIR / "checks" / "wealth_market_turnover_checks.py",
+    DEFS_DIR / "asset_guards" / "wealth_market_turnover_lake_readiness.py",
+)
 MACD_KDJ_DIRECT_RUN_REQUEST_SENSOR_FILES: set[str] = set()
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
@@ -200,6 +206,44 @@ def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
 
 
 class RunContractStaticGateTests(unittest.TestCase):
+    def test_gold_wealth_market_turnover_keeps_source_boundary(self) -> None:
+        forbidden_fragments = (
+            "src.biz",
+            "TurnoverSnapshotMaterializeService",
+            "WealthMarketTurnoverSnapshot",
+            "TushareResource",
+            "ProdPostgresResource",
+            "raw_stk_mins_path",
+            "core_serving.wealth_market_turnover_snapshot",
+        )
+        issues = []
+        for path in GOLD_WEALTH_MARKET_TURNOVER_SOURCE_FILES:
+            source = path.read_text()
+            for fragment in forbidden_fragments:
+                if fragment in source:
+                    issues.append(
+                        f"{path} contains forbidden wealth turnover fragment: {fragment}"
+                    )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_wealth_market_turnover_keeps_single_json_integrity_check(self) -> None:
+        schema_source = (
+            DEFS_DIR / "run_contracts" / "asset_column_schemas.py"
+        ).read_text()
+        catalog_source = (CATALOG_DIR / "lake_assets.py").read_text()
+        check_source = (CHECKS_DIR / "wealth_market_turnover_checks.py").read_text()
+
+        self.assertIn('ColumnContract("points_json", "JSON"', schema_source)
+        self.assertNotIn('ColumnContract("points_json", "VARCHAR"', schema_source)
+        self.assertIn(
+            'GOLD_WEALTH_MARKET_TURNOVER_CHECKS = (\n'
+            '    "gold_wealth_market_turnover_integrity_check",\n'
+            ')',
+            catalog_source,
+        )
+        self.assertEqual(check_source.count("@dg.asset_check"), 1)
+
     def test_stock_mins_silver_job_does_not_pull_raw_or_source_config(self) -> None:
         path = JOBS_DIR / "stock_mins_silver_update.py"
         source = path.read_text()

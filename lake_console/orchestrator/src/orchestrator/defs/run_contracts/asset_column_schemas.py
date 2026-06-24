@@ -351,6 +351,23 @@ GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA = (
     ColumnContract("total_count", "BIGINT", "当日参与统计的股票总数"),
 )
 
+GOLD_WEALTH_MARKET_TURNOVER_SCHEMA = (
+    ColumnContract("type", "VARCHAR", "主体类型，首期固定 stock"),
+    ColumnContract("market", "VARCHAR", "市场标识，首期固定 CN_A"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("freq", "SMALLINT", "分钟周期，支持 1/5/15/30/60"),
+    ColumnContract("build_status", "VARCHAR", "构建状态，Lake 文件只保存 READY"),
+    ColumnContract("latest_trade_time", "TIMESTAMP", "该交易日该频度内最新分钟点"),
+    ColumnContract("total_amount", "DECIMAL(20,2)", "全市场成交额，单位千元"),
+    ColumnContract("total_vol", "BIGINT", "全市场成交量"),
+    ColumnContract("security_count", "INTEGER", "参与统计证券数"),
+    ColumnContract("source_row_count", "BIGINT", "参与汇总的 silver 行数"),
+    ColumnContract("points_json", "JSON", "完整分钟点数组，按 trade_time 升序"),
+    ColumnContract("build_version", "VARCHAR", "构建版本，首期固定 v1"),
+    ColumnContract("built_at", "TIMESTAMP WITH TIME ZONE", "本次生成时间"),
+    ColumnContract("build_note", "VARCHAR", "构建说明，正常为空"),
+)
+
 CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA = (
     ColumnContract("trade_date", "Date", "交易日"),
     ColumnContract("up_count", "UInt32", "当日上涨股票数量"),
