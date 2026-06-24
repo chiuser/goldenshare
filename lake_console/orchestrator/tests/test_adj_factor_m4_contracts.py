@@ -332,26 +332,15 @@ class AdjFactorM4ContractTests(unittest.TestCase):
 
     def test_readiness_check_names_match_adj_factor_check_definitions(self) -> None:
         raw_check_definitions = (
-            adj_factor_checks.raw_adj_factor_file_exists,
-            adj_factor_checks.raw_adj_factor_row_count_positive,
-            adj_factor_checks.raw_adj_factor_schema_matches_tushare_contract,
-            adj_factor_checks.raw_adj_factor_required_columns,
-            adj_factor_checks.raw_adj_factor_partition_date_matches,
-            adj_factor_checks.raw_adj_factor_unique_ts_code_trade_date,
-            adj_factor_checks.raw_adj_factor_positive_factor,
-            adj_factor_checks.raw_adj_factor_stock_current_partition_key_allowed,
+            adj_factor_checks.raw_adj_factor_contract_check,
+            adj_factor_checks.raw_adj_factor_key_value_integrity_check,
+            adj_factor_checks.raw_adj_factor_partition_allowed_check,
         )
         silver_check_definitions = (
-            adj_factor_checks.silver_adj_factor_file_exists,
-            adj_factor_checks.silver_adj_factor_row_count_positive,
-            adj_factor_checks.silver_adj_factor_schema_matches_contract,
-            adj_factor_checks.silver_adj_factor_required_columns,
-            adj_factor_checks.silver_adj_factor_partition_date_matches,
-            adj_factor_checks.silver_adj_factor_unique_ts_code_trade_date,
-            adj_factor_checks.silver_adj_factor_positive_factor,
-            adj_factor_checks.silver_adj_factor_listed_stock_only,
-            adj_factor_checks.silver_adj_factor_coverage_complete,
-            adj_factor_checks.silver_adj_factor_stock_current_partition_key_allowed,
+            adj_factor_checks.silver_adj_factor_contract_check,
+            adj_factor_checks.silver_adj_factor_key_value_integrity_check,
+            adj_factor_checks.silver_adj_factor_lifecycle_coverage_check,
+            adj_factor_checks.silver_adj_factor_partition_allowed_check,
         )
 
         self.assertEqual(

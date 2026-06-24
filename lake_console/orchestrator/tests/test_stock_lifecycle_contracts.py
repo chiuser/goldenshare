@@ -129,6 +129,8 @@ def _lifecycle_row(
 
 
 def _check_function(check_definition):
+    if not hasattr(check_definition, "node_def"):
+        return check_definition
     return check_definition.node_def.compute_fn.decorated_fn
 
 

@@ -197,23 +197,23 @@ class StockDailySensorTests(unittest.TestCase):
 
     def test_existing_stock_daily_check_names_are_not_renamed(self) -> None:
         self.assertIn(
-            "raw_stock_daily_covers_expected_tradable_universe",
+            "raw_stock_daily_tradable_universe_check",
             RAW_STOCK_DAILY_CHECKS,
         )
         self.assertIn(
-            "raw_stock_daily_unique_ts_code_trade_date",
+            "raw_stock_daily_key_integrity_check",
             RAW_STOCK_DAILY_CHECKS,
         )
         self.assertIn(
-            "silver_stock_daily_covers_expected_tradable_universe",
+            "silver_stock_daily_tradable_universe_check",
             SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
         self.assertIn(
-            "silver_stock_daily_unique_ts_code_trade_date",
+            "silver_stock_daily_key_integrity_check",
             SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
         self.assertIn(
-            "silver_stock_daily_stock_lifecycle_covered",
+            "silver_stock_daily_lifecycle_coverage_check",
             SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
         self.assertNotIn(

@@ -95,6 +95,45 @@ class AdjFactorSilverBootstrapEventReport:
     reported_event_count: int
 
 
+_SILVER_BOOTSTRAP_FORMAL_CHECK_RULES: tuple[
+    tuple[str, CheckScope, tuple[str, ...]],
+    ...,
+] = (
+    (
+        "silver_adj_factor_contract_check",
+        CheckScope.SCHEMA,
+        (
+            "silver_adj_factor_file_exists",
+            "silver_adj_factor_row_count_positive",
+            "silver_adj_factor_required_columns",
+            "silver_adj_factor_schema_matches_contract",
+            "silver_adj_factor_partition_date_matches",
+        ),
+    ),
+    (
+        "silver_adj_factor_key_value_integrity_check",
+        CheckScope.KEY_UNIQUENESS,
+        (
+            "silver_adj_factor_unique_ts_code_trade_date",
+            "silver_adj_factor_positive_factor",
+        ),
+    ),
+    (
+        "silver_adj_factor_lifecycle_coverage_check",
+        CheckScope.REFERENTIAL_INTEGRITY,
+        (
+            "silver_adj_factor_listed_stock_only",
+            "silver_adj_factor_coverage_complete",
+        ),
+    ),
+    (
+        "silver_adj_factor_partition_allowed_check",
+        CheckScope.PARTITION_ALIGNMENT,
+        ("silver_adj_factor_stock_current_partition_key_allowed",),
+    ),
+)
+
+
 def plan_adj_factor_silver_bootstrap_events(
     *,
     instance: dg.DagsterInstance,
@@ -747,7 +786,7 @@ def _report_partition_events(
         timestamp=materialization.timestamp,
     )
     event_count = 1
-    for check in audit.checks:
+    for check in _formal_check_audits(audit):
         instance.report_runless_asset_event(
             dg.AssetCheckEvaluation(
                 asset_key=SILVER_ADJ_FACTOR_ASSET_KEY,
@@ -761,6 +800,47 @@ def _report_partition_events(
         )
         event_count += 1
     return event_count
+
+
+def _formal_check_audits(
+    audit: AdjFactorSilverBootstrapPartitionAudit,
+) -> tuple[AdjFactorSilverBootstrapCheckAudit, ...]:
+    checks_by_name = {check.check_name: check for check in audit.checks}
+    formal_checks = []
+    for check_name, check_scope, rule_names in _SILVER_BOOTSTRAP_FORMAL_CHECK_RULES:
+        missing_rule_names = tuple(
+            rule_name for rule_name in rule_names if rule_name not in checks_by_name
+        )
+        failed_rule_names = tuple(
+            rule_name
+            for rule_name in rule_names
+            if rule_name in checks_by_name and not checks_by_name[rule_name].passed
+        )
+        formal_checks.append(
+            _check_audit(
+                check_name,
+                not missing_rule_names and not failed_rule_names,
+                build_check_metadata(
+                    check_scope=check_scope,
+                    file_path=audit.silver_file_path,
+                    checked_row_count=audit.row_count,
+                    extra_metadata={
+                        "partition_key": audit.partition_key,
+                        "observed_columns": list(audit.observed_columns),
+                        "rule_passed": {
+                            rule_name: (
+                                rule_name in checks_by_name
+                                and checks_by_name[rule_name].passed
+                            )
+                            for rule_name in rule_names
+                        },
+                        "failed_rule_names": list(failed_rule_names),
+                        "missing_rule_names": list(missing_rule_names),
+                    },
+                ),
+            )
+        )
+    return tuple(formal_checks)
 
 
 def _latest_silver_materialization(

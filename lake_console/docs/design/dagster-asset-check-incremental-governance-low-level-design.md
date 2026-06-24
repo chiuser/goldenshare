@@ -2,7 +2,7 @@
 
 对应方案文档：[`dagster-asset-check-incremental-governance-plan.md`](./dagster-asset-check-incremental-governance-plan.md)
 
-更新时间：2026-06-24
+更新时间：2026-06-25
 
 ## 1. 目标与边界
 
@@ -31,7 +31,7 @@
 
 资产 catalog 主入口：
 
-- `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/lake_assets.py`
+- `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/catalog/lake_assets.py`
 
 关键导出：
 
@@ -198,6 +198,36 @@ P0.1 已确认：
 - 它已进入专项治理矩阵，当前分类为 `KEEP_BLOCKING_DAGSTER`，阶段为 `P0.1`。
 
 因此它不能因为当前 DB rows 较少被排除在治理矩阵之外。
+
+### 2.7 当前代码对账清单
+
+本 LLD 的代码事实按以下入口审计，不以后续开发计划、旧文档或 check
+命名印象替代当前实现。
+
+| 审计对象 | 当前代码入口 | LLD 约束 |
+| --- | --- | --- |
+| active asset 与 blocking checks | `defs/catalog/lake_assets.py` | 所有治理矩阵、retention 白名单、check 合并目标必须从 `LAKE_ASSET_CATALOG` 对账。 |
+| readiness 消费 | `defs/sensors/readiness.py`、`gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py` | 仍在 `AssetReadinessSpec` 中出现的 check 不得直接删除；合并后必须同步 readiness specs。 |
+| check definition | `defs/checks/**` | 旧细粒度函数可保留为内部 rule/helper，但不得继续注册为正式 Dagster check。 |
+| lake readiness | `defs/asset_guards/*_lake_readiness.py` | sensor 热路径应优先使用 DuckDB/lake readiness；不得回流逐日 Dagster event/check history 深扫。 |
+| runless/bootstrap | `defs/bootstrap/*_events.py`、`defs/bootstrap/*_history.py` | 历史事件补录和数量估算必须引用正式 check 常量，禁止写回旧 check name。 |
+| jobs/checks-only jobs | `defs/jobs/**` | 普通 update job 可继续 `assets | checks_for_assets`；`*_check_refresh_job` 必须只选 checks。 |
+| 静态门禁 | `tests/test_asset_check_incremental_governance.py`、`tests/test_run_contract_static_gates.py` | 新增 active blocking check 必须先声明治理分类、readiness 参与状态和 retention 口径。 |
+
+当前已核对的关键常量：
+
+- `defs/catalog/lake_assets.py` 与 `tests/test_asset_check_incremental_governance.py`
+  均已登记 P2-P6 合并后的正式 check names。
+- `defs/sensors/readiness.py` 中 daily、suspend、adj factor、index daily、分钟线 qfq
+  等 readiness specs 已使用合并后的 check names。
+- `defs/checks/stk_mins_qfq_macd_kdj_checks.py` 中 MACD/KDJ indicator 正式 check
+  已是 `contract/source_coverage/formula_sample` 三个；state checks 仍保持两个。
+- `defs/checks/wealth_market_turnover_checks.py` 当前正式 check 为
+  `gold_wealth_market_turnover_integrity_check`，已纳入治理矩阵，暂不进入合并优先级。
+
+后续任何阶段若发现 catalog、readiness、check definition、runless/bootstrap
+之间的正式 check names 不一致，应先修代码事实和测试，再更新本文档；不得让
+文档继续描述一个不存在或已退役的 check 集合。
 
 ## 3. Check 分类模型
 
@@ -731,6 +761,9 @@ P5C 已落地：
 
 ### P6 股票分钟线剩余治理
 
+状态：P6A-P6D 已按当前代码落地。后续不再把 P6 视为待开发阶段；
+只允许做回归、文档对账和正式 retention / vacuum 审批。
+
 #### 改动文件
 
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stk_mins_checks.py`
@@ -842,12 +875,20 @@ P5C 已落地：
 
 通用工具不复用 `stk_mins_event_history_retention_*`，避免混用分钟线 keep window 和 protected checks。
 
-新增：
+当前已存在的非分钟线只读工具：
 
 - `asset_check_event_retention.py`
 - `asset_check_event_retention_cli.py`
+
+当前不存在、也不得在 dry-run 阶段假设存在的正式删除工具：
+
 - `asset_check_event_retention_sample_delete.py`
 - `asset_check_event_retention_sample_delete_cli.py`
+
+如果后续进入正式删除阶段，必须先单独设计并开发上述 sample-delete
+执行器，且不得复用分钟线 sample-delete 的资产白名单或 keep window。正式删除
+执行器必须在单资产或小批次事务内工作，必须有 `--confirm-*` 显式确认参数，
+并必须通过 pre/post dry-run 对账。
 
 ### 5.2 候选事件范围
 
@@ -938,14 +979,117 @@ rg -n "AssetCheckResult|asset_check|blocking" \
 
 ## 7. 推进顺序
 
-1. P0.1：治理矩阵与静态门禁。
-2. P1：非分钟线 retention dry-run，只读报告。
-3. P2：Index Daily 与 Major Indices check 合并和 lake readiness 对账。
-4. P3：Stock Daily / Suspend / Adj Factor check 合并和 lifecycle 口径收敛。
-5. P4：Market Breadth / Return Distribution / Serving check 精简与 offline audit。
-6. P5：Snapshot / Basic Facts check 合并。
-7. P6：股票分钟线剩余普通 check 治理。
-8. P7：最终 retention、标准 vacuum、文档对账。
+1. P0.1：治理矩阵与静态门禁，已完成。
+2. P1：非分钟线 retention dry-run 工具，已完成本地开发；正式 Postgres
+   dry-run 需要单独审批执行。
+3. P2：Index Daily 与 Major Indices check 合并和 lake readiness 对账，已完成。
+4. P3：Stock Daily / Suspend / Adj Factor check 合并和 lifecycle 口径收敛，已完成。
+5. P4：Market Breadth / Return Distribution / Serving check 精简与 offline audit，已完成。
+6. P5：Snapshot / Basic Facts check 合并，已完成。
+7. P6：股票分钟线剩余普通 check 治理，已完成。
+8. P7A：本地最终回归和静态审计。
+9. P7B：正式非分钟线 retention dry-run 与必要的 sample-delete 工具设计。
+10. P7C：正式 retention / 标准 vacuum / 文档对账。P7C 涉及正式 Dagster
+    Postgres 写入，必须单独审批，且 active runs 必须为 0。
+
+### 7.1 P7A 本地最终回归
+
+状态：已完成本地验收。
+
+P7A 只做本地代码和文档验收，不读取正式 Dagster instance，不写正式 DB，不触碰
+正式 lake。
+
+执行步骤：
+
+1. `git status --short` 确认工作区只包含本专项文档或本地测试修复。
+2. 静态审计正式 check names：
+   - `LAKE_ASSET_CATALOG`
+   - `tests/test_asset_check_incremental_governance.py`
+   - `defs/sensors/readiness.py`
+   - `defs/bootstrap/*_events.py`
+3. 跑目标测试：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_asset_check_incremental_governance.py \
+  tests/test_asset_check_event_retention.py \
+  tests/test_run_contract_static_gates.py
+```
+
+4. 跑完整本地回归：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest tests
+```
+
+验收：
+
+- `tests/test_asset_check_incremental_governance.py`
+  `tests/test_asset_check_event_retention.py`
+  `tests/test_run_contract_static_gates.py` 通过：`66 passed`。
+- orchestrator 全量本地回归通过：`887 passed`。
+- `adj_factor_raw_bootstrap_events.py` /
+  `adj_factor_silver_bootstrap_events.py` 已从旧细粒度 runless check
+  event 写入改为当前正式合并 check names；底层细粒度 audit 只保留为
+  rule metadata，避免 bootstrap 补录后 readiness 仍按旧/新 check name
+  不一致而误判。
+- 新旧 check name 没有正式路径冲突。
+- dry-run 工具仍无写路径。
+- checks-only job 仍只选择 checks。
+
+### 7.2 P7B 正式 dry-run 与删除执行器设计
+
+P7B 不直接删除。它先只读验证当前正式 Postgres 候选，只有 dry-run 安全报告通过后，
+才允许开发非分钟线 sample-delete 执行器。
+
+执行步骤：
+
+1. 停止或确认 Dagster daemon/webserver 不会提交新 run。
+2. 只读确认 `runs` 中没有 `QUEUED/STARTING/STARTED/CANCELING`。
+3. 执行 P1 已有只读 dry-run：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.asset_check_event_retention_cli dry-run \
+  --postgres-url postgresql://congming@localhost:5432/goldenshare_dagster \
+  --output /private/tmp/asset_check_event_retention_dry_run_<timestamp>.json
+```
+
+4. 审计报告：
+   - `should_stop=false`
+   - active runs 为 0
+   - protected checks 候选为 0
+   - latest materialization collision 为 0
+   - latest-bound check collision 为 0
+   - keep window collision 为 0
+   - `prod_ch_share_fact_market_breadth_daily`、`lake_root_health` 等排除资产不进入候选
+
+5. 若需要正式删除，另行开发非分钟线 sample-delete：
+   - 单资产或小批次白名单。
+   - 单事务删除。
+   - 删除前后都调用同一 dry-run 对账。
+   - 不删除 `runs/run_tags/dynamic_partitions/instigators/planned events`。
+   - 不删除 `partition is null` 且无 materialization 绑定的 check。
+
+### 7.3 P7C 正式 retention 与标准 vacuum
+
+P7C 是正式 DB 写入阶段，不属于普通代码开发。
+
+正式删除前置：
+
+1. 用户明确批准正式 Dagster Postgres 写入。
+2. active runs 为 0。
+3. 完整备份 Postgres，且 `pg_restore --list` 可读。
+4. pre dry-run 报告通过。
+5. sample-delete 小范围验证通过。
+
+删除后维护：
+
+1. 只执行标准 `VACUUM (VERBOSE, ANALYZE)` / `ANALYZE`。
+2. 不执行 `VACUUM FULL`、`REINDEX`、`pg_repack`，除非另开维护窗口并获得批准。
+3. post dry-run 和 Asset UI 抽查通过后，才把 P7C 标记完成。
 
 ## 8. Stop Conditions
 

@@ -81,6 +81,8 @@ def _write_rows(
 
 
 def _check_function(check_definition):
+    if not hasattr(check_definition, "node_def"):
+        return check_definition
     return check_definition.node_def.compute_fn.decorated_fn
 
 
@@ -349,12 +351,9 @@ class StockBasicSchemaContractTests(unittest.TestCase):
         self.assertEqual(
             readiness.SILVER_STOCK_BASIC_CHECKS,
             (
-                "silver_stock_basic_cny_stock_universe_check",
-                "silver_stock_basic_current_listed_only",
-                "silver_stock_basic_has_listed_records",
-                "silver_stock_basic_lifecycle_dates_valid",
-                "silver_stock_basic_required_columns_non_null",
-                "silver_stock_basic_unique_ts_code",
+                "silver_stock_basic_contract_check",
+                "silver_stock_basic_key_integrity_check",
+                "silver_stock_basic_current_listed_domain_check",
             ),
         )
         catalog_entry = next(
@@ -363,7 +362,7 @@ class StockBasicSchemaContractTests(unittest.TestCase):
             if entry.asset_key == "silver_stock_basic"
         )
         self.assertIn(
-            "silver_stock_basic_cny_stock_universe_check",
+            "silver_stock_basic_current_listed_domain_check",
             catalog_entry.blocking_check_names,
         )
 
