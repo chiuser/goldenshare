@@ -1355,6 +1355,79 @@ post dry-run：
 - 下一批如果继续，应重新 active-runs 确认、重新备份、重新 pre dry-run，并单独获得
   正式删除批准。
 
+#### 2026-06-25 P7C-C `gold_stock_return_distribution` 删除前安全审计
+
+本节只记录删除前安全审计结论，尚未执行正式 DB 删除。由于 P7C-B 期间观察到
+`lake_root_health_check_job_schedule` 新增 run，P7C-C 不能复用 P7C-B 的冻结状态；
+若进入正式删除，必须重新确认 daemon/schedule/webserver 不会提交新 run，并重新执行
+active-runs 检查、备份与 pre dry-run。
+
+P7C-B post dry-run 中该资产候选：
+
+- 资产：`gold_stock_return_distribution`
+- family：`return_distribution`
+- check event / execution 候选：0
+- materialization 候选：3,011
+- materialization event tag 候选：3,011
+- latest materialization id：`6630459`
+- latest partition：`2026-06-24`
+- latest check count：6，latest non-succeeded check count：0
+- keep partition set：`cn_a_stock_trade_days`
+- keep20：`2026-05-27` 到 `2026-06-24`
+
+代码审计结论：
+
+- 日常自动触发入口是
+  `stock_return_distribution_continuity_sensor`。它按
+  `load_expected_trade_date_window(...)` 读取最近窗口 expected trade dates，
+  通过 `build_registered_gap_status(...)` 检查 `cn_a_stock_trade_days` 注册缺口，
+  再用 `batch_gold_stock_return_distribution_lake_readiness(...)` 从 lake 文件事实判断
+  first-not-ready。它不读取 `gold_stock_return_distribution` 自身的全历史
+  Dagster materialization/check event。
+- 该 sensor 只有在 selected date 的 gold return distribution lake status 为
+  `materialized=False` 时，才额外查询 selected date 的
+  `stock_daily_ready_for_trade_date(...)`。这个上游门禁依赖的是
+  `silver_stock_daily` 的目标日期状态，不依赖将被删除的
+  `gold_stock_return_distribution` 旧历史 event。
+- `batch_gold_stock_return_distribution_lake_readiness(...)` 只按 expected dates
+  检查 `gold_stock_return_distribution_path(...)`、schema、row count、partition date、
+  bucket sum 与 `silver_stock_daily_path(...)` 重算结果；不访问 Dagster instance、
+  event log 或 check history。
+- `gold_stock_return_distribution` asset 写入函数只读取 selected partition 的
+  `silver_stock_daily_path(...)`，再写
+  `gold_stock_return_distribution_path(...)`；不会读取自身旧 materialization/check event
+  来决定 source file、run config、partition key 或写入范围。
+- 下游 serving 入口 `clickhouse_market_breadth_continuity_sensor` 对
+  `gold_stock_return_distribution` 的依赖同样通过
+  `batch_gold_stock_return_distribution_lake_readiness(...)` 读取 lake 文件事实；
+  `ch_share_fact_market_breadth_daily` 写入函数读取
+  `gold_stock_return_distribution_path(...)`，不读取被删除的旧历史 event。
+
+安全结论：
+
+- 删除该资产 keep20 之外、latest state 之外的 old materialization event，不会改变
+  `gold_stock_return_distribution` 的自动触发目标选择、run key、run config、
+  partition set、source file selection 或 lake 写入路径。
+- 删除该资产 old materialization event 不会影响
+  `ch_share_fact_market_breadth_daily` 对它的上游 readiness 判断；下游仍以 lake 文件事实为准。
+- 由于候选中 check event 为 0，本批不涉及删除该资产的历史 check event；若正式 pre dry-run
+  出现 check 候选，必须重新审计后再决定。
+
+正式执行前仍必须满足：
+
+1. active runs 为 0，且确认 daemon/schedule/webserver 不会在执行期间提交新 run。
+2. 对正式 Postgres 重新做完整备份，且 `pg_restore --list` 可读。
+3. 重新执行 P7C-C pre dry-run；`should_stop=false`，安全断言全绿，候选仍只包含
+   `gold_stock_return_distribution` 的 keep20/latest 之外 old state。
+4. 获得用户对正式 DB 删除动作的单独批准。
+
+本次审计未执行：
+
+- 未删除 Dagster DB event。
+- 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
 ## 8. Stop Conditions
 
 以下情况必须停止：
