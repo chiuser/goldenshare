@@ -1486,8 +1486,135 @@ post dry-run：
   events。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
-P7C-D 若继续推进，必须重新选择下一批资产，重新做 active-runs 确认、
-重新备份、重新 pre dry-run，并单独获得正式删除批准；不得复用 P7C-C 的备份或
+P7C-D 已在下一节单独审计、备份并执行；后续批次不得复用 P7C-C 的备份或
+pre dry-run 作为依据。
+
+#### 2026-06-25 P7C-D `gold_market_breadth_daily` 执行结果
+
+P7C-D 选择 `gold_market_breadth_daily` 作为下一批小范围资产。选择原因是该资产
+在 P7C-C post dry-run 中只剩 old materialization event 候选，check event 候选为 0；
+同时它与已完成的 `gold_stock_return_distribution` 同属市场广度下游 serving 链路，
+但自动触发与下游消费均已切换为 lake readiness，不依赖被删除的旧历史
+materialization event。
+
+P7C-C post dry-run 中该资产候选：
+
+- 资产：`gold_market_breadth_daily`
+- family：`market_breadth`
+- check event / execution 候选：0
+- materialization 候选：3,011
+- materialization event tag 候选：3,011
+- latest materialization id：`6630849`
+- latest partition：`2026-06-24`
+- latest check count：8，latest non-succeeded check count：0
+- keep partition set：`cn_a_stock_trade_days`
+- keep20：`2026-05-27` 到 `2026-06-24`
+
+代码审计结论：
+
+- 日常自动触发入口是 `market_breadth_continuity_sensor`。它按
+  `load_expected_trade_date_window(...)` 读取 bounded expected trade dates，通过
+  `build_registered_gap_status(...)` 检查 `cn_a_stock_trade_days` 注册缺口，再用
+  `batch_gold_market_breadth_lake_readiness(...)` 从 lake 文件事实判断 first-not-ready。
+  它不读取 `gold_market_breadth_daily` 自身的全历史 Dagster
+  materialization/check event。
+- 该 sensor 只有在 selected date 的 gold market breadth lake status 为
+  `materialized=False` 时，才额外查询 selected date 的
+  `stock_daily_ready_for_trade_date(...)`。这个上游门禁依赖 `silver_stock_daily`
+  的目标日期状态，不依赖将被删除的 `gold_market_breadth_daily` 旧历史 event。
+- `batch_gold_market_breadth_lake_readiness(...)` 只按 expected dates 检查
+  `gold_market_breadth_daily_path(...)`、schema、row count、partition date、上涨/下跌
+  计数、红盘率和值域，并用 `silver_stock_daily_path(...)` 重算对账；不访问 Dagster
+  instance、event log 或 check history。
+- `gold_market_breadth_daily` asset 写入函数只读取 selected partition 的
+  `silver_stock_daily_path(...)`，再写 `gold_market_breadth_daily_path(...)`；
+  不会读取自身旧 materialization/check event 来决定 source file、run config、
+  partition key 或写入范围。
+- 下游 serving 入口 `clickhouse_market_breadth_continuity_sensor` 对
+  `gold_market_breadth_daily` 的依赖同样通过
+  `batch_gold_market_breadth_lake_readiness(...)` 读取 lake 文件事实；
+  `ch_share_fact_market_breadth_daily` 写入函数读取
+  `gold_market_breadth_daily_path(...)`，不读取被删除的旧历史 event。
+
+安全结论：
+
+- 删除该资产 keep20 之外、latest state 之外的 old materialization event，不会改变
+  `gold_market_breadth_daily` 的自动触发目标选择、run key、run config、partition set、
+  source file selection 或 lake 写入路径。
+- 删除该资产 old materialization event 不会影响
+  `ch_share_fact_market_breadth_daily` 对它的上游 readiness 判断；下游仍以 lake 文件事实
+  为准。
+- 由于候选中 check event 为 0，本批不涉及删除该资产的历史 check event。
+
+P7C-D preflight：
+
+- 进程冻结检查：未发现 `dagster` / `dg dev` / `dagster-webserver` /
+  `dagster-daemon` / `code-server` / `orchestrator` 匹配进程。
+- active runs：0。
+- pre dry-run：
+  `/private/tmp/asset_check_event_retention_p7cd_gold_market_breadth_daily_pre_dry_run_20260625.json`
+- pre dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - `gold_market_breadth_daily` 候选仍为 0 条 check event / execution、3,011
+    条 materialization event、3,011 条 materialization event tags
+  - latest materialization id 仍为 `6630849`
+  - latest partition 仍为 `2026-06-24`
+  - latest check count 仍为 8，latest non-succeeded check count 仍为 0
+  - keep windows 仍为 `2026-05-27` 到 `2026-06-24`
+- 备份：
+  `/private/tmp/goldenshare_dagster_asset_check_retention_p7cd_gold_market_breadth_daily_backup_20260625.dump`
+- 备份大小：`363M`。
+- `pg_restore --list`：通过。
+
+P7C-D 正式 sample-delete 已按上述范围执行完成：
+
+- 工具：
+  `asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 资产：`gold_market_breadth_daily`
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cd_gold_market_breadth_daily_delete_20260625.json`
+- 事务结果：`committed=true`
+- 删除量：
+  - old check event tags：0
+  - old `ASSET_CHECK_EVALUATION` event：0
+  - old `asset_check_executions` row：0
+  - old materialization event tags：3,011
+  - old `ASSET_MATERIALIZATION` event：3,011
+- 删除事务内 safety assertions 全部通过。
+
+post dry-run：
+
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cd_gold_market_breadth_daily_post_dry_run_20260625.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- `gold_market_breadth_daily` 候选归零
+- latest materialization id 仍为 `6630849`
+- latest partition 仍为 `2026-06-24`
+- latest check count 仍为 8，latest non-succeeded check count 仍为 0
+- 全局候选变为：75,870 条 check execution / check event、36,285 条
+  materialization event、27,855 条 materialization event tags
+- table counts：
+  - `event_logs`：3,813,334
+  - `asset_check_executions`：418,510
+  - `asset_event_tags`：36,756
+  - `dynamic_partitions`：30,572
+  - `runs`：46,473
+  - `run_tags`：316,447
+
+本批未执行：
+
+- 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
+  events。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
+P7C-E 若继续推进，必须重新选择下一批资产，重新做 active-runs 确认、
+重新备份、重新 pre dry-run，并单独获得正式删除批准；不得复用 P7C-D 的备份或
 pre dry-run 作为下一批依据。
 
 ## 8. Stop Conditions
