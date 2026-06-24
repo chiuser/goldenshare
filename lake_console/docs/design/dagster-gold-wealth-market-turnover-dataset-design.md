@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展和 catalog/governance 对账；尚未写 prod DB，尚未启用 sensor。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展、catalog/governance 对账和正式 definitions 校验；尚未写 prod DB，尚未启用 sensor。
 
 ## 1. 目标
 
@@ -880,7 +880,7 @@ WMT-6 建议推进顺序：
 4. 扩展 `gold_wealth_market_turnover_update_job` selection，仍不新增 job。
 5. 扩展 sensor readiness：gold 和 prod sync 都 ready 才算链路 ready；gold ready 但 prod sync missing 时仍可提交同一 job。
 6. 补齐单元测试、静态门禁和文档对账。
-7. 单独审批后运行 `dg check defs`。
+7. 单独审批后运行 `dg check defs`，已通过：`All component YAML validated successfully.` / `All definitions loaded successfully.`
 8. 先对单个最近交易日做 prod write dry-run / transaction rollback 验证，再审批正式 apply。
 9. 本轮不做历史 3030 个 gold 分区全量同步 prod；若未来要做，必须另起 P6B 历史 prod sync 计划，不得跟日更代码落地混在一起执行。
 

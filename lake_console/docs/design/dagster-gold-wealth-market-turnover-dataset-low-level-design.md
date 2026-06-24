@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展和 catalog/governance 对账；尚未写 prod DB，尚未启用 sensor。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展、catalog/governance 对账和正式 definitions 校验；尚未写 prod DB，尚未启用 sensor。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -1433,7 +1433,7 @@ full 写入已执行并通过：
 
 ### WMT-6 Prod Core Serving Sync
 
-状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness 和 catalog/governance 已完成；未写 prod DB，未启用 sensor。
+状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance 和正式 definitions 校验已完成；未写 prod DB，未启用 sensor。
 
 改动：
 
@@ -1451,11 +1451,11 @@ full 写入已执行并通过：
 
 10. `sensors/gold_wealth_market_turnover_sensor.py`：链路 ready 语义扩展为 gold ready + `prod_core_wealth_market_turnover` materialized；gold ready 但 prod sync missing 时继续提交同一个 job；prod sync 已有失败 run 且无成功 materialization 时 skip，等待人工按分区重跑或后续 repair 方案。
 11. `tests/test_gold_wealth_market_turnover_sensor.py`：覆盖 gold ready/prod missing 提交同一 job、prod failed 不自动重发、gold+prod 均 ready 才 skip。
+12. 已单独审批执行 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。
 
 待完成：
 
-1. 单独审批后运行 `dg check defs`。
-2. 后续 prod write dry-run / transaction rollback 验证和正式 apply 审批。
+1. 后续 prod write dry-run / transaction rollback 验证和正式 apply 审批。
 
 prod 只读复核结果：
 
@@ -1521,5 +1521,5 @@ WMT-6 完成后，必须新增满足：
 4. prod write resource 与只读 prod resource 分离。
 5. prod sync 单元测试覆盖成功、gold 契约失败、prod insert 失败、read-back mismatch、rollback。
 6. 静态门禁覆盖不新增独立 job、不改只读 resource、不把 prod 写入塞进 gold asset。
-7. `dg check defs` 必须单独审批执行并通过，证明新增 asset/job/sensor/resource/catalog 可被正式 Definitions 加载。
+7. `dg check defs` 已经单独审批执行并通过，证明新增 asset/job/sensor/resource/catalog 可被正式 Definitions 加载。
 8. prod write dry-run / transaction rollback 验证和正式 apply 必须单独审批；未审批前不得写 prod DB，也不得启用 sensor。
