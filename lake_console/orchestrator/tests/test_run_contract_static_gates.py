@@ -1508,7 +1508,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 33)
+        self.assertEqual(sensor_definition_count, 34)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -2134,6 +2134,7 @@ class RunContractStaticGateTests(unittest.TestCase):
     def test_index_daily_sensors_use_registered_gap_guard(self) -> None:
         sensor_paths = (
             SENSORS_DIR / "index_daily_sensor.py",
+            SENSORS_DIR / "raw_index_daily_update_job_sensor.py",
             SENSORS_DIR / "silver_index_daily_sensor.py",
         )
         issues = []
@@ -2178,7 +2179,8 @@ class RunContractStaticGateTests(unittest.TestCase):
         prod_source = (DEFS_DIR / "prod_db" / "index_daily.py").read_text()
         prod_select_source = prod_source[
             prod_source.index("PROD_INDEX_DAILY_SELECT_TEMPLATE") : prod_source.index(
-                "def normalize_index_codes"
+                "@dataclass",
+                prod_source.index("PROD_INDEX_DAILY_SELECT_TEMPLATE"),
             )
         ]
         issues = []
@@ -2323,6 +2325,139 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("raw_index_daily runless helper must fail closed above 20")
         if "RAW_INDEX_DAILY_MAX_EVENT_COUNT" not in helper_source:
             issues.append("raw_index_daily runless helper must cap event count")
+
+        self.assertEqual(issues, [])
+
+    def test_index_daily_by_date_p5_p6_active_path_contracts(self) -> None:
+        asset_source = (ASSETS_DIR / "index_daily.py").read_text()
+        check_source = (CHECKS_DIR / "index_daily_checks.py").read_text()
+        raw_sensor_path = SENSORS_DIR / "raw_index_daily_update_job_sensor.py"
+        silver_sensor_path = SENSORS_DIR / "silver_index_daily_sensor.py"
+        major_helper_path = (
+            DEFS_DIR / "asset_guards" / "market_major_indices_lake_readiness.py"
+        )
+        readiness_path = SENSORS_DIR / "readiness.py"
+        raw_file_readiness_path = SENSORS_DIR / "index_daily_raw_file_readiness.py"
+        raw_sensor_source = raw_sensor_path.read_text()
+        silver_sensor_source = silver_sensor_path.read_text()
+        major_helper_source = major_helper_path.read_text()
+        readiness_source = readiness_path.read_text()
+        raw_file_readiness_source = raw_file_readiness_path.read_text()
+        silver_asset_start = asset_source.index('@dg.asset(\n    name="silver_index_daily"')
+        silver_asset_end = asset_source.index("def silver_index_daily(")
+        silver_asset_slice = asset_source[silver_asset_start:silver_asset_end]
+        silver_coverage_start = check_source.index(
+            "def evaluate_silver_index_daily_registered_code_coverage"
+        )
+        silver_coverage_end = check_source.index("@dg.asset_check(", silver_coverage_start)
+        silver_coverage_slice = check_source[
+            silver_coverage_start:silver_coverage_end
+        ]
+        issues = []
+
+        required_fragments = {
+            raw_sensor_path: (
+                'job_name="raw_index_daily_update_job"',
+                "default_status=dg.DefaultSensorStatus.STOPPED",
+                "raw_index_daily_lake_readiness_for_trade_dates",
+                "check_prod_index_daily_source_readiness",
+                "build_raw_index_daily_update_job_run_config",
+                'subject="raw_index_daily"',
+                'write_mode="replace"',
+                '"reason_code"',
+            ),
+            silver_sensor_path: (
+                'job_name="silver_index_daily_update_job"',
+                "default_status=dg.DefaultSensorStatus.STOPPED",
+                "raw_index_daily_lake_readiness_for_trade_dates",
+                "select_first_not_ready_silver_index_daily_partition",
+                'subject="silver_index_daily"',
+                '"reason_code"',
+            ),
+            major_helper_path: (
+                "raw_index_daily_path",
+                "raw_file_path",
+                "silver_index_daily_lake_readiness_for_trade_date",
+            ),
+            readiness_path: (
+                'RAW_INDEX_DAILY_ASSET_KEY = dg.AssetKey("raw_index_daily")',
+                "RAW_INDEX_DAILY_CHECKS",
+                "RAW_INDEX_DAILY_READINESS_SPEC",
+                "def raw_index_daily_ready_for_trade_date(",
+            ),
+            raw_file_readiness_path: (
+                "RAW_INDEX_DAILY_READINESS_TRADE_DAY_LIMIT = 10",
+                "def raw_index_daily_lake_readiness_for_trade_dates(",
+                "raw_index_daily_file_contract_check",
+                "raw_index_daily_code_coverage_check",
+            ),
+        }
+        sources_by_path = {
+            raw_sensor_path: raw_sensor_source,
+            silver_sensor_path: silver_sensor_source,
+            major_helper_path: major_helper_source,
+            readiness_path: readiness_source,
+            raw_file_readiness_path: raw_file_readiness_source,
+        }
+        for path, fragments in required_fragments.items():
+            source = sources_by_path[path]
+            issues.extend(
+                f"{path} misses P5/P6 by-date fragment: {fragment}"
+                for fragment in fragments
+                if fragment not in source
+            )
+
+        forbidden_raw_sensor_fragments = (
+            "tushare",
+            "selected_codes",
+            "next_pending_offset",
+            "repair_state",
+            "index_daily:",
+            "raw_index_daily_by_code_path",
+            "audit_index_daily_raw_gaps",
+            "check_index_daily_raw_files_for_trade_date",
+            "raw_tushare_index_daily_by_code",
+            "2026-06-22",
+            "2026-06-23",
+        )
+        issues.extend(
+            f"{raw_sensor_path} contains forbidden P5/P6 raw sensor fragment: {fragment}"
+            for fragment in forbidden_raw_sensor_fragments
+            if fragment in raw_sensor_source
+        )
+
+        forbidden_active_path_fragments = (
+            "raw_index_daily_by_code_path",
+            "audit_index_daily_raw_gaps",
+            "check_index_daily_raw_files_for_trade_date",
+            "raw_tushare_index_daily_by_code",
+            "2026-06-22",
+            "2026-06-23",
+        )
+        for path, source in (
+            (silver_sensor_path, silver_sensor_source),
+            (major_helper_path, major_helper_source),
+        ):
+            issues.extend(
+                f"{path} contains forbidden P5/P6 active path fragment: {fragment}"
+                for fragment in forbidden_active_path_fragments
+                if fragment in source
+            )
+
+        if "dg.AssetDep(raw_index_daily)" not in silver_asset_slice:
+            issues.append("silver_index_daily asset must depend on raw_index_daily")
+        for fragment in ("AllPartitionMapping", "raw_tushare_index_daily_by_code"):
+            if fragment in silver_asset_slice:
+                issues.append(
+                    "silver_index_daily asset active dependency must not contain "
+                    f"{fragment}"
+                )
+        if '"source_asset": "raw_index_daily"' not in silver_asset_slice:
+            issues.append("silver_index_daily metadata must name raw_index_daily source")
+        if "raw_index_daily_path" not in silver_coverage_slice:
+            issues.append("silver coverage check must compare against raw by-date path")
+        if "cn_a_index_ts_codes" in silver_coverage_slice:
+            issues.append("silver coverage check must not read current dynamic codes")
 
         self.assertEqual(issues, [])
 

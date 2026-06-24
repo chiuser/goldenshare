@@ -21,7 +21,7 @@ from orchestrator.defs.duckdb_sql import (
 )
 from orchestrator.defs.paths import (
     gold_market_major_indices_daily_path,
-    raw_index_daily_by_code_path,
+    raw_index_daily_path,
     silver_index_basic_path,
     silver_index_daily_path,
 )
@@ -565,18 +565,14 @@ def _silver_daily_metric_row(
     connection,
     *,
     silver_path: Path,
-    raw_paths: Sequence[Path],
+    raw_path: Path,
     trade_date: str,
 ) -> dict[str, int]:
-    raw_present_sql = (
-        f"""
+    raw_present_sql = f"""
         SELECT DISTINCT ts_code
-        FROM {_read_parquet_paths(raw_paths, union_by_name=True)}
+        FROM {read_parquet(raw_path, hive_partitioning=False)}
         WHERE CAST(trade_date AS VARCHAR) = {duckdb_string(trade_date.replace("-", ""))}
         """
-        if raw_paths
-        else "SELECT CAST(NULL AS VARCHAR) AS ts_code WHERE FALSE"
-    )
     row = connection.execute(
         f"""
         WITH silver AS (
@@ -664,17 +660,18 @@ def silver_index_daily_lake_readiness_for_trade_date(
             failed_check_names.append("silver_index_daily_required_columns_and_types")
 
         registered_codes = tuple(sorted(set(registered_index_codes)))
-        raw_paths_by_code = {
-            index_code: raw_index_daily_by_code_path(lake_root_path, index_code)
-            for index_code in registered_codes
-        }
-        existing_raw_paths = tuple(
-            path for path in raw_paths_by_code.values() if path.exists()
-        )
+        raw_path = raw_index_daily_path(lake_root_path, trade_date)
+        if not raw_path.exists():
+            return _missing_file_status(
+                trade_date=trade_date,
+                check_name="silver_index_daily_registered_code_coverage",
+                file_path=raw_path,
+                reason="missing_raw_index_daily_file",
+            )
         metrics = _silver_daily_metric_row(
             connection,
             silver_path=silver_path,
-            raw_paths=existing_raw_paths,
+            raw_path=raw_path,
             trade_date=trade_date,
         )
         if metrics["row_count"] <= 0:
@@ -699,9 +696,8 @@ def silver_index_daily_lake_readiness_for_trade_date(
 
         summary: dict[str, object] = {
             "file_path": str(silver_path),
+            "raw_file_path": str(raw_path),
             "registered_code_count": len(registered_codes),
-            "raw_file_count": len(existing_raw_paths),
-            "missing_raw_file_count": len(registered_codes) - len(existing_raw_paths),
             **metrics,
         }
         if (

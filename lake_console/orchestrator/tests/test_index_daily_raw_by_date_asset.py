@@ -6,9 +6,15 @@ import duckdb
 
 from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMNS,
+    INDEX_DAILY_SILVER_COLUMNS,
     _write_raw_index_daily_rows_from_prod_db_source,
+    materialize_silver_index_daily_partition_from_raw_by_date,
 )
-from orchestrator.defs.paths import raw_index_daily_path, raw_index_daily_staging_path
+from orchestrator.defs.paths import (
+    raw_index_daily_path,
+    raw_index_daily_staging_path,
+    silver_index_daily_path,
+)
 from orchestrator.defs.resources import DuckDBResource
 
 
@@ -131,6 +137,88 @@ class IndexDailyRawByDateAssetTests(unittest.TestCase):
                     index_codes=("000001.SH",),
                     partition_key="2026-06-22",
                     load_postgres_extension=False,
+                )
+
+    def test_materialize_silver_index_daily_reads_same_date_raw_by_date_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            self._write_source_parquet(
+                raw_index_daily_path(root, "2026-06-22"),
+                [
+                    ("000001.SH", "20260622", 1.0, 2.0, 0.5, 1.5, None, None, 1.2, 10.0, 20.0),
+                    ("399001.SZ", "20260622", None, 3.0, 1.0, 2.5, 2.0, 0.5, 2.0, 30.0, 40.0),
+                    ("399001.SZ", "20260622", None, 3.0, 1.0, 2.5, 2.0, 0.5, 2.0, 30.0, 40.0),
+                ],
+            )
+
+            result = materialize_silver_index_daily_partition_from_raw_by_date(
+                lake_root_path=root,
+                duckdb=DuckDBResource(),
+                partition_key="2026-06-22",
+            )
+
+            self.assertEqual(result.partition_key, "2026-06-22")
+            self.assertEqual(result.source_row_count, 3)
+            self.assertEqual(result.output_row_count, 2)
+            self.assertEqual(result.duplicate_removed_count, 1)
+            self.assertEqual(result.observed_columns, INDEX_DAILY_SILVER_COLUMNS)
+            silver_path = silver_index_daily_path(root, "2026-06-22")
+            with duckdb.connect(database=":memory:") as connection:
+                rows = connection.execute(
+                    f"""
+                    SELECT ts_code, CAST(trade_date AS VARCHAR), change_amount
+                    FROM read_parquet('{silver_path.as_posix()}', hive_partitioning=false)
+                    ORDER BY ts_code
+                    """
+                ).fetchall()
+            self.assertEqual(
+                rows,
+                [
+                    ("000001.SH", "2026-06-22", None),
+                    ("399001.SZ", "2026-06-22", 0.5),
+                ],
+            )
+
+    def test_materialize_silver_index_daily_fails_for_missing_raw_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            with self.assertRaisesRegex(FileNotFoundError, "raw_index_daily"):
+                materialize_silver_index_daily_partition_from_raw_by_date(
+                    lake_root_path=Path(temporary_dir),
+                    duckdb=DuckDBResource(),
+                    partition_key="2026-06-22",
+                )
+
+    def test_materialize_silver_index_daily_fails_for_conflicting_duplicate_key(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            self._write_source_parquet(
+                raw_index_daily_path(root, "2026-06-22"),
+                [
+                    ("000001.SH", "20260622", 1.0, 2.0, 0.5, 1.5, 1.0, 0.5, 1.2, 10.0, 20.0),
+                    ("000001.SH", "20260622", 1.1, 2.1, 0.6, 1.6, 1.0, 0.6, 1.3, 11.0, 21.0),
+                ],
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "conflicting duplicate"):
+                materialize_silver_index_daily_partition_from_raw_by_date(
+                    lake_root_path=root,
+                    duckdb=DuckDBResource(),
+                    partition_key="2026-06-22",
+                )
+
+    def test_materialize_silver_index_daily_fails_for_empty_target_date(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            self._write_source_parquet(
+                raw_index_daily_path(root, "2026-06-22"),
+                [("000001.SH", "20260621", 1.0, 2.0, 0.5, 1.5, 1.0, 0.5, 1.2, 10.0, 20.0)],
+            )
+
+            with self.assertRaisesRegex(RuntimeError, "contains no rows"):
+                materialize_silver_index_daily_partition_from_raw_by_date(
+                    lake_root_path=root,
+                    duckdb=DuckDBResource(),
+                    partition_key="2026-06-22",
                 )
 
     @staticmethod

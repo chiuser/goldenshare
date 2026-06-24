@@ -169,6 +169,32 @@ class IndexDailyRawWriteResult:
         }
 
 
+@dataclass(frozen=True)
+class SilverIndexDailyWriteResult:
+    partition_key: str
+    silver_file_path: Path
+    source_file_path: Path
+    source_row_count: int
+    output_row_count: int
+    observed_columns: tuple[str, ...]
+    duplicate_removed_count: int
+    duplicate_sample_rows: list[dict[str, Any]]
+
+    def materialization_metadata(self) -> dict[str, Any]:
+        return {
+            "partition_key": self.partition_key,
+            "file_path": str(self.silver_file_path),
+            "source_file_path": str(self.source_file_path),
+            "source_asset": "raw_index_daily",
+            "source_partition_set": cn_a_index_trade_days.name,
+            "source_row_count": self.source_row_count,
+            "output_row_count": self.output_row_count,
+            "output_columns": list(self.observed_columns),
+            "duplicate_removed_count": self.duplicate_removed_count,
+            "duplicate_sample_rows": self.duplicate_sample_rows,
+        }
+
+
 def write_raw_index_daily_partition_from_prod_db(
     *,
     lake_root_path: Path,
@@ -539,6 +565,28 @@ def _read_parquet_paths(paths: Sequence[Path], *, union_by_name: bool = False) -
     return f"read_parquet([{path_values}], hive_partitioning=false{union_clause})"
 
 
+def _index_daily_by_date_normalized_select(
+    raw_path: Path,
+    source_trade_date: str,
+) -> str:
+    return f"""
+SELECT
+  CAST(ts_code AS VARCHAR) AS ts_code,
+  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
+  CAST(open AS DOUBLE) AS open,
+  CAST(high AS DOUBLE) AS high,
+  CAST(low AS DOUBLE) AS low,
+  CAST(close AS DOUBLE) AS close,
+  CAST(pre_close AS DOUBLE) AS pre_close,
+  CAST(change AS DOUBLE) AS change_amount,
+  CAST(pct_chg AS DOUBLE) AS pct_chg,
+  CAST(vol AS DOUBLE) AS vol,
+  CAST(amount AS DOUBLE) AS amount
+FROM {read_parquet(raw_path, hive_partitioning=False)}
+WHERE CAST(trade_date AS VARCHAR) = {duckdb_string(source_trade_date)}
+"""
+
+
 def _index_daily_by_code_normalized_select(
     raw_paths: Sequence[Path],
     source_trade_date: str,
@@ -663,6 +711,123 @@ def _duplicate_sample_rows_from_normalized_sql(
         """
     ).fetchall()
     return _sample_dicts([*INDEX_DAILY_SILVER_COLUMNS, "duplicate_row_count"], rows)
+
+
+def materialize_silver_index_daily_partition_from_raw_by_date(
+    *,
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+    partition_key: str,
+    log: DgStdoutLogger | None = None,
+) -> SilverIndexDailyWriteResult:
+    normalized_partition_key = normalize_iso_trade_date(partition_key)
+    source_trade_date = normalized_partition_key.replace("-", "")
+    raw_path = raw_index_daily_path(lake_root_path, normalized_partition_key)
+    if not raw_path.exists():
+        raise FileNotFoundError(
+            "Missing raw_index_daily by-date file for silver_index_daily: "
+            f"{raw_path}"
+        )
+
+    target_path = silver_index_daily_path(lake_root_path, normalized_partition_key)
+    duckdb_resource = duckdb
+    with duckdb_resource.connect() as connection:
+        normalized_sql = _index_daily_by_date_normalized_select(
+            raw_path,
+            source_trade_date,
+        )
+        conflict_key_count = _conflict_key_count_from_normalized_sql(
+            connection,
+            normalized_sql,
+        )
+        if conflict_key_count:
+            raise RuntimeError(
+                "raw_index_daily has conflicting duplicate rows for "
+                f"{normalized_partition_key}: "
+                f"{_conflict_sample_keys_from_normalized_sql(connection, normalized_sql)}"
+            )
+
+        raw_row_count = int(
+            connection.execute(
+                f"SELECT count(*) FROM ({normalized_sql}) normalized"
+            ).fetchone()[0]
+        )
+        if raw_row_count <= 0:
+            raise RuntimeError(
+                "raw_index_daily contains no rows for silver_index_daily "
+                f"partition {normalized_partition_key}."
+            )
+        duplicate_removed_count = _duplicate_removed_count_from_normalized_sql(
+            connection,
+            normalized_sql,
+        )
+        duplicate_sample_rows = _duplicate_sample_rows_from_normalized_sql(
+            connection,
+            normalized_sql,
+        )
+        _replace_parquet_from_query(
+            connection,
+            f"""
+            SELECT DISTINCT *
+            FROM ({normalized_sql}) normalized
+            ORDER BY ts_code
+            """,
+            target_path,
+        )
+        columns = tuple(_column_names(connection, target_path))
+        row_count = _row_count(connection, target_path)
+
+    if log:
+        log.stdout(
+            "silver_partition_written",
+            partition_key=normalized_partition_key,
+            trade_date=source_trade_date,
+            rows=row_count,
+            raw_rows=raw_row_count,
+            path=target_path,
+        )
+
+    return SilverIndexDailyWriteResult(
+        partition_key=normalized_partition_key,
+        silver_file_path=target_path,
+        source_file_path=raw_path,
+        source_row_count=raw_row_count,
+        output_row_count=row_count,
+        observed_columns=columns,
+        duplicate_removed_count=duplicate_removed_count,
+        duplicate_sample_rows=duplicate_sample_rows,
+    )
+
+
+def materialize_silver_index_daily_partitions_from_raw_by_date(
+    *,
+    lake_root_path: Path,
+    duckdb: DuckDBResource,
+    partition_keys: Sequence[str],
+    log: DgStdoutLogger | None = None,
+) -> dict[str, dict[str, Any]]:
+    partition_metadata: dict[str, dict[str, Any]] = {}
+    for partition_key in tuple(sorted(set(partition_keys))):
+        write_result = materialize_silver_index_daily_partition_from_raw_by_date(
+            lake_root_path=lake_root_path,
+            duckdb=duckdb,
+            partition_key=partition_key,
+            log=log,
+        )
+        partition_metadata[write_result.partition_key] = (
+            write_result.materialization_metadata()
+        )
+
+    if log:
+        log.stdout(
+            "silver_partitions_completed",
+            partitions=len(partition_metadata),
+            total_rows=sum(
+                item["output_row_count"] for item in partition_metadata.values()
+            ),
+        )
+
+    return partition_metadata
 
 
 def materialize_silver_index_daily_partitions_from_raw_by_code(
@@ -892,10 +1057,7 @@ def raw_tushare_index_daily_by_code(
 @dg.asset(
     name="silver_index_daily",
     deps=[
-        dg.AssetDep(
-            raw_tushare_index_daily_by_code,
-            partition_mapping=dg.AllPartitionMapping(),
-        )
+        dg.AssetDep(raw_index_daily),
     ],
     partitions_def=cn_a_index_trade_days,
     group_name="index",
@@ -912,15 +1074,15 @@ def raw_tushare_index_daily_by_code(
             )
         ),
         extra_metadata={
-            "source_asset": "raw_tushare_index_daily_by_code",
-            "source_partition_set": cn_a_index_ts_codes.name,
+            "source_asset": "raw_index_daily",
+            "source_partition_set": cn_a_index_trade_days.name,
             "filter_policy": (
-                "silver_index_daily reads registered cn_a_index_ts_codes raw-by-code files "
-                "and filters rows by the current trade_date partition."
+                "silver_index_daily reads the same trade_date raw_index_daily "
+                "by-date file and preserves the raw file code set."
             ),
         },
     ),
-    description="指数日线标准表，从按指数代码分区的 raw 文件集合按交易日生成。",
+    description="指数日线标准表，从同交易日 raw_index_daily by-date 文件生成。",
 )
 def silver_index_daily(
     context: dg.AssetExecutionContext,
@@ -929,12 +1091,10 @@ def silver_index_daily(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_keys = _selected_partition_keys(context)
-    registered_index_codes = _registered_index_ts_codes(context)
-    partition_metadata = materialize_silver_index_daily_partitions_from_raw_by_code(
+    partition_metadata = materialize_silver_index_daily_partitions_from_raw_by_date(
         lake_root_path=lake_root.root(),
         duckdb=duckdb,
         partition_keys=partition_keys,
-        registered_index_codes=registered_index_codes,
         log=DgStdoutLogger("index_daily"),
     )
 
@@ -948,7 +1108,7 @@ def silver_index_daily(
             extra_metadata={
                 "partition_keys": list(partition_keys),
                 "partition_metadata": partition_metadata,
-                "source_code_count": len(registered_index_codes),
+                "source_asset": "raw_index_daily",
             },
         )
     )

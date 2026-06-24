@@ -12,7 +12,6 @@ from orchestrator.defs.assets.index_daily import (
     raw_tushare_index_daily_by_code,
     silver_index_daily,
 )
-from orchestrator.defs.assets.index_basic import silver_index_basic
 from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_RAW_COLUMNS,
     INDEX_DAILY_SILVER_COLUMNS,
@@ -94,23 +93,6 @@ def _read_parquet_paths(paths: Sequence[Path], *, union_by_name: bool = False) -
     path_values = ", ".join(duckdb_string(path) for path in paths)
     union_clause = ", union_by_name=true" if union_by_name else ""
     return f"read_parquet([{path_values}], hive_partitioning=false{union_clause})"
-
-
-def _raw_present_index_codes_sql(
-    *,
-    raw_paths: Sequence[Path],
-    registered_codes_sql: str,
-    partition_key: str,
-) -> str:
-    if not raw_paths:
-        return "SELECT CAST(NULL AS VARCHAR) AS ts_code WHERE FALSE"
-    return f"""
-    SELECT DISTINCT registered.ts_code
-    FROM {registered_codes_sql}
-    INNER JOIN {_read_parquet_paths(raw_paths, union_by_name=True)} raw_daily
-      ON registered.ts_code = CAST(raw_daily.ts_code AS VARCHAR)
-    WHERE CAST(raw_daily.trade_date AS VARCHAR) = {duckdb_string(partition_key.replace("-", ""))}
-    """
 
 
 def _required_columns_result(
@@ -890,45 +872,26 @@ def evaluate_silver_index_daily_registered_code_coverage(
     partition_keys: tuple[str, ...],
     lake_root_path: Path,
     duckdb: DuckDBResource,
-    registered_index_codes: Sequence[str],
 ) -> dg.AssetCheckResult:
-    if not registered_index_codes:
-        return _blocking_value_result(
-            False,
-            {
-                "registered_code_count": 0,
-                "missing_registered_codes": True,
-            },
-        )
-
-    registered_codes = tuple(sorted(set(registered_index_codes)))
-    registered_codes_sql = _values_table_sql(registered_codes, "ts_code")
-    raw_paths_by_code = {
-        index_code: raw_index_daily_by_code_path(lake_root_path, index_code)
-        for index_code in registered_codes
-    }
-    existing_raw_paths = tuple(
-        raw_path for raw_path in raw_paths_by_code.values() if raw_path.exists()
-    )
-    missing_raw_file_codes = tuple(
-        index_code
-        for index_code, raw_path in raw_paths_by_code.items()
-        if not raw_path.exists()
-    )
+    del duckdb
     coverage_results: dict[str, Any] = {}
     missing_paths = []
     with connect_configured_duckdb() as connection:
-        registered_code_count = len(registered_codes)
         for partition_key in partition_keys:
             silver_path = silver_index_daily_path(lake_root_path, partition_key)
+            raw_path = raw_index_daily_path(lake_root_path, partition_key)
+            if not raw_path.exists():
+                missing_paths.append(str(raw_path))
             if not silver_path.exists():
                 missing_paths.append(str(silver_path))
                 continue
-            raw_present_codes_sql = _raw_present_index_codes_sql(
-                raw_paths=existing_raw_paths,
-                registered_codes_sql=registered_codes_sql,
-                partition_key=partition_key,
-            )
+            if not raw_path.exists():
+                continue
+            raw_present_codes_sql = f"""
+            SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+            FROM {read_parquet(raw_path, hive_partitioning=False)}
+            WHERE CAST(trade_date AS VARCHAR) = {duckdb_string(partition_key.replace("-", ""))}
+            """
             missing_codes_sql = f"""
             SELECT raw_present.ts_code
             FROM ({raw_present_codes_sql}) raw_present
@@ -974,7 +937,7 @@ def evaluate_silver_index_daily_registered_code_coverage(
                 """
             ).fetchall()
             coverage_results[partition_key] = {
-                "registered_code_count": registered_code_count,
+                "raw_file_path": str(raw_path),
                 "raw_present_code_count": raw_present_count,
                 "silver_row_count": silver_row_count,
                 "missing_raw_present_count": missing_count,
@@ -1001,10 +964,6 @@ def evaluate_silver_index_daily_registered_code_coverage(
         passed,
         {
             "partition_keys": list(partition_keys),
-            "registered_code_count": len(registered_codes),
-            "raw_file_count": len(existing_raw_paths),
-            "missing_raw_file_count": len(missing_raw_file_codes),
-            "missing_raw_file_samples": list(missing_raw_file_codes[:20]),
             "coverage_results": coverage_results,
             "missing_file_paths": missing_paths,
         },
@@ -1186,7 +1145,7 @@ def silver_index_daily_price_sanity(
 
 @dg.asset_check(
     asset=silver_index_daily,
-    additional_deps=[silver_index_basic],
+    additional_deps=[raw_index_daily],
     blocking=True,
 )
 def silver_index_daily_registered_code_coverage(
@@ -1194,12 +1153,8 @@ def silver_index_daily_registered_code_coverage(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
 ) -> dg.AssetCheckResult:
-    registered_index_codes = tuple(
-        sorted(context.instance.get_dynamic_partitions(cn_a_index_ts_codes.name))
-    )
     return evaluate_silver_index_daily_registered_code_coverage(
         _selected_partition_keys(context),
         lake_root.root(),
         duckdb,
-        registered_index_codes,
     )

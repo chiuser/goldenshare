@@ -18,6 +18,13 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
 )
 from orchestrator.defs.partitions import cn_a_index_trade_days, cn_a_index_ts_codes
 from orchestrator.defs.paths import silver_trade_calendar_path
+from orchestrator.defs.prod_db.index_daily import (
+    ProdIndexDailySourceReadiness,
+    check_prod_index_daily_source_readiness,
+)
+from orchestrator.defs.run_contracts.configs import (
+    build_raw_index_daily_update_job_run_config,
+)
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
@@ -37,32 +44,21 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
 from orchestrator.defs.sensors.index_daily_raw_file_readiness import (
     raw_index_daily_lake_readiness_for_trade_dates,
 )
-from orchestrator.defs.sensors.readiness import (
-    AssetReadinessStatus,
-    CN_A_SENSOR_TIMEZONE,
-    select_first_not_ready_silver_index_daily_partition,
-)
+from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 
 MAX_RUN_REQUESTS_PER_TICK = 1
+SOURCE_MODE = "prod_core_db"
 
 
-def _asset_status_payload(status: AssetReadinessStatus | None) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
+def _recent_trade_dates(
+    trade_dates: tuple[str, ...],
+    *,
+    limit: int = DEFAULT_CONTINUITY_WINDOW_LIMIT,
+) -> tuple[str, ...]:
+    if limit <= 0:
+        raise ValueError("limit must be positive.")
+    return trade_dates[-limit:]
 
 
 def _load_expected_index_trade_day_window(
@@ -101,23 +97,6 @@ def _index_trade_day_registered_gap(
     return expected_window, gap_status
 
 
-def _recent_trade_dates(
-    trade_dates: tuple[str, ...],
-    *,
-    limit: int = DEFAULT_CONTINUITY_WINDOW_LIMIT,
-) -> tuple[str, ...]:
-    if limit <= 0:
-        raise ValueError("limit must be positive.")
-    return trade_dates[-limit:]
-
-
-def _first_not_ready_silver_trade_date(
-    instance: dg.DagsterInstance,
-    trade_dates: tuple[str, ...],
-) -> tuple[str | None, AssetReadinessStatus | None]:
-    return select_first_not_ready_silver_index_daily_partition(instance, trade_dates)
-
-
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -127,10 +106,10 @@ def _cursor_payload(
     registered_code_count: int,
     reason: str,
     reason_code: str,
-    continuity_details: dict[str, object] | None = None,
+    continuity_status: dict[str, object] | None = None,
     raw_status: ContinuityDateReadiness | None = None,
     raw_batch_status: ContinuityBatchReadiness | None = None,
-    silver_status: AssetReadinessStatus | None = None,
+    source_status: ProdIndexDailySourceReadiness | None = None,
 ) -> str:
     selected_count = 1 if selected_trade_date else 0
     details: dict[str, Any] = {
@@ -138,13 +117,22 @@ def _cursor_payload(
         "registered_trade_day_count": registered_trade_day_count,
         "registered_code_count": registered_code_count,
         "reason_code": reason_code,
+        "source_mode": SOURCE_MODE,
         "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-        "continuity_status": continuity_details,
+        "continuity_status": continuity_status,
         "raw_status": raw_status.to_cursor_details() if raw_status else None,
         "raw_batch_status": (
             raw_batch_status.to_cursor_details() if raw_batch_status else None
         ),
-        "silver_status": _asset_status_payload(silver_status),
+        "source_status": source_status.to_metadata() if source_status else None,
+        "performance_ms": {
+            "raw_batch_elapsed_ms": raw_batch_status.elapsed_ms
+            if raw_batch_status
+            else None,
+            "source_probe_elapsed_ms": source_status.elapsed_ms
+            if source_status
+            else None,
+        },
     }
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -161,28 +149,28 @@ def _cursor_payload(
     )
 
 
-def _registered_gap_skip_reason(
-    gap_status: ContinuityRegisteredGapStatus,
-) -> str:
+def _registered_gap_skip_reason(gap_status: ContinuityRegisteredGapStatus) -> str:
     return (
         "指数交易日分区存在缺口，最早缺失日期为 "
-        f"{gap_status.first_missing_registered_date}，暂不触发指数日线 silver 更新。"
+        f"{gap_status.first_missing_registered_date}，暂不触发指数日线 raw by-date 更新。"
     )
 
 
 @dg.sensor(
-    job_name="silver_index_daily_update_job",
+    job_name="raw_index_daily_update_job",
     default_status=dg.DefaultSensorStatus.STOPPED,
     minimum_interval_seconds=600,
     tags=build_sensor_tags(
         sensor_domain=SensorDomain.INDEX_TOPIC,
-        target_layer=SensorTargetLayer.SILVER,
+        target_layer=SensorTargetLayer.RAW,
         role=SensorRole.ASSET_UPDATE,
     ),
-    required_resource_keys={"lake_root", "duckdb"},
-    description="指数日线 raw_index_daily by-date ready 后，触发 silver 分区生成任务。",
+    required_resource_keys={"lake_root", "duckdb", "prod_postgres"},
+    description="prod core DB 指数日线 ready 后，触发 raw_index_daily by-date 更新任务。",
 )
-def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorResult:
+def raw_index_daily_update_job_sensor(
+    context: dg.SensorEvaluationContext,
+) -> dg.SensorResult:
     evaluated_at = datetime.now(CN_A_SENSOR_TIMEZONE)
     registered_trade_days = tuple(
         sorted(context.instance.get_dynamic_partitions(cn_a_index_trade_days.name))
@@ -195,7 +183,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         evaluated_at=evaluated_at,
         registered_trade_days=registered_trade_days,
     )
-    empty_continuity_details = build_continuity_cursor_details(
+    empty_continuity_status = build_continuity_cursor_details(
         expected_window=expected_window,
         gap_status=gap_status,
         batch_readiness=None,
@@ -213,12 +201,12 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 registered_code_count=len(registered_index_codes),
                 reason=reason,
                 reason_code="missing_registered_partition",
-                continuity_details=empty_continuity_details,
+                continuity_status=empty_continuity_status,
             ),
         )
 
     if not registered_trade_days:
-        reason = "没有注册指数交易日分区，无法触发指数日线 silver 生成。"
+        reason = "没有注册指数交易日分区，无法触发指数日线 raw by-date 更新。"
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_cursor_payload(
@@ -229,11 +217,11 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 registered_code_count=len(registered_index_codes),
                 reason=reason,
                 reason_code="no_registered_trade_day",
-                continuity_details=empty_continuity_details,
+                continuity_status=empty_continuity_status,
             ),
         )
     if not registered_index_codes:
-        reason = "没有注册指数代码分区，无法触发指数日线 silver 生成。"
+        reason = "没有注册指数代码分区，无法触发指数日线 raw by-date 更新。"
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_cursor_payload(
@@ -244,7 +232,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 registered_code_count=0,
                 reason=reason,
                 reason_code="no_registered_index_code",
-                continuity_details=empty_continuity_details,
+                continuity_status=empty_continuity_status,
             ),
         )
 
@@ -261,7 +249,7 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 registered_code_count=len(registered_index_codes),
                 reason=reason,
                 reason_code="no_expected_trade_date",
-                continuity_details=empty_continuity_details,
+                continuity_status=empty_continuity_status,
             ),
         )
 
@@ -274,80 +262,49 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
             trade_dates=eligible_trade_dates,
             expected_index_codes=registered_index_codes,
         )
-    raw_selection = select_first_not_ready_trade_date(
+    selection = select_first_not_ready_trade_date(
         expected_trade_dates=eligible_trade_dates,
         readiness=raw_batch_status,
     )
-    continuity_details = build_continuity_cursor_details(
+    continuity_status = build_continuity_cursor_details(
         expected_window=expected_window,
         gap_status=gap_status,
         batch_readiness=raw_batch_status,
-        selection=raw_selection,
+        selection=selection,
     )
-    raw_status = raw_selection.selected_status
-    if raw_selection.selected_trade_date is not None:
-        reason = "指数日线 silver 等待 raw_index_daily by-date readiness。"
+    target_trade_date = selection.first_not_ready_trade_date
+    raw_status = selection.selected_status
+
+    if selection.selected_trade_date is None:
+        if selection.blocked_reason == "materialized_check_failed":
+            reason = (
+                "目标 raw_index_daily 已生成过但 by-date blocking checks 未全绿，"
+                "暂不自动覆盖，请人工处理。"
+            )
+        else:
+            reason = "最近 10 个 expected index dates 的 raw_index_daily 都已经 ready。"
         return dg.SensorResult(
             skip_reason=reason,
             cursor=_cursor_payload(
                 evaluated_at=evaluated_at,
-                target_trade_date=raw_selection.selected_trade_date,
+                target_trade_date=target_trade_date,
                 selected_trade_date=None,
                 registered_trade_day_count=len(registered_trade_days),
                 registered_code_count=len(registered_index_codes),
                 reason=reason,
-                reason_code=raw_status.reason if raw_status else "raw_not_ready",
-                continuity_details=continuity_details,
-                raw_status=raw_status,
-                raw_batch_status=raw_batch_status,
-            ),
-        )
-    if raw_selection.blocked_reason == "materialized_check_failed":
-        reason = (
-            "目标 raw_index_daily 已生成过但 by-date blocking checks 未全绿，"
-            "暂不生成 silver。"
-        )
-        return dg.SensorResult(
-            skip_reason=reason,
-            cursor=_cursor_payload(
-                evaluated_at=evaluated_at,
-                target_trade_date=raw_selection.first_not_ready_trade_date,
-                selected_trade_date=None,
-                registered_trade_day_count=len(registered_trade_days),
-                registered_code_count=len(registered_index_codes),
-                reason=reason,
-                reason_code="raw_materialized_check_failed",
-                continuity_details=continuity_details,
+                reason_code=selection.blocked_reason or "all_ready",
+                continuity_status=continuity_status,
                 raw_status=raw_status,
                 raw_batch_status=raw_batch_status,
             ),
         )
 
-    target_trade_date, silver_status = _first_not_ready_silver_trade_date(
-        context.instance,
-        eligible_trade_dates,
-    )
-    if target_trade_date is None or silver_status is None:
-        reason = "最近 10 个 expected index dates 的 silver_index_daily 分区都已经 ready。"
-        return dg.SensorResult(
-            skip_reason=reason,
-            cursor=_cursor_payload(
-                evaluated_at=evaluated_at,
-                target_trade_date=None,
-                selected_trade_date=None,
-                registered_trade_day_count=len(registered_trade_days),
-                registered_code_count=len(registered_index_codes),
-                reason=reason,
-                reason_code="all_ready",
-                continuity_details=continuity_details,
-                raw_batch_status=raw_batch_status,
-            ),
-        )
-
-    if silver_status.materialized:
+    target_trade_date = selection.selected_trade_date
+    assert target_trade_date is not None
+    if selection.ready_through_trade_date is None:
         reason = (
-            "目标指数交易日的 silver_index_daily 已生成但 blocking checks 未全绿，"
-            "暂不自动重跑，请先人工处理失败检查。"
+            "最近窗口缺少 raw_index_daily 已就绪基线，无法安全推断日更起点；"
+            "请先完成 P3/P4 baseline 或人工确认。"
         )
         return dg.SensorResult(
             skip_reason=reason,
@@ -358,33 +315,63 @@ def silver_index_daily_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 registered_trade_day_count=len(registered_trade_days),
                 registered_code_count=len(registered_index_codes),
                 reason=reason,
-                reason_code=silver_status.reason,
-                continuity_details=continuity_details,
+                reason_code="missing_ready_baseline",
+                continuity_status=continuity_status,
+                raw_status=raw_status,
                 raw_batch_status=raw_batch_status,
-                silver_status=silver_status,
             ),
         )
 
+    source_status = check_prod_index_daily_source_readiness(
+        duckdb=context.resources.duckdb,
+        prod_postgres=context.resources.prod_postgres,
+        trade_date=target_trade_date,
+        index_codes=registered_index_codes,
+    )
+    if not source_status.ready:
+        reason = "prod core DB 指数日线 source readiness 未满足，暂不提交 raw 更新。"
+        return dg.SensorResult(
+            skip_reason=reason,
+            cursor=_cursor_payload(
+                evaluated_at=evaluated_at,
+                target_trade_date=target_trade_date,
+                selected_trade_date=None,
+                registered_trade_day_count=len(registered_trade_days),
+                registered_code_count=len(registered_index_codes),
+                reason=reason,
+                reason_code=source_status.reason,
+                continuity_status=continuity_status,
+                raw_status=raw_status,
+                raw_batch_status=raw_batch_status,
+                source_status=source_status,
+            ),
+        )
+
+    run_request = build_run_request(
+        run_key=build_asset_update_run_key(
+            subject="raw_index_daily",
+            unit_id=target_trade_date,
+        ),
+        partition_key=target_trade_date,
+        run_config=build_raw_index_daily_update_job_run_config(
+            partition_key=target_trade_date,
+            write_mode="replace",
+        ),
+    )
+    reason = "prod core DB 指数日线 source ready，提交 raw_index_daily by-date 更新。"
     return dg.SensorResult(
-        run_requests=[
-            build_run_request(
-                partition_key=target_trade_date,
-                run_key=build_asset_update_run_key(
-                    subject="silver_index_daily",
-                    unit_id=target_trade_date,
-                ),
-            )
-        ],
+        run_requests=[run_request],
         cursor=_cursor_payload(
             evaluated_at=evaluated_at,
             target_trade_date=target_trade_date,
             selected_trade_date=target_trade_date,
             registered_trade_day_count=len(registered_trade_days),
             registered_code_count=len(registered_index_codes),
-            reason="raw_index_daily by-date ready，提交 silver_index_daily 生成。",
+            reason=reason,
             reason_code="request_run",
-            continuity_details=continuity_details,
+            continuity_status=continuity_status,
+            raw_status=raw_status,
             raw_batch_status=raw_batch_status,
-            silver_status=silver_status,
+            source_status=source_status,
         ),
     )

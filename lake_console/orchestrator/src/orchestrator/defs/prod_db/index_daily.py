@@ -2,8 +2,11 @@
 
 import hashlib
 from collections.abc import Sequence
+from dataclasses import dataclass
+from time import perf_counter
 
 from orchestrator.defs.duckdb_sql import duckdb_string
+from orchestrator.defs.resources import DuckDBResource, ProdPostgresResource
 from orchestrator.defs.run_contracts.configs import normalize_iso_trade_date
 
 
@@ -43,6 +46,78 @@ WHERE trade_date = DATE {trade_date}
   AND ts_code = ANY(ARRAY[{index_codes}]::text[])
 ORDER BY ts_code
 """
+
+
+@dataclass(frozen=True)
+class ProdIndexDailySourceReadiness:
+    trade_date: str
+    expected_code_count: int
+    expected_code_set_hash: str | None
+    returned_code_count: int
+    source_row_count: int
+    missing_code_count: int
+    extra_code_count: int
+    duplicate_key_count: int
+    null_key_count: int
+    date_mismatch_count: int
+    missing_code_samples: tuple[str, ...] = ()
+    extra_code_samples: tuple[str, ...] = ()
+    elapsed_ms: int = 0
+    scan_error_code: str | None = None
+    scan_error: str | None = None
+
+    @property
+    def ready(self) -> bool:
+        return (
+            self.scan_error is None
+            and self.expected_code_count > 0
+            and self.source_row_count > 0
+            and self.returned_code_count == self.expected_code_count
+            and self.missing_code_count == 0
+            and self.extra_code_count == 0
+            and self.duplicate_key_count == 0
+            and self.null_key_count == 0
+            and self.date_mismatch_count == 0
+        )
+
+    @property
+    def reason(self) -> str:
+        if self.ready:
+            return "ready"
+        if self.scan_error:
+            return "scan_error"
+        if self.source_row_count <= 0:
+            return "source_empty"
+        if self.null_key_count:
+            return "null_key"
+        if self.date_mismatch_count:
+            return "date_mismatch"
+        if self.duplicate_key_count:
+            return "duplicate_key"
+        if self.missing_code_count or self.extra_code_count:
+            return "code_coverage"
+        return "not_ready"
+
+    def to_metadata(self) -> dict[str, object]:
+        return {
+            "trade_date": self.trade_date,
+            "ready": self.ready,
+            "reason": self.reason,
+            "expected_code_count": self.expected_code_count,
+            "expected_code_set_hash": self.expected_code_set_hash,
+            "returned_code_count": self.returned_code_count,
+            "source_row_count": self.source_row_count,
+            "missing_code_count": self.missing_code_count,
+            "extra_code_count": self.extra_code_count,
+            "duplicate_key_count": self.duplicate_key_count,
+            "null_key_count": self.null_key_count,
+            "date_mismatch_count": self.date_mismatch_count,
+            "missing_code_samples": list(self.missing_code_samples),
+            "extra_code_samples": list(self.extra_code_samples),
+            "elapsed_ms": self.elapsed_ms,
+            "scan_error_code": self.scan_error_code,
+            "scan_error": self.scan_error,
+        }
 
 
 def normalize_index_codes(index_codes: Sequence[str]) -> tuple[str, ...]:
@@ -189,3 +264,277 @@ def validate_prod_index_daily_duckdb_attach_options_contract() -> None:
         raise RuntimeError(
             "Prod index_daily DuckDB attach options must force READ_ONLY."
         )
+
+
+def load_duckdb_postgres_extension_for_index_daily(connection) -> None:
+    try:
+        connection.execute("LOAD postgres")
+        return
+    except Exception:  # noqa: BLE001 - retry with INSTALL for local envs.
+        try:
+            connection.execute("INSTALL postgres")
+            connection.execute("LOAD postgres")
+            return
+        except Exception as install_error:  # noqa: BLE001
+            raise RuntimeError(
+                "DuckDB postgres extension is required for prod DB index_daily "
+                "readiness/extraction."
+            ) from install_error
+
+
+def attach_prod_index_daily_postgres_database(
+    connection,
+    *,
+    postgres_connection_string: str,
+) -> None:
+    attach_sql = (
+        "ATTACH "
+        + duckdb_string(postgres_connection_string)
+        + (
+            f" AS {PROD_INDEX_DAILY_DUCKDB_ATTACHED_DATABASE} "
+            f"({PROD_INDEX_DAILY_DUCKDB_ATTACH_OPTIONS})"
+        )
+    )
+    try:
+        connection.execute(attach_sql)
+    except Exception:  # noqa: BLE001 - avoid leaking conninfo through DuckDB errors.
+        raise RuntimeError(
+            "DuckDB failed to attach prod Postgres for index_daily readiness. "
+            "Connection details are omitted."
+        ) from None
+
+
+def check_prod_index_daily_source_readiness(
+    *,
+    duckdb: DuckDBResource,
+    prod_postgres: ProdPostgresResource,
+    trade_date: str,
+    index_codes: Sequence[str],
+    sample_limit: int = 10,
+) -> ProdIndexDailySourceReadiness:
+    started_at = perf_counter()
+    normalized_trade_date = normalize_iso_trade_date(trade_date)
+    try:
+        normalized_codes = normalize_index_codes(index_codes)
+        validate_prod_index_daily_select_contract()
+        validate_prod_index_daily_duckdb_source_contract()
+        validate_prod_index_daily_duckdb_attach_options_contract()
+        source_sql = build_prod_index_daily_duckdb_source_sql(
+            trade_date=normalized_trade_date,
+            index_codes=normalized_codes,
+        )
+        return check_prod_index_daily_source_readiness_from_duckdb_source(
+            duckdb=duckdb,
+            postgres_connection_string=prod_postgres.duckdb_connection_string(),
+            source_sql=source_sql,
+            trade_date=normalized_trade_date,
+            index_codes=normalized_codes,
+            sample_limit=sample_limit,
+            load_postgres_extension=True,
+            started_at=started_at,
+        )
+    except Exception as error:  # noqa: BLE001 - sensor source probe must fail closed.
+        return ProdIndexDailySourceReadiness(
+            trade_date=normalized_trade_date,
+            expected_code_count=0,
+            expected_code_set_hash=None,
+            returned_code_count=0,
+            source_row_count=0,
+            missing_code_count=0,
+            extra_code_count=0,
+            duplicate_key_count=0,
+            null_key_count=0,
+            date_mismatch_count=0,
+            elapsed_ms=_elapsed_ms(started_at),
+            scan_error_code=type(error).__name__,
+            scan_error=str(error),
+        )
+
+
+def check_prod_index_daily_source_readiness_from_duckdb_source(
+    *,
+    duckdb: DuckDBResource,
+    source_sql: str,
+    trade_date: str,
+    index_codes: Sequence[str],
+    postgres_connection_string: str | None = None,
+    sample_limit: int = 10,
+    load_postgres_extension: bool = False,
+    started_at: float | None = None,
+) -> ProdIndexDailySourceReadiness:
+    started_at = perf_counter() if started_at is None else started_at
+    normalized_trade_date = normalize_iso_trade_date(trade_date)
+    expected_codes = normalize_index_codes(index_codes)
+    expected_codes_sql = _index_daily_expected_codes_sql(expected_codes)
+    source_trade_date = normalized_trade_date.replace("-", "")
+    sample_limit = max(1, int(sample_limit))
+    duckdb_resource = duckdb
+    try:
+        with duckdb_resource.connect() as connection:
+            if load_postgres_extension:
+                load_duckdb_postgres_extension_for_index_daily(connection)
+                if postgres_connection_string is None:
+                    raise RuntimeError(
+                        "Prod DB index_daily readiness requires a Postgres connection string."
+                    )
+                attach_prod_index_daily_postgres_database(
+                    connection,
+                    postgres_connection_string=postgres_connection_string,
+                )
+            connection.execute(
+                "CREATE TEMP TABLE prod_index_daily_source_probe AS "
+                f"SELECT {', '.join(PROD_INDEX_DAILY_SOURCE_COLUMNS)} "
+                f"FROM ({source_sql}) AS source_rows"
+            )
+            source_row_count = int(
+                connection.execute(
+                    "SELECT count(*) FROM prod_index_daily_source_probe"
+                ).fetchone()[0]
+            )
+            null_key_count = int(
+                connection.execute(
+                    """
+                    SELECT count(*)
+                    FROM prod_index_daily_source_probe
+                    WHERE ts_code IS NULL
+                       OR trim(CAST(ts_code AS VARCHAR)) = ''
+                       OR trade_date IS NULL
+                       OR trim(CAST(trade_date AS VARCHAR)) = ''
+                    """
+                ).fetchone()[0]
+            )
+            date_mismatch_count = int(
+                connection.execute(
+                    f"""
+                    SELECT count(*)
+                    FROM prod_index_daily_source_probe
+                    WHERE CAST(trade_date AS VARCHAR) != {duckdb_string(source_trade_date)}
+                    """
+                ).fetchone()[0]
+            )
+            duplicate_key_count = int(
+                connection.execute(
+                    """
+                    SELECT count(*)
+                    FROM (
+                      SELECT ts_code, trade_date
+                      FROM prod_index_daily_source_probe
+                      GROUP BY ts_code, trade_date
+                      HAVING count(*) > 1
+                    ) duplicate_keys
+                    """
+                ).fetchone()[0]
+            )
+            observed_codes_sql = """
+                SELECT DISTINCT CAST(ts_code AS VARCHAR) AS ts_code
+                FROM prod_index_daily_source_probe
+            """
+            coverage_row = connection.execute(
+                f"""
+                WITH expected AS (
+                  SELECT ts_code FROM {expected_codes_sql}
+                ),
+                observed AS (
+                  {observed_codes_sql}
+                )
+                SELECT
+                  (SELECT count(*) FROM observed) AS returned_code_count,
+                  (
+                    SELECT count(*)
+                    FROM expected
+                    LEFT JOIN observed USING (ts_code)
+                    WHERE observed.ts_code IS NULL
+                  ) AS missing_code_count,
+                  (
+                    SELECT count(*)
+                    FROM observed
+                    LEFT JOIN expected USING (ts_code)
+                    WHERE expected.ts_code IS NULL
+                  ) AS extra_code_count
+                """
+            ).fetchone()
+            missing_samples = _index_daily_code_diff_samples(
+                connection,
+                expected_code_set_sql=expected_codes_sql,
+                observed_codes_sql=observed_codes_sql,
+                direction="missing",
+                sample_limit=sample_limit,
+            )
+            extra_samples = _index_daily_code_diff_samples(
+                connection,
+                expected_code_set_sql=expected_codes_sql,
+                observed_codes_sql=observed_codes_sql,
+                direction="extra",
+                sample_limit=sample_limit,
+            )
+        return ProdIndexDailySourceReadiness(
+            trade_date=normalized_trade_date,
+            expected_code_count=len(expected_codes),
+            expected_code_set_hash=index_code_set_hash(expected_codes),
+            returned_code_count=int(coverage_row[0]),
+            source_row_count=source_row_count,
+            missing_code_count=int(coverage_row[1]),
+            extra_code_count=int(coverage_row[2]),
+            duplicate_key_count=duplicate_key_count,
+            null_key_count=null_key_count,
+            date_mismatch_count=date_mismatch_count,
+            missing_code_samples=tuple(missing_samples),
+            extra_code_samples=tuple(extra_samples),
+            elapsed_ms=_elapsed_ms(started_at),
+        )
+    except Exception as error:  # noqa: BLE001 - sensor source probe must fail closed.
+        return ProdIndexDailySourceReadiness(
+            trade_date=normalized_trade_date,
+            expected_code_count=len(expected_codes),
+            expected_code_set_hash=index_code_set_hash(expected_codes),
+            returned_code_count=0,
+            source_row_count=0,
+            missing_code_count=0,
+            extra_code_count=0,
+            duplicate_key_count=0,
+            null_key_count=0,
+            date_mismatch_count=0,
+            elapsed_ms=_elapsed_ms(started_at),
+            scan_error_code=type(error).__name__,
+            scan_error=str(error),
+        )
+
+
+def _elapsed_ms(started_at: float) -> int:
+    return int((perf_counter() - started_at) * 1000)
+
+
+def _index_daily_expected_codes_sql(index_codes: Sequence[str]) -> str:
+    rows = ", ".join(f"({duckdb_string(index_code)})" for index_code in index_codes)
+    return f"(VALUES {rows}) AS expected(ts_code)"
+
+
+def _index_daily_code_diff_samples(
+    connection,
+    *,
+    expected_code_set_sql: str,
+    observed_codes_sql: str,
+    direction: str,
+    sample_limit: int,
+) -> list[str]:
+    if direction == "missing":
+        sql = f"""
+        SELECT expected.ts_code
+        FROM {expected_code_set_sql}
+        LEFT JOIN ({observed_codes_sql}) observed USING (ts_code)
+        WHERE observed.ts_code IS NULL
+        ORDER BY expected.ts_code
+        LIMIT {int(sample_limit)}
+        """
+    elif direction == "extra":
+        sql = f"""
+        SELECT observed.ts_code
+        FROM ({observed_codes_sql}) observed
+        LEFT JOIN (SELECT ts_code FROM {expected_code_set_sql}) expected USING (ts_code)
+        WHERE expected.ts_code IS NULL
+        ORDER BY observed.ts_code
+        LIMIT {int(sample_limit)}
+        """
+    else:
+        raise ValueError("direction must be missing or extra.")
+    return [str(row[0]) for row in connection.execute(sql).fetchall()]

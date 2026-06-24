@@ -14,7 +14,7 @@ from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
     gold_market_major_indices_daily_path,
-    raw_index_daily_by_code_path,
+    raw_index_daily_path,
     silver_index_basic_path,
     silver_index_daily_path,
 )
@@ -123,18 +123,38 @@ def _copy_silver_daily_and_raw(
     trade_date: str,
 ) -> None:
     seed_rows = active_major_indices_seed_rows(trade_date)
-    for row in seed_rows:
-        raw_path = raw_index_daily_by_code_path(root, row.ts_code)
-        raw_path.parent.mkdir(parents=True, exist_ok=True)
-        connection.execute(
-            f"""
-            COPY (
-              SELECT
-                {duckdb_string(row.ts_code)}::VARCHAR AS ts_code,
-                {duckdb_string(trade_date.replace("-", ""))}::VARCHAR AS trade_date
-            ) TO {duckdb_string(raw_path)} (FORMAT PARQUET)
-            """
-        )
+    raw_path = raw_index_daily_path(root, trade_date)
+    raw_path.parent.mkdir(parents=True, exist_ok=True)
+    raw_values = ", ".join(
+        "("
+        f"{duckdb_string(row.ts_code)}, "
+        f"{duckdb_string(trade_date.replace('-', ''))}, "
+        "10.0, 12.0, 9.0, 11.0, 10.0, 1.0, 0.1, 100.0, 1000.0"
+        ")"
+        for row in seed_rows
+    )
+    connection.execute(
+        f"""
+        COPY (
+          SELECT
+            CAST(ts_code AS VARCHAR) AS ts_code,
+            CAST(trade_date AS VARCHAR) AS trade_date,
+            CAST(open AS DOUBLE) AS open,
+            CAST(high AS DOUBLE) AS high,
+            CAST(low AS DOUBLE) AS low,
+            CAST(close AS DOUBLE) AS close,
+            CAST(pre_close AS DOUBLE) AS pre_close,
+            CAST(change AS DOUBLE) AS change,
+            CAST(pct_chg AS DOUBLE) AS pct_chg,
+            CAST(vol AS DOUBLE) AS vol,
+            CAST(amount AS DOUBLE) AS amount
+          FROM (VALUES {raw_values}) AS t(
+            ts_code, trade_date, open, high, low, close, pre_close,
+            change, pct_chg, vol, amount
+          )
+        ) TO {duckdb_string(raw_path)} (FORMAT PARQUET)
+        """
+    )
     silver_path = silver_index_daily_path(root, trade_date)
     silver_path.parent.mkdir(parents=True, exist_ok=True)
     values = ", ".join(
@@ -256,6 +276,29 @@ class MarketMajorIndicesLakeReadinessTests(unittest.TestCase):
 
             self.assertTrue(status.ready)
             self.assertTrue(status.checks_passed)
+
+    def test_silver_index_daily_missing_raw_by_date_is_not_ready(self) -> None:
+        with TemporaryDirectory() as directory:
+            root = Path(directory)
+            trade_date = "2026-06-15"
+            with connect_configured_duckdb() as connection:
+                _copy_silver_daily_and_raw(connection, root, trade_date)
+                raw_index_daily_path(root, trade_date).unlink()
+                status = silver_index_daily_lake_readiness_for_trade_date(
+                    connection=connection,
+                    lake_root_path=root,
+                    trade_date=trade_date,
+                    registered_index_codes=tuple(
+                        row.ts_code for row in active_major_indices_seed_rows(trade_date)
+                    ),
+                )
+
+            self.assertFalse(status.ready)
+            self.assertFalse(status.materialized)
+            self.assertIn(
+                "silver_index_daily_registered_code_coverage",
+                status.missing_check_names,
+            )
 
     def test_silver_index_basic_uses_selected_target_date_for_terminated_indexes(
         self,

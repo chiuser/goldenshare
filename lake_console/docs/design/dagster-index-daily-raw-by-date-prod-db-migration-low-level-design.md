@@ -1,11 +1,12 @@
 # Index Daily Raw By-Date Prod DB Migration Low-Level Design
 
-状态：P-1、P0、P1/P2、P3、P4 已完成；P5 及以后未执行。
+状态：P-1、P0、P1/P2、P3、P4 已完成；P5/P6 代码实现已完成，正式 sensor 启用、`dg check defs` 和 P7 清理由后续单独审批。
 
 最新代码落点：
 
 - P1/P2：`c38e0eea feat: add index daily raw by-date asset`
 - P4：`63ce2a75 feat: add index daily p4 runless events`
+- P5/P6：本轮切换 `silver_index_daily`、raw/silver sensors 和 major indices readiness 到 by-date 基线，待提交。
 
 ## 1. 目标
 
@@ -24,7 +25,7 @@
 - P4 只补最近 20 个交易日的 `raw_index_daily` materialization/check 状态，作为日更启动和最近窗口 UI 观测基线；不做全历史 runless event 补录。
 - 性能是硬门禁：sensor 热路径不得逐 code 提交 run，不得逐日深扫 Dagster event/check history。
 
-本 LLD 同时记录设计口径和阶段落地事实。P1/P2 已完成基础契约、prod-core-db adapter、`raw_index_daily` asset、两个聚合 checks、新 job、catalog 和测试；P3 已完成 by-code 到 by-date 的 lake 文件生成；P4 已完成最近 20 个交易日 runless event 补录；P5 及以后仍未执行。
+本 LLD 同时记录设计口径和阶段落地事实。P1/P2 已完成基础契约、prod-core-db adapter、`raw_index_daily` asset、两个聚合 checks、新 job、catalog 和测试；P3 已完成 by-code 到 by-date 的 lake 文件生成；P4 已完成最近 20 个交易日 runless event 补录；P5/P6 已完成代码实现和本地单元/静态门禁验证，但尚未启用正式 sensor，也未运行 `dg check defs`。
 
 2026-06-23 P3 执行结果：
 
@@ -1624,21 +1625,26 @@ P2 后仍未做：
 
 ### P5：silver 与 major indices 切换
 
-目标：
+状态：代码实现已完成，未写 lake/prod DB/Dagster event，未启用 sensor。
 
-- `silver_index_daily` 改依赖 `raw_index_daily`。
-- silver materializer 改读 by-date raw。
-- major indices readiness 改读新 facts。
+已落地点：
+
+- `silver_index_daily` 依赖已改为同分区 `raw_index_daily`，不再使用 `AllPartitionMapping()` 读取旧 by-code raw。
+- 新增 same-date by-date silver writer：只读 `raw/index_daily/trade_date=<YYYY-MM-DD>/part-000.parquet`，输出既有 silver schema，并执行 `change -> change_amount` 转换。
+- `silver_index_daily_registered_code_coverage` 已改为对齐同日 raw by-date 文件 code set，不再读取当前 dynamic partitions 或 by-code 文件推导历史覆盖。
+- `asset_guards/market_major_indices_lake_readiness.py` 已改为读取同日 raw by-date + silver facts，不再导入 `raw_index_daily_by_code_path(...)`。
 
 ### P6：raw/silver sensors 切换
 
-目标：
+状态：代码实现已完成，所有新 sensor 默认 STOPPED；未启动 sensor，未运行 job/materialize/backfill。
 
-- 新 raw date-level sensor。
-- silver sensor 去 by-code readiness。
-- 删除 by-code late-arrival selector。
-- 新 raw sensor 保持 STOPPED，直到 P3 final audit、P4 最近窗口 event audit、P5/P6 只读 readiness 样本和 `dg check defs` 验收通过。
-- 验证 by-date baseline 存在后，first target 由最新 ready trade date 后的 expected trade date 计算，不使用固定日期。
+- 已新增 `raw_index_daily_update_job_sensor`，目标 `raw_index_daily_update_job`，默认 STOPPED，每 tick 最多提交 1 个 date-level run，run key 为统一 builder 生成的 `raw_index_daily:<trade_date>`。
+- 新 raw sensor 先做交易日注册缺口、最近 10 个 by-date raw readiness 和最新 ready baseline 检查；没有 ready baseline 时 fail closed，不从固定日期或当前日期猜起点。
+- 新增 prod-core-db source readiness probe，只对选中的目标日期和运行时 DG code set 做一次只读检查；缺 DG code、重复 key、空 key、日期不匹配或异常时 skip，不提交 run。
+- `silver_index_daily_sensor` 已改为先检查同日 `raw_index_daily` readiness，再选择 silver not-ready 分区；不再调用 `audit_index_daily_raw_gaps(...)` 或 by-code 文件 readiness。
+- `sensors/readiness.py` 已新增 `RAW_INDEX_DAILY_ASSET_KEY/CHECKS/READINESS_SPEC` 和 `raw_index_daily_ready_for_trade_date(...)`。
+- `sensors/index_daily_raw_file_readiness.py` 已新增 `raw_index_daily_lake_readiness_for_trade_dates(...)`，热路径最多 10 个交易日，复刻两个 raw by-date check 语义。
+- 旧 `index_daily_sensor`、旧 by-code asset/check/job/helper/readiness 仍保留到 P7；P6 不改旧 job target，不启用新 sensor。
 
 ### P7：旧 by-code active code 清零
 
@@ -1697,21 +1703,21 @@ P2 后仍未做：
 
 ### 25.1 已核实的代码影响面
 
-CodeGraph 与源码审计确认，本专项真实改动面至少包括下表。表中的“P1/P2 前事实”保留当时的设计依据；“截至 `c38e0eea` 状态”记录最新落地情况和后续剩余工作。
+CodeGraph 与源码审计确认，本专项真实改动面至少包括下表。表中的“P1/P2 前事实”保留当时的设计依据；“P5/P6 当前状态”记录最新落地情况和后续剩余工作。
 
-| 改动面 | P1/P2 前事实 | 截至 `c38e0eea` 状态 |
+| 改动面 | P1/P2 前事实 | P5/P6 当前状态 |
 | --- | --- | --- |
 | `paths.py` | 只有 `raw_index_daily_by_code_path(...)` 和 by-code staging helper。 | 已新增 `raw_index_daily_path(...)` 与 by-date staging helper；旧 helper 保留到 P7。 |
 | `asset_column_schemas.py` / `duckdb_sql.py` | raw index daily schema 名称绑定 Tushare/by-code，`INDEX_DAILY_RAW_COLUMNS` 由旧 schema 生成。 | 已新增 `RAW_INDEX_DAILY_SCHEMA`，`INDEX_DAILY_RAW_COLUMNS` 已切到新 schema；旧 by-code schema 保留给迁移期旧 asset。 |
-| `assets/index_daily.py` | raw asset 是 `raw_tushare_index_daily_by_code[ts_code]`；silver 通过 `AllPartitionMapping()` 扫所有 by-code 文件。 | 已新增 `raw_index_daily[trade_date]`；silver 仍读旧 by-code，P5 再切同日 by-date raw。 |
-| `checks/index_daily_checks.py` | raw checks 全部挂旧 asset，silver coverage 仍读 by-code raw。 | 已新增两个 by-date raw checks；旧 5 个 by-code checks 和 silver by-code coverage 保留到 P5/P7。 |
-| `sensors/index_daily_sensor.py` | Tushare source probe + per-code run；cursor 带 selected_codes/next_pending_offset/repair_state。 | P1/P2 未切 sensor。P6 再实现 prod source completeness gate + date-level run，并删除 per-code repair cursor。 |
-| `sensors/silver_index_daily_sensor.py` | 依赖 `audit_index_daily_raw_gaps(...)` 和 by-code 文件 presence。 | P1/P2 未切 silver sensor。P6 再改为依赖 `raw_index_daily[trade_date]` readiness。 |
-| `asset_guards/market_major_indices_lake_readiness.py` | `silver_index_daily_lake_readiness_for_trade_date(...)` 仍读取 by-code raw。 | P1/P2 未切 major readiness。P6 改为 by-date raw/silver facts，不再导入旧 path。 |
+| `assets/index_daily.py` | raw asset 是 `raw_tushare_index_daily_by_code[ts_code]`；silver 通过 `AllPartitionMapping()` 扫所有 by-code 文件。 | 已新增 `raw_index_daily[trade_date]`；`silver_index_daily` 已改为依赖同日 `raw_index_daily` 并读取 by-date raw；旧 raw-by-code asset 保留到 P7。 |
+| `checks/index_daily_checks.py` | raw checks 全部挂旧 asset，silver coverage 仍读 by-code raw。 | 已新增两个 by-date raw checks；`silver_index_daily_registered_code_coverage` 已改为对齐同日 raw by-date code set；旧 5 个 by-code checks 保留到 P7。 |
+| `sensors/index_daily_sensor.py` | Tushare source probe + per-code run；cursor 带 selected_codes/next_pending_offset/repair_state。 | 旧 sensor 不再作为新链路入口，保留到 P7；已新增 `raw_index_daily_update_job_sensor`，prod source completeness gate + date-level single RunRequest，默认 STOPPED。 |
+| `sensors/silver_index_daily_sensor.py` | 依赖 `audit_index_daily_raw_gaps(...)` 和 by-code 文件 presence。 | 已改为依赖 `raw_index_daily[trade_date]` readiness；不再扫描 by-code 文件集合。 |
+| `asset_guards/market_major_indices_lake_readiness.py` | `silver_index_daily_lake_readiness_for_trade_date(...)` 仍读取 by-code raw。 | 已改为 by-date raw/silver facts，不再导入旧 path。 |
 | `catalog/lake_assets.py` | raw entry 通过 `_tushare_raw_entry(...)` 写 Tushare source。 | 已新增 `raw_index_daily` prod-core-db catalog entry；旧 by-code catalog entry 保留到 P7。 |
 | `run_contracts/configs.py` | op key 是 `raw_tushare_index_daily_by_code`，config 里重复传 `trade_date`。 | 已新增 `build_raw_index_daily_update_job_run_config(...)`，partition key 是新链路唯一日期参数；旧 helper 保留给旧 job/sensor。 |
-| `sensors/readiness.py` | 存在 `RAW_INDEX_DAILY_BY_CODE_*` spec 和 `raw_index_daily_by_code_ready_for_code(...)`。 | P1/P2 未改 sensor readiness。P6 新增 date-level readiness，P7 删除旧 spec。 |
-| `tests/test_run_contract_static_gates.py` | 当时已有 sensor 侧旧 symbol 禁止项。 | 已新增 P1/P2 静态门禁；P5/P6/P7 还需继续扩展到 silver/sensor/readiness 旧符号清零。 |
+| `sensors/readiness.py` | 存在 `RAW_INDEX_DAILY_BY_CODE_*` spec 和 `raw_index_daily_by_code_ready_for_code(...)`。 | 已新增 date-level `RAW_INDEX_DAILY_*` readiness spec；旧 by-code spec P7 删除。 |
+| `tests/test_run_contract_static_gates.py` | 当时已有 sensor 侧旧 symbol 禁止项。 | 已新增 P1/P2、P4、P5/P6 静态门禁；P7 继续扩展到 active source 旧 by-code 符号清零。 |
 
 ### 25.2 已核实的 prod 与 lake 数据事实
 
@@ -1782,13 +1788,10 @@ P0 发现当前 by-code raw 尾部 `2026-06-23` 只有 10 行、10 个 code；�
 
 ### 25.4 建议推进步骤
 
-1. P3 前重新跑只读 profiling。必须重新确认 DG code set hash、by-code 输入范围、尾部半截日期、目标 by-date 路径冲突、预计文件数、预计行数、磁盘空间和 P3/P4 event 数量；不能直接沿用 2026-06-23 P0 样本。
-2. P3 单独申请正式 lake 写入。审批材料必须列清读范围、写范围、目标路径、staging 路径、批次策略、sample trade dates、预计写入文件数和行数、失败停止条件。
-3. P3 sample 先写少量 by-date raw 文件，立即用 P1/P2 已实现的 file contract 与 coverage 语义做只读审计；sample 不绿，不进入 full。
-4. P3 full 按年或月批量转换历史 by-code raw 到 by-date raw。默认只把 latest full DG coverage 日期及以前写成 ready baseline；尾部半截日期不得写绿色 ready baseline。
-5. P4 单独申请正式 Dagster event 写入。先 dry-run，统计最近 20 个目标分区的 materialization/check 已有、缺失、待写、failed 和缺文件；再 sample apply；最后 recent-window apply。绿色 event 只写已经通过文件审计的 partition。
-6. P5/P6 切 `silver_index_daily`、major indices readiness、raw/silver sensors。新 raw sensor 保持 STOPPED，直到 P3 final audit 和 P4 最近窗口 event audit 通过。
-7. P7 清零旧 by-code active source；P8 单独审批后删除旧物理文件；P9 如确有必要，再单独审批旧 index daily Dagster 状态/事件清理。
+1. 提交 P5/P6 代码后，单独审批运行 `dg check defs`，确认 Dagster definitions 能加载且新 sensor/check/asset 依赖图无冲突。
+2. 单独审批正式 instance 只读 readiness 样本，至少覆盖最新 ready baseline、`2026-06-23` 目标日和最近 expected trade date，确认 raw/silver/major readiness 都只读 by-date raw/silver facts。
+3. 新 `raw_index_daily_update_job_sensor` 继续保持 STOPPED；是否启用必须在 P3 final audit、P4 最近窗口 event audit、P5/P6 只读 readiness 样本和 `dg check defs` 全部通过后单独审批。
+4. 进入 P7 清零旧 by-code active source 和 catalog；P8 单独审批后删除旧物理文件；P9 如确有必要，再单独审批旧 index daily Dagster 状态/事件清理。
 
 ### 25.5 遗留拍板项
 
@@ -1796,7 +1799,7 @@ P0 发现当前 by-code raw 尾部 `2026-06-23` 只有 10 行、10 个 code；�
 2. P3 ready baseline cutoff：默认取最新 full DG coverage 日期，不取 by-code raw max date。若最新 profiling 发现尾部日期已完整，需重新拍板。
 3. P4 runless check metadata 字段：最近窗口中来自历史转换段的分区必须写 `coverage_basis=by_code_source_pairs`，并与 P1/P2 runtime check 的日更 coverage 口径区分；字段名需在 P4 实现前固定。
 4. P7 后 bootstrap 代码处理方式：删除，还是移出 `src/orchestrator/defs/**` active source。无论选择哪种，production static gate 旧 symbol 必须为 0。
-5. P6 新 raw sensor 启用方式：建议先保持 STOPPED，完成 P3 final audit、P4 最近窗口 event audit、只读 readiness 样本和 `dg check defs` 后再由用户审批启用。
+5. P6 新 raw sensor 启用方式：本轮代码默认 STOPPED；启用必须在 P3 final audit、P4 最近窗口 event audit、只读 readiness 样本和 `dg check defs` 后由用户单独审批。
 6. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起 dry-run、审批和回滚方案；若不执行，旧记录保留为历史审计账。
 7. 尾部半截日期处理：默认不写绿色 ready baseline event，交给 prod-core-db 日更补齐；如果要保留半截日期的 by-date 文件，也必须明确 metadata 标记为 not-ready，不能让 sensor 跳过该日期。
 
@@ -1806,20 +1809,21 @@ P0 发现当前 by-code raw 尾部 `2026-06-23` 只有 10 行、10 个 code；�
 
 ### 26.1 当前 active 代码事实
 
-P1/P2 后源码逐项审计确认，当前 active definitions 是“新 by-date raw 已新增、旧 by-code 运行链路仍保留”的并存状态：
+P5/P6 后源码逐项审计确认，当前状态是“新 by-date raw/silver/sensor/major 活跃路径已落地，旧 by-code 定义仍保留到 P7 删除”的并存状态：
 
 | 文件 | 当前事实 | 对本方案的含义 |
 | --- | --- | --- |
-| `defs/assets/index_daily.py` | 已新增 `raw_index_daily[trade_date]`；`raw_tushare_index_daily_by_code` 仍保留；`silver_index_daily` 仍通过 `AllPartitionMapping()` 依赖旧 raw-by-code，并扫描所有 by-code parquet。 | P5 必须把 silver 输入切到同日 by-date raw；P7 再删除旧 raw-by-code asset。 |
-| `defs/checks/index_daily_checks.py` | 已新增 `raw_index_daily_file_contract_check` 与 `raw_index_daily_code_coverage_check`；旧 5 个 by-code checks 仍挂旧 asset。 | 新链路 check 已收敛；P7 删除旧 by-code checks。 |
-| `defs/jobs/index_daily_update.py` | 已新增 `raw_index_daily_update_job`；旧 `index_daily_update_job` selection 仍是旧 `raw_tushare_index_daily_by_code` + checks。 | P6 前不切 sensor；P7 最终删除旧 job，不保留别名。 |
-| `defs/sensors/index_daily_sensor.py` | sensor 仍查 Tushare readiness，按缺失 code 生成 per-code RunRequest，cursor 记录 selected codes / offset / repair state。 | P6 新 raw sensor 必须改为 prod source completeness gate + date-level single RunRequest，cursor 不再保存 per-code repair 状态。 |
-| `defs/sensors/silver_index_daily_sensor.py` | sensor 先跑 by-code raw gap audit，再检查 by-code 文件是否包含目标交易日。 | P6 新 silver sensor 只读取 `raw_index_daily[trade_date]` readiness，不扫描 by-code 文件集合。 |
-| `defs/sensors/index_daily_raw_file_readiness.py` | readiness helper 仍基于 `raw_index_daily_by_code_path(...)` 扫 946 个 by-code 文件。 | P6 新 helper 应基于单个 by-date raw 文件和 code coverage；旧 helper P7 删除。 |
-| `defs/sensors/readiness.py` | `RAW_INDEX_DAILY_BY_CODE_CHECKS` 仍列 5 个旧 check，`raw_index_daily_by_code_ready_for_code(...)` 仍存在。 | P6 新增 date-level `RAW_INDEX_DAILY_*` readiness spec；P7 清零旧 by-code readiness。 |
+| `defs/assets/index_daily.py` | 已新增 `raw_index_daily[trade_date]`；`silver_index_daily` 已改为依赖同日 `raw_index_daily` 并读取 by-date raw；`raw_tushare_index_daily_by_code` 仍保留。 | 新 silver 路径已切到 by-date；P7 再删除旧 raw-by-code asset。 |
+| `defs/checks/index_daily_checks.py` | 已新增 `raw_index_daily_file_contract_check` 与 `raw_index_daily_code_coverage_check`；`silver_index_daily_registered_code_coverage` 已改为对齐同日 raw by-date code set；旧 5 个 by-code checks 仍挂旧 asset。 | 新链路 check 已收敛；P7 删除旧 by-code checks。 |
+| `defs/jobs/index_daily_update.py` | 已新增 `raw_index_daily_update_job`；旧 `index_daily_update_job` selection 仍是旧 `raw_tushare_index_daily_by_code` + checks。 | 新 raw sensor 指向 `raw_index_daily_update_job`；P7 最终删除旧 job，不保留别名。 |
+| `defs/sensors/raw_index_daily_update_job_sensor.py` | P1/P2 后不存在。 | 已新增规范 raw date-level sensor，目标 `raw_index_daily_update_job`，默认 STOPPED，prod source completeness gate + 单日期 RunRequest。 |
+| `defs/sensors/index_daily_sensor.py` | sensor 仍查 Tushare readiness，按缺失 code 生成 per-code RunRequest，cursor 记录 selected codes / offset / repair state。 | 旧 sensor 不作为新链路入口，保留到 P7 删除；P5/P6 不修改其旧语义。 |
+| `defs/sensors/silver_index_daily_sensor.py` | sensor 先跑 by-code raw gap audit，再检查 by-code 文件是否包含目标交易日。 | 已改为只读取 `raw_index_daily[trade_date]` readiness，不扫描 by-code 文件集合。 |
+| `defs/sensors/index_daily_raw_file_readiness.py` | readiness helper 仍基于 `raw_index_daily_by_code_path(...)` 扫 946 个 by-code 文件。 | 已新增基于单个 by-date raw 文件和 code coverage 的热路径 helper；旧 by-code helper P7 删除。 |
+| `defs/sensors/readiness.py` | `RAW_INDEX_DAILY_BY_CODE_CHECKS` 仍列 5 个旧 check，`raw_index_daily_by_code_ready_for_code(...)` 仍存在。 | 已新增 date-level `RAW_INDEX_DAILY_*` readiness spec；P7 清零旧 by-code readiness。 |
 | `defs/catalog/lake_assets.py` | 已新增 `raw_index_daily` prod-core-db catalog entry；旧 `_tushare_raw_entry(asset_key='raw_tushare_index_daily_by_code')` 和旧 5 个 blocking checks 仍保留。 | catalog 当前新旧并存；P7 删除旧 entry。 |
 | `defs/run_contracts/configs.py` | 已新增 `build_raw_index_daily_update_job_run_config(...)`；旧 helper 仍指向 `raw_tushare_index_daily_by_code` 并重复传 `trade_date` 给旧 asset。 | 新链路日期语义已收敛；旧 helper P7 随旧 job 删除。 |
-| `defs/asset_guards/market_major_indices_lake_readiness.py` | major indices readiness 仍读取 by-code raw paths，用 silver coverage 语义补判断。 | P6 必须切到 by-date raw/silver facts，不再 import 旧 path。 |
+| `defs/asset_guards/market_major_indices_lake_readiness.py` | major indices readiness 仍读取 by-code raw paths，用 silver coverage 语义补判断。 | 已切到 by-date raw/silver facts，不再 import 旧 path。 |
 
 ### 26.2 check 收敛的落地状态与后续要求
 
@@ -1918,7 +1922,7 @@ instigator / cursor dry-run：
 | id | 当前状态 | 识别结果 | 当前判断 |
 | ---: | --- | --- | --- |
 | `1827` | `RUNNING SENSOR` | `job_name: index_daily_sensor` | 旧 raw sensor state。P7 删除旧 sensor 后才可进入 P9 候选。 |
-| `2173` | `RUNNING SENSOR` | `job_name: silver_index_daily_sensor` | silver sensor 仍会保留但语义会变；不能直接删除，需决定是 cursor schema 迁移还是重置 cursor。 |
+| `2173` | 历史 dry-run 样本为 `RUNNING SENSOR` | `job_name: silver_index_daily_sensor` | P5/P6 代码已切新语义；正式 instance cursor/state 是否重置仍需单独审批，不能直接按旧 sensor 删除。 |
 
 必须排除：
 
@@ -1935,9 +1939,9 @@ instigator / cursor dry-run：
 
 原因：
 
-1. 当前 active source 仍引用旧 `raw_tushare_index_daily_by_code`、旧 raw-by-code checks、旧 by-code path、旧 by-code readiness 和旧 per-code sensor。
+1. P5/P6 已让新 raw/silver/major 活跃路径不再消费旧 by-code baseline，但旧 `raw_tushare_index_daily_by_code`、旧 raw-by-code checks、旧 by-code path/helper、旧 by-code readiness 和旧 per-code sensor 仍保留到 P7；P9 不能在 P7 前 apply。
 2. `index_daily_update_job` run history 关联 `event_logs` 超过 160 万行、`run_tags` 超过 20 万行，清理粒度必须单独拍板；不能把 run history 清理混入 asset/check 事件清理。
-3. `silver_index_daily_sensor` 的 instigator state 仍是 RUNNING，且新链路仍会保留 silver sensor；该 cursor 只能迁移或重置，不能按“旧 sensor”直接删。
+3. `silver_index_daily_sensor` 代码语义已切新链路，但正式 instance 的 cursor/state 是否重置必须单独审批；不能把 cursor 治理混入 P5/P6 代码开发。
 
 P9 最小可执行前置条件：
 
