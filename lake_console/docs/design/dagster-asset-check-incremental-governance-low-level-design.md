@@ -1174,7 +1174,11 @@ P7B 已落地的 sample-delete 执行器约束：
 
 ### 7.3 P7C 正式 retention 与标准 vacuum
 
-P7C 是正式 DB 写入阶段，不属于普通代码开发。
+状态：P7C-A 小样本删除已完成并通过；更大范围 P7C-B 删除和标准 vacuum
+仍待单独 review 与批准。
+
+P7C 是正式 DB 写入阶段，不属于普通代码开发。每一批必须独立备份、pre
+dry-run、删除、post dry-run，不允许跳过中间验收直接扩大范围。
 
 正式删除前置：
 
@@ -1189,6 +1193,74 @@ P7C 是正式 DB 写入阶段，不属于普通代码开发。
 1. 只执行标准 `VACUUM (VERBOSE, ANALYZE)` / `ANALYZE`。
 2. 不执行 `VACUUM FULL`、`REINDEX`、`pg_repack`，除非另开维护窗口并获得批准。
 3. post dry-run 和 Asset UI 抽查通过后，才把 P7C 标记完成。
+
+#### 2026-06-25 P7C-A 小样本执行结果
+
+本批只处理 `gold_wealth_market_turnover`，用于验证非分钟线
+sample-delete 执行器在正式 Dagster Postgres 上的事务删除、安全断言与
+post dry-run 对账。
+
+执行前置：
+
+- active runs：0。
+- 备份：
+  `/private/tmp/goldenshare_dagster_asset_check_retention_p7ca_backup_20260625.dump`
+- 备份大小：`364M`。
+- `pg_restore --list`：通过。
+- pre dry-run：
+  `/private/tmp/asset_check_event_retention_p7ca_pre_dry_run_20260625.json`
+- pre dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - 全局候选：75,875 条 check execution / check event、42,310 条
+    materialization event、33,877 条 materialization event tags
+  - keep windows：`2026-05-27` 到 `2026-06-24`
+  - `gold_wealth_market_turnover` 候选：1 条 check event / execution、1 条
+    materialization event、0 条 event tags
+
+正式删除：
+
+- 工具：
+  `asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 资产：`gold_wealth_market_turnover`
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7ca_gold_wealth_market_turnover_delete_20260625.json`
+- 事务结果：`committed=true`
+- 删除量：
+  - old check event tags：0
+  - old `ASSET_CHECK_EVALUATION` event：1
+  - old `asset_check_executions` row：1
+  - old materialization event tags：0
+  - old `ASSET_MATERIALIZATION` event：1
+- 删除事务内 safety assertions 全部通过。
+
+post dry-run：
+
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7ca_post_dry_run_20260625.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- `gold_wealth_market_turnover` 候选归零
+- 全局候选变为：75,874 条 check execution / check event、42,309 条
+  materialization event、33,877 条 materialization event tags
+- protected checks 仍为空候选；`prod_ch_share_fact_market_breadth_daily` 与
+  `lake_root_health` 仍保持排除。
+
+本批未执行：
+
+- 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
+  events。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
+下一步：
+
+- P7C-B 若继续推进，应先选择下一批小范围资产，重新做 active runs 确认、
+  备份、pre dry-run，并单独获得正式删除批准。
+- 标准 vacuum 只能在删除批次完成并通过 post dry-run 后单独执行。
 
 ## 8. Stop Conditions
 
