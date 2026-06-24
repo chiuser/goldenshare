@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，本次只完成 LLD 方案设计，尚未实现代码，尚未写 prod DB。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper；尚未新增 active prod sync asset/job/sensor/catalog，尚未执行 prod schema 只读复核，尚未写 prod DB。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -1433,17 +1433,25 @@ full 写入已执行并通过：
 
 ### WMT-6 Prod Core Serving Sync
 
-状态：方案设计完成；代码未实现；未写 prod DB。
+状态：第一步代码基础已完成；active prod sync 链路未接入；未写 prod DB。
 
 改动：
 
-1. `resources.py`
-2. `prod_db/wealth_market_turnover.py`
-3. `assets/wealth_market_turnover_prod_core.py`
-4. `jobs/gold_wealth_market_turnover_update.py`
-5. `sensors/gold_wealth_market_turnover_sensor.py`
-6. `catalog/lake_assets.py`
-7. prod sync / job / sensor / governance / static gate tests
+已完成：
+
+1. `resources.py`：新增 `ProdPostgresWriteResource` / `prod_postgres_write`，使用独立 `PROD_POSTGRES_WRITE_*` env，连接后 `readonly=False, autocommit=False`，context 成功 commit、异常 rollback；现有 `ProdPostgresResource` / `prod_postgres` 仍保持 `readonly=True, autocommit=True`。
+2. `prod_db/wealth_market_turnover.py`：新增 `replace_prod_core_wealth_market_turnover_partition(...)`，只接受五行 gold 结果，校验 `type='stock'`、`market='CN_A'`、partition 日期、`freq={1,5,15,30,60}`、`build_status='READY'`、`points_json` 非空 JSON；执行 exact partition delete、显式字段 insert、同事务 read-back audit，并记录 `points_json_hash`。
+3. `tests/test_gold_wealth_market_turnover_prod_core_sync.py`：覆盖 write resource commit/rollback、成功 replace、坏输入不写、insert 失败 rollback、read-back mismatch rollback、JSON adapter 和 SQL contract。
+4. `tests/test_run_contract_static_gates.py`：新增静态门禁，保护只读 resource 语义、禁止 gold asset 直接 import prod write helper/resource、禁止新增独立 prod sync job。
+
+待完成：
+
+1. prod `core_serving.wealth_market_turnover_snapshot` schema / 主键 / 最近日期行数只读复核。
+2. `assets/wealth_market_turnover_prod_core.py`
+3. `jobs/gold_wealth_market_turnover_update.py`
+4. `sensors/gold_wealth_market_turnover_sensor.py`
+5. `catalog/lake_assets.py`
+6. prod sync asset / job / sensor / governance 测试。
 
 验收：
 

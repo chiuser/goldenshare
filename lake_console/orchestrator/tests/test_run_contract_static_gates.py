@@ -51,6 +51,10 @@ GOLD_WEALTH_MARKET_TURNOVER_SOURCE_FILES = (
     DEFS_DIR / "bootstrap" / "wealth_market_turnover_runless_events.py",
     DEFS_DIR / "bootstrap" / "wealth_market_turnover_runless_events_cli.py",
 )
+GOLD_WEALTH_MARKET_TURNOVER_PROD_SYNC_FILES = (
+    DEFS_DIR / "resources.py",
+    DEFS_DIR / "prod_db" / "wealth_market_turnover.py",
+)
 MACD_KDJ_DIRECT_RUN_REQUEST_SENSOR_FILES: set[str] = set()
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
 
@@ -249,6 +253,52 @@ class RunContractStaticGateTests(unittest.TestCase):
             catalog_source,
         )
         self.assertEqual(check_source.count("@dg.asset_check"), 1)
+
+    def test_gold_wealth_market_turnover_prod_sync_boundary(self) -> None:
+        resource_source = (DEFS_DIR / "resources.py").read_text()
+        prod_db_source = (
+            DEFS_DIR / "prod_db" / "wealth_market_turnover.py"
+        ).read_text()
+        gold_asset_source = (
+            DEFS_DIR / "assets" / "wealth_market_turnover.py"
+        ).read_text()
+
+        self.assertIn("class ProdPostgresResource", resource_source)
+        self.assertIn(
+            "connection.set_session(readonly=True, autocommit=True)",
+            resource_source,
+        )
+        self.assertIn("class ProdPostgresWriteResource", resource_source)
+        self.assertIn(
+            "connection.set_session(readonly=False, autocommit=False)",
+            resource_source,
+        )
+        self.assertIn('"prod_postgres_write": ProdPostgresWriteResource()', resource_source)
+        self.assertIn("PROD_POSTGRES_WRITE_USER", resource_source)
+
+        self.assertNotIn("select *", prod_db_source.lower())
+        for required_fragment in (
+            "PROD_CORE_WEALTH_MARKET_TURNOVER_FORBIDDEN_COLUMNS",
+            "PROD_CORE_WEALTH_MARKET_TURNOVER_DELETE_SQL",
+            "PROD_CORE_WEALTH_MARKET_TURNOVER_INSERT_SQL",
+            "PROD_CORE_WEALTH_MARKET_TURNOVER_SELECT_SQL",
+            "replace_prod_core_wealth_market_turnover_partition",
+        ):
+            self.assertIn(required_fragment, prod_db_source)
+
+        for forbidden_fragment in (
+            "ProdPostgresWriteResource",
+            "prod_postgres_write",
+            "replace_prod_core_wealth_market_turnover_partition",
+            "core_serving.wealth_market_turnover_snapshot",
+        ):
+            self.assertNotIn(forbidden_fragment, gold_asset_source)
+
+        independent_prod_jobs = [
+            path.name
+            for path in JOBS_DIR.glob("prod_core_wealth_market_turnover*job*.py")
+        ]
+        self.assertEqual(independent_prod_jobs, [])
 
     def test_stock_mins_silver_job_does_not_pull_raw_or_source_config(self) -> None:
         path = JOBS_DIR / "stock_mins_silver_update.py"

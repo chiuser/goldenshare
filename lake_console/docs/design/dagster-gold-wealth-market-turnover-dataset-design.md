@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；本次只完成方案设计，尚未实现代码，尚未写 prod DB。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper，尚未新增 active prod sync asset/job/sensor/catalog，尚未执行 prod schema 只读复核，尚未写 prod DB。
 
 ## 1. 目标
 
@@ -664,6 +664,13 @@ INSERT INTO core_serving.wealth_market_turnover_snapshot (
 2. 新增 prod write resource 前必须完成配置项审计，列清 env var、默认值、权限、消费者和测试门禁。
 3. write resource 的数据库用户只允许写 `core_serving.wealth_market_turnover_snapshot`，不得拥有泛化 DDL 或其它表写权限。
 4. 代码中禁止手写连接串，禁止 `select *`，禁止写 `source/created_at/updated_at` 等非业务字段。
+
+当前 WMT-6 第一阶段实现状态：
+
+1. 已新增 `ProdPostgresWriteResource` / `prod_postgres_write`。配置项为 `PROD_POSTGRES_WRITE_HOST`、`PROD_POSTGRES_WRITE_PORT`、`PROD_POSTGRES_WRITE_USER`、`PROD_POSTGRES_WRITE_PASSWORD`、`PROD_POSTGRES_WRITE_DATABASE`、`PROD_POSTGRES_WRITE_SSLMODE`，其中 `SSL_MODE` 默认 `prefer`；消费者是后续 `prod_core_wealth_market_turnover` asset。
+2. 已新增 `prod_db/wealth_market_turnover.py` 的事务 replace helper，固定写表 `core_serving.wealth_market_turnover_snapshot`，固定五行，写入前和读回后都按 gold schema 进行约束校验。
+3. 现有 `ProdPostgresResource` / `prod_postgres` 仍是只读资源，`gold_wealth_market_turnover` asset 仍不 import prod write helper 或 resource。
+4. 尚未新增 active `prod_core_wealth_market_turnover` asset，尚未把 job/sensor/catalog 切到 prod sync，尚未执行 prod schema 只读复核，尚未写 prod DB。
 
 ## 11. Catalog 和 Governance 改动点
 

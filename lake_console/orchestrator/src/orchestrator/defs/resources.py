@@ -165,12 +165,57 @@ class ProdPostgresResource(dg.ConfigurableResource):
         return escaped
 
 
+class ProdPostgresWriteResource(dg.ConfigurableResource):
+    host_env_var: str = "PROD_POSTGRES_WRITE_HOST"
+    port_env_var: str = "PROD_POSTGRES_WRITE_PORT"
+    user_env_var: str = "PROD_POSTGRES_WRITE_USER"
+    password_env_var: str = "PROD_POSTGRES_WRITE_PASSWORD"
+    database_env_var: str = "PROD_POSTGRES_WRITE_DATABASE"
+    sslmode_env_var: str = "PROD_POSTGRES_WRITE_SSLMODE"
+    default_sslmode: str = "prefer"
+    connect_timeout_seconds: int = 10
+
+    @contextmanager
+    def connect(self) -> Iterator[Any]:
+        try:
+            import psycopg2
+        except ModuleNotFoundError as exc:
+            raise RuntimeError(
+                "Missing psycopg2 dependency in the Dagster orchestrator environment."
+            ) from exc
+
+        connection = psycopg2.connect(
+            host=ProdPostgresResource._required_env(self.host_env_var),
+            port=int(ProdPostgresResource._required_env(self.port_env_var)),
+            user=ProdPostgresResource._required_env(self.user_env_var),
+            password=ProdPostgresResource._required_env(self.password_env_var),
+            dbname=ProdPostgresResource._required_env(self.database_env_var),
+            sslmode=ProdPostgresResource._optional_env(
+                self.sslmode_env_var,
+                self.default_sslmode,
+            ),
+            connect_timeout=self.connect_timeout_seconds,
+        )
+        try:
+            connection.set_session(readonly=False, autocommit=False)
+            try:
+                yield connection
+            except Exception:
+                connection.rollback()
+                raise
+            else:
+                connection.commit()
+        finally:
+            connection.close()
+
+
 defs = dg.Definitions(
     resources={
         "lake_root": LakeRootResource(),
         "duckdb": DuckDBResource(),
         "tushare": TushareResource(token=dg.EnvVar("TUSHARE_TOKEN")),
         "prod_postgres": ProdPostgresResource(),
+        "prod_postgres_write": ProdPostgresWriteResource(),
         "clickhouse": ClickhouseResource(
             host=dg.EnvVar("CLICKHOUSE_HOST"),
             port=dg.EnvVar.int("CLICKHOUSE_PORT"),
