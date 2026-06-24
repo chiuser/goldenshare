@@ -665,6 +665,15 @@ INSERT INTO core_serving.wealth_market_turnover_snapshot (
 3. write resource 的数据库用户只允许写 `core_serving.wealth_market_turnover_snapshot`，不得拥有泛化 DDL 或其它表写权限。
 4. 代码中禁止手写连接串，禁止 `select *`，禁止写 `source/created_at/updated_at` 等非业务字段。
 
+prod 写库用户执行结果：
+
+1. 已在远程 prod PostgreSQL `goldenshare` 数据库创建 `lake_raw_writer`。
+2. `lake_raw_writer` 可登录，密码已设置；不是 `SUPERUSER`、`CREATEDB`、`CREATEROLE`、`REPLICATION` 或 `BYPASSRLS`。
+3. `lake_raw_writer` 只获得 `goldenshare` 数据库 `CONNECT`、`core_serving` schema `USAGE`，且没有 `core_serving` schema `CREATE` 权限。
+4. `lake_raw_writer` 对 `core_serving.wealth_market_turnover_snapshot` 只具备 `SELECT, INSERT, UPDATE, DELETE`。
+5. 权限审计显示 `lake_raw_writer` 对目标表以外没有显式表权限。
+6. 密码不写入文档、代码、提交信息或审计报告；本地 Dagster `PROD_POSTGRES_WRITE_*` env 仍需单独配置后才能执行 rollback dry-run。
+
 当前 WMT-6 第一阶段实现状态：
 
 1. 已新增 `ProdPostgresWriteResource` / `prod_postgres_write`。配置项为 `PROD_POSTGRES_WRITE_HOST`、`PROD_POSTGRES_WRITE_PORT`、`PROD_POSTGRES_WRITE_USER`、`PROD_POSTGRES_WRITE_PASSWORD`、`PROD_POSTGRES_WRITE_DATABASE`、`PROD_POSTGRES_WRITE_SSLMODE`，其中 `SSL_MODE` 默认 `prefer`；消费者是后续 `prod_core_wealth_market_turnover` asset。
@@ -675,6 +684,7 @@ INSERT INTO core_serving.wealth_market_turnover_snapshot (
 6. 已扩展 `gold_wealth_market_turnover_update_job` selection：同一 job 包含 `gold_wealth_market_turnover`、`gold_wealth_market_turnover_integrity_check` 和 `prod_core_wealth_market_turnover`，不新增独立 prod sync job。
 7. 已新增 catalog entry，新增 `WritePolicy.POSTGRES_TABLE_SYNC`、`ComputeEngine.POSTGRES_SQL` 和 `PartitionPhysicalLayout.POSTGRES_TABLE`，避免把 Postgres serving sync 伪装成 ClickHouse sync。
 8. 已更新 `gold_wealth_market_turnover_update_job_sensor` readiness：最近窗口内 gold 与 prod sync 均 ready 才算链路 ready；gold ready 但 `prod_core_wealth_market_turnover` 未 materialized 时提交同一个 job；prod sync 已有失败 run 且无成功 materialization 时 skip，`reason_code="prod_sync_failed_requires_manual_retry"`。本阶段尚未写 prod DB，尚未启用 sensor。
+9. 已创建并审计 prod 写库角色 `lake_raw_writer`，权限限定为 `core_serving.wealth_market_turnover_snapshot` 单表 DML；本地 `PROD_POSTGRES_WRITE_*` env 配置和 prod rollback dry-run 仍待单独审批执行。
 
 prod schema 只读复核结果：
 

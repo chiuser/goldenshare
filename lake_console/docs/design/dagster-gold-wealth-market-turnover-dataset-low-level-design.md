@@ -1433,7 +1433,7 @@ full 写入已执行并通过：
 
 ### WMT-6 Prod Core Serving Sync
 
-状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance 和正式 definitions 校验已完成；未写 prod DB，未启用 sensor。
+状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance、正式 definitions 校验和 prod 写库角色创建已完成；未执行 prod rollback dry-run，未启用 sensor。
 
 改动：
 
@@ -1452,10 +1452,12 @@ full 写入已执行并通过：
 10. `sensors/gold_wealth_market_turnover_sensor.py`：链路 ready 语义扩展为 gold ready + `prod_core_wealth_market_turnover` materialized；gold ready 但 prod sync missing 时继续提交同一个 job；prod sync 已有失败 run 且无成功 materialization 时 skip，等待人工按分区重跑或后续 repair 方案。
 11. `tests/test_gold_wealth_market_turnover_sensor.py`：覆盖 gold ready/prod missing 提交同一 job、prod failed 不自动重发、gold+prod 均 ready 才 skip。
 12. 已单独审批执行 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。
+13. 已在远程 prod PostgreSQL `goldenshare` 数据库创建 `lake_raw_writer`，并完成权限审计：可登录、密码已设置、不是 `SUPERUSER` / `CREATEDB` / `CREATEROLE` / `REPLICATION` / `BYPASSRLS`；可连接 `goldenshare`，可 `USAGE` `core_serving`，不可 `CREATE` `core_serving`；对 `core_serving.wealth_market_turnover_snapshot` 仅有 `SELECT, INSERT, UPDATE, DELETE`；目标表外没有显式表权限。
 
 待完成：
 
-1. 后续 prod write dry-run / transaction rollback 验证和正式 apply 审批。
+1. 配置本地 Dagster `PROD_POSTGRES_WRITE_*` env。
+2. 后续 prod write dry-run / transaction rollback 验证和正式 apply 审批。
 
 prod 只读复核结果：
 
