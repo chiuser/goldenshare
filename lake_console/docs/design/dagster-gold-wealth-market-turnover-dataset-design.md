@@ -482,6 +482,19 @@ full 写入已执行并通过：
 2. writer 的写入、审计、摘要使用独立 DuckDB connection，并在写入/审计 connection 中关闭 `enable_external_file_cache`，避免同进程刚写再读的 parquet 缓存误判。
 3. writer 临时文件后缀保留 `.parquet`，并兼容清理旧 `part-000.parquet.tmp` 临时文件。
 
+最近 20 日 runless event 已补录并通过：
+
+1. plan 报告：`/private/tmp/wealth_market_turnover_runless_events_plan-events_20260624_205404.json`。
+2. sample apply 报告：`/private/tmp/wealth_market_turnover_runless_events_report-sample-events_20260624_205450.json`。
+3. recent-window apply 报告：`/private/tmp/wealth_market_turnover_runless_events_report-recent-window-events_20260624_205548.json`。
+4. final audit 报告：`/private/tmp/wealth_market_turnover_runless_events_audit-recent-window-events_20260624_205600.json`。
+5. runless 窗口为 `2026-05-26` 到 `2026-06-23` 的最近 `20` 个交易日。
+6. sample 阶段写入 `2026-05-26`、`2026-06-09`、`2026-06-23` 三个分区，共 `6` 条 event。
+7. recent-window 阶段跳过 sample 三个分区，补录剩余 `17` 个分区，共 `34` 条 event。
+8. final audit 显示 `existing_materialized_count=20`、`failed_partition_count=0`。
+9. 本机 Dagster PostgreSQL 只读核验显示最近 20 个分区的 `gold_wealth_market_turnover_integrity_check` 为 `20` 条，全部 `SUCCEEDED`，全部绑定 materialization。
+10. 本阶段未运行 job/sensor/backfill，未写 lake 文件，未写 prod DB。
+
 ## 11. Catalog 和 Governance 改动点
 
 实现时必须同步以下位置：
