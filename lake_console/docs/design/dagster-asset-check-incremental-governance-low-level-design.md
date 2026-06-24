@@ -1187,6 +1187,15 @@ dry-run、删除、post dry-run，不允许跳过中间验收直接扩大范围�
 3. 完整备份 Postgres，且 `pg_restore --list` 可读。
 4. pre dry-run 报告通过。
 5. sample-delete 小范围验证通过。
+6. 删除安全前提必须逐资产成立：候选 event 删除不得影响该资产族后续自动触发、
+   不得影响数据湖 Parquet 更新、不得破坏数据安全或恢复能力。若无法证明某个资产的
+   sensor/readiness/update path 不依赖将被删除的旧历史 event，该资产不得进入正式删除。
+7. 对每个待删除资产，pre dry-run 或专项审计必须明确说明：
+   - 日常自动触发依赖的是 latest / keep window / dynamic partitions / lake 文件事实，
+     还是依赖全历史 Dagster materialization/check event。
+   - 若存在全历史 Dagster event 依赖，必须先改造触发/readiness 口径或将该资产排除。
+   - 删除不会影响正式数据湖写入路径、run key、run config、partition set 或 source
+     file selection。
 
 删除后维护：
 
@@ -1351,6 +1360,9 @@ post dry-run：
 以下情况必须停止：
 
 - 无法证明某个 check 是否参与 sensor/readiness。
+- 无法证明候选 event 删除不会影响自动触发、数据湖更新或数据安全。
+- 待删除资产的 sensor/readiness/update path 仍依赖将被删除的全历史 Dagster
+  materialization/check event。
 - 新 lake readiness 不能覆盖旧 blocking check 语义。
 - 性能测试显示新方案比旧方案更慢或接近超时。
 - 需要正式 Dagster 写入才能完成代码阶段判断。
