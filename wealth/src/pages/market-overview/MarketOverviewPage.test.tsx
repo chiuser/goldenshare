@@ -505,6 +505,43 @@ describe("MarketOverviewPage", () => {
     expect(window.location.pathname).toBe("/wealth/market/stock/002085.SZ");
   });
 
+  it("keeps non-stock market overview entries from navigating to stock detail", async () => {
+    window.history.pushState({}, "", "/wealth/market/overview");
+    render(<MarketOverviewPage />);
+
+    const majorSection = await screen.findByLabelText("主要指数");
+    await waitFor(() => {
+      expect(majorSection.querySelectorAll(".index-card")).toHaveLength(10);
+    });
+    const indexButton = within(majorSection).getByText("上证指数").closest("button");
+    if (!indexButton) {
+      throw new Error("major index button is missing");
+    }
+    fireEvent.click(indexButton);
+    expect(window.location.pathname).toBe("/wealth/market/overview");
+    expect(screen.getByText("进入详情：000001.SH")).toBeInTheDocument();
+
+    const sectorSection = await screen.findByLabelText("板块速览");
+    await waitFor(() => {
+      expect(within(sectorSection).getByText("行业涨幅前五")).toBeInTheDocument();
+    });
+    const sectorButton = within(sectorSection).getByText("通信设备").closest("button");
+    if (!sectorButton) {
+      throw new Error("sector rank button is missing");
+    }
+    fireEvent.click(sectorButton);
+    expect(window.location.pathname).toBe("/wealth/market/overview");
+    expect(screen.getByText("进入详情：通信设备")).toBeInTheDocument();
+
+    fireEvent.click(within(sectorSection).getByLabelText("板块热力图-算力"));
+    expect(window.location.pathname).toBe("/wealth/market/overview");
+    expect(screen.getByText("进入详情：算力")).toBeInTheDocument();
+
+    const stockNewsSection = await screen.findByLabelText("个股新闻");
+    fireEvent.click(stockNewsSection);
+    expect(window.location.pathname).toBe("/wealth/market/overview");
+  });
+
   it("renders sector matrix and heatmap exactly as the showcase requires", async () => {
     render(<MarketOverviewPage />);
 
