@@ -1428,6 +1428,32 @@ P7C-B post dry-run 中该资产候选：
 - 未写数据湖 Parquet。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
+P7C-C 当前 preflight：
+
+- 进程冻结检查：未发现 `dagster` / `dg dev` / `dagster-webserver` /
+  `dagster-daemon` / `code-server` / `orchestrator` 匹配进程。
+- active runs：0。
+- pre dry-run：
+  `/private/tmp/asset_check_event_retention_p7cc_gold_stock_return_distribution_pre_dry_run_20260625.json`
+- pre dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - `gold_stock_return_distribution` 候选仍为 0 条 check event / execution、3,011
+    条 materialization event、3,011 条 materialization event tags
+  - latest partition 仍为 `2026-06-24`，latest check count 仍为 6 且全部 succeeded
+  - keep windows 仍为 `2026-05-27` 到 `2026-06-24`
+- 备份：
+  `/private/tmp/goldenshare_dagster_asset_check_retention_p7cc_gold_stock_return_distribution_backup_20260625.dump`
+- 备份大小：`364M`。
+- `pg_restore --list`：通过。
+
+P7C-C 正式 sample-delete 仍未执行。若继续，下一步只能对
+`gold_stock_return_distribution` 单资产执行
+`asset_check_event_retention_sample_delete_cli.py sample-delete`，且必须使用上述备份和
+pre dry-run 作为本批依据；不得扩大到 `gold_market_breadth_daily`、
+`ch_share_fact_market_breadth_daily`、`adj_factor` 或其它资产。
+
 ## 8. Stop Conditions
 
 以下情况必须停止：
