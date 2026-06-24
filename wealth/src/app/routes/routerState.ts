@@ -40,6 +40,11 @@ export function buildLoginPath(redirectPath: string): string {
   return `/wealth/login?redirect=${encodeURIComponent(redirectPath)}`;
 }
 
+export function buildStockDetailPath(tsCode: string): string {
+  const normalized = tsCode.trim().toUpperCase();
+  return `/wealth/market/stock/${encodeURIComponent(normalized)}`;
+}
+
 export function readRedirectPath(search: string): string {
   const redirect = new URLSearchParams(search).get("redirect");
   if (!redirect) return DEFAULT_WEALTH_PATH;
@@ -47,4 +52,3 @@ export function readRedirectPath(search: string): string {
   if (redirect.startsWith("//")) return DEFAULT_WEALTH_PATH;
   return redirect;
 }
-
