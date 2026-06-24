@@ -70,6 +70,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _latest_ready_for_trade_date(instance: dg.DagsterInstance) -> str | None:
     records = instance.fetch_materializations(
         dg.AssetRecordsFilter(asset_key=dg.AssetKey("silver_index_basic")),
@@ -88,7 +111,6 @@ def _latest_ready_for_trade_date(instance: dg.DagsterInstance) -> str | None:
     return str(value) if value else None
 
 
-@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
 def raw_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
     path = raw_index_basic_path(lake_root.root())
     return dg.AssetCheckResult(
@@ -103,7 +125,6 @@ def raw_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckRes
     )
 
 
-@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
 def raw_index_basic_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -131,7 +152,6 @@ def raw_index_basic_row_count_positive(
     )
 
 
-@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
 def raw_index_basic_required_columns(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -164,7 +184,6 @@ def raw_index_basic_required_columns(
     )
 
 
-@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
 def raw_index_basic_unique_ts_code(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -219,7 +238,6 @@ def raw_index_basic_unique_ts_code(
     )
 
 
-@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
 def raw_index_basic_date_strings_parseable(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -276,7 +294,6 @@ def raw_index_basic_date_strings_parseable(
     )
 
 
-@dg.asset_check(asset=silver_index_basic, blocking=True)
 def silver_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
     path = silver_index_basic_path(lake_root.root())
     return dg.AssetCheckResult(
@@ -291,7 +308,6 @@ def silver_index_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheck
     )
 
 
-@dg.asset_check(asset=silver_index_basic, blocking=True)
 def silver_index_basic_required_columns_and_types(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -335,7 +351,6 @@ def silver_index_basic_required_columns_and_types(
     )
 
 
-@dg.asset_check(asset=silver_index_basic, blocking=True)
 def silver_index_basic_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -363,7 +378,6 @@ def silver_index_basic_row_count_positive(
     )
 
 
-@dg.asset_check(asset=silver_index_basic, blocking=True)
 def silver_index_basic_unique_ts_code(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -418,7 +432,6 @@ def silver_index_basic_unique_ts_code(
     )
 
 
-@dg.asset_check(asset=silver_index_basic, blocking=True)
 def silver_index_basic_required_fields_non_null(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -471,7 +484,6 @@ def silver_index_basic_required_fields_non_null(
     )
 
 
-@dg.asset_check(asset=silver_index_basic, blocking=True)
 def silver_index_basic_no_terminated_indexes(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -531,3 +543,79 @@ def silver_index_basic_no_terminated_indexes(
             },
         ),
     )
+
+
+@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
+def raw_index_basic_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            ("file_exists", raw_index_basic_file_exists(lake_root)),
+            (
+                "row_count_positive",
+                raw_index_basic_row_count_positive(lake_root, duckdb),
+            ),
+            ("required_columns", raw_index_basic_required_columns(lake_root, duckdb)),
+        ),
+        check_scope=CheckScope.SCHEMA,
+    )
+
+
+@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
+def raw_index_basic_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return raw_index_basic_unique_ts_code(lake_root, duckdb)
+
+
+@dg.asset_check(asset=raw_tushare_index_basic, blocking=True)
+def raw_index_basic_date_domain_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return raw_index_basic_date_strings_parseable(lake_root, duckdb)
+
+
+@dg.asset_check(asset=silver_index_basic, blocking=True)
+def silver_index_basic_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            ("file_exists", silver_index_basic_file_exists(lake_root)),
+            (
+                "required_columns_and_types",
+                silver_index_basic_required_columns_and_types(lake_root, duckdb),
+            ),
+            (
+                "row_count_positive",
+                silver_index_basic_row_count_positive(lake_root, duckdb),
+            ),
+            (
+                "required_fields_non_null",
+                silver_index_basic_required_fields_non_null(lake_root, duckdb),
+            ),
+        ),
+        check_scope=CheckScope.SCHEMA,
+    )
+
+
+@dg.asset_check(asset=silver_index_basic, blocking=True)
+def silver_index_basic_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_index_basic_unique_ts_code(lake_root, duckdb)
+
+
+@dg.asset_check(asset=silver_index_basic, blocking=True)
+def silver_index_basic_lifecycle_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_index_basic_no_terminated_indexes(context, lake_root, duckdb)

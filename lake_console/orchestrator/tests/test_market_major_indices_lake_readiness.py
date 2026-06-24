@@ -350,7 +350,7 @@ class MarketMajorIndicesLakeReadinessTests(unittest.TestCase):
             self.assertTrue(ready_before_expiry.ready)
             self.assertFalse(failed_on_expiry.ready)
             self.assertIn(
-                "silver_index_basic_no_terminated_indexes",
+                "silver_index_basic_lifecycle_domain_check",
                 failed_on_expiry.failed_check_names,
             )
 

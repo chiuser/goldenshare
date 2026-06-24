@@ -163,12 +163,9 @@ SILVER_INDEX_DAILY_BLOCKING_CHECKS = (
     "silver_index_daily_registered_code_coverage_check",
 )
 SILVER_INDEX_BASIC_BLOCKING_CHECKS = (
-    "silver_index_basic_file_exists",
-    "silver_index_basic_required_columns_and_types",
-    "silver_index_basic_row_count_positive",
-    "silver_index_basic_unique_ts_code",
-    "silver_index_basic_required_fields_non_null",
-    "silver_index_basic_no_terminated_indexes",
+    "silver_index_basic_contract_check",
+    "silver_index_basic_key_integrity_check",
+    "silver_index_basic_lifecycle_domain_check",
 )
 GOLD_MARKET_MAJOR_INDICES_DAILY_BLOCKING_CHECKS = (
     "gold_market_major_indices_daily_contract_check",

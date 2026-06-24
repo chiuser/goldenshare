@@ -632,6 +632,9 @@ serving 保持 P2R 后的 single-partition attributable check 口径，不做
 
 ### P5 Snapshot / Basic Facts
 
+状态：分阶段推进。P5A `calendar/index_basic` 已落地；P5B/P5C
+继续处理 stock basic/lifecycle/namechange/identity map/lake root health。
+
 #### 改动文件
 
 - `lake_console/orchestrator/src/orchestrator/defs/checks/calendar_checks.py`
@@ -661,6 +664,27 @@ serving 保持 P2R 后的 single-partition attributable check 口径，不做
 历史全量一致性证明迁到 offline audit。
 
 `silver_stock_lifecycle` 是正式生命周期事实源，下游不得自行回读 `raw_stock_basic` 重新推生命周期。
+
+P5A 已落地：
+
+- `raw_tushare_trade_calendar`：
+  - `raw_trade_calendar_contract_check`
+  - 旧 `file_exists/required_columns/contains_required_exchange` 函数只作为
+    helper，不再注册为 Dagster check。
+- `silver_trade_calendar`：
+  - 暂保留 `silver_trade_calendar_required_columns_non_null`
+  - 暂保留 `silver_trade_calendar_unique_exchange_trade_date`
+  - 这两个 check 已经是核心 contract/key 语义，P5A 不强行合并。
+- `raw_tushare_index_basic`：
+  - `raw_index_basic_contract_check`
+  - `raw_index_basic_key_integrity_check`
+  - `raw_index_basic_date_domain_check`
+- `silver_index_basic`：
+  - `silver_index_basic_contract_check`
+  - `silver_index_basic_key_integrity_check`
+  - `silver_index_basic_lifecycle_domain_check`
+- `market_major_indices_lake_readiness.py` 仍保留原完整 readiness SQL 语义；
+  只把失败 check name 映射为新的粗粒度名称。
 
 ### P6 股票分钟线剩余治理
 

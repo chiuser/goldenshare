@@ -237,9 +237,7 @@ class LakeAssetCatalogEntry:
 
 
 RAW_TRADE_CALENDAR_CHECKS = (
-    "raw_trade_calendar_contains_required_exchange",
-    "raw_trade_calendar_file_exists",
-    "raw_trade_calendar_required_columns",
+    "raw_trade_calendar_contract_check",
 )
 SILVER_TRADE_CALENDAR_CHECKS = (
     "silver_trade_calendar_required_columns_non_null",
@@ -387,19 +385,14 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECKS = (
     "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check",
 )
 RAW_INDEX_BASIC_CHECKS = (
-    "raw_index_basic_date_strings_parseable",
-    "raw_index_basic_file_exists",
-    "raw_index_basic_required_columns",
-    "raw_index_basic_row_count_positive",
-    "raw_index_basic_unique_ts_code",
+    "raw_index_basic_contract_check",
+    "raw_index_basic_key_integrity_check",
+    "raw_index_basic_date_domain_check",
 )
 SILVER_INDEX_BASIC_CHECKS = (
-    "silver_index_basic_file_exists",
-    "silver_index_basic_no_terminated_indexes",
-    "silver_index_basic_required_columns_and_types",
-    "silver_index_basic_required_fields_non_null",
-    "silver_index_basic_row_count_positive",
-    "silver_index_basic_unique_ts_code",
+    "silver_index_basic_contract_check",
+    "silver_index_basic_key_integrity_check",
+    "silver_index_basic_lifecycle_domain_check",
 )
 RAW_INDEX_DAILY_BY_DATE_CHECKS = (
     "raw_index_daily_code_coverage_check",

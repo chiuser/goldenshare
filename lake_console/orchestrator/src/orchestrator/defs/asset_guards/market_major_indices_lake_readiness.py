@@ -49,12 +49,9 @@ SILVER_INDEX_DAILY_LAKE_CHECK_NAMES = (
     "silver_index_daily_registered_code_coverage_check",
 )
 SILVER_INDEX_BASIC_LAKE_CHECK_NAMES = (
-    "silver_index_basic_file_exists",
-    "silver_index_basic_required_columns_and_types",
-    "silver_index_basic_row_count_positive",
-    "silver_index_basic_unique_ts_code",
-    "silver_index_basic_required_fields_non_null",
-    "silver_index_basic_no_terminated_indexes",
+    "silver_index_basic_contract_check",
+    "silver_index_basic_key_integrity_check",
+    "silver_index_basic_lifecycle_domain_check",
 )
 
 
@@ -754,7 +751,7 @@ def silver_index_basic_lake_readiness(
     if not path.exists():
         return _missing_file_status(
             trade_date=ready_for_trade_date,
-            check_name="silver_index_basic_file_exists",
+            check_name="silver_index_basic_contract_check",
             file_path=path,
             reason="missing_silver_index_basic_file",
         )
@@ -772,7 +769,7 @@ def silver_index_basic_lake_readiness(
             or schema_result["unexpected_columns"]
             or schema_result["type_mismatches"]
         ):
-            failed_check_names.append("silver_index_basic_required_columns_and_types")
+            failed_check_names.append("silver_index_basic_contract_check")
 
         row = connection.execute(
             f"""
@@ -814,13 +811,13 @@ def silver_index_basic_lake_readiness(
             "terminated_count": int(row[4]),
         }
         if metrics["row_count"] <= 0:
-            failed_check_names.append("silver_index_basic_row_count_positive")
+            failed_check_names.append("silver_index_basic_contract_check")
         if metrics["missing_ts_code_count"] or metrics["duplicate_key_count"]:
-            failed_check_names.append("silver_index_basic_unique_ts_code")
+            failed_check_names.append("silver_index_basic_key_integrity_check")
         if metrics["null_required_count"]:
-            failed_check_names.append("silver_index_basic_required_fields_non_null")
+            failed_check_names.append("silver_index_basic_contract_check")
         if metrics["terminated_count"]:
-            failed_check_names.append("silver_index_basic_no_terminated_indexes")
+            failed_check_names.append("silver_index_basic_lifecycle_domain_check")
 
         summary: dict[str, object] = {
             "file_path": str(path),

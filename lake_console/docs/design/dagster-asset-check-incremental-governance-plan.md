@@ -457,6 +457,9 @@ P4 已落地事实：
 
 ### P5：Full Snapshot / Basic Assets 合并收口
 
+状态：分阶段推进。P5A `calendar/index_basic` 已落地；stock
+basic/lifecycle/namechange/identity map/lake root health 后续单独推进。
+
 目标资产：
 
 1. calendar。
@@ -468,6 +471,18 @@ P4 已落地事实：
 
 1. 低频资产不优先优化，但需要把 contract 类细项合并。
 2. full snapshot 保留 latest 和少量最近运行，不保留全历史细项。
+
+P5A 已落地事实：
+
+- `raw_tushare_trade_calendar` 正式 Dagster checks 收敛为
+  `raw_trade_calendar_contract_check` 1 个；`silver_trade_calendar`
+  暂保留 required non-null 与 unique key 两个核心 check。
+- `raw_tushare_index_basic` 正式 Dagster checks 收敛为
+  `contract/key_integrity/date_domain` 3 个。
+- `silver_index_basic` 正式 Dagster checks 收敛为
+  `contract/key_integrity/lifecycle_domain` 3 个。
+- `silver_index_basic` 的 major indices lake readiness 仍执行原完整语义，
+  失败时映射到新粗粒度 check name。
 
 ### P6：分钟线普通 check 合并与最终门禁
 

@@ -49,7 +49,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
-@dg.asset_check(asset="raw_tushare_trade_calendar", blocking=True)
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def raw_trade_calendar_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
     path = raw_trade_calendar_path(lake_root.root())
     return dg.AssetCheckResult(
@@ -64,7 +86,6 @@ def raw_trade_calendar_file_exists(lake_root: LakeRootResource) -> dg.AssetCheck
     )
 
 
-@dg.asset_check(asset="raw_tushare_trade_calendar", blocking=True)
 def raw_trade_calendar_required_columns(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -95,7 +116,6 @@ def raw_trade_calendar_required_columns(
     )
 
 
-@dg.asset_check(asset="raw_tushare_trade_calendar", blocking=True)
 def raw_trade_calendar_contains_required_exchange(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -123,6 +143,27 @@ def raw_trade_calendar_contains_required_exchange(
                 "checked_row_count": int(row_count),
             },
         ),
+    )
+
+
+@dg.asset_check(asset="raw_tushare_trade_calendar", blocking=True)
+def raw_trade_calendar_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            ("file_exists", raw_trade_calendar_file_exists(lake_root)),
+            (
+                "required_columns",
+                raw_trade_calendar_required_columns(lake_root, duckdb),
+            ),
+            (
+                "contains_required_exchange",
+                raw_trade_calendar_contains_required_exchange(lake_root, duckdb),
+            ),
+        ),
+        check_scope=CheckScope.SCHEMA,
     )
 
 
