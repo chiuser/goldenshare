@@ -466,6 +466,22 @@ sample 写入已执行并通过：
 5. `failed_partition_count=0`，文件契约和从 silver 重算一致性均通过。
 6. 本阶段未写 Dagster DB，未补 runless event，未启用 sensor。
 
+full 写入已执行并通过：
+
+1. 写入报告：`/private/tmp/wealth_market_turnover_history_write-full_20260624_204837.json`。
+2. 审计报告：`/private/tmp/wealth_market_turnover_history_audit-full_20260624_205241.json`。
+3. full 阶段跳过已存在的 `257` 个分区，新增写入 `2773` 个分区，最终覆盖 `3030` 个交易日。
+4. 最终范围为 `2014-01-02` 到 `2026-06-23`。
+5. 目标文件数为 `3030`，目标总行数为 `15150`。
+6. `failed_partition_count=0`，全量文件契约和从 silver 重算一致性均通过。
+7. 本阶段未写 Dagster DB，未补 runless event，未启用 sensor。
+
+实现中已固化的确定性口径：
+
+1. `amount` 从 silver 读取后先转为 `DECIMAL(38,4)` 再聚合，避免 DOUBLE 并行求和导致同日重算出现 `0.01` 漂移。
+2. writer 的写入、审计、摘要使用独立 DuckDB connection，并在写入/审计 connection 中关闭 `enable_external_file_cache`，避免同进程刚写再读的 parquet 缓存误判。
+3. writer 临时文件后缀保留 `.parquet`，并兼容清理旧 `part-000.parquet.tmp` 临时文件。
+
 ## 11. Catalog 和 Governance 改动点
 
 实现时必须同步以下位置：
