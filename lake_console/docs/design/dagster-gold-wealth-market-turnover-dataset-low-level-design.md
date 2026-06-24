@@ -1163,6 +1163,8 @@ full 写入已执行并通过：
 9. 本机 Dagster PostgreSQL 只读核验显示最近 20 个分区的 `gold_wealth_market_turnover_integrity_check` 为 `20` 条，全部 `SUCCEEDED`，全部绑定 materialization。
 10. 本阶段未运行 job/sensor/backfill，未写 lake 文件，未写 prod DB。
 
+最终 definitions 门禁已执行并通过：`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。
+
 ## 14. 停止条件
 
 开发中遇到以下情况必须停止，不继续编码：
