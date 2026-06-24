@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -49,6 +50,42 @@ from orchestrator.defs.sensors.readiness import CN_A_SENSOR_TIMEZONE
 
 MAX_RUN_REQUESTS_PER_TICK = 1
 SOURCE_MODE = "prod_core_db"
+CURSOR_SAMPLE_LIMIT = 5
+
+
+_COMPACT_CONTINUITY_KEYS = (
+    "expected_start_date",
+    "expected_end_date",
+    "expected_count",
+    "registered_count",
+    "first_missing_registered_date",
+    "ready_through_trade_date",
+    "first_not_ready_trade_date",
+    "selected_trade_date",
+    "blocked_reason",
+    "batch_elapsed_ms",
+    "scanned_file_count",
+)
+
+_COMPACT_RAW_SUMMARY_KEYS = (
+    "row_count",
+    "expected_code_count",
+    "observed_code_count",
+    "missing_code_count",
+    "extra_code_count",
+    "null_key_count",
+    "date_mismatch_count",
+    "duplicate_key_count",
+    "scan_error_code",
+    "scan_error",
+)
+
+_COMPACT_RAW_SAMPLE_KEYS = (
+    "missing_columns",
+    "unexpected_columns",
+    "missing_code_samples",
+    "extra_code_samples",
+)
 
 
 def _recent_trade_dates(
@@ -97,6 +134,106 @@ def _index_trade_day_registered_gap(
     return expected_window, gap_status
 
 
+def _sample_values(
+    values: object,
+    *,
+    sample_limit: int = CURSOR_SAMPLE_LIMIT,
+) -> list[object]:
+    if not isinstance(values, Sequence) or isinstance(values, (str, bytes, bytearray)):
+        return []
+    return list(values[:sample_limit])
+
+
+def _compact_continuity_status(
+    continuity_status: Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    if continuity_status is None:
+        return None
+    payload = {
+        key: continuity_status.get(key)
+        for key in _COMPACT_CONTINUITY_KEYS
+        if key in continuity_status
+    }
+    missing_registered_dates = _sample_values(
+        continuity_status.get("missing_registered_dates")
+    )
+    if missing_registered_dates:
+        payload["missing_registered_date_count"] = len(missing_registered_dates)
+        payload["missing_registered_date_samples"] = missing_registered_dates
+    return payload
+
+
+def _compact_raw_status(
+    raw_status: ContinuityDateReadiness | None,
+) -> dict[str, object] | None:
+    if raw_status is None:
+        return None
+    payload: dict[str, object] = {
+        "trade_date": raw_status.trade_date,
+        "ready": raw_status.ready,
+        "materialized": raw_status.materialized,
+        "checks_passed": raw_status.checks_passed,
+        "reason": raw_status.reason,
+        "failed_check_names": list(raw_status.failed_check_names),
+        "missing_check_names": list(raw_status.missing_check_names),
+        "missing_file_path_count": len(raw_status.missing_file_paths),
+    }
+    if raw_status.missing_file_paths:
+        payload["missing_file_path_sample"] = raw_status.missing_file_paths[0]
+
+    for key in _COMPACT_RAW_SUMMARY_KEYS:
+        if key in raw_status.summary:
+            payload[key] = raw_status.summary[key]
+    for key in _COMPACT_RAW_SAMPLE_KEYS:
+        sample = _sample_values(raw_status.summary.get(key))
+        if sample:
+            payload[key] = sample
+    type_mismatches = raw_status.summary.get("type_mismatches")
+    if isinstance(type_mismatches, Mapping) and type_mismatches:
+        payload["type_mismatch_columns"] = list(type_mismatches.keys())[
+            :CURSOR_SAMPLE_LIMIT
+        ]
+    return payload
+
+
+def _compact_source_status(
+    source_status: ProdIndexDailySourceReadiness | None,
+) -> dict[str, object] | None:
+    if source_status is None:
+        return None
+    return source_status.to_metadata()
+
+
+def _blocked_component_for_reason(
+    *,
+    reason_code: str,
+    selected_trade_date: str | None,
+) -> str:
+    if selected_trade_date is not None or reason_code in {"all_ready", "request_run"}:
+        return "none"
+    if reason_code in {
+        "missing_registered_partition",
+        "no_registered_trade_day",
+        "no_expected_trade_date",
+    }:
+        return "trade_day_partition"
+    if reason_code == "no_registered_index_code":
+        return "index_code_partition"
+    if reason_code in {"missing_ready_baseline", "materialized_check_failed"}:
+        return "raw_lake"
+    if reason_code in {
+        "scan_error",
+        "source_empty",
+        "null_key",
+        "date_mismatch",
+        "duplicate_key",
+        "code_coverage",
+        "not_ready",
+    }:
+        return "prod_core_db"
+    return "raw_lake"
+
+
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -117,14 +254,15 @@ def _cursor_payload(
         "registered_trade_day_count": registered_trade_day_count,
         "registered_code_count": registered_code_count,
         "reason_code": reason_code,
+        "blocked_component": _blocked_component_for_reason(
+            reason_code=reason_code,
+            selected_trade_date=selected_trade_date,
+        ),
         "source_mode": SOURCE_MODE,
         "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-        "continuity_status": continuity_status,
-        "raw_status": raw_status.to_cursor_details() if raw_status else None,
-        "raw_batch_status": (
-            raw_batch_status.to_cursor_details() if raw_batch_status else None
-        ),
-        "source_status": source_status.to_metadata() if source_status else None,
+        "continuity_status": _compact_continuity_status(continuity_status),
+        "raw_status": _compact_raw_status(raw_status),
+        "source_status": _compact_source_status(source_status),
         "performance_ms": {
             "raw_batch_elapsed_ms": raw_batch_status.elapsed_ms
             if raw_batch_status

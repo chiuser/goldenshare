@@ -477,6 +477,14 @@ P0 输入里的 `2026-06-23` 只有 10 个 code，属于尾部半截输入。P3/
 6. 不再使用 `next_pending_offset` 轮转 code。
 7. 不再生成 `index_daily:<trade_date>:<ts_code>`。
 
+cursor 只作为调度状态路标，不作为 readiness 报告或审计报告：
+
+1. 必须保留本 tick 的 `target_date`、`selected_trade_date`、`reason_code`、`blocked_component`、source mode、窗口 frontier 和最小失败样本。
+2. `continuity_status` 只记录 expected window 起止、ready through、first not ready、selected date、blocked reason、扫描文件数和耗时。
+3. `raw_status` 只记录目标日期的 ready/materialized/check 状态、失败或缺失 check、缺文件样本和关键计数。
+4. `source_status` 只记录 prod source 覆盖判断所需的 code/row/key/date 计数、code set hash、少量 missing/extra code 样本和扫描错误。
+5. 禁止把批量 `status_samples`、完整 `raw_batch_status`、完整 schema/type 明细、全量路径列表或重复 readiness 结构写入 cursor；完整诊断看 asset check metadata、readiness helper 输出或只读审计报告。
+
 `silver_index_daily_sensor` 改为：
 
 1. 先检查 `raw_index_daily[trade_date]` readiness。

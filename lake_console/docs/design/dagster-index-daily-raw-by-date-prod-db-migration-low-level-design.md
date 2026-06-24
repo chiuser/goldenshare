@@ -1045,11 +1045,20 @@ cursor 必须删除旧字段：
 cursor 新字段：
 
 - `selected_trade_date`
+- `blocked_component`
 - `raw_status`
 - `source_status`
 - `continuity_status`
 - `performance_ms`
 - `source_mode`
+
+cursor 瘦身口径：
+
+- cursor 是调度状态路标，不是 readiness 报告、文件审计报告或 asset check metadata 的替代品。
+- `continuity_status` 只能写连续性摘要：expected window 起止、expected count、registered count、最早缺失分区、ready through、first not ready、selected date、blocked reason、扫描文件数和耗时；不得写批量 `status_samples`。
+- `raw_status` 只能写目标日期判断所需的最小字段：ready/materialized/checks、reason、failed/missing check names、缺文件数量或首个样本、row/code/key/date 关键计数和少量失败样本；不得写完整 schema/type 明细、完整 summary 或全量路径列表。
+- `source_status` 只写 prod source readiness 的最小证据：ready/reason、expected/returned/source row count、missing/extra/duplicate/null/date mismatch count、code set hash、少量 missing/extra code 样本和扫描错误。
+- 禁止把 `raw_batch_status.to_cursor_details()`、完整 batch readiness、重复 readiness 结构或长 metadata payload 写入 `raw_index_daily_update_job_sensor` cursor。
 
 ### 13.2 silver sensor
 

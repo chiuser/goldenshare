@@ -2352,6 +2352,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                 'subject="raw_index_daily"',
                 'write_mode="replace"',
                 '"reason_code"',
+                '"blocked_component"',
             ),
             silver_sensor_path: (
                 'job_name="silver_index_daily_update_job"',
@@ -2406,6 +2407,9 @@ class RunContractStaticGateTests(unittest.TestCase):
             "raw_tushare_index_daily_by_code",
             "2026-06-22",
             "2026-06-23",
+            '"raw_batch_status":',
+            "raw_batch_status.to_cursor_details()",
+            '"status_samples"',
         )
         issues.extend(
             f"{raw_sensor_path} contains forbidden P5/P6 raw sensor fragment: {fragment}"

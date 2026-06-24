@@ -1,3 +1,4 @@
+import json
 import unittest
 from datetime import datetime
 from pathlib import Path
@@ -29,6 +30,7 @@ def _raw_batch_status(
     failed_set = set(failed_dates)
     statuses = {}
     for trade_date in trade_dates:
+        file_path = f"/fake/lake/raw/index_daily/trade_date={trade_date}/part-000.parquet"
         if trade_date in ready_set:
             statuses[trade_date] = ContinuityDateReadiness(
                 trade_date=trade_date,
@@ -36,6 +38,20 @@ def _raw_batch_status(
                 materialized=True,
                 checks_passed=True,
                 reason="ready",
+                summary={
+                    "file_path": file_path,
+                    "row_count": 2,
+                    "observed_columns": ["ts_code", "trade_date"],
+                    "column_types": {
+                        "ts_code": "VARCHAR",
+                        "trade_date": "VARCHAR",
+                    },
+                    "unexpected_columns": [],
+                    "expected_code_count": 2,
+                    "observed_code_count": 2,
+                    "missing_code_count": 0,
+                    "extra_code_count": 0,
+                },
             )
         elif trade_date in failed_set:
             statuses[trade_date] = ContinuityDateReadiness(
@@ -45,6 +61,19 @@ def _raw_batch_status(
                 checks_passed=False,
                 reason="file_contract_failed",
                 failed_check_names=("raw_index_daily_file_contract_check",),
+                summary={
+                    "file_path": file_path,
+                    "row_count": 2,
+                    "observed_columns": ["ts_code", "trade_date", "unexpected"],
+                    "column_types": {
+                        "ts_code": "VARCHAR",
+                        "trade_date": "VARCHAR",
+                    },
+                    "unexpected_columns": ["unexpected"],
+                    "null_key_count": 0,
+                    "date_mismatch_count": 0,
+                    "duplicate_key_count": 0,
+                },
             )
         else:
             statuses[trade_date] = ContinuityDateReadiness(
@@ -54,6 +83,12 @@ def _raw_batch_status(
                 checks_passed=False,
                 reason="missing_raw_index_daily_file",
                 missing_check_names=("raw_index_daily_file_contract_check",),
+                missing_file_paths=(file_path,),
+                summary={
+                    "file_path": file_path,
+                    "observed_columns": ["ts_code"],
+                    "column_types": {"ts_code": "VARCHAR"},
+                },
             )
     return ContinuityBatchReadiness(
         expected_trade_dates=trade_dates,
@@ -63,9 +98,13 @@ def _raw_batch_status(
     )
 
 
-def _source_status(*, ready: bool) -> ProdIndexDailySourceReadiness:
+def _source_status(
+    *,
+    ready: bool,
+    trade_date: str = "2026-06-02",
+) -> ProdIndexDailySourceReadiness:
     return ProdIndexDailySourceReadiness(
-        trade_date="2026-06-02",
+        trade_date=trade_date,
         expected_code_count=2,
         expected_code_set_hash="hash",
         returned_code_count=2 if ready else 1,
@@ -212,6 +251,14 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("缺少 raw_index_daily 已就绪基线", result.skip_reason.skip_message)
         source_probe.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["reason_code"], "missing_ready_baseline")
+        self.assertEqual(cursor["details"]["blocked_component"], "raw_lake")
+        self.assertNotIn("raw_batch_status", cursor["details"])
+        self.assertNotIn(
+            "status_samples",
+            cursor["details"]["continuity_status"],
+        )
 
     def test_existing_failed_raw_checks_do_not_auto_overwrite(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -235,8 +282,16 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
         source_probe.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["reason_code"], "materialized_check_failed")
+        self.assertEqual(cursor["details"]["blocked_component"], "raw_lake")
+        raw_status = cursor["details"]["raw_status"]
+        self.assertEqual(raw_status["reason"], "file_contract_failed")
+        self.assertEqual(raw_status["unexpected_columns"], ["unexpected"])
+        self.assertNotIn("observed_columns", raw_status)
+        self.assertNotIn("column_types", raw_status)
 
-    def test_source_not_ready_does_not_submit_run(self) -> None:
+    def test_all_ready_cursor_is_not_blocked(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
         with (
             patch(
@@ -244,19 +299,85 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
                 "raw_index_daily_lake_readiness_for_trade_dates",
                 return_value=_raw_batch_status(
                     trade_dates,
-                    ready_dates=("2026-06-01",),
+                    ready_dates=trade_dates,
                 ),
             ),
             patch(
                 "orchestrator.defs.sensors.raw_index_daily_update_job_sensor."
                 "check_prod_index_daily_source_readiness",
-                return_value=_source_status(ready=False),
-            ),
+            ) as source_probe,
         ):
             result = raw_index_daily_update_job_sensor._raw_fn(_FakeContext())
 
         self.assertEqual(result.run_requests, [])
+        self.assertIn("都已经 ready", result.skip_reason.skip_message)
+        source_probe.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["blocked_count"], 0)
+        self.assertEqual(cursor["details"]["reason_code"], "all_ready")
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIsNone(cursor["details"]["raw_status"])
+        self.assertNotIn("raw_batch_status", cursor["details"])
+        self.assertNotIn(
+            "status_samples",
+            cursor["details"]["continuity_status"],
+        )
+
+    def test_source_not_ready_cursor_is_compact_and_actionable(self) -> None:
+        trade_dates = ("2026-06-23", "2026-06-24")
+        with (
+            patch(
+                "orchestrator.defs.sensors.raw_index_daily_update_job_sensor."
+                "raw_index_daily_lake_readiness_for_trade_dates",
+                return_value=_raw_batch_status(
+                    trade_dates,
+                    ready_dates=("2026-06-23",),
+                ),
+            ),
+            patch(
+                "orchestrator.defs.sensors.raw_index_daily_update_job_sensor."
+                "check_prod_index_daily_source_readiness",
+                return_value=_source_status(ready=False, trade_date="2026-06-24"),
+            ),
+        ):
+            result = raw_index_daily_update_job_sensor._raw_fn(
+                _FakeContext(trade_days=trade_dates)
+            )
+
+        self.assertEqual(result.run_requests, [])
         self.assertIn("source readiness 未满足", result.skip_reason.skip_message)
+        self.assertLess(len(result.cursor), 3000)
+
+        cursor = json.loads(result.cursor)
+        details = cursor["details"]
+        self.assertEqual(cursor["target_date"], "2026-06-24")
+        self.assertEqual(details["selected_trade_date"], None)
+        self.assertEqual(details["reason_code"], "code_coverage")
+        self.assertEqual(details["blocked_component"], "prod_core_db")
+        self.assertNotIn("raw_batch_status", details)
+
+        continuity_status = details["continuity_status"]
+        self.assertEqual(continuity_status["ready_through_trade_date"], "2026-06-23")
+        self.assertEqual(continuity_status["first_not_ready_trade_date"], "2026-06-24")
+        self.assertNotIn("status_samples", continuity_status)
+
+        raw_status = details["raw_status"]
+        self.assertEqual(raw_status["trade_date"], "2026-06-24")
+        self.assertEqual(raw_status["reason"], "missing_raw_index_daily_file")
+        self.assertEqual(raw_status["missing_file_path_count"], 1)
+        self.assertIn("missing_file_path_sample", raw_status)
+        self.assertNotIn("summary", raw_status)
+        self.assertNotIn("observed_columns", raw_status)
+        self.assertNotIn("column_types", raw_status)
+        self.assertNotIn("file_path", raw_status)
+
+        source_status = details["source_status"]
+        self.assertFalse(source_status["ready"])
+        self.assertEqual(source_status["reason"], "code_coverage")
+        self.assertEqual(source_status["expected_code_count"], 2)
+        self.assertEqual(source_status["returned_code_count"], 1)
+        self.assertEqual(source_status["missing_code_count"], 1)
+        self.assertEqual(source_status["missing_code_samples"], ["950228.SH"])
 
     def test_source_ready_submits_one_date_level_run(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -285,6 +406,10 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
             request.run_config,
             {"ops": {"raw_index_daily": {"config": {"write_mode": "replace"}}}},
         )
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["reason_code"], "request_run")
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertNotIn("raw_batch_status", cursor["details"])
 
 
 if __name__ == "__main__":
