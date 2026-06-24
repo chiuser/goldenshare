@@ -488,6 +488,9 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 ### P3 Stock Daily / Suspend / Adj Factor
 
+状态：分阶段推进。P3A `adj_factor` 已落地；P3B `stock_daily`
+与 P3C `suspend` 后续单独推进，避免一次性混改三条资产族。
+
 #### 改动文件
 
 - `lake_console/orchestrator/src/orchestrator/defs/checks/stock_daily_checks.py`
@@ -525,12 +528,19 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 `adj_factor`：
 
-- 复用 `adj_factor_lake_readiness.py`。
-- Dagster checks 合并为：
-  - contract
-  - key/value integrity
-  - lifecycle/listed coverage
-- readiness spec 替换旧细粒度 check。
+- P3A 已落地。
+- 复用 `adj_factor_lake_readiness.py`，不改 sensor 热路径。
+- raw Dagster checks 合并为：
+  - `raw_adj_factor_contract_check`
+  - `raw_adj_factor_key_value_integrity_check`
+  - `raw_adj_factor_partition_allowed_check`
+- silver Dagster checks 合并为：
+  - `silver_adj_factor_contract_check`
+  - `silver_adj_factor_key_value_integrity_check`
+  - `silver_adj_factor_lifecycle_coverage_check`
+  - `silver_adj_factor_partition_allowed_check`
+- 旧细粒度函数保留为内部 helper；catalog、readiness spec 与治理矩阵只保留
+  新 check name。
 
 #### 性能门禁
 

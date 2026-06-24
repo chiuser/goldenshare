@@ -23,10 +23,14 @@ class _PartitionContext:
 
 
 def _check_function(check_definition):
+    if not hasattr(check_definition, "node_def"):
+        return check_definition
     return check_definition.node_def.compute_fn.decorated_fn
 
 
 def _check_name(check_definition) -> str:
+    if not hasattr(check_definition, "node_def"):
+        return check_definition.__name__
     return check_definition.node_def.name
 
 

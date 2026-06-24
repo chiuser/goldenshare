@@ -332,26 +332,15 @@ SILVER_STOCK_DAILY_CHECKS = (
     "silver_stock_daily_unique_ts_code_trade_date",
 )
 RAW_ADJ_FACTOR_CHECKS = (
-    "raw_adj_factor_file_exists",
-    "raw_adj_factor_partition_date_matches",
-    "raw_adj_factor_positive_factor",
-    "raw_adj_factor_required_columns",
-    "raw_adj_factor_row_count_positive",
-    "raw_adj_factor_schema_matches_tushare_contract",
-    "raw_adj_factor_stock_current_partition_key_allowed",
-    "raw_adj_factor_unique_ts_code_trade_date",
+    "raw_adj_factor_contract_check",
+    "raw_adj_factor_key_value_integrity_check",
+    "raw_adj_factor_partition_allowed_check",
 )
 SILVER_ADJ_FACTOR_CHECKS = (
-    "silver_adj_factor_coverage_complete",
-    "silver_adj_factor_file_exists",
-    "silver_adj_factor_listed_stock_only",
-    "silver_adj_factor_partition_date_matches",
-    "silver_adj_factor_positive_factor",
-    "silver_adj_factor_required_columns",
-    "silver_adj_factor_row_count_positive",
-    "silver_adj_factor_schema_matches_contract",
-    "silver_adj_factor_stock_current_partition_key_allowed",
-    "silver_adj_factor_unique_ts_code_trade_date",
+    "silver_adj_factor_contract_check",
+    "silver_adj_factor_key_value_integrity_check",
+    "silver_adj_factor_lifecycle_coverage_check",
+    "silver_adj_factor_partition_allowed_check",
 )
 RAW_STK_MINS_CHECKS = (
     "raw_stk_mins_file_exists_and_row_count_positive",

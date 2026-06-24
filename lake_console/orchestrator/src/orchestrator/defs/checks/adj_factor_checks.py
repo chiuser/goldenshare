@@ -83,6 +83,29 @@ def _missing_input_file_result(paths: Sequence[Path]) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _schema_check_result(
     *,
     path: Path,
@@ -163,7 +186,6 @@ def _stock_current_partition_key_allowed_result(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_file_exists(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -183,7 +205,6 @@ def raw_adj_factor_file_exists(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_row_count_positive(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -210,7 +231,6 @@ def raw_adj_factor_row_count_positive(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_schema_matches_tushare_contract(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -236,7 +256,6 @@ def raw_adj_factor_schema_matches_tushare_contract(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_required_columns(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -268,7 +287,6 @@ def raw_adj_factor_required_columns(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -319,7 +337,6 @@ def raw_adj_factor_partition_date_matches(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_unique_ts_code_trade_date(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -369,7 +386,6 @@ def raw_adj_factor_unique_ts_code_trade_date(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_positive_factor(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -414,14 +430,12 @@ def raw_adj_factor_positive_factor(
     )
 
 
-@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
 def raw_adj_factor_stock_current_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_current_partition_key_allowed_result(context)
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_file_exists(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -441,7 +455,6 @@ def silver_adj_factor_file_exists(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_row_count_positive(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -468,7 +481,6 @@ def silver_adj_factor_row_count_positive(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_schema_matches_contract(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -494,7 +506,6 @@ def silver_adj_factor_schema_matches_contract(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_required_columns(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -526,7 +537,6 @@ def silver_adj_factor_required_columns(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -572,7 +582,6 @@ def silver_adj_factor_partition_date_matches(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_unique_ts_code_trade_date(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -622,7 +631,6 @@ def silver_adj_factor_unique_ts_code_trade_date(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_positive_factor(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -667,11 +675,6 @@ def silver_adj_factor_positive_factor(
     )
 
 
-@dg.asset_check(
-    asset=silver_adj_factor,
-    additional_deps=[silver_stock_lifecycle],
-    blocking=True,
-)
 def silver_adj_factor_listed_stock_only(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -754,11 +757,6 @@ def silver_adj_factor_listed_stock_only(
     )
 
 
-@dg.asset_check(
-    asset=silver_adj_factor,
-    additional_deps=[silver_stock_lifecycle],
-    blocking=True,
-)
 def silver_adj_factor_coverage_complete(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -886,8 +884,152 @@ def silver_adj_factor_coverage_complete(
     )
 
 
-@dg.asset_check(asset=silver_adj_factor, blocking=True)
 def silver_adj_factor_stock_current_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_current_partition_key_allowed_result(context)
+
+
+@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
+def raw_adj_factor_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            ("raw_adj_factor_file_exists", raw_adj_factor_file_exists(context, lake_root)),
+            (
+                "raw_adj_factor_row_count_positive",
+                raw_adj_factor_row_count_positive(context, lake_root, duckdb),
+            ),
+            (
+                "raw_adj_factor_required_columns",
+                raw_adj_factor_required_columns(context, lake_root, duckdb),
+            ),
+            (
+                "raw_adj_factor_schema_matches_tushare_contract",
+                raw_adj_factor_schema_matches_tushare_contract(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "raw_adj_factor_partition_date_matches",
+                raw_adj_factor_partition_date_matches(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
+def raw_adj_factor_key_value_integrity_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        rule_results=(
+            (
+                "raw_adj_factor_unique_ts_code_trade_date",
+                raw_adj_factor_unique_ts_code_trade_date(context, lake_root, duckdb),
+            ),
+            (
+                "raw_adj_factor_positive_factor",
+                raw_adj_factor_positive_factor(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=raw_tushare_adj_factor, blocking=True)
+def raw_adj_factor_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return raw_adj_factor_stock_current_partition_key_allowed(context)
+
+
+@dg.asset_check(asset=silver_adj_factor, blocking=True)
+def silver_adj_factor_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            ("silver_adj_factor_file_exists", silver_adj_factor_file_exists(context, lake_root)),
+            (
+                "silver_adj_factor_row_count_positive",
+                silver_adj_factor_row_count_positive(context, lake_root, duckdb),
+            ),
+            (
+                "silver_adj_factor_required_columns",
+                silver_adj_factor_required_columns(context, lake_root, duckdb),
+            ),
+            (
+                "silver_adj_factor_schema_matches_contract",
+                silver_adj_factor_schema_matches_contract(context, lake_root, duckdb),
+            ),
+            (
+                "silver_adj_factor_partition_date_matches",
+                silver_adj_factor_partition_date_matches(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_adj_factor, blocking=True)
+def silver_adj_factor_key_value_integrity_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        rule_results=(
+            (
+                "silver_adj_factor_unique_ts_code_trade_date",
+                silver_adj_factor_unique_ts_code_trade_date(context, lake_root, duckdb),
+            ),
+            (
+                "silver_adj_factor_positive_factor",
+                silver_adj_factor_positive_factor(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_adj_factor,
+    additional_deps=[silver_stock_lifecycle],
+    blocking=True,
+)
+def silver_adj_factor_lifecycle_coverage_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+        rule_results=(
+            (
+                "silver_adj_factor_listed_stock_only",
+                silver_adj_factor_listed_stock_only(context, lake_root, duckdb),
+            ),
+            (
+                "silver_adj_factor_coverage_complete",
+                silver_adj_factor_coverage_complete(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_adj_factor, blocking=True)
+def silver_adj_factor_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return silver_adj_factor_stock_current_partition_key_allowed(context)
