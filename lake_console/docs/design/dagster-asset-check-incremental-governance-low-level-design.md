@@ -488,8 +488,8 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 ### P3 Stock Daily / Suspend / Adj Factor
 
-状态：分阶段推进。P3A `adj_factor` 已落地；P3B `stock_daily`
-与 P3C `suspend` 后续单独推进，避免一次性混改三条资产族。
+状态：分阶段推进。P3A `adj_factor`、P3B `stock_daily` 已落地；
+P3C `suspend` 后续单独推进，避免一次性混改三条资产族。
 
 #### 改动文件
 
@@ -510,13 +510,23 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 `silver_stock_daily`：
 
-- 保留 coarse checks：
-  - contract
-  - key integrity
-  - value domain
-  - lifecycle coverage
+- P3B 已落地。
+- raw Dagster checks 合并为：
+  - `raw_stock_daily_contract_check`
+  - `raw_stock_daily_key_integrity_check`
+  - `raw_stock_daily_tradable_universe_check`
+  - `raw_stock_daily_partition_allowed_check`
+- silver Dagster checks 合并为：
+  - `silver_stock_daily_contract_check`
+  - `silver_stock_daily_key_integrity_check`
+  - `silver_stock_daily_value_domain_check`
+  - `silver_stock_daily_lifecycle_coverage_check`
+  - `silver_stock_daily_tradable_universe_check`
+  - `silver_stock_daily_partition_allowed_check`
 - lifecycle 事实源必须使用 `silver_stock_lifecycle`。
 - 不允许下游绕回 `raw_stock_basic` 或 current-listed-only `silver_stock_basic`。
+- 旧细粒度函数保留为内部 helper；catalog、readiness spec 与治理矩阵只保留
+  新 check name。
 
 `suspend`：
 

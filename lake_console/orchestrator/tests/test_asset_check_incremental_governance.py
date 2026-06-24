@@ -163,27 +163,18 @@ SILVER_SUSPEND_D_CHECKS = (
     "silver_suspend_d_unique_business_key",
 )
 RAW_STOCK_DAILY_CHECKS = (
-    "raw_stock_daily_covers_expected_tradable_universe",
-    "raw_stock_daily_file_exists",
-    "raw_stock_daily_partition_date_matches",
-    "raw_stock_daily_required_columns",
-    "raw_stock_daily_row_count_matches_expected_tradable_count",
-    "raw_stock_daily_row_count_positive",
-    "raw_stock_daily_stock_partition_key_allowed",
-    "raw_stock_daily_unique_ts_code_trade_date",
+    "raw_stock_daily_contract_check",
+    "raw_stock_daily_key_integrity_check",
+    "raw_stock_daily_tradable_universe_check",
+    "raw_stock_daily_partition_allowed_check",
 )
 SILVER_STOCK_DAILY_CHECKS = (
-    "silver_stock_daily_after_list_date_only",
-    "silver_stock_daily_bj_after_market_open_only",
-    "silver_stock_daily_conflicting_duplicate_absent",
-    "silver_stock_daily_covers_expected_tradable_universe",
-    "silver_stock_daily_partition_date_matches",
-    "silver_stock_daily_price_sanity",
-    "silver_stock_daily_required_columns_non_null",
-    "silver_stock_daily_row_count_positive",
-    "silver_stock_daily_stock_lifecycle_covered",
-    "silver_stock_daily_stock_partition_key_allowed",
-    "silver_stock_daily_unique_ts_code_trade_date",
+    "silver_stock_daily_contract_check",
+    "silver_stock_daily_key_integrity_check",
+    "silver_stock_daily_value_domain_check",
+    "silver_stock_daily_lifecycle_coverage_check",
+    "silver_stock_daily_tradable_universe_check",
+    "silver_stock_daily_partition_allowed_check",
 )
 RAW_ADJ_FACTOR_CHECKS = (
     "raw_adj_factor_contract_check",

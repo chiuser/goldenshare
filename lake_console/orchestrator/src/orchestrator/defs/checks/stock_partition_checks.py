@@ -67,18 +67,30 @@ def silver_suspend_d_stock_partition_key_allowed(
     return _stock_partition_key_allowed_result(context)
 
 
-@dg.asset_check(asset=raw_tushare_stock_daily, blocking=True)
 def raw_stock_daily_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)
 
 
-@dg.asset_check(asset=silver_stock_daily, blocking=True)
 def silver_stock_daily_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)
+
+
+@dg.asset_check(asset=raw_tushare_stock_daily, blocking=True)
+def raw_stock_daily_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return raw_stock_daily_stock_partition_key_allowed(context)
+
+
+@dg.asset_check(asset=silver_stock_daily, blocking=True)
+def silver_stock_daily_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return silver_stock_daily_stock_partition_key_allowed(context)
 
 
 @dg.asset_check(asset=gold_market_breadth_daily, blocking=True)

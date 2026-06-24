@@ -93,6 +93,29 @@ def _warn_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _conflict_key_count(connection, raw_path: Path) -> int:
     normalized_sql = stock_daily_normalized_select(raw_path)
     return int(
@@ -170,10 +193,6 @@ def _conflict_sample_rows(connection, raw_path: Path) -> list[dict[str, Any]]:
     return _sample_dicts(STOCK_DAILY_COLUMNS, rows)
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    blocking=True,
-)
 def raw_stock_daily_file_exists(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -193,10 +212,6 @@ def raw_stock_daily_file_exists(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    blocking=True,
-)
 def raw_stock_daily_row_count_positive(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -225,10 +240,6 @@ def raw_stock_daily_row_count_positive(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    blocking=True,
-)
 def raw_stock_daily_required_columns(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -260,10 +271,6 @@ def raw_stock_daily_required_columns(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    blocking=True,
-)
 def raw_stock_daily_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -345,10 +352,6 @@ def _raw_duplicate_key_metadata(
     }
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    blocking=True,
-)
 def raw_stock_daily_unique_ts_code_trade_date(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -375,10 +378,6 @@ def raw_stock_daily_unique_ts_code_trade_date(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_row_count_positive(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -407,10 +406,6 @@ def silver_stock_daily_row_count_positive(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_unique_ts_code_trade_date(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -455,10 +450,6 @@ def silver_stock_daily_unique_ts_code_trade_date(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_conflicting_duplicate_absent(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -489,10 +480,6 @@ def silver_stock_daily_conflicting_duplicate_absent(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_required_columns_non_null(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -564,10 +551,6 @@ def silver_stock_daily_required_columns_non_null(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -609,11 +592,6 @@ def silver_stock_daily_partition_date_matches(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    additional_deps=[silver_stock_lifecycle],
-    blocking=True,
-)
 def silver_stock_daily_stock_lifecycle_covered(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -670,11 +648,6 @@ def silver_stock_daily_stock_lifecycle_covered(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    additional_deps=[silver_stock_lifecycle],
-    blocking=True,
-)
 def silver_stock_daily_after_list_date_only(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -727,10 +700,6 @@ def silver_stock_daily_after_list_date_only(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_bj_after_market_open_only(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -778,10 +747,6 @@ def silver_stock_daily_bj_after_market_open_only(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=True,
-)
 def silver_stock_daily_price_sanity(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -858,10 +823,6 @@ def silver_stock_daily_price_sanity(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    blocking=False,
-)
 def silver_stock_daily_row_count_not_greater_than_raw(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -1061,11 +1022,6 @@ def _silver_daily_code_set_sql(daily_path: Path, partition_key: str) -> str:
     """
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
-    blocking=True,
-)
 def raw_stock_daily_row_count_matches_expected_tradable_count(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -1099,11 +1055,6 @@ def raw_stock_daily_row_count_matches_expected_tradable_count(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_stock_daily,
-    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
-    blocking=True,
-)
 def raw_stock_daily_covers_expected_tradable_universe(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -1140,11 +1091,6 @@ def raw_stock_daily_covers_expected_tradable_universe(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    additional_deps=[silver_stock_lifecycle, silver_stock_suspend_daily],
-    blocking=False,
-)
 def silver_stock_daily_row_count_matches_expected_tradable_count(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -1175,11 +1121,6 @@ def silver_stock_daily_row_count_matches_expected_tradable_count(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_daily,
-    additional_deps=[silver_stock_lifecycle, silver_stock_suspend_daily],
-    blocking=True,
-)
 def silver_stock_daily_covers_expected_tradable_universe(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -1213,4 +1154,193 @@ def silver_stock_daily_covers_expected_tradable_universe(
             check_scope=CheckScope.VALUE_SANITY,
             extra_metadata=metadata,
         ),
+    )
+
+
+@dg.asset_check(asset=raw_tushare_stock_daily, blocking=True)
+def raw_stock_daily_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            ("raw_stock_daily_file_exists", raw_stock_daily_file_exists(context, lake_root)),
+            (
+                "raw_stock_daily_row_count_positive",
+                raw_stock_daily_row_count_positive(context, lake_root, duckdb),
+            ),
+            (
+                "raw_stock_daily_required_columns",
+                raw_stock_daily_required_columns(context, lake_root, duckdb),
+            ),
+            (
+                "raw_stock_daily_partition_date_matches",
+                raw_stock_daily_partition_date_matches(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=raw_tushare_stock_daily, blocking=True)
+def raw_stock_daily_key_integrity_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return raw_stock_daily_unique_ts_code_trade_date(context, lake_root, duckdb)
+
+
+@dg.asset_check(
+    asset=raw_tushare_stock_daily,
+    additional_deps=[silver_stock_basic, silver_stock_suspend_daily],
+    blocking=True,
+)
+def raw_stock_daily_tradable_universe_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.VALUE_SANITY,
+        rule_results=(
+            (
+                "raw_stock_daily_row_count_matches_expected_tradable_count",
+                raw_stock_daily_row_count_matches_expected_tradable_count(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "raw_stock_daily_covers_expected_tradable_universe",
+                raw_stock_daily_covers_expected_tradable_universe(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_stock_daily, blocking=True)
+def silver_stock_daily_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            (
+                "silver_stock_daily_row_count_positive",
+                silver_stock_daily_row_count_positive(context, lake_root, duckdb),
+            ),
+            (
+                "silver_stock_daily_required_columns_non_null",
+                silver_stock_daily_required_columns_non_null(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "silver_stock_daily_partition_date_matches",
+                silver_stock_daily_partition_date_matches(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_stock_daily, blocking=True)
+def silver_stock_daily_key_integrity_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        rule_results=(
+            (
+                "silver_stock_daily_unique_ts_code_trade_date",
+                silver_stock_daily_unique_ts_code_trade_date(context, lake_root, duckdb),
+            ),
+            (
+                "silver_stock_daily_conflicting_duplicate_absent",
+                silver_stock_daily_conflicting_duplicate_absent(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_stock_daily, blocking=True)
+def silver_stock_daily_value_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.VALUE_SANITY,
+        rule_results=(
+            (
+                "silver_stock_daily_bj_after_market_open_only",
+                silver_stock_daily_bj_after_market_open_only(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "silver_stock_daily_price_sanity",
+                silver_stock_daily_price_sanity(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_daily,
+    additional_deps=[silver_stock_lifecycle],
+    blocking=True,
+)
+def silver_stock_daily_lifecycle_coverage_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+        rule_results=(
+            (
+                "silver_stock_daily_stock_lifecycle_covered",
+                silver_stock_daily_stock_lifecycle_covered(context, lake_root, duckdb),
+            ),
+            (
+                "silver_stock_daily_after_list_date_only",
+                silver_stock_daily_after_list_date_only(context, lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_daily,
+    additional_deps=[silver_stock_lifecycle, silver_stock_suspend_daily],
+    blocking=True,
+)
+def silver_stock_daily_tradable_universe_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_stock_daily_covers_expected_tradable_universe(
+        context,
+        lake_root,
+        duckdb,
     )

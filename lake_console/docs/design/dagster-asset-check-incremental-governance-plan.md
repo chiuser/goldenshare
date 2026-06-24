@@ -374,7 +374,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P3：Stock Daily / Suspend / Adj Factor 治理
 
-状态：分阶段推进。P3A `adj_factor` 已完成；`stock_daily` 与
+状态：分阶段推进。P3A `adj_factor`、P3B `stock_daily` 已完成；
 `suspend` 后续单独推进。
 
 目标资产：
@@ -400,6 +400,16 @@ P3A 已落地事实：
 - `silver_adj_factor` 正式 Dagster checks 收敛为
   `contract/key_value_integrity/lifecycle_coverage/partition_allowed` 4 个。
 - 旧细粒度 adj factor 函数只作为内部 helper，不再注册为 Dagster check。
+
+P3B 已落地事实：
+
+- `raw_tushare_stock_daily` 正式 Dagster checks 收敛为
+  `contract/key_integrity/tradable_universe/partition_allowed` 4 个。
+- `silver_stock_daily` 正式 Dagster checks 收敛为
+  `contract/key_integrity/value_domain/lifecycle_coverage/tradable_universe/partition_allowed`
+  6 个。
+- lifecycle 仍以 `silver_stock_lifecycle` 为事实源；旧细粒度函数只作为内部
+  helper，不再注册为 Dagster check。
 
 ### P4：Market Breadth / Return / Serving 治理
 

@@ -26,6 +26,8 @@ class _PartitionContext:
 
 
 def _check_function(check_definition):
+    if not hasattr(check_definition, "node_def"):
+        return check_definition
     return check_definition.node_def.compute_fn.decorated_fn
 
 
@@ -280,7 +282,7 @@ def _silver_universe_metadata(
 class StockDailyRawCheckTests(unittest.TestCase):
     def test_silver_coverage_check_is_blocking_readiness_gate(self) -> None:
         self.assertIn(
-            "silver_stock_daily_covers_expected_tradable_universe",
+            "silver_stock_daily_tradable_universe_check",
             readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
         self.assertNotIn(
@@ -292,7 +294,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self,
     ) -> None:
         self.assertIn(
-            "silver_stock_daily_stock_lifecycle_covered",
+            "silver_stock_daily_lifecycle_coverage_check",
             readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
         self.assertNotIn(
@@ -300,7 +302,7 @@ class StockDailyRawCheckTests(unittest.TestCase):
             readiness.SILVER_STOCK_DAILY_BLOCKING_CHECKS,
         )
         self.assertIn(
-            "silver_stock_daily_stock_lifecycle_covered",
+            "silver_stock_daily_lifecycle_coverage_check",
             SILVER_STOCK_DAILY_CHECKS,
         )
         self.assertNotIn(
