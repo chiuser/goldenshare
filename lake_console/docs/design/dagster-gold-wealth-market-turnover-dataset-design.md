@@ -457,6 +457,15 @@ sensor：
 6. 最近 20 日 runless event 计划数按统一口径封顶为 `40`，不按全历史 `3030 * 2` 计算。
 7. sample 分区为 `2014-01-02`、`2020-03-23`、`2026-06-23`。
 
+sample 写入已执行并通过：
+
+1. 写入报告：`/private/tmp/wealth_market_turnover_history_write-sample_20260624_200432.json`。
+2. 审计报告：`/private/tmp/wealth_market_turnover_history_audit-sample_20260624_200439.json`。
+3. 写入分区为 `2014-01-02`、`2020-03-23`、`2026-06-23`，未跳过已有文件。
+4. 目标文件数为 `3`，目标总行数为 `15`，每个分区各 `5` 行。
+5. `failed_partition_count=0`，文件契约和从 silver 重算一致性均通过。
+6. 本阶段未写 Dagster DB，未补 runless event，未启用 sensor。
+
 ## 11. Catalog 和 Governance 改动点
 
 实现时必须同步以下位置：

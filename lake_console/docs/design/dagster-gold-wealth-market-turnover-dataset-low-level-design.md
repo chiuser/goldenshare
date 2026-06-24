@@ -1125,6 +1125,15 @@ git diff --check
 6. `planned_event_count=40`，符合最近 20 个交易日 runless event 上限。
 7. sample 分区为 `2014-01-02`、`2020-03-23`、`2026-06-23`。
 
+sample 写入已执行并通过：
+
+1. 写入报告：`/private/tmp/wealth_market_turnover_history_write-sample_20260624_200432.json`。
+2. 审计报告：`/private/tmp/wealth_market_turnover_history_audit-sample_20260624_200439.json`。
+3. 写入分区为 `2014-01-02`、`2020-03-23`、`2026-06-23`，未跳过已有文件。
+4. 目标文件数为 `3`，目标总行数为 `15`，每个分区各 `5` 行。
+5. `failed_partition_count=0`，文件契约和从 silver 重算一致性均通过。
+6. 本阶段未写 Dagster DB，未补 runless event，未启用 sensor。
+
 ## 14. 停止条件
 
 开发中遇到以下情况必须停止，不继续编码：
