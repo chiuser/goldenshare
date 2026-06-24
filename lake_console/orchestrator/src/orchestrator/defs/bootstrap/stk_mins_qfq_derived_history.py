@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+import orchestrator.defs.checks.stk_mins_checks as stk_mins_checks
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
     _normalize_years,
@@ -24,7 +25,9 @@ from orchestrator.defs.stk_mins_qfq import (
 )
 
 
-GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT = 8
+GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT = len(
+    stk_mins_checks.GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES
+)
 GOLD_STK_MINS_QFQ_DERIVED_EVENT_COUNT_PER_ASSET_PARTITION = (
     1 + GOLD_STK_MINS_QFQ_DERIVED_CHECK_COUNT
 )

@@ -162,26 +162,29 @@ GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK = (
 GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK = (
     "gold_stk_mins_qfq_derived_formula_matches_source"
 )
+GOLD_STK_MINS_QFQ_CONTRACT_CHECK = "gold_stk_mins_qfq_contract_check"
+GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK = "gold_stk_mins_qfq_key_integrity_check"
+GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK = "gold_stk_mins_qfq_value_domain_check"
+GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK = "gold_stk_mins_qfq_source_coverage_check"
+GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK = (
+    "gold_stk_mins_qfq_derived_source_coverage_check"
+)
 
 GOLD_STK_MINS_QFQ_BASE_CHECK_NAMES = (
-    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
-    GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
-    GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-    GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+    GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
+    GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK,
+    GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK,
 )
 
 GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES = (
     *GOLD_STK_MINS_QFQ_BASE_CHECK_NAMES,
-    GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
-    GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
+    GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
 )
 
 GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES = (
     *GOLD_STK_MINS_QFQ_BASE_CHECK_NAMES,
-    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK,
-    GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK,
+    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
 )
 
@@ -430,15 +433,11 @@ def _gold_qfq_input_failure_results(
 
 
 def _gold_qfq_check_scope(check_name: str) -> CheckScope:
-    if check_name == GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK:
-        return CheckScope.FILE_EXISTS
-    if check_name == GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK:
+    if check_name == GOLD_STK_MINS_QFQ_CONTRACT_CHECK:
         return CheckScope.SCHEMA
-    if check_name == GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK:
-        return CheckScope.PARTITION_ALIGNMENT
-    if check_name == GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK:
+    if check_name == GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK:
         return CheckScope.KEY_UNIQUENESS
-    if check_name == GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK:
+    if check_name == GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK:
         return CheckScope.VALUE_SANITY
     return CheckScope.RECONCILIATION
 
@@ -773,54 +772,48 @@ def _gold_qfq_check_results(
         + counts.formula_mismatch_row_count
     )
 
+    contract_failed_rule_names = []
+    if not (
+        counts.expected_file_count > 0
+        and counts.missing_file_count == 0
+        and counts.gold_target_row_count > 0
+    ):
+        contract_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.missing_file_count or counts.schema_mismatch_file_count:
+        contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK)
+    if (
+        counts.missing_file_count
+        or counts.schema_mismatch_file_count
+        or counts.path_mismatch_row_count
+    ):
+        contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK)
+
+    source_failed_rule_names = []
+    if counts.missing_file_count or counts.gold_target_row_count != counts.silver_row_count:
+        source_failed_rule_names.append(GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK)
+    if factor_coverage_failed_count:
+        source_failed_rule_names.append(GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK)
+
     return (
         _check_result(
-            passed=counts.expected_file_count > 0
-            and counts.missing_file_count == 0
-            and counts.gold_target_row_count > 0,
+            passed=not contract_failed_rule_names,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-            check_scope=CheckScope.FILE_EXISTS,
+            check_name=GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
+            check_scope=CheckScope.SCHEMA,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
             missing_file_paths=missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT],
             checked_row_count=counts.expected_file_count,
-            failed_row_count=counts.missing_file_count,
-            extra_metadata=common_metadata,
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
-            check_scope=CheckScope.SCHEMA,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.existing_file_count,
-            failed_row_count=counts.schema_mismatch_file_count
-            + counts.missing_file_count,
+            failed_row_count=len(contract_failed_rule_names),
             extra_metadata={
                 **common_metadata,
                 "observed_schema": observed_schema,
                 "expected_schema": GOLD_STK_MINS_QFQ_COLUMN_TYPES,
                 "schema_error": schema_error,
-            },
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0
-            and counts.path_mismatch_row_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
-            check_scope=CheckScope.PARTITION_ALIGNMENT,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.gold_target_row_count,
-            failed_row_count=counts.path_mismatch_row_count
-            + counts.missing_file_count
-            + counts.schema_mismatch_file_count,
-            extra_metadata={
-                **common_metadata,
+                "path_mismatch_row_count": counts.path_mismatch_row_count,
+                "failed_rule_names": contract_failed_rule_names,
                 "failure_samples": samples.get("path_mismatch_samples", []),
             },
         ),
@@ -829,7 +822,7 @@ def _gold_qfq_check_results(
             and counts.schema_mismatch_file_count == 0
             and counts.duplicate_key_count == 0,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+            check_name=GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK,
             check_scope=CheckScope.KEY_UNIQUENESS,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
@@ -839,6 +832,11 @@ def _gold_qfq_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
+                "failed_rule_names": (
+                    []
+                    if counts.duplicate_key_count == 0
+                    else [GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+                ),
                 "failure_samples": samples.get("duplicate_samples", []),
             },
         ),
@@ -847,7 +845,7 @@ def _gold_qfq_check_results(
             and counts.schema_mismatch_file_count == 0
             and counts.invalid_price_row_count == 0,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+            check_name=GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK,
             check_scope=CheckScope.VALUE_SANITY,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
@@ -857,31 +855,25 @@ def _gold_qfq_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
+                "failed_rule_names": (
+                    []
+                    if counts.invalid_price_row_count == 0
+                    else [GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK]
+                ),
                 "failure_samples": samples.get("price_samples", []),
             },
         ),
         _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.gold_target_row_count == counts.silver_row_count,
+            passed=not source_failed_rule_names,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
+            check_name=GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK,
             check_scope=CheckScope.RECONCILIATION,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
             checked_row_count=counts.silver_row_count,
-            failed_row_count=abs(counts.gold_target_row_count - counts.silver_row_count)
+            failed_row_count=factor_coverage_failed_count
+            + abs(counts.gold_target_row_count - counts.silver_row_count)
             + counts.missing_file_count,
-            extra_metadata=common_metadata,
-        ),
-        _check_result(
-            passed=factor_coverage_failed_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
-            check_scope=CheckScope.RECONCILIATION,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.silver_row_count,
-            failed_row_count=factor_coverage_failed_count,
             extra_metadata={
                 **common_metadata,
                 "qfq_output_row_count": counts.qfq_output_row_count,
@@ -891,6 +883,7 @@ def _gold_qfq_check_results(
                 "missing_as_of_adj_factor_row_count": (
                     counts.missing_as_of_adj_factor_row_count
                 ),
+                "failed_rule_names": source_failed_rule_names,
             },
         ),
         _check_result(
@@ -963,54 +956,59 @@ def _gold_qfq_derived_check_results(
         counts.gold_target_row_count - counts.generated_window_count
     ) + counts.missing_file_count
 
+    contract_failed_rule_names = []
+    if not (
+        counts.expected_file_count > 0
+        and counts.missing_file_count == 0
+        and counts.gold_target_row_count > 0
+    ):
+        contract_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.missing_file_count or counts.schema_mismatch_file_count:
+        contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK)
+    if (
+        counts.missing_file_count
+        or counts.schema_mismatch_file_count
+        or counts.path_mismatch_row_count
+    ):
+        contract_failed_rule_names.append(GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK)
+
+    source_failed_rule_names = []
+    if not (
+        counts.source_file_count > 0
+        and counts.source_row_count > 0
+        and counts.source_stock_day_count > 0
+    ):
+        source_failed_rule_names.append(GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK)
+    if (
+        counts.missing_file_count
+        or counts.schema_mismatch_file_count
+        or counts.exchange_mismatch_window_count
+        or counts.gold_target_row_count != counts.generated_window_count
+    ):
+        source_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK
+        )
+
     return (
         _check_result(
-            passed=counts.expected_file_count > 0
-            and counts.missing_file_count == 0
-            and counts.gold_target_row_count > 0,
+            passed=not contract_failed_rule_names,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-            check_scope=CheckScope.FILE_EXISTS,
+            check_name=GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
+            check_scope=CheckScope.SCHEMA,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
             missing_file_paths=missing_gold_paths[:GOLD_STK_MINS_QFQ_METADATA_SAMPLE_LIMIT],
             checked_row_count=counts.expected_file_count,
-            failed_row_count=counts.missing_file_count,
-            extra_metadata=common_metadata,
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
-            check_scope=CheckScope.SCHEMA,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.existing_file_count,
-            failed_row_count=counts.schema_mismatch_file_count
-            + counts.missing_file_count,
+            failed_row_count=len(contract_failed_rule_names),
             extra_metadata={
                 **common_metadata,
                 "observed_schema": observed_schema,
                 "expected_schema": GOLD_STK_MINS_QFQ_COLUMN_TYPES,
                 "schema_error": schema_error,
-            },
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0
-            and counts.path_mismatch_row_count == 0,
-            asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
-            check_scope=CheckScope.PARTITION_ALIGNMENT,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.gold_target_row_count,
-            failed_row_count=counts.path_mismatch_row_count
-            + counts.missing_file_count
-            + counts.schema_mismatch_file_count,
-            extra_metadata={
-                **common_metadata,
+                "path_mismatch_row_count": counts.path_mismatch_row_count,
+                "failed_rule_names": contract_failed_rule_names,
                 "failure_samples": samples.get("path_mismatch_samples", []),
             },
         ),
@@ -1019,7 +1017,7 @@ def _gold_qfq_derived_check_results(
             and counts.schema_mismatch_file_count == 0
             and counts.duplicate_key_count == 0,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+            check_name=GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK,
             check_scope=CheckScope.KEY_UNIQUENESS,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
@@ -1029,6 +1027,11 @@ def _gold_qfq_derived_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
+                "failed_rule_names": (
+                    []
+                    if counts.duplicate_key_count == 0
+                    else [GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+                ),
                 "failure_samples": samples.get("duplicate_samples", []),
             },
         ),
@@ -1037,7 +1040,7 @@ def _gold_qfq_derived_check_results(
             and counts.schema_mismatch_file_count == 0
             and counts.invalid_price_row_count == 0,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+            check_name=GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK,
             check_scope=CheckScope.VALUE_SANITY,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
@@ -1047,39 +1050,29 @@ def _gold_qfq_derived_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
+                "failed_rule_names": (
+                    []
+                    if counts.invalid_price_row_count == 0
+                    else [GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK]
+                ),
                 "failure_samples": samples.get("price_samples", []),
             },
         ),
         _check_result(
-            passed=counts.source_file_count > 0
-            and counts.source_row_count > 0
-            and counts.source_stock_day_count > 0,
+            passed=not source_failed_rule_names,
             asset_key=asset_key,
-            check_name=GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK,
+            check_name=GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
             check_scope=CheckScope.RECONCILIATION,
             file_path=output_root_path,
             input_file_paths=input_file_paths,
             checked_row_count=counts.source_row_count,
-            failed_row_count=0 if counts.source_row_count > 0 else 1,
-            extra_metadata=common_metadata,
-        ),
-        _check_result(
-            passed=counts.missing_file_count == 0
-            and counts.schema_mismatch_file_count == 0
-            and counts.exchange_mismatch_window_count == 0
-            and counts.gold_target_row_count == counts.generated_window_count,
-            asset_key=asset_key,
-            check_name=(
-                GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK
-            ),
-            check_scope=CheckScope.RECONCILIATION,
-            file_path=output_root_path,
-            input_file_paths=input_file_paths,
-            checked_row_count=counts.generated_window_count,
             failed_row_count=row_count_failed_count
             + counts.schema_mismatch_file_count
             + counts.exchange_mismatch_window_count,
-            extra_metadata=common_metadata,
+            extra_metadata={
+                **common_metadata,
+                "failed_rule_names": source_failed_rule_names,
+            },
         ),
         _check_result(
             passed=counts.missing_file_count == 0

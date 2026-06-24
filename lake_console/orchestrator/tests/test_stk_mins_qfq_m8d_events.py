@@ -188,7 +188,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
             ).records
 
         self.assertEqual(plan.asset_partition_count, 2)
-        self.assertEqual(plan.planned_event_count, 18)
+        self.assertEqual(plan.planned_event_count, 12)
         self.assertEqual(plan.missing_input_count, 0)
         self.assertEqual(plan.existing_target_file_count, plan.planned_target_file_count)
         self.assertEqual(materializations, [])
@@ -281,7 +281,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
                 skip_existing_ready=True,
             )
 
-        self.assertEqual(report.reported_event_count, 9)
+        self.assertEqual(report.reported_event_count, 6)
         self.assertTrue(readiness.ready)
         self.assertEqual(second.reported_event_count, 0)
         self.assertEqual(second.skipped_ready_asset_partitions, ((FREQ, DATE_1),))
@@ -479,7 +479,7 @@ class StkMinsQfqM8DEventTests(unittest.TestCase):
 
         output = buffer.getvalue()
         self.assertIn("'asset_partition_count': 1", output)
-        self.assertIn("'reported_event_count': 9", output)
+        self.assertIn("'reported_event_count': 6", output)
         self.assertIn("'sample_readiness': {'5:2014-06-03': True}", output)
 
 

@@ -260,7 +260,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             [(batch.target_freq, batch.year) for batch in plan.batches],
             [(90, "2014"), (90, "2015"), (120, "2014"), (120, "2015")],
         )
-        self.assertEqual(plan.planned_event_count, 3 * 2 * 9)
+        self.assertEqual(plan.planned_event_count, 3 * 2 * 6)
         self.assertGreater(plan.planned_target_row_count, 0)
 
     def test_generate_writes_derived_stock_year_files(self) -> None:
@@ -282,7 +282,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
         self.assertEqual(len(report.batch_results), 2)
         self.assertEqual(report.written_file_count, 4)
-        self.assertEqual(report.plan.planned_event_count, 2 * 2 * 9)
+        self.assertEqual(report.plan.planned_event_count, 2 * 2 * 6)
         self.assertEqual(len(rows_90), 6)
         self.assertEqual(len(rows_120), 4)
         self.assertEqual([row["freq"] for row in rows_90], [90] * 6)
@@ -366,7 +366,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
             ).records
 
         self.assertEqual(plan.asset_partition_count, 2)
-        self.assertEqual(plan.planned_event_count, 18)
+        self.assertEqual(plan.planned_event_count, 12)
         self.assertTrue(report.dry_run)
         self.assertEqual(report.failed_partition_count, 0)
         self.assertEqual(report.reported_event_count, 0)
@@ -412,7 +412,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 skip_existing_ready=True,
             )
 
-        self.assertEqual(report.reported_event_count, 9)
+        self.assertEqual(report.reported_event_count, 6)
         self.assertTrue(readiness.ready)
         self.assertEqual(second.reported_event_count, 0)
         self.assertEqual(second.skipped_ready_asset_partitions, ((90, DATE_1),))
@@ -455,7 +455,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
                 )
 
         self.assertEqual(dry_run.reported_event_count, 0)
-        self.assertEqual(report.reported_event_count, 9)
+        self.assertEqual(report.reported_event_count, 6)
 
     def test_bad_derived_formula_blocks_green_events(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -653,7 +653,7 @@ class StkMinsQfqM11FDerivedHistoryTests(unittest.TestCase):
 
         output = buffer.getvalue()
         self.assertIn("'selected_target_freqs': [90]", output)
-        self.assertIn("'reported_event_count': 9", output)
+        self.assertIn("'reported_event_count': 6", output)
         self.assertIn("'audit_mode': 'full'", output)
         self.assertIn("'check_success_counts_skipped': False", output)
         self.assertIn("'audit_mode': 'quick'", output)

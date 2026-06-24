@@ -315,7 +315,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertEqual(sample_query_builder.call_count, 1)
             alignment_result = results[
-                stk_mins_checks.GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK
+                stk_mins_checks.GOLD_STK_MINS_QFQ_CONTRACT_CHECK
             ]
             self.assertFalse(alignment_result.passed)
             self.assertEqual(
@@ -342,7 +342,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_CONTRACT_CHECK
                 ].passed
             )
             self.assertFalse(
@@ -378,7 +378,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_CONTRACT_CHECK
                 ].passed
             )
 
@@ -398,7 +398,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_CONTRACT_CHECK
                 ].passed
             )
 
@@ -421,13 +421,13 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK
                 ].passed
             )
             self.assertGreater(
                 len(
                     results[
-                        stk_mins_checks.GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK
+                        stk_mins_checks.GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK
                     ].metadata["goldenshare/failure_samples"].data
                 ),
                 0,
@@ -445,12 +445,12 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
             results = _check_results(lake_root)
 
             self.assertFalse(
-                results[stk_mins_checks.GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK].passed
+                results[stk_mins_checks.GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK].passed
             )
             self.assertGreater(
                 len(
                     results[
-                        stk_mins_checks.GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK
+                        stk_mins_checks.GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK
                     ].metadata["goldenshare/failure_samples"].data
                 ),
                 0,
@@ -473,7 +473,7 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK
                 ].passed
             )
 
@@ -498,11 +498,11 @@ class StkMinsQfqM8BCheckTests(unittest.TestCase):
 
             self.assertFalse(
                 results[
-                    stk_mins_checks.GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK
+                    stk_mins_checks.GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK
                 ].passed
             )
             metadata = results[
-                stk_mins_checks.GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK
+                stk_mins_checks.GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK
             ].metadata
             self.assertIn("goldenshare/missing_as_of_adj_factor_row_count", metadata)
             self.assertNotIn("goldenshare/missing_latest_adj_factor_row_count", metadata)

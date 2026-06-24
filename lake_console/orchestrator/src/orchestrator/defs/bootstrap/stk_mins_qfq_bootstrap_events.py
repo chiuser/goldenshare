@@ -313,8 +313,7 @@ def audit_stk_mins_qfq_bootstrap_partition(
         (
             check.metadata
             for check in checks
-            if check.check_name
-            == stk_mins_checks.GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+            if check.check_name == stk_mins_checks.GOLD_STK_MINS_QFQ_CONTRACT_CHECK
         ),
         {},
     )

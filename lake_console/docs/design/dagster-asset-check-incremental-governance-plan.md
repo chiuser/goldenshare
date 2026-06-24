@@ -551,6 +551,34 @@ P6B 已落地事实：
 - 旧 `silver_stk_mins_name_timeline_covered` 仅保留在 000638 历史 dry-run helper
   的旧事件审计语境中，不作为当前正式 readiness check。
 
+P6C 已落地事实：
+
+- `gold_stk_mins_qfq_1m/5m/15m/30m/60m` native qfq 正式 Dagster checks 从每个资产
+  8 个收敛为 `gold_stk_mins_qfq_contract_check`、
+  `gold_stk_mins_qfq_key_integrity_check`、
+  `gold_stk_mins_qfq_value_domain_check`、
+  `gold_stk_mins_qfq_source_coverage_check`、
+  `gold_stk_mins_qfq_formula_matches_silver_adj_factor` 5 个。
+- `gold_stk_mins_qfq_90m/120m` derived qfq 正式 Dagster checks 从每个资产 8 个收敛为
+  `gold_stk_mins_qfq_contract_check`、
+  `gold_stk_mins_qfq_key_integrity_check`、
+  `gold_stk_mins_qfq_value_domain_check`、
+  `gold_stk_mins_qfq_derived_source_coverage_check`、
+  `gold_stk_mins_qfq_derived_formula_matches_source` 5 个。
+- native 的文件/行数、schema、freq/date/path 进入 `contract`；唯一键进入
+  `key_integrity`；价格进入 `value_domain`；row count 与 adj factor coverage 进入
+  `source_coverage`。
+- derived 的文件/行数、schema、freq/date/path 进入 `contract`；唯一键进入
+  `key_integrity`；价格进入 `value_domain`；source ready、source window、derived row
+  count 进入 `derived_source_coverage`。
+- 两个 formula check 名称保留不合并：`effective gold qfq readiness` 依赖“唯一失败项是否
+  为公式 mismatch”来识别 repair-adjusted qfq；合并 formula 会隐藏 repair-aware 语义。
+- `batch_gold_stk_mins_qfq_lake_readiness(...)`、catalog、readiness specs、
+  qfq history/bootstrap event 数量估算均同步为 5 个正式 check；旧细粒度名称只保留为
+  check metadata 的 `failed_rule_names` 诊断标签。
+- P6C 不触碰 qfq factor repair protected check，不改变 qfq daily/repair 文件写入、
+  run key、upstream batch 或 completion metadata。
+
 ## 8. 开发门禁
 
 后续每一阶段必须满足：

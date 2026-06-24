@@ -23,7 +23,7 @@ from orchestrator.defs.asset_guards.stk_mins_qfq_factor_repair import (
     GoldStkMinsQfqFactorRepairStatus,
 )
 from orchestrator.defs.checks.stk_mins_checks import (
-    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+    GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
     RAW_STK_MINS_CONTRACT_CHECK,
     RAW_STK_MINS_KEY_INTEGRITY_CHECK,
@@ -976,7 +976,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         self.assertFalse(status.ready)
         self.assertFalse(status.materialized)
         self.assertIn(
-            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+            GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
             status.failed_check_names,
         )
 
@@ -1043,7 +1043,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 "gold qfq rows are missing for 2026-06-17",
             )
             self.assertIn(
-                GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
                 readiness_status.failed_check_names,
             )
 

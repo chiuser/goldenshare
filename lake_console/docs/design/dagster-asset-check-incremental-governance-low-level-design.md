@@ -771,6 +771,39 @@ P5C 已落地：
     runless 输出同步改用新 `SILVER_STK_MINS_CHECK_NAMES`。
   - `silver_stk_mins_name_timeline_covered` 只保留在旧 000638 dry-run helper 的历史
     审计语境，不再是当前正式 silver readiness check。
+- P6C 收敛 `gold_stk_mins_qfq`：
+  - `GOLD_STK_MINS_QFQ_NATIVE_CHECK_NAMES` 从旧 8 个普通 check 改为
+    `gold_stk_mins_qfq_contract_check`、
+    `gold_stk_mins_qfq_key_integrity_check`、
+    `gold_stk_mins_qfq_value_domain_check`、
+    `gold_stk_mins_qfq_source_coverage_check`、
+    `gold_stk_mins_qfq_formula_matches_silver_adj_factor`。
+  - `GOLD_STK_MINS_QFQ_DERIVED_CHECK_NAMES` 从旧 8 个普通 check 改为
+    `gold_stk_mins_qfq_contract_check`、
+    `gold_stk_mins_qfq_key_integrity_check`、
+    `gold_stk_mins_qfq_value_domain_check`、
+    `gold_stk_mins_qfq_derived_source_coverage_check`、
+    `gold_stk_mins_qfq_derived_formula_matches_source`。
+  - native `contract` 聚合文件存在/行数、schema、freq/date/path；
+    `key_integrity` 聚合 `(ts_code, trade_time)` 唯一性；`value_domain` 保留价格 sanity；
+    `source_coverage` 聚合 silver row count 与 adj factor coverage。
+  - derived `contract` 聚合文件存在/行数、schema、freq/date/path；
+    `key_integrity` 聚合 `(ts_code, trade_time)` 唯一性；`value_domain` 保留价格 sanity；
+    `derived_source_coverage` 聚合 source ready、source window、derived row count。
+  - `gold_stk_mins_qfq_formula_matches_silver_adj_factor` 与
+    `gold_stk_mins_qfq_derived_formula_matches_source` 不合并，因为
+    `stk_mins_qfq_effective_readiness.py` 必须精确识别“只有 formula mismatch 失败”才能
+    使用 qfq factor repair metadata 判定 `ready_after_qfq_factor_repair`。
+  - `_gold_qfq_check_results(...)` 和 `_gold_qfq_derived_check_results(...)` 继续保留旧细粒度
+    rule 名称作为 `failed_rule_names` metadata，供人工定位具体失败原因；这些旧名称不再进入
+    `LAKE_ASSET_CATALOG`、`readiness.py` 或 Dagster official check set。
+  - `batch_gold_stk_mins_qfq_lake_readiness(...)` 不新增 DuckDB 查询，只把现有 metrics 映射到
+    5 个正式 failed check names；缺文件或目标日 0 行都归入 `contract` 且
+    `materialized=False`。
+  - `stk_mins_qfq_history`、`stk_mins_qfq_derived_history` 与 qfq bootstrap event 工具的事件数量
+    估算必须引用正式 `GOLD_STK_MINS_QFQ_*_CHECK_NAMES` 长度，禁止继续硬编码旧 8 个 check。
+  - qfq factor repair plan/status、MACD/KDJ repair completion 等 protected checks 不属于 P6C，
+    不改名称、不进入合并。
 - 若进一步合并 MACD/KDJ indicator/state checks，必须同步：
   - checks-only refresh job
   - daily job selection

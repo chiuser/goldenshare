@@ -89,23 +89,17 @@ SILVER_STK_MINS_CHECKS = (
     "silver_stk_mins_value_domain_check",
 )
 GOLD_STK_MINS_QFQ_CHECKS = (
-    "gold_stk_mins_qfq_file_exists_and_row_count_positive",
-    "gold_stk_mins_qfq_schema_matches_contract",
-    "gold_stk_mins_qfq_freq_date_path_match",
-    "gold_stk_mins_qfq_unique_ts_code_trade_time",
-    "gold_stk_mins_qfq_price_sanity",
-    "gold_stk_mins_qfq_row_count_matches_silver",
-    "gold_stk_mins_qfq_factor_coverage_complete",
+    "gold_stk_mins_qfq_contract_check",
+    "gold_stk_mins_qfq_key_integrity_check",
+    "gold_stk_mins_qfq_value_domain_check",
+    "gold_stk_mins_qfq_source_coverage_check",
     "gold_stk_mins_qfq_formula_matches_silver_adj_factor",
 )
 GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
-    "gold_stk_mins_qfq_file_exists_and_row_count_positive",
-    "gold_stk_mins_qfq_schema_matches_contract",
-    "gold_stk_mins_qfq_freq_date_path_match",
-    "gold_stk_mins_qfq_unique_ts_code_trade_time",
-    "gold_stk_mins_qfq_price_sanity",
-    "gold_stk_mins_qfq_derived_source_ready",
-    "gold_stk_mins_qfq_derived_row_count_matches_source_windows",
+    "gold_stk_mins_qfq_contract_check",
+    "gold_stk_mins_qfq_key_integrity_check",
+    "gold_stk_mins_qfq_value_domain_check",
+    "gold_stk_mins_qfq_derived_source_coverage_check",
     "gold_stk_mins_qfq_derived_formula_matches_source",
 )
 SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (

@@ -207,7 +207,7 @@ class StkMinsQfqM8CHistoryTests(unittest.TestCase):
             self.assertEqual(len(rows), 2)
             self.assertAlmostEqual(rows[0]["open"], 5.0)
             self.assertAlmostEqual(rows[1]["open"], 20.0)
-            self.assertEqual(report.plan.planned_event_count, 2 * 1 * 9)
+            self.assertEqual(report.plan.planned_event_count, 2 * 1 * 6)
 
     def test_plan_counts_targets_and_does_not_write_files(self) -> None:
         with TemporaryDirectory() as temp_dir:

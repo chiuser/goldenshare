@@ -13,9 +13,13 @@ from orchestrator.defs.assets.stk_mins import (
 )
 from orchestrator.defs.checks.stk_mins_checks import (
     GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
-    GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK,
-    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK,
+    GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_TOLERANCE,
+    GOLD_STK_MINS_QFQ_CONTRACT_CHECK,
+    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+    GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK,
+    GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK,
+    GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK,
     RAW_STK_MINS_CONTRACT_CHECK,
     RAW_STK_MINS_KEY_INTEGRITY_CHECK,
     RAW_STK_MINS_VALUE_DOMAIN_CHECK,
@@ -23,14 +27,6 @@ from orchestrator.defs.checks.stk_mins_checks import (
     SILVER_STK_MINS_KEY_INTEGRITY_CHECK,
     SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
     SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
-    GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
-    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
-    GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
-    GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
-    GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
-    GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
-    GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
     GoldStkMinsQfqCheckCounts,
     GoldStkMinsQfqDerivedCheckCounts,
     _gold_qfq_counts_sql,
@@ -2003,36 +1999,36 @@ def _gold_qfq_native_failed_check_names(
         and counts.missing_file_count == 0
         and counts.gold_target_row_count > 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0 and counts.schema_mismatch_file_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.path_mismatch_row_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.duplicate_key_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.invalid_price_row_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.gold_target_row_count == counts.silver_row_count
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK)
     if factor_coverage_failed_count:
-        failed_check_names.append(GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_SOURCE_COVERAGE_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
@@ -2770,44 +2766,42 @@ def _gold_qfq_derived_failed_check_names(
         and counts.missing_file_count == 0
         and counts.gold_target_row_count > 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0 and counts.schema_mismatch_file_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.path_mismatch_row_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_CONTRACT_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.duplicate_key_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_KEY_INTEGRITY_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.invalid_price_row_count == 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_VALUE_DOMAIN_CHECK)
     if not (
         counts.source_file_count > 0
         and counts.source_row_count > 0
         and counts.source_stock_day_count > 0
     ):
-        failed_check_names.append(GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK)
+        failed_check_names.append(GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
         and counts.exchange_mismatch_window_count == 0
         and counts.gold_target_row_count == counts.generated_window_count
     ):
-        failed_check_names.append(
-            GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK
-        )
+        failed_check_names.append(GOLD_STK_MINS_QFQ_DERIVED_SOURCE_COVERAGE_CHECK)
     if not (
         counts.missing_file_count == 0
         and counts.schema_mismatch_file_count == 0
@@ -2905,9 +2899,7 @@ def _gold_qfq_status_for_trade_date(
             materialized=False,
             checks_passed=False,
             reason=f"gold qfq files are missing for {trade_date}",
-            failed_check_names=(
-                GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-            ),
+            failed_check_names=(GOLD_STK_MINS_QFQ_CONTRACT_CHECK,),
             missing_file_paths=missing_path_strings,
             expected_file_count=expected_file_count,
             existing_file_count=existing_file_count,
@@ -2926,9 +2918,7 @@ def _gold_qfq_status_for_trade_date(
             materialized=False,
             checks_passed=False,
             reason=f"gold qfq rows are missing for {trade_date}",
-            failed_check_names=(
-                GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-            ),
+            failed_check_names=(GOLD_STK_MINS_QFQ_CONTRACT_CHECK,),
             missing_file_paths=(),
             expected_file_count=expected_file_count,
             existing_file_count=existing_file_count,
@@ -3052,9 +3042,7 @@ def _gold_qfq_statuses_from_batch_counts(
                 materialized=False,
                 checks_passed=False,
                 reason=f"gold qfq files are missing for {trade_date}",
-                failed_check_names=(
-                    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-                ),
+                failed_check_names=(GOLD_STK_MINS_QFQ_CONTRACT_CHECK,),
                 missing_file_paths=missing_path_strings,
                 expected_file_count=expected_file_count,
                 existing_file_count=existing_file_count,
@@ -3074,9 +3062,7 @@ def _gold_qfq_statuses_from_batch_counts(
                 materialized=False,
                 checks_passed=False,
                 reason=f"gold qfq rows are missing for {trade_date}",
-                failed_check_names=(
-                    GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-                ),
+                failed_check_names=(GOLD_STK_MINS_QFQ_CONTRACT_CHECK,),
                 missing_file_paths=(),
                 expected_file_count=expected_file_count,
                 existing_file_count=existing_file_count,

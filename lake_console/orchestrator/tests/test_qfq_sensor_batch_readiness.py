@@ -17,7 +17,7 @@ from orchestrator.defs.sensors.readiness import (
 PARTITION_KEY = "2026-05-29"
 ASSET_KEY = dg.AssetKey("gold_stk_mins_qfq_90m")
 CHECK_NAMES = (
-    "gold_stk_mins_qfq_file_exists_and_row_count_positive",
+    "gold_stk_mins_qfq_contract_check",
     "gold_stk_mins_qfq_derived_formula_matches_source",
 )
 SPEC = AssetReadinessSpec(ASSET_KEY, CHECK_NAMES)

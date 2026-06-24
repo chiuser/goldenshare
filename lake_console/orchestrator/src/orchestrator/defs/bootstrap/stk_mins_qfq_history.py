@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import date
 from pathlib import Path
 
+import orchestrator.defs.checks.stk_mins_checks as stk_mins_checks
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
@@ -26,7 +27,7 @@ from orchestrator.defs.stk_mins_qfq import (
 
 
 STK_MINS_QFQ_HISTORY_START_DATE = "2014-01-01"
-GOLD_STK_MINS_QFQ_CHECK_COUNT = 8
+GOLD_STK_MINS_QFQ_CHECK_COUNT = len(stk_mins_checks.GOLD_STK_MINS_QFQ_CHECK_NAMES)
 GOLD_STK_MINS_QFQ_EVENT_COUNT_PER_ASSET_PARTITION = (
     1 + GOLD_STK_MINS_QFQ_CHECK_COUNT
 )
