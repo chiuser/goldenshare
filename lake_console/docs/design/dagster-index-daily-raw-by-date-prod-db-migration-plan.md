@@ -1,12 +1,13 @@
 # Dagster Index Daily Raw By-Date Prod DB Migration Plan
 
-状态：P-1、P0、P1/P2、P3、P4 已完成；P5/P6 代码实现已完成，正式 sensor 启用、`dg check defs` 和 P7 清理由后续单独审批。
+状态：P-1、P0、P1/P2、P3、P4、P5/P6、P7 active source/catalog 清理已完成；正式 sensor 启用、P8 旧物理文件删除和 P9 旧 Dagster 状态/事件治理仍需后续单独审批。
 
 最新代码落点：
 
 - P1/P2：`c38e0eea feat: add index daily raw by-date asset`
 - P4：`63ce2a75 feat: add index daily p4 runless events`
-- P5/P6：本轮切换 `silver_index_daily`、raw/silver sensors 和 major indices readiness 到 by-date 基线，待提交。
+- P5/P6：`b61e052c feat: switch index daily to raw by-date baseline`
+- P7：本轮已清理旧 by-code active source/catalog，待提交。
 
 LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](./dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md)。
 
@@ -18,7 +19,7 @@ LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](
 2. 日更默认源从 Tushare 切换到远程 prod DB 后，Dagster 从当前 Lake `raw_index_daily` 最新已就绪交易日之后的第一个 expected trade date 开始，从 `core_serving.index_daily_serving` 同步指数日线到 raw 层；起点由文件事实和交易日历计算，不硬编码具体日期。
 3. raw 层与 silver 层使用同一个运行时 Lake 期望 code set。raw 不再按代码拆分物理资产；日更每次运行时读取本机 Dagster `cn_a_index_ts_codes` dynamic partitions，当前迁移审计基线是 946 个指数代码。
 4. `core_serving.index_daily_serving` 在目标交易日没有覆盖本次运行的 Lake 期望 code set 时，不允许向 Lake 发起日更；prod 上存在额外 code 不阻断，DG 只读取和校验自己本次要的 code。sensor 必须 fail closed，返回明确 skip/block 原因。
-5. 只有在 `raw_index_daily[trade_date]` 历史文件转换、校验、最近窗口 Dagster 状态基线和新 sensor/readiness 切换全部成功后，才删除 active `raw_tushare_index_daily_by_code` 资产、checks、job、sensor 依赖和物理旧文件；Dagster DB 中旧 index daily 状态/事件清理由独立 P9 阶段处理，不能成为新日更链路启用前置条件。
+5. 只有在 `raw_index_daily[trade_date]` 历史文件转换、校验、最近窗口 Dagster 状态基线和新 sensor/readiness 切换全部成功后，才删除 active `raw_tushare_index_daily_by_code` 资产、checks、job、sensor 依赖。P7 已完成 active source/catalog 清理；物理旧文件删除属于 P8，Dagster DB 中旧 index daily 状态/事件清理由独立 P9 阶段处理，二者都不能成为新日更链路启用前置条件。
 6. P4 不再做 6792 个历史分区的全量 runless event 补录。历史完整性以 P3 文件审计报告为准；Dagster event 只补最近 20 个交易日的 `raw_index_daily` materialization/check 状态，用于后续日更和 UI 最近窗口观测。性能门禁是硬门禁。
 
 本方案不让 raw 层提前承担 silver 职责：raw 仍保存源事实镜像字段，不做 silver 的日期类型、字段改名或业务标准化。
@@ -505,26 +506,32 @@ P7 后，active `src/**` 中不得再出现旧 by-code 生产符号；P5/P6 阶�
 
 历史文档可以保留旧口径，但必须明确标注为历史方案，不得写成当前代码事实。
 
-### M7：旧资产删除
+### M7：旧 active source/catalog 删除
 
-只有满足以下条件，才删除 active by-code 实现：
+状态：P7 active source/catalog 清理已完成，物理旧文件未删除，Dagster DB 旧状态/事件未清理。
 
-1. `raw_index_daily[trade_date]` 文件转换和 runless event 补录成功。
-2. 新 raw/silver/major indices sensor 和 checks 本地回归通过。
-3. 正式 Dagster readiness 已确认不再依赖旧 by-code asset。
-4. active source code 旧依赖静态扫描为零。
-5. 用户单独批准删除物理旧文件。
+已完成代码清理范围：
 
-代码删除范围：
+- 删除 `raw_tushare_index_daily_by_code` asset；
+- 删除旧 raw-by-code 5 个 checks；
+- 删除旧 by-code path helper 与 staging helper；
+- 删除旧 by-code Tushare IO helper；
+- 删除旧 `index_daily_update_job` 和 `build_index_daily_update_job_run_config(...)`；
+- 删除旧 `index_daily_sensor` 与 by-code late-arrival repair selector；
+- 删除旧 by-code raw gap/readiness helper 与 `RAW_INDEX_DAILY_BY_CODE_*` readiness spec；
+- 删除旧 `raw_tushare_index_daily_by_code` catalog entry；
+- 删除 P4 runless bootstrap helper/CLI，避免旧 by-code path/symbol 留在 active `src/orchestrator/defs/**`；
+- 删除或改写旧 by-code 专用测试，并新增 P7 static gate，强制 active defs 中旧 by-code production symbol 扫描为 0。
 
-- `raw_tushare_index_daily_by_code` asset；
-- old raw-by-code checks；
-- old by-code path helper；
-- old by-code IO helper；
-- old by-code sensor gap/readiness helper；
-- old tests 和 catalog entries。
+P7 明确不做：
 
-物理路径 `raw/tushare/index_daily_by_code` 的删除必须单独审批，不与代码提交混在一起。
+- 不删除物理路径 `raw/tushare/index_daily_by_code/**`；
+- 不清理 Dagster DB 中旧 materialization/check/run/sensor cursor；
+- 不修改 `cn_a_index_ts_codes` 或 `cn_a_index_trade_days` dynamic partitions；
+- 不启用 `raw_index_daily_update_job_sensor` 或 `silver_index_daily_sensor`；
+- 不触发 Dagster run、materialize、backfill 或 runless event 写入。
+
+物理路径 `raw/tushare/index_daily_by_code` 的删除必须进入 P8 单独审批；旧 Dagster DB 状态/事件治理必须进入 P9 单独 dry-run 和审批。
 
 ### M8：旧 Index Daily 状态与事件清理（对应 P9）
 
@@ -581,7 +588,7 @@ P7 后，active `src/**` 中不得再出现旧 by-code 生产符号；P5/P6 阶�
    - 能统计最近 20 个目标分区的 materialization/check 已有、缺失、待写；
    - 能把 6792 个历史分区全量 event 估算记录为不执行容量证据。
 6. sensor contract：
-   - index daily sensor 提交 date-level run；
+   - `raw_index_daily_update_job_sensor` 提交 date-level run；
    - silver sensor 不再读 raw-by-code；
    - run key 不含 ts_code。
 7. static gates：
@@ -625,14 +632,15 @@ P7 后，active `src/**` 中不得再出现旧 by-code 生产符号；P5/P6 阶�
 
 ## 建议推进步骤
 
-1. 提交 P5/P6 代码后，单独审批运行 `dg check defs` 和正式 instance 只读 readiness 样本，确认 `raw_index_daily_update_job_sensor`、`silver_index_daily_sensor`、major indices readiness 都只读取 by-date raw/silver facts。
-2. 新 raw sensor 保持 STOPPED；完成 P3 final audit、P4 最近窗口 event audit、P5/P6 只读 readiness 样本和 `dg check defs` 后，再由用户审批是否启用。
-3. 进入 P7，清零旧 by-code active code 和 catalog；P8 单独审批后删除旧物理文件；P9 如确有必要，再独立审批旧 index daily Dagster DB 状态/事件清理。
+1. 提交 P7 代码后，单独审批运行 `dg check defs` 和正式 instance 只读 readiness 样本，确认 `raw_index_daily_update_job_sensor`、`silver_index_daily_sensor`、major indices readiness 在完整 defs 加载下仍只读取 by-date raw/silver facts。
+2. 新 raw/silver sensors 保持 STOPPED；完成 P7 后的 `dg check defs`、只读 readiness 样本和 prod source readiness probe 后，再由用户审批是否启用。
+3. P8 如需删除旧 `raw/tushare/index_daily_by_code/**` 物理文件，必须先做文件级 dry-run，列出路径、文件数、体量和不影响新 by-date 链路的验证。
+4. P9 如确有必要，再独立审批旧 index daily Dagster DB 状态/事件清理 dry-run；P9 不能成为 sensor 启用前置条件。
 
 ## 遗留拍板项
 
-1. P3/P4 bootstrap 代码在 P7 的处理方式：删除，还是移到 active static gate 不扫描的离线工具目录。无论选哪种，生产 `src/orchestrator/defs/**` 旧 by-code 符号必须清零。
-2. P6 新 raw sensor 启用方式：本轮代码默认 STOPPED；是否启用必须在只读 readiness 样本和 `dg check defs` 通过后单独审批。
+1. P6 新 raw/silver sensors 启用方式：本轮代码默认 STOPPED；是否启用必须在只读 readiness 样本、prod source readiness probe 和 `dg check defs` 通过后单独审批。
+2. P8 旧 by-code lake 文件是否删除：若删除，必须先 dry-run；若暂不删除，旧文件只能作为归档历史输入留存，不能再被 active defs 引用。
 3. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起专项 dry-run 和审批；若不执行，旧记录只能作为历史审计账留存，不能影响新链路状态。
 4. P9 清理粒度：默认建议第一阶段只考虑旧 raw asset/check/index sensor cursor；`index_daily_update_job` run history 规模很大，是否清理 run、run_tags、run_id 关联 event_logs 必须单独拍板。
 

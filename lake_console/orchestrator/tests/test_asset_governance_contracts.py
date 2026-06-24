@@ -30,7 +30,6 @@ from orchestrator.defs.assets.index_daily import (
     INDEX_DAILY_RAW_COLUMN_TYPES,
     INDEX_DAILY_SILVER_COLUMN_TYPES,
     raw_index_daily,
-    raw_tushare_index_daily_by_code,
     silver_index_daily,
 )
 from orchestrator.defs.assets.market_breadth import gold_market_breadth_daily
@@ -144,8 +143,8 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_SCHEMA,
     GOLD_STK_MINS_QFQ_SCHEMA,
     GOLD_STOCK_RETURN_DISTRIBUTION_SCHEMA,
+    RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
-    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_STK_MINS_SCHEMA,
@@ -220,7 +219,6 @@ ACTIVE_ASSET_DEFINITIONS = (
     raw_tushare_index_basic,
     silver_index_basic,
     raw_index_daily,
-    raw_tushare_index_daily_by_code,
     silver_index_daily,
     gold_market_major_indices_daily,
     gold_market_breadth_daily,
@@ -312,7 +310,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 56)
+        self.assertEqual(len(catalog_entries), 55)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -363,7 +361,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 56)
+        self.assertEqual(len(entries), 55)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -581,13 +579,13 @@ class AssetGovernanceContractTests(unittest.TestCase):
         )
         self.assertEqual(
             INDEX_DAILY_RAW_COLUMNS,
-            tuple(column.name for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA),
+            tuple(column.name for column in RAW_INDEX_DAILY_SCHEMA),
         )
         self.assertEqual(
             INDEX_DAILY_RAW_COLUMN_TYPES,
             {
                 column.name: column.type
-                for column in RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA
+                for column in RAW_INDEX_DAILY_SCHEMA
             },
         )
         self.assertEqual(

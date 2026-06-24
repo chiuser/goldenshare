@@ -6,7 +6,6 @@ from typing import Any
 
 import dagster as dg
 
-from orchestrator.defs.duckdb_connection import connect_configured_duckdb
 from orchestrator.defs.duckdb_sql import (
     INDEX_DAILY_RAW_COLUMNS,
     INDEX_DAILY_SILVER_COLUMNS,
@@ -22,8 +21,6 @@ from orchestrator.defs.paths import (
     PATH_TEMPLATE_PARTITION_KEY,
     lake_path_template,
     raw_index_daily_path,
-    raw_index_daily_by_code_path,
-    raw_index_daily_by_code_staging_dir,
     raw_index_daily_staging_path,
     silver_index_daily_path,
 )
@@ -41,7 +38,6 @@ from orchestrator.defs.resources import (
     DuckDBResource,
     LakeRootResource,
     ProdPostgresResource,
-    TushareResource,
 )
 from orchestrator.defs.run_contracts.asset_tags import (
     AssetLayer,
@@ -50,12 +46,10 @@ from orchestrator.defs.run_contracts.asset_tags import (
 )
 from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_DAILY_SCHEMA,
-    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     SILVER_INDEX_DAILY_SCHEMA,
 )
 from orchestrator.defs.run_contracts.configs import (
     IndexDailyRawConfig,
-    IndexDailyRawByCodeConfig,
     normalize_iso_trade_date,
 )
 from orchestrator.defs.run_contracts.metadata import (
@@ -63,7 +57,6 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
-from orchestrator.defs.tushare_api_io import fetch_tushare_index_daily_by_code_to_raw
 from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
@@ -72,13 +65,6 @@ INDEX_DAILY_RAW_COLUMN_TYPES = {column.name: column.type for column in RAW_INDEX
 INDEX_DAILY_SILVER_COLUMN_TYPES = {
     column.name: column.type for column in SILVER_INDEX_DAILY_SCHEMA
 }
-
-
-def _source_date_window_from_config(
-    config: IndexDailyRawByCodeConfig,
-) -> tuple[str, str]:
-    trade_date = normalize_iso_trade_date(config.trade_date).replace("-", "")
-    return trade_date, trade_date
 
 
 def _selected_partition_keys(context: dg.AssetExecutionContext) -> tuple[str, ...]:
@@ -559,12 +545,6 @@ def _attach_prod_index_daily_postgres_database(
         ) from None
 
 
-def _read_parquet_paths(paths: Sequence[Path], *, union_by_name: bool = False) -> str:
-    path_values = ", ".join(duckdb_string(path) for path in paths)
-    union_clause = ", union_by_name=true" if union_by_name else ""
-    return f"read_parquet([{path_values}], hive_partitioning=false{union_clause})"
-
-
 def _index_daily_by_date_normalized_select(
     raw_path: Path,
     source_trade_date: str,
@@ -583,28 +563,6 @@ SELECT
   CAST(vol AS DOUBLE) AS vol,
   CAST(amount AS DOUBLE) AS amount
 FROM {read_parquet(raw_path, hive_partitioning=False)}
-WHERE CAST(trade_date AS VARCHAR) = {duckdb_string(source_trade_date)}
-"""
-
-
-def _index_daily_by_code_normalized_select(
-    raw_paths: Sequence[Path],
-    source_trade_date: str,
-) -> str:
-    return f"""
-SELECT
-  CAST(ts_code AS VARCHAR) AS ts_code,
-  CAST(strptime(trade_date, '%Y%m%d') AS DATE) AS trade_date,
-  CAST(open AS DOUBLE) AS open,
-  CAST(high AS DOUBLE) AS high,
-  CAST(low AS DOUBLE) AS low,
-  CAST(close AS DOUBLE) AS close,
-  CAST(pre_close AS DOUBLE) AS pre_close,
-  CAST(change AS DOUBLE) AS change_amount,
-  CAST(pct_chg AS DOUBLE) AS pct_chg,
-  CAST(vol AS DOUBLE) AS vol,
-  CAST(amount AS DOUBLE) AS amount
-FROM {_read_parquet_paths(raw_paths, union_by_name=True)}
 WHERE CAST(trade_date AS VARCHAR) = {duckdb_string(source_trade_date)}
 """
 
@@ -830,114 +788,6 @@ def materialize_silver_index_daily_partitions_from_raw_by_date(
     return partition_metadata
 
 
-def materialize_silver_index_daily_partitions_from_raw_by_code(
-    *,
-    lake_root_path: Path,
-    duckdb: DuckDBResource,
-    partition_keys: Sequence[str],
-    registered_index_codes: Sequence[str],
-    log: DgStdoutLogger | None = None,
-) -> dict[str, dict[str, Any]]:
-    index_codes = tuple(sorted(set(registered_index_codes)))
-    if not index_codes:
-        raise RuntimeError(
-            f"{cn_a_index_ts_codes.name} has no registered partition keys."
-        )
-
-    raw_paths_by_code = {
-        index_code: raw_index_daily_by_code_path(lake_root_path, index_code)
-        for index_code in index_codes
-    }
-    missing_raw_paths = [
-        str(raw_path)
-        for raw_path in raw_paths_by_code.values()
-        if not raw_path.exists()
-    ]
-    if missing_raw_paths:
-        raise FileNotFoundError(
-            "Missing raw index daily by-code files for registered index codes: "
-            f"{missing_raw_paths[:20]}"
-        )
-
-    raw_paths = tuple(raw_paths_by_code.values())
-    partition_metadata: dict[str, dict[str, Any]] = {}
-    with connect_configured_duckdb() as connection:
-        for partition_key in tuple(sorted(set(partition_keys))):
-            source_trade_date = partition_key.replace("-", "")
-            target_path = silver_index_daily_path(lake_root_path, partition_key)
-            normalized_sql = _index_daily_by_code_normalized_select(
-                raw_paths,
-                source_trade_date,
-            )
-            conflict_key_count = _conflict_key_count_from_normalized_sql(
-                connection,
-                normalized_sql,
-            )
-            if conflict_key_count:
-                raise RuntimeError(
-                    "raw_tushare_index_daily_by_code has conflicting duplicate rows for "
-                    f"{partition_key}: "
-                    f"{_conflict_sample_keys_from_normalized_sql(connection, normalized_sql)}"
-                )
-
-            raw_row_count = int(
-                connection.execute(
-                    f"SELECT count(*) FROM ({normalized_sql}) normalized"
-                ).fetchone()[0]
-            )
-            duplicate_removed_count = _duplicate_removed_count_from_normalized_sql(
-                connection,
-                normalized_sql,
-            )
-            duplicate_sample_rows = _duplicate_sample_rows_from_normalized_sql(
-                connection,
-                normalized_sql,
-            )
-            _replace_parquet_from_query(
-                connection,
-                f"""
-                SELECT DISTINCT *
-                FROM ({normalized_sql}) normalized
-                ORDER BY ts_code
-                """,
-                target_path,
-            )
-            columns = _column_names(connection, target_path)
-            row_count = _row_count(connection, target_path)
-            partition_metadata[partition_key] = {
-                "partition_key": partition_key,
-                "file_path": str(target_path),
-                "source_code_count": len(index_codes),
-                "source_file_count": len(raw_paths),
-                "missing_raw_file_count": 0,
-                "raw_row_count": raw_row_count,
-                "output_row_count": row_count,
-                "output_columns": columns,
-                "duplicate_removed_count": duplicate_removed_count,
-                "duplicate_sample_rows": duplicate_sample_rows,
-            }
-            if log:
-                log.stdout(
-                    "silver_partition_written",
-                    partition_key=partition_key,
-                    trade_date=source_trade_date,
-                    rows=row_count,
-                    raw_rows=raw_row_count,
-                    path=target_path,
-                )
-
-    if log:
-        log.stdout(
-            "silver_partitions_completed",
-            partitions=len(partition_metadata),
-            total_rows=sum(
-                item["output_row_count"] for item in partition_metadata.values()
-            ),
-        )
-
-    return partition_metadata
-
-
 @dg.asset(
     name="raw_index_daily",
     partitions_def=cn_a_index_trade_days,
@@ -997,61 +847,6 @@ def raw_index_daily(
             ),
         )
     )
-
-
-@dg.asset(
-    name="raw_tushare_index_daily_by_code",
-    partitions_def=cn_a_index_ts_codes,
-    group_name="index",
-    tags=build_asset_tags(layer=AssetLayer.RAW, data_domain=DataDomain.INDEX_TOPIC),
-    metadata=build_asset_definition_metadata(
-        dataset_id="index_daily",
-        source_system=SourceSystem.TUSHARE,
-        source_api="index_daily",
-        source_category_path="指数专题",
-        source_doc="docs/sources/tushare/指数专题/0095_指数日线行情.md",
-        data_contract="source_mirror_by_code",
-        column_schema=RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
-        path_template=lake_path_template(
-            raw_index_daily_by_code_path(
-                PATH_TEMPLATE_LAKE_ROOT,
-                PATH_TEMPLATE_PARTITION_KEY,
-            )
-        ),
-    ),
-    description="Tushare 指数日线原始数据，按指数代码分区拉取并保存源站镜像。",
-)
-def raw_tushare_index_daily_by_code(
-    context: dg.AssetExecutionContext,
-    lake_root: LakeRootResource,
-    duckdb: DuckDBResource,
-    tushare: TushareResource,
-    config: IndexDailyRawByCodeConfig,
-) -> dg.MaterializeResult:
-    lake_root.ensure_available_for_run()
-    ts_code = context.partition_key
-    start_date, end_date = _source_date_window_from_config(config)
-    target_path = raw_index_daily_by_code_path(lake_root.root(), ts_code)
-
-    metadata = fetch_tushare_index_daily_by_code_to_raw(
-        tushare=tushare,
-        duckdb=duckdb,
-        ts_code=ts_code,
-        start_date=start_date,
-        end_date=end_date,
-        fields=INDEX_DAILY_RAW_COLUMNS,
-        column_types=INDEX_DAILY_RAW_COLUMN_TYPES,
-        target_path=target_path,
-        staging_dir=raw_index_daily_by_code_staging_dir(
-            lake_root.root(),
-            context.run_id,
-            ts_code,
-        ),
-        write_mode=config.write_mode,
-        log=DgStdoutLogger("index_daily"),
-    )
-
-    return dg.MaterializeResult(metadata=metadata)
 
 
 @dg.asset(

@@ -110,20 +110,6 @@ RAW_INDEX_DAILY_SCHEMA = (
     ColumnContract("amount", "DOUBLE", "成交额，沿用指数日线口径"),
 )
 
-RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA = (
-    ColumnContract("ts_code", "VARCHAR", "指数代码"),
-    ColumnContract("trade_date", "VARCHAR", "Tushare 原始交易日，YYYYMMDD 字符串"),
-    ColumnContract("open", "DOUBLE", "当日开盘点位"),
-    ColumnContract("high", "DOUBLE", "当日最高点位"),
-    ColumnContract("low", "DOUBLE", "当日最低点位"),
-    ColumnContract("close", "DOUBLE", "当日收盘点位"),
-    ColumnContract("pre_close", "DOUBLE", "前一交易日收盘点位"),
-    ColumnContract("change", "DOUBLE", "源站原始变动值字段，raw 层不改名"),
-    ColumnContract("pct_chg", "DOUBLE", "涨跌幅，百分比"),
-    ColumnContract("vol", "DOUBLE", "成交量，沿用 Tushare 指数日线口径"),
-    ColumnContract("amount", "DOUBLE", "成交额，沿用 Tushare 指数日线口径"),
-)
-
 SILVER_TRADE_CALENDAR_SCHEMA = (
     ColumnContract("exchange", "VARCHAR", "交易所代码"),
     ColumnContract("trade_date", "DATE", "交易日"),

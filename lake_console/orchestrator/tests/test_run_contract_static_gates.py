@@ -193,14 +193,6 @@ def _is_allowed_direct_run_request_tags(path: Path) -> bool:
 
 
 def _is_allowed_sensor_run_key_value(path: Path, node: ast.AST) -> bool:
-    if (
-        path.name == "index_daily_sensor.py"
-        and isinstance(node, ast.Attribute)
-        and node.attr == "run_key"
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "run"
-    ):
-        return True
     return (
         isinstance(node, ast.Call)
         and _call_name(node.func) in RUN_KEY_BUILDER_CALL_NAMES
@@ -1508,7 +1500,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 34)
+        self.assertEqual(sensor_definition_count, 33)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -2133,7 +2125,6 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_index_daily_sensors_use_registered_gap_guard(self) -> None:
         sensor_paths = (
-            SENSORS_DIR / "index_daily_sensor.py",
             SENSORS_DIR / "raw_index_daily_update_job_sensor.py",
             SENSORS_DIR / "silver_index_daily_sensor.py",
         )
@@ -2175,7 +2166,6 @@ class RunContractStaticGateTests(unittest.TestCase):
         asset_source = (ASSETS_DIR / "index_daily.py").read_text()
         check_source = (CHECKS_DIR / "index_daily_checks.py").read_text()
         job_source = (JOBS_DIR / "index_daily_update.py").read_text()
-        sensor_source = (SENSORS_DIR / "index_daily_sensor.py").read_text()
         prod_source = (DEFS_DIR / "prod_db" / "index_daily.py").read_text()
         prod_select_source = prod_source[
             prod_source.index("PROD_INDEX_DAILY_SELECT_TEMPLATE") : prod_source.index(
@@ -2246,85 +2236,32 @@ class RunContractStaticGateTests(unittest.TestCase):
                     "raw_index_daily by-date checks must stay aggregated, found "
                     f"{forbidden_check_fragment}"
                 )
-        if "raw_index_daily_update_job" in sensor_source:
-            issues.append("P1/P2 must not switch index_daily_sensor to new raw job")
         if "2026-06-23" in asset_source + check_source + prod_source:
             issues.append("raw_index_daily production code must not hardcode migration date")
 
         self.assertEqual(issues, [])
 
-    def test_raw_index_daily_runless_recent_window_contracts(self) -> None:
+    def test_raw_index_daily_runless_bootstrap_removed_from_active_defs(self) -> None:
         helper_path = (
             DEFS_DIR / "bootstrap" / "index_daily_raw_by_date_runless_events.py"
         )
         cli_path = (
             DEFS_DIR / "bootstrap" / "index_daily_raw_by_date_runless_events_cli.py"
         )
-        helper_source = helper_path.read_text()
-        cli_source = cli_path.read_text()
-        combined_source = f"{helper_source}\n{cli_source}"
         issues = []
+        for path in (helper_path, cli_path):
+            if path.exists():
+                issues.append(f"{path} must not remain in active defs after P7")
 
-        required_helper_fragments = (
-            'RAW_INDEX_DAILY_ASSET_KEY = dg.AssetKey("raw_index_daily")',
-            "RAW_INDEX_DAILY_RECENT_WINDOW_LIMIT = 20",
-            "RAW_INDEX_DAILY_MAX_EVENT_COUNT",
-            '"raw_index_daily_file_contract_check"',
-            '"raw_index_daily_code_coverage_check"',
-            'RAW_INDEX_DAILY_COVERAGE_BASIS = "by_code_source_pairs"',
-            'RAW_INDEX_DAILY_EVENT_BACKFILL_SCOPE = "recent_window"',
-            "index_code_set_hash",
-            "AssetCheckEvaluationTargetMaterializationData",
-            "report_runless_asset_event",
-            "target_materialization_data=target",
-            "dry_run",
+        active_bootstrap_source = "\n".join(
+            path.read_text()
+            for path in (DEFS_DIR / "bootstrap").glob("*.py")
+            if path.name != "__init__.py"
         )
-        issues.extend(
-            f"{helper_path} misses P4 runless fragment: {fragment}"
-            for fragment in required_helper_fragments
-            if fragment not in helper_source
-        )
-
-        required_cli_fragments = (
-            '"plan-events"',
-            '"report-sample-events"',
-            '"audit-sample-events"',
-            '"report-recent-window-events"',
-            '"audit-recent-window-events"',
-            '"--apply"',
-            "dry_run=not args.apply",
-            "--p3-final-audit-report",
-        )
-        issues.extend(
-            f"{cli_path} misses P4 CLI fragment: {fragment}"
-            for fragment in required_cli_fragments
-            if fragment not in cli_source
-        )
-
-        forbidden_fragments = (
-            'dg.AssetKey("raw_tushare_index_daily_by_code")',
-            "RAW_INDEX_DAILY_BY_CODE_ASSET_KEY",
-            "raw_index_daily_file_exists_check",
-            "raw_index_daily_row_count_positive_check",
-            "raw_index_daily_required_columns_and_types_check",
-            "raw_index_daily_partition_date_matches_check",
-            "raw_index_daily_unique_ts_code_trade_date_check",
-            "raw_index_daily_registered_code_coverage_check",
-            "raw_index_daily_expected_code_coverage_check",
-            "2026-06-23",
-            "20260623",
-        )
-        issues.extend(
-            "raw_index_daily runless helper/CLI contains forbidden fragment: "
-            f"{fragment}"
-            for fragment in forbidden_fragments
-            if fragment in combined_source
-        )
-
-        if "window_limit > RAW_INDEX_DAILY_RECENT_WINDOW_LIMIT" not in helper_source:
-            issues.append("raw_index_daily runless helper must fail closed above 20")
-        if "RAW_INDEX_DAILY_MAX_EVENT_COUNT" not in helper_source:
-            issues.append("raw_index_daily runless helper must cap event count")
+        if "index_daily_raw_by_date_runless_events" in active_bootstrap_source:
+            issues.append(
+                "index daily runless event bootstrap code must not remain in active defs"
+            )
 
         self.assertEqual(issues, [])
 
@@ -2458,6 +2395,44 @@ class RunContractStaticGateTests(unittest.TestCase):
             issues.append("silver coverage check must compare against raw by-date path")
         if "cn_a_index_ts_codes" in silver_coverage_slice:
             issues.append("silver coverage check must not read current dynamic codes")
+
+        self.assertEqual(issues, [])
+
+    def test_index_daily_p7_removes_by_code_active_source_and_catalog(self) -> None:
+        issues = []
+        removed_files = (
+            SENSORS_DIR / "index_daily_sensor.py",
+            SENSORS_DIR / "index_daily_late_arrival_repair.py",
+            DEFS_DIR / "bootstrap" / "index_daily_raw_by_date_runless_events.py",
+            DEFS_DIR / "bootstrap" / "index_daily_raw_by_date_runless_events_cli.py",
+        )
+        for path in removed_files:
+            if path.exists():
+                issues.append(f"{path} must not exist after P7")
+
+        forbidden_fragments = (
+            "raw_tushare_index_daily_by_code",
+            "raw_index_daily_by_code",
+            "index_daily_by_code",
+            "IndexDailyRawByCode",
+            "RAW_TUSHARE_INDEX_DAILY_BY_CODE",
+            "RAW_INDEX_DAILY_BY_CODE",
+            "build_index_daily_update_job_run_config",
+            "select_index_daily_pending_code_runs",
+            "audit_index_daily_raw_gaps",
+            "check_index_daily_raw_files_for_trade_date",
+            'name="index_daily_update_job"',
+            'job_name="index_daily_update_job"',
+            '"index_daily_update_job"',
+            "MAX_RUN_REQUESTS_PER_TICK = 500",
+        )
+        for path in sorted(DEFS_DIR.rglob("*.py")):
+            source = path.read_text()
+            issues.extend(
+                f"{path} contains removed index daily by-code fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
 
         self.assertEqual(issues, [])
 

@@ -265,29 +265,6 @@ def silver_index_basic_path(root: Path) -> Path:
     return lake_path(root, SILVER, "index_basic", "full", "part-000.parquet")
 
 
-def raw_index_daily_by_code_path(root: Path, ts_code: str) -> Path:
-    return lake_path(
-        root,
-        RAW,
-        "tushare",
-        "index_daily_by_code",
-        f"ts_code={ts_code}",
-        "part-000.parquet",
-    )
-
-
-def raw_index_daily_by_code_staging_dir(root: Path, run_id: str, ts_code: str) -> Path:
-    return lake_path(
-        root,
-        RAW,
-        "tushare",
-        "index_daily_by_code",
-        "_staging",
-        f"run_id={run_id}",
-        f"ts_code={ts_code}",
-    )
-
-
 def raw_index_daily_path(root: Path, partition_key: str) -> Path:
     return lake_path(
         root,

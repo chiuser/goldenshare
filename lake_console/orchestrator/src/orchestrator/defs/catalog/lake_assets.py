@@ -19,7 +19,6 @@ from orchestrator.defs.paths import (
     raw_adj_factor_path,
     raw_index_basic_path,
     raw_index_daily_path,
-    raw_index_daily_by_code_path,
     raw_namechange_path,
     raw_stock_basic_path,
     raw_stock_daily_path,
@@ -50,7 +49,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     RAW_INDEX_DAILY_SCHEMA,
     RAW_TUSHARE_ADJ_FACTOR_SCHEMA,
     RAW_TUSHARE_INDEX_BASIC_SCHEMA,
-    RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
     RAW_TUSHARE_NAMECHANGE_SCHEMA,
     RAW_TUSHARE_STOCK_BASIC_SCHEMA,
     RAW_TUSHARE_STOCK_DAILY_SCHEMA,
@@ -414,13 +412,6 @@ SILVER_INDEX_BASIC_CHECKS = (
     "silver_index_basic_required_fields_non_null",
     "silver_index_basic_row_count_positive",
     "silver_index_basic_unique_ts_code",
-)
-RAW_INDEX_DAILY_CHECKS = (
-    "raw_index_daily_by_code_file_exists",
-    "raw_index_daily_by_code_partition_code_matches",
-    "raw_index_daily_by_code_required_columns_and_types",
-    "raw_index_daily_by_code_row_count_positive",
-    "raw_index_daily_by_code_unique_ts_code_trade_date",
 )
 RAW_INDEX_DAILY_BY_DATE_CHECKS = (
     "raw_index_daily_code_coverage_check",
@@ -1373,25 +1364,6 @@ LAKE_ASSET_CATALOG += (
                 "requires full prod serving coverage, and writes one by-date parquet file."
             ),
         ),
-    ),
-    _tushare_raw_entry(
-        asset_key="raw_tushare_index_daily_by_code",
-        dataset_id="index_daily",
-        group_name="index",
-        data_domain=DataDomain.INDEX_TOPIC,
-        data_contract="source_mirror_by_code",
-        column_schema=RAW_TUSHARE_INDEX_DAILY_BY_CODE_SCHEMA,
-        path_template=lake_path_template(
-            raw_index_daily_by_code_path(
-                PATH_TEMPLATE_LAKE_ROOT,
-                PATH_TEMPLATE_PARTITION_KEY,
-            )
-        ),
-        partition_model=PartitionModel.TRADE_DATE_PARTITION_RAW_INDEX_DAILY,
-        source_api="index_daily",
-        source_doc="docs/sources/tushare/指数专题/0095_指数日线行情.md",
-        blocking_check_names=RAW_INDEX_DAILY_CHECKS,
-        batch_grain="ts_code",
     ),
     _derived_entry(
         asset_key="silver_index_daily",

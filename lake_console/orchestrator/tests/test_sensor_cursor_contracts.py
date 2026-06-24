@@ -10,10 +10,6 @@ from orchestrator.defs.run_contracts.cursors import (
     build_sensor_cursor,
     load_sensor_cursor,
 )
-from orchestrator.defs.sensors.index_daily_sensor import (
-    _cursor_payload as build_index_daily_cursor,
-)
-from orchestrator.defs.sensors.index_daily_sensor import _select_pending_codes
 
 
 class SensorCursorContractTests(unittest.TestCase):
@@ -111,63 +107,6 @@ class SensorCursorContractTests(unittest.TestCase):
             load_sensor_cursor(cursor)["details"]["reason_code"],
             "run_window_not_started",
         )
-
-    def test_index_daily_cursor_offset_reads_only_v1_details(self) -> None:
-        evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
-        pending_codes = ("000001.SH", "000016.SH", "000300.SH")
-        versioned_cursor = build_sensor_cursor(
-            evaluated_at=evaluated_at,
-            decision=SensorCursorDecision.REQUEST_RUNS,
-            target_date="2026-05-26",
-            details={"next_pending_offset": 1},
-        )
-
-        selected_codes, next_offset = _select_pending_codes(
-            cursor_payload=load_sensor_cursor(versioned_cursor),
-            target_trade_date="2026-05-26",
-            pending_codes=pending_codes,
-        )
-
-        self.assertEqual(selected_codes, ("000016.SH", "000300.SH", "000001.SH"))
-        self.assertEqual(next_offset, 1)
-
-        legacy_cursor = json.dumps(
-            {
-                "target_trade_date": "2026-05-26",
-                "next_pending_offset": 1,
-            }
-        )
-        selected_codes, next_offset = _select_pending_codes(
-            cursor_payload=load_sensor_cursor(legacy_cursor),
-            target_trade_date="2026-05-26",
-            pending_codes=pending_codes,
-        )
-
-        self.assertEqual(selected_codes, pending_codes)
-        self.assertEqual(next_offset, 0)
-
-    def test_index_daily_cursor_writes_offset_only_in_details(self) -> None:
-        evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
-        payload = json.loads(
-            build_index_daily_cursor(
-                evaluated_at=evaluated_at,
-                today="2026-05-26",
-                registered_trade_day_count=1,
-                registered_code_count=3,
-                target_trade_date="2026-05-26",
-                source_ready=True,
-                source_row_count=3,
-                pending_count=3,
-                selected_codes=("000001.SH",),
-                next_pending_offset=1,
-            )
-        )
-
-        self.assertNotIn("target_trade_date", payload)
-        self.assertNotIn("next_pending_offset", payload)
-        self.assertEqual(payload["target_date"], "2026-05-26")
-        self.assertEqual(payload["details"]["next_pending_offset"], 1)
-
 
 if __name__ == "__main__":
     unittest.main()
