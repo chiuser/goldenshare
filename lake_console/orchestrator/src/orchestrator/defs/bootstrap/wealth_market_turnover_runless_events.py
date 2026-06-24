@@ -11,6 +11,7 @@ from dagster._core.definitions.asset_checks.asset_check_evaluation import (
 )
 
 from orchestrator.defs.bootstrap.wealth_market_turnover_history import (
+    WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE,
     WealthMarketTurnoverHistoryPartitionAudit,
     audit_wealth_market_turnover_history,
     discover_wealth_market_turnover_target_partitions,
@@ -30,7 +31,6 @@ from orchestrator.defs.wealth_market_turnover_contract import (
 
 
 GOLD_WEALTH_MARKET_TURNOVER_ASSET_KEY = dg.AssetKey("gold_wealth_market_turnover")
-WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE = 20
 
 
 @dataclass(frozen=True, slots=True)

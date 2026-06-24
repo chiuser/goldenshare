@@ -1115,6 +1115,16 @@ git diff --check
 5. check event 绑定对应 materialization。
 6. CLI 默认 dry-run，只有显式 `--apply` 才写 lake 或 Dagster event。
 
+只读 profile 已执行并通过：
+
+1. 报告：`/private/tmp/wealth_market_turnover_history_profile-history_20260624_200131.json`。
+2. `selected_partition_count=3030`，范围为 `2014-01-02` 到 `2026-06-23`。
+3. 五个 silver 频度各有 `3030` 个分区，完整五频度分区数为 `3030`。
+4. 当前目标 gold 文件数为 `0`，计划写入 `3030` 个分区。
+5. 缺失输入数为 `0`。
+6. `planned_event_count=40`，符合最近 20 个交易日 runless event 上限。
+7. sample 分区为 `2014-01-02`、`2020-03-23`、`2026-06-23`。
+
 ## 14. 停止条件
 
 开发中遇到以下情况必须停止，不继续编码：

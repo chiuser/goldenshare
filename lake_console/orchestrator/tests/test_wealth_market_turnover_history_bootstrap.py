@@ -5,6 +5,7 @@ from pathlib import Path
 import duckdb
 
 from orchestrator.defs.bootstrap.wealth_market_turnover_history import (
+    WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE,
     audit_wealth_market_turnover_history,
     generate_wealth_market_turnover_history,
     plan_wealth_market_turnover_history,
@@ -49,6 +50,27 @@ class WealthMarketTurnoverHistoryBootstrapTests(unittest.TestCase):
         self.assertEqual(plan.planned_write_count, 1)
         self.assertEqual(plan.planned_event_count, 2)
         self.assertEqual(plan.missing_input_count, 0)
+
+    def test_history_plan_caps_runless_event_count_to_recent_window(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            lake_root = Path(temporary_dir)
+            for day in range(1, WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE + 2):
+                partition_key = f"2026-05-{day:02d}"
+                for freq in STK_MINS_FREQS:
+                    path = silver_stk_mins_path(lake_root, freq, partition_key)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.touch()
+
+            plan = plan_wealth_market_turnover_history(lake_root=lake_root)
+
+        self.assertEqual(
+            len(plan.selected_partition_keys),
+            WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE + 1,
+        )
+        self.assertEqual(
+            plan.planned_event_count,
+            WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE * 2,
+        )
 
     def test_requested_incomplete_partition_fails_closed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:

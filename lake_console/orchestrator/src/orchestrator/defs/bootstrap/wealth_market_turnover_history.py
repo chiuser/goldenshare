@@ -24,6 +24,9 @@ from orchestrator.defs.wealth_market_turnover_contract import (
 )
 
 
+WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE = 20
+
+
 @dataclass(frozen=True, slots=True)
 class WealthMarketTurnoverHistoryPlan:
     selected_partition_keys: tuple[str, ...]
@@ -229,7 +232,9 @@ def plan_wealth_market_turnover_history(
         planned_write_count=sum(
             1 for partition_key in selected_keys if partition_key not in existing_targets
         ),
-        planned_event_count=len(selected_keys) * 2,
+        planned_event_count=(
+            min(len(selected_keys), WEALTH_MARKET_TURNOVER_RUNLESS_WINDOW_SIZE) * 2
+        ),
         missing_input_count=len(missing_inputs),
         missing_input_samples=tuple(missing_inputs[:20]),
         sample_partition_keys=_sample_partition_keys(selected_keys),

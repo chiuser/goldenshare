@@ -447,6 +447,16 @@ sensor：
 5. Dagster DB 只为最近 20 个交易日补 runless materialization/check event，不补全历史状态。
 6. 日更 sensor 启用前，最近窗口必须 ready。
 
+只读 profile 结果：
+
+1. 报告：`/private/tmp/wealth_market_turnover_history_profile-history_20260624_200131.json`。
+2. `selected_partition_count=3030`，范围为 `2014-01-02` 到 `2026-06-23`。
+3. 五个 silver 频度各有 `3030` 个分区，`complete_silver_partition_count=3030`。
+4. 当前 gold 目标文件数为 `0`，`planned_write_count=3030`。
+5. `missing_input_count=0`。
+6. 最近 20 日 runless event 计划数按统一口径封顶为 `40`，不按全历史 `3030 * 2` 计算。
+7. sample 分区为 `2014-01-02`、`2020-03-23`、`2026-06-23`。
+
 ## 11. Catalog 和 Governance 改动点
 
 实现时必须同步以下位置：
