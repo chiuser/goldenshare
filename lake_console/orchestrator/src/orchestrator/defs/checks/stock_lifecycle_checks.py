@@ -50,7 +50,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
-@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def silver_stock_lifecycle_file_exists_check(
     lake_root: LakeRootResource,
 ) -> dg.AssetCheckResult:
@@ -65,7 +87,6 @@ def silver_stock_lifecycle_file_exists_check(
     )
 
 
-@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
 def silver_stock_lifecycle_required_columns_and_types_check(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -106,7 +127,6 @@ def silver_stock_lifecycle_required_columns_and_types_check(
     )
 
 
-@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
 def silver_stock_lifecycle_unique_ts_code_check(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -150,7 +170,6 @@ def silver_stock_lifecycle_unique_ts_code_check(
     )
 
 
-@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
 def silver_stock_lifecycle_required_fields_non_null_check(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -225,7 +244,6 @@ def silver_stock_lifecycle_required_fields_non_null_check(
     )
 
 
-@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
 def silver_stock_lifecycle_dates_valid_check(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -280,7 +298,6 @@ def silver_stock_lifecycle_dates_valid_check(
     )
 
 
-@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
 def silver_stock_lifecycle_cny_stock_universe_check(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -329,5 +346,61 @@ def silver_stock_lifecycle_cny_stock_universe_check(
                     rows,
                 ),
             },
+        ),
+    )
+
+
+@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
+def silver_stock_lifecycle_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            (
+                "silver_stock_lifecycle_file_exists_check",
+                silver_stock_lifecycle_file_exists_check(lake_root),
+            ),
+            (
+                "silver_stock_lifecycle_required_columns_and_types_check",
+                silver_stock_lifecycle_required_columns_and_types_check(
+                    lake_root, duckdb
+                ),
+            ),
+            (
+                "silver_stock_lifecycle_required_fields_non_null_check",
+                silver_stock_lifecycle_required_fields_non_null_check(
+                    lake_root, duckdb
+                ),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
+def silver_stock_lifecycle_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_stock_lifecycle_unique_ts_code_check(lake_root, duckdb)
+
+
+@dg.asset_check(asset="silver_stock_lifecycle", blocking=True)
+def silver_stock_lifecycle_domain_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.VALUE_SANITY,
+        rule_results=(
+            (
+                "silver_stock_lifecycle_dates_valid_check",
+                silver_stock_lifecycle_dates_valid_check(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_lifecycle_cny_stock_universe_check",
+                silver_stock_lifecycle_cny_stock_universe_check(lake_root, duckdb),
+            ),
         ),
     )

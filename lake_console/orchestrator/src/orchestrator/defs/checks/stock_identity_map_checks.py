@@ -72,7 +72,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def silver_stock_identity_map_file_exists(
     lake_root: LakeRootResource,
 ) -> dg.AssetCheckResult:
@@ -87,7 +109,6 @@ def silver_stock_identity_map_file_exists(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -107,7 +128,6 @@ def silver_stock_identity_map_row_count_positive(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_schema_matches_contract(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -143,7 +163,6 @@ def silver_stock_identity_map_schema_matches_contract(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_source_ts_code_present(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -173,7 +192,6 @@ def silver_stock_identity_map_source_ts_code_present(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_source_ts_code_unique(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -223,7 +241,6 @@ def silver_stock_identity_map_source_ts_code_unique(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_latest_ts_code_present(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -253,11 +270,6 @@ def silver_stock_identity_map_latest_ts_code_present(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_identity_map,
-    additional_deps=[silver_stock_basic],
-    blocking=True,
-)
 def silver_stock_identity_map_latest_code_exists_in_stock_basic(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -310,7 +322,6 @@ def silver_stock_identity_map_latest_code_exists_in_stock_basic(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_known_identity_source(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -323,7 +334,6 @@ def silver_stock_identity_map_known_identity_source(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_known_confidence(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -336,7 +346,6 @@ def silver_stock_identity_map_known_confidence(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_date_ranges_valid(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -382,7 +391,6 @@ def silver_stock_identity_map_date_ranges_valid(
     )
 
 
-@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
 def silver_stock_identity_map_conflicting_mapping_absent(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -432,11 +440,6 @@ def silver_stock_identity_map_conflicting_mapping_absent(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_identity_map,
-    additional_deps=[silver_stock_basic],
-    blocking=True,
-)
 def silver_stock_identity_map_seed_latest_code_explainable(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -537,5 +540,97 @@ def _enum_check(
                     rows,
                 ),
             },
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
+def silver_stock_identity_map_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            (
+                "silver_stock_identity_map_file_exists",
+                silver_stock_identity_map_file_exists(lake_root),
+            ),
+            (
+                "silver_stock_identity_map_row_count_positive",
+                silver_stock_identity_map_row_count_positive(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_identity_map_schema_matches_contract",
+                silver_stock_identity_map_schema_matches_contract(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_identity_map_source_ts_code_present",
+                silver_stock_identity_map_source_ts_code_present(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_identity_map_latest_ts_code_present",
+                silver_stock_identity_map_latest_ts_code_present(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_stock_identity_map, blocking=True)
+def silver_stock_identity_map_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        rule_results=(
+            (
+                "silver_stock_identity_map_source_ts_code_unique",
+                silver_stock_identity_map_source_ts_code_unique(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_identity_map_conflicting_mapping_absent",
+                silver_stock_identity_map_conflicting_mapping_absent(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_identity_map,
+    additional_deps=[silver_stock_basic],
+    blocking=True,
+)
+def silver_stock_identity_map_reference_domain_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+        rule_results=(
+            (
+                "silver_stock_identity_map_latest_code_exists_in_stock_basic",
+                silver_stock_identity_map_latest_code_exists_in_stock_basic(
+                    lake_root, duckdb
+                ),
+            ),
+            (
+                "silver_stock_identity_map_seed_latest_code_explainable",
+                silver_stock_identity_map_seed_latest_code_explainable(
+                    lake_root, duckdb
+                ),
+            ),
+            (
+                "silver_stock_identity_map_known_identity_source",
+                silver_stock_identity_map_known_identity_source(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_identity_map_known_confidence",
+                silver_stock_identity_map_known_confidence(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_identity_map_date_ranges_valid",
+                silver_stock_identity_map_date_ranges_valid(lake_root, duckdb),
+            ),
         ),
     )

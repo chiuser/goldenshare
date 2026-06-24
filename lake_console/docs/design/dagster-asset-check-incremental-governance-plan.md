@@ -457,8 +457,9 @@ P4 已落地事实：
 
 ### P5：Full Snapshot / Basic Assets 合并收口
 
-状态：分阶段推进。P5A `calendar/index_basic` 已落地；stock
-basic/lifecycle/namechange/identity map/lake root health 后续单独推进。
+状态：分阶段推进。P5A `calendar/index_basic` 已落地；P5B
+`stock basic/lifecycle/namechange/identity map` 已落地；P5C
+`lake_root_health` 后续单独推进。
 
 目标资产：
 
@@ -483,6 +484,24 @@ P5A 已落地事实：
   `contract/key_integrity/lifecycle_domain` 3 个。
 - `silver_index_basic` 的 major indices lake readiness 仍执行原完整语义，
   失败时映射到新粗粒度 check name。
+
+P5B 已落地事实：
+
+- `raw_tushare_stock_basic` 正式 Dagster checks 收敛为
+  `contract/key_integrity` 2 个。
+- `silver_stock_basic` 正式 Dagster checks 收敛为
+  `contract/key_integrity/current_listed_domain` 3 个。
+- `silver_stock_lifecycle` 正式 Dagster checks 收敛为
+  `contract/key_integrity/domain` 3 个；它仍是历史生命周期正式事实源。
+- `raw_tushare_namechange` 正式 Dagster checks 收敛为
+  `contract/key_integrity/date_domain` 3 个；原 observed checks 退出
+  Dagster check definition，保留为 offline audit/helper。
+- `silver_namechange` 正式 Dagster checks 收敛为
+  `contract/key_integrity/interval_domain` 3 个。
+- `silver_stock_identity_map` 正式 Dagster checks 收敛为
+  `contract/key_integrity/reference_domain` 3 个。
+- 旧细粒度函数继续作为 wrapper 内部 rule 使用，`failed_rule_names`
+  仍能定位具体失败语义；sensor readiness 只消费新粗粒度 check names。
 
 ### P6：分钟线普通 check 合并与最终门禁
 

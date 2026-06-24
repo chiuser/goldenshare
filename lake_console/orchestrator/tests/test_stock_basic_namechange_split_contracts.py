@@ -241,13 +241,9 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         self.assertIn(RAW_STOCK_BASIC_READINESS_SPEC, STOCK_BASIC_READINESS_SPECS)
 
         expected_names = (
-            "raw_namechange_file_exists",
-            "raw_namechange_row_count_positive",
-            "raw_namechange_required_columns",
-            "raw_namechange_schema_matches_tushare_contract",
-            "raw_namechange_required_fields_non_null",
-            "raw_namechange_date_string_format_valid",
-            "raw_namechange_exact_duplicate_absent",
+            "raw_namechange_contract_check",
+            "raw_namechange_key_integrity_check",
+            "raw_namechange_date_domain_check",
         )
         for check_name in expected_names:
             self.assertTrue(hasattr(namechange_checks, check_name))

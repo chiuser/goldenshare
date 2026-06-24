@@ -21,61 +21,33 @@ _MISSING_WITHIN_LATEST_CHECK_HISTORY_WINDOW = (
 )
 
 RAW_STOCK_BASIC_CHECKS = (
-    "raw_stock_basic_file_exists",
-    "raw_stock_basic_required_columns",
-    "raw_stock_basic_row_count_positive",
-    "raw_stock_basic_ts_code_present",
+    "raw_stock_basic_contract_check",
+    "raw_stock_basic_key_integrity_check",
 )
 RAW_NAMECHANGE_CHECKS = (
-    "raw_namechange_file_exists",
-    "raw_namechange_row_count_positive",
-    "raw_namechange_required_columns",
-    "raw_namechange_schema_matches_tushare_contract",
-    "raw_namechange_required_fields_non_null",
-    "raw_namechange_date_string_format_valid",
-    "raw_namechange_exact_duplicate_absent",
+    "raw_namechange_contract_check",
+    "raw_namechange_key_integrity_check",
+    "raw_namechange_date_domain_check",
 )
 SILVER_STOCK_BASIC_CHECKS = (
-    "silver_stock_basic_cny_stock_universe_check",
-    "silver_stock_basic_current_listed_only",
-    "silver_stock_basic_has_listed_records",
-    "silver_stock_basic_lifecycle_dates_valid",
-    "silver_stock_basic_required_columns_non_null",
-    "silver_stock_basic_unique_ts_code",
+    "silver_stock_basic_contract_check",
+    "silver_stock_basic_key_integrity_check",
+    "silver_stock_basic_current_listed_domain_check",
 )
 SILVER_STOCK_LIFECYCLE_CHECKS = (
-    "silver_stock_lifecycle_cny_stock_universe_check",
-    "silver_stock_lifecycle_dates_valid_check",
-    "silver_stock_lifecycle_file_exists_check",
-    "silver_stock_lifecycle_required_columns_and_types_check",
-    "silver_stock_lifecycle_required_fields_non_null_check",
-    "silver_stock_lifecycle_unique_ts_code_check",
+    "silver_stock_lifecycle_contract_check",
+    "silver_stock_lifecycle_key_integrity_check",
+    "silver_stock_lifecycle_domain_check",
 )
 SILVER_NAMECHANGE_CHECKS = (
-    "silver_namechange_file_exists",
-    "silver_namechange_row_count_positive",
-    "silver_namechange_required_columns",
-    "silver_namechange_schema_matches_contract",
-    "silver_namechange_required_fields_non_null",
-    "silver_namechange_date_order_valid",
-    "silver_namechange_exact_duplicate_absent",
-    "silver_namechange_current_open_interval_unique",
-    "silver_namechange_interval_overlap_absent",
-    "silver_namechange_unknown_adjacent_gap_absent",
+    "silver_namechange_contract_check",
+    "silver_namechange_key_integrity_check",
+    "silver_namechange_interval_domain_check",
 )
 SILVER_STOCK_IDENTITY_MAP_CHECKS = (
-    "silver_stock_identity_map_file_exists",
-    "silver_stock_identity_map_row_count_positive",
-    "silver_stock_identity_map_schema_matches_contract",
-    "silver_stock_identity_map_source_ts_code_present",
-    "silver_stock_identity_map_source_ts_code_unique",
-    "silver_stock_identity_map_latest_ts_code_present",
-    "silver_stock_identity_map_latest_code_exists_in_stock_basic",
-    "silver_stock_identity_map_known_identity_source",
-    "silver_stock_identity_map_known_confidence",
-    "silver_stock_identity_map_date_ranges_valid",
-    "silver_stock_identity_map_conflicting_mapping_absent",
-    "silver_stock_identity_map_seed_latest_code_explainable",
+    "silver_stock_identity_map_contract_check",
+    "silver_stock_identity_map_key_integrity_check",
+    "silver_stock_identity_map_reference_domain_check",
 )
 RAW_SUSPEND_D_CHECKS = (
     "raw_suspend_d_contract_check",

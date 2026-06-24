@@ -67,6 +67,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _schema_result(
     *,
     path: Path,
@@ -113,7 +136,6 @@ def _read_silver_rows(connection, path: Path) -> list[dict[str, Any]]:
     return [dict(zip(columns, row, strict=True)) for row in rows]
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
     path = raw_namechange_path(lake_root.root())
     return dg.AssetCheckResult(
@@ -126,7 +148,6 @@ def raw_namechange_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResu
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -146,7 +167,6 @@ def raw_namechange_row_count_positive(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_required_columns(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -179,7 +199,6 @@ def raw_namechange_required_columns(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_schema_matches_tushare_contract(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -198,7 +217,6 @@ def raw_namechange_schema_matches_tushare_contract(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_required_fields_non_null(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -243,7 +261,6 @@ def raw_namechange_required_fields_non_null(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_date_string_format_valid(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -303,7 +320,6 @@ def raw_namechange_date_string_format_valid(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
 def raw_namechange_exact_duplicate_absent(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -340,7 +356,6 @@ def raw_namechange_exact_duplicate_absent(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=False)
 def raw_namechange_multi_open_interval_observed(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -379,7 +394,6 @@ def raw_namechange_multi_open_interval_observed(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=False)
 def raw_namechange_overlap_interval_observed(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -459,7 +473,6 @@ def raw_namechange_overlap_interval_observed(
     )
 
 
-@dg.asset_check(asset=raw_tushare_namechange, blocking=False)
 def raw_namechange_reason_distribution_observed(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -490,7 +503,6 @@ def raw_namechange_reason_distribution_observed(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
     path = silver_namechange_path(lake_root.root())
     return dg.AssetCheckResult(
@@ -503,7 +515,6 @@ def silver_namechange_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckR
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -523,7 +534,6 @@ def silver_namechange_row_count_positive(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_required_columns(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -560,7 +570,6 @@ def silver_namechange_required_columns(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_schema_matches_contract(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -579,7 +588,6 @@ def silver_namechange_schema_matches_contract(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_required_fields_non_null(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -627,7 +635,6 @@ def silver_namechange_required_fields_non_null(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_date_order_valid(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -668,7 +675,6 @@ def silver_namechange_date_order_valid(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_exact_duplicate_absent(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -705,7 +711,6 @@ def silver_namechange_exact_duplicate_absent(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_current_open_interval_unique(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -742,7 +747,6 @@ def silver_namechange_current_open_interval_unique(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_interval_overlap_absent(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -765,7 +769,6 @@ def silver_namechange_interval_overlap_absent(
     )
 
 
-@dg.asset_check(asset=silver_namechange, blocking=True)
 def silver_namechange_unknown_adjacent_gap_absent(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -790,5 +793,123 @@ def silver_namechange_unknown_adjacent_gap_absent(
                     "unknown_adjacent_gap_samples"
                 ],
             },
+        ),
+    )
+
+
+@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
+def raw_namechange_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            ("raw_namechange_file_exists", raw_namechange_file_exists(lake_root)),
+            (
+                "raw_namechange_row_count_positive",
+                raw_namechange_row_count_positive(lake_root, duckdb),
+            ),
+            (
+                "raw_namechange_required_columns",
+                raw_namechange_required_columns(lake_root, duckdb),
+            ),
+            (
+                "raw_namechange_schema_matches_tushare_contract",
+                raw_namechange_schema_matches_tushare_contract(lake_root, duckdb),
+            ),
+            (
+                "raw_namechange_required_fields_non_null",
+                raw_namechange_required_fields_non_null(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
+def raw_namechange_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return raw_namechange_exact_duplicate_absent(lake_root, duckdb)
+
+
+@dg.asset_check(asset=raw_tushare_namechange, blocking=True)
+def raw_namechange_date_domain_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return raw_namechange_date_string_format_valid(lake_root, duckdb)
+
+
+@dg.asset_check(asset=silver_namechange, blocking=True)
+def silver_namechange_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            ("silver_namechange_file_exists", silver_namechange_file_exists(lake_root)),
+            (
+                "silver_namechange_row_count_positive",
+                silver_namechange_row_count_positive(lake_root, duckdb),
+            ),
+            (
+                "silver_namechange_required_columns",
+                silver_namechange_required_columns(lake_root, duckdb),
+            ),
+            (
+                "silver_namechange_schema_matches_contract",
+                silver_namechange_schema_matches_contract(lake_root, duckdb),
+            ),
+            (
+                "silver_namechange_required_fields_non_null",
+                silver_namechange_required_fields_non_null(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_namechange, blocking=True)
+def silver_namechange_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.KEY_UNIQUENESS,
+        rule_results=(
+            (
+                "silver_namechange_exact_duplicate_absent",
+                silver_namechange_exact_duplicate_absent(lake_root, duckdb),
+            ),
+            (
+                "silver_namechange_current_open_interval_unique",
+                silver_namechange_current_open_interval_unique(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset=silver_namechange, blocking=True)
+def silver_namechange_interval_domain_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.VALUE_SANITY,
+        rule_results=(
+            (
+                "silver_namechange_date_order_valid",
+                silver_namechange_date_order_valid(lake_root, duckdb),
+            ),
+            (
+                "silver_namechange_interval_overlap_absent",
+                silver_namechange_interval_overlap_absent(lake_root, duckdb),
+            ),
+            (
+                "silver_namechange_unknown_adjacent_gap_absent",
+                silver_namechange_unknown_adjacent_gap_absent(lake_root, duckdb),
+            ),
         ),
     )

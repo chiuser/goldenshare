@@ -632,8 +632,9 @@ serving 保持 P2R 后的 single-partition attributable check 口径，不做
 
 ### P5 Snapshot / Basic Facts
 
-状态：分阶段推进。P5A `calendar/index_basic` 已落地；P5B/P5C
-继续处理 stock basic/lifecycle/namechange/identity map/lake root health。
+状态：分阶段推进。P5A `calendar/index_basic` 已落地；P5B
+`stock basic/lifecycle/namechange/identity map` 已落地；P5C 继续处理
+`lake_root_health`。
 
 #### 改动文件
 
@@ -685,6 +686,36 @@ P5A 已落地：
   - `silver_index_basic_lifecycle_domain_check`
 - `market_major_indices_lake_readiness.py` 仍保留原完整 readiness SQL 语义；
   只把失败 check name 映射为新的粗粒度名称。
+
+P5B 已落地：
+
+- `raw_tushare_stock_basic`：
+  - `raw_stock_basic_contract_check`
+  - `raw_stock_basic_key_integrity_check`
+- `silver_stock_basic`：
+  - `silver_stock_basic_contract_check`
+  - `silver_stock_basic_key_integrity_check`
+  - `silver_stock_basic_current_listed_domain_check`
+- `silver_stock_lifecycle`：
+  - `silver_stock_lifecycle_contract_check`
+  - `silver_stock_lifecycle_key_integrity_check`
+  - `silver_stock_lifecycle_domain_check`
+- `raw_tushare_namechange`：
+  - `raw_namechange_contract_check`
+  - `raw_namechange_key_integrity_check`
+  - `raw_namechange_date_domain_check`
+  - 旧 raw namechange observed checks 不再注册为 Dagster checks；
+    函数保留为 offline audit/helper。
+- `silver_namechange`：
+  - `silver_namechange_contract_check`
+  - `silver_namechange_key_integrity_check`
+  - `silver_namechange_interval_domain_check`
+- `silver_stock_identity_map`：
+  - `silver_stock_identity_map_contract_check`
+  - `silver_stock_identity_map_key_integrity_check`
+  - `silver_stock_identity_map_reference_domain_check`
+- `readiness.py` 和 `lake_assets.py` 已同步为 P5B 粗粒度 check names；
+  sensor 语义不变，只减少 Dagster check event 粒度。
 
 ### P6 股票分钟线剩余治理
 

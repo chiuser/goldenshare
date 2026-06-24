@@ -53,6 +53,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _list_status_distribution(connection, path: Path) -> list[dict[str, Any]]:
     rows = connection.execute(
         f"""
@@ -71,7 +94,6 @@ def _list_status_distribution(connection, path: Path) -> list[dict[str, Any]]:
     ]
 
 
-@dg.asset_check(asset="raw_tushare_stock_basic", blocking=True)
 def raw_stock_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckResult:
     path = raw_stock_basic_path(lake_root.root())
     return dg.AssetCheckResult(
@@ -86,7 +108,6 @@ def raw_stock_basic_file_exists(lake_root: LakeRootResource) -> dg.AssetCheckRes
     )
 
 
-@dg.asset_check(asset="raw_tushare_stock_basic", blocking=True)
 def raw_stock_basic_row_count_positive(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -112,7 +133,6 @@ def raw_stock_basic_row_count_positive(
     )
 
 
-@dg.asset_check(asset="raw_tushare_stock_basic", blocking=True)
 def raw_stock_basic_required_columns(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -141,7 +161,6 @@ def raw_stock_basic_required_columns(
     )
 
 
-@dg.asset_check(asset="raw_tushare_stock_basic", blocking=True)
 def raw_stock_basic_ts_code_present(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -182,7 +201,6 @@ def raw_stock_basic_ts_code_present(
     )
 
 
-@dg.asset_check(asset="silver_stock_basic", blocking=True)
 def silver_stock_basic_unique_ts_code(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -222,7 +240,6 @@ def silver_stock_basic_unique_ts_code(
     )
 
 
-@dg.asset_check(asset="silver_stock_basic", blocking=True)
 def silver_stock_basic_required_columns_non_null(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -297,7 +314,6 @@ def silver_stock_basic_required_columns_non_null(
     )
 
 
-@dg.asset_check(asset="silver_stock_basic", blocking=True)
 def silver_stock_basic_lifecycle_dates_valid(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -342,7 +358,6 @@ def silver_stock_basic_lifecycle_dates_valid(
     )
 
 
-@dg.asset_check(asset="silver_stock_basic", blocking=True)
 def silver_stock_basic_has_listed_records(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -374,7 +389,6 @@ def silver_stock_basic_has_listed_records(
     )
 
 
-@dg.asset_check(asset="silver_stock_basic", blocking=True)
 def silver_stock_basic_current_listed_only(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -421,7 +435,6 @@ def silver_stock_basic_current_listed_only(
     )
 
 
-@dg.asset_check(asset="silver_stock_basic", blocking=True)
 def silver_stock_basic_cny_stock_universe_check(
     lake_root: LakeRootResource,
     duckdb: DuckDBResource,
@@ -478,5 +491,86 @@ def silver_stock_basic_cny_stock_universe_check(
                     ["ts_code", "name", "curr_type", "list_status"], rows
                 ),
             },
+        ),
+    )
+
+
+@dg.asset_check(asset="raw_tushare_stock_basic", blocking=True)
+def raw_stock_basic_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            ("raw_stock_basic_file_exists", raw_stock_basic_file_exists(lake_root)),
+            (
+                "raw_stock_basic_row_count_positive",
+                raw_stock_basic_row_count_positive(lake_root, duckdb),
+            ),
+            (
+                "raw_stock_basic_required_columns",
+                raw_stock_basic_required_columns(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset="raw_tushare_stock_basic", blocking=True)
+def raw_stock_basic_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return raw_stock_basic_ts_code_present(lake_root, duckdb)
+
+
+@dg.asset_check(asset="silver_stock_basic", blocking=True)
+def silver_stock_basic_contract_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.SCHEMA,
+        rule_results=(
+            (
+                "silver_stock_basic_required_columns_non_null",
+                silver_stock_basic_required_columns_non_null(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_basic_has_listed_records",
+                silver_stock_basic_has_listed_records(lake_root, duckdb),
+            ),
+        ),
+    )
+
+
+@dg.asset_check(asset="silver_stock_basic", blocking=True)
+def silver_stock_basic_key_integrity_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_stock_basic_unique_ts_code(lake_root, duckdb)
+
+
+@dg.asset_check(asset="silver_stock_basic", blocking=True)
+def silver_stock_basic_current_listed_domain_check(
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        check_scope=CheckScope.VALUE_SANITY,
+        rule_results=(
+            (
+                "silver_stock_basic_current_listed_only",
+                silver_stock_basic_current_listed_only(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_basic_lifecycle_dates_valid",
+                silver_stock_basic_lifecycle_dates_valid(lake_root, duckdb),
+            ),
+            (
+                "silver_stock_basic_cny_stock_universe_check",
+                silver_stock_basic_cny_stock_universe_check(lake_root, duckdb),
+            ),
         ),
     )
