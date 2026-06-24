@@ -1,13 +1,13 @@
 # Dagster Index Daily Raw By-Date Prod DB Migration Plan
 
-状态：P-1、P0、P1/P2、P3、P4、P5/P6、P7 active source/catalog 清理已完成；正式 sensor 启用、P8 旧物理文件删除和 P9 旧 Dagster 状态/事件治理仍需后续单独审批。
+状态：P-1、P0、P1/P2、P3、P4、P5/P6、P7 active source/catalog 清理、P8 旧 by-code 物理目录隔离、P9B-1/P9C-1 Dagster 状态治理已完成；`raw_index_daily_update_job_sensor` 与 `silver_index_daily_sensor` 已启用，`2026-06-23` 首个自动 raw+silver 日更已成功。P8 quarantine 最终删除、P9C-2 是否处理 4 个 mixed runs 仍需后续单独审批。
 
 最新代码落点：
 
 - P1/P2：`c38e0eea feat: add index daily raw by-date asset`
 - P4：`63ce2a75 feat: add index daily p4 runless events`
 - P5/P6：`b61e052c feat: switch index daily to raw by-date baseline`
-- P7：本轮已清理旧 by-code active source/catalog，待提交。
+- P7：`8886072a feat: remove index daily by-code active source`
 
 LLD：[`dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md`](./dagster-index-daily-raw-by-date-prod-db-migration-low-level-design.md)。
 
@@ -241,7 +241,7 @@ P0 报告文件：
 
 历史转换阶段的 coverage check 证明 by-code 输入 facts 被完整搬到 by-date；日更阶段的 coverage check 证明 prod serving 当日完整覆盖运行时 Lake 期望 code set。二者使用同一个 check 名称和 metadata 结构，但 metadata 必须写明 `coverage_basis`，避免把历史转换误判为“每天必须 946 个 code”。
 
-P0 发现当前 by-code 输入尾部存在一个半截日期：`2026-06-23` 只有 10 行、10 个 code；最新同时满足“DG 946 个 code 全覆盖、无重复 key、无空 key”的日期是 `2026-06-22`，并且 prod serving 最新日期也是 `2026-06-22`。因此：
+P0 发现当时 by-code 输入尾部存在一个半截日期：`2026-06-23` 只有 10 行、10 个 code；最新同时满足“DG 946 个 code 全覆盖、无重复 key、无空 key”的日期是 `2026-06-22`，并且 prod serving 最新日期也是 `2026-06-22`。因此：
 
 1. P3 可以在 dry-run 中统计全部当前输入 facts，但 P3/P4 不得把 `2026-06-23` 这种尾部半截日期写成绿色 ready baseline。
 2. 日更 first target 只能从已就绪 baseline cutoff 之后计算；baseline cutoff 必须由文件事实、code coverage 和 prod/latest 只读审计共同推导，不得直接取 raw-by-code 的 max trade_date。
@@ -306,27 +306,37 @@ uv run python -c "from orchestrator.defs.jobs.index_daily_update import raw_inde
 6. 未切换 silver 依赖、major indices readiness 或任何 sensor。
 7. 未删除旧 by-code 代码、catalog entry、物理文件或 Dagster DB 历史状态。
 
-当前仍需注意：
+P1/P2 当时仍需注意：
 
-- P1/P2 已把 `raw_index_daily` 注册为 active asset/job/check；P3 已生成 by-date 历史文件并完成 full audit；P4 已补最近 20 个交易日的 `raw_index_daily` Dagster 状态基线。正式日更仍不得接管，直到 P5/P6 readiness/sensor 切换验收完成。
+- P1/P2 已把 `raw_index_daily` 注册为 active asset/job/check；正式日更当时仍不得接管，直到 P3/P4 基线、P5/P6 readiness/sensor 切换和后续验收完成。
 - `raw_index_daily_code_coverage_check` 当前 Dagster check 执行路径覆盖日更语义，即按运行时 DG code set 校验目标 by-date 文件；历史转换段的 `coverage_basis=by_code_source_pairs` 已由 P4 runless event 补录模块写入，不在 P1/P2 runtime check 中执行。
-- 旧 by-code asset/check/job/sensor/readiness 仍是当前运行链路的一部分，P7 前不能删除。
+- 旧 by-code asset/check/job/sensor/readiness 当时仍是运行链路的一部分，P7 前不能删除；P7 后 active source/catalog 已清零。
 
 2026-06-23 P3 执行结果：
 
 1. 已通过 DagsterInstance API 停止 `index_daily_sensor`、`silver_index_daily_sensor`，旧 run `626d4822-0070-4434-9121-cca455e4d21b` 已从 `NOT_STARTED` 标记为 `CANCELED`；`market_major_indices_daily_sensor` 保持 `RUNNING`。
 2. 已从 by-code raw 生成 by-date raw 文件，范围 `2000-01-04` 到 `2026-06-22`，显式排除尾部半截日期 `2026-06-23`。
 3. P3 final audit 通过：目标文件 6,792 个，总行数 3,419,656，distinct pair 3,419,656，source-target pair diff 为 0，source-target row diff 为 0，空 key 和重复 key 都为 0。
-4. P3 没有写 Dagster materialization/check event；`raw_index_daily[2026-06-23]` 和 `silver_index_daily[2026-06-23]` event/check 仍为 0。
+4. P3 当时没有写 Dagster materialization/check event；`raw_index_daily[2026-06-23]` 和 `silver_index_daily[2026-06-23]` event/check 在 P3 阶段未写入。2026-06-24 首个自动日更已补齐该日期 raw/silver 文件和事件状态。
 5. 报告文件：`/private/tmp/index_daily_p3_state_governance_20260623_report.json`、`/private/tmp/index_daily_p3_sample_20260623_report.json`、`/private/tmp/index_daily_p3_full_20260623_report.json`、`/private/tmp/index_daily_p3_final_audit_20260623_report.json`。
 
 2026-06-23 P4 执行结果：
 
 1. P4 runless event 工具已在提交 `63ce2a75 feat: add index daily p4 runless events` 中落地，补录目标只允许 `raw_index_daily` 与两个聚合 check：`raw_index_daily_file_contract_check`、`raw_index_daily_code_coverage_check`。
 2. P4 plan dry-run 通过：最近窗口为 `2026-05-25` 到 `2026-06-22` 共 20 个交易日，计划 event 上限 60，当前 DG code count/hash 为 `946 / 67b866dac8b5dc2a6450769a852f098e`，failed partition 为 0。
-3. sample apply 已写 `2026-05-25`、`2026-06-08`、`2026-06-22` 三个分区，共 9 条 event；sample audit 全部 ready，且 `raw_index_daily[2026-06-23]` materialization/check 仍为 0。
-4. recent-window apply 已补剩余 17 个分区，共 51 条 event；final audit 显示最近 20 个分区全部 ready，`raw_index_daily[2026-06-23]` materialization/check 仍为 0。
+3. sample apply 已写 `2026-05-25`、`2026-06-08`、`2026-06-22` 三个分区，共 9 条 event；sample audit 全部 ready，且 P4 sample 阶段未写入 `raw_index_daily[2026-06-23]` materialization/check。
+4. recent-window apply 已补剩余 17 个分区，共 51 条 event；final audit 显示最近 20 个分区全部 ready，P4 结束时未写入 `raw_index_daily[2026-06-23]` materialization/check。该日期随后由 prod-core-db 日更链路在 2026-06-24 重建并补绿。
 5. P4 报告文件：`/private/tmp/index_daily_p4_plan_events_20260623.json`、`/private/tmp/index_daily_p4_sample_apply_20260623.json`、`/private/tmp/index_daily_p4_sample_audit_20260623.json`、`/private/tmp/index_daily_p4_recent_window_apply_20260623.json`、`/private/tmp/index_daily_p4_final_audit_20260623.json`。
+
+2026-06-24 首个自动日更执行结果：
+
+1. `raw_index_daily_update_job_sensor` 已在正式 Dagster instance 中启用，instigator `154416` 状态为 `RUNNING`。
+2. sensor tick `77115` 在 `2026-06-24 09:31:14 +08:00` 选中 `2026-06-23`：最近窗口 ready baseline 到 `2026-06-22`，`first_not_ready_trade_date` 与 `selected_trade_date` 均为 `2026-06-23`。
+3. 自动提交的 raw run `1de17504-b265-42ba-b79c-6187730cb073` 已 `SUCCESS`，job 为 `raw_index_daily_update_job`，partition 为 `2026-06-23`，run key 为 `raw_index_daily:2026-06-23`。
+4. raw 文件已生成：`/Volumes/datasource/data_lake/raw/index_daily/trade_date=2026-06-23/part-000.parquet`。文件审计结果为 946 行、946 个 distinct code、946 个 distinct pair，文件内 `trade_date` 全为 `20260623`，空 key 0，重复 key 0，字段顺序符合 `RAW_INDEX_DAILY_SCHEMA`。
+5. raw materialization event `6626251` 记录 `source_system=prod_core_db`、`source_table=core_serving.index_daily_serving`、`source_row_count=946`、`expected_code_count=946`、`missing_code_count=0`、`extra_code_count=0`、`duplicate_key_count=0`。
+6. 两个 raw blocking checks 均通过并绑定到该 materialization：`raw_index_daily_file_contract_check` 与 `raw_index_daily_code_coverage_check`。
+7. `silver_index_daily_sensor` 已跟进触发 `silver_index_daily[2026-06-23]`，run `cc5f0b7f-d8d9-4210-b19b-3a596c8507a8` 已 `SUCCESS`；silver 文件已生成，7 个 silver checks 均为 `SUCCEEDED`。
 
 ## 实现阶段
 
@@ -401,7 +411,7 @@ all input facts: 2000-01-04 <= trade_date <= 2026-06-23, 3,419,666 rows, 6,793 t
 ready baseline candidate: 2000-01-04 <= trade_date <= 2026-06-22, 3,419,656 rows, 6,792 trade dates
 ```
 
-`2026-06-23` 当前只有 10 个 code，属于尾部半截输入。P3/P4 默认只能把 ready baseline 建到 `2026-06-22`；不得因为 raw-by-code max trade date 是 `2026-06-23`，就让新 sensor 从 `2026-06-24` 开始。
+P0 输入里的 `2026-06-23` 只有 10 个 code，属于尾部半截输入。P3/P4 默认只能把 ready baseline 建到 `2026-06-22`；不得因为 raw-by-code max trade date 是 `2026-06-23`，就让新 sensor 从 `2026-06-24` 开始。2026-06-24 首个自动日更已按该口径从 prod-core-db 重建 `2026-06-23`。
 
 使用 DuckDB set-based SQL 从当前 by-code parquet 文件集合生成，不允许 Python 逐行循环：
 
@@ -508,7 +518,7 @@ P7 后，active `src/**` 中不得再出现旧 by-code 生产符号；P5/P6 阶�
 
 ### M7：旧 active source/catalog 删除
 
-状态：P7 active source/catalog 清理已完成，物理旧文件未删除，Dagster DB 旧状态/事件未清理。
+状态：P7 active source/catalog 清理已完成；P8 已把旧 by-code 物理目录隔离到 quarantine；P9B-1/P9C-1 已清理旧 by-code asset/check/sensor state 和旧 run history 安全子集。
 
 已完成代码清理范围：
 
@@ -523,7 +533,7 @@ P7 后，active `src/**` 中不得再出现旧 by-code 生产符号；P5/P6 阶�
 - 删除 P4 runless bootstrap helper/CLI，避免旧 by-code path/symbol 留在 active `src/orchestrator/defs/**`；
 - 删除或改写旧 by-code 专用测试，并新增 P7 static gate，强制 active defs 中旧 by-code production symbol 扫描为 0。
 
-P7 明确不做：
+P7 当轮明确不做：
 
 - 不删除物理路径 `raw/tushare/index_daily_by_code/**`；
 - 不清理 Dagster DB 中旧 materialization/check/run/sensor cursor；
@@ -531,7 +541,7 @@ P7 明确不做：
 - 不启用 `raw_index_daily_update_job_sensor` 或 `silver_index_daily_sensor`；
 - 不触发 Dagster run、materialize、backfill 或 runless event 写入。
 
-物理路径 `raw/tushare/index_daily_by_code` 的删除必须进入 P8 单独审批；旧 Dagster DB 状态/事件治理必须进入 P9 单独 dry-run 和审批。
+以上是 P7 当轮边界。P7 之后，P8 已完成旧物理目录 quarantine，P9B-1/P9C-1 已完成旧状态治理安全子集，且 raw/silver sensors 已启用并完成 `2026-06-23` 首个自动 raw+silver 日更。
 
 ### M8：旧 Index Daily 状态与事件清理（对应 P9）
 
@@ -539,7 +549,14 @@ P7 明确不做：
 
 清理前必须先做 dry-run 报告，报告至少列出候选对象类型、精确 asset/check/job/sensor 名称、时间或 storage id 边界、预计删除数量、保留样本和回滚/备份方案。允许清理的对象只能是旧 by-code 链路记录，例如旧 `raw_tushare_index_daily_by_code` materialization/check event、旧 `index_daily_update_job` run、已删除旧 sensor 的 cursor/state。禁止清理 `cn_a_index_ts_codes` dynamic partitions、新 `raw_index_daily` 事件、新 `silver_index_daily` 历史、trade-day partitions、prod DB 数据和 by-date lake 文件。
 
-如果 Dagster 当前没有安全、可审计、可回滚的精确删除路径，则只允许把旧记录归档/忽略，不允许为了“看起来干净”做宽泛 event history 清空。若新链路必须依赖清理旧 Dagster DB 事件才能运行，说明迁移设计仍有旧依赖，必须停止并修正设计。
+如果没有安全、可审计、可回滚的精确删除路径，则只允许把旧记录归档/忽略，不允许为了“看起来干净”做宽泛 event history 清空。用户单独审批后，可以使用“只读 preflight -> 文件备份 -> 单事务精确 SQL -> post-audit”的治理方式，但 SQL 必须只按精确 asset/check/job/run id 候选删除，不得按宽泛时间段或表级条件清理。若新链路必须依赖清理旧 Dagster DB 事件才能运行，说明迁移设计仍有旧依赖，必须停止并修正设计。
+
+2026-06-24 执行结果：
+
+1. P9A 只读 dry-run 已完成，报告路径：`/private/tmp/index_daily_p9_dry_run_20260624_085207.json`。
+2. P9B-1 已清理旧 `raw_tushare_index_daily_by_code` asset/check 状态和已删除旧 `index_daily_sensor` instigator state。post-audit 显示旧 by-code asset event、check execution、asset tag、asset key 和旧 raw sensor instigator 均为 0；`raw_index_daily`、`silver_index_daily`、dynamic partitions、runs/run_tags 未被删除。报告路径：`/private/tmp/index_daily_p9b_preflight_20260624_085909.json`、`/private/tmp/index_daily_p9b_backup_20260624_085909/manifest.json`、`/private/tmp/index_daily_p9b_apply_20260624_085909_retry1.json`、`/private/tmp/index_daily_p9b_post_audit_20260624_085909.json`。
+3. P9C-1 已清理旧 index daily job run history 的安全子集：删除 24,766 个 runs、1,600,791 条 event_logs、206,779 条 run_tags、6 条 asset_event_tags。post-audit 显示安全候选全部归零，旧 job 只剩 4 个明确保护的 mixed runs，共 528 条 event_logs、8 条 run_tags、8 条 asset_event_tags。报告路径：`/private/tmp/index_daily_p9c_preflight_20260624_090926.json`、`/private/tmp/index_daily_p9c_backup_20260624_090926/manifest.json`、`/private/tmp/index_daily_p9c_apply_20260624_090926.json`、`/private/tmp/index_daily_p9c_post_audit_20260624_090926.json`。
+4. P9C-1 明确保留 4 个含 `silver_index_daily` event 的 mixed runs：`2cd7c15e-d79a-4573-8d0e-d8f82c40b6b7`、`7e72108b-3b1a-47d6-8be6-ea6ddb313d87`、`94e237fa-c397-4c7b-a75c-8651a28b6286`、`9d421a09-c65e-4968-9c7f-b2e04369d866`。是否处理这 4 个 mixed runs 属于 P9C-2，必须单独设计和拍板。
 
 ## 性能门禁
 
@@ -614,35 +631,35 @@ P7 明确不做：
 2. 正式 lake 历史 by-code 到 by-date 转换 sample/full。
 3. P4 最近 20 个交易日 runless event sample/recent-window 写入。
 4. 正式 Dagster definitions 重载。
-5. 旧 `raw/tushare/index_daily_by_code` 物理文件删除。
-6. 旧 index daily Dagster DB 状态/事件清理 dry-run 与 apply。
+5. P8 quarantine 目录最终物理删除。
+6. P9C-2 是否处理 4 个 protected mixed runs，以及 P8 quarantine 目录是否最终物理删除。
 
 ## 本轮重新审计后的新增问题与修正
 
 1. catalog helper 风险：`_tushare_raw_entry(...)` 会自动写 Tushare source system。P1/P2 已通过直接 `_entry(...)` 为 `raw_index_daily` 写入 `SourceSystem.PROD_CORE_DB`、`DataContractSource.PROD_SERVING_CONTRACT`、`IngestionSource.PROD_DB_READONLY`、`EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL`；P7 删除旧 by-code entry 时必须继续防止旧 helper 回流到新链路。
 2. check 过碎风险：高层方案原来把 file exists、row count、schema、partition date、unique key、coverage 拆成 6 个 raw blocking check，会给 Dagster DB 写入过多细碎 check event。P1/P2 已收敛为 `raw_index_daily_file_contract_check` 与 `raw_index_daily_code_coverage_check` 两个聚合 check；后续 P4/P6/P7 必须继续只使用这两个名称，不得让 readiness 同时支持新旧 raw check。
 3. backend prod-core-db 只能参考不能复用：已有 backend 导出能力证明字段白名单和 `change_amount AS change` 口径，但它不带 DG code set filter，且属于 backend/sync 区域。orchestrator 必须建立自己的只读 adapter。
-4. sensor 激活顺序风险：P3 已生成 `raw/index_daily` by-date 文件，P4 已补最近窗口 event baseline，P5/P6 代码已切到 by-date readiness/sensor；但正式 `dg check defs`、只读 readiness 样本和 sensor 启用仍未审批执行。新 raw sensor 必须保持 STOPPED，不能绕过正式验收直接启用。
+4. sensor 激活顺序风险已关闭：P3 已生成 `raw/index_daily` by-date 文件，P4 已补最近窗口 event baseline，P5/P6 代码已切到 by-date readiness/sensor，后续正式 instance 已启用 raw/silver sensors，并在 `2026-06-23` 首个自动日更中验证成功。
 5. bootstrap 与静态门禁冲突：P3/P4 bootstrap 可以临时读取当前 DG 新湖 by-code 文件；P7 后 bootstrap 代码必须删除或移出 active source，否则会和“生产代码旧 by-code 符号清零”门禁冲突。
 6. 硬编码日期风险：`2026-06-22`、`2026-06-23` 只能出现在审计事实、测试 fixture 或文档中；生产代码不得把它们作为日更起点、历史终点或 cutover 常量。
 7. coverage 语义风险：`raw_index_daily_code_coverage_check` 是统一 check 名，但必须用 `coverage_basis` 区分历史转换和日更。历史转换看 by-code input pair 是否无损，日更看 prod serving 是否覆盖运行时 Lake 期望 code set。
 8. 旧数据清理风险：旧 by-code lake 文件删除与 Dagster DB 旧状态/事件清理都不能混入新链路开发。旧物理文件删除是 P8，旧 Dagster DB 状态/事件清理是独立 P9；二者都必须单独审批、先 dry-run、后 apply。
-9. 2026-06-23 P1/P2 后二次代码级审计确认：当前 active definitions 已新增 `raw_index_daily`、两个 by-date checks、新 `raw_index_daily_update_job` 和 prod-core-db catalog entry；但现有生产运行链路仍未切换，旧 `raw_tushare_index_daily_by_code`、旧 5 个 raw-by-code checks、旧 per-code sensor、旧 by-code readiness 和旧 catalog entry 仍保留。因此 P9 现在只能 dry-run，不能 apply；必须等 P7 active by-code source 清零后重跑 dry-run。
-10. 2026-06-23 P9 dry-run 结果确认：本机 Dagster DB 中新目标 `raw_index_daily` 当前没有 asset event、check event 或 asset key；旧 by-code raw asset 有 48,515 条 asset event 记录、123,684 条 raw check execution 记录，`index_daily_update_job` 有 24,741 个 run、1,634,475 条 event log、206,649 条 run tag。这个规模说明 P9 必须先明确“只清 asset/check 历史”还是“连 run history 一起治理”，不能直接宽泛删除。
+9. 2026-06-23 P1/P2 后二次代码级审计确认：当时 active definitions 已新增 `raw_index_daily`、两个 by-date checks、新 `raw_index_daily_update_job` 和 prod-core-db catalog entry，但旧 by-code active source 仍保留，所以当时 P9 只能 dry-run。P7 已在 `8886072a` 清零 active by-code source/catalog。
+10. 2026-06-24 P9 治理结果确认：P9B-1 已清旧 by-code asset/check/sensor state；P9C-1 已清旧 run history 安全子集。剩余旧 index daily jobs 只有 4 个含 `silver_index_daily` event 的 protected mixed runs，是否清理必须作为 P9C-2 单独拍板。
 
 ## 建议推进步骤
 
-1. 提交 P7 代码后，单独审批运行 `dg check defs` 和正式 instance 只读 readiness 样本，确认 `raw_index_daily_update_job_sensor`、`silver_index_daily_sensor`、major indices readiness 在完整 defs 加载下仍只读取 by-date raw/silver facts。
-2. 新 raw/silver sensors 保持 STOPPED；完成 P7 后的 `dg check defs`、只读 readiness 样本和 prod source readiness probe 后，再由用户审批是否启用。
-3. P8 如需删除旧 `raw/tushare/index_daily_by_code/**` 物理文件，必须先做文件级 dry-run，列出路径、文件数、体量和不影响新 by-date 链路的验证。
-4. P9 如确有必要，再独立审批旧 index daily Dagster DB 状态/事件清理 dry-run；P9 不能成为 sensor 启用前置条件。
+1. 继续观察下一次 expected trade date 的自动 raw+silver 日更：prod source 未 ready 时应 skip，ready 后 raw run 成功，随后 silver run 成功。
+2. 若下一交易日自动链路不触发或 check 不绿，先按 sensor cursor、run tags、raw/silver 文件事实和 blocking check metadata 做只读审计，不直接重跑或覆盖。
+3. P8 quarantine 目录最终物理删除、P9C-2 是否处理 4 个 mixed runs 都不是 sensor 运行前置条件，若要继续做必须另起小范围方案。
+4. 如需释放 Dagster PostgreSQL 物理空间，再单独设计 vacuum/analyze 或存储回收观察方案；不要混入 index daily raw 日更链路。
 
 ## 遗留拍板项
 
-1. P6 新 raw/silver sensors 启用方式：本轮代码默认 STOPPED；是否启用必须在只读 readiness 样本、prod source readiness probe 和 `dg check defs` 通过后单独审批。
-2. P8 旧 by-code lake 文件是否删除：若删除，必须先 dry-run；若暂不删除，旧文件只能作为归档历史输入留存，不能再被 active defs 引用。
-3. P9 旧 Dagster DB 状态/事件清理是否执行：若执行，必须另起专项 dry-run 和审批；若不执行，旧记录只能作为历史审计账留存，不能影响新链路状态。
-4. P9 清理粒度：默认建议第一阶段只考虑旧 raw asset/check/index sensor cursor；`index_daily_update_job` run history 规模很大，是否清理 run、run_tags、run_id 关联 event_logs 必须单独拍板。
+1. P8 quarantine 目录是否最终物理删除：当前原路径已不存在，旧文件已隔离到 `/Volumes/datasource/data_lake/_quarantine/index_daily_p8/index_daily_by_code_20260624_084707`。
+2. P9C-2 是否处理 4 个 protected mixed runs：当前保留是有意选择，不算 P9C-1 失败；如需处理，必须单独设计，因为它们含 `silver_index_daily` event。
+3. P9 后是否需要额外 Dagster DB vacuum/analyze 或空间回收观察：P9C-1 删除了大量 event history，但数据库物理空间回收策略不在本轮范围内。
+4. 是否把后续日更运行观察结果继续补充到本设计文档，还是转入常规运行手册；当前文档已记录首个自动日更成功事实。
 
 ## 最终验收标准
 
@@ -653,6 +670,7 @@ P7 明确不做：
 5. P0 profiling 确认的历史 by-date 文件从当前 DG raw-by-code 文件无损转换；runless events 补录完成。
 6. `raw_tushare_index_daily_by_code` active 代码与 catalog 口径清零。
 7. sensors 不再 per-code 提交指数日线 raw run。
-8. 性能报告记录 prod-core-db 单日读取、历史转换、runless event 写入和 sensor tick 耗时。
-9. raw by-date blocking check 只有两个聚合 check，Dagster DB 不新增 file exists、row count、schema、partition date、unique key 等细碎 raw check event。
-10. 旧 index daily 清理若已执行，dry-run/apply 报告证明没有删除新 by-date raw、silver、dynamic partitions、trade-day partitions 或 prod 数据；若未执行，旧记录不参与新 readiness 和日更状态。
+8. `2026-06-23` 首个自动 raw+silver 日更已成功：raw run、raw 文件、raw materialization、两个 raw blocking checks、silver run、silver 文件和 7 个 silver checks 均已通过。
+9. 性能报告记录 prod-core-db 单日读取、历史转换、runless event 写入和 sensor tick 耗时。
+10. raw by-date blocking check 只有两个聚合 check，Dagster DB 不新增 file exists、row count、schema、partition date、unique key 等细碎 raw check event。
+11. P9B-1/P9C-1 报告证明没有删除新 by-date raw、silver、dynamic partitions、trade-day partitions 或 prod 数据；剩余 4 个 protected mixed runs 不参与新 readiness 和日更状态。
