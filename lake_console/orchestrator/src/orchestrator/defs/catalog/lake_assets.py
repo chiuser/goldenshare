@@ -103,6 +103,7 @@ class PartitionPhysicalLayout(str, Enum):
     PARTITION_FILE = "partition_file"
     STOCK_YEAR_FILE = "stock_year_file"
     SERVING_TABLE = "serving_table"
+    POSTGRES_TABLE = "postgres_table"
     NO_DATA_FILE = "no_data_file"
 
 
@@ -155,6 +156,9 @@ class PartitionModel(str, Enum):
     TRADE_DATE_PARTITION_GOLD_WEALTH_MARKET_TURNOVER = (
         "trade_date_partition_gold_wealth_market_turnover"
     )
+    SERVING_TABLE_PROD_WEALTH_MARKET_TURNOVER = (
+        "serving_table_prod_wealth_market_turnover"
+    )
 
     SERVING_TABLE_SERVING_MARKET_BREADTH = "serving_table_serving_market_breadth"
     NON_PARTITIONED_PLATFORM_LAKE_ROOT_HEALTH = (
@@ -179,6 +183,7 @@ class WritePolicy(str, Enum):
     STOCK_YEAR_ATOMIC_REPLACE = "stock_year_atomic_replace"
     NO_DATA_FILE = "no_data_file"
     CLICKHOUSE_TABLE_SYNC = "clickhouse_table_sync"
+    POSTGRES_TABLE_SYNC = "postgres_table_sync"
 
 
 class EventPolicy(str, Enum):
@@ -192,6 +197,7 @@ class ComputeEngine(str, Enum):
     TUSHARE_RESOURCE = "tushare_resource"
     FILESYSTEM_CHECK = "filesystem_check"
     CLICKHOUSE_CLIENT = "clickhouse_client"
+    POSTGRES_SQL = "postgres_sql"
     NOT_APPLICABLE = "not_applicable"
 
 
@@ -700,6 +706,15 @@ PARTITION_MODEL_DEFINITIONS = (
         "wealth_market_turnover",
         "trade_date",
         PartitionPhysicalLayout.PARTITION_FILE,
+    ),
+    _model(
+        PartitionModel.SERVING_TABLE_PROD_WEALTH_MARKET_TURNOVER,
+        PartitionModelFamily.SERVING_TABLE,
+        AssetLayer.SERVING,
+        "wealth_market_turnover",
+        "trade_date",
+        PartitionPhysicalLayout.POSTGRES_TABLE,
+        notes="Prod PostgreSQL serving table sync partitioned by trade_date.",
     ),
     _model(
         PartitionModel.SERVING_TABLE_SERVING_MARKET_BREADTH,
@@ -1442,6 +1457,42 @@ LAKE_ASSET_CATALOG += (
             batch_grain="one trade_date partition, five stk_mins frequencies",
             compute_engine=ComputeEngine.DUCKDB_SQL,
             source_request_policy="read local silver stk_mins parquet files only",
+        ),
+    ),
+    _entry(
+        asset_key="prod_core_wealth_market_turnover",
+        dataset_id="wealth_market_turnover",
+        layer=AssetLayer.SERVING,
+        data_domain=DataDomain.DERIVED_METRIC,
+        group_name="wealth",
+        source_system=SourceSystem.DERIVED,
+        data_contract="core_serving.wealth_market_turnover_snapshot",
+        data_contract_source=DataContractSource.DERIVED_CONTRACT,
+        column_schema=GOLD_WEALTH_MARKET_TURNOVER_SCHEMA,
+        path_template=(
+            "postgresql://prod/core_serving.wealth_market_turnover_snapshot"
+            "?trade_date={partition_key}"
+        ),
+        partition_model=PartitionModel.SERVING_TABLE_PROD_WEALTH_MARKET_TURNOVER,
+        source_api=None,
+        source_doc="wealth/docs/pages/market-overview/turnover-minute-snapshot-plan-v1.html",
+        ingestion_sources=(IngestionSource.DERIVED_FROM_ASSETS,),
+        default_daily_ingestion_source=IngestionSource.DERIVED_FROM_ASSETS,
+        bootstrap_sources=(),
+        blocking_check_names=(),
+        write_policy=WritePolicy.POSTGRES_TABLE_SYNC,
+        event_policy=EventPolicy.DAGSTER_RUN_ONLY,
+        performance_contract=_perf(
+            batch_grain="one trade_date partition, five serving rows",
+            compute_engine=ComputeEngine.POSTGRES_SQL,
+            source_request_policy=(
+                "read one local gold parquet file; write one prod PostgreSQL "
+                "core_serving partition"
+            ),
+        ),
+        notes=(
+            "Prod PostgreSQL serving sync writes "
+            "core_serving.wealth_market_turnover_snapshot from gold lake output."
         ),
     ),
     _derived_entry(

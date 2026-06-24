@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成第一步代码基础：`ProdPostgresWriteResource` / `prod_postgres_write` 与 prod serving replace helper，并已完成 prod schema 只读复核；尚未新增 active prod sync asset/job/sensor/catalog，尚未写 prod DB。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展和 catalog/governance 对账；尚未更新 sensor readiness，尚未写 prod DB。
 
 ## 1. 目标
 
@@ -671,7 +671,10 @@ INSERT INTO core_serving.wealth_market_turnover_snapshot (
 2. 已新增 `prod_db/wealth_market_turnover.py` 的事务 replace helper，固定写表 `core_serving.wealth_market_turnover_snapshot`，固定五行，写入前和读回后都按 gold schema 进行约束校验。
 3. 现有 `ProdPostgresResource` / `prod_postgres` 仍是只读资源，`gold_wealth_market_turnover` asset 仍不 import prod write helper 或 resource。
 4. 已执行 prod `core_serving.wealth_market_turnover_snapshot` 只读复核，报告为 `/private/tmp/wealth_market_turnover_prod_schema_audit.csv`；字段集合、主键和最新分区行数满足 WMT-6 接入门禁。
-5. 尚未新增 active `prod_core_wealth_market_turnover` asset，尚未把 job/sensor/catalog 切到 prod sync，尚未写 prod DB。
+5. 已新增 active `prod_core_wealth_market_turnover` asset。该 asset 只读同分区 gold parquet，gold 文件契约失败时不连接 prod；prod 写入通过 `prod_postgres_write` 单事务执行 exact partition delete、五行 insert、read-back audit。
+6. 已扩展 `gold_wealth_market_turnover_update_job` selection：同一 job 包含 `gold_wealth_market_turnover`、`gold_wealth_market_turnover_integrity_check` 和 `prod_core_wealth_market_turnover`，不新增独立 prod sync job。
+7. 已新增 catalog entry，新增 `WritePolicy.POSTGRES_TABLE_SYNC`、`ComputeEngine.POSTGRES_SQL` 和 `PartitionPhysicalLayout.POSTGRES_TABLE`，避免把 Postgres serving sync 伪装成 ClickHouse sync。
+8. 尚未更新 sensor readiness，尚未写 prod DB。
 
 prod schema 只读复核结果：
 

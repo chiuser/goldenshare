@@ -89,6 +89,9 @@ from orchestrator.defs.assets.wealth_market_turnover import (
     WEALTH_MARKET_TURNOVER_COLUMNS,
     gold_wealth_market_turnover,
 )
+from orchestrator.defs.assets.wealth_market_turnover_prod_core import (
+    prod_core_wealth_market_turnover,
+)
 from orchestrator.defs.assets.suspend_d import (
     SUSPEND_D_RAW_COLUMN_TYPES,
     raw_tushare_suspend_d,
@@ -229,6 +232,7 @@ ACTIVE_ASSET_DEFINITIONS = (
     gold_market_breadth_daily,
     gold_stock_return_distribution,
     gold_wealth_market_turnover,
+    prod_core_wealth_market_turnover,
     ch_share_fact_market_breadth_daily,
     prod_ch_share_fact_market_breadth_daily,
     lake_root_health,
@@ -316,7 +320,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
 
     def test_current_assets_have_governance_tags_and_dataset_metadata(self) -> None:
         catalog_entries = _catalog_entries_by_key()
-        self.assertEqual(len(catalog_entries), 56)
+        self.assertEqual(len(catalog_entries), 57)
         self.assertEqual(set(catalog_entries), set(ACTIVE_ASSETS_BY_KEY))
 
         for asset_key, entry in catalog_entries.items():
@@ -367,7 +371,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
         entries = list_lake_asset_catalog_entries()
 
         self.assertIsInstance(entries, tuple)
-        self.assertEqual(len(entries), 56)
+        self.assertEqual(len(entries), 57)
         self.assertEqual(tuple(entry.asset_key for entry in entries), list_lake_asset_keys())
         self.assertEqual(set(list_lake_asset_keys()), set(ACTIVE_ASSETS_BY_KEY))
         self.assertIs(
@@ -390,6 +394,7 @@ class AssetGovernanceContractTests(unittest.TestCase):
             PartitionPhysicalLayout.PARTITION_FILE: WritePolicy.PARTITION_FILE_ATOMIC_REPLACE,
             PartitionPhysicalLayout.STOCK_YEAR_FILE: WritePolicy.STOCK_YEAR_ATOMIC_REPLACE,
             PartitionPhysicalLayout.SERVING_TABLE: WritePolicy.CLICKHOUSE_TABLE_SYNC,
+            PartitionPhysicalLayout.POSTGRES_TABLE: WritePolicy.POSTGRES_TABLE_SYNC,
             PartitionPhysicalLayout.NO_DATA_FILE: WritePolicy.NO_DATA_FILE,
         }
 
@@ -505,10 +510,10 @@ class AssetGovernanceContractTests(unittest.TestCase):
             entry.asset_key: set(entry.blocking_check_names)
             for entry in list_lake_asset_catalog_entries()
         }
+        active_check_names = _blocking_check_names_by_asset_key()
         actual_check_names = {
-            asset_key: check_names
-            for asset_key, check_names in _blocking_check_names_by_asset_key().items()
-            if asset_key in ACTIVE_ASSETS_BY_KEY
+            asset_key: active_check_names.get(asset_key, set())
+            for asset_key in ACTIVE_ASSETS_BY_KEY
         }
 
         self.assertEqual(actual_check_names, expected_check_names)

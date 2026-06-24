@@ -1,9 +1,19 @@
 from datetime import datetime
 from decimal import Decimal
 import os
+from pathlib import Path
+import tempfile
 import unittest
 from unittest.mock import patch
 
+import duckdb
+
+from orchestrator.defs.assets.wealth_market_turnover_prod_core import (
+    PROD_CORE_WEALTH_MARKET_TURNOVER_PATH_TEMPLATE,
+    load_gold_wealth_market_turnover_rows_for_prod_sync,
+    prod_core_wealth_market_turnover,
+)
+from orchestrator.defs.paths import gold_wealth_market_turnover_path
 from orchestrator.defs.prod_db.wealth_market_turnover import (
     PROD_CORE_WEALTH_MARKET_TURNOVER_DELETE_SQL,
     PROD_CORE_WEALTH_MARKET_TURNOVER_INSERT_SQL,
@@ -11,11 +21,60 @@ from orchestrator.defs.prod_db.wealth_market_turnover import (
     replace_prod_core_wealth_market_turnover_partition,
     validate_prod_core_wealth_market_turnover_sql_contract,
 )
-from orchestrator.defs.resources import ProdPostgresWriteResource
+from orchestrator.defs.resources import DuckDBResource, ProdPostgresWriteResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
 
 
 class GoldWealthMarketTurnoverProdCoreSyncTests(unittest.TestCase):
+    def test_prod_sync_asset_definition_contract(self) -> None:
+        asset_key = prod_core_wealth_market_turnover.key
+        self.assertEqual(asset_key.to_user_string(), "prod_core_wealth_market_turnover")
+
+        spec = prod_core_wealth_market_turnover.get_asset_spec(asset_key)
+        self.assertEqual(spec.group_name, "wealth")
+        self.assertEqual(
+            spec.metadata["goldenshare/path_template"],
+            PROD_CORE_WEALTH_MARKET_TURNOVER_PATH_TEMPLATE,
+        )
+        self.assertEqual(
+            spec.metadata["goldenshare/source_asset"],
+            "gold_wealth_market_turnover",
+        )
+        self.assertEqual(
+            spec.metadata["goldenshare/target_table"],
+            "core_serving.wealth_market_turnover_snapshot",
+        )
+
+    def test_load_gold_rows_for_prod_sync_reads_valid_gold_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            target_path = gold_wealth_market_turnover_path(root, "2026-06-23")
+            _write_gold_file(target_path, "2026-06-23")
+
+            rows = load_gold_wealth_market_turnover_rows_for_prod_sync(
+                duckdb_resource=DuckDBResource(),
+                source_path=target_path,
+                partition_key="2026-06-23",
+            )
+
+        self.assertEqual(len(rows), 5)
+        self.assertEqual(tuple(row["freq"] for row in rows), tuple(STK_MINS_FREQS))
+        self.assertEqual({row["type"] for row in rows}, {"stock"})
+        self.assertEqual({row["market"] for row in rows}, {"CN_A"})
+
+    def test_load_gold_rows_for_prod_sync_fails_before_prod_for_bad_file(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary_dir:
+            root = Path(temporary_dir)
+            target_path = gold_wealth_market_turnover_path(root, "2026-06-23")
+            _write_gold_file(target_path, "2026-06-22")
+
+            with self.assertRaisesRegex(RuntimeError, "file contract failed"):
+                load_gold_wealth_market_turnover_rows_for_prod_sync(
+                    duckdb_resource=DuckDBResource(),
+                    source_path=target_path,
+                    partition_key="2026-06-23",
+                )
+
     def test_write_resource_uses_dedicated_env_and_commits_on_success(self) -> None:
         fake_connection = _FakeConnection(_FakeCursor())
         env = {
@@ -281,6 +340,82 @@ def _read_back_rows(rows: list[dict[str, object]]) -> list[tuple[object, ...]]:
         )
         for row in rows
     ]
+
+
+def _write_gold_file(path: Path, partition_key: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    rows = _sample_rows(partition_key)
+    values_sql = ", ".join(
+        "(" + ", ".join(_sql_literal(row[column]) for column in (
+            "type",
+            "market",
+            "trade_date",
+            "freq",
+            "build_status",
+            "latest_trade_time",
+            "total_amount",
+            "total_vol",
+            "security_count",
+            "source_row_count",
+            "points_json",
+            "build_version",
+            "built_at",
+            "build_note",
+        )) + ")"
+        for row in rows
+    )
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(
+            f"""
+            COPY (
+              SELECT
+                CAST(type AS VARCHAR) AS type,
+                CAST(market AS VARCHAR) AS market,
+                CAST(trade_date AS DATE) AS trade_date,
+                CAST(freq AS SMALLINT) AS freq,
+                CAST(build_status AS VARCHAR) AS build_status,
+                CAST(latest_trade_time AS TIMESTAMP) AS latest_trade_time,
+                CAST(total_amount AS DECIMAL(20,2)) AS total_amount,
+                CAST(total_vol AS BIGINT) AS total_vol,
+                CAST(security_count AS INTEGER) AS security_count,
+                CAST(source_row_count AS BIGINT) AS source_row_count,
+                CAST(points_json AS JSON) AS points_json,
+                CAST(build_version AS VARCHAR) AS build_version,
+                CAST(built_at AS TIMESTAMP WITH TIME ZONE) AS built_at,
+                CAST(build_note AS VARCHAR) AS build_note
+              FROM (
+                VALUES {values_sql}
+              ) AS rows(
+                type,
+                market,
+                trade_date,
+                freq,
+                build_status,
+                latest_trade_time,
+                total_amount,
+                total_vol,
+                security_count,
+                source_row_count,
+                points_json,
+                build_version,
+                built_at,
+                build_note
+              )
+            ) TO '{path.as_posix()}' (FORMAT parquet)
+            """
+        )
+
+
+def _sql_literal(value: object) -> str:
+    if value is None:
+        return "NULL"
+    if isinstance(value, datetime):
+        return f"'{value.isoformat(sep=' ')}'"
+    if isinstance(value, Decimal):
+        return str(value)
+    if isinstance(value, str):
+        return "'" + value.replace("'", "''") + "'"
+    return str(value)
 
 
 if __name__ == "__main__":

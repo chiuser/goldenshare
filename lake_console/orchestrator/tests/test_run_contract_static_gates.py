@@ -54,6 +54,7 @@ GOLD_WEALTH_MARKET_TURNOVER_SOURCE_FILES = (
 GOLD_WEALTH_MARKET_TURNOVER_PROD_SYNC_FILES = (
     DEFS_DIR / "resources.py",
     DEFS_DIR / "prod_db" / "wealth_market_turnover.py",
+    DEFS_DIR / "assets" / "wealth_market_turnover_prod_core.py",
 )
 MACD_KDJ_DIRECT_RUN_REQUEST_SENSOR_FILES: set[str] = set()
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
@@ -299,6 +300,27 @@ class RunContractStaticGateTests(unittest.TestCase):
             for path in JOBS_DIR.glob("prod_core_wealth_market_turnover*job*.py")
         ]
         self.assertEqual(independent_prod_jobs, [])
+
+    def test_gold_wealth_market_turnover_prod_sync_reads_gold_only(self) -> None:
+        prod_asset_source = (
+            DEFS_DIR / "assets" / "wealth_market_turnover_prod_core.py"
+        ).read_text()
+        for required_fragment in (
+            "deps=[gold_wealth_market_turnover]",
+            "gold_wealth_market_turnover_path",
+            "ProdPostgresWriteResource",
+            "replace_prod_core_wealth_market_turnover_partition",
+        ):
+            self.assertIn(required_fragment, prod_asset_source)
+        for forbidden_fragment in (
+            "silver_stk_mins_path",
+            "raw_stk_mins_path",
+            "TushareResource",
+            "src.biz",
+            "TurnoverSnapshotMaterializeService",
+            "WealthMarketTurnoverSnapshot",
+        ):
+            self.assertNotIn(forbidden_fragment, prod_asset_source)
 
     def test_stock_mins_silver_job_does_not_pull_raw_or_source_config(self) -> None:
         path = JOBS_DIR / "stock_mins_silver_update.py"
