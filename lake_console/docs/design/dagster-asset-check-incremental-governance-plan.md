@@ -535,6 +535,22 @@ P6A 已落地事实：
   防止未来补历史事件时重新写入旧 7 个普通 check。
 - P6A 不触碰 silver/qfq/MACD-KDJ，不触碰 repair/status/completion protected checks。
 
+P6B 已落地事实：
+
+- `silver_stk_mins_1m/5m/15m/30m/60m` 正式 Dagster checks 从每个资产 10 个收敛为
+  `silver_stk_mins_contract_check`、`silver_stk_mins_key_integrity_check`、
+  `silver_stk_mins_value_domain_check`、`silver_stk_mins_reference_coverage_check` 4 个。
+- 文件存在/行数、schema、freq/date/path 进入 `contract`；唯一键进入
+  `key_integrity`；价格、成交量、交易所 suffix 进入 `value_domain`；stock daily
+  code 覆盖、停牌结构行、`silver_stock_lifecycle` 生命周期覆盖进入
+  `reference_coverage`。
+- `batch_silver_stk_mins_lake_readiness(...)` 不新增查询，只把现有 metrics 映射到
+  4 个新 failed check names。
+- silver history/bootstrap event 工具的 check 数量估算和 runless 输出同步使用新
+  `SILVER_STK_MINS_CHECK_NAMES`，避免未来补历史事件时写回旧 10 个普通 check。
+- 旧 `silver_stk_mins_name_timeline_covered` 仅保留在 000638 历史 dry-run helper
+  的旧事件审计语境中，不作为当前正式 readiness check。
+
 ## 8. 开发门禁
 
 后续每一阶段必须满足：

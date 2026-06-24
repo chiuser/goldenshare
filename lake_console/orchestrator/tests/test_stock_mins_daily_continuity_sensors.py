@@ -231,7 +231,7 @@ def _silver_date_status(
     checks_passed: bool = False,
     reason: str = "not ready",
 ) -> StkMinsDateReadiness:
-    failed_check_names = () if ready else ("silver_stk_mins_file_exists_and_row_count_positive",)
+    failed_check_names = () if ready else ("silver_stk_mins_contract_check",)
     return StkMinsDateReadiness(
         trade_date=trade_date,
         ready=ready,

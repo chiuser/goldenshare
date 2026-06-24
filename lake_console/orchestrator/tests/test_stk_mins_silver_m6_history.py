@@ -25,6 +25,7 @@ from orchestrator.defs.paths import (
     silver_stock_basic_path,
     silver_stock_daily_path,
     silver_stock_identity_map_path,
+    silver_stock_lifecycle_path,
     silver_stock_suspend_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource
@@ -151,6 +152,36 @@ def _write_common_inputs(lake_root: Path, partition_key: str = PARTITION_KEY) ->
         order_by="ts_code",
     )
     _write_rows(
+        silver_stock_lifecycle_path(lake_root),
+        column_types={
+            "ts_code": "VARCHAR",
+            "symbol": "VARCHAR",
+            "name": "VARCHAR",
+            "exchange": "VARCHAR",
+            "market": "VARCHAR",
+            "curr_type": "VARCHAR",
+            "is_cny_stock": "BOOLEAN",
+            "list_status": "VARCHAR",
+            "list_date": "DATE",
+            "delist_date": "DATE",
+        },
+        rows=[
+            {
+                "ts_code": "600000.SH",
+                "symbol": "600000",
+                "name": "浦发银行",
+                "exchange": "SSE",
+                "market": "主板",
+                "curr_type": "CNY",
+                "is_cny_stock": True,
+                "list_status": "L",
+                "list_date": "2000-01-01",
+                "delist_date": None,
+            }
+        ],
+        order_by="ts_code",
+    )
+    _write_rows(
         silver_stock_basic_path(lake_root),
         column_types={"ts_code": "VARCHAR", "name": "VARCHAR"},
         rows=[{"ts_code": "600000.SH", "name": "浦发银行"}],
@@ -216,7 +247,10 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
             {freq: 1 for freq in STK_MINS_FREQS},
         )
         self.assertEqual(plan.planned_write_count, len(STK_MINS_FREQS))
-        self.assertEqual(plan.planned_event_count, len(STK_MINS_FREQS) * 11)
+        self.assertEqual(
+            plan.planned_event_count,
+            len(STK_MINS_FREQS) * (1 + len(SILVER_STK_MINS_CHECKS)),
+        )
         self.assertGreater(plan.missing_input_count, 0)
         self.assertEqual(plan.sample_partition_keys, (PARTITION_KEY,))
 
@@ -277,7 +311,10 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
 
         self.assertTrue(report.dry_run)
         self.assertEqual(report.plan.failed_partition_count, 0)
-        self.assertEqual(report.plan.planned_event_count, len(STK_MINS_FREQS) * 11)
+        self.assertEqual(
+            report.plan.planned_event_count,
+            len(STK_MINS_FREQS) * (1 + len(SILVER_STK_MINS_CHECKS)),
+        )
         self.assertEqual(report.reported_event_count, 0)
         self.assertEqual(materializations, [])
 
@@ -327,7 +364,10 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
                 skip_existing_materialized=True,
             )
 
-        self.assertEqual(report.reported_event_count, len(STK_MINS_FREQS) * 11)
+        self.assertEqual(
+            report.reported_event_count,
+            len(STK_MINS_FREQS) * (1 + len(SILVER_STK_MINS_CHECKS)),
+        )
         self.assertTrue(readiness.ready)
         self.assertEqual(second.reported_event_count, 0)
         self.assertEqual(
@@ -381,7 +421,7 @@ class StkMinsSilverM6HistoryTests(unittest.TestCase):
                     dry_run=True,
                 )
 
-        self.assertIn("silver_stk_mins_price_sanity", audit.failed_check_names)
+        self.assertIn("silver_stk_mins_value_domain_check", audit.failed_check_names)
 
     def test_registers_silver_partitions_with_dry_run(self) -> None:
         instance = dg.DagsterInstance.ephemeral()

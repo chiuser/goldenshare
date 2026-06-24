@@ -83,16 +83,10 @@ RAW_STK_MINS_CHECKS = (
     "raw_stk_mins_value_domain_check",
 )
 SILVER_STK_MINS_CHECKS = (
-    "silver_stk_mins_file_exists_and_row_count_positive",
-    "silver_stk_mins_schema_matches_contract",
-    "silver_stk_mins_freq_and_partition_match",
-    "silver_stk_mins_unique_ts_code_trade_time",
-    "silver_stk_mins_price_sanity",
-    "silver_stk_mins_volume_amount_sanity",
-    "silver_stk_mins_exchange_matches_suffix",
-    "silver_stk_mins_codes_exist_in_stock_daily",
-    "silver_stk_mins_no_full_day_suspend_structural_rows",
-    "silver_stk_mins_name_timeline_covered",
+    "silver_stk_mins_contract_check",
+    "silver_stk_mins_key_integrity_check",
+    "silver_stk_mins_reference_coverage_check",
+    "silver_stk_mins_value_domain_check",
 )
 GOLD_STK_MINS_QFQ_CHECKS = (
     "gold_stk_mins_qfq_file_exists_and_row_count_positive",

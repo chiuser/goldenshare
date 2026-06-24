@@ -12,6 +12,7 @@ from orchestrator.defs.bootstrap.stk_mins_migration import (
     _validate_backup_partition_alignment,
     discover_raw_stk_mins_partitions,
 )
+from orchestrator.defs.checks.stk_mins_checks import SILVER_STK_MINS_CHECK_NAMES
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
     raw_stk_mins_path,
@@ -115,7 +116,8 @@ def plan_stk_mins_silver_history(
         },
         existing_silver_partition_counts=existing_silver_counts,
         planned_write_count=planned_asset_partitions - total_existing,
-        planned_event_count=planned_asset_partitions * 11,
+        planned_event_count=planned_asset_partitions
+        * (1 + len(SILVER_STK_MINS_CHECK_NAMES)),
         missing_input_count=len(missing_inputs),
         missing_input_samples=tuple(missing_inputs[:20]),
         sample_partition_keys=_sample_partition_keys(selected_keys),

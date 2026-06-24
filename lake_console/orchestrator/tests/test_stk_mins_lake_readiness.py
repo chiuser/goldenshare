@@ -28,16 +28,10 @@ from orchestrator.defs.checks.stk_mins_checks import (
     RAW_STK_MINS_CONTRACT_CHECK,
     RAW_STK_MINS_KEY_INTEGRITY_CHECK,
     RAW_STK_MINS_VALUE_DOMAIN_CHECK,
-    SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
-    SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
-    SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
-    SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
-    SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
-    SILVER_STK_MINS_PRICE_SANITY_CHECK,
-    SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
-    SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-    SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
+    SILVER_STK_MINS_CONTRACT_CHECK,
+    SILVER_STK_MINS_KEY_INTEGRITY_CHECK,
+    SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
+    SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string
 from orchestrator.defs.paths import (
@@ -756,39 +750,39 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
         status = batch_status.status_for_trade_date("2026-06-15")
         self.assertFalse(status.ready)
         self.assertFalse(status.materialized)
-        self.assertIn(SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK, status.failed_check_names)
+        self.assertIn(SILVER_STK_MINS_CONTRACT_CHECK, status.failed_check_names)
 
     def test_silver_batch_readiness_detects_blocking_check_failures(self) -> None:
         cases = (
             {
                 "trade_date": "2026-06-15",
                 "kwargs": {"include_exchange": False},
-                "check": SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+                "check": SILVER_STK_MINS_CONTRACT_CHECK,
             },
             {
                 "trade_date": "2026-06-16",
                 "kwargs": {"actual_freq": 5},
-                "check": SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
+                "check": SILVER_STK_MINS_CONTRACT_CHECK,
             },
             {
                 "trade_date": "2026-06-17",
                 "kwargs": {"row_count": 2, "duplicate_key": True},
-                "check": SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                "check": SILVER_STK_MINS_KEY_INTEGRITY_CHECK,
             },
             {
                 "trade_date": "2026-06-18",
                 "kwargs": {"open_value": -1.0},
-                "check": SILVER_STK_MINS_PRICE_SANITY_CHECK,
+                "check": SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
             },
             {
                 "trade_date": "2026-06-19",
                 "kwargs": {"vol_value": 50.0},
-                "check": SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
+                "check": SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
             },
             {
                 "trade_date": "2026-06-20",
                 "kwargs": {"exchange": "SSE"},
-                "check": SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
+                "check": SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
             },
         )
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
@@ -831,21 +825,21 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
                 "daily_code": "000002.SZ",
                 "full_day_suspend": False,
                 "ts_code": "000001.SZ",
-                "check": SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
+                "check": SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
             },
             {
                 "trade_date": "2026-06-16",
                 "daily_code": "000001.SZ",
                 "full_day_suspend": True,
                 "ts_code": "000001.SZ",
-                "check": SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
+                "check": SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
             },
             {
                 "trade_date": "2026-06-17",
                 "daily_code": "000003.SZ",
                 "full_day_suspend": False,
                 "ts_code": "000003.SZ",
-                "check": SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
+                "check": SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
             },
         )
         with TemporaryDirectory() as directory, duckdb.connect(":memory:") as connection:
@@ -917,7 +911,7 @@ class StkMinsLakeReadinessTests(unittest.TestCase):
 
         status = batch_status.status_for_trade_date("2026-04-13")
         self.assertTrue(status.ready)
-        self.assertNotIn(SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK, status.failed_check_names)
+        self.assertNotIn(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK, status.failed_check_names)
 
     def test_silver_batch_readiness_fails_closed_for_unknown_date(self) -> None:
         with duckdb.connect(":memory:") as connection:

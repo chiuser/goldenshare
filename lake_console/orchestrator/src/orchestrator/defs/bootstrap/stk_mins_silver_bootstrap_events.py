@@ -372,35 +372,17 @@ class _PartitionContext:
 
 
 _SILVER_CHECK_EVALUATORS = {
-    stk_mins_checks.SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK: (
-        stk_mins_checks._silver_file_exists_and_row_count_positive
+    stk_mins_checks.SILVER_STK_MINS_CONTRACT_CHECK: (
+        stk_mins_checks._silver_contract_check
     ),
-    stk_mins_checks.SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK: (
-        stk_mins_checks._silver_schema_matches_contract
+    stk_mins_checks.SILVER_STK_MINS_KEY_INTEGRITY_CHECK: (
+        stk_mins_checks._silver_key_integrity_check
     ),
-    stk_mins_checks.SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK: (
-        stk_mins_checks._silver_freq_and_partition_match
+    stk_mins_checks.SILVER_STK_MINS_VALUE_DOMAIN_CHECK: (
+        stk_mins_checks._silver_value_domain_check
     ),
-    stk_mins_checks.SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK: (
-        stk_mins_checks._silver_unique_ts_code_trade_time
-    ),
-    stk_mins_checks.SILVER_STK_MINS_PRICE_SANITY_CHECK: (
-        stk_mins_checks._silver_price_sanity
-    ),
-    stk_mins_checks.SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK: (
-        stk_mins_checks._silver_volume_amount_sanity
-    ),
-    stk_mins_checks.SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK: (
-        stk_mins_checks._silver_exchange_matches_suffix
-    ),
-    stk_mins_checks.SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK: (
-        stk_mins_checks._silver_codes_exist_in_stock_daily
-    ),
-    stk_mins_checks.SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK: (
-        stk_mins_checks._silver_no_full_day_suspend_structural_rows
-    ),
-    stk_mins_checks.SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK: (
-        stk_mins_checks._silver_name_timeline_covered
+    stk_mins_checks.SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK: (
+        stk_mins_checks._silver_reference_coverage_check
     ),
 }
 

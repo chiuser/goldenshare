@@ -19,16 +19,10 @@ from orchestrator.defs.checks.stk_mins_checks import (
     RAW_STK_MINS_CONTRACT_CHECK,
     RAW_STK_MINS_KEY_INTEGRITY_CHECK,
     RAW_STK_MINS_VALUE_DOMAIN_CHECK,
-    SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
-    SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
-    SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
-    SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
-    SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
-    SILVER_STK_MINS_PRICE_SANITY_CHECK,
-    SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
-    SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-    SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
+    SILVER_STK_MINS_CONTRACT_CHECK,
+    SILVER_STK_MINS_KEY_INTEGRITY_CHECK,
+    SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
+    SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
     GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
     GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
     GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
@@ -981,7 +975,7 @@ def _silver_status_for_trade_date(
             materialized=False,
             checks_passed=False,
             reason=f"silver stk mins partition is not registered for {trade_date}",
-            failed_check_names=("silver_stk_mins_partition_not_registered",),
+            failed_check_names=(SILVER_STK_MINS_KEY_INTEGRITY_CHECK,),
             missing_file_paths=missing_paths,
             expected_file_count=len(path_plans),
             existing_file_count=len(path_plans) - len(missing_paths),
@@ -993,9 +987,7 @@ def _silver_status_for_trade_date(
             materialized=False,
             checks_passed=False,
             reason=f"silver stk mins files are missing for {trade_date}",
-            failed_check_names=(
-                SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-            ),
+            failed_check_names=(SILVER_STK_MINS_CONTRACT_CHECK,),
             missing_file_paths=missing_paths,
             expected_file_count=len(path_plans),
             existing_file_count=len(path_plans) - len(missing_paths),
@@ -1009,37 +1001,33 @@ def _silver_status_for_trade_date(
         checked_row_count += metrics.row_count
         failed_row_count += metrics.failed_row_count
         if metrics.row_count <= 0:
-            failed_check_names.append(
-                SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
-            )
+            failed_check_names.append(SILVER_STK_MINS_CONTRACT_CHECK)
         if full_semantics and path_plan.path not in schema_valid_paths:
-            failed_check_names.append(SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_CONTRACT_CHECK)
         if full_semantics and metrics.freq_partition_failed_count:
-            failed_check_names.append(SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_CONTRACT_CHECK)
         if full_semantics and metrics.duplicate_failed_count:
-            failed_check_names.append(SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_KEY_INTEGRITY_CHECK)
         if full_semantics and metrics.price_failed_count:
-            failed_check_names.append(SILVER_STK_MINS_PRICE_SANITY_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_VALUE_DOMAIN_CHECK)
         if full_semantics and metrics.volume_amount_failed_count:
-            failed_check_names.append(SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_VALUE_DOMAIN_CHECK)
         if full_semantics and metrics.exchange_failed_count:
-            failed_check_names.append(SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_VALUE_DOMAIN_CHECK)
         if full_semantics and (
             not path_plan.stock_daily_path.exists()
             or metrics.missing_stock_daily_code_count
         ):
-            failed_check_names.append(SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK)
         if full_semantics and (
             not path_plan.suspend_path.exists()
             or metrics.full_day_suspend_failed_count
         ):
-            failed_check_names.append(
-                SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK
-            )
+            failed_check_names.append(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK)
         if full_semantics and (
             not stock_lifecycle_path.exists() or metrics.lifecycle_failed_count
         ):
-            failed_check_names.append(SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK)
+            failed_check_names.append(SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK)
 
     failed_check_names = sorted(set(failed_check_names))
     checks_passed = not failed_check_names

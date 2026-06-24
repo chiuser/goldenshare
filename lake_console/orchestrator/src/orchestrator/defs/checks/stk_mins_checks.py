@@ -117,18 +117,18 @@ SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK = (
 SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK = (
     "silver_stk_mins_name_timeline_covered"
 )
+SILVER_STK_MINS_CONTRACT_CHECK = "silver_stk_mins_contract_check"
+SILVER_STK_MINS_KEY_INTEGRITY_CHECK = "silver_stk_mins_key_integrity_check"
+SILVER_STK_MINS_VALUE_DOMAIN_CHECK = "silver_stk_mins_value_domain_check"
+SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK = (
+    "silver_stk_mins_reference_coverage_check"
+)
 
 SILVER_STK_MINS_CHECK_NAMES = (
-    SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-    SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
-    SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
-    SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-    SILVER_STK_MINS_PRICE_SANITY_CHECK,
-    SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
-    SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
-    SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
-    SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
-    SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
+    SILVER_STK_MINS_CONTRACT_CHECK,
+    SILVER_STK_MINS_KEY_INTEGRITY_CHECK,
+    SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
+    SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
 )
 
 GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK = (
@@ -2551,6 +2551,148 @@ def _silver_name_timeline_covered(
     )
 
 
+def _collapsed_silver_check_result(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+    rule_evaluators: Sequence[tuple[str, Any]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    partition_key = context.partition_key
+    path = _silver_path(lake_root, freq, partition_key)
+    failed_rule_names: list[str] = []
+    for rule_name, evaluator in rule_evaluators:
+        result = evaluator(
+            context=context,
+            lake_root=lake_root,
+            duckdb=duckdb,
+            freq=freq,
+        )
+        if not result.passed:
+            failed_rule_names.append(rule_name)
+
+    failed_rule_names = sorted(set(failed_rule_names))
+    return _check_result(
+        passed=not failed_rule_names,
+        check_scope=check_scope,
+        file_path=path,
+        failed_row_count=len(failed_rule_names),
+        extra_metadata={
+            "partition_key": partition_key,
+            "freq": freq,
+            "failed_rule_names": failed_rule_names,
+        },
+    )
+
+
+def _silver_contract_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    return _collapsed_silver_check_result(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=freq,
+        rule_evaluators=(
+            (
+                SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                _silver_file_exists_and_row_count_positive,
+            ),
+            (
+                SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+                _silver_schema_matches_contract,
+            ),
+            (
+                SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
+                _silver_freq_and_partition_match,
+            ),
+        ),
+        check_scope=CheckScope.SCHEMA,
+    )
+
+
+def _silver_key_integrity_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    return _collapsed_silver_check_result(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=freq,
+        rule_evaluators=(
+            (
+                SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                _silver_unique_ts_code_trade_time,
+            ),
+        ),
+        check_scope=CheckScope.KEY_UNIQUENESS,
+    )
+
+
+def _silver_value_domain_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    return _collapsed_silver_check_result(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=freq,
+        rule_evaluators=(
+            (SILVER_STK_MINS_PRICE_SANITY_CHECK, _silver_price_sanity),
+            (SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK, _silver_volume_amount_sanity),
+            (
+                SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
+                _silver_exchange_matches_suffix,
+            ),
+        ),
+        check_scope=CheckScope.VALUE_SANITY,
+    )
+
+
+def _silver_reference_coverage_check(
+    *,
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    freq: int,
+) -> dg.AssetCheckResult:
+    return _collapsed_silver_check_result(
+        context=context,
+        lake_root=lake_root,
+        duckdb=duckdb,
+        freq=freq,
+        rule_evaluators=(
+            (
+                SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
+                _silver_codes_exist_in_stock_daily,
+            ),
+            (
+                SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
+                _silver_no_full_day_suspend_structural_rows,
+            ),
+            (
+                SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
+                _silver_name_timeline_covered,
+            ),
+        ),
+        check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+    )
+
+
 def _build_file_exists_check(asset, freq: int):
     @dg.asset_check(
         asset=asset,
@@ -2849,183 +2991,87 @@ def _build_silver_stk_mins_checks(asset, freq: int):
         _build_silver_check(
             asset,
             normalized_freq,
-            SILVER_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
-            _silver_file_exists_and_row_count_positive,
+            SILVER_STK_MINS_CONTRACT_CHECK,
+            _silver_contract_check,
         ),
         _build_silver_check(
             asset,
             normalized_freq,
-            SILVER_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
-            _silver_schema_matches_contract,
+            SILVER_STK_MINS_KEY_INTEGRITY_CHECK,
+            _silver_key_integrity_check,
         ),
         _build_silver_check(
             asset,
             normalized_freq,
-            SILVER_STK_MINS_FREQ_AND_PARTITION_MATCH_CHECK,
-            _silver_freq_and_partition_match,
+            SILVER_STK_MINS_VALUE_DOMAIN_CHECK,
+            _silver_value_domain_check,
         ),
         _build_silver_check(
             asset,
             normalized_freq,
-            SILVER_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-            _silver_unique_ts_code_trade_time,
-        ),
-        _build_silver_check(
-            asset,
-            normalized_freq,
-            SILVER_STK_MINS_PRICE_SANITY_CHECK,
-            _silver_price_sanity,
-        ),
-        _build_silver_check(
-            asset,
-            normalized_freq,
-            SILVER_STK_MINS_VOLUME_AMOUNT_SANITY_CHECK,
-            _silver_volume_amount_sanity,
-        ),
-        _build_silver_check(
-            asset,
-            normalized_freq,
-            SILVER_STK_MINS_EXCHANGE_MATCHES_SUFFIX_CHECK,
-            _silver_exchange_matches_suffix,
-        ),
-        _build_silver_check(
-            asset,
-            normalized_freq,
-            SILVER_STK_MINS_CODES_EXIST_IN_STOCK_DAILY_CHECK,
-            _silver_codes_exist_in_stock_daily,
-        ),
-        _build_silver_check(
-            asset,
-            normalized_freq,
-            SILVER_STK_MINS_NO_FULL_DAY_SUSPEND_STRUCTURAL_ROWS_CHECK,
-            _silver_no_full_day_suspend_structural_rows,
-        ),
-        _build_silver_check(
-            asset,
-            normalized_freq,
-            SILVER_STK_MINS_NAME_TIMELINE_COVERED_CHECK,
-            _silver_name_timeline_covered,
+            SILVER_STK_MINS_REFERENCE_COVERAGE_CHECK,
+            _silver_reference_coverage_check,
             additional_deps=(silver_stock_lifecycle,),
         ),
     )
 
 
 (
-    silver_stk_mins_1m_file_exists_and_row_count_positive,
-    silver_stk_mins_1m_schema_matches_contract,
-    silver_stk_mins_1m_freq_and_partition_match,
-    silver_stk_mins_1m_unique_ts_code_trade_time,
-    silver_stk_mins_1m_price_sanity,
-    silver_stk_mins_1m_volume_amount_sanity,
-    silver_stk_mins_1m_exchange_matches_suffix,
-    silver_stk_mins_1m_codes_exist_in_stock_daily,
-    silver_stk_mins_1m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_1m_name_timeline_covered,
+    silver_stk_mins_1m_contract_check,
+    silver_stk_mins_1m_key_integrity_check,
+    silver_stk_mins_1m_value_domain_check,
+    silver_stk_mins_1m_reference_coverage_check,
 ) = _build_silver_stk_mins_checks(silver_stk_mins_1m, 1)
 
 (
-    silver_stk_mins_5m_file_exists_and_row_count_positive,
-    silver_stk_mins_5m_schema_matches_contract,
-    silver_stk_mins_5m_freq_and_partition_match,
-    silver_stk_mins_5m_unique_ts_code_trade_time,
-    silver_stk_mins_5m_price_sanity,
-    silver_stk_mins_5m_volume_amount_sanity,
-    silver_stk_mins_5m_exchange_matches_suffix,
-    silver_stk_mins_5m_codes_exist_in_stock_daily,
-    silver_stk_mins_5m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_5m_name_timeline_covered,
+    silver_stk_mins_5m_contract_check,
+    silver_stk_mins_5m_key_integrity_check,
+    silver_stk_mins_5m_value_domain_check,
+    silver_stk_mins_5m_reference_coverage_check,
 ) = _build_silver_stk_mins_checks(silver_stk_mins_5m, 5)
 
 (
-    silver_stk_mins_15m_file_exists_and_row_count_positive,
-    silver_stk_mins_15m_schema_matches_contract,
-    silver_stk_mins_15m_freq_and_partition_match,
-    silver_stk_mins_15m_unique_ts_code_trade_time,
-    silver_stk_mins_15m_price_sanity,
-    silver_stk_mins_15m_volume_amount_sanity,
-    silver_stk_mins_15m_exchange_matches_suffix,
-    silver_stk_mins_15m_codes_exist_in_stock_daily,
-    silver_stk_mins_15m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_15m_name_timeline_covered,
+    silver_stk_mins_15m_contract_check,
+    silver_stk_mins_15m_key_integrity_check,
+    silver_stk_mins_15m_value_domain_check,
+    silver_stk_mins_15m_reference_coverage_check,
 ) = _build_silver_stk_mins_checks(silver_stk_mins_15m, 15)
 
 (
-    silver_stk_mins_30m_file_exists_and_row_count_positive,
-    silver_stk_mins_30m_schema_matches_contract,
-    silver_stk_mins_30m_freq_and_partition_match,
-    silver_stk_mins_30m_unique_ts_code_trade_time,
-    silver_stk_mins_30m_price_sanity,
-    silver_stk_mins_30m_volume_amount_sanity,
-    silver_stk_mins_30m_exchange_matches_suffix,
-    silver_stk_mins_30m_codes_exist_in_stock_daily,
-    silver_stk_mins_30m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_30m_name_timeline_covered,
+    silver_stk_mins_30m_contract_check,
+    silver_stk_mins_30m_key_integrity_check,
+    silver_stk_mins_30m_value_domain_check,
+    silver_stk_mins_30m_reference_coverage_check,
 ) = _build_silver_stk_mins_checks(silver_stk_mins_30m, 30)
 
 (
-    silver_stk_mins_60m_file_exists_and_row_count_positive,
-    silver_stk_mins_60m_schema_matches_contract,
-    silver_stk_mins_60m_freq_and_partition_match,
-    silver_stk_mins_60m_unique_ts_code_trade_time,
-    silver_stk_mins_60m_price_sanity,
-    silver_stk_mins_60m_volume_amount_sanity,
-    silver_stk_mins_60m_exchange_matches_suffix,
-    silver_stk_mins_60m_codes_exist_in_stock_daily,
-    silver_stk_mins_60m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_60m_name_timeline_covered,
+    silver_stk_mins_60m_contract_check,
+    silver_stk_mins_60m_key_integrity_check,
+    silver_stk_mins_60m_value_domain_check,
+    silver_stk_mins_60m_reference_coverage_check,
 ) = _build_silver_stk_mins_checks(silver_stk_mins_60m, 60)
 
 SILVER_STK_MINS_CHECK_DEFINITIONS = (
-    silver_stk_mins_1m_file_exists_and_row_count_positive,
-    silver_stk_mins_1m_schema_matches_contract,
-    silver_stk_mins_1m_freq_and_partition_match,
-    silver_stk_mins_1m_unique_ts_code_trade_time,
-    silver_stk_mins_1m_price_sanity,
-    silver_stk_mins_1m_volume_amount_sanity,
-    silver_stk_mins_1m_exchange_matches_suffix,
-    silver_stk_mins_1m_codes_exist_in_stock_daily,
-    silver_stk_mins_1m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_1m_name_timeline_covered,
-    silver_stk_mins_5m_file_exists_and_row_count_positive,
-    silver_stk_mins_5m_schema_matches_contract,
-    silver_stk_mins_5m_freq_and_partition_match,
-    silver_stk_mins_5m_unique_ts_code_trade_time,
-    silver_stk_mins_5m_price_sanity,
-    silver_stk_mins_5m_volume_amount_sanity,
-    silver_stk_mins_5m_exchange_matches_suffix,
-    silver_stk_mins_5m_codes_exist_in_stock_daily,
-    silver_stk_mins_5m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_5m_name_timeline_covered,
-    silver_stk_mins_15m_file_exists_and_row_count_positive,
-    silver_stk_mins_15m_schema_matches_contract,
-    silver_stk_mins_15m_freq_and_partition_match,
-    silver_stk_mins_15m_unique_ts_code_trade_time,
-    silver_stk_mins_15m_price_sanity,
-    silver_stk_mins_15m_volume_amount_sanity,
-    silver_stk_mins_15m_exchange_matches_suffix,
-    silver_stk_mins_15m_codes_exist_in_stock_daily,
-    silver_stk_mins_15m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_15m_name_timeline_covered,
-    silver_stk_mins_30m_file_exists_and_row_count_positive,
-    silver_stk_mins_30m_schema_matches_contract,
-    silver_stk_mins_30m_freq_and_partition_match,
-    silver_stk_mins_30m_unique_ts_code_trade_time,
-    silver_stk_mins_30m_price_sanity,
-    silver_stk_mins_30m_volume_amount_sanity,
-    silver_stk_mins_30m_exchange_matches_suffix,
-    silver_stk_mins_30m_codes_exist_in_stock_daily,
-    silver_stk_mins_30m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_30m_name_timeline_covered,
-    silver_stk_mins_60m_file_exists_and_row_count_positive,
-    silver_stk_mins_60m_schema_matches_contract,
-    silver_stk_mins_60m_freq_and_partition_match,
-    silver_stk_mins_60m_unique_ts_code_trade_time,
-    silver_stk_mins_60m_price_sanity,
-    silver_stk_mins_60m_volume_amount_sanity,
-    silver_stk_mins_60m_exchange_matches_suffix,
-    silver_stk_mins_60m_codes_exist_in_stock_daily,
-    silver_stk_mins_60m_no_full_day_suspend_structural_rows,
-    silver_stk_mins_60m_name_timeline_covered,
+    silver_stk_mins_1m_contract_check,
+    silver_stk_mins_1m_key_integrity_check,
+    silver_stk_mins_1m_value_domain_check,
+    silver_stk_mins_1m_reference_coverage_check,
+    silver_stk_mins_5m_contract_check,
+    silver_stk_mins_5m_key_integrity_check,
+    silver_stk_mins_5m_value_domain_check,
+    silver_stk_mins_5m_reference_coverage_check,
+    silver_stk_mins_15m_contract_check,
+    silver_stk_mins_15m_key_integrity_check,
+    silver_stk_mins_15m_value_domain_check,
+    silver_stk_mins_15m_reference_coverage_check,
+    silver_stk_mins_30m_contract_check,
+    silver_stk_mins_30m_key_integrity_check,
+    silver_stk_mins_30m_value_domain_check,
+    silver_stk_mins_30m_reference_coverage_check,
+    silver_stk_mins_60m_contract_check,
+    silver_stk_mins_60m_key_integrity_check,
+    silver_stk_mins_60m_value_domain_check,
+    silver_stk_mins_60m_reference_coverage_check,
 )
 
 assert len(SILVER_STK_MINS_CHECK_DEFINITIONS) == len(SILVER_STK_MINS_ASSETS) * len(

@@ -756,6 +756,21 @@ P5C 已落地：
   - `batch_raw_stk_mins_lake_readiness(...)` 不新增查询，只把原 metrics 映射到
     3 个新 failed check names。
   - `stk_mins_migration` 的 raw runless/bootstrap audit 也只输出 3 个新 check 名称。
+- P6B 收敛 `silver_stk_mins`：
+  - `SILVER_STK_MINS_CHECK_NAMES` 从旧 10 个普通 check 改为
+    `silver_stk_mins_contract_check`、`silver_stk_mins_key_integrity_check`、
+    `silver_stk_mins_value_domain_check`、`silver_stk_mins_reference_coverage_check`。
+  - `contract` 聚合文件存在/行数、schema、freq/date/path。
+  - `key_integrity` 聚合 `(ts_code, trade_time)` 唯一性。
+  - `value_domain` 聚合 price、volume/amount、exchange suffix。
+  - `reference_coverage` 聚合 stock daily code 覆盖、suspend structural rows、
+    `silver_stock_lifecycle` 生命周期覆盖，并保留 `silver_stock_lifecycle` 依赖。
+  - `batch_silver_stk_mins_lake_readiness(...)` 不新增查询，只把现有 metrics 映射到
+    4 个新 failed check names。
+  - `stk_mins_silver_history` 和 `stk_mins_silver_bootstrap_events` 的事件数量估算和
+    runless 输出同步改用新 `SILVER_STK_MINS_CHECK_NAMES`。
+  - `silver_stk_mins_name_timeline_covered` 只保留在旧 000638 dry-run helper 的历史
+    审计语境，不再是当前正式 silver readiness check。
 - 若进一步合并 MACD/KDJ indicator/state checks，必须同步：
   - checks-only refresh job
   - daily job selection
