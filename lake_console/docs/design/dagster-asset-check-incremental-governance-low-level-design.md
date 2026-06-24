@@ -368,7 +368,7 @@ P0.1 验证结果：`56 passed`。
 
 ### P1 非分钟线 event retention dry-run
 
-状态：dry-run 工具与本地测试已完成；正式 Dagster Postgres dry-run 尚未执行。
+状态：dry-run 工具、本地测试与正式 Dagster Postgres 只读 dry-run 均已完成。
 
 #### 改动文件
 
@@ -445,6 +445,53 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 ```
 
 结果：`64 passed`。
+
+#### 正式 dry-run 结果
+
+执行时间：2026-06-25。
+
+报告路径：
+
+- `/private/tmp/asset_check_event_retention_dry_run_20260625_p7b.json`
+
+关键结论：
+
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过，失败断言为空
+- protected check 候选为空
+- keep windows 均为最近 20 个交易日，窗口为 `2026-05-27` 到 `2026-06-24`
+- `prod_ch_share_fact_market_breadth_daily`、`lake_root_health` 被明确排除，不进入候选
+
+候选规模：
+
+| candidate type | count |
+| --- | ---: |
+| check executions | 75,875 |
+| check evaluation events | 75,875 |
+| check event tags | 0 |
+| materialization events | 42,310 |
+| materialization event tags | 33,877 |
+
+主要候选来源：
+
+| asset | check candidates | materialization candidates |
+| --- | ---: | ---: |
+| `silver_adj_factor` | 42,150 | 4,222 |
+| `raw_tushare_adj_factor` | 33,720 | 4,222 |
+| `gold_market_major_indices_daily` | 0 | 6,393 |
+| `silver_index_daily` | 0 | 6,393 |
+| `ch_share_fact_market_breadth_daily` | 0 | 3,011 |
+| `gold_market_breadth_daily` | 0 | 3,011 |
+| `gold_stock_return_distribution` | 0 | 3,011 |
+
+当前表规模：
+
+- `event_logs`: 3,819,311 rows，约 11 GB
+- `asset_check_executions`: 418,513 rows，约 3,298 MB
+- `asset_event_tags`: 42,775 rows，约 32 MB
+
+结论：P7B 只读候选验证通过，可以进入非分钟线 sample-delete 执行器开发；正式删除仍属于 P7C，必须在备份、pre dry-run 和单独批准后才能执行。
 
 ### P2 Index Daily 与 Major Indices
 
@@ -980,8 +1027,7 @@ rg -n "AssetCheckResult|asset_check|blocking" \
 ## 7. 推进顺序
 
 1. P0.1：治理矩阵与静态门禁，已完成。
-2. P1：非分钟线 retention dry-run 工具，已完成本地开发；正式 Postgres
-   dry-run 需要单独审批执行。
+2. P1：非分钟线 retention dry-run 工具、正式 Postgres 只读 dry-run 均已完成。
 3. P2：Index Daily 与 Major Indices check 合并和 lake readiness 对账，已完成。
 4. P3：Stock Daily / Suspend / Adj Factor check 合并和 lifecycle 口径收敛，已完成。
 5. P4：Market Breadth / Return Distribution / Serving check 精简与 offline audit，已完成。
@@ -1041,6 +1087,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests
 
 ### 7.2 P7B 正式 dry-run 与删除执行器设计
 
+状态：正式只读 dry-run 已完成并通过；sample-delete 执行器尚未开发。
+
 P7B 不直接删除。它先只读验证当前正式 Postgres 候选，只有 dry-run 安全报告通过后，
 才允许开发非分钟线 sample-delete 执行器。
 
@@ -1065,6 +1113,17 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.asset_ch
    - latest-bound check collision 为 0
    - keep window collision 为 0
    - `prod_ch_share_fact_market_breadth_daily`、`lake_root_health` 等排除资产不进入候选
+
+2026-06-25 正式 dry-run 结果：
+
+- 报告：`/private/tmp/asset_check_event_retention_dry_run_20260625_p7b.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- 候选：75,875 条 check execution / check event、42,310 条 materialization event、33,877 条 materialization event tags
+- keep windows：`2026-05-27` 到 `2026-06-24`
+- protected check 候选为空
+- `prod_ch_share_fact_market_breadth_daily`、`lake_root_health` 仍按排除资产处理
 
 5. 若需要正式删除，另行开发非分钟线 sample-delete：
    - 单资产或小批次白名单。
