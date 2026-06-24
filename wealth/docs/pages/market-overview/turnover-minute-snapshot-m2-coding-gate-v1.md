@@ -1,8 +1,8 @@
 # 市场总览｜成交额总览分钟线快照 M2 编码前门禁 v1
 
 > 用途：在编码前冻结“turnover 分钟线快照改造”的表结构、命令、读写切换、回归范围。  
-> 阶段：分钟线快照长期方案开工前。  
-> 产物性质：执行门禁清单（不通过不允许编码）。
+> 阶段：已实现归档。
+> 产物性质：历史执行门禁清单与当前结构基线；真实建表以 Alembic 迁移与 ORM 为准。
 
 关联文档：
 
@@ -166,7 +166,7 @@ goldenshare wealth-build-turnover-snapshot --start-date YYYY-MM-DD --end-date YY
 
 区间模式必须通过交易日历展开交易日：
 
-1. 数据源：`core.trade_calendar` 对应模型 `TradeCalendar`。
+1. 数据源：`core_serving.trade_calendar` 对应模型 `TradeCalendar`。
 2. 展开条件：`exchange = settings.default_exchange` 且 `is_open = true`。
 3. 不按自然日硬跑，周末和节假日不生成 FAILED 快照。
 4. 若区间内没有开市交易日，命令必须失败并输出明确原因，不能静默成功。
@@ -349,3 +349,4 @@ wealth-build-turnover-snapshot done dates=5 freq_jobs=25 ready=25 failed=0
 |---|---|---|---|
 | v1 | 2026-05-09 | 首版：冻结 turnover 分钟线快照长期改造的编码前门禁 | Codex |
 | v1.1 | 2026-05-10 | 补充 `wealth-build-turnover-snapshot` 区间模式方案：交易日展开、逐日提交、友好输出与测试门禁 | Codex |
+| v1.2 | 2026-06-24 | 按当前实现归档：修正交易日历 schema 为 `core_serving.trade_calendar`，明确真实建表以 Alembic/ORM 为准 | Codex |

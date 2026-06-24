@@ -1,4 +1,4 @@
-# Ops Biz 表数据源展示方案 v1（已确认）
+# Ops Biz 表数据源展示方案 v1（已实现）
 
 ## 0. 背景
 
@@ -70,13 +70,13 @@ Biz 表不是外部数据集，不应强行塞进 `src/foundation/datasets/**`�
 1. 误导运营后台以为它可以像 Tushare 数据集一样同步。
 2. 让 foundation 承担上层业务派生表目录职责，破坏边界。
 
-因此 Biz 表目录建议归属 `src/ops/catalog/**`，作为运营后台展示目录的一部分。
+因此 Biz 表目录当前归属 `src/ops/catalog/**`，作为运营后台展示目录的一部分。
 
 ### 2.3 与现有数据源卡片的关系
 
 Biz 表可以复用现有数据源卡片的展示风格，但不能复用“raw 数据源状态”的语义。
 
-建议前端把现有数据源页文案从：
+前端已把早期偏 raw 的数据源页文案从：
 
 ```text
 仅展示数据源侧原始下载状态（raw）
@@ -96,11 +96,11 @@ Biz 表可以复用现有数据源卡片的展示风格，但不能复用“raw 
 |---|---|---|---|---|---|---|
 | `wealth_market_turnover_snapshot` | 成交额分钟快照 | `core_serving.wealth_market_turnover_snapshot` | 财势乾坤 / 市场总览 / 成交额总览 | `trade_date` | `built_at` | 是 |
 
-## 4. 建议后端结构
+## 4. 当前后端结构
 
 ### 4.1 Biz 表目录配置
 
-建议新增 Ops 层代码配置：
+当前 Ops 层代码配置：
 
 ```text
 src/ops/catalog/biz_table_catalog.py
@@ -112,7 +112,7 @@ src/ops/catalog/biz_table_catalog.py
 2. 定义每张 Biz 表的显示名、表名、所属分组、观测字段和状态规则。
 3. 只用于运营后台展示，不驱动写入。
 
-建议结构：
+当前结构：
 
 ```python
 @dataclass(frozen=True, slots=True)
@@ -122,6 +122,7 @@ class BizTableCatalogItem:
     table_name: str
     group_key: str
     group_label: str
+    group_order: int
     item_order: int
     observed_date_column: str
     observed_at_column: str | None
@@ -137,6 +138,7 @@ BizTableCatalogItem(
     table_name="core_serving.wealth_market_turnover_snapshot",
     group_key="wealth_market",
     group_label="财势乾坤",
+    group_order=90,
     item_order=10,
     observed_date_column="trade_date",
     observed_at_column="built_at",
@@ -146,7 +148,7 @@ BizTableCatalogItem(
 
 ### 4.2 Biz 表卡片查询服务
 
-建议新增：
+当前实现：
 
 ```text
 src/ops/queries/biz_table_card_query_service.py
@@ -162,7 +164,7 @@ src/ops/queries/biz_table_card_query_service.py
 
 ### 4.3 与现有 DatasetCardQueryService 的集成方式
 
-一期建议复用现有接口：
+当前复用现有接口：
 
 ```text
 GET /api/v1/ops/dataset-cards?source_key=biz_tableset
@@ -186,7 +188,7 @@ GET /api/v1/ops/dataset-cards?source_key=biz_tableset
 GET /api/v1/ops/data-asset-cards?source_key=biz_tableset
 ```
 
-但一期不建议先建新 API，避免前端重复实现一套卡片页。
+当前未新建 `data-asset-cards` API，避免前端重复实现一套卡片页。
 
 ## 5. 一期响应映射
 
@@ -232,9 +234,20 @@ GET /api/v1/ops/data-asset-cards?source_key=biz_tableset
 
 ## 6. `wealth_market_turnover_snapshot` 状态口径
 
-### 6.1 观测 SQL 口径
+### 6.1 构建与消费口径
 
-建议只读取 READY 快照：
+`wealth_market_turnover_snapshot` 的生产和消费容易混淆，当前代码口径如下：
+
+1. 构建命令 `wealth-build-turnover-snapshot` 不传 `--freq` 时，会分别构建 `1 / 5 / 15 / 30 / 60` 五套分钟快照。
+2. 每套快照只读取同频率的 `raw_tushare.stk_mins`，筛选条件是 `freq + trade_time 当日窗口`。
+3. 每套快照按 `trade_time` 聚合全市场 `amount / vol / security_count`，并以 `type + market + trade_date + freq` 写入 `core_serving.wealth_market_turnover_snapshot`。
+4. 财势乾坤市场成交额页的盘中累计曲线默认读取 `freq=30` 的 READY 快照。
+5. 成交额页的今日成交额、昨日成交额、5 日均值、20 日均值和历史走势来自 `core_serving.equity_daily_bar.amount` 聚合，不来自分钟快照表。
+6. Biz 数据集卡片的 `latest_business_date` 只看 READY 快照中最大的 `trade_date`，不代表五个频率之外还有其他业务口径。
+
+### 6.2 观测 SQL 口径
+
+当前只读取 READY 快照：
 
 ```sql
 select
@@ -249,17 +262,21 @@ where type = 'stock'
   and build_status = 'READY';
 ```
 
-### 6.2 期望日期口径
+说明：这里的 `row_count` 是快照行数。正常每个 `trade_date` 最多对应 `1 / 5 / 15 / 30 / 60` 五行，不是源分钟线行数，也不是股票数。
 
-一期建议沿用财势乾坤市场页的盘后静态数据口径：
+### 6.3 期望日期口径
 
-1. 以 `core.trade_calendar` 为交易日事实。
+当前沿用财势乾坤市场页的盘后静态数据口径：
+
+1. 以 `core_serving.trade_calendar` 为交易日事实。
 2. 当前日期是交易日，且未到盘后可用时间前，期望日期为前一个开市交易日。
 3. 当前日期是交易日，且已到盘后可用时间后，期望日期为当前交易日。
 4. 当前日期不是交易日，期望日期为最近一个开市交易日。
 5. 盘后可用时间默认 `20:00`，后续可配置。
 
-### 6.3 状态计算
+当前实现通过 `src.foundation.models.core.trade_calendar.TradeCalendar` 模型访问交易日历；该模型实际落库 schema 是 `core_serving`。
+
+### 6.4 状态计算
 
 | 条件 | `status` | `freshness_status` | 说明 |
 |---|---|---|---|
@@ -276,11 +293,11 @@ where type = 'stock'
 暂无 READY 快照。
 ```
 
-## 7. 前端改造范围
+## 7. 当前前端实现范围
 
 ### 7.1 新增 Biz 表入口
 
-建议新增：
+当前新增：
 
 ```text
 frontend/src/pages/ops-v21-biz-table-page.tsx
@@ -309,7 +326,7 @@ frontend/src/shared/api/types.ts
 仅展示数据源侧原始下载状态（raw）。这里不展示 std / serving。
 ```
 
-一期建议改为由调用方传入描述：
+当前已改为由调用方传入描述：
 
 ```tsx
 <OpsV21SourcePage
@@ -326,17 +343,17 @@ Tushare/Biying 页面仍可传原说明。
 Biz 表卡片上：
 
 1. 表名显示 `target_table`，不显示 raw 表。
-2. “最近同步”文案建议显示为“最近构建”。
+2. “最近同步”文案显示为“最近构建成功时间”。
 3. `primary_action_key=null` 时不显示“去操作”按钮。
 4. 不显示“未配置自动更新”作为负面状态，可改为“只读展示”。
 
 说明：为了避免影响 Tushare/Biying，前端可以根据 `delivery_mode === "biz_table_snapshot"` 只对 Biz 表卡片切换文案。
 
-## 8. 代码改造建议
+## 8. 已落地代码
 
 ### 8.1 后端
 
-建议文件：
+已落地文件：
 
 ```text
 src/ops/catalog/biz_table_catalog.py
@@ -357,7 +374,7 @@ tests/web/test_ops_biz_table_cards_api.py
 
 ### 8.2 前端
 
-建议文件：
+已落地文件：
 
 ```text
 frontend/src/pages/ops-v21-biz-table-page.tsx
@@ -375,9 +392,11 @@ frontend/src/pages/ops-v21-source-page.test.tsx
 3. `OpsV21SourcePage` 支持自定义描述和 Biz 表文案。
 4. 测试覆盖 Biz 表卡片无操作按钮、显示表名、显示状态。
 
-## 9. 分阶段实施
+## 9. 分阶段实施状态
 
 ### M1 后端只读卡片
+
+状态：已实现。
 
 目标：
 
@@ -394,6 +413,8 @@ frontend/src/pages/ops-v21-source-page.test.tsx
 
 ### M2 前端入口与卡片展示
 
+状态：已实现。
+
 目标：
 
 1. 左侧数据源增加 `Biz数据集`。
@@ -408,6 +429,8 @@ frontend/src/pages/ops-v21-source-page.test.tsx
 4. 不出现误导性 raw-only 文案。
 
 ### M3 文档与门禁
+
+状态：已实现。
 
 目标：
 
@@ -443,3 +466,4 @@ frontend/src/pages/ops-v21-source-page.test.tsx
 |---|---|---|---|
 | v1 | 2026-05-10 | 首版：定义 Biz 表作为 Ops 数据源平级展示的一期读展示方案 | Codex |
 | v1.1 | 2026-05-10 | 回填评审结论：确认 `source_key=biz_tableset`、展示名 `Biz数据集`、一期对象和状态日期口径 | Codex |
+| v1.2 | 2026-06-24 | 按当前实现纠偏：补充多频率构建、页面默认消费 30 分钟快照、日度指标来源、`core_serving.trade_calendar` 与实施状态 | Codex |

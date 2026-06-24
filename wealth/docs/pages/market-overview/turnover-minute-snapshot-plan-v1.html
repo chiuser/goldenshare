@@ -257,10 +257,10 @@
           <code>5s</code>，而是把页面读取链路彻底改成“读快照，不扫 raw”。
         </p>
         <div class="meta">
-          <span class="chip">版本：v1</span>
-          <span class="chip">状态：待评审</span>
+          <span class="chip">版本：v1.1</span>
+          <span class="chip">状态：已实现归档</span>
           <span class="chip">范围：wealth 市场总览 / 成交额总览</span>
-          <span class="chip">建议落点：core_serving</span>
+          <span class="chip">当前落点：core_serving</span>
           <span class="chip">文档格式：HTML 方案基线</span>
         </div>
       </section>
@@ -428,31 +428,31 @@
             <tr>
               <td><code>latest_trade_time</code></td>
               <td><code>timestamp</code></td>
-              <td>null</td>
+              <td>not null</td>
               <td>该切片内最新分钟点，存本地交易所时间；例如 <code>2026-05-08 15:00:00</code></td>
             </tr>
             <tr>
               <td><code>total_amount</code></td>
               <td><code>numeric(20,2)</code></td>
-              <td>null</td>
+              <td>not null</td>
               <td>该交易日该频率下的全市场成交额总计，单位 <code>thousand_yuan</code>（千元）</td>
             </tr>
             <tr>
               <td><code>total_vol</code></td>
               <td><code>bigint</code></td>
-              <td>null</td>
+              <td>not null</td>
               <td>该交易日该频率下的全市场成交量总计，整数</td>
             </tr>
             <tr>
               <td><code>security_count</code></td>
               <td><code>integer</code></td>
-              <td>null</td>
+              <td>not null</td>
               <td>参与本切片汇总的证券数量</td>
             </tr>
             <tr>
               <td><code>source_row_count</code></td>
               <td><code>bigint</code></td>
-              <td>null</td>
+              <td>not null</td>
               <td>参与本次汇总的源分钟线行数，用于对账、定位失败构建、发现异常波动</td>
             </tr>
             <tr>
@@ -744,7 +744,7 @@ goldenshare wealth-build-turnover-snapshot --start-date 2026-05-01 --end-date 20
               <li>如果 snapshot 产出链路没有和分钟线同步成功点绑定，会出现 raw 已新、snapshot 未新的短暂不一致。</li>
               <li>如果仍保留 raw fallback，会让系统重新回到“有时快、有时超时”的不稳定态。</li>
               <li><code>points_json</code> 结构一旦定下，后续改动要控制版本。</li>
-              <li>区间命令依赖交易日历；若 <code>core.trade_calendar</code> 缺失或滞后，会导致展开结果为空或不完整。</li>
+              <li>区间命令依赖交易日历；若 <code>core_serving.trade_calendar</code> 缺失或滞后，会导致展开结果为空或不完整。</li>
               <li>长区间生成耗时较长；如果没有逐日提交和进度输出，用户难以判断任务是否卡住。</li>
             </ol>
           </div>
@@ -828,7 +828,7 @@ goldenshare wealth-build-turnover-snapshot --start-date 2026-05-01 --end-date 20
           <li>在单日命令稳定后，扩充 <code>--start-date/--end-date</code> 区间模式；该步骤只改命令入口、交易日展开、逐日提交和输出，不改表结构与页面 API。</li>
         </ol>
         <p class="footnote">
-          当前本方案范围内已无待拍板项，可进入编码前门禁评审阶段。
+          当前方案已落地，真实建表以 Alembic 迁移与 ORM 为准；本文作为设计基线归档。
         </p>
       </section>
     </main>
