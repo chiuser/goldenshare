@@ -1262,6 +1262,90 @@ post dry-run：
   备份、pre dry-run，并单独获得正式删除批准。
 - 标准 vacuum 只能在删除批次完成并通过 post dry-run 后单独执行。
 
+#### 2026-06-25 P7C-B 第二个小样本执行结果
+
+本批只处理 `raw_index_daily`，继续验证非分钟线 sample-delete 执行器在
+另一个 partition set（`cn_a_index_trade_days`）上的 keep20/latest/protected
+保护是否成立。本批不进入 `adj_factor` 大候选资产，也不执行标准 vacuum。
+
+执行前置：
+
+- active runs：0。
+- 备份：
+  `/private/tmp/goldenshare_dagster_asset_check_retention_p7cb_raw_index_daily_backup_20260625.dump`
+- 备份大小：`364M`。
+- `pg_restore --list`：通过。
+- pre dry-run：
+  `/private/tmp/asset_check_event_retention_p7cb_raw_index_daily_pre_dry_run_20260625.json`
+- pre dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - 全局候选：75,874 条 check execution / check event、42,309 条
+    materialization event、33,877 条 materialization event tags
+  - keep windows：`2026-05-27` 到 `2026-06-24`
+  - `raw_index_daily` 候选：4 条 check event / execution、2 条
+    materialization event、0 条 event tags
+  - `raw_index_daily` latest partition：`2026-06-24`
+  - `raw_index_daily` latest check count：2，全部 succeeded
+
+正式删除：
+
+- 工具：
+  `asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 资产：`raw_index_daily`
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cb_raw_index_daily_delete_20260625.json`
+- 事务结果：`committed=true`
+- 删除量：
+  - old check event tags：0
+  - old `ASSET_CHECK_EVALUATION` event：4
+  - old `asset_check_executions` row：4
+  - old materialization event tags：0
+  - old `ASSET_MATERIALIZATION` event：2
+- 删除事务内 safety assertions 全部通过。
+
+post dry-run：
+
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cb_raw_index_daily_post_dry_run_20260625.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- `raw_index_daily` 候选归零
+- `gold_wealth_market_turnover` 候选保持归零
+- 全局候选变为：75,870 条 check execution / check event、42,307 条
+  materialization event、33,877 条 materialization event tags
+- protected checks 仍为空候选；`prod_ch_share_fact_market_breadth_daily` 与
+  `lake_root_health` 仍保持排除。
+
+环境观察：
+
+- P7C-B post dry-run 的表计数显示期间新增了 1 个 Dagster run。
+- 只读审计确认该 run 为 `lake_root_health_check_job_schedule` 触发的
+  `lake_root_health` 成功 run，run id 为
+  `22e67865-e6ca-4cb5-9114-ab2f000aa55c`。
+- `lake_root_health` 是 retention 排除资产；本批 safety assertions 仍全部通过，
+  且 `raw_index_daily` latest/keep20/protected 均未被触碰。
+- 但这说明当前环境并未完全冻结。后续任何更大范围删除前，必须先确保
+  daemon/schedule/webserver 不会提交新 run；不能只依赖删除前瞬时 active
+  runs 为 0。
+
+本批未执行：
+
+- 未运行 `dg`、业务 job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
+  events。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
+下一步：
+
+- 暂停继续扩大 P7C 删除范围，直到确认 Dagster daemon/schedule/webserver 已完全停止
+  或不会提交新 run。
+- 下一批如果继续，应重新 active-runs 确认、重新备份、重新 pre dry-run，并单独获得
+  正式删除批准。
+
 ## 8. Stop Conditions
 
 以下情况必须停止：
