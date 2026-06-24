@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：开发中。WMT-1/WMT-2/WMT-3/WMT-4 已落地，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job 和默认停止的 sensor；WMT-5 历史 bootstrap/runless event 尚未实现。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。尚未执行正式历史 lake 写入、正式 runless event apply、`dg check defs` 或 sensor 启用。
 
 ## 1. 目标
 
@@ -462,7 +462,11 @@ sensor：
 | `lake_console/orchestrator/src/orchestrator/defs/jobs/gold_wealth_market_turnover_update.py` | 新增 job。 |
 | `lake_console/orchestrator/src/orchestrator/defs/sensors/gold_wealth_market_turnover_sensor.py` | 新增 sensor。 |
 | `lake_console/orchestrator/src/orchestrator/defs/asset_guards/wealth_market_turnover_lake_readiness.py` | 新增 gold readiness helper。 |
-| `lake_console/orchestrator/tests/**` | 新增资产、checks、sensor、job、catalog、static gates 测试。 |
+| `lake_console/orchestrator/src/orchestrator/defs/bootstrap/wealth_market_turnover_history.py` | 新增历史 direct lake bootstrap 计划、写入和审计 helper。 |
+| `lake_console/orchestrator/src/orchestrator/defs/bootstrap/wealth_market_turnover_history_cli.py` | 新增历史 bootstrap CLI，默认 dry-run，`--apply` 才写 lake。 |
+| `lake_console/orchestrator/src/orchestrator/defs/bootstrap/wealth_market_turnover_runless_events.py` | 新增最近 20 日 runless event 计划和报告 helper。 |
+| `lake_console/orchestrator/src/orchestrator/defs/bootstrap/wealth_market_turnover_runless_events_cli.py` | 新增 runless event CLI，默认 dry-run，`--apply` 才写 Dagster event。 |
+| `lake_console/orchestrator/tests/**` | 新增资产、checks、readiness、sensor、job、bootstrap、runless、catalog、static gates 测试。 |
 
 Catalog entry 必须包含：
 
@@ -568,8 +572,11 @@ cd /Users/congming/github/goldenshare/lake_console/orchestrator
 uv run python -m unittest \
   tests.test_gold_wealth_market_turnover_asset \
   tests.test_gold_wealth_market_turnover_checks \
+  tests.test_gold_wealth_market_turnover_lake_readiness \
   tests.test_gold_wealth_market_turnover_sensor \
   tests.test_gold_wealth_market_turnover_job \
+  tests.test_wealth_market_turnover_history_bootstrap \
+  tests.test_wealth_market_turnover_runless_events \
   tests.test_asset_governance_contracts \
   tests.test_run_contract_static_gates
 git diff --check
@@ -607,7 +614,8 @@ git diff --check
 8. 运行单元测试和 `git diff --check`。
 9. 单独审批后运行 `dg check defs`。
 10. 单独审批并执行 direct lake bootstrap 历史 backfill，范围对齐 `silver_stk_mins` 历史范围。
-11. backfill 验收通过后，再决定是否启用 sensor。
+11. 单独审批并执行最近 20 个交易日 runless event apply。
+12. backfill 与 runless event 验收通过后，再决定是否启用 sensor。
 
 ## 15. 风险和后续项
 
@@ -632,3 +640,4 @@ git diff --check
 5. sensor 默认停止，且只会在 silver 全 ready 后为一个 trade date 提交 run。
 6. 新代码不读取 raw/prod DB/Tushare，不 import `src.biz` 旧服务。
 7. 不影响现有 Wealth API、旧 `core_serving.wealth_market_turnover_snapshot` 表和现有 maintenance CLI。
+8. 历史 bootstrap/runless 工具默认 dry-run；正式 lake 写入和 Dagster event 写入必须单独审批并显式 `--apply`。

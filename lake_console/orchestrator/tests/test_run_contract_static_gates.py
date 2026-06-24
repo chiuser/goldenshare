@@ -44,6 +44,12 @@ GOLD_WEALTH_MARKET_TURNOVER_SOURCE_FILES = (
     DEFS_DIR / "assets" / "wealth_market_turnover.py",
     DEFS_DIR / "checks" / "wealth_market_turnover_checks.py",
     DEFS_DIR / "asset_guards" / "wealth_market_turnover_lake_readiness.py",
+    DEFS_DIR / "jobs" / "gold_wealth_market_turnover_update.py",
+    DEFS_DIR / "sensors" / "gold_wealth_market_turnover_sensor.py",
+    DEFS_DIR / "bootstrap" / "wealth_market_turnover_history.py",
+    DEFS_DIR / "bootstrap" / "wealth_market_turnover_history_cli.py",
+    DEFS_DIR / "bootstrap" / "wealth_market_turnover_runless_events.py",
+    DEFS_DIR / "bootstrap" / "wealth_market_turnover_runless_events_cli.py",
 )
 MACD_KDJ_DIRECT_RUN_REQUEST_SENSOR_FILES: set[str] = set()
 DUCKDB_CONNECTION_HELPER = DEFS_DIR / "duckdb_connection.py"
