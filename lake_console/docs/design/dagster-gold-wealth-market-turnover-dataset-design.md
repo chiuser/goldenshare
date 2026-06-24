@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。尚未执行正式历史 lake 写入、正式 runless event apply 或 sensor 启用。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3/WMT-4/WMT-5 已完成，包含 schema/path/catalog、正式 asset/writer、单一 blocking check、lake readiness helper、专用 job、默认停止的 sensor、历史 direct lake bootstrap 工具和最近 20 日 runless event 工具。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增需求为：在 `gold_wealth_market_turnover` 生产成功后，把同一分区同步写入 prod `core_serving.wealth_market_turnover_snapshot`；本次只完成方案设计，尚未实现代码，尚未写 prod DB。
 
 ## 1. 目标
 
@@ -18,7 +18,7 @@
 8. 计算方式：按 `trade_date + freq` 聚合全市场分钟成交额、成交量和证券数，`amount` 从元转换为千元。
 9. 调度：新增专用 job 和 sensor；sensor 默认 `STOPPED`，只在上游 silver 五个频度全 ready 后触发单日分区。
 
-不做：
+WMT-1 到 WMT-5 原始范围不做：
 
 1. 不修改现有 Wealth API 查询逻辑。
 2. 不写 prod DB / core_serving。
@@ -32,10 +32,14 @@
 
 1. `points_json` 在 Parquet 里必须使用 `JSON` 逻辑类型。
 2. 历史 backfill 必做，历史范围对齐 `silver_stk_mins` 的历史范围。
-3. 暂不把 gold lake 结果同步回 `core_serving.wealth_market_turnover_snapshot`，后续另议。
+3. WMT-1 到 WMT-5 暂不把 gold lake 结果同步回 `core_serving.wealth_market_turnover_snapshot`；WMT-6 已拍板改为同一 job 内的下游 prod sync asset 落地，不把 prod 写入塞进 gold asset 函数。
 4. 日更启动时间为 `silver_stk_mins` 日更时间 + 10 分钟；当前代码中 `STOCK_MINS_SILVER_RUN_START = 19:50`，因此本资产日更窗口为 `20:00`。
 5. 即使到了 `20:00`，也必须等当日五个 silver 频度全部 ready 才触发。
 6. 如果某天只有部分 silver 频度 ready，则本资产全失败，不允许写入部分频度结果，由上游先处理错误。
+7. WMT-6 prod sync asset 名称确认为 `prod_core_wealth_market_turnover`。
+8. WMT-6 第一版不新增 prod sync check，只在 asset 内部做事务内校验和写后读回审计。
+9. WMT-6 本轮不做历史 prod 回灌。
+10. prod 写库账号必须最小权限，只允许 `core_serving.wealth_market_turnover_snapshot` 的 DML，不给 DDL 和其它表权限。
 
 ## 2. 审计依据
 
@@ -66,6 +70,8 @@
 | silver 分区 | `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/partitions.py` 已有 `cn_a_stock_mins_silver_trade_days`。 | 新 gold 分区复用该 partition set，不新增分区集。 |
 | 现有 gold 模式 | `gold_market_breadth_daily`、`stock_mins_qfq_daily_update_job`、相关 checks/sensors 已形成 gold derived asset 模式。 | 新资产按同类模式新增 asset/check/job/sensor，不修改旧链路。 |
 | catalog | `LAKE_ASSET_CATALOG` 已登记现有 active assets；`DATASET_CHINESE_NAMES` 尚无 wealth turnover。 | 实现时必须新增 catalog entry、partition model、中文名和治理测试。 |
+| prod Postgres resource | `/Users/congming/github/goldenshare/lake_console/orchestrator/src/orchestrator/defs/resources.py` 中当前 `ProdPostgresResource.connect()` 固定 `readonly=True` 且 `autocommit=True`，用于已批准的 prod-core-db 只读导出。 | WMT-6 不能复用该 resource 做写入；必须新增 `ProdPostgresWriteResource`，resource key 为 `prod_postgres_write`，并保留现有只读 resource 语义不变。 |
+| prod sync 现有模式 | `prod_ch_share_fact_market_breadth_daily` 是下游 prod sync asset，负责把本机 serving 副本同步到 prod ClickHouse；prod sync 写入不塞进上游 gold asset。 | WMT-6 复用同类 Dagster asset 表达：新增下游 prod Postgres serving sync asset，并放入现有 `gold_wealth_market_turnover_update_job` selection。 |
 
 CodeGraph 搜索结果确认：当前 orchestrator active source 中没有 `wealth_market_turnover` 或 `gold_wealth_market_turnover`，本方案是新增资产，不是改造既有 DG 资产。
 
@@ -92,6 +98,45 @@ CodeGraph 搜索结果确认：当前 orchestrator active source 中没有 `weal
 | event policy | `EventPolicy.DAGSTER_RUN_ONLY` |
 | compute engine | `ComputeEngine.DUCKDB_SQL` |
 | source request policy | `no external source request; read five local silver stk_mins parquet files` |
+
+## 3.1 WMT-6 Prod Serving 同步目标
+
+新需求：`gold_wealth_market_turnover[trade_date]` 成功生产后，同一分区写入 prod PostgreSQL：
+
+```text
+core_serving.wealth_market_turnover_snapshot
+```
+
+同步目标不是替代 gold lake 事实源。长期口径是：
+
+```text
+silver_stk_mins
+  -> gold_wealth_market_turnover[trade_date] lake parquet
+  -> prod_core_wealth_market_turnover[trade_date]
+  -> prod core_serving.wealth_market_turnover_snapshot
+```
+
+核心结论：
+
+1. 可行，但不建议把 prod DB 写入直接写在 `gold_wealth_market_turnover` asset 函数末尾。
+2. 已确认新增下游 asset：`prod_core_wealth_market_turnover[trade_date]`。
+3. 不新增独立 job；把下游 prod sync asset 加入现有 `gold_wealth_market_turnover_update_job` selection。
+4. 现有 `gold_wealth_market_turnover_update_job_sensor` 继续作为入口，但 WMT-6 实现时必须把“目标链路 ready”从只看 gold，升级为 gold 和 prod sync 都 ready。
+5. 如果 prod DB 写入失败，整条 job 应失败；gold 文件可能已生成，但 prod sync asset 不产生 materialization。重跑同一 partition 必须幂等。
+6. 现有 `ProdPostgresResource` 是只读 resource，必须保留；prod 写入需要独立的 write resource / write helper，并且只允许写白名单表 `core_serving.wealth_market_turnover_snapshot`。
+
+不推荐的两个方案：
+
+| 方案 | 结论 | 原因 |
+| --- | --- | --- |
+| 在 `gold_wealth_market_turnover` asset 内直接写 prod DB | 不推荐 | 混合 lake 事实生成和外部 serving 副作用，prod DB 故障会让 gold asset 语义变脏，也无法单独观察 prod sync 是否完成。 |
+| 新增 run-status / asset sensor 再触发单独 prod job | 本轮不选 | 可以表达“gold 成功后触发”，但会新增 job/sensor/cursor 和独立 run，违背“不单独写 job”的目标。 |
+
+已确认方案的含义：
+
+1. “不单独写 job”是可行的；同一个 `gold_wealth_market_turnover_update_job` 可以选择两个资产。
+2. “生产成功之后执行”由 Dagster asset 依赖表达：`prod_core_wealth_market_turnover` 依赖 `gold_wealth_market_turnover`，只有上游完成后才执行。
+3. job 成功口径升级为：gold lake 文件生成、gold integrity check 通过、prod serving 分区写入并自校验通过。
 
 ## 4. 时间语义
 
@@ -361,7 +406,7 @@ batch_silver_stk_mins_lake_readiness(
 lake_console/orchestrator/src/orchestrator/defs/jobs/gold_wealth_market_turnover_update.py
 ```
 
-job：
+WMT-1 到 WMT-5 当前 job：
 
 ```python
 gold_wealth_market_turnover_update_job = dg.define_asset_job(
@@ -376,6 +421,30 @@ gold_wealth_market_turnover_update_job = dg.define_asset_job(
 ```
 
 job 只选择本资产和一个 blocking check，不把 silver 上游资产纳入同一个 job。
+
+WMT-6 确认把同一个 job 扩展为：
+
+```python
+gold_wealth_market_turnover_update_job = dg.define_asset_job(
+    name="gold_wealth_market_turnover_update_job",
+    selection=(
+        dg.AssetSelection.assets(
+            gold_wealth_market_turnover,
+            prod_core_wealth_market_turnover,
+        )
+        | dg.AssetSelection.checks_for_assets(gold_wealth_market_turnover)
+    ),
+    executor_def=dg.in_process_executor,
+    description="按单日分区生成财富市场成交额 gold 快照，并同步 prod core serving。",
+)
+```
+
+说明：
+
+1. 不新增 job，sensor target job 名称不变。
+2. 不把 silver 上游资产纳入同一个 job；silver 仍是只读前置 ready 条件。
+3. `prod_core_wealth_market_turnover` 是下游 asset，不是 check、hook 或 sensor 副作用。
+4. 由于 prod sync asset 自己读取并校验 gold parquet，若 Dagster 的 blocking check 调度顺序出现实现差异，prod 写入也不会绕过 gold 文件契约。
 
 ### 9.3 Sensor
 
@@ -410,6 +479,16 @@ sensor：
 8. 选择最早一个 gold not ready 且 silver ready 的交易日发起 run。
 9. 使用 `build_run_request(...)` 和 `build_asset_update_run_key(...)`。
 10. 使用 `build_sensor_cursor(...)`，不要手写裸 JSON cursor。
+
+WMT-6 后 sensor 决策必须扩展：
+
+1. 当前入口仍是 `gold_wealth_market_turnover_update_job_sensor`。
+2. 目标日期选择不能只看 `gold_wealth_market_turnover` 是否 ready；必须看“gold ready + prod sync ready”的链路状态。
+3. 如果 gold 未 ready 且 silver ready，提交同一个 job。
+4. 如果 gold 已 ready 但 prod sync 未 materialized，仍允许提交同一个 job，依靠幂等 gold 写入和 prod replace 完成补同步。
+5. 如果 gold 已 materialized 但 `gold_wealth_market_turnover_integrity_check` 失败，继续 fail closed，不允许为该日写 prod。
+6. 如果 prod sync asset 曾经失败但没有 materialization，默认不靠 sensor 无限重试；第一版依赖 asset retry policy 和人工按 partition 重跑，避免固定 run key 下反复提交无效 run。
+7. cursor 只记录当前阻断组件：`silver_stk_mins`、`gold_wealth_market_turnover`、`prod_core_db` 或 `none`，不写 prod row 明细或完整 JSON。
 
 运行时间门槛：
 
@@ -496,6 +575,95 @@ full 写入已执行并通过：
 10. 本阶段未运行 job/sensor/backfill，未写 lake 文件，未写 prod DB。
 
 最终 definitions 门禁已执行并通过：`DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。
+
+## 10.1 WMT-6 Prod DB 写入设计
+
+新增下游 asset：
+
+```text
+prod_core_wealth_market_turnover[trade_date]
+```
+
+职责：
+
+1. 只读取同分区 `gold_wealth_market_turnover` parquet。
+2. 只写 prod PostgreSQL 表 `core_serving.wealth_market_turnover_snapshot`。
+3. 不重新读取 silver，不重新计算成交额，不复用旧 `src.biz` raw DB 构建服务。
+4. 每个 partition 固定写入五行，对应 `freq in (1, 5, 15, 30, 60)`。
+5. asset 成功 materialize 即表示 prod 表中该 `type='stock' AND market='CN_A' AND trade_date=<partition_key>` 分区已经替换完成并通过写后自校验。
+
+写入事务：
+
+1. 运行前检查 gold parquet 文件契约：schema、行数 5、主键、日期、freq set、`build_status='READY'`、`points_json` 非空。
+2. 使用独立 prod Postgres write resource 开启单事务，禁止 autocommit。
+3. 在事务内执行分区 replace：
+
+```sql
+DELETE FROM core_serving.wealth_market_turnover_snapshot
+WHERE type = 'stock'
+  AND market = 'CN_A'
+  AND trade_date = %(trade_date)s;
+```
+
+4. 再显式字段插入五行：
+
+```sql
+INSERT INTO core_serving.wealth_market_turnover_snapshot (
+  type,
+  market,
+  trade_date,
+  freq,
+  build_status,
+  latest_trade_time,
+  total_amount,
+  total_vol,
+  security_count,
+  source_row_count,
+  points_json,
+  build_version,
+  built_at,
+  build_note
+) VALUES (...)
+```
+
+5. 插入后在同一事务内按主键读回五行，比较 row count、freq set、summary 字段和 `points_json` canonical hash。
+6. 自校验通过才 commit；失败 rollback，asset 失败且不写 materialization。
+
+同步 metadata：
+
+| key | 含义 |
+| --- | --- |
+| `dagster/uri` | `postgresql://prod/core_serving.wealth_market_turnover_snapshot?trade_date=<date>` |
+| `dagster/row_count` | 固定为 `5` |
+| `goldenshare/observed_columns` | prod serving 表业务字段 |
+| `goldenshare/partition_key` | 交易日 |
+| `goldenshare/source_gold_path` | 同分区 gold parquet 路径 |
+| `goldenshare/prod_table` | `core_serving.wealth_market_turnover_snapshot` |
+| `goldenshare/replace_mode` | `transactional_delete_then_insert` |
+| `goldenshare/points_json_hash` | 五行 JSON canonical hash 摘要，不写完整 JSON |
+
+不新增 prod sync asset check。理由：
+
+1. 本同步每天固定 5 行，写入资产内部可以在事务提交前完成完整自校验。
+2. 新增 check 会每天多写一条 Dagster check event，但对定位问题的增量价值有限。
+3. 第一版不新增 prod sync check；若后续治理另行要求 serving asset 必须有 check，最多新增一个 blocking check：`prod_core_wealth_market_turnover_integrity_check`，不得拆成 row count/schema/date/json 多个细碎 check。
+
+失败语义：
+
+| 失败点 | 结果 |
+| --- | --- |
+| gold 文件缺失或契约失败 | 不连接 prod DB，asset 失败 |
+| prod DB 连接失败 | asset 失败，gold 文件保留 |
+| delete 成功但 insert 或读回校验失败 | 同事务 rollback，prod 仍保留旧分区 |
+| commit 成功但 Dagster 进程随后异常 | prod 已更新但 asset materialization 可能缺失；同 partition 幂等重跑可恢复 Dagster 状态 |
+| prod sync 最终失败 | 本次 job 失败；第一版不靠 sensor 无限自动重试，人工按 partition 重跑 |
+
+配置和权限：
+
+1. 不修改当前 `ProdPostgresResource`；它继续保持只读。
+2. 新增 prod write resource 前必须完成配置项审计，列清 env var、默认值、权限、消费者和测试门禁。
+3. write resource 的数据库用户只允许写 `core_serving.wealth_market_turnover_snapshot`，不得拥有泛化 DDL 或其它表写权限。
+4. 代码中禁止手写连接串，禁止 `select *`，禁止写 `source/created_at/updated_at` 等非业务字段。
 
 ## 11. Catalog 和 Governance 改动点
 
@@ -587,7 +755,7 @@ LakeAssetCatalogEntry(
 
 ### 12.3 Job / Sensor 测试
 
-新增 `tests/test_gold_wealth_market_turnover_sensor.py` 和 `tests/test_gold_wealth_market_turnover_job.py`：
+WMT-1 到 WMT-5 新增 `tests/test_gold_wealth_market_turnover_sensor.py` 和 `tests/test_gold_wealth_market_turnover_job.py`：
 
 1. sensor 默认 `STOPPED`。
 2. sensor target job 是 `gold_wealth_market_turnover_update_job`。
@@ -602,9 +770,17 @@ LakeAssetCatalogEntry(
 11. `20:00` 前 skip；`20:00` 后但 silver 五频度未全部 ready 仍 skip。
 12. 只有部分 silver 频度 ready 时，全失败，不写部分结果。
 
+WMT-6 需要补充：
+
+1. job selection 包含 `gold_wealth_market_turnover`、`gold_wealth_market_turnover_integrity_check` 和 `prod_core_wealth_market_turnover`。
+2. 不新增独立 prod sync job。
+3. gold ready 但 prod sync missing 时，sensor 仍提交现有 job。
+4. gold check failed 时，sensor 不允许写 prod。
+5. prod sync 失败后不靠同一固定 run key 无限自动重试。
+
 ### 12.4 Governance / Static Gates
 
-需要更新或新增：
+WMT-1 到 WMT-5 需要更新或新增：
 
 1. active asset catalog 数量 +1。
 2. catalog entry 与 asset definition metadata 一致。
@@ -614,6 +790,14 @@ LakeAssetCatalogEntry(
 6. 静态门禁确认 sensor 不手写 run key/cursor，不一次提交多个分区。
 7. 静态门禁确认生产代码不硬编码某个迁移日期或历史起点。
 8. 静态门禁确认 `points_json` schema 是 `JSON`，不是 `VARCHAR`。
+
+WMT-6 需要新增：
+
+1. 静态门禁确认 `gold_wealth_market_turnover` asset 不 import prod write resource / prod DB helper。
+2. 静态门禁确认现有 `ProdPostgresResource` 仍为只读。
+3. 静态门禁确认没有新增独立 prod sync job。
+4. 静态门禁确认 prod sync SQL 显式字段列表，不含 `select *`。
+5. 静态门禁确认 prod sync 不写 `source/created_at/updated_at`。
 
 建议验证命令：
 
@@ -640,6 +824,7 @@ git diff --check
 | --- | ---: | ---: | --- |
 | asset 单分区 | 5 个 silver parquet | 1 个 gold parquet | 任一 source 缺失、为空、schema/key/date/freq 错误即失败 |
 | check | 先读 1 个 gold；文件契约通过后再读 5 个 silver 重算 | 0 | 任一阶段不一致即 failed check |
+| WMT-6 prod sync asset | 1 个 gold parquet，5 行 | prod PostgreSQL 1 个交易日分区 5 行 | gold 文件未通过契约、prod 连接失败、写后读回不一致即失败并 rollback |
 | sensor hot path | 最近最多 10 个交易日，每日最多 5 个 silver readiness + 1 个 gold readiness | 0 或 1 run request | 上游未 ready、目标 failed、不一致状态均 skip |
 | catalog/static gates | 只读 Python 定义 | 0 | catalog 与定义不一致则测试失败 |
 
@@ -649,10 +834,11 @@ git diff --check
 2. 不允许 sensor 深扫全历史。
 3. 不允许 sensor 每 tick 发起多个交易日 run。
 4. 不允许读 raw/prod DB 来补齐该 gold 资产。
+5. WMT-6 prod sync 只允许读取 gold parquet 后写白名单 prod serving 表，不得反向影响 gold 计算。
 
 ## 14. 实施顺序
 
-建议按以下顺序落地：
+WMT-1 到 WMT-5 已按以下顺序落地：
 
 1. 新增 schema/path/catalog/name mapping。
 2. 新增 asset 写入 helper 和 `gold_wealth_market_turnover`。
@@ -667,12 +853,27 @@ git diff --check
 11. 单独审批并执行最近 20 个交易日 runless event apply。
 12. backfill 与 runless event 验收通过后，再决定是否启用 sensor。
 
+WMT-6 建议推进顺序：
+
+1. 只读复核 prod `core_serving.wealth_market_turnover_snapshot` 当前 schema、主键、约束和最近日期行数，确认与代码模型和 gold schema 一致。
+2. 设计并落地 `ProdPostgresWriteResource` / `prod_postgres_write`，保持现有 `ProdPostgresResource` / `prod_postgres` 只读语义不变。
+3. 新增 `prod_core_wealth_market_turnover` asset，依赖 `gold_wealth_market_turnover`，读取 gold parquet 并事务性 replace prod 分区。
+4. 扩展 `gold_wealth_market_turnover_update_job` selection，仍不新增 job。
+5. 扩展 sensor readiness：gold 和 prod sync 都 ready 才算链路 ready；gold ready 但 prod sync missing 时仍可提交同一 job。
+6. 补齐单元测试、静态门禁和文档对账。
+7. 单独审批后运行 `dg check defs`。
+8. 先对单个最近交易日做 prod write dry-run / transaction rollback 验证，再审批正式 apply。
+9. 本轮不做历史 3030 个 gold 分区全量同步 prod；若未来要做，必须另起 P6B 历史 prod sync 计划，不得跟日更代码落地混在一起执行。
+
 ## 15. 风险和后续项
 
 | 风险/问题 | 结论/建议 |
 | --- | --- |
 | `points_json` 的 DuckDB/Parquet 稳定类型需要实现时验证 | 已拍板使用 `JSON`。如果实现时无法稳定写出和校验 `JSON`，停止回报，不降级为 `VARCHAR`。 |
-| 旧 serving 表目前由 `src/biz` 服务从 raw DB 生成 | 已拍板暂不把 gold lake 结果同步回 `core_serving.wealth_market_turnover_snapshot`；API/serving 切换后续另起方案。 |
+| 旧 serving 表目前由 `src/biz` 服务从 raw DB 生成 | WMT-1 到 WMT-5 曾拍板暂不同步；WMT-6 改为由 DG 下游 prod sync asset 写回同一张 `core_serving.wealth_market_turnover_snapshot`。Wealth API 查询逻辑本轮仍不改。 |
+| WMT-6 是否单独写 job | 已确认不单独写 job；新增下游 `prod_core_wealth_market_turnover` asset 并纳入现有 `gold_wealth_market_turnover_update_job`，不写在 gold asset 函数里。 |
+| prod sync 失败后的自动重试 | 同一 sensor 固定 run key 不适合无限重发失败 partition；第一版用 asset retry policy + 人工按 partition 重跑，若需要自动修复再单独设计 repair 入口。 |
+| prod Postgres resource | 当前 `ProdPostgresResource` 是只读 resource，不能复用写库；WMT-6 新增 `ProdPostgresWriteResource` / `prod_postgres_write`，并完成配置审计。 |
 | 当前 Wealth API 只消费 `freq=30` | 资产仍生成五个频度，保持原服务表完整契约；不要为了当前页面裁掉其他频度。 |
 | 历史数据是否需要 backfill | 已拍板必须 backfill，范围对齐 `silver_stk_mins` 历史范围；执行前另列 backfill 计划。 |
 | backfill 状态数据量 | 已拍板使用 direct lake bootstrap + 最近 20 个交易日 runless event，不为全历史生成 Dagster runs/check events。 |
@@ -681,7 +882,7 @@ git diff --check
 
 ## 16. 开发完成验收口径
 
-代码完成后，至少满足：
+WMT-1 到 WMT-5 代码完成后，至少满足：
 
 1. `gold_wealth_market_turnover` 在 Dagster definitions 中可加载。
 2. Catalog、metadata、schema、path template、checks 完全一致。
@@ -691,3 +892,12 @@ git diff --check
 6. 新代码不读取 raw/prod DB/Tushare，不 import `src.biz` 旧服务。
 7. 不影响现有 Wealth API、旧 `core_serving.wealth_market_turnover_snapshot` 表和现有 maintenance CLI。
 8. 历史 bootstrap/runless 工具默认 dry-run；正式 lake 写入和 Dagster event 写入必须单独审批并显式 `--apply`。
+
+WMT-6 完成后，新增验收：
+
+1. `prod_core_wealth_market_turnover` active definition 可加载。
+2. 同一 job 单分区运行顺序为 gold lake 生产、gold integrity check、prod serving sync。
+3. prod 表目标分区写入 5 行，主键为 `(type, market, trade_date, freq)`，freq 集合为 `{1,5,15,30,60}`。
+4. prod 行与 gold parquet 在业务字段上完全一致，`points_json` canonical hash 一致。
+5. prod sync 失败不会破坏 gold lake 文件；prod DB 事务失败会 rollback。
+6. 不新增独立 prod sync job；如新增 repair/backfill job，必须另起方案并经拍板。
