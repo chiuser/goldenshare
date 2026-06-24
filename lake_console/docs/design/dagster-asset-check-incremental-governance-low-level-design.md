@@ -1448,11 +1448,47 @@ P7C-C 当前 preflight：
 - 备份大小：`364M`。
 - `pg_restore --list`：通过。
 
-P7C-C 正式 sample-delete 仍未执行。若继续，下一步只能对
-`gold_stock_return_distribution` 单资产执行
-`asset_check_event_retention_sample_delete_cli.py sample-delete`，且必须使用上述备份和
-pre dry-run 作为本批依据；不得扩大到 `gold_market_breadth_daily`、
-`ch_share_fact_market_breadth_daily`、`adj_factor` 或其它资产。
+P7C-C 正式 sample-delete 已按上述范围执行完成：
+
+- 工具：
+  `asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 资产：`gold_stock_return_distribution`
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cc_gold_stock_return_distribution_delete_20260625.json`
+- 事务结果：`committed=true`
+- 删除量：
+  - old check event tags：0
+  - old `ASSET_CHECK_EVALUATION` event：0
+  - old `asset_check_executions` row：0
+  - old materialization event tags：3,011
+  - old `ASSET_MATERIALIZATION` event：3,011
+- 删除事务内 safety assertions 全部通过。
+
+post dry-run：
+
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cc_gold_stock_return_distribution_post_dry_run_20260625.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- `gold_stock_return_distribution` 候选归零
+- latest materialization id 仍为 `6630459`
+- latest partition 仍为 `2026-06-24`
+- latest check count 仍为 6，latest non-succeeded check count 仍为 0
+- 全局候选变为：75,870 条 check execution / check event、39,296 条
+  materialization event、30,866 条 materialization event tags
+
+本批未执行：
+
+- 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
+  events。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
+P7C-D 若继续推进，必须重新选择下一批资产，重新做 active-runs 确认、
+重新备份、重新 pre dry-run，并单独获得正式删除批准；不得复用 P7C-C 的备份或
+pre dry-run 作为下一批依据。
 
 ## 8. Stop Conditions
 
