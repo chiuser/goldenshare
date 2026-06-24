@@ -466,6 +466,16 @@ describe("MarketOverviewPage", () => {
     expect(screen.getAllByRole("button", { name: "3个月" })[0]).toHaveClass("active");
   });
 
+  it("navigates to stock detail when a leaderboard row is clicked", async () => {
+    window.history.pushState({}, "", "/wealth/market/overview");
+    render(<MarketOverviewPage />);
+
+    const table = await screen.findByRole("table", { name: "个股榜单" });
+    fireEvent.click(within(table).getByRole("row", { name: "查看股票详情：个股1 00001.SZ" }));
+
+    expect(window.location.pathname).toBe("/wealth/market/stock/00001.SZ");
+  });
+
   it("renders sector matrix and heatmap exactly as the showcase requires", async () => {
     render(<MarketOverviewPage />);
 

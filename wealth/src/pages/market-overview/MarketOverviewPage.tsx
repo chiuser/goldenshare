@@ -1083,6 +1083,7 @@ export function MarketOverviewPage() {
               leaderboards={leaderboards ?? undefined}
               errorMessage={leaderboardsErrorMessage ?? undefined}
               onAction={showToast}
+              onStockSelect={openStockDetail}
             />
           </div>
           <LimitBoardPanel

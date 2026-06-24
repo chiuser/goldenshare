@@ -11,9 +11,10 @@ interface LeaderboardPanelProps {
   leaderboards?: MarketLeaderboardsViewModel;
   errorMessage?: string;
   onAction: (message: string) => void;
+  onStockSelect: (tsCode: string) => void;
 }
 
-export function LeaderboardPanel({ viewState, leaderboards, errorMessage, onAction }: LeaderboardPanelProps) {
+export function LeaderboardPanel({ viewState, leaderboards, errorMessage, onStockSelect }: LeaderboardPanelProps) {
   const tabs = leaderboards?.tabs ?? [];
   const [activeKey, setActiveKey] = useState(tabs[0]?.key ?? "");
   useEffect(() => {
@@ -75,7 +76,7 @@ export function LeaderboardPanel({ viewState, leaderboards, errorMessage, onActi
             </thead>
             <tbody>
               {(active?.rows ?? []).map((row) => (
-                <LeaderboardTableRow key={`${active?.key}-${row.code}-${row.rank}`} onAction={onAction} row={row} />
+                <LeaderboardTableRow key={`${active?.key}-${row.code}-${row.rank}`} onStockSelect={onStockSelect} row={row} />
               ))}
             </tbody>
           </table>
@@ -87,14 +88,14 @@ export function LeaderboardPanel({ viewState, leaderboards, errorMessage, onActi
 
 function LeaderboardTableRow({
   row,
-  onAction,
+  onStockSelect,
 }: {
   row: MarketLeaderboardsViewModel["tabs"][number]["rows"][number];
-  onAction: (message: string) => void;
+  onStockSelect: (tsCode: string) => void;
 }) {
   const cls = directionClass(directionFromNumber(row.changePct));
   return (
-    <tr onClick={() => onAction(`进入个股详情：${row.code}`)}>
+    <tr aria-label={`查看股票详情：${row.name} ${row.code}`} onClick={() => onStockSelect(row.code)}>
       <td className="num muted">{row.rank}</td>
       <td className="stock-cell">
         <strong>{row.name}</strong>
@@ -110,4 +111,3 @@ function LeaderboardTableRow({
     </tr>
   );
 }
-
