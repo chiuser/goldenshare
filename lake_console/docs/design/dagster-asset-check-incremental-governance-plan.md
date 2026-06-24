@@ -579,6 +579,23 @@ P6C 已落地事实：
 - P6C 不触碰 qfq factor repair protected check，不改变 qfq daily/repair 文件写入、
   run key、upstream batch 或 completion metadata。
 
+P6D 已落地事实：
+
+- `gold_stk_mins_qfq_macd_kdj_1m/5m/15m/30m/60m/90m/120m` indicator 正式
+  Dagster checks 从每个资产 4 个收敛为
+  `gold_stk_mins_qfq_macd_kdj_contract_check`、
+  `gold_stk_mins_qfq_macd_kdj_source_coverage_check`、
+  `gold_stk_mins_qfq_macd_kdj_formula_sample_check` 3 个。
+- 文件存在/行数、schema 进入 `contract`；qfq source ready 与 indicator/qfq row count
+  对账进入 `source_coverage`；公式抽样保留独立 check，不与 contract/source 合并。
+- `gold_stk_mins_qfq_macd_kdj_state_*` state assets 继续保留
+  `state_file_exists_and_schema_check` 与 `state_latest_coverage_check` 两个 check；state 是递推链
+  关键状态，不在 P6D 合并。
+- `gold_stk_mins_qfq_macd_kdj_check_refresh_job` 和 daily job selection 继续选择
+  indicator/state assets 的 checks，不 materialize 的 checks-only 维护入口不变。
+- MACD/KDJ history/bootstrap event 数量估算改为引用正式 indicator/state check 常量长度，
+  禁止继续硬编码旧 6 个 check。
+
 ## 8. 开发门禁
 
 后续每一阶段必须满足：

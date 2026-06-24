@@ -333,9 +333,8 @@ GOLD_STK_MINS_QFQ_DERIVED_CHECKS = (
     *GOLD_STK_MINS_QFQ_BASE_CHECKS,
 )
 GOLD_STK_MINS_QFQ_MACD_KDJ_CHECKS = (
-    "gold_stk_mins_qfq_macd_kdj_file_exists_and_schema_check",
-    "gold_stk_mins_qfq_macd_kdj_source_ready_check",
-    "gold_stk_mins_qfq_macd_kdj_row_count_matches_qfq_check",
+    "gold_stk_mins_qfq_macd_kdj_contract_check",
+    "gold_stk_mins_qfq_macd_kdj_source_coverage_check",
     "gold_stk_mins_qfq_macd_kdj_formula_sample_check",
 )
 GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECKS = (

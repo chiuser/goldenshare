@@ -38,11 +38,16 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_FILE_EXISTS_AND_SCHEMA_CHECK = (
 GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_LATEST_COVERAGE_CHECK = (
     "gold_stk_mins_qfq_macd_kdj_state_latest_coverage_check"
 )
+GOLD_STK_MINS_QFQ_MACD_KDJ_CONTRACT_CHECK = (
+    "gold_stk_mins_qfq_macd_kdj_contract_check"
+)
+GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK = (
+    "gold_stk_mins_qfq_macd_kdj_source_coverage_check"
+)
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES = (
-    GOLD_STK_MINS_QFQ_MACD_KDJ_FILE_EXISTS_AND_SCHEMA_CHECK,
-    GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
-    GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_CONTRACT_CHECK,
+    GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK,
     GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,
 )
 GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES = (
@@ -185,7 +190,7 @@ def _indicator_file_exists_and_schema_result(
     )
 
 
-def _indicator_source_ready_result(
+def _indicator_source_coverage_result(
     *,
     lake_root: Path,
     freq: int,
@@ -202,48 +207,13 @@ def _indicator_source_ready_result(
             metadata=build_check_metadata(
                 check_scope=CheckScope.FILE_EXISTS,
                 failed_row_count=1,
-                extra_metadata={"source_file_count": 0},
+                extra_metadata={
+                    "source_file_count": 0,
+                    "failed_rule_names": (
+                        GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+                    ),
+                },
             ),
-        )
-    with connect_configured_duckdb() as connection:
-        row_count = int(
-            connection.execute(
-                f"""
-                SELECT count(*)
-                FROM {_read_parquet_paths(source_paths)}
-                WHERE CAST(freq AS INTEGER) = {freq}
-                  AND CAST(trade_date AS DATE) = DATE {duckdb_string(partition_key)}
-                """
-            ).fetchone()[0]
-        )
-    return dg.AssetCheckResult(
-        passed=row_count > 0,
-        metadata=build_check_metadata(
-            check_scope=CheckScope.ROW_COUNT,
-            checked_row_count=row_count,
-            failed_row_count=0 if row_count > 0 else 1,
-            input_file_paths=source_paths[:GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT],
-            extra_metadata={"source_file_count": len(source_paths)},
-        ),
-    )
-
-
-def _indicator_row_count_matches_qfq_result(
-    *,
-    lake_root: Path,
-    freq: int,
-    partition_key: str,
-) -> dg.AssetCheckResult:
-    source_paths = discover_gold_stk_mins_qfq_source_year_paths(
-        lake_root,
-        freq=freq,
-        trade_dates=[partition_key],
-    )
-    if not source_paths:
-        return _indicator_source_ready_result(
-            lake_root=lake_root,
-            freq=freq,
-            partition_key=partition_key,
         )
     expected_paths = tuple(
         path
@@ -256,10 +226,20 @@ def _indicator_row_count_matches_qfq_result(
         if path.exists()
     )
     if not expected_paths:
-        return _missing_paths_result(
-            check_scope=CheckScope.FILE_EXISTS,
-            missing_paths=(),
-            extra_metadata={"existing_indicator_file_count": 0},
+        return dg.AssetCheckResult(
+            passed=False,
+            metadata=build_check_metadata(
+                check_scope=CheckScope.RECONCILIATION,
+                failed_row_count=1,
+                input_file_paths=source_paths[:GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT],
+                extra_metadata={
+                    "source_file_count": len(source_paths),
+                    "existing_indicator_file_count": 0,
+                    "failed_rule_names": (
+                        GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+                    ),
+                },
+            ),
         )
     with connect_configured_duckdb() as connection:
         source_row_count = int(
@@ -282,8 +262,19 @@ def _indicator_row_count_matches_qfq_result(
                 """
             ).fetchone()[0]
         )
+    failed_rule_names = ()
+    if source_row_count <= 0:
+        failed_rule_names = (
+            *failed_rule_names,
+            GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+        )
+    if source_row_count != indicator_row_count:
+        failed_rule_names = (
+            *failed_rule_names,
+            GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+        )
     return dg.AssetCheckResult(
-        passed=source_row_count == indicator_row_count,
+        passed=not failed_rule_names,
         metadata=build_check_metadata(
             check_scope=CheckScope.RECONCILIATION,
             checked_row_count=source_row_count,
@@ -292,6 +283,7 @@ def _indicator_row_count_matches_qfq_result(
             extra_metadata={
                 "source_row_count": source_row_count,
                 "indicator_row_count": indicator_row_count,
+                "failed_rule_names": failed_rule_names,
             },
         ),
     )
@@ -309,7 +301,7 @@ def _indicator_formula_result(
         trade_dates=[partition_key],
     )
     if not source_paths:
-        return _indicator_source_ready_result(
+        return _indicator_source_coverage_result(
             lake_root=lake_root,
             freq=freq,
             partition_key=partition_key,
@@ -538,20 +530,14 @@ def _build_indicator_check(asset_name: str, check_name: str, freq: int):
         lake_root: LakeRootResource,
     ) -> dg.AssetCheckResult:
         partition_key = context.partition_key
-        if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_FILE_EXISTS_AND_SCHEMA_CHECK:
+        if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_CONTRACT_CHECK:
             return _indicator_file_exists_and_schema_result(
                 lake_root=lake_root.root(),
                 freq=freq,
                 partition_key=partition_key,
             )
-        if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK:
-            return _indicator_source_ready_result(
-                lake_root=lake_root.root(),
-                freq=freq,
-                partition_key=partition_key,
-            )
-        if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK:
-            return _indicator_row_count_matches_qfq_result(
+        if check_name == GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK:
+            return _indicator_source_coverage_result(
                 lake_root=lake_root.root(),
                 freq=freq,
                 partition_key=partition_key,

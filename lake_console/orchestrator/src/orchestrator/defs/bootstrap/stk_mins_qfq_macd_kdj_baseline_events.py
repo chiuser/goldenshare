@@ -388,7 +388,7 @@ def _audit_indicator_asset_partition(
     ).parents[2]
     check_results = (
         (
-            macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_FILE_EXISTS_AND_SCHEMA_CHECK,
+            macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_CONTRACT_CHECK,
             macd_kdj_checks._indicator_file_exists_and_schema_result(
                 lake_root=lake_root,
                 freq=freq,
@@ -396,16 +396,8 @@ def _audit_indicator_asset_partition(
             ),
         ),
         (
-            macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
-            macd_kdj_checks._indicator_source_ready_result(
-                lake_root=lake_root,
-                freq=freq,
-                partition_key=partition_key,
-            ),
-        ),
-        (
-            macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
-            macd_kdj_checks._indicator_row_count_matches_qfq_result(
+            macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_COVERAGE_CHECK,
+            macd_kdj_checks._indicator_source_coverage_result(
                 lake_root=lake_root,
                 freq=freq,
                 partition_key=partition_key,

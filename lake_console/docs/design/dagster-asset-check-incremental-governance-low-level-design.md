@@ -804,6 +804,26 @@ P5C 已落地：
     估算必须引用正式 `GOLD_STK_MINS_QFQ_*_CHECK_NAMES` 长度，禁止继续硬编码旧 8 个 check。
   - qfq factor repair plan/status、MACD/KDJ repair completion 等 protected checks 不属于 P6C，
     不改名称、不进入合并。
+- P6D 收敛 `gold_stk_mins_qfq_macd_kdj` indicator：
+  - `GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES` 从旧 4 个普通 check 改为
+    `gold_stk_mins_qfq_macd_kdj_contract_check`、
+    `gold_stk_mins_qfq_macd_kdj_source_coverage_check`、
+    `gold_stk_mins_qfq_macd_kdj_formula_sample_check`。
+  - `contract` 复用 `_indicator_file_exists_and_schema_result(...)`，覆盖 indicator 文件存在、
+    目标日行数和 schema。
+  - `source_coverage` 合并原 `_indicator_source_ready_result(...)` 与
+    `_indicator_row_count_matches_qfq_result(...)`，一次性判断 qfq source 是否存在以及
+    indicator row count 是否与 qfq source 对齐；旧细粒度名称只作为 `failed_rule_names`
+    metadata。
+  - `formula_sample` 保留独立 check，因为它是指标计算公式抽样，不应和文件/schema 或 source
+    coverage 混在一个 Dagster check 里。
+  - `GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES` 暂不合并，继续保留
+    `state_file_exists_and_schema_check` 和 `state_latest_coverage_check`；state readiness 直接影响
+    daily exact previous state gate 和 repair gate，不能隐藏为单一普通 check。
+  - `LAKE_ASSET_CATALOG`、daily/repair readiness specs、baseline runless audit 和
+    `gold_stk_mins_qfq_macd_kdj_check_refresh_job` 自动继承新 check set。
+  - `stk_mins_qfq_macd_kdj_history` 的 `GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION`
+    必须由 indicator/state check 常量长度计算，不得继续硬编码旧 6 个 check。
 - 若进一步合并 MACD/KDJ indicator/state checks，必须同步：
   - checks-only refresh job
   - daily job selection

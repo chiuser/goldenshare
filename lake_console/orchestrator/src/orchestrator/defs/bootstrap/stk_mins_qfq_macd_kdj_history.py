@@ -4,6 +4,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from orchestrator.defs.checks import stk_mins_qfq_macd_kdj_checks as macd_kdj_checks
 from orchestrator.defs.bootstrap.stk_mins_qfq_history import (
     STK_MINS_QFQ_HISTORY_START_DATE,
     _normalize_years,
@@ -30,7 +31,9 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
 )
 
 
-GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION = 6
+GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION = len(
+    macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_NAMES
+) + len(macd_kdj_checks.GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_CHECK_NAMES)
 GOLD_STK_MINS_QFQ_MACD_KDJ_EVENT_COUNT_PER_FREQ_PARTITION = (
     2 + GOLD_STK_MINS_QFQ_MACD_KDJ_CHECK_COUNT_PER_FREQ_PARTITION
 )
