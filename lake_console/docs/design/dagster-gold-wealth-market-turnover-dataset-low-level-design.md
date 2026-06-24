@@ -1,6 +1,6 @@
 # Dagster Gold Wealth Market Turnover Dataset Low-Level Design
 
-状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展、catalog/governance 对账和正式 definitions 校验；尚未写 prod DB，尚未启用 sensor。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
+状态：代码开发闭环已落地。WMT-1/WMT-2/WMT-3 已按当前治理测试事实合并为第一个可验证闭环并完成；WMT-4 job/sensor 已完成；WMT-5 历史 bootstrap/runless event 工具已完成。已审批执行 `dg check defs` 并通过。历史 lake 写入和最近 20 日 runless event apply 已执行并通过。WMT-6 新增 prod PostgreSQL serving 同步需求，当前已完成 `ProdPostgresWriteResource` / `prod_postgres_write`、prod serving replace helper、prod schema 只读复核、active `prod_core_wealth_market_turnover` asset、现有 job selection 扩展、sensor readiness 扩展、catalog/governance 对账、正式 definitions 校验、prod 写库角色、rollback dry-run 和 `2026-06-24` 正式 apply。`gold_wealth_market_turnover_update_job_sensor` 已按审批停为 `STOPPED`，是否启用另行拍板。本文档是 [Dagster Gold Wealth Market Turnover Dataset Design](dagster-gold-wealth-market-turnover-dataset-design.md) 的编码级落地方案和执行对账记录。
 
 ## 0. 依据和硬口径
 
@@ -1433,7 +1433,7 @@ full 写入已执行并通过：
 
 ### WMT-6 Prod Core Serving Sync
 
-状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance、正式 definitions 校验、prod 写库角色创建和 prod rollback dry-run 已完成；未正式 apply，未启用 sensor。
+状态：prod write 基础、prod schema 只读复核、active prod sync asset、job selection、sensor readiness、catalog/governance、正式 definitions 校验、prod 写库角色创建、prod rollback dry-run 和 `2026-06-24` 正式 apply 已完成；sensor 已停为 `STOPPED`，未启用日常自动触发。
 
 改动：
 
@@ -1454,11 +1454,13 @@ full 写入已执行并通过：
 12. 已单独审批执行 `DAGSTER_HOME=/Users/congming/.goldenshare/dagster_home uv run dg check defs`，结果为 `All component YAML validated successfully.` 和 `All definitions loaded successfully.`。
 13. 已在远程 prod PostgreSQL `goldenshare` 数据库创建 `lake_raw_writer`，并完成权限审计：可登录、密码已设置、不是 `SUPERUSER` / `CREATEDB` / `CREATEROLE` / `REPLICATION` / `BYPASSRLS`；可连接 `goldenshare`，可 `USAGE` `core_serving`，不可 `CREATE` `core_serving`；对 `core_serving.wealth_market_turnover_snapshot` 仅有 `SELECT, INSERT, UPDATE, DELETE`；目标表外没有显式表权限。
 14. 已单独审批执行 prod write rollback dry-run，报告为 `/private/tmp/wealth_market_turnover_prod_sync_rollback_dry_run_20260625_014345.json`：分区 `2026-06-24`，gold 输入 5 行，事务内写入 5 行，freq 集合 `1,5,15,30,60`，正式 `points_json` hash 为 `b278082d23e1c4e6697779511999b75c`，写后读回审计通过，`prod_transaction_committed=false`，回滚前后 prod 目标分区均为 0 行，`rollback_preserved_state=true`。
+15. 已单独审批执行 `gold_wealth_market_turnover_update_job[2026-06-24]` 正式 apply，run id 为 `c43644d0-84eb-4733-a648-ba5fb2f67cbf`，状态 `SUCCESS`。post-audit 报告为 `/private/tmp/wealth_market_turnover_prod_apply_audit_20260625_015723.json`：prod 表目标分区 5 行，freq 集合 `1,5,15,30,60`，正式 `points_json` hash 为 `b278082d23e1c4e6697779511999b75c`，`gold_wealth_market_turnover[2026-06-24]` 与 `prod_core_wealth_market_turnover[2026-06-24]` 均 ready。
+16. 已按审批将正式 Dagster instance 中 `gold_wealth_market_turnover_update_job_sensor` 从 `RUNNING` 停为 `STOPPED`；本轮不启用 sensor。
 
 待完成：
 
-1. 配置本地 Dagster `PROD_POSTGRES_WRITE_*` env。
-2. 正式 apply 审批。
+1. 若后续启用日常自动触发，需单独确认 Dagster daemon 启动环境可继承 `PROD_POSTGRES_WRITE_*` env。
+2. sensor 启用审批。
 
 prod 只读复核结果：
 
@@ -1525,4 +1527,5 @@ WMT-6 完成后，必须新增满足：
 5. prod sync 单元测试覆盖成功、gold 契约失败、prod insert 失败、read-back mismatch、rollback。
 6. 静态门禁覆盖不新增独立 job、不改只读 resource、不把 prod 写入塞进 gold asset。
 7. `dg check defs` 已经单独审批执行并通过，证明新增 asset/job/sensor/resource/catalog 可被正式 Definitions 加载。
-8. prod write dry-run / transaction rollback 验证和正式 apply 必须单独审批；未审批前不得写 prod DB，也不得启用 sensor。
+8. prod write dry-run / transaction rollback 验证和正式 apply 已单独审批执行并通过。
+9. `gold_wealth_market_turnover_update_job_sensor` 已停为 `STOPPED`；启用必须另行审批。
