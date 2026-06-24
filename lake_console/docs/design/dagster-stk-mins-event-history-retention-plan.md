@@ -680,7 +680,9 @@ P3C 拆成三个可单独停止的小阶段，继续沿用 P2D/P3A/P3B 已验证
    - protected checks 数量仍为 `314`
    - `dynamic_partitions` 行数仍为 `30,564`
 
-P3C 完成后，不再有股票分钟线普通历史 event 删除候选。下一步只允许进入 P4 标准 `VACUUM (VERBOSE, ANALYZE)`，不新增删除范围。
+P3C 完成时，不再有股票分钟线普通历史 event 删除候选。由于 keep20 是滚动窗口，后续新交易日进入 `cn_a_stock_mins_trade_days` 后，最早的旧交易日会自然滚出保留窗口，并重新产生小批普通历史候选；这属于增量 retention 治理问题，不在 P4 中顺手删除。
+
+下一步只允许进入 P4 标准 `VACUUM (VERBOSE, ANALYZE)`，不新增删除范围。
 
 ### P4：P3 后标准 VACUUM
 
@@ -691,6 +693,38 @@ P3C 完成后，不再有股票分钟线普通历史 event 删除候选。下一
 1. 不执行 `VACUUM FULL`。
 2. 不期待磁盘文件立刻明显变小。
 3. 不把 P4 扩展成新的删除阶段。
+
+2026-06-24 已完成 P4 标准维护：
+
+1. P4 执行前 active runs 为 `0`。
+2. 已执行标准 `VACUUM (VERBOSE, ANALYZE)`：
+   - `event_logs`，日志：`/private/tmp/dagster_p4_vacuum_event_logs_20260624_185934.log`
+   - `asset_check_executions`，日志：`/private/tmp/dagster_p4_vacuum_asset_check_executions_20260624_185934.log`
+   - `asset_event_tags`，日志：`/private/tmp/dagster_p4_vacuum_asset_event_tags_20260624_185934.log`
+   - `runs`，日志：`/private/tmp/dagster_p4_vacuum_runs_20260624_185934.log`
+   - `run_tags`，日志：`/private/tmp/dagster_p4_vacuum_run_tags_20260624_185934.log`
+3. P4 post verification：
+   - `event_logs.n_dead_tup` 约 `1118`
+   - `asset_check_executions.n_dead_tup` 约 `576`
+   - `asset_event_tags.n_dead_tup` 为 `0`
+   - `run_tags.n_dead_tup` 为 `0`
+   - `runs.n_dead_tup` 约 `217`
+4. P4 post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p4_post_dry_run_20260624_185934.json`。
+5. P4 post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - latest / protected / keep20 安全断言继续全绿
+   - protected checks 数量为 `356`
+   - `dynamic_partitions` 行数为 `30,571`
+   - keep20 已滚动为 `2026-05-27` 到 `2026-06-24`
+   - 旧 `2026-05-26` 滚出 keep20 后产生小批普通历史候选：`148` 条 check event、`31` 条 materialization event、`5` 条 materialization tag；P4 按计划未删除这些新增候选。
+6. 物理大小仍基本不变，符合标准 vacuum 预期：
+   - `event_logs` 约 `11GB`
+   - `asset_check_executions` 约 `3298MB`
+   - `asset_event_tags` 约 `32MB`
+
+P4 只完成标准维护，不解决滚动窗口新增候选；是否做周期性增量 retention，留到 P5 设计。
 
 ### P5：增量治理设计
 
