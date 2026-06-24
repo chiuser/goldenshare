@@ -430,4 +430,5 @@ continuity selector 必须遵守：
 12. `lake_console/docs/design/dagster-market-major-indices-sensor-performance-governance-plan.md`
 13. `lake_console/docs/design/dagster-market-major-indices-sensor-performance-governance-low-level-design.md`
 14. `lake_console/docs/design/dagster-new-lake-asset-performance-audit.md`
-
+15. `lake_console/docs/design/dagster-asset-check-incremental-governance-plan.md`
+16. `lake_console/docs/design/dagster-asset-check-incremental-governance-low-level-design.md`
