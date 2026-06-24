@@ -105,15 +105,27 @@ def silver_stock_daily_partition_allowed_check(
     return silver_stock_daily_stock_partition_key_allowed(context)
 
 
-@dg.asset_check(asset=gold_market_breadth_daily, blocking=True)
 def gold_market_breadth_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)
 
 
-@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
 def gold_stock_return_distribution_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)
+
+
+@dg.asset_check(asset=gold_market_breadth_daily, blocking=True)
+def gold_market_breadth_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return gold_market_breadth_stock_partition_key_allowed(context)
+
+
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return gold_stock_return_distribution_stock_partition_key_allowed(context)

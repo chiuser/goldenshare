@@ -421,6 +421,12 @@ P3C 已落地事实：
 
 ### P4：Market Breadth / Return / Serving 治理
 
+状态：已完成。`gold_market_breadth_daily`、
+`gold_stock_return_distribution`、`ch_share_fact_market_breadth_daily`
+已完成普通 check 合并；`prod_ch_share_fact_market_breadth_daily` 保持
+P2R 后的 single-partition attributable 4 个 check，不做合并，避免重开
+历史 check 归属风险。
+
 目标资产：
 
 1. `gold_market_breadth_daily`
@@ -434,6 +440,20 @@ P3C 已落地事实：
 2. 重算对账和跨系统对账转离线审计。
 3. Dagster DB 保留 latest serving/current health 摘要。
 4. `prod_ch_share_fact_market_breadth_daily` 不做历史补录，避免写入成本大于收益。
+
+P4 已落地事实：
+
+- `gold_market_breadth_daily` 正式 Dagster checks 收敛为
+  `contract/value_domain/silver_reconciliation/partition_allowed` 4 个。
+- `gold_stock_return_distribution` 正式 Dagster checks 收敛为
+  `contract/value_domain/silver_reconciliation/partition_allowed` 4 个。
+- `ch_share_fact_market_breadth_daily` 正式 Dagster checks 收敛为
+  `contract/gold_reconciliation` 2 个。
+- `prod_ch_share_fact_market_breadth_daily` 保持
+  `row_count/date/row_matches_local/updated_at_freshness` 4 个
+  single-partition checks。
+- batch lake readiness 仍保留原完整检查语义，只把失败归因映射到新的
+  粗粒度 check name。
 
 ### P5：Full Snapshot / Basic Assets 合并收口
 

@@ -62,6 +62,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _distribution_row(connection, path: Path) -> dict[str, Any] | None:
     row = connection.execute(
         f"""
@@ -100,7 +123,6 @@ def _recomputed_row(
     return result
 
 
-@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
 def gold_stock_return_distribution_row_count_is_one(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -129,7 +151,6 @@ def gold_stock_return_distribution_row_count_is_one(
     )
 
 
-@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
 def gold_stock_return_distribution_counts_add_up(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -174,7 +195,6 @@ def gold_stock_return_distribution_counts_add_up(
     )
 
 
-@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
 def gold_stock_return_distribution_total_count_matches_silver(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -215,7 +235,6 @@ def gold_stock_return_distribution_total_count_matches_silver(
     )
 
 
-@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
 def gold_stock_return_distribution_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -251,7 +270,6 @@ def gold_stock_return_distribution_partition_date_matches(
     )
 
 
-@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
 def gold_stock_return_distribution_recomputed_from_silver(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -281,4 +299,71 @@ def gold_stock_return_distribution_recomputed_from_silver(
                 "recomputed_row": recomputed_row,
             },
         ),
+    )
+
+
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            (
+                "row_count_is_one",
+                gold_stock_return_distribution_row_count_is_one(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "partition_date_matches",
+                gold_stock_return_distribution_partition_date_matches(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+        ),
+        check_scope=CheckScope.ROW_COUNT,
+    )
+
+
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_value_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return gold_stock_return_distribution_counts_add_up(context, lake_root, duckdb)
+
+
+@dg.asset_check(asset=gold_stock_return_distribution, blocking=True)
+def gold_stock_return_distribution_silver_reconciliation_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            (
+                "total_count_matches_silver",
+                gold_stock_return_distribution_total_count_matches_silver(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "recomputed_from_silver",
+                gold_stock_return_distribution_recomputed_from_silver(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+        ),
+        check_scope=CheckScope.RECONCILIATION,
     )

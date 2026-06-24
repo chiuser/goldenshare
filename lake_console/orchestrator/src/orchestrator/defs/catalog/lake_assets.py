@@ -412,33 +412,23 @@ GOLD_MARKET_MAJOR_INDICES_DAILY_CHECKS = (
     "gold_market_major_indices_daily_ranking_consistency_check",
 )
 GOLD_MARKET_BREADTH_CHECKS = (
-    "gold_market_breadth_counts_add_up",
-    "gold_market_breadth_matches_silver_recompute",
-    "gold_market_breadth_red_rate_formula",
-    "gold_market_breadth_red_rate_range",
-    "gold_market_breadth_row_count_is_one",
-    "gold_market_breadth_stock_partition_key_allowed",
-    "gold_market_breadth_total_count_matches_silver",
-    "gold_market_breadth_total_count_positive",
+    "gold_market_breadth_contract_check",
+    "gold_market_breadth_value_domain_check",
+    "gold_market_breadth_silver_reconciliation_check",
+    "gold_market_breadth_partition_allowed_check",
 )
 GOLD_STOCK_RETURN_DISTRIBUTION_CHECKS = (
-    "gold_stock_return_distribution_counts_add_up",
-    "gold_stock_return_distribution_partition_date_matches",
-    "gold_stock_return_distribution_recomputed_from_silver",
-    "gold_stock_return_distribution_row_count_is_one",
-    "gold_stock_return_distribution_stock_partition_key_allowed",
-    "gold_stock_return_distribution_total_count_matches_silver",
+    "gold_stock_return_distribution_contract_check",
+    "gold_stock_return_distribution_value_domain_check",
+    "gold_stock_return_distribution_silver_reconciliation_check",
+    "gold_stock_return_distribution_partition_allowed_check",
 )
 GOLD_WEALTH_MARKET_TURNOVER_CHECKS = (
     "gold_wealth_market_turnover_integrity_check",
 )
 CH_SHARE_FACT_MARKET_BREADTH_DAILY_CHECKS = (
-    "ch_share_fact_market_breadth_breadth_fields_match_gold",
-    "ch_share_fact_market_breadth_date_matches_partition",
-    "ch_share_fact_market_breadth_distribution_fields_match_gold",
-    "ch_share_fact_market_breadth_flat_count_matches_gold",
-    "ch_share_fact_market_breadth_row_count_is_one",
-    "ch_share_fact_market_breadth_total_count_matches_gold",
+    "ch_share_fact_market_breadth_contract_check",
+    "ch_share_fact_market_breadth_gold_reconciliation_check",
 )
 PROD_CH_SHARE_FACT_MARKET_BREADTH_DAILY_CHECKS = (
     "prod_ch_share_fact_market_breadth_date_matches_partition",

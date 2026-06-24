@@ -44,6 +44,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _gold_row(connection, path: Path) -> dict[str, Any] | None:
     row = connection.execute(
         f"""
@@ -88,10 +111,6 @@ def _recomputed_row(
     }
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_row_count_is_one(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -120,10 +139,6 @@ def gold_market_breadth_row_count_is_one(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_counts_add_up(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -174,10 +189,6 @@ def gold_market_breadth_counts_add_up(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_total_count_positive(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -214,10 +225,6 @@ def gold_market_breadth_total_count_positive(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_total_count_matches_silver(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -258,10 +265,6 @@ def gold_market_breadth_total_count_matches_silver(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_red_rate_range(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -296,10 +299,6 @@ def gold_market_breadth_red_rate_range(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_red_rate_formula(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -356,10 +355,6 @@ def gold_market_breadth_red_rate_formula(
     )
 
 
-@dg.asset_check(
-    asset=gold_market_breadth_daily,
-    blocking=True,
-)
 def gold_market_breadth_matches_silver_recompute(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -390,4 +385,80 @@ def gold_market_breadth_matches_silver_recompute(
                 "recomputed_row": recomputed_row or {},
             },
         ),
+    )
+
+
+@dg.asset_check(
+    asset=gold_market_breadth_daily,
+    blocking=True,
+)
+def gold_market_breadth_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return gold_market_breadth_row_count_is_one(context, lake_root, duckdb)
+
+
+@dg.asset_check(
+    asset=gold_market_breadth_daily,
+    blocking=True,
+)
+def gold_market_breadth_value_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            (
+                "counts_add_up",
+                gold_market_breadth_counts_add_up(context, lake_root, duckdb),
+            ),
+            (
+                "total_count_positive",
+                gold_market_breadth_total_count_positive(context, lake_root, duckdb),
+            ),
+            (
+                "red_rate_range",
+                gold_market_breadth_red_rate_range(context, lake_root, duckdb),
+            ),
+            (
+                "red_rate_formula",
+                gold_market_breadth_red_rate_formula(context, lake_root, duckdb),
+            ),
+        ),
+        check_scope=CheckScope.VALUE_SANITY,
+    )
+
+
+@dg.asset_check(
+    asset=gold_market_breadth_daily,
+    blocking=True,
+)
+def gold_market_breadth_silver_reconciliation_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            (
+                "total_count_matches_silver",
+                gold_market_breadth_total_count_matches_silver(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "matches_silver_recompute",
+                gold_market_breadth_matches_silver_recompute(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+        ),
+        check_scope=CheckScope.RECONCILIATION,
     )

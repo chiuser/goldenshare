@@ -34,30 +34,20 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
 
 
 GOLD_MARKET_BREADTH_LAKE_CHECK_NAMES = (
-    "gold_market_breadth_row_count_is_one",
-    "gold_market_breadth_counts_add_up",
-    "gold_market_breadth_total_count_positive",
-    "gold_market_breadth_total_count_matches_silver",
-    "gold_market_breadth_red_rate_range",
-    "gold_market_breadth_red_rate_formula",
-    "gold_market_breadth_matches_silver_recompute",
-    "gold_market_breadth_stock_partition_key_allowed",
+    "gold_market_breadth_contract_check",
+    "gold_market_breadth_value_domain_check",
+    "gold_market_breadth_silver_reconciliation_check",
+    "gold_market_breadth_partition_allowed_check",
 )
 GOLD_STOCK_RETURN_DISTRIBUTION_LAKE_CHECK_NAMES = (
-    "gold_stock_return_distribution_row_count_is_one",
-    "gold_stock_return_distribution_counts_add_up",
-    "gold_stock_return_distribution_total_count_matches_silver",
-    "gold_stock_return_distribution_partition_date_matches",
-    "gold_stock_return_distribution_recomputed_from_silver",
-    "gold_stock_return_distribution_stock_partition_key_allowed",
+    "gold_stock_return_distribution_contract_check",
+    "gold_stock_return_distribution_value_domain_check",
+    "gold_stock_return_distribution_silver_reconciliation_check",
+    "gold_stock_return_distribution_partition_allowed_check",
 )
 CH_SHARE_FACT_MARKET_BREADTH_LAKE_CHECK_NAMES = (
-    "ch_share_fact_market_breadth_row_count_is_one",
-    "ch_share_fact_market_breadth_date_matches_partition",
-    "ch_share_fact_market_breadth_total_count_matches_gold",
-    "ch_share_fact_market_breadth_flat_count_matches_gold",
-    "ch_share_fact_market_breadth_breadth_fields_match_gold",
-    "ch_share_fact_market_breadth_distribution_fields_match_gold",
+    "ch_share_fact_market_breadth_contract_check",
+    "ch_share_fact_market_breadth_gold_reconciliation_check",
 )
 PROD_CH_SHARE_FACT_MARKET_BREADTH_LAKE_CHECK_NAMES = (
     "prod_ch_share_fact_market_breadth_row_count_is_one",
@@ -312,7 +302,7 @@ def _gold_breadth_status(
     if not path.exists():
         return _missing_file_status(
             trade_date=trade_date,
-            check_name="gold_market_breadth_row_count_is_one",
+            check_name="gold_market_breadth_contract_check",
             file_path=path,
             reason="missing_gold_market_breadth_file",
         )
@@ -328,13 +318,13 @@ def _gold_breadth_status(
             expected_types=_GOLD_BREADTH_COLUMN_TYPES,
         )
         if _schema_failed(schema_result):
-            failed.append("gold_market_breadth_required_columns_and_types")
+            failed.append("gold_market_breadth_contract_check")
             summary["schema"] = schema_result
 
         row_count = _one_row_count(connection, path)
         summary["row_count"] = row_count
         if row_count != 1:
-            failed.append("gold_market_breadth_row_count_is_one")
+            failed.append("gold_market_breadth_contract_check")
 
         gold_row = _single_row_dict(
             connection,
@@ -349,12 +339,12 @@ def _gold_breadth_status(
                 + int(gold_row["flat_count"])
                 != int(gold_row["total_count"])
             ):
-                failed.append("gold_market_breadth_counts_add_up")
+                failed.append("gold_market_breadth_value_domain_check")
             if int(gold_row["total_count"]) <= 0:
-                failed.append("gold_market_breadth_total_count_positive")
+                failed.append("gold_market_breadth_value_domain_check")
             red_rate = float(gold_row["red_rate"])
             if red_rate < 0 or red_rate > 100:
-                failed.append("gold_market_breadth_red_rate_range")
+                failed.append("gold_market_breadth_value_domain_check")
             expected_red_rate = (
                 0.0
                 if int(gold_row["total_count"]) == 0
@@ -362,14 +352,13 @@ def _gold_breadth_status(
             )
             summary["expected_red_rate"] = expected_red_rate
             if abs(red_rate - expected_red_rate) > 0.000001:
-                failed.append("gold_market_breadth_red_rate_formula")
+                failed.append("gold_market_breadth_value_domain_check")
 
         silver_path = silver_stock_daily_path(lake_root_path, trade_date)
         if not silver_path.exists():
             failed.extend(
                 [
-                    "gold_market_breadth_total_count_matches_silver",
-                    "gold_market_breadth_matches_silver_recompute",
+                    "gold_market_breadth_silver_reconciliation_check",
                 ]
             )
             missing_paths.append(str(silver_path))
@@ -379,7 +368,7 @@ def _gold_breadth_status(
             silver_row_count = _one_row_count(connection, silver_path)
             summary["silver_row_count"] = silver_row_count
             if gold_row is not None and int(gold_row["total_count"]) != silver_row_count:
-                failed.append("gold_market_breadth_total_count_matches_silver")
+                failed.append("gold_market_breadth_silver_reconciliation_check")
             recomputed_row = _read_recomputed_breadth_row(
                 connection,
                 silver_path=silver_path,
@@ -387,7 +376,7 @@ def _gold_breadth_status(
             )
             summary["recomputed_row"] = recomputed_row or {}
             if gold_row != recomputed_row:
-                failed.append("gold_market_breadth_matches_silver_recompute")
+                failed.append("gold_market_breadth_silver_reconciliation_check")
 
         if failed:
             return _failed_status(
@@ -417,7 +406,7 @@ def _gold_distribution_status(
     if not path.exists():
         return _missing_file_status(
             trade_date=trade_date,
-            check_name="gold_stock_return_distribution_row_count_is_one",
+            check_name="gold_stock_return_distribution_contract_check",
             file_path=path,
             reason="missing_gold_stock_return_distribution_file",
         )
@@ -433,13 +422,13 @@ def _gold_distribution_status(
             expected_types=_GOLD_DISTRIBUTION_COLUMN_TYPES,
         )
         if _schema_failed(schema_result):
-            failed.append("gold_stock_return_distribution_required_columns_and_types")
+            failed.append("gold_stock_return_distribution_contract_check")
             summary["schema"] = schema_result
 
         row_count = _one_row_count(connection, path)
         summary["row_count"] = row_count
         if row_count != 1:
-            failed.append("gold_stock_return_distribution_row_count_is_one")
+            failed.append("gold_stock_return_distribution_contract_check")
 
         gold_row = _single_row_dict(
             connection,
@@ -454,16 +443,15 @@ def _gold_distribution_status(
             )
             summary["bucket_sum"] = bucket_sum
             if bucket_sum != int(gold_row["total_count"]):
-                failed.append("gold_stock_return_distribution_counts_add_up")
+                failed.append("gold_stock_return_distribution_value_domain_check")
             if gold_row["trade_date"] != trade_date:
-                failed.append("gold_stock_return_distribution_partition_date_matches")
+                failed.append("gold_stock_return_distribution_contract_check")
 
         silver_path = silver_stock_daily_path(lake_root_path, trade_date)
         if not silver_path.exists():
             failed.extend(
                 [
-                    "gold_stock_return_distribution_total_count_matches_silver",
-                    "gold_stock_return_distribution_recomputed_from_silver",
+                    "gold_stock_return_distribution_silver_reconciliation_check",
                 ]
             )
             missing_paths.append(str(silver_path))
@@ -473,7 +461,9 @@ def _gold_distribution_status(
             silver_row_count = _one_row_count(connection, silver_path)
             summary["silver_row_count"] = silver_row_count
             if gold_row is not None and int(gold_row["total_count"]) != silver_row_count:
-                failed.append("gold_stock_return_distribution_total_count_matches_silver")
+                failed.append(
+                    "gold_stock_return_distribution_silver_reconciliation_check"
+                )
             recomputed_row = _read_recomputed_distribution_row(
                 connection,
                 silver_path=silver_path,
@@ -481,7 +471,9 @@ def _gold_distribution_status(
             )
             summary["recomputed_row"] = recomputed_row or {}
             if gold_row != recomputed_row:
-                failed.append("gold_stock_return_distribution_recomputed_from_silver")
+                failed.append(
+                    "gold_stock_return_distribution_silver_reconciliation_check"
+                )
 
         if failed:
             return _failed_status(
@@ -696,7 +688,7 @@ def batch_clickhouse_market_breadth_readiness(
                 materialized=False,
                 checks_passed=False,
                 reason="missing_clickhouse_row",
-                missing_check_names=("ch_share_fact_market_breadth_row_count_is_one",),
+                missing_check_names=("ch_share_fact_market_breadth_contract_check",),
                 summary=summary,
             )
             continue
@@ -704,7 +696,7 @@ def batch_clickhouse_market_breadth_readiness(
             statuses[trade_date] = _failed_status(
                 trade_date=trade_date,
                 reason="blocking_checks_failed",
-                failed_check_names=("ch_share_fact_market_breadth_row_count_is_one",),
+                failed_check_names=("ch_share_fact_market_breadth_contract_check",),
                 summary=summary,
             )
             continue
@@ -720,10 +712,7 @@ def batch_clickhouse_market_breadth_readiness(
                 trade_date=trade_date,
                 reason="blocking_checks_failed",
                 failed_check_names=(
-                    "ch_share_fact_market_breadth_total_count_matches_gold",
-                    "ch_share_fact_market_breadth_flat_count_matches_gold",
-                    "ch_share_fact_market_breadth_breadth_fields_match_gold",
-                    "ch_share_fact_market_breadth_distribution_fields_match_gold",
+                    "ch_share_fact_market_breadth_gold_reconciliation_check",
                 ),
                 missing_file_paths=missing_paths,
                 summary=summary,
@@ -733,11 +722,11 @@ def batch_clickhouse_market_breadth_readiness(
         row = rows[0]
         failed: list[str] = []
         if row.get("trade_date") != trade_date:
-            failed.append("ch_share_fact_market_breadth_date_matches_partition")
+            failed.append("ch_share_fact_market_breadth_contract_check")
         if row.get("total_count") != expected_row["total_count"]:
-            failed.append("ch_share_fact_market_breadth_total_count_matches_gold")
+            failed.append("ch_share_fact_market_breadth_gold_reconciliation_check")
         if row.get("flat_count") != expected_row["flat_count"]:
-            failed.append("ch_share_fact_market_breadth_flat_count_matches_gold")
+            failed.append("ch_share_fact_market_breadth_gold_reconciliation_check")
         breadth_mismatches = _row_mismatches(
             actual_row=row,
             expected_row=expected_row,
@@ -749,10 +738,10 @@ def batch_clickhouse_market_breadth_readiness(
             columns=_DISTRIBUTION_VALUE_COLUMNS,
         )
         if breadth_mismatches:
-            failed.append("ch_share_fact_market_breadth_breadth_fields_match_gold")
+            failed.append("ch_share_fact_market_breadth_gold_reconciliation_check")
             summary["breadth_mismatch_samples"] = breadth_mismatches[:10]
         if distribution_mismatches:
-            failed.append("ch_share_fact_market_breadth_distribution_fields_match_gold")
+            failed.append("ch_share_fact_market_breadth_gold_reconciliation_check")
             summary["distribution_mismatch_samples"] = distribution_mismatches[:10]
 
         if failed:

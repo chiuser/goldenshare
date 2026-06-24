@@ -243,7 +243,7 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
                     ready=False,
                     materialized=True,
                     reason="blocking_checks_failed",
-                    failed_check_names=("gold_market_breadth_counts_add_up",),
+                    failed_check_names=("gold_market_breadth_value_domain_check",),
                 ),
                 _date_status(
                     "2026-06-16",

@@ -146,6 +146,29 @@ def _clickhouse_row_failure_result(
     )
 
 
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def _compare_fields(
     *,
     clickhouse_row: dict[str, Any],
@@ -171,7 +194,6 @@ def _compare_fields(
     return mismatches
 
 
-@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
 def ch_share_fact_market_breadth_row_count_is_one(
     context: dg.AssetCheckExecutionContext,
     clickhouse: ClickhouseResource,
@@ -193,7 +215,6 @@ def ch_share_fact_market_breadth_row_count_is_one(
     )
 
 
-@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
 def ch_share_fact_market_breadth_date_matches_partition(
     context: dg.AssetCheckExecutionContext,
     clickhouse: ClickhouseResource,
@@ -222,7 +243,6 @@ def ch_share_fact_market_breadth_date_matches_partition(
     )
 
 
-@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
 def ch_share_fact_market_breadth_total_count_matches_gold(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -293,7 +313,6 @@ def ch_share_fact_market_breadth_total_count_matches_gold(
     )
 
 
-@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
 def ch_share_fact_market_breadth_flat_count_matches_gold(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -360,7 +379,6 @@ def ch_share_fact_market_breadth_flat_count_matches_gold(
     )
 
 
-@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
 def ch_share_fact_market_breadth_breadth_fields_match_gold(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -417,7 +435,6 @@ def ch_share_fact_market_breadth_breadth_fields_match_gold(
     )
 
 
-@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
 def ch_share_fact_market_breadth_distribution_fields_match_gold(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -474,4 +491,77 @@ def ch_share_fact_market_breadth_distribution_fields_match_gold(
                 "mismatch_sample_rows": mismatches[:10],
             },
         ),
+    )
+
+
+@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
+def ch_share_fact_market_breadth_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    clickhouse: ClickhouseResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            (
+                "row_count_is_one",
+                ch_share_fact_market_breadth_row_count_is_one(context, clickhouse),
+            ),
+            (
+                "date_matches_partition",
+                ch_share_fact_market_breadth_date_matches_partition(
+                    context,
+                    clickhouse,
+                ),
+            ),
+        ),
+        check_scope=CheckScope.ROW_COUNT,
+    )
+
+
+@dg.asset_check(asset=ch_share_fact_market_breadth_daily, blocking=True)
+def ch_share_fact_market_breadth_gold_reconciliation_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+    clickhouse: ClickhouseResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            (
+                "total_count_matches_gold",
+                ch_share_fact_market_breadth_total_count_matches_gold(
+                    context,
+                    lake_root,
+                    duckdb,
+                    clickhouse,
+                ),
+            ),
+            (
+                "flat_count_matches_gold",
+                ch_share_fact_market_breadth_flat_count_matches_gold(
+                    context,
+                    lake_root,
+                    duckdb,
+                    clickhouse,
+                ),
+            ),
+            (
+                "breadth_fields_match_gold",
+                ch_share_fact_market_breadth_breadth_fields_match_gold(
+                    context,
+                    lake_root,
+                    duckdb,
+                    clickhouse,
+                ),
+            ),
+            (
+                "distribution_fields_match_gold",
+                ch_share_fact_market_breadth_distribution_fields_match_gold(
+                    context,
+                    lake_root,
+                    duckdb,
+                    clickhouse,
+                ),
+            ),
+        ),
+        check_scope=CheckScope.RECONCILIATION,
     )

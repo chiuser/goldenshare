@@ -173,7 +173,7 @@ class MarketBreadthLakeReadinessTests(unittest.TestCase):
 
         self.assertFalse(status.ready)
         self.assertFalse(status.materialized)
-        self.assertIn("gold_market_breadth_row_count_is_one", status.missing_check_names)
+        self.assertIn("gold_market_breadth_contract_check", status.missing_check_names)
 
     def test_gold_breadth_existing_bad_file_blocks_later_dates(self) -> None:
         with TemporaryDirectory() as directory:
@@ -189,7 +189,7 @@ class MarketBreadthLakeReadinessTests(unittest.TestCase):
 
         self.assertFalse(status.ready)
         self.assertTrue(status.materialized)
-        self.assertIn("gold_market_breadth_counts_add_up", status.failed_check_names)
+        self.assertIn("gold_market_breadth_value_domain_check", status.failed_check_names)
 
     def test_gold_distribution_batch_ready(self) -> None:
         with TemporaryDirectory() as directory:

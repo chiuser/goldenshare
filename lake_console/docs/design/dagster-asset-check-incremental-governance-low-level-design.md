@@ -565,6 +565,10 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 ### P4 Market Breadth / Return Distribution / Serving
 
+状态：已完成。P4 合并 gold/local ClickHouse 普通 check；prod ClickHouse
+serving 保持 P2R 后的 single-partition attributable check 口径，不做
+合并。
+
 #### 改动文件
 
 - `lake_console/orchestrator/src/orchestrator/defs/checks/market_breadth_checks.py`
@@ -581,24 +585,44 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 `gold_market_breadth_daily`：
 
-- 保留 contract、coverage、value domain。
-- 本地重算对账、ClickHouse 对账迁到 offline audit 或 latest-only check。
+- 正式 Dagster checks 收敛为：
+  - `gold_market_breadth_contract_check`
+  - `gold_market_breadth_value_domain_check`
+  - `gold_market_breadth_silver_reconciliation_check`
+  - `gold_market_breadth_partition_allowed_check`
+- 旧细粒度函数只作为内部 helper；batch lake readiness 仍执行 row count、
+  bucket 加和、red rate、silver row count、silver recompute 等完整语义，
+  失败时映射到新粗粒度 check name。
 
 `gold_stock_return_distribution`：
 
-- 保留 contract/value/domain。
-- 分布桶明细写 metadata。
-- 趋势核验迁到 offline audit。
+- 正式 Dagster checks 收敛为：
+  - `gold_stock_return_distribution_contract_check`
+  - `gold_stock_return_distribution_value_domain_check`
+  - `gold_stock_return_distribution_silver_reconciliation_check`
+  - `gold_stock_return_distribution_partition_allowed_check`
+- 旧细粒度函数只作为内部 helper；batch lake readiness 仍执行 row count、
+  partition date、bucket 加和、silver row count、silver recompute 等完整语义，
+  失败时映射到新粗粒度 check name。
 
 `ch_share_fact_market_breadth_daily`：
 
-- 服务层对账保留 latest/current 即可。
-- 历史对账走 retention。
+- 正式 Dagster checks 收敛为：
+  - `ch_share_fact_market_breadth_contract_check`
+  - `ch_share_fact_market_breadth_gold_reconciliation_check`
+- local ClickHouse batch readiness 仍执行 row count、date、total/flat、
+  breadth fields、distribution fields 对账完整语义，失败时映射到新粗粒度
+  check name。
 
 `prod_ch_share_fact_market_breadth_daily`：
 
 - 已知 historical check 归属问题，不进入大批量删除白名单。
 - 日常路径必须保持 single-partition attributable。
+- P4 不合并 prod checks，继续保留
+  `prod_ch_share_fact_market_breadth_row_count_is_one`、
+  `prod_ch_share_fact_market_breadth_date_matches_partition`、
+  `prod_ch_share_fact_market_breadth_row_matches_local`、
+  `prod_ch_share_fact_market_breadth_updated_at_not_older_than_local`。
 
 #### 性能门禁
 
