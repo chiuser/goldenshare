@@ -1090,6 +1090,7 @@ export function MarketOverviewPage() {
             viewState={limitUpViewState}
             limitUp={limitUp ?? undefined}
             errorMessage={limitUpErrorMessage ?? undefined}
+            onStockSelect={openStockDetail}
           />
           <StreakLadderPanel
             overview={overview}

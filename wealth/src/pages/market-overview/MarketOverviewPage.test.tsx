@@ -495,6 +495,16 @@ describe("MarketOverviewPage", () => {
     expect(window.location.pathname).toBe("/wealth/market/overview");
   });
 
+  it("navigates to stock detail when a limit-up leader stock row is clicked", async () => {
+    window.history.pushState({}, "", "/wealth/market/overview");
+    render(<MarketOverviewPage />);
+
+    const limitBoard = await screen.findByLabelText("涨跌停统计与分布");
+    fireEvent.click(within(limitBoard).getByLabelText("查看股票详情：万丰奥威 002085.SZ"));
+
+    expect(window.location.pathname).toBe("/wealth/market/stock/002085.SZ");
+  });
+
   it("renders sector matrix and heatmap exactly as the showcase requires", async () => {
     render(<MarketOverviewPage />);
 

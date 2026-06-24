@@ -20,9 +20,10 @@ interface LimitBoardPanelProps {
   viewState: "loading" | "ready" | "error";
   limitUp?: MarketLimitUpViewModel;
   errorMessage?: string;
+  onStockSelect: (tsCode: string) => void;
 }
 
-export function LimitBoardPanel({ viewState, limitUp, errorMessage }: LimitBoardPanelProps) {
+export function LimitBoardPanel({ viewState, limitUp, errorMessage, onStockSelect }: LimitBoardPanelProps) {
   const [range, setRange] = useState("1m");
   const badgeLabel =
     viewState === "loading"
@@ -75,7 +76,11 @@ export function LimitBoardPanel({ viewState, limitUp, errorMessage }: LimitBoard
               ))}
             </div>
           </div>
-          <LimitStructureBlock label={`今日 ${formatTradeDateLabel(limitUp.structures.today.tradeDate)}`} structure={limitUp.structures.today} />
+          <LimitStructureBlock
+            label={`今日 ${formatTradeDateLabel(limitUp.structures.today.tradeDate)}`}
+            onStockSelect={onStockSelect}
+            structure={limitUp.structures.today}
+          />
           <div className="limit-cell chart-cell" aria-label="历史涨跌停组合柱状图">
             <div className="sub-chart-title">
               <span>历史涨跌停组合柱图</span>
@@ -83,7 +88,11 @@ export function LimitBoardPanel({ viewState, limitUp, errorMessage }: LimitBoard
             </div>
             <ComboBarChart data={limitUp.historyByRange[range as "1m" | "3m"]} />
           </div>
-          <LimitStructureBlock label={`昨日 ${formatTradeDateLabel(limitUp.structures.yesterday.tradeDate)}`} structure={limitUp.structures.yesterday} />
+          <LimitStructureBlock
+            label={`昨日 ${formatTradeDateLabel(limitUp.structures.yesterday.tradeDate)}`}
+            onStockSelect={onStockSelect}
+            structure={limitUp.structures.yesterday}
+          />
         </div>
       ) : null}
     </Panel>
@@ -97,7 +106,15 @@ function formatTradeDateLabel(tradeDate: string): string {
   return `${month}-${day}`;
 }
 
-function LimitStructureBlock({ label, structure }: { label: string; structure: LimitSectorLeaderStructureView }) {
+function LimitStructureBlock({
+  label,
+  onStockSelect,
+  structure,
+}: {
+  label: string;
+  onStockSelect: (tsCode: string) => void;
+  structure: LimitSectorLeaderStructureView;
+}) {
   const [selectedSectorCode, setSelectedSectorCode] = useState(structure.selectedSectorCode);
   const [selectedStockCode, setSelectedStockCode] = useState(structure.selectedStockCode);
 
@@ -155,7 +172,13 @@ function LimitStructureBlock({ label, structure }: { label: string; structure: L
           </div>
           <div className="limit-v3-rows">
             {stocks.map((stock) => (
-              <LeaderPerformanceRow key={stock.stockCode} onMouseEnter={() => setSelectedStockCode(stock.stockCode)} selected={stock.stockCode === selectedStockCode} stock={stock} />
+              <LeaderPerformanceRow
+                key={stock.stockCode}
+                onMouseEnter={() => setSelectedStockCode(stock.stockCode)}
+                onStockSelect={onStockSelect}
+                selected={stock.stockCode === selectedStockCode}
+                stock={stock}
+              />
             ))}
             {selectedStocks.length > 3 ? <div className="more-row">更多 {selectedStocks.length - 3} 只涨停股</div> : null}
           </div>
@@ -165,7 +188,17 @@ function LimitStructureBlock({ label, structure }: { label: string; structure: L
   );
 }
 
-function LeaderPerformanceRow({ onMouseEnter, selected, stock }: { onMouseEnter: () => void; selected: boolean; stock: LimitLeaderPerformanceItemView }) {
+function LeaderPerformanceRow({
+  onMouseEnter,
+  onStockSelect,
+  selected,
+  stock,
+}: {
+  onMouseEnter: () => void;
+  onStockSelect: (tsCode: string) => void;
+  selected: boolean;
+  stock: LimitLeaderPerformanceItemView;
+}) {
   const directionClass = stock.changePct === null ? "flat" : stock.changePct >= 0 ? "up" : "down";
   const changeText = stock.changePct === null ? "--" : `${stock.changePct >= 0 ? "+" : ""}${stock.changePct.toFixed(2)}%`;
   const priceText = stock.latestPrice === null ? "--" : stock.latestPrice.toFixed(2);
@@ -173,7 +206,9 @@ function LeaderPerformanceRow({ onMouseEnter, selected, stock }: { onMouseEnter:
   return (
     <div
       className={`leader-performance-row${selected ? " selected" : ""}`}
+      aria-label={`查看股票详情：${stock.stockName} ${stock.stockCode}`}
       onMouseEnter={onMouseEnter}
+      onClick={() => onStockSelect(stock.stockCode)}
       title={`${stock.stockName}｜${stock.streakLabel}｜${stock.recentLimitText}｜首次封板 ${stock.firstLimitTime}｜开板 ${stock.openTimes} 次｜封单 ${stock.sealedAmountDisplayText}`}
     >
       <span className="num muted">{stock.rank}</span>
