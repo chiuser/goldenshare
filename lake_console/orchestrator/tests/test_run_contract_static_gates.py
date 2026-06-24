@@ -2876,7 +2876,58 @@ class RunContractStaticGateTests(unittest.TestCase):
         issues.extend(
             f"{path} contains forbidden governance fragment: {fragment}"
             for fragment in forbidden_fragments
-            if fragment in lowered
+            if fragment.lower() in lowered
+        )
+
+        self.assertEqual(issues, [])
+
+    def test_asset_check_event_retention_dry_run_has_no_write_path(self) -> None:
+        helper_path = Path(
+            "src/orchestrator/defs/bootstrap/asset_check_event_retention.py"
+        )
+        cli_path = Path(
+            "src/orchestrator/defs/bootstrap/asset_check_event_retention_cli.py"
+        )
+        test_path = Path("tests/test_asset_check_event_retention.py")
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        test_source = test_path.read_text()
+        combined = f"{helper_source}\n{cli_source}".lower()
+        issues = []
+
+        required_fragments = (
+            "collect_asset_check_event_retention_dry_run",
+            "ASSET_CHECK_RETENTION_KEEP_TRADE_DAY_COUNT",
+            "ASSET_CHECK_RETENTION_PROTECTED_CHECK_NAMES",
+            "ASSET_CHECK_RETENTION_ASSET_FAMILY_BY_KEY",
+            "ASSET_CHECK_RETENTION_EXCLUDED_ASSETS",
+            '"dry-run"',
+            "set_session(readonly=True",
+            "test_sql_statements_are_read_only",
+            "test_module_and_cli_do_not_expose_write_or_delete_paths",
+        )
+        forbidden_fragments = (
+            "delete from",
+            "insert into",
+            "update event_logs",
+            "update asset_check_executions",
+            "vacuum (",
+            "analyze event_logs",
+            "report_runless_asset_event",
+            "dagsterinstance.get",
+            "--apply",
+            "--confirm",
+        )
+        source_bundle = f"{helper_source}\n{cli_source}\n{test_source}"
+        issues.extend(
+            f"asset check retention misses fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source_bundle
+        )
+        issues.extend(
+            f"asset check retention exposes write fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
         )
 
         self.assertEqual(issues, [])

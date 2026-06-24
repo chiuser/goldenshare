@@ -338,6 +338,8 @@ P0.1 验证结果：`56 passed`。
 
 ### P1 非分钟线 event retention dry-run
 
+状态：dry-run 工具与本地测试已完成；正式 Dagster Postgres dry-run 尚未执行。
+
 #### 改动文件
 
 新增：
@@ -345,6 +347,10 @@ P0.1 验证结果：`56 passed`。
 - `lake_console/orchestrator/src/orchestrator/defs/bootstrap/asset_check_event_retention.py`
 - `lake_console/orchestrator/src/orchestrator/defs/bootstrap/asset_check_event_retention_cli.py`
 - `lake_console/orchestrator/tests/test_asset_check_event_retention.py`
+
+修改：
+
+- `lake_console/orchestrator/tests/test_run_contract_static_gates.py`
 
 #### 代码要求
 
@@ -379,6 +385,16 @@ ASSET_CHECK_RETENTION_ASSET_FAMILY_BY_KEY = {...}
 - keep window 内 event。
 - 无 materialization 绑定的 null partition check，除非该资产族另行拍板。
 
+已落地：
+
+1. `asset_check_event_retention.py` 只提供 `collect_asset_check_event_retention_dry_run(...)`，所有 SQL 都通过 `_assert_select_only_sql(...)` 做只读检查。
+2. 默认 scope 排除股票分钟线 31 个资产，覆盖非分钟线 active assets；`prod_ch_share_fact_market_breadth_daily` 和 `lake_root_health` 不进入候选，写入 `excluded_asset_samples` 说明原因。
+3. keep window 按资产实际 partition set 分组计算：`cn_a_stock_trade_days`、`cn_a_stock_current_trade_days`、`cn_a_index_trade_days`、`cn_a_stock_mins_silver_trade_days`。
+4. 候选只包含有 partition 的 ordinary historical check/materialization event；null partition event 不进入候选。
+5. protected repair/status/completion checks 继续使用 `ASSET_CHECK_RETENTION_PROTECTED_CHECK_NAMES` 防误删。
+6. CLI 只有 `dry-run` 子命令，没有 `apply/delete/confirm` 写入口。
+7. 静态门禁已检查 P1 工具不可包含 `DELETE/INSERT/UPDATE/VACUUM/ANALYZE` 等写路径。
+
 #### 正式 dry-run 命令
 
 ```bash
@@ -387,6 +403,18 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.asset_ch
   --postgres-url postgresql://congming@localhost:5432/goldenshare_dagster \
   --output /private/tmp/asset_check_event_retention_dry_run_<timestamp>.json
 ```
+
+本地验证：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_asset_check_event_retention.py \
+  tests/test_asset_check_incremental_governance.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`64 passed`。
 
 ### P2 Index Daily 与 Major Indices
 

@@ -326,6 +326,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P1：非分钟线 ordinary check retention dry-run
 
+状态：dry-run 工具与本地测试已完成；正式 Dagster Postgres dry-run 尚未执行。
+
 目标：
 
 1. 复用分钟线 retention 的安全思想，但按非分钟线资产族重新设计 dry-run。
@@ -333,6 +335,16 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 3. 对 `silver_index_daily`、`gold_market_major_indices_daily`、`stock_daily`、`adj_factor`、`market_breadth` 等资产生成 keep20 候选报告。
 
 注意：存在大量 `partition is null` 历史 check，不能直接套分钟线按 partition 删除逻辑；必须先设计 latest-state 保护和时间窗口保护。
+
+已落地：
+
+1. 新增 `asset_check_event_retention.py` 与 `asset_check_event_retention_cli.py`，只提供只读 `dry-run`。
+2. 默认候选范围排除股票分钟线资产；`prod_ch_share_fact_market_breadth_daily`、`lake_root_health` 进入 `excluded_asset_samples`，不进入候选。
+3. keep window 按资产实际 partition set 分组保护最近 20 个动态分区。
+4. 候选 SQL 排除 latest materialization、latest-bound checks、protected checks、keep window 和 null partition event。
+5. 本地测试已覆盖只读 SQL、范围白名单、active runs 阻断、keep window 保护和无写入口门禁。
+
+本地验证结果：`tests/test_asset_check_event_retention.py`、`tests/test_asset_check_incremental_governance.py`、`tests/test_run_contract_static_gates.py` 共 `64 passed`。
 
 ### P2：High-cardinality Index / Major Indices 治理
 
