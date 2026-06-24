@@ -8,11 +8,12 @@ interface StreakLadderPanelProps {
   viewState?: "loading" | "ready" | "error";
   errorMessage?: string;
   onAction: (message: string) => void;
+  onStockSelect: (tsCode: string) => void;
 }
 
 const FIRST_LAYER_COLLAPSED_VISIBLE_COUNT = 12;
 
-export function StreakLadderPanel({ overview, ladder, viewState = "ready", errorMessage, onAction }: StreakLadderPanelProps) {
+export function StreakLadderPanel({ overview, ladder, viewState = "ready", errorMessage, onStockSelect }: StreakLadderPanelProps) {
   const [expandedLayers, setExpandedLayers] = useState<Set<string>>(new Set());
   const ladderData = ladder ?? overview.ladderV5;
 
@@ -76,8 +77,9 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
       <article
         className={`stock-compact-card-v5 ${advClass} ${quoteUnavailable ? "quote-unavailable" : ""}`}
         key={`${stock.stockCode}-${stock.currentStreakLevel}`}
+        aria-label={`查看股票详情：${stock.stockName} ${stock.stockCode}`}
         title={titleText}
-        onClick={() => onAction(`进入个股详情：${stock.stockCode}`)}
+        onClick={() => onStockSelect(stock.stockCode)}
       >
         <span className="stock-card-code-v5">{stock.stockCode}</span>
         <div className="stock-card-split-v7">
@@ -163,7 +165,15 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
                     <div className="ladder-body-v5">
                       <div className="stock-grid-v5">{visibleStocks.map((stock) => renderCard(stock, isAbove ? "above" : "normal"))}</div>
                       {needExpand ? (
-                        <button className="ladder-expand-v5" type="button" data-layer-key={layer.key} onClick={() => toggleLayer(layer.key)}>
+                        <button
+                          className="ladder-expand-v5"
+                          type="button"
+                          data-layer-key={layer.key}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            toggleLayer(layer.key);
+                          }}
+                        >
                           <span className={`arrows ${expanded ? "is-up" : "is-down"}`} aria-hidden="true">
                             <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
                             <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
@@ -199,7 +209,15 @@ export function StreakLadderPanel({ overview, ladder, viewState = "ready", error
                       {renderSide(layer.currentLabel, layer.currentStocks)}
                     </div>
                     {needExpand ? (
-                      <button className="ladder-expand-v5" type="button" data-layer-key={layer.key} onClick={() => toggleLayer(layer.key)}>
+                      <button
+                        className="ladder-expand-v5"
+                        type="button"
+                        data-layer-key={layer.key}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          toggleLayer(layer.key);
+                        }}
+                      >
                         <span className={`arrows ${expanded ? "is-up" : "is-down"}`} aria-hidden="true">
                           <span className="arrow-line">{expanded ? "▴" : "▾"}</span>
                           <span className="arrow-line">{expanded ? "▴" : "▾"}</span>

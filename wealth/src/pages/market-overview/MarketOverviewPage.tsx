@@ -1097,6 +1097,7 @@ export function MarketOverviewPage() {
             viewState={streakLadderViewState}
             errorMessage={streakLadderErrorMessage ?? undefined}
             onAction={showToast}
+            onStockSelect={openStockDetail}
           />
           <SectorOverviewPanel
             sectorOverview={sectorOverview}

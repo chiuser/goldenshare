@@ -476,6 +476,25 @@ describe("MarketOverviewPage", () => {
     expect(window.location.pathname).toBe("/wealth/market/stock/00001.SZ");
   });
 
+  it("navigates to stock detail when a streak ladder stock card is clicked", async () => {
+    window.history.pushState({}, "", "/wealth/market/overview");
+    render(<MarketOverviewPage />);
+
+    fireEvent.click(await screen.findByLabelText("查看股票详情：东晶电子 002199.SZ"));
+
+    expect(window.location.pathname).toBe("/wealth/market/stock/002199.SZ");
+  });
+
+  it("keeps streak ladder expand buttons from navigating to stock detail", async () => {
+    window.history.pushState({}, "", "/wealth/market/overview");
+    render(<MarketOverviewPage />);
+
+    const expandButtons = await screen.findAllByRole("button", { name: /展开全部/ });
+    fireEvent.click(expandButtons[0]);
+
+    expect(window.location.pathname).toBe("/wealth/market/overview");
+  });
+
   it("renders sector matrix and heatmap exactly as the showcase requires", async () => {
     render(<MarketOverviewPage />);
 
