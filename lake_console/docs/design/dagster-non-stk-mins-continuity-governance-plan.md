@@ -622,6 +622,12 @@ AutomationCondition.eager()
 | `sensors/stock_return_distribution_continuity_sensor.py` | 对 `gold_stock_return_distribution` 执行同样 bounded 补洞逻辑。 |
 | `sensors/clickhouse_market_breadth_continuity_sensor.py` | 同时承载本机 ClickHouse serving 与 prod ClickHouse serving 两个显式 sensor；使用 bounded ClickHouse 查询和上游 frontier 检查。 |
 
+ClickHouse market breadth cursor 已按热路径口径收敛为调度路标，不作为 readiness 报告：
+
+1. cursor 只保留 selected date、reason code、blocked component、continuity frontier、serving 目标日关键 row count 和 upstream frontier。
+2. 禁止把完整 batch status、`status_samples`、gold parquet path、gold row、ClickHouse partition row map 或其它长 metadata payload 写入 cursor。
+3. 完整诊断继续从 readiness helper 输出、asset/check metadata 或单独只读审计报告获取。
+
 验收：
 
 1. `2026-06-15` 上游 ready、下游缺失、`2026-06-16` 已存在时，只提交 `2026-06-15`。

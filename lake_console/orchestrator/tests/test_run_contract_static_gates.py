@@ -697,6 +697,21 @@ class RunContractStaticGateTests(unittest.TestCase):
                 for fragment in forbidden_sensor_fragments
                 if fragment in source
             )
+            if filename == "clickhouse_market_breadth_continuity_sensor.py":
+                forbidden_clickhouse_cursor_fragments = (
+                    "to_cursor_details()",
+                    '"serving_batch_status":',
+                    '"upstream_batch_statuses":',
+                    '"status_samples"',
+                    "gold_market_breadth_daily_path",
+                    "gold_market_breadth_row",
+                    "clickhouse_row_counts_by_partition",
+                )
+                issues.extend(
+                    f"{path} contains oversized ClickHouse cursor fragment: {fragment}"
+                    for fragment in forbidden_clickhouse_cursor_fragments
+                    if fragment in source
+                )
 
         helper_path = DEFS_DIR / "asset_guards" / "market_breadth_lake_readiness.py"
         helper_source = helper_path.read_text()
@@ -2819,6 +2834,50 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         if "\"dry-run\"" in cli_source:
             issues.append(f"{cli_path} must not masquerade as a dry-run CLI")
+
+        self.assertEqual(issues, [])
+
+    def test_asset_check_incremental_governance_matrix_exists(self) -> None:
+        path = Path("tests/test_asset_check_incremental_governance.py")
+        source = path.read_text()
+        issues = []
+
+        required_fragments = (
+            "ASSET_CHECK_GOVERNANCE",
+            "PROTECTED_CHECK_GOVERNANCE",
+            "KEEP_BLOCKING_DAGSTER",
+            "MERGE_BLOCKING_DAGSTER",
+            "MOVE_TO_SENSOR_LAKE_READINESS",
+            "MOVE_TO_METADATA",
+            "MOVE_TO_OFFLINE_AUDIT",
+            "RETENTION_ONLY",
+            "STK_MINS_RETENTION_PROTECTED_CHECK_NAMES",
+            "gold_wealth_market_turnover",
+            "test_all_catalog_blocking_checks_have_incremental_governance_rule",
+            "test_sensor_readiness_checks_are_declared_in_governance_matrix",
+            "test_checks_only_jobs_never_select_materializable_assets",
+        )
+        forbidden_fragments = (
+            "delete from",
+            "insert into",
+            "update event_logs",
+            "DagsterInstance.get",
+            "get_event_records",
+            "report_runless_asset_event",
+            "asset_key::text like",
+            "--apply",
+        )
+        issues.extend(
+            f"{path} misses asset check governance fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source
+        )
+        lowered = source.lower()
+        issues.extend(
+            f"{path} contains forbidden governance fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in lowered
+        )
 
         self.assertEqual(issues, [])
 

@@ -1,3 +1,4 @@
+from collections.abc import Mapping
 from datetime import datetime
 
 import dagster as dg
@@ -37,14 +38,110 @@ from orchestrator.defs.sensors.stock_trade_day_sensor import (
 )
 
 
-def _status_payload(status: ContinuityDateReadiness | None) -> dict[str, object] | None:
-    return status.to_cursor_details() if status is not None else None
+_COMPACT_CONTINUITY_KEYS = (
+    "expected_start_date",
+    "expected_end_date",
+    "expected_count",
+    "registered_count",
+    "first_missing_registered_date",
+    "ready_through_trade_date",
+    "first_not_ready_trade_date",
+    "selected_trade_date",
+    "blocked_reason",
+    "batch_elapsed_ms",
+    "scanned_file_count",
+)
+
+_COMPACT_STATUS_SUMMARY_KEYS = (
+    "row_count",
+    "clickhouse_row_count",
+    "local_clickhouse_row_count",
+    "prod_clickhouse_row_count",
+    "missing_gold_market_breadth_daily_file",
+    "missing_gold_stock_return_distribution_file",
+    "scan_error_code",
+    "scan_error",
+)
 
 
-def _batch_payload(
+def _compact_continuity_status(
+    continuity_status: Mapping[str, object] | None,
+) -> dict[str, object] | None:
+    if continuity_status is None:
+        return None
+    payload = {
+        key: continuity_status.get(key)
+        for key in _COMPACT_CONTINUITY_KEYS
+        if key in continuity_status
+    }
+    missing_registered_dates = continuity_status.get("missing_registered_dates")
+    if isinstance(missing_registered_dates, list) and missing_registered_dates:
+        payload["missing_registered_date_count"] = len(missing_registered_dates)
+        payload["missing_registered_date_samples"] = missing_registered_dates[:5]
+    return payload
+
+
+def _compact_status_payload(
+    status: ContinuityDateReadiness | None,
+) -> dict[str, object] | None:
+    if status is None:
+        return None
+    payload: dict[str, object] = {
+        "trade_date": status.trade_date,
+        "ready": status.ready,
+        "materialized": status.materialized,
+        "checks_passed": status.checks_passed,
+        "reason": status.reason,
+        "failed_check_names": list(status.failed_check_names),
+        "missing_check_names": list(status.missing_check_names),
+        "missing_file_path_count": len(status.missing_file_paths),
+    }
+    if status.missing_file_paths:
+        payload["missing_file_path_sample"] = status.missing_file_paths[0]
+    for key in _COMPACT_STATUS_SUMMARY_KEYS:
+        if key in status.summary:
+            payload[key] = status.summary[key]
+    return payload
+
+
+def _compact_batch_frontier(
     batch_status: ContinuityBatchReadiness | None,
 ) -> dict[str, object] | None:
-    return batch_status.to_cursor_details() if batch_status else None
+    if batch_status is None:
+        return None
+    selection = select_first_not_ready_trade_date(
+        expected_trade_dates=batch_status.expected_trade_dates,
+        readiness=batch_status,
+    )
+    return {
+        "expected_count": len(batch_status.expected_trade_dates),
+        "expected_start_date": (
+            batch_status.expected_trade_dates[0]
+            if batch_status.expected_trade_dates
+            else None
+        ),
+        "expected_end_date": (
+            batch_status.expected_trade_dates[-1]
+            if batch_status.expected_trade_dates
+            else None
+        ),
+        "ready_through_trade_date": selection.ready_through_trade_date,
+        "first_not_ready_trade_date": selection.first_not_ready_trade_date,
+        "blocked_reason": selection.blocked_reason,
+        "elapsed_ms": batch_status.elapsed_ms,
+        "scanned_file_count": batch_status.scanned_file_count,
+    }
+
+
+def _blocked_component_value(
+    *,
+    selected_trade_date: str | None,
+    blocked_component: str | None,
+    reason_code: str,
+) -> str:
+    if selected_trade_date is not None or reason_code == "all_ready":
+        return "none"
+    return blocked_component or "none"
 
 
 def _cursor_payload(
@@ -73,15 +170,15 @@ def _cursor_payload(
             blocked_count = blocked_fallback
     reason_code = "request_run" if selected_trade_date else None
     blocked_component = None
-    if reason_code is None and serving_status is not None and not serving_status.ready:
-        reason_code = serving_status.reason
-        blocked_component = "serving"
     if reason_code is None:
         for name, status in (upstream_statuses or {}).items():
             if status is not None and not status.ready:
                 reason_code = status.reason
                 blocked_component = name
                 break
+    if reason_code is None and serving_status is not None and not serving_status.ready:
+        reason_code = serving_status.reason
+        blocked_component = "serving"
     if reason_code is None and continuity_status is not None:
         blocked_reason = continuity_status.get("blocked_reason")
         first_not_ready_reason = continuity_status.get("first_not_ready_reason")
@@ -99,6 +196,11 @@ def _cursor_payload(
             blocked_component = "serving"
     if reason_code is None:
         reason_code = "no_expected_trade_date" if target_trade_date is None else "all_ready"
+    blocked_component_value = _blocked_component_value(
+        selected_trade_date=selected_trade_date,
+        blocked_component=blocked_component,
+        reason_code=reason_code,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -114,17 +216,25 @@ def _cursor_payload(
             "registered_trade_day_count": registered_trade_day_count,
             "selected_trade_date": selected_trade_date,
             "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "continuity_status": continuity_status,
-            "serving_batch_status": _batch_payload(serving_batch_status),
-            "serving_status": _status_payload(serving_status),
-            "upstream_batch_statuses": {
-                name: _batch_payload(status)
+            "blocked_component": blocked_component_value,
+            "continuity_status": _compact_continuity_status(continuity_status),
+            "serving_status": _compact_status_payload(serving_status),
+            "upstream_frontiers": {
+                name: _compact_batch_frontier(status)
                 for name, status in (upstream_batch_statuses or {}).items()
             },
             "upstream_statuses": {
-                name: _status_payload(status)
+                name: _compact_status_payload(status)
                 for name, status in (upstream_statuses or {}).items()
+            },
+            "performance_ms": {
+                "serving_batch_elapsed_ms": serving_batch_status.elapsed_ms
+                if serving_batch_status
+                else None,
+                "max_upstream_batch_elapsed_ms": max(
+                    (status.elapsed_ms for status in (upstream_batch_statuses or {}).values()),
+                    default=None,
+                ),
             },
         },
     )

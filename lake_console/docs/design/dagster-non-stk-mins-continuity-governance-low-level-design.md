@@ -1050,7 +1050,25 @@ P6 已先做只读性能原型，再进入代码：
 3. 不允许全历史逐分区调用 `asset_readiness_status(...)`，P6 sensor 和 readiness helper 均不读取 Dagster event/check history。
 4. 2026-06-21 只读性能原型写入 `/private/tmp/non_stk_continuity_p6_perf_prototype.json`：60 日 breadth 完整语义约 88ms，distribution 完整语义约 114ms，ClickHouse bounded 查询 1 次、0ms 级。
 
-### 9.6 本地验收
+### 9.6 ClickHouse cursor 口径
+
+`clickhouse_market_breadth_continuity_sensor.py` 中的本机 / prod 两个 sensor 共用 compact cursor payload。
+
+cursor 只作为本 tick 调度路标：
+
+1. `continuity_status` 只记录 expected window、registered count、ready through、first not ready、selected date、blocked reason、elapsed 和 scanned count。
+2. `serving_status` 只记录目标日期 ready/materialized/checks、reason、failed/missing check names、missing path count 和关键 row count。
+3. `upstream_frontiers` 只记录每个 upstream 的 ready through、first not ready、blocked reason、elapsed 和 scanned count。
+4. `blocked_component` 必须与 skip/run 原因一致：request run / all ready 为 `none`，分区缺口为 `cn_a_stock_trade_days`，上游阻断为对应 upstream asset 名，serving 自身阻断为 `serving`。
+
+cursor 禁止承载 readiness 报告：
+
+1. 不写完整 `serving_batch_status` / `upstream_batch_statuses`。
+2. 不写 `status_samples`。
+3. 不写 gold parquet path、gold row、ClickHouse partition row map、全量 mismatch samples 或其它长 metadata payload。
+4. 完整诊断必须从 readiness helper 输出、asset/check metadata 或只读审计报告获取。
+
+### 9.7 本地验收
 
 本地纯单元测试，不运行 `dg`，不读取正式 Dagster runtime：
 
