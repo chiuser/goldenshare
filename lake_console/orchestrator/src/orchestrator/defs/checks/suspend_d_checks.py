@@ -66,10 +66,6 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_suspend_d,
-    blocking=True,
-)
 def raw_suspend_d_file_exists(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -89,10 +85,6 @@ def raw_suspend_d_file_exists(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_suspend_d,
-    blocking=True,
-)
 def raw_suspend_d_required_columns(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -124,10 +116,6 @@ def raw_suspend_d_required_columns(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_suspend_d,
-    blocking=True,
-)
 def raw_suspend_d_partition_date_matches(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -173,10 +161,6 @@ def raw_suspend_d_partition_date_matches(
     )
 
 
-@dg.asset_check(
-    asset=raw_tushare_suspend_d,
-    blocking=True,
-)
 def raw_suspend_d_schema_matches_tushare_contract(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -221,10 +205,29 @@ def raw_suspend_d_schema_matches_tushare_contract(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_suspend_daily,
-    blocking=True,
-)
+def _combined_check_result(
+    *,
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    check_scope: CheckScope,
+) -> dg.AssetCheckResult:
+    failed_rule_names = [
+        rule_name for rule_name, result in rule_results if not bool(result.passed)
+    ]
+    return dg.AssetCheckResult(
+        passed=not failed_rule_names,
+        metadata=build_check_metadata(
+            check_scope=check_scope,
+            extra_metadata={
+                "rule_passed": {
+                    rule_name: bool(result.passed)
+                    for rule_name, result in rule_results
+                },
+                "failed_rule_names": failed_rule_names,
+            },
+        ),
+    )
+
+
 def silver_suspend_d_known_type_values(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -303,10 +306,6 @@ def silver_suspend_d_known_type_values(
     )
 
 
-@dg.asset_check(
-    asset=silver_stock_suspend_daily,
-    blocking=True,
-)
 def silver_suspend_d_unique_business_key(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -367,3 +366,60 @@ def silver_suspend_d_unique_business_key(
             },
         ),
     )
+
+
+@dg.asset_check(
+    asset=raw_tushare_suspend_d,
+    blocking=True,
+)
+def raw_suspend_d_contract_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return _combined_check_result(
+        rule_results=(
+            ("file_exists", raw_suspend_d_file_exists(context, lake_root)),
+            (
+                "required_columns",
+                raw_suspend_d_required_columns(context, lake_root, duckdb),
+            ),
+            (
+                "schema_matches_tushare_contract",
+                raw_suspend_d_schema_matches_tushare_contract(
+                    context,
+                    lake_root,
+                    duckdb,
+                ),
+            ),
+            (
+                "partition_date_matches",
+                raw_suspend_d_partition_date_matches(context, lake_root, duckdb),
+            ),
+        ),
+        check_scope=CheckScope.SCHEMA,
+    )
+
+
+@dg.asset_check(
+    asset=silver_stock_suspend_daily,
+    blocking=True,
+)
+def silver_suspend_d_key_integrity_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_suspend_d_unique_business_key(context, lake_root, duckdb)
+
+
+@dg.asset_check(
+    asset=silver_stock_suspend_daily,
+    blocking=True,
+)
+def silver_suspend_d_suspend_type_domain_check(
+    context: dg.AssetCheckExecutionContext,
+    lake_root: LakeRootResource,
+    duckdb: DuckDBResource,
+) -> dg.AssetCheckResult:
+    return silver_suspend_d_known_type_values(context, lake_root, duckdb)

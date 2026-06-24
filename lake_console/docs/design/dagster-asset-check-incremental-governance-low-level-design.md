@@ -488,8 +488,8 @@ DuckDB lake readiness，不回到 Dagster check history 深扫。
 
 ### P3 Stock Daily / Suspend / Adj Factor
 
-状态：分阶段推进。P3A `adj_factor`、P3B `stock_daily` 已落地；
-P3C `suspend` 后续单独推进，避免一次性混改三条资产族。
+状态：已完成。P3A `adj_factor`、P3B `stock_daily`、P3C `suspend`
+均已落地。
 
 #### 改动文件
 
@@ -530,11 +530,16 @@ P3C `suspend` 后续单独推进，避免一次性混改三条资产族。
 
 `suspend`：
 
-- 合并为：
-  - `*_contract_check`
-  - `*_key_integrity_check`
-  - `*_suspend_type_domain_check`
-- row count/source file/sample rows 迁到 metadata。
+- P3C 已落地。
+- `raw_tushare_suspend_d` 正式 Dagster checks 收敛为：
+  - `raw_suspend_d_contract_check`
+  - `raw_suspend_d_partition_allowed_check`
+- `silver_stock_suspend_daily` 正式 Dagster checks 收敛为：
+  - `silver_suspend_d_key_integrity_check`
+  - `silver_suspend_d_suspend_type_domain_check`
+  - `silver_suspend_d_partition_allowed_check`
+- 旧细粒度 suspend 函数只作为内部 helper；catalog、readiness spec 与治理
+  矩阵只保留新 check name。
 
 `adj_factor`：
 

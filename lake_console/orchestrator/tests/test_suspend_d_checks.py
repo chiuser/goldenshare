@@ -28,11 +28,17 @@ class _PartitionContext:
 
 
 def _check_function(check_definition):
-    return check_definition.node_def.compute_fn.decorated_fn
+    node_def = getattr(check_definition, "node_def", None)
+    if node_def is None:
+        return check_definition
+    return node_def.compute_fn.decorated_fn
 
 
 def _check_name(check_definition) -> str:
-    return check_definition.node_def.name
+    node_def = getattr(check_definition, "node_def", None)
+    if node_def is None:
+        return check_definition.__name__
+    return node_def.name
 
 
 def _write_rows(
@@ -115,20 +121,21 @@ class SuspendDCheckTests(unittest.TestCase):
         self.assertEqual(
             readiness.RAW_SUSPEND_D_CHECKS,
             (
-                "raw_suspend_d_file_exists",
-                "raw_suspend_d_partition_date_matches",
-                "raw_suspend_d_required_columns",
-                "raw_suspend_d_schema_matches_tushare_contract",
-                "raw_suspend_d_stock_partition_key_allowed",
+                "raw_suspend_d_contract_check",
+                "raw_suspend_d_partition_allowed_check",
             ),
         )
         self.assertEqual(
             readiness.SILVER_SUSPEND_D_CHECKS,
             (
-                "silver_suspend_d_known_type_values",
-                "silver_suspend_d_stock_partition_key_allowed",
-                "silver_suspend_d_unique_business_key",
+                "silver_suspend_d_key_integrity_check",
+                "silver_suspend_d_suspend_type_domain_check",
+                "silver_suspend_d_partition_allowed_check",
             ),
+        )
+        self.assertNotIn(
+            "raw_suspend_d_required_columns",
+            readiness.RAW_SUSPEND_D_CHECKS,
         )
         self.assertNotIn(
             "raw_suspend_d_row_count_positive",
@@ -144,19 +151,14 @@ class SuspendDCheckTests(unittest.TestCase):
             duckdb_resource = DuckDBResource()
 
             check_definitions = (
-                checks.raw_suspend_d_file_exists,
-                checks.raw_suspend_d_required_columns,
-                checks.raw_suspend_d_partition_date_matches,
-                checks.raw_suspend_d_schema_matches_tushare_contract,
-                stock_partition_checks.raw_suspend_d_stock_partition_key_allowed,
+                checks.raw_suspend_d_contract_check,
+                stock_partition_checks.raw_suspend_d_partition_allowed_check,
             )
             for check_definition in check_definitions:
                 with self.subTest(check=_check_name(check_definition)):
                     check_fn = _check_function(check_definition)
-                    if _check_name(check_definition).endswith("_file_exists"):
-                        result = check_fn(context, lake_root)
-                    elif _check_name(check_definition).endswith(
-                        "_stock_partition_key_allowed"
+                    if _check_name(check_definition).endswith(
+                        "_partition_allowed_check"
                     ):
                         result = check_fn(context)
                     else:
@@ -216,15 +218,15 @@ class SuspendDCheckTests(unittest.TestCase):
             duckdb_resource = DuckDBResource()
 
             check_definitions = (
-                checks.silver_suspend_d_known_type_values,
-                stock_partition_checks.silver_suspend_d_stock_partition_key_allowed,
-                checks.silver_suspend_d_unique_business_key,
+                checks.silver_suspend_d_key_integrity_check,
+                checks.silver_suspend_d_suspend_type_domain_check,
+                stock_partition_checks.silver_suspend_d_partition_allowed_check,
             )
             for check_definition in check_definitions:
                 with self.subTest(check=_check_name(check_definition)):
                     check_fn = _check_function(check_definition)
                     if _check_name(check_definition).endswith(
-                        "_stock_partition_key_allowed"
+                        "_partition_allowed_check"
                     ):
                         result = check_fn(context)
                     else:

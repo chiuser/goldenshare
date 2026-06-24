@@ -151,16 +151,13 @@ SILVER_STOCK_IDENTITY_MAP_CHECKS = (
     "silver_stock_identity_map_source_ts_code_unique",
 )
 RAW_SUSPEND_D_CHECKS = (
-    "raw_suspend_d_file_exists",
-    "raw_suspend_d_partition_date_matches",
-    "raw_suspend_d_required_columns",
-    "raw_suspend_d_schema_matches_tushare_contract",
-    "raw_suspend_d_stock_partition_key_allowed",
+    "raw_suspend_d_contract_check",
+    "raw_suspend_d_partition_allowed_check",
 )
 SILVER_SUSPEND_D_CHECKS = (
-    "silver_suspend_d_known_type_values",
-    "silver_suspend_d_stock_partition_key_allowed",
-    "silver_suspend_d_unique_business_key",
+    "silver_suspend_d_key_integrity_check",
+    "silver_suspend_d_suspend_type_domain_check",
+    "silver_suspend_d_partition_allowed_check",
 )
 RAW_STOCK_DAILY_CHECKS = (
     "raw_stock_daily_contract_check",

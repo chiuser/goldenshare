@@ -172,23 +172,22 @@ class SuspendDSensorTests(unittest.TestCase):
         )
 
     def test_existing_suspend_d_check_names_are_not_renamed(self) -> None:
-        self.assertIn("raw_suspend_d_file_exists", RAW_SUSPEND_D_CHECKS)
-        self.assertIn("raw_suspend_d_partition_date_matches", RAW_SUSPEND_D_CHECKS)
-        self.assertIn("raw_suspend_d_required_columns", RAW_SUSPEND_D_CHECKS)
-        self.assertIn(
-            "raw_suspend_d_schema_matches_tushare_contract",
+        self.assertEqual(
             RAW_SUSPEND_D_CHECKS,
+            (
+                "raw_suspend_d_contract_check",
+                "raw_suspend_d_partition_allowed_check",
+            ),
         )
-        self.assertIn(
-            "raw_suspend_d_stock_partition_key_allowed",
-            RAW_SUSPEND_D_CHECKS,
-        )
-        self.assertIn("silver_suspend_d_known_type_values", SILVER_SUSPEND_D_CHECKS)
-        self.assertIn(
-            "silver_suspend_d_stock_partition_key_allowed",
+        self.assertEqual(
             SILVER_SUSPEND_D_CHECKS,
+            (
+                "silver_suspend_d_key_integrity_check",
+                "silver_suspend_d_suspend_type_domain_check",
+                "silver_suspend_d_partition_allowed_check",
+            ),
         )
-        self.assertIn("silver_suspend_d_unique_business_key", SILVER_SUSPEND_D_CHECKS)
+        self.assertNotIn("raw_suspend_d_required_columns", RAW_SUSPEND_D_CHECKS)
         self.assertNotIn("raw_suspend_d_row_count_positive", RAW_SUSPEND_D_CHECKS)
 
     def test_raw_sensor_submits_run_when_raw_missing(self) -> None:
@@ -306,12 +305,12 @@ class SuspendDSensorTests(unittest.TestCase):
             ),
             _raw_status(
                 ready=False,
-                missing_check_names=("raw_suspend_d_required_columns",),
+                missing_check_names=("raw_suspend_d_contract_check",),
                 reason="raw_tushare_suspend_d missing blocking checks",
             ),
             _raw_status(
                 ready=False,
-                failed_check_names=("raw_suspend_d_partition_date_matches",),
+                failed_check_names=("raw_suspend_d_contract_check",),
                 reason="raw_tushare_suspend_d failed blocking checks",
             ),
         )

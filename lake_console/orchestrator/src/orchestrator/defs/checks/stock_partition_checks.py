@@ -53,18 +53,30 @@ def _stock_partition_key_allowed_result(
     )
 
 
-@dg.asset_check(asset=raw_tushare_suspend_d, blocking=True)
 def raw_suspend_d_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)
 
 
-@dg.asset_check(asset=silver_stock_suspend_daily, blocking=True)
 def silver_suspend_d_stock_partition_key_allowed(
     context: dg.AssetCheckExecutionContext,
 ) -> dg.AssetCheckResult:
     return _stock_partition_key_allowed_result(context)
+
+
+@dg.asset_check(asset=raw_tushare_suspend_d, blocking=True)
+def raw_suspend_d_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return raw_suspend_d_stock_partition_key_allowed(context)
+
+
+@dg.asset_check(asset=silver_stock_suspend_daily, blocking=True)
+def silver_suspend_d_partition_allowed_check(
+    context: dg.AssetCheckExecutionContext,
+) -> dg.AssetCheckResult:
+    return silver_suspend_d_stock_partition_key_allowed(context)
 
 
 def raw_stock_daily_stock_partition_key_allowed(
