@@ -23,7 +23,7 @@
 
 1. latest materialization 查询很快，单个资产约 0.6ms。
 2. 慢点集中在高基数 asset check / partition status 查询。
-3. 股票分钟线相关 `asset_check_executions` 已接近 60 万行。
+3. 治理前股票分钟线相关 `asset_check_executions` 接近 60 万行；P3C 完成后，正式 Dagster DB 中 `asset_check_executions` 总量约为 `427,099` 行，分钟线普通历史删除候选已归零。
 4. 当前标准 `VACUUM` 已完成，只能回收 dead tuples 给表内复用，不能解决仍然活跃的大量历史 check / materialization event。
 
 分钟线资产族天然高基数：
@@ -126,30 +126,48 @@
 4. `run_tags`
 5. 无法与候选 event 精确绑定的其它 event type
 
-## 5. 当前候选规模
+## 5. 候选规模与当前状态
 
-基于 2026-06-23 只读审计，按“统一保留最近 20 个 `cn_a_stock_mins_trade_days`，删除更早普通分钟线 event”估算：
+### 5.1 P3C 执行前基线
+
+基于 2026-06-23 P3B 执行后的 post dry-run，按“统一保留最近 20 个 `cn_a_stock_mins_trade_days`，删除更早普通分钟线 event”估算，P3C 执行前剩余候选为：
 
 | 项 | 候选数量 |
 | --- | ---: |
-| check candidates | 592,457 |
-| check evaluation event candidates | 592,457 |
+| check candidates | 466,333 |
+| check evaluation event candidates | 466,333 |
 | check event tag candidates | 0 |
-| materialization candidates | 99,303 |
-| materialization tag candidates | 56 |
+| materialization candidates | 57,225 |
+| materialization tag candidates | 66 |
 | asset count | 31 |
 
 按资产族拆分：
 
 | 资产族 | check candidates | materialization candidates |
 | --- | ---: | ---: |
-| gold qfq | 168,448 | 21,056 |
-| silver_stk_mins | 150,400 | 15,040 |
-| raw_stk_mins | 147,273 | 21,095 |
-| MACD/KDJ indicator | 84,224 | 21,056 |
-| MACD/KDJ state | 42,112 | 21,056 |
+| gold qfq | 168,560 | 21,070 |
+| silver_stk_mins | 150,500 | 15,050 |
+| raw_stk_mins | 147,273 | 21,105 |
+| MACD/KDJ indicator | 0 | 0 |
+| MACD/KDJ state | 0 | 0 |
 
 这才是对分钟线 UI Status 慢有实质影响的清理量级。此前 P4 old-state 规则只清“同分区被后续 materialization 覆盖的旧状态”，不适合当前“历史分区只保留最近 20 日”的目标。
+
+P2D 已清理 `gold_stk_mins_qfq_macd_kdj_state_120m` 的旧普通 event；P3A 已继续清理剩余 6 个 state 资产，因此 MACD/KDJ state 当前普通历史 event 候选已归零。P3B 已清理 7 个 MACD/KDJ indicator 资产，因此 MACD/KDJ indicator 当前普通历史 event 候选也已归零。
+
+### 5.2 P3C 完成后状态
+
+2026-06-23 P3C 已继续清理 `raw_stk_mins`、`silver_stk_mins`、`gold_stk_mins_qfq` 三个资产族。基于 P3C3 post dry-run `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_post_dry_run_20260623_235035.json`：
+
+| 资产族 | check candidates | materialization candidates |
+| --- | ---: | ---: |
+| raw_stk_mins | 0 | 0 |
+| silver_stk_mins | 0 | 0 |
+| gold qfq | 0 | 0 |
+| MACD/KDJ indicator | 0 | 0 |
+| MACD/KDJ state | 0 | 0 |
+
+当前 31 个股票分钟线资产的普通历史删除候选已经归零；剩余保留状态包括 latest state、最近 20 个 `cn_a_stock_mins_trade_days`、repair/status/completion 状态账本、runs/run_tags、dynamic partitions 和 planned events。
 
 ## 6. 安全断言
 
@@ -166,7 +184,7 @@
 9. 候选不包含 non-stk-mins 资产。
 10. 候选不包含 running / queued run 相关 event。
 11. 删除后 latest state 对账结果必须与删除前一致。
-12. 正式删除前 `runs` 中 `QUEUED / STARTING / STARTED / CANCELING` 必须为 0；2026-06-23 审计发现当前仍有 2 个 `index_daily_update_job` queued run，因此当前不具备删除执行条件。
+12. 正式删除前 `runs` 中 `QUEUED / STARTING / STARTED / CANCELING` 必须为 0；P3C 各阶段执行前后均已确认 active runs 为 0。
 
 如果任何断言失败，必须停止，不允许“修补式删除”。
 
@@ -393,7 +411,32 @@ SELECT count(*) FROM materialization_candidates;
 8. 提交前重新执行 safety assertions；任一断言失败则 rollback。
 9. 本地单元测试和静态门禁覆盖确认参数、单资产限制、白名单限制、protected checks 保护、latest 保护、事务 rollback 和删除顺序。
 
-注意：P2C / P2D 正式 DB 删除尚未执行。正式执行前仍必须重新 dry-run、确认 active runs 为 0、完整备份 Dagster Postgres，并单独获得批准。
+2026-06-23 已完成 P2C / P2D 正式 sample deletion：
+
+1. P2C 正式只读 dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p2c_dry_run_20260623_222543.json`。
+2. P2C 完整备份：
+   `/private/tmp/goldenshare_dagster_stk_mins_retention_p2c_backup_20260623_222543.dump`，大小约 `2.1G`，且 `pg_restore --list` 已验证可读。
+3. P2D sample-delete 报告：
+   `/private/tmp/stk_mins_event_history_retention_p2d_sample_delete_20260623_223700.json`。
+4. P2D post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p2d_post_dry_run_20260623_223700.json`。
+5. P2D 仅处理样本资产 `gold_stk_mins_qfq_macd_kdj_state_120m`。
+6. P2D 删除结果：
+   - `ASSET_CHECK_EVALUATION` event：`6020`
+   - `asset_check_executions` rows：`6020`
+   - `ASSET_MATERIALIZATION` event：`3010`
+   - `asset_event_tags` rows：`0`
+7. P2D post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - 样本资产候选已归零
+   - 样本资产 latest materialization id 仍为 `6533625`
+   - 样本资产 latest partition 仍为 `2026-06-18`
+   - 样本资产 latest checks 仍为 `2`
+   - protected checks 数量仍为 `314`
+
+P2D 之后 Dagster DB 已发生正式删除动作，因此后续 P3 正式执行前必须重新备份，不能只依赖 P2C 备份。
 
 验收：
 
@@ -403,29 +446,241 @@ SELECT count(*) FROM materialization_candidates;
 4. sensor 只读状态正常。
 5. Assets 页面对应资产 Status 可正常显示。
 
-### P3：按资产族分批删除
+### P3：分阶段扩大删除范围
 
-推荐顺序：
+P3 不直接进入五大资产族全量删除。P3A 先只处理 P2D 后剩余的 MACD/KDJ state 6 个资产，继续使用已验证的单资产 sample-delete 路径，逐资产串行执行。
 
-1. MACD/KDJ state
-2. MACD/KDJ indicator
-3. raw_stk_mins
-4. silver_stk_mins
-5. gold qfq
+#### P3A：MACD/KDJ state 剩余 6 个资产
 
-原因：
+P3A 白名单固定为：
 
-1. 先清 MACD/KDJ state / indicator，直接对应当前 UI 慢线索。
-2. 再清 raw/silver/qfq，降低全量分钟线 check 基数。
-3. gold qfq 涉及 qfq factor repair 语义更多，放在后面更稳。
+1. `gold_stk_mins_qfq_macd_kdj_state_1m`
+2. `gold_stk_mins_qfq_macd_kdj_state_5m`
+3. `gold_stk_mins_qfq_macd_kdj_state_15m`
+4. `gold_stk_mins_qfq_macd_kdj_state_30m`
+5. `gold_stk_mins_qfq_macd_kdj_state_60m`
+6. `gold_stk_mins_qfq_macd_kdj_state_90m`
 
-每批都必须：
+已在 P2D 清理完成的 `gold_stk_mins_qfq_macd_kdj_state_120m` 不再进入 P3A。
 
-1. 单独 dry-run。
-2. 单独事务删除。
-3. 单独 post dry-run。
-4. 单独 latest state 对账。
-5. 单独 UI 抽查。
+P3A 执行前候选规模：
+
+| 项 | 数量 |
+| --- | ---: |
+| check candidates | 36,120 |
+| materialization candidates | 18,060 |
+| check event tags | 0 |
+| materialization event tags | 0 |
+
+按单个资产估算，每个 state 资产约清理 `6020` 条 check event / check execution 和 `3010` 条 materialization event。
+
+P3A 执行方式：
+
+1. 保守复用现有 `stk_mins_event_history_retention_sample_delete_cli sample-delete`。
+2. 逐资产串行执行 6 次，每次只传 1 个 `--sample-asset`。
+3. 每个资产单独事务、单独输出报告、单独验收。
+4. 任一资产失败立即停止，不继续执行后续资产。
+5. 不新增 P3A 专用批量删除 SQL；避免在已验证 sample-delete 之外引入新删除路径。
+
+P3A 正式执行前必须重新做：
+
+1. active runs = `0`，查询 `runs` 中 `QUEUED / STARTING / STARTED / CANCELING` 必须为 0。
+2. 重新完整备份 Dagster Postgres。因为 P2D 已改变 DB，P3A 不只依赖 P2C 备份。
+3. 保存 P3A pre dry-run 报告，例如：
+   `/private/tmp/stk_mins_event_history_retention_p3a_pre_dry_run_<timestamp>.json`。
+4. pre dry-run 必须满足：
+   - `should_stop=false`
+   - keep window 仍来自最近 20 个 `cn_a_stock_mins_trade_days`
+   - P3A 执行白名单只包含上述 6 个 state 资产；全局 dry-run 中其它资产族候选只记录，不在 P3A 删除
+   - 上述 6 个 state 资产候选量与预期对齐
+   - 候选不包含 keep20
+   - 候选不包含 latest materialization
+   - 候选不包含 latest materialization 绑定 checks
+   - 候选不包含 protected checks
+
+P3A 正式执行后必须做 post dry-run：
+
+1. 保存 P3A post dry-run 报告，例如：
+   `/private/tmp/stk_mins_event_history_retention_p3a_post_dry_run_<timestamp>.json`。
+2. `macd_kdj_state` 资产族候选应归零：
+   - check candidates = `0`
+   - materialization candidates = `0`
+3. latest / protected / keep20 安全断言继续全绿。
+4. active runs 仍为 `0`。
+5. protected checks 数量保持不变。
+6. 若当时无法启动 Dagster UI / daemon，只允许把 UI 抽查延后；DB 层 dry-run 和 latest-state 对账仍是 P3A 的硬验收。
+
+2026-06-23 已完成 P3A 正式执行：
+
+1. P3A 重新备份：
+   `/private/tmp/goldenshare_dagster_stk_mins_retention_p3a_backup_20260623_225055.dump`，大小约 `2.1G`，且 `pg_restore --list` 已验证可读。
+2. P3A pre dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3a_pre_dry_run_20260623_225055.json`。
+3. P3A sample-delete 报告：
+   - `/private/tmp/stk_mins_event_history_retention_p3a_gold_stk_mins_qfq_macd_kdj_state_1m_20260623_225055.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3a_gold_stk_mins_qfq_macd_kdj_state_5m_20260623_225055.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3a_gold_stk_mins_qfq_macd_kdj_state_15m_20260623_225055.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3a_gold_stk_mins_qfq_macd_kdj_state_30m_20260623_225055.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3a_gold_stk_mins_qfq_macd_kdj_state_60m_20260623_225055.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3a_gold_stk_mins_qfq_macd_kdj_state_90m_20260623_225055.json`
+4. P3A post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3a_post_dry_run_20260623_225055.json`。
+5. P3A 删除结果：
+   - `ASSET_CHECK_EVALUATION` event：`36,120`
+   - `asset_check_executions` rows：`36,120`
+   - `ASSET_MATERIALIZATION` event：`18,060`
+   - `asset_event_tags` rows：`0`
+6. P3A post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - MACD/KDJ state 资产族候选已归零
+   - latest / protected / keep20 安全断言继续全绿
+   - protected checks 数量仍为 `314`
+   - `dynamic_partitions` 行数仍为 `30,564`
+
+P3A 只完成 MACD/KDJ state 资产族清理，不自动进入 P3B。
+
+#### P3B：MACD/KDJ indicator 7 个资产
+
+P3B 白名单固定为：
+
+1. `gold_stk_mins_qfq_macd_kdj_1m`
+2. `gold_stk_mins_qfq_macd_kdj_5m`
+3. `gold_stk_mins_qfq_macd_kdj_15m`
+4. `gold_stk_mins_qfq_macd_kdj_30m`
+5. `gold_stk_mins_qfq_macd_kdj_60m`
+6. `gold_stk_mins_qfq_macd_kdj_90m`
+7. `gold_stk_mins_qfq_macd_kdj_120m`
+
+2026-06-23 已完成 P3B 正式执行：
+
+1. P3B 重新备份：
+   `/private/tmp/goldenshare_dagster_stk_mins_retention_p3b_backup_20260623_230802.dump`，大小约 `2.1G`，且 `pg_restore --list` 已验证可读。
+2. P3B pre dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3b_pre_dry_run_20260623_230802.json`。
+3. P3B sample-delete 报告：
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_1m_20260623_230802.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_5m_20260623_230802.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_15m_20260623_230802.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_30m_20260623_230802.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_60m_20260623_230802.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_90m_20260623_230802.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3b_gold_stk_mins_qfq_macd_kdj_120m_20260623_230802.json`
+4. P3B post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3b_post_dry_run_20260623_230802.json`。
+5. P3B 删除结果：
+   - `ASSET_CHECK_EVALUATION` event：`84,280`
+   - `asset_check_executions` rows：`84,280`
+   - `ASSET_MATERIALIZATION` event：`21,070`
+   - `asset_event_tags` rows：`0`
+6. P3B post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - MACD/KDJ indicator 资产族候选已归零
+   - MACD/KDJ state 资产族候选仍为 `0`
+   - latest / protected / keep20 安全断言继续全绿
+   - protected checks 数量仍为 `314`
+   - `dynamic_partitions` 行数仍为 `30,564`
+
+P3B 只完成 MACD/KDJ indicator 资产族清理，不自动进入 P3C。
+
+#### P3C：raw / silver / gold qfq 三族
+
+P3C 拆成三个可单独停止的小阶段，继续沿用 P2D/P3A/P3B 已验证的 `sample-delete` 单资产路径，逐资产串行执行：
+
+1. P3C1：`raw_stk_mins`，5 个资产。
+2. P3C2：`silver_stk_mins`，5 个资产。
+3. P3C3：`gold_stk_mins_qfq`，7 个资产。
+
+2026-06-23 已完成 P3C1 raw 正式执行：
+
+1. P3C1 重新备份：
+   `/private/tmp/goldenshare_dagster_stk_mins_retention_p3c1_raw_backup_20260623_233138.dump`，大小约 `2.0G`，且 `pg_restore --list` 已验证可读。
+2. P3C1 pre dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3c1_raw_pre_dry_run_20260623_233138.json`。
+3. P3C1 sample-delete 报告：
+   - `/private/tmp/stk_mins_event_history_retention_p3c1_raw_raw_stk_mins_1m_20260623_233138.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c1_raw_raw_stk_mins_5m_20260623_233138.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c1_raw_raw_stk_mins_15m_20260623_233138.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c1_raw_raw_stk_mins_30m_20260623_233138.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c1_raw_raw_stk_mins_60m_20260623_233138.json`
+4. P3C1 post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3c1_raw_post_dry_run_20260623_233138.json`。
+5. P3C1 删除结果：
+   - `ASSET_CHECK_EVALUATION` event：`147,273`
+   - `asset_check_executions` rows：`147,273`
+   - `ASSET_MATERIALIZATION` event：`21,105`
+   - `asset_event_tags` rows：`66`
+6. P3C1 post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - raw_stk_mins 资产族候选已归零
+   - MACD/KDJ state / indicator 资产族候选仍为 `0`
+   - latest / protected / keep20 安全断言继续全绿
+   - protected checks 数量仍为 `314`
+   - `dynamic_partitions` 行数仍为 `30,564`
+
+2026-06-23 已完成 P3C2 silver 正式执行：
+
+1. P3C2 重新备份：
+   `/private/tmp/goldenshare_dagster_stk_mins_retention_p3c2_silver_backup_20260623_234053.dump`，大小约 `2.0G`，且 `pg_restore --list` 已验证可读。
+2. P3C2 pre dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3c2_silver_pre_dry_run_20260623_234053.json`。
+3. P3C2 sample-delete 报告：
+   - `/private/tmp/stk_mins_event_history_retention_p3c2_silver_silver_stk_mins_1m_20260623_234053.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c2_silver_silver_stk_mins_5m_20260623_234053.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c2_silver_silver_stk_mins_15m_20260623_234053.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c2_silver_silver_stk_mins_30m_20260623_234053.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c2_silver_silver_stk_mins_60m_20260623_234053.json`
+4. P3C2 post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3c2_silver_post_dry_run_20260623_234053.json`。
+5. P3C2 删除结果：
+   - `ASSET_CHECK_EVALUATION` event：`150,500`
+   - `asset_check_executions` rows：`150,500`
+   - `ASSET_MATERIALIZATION` event：`15,050`
+   - `asset_event_tags` rows：`0`
+6. P3C2 post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - silver_stk_mins 资产族候选已归零
+   - raw_stk_mins 资产族候选仍为 `0`
+   - MACD/KDJ state / indicator 资产族候选仍为 `0`
+   - latest / protected / keep20 安全断言继续全绿
+   - protected checks 数量仍为 `314`
+   - `dynamic_partitions` 行数仍为 `30,564`
+
+2026-06-23 已完成 P3C3 gold qfq 正式执行：
+
+1. P3C3 重新备份：
+   `/private/tmp/goldenshare_dagster_stk_mins_retention_p3c3_gold_qfq_backup_20260623_235035.dump`，大小约 `2.0G`，且 `pg_restore --list` 已验证可读。
+2. P3C3 pre dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_pre_dry_run_20260623_235035.json`。
+3. P3C3 sample-delete 报告：
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_1m_20260623_235035.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_5m_20260623_235035.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_15m_20260623_235035.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_30m_20260623_235035.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_60m_20260623_235035.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_90m_20260623_235035.json`
+   - `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_gold_stk_mins_qfq_120m_20260623_235035.json`
+4. P3C3 post dry-run 报告：
+   `/private/tmp/stk_mins_event_history_retention_p3c3_gold_qfq_post_dry_run_20260623_235035.json`。
+5. P3C3 删除结果：
+   - `ASSET_CHECK_EVALUATION` event：`168,560`
+   - `asset_check_executions` rows：`168,560`
+   - `ASSET_MATERIALIZATION` event：`21,070`
+   - `asset_event_tags` rows：`0`
+6. P3C3 post dry-run 确认：
+   - `should_stop=false`
+   - active runs = `0`
+   - raw_stk_mins / silver_stk_mins / gold qfq 候选均已归零
+   - MACD/KDJ state / indicator 候选仍为 `0`
+   - 全部 31 个股票分钟线资产普通历史候选已归零
+   - latest / protected / keep20 安全断言继续全绿
+   - protected checks 数量仍为 `314`
+   - `dynamic_partitions` 行数仍为 `30,564`
+
+P3C 完成后，不再有股票分钟线普通历史 event 删除候选。下一步只允许进入 P4 标准 `VACUUM (VERBOSE, ANALYZE)`，不新增删除范围。
 
 ### P4：P3 后标准 VACUUM
 
