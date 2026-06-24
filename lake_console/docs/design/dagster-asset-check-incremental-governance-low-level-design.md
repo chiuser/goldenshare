@@ -1613,9 +1613,102 @@ post dry-run：
   events。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
-P7C-E 若继续推进，必须重新选择下一批资产，重新做 active-runs 确认、
-重新备份、重新 pre dry-run，并单独获得正式删除批准；不得复用 P7C-D 的备份或
-pre dry-run 作为下一批依据。
+P7C-E 已在下一节单独审计、备份并停在正式删除批准前；后续不得复用 P7C-D 的
+备份或 pre dry-run 作为依据。
+
+#### 2026-06-25 P7C-E `ch_share_fact_market_breadth_daily` 删除前安全审计
+
+本节只记录删除前安全审计、pre dry-run 与备份结果，尚未执行正式 DB 删除。
+P7C-E 选择 `ch_share_fact_market_breadth_daily` 作为下一批候选，是因为它是
+`gold_market_breadth_daily` 与 `gold_stock_return_distribution` 下游本机 ClickHouse
+serving 资产；P7C-D post dry-run 中该资产只剩 old materialization event 候选，
+check event 候选为 0。该资产仍必须在正式删除前单独获得用户批准。
+
+P7C-D post dry-run 中该资产候选：
+
+- 资产：`ch_share_fact_market_breadth_daily`
+- family：`clickhouse_serving`
+- check event / execution 候选：0
+- materialization 候选：3,011
+- materialization event tag 候选：3,011
+- latest materialization id：`6630945`
+- latest partition：`2026-06-24`
+- latest check count：6，latest non-succeeded check count：0
+- keep partition set：`cn_a_stock_trade_days`
+- keep20：`2026-05-27` 到 `2026-06-24`
+
+代码审计结论：
+
+- 正式自动触发入口是 `clickhouse_market_breadth_continuity_sensor`。它按
+  `load_expected_trade_date_window(...)` 读取 bounded expected trade dates，通过
+  `build_registered_gap_status(...)` 检查 `cn_a_stock_trade_days` 注册缺口，再用
+  `batch_clickhouse_market_breadth_readiness(...)` 从本机 ClickHouse 当前数据和
+  lake gold 文件事实判断 first-not-ready。它不读取
+  `ch_share_fact_market_breadth_daily` 自身的全历史 Dagster materialization/check event。
+- 该 sensor 还会在同一窗口内调用
+  `batch_gold_market_breadth_lake_readiness(...)` 与
+  `batch_gold_stock_return_distribution_lake_readiness(...)` 作为上游门禁。两个上游
+  readiness 都读取 lake 文件事实，不读取被删除的本机 ClickHouse serving 旧历史 event。
+- `batch_clickhouse_market_breadth_readiness(...)` 一次读取目标窗口内的 ClickHouse
+  分区行，再用 `gold_market_breadth_daily_path(...)` 和
+  `gold_stock_return_distribution_path(...)` 计算期望行并做对账；不访问 Dagster
+  instance、event log 或 check history。
+- `ch_share_fact_market_breadth_daily` asset 写入函数只读取 selected partition 的
+  `gold_market_breadth_daily_path(...)` 与
+  `gold_stock_return_distribution_path(...)`，然后用同步 delete-then-insert 语义替换
+  ClickHouse 单日分区；不会读取自身旧 materialization/check event 来决定 source file、
+  run config、partition key 或写入范围。
+- 下游 `prod_ch_share_fact_market_breadth_daily` 的显式 bounded sensor 以本机
+  ClickHouse serving 当前行和 lake-derived readiness 作为上游门禁，不依赖
+  `ch_share_fact_market_breadth_daily` 的全历史 old materialization event。
+
+安全结论：
+
+- 删除该资产 keep20 之外、latest state 之外的 old materialization event，不会改变
+  `ch_share_fact_market_breadth_daily` 的自动触发目标选择、run key、run config、
+  partition set、source file selection、ClickHouse 写入路径或下游 prod sync 门禁。
+- 删除该资产 old materialization event 不会影响本机 ClickHouse serving 当前数据；
+  数据事实仍在 ClickHouse 表与上游 lake gold parquet 中。
+- 由于候选中 check event 为 0，本批不涉及删除该资产的历史 check event。
+
+P7C-E preflight：
+
+- 进程冻结检查：未发现 `dagster` / `dg dev` / `dagster-webserver` /
+  `dagster-daemon` / `code-server` / `orchestrator` 匹配进程。
+- active runs：0。
+- pre dry-run：
+  `/private/tmp/asset_check_event_retention_p7ce_ch_share_fact_market_breadth_daily_pre_dry_run_20260625.json`
+- pre dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - `ch_share_fact_market_breadth_daily` 候选仍为 0 条 check event / execution、
+    3,011 条 materialization event、3,011 条 materialization event tags
+  - latest materialization id 仍为 `6630945`
+  - latest partition 仍为 `2026-06-24`
+  - latest check count 仍为 6，latest non-succeeded check count 仍为 0
+  - keep windows 仍为 `2026-05-27` 到 `2026-06-24`
+- 备份：
+  `/private/tmp/goldenshare_dagster_asset_check_retention_p7ce_ch_share_fact_market_breadth_daily_backup_20260625.dump`
+- 备份大小：`362M`。
+- `pg_restore --list`：通过。
+
+本次审计未执行：
+
+- 未删除 Dagster DB event。
+- 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
+  events。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
+正式执行前仍必须满足：
+
+1. 获得用户对 `ch_share_fact_market_breadth_daily` 正式 sample-delete 的单独批准。
+2. 执行前再次确认 active runs 为 0。
+3. 只允许执行单资产 `sample-delete --sample-asset ch_share_fact_market_breadth_daily`。
+4. 删除后必须立即执行 post dry-run；若 latest / keep20 / protected 任一断言失败，
+   必须停止后续批次。
 
 ## 8. Stop Conditions
 
