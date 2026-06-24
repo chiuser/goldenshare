@@ -784,3 +784,4 @@ CodeGraph 结论：
 | 阶段 | 状态 | 代码落点 | 验证/对账 |
 |---|---|---|---|
 | M1：路由工具收口 | 已落地 | `wealth/src/app/routes/routerState.ts`、`wealth/src/app/routes/routerState.test.ts` | 新增 `buildStockDetailPath(tsCode)`，覆盖 trim、大写和路径段编码；未修改 `WealthRouter` parse 逻辑 |
+| M2：页面级导航函数 | 已落地 | `wealth/src/pages/market-overview/MarketOverviewPage.tsx` | 新增 `openStockDetail(tsCode)`，统一调用 `navigateWealth(buildStockDetailPath(tsCode))`；组件传参按 M3-M5 分模块落地，避免中间提交破坏类型检查 |

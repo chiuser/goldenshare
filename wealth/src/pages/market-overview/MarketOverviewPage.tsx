@@ -89,6 +89,7 @@ import {
   type MarketTurnoverViewModel,
 } from "../../features/market-overview/turnover/api/marketTurnoverAdapter";
 import { fetchMarketTurnover, type TurnoverDebugInfo } from "../../features/market-overview/turnover/api/marketTurnoverApi";
+import { buildStockDetailPath, navigateWealth } from "../../app/routes/routerState";
 import { SkeletonBlock } from "../../shared/ui/SkeletonBlock";
 import { TopMarketBar } from "../../shared/ui/top-market-bar/TopMarketBar";
 import "./market-overview-page.css";
@@ -978,6 +979,10 @@ export function MarketOverviewPage() {
     setToast(message);
     window.clearTimeout(window.__wealthToastTimer);
     window.__wealthToastTimer = window.setTimeout(() => setToast(""), 1800);
+  }
+
+  function openStockDetail(tsCode: string) {
+    navigateWealth(buildStockDetailPath(tsCode));
   }
 
   if (pageContextViewState === "error") {
