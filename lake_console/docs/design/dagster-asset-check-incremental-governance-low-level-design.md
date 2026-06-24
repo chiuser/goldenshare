@@ -493,6 +493,38 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 结论：P7B 只读候选验证通过，可以进入非分钟线 sample-delete 执行器开发；正式删除仍属于 P7C，必须在备份、pre dry-run 和单独批准后才能执行。
 
+#### P7B sample-delete 执行器
+
+状态：已完成代码与本地测试，尚未执行正式删除。
+
+新增文件：
+
+- `lake_console/orchestrator/src/orchestrator/defs/bootstrap/asset_check_event_retention_sample_delete.py`
+- `lake_console/orchestrator/src/orchestrator/defs/bootstrap/asset_check_event_retention_sample_delete_cli.py`
+
+安全口径：
+
+- CLI 只有 `sample-delete` 子命令，没有 dry-run 伪装、批量 apply 或默认资产。
+- `--sample-asset` 必填；一次只允许一个资产。
+- 必须显式传 `--confirm-sample-delete`，否则拒绝写入。
+- 资产必须在非分钟线 retention 白名单中，且必须绑定 keep partition set；snapshot 资产如 `raw_tushare_stock_basic` 不允许进入 sample-delete。
+- 候选 CTE 复用 P1 dry-run 的资产 scope、keep window、latest materialization、protected check 排除语义。
+- 删除顺序固定为 check tags、check events、check executions、materialization tags、materialization events。
+- 删除事务提交前重新跑 safety assertions，包含 active runs、keep20、latest state、protected checks、partition key 和 check event type 校验。
+- 任一 safety assertion 失败即 rollback。
+- 不删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators`、planned events 或数据湖文件。
+
+本地验证：
+
+```bash
+cd /Users/congming/github/goldenshare/lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_asset_check_event_retention.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`70 passed`。
+
 ### P2 Index Daily 与 Major Indices
 
 状态：已落地。P2 将 `silver_index_daily` 与
@@ -1087,7 +1119,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests
 
 ### 7.2 P7B 正式 dry-run 与删除执行器设计
 
-状态：正式只读 dry-run 已完成并通过；sample-delete 执行器尚未开发。
+状态：正式只读 dry-run 已完成并通过；sample-delete 执行器已完成代码和本地测试，尚未执行正式删除。
 
 P7B 不直接删除。它先只读验证当前正式 Postgres 候选，只有 dry-run 安全报告通过后，
 才允许开发非分钟线 sample-delete 执行器。
@@ -1131,6 +1163,14 @@ PYTHONPATH=src uv run --project . python -m orchestrator.defs.bootstrap.asset_ch
    - 删除前后都调用同一 dry-run 对账。
    - 不删除 `runs/run_tags/dynamic_partitions/instigators/planned events`。
    - 不删除 `partition is null` 且无 materialization 绑定的 check。
+
+P7B 已落地的 sample-delete 执行器约束：
+
+- 工具：`asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 必填参数：`--postgres-url`、`--sample-asset`、`--confirm-sample-delete`
+- 仅允许单资产；多资产输入直接拒绝。
+- 仅允许非分钟线 retention 白名单内且有 keep partition set 的资产；无分区 snapshot 资产直接拒绝。
+- 正式执行仍属于 P7C，必须先备份、pre dry-run，再由用户单独批准。
 
 ### 7.3 P7C 正式 retention 与标准 vacuum
 

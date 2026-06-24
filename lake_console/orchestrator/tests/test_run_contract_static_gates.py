@@ -3025,6 +3025,68 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_asset_check_event_retention_sample_delete_is_tightly_scoped(
+        self,
+    ) -> None:
+        helper_path = Path(
+            "src/orchestrator/defs/bootstrap/asset_check_event_retention_sample_delete.py"
+        )
+        cli_path = Path(
+            "src/orchestrator/defs/bootstrap/asset_check_event_retention_sample_delete_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        combined = f"{helper_source}\n{cli_source}".lower()
+        issues = []
+
+        required_fragments = (
+            "execute_asset_check_event_retention_sample_delete",
+            "--sample-asset",
+            "required=True",
+            "--confirm-sample-delete",
+            "sample-delete requires --confirm-sample-delete",
+            "sample-delete requires exactly one sample asset",
+            "requires a partitioned retention asset",
+            "ASSET_CHECK_RETENTION_ASSET_KEYS",
+            "ASSET_CHECK_RETENTION_KEEP_PARTITION_SET_BY_KEY",
+            "delete_check_event_tags",
+            "delete_check_events",
+            "delete_check_executions",
+            "delete_materialization_event_tags",
+            "delete_materialization_events",
+            "connection.commit()",
+            "rollback()",
+        )
+        forbidden_fragments = (
+            "asset_key::text like",
+            "truncate ",
+            "drop table",
+            "vacuum",
+            "reindex",
+            "pg_repack",
+            "delete from runs",
+            "delete from run_tags",
+            "delete from dynamic_partitions",
+            "delete from instigators",
+            "report_runless_asset_event",
+            "dagsterinstance.get",
+        )
+        source_bundle = f"{helper_source}\n{cli_source}"
+        issues.extend(
+            f"asset check sample-delete misses fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in source_bundle
+        )
+        issues.extend(
+            f"asset check sample-delete contains forbidden fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
+        if "\"dry-run\"" in cli_source:
+            issues.append(f"{cli_path} must not masquerade as a dry-run CLI")
+
+        self.assertEqual(issues, [])
+
 
 if __name__ == "__main__":
     unittest.main()
