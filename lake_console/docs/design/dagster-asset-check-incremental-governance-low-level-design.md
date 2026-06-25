@@ -1754,13 +1754,13 @@ post dry-run：
   events。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
-#### 2026-06-25 P7C-F `gold_market_major_indices_daily` 删除前安全审计
+#### 2026-06-25 P7C-F `gold_market_major_indices_daily` 执行结果
 
 P7C-F 选择 `gold_market_major_indices_daily` 作为下一批候选，是因为它在
 P7C-E post dry-run 后只剩 old materialization event 候选，check event 候选为 0；
 同时它是主要指数 gold 资产，正式 sensor 已完成 bounded continuity / lake-derived
-readiness 改造。本节只记录删除前安全审计、pre dry-run 和专属备份，尚未执行正式
-DB 删除。
+readiness 改造。该资产在完成删除前安全审计、pre dry-run、专属备份和用户单独批准后，
+已执行正式 sample-delete。
 
 P7C-E post dry-run 中该资产候选：
 
@@ -1830,18 +1830,74 @@ P7C-F preflight：
 - 备份大小：`361M`。
 - `pg_restore --list`：通过。
 
-本批尚未执行：
+正式删除前追加确认：
 
-- 未执行正式 sample-delete。
-- 未删除任何 Dagster DB event。
+- 进程冻结检查：未发现 `dagster` / `dg dev` / `dagster-webserver` /
+  `dagster-daemon` / `code-server` / `orchestrator` 匹配进程。
+- active runs：0。
+- pre-delete dry-run：
+  `/private/tmp/asset_check_event_retention_p7cf_gold_market_major_indices_daily_pre_delete_dry_run_20260625.json`
+- pre-delete dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - `gold_market_major_indices_daily` 候选仍为 0 条 check event / execution、
+    6,393 条 materialization event、6,393 条 materialization event tags
+  - latest materialization id 仍为 `6631768`
+  - latest partition 仍为 `2026-06-24`
+  - latest check count 仍为 10，latest non-succeeded check count 仍为 0
+- 写入前 active runs 复查：0。
+
+P7C-F 正式 sample-delete 已按上述范围执行完成：
+
+- 工具：
+  `asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 资产：`gold_market_major_indices_daily`
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cf_gold_market_major_indices_daily_delete_20260625.json`
+- 事务结果：`committed=true`
+- 删除量：
+  - old check event tags：0
+  - old `ASSET_CHECK_EVALUATION` event：0
+  - old `asset_check_executions` row：0
+  - old materialization event tags：6,393
+  - old `ASSET_MATERIALIZATION` event：6,393
+- 删除事务内 safety assertions 全部通过。
+
+post dry-run：
+
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7cf_gold_market_major_indices_daily_post_dry_run_20260625.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- `gold_market_major_indices_daily` 候选归零
+- latest materialization id 仍为 `6631768`
+- latest partition 仍为 `2026-06-24`
+- latest check count 仍为 10，latest non-succeeded check count 仍为 0
+- 全局候选变为：75,870 条 check execution / check event、26,881 条
+  materialization event、18,451 条 materialization event tags
+- table counts：
+  - `event_logs`：3,804,098
+  - `asset_check_executions`：418,510
+  - `asset_event_tags`：27,364
+  - `dynamic_partitions`：30,572
+  - `runs`：46,485
+  - `run_tags`：316,459
+
+本批未执行：
+
+- 未删除本批范围外 Dagster DB event。
+- 未删除任何 `ASSET_CHECK_EVALUATION` event 或 `asset_check_executions` row。
 - 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
 - 未写数据湖 Parquet。
 - 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
   events。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
-P7C-F 正式 sample-delete 必须在用户单独批准后执行；执行前仍需再次确认 active
-runs 为 0，且执行窗口内不会有其它 Dagster 写入活动。
+P7C-F 到此收口。下一批候选不得复用 P7C-F 的备份、pre dry-run 或 post dry-run
+作为依据；若继续推进，必须重新选择资产、重新确认 active runs 为 0、重新备份、
+重新 pre dry-run，并单独获得正式删除批准。
 
 ## 8. Stop Conditions
 
