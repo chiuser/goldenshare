@@ -1,6 +1,6 @@
 # 指数日线完整性补漏 LLD v1
 
-状态：待评审  
+状态：开发中（M1 已完成）
 创建日期：2026-06-25  
 依据方案：`docs/ops/ops-index-daily-completeness-repair-plan-v1.md`  
 适用范围：`index_daily`、`ops.index_series_active`、日期对象矩阵审计、TaskRun 系统补漏、审查中心最小可见性。
@@ -737,19 +737,29 @@ frontend/src/pages/ops-v21-dataset-audit-page.test.tsx
 
 ### M1：Definition 与对象矩阵审计
 
+状态：已完成。
+
 目标：审查中心能对 `index_daily` 算出当日缺哪些 active 指数。
 
 改动：
 
-1. `index_daily` 增加 completeness。
-2. `SubjectCompletenessMatrixExecutor` 增加 `ops_index_series_active` 分支。
-3. 补 Definition 与 executor 测试。
+1. `index_daily` 已增加 completeness。
+2. `SubjectCompletenessMatrixExecutor` 已增加 `ops_index_series_active + index` 分支。
+3. 已补 Definition 与 executor 测试。
 
 验收：
 
 1. active 池 3 个，serving 2 个，审计缺 1 个。
 2. `index_daily_raw` 不进入 expected。
-3. 股票对象矩阵测试不回退。
+3. serving 全覆盖时审计通过。
+4. 股票对象矩阵测试不回退。
+
+验证：
+
+```bash
+uv run ruff check src/foundation/datasets/definitions/index_series.py src/ops/services/date_completeness_audit_service.py tests/test_dataset_definition_registry.py tests/web/test_ops_date_completeness_api.py
+uv run pytest -q tests/test_dataset_definition_registry.py tests/web/test_ops_date_completeness_api.py
+```
 
 ### M2：补漏 TaskRun 创建服务
 

@@ -5,6 +5,7 @@ from datetime import date, datetime, timedelta, timezone
 from sqlalchemy import select
 from sqlalchemy import text
 
+from src.foundation.models.core_serving.index_daily_serving import IndexDailyServing
 from src.foundation.models.core_serving.security_serving import Security
 from src.foundation.models.core.trade_calendar import TradeCalendar
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
@@ -12,6 +13,7 @@ from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCom
 from src.ops.models.ops.dataset_status_snapshot import DatasetStatusSnapshot
 from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
+from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.services.date_completeness_audit_service import (
     DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT,
     DateCompletenessAuditWorker,
@@ -932,6 +934,144 @@ def test_date_subject_matrix_worker_supports_daily_basic_dataset(app_client, use
     assert details[0].target_table == "core_serving.equity_daily_basic"
     assert details[0].subject_key_json == {"ts_code": "001257.SZ"}
     assert details[0].actual_key_json == {"ts_code": "001257.SZ", "trade_date": "2026-04-23"}
+
+
+def test_date_subject_matrix_worker_supports_index_daily_active_pool(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    checked_at = datetime(2026, 4, 24, 8, 0, tzinfo=timezone.utc)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 24), is_open=True, pretrade_date=date(2026, 4, 23)),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="000001.SH",
+                first_seen_date=date(2026, 4, 15),
+                last_seen_date=date(2026, 4, 24),
+                last_checked_at=checked_at,
+            ),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="399001.SZ",
+                first_seen_date=date(2026, 4, 15),
+                last_seen_date=date(2026, 4, 24),
+                last_checked_at=checked_at,
+            ),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="399300.SZ",
+                first_seen_date=date(2026, 4, 15),
+                last_seen_date=date(2026, 4, 24),
+                last_checked_at=checked_at,
+            ),
+            IndexSeriesActive(
+                resource="index_daily_raw",
+                ts_code="000852.SH",
+                first_seen_date=date(2026, 4, 15),
+                last_seen_date=date(2026, 4, 24),
+                last_checked_at=checked_at,
+            ),
+            IndexDailyServing(ts_code="000001.SH", trade_date=date(2026, 4, 24)),
+            IndexDailyServing(ts_code="399001.SZ", trade_date=date(2026, 4, 24)),
+            IndexDailyServing(ts_code="000852.SH", trade_date=date(2026, 4, 24)),
+        ]
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "index_daily",
+            "start_date": "2026-04-24",
+            "end_date": "2026-04-24",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "index_daily"
+    assert run.target_table == "core_serving.index_daily_serving"
+    assert run.audit_scope == "date_subject_matrix"
+    assert run.subject_kind == "index"
+    assert run.result_status == "failed"
+    assert run.expected_bucket_count == 1
+    assert run.actual_bucket_count == 1
+    assert run.missing_bucket_count == 0
+    assert run.expected_cell_count == 3
+    assert run.actual_cell_count == 2
+    assert run.missing_cell_count == 1
+    assert run.affected_bucket_count == 1
+    assert run.affected_subject_count == 1
+
+    details = list(
+        db_session.scalars(
+            select(DatasetSubjectCompletenessGapDetail)
+            .where(DatasetSubjectCompletenessGapDetail.run_id == run.id)
+            .order_by(DatasetSubjectCompletenessGapDetail.bucket_value.asc())
+        )
+    )
+    assert len(details) == 1
+    assert details[0].bucket_value == date(2026, 4, 24)
+    assert details[0].subject_kind == "index"
+    assert details[0].subject_key == "399300.SZ"
+    assert details[0].subject_name == "399300.SZ"
+    assert details[0].target_table == "core_serving.index_daily_serving"
+    assert details[0].subject_key_json == {"ts_code": "399300.SZ"}
+    assert details[0].actual_key_json == {"ts_code": "399300.SZ", "trade_date": "2026-04-24"}
+    assert details[0].lifecycle_start is None
+    assert details[0].lifecycle_end is None
+    assert details[0].reason_code == "missing_subject_bucket"
+    assert details[0].reason_message == "该对象属于本数据集 active 池，但目标表缺少该日期行。"
+
+
+def test_date_subject_matrix_worker_passes_when_index_daily_active_pool_is_covered(app_client, user_factory, db_session) -> None:
+    headers = _admin_headers(app_client, user_factory)
+    checked_at = datetime(2026, 4, 24, 8, 0, tzinfo=timezone.utc)
+    db_session.add_all(
+        [
+            TradeCalendar(exchange="SSE", trade_date=date(2026, 4, 24), is_open=True, pretrade_date=date(2026, 4, 23)),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="000001.SH",
+                first_seen_date=date(2026, 4, 15),
+                last_seen_date=date(2026, 4, 24),
+                last_checked_at=checked_at,
+            ),
+            IndexSeriesActive(
+                resource="index_daily",
+                ts_code="399001.SZ",
+                first_seen_date=date(2026, 4, 15),
+                last_seen_date=date(2026, 4, 24),
+                last_checked_at=checked_at,
+            ),
+            IndexDailyServing(ts_code="000001.SH", trade_date=date(2026, 4, 24)),
+            IndexDailyServing(ts_code="399001.SZ", trade_date=date(2026, 4, 24)),
+        ]
+    )
+    db_session.commit()
+
+    create_response = app_client.post(
+        "/api/v1/ops/review/date-completeness/runs",
+        headers=headers,
+        json={
+            "dataset_key": "index_daily",
+            "start_date": "2026-04-24",
+            "end_date": "2026-04-24",
+        },
+    )
+    assert create_response.status_code == 200
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "index_daily"
+    assert run.result_status == "passed"
+    assert run.expected_cell_count == 2
+    assert run.actual_cell_count == 2
+    assert run.missing_cell_count == 0
+    assert db_session.scalar(select(DatasetSubjectCompletenessGap).where(DatasetSubjectCompletenessGap.run_id == run.id)) is None
 
 
 def test_date_subject_matrix_worker_supports_stk_limit_dataset(app_client, user_factory, db_session) -> None:

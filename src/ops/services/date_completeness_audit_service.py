@@ -554,22 +554,32 @@ class SubjectCompletenessMatrixExecutor:
     def _validate_supported(cls, *, run: DatasetDateCompletenessRun, completeness: DatasetCompletenessDefinition) -> None:
         if completeness.scope != "date_subject_matrix":
             raise ValueError(f"数据集 {run.dataset_key} 未配置对象矩阵完整性审计")
-        if completeness.universe_strategy != "stock_basic_active_lifecycle":
-            raise ValueError(f"暂不支持的对象池策略：{completeness.universe_strategy}")
-        if completeness.subject_kind != "stock":
-            raise ValueError(f"暂不支持的对象类型：{completeness.subject_kind}")
+        supported_strategy = (
+            completeness.universe_strategy == "stock_basic_active_lifecycle"
+            and completeness.subject_kind == "stock"
+        ) or (
+            completeness.universe_strategy == "ops_index_series_active"
+            and completeness.subject_kind == "index"
+        )
+        if not supported_strategy:
+            raise ValueError(f"暂不支持的对象矩阵审计策略：{completeness.universe_strategy}/{completeness.subject_kind}")
         if len(completeness.subject_key_fields) != 1 or len(completeness.actual_key_fields) != 1:
             raise ValueError("对象矩阵审计第一期只支持单字段对象键")
         required_columns = [
             completeness.universe_key_field,
             completeness.universe_name_field,
-            completeness.lifecycle_start_field,
-            completeness.lifecycle_end_field,
             completeness.status_field,
             *completeness.subject_key_fields,
             *completeness.actual_key_fields,
             run.observed_field,
         ]
+        if completeness.universe_strategy == "stock_basic_active_lifecycle":
+            required_columns.extend(
+                [
+                    completeness.lifecycle_start_field,
+                    completeness.lifecycle_end_field,
+                ]
+            )
         for column in required_columns:
             if column:
                 cls._sql_column_identifier(str(column))
@@ -577,6 +587,18 @@ class SubjectCompletenessMatrixExecutor:
         cls._sql_table_identifier(run.target_table)
 
     def _build_bucket_context(
+        self,
+        *,
+        run: DatasetDateCompletenessRun,
+        completeness: DatasetCompletenessDefinition,
+    ) -> dict[str, object]:
+        if completeness.universe_strategy == "stock_basic_active_lifecycle":
+            return self._build_stock_active_lifecycle_bucket_context(run=run, completeness=completeness)
+        if completeness.universe_strategy == "ops_index_series_active":
+            return self._build_ops_index_series_active_bucket_context(run=run, completeness=completeness)
+        raise ValueError(f"暂不支持的对象池策略：{completeness.universe_strategy}")
+
+    def _build_stock_active_lifecycle_bucket_context(
         self,
         *,
         run: DatasetDateCompletenessRun,
@@ -603,6 +625,63 @@ class SubjectCompletenessMatrixExecutor:
                 where u.{universe_key_field} is not null
                   and (u.{lifecycle_start_field} is null or u.{lifecycle_start_field} <= :bucket_value)
                   and (u.{lifecycle_end_field} is null or u.{lifecycle_end_field} >= :bucket_value)
+                  {status_sql}
+            ),
+            actual as (
+                select distinct
+                    {actual_key_field} as subject_key
+                from {target_table}
+                where {observed_field} = :bucket_value
+                  and {actual_key_field} is not null
+                  {filter_sql}
+            ),
+            checked as (
+                select
+                    e.subject_key,
+                    e.subject_name,
+                    e.lifecycle_start,
+                    e.lifecycle_end,
+                    a.subject_key as actual_subject_key
+                from expected e
+                left join actual a on a.subject_key = e.subject_key
+            )
+            select
+                subject_key,
+                subject_name,
+                lifecycle_start,
+                lifecycle_end,
+                actual_subject_key
+            from checked
+            order by subject_key asc
+        """
+        return {
+            "bucket_sql": bucket_sql,
+            "params": {**status_params, **filter_params},
+        }
+
+    def _build_ops_index_series_active_bucket_context(
+        self,
+        *,
+        run: DatasetDateCompletenessRun,
+        completeness: DatasetCompletenessDefinition,
+    ) -> dict[str, object]:
+        status_sql, status_params = self._status_filter(completeness)
+        filter_sql, filter_params = ActualBucketReader()._row_identity_filter_clause(run.row_identity_filters_json or {})
+        universe_table = self._sql_table_identifier(str(completeness.universe_source_table))
+        target_table = self._sql_table_identifier(run.target_table)
+        actual_key_field = self._sql_column_identifier(str(completeness.actual_key_fields[0]))
+        observed_field = self._sql_column_identifier(run.observed_field)
+        universe_key_field = self._sql_column_identifier(str(completeness.universe_key_field))
+        universe_name_field = self._sql_column_identifier(str(completeness.universe_name_field or completeness.universe_key_field))
+        bucket_sql = f"""
+            with expected as (
+                select
+                    u.{universe_key_field} as subject_key,
+                    u.{universe_name_field} as subject_name,
+                    null as lifecycle_start,
+                    null as lifecycle_end
+                from {universe_table} u
+                where u.{universe_key_field} is not null
                   {status_sql}
             ),
             actual as (
@@ -706,7 +785,7 @@ class SubjectCompletenessMatrixExecutor:
                     lifecycle_start=ActualBucketReader._value_to_date(row.lifecycle_start) if row.lifecycle_start is not None else None,
                     lifecycle_end=ActualBucketReader._value_to_date(row.lifecycle_end) if row.lifecycle_end is not None else None,
                     reason_code="missing_subject_bucket",
-                    reason_message="该对象在该日期桶处于有效生命周期内，但目标表缺少对应行。",
+                    reason_message=self._missing_subject_reason_message(completeness),
                     target_table=run.target_table,
                 )
             )
@@ -717,6 +796,12 @@ class SubjectCompletenessMatrixExecutor:
             missing_subject_keys=missing_subject_keys,
             detail_count=len(detail_rows),
         )
+
+    @staticmethod
+    def _missing_subject_reason_message(completeness: DatasetCompletenessDefinition) -> str:
+        if completeness.universe_strategy == "ops_index_series_active":
+            return "该对象属于本数据集 active 池，但目标表缺少该日期行。"
+        return "该对象在该日期桶处于有效生命周期内，但目标表缺少对应行。"
 
     @staticmethod
     def _clear_existing_result_rows(session: Session, run: DatasetDateCompletenessRun) -> None:

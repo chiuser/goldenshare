@@ -208,6 +208,25 @@ def test_dataset_definition_projects_daily_basic_subject_completeness_facts() ->
     assert definition.completeness.active_status_values == ("L",)
 
 
+def test_dataset_definition_projects_index_daily_subject_completeness_facts() -> None:
+    definition = get_dataset_definition("index_daily")
+
+    assert definition.storage.target_table == "core_serving.index_daily_serving"
+    assert definition.date_model.observed_field == "trade_date"
+    assert definition.completeness.scope == "date_subject_matrix"
+    assert definition.completeness.subject_kind == "index"
+    assert definition.completeness.subject_key_fields == ("ts_code",)
+    assert definition.completeness.actual_key_fields == ("ts_code",)
+    assert definition.completeness.universe_strategy == "ops_index_series_active"
+    assert definition.completeness.universe_source_table == "ops.index_series_active"
+    assert definition.completeness.universe_key_field == "ts_code"
+    assert definition.completeness.universe_name_field == "ts_code"
+    assert definition.completeness.lifecycle_start_field is None
+    assert definition.completeness.lifecycle_end_field is None
+    assert definition.completeness.status_field == "resource"
+    assert definition.completeness.active_status_values == ("index_daily",)
+
+
 def test_dataset_definition_projects_cyq_chips_raw_view_facts() -> None:
     definition = get_dataset_definition("cyq_chips")
 
@@ -289,7 +308,7 @@ def test_dataset_definition_subject_matrix_scope_is_not_inferred_from_ts_code() 
         if definition.completeness.scope == "date_subject_matrix"
     }
 
-    assert matrix_keys == {"adj_factor", "daily", "daily_basic", "stk_limit", "stk_factor_pro"}
+    assert matrix_keys == {"adj_factor", "daily", "daily_basic", "index_daily", "stk_limit", "stk_factor_pro"}
     for definition in list_dataset_definitions():
         if not definition.date_model.audit_applicable:
             assert definition.completeness.scope == "not_applicable"
