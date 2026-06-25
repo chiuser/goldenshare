@@ -1,6 +1,6 @@
 # 指数日线完整性补漏 LLD v1
 
-状态：开发中（M3 已完成）
+状态：开发中（M4 代码已完成）
 创建日期：2026-06-25  
 依据方案：`docs/ops/ops-index-daily-completeness-repair-plan-v1.md`  
 适用范围：`index_daily`、`ops.index_series_active`、日期对象矩阵审计、TaskRun 系统补漏、审查中心最小可见性。
@@ -826,19 +826,32 @@ uv run pytest -q tests/web/test_ops_date_completeness_api.py
 
 ### M4：晚间重复审计
 
+状态：代码已完成。生产 schedule 记录需上线后配置。
+
 目标：17:45 到 21:30 每 15 分钟重复检查交易日当日缺口。
 
 改动：
 
-1. `OperationsScheduler` 接入 date completeness schedule。
-2. date completeness schedule 对 `index_daily` 增加交易日当日 guard。
-3. 生产创建三条 schedule 覆盖窗口。
+1. `OperationsScheduler` 已接入 `DateCompletenessScheduleCommandService.enqueue_due_schedules()`。
+2. date completeness schedule 已对 `index_daily` 增加交易日当日 guard：
+   - 自动审计窗口必须解析为 `start_date=end_date=Asia/Shanghai 当天`。
+   - 当天必须在默认交易日历中为开市日。
+   - 节假日不会回退审计上一交易日。
+3. `OperationsScheduler.run_once()` 返回值仍只包含普通 TaskRun，避免把 date completeness run 强塞进 CLI 的 TaskRun 计数契约。
+4. 生产创建覆盖窗口的 schedule 记录不在代码中硬编码，需上线后按运维配置执行。
 
 验收：
 
 1. 交易日窗口内能入队审计 run。
 2. 节假日不创建上一交易日历史审计 run。
 3. 窗口外不创建 run。
+
+验证：
+
+```bash
+uv run ruff check src/ops/runtime/scheduler.py src/ops/services/date_completeness_schedule_service.py tests/web/test_ops_runtime.py tests/web/test_ops_date_completeness_api.py
+uv run pytest -q tests/web/test_ops_runtime.py tests/web/test_ops_date_completeness_api.py
+```
 
 ### M5：页面最小可见性
 

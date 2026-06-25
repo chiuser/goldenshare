@@ -165,6 +165,20 @@ class DateCompletenessScheduleCommandService:
         runs: list[DatasetDateCompletenessRun] = []
         for schedule in due_schedules:
             start_date, end_date = self._resolve_schedule_window(session, schedule=schedule, now=current)
+            if self._should_skip_current_day_index_daily_schedule(
+                session,
+                schedule=schedule,
+                start_date=start_date,
+                end_date=end_date,
+                now=current,
+            ):
+                schedule.next_run_at = self._compute_next_run_at(
+                    cron_expr=schedule.cron_expr,
+                    timezone_name=schedule.timezone,
+                    after=current,
+                )
+                session.commit()
+                continue
             run = DateCompletenessRunCommandService().create_scheduled_run(
                 session,
                 dataset_key=schedule.dataset_key,
@@ -268,6 +282,29 @@ class DateCompletenessScheduleCommandService:
             raise WebAppError(status_code=422, code="validation_error", message="交易日历缺少开市日期，无法生成审计窗口")
         selected = sorted(open_dates)
         return selected[0], selected[-1]
+
+    def _should_skip_current_day_index_daily_schedule(
+        self,
+        session: Session,
+        *,
+        schedule: DatasetDateCompletenessSchedule,
+        start_date: date,
+        end_date: date,
+        now: datetime,
+    ) -> bool:
+        if schedule.dataset_key != "index_daily":
+            return False
+        zone = ensure_timezone(schedule.timezone)
+        local_today = now.astimezone(zone).date()
+        if start_date != local_today or end_date != local_today:
+            return True
+        is_open = session.scalar(
+            select(TradeCalendar.is_open)
+            .where(TradeCalendar.exchange == self._calendar_exchange(schedule))
+            .where(TradeCalendar.trade_date == local_today)
+            .limit(1)
+        )
+        return is_open is not True
 
     @staticmethod
     def _calendar_exchange(schedule: DatasetDateCompletenessSchedule) -> str:

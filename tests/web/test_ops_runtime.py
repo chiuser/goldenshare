@@ -7,6 +7,8 @@ from sqlalchemy import select
 
 from src.foundation.ingestion import DatasetActionRequest, DatasetTimeInput
 from src.ops.action_catalog import END_DATE_PARAM, START_DATE_PARAM, TRADE_DATE_PARAM, WORKFLOW_DEFINITION_REGISTRY, WorkflowDefinition
+from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
+from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
@@ -47,6 +49,74 @@ def test_scheduler_enqueues_due_once_schedule(db_session, ops_schedule_factory) 
     assert refreshed is not None
     assert refreshed.status == "paused"
     assert refreshed.next_run_at is None
+
+
+def test_scheduler_enqueues_due_date_completeness_schedule(db_session, trade_calendar_factory) -> None:
+    trade_date = date(2026, 6, 25)
+    trade_calendar_factory(exchange="SSE", trade_date=trade_date, is_open=True, pretrade_date=date(2026, 6, 24))
+    schedule = DatasetDateCompletenessSchedule(
+        dataset_key="index_daily",
+        display_name="指数日线当日完整性审计",
+        status="active",
+        window_mode="rolling",
+        lookback_count=1,
+        lookback_unit="open_day",
+        calendar_scope="default_cn_market",
+        cron_expr="*/15 17-21 * * *",
+        timezone="Asia/Shanghai",
+        next_run_at=datetime(2026, 6, 25, 9, 45, tzinfo=timezone.utc),
+    )
+    db_session.add(schedule)
+    db_session.commit()
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 6, 25, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert created == []
+    audit_run = db_session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "index_daily"))
+    assert audit_run is not None
+    assert audit_run.run_mode == "scheduled"
+    assert audit_run.schedule_id == schedule.id
+    assert audit_run.start_date == trade_date
+    assert audit_run.end_date == trade_date
+    refreshed = db_session.get(DatasetDateCompletenessSchedule, schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_run_id == audit_run.id
+    assert refreshed.next_run_at is not None
+
+
+def test_scheduler_skips_index_daily_date_completeness_when_today_is_not_open(db_session, trade_calendar_factory) -> None:
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 24), is_open=True, pretrade_date=date(2026, 6, 23))
+    trade_calendar_factory(exchange="SSE", trade_date=date(2026, 6, 25), is_open=False, pretrade_date=date(2026, 6, 24))
+    schedule = DatasetDateCompletenessSchedule(
+        dataset_key="index_daily",
+        display_name="指数日线当日完整性审计",
+        status="active",
+        window_mode="rolling",
+        lookback_count=1,
+        lookback_unit="open_day",
+        calendar_scope="default_cn_market",
+        cron_expr="*/15 17-21 * * *",
+        timezone="Asia/Shanghai",
+        next_run_at=datetime(2026, 6, 25, 9, 45, tzinfo=timezone.utc),
+    )
+    db_session.add(schedule)
+    db_session.commit()
+
+    created = OperationsScheduler().run_once(
+        db_session,
+        now=datetime(2026, 6, 25, 10, 0, tzinfo=timezone.utc),
+    )
+
+    assert created == []
+    assert db_session.scalar(select(DatasetDateCompletenessRun).where(DatasetDateCompletenessRun.dataset_key == "index_daily")) is None
+    refreshed = db_session.get(DatasetDateCompletenessSchedule, schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_run_id is None
+    assert refreshed.next_run_at is not None
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) > datetime(2026, 6, 25, 10, 0, tzinfo=timezone.utc)
 
 
 def test_scheduler_dataset_task_uses_target_key_as_single_resource_fact(db_session, ops_schedule_factory) -> None:
