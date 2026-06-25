@@ -13,7 +13,7 @@ import type {
 } from "../shared/api/types";
 import { formatDateLabel, formatDateTimeLabel } from "../shared/date-format";
 import { buildManualTaskHref } from "../shared/ops-links";
-import { formatStatusLabel } from "../shared/ops-display";
+import { formatStatusLabel, formatTriggerSourceLabel } from "../shared/ops-display";
 import { DataTable, type DataTableColumn } from "../shared/ui/data-table";
 import { EmptyState } from "../shared/ui/empty-state";
 import { MetricPanel } from "../shared/ui/metric-panel";
@@ -97,7 +97,7 @@ export function OpsV21DatasetDetailPage({ datasetKey }: { datasetKey: string }) 
       key: "trigger_source",
       header: "触发方式",
       width: "12%",
-      render: (item) => <Text size="sm">{item.trigger_source}</Text>,
+      render: (item) => <Text size="sm">{item.trigger_source_label || formatTriggerSourceLabel(item.trigger_source)}</Text>,
     },
     {
       key: "status",

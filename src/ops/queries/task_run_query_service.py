@@ -152,6 +152,7 @@ class TaskRunQueryService:
                 action=task_run.action,
                 title=task_run.title,
                 trigger_source=task_run.trigger_source,
+                trigger_source_label=self._trigger_source_label(task_run),
                 status=task_run.status,
                 status_reason_code=task_run.status_reason_code,
                 requested_by_username=username,
@@ -234,6 +235,7 @@ class TaskRunQueryService:
             action=task_run.action,
             title=task_run.title,
             trigger_source=task_run.trigger_source,
+            trigger_source_label=self._trigger_source_label(task_run),
             status=task_run.status,
             status_reason_code=task_run.status_reason_code,
             requested_by_username=username,
@@ -321,6 +323,20 @@ class TaskRunQueryService:
             start_date=min(observed_dates).isoformat() if observed_dates else None,
             end_date=max(observed_dates).isoformat() if observed_dates else None,
         )
+
+    @staticmethod
+    def _trigger_source_label(task_run: TaskRun) -> str:
+        payload = task_run.request_payload_json if isinstance(task_run.request_payload_json, dict) else {}
+        if task_run.trigger_source == "system" and payload.get("run_scope") == "index_daily_gap_repair":
+            return "系统补漏"
+        return {
+            "manual": "手动",
+            "scheduled": "自动",
+            "schedule": "自动",
+            "retry": "重新提交",
+            "system": "系统触发",
+            "workflow": "工作流",
+        }.get(task_run.trigger_source or "", task_run.trigger_source or "未知")
 
     @staticmethod
     def _action_key(task_run: TaskRun) -> str | None:

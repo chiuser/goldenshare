@@ -325,7 +325,9 @@ export function OpsTasksPage() {
       key: "trigger",
       header: "发起方式",
       width: "12%",
-      render: (item) => <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>,
+      render: (item) => (
+        <OpsTableCellText size="xs">{item.trigger_source_label || formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
+      ),
     },
     {
       key: "requested_at",

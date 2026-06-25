@@ -62,6 +62,41 @@ def test_ops_task_run_list_returns_latest_first_and_supports_status_filter(
     assert filtered_payload["items"][0]["resource_key"] == "index_weekly"
 
 
+def test_ops_task_run_api_returns_backend_trigger_source_label(
+    app_client,
+    user_factory,
+    task_run_factory,
+) -> None:
+    user_factory(username="admin", password="secret", is_admin=True)
+    base = datetime(2026, 3, 30, 12, 0, tzinfo=timezone.utc)
+    repair = task_run_factory(
+        resource_key="index_daily",
+        title="指数日线补漏",
+        trigger_source="system",
+        status="queued",
+        requested_at=base + timedelta(minutes=1),
+        request_payload_json={"run_scope": "index_daily_gap_repair"},
+    )
+    normal_system = task_run_factory(
+        resource_key="index_daily",
+        title="指数日线系统任务",
+        trigger_source="system",
+        status="queued",
+        requested_at=base,
+    )
+    headers = auth_headers(app_client)
+
+    list_response = app_client.get("/api/v1/ops/task-runs", headers=headers)
+    view_response = app_client.get(f"/api/v1/ops/task-runs/{repair.id}/view", headers=headers)
+
+    assert list_response.status_code == 200
+    labels_by_id = {item["id"]: item["trigger_source_label"] for item in list_response.json()["items"]}
+    assert labels_by_id[repair.id] == "系统补漏"
+    assert labels_by_id[normal_system.id] == "系统触发"
+    assert view_response.status_code == 200
+    assert view_response.json()["run"]["trigger_source_label"] == "系统补漏"
+
+
 def test_ops_task_run_summary_returns_filtered_status_counts(
     app_client,
     user_factory,

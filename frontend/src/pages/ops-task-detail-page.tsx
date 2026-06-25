@@ -297,7 +297,7 @@ export function OpsTaskDetailPage({ taskRunId }: { taskRunId: number }) {
                 <StatusBadge value={view.run.status} size="lg" />
               </MetricPanel>
               <MetricPanel label="发起方式">
-                <Text fw={700} size="xl">{formatTriggerSourceLabel(view.run.trigger_source)}</Text>
+                <Text fw={700} size="xl">{view.run.trigger_source_label || formatTriggerSourceLabel(view.run.trigger_source)}</Text>
               </MetricPanel>
               {view.run.time_scope_label ? (
                 <MetricPanel label="处理范围">

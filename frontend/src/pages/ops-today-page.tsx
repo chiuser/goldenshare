@@ -124,7 +124,7 @@ export function OpsTodayPage() {
                       <OpsTableCellText fw={600} size="sm">{item.title}</OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell width="14%">
-                      <OpsTableCellText size="xs">{formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
+                      <OpsTableCellText size="xs">{item.trigger_source_label || formatTriggerSourceLabel(item.trigger_source)}</OpsTableCellText>
                     </OpsTableCell>
                     <OpsTableCell align="left" width="24%">
                       <OpsTableCellText ff="var(--mantine-font-family-monospace)" fw={500} size="xs">

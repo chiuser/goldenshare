@@ -32,6 +32,7 @@ function createTaskRunItem(id: number, overrides: Partial<Record<string, unknown
     time_scope_label: "2026-03-23 ~ 2026-03-30",
     schedule_display_name: null,
     trigger_source: "manual",
+    trigger_source_label: "手动",
     status: "running",
     requested_by_username: "admin",
     requested_at: "2026-03-31T01:00:00Z",
@@ -164,6 +165,45 @@ describe("任务记录页", () => {
     expect(await screen.findByText("2026-03-23 ~ 2026-03-30")).toBeInTheDocument();
     expect(await screen.findByRole("link", { name: "查看详情" })).toBeInTheDocument();
     expect((await screen.findAllByText("手动")).length).toBeGreaterThan(0);
+  });
+
+  it("任务列表优先展示后端发起方式文案", async () => {
+    vi.mocked(apiRequest).mockImplementation(async (path: string) => {
+      const url = new URL(path, "https://example.test");
+      if (url.pathname === "/api/v1/ops/catalog") {
+        return { actions: [], workflows: [] };
+      }
+      if (url.pathname === "/api/v1/ops/task-runs/summary") {
+        return {
+          total: 1,
+          queued: 1,
+          running: 0,
+          success: 0,
+          failed: 0,
+          canceled: 0,
+        };
+      }
+      if (url.pathname === "/api/v1/ops/task-runs") {
+        return {
+          total: 1,
+          items: [
+            createTaskRunItem(1, {
+              title: "指数日线补漏",
+              trigger_source: "system",
+              trigger_source_label: "系统补漏",
+            }),
+          ],
+        };
+      }
+      throw new Error(`unexpected path: ${path}`);
+    });
+
+    renderTaskRecordsPage();
+
+    const row = (await screen.findByText("指数日线补漏")).closest("tr");
+    expect(row).not.toBeNull();
+    expect(within(row as HTMLElement).getByText("系统补漏")).toBeInTheDocument();
+    expect(within(row as HTMLElement).queryByText("系统触发")).not.toBeInTheDocument();
   });
 
   it("移除顶部冗余说明后，将筛选栏并入任务记录板块并默认显示全选", async () => {

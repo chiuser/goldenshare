@@ -607,6 +607,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
       "action": "maintain",
       "title": "股票日线",
       "trigger_source": "manual",
+      "trigger_source_label": "手动",
       "status": "running",
       "time_scope_label": "2026-04-24",
       "unit_total": 3,
@@ -671,7 +672,7 @@ curl -H "Authorization: Bearer <TOKEN>" \
 
 ```json
 {
-  "run": {"id": 285, "title": "股票日线", "resource_key": "daily", "status": "success", "trigger_source": "manual"},
+  "run": {"id": 285, "title": "股票日线", "resource_key": "daily", "status": "success", "trigger_source": "manual", "trigger_source_label": "手动"},
   "progress": {"unit_total": 3, "unit_done": 3, "unit_failed": 0, "progress_percent": 100, "rows_fetched": 5496, "rows_saved": 5496, "rows_rejected": 0, "current_object": null, "period_source_summary": null},
   "primary_issue": null,
   "nodes": [],
@@ -1465,10 +1466,10 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 - `TaskRunCreateResponse`：`id, status, title, resource_key, created_at`
 - `TaskRunListResponse`：`items, total`
-- `TaskRunListItem`：`id, task_type, resource_key, action, title, trigger_source, status, status_reason_code, requested_by_username, requested_at, started_at, ended_at, time_scope, time_scope_label, schedule_display_name, unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, primary_issue_id, primary_issue_title`
+- `TaskRunListItem`：`id, task_type, resource_key, action, title, trigger_source, trigger_source_label, status, status_reason_code, requested_by_username, requested_at, started_at, ended_at, time_scope, time_scope_label, schedule_display_name, unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, primary_issue_id, primary_issue_title`
 - `TaskRunSummaryResponse`：`total, queued, running, success, failed, canceled`
 - `TaskRunViewResponse`：`run, progress, primary_issue, nodes, node_total, nodes_truncated, actions`
-- `TaskRunInfo`：`id, task_type, resource_key, action, title, trigger_source, status, status_reason_code, requested_by_username, schedule_display_name, time_input, filters, time_scope, time_scope_label, requested_at, queued_at, started_at, ended_at, cancel_requested_at, canceled_at`
+- `TaskRunInfo`：`id, task_type, resource_key, action, title, trigger_source, trigger_source_label, status, status_reason_code, requested_by_username, schedule_display_name, time_input, filters, time_scope, time_scope_label, requested_at, queued_at, started_at, ended_at, cancel_requested_at, canceled_at`
 - `TaskRunProgress`：`unit_total, unit_done, unit_failed, progress_percent, rows_fetched, rows_saved, rows_rejected, rejected_reason_counts, rejected_reasons, current_object, period_source_summary`
 - `TaskRunRejectionReasonItem`：`reason_key, reason_code, field, count, label, suggested_action, samples`
 - `TaskRunRejectionSampleItem`：`unit_id, field, value, message, row`；最多返回每个拒绝原因的少量样本，用于定位原始异常行，不作为业务数据事实源。

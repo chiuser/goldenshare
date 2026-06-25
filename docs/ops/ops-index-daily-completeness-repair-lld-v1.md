@@ -1,6 +1,6 @@
 # 指数日线完整性补漏 LLD v1
 
-状态：开发中（M4 代码已完成）
+状态：已完成，待生产配置与验收
 创建日期：2026-06-25  
 依据方案：`docs/ops/ops-index-daily-completeness-repair-plan-v1.md`  
 适用范围：`index_daily`、`ops.index_series_active`、日期对象矩阵审计、TaskRun 系统补漏、审查中心最小可见性。
@@ -855,19 +855,33 @@ uv run pytest -q tests/web/test_ops_runtime.py tests/web/test_ops_date_completen
 
 ### M5：页面最小可见性
 
+状态：已完成。
+
 目标：运营能看懂“当天缺口”和“系统补漏任务”。
 
 改动：
 
-1. TaskRun API 增加 `trigger_source_label`。
-2. 任务记录、今日运行、任务详情使用后端 label。
-3. 审查中心复用对象矩阵缺口展示。
+1. TaskRun API 已在 `TaskRunListItem` / `TaskRunInfo` 增加 `trigger_source_label`。
+2. 后端派生规则已收口：
+   - `trigger_source=system` 且 `request_payload.run_scope=index_daily_gap_repair` 显示“系统补漏”。
+   - 其他 `system` 任务仍显示“系统触发”。
+3. 任务记录、今日运行、任务详情、数据集详情最近任务表已优先使用后端 label。
+4. 审查中心继续复用对象矩阵缺口展示，不新增审计 API。
 
 验收：
 
 1. 系统补漏显示为“系统补漏”。
 2. 普通 system 任务仍能显示为系统触发。
 3. 页面不展示底层 SQL、run_scope、批次 payload 等技术字段。
+
+验证：
+
+```bash
+uv run ruff check src/ops/schemas/task_run.py src/ops/queries/task_run_query_service.py tests/web/test_ops_task_run_api.py
+uv run pytest -q tests/web/test_ops_task_run_api.py
+npm --prefix frontend run typecheck
+npm --prefix frontend run test -- ops-v21-task-records-tab ops-task-detail-page
+```
 
 ---
 
@@ -931,6 +945,8 @@ npm run typecheck
 1. `DatasetDefinition` 声明 `index_daily` 的对象矩阵完整性事实。
 2. `SubjectCompletenessMatrixExecutor` 增加指数 active 池策略。
 3. `IndexDailyCompletenessRepairService` 用 serving 差集创建标准 TaskRun。
+4. `TaskRunCompletionWorker` 与 `DateCompletenessAuditWorker` 形成异步补漏闭环。
+5. `OperationsScheduler` 接入日期完整性自动审计计划，但生产 schedule 记录仍需上线后配置。
 4. `TaskRunCompletionWorker` 负责首次审计触发。
 5. `OperationsScheduler + DateCompletenessScheduleCommandService` 负责晚间重复审计入队。
 6. `DateCompletenessAuditWorker` 审计完成后触发补漏。

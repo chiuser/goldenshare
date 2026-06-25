@@ -28,6 +28,7 @@ function createTaskRunView(status = "failed") {
       action: "maintain",
       title: "股票日线",
       trigger_source: "manual",
+      trigger_source_label: "手动",
       status,
       status_reason_code: status === "failed" ? "ingestion_failed" : null,
       requested_by_username: "admin",

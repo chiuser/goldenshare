@@ -50,6 +50,7 @@ class TaskRunListItem(BaseModel):
     action: str
     title: str
     trigger_source: str
+    trigger_source_label: str
     status: str
     status_reason_code: str | None = None
     requested_by_username: str | None = None
@@ -93,6 +94,7 @@ class TaskRunInfo(BaseModel):
     action: str
     title: str
     trigger_source: str
+    trigger_source_label: str
     status: str
     status_reason_code: str | None = None
     requested_by_username: str | None = None

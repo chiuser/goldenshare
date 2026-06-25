@@ -298,6 +298,7 @@ export interface TaskRunListResponse {
     time_scope_label: string | null;
     schedule_display_name: string | null;
     trigger_source: string;
+    trigger_source_label: string;
     status: string;
     status_reason_code: string | null;
     requested_by_username: string | null;
@@ -378,6 +379,7 @@ export interface TaskRunViewResponse {
     action: string;
     title: string;
     trigger_source: string;
+    trigger_source_label: string;
     status: string;
     status_reason_code: string | null;
     requested_by_username: string | null;
