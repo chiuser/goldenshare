@@ -1616,13 +1616,13 @@ post dry-run：
 P7C-E 已在下一节单独审计、备份并停在正式删除批准前；后续不得复用 P7C-D 的
 备份或 pre dry-run 作为依据。
 
-#### 2026-06-25 P7C-E `ch_share_fact_market_breadth_daily` 删除前安全审计
+#### 2026-06-25 P7C-E `ch_share_fact_market_breadth_daily` 执行结果
 
-本节只记录删除前安全审计、pre dry-run 与备份结果，尚未执行正式 DB 删除。
 P7C-E 选择 `ch_share_fact_market_breadth_daily` 作为下一批候选，是因为它是
 `gold_market_breadth_daily` 与 `gold_stock_return_distribution` 下游本机 ClickHouse
 serving 资产；P7C-D post dry-run 中该资产只剩 old materialization event 候选，
-check event 候选为 0。该资产仍必须在正式删除前单独获得用户批准。
+check event 候选为 0。该资产在完成删除前安全审计、pre dry-run、专属备份和
+用户单独批准后，已执行正式 sample-delete。
 
 P7C-D post dry-run 中该资产候选：
 
@@ -1693,22 +1693,71 @@ P7C-E preflight：
 - 备份大小：`362M`。
 - `pg_restore --list`：通过。
 
-本次审计未执行：
+P7C-E 正式 sample-delete 已按上述范围执行完成：
 
-- 未删除 Dagster DB event。
+- 工具：
+  `asset_check_event_retention_sample_delete_cli.py sample-delete`
+- 资产：`ch_share_fact_market_breadth_daily`
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7ce_ch_share_fact_market_breadth_daily_delete_20260625.json`
+- 事务结果：`committed=true`
+- 删除量：
+  - old check event tags：0
+  - old `ASSET_CHECK_EVALUATION` event：0
+  - old `asset_check_executions` row：0
+  - old materialization event tags：3,011
+  - old `ASSET_MATERIALIZATION` event：3,011
+- 删除事务内 safety assertions 全部通过。
+
+post dry-run：
+
+- 报告：
+  `/private/tmp/asset_check_event_retention_p7ce_ch_share_fact_market_breadth_daily_post_dry_run_20260625.json`
+- `should_stop=false`
+- `running_or_queued_run_count=0`
+- safety assertions 全部通过
+- `ch_share_fact_market_breadth_daily` 候选归零
+- latest materialization id 仍为 `6630945`
+- latest partition 仍为 `2026-06-24`
+- latest check count 仍为 6，latest non-succeeded check count 仍为 0
+- 全局候选变为：75,870 条 check execution / check event、33,274 条
+  materialization event、24,844 条 materialization event tags
+- table counts：
+  - `event_logs`：3,810,491
+  - `asset_check_executions`：418,510
+  - `asset_event_tags`：33,757
+  - `dynamic_partitions`：30,572
+  - `runs`：46,485
+  - `run_tags`：316,459
+
+环境观察：
+
+- P7C-E pre dry-run 与 post dry-run 之间，正式 Dagster DB 新增了 12 个成功
+  `__ASSET_JOB` run。
+- 只读审计确认这 12 个 run 均 materialize `prod_core_wealth_market_turnover`，
+  partitions 为 `2026-06-05`、`2026-06-08`、`2026-06-09`、`2026-06-10`、
+  `2026-06-11`、`2026-06-12`、`2026-06-15`、`2026-06-16`、`2026-06-17`、
+  `2026-06-18`、`2026-06-22`、`2026-06-23`。
+- 这些新增 run 与本批删除资产无关；P7C-E 删除事务和 post dry-run 的 safety
+  assertions 均通过，`ch_share_fact_market_breadth_daily` latest/keep20/protected
+  状态未被触碰。
+- 但这再次说明当前环境不能仅凭历史 preflight 认定长期静止；P7C-F 若继续推进，
+  必须重新确认 active runs 为 0，并要求执行窗口内不再有其它 Dagster 写入活动。
+
+本批未执行：
+
+- 未删除本批范围外 Dagster DB event。
+- 未删除任何 `ASSET_CHECK_EVALUATION` event 或 `asset_check_executions` row。
 - 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
 - 未写数据湖 Parquet。
 - 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
   events。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
-正式执行前仍必须满足：
-
-1. 获得用户对 `ch_share_fact_market_breadth_daily` 正式 sample-delete 的单独批准。
-2. 执行前再次确认 active runs 为 0。
-3. 只允许执行单资产 `sample-delete --sample-asset ch_share_fact_market_breadth_daily`。
-4. 删除后必须立即执行 post dry-run；若 latest / keep20 / protected 任一断言失败，
-   必须停止后续批次。
+P7C-F 若继续推进，必须重新选择下一批资产，重新做 active-runs 确认、
+重新备份、重新 pre dry-run，并单独获得正式删除批准；不得复用 P7C-E 的备份或
+pre dry-run 作为下一批依据。由于 P7C-E 期间观察到其它 Dagster run 写入，下一批
+执行前还必须确认执行窗口内不会有其它 Dagster 写入活动。
 
 ## 8. Stop Conditions
 
