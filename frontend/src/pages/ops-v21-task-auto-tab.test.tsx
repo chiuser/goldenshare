@@ -6,6 +6,7 @@ import {
   actionSupportsRemoteProbeCondition,
   actionSupportsRemoteStkMinsProbe,
   actionSupportsTriggerDaySingleRangePolicy,
+  buildProbeRunQueryPath,
   buildCronExpression,
   formatProbeConditionLabel,
   formatProbeRunCount,
@@ -191,6 +192,12 @@ describe("自动任务日期策略", () => {
     expect(formatProbeConditionLabel("freshness_latest_open")).toBe("最新业务日命中最新交易日");
     expect(formatProbeRunCount(4)).toBe("已探测：4 次");
     expect(formatProbeRunCount(undefined)).toBe("已探测：—");
+    expect(buildProbeRunQueryPath({ scheduleId: 12, datasetKey: "stk_mins", limit: 1 })).toBe(
+      "/api/v1/ops/probes/runs?schedule_id=12&dataset_key=stk_mins&limit=1",
+    );
+    expect(buildProbeRunQueryPath({ scheduleId: 12, datasetKey: "stk_mins", conditionMatched: true, limit: 1 })).toBe(
+      "/api/v1/ops/probes/runs?schedule_id=12&dataset_key=stk_mins&condition_matched=true&limit=1",
+    );
   });
 
   it("only enables remote index_daily source probing for index_daily maintain", () => {

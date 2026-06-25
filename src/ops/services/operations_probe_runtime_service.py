@@ -98,22 +98,27 @@ class ProbeRuntimeService:
                 result_reason = "probe_runtime_error"
             finally:
                 ended_at = datetime.now(timezone.utc)
-                run_log = ProbeRunLog(
-                    probe_rule_id=rule.id,
-                    status=status,
-                    condition_matched=matched,
-                    message=message or ("命中探测条件" if matched else (skip_reason or "未命中探测条件")),
-                    payload_json=payload,
-                    probed_at=started_at,
-                    triggered_task_run_id=task_run_id,
-                    duration_ms=max(int((ended_at - started_at).total_seconds() * 1000), 0),
-                    rule_version=rule.rule_version,
-                    result_code=result_code,
-                    result_reason=result_reason,
-                    correlation_id=task_run_correlation_id,
-                )
-                session.add(run_log)
-                session.commit()
+            log_payload = dict(payload or {})
+            log_payload.setdefault("dataset_key", rule.dataset_key)
+            if rule.source_key:
+                log_payload.setdefault("source_key", rule.source_key)
+            run_log = ProbeRunLog(
+                probe_rule_id=rule.id,
+                schedule_id=rule.schedule_id,
+                status=status,
+                condition_matched=matched,
+                message=message or ("命中探测条件" if matched else (skip_reason or "未命中探测条件")),
+                payload_json=log_payload,
+                probed_at=started_at,
+                triggered_task_run_id=task_run_id,
+                duration_ms=max(int((ended_at - started_at).total_seconds() * 1000), 0),
+                rule_version=rule.rule_version,
+                result_code=result_code,
+                result_reason=result_reason,
+                correlation_id=task_run_correlation_id,
+            )
+            session.add(run_log)
+            session.commit()
 
         return task_runs, ProbeTickResult(
             processed_rules=processed,

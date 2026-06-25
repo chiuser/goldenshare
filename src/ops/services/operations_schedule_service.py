@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import datetime, time, timedelta, timezone
 
 from sqlalchemy import delete, select
 from sqlalchemy.orm import Session
@@ -42,6 +42,7 @@ SUPPORTED_CALENDAR_POLICIES = {
     TRIGGER_DAY_SINGLE_RANGE_POLICY,
     TRIGGER_DAY_POINT_POLICY,
 }
+FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES = ("queued", "running", "canceling", "success", "partial_success")
 
 
 class OperationsScheduleService:
@@ -349,6 +350,13 @@ class OperationsScheduleService:
         schedules = list(session.scalars(stmt))
         task_runs: list[TaskRun] = []
         for schedule in schedules:
+            if schedule.trigger_mode == "schedule_probe_fallback" and self._has_effective_probe_task_for_schedule_day(
+                session,
+                schedule=schedule,
+                current_time=current_time,
+            ):
+                self._advance_schedule_after_skipped_due_run(session, schedule=schedule, current_time=current_time)
+                continue
             scheduled_at = self._stored_datetime(schedule.next_run_at) or current_time
             task_run = self.task_run_service.create_from_schedule_target(
                 session,
@@ -379,6 +387,53 @@ class OperationsScheduleService:
             session.commit()
             task_runs.append(task_run)
         return task_runs
+
+    def _has_effective_probe_task_for_schedule_day(
+        self,
+        session: Session,
+        *,
+        schedule: OpsSchedule,
+        current_time: datetime,
+    ) -> bool:
+        if schedule.id is None:
+            return False
+        schedule_tz = ensure_timezone(schedule.timezone)
+        normalized_now = current_time if current_time.tzinfo is not None else current_time.replace(tzinfo=timezone.utc)
+        local_day = normalized_now.astimezone(schedule_tz).date()
+        local_start = datetime.combine(local_day, time.min, tzinfo=schedule_tz)
+        local_end = datetime.combine(local_day + timedelta(days=1), time.min, tzinfo=schedule_tz)
+        stmt = (
+            select(TaskRun.id)
+            .where(TaskRun.schedule_id == schedule.id)
+            .where(TaskRun.trigger_source == "probe")
+            .where(TaskRun.status.in_(FALLBACK_PROBE_EFFECTIVE_TASK_STATUSES))
+            .where(TaskRun.requested_at >= local_start.astimezone(timezone.utc))
+            .where(TaskRun.requested_at < local_end.astimezone(timezone.utc))
+            .limit(1)
+        )
+        return session.scalar(stmt) is not None
+
+    def _advance_schedule_after_skipped_due_run(
+        self,
+        session: Session,
+        *,
+        schedule: OpsSchedule,
+        current_time: datetime,
+    ) -> None:
+        if schedule.schedule_type == "once":
+            schedule.status = "paused"
+            schedule.next_run_at = None
+        else:
+            schedule.next_run_at = self._resolve_next_run_at(
+                session=session,
+                schedule_type=schedule.schedule_type,
+                cron_expr=schedule.cron_expr,
+                timezone_name=schedule.timezone,
+                next_run_at=None,
+                calendar_policy=schedule.calendar_policy,
+                after=current_time,
+            )
+        session.commit()
 
     def preview_schedule(
         self,

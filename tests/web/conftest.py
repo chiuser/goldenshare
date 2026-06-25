@@ -518,6 +518,7 @@ def probe_run_log_factory(db_session: Session) -> Callable[..., ProbeRunLog]:
     def build(
         *,
         probe_rule_id: int,
+        schedule_id: int | None = None,
         status: str = "success",
         condition_matched: bool = True,
         message: str | None = None,
@@ -530,6 +531,7 @@ def probe_run_log_factory(db_session: Session) -> Callable[..., ProbeRunLog]:
         log = ProbeRunLog(
             id=next_id,
             probe_rule_id=probe_rule_id,
+            schedule_id=schedule_id,
             status=status,
             condition_matched=condition_matched,
             message=message,

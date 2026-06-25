@@ -681,6 +681,7 @@ export interface ProbeRunLogListResponse {
   items: Array<{
     id: number;
     probe_rule_id: number;
+    schedule_id: number | null;
     status: string;
     condition_matched: boolean;
     message: string | null;

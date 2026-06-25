@@ -8,6 +8,7 @@ from src.foundation.datasets.source_registry import get_source_display_name
 from src.ops.dataset_labels import get_dataset_display_name
 from src.ops.models.ops.probe_rule import ProbeRule
 from src.ops.models.ops.probe_run_log import ProbeRunLog
+from src.ops.models.ops.task_run import TaskRun
 from src.app.exceptions import WebAppError
 from src.ops.schemas.probe import (
     ProbeRuleDetailResponse,
@@ -78,32 +79,60 @@ class ProbeQueryService:
         session: Session,
         *,
         probe_rule_id: int | None = None,
+        schedule_id: int | None = None,
         status: str | None = None,
         dataset_key: str | None = None,
         source_key: str | None = None,
+        condition_matched: bool | None = None,
         limit: int = 100,
         offset: int = 0,
     ) -> ProbeRunLogListResponse:
         limit = max(1, min(limit, 500))
+        resolved_schedule_id = func.coalesce(ProbeRunLog.schedule_id, ProbeRule.schedule_id, TaskRun.schedule_id)
+        resolved_dataset_key = func.coalesce(
+            ProbeRule.dataset_key,
+            TaskRun.resource_key,
+            ProbeRunLog.payload_json["dataset_key"].as_string(),
+        )
+        resolved_source_key = func.coalesce(
+            ProbeRule.source_key,
+            ProbeRunLog.payload_json["source_key"].as_string(),
+        )
 
         filters = []
         if probe_rule_id is not None:
             filters.append(ProbeRunLog.probe_rule_id == probe_rule_id)
+        if schedule_id is not None:
+            filters.append(resolved_schedule_id == schedule_id)
         if status:
             filters.append(ProbeRunLog.status == status)
         if dataset_key:
-            filters.append(ProbeRule.dataset_key == dataset_key)
+            filters.append(resolved_dataset_key == dataset_key)
         if source_key:
-            filters.append(ProbeRule.source_key == source_key)
+            filters.append(resolved_source_key == source_key)
+        if condition_matched is not None:
+            filters.append(ProbeRunLog.condition_matched.is_(condition_matched))
 
-        count_stmt = select(func.count()).select_from(ProbeRunLog).join(ProbeRule, ProbeRule.id == ProbeRunLog.probe_rule_id)
+        count_stmt = (
+            select(func.count())
+            .select_from(ProbeRunLog)
+            .outerjoin(ProbeRule, ProbeRule.id == ProbeRunLog.probe_rule_id)
+            .outerjoin(TaskRun, TaskRun.id == ProbeRunLog.triggered_task_run_id)
+        )
         if filters:
             count_stmt = count_stmt.where(*filters)
         total = session.scalar(count_stmt) or 0
 
         stmt = (
-            select(ProbeRunLog, ProbeRule.name, ProbeRule.dataset_key, ProbeRule.source_key)
-            .join(ProbeRule, ProbeRule.id == ProbeRunLog.probe_rule_id)
+            select(
+                ProbeRunLog,
+                ProbeRule.name,
+                resolved_schedule_id,
+                resolved_dataset_key,
+                resolved_source_key,
+            )
+            .outerjoin(ProbeRule, ProbeRule.id == ProbeRunLog.probe_rule_id)
+            .outerjoin(TaskRun, TaskRun.id == ProbeRunLog.triggered_task_run_id)
             .order_by(desc(ProbeRunLog.probed_at), desc(ProbeRunLog.id))
             .limit(limit)
             .offset(offset)
@@ -118,6 +147,7 @@ class ProbeQueryService:
                 ProbeRunLogItem(
                     id=log.id,
                     probe_rule_id=log.probe_rule_id,
+                    schedule_id=resolved_schedule,
                     probe_rule_name=rule_name,
                     dataset_key=resolved_dataset_key,
                     dataset_display_name=_require_dataset_display_name(resolved_dataset_key),
@@ -135,7 +165,7 @@ class ProbeQueryService:
                     result_reason=log.result_reason,
                     correlation_id=log.correlation_id,
                 )
-                for log, rule_name, resolved_dataset_key, resolved_source_key in rows
+                for log, rule_name, resolved_schedule, resolved_dataset_key, resolved_source_key in rows
             ],
         )
 

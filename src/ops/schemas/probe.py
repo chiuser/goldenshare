@@ -77,6 +77,7 @@ class DeleteProbeRuleResponse(BaseModel):
 class ProbeRunLogItem(BaseModel):
     id: int
     probe_rule_id: int
+    schedule_id: int | None = None
     probe_rule_name: str | None = None
     dataset_key: str | None = None
     dataset_display_name: str

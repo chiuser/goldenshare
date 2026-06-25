@@ -3,6 +3,7 @@
 状态：已实现，待生产验收
 创建时间：2026-06-22
 实现时间：2026-06-22
+可见性与兜底修复时间：2026-06-25
 依据方案：`docs/ops/ops-index-daily-remote-source-probe-plan-v1.md`
 适用范围：`index_daily.maintain` 自动任务探测触发、Probe Runtime、自动任务页面、Probe API 测试。
 
@@ -12,6 +13,19 @@
 2. 已新增 `IndexDailyRemoteReadinessProbeService`，探测参数经 `DatasetActionResolver -> _index_daily_params()` 生成，再追加 `limit=1/offset=0` 和最小字段。
 3. 已接入 Schedule API、Direct Probe API、Probe Runtime 和自动任务页面。
 4. 已补后端与前端定向测试；生产环境仍需创建自动任务后观察真实探测记录与 TaskRun 触发。
+5. 2026-06-25 生产验收发现两个收口问题并已纳入实现口径：探测日志必须绑定稳定 `schedule_id`，避免 ProbeRule 重建后详情页丢历史；`schedule_probe_fallback` 当天已有 probe 发起的有效 TaskRun 时不得重复创建兜底 scheduled TaskRun。
+
+## 0.1 生产验收修复口径（2026-06-25）
+
+本节是对已上线探测能力的可见性与去重补强，不改变 `index_daily` 正式同步链路。
+
+1. `ops.probe_run_log` 增加 nullable `schedule_id`，新日志固定写入 `rule.schedule_id`。
+2. 迁移回填规则：优先从 `triggered_task_run_id -> ops.task_run.schedule_id` 回填，再从现存 `ops.probe_rule.schedule_id` 回填；旧规则已删除且未触发 TaskRun 的历史 miss 日志无法恢复。
+3. `GET /api/v1/ops/probes/runs` 支持 `schedule_id` 与 `condition_matched` 过滤；查询使用 left join，允许通过 TaskRun 归属读取已删除旧规则产生的历史 hit 日志。
+4. 自动任务详情页的探测次数、最近探测、最近命中改用 `schedule_id + dataset_key` 查询，不再把当前 `probe_rule.id` 当作历史统计事实。
+5. `schedule_probe_fallback` 只在 probe 没有成功发起有效任务时兜底；当天已有 `trigger_source='probe'` 且状态为 `queued/running/canceling/success/partial_success` 的 TaskRun，则跳过兜底创建。
+6. probe 触发任务若为 `failed/canceled`，不算有效，兜底时间仍允许创建 scheduled TaskRun。
+7. 跳过兜底时不更新 `last_triggered_at`，因为没有真正创建 scheduled 任务；cron 只推进 `next_run_at`，once 置为 paused 并清空 `next_run_at`。
 
 ## 1. 本轮目标
 
@@ -57,7 +71,7 @@ trigger_mode in [probe, schedule_probe_fallback]
 ## 2. 硬边界
 
 1. 不改 `index_daily` writer、DAO、raw/serving 写入策略、表结构。
-2. 不新增数据库表，不新增 Alembic 迁移。
+2. 初版不新增数据库表；2026-06-25 可见性修复只新增 `ops.probe_run_log.schedule_id` 观测字段，不新增业务表。
 3. 不改变 `freshness_latest_open` 语义。
 4. 不把 `remote_stk_mins_ready` 改成通用探测器。
 5. 不支持 workflow 级探测。

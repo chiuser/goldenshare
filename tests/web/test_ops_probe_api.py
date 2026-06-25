@@ -198,19 +198,31 @@ def test_ops_probe_create_rejects_invalid_remote_index_daily_condition(app_clien
 
 def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     app_client,
+    db_session,
     user_factory,
+    ops_schedule_factory,
     probe_rule_factory,
     probe_run_log_factory,
+    task_run_factory,
 ) -> None:
     user_factory(username="admin", password="secret", is_admin=True)
     login = app_client.post("/api/v1/auth/login", json={"username": "admin", "password": "secret"})
     token = login.json()["token"]
 
-    equity_rule = probe_rule_factory(name="股票日线探测", dataset_key="daily", source_key="tushare")
+    schedule = ops_schedule_factory(target_key="daily.maintain", trigger_mode="schedule_probe_fallback")
+    equity_rule = probe_rule_factory(schedule_id=schedule.id, name="股票日线探测", dataset_key="daily", source_key="tushare")
     biying_rule = probe_rule_factory(name="Biying 股票日线探测", dataset_key="biying_equity_daily", source_key="biying")
+    deleted_rule = probe_rule_factory(schedule_id=schedule.id, name="已删除旧规则", dataset_key="daily", source_key="tushare")
+    triggered_task = task_run_factory(
+        resource_key="daily",
+        trigger_source="probe",
+        status="success",
+        schedule_id=schedule.id,
+    )
 
     probe_run_log_factory(
         probe_rule_id=equity_rule.id,
+        schedule_id=schedule.id,
         status="success",
         condition_matched=True,
         message="hit",
@@ -224,11 +236,21 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
         message="timeout",
         payload_json={"error": "timeout"},
     )
+    probe_run_log_factory(
+        probe_rule_id=deleted_rule.id,
+        status="success",
+        condition_matched=True,
+        message="old hit",
+        payload_json={"max_trade_date": "2026-04-14"},
+        triggered_task_run_id=triggered_task.id,
+    )
+    db_session.delete(deleted_rule)
+    db_session.commit()
 
     all_runs = app_client.get("/api/v1/ops/probes/runs", headers={"Authorization": f"Bearer {token}"})
     assert all_runs.status_code == 200
     all_payload = all_runs.json()
-    assert all_payload["total"] == 2
+    assert all_payload["total"] == 3
     assert {item["dataset_key"] for item in all_payload["items"]} == {"daily", "biying_equity_daily"}
 
     by_rule = app_client.get(f"/api/v1/ops/probes/{equity_rule.id}/runs", headers={"Authorization": f"Bearer {token}"})
@@ -251,6 +273,16 @@ def test_ops_probe_run_log_list_supports_rule_and_dataset_filters(
     assert by_dataset_payload["items"][0]["dataset_key"] == "biying_equity_daily"
     assert by_dataset_payload["items"][0]["status"] == "failed"
     assert by_dataset_payload["items"][0]["rule_version"] == 1
+
+    by_schedule_hit = app_client.get(
+        f"/api/v1/ops/probes/runs?schedule_id={schedule.id}&dataset_key=daily&condition_matched=true",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert by_schedule_hit.status_code == 200
+    by_schedule_hit_payload = by_schedule_hit.json()
+    assert by_schedule_hit_payload["total"] == 2
+    assert {item["schedule_id"] for item in by_schedule_hit_payload["items"]} == {schedule.id}
+    assert {item["triggered_task_run_id"] for item in by_schedule_hit_payload["items"]} == {101, triggered_task.id}
 
 
 def test_probe_runtime_requires_explicit_action_key(db_session, probe_rule_factory) -> None:
@@ -788,10 +820,13 @@ def test_probe_runtime_remote_stk_mins_miss_does_not_create_task_run(db_session,
 
 def test_probe_runtime_remote_index_daily_hit_creates_task_run_with_latest_open_date(
     db_session,
+    ops_schedule_factory,
     probe_rule_factory,
     monkeypatch,
 ) -> None:
+    schedule = ops_schedule_factory(target_key="index_daily.maintain", trigger_mode="schedule_probe_fallback")
     rule = probe_rule_factory(
+        schedule_id=schedule.id,
         dataset_key="index_daily",
         source_key="tushare",
         probe_condition_json={"type": INDEX_DAILY_REMOTE_READY_CONDITION},
@@ -823,10 +858,12 @@ def test_probe_runtime_remote_index_daily_hit_creates_task_run_with_latest_open_
     assert len(task_runs) == 1
     task_run = task_runs[0]
     assert task_run.resource_key == "index_daily"
+    assert task_run.schedule_id == schedule.id
     assert task_run.time_input_json == {"mode": "point", "trade_date": "2026-05-29"}
     assert task_run.filters_json == {}
     run_log = db_session.scalar(select(ProbeRunLog).where(ProbeRunLog.probe_rule_id == rule.id))
     assert run_log is not None
+    assert run_log.schedule_id == schedule.id
     assert run_log.condition_matched is True
     assert db_session.scalar(select(TaskRun).where(TaskRun.id == task_run.id)) is not None
 

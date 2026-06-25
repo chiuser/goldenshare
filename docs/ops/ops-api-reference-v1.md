@@ -796,7 +796,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 - 功能：分页查询 probe 运行日志（全局）。
 - Query 参数：
-  - `probe_rule_id, status, dataset_key, source_key`（可选）
+  - `probe_rule_id, schedule_id, status, dataset_key, source_key, condition_matched`（可选）
   - `limit` 默认 100（`1..500`）
   - `offset` 默认 0
 - 返回：`ProbeRunLogListResponse`
@@ -804,11 +804,11 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 
 ```bash
 curl -H "Authorization: Bearer <TOKEN>" \
-  "http://127.0.0.1:8000/api/v1/ops/probes/runs?dataset_key=daily&limit=50"
+  "http://127.0.0.1:8000/api/v1/ops/probes/runs?schedule_id=12&dataset_key=index_daily&condition_matched=true&limit=50"
 ```
 
 ```json
-{"total": 10, "items": [{"id": 1, "status": "hit", "triggered_task_run_id": 285}]}
+{"total": 10, "items": [{"id": 1, "schedule_id": 12, "status": "success", "triggered_task_run_id": 285}]}
 ```
 
 ### 5.4 GET /api/v1/ops/probes/{probe_rule_id}
@@ -1495,7 +1495,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
 - `ProbeRuleListItem`：`id, schedule_id, name, dataset_key, trigger_mode, workflow_key, step_key, rule_version, source_key, status, window_start, window_end, probe_interval_seconds, probe_condition_json, on_success_action_json, max_triggers_per_day, timezone_name, last_probed_at, last_triggered_at, created_at, updated_at`
 - `ProbeRuleDetailResponse`：`id, schedule_id, name, dataset_key, trigger_mode, workflow_key, step_key, rule_version, source_key, status, window_start, window_end, probe_interval_seconds, probe_condition_json, on_success_action_json, max_triggers_per_day, timezone_name, last_probed_at, last_triggered_at, created_at, updated_at, created_by_username, updated_by_username`
 - `ProbeRunLogListResponse`：`items, total`
-- `ProbeRunLogItem`：`id, probe_rule_id, probe_rule_name, dataset_key, dataset_display_name, source_key, source_display_name, status, condition_matched, message, payload_json, probed_at, triggered_task_run_id, duration_ms, rule_version, result_code, result_reason, correlation_id`
+- `ProbeRunLogItem`：`id, probe_rule_id, schedule_id, probe_rule_name, dataset_key, dataset_display_name, source_key, source_display_name, status, condition_matched, message, payload_json, probed_at, triggered_task_run_id, duration_ms, rule_version, result_code, result_reason, correlation_id`
 - `DeleteProbeRuleResponse`：`id, status`
 
 ### 12.5 发布与规则
@@ -1587,6 +1587,7 @@ curl -X POST -H "Authorization: Bearer <TOKEN>" -H "Content-Type: application/js
    - `GET /api/v1/ops/schedules/{schedule_id}/revisions`
    - `GET /api/v1/ops/task-runs?schedule_id={id}&limit=1`
    - `GET /api/v1/ops/probes?schedule_id={id}&limit=50`
+   - `GET /api/v1/ops/probes/runs?schedule_id={id}&dataset_key={dataset_key}&limit=1`
    - `POST /api/v1/ops/schedules/preview`
    - `POST /api/v1/ops/schedules`
    - `PATCH /api/v1/ops/schedules/{schedule_id}`

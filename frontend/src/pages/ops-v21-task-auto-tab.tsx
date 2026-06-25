@@ -68,6 +68,11 @@ type CatalogSource = OpsCatalogResponse["sources"][number];
 type CatalogActionParameter = NonNullable<OpsCatalogResponse["actions"][number]["parameters"]>[number];
 type RepeatMode = "daily" | "weekly" | "monthly" | "intraday_interval";
 type TriggerMode = "schedule" | "probe" | "schedule_probe_fallback";
+type ProbeRunSummary = {
+  total: number;
+  latest_probed_at: string | null;
+  latest_triggered_at: string | null;
+};
 type CalendarPolicy =
   | ""
   | "monthly_last_day"
@@ -354,6 +359,22 @@ export function formatProbeConditionLabel(conditionKind: string | null | undefin
 
 export function formatProbeRunCount(count: number | null | undefined): string {
   return typeof count === "number" ? `已探测：${count} 次` : "已探测：—";
+}
+
+export function buildProbeRunQueryPath(args: {
+  scheduleId: number;
+  datasetKey?: string | null;
+  conditionMatched?: boolean;
+  limit?: number;
+}): string {
+  const params = new URLSearchParams();
+  params.set("schedule_id", String(args.scheduleId));
+  if (args.datasetKey) params.set("dataset_key", args.datasetKey);
+  if (typeof args.conditionMatched === "boolean") {
+    params.set("condition_matched", String(args.conditionMatched));
+  }
+  if (typeof args.limit === "number") params.set("limit", String(args.limit));
+  return `/api/v1/ops/probes/runs?${params.toString()}`;
 }
 
 export function actionSupportsRemoteStkMinsProbe(actionType: string, actionKey: string): boolean {
@@ -696,17 +717,37 @@ export function OpsAutomationPage() {
     () => (probeRulesQuery.data?.items || []).map((item) => item.id).sort((a, b) => a - b).join(","),
     [probeRulesQuery.data?.items],
   );
-  const probeRunCountsQuery = useQuery({
-    queryKey: ["ops", "schedule-probe-run-counts", selectedScheduleId, probeRuleIdsKey],
+  const probeRunSummariesQuery = useQuery({
+    queryKey: ["ops", "schedule-probe-run-summaries", selectedScheduleId, probeRuleIdsKey],
     queryFn: async () => {
       const rules = probeRulesQuery.data?.items || [];
+      if (!selectedScheduleId) return {};
       const pairs = await Promise.all(
         rules.map(async (rule) => {
-          const response = await apiRequest<ProbeRunLogListResponse>(`/api/v1/ops/probes/${rule.id}/runs?limit=1`);
-          return [rule.id, response.total] as const;
+          const [latestResponse, latestHitResponse] = await Promise.all([
+            apiRequest<ProbeRunLogListResponse>(
+              buildProbeRunQueryPath({ scheduleId: selectedScheduleId, datasetKey: rule.dataset_key, limit: 1 }),
+            ),
+            apiRequest<ProbeRunLogListResponse>(
+              buildProbeRunQueryPath({
+                scheduleId: selectedScheduleId,
+                datasetKey: rule.dataset_key,
+                conditionMatched: true,
+                limit: 1,
+              }),
+            ),
+          ]);
+          return [
+            rule.id,
+            {
+              total: latestResponse.total,
+              latest_probed_at: latestResponse.items[0]?.probed_at ?? null,
+              latest_triggered_at: latestHitResponse.items[0]?.probed_at ?? null,
+            },
+          ] as const;
         }),
       );
-      return Object.fromEntries(pairs) as Record<number, number>;
+      return Object.fromEntries(pairs) as Record<number, ProbeRunSummary>;
     },
     enabled: Boolean(selectedScheduleId && probeRulesQuery.data?.items?.length),
     refetchOnWindowFocus: false,
@@ -1540,19 +1581,26 @@ export function OpsAutomationPage() {
                     <DetailInfoPanel label="探测规则运行状态">
                       {probeRulesQuery.isLoading ? <Text size="sm" c="dimmed">正在读取探测规则…</Text> : null}
                       {probeRulesQuery.data?.items?.length ? (
-                        probeRulesQuery.data.items.map((rule) => (
-                          <Group key={rule.id} justify="space-between" align="center">
-                            <Text size="sm">{rule.dataset_display_name}</Text>
-                            <Group gap={6}>
-                              <StatusBadge value={rule.status} />
-                              <Text size="xs" c="dimmed">
-                                {formatProbeRunCount(probeRunCountsQuery.data?.[rule.id])}
-                              </Text>
-                              <Text size="xs" c="dimmed">最近探测：{formatDateTimeLabel(rule.last_probed_at)}</Text>
-                              <Text size="xs" c="dimmed">最近命中：{formatDateTimeLabel(rule.last_triggered_at)}</Text>
+                        probeRulesQuery.data.items.map((rule) => {
+                          const runSummary = probeRunSummariesQuery.data?.[rule.id];
+                          return (
+                            <Group key={rule.id} justify="space-between" align="center">
+                              <Text size="sm">{rule.dataset_display_name}</Text>
+                              <Group gap={6}>
+                                <StatusBadge value={rule.status} />
+                                <Text size="xs" c="dimmed">
+                                  {formatProbeRunCount(runSummary?.total)}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  最近探测：{formatDateTimeLabel(runSummary?.latest_probed_at || rule.last_probed_at)}
+                                </Text>
+                                <Text size="xs" c="dimmed">
+                                  最近命中：{formatDateTimeLabel(runSummary?.latest_triggered_at || rule.last_triggered_at)}
+                                </Text>
+                              </Group>
                             </Group>
-                          </Group>
-                        ))
+                          );
+                        })
                       ) : (
                         <Text size="sm" c="dimmed">当前还没有探测规则。</Text>
                       )}

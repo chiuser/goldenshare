@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, datetime, timezone
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 from sqlalchemy import select
@@ -11,6 +11,7 @@ from src.ops.models.ops.dataset_date_completeness_run import DatasetDateComplete
 from src.ops.models.ops.dataset_date_completeness_schedule import DatasetDateCompletenessSchedule
 from src.ops.models.ops.task_run_issue import TaskRunIssue
 from src.ops.models.ops.task_run_node import TaskRunNode
+from src.ops.models.ops.task_run import TaskRun
 from src.ops.runtime import OperationsScheduler, OperationsWorker, TaskRunDispatchOutcome, TaskRunDispatcher
 from src.ops.services.operations_serving_light_refresh_service import ServingLightRefreshResult
 from src.ops.services.task_run_ingestion_context import TaskRunIngestionContext
@@ -49,6 +50,100 @@ def test_scheduler_enqueues_due_once_schedule(db_session, ops_schedule_factory) 
     assert refreshed is not None
     assert refreshed.status == "paused"
     assert refreshed.next_run_at is None
+
+
+def test_scheduler_skips_probe_fallback_when_today_probe_task_is_effective(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="index_daily.maintain",
+        schedule_type="cron",
+        trigger_mode="schedule_probe_fallback",
+        cron_expr="0 20 * * *",
+        next_run_at=now,
+    )
+    task_run_factory(
+        resource_key="index_daily",
+        trigger_source="probe",
+        status="success",
+        schedule_id=schedule.id,
+        requested_at=datetime(2026, 6, 25, 9, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(db_session, now=now)
+
+    assert created == []
+    refreshed = db_session.get(type(schedule), schedule.id)
+    assert refreshed is not None
+    assert refreshed.last_triggered_at is None
+    assert refreshed.next_run_at is not None
+    assert refreshed.next_run_at.replace(tzinfo=timezone.utc) > now
+    scheduled_task = db_session.scalar(
+        select(TaskRun).where(TaskRun.schedule_id == schedule.id, TaskRun.trigger_source == "scheduled")
+    )
+    assert scheduled_task is None
+
+
+def test_scheduler_runs_probe_fallback_when_today_probe_task_failed(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="index_daily.maintain",
+        schedule_type="cron",
+        trigger_mode="schedule_probe_fallback",
+        cron_expr="0 20 * * *",
+        next_run_at=now,
+    )
+    task_run_factory(
+        resource_key="index_daily",
+        trigger_source="probe",
+        status="failed",
+        schedule_id=schedule.id,
+        requested_at=datetime(2026, 6, 25, 9, 0, tzinfo=timezone.utc),
+    )
+
+    created = OperationsScheduler().run_once(db_session, now=now)
+
+    assert len(created) == 1
+    assert created[0].schedule_id == schedule.id
+    assert created[0].trigger_source == "scheduled"
+
+
+def test_scheduler_runs_probe_fallback_when_probe_task_is_previous_day(
+    db_session,
+    ops_schedule_factory,
+    task_run_factory,
+) -> None:
+    now = datetime(2026, 6, 25, 12, 0, tzinfo=timezone.utc)
+    schedule = ops_schedule_factory(
+        target_type="dataset_action",
+        target_key="index_daily.maintain",
+        schedule_type="cron",
+        trigger_mode="schedule_probe_fallback",
+        cron_expr="0 20 * * *",
+        next_run_at=now,
+    )
+    task_run_factory(
+        resource_key="index_daily",
+        trigger_source="probe",
+        status="success",
+        schedule_id=schedule.id,
+        requested_at=now - timedelta(days=1),
+    )
+
+    created = OperationsScheduler().run_once(db_session, now=now)
+
+    assert len(created) == 1
+    assert created[0].schedule_id == schedule.id
+    assert created[0].trigger_source == "scheduled"
 
 
 def test_scheduler_enqueues_due_date_completeness_schedule(db_session, trade_calendar_factory) -> None:

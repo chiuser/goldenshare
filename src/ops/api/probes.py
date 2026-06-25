@@ -72,18 +72,22 @@ def list_probe_run_logs(
     _user: AuthenticatedUser = Depends(require_admin),
     session: Session = Depends(get_db_session),
     probe_rule_id: int | None = Query(None),
+    schedule_id: int | None = Query(None),
     status: str | None = Query(None),
     dataset_key: str | None = Query(None),
     source_key: str | None = Query(None),
+    condition_matched: bool | None = Query(None),
     limit: int = Query(100, ge=1, le=500),
     offset: int = Query(0, ge=0),
 ) -> ProbeRunLogListResponse:
     return ProbeQueryService().list_probe_run_logs(
         session,
         probe_rule_id=probe_rule_id,
+        schedule_id=schedule_id,
         status=status,
         dataset_key=dataset_key,
         source_key=source_key,
+        condition_matched=condition_matched,
         limit=limit,
         offset=offset,
     )
