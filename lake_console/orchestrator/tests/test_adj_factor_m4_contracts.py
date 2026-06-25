@@ -182,6 +182,24 @@ def _stock_basic_status(*, ready: bool) -> DatasetReadinessStatus:
     return DatasetReadinessStatus(ready=ready, statuses=statuses)
 
 
+def _stock_lifecycle_status(*, ready: bool) -> AssetReadinessStatus:
+    return AssetReadinessStatus(
+        asset_key="silver_stock_lifecycle",
+        partition_key=None,
+        ready=ready,
+        materialized=ready,
+        checks_passed=ready,
+        freshness_passed=ready,
+        materialization_storage_id=1 if ready else None,
+        materialization_date="2026-06-04" if ready else None,
+        missing_check_names=()
+        if ready
+        else ("silver_stock_lifecycle_contract_check",),
+        failed_check_names=(),
+        reason="ready" if ready else "silver_stock_lifecycle not ready",
+    )
+
+
 def _batch_status(
     *,
     ready_dates: tuple[str, ...] = (),
@@ -591,10 +609,29 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("股票基础信息尚未通过", result.skip_reason.skip_message)
         cursor_payload = load_sensor_cursor(result.cursor)
+        cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
+        self.assertLess(len(cursor_text), 3500)
+        self.assertNotIn("status_samples", cursor_text)
+        self.assertNotIn("materialization_storage_id", cursor_text)
+        self.assertNotIn("missing_file_paths", cursor_text)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "stock_basic_not_ready",
+        )
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "stock_basic")
         self.assertFalse(
             cursor_payload["details"]["stock_basic_freshness_required"]
         )
+        self.assertEqual(
+            cursor_payload["details"]["readiness_details"]["silver_adj_factor"][
+                "reason"
+            ],
+            "missing file",
+        )
         self.assertIn("stock_basic", cursor_payload["details"]["readiness_details"])
+        self.assertFalse(
+            cursor_payload["details"]["readiness_details"]["stock_basic"]["ready"]
+        )
 
     def test_silver_sensor_skips_when_stock_lifecycle_not_ready(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -615,12 +652,25 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             return_value=_stock_basic_status(ready=True),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_without_freshness",
-            return_value=_stock_basic_status(ready=False),
+            return_value=_stock_lifecycle_status(ready=False),
         ):
             result = _silver_sensor_result(context)
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("股票生命周期事实尚未通过", result.skip_reason.skip_message)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        stock_lifecycle_payload = cursor_payload["details"]["readiness_details"][
+            "stock_lifecycle"
+        ]
+        self.assertEqual(
+            stock_lifecycle_payload["asset_key"],
+            "silver_stock_lifecycle",
+        )
+        self.assertFalse(stock_lifecycle_payload["ready"])
+        self.assertEqual(
+            stock_lifecycle_payload["missing_check_names"],
+            ["silver_stock_lifecycle_contract_check"],
+        )
 
     def test_silver_sensor_submits_only_when_raw_stock_basic_and_lifecycle_ready(
         self,
@@ -643,7 +693,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             return_value=_stock_basic_status(ready=True),
         ), patch(
             "orchestrator.defs.sensors.stock_adj_factor_sensor.silver_stock_lifecycle_ready_without_freshness",
-            return_value=_stock_basic_status(ready=True),
+            return_value=_stock_lifecycle_status(ready=True),
         ):
             result = _silver_sensor_result(context)
 
@@ -655,6 +705,14 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertFalse(
             cursor_payload["details"]["stock_basic_freshness_required"]
         )
+        stock_lifecycle_payload = cursor_payload["details"]["readiness_details"][
+            "stock_lifecycle"
+        ]
+        self.assertEqual(
+            stock_lifecycle_payload["asset_key"],
+            "silver_stock_lifecycle",
+        )
+        self.assertTrue(stock_lifecycle_payload["ready"])
 
     def test_silver_sensor_does_not_rerun_materialized_partition(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -677,14 +735,18 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertIn("不自动重跑", result.skip_reason.skip_message)
 
     def test_legacy_silver_sensor_cases_removed(self) -> None:
+        sensor_source = Path(adj_factor_sensor_module.__file__).read_text()
         self.assertNotIn(
             "raw_tushare_adj_factor_ready_for_trade_date",
-            Path(adj_factor_sensor_module.__file__).read_text(),
+            sensor_source,
         )
         self.assertNotIn(
             "materialized_partition_keys",
-            Path(adj_factor_sensor_module.__file__).read_text(),
+            sensor_source,
         )
+        self.assertNotIn("build_continuity_cursor_details", sensor_source)
+        self.assertNotIn('"status_samples"', sensor_source)
+        self.assertNotIn("status.to_cursor_details()", sensor_source)
 
 if __name__ == "__main__":
     unittest.main()

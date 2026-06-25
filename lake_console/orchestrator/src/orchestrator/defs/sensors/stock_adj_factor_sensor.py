@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import datetime, time
 
 import dagster as dg
@@ -15,7 +16,6 @@ from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityExpectedDateWindow,
     ContinuityRegisteredGapStatus,
     ContinuitySelection,
-    build_continuity_cursor_details,
     build_registered_gap_status,
     load_expected_trade_date_window,
     select_first_not_ready_trade_date,
@@ -35,10 +35,10 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     build_sensor_tags,
 )
 from orchestrator.defs.sensors.readiness import (
+    AssetReadinessStatus,
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
     silver_stock_lifecycle_ready_without_freshness,
-    status_payload,
     stock_basic_ready_without_freshness,
 )
 
@@ -91,20 +91,106 @@ def _continuity_details(
     batch_readiness: ContinuityBatchReadiness | None,
     selection: ContinuitySelection | None,
 ) -> dict[str, object]:
-    return build_continuity_cursor_details(
-        expected_window=expected_window,
-        gap_status=gap_status,
-        batch_readiness=batch_readiness,
-        selection=selection,
-    )
+    first_not_ready_reason = None
+    if selection is not None and selection.first_not_ready_trade_date is not None:
+        selected_status = selection.selected_status
+        if selected_status is None and batch_readiness is not None:
+            selected_status = batch_readiness.status_for_trade_date(
+                selection.first_not_ready_trade_date
+            )
+        if selected_status is not None:
+            first_not_ready_reason = selected_status.reason
+    return {
+        "expected_start_date": expected_window.min_trade_date,
+        "expected_end_date": expected_window.max_trade_date,
+        "expected_count": len(expected_window.expected_trade_dates),
+        "registered_count": len(gap_status.registered_trade_dates),
+        "missing_registered_count": len(gap_status.missing_registered_dates),
+        "first_missing_registered_date": gap_status.first_missing_registered_date,
+        "ready_through_trade_date": (
+            selection.ready_through_trade_date if selection is not None else None
+        ),
+        "first_not_ready_trade_date": (
+            selection.first_not_ready_trade_date if selection is not None else None
+        ),
+        "first_not_ready_reason": first_not_ready_reason,
+        "selected_trade_date": (
+            selection.selected_trade_date if selection is not None else None
+        ),
+        "blocked_reason": selection.blocked_reason if selection is not None else None,
+        "batch_elapsed_ms": (
+            batch_readiness.elapsed_ms if batch_readiness is not None else None
+        ),
+        "scanned_file_count": (
+            batch_readiness.scanned_file_count if batch_readiness is not None else None
+        ),
+    }
 
 
-def _status_payload(status: ContinuityDateReadiness | DatasetReadinessStatus | None):
+def _asset_status_payload(status: AssetReadinessStatus) -> dict[str, object]:
+    return {
+        "asset_key": status.asset_key,
+        "partition_key": status.partition_key,
+        "ready": status.ready,
+        "materialized": status.materialized,
+        "checks_passed": status.checks_passed,
+        "freshness_passed": status.freshness_passed,
+        "missing_check_names": list(status.missing_check_names),
+        "failed_check_names": list(status.failed_check_names),
+        "reason": status.reason,
+    }
+
+
+def _summary_count_payload(summary: Mapping[str, object]) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in summary.items()
+        if key.endswith("_count") and (value or key.endswith("_row_count"))
+    }
+
+
+def _date_status_payload(status: ContinuityDateReadiness) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "trade_date": status.trade_date,
+        "ready": status.ready,
+        "materialized": status.materialized,
+        "checks_passed": status.checks_passed,
+        "reason": status.reason,
+        "failed_check_names": list(status.failed_check_names),
+        "missing_check_names": list(status.missing_check_names),
+        "missing_file_count": len(status.missing_file_paths),
+    }
+    if status.missing_file_paths:
+        payload["first_missing_file_path"] = status.missing_file_paths[0]
+    summary_counts = _summary_count_payload(status.summary)
+    if summary_counts:
+        payload["summary_counts"] = summary_counts
+    return payload
+
+
+def _dataset_status_payload(status: DatasetReadinessStatus) -> dict[str, object]:
+    return {
+        "ready": status.ready,
+        "reason": status.reason,
+        "statuses": [
+            _asset_status_payload(asset_status) for asset_status in status.statuses
+        ],
+    }
+
+
+def _status_payload(
+    status: ContinuityDateReadiness
+    | DatasetReadinessStatus
+    | AssetReadinessStatus
+    | None,
+):
     if status is None:
         return None
     if isinstance(status, ContinuityDateReadiness):
-        return status.to_cursor_details()
-    return status_payload(status)
+        return _date_status_payload(status)
+    if isinstance(status, DatasetReadinessStatus):
+        return _dataset_status_payload(status)
+    return _asset_status_payload(status)
 
 
 def _raw_sensor_cursor(
@@ -116,9 +202,12 @@ def _raw_sensor_cursor(
     reason: str,
     source_window_started: bool,
     continuity_details: dict[str, object] | None,
+    reason_code: str | None = None,
+    blocked_component: str | None = None,
 ) -> str:
-    reason_code = "request_run" if selected_trade_date else None
-    blocked_component = None
+    if selected_trade_date:
+        reason_code = "request_run"
+        blocked_component = "none"
     if reason_code is None and continuity_details is not None:
         blocked_reason = continuity_details.get("blocked_reason")
         first_not_ready_reason = continuity_details.get("first_not_ready_reason")
@@ -135,7 +224,13 @@ def _raw_sensor_cursor(
             reason_code = str(blocked_reason)
             blocked_component = "raw_adj_factor"
     if reason_code is None:
-        reason_code = "run_window_not_started" if not source_window_started else "all_ready"
+        reason_code = (
+            "run_window_not_started" if not source_window_started else "all_ready"
+        )
+    if blocked_component is None:
+        blocked_component = (
+            "run_window" if reason_code == "run_window_not_started" else "none"
+        )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -145,7 +240,7 @@ def _raw_sensor_cursor(
         ),
         target_date=target_trade_date,
         selected_count=1 if selected_trade_date else 0,
-        blocked_count=0 if selected_trade_date else 1,
+        blocked_count=0 if selected_trade_date or reason_code == "all_ready" else 1,
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
@@ -172,22 +267,15 @@ def _silver_sensor_cursor(
     raw_status: ContinuityDateReadiness | None = None,
     silver_status: ContinuityDateReadiness | None = None,
     stock_basic_status: DatasetReadinessStatus | None = None,
-    stock_lifecycle_status: DatasetReadinessStatus | None = None,
+    stock_lifecycle_status: AssetReadinessStatus | None = None,
     continuity_details: dict[str, object] | None = None,
     raw_continuity_details: dict[str, object] | None = None,
+    reason_code: str | None = None,
+    blocked_component: str | None = None,
 ) -> str:
-    reason_code = "request_run" if selected_trade_date else None
-    blocked_component = None
-    for component, status in (
-        ("raw_adj_factor", raw_status),
-        ("silver_adj_factor", silver_status),
-        ("stock_basic", stock_basic_status),
-        ("stock_lifecycle", stock_lifecycle_status),
-    ):
-        if status is not None and not status.ready:
-            reason_code = getattr(status, "reason", f"{component}_not_ready")
-            blocked_component = component
-            break
+    if selected_trade_date:
+        reason_code = "request_run"
+        blocked_component = "none"
     if reason_code is None and continuity_details is not None:
         blocked_reason = continuity_details.get("blocked_reason")
         first_not_ready_reason = continuity_details.get("first_not_ready_reason")
@@ -213,7 +301,13 @@ def _silver_sensor_cursor(
             reason_code = f"raw_{blocked_reason}"
             blocked_component = "raw_adj_factor"
     if reason_code is None:
-        reason_code = "run_window_not_started" if not source_window_started else "all_ready"
+        reason_code = (
+            "run_window_not_started" if not source_window_started else "all_ready"
+        )
+    if blocked_component is None:
+        blocked_component = (
+            "run_window" if reason_code == "run_window_not_started" else "none"
+        )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -223,7 +317,7 @@ def _silver_sensor_cursor(
         ),
         target_date=target_trade_date,
         selected_count=1 if selected_trade_date else 0,
-        blocked_count=0 if selected_trade_date else 1,
+        blocked_count=0 if selected_trade_date or reason_code == "all_ready" else 1,
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
@@ -324,6 +418,8 @@ def raw_adj_factor_update_job_sensor(
                 batch_readiness=None,
                 selection=None,
             ),
+            reason_code="missing_registered_partition",
+            blocked_component="cn_a_stock_current_trade_days",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -342,6 +438,8 @@ def raw_adj_factor_update_job_sensor(
                 batch_readiness=None,
                 selection=None,
             ),
+            reason_code="run_window_not_started",
+            blocked_component="run_window",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -387,6 +485,16 @@ def raw_adj_factor_update_job_sensor(
             reason=reason,
             source_window_started=True,
             continuity_details=continuity_details,
+            reason_code=(
+                "materialized_check_failed"
+                if selection.blocked_reason == "materialized_check_failed"
+                else "all_ready"
+            ),
+            blocked_component=(
+                "raw_adj_factor"
+                if selection.blocked_reason == "materialized_check_failed"
+                else "none"
+            ),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -451,6 +559,8 @@ def silver_adj_factor_update_job_sensor(
                 batch_readiness=None,
                 selection=None,
             ),
+            reason_code="missing_registered_partition",
+            blocked_component="cn_a_stock_current_trade_days",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -469,6 +579,8 @@ def silver_adj_factor_update_job_sensor(
                 batch_readiness=None,
                 selection=None,
             ),
+            reason_code="run_window_not_started",
+            blocked_component="run_window",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -546,6 +658,12 @@ def silver_adj_factor_update_job_sensor(
             raw_status=raw_status,
             continuity_details=continuity_details,
             raw_continuity_details=raw_continuity_details,
+            reason_code=(
+                "raw_materialized_check_failed"
+                if raw_selection.blocked_reason == "materialized_check_failed"
+                else raw_status.reason
+            ),
+            blocked_component="raw_adj_factor",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -568,6 +686,16 @@ def silver_adj_factor_update_job_sensor(
             silver_status=silver_status,
             continuity_details=continuity_details,
             raw_continuity_details=raw_continuity_details,
+            reason_code=(
+                "silver_materialized_check_failed"
+                if silver_selection.blocked_reason == "materialized_check_failed"
+                else "all_ready"
+            ),
+            blocked_component=(
+                "silver_adj_factor"
+                if silver_selection.blocked_reason == "materialized_check_failed"
+                else "none"
+            ),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -590,6 +718,8 @@ def silver_adj_factor_update_job_sensor(
             stock_basic_status=stock_basic_status,
             continuity_details=continuity_details,
             raw_continuity_details=raw_continuity_details,
+            reason_code="stock_basic_not_ready",
+            blocked_component="stock_basic",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
@@ -611,6 +741,8 @@ def silver_adj_factor_update_job_sensor(
             stock_lifecycle_status=stock_lifecycle_status,
             continuity_details=continuity_details,
             raw_continuity_details=raw_continuity_details,
+            reason_code="stock_lifecycle_not_ready",
+            blocked_component="stock_lifecycle",
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
 
