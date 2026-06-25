@@ -71,17 +71,17 @@ index_mins        000300.SH
 | 低缺口且高成交 ETF | 31 |
 | 最终初始 ETF 活跃池 | 1395 |
 
-最终初始 ETF 活跃池清单已导出：
+最终初始 ETF 活跃池清单曾导出为历史文件：
 
-- [reports/etf_series_active_seed_1395_20260617.csv](/Users/congming/github/goldenshare/reports/etf_series_active_seed_1395_20260617.csv)
+- `reports/etf_series_active_seed_1395_20260617.csv`
 
-低缺口 ETF 的已接受缺口 mapping 已导出：
+低缺口 ETF 的已接受缺口 mapping 曾导出为历史文件：
 
-- [reports/etf_series_active_fund_daily_accepted_gaps_31_20260617.csv](/Users/congming/github/goldenshare/reports/etf_series_active_fund_daily_accepted_gaps_31_20260617.csv)
+- `reports/etf_series_active_fund_daily_accepted_gaps_31_20260617.csv`
 
-`.OF` 基金代码基础信息已导出：
+`.OF` 基金代码基础信息曾导出为历史文件：
 
-- [reports/etf_basic_of_fund_codes_20260618.csv](/Users/congming/github/goldenshare/reports/etf_basic_of_fund_codes_20260618.csv)
+- `reports/etf_basic_of_fund_codes_20260618.csv`
 
 解释：
 
@@ -627,7 +627,7 @@ goldenshare ops-seed-etf-series-active --resource etf_rt_daily --from-seed-csv r
 
 ### 13.1 已确认
 
-1. 初始池采用 [reports/etf_series_active_seed_1395_20260617.csv](/Users/congming/github/goldenshare/reports/etf_series_active_seed_1395_20260617.csv)。
+1. 初始池采用历史导出文件 `reports/etf_series_active_seed_1395_20260617.csv`。
 2. 初始池数量为 `1395`：`1364` 个无缺口 ETF + `31` 个低缺口高成交 ETF。
 3. 该 seed 文件作为后续 `fund_daily` 与 `etf_rt_daily` 活跃池初始化依据。
 4. 表名确认使用 `ops.etf_series_active`。
