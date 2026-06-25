@@ -1754,10 +1754,94 @@ post dry-run：
   events。
 - 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
 
-P7C-F 若继续推进，必须重新选择下一批资产，重新做 active-runs 确认、
-重新备份、重新 pre dry-run，并单独获得正式删除批准；不得复用 P7C-E 的备份或
-pre dry-run 作为下一批依据。由于 P7C-E 期间观察到其它 Dagster run 写入，下一批
-执行前还必须确认执行窗口内不会有其它 Dagster 写入活动。
+#### 2026-06-25 P7C-F `gold_market_major_indices_daily` 删除前安全审计
+
+P7C-F 选择 `gold_market_major_indices_daily` 作为下一批候选，是因为它在
+P7C-E post dry-run 后只剩 old materialization event 候选，check event 候选为 0；
+同时它是主要指数 gold 资产，正式 sensor 已完成 bounded continuity / lake-derived
+readiness 改造。本节只记录删除前安全审计、pre dry-run 和专属备份，尚未执行正式
+DB 删除。
+
+P7C-E post dry-run 中该资产候选：
+
+- 资产：`gold_market_major_indices_daily`
+- family：`major_indices`
+- check event / execution 候选：0
+- materialization 候选：6,393
+- materialization event tag 候选：6,393
+- latest materialization id：`6631768`
+- latest partition：`2026-06-24`
+- latest check count：10，latest non-succeeded check count：0
+- keep partition set：`cn_a_index_trade_days`
+- keep20：`2026-05-27` 到 `2026-06-24`
+
+代码审计结论：
+
+- 正式自动触发入口是 `market_major_indices_daily_sensor`。它读取
+  `cn_a_index_trade_days` / `cn_a_index_ts_codes` dynamic partitions，并通过
+  `load_expected_trade_date_window(...)` 构造 bounded expected index date window；
+  缺注册日期时先停在 `build_registered_gap_status(...)`，不会越过缺口。
+- 无注册缺口后，sensor 使用 `batch_market_major_indices_lake_readiness(...)`
+  计算 `gold_market_major_indices_daily` 的 lake-derived readiness，再用
+  `select_first_not_ready_trade_date(...)` 选择 first not-ready。这个判断基于 lake
+  文件事实与 seed / index code 门禁，不读取该资产的全历史 Dagster materialization
+  event。
+- selected date 上，sensor 只额外检查 `silver_index_daily_lake_readiness_for_trade_date(...)`、
+  `silver_index_basic_lake_readiness(...)` 和
+  `check_market_major_indices_inputs_for_trade_date(...)`。这些门禁读取 lake 文件事实、
+  seed 与 dynamic partitions，不依赖 `gold_market_major_indices_daily` 旧历史 event。
+- `gold_market_major_indices_daily` asset 写入函数按 selected partition 读取
+  `silver_index_daily_path(...)`，校验 seed 覆盖后写
+  `gold_market_major_indices_daily_path(...)`；不从自身历史 materialization/check event
+  推导 source file、partition key、run config 或写入范围。
+- 下游 serving 链路通过 `ch_share_fact_market_breadth_daily` 读取
+  `gold_market_breadth_daily_path(...)` 与
+  `gold_stock_return_distribution_path(...)`；本批不涉及下游 source file 事实。
+
+安全结论：
+
+- 删除该资产 keep20 之外、latest state 之外的 old materialization event，不会改变
+  `market_major_indices_daily_sensor` 的目标选择、run key、run config、partition set、
+  source file selection 或 lake 写入路径。
+- 删除该资产 old materialization event 不会删除 lake Parquet，也不会影响主要指数 gold
+  当前文件事实；后续更新仍以 dynamic partitions、expected window 和 lake-derived
+  readiness 为准。
+- 由于候选中 check event 为 0，本批不涉及删除该资产的历史 check event。
+
+P7C-F preflight：
+
+- 进程冻结检查：未发现 `dagster` / `dg dev` / `dagster-webserver` /
+  `dagster-daemon` / `code-server` / `orchestrator` 匹配进程。
+- active runs：0。
+- pre dry-run：
+  `/private/tmp/asset_check_event_retention_p7cf_gold_market_major_indices_daily_pre_dry_run_20260625.json`
+- pre dry-run 结果：
+  - `should_stop=false`
+  - `running_or_queued_run_count=0`
+  - safety assertions 全部通过
+  - `gold_market_major_indices_daily` 候选仍为 0 条 check event / execution、
+    6,393 条 materialization event、6,393 条 materialization event tags
+  - latest materialization id 仍为 `6631768`
+  - latest partition 仍为 `2026-06-24`
+  - latest check count 仍为 10，latest non-succeeded check count 仍为 0
+  - keep windows 仍为 `2026-05-27` 到 `2026-06-24`
+- 备份：
+  `/private/tmp/goldenshare_dagster_asset_check_retention_p7cf_gold_market_major_indices_daily_backup_20260625.dump`
+- 备份大小：`361M`。
+- `pg_restore --list`：通过。
+
+本批尚未执行：
+
+- 未执行正式 sample-delete。
+- 未删除任何 Dagster DB event。
+- 未运行 `dg`、job、sensor、backfill、asset check 或 materialization。
+- 未写数据湖 Parquet。
+- 未删除 `runs`、`run_tags`、`dynamic_partitions`、`instigators` 或 planned
+  events。
+- 未执行 `VACUUM`、`VACUUM FULL`、`REINDEX`、`pg_repack`。
+
+P7C-F 正式 sample-delete 必须在用户单独批准后执行；执行前仍需再次确认 active
+runs 为 0，且执行窗口内不会有其它 Dagster 写入活动。
 
 ## 8. Stop Conditions
 
