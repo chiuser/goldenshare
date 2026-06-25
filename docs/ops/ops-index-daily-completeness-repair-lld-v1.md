@@ -1,6 +1,6 @@
 # 指数日线完整性补漏 LLD v1
 
-状态：开发中（M1 已完成）
+状态：开发中（M2 已完成）
 创建日期：2026-06-25  
 依据方案：`docs/ops/ops-index-daily-completeness-repair-plan-v1.md`  
 适用范围：`index_daily`、`ops.index_series_active`、日期对象矩阵审计、TaskRun 系统补漏、审查中心最小可见性。
@@ -763,20 +763,30 @@ uv run pytest -q tests/test_dataset_definition_registry.py tests/web/test_ops_da
 
 ### M2：补漏 TaskRun 创建服务
 
+状态：已完成。
+
 目标：把当日缺口转换为标准 `index_daily.maintain` 系统补漏任务。
 
 改动：
 
-1. 新增 `IndexDailyCompletenessRepairService`。
-2. 直接重算完整差集。
-3. 批大小 100，单轮最多 20 个 TaskRun。
-4. queued/running/canceling 去重。
+1. 已新增 `IndexDailyCompletenessRepairService`。
+2. 已直接重算完整差集，不依赖展示明细。
+3. 已实现批大小 100，单轮最多 20 个 TaskRun。
+4. 已实现 queued/running/canceling 去重。
+5. 已实现只处理交易日当日，历史日期不自动创建补漏任务。
 
 验收：
 
 1. 缺口批次正确。
 2. 补漏 payload 正确。
 3. 不创建历史日期补漏。
+
+验证：
+
+```bash
+uv run ruff check src/ops/services/index_daily_completeness_repair_service.py tests/web/test_ops_index_daily_completeness_repair.py
+uv run pytest -q tests/web/test_ops_index_daily_completeness_repair.py
+```
 
 ### M3：异步闭环接入
 
