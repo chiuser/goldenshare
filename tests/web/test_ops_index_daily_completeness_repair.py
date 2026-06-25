@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import date, datetime, timezone
+from zoneinfo import ZoneInfo
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -10,6 +11,8 @@ from src.foundation.models.core_serving.index_daily_serving import IndexDailySer
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.index_series_active import IndexSeriesActive
 from src.ops.models.ops.task_run import TaskRun
+from src.ops.services.date_completeness_audit_service import DateCompletenessAuditWorker
+from src.ops.services.date_completeness_run_service import DateCompletenessRunCommandService
 from src.ops.services.index_daily_completeness_repair_service import (
     INDEX_DAILY_GAP_REPAIR_RUN_SCOPE,
     INDEX_DAILY_REPAIR_BATCH_SIZE,
@@ -201,3 +204,32 @@ def test_index_daily_repair_does_not_create_historical_tasks(db_session) -> None
 
     assert task_runs == []
     assert db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_daily")) is None
+
+
+def test_date_completeness_worker_creates_index_daily_repair_after_today_gap(db_session) -> None:
+    trade_date = datetime.now(timezone.utc).astimezone(ZoneInfo("Asia/Shanghai")).date()
+    _seed_open_day(db_session, trade_date)
+    _seed_active_indexes(db_session, ["000001.SH", "399001.SZ"], trade_date=trade_date)
+    _seed_serving_rows(db_session, ["000001.SH"], trade_date=trade_date)
+    DateCompletenessRunCommandService().create_system_run(
+        db_session,
+        dataset_key="index_daily",
+        start_date=trade_date,
+        end_date=trade_date,
+    )
+
+    run = DateCompletenessAuditWorker().run_next(db_session)
+
+    assert run is not None
+    assert run.dataset_key == "index_daily"
+    assert run.run_status == "succeeded"
+    assert run.result_status == "failed"
+    assert run.missing_cell_count == 1
+    repair_task = db_session.scalar(select(TaskRun).where(TaskRun.resource_key == "index_daily"))
+    assert repair_task is not None
+    assert repair_task.action == "maintain"
+    assert repair_task.trigger_source == "system"
+    assert repair_task.time_input_json == {"mode": "point", "trade_date": trade_date.isoformat()}
+    assert repair_task.filters_json == {"ts_code": "399001.SZ"}
+    assert repair_task.request_payload_json["run_scope"] == INDEX_DAILY_GAP_REPAIR_RUN_SCOPE
+    assert repair_task.request_payload_json["source_date_completeness_run_id"] == run.id

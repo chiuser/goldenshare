@@ -54,6 +54,14 @@ class TaskRunCompletionWorker:
             self.logger.exception("Failed to refresh dataset status snapshot after task_run#%s", task_run.id)
 
         try:
+            audit_run = self.completion_service.create_index_daily_completion_audit_run(session, task_run)
+            if audit_run is not None:
+                self.logger.info("Created index_daily completeness audit run#%s after task_run#%s", audit_run.id, task_run.id)
+        except Exception:
+            session.rollback()
+            self.logger.exception("Failed to create index_daily completeness audit after task_run#%s", task_run.id)
+
+        try:
             self.notification_service.send_task_completion(summary)
         except Exception:
             self.logger.exception("Failed to send Feishu task completion notification for task_run#%s", task_run.id)

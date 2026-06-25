@@ -1,6 +1,6 @@
 # 指数日线完整性补漏 LLD v1
 
-状态：开发中（M2 已完成）
+状态：开发中（M3 已完成）
 创建日期：2026-06-25  
 依据方案：`docs/ops/ops-index-daily-completeness-repair-plan-v1.md`  
 适用范围：`index_daily`、`ops.index_series_active`、日期对象矩阵审计、TaskRun 系统补漏、审查中心最小可见性。
@@ -790,19 +790,39 @@ uv run pytest -q tests/web/test_ops_index_daily_completeness_repair.py
 
 ### M3：异步闭环接入
 
+状态：已完成。
+
 目标：首次同步成功后自动进入审计，审计失败后自动创建补漏。
 
 改动：
 
-1. `TaskRunCompletionWorker` 创建首次当日审计 run。
-2. `DateCompletenessAuditWorker` 审计完成后调用补漏服务。
-3. 异常互相隔离，不影响业务数据。
+1. `TaskRunCompletionWorker` 已在非补漏 `index_daily.maintain` 成功终态后创建当日审计 run。
+2. `TaskRunCompletionService.create_index_daily_completion_audit_run()` 已按以下条件收口：
+   - `task_type=dataset_action`
+   - `resource_key=index_daily`
+   - `action=maintain`
+   - `status=success`
+   - `time_input.mode=point`
+   - `trade_date` 等于 Asia/Shanghai 当天
+   - 当天在默认交易日历中为开市日
+   - `request_payload.run_scope != index_daily_gap_repair`
+3. `DateCompletenessAuditWorker` 已在审计完成后调用 `IndexDailyCompletenessRepairService`。
+4. snapshot 刷新、系统审计创建、飞书通知、补漏 TaskRun 创建均为独立 `try/except`，失败只影响对应副作用日志，不改变原 TaskRun 或审计 run 的业务结果。
 
 验收：
 
 1. 非补漏 `index_daily` 成功后创建审计 run。
 2. 补漏 TaskRun 成功后不立即创建下一轮审计。
-3. 审计或补漏失败不影响原 TaskRun 结果。
+3. 当日对象矩阵审计发现缺口后创建标准 `index_daily.maintain` 补漏 TaskRun。
+4. 审计或补漏失败不影响原 TaskRun 结果。
+
+验证：
+
+```bash
+uv run ruff check src/ops/services/task_run_completion_service.py src/ops/runtime/task_completion_worker.py src/ops/services/date_completeness_audit_service.py src/ops/services/date_completeness_run_service.py tests/web/test_ops_task_completion_worker.py tests/web/test_ops_index_daily_completeness_repair.py
+uv run pytest -q tests/web/test_ops_task_completion_worker.py tests/web/test_ops_index_daily_completeness_repair.py
+uv run pytest -q tests/web/test_ops_date_completeness_api.py
+```
 
 ### M4：晚间重复审计
 

@@ -3,6 +3,7 @@ from __future__ import annotations
 from calendar import monthrange
 from dataclasses import dataclass
 from datetime import date, timedelta
+import logging
 import re
 
 from sqlalchemy import delete, select, text
@@ -17,9 +18,11 @@ from src.ops.models.ops.dataset_date_completeness_gap import DatasetDateComplete
 from src.ops.models.ops.dataset_date_completeness_run import DatasetDateCompletenessRun
 from src.ops.models.ops.dataset_subject_completeness_gap import DatasetSubjectCompletenessGap
 from src.ops.models.ops.dataset_subject_completeness_gap_detail import DatasetSubjectCompletenessGapDetail
+from src.ops.services.index_daily_completeness_repair_service import IndexDailyCompletenessRepairService
 
 
 DATE_SUBJECT_MATRIX_SAFE_BUCKET_LIMIT = 400
+LOGGER = logging.getLogger(__name__)
 
 
 class DateSubjectMatrixRangeTooLargeError(ValueError):
@@ -1199,8 +1202,27 @@ class DateCompletenessAuditExecutor:
 
 
 class DateCompletenessAuditWorker:
+    def __init__(
+        self,
+        *,
+        repair_service: IndexDailyCompletenessRepairService | None = None,
+        logger: logging.Logger | None = None,
+    ) -> None:
+        self.repair_service = repair_service or IndexDailyCompletenessRepairService()
+        self.logger = logger or LOGGER
+
     def run_next(self, session: Session) -> DatasetDateCompletenessRun | None:
-        return DateCompletenessAuditExecutor().run_next(session)
+        run = DateCompletenessAuditExecutor().run_next(session)
+        if run is None:
+            return None
+        try:
+            task_runs = self.repair_service.create_repair_task_runs(session, source_run=run)
+            if task_runs:
+                self.logger.info("Created %s index_daily repair task run(s) after date completeness run#%s", len(task_runs), run.id)
+        except Exception:
+            session.rollback()
+            self.logger.exception("Failed to create index_daily repair task runs after date completeness run#%s", run.id)
+        return run
 
 
 def _utcnow():

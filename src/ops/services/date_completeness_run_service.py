@@ -117,6 +117,53 @@ class DateCompletenessRunCommandService:
         session.flush()
         return run
 
+    def create_system_run(
+        self,
+        session: Session,
+        *,
+        dataset_key: str,
+        start_date: date,
+        end_date: date,
+    ) -> DatasetDateCompletenessRun:
+        definition = self._get_definition(dataset_key)
+        self._ensure_supported(definition)
+        if start_date > end_date:
+            raise WebAppError(status_code=422, code="validation_error", message="审计开始日期不能晚于结束日期")
+
+        date_model = definition.date_model
+        completeness = definition.completeness
+        now = datetime.now(timezone.utc)
+        run = DatasetDateCompletenessRun(
+            dataset_key=definition.dataset_key,
+            display_name=definition.display_name,
+            target_table=definition.storage.target_table,
+            run_mode="scheduled",
+            run_status="queued",
+            result_status=None,
+            start_date=start_date,
+            end_date=end_date,
+            date_axis=date_model.date_axis,
+            bucket_rule=date_model.bucket_rule,
+            window_mode=date_model.window_mode,
+            input_shape=date_model.input_shape,
+            observed_field=str(date_model.observed_field),
+            bucket_window_rule=date_model.bucket_window_rule or "none",
+            bucket_applicability_rule=date_model.bucket_applicability_rule,
+            row_identity_filters_json=dict(definition.storage.row_identity_filters),
+            audit_scope=completeness.scope if completeness.scope == "date_subject_matrix" else "date_bucket",
+            subject_kind=completeness.subject_kind,
+            current_stage="queued",
+            operator_message="系统审计任务已创建，等待审计 worker 执行。",
+            technical_message=None,
+            requested_by_user_id=None,
+            schedule_id=None,
+            requested_at=now,
+        )
+        session.add(run)
+        session.commit()
+        session.refresh(run)
+        return run
+
     @staticmethod
     def _get_definition(dataset_key: str) -> DatasetDefinition:
         normalized = dataset_key.strip()
