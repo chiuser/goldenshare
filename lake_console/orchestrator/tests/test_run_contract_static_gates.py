@@ -973,6 +973,63 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_clickhouse_market_breadth_human_readable_governance_stays_compact(
+        self,
+    ) -> None:
+        asset_source = (ASSETS_DIR / "clickhouse_serving.py").read_text()
+        local_check_source = (CHECKS_DIR / "clickhouse_serving_checks.py").read_text()
+        prod_check_source = (
+            CHECKS_DIR / "prod_clickhouse_serving_checks.py"
+        ).read_text()
+        sensor_source = (
+            SENSORS_DIR / "clickhouse_market_breadth_continuity_sensor.py"
+        ).read_text()
+        issues = []
+
+        for fragment in (
+            "ch_share_fact_market_breadth_started",
+            "ch_share_fact_market_breadth_completed",
+            "prod_ch_share_fact_market_breadth_started",
+            "prod_ch_share_fact_market_breadth_completed",
+            "serving_summary",
+            "本机 ClickHouse 市场宽度 serving",
+            "Prod ClickHouse 市场宽度 serving",
+        ):
+            if fragment not in asset_source:
+                issues.append(f"ClickHouse serving asset misses fragment: {fragment}")
+
+        for source_name, source in (
+            ("local", local_check_source),
+            ("prod", prod_check_source),
+        ):
+            for fragment in ("summary", "next_action", "rule_summary"):
+                if fragment not in source:
+                    issues.append(
+                        f"{source_name} ClickHouse checks miss metadata: {fragment}"
+                    )
+
+        for fragment in (
+            "_summary_and_next_action",
+            "上游 gold 还没有 ready",
+            "prod 同步等待本机 ClickHouse serving ready",
+            "ClickHouse serving blocking checks",
+        ):
+            if fragment not in sensor_source:
+                issues.append(f"ClickHouse sensor cursor misses fragment: {fragment}")
+
+        for fragment in (
+            '"serving_batch_status":',
+            '"upstream_batch_statuses":',
+            "status_samples",
+            "gold_market_breadth_daily_path",
+            "gold_market_breadth_row",
+            "clickhouse_row_counts_by_partition",
+        ):
+            if fragment in sensor_source:
+                issues.append(f"ClickHouse sensor cursor contains bulky field: {fragment}")
+
+        self.assertEqual(issues, [])
+
     def test_gold_qfq_repair_event_reconciliation_chain_is_removed(self) -> None:
         issues = []
         factor_repair_op_path = DEFS_DIR / "ops" / "stock_mins_qfq_factor_repair.py"

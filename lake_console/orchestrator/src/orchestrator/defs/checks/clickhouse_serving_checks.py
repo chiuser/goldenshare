@@ -159,6 +159,20 @@ def _combined_check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": (
+                    "本机 ClickHouse 市场宽度 serving 聚合检查通过。"
+                    if not failed_rule_names
+                    else "本机 ClickHouse 市场宽度 serving 聚合检查失败，先看 failed_rule_names。"
+                ),
+                "next_action": (
+                    "无需处理，等待 prod ClickHouse 同步。"
+                    if not failed_rule_names
+                    else "先修复本机 ClickHouse serving 行数、日期或与 gold 的对账差异，再重跑检查。"
+                ),
+                "rule_summary": [
+                    {"rule_name": rule_name, "passed": bool(result.passed)}
+                    for rule_name, result in rule_results
+                ],
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results

@@ -390,6 +390,8 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         details = cursor["details"]
         self.assertEqual(details["blocked_component"], "gold_market_breadth_daily")
         self.assertEqual(details["reason_code"], "missing_gold_market_breadth_file")
+        self.assertIn("上游 gold 还没有 ready", details["summary"])
+        self.assertIn("gold_market_breadth_daily", details["next_action"])
         self.assertNotIn("serving_batch_status", details)
         self.assertNotIn("upstream_batch_statuses", details)
         self.assertEqual(
@@ -544,6 +546,8 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         self.assertEqual(details["evidence"]["selected_trade_date"], "2026-06-24")
         self.assertEqual(details["reason_code"], "request_run")
         self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("触发 2026-06-24 Prod ClickHouse", details["summary"])
+        self.assertIn("ClickHouse serving blocking checks", details["next_action"])
         self.assertNotIn("serving_batch_status", details)
         self.assertNotIn("upstream_batch_statuses", details)
         self.assertNotIn("status_samples", cursor_text)

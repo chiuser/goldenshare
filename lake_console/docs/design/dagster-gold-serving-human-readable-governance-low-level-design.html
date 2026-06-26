@@ -85,7 +85,8 @@
       当前状态：LLD 已建立；Wave 3A <code>market_major_indices_daily</code>
       与 Wave 3B <code>market_breadth</code> / <code>stock_return_distribution</code>
       已落地到代码、测试和静态门禁；Wave 3C <code>gold_wealth_market_turnover</code>
-      / <code>prod_core_wealth_market_turnover</code> 已落地到代码、测试和静态门禁。后续按 Wave 3D 提交。
+      / <code>prod_core_wealth_market_turnover</code> 已落地到代码、测试和静态门禁；
+      Wave 3D ClickHouse serving 已落地。Wave 3 已完成。
     </p>
   </header>
 
@@ -287,8 +288,8 @@
       <tr>
         <td>Wave 3D</td>
         <td><code>ch_share_fact_market_breadth_daily</code>、<code>prod_ch_share_fact_market_breadth_daily</code></td>
-        <td>ClickHouse serving 本机和 prod sync 的 metadata/cursor 可读性治理；保持最近已瘦身的 continuity cursor 原则。</td>
-        <td><code>tests.test_market_breadth_continuity_sensors</code>、<code>tests.test_prod_clickhouse_market_breadth_batch_sync</code>、serving checks 和静态门禁。</td>
+        <td>已完成：本机/prod ClickHouse serving asset 补目标表、输入来源、replace mode 和 stdout；checks 补 summary/next_action/rule_summary；continuity sensor cursor 保持瘦身并改为本机/prod serving 业务语言。</td>
+        <td><code>tests.test_clickhouse_market_breadth_human_readable_contracts</code>、<code>tests.test_market_breadth_continuity_sensors</code>、<code>tests.test_prod_clickhouse_market_breadth_batch_sync</code>、静态门禁已通过。</td>
       </tr>
       </tbody>
     </table>

@@ -64,6 +64,12 @@ def _base_metadata(
 ) -> dict[str, Any]:
     partition_key = partition_keys[0]
     metadata: dict[str, Any] = {
+        "summary": "Prod ClickHouse 市场宽度 serving 检查结果。",
+        "next_action": "如果检查失败，先看本条 metadata 中的 prod/local row count、缺失分区或字段差异。",
+        "rule_summary": {
+            "partition_count": len(partition_keys),
+            "check_scope": check_scope.value,
+        },
         "partition_key": partition_key,
         "partition_count": 1,
         "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,

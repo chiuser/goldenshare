@@ -143,6 +143,56 @@ def _blocked_component_value(
     return blocked_component or "none"
 
 
+def _summary_and_next_action(
+    *,
+    reason: str,
+    target_trade_date: str | None,
+    selected_trade_date: str | None,
+    asset_family: str,
+    reason_code: str,
+    blocked_component: str,
+) -> tuple[str, str]:
+    is_prod = asset_family == "prod_clickhouse_market_breadth"
+    serving_label = "Prod ClickHouse 市场宽度 serving" if is_prod else "本机 ClickHouse 市场宽度 serving"
+    if selected_trade_date:
+        return (
+            f"触发 {selected_trade_date} {serving_label} 更新。",
+            "等待本次 run 完成；完成后查看对应 ClickHouse serving blocking checks。",
+        )
+    if blocked_component == "cn_a_stock_trade_days":
+        return (
+            f"跳过：{serving_label} 等待股票交易日分区补齐。",
+            "先补齐 cn_a_stock_trade_days 分区，再等待下一次 sensor tick。",
+        )
+    if blocked_component in {
+        "gold_market_breadth_daily",
+        "gold_stock_return_distribution",
+    }:
+        return (
+            f"跳过：{target_trade_date or '-'} 的 {serving_label} 上游 gold 还没有 ready。",
+            f"先修复 {blocked_component}，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "ch_share_fact_market_breadth_daily":
+        return (
+            f"跳过：{target_trade_date or '-'} 的 prod 同步等待本机 ClickHouse serving ready。",
+            "先修复 ch_share_fact_market_breadth_daily，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "serving":
+        if reason_code == "all_ready":
+            return (
+                f"跳过：最近窗口内 {serving_label} 已全部 ready。",
+                "无需处理；等待新的股票交易日分区或上游变化。",
+            )
+        return (
+            f"跳过：{target_trade_date or '-'} 的 {serving_label} 状态需要人工确认。",
+            "先查看对应 ClickHouse serving checks 的失败项，确认后再修复或重跑。",
+        )
+    return (
+        reason,
+        "按 cursor 的 blocked_component 修复上游状态，或等待下一次 sensor tick。",
+    )
+
+
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -203,6 +253,14 @@ def _cursor_payload(
         blocked_component=blocked_component,
         reason_code=reason_code,
     )
+    summary, next_action = _summary_and_next_action(
+        reason=reason,
+        target_trade_date=target_trade_date,
+        selected_trade_date=selected_trade_date,
+        asset_family=asset_family,
+        reason_code=reason_code,
+        blocked_component=blocked_component_value,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -221,12 +279,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component_value,
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": _compact_continuity_status(continuity_status),
                 "serving": _compact_batch_frontier(serving_batch_status),

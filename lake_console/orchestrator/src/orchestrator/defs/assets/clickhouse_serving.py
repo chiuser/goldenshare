@@ -31,6 +31,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -39,6 +40,29 @@ CLICKHOUSE_MARKET_BREADTH_COLUMNS = tuple(
     column.name for column in CH_SHARE_FACT_MARKET_BREADTH_DAILY_SCHEMA
 )
 PROD_MARKET_BREADTH_SYNC_MAX_PARTITIONS_PER_RUN = 1
+
+
+def _serving_materialization_metadata(
+    *,
+    partition_key: str,
+    target_system: str,
+    source_summary: dict[str, object],
+) -> dict[str, object]:
+    return {
+        "summary": f"已写入 {target_system} 市场宽度 serving 日事实。",
+        "next_action": "等待对应 ClickHouse serving blocking checks 全部通过；通过后 serving 查询可以消费。",
+        "result_status": "written",
+        "input_summary": source_summary,
+        "serving_summary": {
+            "target_system": target_system,
+            "target_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
+            "partition_key": partition_key,
+            "replace_mode": "sync_delete_then_insert",
+            "row_count": 1,
+        },
+        "diagnostic_ref": "完整诊断看 ClickHouse serving checks、materialization metadata 和 run stdout。",
+    }
+
 
 def _read_single_row(
     connection,
@@ -395,7 +419,7 @@ def _replace_clickhouse_partition(client, row: tuple[Any, ...]) -> None:
             "replace_contract": "sync delete by trade_date, then insert exactly one row",
         },
     ),
-    description="ClickHouse 行情事实市场宽度日表，由两个 gold 资产合并生成 serving 副本。",
+    description="本机 ClickHouse 市场宽度 serving 日事实，由市场宽度 gold 和收益率分布 gold 合并生成，供行情事实查询消费。",
 )
 def ch_share_fact_market_breadth_daily(
     context: dg.AssetExecutionContext,
@@ -409,6 +433,12 @@ def ch_share_fact_market_breadth_daily(
     distribution_path = gold_stock_return_distribution_path(
         lake_root.root(),
         partition_key,
+    )
+    log = DgStdoutLogger("clickhouse_market_breadth")
+    log.stdout(
+        "ch_share_fact_market_breadth_started",
+        partition_key=partition_key,
+        target_table=CLICKHOUSE_MARKET_BREADTH_TABLE,
     )
 
     with connect_configured_duckdb() as connection:
@@ -454,6 +484,13 @@ def ch_share_fact_market_breadth_daily(
     with clickhouse.get_connection() as client:
         _replace_clickhouse_partition(client, clickhouse_row)
 
+    log.stdout(
+        "ch_share_fact_market_breadth_completed",
+        partition_key=partition_key,
+        target_table=CLICKHOUSE_MARKET_BREADTH_TABLE,
+        output_row_count=1,
+        total_count=clickhouse_row[4],
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=(
@@ -463,6 +500,18 @@ def ch_share_fact_market_breadth_daily(
             row_count=1,
             observed_columns=CLICKHOUSE_MARKET_BREADTH_COLUMNS,
             extra_metadata={
+                **_serving_materialization_metadata(
+                    partition_key=partition_key,
+                    target_system="local_clickhouse",
+                    source_summary={
+                        "source_assets": [
+                            "gold_market_breadth_daily",
+                            "gold_stock_return_distribution",
+                        ],
+                        "gold_market_breadth_daily_path": str(breadth_path),
+                        "gold_stock_return_distribution_path": str(distribution_path),
+                    },
+                ),
                 "partition_key": partition_key,
                 "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
                 "gold_market_breadth_daily_path": str(breadth_path),
@@ -497,7 +546,7 @@ def ch_share_fact_market_breadth_daily(
             "upstream_asset": "ch_share_fact_market_breadth_daily",
         },
     ),
-    description="Prod ClickHouse 行情事实市场宽度日表，由本机 ClickHouse serving 表同步生成。",
+    description="Prod ClickHouse 市场宽度 serving 日事实，从本机 ClickHouse serving 同步生成，供生产行情事实查询消费。",
 )
 def prod_ch_share_fact_market_breadth_daily(
     context: dg.AssetExecutionContext,
@@ -506,6 +555,12 @@ def prod_ch_share_fact_market_breadth_daily(
 ) -> dg.MaterializeResult:
     partition_keys = _selected_partition_keys(context)
     partition_key = partition_keys[0]
+    log = DgStdoutLogger("clickhouse_market_breadth")
+    log.stdout(
+        "prod_ch_share_fact_market_breadth_started",
+        partition_key=partition_key,
+        target_table=CLICKHOUSE_MARKET_BREADTH_TABLE,
+    )
     with clickhouse.get_connection() as local_client:
         local_rows_by_partition = _fetch_clickhouse_market_breadth_row_tuples_by_partition(
             local_client,
@@ -519,7 +574,21 @@ def prod_ch_share_fact_market_breadth_daily(
             partition_keys,
         )
 
+    log.stdout(
+        "prod_ch_share_fact_market_breadth_completed",
+        partition_key=partition_key,
+        target_table=CLICKHOUSE_MARKET_BREADTH_TABLE,
+        output_row_count=1,
+    )
     extra_metadata: dict[str, Any] = {
+        **_serving_materialization_metadata(
+            partition_key=partition_key,
+            target_system="prod_clickhouse",
+            source_summary={
+                "source_asset": "ch_share_fact_market_breadth_daily",
+                "partition_count": len(partition_keys),
+            },
+        ),
         "clickhouse_table": CLICKHOUSE_MARKET_BREADTH_TABLE,
         "source_clickhouse_asset": "ch_share_fact_market_breadth_daily",
         "lightweight_deletes_sync": 1,
