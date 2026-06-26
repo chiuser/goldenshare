@@ -1,0 +1,579 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 基础事实资产族人类可读治理 LLD</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #202a36;
+      --muted: #637083;
+      --line: #d7dee8;
+      --blue: #255f8d;
+      --green: #1f735d;
+      --amber: #8a641a;
+      --red: #a84232;
+      --code: #f2f5f8;
+      --soft-blue: #eef6ff;
+      --soft-green: #edf8f3;
+      --soft-amber: #fff7df;
+      --soft-red: #fff0ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 24px 76px;
+    }
+    header,
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+      margin-top: 18px;
+      padding: 26px;
+    }
+    header {
+      margin-top: 0;
+      border-left: 6px solid var(--blue);
+      padding: 34px;
+    }
+    h1,
+    h2,
+    h3 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: 38px; margin-bottom: 12px; }
+    h2 { font-size: 25px; margin-bottom: 12px; }
+    h3 { font-size: 18px; margin: 22px 0 8px; }
+    p { margin: 8px 0 12px; }
+    code {
+      background: var(--code);
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: #fff;
+    }
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #edf3f8; }
+    ul,
+    ol { padding-left: 24px; }
+    li { margin: 5px 0; }
+    .lead { color: var(--muted); max-width: 930px; font-size: 17px; }
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code);
+      color: #344054;
+      font-size: 13px;
+    }
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: var(--soft-blue);
+      margin: 14px 0;
+    }
+    .callout.green { border-left-color: var(--green); background: var(--soft-green); }
+    .callout.amber { border-left-color: var(--amber); background: var(--soft-amber); }
+    .callout.red { border-left-color: var(--red); background: var(--soft-red); }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 基础事实资产族人类可读治理 LLD</h1>
+    <p class="lead">
+      本文是 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code>
+      中 Wave 1 的代码级低阶设计。目标是让基础事实资产族在 Dagster UI、run stdout、
+      materialization metadata、check metadata 和 sensor cursor 中说人话。
+    </p>
+    <p>
+      <span class="tag">Wave 1：基础事实与全量快照</span>
+      <span class="tag">只改表达层</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不改运行逻辑</span>
+      <span class="tag">不写湖</span>
+      <span class="tag">不写数据库</span>
+    </p>
+    <p class="small">
+      当前状态：LLD 已完成代码级审计与落点设计。正式 Python 代码改动前需要 review 本文口径。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 目标</h2>
+    <div class="callout green">
+      <p>
+        Wave 1 不改变任何数据生产决策。完成后，运维在 Dagster UI 里看到基础事实资产族时，
+        应能直接判断：这个资产是什么、为什么触发或跳过、卡在哪个基础组件、下一步该修什么。
+      </p>
+    </div>
+    <p>本轮资产族：</p>
+    <ul>
+      <li><code>trade_cal</code>：<code>raw_tushare_trade_calendar</code>、<code>silver_trade_calendar</code></li>
+      <li><code>stock_basic</code>：<code>raw_tushare_stock_basic</code>、<code>silver_stock_basic</code></li>
+      <li><code>stock_lifecycle</code>：<code>silver_stock_lifecycle</code></li>
+      <li><code>namechange</code>：<code>raw_tushare_namechange</code>、<code>silver_namechange</code></li>
+      <li><code>stock_identity_map</code>：<code>silver_stock_identity_map</code></li>
+      <li><code>index_basic</code>：<code>raw_tushare_index_basic</code>、<code>silver_index_basic</code></li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2. 依据</h2>
+    <ul>
+      <li><code>AGENTS.md</code>：按计划开发必须抽硬口径、映射真实代码和测试。</li>
+      <li><code>lake_console/AGENTS.md</code>：Lake Console 默认不碰远程库；涉及 Dagster 必读性能门禁。</li>
+      <li><code>lake_console/orchestrator/AGENTS.md</code>：Dagster 正式项目，代码改动前必须完成设计确认。</li>
+      <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：definition 命名、schema contract、cursor、hot path、DuckDB 连接规范。</li>
+      <li><code>dagster-data-pipeline-performance-governance.md</code>：cursor 小型化、sensor 热路径不新增重扫描。</li>
+      <li><code>dagster-asset-schema-contract-design.md</code>：definition metadata 放稳定字段契约，materialization metadata 放运行事实。</li>
+      <li><code>dagster-dataset-human-readable-governance-rollout-plan.html</code>：Wave 1 推进顺序和统一改动包。</li>
+      <li><code>dagster-stock-daily-human-readable-governance.html</code>：已落地标杆样式。</li>
+      <li>Dagster 本地参考：asset description/definition metadata 用于 UI 稳定说明；sensor cursor 应保持 JSON、小而结构化。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. 硬边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>边界</th>
+        <th>执行口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Definition 身份</td>
+        <td>不改 asset、job、sensor、check 名称；不新增同语义替代 check。</td>
+      </tr>
+      <tr>
+        <td>触发逻辑</td>
+        <td>不改 job selection、run key、run config、default status、minimum interval、窗口时间、单 tick 行为。</td>
+      </tr>
+      <tr>
+        <td>运行逻辑</td>
+        <td>不改 Tushare API、fields、参数、DuckDB SQL、过滤规则、生命周期口径、指数终止过滤口径。</td>
+      </tr>
+      <tr>
+        <td>数据湖</td>
+        <td>不改 path helper、Parquet schema、文件内容、写入方式和历史数据。</td>
+      </tr>
+      <tr>
+        <td>状态实体</td>
+        <td>不新增 summary asset、readiness asset、状态表、manifest、runless event 或历史清理逻辑。</td>
+      </tr>
+      <tr>
+        <td>Cursor</td>
+        <td>只保留本 tick 路标；不得写完整 readiness 报告、<code>status_samples</code>、全量路径/code/date 列表。</td>
+      </tr>
+      <tr>
+        <td>已有 runtime state</td>
+        <td><code>stock_namechange_sensor</code> 的 stage / already-submitted 去重状态必须保留，不因瘦身丢失。</td>
+      </tr>
+      <tr>
+        <td>验证</td>
+        <td>本轮只跑单元测试、静态门禁、文档检查和 <code>git diff --check</code>；不运行 <code>dg</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 当前代码事实</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>资产文件</th>
+        <th>Job / Sensor</th>
+        <th>Checks</th>
+        <th>当前可读性缺口</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>trade_cal</code></td>
+        <td><code>defs/assets/calendar.py</code></td>
+        <td><code>calendar_update_job</code>；当前无专属 asset-update sensor。</td>
+        <td><code>defs/checks/calendar_checks.py</code></td>
+        <td>description 偏短；materialization metadata 缺少人话 summary/next_action；checks metadata 主要是机器字段。</td>
+      </tr>
+      <tr>
+        <td><code>stock_basic</code> / <code>stock_lifecycle</code></td>
+        <td><code>defs/assets/stock_basic.py</code>、<code>defs/assets/stock_lifecycle.py</code></td>
+        <td><code>raw_stock_basic_update_job</code>、<code>silver_stock_basic_update_job</code>；两个 stock basic sensor 已有 compact cursor。</td>
+        <td><code>defs/checks/stock_basic_checks.py</code>、<code>defs/checks/stock_lifecycle_checks.py</code></td>
+        <td>asset/job description 仍偏工程；stdout 缺阶段日志；metadata 缺面向人的过滤摘要；cursor 已有雏形但文案和 evidence 可更克制统一。</td>
+      </tr>
+      <tr>
+        <td><code>namechange</code></td>
+        <td><code>defs/assets/namechange.py</code></td>
+        <td><code>raw_namechange_update_job</code>、<code>silver_namechange_update_job</code>；早盘/晚盘 sensor 保留 stage 去重状态。</td>
+        <td><code>defs/checks/namechange_checks.py</code></td>
+        <td>raw/silver 说明还可更明确；silver metadata 含大量 canonicalization 数字但缺结论；cursor runtime state 不能动，只能瘦展示。</td>
+      </tr>
+      <tr>
+        <td><code>stock_identity_map</code></td>
+        <td><code>defs/assets/stock_identity_map.py</code></td>
+        <td><code>stock_identity_map_update_job</code>、<code>stock_identity_map_sensor</code>。</td>
+        <td><code>defs/checks/stock_identity_map_checks.py</code></td>
+        <td>metadata 有 seed/source/confidence 分布，但缺“身份映射已重建/先修哪个上游”的人话；check metadata 可补 rule_summary。</td>
+      </tr>
+      <tr>
+        <td><code>index_basic</code></td>
+        <td><code>defs/assets/index_basic.py</code></td>
+        <td><code>index_basic_update_job</code>；当前无专属 sensor。</td>
+        <td><code>defs/checks/index_basic_checks.py</code></td>
+        <td>description 偏短；metadata 记录 market/terminated 计数但缺摘要；不得新增 sensor 或改变 <code>ready_for_trade_date</code> 解析。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout amber">
+      <p>
+        <code>namechange.py</code> 与 <code>stock_identity_map.py</code> 中已有 Python 行级构造小型快照的历史实现。
+        本专项不改这类业务计算方式；若要重构为纯 DuckDB，需要另起性能/实现专项。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 性能测算</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>入口</th>
+        <th>新增读取</th>
+        <th>新增写入</th>
+        <th>预算和拒绝策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Asset 写入</td>
+        <td>0。继续沿用现有 Tushare/DuckDB/文件读取。</td>
+        <td>仅新增 stdout 行和小型 materialization metadata 字段。</td>
+        <td>不得新增任何 lake 扫描或源站请求；metadata 只放聚合 count、短中文、少量 sample。</td>
+      </tr>
+      <tr>
+        <td>Sensor tick</td>
+        <td>0。继续使用当前 readiness helper 和 dynamic partition 读取。</td>
+        <td>仅更新 cursor payload 字段表达。</td>
+        <td>普通 request/skip cursor 目标小于 2KB，复杂 namechange stage cursor 目标小于 3KB，硬上限 8KB。</td>
+      </tr>
+      <tr>
+        <td>Asset checks</td>
+        <td>0。继续使用当前 check SQL 和现有输入文件。</td>
+        <td>仅新增 check metadata 小字段。</td>
+        <td>不新增 check；失败样本继续使用现有 sample 上限，不扩大 Dagster DB 状态量。</td>
+      </tr>
+      <tr>
+        <td>Docs/tests</td>
+        <td>只读代码与单元测试 fixture。</td>
+        <td>写仓库文档和测试文件。</td>
+        <td>不运行正式 Dagster，不读取正式 Dagster instance，不写正式湖和数据库。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 代码级改动方案</h2>
+
+    <h3>6.1 Asset descriptions 与 stdout</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>文件</th>
+        <th>改动</th>
+        <th>stdout 事件</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>defs/assets/calendar.py</code></td>
+        <td>补强 raw/silver description；materialization metadata 增加交易日历范围和用途摘要。</td>
+        <td><code>trade_calendar_raw_started</code>、<code>trade_calendar_raw_completed</code>、<code>trade_calendar_silver_started</code>、<code>trade_calendar_silver_completed</code></td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/stock_basic.py</code></td>
+        <td>说明 raw 是全状态股票基础信息镜像，silver 是当前上市 CNY 股票池。</td>
+        <td><code>stock_basic_raw_started</code>、<code>stock_basic_raw_completed</code>、<code>stock_basic_silver_started</code>、<code>stock_basic_silver_completed</code></td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/stock_lifecycle.py</code></td>
+        <td>说明 lifecycle 是历史 CNY 股票生命周期事实，不等于当前股票池。</td>
+        <td><code>stock_lifecycle_started</code>、<code>stock_lifecycle_completed</code></td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/namechange.py</code></td>
+        <td>说明 raw 去重快照与 silver 曾用名时间线；失败时 canonicalization 冲突要提示先看 check/run metadata。</td>
+        <td><code>namechange_raw_started</code>、<code>namechange_raw_completed</code>、<code>namechange_silver_started</code>、<code>namechange_silver_validation_failed</code>、<code>namechange_silver_completed</code></td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/stock_identity_map.py</code></td>
+        <td>说明 identity map 把历史源代码归一到当前标准代码，输入是 stock_basic、namechange 和 seed。</td>
+        <td><code>stock_identity_map_started</code>、<code>stock_identity_map_validation_failed</code>、<code>stock_identity_map_completed</code></td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/index_basic.py</code></td>
+        <td>说明 raw 是 Tushare 指数身份镜像，silver 是截至最新 index trade day 的有效指数池。</td>
+        <td><code>index_basic_raw_started</code>、<code>index_basic_raw_completed</code>、<code>index_basic_silver_started</code>、<code>index_basic_silver_completed</code></td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      stdout 统一使用 <code>orchestrator.utils.dg_log_helper.DgStdoutLogger</code>。
+      字段只允许分区/阶段/row count/filter count/seed count/ready date 等小字段；禁止输出完整 SQL、DataFrame、全量股票/指数代码列表。
+    </p>
+
+    <h3>6.2 Materialization metadata</h3>
+    <p>
+      在保留现有机器字段的基础上，追加 namespaced 人类可读字段：
+    </p>
+    <ul>
+      <li><code>summary</code>：一句中文说明本次产物。</li>
+      <li><code>next_action</code>：成功后等待哪些 checks/下游；失败 metadata 中说明先修哪个输入或规则。</li>
+      <li><code>result_status</code>：<code>written</code> 或 <code>failed_validation</code>。</li>
+      <li><code>input_summary</code>：输入文件、源资产、seed 或 ready date 的小摘要。</li>
+      <li><code>filter_summary</code>：适用于 stock_basic、lifecycle、index_basic 的过滤计数聚合。</li>
+      <li><code>diagnostic_ref</code>：提示完整诊断看 run stdout、blocking check metadata 或对应设计文档。</li>
+    </ul>
+    <p>
+      现有 <code>dagster/uri</code>、<code>dagster/row_count</code>、
+      <code>goldenshare/observed_columns</code>、分布统计和样本字段不删除。
+    </p>
+
+    <h3>6.3 Check metadata</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>文件</th>
+        <th>改动点</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>calendar_checks.py</code></td>
+        <td>给 raw/silver 聚合结果补 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>；缺文件结果说明先跑 calendar job。</td>
+      </tr>
+      <tr>
+        <td><code>stock_basic_checks.py</code></td>
+        <td>聚合 contract/key/domain metadata 增加当前上市 CNY 股票池解释；<code>failed_rule_names</code> 保持 list。</td>
+      </tr>
+      <tr>
+        <td><code>stock_lifecycle_checks.py</code></td>
+        <td>说明 lifecycle 覆盖历史 CNY 股票，不按 current-listed-only 判断；失败时指出是 schema、key、日期或域值问题。</td>
+      </tr>
+      <tr>
+        <td><code>namechange_checks.py</code></td>
+        <td>把 interval/domain 冲突摘要写成人话，保留冲突样本上限；不扩大样本列表。</td>
+      </tr>
+      <tr>
+        <td><code>stock_identity_map_checks.py</code></td>
+        <td>说明 stock_basic self mapping、seed mapping、namechange 引用域分别由哪些规则保障。</td>
+      </tr>
+      <tr>
+        <td><code>index_basic_checks.py</code></td>
+        <td>说明 raw index_basic 字段/日期域和 silver 有效指数池生命周期规则；不新增 active pool 检查。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      本轮默认不新增 check、不改 blocking/WARN 语义、不改 check 名。已有细碎历史 check 不在本轮合并，避免破坏历史 check event 与 readiness。
+    </p>
+
+    <h3>6.4 Sensor cursor</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>Sensor</th>
+        <th>改动点</th>
+        <th>必须保留</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>raw_stock_basic_update_job_sensor</code></td>
+        <td>summary 区分 raw 缺失/过期、checks failed、all ready；blocked_component 明确 raw 或交易日分区。</td>
+        <td>latest registered trade date 选择、run key 和提交规则。</td>
+      </tr>
+      <tr>
+        <td><code>silver_stock_basic_update_job_sensor</code></td>
+        <td>summary 区分 raw 未 ready、silver/lifecycle checks failed、需要提交 silver job。</td>
+        <td>silver 与 lifecycle 同 job 更新；raw ready 前不触发。</td>
+      </tr>
+      <tr>
+        <td><code>raw_namechange_update_job_sensor</code></td>
+        <td>evidence 只保留窗口、stage、selected_trade_date、registered count；blocked_component 使用 raw/namechange/window/partition。</td>
+        <td><code>runtime_state.selected_trade_date</code>、<code>runtime_state.namechange_run_stage</code>、<code>runtime_state.already_submitted_for_trade_date</code>。</td>
+      </tr>
+      <tr>
+        <td><code>silver_namechange_update_job_sensor</code></td>
+        <td>summary 区分 raw、stock_basic、silver current、stage 已提交；next_action 指向先修 raw/stock_basic 或 retry run。</td>
+        <td>早盘/晚盘 stage 去重语义和 storage id 新鲜度判断。</td>
+      </tr>
+      <tr>
+        <td><code>stock_identity_map_sensor</code></td>
+        <td>summary 区分窗口未到、stock_basic/namechange 阻断、identity current、需要重建；evidence 只保留 current bool 与窗口。</td>
+        <td>17:30 窗口、上游 storage id 比较、checks failed 不自动循环提交。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>
+      <code>calendar_update_job</code> 和 <code>index_basic_update_job</code> 当前无专属 sensor。本轮不新增 sensor。
+    </p>
+
+    <h3>6.5 Jobs</h3>
+    <p>
+      只修改 job description，使它说明“跑这个入口会更新什么、依赖什么、失败后是否应重跑”。
+      <code>defs/jobs/**</code> 仍只保留 selection，不承接任何数据逻辑。
+    </p>
+  </section>
+
+  <section>
+    <h2>7. 测试方案</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>测试文件</th>
+        <th>新增/更新断言</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>tests/test_basic_facts_human_readable_contracts.py</code>（新增）</td>
+        <td>锁住 Wave 1 asset/job/sensor description、stdout event 名、materialization metadata helper 输出字段。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_stock_basic_namechange_split_contracts.py</code></td>
+        <td>补 cursor summary/next_action/blocked_component/长度断言；确保 namechange runtime state 未丢失。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_stock_identity_map_active_asset.py</code></td>
+        <td>补 identity map metadata 与 description 可读性断言，不改变现有资产 active 事实。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_stock_basic_schema_contracts.py</code>、<code>tests/test_stock_lifecycle_contracts.py</code>、<code>tests/test_namechange_contracts.py</code>、<code>tests/test_index_basic_contracts.py</code></td>
+        <td>按现有 fixture 补 check metadata 人类可读字段断言；不改 schema/SQL 语义。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_run_contract_static_gates.py</code></td>
+        <td>禁止 Wave 1 sensor cursor 写入 <code>status_samples</code>、<code>*_batch_status</code>、报告型 <code>to_cursor_details()</code>；禁止基础事实 stdout 打印完整 SQL/DataFrame/code list。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_asset_governance_contracts.py</code></td>
+        <td>确认 catalog / metadata / column schema 对账没有回退。</td>
+      </tr>
+      </tbody>
+    </table>
+    <p>建议验证命令：</p>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_basic_facts_human_readable_contracts \
+  tests.test_stock_basic_namechange_split_contracts \
+  tests.test_stock_identity_map_active_asset \
+  tests.test_stock_basic_schema_contracts \
+  tests.test_stock_lifecycle_contracts \
+  tests.test_namechange_contracts \
+  tests.test_index_basic_contracts \
+  tests.test_run_contract_static_gates \
+  tests.test_asset_governance_contracts
+cd /Users/congming/github/goldenshare
+python3 scripts/check_docs_integrity.py
+git diff --check</code></pre>
+    <div class="callout amber">
+      <p>
+        <code>uv run dg check defs</code> 不在本轮默认执行。它属于正式 Dagster definitions 加载验证，
+        如需执行必须单独审批。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. 计划对账</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>rollout 口径</th>
+        <th>Wave 1 落点</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>每个资产族先 LLD，再代码，再测试，再文档。</td>
+        <td>本文是 Wave 1 LLD；代码需 review 后进入下一步。</td>
+      </tr>
+      <tr>
+        <td>只改表达层，不改生产决策。</td>
+        <td>所有改动限定在 description/stdout/metadata/cursor/tests/docs。</td>
+      </tr>
+      <tr>
+        <td>默认不新增细碎 check。</td>
+        <td>只增强已有 check metadata，不新增 check 名称。</td>
+      </tr>
+      <tr>
+        <td>cursor 是路标，不是报告。</td>
+        <td>基础事实 sensors 只保留 reason、blocked_component、summary、next_action 和小 evidence。</td>
+      </tr>
+      <tr>
+        <td>不影响 lake 和 Dagster 正式状态。</td>
+        <td>本轮不写 lake、不写 Dagster DB、不运行 job/sensor/materialize/backfill。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>9. Review 后的执行顺序</h2>
+    <ol>
+      <li>先落 asset/job description、stdout 和 materialization metadata。</li>
+      <li>再落 check metadata，人话字段只追加，不删除现有机器字段。</li>
+      <li>再落 stock_basic/namechange/identity_map sensor cursor 表达，不动状态机。</li>
+      <li>补测试与静态门禁。</li>
+      <li>跑本 LLD 中列出的单元测试、文档检查和 <code>git diff --check</code>。</li>
+      <li>同步本文与 rollout 文档状态。</li>
+      <li>提交本 Wave 代码与文档，排除无关脏文件。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>10. 不做事项</h2>
+    <ul>
+      <li>不新增 <code>calendar_update_job_sensor</code> 或 <code>index_basic_update_job_sensor</code>。</li>
+      <li>不合并或重命名已有基础事实 checks。</li>
+      <li>不重构 <code>namechange</code> 和 <code>stock_identity_map</code> 的现有业务计算实现。</li>
+      <li>不新增 prod DB、ClickHouse、lake bootstrap、runless event 或历史补录能力。</li>
+      <li>不触碰当前工作区已有的无关文档变更和 reports 目录。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
