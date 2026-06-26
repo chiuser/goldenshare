@@ -44,6 +44,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 INDEX_BASIC_RAW_COLUMN_TYPES = {
@@ -51,6 +52,7 @@ INDEX_BASIC_RAW_COLUMN_TYPES = {
 }
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
+LOGGER = DgStdoutLogger("basic_facts.index_basic")
 
 
 def _column_names(connection, path: Path) -> list[str]:
@@ -153,7 +155,10 @@ def _resolve_ready_for_trade_date(context: dg.AssetExecutionContext) -> str:
             "update_policy": "daily_full_snapshot_api_update",
         },
     ),
-    description="Tushare 指数基础信息原始数据。",
+    description=(
+        "Tushare 指数基础信息 raw 源镜像，保存指数身份、市场和生命周期原始字段，"
+        "供有效指数池和指数行情链路使用。"
+    ),
 )
 def raw_tushare_index_basic(
     lake_root: LakeRootResource,
@@ -162,6 +167,7 @@ def raw_tushare_index_basic(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     path = raw_index_basic_path(lake_root.root())
+    LOGGER.stdout("index_basic_raw_started")
     metadata = fetch_tushare_full_file_to_raw(
         tushare=tushare,
         duckdb=duckdb,
@@ -177,11 +183,22 @@ def raw_tushare_index_basic(
         market_distribution = _market_distribution(connection, path)
         terminated_index_count = _raw_terminated_index_count(connection, path)
 
+    LOGGER.stdout(
+        "index_basic_raw_completed",
+        row_count=metadata.get("dagster/row_count"),
+        terminated_index_count=terminated_index_count,
+    )
     return dg.MaterializeResult(
         metadata={
             **metadata,
             **build_materialization_metadata(
                 extra_metadata={
+                    "summary": "已写入 Tushare 指数基础信息 raw 全量快照。",
+                    "next_action": "等待 raw_index_basic blocking checks 通过后生成 silver_index_basic。",
+                    "result_status": "written",
+                    "input_summary": "来源为 Tushare index_basic，全量刷新指数身份字段。",
+                    "filter_summary": "raw 层不排除已终止指数，终止指数数量仅作为观测。",
+                    "diagnostic_ref": "完整诊断看 raw_index_basic checks 和 run stdout。",
                     "market_distribution": market_distribution,
                     "terminated_index_count": terminated_index_count,
                 }
@@ -212,7 +229,10 @@ def raw_tushare_index_basic(
         },
     ),
     config_schema={},
-    description="有效指数基础信息标准表，排除已终止指数。",
+    description=(
+        "有效指数基础信息 silver 标准事实，按最新已注册指数交易日排除已终止指数，"
+        "供指数日线、周线和月线链路对齐指数池。"
+    ),
 )
 def silver_index_basic(
     context: dg.AssetExecutionContext,
@@ -226,6 +246,7 @@ def silver_index_basic(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw index basic file: {raw_path}")
 
+    LOGGER.stdout("index_basic_silver_started", ready_for_trade_date=ready_for_trade_date)
     with connect_configured_duckdb() as connection:
         source_row_count = _row_count(connection, raw_path)
         source_market_distribution = _market_distribution(connection, raw_path)
@@ -241,12 +262,28 @@ def silver_index_basic(
         row_count = _row_count(connection, target_path)
         market_distribution = _market_distribution(connection, target_path)
 
+    LOGGER.stdout(
+        "index_basic_silver_completed",
+        ready_for_trade_date=ready_for_trade_date,
+        source_row_count=source_row_count,
+        row_count=row_count,
+        filtered_out_row_count=source_row_count - row_count,
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "summary": "已生成有效指数基础信息 silver 快照。",
+                "next_action": "等待 silver_index_basic blocking checks 通过后供指数行情链路消费。",
+                "result_status": "written",
+                "input_summary": "输入为 raw_tushare_index_basic 和最新已注册指数交易日。",
+                "filter_summary": (
+                    f"按 ready_for_trade_date={ready_for_trade_date} 保留 {row_count} 个有效指数，"
+                    f"过滤 {source_row_count - row_count} 个已终止或不适用指数。"
+                ),
+                "diagnostic_ref": "完整诊断看 silver_index_basic checks 和 run stdout。",
                 "source_row_count": source_row_count,
                 "kept_row_count": row_count,
                 "filtered_out_row_count": source_row_count - row_count,

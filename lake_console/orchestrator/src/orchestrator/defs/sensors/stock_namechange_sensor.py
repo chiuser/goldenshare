@@ -82,21 +82,36 @@ def _raw_cursor_payload(
     raw_status: AssetReadinessStatus | None = None,
 ) -> str:
     reason_code = None
-    blocked_component = None
-    if raw_status is not None and not raw_status.ready:
+    blocked_component = "none"
+    if decision == SensorCursorDecision.REQUEST_RUNS:
+        reason_code = "request_run"
+    elif raw_status is not None and not raw_status.ready:
         reason_code = raw_status.reason
         blocked_component = "raw_tushare_namechange"
     if reason_code is None:
-        if decision == SensorCursorDecision.REQUEST_RUNS:
-            reason_code = "request_run"
-        elif target_trade_date is None:
+        if target_trade_date is None:
             reason_code = "no_registered_current_trade_day"
+            blocked_component = cn_a_stock_current_trade_days.name
         elif not source_window_started:
             reason_code = "run_window_not_started"
+            blocked_component = "stock_namechange_update_window"
         elif already_submitted_for_trade_date:
             reason_code = "already_submitted_for_stage"
+            blocked_component = "raw_tushare_namechange_stage_dedupe"
         else:
             reason_code = "all_ready"
+    if selected_trade_date:
+        next_action = f"等待股票曾用名 raw {_stage_label(namechange_run_stage)}更新 run 完成。"
+    elif blocked_component == cn_a_stock_current_trade_days.name:
+        next_action = "先注册股票当前交易日分区，再等待下一次 sensor tick。"
+    elif blocked_component == "stock_namechange_update_window":
+        next_action = "等待 09:30 之后的早盘窗口或 17:00 之后的晚盘窗口。"
+    elif blocked_component == "raw_tushare_namechange_stage_dedupe":
+        next_action = "本阶段已经提交过 run；若 run 失败，请人工 retry，不由 sensor 重复提交。"
+    elif blocked_component == "raw_tushare_namechange":
+        next_action = "先修复 raw_tushare_namechange 的 materialization 或 blocking checks。"
+    else:
+        next_action = "无需处理，股票曾用名 raw 已满足当前阶段口径。"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -114,17 +129,16 @@ def _raw_cursor_payload(
             reason_code=reason_code,
             blocked_component=blocked_component,
             summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复或等待下一次 sensor tick。"
-            ),
+            next_action=next_action,
             gate_statuses=compact_gate_statuses(
                 {"raw_tushare_namechange": raw_status}
             ),
             evidence={
                 "registered_trade_day_count": registered_trade_day_count,
+                "target_trade_date": target_trade_date,
                 "source_window_started": source_window_started,
+                "namechange_run_stage": namechange_run_stage,
+                "namechange_run_stage_label": _stage_label(namechange_run_stage),
                 "selected_trade_date": selected_trade_date,
             },
             runtime_state={
@@ -152,27 +166,48 @@ def _silver_cursor_payload(
     silver_status: AssetReadinessStatus | None = None,
 ) -> str:
     reason_code = None
-    blocked_component = None
-    for component, status in (
-        ("raw_tushare_namechange", raw_status),
-        ("stock_basic", stock_basic_status),
-        ("silver_namechange", silver_status),
-    ):
-        if status is not None and not status.ready:
-            reason_code = getattr(status, "reason", f"{component}_not_ready")
-            blocked_component = component
-            break
+    blocked_component = "none"
+    if decision == SensorCursorDecision.REQUEST_RUNS:
+        reason_code = "request_run"
+    else:
+        for component, status in (
+            ("raw_tushare_namechange", raw_status),
+            ("stock_basic", stock_basic_status),
+            ("silver_namechange", silver_status),
+        ):
+            if status is not None and not status.ready:
+                reason_code = getattr(status, "reason", f"{component}_not_ready")
+                blocked_component = component
+                break
     if reason_code is None:
-        if decision == SensorCursorDecision.REQUEST_RUNS:
-            reason_code = "request_run"
-        elif target_trade_date is None:
+        if target_trade_date is None:
             reason_code = "no_registered_current_trade_day"
+            blocked_component = cn_a_stock_current_trade_days.name
         elif not source_window_started:
             reason_code = "run_window_not_started"
+            blocked_component = "stock_namechange_update_window"
         elif already_submitted_for_trade_date:
             reason_code = "already_submitted_for_stage"
+            blocked_component = "silver_namechange_stage_dedupe"
         else:
             reason_code = "all_ready"
+
+    if selected_trade_date:
+        next_action = f"等待股票曾用名 silver {_stage_label(namechange_run_stage)}更新 run 完成。"
+    elif blocked_component == cn_a_stock_current_trade_days.name:
+        next_action = "先注册股票当前交易日分区，再等待下一次 sensor tick。"
+    elif blocked_component == "stock_namechange_update_window":
+        next_action = "等待 09:30 之后的早盘窗口或 17:00 之后的晚盘窗口。"
+    elif blocked_component == "silver_namechange_stage_dedupe":
+        next_action = "本阶段已经提交过 run；若 run 失败，请人工 retry，不由 sensor 重复提交。"
+    elif blocked_component == "raw_tushare_namechange":
+        next_action = "先修复 raw_tushare_namechange 的 materialization 或 blocking checks。"
+    elif blocked_component == "stock_basic":
+        next_action = "先修复 stock_basic raw+silver readiness，再等待下一次 sensor tick。"
+    elif blocked_component == "silver_namechange":
+        next_action = "先修复 silver_namechange 的 materialization 或 blocking checks。"
+    else:
+        next_action = "无需处理，股票曾用名 silver 已跟上当前上游事实。"
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -191,11 +226,7 @@ def _silver_cursor_payload(
             reason_code=reason_code,
             blocked_component=blocked_component,
             summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复或等待下一次 sensor tick。"
-            ),
+            next_action=next_action,
             gate_statuses=compact_gate_statuses(
                 {
                     "raw_tushare_namechange": raw_status,
@@ -205,7 +236,10 @@ def _silver_cursor_payload(
             ),
             evidence={
                 "registered_trade_day_count": registered_trade_day_count,
+                "target_trade_date": target_trade_date,
                 "source_window_started": source_window_started,
+                "namechange_run_stage": namechange_run_stage,
+                "namechange_run_stage_label": _stage_label(namechange_run_stage),
                 "selected_trade_date": selected_trade_date,
             },
             runtime_state={

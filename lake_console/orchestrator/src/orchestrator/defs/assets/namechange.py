@@ -41,6 +41,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_distinct_to_raw
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 NAMECHANGE_API_PARAMS: dict[str, object] = {}
@@ -50,6 +51,7 @@ NAMECHANGE_RAW_COLUMN_TYPES = {
 NAMECHANGE_SILVER_COLUMN_TYPES = {
     column.name: column.type for column in SILVER_NAMECHANGE_SCHEMA
 }
+LOGGER = DgStdoutLogger("basic_facts.namechange")
 
 
 def _column_names(
@@ -157,7 +159,10 @@ def _replace_silver_rows(
             "update_policy": "daily_full_snapshot_api_replace",
         },
     ),
-    description="Tushare 股票曾用名原始全量快照，按全字段完全一致去重。",
+    description=(
+        "Tushare 股票曾用名 raw 全量快照，按全字段完全一致去重，"
+        "供股票曾用名标准时间线生成和身份映射引用校验使用。"
+    ),
 )
 def raw_tushare_namechange(
     lake_root: LakeRootResource,
@@ -166,6 +171,7 @@ def raw_tushare_namechange(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     target_path = raw_namechange_path(lake_root.root())
+    LOGGER.stdout("namechange_raw_started")
     metadata = fetch_tushare_full_file_distinct_to_raw(
         tushare=tushare,
         duckdb=duckdb,
@@ -176,7 +182,27 @@ def raw_tushare_namechange(
         target_path=target_path,
         allow_empty=False,
     )
-    return dg.MaterializeResult(metadata=metadata)
+    LOGGER.stdout(
+        "namechange_raw_completed",
+        row_count=metadata.get("dagster/row_count"),
+        source_row_count=metadata.get("goldenshare/source_row_count"),
+        duplicate_removed_count=metadata.get("goldenshare/duplicate_removed_count"),
+    )
+    return dg.MaterializeResult(
+        metadata={
+            **metadata,
+            **build_materialization_metadata(
+                extra_metadata={
+                    "summary": "已写入股票曾用名 raw 去重全量快照。",
+                    "next_action": "等待 raw blocking checks 通过后生成 silver_namechange 时间线。",
+                    "result_status": "written",
+                    "input_summary": "来源为 Tushare namechange，全量刷新并按完整行去重。",
+                    "filter_summary": "raw 层只去除完全重复行，不做股票池过滤。",
+                    "diagnostic_ref": "完整诊断看 raw_namechange checks 和 run stdout。",
+                }
+            ),
+        }
+    )
 
 
 @dg.asset(
@@ -200,7 +226,10 @@ def raw_tushare_namechange(
             ),
         },
     ),
-    description="股票曾用名标准时间线，确保同一股票同一天最多命中一个名称区间。",
+    description=(
+        "股票曾用名 silver 标准时间线，把 raw 曾用名事件整理为不重叠的名称区间，"
+        "供历史名称解释和股票身份映射使用。"
+    ),
 )
 def silver_namechange(
     lake_root: LakeRootResource,
@@ -215,6 +244,7 @@ def silver_namechange(
     if not stock_basic_path.exists():
         raise FileNotFoundError(f"Missing silver stock basic file: {stock_basic_path}")
 
+    LOGGER.stdout("namechange_silver_started")
     with connect_configured_duckdb() as connection:
         raw_rows = _read_raw_rows(connection, raw_path)
         current_listed_stock_names = _read_current_listed_stock_names(
@@ -230,6 +260,13 @@ def silver_namechange(
         stock_basic_names=current_listed_stock_names,
     )
     if timeline.blocking_conflict_count:
+        LOGGER.stdout(
+            "namechange_silver_validation_failed",
+            unresolved=timeline.unresolved_conflict_count,
+            invalid_date_order=timeline.invalid_date_order_count,
+            overlap=timeline.overlap_count,
+            multi_open=timeline.multi_open_code_count,
+        )
         raise RuntimeError(
             "Namechange timeline canonicalization failed: "
             f"unresolved={timeline.unresolved_conflict_count}, "
@@ -238,12 +275,24 @@ def silver_namechange(
             f"multi_open={timeline.multi_open_code_count}."
         )
     if not timeline.rows:
+        LOGGER.stdout(
+            "namechange_silver_validation_failed",
+            reason="zero_silver_rows",
+            raw_source_row_count=len(raw_rows),
+        )
         raise RuntimeError("Namechange timeline produced 0 silver rows.")
 
     row_count, columns = _replace_silver_rows(
         duckdb=duckdb,
         rows=timeline.rows,
         target_path=target_path,
+    )
+    LOGGER.stdout(
+        "namechange_silver_completed",
+        raw_source_row_count=len(raw_rows),
+        row_count=row_count,
+        current_listed_stock_count=len(current_listed_stock_names),
+        selected_event_count=timeline.selected_event_count,
     )
 
     return dg.MaterializeResult(
@@ -252,6 +301,15 @@ def silver_namechange(
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "summary": "已生成股票曾用名标准时间线，确保同一股票同一天最多命中一个名称区间。",
+                "next_action": "等待 silver_namechange blocking checks 通过后供身份映射和历史名称解释使用。",
+                "result_status": "written",
+                "input_summary": "输入为 raw_tushare_namechange 与 silver_stock_basic 当前股票池。",
+                "filter_summary": (
+                    f"raw {len(raw_rows)} 行，按当前股票池过滤 "
+                    f"{len(raw_rows) - len(filtered_rows)} 行，输出 {row_count} 条时间线区间。"
+                ),
+                "diagnostic_ref": "完整 canonicalization 诊断看 silver_namechange checks 和 run stdout。",
                 "raw_file_path": str(raw_path),
                 "stock_basic_file_path": str(stock_basic_path),
                 "source_row_count": timeline.source_row_count,

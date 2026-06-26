@@ -31,6 +31,10 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
+
+
+LOGGER = DgStdoutLogger("basic_facts.stock_lifecycle")
 
 
 def _column_names(
@@ -106,7 +110,10 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
             )
         },
     ),
-    description="历史 A 股股票生命周期标准事实表，保留退市股票生命周期。",
+    description=(
+        "历史 A 股股票生命周期 silver 标准事实，保留 CNY 股票从上市到退市的生命周期，"
+        "供历史行情覆盖、退市股票校验和下游日期口径使用。"
+    ),
 )
 def silver_stock_lifecycle(
     lake_root: LakeRootResource,
@@ -119,6 +126,7 @@ def silver_stock_lifecycle(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock basic file: {raw_path}")
 
+    LOGGER.stdout("stock_lifecycle_started")
     with duckdb_resource.connect() as connection:
         source_row_count = _row_count(connection, raw_path, hive_partitioning=False)
         source_list_status_distribution = _list_status_distribution(
@@ -147,6 +155,13 @@ def silver_stock_lifecycle(
             target_path,
             hive_partitioning=False,
         )
+    LOGGER.stdout(
+        "stock_lifecycle_completed",
+        source_row_count=source_row_count,
+        row_count=row_count,
+        cny_stock_count=cny_stock_count,
+        filtered_out_row_count=source_row_count - row_count,
+    )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
@@ -154,6 +169,15 @@ def silver_stock_lifecycle(
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "summary": "已生成历史 CNY 股票生命周期事实，包含当前和已退市股票。",
+                "next_action": "等待 silver_stock_lifecycle blocking checks 通过后供历史行情和覆盖率校验使用。",
+                "result_status": "written",
+                "input_summary": "输入为 raw_tushare_stock_basic 全状态快照。",
+                "filter_summary": (
+                    f"保留历史 CNY 股票 {row_count} 行，其中 is_cny_stock=true "
+                    f"{cny_stock_count} 行；过滤 {source_row_count - row_count} 行。"
+                ),
+                "diagnostic_ref": "完整诊断看 silver_stock_lifecycle checks 和 run stdout。",
                 "source_row_count": source_row_count,
                 "cny_stock_count": cny_stock_count,
                 "filtered_out_row_count": source_row_count - row_count,

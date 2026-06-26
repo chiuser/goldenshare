@@ -254,7 +254,10 @@
           <code>trade_cal</code>、<code>stock_basic</code>、<code>stock_lifecycle</code>、
           <code>namechange</code>、<code>stock_identity_map</code>、<code>index_basic</code>
         </td>
-        <td>讲清楚“全量文件是什么、刷新后影响谁、失败先补哪个上游”。</td>
+        <td>
+          Wave 1 已完成：description、stdout、materialization metadata、check metadata、
+          stock_basic/namechange/identity_map cursor 与静态门禁已落地。
+        </td>
       </tr>
       <tr>
         <td>日频行情 Raw/Silver</td>
@@ -607,11 +610,11 @@
       <tr>
         <td>Wave 1</td>
         <td>基础事实与全量快照</td>
-        <td>体量较小、路径稳定、风险低，适合先把 description、stdout、metadata/check 模式稳定下来。</td>
+        <td>已完成。体量较小、路径稳定、风险低，已用于稳定基础事实资产族的 description、stdout、metadata/check 和 cursor 模式。</td>
         <td>
-          LLD 已落到 <code>dagster-basic-facts-human-readable-governance-low-level-design.html</code>；
-          代码实现完成后，基础事实阻断时 cursor 应能直接显示卡在
-          <code>trade_cal</code>、<code>stock_basic</code>、<code>index_basic</code> 等组件。
+          LLD 与代码已落地到 <code>dagster-basic-facts-human-readable-governance-low-level-design.html</code>；
+          基础事实阻断时 cursor 会直接显示卡在交易日分区、运行窗口、raw/silver 基础事实或 identity map。
+          已通过 Wave 1 单元测试与静态门禁；未运行 <code>dg</code>，未写 lake、Dagster DB 或业务数据库。
         </td>
       </tr>
       <tr>

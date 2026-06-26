@@ -39,12 +39,14 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 STOCK_BASIC_API_PARAMS = {"list_status": "L,D,P,G"}
 STOCK_BASIC_RAW_COLUMN_TYPES = {
     column.name: column.type for column in RAW_TUSHARE_STOCK_BASIC_SCHEMA
 }
+LOGGER = DgStdoutLogger("basic_facts.stock_basic")
 
 
 def _column_names(
@@ -119,7 +121,10 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
             "update_policy": "daily_full_snapshot_api_update",
         },
     ),
-    description="Tushare 股票基础信息原始数据。",
+    description=(
+        "Tushare 股票基础信息 raw 源镜像，保留上市、退市、暂停和退市整理等全状态股票身份字段，"
+        "供当前股票池和历史生命周期事实生成。"
+    ),
 )
 def raw_tushare_stock_basic(
     lake_root: LakeRootResource,
@@ -128,6 +133,7 @@ def raw_tushare_stock_basic(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     path = raw_stock_basic_path(lake_root.root())
+    LOGGER.stdout("stock_basic_raw_started", list_status=STOCK_BASIC_API_PARAMS["list_status"])
     metadata = fetch_tushare_full_file_to_raw(
         tushare=tushare,
         duckdb=duckdb,
@@ -146,11 +152,23 @@ def raw_tushare_stock_basic(
             hive_partitioning=False,
         )
 
+    LOGGER.stdout(
+        "stock_basic_raw_completed",
+        row_count=metadata.get("dagster/row_count"),
+    )
     return dg.MaterializeResult(
         metadata={
             **metadata,
             **build_materialization_metadata(
-                extra_metadata={"list_status_distribution": list_status_distribution}
+                extra_metadata={
+                    "summary": "已写入 Tushare 股票基础信息 raw 全状态快照。",
+                    "next_action": "等待 raw blocking checks 通过后生成当前股票池和历史生命周期事实。",
+                    "result_status": "written",
+                    "input_summary": "来源为 Tushare stock_basic，list_status=L,D,P,G。",
+                    "filter_summary": "raw 层不做 current-listed 过滤，保留源站全状态股票身份。",
+                    "diagnostic_ref": "完整诊断看 raw_stock_basic checks 和 run stdout。",
+                    "list_status_distribution": list_status_distribution,
+                }
             ),
         }
     )
@@ -176,7 +194,10 @@ def raw_tushare_stock_basic(
             )
         },
     ),
-    description="当前上市 A 股股票基础信息标准表，记录股票生命周期。",
+    description=(
+        "当前上市 A 股股票基础信息 silver 标准事实，只保留 list_status='L' 且 curr_type='CNY' 的当前股票池，"
+        "供日线、分钟线和市场统计链路作为当日基础股票池使用。"
+    ),
 )
 def silver_stock_basic(
     lake_root: LakeRootResource,
@@ -188,6 +209,7 @@ def silver_stock_basic(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock basic file: {raw_path}")
 
+    LOGGER.stdout("stock_basic_silver_started")
     with connect_configured_duckdb() as connection:
         source_row_count = _row_count(connection, raw_path, hive_partitioning=False)
         source_list_status_distribution = _list_status_distribution(
@@ -207,6 +229,12 @@ def silver_stock_basic(
             target_path,
             hive_partitioning=False,
         )
+    LOGGER.stdout(
+        "stock_basic_silver_completed",
+        source_row_count=source_row_count,
+        row_count=row_count,
+        filtered_out_row_count=source_row_count - row_count,
+    )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
@@ -214,6 +242,15 @@ def silver_stock_basic(
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "summary": "已生成当前上市 CNY 股票基础信息 silver 快照。",
+                "next_action": "等待 silver_stock_basic blocking checks 通过后供下游日频和分钟线资产消费。",
+                "result_status": "written",
+                "input_summary": "输入为 raw_tushare_stock_basic 全状态快照。",
+                "filter_summary": (
+                    f"保留当前上市 CNY 股票 {row_count} 行，过滤 "
+                    f"{source_row_count - row_count} 行非当前上市或非 CNY 记录。"
+                ),
+                "diagnostic_ref": "完整诊断看 silver_stock_basic checks 和 run stdout。",
                 "source_row_count": source_row_count,
                 "kept_row_count": row_count,
                 "filtered_out_row_count": source_row_count - row_count,

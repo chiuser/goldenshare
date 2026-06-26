@@ -292,6 +292,16 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         request = result.run_requests[0]
         self.assertEqual(request.run_key, "raw_stock_basic_update:2026-06-05")
         self.assertIsNone(request.partition_key)
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertLess(len(result.cursor or ""), 2000)
+        self.assertEqual(cursor["details"]["reason_code"], "request_run")
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("summary", cursor["details"])
+        self.assertIn("next_action", cursor["details"])
+        self.assertEqual(
+            cursor["details"]["evidence"]["target_trade_date"],
+            "2026-06-05",
+        )
 
     def test_raw_stock_basic_sensor_skips_failed_checks(self) -> None:
         context = _FakeContext()
@@ -346,6 +356,12 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("等待 raw readiness", _skip_message(result))
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "raw_tushare_stock_basic",
+        )
+        self.assertIn("先修复 raw_tushare_stock_basic", cursor["details"]["next_action"])
 
     def test_silver_stock_basic_sensor_submits_when_raw_ready_and_silver_missing(self) -> None:
         context = _FakeContext()
@@ -445,6 +461,13 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
             before_window = _raw_namechange_result(_FakeContext())
         self.assertEqual(before_window.run_requests, [])
         self.assertIn("尚未到 09:30", _skip_message(before_window))
+        cursor = load_sensor_cursor(before_window.cursor)
+        self.assertLess(len(before_window.cursor or ""), 3000)
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "stock_namechange_update_window",
+        )
+        self.assertNotIn("namechange_run_stage", cursor["details"].get("runtime_state", {}))
 
         with patch(
             "orchestrator.defs.sensors.stock_namechange_sensor.datetime",
@@ -496,6 +519,9 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
             ],
             "morning",
         )
+        submitted_cursor = load_sensor_cursor(submitted.cursor)
+        self.assertEqual(submitted_cursor["details"]["blocked_component"], "none")
+        self.assertIn("namechange_run_stage_label", submitted_cursor["details"]["evidence"])
 
         with patch(
             "orchestrator.defs.sensors.stock_namechange_sensor.datetime",
@@ -567,6 +593,12 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         self.assertEqual(raw_blocked.run_requests, [])
         self.assertIn("等待 raw readiness", _skip_message(raw_blocked))
         stock_basic_readiness.assert_not_called()
+        cursor = load_sensor_cursor(raw_blocked.cursor)
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "raw_tushare_namechange",
+        )
+        self.assertIn("先修复 raw_tushare_namechange", cursor["details"]["next_action"])
 
         with patch(
             "orchestrator.defs.sensors.stock_namechange_sensor.datetime",
@@ -591,6 +623,8 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
             stock_basic_blocked = _silver_namechange_result(context)
         self.assertEqual(stock_basic_blocked.run_requests, [])
         self.assertIn("等待 stock_basic", _skip_message(stock_basic_blocked))
+        cursor = load_sensor_cursor(stock_basic_blocked.cursor)
+        self.assertEqual(cursor["details"]["blocked_component"], "stock_basic")
 
     def test_silver_namechange_sensor_uses_stock_basic_final_ready_and_submits(self) -> None:
         self.assertFalse(

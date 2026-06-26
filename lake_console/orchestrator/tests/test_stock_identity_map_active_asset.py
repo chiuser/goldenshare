@@ -3,6 +3,7 @@ import tempfile
 import unittest
 from datetime import date, datetime
 from pathlib import Path
+from unittest.mock import patch
 from zoneinfo import ZoneInfo
 
 from orchestrator.defs.assets.stock_identity_map import (
@@ -12,11 +13,13 @@ from orchestrator.defs.assets.stock_identity_map import (
     write_stock_identity_map_snapshot,
 )
 from orchestrator.defs.resources import DuckDBResource
+from orchestrator.defs.run_contracts.cursors import load_sensor_cursor
 from orchestrator.defs.sensors.readiness import AssetReadinessStatus
 from orchestrator.defs.sensors.stock_identity_map_sensor import (
     _identity_map_decision,
     _latest_registered_trade_date,
     _source_window_started,
+    stock_identity_map_sensor,
 )
 from orchestrator.seeds.basic.stock_identity_mappings import (
     STOCK_IDENTITY_MAPPINGS_SEED_COLUMNS,
@@ -202,6 +205,34 @@ class StockIdentityMapSensorDecisionTests(unittest.TestCase):
         self.assertFalse(decision.request_run)
         self.assertTrue(decision.identity_map_current)
 
+    def test_sensor_request_cursor_is_human_readable_and_not_blocked(self) -> None:
+        with patch(
+            "orchestrator.defs.sensors.stock_identity_map_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_identity_map_sensor.silver_stock_basic_ready_for_trade_date",
+            return_value=_status(ready=True, storage_id=10),
+        ), patch(
+            "orchestrator.defs.sensors.stock_identity_map_sensor.silver_namechange_ready_for_trade_date",
+            return_value=_status(ready=True, storage_id=11),
+        ), patch(
+            "orchestrator.defs.sensors.stock_identity_map_sensor.silver_stock_identity_map_ready_for_trade_date",
+            return_value=_status(ready=True, storage_id=9),
+        ):
+            result = stock_identity_map_sensor._raw_fn(_FakeContext())
+
+        self.assertEqual(len(result.run_requests), 1)
+        cursor = load_sensor_cursor(result.cursor)
+        self.assertLess(len(result.cursor or ""), 2000)
+        self.assertEqual(cursor["details"]["reason_code"], "request_run")
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("summary", cursor["details"])
+        self.assertIn("next_action", cursor["details"])
+        self.assertEqual(
+            cursor["details"]["evidence"]["target_trade_date"],
+            "2026-05-29",
+        )
+
 
 def _write_seed_fixture() -> Path:
     temp_dir = tempfile.TemporaryDirectory()
@@ -243,6 +274,21 @@ def _status(
         failed_check_names=(),
         reason=reason,
     )
+
+
+class _FixedDateTime(datetime):
+    @classmethod
+    def now(cls, tz=None):
+        return cls(2026, 5, 31, 17, 30, tzinfo=tz)
+
+
+class _FakeInstance:
+    def get_dynamic_partitions(self, _name: str) -> list[str]:
+        return ["2026-05-29", "2026-06-01"]
+
+
+class _FakeContext:
+    instance = _FakeInstance()
 
 
 _TEMP_DIRS: list[tempfile.TemporaryDirectory] = []

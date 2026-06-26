@@ -55,11 +55,12 @@ def _cursor_payload(
     lifecycle_status: AssetReadinessStatus | None = None,
 ) -> str:
     reason_code = "all_ready"
-    blocked_component = None
+    blocked_component = "none"
     if selected_trade_date:
         reason_code = "request_run"
     elif target_trade_date is None:
         reason_code = "no_registered_trade_day"
+        blocked_component = cn_a_stock_trade_days.name
     elif raw_status is not None and not raw_status.ready:
         reason_code = raw_status.reason
         blocked_component = "raw_tushare_stock_basic"
@@ -69,6 +70,17 @@ def _cursor_payload(
     elif lifecycle_status is not None and not lifecycle_status.ready:
         reason_code = lifecycle_status.reason
         blocked_component = "silver_stock_lifecycle"
+
+    if selected_trade_date:
+        next_action = "等待本次 stock_basic 更新 run 完成，然后看 blocking checks。"
+    elif blocked_component == cn_a_stock_trade_days.name:
+        next_action = "先注册股票交易日分区，再等待下一次 sensor tick。"
+    elif blocked_component == "raw_tushare_stock_basic":
+        next_action = "先修复 raw_tushare_stock_basic 的 materialization 或 blocking checks。"
+    elif blocked_component in {"silver_stock_basic", "silver_stock_lifecycle"}:
+        next_action = f"先修复 {blocked_component} 的 materialization 或 blocking checks。"
+    else:
+        next_action = "无需处理，当前基础股票事实已满足最新交易日口径。"
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -87,11 +99,7 @@ def _cursor_payload(
             reason_code=reason_code,
             blocked_component=blocked_component,
             summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复或等待下一次 sensor tick。"
-            ),
+            next_action=next_action,
             gate_statuses=compact_gate_statuses(
                 {
                     "raw_tushare_stock_basic": raw_status,
@@ -101,6 +109,7 @@ def _cursor_payload(
             ),
             evidence={
                 "registered_trade_day_count": registered_trade_day_count,
+                "target_trade_date": target_trade_date,
                 "selected_trade_date": selected_trade_date,
             },
         ),

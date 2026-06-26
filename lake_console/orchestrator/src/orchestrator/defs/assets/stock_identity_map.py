@@ -40,6 +40,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 from orchestrator.seeds.basic.stock_identity_mappings import (
     STOCK_IDENTITY_ALLOWED_CONFIDENCE as STOCK_IDENTITY_ALLOWED_SEED_CONFIDENCE,
     STOCK_IDENTITY_ALLOWED_SEED_SOURCES,
@@ -60,6 +61,7 @@ STOCK_IDENTITY_ALLOWED_CONFIDENCE = STOCK_IDENTITY_ALLOWED_SEED_CONFIDENCE
 STOCK_IDENTITY_COLUMN_TYPES = {
     column.name: column.type for column in SILVER_STOCK_IDENTITY_MAP_SCHEMA
 }
+LOGGER = DgStdoutLogger("basic_facts.stock_identity_map")
 
 
 @dataclass(frozen=True)
@@ -355,7 +357,10 @@ def _read_namechange_codes(
             "seed_version": STOCK_IDENTITY_MAPPINGS_SEED_VERSION,
         },
     ),
-    description="股票身份映射标准表，用于把历史源代码归一到当前标准股票代码。",
+    description=(
+        "股票身份映射 silver 标准表，把历史源代码归一到当前标准股票代码，"
+        "输入为当前股票池、曾用名时间线和版本化人工 seed。"
+    ),
 )
 def silver_stock_identity_map(
     lake_root: LakeRootResource,
@@ -370,17 +375,32 @@ def silver_stock_identity_map(
     if not namechange_path.exists():
         raise FileNotFoundError(f"Missing silver namechange file: {namechange_path}")
 
+    LOGGER.stdout("stock_identity_map_started")
     seed_rows = load_stock_identity_mapping_seed()
-    build_result = build_stock_identity_map_rows(
-        stock_basic_rows=_read_stock_basic_rows(duckdb, stock_basic_path),
-        seed_rows=seed_rows,
-        namechange_codes=_read_namechange_codes(duckdb, namechange_path),
-        created_at=datetime.now(STOCK_IDENTITY_MAP_TIMEZONE),
-    )
+    try:
+        build_result = build_stock_identity_map_rows(
+            stock_basic_rows=_read_stock_basic_rows(duckdb, stock_basic_path),
+            seed_rows=seed_rows,
+            namechange_codes=_read_namechange_codes(duckdb, namechange_path),
+            created_at=datetime.now(STOCK_IDENTITY_MAP_TIMEZONE),
+        )
+    except RuntimeError as error:
+        LOGGER.stdout(
+            "stock_identity_map_validation_failed",
+            reason=str(error)[:240],
+            seed_row_count=len(seed_rows),
+        )
+        raise
     row_count, columns = write_stock_identity_map_snapshot(
         duckdb=duckdb,
         rows=build_result.rows,
         target_path=target_path,
+    )
+    LOGGER.stdout(
+        "stock_identity_map_completed",
+        row_count=row_count,
+        stock_basic_self_mapping_row_count=build_result.stock_basic_row_count,
+        seed_row_count=build_result.seed_row_count,
     )
 
     return dg.MaterializeResult(
@@ -389,6 +409,15 @@ def silver_stock_identity_map(
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                "summary": "已重建股票身份映射快照，历史源代码可映射到当前标准股票代码。",
+                "next_action": "等待 silver_stock_identity_map blocking checks 通过后供下游历史代码归一使用。",
+                "result_status": "written",
+                "input_summary": "输入为 silver_stock_basic、silver_namechange 和版本化 stock identity seed。",
+                "filter_summary": (
+                    f"当前股票自映射 {build_result.stock_basic_row_count} 行，"
+                    f"seed 非自映射 {build_result.seed_row_count} 行。"
+                ),
+                "diagnostic_ref": "完整诊断看 stock_identity_map checks、seed 文件和 run stdout。",
                 "stock_basic_file_path": str(stock_basic_path),
                 "namechange_file_path": str(namechange_path),
                 "seed_file_path": str(STOCK_IDENTITY_MAPPINGS_SEED_PATH),

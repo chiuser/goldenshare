@@ -46,6 +46,9 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             extra_metadata={
+                "summary": "股票基础信息文件不存在，当前 check 无法继续验证。",
+                "next_action": "先运行对应 stock_basic update job 生成 raw 或 silver 文件。",
+                "rule_summary": ["file_exists"],
                 "file_path": str(path),
                 "missing_file": True,
             },
@@ -66,6 +69,17 @@ def _combined_check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": (
+                    "股票基础信息聚合检查通过。"
+                    if not failed_rule_names
+                    else "股票基础信息聚合检查失败，请先看 failed_rule_names。"
+                ),
+                "next_action": (
+                    "无需处理，等待下游消费。"
+                    if not failed_rule_names
+                    else "按 failed_rule_names 修复 raw/silver 股票基础信息后再重跑。"
+                ),
+                "rule_summary": [rule_name for rule_name, _ in rule_results],
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results

@@ -130,6 +130,7 @@ def _cursor_payload(
     decision: SensorCursorDecision,
     target_trade_date: str | None,
     source_window_started: bool,
+    registered_trade_day_count: int,
     reason: str,
     stock_basic_status: AssetReadinessStatus | None = None,
     namechange_status: AssetReadinessStatus | None = None,
@@ -137,27 +138,44 @@ def _cursor_payload(
     identity_map_current: bool | None = None,
 ) -> str:
     reason_code = None
-    blocked_component = None
-    for component, status in (
-        ("silver_stock_basic", stock_basic_status),
-        ("silver_namechange", namechange_status),
-        ("silver_stock_identity_map", identity_map_status),
-    ):
-        if status is not None and not status.ready:
-            reason_code = status.reason
-            blocked_component = component
-            break
+    blocked_component = "none"
+    if decision == SensorCursorDecision.REQUEST_RUNS:
+        reason_code = "request_run"
+    else:
+        for component, status in (
+            ("silver_stock_basic", stock_basic_status),
+            ("silver_namechange", namechange_status),
+            ("silver_stock_identity_map", identity_map_status),
+        ):
+            if status is not None and not status.ready:
+                reason_code = status.reason
+                blocked_component = component
+                break
     if reason_code is None:
-        if decision == SensorCursorDecision.REQUEST_RUNS:
-            reason_code = "request_run"
-        elif target_trade_date is None:
+        if target_trade_date is None:
             reason_code = "no_registered_trade_day"
+            blocked_component = cn_a_stock_trade_days.name
         elif not source_window_started:
             reason_code = "run_window_not_started"
+            blocked_component = "stock_identity_map_update_window"
         elif identity_map_current:
             reason_code = "identity_map_current"
         else:
             reason_code = "skip"
+    if decision == SensorCursorDecision.REQUEST_RUNS:
+        next_action = "等待本次 stock_identity_map 更新 run 完成，然后看 blocking checks。"
+    elif blocked_component == cn_a_stock_trade_days.name:
+        next_action = "先注册股票交易日分区，再等待下一次 sensor tick。"
+    elif blocked_component == "stock_identity_map_update_window":
+        next_action = "等待 17:30 之后再检查上游 readiness。"
+    elif blocked_component == "silver_stock_basic":
+        next_action = "先修复 silver_stock_basic readiness，再等待下一次 sensor tick。"
+    elif blocked_component == "silver_namechange":
+        next_action = "先修复 silver_namechange readiness，再等待下一次 sensor tick。"
+    elif blocked_component == "silver_stock_identity_map":
+        next_action = "先人工检查 silver_stock_identity_map blocking checks，sensor 不自动循环重跑。"
+    else:
+        next_action = "无需处理，股票身份映射已跟上最新基础事实。"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -190,6 +208,8 @@ def _cursor_payload(
                 }
             ),
             evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "target_trade_date": target_trade_date,
                 "source_window_started": source_window_started,
                 "identity_map_current": identity_map_current,
             },
@@ -228,6 +248,7 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 decision=SensorCursorDecision.SKIP,
                 target_trade_date=None,
                 source_window_started=source_window_started,
+                registered_trade_day_count=len(registered_trade_days),
                 reason=reason,
             ),
         )
@@ -241,6 +262,7 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
                 decision=SensorCursorDecision.SKIP,
                 target_trade_date=target_trade_date,
                 source_window_started=source_window_started,
+                registered_trade_day_count=len(registered_trade_days),
                 reason=reason,
             ),
         )
@@ -273,6 +295,7 @@ def stock_identity_map_sensor(context: dg.SensorEvaluationContext) -> dg.SensorR
         decision=cursor_decision,
         target_trade_date=target_trade_date,
         source_window_started=source_window_started,
+        registered_trade_day_count=len(registered_trade_days),
         reason=identity_decision.reason,
         stock_basic_status=stock_basic_status,
         namechange_status=namechange_status,

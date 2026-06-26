@@ -122,7 +122,7 @@
       <span class="tag">不写数据库</span>
     </p>
     <p class="small">
-      当前状态：LLD 已完成代码级审计与落点设计。正式 Python 代码改动前需要 review 本文口径。
+      当前状态：Wave 1 已按本文完成代码实现与测试验证；实现只改表达层，不改变生产决策。
     </p>
   </header>
 
@@ -529,7 +529,9 @@ git diff --check</code></pre>
       <tbody>
       <tr>
         <td>每个资产族先 LLD，再代码，再测试，再文档。</td>
-        <td>本文是 Wave 1 LLD；代码需 review 后进入下一步。</td>
+        <td>
+          本文是 Wave 1 LLD；代码已落地到基础事实资产、job、check、sensor cursor 和测试门禁。
+        </td>
       </tr>
       <tr>
         <td>只改表达层，不改生产决策。</td>
@@ -554,13 +556,16 @@ git diff --check</code></pre>
   <section>
     <h2>9. Review 后的执行顺序</h2>
     <ol>
-      <li>先落 asset/job description、stdout 和 materialization metadata。</li>
-      <li>再落 check metadata，人话字段只追加，不删除现有机器字段。</li>
-      <li>再落 stock_basic/namechange/identity_map sensor cursor 表达，不动状态机。</li>
-      <li>补测试与静态门禁。</li>
-      <li>跑本 LLD 中列出的单元测试、文档检查和 <code>git diff --check</code>。</li>
-      <li>同步本文与 rollout 文档状态。</li>
-      <li>提交本 Wave 代码与文档，排除无关脏文件。</li>
+      <li>已落 asset/job description、stdout 和 materialization metadata。</li>
+      <li>已落 check metadata，人话字段只追加，不删除现有机器字段。</li>
+      <li>已落 stock_basic/namechange/identity_map sensor cursor 表达，状态机与 runtime_state 保持不变。</li>
+      <li>已补 <code>tests/test_basic_facts_human_readable_contracts.py</code>、现有 sensor 契约测试与静态门禁。</li>
+      <li>
+        已通过：
+        <code>uv run python -m unittest tests.test_basic_facts_human_readable_contracts tests.test_stock_basic_namechange_split_contracts tests.test_stock_identity_map_active_asset tests.test_stock_basic_schema_contracts tests.test_stock_lifecycle_contracts tests.test_namechange_contracts tests.test_index_basic_contracts tests.test_run_contract_static_gates tests.test_asset_governance_contracts</code>。
+      </li>
+      <li>本文与 rollout 文档已同步为 Wave 1 已实现口径。</li>
+      <li>本 Wave 提交时继续排除无关脏文件。</li>
     </ol>
   </section>
 

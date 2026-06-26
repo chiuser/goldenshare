@@ -39,6 +39,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_full_file_to_raw
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 CN_A_TIMEZONE = ZoneInfo("Asia/Shanghai")
@@ -46,6 +47,7 @@ TRADE_CALENDAR_START_DATE = "19900101"
 TRADE_CALENDAR_RAW_COLUMN_TYPES = {
     column.name: column.type for column in RAW_TUSHARE_TRADE_CALENDAR_SCHEMA
 }
+LOGGER = DgStdoutLogger("basic_facts.trade_calendar")
 
 
 def _column_names(
@@ -95,7 +97,10 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
             "update_policy": "low_frequency_full_file_api_update",
         },
     ),
-    description="Tushare 交易日历原始数据。",
+    description=(
+        "Tushare 交易日历 raw 源镜像，保存上交所交易日历原始字段，"
+        "供标准交易日历和全市场日频资产判断交易日使用。"
+    ),
 )
 def raw_tushare_trade_calendar(
     lake_root: LakeRootResource,
@@ -104,6 +109,12 @@ def raw_tushare_trade_calendar(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     end_date = f"{datetime.now(CN_A_TIMEZONE).year}1231"
+    target_path = raw_trade_calendar_path(lake_root.root())
+    LOGGER.stdout(
+        "trade_calendar_raw_started",
+        start_date=TRADE_CALENDAR_START_DATE,
+        end_date=end_date,
+    )
     metadata = fetch_tushare_full_file_to_raw(
         tushare=tushare,
         duckdb=duckdb,
@@ -115,8 +126,13 @@ def raw_tushare_trade_calendar(
         },
         fields=TRADE_CALENDAR_RAW_REQUIRED_COLUMNS,
         column_types=TRADE_CALENDAR_RAW_COLUMN_TYPES,
-        target_path=raw_trade_calendar_path(lake_root.root()),
+        target_path=target_path,
         allow_empty=False,
+    )
+    LOGGER.stdout(
+        "trade_calendar_raw_completed",
+        row_count=metadata.get("dagster/row_count"),
+        end_date=end_date,
     )
 
     return dg.MaterializeResult(
@@ -124,6 +140,15 @@ def raw_tushare_trade_calendar(
             **metadata,
             **build_materialization_metadata(
                 extra_metadata={
+                    "summary": (
+                        f"已写入上交所交易日历 raw 快照，覆盖 "
+                        f"{TRADE_CALENDAR_START_DATE} 至 {end_date}。"
+                    ),
+                    "next_action": "等待 raw blocking check 通过后生成 silver_trade_calendar。",
+                    "result_status": "written",
+                    "input_summary": "来源为 Tushare trade_cal，全量刷新上交所日历。",
+                    "filter_summary": "raw 层不做业务过滤，保留源站显式字段。",
+                    "diagnostic_ref": "完整字段和质量规则看 raw_trade_calendar_contract_check。",
                     "calendar_start_date": TRADE_CALENDAR_START_DATE,
                     "calendar_end_date": end_date,
                 }
@@ -146,7 +171,10 @@ def raw_tushare_trade_calendar(
             silver_trade_calendar_path(PATH_TEMPLATE_LAKE_ROOT)
         ),
     ),
-    description="A股交易日历标准表，提供上交所开市日口径。",
+    description=(
+        "A 股交易日历 silver 标准事实，按上交所交易日口径输出标准日期字段，"
+        "供日频资产分区注册、freshness 和 readiness 判断使用。"
+    ),
 )
 def silver_trade_calendar(
     lake_root: LakeRootResource,
@@ -158,6 +186,7 @@ def silver_trade_calendar(
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw trade calendar file: {raw_path}")
 
+    LOGGER.stdout("trade_calendar_silver_started")
     with connect_configured_duckdb() as connection:
         _replace_parquet_from_query(
             connection,
@@ -166,11 +195,20 @@ def silver_trade_calendar(
         )
         columns = _column_names(connection, target_path, hive_partitioning=False)
         row_count = _row_count(connection, target_path, hive_partitioning=False)
+    LOGGER.stdout("trade_calendar_silver_completed", row_count=row_count)
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
+            extra_metadata={
+                "summary": "已生成 A 股标准交易日历，供日频资产判断交易日和分区。",
+                "next_action": "等待 silver_trade_calendar blocking checks 通过后供下游消费。",
+                "result_status": "written",
+                "input_summary": "输入为 raw_tushare_trade_calendar 全量文件。",
+                "filter_summary": "标准化日期和开市标记，不改变交易日历业务口径。",
+                "diagnostic_ref": "完整诊断看 silver_trade_calendar checks 和 run stdout。",
+            },
         )
     )

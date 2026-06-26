@@ -45,7 +45,12 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             file_path=path,
-            extra_metadata={"missing_file": True},
+            extra_metadata={
+                "summary": "股票生命周期文件不存在，当前 check 无法继续验证。",
+                "next_action": "先运行 silver_stock_basic_update_job 生成 silver_stock_lifecycle。",
+                "rule_summary": ["file_exists"],
+                "missing_file": True,
+            },
         ),
     )
 
@@ -63,6 +68,17 @@ def _combined_check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": (
+                    "股票生命周期聚合检查通过。"
+                    if not failed_rule_names
+                    else "股票生命周期聚合检查失败，请先看 failed_rule_names。"
+                ),
+                "next_action": (
+                    "无需处理，历史生命周期事实可供下游消费。"
+                    if not failed_rule_names
+                    else "按 failed_rule_names 修复 schema、主键、日期或 CNY 股票域后再重跑。"
+                ),
+                "rule_summary": [rule_name for rule_name, _ in rule_results],
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results

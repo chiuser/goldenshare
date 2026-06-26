@@ -67,7 +67,12 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
             check_scope=CheckScope.FILE_EXISTS,
             file_path=path,
             missing_file_paths=[path],
-            extra_metadata={"missing_file": True},
+            extra_metadata={
+                "summary": "股票身份映射输入或目标文件不存在，当前 check 无法继续验证。",
+                "next_action": "先确认 silver_stock_basic、silver_namechange 和 stock_identity_map 目标文件已生成。",
+                "rule_summary": ["file_exists"],
+                "missing_file": True,
+            },
         ),
     )
 
@@ -85,6 +90,17 @@ def _combined_check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": (
+                    "股票身份映射聚合检查通过。"
+                    if not failed_rule_names
+                    else "股票身份映射聚合检查失败，请先看 failed_rule_names。"
+                ),
+                "next_action": (
+                    "无需处理，身份映射可供下游归一历史代码。"
+                    if not failed_rule_names
+                    else "按 failed_rule_names 修复 schema、唯一键、seed 引用或枚举域后再重跑。"
+                ),
+                "rule_summary": [rule_name for rule_name, _ in rule_results],
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results

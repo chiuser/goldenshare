@@ -9,5 +9,8 @@ calendar_update_job = dg.define_asset_job(
         dg.AssetSelection.assets(raw_tushare_trade_calendar, silver_trade_calendar)
         | dg.AssetSelection.checks_for_assets(raw_tushare_trade_calendar, silver_trade_calendar)
     ),
-    description="更新交易日历原始表和标准表。",
+    description=(
+        "更新 Tushare 交易日历 raw 和 A 股标准交易日历 silver，并执行交易日历字段、"
+        "开市日和唯一键检查。失败后先看对应 asset check metadata。"
+    ),
 )

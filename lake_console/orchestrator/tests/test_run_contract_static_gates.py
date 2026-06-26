@@ -2169,6 +2169,87 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_basic_facts_human_readable_governance_stays_compact(self) -> None:
+        asset_paths = (
+            ASSETS_DIR / "calendar.py",
+            ASSETS_DIR / "stock_basic.py",
+            ASSETS_DIR / "stock_lifecycle.py",
+            ASSETS_DIR / "namechange.py",
+            ASSETS_DIR / "stock_identity_map.py",
+            ASSETS_DIR / "index_basic.py",
+        )
+        sensor_paths = (
+            SENSORS_DIR / "stock_basic_sensor.py",
+            SENSORS_DIR / "stock_namechange_sensor.py",
+            SENSORS_DIR / "stock_identity_map_sensor.py",
+        )
+        check_paths = (
+            CHECKS_DIR / "calendar_checks.py",
+            CHECKS_DIR / "stock_basic_checks.py",
+            CHECKS_DIR / "stock_lifecycle_checks.py",
+            CHECKS_DIR / "namechange_checks.py",
+            CHECKS_DIR / "stock_identity_map_checks.py",
+            CHECKS_DIR / "index_basic_checks.py",
+        )
+        issues = []
+
+        forbidden_cursor_fragments = (
+            "to_cursor_details()",
+            '"status_samples":',
+            '"readiness_details":',
+            '"raw_batch_status":',
+            '"silver_batch_status":',
+            '"repair_details":',
+        )
+        for sensor_path in sensor_paths:
+            source = sensor_path.read_text()
+            issues.extend(
+                f"{sensor_path} writes oversized basic facts cursor fragment: {fragment}"
+                for fragment in forbidden_cursor_fragments
+                if fragment in source
+            )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "ts_codes",
+            "sample_rows",
+            "duplicate_sample_rows",
+            "conflict_sample_rows",
+        }
+        for asset_path in asset_paths:
+            asset_tree = _parse_python_file(asset_path)
+            for node in ast.walk(asset_tree):
+                if not isinstance(node, ast.Call):
+                    continue
+                if not isinstance(node.func, ast.Attribute) or node.func.attr != "stdout":
+                    continue
+                keyword_names = {keyword.arg for keyword in node.keywords if keyword.arg}
+                forbidden = sorted(keyword_names & forbidden_stdout_fields)
+                if forbidden:
+                    issues.append(
+                        f"{_node_location(asset_path, node)} basic facts stdout writes "
+                        f"forbidden fields {forbidden}"
+                    )
+
+        for check_path in check_paths:
+            combined_check_source = _function_source(check_path, "_combined_check_result")
+            for required_fragment in (
+                "failed_rule_names",
+                "rule_summary",
+                "summary",
+                "next_action",
+            ):
+                if required_fragment not in combined_check_source:
+                    issues.append(
+                        "basic facts combined checks must keep human-readable metadata "
+                        f"and stable failed rules: {check_path} missing {required_fragment}"
+                    )
+
+        self.assertEqual(issues, [])
+
     def test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free(self) -> None:
         helper_requirements = {
             DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py": (
