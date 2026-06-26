@@ -197,8 +197,16 @@ def recent_gold_stock_daily_qfq_check_partitions(
         start_date=start_date,
         end_date=end_date,
     )
-    recent_expected = tuple(expected_trade_dates[-window_size:])
     latest_target = target_partitions[-1]
+    target_partition_set = set(target_partitions)
+    generated_expected = tuple(
+        trade_date
+        for trade_date in expected_trade_dates
+        if trade_date <= latest_target and trade_date in target_partition_set
+    )
+    if not generated_expected:
+        return (latest_target,)
+    recent_expected = tuple(generated_expected[-window_size:])
     return tuple(dict.fromkeys((*recent_expected, latest_target)))
 
 

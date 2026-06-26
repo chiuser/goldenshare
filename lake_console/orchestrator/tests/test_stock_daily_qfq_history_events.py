@@ -13,6 +13,7 @@ from orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_events import (
     GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_WINDOW_SIZE,
     audit_gold_stock_daily_qfq_history_partition,
     plan_gold_stock_daily_qfq_runless_events,
+    recent_gold_stock_daily_qfq_check_partitions,
     report_gold_stock_daily_qfq_runless_events,
 )
 from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
@@ -59,6 +60,36 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
         self.assertEqual(plan.failed_check_partition_count, 0)
         self.assertEqual(plan.planned_materialization_event_count, 3)
         self.assertEqual(plan.planned_check_event_count, 6)
+
+    def test_default_recent_checks_ignore_calendar_after_latest_target(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _prepare_history_lake(root)
+            _generate_history(root, (EARLIER_DATE, PREVIOUS_DATE))
+            instance = dg.DagsterInstance.ephemeral()
+
+            check_keys = recent_gold_stock_daily_qfq_check_partitions(
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                start_date=EARLIER_DATE,
+                end_date=TRADE_DATE,
+            )
+            plan = plan_gold_stock_daily_qfq_runless_events(
+                instance=instance,
+                lake_root=root,
+                duckdb_resource=DuckDBResource(),
+                start_date=EARLIER_DATE,
+                end_date=TRADE_DATE,
+            )
+
+        self.assertEqual(check_keys, (EARLIER_DATE, PREVIOUS_DATE))
+        self.assertEqual(
+            plan.materialization_partition_keys,
+            (EARLIER_DATE, PREVIOUS_DATE),
+        )
+        self.assertEqual(plan.check_partition_keys, (EARLIER_DATE, PREVIOUS_DATE))
+        self.assertNotIn(TRADE_DATE, plan.check_partition_keys)
+        self.assertEqual(plan.failed_check_partition_count, 0)
 
     def test_runless_dry_run_does_not_write_events(self) -> None:
         with TemporaryDirectory() as temp_dir:

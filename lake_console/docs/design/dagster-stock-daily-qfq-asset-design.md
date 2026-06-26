@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成，P7 documentation closeout 已完成；正式全量 lake 写入与正式 runless event 写入尚未执行，必须单独审批。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成并已正式执行至 `2026-06-25`，P7 documentation closeout 已完成。`2026-06-26` 因 `silver_stock_daily` 中新股 `001399.SZ` 暂缺同日 `silver_adj_factor`，未写入 `gold_stock_daily_qfq`，需待上游 adj factor 补齐后再由日常/单日补齐。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 

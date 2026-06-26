@@ -1310,7 +1310,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P6: Historical Bootstrap And Runless Event Backfill
 
-状态：代码工具已完成；正式 lake 写入与正式 runless event 写入未执行，必须单独审批。
+状态：代码工具已完成；正式 lake 写入与正式 runless event 写入已在用户批准后执行至 `2026-06-25`。
 
 范围：
 
@@ -1319,7 +1319,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 - recent 20 + latest runless ordinary check event backfill
 - post-bootstrap readiness verification
 
-必须单独审批正式 lake 写入与 runless event 写入。
+正式写入必须单独审批；2026-06-27 用户批准后已执行一次正式写入。
 
 落地文件：
 
@@ -1368,6 +1368,18 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 ```
 
 结果：`122 passed, 162 warnings`。测试只使用临时 lake、ephemeral Dagster instance、静态扫描和 fake instance；未运行 `dg`，未读取正式 Dagster instance，未触碰正式数据湖。
+
+正式执行记录（2026-06-27）：
+
+1. preflight：正式 Dagster Postgres active runs 为 0。
+2. 初始 `profile-history` 显示 `2014-01-02` 到 `2026-06-26` 可见输入文件，但 `write-sample[2026-06-26]` 被 writer 拦截；只读审计确认 `silver_stock_daily[2026-06-26]` 中 `001399.SZ / N惠科股份` 暂缺同日 `silver_adj_factor`。该日期未写入 `gold_stock_daily_qfq`，避免生成无法证明 qfq 公式的文件。
+3. 调整正式 bootstrap 范围为 `2014-01-02` 到 `2026-06-25`；row-level same-day adj factor 覆盖审计缺口数为 0。
+4. sample 写入 `2026-06-25` 成功：`source_row_count=5511`，`output_row_count=5511`，`missing_previous_row_count=0`；等价 contract 与 qfq semantics 审计通过。
+5. full `build-history --apply --end-date 2026-06-25` 成功：selected partitions `3032`，written `3031`，skipped existing sample `1`，elapsed `70527.69ms`。
+6. post-profile：`existing_target_file_count=3032`，`planned_write_count=0`，`missing_input_count=0`。
+7. runless event plan 使用显式 recent20 check partitions（`2026-05-28` 到 `2026-06-25`），避免默认交易日历未来日期进入 check window。正式 `report-events --apply` 写入 materialization events `3032`、ordinary check partitions `20`、ordinary check events `40`，合计 `3072` events。
+8. post-plan：`planned_materialization_event_count=0`，`planned_check_event_count=0`，`failed_check_partition_count=0`，`existing_materialized_partition_keys=3032`，`existing_ready_check_partition_keys=20`。
+9. readiness 抽查：`2026-05-28` 与 `2026-06-25` ready；`2026-06-26` 未 materialized，状态为 `gold_stock_daily_qfq has no materialization`。
 
 ### P7: Documentation Closeout
 
