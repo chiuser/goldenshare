@@ -209,9 +209,9 @@ def _indicator_source_coverage_result(
                 failed_row_count=1,
                 extra_metadata={
                     "source_file_count": 0,
-                    "failed_rule_names": (
+                    "failed_rule_names": [
                         GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
-                    ),
+                    ],
                 },
             ),
         )
@@ -235,9 +235,9 @@ def _indicator_source_coverage_result(
                 extra_metadata={
                     "source_file_count": len(source_paths),
                     "existing_indicator_file_count": 0,
-                    "failed_rule_names": (
+                    "failed_rule_names": [
                         GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
-                    ),
+                    ],
                 },
             ),
         )
@@ -262,15 +262,13 @@ def _indicator_source_coverage_result(
                 """
             ).fetchone()[0]
         )
-    failed_rule_names = ()
+    failed_rule_names = []
     if source_row_count <= 0:
-        failed_rule_names = (
-            *failed_rule_names,
+        failed_rule_names.append(
             GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
         )
     if source_row_count != indicator_row_count:
-        failed_rule_names = (
-            *failed_rule_names,
+        failed_rule_names.append(
             GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
         )
     return dg.AssetCheckResult(

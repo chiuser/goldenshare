@@ -1,4 +1,9 @@
 import unittest
+from pathlib import Path
+from tempfile import TemporaryDirectory
+from unittest.mock import patch
+
+import duckdb
 
 from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_ASSETS,
@@ -9,6 +14,13 @@ from orchestrator.defs.jobs.gold_stk_mins_qfq_macd_kdj_daily_update import (
     gold_stk_mins_qfq_macd_kdj_daily_update_job,
 )
 from orchestrator.defs.partitions import cn_a_stock_mins_silver_trade_days
+
+
+def _write_parquet(path: Path, sql: str) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    escaped_path = str(path).replace("'", "''")
+    with duckdb.connect(database=":memory:") as connection:
+        connection.execute(f"COPY ({sql}) TO '{escaped_path}' (FORMAT PARQUET)")
 
 
 def _macd_kdj_asset_keys() -> set:
@@ -84,6 +96,94 @@ class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
             "KeysAssetSelection",
             repr(gold_stk_mins_qfq_macd_kdj_daily_update_job.selection),
         )
+
+    def test_source_coverage_missing_source_metadata_is_dagster_compatible(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir, patch.object(
+            checks,
+            "discover_gold_stk_mins_qfq_source_year_paths",
+            return_value=(),
+        ):
+            result = checks._indicator_source_coverage_result(
+                lake_root=Path(temp_dir),
+                freq=1,
+                partition_key="2026-06-24",
+            )
+
+        self.assertFalse(result.passed)
+        self.assertIn("goldenshare/failed_rule_names", result.metadata)
+
+    def test_source_coverage_missing_indicator_metadata_is_dagster_compatible(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / "source.parquet"
+            _write_parquet(
+                source_path,
+                """
+                SELECT
+                  '000001.SZ' AS ts_code,
+                  1 AS freq,
+                  DATE '2026-06-24' AS trade_date
+                """,
+            )
+            with patch.object(
+                checks,
+                "discover_gold_stk_mins_qfq_source_year_paths",
+                return_value=(source_path,),
+            ), patch.object(checks, "_indicator_expected_paths", return_value=()):
+                result = checks._indicator_source_coverage_result(
+                    lake_root=Path(temp_dir),
+                    freq=1,
+                    partition_key="2026-06-24",
+                )
+
+        self.assertFalse(result.passed)
+        self.assertIn("goldenshare/failed_rule_names", result.metadata)
+
+    def test_source_coverage_count_mismatch_metadata_is_dagster_compatible(
+        self,
+    ) -> None:
+        with TemporaryDirectory() as temp_dir:
+            source_path = Path(temp_dir) / "source.parquet"
+            indicator_path = Path(temp_dir) / "indicator.parquet"
+            _write_parquet(
+                source_path,
+                """
+                SELECT
+                  '000001.SZ' AS ts_code,
+                  1 AS freq,
+                  DATE '2026-06-24' AS trade_date
+                """,
+            )
+            _write_parquet(
+                indicator_path,
+                """
+                SELECT
+                  CAST(NULL AS VARCHAR) AS ts_code,
+                  CAST(NULL AS INTEGER) AS freq,
+                  CAST(NULL AS DATE) AS trade_date
+                WHERE false
+                """,
+            )
+            with patch.object(
+                checks,
+                "discover_gold_stk_mins_qfq_source_year_paths",
+                return_value=(source_path,),
+            ), patch.object(
+                checks,
+                "_indicator_expected_paths",
+                return_value=(indicator_path,),
+            ):
+                result = checks._indicator_source_coverage_result(
+                    lake_root=Path(temp_dir),
+                    freq=1,
+                    partition_key="2026-06-24",
+                )
+
+        self.assertFalse(result.passed)
+        self.assertIn("goldenshare/failed_rule_names", result.metadata)
 
 
 if __name__ == "__main__":
