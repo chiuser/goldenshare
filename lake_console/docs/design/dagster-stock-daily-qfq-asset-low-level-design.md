@@ -841,10 +841,11 @@ metadata：
 
 历史 bootstrap 不通过 Dagster sensor 自动触发。
 
-建议新增 bootstrap CLI：
+P5 已新增 bootstrap dry-run / sample CLI：
 
 ```text
-python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_bootstrap build-files
+python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli profile-history
+python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli write-sample
 ```
 
 参数：
@@ -852,9 +853,17 @@ python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_bootstrap build-files
 - `--lake-root`
 - `--start-date`
 - `--end-date`
-- `--batch-size`
-- `--dry-run`
-- `--output`
+- `--partition-keys`
+- `--apply`
+- `--overwrite`
+- `--report-dir`
+
+口径：
+
+1. `profile-history` 永远只读，只输出 JSON report，不写 lake，不写 Dagster event。
+2. `write-sample` 默认仍是 dry-run；只有显式传入 `--apply` 才会写 sample partition。
+3. P5 不做正式全量写入，不做 runless materialization/check event backfill。
+4. P6 才允许在单独审批后推进 full file bootstrap 和 runless event backfill。
 
 ### 11.3 Runless Event Backfill Policy
 
@@ -1005,6 +1014,7 @@ tests/test_stock_daily_qfq_repair_contracts.py
 - `pre_close/change_amount/pct_chg` 按上一可交易日生成。
 - 新上市首日 previous row 缺失时 `pre_close/change_amount/pct_chg` 为 0。
 - previous row 缺失时 0 是合法业务占位；previous row 存在但 previous factor 缺失时仍 fail closed。
+- 合法 previous row 缺失场景不得写 `NULL`；`pre_close/change_amount/pct_chg` 必须稳定写 `0`。
 - 目标日 `silver_stock_daily` 缺失 fail closed。
 - 目标日 `silver_adj_factor` 缺失 fail closed。
 - previous row 存在但 previous factor 缺失 fail closed。
@@ -1036,6 +1046,7 @@ Daily sensor：
 Repair run-status sensor：
 
 - 监听 `gold_stock_daily_qfq_update_job` success。
+- 只由 run-status sensor 驱动 scoped repair；不新增 schedule sensor、普通 polling sensor 或全量 repair sensor。
 - target trade date 解析失败时 skip。
 - target `gold_stock_daily_qfq` ordinary readiness 不 ready 时 skip。
 - affected codes 为空时 skip。
@@ -1044,6 +1055,7 @@ Repair run-status sensor：
 - affected codes 未超过上限、completion 未 ready 时提交 repair job。
 - run key 使用 `build_upstream_triggered_run_key(...)`。
 - run config 不包含 `stock_codes`。
+- sensor payload 不包含 `stock_codes`；payload 只允许携带 `qfq_factor_trade_date`、`repair_required_codes_hash`、`upstream_batch_id` 这类 bounded identity。
 
 ### 14.5 Repair Tests
 
@@ -1063,10 +1075,13 @@ Repair run-status sensor：
 
 更新 `tests/test_run_contract_static_gates.py`：
 
+- `gold_stock_daily_qfq` writer / contract tests 必须锁住合法 previous row 缺失时写 `0`，不得回流 `NULL`。
 - 新 sensor 禁止直接 `dg.RunRequest(...)` / `RunRequest(...)`。
 - 新 sensor 禁止手写 `run_key=f`。
 - repair config 禁止 `event_storage_id` / `storage_id`。
 - repair config 禁止 `stock_codes`。
+- repair sensor 文件禁止出现 `stock_codes` payload、cursor 或 config 映射。
+- repair 自动化只能使用 `@dg.run_status_sensor`，不得改成定时全量 sensor。
 - repair run-status sensor 必须使用 `build_upstream_triggered_run_key(...)`。
 - repair run-status sensor 必须监控 `gold_stock_daily_qfq_update_job`。
 - ordinary check count 固定为 2。
@@ -1243,6 +1258,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P5: Bootstrap Dry-Run
 
+状态：已完成。
+
 范围：
 
 - bootstrap CLI dry-run
@@ -1250,6 +1267,42 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 - performance report
 
 不做正式全量写入，除非单独审批。
+
+落地文件：
+
+- `defs/bootstrap/gold_stock_daily_qfq_history.py`：历史 bootstrap plan、输入分区发现、sample 生成 helper。
+- `defs/bootstrap/gold_stock_daily_qfq_history_cli.py`：`profile-history` 与 `write-sample` CLI，默认只读，`--apply` 才写 sample。
+- `tests/test_stock_daily_qfq_history.py`：dry-run 不写目标文件、sample 写入、skip existing、CLI JSON report。
+- `tests/test_run_contract_static_gates.py`：bootstrap helper/CLI 禁止写 Dagster event、禁止读 Dagster instance。
+
+验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_history.py \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`85 passed, 32 warnings`。
+
+组合回归：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_stock_daily_qfq_checks.py \
+  tests/test_stock_daily_qfq_sensor_contracts.py \
+  tests/test_stock_daily_qfq_repair_contracts.py \
+  tests/test_stock_daily_qfq_factor_repair_sensor_contracts.py \
+  tests/test_stock_daily_qfq_history.py \
+  tests/test_run_contract_configs.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`116 passed, 122 warnings`。测试只使用临时目录、静态扫描和 fake instance；未运行 `dg`，未读取正式 Dagster instance，未触碰正式数据湖。
 
 ### P6: Historical Bootstrap And Runless Event Backfill
 

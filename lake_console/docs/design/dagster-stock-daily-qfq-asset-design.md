@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成；待推进 P5 bootstrap dry-run。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成；待推进 P6 historical bootstrap and runless event backfill。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -43,6 +43,12 @@ qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_d
 1. `0` 是合法“无上一可用日线”的业务占位，只能用于上市首日或湖中第一条可计算记录。只要上一条 source row 存在但 previous factor 缺失，就必须 fail closed，不能用 `0` 掩盖数据缺口。
 2. repair 初版不提供运营手写股票池入口，也不提供散装修复入口。受影响股票必须由 `silver_adj_factor` 当前交易日与上一 expected trade date 的因子差异自动推导，并用 hash / upstream batch 做审计和幂等校验。
 3. 自动 repair sensor 是“上游 daily qfq 成功后的 run-status 判断”，不是定时全市场扫描。它只围绕触发 run 的 `trade_date` 做 bounded repair plan，满足自动上限、hash 校验和 completion/status 门禁后才提交 scoped repair job。
+
+这三条不是普通说明，后续代码和测试必须锁死：
+
+1. writer、check 和契约测试必须覆盖合法 `0` 场景，同时覆盖 previous source row 存在但 previous factor 缺失时失败；不得把 `NULL` 或静默兜底带回正式输出。
+2. run config、正式 CLI、sensor payload、文档示例和测试样本都不得出现可由运营手写的 `stock_codes` 输入；如果需要人工处理超大 repair，只能走新的 dry-run 审批方案，不把散装股票池入口塞进初版正式链路。
+3. repair 自动触发只能由 `gold_stock_daily_qfq_update_job` 的成功 run 驱动；不得新增定时全量 repair sensor，不得在 daily job 内顺手执行 repair，也不得让 repair sensor 进入全历史扫描。
 
 ### 3.1 字段保留
 
@@ -195,9 +201,9 @@ data_lake/gold/quote/stock_daily_qfq/trade_date={YYYY-MM-DD}/part-000.parquet
 
 若选择 direct lake bootstrap，必须遵守当前性能治理规范：
 
-1. 先只读 dry-run：统计目标日期数、预期行数、预期文件数、已存在文件、覆盖风险。
-2. 再小样本写入：验证 schema、row count、分区日期、唯一键、qfq 公式、`pre_close/change_amount/pct_chg`。
-3. 再分批全量写：DuckDB set-based SQL，`_tmp -> validate -> atomic replace`。
+1. 先只读 dry-run：统计 expected 日期数、完整输入日期数、已存在目标文件数、计划写入数、缺失输入样本和 sample partition。
+2. 再小样本写入：只在显式 `--apply` 与指定 sample 范围下写临时/审批范围 lake root，验证 schema、row count、分区日期、唯一键、qfq 公式、`pre_close/change_amount/pct_chg`。
+3. 再分批全量写：DuckDB set-based SQL，`_tmp -> validate -> atomic replace`；正式全量写入必须进入 P6 并单独审批。
 4. 文件全量审计通过后，才允许进入 runless event backfill。
 5. runless event backfill 只给已经通过正式 blocking check 语义的文件补 event；不得给未通过检查的文件报绿。
 6. runless event 也必须 dry-run、sample、batch、final audit；不得无界写正式 Dagster DB。
@@ -273,7 +279,7 @@ repair 口径：
 | repair 查询 | DuckDB set-based SQL，禁止 Python 逐股票逐日期行循环 |
 | repair 写入 | 按日期或日期批次写入，必须 dry-run 后再执行 |
 | Dagster event | 日常写单分区 materialization/check；历史 repair completion/status 需有界，不得制造不必要的全历史 check 膨胀 |
-| 不可接受 | 文件存在/row count 冒充 ready；不测算 repair 范围直接全量重写；把报告需求混进资产开发 |
+| 不可接受 | 文件存在/row count 冒充 ready；不测算 repair 范围直接全量重写；把报告需求混进资产开发；用 `NULL` 表示合法无 previous row；开放手写 `stock_codes`；用定时全量 sensor 做 repair |
 
 ## 9. LLD 已固定的开发边界
 
@@ -287,3 +293,4 @@ repair 口径：
 6. repair completion metadata 与 downstream readiness 的关系。
 7. 历史 `gold_stock_daily_qfq` 文件 bootstrap 与 runless event backfill 口径：materialization 全历史，ordinary check event 只补最近 20 个交易日与 latest partition。
 8. P95 耗时、DuckDB 扫描文件数、写入文件数、Dagster event 数量上限。
+9. 三条拍板口径的门禁：`pre_close/change_amount/pct_chg` 合法缺 previous row 写 0、不开放手写 `stock_codes`、repair 自动 sensor 只走 run-status scoped repair。

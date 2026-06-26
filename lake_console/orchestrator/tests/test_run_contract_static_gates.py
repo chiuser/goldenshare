@@ -3912,6 +3912,28 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_gold_stock_daily_qfq_history_bootstrap_does_not_write_dagster_events(self) -> None:
+        bootstrap_paths = (
+            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history.py",
+            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_cli.py",
+        )
+        issues = []
+        forbidden_snippets = (
+            "report_runless_asset_event",
+            "DagsterInstance",
+            "get_event_records",
+            "AssetMaterialization",
+            "AssetCheckEvaluation",
+            "dg.",
+        )
+        for path in bootstrap_paths:
+            source = path.read_text()
+            for snippet in forbidden_snippets:
+                if snippet in source:
+                    issues.append(f"{path} contains forbidden snippet: {snippet}")
+
+        self.assertEqual(issues, [])
+
     def test_metadata_dicts_do_not_write_legacy_keys(self) -> None:
         issues = []
 
