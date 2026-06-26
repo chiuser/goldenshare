@@ -1,0 +1,358 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <title>Dagster Gold / Serving 人类可读治理 LLD</title>
+  <style>
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      line-height: 1.65;
+      color: #17202a;
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 40px 28px 80px;
+      background: #f8fafc;
+    }
+    h1, h2, h3 { color: #102033; line-height: 1.25; }
+    h1 { font-size: 30px; margin-bottom: 10px; }
+    h2 { margin-top: 34px; border-bottom: 1px solid #d8e0ea; padding-bottom: 8px; }
+    h3 { margin-top: 24px; }
+    code {
+      font-family: "SFMono-Regular", Consolas, monospace;
+      background: #eef3f8;
+      border-radius: 4px;
+      padding: 1px 5px;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0 24px;
+      background: #fff;
+    }
+    th, td {
+      border: 1px solid #d8e0ea;
+      padding: 10px 12px;
+      vertical-align: top;
+    }
+    th { background: #e9f0f7; text-align: left; }
+    .lead { font-size: 16px; color: #415064; }
+    .tag {
+      display: inline-block;
+      margin: 4px 6px 4px 0;
+      padding: 3px 8px;
+      border-radius: 999px;
+      background: #e5f3ff;
+      color: #174f7a;
+      font-size: 13px;
+      font-weight: 600;
+    }
+    .callout {
+      border-left: 4px solid #2f6f9f;
+      background: #fff;
+      padding: 12px 16px;
+      margin: 16px 0;
+    }
+    .callout.red { border-left-color: #b42318; background: #fff7f6; }
+    .callout.amber { border-left-color: #b7791f; background: #fffaf0; }
+    .small { color: #667085; font-size: 13px; }
+    pre {
+      background: #102033;
+      color: #eef6ff;
+      padding: 16px;
+      border-radius: 6px;
+      overflow: auto;
+    }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Dagster Gold / Serving 人类可读治理 LLD</h1>
+    <p class="lead">
+      本文是 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code>
+      中 Wave 3 的代码级低阶设计。目标不是改变 Gold 或 Serving 的生产方式，而是让运维在
+      Dagster UI、run stdout、materialization metadata、check metadata 和 sensor cursor 中能直接看懂：
+      指标是什么、输入口径是什么、写到了哪里、失败后先修哪里。
+    </p>
+    <p>
+      <span class="tag">Wave 3：业务 Gold 与 Serving</span>
+      <span class="tag">只改表达层</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不改 lake / DB 数据</span>
+      <span class="tag">不运行正式 Dagster</span>
+      <span class="tag">分子波推进</span>
+    </p>
+    <p class="small">
+      当前状态：LLD 已建立。正式代码改造后续按 Wave 3A/3B/3C/3D 分步提交。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 硬边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>类型</th>
+        <th>口径</th>
+        <th>代码落点</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>必须保留</td>
+        <td>asset/job/sensor/check 名称、partition、run key、run config、job selection、default status、触发顺序和 readiness 语义。</td>
+        <td><code>defs/assets/**</code>、<code>defs/jobs/**</code>、<code>defs/sensors/**</code>、<code>defs/checks/**</code></td>
+      </tr>
+      <tr>
+        <td>禁止</td>
+        <td>写 lake、写 ClickHouse、写 prod PostgreSQL、写 Dagster DB、运行 <code>dg</code> / job / sensor / materialize / backfill。</td>
+        <td>本 LLD 的实现轮只跑本地单元、静态门禁、<code>git diff --check</code> 和 docs integrity。</td>
+      </tr>
+      <tr>
+        <td>禁止</td>
+        <td>把完整 row、完整路径列表、完整 code list、完整 ClickHouse partition map、完整 <code>to_cursor_details()</code> 报告写入 cursor。</td>
+        <td>Wave 3 sensors：market breadth、return distribution、wealth turnover、ClickHouse serving。</td>
+      </tr>
+      <tr>
+        <td>允许</td>
+        <td>追加 <code>summary</code>、<code>next_action</code>、<code>result_status</code>、<code>input_summary</code>、<code>metric_summary</code>、<code>serving_summary</code>、<code>diagnostic_ref</code> 等小型 metadata。</td>
+        <td>只追加，不删除现有诊断字段，避免破坏已有测试和运维习惯。</td>
+      </tr>
+      <tr>
+        <td>允许</td>
+        <td>增强 stdout 里程碑日志，但只记录阶段、日期、分区数、行数、目标表，不打印 SQL、DataFrame、完整样本、完整 code/path 列表。</td>
+        <td><code>DgStdoutLogger(...)</code>，或现有 logger 入口。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. 性能门禁</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>入口</th>
+        <th>本轮新增读取</th>
+        <th>本轮新增写入</th>
+        <th>拒绝策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Gold asset materialization</td>
+        <td>0。复用现有计算后已经拿到的 row count、metric row、audit。</td>
+        <td>0 个额外文件；只追加小型 metadata/stdout。</td>
+        <td>若必须新增 DuckDB/ClickHouse 查询才能说明清楚，停止并重新设计。</td>
+      </tr>
+      <tr>
+        <td>Serving asset materialization</td>
+        <td>0。复用现有 read-back / audit / target table 信息。</td>
+        <td>0 个额外 DB 写入；不改 delete/insert/transaction 语义。</td>
+        <td>若要查询 prod 或 ClickHouse 做额外审计，另起只读审批，不放进本轮。</td>
+      </tr>
+      <tr>
+        <td>Sensor cursor</td>
+        <td>0。只复用当前已计算的 batch readiness、frontier、gate status。</td>
+        <td>cursor 小字段，普通 request/skip 目标小于 3KB，硬上限 8KB。</td>
+        <td>禁止把 batch status、row map、path list 写入 cursor。</td>
+      </tr>
+      <tr>
+        <td>Check metadata</td>
+        <td>0。只用现有 check 结果聚合摘要。</td>
+        <td>只写 check event metadata 的小型摘要。</td>
+        <td>不新增细碎 check；不改变 blocking/WARN 语义。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 当前代码事实</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>主要代码</th>
+        <th>当前事实</th>
+        <th>可读性缺口</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>market_major_indices_daily</code></td>
+        <td>
+          <code>defs/assets/market_major_indices.py</code><br>
+          <code>defs/sensors/market_major_indices_daily_sensor.py</code><br>
+          <code>defs/checks/market_major_indices_checks.py</code>
+        </td>
+        <td>从 <code>silver_index_daily</code> 和仓库 seed 生成主要指数展示表；已按 seed active rows 做缺失保护。</td>
+        <td>metadata 中 <code>active_seed_codes</code>、partition metadata 偏机器诊断；需要先说明“主要指数展示表”的用途、输入 seed、输出数量和失败下一步。</td>
+      </tr>
+      <tr>
+        <td><code>market_breadth</code></td>
+        <td>
+          <code>defs/assets/market_breadth.py</code><br>
+          <code>defs/sensors/market_breadth_continuity_sensor.py</code><br>
+          <code>defs/checks/market_breadth_checks.py</code>
+        </td>
+        <td>从 <code>silver_stock_daily</code> 计算上涨、下跌、平盘、红盘率等市场宽度指标。</td>
+        <td>materialization metadata 直接写 <code>breadth_row</code>；cursor 摘要仍偏“gold ready”，需要业务语言解释市场宽度、上游 stock daily 和下一步。</td>
+      </tr>
+      <tr>
+        <td><code>stock_return_distribution</code></td>
+        <td>
+          <code>defs/assets/stock_return_distribution.py</code><br>
+          <code>defs/sensors/stock_return_distribution_continuity_sensor.py</code><br>
+          <code>defs/checks/stock_return_distribution_checks.py</code>
+        </td>
+        <td>从 <code>silver_stock_daily</code> 计算收益率分桶分布；与 market breadth 共同服务 ClickHouse serving。</td>
+        <td>metadata 直接写 <code>distribution_row</code>；需要说明分桶口径、样本股票数、分桶数量和空结果修复方向。</td>
+      </tr>
+      <tr>
+        <td><code>wealth_market_turnover</code></td>
+        <td>
+          <code>defs/assets/wealth_market_turnover.py</code><br>
+          <code>defs/sensors/gold_wealth_market_turnover_sensor.py</code><br>
+          <code>defs/checks/wealth_market_turnover_checks.py</code>
+        </td>
+        <td>从 5 个频度的 <code>silver_stk_mins</code> 计算财富端市场成交额快照；上游频度不全时按已拍板口径全失败。</td>
+        <td>metadata 写入 <code>input_file_paths</code> 和频度统计，cursor 需要直接说明卡在哪个频度或 upstream，而不是展示复杂 readiness 报告。</td>
+      </tr>
+      <tr>
+        <td><code>ch_share_fact_market_breadth_daily</code></td>
+        <td>
+          <code>defs/assets/clickhouse_serving.py</code><br>
+          <code>defs/sensors/clickhouse_market_breadth_continuity_sensor.py</code><br>
+          <code>defs/checks/clickhouse_serving_checks.py</code>
+        </td>
+        <td>读取 <code>gold_market_breadth_daily</code> 和 <code>gold_stock_return_distribution</code>，写本机 ClickHouse serving 表。</td>
+        <td>metadata 能看见目标表和路径，但缺少“本机 serving 已替换哪天、输入来自哪两个 gold、失败先看哪个上游”的中文摘要。</td>
+      </tr>
+      <tr>
+        <td><code>prod_ch_share_fact_market_breadth_daily</code></td>
+        <td>
+          <code>defs/assets/clickhouse_serving.py</code><br>
+          <code>defs/jobs/prod_clickhouse_share_fact_market_breadth_sync.py</code><br>
+          <code>defs/sensors/clickhouse_market_breadth_continuity_sensor.py</code>
+        </td>
+        <td>从本机 ClickHouse 同步到 prod ClickHouse；正式写入动作已经存在。</td>
+        <td>只补 sync target、source asset、replace mode、next action；不改变任何 prod 写入或 readiness 规则。</td>
+      </tr>
+      <tr>
+        <td><code>prod_core_wealth_market_turnover</code></td>
+        <td>
+          <code>defs/assets/wealth_market_turnover_prod_core.py</code><br>
+          <code>defs/prod_db/wealth_market_turnover.py</code>
+        </td>
+        <td>从 <code>gold_wealth_market_turnover</code> 读取一日结果，事务性 replace 到 prod PostgreSQL core serving 表。</td>
+        <td>metadata 应说明 prod 表、事务替换、read-back row count、points_json hash 和下一步；不新增 prod sync check。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 分步落地</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>子波</th>
+        <th>范围</th>
+        <th>目标</th>
+        <th>验证</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Wave 3A</td>
+        <td><code>market_major_indices_daily</code></td>
+        <td>先处理刚从 index daily 下游延伸出来的 gold 消费者，补 description、metadata、check metadata、sensor cursor 和静态门禁。</td>
+        <td><code>tests.test_market_major_indices_daily_sensor</code>、<code>tests.test_market_major_indices_checks</code>、新增 human-readable contract、静态门禁。</td>
+      </tr>
+      <tr>
+        <td>Wave 3B</td>
+        <td><code>market_breadth</code>、<code>stock_return_distribution</code></td>
+        <td>市场宽度和收益分布共同服务 ClickHouse market breadth，统一业务语言、metric summary、cursor frontier 表达。</td>
+        <td><code>tests.test_market_breadth_continuity_sensors</code>、<code>tests.test_market_breadth_return_distribution_buckets</code>、对应 checks 和静态门禁。</td>
+      </tr>
+      <tr>
+        <td>Wave 3C</td>
+        <td><code>gold_wealth_market_turnover</code>、<code>prod_core_wealth_market_turnover</code></td>
+        <td>财富端成交额 gold 与 prod core sync 一起治理；metadata 明确 5 个频度、points_json、prod 表和事务替换结果。</td>
+        <td><code>tests.test_gold_wealth_market_turnover_asset</code>、<code>tests.test_gold_wealth_market_turnover_sensor</code>、<code>tests.test_gold_wealth_market_turnover_prod_core_sync</code>。</td>
+      </tr>
+      <tr>
+        <td>Wave 3D</td>
+        <td><code>ch_share_fact_market_breadth_daily</code>、<code>prod_ch_share_fact_market_breadth_daily</code></td>
+        <td>ClickHouse serving 本机和 prod sync 的 metadata/cursor 可读性治理；保持最近已瘦身的 continuity cursor 原则。</td>
+        <td><code>tests.test_market_breadth_continuity_sensors</code>、<code>tests.test_prod_clickhouse_market_breadth_batch_sync</code>、serving checks 和静态门禁。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 代码级改动模式</h2>
+    <h3>5.1 Asset Description 与 Materialization Metadata</h3>
+    <ul>
+      <li>每个 Wave 3 asset description 必须回答：这是什么业务指标/serving 表、输入是谁、给谁消费。</li>
+      <li>追加 <code>summary</code>、<code>next_action</code>、<code>result_status</code>、<code>input_summary</code>、<code>metric_summary</code> 或 <code>serving_summary</code>。</li>
+      <li>保留现有 <code>breadth_row</code>、<code>distribution_row</code>、<code>partition_metadata</code>、hash、read-back 诊断字段，但它们不应是 UI 第一眼唯一信息。</li>
+      <li>stdout 只记录 <code>*_started</code> / <code>*_completed</code> 和小型计数，不打印完整 rows、SQL、path list 或 code list。</li>
+    </ul>
+
+    <h3>5.2 Check Metadata</h3>
+    <ul>
+      <li>不新增、不删除、不改名 checks。</li>
+      <li>聚合 checks 追加 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code> 和 list 类型 <code>failed_rule_names</code>。</li>
+      <li>ClickHouse / prod sync checks 的 metadata 先说明是本机 serving、prod serving 还是 gold 对账失败，再保留目标表、分区和少量样本。</li>
+      <li>不把历史全量对账或完整 ClickHouse row map 塞回 Dagster check metadata。</li>
+    </ul>
+
+    <h3>5.3 Sensor Cursor</h3>
+    <ul>
+      <li>cursor 顶层继续使用 v1 contract：<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>details</code>。</li>
+      <li><code>summary</code> 必须说清：触发了什么，或为什么没触发。</li>
+      <li><code>blocked_component</code> 必须是具体组件，例如 <code>silver_stock_daily</code>、<code>gold_market_breadth_daily</code>、<code>gold_stock_return_distribution</code>、<code>ch_share_fact_market_breadth_daily</code>、<code>prod_clickhouse</code>。</li>
+      <li><code>next_action</code> 必须告诉运维先修哪个上游或哪个 check。</li>
+      <li>禁止把 <code>batch_status.to_cursor_details()</code>、<code>status_samples</code>、路径列表、完整 serving row、ClickHouse partition map 写入 cursor。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>6. Wave 3A 初始计划</h2>
+    <ol>
+      <li>审计 <code>market_major_indices_daily</code> asset/check/sensor 当前实现和 tests。</li>
+      <li>补 description、stdout、materialization metadata：说明主要指数展示表、seed row、active seed row、输出行数和下游消费。</li>
+      <li>补 check metadata：缺 seed code、schema、row count、排名/展示字段等失败必须有 <code>summary</code> 和 <code>next_action</code>。</li>
+      <li>补 sensor cursor：raw/silver/input readiness 阻断时用中文说明卡在 seed、index basic、silver index daily 还是目标 gold。</li>
+      <li>新增或更新测试与静态门禁；只跑本地单元、<code>git diff --check</code> 和 docs integrity。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>7. 验证命令模板</h2>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_market_major_indices_daily_sensor \
+  tests.test_market_major_indices_checks \
+  tests.test_market_major_indices_lake_readiness \
+  tests.test_market_breadth_continuity_sensors \
+  tests.test_market_breadth_return_distribution_buckets \
+  tests.test_gold_wealth_market_turnover_asset \
+  tests.test_gold_wealth_market_turnover_sensor \
+  tests.test_gold_wealth_market_turnover_prod_core_sync \
+  tests.test_prod_clickhouse_market_breadth_batch_sync \
+  tests.test_run_contract_static_gates \
+  tests.test_asset_governance_contracts
+git diff --check
+python3 scripts/check_docs_integrity.py</code></pre>
+    <div class="callout red">
+      <p>
+        不默认运行 <code>dg check defs</code>，不运行正式 job/sensor/materialize/backfill。
+        Wave 3D 涉及 ClickHouse/prod sync 资产，但本轮表达层治理不得访问或写入 ClickHouse/prod。
+      </p>
+    </div>
+  </section>
+</body>
+</html>
