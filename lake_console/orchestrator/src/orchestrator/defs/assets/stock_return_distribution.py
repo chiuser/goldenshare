@@ -34,6 +34,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 STOCK_RETURN_DISTRIBUTION_COLUMNS = tuple(
@@ -101,6 +102,31 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
     return result
 
 
+def _human_materialization_metadata(
+    *,
+    partition_key: str,
+    silver_path: Path,
+    distribution_row: dict[str, Any],
+) -> dict[str, object]:
+    bucket_columns = STOCK_RETURN_DISTRIBUTION_COLUMNS[1:-1]
+    return {
+        "summary": "已生成股票收益率分布 gold 日指标，按 pct_chg 划分十一段涨跌幅桶。",
+        "next_action": "等待 gold_stock_return_distribution blocking checks 全部通过；通过后 ClickHouse serving 可以消费。",
+        "result_status": "written",
+        "input_summary": {
+            "source_asset": "silver_stock_daily",
+            "partition_key": partition_key,
+            "silver_file_exists": silver_path.exists(),
+        },
+        "metric_summary": {
+            "bucket_count": len(bucket_columns),
+            "total_count": distribution_row.get("total_count"),
+            "flat_count": distribution_row.get("flat_count"),
+        },
+        "diagnostic_ref": "完整诊断看 gold_stock_return_distribution checks、distribution_row 和 run stdout。",
+    }
+
+
 @dg.asset(
     name="gold_stock_return_distribution",
     deps=["silver_stock_daily"],
@@ -126,7 +152,7 @@ def _distribution_row(connection, path: Path) -> dict[str, Any]:
             )
         },
     ),
-    description="股票涨跌幅区间分布日表，按 pct_chg 统计十一段收益率区间数量。",
+    description="股票收益率分布 gold 日指标，从 silver_stock_daily 按 pct_chg 统计十一段涨跌幅桶，供市场宽度 serving 消费。",
 )
 def gold_stock_return_distribution(
     context: dg.AssetExecutionContext,
@@ -137,6 +163,11 @@ def gold_stock_return_distribution(
     partition_key = context.partition_key
     silver_path = silver_stock_daily_path(lake_root.root(), partition_key)
     target_path = gold_stock_return_distribution_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("stock_return_distribution")
+    log.stdout(
+        "gold_stock_return_distribution_started",
+        partition_key=partition_key,
+    )
     if not silver_path.exists():
         raise FileNotFoundError(f"Missing silver stock daily file: {silver_path}")
 
@@ -150,12 +181,24 @@ def gold_stock_return_distribution(
         row_count = _row_count(connection, target_path, hive_partitioning=False)
         distribution_row = _distribution_row(connection, target_path)
 
+    log.stdout(
+        "gold_stock_return_distribution_completed",
+        partition_key=partition_key,
+        output_row_count=row_count,
+        total_count=distribution_row.get("total_count"),
+        bucket_count=len(STOCK_RETURN_DISTRIBUTION_COLUMNS[1:-1]),
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                **_human_materialization_metadata(
+                    partition_key=partition_key,
+                    silver_path=silver_path,
+                    distribution_row=distribution_row,
+                ),
                 "silver_file_path": str(silver_path),
                 "partition_key": partition_key,
                 "distribution_row": distribution_row,

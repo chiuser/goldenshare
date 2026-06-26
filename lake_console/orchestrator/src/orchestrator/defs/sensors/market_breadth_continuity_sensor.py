@@ -55,6 +55,45 @@ def _stock_daily_status_payload(
     return compact_readiness_status(status)
 
 
+def _summary_and_next_action(
+    *,
+    reason: str,
+    target_trade_date: str | None,
+    selected_trade_date: str | None,
+    reason_code: str,
+    blocked_component: str | None,
+) -> tuple[str, str]:
+    if selected_trade_date:
+        return (
+            f"触发 {selected_trade_date} 市场宽度 gold 生成。",
+            "等待本次 run 完成；完成后查看 gold_market_breadth_daily blocking checks。",
+        )
+    if blocked_component == "cn_a_stock_trade_days":
+        return (
+            "跳过：股票交易日分区还没有补齐。",
+            "等待 cn_a_stock_trade_days 注册缺失交易日后，下一次 sensor tick 会继续检查。",
+        )
+    if blocked_component == "silver_stock_daily":
+        return (
+            f"跳过：{target_trade_date or '-'} 的 silver_stock_daily 还没有 ready，市场宽度不能计算。",
+            "先修复同日 silver_stock_daily 文件或 blocking checks，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "gold_market_breadth_daily":
+        if reason_code == "all_ready":
+            return (
+                "跳过：最近窗口内市场宽度 gold 已全部 ready。",
+                "无需处理；等待新的股票交易日分区或上游变化。",
+            )
+        return (
+            f"跳过：{target_trade_date or '-'} 的市场宽度 gold 状态需要人工确认。",
+            "先查看 gold_market_breadth_daily checks 的失败项，确认后再修复或重跑。",
+        )
+    return (
+        reason,
+        "按 cursor 的 blocked_component 修复上游状态，或等待下一次 sensor tick。",
+    )
+
+
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -102,6 +141,13 @@ def _cursor_payload(
             blocked_component = "gold_market_breadth_daily"
     if reason_code is None:
         reason_code = "no_expected_trade_date" if target_trade_date is None else "all_ready"
+    summary, next_action = _summary_and_next_action(
+        reason=reason,
+        target_trade_date=target_trade_date,
+        selected_trade_date=selected_trade_date,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -120,12 +166,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": compact_continuity_frontier(
                     continuity_status,

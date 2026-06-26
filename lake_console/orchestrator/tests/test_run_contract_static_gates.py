@@ -826,6 +826,94 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_market_breadth_gold_human_readable_governance_stays_compact(
+        self,
+    ) -> None:
+        issues = []
+        sources = {
+            "market_breadth_asset": ASSETS_DIR / "market_breadth.py",
+            "return_distribution_asset": ASSETS_DIR / "stock_return_distribution.py",
+            "market_breadth_checks": CHECKS_DIR / "market_breadth_checks.py",
+            "return_distribution_checks": CHECKS_DIR
+            / "stock_return_distribution_checks.py",
+            "market_breadth_sensor": SENSORS_DIR
+            / "market_breadth_continuity_sensor.py",
+            "return_distribution_sensor": SENSORS_DIR
+            / "stock_return_distribution_continuity_sensor.py",
+        }
+        source_text = {name: path.read_text() for name, path in sources.items()}
+
+        requirements = {
+            "market_breadth_asset": (
+                "gold_market_breadth_started",
+                "gold_market_breadth_completed",
+                "metric_summary",
+                "市场宽度 gold",
+            ),
+            "return_distribution_asset": (
+                "gold_stock_return_distribution_started",
+                "gold_stock_return_distribution_completed",
+                "metric_summary",
+                "收益率分布 gold",
+            ),
+            "market_breadth_checks": (
+                "rule_summary",
+                "failed_rule_names",
+                "市场宽度 gold",
+                "next_action",
+            ),
+            "return_distribution_checks": (
+                "rule_summary",
+                "failed_rule_names",
+                "收益率分布 gold",
+                "next_action",
+            ),
+            "market_breadth_sensor": (
+                "_summary_and_next_action",
+                "silver_stock_daily 还没有 ready",
+                "触发",
+                "市场宽度 gold",
+            ),
+            "return_distribution_sensor": (
+                "_summary_and_next_action",
+                "silver_stock_daily 还没有 ready",
+                "触发",
+                "收益率分布 gold",
+            ),
+        }
+        for name, required_fragments in requirements.items():
+            source = source_text[name]
+            for fragment in required_fragments:
+                if fragment not in source:
+                    issues.append(f"{name} misses readable fragment: {fragment}")
+
+        forbidden_cursor_fragments = (
+            "status_samples",
+            "to_cursor_details(",
+            "gold_market_breadth_daily_path",
+            "gold_stock_return_distribution_path",
+            "clickhouse_row_counts_by_partition",
+        )
+        for name in ("market_breadth_sensor", "return_distribution_sensor"):
+            source = source_text[name]
+            for fragment in forbidden_cursor_fragments:
+                if fragment in source:
+                    issues.append(f"{name} contains bulky cursor fragment: {fragment}")
+
+        forbidden_stdout_fields = (
+            "sql=",
+            "query=",
+            "dataframe=",
+            "sample_rows=",
+        )
+        for name in ("market_breadth_asset", "return_distribution_asset"):
+            source = source_text[name]
+            for fragment in forbidden_stdout_fields:
+                if fragment in source:
+                    issues.append(f"{name} stdout contains bulky field: {fragment}")
+
+        self.assertEqual(issues, [])
+
     def test_gold_qfq_repair_event_reconciliation_chain_is_removed(self) -> None:
         issues = []
         factor_repair_op_path = DEFS_DIR / "ops" / "stock_mins_qfq_factor_repair.py"

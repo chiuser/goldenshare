@@ -33,6 +33,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_asset_definition_metadata,
     build_materialization_metadata,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 MARKET_BREADTH_DAILY_COLUMNS = tuple(
@@ -95,6 +96,32 @@ def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
     }
 
 
+def _human_materialization_metadata(
+    *,
+    partition_key: str,
+    silver_path: Path,
+    breadth_row: dict[str, int | float | str],
+) -> dict[str, object]:
+    return {
+        "summary": "已生成市场宽度 gold 日指标，统计当日股票上涨、下跌、平盘数量和红盘率。",
+        "next_action": "等待 gold_market_breadth_daily blocking checks 全部通过；通过后 ClickHouse serving 可以消费。",
+        "result_status": "written",
+        "input_summary": {
+            "source_asset": "silver_stock_daily",
+            "partition_key": partition_key,
+            "silver_file_exists": silver_path.exists(),
+        },
+        "metric_summary": {
+            "up_count": breadth_row.get("up_count"),
+            "down_count": breadth_row.get("down_count"),
+            "flat_count": breadth_row.get("flat_count"),
+            "total_count": breadth_row.get("total_count"),
+            "red_rate": breadth_row.get("red_rate"),
+        },
+        "diagnostic_ref": "完整诊断看 gold_market_breadth_daily checks、breadth_row 和 run stdout。",
+    }
+
+
 @dg.asset(
     name="gold_market_breadth_daily",
     deps=["silver_stock_daily"],
@@ -120,7 +147,7 @@ def _breadth_row(connection, path: Path) -> dict[str, int | float | str]:
             )
         },
     ),
-    description="市场涨跌分布日表，统计上涨、下跌和平盘数量。",
+    description="市场宽度 gold 日指标，从 silver_stock_daily 统计上涨、下跌、平盘数量和红盘率，供市场宽度 serving 消费。",
 )
 def gold_market_breadth_daily(
     context: dg.AssetExecutionContext,
@@ -131,6 +158,11 @@ def gold_market_breadth_daily(
     partition_key = context.partition_key
     silver_path = silver_stock_daily_path(lake_root.root(), partition_key)
     target_path = gold_market_breadth_daily_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("market_breadth")
+    log.stdout(
+        "gold_market_breadth_started",
+        partition_key=partition_key,
+    )
     if not silver_path.exists():
         raise FileNotFoundError(f"Missing silver stock daily file: {silver_path}")
 
@@ -144,12 +176,24 @@ def gold_market_breadth_daily(
         row_count = _row_count(connection, target_path, hive_partitioning=False)
         breadth_row = _breadth_row(connection, target_path)
 
+    log.stdout(
+        "gold_market_breadth_completed",
+        partition_key=partition_key,
+        output_row_count=row_count,
+        total_count=breadth_row.get("total_count"),
+        red_rate=breadth_row.get("red_rate"),
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                **_human_materialization_metadata(
+                    partition_key=partition_key,
+                    silver_path=silver_path,
+                    breadth_row=breadth_row,
+                ),
                 "silver_file_path": str(silver_path),
                 "partition_key": partition_key,
                 "breadth_row": breadth_row,

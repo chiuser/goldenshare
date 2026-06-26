@@ -83,7 +83,8 @@
     </p>
     <p class="small">
       当前状态：LLD 已建立；Wave 3A <code>market_major_indices_daily</code>
-      已落地到代码、测试和静态门禁。后续按 Wave 3B/3C/3D 分步提交。
+      与 Wave 3B <code>market_breadth</code> / <code>stock_return_distribution</code>
+      已落地到代码、测试和静态门禁。后续按 Wave 3C/3D 分步提交。
     </p>
   </header>
 
@@ -273,8 +274,8 @@
       <tr>
         <td>Wave 3B</td>
         <td><code>market_breadth</code>、<code>stock_return_distribution</code></td>
-        <td>市场宽度和收益分布共同服务 ClickHouse market breadth，统一业务语言、metric summary、cursor frontier 表达。</td>
-        <td><code>tests.test_market_breadth_continuity_sensors</code>、<code>tests.test_market_breadth_return_distribution_buckets</code>、对应 checks 和静态门禁。</td>
+        <td>已完成：两个 gold asset 补业务 description、stdout、metric summary；checks 补 summary/next_action/rule_summary；两个 continuity sensor cursor 改为市场宽度/收益率分布业务语言。</td>
+        <td><code>tests.test_market_breadth_continuity_sensors</code>、<code>tests.test_market_breadth_checks</code>、<code>tests.test_market_breadth_human_readable_contracts</code>、<code>tests.test_market_breadth_return_distribution_buckets</code>、静态门禁已通过。</td>
       </tr>
       <tr>
         <td>Wave 3C</td>

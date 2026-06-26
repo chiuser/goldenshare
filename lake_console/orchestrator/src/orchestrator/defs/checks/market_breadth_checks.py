@@ -37,11 +37,29 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             extra_metadata={
+                "summary": "市场宽度 gold 检查失败：必需文件不存在。",
+                "next_action": "先补跑对应分区的 gold_market_breadth_daily 或上游 silver_stock_daily。",
+                "rule_summary": {
+                    "missing_file_count": 1,
+                    "failed_rule_names": ["file_exists"],
+                },
                 "file_path": str(path),
                 "missing_file": True,
             },
         ),
     )
+
+
+def _combined_next_action(failed_rule_names: Sequence[str]) -> str:
+    if not failed_rule_names:
+        return "无需处理，等待 ClickHouse serving 消费。"
+    if "total_count_matches_silver" in failed_rule_names:
+        return "先检查同日 silver_stock_daily 行数，再重跑 gold_market_breadth_daily。"
+    if "matches_silver_recompute" in failed_rule_names:
+        return "检查市场宽度计算公式是否仍与 silver_stock_daily 重算结果一致。"
+    if any("red_rate" in rule_name for rule_name in failed_rule_names):
+        return "检查 red_rate 是否按 up_count / total_count * 100 计算并落在 0 到 100。"
+    return "按 failed_rule_names 指向的规则修复市场宽度 gold 输出。"
 
 
 def _combined_check_result(
@@ -57,6 +75,16 @@ def _combined_check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": (
+                    "市场宽度 gold 聚合检查通过。"
+                    if not failed_rule_names
+                    else "市场宽度 gold 聚合检查失败，先看 failed_rule_names 指向的规则。"
+                ),
+                "next_action": _combined_next_action(failed_rule_names),
+                "rule_summary": [
+                    {"rule_name": rule_name, "passed": bool(result.passed)}
+                    for rule_name, result in rule_results
+                ],
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results
@@ -131,6 +159,20 @@ def gold_market_breadth_row_count_is_one(
         metadata=build_check_metadata(
             check_scope=CheckScope.ROW_COUNT,
             extra_metadata={
+                "summary": (
+                    "市场宽度 gold 行数检查通过。"
+                    if row_count == 1
+                    else "市场宽度 gold 行数检查失败，目标分区必须恰好一行。"
+                ),
+                "next_action": (
+                    "无需处理，等待后续检查。"
+                    if row_count == 1
+                    else "重跑 gold_market_breadth_daily；若仍异常，检查写入是否产生重复或空结果。"
+                ),
+                "rule_summary": {
+                    "expected_row_count": 1,
+                    "actual_row_count": int(row_count),
+                },
                 "file_path": str(path),
                 "partition_key": partition_key,
                 "checked_row_count": int(row_count),

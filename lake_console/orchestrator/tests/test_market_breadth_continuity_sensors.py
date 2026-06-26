@@ -233,6 +233,11 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
             result.run_requests[0].run_key,
             "gold_market_breadth_daily:2026-06-15",
         )
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("触发 2026-06-15 市场宽度 gold", cursor["details"]["summary"])
+        self.assertIn("gold_market_breadth_daily", cursor["details"]["next_action"])
+        self.assertLess(len(result.cursor.encode("utf-8")), 3072)
 
     def test_market_breadth_materialized_check_failure_blocks_later_date(self) -> None:
         context = _FakeContext(("2026-06-15", "2026-06-16"))
@@ -311,6 +316,14 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
             result.run_requests[0].run_key,
             "gold_stock_return_distribution:2026-06-15",
         )
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("触发 2026-06-15 收益率分布 gold", cursor["details"]["summary"])
+        self.assertIn(
+            "gold_stock_return_distribution",
+            cursor["details"]["next_action"],
+        )
+        self.assertLess(len(result.cursor.encode("utf-8")), 3072)
 
     def test_local_clickhouse_waits_for_earlier_gold_frontier(self) -> None:
         context = _FakeContext(("2026-06-15", "2026-06-16"))
