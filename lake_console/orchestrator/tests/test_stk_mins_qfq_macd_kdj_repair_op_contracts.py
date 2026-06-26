@@ -301,6 +301,36 @@ class StkMinsQfqMacdKdjRepairOpContractTests(unittest.TestCase):
             first_evaluation.metadata["goldenshare/source_upstream_batch_id"].text,
             UPSTREAM_BATCH_ID,
         )
+        self.assertIn(
+            "已完成 MACD/KDJ scoped repair",
+            first_evaluation.metadata["goldenshare/summary"].text,
+        )
+        self.assertIn(
+            "completion metadata",
+            first_evaluation.metadata["goldenshare/next_action"].text,
+        )
+        self.assertEqual(
+            first_evaluation.metadata["goldenshare/result_status"].text,
+            "repair_completed",
+        )
+        self.assertEqual(
+            first_evaluation.metadata["goldenshare/input_summary"].data[
+                "upstream_batch_id"
+            ],
+            UPSTREAM_BATCH_ID,
+        )
+        self.assertEqual(
+            first_evaluation.metadata["goldenshare/filter_summary"].data[
+                "stock_code_count"
+            ],
+            len(REPAIR_CODES),
+        )
+        self.assertEqual(
+            first_evaluation.metadata["goldenshare/filter_summary"].data[
+                "freq_count"
+            ],
+            len(STK_MINS_QFQ_FREQS),
+        )
         self.assertNotIn(
             "goldenshare/source_qfq_factor_repair_event_storage_ids",
             first_evaluation.metadata,

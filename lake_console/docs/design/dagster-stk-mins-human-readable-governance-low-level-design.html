@@ -311,14 +311,15 @@
   <section>
     <h2>6. 分子波实施计划</h2>
     <p>
-      当前状态：Wave 4A、Wave 4B 与 Wave 4C 已完成。<code>raw_stk_mins</code> /
+      当前状态：Wave 4A、Wave 4B、Wave 4C 与 Wave 4D 已完成。<code>raw_stk_mins</code> /
       <code>silver_stk_mins</code> 已补充人类可读 stdout、materialization metadata、
       聚合 check metadata 和 raw/silver sensor cursor 文案；<code>gold_stk_mins_qfq</code>
       native/derived asset、checks、qfq daily sensor 和 qfq factor repair sensor 也已完成同类治理；
       <code>gold_stk_mins_qfq_macd_kdj</code> indicator/state daily 已补齐 stdout、
-      materialization metadata、check metadata 与 run-status SkipReason 文案。
+      materialization metadata、check metadata 与 run-status SkipReason 文案；
+      scoped repair 已补齐 stdout、completion metadata 与 run-status SkipReason 下一步表达。
       已保持分钟线写入 SQL、文件路径、job selection、run key、partition、触发顺序、
-      repair runtime state 和数据湖内容不变。后续从 Wave 4D MACD/KDJ scoped repair 继续推进。
+      repair runtime state、upstream batch、completion gate 和数据湖内容不变。
     </p>
     <table>
       <thead>
@@ -371,12 +372,12 @@
         <td>MACD/KDJ scoped repair 与最终对账</td>
         <td>
           <ul>
-            <li><code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>、<code>sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py</code>：repair stdout、metadata、SkipReason 只表达 upstream batch、code count/hash、范围和下一步，不打印 code list。</li>
-            <li><code>tests/test_run_contract_static_gates.py</code>：禁止 Wave 4 sensor cursor/report 回退到完整 batch status、status samples、全量 path/code list。</li>
-            <li>同步 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code> 的 Wave 4 完成状态。</li>
+            <li>已完成：<code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>、<code>sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py</code> 的 repair stdout、metadata、SkipReason 只表达 upstream batch、code count/hash、范围和下一步，不打印 code list。</li>
+            <li>已完成：<code>tests/test_run_contract_static_gates.py</code> 禁止 Wave 4 sensor cursor/report 回退到完整 batch status、status samples、全量 path/code list。</li>
+            <li>已完成：同步 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code> 的 Wave 4 完成状态。</li>
           </ul>
         </td>
-        <td>repair op/sensor 测试、静态门禁、文档检查、<code>git diff --check</code>。</td>
+        <td>已补 repair op/sensor 测试、静态门禁、文档检查、<code>git diff --check</code>。</td>
       </tr>
       </tbody>
     </table>
@@ -468,7 +469,7 @@ git diff --check</code></pre>
       <li>当前代码已经有 compact cursor 基础，Wave 4 实现时不得回退到报告型 cursor。</li>
       <li>当前 check 已聚合，Wave 4 不新增 check，只补 metadata 人话字段。</li>
       <li>当前 catalog 已登记全部分钟线 raw/silver/qfq/indicator/state active entries，Wave 4 不改 catalog 身份事实。</li>
-      <li>Wave 4 LLD 已作为当前专项前置门禁；Wave 4A raw/silver、Wave 4B qfq、Wave 4C MACD/KDJ daily 已完成，后续继续 Wave 4D repair 与最终对账。</li>
+      <li>Wave 4 LLD 已作为当前专项前置门禁；Wave 4A raw/silver、Wave 4B qfq、Wave 4C MACD/KDJ daily、Wave 4D repair 与最终对账均已完成。</li>
     </ul>
   </section>
 </main>

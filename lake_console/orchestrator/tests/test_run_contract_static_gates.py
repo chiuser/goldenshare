@@ -571,6 +571,12 @@ class RunContractStaticGateTests(unittest.TestCase):
         daily_sensor_source = (
             SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
         ).read_text()
+        repair_op_source = (
+            DEFS_DIR / "ops" / "gold_stk_mins_qfq_macd_kdj_repair.py"
+        ).read_text()
+        repair_sensor_source = (
+            SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py"
+        ).read_text()
         issues = []
 
         for fragment in (
@@ -615,6 +621,40 @@ class RunContractStaticGateTests(unittest.TestCase):
         ):
             if fragment in daily_sensor_source:
                 issues.append(f"MACD/KDJ daily sensor contains {fragment}")
+
+        for fragment in (
+            "DgStdoutLogger",
+            "gold_stk_mins_qfq_macd_kdj_repair_started",
+            "gold_stk_mins_qfq_macd_kdj_repair_completed",
+            "_repair_completion_human_metadata",
+            "repair_completed",
+            "diagnostic_ref",
+            "source_upstream_batch_id",
+        ):
+            if fragment not in repair_op_source:
+                issues.append(f"MACD/KDJ repair op misses readable fragment: {fragment}")
+
+        for fragment in (
+            "next_action",
+            "下一步：",
+            "completion check",
+            "upstream_batch_id",
+        ):
+            if fragment not in repair_sensor_source:
+                issues.append(
+                    f"MACD/KDJ repair sensor misses readable fragment: {fragment}"
+                )
+
+        for fragment in (
+            "cursor=",
+            "status_samples",
+            "to_cursor_details()",
+            "readiness_details",
+            "sample_rows",
+            "source_qfq_factor_repair_event_storage_ids",
+        ):
+            if fragment in repair_sensor_source:
+                issues.append(f"MACD/KDJ repair sensor contains {fragment}")
 
         self.assertEqual(issues, [])
 
@@ -862,6 +902,14 @@ class RunContractStaticGateTests(unittest.TestCase):
             "repair_required_codes_hash",
             "source_upstream_batch_id",
             '"stock_code_scope": "explicit"',
+            "DgStdoutLogger",
+            "gold_stk_mins_qfq_macd_kdj_repair_started",
+            "gold_stk_mins_qfq_macd_kdj_repair_completed",
+            "_repair_completion_human_metadata",
+            '"summary":',
+            '"next_action":',
+            '"result_status": "repair_completed"',
+            '"diagnostic_ref":',
         )
         issues.extend(
             f"{repair_op_path} misses MACD/KDJ repair completion fragment: {fragment}"
@@ -2308,6 +2356,21 @@ class RunContractStaticGateTests(unittest.TestCase):
             SENSORS_DIR / "stock_mins_qfq_daily_sensor.py",
             "stock_mins_qfq_daily_sensor",
         )
+        qfq_daily_sensor_file_source = (
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py"
+        ).read_text()
+        if "STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT = 5" not in (
+            qfq_daily_sensor_file_source
+        ):
+            issues.append("qfq daily sensor hot-path window limit must stay at 5 days")
+        if "expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]" in (
+            qfq_daily_sensor_file_source
+        ):
+            issues.append(
+                "qfq daily sensor must not use the global 10-day continuity window"
+            )
+        if "STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT" not in qfq_daily_sensor_source:
+            issues.append("qfq daily sensor must use its dedicated window constant")
         adj_factor_ready_guard_index = qfq_daily_sensor_source.find(
             "if not adj_factor_status.ready:"
         )
@@ -3688,6 +3751,34 @@ class RunContractStaticGateTests(unittest.TestCase):
                         f"{_node_location(path, node)} AssetCheckResult metadata "
                         "does not use build_check_metadata(...)"
                     )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_stock_daily_qfq_ordinary_checks_stay_compact(self) -> None:
+        check_path = CHECKS_DIR / "stock_daily_qfq_checks.py"
+        readiness_path = SENSORS_DIR / "readiness.py"
+        check_source = check_path.read_text()
+        readiness_source = readiness_path.read_text()
+        issues = []
+
+        required_check_names = (
+            "gold_stock_daily_qfq_contract_check",
+            "gold_stock_daily_qfq_qfq_semantics_check",
+        )
+        protected_repair_check_name = "gold_stock_daily_qfq_factor_repair_plan_evaluated"
+
+        if check_source.count("@dg.asset_check") != 2:
+            issues.append("stock_daily_qfq ordinary checks must stay at 2")
+        for check_name in required_check_names:
+            if check_name not in check_source:
+                issues.append(f"{check_path} misses ordinary check {check_name}")
+            if check_name not in readiness_source:
+                issues.append(f"{readiness_path} misses readiness check {check_name}")
+        if protected_repair_check_name in readiness_source:
+            issues.append(
+                "gold_stock_daily_qfq repair status check must not enter ordinary "
+                "readiness"
+            )
 
         self.assertEqual(issues, [])
 

@@ -33,6 +33,7 @@ from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     discover_gold_stk_mins_qfq_source_year_paths,
     write_gold_stk_mins_qfq_macd_kdj_rows,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR = (
@@ -42,6 +43,7 @@ MACD_KDJ_REPAIR_EMPTY_STOCK_CODES_ERROR = (
 MACD_KDJ_REPAIR_MANUAL_UNSUPPORTED_ERROR = (
     "MACD/KDJ manual repair is unsupported without a qfq factor repair upstream batch."
 )
+LOGGER = DgStdoutLogger("stk_mins_qfq_macd_kdj_repair")
 
 
 GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA = {
@@ -263,6 +265,54 @@ def _assert_explicit_scope_matches_qfq_metadata(
         )
 
 
+def _repair_completion_human_metadata(
+    *,
+    start_trade_date: str,
+    end_trade_date: str,
+    freq_count: int,
+    target_date_count: int,
+    stock_code_count: int,
+    repair_required_codes_hash: str,
+    upstream_batch_id: str,
+    qfq_factor_repair_trade_date: str,
+    indicator_file_count: int,
+    indicator_row_count: int,
+    state_file_count: int,
+    state_row_count: int,
+) -> dict[str, object]:
+    return {
+        "summary": (
+            "已完成 MACD/KDJ scoped repair，覆盖 "
+            f"{start_trade_date} 至 {end_trade_date} 的 {target_date_count} 个交易日。"
+        ),
+        "next_action": (
+            "等待 MACD/KDJ repair completed check 可见；若后续日常链路仍阻断，"
+            "先看本批次 completion metadata 和 run stdout。"
+        ),
+        "result_status": "repair_completed",
+        "input_summary": {
+            "source_asset": "gold_stk_mins_qfq",
+            "trigger_source": "qfq_factor_repair",
+            "qfq_factor_repair_trade_date": qfq_factor_repair_trade_date,
+            "upstream_batch_id": upstream_batch_id,
+            "repair_required_codes_hash": repair_required_codes_hash,
+        },
+        "filter_summary": {
+            "freq_count": freq_count,
+            "target_date_count": target_date_count,
+            "stock_code_count": stock_code_count,
+            "indicator_file_count": indicator_file_count,
+            "indicator_row_count": indicator_row_count,
+            "state_file_count": state_file_count,
+            "state_row_count": state_row_count,
+        },
+        "diagnostic_ref": (
+            "完整执行范围看本条 check metadata 的 covered_*、code hash、upstream batch "
+            "和 run stdout；stdout 不打印股票代码列表。"
+        ),
+    }
+
+
 @dg.op(
     required_resource_keys={"lake_root", "duckdb"},
     config_schema=GOLD_STK_MINS_QFQ_MACD_KDJ_REPAIR_CONFIG_SCHEMA,
@@ -386,6 +436,17 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         previous_trade_date is None
         and is_first_expected_trade_date(expected_trade_dates, start_trade_date)
     )
+    LOGGER.stdout(
+        "gold_stk_mins_qfq_macd_kdj_repair_started",
+        qfq_factor_repair_trade_date=qfq_factor_repair_trade_date,
+        start_trade_date=start_trade_date,
+        end_trade_date=derived_end_trade_date,
+        target_date_count=len(target_dates),
+        freq_count=len(freqs),
+        stock_code_count=len(stock_codes),
+        repair_required_codes_hash=repair_required_codes_hash,
+        upstream_batch_id=upstream_batch_id,
+    )
 
     source_paths_by_freq: dict[int, tuple[Path, ...]] = {}
     previous_state_path_by_freq: dict[int, Path | None] = {}
@@ -463,11 +524,40 @@ def gold_stk_mins_qfq_macd_kdj_repair_op(context: dg.OpExecutionContext) -> None
         total_state_file_count,
         total_state_row_count,
     )
+    LOGGER.stdout(
+        "gold_stk_mins_qfq_macd_kdj_repair_completed",
+        qfq_factor_repair_trade_date=qfq_factor_repair_trade_date,
+        start_trade_date=start_trade_date,
+        end_trade_date=target_dates[-1],
+        target_date_count=len(target_dates),
+        freq_count=len(freqs),
+        stock_code_count=len(stock_codes),
+        repair_required_codes_hash=repair_required_codes_hash,
+        upstream_batch_id=upstream_batch_id,
+        indicator_file_count=total_indicator_file_count,
+        indicator_row_count=total_indicator_row_count,
+        state_file_count=total_state_file_count,
+        state_row_count=total_state_row_count,
+    )
     completion_metadata = build_check_metadata(
         check_scope=CheckScope.RECONCILIATION,
         checked_row_count=total_indicator_row_count + total_state_row_count,
         failed_row_count=0,
         extra_metadata={
+            **_repair_completion_human_metadata(
+                start_trade_date=start_trade_date,
+                end_trade_date=target_dates[-1],
+                freq_count=len(freqs),
+                target_date_count=len(target_dates),
+                stock_code_count=len(stock_codes),
+                repair_required_codes_hash=repair_required_codes_hash,
+                upstream_batch_id=upstream_batch_id,
+                qfq_factor_repair_trade_date=qfq_factor_repair_trade_date or "",
+                indicator_file_count=total_indicator_file_count,
+                indicator_row_count=total_indicator_row_count,
+                state_file_count=total_state_file_count,
+                state_row_count=total_state_row_count,
+            ),
             "covered_start_trade_date": start_trade_date,
             "covered_end_trade_date": target_dates[-1],
             "freqs": list(freqs),

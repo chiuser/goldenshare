@@ -95,6 +95,7 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
 
         self.assertEqual(decision.selected_trade_date, REPAIR_START_DATE)
         self.assertEqual(decision.upstream_batch_id, UPSTREAM_BATCH_ID)
+        self.assertIn("completion check", decision.next_action)
         self.assertEqual(
             request.run_key,
             f"gold_stk_mins_qfq_macd_kdj_repair:{UPSTREAM_BATCH_ID}",
@@ -120,6 +121,7 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
 
         self.assertIsNone(decision.selected_trade_date)
         self.assertIn("upstream_batch_id", decision.reason)
+        self.assertIn("upstream_batch_id", decision.next_action)
 
     def test_upstream_batch_id_is_the_idempotency_key(self) -> None:
         status = _qfq_status(
@@ -181,6 +183,8 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
             )
 
         self.assertIsInstance(result, dg.SkipReason)
+        self.assertIn("下一步：", result.skip_message)
+        self.assertIn("无需重复提交", result.skip_message)
 
     def test_completion_gate_not_ready_submits_run_request(self) -> None:
         status = _qfq_status(
@@ -246,6 +250,7 @@ class StkMinsQfqMacdKdjRepairSensorContractTests(unittest.TestCase):
         )
 
         self.assertIsNone(decision.selected_trade_date)
+        self.assertIn("MACD/KDJ indicator/state", decision.next_action)
 
 
 if __name__ == "__main__":

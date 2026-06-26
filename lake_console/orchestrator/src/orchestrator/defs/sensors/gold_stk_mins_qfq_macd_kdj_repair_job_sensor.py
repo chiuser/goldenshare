@@ -46,6 +46,7 @@ class GoldStkMinsQfqMacdKdjRepairRunStatusDecision:
     target_trade_date: str | None
     selected_trade_date: str | None
     reason: str
+    next_action: str
     stock_codes: tuple[str, ...] = ()
     repair_required_codes_hash: str | None = None
     upstream_batch_id: str | None = None
@@ -62,6 +63,7 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             target_trade_date=None,
             selected_trade_date=None,
             reason="无法从 MACD/KDJ daily run 中解析目标交易日。",
+            next_action="先确认上游 MACD/KDJ daily run 是否带有有效分区。",
         )
     if not macd_kdj_daily_ready:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
@@ -71,6 +73,7 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
                 "目标交易日 MACD/KDJ indicator/state 尚未 ready，"
                 "暂不触发 repair。"
             ),
+            next_action="先修复同日 MACD/KDJ indicator/state blocking checks。",
         )
     if qfq_factor_repair_status is None or not qfq_factor_repair_status.ready:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
@@ -81,12 +84,14 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
                 if qfq_factor_repair_status is not None
                 else "同日 qfq factor repair 状态不可用。"
             ),
+            next_action="先确认同日 qfq factor repair 状态已 ready 并写出 batch metadata。",
         )
     if not qfq_factor_repair_status.rewrote_history:
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason="qfq factor repair 未改写历史 qfq 文件，无需触发 MACD/KDJ repair。",
+            next_action="无需处理；本次 qfq factor repair 没有影响 MACD/KDJ 历史输入。",
         )
     if not _automatic_macd_kdj_repair_allowed(qfq_factor_repair_status):
         return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
@@ -95,6 +100,10 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
             reason=(
                 "qfq factor repair affected codes 超过自动上限，或缺少完整 "
                 "code list/hash，暂不自动触发 MACD/KDJ repair。"
+            ),
+            next_action=(
+                "人工评估 qfq factor repair affected codes；需要时按专项方案处理 "
+                "MACD/KDJ repair。"
             ),
         )
     if qfq_factor_repair_status.upstream_batch_id is None:
@@ -105,11 +114,13 @@ def build_gold_stk_mins_qfq_macd_kdj_repair_run_status_decision(
                 "qfq factor repair metadata 缺少 upstream_batch_id，"
                 "暂不触发 MACD/KDJ repair。"
             ),
+            next_action="先修复 qfq factor repair completion metadata 的 upstream_batch_id。",
         )
     return GoldStkMinsQfqMacdKdjRepairRunStatusDecision(
         target_trade_date=target_trade_date,
         selected_trade_date=qfq_factor_repair_status.repair_start_trade_date,
         reason="MACD/KDJ daily 成功，提交 scoped MACD/KDJ repair。",
+        next_action="等待 scoped MACD/KDJ repair run 完成并写入 completion check。",
         stock_codes=qfq_factor_repair_status.repair_required_codes,
         repair_required_codes_hash=qfq_factor_repair_status.repair_required_codes_hash,
         upstream_batch_id=qfq_factor_repair_status.upstream_batch_id,
@@ -150,17 +161,22 @@ def _run_request_for_repair_decision(
     )
 
 
+def _repair_skip_reason(reason: str, next_action: str) -> dg.SkipReason:
+    return dg.SkipReason(f"{reason} 下一步：{next_action}")
+
+
 def _run_request_or_skip_for_repair_decision(
     instance: dg.DagsterInstance,
     decision: GoldStkMinsQfqMacdKdjRepairRunStatusDecision,
     qfq_factor_repair_status: GoldStkMinsQfqFactorRepairStatus,
 ) -> dg.RunRequest | dg.SkipReason:
     if decision.selected_trade_date is None:
-        return dg.SkipReason(decision.reason)
+        return _repair_skip_reason(decision.reason, decision.next_action)
     if decision.upstream_batch_id is None:
-        return dg.SkipReason(
+        return _repair_skip_reason(
             "qfq factor repair metadata 缺少 upstream_batch_id，"
-            "暂不触发 MACD/KDJ repair。"
+            "暂不触发 MACD/KDJ repair。",
+            "先修复 qfq factor repair completion metadata 的 upstream_batch_id。",
         )
 
     completion_status = (
@@ -176,7 +192,10 @@ def _run_request_or_skip_for_repair_decision(
         )
     )
     if completion_status.ready:
-        return dg.SkipReason(completion_status.reason)
+        return _repair_skip_reason(
+            completion_status.reason,
+            "无需重复提交；本 upstream batch 的 MACD/KDJ repair completion check 已通过。",
+        )
 
     return _run_request_for_repair_decision(decision)
 
@@ -222,9 +241,12 @@ def gold_stk_mins_qfq_macd_kdj_repair_job_sensor(
         macd_kdj_daily_ready=macd_kdj_daily_ready,
     )
     if decision.selected_trade_date is None:
-        return dg.SkipReason(decision.reason)
+        return _repair_skip_reason(decision.reason, decision.next_action)
     if qfq_factor_repair_status is None:
-        return dg.SkipReason("同日 qfq factor repair 状态不可用。")
+        return _repair_skip_reason(
+            "同日 qfq factor repair 状态不可用。",
+            "先确认同日 qfq factor repair 状态已 ready 并写出 batch metadata。",
+        )
     return _run_request_or_skip_for_repair_decision(
         context.instance,
         decision,

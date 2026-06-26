@@ -511,8 +511,8 @@
       </tr>
       <tr>
         <td><code>stk_mins_qfq_macd_kdj</code></td>
-        <td>Wave 4C 已完成：indicator materialization metadata 已说明 qfq source、previous state、输出文件/行数和下一步；check metadata 已用 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>、<code>failed_rule_names</code> 表达 source coverage、公式抽样和 schema 问题；daily run-status SkipReason 会直接说明下一步。</td>
-        <td>已保持 MACD/KDJ 参数、计算 SQL、expected calendar、previous state gate、job selection、run key、触发顺序和 check 数量不变；metadata 值已用测试防止 tuple 等不可序列化值回流。</td>
+        <td>Wave 4C/4D 已完成：indicator materialization metadata 已说明 qfq source、previous state、输出文件/行数和下一步；check metadata 已用 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>、<code>failed_rule_names</code> 表达 source coverage、公式抽样和 schema 问题；daily 与 repair run-status SkipReason 会直接说明下一步；scoped repair completion metadata 已说明 upstream batch、code count/hash、覆盖范围和后续处理。</td>
+        <td>已保持 MACD/KDJ 参数、计算 SQL、expected calendar、previous state gate、job selection、run key、触发顺序、repair upstream batch、completion gate 和 check 数量不变；metadata 值已用测试防止 tuple 等不可序列化值回流，repair stdout 不打印 code list。</td>
       </tr>
       <tr>
         <td><code>stk_mins_qfq_macd_kdj_state</code></td>
@@ -655,12 +655,12 @@
           体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。
           代码级 LLD 已补齐到
           <code>dagster-stk-mins-human-readable-governance-low-level-design.html</code>；
-          Wave 4A raw/silver、Wave 4B qfq 与 Wave 4C MACD/KDJ daily 已完成，后续按
-          Wave 4D repair 与最终对账分子波推进。
+          Wave 4A raw/silver、Wave 4B qfq、Wave 4C MACD/KDJ daily 与
+          Wave 4D repair / 最终对账均已完成。
         </td>
         <td>
           高频链路 cursor 保持小而清楚，stdout 和 metadata 只放聚合事实；
-          每个子波都必须证明没有新增热路径扫描、没有改变触发逻辑、没有扩大 check 数量。
+          已通过每个子波的目标测试证明没有新增热路径扫描、没有改变触发逻辑、没有扩大 check 数量。
         </td>
       </tr>
       <tr>

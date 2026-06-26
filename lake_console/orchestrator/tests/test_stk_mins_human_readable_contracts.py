@@ -46,6 +46,9 @@ from orchestrator.defs.sensors.stock_mins_silver_sensor import stock_mins_silver
 
 ASSET_PATH = Path("src/orchestrator/defs/assets/stk_mins.py")
 MACD_KDJ_ASSET_PATH = Path("src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py")
+MACD_KDJ_REPAIR_OP_PATH = Path(
+    "src/orchestrator/defs/ops/gold_stk_mins_qfq_macd_kdj_repair.py"
+)
 
 
 def _asset_description(asset_definition) -> str:  # noqa: ANN001
@@ -178,6 +181,49 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             forbidden = keyword_names & forbidden_stdout_fields
             if forbidden:
                 issues.append(f"stdout call writes forbidden fields {sorted(forbidden)}")
+
+        self.assertEqual(issues, [])
+
+    def test_macd_kdj_repair_stdout_events_are_small_and_named(self) -> None:
+        calls = _stdout_calls(MACD_KDJ_REPAIR_OP_PATH)
+        events = {
+            call.args[0].value
+            for call in calls
+            if call.args
+            and isinstance(call.args[0], ast.Constant)
+            and isinstance(call.args[0].value, str)
+        }
+
+        self.assertEqual(
+            {
+                "gold_stk_mins_qfq_macd_kdj_repair_started",
+                "gold_stk_mins_qfq_macd_kdj_repair_completed",
+            }
+            - events,
+            set(),
+        )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "stock_codes",
+            "ts_codes",
+            "sample_rows",
+            "source_paths",
+            "source_qfq_paths",
+            "previous_state_paths",
+            "input_file_paths",
+        }
+        issues = []
+        for call in calls:
+            keyword_names = {keyword.arg for keyword in call.keywords if keyword.arg}
+            forbidden = keyword_names & forbidden_stdout_fields
+            if forbidden:
+                issues.append(
+                    f"repair stdout call writes forbidden fields {sorted(forbidden)}"
+                )
 
         self.assertEqual(issues, [])
 
