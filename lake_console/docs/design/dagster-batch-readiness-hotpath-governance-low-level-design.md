@@ -849,6 +849,21 @@ tests/test_stk_mins_qfq_m9c_sensor_contracts.py
 
 当前状态：已完成并提交 `7c7eb0e6`。本次落地范围实际覆盖 qfq daily 分层短路；qfq factor repair 的“gold not ready 不读取 repair status”仍由 P0A/P6 既有测试和 P0E 静态/性能回归继续守住，不在 P0D 追加业务语义变更。
 
+2026-06-26 追加修正：`stock_mins_qfq_daily_sensor` 正式窗口从默认 10 个 expected trade dates 收敛为最近 5 个 expected trade dates。依据是只读 dry-run：最近 5 个交易日完整链路约 `17.33s`，其中 gold qfq readiness 约 `14.2s`；继续使用 10 天窗口存在 Dagster 60 秒 sensor tick 超时风险。该修正只影响 qfq daily sensor 的 hot path 窗口；qfq factor repair 和其它股票分钟线 sensor 仍保持既有 10 天默认窗口。
+
+落地代码点：
+
+```text
+stock_mins_qfq_daily_sensor.py
+```
+
+验收：
+
+1. `STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT = 5`。
+2. 输入超过 5 个 expected trade dates 时，silver / adj factor / gold qfq batch readiness 以及 repair candidate 只接收最后 5 个日期。
+3. 静态门禁禁止 qfq daily sensor 重新使用全局 10 天窗口常量。
+4. 超过最近 5 个交易日的 qfq 缺口不由日常 sensor 自动扫描，必须走显式 continuity audit / recovery。
+
 ### P0E：全部 helper 门禁与性能回归
 
 改动文件：

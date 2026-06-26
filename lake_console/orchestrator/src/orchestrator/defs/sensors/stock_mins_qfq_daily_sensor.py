@@ -54,10 +54,7 @@ from orchestrator.defs.run_contracts.sensor_tags import (
     SensorTargetLayer,
     build_sensor_tags,
 )
-from orchestrator.defs.run_contracts.stk_mins import (
-    STK_MINS_CONTINUITY_WINDOW_LIMIT,
-    STK_MINS_QFQ_HISTORY_START_DATE,
-)
+from orchestrator.defs.run_contracts.stk_mins import STK_MINS_QFQ_HISTORY_START_DATE
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
@@ -69,6 +66,7 @@ from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
 
 STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME = "stock_mins_qfq_daily_update_job"
 STOCK_MINS_QFQ_DAILY_RUN_START = time(20, 10)
+STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT = 5
 
 
 @dataclass(frozen=True)
@@ -546,7 +544,9 @@ def stock_mins_qfq_daily_sensor(context: dg.SensorEvaluationContext) -> dg.Senso
         context,
         evaluated_at,
     )
-    window_trade_dates = expected_trade_dates[-STK_MINS_CONTINUITY_WINDOW_LIMIT:]
+    window_trade_dates = expected_trade_dates[
+        -STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT:
+    ]
     registered_trade_days = tuple(
         sorted(
             context.instance.get_dynamic_partitions(

@@ -9,6 +9,10 @@ from zoneinfo import ZoneInfo
 
 import duckdb
 import orchestrator.defs.sensors.stock_mins_qfq_daily_sensor as daily_sensor_module
+from orchestrator.defs.asset_guards.bounded_continuity import (
+    ContinuityBatchReadiness,
+    ContinuityDateReadiness,
+)
 from orchestrator.defs.asset_guards.stk_mins_lake_readiness import (
     StkMinsBatchReadiness,
     StkMinsDateReadiness,
@@ -25,6 +29,7 @@ from orchestrator.defs.sensors.readiness import (
 )
 from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
     STOCK_MINS_QFQ_DAILY_RUN_START,
+    STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT,
     STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
     _cursor_payload as build_stock_mins_qfq_daily_sensor_cursor,
 )
@@ -130,6 +135,7 @@ class _FakeDuckDBResource:
 def _date_status(
     *,
     dataset: str,
+    trade_date: str = PARTITION_KEY,
     ready: bool,
     materialized: bool = True,
     checks_passed: bool = True,
@@ -137,7 +143,7 @@ def _date_status(
     expected_file_count: int = 1,
 ) -> StkMinsDateReadiness:
     return StkMinsDateReadiness(
-        trade_date=PARTITION_KEY,
+        trade_date=trade_date,
         ready=ready,
         materialized=materialized,
         checks_passed=checks_passed,
@@ -165,6 +171,61 @@ def _batch_status(
         freq_count=freq_count,
         elapsed_ms=1.0,
         statuses_by_trade_date={PARTITION_KEY: status},
+    )
+
+
+def _batch_status_for_dates(
+    *,
+    dataset: str,
+    trade_dates: tuple[str, ...],
+    ready: bool,
+    materialized: bool = True,
+    checks_passed: bool = True,
+    reason: str = "ready",
+    freq_count: int,
+) -> StkMinsBatchReadiness:
+    return StkMinsBatchReadiness(
+        dataset=dataset,
+        expected_start_date=trade_dates[0] if trade_dates else None,
+        expected_end_date=trade_dates[-1] if trade_dates else None,
+        expected_count=len(trade_dates),
+        freq_count=freq_count,
+        elapsed_ms=1.0,
+        statuses_by_trade_date={
+            trade_date: _date_status(
+                dataset=dataset,
+                trade_date=trade_date,
+                ready=ready,
+                materialized=materialized,
+                checks_passed=checks_passed,
+                reason=reason,
+                expected_file_count=freq_count,
+            )
+            for trade_date in trade_dates
+        },
+    )
+
+
+def _adj_factor_batch_status_for_dates(
+    *,
+    trade_dates: tuple[str, ...],
+    ready: bool = True,
+) -> ContinuityBatchReadiness:
+    return ContinuityBatchReadiness(
+        expected_trade_dates=trade_dates,
+        elapsed_ms=1,
+        scanned_file_count=len(trade_dates),
+        statuses_by_trade_date={
+            trade_date: ContinuityDateReadiness(
+                trade_date=trade_date,
+                ready=ready,
+                materialized=ready,
+                checks_passed=ready,
+                reason="ready" if ready else "adj factor missing",
+                failed_check_names=() if ready else ("adj_factor_lake_readiness",),
+            )
+            for trade_date in trade_dates
+        },
     )
 
 
@@ -623,6 +684,99 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["silver_stk_mins"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["adj_factor"])
         self.assertNotIn("gold", cursor["details"].get("frontier", {}))
+
+    def test_sensor_limits_hot_path_readiness_window_to_recent_five_dates(self) -> None:
+        trade_dates = (
+            "2026-05-21",
+            "2026-05-22",
+            "2026-05-25",
+            "2026-05-26",
+            "2026-05-27",
+            "2026-05-28",
+            "2026-05-29",
+        )
+        expected_window = trade_dates[-STOCK_MINS_QFQ_DAILY_READINESS_WINDOW_LIMIT:]
+        context = _FakeSensorContext(trade_days=trade_dates)
+        observed_windows: dict[str, tuple[str, ...]] = {}
+
+        def _silver_batch_side_effect(*, expected_trade_dates, **_kwargs):
+            observed_windows["silver"] = tuple(expected_trade_dates)
+            return _batch_status_for_dates(
+                dataset="silver_stk_mins",
+                trade_dates=tuple(expected_trade_dates),
+                ready=True,
+                freq_count=5,
+            )
+
+        def _adj_factor_batch_side_effect(*, expected_trade_dates, **_kwargs):
+            observed_windows["adj_factor"] = tuple(expected_trade_dates)
+            return _adj_factor_batch_status_for_dates(
+                trade_dates=tuple(expected_trade_dates),
+            )
+
+        def _gold_batch_side_effect(*, expected_trade_dates, **_kwargs):
+            observed_windows["gold"] = tuple(expected_trade_dates)
+            return _batch_status_for_dates(
+                dataset="gold_stk_mins_qfq",
+                trade_dates=tuple(expected_trade_dates),
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="gold missing",
+                freq_count=7,
+            )
+
+        def _effective_readiness_side_effect(
+            *,
+            lake_status,
+            candidate_repair_trade_dates,
+            **_kwargs,
+        ):
+            observed_windows["repair_candidates"] = tuple(candidate_repair_trade_dates)
+            return SimpleNamespace(status=lake_status)
+
+        with (
+            patch.object(daily_sensor_module, "datetime") as mock_datetime,
+            patch.object(
+                daily_sensor_module,
+                "_load_stock_mins_qfq_expected_trade_dates",
+                return_value=trade_dates,
+            ),
+            patch.object(
+                daily_sensor_module,
+                "batch_silver_stk_mins_lake_readiness",
+                side_effect=_silver_batch_side_effect,
+            ),
+            patch.object(
+                daily_sensor_module,
+                "batch_adj_factor_lake_readiness",
+                side_effect=_adj_factor_batch_side_effect,
+            ),
+            patch.object(
+                daily_sensor_module,
+                "batch_gold_stk_mins_qfq_lake_readiness",
+                side_effect=_gold_batch_side_effect,
+            ),
+            patch.object(
+                daily_sensor_module,
+                "effective_gold_qfq_readiness_for_trade_date",
+                side_effect=_effective_readiness_side_effect,
+            ),
+        ):
+            mock_datetime.now.return_value = EVALUATED_AT
+            result = daily_sensor_module.stock_mins_qfq_daily_sensor._raw_fn(context)
+
+        self.assertEqual(len(result.run_requests), 1)
+        self.assertEqual(result.run_requests[0].partition_key, expected_window[0])
+        self.assertEqual(
+            observed_windows,
+            {
+                "silver": expected_window,
+                "adj_factor": expected_window,
+                "gold": expected_window,
+                "repair_candidates": expected_window,
+            },
+        )
 
     def test_sensor_cursor_fast_path_skips_after_frontier_selects_same_target(
         self,

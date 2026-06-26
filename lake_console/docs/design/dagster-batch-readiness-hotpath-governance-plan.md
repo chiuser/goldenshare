@@ -300,7 +300,7 @@ registered gap
 3. qfq daily 当 silver 最早日期 not ready 时，不调用 gold qfq batch helper。
 4. qfq factor repair 只在 gold qfq selected target ready 后读取 factor repair status。
 5. `batch_gold_stk_mins_qfq_lake_readiness` 的单测必须证明窗口级调用不是日期×频度重复调用。
-6. 性能测试必须记录 10 天窗口 qfq gold readiness elapsed ms。
+6. 性能测试必须记录默认 10 天窗口 qfq gold readiness elapsed ms；`stock_mins_qfq_daily_sensor` 另有正式例外，日常 tick 只扫最近 5 个 expected trade dates。
 7. raw/silver stk mins、adj factor、major indices、market breadth、ClickHouse readiness helper 必须实际跑一遍本地性能样本或 fake-client 调用次数测试。
 8. 所有性能测试只能使用临时目录、临时 Parquet、in-memory DuckDB、fake ClickHouse client；不得读取正式 lake、正式 Dagster runtime 或运行 `dg`。
 
@@ -316,9 +316,9 @@ registered gap
 
 | 项 | 预算 |
 | --- | --- |
-| qfq daily sensor 稳态 tick | 目标 < 10s，硬上限 < 30s。 |
+| qfq daily sensor 稳态 tick | 最近 5 个 expected trade dates 下目标 < 10s，硬上限 < 30s；2026-06-26 dry-run 为约 17.33s，已低于硬上限但仍需继续优化 gold qfq readiness。 |
 | qfq factor repair sensor 稳态 tick | 目标 < 10s，硬上限 < 30s。 |
-| qfq gold readiness 10 天 full semantics | 目标 < 8s，硬上限 < 15s。 |
+| qfq gold readiness formal lake full semantics | qfq daily sensor 只按最近 5 个 expected trade dates 执行；目标 < 10s，硬上限 < 25s。10 天窗口只保留为离线/测试性能回归参考，不进入 qfq daily sensor hot path。 |
 | sensor gRPC timeout | 绝对不能接近 Dagster 60s 默认超时。 |
 | Dagster event/check history hot path | 0 次无界深扫。 |
 | 新增持久化状态实体 | 禁止，除非另起方案证明 DuckDB batch 和 Dagster metadata batch 都无法满足。 |

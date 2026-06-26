@@ -61,7 +61,9 @@ Runs 页面为什么会被拖垮：
 
 ### 2.2 60 天日常回看窗口本身也过重
 
-本轮重新拍板：日常 sensor hot path 的连续性回看窗口统一改为最近 10 个 expected trade dates。
+本轮重新拍板：日常 sensor hot path 的连续性回看窗口默认改为最近 10 个 expected trade dates。
+
+2026-06-26 追加口径：`stock_mins_qfq_daily_sensor` 不是普通窗口成本。只读 dry-run 显示，最近 5 个交易日完整链路约 `17.33s`，其中 gold qfq readiness 约 `14.2s`；若继续按 10 个交易日做完整语义扫描，已经有 60 秒 sensor tick 超时风险。因此 qfq daily sensor 正式收敛为最近 5 个 expected trade dates。其它日常 sensor 仍按默认 10 个交易日口径执行。
 
 原因：
 
@@ -75,9 +77,10 @@ Runs 页面为什么会被拖垮：
 
 | 场景 | 正式口径 |
 |---|---|
-| 日常 sensor hot path continuity 回看 | 最近 10 个 expected trade dates |
-| partition registered gap 检查 | 最近 10 个 expected trade dates |
-| first-not-ready / first-not-completed 选择 | 最近 10 个 expected trade dates |
+| 日常 sensor hot path continuity 回看 | 默认最近 10 个 expected trade dates |
+| `stock_mins_qfq_daily_sensor` continuity 回看 | 最近 5 个 expected trade dates |
+| partition registered gap 检查 | 与对应 sensor 的 hot path 窗口一致 |
+| first-not-ready / first-not-completed 选择 | 与对应 sensor 的 hot path 窗口一致 |
 | 窗口外历史缺口 | 不由日常 sensor 自动处理，走 continuity audit / recovery |
 | 长时间停机恢复 | 单独只读审计、明确补洞范围、再按专项执行 |
 | 历史质量审计 | 独立 CLI / dry-run，不进入 sensor hot path |
@@ -368,7 +371,7 @@ DuckDB 擅长：
 
 | 位置 | 治理前问题 | 当前处理结果 |
 |---|---|---|
-| `stock_mins_qfq_daily_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | 已完成窗口前轻量 skip、silver -> adj factor -> gold qfq 分层短路、qfq gold true batch。 |
+| `stock_mins_qfq_daily_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | 已完成窗口前轻量 skip、silver -> adj factor -> gold qfq 分层短路、qfq gold true batch；2026-06-26 进一步将日常窗口收敛为最近 5 个 expected trade dates。 |
 | `stock_mins_qfq_factor_repair_sensor` | 窗口前执行 gold qfq batch readiness；gold qfq helper 本身过重 | 已完成窗口前轻量 skip；gold qfq 未 ready 时不读 repair status；qfq gold true batch 已落地。 |
 
 ### 6.2 治理前有同类窗口前重活风险，当前已收口

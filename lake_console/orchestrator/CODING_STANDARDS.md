@@ -59,7 +59,7 @@ MACD/KDJ 连续性已落地规则：
 
 已落地规则：
 
-1. 日常 sensor hot path 的连续性回看窗口固定为最近 10 个 expected trade dates；60 天只允许作为离线审计、容量评估或长停机恢复方案参考，不得作为日常 sensor 默认窗口。
+1. 日常 sensor hot path 的连续性回看窗口默认固定为最近 10 个 expected trade dates；60 天只允许作为离线审计、容量评估或长停机恢复方案参考，不得作为日常 sensor 默认窗口。`stock_mins_qfq_daily_sensor` 是已确认例外：2026-06-26 只读 dry-run 证明最近 5 个交易日仍约 17 秒，其中 gold qfq readiness 约 14 秒，因此该 sensor 正式窗口收敛为最近 5 个 expected trade dates；超过 5 个交易日的 qfq 缺口必须走显式 continuity audit / recovery。
 2. 窗口型 sensor 必须先判断运行窗口；窗口未到时只能返回轻量 `SkipReason` / cursor，禁止提前执行 DuckDB batch readiness、Dagster event history 查询或其它重扫描。
 3. `batch_*_readiness` 命名只允许用于真正窗口级读取模型：一次接收完整窗口日期集合，集中规划路径或查询分区集合，再按 `trade_date` / `freq` fan-out 状态。
 4. 禁止把 `for trade_date in expected_dates` 里的逐日重 SQL、逐日 Dagster check history 查询、逐日 ClickHouse 查询包装成 `batch_*_readiness`。
