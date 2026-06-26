@@ -2142,7 +2142,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 34)
+        self.assertEqual(sensor_definition_count, 35)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -3814,6 +3814,38 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "gold_stock_daily_qfq repair status check must not enter ordinary "
                 "readiness"
             )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_stock_daily_qfq_daily_sensor_uses_bounded_run_contracts(self) -> None:
+        sensor_path = SENSORS_DIR / "stock_daily_qfq_sensor.py"
+        source = sensor_path.read_text()
+        issues = []
+
+        required_snippets = (
+            "select_first_not_ready_gold_stock_daily_qfq_partition",
+            "build_run_request",
+            "build_asset_update_run_key",
+            "build_sensor_cursor",
+            "cn_a_stock_trade_days",
+            "required_resource_keys={\"lake_root\", \"duckdb\"}",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+        )
+        for snippet in required_snippets:
+            if snippet not in source:
+                issues.append(f"{sensor_path} misses required snippet: {snippet}")
+
+        forbidden_snippets = (
+            "dg.RunRequest(",
+            "RunRequest(",
+            "run_key=f",
+            "gold_stock_daily_qfq_ready_for_trade_date(",
+            "stock_codes",
+            "get_event_records(",
+        )
+        for snippet in forbidden_snippets:
+            if snippet in source:
+                issues.append(f"{sensor_path} contains forbidden snippet: {snippet}")
 
         self.assertEqual(issues, [])
 

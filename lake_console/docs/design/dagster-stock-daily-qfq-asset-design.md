@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，待推进 P3 daily job/sensor。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，待推进 P4 repair core。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -239,7 +239,7 @@ repair 口径：
 | 上游依赖 | 已明确依赖 `silver_stock_daily` 与 `silver_adj_factor` | 需要补 asset deps、check additional_deps、readiness gate |
 | checks | 已落地 2 条 ordinary blocking checks：contract 与 qfq semantics，子规则写入 metadata | 后续 repair status check 必须保持 protected/status 口径，不进入 ordinary readiness |
 | metadata | 已要求 materialization/check/repair metadata 分层 | 需要列具体 metadata keys，走现有 metadata helper，不裸写 top-level key |
-| job/sensor | 已建议 update job 与 repair job 分入口 | 需要列最终 job/sensor 名称、run key builder、cursor 字段、默认状态 |
+| job/sensor | P3 已落地 daily job 与 daily sensor；repair job / run-status sensor 留到 P4 | daily 已确认：`gold_stock_daily_qfq_update_job`、`gold_stock_daily_qfq_update_job_sensor`、默认 `STOPPED`、run key `gold_stock_daily_qfq_update:{trade_date}`、cursor 写结构化 reason code；P4 需补 repair job / run-status sensor |
 | 历史迁移 | 已提出 direct lake bootstrap + runless event backfill 作为大范围候选方案 | 需要 dry-run 指标、sample 方案、全量批次、event 补录上限 |
 | 性能门禁 | 已写基本性能表 | 需要真实只读样本测算：文件数、行数、DuckDB SQL 次数、耗时、event 数 |
 | 人类可读治理 | 尚未完整展开 | 需要补 asset/job/sensor/check description，以及失败时先看哪里 |

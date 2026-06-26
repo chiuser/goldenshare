@@ -1166,12 +1166,39 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P3: Daily Job And Sensor
 
-范围：
+状态：已完成。
 
-- daily job
-- daily sensor
-- run key / cursor tests
-- targeted local pytest
+落地文件：
+
+- `lake_console/orchestrator/src/orchestrator/defs/jobs/stock_daily_qfq_update.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/stock_daily_qfq_sensor.py`
+- `lake_console/orchestrator/src/orchestrator/defs/sensors/readiness.py`
+- `lake_console/orchestrator/tests/test_stock_daily_qfq_readiness_selector.py`
+- `lake_console/orchestrator/tests/test_stock_daily_qfq_sensor_contracts.py`
+- `lake_console/orchestrator/tests/test_run_contract_static_gates.py`
+
+已落地口径：
+
+1. `gold_stock_daily_qfq_update_job` 只选择 `gold_stock_daily_qfq` asset 与其 ordinary checks，不包含 repair op、报告逻辑或 SQL。
+2. `gold_stock_daily_qfq_update_job_sensor` 默认 `STOPPED`，`minimum_interval_seconds=600`，资源依赖为 `lake_root` / `duckdb`。
+3. sensor 使用 `silver_trade_calendar` 读取最近 10 个 `cn_a_stock_trade_days` expected dates，先拦截 registered gap，再用 bounded readiness selector 选择 first not-ready partition。
+4. selected date 上只检查 `silver_stock_daily` 与 `silver_adj_factor` upstream readiness；output materialized 但 checks 未绿时 skip，不自动重跑。
+5. run request 经 `build_run_request(...)` 和 `build_asset_update_run_key(...)` 生成，run key 为 `gold_stock_daily_qfq_update:{trade_date}`。
+6. cursor 使用 `build_sensor_cursor(...)`，只写小型结构化 payload 和 ASCII `reason_code`。
+
+P3 验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_readiness_selector.py \
+  tests/test_stock_daily_qfq_sensor_contracts.py \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_stock_daily_qfq_checks.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`95 passed, 94 warnings`。测试只使用本地临时目录、静态扫描和 fake instance，不运行 `dg`，不读取正式 Dagster instance，不触碰正式数据湖。
 
 ### P4: Repair Core
 

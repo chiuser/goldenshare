@@ -12,6 +12,7 @@ from dagster._core.storage.asset_check_execution_record import (
 CN_A_SENSOR_TIMEZONE = ZoneInfo("Asia/Shanghai")
 CHECK_HISTORY_LIMIT = 5000
 SILVER_INDEX_DAILY_READINESS_WINDOW_LIMIT = 10
+GOLD_STOCK_DAILY_QFQ_READINESS_WINDOW_LIMIT = 10
 _TERMINAL_ASSET_CHECK_STATUSES = {
     AssetCheckExecutionRecordStatus.SUCCEEDED,
     AssetCheckExecutionRecordStatus.FAILED,
@@ -502,6 +503,18 @@ def _silver_index_daily_missing_materialization_status(
     )
 
 
+def _gold_stock_daily_qfq_missing_materialization_status(
+    trade_date: str,
+) -> AssetReadinessStatus:
+    return _asset_readiness_status_from_check_results(
+        spec=GOLD_STOCK_DAILY_QFQ_READINESS_SPECS[0],
+        partition_key=trade_date,
+        materialization=None,
+        check_results={},
+        min_materialization_date=None,
+    )
+
+
 def _silver_index_daily_statuses_for_materialized_prefix(
     instance: dg.DagsterInstance,
     trade_dates: tuple[str, ...],
@@ -564,6 +577,69 @@ def _silver_index_daily_statuses_for_materialized_prefix(
     return statuses
 
 
+def _gold_stock_daily_qfq_statuses_for_materialized_prefix(
+    instance: dg.DagsterInstance,
+    trade_dates: tuple[str, ...],
+) -> dict[str, AssetReadinessStatus]:
+    spec = GOLD_STOCK_DAILY_QFQ_READINESS_SPECS[0]
+    materializations = {
+        trade_date: _latest_materialization_record(
+            instance,
+            GOLD_STOCK_DAILY_QFQ_ASSET_KEY,
+            trade_date,
+        )
+        for trade_date in trade_dates
+    }
+    materialization_storage_ids = {
+        materialization.storage_id
+        for materialization in materializations.values()
+        if materialization is not None
+    }
+    check_results_by_storage_id: dict[int, dict[str, bool]] = {
+        storage_id: {} for storage_id in materialization_storage_ids
+    }
+    if materialization_storage_ids:
+        for check_name in GOLD_STOCK_DAILY_QFQ_CHECKS:
+            check_key = dg.AssetCheckKey(GOLD_STOCK_DAILY_QFQ_ASSET_KEY, check_name)
+            matched_storage_ids: set[int] = set()
+            records = instance.event_log_storage.get_asset_check_execution_history(
+                check_key,
+                limit=CHECK_HISTORY_LIMIT,
+                status=_TERMINAL_ASSET_CHECK_STATUSES,
+            )
+            for record in records:
+                check_result = _check_result_for_materialization_ids(
+                    record,
+                    materialization_storage_ids,
+                )
+                if check_result is None:
+                    continue
+                storage_id, passed = check_result
+                if storage_id in matched_storage_ids:
+                    continue
+                check_results_by_storage_id[storage_id][check_name] = passed
+                matched_storage_ids.add(storage_id)
+                if matched_storage_ids == materialization_storage_ids:
+                    break
+
+    statuses = {}
+    for trade_date, materialization in materializations.items():
+        check_results = (
+            check_results_by_storage_id.get(materialization.storage_id, {})
+            if materialization
+            else {}
+        )
+        statuses[trade_date] = _asset_readiness_status_from_check_results(
+            spec=spec,
+            partition_key=trade_date,
+            materialization=materialization,
+            check_results=check_results,
+            min_materialization_date=None,
+            missing_check_reason=_MISSING_WITHIN_LATEST_CHECK_HISTORY_WINDOW,
+        )
+    return statuses
+
+
 def select_first_not_ready_silver_index_daily_partition(
     instance: dg.DagsterInstance,
     trade_dates: tuple[str, ...],
@@ -611,6 +687,65 @@ def select_first_not_ready_silver_index_daily_partition(
         trade_date = trade_dates[first_missing_index]
         return trade_date, _silver_index_daily_missing_materialization_status(
             trade_date
+        )
+    return None, None
+
+
+def select_first_not_ready_gold_stock_daily_qfq_partition(
+    instance: dg.DagsterInstance,
+    trade_dates: tuple[str, ...],
+) -> tuple[str | None, DatasetReadinessStatus | None]:
+    if len(trade_dates) > GOLD_STOCK_DAILY_QFQ_READINESS_WINDOW_LIMIT:
+        raise ValueError(
+            "gold_stock_daily_qfq readiness selector is limited to the daily "
+            f"{GOLD_STOCK_DAILY_QFQ_READINESS_WINDOW_LIMIT}-trade-date sensor window."
+        )
+    if not trade_dates:
+        return None, None
+
+    materialized_trade_dates = set(
+        instance.get_materialized_partitions(GOLD_STOCK_DAILY_QFQ_ASSET_KEY)
+    )
+    first_missing_index = next(
+        (
+            index
+            for index, trade_date in enumerate(trade_dates)
+            if trade_date not in materialized_trade_dates
+        ),
+        None,
+    )
+    if first_missing_index == 0:
+        trade_date = trade_dates[0]
+        status = _gold_stock_daily_qfq_missing_materialization_status(trade_date)
+        return trade_date, DatasetReadinessStatus(
+            ready=status.ready,
+            statuses=(status,),
+        )
+
+    prefix_trade_dates = (
+        trade_dates
+        if first_missing_index is None
+        else trade_dates[:first_missing_index]
+    )
+    prefix_statuses = _gold_stock_daily_qfq_statuses_for_materialized_prefix(
+        instance,
+        prefix_trade_dates,
+    )
+    for trade_date in prefix_trade_dates:
+        asset_status = prefix_statuses[trade_date]
+        status = DatasetReadinessStatus(
+            ready=asset_status.ready,
+            statuses=(asset_status,),
+        )
+        if not status.ready:
+            return trade_date, status
+
+    if first_missing_index is not None:
+        trade_date = trade_dates[first_missing_index]
+        status = _gold_stock_daily_qfq_missing_materialization_status(trade_date)
+        return trade_date, DatasetReadinessStatus(
+            ready=status.ready,
+            statuses=(status,),
         )
     return None, None
 
