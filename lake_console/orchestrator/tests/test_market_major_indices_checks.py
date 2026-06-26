@@ -2,6 +2,7 @@ import tempfile
 import unittest
 from pathlib import Path
 
+import dagster as dg
 import duckdb
 
 from orchestrator.defs.checks import market_major_indices_checks as checks
@@ -26,6 +27,10 @@ def _check_function(check_definition):
     if not hasattr(check_definition, "node_def"):
         return check_definition
     return check_definition.node_def.compute_fn.decorated_fn
+
+
+def _metadata_value(value):  # noqa: ANN001
+    return getattr(value, "value", value)
 
 
 def _nullable_sql_string(value: str | None) -> str:
@@ -117,6 +122,32 @@ def _write_silver_index_basic_file(root: Path, ts_codes: tuple[str, ...]) -> Pat
 
 
 class MarketMajorIndicesCheckTests(unittest.TestCase):
+    def test_combined_check_metadata_is_human_readable_and_keeps_rule_names(
+        self,
+    ) -> None:
+        result = checks._combined_check_result(
+            partition_keys=(TARGET_TRADE_DATE,),
+            check_scope=checks.CheckScope.SCHEMA,
+            rule_results=(
+                ("rule_ok", dg.AssetCheckResult(passed=True)),
+                ("rule_bad", dg.AssetCheckResult(passed=False)),
+            ),
+        )
+
+        self.assertFalse(result.passed)
+        self.assertEqual(
+            _metadata_value(result.metadata["goldenshare/failed_rule_names"]),
+            ["rule_bad"],
+        )
+        self.assertIn("失败", _metadata_value(result.metadata["goldenshare/summary"]))
+        self.assertIn(
+            "failed_rule_names",
+            _metadata_value(result.metadata["goldenshare/next_action"]),
+        )
+        rule_summary = _metadata_value(result.metadata["goldenshare/rule_summary"])
+        self.assertEqual(rule_summary["partition_count"], 1)
+        self.assertEqual(rule_summary["failed_rule_count"], 1)
+
     def test_row_count_matches_active_seed_passes_and_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -190,13 +221,27 @@ class MarketMajorIndicesCheckTests(unittest.TestCase):
             check_fn = _check_function(
                 checks.gold_market_major_indices_daily_price_sanity
             )
-            self.assertTrue(check_fn(context, lake_root, duckdb_resource).passed)
+            passed_result = check_fn(context, lake_root, duckdb_resource)
+            self.assertTrue(passed_result.passed)
+            self.assertIn(
+                "通过",
+                _metadata_value(passed_result.metadata["goldenshare/summary"]),
+            )
 
             _write_gold_major_indices_file(
                 root,
                 price_overrides={first_code: {"high": 8.0, "low": 9.0}},
             )
-            self.assertFalse(check_fn(context, lake_root, duckdb_resource).passed)
+            failed_result = check_fn(context, lake_root, duckdb_resource)
+            self.assertFalse(failed_result.passed)
+            self.assertIn(
+                "失败",
+                _metadata_value(failed_result.metadata["goldenshare/summary"]),
+            )
+            self.assertIn(
+                "high/low/open/close",
+                _metadata_value(failed_result.metadata["goldenshare/next_action"]),
+            )
 
     def test_seed_codes_exist_in_index_basic_passes_and_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

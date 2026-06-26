@@ -82,7 +82,8 @@
       <span class="tag">分子波推进</span>
     </p>
     <p class="small">
-      当前状态：LLD 已建立。正式代码改造后续按 Wave 3A/3B/3C/3D 分步提交。
+      当前状态：LLD 已建立；Wave 3A <code>market_major_indices_daily</code>
+      已落地到代码、测试和静态门禁。后续按 Wave 3B/3C/3D 分步提交。
     </p>
   </header>
 
@@ -266,8 +267,8 @@
       <tr>
         <td>Wave 3A</td>
         <td><code>market_major_indices_daily</code></td>
-        <td>先处理刚从 index daily 下游延伸出来的 gold 消费者，补 description、metadata、check metadata、sensor cursor 和静态门禁。</td>
-        <td><code>tests.test_market_major_indices_daily_sensor</code>、<code>tests.test_market_major_indices_checks</code>、新增 human-readable contract、静态门禁。</td>
+        <td>已完成：补 description、stdout 里程碑、materialization metadata、check metadata、sensor cursor 和静态门禁；未改生产触发逻辑、lake 写入逻辑或 Dagster runtime 状态。</td>
+        <td><code>tests.test_market_major_indices_daily_sensor</code>、<code>tests.test_market_major_indices_checks</code>、<code>tests.test_market_major_indices_human_readable_contracts</code>、静态门禁已通过。</td>
       </tr>
       <tr>
         <td>Wave 3B</td>

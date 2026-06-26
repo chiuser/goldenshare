@@ -215,6 +215,11 @@ class MarketMajorIndicesDailySensorTests(unittest.TestCase):
             run_request.run_key,
             "market_major_indices_daily:2026-06-15",
         )
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("触发 2026-06-15", cursor["details"]["summary"])
+        self.assertIn("blocking checks", cursor["details"]["next_action"])
+        self.assertLess(len(result.cursor.encode("utf-8")), 3072)
 
     def test_materialized_gold_check_failure_blocks_later_date(self) -> None:
         context = _FakeContext(trade_days=("2026-06-15", "2026-06-16"))
@@ -259,6 +264,13 @@ class MarketMajorIndicesDailySensorTests(unittest.TestCase):
         self.assertIsNotNone(result.skip_reason)
         self.assertIn("暂不自动重跑", result.skip_reason.skip_message)
         silver_readiness.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "gold_market_major_indices_daily",
+        )
+        self.assertIn("主要指数 gold", cursor["details"]["summary"])
+        self.assertIn("checks", cursor["details"]["next_action"])
 
     def test_cursor_payload_uses_standard_sensor_cursor_contract(self) -> None:
         evaluated_at = datetime(2026, 5, 26, 16, 5, tzinfo=CN_TZ)
@@ -283,6 +295,37 @@ class MarketMajorIndicesDailySensorTests(unittest.TestCase):
             payload["details"]["evidence"]["selected_trade_date"],
             "2026-05-26",
         )
+        self.assertIn("summary", payload["details"])
+        self.assertIn("next_action", payload["details"])
+
+    def test_input_gate_cursor_points_to_silver_index_daily(self) -> None:
+        evaluated_at = datetime(2026, 6, 15, 16, 5, tzinfo=CN_TZ)
+        payload = json.loads(
+            _cursor_payload(
+                evaluated_at=evaluated_at,
+                target_trade_date="2026-06-15",
+                registered_trade_day_count=10,
+                registered_code_count=2,
+                selected_trade_date=None,
+                reason="主要指数日线 seed/input 门禁未满足，暂不触发 gold。",
+                input_status=MarketMajorIndicesInputReadiness(
+                    trade_date="2026-06-15",
+                    seed_row_count=2,
+                    active_seed_code_count=2,
+                    registered_code_count=2,
+                    missing_registered_seed_codes=(),
+                    missing_index_basic_file=False,
+                    missing_index_basic_seed_codes=(),
+                    missing_silver_daily_file=False,
+                    missing_silver_daily_seed_codes=("000001.SH",),
+                ),
+            )
+        )
+
+        self.assertEqual(payload["decision"], "skip")
+        self.assertEqual(payload["details"]["blocked_component"], "silver_index_daily")
+        self.assertIn("silver_index_daily 还没有 ready", payload["details"]["summary"])
+        self.assertIn("先修复同日 silver_index_daily", payload["details"]["next_action"])
 
 
 if __name__ == "__main__":

@@ -82,11 +82,47 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             extra_metadata={
+                "summary": "主要指数 gold 检查失败：必需输入文件不存在。",
+                "next_action": "先补齐缺失文件对应的上游资产，再重新运行本检查。",
+                "rule_summary": {
+                    "missing_file_count": 1,
+                    "failed_rule_names": ["file_exists"],
+                },
                 "file_path": str(path),
                 "missing_file": True,
             },
         ),
     )
+
+
+def _combined_next_action(failed_rule_names: Sequence[str]) -> str:
+    if not failed_rule_names:
+        return "等待下游 serving 或前端展示链路消费。"
+    if any("file_exists" in rule_name for rule_name in failed_rule_names):
+        return "先补跑 gold_market_major_indices_daily 目标分区，生成缺失的 gold parquet 文件。"
+    if any("required_columns" in rule_name for rule_name in failed_rule_names):
+        return "检查 gold 输出 schema 与 GOLD_MARKET_MAJOR_INDICES_DAILY_SCHEMA 是否一致。"
+    if any("row_count" in rule_name for rule_name in failed_rule_names):
+        return "检查主要指数 seed 在该交易日的 active 行数，以及 silver_index_daily 是否缺 seed 指数行情。"
+    if any("seed" in rule_name for rule_name in failed_rule_names):
+        return "检查主要指数 seed、cn_a_index_ts_codes dynamic partitions、silver_index_basic 和 silver_index_daily 覆盖。"
+    if any("rank" in rule_name or "unique" in rule_name for rule_name in failed_rule_names):
+        return "检查输出 rank/ts_code 是否仍按 active seed 顺序且没有重复。"
+    return "按 failed_rule_names 指向的规则修复对应输入或输出后再重跑检查。"
+
+
+def _combined_rule_summary(
+    *,
+    partition_keys: tuple[str, ...],
+    rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
+    failed_rule_names: Sequence[str],
+) -> dict[str, Any]:
+    return {
+        "partition_count": len(partition_keys),
+        "rule_count": len(rule_results),
+        "failed_rule_count": len(failed_rule_names),
+        "failed_rule_names": list(failed_rule_names),
+    }
 
 
 def _combined_check_result(
@@ -103,6 +139,17 @@ def _combined_check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": (
+                    "主要指数 gold 聚合检查通过。"
+                    if not failed_rule_names
+                    else "主要指数 gold 聚合检查失败，先看 failed_rule_names 指向的规则。"
+                ),
+                "next_action": _combined_next_action(failed_rule_names),
+                "rule_summary": _combined_rule_summary(
+                    partition_keys=partition_keys,
+                    rule_results=rule_results,
+                    failed_rule_names=failed_rule_names,
+                ),
                 "partition_keys": list(partition_keys),
                 "rule_passed": {
                     rule_name: bool(result.passed)
@@ -628,6 +675,21 @@ def gold_market_major_indices_daily_price_sanity(
         metadata=build_check_metadata(
             check_scope=CheckScope.PARTITION_ALIGNMENT,
             extra_metadata={
+                "summary": (
+                    "主要指数 gold 价格域检查通过。"
+                    if not missing_paths and not failed_partitions
+                    else "主要指数 gold 价格域检查失败，存在缺文件或不合理价格区间。"
+                ),
+                "next_action": (
+                    "等待下游消费。"
+                    if not missing_paths and not failed_partitions
+                    else "先补齐缺失 gold 文件；若文件存在，检查 high/low/open/close/pre_close 的源数据和转换逻辑。"
+                ),
+                "rule_summary": {
+                    "partition_count": len(_selected_partition_keys(context)),
+                    "missing_file_count": len(missing_paths),
+                    "failed_partition_count": len(failed_partitions),
+                },
                 "invalid_counts": invalid_counts,
                 "invalid_samples": invalid_samples,
                 "missing_file_paths": missing_paths,
@@ -677,6 +739,20 @@ def gold_market_major_indices_seed_codes_exist_in_index_basic(
         metadata=build_check_metadata(
             check_scope=CheckScope.REFERENTIAL_INTEGRITY,
             extra_metadata={
+                "summary": (
+                    "主要指数 seed 在 silver_index_basic 中均可找到。"
+                    if missing_count == 0
+                    else "主要指数 seed 存在无法在 silver_index_basic 中找到的指数代码。"
+                ),
+                "next_action": (
+                    "等待 seed coverage 聚合检查通过。"
+                    if missing_count == 0
+                    else "先修复 silver_index_basic 或主要指数 seed 名单，确保 seed 指数代码可被基础信息识别。"
+                ),
+                "rule_summary": {
+                    "seed_row_count": len(seed_rows),
+                    "missing_count": missing_count,
+                },
                 "index_basic_file_path": str(index_basic_path),
                 "missing_count": missing_count,
                 "missing_sample_rows": _sample_dicts(
@@ -705,6 +781,21 @@ def gold_market_major_indices_seed_codes_exist_in_registered_index_ts_codes(
         metadata=build_check_metadata(
             check_scope=CheckScope.PARTITION_ALIGNMENT,
             extra_metadata={
+                "summary": (
+                    "主要指数 seed 均已注册到 cn_a_index_ts_codes。"
+                    if not missing_rows
+                    else "主要指数 seed 存在未注册到 cn_a_index_ts_codes 的指数代码。"
+                ),
+                "next_action": (
+                    "等待 seed coverage 聚合检查通过。"
+                    if not missing_rows
+                    else "先补齐 cn_a_index_ts_codes dynamic partitions 中缺失的 seed 指数代码。"
+                ),
+                "rule_summary": {
+                    "seed_row_count": len(seed_rows),
+                    "registered_code_count": len(registered_codes),
+                    "missing_count": len(missing_rows),
+                },
                 "dynamic_partitions_def": cn_a_index_ts_codes.name,
                 "registered_code_count": len(registered_codes),
                 "missing_count": len(missing_rows),

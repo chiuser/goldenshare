@@ -44,6 +44,7 @@ from orchestrator.seeds.market.major_indices import (
     active_major_indices_seed_rows,
     load_major_indices_seed,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 MARKET_MAJOR_INDICES_DAILY_COLUMNS = tuple(
@@ -219,6 +220,35 @@ def _missing_seed_codes_in_silver(
     return missing_count, _sample_dicts(["rank", "ts_code", "display_name"], rows)
 
 
+def _human_materialization_metadata(
+    *,
+    partition_keys: tuple[str, ...],
+    partition_metadata: dict[str, dict[str, Any]],
+    seed_count: int,
+    total_row_count: int,
+) -> dict[str, Any]:
+    active_seed_row_counts = {
+        partition_key: metadata["active_seed_row_count"]
+        for partition_key, metadata in partition_metadata.items()
+    }
+    return {
+        "summary": "已生成主要指数日线 gold 分区，供首页和市场概览展示主要指数行情。",
+        "next_action": "等待 gold_market_major_indices_daily blocking checks 全部通过；通过后 serving 和前端展示链路可以消费。",
+        "result_status": "written",
+        "input_summary": {
+            "source_asset": "silver_index_daily",
+            "seed_source": "orchestrator.seeds.market.major_indices",
+            "partition_count": len(partition_keys),
+            "seed_row_count": seed_count,
+        },
+        "metric_summary": {
+            "output_row_count": total_row_count,
+            "active_seed_row_counts": active_seed_row_counts,
+        },
+        "diagnostic_ref": "完整诊断看 gold_market_major_indices_daily checks、partition_metadata 和 run stdout。",
+    }
+
+
 @dg.asset(
     name="gold_market_major_indices_daily",
     deps=[silver_index_daily],
@@ -242,7 +272,7 @@ def _missing_seed_codes_in_silver(
             "seed_columns": list(MAJOR_INDICES_SEED_COLUMNS),
         },
     ),
-    description="首页主要指数日线结果，读取版本化 seed 名单和 silver_index_daily 当日行情生成。",
+    description="主要指数日线 gold 展示事实，按交易日读取版本化主要指数 seed 和 silver_index_daily 行情，供首页与市场概览消费。",
 )
 def gold_market_major_indices_daily(
     context: dg.AssetExecutionContext,
@@ -252,6 +282,14 @@ def gold_market_major_indices_daily(
     lake_root.ensure_available_for_run()
     partition_keys = _selected_partition_keys(context)
     partition_metadata: dict[str, dict[str, Any]] = {}
+    seed_count = 0
+    log = DgStdoutLogger("market_major_indices")
+    log.stdout(
+        "gold_market_major_indices_started",
+        partition_count=len(partition_keys),
+        first_partition=partition_keys[0] if partition_keys else None,
+        last_partition=partition_keys[-1] if partition_keys else None,
+    )
 
     with connect_configured_duckdb() as connection:
         seed_count = _create_major_indices_seed_table(connection)
@@ -307,6 +345,12 @@ def gold_market_major_indices_daily(
     total_row_count = sum(
         item["output_row_count"] for item in partition_metadata.values()
     )
+    log.stdout(
+        "gold_market_major_indices_completed",
+        partition_count=len(partition_metadata),
+        output_row_count=total_row_count,
+        seed_row_count=seed_count,
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             row_count=total_row_count,
@@ -316,6 +360,12 @@ def gold_market_major_indices_daily(
                 else ()
             ),
             extra_metadata={
+                **_human_materialization_metadata(
+                    partition_keys=partition_keys,
+                    partition_metadata=partition_metadata,
+                    seed_count=seed_count,
+                    total_row_count=total_row_count,
+                ),
                 "partition_keys": list(partition_keys),
                 "partition_metadata": partition_metadata,
             },

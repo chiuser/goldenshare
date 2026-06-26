@@ -3129,6 +3129,83 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_market_major_indices_human_readable_governance_stays_compact(
+        self,
+    ) -> None:
+        asset_path = ASSETS_DIR / "market_major_indices.py"
+        check_path = CHECKS_DIR / "market_major_indices_checks.py"
+        sensor_path = SENSORS_DIR / "market_major_indices_daily_sensor.py"
+        asset_source = asset_path.read_text()
+        check_source = check_path.read_text()
+        sensor_source = sensor_path.read_text()
+        issues = []
+
+        for required_fragment in (
+            "gold_market_major_indices_started",
+            "gold_market_major_indices_completed",
+            "metric_summary",
+            "主要指数日线 gold",
+        ):
+            if required_fragment not in asset_source:
+                issues.append(
+                    "market major indices asset misses human-readable fragment: "
+                    f"{required_fragment}"
+                )
+
+        for required_fragment in (
+            "rule_summary",
+            "failed_rule_names",
+            "summary",
+            "next_action",
+        ):
+            if required_fragment not in check_source:
+                issues.append(
+                    "market major indices checks miss readable metadata fragment: "
+                    f"{required_fragment}"
+                )
+
+        for required_fragment in (
+            "_summary_and_next_action",
+            "cn_a_index_ts_codes",
+            "silver_index_daily 还没有 ready",
+            "silver_index_basic 还没有 ready",
+        ):
+            if required_fragment not in sensor_source:
+                issues.append(
+                    "market major indices sensor cursor must stay actionable: "
+                    f"{required_fragment}"
+                )
+
+        forbidden_stdout_fragments = (
+            "sql=",
+            "query=",
+            "dataframe=",
+            "active_seed_codes=",
+            "seed_codes=",
+            "sample_rows=",
+        )
+        for fragment in forbidden_stdout_fragments:
+            if fragment in asset_source:
+                issues.append(
+                    "market major indices stdout must not write bulky field: "
+                    f"{fragment}"
+                )
+
+        forbidden_cursor_fragments = (
+            "status_samples",
+            "to_cursor_details(",
+            "active_seed_codes",
+            "partition_metadata",
+        )
+        for fragment in forbidden_cursor_fragments:
+            if fragment in sensor_source:
+                issues.append(
+                    "market major indices cursor must not write report field: "
+                    f"{fragment}"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_asset_definitions_use_asset_tag_and_metadata_helpers(self) -> None:
         issues = []
 

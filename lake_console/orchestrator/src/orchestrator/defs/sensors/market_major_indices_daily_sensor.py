@@ -106,6 +106,79 @@ def _input_sample_keys(
     )[:MAX_STATUS_SAMPLE_COUNT]
 
 
+def _input_blocked_component(
+    status: MarketMajorIndicesInputReadiness,
+) -> str:
+    if status.missing_registered_seed_codes:
+        return "cn_a_index_ts_codes"
+    if status.missing_index_basic_file or status.missing_index_basic_seed_codes:
+        return "silver_index_basic"
+    if status.missing_silver_daily_file or status.missing_silver_daily_seed_codes:
+        return "silver_index_daily"
+    if status.scan_error:
+        return "market_major_indices_inputs"
+    return "market_major_indices_seed"
+
+
+def _summary_and_next_action(
+    *,
+    reason: str,
+    target_trade_date: str | None,
+    selected_trade_date: str | None,
+    reason_code: str,
+    blocked_component: str | None,
+) -> tuple[str, str]:
+    if selected_trade_date:
+        return (
+            f"触发 {selected_trade_date} 主要指数日线 gold 生成。",
+            "等待本次 run 完成；完成后查看 gold_market_major_indices_daily blocking checks。",
+        )
+    if blocked_component == "cn_a_index_trade_days":
+        return (
+            "跳过：指数交易日分区还没有补齐。",
+            "等待 cn_a_index_trade_days 注册缺失交易日后，下一次 sensor tick 会继续检查。",
+        )
+    if blocked_component == "cn_a_index_ts_codes":
+        return (
+            f"跳过：{target_trade_date or '-'} 的主要指数 seed 代码没有全部注册。",
+            "先补齐 cn_a_index_ts_codes dynamic partitions 中缺失的 seed 指数代码。",
+        )
+    if blocked_component == "silver_index_daily":
+        return (
+            f"跳过：{target_trade_date or '-'} 的 silver_index_daily 还没有 ready。",
+            "先修复同日 silver_index_daily 文件或 blocking checks，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "silver_index_basic":
+        return (
+            "跳过：silver_index_basic 还没有 ready 或缺少主要指数 seed 代码。",
+            "先修复 silver_index_basic 文件与 seed 指数覆盖，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "gold_market_major_indices_daily":
+        if reason_code == "all_ready":
+            return (
+                "跳过：最近窗口内主要指数日线 gold 已全部 ready。",
+                "无需处理；等待新的交易日分区或上游变化。",
+            )
+        return (
+            f"跳过：{target_trade_date or '-'} 的主要指数 gold 状态需要人工确认。",
+            "先查看 gold_market_major_indices_daily checks 的失败项，确认后再修复或重跑。",
+        )
+    if blocked_component == "market_major_indices_inputs":
+        return (
+            f"跳过：{target_trade_date or '-'} 的主要指数输入门禁扫描失败。",
+            "先查看 cursor gate_statuses.market_major_indices_inputs 中的 scan_error，再修复输入文件。",
+        )
+    if blocked_component == "market_major_indices_seed":
+        return (
+            f"跳过：{target_trade_date or '-'} 的主要指数 seed/input 门禁未满足。",
+            "先检查主要指数 seed、silver_index_basic 和 silver_index_daily 是否覆盖 active seed。",
+        )
+    return (
+        reason,
+        "按 cursor 的 blocked_component 修复上游状态，或等待下一次 sensor tick。",
+    )
+
+
 def _blocked_count(
     *,
     selected_trade_date: str | None,
@@ -153,9 +226,15 @@ def _cursor_payload(
         sample_keys = (selected_trade_date,)
     reason_code = "request_run" if selected_trade_date else None
     blocked_component = None
+    if reason_code is None and registered_trade_day_count == 0:
+        reason_code = "missing_trade_day_partitions"
+        blocked_component = "cn_a_index_trade_days"
+    if reason_code is None and registered_code_count == 0:
+        reason_code = "missing_index_code_partitions"
+        blocked_component = "cn_a_index_ts_codes"
     if reason_code is None and input_status is not None and not input_status.ready:
         reason_code = input_status.scan_error_code or "major_indices_input_not_ready"
-        blocked_component = "market_major_indices_inputs"
+        blocked_component = _input_blocked_component(input_status)
     if reason_code is None:
         for component, status in (
             ("gold_market_major_indices_daily", gold_status),
@@ -183,6 +262,13 @@ def _cursor_payload(
             blocked_component = "gold_market_major_indices_daily"
     if reason_code is None:
         reason_code = "no_target_trade_date" if target_trade_date is None else "all_ready"
+    summary, next_action = _summary_and_next_action(
+        reason=reason,
+        target_trade_date=target_trade_date,
+        selected_trade_date=selected_trade_date,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -204,12 +290,8 @@ def _cursor_payload(
             partition_set=cn_a_index_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": compact_continuity_frontier(
                     continuity_status,
