@@ -131,6 +131,44 @@ def _continuity_details(
     }
 
 
+def _raw_cursor_summary_and_next_action(
+    *,
+    reason_code: str,
+    selected_trade_date: str | None,
+    target_trade_date: str | None,
+) -> tuple[str, str]:
+    target = selected_trade_date or target_trade_date
+    if selected_trade_date:
+        return (
+            f"已触发：提交 {selected_trade_date} 的复权因子 raw 更新。",
+            "等待本次 raw run 完成；完成后看 raw adj_factor blocking checks 是否通过。",
+        )
+    if reason_code == "run_window_not_started":
+        return (
+            "未触发：复权因子 raw 日常更新窗口尚未到 09:30。",
+            "等待 09:30 后下一次 sensor tick；不要手动绕过源站更新窗口。",
+        )
+    if reason_code == "missing_registered_partition":
+        return (
+            f"未触发：股票当前交易日分区存在缺口，首个缺失日期为 {target}。",
+            "先补齐 cn_a_stock_current_trade_days dynamic partition，再等待下一次 tick。",
+        )
+    if reason_code == "materialized_check_failed":
+        return (
+            f"未触发：{target} 的复权因子 raw 已生成但 blocking checks 未全绿。",
+            "先查看 raw_adj_factor checks metadata，修复文件或源数据后再人工处理。",
+        )
+    if reason_code == "all_ready":
+        return (
+            "未触发：最近窗口内复权因子 raw 分区都已 ready。",
+            "无需处理；等待新增股票当前交易日分区或下一次日常更新。",
+        )
+    return (
+        f"未触发：{target} 的复权因子 raw 还没有 ready。",
+        "按 blocked_component 和 frontier 修复 raw 文件或 blocking checks 后等待下一次 tick。",
+    )
+
+
 def _raw_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -169,6 +207,11 @@ def _raw_sensor_cursor(
         blocked_component = (
             "run_window" if reason_code == "run_window_not_started" else "none"
         )
+    summary, next_action = _raw_cursor_summary_and_next_action(
+        reason_code=reason_code,
+        selected_trade_date=selected_trade_date,
+        target_trade_date=target_trade_date,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -189,12 +232,8 @@ def _raw_sensor_cursor(
             partition_set=cn_a_stock_current_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier=compact_continuity_frontier(
                 continuity_details,
                 selected_trade_date=selected_trade_date,
@@ -204,6 +243,60 @@ def _raw_sensor_cursor(
                 "source_window_started": source_window_started,
             },
         ),
+    )
+
+
+def _silver_cursor_summary_and_next_action(
+    *,
+    reason_code: str,
+    blocked_component: str,
+    selected_trade_date: str | None,
+    target_trade_date: str | None,
+) -> tuple[str, str]:
+    target = selected_trade_date or target_trade_date
+    if selected_trade_date:
+        return (
+            f"已触发：提交 {selected_trade_date} 的复权因子 silver 更新。",
+            "等待本次 silver run 完成；完成后看 silver adj_factor blocking checks 是否通过。",
+        )
+    if reason_code == "run_window_not_started":
+        return (
+            "未触发：复权因子 silver 日常更新窗口尚未到 09:30。",
+            "等待 09:30 后下一次 sensor tick；silver 不会提前越过 raw 日更窗口。",
+        )
+    if reason_code == "missing_registered_partition":
+        return (
+            f"未触发：股票当前交易日分区存在缺口，首个缺失日期为 {target}。",
+            "先补齐 cn_a_stock_current_trade_days dynamic partition，再等待下一次 tick。",
+        )
+    if blocked_component == "raw_adj_factor":
+        return (
+            f"未触发：{target} 的复权因子 raw 还没有 ready，silver 不能继续。",
+            "先修复 raw_adj_factor 的文件或 blocking checks，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "stock_basic":
+        return (
+            "未触发：股票基础信息还没有 ready，复权因子 silver 暂不能生产。",
+            "先修复 stock_basic 的 materialization 或 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "stock_lifecycle":
+        return (
+            "未触发：股票生命周期事实还没有 ready，复权因子 silver 暂不能生产。",
+            "先修复 silver_stock_lifecycle 的 materialization 或 blocking checks，再等待下一次 tick。",
+        )
+    if reason_code == "silver_materialized_check_failed":
+        return (
+            f"未触发：{target} 的复权因子 silver 已生成但 blocking checks 未全绿。",
+            "先查看 silver_adj_factor checks metadata，修复文件后再人工处理。",
+        )
+    if reason_code == "all_ready":
+        return (
+            "未触发：最近窗口内复权因子 silver 分区都已 ready。",
+            "无需处理；下游 qfq 分钟线可继续按 readiness 消费复权因子。",
+        )
+    return (
+        f"未触发：{target} 的复权因子 silver 还没有 ready。",
+        "按 blocked_component 和 gate_statuses 修复上游或 silver checks 后等待下一次 tick。",
     )
 
 
@@ -259,6 +352,12 @@ def _silver_sensor_cursor(
         blocked_component = (
             "run_window" if reason_code == "run_window_not_started" else "none"
         )
+    summary, next_action = _silver_cursor_summary_and_next_action(
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+        selected_trade_date=selected_trade_date,
+        target_trade_date=target_trade_date,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -279,12 +378,8 @@ def _silver_sensor_cursor(
             partition_set=cn_a_stock_current_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "silver": compact_continuity_frontier(
                     continuity_details,

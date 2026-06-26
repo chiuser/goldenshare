@@ -67,7 +67,11 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
             check_scope=CheckScope.FILE_EXISTS,
             file_path=path,
             missing_file_paths=[path],
-            extra_metadata={"missing_file": True},
+            extra_metadata={
+                "summary": "失败：复权因子检查所需的目标文件不存在。",
+                "next_action": "先运行对应 adj_factor update job 生成缺失文件，再重新运行该 asset/check。",
+                "missing_file": True,
+            },
         ),
     )
 
@@ -78,9 +82,35 @@ def _missing_input_file_result(paths: Sequence[Path]) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             missing_file_paths=paths,
-            extra_metadata={"missing_input_file": True},
+            extra_metadata={
+                "summary": "失败：复权因子检查所需的上游输入文件不存在。",
+                "next_action": "先补齐上游基础事实文件，尤其是 silver_stock_lifecycle，再重新运行该 asset/check。",
+                "missing_input_file": True,
+            },
         ),
     )
+
+
+def _next_action_for_failed_adj_factor_rules(
+    failed_rule_names: Sequence[str],
+) -> str:
+    if not failed_rule_names:
+        return "无需处理；等待下游 qfq 分钟线或指标链路按 readiness 消费。"
+
+    failed_rules = set(failed_rule_names)
+    if any("file_exists" in rule or "row_count" in rule for rule in failed_rules):
+        return "先确认对应 raw/silver adj_factor 文件是否已生成且非空，再重新运行 checks。"
+    if any("required_columns" in rule or "schema" in rule for rule in failed_rules):
+        return "先核对复权因子 Parquet schema 与字段类型，修复字段契约后重新运行 checks。"
+    if any("partition_date" in rule for rule in failed_rules):
+        return "先核对文件内 trade_date 是否与分区日期一致，再重新生成该分区。"
+    if any("unique" in rule for rule in failed_rules):
+        return "先处理 ts_code + trade_date 重复键，再重新生成该分区。"
+    if any("positive_factor" in rule for rule in failed_rules):
+        return "先排查 adj_factor 为空或小于等于 0 的源数据行，再重新生成该分区。"
+    if any("listed_stock_only" in rule or "coverage_complete" in rule for rule in failed_rules):
+        return "先核对 silver_stock_lifecycle 与复权因子覆盖范围，修复生命周期或缺失股票后重跑。"
+    return "先查看 failed_rule_names 对应子规则 metadata，修复后等待下一次 sensor tick 或人工重跑。"
 
 
 def _combined_check_result(
@@ -88,14 +118,28 @@ def _combined_check_result(
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
 ) -> dg.AssetCheckResult:
+    rule_summary = [
+        {"rule_name": rule_name, "passed": bool(result.passed)}
+        for rule_name, result in rule_results
+    ]
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
     ]
+    summary = (
+        f"通过：{len(rule_results)} 条复权因子质量规则全部通过。"
+        if not failed_rule_names
+        else f"失败：{len(failed_rule_names)} / {len(rule_results)} 条复权因子质量规则未通过。"
+    )
     return dg.AssetCheckResult(
         passed=not failed_rule_names,
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": summary,
+                "next_action": _next_action_for_failed_adj_factor_rules(
+                    failed_rule_names
+                ),
+                "rule_summary": rule_summary,
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results
@@ -181,7 +225,19 @@ def _stock_current_partition_key_allowed_result(
         passed=bool(status["passed"]),
         metadata=build_check_metadata(
             check_scope=CheckScope.PARTITION_ALIGNMENT,
-            extra_metadata={key: value for key, value in status.items() if key != "passed"},
+            extra_metadata={
+                "summary": (
+                    "通过：复权因子分区日期属于允许的股票当前交易日范围。"
+                    if status["passed"]
+                    else "失败：复权因子分区日期不在允许的股票当前交易日范围。"
+                ),
+                "next_action": (
+                    "无需处理；该分区可以继续参与 adj_factor 更新链路。"
+                    if status["passed"]
+                    else "先确认分区已注册、日期不早于复权因子起点且不晚于今天。"
+                ),
+                **{key: value for key, value in status.items() if key != "passed"},
+            },
         ),
     )
 

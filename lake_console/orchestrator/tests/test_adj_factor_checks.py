@@ -34,6 +34,10 @@ def _check_name(check_definition) -> str:
     return check_definition.node_def.name
 
 
+def _metadata_value(value):  # noqa: ANN001
+    return getattr(value, "value", value)
+
+
 def _sql_string(value: str) -> str:
     return f"{duckdb_string(value)}::VARCHAR"
 
@@ -166,6 +170,49 @@ class AdjFactorCheckTests(unittest.TestCase):
                         result = check_fn(context, lake_root, duckdb_resource)
                     self.assertTrue(result.passed)
 
+    def test_raw_contract_metadata_explains_success_and_failed_rule(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            check_fn = _check_function(checks.raw_adj_factor_contract_check)
+
+            _write_raw_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("000001.SZ", "20260529", 1.1),),
+            )
+            success = check_fn(context, lake_root, duckdb_resource)
+
+            _write_raw_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("000001.SZ", "20260528", 1.1),),
+            )
+            failure = check_fn(context, lake_root, duckdb_resource)
+
+        success_metadata = {
+            key: _metadata_value(value) for key, value in success.metadata.items()
+        }
+        self.assertTrue(success.passed)
+        self.assertIn("通过", success_metadata["goldenshare/summary"])
+        self.assertIn("无需处理", success_metadata["goldenshare/next_action"])
+        self.assertEqual(success_metadata["goldenshare/failed_rule_names"], [])
+        self.assertIsInstance(success_metadata["goldenshare/rule_summary"], list)
+
+        failure_metadata = {
+            key: _metadata_value(value) for key, value in failure.metadata.items()
+        }
+        self.assertFalse(failure.passed)
+        self.assertIn("失败", failure_metadata["goldenshare/summary"])
+        self.assertIn("trade_date", failure_metadata["goldenshare/next_action"])
+        self.assertIn(
+            "raw_adj_factor_partition_date_matches",
+            failure_metadata["goldenshare/failed_rule_names"],
+        )
+        self.assertIsInstance(failure_metadata["goldenshare/failed_rule_names"], list)
+
     def test_raw_adj_factor_checks_catch_bad_rows(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
@@ -277,6 +324,75 @@ class AdjFactorCheckTests(unittest.TestCase):
 
             coverage_check = _check_function(checks.silver_adj_factor_coverage_complete)
             self.assertFalse(coverage_check(context, lake_root, duckdb_resource).passed)
+
+    def test_silver_lifecycle_check_metadata_explains_coverage_gap(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_silver_stock_lifecycle_file(
+                root,
+                (
+                    ("000001.SZ", "CNY", "L", "2020-01-01", None),
+                    ("000002.SZ", "CNY", "L", "2021-01-01", None),
+                ),
+            )
+            _write_silver_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("000001.SZ", TARGET_TRADE_DATE, 1.1),),
+            )
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            check_fn = _check_function(checks.silver_adj_factor_lifecycle_coverage_check)
+
+            result = check_fn(context, lake_root, duckdb_resource)
+
+        self.assertFalse(result.passed)
+        metadata = {key: _metadata_value(value) for key, value in result.metadata.items()}
+        self.assertIn("失败", metadata["goldenshare/summary"])
+        self.assertIn("silver_stock_lifecycle", metadata["goldenshare/next_action"])
+        self.assertIn(
+            "silver_adj_factor_coverage_complete",
+            metadata["goldenshare/failed_rule_names"],
+        )
+        self.assertIsInstance(metadata["goldenshare/rule_summary"], list)
+
+    def test_missing_file_metadata_tells_operator_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            check_fn = _check_function(checks.raw_adj_factor_row_count_positive)
+
+            result = check_fn(context, lake_root, duckdb_resource)
+
+        self.assertFalse(result.passed)
+        metadata = {key: _metadata_value(value) for key, value in result.metadata.items()}
+        self.assertIn("文件不存在", metadata["goldenshare/summary"])
+        self.assertIn("adj_factor update job", metadata["goldenshare/next_action"])
+        self.assertTrue(metadata["goldenshare/missing_file"])
+
+    def test_missing_lifecycle_input_metadata_tells_operator_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_silver_adj_factor_file(
+                root,
+                TARGET_TRADE_DATE,
+                (("000001.SZ", TARGET_TRADE_DATE, 1.1),),
+            )
+            context = _PartitionContext(TARGET_TRADE_DATE)
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            check_fn = _check_function(checks.silver_adj_factor_listed_stock_only)
+
+            result = check_fn(context, lake_root, duckdb_resource)
+
+        self.assertFalse(result.passed)
+        metadata = {key: _metadata_value(value) for key, value in result.metadata.items()}
+        self.assertIn("上游输入文件不存在", metadata["goldenshare/summary"])
+        self.assertIn("silver_stock_lifecycle", metadata["goldenshare/next_action"])
+        self.assertTrue(metadata["goldenshare/missing_input_file"])
 
     def test_silver_adj_factor_unique_check_catches_duplicates(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

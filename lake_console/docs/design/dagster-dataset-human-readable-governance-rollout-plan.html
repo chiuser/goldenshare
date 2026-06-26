@@ -455,8 +455,8 @@
       </tr>
       <tr>
         <td><code>adj_factor</code></td>
-        <td>说明复权因子 raw/silver 对后续 qfq 分钟线和指标的影响；cursor 要能一眼看出是 stock_basic、raw、silver 还是源站阻断。</td>
-        <td>不能改变当前 freshness 和 readiness 语义；不要新增按 code 的碎 check。</td>
+        <td>Wave 2B 已完成：raw/silver description、stdout、materialization metadata、check metadata 和 cursor 已能说明复权因子对 qfq 分钟线和指标链路的影响；cursor 可直接看出是 stock_basic、stock_lifecycle、raw、silver 还是运行窗口阻断。</td>
+        <td>已保持当前 freshness、readiness、运行窗口和 batch 选择语义；未新增按 code 的碎 check。</td>
       </tr>
       <tr>
         <td><code>index_daily</code></td>
@@ -624,8 +624,9 @@
         <td>Wave 2</td>
         <td>日频行情 Raw/Silver</td>
         <td>
-          LLD 已完成；<code>suspend_d</code> 已作为 Wave 2A 落地到代码、测试和静态门禁。
-          <code>adj_factor</code>、<code>index_daily</code> 待后续分步实现。
+          LLD 已完成；<code>suspend_d</code> 已作为 Wave 2A 落地到代码、测试和静态门禁；
+          <code>adj_factor</code> 已作为 Wave 2B 落地到代码、测试和静态门禁。
+          <code>index_daily</code> 待后续分步实现。
         </td>
         <td>
           代码级 LLD 已落到 <code>dagster-daily-raw-silver-human-readable-governance-low-level-design.html</code>；

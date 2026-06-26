@@ -476,6 +476,16 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         batch_readiness.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor_payload["target_date"], "2026-06-04")
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "missing_registered_partition",
+        )
+        self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "cn_a_stock_current_trade_days",
+        )
+        self.assertIn("分区存在缺口", cursor_payload["details"]["summary"])
+        self.assertIn("cn_a_stock_current_trade_days", cursor_payload["details"]["next_action"])
 
     def test_raw_sensor_waits_until_source_window(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -490,6 +500,14 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("09:30", result.skip_reason.skip_message)
         batch_readiness.assert_not_called()
+        cursor_payload = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "run_window_not_started",
+        )
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "run_window")
+        self.assertIn("09:30", cursor_payload["details"]["summary"])
+        self.assertIn("等待 09:30", cursor_payload["details"]["next_action"])
 
     def test_raw_sensor_submits_run_when_raw_missing(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -510,6 +528,15 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(request.partition_key, "2026-06-05")
         self.assertEqual(request.run_key, "raw_adj_factor_update:2026-06-05")
         self.assertEqual(request.run_config, {})
+        cursor_payload = load_sensor_cursor(result.cursor)
+        cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
+        self.assertLess(len(cursor_text), 2000)
+        self.assertEqual(cursor_payload["details"]["reason_code"], "request_run")
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "none")
+        self.assertIn("已触发", cursor_payload["details"]["summary"])
+        self.assertIn("raw adj_factor blocking checks", cursor_payload["details"]["next_action"])
+        self.assertNotIn("status_samples", cursor_text)
+        self.assertNotIn("raw_batch_status", cursor_text)
 
     def test_raw_sensor_does_not_rerun_materialized_partition(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -527,6 +554,32 @@ class AdjFactorM4ContractTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("不自动重跑", result.skip_reason.skip_message)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "materialized_check_failed",
+        )
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "raw_adj_factor")
+        self.assertIn("blocking checks 未全绿", cursor_payload["details"]["summary"])
+        self.assertIn("raw_adj_factor checks", cursor_payload["details"]["next_action"])
+
+    def test_raw_sensor_cursor_explains_all_ready(self) -> None:
+        context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
+        with patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_adj_factor_sensor.batch_raw_adj_factor_lake_readiness",
+            return_value=_batch_status(ready_dates=ADJ_FACTOR_REGISTERED_DAYS),
+        ):
+            result = _raw_sensor_result(context)
+
+        self.assertEqual(result.run_requests, [])
+        cursor_payload = load_sensor_cursor(result.cursor)
+        self.assertEqual(cursor_payload["details"]["reason_code"], "all_ready")
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "none")
+        self.assertIn("都已 ready", cursor_payload["details"]["summary"])
+        self.assertIn("无需处理", cursor_payload["details"]["next_action"])
 
     def test_raw_and_silver_run_request_contracts(self) -> None:
         raw_request = _raw_run_request_for_trade_date("2026-06-05")
@@ -580,8 +633,15 @@ class AdjFactorM4ContractTests(unittest.TestCase):
                         result.skip_reason.skip_message,
                     )
                 cursor_payload = load_sensor_cursor(result.cursor)
-                details = cursor_payload["details"]["gate_statuses"]
-                self.assertFalse(details["raw_tushare_adj_factor"]["ready"])
+                details = cursor_payload["details"]
+                cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
+                self.assertLess(len(cursor_text), 3000)
+                self.assertEqual(details["blocked_component"], "raw_adj_factor")
+                self.assertIn("raw 还没有 ready", details["summary"])
+                self.assertIn("raw_adj_factor", details["next_action"])
+                self.assertFalse(details["gate_statuses"]["raw_tushare_adj_factor"]["ready"])
+                self.assertNotIn("raw_batch_status", cursor_text)
+                self.assertNotIn("silver_batch_status", cursor_text)
 
     def test_silver_sensor_skips_when_stock_basic_not_ready(self) -> None:
         context = _FakeContext(partitions=ADJ_FACTOR_REGISTERED_DAYS)
@@ -616,6 +676,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             "stock_basic_not_ready",
         )
         self.assertEqual(cursor_payload["details"]["blocked_component"], "stock_basic")
+        self.assertIn("股票基础信息", cursor_payload["details"]["summary"])
+        self.assertIn("stock_basic", cursor_payload["details"]["next_action"])
         self.assertFalse(
             cursor_payload["details"]["evidence"]["stock_basic_freshness_required"]
         )
@@ -660,6 +722,12 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             "stock_lifecycle"
         ]
         self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "stock_lifecycle",
+        )
+        self.assertIn("生命周期事实", cursor_payload["details"]["summary"])
+        self.assertIn("silver_stock_lifecycle", cursor_payload["details"]["next_action"])
+        self.assertEqual(
             stock_lifecycle_payload["asset_key"],
             "silver_stock_lifecycle",
         )
@@ -699,6 +767,12 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(request.partition_key, "2026-06-05")
         self.assertEqual(request.run_key, "silver_adj_factor_update:2026-06-05")
         cursor_payload = load_sensor_cursor(result.cursor)
+        cursor_text = json.dumps(cursor_payload, ensure_ascii=False)
+        self.assertLess(len(cursor_text), 3000)
+        self.assertEqual(cursor_payload["details"]["reason_code"], "request_run")
+        self.assertEqual(cursor_payload["details"]["blocked_component"], "none")
+        self.assertIn("已触发", cursor_payload["details"]["summary"])
+        self.assertIn("silver adj_factor blocking checks", cursor_payload["details"]["next_action"])
         self.assertFalse(
             cursor_payload["details"]["evidence"]["stock_basic_freshness_required"]
         )
@@ -730,6 +804,17 @@ class AdjFactorM4ContractTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("不自动重跑", result.skip_reason.skip_message)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        self.assertEqual(
+            cursor_payload["details"]["reason_code"],
+            "silver_materialized_check_failed",
+        )
+        self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "silver_adj_factor",
+        )
+        self.assertIn("blocking checks 未全绿", cursor_payload["details"]["summary"])
+        self.assertIn("silver_adj_factor checks", cursor_payload["details"]["next_action"])
 
     def test_legacy_silver_sensor_cases_removed(self) -> None:
         sensor_source = Path(adj_factor_sensor_module.__file__).read_text()

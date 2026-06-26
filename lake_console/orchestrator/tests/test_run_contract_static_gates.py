@@ -2240,6 +2240,94 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_adj_factor_human_readable_governance_stays_compact(self) -> None:
+        asset_path = ASSETS_DIR / "adj_factor.py"
+        sensor_path = SENSORS_DIR / "stock_adj_factor_sensor.py"
+        check_path = CHECKS_DIR / "adj_factor_checks.py"
+        asset_tree = _parse_python_file(asset_path)
+        raw_cursor_source = _function_source(sensor_path, "_raw_sensor_cursor")
+        silver_cursor_source = _function_source(sensor_path, "_silver_sensor_cursor")
+        combined_check_source = _function_source(check_path, "_combined_check_result")
+        missing_file_source = _function_source(check_path, "_missing_file_result")
+        missing_input_source = _function_source(
+            check_path,
+            "_missing_input_file_result",
+        )
+        partition_allowed_source = _function_source(
+            check_path,
+            "_stock_current_partition_key_allowed_result",
+        )
+        issues = []
+
+        forbidden_cursor_fragments = (
+            "to_cursor_details()",
+            ".to_cursor_details(",
+            '"status_samples":',
+            '"readiness_details":',
+            '"raw_batch_status":',
+            '"silver_batch_status":',
+            '"gate_statuses_by_trade_date":',
+        )
+        for cursor_source in (raw_cursor_source, silver_cursor_source):
+            issues.extend(
+                f"{sensor_path} writes oversized adj_factor cursor fragment: {fragment}"
+                for fragment in forbidden_cursor_fragments
+                if fragment in cursor_source
+            )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "ts_codes",
+            "missing_codes",
+            "sample_rows",
+            "conflict_sample_rows",
+            "duplicate_sample_rows",
+            "invalid_sample_rows",
+            "missing_code_samples",
+            "unexpected_code_samples",
+        }
+        for node in ast.walk(asset_tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Attribute) or node.func.attr != "stdout":
+                continue
+            keyword_names = {keyword.arg for keyword in node.keywords if keyword.arg}
+            forbidden = sorted(keyword_names & forbidden_stdout_fields)
+            if forbidden:
+                issues.append(
+                    f"{_node_location(asset_path, node)} adj_factor stdout writes "
+                    f"forbidden fields {forbidden}"
+                )
+
+        for required_fragment in (
+            "failed_rule_names",
+            "rule_summary",
+            "summary",
+            "next_action",
+        ):
+            if required_fragment not in combined_check_source:
+                issues.append(
+                    "adj_factor combined check must keep human-readable metadata "
+                    f"and stable failed rules: {required_fragment}"
+                )
+
+        for source_name, source in (
+            ("missing file", missing_file_source),
+            ("missing input file", missing_input_source),
+            ("partition allowed", partition_allowed_source),
+        ):
+            for required_fragment in ("summary", "next_action"):
+                if required_fragment not in source:
+                    issues.append(
+                        f"adj_factor {source_name} metadata must stay readable: "
+                        f"{required_fragment}"
+                    )
+
+        self.assertEqual(issues, [])
+
     def test_basic_facts_human_readable_governance_stays_compact(self) -> None:
         asset_paths = (
             ASSETS_DIR / "calendar.py",

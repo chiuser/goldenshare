@@ -1,6 +1,7 @@
 import os
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import dagster as dg
 
@@ -40,6 +41,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 ADJ_FACTOR_COLUMNS = tuple(column.name for column in SILVER_ADJ_FACTOR_SCHEMA)
@@ -102,6 +104,28 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 
     connection.execute(copy_query_to_parquet(select_sql, temporary_path))
     os.replace(temporary_path, target_path)
+
+
+def _human_materialization_metadata(
+    *,
+    summary: str,
+    next_action: str,
+    result_status: str,
+    input_summary: dict[str, Any] | None = None,
+    filter_summary: dict[str, Any] | None = None,
+    diagnostic_ref: str,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "goldenshare/summary": summary,
+        "goldenshare/next_action": next_action,
+        "goldenshare/result_status": result_status,
+        "goldenshare/diagnostic_ref": diagnostic_ref,
+    }
+    if input_summary:
+        metadata["goldenshare/input_summary"] = input_summary
+    if filter_summary:
+        metadata["goldenshare/filter_summary"] = filter_summary
+    return metadata
 
 
 def _silver_filter_counts(
@@ -214,7 +238,7 @@ def write_silver_adj_factor_partition(
             ),
         },
     ),
-    description="Tushare 复权因子原始数据。",
+    description="Tushare 复权因子 raw 源镜像，按股票当前交易日保存后续 qfq 计算所需复权因子。",
 )
 def raw_tushare_adj_factor(
     context: dg.AssetExecutionContext,
@@ -224,6 +248,13 @@ def raw_tushare_adj_factor(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    target_path = raw_adj_factor_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("adj_factor")
+    log.stdout(
+        "raw_adj_factor_started",
+        partition_key=partition_key,
+        allow_empty=False,
+    )
     metadata = fetch_tushare_partition_to_raw(
         tushare=tushare,
         duckdb=duckdb,
@@ -231,9 +262,29 @@ def raw_tushare_adj_factor(
         api_params={"trade_date": partition_key.replace("-", "")},
         fields=ADJ_FACTOR_RAW_REQUIRED_COLUMNS,
         column_types=ADJ_FACTOR_RAW_COLUMN_TYPES,
-        target_path=raw_adj_factor_path(lake_root.root(), partition_key),
+        target_path=target_path,
         partition_key=partition_key,
         allow_empty=False,
+    )
+    metadata.update(
+        _human_materialization_metadata(
+            summary="已写入复权因子 raw 源镜像分区。",
+            next_action="等待 raw blocking checks 全部通过；通过后 silver_adj_factor 才能消费。",
+            result_status="written",
+            input_summary={
+                "source": "Tushare adj_factor",
+                "partition_key": partition_key,
+                "allow_empty": False,
+                "target_path_exists": target_path.exists(),
+            },
+            diagnostic_ref="完整诊断看 raw adj_factor checks、materialization metadata 和 run stdout。",
+        )
+    )
+    log.stdout(
+        "raw_adj_factor_completed",
+        partition_key=partition_key,
+        output_row_count=metadata.get("dagster/row_count"),
+        page_count=metadata.get("goldenshare/page_count"),
     )
 
     return dg.MaterializeResult(metadata=metadata)
@@ -268,7 +319,7 @@ def raw_tushare_adj_factor(
             ),
         },
     ),
-    description="复权因子标准表，按历史股票生命周期过滤。",
+    description="复权因子 silver 标准事实，按股票生命周期过滤后供 qfq 分钟线和相关指标计算使用。",
 )
 def silver_adj_factor(
     context: dg.AssetExecutionContext,
@@ -277,11 +328,48 @@ def silver_adj_factor(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    log = DgStdoutLogger("adj_factor")
+    log.stdout(
+        "silver_adj_factor_started",
+        partition_key=partition_key,
+    )
     write_result = write_silver_adj_factor_partition(
         lake_root=lake_root.root(),
         duckdb=duckdb,
         partition_key=partition_key,
         overwrite=True,
+    )
+    extra_metadata = {
+        **_human_materialization_metadata(
+            summary="已写入复权因子 silver 标准事实分区。",
+            next_action="等待 silver blocking checks 全部通过；通过后 qfq 分钟线和指标链路可以消费复权因子。",
+            result_status="written",
+            input_summary={
+                "source_asset": "raw_tushare_adj_factor",
+                "supporting_asset": "silver_stock_lifecycle",
+                "partition_key": partition_key,
+                "raw_file_exists": write_result.raw_file_path.exists(),
+                "stock_lifecycle_file_exists": (
+                    write_result.stock_lifecycle_file_path.exists()
+                ),
+            },
+            filter_summary={
+                "source_row_count": write_result.source_row_count,
+                "lifecycle_stock_count": write_result.lifecycle_stock_count,
+                "selected_row_count": write_result.selected_row_count,
+                "rejected_row_count": write_result.rejected_row_count,
+                "output_row_count": write_result.row_count,
+            },
+            diagnostic_ref="完整诊断看 silver adj_factor checks、过滤统计 metadata 和 run stdout。",
+        ),
+        **write_result.materialization_extra_metadata(partition_key),
+    }
+    log.stdout(
+        "silver_adj_factor_completed",
+        partition_key=partition_key,
+        output_row_count=write_result.row_count,
+        selected_row_count=write_result.selected_row_count,
+        rejected_row_count=write_result.rejected_row_count,
     )
 
     return dg.MaterializeResult(
@@ -289,6 +377,6 @@ def silver_adj_factor(
             uri=write_result.silver_file_path,
             row_count=write_result.row_count,
             observed_columns=write_result.observed_columns,
-            extra_metadata=write_result.materialization_extra_metadata(partition_key),
+            extra_metadata=extra_metadata,
         )
     )

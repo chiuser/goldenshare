@@ -132,8 +132,8 @@
       <span class="tag">分资产族推进</span>
     </p>
     <p class="small">
-      当前状态：Wave 2A <code>suspend_d</code> 已落地到代码、测试和静态门禁；
-      <code>adj_factor</code> 与 <code>index_daily</code> 仍待后续分步实现。
+      当前状态：Wave 2A <code>suspend_d</code> 与 Wave 2B <code>adj_factor</code>
+      已落地到代码、测试和静态门禁；<code>index_daily</code> 仍待后续分步实现。
     </p>
   </header>
 
@@ -282,8 +282,9 @@
           Silver sensor 同时看 raw batch 和 silver batch，不能越过 raw 阻断。
         </td>
         <td>
-          Asset description 和 materialization metadata 可读性不足；checks 的 combined metadata 缺少 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>；
-          sensor cursor 已使用统一 contract，但需要更稳定的中文阻断表达和长度门禁。
+          Wave 2B 已补齐 raw/silver description、阶段 stdout、materialization metadata、
+          combined check <code>summary</code>/<code>next_action</code>/<code>rule_summary</code>、
+          缺文件/缺上游输入中文修复提示，以及 raw/silver sensor cursor 的中文阻断表达和长度门禁。
         </td>
       </tr>
       <tr>
@@ -354,7 +355,10 @@
           补充 raw/silver description；引入 <code>DgStdoutLogger("adj_factor")</code> 记录
           <code>raw_adj_factor_started</code>、<code>raw_adj_factor_completed</code>、
           <code>silver_adj_factor_started</code>、<code>silver_adj_factor_completed</code>。
-          Silver metadata 把 source row、lifecycle stock、selected/rejected rows 包装成一句人能读懂的 <code>filter_summary</code>。
+          Wave 2B 已落地：metadata 追加 <code>summary</code>、<code>next_action</code>、
+          <code>result_status</code>、<code>input_summary</code>、<code>filter_summary</code>、
+          <code>diagnostic_ref</code>；silver metadata 把 source row、lifecycle stock、
+          selected/rejected rows 包装成可读的过滤摘要。
         </td>
       </tr>
       <tr>
@@ -399,7 +403,8 @@
         <td>
           <code>_combined_check_result(...)</code> 增加人类可读字段；
           raw/silver 缺文件、日期错、重复键、复权因子非正、生命周期覆盖缺口要能通过 <code>summary</code>
-          和 <code>next_action</code> 看出修复方向。
+          和 <code>next_action</code> 看出修复方向。Wave 2B 已落地，并保留 list 类型
+          <code>failed_rule_names</code> 与原有样本上限。
         </td>
         <td>现有 raw/silver business contract、coverage、listed-stock-only 语义和样本上限。</td>
       </tr>
@@ -454,6 +459,8 @@
           Cursor 的 <code>blocked_component</code> 固定为 <code>run_window</code>、
           <code>cn_a_stock_current_trade_days</code>、<code>raw_adj_factor</code> 或 <code>none</code>；
           <code>frontier</code> 使用 compact frontier，只保留 ready through、first not ready、elapsed/scanned count。
+          Wave 2B 已补齐 request、注册缺口、窗口未开始、check failed 和 all ready 的中文
+          <code>summary</code>/<code>next_action</code>。
         </td>
         <td>不改 window 常量；不写 <code>raw_batch_status.to_cursor_details()</code> 或 status samples。</td>
       </tr>
@@ -463,6 +470,7 @@
           保持 raw batch 与 silver batch 的分层短路。
           Cursor 要明确是 raw 阻断、silver check failed、all ready 还是 request run；
           <code>gate_statuses</code> 只放目标日期 raw/silver compact 状态。
+          Wave 2B 已补齐 raw 阻断、stock_basic 阻断、stock_lifecycle 阻断、request 和 check failed 的中文表达。
         </td>
         <td>不越过 raw 阻断；不把两个 batch status 完整写入 cursor。</td>
       </tr>
@@ -540,12 +548,14 @@
         <td><code>tests/test_adj_factor_checks.py</code></td>
         <td>
           Raw/silver business contract metadata 有人类可读摘要；失败样本不扩大；<code>failed_rule_names</code> 是 list。
+          Wave 2B 已覆盖通过、日期错、生命周期覆盖缺口、缺目标文件和缺上游输入文件场景。
         </td>
       </tr>
       <tr>
         <td>新增 <code>tests/test_adj_factor_human_readable_contracts.py</code></td>
         <td>
-          Asset description、stdout 事件名、materialization metadata helper、sensor cursor 长度和禁写字段。
+          Asset description、stdout 事件名、materialization metadata helper。Sensor cursor 长度和禁写字段由
+          <code>tests/test_adj_factor_m4_contracts.py</code> 与静态门禁共同覆盖。
         </td>
       </tr>
       <tr>
@@ -589,6 +599,7 @@ uv run python -m unittest \
   tests.test_suspend_d_checks \
   tests.test_adj_factor_checks \
   tests.test_adj_factor_contracts \
+  tests.test_adj_factor_m4_contracts \
   tests.test_adj_factor_human_readable_contracts \
   tests.test_raw_index_daily_update_job_sensor \
   tests.test_silver_index_daily_sensor \
@@ -610,8 +621,8 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <h2>8. 执行步骤</h2>
     <ol>
       <li><code>suspend_d</code> 表达层已实现：description、stdout、metadata、check metadata、cursor 文案与测试均已落地。</li>
-      <li>再实现 <code>adj_factor</code> 表达层：保持 batch readiness 与 sensor 选择逻辑不变，只改 cursor/metadata/stdout。</li>
-      <li>最后实现 <code>index_daily</code> 表达层：重点补 check metadata 摘要和 silver sensor cursor 防回退。</li>
+      <li><code>adj_factor</code> 表达层已实现：保持 batch readiness 与 sensor 选择逻辑不变，只改 cursor/metadata/stdout/check metadata 表达。</li>
+      <li>下一步实现 <code>index_daily</code> 表达层：重点补 check metadata 摘要和 silver sensor cursor 防回退。</li>
       <li>同步本 LLD 的“当前状态”和 rollout 文档；如果代码实现与本文有冲突，先停下更新 LLD，不直接改代码绕过。</li>
       <li>提交代码与文档，提交范围只包含 Wave 2 文件，不混入其它未提交文档。</li>
     </ol>
