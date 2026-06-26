@@ -311,12 +311,14 @@
   <section>
     <h2>6. 分子波实施计划</h2>
     <p>
-      当前状态：Wave 4A 与 Wave 4B 已完成。<code>raw_stk_mins</code> /
+      当前状态：Wave 4A、Wave 4B 与 Wave 4C 已完成。<code>raw_stk_mins</code> /
       <code>silver_stk_mins</code> 已补充人类可读 stdout、materialization metadata、
       聚合 check metadata 和 raw/silver sensor cursor 文案；<code>gold_stk_mins_qfq</code>
-      native/derived asset、checks、qfq daily sensor 和 qfq factor repair sensor 也已完成同类治理。
+      native/derived asset、checks、qfq daily sensor 和 qfq factor repair sensor 也已完成同类治理；
+      <code>gold_stk_mins_qfq_macd_kdj</code> indicator/state daily 已补齐 stdout、
+      materialization metadata、check metadata 与 run-status SkipReason 文案。
       已保持分钟线写入 SQL、文件路径、job selection、run key、partition、触发顺序、
-      repair runtime state 和数据湖内容不变。后续从 Wave 4C MACD/KDJ daily 继续推进。
+      repair runtime state 和数据湖内容不变。后续从 Wave 4D MACD/KDJ scoped repair 继续推进。
     </p>
     <table>
       <thead>
@@ -357,12 +359,12 @@
         <td>MACD/KDJ indicator/state daily</td>
         <td>
           <ul>
-            <li><code>assets/stk_mins_qfq_macd_kdj.py</code>：indicator/state materialization metadata 增加 source qfq、previous state、output file/row count、下一步。</li>
-            <li><code>checks/stk_mins_qfq_macd_kdj_checks.py</code>：indicator/source/formula/state checks 增加 summary/next_action/rule_summary，保留 sample limit。</li>
-            <li><code>sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code>：只优化 SkipReason 文案和 decision reason，不新增 cursor。</li>
+            <li>已完成：<code>assets/stk_mins_qfq_macd_kdj.py</code> 的 indicator/state materialization metadata 增加 source qfq、previous state、output file/row count、下一步，并补充小型 stdout 里程碑。</li>
+            <li>已完成：<code>checks/stk_mins_qfq_macd_kdj_checks.py</code> 的 indicator/source/formula/state checks 增加 summary/next_action/rule_summary，保留 sample limit。</li>
+            <li>已完成：<code>sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code> 只优化 SkipReason 文案和 decision reason，不新增 cursor。</li>
           </ul>
         </td>
-        <td>MACD/KDJ asset/check/sensor 现有测试 + Dagster metadata 类型测试，防止 tuple 等不可序列化值回流。</td>
+        <td>已补充 MACD/KDJ asset/check/sensor 现有测试 + Dagster metadata 类型测试，防止 tuple 等不可序列化值回流。</td>
       </tr>
       <tr>
         <td>Wave 4D</td>
@@ -466,7 +468,7 @@ git diff --check</code></pre>
       <li>当前代码已经有 compact cursor 基础，Wave 4 实现时不得回退到报告型 cursor。</li>
       <li>当前 check 已聚合，Wave 4 不新增 check，只补 metadata 人话字段。</li>
       <li>当前 catalog 已登记全部分钟线 raw/silver/qfq/indicator/state active entries，Wave 4 不改 catalog 身份事实。</li>
-      <li>当前无专门的 Wave 4 人类可读治理 LLD，本文补齐该前置门禁；后续才能进入 4A 代码实现。</li>
+      <li>Wave 4 LLD 已作为当前专项前置门禁；Wave 4A raw/silver、Wave 4B qfq、Wave 4C MACD/KDJ daily 已完成，后续继续 Wave 4D repair 与最终对账。</li>
     </ul>
   </section>
 </main>

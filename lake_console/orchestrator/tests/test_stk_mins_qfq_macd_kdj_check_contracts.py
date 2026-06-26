@@ -31,6 +31,29 @@ def _macd_kdj_asset_keys() -> set:
     }
 
 
+def _metadata_value(metadata: dict, key: str):  # noqa: ANN001
+    value = metadata[f"goldenshare/{key}"]
+    for attribute in ("value", "text", "data"):
+        if hasattr(value, attribute):
+            return getattr(value, attribute)
+    return value
+
+
+def _assert_no_tuple_values(value) -> None:  # noqa: ANN001
+    for attribute in ("value", "text", "data"):
+        if hasattr(value, attribute):
+            _assert_no_tuple_values(getattr(value, attribute))
+            return
+    if isinstance(value, tuple):
+        raise AssertionError(f"metadata contains tuple value: {value!r}")
+    if isinstance(value, dict):
+        for child in value.values():
+            _assert_no_tuple_values(child)
+    if isinstance(value, list):
+        for child in value:
+            _assert_no_tuple_values(child)
+
+
 class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
     def test_macd_kdj_indicator_and_state_checks_are_partitioned(self) -> None:
         for freq in (1, 5, 15, 30, 60, 90, 120):
@@ -113,6 +136,13 @@ class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
 
         self.assertFalse(result.passed)
         self.assertIn("goldenshare/failed_rule_names", result.metadata)
+        self.assertIn("MACD/KDJ source 覆盖", _metadata_value(result.metadata, "summary"))
+        self.assertIn("qfq source", _metadata_value(result.metadata, "next_action"))
+        self.assertEqual(
+            _metadata_value(result.metadata, "failed_rule_names"),
+            [checks.GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK],
+        )
+        _assert_no_tuple_values(result.metadata)
 
     def test_source_coverage_missing_indicator_metadata_is_dagster_compatible(
         self,
@@ -141,6 +171,25 @@ class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
 
         self.assertFalse(result.passed)
         self.assertIn("goldenshare/failed_rule_names", result.metadata)
+        self.assertIn("检查失败", _metadata_value(result.metadata, "summary"))
+        self.assertIn("indicator 文件", _metadata_value(result.metadata, "next_action"))
+        rule_summary = _metadata_value(result.metadata, "rule_summary")
+        self.assertEqual(
+            rule_summary,
+            [
+                {
+                    "rule_name": checks.GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+                    "passed": True,
+                },
+                {
+                    "rule_name": (
+                        checks.GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK
+                    ),
+                    "passed": False,
+                },
+            ],
+        )
+        _assert_no_tuple_values(result.metadata)
 
     def test_source_coverage_count_mismatch_metadata_is_dagster_compatible(
         self,
@@ -184,6 +233,52 @@ class StkMinsQfqMacdKdjCheckContractTests(unittest.TestCase):
 
         self.assertFalse(result.passed)
         self.assertIn("goldenshare/failed_rule_names", result.metadata)
+        self.assertIn("source 覆盖", _metadata_value(result.metadata, "summary"))
+        self.assertIn("goldenshare/source_row_count", result.metadata)
+        _assert_no_tuple_values(result.metadata)
+
+    def test_formula_check_readable_metadata_is_dagster_compatible(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            indicator_path = Path(temp_dir) / "indicator.parquet"
+            _write_parquet(
+                indicator_path,
+                """
+                SELECT
+                  '000001.SZ' AS ts_code,
+                  1 AS freq,
+                  DATE '2026-06-24' AS trade_date,
+                  TIMESTAMP '2026-06-24 10:00:00' AS trade_time,
+                  1.0 AS macd_dif_qfq,
+                  0.5 AS macd_dea_qfq,
+                  99.0 AS macd_qfq,
+                  1.0 AS kdj_k_qfq,
+                  0.5 AS kdj_d_qfq,
+                  99.0 AS kdj_qfq
+                """,
+            )
+            with patch.object(
+                checks,
+                "discover_gold_stk_mins_qfq_source_year_paths",
+                return_value=(indicator_path,),
+            ), patch.object(
+                checks,
+                "_indicator_expected_paths",
+                return_value=(indicator_path,),
+            ):
+                result = checks._indicator_formula_result(
+                    lake_root=Path(temp_dir),
+                    freq=1,
+                    partition_key="2026-06-24",
+                )
+
+        self.assertFalse(result.passed)
+        self.assertIn("公式抽样", _metadata_value(result.metadata, "summary"))
+        self.assertIn("goldenshare/failure_samples", result.metadata)
+        self.assertEqual(
+            _metadata_value(result.metadata, "failed_rule_names"),
+            [checks.GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK],
+        )
+        _assert_no_tuple_values(result.metadata)
 
 
 if __name__ == "__main__":

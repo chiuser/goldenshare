@@ -511,13 +511,13 @@
       </tr>
       <tr>
         <td><code>stk_mins_qfq_macd_kdj</code></td>
-        <td>说明指标产物与 qfq 输入的关系；check metadata 用“规则摘要 + failed_rule_names + 少量样本”表达 source coverage、state coverage、schema/key 等问题。</td>
-        <td>已经出现过 metadata tuple 类型错误，治理时要保证 metadata 值都是 Dagster 可序列化类型。</td>
+        <td>Wave 4C 已完成：indicator materialization metadata 已说明 qfq source、previous state、输出文件/行数和下一步；check metadata 已用 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>、<code>failed_rule_names</code> 表达 source coverage、公式抽样和 schema 问题；daily run-status SkipReason 会直接说明下一步。</td>
+        <td>已保持 MACD/KDJ 参数、计算 SQL、expected calendar、previous state gate、job selection、run key、触发顺序和 check 数量不变；metadata 值已用测试防止 tuple 等不可序列化值回流。</td>
       </tr>
       <tr>
         <td><code>stk_mins_qfq_macd_kdj_state</code></td>
-        <td>说明 state 是为了跨日指标连续性服务；metadata 要有人能看懂的“承接了哪天、输出到哪天、哪些代码缺状态”。</td>
-        <td>不要把 state 文件内容或每个 code 的状态明细塞进 Dagster 事件。</td>
+        <td>Wave 4C 已完成：state materialization metadata 已说明承接的 previous state、是否首日初始化、state 行数和下一 expected 交易日用途；state checks metadata 已说明文件契约和最新覆盖失败时该修什么。</td>
+        <td>已保持 state 文件内容和每个 code 的递推明细不进入 Dagster event；stdout 只记录 freq、partition、state 行数和 previous state 摘要。</td>
       </tr>
       </tbody>
     </table>
@@ -655,8 +655,8 @@
           体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。
           代码级 LLD 已补齐到
           <code>dagster-stk-mins-human-readable-governance-low-level-design.html</code>；
-          Wave 4A raw/silver 与 Wave 4B qfq 已完成，后续按
-          Wave 4C MACD/KDJ daily、Wave 4D repair 与最终对账分子波推进。
+          Wave 4A raw/silver、Wave 4B qfq 与 Wave 4C MACD/KDJ daily 已完成，后续按
+          Wave 4D repair 与最终对账分子波推进。
         </td>
         <td>
           高频链路 cursor 保持小而清楚，stdout 和 metadata 只放聚合事实；

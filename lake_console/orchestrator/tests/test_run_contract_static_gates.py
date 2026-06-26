@@ -563,6 +563,61 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_macd_kdj_human_readable_governance_stays_compact(
+        self,
+    ) -> None:
+        asset_source = (ASSETS_DIR / "stk_mins_qfq_macd_kdj.py").read_text()
+        check_source = (CHECKS_DIR / "stk_mins_qfq_macd_kdj_checks.py").read_text()
+        daily_sensor_source = (
+            SENSORS_DIR / "gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py"
+        ).read_text()
+        issues = []
+
+        for fragment in (
+            "gold_stk_mins_qfq_macd_kdj_started",
+            "gold_stk_mins_qfq_macd_kdj_indicator_completed",
+            "gold_stk_mins_qfq_macd_kdj_state_completed",
+            "_macd_kdj_indicator_human_metadata",
+            "_macd_kdj_state_human_metadata",
+            "previous_state_ready",
+            "initialized_without_previous_state",
+        ):
+            if fragment not in asset_source:
+                issues.append(f"MACD/KDJ asset misses readable fragment: {fragment}")
+
+        for fragment in (
+            "_readable_check_metadata",
+            "MACD/KDJ source 覆盖",
+            "MACD/KDJ state 最新覆盖",
+            "rule_summary",
+            "failed_rule_names",
+            "next_action",
+        ):
+            if fragment not in check_source:
+                issues.append(f"MACD/KDJ check misses readable fragment: {fragment}")
+
+        for fragment in (
+            "next_action",
+            "下一步：",
+            "qfq factor repair",
+            "上一 expected 交易日",
+            "MACD/KDJ indicator/state",
+        ):
+            if fragment not in daily_sensor_source:
+                issues.append(f"MACD/KDJ daily sensor misses readable fragment: {fragment}")
+
+        for fragment in (
+            "cursor=",
+            "status_samples",
+            "to_cursor_details()",
+            "readiness_details",
+            "sample_rows",
+        ):
+            if fragment in daily_sensor_source:
+                issues.append(f"MACD/KDJ daily sensor contains {fragment}")
+
+        self.assertEqual(issues, [])
+
     def test_gold_stk_mins_qfq_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops(
         self,
     ) -> None:

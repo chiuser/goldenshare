@@ -15,6 +15,14 @@ from orchestrator.defs.assets.stk_mins import (
     raw_stk_mins_1m,
     silver_stk_mins_1m,
 )
+from orchestrator.defs.assets.stk_mins_qfq_macd_kdj import (
+    _macd_kdj_indicator_human_metadata,
+    _macd_kdj_state_human_metadata,
+    gold_stk_mins_qfq_macd_kdj_1m,
+)
+from orchestrator.defs.stk_mins_qfq_macd_kdj import (
+    GoldStkMinsQfqMacdKdjPartitionWriteResult,
+)
 from orchestrator.defs.jobs.stock_mins_qfq_daily_update import (
     stock_mins_qfq_daily_update_job,
 )
@@ -37,6 +45,7 @@ from orchestrator.defs.sensors.stock_mins_silver_sensor import stock_mins_silver
 
 
 ASSET_PATH = Path("src/orchestrator/defs/assets/stk_mins.py")
+MACD_KDJ_ASSET_PATH = Path("src/orchestrator/defs/assets/stk_mins_qfq_macd_kdj.py")
 
 
 def _asset_description(asset_definition) -> str:  # noqa: ANN001
@@ -44,8 +53,8 @@ def _asset_description(asset_definition) -> str:  # noqa: ANN001
     return descriptions[0] if descriptions else ""
 
 
-def _stdout_calls() -> list[ast.Call]:
-    tree = ast.parse(ASSET_PATH.read_text(), filename=str(ASSET_PATH))
+def _stdout_calls(path: Path = ASSET_PATH) -> list[ast.Call]:
+    tree = ast.parse(path.read_text(), filename=str(path))
     calls: list[ast.Call] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
@@ -61,6 +70,7 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             _asset_description(raw_stk_mins_1m),
             _asset_description(silver_stk_mins_1m),
             _asset_description(gold_stk_mins_qfq_1m),
+            _asset_description(gold_stk_mins_qfq_macd_kdj_1m),
             stock_mins_raw_update_job.description or "",
             stock_mins_raw_update_from_prod_job.description or "",
             stock_mins_silver_update_job.description or "",
@@ -79,7 +89,8 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
         self.assertIn("raw", descriptions[0])
         self.assertIn("silver", descriptions[1])
         self.assertIn("前复权", descriptions[2])
-        self.assertIn("prod DB", descriptions[4])
+        self.assertIn("MACD/KDJ", descriptions[3])
+        self.assertIn("prod DB", descriptions[5])
 
     def test_stk_mins_stdout_events_are_small_and_named(self) -> None:
         calls = _stdout_calls()
@@ -119,6 +130,47 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             "raw_file_path",
             "silver_file_path",
             "input_file_paths",
+        }
+        issues = []
+        for call in calls:
+            keyword_names = {keyword.arg for keyword in call.keywords if keyword.arg}
+            forbidden = keyword_names & forbidden_stdout_fields
+            if forbidden:
+                issues.append(f"stdout call writes forbidden fields {sorted(forbidden)}")
+
+        self.assertEqual(issues, [])
+
+    def test_macd_kdj_stdout_events_are_small_and_named(self) -> None:
+        calls = _stdout_calls(MACD_KDJ_ASSET_PATH)
+        events = {
+            call.args[0].value
+            for call in calls
+            if call.args
+            and isinstance(call.args[0], ast.Constant)
+            and isinstance(call.args[0].value, str)
+        }
+
+        self.assertEqual(
+            {
+                "gold_stk_mins_qfq_macd_kdj_started",
+                "gold_stk_mins_qfq_macd_kdj_indicator_completed",
+                "gold_stk_mins_qfq_macd_kdj_state_completed",
+            }
+            - events,
+            set(),
+        )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "stock_codes",
+            "ts_codes",
+            "sample_rows",
+            "input_file_paths",
+            "indicator_sample_file_paths",
+            "previous_state_file_path",
         }
         issues = []
         for call in calls:
@@ -256,6 +308,71 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             metadata["goldenshare/filter_summary"]["generated_window_count"],
             58,
         )
+
+    def test_macd_kdj_indicator_human_metadata_uses_operator_fields(self) -> None:
+        result = GoldStkMinsQfqMacdKdjPartitionWriteResult(
+            freq=1,
+            trade_date="2026-05-29",
+            source_file_count=2,
+            previous_state_file_path=Path("/tmp/state.parquet"),
+            indicator_file_count=3,
+            indicator_sample_file_paths=("/tmp/indicator.parquet",),
+            indicator_row_count=100,
+            indicator_replacement_row_count=90,
+            state_file_path=Path("/tmp/state.parquet"),
+            state_row_count=10,
+            initialized_without_previous_state=False,
+            observed_indicator_columns=("ts_code", "freq"),
+            observed_state_columns=("ts_code", "freq"),
+        )
+
+        metadata = _macd_kdj_indicator_human_metadata(
+            write_result=result,
+            partition_key="2026-05-29",
+            previous_trade_date="2026-05-28",
+        )
+
+        self.assertIn("MACD/KDJ 指标", metadata["goldenshare/summary"])
+        self.assertIn("blocking checks", metadata["goldenshare/next_action"])
+        self.assertEqual(metadata["goldenshare/result_status"], "written")
+        self.assertEqual(
+            metadata["goldenshare/input_summary"]["source_asset"],
+            "gold_stk_mins_qfq_1m",
+        )
+        self.assertEqual(metadata["goldenshare/filter_summary"]["output_row_count"], 100)
+
+    def test_macd_kdj_state_human_metadata_uses_operator_fields(self) -> None:
+        result = GoldStkMinsQfqMacdKdjPartitionWriteResult(
+            freq=5,
+            trade_date="2026-05-29",
+            source_file_count=2,
+            previous_state_file_path=None,
+            indicator_file_count=3,
+            indicator_sample_file_paths=("/tmp/indicator.parquet",),
+            indicator_row_count=100,
+            indicator_replacement_row_count=90,
+            state_file_path=Path("/tmp/state.parquet"),
+            state_row_count=10,
+            initialized_without_previous_state=True,
+            observed_indicator_columns=("ts_code", "freq"),
+            observed_state_columns=("ts_code", "freq"),
+        )
+
+        metadata = _macd_kdj_state_human_metadata(
+            write_result=result,
+            partition_key="2026-05-29",
+            previous_trade_date=None,
+        )
+
+        self.assertIn("日终 state", metadata["goldenshare/summary"])
+        self.assertIn("下一 expected 交易日", metadata["goldenshare/next_action"])
+        self.assertEqual(metadata["goldenshare/result_status"], "written")
+        self.assertEqual(
+            metadata["goldenshare/input_summary"]["source_asset"],
+            "gold_stk_mins_qfq_macd_kdj_5m",
+        )
+        self.assertEqual(metadata["goldenshare/filter_summary"]["state_row_count"], 10)
+
 
     def test_check_readable_metadata_keeps_rule_summary_and_next_action(self) -> None:
         metadata = _readable_check_metadata(

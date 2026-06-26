@@ -1,6 +1,7 @@
 from collections.abc import Iterator
 from datetime import datetime
 from pathlib import Path
+from typing import Any
 
 import dagster as dg
 
@@ -41,8 +42,13 @@ from orchestrator.defs.stk_mins_qfq import GOLD_STK_MINS_QFQ_WRITER_POOL
 from orchestrator.defs.stk_mins_qfq_macd_kdj import (
     GOLD_STK_MINS_QFQ_MACD_KDJ_INDICATOR_VERSION,
     GOLD_STK_MINS_QFQ_MACD_KDJ_PARAMS_KEY,
+    GoldStkMinsQfqMacdKdjPartitionWriteResult,
     write_gold_stk_mins_qfq_macd_kdj_asset_partition,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
+
+
+LOGGER = DgStdoutLogger("stk_mins_qfq_macd_kdj")
 
 
 def _load_macd_kdj_expected_trade_dates(
@@ -113,6 +119,101 @@ def _state_definition_metadata(freq: int) -> dict:
             "params_key": GOLD_STK_MINS_QFQ_MACD_KDJ_PARAMS_KEY,
             "indicator_version": GOLD_STK_MINS_QFQ_MACD_KDJ_INDICATOR_VERSION,
         },
+    )
+
+
+def _human_materialization_metadata(
+    *,
+    summary: str,
+    next_action: str,
+    result_status: str,
+    input_summary: dict[str, Any],
+    filter_summary: dict[str, Any],
+    diagnostic_ref: str,
+) -> dict[str, Any]:
+    return {
+        "goldenshare/summary": summary,
+        "goldenshare/next_action": next_action,
+        "goldenshare/result_status": result_status,
+        "goldenshare/input_summary": input_summary,
+        "goldenshare/filter_summary": filter_summary,
+        "goldenshare/diagnostic_ref": diagnostic_ref,
+    }
+
+
+def _macd_kdj_indicator_human_metadata(
+    *,
+    write_result: GoldStkMinsQfqMacdKdjPartitionWriteResult,
+    partition_key: str,
+    previous_trade_date: str | None,
+) -> dict[str, Any]:
+    return _human_materialization_metadata(
+        summary=(
+            f"已写入股票 {write_result.freq}min 分钟 qfq MACD/KDJ 指标："
+            f"交易日 {partition_key}，{write_result.indicator_row_count} 行，"
+            f"{write_result.indicator_file_count} 个股票年份文件。"
+        ),
+        next_action=(
+            "等待 MACD/KDJ indicator blocking checks 全部通过；通过后 state "
+            "和后续指标消费方可以继续。"
+        ),
+        result_status="written",
+        input_summary={
+            "source_asset": f"gold_stk_mins_qfq_{write_result.freq}m",
+            "state_asset": f"gold_stk_mins_qfq_macd_kdj_state_{write_result.freq}m",
+            "source_file_count": write_result.source_file_count,
+            "previous_trade_date": previous_trade_date,
+            "previous_state_ready": write_result.previous_state_file_path is not None,
+            "initialized_without_previous_state": (
+                write_result.initialized_without_previous_state
+            ),
+        },
+        filter_summary={
+            "output_row_count": write_result.indicator_row_count,
+            "output_file_count": write_result.indicator_file_count,
+            "replacement_row_count": write_result.indicator_replacement_row_count,
+            "physical_layout": "freq_ts_code_year",
+            "params_key": GOLD_STK_MINS_QFQ_MACD_KDJ_PARAMS_KEY,
+            "indicator_version": GOLD_STK_MINS_QFQ_MACD_KDJ_INDICATOR_VERSION,
+        },
+        diagnostic_ref=(
+            "完整诊断看 MACD/KDJ indicator checks metadata 和本次 run stdout。"
+        ),
+    )
+
+
+def _macd_kdj_state_human_metadata(
+    *,
+    write_result: GoldStkMinsQfqMacdKdjPartitionWriteResult,
+    partition_key: str,
+    previous_trade_date: str | None,
+) -> dict[str, Any]:
+    return _human_materialization_metadata(
+        summary=(
+            f"已写入股票 {write_result.freq}min 分钟 qfq MACD/KDJ 日终 state："
+            f"交易日 {partition_key}，{write_result.state_row_count} 行。"
+        ),
+        next_action=(
+            "等待 state blocking checks 全部通过；通过后下一 expected 交易日的 "
+            "MACD/KDJ daily 可以承接该状态。"
+        ),
+        result_status="written",
+        input_summary={
+            "source_asset": f"gold_stk_mins_qfq_macd_kdj_{write_result.freq}m",
+            "previous_trade_date": previous_trade_date,
+            "previous_state_ready": write_result.previous_state_file_path is not None,
+            "initialized_without_previous_state": (
+                write_result.initialized_without_previous_state
+            ),
+        },
+        filter_summary={
+            "state_row_count": write_result.state_row_count,
+            "source_file_count": write_result.source_file_count,
+            "indicator_row_count": write_result.indicator_row_count,
+            "params_key": GOLD_STK_MINS_QFQ_MACD_KDJ_PARAMS_KEY,
+            "indicator_version": GOLD_STK_MINS_QFQ_MACD_KDJ_INDICATOR_VERSION,
+        },
+        diagnostic_ref="完整诊断看 MACD/KDJ state checks metadata 和本次 run stdout。",
     )
 
 
@@ -197,12 +298,38 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
             context.instance,
             partition_key,
         )
+        LOGGER.stdout(
+            "gold_stk_mins_qfq_macd_kdj_started",
+            partition_key=partition_key,
+            freq=freq,
+            previous_trade_date=previous_trade_date,
+            allow_without_previous_state=allow_without_previous_state,
+        )
         write_result = write_gold_stk_mins_qfq_macd_kdj_asset_partition(
             lake_root=lake_root_path,
             freq=freq,
             partition_key=partition_key,
             previous_expected_trade_date=previous_trade_date,
             allow_without_previous_state=allow_without_previous_state,
+        )
+        LOGGER.stdout(
+            "gold_stk_mins_qfq_macd_kdj_indicator_completed",
+            partition_key=partition_key,
+            freq=write_result.freq,
+            source_file_count=write_result.source_file_count,
+            output_file_count=write_result.indicator_file_count,
+            output_row_count=write_result.indicator_row_count,
+            replacement_row_count=write_result.indicator_replacement_row_count,
+        )
+        LOGGER.stdout(
+            "gold_stk_mins_qfq_macd_kdj_state_completed",
+            partition_key=partition_key,
+            freq=write_result.freq,
+            state_row_count=write_result.state_row_count,
+            previous_state_ready=write_result.previous_state_file_path is not None,
+            initialized_without_previous_state=(
+                write_result.initialized_without_previous_state
+            ),
         )
         yield dg.MaterializeResult(
             asset_key=indicator_asset_name,
@@ -227,6 +354,11 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
                     "initialized_without_previous_state": (
                         write_result.initialized_without_previous_state
                     ),
+                    **_macd_kdj_indicator_human_metadata(
+                        write_result=write_result,
+                        partition_key=partition_key,
+                        previous_trade_date=previous_trade_date,
+                    ),
                 },
             ),
         )
@@ -246,6 +378,11 @@ def _build_gold_stk_mins_qfq_macd_kdj_assets(freq: int) -> dg.AssetsDefinition:
                     ),
                     "initialized_without_previous_state": (
                         write_result.initialized_without_previous_state
+                    ),
+                    **_macd_kdj_state_human_metadata(
+                        write_result=write_result,
+                        partition_key=partition_key,
+                        previous_trade_date=previous_trade_date,
                     ),
                 },
             ),

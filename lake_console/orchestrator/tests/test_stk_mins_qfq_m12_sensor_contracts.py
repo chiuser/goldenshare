@@ -259,6 +259,8 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
 
         self.assertIsNone(no_qfq_daily.selected_trade_date)
         self.assertIsNone(no_factor_repair.selected_trade_date)
+        self.assertIn("qfq daily 成功", no_qfq_daily.next_action)
+        self.assertIn("qfq factor repair", no_factor_repair.next_action)
 
     def test_daily_decision_submits_run_after_upstreams_ready_without_custom_tags(
         self,
@@ -278,6 +280,7 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
         request = _run_request_for_trade_date(PARTITION_KEY)
 
         self.assertEqual(decision.selected_trade_date, PARTITION_KEY)
+        self.assertIn("等待", decision.next_action)
         self.assertEqual(
             request.run_key,
             f"gold_stk_mins_qfq_macd_kdj_daily_update:{PARTITION_KEY}",
@@ -334,6 +337,7 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
 
         self.assertIsNone(decision.selected_trade_date)
         self.assertIn("上一交易日", decision.reason)
+        self.assertIn("上一 expected 交易日", decision.next_action)
         self.assertIn(
             (
                 GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_READINESS_SPECS,
@@ -461,6 +465,7 @@ class StkMinsQfqM12SensorContractTests(unittest.TestCase):
 
         self.assertIsNone(decision.selected_trade_date)
         self.assertIn("不在股票分钟线 expected calendar", decision.reason)
+        self.assertIn("cn_a_stock_mins_silver_trade_days", decision.next_action)
         repair_status_mock.assert_not_called()
         readiness_mock.assert_not_called()
 

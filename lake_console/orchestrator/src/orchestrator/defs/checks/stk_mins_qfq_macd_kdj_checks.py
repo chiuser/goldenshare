@@ -1,4 +1,5 @@
 from collections.abc import Sequence
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -58,6 +59,32 @@ GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_TOLERANCE = 1e-8
 GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT = 20
 
 
+def _readable_check_metadata(
+    *,
+    dataset_label: str,
+    rule_names: Sequence[str],
+    failed_rule_names: Sequence[str] = (),
+    success_next_action: str,
+    failure_next_action: str,
+) -> dict[str, Any]:
+    failed = set(failed_rule_names)
+    return {
+        "summary": (
+            f"{dataset_label} 检查失败：{len(failed_rule_names)} 条规则未通过。"
+            if failed_rule_names
+            else f"{dataset_label} 检查通过。"
+        ),
+        "next_action": (
+            failure_next_action if failed_rule_names else success_next_action
+        ),
+        "rule_summary": [
+            {"rule_name": rule_name, "passed": rule_name not in failed}
+            for rule_name in rule_names
+        ],
+        "failed_rule_names": list(failed_rule_names),
+    }
+
+
 def _read_parquet_paths(paths: Sequence[Path]) -> str:
     if not paths:
         raise ValueError("At least one parquet path is required.")
@@ -72,7 +99,12 @@ def _sample_dicts(columns: Sequence[str], rows: Sequence[Sequence[Any]]) -> list
     for row in rows:
         sample = {}
         for column, value in zip(columns, row, strict=True):
-            sample[column] = value.isoformat() if hasattr(value, "isoformat") else value
+            if hasattr(value, "isoformat"):
+                sample[column] = value.isoformat()
+            elif isinstance(value, Decimal):
+                sample[column] = float(value)
+            else:
+                sample[column] = value
         samples.append(sample)
     return samples
 
@@ -83,13 +115,23 @@ def _missing_paths_result(
     missing_paths: Sequence[Path],
     extra_metadata: dict[str, Any] | None = None,
 ) -> dg.AssetCheckResult:
+    missing_file_count = len(missing_paths)
     return dg.AssetCheckResult(
         passed=False,
         metadata=build_check_metadata(
             check_scope=check_scope,
             missing_file_paths=missing_paths[:GOLD_STK_MINS_QFQ_MACD_KDJ_SAMPLE_LIMIT],
             extra_metadata={
-                "missing_file_count": len(missing_paths),
+                "missing_file_count": missing_file_count,
+                **_readable_check_metadata(
+                    dataset_label="MACD/KDJ 文件契约",
+                    rule_names=("file_exists",),
+                    failed_rule_names=("file_exists",),
+                    success_next_action="无需处理。",
+                    failure_next_action=(
+                        "先补齐缺失的 MACD/KDJ indicator 或 state 文件，再重跑 checks。"
+                    ),
+                ),
                 **(extra_metadata or {}),
             },
         ),
@@ -185,6 +227,17 @@ def _indicator_file_exists_and_schema_result(
                 "expected_file_count": len(expected_paths),
                 "source_file_count": len(source_paths),
                 "schema_mismatch_samples": schema_mismatches,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq}min MACD/KDJ indicator 文件契约",
+                    rule_names=("file_exists", "schema"),
+                    failed_rule_names=(
+                        ("schema",) if schema_mismatches else ()
+                    ),
+                    success_next_action="无需处理，继续等待 source coverage 与公式检查。",
+                    failure_next_action=(
+                        "先查看 schema_mismatch_samples，修复 indicator 文件字段契约后重跑。"
+                    ),
+                ),
             },
         ),
     )
@@ -209,6 +262,20 @@ def _indicator_source_coverage_result(
                 failed_row_count=1,
                 extra_metadata={
                     "source_file_count": 0,
+                    **_readable_check_metadata(
+                        dataset_label=f"股票 {freq}min MACD/KDJ source 覆盖",
+                        rule_names=(
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+                        ),
+                        failed_rule_names=(
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+                        ),
+                        success_next_action="无需处理。",
+                        failure_next_action=(
+                            "先修复同日 gold_stk_mins_qfq source readiness，再重跑 MACD/KDJ。"
+                        ),
+                    ),
                     "failed_rule_names": [
                         GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
                     ],
@@ -235,6 +302,20 @@ def _indicator_source_coverage_result(
                 extra_metadata={
                     "source_file_count": len(source_paths),
                     "existing_indicator_file_count": 0,
+                    **_readable_check_metadata(
+                        dataset_label=f"股票 {freq}min MACD/KDJ source 覆盖",
+                        rule_names=(
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+                        ),
+                        failed_rule_names=(
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+                        ),
+                        success_next_action="无需处理。",
+                        failure_next_action=(
+                            "先生成缺失的 MACD/KDJ indicator 文件，再重跑 source coverage。"
+                        ),
+                    ),
                     "failed_rule_names": [
                         GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
                     ],
@@ -282,6 +363,18 @@ def _indicator_source_coverage_result(
                 "source_row_count": source_row_count,
                 "indicator_row_count": indicator_row_count,
                 "failed_rule_names": failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq}min MACD/KDJ source 覆盖",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_MACD_KDJ_SOURCE_READY_CHECK,
+                        GOLD_STK_MINS_QFQ_MACD_KDJ_ROW_COUNT_MATCHES_QFQ_CHECK,
+                    ),
+                    failed_rule_names=failed_rule_names,
+                    success_next_action="无需处理，继续等待公式抽样检查。",
+                    failure_next_action=(
+                        "先对齐 source_row_count 与 indicator_row_count，再重跑 MACD/KDJ。"
+                    ),
+                ),
             },
         ),
     )
@@ -380,6 +473,19 @@ def _indicator_formula_result(
                     ),
                     sample_rows,
                 ),
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq}min MACD/KDJ 公式抽样",
+                    rule_names=(GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,),
+                    failed_rule_names=(
+                        (GOLD_STK_MINS_QFQ_MACD_KDJ_FORMULA_SAMPLE_CHECK,)
+                        if mismatch_count
+                        else ()
+                    ),
+                    success_next_action="无需处理，indicator 公式抽样通过。",
+                    failure_next_action=(
+                        "先查看 failure_samples，核对 MACD/KDJ 参数和 qfq 输入后重跑。"
+                    ),
+                ),
             },
         ),
     )
@@ -404,7 +510,20 @@ def _state_file_exists_and_schema_result(
             check_scope=CheckScope.SCHEMA,
             file_path=path,
             failed_row_count=0 if matches else 1,
-            extra_metadata={"observed_schema": observed},
+            extra_metadata={
+                "observed_schema": observed,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq}min MACD/KDJ state 文件契约",
+                    rule_names=("file_exists", "schema"),
+                    failed_rule_names=(
+                        ("schema",) if not matches else ()
+                    ),
+                    success_next_action="无需处理，继续等待 state 最新覆盖检查。",
+                    failure_next_action=(
+                        "先修复 state 文件 schema，再重跑 state checks。"
+                    ),
+                ),
+            },
         ),
     )
 
@@ -510,6 +629,23 @@ def _state_latest_coverage_result(
                 "carry_forward_state_row_count": max(
                     0,
                     state_row_count - indicator_stock_count,
+                ),
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq}min MACD/KDJ state 最新覆盖",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_LATEST_COVERAGE_CHECK,
+                    ),
+                    failed_rule_names=(
+                        (
+                            GOLD_STK_MINS_QFQ_MACD_KDJ_STATE_LATEST_COVERAGE_CHECK,
+                        )
+                        if failed_count or state_row_count < indicator_stock_count
+                        else ()
+                    ),
+                    success_next_action="无需处理，下一 expected 交易日可以承接该 state。",
+                    failure_next_action=(
+                        "先重建当日 MACD/KDJ state，确认最新 trade_time 与 indicator 对齐。"
+                    ),
                 ),
             },
         ),

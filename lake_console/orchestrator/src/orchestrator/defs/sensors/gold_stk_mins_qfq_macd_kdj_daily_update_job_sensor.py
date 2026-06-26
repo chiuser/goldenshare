@@ -95,6 +95,7 @@ class GoldStkMinsQfqMacdKdjDailyRunStatusDecision:
     previous_trade_date: str | None
     selected_trade_date: str | None
     reason: str
+    next_action: str
 
 
 def _normalize_trade_date(raw_trade_date: str | None) -> str | None:
@@ -276,6 +277,10 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
             previous_trade_date=None,
             selected_trade_date=None,
             reason="无法从触发 run 中解析股票分钟线 qfq MACD/KDJ 目标交易日。",
+            next_action=(
+                "检查触发 run 是否带有 dagster/partition tag，或 factor repair "
+                "run config 是否包含 trade_date。"
+            ),
         )
     if not qfq_daily_succeeded:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -286,6 +291,7 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
                 "同日 stock_mins_qfq_daily_update_job 尚未成功，"
                 "暂不触发 MACD/KDJ daily。"
             ),
+            next_action="等待同日 qfq daily 成功后再由 run-status sensor 自动重试。",
         )
     if qfq_factor_repair_status is None or not qfq_factor_repair_status.ready:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -297,6 +303,10 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
                 if qfq_factor_repair_status is not None
                 else "同日 stock_mins_qfq_factor_repair_job 尚未成功。"
             ),
+            next_action=(
+                "先等待或修复同日 qfq factor repair；该门禁 ready 后才允许写 "
+                "MACD/KDJ indicator/state。"
+            ),
         )
     if not qfq_ready:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -307,6 +317,10 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
                 "股票分钟线 gold qfq 七频度尚未全部 ready，"
                 "暂不触发 MACD/KDJ daily。"
             ),
+            next_action=(
+                "先修复同日 gold_stk_mins_qfq 七频度 readiness，再等待下一次 "
+                "run-status sensor。"
+            ),
         )
     if not previous_state_ready:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -314,6 +328,9 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
             previous_trade_date=previous_trade_date,
             selected_trade_date=None,
             reason="上一交易日 MACD/KDJ state 尚未 ready，暂不触发日常增量。",
+            next_action=(
+                "先修复上一 expected 交易日的 MACD/KDJ state checks，再重试当日增量。"
+            ),
         )
     if target_ready:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -321,6 +338,7 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
             previous_trade_date=previous_trade_date,
             selected_trade_date=None,
             reason="目标交易日七频度 MACD/KDJ indicator/state 已经 ready。",
+            next_action="无需处理；当前目标日期已经完成。",
         )
     if target_has_materialized_check_problem:
         return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
@@ -331,12 +349,18 @@ def build_gold_stk_mins_qfq_macd_kdj_daily_run_status_decision(
                 "目标交易日 MACD/KDJ 已生成但 blocking checks 未全绿，"
                 "暂不自动重跑，请人工检查。"
             ),
+            next_action=(
+                "先查看 MACD/KDJ indicator/state checks metadata，人工确认文件事实后再处理。"
+            ),
         )
     return GoldStkMinsQfqMacdKdjDailyRunStatusDecision(
         target_trade_date=target_trade_date,
         previous_trade_date=previous_trade_date,
         selected_trade_date=target_trade_date,
         reason="qfq daily 与 qfq factor repair 同日成功，提交 MACD/KDJ daily。",
+        next_action=(
+            "等待 gold_stk_mins_qfq_macd_kdj_daily_update_job 完成并查看 blocking checks。"
+        ),
     )
 
 
@@ -369,6 +393,9 @@ def _evaluate_daily_run_status_decision(
                     "目标交易日不在股票分钟线 expected calendar，"
                     f"暂不触发 MACD/KDJ daily: target_trade_date={target_trade_date}。"
                 ),
+                next_action=(
+                    "先确认 cn_a_stock_mins_silver_trade_days 和股票分钟线 expected calendar。"
+                ),
             ),
             None,
         )
@@ -389,6 +416,9 @@ def _evaluate_daily_run_status_decision(
                 reason=(
                     "无法找到目标交易日的上一 expected trade date，"
                     f"暂不触发 MACD/KDJ daily: target_trade_date={target_trade_date}。"
+                ),
+                next_action=(
+                    "先修复股票分钟线 expected calendar 连续性，再重新评估该目标日期。"
                 ),
             ),
             None,
@@ -483,5 +513,5 @@ def gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor(
         expected_trade_dates=_load_macd_kdj_expected_trade_dates(),
     )
     if decision.selected_trade_date is None or qfq_factor_repair_status is None:
-        return dg.SkipReason(decision.reason)
+        return dg.SkipReason(f"{decision.reason} 下一步：{decision.next_action}")
     return _run_request_for_trade_date(decision.selected_trade_date)
