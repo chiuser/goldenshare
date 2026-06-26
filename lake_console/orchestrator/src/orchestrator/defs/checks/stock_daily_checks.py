@@ -75,6 +75,8 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             extra_metadata={
+                "summary": "失败：检查所需的输入文件不存在。",
+                "next_action": "先生成或恢复缺失文件，再重新运行该 asset/check。",
                 "file_path": str(path),
                 "missing_file": True,
             },
@@ -98,14 +100,34 @@ def _combined_check_result(
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
 ) -> dg.AssetCheckResult:
+    rule_summary = [
+        {"rule_name": rule_name, "passed": bool(result.passed)}
+        for rule_name, result in rule_results
+    ]
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
     ]
+    summary = (
+        f"通过：{len(rule_results)} 条股票日线质量规则全部通过。"
+        if not failed_rule_names
+        else (
+            "失败："
+            f"{len(failed_rule_names)} / {len(rule_results)} 条股票日线质量规则未通过。"
+        )
+    )
+    next_action = (
+        "无需处理；等待下游消费或下一次更新。"
+        if not failed_rule_names
+        else "先查看 failed_rule_names 中列出的规则，再看对应子规则 metadata 定位文件、字段或覆盖缺口。"
+    )
     return dg.AssetCheckResult(
         passed=not failed_rule_names,
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": summary,
+                "next_action": next_action,
+                "rule_summary": rule_summary,
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results
@@ -983,7 +1005,29 @@ def _expected_tradable_universe_metadata(
         unexplained_missing_count,
         unexplained_extra_count,
     ) = counts
+    summary = (
+        "通过：股票日线代码覆盖与应交易股票集合一致。"
+        if unexplained_missing_count == 0 and unexplained_extra_count == 0
+        else (
+            "失败：股票日线代码覆盖与应交易股票集合不一致，"
+            f"缺失 {int(unexplained_missing_count)} 个，额外 {int(unexplained_extra_count)} 个。"
+        )
+    )
+    next_action = (
+        "无需处理；全日停牌已作为合理缺席解释。"
+        if unexplained_missing_count == 0 and unexplained_extra_count == 0
+        else "先查看 missing/extra 样本；缺失通常需要补 raw 源数据，额外通常需要核对生命周期或停复牌事实。"
+    )
     return {
+        "summary": summary,
+        "next_action": next_action,
+        "tradable_universe_summary": {
+            "expected_count": int(expected_count),
+            "actual_count": int(daily_count),
+            "unexplained_missing_count": int(unexplained_missing_count),
+            "unexplained_extra_count": int(unexplained_extra_count),
+            "explained_by_full_day_suspend_count": int(full_day_suspend_count),
+        },
         "daily_path": str(daily_path),
         "stock_lifecycle_file_path": str(stock_lifecycle_path),
         "stock_suspend_daily_path": str(suspend_path),

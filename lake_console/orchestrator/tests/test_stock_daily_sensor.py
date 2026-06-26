@@ -248,6 +248,13 @@ class StockDailySensorTests(unittest.TestCase):
         self.assertEqual(request.partition_key, "2026-06-05")
         self.assertEqual(request.run_key, "raw_stock_daily_update:2026-06-05")
         self.assertEqual(request.run_config, {})
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("已触发", details["summary"])
+        self.assertIn("raw 全量更新", details["summary"])
+        self.assertIn("raw blocking checks", details["next_action"])
+        self.assertLess(len(result.cursor.encode("utf-8")), 2048)
 
     def test_raw_sensor_skips_registered_gap_before_materialization_scan(self) -> None:
         context = _FakeContext(partitions=("2026-06-13", "2026-06-16"))
@@ -278,6 +285,10 @@ class StockDailySensorTests(unittest.TestCase):
         cursor_payload = load_sensor_cursor(result.cursor)
         continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
+        self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "cn_a_stock_trade_days",
+        )
 
     def test_raw_sensor_skips_when_source_not_ready(self) -> None:
         context = _FakeContext(partitions=("2026-06-05",))
@@ -301,6 +312,11 @@ class StockDailySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("raw 缺失", result.skip_reason.skip_message)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["blocked_component"], "tushare_daily_source")
+        self.assertIn("等待 Tushare daily 源站数据", details["summary"])
+        self.assertNotIn("repair_details", result.cursor)
 
     def test_raw_sensor_submits_missing_code_repair_for_recent_trade_date(
         self,
@@ -360,6 +376,13 @@ class StockDailySensorTests(unittest.TestCase):
             repair_state["dates"]["2026-06-05"]["attempt_count"],
             1,
         )
+        evidence = cursor_payload["details"]["evidence"]
+        self.assertEqual(evidence["repair_trade_date_count"], 1)
+        self.assertEqual(evidence["first_repair_trade_date"], "2026-06-05")
+        self.assertEqual(evidence["first_repair_missing_count"], 1)
+        self.assertEqual(evidence["first_repair_attempt"], 1)
+        self.assertNotIn("repair_details", result.cursor)
+        self.assertLess(len(result.cursor.encode("utf-8")), 3072)
 
     def test_raw_sensor_repair_locator_only_scans_recent_two_trade_dates(self) -> None:
         context = _FakeContext(
@@ -431,6 +454,10 @@ class StockDailySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("readiness 门禁未满足", result.skip_reason.skip_message)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["blocked_component"], "raw_tushare_stock_daily")
+        self.assertIn("等待 raw_tushare_stock_daily", details["summary"])
 
     def test_silver_sensor_skips_registered_gap_before_materialization_scan(self) -> None:
         context = _FakeContext(partitions=("2026-06-13", "2026-06-16"))
@@ -461,6 +488,10 @@ class StockDailySensorTests(unittest.TestCase):
         cursor_payload = load_sensor_cursor(result.cursor)
         continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
+        self.assertEqual(
+            cursor_payload["details"]["blocked_component"],
+            "cn_a_stock_trade_days",
+        )
 
     def test_silver_sensor_submits_only_when_raw_ready_and_silver_missing(
         self,
@@ -489,6 +520,12 @@ class StockDailySensorTests(unittest.TestCase):
             result.run_requests[0].run_key,
             "silver_stock_daily_update:2026-06-05",
         )
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("已触发", details["summary"])
+        self.assertIn("silver run", details["next_action"])
+        self.assertLess(len(result.cursor.encode("utf-8")), 2048)
 
     def test_silver_sensor_does_not_rerun_materialized_failed_check_partition(
         self,
@@ -505,6 +542,54 @@ class StockDailySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("都已经生成完成", result.skip_reason.skip_message)
+
+    def test_raw_sensor_cursor_points_to_stock_basic_blocker(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.materialized_partition_keys",
+            return_value=set(),
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.stock_basic_ready_for_trade_date",
+            return_value=_dataset_status(ready=False, reason="freshness_failed"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.suspend_d_ready_for_trade_date",
+        ) as suspend_mock, patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.check_stock_daily_source_readiness",
+        ) as source_mock:
+            result = _raw_sensor_result(context)
+
+        suspend_mock.assert_not_called()
+        source_mock.assert_not_called()
+        details = load_sensor_cursor(result.cursor)["details"]
+        self.assertEqual(details["blocked_component"], "stock_basic")
+        self.assertIn("stock_basic 阻断", details["summary"])
+
+    def test_silver_sensor_cursor_points_to_suspend_blocker(self) -> None:
+        context = _FakeContext(partitions=("2026-06-05",))
+        with patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.datetime",
+            _FixedDateTime,
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.materialized_partition_keys",
+            return_value=set(),
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.stock_basic_ready_for_trade_date",
+            return_value=_dataset_status(ready=True),
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.suspend_d_ready_for_trade_date",
+            return_value=_dataset_status(ready=False, reason="missing_check"),
+        ), patch(
+            "orchestrator.defs.sensors.stock_daily_sensor.raw_tushare_stock_daily_ready_for_trade_date",
+        ) as raw_readiness_mock:
+            result = _silver_sensor_result(context)
+
+        raw_readiness_mock.assert_not_called()
+        details = load_sensor_cursor(result.cursor)["details"]
+        self.assertEqual(details["blocked_component"], "suspend_d")
+        self.assertIn("suspend_d 阻断", details["summary"])
 
 
 if __name__ == "__main__":

@@ -2110,6 +2110,65 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_daily_human_readable_governance_stays_compact(self) -> None:
+        asset_path = ASSETS_DIR / "stock_daily.py"
+        sensor_path = SENSORS_DIR / "stock_daily_sensor.py"
+        check_path = CHECKS_DIR / "stock_daily_checks.py"
+        asset_tree = _parse_python_file(asset_path)
+        raw_cursor_source = _function_source(sensor_path, "_raw_sensor_cursor")
+        combined_check_source = _function_source(check_path, "_combined_check_result")
+        issues = []
+
+        forbidden_cursor_fragments = (
+            '"repair_details":',
+            '"status_samples":',
+            '"readiness_details":',
+            '"raw_batch_status":',
+        )
+        issues.extend(
+            f"{sensor_path} writes oversized stock daily cursor fragment: {fragment}"
+            for fragment in forbidden_cursor_fragments
+            if fragment in raw_cursor_source
+        )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "ts_codes",
+            "missing_codes",
+            "sample_rows",
+            "conflict_sample_rows",
+            "duplicate_sample_rows",
+        }
+        for node in ast.walk(asset_tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Attribute) or node.func.attr != "stdout":
+                continue
+            keyword_names = {keyword.arg for keyword in node.keywords if keyword.arg}
+            forbidden = sorted(keyword_names & forbidden_stdout_fields)
+            if forbidden:
+                issues.append(
+                    f"{_node_location(asset_path, node)} stock daily stdout writes "
+                    f"forbidden fields {forbidden}"
+                )
+
+        for required_fragment in (
+            "failed_rule_names",
+            "rule_summary",
+            "summary",
+            "next_action",
+        ):
+            if required_fragment not in combined_check_source:
+                issues.append(
+                    "stock daily combined check must keep human-readable metadata "
+                    f"and stable failed rules: {required_fragment}"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free(self) -> None:
         helper_requirements = {
             DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py": (

@@ -2,6 +2,8 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import dagster as dg
+
 from orchestrator.defs.checks import stock_daily_checks
 from orchestrator.defs.assets.stock_daily import STOCK_DAILY_RAW_COLUMN_TYPES
 from orchestrator.defs.catalog.lake_assets import SILVER_STOCK_DAILY_CHECKS
@@ -23,6 +25,10 @@ PARTITION_KEY = "2026-05-29"
 class _PartitionContext:
     def __init__(self, partition_key: str) -> None:
         self.partition_key = partition_key
+
+
+def _metadata_value(value):
+    return value.value if hasattr(value, "value") else value
 
 
 def _check_function(check_definition):
@@ -280,6 +286,52 @@ def _silver_universe_metadata(
 
 
 class StockDailyRawCheckTests(unittest.TestCase):
+    def test_combined_check_metadata_is_human_readable_and_keeps_rule_names(
+        self,
+    ) -> None:
+        result = stock_daily_checks._combined_check_result(
+            check_scope=stock_daily_checks.CheckScope.SCHEMA,
+            rule_results=(
+                ("rule_ok", dg.AssetCheckResult(passed=True)),
+                ("rule_bad", dg.AssetCheckResult(passed=False)),
+            ),
+        )
+
+        self.assertFalse(result.passed)
+        self.assertEqual(
+            _metadata_value(result.metadata["goldenshare/failed_rule_names"]),
+            ["rule_bad"],
+        )
+        self.assertIn("失败", _metadata_value(result.metadata["goldenshare/summary"]))
+        self.assertIn(
+            "failed_rule_names",
+            _metadata_value(result.metadata["goldenshare/next_action"]),
+        )
+        self.assertEqual(
+            _metadata_value(result.metadata["goldenshare/rule_summary"]),
+            [
+                {"rule_name": "rule_ok", "passed": True},
+                {"rule_name": "rule_bad", "passed": False},
+            ],
+        )
+
+    def test_missing_file_metadata_tells_operator_next_step(self) -> None:
+        result = stock_daily_checks._missing_file_result(Path("/tmp/missing.parquet"))
+
+        self.assertFalse(result.passed)
+        self.assertIn(
+            "输入文件不存在",
+            _metadata_value(result.metadata["goldenshare/summary"]),
+        )
+        self.assertIn(
+            "重新运行",
+            _metadata_value(result.metadata["goldenshare/next_action"]),
+        )
+        self.assertEqual(
+            _metadata_value(result.metadata["goldenshare/file_path"]),
+            "/tmp/missing.parquet",
+        )
+
     def test_silver_coverage_check_is_blocking_readiness_gate(self) -> None:
         self.assertIn(
             "silver_stock_daily_tradable_universe_check",
@@ -329,6 +381,11 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertEqual(metadata["daily_count"], 2)
         self.assertEqual(metadata["unexplained_missing_count"], 0)
         self.assertEqual(metadata["unexplained_extra_count"], 0)
+        self.assertIn("通过", metadata["summary"])
+        self.assertEqual(
+            metadata["tradable_universe_summary"]["expected_count"],
+            2,
+        )
 
     def test_raw_universe_excludes_non_cny_stock_basic_codes(self) -> None:
         with TemporaryDirectory() as directory:
@@ -362,6 +419,11 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertEqual(metadata["daily_count"], 1)
         self.assertEqual(metadata["unexplained_missing_count"], 1)
         self.assertEqual(metadata["missing_sample_ts_codes"], ["000002.SZ"])
+        self.assertIn("失败", metadata["summary"])
+        self.assertEqual(
+            metadata["tradable_universe_summary"]["unexplained_missing_count"],
+            1,
+        )
 
     def test_raw_universe_reports_unexpected_extra_code(self) -> None:
         with TemporaryDirectory() as directory:
@@ -436,6 +498,13 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertEqual(metadata["daily_count"], 2)
         self.assertEqual(metadata["unexplained_missing_count"], 0)
         self.assertEqual(metadata["unexplained_extra_count"], 0)
+        self.assertIn("通过", metadata["summary"])
+        self.assertEqual(
+            metadata["tradable_universe_summary"][
+                "explained_by_full_day_suspend_count"
+            ],
+            1,
+        )
 
     def test_silver_universe_excludes_non_cny_stock_basic_codes(self) -> None:
         with TemporaryDirectory() as directory:
@@ -594,6 +663,8 @@ class StockDailyRawCheckTests(unittest.TestCase):
         self.assertEqual(metadata["daily_count"], 1)
         self.assertEqual(metadata["unexplained_missing_count"], 1)
         self.assertEqual(metadata["missing_sample_ts_codes"], ["000002.SZ"])
+        self.assertIn("失败", metadata["summary"])
+        self.assertIn("missing/extra", metadata["next_action"])
 
     def test_silver_universe_reports_unexpected_extra_code(self) -> None:
         with TemporaryDirectory() as directory:

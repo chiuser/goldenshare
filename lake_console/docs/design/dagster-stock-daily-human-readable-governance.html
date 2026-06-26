@@ -1,0 +1,259 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>股票日线 Raw/Silver 人类可读治理标杆专项</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --paper: #ffffff;
+      --ink: #1f2933;
+      --muted: #65717f;
+      --line: #d9e0ea;
+      --blue: #245c88;
+      --green: #16705b;
+      --amber: #8a6116;
+      --code: #f3f5f7;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+    main {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 34px 24px 72px;
+    }
+    header,
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+      margin-top: 18px;
+      padding: 26px;
+    }
+    header {
+      margin-top: 0;
+      border-left: 6px solid var(--blue);
+      padding: 34px;
+    }
+    h1,
+    h2,
+    h3 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: 38px; margin-bottom: 12px; }
+    h2 { font-size: 25px; margin-bottom: 12px; }
+    h3 { font-size: 18px; margin: 22px 0 8px; }
+    p { margin: 8px 0 12px; }
+    code {
+      background: var(--code);
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: #fff;
+    }
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #edf3f8; }
+    ul { padding-left: 24px; }
+    li { margin: 5px 0; }
+    .lead { color: var(--muted); max-width: 900px; font-size: 17px; }
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code);
+      color: #344054;
+      font-size: 13px;
+    }
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: #eef6ff;
+      margin: 14px 0;
+    }
+    .callout.green { border-left-color: var(--green); background: #eef9f5; }
+    .callout.amber { border-left-color: var(--amber); background: #fff7df; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>股票日线 Raw/Silver 人类可读治理标杆专项</h1>
+    <p class="lead">
+      本文记录当前生产链路上的股票日线可读性治理结果。专项只改变 Dagster UI 文案、run stdout、
+      materialization metadata、check metadata 和 sensor cursor 的表达方式，不改变股票日线 raw/silver 的生产决策。
+    </p>
+    <p>
+      <span class="tag">资产族：stock_daily</span>
+      <span class="tag">范围：raw_tushare_stock_daily / silver_stock_daily</span>
+      <span class="tag">不写湖</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不改数据 SQL</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 当前生产事实</h2>
+    <ul>
+      <li><code>raw_stock_daily_update_job</code> 只写 <code>raw_tushare_stock_daily</code> 和它的 checks，不 selection <code>stock_basic</code> 或 <code>suspend_d</code>。</li>
+      <li><code>raw_stock_daily_update_job_sensor</code> 等 <code>stock_basic</code>、<code>suspend_d</code> 和 Tushare <code>daily</code> 源站 ready 后，提交 raw 全量分区 run；最近两个交易日的 missing-code repair 仍走同一个 raw job。</li>
+      <li><code>silver_stock_daily_update_job</code> 只写 <code>silver_stock_daily</code> 和它的 checks。</li>
+      <li><code>silver_stock_daily_update_job_sensor</code> 等同日 raw ready、<code>stock_basic</code> freshness 和 <code>suspend_d</code> ready 后，提交 silver run。</li>
+      <li><code>silver_stock_daily</code> 写入前仍保留不可绕过的 <code>assert_silver_stock_basic_fresh_for_stock_daily(...)</code>，防止人工 run 绕过 sensor 后写出静默缺行文件。</li>
+    </ul>
+    <div class="callout">
+      <p>
+        本专项没有改变 asset 名、job 名、sensor 名、check 名、selection、run key、run config、Tushare 参数、DuckDB SQL、路径或数据湖文件内容。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 人看问题的顺序</h2>
+    <p>
+      股票日线现在按下面顺序给人提供线索：
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>入口</th>
+        <th>先回答什么</th>
+        <th>完整证据在哪里</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Asset / Job / Sensor description</td>
+        <td>它是什么、写什么、依赖什么、给谁消费。</td>
+        <td>asset definition metadata、拓扑文档。</td>
+      </tr>
+      <tr>
+        <td>Sensor cursor</td>
+        <td>本 tick 为什么触发或为什么没触发，卡在哪个组件。</td>
+        <td>完整 readiness 诊断、asset/check metadata。</td>
+      </tr>
+      <tr>
+        <td>Run stdout</td>
+        <td>本 run 到了哪个阶段，写了多少行，是否进入 repair 或 validation failure。</td>
+        <td>Dagster run log、materialization metadata。</td>
+      </tr>
+      <tr>
+        <td>Materialization metadata</td>
+        <td>本次产物写成了什么、下一步等什么 check 或下游。</td>
+        <td>Parquet 文件事实、check metadata。</td>
+      </tr>
+      <tr>
+        <td>Asset check metadata</td>
+        <td>质量规则通过还是失败，失败的规则名和下一步是什么。</td>
+        <td>对应 check 的 count、sample 和文件路径。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 本次落地口径</h2>
+    <h3>Asset 与 stdout</h3>
+    <ul>
+      <li><code>raw_tushare_stock_daily</code> 的说明改为“源镜像 + 按交易日保存 + 供 silver 标准化使用”。</li>
+      <li><code>silver_stock_daily</code> 的说明改为“标准事实 + 生命周期/币种/北交所/停牌过滤 + 下游消费”。</li>
+      <li>新增 stdout 事件：<code>raw_stock_daily_started</code>、<code>raw_stock_daily_completed</code>、<code>raw_stock_daily_repair_started</code>、<code>raw_stock_daily_repair_completed</code>、<code>silver_stock_daily_started</code>、<code>silver_stock_daily_validation_failed</code>、<code>silver_stock_daily_completed</code>。</li>
+      <li>stdout 只写分区、模式、row count、attempt 等小字段；禁止写完整 SQL、DataFrame、样本行或全量股票代码列表。</li>
+    </ul>
+
+    <h3>Materialization metadata</h3>
+    <ul>
+      <li>追加 <code>goldenshare/summary</code>、<code>goldenshare/next_action</code>、<code>goldenshare/result_status</code>、<code>goldenshare/input_summary</code>、<code>goldenshare/filter_summary</code>、<code>goldenshare/diagnostic_ref</code>。</li>
+      <li>保留原有 <code>dagster/uri</code>、<code>dagster/row_count</code>、<code>goldenshare/observed_columns</code>、过滤计数、重复计数和冲突样本。</li>
+    </ul>
+
+    <h3>Sensor cursor</h3>
+    <ul>
+      <li>cursor 仍使用 v1 顶层结构，继续保留 <code>runtime_state.stock_daily_missing_code_repair</code>，避免 repair 重复提交。</li>
+      <li>raw cursor 不再把完整 <code>repair_details</code> 放入 evidence，只保留 repair 日期数、首个 repair 日期、首个 reason、缺失数量和 attempt。</li>
+      <li><code>blocked_component</code> 明确为 <code>cn_a_stock_trade_days</code>、<code>stock_basic</code>、<code>suspend_d</code>、<code>tushare_daily_source</code>、<code>raw_tushare_stock_daily</code>、<code>raw_tushare_stock_daily_repair</code> 或 <code>none</code>。</li>
+      <li><code>summary</code> 和 <code>next_action</code> 使用短中文；<code>reason_code</code> 保持 ASCII 机器码。</li>
+    </ul>
+
+    <h3>Check metadata</h3>
+    <ul>
+      <li>聚合 check metadata 追加 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>，并保留 <code>failed_rule_names</code>。</li>
+      <li>缺文件结果直接说明缺哪个文件、下一步先补文件再重跑。</li>
+      <li>raw/silver tradable universe metadata 追加 <code>tradable_universe_summary</code>，把 expected、actual、missing、extra 和全日停牌解释数放到同一个小摘要里。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. 性能与边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>入口</th>
+        <th>本专项新增读取</th>
+        <th>本专项新增写入</th>
+        <th>拒绝策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>asset 写入</td>
+        <td>0；仍沿用原有 Tushare/DuckDB 读写。</td>
+        <td>只追加 materialization metadata 和 stdout。</td>
+        <td>不改变原失败条件。</td>
+      </tr>
+      <tr>
+        <td>sensor tick</td>
+        <td>0；不新增 Dagster event scan、不新增 lake scan。</td>
+        <td>只写更短 cursor。</td>
+        <td>cursor 超过硬上限仍由通用 builder 拒绝。</td>
+      </tr>
+      <tr>
+        <td>asset checks</td>
+        <td>0；仍沿用原有 check SQL。</td>
+        <td>只追加 check metadata 小字段。</td>
+        <td>不改变 blocking/WARN 语义。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout green">
+      <p>
+        本专项没有进入正式 Dagster 执行、没有写 Dagster DB、没有访问真实 Tushare、没有写数据湖。
+        验收使用本地单元测试和静态门禁。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>5. 验收门禁</h2>
+    <ul>
+      <li><code>tests.test_stock_daily_sensor</code>：锁住 raw/silver cursor 的人类可读摘要、阻断组件、repair state 保留和 cursor 长度。</li>
+      <li><code>tests.test_stock_daily_raw_checks</code>：锁住 check metadata 的 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code> 和 <code>failed_rule_names</code>。</li>
+      <li><code>tests.test_stock_daily_human_readable_contracts</code>：锁住 description、stdout 事件名和 materialization metadata 小字段。</li>
+      <li><code>tests.test_run_contract_static_gates</code>：禁止 oversized cursor fragment、stdout 大字段和聚合 check metadata 回退。</li>
+      <li><code>tests.test_asset_governance_contracts</code>：确认 catalog / definition governance 没有偏离。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

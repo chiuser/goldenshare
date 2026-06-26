@@ -60,6 +60,7 @@ from orchestrator.defs.tushare_api_io import (
     fetch_tushare_partition_to_raw,
     fetch_tushare_stock_daily_missing_codes_to_raw,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 STOCK_DAILY_COLUMNS = tuple(column.name for column in SILVER_STOCK_DAILY_SCHEMA)
@@ -96,6 +97,28 @@ def _sample_dicts(
             sample[column] = value.isoformat() if hasattr(value, "isoformat") else value
         samples.append(sample)
     return samples
+
+
+def _human_materialization_metadata(
+    *,
+    summary: str,
+    next_action: str,
+    result_status: str,
+    input_summary: dict[str, Any] | None = None,
+    filter_summary: dict[str, Any] | None = None,
+    diagnostic_ref: str,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "goldenshare/summary": summary,
+        "goldenshare/next_action": next_action,
+        "goldenshare/result_status": result_status,
+        "goldenshare/diagnostic_ref": diagnostic_ref,
+    }
+    if input_summary:
+        metadata["goldenshare/input_summary"] = input_summary
+    if filter_summary:
+        metadata["goldenshare/filter_summary"] = filter_summary
+    return metadata
 
 
 def _conflict_key_count(connection, raw_path: Path) -> int:
@@ -388,7 +411,7 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
             ),
         },
     ),
-    description="Tushare 股票日线原始数据。",
+    description="Tushare 股票日线 raw 源镜像，按交易日保存 A 股日线行情，供股票日线 silver 标准化使用。",
 )
 def raw_tushare_stock_daily(
     context: dg.AssetExecutionContext,
@@ -400,9 +423,16 @@ def raw_tushare_stock_daily(
     partition_key = context.partition_key
     target_path = raw_stock_daily_path(lake_root.root(), partition_key)
     config = parse_stock_daily_raw_config(context.op_config)
+    log = DgStdoutLogger("stock_daily")
     if config.write_mode == "missing_code_repair":
         if config.missing_code_repair is None:
             raise AssertionError("missing_code_repair config is required.")
+        log.stdout(
+            "raw_stock_daily_repair_started",
+            partition_key=partition_key,
+            requested_code_count=len(config.missing_code_repair.ts_codes),
+            repair_attempt=config.missing_code_repair.repair_attempt,
+        )
         metadata = fetch_tushare_stock_daily_missing_codes_to_raw(
             tushare=tushare,
             duckdb=duckdb,
@@ -414,7 +444,35 @@ def raw_tushare_stock_daily(
             missing_codes_hash=config.missing_code_repair.missing_codes_hash,
             repair_attempt=config.missing_code_repair.repair_attempt,
         )
+        metadata.update(
+            _human_materialization_metadata(
+                summary="已写入股票日线 raw missing-code repair 结果。",
+                next_action="等待 raw blocking checks 全部通过；通过后 silver_stock_daily 才能消费。",
+                result_status="written",
+                input_summary={
+                    "source": "Tushare daily",
+                    "partition_key": partition_key,
+                    "write_mode": "missing_code_repair",
+                    "requested_code_count": len(config.missing_code_repair.ts_codes),
+                    "repair_attempt": config.missing_code_repair.repair_attempt,
+                    "target_path_exists": target_path.exists(),
+                },
+                diagnostic_ref="完整诊断看 raw stock daily checks、materialization metadata 和 run stdout。",
+            )
+        )
+        log.stdout(
+            "raw_stock_daily_repair_completed",
+            partition_key=partition_key,
+            output_row_count=metadata.get("dagster/row_count"),
+            fetched_row_count=metadata.get("goldenshare/fetched_row_count"),
+            repair_attempt=config.missing_code_repair.repair_attempt,
+        )
     else:
+        log.stdout(
+            "raw_stock_daily_started",
+            partition_key=partition_key,
+            write_mode="replace",
+        )
         metadata = fetch_tushare_partition_to_raw(
             tushare=tushare,
             duckdb=duckdb,
@@ -425,6 +483,26 @@ def raw_tushare_stock_daily(
             target_path=target_path,
             partition_key=partition_key,
             allow_empty=False,
+        )
+        metadata.update(
+            _human_materialization_metadata(
+                summary="已写入股票日线 raw 源镜像分区。",
+                next_action="等待 raw blocking checks 全部通过；通过后 silver_stock_daily 才能消费。",
+                result_status="written",
+                input_summary={
+                    "source": "Tushare daily",
+                    "partition_key": partition_key,
+                    "write_mode": "replace",
+                    "target_path_exists": target_path.exists(),
+                },
+                diagnostic_ref="完整诊断看 raw stock daily checks、materialization metadata 和 run stdout。",
+            )
+        )
+        log.stdout(
+            "raw_stock_daily_completed",
+            partition_key=partition_key,
+            output_row_count=metadata.get("dagster/row_count"),
+            page_count=metadata.get("goldenshare/page_count"),
         )
 
     return dg.MaterializeResult(metadata=metadata)
@@ -462,7 +540,7 @@ def raw_tushare_stock_daily(
             ),
         },
     ),
-    description="股票日线标准表，按上市状态和交易规则过滤。",
+    description="股票日线 silver 标准事实，按生命周期、币种、北交所开市日和停牌规则过滤，供分钟线、市场宽度和收益分布消费。",
 )
 def silver_stock_daily(
     context: dg.AssetExecutionContext,
@@ -476,6 +554,15 @@ def silver_stock_daily(
     basic_path = silver_stock_basic_path(lake_root.root())
     suspend_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
     target_path = silver_stock_daily_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("stock_daily")
+    log.stdout(
+        "silver_stock_daily_started",
+        partition_key=partition_key,
+        raw_exists=raw_path.exists(),
+        lifecycle_exists=stock_lifecycle_path.exists(),
+        basic_exists=basic_path.exists(),
+        suspend_exists=suspend_path.exists(),
+    )
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw stock daily file: {raw_path}")
     if not stock_lifecycle_path.exists():
@@ -492,12 +579,27 @@ def silver_stock_daily(
     with connect_configured_duckdb() as connection:
         conflict_key_count = _conflict_key_count(connection, raw_path)
         if conflict_key_count > 0:
+            log.stdout(
+                "silver_stock_daily_validation_failed",
+                partition_key=partition_key,
+                conflict_key_count=conflict_key_count,
+            )
             raise dg.Failure(
                 description=(
                     "Conflicting stock daily facts found for the same ts_code + trade_date."
                 ),
                 metadata=build_materialization_metadata(
                     extra_metadata={
+                        **_human_materialization_metadata(
+                            summary="未写入股票日线 silver：raw 中存在同一股票同一交易日的冲突行情事实。",
+                            next_action="先修复 raw_tushare_stock_daily 的冲突 key，再重新触发 silver_stock_daily。",
+                            result_status="failed_validation",
+                            input_summary={
+                                "source_asset": "raw_tushare_stock_daily",
+                                "partition_key": partition_key,
+                            },
+                            diagnostic_ref="完整冲突样本看本次 Failure metadata；修复后等待下一次 silver run。",
+                        ),
                         "raw_file_path": str(raw_path),
                         "partition_key": partition_key,
                         "conflict_key_count": conflict_key_count,
@@ -524,12 +626,42 @@ def silver_stock_daily(
         columns = _column_names(connection, target_path, hive_partitioning=False)
         row_count = _row_count(connection, target_path, hive_partitioning=False)
 
+    log.stdout(
+        "silver_stock_daily_completed",
+        partition_key=partition_key,
+        output_row_count=row_count,
+        raw_normalized_row_count=filter_counts["raw_normalized_row_count"],
+        duplicate_removed_count=duplicate_removed_count,
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                **_human_materialization_metadata(
+                    summary="已写入股票日线 silver 标准事实分区。",
+                    next_action="等待 silver blocking checks 全部通过；通过后分钟线、市场宽度和收益分布可以消费。",
+                    result_status="written",
+                    input_summary={
+                        "source_asset": "raw_tushare_stock_daily",
+                        "lifecycle_asset": "silver_stock_lifecycle",
+                        "stock_basic_asset": "silver_stock_basic",
+                        "suspend_asset": "silver_stock_suspend_daily",
+                        "partition_key": partition_key,
+                    },
+                    filter_summary={
+                        "raw_normalized_row_count": filter_counts[
+                            "raw_normalized_row_count"
+                        ],
+                        "deduped_row_count": filter_counts["deduped_row_count"],
+                        "final_silver_row_count": filter_counts[
+                            "final_silver_row_count"
+                        ],
+                        "duplicate_removed_count": duplicate_removed_count,
+                    },
+                    diagnostic_ref="完整诊断看 silver stock daily checks、filter counts 和 run stdout。",
+                ),
                 "raw_file_path": str(raw_path),
                 "silver_stock_lifecycle_file_path": str(stock_lifecycle_path),
                 "stock_basic_file_path": str(basic_path),

@@ -241,6 +241,212 @@ def _repair_selection_payload(
     }
 
 
+def _status_payload_ready(status_payload: object) -> bool:
+    if not isinstance(status_payload, dict):
+        return True
+    if "ready" in status_payload:
+        return bool(status_payload["ready"])
+    if "is_ready" in status_payload:
+        return bool(status_payload["is_ready"])
+    return True
+
+
+def _blocked_component_from_gate_statuses(
+    *,
+    trade_date: str | None,
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
+    default: str,
+) -> str:
+    if trade_date is None:
+        return default
+    statuses = gate_statuses_by_trade_date.get(trade_date, {})
+    for status_key, component in (
+        ("stock_basic", "stock_basic"),
+        ("suspend_d", "suspend_d"),
+        ("raw_tushare_stock_daily", "raw_tushare_stock_daily"),
+        ("source_readiness", "tushare_daily_source"),
+    ):
+        if status_key in statuses and not _status_payload_ready(statuses[status_key]):
+            return component
+    return default
+
+
+def _blocked_component_from_repair(
+    *,
+    trade_date: str | None,
+    repair_details: dict[str, object],
+) -> str | None:
+    if trade_date is None:
+        return None
+    detail = repair_details.get(trade_date)
+    if not isinstance(detail, dict):
+        return None
+    selection = detail.get("selection")
+    if not isinstance(selection, dict):
+        return None
+    if selection.get("manual_required") or selection.get("waiting") or selection.get(
+        "exhausted"
+    ):
+        return "raw_tushare_stock_daily_repair"
+    return None
+
+
+def _first_blocked_reason_code(
+    *,
+    trade_date: str | None,
+    component: str,
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
+) -> str | None:
+    if trade_date is None:
+        return None
+    component_to_status_key = {
+        "stock_basic": "stock_basic",
+        "suspend_d": "suspend_d",
+        "raw_tushare_stock_daily": "raw_tushare_stock_daily",
+        "tushare_daily_source": "source_readiness",
+    }
+    status_key = component_to_status_key.get(component)
+    status_payload = gate_statuses_by_trade_date.get(trade_date, {}).get(status_key)
+    if isinstance(status_payload, dict):
+        reason_code = status_payload.get("reason_code") or status_payload.get("reason")
+        return str(reason_code) if reason_code is not None else None
+    return None
+
+
+def _repair_cursor_summary(
+    repair_details: dict[str, object],
+) -> dict[str, object]:
+    if not repair_details:
+        return {
+            "repair_trade_date_count": 0,
+            "first_repair_trade_date": None,
+            "first_repair_reason_code": None,
+            "first_repair_missing_count": 0,
+            "first_repair_attempt": None,
+        }
+    first_trade_date = sorted(repair_details)[0]
+    detail = repair_details.get(first_trade_date)
+    locator = detail.get("locator") if isinstance(detail, dict) else {}
+    selection = detail.get("selection") if isinstance(detail, dict) else {}
+    if not isinstance(locator, dict):
+        locator = {}
+    if not isinstance(selection, dict):
+        selection = {}
+    return {
+        "repair_trade_date_count": len(repair_details),
+        "first_repair_trade_date": first_trade_date,
+        "first_repair_reason_code": selection.get("reason"),
+        "first_repair_missing_count": locator.get("missing_count", 0),
+        "first_repair_attempt": selection.get("repair_attempt"),
+    }
+
+
+def _raw_cursor_summary_and_next_action(
+    *,
+    selected_full_day_count: int,
+    selected_repair_count: int,
+    blocked_component: str,
+    target_date: str | None,
+    raw_missing_count: int,
+) -> tuple[str, str]:
+    selected_count = selected_full_day_count + selected_repair_count
+    if selected_count:
+        if selected_full_day_count and selected_repair_count:
+            summary = (
+                "已触发：提交 "
+                f"{selected_count} 个股票日线 raw 更新，其中 "
+                f"{selected_full_day_count} 个全量分区、"
+                f"{selected_repair_count} 个 missing-code repair。"
+            )
+        elif selected_repair_count:
+            summary = (
+                f"已触发：提交 {selected_repair_count} 个股票日线 raw "
+                "missing-code repair。"
+            )
+        else:
+            summary = (
+                f"已触发：提交 {selected_full_day_count} 个股票日线 raw 全量更新。"
+            )
+        return summary, "等待本次 raw run 完成，然后查看 raw blocking checks。"
+    if blocked_component == "cn_a_stock_trade_days":
+        return (
+            f"未触发：股票交易日分区存在缺口，目标停在 {target_date}。",
+            "先补齐 cn_a_stock_trade_days 动态分区，再等待下一次 tick。",
+        )
+    if blocked_component == "stock_basic":
+        return (
+            f"未触发：股票日线 raw 在 {target_date} 被 stock_basic 阻断。",
+            "先完成 stock_basic raw/silver freshness 与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "suspend_d":
+        return (
+            f"未触发：股票日线 raw 在 {target_date} 被 suspend_d 阻断。",
+            "先完成同日停复牌 raw/silver 更新与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "tushare_daily_source":
+        return (
+            f"未触发：股票日线 raw 在 {target_date} 等待 Tushare daily 源站数据。",
+            "等待源站返回当日股票日线后，下一次 tick 会重新探测。",
+        )
+    if blocked_component == "raw_tushare_stock_daily_repair":
+        return (
+            f"未触发：股票日线 raw repair 在 {target_date} 等待重试或人工处理。",
+            "查看 repair 摘要和 raw checks，确认是否等待 backoff、补源站数据或人工处理。",
+        )
+    if raw_missing_count:
+        return (
+            "未触发：股票日线 raw 仍有缺失分区，但本 tick 没有可提交项。",
+            "查看首个缺失/阻断日期的上游 ready 状态，修复后等待下一次 tick。",
+        )
+    return (
+        "未触发：股票日线 raw 当前全部就绪。",
+        "无需处理；等待新交易日分区或后续 repair 机会。",
+    )
+
+
+def _silver_cursor_summary_and_next_action(
+    *,
+    selected_count: int,
+    blocked_component: str,
+    target_date: str | None,
+    pending_count: int,
+) -> tuple[str, str]:
+    if selected_count:
+        return (
+            f"已触发：提交 {selected_count} 个股票日线 silver 更新。",
+            "等待本次 silver run 完成，然后查看 silver blocking checks。",
+        )
+    if blocked_component == "cn_a_stock_trade_days":
+        return (
+            f"未触发：股票交易日分区存在缺口，目标停在 {target_date}。",
+            "先补齐 cn_a_stock_trade_days 动态分区，再等待下一次 tick。",
+        )
+    if blocked_component == "stock_basic":
+        return (
+            f"未触发：股票日线 silver 在 {target_date} 被 stock_basic 阻断。",
+            "先完成 stock_basic raw/silver freshness 与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "suspend_d":
+        return (
+            f"未触发：股票日线 silver 在 {target_date} 被 suspend_d 阻断。",
+            "先完成同日停复牌 raw/silver 更新与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "raw_tushare_stock_daily":
+        return (
+            f"未触发：股票日线 silver 在 {target_date} 等待 raw_tushare_stock_daily。",
+            "先让同日 raw materialization 和 raw blocking checks 全部通过，再等待下一次 tick。",
+        )
+    if pending_count:
+        return (
+            "未触发：股票日线 silver 仍有缺失分区，但本 tick 没有可提交项。",
+            "查看首个待补日期的 raw 和基础事实 ready 状态，修复后等待下一次 tick。",
+        )
+    return (
+        "未触发：股票日线 silver 当前全部就绪。",
+        "无需处理；等待新交易日分区。",
+    )
+
+
 def _raw_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -274,10 +480,32 @@ def _raw_sensor_cursor(
     if not selected_keys:
         if blocked_keys:
             reason_code = "blocked"
-            blocked_component = "readiness_gate"
+            blocked_component = (
+                _blocked_component_from_repair(
+                    trade_date=target_date,
+                    repair_details=repair_details,
+                )
+                or _blocked_component_from_gate_statuses(
+                    trade_date=target_date,
+                    gate_statuses_by_trade_date=gate_statuses_by_trade_date,
+                    default=(
+                        "cn_a_stock_trade_days"
+                        if not gate_statuses_by_trade_date
+                        else "raw_tushare_stock_daily_repair"
+                    ),
+                )
+            )
         elif raw_missing_keys:
             reason_code = "pending_raw"
             blocked_component = "raw_tushare_stock_daily"
+    summary, next_action = _raw_cursor_summary_and_next_action(
+        selected_full_day_count=len(selected_full_day_keys),
+        selected_repair_count=len(selected_repair_keys),
+        blocked_component=blocked_component,
+        target_date=target_date,
+        raw_missing_count=len(raw_missing_keys),
+    )
+    repair_summary = _repair_cursor_summary(repair_details)
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -292,16 +520,8 @@ def _raw_sensor_cursor(
             partition_set=cn_a_stock_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=(
-                f"已触发：提交 {len(selected_keys)} 个股票日线 raw 更新。"
-                if selected_keys
-                else "未触发：股票日线 raw 当前没有可提交分区。"
-            ),
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_keys
-                else "查看首个阻断日期的上游 ready 状态，修复后等待下一次 tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier=compact_continuity_frontier(
                 continuity_details,
                 selected_trade_date=target_date,
@@ -314,8 +534,16 @@ def _raw_sensor_cursor(
                 "selected_repair_count": len(selected_repair_keys),
                 "blocked_count": len(blocked_keys),
                 "first_blocked_key": blocked_keys[0] if blocked_keys else None,
+                "first_blocked_component": (
+                    blocked_component if blocked_component != "none" else None
+                ),
+                "first_blocked_reason_code": _first_blocked_reason_code(
+                    trade_date=blocked_keys[0] if blocked_keys else None,
+                    component=blocked_component,
+                    gate_statuses_by_trade_date=gate_statuses_by_trade_date,
+                ),
                 "gate_trade_date_count": len(gate_statuses_by_trade_date),
-                "repair_details": repair_details,
+                **repair_summary,
                 "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
                 "recent_repair_trade_date_limit": RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT,
             },
@@ -353,10 +581,24 @@ def _silver_sensor_cursor(
     if not selected_keys:
         if blocked_keys:
             reason_code = "blocked"
-            blocked_component = "raw_tushare_stock_daily"
+            blocked_component = _blocked_component_from_gate_statuses(
+                trade_date=target_date,
+                gate_statuses_by_trade_date=gate_statuses_by_trade_date,
+                default=(
+                    "cn_a_stock_trade_days"
+                    if not gate_statuses_by_trade_date
+                    else "raw_tushare_stock_daily"
+                ),
+            )
         elif pending_keys:
             reason_code = "pending_silver"
             blocked_component = "silver_stock_daily"
+    summary, next_action = _silver_cursor_summary_and_next_action(
+        selected_count=len(selected_keys),
+        blocked_component=blocked_component,
+        target_date=target_date,
+        pending_count=len(pending_keys),
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -371,16 +613,8 @@ def _silver_sensor_cursor(
             partition_set=cn_a_stock_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=(
-                f"已触发：提交 {len(selected_keys)} 个股票日线 silver 更新。"
-                if selected_keys
-                else "未触发：股票日线 silver 当前没有可提交分区。"
-            ),
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_keys
-                else "查看首个阻断日期的 raw/check 状态，修复后等待下一次 tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier=compact_continuity_frontier(
                 continuity_details,
                 selected_trade_date=target_date,
@@ -391,6 +625,14 @@ def _silver_sensor_cursor(
                 "selected_count": len(selected_keys),
                 "blocked_count": len(blocked_keys),
                 "first_blocked_key": blocked_keys[0] if blocked_keys else None,
+                "first_blocked_component": (
+                    blocked_component if blocked_component != "none" else None
+                ),
+                "first_blocked_reason_code": _first_blocked_reason_code(
+                    trade_date=blocked_keys[0] if blocked_keys else None,
+                    component=blocked_component,
+                    gate_statuses_by_trade_date=gate_statuses_by_trade_date,
+                ),
                 "gate_trade_date_count": len(gate_statuses_by_trade_date),
                 "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
             },
