@@ -450,8 +450,8 @@
       </tr>
       <tr>
         <td><code>suspend_d</code></td>
-        <td>把 raw/silver sensor cursor 改为“交易日、阻断组件、分区门禁、raw/silver 是否 ready、下一步”；check metadata 解释停复牌文件为空和缺文件的区别。</td>
-        <td>停牌数据天然可能为空，不能把“空文件”默认说成失败，必须按现有 check 语义表达。</td>
+        <td>Wave 2A 已完成：raw/silver sensor cursor 已改为“交易日、阻断组件、分区门禁、raw/silver 是否 ready、下一步”；check metadata 已解释停复牌文件为空、缺文件和规则失败的区别。</td>
+        <td>停牌数据天然可能为空，已保持“空 raw 文件可以通过”的原有 check 语义；后续不要回退为把空文件说成失败。</td>
       </tr>
       <tr>
         <td><code>adj_factor</code></td>
@@ -624,7 +624,8 @@
         <td>Wave 2</td>
         <td>日频行情 Raw/Silver</td>
         <td>
-          LLD 已完成，待 review 后进入代码实现。与股票日线最相似，可以复用最多标杆经验。
+          LLD 已完成；<code>suspend_d</code> 已作为 Wave 2A 落地到代码、测试和静态门禁。
+          <code>adj_factor</code>、<code>index_daily</code> 待后续分步实现。
         </td>
         <td>
           代码级 LLD 已落到 <code>dagster-daily-raw-silver-human-readable-governance-low-level-design.html</code>；

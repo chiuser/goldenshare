@@ -59,6 +59,8 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
         metadata=build_check_metadata(
             check_scope=CheckScope.FILE_EXISTS,
             extra_metadata={
+                "summary": "失败：停复牌检查所需的输入文件不存在。",
+                "next_action": "先运行对应 suspend_d update job 生成缺失文件，再重新运行该 asset/check。",
                 "file_path": str(path),
                 "missing_file": True,
             },
@@ -127,6 +129,25 @@ def raw_suspend_d_partition_date_matches(
         return _missing_file_result(path)
 
     with connect_configured_duckdb() as connection:
+        columns = _column_names(connection, path)
+        missing_columns = [
+            column for column in SUSPEND_D_RAW_REQUIRED_COLUMNS if column not in columns
+        ]
+        if missing_columns:
+            return dg.AssetCheckResult(
+                passed=False,
+                metadata=build_check_metadata(
+                    check_scope=CheckScope.PARTITION_ALIGNMENT,
+                    extra_metadata={
+                        "file_path": str(path),
+                        "partition_key": partition_key,
+                        "observed_columns": columns,
+                        "required_columns": list(SUSPEND_D_RAW_REQUIRED_COLUMNS),
+                        "missing_columns": missing_columns,
+                    },
+                ),
+            )
+
         mismatch_count = connection.execute(
             f"""
             SELECT count(*) AS mismatch_count
@@ -210,14 +231,34 @@ def _combined_check_result(
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
 ) -> dg.AssetCheckResult:
+    rule_summary = [
+        {"rule_name": rule_name, "passed": bool(result.passed)}
+        for rule_name, result in rule_results
+    ]
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
     ]
+    summary = (
+        f"通过：{len(rule_results)} 条停复牌 raw 质量规则全部通过；当日无停复牌记录时空 Parquet 也是有效结果。"
+        if not failed_rule_names
+        else (
+            "失败："
+            f"{len(failed_rule_names)} / {len(rule_results)} 条停复牌 raw 质量规则未通过。"
+        )
+    )
+    next_action = (
+        "无需处理；等待 silver_stock_suspend_daily 消费或下一次更新。"
+        if not failed_rule_names
+        else "先查看 failed_rule_names 中列出的规则，再看对应子规则 metadata 定位缺文件、字段或日期问题。"
+    )
     return dg.AssetCheckResult(
         passed=not failed_rule_names,
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": summary,
+                "next_action": next_action,
+                "rule_summary": rule_summary,
                 "rule_passed": {
                     rule_name: bool(result.passed)
                     for rule_name, result in rule_results

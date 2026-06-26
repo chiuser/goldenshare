@@ -129,10 +129,11 @@
       <span class="tag">不改触发逻辑</span>
       <span class="tag">不改数据湖</span>
       <span class="tag">不写 Dagster DB</span>
-      <span class="tag">代码实现前需 review</span>
+      <span class="tag">分资产族推进</span>
     </p>
     <p class="small">
-      当前状态：LLD 已完成，待 review 后进入代码实现。本文不表示代码已经落地。
+      当前状态：Wave 2A <code>suspend_d</code> 已落地到代码、测试和静态门禁；
+      <code>adj_factor</code> 与 <code>index_daily</code> 仍待后续分步实现。
     </p>
   </header>
 
@@ -263,9 +264,9 @@
           Raw/silver sensors 基于已注册股票交易日、materialization 和 raw readiness 提交 run。
         </td>
         <td>
-          Asset description 偏短；asset run stdout 缺少阶段日志；combined check metadata 只有 <code>rule_passed</code> 和 <code>failed_rule_names</code>；
-          缺文件 metadata 没告诉人下一步。Cursor 已有 <code>summary</code> / <code>next_action</code>，
-          但 raw “all ready / pending / registered gap”的表达仍偏笼统。
+          Wave 2A 已补齐 asset description、阶段 stdout、materialization metadata、combined check
+          <code>summary</code>/<code>next_action</code>/<code>rule_summary</code> 和 cursor 中文阻断表达；
+          并保留空 raw 文件是有效业务事实的原有语义。
         </td>
       </tr>
       <tr>
@@ -524,6 +525,7 @@
         <td>
           Raw/silver request、registered gap、raw not ready、all ready 分支 cursor 包含中文
           <code>summary</code>/<code>next_action</code>，<code>blocked_component</code> 正确，普通 cursor 小于 2KB。
+          Wave 2A 已覆盖 raw/silver 注册缺口、request、raw not ready 和 all ready 分支。
         </td>
       </tr>
       <tr>
@@ -531,6 +533,7 @@
         <td>
           Combined check metadata 包含 <code>summary</code>、<code>next_action</code>、
           <code>rule_summary</code>、list 类型 <code>failed_rule_names</code>；空 raw 文件通过时有明确解释。
+          Wave 2A 已覆盖缺列、缺文件和空 raw 文件通过场景。
         </td>
       </tr>
       <tr>
@@ -570,7 +573,7 @@
         <td>
           静态禁止 Wave 2 sensors 调用报告型 <code>to_cursor_details()</code> 写 cursor；
           禁止 cursor 写 <code>status_samples</code>、<code>*_batch_status</code>、完整 <code>readiness_details</code>。
-          禁止恢复旧 index daily by-code active path。
+          禁止恢复旧 index daily by-code active path；Wave 2A 已加入 <code>suspend_d</code> 专项静态门禁。
         </td>
       </tr>
       </tbody>
@@ -606,7 +609,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
   <section>
     <h2>8. 执行步骤</h2>
     <ol>
-      <li>先实现 <code>suspend_d</code> 表达层：description、stdout、metadata、check metadata、cursor 文案与测试。</li>
+      <li><code>suspend_d</code> 表达层已实现：description、stdout、metadata、check metadata、cursor 文案与测试均已落地。</li>
       <li>再实现 <code>adj_factor</code> 表达层：保持 batch readiness 与 sensor 选择逻辑不变，只改 cursor/metadata/stdout。</li>
       <li>最后实现 <code>index_daily</code> 表达层：重点补 check metadata 摘要和 silver sensor cursor 防回退。</li>
       <li>同步本 LLD 的“当前状态”和 rollout 文档；如果代码实现与本文有冲突，先停下更新 LLD，不直接改代码绕过。</li>

@@ -1,7 +1,14 @@
+import ast
 import unittest
 from datetime import UTC, datetime
+from pathlib import Path
 from unittest.mock import patch
 
+from orchestrator.defs.assets.suspend_d import (
+    _human_materialization_metadata,
+    raw_tushare_suspend_d,
+    silver_stock_suspend_daily,
+)
 from orchestrator.defs.asset_guards.bounded_continuity import (
     ContinuityExpectedDateWindow,
     build_registered_gap_status,
@@ -23,6 +30,25 @@ from orchestrator.defs.sensors.suspend_d_sensor import (
     raw_suspend_d_update_job_sensor,
     silver_suspend_d_update_job_sensor,
 )
+
+
+ASSET_PATH = Path("src/orchestrator/defs/assets/suspend_d.py")
+
+
+def _asset_description(asset_definition) -> str:  # noqa: ANN001
+    descriptions = tuple(asset_definition.descriptions_by_key.values())
+    return descriptions[0] if descriptions else ""
+
+
+def _stdout_calls() -> list[ast.Call]:
+    tree = ast.parse(ASSET_PATH.read_text(), filename=str(ASSET_PATH))
+    calls: list[ast.Call] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if isinstance(node.func, ast.Attribute) and node.func.attr == "stdout":
+            calls.append(node)
+    return calls
 
 
 class _FakeInstance:
@@ -171,6 +197,83 @@ class SuspendDSensorTests(unittest.TestCase):
             },
         )
 
+    def test_asset_descriptions_explain_business_purpose(self) -> None:
+        descriptions = (
+            _asset_description(raw_tushare_suspend_d),
+            _asset_description(silver_stock_suspend_daily),
+        )
+
+        for description in descriptions:
+            with self.subTest(description=description):
+                self.assertRegex(description, r"[\u4e00-\u9fff]")
+                self.assertNotIn("selection", description.lower())
+
+        self.assertIn("源镜像", descriptions[0])
+        self.assertIn("标准事实", descriptions[1])
+
+    def test_suspend_d_stdout_events_are_small_and_named(self) -> None:
+        calls = _stdout_calls()
+        events = {
+            call.args[0].value
+            for call in calls
+            if call.args
+            and isinstance(call.args[0], ast.Constant)
+            and isinstance(call.args[0].value, str)
+        }
+
+        self.assertEqual(
+            {
+                "raw_suspend_d_started",
+                "raw_suspend_d_completed",
+                "silver_suspend_d_started",
+                "silver_suspend_d_validation_failed",
+                "silver_suspend_d_completed",
+            }
+            - events,
+            set(),
+        )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "ts_codes",
+            "sample_rows",
+            "conflict_sample_rows",
+            "duplicate_sample_rows",
+        }
+        issues = []
+        for call in calls:
+            keyword_names = {keyword.arg for keyword in call.keywords if keyword.arg}
+            forbidden = keyword_names & forbidden_stdout_fields
+            if forbidden:
+                issues.append(f"stdout call writes forbidden fields {sorted(forbidden)}")
+
+        self.assertEqual(issues, [])
+
+    def test_human_materialization_metadata_uses_namespaced_operator_fields(
+        self,
+    ) -> None:
+        metadata = _human_materialization_metadata(
+            summary="已写入停复牌测试产物。",
+            next_action="等待 checks。",
+            result_status="written",
+            input_summary={"source": "test"},
+            filter_summary={"output_row_count": 1},
+            diagnostic_ref="看 run stdout。",
+        )
+
+        self.assertEqual(metadata["goldenshare/summary"], "已写入停复牌测试产物。")
+        self.assertEqual(metadata["goldenshare/next_action"], "等待 checks。")
+        self.assertEqual(metadata["goldenshare/result_status"], "written")
+        self.assertEqual(metadata["goldenshare/input_summary"], {"source": "test"})
+        self.assertEqual(
+            metadata["goldenshare/filter_summary"],
+            {"output_row_count": 1},
+        )
+        self.assertEqual(metadata["goldenshare/diagnostic_ref"], "看 run stdout。")
+
     def test_existing_suspend_d_check_names_are_not_renamed(self) -> None:
         self.assertEqual(
             RAW_SUSPEND_D_CHECKS,
@@ -206,6 +309,15 @@ class SuspendDSensorTests(unittest.TestCase):
         self.assertEqual(request.partition_key, "2026-06-05")
         self.assertEqual(request.run_key, "raw_suspend_d_update:2026-06-05")
         self.assertEqual(request.run_config, {})
+        self.assertLess(len(result.cursor), 2000)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["reason_code"], "request_run")
+        self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("已触发", details["summary"])
+        self.assertIn("raw_suspend_d_contract_check", details["next_action"])
+        self.assertNotIn("status_samples", result.cursor)
+        self.assertNotIn("raw_batch_status", result.cursor)
 
     def test_raw_sensor_skips_registered_gap_before_materialization_scan(self) -> None:
         context = _FakeContext(partitions=("2026-06-13", "2026-06-16"))
@@ -229,6 +341,10 @@ class SuspendDSensorTests(unittest.TestCase):
         materialized_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor_payload["target_date"], "2026-06-15")
+        details = cursor_payload["details"]
+        self.assertEqual(details["blocked_component"], "cn_a_stock_trade_days")
+        self.assertIn("分区存在缺口", details["summary"])
+        self.assertIn("cn_a_stock_trade_days", details["next_action"])
         continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
@@ -245,6 +361,13 @@ class SuspendDSensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("raw 分区都已经生成完成", result.skip_reason.skip_message)
+        self.assertLess(len(result.cursor), 2000)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["reason_code"], "all_ready")
+        self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("都已生成", details["summary"])
+        self.assertIn("无需处理", details["next_action"])
 
     def test_silver_sensor_submits_only_when_raw_ready_and_silver_missing(
         self,
@@ -266,6 +389,14 @@ class SuspendDSensorTests(unittest.TestCase):
         request = result.run_requests[0]
         self.assertEqual(request.partition_key, "2026-06-05")
         self.assertEqual(request.run_key, "silver_suspend_d_update:2026-06-05")
+        self.assertLess(len(result.cursor), 2000)
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["reason_code"], "request_run")
+        self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("已触发", details["summary"])
+        self.assertIn("silver suspend_d blocking checks", details["next_action"])
+        self.assertNotIn("gate_statuses_by_trade_date", result.cursor)
 
     def test_silver_sensor_skips_registered_gap_before_readiness_scan(self) -> None:
         context = _FakeContext(partitions=("2026-06-13", "2026-06-16"))
@@ -292,6 +423,9 @@ class SuspendDSensorTests(unittest.TestCase):
         raw_readiness_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor_payload["target_date"], "2026-06-15")
+        details = cursor_payload["details"]
+        self.assertEqual(details["blocked_component"], "cn_a_stock_trade_days")
+        self.assertIn("分区存在缺口", details["summary"])
         continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
@@ -332,8 +466,15 @@ class SuspendDSensorTests(unittest.TestCase):
                 self.assertEqual(result.run_requests, [])
                 self.assertIn("raw readiness 门禁未满足", result.skip_reason.skip_message)
                 cursor_payload = load_sensor_cursor(result.cursor)
-                details = cursor_payload["details"]["gate_statuses"]
-                self.assertFalse(details["raw_tushare_suspend_d"]["ready"])
+                details = cursor_payload["details"]
+                self.assertLess(len(result.cursor), 2000)
+                self.assertEqual(details["reason_code"], "raw_not_ready")
+                self.assertEqual(details["blocked_component"], "raw_tushare_suspend_d")
+                self.assertIn("还没有 ready", details["summary"])
+                self.assertIn("blocking checks", details["next_action"])
+                self.assertFalse(
+                    details["gate_statuses"]["raw_tushare_suspend_d"]["ready"]
+                )
 
     def test_silver_sensor_does_not_rerun_materialized_partition(self) -> None:
         context = _FakeContext(partitions=("2026-06-05",))
@@ -351,6 +492,11 @@ class SuspendDSensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("silver 分区都已经生成完成", result.skip_reason.skip_message)
         raw_readiness.assert_not_called()
+        cursor_payload = load_sensor_cursor(result.cursor)
+        details = cursor_payload["details"]
+        self.assertEqual(details["reason_code"], "all_ready")
+        self.assertEqual(details["blocked_component"], "none")
+        self.assertIn("silver 分区都已生成", details["summary"])
 
 
 if __name__ == "__main__":

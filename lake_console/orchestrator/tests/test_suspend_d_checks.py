@@ -41,6 +41,10 @@ def _check_name(check_definition) -> str:
     return node_def.name
 
 
+def _metadata_value(value):  # noqa: ANN001
+    return getattr(value, "value", value)
+
+
 def _write_rows(
     path: Path,
     *,
@@ -164,6 +168,21 @@ class SuspendDCheckTests(unittest.TestCase):
                     else:
                         result = check_fn(context, lake_root, duckdb_resource)
                     self.assertTrue(result.passed)
+                    if _check_name(check_definition) == "raw_suspend_d_contract_check":
+                        metadata = {
+                            key: _metadata_value(value)
+                            for key, value in result.metadata.items()
+                        }
+                        self.assertIn("通过", metadata["goldenshare/summary"])
+                        self.assertIn("空 Parquet", metadata["goldenshare/summary"])
+                        self.assertIn("无需处理", metadata["goldenshare/next_action"])
+                        self.assertIsInstance(
+                            metadata["goldenshare/failed_rule_names"], list
+                        )
+                        self.assertEqual(metadata["goldenshare/failed_rule_names"], [])
+                        self.assertIsInstance(
+                            metadata["goldenshare/rule_summary"], list
+                        )
 
     def test_raw_parquet_missing_required_column_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
@@ -185,6 +204,52 @@ class SuspendDCheckTests(unittest.TestCase):
             result = check_fn(context, lake_root, duckdb_resource)
 
         self.assertFalse(result.passed)
+
+    def test_raw_contract_metadata_explains_failed_rule(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _write_raw_suspend_file(
+                root,
+                [],
+                column_types={
+                    "ts_code": "VARCHAR",
+                    "trade_date": "VARCHAR",
+                    "suspend_type": "VARCHAR",
+                },
+            )
+            context = _PartitionContext()
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            check_fn = _check_function(checks.raw_suspend_d_contract_check)
+
+            result = check_fn(context, lake_root, duckdb_resource)
+
+        self.assertFalse(result.passed)
+        metadata = {key: _metadata_value(value) for key, value in result.metadata.items()}
+        self.assertIn("失败", metadata["goldenshare/summary"])
+        self.assertIn("failed_rule_names", metadata["goldenshare/next_action"])
+        self.assertIn(
+            "required_columns",
+            metadata["goldenshare/failed_rule_names"],
+        )
+        self.assertIsInstance(metadata["goldenshare/failed_rule_names"], list)
+        self.assertIsInstance(metadata["goldenshare/rule_summary"], list)
+
+    def test_missing_file_metadata_tells_operator_next_action(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            context = _PartitionContext()
+            lake_root = LakeRootResource(root_path=str(root))
+            duckdb_resource = DuckDBResource()
+            check_fn = _check_function(checks.raw_suspend_d_required_columns)
+
+            result = check_fn(context, lake_root, duckdb_resource)
+
+        self.assertFalse(result.passed)
+        metadata = {key: _metadata_value(value) for key, value in result.metadata.items()}
+        self.assertIn("文件不存在", metadata["goldenshare/summary"])
+        self.assertIn("suspend_d update job", metadata["goldenshare/next_action"])
+        self.assertTrue(metadata["goldenshare/missing_file"])
 
     def test_raw_parquet_wrong_partition_date_fails(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:

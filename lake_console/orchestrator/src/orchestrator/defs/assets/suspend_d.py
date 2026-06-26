@@ -1,5 +1,6 @@
 import os
 from pathlib import Path
+from typing import Any
 
 import dagster as dg
 
@@ -55,6 +56,7 @@ from orchestrator.defs.run_contracts.metadata import (
     build_materialization_metadata,
 )
 from orchestrator.defs.tushare_api_io import fetch_tushare_partition_to_raw
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 SUSPEND_D_RAW_COLUMN_TYPES = {
@@ -87,6 +89,28 @@ def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) 
 
     connection.execute(copy_query_to_parquet(select_sql, temporary_path))
     os.replace(temporary_path, target_path)
+
+
+def _human_materialization_metadata(
+    *,
+    summary: str,
+    next_action: str,
+    result_status: str,
+    input_summary: dict[str, Any] | None = None,
+    filter_summary: dict[str, Any] | None = None,
+    diagnostic_ref: str,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "goldenshare/summary": summary,
+        "goldenshare/next_action": next_action,
+        "goldenshare/result_status": result_status,
+        "goldenshare/diagnostic_ref": diagnostic_ref,
+    }
+    if input_summary:
+        metadata["goldenshare/input_summary"] = input_summary
+    if filter_summary:
+        metadata["goldenshare/filter_summary"] = filter_summary
+    return metadata
 
 
 def _suspend_timing_correction_count(connection, target_path: Path) -> int:
@@ -319,7 +343,7 @@ def _full_day_raw_override_metadata(
             ),
         },
     ),
-    description="Tushare 停复牌日频原始数据。",
+    description="Tushare 每日停复牌 raw 源镜像，按股票交易日保存停牌、复牌类型和时段，供停复牌 silver 标准事实使用。",
 )
 def raw_tushare_suspend_d(
     context: dg.AssetExecutionContext,
@@ -329,6 +353,13 @@ def raw_tushare_suspend_d(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    target_path = raw_suspend_d_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("suspend_d")
+    log.stdout(
+        "raw_suspend_d_started",
+        partition_key=partition_key,
+        allow_empty=True,
+    )
     metadata = fetch_tushare_partition_to_raw(
         tushare=tushare,
         duckdb=duckdb,
@@ -336,9 +367,29 @@ def raw_tushare_suspend_d(
         api_params={"trade_date": partition_key.replace("-", "")},
         fields=SUSPEND_D_RAW_REQUIRED_COLUMNS,
         column_types=SUSPEND_D_RAW_COLUMN_TYPES,
-        target_path=raw_suspend_d_path(lake_root.root(), partition_key),
+        target_path=target_path,
         partition_key=partition_key,
         allow_empty=True,
+    )
+    metadata.update(
+        _human_materialization_metadata(
+            summary="已写入停复牌 raw 源镜像分区。",
+            next_action="等待 raw blocking checks 全部通过；通过后 silver_stock_suspend_daily 才能消费。",
+            result_status="written",
+            input_summary={
+                "source": "Tushare suspend_d",
+                "partition_key": partition_key,
+                "allow_empty": True,
+                "target_path_exists": target_path.exists(),
+            },
+            diagnostic_ref="完整诊断看 raw suspend_d checks、materialization metadata 和 run stdout。",
+        )
+    )
+    log.stdout(
+        "raw_suspend_d_completed",
+        partition_key=partition_key,
+        output_row_count=metadata.get("dagster/row_count"),
+        page_count=metadata.get("goldenshare/page_count"),
     )
 
     return dg.MaterializeResult(metadata=metadata)
@@ -365,7 +416,7 @@ def raw_tushare_suspend_d(
             "correction_policy": "Apply suspend timing corrections and full-day suspend patches."
         },
     ),
-    description="股票日频停复牌标准表，记录停牌类型和时段。",
+    description="股票日频停复牌 silver 标准事实，按交易日记录停牌类型和停牌时段，并应用已确认的停牌时段修正和全日停牌补充规则。",
 )
 def silver_stock_suspend_daily(
     context: dg.AssetExecutionContext,
@@ -376,6 +427,12 @@ def silver_stock_suspend_daily(
     partition_key = context.partition_key
     raw_path = raw_suspend_d_path(lake_root.root(), partition_key)
     target_path = silver_stock_suspend_daily_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("suspend_d")
+    log.stdout(
+        "silver_suspend_d_started",
+        partition_key=partition_key,
+        raw_exists=raw_path.exists(),
+    )
     if not raw_path.exists():
         raise FileNotFoundError(f"Missing raw suspend_d file: {raw_path}")
 
@@ -386,12 +443,27 @@ def silver_stock_suspend_daily(
             partition_key,
         )
         if full_day_patch_conflict_rows:
+            log.stdout(
+                "silver_suspend_d_validation_failed",
+                partition_key=partition_key,
+                conflict_count=len(full_day_patch_conflict_rows),
+            )
             raise dg.Failure(
                 description=(
                     "Full-day suspend patch conflicts with existing raw suspend_d rows."
                 ),
                 metadata=build_materialization_metadata(
                     extra_metadata={
+                        **_human_materialization_metadata(
+                            summary="未写入停复牌 silver：全日停牌补充规则与 raw 源事实冲突。",
+                            next_action="先核对 raw_tushare_suspend_d 和全日停牌补充规则，再重新触发 silver_stock_suspend_daily。",
+                            result_status="failed_validation",
+                            input_summary={
+                                "source_asset": "raw_tushare_suspend_d",
+                                "partition_key": partition_key,
+                            },
+                            diagnostic_ref="完整冲突样本看本次 Failure metadata；修复后等待下一次 silver run。",
+                        ),
                         "raw_file_path": str(raw_path),
                         "partition_key": partition_key,
                         "full_day_suspend_patch_conflict_count": len(
@@ -427,12 +499,41 @@ def silver_stock_suspend_daily(
         row_count = _row_count(connection, target_path, hive_partitioning=False)
         correction_count = _suspend_timing_correction_count(connection, target_path)
 
+    log.stdout(
+        "silver_suspend_d_completed",
+        partition_key=partition_key,
+        output_row_count=row_count,
+        timing_correction_count=correction_count,
+        full_day_patch_count=full_day_patch_count,
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=target_path,
             row_count=row_count,
             observed_columns=columns,
             extra_metadata={
+                **_human_materialization_metadata(
+                    summary="已写入停复牌 silver 标准事实分区。",
+                    next_action="等待 silver blocking checks 全部通过；通过后股票日线 silver 可以消费停复牌事实。",
+                    result_status="written",
+                    input_summary={
+                        "source_asset": "raw_tushare_suspend_d",
+                        "partition_key": partition_key,
+                        "raw_file_exists": raw_path.exists(),
+                    },
+                    filter_summary={
+                        "output_row_count": row_count,
+                        "suspend_timing_correction_count": correction_count,
+                        "full_day_suspend_patch_count": full_day_patch_count,
+                        "full_day_suspend_raw_override_key_count": (
+                            full_day_raw_override_key_count
+                        ),
+                        "full_day_suspend_raw_override_removed_row_count": (
+                            full_day_raw_override_removed_row_count
+                        ),
+                    },
+                    diagnostic_ref="完整诊断看 silver suspend_d checks、修正规则 metadata 和 run stdout。",
+                ),
                 "raw_file_path": str(raw_path),
                 "partition_key": partition_key,
                 "suspend_timing_correction_count": correction_count,

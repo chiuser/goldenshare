@@ -122,6 +122,34 @@ def _registered_gap_skip_reason(
     )
 
 
+def _raw_cursor_summary_and_next_action(
+    *,
+    reason_code: str,
+    selected_count: int,
+    target_date: str | None,
+    pending_count: int,
+) -> tuple[str, str]:
+    if selected_count:
+        return (
+            f"已触发：提交 {selected_count} 个停复牌 raw 分区，首个目标日期为 {target_date}。",
+            "等待本次 raw run 完成；完成后看 raw_suspend_d_contract_check 是否通过。",
+        )
+    if reason_code == "registered_gap":
+        return (
+            f"未触发：股票交易日分区存在缺口，首个缺失日期为 {target_date}。",
+            "先补齐 cn_a_stock_trade_days dynamic partition，再等待下一次 sensor tick。",
+        )
+    if reason_code == "pending_raw":
+        return (
+            f"未触发：停复牌 raw 仍有 {pending_count} 个待生成分区，但本 tick 没有提交 run。",
+            "查看 sensor evidence 中的首个待处理日期；确认单 tick 请求上限后等待下一次 tick。",
+        )
+    return (
+        "未触发：已注册股票交易日的停复牌 raw 分区都已生成。",
+        "无需处理；等待新增交易日分区或下一次日常更新。",
+    )
+
+
 def _raw_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -154,6 +182,12 @@ def _raw_sensor_cursor(
         elif pending_keys:
             reason_code = "pending_raw"
             blocked_component = "raw_tushare_suspend_d"
+    summary, next_action = _raw_cursor_summary_and_next_action(
+        reason_code=reason_code,
+        selected_count=len(selected_keys),
+        target_date=target_date,
+        pending_count=len(pending_keys),
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -171,16 +205,8 @@ def _raw_sensor_cursor(
             partition_set=cn_a_stock_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=(
-                f"已触发：提交 {len(selected_keys)} 个停复牌 raw 分区。"
-                if selected_keys
-                else "未触发：停复牌 raw 当前没有可提交分区。"
-            ),
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_keys
-                else "等待分区补齐或下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier=compact_continuity_frontier(
                 continuity_details,
                 selected_trade_date=target_date,
@@ -193,6 +219,39 @@ def _raw_sensor_cursor(
                 "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
             },
         ),
+    )
+
+
+def _silver_cursor_summary_and_next_action(
+    *,
+    reason_code: str,
+    selected_count: int,
+    target_date: str | None,
+    pending_count: int,
+) -> tuple[str, str]:
+    if selected_count:
+        return (
+            f"已触发：提交 {selected_count} 个停复牌 silver 分区，首个目标日期为 {target_date}。",
+            "等待本次 silver run 完成；完成后看 silver suspend_d blocking checks 是否通过。",
+        )
+    if reason_code == "registered_gap":
+        return (
+            f"未触发：股票交易日分区存在缺口，首个缺失日期为 {target_date}。",
+            "先补齐 cn_a_stock_trade_days dynamic partition，再等待下一次 sensor tick。",
+        )
+    if reason_code == "raw_not_ready":
+        return (
+            f"未触发：{target_date} 的停复牌 raw 还没有 ready，silver 不能继续。",
+            "先修复 raw_tushare_suspend_d 的 materialization 或 blocking checks，再等待下一次 tick。",
+        )
+    if reason_code == "pending_silver":
+        return (
+            f"未触发：停复牌 silver 仍有 {pending_count} 个待生成分区，但本 tick 没有提交 run。",
+            "查看首个待处理日期的 raw readiness；满足门禁后等待下一次 tick。",
+        )
+    return (
+        "未触发：已注册股票交易日的停复牌 silver 分区都已生成。",
+        "无需处理；下游股票日线 silver 可继续按 readiness 消费停复牌事实。",
     )
 
 
@@ -224,11 +283,21 @@ def _silver_sensor_cursor(
     blocked_component = "none"
     if not selected_keys:
         if blocked_keys:
-            reason_code = "raw_not_ready"
-            blocked_component = "raw_tushare_suspend_d"
+            if gate_statuses_by_trade_date:
+                reason_code = "raw_not_ready"
+                blocked_component = "raw_tushare_suspend_d"
+            else:
+                reason_code = "registered_gap"
+                blocked_component = cn_a_stock_trade_days.name
         elif pending_keys:
             reason_code = "pending_silver"
             blocked_component = "silver_stock_suspend_daily"
+    summary, next_action = _silver_cursor_summary_and_next_action(
+        reason_code=reason_code,
+        selected_count=len(selected_keys),
+        target_date=target_date,
+        pending_count=len(pending_keys),
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -243,16 +312,8 @@ def _silver_sensor_cursor(
             partition_set=cn_a_stock_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=(
-                f"已触发：提交 {len(selected_keys)} 个停复牌 silver 分区。"
-                if selected_keys
-                else "未触发：停复牌 silver 当前没有可提交分区。"
-            ),
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_keys
-                else "查看首个阻断日期的 raw/check 状态，修复后等待下一次 tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier=compact_continuity_frontier(
                 continuity_details,
                 selected_trade_date=target_date,
