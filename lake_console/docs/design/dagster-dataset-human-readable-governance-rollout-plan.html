@@ -263,9 +263,12 @@
         <td>日频行情 Raw/Silver</td>
         <td>
           <code>suspend_d</code>、<code>daily</code>、<code>adj_factor</code>、
-          <code>index_daily</code>、<code>market_major_indices_daily</code>
+          <code>index_daily</code>
         </td>
-        <td>按交易日说明触发原因、阻断组件、文件覆盖和下游消费。股票日线已经作为标杆完成。</td>
+        <td>
+          按交易日说明触发原因、阻断组件、文件覆盖和下游消费。股票日线已经作为标杆完成。
+          <code>market_major_indices_daily</code> 是相邻 gold 消费者，放到 Wave 3 治理，本组只做影响面防误伤。
+        </td>
       </tr>
       <tr>
         <td>分钟线 Raw/Silver</td>
@@ -447,7 +450,7 @@
       </tr>
       <tr>
         <td><code>suspend_d</code></td>
-        <td>把 raw/silver sensor cursor 改为“交易日、阻断组件、源站是否 ready、raw/silver 是否 ready、下一步”；check metadata 解释停复牌文件为空和缺文件的区别。</td>
+        <td>把 raw/silver sensor cursor 改为“交易日、阻断组件、分区门禁、raw/silver 是否 ready、下一步”；check metadata 解释停复牌文件为空和缺文件的区别。</td>
         <td>停牌数据天然可能为空，不能把“空文件”默认说成失败，必须按现有 check 语义表达。</td>
       </tr>
       <tr>
@@ -462,8 +465,8 @@
       </tr>
       <tr>
         <td><code>market_major_indices_daily</code></td>
-        <td>说明它是主要指数日线派生产物；cursor 和 check metadata 要明确 raw/silver index daily、seed、index basic 哪个阻断。</td>
-        <td>它是下游消费者，不应该重新扫描旧 index daily by-code 路径。</td>
+        <td>它是主要指数日线 gold 派生产物，不并入 Wave 2；Wave 2 只审计 index_daily 改造不会误伤它。</td>
+        <td>实际人类可读治理放到 Wave 3。它是下游消费者，不应该重新扫描旧 index daily by-code 路径。</td>
       </tr>
       </tbody>
     </table>
@@ -620,8 +623,13 @@
       <tr>
         <td>Wave 2</td>
         <td>日频行情 Raw/Silver</td>
-        <td>与股票日线最相似，可以复用最多标杆经验。</td>
-        <td><code>suspend_d</code>、<code>adj_factor</code>、<code>index_daily</code> 的 cursor 和 check metadata 不再像报告转储。</td>
+        <td>
+          LLD 已完成，待 review 后进入代码实现。与股票日线最相似，可以复用最多标杆经验。
+        </td>
+        <td>
+          代码级 LLD 已落到 <code>dagster-daily-raw-silver-human-readable-governance-low-level-design.html</code>；
+          实现完成标志仍是 <code>suspend_d</code>、<code>adj_factor</code>、<code>index_daily</code> 的 cursor 和 check metadata 不再像报告转储。
+        </td>
       </tr>
       <tr>
         <td>Wave 3</td>

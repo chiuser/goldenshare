@@ -1,0 +1,659 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 日频行情 Raw/Silver 人类可读治理 LLD</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #202a36;
+      --muted: #637083;
+      --line: #d7dee8;
+      --blue: #255f8d;
+      --green: #1f735d;
+      --amber: #8a641a;
+      --red: #a84232;
+      --code: #f2f5f8;
+      --soft-blue: #eef6ff;
+      --soft-green: #edf8f3;
+      --soft-amber: #fff7df;
+      --soft-red: #fff0ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+    main {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 34px 24px 76px;
+    }
+    header,
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+      margin-top: 18px;
+      padding: 26px;
+    }
+    header {
+      margin-top: 0;
+      border-left: 6px solid var(--blue);
+      padding: 34px;
+    }
+    h1,
+    h2,
+    h3 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: 38px; margin-bottom: 12px; }
+    h2 { font-size: 25px; margin-bottom: 12px; }
+    h3 { font-size: 18px; margin: 22px 0 8px; }
+    p { margin: 8px 0 12px; }
+    code {
+      background: var(--code);
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    pre {
+      overflow: auto;
+      background: #17212d;
+      color: #eef6ff;
+      border-radius: 10px;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: #fff;
+    }
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #edf3f8; }
+    ul,
+    ol { padding-left: 24px; }
+    li { margin: 5px 0; }
+    .lead { color: var(--muted); max-width: 940px; font-size: 17px; }
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code);
+      color: #344054;
+      font-size: 13px;
+    }
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: var(--soft-blue);
+      margin: 14px 0;
+    }
+    .callout.green { border-left-color: var(--green); background: var(--soft-green); }
+    .callout.amber { border-left-color: var(--amber); background: var(--soft-amber); }
+    .callout.red { border-left-color: var(--red); background: var(--soft-red); }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 日频行情 Raw/Silver 人类可读治理 LLD</h1>
+    <p class="lead">
+      本文是 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code>
+      中 Wave 2 的代码级低阶设计。目标不是改变日频行情的生产方式，而是让运维在 Dagster UI、
+      run stdout、materialization metadata、check metadata 和 sensor cursor 里能直接看懂：
+      当前触发了什么、为什么没触发、卡在哪个组件、下一步该修哪里。
+    </p>
+    <p>
+      <span class="tag">Wave 2：日频行情 Raw/Silver</span>
+      <span class="tag">只改表达层</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不改数据湖</span>
+      <span class="tag">不写 Dagster DB</span>
+      <span class="tag">代码实现前需 review</span>
+    </p>
+    <p class="small">
+      当前状态：LLD 已完成，待 review 后进入代码实现。本文不表示代码已经落地。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. Wave 2 范围</h2>
+    <div class="callout green">
+      <p>
+        Wave 2 的正式改造范围收敛到三个日频 Raw/Silver 资产族：
+        <code>suspend_d</code>、<code>adj_factor</code>、<code>index_daily</code>。
+        <code>daily</code> 已作为 Wave 0 标杆完成；本轮只作为样式参考，不重复改造。
+      </p>
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>本轮资产</th>
+        <th>本轮 sensor</th>
+        <th>本轮 checks</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>suspend_d</code></td>
+        <td><code>raw_tushare_suspend_d</code>、<code>silver_stock_suspend_daily</code></td>
+        <td><code>raw_suspend_d_update_job_sensor</code>、<code>silver_suspend_d_update_job_sensor</code></td>
+        <td><code>raw_suspend_d_contract_check</code>、<code>silver_suspend_d_key_integrity_check</code>、<code>silver_suspend_d_suspend_type_domain_check</code> 等现有 checks。</td>
+      </tr>
+      <tr>
+        <td><code>adj_factor</code></td>
+        <td><code>raw_tushare_adj_factor</code>、<code>silver_adj_factor</code></td>
+        <td><code>raw_adj_factor_update_job_sensor</code>、<code>silver_adj_factor_update_job_sensor</code></td>
+        <td><code>raw_adj_factor_business_contract_check</code>、<code>silver_adj_factor_business_contract_check</code> 等现有 checks。</td>
+      </tr>
+      <tr>
+        <td><code>index_daily</code></td>
+        <td><code>raw_index_daily</code>、<code>silver_index_daily</code></td>
+        <td><code>raw_index_daily_update_job_sensor</code>、<code>silver_index_daily_sensor</code></td>
+        <td><code>raw_index_daily_file_contract_check</code>、<code>raw_index_daily_code_coverage_check</code>、<code>silver_index_daily_contract_check</code>、<code>silver_index_daily_registered_code_coverage_check</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout amber">
+      <p>
+        <code>market_major_indices_daily</code> 在 rollout 早期分类中被放在日频行情附近，
+        但它当前是 <code>gold_market_major_indices_daily</code> 下游消费者，不是 Raw/Silver 资产。
+        本轮只审计它和 <code>index_daily</code> 的依赖边界，真正的人类可读治理放到 Wave 3。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 依据</h2>
+    <ul>
+      <li><code>AGENTS.md</code>：按计划开发必须抽硬口径、映射真实代码与测试；涉及代码行为必须看当前实现。</li>
+      <li><code>lake_console/orchestrator/AGENTS.md</code>：Dagster 代码改动前必须先完成设计确认；不得未经批准运行正式 Dagster。</li>
+      <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：definition 命名、job/asset 职责、readiness、cursor、hot path 和 metadata 规范。</li>
+      <li><code>dagster-data-pipeline-performance-governance.md</code>：sensor cursor 必须小，不能把 batch readiness 报告塞进 cursor。</li>
+      <li><code>dagster-dataset-human-readable-governance-rollout-plan.html</code>：全局 rollout 与 Wave 2 范围。</li>
+      <li><code>dagster-stock-daily-human-readable-governance.html</code>：股票日线标杆样式。</li>
+      <li>CodeGraph 审计范围：Wave 2 assets、checks、jobs、sensors、readiness helper、相邻 <code>market_major_indices_daily</code> 消费链路。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. 硬边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>边界</th>
+        <th>执行口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Definition 身份</td>
+        <td>不改 asset、job、sensor、check 名称；不新增同语义 check；不删除现有 checks。</td>
+      </tr>
+      <tr>
+        <td>触发逻辑</td>
+        <td>不改 job selection、run key、run config、default status、minimum interval、运行窗口、单 tick 请求数和 sensor 分支顺序。</td>
+      </tr>
+      <tr>
+        <td>数据生产</td>
+        <td>不改 Tushare API、prod core DB 读取、DuckDB SQL、字段投影、过滤规则、路径、schema 和 Parquet 文件内容。</td>
+      </tr>
+      <tr>
+        <td>Readiness 语义</td>
+        <td>不新增 source probe，不改变 batch readiness window，不把文件存在降级冒充完整 ready。</td>
+      </tr>
+      <tr>
+        <td>Cursor</td>
+        <td>保留 v1 顶层 contract；只保留本 tick 路标、阻断组件、目标日期和最小证据；禁止写完整 <code>to_cursor_details()</code> 报告、<code>status_samples</code>、完整路径/code/date 列表。</td>
+      </tr>
+      <tr>
+        <td>Metadata</td>
+        <td>只追加人类可读字段；不删除现有诊断字段，避免破坏已有测试或运维习惯。</td>
+      </tr>
+      <tr>
+        <td>运行环境</td>
+        <td>不运行 <code>dg</code>、job、sensor、materialize、backfill；不写 lake、prod DB、Dagster DB。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 当前代码事实</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>文件</th>
+        <th>当前事实</th>
+        <th>可读性缺口</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>suspend_d</code></td>
+        <td>
+          <code>defs/assets/suspend_d.py</code><br>
+          <code>defs/sensors/suspend_d_sensor.py</code><br>
+          <code>defs/checks/suspend_d_checks.py</code>
+        </td>
+        <td>
+          Raw 允许空文件；silver 会做停牌 timing 修正、全日停牌补丁和 raw override 统计。
+          Raw/silver sensors 基于已注册股票交易日、materialization 和 raw readiness 提交 run。
+        </td>
+        <td>
+          Asset description 偏短；asset run stdout 缺少阶段日志；combined check metadata 只有 <code>rule_passed</code> 和 <code>failed_rule_names</code>；
+          缺文件 metadata 没告诉人下一步。Cursor 已有 <code>summary</code> / <code>next_action</code>，
+          但 raw “all ready / pending / registered gap”的表达仍偏笼统。
+        </td>
+      </tr>
+      <tr>
+        <td><code>adj_factor</code></td>
+        <td>
+          <code>defs/assets/adj_factor.py</code><br>
+          <code>defs/sensors/stock_adj_factor_sensor.py</code><br>
+          <code>defs/checks/adj_factor_checks.py</code><br>
+          <code>defs/asset_guards/adj_factor_lake_readiness.py</code>
+        </td>
+        <td>
+          Raw sensor 先等 09:30 更新窗口，再用最近 10 个当前交易日的 batch readiness 选择首个未 ready 日期。
+          Silver sensor 同时看 raw batch 和 silver batch，不能越过 raw 阻断。
+        </td>
+        <td>
+          Asset description 和 materialization metadata 可读性不足；checks 的 combined metadata 缺少 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>；
+          sensor cursor 已使用统一 contract，但需要更稳定的中文阻断表达和长度门禁。
+        </td>
+      </tr>
+      <tr>
+        <td><code>index_daily</code></td>
+        <td>
+          <code>defs/assets/index_daily.py</code><br>
+          <code>defs/sensors/raw_index_daily_update_job_sensor.py</code><br>
+          <code>defs/sensors/silver_index_daily_sensor.py</code><br>
+          <code>defs/checks/index_daily_checks.py</code>
+        </td>
+        <td>
+          Raw 已切到 by-date，从 prod <code>core_serving.index_daily_serving</code> 读取 DG dynamic partitions 管理的指数集合。
+          Raw sensor cursor 已做过瘦身；silver sensor 依赖 raw by-date readiness 和 silver readiness。
+        </td>
+        <td>
+          Raw/silver materialization metadata 仍偏工程诊断；checks metadata 里 <code>results</code> / <code>coverage_results</code> 是机器报告，
+          缺少先给人看的摘要。Silver sensor 仍要检查是否存在 cursor 报告化字段。
+        </td>
+      </tr>
+      <tr>
+        <td><code>market_major_indices_daily</code></td>
+        <td>
+          <code>defs/assets/market_major_indices.py</code><br>
+          <code>defs/sensors/market_major_indices_daily_sensor.py</code><br>
+          <code>defs/sensors/market_major_indices_input_readiness.py</code>
+        </td>
+        <td>
+          它是 gold 层主要指数派生产物，读取 <code>silver_index_daily</code>、seed 和 index basic。
+        </td>
+        <td>
+          不进入 Wave 2 改造；Wave 2 静态门禁只确保 <code>index_daily</code> 改造不恢复旧 by-code 依赖，不让 gold 消费者被误伤。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 代码改动设计</h2>
+
+    <h3>5.1 Asset Description、Stdout、Materialization Metadata</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>代码落点</th>
+        <th>计划改动</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>suspend_d</code></td>
+        <td><code>defs/assets/suspend_d.py</code></td>
+        <td>
+          补充 raw/silver description；引入 <code>DgStdoutLogger("suspend_d")</code> 记录
+          <code>raw_suspend_d_started</code>、<code>raw_suspend_d_completed</code>、
+          <code>silver_suspend_d_started</code>、<code>silver_suspend_d_validation_failed</code>、
+          <code>silver_suspend_d_completed</code>。
+          Materialization metadata 追加 <code>summary</code>、<code>next_action</code>、
+          <code>result_status</code>、<code>input_summary</code>、<code>filter_summary</code>、
+          <code>diagnostic_ref</code>。
+        </td>
+      </tr>
+      <tr>
+        <td><code>adj_factor</code></td>
+        <td><code>defs/assets/adj_factor.py</code></td>
+        <td>
+          补充 raw/silver description；引入 <code>DgStdoutLogger("adj_factor")</code> 记录
+          <code>raw_adj_factor_started</code>、<code>raw_adj_factor_completed</code>、
+          <code>silver_adj_factor_started</code>、<code>silver_adj_factor_completed</code>。
+          Silver metadata 把 source row、lifecycle stock、selected/rejected rows 包装成一句人能读懂的 <code>filter_summary</code>。
+        </td>
+      </tr>
+      <tr>
+        <td><code>index_daily</code></td>
+        <td><code>defs/assets/index_daily.py</code></td>
+        <td>
+          保留已有 by-date 同步逻辑和 <code>DgStdoutLogger("index_daily")</code>；
+          description 改得更明确：raw 是 prod core DB 只读同步，silver 是同日标准事实。
+          Metadata 追加 <code>summary</code>、<code>next_action</code>、<code>result_status</code>、
+          <code>input_summary</code>、<code>code_set_summary</code>、<code>diagnostic_ref</code>。
+          保留已有 <code>code_count</code> / hash / partition metadata。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.2 Check Metadata</h3>
+    <p>
+      本轮不新增 check，不改名 check，不改变 blocking/WARN 语义。只让现有 metadata 先给人一句话，
+      再保留机器诊断字段。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>文件</th>
+        <th>计划改动</th>
+        <th>必须保留</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>defs/checks/suspend_d_checks.py</code></td>
+        <td>
+          <code>_combined_check_result(...)</code> 增加 <code>summary</code>、
+          <code>next_action</code>、<code>rule_summary</code>；<code>_missing_file_result(...)</code>
+          增加“缺哪个文件、先运行哪个入口”的中文说明。Raw 空文件通过时要写清“停复牌当日可能 0 行，这是允许的”。
+        </td>
+        <td>现有 <code>failed_rule_names</code>、<code>rule_passed</code>、样本上限和 blocking check 名称。</td>
+      </tr>
+      <tr>
+        <td><code>defs/checks/adj_factor_checks.py</code></td>
+        <td>
+          <code>_combined_check_result(...)</code> 增加人类可读字段；
+          raw/silver 缺文件、日期错、重复键、复权因子非正、生命周期覆盖缺口要能通过 <code>summary</code>
+          和 <code>next_action</code> 看出修复方向。
+        </td>
+        <td>现有 raw/silver business contract、coverage、listed-stock-only 语义和样本上限。</td>
+      </tr>
+      <tr>
+        <td><code>defs/checks/index_daily_checks.py</code></td>
+        <td>
+          <code>_blocking_value_result(...)</code> 和 combined check 追加 <code>summary</code>、
+          <code>next_action</code>、<code>rule_summary</code>。
+          <code>results</code> / <code>coverage_results</code> 保留，但新增 count 级摘要：
+          分区数、失败分区数、缺文件数、缺 code 数、extra code 数、重复键数、日期错行数。
+        </td>
+        <td>
+          原有 <code>coverage_results</code>、失败分区、样本列表、DG code 覆盖口径；
+          raw check 仍允许 OHLC 等业务字段为 NULL。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.3 Sensor Cursor</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>Sensor</th>
+        <th>计划改动</th>
+        <th>禁止项</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>raw_suspend_d_update_job_sensor</code></td>
+        <td>
+          保持当前选择逻辑：已注册股票交易日中 raw 未 materialized 的日期最多提交 2 个。
+          Cursor 的 <code>summary</code> 区分 request run、registered gap、all ready；
+          <code>blocked_component</code> 固定为 <code>cn_a_stock_trade_days</code>、<code>raw_tushare_suspend_d</code> 或 <code>none</code>。
+          <code>evidence</code> 只保留 registered/pending/selected count、首个阻断日期和 max requests。
+        </td>
+        <td>不新增 Tushare source readiness probe；不把完整 registered keys 或 pending keys 塞进 cursor。</td>
+      </tr>
+      <tr>
+        <td><code>silver_suspend_d_update_job_sensor</code></td>
+        <td>
+          保持 raw readiness 门禁；cursor 的 <code>gate_statuses</code> 只放目标日期 raw 的 compact 状态。
+          <code>summary</code> 区分 request run、raw 未 ready、silver all ready。
+        </td>
+        <td>不改变 raw-not-ready 时的 skip 行为；不放完整 <code>gate_statuses_by_trade_date</code>。</td>
+      </tr>
+      <tr>
+        <td><code>raw_adj_factor_update_job_sensor</code></td>
+        <td>
+          保持 09:30 运行窗口和最近 10 个 current trade days batch readiness。
+          Cursor 的 <code>blocked_component</code> 固定为 <code>run_window</code>、
+          <code>cn_a_stock_current_trade_days</code>、<code>raw_adj_factor</code> 或 <code>none</code>；
+          <code>frontier</code> 使用 compact frontier，只保留 ready through、first not ready、elapsed/scanned count。
+        </td>
+        <td>不改 window 常量；不写 <code>raw_batch_status.to_cursor_details()</code> 或 status samples。</td>
+      </tr>
+      <tr>
+        <td><code>silver_adj_factor_update_job_sensor</code></td>
+        <td>
+          保持 raw batch 与 silver batch 的分层短路。
+          Cursor 要明确是 raw 阻断、silver check failed、all ready 还是 request run；
+          <code>gate_statuses</code> 只放目标日期 raw/silver compact 状态。
+        </td>
+        <td>不越过 raw 阻断；不把两个 batch status 完整写入 cursor。</td>
+      </tr>
+      <tr>
+        <td><code>raw_index_daily_update_job_sensor</code></td>
+        <td>
+          保留已完成的瘦身结构；只补测试和静态门禁，确保不回退。
+          <code>source_status</code> 继续只保留 prod core DB 的最小证据和样本上限。
+        </td>
+        <td>不恢复 <code>raw_batch_status</code>、<code>status_samples</code> 或 prod 缺口完整列表。</td>
+      </tr>
+      <tr>
+        <td><code>silver_index_daily_sensor</code></td>
+        <td>
+          保持 raw by-date readiness 先行；cursor 用 compact raw/silver frontier 和目标日期 gate 状态。
+          <code>blocked_component</code> 固定为 <code>cn_a_index_trade_days</code>、
+          <code>raw_index_daily</code>、<code>silver_index_daily</code> 或 <code>none</code>。
+        </td>
+        <td>不恢复旧 by-code 叙事；不扫描旧 by-code 路径；不写完整 batch status。</td>
+      </tr>
+      </tbody>
+    </table>
+    <pre><code>{
+  "schema_version": 1,
+  "decision": "skip",
+  "target_date": "2026-06-24",
+  "details": {
+    "sensor_name": "silver_adj_factor_update_job_sensor",
+    "asset_family": "adj_factor",
+    "reason_code": "raw_not_ready",
+    "blocked_component": "raw_adj_factor",
+    "summary": "未触发：2026-06-24 的复权因子 raw 还没有 ready，silver 不能继续。",
+    "next_action": "先修复 raw_adj_factor 的文件或 blocking checks，再等待下一次 sensor tick。",
+    "frontier": {
+      "ready_through_date": "2026-06-23",
+      "first_not_ready_date": "2026-06-24"
+    },
+    "gate_statuses": {
+      "raw_adj_factor": {
+        "ready": false,
+        "missing_check_count": 1
+      }
+    }
+  }
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>6. 测试设计</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>测试文件</th>
+        <th>新增或更新断言</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>tests/test_suspend_d_sensor.py</code></td>
+        <td>
+          Raw/silver request、registered gap、raw not ready、all ready 分支 cursor 包含中文
+          <code>summary</code>/<code>next_action</code>，<code>blocked_component</code> 正确，普通 cursor 小于 2KB。
+        </td>
+      </tr>
+      <tr>
+        <td><code>tests/test_suspend_d_checks.py</code></td>
+        <td>
+          Combined check metadata 包含 <code>summary</code>、<code>next_action</code>、
+          <code>rule_summary</code>、list 类型 <code>failed_rule_names</code>；空 raw 文件通过时有明确解释。
+        </td>
+      </tr>
+      <tr>
+        <td><code>tests/test_adj_factor_checks.py</code></td>
+        <td>
+          Raw/silver business contract metadata 有人类可读摘要；失败样本不扩大；<code>failed_rule_names</code> 是 list。
+        </td>
+      </tr>
+      <tr>
+        <td>新增 <code>tests/test_adj_factor_human_readable_contracts.py</code></td>
+        <td>
+          Asset description、stdout 事件名、materialization metadata helper、sensor cursor 长度和禁写字段。
+        </td>
+      </tr>
+      <tr>
+        <td><code>tests/test_raw_index_daily_update_job_sensor.py</code></td>
+        <td>
+          保留已落地 cursor 瘦身断言；补充 source-not-ready / request-run cursor 不含报告型字段。
+        </td>
+      </tr>
+      <tr>
+        <td><code>tests/test_silver_index_daily_sensor.py</code></td>
+        <td>
+          Silver sensor request、raw not ready、silver check failed、all ready cursor 均小于 2KB，
+          不含 <code>raw_batch_status</code> / <code>silver_batch_status</code> / <code>status_samples</code>。
+        </td>
+      </tr>
+      <tr>
+        <td><code>tests/test_index_daily_checks.py</code></td>
+        <td>
+          Raw file contract、raw code coverage、silver contract、silver coverage check metadata 有摘要和下一步；
+          保留 <code>coverage_results</code> 诊断字段。
+        </td>
+      </tr>
+      <tr>
+        <td><code>tests/test_run_contract_static_gates.py</code></td>
+        <td>
+          静态禁止 Wave 2 sensors 调用报告型 <code>to_cursor_details()</code> 写 cursor；
+          禁止 cursor 写 <code>status_samples</code>、<code>*_batch_status</code>、完整 <code>readiness_details</code>。
+          禁止恢复旧 index daily by-code active path。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 验证命令</h2>
+    <p>代码实现完成后，建议只跑本地单元和静态门禁：</p>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_suspend_d_sensor \
+  tests.test_suspend_d_checks \
+  tests.test_adj_factor_checks \
+  tests.test_adj_factor_contracts \
+  tests.test_adj_factor_human_readable_contracts \
+  tests.test_raw_index_daily_update_job_sensor \
+  tests.test_silver_index_daily_sensor \
+  tests.test_index_daily_checks \
+  tests.test_index_daily_raw_file_readiness \
+  tests.test_run_contract_static_gates \
+  tests.test_asset_governance_contracts
+git diff --check
+python3 scripts/check_docs_integrity.py</code></pre>
+    <div class="callout red">
+      <p>
+        不默认运行 <code>dg check defs</code>，不运行正式 job/sensor/materialize/backfill。
+        如需触碰正式 Dagster instance 或数据湖，必须单独列读写范围并等待批准。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. 执行步骤</h2>
+    <ol>
+      <li>先实现 <code>suspend_d</code> 表达层：description、stdout、metadata、check metadata、cursor 文案与测试。</li>
+      <li>再实现 <code>adj_factor</code> 表达层：保持 batch readiness 与 sensor 选择逻辑不变，只改 cursor/metadata/stdout。</li>
+      <li>最后实现 <code>index_daily</code> 表达层：重点补 check metadata 摘要和 silver sensor cursor 防回退。</li>
+      <li>同步本 LLD 的“当前状态”和 rollout 文档；如果代码实现与本文有冲突，先停下更新 LLD，不直接改代码绕过。</li>
+      <li>提交代码与文档，提交范围只包含 Wave 2 文件，不混入其它未提交文档。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>9. Stop Conditions</h2>
+    <ul>
+      <li>发现某个 cursor 字段被下游逻辑当作 runtime state 使用，且本文未列出。</li>
+      <li>需要新增 source readiness probe、状态资产、runless event、summary asset 或数据库表才能表达清楚。</li>
+      <li>需要修改 job selection、run key、run config、default status、运行窗口或单 tick 请求数。</li>
+      <li>需要访问正式 Dagster instance、正式数据湖、Tushare、prod DB 或远程服务验证。</li>
+      <li>发现 <code>market_major_indices_daily</code> 必须随 <code>index_daily</code> 同步改代码才能保持一致。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>10. 待 Review 口径</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>口径</th>
+        <th>建议</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>market_major_indices_daily</code> 是否并入 Wave 2</td>
+        <td>不并入。它是 gold/serving 侧业务产物，放 Wave 3；Wave 2 只保护它不被 index daily 改造误伤。</td>
+      </tr>
+      <tr>
+        <td><code>suspend_d</code> raw cursor 是否补源站 readiness</td>
+        <td>不补。当前触发逻辑没有 source probe，cursor 只能解释已有决策；新增 probe 属于触发逻辑变化。</td>
+      </tr>
+      <tr>
+        <td>是否合并或新增 checks</td>
+        <td>不做。Wave 2 只改 metadata 表达，不改变 check 数量和 blocking 语义。</td>
+      </tr>
+      <tr>
+        <td>是否清理历史 cursor 或 Dagster event</td>
+        <td>不做。部署后新 tick 自然覆盖 cursor；历史事件清理不是本轮范围。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+</main>
+</body>
+</html>
