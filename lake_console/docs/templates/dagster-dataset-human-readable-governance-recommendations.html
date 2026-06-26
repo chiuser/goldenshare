@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 数据集人类可读治理建议</title>
+  <style>
+    :root {
+      --bg: #f6f1e8;
+      --paper: #fffaf0;
+      --ink: #24312d;
+      --muted: #66716c;
+      --line: #d7cbb5;
+      --accent: #2f6f73;
+      --accent-2: #8b5e20;
+      --good: #e4f5e4;
+      --warn: #fff0c7;
+      --bad: #ffe0d8;
+      --blue: #e3edff;
+      --code: #fff5d8;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: linear-gradient(135deg, #fff8e9 0%, var(--bg) 42%, #efe3cf 100%);
+      color: var(--ink);
+      font-family: ui-serif, "Songti SC", "Noto Serif CJK SC", Georgia, serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 42px 28px 78px;
+    }
+
+    header,
+    section {
+      background: rgba(255, 250, 240, 0.9);
+      border: 1px solid var(--line);
+      border-radius: 18px;
+      padding: 26px 30px;
+      margin: 18px 0;
+      box-shadow: 0 16px 48px rgba(71, 56, 31, 0.08);
+    }
+
+    header {
+      padding: 34px 38px;
+    }
+
+    h1 {
+      margin: 0 0 12px;
+      font-size: 34px;
+      line-height: 1.25;
+    }
+
+    h2 {
+      margin: 0 0 14px;
+      font-size: 24px;
+      border-left: 7px solid var(--accent);
+      padding-left: 14px;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+    }
+
+    p { margin: 8px 0 12px; }
+
+    a { color: #1a6570; }
+
+    code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+      background: var(--code);
+      border: 1px solid #ead7a8;
+      border-radius: 5px;
+      padding: 1px 5px;
+    }
+
+    pre {
+      overflow-x: auto;
+      background: #fffdf8;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background: rgba(255, 250, 240, 0.96);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      overflow: hidden;
+      margin: 14px 0 18px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eadfc9;
+      font-weight: 700;
+    }
+
+    ul,
+    ol {
+      padding-left: 24px;
+    }
+
+    li {
+      margin: 5px 0;
+    }
+
+    .lead {
+      color: var(--muted);
+      max-width: 920px;
+      font-size: 16px;
+    }
+
+    .tag {
+      display: inline-block;
+      border: 1px solid rgba(0, 0, 0, 0.08);
+      border-radius: 999px;
+      padding: 2px 8px;
+      margin: 3px 4px 3px 0;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 12px;
+      background: var(--blue);
+    }
+
+    .callout {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 14px 16px;
+      margin: 14px 0;
+    }
+
+    .good { background: var(--good); }
+    .warn { background: var(--warn); }
+    .bad { background: var(--bad); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+      gap: 14px;
+      margin: 16px 0;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 16px 18px;
+      background: rgba(255, 253, 248, 0.86);
+    }
+
+    .small {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .bad-example {
+      background: #fff2ef;
+      border-left: 5px solid #cf5b45;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin: 8px 0;
+    }
+
+    .good-example {
+      background: #eef8ed;
+      border-left: 5px solid #4e8b53;
+      padding: 10px 12px;
+      border-radius: 10px;
+      margin: 8px 0;
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 数据集人类可读治理建议</h1>
+    <p class="lead">
+      本文不是新增一套机器契约，而是补齐数据集接入模板中“给人看”的部分。
+      目标是让资产、任务、传感器、cursor、日志、metadata 和 check 在 Dagster UI 里像清楚的工作说明，而不是内部对象转储。
+    </p>
+    <p>
+      <span class="tag">适用范围：lake_console/orchestrator 数据集接入</span>
+      <span class="tag">不改代码</span>
+      <span class="tag">不触碰 Dagster DB</span>
+      <span class="tag">后续纳入模板</span>
+    </p>
+    <p class="small">
+      审计依据：
+      <a href="dagster-dataset-onboarding-template.html">Dagster 数据集资产接入综合模板</a>、
+      <a href="../design/dagster-sensor-cursor-governance-plan.html">Sensor Cursor 治理专项方案</a>、
+      <a href="../design/dagster-sensor-cursor-governance-low-level-design.html">Sensor Cursor LLD</a>、
+      <a href="../design/dagster-data-pipeline-performance-governance.md">数据管道性能治理规范</a>。
+    </p>
+  </header>
+
+  <section>
+    <h2>一句话结论</h2>
+    <div class="callout good">
+      <p>
+        后续写任何 Dagster 数据集，不只要问“机器能不能跑”，还要问：
+        <strong>一个接手的人打开 Dagster UI 后，能不能在 30 秒内判断它是什么、为什么跑、为什么没跑、卡在哪里、下一步该做什么。</strong>
+      </p>
+      <p>
+        如果答案是否定的，就算 asset、sensor、check 的机器契约都正确，这个数据集的工程体验也还没完成。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>人的判断路径</h2>
+    <p>
+      人处理数据集问题时，不会从内部 class 和 JSON 结构开始读。真实路径通常是：
+    </p>
+    <pre><code>我看到一个 asset / job / sensor
+  -> 它是什么，负责什么？
+  -> 它今天应该跑吗？
+  -> 跑了没有，没跑为什么？
+  -> 如果失败，失败在哪一层？
+  -> 我该等上游、补数据、重跑、还是看某份审计报告？
+  -> 完整证据在哪里？</code></pre>
+    <p>
+      所以给人看的信息必须先回答判断问题，再给证据。机器字段、计数、路径、样本都只能服务这个判断，不能反过来让人从一堆字段里推理结论。
+    </p>
+  </section>
+
+  <section>
+    <h2>当前模板做得对的部分</h2>
+    <ul>
+      <li>已经要求 asset、job、sensor、check 的命名和 description 用稳定业务语义表达，不用临时阶段名。</li>
+      <li>已经区分 definition metadata、materialization metadata、check metadata，避免把定义事实和运行事实混在一起。</li>
+      <li>已经把 sensor cursor 定义为“调度路标”，要求 <code>summary</code>、<code>next_action</code>、长度预算和禁止报告型 payload。</li>
+      <li>已经要求 checks 分 blocking 和 WARN，并要求 metadata 里有失败数量和样本。</li>
+      <li>已经把性能治理、hot path、bootstrap 与 runless event 的边界写进接入模板。</li>
+    </ul>
+    <div class="callout warn">
+      <p>
+        主要缺口不是“有没有规则”，而是这些规则还偏工程契约。还需要补一层“人类可读体验”：
+        每个 UI 可见对象都要有结论、语境、下一步动作和证据入口。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>九个需要补充或纠偏的部分</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>#</th>
+        <th>部分</th>
+        <th>现在容易出的问题</th>
+        <th>建议口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>1</td>
+        <td>资产身份和中文说明</td>
+        <td>asset 名字对机器唯一，但人看不出业务结果是什么。</td>
+        <td>每个 asset description 必须回答“这是什么数据、按什么口径、谁会消费”。</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>Job 入口说明</td>
+        <td>job description 写 selection、partitioned、update 等实现词，人不知道跑它会更新什么。</td>
+        <td>job description 写“这个入口更新哪些事实、需要哪些前置条件、失败后是否可以重跑”。</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>Sensor 触发说明</td>
+        <td>sensor 名称能对上 job，但 UI 上看不出触发时间、门禁和跳过原因。</td>
+        <td>sensor description 写“何时检查、检查哪些门禁、触发哪个 job、默认是否启用”。</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>Cursor 内容</td>
+        <td>cursor 变成 readiness 报告或内部对象转储，字段多、重复、难读。</td>
+        <td>cursor 只做本 tick 路标：结论、目标日期、阻断组件、下一步动作、最少证据。</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>SkipReason / 错误文字</td>
+        <td>错误信息写机器码或堆栈片段，人不知道应该修上游还是重跑当前资产。</td>
+        <td>机器码和人话分开：<code>reason_code</code> 稳定，<code>summary</code> 和 <code>next_action</code> 说清处理方向。</td>
+      </tr>
+      <tr>
+        <td>6</td>
+        <td>日志 stdout / stderr</td>
+        <td>日志要么没有，要么打印内部路径和临时变量；长任务失败时看不到进度。</td>
+        <td>日志按稳定事件写里程碑、数量和关键路径；错误日志只补上下文，不复制大报告。</td>
+      </tr>
+      <tr>
+        <td>7</td>
+        <td>Materialization metadata</td>
+        <td>metadata 里字段很多，但人不知道本次产物是否正常、写到哪里、和预期差多少。</td>
+        <td>metadata 必须 summary-first：行数、路径、分区、输出列、关键差异；完整样本只放小样本或报告引用。</td>
+      </tr>
+      <tr>
+        <td>8</td>
+        <td>Check 设计和 check metadata</td>
+        <td>check 太碎会污染 Dagster DB；check 太大又看不出具体坏在哪。</td>
+        <td>按“人会问的质量问题”设计 check。能合并的观测项合并，但失败原因必须分 rule 展示。</td>
+      </tr>
+      <tr>
+        <td>9</td>
+        <td>诊断入口和运行手册</td>
+        <td>cursor、metadata、日志、审计报告各说一段，没有告诉人应该先看哪里。</td>
+        <td>每个数据集设计必须有“失败时先看哪里”的入口表：cursor、check metadata、run log、审计报告各负责什么。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>1. 资产身份：先说它是什么</h2>
+    <p>
+      Asset 是 Dagster UI 里最先被人看到的对象。它不能只是一个技术节点名，还要像数据产品说明牌。
+    </p>
+    <div class="bad-example">
+      <strong>不建议：</strong>
+      <code>按 trade_date 写入 by-date parquet。</code>
+      <p>问题：这是实现，不是业务事实。人仍然不知道这份数据代表什么。</p>
+    </div>
+    <div class="good-example">
+      <strong>建议：</strong>
+      <code>指数日线原始表，按交易日保存 DG 管理指数的日线行情。</code>
+      <p>好处：一眼知道资产内容、对象池和分区口径。</p>
+    </div>
+    <h3>落地建议</h3>
+    <ul>
+      <li>asset description 固定包含：数据内容、分区口径、对象范围、主要消费者。</li>
+      <li>不要在 description 里写迁移阶段、临时路径、旧实现对比。</li>
+      <li>如果资产是 serving sync 或 prod sync，要说“同步到哪里”，但不要把 SQL 或事务细节塞进去。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>2. Job 入口：说明跑它的后果</h2>
+    <p>
+      人打开 Launchpad 或 Run 页面时，最关心的是“我跑这个会改变什么”。Job description 应该回答这个问题。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>问题</th>
+        <th>建议写法</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>会更新哪些资产？</td>
+        <td>写业务层级和资产族，例如“更新市场成交额 gold 结果并同步 prod core serving”。</td>
+      </tr>
+      <tr>
+        <td>前置条件是什么？</td>
+        <td>写关键门禁，例如“要求五个频度 silver 分钟线当日 ready”。</td>
+      </tr>
+      <tr>
+        <td>失败后怎么处理？</td>
+        <td>写简短动作，例如“上游未 ready 时不应手动强跑；先修复 silver 分钟线”。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout warn">
+      <p>
+        Job description 不应该解释 Dagster selection。Selection 是机器执行范围，不是给运维判断的语言。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>3. Sensor：说明为什么会动</h2>
+    <p>
+      Sensor 是最容易“像黑盒”的地方。人需要知道它什么时候检查、检查什么、什么情况下触发，什么情况下跳过。
+    </p>
+    <h3>sensor description 建议模板</h3>
+    <pre><code>每日 15:10 后检查 {asset_family} 当日分区。
+若 {upstream_gate} 已 ready 且目标资产缺失，则触发 {job_name}。
+默认 STOPPED，启用前需完成只读 readiness 验证。</code></pre>
+    <h3>必须避免</h3>
+    <ul>
+      <li>不要只写“sensor for xxx job”。这对人没有帮助。</li>
+      <li>不要写内部 helper 名称、batch selector 名称、run config dict。</li>
+      <li>不要把运行窗口、门禁、目标 job 分散到代码、cursor 和设计文档三处各说一半。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>4. Cursor：路标，不是体检报告</h2>
+    <p>
+      Cursor 的人类价值是“一眼判断本 tick 的状态”。它不负责完整诊断，也不负责保存所有证据。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>读者问题</th>
+        <th>cursor 应回答</th>
+        <th>不应放在 cursor</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>这次触发了吗？</td>
+        <td><code>decision</code>、<code>selected_count</code>、<code>summary</code></td>
+        <td>完整 RunRequest 列表</td>
+      </tr>
+      <tr>
+        <td>没触发卡在哪？</td>
+        <td><code>blocked_component</code>、<code>reason_code</code>、<code>next_action</code></td>
+        <td>所有 upstream 的完整 readiness 明细</td>
+      </tr>
+      <tr>
+        <td>目标日期是什么？</td>
+        <td><code>target_date</code>、必要 <code>frontier</code></td>
+        <td>窗口内每个日期的完整状态</td>
+      </tr>
+      <tr>
+        <td>证据够不够？</td>
+        <td>少量 count、首个样本、报告引用</td>
+        <td>完整路径列表、schema map、sample rows、SQL 结果</td>
+      </tr>
+      </tbody>
+    </table>
+    <h3>好 cursor 的样子</h3>
+    <pre><code>{
+  "decision": "skip",
+  "target_date": "2026-06-25",
+  "details": {
+    "reason_code": "upstream_not_ready",
+    "blocked_component": "silver_stock_mins",
+    "summary": "未触发：5 个分钟线频度中有 1 个未 ready。",
+    "next_action": "先修复 silver_stock_mins[2026-06-25] 的 30min 分区，再等待下一次 tick。",
+    "evidence": {
+      "expected_freq_count": 5,
+      "ready_freq_count": 4,
+      "first_missing_freq": "30min"
+    }
+  }
+}</code></pre>
+  </section>
+
+  <section>
+    <h2>5. SkipReason 和错误：别让人猜下一步</h2>
+    <p>
+      机器码负责稳定，中文负责沟通。两者都需要，但不能互相替代。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>用途</th>
+        <th>例子</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>reason_code</code></td>
+        <td>测试、统计、兼容读取</td>
+        <td><code>source_not_ready</code></td>
+      </tr>
+      <tr>
+        <td><code>summary</code></td>
+        <td>一句话说明发生了什么</td>
+        <td>未触发：prod core serving 尚未覆盖 DG 代码集合。</td>
+      </tr>
+      <tr>
+        <td><code>next_action</code></td>
+        <td>告诉人下一步怎么处理</td>
+        <td>等待 prod 补齐后重试；若持续缺失，查看 source coverage check。</td>
+      </tr>
+      </tbody>
+    </table>
+    <div class="callout bad">
+      <p>
+        禁止只抛 <code>RuntimeError("coverage failed")</code>、<code>skip: not ready</code> 这种信息。它们把判断成本转嫁给了接手的人。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>6. 日志：只记录里程碑和关键异常</h2>
+    <p>
+      Dagster Run 页面 stdout / stderr 是人在失败时会打开看的地方。日志应该像运行过程的脚印，不应该像调试变量倾倒。
+    </p>
+    <h3>建议事件格式</h3>
+    <pre><code>[asset_family] event=stage_started partition_key=2026-06-25 stage=write_gold
+[asset_family] event=stage_completed partition_key=2026-06-25 rows=5 output_path=...
+[asset_family] event=validation_failed partition_key=2026-06-25 rule=all_freq_ready missing_freq=30min</code></pre>
+    <h3>日志内容边界</h3>
+    <ul>
+      <li>写阶段开始、阶段结束、写入行数、目标路径、关键门禁失败。</li>
+      <li>长耗时步骤每个大阶段打一条，不按每只股票、每个 code、每个文件刷屏。</li>
+      <li>不要打印 token、密码、完整 SQL、完整 DataFrame、完整路径列表。</li>
+      <li>stderr 保留给异常和错误上下文，不用普通进度污染 stderr。</li>
+    </ul>
+    <div class="callout warn">
+      <p>
+        如果一个资产运行超过几分钟，建议至少有阶段日志。否则失败后人只能看到最终异常，看不到它卡在读、算、校验还是写。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>7. Metadata：先给结论，再给证据入口</h2>
+    <p>
+      Metadata 的问题不是字段少，而是字段常常没有叙事顺序。建议以后所有 materialization / check metadata 都按下面顺序组织。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>顺序</th>
+        <th>内容</th>
+        <th>人的问题</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>1</td>
+        <td>本次结论：passed、ready、written、skipped、failed</td>
+        <td>这次到底成了吗？</td>
+      </tr>
+      <tr>
+        <td>2</td>
+        <td>核心数量：row count、file count、code count、freq count</td>
+        <td>规模对不对？</td>
+      </tr>
+      <tr>
+        <td>3</td>
+        <td>关键位置：uri、partition、report path</td>
+        <td>去哪里看产物或完整报告？</td>
+      </tr>
+      <tr>
+        <td>4</td>
+        <td>差异摘要：missing、extra、duplicate、null key、rule failures</td>
+        <td>如果失败，坏在哪里？</td>
+      </tr>
+      <tr>
+        <td>5</td>
+        <td>有限样本：最多几个 sample，不放全量列表</td>
+        <td>有没有代表性证据？</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. Check：按人的质量问题设计</h2>
+    <p>
+      Check 不应该按代码函数方便程度设计，而应该按人会问的质量问题设计。
+    </p>
+    <div class="grid">
+      <div class="card">
+        <h3>问题一：文件像不像这张表？</h3>
+        <p>对应 schema、字段顺序、日期分区、主键、空 key。</p>
+      </div>
+      <div class="card">
+        <h3>问题二：覆盖够不够？</h3>
+        <p>对应 code set、freq set、source-target pair、上游对象池。</p>
+      </div>
+      <div class="card">
+        <h3>问题三：值域正常吗？</h3>
+        <p>对应价格、成交量、金额、指标公式、异常波动。</p>
+      </div>
+      <div class="card">
+        <h3>问题四：业务口径对吗？</h3>
+        <p>对应过滤规则、上市状态、停复牌、指数池、分钟频度完整性。</p>
+      </div>
+    </div>
+    <h3>收敛建议</h3>
+    <ul>
+      <li>同一个人类问题不要拆成十几个 check，避免 Dagster DB 噪音。</li>
+      <li>合并 check 时，metadata 里必须有 <code>failed_rule_names</code>、rule counts 和少量样本，不能只给一个 failed。</li>
+      <li>blocking check 数量要克制；WARN check 用于观测，不要让 WARN 失败变成隐形阻断。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>9. 诊断入口：告诉人先看哪里</h2>
+    <p>
+      每个新数据集文档都应该补一个“失败时先看哪里”的小表。它不需要很长，但能显著降低接手成本。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>现象</th>
+        <th>先看哪里</th>
+        <th>应该看到什么</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>sensor 没触发</td>
+        <td>sensor cursor</td>
+        <td><code>summary</code>、<code>blocked_component</code>、<code>next_action</code></td>
+      </tr>
+      <tr>
+        <td>asset run 失败</td>
+        <td>Run stdout / stderr</td>
+        <td>失败阶段、目标分区、关键异常上下文</td>
+      </tr>
+      <tr>
+        <td>check 失败</td>
+        <td>check metadata</td>
+        <td>失败规则、失败数量、少量样本、报告路径</td>
+      </tr>
+      <tr>
+        <td>历史补录异常</td>
+        <td>dry-run / final audit 报告</td>
+        <td>集合差异、行数差异、样本、回滚姿态</td>
+      </tr>
+      <tr>
+        <td>是否能重跑</td>
+        <td>job description 和设计文档</td>
+        <td>幂等策略、覆盖策略、上游门禁</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>建议纳入模板的新增章节</h2>
+    <p>
+      后续可以把下面几项直接补进 <code>dagster-dataset-onboarding-template.html</code>，作为新数据集接入的必填项。
+    </p>
+    <ol>
+      <li><strong>人类可读说明卡：</strong>asset/job/sensor/check 的中文说明、读者问题、主要消费者、失败时看哪里。</li>
+      <li><strong>日志设计：</strong>是否需要 stdout 里程碑日志；事件名、字段、频率和禁止输出。</li>
+      <li><strong>错误和 skip 文案：</strong>每个主要失败分支的 <code>reason_code</code>、<code>summary</code>、<code>next_action</code>。</li>
+      <li><strong>metadata 展示顺序：</strong>结论、数量、位置、差异、样本、报告引用。</li>
+      <li><strong>诊断入口表：</strong>sensor 没触发、run 失败、check 失败、历史补录异常分别看哪里。</li>
+      <li><strong>可读性测试：</strong>cursor 长度、禁止报告型字段、description 非空且中文、错误文案包含下一步动作。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>最终原则</h2>
+    <div class="callout good">
+      <p>
+        给机器看的字段要稳定，给人看的内容要清楚。两者不能混在一起。
+      </p>
+      <p>
+        好的数据集不是“能跑完”就结束，而是跑、跳过、失败、补录、重跑时，都能让接手的人知道系统为什么这样做。
+      </p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

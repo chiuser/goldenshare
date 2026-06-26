@@ -5,6 +5,7 @@
 > - 建议放在 `docs/datasets/`，命名为 `<dataset-key>-lake-dataset-development.md`。
 > - 未完成本文档，不得进入 `lake_console` 编码。
 > - 本模板只适用于 `lake_console` 本地移动盘 Parquet Lake，不适用于生产 Ops 数据维护链路。
+> - 如果该数据集后续进入 Dagster asset / sensor 链路，必须另按 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 补齐 Dagster 设计；sensor cursor 不在本模板内自由定义，必须遵守 Dagster cursor 治理规范。
 
 ---
 
@@ -32,6 +33,7 @@
 5. 禁止前端自行拼数据集路径、分区路径或命令模板。
 6. 禁止把 `raw_tushare`、`derived`、`research`、`manifest` 混成一个不可解释的扁平列表。
 7. 禁止把生产 `DatasetDefinition.domain` 或 catalog 代码文件名当作前端展示分组。
+8. 如接入 Dagster sensor，禁止把 Local Lake 的 `plan-sync` 明细、文件列表、路径列表或完整诊断报告塞进 sensor cursor；cursor 只能做本 tick 调度路标。
 
 ---
 
@@ -565,6 +567,7 @@ limit 20;
 - [ ] 已完成执行模式评审，并说明请求 / SQL 次数、连接次数、内存边界、写入粒度和重跑粒度
 - [ ] 已确认写入策略
 - [ ] 已写明命令示例
+- [ ] 如后续接入 Dagster sensor，已转入 Dagster 数据集接入模板并按 cursor 治理规范设计，不在本文档自造 cursor 字段
 
 编码后：
 

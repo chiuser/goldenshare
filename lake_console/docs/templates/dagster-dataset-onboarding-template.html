@@ -174,6 +174,8 @@
       <a href="../../orchestrator/CODING_STANDARDS.md">Coding Standards</a>、
       <a href="../architecture/dagster-data-system-architecture.html">Data System Architecture</a>、
       <a href="../design/dagster-run-contract-governance.html">Run Contract Governance</a>、
+      <a href="../design/dagster-sensor-cursor-governance-plan.html">Sensor Cursor Governance</a>、
+      <a href="dagster-dataset-human-readable-governance-recommendations.html">Human Readable Governance</a>、
       <a href="../design/dagster-asset-schema-contract-design.md">Asset Schema Contract</a>、
       <a href="../design/dagster-new-lake-asset-catalog-design.md">Lake Asset Catalog</a>、
       <a href="../architecture/dagster-asset-job-topology.html">Asset / Job Topology</a>、
@@ -459,8 +461,8 @@
         </tr>
         <tr>
           <td>Sensor cursor</td>
-          <td>使用 <code>build_sensor_cursor(...)</code> 写 v1 顶层字段：<code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code>。</td>
-          <td>禁止 sensor 文件导入 <code>json</code> 自己序列化 cursor；禁止把 cursor 当跨 sensor readiness 事实源。</td>
+          <td>使用 <code>build_sensor_cursor(...)</code> 写 v1 顶层字段：<code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code>。<code>details</code> 只放本 tick 路标：<code>reason_code</code>、<code>blocked_component</code>、短中文 <code>summary</code>、<code>next_action</code>、必要 frontier 和少量证据。</td>
+          <td>禁止 sensor 文件导入 <code>json</code> 自己序列化 cursor；禁止把 cursor 当跨 sensor readiness 事实源；禁止把报告型 batch/readiness 明细塞进 cursor。</td>
         </tr>
         </tbody>
       </table>
@@ -813,6 +815,150 @@ def raw_tushare_dataset(...) -> dg.MaterializeResult:
   </section>
 
   <section>
+    <h2>10A. 人类可读治理门禁</h2>
+    <div class="danger">
+      <strong>给人看的内容也是正式契约。</strong>
+      新数据集不能只证明机器能跑，还必须证明接手的人打开 Dagster UI 后，能在 30 秒内判断：
+      它是什么、为什么跑、为什么没跑、卡在哪里、下一步该做什么、完整证据在哪里。
+    </div>
+
+    <div class="note">
+      <strong>核心原则：</strong>
+      机器字段要稳定，人的说明要清楚。两者不能混在一起。
+      <code>reason_code</code>、计数、路径、样本是证据；<code>description</code>、<code>summary</code>、<code>next_action</code> 才是人做判断的入口。
+    </div>
+
+    <h3>人的排障路径</h3>
+    <div class="flow">
+      <pre><code>我看到一个 asset / job / sensor
+  -> 它是什么，负责什么？
+  -> 它今天应该跑吗？
+  -> 跑了没有，没跑为什么？
+  -> 如果失败，失败在哪一层？
+  -> 我该等上游、补数据、重跑，还是看审计报告？
+  -> 完整证据在哪里？</code></pre>
+    </div>
+
+    <h3>九个必填设计项</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>对象</th>
+          <th>必须回答的人类问题</th>
+          <th>建议写法</th>
+          <th>禁止</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>asset 身份和中文说明</td>
+          <td>这是什么数据，按什么口径，谁会消费？</td>
+          <td>description 写数据内容、分区口径、对象范围和主要消费者。</td>
+          <td>只写 parquet 路径、分区技术、迁移阶段或旧实现对比。</td>
+        </tr>
+        <tr>
+          <td>job 入口说明</td>
+          <td>我跑它会改变什么？需要什么前置条件？</td>
+          <td>写“更新哪些事实、要求哪些上游 ready、失败后是否可重跑”。</td>
+          <td>把 job description 写成 asset selection 说明。</td>
+        </tr>
+        <tr>
+          <td>sensor 触发说明</td>
+          <td>它什么时候检查，什么条件下触发，什么条件下跳过？</td>
+          <td>写运行窗口、ready 门禁、目标 job、默认启停状态。</td>
+          <td>只写 “sensor for xxx job” 或内部 helper 名称。</td>
+        </tr>
+        <tr>
+          <td>cursor</td>
+          <td>本 tick 触发还是跳过？目标日期是什么？卡在哪？</td>
+          <td>只写结论、目标日期、阻断组件、下一步动作和最少证据。</td>
+          <td>把完整 readiness 报告、路径列表、schema map、SQL 结果塞进 cursor。</td>
+        </tr>
+        <tr>
+          <td>SkipReason / 错误文字</td>
+          <td>失败后应该修上游、等源站、重跑当前资产，还是人工介入？</td>
+          <td><code>reason_code</code> 保持机器码；<code>summary</code> 和 <code>next_action</code> 用短中文说清处理方向。</td>
+          <td>只抛 <code>RuntimeError("not ready")</code>、<code>coverage failed</code> 这类无行动指向的错误。</td>
+        </tr>
+        <tr>
+          <td>stdout / stderr 日志</td>
+          <td>长任务跑到哪一步了？失败发生在读、算、校验还是写？</td>
+          <td>按稳定事件打印阶段开始、阶段完成、写入行数、目标路径和关键门禁失败。</td>
+          <td>刷屏打印每个 code / 每个文件；打印 token、完整 SQL、完整 DataFrame 或完整路径列表。</td>
+        </tr>
+        <tr>
+          <td>materialization metadata</td>
+          <td>本次产物是否正常，写到哪里，规模是否符合预期？</td>
+          <td>按“结论、数量、位置、差异、样本、报告引用”的顺序组织。</td>
+          <td>裸写一堆无叙事顺序的内部字段。</td>
+        </tr>
+        <tr>
+          <td>check 与 check metadata</td>
+          <td>坏的是文件契约、覆盖、值域，还是业务口径？</td>
+          <td>按人的质量问题设计 check；合并 check 时用 failed rule、数量和样本说明具体失败点。</td>
+          <td>为了机器方便拆出大量细碎 check；或大而全 check 失败却不说明哪个 rule 坏了。</td>
+        </tr>
+        <tr>
+          <td>诊断入口和运行手册</td>
+          <td>我应该先看 cursor、run log、check metadata，还是审计报告？</td>
+          <td>每个数据集设计必须列“失败时先看哪里”的小表。</td>
+          <td>让 cursor、metadata、日志、报告各说一段，但没人知道入口顺序。</td>
+        </tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>日志事件格式建议</h3>
+    <p>
+      只有长耗时 asset 或容易卡阶段的同步链路需要 stdout 里程碑日志。日志是运行脚印，不是调试变量倾倒。
+    </p>
+    <pre><code>[asset_family] event=stage_started partition_key=2026-06-25 stage=write_gold
+[asset_family] event=stage_completed partition_key=2026-06-25 rows=5 output_path=...
+[asset_family] event=validation_failed partition_key=2026-06-25 rule=all_freq_ready missing_freq=30min</code></pre>
+
+    <h3>metadata 展示顺序</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>顺序</th>
+          <th>内容</th>
+          <th>人的问题</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr><td>1</td><td>本次结论：written、passed、ready、skipped、failed</td><td>这次到底成了吗？</td></tr>
+        <tr><td>2</td><td>核心数量：row count、file count、code count、freq count</td><td>规模对不对？</td></tr>
+        <tr><td>3</td><td>关键位置：uri、partition、report path</td><td>去哪里看产物或完整报告？</td></tr>
+        <tr><td>4</td><td>差异摘要：missing、extra、duplicate、null key、rule failures</td><td>如果失败，坏在哪里？</td></tr>
+        <tr><td>5</td><td>有限样本：最多几个 sample，不放全量列表</td><td>有没有代表性证据？</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3>失败时先看哪里</h3>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>现象</th>
+          <th>先看哪里</th>
+          <th>应该看到什么</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr><td>sensor 没触发</td><td>sensor cursor</td><td><code>summary</code>、<code>blocked_component</code>、<code>next_action</code></td></tr>
+        <tr><td>asset run 失败</td><td>Run stdout / stderr</td><td>失败阶段、目标分区、关键异常上下文</td></tr>
+        <tr><td>check 失败</td><td>check metadata</td><td>失败规则、失败数量、少量样本、报告路径</td></tr>
+        <tr><td>历史补录异常</td><td>dry-run / final audit 报告</td><td>集合差异、行数差异、样本、回滚姿态</td></tr>
+        <tr><td>是否能重跑</td><td>job description 和设计文档</td><td>幂等策略、覆盖策略、上游门禁</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <section>
     <h2>11. Checks 设计模板</h2>
     <div class="note">
       <strong>原则：</strong>
@@ -959,7 +1105,7 @@ dataset_update_job = dg.define_asset_job(
         </tr>
         <tr>
           <td>cursor</td>
-          <td>只做观测和排障，不作为正确性依据；必须使用 <code>build_sensor_cursor(...)</code> 的 v1 结构。</td>
+          <td>只做本 tick 调度路标和排障入口，不作为正确性依据；必须使用 <code>build_sensor_cursor(...)</code> 的 v1 结构。</td>
         </tr>
         <tr>
           <td>单 tick 限制</td>
@@ -982,6 +1128,56 @@ dataset_update_job = dg.define_asset_job(
     <div class="danger">
       <strong>sensor 代码门禁：</strong>
       sensor 文件不得直接构造 <code>RunRequest</code>，不得手写 run key 模板，不得写 <code>tags</code> / <code>run_tags</code>，不得自行 <code>json.dumps</code> / <code>json.loads</code> cursor，且不得裸写深层 <code>ops</code> run config。需要提交 run 时使用 <code>build_run_request(...)</code>，且 run key 必须来自 <code>run_contracts/run_keys.py</code> builder；需要记录诊断时使用 <code>build_sensor_cursor(...)</code>。
+    </div>
+
+    <h3>sensor cursor 设计规范</h3>
+    <div class="note">
+      <strong>人话原则：</strong>
+      cursor 是调度状态路标，不是 readiness 报告。打开 cursor 时，应一眼看出本 tick 为什么触发、为什么跳过、卡在哪个组件、下一步该做什么。
+      完整诊断应放在 asset check metadata、materialization metadata、readiness helper 输出或只读审计报告里。
+    </div>
+    <div class="table-wrap">
+      <table>
+        <thead>
+        <tr>
+          <th>设计项</th>
+          <th>必须填写</th>
+          <th>禁止写入</th>
+        </tr>
+        </thead>
+        <tbody>
+        <tr>
+          <td>顶层结构</td>
+          <td>固定使用 <code>build_sensor_cursor(...)</code> 的 v1 顶层字段；<code>reason_code</code> 用 ASCII 机器码，<code>summary</code> 和 <code>next_action</code> 允许短中文。</td>
+          <td>禁止 sensor 自己 <code>json.dumps</code>、自定义顶层字段、把历史游标格式当作新规范。</td>
+        </tr>
+        <tr>
+          <td><code>details</code></td>
+          <td>建议字段：<code>sensor_name</code>、<code>job_name</code>、<code>asset_family</code>、<code>partition_set</code>、<code>reason_code</code>、<code>blocked_component</code>、<code>summary</code>、<code>next_action</code>、<code>frontier</code>、<code>gate_statuses</code>、<code>evidence</code>、<code>runtime_state</code>、<code>performance_ms</code>、<code>diagnostic_ref</code>。</td>
+          <td>禁止新增含义不清的临时字段；确需新增通用字段，先更新 cursor 治理文档和静态门禁。</td>
+        </tr>
+        <tr>
+          <td>内容粒度</td>
+          <td>只保留目标日期、阻断组件、关键数量、少量样本、最近 frontier、下一步动作。样本必须有上限。</td>
+          <td>禁止写 <code>status_samples</code>、全量 code/path/date 列表、完整 schema/type map、SQL 结果行、gold row、parquet path 列表。</td>
+        </tr>
+        <tr>
+          <td>报告型 helper</td>
+          <td>sensor cursor 可读取 helper 的摘要后手工压缩成小字段。</td>
+          <td>禁止直接把 <code>to_cursor_details()</code>、<code>*_batch_status</code>、<code>readiness_details</code>、完整 upstream batch status 写入 cursor。</td>
+        </tr>
+        <tr>
+          <td>体积预算</td>
+          <td>典型 cursor 小于 2KB；复杂阻断小于 3KB；硬上限 8KB，超过视为设计失败。</td>
+          <td>禁止用“反正数据库能存”作为理由扩大 cursor。</td>
+        </tr>
+        <tr>
+          <td>测试门禁</td>
+          <td>新增 sensor 必须测试触发、skip、阻断、全 ready 分支的 <code>reason_code</code>、<code>blocked_component</code>、<code>summary</code>、<code>next_action</code> 和长度预算。</td>
+          <td>禁止只测 RunRequest，不测 cursor；禁止放宽静态门禁绕过报告型 payload。</td>
+        </tr>
+        </tbody>
+      </table>
     </div>
   </section>
 
@@ -1129,17 +1325,20 @@ git status --short</code></pre>
         <tr><td>Partition model</td><td>entry 的 <code>partition_model</code> 已存在对应 <code>PartitionModelDefinition</code>；新增 model 命名符合“分区维度 + layer + 资产名”。</td><td>□</td></tr>
         <tr><td>命名</td><td>asset/job/sensor/file 名称单一职责，不宽泛。</td><td>□</td></tr>
         <tr><td>UI 文案</td><td>asset/job/sensor/check 的 description 已用中文简明表达能力和用途。</td><td>□</td></tr>
+        <tr><td>人类可读治理</td><td>asset/job/sensor/check/cursor/log/metadata 都已能回答“是什么、为什么跑/不跑、卡在哪里、下一步做什么、完整证据在哪里”。</td><td>□</td></tr>
         <tr><td>路径</td><td>新路径位于 <code>data_lake/raw|silver|gold</code>，旧路径只作迁移输入；definition <code>path_template</code> 由真实路径函数生成。</td><td>□</td></tr>
         <tr><td>Definition metadata</td><td>已使用 <code>build_asset_definition_metadata(...)</code> 写清数据集身份、source、contract 和路径模板。</td><td>□</td></tr>
-        <tr><td>Materialization metadata</td><td>已使用 <code>build_materialization_metadata(...)</code>，路径、行数使用 Dagster 标准 key；本次输出列使用 <code>goldenshare/observed_columns</code>。</td><td>□</td></tr>
+        <tr><td>Materialization metadata</td><td>已使用 <code>build_materialization_metadata(...)</code>，路径、行数使用 Dagster 标准 key；本次输出列使用 <code>goldenshare/observed_columns</code>；展示顺序按结论、数量、位置、差异、样本、报告引用组织。</td><td>□</td></tr>
         <tr><td>字段</td><td>raw 源镜像字段、silver 标准字段、类型转换、日期语义已列清。</td><td>□</td></tr>
         <tr><td>Tushare</td><td>参数、字段、分页、空结果、权限/配额、样本行数已实测。</td><td>□</td></tr>
         <tr><td>请求范围</td><td>逐对象接口的对象池、请求量、分页量、耗时和不可接受量级已评估；raw 范围与设计文档一致。</td><td>□</td></tr>
-        <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 <code>build_check_metadata(...)</code>、scope、数量和样本。</td><td>□</td></tr>
+        <tr><td>checks</td><td>blocking/WARN 分清；每个 check 都有 <code>build_check_metadata(...)</code>、scope、数量和样本；合并 check 时 metadata 能列出 failed rule、失败数量和少量样本。</td><td>□</td></tr>
         <tr><td>deps</td><td>asset deps 表达真实输入；check additional_deps 表达质量依赖。</td><td>□</td></tr>
         <tr><td>job</td><td>job 只做 selection；共享基础资产有唯一写入口。</td><td>□</td></tr>
         <tr><td>run config</td><td>手动入口使用 typed config 和业务动作字段；sensor 与 UI 共用 builder，不裸写深层 dict。</td><td>□</td></tr>
-        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义；RunRequest 通过 <code>build_run_request(...)</code> 构造，run key 通过统一 builder 构造，cursor 通过治理 helper 构造。</td><td>□</td></tr>
+        <tr><td>sensor</td><td>ready 条件、run_key、cursor、单 tick 限制、默认 STOPPED 已定义；RunRequest 通过 <code>build_run_request(...)</code> 构造，run key 通过统一 builder 构造，cursor 通过治理 helper 构造；cursor 满足小于 2KB / 3KB / 8KB 分级预算，且能用短中文说明触发或跳过原因和下一步动作。</td><td>□</td></tr>
+        <tr><td>日志</td><td>长耗时 asset 已设计 stdout 里程碑日志；日志只记录阶段、数量、目标路径和关键异常上下文，不打印敏感信息、完整 SQL、完整 DataFrame 或全量路径列表。</td><td>□</td></tr>
+        <tr><td>诊断入口</td><td>设计文档已列出 sensor 没触发、asset run 失败、check 失败、历史补录异常、是否能重跑时分别先看哪里。</td><td>□</td></tr>
         <tr><td>run tags</td><td>没有新增项目自定义 run tags；如确需新增，已先登记治理文档并补静态门禁。</td><td>□</td></tr>
         <tr><td>bootstrap</td><td>如需旧湖迁移，spec、legacy links、清理边界已记录。</td><td>□</td></tr>
         <tr><td>验收</td><td>单日、小批量、全量、UI 可观测、失败恢复计划已列清。</td><td>□</td></tr>
@@ -1159,6 +1358,7 @@ git status --short</code></pre>
       <li>raw 层做业务过滤，导致源镜像不可恢复。</li>
       <li>job 里写拉取、SQL、路径、质量判断。</li>
       <li>description 随便写英文占位、技术废话或过期口径。</li>
+      <li>asset/job/sensor/check 的说明只写实现细节，不回答人真正关心的“这是什么、会改变什么、为什么触发”。</li>
       <li>下游 job 主动补上游。</li>
       <li>只看文件存在或 materialized，就认为上游 ready。</li>
       <li>新增 asset 时手写 <code>tags={...}</code> 或中文 tag value。</li>
@@ -1168,6 +1368,12 @@ git status --short</code></pre>
       <li>在 asset decorator 里手写 <code>path_template</code> 字符串。</li>
       <li>在 materialization/check metadata 里裸写 <code>path</code>、<code>row_count</code>、<code>columns</code>、<code>source_api</code>、<code>data_contract</code> 等旧 key。</li>
       <li>sensor 直接写 <code>RunRequest</code>、手写 run key、自定义 run tags、深层 <code>ops</code> config 或本地 JSON cursor。</li>
+      <li>cursor 写入完整 batch/readiness 报告、<code>status_samples</code>、全量路径/代码/日期列表，导致人看不出本 tick 的触发或跳过原因。</li>
+      <li>cursor 只有机器码，没有短中文 <code>summary</code> 和 <code>next_action</code>，让人不知道下一步处理方向。</li>
+      <li>stdout 日志刷屏输出每个 code、每个文件、完整 SQL 或完整 DataFrame，却没有阶段开始、阶段完成和失败位置。</li>
+      <li>check 合并后只返回一个 failed，不在 metadata 里列 failed rule、失败数量和少量样本。</li>
+      <li>metadata 写了一堆内部字段，但没有按结论、数量、位置、差异、样本和报告引用组织。</li>
+      <li>没有“失败时先看哪里”的诊断入口，让 cursor、metadata、日志和审计报告各说一段。</li>
       <li>把 WARN check 失败静默吞掉。</li>
       <li>用 sensor 一次性触发大量历史分区。</li>
       <li>把旧湖路径写入新湖 parquet 字段。</li>

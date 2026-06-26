@@ -1,0 +1,714 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 数据集人类可读治理滚动方案</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #202a36;
+      --muted: #637083;
+      --line: #d7dee8;
+      --blue: #255f8d;
+      --green: #1f735d;
+      --amber: #8a641a;
+      --red: #a84232;
+      --code: #f2f5f8;
+      --soft-blue: #eef6ff;
+      --soft-green: #edf8f3;
+      --soft-amber: #fff7df;
+      --soft-red: #fff0ed;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 24px 76px;
+    }
+
+    header,
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+      margin-top: 18px;
+      padding: 26px;
+    }
+
+    header {
+      margin-top: 0;
+      border-left: 6px solid var(--blue);
+      padding: 34px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.25;
+      margin-top: 0;
+    }
+
+    h1 { font-size: 38px; margin-bottom: 12px; }
+    h2 { font-size: 25px; margin-bottom: 12px; }
+    h3 { font-size: 18px; margin: 22px 0 8px; }
+    p { margin: 8px 0 12px; }
+
+    code {
+      background: var(--code);
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #edf3f8; }
+    ul,
+    ol { padding-left: 24px; }
+    li { margin: 5px 0; }
+
+    .lead {
+      color: var(--muted);
+      max-width: 930px;
+      font-size: 17px;
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code);
+      color: #344054;
+      font-size: 13px;
+    }
+
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: var(--soft-blue);
+      margin: 14px 0;
+    }
+
+    .callout.green { border-left-color: var(--green); background: var(--soft-green); }
+    .callout.amber { border-left-color: var(--amber); background: var(--soft-amber); }
+    .callout.red { border-left-color: var(--red); background: var(--soft-red); }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(270px, 1fr));
+      gap: 14px;
+      margin: 14px 0;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      padding: 16px;
+      background: #fbfdff;
+    }
+
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 数据集人类可读治理滚动方案</h1>
+    <p class="lead">
+      本文把股票日线 Raw/Silver 标杆专项的做法，推广成其他数据集后续治理的路线图。
+      这不是一次功能改造方案，而是一份“怎么把 Dagster UI 里的信息写给人看”的滚动治理计划。
+    </p>
+    <p>
+      <span class="tag">范围：lake_console/orchestrator 当前 catalog 数据集</span>
+      <span class="tag">只落文档</span>
+      <span class="tag">不改更新逻辑</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不改数据湖数据</span>
+    </p>
+    <p class="small">
+      依据：
+      <code>dagster-dataset-human-readable-governance-recommendations.html</code>、
+      <code>dagster-stock-daily-human-readable-governance.html</code>、
+      <code>dagster-sensor-cursor-governance-plan.html</code>、
+      <code>dagster-data-pipeline-performance-governance.md</code>、
+      当前 <code>LAKE_ASSET_CATALOG</code> 静态审计结果。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 总结</h2>
+    <div class="callout green">
+      <p>
+        统一目标是：一个接手的人打开 Dagster UI 后，可以快速回答四个问题：
+        <strong>这个数据集是什么、本次为什么触发或没触发、卡在哪里、下一步该做什么。</strong>
+      </p>
+      <p>
+        后续治理只改“表达层”：asset description、run stdout、materialization metadata、check metadata、sensor cursor 和对应测试。
+        不改变任何数据生产决策，不重写 SQL，不改变 lake 路径，不新增历史 backfill，不启停 sensor。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 已拍板实施口径</h2>
+    <p>
+      以下口径已经确认，后续每个数据集的人类可读治理都按这里执行；如需偏离，必须在对应资产族 LLD 中单独说明并重新确认。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>事项</th>
+        <th>已确认口径</th>
+        <th>执行含义</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>推进顺序</td>
+        <td>按 <code>Wave 1 基础事实</code>、<code>Wave 2 日频行情</code>、<code>Wave 3 Gold/Serving</code>、<code>Wave 4 分钟线高频</code>、<code>Wave 5 平台观测</code> 推进。</td>
+        <td>先做低风险、低体量资产族，把表达样式和测试模式稳定后，再碰分钟线高频链路。</td>
+      </tr>
+      <tr>
+        <td>实施粒度</td>
+        <td>每次只治理一个资产族，必须先写该资产族 LLD，再改代码，再跑测试，再同步文档。</td>
+        <td>禁止一次性横扫全仓库改 cursor、metadata 或日志，避免误伤触发逻辑和状态机。</td>
+      </tr>
+      <tr>
+        <td>Check 策略</td>
+        <td>默认不新增细碎 check，只增强现有 check metadata 的人类可读表达。</td>
+        <td>失败原因、规则摘要和下一步动作放进现有聚合 check；除非后续单独拍板，否则不扩大 Dagster DB 状态量。</td>
+      </tr>
+      <tr>
+        <td>Cursor 统一硬口径</td>
+        <td>所有后续 cursor 使用短中文 <code>summary</code> / <code>next_action</code>，保留机器可读 <code>reason_code</code>，明确 <code>blocked_component</code>，只放小型 <code>evidence</code>。</td>
+        <td>cursor 是调度路标，不是 readiness 报告；禁止完整报告型 <code>to_cursor_details()</code>、<code>status_samples</code>、批量状态、完整路径列表、完整 code 列表。</td>
+      </tr>
+      <tr>
+        <td>分钟线专项</td>
+        <td>分钟线、qfq、MACD/KDJ、state 必须放到独立 LLD，不能和日频资产混改。</td>
+        <td>这些链路体量最大、性能最敏感，任何新增扫描、日志、metadata 或 cursor 字段都要单独做性能门禁。</td>
+      </tr>
+      <tr>
+        <td>Serving 同步资产</td>
+        <td>默认只增强 materialization metadata 和 stdout，不新增 prod sync check。</td>
+        <td>prod 同步成功与失败先在事务内校验和 materialization metadata 中表达；除非后续某条 serving 链路确实需要 blocking check，否则不新增状态实体。</td>
+      </tr>
+      <tr>
+        <td>总入口</td>
+        <td>本文作为后续数据集人类可读治理的总入口。</td>
+        <td>每个资产族治理前先引用本文，再写资产族自己的 LLD；原则不反复讨论，开发只对账当前资产族的具体实现。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 当前 Catalog 分类</h2>
+    <p>
+      本轮通过当前代码中的 <code>list_lake_asset_catalog_entries()</code> 只读导入审计到 57 个 catalog 资产：
+      <code>raw=13</code>、<code>silver=15</code>、<code>gold=25</code>、<code>serving=3</code>、<code>platform=1</code>。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>分类</th>
+        <th>数据集 / 资产</th>
+        <th>治理重点</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>基础事实与全量快照</td>
+        <td>
+          <code>trade_cal</code>、<code>stock_basic</code>、<code>stock_lifecycle</code>、
+          <code>namechange</code>、<code>stock_identity_map</code>、<code>index_basic</code>
+        </td>
+        <td>讲清楚“全量文件是什么、刷新后影响谁、失败先补哪个上游”。</td>
+      </tr>
+      <tr>
+        <td>日频行情 Raw/Silver</td>
+        <td>
+          <code>suspend_d</code>、<code>daily</code>、<code>adj_factor</code>、
+          <code>index_daily</code>、<code>market_major_indices_daily</code>
+        </td>
+        <td>按交易日说明触发原因、阻断组件、文件覆盖和下游消费。股票日线已经作为标杆完成。</td>
+      </tr>
+      <tr>
+        <td>分钟线 Raw/Silver</td>
+        <td>
+          <code>stk_mins</code> 的 1m/5m/15m/30m/60m raw 与 silver 资产。
+        </td>
+        <td>按频度和交易日聚合表达，不把 code 列表、路径列表、批量状态塞进 cursor 或 stdout。</td>
+      </tr>
+      <tr>
+        <td>分钟线复权与指标</td>
+        <td>
+          <code>stk_mins_qfq</code>、<code>stk_mins_qfq_macd_kdj</code>、
+          <code>stk_mins_qfq_macd_kdj_state</code>
+        </td>
+        <td>区分复权产物、指标产物和状态连续性产物；重点说清上游频度、状态承接和失败修复方向。</td>
+      </tr>
+      <tr>
+        <td>日频派生指标与业务 Gold</td>
+        <td>
+          <code>market_breadth</code>、<code>stock_return_distribution</code>、
+          <code>wealth_market_turnover</code>
+        </td>
+        <td>用业务语言解释指标含义、输入口径和消费方，不让人只看到 row count。</td>
+      </tr>
+      <tr>
+        <td>Serving / Prod 同步</td>
+        <td>
+          <code>ch_share_fact_market_breadth_daily</code>、
+          <code>prod_ch_share_fact_market_breadth_daily</code>、
+          <code>prod_core_wealth_market_turnover</code>
+        </td>
+        <td>强调事务写入、源产物、目标表、写前写后核对和失败后的人工边界。</td>
+      </tr>
+      <tr>
+        <td>平台观测</td>
+        <td><code>lake_root_health</code></td>
+        <td>保持为平台健康检查，不套业务资产语言。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 全局硬边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>禁止项</th>
+        <th>原因</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>不改 asset/job/sensor/check 名称。</td>
+        <td>避免破坏 Dagster 历史、自动化引用、治理文档和测试契约。</td>
+      </tr>
+      <tr>
+        <td>不改 job selection、run key、run config、partition、sensor tick 顺序。</td>
+        <td>本专项只改可读性，不改变触发和调度语义。</td>
+      </tr>
+      <tr>
+        <td>不改 Tushare 请求参数、prod DB SQL、DuckDB SQL、lake path、Parquet schema。</td>
+        <td>避免把表达治理变成数据生产改造。</td>
+      </tr>
+      <tr>
+        <td>不把完整 readiness 报告、路径列表、code 列表、schema 明细塞进 cursor。</td>
+        <td>cursor 是调度路标，不是诊断报告。完整证据留在 check metadata、materialization metadata 和只读审计报告。</td>
+      </tr>
+      <tr>
+        <td>不新增细碎 check。</td>
+        <td>减少 Dagster DB 状态膨胀。必要时在现有聚合 check metadata 里补人类可读摘要。</td>
+      </tr>
+      <tr>
+        <td>不写 Dagster DB，不运行正式 job/sensor/materialize/backfill。</td>
+        <td>每个后续数据集治理需要单独 LLD 和验证命令，本方案本身只定路线。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 统一改动包</h2>
+    <p>
+      每个数据集后续治理时，都按同一组改动包审计和落地。没有对应对象的资产可以跳过，但跳过要在 LLD 里说明。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>对象</th>
+        <th>改什么</th>
+        <th>验收标准</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Asset description</td>
+        <td>用一句话说明来源、分区口径、产物用途和主要下游。</td>
+        <td>不写“selection/partition mapping”这类实现堆砌；运营能看懂它在业务链路里的位置。</td>
+      </tr>
+      <tr>
+        <td>Run stdout</td>
+        <td>用 <code>DgStdoutLogger</code> 记录阶段事件和关键数量。</td>
+        <td>只打印阶段名、分区、频度、row count、file count、attempt 等小字段；禁止完整 SQL、DataFrame、全量样本。</td>
+      </tr>
+      <tr>
+        <td>Materialization metadata</td>
+        <td>追加 <code>goldenshare/summary</code>、<code>goldenshare/next_action</code>、<code>goldenshare/result_status</code>、<code>goldenshare/input_summary</code>、<code>goldenshare/diagnostic_ref</code>。</td>
+        <td>成功时说明“写成了什么、等谁消费”；失败或跳过时说明“先修什么”。原有机器字段保留。</td>
+      </tr>
+      <tr>
+        <td>Asset check metadata</td>
+        <td>在现有聚合 check 中补 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code> 和稳定的 <code>failed_rule_names</code>。</td>
+        <td>不新增碎 check；失败样本有上限；缺文件、缺 code、重复 key、上游未 ready 都能直接看出下一步。</td>
+      </tr>
+      <tr>
+        <td>Sensor cursor</td>
+        <td>保留 v1 顶层结构，新增或规范短中文 <code>summary</code>、<code>next_action</code>、<code>blocked_component</code> 和极小 <code>evidence</code>。</td>
+        <td>普通 request/skip 目标小于 2KB，复杂 repair/backoff 目标小于 3KB，硬上限 8KB；不得写 <code>status_samples</code>、<code>*_batch_status</code>、报告型 <code>to_cursor_details()</code>。</td>
+      </tr>
+      <tr>
+        <td>测试和静态门禁</td>
+        <td>为每个资产族增加或更新人类可读 contract 测试。</td>
+        <td>锁住 cursor 长度、禁写字段、stdout 事件名、metadata 字段和“旧触发逻辑不变”。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 分类治理方案</h2>
+
+    <h3>6.1 基础事实与全量快照</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>trade_cal</code></td>
+        <td>说明它是所有交易日分区的根事实；stdout 记录拉取范围、交易日数、注册分区增量；check metadata 说明缺失或异常交易日该怎么处理。</td>
+        <td>不能把“日历刷新失败”误写成某个下游日频资产失败；下游只是被阻断。</td>
+      </tr>
+      <tr>
+        <td><code>stock_basic</code> / <code>stock_lifecycle</code> / <code>stock_identity_map</code></td>
+        <td>说明当前股票池、生命周期、身份映射分别回答什么问题；metadata 记录源行数、过滤行数、当前可交易股票数、退市历史数。</td>
+        <td>这些资产是很多行情资产的门禁，cursor 里要显示“基础事实未 ready”，不要复制完整基础事实报告。</td>
+      </tr>
+      <tr>
+        <td><code>namechange</code></td>
+        <td>说明它是股票曾用名事件线；metadata 记录去重前后行数、时间线覆盖范围、异常事件样本上限。</td>
+        <td>不要把全量历史样本塞进 metadata 或 stdout。</td>
+      </tr>
+      <tr>
+        <td><code>index_basic</code></td>
+        <td>说明它是指数身份和上市属性事实；metadata 记录指数数量、市场分布、active pool 相关提示。</td>
+        <td>不要重新设计 index daily 的 active pool 口径；只补人类可读表达。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.2 日频行情 Raw/Silver</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>daily</code></td>
+        <td>股票日线 Raw/Silver 已完成标杆专项，作为后续日频行情治理的参考。</td>
+        <td>后续不要回退 cursor 和 metadata 表达；新增日频资产优先对齐这个样式。</td>
+      </tr>
+      <tr>
+        <td><code>suspend_d</code></td>
+        <td>把 raw/silver sensor cursor 改为“交易日、阻断组件、源站是否 ready、raw/silver 是否 ready、下一步”；check metadata 解释停复牌文件为空和缺文件的区别。</td>
+        <td>停牌数据天然可能为空，不能把“空文件”默认说成失败，必须按现有 check 语义表达。</td>
+      </tr>
+      <tr>
+        <td><code>adj_factor</code></td>
+        <td>说明复权因子 raw/silver 对后续 qfq 分钟线和指标的影响；cursor 要能一眼看出是 stock_basic、raw、silver 还是源站阻断。</td>
+        <td>不能改变当前 freshness 和 readiness 语义；不要新增按 code 的碎 check。</td>
+      </tr>
+      <tr>
+        <td><code>index_daily</code></td>
+        <td>沿用已瘦身的 raw by-date cursor 原则；materialization metadata 继续强调 DG code count/hash、prod source 覆盖和 raw/silver 同日关系。</td>
+        <td>不要恢复旧 by-code 叙事；不要把 prod source probe 的完整缺口列表写入 cursor。</td>
+      </tr>
+      <tr>
+        <td><code>market_major_indices_daily</code></td>
+        <td>说明它是主要指数日线派生产物；cursor 和 check metadata 要明确 raw/silver index daily、seed、index basic 哪个阻断。</td>
+        <td>它是下游消费者，不应该重新扫描旧 index daily by-code 路径。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.3 分钟线 Raw/Silver</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>stk_mins</code> raw 1m/5m/15m/30m/60m</td>
+        <td>asset description 按频度说明“源镜像、按交易日和频度保存”；stdout 按频度记录文件数、股票数、行数；cursor 只保留 frontier、目标日期、目标频度和首个阻断组件。</td>
+        <td>分钟线体量大，严禁 stdout、cursor 或 metadata 打印全量 code、路径列表、每个文件状态。</td>
+      </tr>
+      <tr>
+        <td><code>stk_mins</code> silver 1m/5m/15m/30m/60m</td>
+        <td>说明标准化分钟线口径和与 raw 的同频同日关系；check metadata 汇总 schema、key、覆盖和异常样本。</td>
+        <td>不要改变 sensor 的频度依赖和热路径读取上限。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.4 分钟线复权、指标和状态</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>stk_mins_qfq</code></td>
+        <td>说明 qfq 是由 silver 分钟线和复权因子计算得到；metadata 汇总输入频度、复权因子日期、输出行数和缺失原因。</td>
+        <td>如果 sensor 有 repair/backoff runtime state，必须原样保留，只瘦身展示字段。</td>
+      </tr>
+      <tr>
+        <td><code>stk_mins_qfq_macd_kdj</code></td>
+        <td>说明指标产物与 qfq 输入的关系；check metadata 用“规则摘要 + failed_rule_names + 少量样本”表达 source coverage、state coverage、schema/key 等问题。</td>
+        <td>已经出现过 metadata tuple 类型错误，治理时要保证 metadata 值都是 Dagster 可序列化类型。</td>
+      </tr>
+      <tr>
+        <td><code>stk_mins_qfq_macd_kdj_state</code></td>
+        <td>说明 state 是为了跨日指标连续性服务；metadata 要有人能看懂的“承接了哪天、输出到哪天、哪些代码缺状态”。</td>
+        <td>不要把 state 文件内容或每个 code 的状态明细塞进 Dagster 事件。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.5 派生指标与业务 Gold</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>market_breadth</code></td>
+        <td>用业务语言说明市场宽度是什么，输入来自哪些 gold/silver 资产；cursor 保持最近已瘦身的 continuity 路标风格。</td>
+        <td>ClickHouse serving 的完整 row/path 诊断不回到 cursor；保留在检查或只读审计报告。</td>
+      </tr>
+      <tr>
+        <td><code>stock_return_distribution</code></td>
+        <td>说明收益分布的分组口径和输入 silver_stock_daily；metadata 记录样本股票数、分桶数量、异常或空结果的下一步。</td>
+        <td>不能把分桶明细全量写进 cursor。</td>
+      </tr>
+      <tr>
+        <td><code>wealth_market_turnover</code></td>
+        <td>说明财富端市场成交额快照来自 silver 分钟线；metadata 记录 5 个频度是否齐备、points_json 行数、prod sync 状态。</td>
+        <td>如果上游频度不全，仍按已拍板口径全失败；治理只改说明，不改变失败策略。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.6 Serving / Prod 同步</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>ch_share_fact_market_breadth_daily</code> / <code>prod_ch_share_fact_market_breadth_daily</code></td>
+        <td>metadata 说明同步目标、源分区、删除行数、写入行数、写后核对；cursor 只讲本 tick 是否需要同步和卡在哪个 upstream。</td>
+        <td>不要新增 serving check 来放大 Dagster DB 状态，除非后续单独拍板。</td>
+      </tr>
+      <tr>
+        <td><code>prod_core_wealth_market_turnover</code></td>
+        <td>说明它是 gold lake 产物到 prod core serving 的事务同步；失败 next_action 要区分 env 缺失、权限失败、源 gold 未 ready、写后核对失败。</td>
+        <td>不改变 prod 写库账号、事务边界或历史回灌策略。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>6.7 平台观测</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>建议改动</th>
+        <th>特别注意</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>lake_root_health</code></td>
+        <td>description 和 metadata 聚焦“根目录是否可用、可写、空间是否足够、临时目录是否正常”。</td>
+        <td>它不是业务数据集，不要套用“源站、silver、下游指标”的语言。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 推荐推进顺序</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>阶段</th>
+        <th>范围</th>
+        <th>为什么先做</th>
+        <th>完成标志</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Wave 0</td>
+        <td>股票日线 Raw/Silver</td>
+        <td>已经完成标杆专项，作为后续样式和测试参考。</td>
+        <td><code>dagster-stock-daily-human-readable-governance.html</code> 与测试门禁已落地。</td>
+      </tr>
+      <tr>
+        <td>Wave 1</td>
+        <td>基础事实与全量快照</td>
+        <td>体量较小、路径稳定、风险低，适合先把 description、stdout、metadata/check 模式稳定下来。</td>
+        <td>基础事实阻断时，cursor 能直接显示卡在 <code>trade_cal</code>、<code>stock_basic</code>、<code>index_basic</code> 等组件。</td>
+      </tr>
+      <tr>
+        <td>Wave 2</td>
+        <td>日频行情 Raw/Silver</td>
+        <td>与股票日线最相似，可以复用最多标杆经验。</td>
+        <td><code>suspend_d</code>、<code>adj_factor</code>、<code>index_daily</code> 的 cursor 和 check metadata 不再像报告转储。</td>
+      </tr>
+      <tr>
+        <td>Wave 3</td>
+        <td>业务 Gold 与 Serving</td>
+        <td>这些是最接近使用方的问题入口，业务语言收益高。</td>
+        <td>每个 gold/serving run 能看出指标含义、输入口径、写入目标和失败下一步。</td>
+      </tr>
+      <tr>
+        <td>Wave 4</td>
+        <td>分钟线、qfq、MACD/KDJ、state</td>
+        <td>体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。</td>
+        <td>高频链路 cursor 保持小而清楚，stdout 和 metadata 只放聚合事实。</td>
+      </tr>
+      <tr>
+        <td>Wave 5</td>
+        <td>平台观测</td>
+        <td>独立收尾，避免和业务资产混在一起。</td>
+        <td><code>lake_root_health</code> 的失败能直接提示是路径、权限还是空间问题。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. 每个 Wave 的交付模板</h2>
+    <ol>
+      <li>先读根 <code>AGENTS.md</code>、<code>lake_console/orchestrator/AGENTS.md</code>、<code>CODING_STANDARDS.md</code> 和本方案。</li>
+      <li>审计目标资产族的真实 asset、job、sensor、check、readiness、tests 和 catalog entry。</li>
+      <li>列出硬边界：哪些触发逻辑、run key、路径、SQL、source 参数不能碰。</li>
+      <li>写该资产族 LLD，落到代码级改动点和测试点。</li>
+      <li>只做表达层代码修改和测试，不写 lake，不写 DB，不运行正式 Dagster。</li>
+      <li>跑目标单测、静态门禁和 <code>git diff --check</code>。</li>
+      <li>把最终口径同步回对应设计文档或新增专项文档。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>9. 后续 LLD 必须审计的依赖</h2>
+    <div class="callout amber">
+      <p>
+        这份滚动方案只给分类和方向。真正动代码前，每个资产族必须重新审计当前代码，因为 sensor cursor、runtime state、readiness helper 和 check metadata 往往有上下游依赖。
+      </p>
+    </div>
+    <table>
+      <thead>
+      <tr>
+        <th>依赖类型</th>
+        <th>审计要求</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>cursor runtime state</td>
+        <td>凡用于去重、repair attempt、backoff、run-status 追踪的字段必须保留；只能改展示信息，不能改状态机。</td>
+      </tr>
+      <tr>
+        <td>readiness helper</td>
+        <td>可以取摘要，不能改变 readiness 判断；禁止为了 cursor 好看而调整 ready/skip/fail 语义。</td>
+      </tr>
+      <tr>
+        <td>asset check</td>
+        <td>优先改 metadata，不拆碎 check；若确实要新增 check，必须单独说明 Dagster DB 状态成本。</td>
+      </tr>
+      <tr>
+        <td>serving 写入</td>
+        <td>prod sync 的事务、权限、目标表、写后核对不在本治理中改变。</td>
+      </tr>
+      <tr>
+        <td>高频分钟线</td>
+        <td>任何增加扫描、路径枚举、per-code 明细的改动都必须做性能门禁。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>10. 不做事项</h2>
+    <ul>
+      <li>不把这份方案当成代码变更授权。</li>
+      <li>不清理历史 Dagster event、run、cursor 或 lake 物理目录。</li>
+      <li>不启用或停止任何 sensor。</li>
+      <li>不触发历史 backfill 或 runless event 补录。</li>
+      <li>不因为可读性治理新增状态表、summary asset 或额外 serving 表。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>11. 本文验证</h2>
+    <ul>
+      <li>当前资产分类来自 <code>LAKE_ASSET_CATALOG</code> 只读导入审计，共 57 个 catalog 资产。</li>
+      <li>本文只新增设计文档，不修改 orchestrator 生产代码。</li>
+      <li>后续每个 wave 进入开发前，必须再按当前代码重新审计，不能只凭本文或历史印象改代码。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>

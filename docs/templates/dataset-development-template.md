@@ -6,6 +6,7 @@
 > - 文档命名建议：`<dataset-key>-dataset-development.md`。
 > - 未完成本文档，不得进入编码、发版或远程同步。
 > - 本模板以当前新架构为准：数据集事实源是 `DatasetDefinition`，执行主链是 `DatasetActionRequest -> DatasetExecutionPlan -> IngestionExecutor`，任务观测主链是 Ops TaskRun。
+> - 如果本数据集还要接入 Dagster sensor，必须同时使用 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 的 sensor cursor 规范；本模板不允许为 Dagster sensor 另起一套 cursor 字段。
 
 ---
 
@@ -33,6 +34,7 @@
 9. 不得仅凭源接口参数名推断时间模型。源接口有 `start_date/end_date/ann_date/trade_date`，只说明源端支持这些过滤条件，不代表本数据集必须按日期维护。
 10. 不得把源接口可选参数自动暴露为运营输入。只有当它对应明确用户意图、不会导致数据缺失、并经过真实请求证明时，才允许进入 `input_model`。
 11. 不得在没有真实样本行数证明的情况下宣布数据集完成。源端拉取、normalizer、writer、目标表行数、reject 原因必须能对上。
+12. 若同步引入 Dagster sensor，不得自定义报告型 cursor。cursor 只能做本 tick 调度路标：说明触发或跳过原因、阻断组件、目标日期和下一步动作；完整诊断放到 Dagster asset/check metadata 或审计报告。
 
 ### 0.3 开发前置硬检查
 
@@ -627,6 +629,7 @@
 - 如果有 `calendar_policy`，它生成的是哪种调度意图：
 - 是否确认自动任务没有提前展开日期模型或生成源接口参数：
 - 是否需要放入 workflow：如需要，使用 `docs/templates/workflow-development-template.md` 另写方案。
+- 如另接入 Dagster sensor：是否已按 `lake_console/docs/templates/dagster-dataset-onboarding-template.html` 设计 cursor 的 `reason_code`、`blocked_component`、短中文 `summary`、`next_action`、长度预算和禁止字段：
 
 ### 7.3 TaskRun 观测
 
@@ -738,6 +741,7 @@ cd frontend && npm run typecheck
 - [ ] reject reason code 和 rejected reason samples 可解释，任何 reject 都有字段和值样本
 - [ ] TaskRun 详情展示可读，无重复错误信息
 - [ ] 数据源卡片和数据状态页展示正确
+- [ ] 如接入 Dagster sensor，cursor 已遵守 Dagster 数据集接入模板：不写报告型 batch/readiness 明细，能一眼看出触发或 skip 原因
 - [ ] 门禁命令已通过并记录输出
 
 ---
