@@ -6,6 +6,16 @@ import duckdb
 
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
+from orchestrator.defs.catalog import (
+    ComputeEngine,
+    EventPolicy,
+    IngestionSource,
+    PartitionModel,
+    PartitionPhysicalLayout,
+    WritePolicy,
+    get_lake_asset_catalog_entry,
+    get_partition_model_definition,
+)
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
@@ -28,6 +38,10 @@ from orchestrator.defs.stock_daily_qfq import (
 from orchestrator.defs.run_contracts.metadata import (
     DAGSTER_COLUMN_SCHEMA_METADATA_KEY,
     DATASET_ID_METADATA_KEY,
+)
+from orchestrator.defs.sensors.readiness import (
+    GOLD_STOCK_DAILY_QFQ_CHECKS,
+    GOLD_STOCK_DAILY_QFQ_READINESS_SPECS,
 )
 
 
@@ -179,6 +193,41 @@ class StockDailyQfqContractTests(unittest.TestCase):
         spec = gold_stock_daily_qfq.get_asset_spec(gold_stock_daily_qfq.key)
         self.assertEqual(spec.metadata[DATASET_ID_METADATA_KEY], "stock_daily_qfq")
         self.assertIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, spec.metadata)
+
+    def test_catalog_entry_registers_trade_date_gold_qfq_contract(self) -> None:
+        entry = get_lake_asset_catalog_entry("gold_stock_daily_qfq")
+        partition_model = get_partition_model_definition(entry.partition_model)
+
+        self.assertEqual(entry.dataset_id, "stock_daily_qfq")
+        self.assertEqual(entry.column_schema, GOLD_STOCK_DAILY_QFQ_SCHEMA)
+        self.assertEqual(
+            entry.partition_model,
+            PartitionModel.TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ,
+        )
+        self.assertEqual(partition_model.asset_family, "stock_daily_qfq")
+        self.assertEqual(partition_model.physical_layout, PartitionPhysicalLayout.PARTITION_FILE)
+        self.assertEqual(entry.write_policy, WritePolicy.PARTITION_FILE_ATOMIC_REPLACE)
+        self.assertEqual(entry.event_policy, EventPolicy.SUPPORTS_RUNLESS_EVENT_BACKFILL)
+        self.assertEqual(entry.bootstrap_sources, (IngestionSource.DERIVED_FROM_ASSETS,))
+        self.assertEqual(entry.performance_contract.compute_engine, ComputeEngine.DUCKDB_SQL)
+
+    def test_readiness_uses_only_two_ordinary_blocking_checks(self) -> None:
+        self.assertEqual(
+            GOLD_STOCK_DAILY_QFQ_CHECKS,
+            (
+                "gold_stock_daily_qfq_contract_check",
+                "gold_stock_daily_qfq_qfq_semantics_check",
+            ),
+        )
+        self.assertEqual(len(GOLD_STOCK_DAILY_QFQ_READINESS_SPECS), 1)
+        spec = GOLD_STOCK_DAILY_QFQ_READINESS_SPECS[0]
+
+        self.assertEqual(spec.asset_key.to_user_string(), "gold_stock_daily_qfq")
+        self.assertEqual(spec.blocking_check_names, GOLD_STOCK_DAILY_QFQ_CHECKS)
+        self.assertNotIn(
+            "gold_stock_daily_qfq_factor_repair_plan_evaluated",
+            spec.blocking_check_names,
+        )
 
     def test_select_sql_describes_gold_stock_daily_qfq_schema(self) -> None:
         with TemporaryDirectory() as temp_dir:

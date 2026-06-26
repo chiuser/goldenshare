@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，待推进 P2 checks/catalog。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，待推进 P3 daily job/sensor。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -35,6 +35,14 @@ qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_d
 1. `pre_close/change_amount/pct_chg` 保留；上市首日或湖中无 previous source row 时统一写 `0`，不写 `NULL`。
 2. repair 初版不开放手写 `stock_codes`，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 3. repair 初版必须增加自动 run-status sensor，触发逻辑参考股票分钟线 MACD/KDJ repair：daily qfq 成功后自动做 bounded plan 判断并提交 scoped repair job。
+
+### 3.0 拍板口径的执行解释
+
+这三条在开发时按下面方式理解：
+
+1. `0` 是合法“无上一可用日线”的业务占位，只能用于上市首日或湖中第一条可计算记录。只要上一条 source row 存在但 previous factor 缺失，就必须 fail closed，不能用 `0` 掩盖数据缺口。
+2. repair 初版不提供运营手写股票池入口。受影响股票必须由 `silver_adj_factor` 当前交易日与上一 expected trade date 的因子差异自动推导，并用 hash / upstream batch 做审计和幂等校验。
+3. 自动 repair sensor 是“上游 daily qfq 成功后的 run-status 判断”，不是定时全市场扫描。它只围绕触发 run 的 `trade_date` 做 bounded repair plan，满足自动上限和 completion/status 门禁后才提交 scoped repair job。
 
 ### 3.1 字段保留
 
@@ -229,7 +237,7 @@ repair 口径：
 | 字段契约 | 已列字段和 qfq 语义 | 需要在 `asset_column_schemas.py` 细化类型、描述、nullable 规则 |
 | 路径 | 已明确 gold 路径模板 | 需要补正式 path helper 名称和 catalog path template |
 | 上游依赖 | 已明确依赖 `silver_stock_daily` 与 `silver_adj_factor` | 需要补 asset deps、check additional_deps、readiness gate |
-| checks | 已列质量方向 | 需要拆成具体 blocking checks，避免大而全 check，也避免无意义 check 膨胀 |
+| checks | 已落地 2 条 ordinary blocking checks：contract 与 qfq semantics，子规则写入 metadata | 后续 repair status check 必须保持 protected/status 口径，不进入 ordinary readiness |
 | metadata | 已要求 materialization/check/repair metadata 分层 | 需要列具体 metadata keys，走现有 metadata helper，不裸写 top-level key |
 | job/sensor | 已建议 update job 与 repair job 分入口 | 需要列最终 job/sensor 名称、run key builder、cursor 字段、默认状态 |
 | 历史迁移 | 已提出 direct lake bootstrap + runless event backfill 作为大范围候选方案 | 需要 dry-run 指标、sample 方案、全量批次、event 补录上限 |

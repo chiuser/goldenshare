@@ -108,6 +108,10 @@ SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (
     "silver_adj_factor_lifecycle_coverage_check",
     "silver_adj_factor_partition_allowed_check",
 )
+GOLD_STOCK_DAILY_QFQ_CHECKS = (
+    "gold_stock_daily_qfq_contract_check",
+    "gold_stock_daily_qfq_qfq_semantics_check",
+)
 RAW_INDEX_DAILY_CHECKS = (
     "raw_index_daily_file_contract_check",
     "raw_index_daily_code_coverage_check",
@@ -142,6 +146,7 @@ RAW_STOCK_DAILY_ASSET_KEY = dg.AssetKey("raw_tushare_stock_daily")
 SILVER_STOCK_DAILY_ASSET_KEY = dg.AssetKey("silver_stock_daily")
 RAW_ADJ_FACTOR_ASSET_KEY = dg.AssetKey("raw_tushare_adj_factor")
 SILVER_ADJ_FACTOR_ASSET_KEY = dg.AssetKey("silver_adj_factor")
+GOLD_STOCK_DAILY_QFQ_ASSET_KEY = dg.AssetKey("gold_stock_daily_qfq")
 RAW_STK_MINS_ASSET_KEYS = (
     dg.AssetKey("raw_stk_mins_1m"),
     dg.AssetKey("raw_stk_mins_5m"),
@@ -260,6 +265,9 @@ RAW_ADJ_FACTOR_READINESS_SPEC = AssetReadinessSpec(
 ADJ_FACTOR_READINESS_SPECS = (
     RAW_ADJ_FACTOR_READINESS_SPEC,
     AssetReadinessSpec(SILVER_ADJ_FACTOR_ASSET_KEY, SILVER_ADJ_FACTOR_BLOCKING_CHECKS),
+)
+GOLD_STOCK_DAILY_QFQ_READINESS_SPECS = (
+    AssetReadinessSpec(GOLD_STOCK_DAILY_QFQ_ASSET_KEY, GOLD_STOCK_DAILY_QFQ_CHECKS),
 )
 RAW_STK_MINS_READINESS_SPECS = tuple(
     AssetReadinessSpec(asset_key, RAW_STK_MINS_CHECKS)
@@ -852,6 +860,17 @@ def adj_factor_ready_for_trade_date(
     return dataset_readiness_status(
         instance,
         ADJ_FACTOR_READINESS_SPECS,
+        partition_key=trade_date,
+    )
+
+
+def gold_stock_daily_qfq_ready_for_trade_date(
+    instance: dg.DagsterInstance,
+    trade_date: str,
+) -> DatasetReadinessStatus:
+    return dataset_readiness_status(
+        instance,
+        GOLD_STOCK_DAILY_QFQ_READINESS_SPECS,
         partition_key=trade_date,
     )
 

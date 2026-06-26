@@ -71,7 +71,9 @@ def gold_stock_daily_qfq(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     root = lake_root.root()
-    with duckdb.connect() as connection:
+    connect_duckdb = duckdb.connect
+    connection_context = connect_duckdb()
+    with connection_context as connection:
         previous_lookup_trade_dates = load_stock_daily_qfq_previous_lookup_trade_dates(
             connection=connection,
             lake_root=root,

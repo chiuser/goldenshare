@@ -17,6 +17,12 @@
 6. repair 初版不开放手写 `stock_codes`；affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 7. repair 初版必须增加自动 run-status sensor；触发逻辑参考股票分钟线 MACD/KDJ repair：daily qfq 成功后自动做 bounded plan 判断并提交 scoped repair job。
 
+代码实现必须按下面三条解释落地：
+
+1. `pre_close/change_amount/pct_chg = 0` 只表示“该股票在湖中没有上一条可用 source row”。它不是数据缺失兜底；如果 previous source row 存在但 previous adj factor 缺失，writer 和 check 都必须 fail closed。
+2. repair op、repair config、sensor cursor 和测试都不得出现手写 `stock_codes` 正式入口。affected codes 只能从相邻 expected trade date 的 `silver_adj_factor` diff 得到，并通过 `repair_required_codes_hash` 与 `upstream_batch_id` 校验。
+3. repair 自动化只由 `gold_stock_daily_qfq_update_job` 成功 run 触发。不得新增定时全量 repair sensor，不得在 daily job 内混入 repair 写入，也不得让 sensor 扫全历史 Dagster event 或全历史 lake 文件。
+
 ## 2. Audit Scope
 
 ### 2.1 规范与设计依据
@@ -1126,6 +1132,38 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_stoc
 - check tests
 - static gates
 
+已落地文件：
+
+- `defs/catalog/lake_assets.py`: `gold_stock_daily_qfq` catalog entry、`TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ` partition model、2 条 ordinary blocking checks。
+- `defs/checks/stock_daily_qfq_checks.py`: `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check`。
+- `defs/sensors/readiness.py`: `GOLD_STOCK_DAILY_QFQ_READINESS_SPECS` 与 `gold_stock_daily_qfq_ready_for_trade_date(...)`。
+- `tests/test_stock_daily_qfq_checks.py`: contract/qfq semantics check 正反例。
+- `tests/test_stock_daily_qfq_contracts.py`: catalog/readiness 对账测试。
+- `tests/test_asset_governance_contracts.py`: active asset / catalog 数量与 blocking check 对账。
+- `tests/test_run_contract_static_gates.py`: ordinary check 数量、防 repair status 进入 ordinary readiness、DuckDB 连接门禁。
+
+已确认口径：
+
+- ordinary readiness 只包含：
+  - `gold_stock_daily_qfq_contract_check`
+  - `gold_stock_daily_qfq_qfq_semantics_check`
+- `gold_stock_daily_qfq_factor_repair_plan_evaluated` 不进入 ordinary readiness。
+- 两个 ordinary checks 内部用 `failed_rule_names` 表达子规则，不拆成更多 Dagster check，避免 asset check event 过快膨胀。
+- check 只读临时/目标 Parquet 与上游 silver 文件，不写 lake，不写 Dagster event。
+
+本地验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_stock_daily_qfq_checks.py \
+  tests/test_asset_governance_contracts.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`93 passed`。测试只使用临时目录、本地 DuckDB 和静态扫描，不运行 `dg`，不读取正式 Dagster instance，不触碰正式数据湖。
+
 ### P3: Daily Job And Sensor
 
 范围：
@@ -1197,3 +1235,9 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_stoc
 1. 上市首日或无 previous source row 时，`pre_close/change_amount/pct_chg` 统一写 0，不写 NULL。
 2. repair 初版不开放手写 `stock_codes`；affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 3. repair 初版增加自动 run-status sensor；触发方式参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动判断并提交 scoped repair job。
+
+补充约束：
+
+1. `0` 只用于无 previous source row；previous source row 存在但 previous factor 缺失时仍失败。
+2. `stock_codes` 不得作为 repair config、正式 CLI 参数或 sensor payload 暴露。
+3. 自动 sensor 必须是 run-status sensor，只处理触发 run 的单个 `trade_date`，并受 affected code 上限、hash、completion/status 和性能门禁约束。
