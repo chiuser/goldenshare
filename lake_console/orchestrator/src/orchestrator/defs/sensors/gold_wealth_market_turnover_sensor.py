@@ -271,6 +271,60 @@ def _date_status_payload(
     return compact_readiness_status(status)
 
 
+def _summary_and_next_action(
+    decision: GoldWealthMarketTurnoverUpdateDecision,
+) -> tuple[str, str]:
+    if decision.selected_trade_date:
+        if decision.reason_code == "prod_sync_missing":
+            return (
+                f"触发 {decision.selected_trade_date} 财富成交额 prod core serving 补同步。",
+                "等待本次 run 完成；完成后确认 prod_core_wealth_market_turnover materialization 成功。",
+            )
+        return (
+            f"触发 {decision.selected_trade_date} 财富成交额 gold 和 prod core serving 更新。",
+            "等待本次 run 完成；完成后查看 gold integrity check 与 prod core sync materialization。",
+        )
+    if decision.reason_code == "run_window_not_started":
+        return (
+            "跳过：财富成交额日更窗口还没到。",
+            "等待 stock mins silver 计划时间再延后 10 分钟；到点后 sensor 会重新检查五频度 silver。",
+        )
+    if decision.blocked_component == "cn_a_stock_mins_silver_trade_days":
+        return (
+            "跳过：股票分钟线 silver 交易日分区还没有补齐。",
+            "先补齐 cn_a_stock_mins_silver_trade_days 分区，再等待下一次 sensor tick。",
+        )
+    if decision.blocked_component == "silver_stk_mins":
+        return (
+            f"跳过：{decision.target_trade_date or '-'} 的 silver_stk_mins 五频度还没有全部 ready。",
+            "先修复同日 1/5/15/30/60 分钟 silver 文件或 checks；部分频度 ready 不会触发。",
+        )
+    if decision.blocked_component == "gold_wealth_market_turnover":
+        return (
+            f"跳过：{decision.target_trade_date or '-'} 的财富成交额 gold 已有问题状态。",
+            "先查看 gold_wealth_market_turnover_integrity_check，人工确认后再修复或重跑。",
+        )
+    if decision.reason_code == "prod_sync_failed_requires_manual_retry":
+        return (
+            f"跳过：{decision.target_trade_date or '-'} 的 prod core serving 同步曾失败。",
+            "不要让 sensor 反复重发；人工检查 prod 写入错误后按分区重跑同一个 job。",
+        )
+    if decision.blocked_component == "prod_core_db":
+        return (
+            f"跳过：{decision.target_trade_date or '-'} 的 prod core serving 尚未 ready。",
+            "如果 gold 已 ready，下一次可触发同一个 job 补同步；失败过则人工重跑。",
+        )
+    if decision.reason_code == "wealth_market_turnover_chain_ready":
+        return (
+            "跳过：财富成交额 gold 与 prod core serving 最近目标分区均已 ready。",
+            "无需处理；等待新的分钟线 silver 交易日分区。",
+        )
+    return (
+        decision.reason,
+        "按 cursor 的 blocked_component 修复上游状态，或等待下一次 sensor tick。",
+    )
+
+
 def _cursor_payload(
     *,
     decision: GoldWealthMarketTurnoverUpdateDecision,
@@ -327,6 +381,7 @@ def _cursor_payload(
             and decision.reason_code != "wealth_market_turnover_chain_ready"
         ):
             blocked_count = 1
+    summary, next_action = _summary_and_next_action(decision)
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -341,12 +396,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_mins_silver_trade_days.name,
             reason_code=decision.reason_code,
             blocked_component=decision.blocked_component,
-            summary=decision.reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if decision.selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "silver": compact_continuity_frontier(
                     silver_continuity_status,

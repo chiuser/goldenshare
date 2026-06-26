@@ -34,12 +34,42 @@ from orchestrator.defs.wealth_market_turnover_contract import (
     GOLD_WEALTH_MARKET_TURNOVER_COLUMNS,
     audit_gold_wealth_market_turnover_file_contract,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 PROD_CORE_WEALTH_MARKET_TURNOVER_PATH_TEMPLATE = (
     "postgresql://prod/core_serving.wealth_market_turnover_snapshot"
     "?trade_date={partition_key}"
 )
+
+
+def _human_materialization_metadata(
+    *,
+    partition_key: str,
+    source_path: Path,
+    row_count: int,
+    read_back_row_count: int,
+    points_json_hash: str,
+) -> dict[str, object]:
+    return {
+        "summary": "已同步财富端市场成交额快照到 prod PostgreSQL core serving 表。",
+        "next_action": "确认 prod read-back row count 与 gold 输出一致；后续财富 API 可按 serving 表读取。",
+        "result_status": "written",
+        "input_summary": {
+            "source_asset": "gold_wealth_market_turnover",
+            "partition_key": partition_key,
+            "source_gold_path": str(source_path),
+        },
+        "serving_summary": {
+            "target_system": "prod_postgres",
+            "target_table": PROD_CORE_WEALTH_MARKET_TURNOVER_TABLE,
+            "replace_mode": "transactional_delete_then_insert",
+            "row_count": row_count,
+            "read_back_row_count": read_back_row_count,
+            "points_json_hash": points_json_hash,
+        },
+        "diagnostic_ref": "完整诊断看 prod_core_wealth_market_turnover materialization metadata 和 run stdout。",
+    }
 
 
 @dg.asset(
@@ -76,6 +106,12 @@ def prod_core_wealth_market_turnover(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     source_path = gold_wealth_market_turnover_path(lake_root.root(), partition_key)
+    log = DgStdoutLogger("wealth_market_turnover")
+    log.stdout(
+        "prod_core_wealth_market_turnover_started",
+        partition_key=partition_key,
+        target_table=PROD_CORE_WEALTH_MARKET_TURNOVER_TABLE,
+    )
 
     rows = load_gold_wealth_market_turnover_rows_for_prod_sync(
         duckdb_resource=duckdb,
@@ -89,6 +125,13 @@ def prod_core_wealth_market_turnover(
             partition_key=partition_key,
         )
 
+    log.stdout(
+        "prod_core_wealth_market_turnover_completed",
+        partition_key=partition_key,
+        target_table=PROD_CORE_WEALTH_MARKET_TURNOVER_TABLE,
+        output_row_count=audit.row_count,
+        read_back_row_count=audit.read_back_row_count,
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=PROD_CORE_WEALTH_MARKET_TURNOVER_PATH_TEMPLATE.format(
@@ -97,6 +140,13 @@ def prod_core_wealth_market_turnover(
             row_count=audit.row_count,
             observed_columns=audit.observed_columns,
             extra_metadata={
+                **_human_materialization_metadata(
+                    partition_key=partition_key,
+                    source_path=source_path,
+                    row_count=audit.row_count,
+                    read_back_row_count=audit.read_back_row_count,
+                    points_json_hash=audit.points_json_hash,
+                ),
                 "partition_key": partition_key,
                 "source_asset": "gold_wealth_market_turnover",
                 "source_gold_path": str(source_path),

@@ -340,6 +340,9 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("20:00", result.skip_reason.skip_message)
         load_trade_dates.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertIn("日更窗口还没到", cursor["details"]["summary"])
+        self.assertIn("延后 10 分钟", cursor["details"]["next_action"])
 
     def test_silver_not_ready_skips_without_gold_readiness_scan(self) -> None:
         trade_dates = (PARTITION_KEY, NEXT_PARTITION_KEY)
@@ -418,6 +421,11 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
         self.assertEqual(cursor["decision"], "request_runs")
         self.assertEqual(cursor["selected_count"], 1)
         self.assertEqual(cursor["sample_keys"], [NEXT_PARTITION_KEY])
+        self.assertIn(
+            f"触发 {NEXT_PARTITION_KEY} 财富成交额",
+            cursor["details"]["summary"],
+        )
+        self.assertIn("prod core", cursor["details"]["next_action"])
 
     def test_gold_ready_prod_missing_submits_same_job(self) -> None:
         trade_dates = (PARTITION_KEY, NEXT_PARTITION_KEY)

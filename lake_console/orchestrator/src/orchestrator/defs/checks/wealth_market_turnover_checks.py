@@ -47,6 +47,16 @@ def _check_result_from_audit(
     *,
     file_path,
 ) -> dg.AssetCheckResult:
+    summary = (
+        "财富成交额 gold 完整性检查通过。"
+        if audit.passed
+        else "财富成交额 gold 完整性检查失败，先看 failure_stage 和 reason_code。"
+    )
+    next_action = (
+        "无需处理，等待 prod core serving 同步。"
+        if audit.passed
+        else "先修复缺失的 silver_stk_mins 五频度输入或 gold points_json 输出，再重跑 gold_wealth_market_turnover。"
+    )
     return dg.AssetCheckResult(
         passed=audit.passed,
         metadata=build_check_metadata(
@@ -56,6 +66,16 @@ def _check_result_from_audit(
             file_path=file_path,
             missing_file_paths=audit.missing_file_paths,
             extra_metadata={
+                "summary": summary,
+                "next_action": next_action,
+                "rule_summary": {
+                    "passed": audit.passed,
+                    "failure_stage": audit.failure_stage or "",
+                    "reason_code": audit.reason_code or "",
+                    "checked_row_count": audit.checked_row_count,
+                    "failed_row_count": audit.failed_row_count,
+                    "missing_file_count": len(audit.missing_file_paths),
+                },
                 "check_name": WEALTH_MARKET_TURNOVER_CHECK_NAME,
                 "failure_stage": audit.failure_stage or "",
                 "reason_code": audit.reason_code or "",

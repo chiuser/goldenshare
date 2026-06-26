@@ -11,7 +11,11 @@ from orchestrator.defs.paths import (
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.stk_mins import STK_MINS_FREQS
+from orchestrator.defs.checks.wealth_market_turnover_checks import (
+    _check_result_from_audit,
+)
 from orchestrator.defs.wealth_market_turnover_contract import (
+    WealthMarketTurnoverIntegrityAudit,
     audit_gold_wealth_market_turnover_file_contract,
     audit_gold_wealth_market_turnover_recomputed_from_silver,
     wealth_market_turnover_input_paths,
@@ -19,7 +23,35 @@ from orchestrator.defs.wealth_market_turnover_contract import (
 )
 
 
+def _metadata_value(value):  # noqa: ANN001
+    return getattr(value, "value", value)
+
+
 class GoldWealthMarketTurnoverCheckTests(unittest.TestCase):
+    def test_check_result_metadata_is_human_readable(self) -> None:
+        audit = WealthMarketTurnoverIntegrityAudit(
+            passed=False,
+            failure_stage="file_contract",
+            reason_code="missing_file",
+            checked_row_count=0,
+            failed_row_count=1,
+            missing_file_paths=("/tmp/missing.parquet",),
+            sample_rows=(),
+            metadata={"expected_row_count": 5},
+        )
+
+        result = _check_result_from_audit(audit, file_path=Path("/tmp/missing.parquet"))
+
+        self.assertFalse(result.passed)
+        self.assertIn("失败", _metadata_value(result.metadata["goldenshare/summary"]))
+        self.assertIn(
+            "silver_stk_mins",
+            _metadata_value(result.metadata["goldenshare/next_action"]),
+        )
+        rule_summary = _metadata_value(result.metadata["goldenshare/rule_summary"])
+        self.assertEqual(rule_summary["failure_stage"], "file_contract")
+        self.assertEqual(rule_summary["reason_code"], "missing_file")
+
     def test_integrity_audits_pass_for_valid_file(self) -> None:
         with tempfile.TemporaryDirectory() as temporary_dir:
             root = Path(temporary_dir)

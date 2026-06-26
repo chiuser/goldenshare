@@ -84,7 +84,8 @@
     <p class="small">
       当前状态：LLD 已建立；Wave 3A <code>market_major_indices_daily</code>
       与 Wave 3B <code>market_breadth</code> / <code>stock_return_distribution</code>
-      已落地到代码、测试和静态门禁。后续按 Wave 3C/3D 分步提交。
+      已落地到代码、测试和静态门禁；Wave 3C <code>gold_wealth_market_turnover</code>
+      / <code>prod_core_wealth_market_turnover</code> 已落地到代码、测试和静态门禁。后续按 Wave 3D 提交。
     </p>
   </header>
 
@@ -280,8 +281,8 @@
       <tr>
         <td>Wave 3C</td>
         <td><code>gold_wealth_market_turnover</code>、<code>prod_core_wealth_market_turnover</code></td>
-        <td>财富端成交额 gold 与 prod core sync 一起治理；metadata 明确 5 个频度、points_json、prod 表和事务替换结果。</td>
-        <td><code>tests.test_gold_wealth_market_turnover_asset</code>、<code>tests.test_gold_wealth_market_turnover_sensor</code>、<code>tests.test_gold_wealth_market_turnover_prod_core_sync</code>。</td>
+        <td>已完成：gold asset 补五频度、points_json、源行数和金额/成交量摘要；prod core sync asset 补目标表、事务替换、read-back 和 hash 摘要；唯一 integrity check 与 sensor cursor 补人类可读说明。</td>
+        <td><code>tests.test_gold_wealth_market_turnover_asset</code>、<code>tests.test_gold_wealth_market_turnover_checks</code>、<code>tests.test_gold_wealth_market_turnover_human_readable_contracts</code>、<code>tests.test_gold_wealth_market_turnover_sensor</code>、<code>tests.test_gold_wealth_market_turnover_prod_core_sync</code>、静态门禁已通过。</td>
       </tr>
       <tr>
         <td>Wave 3D</td>

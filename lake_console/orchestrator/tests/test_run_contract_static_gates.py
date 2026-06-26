@@ -335,6 +335,65 @@ class RunContractStaticGateTests(unittest.TestCase):
         ):
             self.assertNotIn(forbidden_fragment, prod_asset_source)
 
+    def test_gold_wealth_market_turnover_human_readable_governance_stays_compact(
+        self,
+    ) -> None:
+        gold_asset_source = (
+            DEFS_DIR / "assets" / "wealth_market_turnover.py"
+        ).read_text()
+        prod_asset_source = (
+            DEFS_DIR / "assets" / "wealth_market_turnover_prod_core.py"
+        ).read_text()
+        check_source = (CHECKS_DIR / "wealth_market_turnover_checks.py").read_text()
+        sensor_source = (
+            SENSORS_DIR / "gold_wealth_market_turnover_sensor.py"
+        ).read_text()
+        issues = []
+
+        for fragment in (
+            "gold_wealth_market_turnover_started",
+            "gold_wealth_market_turnover_completed",
+            "metric_summary",
+            "五频度",
+            "points_json",
+        ):
+            if fragment not in gold_asset_source:
+                issues.append(f"wealth gold asset misses readable fragment: {fragment}")
+
+        for fragment in (
+            "prod_core_wealth_market_turnover_started",
+            "prod_core_wealth_market_turnover_completed",
+            "serving_summary",
+            "core_serving.wealth_market_turnover_snapshot",
+        ):
+            if fragment not in prod_asset_source:
+                issues.append(f"wealth prod asset misses readable fragment: {fragment}")
+
+        for fragment in ("summary", "next_action", "rule_summary"):
+            if fragment not in check_source:
+                issues.append(f"wealth check misses readable metadata: {fragment}")
+
+        for fragment in (
+            "_summary_and_next_action",
+            "五频度还没有全部 ready",
+            "prod core serving",
+            "延后 10 分钟",
+        ):
+            if fragment not in sensor_source:
+                issues.append(f"wealth sensor cursor misses readable fragment: {fragment}")
+
+        for fragment in (
+            "status_samples",
+            "to_cursor_details()",
+            "input_file_paths=",
+            "points_json=",
+            "sample_rows=",
+        ):
+            if fragment in sensor_source:
+                issues.append(f"wealth sensor cursor contains bulky fragment: {fragment}")
+
+        self.assertEqual(issues, [])
+
     def test_stock_mins_silver_job_does_not_pull_raw_or_source_config(self) -> None:
         path = JOBS_DIR / "stock_mins_silver_update.py"
         source = path.read_text()
