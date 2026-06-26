@@ -1694,13 +1694,48 @@ class RunContractStaticGateTests(unittest.TestCase):
         self.assertEqual(issues, [])
 
     def test_lake_root_health_entrypoints_stay_infra_only(self) -> None:
+        asset_path = ASSETS_DIR / "lake_root_health.py"
+        check_path = CHECKS_DIR / "lake_root_health_checks.py"
+        health_path = DEFS_DIR / "health" / "lake_root.py"
         job_path = JOBS_DIR / "lake_root_health_check.py"
         schedule_path = SCHEDULES_DIR / "lake_root_health.py"
         resource_path = DEFS_DIR / "resources.py"
+        asset_source = asset_path.read_text()
+        check_source = check_path.read_text()
+        health_source = health_path.read_text()
         job_source = job_path.read_text()
         schedule_source = schedule_path.read_text()
         resource_source = resource_path.read_text()
         issues = []
+
+        required_human_fragments = (
+            "summary",
+            "next_action",
+            "result_status",
+            "component_status",
+            "diagnostic_ref",
+            "rule_summary",
+        )
+        human_source = "\n".join((asset_source, check_source, health_source))
+        issues.extend(
+            f"lake root health readability misses fragment: {fragment}"
+            for fragment in required_human_fragments
+            if fragment not in human_source
+        )
+
+        forbidden_business_fragments = (
+            "source_asset",
+            "downstream",
+            "tushare",
+            "index_daily",
+            "stock_daily",
+            "stk_mins",
+        )
+        issues.extend(
+            f"lake root health readability contains business fragment: {fragment}"
+            for fragment in forbidden_business_fragments
+            if fragment in human_source
+        )
 
         required_job_fragments = (
             "lake_root_health",

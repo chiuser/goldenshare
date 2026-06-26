@@ -38,6 +38,11 @@ def _check_fn(check_definition):
     return check_definition.node_def.compute_fn.decorated_fn
 
 
+def _metadata_value(metadata: dict, key: str):
+    value = metadata[key]
+    return getattr(value, "value", value)
+
+
 class LakeRootHealthHelperTests(unittest.TestCase):
     def test_healthy_root_creates_tmp_and_cleans_canary(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -172,6 +177,24 @@ class LakeRootHealthDagsterDefinitionTests(unittest.TestCase):
 
             self.assertIsInstance(result, dg.MaterializeResult)
             self.assertEqual(list(root.rglob("*.parquet")), [])
+            self.assertIn("goldenshare/summary", result.metadata)
+            self.assertIn("goldenshare/next_action", result.metadata)
+            self.assertIn("goldenshare/result_status", result.metadata)
+            self.assertIn("goldenshare/component_status", result.metadata)
+            self.assertIn("goldenshare/diagnostic_ref", result.metadata)
+            self.assertEqual(
+                _metadata_value(result.metadata, "goldenshare/result_status"),
+                "healthy",
+            )
+            self.assertEqual(
+                _metadata_value(result.metadata, "goldenshare/component_status"),
+                {
+                    "required_paths_ready": True,
+                    "lake_root_read_write_ready": True,
+                    "lake_root_disk_space_ready": True,
+                    "duckdb_temp_directory_ready": True,
+                },
+            )
             spec = asset_module.lake_root_health.get_asset_spec()
             self.assertNotIn(DAGSTER_COLUMN_SCHEMA_METADATA_KEY, spec.metadata)
 
@@ -192,8 +215,15 @@ class LakeRootHealthDagsterDefinitionTests(unittest.TestCase):
                             _FakeLakeRoot(root)
                         )
 
-            self.assertIn("Lake root health check failed", str(error.exception))
+            self.assertIn("Lake root 平台健康检查失败", str(error.exception))
             self.assertIn("failure_reasons", error.exception.metadata)
+            self.assertEqual(
+                _metadata_value(error.exception.metadata, "result_status"),
+                "failed",
+            )
+            self.assertIn("summary", error.exception.metadata)
+            self.assertIn("next_action", error.exception.metadata)
+            self.assertIn("component_status", error.exception.metadata)
 
     def test_health_checks_report_expected_dimension(self) -> None:
         with tempfile.TemporaryDirectory() as tmp:
@@ -214,6 +244,42 @@ class LakeRootHealthDagsterDefinitionTests(unittest.TestCase):
             self.assertEqual(
                 result.metadata["goldenshare/failed_rule_names"].value,
                 [],
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/result_status"].value,
+                "healthy",
+            )
+            self.assertIn("平台健康检查通过", result.metadata["goldenshare/summary"].value)
+            self.assertIn("无需处理", result.metadata["goldenshare/next_action"].value)
+            self.assertEqual(
+                result.metadata["goldenshare/component_status"].value,
+                {
+                    "required_paths_ready": True,
+                    "lake_root_read_write_ready": True,
+                    "lake_root_disk_space_ready": True,
+                    "duckdb_temp_directory_ready": True,
+                },
+            )
+            self.assertEqual(
+                result.metadata["goldenshare/rule_summary"].value,
+                [
+                    {
+                        "rule_name": "lake_root_required_paths_ready",
+                        "passed": True,
+                    },
+                    {
+                        "rule_name": "lake_root_read_write_ready",
+                        "passed": True,
+                    },
+                    {
+                        "rule_name": "lake_root_disk_space_ready",
+                        "passed": True,
+                    },
+                    {
+                        "rule_name": "duckdb_temp_directory_ready",
+                        "passed": True,
+                    },
+                ],
             )
             self.assertEqual(
                 result.metadata["goldenshare/rule_passed"].value,

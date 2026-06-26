@@ -31,7 +31,10 @@ from orchestrator.defs.run_contracts.metadata import (
             "writes_parquet": False,
         },
     ),
-    description="检查 lake root、必要目录、读写 canary、磁盘空间和 DuckDB temp 状态。",
+    description=(
+        "平台健康检查：确认 lake root 必要目录、读写 canary、磁盘空间和 "
+        "DuckDB temp 可用，不产生 Parquet 业务数据。"
+    ),
 )
 def lake_root_health(lake_root: LakeRootResource) -> dg.MaterializeResult:
     status = evaluate_lake_root_health(
@@ -41,7 +44,7 @@ def lake_root_health(lake_root: LakeRootResource) -> dg.MaterializeResult:
     metadata = status.metadata()
     if not status.healthy:
         raise dg.Failure(
-            description="Lake root health check failed.",
+            description="Lake root 平台健康检查失败。",
             metadata=metadata,
         )
 

@@ -585,8 +585,8 @@
       <tbody>
       <tr>
         <td><code>lake_root_health</code></td>
-        <td>description 和 metadata 聚焦“根目录是否可用、可写、空间是否足够、临时目录是否正常”。</td>
-        <td>它不是业务数据集，不要套用“源站、silver、下游指标”的语言。</td>
+        <td>Wave 5 已完成：description、materialization metadata 和 check metadata 已聚焦“根目录是否可用、可写、空间是否足够、DuckDB temp 是否正常”；失败时会直接给出平台组件摘要和下一步动作。</td>
+        <td>已保持它是平台健康检查，不套用“源站、silver、下游指标”的业务数据集语言；没有新增 sensor、check、job 或数据写入。</td>
       </tr>
       </tbody>
     </table>
@@ -666,8 +666,16 @@
       <tr>
         <td>Wave 5</td>
         <td>平台观测</td>
-        <td>独立收尾，避免和业务资产混在一起。</td>
-        <td><code>lake_root_health</code> 的失败能直接提示是路径、权限还是空间问题。</td>
+        <td>
+          独立收尾，避免和业务资产混在一起。
+          代码级 LLD 已落到
+          <code>dagster-platform-observability-human-readable-governance-low-level-design.html</code>；
+          <code>lake_root_health</code> 已完成。
+        </td>
+        <td>
+          <code>lake_root_health</code> 的失败能直接提示是路径、权限、磁盘空间还是 DuckDB temp 问题；
+          现有健康判断、job selection、schedule 状态和平台门禁调用保持不变。
+        </td>
       </tr>
       </tbody>
     </table>

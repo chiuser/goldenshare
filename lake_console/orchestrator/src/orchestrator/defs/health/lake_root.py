@@ -67,6 +67,14 @@ class LakeRootHealthStatus:
 
     def metadata(self) -> dict[str, Any]:
         return {
+            "summary": _health_summary(self),
+            "next_action": _health_next_action(self),
+            "result_status": "healthy" if self.healthy else "failed",
+            "component_status": _component_status(self),
+            "diagnostic_ref": (
+                "完整诊断看 missing_required_paths、non_directory_required_paths、"
+                "lake_root_canary_error、free_gib 和 failure_reasons。"
+            ),
             "health_status": "healthy" if self.healthy else "failed",
             "checked_at": self.checked_at,
             "lake_root": str(self.lake_root),
@@ -110,6 +118,66 @@ class LakeRootHealthStatus:
             "check_duckdb_temp": self.check_duckdb_temp,
             "failure_reasons": list(self.failure_reasons),
         }
+
+
+def _component_status(status: LakeRootHealthStatus) -> dict[str, bool]:
+    return {
+        "required_paths_ready": status.required_paths_ready,
+        "lake_root_read_write_ready": status.lake_root_read_write_ready,
+        "lake_root_disk_space_ready": status.lake_root_disk_space_ready,
+        "duckdb_temp_directory_ready": status.duckdb_temp_directory_ready,
+    }
+
+
+def _health_summary(status: LakeRootHealthStatus) -> str:
+    if status.healthy:
+        return (
+            "Lake root 平台健康检查通过：必要目录、读写 canary、磁盘空间和 "
+            "DuckDB temp 均可用。"
+        )
+    failed_components = [
+        label
+        for reason, label in (
+            ("required_paths_not_ready", "必要目录未就绪"),
+            ("lake_root_tmp_not_ready", "临时目录未就绪"),
+            ("lake_root_read_write_not_ready", "lake root 读写 canary 失败"),
+            ("lake_root_disk_space_below_threshold", "lake root 磁盘空间不足"),
+            ("duckdb_temp_directory_not_ready", "DuckDB temp 不可用"),
+        )
+        if reason in status.failure_reasons
+    ]
+    if not failed_components:
+        return "Lake root 平台健康检查失败：存在未归类的健康问题。"
+    return f"Lake root 平台健康检查失败：{', '.join(failed_components)}。"
+
+
+def _health_next_action(status: LakeRootHealthStatus) -> str:
+    if status.healthy:
+        return "无需处理；可以继续依赖 lake_root_health_ready 作为平台健康门禁。"
+
+    action_by_reason = {
+        "required_paths_not_ready": (
+            "先修复 missing_required_paths / non_directory_required_paths "
+            "中列出的目录。"
+        ),
+        "lake_root_tmp_not_ready": (
+            "先修复 lake_root_tmp_path，使健康检查可以创建临时目录。"
+        ),
+        "lake_root_read_write_not_ready": (
+            "先修复 lake root canary 读写权限或挂载状态。"
+        ),
+        "lake_root_disk_space_below_threshold": (
+            "先释放 lake root 磁盘空间或调整正式容量阈值。"
+        ),
+        "duckdb_temp_directory_not_ready": (
+            "先修复 DuckDB temp 目录、权限或空间。"
+        ),
+    }
+    for reason in status.failure_reasons:
+        action = action_by_reason.get(reason)
+        if action is not None:
+            return action
+    return "先查看 failure_reasons、canary_error 和路径字段定位平台健康问题。"
 
 
 def evaluate_lake_root_health(

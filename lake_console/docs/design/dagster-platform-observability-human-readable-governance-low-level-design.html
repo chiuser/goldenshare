@@ -1,0 +1,239 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 平台观测人类可读治理 LLD</title>
+  <style>
+    body {
+      margin: 0;
+      background: #f5f7fa;
+      color: #202a36;
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+    main { max-width: 1120px; margin: 0 auto; padding: 34px 24px 72px; }
+    header, section {
+      background: #fff;
+      border: 1px solid #d7dee8;
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+      margin-top: 18px;
+      padding: 26px;
+    }
+    header { margin-top: 0; border-left: 6px solid #255f8d; padding: 34px; }
+    h1, h2, h3 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: 36px; margin-bottom: 12px; }
+    h2 { font-size: 24px; margin-bottom: 12px; }
+    h3 { font-size: 18px; margin: 22px 0 8px; }
+    p { margin: 8px 0 12px; }
+    code {
+      background: #f2f5f8;
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    table { width: 100%; border-collapse: collapse; margin: 14px 0; background: #fff; }
+    th, td { border: 1px solid #d7dee8; padding: 10px 12px; text-align: left; vertical-align: top; }
+    th { background: #edf3f8; }
+    ul, ol { padding-left: 24px; }
+    li { margin: 5px 0; }
+    .lead { color: #637083; max-width: 910px; font-size: 17px; }
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: #f2f5f8;
+      color: #344054;
+      font-size: 13px;
+    }
+    .callout {
+      border: 1px solid #d7dee8;
+      border-left: 5px solid #255f8d;
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: #eef6ff;
+      margin: 14px 0;
+    }
+    .amber { border-left-color: #8a641a; background: #fff7df; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 平台观测人类可读治理 LLD</h1>
+    <p class="lead">
+      本文是 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code>
+      中 Wave 5 的代码级低阶设计。范围只有 <code>lake_root_health</code>，
+      目标是让平台健康失败能直接看出是路径、权限、磁盘空间还是 DuckDB temp 问题。
+    </p>
+    <p>
+      <span class="tag">Wave 5：平台观测</span>
+      <span class="tag">状态：已落地</span>
+      <span class="tag">只改表达层</span>
+      <span class="tag">不改健康判断</span>
+      <span class="tag">不新增 sensor</span>
+      <span class="tag">不写业务 lake 数据</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 目标</h2>
+    <div class="callout">
+      <p>
+        <code>lake_root_health</code> 是平台健康检查，不是行情业务数据集。
+        它应该回答：lake root 是否可用、必要目录是否齐、canary 是否能读写、磁盘空间是否够、
+        DuckDB temp 是否可用，以及失败后先修哪里。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 硬边界</h2>
+    <table>
+      <thead>
+      <tr><th>边界</th><th>执行口径</th></tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>健康判断</td>
+        <td>不改 <code>evaluate_lake_root_health(...)</code> 的 required paths、canary、free space、DuckDB temp 判断。</td>
+      </tr>
+      <tr>
+        <td>Definitions</td>
+        <td>不改 asset/job/schedule/check 名称；不新增 sensor；不新增 check。</td>
+      </tr>
+      <tr>
+        <td>数据写入</td>
+        <td>不写 Parquet，不写 Dagster DB，不写业务数据库；保留现有 canary 临时文件写读删行为。</td>
+      </tr>
+      <tr>
+        <td>表达方式</td>
+        <td>metadata 用平台语言，不写上游行情、下游消费、source asset 等业务数据集词汇。</td>
+      </tr>
+      <tr>
+        <td>测试</td>
+        <td>只跑单元测试、静态门禁、文档检查和 <code>git diff --check</code>；不运行 <code>dg</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 性能与副作用</h2>
+    <table>
+      <thead>
+      <tr><th>入口</th><th>新增读取/写入</th><th>预算</th></tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Asset / check</td>
+        <td>0 新增业务读取。继续沿用现有目录存在性、canary 和磁盘空间检查。</td>
+        <td>metadata 只追加短中文、组件状态和下一步，不扩大文件扫描。</td>
+      </tr>
+      <tr>
+        <td>Job / schedule</td>
+        <td>0。job 仍只 selection <code>lake_root_health</code> 与 checks；schedule 仍默认 STOPPED。</td>
+        <td>不改变执行频率、default status 或 selection。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 代码级改动</h2>
+    <table>
+      <thead>
+      <tr><th>文件</th><th>改动</th></tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>defs/health/lake_root.py</code></td>
+        <td>
+          在 <code>LakeRootHealthStatus.metadata()</code> 里追加
+          <code>summary</code>、<code>next_action</code>、<code>result_status</code>、
+          <code>component_status</code>、<code>diagnostic_ref</code>。
+          不改 <code>healthy</code>、<code>run_available</code> 和评估函数。
+        </td>
+      </tr>
+      <tr>
+        <td><code>defs/assets/lake_root_health.py</code></td>
+        <td>description 改成平台可读说明，materialization 继续使用现有 metadata builder。</td>
+      </tr>
+      <tr>
+        <td><code>defs/checks/lake_root_health_checks.py</code></td>
+        <td>在聚合 check metadata 中追加 <code>rule_summary</code>，让失败项能直接看出哪个组件不绿。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_lake_root_health_asset.py</code></td>
+        <td>补 asset/check metadata 可读字段断言，确认不写 Parquet。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_run_contract_static_gates.py</code></td>
+        <td>补静态门禁：平台健康入口必须保留人类可读字段，且不得被 sensor 或业务资产依赖。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 实际落地状态</h2>
+    <table>
+      <thead>
+      <tr><th>对象</th><th>结果</th></tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>LakeRootHealthStatus.metadata()</code></td>
+        <td>
+          已追加 <code>summary</code>、<code>next_action</code>、
+          <code>result_status</code>、<code>component_status</code> 和
+          <code>diagnostic_ref</code>；原有路径、canary、空间和失败原因字段保留。
+        </td>
+      </tr>
+      <tr>
+        <td><code>lake_root_health</code> asset</td>
+        <td>
+          已改成平台健康检查说明；成功仍只写 materialization metadata，
+          失败仍抛 <code>dg.Failure</code> 并携带同一份 health metadata。
+        </td>
+      </tr>
+      <tr>
+        <td><code>lake_root_health_ready</code> check</td>
+        <td>
+          已保留 <code>rule_passed</code> 和 <code>failed_rule_names</code>，
+          并追加 <code>rule_summary</code>；没有新增细碎 check。
+        </td>
+      </tr>
+      <tr>
+        <td>行为边界</td>
+        <td>
+          已确认不改健康判断、job selection、schedule default status、sensor 依赖、
+          平台门禁调用和数据写入行为。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 验证命令</h2>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_lake_root_health_asset \
+  tests.test_run_contract_static_gates.RunContractStaticGateTests.test_lake_root_health_entrypoints_stay_infra_only
+cd /Users/congming/github/goldenshare
+python3 scripts/check_docs_integrity.py
+git diff --check</code></pre>
+    <div class="callout amber">
+      <p>
+        <code>uv run dg check defs</code> 不在 Wave 5 默认执行范围内；如需运行必须单独审批。
+      </p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

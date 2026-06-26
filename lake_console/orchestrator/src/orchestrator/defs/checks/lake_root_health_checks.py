@@ -26,18 +26,32 @@ def _check_result(
         metadata=build_check_metadata(
             check_scope=check_scope,
             failed_row_count=0 if passed else 1,
-            extra_metadata=status.metadata(),
+            extra_metadata={
+                **status.metadata(),
+                "rule_summary": _rule_summary(status),
+            },
         ),
     )
 
 
-def _combined_health_check_result(status: LakeRootHealthStatus) -> dg.AssetCheckResult:
-    rule_passed = {
+def _rule_passed(status: LakeRootHealthStatus) -> dict[str, bool]:
+    return {
         "lake_root_required_paths_ready": status.required_paths_ready,
         "lake_root_read_write_ready": status.lake_root_read_write_ready,
         "lake_root_disk_space_ready": status.lake_root_disk_space_ready,
         "duckdb_temp_directory_ready": status.duckdb_temp_directory_ready,
     }
+
+
+def _rule_summary(status: LakeRootHealthStatus) -> list[dict[str, object]]:
+    return [
+        {"rule_name": rule_name, "passed": passed}
+        for rule_name, passed in _rule_passed(status).items()
+    ]
+
+
+def _combined_health_check_result(status: LakeRootHealthStatus) -> dg.AssetCheckResult:
+    rule_passed = _rule_passed(status)
     failed_rule_names = [
         rule_name for rule_name, passed in rule_passed.items() if not passed
     ]
@@ -49,6 +63,7 @@ def _combined_health_check_result(status: LakeRootHealthStatus) -> dg.AssetCheck
             extra_metadata={
                 **status.metadata(),
                 "rule_passed": rule_passed,
+                "rule_summary": _rule_summary(status),
                 "failed_rule_names": failed_rule_names,
             },
         ),
