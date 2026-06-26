@@ -84,17 +84,18 @@ asset checks
 
 ## 4. 改造范围
 
-当前 active asset 事实以 `orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG` 为准；`tests/test_asset_governance_contracts.py` 对账当前共有 54 个 active catalog entries。除 `lake_root_health` 是 platform health asset、没有 table column schema 外，其余 53 个 table-like / serving assets 都必须注册 definition column schema。
+当前 active asset 事实以 `orchestrator.defs.catalog.lake_assets.LAKE_ASSET_CATALOG` 为准；`tests/test_asset_governance_contracts.py` 对账当前共有 58 个 active catalog entries。除 `lake_root_health` 是 platform health asset、没有 table column schema 外，其余 57 个 table-like / serving assets 都必须注册 definition column schema。
 
 当前覆盖范围：
 
 | 资产族 | 数量 | 当前状态 |
 |---|---:|---|
-| raw / silver 基础与日频资产 | 17 | `trade_calendar`、`stock_basic`、`namechange`、`stock_identity_map`、`suspend_d`、`stock_daily`、`adj_factor`、`index_basic`、`index_daily_by_code` / `silver_index_daily` 均已注册 definition column schema |
+| raw / silver / gold 基础与日频股票资产 | 15 | `trade_calendar`、`stock_basic`、`stock_lifecycle`、`namechange`、`stock_identity_map`、`suspend_d`、`stock_daily`、`adj_factor`、`gold_stock_daily_qfq` 均已注册 definition column schema |
+| raw / silver 指数资产 | 4 | `raw_tushare_index_basic`、`silver_index_basic`、`raw_index_daily`、`silver_index_daily` 均已注册 definition column schema |
 | `stk_mins` raw / silver | 10 | `1m/5m/15m/30m/60m` raw 与 silver 均已注册 definition column schema |
 | `stk_mins_qfq` gold | 7 | `1m/5m/15m/30m/60m/90m/120m` 均已注册 definition column schema |
 | `stk_mins_qfq_macd_kdj` indicator / state | 14 | 七频度 indicator 与七频度 state assets 均已注册 definition column schema |
-| derived / serving | 5 | `gold_market_breadth_daily`、`gold_stock_return_distribution`、`gold_market_major_indices_daily`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 均已注册 definition column schema |
+| derived / serving | 7 | `gold_market_breadth_daily`、`gold_stock_return_distribution`、`gold_market_major_indices_daily`、`gold_wealth_market_turnover`、`prod_core_wealth_market_turnover`、`ch_share_fact_market_breadth_daily`、`prod_ch_share_fact_market_breadth_daily` 均已注册 definition column schema |
 | platform health | 1 | `lake_root_health` 明确不注册 `dagster/column_schema` |
 
 本方案不改：
@@ -444,7 +445,7 @@ git status --short
 验收结论：
 
 1. SC-1 至 SC-6 已完成开发与收口。
-2. 53 个 active table-like / serving assets 已接入 definition column schema；`lake_root_health` 作为 platform health asset 明确不注册 table schema。
+2. 57 个 active table-like / serving assets 已接入 definition column schema；`lake_root_health` 作为 platform health asset 明确不注册 table schema。
 3. 用户已完成 UI 自验，确认 schema contract 口径可用。
 4. 历史 materialization metadata 不刷新，这是预期；如需清理旧 event log，另起方案。
 
@@ -517,7 +518,7 @@ git status --short
 
 完成后应满足：
 
-1. 所有 53 个 active table-like / serving assets 都在 definition metadata 中注册 column schema；`lake_root_health` 作为唯一无表结构例外。
+1. 所有 57 个 active table-like / serving assets 都在 definition metadata 中注册 column schema；`lake_root_health` 作为唯一无表结构例外。
 2. 每个字段都有 name、type、description。
 3. materialization metadata 不再承担稳定字段契约职责。
 4. runtime observed columns 仍可见。

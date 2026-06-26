@@ -1377,6 +1377,14 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 - 更新 asset schema contract / onboarding index 如需要。
 - 更新 performance governance 的新增数据集样例或 check count。
 
+状态：已完成。
+
+P7 文档对账结果：
+
+1. `dagster-stock-daily-qfq-asset-design.md` 已更新状态为 P1-P7 已完成；正式全量 lake 写入与正式 runless event 写入仍保留单独审批门禁。
+2. `dagster-asset-schema-contract-design.md` 已按当前 `LAKE_ASSET_CATALOG` 代码事实更新：active catalog entries 为 58，除 `lake_root_health` 外 57 个 table-like / serving assets 均有 definition column schema；`gold_stock_daily_qfq` 已纳入 gold 日频资产覆盖范围。
+3. `dagster-data-pipeline-performance-governance.md` 是通用性能规范，本专项没有新增需要写回的通用规则；性能口径仍以本 LLD 的 P5/P6 dry-run、runless event 和 sensor 热路径限制为准。
+
 ## 16. Stop Conditions
 
 任一情况立即停止：
