@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from collections.abc import Mapping
 from datetime import datetime, time
 
 import dagster as dg
@@ -25,6 +24,11 @@ from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
+)
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_continuity_frontier,
+    compact_gate_statuses,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -127,72 +131,6 @@ def _continuity_details(
     }
 
 
-def _asset_status_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
-
-
-def _summary_count_payload(summary: Mapping[str, object]) -> dict[str, object]:
-    return {
-        key: value
-        for key, value in summary.items()
-        if key.endswith("_count") and (value or key.endswith("_row_count"))
-    }
-
-
-def _date_status_payload(status: ContinuityDateReadiness) -> dict[str, object]:
-    payload: dict[str, object] = {
-        "trade_date": status.trade_date,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "reason": status.reason,
-        "failed_check_names": list(status.failed_check_names),
-        "missing_check_names": list(status.missing_check_names),
-        "missing_file_count": len(status.missing_file_paths),
-    }
-    if status.missing_file_paths:
-        payload["first_missing_file_path"] = status.missing_file_paths[0]
-    summary_counts = _summary_count_payload(status.summary)
-    if summary_counts:
-        payload["summary_counts"] = summary_counts
-    return payload
-
-
-def _dataset_status_payload(status: DatasetReadinessStatus) -> dict[str, object]:
-    return {
-        "ready": status.ready,
-        "reason": status.reason,
-        "statuses": [
-            _asset_status_payload(asset_status) for asset_status in status.statuses
-        ],
-    }
-
-
-def _status_payload(
-    status: ContinuityDateReadiness
-    | DatasetReadinessStatus
-    | AssetReadinessStatus
-    | None,
-):
-    if status is None:
-        return None
-    if isinstance(status, ContinuityDateReadiness):
-        return _date_status_payload(status)
-    if isinstance(status, DatasetReadinessStatus):
-        return _dataset_status_payload(status)
-    return _asset_status_payload(status)
-
-
 def _raw_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -244,15 +182,28 @@ def _raw_sensor_cursor(
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
-        details={
-            "partition_set": cn_a_stock_current_trade_days.name,
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "source_window_started": source_window_started,
-            "continuity_status": continuity_details,
-        },
+        details=build_cursor_details(
+            sensor_name="raw_adj_factor_update_job_sensor",
+            job_name="raw_adj_factor_update_job",
+            asset_family="adj_factor",
+            partition_set=cn_a_stock_current_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+            ),
+            frontier=compact_continuity_frontier(
+                continuity_details,
+                selected_trade_date=selected_trade_date,
+            ),
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "source_window_started": source_window_started,
+            },
+        ),
     )
 
 
@@ -321,23 +272,43 @@ def _silver_sensor_cursor(
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
-        details={
-            "partition_set": cn_a_stock_current_trade_days.name,
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "source_window_started": source_window_started,
-            "stock_basic_freshness_required": False,
-            "readiness_details": {
-                "raw_tushare_adj_factor": _status_payload(raw_status),
-                "silver_adj_factor": _status_payload(silver_status),
-                "stock_basic": _status_payload(stock_basic_status),
-                "stock_lifecycle": _status_payload(stock_lifecycle_status),
+        details=build_cursor_details(
+            sensor_name="silver_adj_factor_update_job_sensor",
+            job_name="silver_adj_factor_update_job",
+            asset_family="adj_factor",
+            partition_set=cn_a_stock_current_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+            ),
+            frontier={
+                "silver": compact_continuity_frontier(
+                    continuity_details,
+                    selected_trade_date=selected_trade_date,
+                ),
+                "raw": compact_continuity_frontier(
+                    raw_continuity_details,
+                    selected_trade_date=selected_trade_date,
+                ),
             },
-            "continuity_status": continuity_details,
-            "raw_continuity_status": raw_continuity_details,
-        },
+            gate_statuses=compact_gate_statuses(
+                {
+                    "raw_tushare_adj_factor": raw_status,
+                    "silver_adj_factor": silver_status,
+                    "stock_basic": stock_basic_status,
+                    "stock_lifecycle": stock_lifecycle_status,
+                }
+            ),
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "source_window_started": source_window_started,
+                "stock_basic_freshness_required": False,
+            },
+        ),
     )
 
 

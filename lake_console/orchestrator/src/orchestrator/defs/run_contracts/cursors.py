@@ -9,6 +9,24 @@ from typing import Any
 
 SENSOR_CURSOR_SCHEMA_VERSION = 1
 MAX_CURSOR_SAMPLE_KEYS = 20
+TYPICAL_SENSOR_CURSOR_BYTES = 2048
+COMPLEX_SENSOR_CURSOR_BYTES = 3072
+MAX_SENSOR_CURSOR_BYTES = 8192
+_REQUIRED_DETAILS_TEXT_KEYS = frozenset({"summary", "next_action"})
+_FORBIDDEN_CURSOR_DETAIL_KEYS = frozenset(
+    {
+        "status_samples",
+        "sample_rows",
+        "missing_file_paths",
+        "readiness_details",
+        "raw_batch_status",
+        "silver_batch_status",
+        "gold_batch_status",
+        "serving_batch_status",
+        "upstream_batch_statuses",
+        "batch_status",
+    }
+)
 
 
 class SensorCursorDecision(str, Enum):
@@ -50,6 +68,41 @@ def _assert_reason_values_are_ascii(value: Any, *, path: str) -> None:
             _assert_reason_values_are_ascii(item, path=f"{path}[{index}]")
 
 
+def _assert_details_contract(details: Mapping[str, Any]) -> None:
+    missing_keys = sorted(
+        key
+        for key in _REQUIRED_DETAILS_TEXT_KEYS
+        if not isinstance(details.get(key), str) or not str(details.get(key)).strip()
+    )
+    if missing_keys:
+        raise ValueError(
+            "sensor cursor details must include non-empty summary and next_action; "
+            f"missing: {', '.join(missing_keys)}."
+        )
+
+
+def _assert_no_report_fields(value: Any, *, path: str) -> None:
+    if isinstance(value, Mapping):
+        for key, item in value.items():
+            key_text = str(key)
+            child_path = f"{path}.{key_text}"
+            if (
+                key_text in _FORBIDDEN_CURSOR_DETAIL_KEYS
+                or key_text.endswith("_batch_status")
+                or key_text.endswith("_batch_statuses")
+            ):
+                raise ValueError(
+                    f"{child_path} is not allowed in sensor cursor details. "
+                    "Cursor payloads must stay compact; keep full diagnostics in "
+                    "asset/check metadata or readiness reports."
+                )
+            _assert_no_report_fields(item, path=child_path)
+        return
+    if isinstance(value, Sequence) and not isinstance(value, (str, bytes, bytearray)):
+        for index, item in enumerate(value):
+            _assert_no_report_fields(item, path=f"{path}[{index}]")
+
+
 def build_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -63,6 +116,9 @@ def build_sensor_cursor(
     """Build a versioned cursor payload for one sensor's diagnostics and progress."""
 
     details_payload = dict(details) if details else {}
+    if details_payload:
+        _assert_details_contract(details_payload)
+        _assert_no_report_fields(details_payload, path="details")
     _assert_reason_values_are_ascii(details_payload, path="details")
     payload = {
         "schema_version": SENSOR_CURSOR_SCHEMA_VERSION,
@@ -74,7 +130,14 @@ def build_sensor_cursor(
         "sample_keys": list(sample_keys[:MAX_CURSOR_SAMPLE_KEYS]),
         "details": details_payload,
     }
-    return json.dumps(payload, ensure_ascii=True, sort_keys=True)
+    cursor = json.dumps(payload, ensure_ascii=False, sort_keys=True)
+    cursor_size = len(cursor.encode("utf-8"))
+    if cursor_size > MAX_SENSOR_CURSOR_BYTES:
+        raise ValueError(
+            "sensor cursor must not exceed "
+            f"{MAX_SENSOR_CURSOR_BYTES} bytes; got {cursor_size} bytes."
+        )
+    return cursor
 
 
 def load_sensor_cursor(cursor: str | None) -> dict[str, Any]:

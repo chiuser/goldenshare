@@ -38,6 +38,14 @@ from orchestrator.defs.run_contracts.cursors import (
     load_sensor_cursor,
     sensor_cursor_details,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+    cursor_runtime_state,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -53,7 +61,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    status_payload,
 )
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
@@ -149,11 +156,7 @@ def _readiness_status_payload(
         StkMinsDateReadiness | ContinuityDateReadiness | DatasetReadinessStatus | None
     ),
 ) -> dict[str, object] | None:
-    if status is None:
-        return None
-    if isinstance(status, (StkMinsDateReadiness, ContinuityDateReadiness)):
-        return status.to_cursor_details()
-    return status_payload(status)
+    return compact_readiness_status(status)
 
 
 def _batch_status_payload(
@@ -161,16 +164,7 @@ def _batch_status_payload(
 ) -> dict[str, object] | None:
     if batch_status is None:
         return None
-    if isinstance(batch_status, ContinuityBatchReadiness):
-        return batch_status.to_cursor_details()
-    return {
-        "dataset": batch_status.dataset,
-        "expected_start_date": batch_status.expected_start_date,
-        "expected_end_date": batch_status.expected_end_date,
-        "expected_count": batch_status.expected_count,
-        "freq_count": batch_status.freq_count,
-        "elapsed_ms": batch_status.elapsed_ms,
-    }
+    return compact_batch_frontier(batch_status)
 
 
 def build_stock_mins_qfq_daily_update_decision(
@@ -331,6 +325,19 @@ def _cursor_payload(
         if blocked_count == 0 and decision.target_trade_date is None:
             blocked_count = 1
 
+    reason_code = _cursor_reason_code(
+        decision=decision,
+        continuity_status=continuity_status,
+        silver_status=silver_status,
+        adj_factor_status=adj_factor_status,
+        gold_status=gold_status,
+        already_submitted_for_trade_date=already_submitted_for_trade_date,
+    )
+    blocked_component = _blocked_component_for_cursor(
+        silver_status=silver_status,
+        adj_factor_status=adj_factor_status,
+        gold_status=gold_status,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -338,38 +345,44 @@ def _cursor_payload(
         selected_count=1 if decision.selected_trade_date else 0,
         blocked_count=blocked_count,
         sample_keys=(decision.selected_trade_date,) if decision.selected_trade_date else (),
-        details={
-            "partition_set": cn_a_stock_mins_silver_trade_days.name,
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": decision.selected_trade_date,
-            "reason_code": _cursor_reason_code(
-                decision=decision,
-                continuity_status=continuity_status,
-                silver_status=silver_status,
-                adj_factor_status=adj_factor_status,
-                gold_status=gold_status,
-                already_submitted_for_trade_date=already_submitted_for_trade_date,
+        details=build_cursor_details(
+            sensor_name="stock_mins_qfq_daily_update_job_sensor",
+            job_name=STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
+            asset_family="stock_mins_qfq",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=decision.reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if decision.selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
             ),
-            "blocked_component": _blocked_component_for_cursor(
-                silver_status=silver_status,
-                adj_factor_status=adj_factor_status,
-                gold_status=gold_status,
+            frontier={
+                "continuity": compact_continuity_frontier(
+                    continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "silver": _batch_status_payload(silver_batch_status),
+                "adj_factor": _batch_status_payload(adj_factor_batch_status),
+                "gold": _batch_status_payload(gold_batch_status),
+            },
+            gate_statuses=compact_gate_statuses(
+                {
+                    "silver_stk_mins": silver_status,
+                    "adj_factor": adj_factor_status,
+                    "gold_stk_mins_qfq": gold_status,
+                }
             ),
-            "job_name": STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
-            "run_window_started": decision.run_window_started,
-            "already_submitted_for_trade_date": already_submitted_for_trade_date,
-            "silver_status": _readiness_status_payload(silver_status),
-            "adj_factor_status": _readiness_status_payload(adj_factor_status),
-            "gold_status": _readiness_status_payload(gold_status),
-            "silver_batch_status": _batch_status_payload(silver_batch_status),
-            "adj_factor_batch_status": _batch_status_payload(adj_factor_batch_status),
-            "gold_batch_status": _batch_status_payload(gold_batch_status),
-            "continuity_status": (
-                continuity_status.to_cursor_details()
-                if continuity_status is not None
-                else None
-            ),
-        },
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "run_window_started": decision.run_window_started,
+            },
+            runtime_state={
+                "selected_trade_date": decision.selected_trade_date,
+                "already_submitted_for_trade_date": already_submitted_for_trade_date,
+            },
+        ),
     )
 
 
@@ -385,11 +398,17 @@ def _window_not_started_cursor_payload(
         selected_count=0,
         blocked_count=0,
         sample_keys=(),
-        details={
-            "job_name": STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
-            "run_window_started": False,
-            "reason_code": "run_window_not_started",
-        },
+        details=build_cursor_details(
+            sensor_name="stock_mins_qfq_daily_update_job_sensor",
+            job_name=STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
+            asset_family="stock_mins_qfq",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code="run_window_not_started",
+            blocked_component="run_window",
+            summary=reason,
+            next_action="等待 20:10 后由下一次 sensor tick 自动重试。",
+            evidence={"run_window_started": False},
+        ),
     )
 
 
@@ -409,9 +428,19 @@ def _already_submitted_for_target_date(
 ) -> bool:
     cursor_payload = load_sensor_cursor(cursor)
     details = sensor_cursor_details(cursor_payload)
+    runtime_state = cursor_runtime_state(details)
     if (
-        details.get("selected_trade_date") == target_trade_date
-        and details.get("already_submitted_for_trade_date") is True
+        (
+            runtime_state.get("selected_trade_date")
+            or details.get("selected_trade_date")
+        )
+        == target_trade_date
+        and (
+            runtime_state.get("already_submitted_for_trade_date")
+            if "already_submitted_for_trade_date" in runtime_state
+            else details.get("already_submitted_for_trade_date")
+        )
+        is True
     ):
         return True
 

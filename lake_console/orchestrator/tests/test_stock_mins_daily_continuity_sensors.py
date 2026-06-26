@@ -434,7 +434,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         self.assertIn("交易日分区存在缺口", _skip_message(result))
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
         self.assertEqual(continuity["blocked_reason"], "missing_registered_partition")
@@ -492,11 +492,11 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         stock_basic_ready_mock.assert_called_once_with(context.instance, "2026-06-15")
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(cursor["details"]["selected_trade_date"], "2026-06-15")
-        self.assertEqual(continuity["ready_through_trade_date"], "2026-06-13")
-        self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-15")
+        self.assertEqual(cursor["sample_keys"], ["2026-06-15"])
+        self.assertEqual(continuity["ready_through_date"], "2026-06-13")
+        self.assertEqual(continuity["next_actionable_date"], "2026-06-15")
 
     def test_raw_sensor_blocks_materialized_check_problem_without_later_date(
         self,
@@ -547,7 +547,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         stock_basic_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
         self.assertEqual(continuity["blocked_reason"], "materialized_check_problem")
 
@@ -590,9 +590,9 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         stock_basic_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
-        self.assertFalse(cursor["details"]["source_window_started"])
-        self.assertEqual(continuity["first_not_ready_trade_date"], "2026-06-15")
+        continuity = cursor["details"]["frontier"]["continuity"]
+        self.assertFalse(cursor["details"]["evidence"]["source_window_started"])
+        self.assertEqual(continuity["first_not_ready_date"], "2026-06-15")
 
     def test_raw_sensor_skips_when_stock_basic_not_ready_for_selected_date(
         self,
@@ -665,9 +665,9 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         stock_basic_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-16")
-        self.assertEqual(continuity["ready_through_trade_date"], "2026-06-16")
+        self.assertEqual(continuity["ready_through_date"], "2026-06-16")
 
     def test_silver_trade_day_sensor_skips_raw_partition_gap_before_readiness_scan(
         self,
@@ -700,7 +700,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         stock_daily_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        raw_continuity = cursor["details"]["raw_continuity_status"]
+        raw_continuity = cursor["details"]["frontier"]["raw"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
         self.assertEqual(raw_continuity["first_missing_registered_date"], "2026-06-15")
 
@@ -792,9 +792,12 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         namechange_ready_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        silver_continuity = cursor["details"]["silver_continuity_status"]
-        self.assertEqual(cursor["details"]["selected_keys"], ["2026-06-15"])
-        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
+        silver_continuity = cursor["details"]["frontier"]["silver"]
+        self.assertEqual(cursor["sample_keys"], ["2026-06-15"])
+        self.assertEqual(
+            cursor["details"]["frontier"]["raw_lake"]["dataset"],
+            "raw_stk_mins",
+        )
         self.assertEqual(
             silver_continuity["first_missing_registered_date"],
             "2026-06-15",
@@ -863,7 +866,10 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(cursor["details"]["raw_status"]["trade_date"], "2026-06-15")
+        self.assertEqual(
+            cursor["details"]["gate_statuses"]["raw_stk_mins"]["trade_date"],
+            "2026-06-15",
+        )
 
     def test_silver_trade_day_sensor_records_continuity_before_window(self) -> None:
         context = _Context(
@@ -908,9 +914,12 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        silver_continuity = cursor["details"]["silver_continuity_status"]
-        self.assertFalse(cursor["details"]["register_window_started"])
-        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
+        silver_continuity = cursor["details"]["frontier"]["silver"]
+        self.assertFalse(cursor["details"]["evidence"]["register_window_started"])
+        self.assertEqual(
+            cursor["details"]["frontier"]["raw_lake"]["dataset"],
+            "raw_stk_mins",
+        )
         self.assertEqual(
             silver_continuity["first_missing_registered_date"],
             "2026-06-15",
@@ -1006,11 +1015,17 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["silver"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-15")
-        self.assertEqual(cursor["details"]["silver_batch_status"]["dataset"], "silver_stk_mins")
-        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
+        self.assertEqual(continuity["next_actionable_date"], "2026-06-15")
+        self.assertEqual(
+            cursor["details"]["frontier"]["silver_lake"]["dataset"],
+            "silver_stk_mins",
+        )
+        self.assertEqual(
+            cursor["details"]["frontier"]["raw_lake"]["dataset"],
+            "raw_stk_mins",
+        )
 
     def test_silver_sensor_skips_missing_silver_partition_without_readiness_scan(
         self,
@@ -1034,7 +1049,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         silver_batch_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["silver"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_silver_sensor_blocks_materialized_check_problem_without_later_date(
@@ -1097,7 +1112,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["silver"]
         self.assertEqual(continuity["blocked_reason"], "materialized_check_problem")
 
     def test_silver_sensor_skips_when_selected_date_upstream_not_ready(self) -> None:
@@ -1259,7 +1274,10 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(cursor["details"]["raw_status"]["trade_date"], "2026-06-15")
+        self.assertEqual(
+            cursor["details"]["gate_statuses"]["raw_stk_mins"]["trade_date"],
+            "2026-06-15",
+        )
 
     def test_silver_sensor_records_continuity_before_window(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15"))
@@ -1312,11 +1330,17 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
-        self.assertFalse(cursor["details"]["run_window_started"])
-        self.assertEqual(continuity["first_not_ready_trade_date"], "2026-06-15")
-        self.assertEqual(cursor["details"]["silver_batch_status"]["dataset"], "silver_stk_mins")
-        self.assertEqual(cursor["details"]["raw_batch_status"]["dataset"], "raw_stk_mins")
+        continuity = cursor["details"]["frontier"]["silver"]
+        self.assertFalse(cursor["details"]["evidence"]["run_window_started"])
+        self.assertEqual(continuity["first_not_ready_date"], "2026-06-15")
+        self.assertEqual(
+            cursor["details"]["frontier"]["silver_lake"]["dataset"],
+            "silver_stk_mins",
+        )
+        self.assertEqual(
+            cursor["details"]["frontier"]["raw_lake"]["dataset"],
+            "raw_stk_mins",
+        )
 
     def test_silver_sensor_skips_when_continuity_window_is_all_ready(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
@@ -1366,8 +1390,8 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         raw_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
-        self.assertEqual(continuity["ready_through_trade_date"], "2026-06-16")
+        continuity = cursor["details"]["frontier"]["silver"]
+        self.assertEqual(continuity["ready_through_date"], "2026-06-16")
 
     def test_qfq_daily_sensor_skips_missing_silver_partition_without_readiness_scan(
         self,
@@ -1392,7 +1416,7 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         silver_batch_mock.assert_not_called()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
@@ -1478,9 +1502,9 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         gold_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-15")
+        self.assertEqual(continuity["next_actionable_date"], "2026-06-15")
 
     def test_qfq_daily_sensor_submits_target_date_when_gold_rows_are_missing(
         self,
@@ -1564,10 +1588,10 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         gold_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-17")
-        self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-17")
-        self.assertIsNone(continuity["blocked_reason"])
+        self.assertEqual(continuity["next_actionable_date"], "2026-06-17")
+        self.assertIsNone(continuity.get("blocked_reason"))
 
     def test_qfq_daily_sensor_blocks_materialized_check_problem_without_later_date(
         self,
@@ -1649,9 +1673,9 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         gold_batch_mock.assert_called_once()
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(continuity["blocked_reason"], "materialized_check_problem")
-        self.assertEqual(cursor["details"]["reason_code"], "gold failed")
+        self.assertEqual(cursor["details"]["reason_code"], "gold_failed")
         self.assertEqual(cursor["details"]["blocked_component"], "gold_stk_mins_qfq")
 
     def test_qfq_factor_repair_sensor_skips_when_gold_not_ready_without_later_date(
@@ -1770,9 +1794,9 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
         )
 
         cursor = json.loads(result.cursor)
-        continuity = cursor["details"]["continuity_status"]
+        continuity = cursor["details"]["frontier"]["continuity"]
         self.assertEqual(cursor["target_date"], "2026-06-15")
-        self.assertEqual(continuity["next_actionable_trade_date"], "2026-06-15")
+        self.assertEqual(continuity["next_actionable_date"], "2026-06-15")
 
     def test_qfq_factor_repair_sensor_advances_after_completed_repair(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15", "2026-06-16"))
@@ -1848,11 +1872,11 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         cursor = json.loads(result.cursor)
         self.assertIsNone(cursor["target_date"])
-        self.assertFalse(cursor["details"]["run_window_started"])
-        self.assertNotIn("continuity_status", cursor["details"])
-        self.assertNotIn("silver_batch_status", cursor["details"])
-        self.assertNotIn("adj_factor_batch_status", cursor["details"])
-        self.assertNotIn("gold_batch_status", cursor["details"])
+        self.assertFalse(cursor["details"]["evidence"]["run_window_started"])
+        self.assertNotIn("continuity", cursor["details"].get("frontier", {}))
+        self.assertNotIn("silver", cursor["details"].get("frontier", {}))
+        self.assertNotIn("adj_factor", cursor["details"].get("frontier", {}))
+        self.assertNotIn("gold", cursor["details"].get("frontier", {}))
 
     def test_qfq_factor_repair_sensor_skips_before_window_without_readiness_scan(self) -> None:
         context = _Context(("2026-06-13", "2026-06-15"))
@@ -1881,8 +1905,8 @@ class StockMinsDailyContinuitySensorTests(unittest.TestCase):
 
         cursor = json.loads(result.cursor)
         self.assertIsNone(cursor["target_date"])
-        self.assertFalse(cursor["details"]["run_window_started"])
-        self.assertNotIn("continuity_status", cursor["details"])
+        self.assertFalse(cursor["details"]["evidence"]["run_window_started"])
+        self.assertNotIn("continuity", cursor["details"].get("frontier", {}))
         self.assertNotIn("gold_batch_status", cursor["details"])
         self.assertNotIn("qfq_factor_repair_status", cursor["details"])
 

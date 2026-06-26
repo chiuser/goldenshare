@@ -11,6 +11,11 @@ from orchestrator.defs.run_contracts.cursors import (
     load_sensor_cursor,
     sensor_cursor_details,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_gate_statuses,
+    cursor_runtime_state,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -25,7 +30,6 @@ from orchestrator.defs.sensors.readiness import (
     DatasetReadinessStatus,
     raw_tushare_namechange_ready_for_trade_date,
     silver_namechange_ready_for_trade_date,
-    status_payload,
     stock_basic_ready_for_trade_date,
 )
 
@@ -64,22 +68,6 @@ def _stage_label(namechange_run_stage: str | None) -> str:
     return "未开始"
 
 
-def _asset_status_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
-
-
 def _raw_cursor_payload(
     *,
     evaluated_at: datetime,
@@ -109,19 +97,6 @@ def _raw_cursor_payload(
             reason_code = "already_submitted_for_stage"
         else:
             reason_code = "all_ready"
-    details: dict[str, object] = {
-        "registered_trade_day_count": registered_trade_day_count,
-        "selected_trade_date": selected_trade_date,
-        "reason_code": reason_code,
-        "blocked_component": blocked_component,
-        "source_window_started": source_window_started,
-        "namechange_run_stage": namechange_run_stage,
-        "already_submitted_for_trade_date": already_submitted_for_trade_date,
-    }
-    if raw_status is not None:
-        details["readiness_details"] = {
-            "raw_tushare_namechange": _asset_status_payload(raw_status)
-        }
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -131,7 +106,33 @@ def _raw_cursor_payload(
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
-        details=details,
+        details=build_cursor_details(
+            sensor_name="raw_namechange_update_job_sensor",
+            job_name="raw_namechange_update_job",
+            asset_family="stock_namechange",
+            partition_set=cn_a_stock_current_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复或等待下一次 sensor tick。"
+            ),
+            gate_statuses=compact_gate_statuses(
+                {"raw_tushare_namechange": raw_status}
+            ),
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "source_window_started": source_window_started,
+                "selected_trade_date": selected_trade_date,
+            },
+            runtime_state={
+                "selected_trade_date": selected_trade_date,
+                "namechange_run_stage": namechange_run_stage,
+                "already_submitted_for_trade_date": already_submitted_for_trade_date,
+            },
+        ),
     )
 
 
@@ -150,14 +151,6 @@ def _silver_cursor_payload(
     stock_basic_status: DatasetReadinessStatus | None = None,
     silver_status: AssetReadinessStatus | None = None,
 ) -> str:
-    readiness_details: dict[str, object] = {}
-    if raw_status is not None:
-        readiness_details["raw_tushare_namechange"] = _asset_status_payload(raw_status)
-    if stock_basic_status is not None:
-        readiness_details["stock_basic"] = status_payload(stock_basic_status)
-    if silver_status is not None:
-        readiness_details["silver_namechange"] = _asset_status_payload(silver_status)
-
     reason_code = None
     blocked_component = None
     for component, status in (
@@ -190,16 +183,37 @@ def _silver_cursor_payload(
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
-        details={
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "source_window_started": source_window_started,
-            "namechange_run_stage": namechange_run_stage,
-            "already_submitted_for_trade_date": already_submitted_for_trade_date,
-            "readiness_details": readiness_details,
-        },
+        details=build_cursor_details(
+            sensor_name="silver_namechange_update_job_sensor",
+            job_name="silver_namechange_update_job",
+            asset_family="stock_namechange",
+            partition_set=cn_a_stock_current_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复或等待下一次 sensor tick。"
+            ),
+            gate_statuses=compact_gate_statuses(
+                {
+                    "raw_tushare_namechange": raw_status,
+                    "stock_basic": stock_basic_status,
+                    "silver_namechange": silver_status,
+                }
+            ),
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "source_window_started": source_window_started,
+                "selected_trade_date": selected_trade_date,
+            },
+            runtime_state={
+                "selected_trade_date": selected_trade_date,
+                "namechange_run_stage": namechange_run_stage,
+                "already_submitted_for_trade_date": already_submitted_for_trade_date,
+            },
+        ),
     )
 
 
@@ -218,10 +232,24 @@ def _already_submitted_for_stage(
     namechange_run_stage: str,
 ) -> bool:
     cursor_details = sensor_cursor_details(load_sensor_cursor(cursor))
+    runtime_state = cursor_runtime_state(cursor_details)
     return (
-        cursor_details.get("selected_trade_date") == target_trade_date
-        and cursor_details.get("namechange_run_stage") == namechange_run_stage
-        and cursor_details.get("already_submitted_for_trade_date") is True
+        (
+            runtime_state.get("selected_trade_date")
+            or cursor_details.get("selected_trade_date")
+        )
+        == target_trade_date
+        and (
+            runtime_state.get("namechange_run_stage")
+            or cursor_details.get("namechange_run_stage")
+        )
+        == namechange_run_stage
+        and (
+            runtime_state.get("already_submitted_for_trade_date")
+            if "already_submitted_for_trade_date" in runtime_state
+            else cursor_details.get("already_submitted_for_trade_date")
+        )
+        is True
     )
 
 

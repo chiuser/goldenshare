@@ -19,6 +19,13 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -31,7 +38,6 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import STOCK_TRADE_DAY_MIN_
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    status_payload,
     stock_daily_ready_for_trade_date,
 )
 from orchestrator.defs.sensors.stock_trade_day_sensor import (
@@ -40,13 +46,13 @@ from orchestrator.defs.sensors.stock_trade_day_sensor import (
 
 
 def _status_payload(status: ContinuityDateReadiness | None) -> dict[str, object] | None:
-    return status.to_cursor_details() if status is not None else None
+    return compact_readiness_status(status)
 
 
 def _stock_daily_status_payload(
     status: DatasetReadinessStatus | None,
 ) -> list[dict[str, object]] | None:
-    return status_payload(status) if status is not None else None
+    return compact_readiness_status(status)
 
 
 def _cursor_payload(
@@ -107,16 +113,40 @@ def _cursor_payload(
         selected_count=selected_count,
         blocked_count=blocked_count,
         sample_keys=[selected_trade_date] if selected_trade_date else [],
-        details={
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "continuity_status": continuity_status,
-            "batch_status": batch_status.to_cursor_details() if batch_status else None,
-            "gold_status": _status_payload(gold_status),
-            "stock_daily_status": _stock_daily_status_payload(stock_daily_status),
-        },
+        details=build_cursor_details(
+            sensor_name="market_breadth_continuity_sensor",
+            job_name="daily_market_breadth_job",
+            asset_family="market_breadth_daily",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+            ),
+            frontier={
+                "continuity": compact_continuity_frontier(
+                    continuity_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+                "gold": compact_batch_frontier(
+                    batch_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+            },
+            gate_statuses=compact_gate_statuses(
+                {
+                    "gold_market_breadth_daily": gold_status,
+                    "silver_stock_daily": stock_daily_status,
+                }
+            ),
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "selected_trade_date": selected_trade_date,
+            },
+        ),
     )
 
 

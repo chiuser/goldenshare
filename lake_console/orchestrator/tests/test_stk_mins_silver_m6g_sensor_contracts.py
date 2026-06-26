@@ -250,9 +250,9 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             cursor["details"]["job_name"],
             STOCK_MINS_SILVER_SENSOR_JOB_NAME,
         )
-        self.assertTrue(cursor["details"]["run_window_started"])
-        self.assertIsNotNone(cursor["details"]["raw_status"])
-        self.assertIsNotNone(cursor["details"]["silver_status"])
+        self.assertTrue(cursor["details"]["evidence"]["run_window_started"])
+        self.assertIsNotNone(cursor["details"]["gate_statuses"]["raw_stk_mins"])
+        self.assertIsNotNone(cursor["details"]["gate_statuses"]["silver_stk_mins"])
         self.assertEqual(STOCK_MINS_SILVER_RUN_START.isoformat(), "19:50:00")
 
     def test_cursor_contract_for_ready_skip_is_not_blocked(self) -> None:
@@ -277,7 +277,9 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
 
         self.assertEqual(cursor["decision"], "skip")
         self.assertEqual(cursor["blocked_count"], 0)
-        self.assertIsNone(cursor["details"]["selected_trade_date"])
+        self.assertIsNone(
+            cursor["details"].get("runtime_state", {}).get("selected_trade_date")
+        )
 
 
 if __name__ == "__main__":

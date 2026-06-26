@@ -23,6 +23,13 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -40,7 +47,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
     silver_stock_identity_map_ready_for_trade_date,
-    status_payload,
     stock_daily_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
@@ -163,27 +169,11 @@ def build_stock_mins_silver_update_decision(
 
 
 def _asset_status_payload(status: AssetReadinessStatus | None) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
+    return compact_readiness_status(status)
 
 
 def _date_status_payload(status: StkMinsDateReadiness | None) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return status.to_cursor_details()
+    return compact_readiness_status(status)
 
 
 def _batch_status_payload(
@@ -191,14 +181,7 @@ def _batch_status_payload(
 ) -> dict[str, object] | None:
     if status is None:
         return None
-    return {
-        "dataset": status.dataset,
-        "expected_start_date": status.expected_start_date,
-        "expected_end_date": status.expected_end_date,
-        "expected_count": status.expected_count,
-        "freq_count": status.freq_count,
-        "elapsed_ms": status.elapsed_ms,
-    }
+    return compact_batch_frontier(status)
 
 
 def _not_ready_count(
@@ -303,36 +286,49 @@ def _cursor_payload(
         selected_count=1 if decision.selected_trade_date else 0,
         blocked_count=blocked_count,
         sample_keys=(decision.selected_trade_date,) if decision.selected_trade_date else (),
-        details={
-            "raw_partition_set": cn_a_stock_mins_trade_days.name,
-            "partition_set": cn_a_stock_mins_silver_trade_days.name,
-            "raw_registered_trade_day_count": raw_registered_trade_day_count,
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": decision.selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "job_name": STOCK_MINS_SILVER_SENSOR_JOB_NAME,
-            "run_window_started": decision.run_window_started,
-            "raw_status": _date_status_payload(raw_status),
-            "raw_batch_status": _batch_status_payload(raw_batch_status),
-            "stock_daily_status": (
-                status_payload(stock_daily_status) if stock_daily_status else None
+        details=build_cursor_details(
+            sensor_name="stock_mins_silver_sensor",
+            job_name=STOCK_MINS_SILVER_SENSOR_JOB_NAME,
+            asset_family="stock_mins_silver",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=decision.reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if decision.selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
             ),
-            "suspend_status": status_payload(suspend_status) if suspend_status else None,
-            "identity_map_status": _asset_status_payload(identity_map_status),
-            "silver_status": _date_status_payload(silver_status),
-            "silver_batch_status": _batch_status_payload(silver_batch_status),
-            "raw_continuity_status": (
-                raw_continuity_status.to_cursor_details()
-                if raw_continuity_status is not None
-                else None
-            ),
-            "continuity_status": (
-                continuity_status.to_cursor_details()
-                if continuity_status is not None
-                else None
-            ),
-        },
+            frontier={
+                "raw": compact_continuity_frontier(
+                    raw_continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "silver": compact_continuity_frontier(
+                    continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "raw_lake": _batch_status_payload(raw_batch_status),
+                "silver_lake": _batch_status_payload(silver_batch_status),
+            },
+            gate_statuses={
+                **compact_gate_statuses(
+                    {
+                        "raw_stk_mins": raw_status,
+                        "stock_daily": stock_daily_status,
+                        "suspend_d": suspend_status,
+                        "stock_identity_map": identity_map_status,
+                        "silver_stk_mins": silver_status,
+                    }
+                )
+            },
+            evidence={
+                "raw_partition_set": cn_a_stock_mins_trade_days.name,
+                "raw_registered_trade_day_count": raw_registered_trade_day_count,
+                "registered_trade_day_count": registered_trade_day_count,
+                "run_window_started": decision.run_window_started,
+            },
+        ),
     )
 
 

@@ -1288,10 +1288,10 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["decision"], "skip")
         self.assertEqual(cursor["target_date"], PARTITION_KEY)
-        self.assertTrue(cursor["details"]["stock_basic_freshness_required"])
-        self.assertFalse(
-            cursor["details"]["stock_basic_status"][0]["freshness_passed"]
+        self.assertTrue(
+            cursor["details"]["evidence"]["stock_basic_freshness_required"]
         )
+        self.assertFalse(cursor["details"]["gate_statuses"]["stock_basic"]["ready"])
 
     def test_stock_mins_sensor_cursors_and_run_request_contract(self) -> None:
         silver_decision = build_stock_mins_silver_trade_day_registration_decision(
@@ -1314,7 +1314,7 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(silver_cursor["decision"], "register_partitions")
         self.assertEqual(silver_cursor["target_date"], "2026-05-29")
         self.assertEqual(
-            silver_cursor["details"]["raw_partition_set"],
+            silver_cursor["details"]["evidence"]["raw_partition_set"],
             "cn_a_stock_mins_trade_days",
         )
         self.assertEqual(
@@ -1335,12 +1335,14 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertEqual(raw_cursor["decision"], "request_runs")
         self.assertEqual(raw_cursor["target_date"], "2026-05-29")
         self.assertEqual(raw_cursor["selected_count"], 1)
-        self.assertEqual(raw_cursor["details"]["source"], "prod_db")
+        self.assertEqual(raw_cursor["details"]["evidence"]["source"], "prod_db")
         self.assertEqual(
             raw_cursor["details"]["job_name"],
             "stock_mins_raw_update_from_prod_job",
         )
-        self.assertTrue(raw_cursor["details"]["stock_basic_freshness_required"])
+        self.assertTrue(
+            raw_cursor["details"]["evidence"]["stock_basic_freshness_required"]
+        )
 
         request = _run_request_for_trade_date("2026-05-29")
         self.assertEqual(request.partition_key, "2026-05-29")

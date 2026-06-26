@@ -18,6 +18,13 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -33,7 +40,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    status_payload,
     stock_basic_ready_for_trade_date,
 )
 from orchestrator.defs.sensors.stock_mins_trade_day_sensor import (
@@ -96,11 +102,7 @@ def _has_materialized_check_problem(
 def _raw_status_payload(
     status: DatasetReadinessStatus | StkMinsDateReadiness | None,
 ) -> list[dict[str, object]] | dict[str, object] | None:
-    if status is None:
-        return None
-    if isinstance(status, StkMinsDateReadiness):
-        return status.to_cursor_details()
-    return status_payload(status)
+    return compact_readiness_status(status)
 
 
 def _cursor_payload(
@@ -185,37 +187,42 @@ def _cursor_payload(
         selected_count=1 if selected_trade_date else 0,
         blocked_count=blocked_count,
         sample_keys=(selected_trade_date,) if selected_trade_date else (),
-        details={
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "source": STOCK_MINS_RAW_SOURCE,
-            "job_name": STOCK_MINS_RAW_SENSOR_JOB_NAME,
-            "source_window_started": source_window_started,
-            "stock_basic_freshness_required": True,
-            "raw_status": _raw_status_payload(raw_status),
-            "raw_batch_status": (
+        details=build_cursor_details(
+            sensor_name="stock_mins_raw_sensor",
+            job_name=STOCK_MINS_RAW_SENSOR_JOB_NAME,
+            asset_family="stock_mins_raw",
+            partition_set=cn_a_stock_mins_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+            ),
+            frontier={
+                "continuity": compact_continuity_frontier(
+                    continuity_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+                "raw": compact_batch_frontier(
+                    raw_batch_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+            },
+            gate_statuses=compact_gate_statuses(
                 {
-                    "dataset": raw_batch_status.dataset,
-                    "expected_start_date": raw_batch_status.expected_start_date,
-                    "expected_end_date": raw_batch_status.expected_end_date,
-                    "expected_count": raw_batch_status.expected_count,
-                    "freq_count": raw_batch_status.freq_count,
-                    "elapsed_ms": raw_batch_status.elapsed_ms,
+                    "raw_stk_mins": raw_status,
+                    "stock_basic": stock_basic_status,
                 }
-                if raw_batch_status is not None
-                else None
             ),
-            "stock_basic_status": (
-                status_payload(stock_basic_status) if stock_basic_status else None
-            ),
-            "continuity_status": (
-                continuity_status.to_cursor_details()
-                if continuity_status is not None
-                else None
-            ),
-        },
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "source": STOCK_MINS_RAW_SOURCE,
+                "source_window_started": source_window_started,
+                "stock_basic_freshness_required": True,
+            },
+        ),
     )
 
 

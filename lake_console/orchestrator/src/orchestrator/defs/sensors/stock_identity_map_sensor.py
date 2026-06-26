@@ -8,6 +8,10 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_gate_statuses,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -120,22 +124,6 @@ def _identity_map_decision(
     )
 
 
-def _status_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
-
-
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -170,18 +158,6 @@ def _cursor_payload(
             reason_code = "identity_map_current"
         else:
             reason_code = "skip"
-    details: dict[str, object] = {
-        "source_window_started": source_window_started,
-        "reason_code": reason_code,
-        "blocked_component": blocked_component,
-        "identity_map_current": identity_map_current,
-    }
-    if stock_basic_status is not None:
-        details["stock_basic_status"] = _status_payload(stock_basic_status)
-    if namechange_status is not None:
-        details["namechange_status"] = _status_payload(namechange_status)
-    if identity_map_status is not None:
-        details["identity_map_status"] = _status_payload(identity_map_status)
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -193,7 +169,31 @@ def _cursor_payload(
             if decision == SensorCursorDecision.REQUEST_RUNS and target_trade_date
             else ()
         ),
-        details=details,
+        details=build_cursor_details(
+            sensor_name="stock_identity_map_sensor",
+            job_name="stock_identity_map_update_job",
+            asset_family="stock_identity_map",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if decision == SensorCursorDecision.REQUEST_RUNS
+                else "按阻断组件修复或等待下一次 sensor tick。"
+            ),
+            gate_statuses=compact_gate_statuses(
+                {
+                    "silver_stock_basic": stock_basic_status,
+                    "silver_namechange": namechange_status,
+                    "silver_stock_identity_map": identity_map_status,
+                }
+            ),
+            evidence={
+                "source_window_started": source_window_started,
+                "identity_map_current": identity_map_current,
+            },
+        ),
     )
 
 

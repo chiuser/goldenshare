@@ -312,8 +312,8 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             cursor["details"]["job_name"],
             STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
         )
-        self.assertTrue(cursor["details"]["run_window_started"])
-        self.assertIsNotNone(cursor["details"]["gold_status"])
+        self.assertTrue(cursor["details"]["evidence"]["run_window_started"])
+        self.assertIsNotNone(cursor["details"]["gate_statuses"]["gold_stk_mins_qfq"])
         self.assertEqual(
             STOCK_MINS_QFQ_FACTOR_REPAIR_RUN_START.isoformat(),
             "20:40:00",
@@ -346,10 +346,10 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["target_date"], None)
         self.assertEqual(cursor["selected_count"], 0)
-        self.assertFalse(cursor["details"]["run_window_started"])
-        self.assertNotIn("continuity_status", cursor["details"])
-        self.assertNotIn("gold_batch_status", cursor["details"])
-        self.assertNotIn("qfq_factor_repair_status", cursor["details"])
+        self.assertFalse(cursor["details"]["evidence"]["run_window_started"])
+        self.assertNotIn("continuity", cursor["details"].get("frontier", {}))
+        self.assertNotIn("gold", cursor["details"].get("frontier", {}))
+        self.assertNotIn("qfq_factor_repair", cursor["details"].get("gate_statuses", {}))
 
     def test_sensor_cursor_fast_path_skips_after_frontier_selects_same_target(
         self,
@@ -386,7 +386,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
 
         cursor = json.loads(result.cursor)
         self.assertIn("已经提交过", result.skip_reason.skip_message)
-        self.assertTrue(cursor["details"]["already_submitted_for_trade_date"])
+        self.assertTrue(
+            cursor["details"]["runtime_state"]["already_submitted_for_trade_date"]
+        )
 
     def test_sensor_legacy_selected_count_cursor_fast_path_skips_same_target(
         self,
@@ -414,7 +416,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
 
         self.assertIn("已经提交过", result.skip_reason.skip_message)
         self.assertTrue(
-            json.loads(result.cursor)["details"]["already_submitted_for_trade_date"]
+            json.loads(result.cursor)["details"]["runtime_state"][
+                "already_submitted_for_trade_date"
+            ]
         )
 
     def test_sensor_legacy_sample_keys_cursor_fast_path_skips_same_target(self) -> None:
@@ -521,7 +525,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
             },
         )
         self.assertTrue(
-            json.loads(result.cursor)["details"]["already_submitted_for_trade_date"]
+            json.loads(result.cursor)["details"]["runtime_state"][
+                "already_submitted_for_trade_date"
+            ]
         )
 
     def test_sensor_skips_when_gold_checks_are_not_green(self) -> None:
@@ -613,9 +619,9 @@ class StkMinsQfqM9CSensorContractTests(unittest.TestCase):
         self.assertIn("continuity 窗口内分区已经完成", result.skip_reason.skip_message)
         effective_readiness_mock.assert_called_once()
         cursor = json.loads(result.cursor)
-        self.assertIsNone(cursor["details"]["gold_status"])
+        self.assertNotIn("gold_stk_mins_qfq", cursor["details"].get("gate_statuses", {}))
         self.assertEqual(
-            cursor["details"]["continuity_status"]["ready_through_trade_date"],
+            cursor["details"]["frontier"]["continuity"]["ready_through_date"],
             PARTITION_KEY,
         )
 

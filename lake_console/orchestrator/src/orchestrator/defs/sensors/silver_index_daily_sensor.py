@@ -1,8 +1,6 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Any
-
 import dagster as dg
 
 from orchestrator.defs.asset_guards.bounded_continuity import (
@@ -24,6 +22,13 @@ from orchestrator.defs.paths import silver_trade_calendar_path
 from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
+)
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
 )
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
@@ -51,9 +56,7 @@ MAX_RUN_REQUESTS_PER_TICK = 1
 def _asset_status_payload(
     status: ContinuityDateReadiness | None,
 ) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return status.to_cursor_details()
+    return compact_readiness_status(status)
 
 
 def _load_expected_index_trade_day_window(
@@ -118,22 +121,6 @@ def _cursor_payload(
     silver_batch_status: ContinuityBatchReadiness | None = None,
 ) -> str:
     selected_count = 1 if selected_trade_date else 0
-    details: dict[str, Any] = {
-        "selected_trade_date": selected_trade_date,
-        "registered_trade_day_count": registered_trade_day_count,
-        "registered_code_count": registered_code_count,
-        "reason_code": reason_code,
-        "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-        "continuity_status": continuity_details,
-        "raw_status": raw_status.to_cursor_details() if raw_status else None,
-        "raw_batch_status": (
-            raw_batch_status.to_cursor_details() if raw_batch_status else None
-        ),
-        "silver_batch_status": (
-            silver_batch_status.to_cursor_details() if silver_batch_status else None
-        ),
-        "silver_status": _asset_status_payload(silver_status),
-    }
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -145,7 +132,56 @@ def _cursor_payload(
         selected_count=selected_count,
         blocked_count=0 if selected_count else (1 if target_trade_date else 0),
         sample_keys=(selected_trade_date,) if selected_trade_date else (),
-        details=details,
+        details=build_cursor_details(
+            sensor_name="silver_index_daily_sensor",
+            job_name="silver_index_daily_update_job",
+            asset_family="index_daily",
+            partition_set=cn_a_index_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=(
+                "none"
+                if selected_trade_date
+                else "raw_index_daily"
+                if raw_status is not None and not raw_status.ready
+                else "silver_index_daily"
+                if silver_status is not None and not silver_status.ready
+                else "cn_a_index_trade_days"
+                if target_trade_date
+                else "none"
+            ),
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+            ),
+            frontier={
+                "continuity": compact_continuity_frontier(
+                    continuity_details,
+                    selected_trade_date=selected_trade_date,
+                ),
+                "raw": compact_batch_frontier(
+                    raw_batch_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+                "silver": compact_batch_frontier(
+                    silver_batch_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+            },
+            gate_statuses=compact_gate_statuses(
+                {
+                    "raw_index_daily": raw_status,
+                    "silver_index_daily": silver_status,
+                }
+            ),
+            evidence={
+                "selected_trade_date": selected_trade_date,
+                "registered_trade_day_count": registered_trade_day_count,
+                "registered_code_count": registered_code_count,
+                "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+            },
+        ),
     )
 
 

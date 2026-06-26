@@ -23,6 +23,7 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import build_cursor_details
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -96,8 +97,6 @@ def _compact_status_payload(
         "missing_check_names": list(status.missing_check_names),
         "missing_file_path_count": len(status.missing_file_paths),
     }
-    if status.missing_file_paths:
-        payload["missing_file_path_sample"] = status.missing_file_paths[0]
     for key in _COMPACT_STATUS_SUMMARY_KEYS:
         if key in status.summary:
             payload[key] = status.summary[key]
@@ -151,6 +150,9 @@ def _cursor_payload(
     registered_trade_day_count: int,
     selected_trade_date: str | None,
     reason: str,
+    sensor_name: str = "clickhouse_market_breadth_continuity_sensor",
+    job_name: str = "clickhouse_share_fact_market_breadth_update_job",
+    asset_family: str = "clickhouse_market_breadth",
     continuity_status: dict[str, object] | None = None,
     serving_batch_status: ContinuityBatchReadiness | None = None,
     serving_status: ContinuityDateReadiness | None = None,
@@ -212,22 +214,39 @@ def _cursor_payload(
         selected_count=selected_count,
         blocked_count=blocked_count,
         sample_keys=[selected_trade_date] if selected_trade_date else [],
-        details={
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component_value,
-            "continuity_status": _compact_continuity_status(continuity_status),
-            "serving_status": _compact_status_payload(serving_status),
-            "upstream_frontiers": {
-                name: _compact_batch_frontier(status)
-                for name, status in (upstream_batch_statuses or {}).items()
+        details=build_cursor_details(
+            sensor_name=sensor_name,
+            job_name=job_name,
+            asset_family=asset_family,
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component_value,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+            ),
+            frontier={
+                "continuity": _compact_continuity_status(continuity_status),
+                "serving": _compact_batch_frontier(serving_batch_status),
+                "upstreams": {
+                    name: _compact_batch_frontier(status)
+                    for name, status in (upstream_batch_statuses or {}).items()
+                },
             },
-            "upstream_statuses": {
-                name: _compact_status_payload(status)
-                for name, status in (upstream_statuses or {}).items()
+            gate_statuses={
+                "serving": _compact_status_payload(serving_status),
+                **{
+                    name: _compact_status_payload(status)
+                    for name, status in (upstream_statuses or {}).items()
+                },
             },
-            "performance_ms": {
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "selected_trade_date": selected_trade_date,
+            },
+            performance_ms={
                 "serving_batch_elapsed_ms": serving_batch_status.elapsed_ms
                 if serving_batch_status
                 else None,
@@ -236,7 +255,7 @@ def _cursor_payload(
                     default=None,
                 ),
             },
-        },
+        ),
     )
 
 
@@ -310,6 +329,9 @@ def clickhouse_market_breadth_continuity_sensor(
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
+            sensor_name="prod_clickhouse_market_breadth_continuity_sensor",
+            job_name="prod_clickhouse_share_fact_market_breadth_sync_job",
+            asset_family="prod_clickhouse_market_breadth",
             blocked_fallback=1,
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
@@ -331,6 +353,9 @@ def clickhouse_market_breadth_continuity_sensor(
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
+            sensor_name="prod_clickhouse_market_breadth_continuity_sensor",
+            job_name="prod_clickhouse_share_fact_market_breadth_sync_job",
+            asset_family="prod_clickhouse_market_breadth",
             continuity_status=continuity_status,
             blocked_fallback=1,
         )
@@ -534,6 +559,9 @@ def prod_clickhouse_market_breadth_continuity_sensor(
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
+            sensor_name="prod_clickhouse_market_breadth_continuity_sensor",
+            job_name="prod_clickhouse_share_fact_market_breadth_sync_job",
+            asset_family="prod_clickhouse_market_breadth",
             continuity_status=continuity_status,
             serving_batch_status=prod_batch,
             serving_status=serving_status,
@@ -555,6 +583,9 @@ def prod_clickhouse_market_breadth_continuity_sensor(
             registered_trade_day_count=len(registered_trade_days),
             selected_trade_date=None,
             reason=reason,
+            sensor_name="prod_clickhouse_market_breadth_continuity_sensor",
+            job_name="prod_clickhouse_share_fact_market_breadth_sync_job",
+            asset_family="prod_clickhouse_market_breadth",
             continuity_status=continuity_status,
             serving_batch_status=prod_batch,
             serving_status=serving_status,
@@ -577,6 +608,9 @@ def prod_clickhouse_market_breadth_continuity_sensor(
         registered_trade_day_count=len(registered_trade_days),
         selected_trade_date=target_trade_date,
         reason=reason,
+        sensor_name="prod_clickhouse_market_breadth_continuity_sensor",
+        job_name="prod_clickhouse_share_fact_market_breadth_sync_job",
+        asset_family="prod_clickhouse_market_breadth",
         continuity_status=continuity_status,
         serving_batch_status=prod_batch,
         serving_status=serving_status,

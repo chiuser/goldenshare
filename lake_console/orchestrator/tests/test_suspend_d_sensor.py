@@ -229,7 +229,7 @@ class SuspendDSensorTests(unittest.TestCase):
         materialized_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor_payload["target_date"], "2026-06-15")
-        continuity = cursor_payload["details"]["continuity_status"]
+        continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_raw_sensor_does_not_rerun_materialized_partition(self) -> None:
@@ -292,7 +292,7 @@ class SuspendDSensorTests(unittest.TestCase):
         raw_readiness_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertEqual(cursor_payload["target_date"], "2026-06-15")
-        continuity = cursor_payload["details"]["continuity_status"]
+        continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_silver_sensor_skips_when_raw_missing_or_checks_not_ready(self) -> None:
@@ -332,7 +332,7 @@ class SuspendDSensorTests(unittest.TestCase):
                 self.assertEqual(result.run_requests, [])
                 self.assertIn("raw readiness 门禁未满足", result.skip_reason.skip_message)
                 cursor_payload = load_sensor_cursor(result.cursor)
-                details = cursor_payload["details"]["readiness_details"]["2026-06-05"]
+                details = cursor_payload["details"]["gate_statuses"]
                 self.assertFalse(details["raw_tushare_suspend_d"]["ready"])
 
     def test_silver_sensor_does_not_rerun_materialized_partition(self) -> None:

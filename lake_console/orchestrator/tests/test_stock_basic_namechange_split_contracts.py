@@ -408,7 +408,7 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         cursor = load_sensor_cursor(result.cursor)
         self.assertIn(
             "silver_stock_lifecycle",
-            cursor["details"]["readiness_details"],
+            cursor["details"]["gate_statuses"],
         )
 
     def test_silver_stock_basic_sensor_skips_failed_lifecycle_checks(self) -> None:
@@ -486,12 +486,14 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
         self.assertEqual(repeated.run_requests, [])
         self.assertIn("已经提交过", _skip_message(repeated))
         self.assertTrue(
-            load_sensor_cursor(submitted.cursor)["details"][
+            load_sensor_cursor(submitted.cursor)["details"]["runtime_state"][
                 "already_submitted_for_trade_date"
             ]
         )
         self.assertEqual(
-            load_sensor_cursor(submitted.cursor)["details"]["namechange_run_stage"],
+            load_sensor_cursor(submitted.cursor)["details"]["runtime_state"][
+                "namechange_run_stage"
+            ],
             "morning",
         )
 
@@ -668,7 +670,9 @@ class StockBasicNamechangeSplitContractTests(unittest.TestCase):
             "silver_namechange_update:2026-06-05:evening",
         )
         self.assertEqual(
-            load_sensor_cursor(result.cursor)["details"]["namechange_run_stage"],
+            load_sensor_cursor(result.cursor)["details"]["runtime_state"][
+                "namechange_run_stage"
+            ],
             "evening",
         )
 

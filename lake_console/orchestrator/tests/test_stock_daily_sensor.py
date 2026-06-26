@@ -276,7 +276,7 @@ class StockDailySensorTests(unittest.TestCase):
         stock_basic_mock.assert_not_called()
         source_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
-        continuity = cursor_payload["details"]["continuity_status"]
+        continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_raw_sensor_skips_when_source_not_ready(self) -> None:
@@ -353,7 +353,9 @@ class StockDailySensorTests(unittest.TestCase):
             ["000002.SZ"],
         )
         cursor_payload = load_sensor_cursor(result.cursor)
-        repair_state = cursor_payload["details"]["stock_daily_missing_code_repair"]
+        repair_state = cursor_payload["details"]["runtime_state"][
+            "stock_daily_missing_code_repair"
+        ]
         self.assertEqual(
             repair_state["dates"]["2026-06-05"]["attempt_count"],
             1,
@@ -457,7 +459,7 @@ class StockDailySensorTests(unittest.TestCase):
         stock_basic_mock.assert_not_called()
         raw_readiness_mock.assert_not_called()
         cursor_payload = load_sensor_cursor(result.cursor)
-        continuity = cursor_payload["details"]["continuity_status"]
+        continuity = cursor_payload["details"]["frontier"]
         self.assertEqual(continuity["first_missing_registered_date"], "2026-06-15")
 
     def test_silver_sensor_submits_only_when_raw_ready_and_silver_missing(

@@ -5,6 +5,7 @@ from zoneinfo import ZoneInfo
 
 from orchestrator.defs.run_contracts.cursors import (
     MAX_CURSOR_SAMPLE_KEYS,
+    MAX_SENSOR_CURSOR_BYTES,
     SENSOR_CURSOR_SCHEMA_VERSION,
     SensorCursorDecision,
     build_sensor_cursor,
@@ -22,7 +23,12 @@ class SensorCursorContractTests(unittest.TestCase):
             selected_count=2,
             blocked_count=1,
             sample_keys=tuple(str(index) for index in range(25)),
-            details={"next_pending_offset": 2},
+            details={
+                "reason_code": "request_run",
+                "summary": "已触发：提交 2 个分区。",
+                "next_action": "等待本次 run 完成。",
+                "runtime_state": {"next_pending_offset": 2},
+            },
         )
 
         payload = json.loads(cursor)
@@ -34,7 +40,10 @@ class SensorCursorContractTests(unittest.TestCase):
         self.assertEqual(payload["selected_count"], 2)
         self.assertEqual(payload["blocked_count"], 1)
         self.assertEqual(len(payload["sample_keys"]), MAX_CURSOR_SAMPLE_KEYS)
-        self.assertEqual(payload["details"]["next_pending_offset"], 2)
+        self.assertEqual(payload["details"]["reason_code"], "request_run")
+        self.assertEqual(payload["details"]["summary"], "已触发：提交 2 个分区。")
+        self.assertEqual(payload["details"]["next_action"], "等待本次 run 完成。")
+        self.assertEqual(payload["details"]["runtime_state"]["next_pending_offset"], 2)
 
     def test_build_sensor_cursor_rejects_negative_counts(self) -> None:
         evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
@@ -58,7 +67,11 @@ class SensorCursorContractTests(unittest.TestCase):
         valid_cursor = build_sensor_cursor(
             evaluated_at=evaluated_at,
             decision=SensorCursorDecision.SKIP,
-            details={"reason": "ready"},
+            details={
+                "reason": "ready",
+                "summary": "未触发：当前已就绪。",
+                "next_action": "等待下一次 tick。",
+            },
         )
 
         self.assertEqual(load_sensor_cursor(None), {})
@@ -81,6 +94,16 @@ class SensorCursorContractTests(unittest.TestCase):
         )
         self.assertEqual(load_sensor_cursor(valid_cursor)["details"]["reason"], "ready")
 
+    def test_build_sensor_cursor_requires_human_summary_and_next_action(self) -> None:
+        evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+        with self.assertRaisesRegex(ValueError, "summary and next_action"):
+            build_sensor_cursor(
+                evaluated_at=evaluated_at,
+                decision=SensorCursorDecision.SKIP,
+                details={"reason_code": "ready"},
+            )
+
     def test_build_sensor_cursor_rejects_non_ascii_reason_values(self) -> None:
         evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
 
@@ -88,25 +111,73 @@ class SensorCursorContractTests(unittest.TestCase):
             build_sensor_cursor(
                 evaluated_at=evaluated_at,
                 decision=SensorCursorDecision.SKIP,
-                details={"reason": "中文原因"},
+                details={
+                    "reason": "中文原因",
+                    "summary": "未触发：当前已就绪。",
+                    "next_action": "等待下一次 tick。",
+                },
             )
 
         with self.assertRaisesRegex(ValueError, "details.reason_code must be ASCII"):
             build_sensor_cursor(
                 evaluated_at=evaluated_at,
                 decision=SensorCursorDecision.SKIP,
-                details={"reason_code": "中文原因"},
+                details={
+                    "reason_code": "中文原因",
+                    "summary": "未触发：当前已就绪。",
+                    "next_action": "等待下一次 tick。",
+                },
             )
 
         cursor = build_sensor_cursor(
             evaluated_at=evaluated_at,
             decision=SensorCursorDecision.SKIP,
-            details={"reason_code": "run_window_not_started"},
+            details={
+                "reason_code": "run_window_not_started",
+                "summary": "未触发：运行窗口未开始。",
+                "next_action": "等到运行窗口后自动重试。",
+            },
         )
         self.assertEqual(
             load_sensor_cursor(cursor)["details"]["reason_code"],
             "run_window_not_started",
         )
+
+    def test_build_sensor_cursor_rejects_report_style_details(self) -> None:
+        evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+        for forbidden_key in (
+            "status_samples",
+            "readiness_details",
+            "raw_batch_status",
+            "upstream_batch_statuses",
+            "batch_status",
+        ):
+            with self.subTest(forbidden_key=forbidden_key):
+                with self.assertRaisesRegex(ValueError, "not allowed"):
+                    build_sensor_cursor(
+                        evaluated_at=evaluated_at,
+                        decision=SensorCursorDecision.SKIP,
+                        details={
+                            "summary": "未触发：测试。",
+                            "next_action": "查看 asset check metadata。",
+                            "evidence": {forbidden_key: []},
+                        },
+                    )
+
+    def test_build_sensor_cursor_enforces_hard_size_cap(self) -> None:
+        evaluated_at = datetime(2026, 5, 26, tzinfo=ZoneInfo("Asia/Shanghai"))
+
+        with self.assertRaisesRegex(ValueError, str(MAX_SENSOR_CURSOR_BYTES)):
+            build_sensor_cursor(
+                evaluated_at=evaluated_at,
+                decision=SensorCursorDecision.SKIP,
+                details={
+                    "summary": "未触发：测试。",
+                    "next_action": "查看 asset check metadata。",
+                    "evidence": {"large": "x" * (MAX_SENSOR_CURSOR_BYTES + 1)},
+                },
+            )
 
 if __name__ == "__main__":
     unittest.main()

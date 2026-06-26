@@ -184,7 +184,7 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         batch_readiness.assert_not_called()
         cursor = json.loads(result.cursor)
         self.assertEqual(
-            cursor["details"]["continuity_status"][
+            cursor["details"]["frontier"]["continuity"][
                 "first_missing_registered_date"
             ],
             "2026-06-15",
@@ -380,13 +380,13 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         self.assertNotIn("serving_batch_status", details)
         self.assertNotIn("upstream_batch_statuses", details)
         self.assertEqual(
-            details["upstream_frontiers"]["gold_market_breadth_daily"][
+            details["frontier"]["upstreams"]["gold_market_breadth_daily"][
                 "first_not_ready_trade_date"
             ],
             "2026-06-15",
         )
         self.assertEqual(
-            details["upstream_statuses"]["gold_market_breadth_daily"]["reason"],
+            details["gate_statuses"]["gold_market_breadth_daily"]["reason"],
             "missing_gold_market_breadth_file",
         )
 
@@ -445,7 +445,7 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         self.assertEqual(details["blocked_component"], "ch_share_fact_market_breadth_daily")
         self.assertEqual(details["reason_code"], "missing_clickhouse_row")
         self.assertEqual(
-            details["upstream_frontiers"]["ch_share_fact_market_breadth_daily"][
+            details["frontier"]["upstreams"]["ch_share_fact_market_breadth_daily"][
                 "first_not_ready_trade_date"
             ],
             "2026-06-15",
@@ -528,7 +528,7 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         details = cursor["details"]
         cursor_text = json.dumps(cursor, sort_keys=True)
         self.assertEqual(cursor["target_date"], "2026-06-24")
-        self.assertEqual(details["selected_trade_date"], "2026-06-24")
+        self.assertEqual(details["evidence"]["selected_trade_date"], "2026-06-24")
         self.assertEqual(details["reason_code"], "request_run")
         self.assertEqual(details["blocked_component"], "none")
         self.assertNotIn("serving_batch_status", details)
@@ -539,10 +539,10 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
         self.assertNotIn("clickhouse_row_counts_by_partition", cursor_text)
 
         self.assertEqual(
-            details["continuity_status"]["ready_through_trade_date"],
+            details["frontier"]["continuity"]["ready_through_trade_date"],
             "2026-06-23",
         )
-        serving_status = details["serving_status"]
+        serving_status = details["gate_statuses"]["serving"]
         self.assertEqual(serving_status["trade_date"], "2026-06-24")
         self.assertEqual(serving_status["reason"], "missing_prod_clickhouse_row")
         self.assertEqual(serving_status["local_clickhouse_row_count"], 1)
@@ -551,11 +551,11 @@ class MarketBreadthContinuitySensorTests(unittest.TestCase):
             serving_status["missing_check_names"],
             ["prod_ch_share_fact_market_breadth_row_count_is_one"],
         )
-        upstream_frontier = details["upstream_frontiers"][
+        upstream_frontier = details["frontier"]["upstreams"][
             "ch_share_fact_market_breadth_daily"
         ]
         self.assertEqual(upstream_frontier["ready_through_trade_date"], "2026-06-24")
-        self.assertIsNone(upstream_frontier["first_not_ready_trade_date"])
+        self.assertIsNone(upstream_frontier.get("first_not_ready_trade_date"))
 
 
 if __name__ == "__main__":

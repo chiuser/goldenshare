@@ -1,0 +1,1001 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Dagster Sensor Cursor 治理专项 LLD</title>
+  <style>
+    :root {
+      --bg: #f6f7f9;
+      --paper: #ffffff;
+      --ink: #17212b;
+      --muted: #5f6b7a;
+      --line: #d8dee8;
+      --blue: #1f5f99;
+      --green: #0f766e;
+      --amber: #946200;
+      --red: #b42318;
+      --soft-blue: #eaf3ff;
+      --soft-green: #e8f6f3;
+      --soft-amber: #fff4d6;
+      --soft-red: #ffe9e7;
+      --code-bg: #f2f4f7;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: var(--bg);
+      font-family: "Avenir Next", "PingFang SC", "Hiragino Sans GB", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1240px;
+      margin: 0 auto;
+      padding: 34px 24px 72px;
+    }
+
+    header,
+    section {
+      border: 1px solid var(--line);
+      background: var(--paper);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+    }
+
+    header {
+      padding: 34px;
+      border-left: 6px solid var(--blue);
+    }
+
+    section {
+      margin-top: 18px;
+      padding: 26px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      line-height: 1.24;
+      margin-top: 0;
+    }
+
+    h1 {
+      margin-bottom: 12px;
+      font-size: 40px;
+    }
+
+    h2 {
+      margin-bottom: 14px;
+      font-size: 25px;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 19px;
+    }
+
+    p { margin: 10px 0; }
+
+    a {
+      color: var(--blue);
+      text-decoration: none;
+    }
+
+    a:hover { text-decoration: underline; }
+
+    .lead {
+      max-width: 940px;
+      color: var(--muted);
+      font-size: 18px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 14px;
+    }
+
+    .card {
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 15px;
+      background: #fbfcfe;
+    }
+
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: var(--soft-blue);
+      margin: 14px 0;
+    }
+
+    .callout.green {
+      border-left-color: var(--green);
+      background: var(--soft-green);
+    }
+
+    .callout.amber {
+      border-left-color: var(--amber);
+      background: var(--soft-amber);
+    }
+
+    .callout.red {
+      border-left-color: var(--red);
+      background: var(--soft-red);
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code-bg);
+      color: #344054;
+      font-size: 13px;
+      white-space: nowrap;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 14px;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 9px 10px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th {
+      background: #eef2f7;
+      font-weight: 700;
+    }
+
+    code,
+    pre {
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+    }
+
+    code {
+      padding: 2px 5px;
+      border-radius: 5px;
+      background: var(--code-bg);
+      font-size: 0.94em;
+    }
+
+    pre {
+      overflow: auto;
+      padding: 14px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #111827;
+      color: #f9fafb;
+      line-height: 1.55;
+      font-size: 13px;
+    }
+
+    ul,
+    ol { padding-left: 22px; }
+    li + li { margin-top: 6px; }
+    .ok { color: var(--green); font-weight: 700; }
+    .risk { color: var(--red); font-weight: 700; }
+    .muted { color: var(--muted); }
+
+    @media (max-width: 760px) {
+      main { padding: 18px 12px 48px; }
+      header,
+      section { padding: 20px; }
+      h1 { font-size: 30px; }
+      .grid { grid-template-columns: 1fr; }
+      table { font-size: 13px; }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster Sensor Cursor 治理专项 LLD</h1>
+    <p class="lead">
+      本文是 <a href="dagster-sensor-cursor-governance-plan.html">Dagster Sensor Cursor 治理专项方案</a>
+      的代码级落地设计。目标不是让 cursor 更“漂亮”，而是让它回到正确职责：
+      只作为本次 sensor tick 的调度路标，清楚说明触发或跳过的原因、阻断组件、目标日期和最少证据。
+    </p>
+    <p>
+      <span class="tag">状态：设计口径已确认</span>
+      <span class="tag">schema_version=1</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不写 lake</span>
+      <span class="tag">不写 Dagster DB</span>
+      <span class="tag">不运行 dg</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>0. 依据与边界</h2>
+    <p>本 LLD 已按当前代码和规则重新审计，依据如下：</p>
+    <ol>
+      <li>仓库根 <code>AGENTS.md</code>：要求先审计代码，不用命名、印象或文档替代当前实现。</li>
+      <li><code>lake_console/AGENTS.md</code>：sensor 只做编排，不直接塞业务探测细节。</li>
+      <li><code>lake_console/orchestrator/AGENTS.md</code>：任何 sensor / cursor 改动必须先完成设计确认，不得运行正式 Dagster 动作。</li>
+      <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：不改 run key、run config、job/sensor 名称；sensor hot path 必须轻量。</li>
+      <li><code>dagster-data-pipeline-performance-governance.md</code>：cursor 只允许存 schema、时间、selected date、frontier、小型摘要和有限样本，禁止长 metadata payload。</li>
+      <li><code>dagster-sensor-cursor-governance-plan.html</code>：已拍板统一模板、短中文、长度预算、禁止报告型 <code>to_cursor_details()</code>、一次性治理 active sensor。</li>
+      <li>Dagster basic sensor 文档：cursor 是跨 tick 的小状态，常用 JSON，必须保持小，不能当报告存储。</li>
+    </ol>
+
+    <div class="callout amber">
+      <p>
+        本文只写设计，不改代码、不跑 sensor、不访问正式 Dagster instance、不访问正式 DB、不写数据湖。
+        后续编码时若发现本文与当前代码事实冲突，必须先回到本文修正设计，再继续实现。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>1. 硬口径</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>口径</th>
+        <th>代码级要求</th>
+        <th>不允许发生的事</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>顶层 contract 不变</td>
+        <td><code>build_sensor_cursor(...)</code> 继续输出 <code>schema_version/evaluated_at/decision/target_date/selected_count/blocked_count/sample_keys/details</code>。</td>
+        <td>不得改 <code>schema_version</code> 为 2；不得删除 <code>load_sensor_cursor(...)</code> 对 v1 的兼容。</td>
+      </tr>
+      <tr>
+        <td>details 统一模板</td>
+        <td>所有写 cursor 的 active sensor 都必须提供 <code>reason_code</code>、<code>blocked_component</code>、<code>summary</code>、<code>next_action</code>。</td>
+        <td>不得继续每个 sensor 自造字段方言，只写 <code>reason_code</code> 不写人话。</td>
+      </tr>
+      <tr>
+        <td>短中文允许</td>
+        <td><code>summary</code>、<code>next_action</code> 可写短中文；<code>json.dumps</code> 应改为 <code>ensure_ascii=False</code> 并补 UTF-8 roundtrip 测试。</td>
+        <td><code>reason</code>、<code>reason_code</code> 继续必须是 ASCII 机器码。</td>
+      </tr>
+      <tr>
+        <td>cursor 是路标</td>
+        <td>完整诊断移到 asset/check metadata、readiness helper 输出或只读审计报告；cursor 只留最少证据。</td>
+        <td>不得写 <code>status_samples</code>、完整路径列表、sample rows、完整 schema/type、完整 SQL 结果。</td>
+      </tr>
+      <tr>
+        <td>一次性治理</td>
+        <td>20 个写 cursor 的 sensor 文件同一轮完成，不保留新旧两套 active cursor 方言。</td>
+        <td>不得只改最近出问题的两个 sensor，然后让其它 sensor 继续写大 cursor。</td>
+      </tr>
+      <tr>
+        <td>不改运行机制</td>
+        <td>run key、run config、job selection、ready 判断顺序、上游门禁、单 tick run 数量均保持不变。</td>
+        <td>不得借 cursor 治理重写 sensor 选择逻辑或改 readiness 语义。</td>
+      </tr>
+      <tr>
+        <td>行为依赖保留兼容</td>
+        <td>凡当前代码会读取上一轮 cursor 的字段，必须先加兼容读取，再改写入结构。</td>
+        <td>不得直接删 <code>already_submitted_for_trade_date</code>、<code>namechange_run_stage</code>、<code>stock_daily_missing_code_repair</code>。</td>
+      </tr>
+      <tr>
+        <td>长度预算</td>
+        <td>普通 cursor 小于 2KB，复杂阻断小于 3KB，硬上限 8KB；超过 3KB 必须有针对性测试解释。</td>
+        <td>不得用“这是给机器看的”解释 10KB 以上 cursor。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>2. 当前代码基线</h2>
+    <p>本轮只读审计使用 CodeGraph 和静态搜索，未运行正式 Dagster。</p>
+    <table>
+      <thead>
+      <tr>
+        <th>项目</th>
+        <th>当前事实</th>
+        <th>证据</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Dagster sensor / run-status 定义</td>
+        <td>34 个定义位于 <code>lake_console/orchestrator/src/orchestrator/defs/sensors</code>。</td>
+        <td><code>rg "@dg\\.(sensor|run_status_sensor|run_failure_sensor)" ... | wc -l</code></td>
+      </tr>
+      <tr>
+        <td>统一 cursor writer 文件</td>
+        <td>20 个 sensor 文件调用 <code>build_sensor_cursor(...)</code>。</td>
+        <td><code>rg -l "build_sensor_cursor\\(" defs/sensors</code></td>
+      </tr>
+      <tr>
+        <td>报告型 cursor 调用</td>
+        <td>11 个 sensor 文件仍直接调用 <code>to_cursor_details()</code>。</td>
+        <td><code>rg -l "to_cursor_details\\(\\)" defs/sensors</code></td>
+      </tr>
+      <tr>
+        <td>读取上一轮 cursor 的 sensor 文件</td>
+        <td>4 个：<code>stock_daily_sensor.py</code>、<code>stock_namechange_sensor.py</code>、<code>stock_mins_qfq_daily_sensor.py</code>、<code>stock_mins_qfq_factor_repair_sensor.py</code>。</td>
+        <td><code>rg -l "load_sensor_cursor|sensor_cursor_details|context\\.cursor" defs/sensors</code></td>
+      </tr>
+      <tr>
+        <td>共享 cursor contract 影响面</td>
+        <td>CodeGraph 显示 <code>build_sensor_cursor</code> 影响 48 个符号，包含 qfq、index daily、ClickHouse breadth、wealth turnover、adj factor 等 sensor 和测试。</td>
+        <td>CodeGraph impact: <code>build_sensor_cursor</code></td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>2.1 当前共享 builder</h3>
+    <p>
+      当前文件：<code>lake_console/orchestrator/src/orchestrator/defs/run_contracts/cursors.py</code>。
+      已有能力：
+    </p>
+    <ul>
+      <li><code>SENSOR_CURSOR_SCHEMA_VERSION = 1</code>。</li>
+      <li><code>MAX_CURSOR_SAMPLE_KEYS = 20</code>。</li>
+      <li><code>build_sensor_cursor(...)</code> 统一顶层字段。</li>
+      <li><code>load_sensor_cursor(...)</code> 对非 JSON、非 dict、非 v1、details 非 dict 都返回空 dict。</li>
+      <li><code>_assert_reason_values_are_ascii(...)</code> 禁止 <code>reason</code> / <code>reason_code</code> 写中文。</li>
+    </ul>
+    <p>当前不足：</p>
+    <ul>
+      <li><code>json.dumps(... ensure_ascii=True)</code> 会把中文 escape 成 <code>\\uXXXX</code>，不符合“短中文要正确显示”的拍板。</li>
+      <li>builder 不要求 <code>summary</code> / <code>next_action</code>。</li>
+      <li>builder 不限制总长度，不拦截报告型 key。</li>
+      <li><code>details</code> 没有标准结构，导致各 sensor 方言化。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. 统一 details 模板</h2>
+    <p>顶层字段继续由 <code>build_sensor_cursor(...)</code> 管，业务字段统一放在 <code>details</code>。</p>
+    <pre>{
+  "sensor_name": "raw_index_daily_update_job_sensor",
+  "job_name": "raw_index_daily_update_job",
+  "asset_family": "index_daily",
+  "partition_set": "cn_a_index_trade_days",
+  "reason_code": "source_not_ready",
+  "blocked_component": "prod_core_db",
+  "summary": "未触发：prod core DB 尚未覆盖目标日期。",
+  "next_action": "等待 prod core DB 补齐后由下一次 sensor tick 自动重试。",
+  "frontier": {
+    "expected_start_date": "2026-06-12",
+    "expected_end_date": "2026-06-25",
+    "ready_through_date": "2026-06-24",
+    "first_not_ready_date": "2026-06-25",
+    "selected_date": null
+  },
+  "gate_statuses": {
+    "raw_lake": {"ready": false, "reason_code": "missing_materialization"},
+    "prod_core_db": {"ready": false, "reason_code": "code_coverage"}
+  },
+  "evidence": {
+    "registered_trade_day_count": 4243,
+    "missing_code_count": 2,
+    "missing_code_samples": ["000001.SH", "000002.SH"]
+  },
+  "runtime_state": {},
+  "performance_ms": {"batch_readiness_ms": 18},
+  "diagnostic_ref": {
+    "look_at": "asset_check_metadata",
+    "asset_key": "raw_index_daily",
+    "partition_key": "2026-06-25"
+  }
+}</pre>
+
+    <table>
+      <thead>
+      <tr>
+        <th>字段</th>
+        <th>规则</th>
+        <th>代码落点</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>sensor_name</code></td>
+        <td>必须。写 Dagster definition 函数名，例如 <code>silver_stock_daily_update_job_sensor</code>。</td>
+        <td>每个 <code>_cursor_payload(...)</code> 固定写入。</td>
+      </tr>
+      <tr>
+        <td><code>job_name</code></td>
+        <td>有 job 的 sensor 必须；partition registration 或通知类可为 <code>null</code>。</td>
+        <td>使用现有 job 常量，不新增 job。</td>
+      </tr>
+      <tr>
+        <td><code>asset_family</code></td>
+        <td>必须。稳定资产族名，例如 <code>stock_daily</code>、<code>stock_mins_qfq</code>、<code>wealth_market_turnover</code>。</td>
+        <td>不从 catalog 动态推导，sensor 本地常量写入。</td>
+      </tr>
+      <tr>
+        <td><code>partition_set</code></td>
+        <td>有 partition 的 sensor 必须；多个 partition set 时写主目标 partition set。</td>
+        <td>使用现有 <code>DynamicPartitionsDefinition.name</code>。</td>
+      </tr>
+      <tr>
+        <td><code>reason_code</code></td>
+        <td>必须。ASCII 机器码，稳定、可测试。</td>
+        <td><code>build_sensor_cursor(...)</code> 继续递归禁止非 ASCII。</td>
+      </tr>
+      <tr>
+        <td><code>blocked_component</code></td>
+        <td>必须。无阻断写 <code>none</code>；运行窗口未到写 <code>run_window</code>；分区缺口写 partition set 名；源未 ready 写源系统名。</td>
+        <td>每个 sensor 的 <code>_blocked_component...</code> helper 输出规范化。</td>
+      </tr>
+      <tr>
+        <td><code>summary</code></td>
+        <td>必须。短中文，说明本 tick 结论。</td>
+        <td>新增统一 builder 校验存在；测试验证 UTF-8 显示。</td>
+      </tr>
+      <tr>
+        <td><code>next_action</code></td>
+        <td>必须。短中文，告诉人下一步等什么或修什么。</td>
+        <td>每个主要分支测试断言。</td>
+      </tr>
+      <tr>
+        <td><code>frontier</code></td>
+        <td>窗口型 sensor 使用。只存 ready through、first not ready、first missing、selected date，不存每个日期完整 status。</td>
+        <td>新增 compact helper，替代 <code>ContinuityBatchReadiness.to_cursor_details()</code>。</td>
+      </tr>
+      <tr>
+        <td><code>gate_statuses</code></td>
+        <td>链式门禁使用。每个 gate 只存 ready、reason_code、failed/missing check 计数或少量名字。</td>
+        <td>替代 <code>readiness_details</code>、<code>*_status</code> 的报告型 payload。</td>
+      </tr>
+      <tr>
+        <td><code>evidence</code></td>
+        <td>只存最少证据，样本固定为 count + 前 3 个样本。超过 3 个只能看诊断报告，不能塞进 cursor。</td>
+        <td>新增 <code>limit_cursor_samples(...)</code>。</td>
+      </tr>
+      <tr>
+        <td><code>runtime_state</code></td>
+        <td>只给代码下一 tick 消费用。普通 sensor 为空。行为依赖必须列入第 6 节。</td>
+        <td>新增兼容读取 helper，先读新位置，再兼容旧 details root。</td>
+      </tr>
+      <tr>
+        <td><code>performance_ms</code></td>
+        <td>按需启用。只存聚合耗时，例如 batch readiness elapsed，不存 SQL 明细。</td>
+        <td>已有 raw index / ClickHouse 口径可迁入统一字段。</td>
+      </tr>
+      <tr>
+        <td><code>diagnostic_ref</code></td>
+        <td>按需启用。告诉人去哪里看完整诊断，不复制诊断。</td>
+        <td>asset/check metadata、readiness helper 名、审计报告路径。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <div class="callout red">
+      <p>
+        <strong>禁止字段：</strong>
+        <code>status_samples</code>、<code>sample_rows</code>、<code>missing_file_paths</code>、
+        <code>raw_batch_status</code>、<code>silver_batch_status</code>、<code>gold_batch_status</code>、
+        <code>serving_batch_status</code>、<code>upstream_batch_statuses</code>、
+        <code>readiness_details</code>、完整 schema map、完整路径列表、完整 code list、完整 SQL 结果。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>已落地口径</h2>
+    <div class="card decision">
+      <ul>
+        <li>统一 builder 已落地到 <code>build_sensor_cursor(...)</code>：<code>details</code> 非空时必须包含 <code>summary</code> 和 <code>next_action</code>。</li>
+        <li>中文显示口径已确认：cursor JSON 使用 <code>ensure_ascii=False</code>；<code>summary</code> / <code>next_action</code> 可写短中文，<code>reason</code> / <code>reason_code</code> 仍必须是 ASCII。</li>
+        <li>长度硬门禁已落地：典型目标 2KB，复杂目标 3KB，builder 硬上限 8KB，超过直接失败。</li>
+        <li>active sensor 已统一迁入 <code>frontier</code>、<code>gate_statuses</code>、<code>evidence</code>、<code>runtime_state</code>、<code>performance_ms</code>；旧 <code>continuity_status</code>、<code>readiness_details</code>、<code>*_batch_status</code> 不再作为 cursor 字段写出。</li>
+        <li>行为依赖状态只允许放入 <code>runtime_state</code>，并保留旧 cursor fallback 读取，避免部署后第一次 tick 因旧 cursor 断掉。</li>
+        <li>静态门禁已覆盖：sensor cursor 不得直接调用报告型 <code>to_cursor_details()</code>，不得写 <code>status_samples</code>、<code>sample_rows</code>、完整路径列表或完整 batch status。</li>
+      </ul>
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 开发前基线分类与治理策略</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>分类</th>
+        <th>文件</th>
+        <th>开发前问题</th>
+        <th>治理策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>已局部瘦身，但未统一模板</td>
+        <td>
+          <code>raw_index_daily_update_job_sensor.py</code><br />
+          <code>clickhouse_market_breadth_continuity_sensor.py</code><br />
+          <code>stock_adj_factor_sensor.py</code>
+        </td>
+        <td>已经避免部分大对象，但缺少统一 <code>summary</code> / <code>next_action</code>，字段名仍各自定义。</td>
+        <td>保留当前决策逻辑，迁入统一 <code>frontier/gate_statuses/evidence/performance_ms</code>。</td>
+      </tr>
+      <tr>
+        <td>仍直接写报告型对象</td>
+        <td>
+          <code>stock_mins_raw_sensor.py</code><br />
+          <code>stock_mins_silver_sensor.py</code><br />
+          <code>stock_mins_silver_trade_day_sensor.py</code><br />
+          <code>stock_mins_qfq_daily_sensor.py</code><br />
+          <code>stock_mins_qfq_factor_repair_sensor.py</code><br />
+          <code>silver_index_daily_sensor.py</code><br />
+          <code>market_major_indices_daily_sensor.py</code><br />
+          <code>market_breadth_continuity_sensor.py</code><br />
+          <code>stock_return_distribution_continuity_sensor.py</code><br />
+          <code>gold_wealth_market_turnover_sensor.py</code><br />
+          <code>stock_current_trade_day_sensor.py</code>
+        </td>
+        <td>存在 <code>to_cursor_details()</code> 调用，容易带入 <code>status_samples</code>、路径、schema、样本等报告字段。</td>
+        <td>sensor 文件禁止调用 <code>to_cursor_details()</code>；新增 compact helper 返回 frontier / compact status。</td>
+      </tr>
+      <tr>
+        <td>基础资产 / 注册类轻量 cursor</td>
+        <td>
+          <code>stock_basic_sensor.py</code><br />
+          <code>suspend_d_sensor.py</code><br />
+          <code>stock_identity_map_sensor.py</code><br />
+          <code>stock_namechange_sensor.py</code><br />
+          <code>cn_a_trade_day_sensor.py</code>
+        </td>
+        <td>字段较轻，但 <code>selected_trade_date</code>、<code>selected_keys</code>、<code>readiness_details</code> 等命名不统一。</td>
+        <td>按基础资产模板或 partition-register 模板补齐 <code>summary/next_action/reason_code/blocked_component</code>。</td>
+      </tr>
+      <tr>
+        <td>高风险行为依赖</td>
+        <td>
+          <code>stock_daily_sensor.py</code><br />
+          <code>stock_namechange_sensor.py</code><br />
+          <code>stock_mins_qfq_daily_sensor.py</code><br />
+          <code>stock_mins_qfq_factor_repair_sensor.py</code>
+        </td>
+        <td>下一 tick 会读取上一轮 cursor 决定 repair / already-submitted 行为。</td>
+        <td>先写兼容读取 helper，再迁移到 <code>runtime_state</code>；不允许直接删除旧字段。</td>
+      </tr>
+      <tr>
+        <td>无 cursor 的 run-status / 通知类</td>
+        <td>
+          <code>feishu_run_status_sensor.py</code><br />
+          <code>gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code><br />
+          <code>gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py</code>
+        </td>
+        <td>当前不通过 <code>build_sensor_cursor(...)</code> 写 cursor。</td>
+        <td>本专项不强行新增 cursor；保持现状，避免新增无意义状态。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 代码级改动方案</h2>
+
+    <h3>5.1 共享 contract</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>文件</th>
+        <th>改动点</th>
+        <th>验收</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>src/orchestrator/defs/run_contracts/cursors.py</code></td>
+        <td>
+          <ol>
+            <li><code>json.dumps(... ensure_ascii=False, sort_keys=True)</code>。</li>
+            <li>新增 <code>MAX_SENSOR_CURSOR_BYTES = 8192</code>、<code>TYPICAL_SENSOR_CURSOR_BYTES = 2048</code>、<code>COMPLEX_SENSOR_CURSOR_BYTES = 3072</code>。</li>
+            <li>新增递归禁止 key 校验：<code>status_samples</code>、<code>sample_rows</code>、<code>missing_file_paths</code>、<code>*_batch_status</code> 等。</li>
+            <li>新增必填字段校验：cursor writer 传入的 <code>details</code> 必须有 <code>summary</code> 和 <code>next_action</code>。</li>
+            <li><code>load_sensor_cursor(...)</code> 行为保持宽容，继续接收旧 v1 cursor；不因为旧 cursor 缺 <code>summary</code> 返回空。</li>
+          </ol>
+        </td>
+        <td>
+          <code>tests/test_sensor_cursor_contracts.py</code> 增加 UTF-8 raw string、必填字段、禁止字段、8KB 上限、旧 v1 cursor 读取兼容测试。
+        </td>
+      </tr>
+      <tr>
+        <td><code>src/orchestrator/defs/run_contracts/cursor_payloads.py</code>（新增）</td>
+        <td>
+          新增 sensor 专用 compact helper：
+          <code>build_cursor_details(...)</code>、
+          <code>compact_continuity_frontier(...)</code>、
+          <code>compact_date_readiness(...)</code>、
+          <code>compact_dataset_readiness(...)</code>、
+          <code>compact_gate_statuses(...)</code>、
+          <code>cursor_runtime_state(...)</code>、
+          <code>limit_cursor_samples(...)</code>。
+        </td>
+        <td>
+          helper 单元测试覆盖空值、legacy fallback、sample limit、禁止字段不出现。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>5.2 新 helper 形态</h3>
+    <pre>def build_cursor_details(
+    *,
+    sensor_name: str,
+    job_name: str | None,
+    asset_family: str,
+    partition_set: str | None,
+    reason_code: str,
+    blocked_component: str,
+    summary: str,
+    next_action: str,
+    frontier: Mapping[str, object] | None = None,
+    gate_statuses: Mapping[str, object] | None = None,
+    evidence: Mapping[str, object] | None = None,
+    runtime_state: Mapping[str, object] | None = None,
+    performance_ms: Mapping[str, object] | None = None,
+    diagnostic_ref: Mapping[str, object] | None = None,
+) -&gt; dict[str, object]: ...</pre>
+
+    <p>这个 helper 只生成 <code>details</code>，不提交 run、不读 Dagster instance、不访问 lake。它的职责是把字段命名固定下来。</p>
+
+    <h3>5.3 Compact helper 规则</h3>
+    <table>
+      <thead>
+      <tr>
+        <th>旧输入</th>
+        <th>新输出</th>
+        <th>必须丢弃</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>ContinuityBatchReadiness</code></td>
+        <td><code>frontier</code>：expected window、ready through、first not ready、first missing、selected date、blocked reason、elapsed/scanned count。</td>
+        <td><code>status_samples</code>、完整 per-date statuses。</td>
+      </tr>
+      <tr>
+        <td><code>ContinuityDateReadiness</code></td>
+        <td><code>gate_statuses[gate]</code>：ready、materialized、checks_passed、reason_code、failed/missing check names 限长。</td>
+        <td><code>missing_file_paths</code> 全量列表、完整 summary、schema/type 报告。</td>
+      </tr>
+      <tr>
+        <td><code>DatasetReadinessStatus</code></td>
+        <td>asset 级 compact：ready、not_ready_count、first_failed_asset、failed/missing check names 限长。</td>
+        <td>每个 asset 的完整 metadata payload。</td>
+      </tr>
+      <tr>
+        <td>source probe status</td>
+        <td>ready、reason_code、expected/returned row count、missing/extra/duplicate/null count、少量 sample。</td>
+        <td>完整 code list、完整 SQL result、完整 error traceback。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 行为依赖处理口径</h2>
+    <p>
+      这些字段不是“展示字段”，它们影响下一次 sensor 是否提交 run 或怎样选择 repair。
+      处理口径已确认：统一迁入 <code>runtime_state</code>，同时保留旧 root 字段 fallback，确保部署后的第一轮 tick 能读懂旧 cursor。
+      修改格式时必须同步更新读取逻辑和测试。
+    </p>
+    <table>
+      <thead>
+      <tr>
+        <th>依赖</th>
+        <th>当前代码</th>
+        <th>风险</th>
+        <th>LLD 处理方案</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>股票日线 raw missing-code repair 状态</td>
+        <td>
+          <code>stock_daily_sensor.py</code> 写 <code>details[STOCK_DAILY_REPAIR_STATE_KEY]</code>；
+          <code>stock_daily_raw_repair.stock_daily_repair_state_from_details(...)</code> 从上一轮 cursor 读取。
+        </td>
+        <td>直接删除会让 repair attempt、manual/waiting/exhausted 状态丢失，可能导致重复 repair 或绕过等待。</td>
+        <td>
+          新写入放 <code>details.runtime_state.stock_daily_missing_code_repair</code>；
+          读取 helper 先读新位置，再 fallback 旧 root key。
+          本轮不新增状态表，不把 repair state 移出 cursor。若未来要彻底移出，需要单独设计状态实体。
+        </td>
+      </tr>
+      <tr>
+        <td>股票曾用名分阶段 already-submitted</td>
+        <td>
+          <code>stock_namechange_sensor._already_submitted_for_stage(...)</code>
+          读取 <code>selected_trade_date</code>、<code>namechange_run_stage</code>、<code>already_submitted_for_trade_date</code>。
+        </td>
+        <td>字段位置变更但 reader 不改，会导致同一阶段重复提交 run。</td>
+        <td>
+          新写入放 <code>runtime_state.namechange_run_stage</code>、
+          <code>runtime_state.already_submitted_for_trade_date</code>；
+          reader 使用 <code>cursor_runtime_state(...)</code> 并兼容旧 root 字段。
+        </td>
+      </tr>
+      <tr>
+        <td>qfq daily already-submitted fast path</td>
+        <td>
+          <code>stock_mins_qfq_daily_sensor._already_submitted_for_target_date(...)</code>
+          先读 root details 的 <code>selected_trade_date</code> / flag，再 fallback 顶层 <code>target_date/decision/selected_count/sample_keys</code>。
+        </td>
+        <td>如果新 cursor 不写这些字段且测试没覆盖，可能在 run 已提交但未完成时重复提交。</td>
+        <td>
+          reader 改为先读 <code>runtime_state</code>，保留现有顶层 fallback；
+          测试保留 legacy selected_count/sample_keys 快路径。
+        </td>
+      </tr>
+      <tr>
+        <td>qfq factor repair already-submitted fast path</td>
+        <td>
+          <code>stock_mins_qfq_factor_repair_sensor._already_submitted_for_target_date(...)</code>
+          与 qfq daily 同构。
+        </td>
+        <td>同一 repair target 可能重复提交。</td>
+        <td>
+          同 qfq daily；新增测试证明 legacy cursor 仍能被识别。
+        </td>
+      </tr>
+      <tr>
+        <td>测试直接断言旧 details 字段</td>
+        <td>
+          <code>test_stock_daily_sensor.py</code>、
+          <code>test_stock_basic_namechange_split_contracts.py</code>、
+          <code>test_stk_mins_qfq_m9a_sensor_contracts.py</code>、
+          <code>test_stk_mins_qfq_m9c_sensor_contracts.py</code>、
+          <code>test_stock_mins_daily_continuity_sensors.py</code>、
+          <code>test_gold_wealth_market_turnover_sensor.py</code> 等。
+        </td>
+        <td>如果只改生产代码，旧测试会失败；如果只改测试，可能漏掉真实行为依赖。</td>
+        <td>
+          测试改为断言统一模板和行为结果：<code>summary</code>、<code>next_action</code>、<code>reason_code</code>、
+          <code>blocked_component</code>、<code>frontier</code>、<code>runtime_state</code>、长度预算、禁止字段。
+        </td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. Sensor 逐文件落点</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>文件</th>
+        <th>具体函数</th>
+        <th>改动策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>cn_a_trade_day_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>partition-register 模板；保留 selected keys 顶层 <code>sample_keys</code>，details 只写 counts、frontier、summary、next_action，不再重复完整 <code>selected_keys</code>。</td>
+      </tr>
+      <tr>
+        <td><code>stock_current_trade_day_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>改掉 <code>gap_status.to_cursor_details()</code>；输出 first missing / selected / registered count。</td>
+      </tr>
+      <tr>
+        <td><code>stock_basic_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>基础 snapshot 模板；去掉 materialization storage id 这类报告字段；<code>blocked_component</code> 指向 raw/silver/lifecycle。</td>
+      </tr>
+      <tr>
+        <td><code>suspend_d_sensor.py</code></td>
+        <td><code>_raw_cursor_payload(...)</code>、<code>_silver_cursor_payload(...)</code></td>
+        <td>基础日频模板；<code>source_window_started</code> 放 evidence；不写完整 readiness details。</td>
+      </tr>
+      <tr>
+        <td><code>stock_identity_map_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>基础资产模板；补 <code>summary/next_action</code> 和 standardized asset_family。</td>
+      </tr>
+      <tr>
+        <td><code>stock_namechange_sensor.py</code></td>
+        <td><code>_raw_cursor_payload(...)</code>、<code>_silver_cursor_payload(...)</code>、<code>_already_submitted_for_stage(...)</code></td>
+        <td>阶段状态进入 <code>runtime_state</code>；reader 兼容旧 root 字段；不改变 morning/evening stage 判断。</td>
+      </tr>
+      <tr>
+        <td><code>stock_daily_sensor.py</code></td>
+        <td><code>_raw_sensor_cursor(...)</code>、<code>_silver_sensor_cursor(...)</code></td>
+        <td>拆分展示路标和 runtime repair state。展示只写 selected/block counts、first blocked key、repair reason sample；repair state 进 <code>runtime_state</code> 并保持 fallback。</td>
+      </tr>
+      <tr>
+        <td><code>stock_mins_raw_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>raw 分钟线模板；<code>raw_batch_status</code> 改为 <code>frontier</code>，raw/source status 改为 compact gate。</td>
+      </tr>
+      <tr>
+        <td><code>stock_mins_silver_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>raw -> silver chain 模板；只写 raw frontier、silver frontier 和 selected date。</td>
+      </tr>
+      <tr>
+        <td><code>stock_mins_silver_trade_day_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>registration + raw/silver readiness 模板；移除 raw/silver batch status。</td>
+      </tr>
+      <tr>
+        <td><code>stock_mins_qfq_daily_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code>、<code>_window_not_started_cursor_payload(...)</code>、<code>_already_submitted_for_target_date(...)</code></td>
+        <td>chain gate 模板：silver、adj_factor、gold 三个 gate 各一行 compact status；already-submitted 进 runtime_state；legacy fallback 保留。</td>
+      </tr>
+      <tr>
+        <td><code>stock_mins_qfq_factor_repair_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code>、<code>_window_not_started_cursor_payload(...)</code>、<code>_already_submitted_for_target_date(...)</code></td>
+        <td>repair 模板：gold gate、repair status、selected attempt；already-submitted 兼容同 qfq daily。</td>
+      </tr>
+      <tr>
+        <td><code>stock_adj_factor_sensor.py</code></td>
+        <td><code>_raw_sensor_cursor(...)</code>、<code>_silver_sensor_cursor(...)</code></td>
+        <td>迁入统一 helper；<code>readiness_details</code> 变为 <code>gate_statuses</code>；保持 raw -> silver -> stock_basic/lifecycle 阻断优先级。</td>
+      </tr>
+      <tr>
+        <td><code>raw_index_daily_update_job_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>作为 compact 样板保留语义；补 <code>summary/next_action</code>，字段迁到统一模板。</td>
+      </tr>
+      <tr>
+        <td><code>silver_index_daily_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>移除 raw/silver batch status；按 raw_index_daily -> silver_index_daily chain gate 输出。</td>
+      </tr>
+      <tr>
+        <td><code>market_major_indices_daily_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>market-major 模板：seed/index_basic/index_daily/gold 四个 gate 一行摘要；不写 gold batch status。</td>
+      </tr>
+      <tr>
+        <td><code>market_breadth_continuity_sensor.py</code>、<code>stock_return_distribution_continuity_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>复用 ClickHouse breadth compact frontier 模式；移除 <code>batch_status.to_cursor_details()</code>。</td>
+      </tr>
+      <tr>
+        <td><code>clickhouse_market_breadth_continuity_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>保留 local/prod 共用 compact 逻辑；补统一模板字段，不恢复 serving/upstream batch status。</td>
+      </tr>
+      <tr>
+        <td><code>gold_wealth_market_turnover_sensor.py</code></td>
+        <td><code>_cursor_payload(...)</code></td>
+        <td>chain gate + prod sync 模板：silver/gold/prod_core 三段状态；不写 silver/gold/prod continuity 完整 details。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>8. 测试与静态门禁</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>测试文件</th>
+        <th>新增或调整内容</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td><code>tests/test_sensor_cursor_contracts.py</code></td>
+        <td>统一 contract 测试：UTF-8 中文显示、必填 <code>summary/next_action</code>、禁止字段、8KB 硬上限、旧 v1 读取兼容。</td>
+      </tr>
+      <tr>
+        <td><code>tests/test_run_contract_static_gates.py</code></td>
+        <td>
+          全局 sensor cursor 静态门禁：
+          <code>defs/sensors/*.py</code> 不得出现 <code>.to_cursor_details()</code>；
+          不得写 <code>status_samples</code>、<code>sample_rows</code>、<code>missing_file_paths</code>、<code>*_batch_status</code>；
+          所有调用 <code>build_sensor_cursor(...)</code> 的 details 必须经统一 helper。
+        </td>
+      </tr>
+      <tr>
+        <td>每个 sensor 原测试</td>
+        <td>保留原触发/skip 行为断言，新增 <code>summary</code>、<code>next_action</code>、<code>reason_code</code>、<code>blocked_component</code> 和长度预算断言。</td>
+      </tr>
+      <tr>
+        <td><code>test_stock_daily_sensor.py</code></td>
+        <td>新增 repair state 从 <code>runtime_state</code> 读取、旧 root key fallback、repair attempt 不回退测试。</td>
+      </tr>
+      <tr>
+        <td><code>test_stock_basic_namechange_split_contracts.py</code></td>
+        <td>新增 namechange stage runtime_state 和旧 cursor fallback 测试。</td>
+      </tr>
+      <tr>
+        <td><code>test_stk_mins_qfq_m9a_sensor_contracts.py</code> / <code>test_stk_mins_qfq_m9c_sensor_contracts.py</code></td>
+        <td>保留 legacy selected_count / sample_keys fast path，新增 runtime_state already-submitted fast path。</td>
+      </tr>
+      <tr>
+        <td><code>test_stock_mins_daily_continuity_sensors.py</code></td>
+        <td>把旧 <code>raw_batch_status.dataset</code> 等断言改为 <code>frontier</code> / <code>gate_statuses</code> / 禁止字段断言。</td>
+      </tr>
+      <tr>
+        <td><code>test_gold_wealth_market_turnover_sensor.py</code></td>
+        <td>保留 prod sync 决策断言；cursor 改查 prod_core gate compact status，不查完整 prod_core status 报告。</td>
+      </tr>
+      </tbody>
+    </table>
+
+    <h3>8.1 实现验收命令</h3>
+    <pre>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_sensor_cursor_contracts \
+  tests.test_run_contract_static_gates \
+  tests.test_raw_index_daily_update_job_sensor \
+  tests.test_market_breadth_continuity_sensors \
+  tests.test_stock_mins_daily_continuity_sensors \
+  tests.test_stk_mins_qfq_m9a_sensor_contracts \
+  tests.test_stk_mins_qfq_m9c_sensor_contracts \
+  tests.test_stock_daily_sensor \
+  tests.test_stock_basic_namechange_split_contracts \
+  tests.test_gold_wealth_market_turnover_sensor \
+  tests.test_adj_factor_m4_contracts
+git diff --check</pre>
+    <p class="muted">
+      不默认运行 <code>dg check defs</code>。若后续需要 definitions 加载验证，必须单独审批。
+    </p>
+  </section>
+
+  <section>
+    <h2>9. 实施步骤</h2>
+    <ol>
+      <li>
+        <strong>C1 shared contract。</strong>
+        新增 <code>cursor_payloads.py</code>，扩展 <code>cursors.py</code>，先让 contract 测试失败并补齐。
+      </li>
+      <li>
+        <strong>C2 行为依赖兼容。</strong>
+        先改 <code>stock_daily</code>、<code>namechange</code>、<code>qfq daily</code>、<code>qfq repair</code> 的 cursor reader，
+        确保新 <code>runtime_state</code> 和旧 root 字段都能读。
+      </li>
+      <li>
+        <strong>C3 全部 cursor writer 一次性迁移。</strong>
+        20 个 writer 文件全部改成统一 template；11 个 <code>to_cursor_details()</code> sensor 调用清零。
+      </li>
+      <li>
+        <strong>C4 测试和静态门禁。</strong>
+        更新所有 cursor 断言和全局门禁，确保禁止字段不会回流。
+      </li>
+      <li>
+        <strong>C5 文档同步。</strong>
+        更新本 LLD、专项方案、性能治理文档、必要时更新 coding standards 中 cursor 规范。
+      </li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>10. Stop Conditions</h2>
+    <ul>
+      <li>发现除第 6 节外还有生产代码读取 cursor 字段决定行为，且尚未列入兼容方案。</li>
+      <li>任一 sensor 迁移后 run request 数量、run key、run config、job selection 或 readiness 顺序发生变化。</li>
+      <li>某个 cursor 无法压到 8KB 以下，且没有明确的 runtime state 必要性。</li>
+      <li>静态门禁需要放宽才能通过。</li>
+      <li>需要访问正式 Dagster instance、写 DB 或写 lake 才能验证。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>11. 已确认口径</h2>
+    <div class="callout green">
+      <p><strong>口径 1：</strong> 引入统一 cursor 模板，但继续使用 <code>schema_version=1</code>。本轮是 v1 contract 收紧，不做 v2 迁移。</p>
+      <p><strong>口径 2：</strong> 允许 cursor 写短中文 <code>summary</code> / <code>next_action</code>，并把 JSON 输出改为可直接显示中文；<code>reason</code> / <code>reason_code</code> 仍保持 ASCII 机器码。</p>
+      <p><strong>口径 3：</strong> 长度预算固定为：普通 cursor 小于 2KB，复杂阻断小于 3KB，硬上限 8KB。超过 3KB 必须有测试解释；超过 8KB 直接失败。</p>
+      <p><strong>口径 4：</strong> 禁止 sensor cursor 直接调用报告型 <code>to_cursor_details()</code>。完整 readiness 报告、路径列表、样本行和 schema/type 明细只能留在 metadata、helper 输出或只读审计报告里。</p>
+      <p><strong>口径 5：</strong> 所有 active cursor writer 一次性改完，不分批保留新旧两种 cursor 口径。无 cursor 的 run-status / Feishu 通知 sensor 不强行新增 cursor。</p>
+      <p><strong>口径 6：</strong> 每个写 cursor 的 sensor 必须有 <code>summary</code> 和 <code>next_action</code>。它们是 cursor “说人话”的核心字段，不能只写机器码。</p>
+      <p><strong>补充执行口径：</strong> 确实会被代码消费的状态统一放入 <code>runtime_state</code>，并保留旧 root 字段 fallback；<code>stock_daily_missing_code_repair</code> 仍保留在 cursor 内，本轮不新增状态表，也不把 repair state 移出 Dagster cursor。</p>
+    </div>
+  </section>
+</main>
+</body>
+</html>

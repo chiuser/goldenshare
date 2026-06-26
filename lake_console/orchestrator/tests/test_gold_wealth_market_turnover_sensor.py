@@ -466,7 +466,9 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
         self.assertEqual(cursor["details"]["reason_code"], "prod_sync_missing")
         self.assertEqual(cursor["details"]["blocked_component"], "prod_core_db")
         self.assertEqual(
-            cursor["details"]["prod_core_status"]["materialized"],
+            cursor["details"]["gate_statuses"]["prod_core_wealth_market_turnover"][
+                "materialized"
+            ],
             False,
         )
 
@@ -515,7 +517,11 @@ class GoldWealthMarketTurnoverSensorTests(unittest.TestCase):
             "prod_sync_failed_requires_manual_retry",
         )
         self.assertEqual(cursor["details"]["blocked_component"], "prod_core_db")
-        self.assertTrue(cursor["details"]["prod_core_status"]["failed"])
+        self.assertTrue(
+            cursor["details"]["gate_statuses"]["prod_core_wealth_market_turnover"][
+                "failed"
+            ]
+        )
 
     def test_gold_and_prod_ready_skips_chain_ready(self) -> None:
         trade_dates = (PARTITION_KEY, NEXT_PARTITION_KEY)

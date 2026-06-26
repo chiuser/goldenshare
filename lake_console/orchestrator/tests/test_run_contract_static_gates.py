@@ -2071,6 +2071,45 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_sensor_cursor_payloads_do_not_embed_readiness_reports(self) -> None:
+        issues = []
+        forbidden_fragments = (
+            "to_cursor_details()",
+            '"status_samples":',
+            '"sample_rows":',
+            '"missing_file_paths":',
+            '"readiness_details":',
+            '"raw_batch_status":',
+            '"silver_batch_status":',
+            '"gold_batch_status":',
+            '"serving_batch_status":',
+            '"upstream_batch_statuses":',
+            '"batch_status":',
+            '"missing_file_path_sample":',
+        )
+        for path in _sensor_definition_files():
+            source = path.read_text()
+            issues.extend(
+                f"{path} embeds report-style cursor detail fragment: {fragment}"
+                for fragment in forbidden_fragments
+                if fragment in source
+            )
+
+        cursor_source = (DEFS_DIR / "run_contracts" / "cursors.py").read_text()
+        for required_fragment in (
+            "summary and next_action",
+            "ensure_ascii=False",
+            "MAX_SENSOR_CURSOR_BYTES",
+            "_FORBIDDEN_CURSOR_DETAIL_KEYS",
+        ):
+            if required_fragment not in cursor_source:
+                issues.append(
+                    "cursor builder must enforce compact human-readable v1 contract: "
+                    f"{required_fragment}"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_sensor_hot_path_batch_readiness_helpers_stay_runtime_free(self) -> None:
         helper_requirements = {
             DEFS_DIR / "asset_guards" / "stk_mins_lake_readiness.py": (
@@ -2455,8 +2494,9 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "build_raw_index_daily_update_job_run_config",
                 'subject="raw_index_daily"',
                 'write_mode="replace"',
-                '"reason_code"',
-                '"blocked_component"',
+                "build_cursor_details",
+                "reason_code=reason_code",
+                "blocked_component=_blocked_component_for_reason",
             ),
             silver_sensor_path: (
                 'job_name="silver_index_daily_update_job"',
@@ -2465,7 +2505,8 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "batch_silver_index_daily_lake_readiness",
                 "select_first_not_ready_trade_date",
                 'subject="silver_index_daily"',
-                '"reason_code"',
+                "build_cursor_details",
+                "reason_code=reason_code",
             ),
             major_helper_path: (
                 "raw_index_daily_path",

@@ -15,6 +15,10 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_continuity_frontier,
+)
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -61,7 +65,6 @@ def _cursor_payload(
         0,
         missing_registered_count - len(selected_keys),
     )
-    gap_details = gap_status.to_cursor_details()
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -70,24 +73,42 @@ def _cursor_payload(
         selected_count=len(selected_keys),
         blocked_count=blocked_count,
         sample_keys=selected_keys,
-        details={
-            "partition_set": cn_a_stock_current_trade_days.name,
-            "expected_start_date": gap_details["expected_start_date"],
-            "expected_end_date": gap_details["expected_end_date"],
-            "expected_count": gap_details["expected_count"],
-            "registered_count": gap_details["registered_count"],
-            "missing_registered_count": missing_registered_count,
-            "first_missing_registered_date": gap_status.first_missing_registered_date,
-            "missing_registered_dates": list(gap_status.missing_registered_dates),
-            "selected_keys": list(selected_keys),
-            "same_day_register_start": _format_register_start(
-                STOCK_CURRENT_TRADE_DAY_REGISTER_START
+        details=build_cursor_details(
+            sensor_name="stock_current_trade_day_sensor",
+            job_name=None,
+            asset_family="stock_current_trade_day_partitions",
+            partition_set=cn_a_stock_current_trade_days.name,
+            reason_code=(
+                "register_partitions" if selected_keys else "all_registered"
             ),
-            "window_limit": expected_window.window_limit,
-            "max_partition_keys_per_tick": (
-                STOCK_CURRENT_TRADE_DAY_MAX_PARTITIONS_PER_TICK
+            blocked_component=cn_a_stock_current_trade_days.name
+            if blocked_count
+            else "none",
+            summary=(
+                f"已触发：注册 {len(selected_keys)} 个股票当前交易日分区。"
+                if selected_keys
+                else "未触发：最近股票当前交易日分区都已注册。"
             ),
-        },
+            next_action=(
+                "等待 Dagster dynamic partition 注册完成。"
+                if selected_keys
+                else "无需处理，等待下一次 sensor tick。"
+            ),
+            frontier=compact_continuity_frontier(
+                gap_status,
+                selected_trade_date=selected_keys[0] if selected_keys else None,
+            ),
+            evidence={
+                "missing_registered_count": missing_registered_count,
+                "same_day_register_start": _format_register_start(
+                    STOCK_CURRENT_TRADE_DAY_REGISTER_START
+                ),
+                "window_limit": expected_window.window_limit,
+                "max_partition_keys_per_tick": (
+                    STOCK_CURRENT_TRADE_DAY_MAX_PARTITIONS_PER_TICK
+                ),
+            },
+        ),
     )
 
 

@@ -21,6 +21,13 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -42,15 +49,13 @@ from orchestrator.defs.sensors.cn_a_trade_day_sensor import (
 )
 
 
-MAX_STATUS_SAMPLE_COUNT = 20
+MAX_STATUS_SAMPLE_COUNT = 3
 
 
 def _lake_status_payload(
     status: ContinuityDateReadiness | None,
 ) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return status.to_cursor_details()
+    return compact_readiness_status(status)
 
 
 def _input_status_payload(
@@ -192,21 +197,45 @@ def _cursor_payload(
             input_status=input_status,
         ),
         sample_keys=sample_keys,
-        details={
-            "registered_trade_day_count": registered_trade_day_count,
-            "registered_code_count": registered_code_count,
-            "selected_trade_date": selected_trade_date,
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "continuity_status": continuity_status,
-            "gold_batch_status": (
-                gold_batch_status.to_cursor_details() if gold_batch_status else None
+        details=build_cursor_details(
+            sensor_name="market_major_indices_daily_sensor",
+            job_name="market_major_indices_daily_update_job",
+            asset_family="market_major_indices_daily",
+            partition_set=cn_a_index_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
             ),
-            "gold_status": _lake_status_payload(gold_status),
-            "silver_status": _lake_status_payload(silver_status),
-            "index_basic_status": _lake_status_payload(index_basic_status),
-            "input_status": _input_status_payload(input_status),
-        },
+            frontier={
+                "continuity": compact_continuity_frontier(
+                    continuity_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+                "gold": compact_batch_frontier(
+                    gold_batch_status,
+                    selected_trade_date=selected_trade_date,
+                ),
+            },
+            gate_statuses={
+                **compact_gate_statuses(
+                    {
+                        "gold_market_major_indices_daily": gold_status,
+                        "silver_index_daily": silver_status,
+                        "silver_index_basic": index_basic_status,
+                    }
+                ),
+                "market_major_indices_inputs": _input_status_payload(input_status),
+            },
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "registered_code_count": registered_code_count,
+                "selected_trade_date": selected_trade_date,
+            },
+        ),
     )
 
 

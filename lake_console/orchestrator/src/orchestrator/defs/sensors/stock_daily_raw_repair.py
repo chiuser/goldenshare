@@ -24,6 +24,7 @@ from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.configs import (
     MAX_STOCK_DAILY_MISSING_CODE_REPAIR_COUNT,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import cursor_runtime_state
 
 
 MAX_STOCK_DAILY_REPAIR_ATTEMPTS = 20
@@ -141,7 +142,10 @@ def stock_daily_missing_codes_hash(missing_codes: tuple[str, ...]) -> str:
 def stock_daily_repair_state_from_details(
     details: Mapping[str, Any],
 ) -> dict[str, Any]:
-    raw_state = details.get(STOCK_DAILY_REPAIR_STATE_KEY)
+    runtime_state = cursor_runtime_state(details)
+    raw_state = runtime_state.get(STOCK_DAILY_REPAIR_STATE_KEY)
+    if not isinstance(raw_state, Mapping):
+        raw_state = details.get(STOCK_DAILY_REPAIR_STATE_KEY)
     if not isinstance(raw_state, Mapping):
         return {"dates": {}}
     dates = raw_state.get("dates")

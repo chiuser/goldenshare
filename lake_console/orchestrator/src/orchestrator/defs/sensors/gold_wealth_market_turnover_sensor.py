@@ -25,6 +25,13 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -238,15 +245,7 @@ def _target_trade_date_from_continuity_status(
 def _batch_status_payload(
     status: StkMinsBatchReadiness | WealthMarketTurnoverBatchReadiness | None,
 ) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return {
-        "dataset": status.dataset,
-        "expected_start_date": status.expected_start_date,
-        "expected_end_date": status.expected_end_date,
-        "expected_count": status.expected_count,
-        "elapsed_ms": status.elapsed_ms,
-    }
+    return compact_batch_frontier(status)
 
 
 def _date_status_payload(
@@ -259,7 +258,17 @@ def _date_status_payload(
 ) -> dict[str, object] | None:
     if status is None:
         return None
-    return status.to_cursor_details()
+    if isinstance(status, WealthMarketTurnoverProdCoreReadiness):
+        return {
+            "trade_date": status.trade_date,
+            "ready": status.ready,
+            "materialized": status.materialized,
+            "checks_passed": status.checks_passed,
+            "failed": status.failed,
+            "reason_code": status.reason_code,
+            "failed_component": status.failed_component,
+        }
+    return compact_readiness_status(status)
 
 
 def _cursor_payload(
@@ -325,37 +334,54 @@ def _cursor_payload(
         selected_count=1 if decision.selected_trade_date else 0,
         blocked_count=blocked_count,
         sample_keys=(decision.selected_trade_date,) if decision.selected_trade_date else (),
-        details={
-            "partition_set": cn_a_stock_mins_silver_trade_days.name,
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": decision.selected_trade_date,
-            "reason_code": decision.reason_code,
-            "blocked_component": decision.blocked_component,
-            "job_name": GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME,
-            "run_window_started": decision.run_window_started,
-            "run_start_time": GOLD_WEALTH_MARKET_TURNOVER_RUN_START.isoformat(),
-            "freqs": list(STK_MINS_FREQS),
-            "silver_status": _date_status_payload(silver_status),
-            "gold_status": _date_status_payload(gold_status),
-            "prod_core_status": _date_status_payload(prod_core_status),
-            "silver_batch_status": _batch_status_payload(silver_batch_status),
-            "gold_batch_status": _batch_status_payload(gold_batch_status),
-            "silver_continuity_status": (
-                silver_continuity_status.to_cursor_details()
-                if silver_continuity_status is not None
-                else None
+        details=build_cursor_details(
+            sensor_name="gold_wealth_market_turnover_update_job_sensor",
+            job_name=GOLD_WEALTH_MARKET_TURNOVER_SENSOR_JOB_NAME,
+            asset_family="wealth_market_turnover",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code=decision.reason_code,
+            blocked_component=decision.blocked_component,
+            summary=decision.reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if decision.selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
             ),
-            "gold_continuity_status": (
-                gold_continuity_status.to_cursor_details()
-                if gold_continuity_status is not None
-                else None
-            ),
-            "prod_core_continuity_status": (
-                prod_core_continuity_status.to_cursor_details()
-                if prod_core_continuity_status is not None
-                else None
-            ),
-        },
+            frontier={
+                "silver": compact_continuity_frontier(
+                    silver_continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "gold": compact_continuity_frontier(
+                    gold_continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "prod_core": compact_continuity_frontier(
+                    prod_core_continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "silver_lake": _batch_status_payload(silver_batch_status),
+                "gold_lake": _batch_status_payload(gold_batch_status),
+            },
+            gate_statuses={
+                **compact_gate_statuses(
+                    {
+                        "silver_stk_mins": silver_status,
+                        "gold_wealth_market_turnover": gold_status,
+                    }
+                ),
+                "prod_core_wealth_market_turnover": _date_status_payload(
+                    prod_core_status
+                ),
+            },
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "selected_trade_date": decision.selected_trade_date,
+                "run_window_started": decision.run_window_started,
+                "run_start_time": GOLD_WEALTH_MARKET_TURNOVER_RUN_START.isoformat(),
+                "freq_count": len(STK_MINS_FREQS),
+            },
+        ),
     )
 
 

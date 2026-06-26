@@ -30,6 +30,15 @@ from orchestrator.defs.run_contracts.cursors import (
     load_sensor_cursor,
     sensor_cursor_details,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+    cursor_runtime_state,
+    reason_code_from,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -45,7 +54,6 @@ from orchestrator.defs.run_contracts.stk_mins import (
 from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     DatasetReadinessStatus,
-    status_payload,
 )
 from orchestrator.defs.sensors.stock_mins_silver_trade_day_sensor import (
     STOCK_MINS_SILVER_TRADE_DAY_REGISTER_START,
@@ -129,11 +137,7 @@ def _qfq_factor_repair_snapshot_has_materialized_check_problem(
 def _readiness_status_payload(
     status: StkMinsDateReadiness | DatasetReadinessStatus | None,
 ) -> dict[str, object] | None:
-    if status is None:
-        return None
-    if isinstance(status, StkMinsDateReadiness):
-        return status.to_cursor_details()
-    return status_payload(status)
+    return compact_readiness_status(status)
 
 
 def _batch_status_payload(
@@ -141,13 +145,29 @@ def _batch_status_payload(
 ) -> dict[str, object] | None:
     if batch_status is None:
         return None
+    return compact_batch_frontier(batch_status)
+
+
+def _qfq_factor_repair_status_payload(
+    status: GoldStkMinsQfqFactorRepairStatus | None,
+) -> dict[str, object] | None:
+    if status is None:
+        return None
     return {
-        "dataset": batch_status.dataset,
-        "expected_start_date": batch_status.expected_start_date,
-        "expected_end_date": batch_status.expected_end_date,
-        "expected_count": batch_status.expected_count,
-        "freq_count": batch_status.freq_count,
-        "elapsed_ms": batch_status.elapsed_ms,
+        "ready": status.ready,
+        "trade_date": status.trade_date,
+        "reason_code": reason_code_from(status.reason),
+        "repair_required": status.repair_required,
+        "rewrote_history": status.rewrote_history,
+        "missing_qfq_asset_count": len(status.missing_qfq_asset_keys),
+        "failed_qfq_asset_count": len(status.failed_qfq_asset_keys),
+        "repair_start_trade_date": status.repair_start_trade_date,
+        "repair_end_trade_date": status.repair_end_trade_date,
+        "selected_partition_count": status.selected_partition_count,
+        "repair_required_code_count": status.repair_required_code_count,
+        "repair_required_codes_hash": status.repair_required_codes_hash,
+        "repair_required_codes_truncated": status.repair_required_codes_truncated,
+        "requires_derived_reconciliation": status.requires_derived_reconciliation,
     }
 
 
@@ -311,6 +331,17 @@ def _cursor_payload(
         if blocked_count == 0 and decision.target_trade_date is None:
             blocked_count = 1
 
+    reason_code = _cursor_reason_code(
+        decision=decision,
+        continuity_status=continuity_status,
+        gold_status=gold_status,
+        qfq_factor_repair_status=qfq_factor_repair_status,
+        already_submitted_for_trade_date=already_submitted_for_trade_date,
+    )
+    blocked_component = _blocked_component_for_cursor(
+        gold_status=gold_status,
+        qfq_factor_repair_status=qfq_factor_repair_status,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -318,37 +349,41 @@ def _cursor_payload(
         selected_count=1 if decision.selected_trade_date else 0,
         blocked_count=blocked_count,
         sample_keys=(decision.selected_trade_date,) if decision.selected_trade_date else (),
-        details={
-            "partition_set": cn_a_stock_mins_silver_trade_days.name,
-            "registered_trade_day_count": registered_trade_day_count,
-            "selected_trade_date": decision.selected_trade_date,
-            "reason_code": _cursor_reason_code(
-                decision=decision,
-                continuity_status=continuity_status,
-                gold_status=gold_status,
-                qfq_factor_repair_status=qfq_factor_repair_status,
-                already_submitted_for_trade_date=already_submitted_for_trade_date,
+        details=build_cursor_details(
+            sensor_name="stock_mins_qfq_factor_repair_sensor",
+            job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
+            asset_family="stock_mins_qfq_factor_repair",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=decision.reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if decision.selected_trade_date
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
             ),
-            "blocked_component": _blocked_component_for_cursor(
-                gold_status=gold_status,
-                qfq_factor_repair_status=qfq_factor_repair_status,
-            ),
-            "job_name": STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
-            "run_window_started": decision.run_window_started,
-            "already_submitted_for_trade_date": already_submitted_for_trade_date,
-            "gold_status": _readiness_status_payload(gold_status),
-            "qfq_factor_repair_status": (
-                qfq_factor_repair_status.to_payload()
-                if qfq_factor_repair_status is not None
-                else None
-            ),
-            "gold_batch_status": _batch_status_payload(gold_batch_status),
-            "continuity_status": (
-                continuity_status.to_cursor_details()
-                if continuity_status is not None
-                else None
-            ),
-        },
+            frontier={
+                "continuity": compact_continuity_frontier(
+                    continuity_status,
+                    selected_trade_date=decision.selected_trade_date,
+                ),
+                "gold": _batch_status_payload(gold_batch_status),
+            },
+            gate_statuses={
+                **compact_gate_statuses({"gold_stk_mins_qfq": gold_status}),
+                "qfq_factor_repair": _qfq_factor_repair_status_payload(
+                    qfq_factor_repair_status
+                ),
+            },
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "run_window_started": decision.run_window_started,
+            },
+            runtime_state={
+                "selected_trade_date": decision.selected_trade_date,
+                "already_submitted_for_trade_date": already_submitted_for_trade_date,
+            },
+        ),
     )
 
 
@@ -364,11 +399,17 @@ def _window_not_started_cursor_payload(
         selected_count=0,
         blocked_count=0,
         sample_keys=(),
-        details={
-            "job_name": STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
-            "run_window_started": False,
-            "reason_code": "run_window_not_started",
-        },
+        details=build_cursor_details(
+            sensor_name="stock_mins_qfq_factor_repair_sensor",
+            job_name=STOCK_MINS_QFQ_FACTOR_REPAIR_SENSOR_JOB_NAME,
+            asset_family="stock_mins_qfq_factor_repair",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code="run_window_not_started",
+            blocked_component="run_window",
+            summary=reason,
+            next_action="等待 20:40 后由下一次 sensor tick 自动重试。",
+            evidence={"run_window_started": False},
+        ),
     )
 
 
@@ -400,9 +441,19 @@ def _already_submitted_for_target_date(
 ) -> bool:
     cursor_payload = load_sensor_cursor(cursor)
     details = sensor_cursor_details(cursor_payload)
+    runtime_state = cursor_runtime_state(details)
     if (
-        details.get("selected_trade_date") == target_trade_date
-        and details.get("already_submitted_for_trade_date") is True
+        (
+            runtime_state.get("selected_trade_date")
+            or details.get("selected_trade_date")
+        )
+        == target_trade_date
+        and (
+            runtime_state.get("already_submitted_for_trade_date")
+            if "already_submitted_for_trade_date" in runtime_state
+            else details.get("already_submitted_for_trade_date")
+        )
+        is True
     ):
         return True
 

@@ -404,18 +404,15 @@ class AdjFactorM4ContractTests(unittest.TestCase):
             payload["details"]["partition_set"],
             "cn_a_stock_current_trade_days",
         )
-        self.assertEqual(payload["details"]["expected_count"], 4)
-        self.assertEqual(payload["details"]["registered_count"], 1)
+        self.assertEqual(payload["details"]["frontier"]["expected_count"], 4)
+        self.assertEqual(payload["details"]["frontier"]["registered_count"], 1)
         self.assertEqual(
-            payload["details"]["first_missing_registered_date"],
+            payload["details"]["frontier"]["first_missing_registered_date"],
             "2026-06-15",
         )
-        self.assertEqual(
-            payload["details"]["selected_keys"],
-            ["2026-06-15", "2026-06-16"],
-        )
-        self.assertEqual(payload["details"]["max_partition_keys_per_tick"], 2)
-        self.assertEqual(payload["details"]["window_limit"], 10)
+        self.assertEqual(payload["sample_keys"], ["2026-06-15", "2026-06-16"])
+        self.assertEqual(payload["details"]["evidence"]["max_partition_keys_per_tick"], 2)
+        self.assertEqual(payload["details"]["evidence"]["window_limit"], 10)
         self.assertEqual(STOCK_CURRENT_TRADE_DAY_REGISTER_START.hour, 6)
 
     def test_current_trade_day_sensor_before_window_still_catches_up_history(
@@ -439,8 +436,8 @@ class AdjFactorM4ContractTests(unittest.TestCase):
 
         self.assertEqual(payload["decision"], "register_partitions")
         self.assertEqual(payload["sample_keys"], ["2026-06-15", "2026-06-16"])
-        self.assertEqual(payload["details"]["expected_count"], 3)
-        self.assertNotIn("2026-06-17", payload["details"]["selected_keys"])
+        self.assertEqual(payload["details"]["frontier"]["expected_count"], 3)
+        self.assertNotIn("2026-06-17", payload["sample_keys"])
 
     def test_current_trade_day_sensor_keeps_0600_same_day_window(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -461,7 +458,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
 
         self.assertEqual(result.dynamic_partitions_requests, [])
         self.assertEqual(payload["decision"], "skip")
-        self.assertEqual(payload["details"]["selected_keys"], [])
+        self.assertEqual(payload["sample_keys"], [])
         self.assertIn("06:00", result.skip_reason.skip_message)
 
     def test_raw_sensor_skips_when_registered_trade_days_have_gap(self) -> None:
@@ -583,7 +580,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
                         result.skip_reason.skip_message,
                     )
                 cursor_payload = load_sensor_cursor(result.cursor)
-                details = cursor_payload["details"]["readiness_details"]
+                details = cursor_payload["details"]["gate_statuses"]
                 self.assertFalse(details["raw_tushare_adj_factor"]["ready"])
 
     def test_silver_sensor_skips_when_stock_basic_not_ready(self) -> None:
@@ -620,17 +617,17 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         )
         self.assertEqual(cursor_payload["details"]["blocked_component"], "stock_basic")
         self.assertFalse(
-            cursor_payload["details"]["stock_basic_freshness_required"]
+            cursor_payload["details"]["evidence"]["stock_basic_freshness_required"]
         )
         self.assertEqual(
-            cursor_payload["details"]["readiness_details"]["silver_adj_factor"][
-                "reason"
+            cursor_payload["details"]["gate_statuses"]["silver_adj_factor"][
+                "reason_code"
             ],
-            "missing file",
+            "missing_file",
         )
-        self.assertIn("stock_basic", cursor_payload["details"]["readiness_details"])
+        self.assertIn("stock_basic", cursor_payload["details"]["gate_statuses"])
         self.assertFalse(
-            cursor_payload["details"]["readiness_details"]["stock_basic"]["ready"]
+            cursor_payload["details"]["gate_statuses"]["stock_basic"]["ready"]
         )
 
     def test_silver_sensor_skips_when_stock_lifecycle_not_ready(self) -> None:
@@ -659,7 +656,7 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("股票生命周期事实尚未通过", result.skip_reason.skip_message)
         cursor_payload = load_sensor_cursor(result.cursor)
-        stock_lifecycle_payload = cursor_payload["details"]["readiness_details"][
+        stock_lifecycle_payload = cursor_payload["details"]["gate_statuses"][
             "stock_lifecycle"
         ]
         self.assertEqual(
@@ -703,9 +700,9 @@ class AdjFactorM4ContractTests(unittest.TestCase):
         self.assertEqual(request.run_key, "silver_adj_factor_update:2026-06-05")
         cursor_payload = load_sensor_cursor(result.cursor)
         self.assertFalse(
-            cursor_payload["details"]["stock_basic_freshness_required"]
+            cursor_payload["details"]["evidence"]["stock_basic_freshness_required"]
         )
-        stock_lifecycle_payload = cursor_payload["details"]["readiness_details"][
+        stock_lifecycle_payload = cursor_payload["details"]["gate_statuses"][
             "stock_lifecycle"
         ]
         self.assertEqual(

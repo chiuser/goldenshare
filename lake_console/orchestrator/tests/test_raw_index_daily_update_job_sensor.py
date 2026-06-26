@@ -257,7 +257,7 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
         self.assertNotIn("raw_batch_status", cursor["details"])
         self.assertNotIn(
             "status_samples",
-            cursor["details"]["continuity_status"],
+            cursor["details"]["frontier"],
         )
 
     def test_existing_failed_raw_checks_do_not_auto_overwrite(self) -> None:
@@ -285,7 +285,7 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         self.assertEqual(cursor["details"]["reason_code"], "materialized_check_failed")
         self.assertEqual(cursor["details"]["blocked_component"], "raw_lake")
-        raw_status = cursor["details"]["raw_status"]
+        raw_status = cursor["details"]["gate_statuses"]["raw_lake"]
         self.assertEqual(raw_status["reason"], "file_contract_failed")
         self.assertEqual(raw_status["unexpected_columns"], ["unexpected"])
         self.assertNotIn("observed_columns", raw_status)
@@ -316,11 +316,11 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
         self.assertEqual(cursor["blocked_count"], 0)
         self.assertEqual(cursor["details"]["reason_code"], "all_ready")
         self.assertEqual(cursor["details"]["blocked_component"], "none")
-        self.assertIsNone(cursor["details"]["raw_status"])
+        self.assertNotIn("raw_lake", cursor["details"].get("gate_statuses", {}))
         self.assertNotIn("raw_batch_status", cursor["details"])
         self.assertNotIn(
             "status_samples",
-            cursor["details"]["continuity_status"],
+            cursor["details"]["frontier"],
         )
 
     def test_source_not_ready_cursor_is_compact_and_actionable(self) -> None:
@@ -351,27 +351,27 @@ class RawIndexDailyUpdateJobSensorTests(unittest.TestCase):
         cursor = json.loads(result.cursor)
         details = cursor["details"]
         self.assertEqual(cursor["target_date"], "2026-06-24")
-        self.assertEqual(details["selected_trade_date"], None)
+        self.assertIsNone(details["evidence"].get("selected_trade_date"))
         self.assertEqual(details["reason_code"], "code_coverage")
         self.assertEqual(details["blocked_component"], "prod_core_db")
         self.assertNotIn("raw_batch_status", details)
 
-        continuity_status = details["continuity_status"]
-        self.assertEqual(continuity_status["ready_through_trade_date"], "2026-06-23")
-        self.assertEqual(continuity_status["first_not_ready_trade_date"], "2026-06-24")
-        self.assertNotIn("status_samples", continuity_status)
+        frontier = details["frontier"]
+        self.assertEqual(frontier["ready_through_trade_date"], "2026-06-23")
+        self.assertEqual(frontier["first_not_ready_trade_date"], "2026-06-24")
+        self.assertNotIn("status_samples", frontier)
 
-        raw_status = details["raw_status"]
+        raw_status = details["gate_statuses"]["raw_lake"]
         self.assertEqual(raw_status["trade_date"], "2026-06-24")
         self.assertEqual(raw_status["reason"], "missing_raw_index_daily_file")
         self.assertEqual(raw_status["missing_file_path_count"], 1)
-        self.assertIn("missing_file_path_sample", raw_status)
+        self.assertNotIn("missing_file_path_sample", raw_status)
         self.assertNotIn("summary", raw_status)
         self.assertNotIn("observed_columns", raw_status)
         self.assertNotIn("column_types", raw_status)
         self.assertNotIn("file_path", raw_status)
 
-        source_status = details["source_status"]
+        source_status = details["gate_statuses"]["prod_core_db"]
         self.assertFalse(source_status["ready"])
         self.assertEqual(source_status["reason"], "code_coverage")
         self.assertEqual(source_status["expected_code_count"], 2)

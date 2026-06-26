@@ -24,6 +24,12 @@ from orchestrator.defs.run_contracts.cursors import (
     load_sensor_cursor,
     sensor_cursor_details,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_asset_readiness_status,
+    compact_continuity_frontier,
+    compact_dataset_readiness,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import (
     build_asset_update_run_key,
@@ -43,7 +49,6 @@ from orchestrator.defs.sensors.readiness import (
     DatasetReadinessStatus,
     materialized_partition_keys,
     raw_tushare_stock_daily_ready_for_trade_date,
-    status_payload,
     stock_basic_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
@@ -147,26 +152,14 @@ def _registered_gap_skip_reason(
     )
 
 
-def _readiness_dataset_payload(
+def _compact_dataset_status(
     status: DatasetReadinessStatus,
-) -> list[dict[str, object]]:
-    return status_payload(status)
+) -> dict[str, object]:
+    return compact_dataset_readiness(status) or {}
 
 
-def _readiness_asset_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
+def _compact_asset_status(status: AssetReadinessStatus) -> dict[str, object]:
+    return compact_asset_readiness_status(status) or {}
 
 
 def _source_readiness_payload(
@@ -185,18 +178,18 @@ def _supporting_facts_ready(
     *,
     context: dg.SensorEvaluationContext,
     trade_date: str,
-    readiness_details: dict[str, dict[str, object]],
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
 ) -> bool:
-    readiness_details.setdefault(trade_date, {})
+    gate_statuses_by_trade_date.setdefault(trade_date, {})
     basic_status = stock_basic_ready_for_trade_date(context.instance, trade_date)
-    readiness_details[trade_date]["stock_basic"] = _readiness_dataset_payload(
+    gate_statuses_by_trade_date[trade_date]["stock_basic"] = _compact_dataset_status(
         basic_status
     )
     if not basic_status.ready:
         return False
 
     suspend_status = suspend_d_ready_for_trade_date(context.instance, trade_date)
-    readiness_details[trade_date]["suspend_d"] = _readiness_dataset_payload(
+    gate_statuses_by_trade_date[trade_date]["suspend_d"] = _compact_dataset_status(
         suspend_status
     )
     return suspend_status.ready
@@ -207,16 +200,16 @@ def _stock_daily_source_ready(
     context: dg.SensorEvaluationContext,
     trade_date: str,
     evaluated_at: datetime,
-    readiness_details: dict[str, dict[str, object]],
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
 ) -> bool:
     source_readiness = check_stock_daily_source_readiness(
         tushare=context.resources.tushare,
         trade_date=trade_date,
         checked_at=evaluated_at,
     )
-    readiness_details.setdefault(trade_date, {})
-    readiness_details[trade_date]["source_readiness"] = _source_readiness_payload(
-        source_readiness
+    gate_statuses_by_trade_date.setdefault(trade_date, {})
+    gate_statuses_by_trade_date[trade_date]["source_readiness"] = (
+        _source_readiness_payload(source_readiness)
     )
     return source_readiness.is_ready
 
@@ -256,7 +249,7 @@ def _raw_sensor_cursor(
     selected_full_day_keys: tuple[str, ...],
     selected_repair_keys: tuple[str, ...],
     blocked_keys: tuple[str, ...],
-    readiness_details: dict[str, dict[str, object]],
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
     repair_state: dict[str, Any],
     repair_details: dict[str, object],
     continuity_details: dict[str, object] | None,
@@ -276,6 +269,15 @@ def _raw_sensor_cursor(
         if raw_missing_keys
         else None
     )
+    reason_code = "request_run" if selected_keys else "all_ready"
+    blocked_component = "none"
+    if not selected_keys:
+        if blocked_keys:
+            reason_code = "blocked"
+            blocked_component = "readiness_gate"
+        elif raw_missing_keys:
+            reason_code = "pending_raw"
+            blocked_component = "raw_tushare_stock_daily"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -283,20 +285,42 @@ def _raw_sensor_cursor(
         selected_count=len(selected_keys),
         blocked_count=len(blocked_keys),
         sample_keys=selected_keys or blocked_keys or raw_missing_keys,
-        details={
-            "registered_count": registered_count,
-            "raw_missing_count": len(raw_missing_keys),
-            "raw_missing_sample_keys": list(raw_missing_keys[:20]),
-            "selected_full_day_keys": list(selected_full_day_keys),
-            "selected_repair_keys": list(selected_repair_keys),
-            "blocked_keys": list(blocked_keys),
-            "readiness_details": readiness_details,
-            "repair_details": repair_details,
-            STOCK_DAILY_REPAIR_STATE_KEY: repair_state,
-            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-            "recent_repair_trade_date_limit": RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT,
-            "continuity_status": continuity_details,
-        },
+        details=build_cursor_details(
+            sensor_name="raw_stock_daily_update_job_sensor",
+            job_name="raw_stock_daily_update_job",
+            asset_family="stock_daily",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=(
+                f"已触发：提交 {len(selected_keys)} 个股票日线 raw 更新。"
+                if selected_keys
+                else "未触发：股票日线 raw 当前没有可提交分区。"
+            ),
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_keys
+                else "查看首个阻断日期的上游 ready 状态，修复后等待下一次 tick。"
+            ),
+            frontier=compact_continuity_frontier(
+                continuity_details,
+                selected_trade_date=target_date,
+            ),
+            evidence={
+                "registered_count": registered_count,
+                "raw_missing_count": len(raw_missing_keys),
+                "raw_missing_sample_keys": list(raw_missing_keys[:3]),
+                "selected_full_day_count": len(selected_full_day_keys),
+                "selected_repair_count": len(selected_repair_keys),
+                "blocked_count": len(blocked_keys),
+                "first_blocked_key": blocked_keys[0] if blocked_keys else None,
+                "gate_trade_date_count": len(gate_statuses_by_trade_date),
+                "repair_details": repair_details,
+                "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+                "recent_repair_trade_date_limit": RECENT_STOCK_DAILY_REPAIR_TRADE_DATE_LIMIT,
+            },
+            runtime_state={STOCK_DAILY_REPAIR_STATE_KEY: repair_state},
+        ),
     )
 
 
@@ -307,7 +331,7 @@ def _silver_sensor_cursor(
     pending_keys: tuple[str, ...],
     selected_keys: tuple[str, ...],
     blocked_keys: tuple[str, ...],
-    readiness_details: dict[str, dict[str, object]],
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
     continuity_details: dict[str, object] | None,
 ) -> str:
     decision = (
@@ -324,6 +348,15 @@ def _silver_sensor_cursor(
         if pending_keys
         else None
     )
+    reason_code = "request_run" if selected_keys else "all_ready"
+    blocked_component = "none"
+    if not selected_keys:
+        if blocked_keys:
+            reason_code = "blocked"
+            blocked_component = "raw_tushare_stock_daily"
+        elif pending_keys:
+            reason_code = "pending_silver"
+            blocked_component = "silver_stock_daily"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -331,15 +364,37 @@ def _silver_sensor_cursor(
         selected_count=len(selected_keys),
         blocked_count=len(blocked_keys),
         sample_keys=selected_keys or blocked_keys or pending_keys,
-        details={
-            "registered_count": registered_count,
-            "pending_count": len(pending_keys),
-            "selected_keys": list(selected_keys),
-            "blocked_keys": list(blocked_keys),
-            "readiness_details": readiness_details,
-            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-            "continuity_status": continuity_details,
-        },
+        details=build_cursor_details(
+            sensor_name="silver_stock_daily_update_job_sensor",
+            job_name="silver_stock_daily_update_job",
+            asset_family="stock_daily",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=(
+                f"已触发：提交 {len(selected_keys)} 个股票日线 silver 更新。"
+                if selected_keys
+                else "未触发：股票日线 silver 当前没有可提交分区。"
+            ),
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_keys
+                else "查看首个阻断日期的 raw/check 状态，修复后等待下一次 tick。"
+            ),
+            frontier=compact_continuity_frontier(
+                continuity_details,
+                selected_trade_date=target_date,
+            ),
+            evidence={
+                "registered_count": registered_count,
+                "pending_count": len(pending_keys),
+                "selected_count": len(selected_keys),
+                "blocked_count": len(blocked_keys),
+                "first_blocked_key": blocked_keys[0] if blocked_keys else None,
+                "gate_trade_date_count": len(gate_statuses_by_trade_date),
+                "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+            },
+        ),
     )
 
 
@@ -380,7 +435,7 @@ def raw_stock_daily_update_job_sensor(
             selected_full_day_keys=(),
             selected_repair_keys=(),
             blocked_keys=(gap_status.first_missing_registered_date,),
-            readiness_details={},
+            gate_statuses_by_trade_date={},
             repair_state=repair_state,
             repair_details={},
             continuity_details=continuity_details,
@@ -404,7 +459,7 @@ def raw_stock_daily_update_job_sensor(
     selected_repair_keys: list[str] = []
     selected_repair_run_inputs: dict[str, tuple[tuple[str, ...], str, int]] = {}
     blocked_keys: list[str] = []
-    readiness_details: dict[str, dict[str, object]] = {}
+    gate_statuses_by_trade_date: dict[str, dict[str, object]] = {}
     repair_details: dict[str, object] = {}
     cursor_payload = load_sensor_cursor(context.cursor)
     previous_cursor_details = sensor_cursor_details(cursor_payload)
@@ -416,7 +471,7 @@ def raw_stock_daily_update_job_sensor(
         if not _supporting_facts_ready(
             context=context,
             trade_date=trade_date,
-            readiness_details=readiness_details,
+            gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         ):
             blocked_keys.append(trade_date)
             continue
@@ -424,7 +479,7 @@ def raw_stock_daily_update_job_sensor(
             context=context,
             trade_date=trade_date,
             evaluated_at=evaluated_at,
-            readiness_details=readiness_details,
+            gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         ):
             blocked_keys.append(trade_date)
             continue
@@ -441,9 +496,9 @@ def raw_stock_daily_update_job_sensor(
             context.instance,
             trade_date,
         )
-        readiness_details.setdefault(trade_date, {})
-        readiness_details[trade_date]["raw_tushare_stock_daily"] = (
-            _readiness_asset_payload(raw_status)
+        gate_statuses_by_trade_date.setdefault(trade_date, {})
+        gate_statuses_by_trade_date[trade_date]["raw_tushare_stock_daily"] = (
+            _compact_asset_status(raw_status)
         )
         if raw_status.ready:
             _clear_repair_state_for_trade_date(repair_state, trade_date)
@@ -451,7 +506,7 @@ def raw_stock_daily_update_job_sensor(
         if not _supporting_facts_ready(
             context=context,
             trade_date=trade_date,
-            readiness_details=readiness_details,
+            gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         ):
             blocked_keys.append(trade_date)
             continue
@@ -459,7 +514,7 @@ def raw_stock_daily_update_job_sensor(
             context=context,
             trade_date=trade_date,
             evaluated_at=evaluated_at,
-            readiness_details=readiness_details,
+            gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         ):
             blocked_keys.append(trade_date)
             continue
@@ -515,7 +570,7 @@ def raw_stock_daily_update_job_sensor(
         selected_full_day_keys=selected_full_day_tuple,
         selected_repair_keys=selected_repair_tuple,
         blocked_keys=tuple(blocked_keys),
-        readiness_details=readiness_details,
+        gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         repair_state=repair_state,
         repair_details=repair_details,
         continuity_details=continuity_details,
@@ -600,7 +655,7 @@ def silver_stock_daily_update_job_sensor(
             pending_keys=(),
             selected_keys=(),
             blocked_keys=(gap_status.first_missing_registered_date,),
-            readiness_details={},
+            gate_statuses_by_trade_date={},
             continuity_details=continuity_details,
         )
         return dg.SensorResult(
@@ -621,13 +676,13 @@ def silver_stock_daily_update_job_sensor(
     candidate_keys = pending_keys[:MAX_RUN_REQUESTS_PER_TICK]
     selected_keys: list[str] = []
     blocked_keys: list[str] = []
-    readiness_details: dict[str, dict[str, object]] = {}
+    gate_statuses_by_trade_date: dict[str, dict[str, object]] = {}
 
     for trade_date in candidate_keys:
         if not _supporting_facts_ready(
             context=context,
             trade_date=trade_date,
-            readiness_details=readiness_details,
+            gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         ):
             blocked_keys.append(trade_date)
             continue
@@ -636,9 +691,9 @@ def silver_stock_daily_update_job_sensor(
             context.instance,
             trade_date,
         )
-        readiness_details.setdefault(trade_date, {})
-        readiness_details[trade_date]["raw_tushare_stock_daily"] = (
-            _readiness_asset_payload(raw_status)
+        gate_statuses_by_trade_date.setdefault(trade_date, {})
+        gate_statuses_by_trade_date[trade_date]["raw_tushare_stock_daily"] = (
+            _compact_asset_status(raw_status)
         )
         if not raw_status.ready:
             blocked_keys.append(trade_date)
@@ -653,7 +708,7 @@ def silver_stock_daily_update_job_sensor(
         pending_keys=pending_keys,
         selected_keys=selected_tuple,
         blocked_keys=tuple(blocked_keys),
-        readiness_details=readiness_details,
+        gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         continuity_details=continuity_details,
     )
 

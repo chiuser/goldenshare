@@ -9,6 +9,10 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_gate_statuses,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -37,22 +41,6 @@ def _latest_registered_trade_date(
     return eligible_trade_days[-1] if eligible_trade_days else None
 
 
-def _status_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
-
-
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -60,41 +48,27 @@ def _cursor_payload(
     target_trade_date: str | None,
     selected_trade_date: str | None,
     reason: str,
+    job_name: str,
     registered_trade_day_count: int,
     raw_status: AssetReadinessStatus | None = None,
     silver_status: AssetReadinessStatus | None = None,
     lifecycle_status: AssetReadinessStatus | None = None,
 ) -> str:
-    details: dict[str, object] = {
-        "registered_trade_day_count": registered_trade_day_count,
-        "selected_trade_date": selected_trade_date,
-    }
-    readiness_details: dict[str, object] = {}
-    if raw_status is not None:
-        readiness_details["raw_tushare_stock_basic"] = _status_payload(raw_status)
-    if silver_status is not None:
-        readiness_details["silver_stock_basic"] = _status_payload(silver_status)
-    if lifecycle_status is not None:
-        readiness_details["silver_stock_lifecycle"] = _status_payload(
-            lifecycle_status
-        )
-    if readiness_details:
-        details["readiness_details"] = readiness_details
+    reason_code = "all_ready"
+    blocked_component = None
     if selected_trade_date:
-        details["reason_code"] = "request_run"
+        reason_code = "request_run"
     elif target_trade_date is None:
-        details["reason_code"] = "no_registered_trade_day"
+        reason_code = "no_registered_trade_day"
     elif raw_status is not None and not raw_status.ready:
-        details["reason_code"] = raw_status.reason
-        details["blocked_component"] = "raw_tushare_stock_basic"
+        reason_code = raw_status.reason
+        blocked_component = "raw_tushare_stock_basic"
     elif silver_status is not None and not silver_status.ready:
-        details["reason_code"] = silver_status.reason
-        details["blocked_component"] = "silver_stock_basic"
+        reason_code = silver_status.reason
+        blocked_component = "silver_stock_basic"
     elif lifecycle_status is not None and not lifecycle_status.ready:
-        details["reason_code"] = lifecycle_status.reason
-        details["blocked_component"] = "silver_stock_lifecycle"
-    else:
-        details["reason_code"] = "all_ready"
+        reason_code = lifecycle_status.reason
+        blocked_component = "silver_stock_lifecycle"
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -105,7 +79,31 @@ def _cursor_payload(
         sample_keys=(selected_trade_date or target_trade_date,)
         if selected_trade_date or target_trade_date
         else (),
-        details=details,
+        details=build_cursor_details(
+            sensor_name="stock_basic_sensor",
+            job_name=job_name,
+            asset_family="stock_basic",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=reason,
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_trade_date
+                else "按阻断组件修复或等待下一次 sensor tick。"
+            ),
+            gate_statuses=compact_gate_statuses(
+                {
+                    "raw_tushare_stock_basic": raw_status,
+                    "silver_stock_basic": silver_status,
+                    "silver_stock_lifecycle": lifecycle_status,
+                }
+            ),
+            evidence={
+                "registered_trade_day_count": registered_trade_day_count,
+                "selected_trade_date": selected_trade_date,
+            },
+        ),
     )
 
 
@@ -166,6 +164,7 @@ def raw_stock_basic_update_job_sensor(
             target_trade_date=None,
             selected_trade_date=None,
             reason=reason,
+            job_name="raw_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
@@ -182,6 +181,7 @@ def raw_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="raw_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             raw_status=raw_status,
         )
@@ -198,6 +198,7 @@ def raw_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="raw_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             raw_status=raw_status,
         )
@@ -211,6 +212,7 @@ def raw_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="raw_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             raw_status=raw_status,
         )
@@ -223,6 +225,7 @@ def raw_stock_basic_update_job_sensor(
         target_trade_date=target_trade_date,
         selected_trade_date=target_trade_date,
         reason=reason,
+        job_name="raw_stock_basic_update_job",
         registered_trade_day_count=len(registered_trade_days),
         raw_status=raw_status,
     )
@@ -263,6 +266,7 @@ def silver_stock_basic_update_job_sensor(
             target_trade_date=None,
             selected_trade_date=None,
             reason=reason,
+            job_name="silver_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
         )
         return dg.SensorResult(skip_reason=reason, cursor=cursor)
@@ -284,6 +288,7 @@ def silver_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="silver_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             silver_status=silver_status,
             lifecycle_status=lifecycle_status,
@@ -306,6 +311,7 @@ def silver_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="silver_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             silver_status=silver_status,
             lifecycle_status=lifecycle_status,
@@ -326,6 +332,7 @@ def silver_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="silver_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             silver_status=silver_status,
             lifecycle_status=lifecycle_status,
@@ -344,6 +351,7 @@ def silver_stock_basic_update_job_sensor(
             target_trade_date=target_trade_date,
             selected_trade_date=None,
             reason=reason,
+            job_name="silver_stock_basic_update_job",
             registered_trade_day_count=len(registered_trade_days),
             raw_status=raw_status,
             silver_status=silver_status,
@@ -361,6 +369,7 @@ def silver_stock_basic_update_job_sensor(
         target_trade_date=target_trade_date,
         selected_trade_date=target_trade_date,
         reason=reason,
+        job_name="silver_stock_basic_update_job",
         registered_trade_day_count=len(registered_trade_days),
         raw_status=raw_status,
         silver_status=silver_status,

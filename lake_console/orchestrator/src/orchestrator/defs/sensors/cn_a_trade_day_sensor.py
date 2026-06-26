@@ -12,6 +12,7 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import build_cursor_details
 from orchestrator.defs.run_contracts.sensor_tags import (
     SensorDomain,
     SensorRole,
@@ -138,16 +139,43 @@ def _cursor_payload(decision: TradeDayPartitionDecision, evaluated_at: datetime)
             len(decision.unregistered_keys) - len(decision.selected_keys),
         ),
         sample_keys=decision.selected_keys,
-        details={
-            "latest_completed_trade_date": decision.latest_completed_trade_date,
-            "today": decision.today,
-            "today_is_open": decision.today_is_open,
-            "same_day_register_window_started": decision.same_day_register_window_started,
-            "eligible_open_day_count": decision.eligible_open_day_count,
-            "unregistered_count": len(decision.unregistered_keys),
-            "selected_keys": list(decision.selected_keys),
-            "max_partition_keys_per_tick": MAX_PARTITION_KEYS_PER_TICK,
-        },
+        details=build_cursor_details(
+            sensor_name="cn_a_trade_day_sensor",
+            job_name=None,
+            asset_family="trade_day_partitions",
+            partition_set="cn_a_trade_days",
+            reason_code=(
+                "register_partitions"
+                if decision.selected_keys
+                else "all_registered"
+                if decision.latest_completed_trade_date
+                else "no_completed_trade_day"
+            ),
+            blocked_component="none",
+            summary=(
+                f"已触发：注册 {len(decision.selected_keys)} 个交易日分区。"
+                if decision.selected_keys
+                else "未触发：当前没有需要注册的交易日分区。"
+            ),
+            next_action=(
+                "等待 Dagster dynamic partition 注册完成。"
+                if decision.selected_keys
+                else "无需处理，等待下一次 sensor tick。"
+            ),
+            frontier={
+                "latest_completed_trade_date": decision.latest_completed_trade_date,
+                "today": decision.today,
+                "today_is_open": decision.today_is_open,
+                "same_day_register_window_started": (
+                    decision.same_day_register_window_started
+                ),
+            },
+            evidence={
+                "eligible_open_day_count": decision.eligible_open_day_count,
+                "unregistered_count": len(decision.unregistered_keys),
+                "max_partition_keys_per_tick": MAX_PARTITION_KEYS_PER_TICK,
+            },
+        ),
     )
 
 

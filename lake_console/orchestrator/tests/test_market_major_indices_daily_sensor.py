@@ -149,7 +149,7 @@ class MarketMajorIndicesDailySensorTests(unittest.TestCase):
         batch_readiness.assert_not_called()
         cursor = json.loads(result.cursor)
         self.assertEqual(
-            cursor["details"]["continuity_status"][
+            cursor["details"]["frontier"]["continuity"][
                 "first_missing_registered_date"
             ],
             "2026-06-15",
@@ -279,7 +279,10 @@ class MarketMajorIndicesDailySensorTests(unittest.TestCase):
         self.assertEqual(payload["selected_count"], 1)
         self.assertEqual(payload["blocked_count"], 0)
         self.assertEqual(payload["sample_keys"], ["2026-05-26"])
-        self.assertEqual(payload["details"]["selected_trade_date"], "2026-05-26")
+        self.assertEqual(
+            payload["details"]["evidence"]["selected_trade_date"],
+            "2026-05-26",
+        )
 
 
 if __name__ == "__main__":

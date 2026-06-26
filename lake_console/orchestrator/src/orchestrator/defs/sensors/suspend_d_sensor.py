@@ -18,6 +18,11 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_asset_readiness_status,
+    compact_continuity_frontier,
+)
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -30,7 +35,6 @@ from orchestrator.defs.sensors.readiness import (
     CN_A_SENSOR_TIMEZONE,
     RAW_SUSPEND_D_ASSET_KEY,
     SILVER_STOCK_SUSPEND_DAILY_ASSET_KEY,
-    AssetReadinessStatus,
     materialized_partition_keys,
     raw_tushare_suspend_d_ready_for_trade_date,
 )
@@ -118,22 +122,6 @@ def _registered_gap_skip_reason(
     )
 
 
-def _readiness_asset_payload(status: AssetReadinessStatus) -> dict[str, object]:
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
-
-
 def _raw_sensor_cursor(
     *,
     evaluated_at: datetime,
@@ -157,6 +145,15 @@ def _raw_sensor_cursor(
         if pending_keys
         else None
     )
+    reason_code = "request_run" if selected_keys else "all_ready"
+    blocked_component = "none"
+    if not selected_keys:
+        if blocked_key:
+            reason_code = "registered_gap"
+            blocked_component = cn_a_stock_trade_days.name
+        elif pending_keys:
+            reason_code = "pending_raw"
+            blocked_component = "raw_tushare_suspend_d"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -167,14 +164,35 @@ def _raw_sensor_cursor(
             len(pending_keys) - len(selected_keys),
         ),
         sample_keys=selected_keys or ((blocked_key,) if blocked_key else pending_keys),
-        details={
-            "registered_count": registered_count,
-            "pending_count": len(pending_keys),
-            "selected_keys": list(selected_keys),
-            "blocked_key": blocked_key,
-            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-            "continuity_status": continuity_details,
-        },
+        details=build_cursor_details(
+            sensor_name="raw_suspend_d_update_job_sensor",
+            job_name="raw_suspend_d_update_job",
+            asset_family="suspend_d",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=(
+                f"已触发：提交 {len(selected_keys)} 个停复牌 raw 分区。"
+                if selected_keys
+                else "未触发：停复牌 raw 当前没有可提交分区。"
+            ),
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_keys
+                else "等待分区补齐或下一次 sensor tick。"
+            ),
+            frontier=compact_continuity_frontier(
+                continuity_details,
+                selected_trade_date=target_date,
+            ),
+            evidence={
+                "registered_count": registered_count,
+                "pending_count": len(pending_keys),
+                "selected_count": len(selected_keys),
+                "blocked_key": blocked_key,
+                "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+            },
+        ),
     )
 
 
@@ -185,7 +203,7 @@ def _silver_sensor_cursor(
     pending_keys: tuple[str, ...],
     selected_keys: tuple[str, ...],
     blocked_keys: tuple[str, ...],
-    readiness_details: dict[str, dict[str, object]],
+    gate_statuses_by_trade_date: dict[str, dict[str, object]],
     continuity_details: dict[str, object] | None,
 ) -> str:
     decision = (
@@ -202,6 +220,15 @@ def _silver_sensor_cursor(
         if pending_keys
         else None
     )
+    reason_code = "request_run" if selected_keys else "all_ready"
+    blocked_component = "none"
+    if not selected_keys:
+        if blocked_keys:
+            reason_code = "raw_not_ready"
+            blocked_component = "raw_tushare_suspend_d"
+        elif pending_keys:
+            reason_code = "pending_silver"
+            blocked_component = "silver_stock_suspend_daily"
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=decision,
@@ -209,15 +236,38 @@ def _silver_sensor_cursor(
         selected_count=len(selected_keys),
         blocked_count=len(blocked_keys),
         sample_keys=selected_keys or blocked_keys or pending_keys,
-        details={
-            "registered_count": registered_count,
-            "pending_count": len(pending_keys),
-            "selected_keys": list(selected_keys),
-            "blocked_keys": list(blocked_keys),
-            "readiness_details": readiness_details,
-            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-            "continuity_status": continuity_details,
-        },
+        details=build_cursor_details(
+            sensor_name="silver_suspend_d_update_job_sensor",
+            job_name="silver_suspend_d_update_job",
+            asset_family="suspend_d",
+            partition_set=cn_a_stock_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=(
+                f"已触发：提交 {len(selected_keys)} 个停复牌 silver 分区。"
+                if selected_keys
+                else "未触发：停复牌 silver 当前没有可提交分区。"
+            ),
+            next_action=(
+                "等待本次 run 完成。"
+                if selected_keys
+                else "查看首个阻断日期的 raw/check 状态，修复后等待下一次 tick。"
+            ),
+            frontier=compact_continuity_frontier(
+                continuity_details,
+                selected_trade_date=target_date,
+            ),
+            gate_statuses=gate_statuses_by_trade_date.get(target_date or "", {}),
+            evidence={
+                "registered_count": registered_count,
+                "pending_count": len(pending_keys),
+                "selected_count": len(selected_keys),
+                "blocked_count": len(blocked_keys),
+                "first_blocked_key": blocked_keys[0] if blocked_keys else None,
+                "gate_trade_date_count": len(gate_statuses_by_trade_date),
+                "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+            },
+        ),
     )
 
 
@@ -336,7 +386,7 @@ def silver_suspend_d_update_job_sensor(
             pending_keys=(),
             selected_keys=(),
             blocked_keys=(gap_status.first_missing_registered_date,),
-            readiness_details={},
+            gate_statuses_by_trade_date={},
             continuity_details=continuity_details,
         )
         return dg.SensorResult(
@@ -357,16 +407,16 @@ def silver_suspend_d_update_job_sensor(
     candidate_keys = pending_keys[:MAX_RUN_REQUESTS_PER_TICK]
     selected_keys: list[str] = []
     blocked_keys: list[str] = []
-    readiness_details: dict[str, dict[str, object]] = {}
+    gate_statuses_by_trade_date: dict[str, dict[str, object]] = {}
 
     for trade_date in candidate_keys:
         raw_status = raw_tushare_suspend_d_ready_for_trade_date(
             context.instance,
             trade_date,
         )
-        readiness_details.setdefault(trade_date, {})
-        readiness_details[trade_date]["raw_tushare_suspend_d"] = (
-            _readiness_asset_payload(raw_status)
+        gate_statuses_by_trade_date.setdefault(trade_date, {})
+        gate_statuses_by_trade_date[trade_date]["raw_tushare_suspend_d"] = (
+            compact_asset_readiness_status(raw_status) or {}
         )
         if not raw_status.ready:
             blocked_keys.append(trade_date)
@@ -381,7 +431,7 @@ def silver_suspend_d_update_job_sensor(
         pending_keys=pending_keys,
         selected_keys=selected_tuple,
         blocked_keys=tuple(blocked_keys),
-        readiness_details=readiness_details,
+        gate_statuses_by_trade_date=gate_statuses_by_trade_date,
         continuity_details=continuity_details,
     )
 

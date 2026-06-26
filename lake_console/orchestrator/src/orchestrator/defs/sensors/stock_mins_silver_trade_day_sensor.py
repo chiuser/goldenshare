@@ -23,6 +23,13 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import (
+    build_cursor_details,
+    compact_batch_frontier,
+    compact_continuity_frontier,
+    compact_gate_statuses,
+    compact_readiness_status,
+)
 from orchestrator.defs.run_contracts.stk_mins import (
     STK_MINS_CONTINUITY_WINDOW_LIMIT,
     STK_MINS_SILVER_HISTORY_START_DATE,
@@ -38,7 +45,6 @@ from orchestrator.defs.sensors.readiness import (
     AssetReadinessStatus,
     DatasetReadinessStatus,
     silver_stock_identity_map_ready_for_trade_date,
-    status_payload,
     stock_daily_ready_for_trade_date,
     suspend_d_ready_for_trade_date,
 )
@@ -157,21 +163,7 @@ def build_stock_mins_silver_trade_day_registration_decision(
 
 
 def _asset_status_payload(status: AssetReadinessStatus | None) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return {
-        "asset_key": status.asset_key,
-        "partition_key": status.partition_key,
-        "ready": status.ready,
-        "materialized": status.materialized,
-        "checks_passed": status.checks_passed,
-        "freshness_passed": status.freshness_passed,
-        "materialization_storage_id": status.materialization_storage_id,
-        "materialization_date": status.materialization_date,
-        "missing_check_names": list(status.missing_check_names),
-        "failed_check_names": list(status.failed_check_names),
-        "reason": status.reason,
-    }
+    return compact_readiness_status(status)
 
 
 def _lake_status_has_materialized_check_problem(
@@ -181,9 +173,7 @@ def _lake_status_has_materialized_check_problem(
 
 
 def _lake_status_payload(status: StkMinsDateReadiness | None) -> dict[str, object] | None:
-    if status is None:
-        return None
-    return status.to_cursor_details()
+    return compact_readiness_status(status)
 
 
 def _batch_status_payload(
@@ -191,14 +181,7 @@ def _batch_status_payload(
 ) -> dict[str, object] | None:
     if status is None:
         return None
-    return {
-        "dataset": status.dataset,
-        "expected_start_date": status.expected_start_date,
-        "expected_end_date": status.expected_end_date,
-        "expected_count": status.expected_count,
-        "freq_count": status.freq_count,
-        "elapsed_ms": status.elapsed_ms,
-    }
+    return compact_batch_frontier(status)
 
 
 def _cursor_payload(
@@ -297,34 +280,47 @@ def _cursor_payload(
         selected_count=len(decision.selected_keys),
         blocked_count=blocked_count,
         sample_keys=decision.selected_keys,
-        details={
-            "raw_partition_set": cn_a_stock_mins_trade_days.name,
-            "partition_set": cn_a_stock_mins_silver_trade_days.name,
-            "raw_registered_trade_day_count": raw_registered_trade_day_count,
-            "silver_registered_trade_day_count": silver_registered_trade_day_count,
-            "register_window_started": decision.register_window_started,
-            "already_registered": decision.already_registered,
-            "selected_keys": list(decision.selected_keys),
-            "reason_code": reason_code,
-            "blocked_component": blocked_component,
-            "raw_status": _lake_status_payload(raw_status),
-            "raw_batch_status": _batch_status_payload(raw_batch_status),
-            "stock_daily_status": (
-                status_payload(stock_daily_status) if stock_daily_status else None
+        details=build_cursor_details(
+            sensor_name="stock_mins_silver_trade_day_sensor",
+            job_name=None,
+            asset_family="stock_mins_silver_trade_day_partitions",
+            partition_set=cn_a_stock_mins_silver_trade_days.name,
+            reason_code=reason_code,
+            blocked_component=blocked_component,
+            summary=decision.reason,
+            next_action=(
+                "等待 Dagster dynamic partition 注册完成。"
+                if decision.selected_keys
+                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
             ),
-            "suspend_status": status_payload(suspend_status) if suspend_status else None,
-            "identity_map_status": _asset_status_payload(identity_map_status),
-            "raw_continuity_status": (
-                raw_continuity_status.to_cursor_details()
-                if raw_continuity_status is not None
-                else None
+            frontier={
+                "raw": compact_continuity_frontier(
+                    raw_continuity_status,
+                    selected_trade_date=decision.target_trade_date,
+                ),
+                "silver": compact_continuity_frontier(
+                    silver_continuity_status,
+                    selected_trade_date=decision.target_trade_date,
+                ),
+                "raw_lake": _batch_status_payload(raw_batch_status),
+            },
+            gate_statuses=compact_gate_statuses(
+                {
+                    "raw_stk_mins": raw_status,
+                    "stock_daily": stock_daily_status,
+                    "suspend_d": suspend_status,
+                    "stock_identity_map": identity_map_status,
+                }
             ),
-            "silver_continuity_status": (
-                silver_continuity_status.to_cursor_details()
-                if silver_continuity_status is not None
-                else None
-            ),
-        },
+            evidence={
+                "raw_partition_set": cn_a_stock_mins_trade_days.name,
+                "raw_registered_trade_day_count": raw_registered_trade_day_count,
+                "silver_registered_trade_day_count": silver_registered_trade_day_count,
+                "register_window_started": decision.register_window_started,
+                "already_registered": decision.already_registered,
+                "selected_count": len(decision.selected_keys),
+            },
+        ),
     )
 
 

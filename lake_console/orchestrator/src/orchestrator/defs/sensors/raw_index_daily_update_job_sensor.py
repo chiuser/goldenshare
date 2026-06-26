@@ -30,6 +30,7 @@ from orchestrator.defs.run_contracts.cursors import (
     SensorCursorDecision,
     build_sensor_cursor,
 )
+from orchestrator.defs.run_contracts.cursor_payloads import build_cursor_details
 from orchestrator.defs.run_contracts.requests import build_run_request
 from orchestrator.defs.run_contracts.run_keys import build_asset_update_run_key
 from orchestrator.defs.run_contracts.sensor_tags import (
@@ -178,8 +179,6 @@ def _compact_raw_status(
         "missing_check_names": list(raw_status.missing_check_names),
         "missing_file_path_count": len(raw_status.missing_file_paths),
     }
-    if raw_status.missing_file_paths:
-        payload["missing_file_path_sample"] = raw_status.missing_file_paths[0]
 
     for key in _COMPACT_RAW_SUMMARY_KEYS:
         if key in raw_status.summary:
@@ -249,21 +248,35 @@ def _cursor_payload(
     source_status: ProdIndexDailySourceReadiness | None = None,
 ) -> str:
     selected_count = 1 if selected_trade_date else 0
-    details: dict[str, Any] = {
-        "selected_trade_date": selected_trade_date,
-        "registered_trade_day_count": registered_trade_day_count,
-        "registered_code_count": registered_code_count,
-        "reason_code": reason_code,
-        "blocked_component": _blocked_component_for_reason(
+    details = build_cursor_details(
+        sensor_name="raw_index_daily_update_job_sensor",
+        job_name="raw_index_daily_update_job",
+        asset_family="index_daily",
+        partition_set=cn_a_index_trade_days.name,
+        reason_code=reason_code,
+        blocked_component=_blocked_component_for_reason(
             reason_code=reason_code,
             selected_trade_date=selected_trade_date,
         ),
-        "source_mode": SOURCE_MODE,
-        "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
-        "continuity_status": _compact_continuity_status(continuity_status),
-        "raw_status": _compact_raw_status(raw_status),
-        "source_status": _compact_source_status(source_status),
-        "performance_ms": {
+        summary=reason,
+        next_action=(
+            "等待本次 run 完成。"
+            if selected_trade_date
+            else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
+        ),
+        frontier=_compact_continuity_status(continuity_status),
+        gate_statuses={
+            "raw_lake": _compact_raw_status(raw_status),
+            "prod_core_db": _compact_source_status(source_status),
+        },
+        evidence={
+            "selected_trade_date": selected_trade_date,
+            "registered_trade_day_count": registered_trade_day_count,
+            "registered_code_count": registered_code_count,
+            "source_mode": SOURCE_MODE,
+            "max_run_requests_per_tick": MAX_RUN_REQUESTS_PER_TICK,
+        },
+        performance_ms={
             "raw_batch_elapsed_ms": raw_batch_status.elapsed_ms
             if raw_batch_status
             else None,
@@ -271,7 +284,7 @@ def _cursor_payload(
             if source_status
             else None,
         },
-    }
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
