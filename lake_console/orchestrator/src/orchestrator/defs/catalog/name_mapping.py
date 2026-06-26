@@ -11,6 +11,7 @@ DATASET_CHINESE_NAMES = MappingProxyType(
         "trade_cal": "交易日历",
         "daily": "A股日线行情",
         "adj_factor": "复权因子",
+        "stock_daily_qfq": "股票日线前复权",
         "stk_mins": "股票分钟线",
         "stk_mins_qfq": "股票分钟线前复权",
         "stk_mins_qfq_macd_kdj": "股票分钟线前复权 MACD/KDJ",

@@ -261,6 +261,20 @@ SILVER_ADJ_FACTOR_SCHEMA = (
     ColumnContract("adj_factor", "DOUBLE", "复权因子"),
 )
 
+GOLD_STOCK_DAILY_QFQ_SCHEMA = (
+    ColumnContract("ts_code", "VARCHAR", "股票代码"),
+    ColumnContract("trade_date", "DATE", "交易日"),
+    ColumnContract("open", "DOUBLE", "前复权开盘价"),
+    ColumnContract("high", "DOUBLE", "前复权最高价"),
+    ColumnContract("low", "DOUBLE", "前复权最低价"),
+    ColumnContract("close", "DOUBLE", "前复权收盘价"),
+    ColumnContract("pre_close", "DOUBLE", "前复权上一可用交易日收盘价；首个可用交易日为 0"),
+    ColumnContract("change_amount", "DOUBLE", "前复权涨跌额；首个可用交易日为 0"),
+    ColumnContract("pct_chg", "DOUBLE", "前复权涨跌幅，百分比；首个可用交易日为 0"),
+    ColumnContract("vol", "DOUBLE", "成交量，沿用 silver_stock_daily 事实"),
+    ColumnContract("amount", "DOUBLE", "成交额，沿用 silver_stock_daily 事实"),
+)
+
 SILVER_STOCK_SUSPEND_DAILY_SCHEMA = (
     ColumnContract("ts_code", "VARCHAR", "股票代码"),
     ColumnContract("trade_date", "DATE", "交易日"),
