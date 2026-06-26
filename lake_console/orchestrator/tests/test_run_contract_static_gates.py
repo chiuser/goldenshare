@@ -2142,7 +2142,7 @@ class RunContractStaticGateTests(unittest.TestCase):
                         "unregistered SensorRole"
                     )
 
-        self.assertEqual(sensor_definition_count, 35)
+        self.assertEqual(sensor_definition_count, 36)
         self.assertEqual(issues, [])
 
     def test_gold_qfq_sensors_keep_quote_gold_asset_update_tags(self) -> None:
@@ -3846,6 +3846,69 @@ class RunContractStaticGateTests(unittest.TestCase):
         for snippet in forbidden_snippets:
             if snippet in source:
                 issues.append(f"{sensor_path} contains forbidden snippet: {snippet}")
+
+        self.assertEqual(issues, [])
+
+    def test_gold_stock_daily_qfq_factor_repair_sensor_uses_bounded_run_contracts(self) -> None:
+        sensor_path = SENSORS_DIR / "gold_stock_daily_qfq_factor_repair_job_sensor.py"
+        status_path = DEFS_DIR / "asset_guards" / "stock_daily_qfq_factor_repair.py"
+        config_path = DEFS_DIR / "run_contracts" / "configs.py"
+        source = sensor_path.read_text()
+        status_source = status_path.read_text()
+        config_source = config_path.read_text()
+        config_builder_source = _function_source(
+            config_path,
+            "build_gold_stock_daily_qfq_factor_repair_run_config",
+        )
+        issues = []
+
+        required_sensor_snippets = (
+            "@dg.run_status_sensor",
+            "request_job=gold_stock_daily_qfq_factor_repair_job",
+            "monitored_jobs=[gold_stock_daily_qfq_update_job]",
+            "default_status=dg.DefaultSensorStatus.STOPPED",
+            "build_batch_id",
+            "build_upstream_triggered_run_key",
+            "build_run_request",
+            "build_gold_stock_daily_qfq_factor_repair_run_config",
+            "gold_stock_daily_qfq_factor_repair_status",
+            "connect_configured_duckdb",
+            "GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_AUTO_CODE_LIMIT",
+        )
+        for snippet in required_sensor_snippets:
+            if snippet not in source:
+                issues.append(f"{sensor_path} misses required snippet: {snippet}")
+
+        forbidden_sensor_snippets = (
+            "dg.RunRequest(",
+            "RunRequest(",
+            "run_key=f",
+            "stock_codes",
+            "get_event_records",
+            "event_storage_id",
+            "storage_id",
+            "context.resources",
+        )
+        for snippet in forbidden_sensor_snippets:
+            if snippet in source:
+                issues.append(f"{sensor_path} contains forbidden snippet: {snippet}")
+
+        if "class GoldStockDailyQfqFactorRepairConfig" not in config_source:
+            issues.append("missing GoldStockDailyQfqFactorRepairConfig")
+        if "stock_codes" in config_builder_source:
+            issues.append(
+                "gold stock daily qfq factor repair run config must not expose "
+                "stock_codes"
+            )
+
+        forbidden_status_snippets = (
+            "get_event_records",
+            "event_storage_id",
+            "storage_id",
+        )
+        for snippet in forbidden_status_snippets:
+            if snippet in status_source:
+                issues.append(f"{status_path} contains forbidden snippet: {snippet}")
 
         self.assertEqual(issues, [])
 

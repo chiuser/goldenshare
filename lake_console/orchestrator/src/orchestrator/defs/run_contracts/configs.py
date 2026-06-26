@@ -17,6 +17,18 @@ class IndexDailyRawConfig(dg.Config):
     )
 
 
+class GoldStockDailyQfqFactorRepairConfig(dg.Config):
+    qfq_factor_trade_date: str = Field(
+        description="股票日线前复权 repair 的复权因子交易日，格式 YYYY-MM-DD。",
+    )
+    repair_required_codes_hash: str = Field(
+        description="由相邻 expected trade date 的 silver_adj_factor diff 得到的 affected code 集合 SHA-256。",
+    )
+    upstream_batch_id: str = Field(
+        description="触发本次 repair 的上游 daily qfq run batch id。",
+    )
+
+
 StockMinsRawSource = Literal["tushare", "prod_db"]
 StockMinsRawWriteMode = Literal["reuse_existing", "merge_repair"]
 StockDailyRawWriteMode = Literal["full_day", "missing_code_repair"]
@@ -221,6 +233,41 @@ def build_stock_daily_raw_repair_run_config(
     }
 
 
+def build_gold_stock_daily_qfq_factor_repair_run_config(
+    *,
+    qfq_factor_trade_date: str,
+    repair_required_codes_hash: str,
+    upstream_batch_id: str,
+) -> dict[str, object]:
+    repair_config = GoldStockDailyQfqFactorRepairConfig(
+        qfq_factor_trade_date=normalize_iso_trade_date(
+            qfq_factor_trade_date,
+            field_name="qfq_factor_trade_date",
+        ),
+        repair_required_codes_hash=_normalize_sha256_hex(
+            repair_required_codes_hash,
+            field_name="repair_required_codes_hash",
+        ),
+        upstream_batch_id=_normalize_required_text(
+            upstream_batch_id,
+            field_name="upstream_batch_id",
+        ),
+    )
+    return {
+        "ops": {
+            "gold_stock_daily_qfq_factor_repair_op": {
+                "config": {
+                    "qfq_factor_trade_date": repair_config.qfq_factor_trade_date,
+                    "repair_required_codes_hash": (
+                        repair_config.repair_required_codes_hash
+                    ),
+                    "upstream_batch_id": repair_config.upstream_batch_id,
+                }
+            }
+        }
+    }
+
+
 def build_stock_mins_raw_update_job_run_config(
     *,
     source: StockMinsRawSource,
@@ -375,17 +422,27 @@ def _normalize_stock_daily_repair_ts_codes(value: object) -> tuple[str, ...]:
 
 
 def _normalize_missing_codes_hash(value: object) -> str:
+    return _normalize_sha256_hex(
+        value,
+        field_name="missing_code_repair.missing_codes_hash",
+    )
+
+
+def _normalize_sha256_hex(value: object, *, field_name: str) -> str:
     text = str(value or "").strip().lower()
     if not text:
-        raise ValueError("missing_code_repair.missing_codes_hash is required.")
+        raise ValueError(f"{field_name} is required.")
     if len(text) != 64:
-        raise ValueError(
-            "missing_code_repair.missing_codes_hash must be a SHA-256 hex string."
-        )
+        raise ValueError(f"{field_name} must be a SHA-256 hex string.")
     if any(character not in "0123456789abcdef" for character in text):
-        raise ValueError(
-            "missing_code_repair.missing_codes_hash must be a lowercase hex string."
-        )
+        raise ValueError(f"{field_name} must be a lowercase hex string.")
+    return text
+
+
+def _normalize_required_text(value: object, *, field_name: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        raise ValueError(f"{field_name} is required.")
     return text
 
 

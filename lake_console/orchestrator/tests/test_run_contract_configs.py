@@ -1,6 +1,7 @@
 import unittest
 
 from orchestrator.defs.run_contracts.configs import (
+    build_gold_stock_daily_qfq_factor_repair_run_config,
     build_raw_index_daily_update_job_run_config,
     build_stock_daily_raw_repair_run_config,
     parse_stock_daily_raw_config,
@@ -52,6 +53,59 @@ class RunContractConfigTests(unittest.TestCase):
             request.run_config["ops"]["raw_index_daily"]["config"]["write_mode"],
             "replace",
         )
+
+    def test_gold_stock_daily_qfq_factor_repair_run_config_has_no_stock_codes(self) -> None:
+        config = build_gold_stock_daily_qfq_factor_repair_run_config(
+            qfq_factor_trade_date="2026-06-18",
+            repair_required_codes_hash="a" * 64,
+            upstream_batch_id="gold_stock_daily_qfq_update:2026-06-18:abc123",
+        )
+
+        self.assertEqual(
+            config,
+            {
+                "ops": {
+                    "gold_stock_daily_qfq_factor_repair_op": {
+                        "config": {
+                            "qfq_factor_trade_date": "2026-06-18",
+                            "repair_required_codes_hash": "a" * 64,
+                            "upstream_batch_id": (
+                                "gold_stock_daily_qfq_update:2026-06-18:abc123"
+                            ),
+                        }
+                    }
+                }
+            },
+        )
+        self.assertNotIn(
+            "stock_codes",
+            config["ops"]["gold_stock_daily_qfq_factor_repair_op"]["config"],
+        )
+
+    def test_gold_stock_daily_qfq_factor_repair_run_config_rejects_invalid_inputs(self) -> None:
+        with self.assertRaisesRegex(
+            ValueError,
+            "qfq_factor_trade_date must use YYYY-MM-DD format",
+        ):
+            build_gold_stock_daily_qfq_factor_repair_run_config(
+                qfq_factor_trade_date="20260618",
+                repair_required_codes_hash="a" * 64,
+                upstream_batch_id="gold_stock_daily_qfq_update:2026-06-18:abc123",
+            )
+
+        with self.assertRaisesRegex(ValueError, "SHA-256 hex string"):
+            build_gold_stock_daily_qfq_factor_repair_run_config(
+                qfq_factor_trade_date="2026-06-18",
+                repair_required_codes_hash="abc",
+                upstream_batch_id="gold_stock_daily_qfq_update:2026-06-18:abc123",
+            )
+
+        with self.assertRaisesRegex(ValueError, "upstream_batch_id is required"):
+            build_gold_stock_daily_qfq_factor_repair_run_config(
+                qfq_factor_trade_date="2026-06-18",
+                repair_required_codes_hash="a" * 64,
+                upstream_batch_id="",
+            )
 
     def test_stock_daily_raw_repair_run_config_uses_single_op_config(self) -> None:
         config = build_stock_daily_raw_repair_run_config(

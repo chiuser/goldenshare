@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，待推进 P4 repair core。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成；待推进 P5 bootstrap dry-run。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -33,16 +33,16 @@ qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_d
 本节为已拍板口径，后续 LLD 与开发不得再回到待确认状态：
 
 1. `pre_close/change_amount/pct_chg` 保留；上市首日或湖中无 previous source row 时统一写 `0`，不写 `NULL`。
-2. repair 初版不开放手写 `stock_codes`，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
-3. repair 初版必须增加自动 run-status sensor，触发逻辑参考股票分钟线 MACD/KDJ repair：daily qfq 成功后自动做 bounded plan 判断并提交 scoped repair job。
+2. repair 初版不开放手写 `stock_codes`，包括 repair config、正式 CLI 参数和 sensor payload；affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
+3. repair 初版必须增加自动 run-status sensor，触发逻辑参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动做 bounded plan 判断并提交 scoped repair job。
 
 ### 3.0 拍板口径的执行解释
 
 这三条在开发时按下面方式理解：
 
 1. `0` 是合法“无上一可用日线”的业务占位，只能用于上市首日或湖中第一条可计算记录。只要上一条 source row 存在但 previous factor 缺失，就必须 fail closed，不能用 `0` 掩盖数据缺口。
-2. repair 初版不提供运营手写股票池入口。受影响股票必须由 `silver_adj_factor` 当前交易日与上一 expected trade date 的因子差异自动推导，并用 hash / upstream batch 做审计和幂等校验。
-3. 自动 repair sensor 是“上游 daily qfq 成功后的 run-status 判断”，不是定时全市场扫描。它只围绕触发 run 的 `trade_date` 做 bounded repair plan，满足自动上限和 completion/status 门禁后才提交 scoped repair job。
+2. repair 初版不提供运营手写股票池入口，也不提供散装修复入口。受影响股票必须由 `silver_adj_factor` 当前交易日与上一 expected trade date 的因子差异自动推导，并用 hash / upstream batch 做审计和幂等校验。
+3. 自动 repair sensor 是“上游 daily qfq 成功后的 run-status 判断”，不是定时全市场扫描。它只围绕触发 run 的 `trade_date` 做 bounded repair plan，满足自动上限、hash 校验和 completion/status 门禁后才提交 scoped repair job。
 
 ### 3.1 字段保留
 
@@ -166,7 +166,7 @@ data_lake/gold/quote/stock_daily_qfq/trade_date={YYYY-MM-DD}/part-000.parquet
 6. 若需要 repair 且未完成，提交 `gold_stock_daily_qfq_factor_repair_job`。
 7. run key 使用 upstream-triggered 口径，避免同一 upstream batch 重复提交。
 
-已拍板：repair job config 不开放手写 `stock_codes`。repair op 内部重新计算 affected codes，并校验 sensor 传入的 hash / upstream batch，防止散装修复。
+已拍板：repair job config、正式 CLI 和 sensor payload 都不开放手写 `stock_codes`。repair op 内部重新计算 affected codes，并校验 sensor 传入的 hash / upstream batch，防止散装修复。
 
 ## 5. 补数与事件口径
 
@@ -239,7 +239,7 @@ repair 口径：
 | 上游依赖 | 已明确依赖 `silver_stock_daily` 与 `silver_adj_factor` | 需要补 asset deps、check additional_deps、readiness gate |
 | checks | 已落地 2 条 ordinary blocking checks：contract 与 qfq semantics，子规则写入 metadata | 后续 repair status check 必须保持 protected/status 口径，不进入 ordinary readiness |
 | metadata | 已要求 materialization/check/repair metadata 分层 | 需要列具体 metadata keys，走现有 metadata helper，不裸写 top-level key |
-| job/sensor | P3 已落地 daily job 与 daily sensor；repair job / run-status sensor 留到 P4 | daily 已确认：`gold_stock_daily_qfq_update_job`、`gold_stock_daily_qfq_update_job_sensor`、默认 `STOPPED`、run key `gold_stock_daily_qfq_update:{trade_date}`、cursor 写结构化 reason code；P4 需补 repair job / run-status sensor |
+| job/sensor | P3 已落地 daily job 与 daily sensor；P4 已落地 repair job 与 repair run-status sensor | daily 已确认：`gold_stock_daily_qfq_update_job`、`gold_stock_daily_qfq_update_job_sensor`、默认 `STOPPED`、run key `gold_stock_daily_qfq_update:{trade_date}`、cursor 写结构化 reason code；repair 已确认：`gold_stock_daily_qfq_factor_repair_job`、`gold_stock_daily_qfq_factor_repair_job_sensor`、默认 `STOPPED`、run key 使用 upstream-triggered builder，config 不暴露 `stock_codes` |
 | 历史迁移 | 已提出 direct lake bootstrap + runless event backfill 作为大范围候选方案 | 需要 dry-run 指标、sample 方案、全量批次、event 补录上限 |
 | 性能门禁 | 已写基本性能表 | 需要真实只读样本测算：文件数、行数、DuckDB SQL 次数、耗时、event 数 |
 | 人类可读治理 | 尚未完整展开 | 需要补 asset/job/sensor/check description，以及失败时先看哪里 |

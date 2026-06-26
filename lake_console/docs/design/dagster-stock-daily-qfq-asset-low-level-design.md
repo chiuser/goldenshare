@@ -14,13 +14,13 @@
 3. 日常生成和复权因子变化后的 repair 放在同一专项 / LLD 中设计，但实现上分成不同 entrypoint、job 和测试阶段。
 4. 报告相关工作不进入本需求开发范围。
 5. 上市首日或湖中无 previous source row 时，`pre_close/change_amount/pct_chg` 统一写 `0`，不写 `NULL`。
-6. repair 初版不开放手写 `stock_codes`；affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
-7. repair 初版必须增加自动 run-status sensor；触发逻辑参考股票分钟线 MACD/KDJ repair：daily qfq 成功后自动做 bounded plan 判断并提交 scoped repair job。
+6. repair 初版不开放手写 `stock_codes`；repair config、正式 CLI 参数和 sensor payload 都不得暴露股票池输入，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
+7. repair 初版必须增加自动 run-status sensor；触发逻辑参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动做 bounded plan 判断并提交 scoped repair job。
 
 代码实现必须按下面三条解释落地：
 
 1. `pre_close/change_amount/pct_chg = 0` 只表示“该股票在湖中没有上一条可用 source row”。它不是数据缺失兜底；如果 previous source row 存在但 previous adj factor 缺失，writer 和 check 都必须 fail closed。
-2. repair op、repair config、sensor cursor 和测试都不得出现手写 `stock_codes` 正式入口。affected codes 只能从相邻 expected trade date 的 `silver_adj_factor` diff 得到，并通过 `repair_required_codes_hash` 与 `upstream_batch_id` 校验。
+2. repair op、repair config、正式 CLI、sensor payload 和测试都不得出现手写 `stock_codes` 正式入口。affected codes 只能从相邻 expected trade date 的 `silver_adj_factor` diff 得到，并通过 `repair_required_codes_hash` 与 `upstream_batch_id` 校验。
 3. repair 自动化只由 `gold_stock_daily_qfq_update_job` 成功 run 触发。不得新增定时全量 repair sensor，不得在 daily job 内混入 repair 写入，也不得让 sensor 扫全历史 Dagster event 或全历史 lake 文件。
 
 ## 2. Audit Scope
@@ -646,7 +646,7 @@ class GoldStockDailyQfqFactorRepairConfig(dg.Config):
     upstream_batch_id: str
 ```
 
-已拍板：初版不支持手写 `stock_codes`，config schema 中不得出现 `stock_codes` 字段。
+已拍板：初版不支持手写 `stock_codes`，config schema、正式 CLI 参数和 sensor payload 中都不得出现 `stock_codes` 字段。
 
 原因：
 
@@ -654,7 +654,7 @@ class GoldStockDailyQfqFactorRepairConfig(dg.Config):
 - 手写 code list 容易产生散装 repair 和审计口径漂移。
 - repair op 内部重新计算 affected codes，并校验 config 中的 `repair_required_codes_hash`。
 - `upstream_batch_id` 来自触发本次判断的 daily qfq run 和 affected codes hash，用于 run key 幂等和 repair completion 对账。
-- 如果未来需要人工限定 stock_codes，必须另开设计并要求 hash/source/audit metadata。
+- 如果未来需要人工限定 stock_codes，必须另开设计并要求 hash/source/audit metadata；不得在本入口上追加兼容字段。
 
 ### 10.4 Repair Run-Status Sensor
 
@@ -1202,6 +1202,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P4: Repair Core
 
+状态：已完成。
+
 范围：
 
 - repair config
@@ -1212,6 +1214,32 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 - repair run-status sensor
 - upstream-triggered run key / completion status tests
 - repair tests
+
+落地文件：
+
+- `defs/stock_daily_qfq.py`：repair plan、affected code diff、effective range、repair rewrite、protected status check metadata。
+- `defs/run_contracts/configs.py`：`GoldStockDailyQfqFactorRepairConfig` 与 `build_gold_stock_daily_qfq_factor_repair_run_config(...)`；config 只包含 `qfq_factor_trade_date`、`repair_required_codes_hash`、`upstream_batch_id`。
+- `defs/ops/gold_stock_daily_qfq_factor_repair.py`：repair op，读取 expected calendar，执行 scoped repair，并写 `gold_stock_daily_qfq_factor_repair_plan_evaluated` check。
+- `defs/jobs/gold_stock_daily_qfq_factor_repair.py`：`gold_stock_daily_qfq_factor_repair_job`。
+- `defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py`：监听 `gold_stock_daily_qfq_update_job` 成功 run 的 run-status sensor。
+- `defs/asset_guards/stock_daily_qfq_factor_repair.py`：repair status helper，按 partition + upstream batch 校验 protected check metadata，不读旧 storage id。
+- `tests/test_stock_daily_qfq_repair_contracts.py`、`tests/test_stock_daily_qfq_factor_repair_sensor_contracts.py`、`tests/test_run_contract_configs.py`、`tests/test_run_contract_static_gates.py`：repair core、run config、run-status sensor 与静态门禁。
+
+验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_stock_daily_qfq_checks.py \
+  tests/test_stock_daily_qfq_sensor_contracts.py \
+  tests/test_stock_daily_qfq_repair_contracts.py \
+  tests/test_stock_daily_qfq_factor_repair_sensor_contracts.py \
+  tests/test_run_contract_configs.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`110 passed, 94 warnings`。测试只使用本地临时目录、静态扫描和 fake instance；未运行 `dg`，未读取正式 Dagster instance，未触碰正式数据湖。
 
 ### P5: Bootstrap Dry-Run
 
@@ -1260,11 +1288,11 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 以下口径已拍板，不再作为待确认项：
 
 1. 上市首日或无 previous source row 时，`pre_close/change_amount/pct_chg` 统一写 0，不写 NULL。
-2. repair 初版不开放手写 `stock_codes`；affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
+2. repair 初版不开放手写 `stock_codes`；repair config、正式 CLI 参数和 sensor payload 都不得暴露股票池输入，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 3. repair 初版增加自动 run-status sensor；触发方式参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动判断并提交 scoped repair job。
 
 补充约束：
 
 1. `0` 只用于无 previous source row；previous source row 存在但 previous factor 缺失时仍失败。
-2. `stock_codes` 不得作为 repair config、正式 CLI 参数或 sensor payload 暴露。
+2. `stock_codes` 不得作为 repair config、正式 CLI 参数或 sensor payload 暴露；repair op 必须自行重算 affected codes 并校验 hash。
 3. 自动 sensor 必须是 run-status sensor，只处理触发 run 的单个 `trade_date`，并受 affected code 上限、hash、completion/status 和性能门禁约束。
