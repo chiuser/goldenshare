@@ -100,6 +100,30 @@ def _sample_dicts(
     return samples
 
 
+def _human_materialization_metadata(
+    *,
+    summary: str,
+    next_action: str,
+    result_status: str,
+    input_summary: dict[str, Any],
+    diagnostic_ref: str,
+    code_set_summary: dict[str, Any] | None = None,
+    filter_summary: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "summary": summary,
+        "next_action": next_action,
+        "result_status": result_status,
+        "input_summary": input_summary,
+        "diagnostic_ref": diagnostic_ref,
+    }
+    if code_set_summary is not None:
+        metadata["code_set_summary"] = code_set_summary
+    if filter_summary is not None:
+        metadata["filter_summary"] = filter_summary
+    return metadata
+
+
 def _replace_parquet_from_query(connection, select_sql: str, target_path: Path) -> None:
     target_path.parent.mkdir(parents=True, exist_ok=True)
     temporary_path = target_path.with_name(f"{target_path.name}.tmp")
@@ -814,7 +838,7 @@ def materialize_silver_index_daily_partitions_from_raw_by_date(
             ),
         },
     ),
-    description="指数日线 raw 数据，按交易日从 prod core serving 只读同步 DG 管理的指数集合。",
+    description="指数日线 raw 源镜像，按交易日从 prod core serving 只读同步 DG 管理的指数集合。",
 )
 def raw_index_daily(
     context: dg.AssetExecutionContext,
@@ -828,6 +852,13 @@ def raw_index_daily(
         raise ValueError("raw_index_daily only supports replace write_mode.")
     partition_key = normalize_iso_trade_date(context.partition_key)
     registered_index_codes = _registered_index_ts_codes(context)
+    log = DgStdoutLogger("index_daily")
+    log.stdout(
+        "raw_index_daily_started",
+        partition_key=partition_key,
+        expected_code_count=len(registered_index_codes),
+        write_mode=config.write_mode,
+    )
     write_result = write_raw_index_daily_partition_from_prod_db(
         lake_root_path=lake_root.root(),
         duckdb=duckdb,
@@ -836,15 +867,53 @@ def raw_index_daily(
         index_codes=registered_index_codes,
         run_id=context.run_id,
     )
+    extra_metadata = {
+        **write_result.materialization_extra_metadata(partition_key=partition_key),
+        **_human_materialization_metadata(
+            summary=(
+                "已写入指数日线 raw by-date 分区，来源为 prod core_serving.index_daily_serving。"
+            ),
+            next_action=(
+                "等待 raw_index_daily 两个 blocking checks 通过；通过后 silver_index_daily 才能消费。"
+            ),
+            result_status="written",
+            input_summary={
+                "source_table": "core_serving.index_daily_serving",
+                "source_mode": "prod_core_db_readonly",
+                "partition_key": partition_key,
+                "write_mode": write_result.write_mode,
+                "query_count": write_result.query_count,
+            },
+            code_set_summary={
+                "expected_code_count": write_result.expected_code_count,
+                "expected_code_set_hash": write_result.expected_code_set_hash,
+                "returned_code_count": write_result.returned_code_count,
+                "missing_code_count": write_result.missing_code_count,
+                "extra_code_count": write_result.extra_code_count,
+                "duplicate_key_count": write_result.duplicate_key_count,
+            },
+            diagnostic_ref=(
+                "完整诊断看 raw_index_daily_file_contract_check、"
+                "raw_index_daily_code_coverage_check 和 run stdout。"
+            ),
+        ),
+    }
+    log.stdout(
+        "raw_index_daily_completed",
+        partition_key=partition_key,
+        output_row_count=write_result.row_count,
+        expected_code_count=write_result.expected_code_count,
+        returned_code_count=write_result.returned_code_count,
+        missing_code_count=write_result.missing_code_count,
+        extra_code_count=write_result.extra_code_count,
+    )
 
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.raw_file_path,
             row_count=write_result.row_count,
             observed_columns=write_result.observed_columns,
-            extra_metadata=write_result.materialization_extra_metadata(
-                partition_key=partition_key,
-            ),
+            extra_metadata=extra_metadata,
         )
     )
 
@@ -877,7 +946,7 @@ def raw_index_daily(
             ),
         },
     ),
-    description="指数日线标准表，从同交易日 raw_index_daily by-date 文件生成。",
+    description="指数日线 silver 标准事实，从同交易日 raw_index_daily by-date 文件生成并保持 raw code set。",
 )
 def silver_index_daily(
     context: dg.AssetExecutionContext,
@@ -896,11 +965,37 @@ def silver_index_daily(
     total_row_count = sum(
         item["output_row_count"] for item in partition_metadata.values()
     )
+    duplicate_removed_count = sum(
+        item["duplicate_removed_count"] for item in partition_metadata.values()
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             row_count=total_row_count,
             observed_columns=INDEX_DAILY_SILVER_COLUMNS,
             extra_metadata={
+                **_human_materialization_metadata(
+                    summary="已写入指数日线 silver 标准事实分区。",
+                    next_action=(
+                        "等待 silver_index_daily blocking checks 全部通过；通过后主要指数和其它下游才能消费。"
+                    ),
+                    result_status="written",
+                    input_summary={
+                        "source_asset": "raw_index_daily",
+                        "partition_set": cn_a_index_trade_days.name,
+                        "partition_count": len(partition_keys),
+                    },
+                    filter_summary={
+                        "source_row_count": sum(
+                            item["source_row_count"]
+                            for item in partition_metadata.values()
+                        ),
+                        "output_row_count": total_row_count,
+                        "duplicate_removed_count": duplicate_removed_count,
+                    },
+                    diagnostic_ref=(
+                        "完整诊断看 silver_index_daily checks、partition_metadata 和 run stdout。"
+                    ),
+                ),
                 "partition_keys": list(partition_keys),
                 "partition_metadata": partition_metadata,
                 "source_asset": "raw_index_daily",

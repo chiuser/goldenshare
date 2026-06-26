@@ -2,6 +2,7 @@ from pathlib import Path
 from tempfile import TemporaryDirectory
 import unittest
 
+import dagster as dg
 import duckdb
 
 from orchestrator.defs.checks import index_daily_checks as checks
@@ -16,6 +17,14 @@ from orchestrator.defs.sensors import readiness
 
 
 TARGET_TRADE_DATE = "2026-06-02"
+
+
+def _metadata_value(value):  # noqa: ANN001
+    return getattr(value, "value", value)
+
+
+def _metadata_dict(result: dg.AssetCheckResult) -> dict[str, object]:
+    return {key: _metadata_value(value) for key, value in result.metadata.items()}
 
 
 def _write_index_basic_file(root: Path) -> None:
@@ -132,6 +141,11 @@ def test_silver_index_daily_coverage_check_fails_missing_raw_present_code(
     )
 
     assert not result.passed
+    metadata = _metadata_dict(result)
+    assert "失败" in metadata["goldenshare/summary"]
+    assert "goldenshare/coverage_summary" in metadata
+    assert metadata["goldenshare/coverage_summary"]["missing_raw_present_count"] == 1
+    assert "silver" in metadata["goldenshare/next_action"]
 
 
 def test_silver_index_daily_coverage_check_passes_complete_raw_present_codes(
@@ -154,6 +168,11 @@ def test_silver_index_daily_coverage_check_passes_complete_raw_present_codes(
     )
 
     assert result.passed
+    metadata = _metadata_dict(result)
+    assert "通过" in metadata["goldenshare/summary"]
+    assert "无需处理" in metadata["goldenshare/next_action"]
+    assert metadata["goldenshare/coverage_summary"]["failed_partition_count"] == 0
+    assert isinstance(metadata["goldenshare/rule_summary"], list)
 
 
 def test_silver_index_daily_coverage_check_does_not_use_index_basic_list_date(
@@ -214,6 +233,11 @@ def test_raw_index_daily_file_contract_check_passes_with_nullable_ohlc(
     )
 
     assert result.passed
+    metadata = _metadata_dict(result)
+    assert "通过" in metadata["goldenshare/summary"]
+    assert "无需处理" in metadata["goldenshare/next_action"]
+    assert metadata["goldenshare/contract_summary"]["null_key_count"] == 0
+    assert isinstance(metadata["goldenshare/rule_summary"], list)
 
 
 def test_raw_index_daily_file_contract_check_fails_duplicate_key(
@@ -235,6 +259,10 @@ def test_raw_index_daily_file_contract_check_fails_duplicate_key(
     )
 
     assert not result.passed
+    metadata = _metadata_dict(result)
+    assert "失败" in metadata["goldenshare/summary"]
+    assert "重复键" in metadata["goldenshare/next_action"]
+    assert metadata["goldenshare/contract_summary"]["duplicate_key_count"] == 1
 
 
 def test_raw_index_daily_file_contract_check_fails_date_mismatch(
@@ -253,6 +281,9 @@ def test_raw_index_daily_file_contract_check_fails_date_mismatch(
     )
 
     assert not result.passed
+    metadata = _metadata_dict(result)
+    assert "失败" in metadata["goldenshare/summary"]
+    assert metadata["goldenshare/contract_summary"]["date_mismatch_count"] == 1
 
 
 def test_raw_index_daily_code_coverage_check_passes_complete_dg_codes(
@@ -275,6 +306,10 @@ def test_raw_index_daily_code_coverage_check_passes_complete_dg_codes(
     )
 
     assert result.passed
+    metadata = _metadata_dict(result)
+    assert "通过" in metadata["goldenshare/summary"]
+    assert metadata["goldenshare/coverage_summary"]["missing_code_count"] == 0
+    assert metadata["goldenshare/coverage_summary"]["extra_code_count"] == 0
 
 
 def test_raw_index_daily_code_coverage_check_fails_missing_or_extra_code(
@@ -297,6 +332,34 @@ def test_raw_index_daily_code_coverage_check_fails_missing_or_extra_code(
     )
 
     assert not result.passed
+    metadata = _metadata_dict(result)
+    assert "失败" in metadata["goldenshare/summary"]
+    assert "DG 动态分区" in metadata["goldenshare/next_action"]
+    assert metadata["goldenshare/coverage_summary"]["missing_code_count"] == 1
+    assert metadata["goldenshare/coverage_summary"]["extra_code_count"] == 1
+
+
+def test_silver_index_daily_combined_check_metadata_explains_failed_rule() -> None:
+    result = checks._combined_check_result(
+        partition_keys=(TARGET_TRADE_DATE,),
+        check_scope=checks.CheckScope.SCHEMA,
+        rule_results=(
+            ("silver_index_daily_row_count_positive", dg.AssetCheckResult(passed=True)),
+            (
+                "silver_index_daily_required_columns_and_types",
+                dg.AssetCheckResult(passed=False),
+            ),
+        ),
+    )
+
+    assert not result.passed
+    metadata = _metadata_dict(result)
+    assert "失败" in metadata["goldenshare/summary"]
+    assert "schema" in metadata["goldenshare/next_action"].lower()
+    assert metadata["goldenshare/failed_rule_names"] == [
+        "silver_index_daily_required_columns_and_types"
+    ]
+    assert isinstance(metadata["goldenshare/rule_summary"], list)
 
 
 class SilverIndexDailyCoverageCheckTests(unittest.TestCase):
@@ -354,6 +417,9 @@ class SilverIndexDailyCoverageCheckTests(unittest.TestCase):
         self._run_with_tmp_path(
             test_raw_index_daily_code_coverage_check_fails_missing_or_extra_code
         )
+
+    def test_silver_combined_check_metadata_explains_failed_rule(self) -> None:
+        test_silver_index_daily_combined_check_metadata_explains_failed_rule()
 
 
 if __name__ == "__main__":

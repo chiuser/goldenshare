@@ -2900,6 +2900,135 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_index_daily_human_readable_governance_stays_compact(self) -> None:
+        asset_path = ASSETS_DIR / "index_daily.py"
+        check_path = CHECKS_DIR / "index_daily_checks.py"
+        raw_sensor_path = SENSORS_DIR / "raw_index_daily_update_job_sensor.py"
+        silver_sensor_path = SENSORS_DIR / "silver_index_daily_sensor.py"
+        asset_tree = _parse_python_file(asset_path)
+        asset_source = asset_path.read_text()
+        raw_sensor_source = raw_sensor_path.read_text()
+        silver_cursor_source = _function_source(silver_sensor_path, "_cursor_payload")
+        silver_summary_source = _function_source(
+            silver_sensor_path,
+            "_cursor_summary_and_next_action",
+        )
+        combined_check_source = _function_source(check_path, "_combined_check_result")
+        raw_file_contract_source = _function_source(
+            check_path,
+            "evaluate_raw_index_daily_file_contract",
+        )
+        raw_coverage_source = _function_source(
+            check_path,
+            "evaluate_raw_index_daily_code_coverage",
+        )
+        silver_coverage_source = _function_source(
+            check_path,
+            "evaluate_silver_index_daily_registered_code_coverage",
+        )
+        issues = []
+
+        forbidden_cursor_fragments = (
+            "to_cursor_details()",
+            ".to_cursor_details(",
+            '"status_samples":',
+            '"readiness_details":',
+            '"raw_batch_status":',
+            '"silver_batch_status":',
+            '"coverage_results":',
+            '"results":',
+        )
+        for path, source in (
+            (raw_sensor_path, raw_sensor_source),
+            (silver_sensor_path, silver_cursor_source),
+        ):
+            issues.extend(
+                f"{path} writes oversized index_daily cursor fragment: {fragment}"
+                for fragment in forbidden_cursor_fragments
+                if fragment in source
+            )
+
+        forbidden_stdout_fields = {
+            "sql",
+            "query",
+            "dataframe",
+            "df",
+            "ts_codes",
+            "index_codes",
+            "missing_codes",
+            "sample_rows",
+            "duplicate_sample_rows",
+            "missing_code_samples",
+            "extra_code_samples",
+        }
+        for node in ast.walk(asset_tree):
+            if not isinstance(node, ast.Call):
+                continue
+            if not isinstance(node.func, ast.Attribute) or node.func.attr != "stdout":
+                continue
+            keyword_names = {keyword.arg for keyword in node.keywords if keyword.arg}
+            forbidden = sorted(keyword_names & forbidden_stdout_fields)
+            if forbidden:
+                issues.append(
+                    f"{_node_location(asset_path, node)} index_daily stdout writes "
+                    f"forbidden fields {forbidden}"
+                )
+
+        for required_fragment in (
+            "summary",
+            "next_action",
+            "result_status",
+            "input_summary",
+            "diagnostic_ref",
+        ):
+            if required_fragment not in asset_source:
+                issues.append(
+                    "index_daily materialization metadata must stay readable: "
+                    f"{required_fragment}"
+                )
+
+        for source_name, source, required_fragments in (
+            (
+                "combined check",
+                combined_check_source,
+                ("failed_rule_names", "rule_summary", "summary", "next_action"),
+            ),
+            (
+                "raw file contract",
+                raw_file_contract_source,
+                ("contract_summary", "rule_summary", "summary", "next_action"),
+            ),
+            (
+                "raw coverage",
+                raw_coverage_source,
+                ("coverage_summary", "rule_summary", "summary", "next_action"),
+            ),
+            (
+                "silver coverage",
+                silver_coverage_source,
+                ("coverage_summary", "rule_summary", "summary", "next_action"),
+            ),
+        ):
+            for required_fragment in required_fragments:
+                if required_fragment not in source:
+                    issues.append(
+                        f"index_daily {source_name} metadata must stay readable: "
+                        f"{required_fragment}"
+                    )
+
+        for required_fragment in (
+            "raw_index_daily 还没有 ready",
+            "cn_a_index_ts_codes",
+            "silver_index_daily blocking checks",
+        ):
+            if required_fragment not in silver_summary_source:
+                issues.append(
+                    "silver_index_daily sensor cursor summary must stay actionable: "
+                    f"{required_fragment}"
+                )
+
+        self.assertEqual(issues, [])
+
     def test_index_daily_p7_removes_by_code_active_source_and_catalog(self) -> None:
         issues = []
         removed_files = (

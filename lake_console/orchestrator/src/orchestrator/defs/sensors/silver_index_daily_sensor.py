@@ -105,6 +105,88 @@ def _recent_trade_dates(
     return trade_dates[-limit:]
 
 
+def _blocked_component_for_cursor(
+    *,
+    reason_code: str,
+    selected_trade_date: str | None,
+    target_trade_date: str | None,
+    raw_status: ContinuityDateReadiness | None,
+    silver_status: ContinuityDateReadiness | None,
+) -> str:
+    if selected_trade_date:
+        return "none"
+    if raw_status is not None and not raw_status.ready:
+        return "raw_index_daily"
+    if silver_status is not None and not silver_status.ready:
+        return "silver_index_daily"
+    if reason_code in {
+        "missing_registered_partition",
+        "no_registered_trade_day",
+        "no_expected_trade_date",
+    }:
+        return "cn_a_index_trade_days"
+    if reason_code == "no_registered_index_code":
+        return "cn_a_index_ts_codes"
+    if target_trade_date:
+        return "silver_index_daily"
+    return "none"
+
+
+def _cursor_summary_and_next_action(
+    *,
+    reason: str,
+    reason_code: str,
+    blocked_component: str,
+    selected_trade_date: str | None,
+    target_trade_date: str | None,
+) -> tuple[str, str]:
+    target = selected_trade_date or target_trade_date
+    if selected_trade_date:
+        return (
+            f"已触发：提交 {selected_trade_date} 的指数日线 silver 更新。",
+            "等待本次 silver run 完成；完成后看 silver_index_daily blocking checks 是否通过。",
+        )
+    if reason_code == "missing_registered_partition":
+        return (
+            f"未触发：指数交易日分区存在缺口，首个缺失日期为 {target}。",
+            "先补齐 cn_a_index_trade_days dynamic partition，再等待下一次 sensor tick。",
+        )
+    if reason_code == "no_registered_trade_day":
+        return (
+            "未触发：没有注册指数交易日分区。",
+            "先注册 cn_a_index_trade_days，再等待下一次 sensor tick。",
+        )
+    if reason_code == "no_registered_index_code":
+        return (
+            "未触发：没有注册指数代码分区。",
+            "先补齐 cn_a_index_ts_codes dynamic partition，再等待下一次 sensor tick。",
+        )
+    if reason_code == "raw_materialized_check_failed":
+        return (
+            f"未触发：{target} 的 raw_index_daily 已生成但 blocking checks 未全绿。",
+            "先查看 raw_index_daily checks metadata，修复 raw 文件后再人工处理。",
+        )
+    if blocked_component == "raw_index_daily":
+        return (
+            f"未触发：{target} 的 raw_index_daily 还没有 ready，silver 不能继续。",
+            "先修复 raw_index_daily 文件或 blocking checks，再等待下一次 sensor tick。",
+        )
+    if blocked_component == "silver_index_daily":
+        return (
+            f"未触发：{target} 的 silver_index_daily 已生成但 blocking checks 未全绿。",
+            "先查看 silver_index_daily checks metadata，修复 silver 文件后再人工处理。",
+        )
+    if reason_code == "all_ready":
+        return (
+            "未触发：最近窗口内指数日线 silver 分区都已 ready。",
+            "无需处理；等待新增指数交易日分区或下游按 readiness 消费。",
+        )
+    return (
+        reason,
+        "按 blocked_component、frontier 和 gate_statuses 修复对应组件后等待下一次 sensor tick。",
+    )
+
+
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -121,6 +203,20 @@ def _cursor_payload(
     silver_batch_status: ContinuityBatchReadiness | None = None,
 ) -> str:
     selected_count = 1 if selected_trade_date else 0
+    blocked_component = _blocked_component_for_cursor(
+        reason_code=reason_code,
+        selected_trade_date=selected_trade_date,
+        target_trade_date=target_trade_date,
+        raw_status=raw_status,
+        silver_status=silver_status,
+    )
+    summary, next_action = _cursor_summary_and_next_action(
+        reason=reason,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+        selected_trade_date=selected_trade_date,
+        target_trade_date=target_trade_date,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=(
@@ -138,23 +234,9 @@ def _cursor_payload(
             asset_family="index_daily",
             partition_set=cn_a_index_trade_days.name,
             reason_code=reason_code,
-            blocked_component=(
-                "none"
-                if selected_trade_date
-                else "raw_index_daily"
-                if raw_status is not None and not raw_status.ready
-                else "silver_index_daily"
-                if silver_status is not None and not silver_status.ready
-                else "cn_a_index_trade_days"
-                if target_trade_date
-                else "none"
-            ),
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            blocked_component=blocked_component,
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": compact_continuity_frontier(
                     continuity_details,

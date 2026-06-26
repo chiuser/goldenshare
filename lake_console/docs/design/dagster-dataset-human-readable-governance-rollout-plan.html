@@ -460,8 +460,8 @@
       </tr>
       <tr>
         <td><code>index_daily</code></td>
-        <td>沿用已瘦身的 raw by-date cursor 原则；materialization metadata 继续强调 DG code count/hash、prod source 覆盖和 raw/silver 同日关系。</td>
-        <td>不要恢复旧 by-code 叙事；不要把 prod source probe 的完整缺口列表写入 cursor。</td>
+        <td>Wave 2C 已完成：沿用已瘦身的 raw by-date cursor 原则；raw/silver materialization metadata 强调 DG code count/hash、prod source 覆盖和 raw/silver 同日关系；checks metadata 先给摘要和下一步，再保留诊断字段。</td>
+        <td>已保持 by-date prod source、raw/silver readiness、run key、job/sensor 和数据湖路径不变；没有恢复旧 by-code 叙事，也没有把 prod source probe 的完整缺口列表写入 cursor。</td>
       </tr>
       <tr>
         <td><code>market_major_indices_daily</code></td>
@@ -626,11 +626,11 @@
         <td>
           LLD 已完成；<code>suspend_d</code> 已作为 Wave 2A 落地到代码、测试和静态门禁；
           <code>adj_factor</code> 已作为 Wave 2B 落地到代码、测试和静态门禁。
-          <code>index_daily</code> 待后续分步实现。
+          <code>index_daily</code> 已作为 Wave 2C 落地到代码、测试和静态门禁。
         </td>
         <td>
           代码级 LLD 已落到 <code>dagster-daily-raw-silver-human-readable-governance-low-level-design.html</code>；
-          实现完成标志仍是 <code>suspend_d</code>、<code>adj_factor</code>、<code>index_daily</code> 的 cursor 和 check metadata 不再像报告转储。
+          Wave 2 完成标志已经满足：<code>suspend_d</code>、<code>adj_factor</code>、<code>index_daily</code> 的 cursor 和 check metadata 不再像报告转储。
         </td>
       </tr>
       <tr>

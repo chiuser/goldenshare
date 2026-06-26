@@ -1,4 +1,5 @@
 import unittest
+import json
 from datetime import datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -200,6 +201,17 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         self.assertIn("最早缺失日期为 2026-06-15", result.skip_reason.skip_message)
         raw_readiness.assert_not_called()
         silver_batch.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(
+            cursor["details"]["reason_code"],
+            "missing_registered_partition",
+        )
+        self.assertEqual(
+            cursor["details"]["blocked_component"],
+            "cn_a_index_trade_days",
+        )
+        self.assertIn("分区存在缺口", cursor["details"]["summary"])
+        self.assertIn("cn_a_index_trade_days", cursor["details"]["next_action"])
 
     def test_raw_not_ready_skips_before_silver_batch(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -222,6 +234,14 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("等待 raw_index_daily", result.skip_reason.skip_message)
         silver_batch.assert_not_called()
+        self.assertLess(len(result.cursor), 2500)
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["blocked_component"], "raw_index_daily")
+        self.assertIn("raw_index_daily 还没有 ready", cursor["details"]["summary"])
+        self.assertIn("raw_index_daily", cursor["details"]["next_action"])
+        self.assertNotIn("raw_batch_status", result.cursor)
+        self.assertNotIn("silver_batch_status", result.cursor)
+        self.assertNotIn("status_samples", result.cursor)
 
     def test_raw_check_failed_does_not_submit_silver_run(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -245,6 +265,14 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
         silver_batch.assert_not_called()
+        cursor = json.loads(result.cursor)
+        self.assertEqual(
+            cursor["details"]["reason_code"],
+            "raw_materialized_check_failed",
+        )
+        self.assertEqual(cursor["details"]["blocked_component"], "raw_index_daily")
+        self.assertIn("已生成但 blocking checks 未全绿", cursor["details"]["summary"])
+        self.assertIn("raw_index_daily checks", cursor["details"]["next_action"])
 
     def test_raw_ready_and_missing_silver_submits_run(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -271,6 +299,43 @@ class SilverIndexDailySensorTests(unittest.TestCase):
         self.assertEqual(len(result.run_requests), 1)
         self.assertEqual(result.run_requests[0].partition_key, "2026-06-02")
         self.assertEqual(result.run_requests[0].run_key, "silver_index_daily:2026-06-02")
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["reason_code"], "request_run")
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("已触发", cursor["details"]["summary"])
+        self.assertIn("silver_index_daily blocking checks", cursor["details"]["next_action"])
+        self.assertNotIn("raw_batch_status", result.cursor)
+        self.assertNotIn("silver_batch_status", result.cursor)
+
+    def test_all_ready_cursor_is_not_blocked(self) -> None:
+        trade_dates = ("2026-06-01", "2026-06-02")
+        with (
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "raw_index_daily_lake_readiness_for_trade_dates",
+                return_value=_raw_batch_status(
+                    trade_dates,
+                    ready_dates=trade_dates,
+                ),
+            ),
+            patch(
+                "orchestrator.defs.sensors.silver_index_daily_sensor."
+                "batch_silver_index_daily_lake_readiness",
+                return_value=_silver_batch_status(
+                    trade_dates,
+                    ready_dates=trade_dates,
+                ),
+            ),
+        ):
+            result = silver_index_daily_sensor._raw_fn(_FakeContext())
+
+        self.assertEqual(result.run_requests, [])
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["blocked_count"], 0)
+        self.assertEqual(cursor["details"]["reason_code"], "all_ready")
+        self.assertEqual(cursor["details"]["blocked_component"], "none")
+        self.assertIn("都已 ready", cursor["details"]["summary"])
+        self.assertIn("无需处理", cursor["details"]["next_action"])
 
     def test_failed_silver_check_status_does_not_submit_run(self) -> None:
         trade_dates = ("2026-06-01", "2026-06-02")
@@ -298,6 +363,10 @@ class SilverIndexDailySensorTests(unittest.TestCase):
 
         self.assertEqual(result.run_requests, [])
         self.assertIn("blocking checks 未全绿", result.skip_reason.skip_message)
+        cursor = json.loads(result.cursor)
+        self.assertEqual(cursor["details"]["blocked_component"], "silver_index_daily")
+        self.assertIn("silver_index_daily 已生成但 blocking checks 未全绿", cursor["details"]["summary"])
+        self.assertIn("silver_index_daily checks", cursor["details"]["next_action"])
 
 
 if __name__ == "__main__":

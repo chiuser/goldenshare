@@ -80,20 +80,129 @@ def _blocking_value_result(passed: bool, metadata: dict[str, Any]) -> dg.AssetCh
     )
 
 
+def _partition_count_summary(
+    *,
+    partition_keys: tuple[str, ...],
+    missing_paths: Sequence[str],
+    failed_partitions: Sequence[str],
+) -> dict[str, int]:
+    return {
+        "partition_count": len(partition_keys),
+        "missing_file_count": len(missing_paths),
+        "failed_partition_count": len(failed_partitions),
+    }
+
+
+def _sum_result_count(results: dict[str, Any], key: str) -> int:
+    return sum(int(result.get(key, 0) or 0) for result in results.values())
+
+
+def _index_daily_next_action(
+    *,
+    missing_paths: Sequence[str],
+    failed_partitions: Sequence[str],
+    failure_hint: str,
+) -> str:
+    if not missing_paths and not failed_partitions:
+        return "无需处理；等待下游按 readiness 消费指数日线分区。"
+    if missing_paths:
+        return "先生成缺失的 index_daily by-date 文件，再重新运行对应 asset/check。"
+    return failure_hint
+
+
+def _raw_file_contract_rule_summary(
+    *,
+    missing_paths: Sequence[str],
+    results: dict[str, Any],
+) -> list[dict[str, object]]:
+    return [
+        {"rule_name": "raw_index_daily_file_exists", "passed": not missing_paths},
+        {
+            "rule_name": "raw_index_daily_row_count_positive",
+            "passed": _sum_result_count(results, "row_count") > 0
+            and all(int(result["row_count"]) > 0 for result in results.values()),
+        },
+        {
+            "rule_name": "raw_index_daily_required_columns_and_types",
+            "passed": not any(
+                result["missing_columns"]
+                or result["unexpected_columns"]
+                or result["type_mismatches"]
+                for result in results.values()
+            ),
+        },
+        {
+            "rule_name": "raw_index_daily_key_not_null",
+            "passed": _sum_result_count(results, "null_key_count") == 0,
+        },
+        {
+            "rule_name": "raw_index_daily_partition_date_matches",
+            "passed": _sum_result_count(results, "date_mismatch_count") == 0,
+        },
+        {
+            "rule_name": "raw_index_daily_unique_ts_code_trade_date",
+            "passed": _sum_result_count(results, "duplicate_key_count") == 0,
+        },
+    ]
+
+
+def _coverage_summary_counts(coverage_results: dict[str, Any]) -> dict[str, int]:
+    return {
+        "missing_code_count": _sum_result_count(
+            coverage_results,
+            "missing_code_count",
+        ),
+        "extra_code_count": _sum_result_count(
+            coverage_results,
+            "extra_code_count",
+        ),
+        "missing_raw_present_count": _sum_result_count(
+            coverage_results,
+            "missing_raw_present_count",
+        ),
+    }
+
+
+def _combined_next_action(failed_rule_names: Sequence[str]) -> str:
+    if not failed_rule_names:
+        return "无需处理；等待下游按 readiness 消费指数日线 silver 分区。"
+    if any("row_count" in rule for rule in failed_rule_names):
+        return "先确认 silver_index_daily 目标文件已生成且非空，再重新运行 checks。"
+    if any("required_columns" in rule for rule in failed_rule_names):
+        return "先核对 silver_index_daily Parquet schema 与字段类型，再重新生成分区。"
+    if any("partition_date" in rule for rule in failed_rule_names):
+        return "先核对文件内 trade_date 是否与分区日期一致，再重新生成该分区。"
+    if any("unique" in rule or "duplicate" in rule for rule in failed_rule_names):
+        return "先处理 ts_code + trade_date 重复键，再重新生成该分区。"
+    return "先查看 failed_rule_names 对应子规则 metadata，修复后重新运行 checks。"
+
+
 def _combined_check_result(
     *,
     partition_keys: tuple[str, ...],
     rule_results: Sequence[tuple[str, dg.AssetCheckResult]],
     check_scope: CheckScope,
 ) -> dg.AssetCheckResult:
+    rule_summary = [
+        {"rule_name": rule_name, "passed": bool(result.passed)}
+        for rule_name, result in rule_results
+    ]
     failed_rule_names = [
         rule_name for rule_name, result in rule_results if not bool(result.passed)
     ]
+    summary = (
+        f"通过：{len(partition_keys)} 个指数日线 silver 分区的 {len(rule_results)} 条聚合规则全部通过。"
+        if not failed_rule_names
+        else f"失败：{len(failed_rule_names)} / {len(rule_results)} 条指数日线 silver 聚合规则未通过。"
+    )
     return dg.AssetCheckResult(
         passed=not failed_rule_names,
         metadata=build_check_metadata(
             check_scope=check_scope,
             extra_metadata={
+                "summary": summary,
+                "next_action": _combined_next_action(failed_rule_names),
+                "rule_summary": rule_summary,
                 "partition_keys": list(partition_keys),
                 "rule_passed": {
                     rule_name: bool(result.passed)
@@ -232,11 +341,40 @@ def evaluate_raw_index_daily_file_contract(
         or result["date_mismatch_count"]
         or result["duplicate_key_count"]
     ]
+    passed = not missing_paths and not failed_partitions
+    contract_summary = {
+        **_partition_count_summary(
+            partition_keys=partition_keys,
+            missing_paths=missing_paths,
+            failed_partitions=failed_partitions,
+        ),
+        "row_count": _sum_result_count(results, "row_count"),
+        "null_key_count": _sum_result_count(results, "null_key_count"),
+        "date_mismatch_count": _sum_result_count(results, "date_mismatch_count"),
+        "duplicate_key_count": _sum_result_count(results, "duplicate_key_count"),
+    }
     return dg.AssetCheckResult(
-        passed=not missing_paths and not failed_partitions,
+        passed=passed,
         metadata=build_check_metadata(
             check_scope=CheckScope.SCHEMA,
             extra_metadata={
+                "summary": (
+                    f"通过：{len(partition_keys)} 个 raw_index_daily by-date 文件契约全部通过。"
+                    if passed
+                    else f"失败：raw_index_daily 有 {len(missing_paths)} 个缺失文件、{len(failed_partitions)} 个失败分区。"
+                ),
+                "next_action": _index_daily_next_action(
+                    missing_paths=missing_paths,
+                    failed_partitions=failed_partitions,
+                    failure_hint=(
+                        "先查看 contract_summary 和 failed_partitions，修复 schema、日期、空 key 或重复键后重跑。"
+                    ),
+                ),
+                "rule_summary": _raw_file_contract_rule_summary(
+                    missing_paths=missing_paths,
+                    results=results,
+                ),
+                "contract_summary": contract_summary,
                 "partition_keys": list(partition_keys),
                 "results": results,
                 "missing_file_paths": missing_paths,
@@ -349,9 +487,42 @@ def evaluate_raw_index_daily_code_coverage(
         for partition_key, result in coverage_results.items()
         if result["missing_code_count"] or result["extra_code_count"]
     ]
+    passed = not missing_paths and not failed_partitions
+    coverage_summary = {
+        **_partition_count_summary(
+            partition_keys=partition_keys,
+            missing_paths=missing_paths,
+            failed_partitions=failed_partitions,
+        ),
+        **_coverage_summary_counts(coverage_results),
+        "expected_code_count": len(expected_codes),
+    }
     return _blocking_value_result(
-        not missing_paths and not failed_partitions,
+        passed,
         {
+            "summary": (
+                f"通过：raw_index_daily 覆盖 DG 管理的 {len(expected_codes)} 个指数代码。"
+                if passed
+                else "失败：raw_index_daily code 覆盖与 DG 动态分区不一致。"
+            ),
+            "next_action": _index_daily_next_action(
+                missing_paths=missing_paths,
+                failed_partitions=failed_partitions,
+                failure_hint=(
+                    "先核对 DG 动态分区、prod core serving 和 raw_index_daily 文件中的缺失/多余指数代码，再重跑。"
+                ),
+            ),
+            "rule_summary": [
+                {
+                    "rule_name": "raw_index_daily_file_exists",
+                    "passed": not missing_paths,
+                },
+                {
+                    "rule_name": "raw_index_daily_code_set_matches_dg_partitions",
+                    "passed": not failed_partitions,
+                },
+            ],
+            "coverage_summary": coverage_summary,
             "partition_keys": list(partition_keys),
             "expected_code_count": len(expected_codes),
             "coverage_results": coverage_results,
@@ -767,9 +938,44 @@ def evaluate_silver_index_daily_registered_code_coverage(
         result["missing_raw_present_count"] == 0 and result["extra_count"] == 0
         for result in coverage_results.values()
     )
+    failed_partitions = [
+        partition_key
+        for partition_key, result in coverage_results.items()
+        if result["missing_raw_present_count"] or result["extra_count"]
+    ]
+    coverage_summary = {
+        **_partition_count_summary(
+            partition_keys=partition_keys,
+            missing_paths=missing_paths,
+            failed_partitions=failed_partitions,
+        ),
+        **_coverage_summary_counts(coverage_results),
+        "extra_code_count": _sum_result_count(coverage_results, "extra_count"),
+    }
     return _blocking_value_result(
         passed,
         {
+            "summary": (
+                "通过：silver_index_daily code set 与同日 raw_index_daily 完全一致。"
+                if passed
+                else "失败：silver_index_daily 与同日 raw_index_daily 的 code set 不一致。"
+            ),
+            "next_action": _index_daily_next_action(
+                missing_paths=missing_paths,
+                failed_partitions=failed_partitions,
+                failure_hint="先按 coverage_summary 修复 silver 缺失或多余代码，再重跑。",
+            ),
+            "rule_summary": [
+                {
+                    "rule_name": "index_daily_raw_and_silver_files_exist",
+                    "passed": not missing_paths,
+                },
+                {
+                    "rule_name": "silver_index_daily_code_set_matches_raw",
+                    "passed": not failed_partitions,
+                },
+            ],
+            "coverage_summary": coverage_summary,
             "partition_keys": list(partition_keys),
             "coverage_results": coverage_results,
             "missing_file_paths": missing_paths,

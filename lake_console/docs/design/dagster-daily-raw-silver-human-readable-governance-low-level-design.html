@@ -132,8 +132,8 @@
       <span class="tag">分资产族推进</span>
     </p>
     <p class="small">
-      当前状态：Wave 2A <code>suspend_d</code> 与 Wave 2B <code>adj_factor</code>
-      已落地到代码、测试和静态门禁；<code>index_daily</code> 仍待后续分步实现。
+      当前状态：Wave 2A <code>suspend_d</code>、Wave 2B <code>adj_factor</code>
+      与 Wave 2C <code>index_daily</code> 均已落地到代码、测试和静态门禁。
     </p>
   </header>
 
@@ -300,8 +300,10 @@
           Raw sensor cursor 已做过瘦身；silver sensor 依赖 raw by-date readiness 和 silver readiness。
         </td>
         <td>
-          Raw/silver materialization metadata 仍偏工程诊断；checks metadata 里 <code>results</code> / <code>coverage_results</code> 是机器报告，
-          缺少先给人看的摘要。Silver sensor 仍要检查是否存在 cursor 报告化字段。
+          Wave 2C 已补齐 raw/silver description、raw stdout、materialization metadata、
+          raw/silver check <code>summary</code>/<code>next_action</code>/<code>rule_summary</code>、
+          count 级摘要，以及 silver sensor cursor 的中文阻断表达和防回退门禁。
+          原有 <code>results</code> / <code>coverage_results</code> 诊断字段继续保留。
         </td>
       </tr>
       <tr>
@@ -368,8 +370,8 @@
           保留已有 by-date 同步逻辑和 <code>DgStdoutLogger("index_daily")</code>；
           description 改得更明确：raw 是 prod core DB 只读同步，silver 是同日标准事实。
           Metadata 追加 <code>summary</code>、<code>next_action</code>、<code>result_status</code>、
-          <code>input_summary</code>、<code>code_set_summary</code>、<code>diagnostic_ref</code>。
-          保留已有 <code>code_count</code> / hash / partition metadata。
+          <code>input_summary</code>、<code>code_set_summary</code>、<code>filter_summary</code>、
+          <code>diagnostic_ref</code>。Wave 2C 已落地，并保留已有 code count/hash/partition metadata。
         </td>
       </tr>
       </tbody>
@@ -415,6 +417,7 @@
           <code>next_action</code>、<code>rule_summary</code>。
           <code>results</code> / <code>coverage_results</code> 保留，但新增 count 级摘要：
           分区数、失败分区数、缺文件数、缺 code 数、extra code 数、重复键数、日期错行数。
+          Wave 2C 已落地。
         </td>
         <td>
           原有 <code>coverage_results</code>、失败分区、样本列表、DG code 覆盖口径；
@@ -569,13 +572,20 @@
         <td>
           Silver sensor request、raw not ready、silver check failed、all ready cursor 均小于 2KB，
           不含 <code>raw_batch_status</code> / <code>silver_batch_status</code> / <code>status_samples</code>。
+          Wave 2C 已覆盖 registered gap、raw not ready、raw check failed、request、all ready 和 silver check failed。
         </td>
       </tr>
       <tr>
         <td><code>tests/test_index_daily_checks.py</code></td>
         <td>
           Raw file contract、raw code coverage、silver contract、silver coverage check metadata 有摘要和下一步；
-          保留 <code>coverage_results</code> 诊断字段。
+          保留 <code>coverage_results</code> 诊断字段。Wave 2C 已覆盖 raw/silver 通过和失败 metadata。
+        </td>
+      </tr>
+      <tr>
+        <td>新增 <code>tests/test_index_daily_human_readable_contracts.py</code></td>
+        <td>
+          Asset description、stdout 事件名、materialization metadata helper，防止 index daily 表达层退化为工程字段堆砌。
         </td>
       </tr>
       <tr>
@@ -604,6 +614,7 @@ uv run python -m unittest \
   tests.test_raw_index_daily_update_job_sensor \
   tests.test_silver_index_daily_sensor \
   tests.test_index_daily_checks \
+  tests.test_index_daily_human_readable_contracts \
   tests.test_index_daily_raw_file_readiness \
   tests.test_run_contract_static_gates \
   tests.test_asset_governance_contracts
@@ -622,7 +633,7 @@ python3 scripts/check_docs_integrity.py</code></pre>
     <ol>
       <li><code>suspend_d</code> 表达层已实现：description、stdout、metadata、check metadata、cursor 文案与测试均已落地。</li>
       <li><code>adj_factor</code> 表达层已实现：保持 batch readiness 与 sensor 选择逻辑不变，只改 cursor/metadata/stdout/check metadata 表达。</li>
-      <li>下一步实现 <code>index_daily</code> 表达层：重点补 check metadata 摘要和 silver sensor cursor 防回退。</li>
+      <li><code>index_daily</code> 表达层已实现：保持 by-date prod source、raw/silver readiness 与 sensor 选择逻辑不变，只补 metadata/stdout/check metadata/cursor 表达。</li>
       <li>同步本 LLD 的“当前状态”和 rollout 文档；如果代码实现与本文有冲突，先停下更新 LLD，不直接改代码绕过。</li>
       <li>提交代码与文档，提交范围只包含 Wave 2 文件，不混入其它未提交文档。</li>
     </ol>
