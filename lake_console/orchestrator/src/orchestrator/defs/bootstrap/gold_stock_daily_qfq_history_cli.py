@@ -17,7 +17,7 @@ def main(argv: list[str] | None = None) -> Path:
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "stage",
-        choices=("profile-history", "write-sample"),
+        choices=("profile-history", "write-sample", "build-history"),
     )
     parser.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
     parser.add_argument("--start-date", default="2014-01-01")
@@ -70,6 +70,28 @@ def main(argv: list[str] | None = None) -> Path:
                 "dry_run": True,
                 "selected_partition_keys": list(selected_keys),
                 "would_write_count": len(selected_keys),
+                "plan": plan.to_dict(),
+            }
+    elif args.stage == "build-history":
+        selected_keys = plan.selected_partition_keys
+        if args.apply:
+            report = {
+                "stage": args.stage,
+                "dry_run": False,
+                "plan": plan.to_dict(),
+                "write_report": generate_gold_stock_daily_qfq_history(
+                    lake_root=lake_root,
+                    duckdb_resource=duckdb_resource,
+                    partition_keys=selected_keys,
+                    overwrite=args.overwrite,
+                ).to_dict(),
+            }
+        else:
+            report = {
+                "stage": args.stage,
+                "dry_run": True,
+                "selected_partition_keys": list(selected_keys),
+                "would_write_count": plan.planned_write_count,
                 "plan": plan.to_dict(),
             }
     else:

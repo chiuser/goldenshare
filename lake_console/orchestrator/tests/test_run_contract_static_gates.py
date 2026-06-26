@@ -3934,6 +3934,51 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_gold_stock_daily_qfq_history_events_are_manual_bootstrap_only(self) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_events.py"
+        )
+        cli_path = (
+            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_events_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        combined = f"{helper_source}\n{cli_source}"
+        issues = []
+
+        forbidden_fragments = (
+            "@dg.asset",
+            "@dg.asset_check",
+            "@dg.sensor",
+            "@dg.run_status_sensor",
+            "define_asset_job",
+            "get_event_records",
+            "event_storage_id",
+            "storage_id\"",
+        )
+        required_fragments = (
+            "GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_WINDOW_SIZE = 20",
+            "GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_EVENT_MAX_PARTITIONS = 21",
+            "report_runless_asset_event",
+            "AssetMaterialization(",
+            "AssetCheckEvaluation(",
+            "\"plan-events\"",
+            "\"report-events\"",
+            "--apply",
+        )
+        issues.extend(
+            f"gold stock daily qfq history event helper contains forbidden fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
+        issues.extend(
+            f"gold stock daily qfq history event helper misses required fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in combined
+        )
+
+        self.assertEqual(issues, [])
+
     def test_metadata_dicts_do_not_write_legacy_keys(self) -> None:
         issues = []
 

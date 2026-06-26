@@ -17,6 +17,8 @@
 6. repair 初版不开放手写 `stock_codes`；repair config、正式 CLI 参数和 sensor payload 都不得暴露股票池输入，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 7. repair 初版必须增加自动 run-status sensor；触发逻辑参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动做 bounded plan 判断并提交 scoped repair job。
 
+截至 2026-06-27，第 5、6、7 项均已关闭为正式口径，不再作为待拍板项保留。
+
 代码实现必须按下面三条解释落地：
 
 1. `pre_close/change_amount/pct_chg = 0` 只表示“该股票在湖中没有上一条可用 source row”。它不是数据缺失兜底；如果 previous source row 存在但 previous adj factor 缺失，writer 和 check 都必须 fail closed。
@@ -846,6 +848,7 @@ P5 已新增 bootstrap dry-run / sample CLI：
 ```text
 python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli profile-history
 python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli write-sample
+python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli build-history
 ```
 
 参数：
@@ -862,8 +865,9 @@ python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli write-sam
 
 1. `profile-history` 永远只读，只输出 JSON report，不写 lake，不写 Dagster event。
 2. `write-sample` 默认仍是 dry-run；只有显式传入 `--apply` 才会写 sample partition。
-3. P5 不做正式全量写入，不做 runless materialization/check event backfill。
-4. P6 才允许在单独审批后推进 full file bootstrap 和 runless event backfill。
+3. `build-history` 默认仍是 dry-run；只有显式传入 `--apply` 才会写 full selected partition 文件。
+4. P5 不做正式全量写入，不做 runless materialization/check event backfill。
+5. P6 已提供 full file bootstrap 与 runless event backfill 工具；正式执行仍必须单独审批。
 
 ### 11.3 Runless Event Backfill Policy
 
@@ -1306,6 +1310,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 
 ### P6: Historical Bootstrap And Runless Event Backfill
 
+状态：代码工具已完成；正式 lake 写入与正式 runless event 写入未执行，必须单独审批。
+
 范围：
 
 - full file bootstrap
@@ -1314,6 +1320,54 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 - post-bootstrap readiness verification
 
 必须单独审批正式 lake 写入与 runless event 写入。
+
+落地文件：
+
+- `defs/bootstrap/gold_stock_daily_qfq_history_cli.py`：新增 `build-history` stage，默认 dry-run，`--apply` 才执行 full selected partition 文件写入。
+- `defs/bootstrap/gold_stock_daily_qfq_history_events.py`：runless event plan/report helper；materialization event 全历史，ordinary check event 只覆盖最近 20 个 `cn_a_stock_trade_days` 与 latest partition。
+- `defs/bootstrap/gold_stock_daily_qfq_history_events_cli.py`：`plan-events` 与 `report-events` CLI；默认 dry-run，`--apply` 才写 Dagster runless events。
+- `tests/test_stock_daily_qfq_history.py`：`build-history` 默认 dry-run 不写文件。
+- `tests/test_stock_daily_qfq_history_events.py`：event plan、dry-run 不写事件、临时 instance apply、check audit failure 阻断。
+- `tests/test_run_contract_static_gates.py`：event helper/CLI 不注册 active definitions，ordinary check event 窗口固定 recent 20 + latest。
+
+runless event 写入规则：
+
+1. materialization event 可覆盖 full history target partitions，但只记录已存在且可读取 row count/observed columns 的 `gold_stock_daily_qfq` 文件。
+2. ordinary check event 默认只覆盖最近 20 个 `cn_a_stock_trade_days` 与 latest partition。
+3. ordinary check event 写入前必须通过 `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check` 等价审计。
+4. 已 ready 的 recent check partition 默认跳过，避免重复写 event。
+5. helper/CLI 不读取旧 storage id 字段，不写 `event_storage_id`，不解析 run key，不新增 Dagster asset/job/sensor/check。
+
+验证：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_history.py \
+  tests/test_stock_daily_qfq_history_events.py \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`91 passed, 72 warnings`。
+
+组合回归：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_stock_daily_qfq_checks.py \
+  tests/test_stock_daily_qfq_sensor_contracts.py \
+  tests/test_stock_daily_qfq_repair_contracts.py \
+  tests/test_stock_daily_qfq_factor_repair_sensor_contracts.py \
+  tests/test_stock_daily_qfq_history.py \
+  tests/test_stock_daily_qfq_history_events.py \
+  tests/test_run_contract_configs.py \
+  tests/test_run_contract_static_gates.py
+```
+
+结果：`122 passed, 162 warnings`。测试只使用临时 lake、ephemeral Dagster instance、静态扫描和 fake instance；未运行 `dg`，未读取正式 Dagster instance，未触碰正式数据湖。
 
 ### P7: Documentation Closeout
 

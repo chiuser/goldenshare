@@ -167,6 +167,32 @@ class StockDailyQfqHistoryTests(unittest.TestCase):
             [TRADE_DATE],
         )
 
+    def test_history_cli_build_history_defaults_to_dry_run(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir) / "lake"
+            report_dir = Path(temp_dir) / "reports"
+            _prepare_history_lake(root)
+
+            output_path = history_cli_main(
+                [
+                    "build-history",
+                    "--lake-root",
+                    str(root),
+                    "--start-date",
+                    EARLIER_DATE,
+                    "--end-date",
+                    TRADE_DATE,
+                    "--report-dir",
+                    str(report_dir),
+                ]
+            )
+            payload = json.loads(output_path.read_text())
+            target_file_exists = gold_stock_daily_qfq_path(root, TRADE_DATE).exists()
+
+        self.assertTrue(payload["dry_run"])
+        self.assertEqual(payload["would_write_count"], 3)
+        self.assertFalse(target_file_exists)
+
 
 if __name__ == "__main__":
     unittest.main()

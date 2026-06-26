@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成；待推进 P6 historical bootstrap and runless event backfill。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成；正式全量 lake 写入与正式 runless event 写入尚未执行，必须单独审批。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -35,6 +35,8 @@ qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_d
 1. `pre_close/change_amount/pct_chg` 保留；上市首日或湖中无 previous source row 时统一写 `0`，不写 `NULL`。
 2. repair 初版不开放手写 `stock_codes`，包括 repair config、正式 CLI 参数和 sensor payload；affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 3. repair 初版必须增加自动 run-status sensor，触发逻辑参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动做 bounded plan 判断并提交 scoped repair job。
+
+截至 2026-06-27，上述三项均已关闭为正式口径，不再作为待拍板项保留。
 
 ### 3.0 拍板口径的执行解释
 
@@ -212,6 +214,14 @@ runless event 补录拆成两层：
 
 1. materialization event 全历史补录，用于告诉 Dagster 历史分区文件已经生成。
 2. ordinary check event 只补最近 20 个 `cn_a_stock_trade_days` 与 latest partition，用于支撑最近窗口 UI/status/readiness；20 日以前的历史质量证明以 bootstrap 文件审计报告为准，不要求 Dagster DB 长期保存每个历史分区的 check 绿灯。
+
+当前 P6 已落地工具口径：
+
+1. `gold_stock_daily_qfq_history_cli build-history` 默认 dry-run；只有显式 `--apply` 才写文件。
+2. `gold_stock_daily_qfq_history_events_cli plan-events` 只读规划 runless event。
+3. `gold_stock_daily_qfq_history_events_cli report-events` 默认 dry-run；只有显式 `--apply` 才写 Dagster runless events。
+4. ordinary check event 写入前必须重新执行 `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check` 等价审计；失败分区不得报绿。
+5. 这些 CLI 的正式执行不属于代码开发阶段，必须另走正式 lake / Dagster DB 写入审批。
 
 这个口径的前提是：后续自动触发、sensor、readiness 不依赖 20 日以前的 check event；报告和研究消费直接读取全历史 Parquet 文件。
 
