@@ -271,6 +271,55 @@ def _blocked_component_for_cursor(
     return None
 
 
+def _cursor_summary_and_next_action(
+    *,
+    decision: StockMinsQfqFactorRepairDecision,
+    reason_code: str,
+    blocked_component: str | None,
+    already_submitted_for_trade_date: bool,
+) -> tuple[str, str]:
+    target_trade_date = decision.target_trade_date
+    if decision.selected_trade_date:
+        return (
+            f"已触发：提交股票分钟线 gold qfq factor repair，交易日 {decision.selected_trade_date}。",
+            "等待 stock_mins_qfq_factor_repair_job 完成，然后查看 repair op stdout 和下游门禁。",
+        )
+    if already_submitted_for_trade_date:
+        return (
+            f"未触发：股票分钟线 qfq factor repair 在 {target_trade_date} 已经提交过 run。",
+            "如上一轮 run 失败，请在 Dagster run 页面人工 retry，不由 sensor 重复提交。",
+        )
+    if reason_code == "missing_registered_partition":
+        return (
+            f"未触发：factor repair 交易日分区存在缺口，目标停在 {target_trade_date}。",
+            "先补齐 cn_a_stock_mins_silver_trade_days 动态分区，再等待下一次 tick。",
+        )
+    if blocked_component == "gold_stk_mins_qfq":
+        return (
+            f"未触发：factor repair 在 {target_trade_date} 被 gold_stk_mins_qfq 阻断。",
+            "先完成同日 gold_stk_mins_qfq 七频度更新与 checks，再等待下一次 tick。",
+        )
+    if blocked_component == "qfq_factor_repair":
+        return (
+            f"未触发：factor repair 在 {target_trade_date} 仍有待处理或失败状态。",
+            "先查看 qfq_factor_repair gate_statuses，确认是否需要等待、人工 retry 或后续专项修复。",
+        )
+    if reason_code == "run_window_not_started":
+        return (
+            "未触发：股票分钟线 qfq factor repair 窗口尚未开始。",
+            "等到 20:40 后，下一次 tick 会重新判断是否提交 repair。",
+        )
+    if reason_code == "no_registered_partition":
+        return (
+            "未触发：没有可处理的 qfq factor repair 交易日分区。",
+            "先确认 cn_a_stock_mins_silver_trade_days 是否已注册目标交易日。",
+        )
+    return (
+        "未触发：股票分钟线 qfq factor repair continuity 窗口内分区已经完成。",
+        "无需处理；等待新交易日分区或下游指标链路。",
+    )
+
+
 def _cursor_reason_code(
     *,
     decision: StockMinsQfqFactorRepairDecision,
@@ -342,6 +391,12 @@ def _cursor_payload(
         gold_status=gold_status,
         qfq_factor_repair_status=qfq_factor_repair_status,
     )
+    summary, next_action = _cursor_summary_and_next_action(
+        decision=decision,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+        already_submitted_for_trade_date=already_submitted_for_trade_date,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -356,12 +411,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_mins_silver_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=decision.reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if decision.selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": compact_continuity_frontier(
                     continuity_status,

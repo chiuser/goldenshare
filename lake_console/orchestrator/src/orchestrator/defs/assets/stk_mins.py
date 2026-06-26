@@ -353,6 +353,40 @@ class GoldStkMinsQfqPartitionWriteResult:
         }
 
 
+def _gold_stk_mins_qfq_human_metadata(
+    *,
+    write_result: GoldStkMinsQfqPartitionWriteResult,
+    partition_key: str,
+    freq: int,
+) -> dict[str, Any]:
+    freq_label = f"{normalize_stk_mins_freq(freq)}min"
+    return _human_materialization_metadata(
+        summary=(
+            f"已写入股票 {freq_label} 分钟 gold 前复权行情："
+            f"交易日 {partition_key}，{write_result.row_count} 行，"
+            f"{write_result.output_file_count} 个股票年份文件。"
+        ),
+        next_action=(
+            "等待 gold qfq blocking checks 全部通过；通过后 factor repair "
+            "和 MACD/KDJ 指标链路可以继续。"
+        ),
+        result_status="written",
+        input_summary={
+            "source_asset": f"silver_stk_mins_{freq}m",
+            "trade_adj_factor_asset": "silver_adj_factor",
+            "as_of_adj_factor_asset": "silver_adj_factor",
+            "as_of_trade_date": write_result.as_of_trade_date,
+        },
+        filter_summary={
+            "output_row_count": write_result.row_count,
+            "output_file_count": write_result.output_file_count,
+            "replacement_row_count": write_result.replacement_row_count,
+            "physical_layout": "freq_ts_code_year",
+        },
+        diagnostic_ref="完整诊断看 gold_stk_mins_qfq checks metadata 和本次 run stdout。",
+    )
+
+
 @dataclass(frozen=True)
 class GoldStkMinsQfqDerivedPartitionWriteResult:
     source_freq: int
@@ -396,6 +430,48 @@ class GoldStkMinsQfqDerivedPartitionWriteResult:
             "physical_layout": "freq_ts_code_year",
             "calculation_model": "derived_from_qfq_source",
         }
+
+
+def _gold_stk_mins_qfq_derived_human_metadata(
+    *,
+    write_result: GoldStkMinsQfqDerivedPartitionWriteResult,
+    partition_key: str,
+    freq: int,
+) -> dict[str, Any]:
+    target_freq = normalize_stk_mins_qfq_freq(freq)
+    return _human_materialization_metadata(
+        summary=(
+            f"已写入股票 {target_freq}min 分钟 gold 前复权派生行情："
+            f"交易日 {partition_key}，{write_result.row_count} 行，"
+            f"{write_result.output_file_count} 个股票年份文件。"
+        ),
+        next_action=(
+            "等待派生 qfq blocking checks 全部通过；通过后 MACD/KDJ 指标链路"
+            "可以消费。"
+        ),
+        result_status="written",
+        input_summary={
+            "source_asset": f"gold_stk_mins_qfq_{write_result.source_freq}m",
+            "source_freq": write_result.source_freq,
+            "source_file_count": write_result.source_file_count,
+            "source_row_count": write_result.source_row_count,
+            "source_stock_day_count": write_result.source_stock_day_count,
+        },
+        filter_summary={
+            "expected_window_count": write_result.expected_window_count,
+            "generated_window_count": write_result.generated_window_count,
+            "incomplete_window_count": write_result.incomplete_window_count,
+            "exchange_mismatch_window_count": (
+                write_result.exchange_mismatch_window_count
+            ),
+            "output_file_count": write_result.output_file_count,
+            "replacement_row_count": write_result.replacement_row_count,
+            "physical_layout": "freq_ts_code_year",
+        },
+        diagnostic_ref=(
+            "完整诊断看 gold_stk_mins_qfq derived checks metadata 和本次 run stdout。"
+        ),
+    )
 
 
 def _freq_label(freq: int | str) -> str:
@@ -2670,21 +2746,44 @@ def _materialize_gold_stk_mins_qfq_partition(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    log = DgStdoutLogger("stk_mins_qfq")
+    log.stdout(
+        "gold_stk_mins_qfq_started",
+        partition_key=partition_key,
+        freq=freq,
+    )
     write_result = write_gold_stk_mins_qfq_asset_partition(
         lake_root=lake_root.root(),
         duckdb=duckdb,
         freq=freq,
         partition_key=partition_key,
     )
+    log.stdout(
+        "gold_stk_mins_qfq_completed",
+        partition_key=partition_key,
+        freq=freq,
+        row_count=write_result.row_count,
+        output_file_count=write_result.output_file_count,
+        replacement_row_count=write_result.replacement_row_count,
+        as_of_trade_date=write_result.as_of_trade_date,
+    )
+    extra_metadata = write_result.materialization_extra_metadata(
+        partition_key=partition_key,
+        freq=freq,
+    )
+    extra_metadata.update(
+        _gold_stk_mins_qfq_human_metadata(
+            write_result=write_result,
+            partition_key=partition_key,
+            freq=freq,
+        )
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.output_root_path,
             row_count=write_result.row_count,
             observed_columns=write_result.observed_columns,
-            extra_metadata=write_result.materialization_extra_metadata(
-                partition_key=partition_key,
-                freq=freq,
-            ),
+            extra_metadata=extra_metadata,
         )
     )
 
@@ -2698,21 +2797,47 @@ def _materialize_gold_stk_mins_qfq_derived_partition(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    log = DgStdoutLogger("stk_mins_qfq")
+    log.stdout(
+        "gold_stk_mins_qfq_derived_started",
+        partition_key=partition_key,
+        freq=freq,
+        source_freq=qfq_source_freq_for_derived_freq(freq),
+    )
     write_result = write_gold_stk_mins_qfq_derived_asset_partition(
         lake_root=lake_root.root(),
         duckdb=duckdb,
         freq=freq,
         partition_key=partition_key,
     )
+    log.stdout(
+        "gold_stk_mins_qfq_derived_completed",
+        partition_key=partition_key,
+        freq=freq,
+        source_freq=write_result.source_freq,
+        row_count=write_result.row_count,
+        source_row_count=write_result.source_row_count,
+        output_file_count=write_result.output_file_count,
+        replacement_row_count=write_result.replacement_row_count,
+        incomplete_window_count=write_result.incomplete_window_count,
+    )
+    extra_metadata = write_result.materialization_extra_metadata(
+        partition_key=partition_key,
+        freq=freq,
+    )
+    extra_metadata.update(
+        _gold_stk_mins_qfq_derived_human_metadata(
+            write_result=write_result,
+            partition_key=partition_key,
+            freq=freq,
+        )
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.output_root_path,
             row_count=write_result.row_count,
             observed_columns=write_result.observed_columns,
-            extra_metadata=write_result.materialization_extra_metadata(
-                partition_key=partition_key,
-                freq=freq,
-            ),
+            extra_metadata=extra_metadata,
         )
     )
 

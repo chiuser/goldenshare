@@ -489,6 +489,80 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_qfq_human_readable_governance_stays_compact(self) -> None:
+        asset_source = (ASSETS_DIR / "stk_mins.py").read_text()
+        check_source = (CHECKS_DIR / "stk_mins_checks.py").read_text()
+        daily_sensor_source = (
+            SENSORS_DIR / "stock_mins_qfq_daily_sensor.py"
+        ).read_text()
+        repair_sensor_source = (
+            SENSORS_DIR / "stock_mins_qfq_factor_repair_sensor.py"
+        ).read_text()
+        issues = []
+
+        for fragment in (
+            "gold_stk_mins_qfq_started",
+            "gold_stk_mins_qfq_completed",
+            "gold_stk_mins_qfq_derived_started",
+            "gold_stk_mins_qfq_derived_completed",
+            "_gold_stk_mins_qfq_human_metadata",
+            "_gold_stk_mins_qfq_derived_human_metadata",
+        ):
+            if fragment not in asset_source:
+                issues.append(f"qfq asset misses readable fragment: {fragment}")
+
+        for fragment in (
+            "股票 {freq} 分钟 gold qfq",
+            "派生输入覆盖",
+            "rule_summary",
+            "failed_rule_names",
+            "next_action",
+        ):
+            if fragment not in check_source:
+                issues.append(f"qfq check misses readable fragment: {fragment}")
+
+        sensor_requirements = {
+            "daily": (
+                daily_sensor_source,
+                (
+                    "_cursor_summary_and_next_action",
+                    "gold qfq 七频度更新",
+                    "silver_adj_factor",
+                    "gold_stk_mins_qfq checks",
+                ),
+            ),
+            "repair": (
+                repair_sensor_source,
+                (
+                    "_cursor_summary_and_next_action",
+                    "qfq factor repair",
+                    "stock_mins_qfq_factor_repair_job",
+                    "gold_stk_mins_qfq 七频度",
+                ),
+            ),
+        }
+        for name, (source, required_fragments) in sensor_requirements.items():
+            for fragment in required_fragments:
+                if fragment not in source:
+                    issues.append(f"{name} qfq sensor misses {fragment}")
+
+        forbidden_sensor_fragments = (
+            "status_samples",
+            "to_cursor_details()",
+            "readiness_details",
+            "repair_details",
+            "sample_rows",
+        )
+        for name, source in (
+            ("daily", daily_sensor_source),
+            ("repair", repair_sensor_source),
+        ):
+            for fragment in forbidden_sensor_fragments:
+                if fragment in source:
+                    issues.append(f"{name} qfq sensor contains {fragment}")
+
+        self.assertEqual(issues, [])
+
     def test_gold_stk_mins_qfq_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops(
         self,
     ) -> None:

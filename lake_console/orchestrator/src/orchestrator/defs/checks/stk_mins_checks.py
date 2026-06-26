@@ -839,6 +839,54 @@ def _gold_qfq_check_results(
     if factor_coverage_failed_count:
         source_failed_rule_names.append(GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK)
 
+    contract_rule_names = (
+        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+        GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
+    )
+    key_failed_rule_names = (
+        []
+        if counts.duplicate_key_count == 0
+        else [GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+    )
+    key_readable_failed_rule_names = list(key_failed_rule_names)
+    if counts.missing_file_count:
+        key_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.schema_mismatch_file_count:
+        key_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
+    value_failed_rule_names = (
+        []
+        if counts.invalid_price_row_count == 0
+        else [GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK]
+    )
+    value_readable_failed_rule_names = list(value_failed_rule_names)
+    if counts.missing_file_count:
+        value_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.schema_mismatch_file_count:
+        value_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
+    formula_failed_rule_names = []
+    if formula_failed_count:
+        formula_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK
+        )
+    formula_readable_failed_rule_names = list(formula_failed_rule_names)
+    if counts.missing_file_count:
+        formula_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.schema_mismatch_file_count:
+        formula_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
+
     return (
         _check_result(
             passed=not contract_failed_rule_names,
@@ -857,6 +905,15 @@ def _gold_qfq_check_results(
                 "schema_error": schema_error,
                 "path_mismatch_row_count": counts.path_mismatch_row_count,
                 "failed_rule_names": contract_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 文件契约",
+                    rule_names=contract_rule_names,
+                    failed_rule_names=contract_failed_rule_names,
+                    success_next_action="无需处理；等待 factor repair 或指标链路消费。",
+                    failure_next_action=(
+                        "先查看缺失文件、schema 或路径日期/频度不一致，再重新运行 qfq。"
+                    ),
+                ),
                 "failure_samples": samples.get("path_mismatch_samples", []),
             },
         ),
@@ -875,10 +932,20 @@ def _gold_qfq_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
-                "failed_rule_names": (
-                    []
-                    if counts.duplicate_key_count == 0
-                    else [GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+                "failed_rule_names": key_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 主键",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+                    ),
+                    failed_rule_names=key_readable_failed_rule_names,
+                    success_next_action="无需处理；等待 factor repair 或指标链路消费。",
+                    failure_next_action=(
+                        "先查看 duplicate_samples；若是缺文件或 schema 问题，"
+                        "先修复文件契约。"
+                    ),
                 ),
                 "failure_samples": samples.get("duplicate_samples", []),
             },
@@ -898,10 +965,20 @@ def _gold_qfq_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
-                "failed_rule_names": (
-                    []
-                    if counts.invalid_price_row_count == 0
-                    else [GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK]
+                "failed_rule_names": value_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 取值",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+                    ),
+                    failed_rule_names=value_readable_failed_rule_names,
+                    success_next_action="无需处理；等待 factor repair 或指标链路消费。",
+                    failure_next_action=(
+                        "先查看 price_samples；若是缺文件或 schema 问题，"
+                        "先修复文件契约。"
+                    ),
                 ),
                 "failure_samples": samples.get("price_samples", []),
             },
@@ -927,6 +1004,18 @@ def _gold_qfq_check_results(
                     counts.missing_as_of_adj_factor_row_count
                 ),
                 "failed_rule_names": source_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 输入覆盖",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_ROW_COUNT_MATCHES_SILVER_CHECK,
+                        GOLD_STK_MINS_QFQ_FACTOR_COVERAGE_COMPLETE_CHECK,
+                    ),
+                    failed_rule_names=source_failed_rule_names,
+                    success_next_action="无需处理；等待 factor repair 或指标链路消费。",
+                    failure_next_action=(
+                        "先确认 silver 行数、当日复权因子和 as-of 复权因子覆盖完整。"
+                    ),
+                ),
             },
         ),
         _check_result(
@@ -952,6 +1041,20 @@ def _gold_qfq_check_results(
                     counts.formula_unexpected_gold_row_count
                 ),
                 "formula_mismatch_row_count": counts.formula_mismatch_row_count,
+                "failed_rule_names": formula_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 公式",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_FORMULA_MATCHES_SILVER_ADJ_FACTOR_CHECK,
+                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+                    ),
+                    failed_rule_names=formula_readable_failed_rule_names,
+                    success_next_action="无需处理；等待指标链路消费。",
+                    failure_next_action=(
+                        "先查看 formula_samples 和复权因子覆盖；必要时触发 qfq factor repair。"
+                    ),
+                ),
                 "failure_samples": samples.get("formula_samples", []),
             },
         ),
@@ -1034,6 +1137,54 @@ def _gold_qfq_derived_check_results(
             GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK
         )
 
+    contract_rule_names = (
+        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+        GOLD_STK_MINS_QFQ_FREQ_DATE_PATH_MATCH_CHECK,
+    )
+    key_failed_rule_names = (
+        []
+        if counts.duplicate_key_count == 0
+        else [GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+    )
+    key_readable_failed_rule_names = list(key_failed_rule_names)
+    if counts.missing_file_count:
+        key_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.schema_mismatch_file_count:
+        key_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
+    value_failed_rule_names = (
+        []
+        if counts.invalid_price_row_count == 0
+        else [GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK]
+    )
+    value_readable_failed_rule_names = list(value_failed_rule_names)
+    if counts.missing_file_count:
+        value_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.schema_mismatch_file_count:
+        value_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
+    formula_failed_rule_names = []
+    if formula_failed_count:
+        formula_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK
+        )
+    formula_readable_failed_rule_names = list(formula_failed_rule_names)
+    if counts.missing_file_count:
+        formula_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK
+        )
+    if counts.schema_mismatch_file_count:
+        formula_readable_failed_rule_names.append(
+            GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK
+        )
+
     return (
         _check_result(
             passed=not contract_failed_rule_names,
@@ -1052,6 +1203,15 @@ def _gold_qfq_derived_check_results(
                 "schema_error": schema_error,
                 "path_mismatch_row_count": counts.path_mismatch_row_count,
                 "failed_rule_names": contract_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 派生文件契约",
+                    rule_names=contract_rule_names,
+                    failed_rule_names=contract_failed_rule_names,
+                    success_next_action="无需处理；等待指标链路消费。",
+                    failure_next_action=(
+                        "先查看缺失文件、schema 或路径日期/频度不一致，再重新运行派生 qfq。"
+                    ),
+                ),
                 "failure_samples": samples.get("path_mismatch_samples", []),
             },
         ),
@@ -1070,10 +1230,20 @@ def _gold_qfq_derived_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
-                "failed_rule_names": (
-                    []
-                    if counts.duplicate_key_count == 0
-                    else [GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+                "failed_rule_names": key_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 派生主键",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+                    ),
+                    failed_rule_names=key_readable_failed_rule_names,
+                    success_next_action="无需处理；等待指标链路消费。",
+                    failure_next_action=(
+                        "先查看 duplicate_samples；若是缺文件或 schema 问题，"
+                        "先修复文件契约。"
+                    ),
                 ),
                 "failure_samples": samples.get("duplicate_samples", []),
             },
@@ -1093,10 +1263,20 @@ def _gold_qfq_derived_check_results(
             + counts.schema_mismatch_file_count,
             extra_metadata={
                 **common_metadata,
-                "failed_rule_names": (
-                    []
-                    if counts.invalid_price_row_count == 0
-                    else [GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK]
+                "failed_rule_names": value_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 派生取值",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_PRICE_SANITY_CHECK,
+                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+                    ),
+                    failed_rule_names=value_readable_failed_rule_names,
+                    success_next_action="无需处理；等待指标链路消费。",
+                    failure_next_action=(
+                        "先查看 price_samples；若是缺文件或 schema 问题，"
+                        "先修复文件契约。"
+                    ),
                 ),
                 "failure_samples": samples.get("price_samples", []),
             },
@@ -1115,6 +1295,18 @@ def _gold_qfq_derived_check_results(
             extra_metadata={
                 **common_metadata,
                 "failed_rule_names": source_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 派生输入覆盖",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_DERIVED_SOURCE_READY_CHECK,
+                        GOLD_STK_MINS_QFQ_DERIVED_ROW_COUNT_MATCHES_SOURCE_WINDOWS_CHECK,
+                    ),
+                    failed_rule_names=source_failed_rule_names,
+                    success_next_action="无需处理；等待指标链路消费。",
+                    failure_next_action=(
+                        "先确认 source_freq 输入文件、窗口生成数量和 exchange 唯一性。"
+                    ),
+                ),
             },
         ),
         _check_result(
@@ -1140,6 +1332,18 @@ def _gold_qfq_derived_check_results(
                     counts.formula_unexpected_gold_row_count
                 ),
                 "formula_mismatch_row_count": counts.formula_mismatch_row_count,
+                "failed_rule_names": formula_failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 gold qfq 派生公式",
+                    rule_names=(
+                        GOLD_STK_MINS_QFQ_DERIVED_FORMULA_MATCHES_SOURCE_CHECK,
+                        GOLD_STK_MINS_QFQ_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+                        GOLD_STK_MINS_QFQ_SCHEMA_MATCHES_CONTRACT_CHECK,
+                    ),
+                    failed_rule_names=formula_readable_failed_rule_names,
+                    success_next_action="无需处理；等待指标链路消费。",
+                    failure_next_action="先查看 formula_samples，再核对 source qfq 窗口聚合逻辑。",
+                ),
                 "failure_samples": samples.get("formula_samples", []),
             },
         ),

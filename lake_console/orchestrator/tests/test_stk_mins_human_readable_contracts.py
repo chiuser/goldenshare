@@ -3,12 +3,20 @@ import unittest
 from pathlib import Path
 
 from orchestrator.defs.assets.stk_mins import (
+    GoldStkMinsQfqDerivedPartitionWriteResult,
+    GoldStkMinsQfqPartitionWriteResult,
     SilverStkMinsWriteResult,
     StkMinsRawWriteResult,
+    _gold_stk_mins_qfq_derived_human_metadata,
+    _gold_stk_mins_qfq_human_metadata,
     _raw_stk_mins_human_metadata,
     _silver_stk_mins_human_metadata,
+    gold_stk_mins_qfq_1m,
     raw_stk_mins_1m,
     silver_stk_mins_1m,
+)
+from orchestrator.defs.jobs.stock_mins_qfq_daily_update import (
+    stock_mins_qfq_daily_update_job,
 )
 from orchestrator.defs.checks.stk_mins_checks import _readable_check_metadata
 from orchestrator.defs.jobs.stock_mins_raw_update import (
@@ -19,6 +27,12 @@ from orchestrator.defs.jobs.stock_mins_silver_update import (
     stock_mins_silver_update_job,
 )
 from orchestrator.defs.sensors.stock_mins_raw_sensor import stock_mins_raw_sensor
+from orchestrator.defs.sensors.stock_mins_qfq_daily_sensor import (
+    stock_mins_qfq_daily_sensor,
+)
+from orchestrator.defs.sensors.stock_mins_qfq_factor_repair_sensor import (
+    stock_mins_qfq_factor_repair_sensor,
+)
 from orchestrator.defs.sensors.stock_mins_silver_sensor import stock_mins_silver_sensor
 
 
@@ -46,11 +60,15 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
         descriptions = (
             _asset_description(raw_stk_mins_1m),
             _asset_description(silver_stk_mins_1m),
+            _asset_description(gold_stk_mins_qfq_1m),
             stock_mins_raw_update_job.description or "",
             stock_mins_raw_update_from_prod_job.description or "",
             stock_mins_silver_update_job.description or "",
+            stock_mins_qfq_daily_update_job.description or "",
             stock_mins_raw_sensor.description or "",
             stock_mins_silver_sensor.description or "",
+            stock_mins_qfq_daily_sensor.description or "",
+            stock_mins_qfq_factor_repair_sensor.description or "",
         )
 
         for description in descriptions:
@@ -60,7 +78,8 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
 
         self.assertIn("raw", descriptions[0])
         self.assertIn("silver", descriptions[1])
-        self.assertIn("prod DB", descriptions[3])
+        self.assertIn("前复权", descriptions[2])
+        self.assertIn("prod DB", descriptions[4])
 
     def test_stk_mins_stdout_events_are_small_and_named(self) -> None:
         calls = _stdout_calls()
@@ -80,6 +99,10 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
                 "raw_stk_mins_repair_completed",
                 "silver_stk_mins_started",
                 "silver_stk_mins_completed",
+                "gold_stk_mins_qfq_started",
+                "gold_stk_mins_qfq_completed",
+                "gold_stk_mins_qfq_derived_started",
+                "gold_stk_mins_qfq_derived_completed",
             }
             - events,
             set(),
@@ -168,6 +191,71 @@ class StkMinsHumanReadableContractTests(unittest.TestCase):
             "raw_stk_mins_5m",
         )
         self.assertEqual(metadata["goldenshare/filter_summary"]["output_row_count"], 109)
+
+    def test_qfq_human_materialization_metadata_uses_operator_fields(self) -> None:
+        result = GoldStkMinsQfqPartitionWriteResult(
+            silver_file_path=Path("/tmp/silver.parquet"),
+            trade_adj_factor_file_path=Path("/tmp/adj.parquet"),
+            as_of_adj_factor_file_path=Path("/tmp/adj.parquet"),
+            as_of_trade_date="2026-05-29",
+            output_root_path=Path("/tmp/gold"),
+            output_file_count=2,
+            output_sample_file_paths=("/tmp/gold/a.parquet",),
+            row_count=100,
+            replacement_row_count=90,
+            observed_columns=("ts_code", "freq"),
+        )
+
+        metadata = _gold_stk_mins_qfq_human_metadata(
+            write_result=result,
+            partition_key="2026-05-29",
+            freq=1,
+        )
+
+        self.assertIn("gold 前复权行情", metadata["goldenshare/summary"])
+        self.assertIn("factor repair", metadata["goldenshare/next_action"])
+        self.assertEqual(metadata["goldenshare/result_status"], "written")
+        self.assertEqual(
+            metadata["goldenshare/input_summary"]["source_asset"],
+            "silver_stk_mins_1m",
+        )
+        self.assertEqual(metadata["goldenshare/filter_summary"]["output_file_count"], 2)
+
+    def test_qfq_derived_human_materialization_metadata_uses_operator_fields(
+        self,
+    ) -> None:
+        result = GoldStkMinsQfqDerivedPartitionWriteResult(
+            source_freq=30,
+            source_file_count=2,
+            output_root_path=Path("/tmp/gold"),
+            output_file_count=2,
+            output_sample_file_paths=("/tmp/gold/a.parquet",),
+            source_row_count=120,
+            source_stock_day_count=2,
+            expected_window_count=60,
+            generated_window_count=58,
+            incomplete_window_count=2,
+            exchange_mismatch_window_count=0,
+            replacement_row_count=50,
+            observed_columns=("ts_code", "freq"),
+        )
+
+        metadata = _gold_stk_mins_qfq_derived_human_metadata(
+            write_result=result,
+            partition_key="2026-05-29",
+            freq=90,
+        )
+
+        self.assertIn("派生行情", metadata["goldenshare/summary"])
+        self.assertIn("MACD/KDJ", metadata["goldenshare/next_action"])
+        self.assertEqual(
+            metadata["goldenshare/input_summary"]["source_asset"],
+            "gold_stk_mins_qfq_30m",
+        )
+        self.assertEqual(
+            metadata["goldenshare/filter_summary"]["generated_window_count"],
+            58,
+        )
 
     def test_check_readable_metadata_keeps_rule_summary_and_next_action(self) -> None:
         metadata = _readable_check_metadata(

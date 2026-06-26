@@ -311,11 +311,12 @@
   <section>
     <h2>6. 分子波实施计划</h2>
     <p>
-      当前状态：Wave 4A 已完成。<code>raw_stk_mins</code> / <code>silver_stk_mins</code>
-      已补充人类可读 stdout、materialization metadata、聚合 check metadata 和
-      raw/silver sensor cursor 文案；未改变分钟线写入 SQL、文件路径、job selection、
-      run key、partition、触发顺序或数据湖内容。后续从 Wave 4B qfq daily / qfq factor repair
-      继续推进。
+      当前状态：Wave 4A 与 Wave 4B 已完成。<code>raw_stk_mins</code> /
+      <code>silver_stk_mins</code> 已补充人类可读 stdout、materialization metadata、
+      聚合 check metadata 和 raw/silver sensor cursor 文案；<code>gold_stk_mins_qfq</code>
+      native/derived asset、checks、qfq daily sensor 和 qfq factor repair sensor 也已完成同类治理。
+      已保持分钟线写入 SQL、文件路径、job selection、run key、partition、触发顺序、
+      repair runtime state 和数据湖内容不变。后续从 Wave 4C MACD/KDJ daily 继续推进。
     </p>
     <table>
       <thead>

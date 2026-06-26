@@ -250,6 +250,60 @@ def _blocked_component_for_cursor(
     return None
 
 
+def _cursor_summary_and_next_action(
+    *,
+    decision: StockMinsQfqDailyUpdateDecision,
+    reason_code: str,
+    blocked_component: str | None,
+    already_submitted_for_trade_date: bool,
+) -> tuple[str, str]:
+    target_trade_date = decision.target_trade_date
+    if decision.selected_trade_date:
+        return (
+            f"已触发：提交股票分钟线 gold qfq 七频度更新，交易日 {decision.selected_trade_date}。",
+            "等待 stock_mins_qfq_daily_update_job 完成，然后查看 gold_stk_mins_qfq checks。",
+        )
+    if already_submitted_for_trade_date:
+        return (
+            f"未触发：股票分钟线 gold qfq 在 {target_trade_date} 已经提交过 run。",
+            "如上一轮 run 失败，请在 Dagster run 页面人工 retry，不由 sensor 重复提交。",
+        )
+    if reason_code == "missing_registered_partition":
+        return (
+            f"未触发：股票分钟线 qfq 交易日分区存在缺口，目标停在 {target_trade_date}。",
+            "先补齐 cn_a_stock_mins_silver_trade_days 动态分区，再等待下一次 tick。",
+        )
+    if blocked_component == "silver_stk_mins":
+        return (
+            f"未触发：gold qfq 在 {target_trade_date} 被 silver_stk_mins 阻断。",
+            "先完成同日 silver_stk_mins 五频度更新与 checks，再等待下一次 tick。",
+        )
+    if blocked_component == "adj_factor":
+        return (
+            f"未触发：gold qfq 在 {target_trade_date} 被 adj_factor 阻断。",
+            "先完成同日 silver_adj_factor 更新与 checks，再等待下一次 tick。",
+        )
+    if blocked_component == "gold_stk_mins_qfq":
+        return (
+            f"未触发：gold qfq 在 {target_trade_date} 已有未通过状态。",
+            "先查看 gold_stk_mins_qfq gate_statuses 和 failed check，人工确认后再修复。",
+        )
+    if reason_code == "run_window_not_started":
+        return (
+            "未触发：股票分钟线 gold qfq 日常更新窗口尚未开始。",
+            "等到 20:10 后，下一次 tick 会重新判断是否提交更新。",
+        )
+    if reason_code == "no_registered_partition":
+        return (
+            "未触发：没有可处理的股票分钟线 qfq 交易日分区。",
+            "先确认 cn_a_stock_mins_silver_trade_days 是否已注册目标交易日。",
+        )
+    return (
+        "未触发：股票分钟线 gold qfq continuity 窗口内分区已经 ready。",
+        "无需处理；等待新交易日分区或后续 factor repair 检测。",
+    )
+
+
 def _cursor_reason_code(
     *,
     decision: StockMinsQfqDailyUpdateDecision,
@@ -338,6 +392,12 @@ def _cursor_payload(
         adj_factor_status=adj_factor_status,
         gold_status=gold_status,
     )
+    summary, next_action = _cursor_summary_and_next_action(
+        decision=decision,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+        already_submitted_for_trade_date=already_submitted_for_trade_date,
+    )
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
         decision=cursor_decision,
@@ -352,12 +412,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_mins_silver_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=decision.reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if decision.selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": compact_continuity_frontier(
                     continuity_status,

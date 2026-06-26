@@ -352,22 +352,21 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             silver_ready=True,
             adj_factor_ready=True,
         )
-        cursor = json.loads(
-            build_stock_mins_qfq_daily_sensor_cursor(
-                decision=decision,
-                evaluated_at=EVALUATED_AT,
-                registered_trade_day_count=3014,
-                silver_status=_dataset_status(("silver_stk_mins_1m",)),
-                adj_factor_status=_dataset_status(("silver_adj_factor",)),
-                gold_status=_dataset_status(
-                    ("gold_stk_mins_qfq_1m",),
-                    ready=False,
-                    materialized=False,
-                    checks_passed=False,
-                    reason="missing",
-                ),
-            )
+        cursor_text = build_stock_mins_qfq_daily_sensor_cursor(
+            decision=decision,
+            evaluated_at=EVALUATED_AT,
+            registered_trade_day_count=3014,
+            silver_status=_dataset_status(("silver_stk_mins_1m",)),
+            adj_factor_status=_dataset_status(("silver_adj_factor",)),
+            gold_status=_dataset_status(
+                ("gold_stk_mins_qfq_1m",),
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="missing",
+            ),
         )
+        cursor = json.loads(cursor_text)
 
         self.assertEqual(cursor["decision"], "request_runs")
         self.assertEqual(cursor["target_date"], PARTITION_KEY)
@@ -383,11 +382,22 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
             STOCK_MINS_QFQ_DAILY_SENSOR_JOB_NAME,
         )
         self.assertTrue(cursor["details"]["evidence"]["run_window_started"])
+        self.assertLess(len(cursor_text), 3072)
+        self.assertIn("已触发", cursor["details"]["summary"])
+        self.assertIn("gold_stk_mins_qfq checks", cursor["details"]["next_action"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["silver_stk_mins"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["adj_factor"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["gold_stk_mins_qfq"])
         self.assertEqual(STOCK_MINS_QFQ_DAILY_RUN_START.isoformat(), "20:10:00")
         self.assertEqual(BEFORE_WINDOW.time().isoformat(), "20:05:00")
+        for fragment in (
+            "status_samples",
+            "to_cursor_details",
+            "readiness_details",
+            "repair_details",
+            "sample_rows",
+        ):
+            self.assertNotIn(fragment, cursor_text)
 
     def test_cursor_contract_for_ready_skip_is_not_blocked(self) -> None:
         decision = build_stock_mins_qfq_daily_update_decision(
@@ -408,6 +418,8 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
 
         self.assertEqual(cursor["decision"], "skip")
         self.assertEqual(cursor["blocked_count"], 0)
+        self.assertIn("未触发", cursor["details"]["summary"])
+        self.assertIn("无需处理", cursor["details"]["next_action"])
         self.assertIsNone(
             cursor["details"].get("runtime_state", {}).get("selected_trade_date")
         )
@@ -459,6 +471,8 @@ class StkMinsQfqM9ASensorContractTests(unittest.TestCase):
         self.assertEqual(cursor["decision"], "skip")
         self.assertEqual(cursor["details"]["reason_code"], "adj_factor_not_ready")
         self.assertEqual(cursor["details"]["blocked_component"], "adj_factor")
+        self.assertIn("未触发", cursor["details"]["summary"])
+        self.assertIn("silver_adj_factor", cursor["details"]["next_action"])
         self.assertEqual(
             cursor["details"]["frontier"]["continuity"]["blocked_reason"],
             "materialized_check_problem",

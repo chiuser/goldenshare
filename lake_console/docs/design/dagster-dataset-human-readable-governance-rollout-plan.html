@@ -506,8 +506,8 @@
       <tbody>
       <tr>
         <td><code>stk_mins_qfq</code></td>
-        <td>说明 qfq 是由 silver 分钟线和复权因子计算得到；metadata 汇总输入频度、复权因子日期、输出行数和缺失原因。</td>
-        <td>如果 sensor 有 repair/backoff runtime state，必须原样保留，只瘦身展示字段。</td>
+        <td>Wave 4B 已完成：native/derived materialization metadata 已说明 silver/qfq source、复权因子、source freq、输出文件数、替换行数和窗口生成统计；qfq checks 已补 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>；qfq daily / factor repair cursor 能直接说明 silver、adj_factor、gold qfq、repair 状态或运行窗口阻断。</td>
+        <td>已保持 qfq 计算 SQL、factor repair runtime state、防重复提交逻辑、run key、job selection、写湖路径和 check 数量不变；cursor 仍不保存 code list，只保存已有聚合证据。</td>
       </tr>
       <tr>
         <td><code>stk_mins_qfq_macd_kdj</code></td>
@@ -655,7 +655,7 @@
           体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。
           代码级 LLD 已补齐到
           <code>dagster-stk-mins-human-readable-governance-low-level-design.html</code>；
-          Wave 4A raw/silver 已完成，后续按 Wave 4B qfq、
+          Wave 4A raw/silver 与 Wave 4B qfq 已完成，后续按
           Wave 4C MACD/KDJ daily、Wave 4D repair 与最终对账分子波推进。
         </td>
         <td>
