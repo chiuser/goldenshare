@@ -651,8 +651,17 @@
       <tr>
         <td>Wave 4</td>
         <td>分钟线、qfq、MACD/KDJ、state</td>
-        <td>体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。</td>
-        <td>高频链路 cursor 保持小而清楚，stdout 和 metadata 只放聚合事实。</td>
+        <td>
+          体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。
+          代码级 LLD 已补齐到
+          <code>dagster-stk-mins-human-readable-governance-low-level-design.html</code>；
+          代码实现尚未开始，后续按 Wave 4A raw/silver、Wave 4B qfq、
+          Wave 4C MACD/KDJ daily、Wave 4D repair 与最终对账分子波推进。
+        </td>
+        <td>
+          高频链路 cursor 保持小而清楚，stdout 和 metadata 只放聚合事实；
+          每个子波都必须证明没有新增热路径扫描、没有改变触发逻辑、没有扩大 check 数量。
+        </td>
       </tr>
       <tr>
         <td>Wave 5</td>

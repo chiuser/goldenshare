@@ -1,0 +1,466 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 股票分钟线高频资产族人类可读治理 LLD</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #202a36;
+      --muted: #637083;
+      --line: #d7dee8;
+      --blue: #255f8d;
+      --green: #1f735d;
+      --amber: #8a641a;
+      --red: #a84232;
+      --code: #f2f5f8;
+      --soft-blue: #eef6ff;
+      --soft-green: #edf8f3;
+      --soft-amber: #fff7df;
+      --soft-red: #fff0ed;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+    main {
+      max-width: 1180px;
+      margin: 0 auto;
+      padding: 34px 24px 76px;
+    }
+    header,
+    section {
+      background: var(--paper);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+      margin-top: 18px;
+      padding: 26px;
+    }
+    header {
+      margin-top: 0;
+      border-left: 6px solid var(--blue);
+      padding: 34px;
+    }
+    h1,
+    h2,
+    h3 { line-height: 1.25; margin-top: 0; }
+    h1 { font-size: 38px; margin-bottom: 12px; }
+    h2 { font-size: 25px; margin-bottom: 12px; }
+    h3 { font-size: 18px; margin: 22px 0 8px; }
+    p { margin: 8px 0 12px; }
+    code {
+      background: var(--code);
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      background: #fff;
+    }
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+    th { background: #edf3f8; }
+    ul,
+    ol { padding-left: 24px; }
+    li { margin: 5px 0; }
+    .lead { color: var(--muted); max-width: 930px; font-size: 17px; }
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code);
+      color: #344054;
+      font-size: 13px;
+    }
+    .callout {
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      padding: 14px 16px;
+      background: var(--soft-blue);
+      margin: 14px 0;
+    }
+    .callout.green { border-left-color: var(--green); background: var(--soft-green); }
+    .callout.amber { border-left-color: var(--amber); background: var(--soft-amber); }
+    .callout.red { border-left-color: var(--red); background: var(--soft-red); }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 股票分钟线高频资产族人类可读治理 LLD</h1>
+    <p class="lead">
+      本文是 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code>
+      中 Wave 4 的代码级低阶设计。目标是把股票分钟线 raw/silver/qfq/MACD-KDJ/state
+      链路的 Dagster UI、stdout、materialization metadata、check metadata 和 sensor cursor
+      写得更像人看的运行路标，而不是机器报告转储。
+    </p>
+    <p>
+      <span class="tag">Wave 4：分钟线高频链路</span>
+      <span class="tag">只改表达层</span>
+      <span class="tag">不改触发逻辑</span>
+      <span class="tag">不改运行逻辑</span>
+      <span class="tag">不写湖</span>
+      <span class="tag">不写数据库</span>
+      <span class="tag">不运行正式 Dagster</span>
+    </p>
+    <p class="small">
+      当前状态：LLD 已补齐，代码实现尚未开始。后续实现必须按本文分子波推进并单独提交。
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 目标</h2>
+    <div class="callout green">
+      <p>
+        Wave 4 不改变任何数据生产决策。完成后，运维打开分钟线相关 run、asset 或 sensor 时，
+        应能直接判断：这是什么频度、读了哪些上游大类、写出了什么粒度、为什么触发或跳过、
+        卡在哪个组件、下一步该修哪里。
+      </p>
+      <p>
+        高频链路体量最大，因此“更可读”只能来自复用已有结果摘要，不能新增热路径扫描、
+        不能扩大 cursor、不能把 code/path/file 明细塞进 Dagster DB。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>2. 依据</h2>
+    <ul>
+      <li><code>AGENTS.md</code>：按计划开发必须抽硬口径、映射真实代码和测试。</li>
+      <li><code>lake_console/AGENTS.md</code>：涉及 Dagster 数据管道必须遵守性能门禁。</li>
+      <li><code>lake_console/orchestrator/AGENTS.md</code>：正式 Dagster 项目，代码改动前必须先完成设计确认。</li>
+      <li><code>lake_console/orchestrator/CODING_STANDARDS.md</code>：股票分钟线连续性、hot path batch readiness、schema contract、DuckDB 连接和命名规则。</li>
+      <li><code>dagster-data-pipeline-performance-governance.md</code>：cursor 必须小，sensor 热路径不新增重扫描。</li>
+      <li><code>dagster-asset-schema-contract-design.md</code>：definition metadata 放稳定字段契约，materialization metadata 放运行事实。</li>
+      <li><code>dagster-dataset-human-readable-governance-rollout-plan.html</code>：Wave 4 范围和交付模板。</li>
+      <li><code>dagster-stk-mins-continuity-governance-low-level-design.html</code>、<code>dagster-stk-mins-continuity-performance-optimization-low-level-design.html</code>、<code>dagster-stk-mins-qfq-macd-kdj-indicators-plan.md</code>：分钟线连续性、性能和指标链路现有口径。</li>
+      <li>Dagster 本地参考：asset description/definition metadata 用于 UI 稳定说明；sensor cursor 应保持 JSON、小而结构化。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>3. 硬边界</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>边界</th>
+        <th>执行口径</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Definition 身份</td>
+        <td>不改 asset、job、sensor、check 名称；不新增同语义 check；不新增 summary/readiness asset。</td>
+      </tr>
+      <tr>
+        <td>触发逻辑</td>
+        <td>不改 job selection、run key、run config、partition、default status、运行窗口、单 tick 最大提交数、run-status sensor 触发条件。</td>
+      </tr>
+      <tr>
+        <td>运行逻辑</td>
+        <td>不改 prod DB SQL、Tushare fallback、DuckDB SQL、复权公式、MACD/KDJ 参数、state 递推、repair 范围和连续性口径。</td>
+      </tr>
+      <tr>
+        <td>数据湖</td>
+        <td>不改 path helper、物理布局、Parquet schema、文件内容、写入方式、bootstrap 或历史 runless event。</td>
+      </tr>
+      <tr>
+        <td>Cursor</td>
+        <td>cursor 是调度路标，只放目标日期、阻断组件、原因、下一步和小证据；禁止 <code>status_samples</code>、完整 batch status、全量 code/path/file 列表、报告型 <code>to_cursor_details()</code>。</td>
+      </tr>
+      <tr>
+        <td>Runtime state</td>
+        <td>凡用于已提交目标去重、repair attempt、upstream batch、backoff 或 completion 判断的字段必须保留；只能改展示字段。</td>
+      </tr>
+      <tr>
+        <td>Checks</td>
+        <td>只增强现有聚合 check metadata；不拆分 check，不扩大 Dagster DB 状态量，不新增逐 code/逐文件 check。</td>
+      </tr>
+      <tr>
+        <td>验证</td>
+        <td>只运行本地单元测试、静态门禁、文档检查和 <code>git diff --check</code>；不运行 <code>dg</code>、job、sensor、materialize、backfill。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>4. 当前代码事实</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>资产族</th>
+        <th>资产 / 入口</th>
+        <th>当前事实</th>
+        <th>可读性缺口</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>raw stk_mins</td>
+        <td><code>assets/stk_mins.py</code> 中 <code>raw_stk_mins_1m/5m/15m/30m/60m</code>；job 为 <code>stock_mins_raw_update_job</code> / <code>stock_mins_raw_update_from_prod_job</code>；sensor 为 <code>stock_mins_raw_sensor</code>。</td>
+        <td>按 <code>cn_a_stock_mins_trade_days</code> 分区；默认日常 source 为 prod DB，只读同步五个源频度；check 已收敛为 <code>raw_stk_mins_contract/key_integrity/value_domain_check</code>。</td>
+        <td>description 已有基本中文，但 materialization metadata 缺少一句话 summary/next_action；stdout 缺少阶段事件；check metadata 主要是机器字段。</td>
+      </tr>
+      <tr>
+        <td>silver stk_mins</td>
+        <td><code>silver_stk_mins_1m/5m/15m/30m/60m</code>；job 为 <code>stock_mins_silver_update_job</code>；sensor 为 <code>stock_mins_silver_sensor</code>。</td>
+        <td>按 <code>cn_a_stock_mins_silver_trade_days</code> 分区；依赖 raw、identity map、stock daily、suspend；粗频度可用 1m 修正；check 已收敛为四个聚合 check。</td>
+        <td>metadata 有输入路径和计数，但缺少面向人的过滤摘要和下一步；cursor 有 compact 结构，但 next_action 仍偏通用。</td>
+      </tr>
+      <tr>
+        <td>gold qfq</td>
+        <td><code>gold_stk_mins_qfq_1m/5m/15m/30m/60m/90m/120m</code>；job 为 <code>stock_mins_qfq_daily_update_job</code>；sensor 为 <code>stock_mins_qfq_daily_sensor</code> 和 <code>stock_mins_qfq_factor_repair_sensor</code>。</td>
+        <td>原生五频度由 silver + adj_factor 生成；90m/120m 分别由 30m/60m qfq 聚合；物理布局是 freq + ts_code + year；repair 依赖真实 qfq factor repair batch。</td>
+        <td>qfq 公式、source freq、repair 范围已有机器字段，但 run 页面缺少“为什么需要 repair / 为什么无需 repair”的人话摘要。</td>
+      </tr>
+      <tr>
+        <td>MACD/KDJ indicator/state</td>
+        <td><code>assets/stk_mins_qfq_macd_kdj.py</code> 的七频度 indicator/state multi-asset；job 为 <code>gold_stk_mins_qfq_macd_kdj_daily_update_job</code> 和 <code>gold_stk_mins_qfq_macd_kdj_repair_job</code>；run-status sensors 为对应 daily/repair sensors。</td>
+        <td>indicator/state 从七频度 qfq 派生；daily 要求 expected calendar、上一 expected state 或首日初始化；repair 只接受真实 qfq factor repair upstream batch。</td>
+        <td>asset description 已能表达基本含义，但 materialization metadata、check metadata 和 run-status skip reason 需要统一成“输入、状态承接、输出、下一步”。</td>
+      </tr>
+      <tr>
+        <td>Catalog / tests</td>
+        <td><code>catalog/lake_assets.py</code>、<code>tests/test_stk_mins_*.py</code>、<code>tests/test_run_contract_static_gates.py</code>。</td>
+        <td>Catalog 已登记 raw 5、silver 5、qfq 7、indicator 7、state 7 个 active entries；现有测试覆盖 continuity、batch readiness、run key、repair、check 和 schema。</td>
+        <td>缺少 Wave 4 人类可读 contract 测试：metadata 字段、stdout event 名、cursor 长度和禁止报告型字段需要被锁住。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>5. 性能门禁表</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>入口</th>
+        <th>现有规模</th>
+        <th>本治理允许增加</th>
+        <th>拒绝策略</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>raw asset</td>
+        <td>单分区五个源频度；prod DB 或 Tushare fallback 读取已经由现有写入逻辑控制。</td>
+        <td>只从 <code>StkMinsRawWriteResult</code> 已有字段生成 summary/next_action/stdout；不新增 source 查询、不新增文件扫描。</td>
+        <td>若可读 metadata 需要额外扫描明细行，停止并改为使用现有计数字段。</td>
+      </tr>
+      <tr>
+        <td>silver asset</td>
+        <td>单分区五个 silver 频度；写入逻辑已读取 raw、identity map、stock daily、suspend、price correction seed。</td>
+        <td>只复用 <code>SilverStkMinsWriteResult</code> 已有计数和路径存在性；stdout 只打阶段和聚合数量。</td>
+        <td>禁止为了生成说明重新读取 raw/silver parquet 或枚举全量股票。</td>
+      </tr>
+      <tr>
+        <td>qfq asset</td>
+        <td>七频度，物理按股票年份文件写入；原生频度读取 silver + adj_factor，派生频度读取 qfq source。</td>
+        <td>只复用现有 write result / diagnostics 中的 row count、file count、source freq、factor coverage 计数。</td>
+        <td>禁止把每个股票年份文件路径、每个 code 或每个 mismatch 样本扩进 metadata。</td>
+      </tr>
+      <tr>
+        <td>MACD/KDJ asset</td>
+        <td>七频度 indicator + 七频度 state；依赖上一 expected state 和 qfq source。</td>
+        <td>只用现有 write result 的 source/output file count、row count、previous state 信息生成摘要。</td>
+        <td>禁止把 state 文件内容、每个 code 的递推状态或全量 path 列表写入 Dagster event。</td>
+      </tr>
+      <tr>
+        <td>普通 sensors</td>
+        <td>raw/silver/qfq daily/factor repair sensors 已有 continuity + batch readiness，窗口固定为最近 10 个 expected dates。</td>
+        <td>只重写 cursor 文案和小 evidence；不新增 readiness 调用，不改变 fast path runtime state。</td>
+        <td>普通 request/skip 目标小于 3KB，硬上限 8KB；超过即删字段而不是扩大 cursor。</td>
+      </tr>
+      <tr>
+        <td>run-status sensors</td>
+        <td>MACD/KDJ daily/repair 由上游 run success 触发，读取必要的 qfq、repair、state readiness。</td>
+        <td>只优化 SkipReason 文案和必要 stdout/log 说明；不新增 cursor，也不新增 instance 查询。</td>
+        <td>禁止为了“更清楚”扩大 recent run 查询、扫描 event history 或改 completion gate。</td>
+      </tr>
+      <tr>
+        <td>checks</td>
+        <td>raw/silver/qfq/MACD-KDJ checks 已经是聚合 check，内部有现有 SQL 和 sample limit。</td>
+        <td>只把已有计数组合成 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>。</td>
+        <td>禁止新增 SQL、禁止新增 check、禁止扩大 sample limit。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>6. 分子波实施计划</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>子波</th>
+        <th>范围</th>
+        <th>代码级改动点</th>
+        <th>测试点</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>Wave 4A</td>
+        <td>raw/silver stk_mins</td>
+        <td>
+          <ul>
+            <li><code>assets/stk_mins.py</code>：为 raw/silver materialization 增加 <code>summary</code>、<code>next_action</code>、<code>result_status</code>、<code>input_summary</code>、<code>filter_summary</code>、<code>diagnostic_ref</code>；增加 <code>DgStdoutLogger("stk_mins")</code> 阶段日志。</li>
+            <li><code>sensors/stock_mins_raw_sensor.py</code>、<code>stock_mins_silver_sensor.py</code>：只优化 <code>summary</code>/<code>next_action</code>/<code>evidence</code>，保留 runtime state 和 fast path。</li>
+            <li><code>checks/stk_mins_checks.py</code>：raw/silver 聚合 check metadata 增加人话摘要，不改 SQL。</li>
+          </ul>
+        </td>
+        <td><code>test_stk_mins_human_readable_contracts</code>、现有 raw/silver sensor/check 测试、静态门禁。</td>
+      </tr>
+      <tr>
+        <td>Wave 4B</td>
+        <td>gold qfq daily / qfq factor repair</td>
+        <td>
+          <ul>
+            <li><code>assets/stk_mins.py</code>：qfq 原生/派生 materialization metadata 和 stdout 增加频度、source freq、factor coverage、输出文件粒度的人话摘要。</li>
+            <li><code>sensors/stock_mins_qfq_daily_sensor.py</code>、<code>stock_mins_qfq_factor_repair_sensor.py</code>：cursor 文案精确到 silver、adj_factor、gold qfq、qfq factor repair、run window。</li>
+            <li><code>checks/stk_mins_checks.py</code>：qfq native/derived 聚合 check metadata 增加 <code>rule_summary</code> 和下一步。</li>
+          </ul>
+        </td>
+        <td>现有 qfq sensor/repair/check 测试 + cursor 长度和禁写字段静态门禁。</td>
+      </tr>
+      <tr>
+        <td>Wave 4C</td>
+        <td>MACD/KDJ indicator/state daily</td>
+        <td>
+          <ul>
+            <li><code>assets/stk_mins_qfq_macd_kdj.py</code>：indicator/state materialization metadata 增加 source qfq、previous state、output file/row count、下一步。</li>
+            <li><code>checks/stk_mins_qfq_macd_kdj_checks.py</code>：indicator/source/formula/state checks 增加 summary/next_action/rule_summary，保留 sample limit。</li>
+            <li><code>sensors/gold_stk_mins_qfq_macd_kdj_daily_update_job_sensor.py</code>：只优化 SkipReason 文案和 decision reason，不新增 cursor。</li>
+          </ul>
+        </td>
+        <td>MACD/KDJ asset/check/sensor 现有测试 + Dagster metadata 类型测试，防止 tuple 等不可序列化值回流。</td>
+      </tr>
+      <tr>
+        <td>Wave 4D</td>
+        <td>MACD/KDJ scoped repair 与最终对账</td>
+        <td>
+          <ul>
+            <li><code>ops/gold_stk_mins_qfq_macd_kdj_repair.py</code>、<code>sensors/gold_stk_mins_qfq_macd_kdj_repair_job_sensor.py</code>：repair stdout、metadata、SkipReason 只表达 upstream batch、code count/hash、范围和下一步，不打印 code list。</li>
+            <li><code>tests/test_run_contract_static_gates.py</code>：禁止 Wave 4 sensor cursor/report 回退到完整 batch status、status samples、全量 path/code list。</li>
+            <li>同步 <code>dagster-dataset-human-readable-governance-rollout-plan.html</code> 的 Wave 4 完成状态。</li>
+          </ul>
+        </td>
+        <td>repair op/sensor 测试、静态门禁、文档检查、<code>git diff --check</code>。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. Cursor 标准</h2>
+    <p>Wave 4 普通 sensor 仍使用现有 v1 顶层 contract：</p>
+    <ul>
+      <li><code>schema_version</code>、<code>evaluated_at</code>、<code>decision</code>、<code>target_date</code>、<code>selected_count</code>、<code>blocked_count</code>、<code>sample_keys</code>、<code>details</code> 保持不变。</li>
+      <li><code>details.summary</code> 必须是一句短中文，直接说明本 tick 发生了什么。</li>
+      <li><code>details.next_action</code> 必须告诉运维下一步看哪里或等什么。</li>
+      <li><code>details.blocked_component</code> 只能写稳定组件名，例如 <code>stock_basic</code>、<code>raw_stk_mins</code>、<code>silver_stk_mins</code>、<code>adj_factor</code>、<code>gold_stk_mins_qfq</code>、<code>qfq_factor_repair</code>、<code>run_window</code>、<code>none</code>。</li>
+      <li><code>frontier</code> 只保留窗口起止、ready through、first not ready、selected date 等小摘要。</li>
+      <li><code>evidence</code> 只保留 registered count、freq count、run window、首个失败样本等小字段。</li>
+    </ul>
+    <div class="callout red">
+      <p>
+        禁止项：<code>status_samples</code>、<code>*_batch_status.to_cursor_details()</code>、
+        全量 <code>file_paths</code>、全量 <code>stock_codes</code>、完整 schema/type map、
+        每个频度/每个日期/每个 code 的明细状态。
+      </p>
+    </div>
+  </section>
+
+  <section>
+    <h2>8. Stdout 与 Metadata 标准</h2>
+    <table>
+      <thead>
+      <tr>
+        <th>对象</th>
+        <th>允许内容</th>
+        <th>禁止内容</th>
+      </tr>
+      </thead>
+      <tbody>
+      <tr>
+        <td>stdout</td>
+        <td>固定事件名、partition、freq、source method、row count、file count、repair code count/hash、阶段耗时。</td>
+        <td>完整 SQL、DataFrame、全量股票代码、全量 path、全量失败样本、敏感连接信息。</td>
+      </tr>
+      <tr>
+        <td>materialization metadata</td>
+        <td><code>summary</code>、<code>next_action</code>、<code>result_status</code>、<code>input_summary</code>、<code>filter_summary</code>、<code>diagnostic_ref</code>，以及现有机器字段。</td>
+        <td>新增 <code>dagster/column_schema</code> 到运行时 metadata；重复存完整 schema；扩大 path/code 明细。</td>
+      </tr>
+      <tr>
+        <td>check metadata</td>
+        <td><code>summary</code>、<code>next_action</code>、<code>rule_summary</code>、稳定 <code>failed_rule_names</code>、少量 failure samples。</td>
+        <td>新增碎 check；增大 sample limit；为了摘要新增 SQL 扫描。</td>
+      </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>9. 验证命令</h2>
+    <p>每个子波按实际改动运行对应子集；Wave 4 全量收口建议命令：</p>
+    <pre><code>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_stk_mins_raw_m4_contracts \
+  tests.test_stk_mins_silver_m6g_sensor_contracts \
+  tests.test_stk_mins_qfq_m9a_sensor_contracts \
+  tests.test_stk_mins_qfq_m9c_sensor_contracts \
+  tests.test_stk_mins_qfq_m12_sensor_contracts \
+  tests.test_stk_mins_qfq_macd_kdj_check_contracts \
+  tests.test_stk_mins_human_readable_contracts \
+  tests.test_run_contract_static_gates
+git diff --check</code></pre>
+    <p>
+      不默认运行 <code>dg check defs</code>；如需正式 definitions 验证，必须单独列命令和读写范围等待审批。
+    </p>
+  </section>
+
+  <section>
+    <h2>10. 不做事项</h2>
+    <ul>
+      <li>不写数据湖、不访问 prod DB、不写 Dagster DB。</li>
+      <li>不清理历史 event/run/cursor，不做 runless event 补录。</li>
+      <li>不启用或停止任何 sensor。</li>
+      <li>不改分钟线连续性、expected calendar、previous state、repair upstream batch、completion gate。</li>
+      <li>不把 Wave 4 做成一次性全仓库重构；必须按 4A/4B/4C/4D 分子波提交。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>11. 当前 LLD 审计结论</h2>
+    <ul>
+      <li>当前代码已经有 compact cursor 基础，Wave 4 实现时不得回退到报告型 cursor。</li>
+      <li>当前 check 已聚合，Wave 4 不新增 check，只补 metadata 人话字段。</li>
+      <li>当前 catalog 已登记全部分钟线 raw/silver/qfq/indicator/state active entries，Wave 4 不改 catalog 身份事实。</li>
+      <li>当前无专门的 Wave 4 人类可读治理 LLD，本文补齐该前置门禁；后续才能进入 4A 代码实现。</li>
+    </ul>
+  </section>
+</main>
+</body>
+</html>
