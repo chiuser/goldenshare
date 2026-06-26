@@ -218,24 +218,23 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             suspend_ready=True,
             identity_map_ready=True,
         )
-        cursor = json.loads(
-            build_stock_mins_silver_sensor_cursor(
-                decision=decision,
-                evaluated_at=EVALUATED_AT,
-                raw_registered_trade_day_count=3014,
-                registered_trade_day_count=3014,
-                raw_status=_lake_status(),
-                stock_daily_status=_dataset_status(("silver_stock_daily",)),
-                suspend_status=_dataset_status(("silver_stock_suspend_daily",)),
-                identity_map_status=_asset_status("silver_stock_identity_map"),
-                silver_status=_lake_status(
-                    ready=False,
-                    materialized=False,
-                    checks_passed=False,
-                    reason="missing",
-                ),
-            )
+        cursor_text = build_stock_mins_silver_sensor_cursor(
+            decision=decision,
+            evaluated_at=EVALUATED_AT,
+            raw_registered_trade_day_count=3014,
+            registered_trade_day_count=3014,
+            raw_status=_lake_status(),
+            stock_daily_status=_dataset_status(("silver_stock_daily",)),
+            suspend_status=_dataset_status(("silver_stock_suspend_daily",)),
+            identity_map_status=_asset_status("silver_stock_identity_map"),
+            silver_status=_lake_status(
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="missing",
+            ),
         )
+        cursor = json.loads(cursor_text)
 
         self.assertEqual(cursor["decision"], "request_runs")
         self.assertEqual(cursor["target_date"], PARTITION_KEY)
@@ -251,9 +250,20 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
             STOCK_MINS_SILVER_SENSOR_JOB_NAME,
         )
         self.assertTrue(cursor["details"]["evidence"]["run_window_started"])
+        self.assertLess(len(cursor_text), 3072)
+        self.assertIn("已触发", cursor["details"]["summary"])
+        self.assertIn("silver_stk_mins checks", cursor["details"]["next_action"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["raw_stk_mins"])
         self.assertIsNotNone(cursor["details"]["gate_statuses"]["silver_stk_mins"])
         self.assertEqual(STOCK_MINS_SILVER_RUN_START.isoformat(), "19:50:00")
+        for fragment in (
+            "status_samples",
+            "to_cursor_details",
+            "readiness_details",
+            "repair_details",
+            "sample_rows",
+        ):
+            self.assertNotIn(fragment, cursor_text)
 
     def test_cursor_contract_for_ready_skip_is_not_blocked(self) -> None:
         decision = build_stock_mins_silver_update_decision(
@@ -277,9 +287,40 @@ class StkMinsSilverM6GSensorContractTests(unittest.TestCase):
 
         self.assertEqual(cursor["decision"], "skip")
         self.assertEqual(cursor["blocked_count"], 0)
+        self.assertIn("未触发", cursor["details"]["summary"])
+        self.assertIn("无需处理", cursor["details"]["next_action"])
         self.assertIsNone(
             cursor["details"].get("runtime_state", {}).get("selected_trade_date")
         )
+
+    def test_cursor_contract_for_raw_gate_has_human_next_action(self) -> None:
+        decision = build_stock_mins_silver_update_decision(
+            target_trade_date=PARTITION_KEY,
+            run_window_started=True,
+            raw_ready=False,
+            stock_daily_ready=True,
+            suspend_ready=True,
+            identity_map_ready=True,
+        )
+        cursor_text = build_stock_mins_silver_sensor_cursor(
+            decision=decision,
+            evaluated_at=EVALUATED_AT,
+            raw_registered_trade_day_count=3014,
+            registered_trade_day_count=3014,
+            raw_status=_lake_status(
+                ready=False,
+                materialized=False,
+                checks_passed=False,
+                reason="raw missing",
+            ),
+        )
+        cursor = json.loads(cursor_text)
+
+        self.assertEqual(cursor["decision"], "skip")
+        self.assertEqual(cursor["details"]["blocked_component"], "raw_stk_mins")
+        self.assertIn("未触发", cursor["details"]["summary"])
+        self.assertIn("raw_stk_mins 五频度", cursor["details"]["next_action"])
+        self.assertLess(len(cursor_text), 3072)
 
 
 if __name__ == "__main__":

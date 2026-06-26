@@ -1292,6 +1292,10 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             cursor["details"]["evidence"]["stock_basic_freshness_required"]
         )
         self.assertFalse(cursor["details"]["gate_statuses"]["stock_basic"]["ready"])
+        self.assertEqual(cursor["details"]["blocked_component"], "stock_basic")
+        self.assertIn("未触发", cursor["details"]["summary"])
+        self.assertIn("stock_basic", cursor["details"]["next_action"])
+        self.assertLess(len(result.cursor), 3072)
 
     def test_stock_mins_sensor_cursors_and_run_request_contract(self) -> None:
         silver_decision = build_stock_mins_silver_trade_day_registration_decision(
@@ -1322,20 +1326,22 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
             "cn_a_stock_mins_silver_trade_days",
         )
 
-        raw_cursor = json.loads(
-            build_stock_mins_raw_sensor_cursor(
-                evaluated_at=EVALUATED_AT,
-                registered_trade_day_count=1,
-                target_trade_date="2026-05-29",
-                selected_trade_date="2026-05-29",
-                reason="ready",
-                source_window_started=True,
-            )
+        raw_cursor_text = build_stock_mins_raw_sensor_cursor(
+            evaluated_at=EVALUATED_AT,
+            registered_trade_day_count=1,
+            target_trade_date="2026-05-29",
+            selected_trade_date="2026-05-29",
+            reason="ready",
+            source_window_started=True,
         )
+        raw_cursor = json.loads(raw_cursor_text)
         self.assertEqual(raw_cursor["decision"], "request_runs")
         self.assertEqual(raw_cursor["target_date"], "2026-05-29")
         self.assertEqual(raw_cursor["selected_count"], 1)
         self.assertEqual(raw_cursor["details"]["evidence"]["source"], "prod_db")
+        self.assertLess(len(raw_cursor_text), 2048)
+        self.assertIn("已触发", raw_cursor["details"]["summary"])
+        self.assertIn("raw_stk_mins checks", raw_cursor["details"]["next_action"])
         self.assertEqual(
             raw_cursor["details"]["job_name"],
             "stock_mins_raw_update_from_prod_job",
@@ -1343,6 +1349,15 @@ class StkMinsRawM4ContractTests(unittest.TestCase):
         self.assertTrue(
             raw_cursor["details"]["evidence"]["stock_basic_freshness_required"]
         )
+        forbidden_cursor_fragments = (
+            "status_samples",
+            "to_cursor_details",
+            "readiness_details",
+            "repair_details",
+            "sample_rows",
+        )
+        for fragment in forbidden_cursor_fragments:
+            self.assertNotIn(fragment, raw_cursor_text)
 
         request = _run_request_for_trade_date("2026-05-29")
         self.assertEqual(request.partition_key, "2026-05-29")

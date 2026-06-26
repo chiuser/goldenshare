@@ -416,6 +416,79 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         self.assertEqual(issues, [])
 
+    def test_stock_mins_raw_silver_human_readable_governance_stays_compact(
+        self,
+    ) -> None:
+        asset_source = (ASSETS_DIR / "stk_mins.py").read_text()
+        check_source = (CHECKS_DIR / "stk_mins_checks.py").read_text()
+        raw_sensor_source = (
+            SENSORS_DIR / "stock_mins_raw_sensor.py"
+        ).read_text()
+        silver_sensor_source = (
+            SENSORS_DIR / "stock_mins_silver_sensor.py"
+        ).read_text()
+        issues = []
+
+        for fragment in (
+            "raw_stk_mins_started",
+            "raw_stk_mins_completed",
+            "raw_stk_mins_repair_started",
+            "raw_stk_mins_repair_completed",
+            "silver_stk_mins_started",
+            "silver_stk_mins_completed",
+            "_raw_stk_mins_human_metadata",
+            "_silver_stk_mins_human_metadata",
+        ):
+            if fragment not in asset_source:
+                issues.append(f"stk_mins asset misses readable fragment: {fragment}")
+
+        for fragment in ("summary", "next_action", "rule_summary", "failed_rule_names"):
+            if fragment not in check_source:
+                issues.append(f"stk_mins check misses readable metadata: {fragment}")
+
+        sensor_requirements = {
+            "raw": (
+                raw_sensor_source,
+                (
+                    "_cursor_summary_and_next_action",
+                    "股票分钟线 raw 五频度更新",
+                    "stock_mins_raw_update_from_prod_job",
+                    "raw_stk_mins checks",
+                ),
+            ),
+            "silver": (
+                silver_sensor_source,
+                (
+                    "_cursor_summary_and_next_action",
+                    "股票分钟线 silver 五频度更新",
+                    "stock_mins_silver_update_job",
+                    "raw_stk_mins 五频度",
+                    "silver_stk_mins checks",
+                ),
+            ),
+        }
+        for name, (source, required_fragments) in sensor_requirements.items():
+            for fragment in required_fragments:
+                if fragment not in source:
+                    issues.append(f"{name} stock_mins sensor misses {fragment}")
+
+        forbidden_sensor_fragments = (
+            "status_samples",
+            "to_cursor_details()",
+            "readiness_details",
+            "repair_details",
+            "sample_rows",
+        )
+        for name, source in (
+            ("raw", raw_sensor_source),
+            ("silver", silver_sensor_source),
+        ):
+            for fragment in forbidden_sensor_fragments:
+                if fragment in source:
+                    issues.append(f"{name} stock_mins sensor contains {fragment}")
+
+        self.assertEqual(issues, [])
+
     def test_gold_stk_mins_qfq_macd_kdj_formal_code_avoids_recursive_cte_and_row_loops(
         self,
     ) -> None:

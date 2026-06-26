@@ -483,13 +483,13 @@
       <tbody>
       <tr>
         <td><code>stk_mins</code> raw 1m/5m/15m/30m/60m</td>
-        <td>asset description 按频度说明“源镜像、按交易日和频度保存”；stdout 按频度记录文件数、股票数、行数；cursor 只保留 frontier、目标日期、目标频度和首个阻断组件。</td>
-        <td>分钟线体量大，严禁 stdout、cursor 或 metadata 打印全量 code、路径列表、每个文件状态。</td>
+        <td>Wave 4A 已完成：raw materialization metadata 已补 <code>summary</code>、<code>next_action</code>、<code>input_summary</code>、<code>filter_summary</code>；stdout 只记录开始/完成、频度、分区和聚合数量；cursor 能直接说明已触发、运行窗口、分区缺口、stock_basic 或 raw 自身阻断。</td>
+        <td>已保持 prod DB/Tushare source 选择、run key、job selection、写湖路径和 DuckDB SQL 不变；仍严禁 stdout/cursor 打印全量 code、路径列表或每个文件状态。</td>
       </tr>
       <tr>
         <td><code>stk_mins</code> silver 1m/5m/15m/30m/60m</td>
-        <td>说明标准化分钟线口径和与 raw 的同频同日关系；check metadata 汇总 schema、key、覆盖和异常样本。</td>
-        <td>不要改变 sensor 的频度依赖和热路径读取上限。</td>
+        <td>Wave 4A 已完成：silver materialization metadata 已说明 raw、identity map、stock daily、suspend 等输入和标准化过滤计数；聚合 checks 已补 <code>summary</code>、<code>next_action</code>、<code>rule_summary</code>；sensor cursor 能直接说明 raw、stock_daily、suspend_d、stock_identity_map 或 silver 自身阻断。</td>
+        <td>已保持 raw/silver 同日同频依赖、热路径读取上限、check 数量和阻断语义不变。</td>
       </tr>
       </tbody>
     </table>
@@ -655,7 +655,7 @@
           体量最大、性能最敏感，必须在前面样式稳定后再做，避免把治理做成状态膨胀。
           代码级 LLD 已补齐到
           <code>dagster-stk-mins-human-readable-governance-low-level-design.html</code>；
-          代码实现尚未开始，后续按 Wave 4A raw/silver、Wave 4B qfq、
+          Wave 4A raw/silver 已完成，后续按 Wave 4B qfq、
           Wave 4C MACD/KDJ daily、Wave 4D repair 与最终对账分子波推进。
         </td>
         <td>

@@ -105,6 +105,49 @@ def _raw_status_payload(
     return compact_readiness_status(status)
 
 
+def _cursor_summary_and_next_action(
+    *,
+    selected_trade_date: str | None,
+    target_trade_date: str | None,
+    reason_code: str,
+    blocked_component: str | None,
+) -> tuple[str, str]:
+    if selected_trade_date:
+        return (
+            f"已触发：提交股票分钟线 raw 五频度更新，交易日 {selected_trade_date}。",
+            "等待 stock_mins_raw_update_from_prod_job 完成，然后查看 raw_stk_mins checks。",
+        )
+    if blocked_component == "cn_a_stock_mins_trade_days":
+        return (
+            f"未触发：股票分钟线 raw 交易日分区存在缺口，目标停在 {target_trade_date}。",
+            "先补齐 cn_a_stock_mins_trade_days 动态分区，再等待下一次 tick。",
+        )
+    if blocked_component == "stock_basic":
+        return (
+            f"未触发：股票分钟线 raw 在 {target_trade_date} 被 stock_basic 阻断。",
+            "先完成 stock_basic freshness 与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "raw_stk_mins":
+        return (
+            f"未触发：股票分钟线 raw 在 {target_trade_date} 已有未通过状态。",
+            "先查看 raw_stk_mins gate_statuses 和 failed check，人工确认后再修复。",
+        )
+    if reason_code == "run_window_not_started":
+        return (
+            "未触发：股票分钟线 raw 日常更新窗口尚未开始。",
+            "等到 19:30 后，下一次 tick 会重新判断是否提交更新。",
+        )
+    if reason_code == "no_registered_partition":
+        return (
+            "未触发：没有可处理的股票分钟线 raw 交易日分区。",
+            "先确认 cn_a_stock_mins_trade_days 是否已注册目标交易日。",
+        )
+    return (
+        "未触发：股票分钟线 raw continuity 窗口内分区已经 ready。",
+        "无需处理；等待新交易日分区或下一次更新窗口。",
+    )
+
+
 def _cursor_payload(
     *,
     evaluated_at: datetime,
@@ -158,15 +201,16 @@ def _cursor_payload(
         if continuity_status.first_missing_registered_date is not None:
             reason_code = "missing_registered_partition"
             blocked_component = "cn_a_stock_mins_trade_days"
-        elif continuity_status.first_not_ready_reason is not None:
+    if reason_code is None and stock_basic_status is not None and not stock_basic_status.ready:
+        reason_code = "stock_basic_not_ready"
+        blocked_component = "stock_basic"
+    if reason_code is None and continuity_status is not None:
+        if continuity_status.first_not_ready_reason is not None:
             reason_code = continuity_status.first_not_ready_reason
             blocked_component = "raw_stk_mins"
         elif continuity_status.blocked_reason is not None:
             reason_code = continuity_status.blocked_reason
             blocked_component = "raw_stk_mins"
-    if reason_code is None and stock_basic_status is not None and not stock_basic_status.ready:
-        reason_code = "stock_basic_not_ready"
-        blocked_component = "stock_basic"
     if reason_code is None and raw_status is not None and not raw_status.ready:
         reason_code = getattr(raw_status, "reason", "raw_stk_mins_not_ready")
         blocked_component = "raw_stk_mins"
@@ -179,6 +223,12 @@ def _cursor_payload(
             reason_code = "no_registered_partition"
         else:
             reason_code = "all_ready"
+    summary, next_action = _cursor_summary_and_next_action(
+        selected_trade_date=selected_trade_date,
+        target_trade_date=target_trade_date,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+    )
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -194,12 +244,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_mins_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "continuity": compact_continuity_frontier(
                     continuity_status,

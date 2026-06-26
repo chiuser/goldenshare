@@ -94,6 +94,7 @@ from orchestrator.seeds.quote.stk_mins_price_corrections import (
     has_stk_mins_price_corrections,
     load_stk_mins_price_correction_catalog,
 )
+from orchestrator.utils.dg_log_helper import DgStdoutLogger
 
 
 STK_MINS_RAW_COLUMNS = tuple(column.name for column in RAW_STK_MINS_SCHEMA)
@@ -113,6 +114,28 @@ _STK_MINS_FREQ_LABELS = {
     30: "30min",
     60: "60min",
 }
+
+
+def _human_materialization_metadata(
+    *,
+    summary: str,
+    next_action: str,
+    result_status: str,
+    input_summary: dict[str, Any] | None = None,
+    filter_summary: dict[str, Any] | None = None,
+    diagnostic_ref: str,
+) -> dict[str, Any]:
+    metadata: dict[str, Any] = {
+        "goldenshare/summary": summary,
+        "goldenshare/next_action": next_action,
+        "goldenshare/result_status": result_status,
+        "goldenshare/diagnostic_ref": diagnostic_ref,
+    }
+    if input_summary:
+        metadata["goldenshare/input_summary"] = input_summary
+    if filter_summary:
+        metadata["goldenshare/filter_summary"] = filter_summary
+    return metadata
 
 
 @dataclass(frozen=True)
@@ -166,6 +189,45 @@ class StkMinsRawWriteResult:
         return metadata
 
 
+def _raw_stk_mins_human_metadata(
+    *,
+    write_result: StkMinsRawWriteResult,
+    partition_key: str,
+    freq: int,
+) -> dict[str, Any]:
+    freq_label = _freq_label(freq)
+    return _human_materialization_metadata(
+        summary=(
+            f"已写入股票 {freq_label} 分钟 raw 源镜像："
+            f"交易日 {partition_key}，{write_result.row_count} 行。"
+        ),
+        next_action=(
+            "等待 raw blocking checks 全部通过；通过后对应频度的 "
+            "silver_stk_mins 才能消费。"
+        ),
+        result_status=(
+            "written_repair" if write_result.write_mode == "merge_repair" else "written"
+        ),
+        input_summary={
+            "source_method": write_result.source_method,
+            "write_mode": write_result.write_mode,
+            "stock_code_count": write_result.stock_code_count,
+            "returned_stock_code_count": write_result.returned_stock_code_count,
+            "empty_stock_code_count": write_result.empty_stock_code_count,
+            "page_count": write_result.page_count,
+            "query_count": write_result.query_count,
+        },
+        filter_summary={
+            "output_row_count": write_result.row_count,
+            "repair_stock_code_count": write_result.repair_stock_code_count,
+            "repair_returned_row_count": write_result.repair_returned_row_count,
+            "repair_replaced_row_count": write_result.repair_replaced_row_count,
+            "repair_appended_row_count": write_result.repair_appended_row_count,
+        },
+        diagnostic_ref="完整诊断看 raw_stk_mins checks metadata 和本次 run stdout。",
+    )
+
+
 @dataclass(frozen=True)
 class SilverStkMinsWriteResult:
     raw_file_path: Path
@@ -211,6 +273,51 @@ class SilverStkMinsWriteResult:
         if self.one_minute_raw_file_path is not None:
             metadata["one_minute_raw_file_path"] = str(self.one_minute_raw_file_path)
         return metadata
+
+
+def _silver_stk_mins_human_metadata(
+    *,
+    write_result: SilverStkMinsWriteResult,
+    partition_key: str,
+    freq: int,
+) -> dict[str, Any]:
+    freq_label = _freq_label(freq)
+    input_summary: dict[str, Any] = {
+        "source_asset": f"raw_stk_mins_{freq}m",
+        "identity_map_asset": "silver_stock_identity_map",
+        "stock_daily_asset": "silver_stock_daily",
+        "suspend_asset": "silver_stock_suspend_daily",
+        "source_row_count": write_result.source_row_count,
+        "mapped_row_count": write_result.mapped_row_count,
+    }
+    if write_result.one_minute_raw_file_path is not None:
+        input_summary["one_minute_raw_source_asset"] = "raw_stk_mins_1m"
+
+    return _human_materialization_metadata(
+        summary=(
+            f"已写入股票 {freq_label} 分钟 silver 标准事实："
+            f"交易日 {partition_key}，{write_result.row_count} 行。"
+        ),
+        next_action=(
+            "等待 silver blocking checks 全部通过；通过后 qfq、财富成交额等"
+            "下游可以消费。"
+        ),
+        result_status="written",
+        input_summary=input_summary,
+        filter_summary={
+            "duplicate_removed_count": write_result.duplicate_removed_count,
+            "full_day_suspend_deleted_row_count": (
+                write_result.full_day_suspend_deleted_row_count
+            ),
+            "price_correction_row_count": write_result.price_correction_row_count,
+            "recomputed_row_count": write_result.recomputed_row_count,
+            "vol_amount_normalized_row_count": (
+                write_result.vol_amount_normalized_row_count
+            ),
+            "output_row_count": write_result.row_count,
+        },
+        diagnostic_ref="完整诊断看 silver_stk_mins checks metadata 和本次 run stdout。",
+    )
 
 
 @dataclass(frozen=True)
@@ -1976,6 +2083,23 @@ def _materialize_raw_stk_mins_partition(
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
     config = parse_stock_mins_raw_config(context.op_config)
+    log = DgStdoutLogger("stk_mins")
+    if config.write_mode == "merge_repair":
+        log.stdout(
+            "raw_stk_mins_repair_started",
+            partition_key=partition_key,
+            freq=freq,
+            source=config.source,
+            write_mode=config.write_mode,
+        )
+    else:
+        log.stdout(
+            "raw_stk_mins_started",
+            partition_key=partition_key,
+            freq=freq,
+            source=config.source,
+            write_mode=config.write_mode,
+        )
     if config.write_mode == "merge_repair":
         if config.merge_repair is None:
             raise AssertionError("merge_repair config is required.")
@@ -2017,15 +2141,46 @@ def _materialize_raw_stk_mins_partition(
         )
     else:
         raise AssertionError(f"Unhandled stk_mins raw config: {config}")
+    if config.write_mode == "merge_repair":
+        log.stdout(
+            "raw_stk_mins_repair_completed",
+            partition_key=partition_key,
+            freq=freq,
+            row_count=write_result.row_count,
+            repair_stock_code_count=write_result.repair_stock_code_count,
+            repair_returned_row_count=write_result.repair_returned_row_count,
+            repair_replaced_row_count=write_result.repair_replaced_row_count,
+            repair_appended_row_count=write_result.repair_appended_row_count,
+        )
+    else:
+        log.stdout(
+            "raw_stk_mins_completed",
+            partition_key=partition_key,
+            freq=freq,
+            row_count=write_result.row_count,
+            stock_code_count=write_result.stock_code_count,
+            returned_stock_code_count=write_result.returned_stock_code_count,
+            empty_stock_code_count=write_result.empty_stock_code_count,
+            page_count=write_result.page_count,
+            query_count=write_result.query_count,
+        )
+    extra_metadata = write_result.materialization_extra_metadata(
+        partition_key=partition_key,
+        freq=freq,
+    )
+    extra_metadata.update(
+        _raw_stk_mins_human_metadata(
+            write_result=write_result,
+            partition_key=partition_key,
+            freq=freq,
+        )
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.raw_file_path,
             row_count=write_result.row_count,
             observed_columns=write_result.observed_columns,
-            extra_metadata=write_result.materialization_extra_metadata(
-                partition_key=partition_key,
-                freq=freq,
-            ),
+            extra_metadata=extra_metadata,
         )
     )
 
@@ -2250,21 +2405,48 @@ def _materialize_silver_stk_mins_partition(
 ) -> dg.MaterializeResult:
     lake_root.ensure_available_for_run()
     partition_key = context.partition_key
+    log = DgStdoutLogger("stk_mins")
+    log.stdout(
+        "silver_stk_mins_started",
+        partition_key=partition_key,
+        freq=freq,
+    )
     write_result = write_silver_stk_mins_partition(
         lake_root=lake_root.root(),
         duckdb=duckdb,
         freq=freq,
         partition_key=partition_key,
     )
+    log.stdout(
+        "silver_stk_mins_completed",
+        partition_key=partition_key,
+        freq=freq,
+        row_count=write_result.row_count,
+        source_row_count=write_result.source_row_count,
+        duplicate_removed_count=write_result.duplicate_removed_count,
+        full_day_suspend_deleted_row_count=(
+            write_result.full_day_suspend_deleted_row_count
+        ),
+        price_correction_row_count=write_result.price_correction_row_count,
+        recomputed_row_count=write_result.recomputed_row_count,
+    )
+    extra_metadata = write_result.materialization_extra_metadata(
+        partition_key=partition_key,
+        freq=freq,
+    )
+    extra_metadata.update(
+        _silver_stk_mins_human_metadata(
+            write_result=write_result,
+            partition_key=partition_key,
+            freq=freq,
+        )
+    )
     return dg.MaterializeResult(
         metadata=build_materialization_metadata(
             uri=write_result.silver_file_path,
             row_count=write_result.row_count,
             observed_columns=write_result.observed_columns,
-            extra_metadata=write_result.materialization_extra_metadata(
-                partition_key=partition_key,
-                freq=freq,
-            ),
+            extra_metadata=extra_metadata,
         )
     )
 

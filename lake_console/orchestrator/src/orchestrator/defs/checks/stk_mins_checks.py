@@ -243,7 +243,11 @@ def _missing_file_result(path: Path) -> dg.AssetCheckResult:
             check_scope=CheckScope.FILE_EXISTS,
             file_path=path,
             missing_file_paths=[path],
-            extra_metadata={"missing_file": True},
+            extra_metadata={
+                "summary": "失败：分钟线检查所需的目标文件不存在。",
+                "next_action": "先生成或恢复缺失的分钟线文件，再重新运行该 asset/check。",
+                "missing_file": True,
+            },
         ),
     )
 
@@ -255,9 +259,48 @@ def _missing_input_file_result(path: Path, missing_path: Path) -> dg.AssetCheckR
             check_scope=CheckScope.FILE_EXISTS,
             file_path=path,
             missing_file_paths=[missing_path],
-            extra_metadata={"missing_input_file": True},
+            extra_metadata={
+                "summary": "失败：分钟线检查所需的上游输入文件不存在。",
+                "next_action": "先补齐缺失的上游输入，再重新运行当前分钟线 asset/check。",
+                "missing_input_file": True,
+            },
         ),
     )
+
+
+def _rule_summary(
+    rule_names: Sequence[str],
+    failed_rule_names: Sequence[str],
+) -> list[dict[str, object]]:
+    failed_rule_set = set(failed_rule_names)
+    return [
+        {"rule_name": rule_name, "passed": rule_name not in failed_rule_set}
+        for rule_name in rule_names
+    ]
+
+
+def _readable_check_metadata(
+    *,
+    dataset_label: str,
+    rule_names: Sequence[str],
+    failed_rule_names: Sequence[str],
+    success_next_action: str,
+    failure_next_action: str,
+) -> dict[str, object]:
+    failed_count = len(failed_rule_names)
+    summary = (
+        f"通过：{dataset_label} 的 {len(rule_names)} 条质量规则全部通过。"
+        if failed_count == 0
+        else (
+            f"失败：{dataset_label} 有 {failed_count} / {len(rule_names)} "
+            "条质量规则未通过。"
+        )
+    )
+    return {
+        "summary": summary,
+        "next_action": success_next_action if failed_count == 0 else failure_next_action,
+        "rule_summary": _rule_summary(rule_names, failed_rule_names),
+    }
 
 
 def _check_result(
@@ -1723,6 +1766,9 @@ def _price_volume_sanity(
 
     checked_count = int(row[0])
     failed_count = int(row[1] or 0)
+    failed_rule_names = (
+        [RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK] if failed_count else []
+    )
     return _check_result(
         passed=failed_count == 0,
         check_scope=CheckScope.VALUE_SANITY,
@@ -1735,6 +1781,16 @@ def _price_volume_sanity(
             "raw_sanity_policy": (
                 "Raw stk_mins keeps backup clean_next source facts. This check only "
                 "blocks null values, negative numeric values, and empty stock codes."
+            ),
+            "failed_rule_names": failed_rule_names,
+            **_readable_check_metadata(
+                dataset_label=f"股票 {freq} 分钟 raw 取值",
+                rule_names=(RAW_STK_MINS_PRICE_VOLUME_SANITY_CHECK,),
+                failed_rule_names=failed_rule_names,
+                success_next_action="无需处理；等待 raw 下游或 silver 标准化消费。",
+                failure_next_action=(
+                    "先查看 failure_samples，修复空 ts_code、空值或负数行情字段。"
+                ),
             ),
             "failure_samples": _sample_dicts(
                 (
@@ -1849,6 +1905,12 @@ def _raw_contract_check(
         failed_rule_names.append(RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK)
 
     failed_rule_names = sorted(set(failed_rule_names))
+    rule_names = (
+        RAW_STK_MINS_FILE_EXISTS_AND_ROW_COUNT_POSITIVE_CHECK,
+        RAW_STK_MINS_SCHEMA_MATCHES_CONTRACT_CHECK,
+        RAW_STK_MINS_FREQ_MATCHES_ASSET_CHECK,
+        RAW_STK_MINS_PARTITION_DATE_MATCHES_CHECK,
+    )
     return _check_result(
         passed=not failed_rule_names,
         check_scope=CheckScope.SCHEMA,
@@ -1865,6 +1927,16 @@ def _raw_contract_check(
             "freq_failed_row_count": freq_failed_count,
             "partition_date_failed_row_count": date_failed_count,
             "failed_rule_names": failed_rule_names,
+            **_readable_check_metadata(
+                dataset_label=f"股票 {freq} 分钟 raw 契约",
+                rule_names=rule_names,
+                failed_rule_names=failed_rule_names,
+                success_next_action="无需处理；等待 raw 下游或 silver 标准化消费。",
+                failure_next_action=(
+                    "先查看 failed_rule_names，优先修复缺文件、schema、"
+                    "频度或分区日期不一致问题。"
+                ),
+            ),
         },
     )
 
@@ -1883,6 +1955,9 @@ def _raw_key_integrity_check(
     )
     is_registered = partition_key in registered_keys
     if not path.exists():
+        failed_rule_names = [RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK]
+        if not is_registered:
+            failed_rule_names.append(RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK)
         return _check_result(
             passed=False,
             check_scope=CheckScope.KEY_UNIQUENESS,
@@ -1895,9 +1970,17 @@ def _raw_key_integrity_check(
                 "freq": freq,
                 "partition_set": cn_a_stock_mins_trade_days.name,
                 "is_registered": is_registered,
-                "failed_rule_names": [
-                    RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
-                ],
+                "failed_rule_names": failed_rule_names,
+                **_readable_check_metadata(
+                    dataset_label=f"股票 {freq} 分钟 raw 主键",
+                    rule_names=(
+                        RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+                        RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK,
+                    ),
+                    failed_rule_names=failed_rule_names,
+                    success_next_action="无需处理；等待 raw 下游或 silver 标准化消费。",
+                    failure_next_action="先生成缺失 raw 文件，再重新运行主键完整性检查。",
+                ),
             },
         )
 
@@ -1937,6 +2020,10 @@ def _raw_key_integrity_check(
         failed_rule_names.append(RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK)
     if not is_registered:
         failed_rule_names.append(RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK)
+    rule_names = (
+        RAW_STK_MINS_UNIQUE_TS_CODE_TRADE_TIME_CHECK,
+        RAW_STK_MINS_PARTITION_KEY_REGISTERED_CHECK,
+    )
 
     return _check_result(
         passed=not failed_rule_names,
@@ -1951,6 +2038,16 @@ def _raw_key_integrity_check(
             "is_registered": is_registered,
             "duplicate_group_count": duplicate_group_count,
             "failed_rule_names": failed_rule_names,
+            **_readable_check_metadata(
+                dataset_label=f"股票 {freq} 分钟 raw 主键",
+                rule_names=rule_names,
+                failed_rule_names=failed_rule_names,
+                success_next_action="无需处理；等待 raw 下游或 silver 标准化消费。",
+                failure_next_action=(
+                    "先查看 duplicate_group_count、分区注册状态和 failure_samples，"
+                    "修复重复 key 或动态分区缺口。"
+                ),
+            ),
             "failure_samples": _sample_dicts(
                 ("ts_code", "trade_time", "duplicate_count"),
                 sample_rows,
@@ -2552,6 +2649,7 @@ def _collapsed_silver_check_result(
     freq: int,
     rule_evaluators: Sequence[tuple[str, Any]],
     check_scope: CheckScope,
+    check_label: str,
 ) -> dg.AssetCheckResult:
     partition_key = context.partition_key
     path = _silver_path(lake_root, freq, partition_key)
@@ -2576,6 +2674,16 @@ def _collapsed_silver_check_result(
             "partition_key": partition_key,
             "freq": freq,
             "failed_rule_names": failed_rule_names,
+            **_readable_check_metadata(
+                dataset_label=f"股票 {freq} 分钟 silver {check_label}",
+                rule_names=tuple(rule_name for rule_name, _ in rule_evaluators),
+                failed_rule_names=failed_rule_names,
+                success_next_action="无需处理；等待 qfq、财富成交额等下游消费。",
+                failure_next_action=(
+                    "先查看 failed_rule_names 中的子规则，再看对应子规则 "
+                    "metadata 定位文件、字段或覆盖缺口。"
+                ),
+            ),
         },
     )
 
@@ -2607,6 +2715,7 @@ def _silver_contract_check(
             ),
         ),
         check_scope=CheckScope.SCHEMA,
+        check_label="文件契约",
     )
 
 
@@ -2629,6 +2738,7 @@ def _silver_key_integrity_check(
             ),
         ),
         check_scope=CheckScope.KEY_UNIQUENESS,
+        check_label="主键",
     )
 
 
@@ -2653,6 +2763,7 @@ def _silver_value_domain_check(
             ),
         ),
         check_scope=CheckScope.VALUE_SANITY,
+        check_label="取值",
     )
 
 
@@ -2683,6 +2794,7 @@ def _silver_reference_coverage_check(
             ),
         ),
         check_scope=CheckScope.REFERENTIAL_INTEGRITY,
+        check_label="引用覆盖",
     )
 
 

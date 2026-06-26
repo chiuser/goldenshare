@@ -194,6 +194,64 @@ def _not_ready_count(
     return len([asset_status for asset_status in status.statuses if not asset_status.ready])
 
 
+def _cursor_summary_and_next_action(
+    *,
+    decision: StockMinsSilverUpdateDecision,
+    reason_code: str,
+    blocked_component: str | None,
+) -> tuple[str, str]:
+    target_trade_date = decision.target_trade_date
+    if decision.selected_trade_date:
+        return (
+            f"已触发：提交股票分钟线 silver 五频度更新，交易日 {decision.selected_trade_date}。",
+            "等待 stock_mins_silver_update_job 完成，然后查看 silver_stk_mins checks。",
+        )
+    if blocked_component == "cn_a_stock_mins_silver_trade_days":
+        return (
+            f"未触发：股票分钟线 silver 交易日分区存在缺口，目标停在 {target_trade_date}。",
+            "先补齐 cn_a_stock_mins_silver_trade_days 动态分区，再等待下一次 tick。",
+        )
+    if blocked_component == "raw_stk_mins":
+        return (
+            f"未触发：股票分钟线 silver 在 {target_trade_date} 被 raw_stk_mins 阻断。",
+            "先完成同日 raw_stk_mins 五频度更新与 checks，再等待下一次 tick。",
+        )
+    if blocked_component == "stock_daily":
+        return (
+            f"未触发：股票分钟线 silver 在 {target_trade_date} 被 stock_daily 阻断。",
+            "先完成同日 silver_stock_daily freshness 与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "suspend_d":
+        return (
+            f"未触发：股票分钟线 silver 在 {target_trade_date} 被 suspend_d 阻断。",
+            "先完成同日停复牌数据 freshness 与 blocking checks，再等待下一次 tick。",
+        )
+    if blocked_component == "stock_identity_map":
+        return (
+            f"未触发：股票分钟线 silver 在 {target_trade_date} 被 stock_identity_map 阻断。",
+            "先完成股票身份映射 freshness，再等待下一次 tick。",
+        )
+    if blocked_component == "silver_stk_mins":
+        return (
+            f"未触发：股票分钟线 silver 在 {target_trade_date} 已有未通过状态。",
+            "先查看 silver_stk_mins gate_statuses 和 failed check，人工确认后再修复。",
+        )
+    if reason_code == "run_window_not_started":
+        return (
+            "未触发：股票分钟线 silver 日常更新窗口尚未开始。",
+            "等到 19:50 后，下一次 tick 会重新判断是否提交更新。",
+        )
+    if reason_code == "no_registered_partition":
+        return (
+            "未触发：没有可处理的股票分钟线 silver 交易日分区。",
+            "先确认 cn_a_stock_mins_silver_trade_days 是否已注册目标交易日。",
+        )
+    return (
+        "未触发：股票分钟线 silver continuity 窗口内分区已经 ready。",
+        "无需处理；等待新交易日分区或下一次更新窗口。",
+    )
+
+
 def _cursor_payload(
     *,
     decision: StockMinsSilverUpdateDecision,
@@ -278,6 +336,11 @@ def _cursor_payload(
             reason_code = "no_registered_partition"
         else:
             reason_code = "all_ready"
+    summary, next_action = _cursor_summary_and_next_action(
+        decision=decision,
+        reason_code=reason_code,
+        blocked_component=blocked_component,
+    )
 
     return build_sensor_cursor(
         evaluated_at=evaluated_at,
@@ -293,12 +356,8 @@ def _cursor_payload(
             partition_set=cn_a_stock_mins_silver_trade_days.name,
             reason_code=reason_code,
             blocked_component=blocked_component,
-            summary=decision.reason,
-            next_action=(
-                "等待本次 run 完成。"
-                if decision.selected_trade_date
-                else "按阻断组件修复上游状态，或等待下一次 sensor tick。"
-            ),
+            summary=summary,
+            next_action=next_action,
             frontier={
                 "raw": compact_continuity_frontier(
                     raw_continuity_status,
