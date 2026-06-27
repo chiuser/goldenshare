@@ -17,6 +17,7 @@ from orchestrator.defs.paths import (
     silver_adj_factor_path,
     silver_stock_daily_path,
 )
+from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.run_contracts.metadata import CheckScope, build_check_metadata
 from orchestrator.defs.stock_daily_qfq import (
@@ -149,7 +150,11 @@ def _contract_failure_samples(
     return _sample_dicts(("ts_code", "trade_date"), rows)
 
 
-@dg.asset_check(asset=gold_stock_daily_qfq, blocking=True)
+@dg.asset_check(
+    asset=gold_stock_daily_qfq,
+    partitions_def=cn_a_stock_trade_days,
+    blocking=True,
+)
 def gold_stock_daily_qfq_contract_check(
     context: dg.AssetCheckExecutionContext,
     lake_root: LakeRootResource,
@@ -222,6 +227,7 @@ def gold_stock_daily_qfq_contract_check(
 
 @dg.asset_check(
     asset=gold_stock_daily_qfq,
+    partitions_def=cn_a_stock_trade_days,
     additional_deps=[silver_stock_daily, silver_adj_factor],
     blocking=True,
 )

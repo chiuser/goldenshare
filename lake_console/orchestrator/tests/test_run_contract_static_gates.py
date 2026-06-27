@@ -3791,8 +3791,10 @@ class RunContractStaticGateTests(unittest.TestCase):
 
     def test_gold_stock_daily_qfq_ordinary_checks_stay_compact(self) -> None:
         check_path = CHECKS_DIR / "stock_daily_qfq_checks.py"
+        job_path = JOBS_DIR / "stock_daily_qfq_update.py"
         readiness_path = SENSORS_DIR / "readiness.py"
         check_source = check_path.read_text()
+        job_source = job_path.read_text()
         readiness_source = readiness_path.read_text()
         issues = []
 
@@ -3804,6 +3806,12 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         if check_source.count("@dg.asset_check") != 2:
             issues.append("stock_daily_qfq ordinary checks must stay at 2")
+        if check_source.count("partitions_def=cn_a_stock_trade_days") != 2:
+            issues.append(
+                "stock_daily_qfq ordinary checks must explicitly declare "
+                "cn_a_stock_trade_days partitions_def so check events are "
+                "attributed to the target partition"
+            )
         for check_name in required_check_names:
             if check_name not in check_source:
                 issues.append(f"{check_path} misses ordinary check {check_name}")
@@ -3814,6 +3822,30 @@ class RunContractStaticGateTests(unittest.TestCase):
                 "gold_stock_daily_qfq repair status check must not enter ordinary "
                 "readiness"
             )
+
+        check_refresh_start = job_source.find(
+            "gold_stock_daily_qfq_check_refresh_job = dg.define_asset_job("
+        )
+        if check_refresh_start == -1:
+            issues.append("stock_daily_qfq checks-only refresh job is missing")
+        else:
+            check_refresh_source = job_source[check_refresh_start:]
+            required_fragments = (
+                "selection=dg.AssetSelection.checks_for_assets(gold_stock_daily_qfq)",
+                "partitions_def=cn_a_stock_trade_days",
+                "executor_def=dg.in_process_executor",
+            )
+            issues.extend(
+                "stock_daily_qfq checks-only refresh job misses required "
+                f"fragment: {fragment}"
+                for fragment in required_fragments
+                if fragment not in check_refresh_source
+            )
+            if "AssetSelection.assets" in check_refresh_source:
+                issues.append(
+                    "stock_daily_qfq checks-only refresh job must not select "
+                    "materializable assets"
+                )
 
         self.assertEqual(issues, [])
 

@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成并已正式执行至 `2026-06-25`，P7 documentation closeout 已完成。`2026-06-26` 因 `silver_stock_daily` 中新股 `001399.SZ` 暂缺同日 `silver_adj_factor`，未写入 `gold_stock_daily_qfq`，需待上游 adj factor 补齐后再由日常/单日补齐。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成并已正式执行至 `2026-06-25`，P7 documentation closeout 已完成。`2026-06-26` 上游 `silver_stock_daily` 与 `silver_adj_factor` 已补齐后，`gold_stock_daily_qfq_update_job` 可正常生成分区；随后暴露并修复了 ordinary asset check 缺少 partition attribution 的问题。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -189,6 +189,16 @@ data_lake/gold/quote/stock_daily_qfq/trade_date={YYYY-MM-DD}/part-000.parquet
 3. Dagster 正常记录该分区 materialization event。
 4. Dagster 正常记录该分区 blocking asset check events。
 5. 日常链路不使用 runless event，不绕过正式 asset/check。
+
+`gold_stock_daily_qfq` 的两个 ordinary blocking checks 必须显式声明
+`partitions_def=cn_a_stock_trade_days`。这是正式 readiness 的硬口径：check 不仅要
+执行成功，还必须写成带 `partition_key` 的 Dagster check event，才能被
+`gold_stock_daily_qfq_factor_repair_job_sensor` 和日常 readiness 按分区读取。
+
+为避免再次出现“check 成功但 Dagster 认为目标 partition 缺 check”的问题，正式代码
+保留人工维护入口 `gold_stock_daily_qfq_check_refresh_job`。该 job 只能选择
+`AssetSelection.checks_for_assets(gold_stock_daily_qfq)`，不得 materialize asset，也
+不得接 sensor；它只用于必要时对单个分区做 checks-only 修复。
 
 日常 sensor 只负责判断最早缺失或 not-ready 的 `trade_date`，并提交单日 run；不得在 sensor 中执行历史补数，也不得扫描全历史。
 

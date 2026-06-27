@@ -2,8 +2,13 @@ import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
 
+import dagster as dg
 import duckdb
 
+from orchestrator.defs.checks.stock_daily_qfq_checks import (
+    gold_stock_daily_qfq_contract_check,
+    gold_stock_daily_qfq_qfq_semantics_check,
+)
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
 from orchestrator.defs.catalog import (
@@ -15,6 +20,10 @@ from orchestrator.defs.catalog import (
     WritePolicy,
     get_lake_asset_catalog_entry,
     get_partition_model_definition,
+)
+from orchestrator.defs.jobs.stock_daily_qfq_update import (
+    gold_stock_daily_qfq_check_refresh_job,
+    gold_stock_daily_qfq_update_job,
 )
 from orchestrator.defs.partitions import cn_a_stock_trade_days
 from orchestrator.defs.paths import (
@@ -29,6 +38,7 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_STOCK_DAILY_SCHEMA,
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
+from orchestrator.defs.resources import DuckDBResource, LakeRootResource
 from orchestrator.defs.stock_daily_qfq import (
     GOLD_STOCK_DAILY_QFQ_COLUMNS,
     build_stock_daily_qfq_select_sql,
@@ -42,6 +52,7 @@ from orchestrator.defs.run_contracts.metadata import (
 from orchestrator.defs.sensors.readiness import (
     GOLD_STOCK_DAILY_QFQ_CHECKS,
     GOLD_STOCK_DAILY_QFQ_READINESS_SPECS,
+    partition_dataset_readiness_status_from_latest_checks,
 )
 
 
@@ -89,6 +100,11 @@ def _write_rows(
                 path,
             )
         )
+
+
+def _ensure_test_lake_root_ready(root: Path) -> None:
+    for part in ("raw", "silver", "gold", "_tmp"):
+        (root / part).mkdir(parents=True, exist_ok=True)
 
 
 def _stock_daily_row(
@@ -228,6 +244,126 @@ class StockDailyQfqContractTests(unittest.TestCase):
             "gold_stock_daily_qfq_factor_repair_plan_evaluated",
             spec.blocking_check_names,
         )
+
+    def test_ordinary_checks_are_partitioned(self) -> None:
+        self.assertEqual(
+            gold_stock_daily_qfq_contract_check.partitions_def,
+            cn_a_stock_trade_days,
+        )
+        self.assertEqual(
+            gold_stock_daily_qfq_qfq_semantics_check.partitions_def,
+            cn_a_stock_trade_days,
+        )
+
+    def test_check_refresh_job_selects_checks_only(self) -> None:
+        selected_assets = gold_stock_daily_qfq_check_refresh_job.selection.resolve(
+            [gold_stock_daily_qfq]
+        )
+
+        self.assertEqual(
+            gold_stock_daily_qfq_check_refresh_job.name,
+            "gold_stock_daily_qfq_check_refresh_job",
+        )
+        self.assertEqual(
+            gold_stock_daily_qfq_check_refresh_job.partitions_def,
+            cn_a_stock_trade_days,
+        )
+        self.assertEqual(selected_assets, set())
+        self.assertIn(
+            "AssetChecksForAssetKeysSelection",
+            repr(gold_stock_daily_qfq_check_refresh_job.selection),
+        )
+        self.assertNotIn(
+            "KeysAssetSelection",
+            repr(gold_stock_daily_qfq_check_refresh_job.selection),
+        )
+
+    def test_update_job_still_selects_asset_and_checks(self) -> None:
+        selected_assets = gold_stock_daily_qfq_update_job.selection.resolve(
+            [gold_stock_daily_qfq]
+        )
+
+        self.assertEqual(selected_assets, {gold_stock_daily_qfq.key})
+        self.assertIn(
+            "AssetChecksForAssetKeysSelection",
+            repr(gold_stock_daily_qfq_update_job.selection),
+        )
+        self.assertIn(
+            "KeysAssetSelection",
+            repr(gold_stock_daily_qfq_update_job.selection),
+        )
+
+    def test_update_job_records_partitioned_checks_readable_by_readiness(self) -> None:
+        with TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            _ensure_test_lake_root_ready(root)
+            _write_calendar(root)
+            _write_stock_daily(
+                root,
+                PREVIOUS_DATE,
+                [
+                    _stock_daily_row("000001.SZ", PREVIOUS_DATE, close=9.0),
+                    _stock_daily_row("600000.SH", PREVIOUS_DATE, close=18.0),
+                ],
+            )
+            _write_stock_daily(
+                root,
+                TRADE_DATE,
+                [
+                    _stock_daily_row("000001.SZ", TRADE_DATE, close=10.5, open_=10.0),
+                    _stock_daily_row("600000.SH", TRADE_DATE, close=20.5, open_=20.0),
+                ],
+            )
+            _write_adj_factor(
+                root,
+                PREVIOUS_DATE,
+                [
+                    _adj_factor_row("000001.SZ", PREVIOUS_DATE, 2.0),
+                    _adj_factor_row("600000.SH", PREVIOUS_DATE, 10.0),
+                ],
+            )
+            _write_adj_factor(
+                root,
+                TRADE_DATE,
+                [
+                    _adj_factor_row("000001.SZ", TRADE_DATE, 4.0),
+                    _adj_factor_row("600000.SH", TRADE_DATE, 5.0),
+                ],
+            )
+
+            instance = dg.DagsterInstance.ephemeral()
+            instance.add_dynamic_partitions(cn_a_stock_trade_days.name, [TRADE_DATE])
+            definitions = dg.Definitions(
+                assets=[gold_stock_daily_qfq],
+                asset_checks=[
+                    gold_stock_daily_qfq_contract_check,
+                    gold_stock_daily_qfq_qfq_semantics_check,
+                ],
+                jobs=[gold_stock_daily_qfq_update_job],
+                resources={
+                    "lake_root": LakeRootResource(root_path=str(root)),
+                    "duckdb": DuckDBResource(),
+                },
+            )
+
+            result = definitions.resolve_job_def(
+                "gold_stock_daily_qfq_update_job"
+            ).execute_in_process(
+                instance=instance,
+                partition_key=TRADE_DATE,
+                raise_on_error=True,
+            )
+
+            readiness = partition_dataset_readiness_status_from_latest_checks(
+                instance,
+                GOLD_STOCK_DAILY_QFQ_READINESS_SPECS,
+                partition_key=TRADE_DATE,
+            )
+
+        self.assertTrue(result.success)
+        self.assertTrue(readiness.ready)
+        self.assertEqual(readiness.statuses[0].missing_check_names, ())
+        self.assertEqual(readiness.statuses[0].failed_check_names, ())
 
     def test_select_sql_describes_gold_stock_daily_qfq_schema(self) -> None:
         with TemporaryDirectory() as temp_dir:

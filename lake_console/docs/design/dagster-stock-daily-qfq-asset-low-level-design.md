@@ -433,6 +433,17 @@ gold_stock_daily_qfq_contract_check
 gold_stock_daily_qfq_qfq_semantics_check
 ```
 
+两个 ordinary checks 必须显式声明：
+
+```python
+partitions_def=cn_a_stock_trade_days
+```
+
+这是分区归属门禁，不是样式要求。`gold_stock_daily_qfq_update_job` 成功后，Dagster
+必须能在 `asset_check_executions.partition=<trade_date>` 下读取这两个 checks；否则
+repair run-status sensor 会把该分区误判为 missing blocking checks，从而跳过
+`gold_stock_daily_qfq_factor_repair_job`。
+
 protected status check：
 
 ```text
@@ -510,6 +521,20 @@ gold_stock_daily_qfq_update_job = dg.define_asset_job(
     ),
 )
 ```
+
+checks-only 维护入口：
+
+```python
+gold_stock_daily_qfq_check_refresh_job = dg.define_asset_job(
+    name="gold_stock_daily_qfq_check_refresh_job",
+    selection=dg.AssetSelection.checks_for_assets(gold_stock_daily_qfq),
+    partitions_def=cn_a_stock_trade_days,
+    executor_def=dg.in_process_executor,
+)
+```
+
+该入口只用于人工 checks-only 修复，不接 sensor，不选择
+`AssetSelection.assets(...)`，不重写 `gold_stock_daily_qfq` Parquet。
 
 禁止：
 
@@ -1157,9 +1182,9 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_stoc
 - `defs/checks/stock_daily_qfq_checks.py`: `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check`。
 - `defs/sensors/readiness.py`: `GOLD_STOCK_DAILY_QFQ_READINESS_SPECS` 与 `gold_stock_daily_qfq_ready_for_trade_date(...)`。
 - `tests/test_stock_daily_qfq_checks.py`: contract/qfq semantics check 正反例。
-- `tests/test_stock_daily_qfq_contracts.py`: catalog/readiness 对账测试。
+- `tests/test_stock_daily_qfq_contracts.py`: catalog/readiness 对账、ordinary checks 分区归属、checks-only refresh job 只选 checks、update job 本地执行后 readiness 可按 partition 读到 checks。
 - `tests/test_asset_governance_contracts.py`: active asset / catalog 数量与 blocking check 对账。
-- `tests/test_run_contract_static_gates.py`: ordinary check 数量、防 repair status 进入 ordinary readiness、DuckDB 连接门禁。
+- `tests/test_run_contract_static_gates.py`: ordinary check 数量、防 repair status 进入 ordinary readiness、ordinary checks 必须显式 `partitions_def`、checks-only refresh job 禁止选择 materializable asset、DuckDB 连接门禁。
 
 已确认口径：
 
@@ -1168,6 +1193,7 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_stoc
   - `gold_stock_daily_qfq_qfq_semantics_check`
 - `gold_stock_daily_qfq_factor_repair_plan_evaluated` 不进入 ordinary readiness。
 - 两个 ordinary checks 内部用 `failed_rule_names` 表达子规则，不拆成更多 Dagster check，避免 asset check event 过快膨胀。
+- 两个 ordinary checks 必须带 `cn_a_stock_trade_days` 分区定义，避免 check event 缺 partition 后让 run-status repair sensor 误判 ordinary checks missing。
 - check 只读临时/目标 Parquet 与上游 silver 文件，不写 lake，不写 Dagster event。
 
 本地验证：
