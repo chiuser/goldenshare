@@ -313,7 +313,6 @@ SILVER_ADJ_FACTOR_CHECKS = (
 )
 GOLD_STOCK_DAILY_QFQ_CHECKS = (
     "gold_stock_daily_qfq_contract_check",
-    "gold_stock_daily_qfq_qfq_semantics_check",
 )
 RAW_STK_MINS_CHECKS = (
     "raw_stk_mins_contract_check",

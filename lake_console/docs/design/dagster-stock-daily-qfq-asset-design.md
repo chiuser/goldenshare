@@ -1,6 +1,6 @@
 # Dagster Gold Stock Daily QFQ Asset Design
 
-状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成并已正式执行至 `2026-06-25`，P7 documentation closeout 已完成。`2026-06-26` 上游 `silver_stock_daily` 与 `silver_adj_factor` 已补齐后，`gold_stock_daily_qfq_update_job` 可正常生成分区；随后暴露并修复了 ordinary asset check 缺少 partition attribution 的问题。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；不包含报告改造。
+状态：设计口径已确认，LLD 已补充，最新拍板口径已回写，P1 core formula/writer 已完成，P2 checks/catalog/readiness 已完成，P3 daily job/sensor 已完成，P4 repair core 已完成，P5 bootstrap dry-run / sample build 已完成，P6 historical bootstrap / runless event backfill 工具已完成并已正式执行至 `2026-06-25`，P7 documentation closeout 已完成。`2026-06-26` 上游 `silver_stock_daily` 与 `silver_adj_factor` 已补齐后，`gold_stock_daily_qfq_update_job` 可正常生成分区；随后暴露并修复了 ordinary asset check 缺少 partition attribution 的问题。2026-06-27 只读审计进一步确认：P6 历史 bootstrap 使用了错误的 self-as-of 口径，历史 `gold_stock_daily_qfq` 文件实际等同于 `silver_stock_daily`，不能作为 MA250 或报告事实源；P8 已完成：先删除旧错误 lake 文件和旧 Dagster events，再按 `bootstrap_as_of_trade_date=2026-06-26` 从零重建 `3033` 个历史分区并补录 `3033` 个 materialization events 与最近 `20` 个 retained contract check events；`gold_stock_daily_qfq_qfq_semantics_check` 已从 bootstrap / readiness / catalog / runless event 证明链路移除。本文只定义 `gold_stock_daily_qfq` 的资产边界、字段口径、物理布局、日常生成与 repair 的关系；报告逻辑不属于本资产设计，但 P8 后已用重建后的 qfq 文件重新生成 MA250 报告。
 
 LLD：[`dagster-stock-daily-qfq-asset-low-level-design.md`](dagster-stock-daily-qfq-asset-low-level-design.md)
 
@@ -26,6 +26,12 @@ qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_d
 
 日常 qfq 的 `as_of_trade_date` 等于目标分区交易日；repair qfq 的 `as_of_trade_date` 等于本次 repair 明确选择的复权因子交易日。
 
+历史 bootstrap 是第三种独立场景：第一次全量初始化时，不得逐日使用
+`as_of_trade_date=partition_key` 生成 self-as-of 文件，也不得通过“先 daily
+update，再回放每个复权因子变化日 repair”来初始化。正确口径是：选择一个明确
+的 bootstrap as-of 交易日，通常是本次覆盖范围内最新完整交易日，然后所有历史
+分区一次性按该 as-of 生成。后续日常增量再由 daily update + scoped repair 维护。
+
 `gold_stock_daily_qfq` 应沿用这个公式，不得把前复权简化为“价格直接乘以 adj_factor”。
 
 ## 3. 拍板口径
@@ -48,9 +54,25 @@ qfq_price = silver_price * adj_factor(row_trade_date) / adj_factor(as_of_trade_d
 
 这三条不是普通说明，后续代码和测试必须锁死：
 
-1. writer、check 和契约测试必须覆盖合法 `0` 场景，同时覆盖 previous source row 存在但 previous factor 缺失时失败；不得把 `NULL` 或静默兜底带回正式输出。
+1. writer 和契约测试必须覆盖合法 `0` 场景，同时覆盖 previous source row 存在但 previous factor 缺失时失败；不得把 `NULL` 或静默兜底带回正式输出。这里不新增公式正确性 check。
 2. run config、正式 CLI、sensor payload、文档示例和测试样本都不得出现可由运营手写的 `stock_codes` 输入；如果需要人工处理超大 repair，只能走新的 dry-run 审批方案，不把散装股票池入口塞进初版正式链路。
 3. repair 自动触发只能由 `gold_stock_daily_qfq_update_job` 的成功 run 驱动；不得新增定时全量 repair sensor，不得在 daily job 内顺手执行 repair，也不得让 repair sensor 进入全历史扫描。
+
+2026-06-27 历史 bootstrap 事故后的 P8 五条修复口径也已拍板：
+
+1. bootstrap as-of 交易日固定按用户确认的目标口径执行；本次 P8 使用 `2026-06-26` 作为 bootstrap as-of。若后续要变更 as-of 日期，必须单独拍板，不在 P8 执行期动态推导。
+2. 先删除旧的错误 `gold_stock_daily_qfq` lake 文件，再从零重新生成；不得在旧错误文件上做局部 patch 或逐日 replay repair。
+3. 旧的 `gold_stock_daily_qfq` Dagster materialization / ordinary check event 也要清掉，再按新文件事实重新补录；执行方式要像第一次从未做过 bootstrap 一样，而不是叠加覆盖旧错误状态。
+4. bootstrap as-of factor 对每只股票的含义是“不晚于 bootstrap as-of 的最后可用 `silver_adj_factor`”。已退市股票在 as-of 当天没有因子是正常事实，不能因此误判为缺口；只要它在退市前有最后可用因子，就应使用该因子生成历史前复权序列。
+5. `gold_stock_daily_qfq_qfq_semantics_check` 从 P8 后的 active ordinary check 口径中移除。公式自检用同一套公式重算，公式写错时仍会报绿，不能证明数据正确；P8 不再做这类公式正确性 check，也不再用固定样本、聚合差异或其它替代方式包装成公式验收。P8 必须在同一个修复阶段内闭环完成：代码修正、旧 lake 文件删除、旧 Dagster event 删除、新文件重建、新 runless event 补录、结构性验收和报告重算前置验收都要完成。结构性验收只确认文件、字段、分区、主键、事件补录等执行事实，不做公式正确性检查。
+
+P8 正式执行结果（2026-06-28）：
+
+1. 旧错误 lake 文件已删除，旧 `gold_stock_daily_qfq` materialization / ordinary check event 已删除。
+2. 历史文件已按 `bootstrap_as_of_trade_date=2026-06-26` 重建：目标分区 `3033` 个，正式 lake 当前 `part-000.parquet` 文件数 `3033`，目录大小约 `775M`。
+3. runless event 已补录：materialization events `3033`，retained contract check partitions `20`，reported events `3053`。
+4. post-plan dry-run 报告显示：planned materialization events `0`、planned check events `0`、failed check partitions `0`；existing materialized partitions `3033`，existing ready check partitions `20`。
+5. MA250 报告已用重建后的 qfq 数据重新生成：`lake_console/docs/reports/stock_below_ma250_2026-06-26.csv`，数据行 `3652`，已过滤 ST 与名称以“退”开头或结尾的股票。
 
 ### 3.1 字段保留
 
@@ -109,7 +131,7 @@ change_amount = close_qfq - pre_close_qfq
 pct_chg = change_amount / pre_close_qfq * 100
 ```
 
-若 `pre_close_qfq` 为 0，必须在 check 中显式区分“合法无上一可交易日”和“应有上一可交易日却写 0”的数据问题。
+若 `pre_close_qfq` 为 0，writer 必须只允许“合法无上一可交易日”的场景；只要上一条 source row 存在但 previous factor 缺失，就必须 fail closed。这个口径通过 writer/契约测试锁死，不新增公式正确性 check。
 
 ### 3.3 物理布局
 
@@ -190,10 +212,14 @@ data_lake/gold/quote/stock_daily_qfq/trade_date={YYYY-MM-DD}/part-000.parquet
 4. Dagster 正常记录该分区 blocking asset check events。
 5. 日常链路不使用 runless event，不绕过正式 asset/check。
 
-`gold_stock_daily_qfq` 的两个 ordinary blocking checks 必须显式声明
-`partitions_def=cn_a_stock_trade_days`。这是正式 readiness 的硬口径：check 不仅要
-执行成功，还必须写成带 `partition_key` 的 Dagster check event，才能被
-`gold_stock_daily_qfq_factor_repair_job_sensor` 和日常 readiness 按分区读取。
+P8 后 `gold_stock_daily_qfq` 的 ordinary readiness 只保留结构性 contract check，
+并且必须显式声明 `partitions_def=cn_a_stock_trade_days`。这是正式 readiness
+的硬口径：check 不仅要执行成功，还必须写成带 `partition_key` 的 Dagster
+check event，才能被 `gold_stock_daily_qfq_factor_repair_job_sensor` 和日常
+readiness 按分区读取。公式正确性不再通过 Dagster blocking check 自我复算证明，
+P8 也不再设计另一套公式级聚合对账、固定样本公式验收或其它公式正确性 check。
+重建验收只确认“旧错误文件/事件已清零后，按显式 bootstrap as-of 从零重新生成并补录事件”的执行事实。
+这里的结构性 contract 只证明文件可读、字段/分区/主键等结构契约正确，不证明前复权公式正确。
 
 为避免再次出现“check 成功但 Dagster 认为目标 partition 缺 check”的问题，正式代码
 保留人工维护入口 `gold_stock_daily_qfq_check_refresh_job`。该 job 只能选择
@@ -209,28 +235,28 @@ data_lake/gold/quote/stock_daily_qfq/trade_date={YYYY-MM-DD}/part-000.parquet
 | 路径 | 适用情况 | 事件口径 |
 | --- | --- | --- |
 | 正式 Dagster backfill | 小范围历史补数，run 数和 event 增量可接受 | 每个 partition 由正式 asset/check 产生 materialization/check events |
-| Direct lake bootstrap + runless event backfill | 全历史或大范围初始化，Dagster backfill 会产生过多 run/event 或耗时不可接受 | 先直接批量生成 lake 文件；文件审计通过后，再按 dry-run / sample / batch / final audit 补 runless events |
+| Direct lake bootstrap + runless event backfill | 全历史或大范围初始化，Dagster backfill 会产生过多 run/event 或耗时不可接受 | 先直接批量生成 lake 文件；文件结构验收通过后，再按 dry-run / sample / batch / final audit 补 runless events |
 
 若选择 direct lake bootstrap，必须遵守当前性能治理规范：
 
 1. 先只读 dry-run：统计 expected 日期数、完整输入日期数、已存在目标文件数、计划写入数、缺失输入样本和 sample partition。
-2. 再小样本写入：只在显式 `--apply` 与指定 sample 范围下写临时/审批范围 lake root，验证 schema、row count、分区日期、唯一键、qfq 公式、`pre_close/change_amount/pct_chg`。
+2. 再小样本写入：只在显式 `--apply` 与指定 sample 范围下写临时/审批范围 lake root，验证 schema、row count、分区日期和唯一键；不得把样本公式复算作为 P8 验收项。
 3. 再分批全量写：DuckDB set-based SQL，`_tmp -> validate -> atomic replace`；正式全量写入必须进入 P6 并单独审批。
 4. 文件全量审计通过后，才允许进入 runless event backfill。
-5. runless event backfill 只给已经通过正式 blocking check 语义的文件补 event；不得给未通过检查的文件报绿。
+5. runless event backfill 只给已经通过结构性 contract 验收、旧错误文件清零确认和显式 as-of 重建流程确认的文件补 event；不得用自我复算公式 check 给文件报绿，也不得新增固定样本、公式级聚合 check 或任何替代性的公式正确性 check。
 6. runless event 也必须 dry-run、sample、batch、final audit；不得无界写正式 Dagster DB。
 
 runless event 补录拆成两层：
 
 1. materialization event 全历史补录，用于告诉 Dagster 历史分区文件已经生成。
-2. ordinary check event 只补最近 20 个 `cn_a_stock_trade_days` 与 latest partition，用于支撑最近窗口 UI/status/readiness；20 日以前的历史质量证明以 bootstrap 文件审计报告为准，不要求 Dagster DB 长期保存每个历史分区的 check 绿灯。
+2. ordinary check event 只补保留的结构性 contract check，范围为最近 20 个 `cn_a_stock_trade_days` 与 latest partition，用于支撑最近窗口 UI/status/readiness；20 日以前不要求 Dagster DB 长期保存每个历史分区的 check 绿灯，历史文件存在、结构和事件补录事实以 bootstrap 执行报告为准。
 
 当前 P6 已落地工具口径：
 
-1. `gold_stock_daily_qfq_history_cli build-history` 默认 dry-run；只有显式 `--apply` 才写文件。
+1. `gold_stock_daily_qfq_history_cli build-history` 默认 dry-run；只有显式 `--apply` 才写文件；正式写入必须显式传入并记录 `as_of_trade_date`。
 2. `gold_stock_daily_qfq_history_events_cli plan-events` 只读规划 runless event。
 3. `gold_stock_daily_qfq_history_events_cli report-events` 默认 dry-run；只有显式 `--apply` 才写 Dagster runless events。
-4. ordinary check event 写入前必须重新执行 `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check` 等价审计；失败分区不得报绿。
+4. P8 后 ordinary check event 写入前只执行保留的结构性 contract 验收；`gold_stock_daily_qfq_qfq_semantics_check` 不再补录、不再作为 readiness 阻断项，也不再作为 bootstrap 正确性证明。
 5. 这些 CLI 的正式执行不属于代码开发阶段，必须另走正式 lake / Dagster DB 写入审批。
 
 这个口径的前提是：后续自动触发、sensor、readiness 不依赖 20 日以前的 check event；报告和研究消费直接读取全历史 Parquet 文件。
@@ -263,7 +289,7 @@ repair 口径：
 | 字段契约 | 已列字段和 qfq 语义 | 需要在 `asset_column_schemas.py` 细化类型、描述、nullable 规则 |
 | 路径 | 已明确 gold 路径模板 | 需要补正式 path helper 名称和 catalog path template |
 | 上游依赖 | 已明确依赖 `silver_stock_daily` 与 `silver_adj_factor` | 需要补 asset deps、check additional_deps、readiness gate |
-| checks | 已落地 2 条 ordinary blocking checks：contract 与 qfq semantics，子规则写入 metadata | 后续 repair status check 必须保持 protected/status 口径，不进入 ordinary readiness |
+| checks | P8 后 ordinary blocking check 只保留结构性 contract；`qfq semantics` 公式自检退出 active check、readiness、catalog、runless event 和 bootstrap 证明链路 | repair status check 必须保持 protected/status 口径，不进入 ordinary readiness |
 | metadata | 已要求 materialization/check/repair metadata 分层 | 需要列具体 metadata keys，走现有 metadata helper，不裸写 top-level key |
 | job/sensor | P3 已落地 daily job 与 daily sensor；P4 已落地 repair job 与 repair run-status sensor | daily 已确认：`gold_stock_daily_qfq_update_job`、`gold_stock_daily_qfq_update_job_sensor`、默认 `STOPPED`、run key `gold_stock_daily_qfq_update:{trade_date}`、cursor 写结构化 reason code；repair 已确认：`gold_stock_daily_qfq_factor_repair_job`、`gold_stock_daily_qfq_factor_repair_job_sensor`、默认 `STOPPED`、run key 使用 upstream-triggered builder，config 不暴露 `stock_codes` |
 | 历史迁移 | 已提出 direct lake bootstrap + runless event backfill 作为大范围候选方案 | 需要 dry-run 指标、sample 方案、全量批次、event 补录上限 |
@@ -311,6 +337,6 @@ repair 口径：
 4. factor repair 的 affected codes 计算：从相邻 expected trade date 的 `silver_adj_factor` diff 中识别需要修复的股票。
 5. repair 的 effective start：从 affected codes 在湖中已有 qfq/silver 日线覆盖范围取有效起点，不能盲目全历史。
 6. repair completion metadata 与 downstream readiness 的关系。
-7. 历史 `gold_stock_daily_qfq` 文件 bootstrap 与 runless event backfill 口径：materialization 全历史，ordinary check event 只补最近 20 个交易日与 latest partition。
+7. 历史 `gold_stock_daily_qfq` 文件 bootstrap 与 runless event backfill 口径：先删除旧错误文件和旧事件，再按正确 as-of 重建；materialization 全历史补录，ordinary check event 只补保留的结构性 contract check 的最近 20 个交易日与 latest partition。
 8. P95 耗时、DuckDB 扫描文件数、写入文件数、Dagster event 数量上限。
 9. 三条拍板口径的门禁：`pre_close/change_amount/pct_chg` 合法缺 previous row 写 0、不开放手写 `stock_codes`、repair 自动 sensor 只走 run-status scoped repair。

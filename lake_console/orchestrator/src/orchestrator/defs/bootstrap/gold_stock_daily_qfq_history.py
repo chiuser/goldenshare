@@ -5,9 +5,10 @@ from collections.abc import Sequence
 from dataclasses import asdict, dataclass
 from datetime import date
 from pathlib import Path
+from tempfile import TemporaryDirectory
 from time import perf_counter
 
-from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.duckdb_sql import copy_query_to_parquet, duckdb_string, read_parquet
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
     gold_stock_daily_qfq_path,
@@ -30,6 +31,9 @@ GOLD_STOCK_DAILY_QFQ_HISTORY_SAMPLE_LIMIT = 20
 
 @dataclass(frozen=True, slots=True)
 class GoldStockDailyQfqHistoryPlan:
+    bootstrap_as_of_trade_date: str
+    as_of_adj_factor_file_path: str
+    as_of_adj_factor_file_exists: bool
     selected_partition_keys: tuple[str, ...]
     expected_trade_date_count: int
     silver_stock_daily_partition_count: int
@@ -47,6 +51,8 @@ class GoldStockDailyQfqHistoryPlan:
 
 @dataclass(frozen=True, slots=True)
 class GoldStockDailyQfqHistoryWriteReport:
+    bootstrap_as_of_trade_date: str
+    as_of_adj_factor_file_path: str
     selected_partition_keys: tuple[str, ...]
     written_partition_keys: tuple[str, ...]
     skipped_existing_partition_keys: tuple[str, ...]
@@ -55,6 +61,8 @@ class GoldStockDailyQfqHistoryWriteReport:
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "bootstrap_as_of_trade_date": self.bootstrap_as_of_trade_date,
+            "as_of_adj_factor_file_path": self.as_of_adj_factor_file_path,
             "selected_partition_keys": list(self.selected_partition_keys),
             "written_partition_keys": list(self.written_partition_keys),
             "skipped_existing_partition_keys": list(
@@ -151,11 +159,20 @@ def plan_gold_stock_daily_qfq_history(
     *,
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     duckdb_resource: DuckDBResource,
+    as_of_trade_date: str,
     partition_keys: Sequence[str] | None = None,
     start_date: str = "2014-01-01",
     end_date: str | None = None,
     skip_existing: bool = True,
 ) -> GoldStockDailyQfqHistoryPlan:
+    normalized_as_of_trade_date = _normalize_trade_date(
+        as_of_trade_date,
+        field_name="as_of_trade_date",
+    )
+    as_of_adj_factor_path = silver_adj_factor_path(
+        lake_root,
+        normalized_as_of_trade_date,
+    )
     expected_trade_dates = load_gold_stock_daily_qfq_expected_trade_dates(
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
@@ -188,6 +205,9 @@ def plan_gold_stock_daily_qfq_history(
         if not skip_existing or partition_key not in existing_target_partitions
     )
     return GoldStockDailyQfqHistoryPlan(
+        bootstrap_as_of_trade_date=normalized_as_of_trade_date,
+        as_of_adj_factor_file_path=str(as_of_adj_factor_path),
+        as_of_adj_factor_file_exists=as_of_adj_factor_path.exists(),
         selected_partition_keys=selected_partition_keys,
         expected_trade_date_count=len(expected_trade_dates),
         silver_stock_daily_partition_count=len(silver_stock_daily_partitions),
@@ -212,9 +232,22 @@ def generate_gold_stock_daily_qfq_history(
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     duckdb_resource: DuckDBResource,
     partition_keys: Sequence[str],
+    as_of_trade_date: str,
     skip_existing: bool = True,
     overwrite: bool = False,
 ) -> GoldStockDailyQfqHistoryWriteReport:
+    normalized_as_of_trade_date = _normalize_trade_date(
+        as_of_trade_date,
+        field_name="as_of_trade_date",
+    )
+    as_of_adj_factor_path = silver_adj_factor_path(
+        lake_root,
+        normalized_as_of_trade_date,
+    )
+    if not as_of_adj_factor_path.exists():
+        raise FileNotFoundError(
+            f"silver as-of adj factor file is missing: {as_of_adj_factor_path}"
+        )
     selected_partition_keys = tuple(sorted(set(partition_keys)))
     if not selected_partition_keys:
         raise ValueError("At least one gold stock daily qfq partition key is required.")
@@ -230,39 +263,98 @@ def generate_gold_stock_daily_qfq_history(
     skipped: list[str] = []
     write_results: list[GoldStockDailyQfqPartitionWriteResult] = []
     with duckdb_resource.connect() as connection:
-        for partition_key in selected_partition_keys:
-            target_path = gold_stock_daily_qfq_path(lake_root, partition_key)
-            if target_path.exists() and skip_existing and not overwrite:
-                skipped.append(partition_key)
-                continue
-            if target_path.exists() and not overwrite and not skip_existing:
-                raise FileExistsError(
-                    "gold stock daily qfq target already exists; use overwrite "
-                    f"or skip_existing: {target_path}"
+        with TemporaryDirectory(prefix="gold_stock_daily_qfq_as_of_") as temp_dir:
+            effective_as_of_adj_factor_path = (
+                _write_effective_as_of_adj_factor_snapshot(
+                    connection=connection,
+                    lake_root=lake_root,
+                    as_of_trade_date=normalized_as_of_trade_date,
+                    temp_dir=Path(temp_dir),
                 )
-            previous_lookup_trade_dates = (
-                load_stock_daily_qfq_previous_lookup_trade_dates(
+            )
+            for partition_key in selected_partition_keys:
+                target_path = gold_stock_daily_qfq_path(lake_root, partition_key)
+                if target_path.exists() and skip_existing and not overwrite:
+                    skipped.append(partition_key)
+                    continue
+                if target_path.exists() and not overwrite and not skip_existing:
+                    raise FileExistsError(
+                        "gold stock daily qfq target already exists; use overwrite "
+                        f"or skip_existing: {target_path}"
+                    )
+                previous_lookup_trade_dates = (
+                    load_stock_daily_qfq_previous_lookup_trade_dates(
+                        connection=connection,
+                        lake_root=lake_root,
+                        trade_date=partition_key,
+                    )
+                )
+                result = write_gold_stock_daily_qfq_partition(
                     connection=connection,
                     lake_root=lake_root,
                     trade_date=partition_key,
+                    previous_lookup_trade_dates=previous_lookup_trade_dates,
+                    as_of_trade_date=normalized_as_of_trade_date,
+                    as_of_adj_factor_path=effective_as_of_adj_factor_path,
                 )
-            )
-            result = write_gold_stock_daily_qfq_partition(
-                connection=connection,
-                lake_root=lake_root,
-                trade_date=partition_key,
-                previous_lookup_trade_dates=previous_lookup_trade_dates,
-            )
-            written.append(partition_key)
-            write_results.append(result)
+                written.append(partition_key)
+                write_results.append(result)
 
     return GoldStockDailyQfqHistoryWriteReport(
+        bootstrap_as_of_trade_date=normalized_as_of_trade_date,
+        as_of_adj_factor_file_path=str(as_of_adj_factor_path),
         selected_partition_keys=selected_partition_keys,
         written_partition_keys=tuple(written),
         skipped_existing_partition_keys=tuple(skipped),
         write_results=tuple(write_results),
         elapsed_ms=(perf_counter() - started_at) * 1000,
     )
+
+
+def _write_effective_as_of_adj_factor_snapshot(
+    *,
+    connection,
+    lake_root: Path,
+    as_of_trade_date: str,
+    temp_dir: Path,
+) -> Path:
+    source_pattern = (
+        lake_root / "silver" / "quote" / "adj_factor" / "trade_date=*" / "part-000.parquet"
+    )
+    target_path = temp_dir / f"effective_as_of_adj_factor_{as_of_trade_date}.parquet"
+    as_of_date_sql = f"DATE {duckdb_string(as_of_trade_date)}"
+    source_sql = read_parquet(source_pattern, hive_partitioning=False)
+    select_sql = f"""
+WITH ranked_factors AS (
+  SELECT
+    CAST(ts_code AS VARCHAR) AS ts_code,
+    CAST(trade_date AS DATE) AS source_trade_date,
+    CAST(adj_factor AS DOUBLE) AS adj_factor,
+    row_number() OVER (
+      PARTITION BY CAST(ts_code AS VARCHAR)
+      ORDER BY CAST(trade_date AS DATE) DESC
+    ) AS row_number
+  FROM {source_sql}
+  WHERE CAST(trade_date AS DATE) <= {as_of_date_sql}
+)
+SELECT
+  ts_code,
+  {as_of_date_sql} AS trade_date,
+  adj_factor
+FROM ranked_factors
+WHERE row_number = 1
+ORDER BY ts_code
+"""
+    connection.execute(copy_query_to_parquet(select_sql, target_path))
+    row_count = connection.execute(
+        f"SELECT count(*) FROM {read_parquet(target_path, hive_partitioning=False)}"
+    ).fetchone()[0]
+    if int(row_count) <= 0:
+        raise ValueError(
+            "effective stock daily qfq as-of adj factor snapshot has no rows: "
+            f"as_of_trade_date={as_of_trade_date}"
+        )
+    return target_path
 
 
 def _discover_trade_date_partitions(root: Path) -> tuple[str, ...]:

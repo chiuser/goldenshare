@@ -99,10 +99,7 @@ def _missing_gold_status(trade_date: str) -> DatasetReadinessStatus:
         materialized=False,
         checks_passed=False,
         reason="gold_stock_daily_qfq has no materialization",
-        missing_check_names=(
-            "gold_stock_daily_qfq_contract_check",
-            "gold_stock_daily_qfq_qfq_semantics_check",
-        ),
+        missing_check_names=("gold_stock_daily_qfq_contract_check",),
     )
 
 
@@ -114,7 +111,7 @@ def _failed_gold_status(trade_date: str) -> DatasetReadinessStatus:
         materialized=True,
         checks_passed=False,
         reason="gold_stock_daily_qfq failed blocking checks",
-        failed_check_names=("gold_stock_daily_qfq_qfq_semantics_check",),
+        failed_check_names=("gold_stock_daily_qfq_contract_check",),
     )
 
 

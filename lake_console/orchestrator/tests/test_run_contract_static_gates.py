@@ -3800,13 +3800,12 @@ class RunContractStaticGateTests(unittest.TestCase):
 
         required_check_names = (
             "gold_stock_daily_qfq_contract_check",
-            "gold_stock_daily_qfq_qfq_semantics_check",
         )
         protected_repair_check_name = "gold_stock_daily_qfq_factor_repair_plan_evaluated"
 
-        if check_source.count("@dg.asset_check") != 2:
-            issues.append("stock_daily_qfq ordinary checks must stay at 2")
-        if check_source.count("partitions_def=cn_a_stock_trade_days") != 2:
+        if check_source.count("@dg.asset_check") != 1:
+            issues.append("stock_daily_qfq ordinary checks must stay at 1")
+        if check_source.count("partitions_def=cn_a_stock_trade_days") != 1:
             issues.append(
                 "stock_daily_qfq ordinary checks must explicitly declare "
                 "cn_a_stock_trade_days partitions_def so check events are "
@@ -3817,6 +3816,20 @@ class RunContractStaticGateTests(unittest.TestCase):
                 issues.append(f"{check_path} misses ordinary check {check_name}")
             if check_name not in readiness_source:
                 issues.append(f"{readiness_path} misses readiness check {check_name}")
+        forbidden_formula_fragments = (
+            "gold_stock_daily_qfq_qfq_semantics_check",
+            "qfq_semantics",
+            "formula",
+            "as_of_adj_factor_path",
+            "silver_adj_factor_path",
+            "silver_stock_daily_path",
+        )
+        for fragment in forbidden_formula_fragments:
+            if fragment in check_source:
+                issues.append(
+                    f"{check_path} must not contain formula validation fragment: "
+                    f"{fragment}"
+                )
         if protected_repair_check_name in readiness_source:
             issues.append(
                 "gold_stock_daily_qfq repair status check must not enter ordinary "
@@ -3846,6 +3859,58 @@ class RunContractStaticGateTests(unittest.TestCase):
                     "stock_daily_qfq checks-only refresh job must not select "
                     "materializable assets"
                 )
+
+        self.assertEqual(issues, [])
+
+    def test_gold_stock_daily_qfq_p8_reset_tool_is_scoped_and_guarded(self) -> None:
+        helper_path = (
+            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_reset.py"
+        )
+        cli_path = (
+            DEFS_DIR / "bootstrap" / "gold_stock_daily_qfq_history_reset_cli.py"
+        )
+        helper_source = helper_path.read_text()
+        cli_source = cli_path.read_text()
+        combined = f"{helper_source}\n{cli_source}"
+        issues = []
+
+        required_fragments = (
+            '"gold_stock_daily_qfq"',
+            '"gold"',
+            '"quote"',
+            '"stock_daily_qfq"',
+            '"dry-run"',
+            '"apply"',
+            "--confirm-reset",
+            "--backup-path",
+            "--delete-lake-files",
+            "--delete-dagster-events",
+            "running_or_queued_run_count",
+            "GOLD_STOCK_DAILY_QFQ_FACTOR_REPAIR_PLAN_CHECK_NAME",
+            "DELETE FROM asset_event_tags",
+            "DELETE FROM event_logs",
+            "DELETE FROM asset_check_executions",
+        )
+        forbidden_fragments = (
+            "DELETE FROM runs",
+            "DELETE FROM run_tags",
+            "DELETE FROM dynamic_partitions",
+            "DELETE FROM instigators",
+            "TRUNCATE",
+            "DROP TABLE",
+            "VACUUM",
+            "gold_stock_daily_qfq_qfq_semantics_check",
+        )
+        issues.extend(
+            f"gold_stock_daily_qfq P8 reset tool misses fragment: {fragment}"
+            for fragment in required_fragments
+            if fragment not in combined
+        )
+        issues.extend(
+            f"gold_stock_daily_qfq P8 reset tool contains forbidden fragment: {fragment}"
+            for fragment in forbidden_fragments
+            if fragment in combined
+        )
 
         self.assertEqual(issues, [])
 
@@ -3960,6 +4025,8 @@ class RunContractStaticGateTests(unittest.TestCase):
         )
         for path in bootstrap_paths:
             source = path.read_text()
+            if path.name.endswith("_cli.py") and "--as-of-trade-date" not in source:
+                issues.append(f"{path} misses required --as-of-trade-date")
             for snippet in forbidden_snippets:
                 if snippet in source:
                     issues.append(f"{path} contains forbidden snippet: {snippet}")
@@ -3996,11 +4063,23 @@ class RunContractStaticGateTests(unittest.TestCase):
             "AssetCheckEvaluation(",
             "\"plan-events\"",
             "\"report-events\"",
+            "--as-of-trade-date",
             "--apply",
+        )
+        p8_forbidden_fragments = (
+            "gold_stock_daily_qfq_qfq_semantics_check",
+            "qfq_semantics",
+            "formula",
         )
         issues.extend(
             f"gold stock daily qfq history event helper contains forbidden fragment: {fragment}"
             for fragment in forbidden_fragments
+            if fragment in combined
+        )
+        issues.extend(
+            f"gold stock daily qfq history event helper contains P8 forbidden "
+            f"fragment: {fragment}"
+            for fragment in p8_forbidden_fragments
             if fragment in combined
         )
         issues.extend(

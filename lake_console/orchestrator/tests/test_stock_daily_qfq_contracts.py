@@ -7,7 +7,6 @@ import duckdb
 
 from orchestrator.defs.checks.stock_daily_qfq_checks import (
     gold_stock_daily_qfq_contract_check,
-    gold_stock_daily_qfq_qfq_semantics_check,
 )
 from orchestrator.defs.duckdb_sql import copy_query_to_parquet
 from orchestrator.defs.assets.stock_daily_qfq import gold_stock_daily_qfq
@@ -227,13 +226,10 @@ class StockDailyQfqContractTests(unittest.TestCase):
         self.assertEqual(entry.bootstrap_sources, (IngestionSource.DERIVED_FROM_ASSETS,))
         self.assertEqual(entry.performance_contract.compute_engine, ComputeEngine.DUCKDB_SQL)
 
-    def test_readiness_uses_only_two_ordinary_blocking_checks(self) -> None:
+    def test_readiness_uses_only_retained_contract_check(self) -> None:
         self.assertEqual(
             GOLD_STOCK_DAILY_QFQ_CHECKS,
-            (
-                "gold_stock_daily_qfq_contract_check",
-                "gold_stock_daily_qfq_qfq_semantics_check",
-            ),
+            ("gold_stock_daily_qfq_contract_check",),
         )
         self.assertEqual(len(GOLD_STOCK_DAILY_QFQ_READINESS_SPECS), 1)
         spec = GOLD_STOCK_DAILY_QFQ_READINESS_SPECS[0]
@@ -248,10 +244,6 @@ class StockDailyQfqContractTests(unittest.TestCase):
     def test_ordinary_checks_are_partitioned(self) -> None:
         self.assertEqual(
             gold_stock_daily_qfq_contract_check.partitions_def,
-            cn_a_stock_trade_days,
-        )
-        self.assertEqual(
-            gold_stock_daily_qfq_qfq_semantics_check.partitions_def,
             cn_a_stock_trade_days,
         )
 
@@ -335,10 +327,7 @@ class StockDailyQfqContractTests(unittest.TestCase):
             instance.add_dynamic_partitions(cn_a_stock_trade_days.name, [TRADE_DATE])
             definitions = dg.Definitions(
                 assets=[gold_stock_daily_qfq],
-                asset_checks=[
-                    gold_stock_daily_qfq_contract_check,
-                    gold_stock_daily_qfq_qfq_semantics_check,
-                ],
+                asset_checks=[gold_stock_daily_qfq_contract_check],
                 jobs=[gold_stock_daily_qfq_update_job],
                 resources={
                     "lake_root": LakeRootResource(root_path=str(root)),

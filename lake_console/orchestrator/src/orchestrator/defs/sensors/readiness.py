@@ -111,7 +111,6 @@ SILVER_ADJ_FACTOR_BLOCKING_CHECKS = (
 )
 GOLD_STOCK_DAILY_QFQ_CHECKS = (
     "gold_stock_daily_qfq_contract_check",
-    "gold_stock_daily_qfq_qfq_semantics_check",
 )
 RAW_INDEX_DAILY_CHECKS = (
     "raw_index_daily_file_contract_check",

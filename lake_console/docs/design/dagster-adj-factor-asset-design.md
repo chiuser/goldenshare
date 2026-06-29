@@ -4,6 +4,11 @@
 
 本文只定义 `adj_factor`（复权因子）这个数据资产在新 Dagster lake 中的正式口径。分钟线前复权、受影响股票回刷、指标重算等下游设计不放在本文中。
 
+相关下游设计：
+
+- `dagster-stk-mins-asset-design.html`：股票分钟线前复权、qfq factor repair、MACD/KDJ 下游修复口径。
+- `dagster-stock-daily-qfq-asset-design.md`：股票日线前复权 `gold_stock_daily_qfq` 的字段、物理布局、日常生成与 repair 关系口径。
+
 ## 1. 目标
 
 把复权因子作为股票行情域的日频基础事实资产接入新 Dagster lake：

@@ -330,17 +330,21 @@ def write_gold_stock_daily_qfq_partition(
     trade_date: str,
     previous_lookup_trade_dates: Sequence[str],
     as_of_trade_date: str | None = None,
+    as_of_adj_factor_path: Path | None = None,
 ) -> GoldStockDailyQfqPartitionWriteResult:
     resolved_as_of_trade_date = as_of_trade_date or trade_date
     stock_daily_path = silver_stock_daily_path(lake_root, trade_date)
     trade_adj_factor_path = silver_adj_factor_path(lake_root, trade_date)
-    as_of_adj_factor_path = silver_adj_factor_path(lake_root, resolved_as_of_trade_date)
+    resolved_as_of_adj_factor_path = as_of_adj_factor_path or silver_adj_factor_path(
+        lake_root,
+        resolved_as_of_trade_date,
+    )
     target_path = gold_stock_daily_qfq_path(lake_root, trade_date)
 
     for input_path, label in (
         (stock_daily_path, "silver stock daily"),
         (trade_adj_factor_path, "silver trade-date adj factor"),
-        (as_of_adj_factor_path, "silver as-of adj factor"),
+        (resolved_as_of_adj_factor_path, "silver as-of adj factor"),
     ):
         if not input_path.exists():
             raise FileNotFoundError(f"Missing {label} file: {input_path}")
@@ -367,7 +371,7 @@ def write_gold_stock_daily_qfq_partition(
             trade_adj_factor_path=trade_adj_factor_path,
             previous_stock_daily_paths=previous_stock_daily_paths,
             previous_adj_factor_paths=previous_adj_factor_paths,
-            as_of_adj_factor_path=as_of_adj_factor_path,
+            as_of_adj_factor_path=resolved_as_of_adj_factor_path,
             trade_date=trade_date,
             as_of_trade_date=resolved_as_of_trade_date,
         )
@@ -412,7 +416,7 @@ def write_gold_stock_daily_qfq_partition(
             trade_adj_factor_path=trade_adj_factor_path,
             previous_stock_daily_paths=previous_stock_daily_paths,
             previous_adj_factor_paths=previous_adj_factor_paths,
-            as_of_adj_factor_path=as_of_adj_factor_path,
+            as_of_adj_factor_path=resolved_as_of_adj_factor_path,
             trade_date=trade_date,
             as_of_trade_date=resolved_as_of_trade_date,
         ),
@@ -432,7 +436,7 @@ def write_gold_stock_daily_qfq_partition(
         path=target_path,
         stock_daily_file_path=stock_daily_path,
         trade_adj_factor_file_path=trade_adj_factor_path,
-        as_of_adj_factor_file_path=as_of_adj_factor_path,
+        as_of_adj_factor_file_path=resolved_as_of_adj_factor_path,
         previous_lookup_trade_date_count=len(tuple(previous_lookup_trade_dates)),
         previous_stock_daily_file_count=len(previous_stock_daily_paths),
         previous_adj_factor_file_count=len(previous_adj_factor_paths),

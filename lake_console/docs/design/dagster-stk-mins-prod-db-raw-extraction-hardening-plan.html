@@ -1,0 +1,514 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Dagster 股票分钟线 Prod DB Raw 导出稳定性治理方案</title>
+  <style>
+    :root {
+      --bg: #f5f7fa;
+      --paper: #ffffff;
+      --ink: #202a36;
+      --muted: #657386;
+      --line: #d7dee8;
+      --blue: #245f8f;
+      --green: #25745c;
+      --amber: #8c6418;
+      --red: #a33e32;
+      --code: #f1f4f8;
+      --soft-blue: #eef6ff;
+      --soft-green: #edf8f3;
+      --soft-amber: #fff7df;
+      --soft-red: #fff0ed;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: "Avenir Next", "PingFang SC", "Noto Sans CJK SC", sans-serif;
+      line-height: 1.68;
+    }
+
+    main {
+      max-width: 1220px;
+      margin: 0 auto;
+      padding: 34px 24px 76px;
+    }
+
+    header,
+    section {
+      margin-top: 18px;
+      padding: 26px;
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      background: var(--paper);
+      box-shadow: 0 10px 28px rgba(31, 41, 55, 0.06);
+    }
+
+    header {
+      margin-top: 0;
+      border-left: 6px solid var(--blue);
+      padding: 34px;
+    }
+
+    h1,
+    h2,
+    h3 {
+      margin-top: 0;
+      line-height: 1.25;
+      letter-spacing: 0;
+    }
+
+    h1 {
+      margin-bottom: 12px;
+      font-size: 38px;
+    }
+
+    h2 {
+      margin-bottom: 12px;
+      font-size: 25px;
+    }
+
+    h3 {
+      margin: 22px 0 8px;
+      font-size: 18px;
+    }
+
+    p { margin: 8px 0 12px; }
+
+    code {
+      border: 1px solid #d8dee8;
+      border-radius: 5px;
+      background: var(--code);
+      padding: 1px 5px;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.92em;
+    }
+
+    pre {
+      overflow: auto;
+      border-radius: 10px;
+      background: #17212d;
+      color: #eef6ff;
+      padding: 14px 16px;
+      font-size: 13px;
+      line-height: 1.55;
+    }
+
+    table {
+      width: 100%;
+      margin: 14px 0;
+      border-collapse: collapse;
+      background: #fff;
+    }
+
+    th,
+    td {
+      border: 1px solid var(--line);
+      padding: 10px 12px;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    th { background: #edf3f8; }
+
+    ul,
+    ol { padding-left: 24px; }
+
+    li { margin: 5px 0; }
+
+    .lead {
+      max-width: 980px;
+      color: var(--muted);
+      font-size: 17px;
+    }
+
+    .tag {
+      display: inline-block;
+      margin: 2px 6px 2px 0;
+      padding: 2px 8px;
+      border-radius: 999px;
+      background: var(--code);
+      color: #344054;
+      font-size: 13px;
+    }
+
+    .callout {
+      margin: 14px 0;
+      padding: 14px 16px;
+      border: 1px solid var(--line);
+      border-left: 5px solid var(--blue);
+      border-radius: 10px;
+      background: var(--soft-blue);
+    }
+
+    .callout.green { border-left-color: var(--green); background: var(--soft-green); }
+    .callout.amber { border-left-color: var(--amber); background: var(--soft-amber); }
+    .callout.red { border-left-color: var(--red); background: var(--soft-red); }
+    .small { color: var(--muted); font-size: 13px; }
+  </style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Dagster 股票分钟线 Prod DB Raw 导出稳定性治理方案</h1>
+    <p class="lead">
+      本文档只用于准备后续代码开发。当前不直接开发、不写数据湖、不写 prod DB、不写 Dagster
+      instance。目标是把 <code>stock_mins_raw_update_from_prod_job</code> 在
+      <code>raw_stk_mins_1m</code> 步骤长时间无进展的问题拆清楚，并形成可 review 的落地方案。
+    </p>
+    <p>
+      <span class="tag">状态：待 review</span>
+      <span class="tag">日期：2026-06-29</span>
+      <span class="tag">范围：stk_mins raw prod_db source</span>
+      <span class="tag">原则：先方案，后开发</span>
+    </p>
+  </header>
+
+  <section>
+    <h2>1. 当前结论</h2>
+    <div class="callout red">
+      <strong>下一步不是直接开发。</strong>
+      需要先确认本文档的技术口径，尤其是批次大小、超时策略、临时文件路径和恢复流程。确认后才进入代码实现。
+    </div>
+    <p>
+      这次卡住不是普通的“1m 数据量大所以慢”。已审计到的现象是：prod PostgreSQL 端没有持续运行的
+      <code>raw_tushare.stk_mins</code> 查询，本地 Dagster step 进程 CPU 接近 0，仍持有 prod PG 连接，
+      目标 1m 目录为空。这更像是 DuckDB postgres scanner 在一次性大批量远程读取时进入了不可观测的等待状态。
+    </p>
+    <p>
+      因此治理重点不是加一句日志或延长等待，而是把当前“一整天全市场一次性拉取”的实现改成“有批次、有超时、有进度、有清理”的实现。
+    </p>
+  </section>
+
+  <section>
+    <h2>2. 已审计事实</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>项目</th>
+          <th>事实</th>
+          <th>含义</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Run</td>
+          <td><code>21ad5aa0-0b8a-4196-aca6-adfd47aa0bbf</code>，partition <code>2026-06-29</code></td>
+          <td>用户已停止 sensor 并取消该 run；本文档不再操作正式状态。</td>
+        </tr>
+        <tr>
+          <td>卡住步骤</td>
+          <td><code>raw_stk_mins_1m</code> 只有 started 日志，没有 completed、materialization 或 failure</td>
+          <td>step 卡在 asset 内部某个阻塞点，Dagster 没拿到异常。</td>
+        </tr>
+        <tr>
+          <td>已成功步骤</td>
+          <td><code>raw_stk_mins_15m</code> 约 5 秒完成，写入 <code>93,942</code> 行</td>
+          <td>资源、凭证、基础路径不是完全不可用；问题集中在更大规模的 1m 导出。</td>
+        </tr>
+        <tr>
+          <td>prod 数据量</td>
+          <td><code>2026-06-29</code> 的 1m 为 <code>1,331,766</code> 行、<code>5,526</code> 个代码，15m 为 <code>93,942</code> 行</td>
+          <td>1m 是 15m 的 14 倍左右，单块远程导出风险明显更高。</td>
+        </tr>
+        <tr>
+          <td>目标文件</td>
+          <td><code>freq=1/trade_date=2026-06-29</code> 目录存在但为空，没有 <code>part-000.parquet</code>，也没有临时 parquet</td>
+          <td>卡住发生在写正式文件之前，未产生可被误认为成功的产物。</td>
+        </tr>
+        <tr>
+          <td>prod PostgreSQL 活动</td>
+          <td>未观察到持续运行的 <code>raw_tushare.stk_mins</code> 查询；存在 idle / ClientRead 连接</td>
+          <td>不是一个正在正常跑很久的 SQL，更像本地连接/扫描生命周期卡住。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>3. 当前代码链路</h2>
+    <p>
+      这次问题所在的代码路径是：
+    </p>
+    <pre>_materialize_raw_stk_mins_partition
+  -> write_raw_stk_mins_partition_from_prod_db
+    -> build_prod_stk_mins_duckdb_source_sql
+    -> _write_raw_stk_mins_rows_from_prod_db_source</pre>
+    <p>
+      当前 prod_db 分支的关键行为：
+    </p>
+    <ul>
+      <li><code>build_prod_stk_mins_remote_query</code> 对当日、单个频度、全部当前上市代码构造一条远程 SQL。</li>
+      <li><code>build_prod_stk_mins_duckdb_source_sql</code> 用 DuckDB <code>postgres_query(...)</code> 读取 prod PG。</li>
+      <li><code>_write_raw_stk_mins_rows_from_prod_db_source</code> 用一条 <code>CREATE TEMP TABLE prod_stk_mins_source AS SELECT * FROM (...)</code> 把所有行读进 DuckDB 临时表。</li>
+      <li>只有这一步完成后，才会做行数校验、scope 校验、<code>COPY</code> parquet 和 <code>os.replace</code>。</li>
+    </ul>
+    <div class="callout amber">
+      人话解释：现在像是让一个搬运工一次性把全市场 1 分钟数据全搬完，中途没有分批、没有超时、没有“搬到第几车”的进度。一旦卡住，外面只能看到“开始了”，看不到卡在哪里。
+    </div>
+  </section>
+
+  <section>
+    <h2>4. 改造目标和硬边界</h2>
+    <h3>目标</h3>
+    <ul>
+      <li>让 <code>stock_mins_raw_update_from_prod_job</code> 的 prod_db raw 导出在 1m 大分区下可控、可观测、可失败退出。</li>
+      <li>保持最终数据湖产物不变：每个 <code>freq/trade_date</code> 仍只有一个正式 <code>part-000.parquet</code>。</li>
+      <li>保持数据 schema、字段顺序、路径、asset 名、job 名、sensor 名、partition 口径不变。</li>
+      <li>失败时不得留下半成品正式文件；不得写绿色 Dagster 状态。</li>
+    </ul>
+
+    <h3>硬边界</h3>
+    <ul>
+      <li>不改 <code>raw_stk_mins_*</code> asset 名称、job selection、sensor 触发逻辑、run key、run config。</li>
+      <li>不改 prod 表结构，不写 prod DB，只读 <code>raw_tushare.stk_mins</code>。</li>
+      <li>不引入逐行 Python 写 parquet；批处理也必须用 DuckDB set-based SQL 写 parquet。</li>
+      <li>不增加细碎 Dagster asset check，不扩大 Dagster DB 状态量。</li>
+      <li>不把 Tushare fallback 混进 prod_db 日更主链路。Tushare repair 仍走现有 repair 机制。</li>
+    </ul>
+  </section>
+
+  <section>
+    <h2>5. 拟采用方案</h2>
+    <h3>5.1 按股票代码批次读取 prod DB</h3>
+    <p>
+      将当前“全部代码一次查询”改为“稳定排序后的代码批次查询”。推荐默认批次大小为 <code>500</code> 个代码：
+      当前约 <code>5,530</code> 个股票代码时，1 个频度约 <code>12</code> 个批次。1m 每批大约十万行级别，不再把
+      <code>1,331,766</code> 行压到单次 DuckDB postgres scanner 调用里。
+    </p>
+    <table>
+      <thead>
+        <tr>
+          <th>策略</th>
+          <th>当前</th>
+          <th>改造后</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>远程查询次数</td>
+          <td>每个频度 1 次</td>
+          <td>每个频度约 12 次，数量随代码数线性变化</td>
+        </tr>
+        <tr>
+          <td>单次数据量</td>
+          <td>1m 单次约 133 万行</td>
+          <td>1m 单次约十万行级别</td>
+        </tr>
+        <tr>
+          <td>进度观测</td>
+          <td>只有 started / completed</td>
+          <td>每批有 started / completed / elapsed / row_count</td>
+        </tr>
+        <tr>
+          <td>失败处理</td>
+          <td>卡住时没有中间边界</td>
+          <td>批次超时或失败，清理 staging，asset 失败退出</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h3>5.2 staging 文件再合并成正式 part</h3>
+    <p>
+      每个批次先写入临时 staging parquet。所有批次完成后，再用 DuckDB 读取 staging parquet，做统一 schema
+      casting、scope 校验、去重校验和排序，最后写入临时 <code>part-000.parquet.tmp</code>，通过
+      <code>os.replace</code> 原子替换正式文件。
+    </p>
+    <pre>raw/tushare/stk_mins/freq=1/trade_date=YYYY-MM-DD/
+  .prod_db_staging/run_id=&lt;run-id-or-uuid&gt;/batch=00001.parquet
+  .prod_db_staging/run_id=&lt;run-id-or-uuid&gt;/batch=00002.parquet
+  part-000.parquet.tmp
+  part-000.parquet</pre>
+    <p>
+      staging 目录只存在于本次写入过程中。成功或失败都应在 <code>finally</code> 中清理；如果进程被强杀，下一次运行开始前也要清理本资产自己的过期 staging 目录。
+    </p>
+
+    <h3>5.3 超时和连接生命周期</h3>
+    <p>
+      每个批次都必须有明确超时。优先方案是在 DuckDB Postgres attach 的连接信息中注入 PostgreSQL
+      <code>statement_timeout</code> 和连接超时配置；开发时必须先用单元测试和最小只读验证确认 DuckDB postgres extension
+      支持该 conninfo 口径。
+    </p>
+    <p>
+      推荐初始值：
+    </p>
+    <ul>
+      <li>单批次 <code>statement_timeout</code>：<code>180s</code></li>
+      <li>连接超时：沿用现有 <code>connect_timeout</code>，但不能把密码、host、user 写进 SQL 字符串。</li>
+      <li>超过单批次超时即失败退出，不自动无限重试。</li>
+    </ul>
+    <div class="callout amber">
+      如果开发验证发现 DuckDB postgres extension 无法稳定支持 statement timeout，本方案不允许硬凑。
+      需要停下，单独评估 psycopg server-side cursor / COPY streaming 方案，而不是继续扩大当前不可控实现。
+    </div>
+
+    <h3>5.4 运行日志和 metadata</h3>
+    <p>
+      使用现有 <code>DgStdoutLogger("stk_mins")</code>。日志只写阶段、数量和耗时，不打印完整 SQL、完整代码列表、连接串或样本数据。
+    </p>
+    <ul>
+      <li><code>raw_stk_mins_prod_extract_started</code>：记录 partition、freq、code_count、batch_size、batch_count。</li>
+      <li><code>raw_stk_mins_prod_extract_batch_started</code>：记录 batch_index、batch_count、batch_code_count。</li>
+      <li><code>raw_stk_mins_prod_extract_batch_completed</code>：记录 batch_index、row_count、returned_code_count、elapsed_ms。</li>
+      <li><code>raw_stk_mins_prod_extract_merge_started</code>：记录 staging_file_count、source_row_count。</li>
+      <li><code>raw_stk_mins_prod_extract_merge_completed</code>：记录 output_row_count、returned_stock_code_count、elapsed_ms。</li>
+    </ul>
+    <p>
+      materialization metadata 在保留现有字段基础上追加批处理摘要：<code>batch_size</code>、
+      <code>batch_count</code>、<code>query_count</code>、<code>max_batch_elapsed_ms</code>、
+      <code>source_row_count</code>、<code>extract_strategy=prod_db_code_batches</code>。
+    </p>
+  </section>
+
+  <section>
+    <h2>6. 代码级改动点</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>文件</th>
+          <th>拟改动</th>
+          <th>不得改变</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td><code>lake_console/orchestrator/src/orchestrator/defs/prod_db/stk_mins.py</code></td>
+          <td>
+            增加批次 SQL builder 或让现有 builder 接收 batch code set；保留显式字段投影；
+            增加 timeout attach options 的 contract 验证。
+          </td>
+          <td>不得出现 <code>select *</code>、不得导出非业务字段、不得把连接串写入 SQL。</td>
+        </tr>
+        <tr>
+          <td><code>lake_console/orchestrator/src/orchestrator/defs/assets/stk_mins.py</code></td>
+          <td>
+            重写 prod_db 写入 helper 的内部执行策略：代码分批、批次 staging parquet、统一 merge、清理 staging、
+            追加进度日志和 metadata。
+          </td>
+          <td>不得改 raw path、schema、asset 名、Tushare 分支、repair 分支和现有 final parquet contract。</td>
+        </tr>
+        <tr>
+          <td><code>lake_console/orchestrator/src/orchestrator/defs/resources.py</code></td>
+          <td>
+            如有必要，只在 <code>ProdPostgresResource</code> 的 DuckDB conninfo 生成处增加可测试的 timeout 参数。
+          </td>
+          <td>不得改变读写资源命名和现有环境变量口径；不得影响其它 prod Postgres 只读 asset。</td>
+        </tr>
+        <tr>
+          <td><code>lake_console/orchestrator/tests/*</code></td>
+          <td>新增或更新 prod_db batch extraction、staging cleanup、日志、静态门禁测试。</td>
+          <td>不得用真实 prod DB、真实数据湖路径做单元测试。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>7. 测试和门禁</h2>
+    <h3>单元测试</h3>
+    <ul>
+      <li>批次规划：输入 <code>5,530</code> 个代码时，按稳定排序和默认 <code>500</code> 大小切成确定批次。</li>
+      <li>SQL contract：每个 batch 仍有显式字段、freq/date/code 过滤、<code>ORDER BY ts_code, trade_time</code>，无 <code>select *</code>。</li>
+      <li>写入成功：多个 batch parquet 合并后，最终 <code>part-000.parquet</code> schema、字段顺序、scope 和行数正确。</li>
+      <li>失败清理：任一 batch 失败时，不产生正式 <code>part-000.parquet</code>，staging 目录被清理。</li>
+      <li>空结果失败：全部 batch 总行数为 0 时失败；部分代码无数据仍沿用当前 <code>empty_stock_code_count</code> 口径。</li>
+      <li>日志门禁：stdout 不包含完整 SQL、完整代码列表、连接串、密码或 DataFrame。</li>
+    </ul>
+
+    <h3>静态门禁</h3>
+    <ul>
+      <li>禁止 prod_db raw helper 再出现单块 <code>CREATE TEMP TABLE prod_stk_mins_source AS SELECT * FROM ({source_sql})</code>。</li>
+      <li>禁止 production helper 对全部代码只生成一个 <code>postgres_query</code>。</li>
+      <li>禁止修改 <code>stock_mins_raw_update_from_prod_job</code>、sensor 名称、run key 和 partition 口径。</li>
+      <li>禁止新增细碎 asset check 或扩大 Dagster DB 状态量。</li>
+    </ul>
+
+    <h3>建议验证命令</h3>
+    <pre>cd /Users/congming/github/goldenshare/lake_console/orchestrator
+uv run python -m unittest \
+  tests.test_stk_mins_raw_m4_contracts \
+  tests.test_stk_mins_human_readable_contracts \
+  tests.test_run_contract_static_gates
+git diff --check</pre>
+    <p>
+      <code>dg check defs</code>、真实 prod 只读 sample、手动 launch job 都需要在代码完成后单独审批，不在本文档编写阶段执行。
+    </p>
+  </section>
+
+  <section>
+    <h2>8. 实施顺序</h2>
+    <ol>
+      <li>你确认本文档口径，尤其是批次大小、超时、staging 路径和是否包含连接生命周期治理。</li>
+      <li>进入代码实现：先改 prod SQL/batch helper 和 tests，不动 sensor 开关，不跑正式 Dagster。</li>
+      <li>跑本地单元测试和静态门禁。</li>
+      <li>只读验证 prod 单批次 source probe，确认 timeout 和批次 SQL 能正常返回。</li>
+      <li>在 sensor 仍关闭的前提下，审批手动运行 <code>stock_mins_raw_update_from_prod_job</code> 的目标日期。</li>
+      <li>成功后再评估是否开启 sensor。</li>
+    </ol>
+  </section>
+
+  <section>
+    <h2>9. 需要拍板的点</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>编号</th>
+          <th>问题</th>
+          <th>建议口径</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>1</td>
+          <td>代码批次大小</td>
+          <td>默认 <code>500</code> 个股票代码一批；若后续真实验证仍不稳，再降到 <code>300</code>。</td>
+        </tr>
+        <tr>
+          <td>2</td>
+          <td>单批次超时</td>
+          <td>推荐 <code>180s</code>，超时即失败，不无限等待。</td>
+        </tr>
+        <tr>
+          <td>3</td>
+          <td>staging 路径</td>
+          <td>放在目标 partition 目录下的隐藏 staging 子目录，成功/失败都清理，只保留正式 <code>part-000.parquet</code>。</td>
+        </tr>
+        <tr>
+          <td>4</td>
+          <td>是否同轮处理 prod PG idle 连接治理</td>
+          <td>建议纳入同一方案的连接生命周期硬化，但不改变 sensor 决策逻辑。</td>
+        </tr>
+        <tr>
+          <td>5</td>
+          <td>是否允许替换为 psycopg streaming</td>
+          <td>默认不替换；只有 DuckDB timeout 口径验证失败时，停下来单独评审新方案。</td>
+        </tr>
+        <tr>
+          <td>6</td>
+          <td>恢复运行顺序</td>
+          <td>sensor 保持关闭；代码完成、测试通过、只读 sample 通过、手动 job 通过后再考虑打开 sensor。</td>
+        </tr>
+      </tbody>
+    </table>
+  </section>
+
+  <section>
+    <h2>10. 风险和停止条件</h2>
+    <ul>
+      <li>如果 DuckDB postgres extension 无法对 batch 查询设置可靠超时，停止，不进入正式运行。</li>
+      <li>如果 batch 写入后 source/target 行数或 scope 校验不一致，停止，不写正式文件。</li>
+      <li>如果实现需要改 job/sensor 行为、湖路径、schema 或新增状态实体，停止，重新评审方案。</li>
+      <li>如果真实 1m 手动运行仍出现长时间无进展，保留日志和 batch 边界证据，再决定是否切换提取技术路线。</li>
+    </ul>
+    <div class="callout green">
+      本方案的核心收益是：即使未来再失败，也应该失败在一个可解释的批次上，而不是只有一句
+      <code>raw_stk_mins_started</code> 后沉默几十分钟。
+    </div>
+  </section>
+</main>
+</body>
+</html>

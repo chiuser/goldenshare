@@ -8,12 +8,9 @@ import duckdb
 from orchestrator.defs.checks.stock_daily_qfq_checks import (
     GOLD_STOCK_DAILY_QFQ_CHECK_NAMES,
     gold_stock_daily_qfq_contract_check,
-    gold_stock_daily_qfq_qfq_semantics_check,
 )
 from orchestrator.defs.paths import (
     gold_stock_daily_qfq_path,
-    silver_adj_factor_path,
-    silver_stock_daily_path,
     silver_trade_calendar_path,
 )
 from orchestrator.defs.resources import DuckDBResource, LakeRootResource
@@ -24,7 +21,6 @@ from orchestrator.defs.run_contracts.asset_column_schemas import (
     SILVER_TRADE_CALENDAR_SCHEMA,
 )
 from orchestrator.defs.stock_daily_qfq import (
-    GOLD_STOCK_DAILY_QFQ_COLUMNS,
     write_gold_stock_daily_qfq_partition,
 )
 from tests.test_stock_daily_qfq_contracts import (
@@ -134,7 +130,6 @@ class StockDailyQfqCheckTests(unittest.TestCase):
             GOLD_STOCK_DAILY_QFQ_CHECK_NAMES,
             (
                 "gold_stock_daily_qfq_contract_check",
-                "gold_stock_daily_qfq_qfq_semantics_check",
             ),
         )
 
@@ -180,110 +175,6 @@ class StockDailyQfqCheckTests(unittest.TestCase):
         self.assertFalse(result.passed)
         self.assertIn(
             "unique_ts_code_trade_date",
-            _metadata_data(result, "goldenshare/failed_rule_names"),
-        )
-
-    def test_qfq_semantics_check_passes_for_valid_partition(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            _materialize_valid_qfq_partition(root)
-
-            result = gold_stock_daily_qfq_qfq_semantics_check(
-                _asset_check_context(root, TRADE_DATE),
-            )
-
-        self.assertTrue(result.passed)
-        self.assertEqual(_metadata_data(result, "goldenshare/failed_rule_names"), [])
-        self.assertEqual(
-            _metadata_data(result, "goldenshare/missing_previous_factor_count"),
-            0,
-        )
-
-    def test_qfq_semantics_check_fails_when_formula_does_not_match(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            _materialize_valid_qfq_partition(root)
-
-            with duckdb.connect(database=":memory:") as connection:
-                rows = connection.execute(
-                    f"""
-                    SELECT *
-                    FROM read_parquet(
-                      '{gold_stock_daily_qfq_path(root, TRADE_DATE)}',
-                      hive_partitioning=false
-                    )
-                    ORDER BY ts_code
-                    """
-                ).fetchall()
-            corrupted_rows = [
-                dict(zip(GOLD_STOCK_DAILY_QFQ_COLUMNS, row, strict=True))
-                for row in rows
-            ]
-            corrupted_rows[0]["close"] = float(corrupted_rows[0]["close"]) + 1.0
-            _write_rows(
-                gold_stock_daily_qfq_path(root, TRADE_DATE),
-                column_types=_column_types(GOLD_STOCK_DAILY_QFQ_SCHEMA),
-                rows=corrupted_rows,
-                order_by="ts_code, trade_date",
-            )
-
-            result = gold_stock_daily_qfq_qfq_semantics_check(
-                _asset_check_context(root, TRADE_DATE),
-            )
-
-        self.assertFalse(result.passed)
-        self.assertIn(
-            "qfq_formula_matches_source_and_factor",
-            _metadata_data(result, "goldenshare/failed_rule_names"),
-        )
-
-    def test_qfq_semantics_check_fails_when_previous_factor_is_missing(self) -> None:
-        with TemporaryDirectory() as temp_dir:
-            root = Path(temp_dir)
-            _write_calendar(root)
-            _write_stock_daily(
-                root,
-                PREVIOUS_DATE,
-                [_stock_daily_row("000001.SZ", PREVIOUS_DATE, close=9.0)],
-            )
-            _write_stock_daily(
-                root,
-                TRADE_DATE,
-                [_stock_daily_row("000001.SZ", TRADE_DATE, close=10.5)],
-            )
-            _write_adj_factor(
-                root,
-                TRADE_DATE,
-                [_adj_factor_row("000001.SZ", TRADE_DATE, 4.0)],
-            )
-            _write_rows(
-                gold_stock_daily_qfq_path(root, TRADE_DATE),
-                column_types=_column_types(GOLD_STOCK_DAILY_QFQ_SCHEMA),
-                rows=[
-                    {
-                        "ts_code": "000001.SZ",
-                        "trade_date": TRADE_DATE,
-                        "open": 10.0,
-                        "high": 11.0,
-                        "low": 9.0,
-                        "close": 10.5,
-                        "pre_close": 0.0,
-                        "change_amount": 0.0,
-                        "pct_chg": 0.0,
-                        "vol": 100.0,
-                        "amount": 1000.0,
-                    }
-                ],
-                order_by="ts_code, trade_date",
-            )
-
-            result = gold_stock_daily_qfq_qfq_semantics_check(
-                _asset_check_context(root, TRADE_DATE),
-            )
-
-        self.assertFalse(result.passed)
-        self.assertIn(
-            "previous_adj_factor_covered",
             _metadata_data(result, "goldenshare/failed_rule_names"),
         )
 

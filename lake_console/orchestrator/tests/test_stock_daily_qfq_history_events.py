@@ -1,4 +1,3 @@
-import os
 import unittest
 from pathlib import Path
 from tempfile import TemporaryDirectory
@@ -16,7 +15,7 @@ from orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_events import (
     recent_gold_stock_daily_qfq_check_partitions,
     report_gold_stock_daily_qfq_runless_events,
 )
-from orchestrator.defs.duckdb_sql import duckdb_string, read_parquet
+from orchestrator.defs.duckdb_sql import copy_query_to_parquet, read_parquet
 from orchestrator.defs.paths import gold_stock_daily_qfq_path
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.sensors.readiness import (
@@ -41,6 +40,7 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
                 instance=instance,
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
+                qfq_as_of_trade_date=TRADE_DATE,
                 start_date=EARLIER_DATE,
                 end_date=TRADE_DATE,
             )
@@ -59,7 +59,7 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
         )
         self.assertEqual(plan.failed_check_partition_count, 0)
         self.assertEqual(plan.planned_materialization_event_count, 3)
-        self.assertEqual(plan.planned_check_event_count, 6)
+        self.assertEqual(plan.planned_check_event_count, 3)
 
     def test_default_recent_checks_ignore_calendar_after_latest_target(self) -> None:
         with TemporaryDirectory() as temp_dir:
@@ -78,6 +78,7 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
                 instance=instance,
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
+                qfq_as_of_trade_date=TRADE_DATE,
                 start_date=EARLIER_DATE,
                 end_date=TRADE_DATE,
             )
@@ -102,6 +103,7 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
                 instance=instance,
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
+                qfq_as_of_trade_date=TRADE_DATE,
                 materialization_partition_keys=(TRADE_DATE,),
                 check_partition_keys=(TRADE_DATE,),
                 dry_run=True,
@@ -118,7 +120,9 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
         self.assertEqual(report.reported_event_count, 0)
         self.assertEqual(materializations, [])
 
-    def test_runless_apply_reports_materialization_and_two_checks(self) -> None:
+    def test_runless_apply_reports_materialization_and_retained_contract_check(
+        self,
+    ) -> None:
         with TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)
             _prepare_history_lake(root)
@@ -129,6 +133,7 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
                 instance=instance,
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
+                qfq_as_of_trade_date=TRADE_DATE,
                 materialization_partition_keys=(TRADE_DATE,),
                 check_partition_keys=(TRADE_DATE,),
                 dry_run=False,
@@ -142,7 +147,10 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
 
         self.assertEqual(report.reported_materialization_partition_keys, (TRADE_DATE,))
         self.assertEqual(report.reported_check_partition_keys, (TRADE_DATE,))
-        self.assertEqual(report.reported_event_count, 1 + len(GOLD_STOCK_DAILY_QFQ_CHECKS))
+        self.assertEqual(
+            report.reported_event_count,
+            1 + len(GOLD_STOCK_DAILY_QFQ_CHECKS),
+        )
         self.assertTrue(readiness.ready)
         self.assertEqual(readiness.failed_check_names, ())
 
@@ -151,19 +159,21 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
             root = Path(temp_dir)
             _prepare_history_lake(root)
             _generate_history(root, (TRADE_DATE,))
-            _corrupt_qfq_close(root, TRADE_DATE)
+            _corrupt_qfq_partition_date(root, TRADE_DATE)
             instance = dg.DagsterInstance.ephemeral()
 
             audit = audit_gold_stock_daily_qfq_history_partition(
                 lake_root=root,
                 duckdb_resource=DuckDBResource(),
                 partition_key=TRADE_DATE,
+                qfq_as_of_trade_date=TRADE_DATE,
             )
             with self.assertRaisesRegex(ValueError, "runless audit failed"):
                 report_gold_stock_daily_qfq_runless_events(
                     instance=instance,
                     lake_root=root,
                     duckdb_resource=DuckDBResource(),
+                    qfq_as_of_trade_date=TRADE_DATE,
                     materialization_partition_keys=(TRADE_DATE,),
                     check_partition_keys=(TRADE_DATE,),
                     dry_run=False,
@@ -171,7 +181,7 @@ class StockDailyQfqHistoryEventTests(unittest.TestCase):
 
         self.assertFalse(audit.passed)
         self.assertIn(
-            "gold_stock_daily_qfq_qfq_semantics_check",
+            "gold_stock_daily_qfq_contract_check",
             audit.failed_check_names,
         )
 
@@ -181,33 +191,35 @@ def _generate_history(root: Path, partition_keys: tuple[str, ...]) -> None:
         lake_root=root,
         duckdb_resource=DuckDBResource(),
         partition_keys=partition_keys,
+        as_of_trade_date=TRADE_DATE,
     )
 
 
-def _corrupt_qfq_close(root: Path, partition_key: str) -> None:
+def _corrupt_qfq_partition_date(root: Path, partition_key: str) -> None:
     path = gold_stock_daily_qfq_path(root, partition_key)
     tmp_path = path.with_suffix(".tmp.parquet")
     with duckdb.connect(database=":memory:") as connection:
         connection.execute(
-            f"""
-            COPY (
+            copy_query_to_parquet(
+                f"""
               SELECT
                 ts_code,
-                trade_date,
+                DATE '1999-01-01' AS trade_date,
                 open,
                 high,
                 low,
-                close + 1 AS close,
+                close,
                 pre_close,
                 change_amount,
                 pct_chg,
                 vol,
                 amount
               FROM {read_parquet(path, hive_partitioning=False)}
-            ) TO {duckdb_string(tmp_path)} (FORMAT PARQUET)
-            """
+              """,
+                tmp_path,
+            )
         )
-    os.replace(tmp_path, path)
+    tmp_path.replace(path)
 
 
 if __name__ == "__main__":

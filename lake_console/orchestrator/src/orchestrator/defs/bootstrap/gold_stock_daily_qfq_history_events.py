@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from datetime import date
 from pathlib import Path
 from typing import Any
 
@@ -19,16 +20,11 @@ from orchestrator.defs.checks.stock_daily_qfq_checks import (
     _column_names,
     _contract_failure_samples,
     _contract_rule_counts,
-    _coverage_counts,
-    _qfq_comparison_counts,
-    _qfq_failure_samples,
     _row_count,
 )
 from orchestrator.defs.paths import (
     DEFAULT_LAKE_ROOT,
     gold_stock_daily_qfq_path,
-    silver_adj_factor_path,
-    silver_stock_daily_path,
 )
 from orchestrator.defs.resources import DuckDBResource
 from orchestrator.defs.run_contracts.metadata import (
@@ -38,14 +34,10 @@ from orchestrator.defs.run_contracts.metadata import (
 )
 from orchestrator.defs.sensors.readiness import (
     GOLD_STOCK_DAILY_QFQ_ASSET_KEY,
-    GOLD_STOCK_DAILY_QFQ_CHECKS,
     GOLD_STOCK_DAILY_QFQ_READINESS_SPECS,
     asset_readiness_status,
 )
-from orchestrator.defs.stock_daily_qfq import (
-    GOLD_STOCK_DAILY_QFQ_COLUMNS,
-    load_stock_daily_qfq_previous_lookup_trade_dates,
-)
+from orchestrator.defs.stock_daily_qfq import GOLD_STOCK_DAILY_QFQ_COLUMNS
 
 
 GOLD_STOCK_DAILY_QFQ_RUNLESS_CHECK_WINDOW_SIZE = 20
@@ -94,6 +86,7 @@ class GoldStockDailyQfqHistoryPartitionAudit:
 
 @dataclass(frozen=True, slots=True)
 class GoldStockDailyQfqHistoryRunlessEventPlan:
+    qfq_as_of_trade_date: str
     materialization_partition_keys: tuple[str, ...]
     check_partition_keys: tuple[str, ...]
     existing_materialized_partition_keys: tuple[str, ...]
@@ -127,6 +120,7 @@ class GoldStockDailyQfqHistoryRunlessEventPlan:
 
     def to_dict(self) -> dict[str, object]:
         return {
+            "qfq_as_of_trade_date": self.qfq_as_of_trade_date,
             "materialization_partition_keys": list(self.materialization_partition_keys),
             "materialization_partition_count": len(self.materialization_partition_keys),
             "check_partition_keys": list(self.check_partition_keys),
@@ -215,11 +209,16 @@ def plan_gold_stock_daily_qfq_runless_events(
     instance: dg.DagsterInstance,
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     duckdb_resource: DuckDBResource,
+    qfq_as_of_trade_date: str,
     materialization_partition_keys: Sequence[str] | None = None,
     check_partition_keys: Sequence[str] | None = None,
     start_date: str = "2014-01-01",
     end_date: str | None = None,
 ) -> GoldStockDailyQfqHistoryRunlessEventPlan:
+    normalized_as_of_trade_date = _normalize_trade_date(
+        qfq_as_of_trade_date,
+        field_name="qfq_as_of_trade_date",
+    )
     materialization_keys = tuple(
         sorted(
             set(
@@ -266,10 +265,12 @@ def plan_gold_stock_daily_qfq_runless_events(
             lake_root=lake_root,
             duckdb_resource=duckdb_resource,
             partition_key=partition_key,
+            qfq_as_of_trade_date=normalized_as_of_trade_date,
         )
         for partition_key in check_keys
     )
     return GoldStockDailyQfqHistoryRunlessEventPlan(
+        qfq_as_of_trade_date=normalized_as_of_trade_date,
         materialization_partition_keys=materialization_keys,
         check_partition_keys=check_keys,
         existing_materialized_partition_keys=tuple(
@@ -285,6 +286,7 @@ def report_gold_stock_daily_qfq_runless_events(
     instance: dg.DagsterInstance,
     lake_root: Path = Path(DEFAULT_LAKE_ROOT),
     duckdb_resource: DuckDBResource,
+    qfq_as_of_trade_date: str,
     materialization_partition_keys: Sequence[str] | None = None,
     check_partition_keys: Sequence[str] | None = None,
     history_audit_report_path: str | None = None,
@@ -296,6 +298,7 @@ def report_gold_stock_daily_qfq_runless_events(
         instance=instance,
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
+        qfq_as_of_trade_date=qfq_as_of_trade_date,
         materialization_partition_keys=materialization_partition_keys,
         check_partition_keys=check_partition_keys,
     )
@@ -336,6 +339,7 @@ def report_gold_stock_daily_qfq_runless_events(
             lake_root=lake_root,
             duckdb_resource=duckdb_resource,
             partition_key=partition_key,
+            qfq_as_of_trade_date=plan.qfq_as_of_trade_date,
             history_audit_report_path=history_audit_report_path,
         )
         materialized.add(partition_key)
@@ -353,6 +357,7 @@ def report_gold_stock_daily_qfq_runless_events(
                 lake_root=lake_root,
                 duckdb_resource=duckdb_resource,
                 partition_key=partition_key,
+                qfq_as_of_trade_date=plan.qfq_as_of_trade_date,
                 history_audit_report_path=history_audit_report_path,
             )
             materialized.add(partition_key)
@@ -380,21 +385,21 @@ def audit_gold_stock_daily_qfq_history_partition(
     lake_root: Path,
     duckdb_resource: DuckDBResource,
     partition_key: str,
+    qfq_as_of_trade_date: str,
 ) -> GoldStockDailyQfqHistoryPartitionAudit:
+    normalized_as_of_trade_date = _normalize_trade_date(
+        qfq_as_of_trade_date,
+        field_name="qfq_as_of_trade_date",
+    )
     qfq_path = gold_stock_daily_qfq_path(lake_root, partition_key)
     if not qfq_path.exists():
         checks = (
             _missing_file_check(
                 check_name=GOLD_STOCK_DAILY_QFQ_CHECK_NAMES[0],
                 partition_key=partition_key,
+                qfq_as_of_trade_date=normalized_as_of_trade_date,
                 path=qfq_path,
                 check_scope=CheckScope.FILE_EXISTS,
-            ),
-            _missing_file_check(
-                check_name=GOLD_STOCK_DAILY_QFQ_CHECK_NAMES[1],
-                partition_key=partition_key,
-                path=qfq_path,
-                check_scope=CheckScope.RECONCILIATION,
             ),
         )
         return GoldStockDailyQfqHistoryPartitionAudit(
@@ -413,17 +418,11 @@ def audit_gold_stock_daily_qfq_history_partition(
             connection=connection,
             qfq_path=qfq_path,
             partition_key=partition_key,
+            qfq_as_of_trade_date=normalized_as_of_trade_date,
             row_count=row_count,
             observed_columns=observed_columns,
         )
-        semantics_check = _semantics_check_audit(
-            connection=connection,
-            lake_root=lake_root,
-            qfq_path=qfq_path,
-            partition_key=partition_key,
-            contract_passed=contract_check.passed,
-        )
-    checks = (contract_check, semantics_check)
+    checks = (contract_check,)
     return GoldStockDailyQfqHistoryPartitionAudit(
         partition_key=partition_key,
         qfq_file_path=qfq_path,
@@ -439,6 +438,7 @@ def _contract_check_audit(
     connection,
     qfq_path: Path,
     partition_key: str,
+    qfq_as_of_trade_date: str,
     row_count: int,
     observed_columns: Sequence[str],
 ) -> GoldStockDailyQfqHistoryCheckAudit:
@@ -477,6 +477,8 @@ def _contract_check_audit(
             "bootstrap_event_backfill": True,
             "event_backfill_scope": "recent_20_plus_latest",
             "partition_key": partition_key,
+            "qfq_as_of_trade_date": qfq_as_of_trade_date,
+            "bootstrap_as_of_trade_date": qfq_as_of_trade_date,
             "observed_columns": list(observed_columns),
             "expected_columns": list(expected_columns),
             "failed_rule_names": failed_rule_names,
@@ -491,144 +493,11 @@ def _contract_check_audit(
     )
 
 
-def _semantics_check_audit(
-    *,
-    connection,
-    lake_root: Path,
-    qfq_path: Path,
-    partition_key: str,
-    contract_passed: bool,
-) -> GoldStockDailyQfqHistoryCheckAudit:
-    stock_daily_path = silver_stock_daily_path(lake_root, partition_key)
-    adj_factor_path = silver_adj_factor_path(lake_root, partition_key)
-    missing_paths = [
-        path for path in (qfq_path, stock_daily_path, adj_factor_path) if not path.exists()
-    ]
-    if missing_paths or not contract_passed:
-        metadata = build_check_metadata(
-            check_scope=CheckScope.RECONCILIATION,
-            file_path=qfq_path,
-            input_file_paths=[stock_daily_path, adj_factor_path],
-            missing_file_paths=missing_paths,
-            extra_metadata={
-                "source_method": "gold_stock_daily_qfq_history_bootstrap",
-                "bootstrap_event_backfill": True,
-                "event_backfill_scope": "recent_20_plus_latest",
-                "partition_key": partition_key,
-                "failed_rule_names": (
-                    ["missing_input_files"] if missing_paths else ["contract_failed"]
-                ),
-            },
-        )
-        return GoldStockDailyQfqHistoryCheckAudit(
-            check_name=GOLD_STOCK_DAILY_QFQ_CHECK_NAMES[1],
-            passed=False,
-            metadata=metadata,
-        )
-
-    previous_lookup_trade_dates = load_stock_daily_qfq_previous_lookup_trade_dates(
-        connection=connection,
-        lake_root=lake_root,
-        trade_date=partition_key,
-    )
-    previous_stock_daily_paths = tuple(
-        path
-        for path in (
-            silver_stock_daily_path(lake_root, trade_date)
-            for trade_date in previous_lookup_trade_dates
-        )
-        if path.exists()
-    )
-    previous_adj_factor_paths = tuple(
-        path
-        for path in (
-            silver_adj_factor_path(lake_root, trade_date)
-            for trade_date in previous_lookup_trade_dates
-        )
-        if path.exists()
-    )
-    coverage = _coverage_counts(
-        connection=connection,
-        stock_daily_path=stock_daily_path,
-        adj_factor_path=adj_factor_path,
-        previous_stock_daily_paths=previous_stock_daily_paths,
-        previous_adj_factor_paths=previous_adj_factor_paths,
-        trade_date=partition_key,
-    )
-    comparison = _qfq_comparison_counts(
-        connection=connection,
-        qfq_path=qfq_path,
-        stock_daily_path=stock_daily_path,
-        adj_factor_path=adj_factor_path,
-        previous_stock_daily_paths=previous_stock_daily_paths,
-        previous_adj_factor_paths=previous_adj_factor_paths,
-        trade_date=partition_key,
-    )
-    failed_rule_names = []
-    if coverage["source_row_count"] <= 0:
-        failed_rule_names.append("source_row_count_positive")
-    if coverage["missing_trade_factor_count"]:
-        failed_rule_names.append("trade_adj_factor_covered")
-    if coverage["missing_as_of_factor_count"]:
-        failed_rule_names.append("as_of_adj_factor_covered")
-    if coverage["missing_previous_factor_count"]:
-        failed_rule_names.append("previous_adj_factor_covered")
-    if comparison["target_row_count"] != coverage["source_row_count"]:
-        failed_rule_names.append("target_row_count_matches_source")
-    if comparison["missing_target_row_count"] or comparison["unexpected_target_row_count"]:
-        failed_rule_names.append("target_keys_match_expected")
-    if comparison["formula_mismatch_count"]:
-        failed_rule_names.append("qfq_formula_matches_source_and_factor")
-    if comparison["price_domain_failed_count"]:
-        failed_rule_names.append("price_domain_valid")
-    samples = _qfq_failure_samples(
-        connection=connection,
-        qfq_path=qfq_path,
-        stock_daily_path=stock_daily_path,
-        adj_factor_path=adj_factor_path,
-        previous_stock_daily_paths=previous_stock_daily_paths,
-        previous_adj_factor_paths=previous_adj_factor_paths,
-        trade_date=partition_key,
-    )
-    metadata = build_check_metadata(
-        check_scope=CheckScope.RECONCILIATION,
-        checked_row_count=comparison["target_row_count"],
-        failed_row_count=(
-            comparison["missing_target_row_count"]
-            + comparison["unexpected_target_row_count"]
-            + comparison["formula_mismatch_count"]
-            + comparison["price_domain_failed_count"]
-            + coverage["missing_trade_factor_count"]
-            + coverage["missing_as_of_factor_count"]
-            + coverage["missing_previous_factor_count"]
-        ),
-        file_path=qfq_path,
-        input_file_paths=[stock_daily_path, adj_factor_path],
-        extra_metadata={
-            "source_method": "gold_stock_daily_qfq_history_bootstrap",
-            "bootstrap_event_backfill": True,
-            "event_backfill_scope": "recent_20_plus_latest",
-            "partition_key": partition_key,
-            "previous_lookup_trade_date_count": len(previous_lookup_trade_dates),
-            "previous_stock_daily_file_count": len(previous_stock_daily_paths),
-            "previous_adj_factor_file_count": len(previous_adj_factor_paths),
-            "failed_rule_names": failed_rule_names,
-            **coverage,
-            **comparison,
-            "sample_rows": samples,
-        },
-    )
-    return GoldStockDailyQfqHistoryCheckAudit(
-        check_name=GOLD_STOCK_DAILY_QFQ_CHECK_NAMES[1],
-        passed=not failed_rule_names,
-        metadata=metadata,
-    )
-
-
 def _missing_file_check(
     *,
     check_name: str,
     partition_key: str,
+    qfq_as_of_trade_date: str,
     path: Path,
     check_scope: CheckScope,
 ) -> GoldStockDailyQfqHistoryCheckAudit:
@@ -644,6 +513,8 @@ def _missing_file_check(
                 "bootstrap_event_backfill": True,
                 "event_backfill_scope": "recent_20_plus_latest",
                 "partition_key": partition_key,
+                "qfq_as_of_trade_date": qfq_as_of_trade_date,
+                "bootstrap_as_of_trade_date": qfq_as_of_trade_date,
                 "failed_rule_names": ["file_exists"],
             },
         ),
@@ -656,6 +527,7 @@ def _report_materialization_event(
     lake_root: Path,
     duckdb_resource: DuckDBResource,
     partition_key: str,
+    qfq_as_of_trade_date: str,
     history_audit_report_path: str | None,
 ) -> int:
     path = gold_stock_daily_qfq_path(lake_root, partition_key)
@@ -678,11 +550,25 @@ def _report_materialization_event(
                     "event_backfill_scope": "full_history",
                     "history_audit_report_path": history_audit_report_path,
                     "partition_key": partition_key,
+                    "qfq_as_of_trade_date": qfq_as_of_trade_date,
+                    "bootstrap_as_of_trade_date": qfq_as_of_trade_date,
                 },
             ),
         )
     )
     return 1
+
+
+def _normalize_trade_date(value: str | None, *, field_name: str) -> str:
+    raw_value = str(value or "").strip()
+    if not raw_value:
+        raise ValueError(f"{field_name} is required.")
+    try:
+        if len(raw_value) != 10:
+            raise ValueError
+        return date.fromisoformat(raw_value).isoformat()
+    except ValueError as error:
+        raise ValueError(f"{field_name} must use YYYY-MM-DD format.") from error
 
 
 def _report_check_events(

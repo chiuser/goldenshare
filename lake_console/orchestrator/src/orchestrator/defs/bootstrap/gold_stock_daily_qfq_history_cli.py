@@ -22,6 +22,7 @@ def main(argv: list[str] | None = None) -> Path:
     parser.add_argument("--lake-root", default=DEFAULT_LAKE_ROOT)
     parser.add_argument("--start-date", default="2014-01-01")
     parser.add_argument("--end-date")
+    parser.add_argument("--as-of-trade-date")
     parser.add_argument("--partition-keys")
     parser.add_argument("--apply", action="store_true")
     parser.add_argument("--overwrite", action="store_true")
@@ -29,12 +30,14 @@ def main(argv: list[str] | None = None) -> Path:
     args = parser.parse_args(argv)
 
     lake_root = Path(args.lake_root)
+    as_of_trade_date = _require_as_of_trade_date(parser, args.as_of_trade_date)
     requested_partition_keys = _csv_values(args.partition_keys)
     duckdb_resource = DuckDBResource()
 
     plan = plan_gold_stock_daily_qfq_history(
         lake_root=lake_root,
         duckdb_resource=duckdb_resource,
+        as_of_trade_date=as_of_trade_date,
         partition_keys=requested_partition_keys,
         start_date=args.start_date,
         end_date=args.end_date,
@@ -61,6 +64,7 @@ def main(argv: list[str] | None = None) -> Path:
                     lake_root=lake_root,
                     duckdb_resource=duckdb_resource,
                     partition_keys=selected_keys,
+                    as_of_trade_date=as_of_trade_date,
                     overwrite=args.overwrite,
                 ).to_dict(),
             }
@@ -83,6 +87,7 @@ def main(argv: list[str] | None = None) -> Path:
                     lake_root=lake_root,
                     duckdb_resource=duckdb_resource,
                     partition_keys=selected_keys,
+                    as_of_trade_date=as_of_trade_date,
                     overwrite=args.overwrite,
                 ).to_dict(),
             }
@@ -106,6 +111,15 @@ def _csv_values(value: str | None) -> tuple[str, ...] | None:
     if value is None:
         return None
     return tuple(part.strip() for part in value.split(",") if part.strip())
+
+
+def _require_as_of_trade_date(
+    parser: argparse.ArgumentParser,
+    value: str | None,
+) -> str:
+    if not value or not value.strip():
+        parser.error("--as-of-trade-date is required for gold_stock_daily_qfq history")
+    return value.strip()
 
 
 def _write_report(report_dir: str, stage: str, payload: dict[str, object]) -> Path:

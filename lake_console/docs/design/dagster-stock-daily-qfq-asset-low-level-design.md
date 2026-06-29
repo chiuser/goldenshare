@@ -16,14 +16,21 @@
 5. 上市首日或湖中无 previous source row 时，`pre_close/change_amount/pct_chg` 统一写 `0`，不写 `NULL`。
 6. repair 初版不开放手写 `stock_codes`；repair config、正式 CLI 参数和 sensor payload 都不得暴露股票池输入，affected codes 必须由 `silver_adj_factor` 相邻 expected trade date diff 自动计算。
 7. repair 初版必须增加自动 run-status sensor；触发逻辑参考股票分钟线 MACD/KDJ repair：`gold_stock_daily_qfq_update_job` 成功后自动做 bounded plan 判断并提交 scoped repair job。
+8. 历史 bootstrap 不是逐日 daily update，也不是逐日回放 repair。第一次全量初始化必须选择明确的 `bootstrap_as_of_trade_date`，用该 as-of 一次性生成全历史前复权序列。
+9. P8 历史重建必须先删除旧错误 lake 文件和旧 Dagster materialization / ordinary check events，再按正确 as-of 从零重建并补录新事件；不得在旧文件和旧事件上做局部 patch。
+10. `gold_stock_daily_qfq_qfq_semantics_check` 从 P8 后 active ordinary check 口径中移除，不再作为 bootstrap、runless event backfill、readiness、catalog blocking、验收证明或阻断项。公式自检无法证明公式本身正确，P8 不做每行公式一致性 check，也不新增公式级聚合对账、固定样本公式验收或任何替代性公式正确性 check；P8 只验收旧错误文件/event 清零、显式 as-of 重建、结构性 contract 和 runless event 补录事实。文件结构 contract 只证明文件结构和分区契约正确，不证明公式正确。
 
 截至 2026-06-27，第 5、6、7 项均已关闭为正式口径，不再作为待拍板项保留。
 
 代码实现必须按下面三条解释落地：
 
-1. `pre_close/change_amount/pct_chg = 0` 只表示“该股票在湖中没有上一条可用 source row”。它不是数据缺失兜底；如果 previous source row 存在但 previous adj factor 缺失，writer 和 check 都必须 fail closed。
+1. `pre_close/change_amount/pct_chg = 0` 只表示“该股票在湖中没有上一条可用 source row”。它不是数据缺失兜底；如果 previous source row 存在但 previous adj factor 缺失，writer 必须 fail closed，并由契约测试锁死。这里不新增公式正确性 check。
 2. repair op、repair config、正式 CLI、sensor payload 和测试都不得出现手写 `stock_codes` 正式入口。affected codes 只能从相邻 expected trade date 的 `silver_adj_factor` diff 得到，并通过 `repair_required_codes_hash` 与 `upstream_batch_id` 校验。
 3. repair 自动化只由 `gold_stock_daily_qfq_update_job` 成功 run 触发。不得新增定时全量 repair sensor，不得在 daily job 内混入 repair 写入，也不得让 sensor 扫全历史 Dagster event 或全历史 lake 文件。
+4. daily update 的 `as_of_trade_date=partition_key` 只适用于新交易日分区本身；bootstrap 必须显式传入最新完整 as-of，不能靠 writer 默认值。
+5. bootstrap as-of factor 对每只股票取“不晚于 bootstrap as-of 的最后可用 `silver_adj_factor`”。已退市股票在 as-of 当天没有因子是正常事实，不能被当成缺口；如果某个 source code 在 as-of 之前从未有过 factor，才必须 fail closed。
+6. P8 必须把 `gold_stock_daily_qfq_qfq_semantics_check` 从 active ordinary check、readiness、runless event backfill 和 catalog blocking 口径中移除。保留的 ordinary check 只负责结构性 contract；公式正确性不再写成 Dagster blocking check，也不换成另一种公式级 check。
+7. bootstrap 不做公式正确性验收，不复用生产 writer/check 公式实现做自我证明，也不再设计固定样本公式验收或公式级聚合对账。`2026-06-26` 是本次 P8 已确认的 bootstrap as-of；P8 执行期只校验命令显式使用该 as-of、旧文件/event 已清零、文件结构 contract 通过、runless event 按新事实补录，并在同一 P8 阶段完成报告重算前置验收。
 
 ## 2. Audit Scope
 
@@ -92,6 +99,25 @@
 4. `stock_mins_qfq` 的物理布局是 stock-year 文件；股票日线 qfq 已拍板使用 `trade_date=...` 布局，不能复用分钟线 writer。
 5. `RunRequest` 必须经统一 `build_run_request(...)` 和 run key builder；不得新增直接 `dg.RunRequest(...)`。
 6. sensor cursor 必须使用结构化 payload，不得塞大样本、大 SQL 或大文件清单。
+
+### 2.4 2026-06-27 Bootstrap As-Of 事故审计
+
+本节记录当前 LLD 的原始 P5/P6 口径与正式数据事实之间的冲突，后续 P8 修复必须以这里为基线。
+
+只读审计结论：
+
+1. 用户确认 `600030.SH[2025-06-17]` 的前复权 close 不应等于未复权的 `silver_stock_daily.close=26.70`；这暴露了历史 bootstrap 口径问题。
+2. 当前 lake 中 `gold_stock_daily_qfq[2025-06-17]` 的 `600030.SH.close=26.70`，等于 silver close，不是用户需要的 latest-as-of 前复权历史结果。
+3. 抽查 `2014-01-02`、`2020-01-02`、`2025-06-17`、`2026-06-09`、`2026-06-10`、`2026-06-26`，`gold_stock_daily_qfq` 的 OHLC 与 `silver_stock_daily` 完全一致，说明问题不是单股或单日样本，而是历史 bootstrap 口径错误。
+4. 代码事实：`write_gold_stock_daily_qfq_partition(...)` 默认 `as_of_trade_date = trade_date`；`generate_gold_stock_daily_qfq_history(...)` 调用 writer 时未传 `as_of_trade_date`，导致历史文件按 self-as-of 生成。
+5. 代码事实：`gold_stock_daily_qfq_qfq_semantics_check` 及其等价审计当前也按 `as_of_adj_factor_path=adj_factor_path`、`as_of_trade_date=partition_key` 校验，无法发现 self-as-of bootstrap 错误。该 check 属于同公式自检，P8 不再把它作为 readiness 或 bootstrap 正确性证明。
+6. Dagster DB 只读审计仅看到 `gold_stock_daily_qfq_update_job[2026-06-26]`，没有看到 `gold_stock_daily_qfq_factor_repair_job` run。历史初始化不能依赖“已经逐日 repair 过”的假设。
+
+结论：
+
+- P6 已执行的历史 bootstrap 文件不能作为 MA250、研究报告或其它需要 current-as-of 前复权历史序列的事实源。
+- 不应通过逐日 replay repair 来修正初始历史；正确做法是先删除旧错误文件和旧事件，再按正确 bootstrap as-of 重新生成历史文件和新事件。
+- 修复前，报告切换到 `gold_stock_daily_qfq` 必须暂停。
 
 ## 3. Target Dataset Contract
 
@@ -189,7 +215,7 @@ catalog 口径：
 - `storage_path_template = "gold/quote/stock_daily_qfq/trade_date={trade_date}/part-000.parquet"`
 - `partition_model = TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ`
 - `source_assets = ["silver_stock_daily", "silver_adj_factor"]`
-- ordinary check count = 2
+- P8 前 ordinary check count = 2；P8 后 ordinary check count 收敛为 1，只保留 `gold_stock_daily_qfq_contract_check`。
 - repair status check 单独列为 protected status check，不纳入 ordinary check count。
 
 ## 4. QFQ Formula
@@ -283,7 +309,7 @@ lake_console/orchestrator/src/orchestrator/defs/sensors/gold_stock_daily_qfq_fac
 
 - `defs/stock_daily_qfq.py`: SQL、writer、repair range helper、metadata helper。
 - `defs/assets/stock_daily_qfq.py`: asset、daily job、repair job definition。
-- `defs/checks/stock_daily_qfq_checks.py`: 2 个 ordinary blocking checks 和 1 个 protected repair status check。
+- `defs/checks/stock_daily_qfq_checks.py`: P8 前包含 2 个 ordinary blocking checks 和 1 个 protected repair status check；P8 后 ordinary blocking check 收敛为 retained contract check。
 - `defs/ops/gold_stock_daily_qfq_factor_repair.py`: repair op 与 config 消费。
 - `defs/sensors/stock_daily_qfq_sensor.py`: daily sensor。
 - `defs/sensors/gold_stock_daily_qfq_factor_repair_job_sensor.py`: repair run-status sensor。
@@ -415,32 +441,36 @@ def write_gold_stock_daily_qfq_partition(
 
 ### 7.1 Check Count
 
-初版设计 2 个 ordinary blocking checks。
+P8 后 ordinary blocking check 收敛为 1 个：
+
+- `gold_stock_daily_qfq_contract_check`
+
+`gold_stock_daily_qfq_qfq_semantics_check` 退出 ordinary readiness、catalog blocking checks、runless event backfill 和历史 bootstrap 证明链路。
 
 原因：
 
-- 避免把每条 SQL 规则拆成独立 Dagster check，导致 Dagster DB 增量过快。
-- 保留足够的 UI 可观测性和 sensor readiness 判断能力。
-- 细节规则进入 check metadata 的 `failed_rule_names` 和样本，不独立成 Dagster check。
-- 一个资产每天只新增 2 条 ordinary check event，避免新资产上线后继续放大 Dagster DB 压力。
+- 公式自检会复用同一套前复权计算逻辑；如果公式本身写错，自检仍可能全绿，不能证明数据正确。
+- 本次事故已经证明“formula check 全绿”不等于 bootstrap 结果正确。
+- Dagster DB 只保留对自动触发有实际价值的结构性 check，避免为低价值 check 继续制造历史 event 增量。
+- P8 不做每行公式一致性 check，也不做固定样本、公式级聚合对账或替代性公式正确性 check；P8 只确认旧错误文件/event 清零、显式 as-of 重建、文件结构 contract 验收和 runless event 补录事实，不写成 daily blocking check。
+- 文件结构 contract 验收只检查文件是否存在、schema、分区日期、主键唯一性、必要字段非空等结构契约，不承担“公式正确”的证明职责。
 
 ### 7.2 Check Names
 
-ordinary checks：
+retained ordinary check：
 
 ```text
 gold_stock_daily_qfq_contract_check
-gold_stock_daily_qfq_qfq_semantics_check
 ```
 
-两个 ordinary checks 必须显式声明：
+ordinary check 必须显式声明：
 
 ```python
 partitions_def=cn_a_stock_trade_days
 ```
 
 这是分区归属门禁，不是样式要求。`gold_stock_daily_qfq_update_job` 成功后，Dagster
-必须能在 `asset_check_executions.partition=<trade_date>` 下读取这两个 checks；否则
+必须能在 `asset_check_executions.partition=<trade_date>` 下读取该 check；否则
 repair run-status sensor 会把该分区误判为 missing blocking checks，从而跳过
 `gold_stock_daily_qfq_factor_repair_job`。
 
@@ -474,39 +504,25 @@ metadata：
 - `null_key_count`
 - `sample_rows`
 
-### 7.4 QFQ Semantics Check
+### 7.4 Removed QFQ Semantics Check
 
-`gold_stock_daily_qfq_qfq_semantics_check` 覆盖：
+P8 删除 `gold_stock_daily_qfq_qfq_semantics_check` 的 ordinary check 地位。
 
-- 每个 source row 都有 row trade date 对应 `silver_adj_factor`。
-- 每个 source row 都有 as-of trade date 对应 `silver_adj_factor`。
-- 存在 previous source row 的股票，必须能找到 previous row 的 factor。
-- 没有 previous source row 的股票，允许 `pre_close/change_amount/pct_chg` 为 0，但必须能解释为首个可用交易日。
-- `open/high/low/close` 与前复权公式一致。
-- `pre_close` 与 previous source close 前复权公式一致。
-- `change_amount = close - pre_close`。
-- `pct_chg = change_amount / pre_close * 100`。
-- `high >= greatest(open, close, low)` 等基本价格关系。
-- 价格与成交量不能出现明显非法值。
-- 如果 previous source row 存在，`pre_close/change_amount/pct_chg` 不得用 0 冒充无法计算结果。
+删除范围：
 
-允许误差：
+- 从 `GOLD_STOCK_DAILY_QFQ_CHECK_NAMES` 移除。
+- 从 `GOLD_STOCK_DAILY_QFQ_READINESS_SPECS` 移除。
+- 从 `GOLD_STOCK_DAILY_QFQ_CHECKS` / catalog blocking checks 移除。
+- 从 `gold_stock_daily_qfq_update_job` 的 ordinary check 预期中移除。
+- 从历史 runless ordinary check event 规划和补录中移除。
 
-- price formula tolerance: `1e-6`
-- pct formula tolerance: `1e-6`
+它不再作为“数据正确”的证明，也不再作为 sensor 自动触发的阻断条件。P8 只保留执行事实与结构契约验收，不再设计任何公式正确性检查：
 
-metadata：
-
-- `checked_row_count`
-- `source_row_count`
-- `missing_trade_factor_count`
-- `missing_as_of_factor_count`
-- `missing_previous_factor_count`
-- `allowed_missing_previous_row_count`
-- `formula_mismatch_count`
-- `price_domain_failed_count`
-- `failed_rule_names`
-- `sample_rows`
+- 使用 DuckDB / 文件系统只确认旧文件已清零、新文件已生成、schema / partition / primary key / row count 等结构 contract 成立，以及 runless event 补录范围正确。
+- 不使用固定已知样本直接读取重建结果做公式验收，不复用生产 writer/check helper，也不新增公式级聚合差异对账或替代性公式正确性 check。
+- `600030.SH[2025-06-17]` 等样本只保留为事故分析背景和 as-of 口径说明，不作为 P8 自动验收项。
+- 输出审计 JSON/CSV 到 `/private/tmp` 或审批指定位置，不写 Dagster check event。
+- 结构 contract 或事件范围验收失败时不得补录 materialization 或 contract check event。
 
 ## 8. Daily Job
 
@@ -865,6 +881,8 @@ metadata：
 - 从 `silver_stock_daily` 已有最早日期开始。
 - 到当前最新 `cn_a_stock_trade_days`。
 - 只处理 `silver_stock_daily` 与 `silver_adj_factor` 都存在的日期。
+- 必须显式指定 `bootstrap_as_of_trade_date`。该日期通常等于本次 bootstrap 覆盖范围内最新完整交易日，并且该日 `silver_adj_factor` 必须存在。
+- 所有历史分区都按同一个 `bootstrap_as_of_trade_date` 生成；不得对每个 partition 使用自身日期作为 as-of。
 
 历史 bootstrap 不通过 Dagster sensor 自动触发。
 
@@ -882,38 +900,48 @@ python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli build-his
 - `--start-date`
 - `--end-date`
 - `--partition-keys`
+- `--as-of-trade-date`
 - `--apply`
 - `--overwrite`
 - `--report-dir`
 
+P8 正式重建不得用 `--overwrite` 替代删除旧错误文件；必须先执行独立 delete/reset dry-run 与审批后的旧文件删除，再重新 build。
+
 口径：
 
-1. `profile-history` 永远只读，只输出 JSON report，不写 lake，不写 Dagster event。
+1. `profile-history` 永远只读，只输出 JSON report，不写 lake，不写 Dagster event；report 必须输出 `bootstrap_as_of_trade_date`、as-of factor 分区存在性、selected partition 范围和预计重写文件数。
 2. `write-sample` 默认仍是 dry-run；只有显式传入 `--apply` 才会写 sample partition。
-3. `build-history` 默认仍是 dry-run；只有显式传入 `--apply` 才会写 full selected partition 文件。
+3. `build-history` 默认仍是 dry-run；只有显式传入 `--apply` 且显式传入 `--as-of-trade-date` 才会写 full selected partition 文件。
 4. P5 不做正式全量写入，不做 runless materialization/check event backfill。
 5. P6 已提供 full file bootstrap 与 runless event backfill 工具；正式执行仍必须单独审批。
 
+纠错口径：
+
+- 2026-06-27 审计确认：旧 P6 正式 bootstrap 未传 `as_of_trade_date`，实际生成了 self-as-of 文件。这是错误历史结果，不应继续作为消费事实。
+- 修复后的 bootstrap 不需要逐日执行 repair；它必须一次性写出“截至 `bootstrap_as_of_trade_date` 的正确历史前复权序列”。
+- 后续日常 `gold_stock_daily_qfq_update_job` 仍按当天 self-as-of 写新分区，之后由 run-status sensor 根据相邻因子变化触发 scoped repair，维护历史序列。
+
 ### 11.3 Runless Event Backfill Policy
 
-为兼顾历史可追溯性与 Dagster DB 增长控制，历史 bootstrap 的 materialization event 与 ordinary check event 分开补录。
+为兼顾历史可追溯性与 Dagster DB 增长控制，历史 bootstrap 的 materialization event 与 retained ordinary check event 分开补录。P8 后 retained ordinary check 只指 `gold_stock_daily_qfq_contract_check`。
 
 默认策略：
 
-1. 文件全历史生成。
-2. Dagster runless materialization event 全历史补录。
-3. Dagster runless ordinary check event 只补：
+1. 文件全历史生成，且所有文件必须对应同一个已记录的 `bootstrap_as_of_trade_date`。
+2. Dagster runless materialization event 全历史补录，metadata 必须包含 `qfq_as_of_trade_date` / `bootstrap_as_of_trade_date`。
+3. Dagster runless ordinary check event 只补保留的结构性 contract check：
    - 最近 20 个 `cn_a_stock_trade_days`。
    - latest partition。
-4. repair/status protected check event 按 repair trade date 单独写入，不参与 ordinary check event 补录窗口。
-5. 如果运营明确要求 UI 可证明全部历史 partition 的 ordinary checks 都 ready，再单独审批全历史 check event backfill。
+4. `gold_stock_daily_qfq_qfq_semantics_check` 不补录、不回填、不作为 bootstrap 正确性证明。
+5. repair/status protected check event 按 repair trade date 单独写入，不参与 ordinary check event 补录窗口。
+6. 如果运营明确要求 UI 可证明全部历史 partition 的 retained ordinary check 都 ready，再单独审批全历史 contract check event backfill；不得恢复 qfq semantics 公式自检作为证明。
 
 理由：
 
-- materialization event 表达“历史分区文件存在且已生成”，全历史补录成本可控。
+- materialization event 表达“历史分区文件存在且已按指定 as-of 生成”，全历史补录成本可控。
 - 报告和计算读取 Parquet 文件，不依赖 Dagster 历史 event。
 - sensor 日常推进只依赖 recent window 和 latest 的 check 状态。
-- 20 日以前的历史质量证明以 bootstrap 文件审计报告为准，不要求 Dagster DB 长期保存每个历史分区的 check 绿灯。
+- 20 日以前不要求 Dagster DB 长期保存每个历史分区的 check 绿灯，历史文件存在、结构和事件补录事实以 bootstrap 执行报告为准。
 - 避免新数据集一上线就制造数千个历史 ordinary check event。
 
 ### 11.4 Bootstrap Safety
@@ -921,11 +949,13 @@ python -m orchestrator.defs.bootstrap.gold_stock_daily_qfq_history_cli build-his
 bootstrap 必须：
 
 - 先 dry-run 输出日期数、预计文件数、预计行数。
+- 先 dry-run 输出 `bootstrap_as_of_trade_date`，并证明 as-of factor 分区存在。
 - 样本执行 1 个 partition。
 - 再分批执行全量。
-- 每批写入后有 row count / schema / formula 抽样验证。
+- 每批写入后只做 row count / schema / 分区日期 / 主键唯一性等结构性审计。
+- 不再设计“历史分区 + 后续 as-of factor”的公式样本验收；`600030.SH[2025-06-17]` 的差异只作为本次事故根因说明，不进入 P8 验收门禁。
 - 不删除已有 `silver_stock_daily` 或 `silver_adj_factor`。
-- 不清理 Dagster DB。
+- P8 正式重建前必须清理旧的 `gold_stock_daily_qfq` Dagster materialization / ordinary check events，清理范围必须由 dry-run SQL 精确限定到该 asset；不删除 runs、run_tags、dynamic partitions、instigators、其它资产事件或 repair/status protected checks。
 
 ## 12. Readiness
 
@@ -942,11 +972,18 @@ GOLD_STOCK_DAILY_QFQ_READINESS_SPECS = (
 )
 ```
 
-ordinary readiness 只包含 2 个 ordinary checks。
+P8 后 ordinary readiness 只包含 retained contract check：
+
+```python
+GOLD_STOCK_DAILY_QFQ_CHECK_NAMES = (
+    "gold_stock_daily_qfq_contract_check",
+)
+```
 
 不包含：
 
 - `gold_stock_daily_qfq_factor_repair_plan_evaluated`
+- `gold_stock_daily_qfq_qfq_semantics_check`
 
 ### 12.2 Readiness Helper
 
@@ -981,7 +1018,7 @@ def gold_stock_daily_qfq_ready_for_trade_date(
   - previous lookup 最多 20 个 `silver_stock_daily` 文件。
   - previous lookup 最多 20 个 `silver_adj_factor` 文件。
 - 输出文件：1 个 Parquet。
-- Dagster event：1 materialization + 2 ordinary checks。
+- Dagster event：1 materialization + 1 retained ordinary contract check。
 
 不可接受：
 
@@ -1014,9 +1051,9 @@ dry-run 输出：
 
 ordinary check event 增量：
 
-- 日常：每个交易日 2 条 ordinary check event。
+- 日常：每个交易日 1 条 retained ordinary contract check event。
 - bootstrap materialization event 全历史补录。
-- bootstrap ordinary check event 默认只补最近 20 日 + latest。
+- bootstrap ordinary check event 默认只补 retained contract check 的最近 20 日 + latest。
 - repair：每个 repair trade date 1 条 protected status check。
 
 这比把细粒度 SQL 规则拆成十几个 check 更可控。
@@ -1040,6 +1077,9 @@ tests/test_stock_daily_qfq_repair_contracts.py
 
 - 目标日 source 和 factor 都存在时写入成功。
 - `open/high/low/close` 按 formula 生成。
+- 显式 `as_of_trade_date` 与 `trade_date` 不同时，历史分区必须按
+  `source_price * adj_factor(trade_date) / adj_factor(as_of_trade_date)`
+  生成，不得继续等于 `silver_stock_daily`。
 - `pre_close/change_amount/pct_chg` 按上一可交易日生成。
 - 新上市首日 previous row 缺失时 `pre_close/change_amount/pct_chg` 为 0。
 - previous row 缺失时 0 是合法业务占位；previous row 存在但 previous factor 缺失时仍 fail closed。
@@ -1054,8 +1094,16 @@ tests/test_stock_daily_qfq_repair_contracts.py
 
 - contract: 缺文件、空文件、schema mismatch、partition date mismatch。
 - key integrity: null key、duplicate key。
-- factor coverage: missing trade factor、missing as-of factor、missing previous factor。
-- formula consistency: price formula mismatch、pre_close formula mismatch、change/pct mismatch、price domain failure。
+- P8 删除 qfq semantics ordinary check 后：
+  - `GOLD_STOCK_DAILY_QFQ_CHECK_NAMES` 只包含 `gold_stock_daily_qfq_contract_check`。
+  - readiness specs 只要求 retained contract check。
+  - catalog blocking checks 不包含 `gold_stock_daily_qfq_qfq_semantics_check`。
+  - runless event plan/report 不生成 qfq semantics check event。
+- bootstrap 独立测试：
+  - `build-history` 必须显式传入 `as_of_trade_date`，省略时失败。
+  - 传入的 `as_of_trade_date` 必须进入 plan/report metadata，并传给 writer。
+  - 测试只证明 as-of 参数链路正确，不做公式正确性验收。
+  - 不得复用 production qfq semantics check helper。
 
 ### 14.4 Sensor Tests
 
@@ -1113,9 +1161,12 @@ Repair run-status sensor：
 - repair 自动化只能使用 `@dg.run_status_sensor`，不得改成定时全量 sensor。
 - repair run-status sensor 必须使用 `build_upstream_triggered_run_key(...)`。
 - repair run-status sensor 必须监控 `gold_stock_daily_qfq_update_job`。
-- ordinary check count 固定为 2。
+- ordinary check count 在 P8 后固定为 1。
 - protected repair status check 不得进入 ordinary readiness spec。
 - bootstrap CLI 不得有默认 apply/delete。
+- bootstrap `build-history --apply` 缺 `--as-of-trade-date` 时必须失败。
+- bootstrap / runless event helper 不得生成或依赖 qfq semantics ordinary check event。
+- bootstrap formula validation 禁止项不得复用 production qfq semantics check helper。
 
 ## 15. Development Phases
 
@@ -1167,26 +1218,26 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_stoc
 
 ### P2: Checks And Catalog
 
-范围：
+范围（P8 前历史事实，P8 将收敛 ordinary check 口径）：
 
 - catalog entry
 - name mapping
-- 2 ordinary checks
+- P8 前 2 ordinary checks；P8 后 retained ordinary check 只保留 contract
 - readiness specs
 - check tests
 - static gates
 
 已落地文件：
 
-- `defs/catalog/lake_assets.py`: `gold_stock_daily_qfq` catalog entry、`TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ` partition model、2 条 ordinary blocking checks。
-- `defs/checks/stock_daily_qfq_checks.py`: `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check`。
+- `defs/catalog/lake_assets.py`: `gold_stock_daily_qfq` catalog entry、`TRADE_DATE_PARTITION_GOLD_STOCK_DAILY_QFQ` partition model；P8 前包含 2 条 ordinary blocking checks，P8 后必须移除 qfq semantics。
+- `defs/checks/stock_daily_qfq_checks.py`: P8 前包含 `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check`；P8 后 `gold_stock_daily_qfq_qfq_semantics_check` 不再作为 ordinary readiness/check event 口径。
 - `defs/sensors/readiness.py`: `GOLD_STOCK_DAILY_QFQ_READINESS_SPECS` 与 `gold_stock_daily_qfq_ready_for_trade_date(...)`。
-- `tests/test_stock_daily_qfq_checks.py`: contract/qfq semantics check 正反例。
+- `tests/test_stock_daily_qfq_checks.py`: P8 前 contract/qfq semantics check 正反例；P8 后改为 contract check 与公式验证禁用门禁。
 - `tests/test_stock_daily_qfq_contracts.py`: catalog/readiness 对账、ordinary checks 分区归属、checks-only refresh job 只选 checks、update job 本地执行后 readiness 可按 partition 读到 checks。
 - `tests/test_asset_governance_contracts.py`: active asset / catalog 数量与 blocking check 对账。
 - `tests/test_run_contract_static_gates.py`: ordinary check 数量、防 repair status 进入 ordinary readiness、ordinary checks 必须显式 `partitions_def`、checks-only refresh job 禁止选择 materializable asset、DuckDB 连接门禁。
 
-已确认口径：
+P8 前已确认口径：
 
 - ordinary readiness 只包含：
   - `gold_stock_daily_qfq_contract_check`
@@ -1195,6 +1246,12 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest tests/test_stoc
 - 两个 ordinary checks 内部用 `failed_rule_names` 表达子规则，不拆成更多 Dagster check，避免 asset check event 过快膨胀。
 - 两个 ordinary checks 必须带 `cn_a_stock_trade_days` 分区定义，避免 check event 缺 partition 后让 run-status repair sensor 误判 ordinary checks missing。
 - check 只读临时/目标 Parquet 与上游 silver 文件，不写 lake，不写 Dagster event。
+
+P8 纠偏口径：
+
+- ordinary readiness 只保留 `gold_stock_daily_qfq_contract_check`。
+- `gold_stock_daily_qfq_qfq_semantics_check` 从 readiness、catalog blocking checks、runless event backfill 和 P8 bootstrap 证明链路中移除。
+- P8 不做每行公式一致性 check，也不做固定样本、公式级聚合对账或其它公式正确性验收；P8 只确认显式 as-of 重建、文件结构 contract 验收、旧错误文件/event 清零和 runless event 补录事实，不再写入公式类 Dagster check event。
 
 本地验证：
 
@@ -1359,8 +1416,8 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 runless event 写入规则：
 
 1. materialization event 可覆盖 full history target partitions，但只记录已存在且可读取 row count/observed columns 的 `gold_stock_daily_qfq` 文件。
-2. ordinary check event 默认只覆盖最近 20 个 `cn_a_stock_trade_days` 与 latest partition。
-3. ordinary check event 写入前必须通过 `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check` 等价审计。
+2. P8 前 ordinary check event 默认只覆盖最近 20 个 `cn_a_stock_trade_days` 与 latest partition；P8 后只补 retained contract check event。
+3. P8 前 ordinary check event 写入曾要求通过 `gold_stock_daily_qfq_contract_check` 与 `gold_stock_daily_qfq_qfq_semantics_check` 等价审计；P8 后删除 qfq semantics event backfill，只保留 contract event backfill，并只用文件结构 contract 验收、显式 as-of 重建记录和旧错误文件/event 清零后的重建事实作为验收依据。
 4. 已 ready 的 recent check partition 默认跳过，避免重复写 event。
 5. helper/CLI 不读取旧 storage id 字段，不写 `event_storage_id`，不解析 run key，不新增 Dagster asset/job/sensor/check。
 
@@ -1398,12 +1455,12 @@ PYTHONPATH=src uv run --project . --with pytest python -m pytest \
 正式执行记录（2026-06-27）：
 
 1. preflight：正式 Dagster Postgres active runs 为 0。
-2. 初始 `profile-history` 显示 `2014-01-02` 到 `2026-06-26` 可见输入文件，但 `write-sample[2026-06-26]` 被 writer 拦截；只读审计确认 `silver_stock_daily[2026-06-26]` 中 `001399.SZ / N惠科股份` 暂缺同日 `silver_adj_factor`。该日期未写入 `gold_stock_daily_qfq`，避免生成无法证明 qfq 公式的文件。
+2. 初始 `profile-history` 显示 `2014-01-02` 到 `2026-06-26` 可见输入文件，但 `write-sample[2026-06-26]` 被 writer 拦截；只读审计确认 `silver_stock_daily[2026-06-26]` 中 `001399.SZ / N惠科股份` 暂缺同日 `silver_adj_factor`。该日期未写入 `gold_stock_daily_qfq`，避免生成输入事实不完整的文件。
 3. 调整正式 bootstrap 范围为 `2014-01-02` 到 `2026-06-25`；row-level same-day adj factor 覆盖审计缺口数为 0。
-4. sample 写入 `2026-06-25` 成功：`source_row_count=5511`，`output_row_count=5511`，`missing_previous_row_count=0`；等价 contract 与 qfq semantics 审计通过。
+4. sample 写入 `2026-06-25` 成功：`source_row_count=5511`，`output_row_count=5511`，`missing_previous_row_count=0`；P8 只读事故复盘确认这类 self-as-of 等价审计不能证明历史前复权结果正确。
 5. full `build-history --apply --end-date 2026-06-25` 成功：selected partitions `3032`，written `3031`，skipped existing sample `1`，elapsed `70527.69ms`。
 6. post-profile：`existing_target_file_count=3032`，`planned_write_count=0`，`missing_input_count=0`。
-7. runless event plan 使用显式 recent20 check partitions（`2026-05-28` 到 `2026-06-25`），避免默认交易日历未来日期进入 check window。正式 `report-events --apply` 写入 materialization events `3032`、ordinary check partitions `20`、ordinary check events `40`，合计 `3072` events。
+7. runless event plan 使用显式 recent20 check partitions（`2026-05-28` 到 `2026-06-25`），避免默认交易日历未来日期进入 check window。正式 `report-events --apply` 写入 materialization events `3032`、ordinary check partitions `20`、ordinary check events `40`，合计 `3072` events；P8 必须先删除这些旧 ordinary check events，再按 retained contract check 口径重新补录。
 8. post-plan：`planned_materialization_event_count=0`，`planned_check_event_count=0`，`failed_check_partition_count=0`，`existing_materialized_partition_keys=3032`，`existing_ready_check_partition_keys=20`。
 9. readiness 抽查：`2026-05-28` 与 `2026-06-25` ready；`2026-06-26` 未 materialized，状态为 `gold_stock_daily_qfq has no materialization`。
 
@@ -1422,6 +1479,232 @@ P7 文档对账结果：
 1. `dagster-stock-daily-qfq-asset-design.md` 已更新状态为 P1-P7 已完成；正式全量 lake 写入与正式 runless event 写入仍保留单独审批门禁。
 2. `dagster-asset-schema-contract-design.md` 已按当前 `LAKE_ASSET_CATALOG` 代码事实更新：active catalog entries 为 58，除 `lake_root_health` 外 57 个 table-like / serving assets 均有 definition column schema；`gold_stock_daily_qfq` 已纳入 gold 日频资产覆盖范围。
 3. `dagster-data-pipeline-performance-governance.md` 是通用性能规范，本专项没有新增需要写回的通用规则；性能口径仍以本 LLD 的 P5/P6 dry-run、runless event 和 sensor 热路径限制为准。
+
+### P8: Bootstrap As-Of Semantics Fix And Rebootstrap
+
+状态：已完成。P8 是 2026-06-27 只读审计发现的专项修复阶段，不属于 P1-P7 的自然收口项；正式删除、重建、runless event 补录和 MA250 报告重算已在 2026-06-28 收口。
+
+P8 完成后的目标状态：
+
+- `gold_stock_daily_qfq` lake 文件全部按同一个明确 `bootstrap_as_of_trade_date` 从零重建。
+- P6 旧 self-as-of 文件和旧 materialization / ordinary check events 不再作为 current 状态存在。
+- ordinary readiness 只依赖 `gold_stock_daily_qfq_contract_check`。
+- `gold_stock_daily_qfq_qfq_semantics_check` 不再作为 active blocking check、runless event、readiness、catalog blocking 或 bootstrap 证明。
+- P8 不再证明“公式正确性”；只验收文件结构 contract、显式 as-of 重建记录、旧错误文件/event 清零和新 runless event 补录这些执行事实，不写入公式类 Dagster check event，也不做固定样本或聚合公式验收。
+
+#### P8.1 修复目标
+
+修复 `gold_stock_daily_qfq` 历史 bootstrap 的 as-of 语义：
+
+- 历史 bootstrap 必须直接生成“截至 bootstrap as-of 交易日”的完整前复权历史序列。
+- bootstrap as-of factor 必须按 `ts_code` 从 `silver_adj_factor` 历史中取 `trade_date <= bootstrap_as_of_trade_date` 的最后一条记录。`000638.SZ`、`688287.SH` 这类已退市股票在 `2026-06-26` 没有同日 factor 是正常事实，应分别使用其最后可用 factor，而不是停止重建。
+- 不采用“先按每天 self-as-of 生成，再逐日 replay repair”的初始化方式。
+- P6 已写入的 self-as-of 历史文件必须先删除，再按正确 as-of 从零重新生成；不得在旧错误文件上 patch。
+- P6 已写入的 runless materialization / ordinary check event 必须先删除，再按新文件事实重新规划和补录；不得让旧错误 event 留在 current 状态里。
+- P8 不再补录 `gold_stock_daily_qfq_qfq_semantics_check`，也不把它作为 readiness 阻断项；P8 不再保留任何公式正确性 ordinary check。
+- 修复完成前，`gold_stock_daily_qfq` 不得作为 MA250 报告、研究报告或其它 current-as-of 历史消费的数据源。
+
+#### P8.2 代码改动范围
+
+只允许触碰以下范围：
+
+- `defs/bootstrap/gold_stock_daily_qfq_history.py`
+  - `plan_gold_stock_daily_qfq_history(...)` 增加 `as_of_trade_date` / `bootstrap_as_of_trade_date`。
+  - `generate_gold_stock_daily_qfq_history(...)` 增加必填 `as_of_trade_date`，并传给 `write_gold_stock_daily_qfq_partition(...)`。
+  - `generate_gold_stock_daily_qfq_history(...)` 必须在单次 bootstrap 执行中用 DuckDB 生成临时 effective as-of factor snapshot：每个 `ts_code` 一行，取 `trade_date <= bootstrap_as_of_trade_date` 的最后可用 factor。该 snapshot 只是执行期工作表，不新增 lake 实体、不新增 Dagster asset。
+  - plan/report 输出 `bootstrap_as_of_trade_date`、as-of factor path、selected partition count、planned rewrite count。
+- `defs/bootstrap/gold_stock_daily_qfq_history_cli.py`
+  - `build-history --apply` 必须要求 `--as-of-trade-date`。
+  - dry-run / sample / full report 都必须写入 as-of 口径。
+  - P8 正式重建前必须提供 delete/reset dry-run：列出即将删除的 `gold_stock_daily_qfq` 目标文件，不允许匹配其它 lake 路径。
+- `defs/bootstrap/gold_stock_daily_qfq_history_events.py`
+  - runless materialization metadata 增加 `qfq_as_of_trade_date`。
+  - runless ordinary check event 只规划 retained contract check。
+  - 旧 self-as-of materialization/check event 不得被继续视为正确事件；P8 必须提供只读 dry-run 统计和显式 apply 删除路径。
+- `defs/bootstrap/gold_stock_daily_qfq_history_events_cli.py`
+  - `plan-events` / `report-events` 增加 `--as-of-trade-date`。
+- `defs/bootstrap/gold_stock_daily_qfq_history_reset_cli.py` 或等价邻近 CLI
+  - dry-run 输出 old lake file candidates、old materialization events、old ordinary check events、latest/protected/runs/dynamic partition 安全断言。
+  - `--apply` 前必须要求显式确认参数、active runs = 0、备份路径或确认记录。
+  - `--apply` 必须显式二选一：`--delete-lake-files` 或 `--delete-dagster-events`。lake 文件删除与 Dagster event 删除必须作为两个单独审批步骤执行，不允许一个命令同时跨文件系统和 Dagster DB 删除。
+  - 删除范围只允许 asset key `gold_stock_daily_qfq`，不删除 runs、run_tags、dynamic_partitions、instigators、其它资产事件或 protected repair status event。
+- `defs/checks/stock_daily_qfq_checks.py`
+  - 删除或彻底取消注册 `gold_stock_daily_qfq_qfq_semantics_check`，不得继续作为 active asset check definition。
+  - active definitions、catalog、readiness、runless event plan 不得再依赖它。
+  - 不新增替代性的公式正确性 check，也不把固定样本、聚合差异或其它公式复算包装成验收项。
+- 测试：
+  - `tests/test_stock_daily_qfq_contracts.py`
+  - `tests/test_stock_daily_qfq_history.py`
+  - `tests/test_stock_daily_qfq_history_events.py`
+  - `tests/test_stock_daily_qfq_history_reset.py`
+  - `tests/test_run_contract_static_gates.py`
+
+不改：
+
+- 不改 `gold_stock_daily_qfq_update_job` 的 run key / job 名称 / sensor 名称。
+- 不开放手写 `stock_codes`。
+- 不新增细粒度 Dagster checks。
+- 不用旧 storage id，不解析 run key。
+- 不在 P8 里改 MA250 报告逻辑；报告必须等 qfq 文件修复验收后再重算。
+
+#### P8.3 本地测试计划
+
+必须新增或更新以下测试：
+
+1. writer / bootstrap：
+   - `build-history` 必须显式传入 `as_of_trade_date`，并把该值写入 plan/report metadata。
+   - `build-history --apply` 未传 `--as-of-trade-date` 时失败。
+   - `build-history --apply --as-of-trade-date 2026-06-26` 时，writer 调用链必须使用该 as-of；测试不做公式正确性验收。
+   - 历史分区包含已退市股票，且该股票在 bootstrap as-of 当天没有 factor、但在 as-of 之前有最后可用 factor 时，bootstrap 必须用最后可用 factor 生成该分区，不得误报 missing as-of factor。
+2. check / audit：
+   - `GOLD_STOCK_DAILY_QFQ_CHECK_NAMES` 只保留 `gold_stock_daily_qfq_contract_check`。
+   - readiness specs、catalog blocking checks、checks-only job 只要求 retained contract check。
+   - runless event plan/report 不生成 `gold_stock_daily_qfq_qfq_semantics_check`。
+3. bootstrap formula validation 禁止项：
+   - 不新增固定样本公式验收。
+   - 不新增公式正确性 check 或公式级聚合对账 helper。
+   - 不复用 qfq semantics check helper。
+   - P8 测试只覆盖 as-of 参数链路、reset/delete 范围、结构性 contract 和 runless event 补录口径。
+4. reset / delete：
+   - dry-run 候选只包含 `gold_stock_daily_qfq` lake path 和该 asset 的 materialization / ordinary check event。
+   - 删除 old event 不触碰 runs、run_tags、dynamic partitions、其它资产事件、protected repair status check。
+   - apply 缺确认参数时失败。
+5. static gates：
+   - bootstrap apply 路径禁止省略 `as_of_trade_date`。
+   - runless event helper 禁止生成 qfq semantics ordinary check event。
+   - readiness / catalog 禁止重新加入 `gold_stock_daily_qfq_qfq_semantics_check`。
+   - active check definitions 禁止重新注册 `gold_stock_daily_qfq_qfq_semantics_check` 或其它公式正确性 ordinary check。
+
+本地验证命令：
+
+```bash
+cd lake_console/orchestrator
+PYTHONPATH=src uv run --project . --with pytest python -m pytest \
+  tests/test_stock_daily_qfq_contracts.py \
+  tests/test_stock_daily_qfq_history.py \
+  tests/test_stock_daily_qfq_history_events.py \
+  tests/test_stock_daily_qfq_history_reset.py \
+  tests/test_run_contract_static_gates.py
+```
+
+#### P8.4 正式数据恢复步骤
+
+正式恢复必须单独审批，且每一步都先 dry-run：
+
+1. 停止把 `gold_stock_daily_qfq` 用作报告源。
+2. 选择并记录 bootstrap as-of trade date：
+   - 本次 P8 按用户确认口径固定使用 `2026-06-26`。
+   - 目标 as-of 的 `silver_adj_factor` 分区必须存在；对每只股票的 as-of factor 使用不晚于该日期的最后可用 factor。已退市股票 as-of 当天缺同日 factor 不属于缺口。
+   - 如果 selected source code 在 as-of 之前完全找不到 factor，必须停止，不能生成。
+   - 如果 as-of 变更，必须单独拍板；P8 执行期不动态推导 as-of，也不通过公式样本重新证明 as-of。
+3. 只读审计当前 lake：
+   - 统计 `gold_stock_daily_qfq` 与 `silver_stock_daily` 完全相等的分区数量。
+   - 该只读确认只用于说明旧文件属于 self-as-of 事故范围，不作为新文件公式验收。
+4. 只读 dry-run 旧文件删除清单：
+   - 候选只允许位于 `gold/quote/stock_daily_qfq/trade_date=*/part-000.parquet`。
+   - 输出待删分区数、文件数、总字节数、样本路径。
+   - 候选为 0 或包含其它路径时停止。
+5. 只读 dry-run 旧 Dagster event 删除清单：
+   - 候选只允许 asset key `gold_stock_daily_qfq` 的旧 materialization / ordinary check event。
+   - 不删除 runs、run_tags、dynamic_partitions、instigators。
+   - 不删除 protected repair status check。
+   - 输出 latest collision、protected collision、其它 asset collision；任一非 0 停止。
+6. 备份：
+   - lake 删除前必须有文件清单和可恢复备份/快照策略。
+   - Dagster DB 删除前必须有 Postgres 备份并验证可读。
+7. 经审批后用 `apply --delete-lake-files --confirm-reset --backup-path <...>` 删除旧 `gold_stock_daily_qfq` lake 文件。
+8. 经审批后用 `apply --delete-dagster-events --confirm-reset --backup-path <...>` 删除旧 `gold_stock_daily_qfq` Dagster materialization / ordinary check events。
+9. 执行 `profile-history --as-of-trade-date <bootstrap_as_of_trade_date>`，确认：
+   - selected partition 范围。
+   - planned rewrite count。
+   - missing input count 为 0。
+   - expected row count / file count 在预算内。
+10. 执行 sample build：
+   - 先选一个历史分区样本，确认命令、写入路径和结构性 contract 可用。
+   - 不验证 qfq close 公式结果，不把样本公式复算作为验收门槛。
+11. 执行 full `build-history --apply --as-of-trade-date <bootstrap_as_of_trade_date>`。
+12. 写后文件验收：
+   - row count / schema 全部通过。
+   - 文件结构 contract 验收通过。
+   - 不抽查公式计算样本，不做公式正确性验收。
+13. 重新规划 runless events：
+   - materialization event 全历史，metadata 包含 `qfq_as_of_trade_date`。
+   - ordinary check event 只补 retained contract check 的 recent 20 + latest。
+   - 先 `plan-events` dry-run，确认旧 self-as-of event 已清空且不会被当作当前正确状态。
+14. 经审批后执行 `report-events --apply`。
+15. post-plan / readiness 验收：
+   - recent 20 + latest ready。
+   - protected repair status 不受影响。
+   - Dagster DB event 增量符合预算。
+16. 重新生成 MA250 报告；报告生成只作为下游消费恢复动作，不作为公式正确性验收。
+
+#### P8.5 性能门禁
+
+P8 不允许通过逐日 replay repair 初始化历史，因为这会把初始化复杂度放大成“复权因子变化日 × 历史分区”的模型，并制造大量 repair metadata。
+
+正式路径必须满足：
+
+- 文件重写按 selected partition 分批，使用 DuckDB set-based SQL。
+- effective as-of factor snapshot 只能在每次 bootstrap 执行开始时生成一次，禁止在每个历史分区里重复全量扫描 `silver_adj_factor`。
+- 单分区写入仍是一个 `trade_date` 文件，不改物理布局。
+- Python 只负责批次编排和报告，不逐行处理行情数据。
+- runless ordinary check event 只补 retained contract check 的 recent 20 + latest，不补全历史 ordinary checks，不补 qfq semantics check，也不新增任何公式正确性 check。
+- 如果 full rewrite 发现输入缺口、文件结构 contract 验收失败或耗时超预算，停止并重新设计，不允许先报绿。
+
+#### P8.6 正式执行记录
+
+正式执行结果（2026-06-27 至 2026-06-28）：
+
+1. preflight：正式 Dagster Postgres active runs 为 0。
+2. reset dry-run：
+   - 报告：`/private/tmp/gold_stock_daily_qfq_p8_reset_dry_run_20260627.json`
+   - old lake file candidates：`3033`
+   - old materialization candidates：`3033`
+   - old ordinary check candidates：`40`
+   - `should_stop=false`
+3. 备份：
+   - Dagster Postgres：`/private/tmp/goldenshare_dagster_gold_stock_daily_qfq_p8_20260627.dump`
+   - old lake files：`/private/tmp/gold_stock_daily_qfq_p8_lake_backup_20260627/`
+4. 删除旧 lake 文件：
+   - 报告：`/private/tmp/gold_stock_daily_qfq_p8_delete_lake_20260627.json`
+   - deleted lake files：`3033`
+   - 删除后正式 lake old file candidate count：`0`
+5. 删除旧 Dagster events：
+   - 报告：`/private/tmp/gold_stock_daily_qfq_p8_delete_events_20260627.json`
+   - deleted materialization events：`3033`
+   - deleted check events / executions：`40`
+   - deleted materialization event tags：`1`
+   - 不删除 runs、run_tags、dynamic partitions、其它资产事件或 protected repair status check。
+6. full build：
+   - 报告：`/private/tmp/gold_stock_daily_qfq_history_build-history_20260628_002919.json`
+   - `bootstrap_as_of_trade_date=2026-06-26`
+   - selected partitions：`3033`
+   - written partitions：`3032`
+   - skipped existing sample partition：`1`
+   - elapsed：约 `67539ms`
+   - 正式 lake 当前文件数：`3033`
+   - 正式 lake 目录大小：约 `775M`
+7. runless event backfill：
+   - plan 报告：`/private/tmp/gold_stock_daily_qfq_history_events_plan-events_20260628_005022.json`
+   - apply 报告：`/private/tmp/gold_stock_daily_qfq_history_events_report-events_20260628_005202.json`
+   - materialization events reported：`3033`
+   - retained contract check partitions：`20`
+   - reported event count：`3053`
+8. post-plan dry-run：
+   - 报告：`/private/tmp/gold_stock_daily_qfq_history_events_plan-events_20260628_005659.json`
+   - `qfq_as_of_trade_date=2026-06-26`
+   - existing materialized partitions：`3033`
+   - existing ready check partitions：`20`
+   - planned materialization events：`0`
+   - planned check events：`0`
+   - failed check partitions：`0`
+   - sample audits 只包含 `gold_stock_daily_qfq_contract_check`，不包含 `gold_stock_daily_qfq_qfq_semantics_check`。
+9. MA250 报告重算：
+   - 输出：`lake_console/docs/reports/stock_below_ma250_2026-06-26.csv`
+   - 使用 `gold_stock_daily_qfq.close` 计算 250MA。
+   - 数据行：`3652`
+   - 已过滤名称包含 `ST`、以“退”开头或以“退”结尾的股票。
+   - 报告重算是下游消费恢复动作，不作为公式正确性验收。
 
 ## 16. Stop Conditions
 
